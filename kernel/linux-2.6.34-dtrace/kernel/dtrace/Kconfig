@@ -1,0 +1,49 @@
+#
+# DTrace Configuration
+#
+
+menuconfig DTRACE
+	tristate "DTrace (Dynamic Tracing) Support"
+	default m
+	help
+	  To be written.
+
+if DTRACE
+
+config DT_FASTTRAP
+	tristate "Fasttrap Tracing"
+	depends on DTRACE
+	help
+	  To be written.
+
+config DT_FBT
+	tristate "Function Boundary Tracing"
+	depends on DTRACE
+	help
+	  To be written.
+
+config DT_LOCKSTAT
+	tristate "Lock Statistics"
+	depends on DTRACE
+	help
+	  To be written.
+
+config DT_PROFILE
+	tristate "Profile Interrupt Tracing"
+	depends on DTRACE
+	help
+	  To be written.
+
+config DT_SDT
+	tristate "Statically Defined Tracing"
+	depends on DTRACE
+	help
+	  To be written.
+
+config DT_SYSTRACE
+	tristate "System Call Tracing"
+	depends on DTRACE
+	help
+	  To be written.
+
+endif   #DTRACE

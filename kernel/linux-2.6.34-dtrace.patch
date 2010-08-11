@@ -1,0 +1,1037 @@
+diff -urN ../linux-2.6.34/init/Kconfig ./init/Kconfig
+--- ../linux-2.6.34/init/Kconfig	2010-07-28 17:48:29.000000000 -0400
++++ ./init/Kconfig	2010-07-28 18:01:47.000000000 -0400
+@@ -1100,6 +1100,8 @@
+ 	  Say Y here to enable the extended profiling support mechanisms used
+ 	  by profilers such as OProfile.
+ 
++source "kernel/dtrace/Kconfig"
++
+ #
+ # Place an empty function call at each tracepoint site. Can be
+ # dynamically changed for a probe function.
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_dev.c	2010-08-02 15:26:31.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	dtrace_dev.c
++ * DESCRIPTION:	Dynamic Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long dtrace_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int dtrace_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int dtrace_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations dtrace_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = dtrace_ioctl,
++        .open   = dtrace_open,
++        .release = dtrace_close,
++};
++
++static struct miscdevice dtrace_dev = {
++	.minor = DT_DEV_DTRACE_MINOR,
++	.name = "dtrace",
++	.nodename = "dtrace/dtrace",
++	.fops = &dtrace_fops,
++};
++
++int dtrace_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&dtrace_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", dtrace_dev.name, dtrace_dev.minor);
++
++	return ret;
++}
++
++void dtrace_dev_exit(void)
++{
++	misc_deregister(&dtrace_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.h
+--- ../linux-2.6.34/kernel/dtrace/dtrace_dev.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_dev.h	2010-08-02 14:58:47.000000000 -0400
+@@ -0,0 +1,13 @@
++#ifndef _DTRACE_DEV_H_
++#define _DTRACE_DEV_H_
++
++#define DT_DEV_DTRACE_MINOR	(16)
++#define DT_DEV_HELPER_MINOR	(DT_DEV_DTRACE_MINOR + 1)
++#define DT_DEV_PROFILE_MINOR	(DT_DEV_HELPER_MINOR + 1)
++#define DT_DEV_SYSTRACE_MINOR	(DT_DEV_PROFILE_MINOR + 1)
++#define DT_DEV_FBT_MINOR	(DT_DEV_SYSTRACE_MINOR + 1)
++#define DT_DEV_SDT_MINOR	(DT_DEV_FBT_MINOR + 1)
++#define DT_DEV_FASTTRAP_MINOR	(DT_DEV_SDT_MINOR + 1)
++#define DT_DEV_LOCKSTAT_MINOR	(DT_DEV_FASTTRAP_MINOR + 1)
++
++#endif /* _DTRACE_DEV_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
+--- ../linux-2.6.34/kernel/dtrace/dtrace.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace.h	2010-08-03 00:06:59.000000000 -0400
+@@ -0,0 +1,149 @@
++#ifndef _DTRACE_H_
++#define _DTRACE_H_
++
++#include <linux/cred.h>
++#include <linux/types.h>
++#include <linux/stringify.h>
++
++#define DTRACE_PROVNAMELEN	64
++#define DTRACE_MODNAMELEN	64
++#define DTRACE_FUNCNAMELEN	128
++#define DTRACE_NAMELEN		64
++
++#define DTRACE_ARGTYPELEN	128
++
++#define DTRACE_PRIV_NONE	0x0000
++#define DTRACE_PRIV_KERNEL	0x0001
++#define DTRACE_PRIV_USER	0x0002
++#define DTRACE_PRIV_PROC	0x0004
++#define DTRACE_PRIV_OWNER	0x0008
++
++typedef uint8_t		dtrace_stability_t;
++typedef uint8_t		dtrace_class_t;
++
++typedef struct dtrace_attribute {
++	dtrace_stability_t dtat_name;
++	dtrace_stability_t dtat_data;
++	dtrace_class_t dtat_class;
++} dtrace_attribute_t;
++
++typedef struct dtrace_pattr {
++	dtrace_attribute_t dtpa_provider;
++	dtrace_attribute_t dtpa_mod;
++	dtrace_attribute_t dtpa_func;
++	dtrace_attribute_t dtpa_name;
++	dtrace_attribute_t dtpa_args;
++} dtrace_pattr_t;
++
++typedef uint32_t dtrace_id_t;
++
++typedef struct dtrace_probedesc {
++	dtrace_id_t dtpd_id;
++	char dtpd_provider[DTRACE_PROVNAMELEN];
++	char dtpd_mod[DTRACE_MODNAMELEN];
++	char dtpd_func[DTRACE_FUNCNAMELEN];
++	char dtpd_name[DTRACE_NAMELEN];
++} dtrace_probedesc_t;
++
++typedef struct dtrace_argdesc {
++	dtrace_id_t dtargd_id;
++	int dtargd_ndx;
++	int dtargd_mapping;
++	char dtargd_native[DTRACE_ARGTYPELEN];
++	char dtargd_xlate[DTRACE_ARGTYPELEN];
++} dtrace_argdesc_t;
++
++typedef struct dtrace_pops {
++	void (*dtps_provide)(void *, const dtrace_probedesc_t *);
++	void (*dtps_provide_module)(void *, void *);
++	int (*dtps_enable)(void *, dtrace_id_t, void *);
++	void (*dtps_disable)(void *, dtrace_id_t, void *);
++	void (*dtps_suspend)(void *, dtrace_id_t, void *);
++	void (*dtps_resume)(void *, dtrace_id_t, void *);
++	void (*dtps_getargdesc)(void *, dtrace_id_t, void *,
++				dtrace_argdesc_t *);
++	uint64_t (*dtps_getargval)(void *, dtrace_id_t, void *, int, int);
++	int (*dtps_usermode)(void *, dtrace_id_t, void *);
++	void (*dtps_destroy)(void *, dtrace_id_t, void *);
++} dtrace_pops_t;
++
++typedef struct dtrace_helper_probedesc {
++	char *dthpb_mod;
++	char *dthpb_func;
++	char *dthpb_name;
++	uint64_t dthpb_base;
++	uint32_t *dthpb_offs;
++	uint32_t *dthpb_enoffs;
++	uint32_t dthpb_noffs;
++	uint32_t dthpb_nenoffs;
++	uint8_t *dthpb_args;
++	uint8_t dthpb_xargc;
++	uint8_t dthpb_nargc;
++	char *dthpb_xtypes;
++	char *dthpb_ntypes;
++} dtrace_helper_probedesc_t;
++
++typedef struct dtrace_helper_provdesc {
++	char *dthpv_provname;
++	dtrace_pattr_t dthpv_pattr;
++} dtrace_helper_provdesc_t;
++
++typedef struct dtrace_mops {
++	void (*dtms_create_probe)(void *, void *, dtrace_helper_probedesc_t *);
++	void (*dtms_provide_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
++	void (*dtms_remove_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
++} dtrace_mops_t;
++
++/*
++ * DTrace Provider-to-Framework API Functions
++ */
++typedef uintptr_t	dtrace_provider_id_t;
++typedef struct cred	cred_t;
++
++extern int dtrace_register(const char *, const dtrace_pattr_t *, uint32_t,
++			   cred_t *, const dtrace_pops_t *, void *,
++			   dtrace_provider_id_t *);
++extern int dtrace_unregister(dtrace_provider_id_t);
++
++/*
++ * DTrace Meta Provider-to-Framework API Functions
++ */
++typedef uintptr_t	dtrace_meta_provider_id_t;
++
++extern int dtrace_meta_register(const char *, const dtrace_mops_t *, void *,
++				dtrace_meta_provider_id_t *);
++extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
++
++#define DT_PROVIDER_MODULE(name)					\
++  static dtrace_provider_id_t name##_id;				\
++									\
++  static int __init name##_init(void)					\
++  {									\
++	int ret = 0;							\
++									\
++	ret = name##_dev_init();					\
++	if (ret)							\
++		goto failed;						\
++									\
++	ret = dtrace_register(__stringify(name), &name##_attr,		\
++			      DTRACE_PRIV_USER, NULL, &name##_pops,	\
++			      NULL, &name##_id);			\
++	if (ret)							\
++		goto failed;						\
++									\
++	return 0;							\
++									\
++  failed:								\
++	return ret;							\
++  }									\
++									\
++  static void __exit name##_exit(void)					\
++  {									\
++	dtrace_unregister(name##_id);					\
++	name##_dev_exit();						\
++  }									\
++									\
++  module_init(name##_init);						\
++  module_exit(name##_exit);
++
++#endif /* _DTRACE_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_mod.c	2010-08-02 15:44:02.000000000 -0400
+@@ -0,0 +1,27 @@
++/*
++ * FILE:	dtrace_mod.c
++ * DESCRIPTION:	Dynamic Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace_dev.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Dynamic Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static int __init dtrace_init(void)
++{
++	return 0;
++}
++
++static void __exit dtrace_exit(void)
++{
++}
++
++module_init(dtrace_init);
++module_exit(dtrace_exit);
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_ptofapi.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_ptofapi.c	2010-08-02 23:23:37.000000000 -0400
+@@ -0,0 +1,30 @@
++/*
++ * FILE:	dtrace_ptofapi.c
++ * DESCRIPTION:	Dynamic Tracing: provider-to-framework API
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++
++int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
++		    cred_t *cr, const dtrace_pops_t *pops, void *arg,
++		    dtrace_provider_id_t *idp)
++{
++	if (name == NULL || pap == NULL || pops == NULL || idp == NULL)
++		return -EINVAL;
++
++	if (name[0] == '\0')
++		return -EINVAL;
++
++	return 0;
++}
++EXPORT_SYMBOL(dtrace_register);
++
++int dtrace_unregister(dtrace_provider_id_t id)
++{
++	return 0;
++}
++EXPORT_SYMBOL(dtrace_unregister);
+diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_dev.c
+--- ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fasttrap_dev.c	2010-08-02 15:58:55.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	fasttrap_dev.c
++ * DESCRIPTION:	Fasttrap Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long fasttrap_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int fasttrap_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int fasttrap_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations fasttrap_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = fasttrap_ioctl,
++        .open   = fasttrap_open,
++        .release = fasttrap_close,
++};
++
++static struct miscdevice fasttrap_dev = {
++	.minor = DT_DEV_FASTTRAP_MINOR,
++	.name = "fasttrap",
++	.nodename = "dtrace/provider/fasttrap",
++	.fops = &fasttrap_fops,
++};
++
++int fasttrap_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&fasttrap_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", fasttrap_dev.name, fasttrap_dev.minor);
++
++	return ret;
++}
++
++void fasttrap_dev_exit(void)
++{
++	misc_deregister(&fasttrap_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
+--- ../linux-2.6.34/kernel/dtrace/fasttrap.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fasttrap.h	2010-08-02 23:58:42.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _FASTTRAP_H_
++#define _FASTTRAP_H_
++
++extern int fasttrap_dev_init(void);
++extern int fasttrap_dev_exit(void);
++
++#endif /* _FASTTRAP_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_mod.c
+--- ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fasttrap_mod.c	2010-08-03 00:08:04.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	fasttrap_mod.c
++ * DESCRIPTION:	Fasttrap Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "fasttrap.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Fasttrap Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t fasttrap_attr = {
++};
++
++static dtrace_pops_t fasttrap_pops = {
++};
++
++DT_PROVIDER_MODULE(fasttrap)
+diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
+--- ../linux-2.6.34/kernel/dtrace/fbt_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fbt_dev.c	2010-08-02 15:59:02.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	fbt_dev.c
++ * DESCRIPTION:	Function Boundary Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long fbt_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int fbt_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int fbt_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations fbt_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = fbt_ioctl,
++        .open   = fbt_open,
++        .release = fbt_close,
++};
++
++static struct miscdevice fbt_dev = {
++	.minor = DT_DEV_FBT_MINOR,
++	.name = "fbt",
++	.nodename = "dtrace/provider/fbt",
++	.fops = &fbt_fops,
++};
++
++int fbt_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&fbt_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", fbt_dev.name, fbt_dev.minor);
++
++	return ret;
++}
++
++void fbt_dev_exit(void)
++{
++	misc_deregister(&fbt_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
+--- ../linux-2.6.34/kernel/dtrace/fbt.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fbt.h	2010-08-02 23:59:09.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _FBT_H_
++#define _FBT_H_
++
++extern int fbt_dev_init(void);
++extern int fbt_dev_exit(void);
++
++#endif /* _FBT_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
+--- ../linux-2.6.34/kernel/dtrace/fbt_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fbt_mod.c	2010-08-03 00:08:59.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	fbt_dmod.c
++ * DESCRIPTION:	Function Boundary Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "fbt.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Function Boundary Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t fbt_attr = {
++};
++
++static dtrace_pops_t fbt_pops = {
++};
++
++DT_PROVIDER_MODULE(fbt);
+diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
+--- ../linux-2.6.34/kernel/dtrace/Kconfig	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/Kconfig	2010-08-02 15:42:31.000000000 -0400
+@@ -0,0 +1,49 @@
++#
++# DTrace Configuration
++#
++
++menuconfig DTRACE
++	tristate "DTrace (Dynamic Tracing) Support"
++	default m
++	help
++	  To be written.
++
++if DTRACE
++
++config DT_FASTTRAP
++	tristate "Fasttrap Tracing"
++	depends on DTRACE
++	help
++	  To be written.
++
++config DT_FBT
++	tristate "Function Boundary Tracing"
++	depends on DTRACE
++	help
++	  To be written.
++
++config DT_LOCKSTAT
++	tristate "Lock Statistics"
++	depends on DTRACE
++	help
++	  To be written.
++
++config DT_PROFILE
++	tristate "Profile Interrupt Tracing"
++	depends on DTRACE
++	help
++	  To be written.
++
++config DT_SDT
++	tristate "Statically Defined Tracing"
++	depends on DTRACE
++	help
++	  To be written.
++
++config DT_SYSTRACE
++	tristate "System Call Tracing"
++	depends on DTRACE
++	help
++	  To be written.
++
++endif   #DTRACE
+diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_dev.c
+--- ../linux-2.6.34/kernel/dtrace/lockstat_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/lockstat_dev.c	2010-08-02 16:00:06.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	lockstat_dev.c
++ * DESCRIPTION:	Lock Statistics: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long lockstat_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int lockstat_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int lockstat_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations lockstat_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = lockstat_ioctl,
++        .open   = lockstat_open,
++        .release = lockstat_close,
++};
++
++static struct miscdevice lockstat_dev = {
++	.minor = DT_DEV_LOCKSTAT_MINOR,
++	.name = "dtrace",
++	.nodename = "dtrace/provider/lockstat",
++	.fops = &lockstat_fops,
++};
++
++int lockstat_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&lockstat_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", lockstat_dev.name, lockstat_dev.minor);
++
++	return ret;
++}
++
++void lockstat_dev_exit(void)
++{
++	misc_deregister(&lockstat_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
+--- ../linux-2.6.34/kernel/dtrace/lockstat.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/lockstat.h	2010-08-02 23:59:35.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _LOCKSTAT_H_
++#define _LOCKSTAT_H_
++
++extern int lockstat_dev_init(void);
++extern int lockstat_dev_exit(void);
++
++#endif /* _LOCKSTAT_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_mod.c
+--- ../linux-2.6.34/kernel/dtrace/lockstat_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/lockstat_mod.c	2010-08-03 00:09:06.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	lockstat_mod.c
++ * DESCRIPTION:	Lock Statistics: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "lockstat.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Lock Statistics");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t lockstat_attr = {
++};
++
++static dtrace_pops_t lockstat_pops = {
++};
++
++DT_PROVIDER_MODULE(lockstat)
+diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
+--- ../linux-2.6.34/kernel/dtrace/Makefile	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/Makefile	2010-08-02 23:43:12.000000000 -0400
+@@ -0,0 +1,20 @@
++#
++# Makefile for DTrace
++#
++
++obj-$(CONFIG_DTRACE)		+= dtrace.o
++obj-$(CONFIG_DT_FASTTRAP)	+= fasttrap.o
++obj-$(CONFIG_DT_FBT)		+= fbt.o
++obj-$(CONFIG_DT_LOCKSTAT)	+= lockstat.o
++obj-$(CONFIG_DT_PROFILE)	+= profile.o
++obj-$(CONFIG_DT_SDT)		+= sdt.o
++obj-$(CONFIG_DT_SYSTRACE)	+= systrace.o
++
++dtrace-y			:= dtrace_mod.o dtrace_dev.o \
++				   dtrace_ptofapi.o
++fasttrap-y			:= fasttrap_mod.o fasttrap_dev.o
++fbt-y				:= fbt_mod.o fbt_dev.o
++lockstat-y			:= lockstat_mod.o lockstat_dev.o
++profile-y			:= profile_mod.o profile_dev.o
++sdt-y				:= sdt_mod.o sdt_dev.o
++systrace-y			:= systrace_mod.o systrace_dev.o
+diff -urN ../linux-2.6.34/kernel/dtrace/modtmpl ./kernel/dtrace/modtmpl
+--- ../linux-2.6.34/kernel/dtrace/modtmpl	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/modtmpl	2010-08-02 23:54:33.000000000 -0400
+@@ -0,0 +1,31 @@
++#define DT_PROVIDER_MODULE(name)					\
++  static dtrace_provider_id_t name##_id;				\
++									\
++  static int __init name##_init(void)					\
++  {									\
++	int ret = 0;							\
++									\
++	ret = name##_dev_init();					\
++	if (ret)							\
++		goto failed;						\
++									\
++	ret = dtrace_register(__stringify(name), &name##_attr,		\
++			      DTRACE_PRIV_USER, NULL, &name##pops, NULL,\
++			      &name##_id);				\
++	if (ret)							\
++		goto failed;						\
++									\
++	return 0;							\
++									\
++  failed:								\
++	return ret;							\
++  }									\
++									\
++  static void __exit name##_exit(void)					\
++  {									\
++	dtrace_unregister(name##_id);					\
++	name##_dev_exit();						\
++  }									\
++									\
++  module_init(systrace_init);						\
++  module_exit(systrace_exit);
+diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_dev.c
+--- ../linux-2.6.34/kernel/dtrace/profile_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/profile_dev.c	2010-08-02 16:00:18.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	profile_dev.c
++ * DESCRIPTION:	Profile Interrupt Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long profile_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int profile_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int profile_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations profile_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = profile_ioctl,
++        .open   = profile_open,
++        .release = profile_close,
++};
++
++static struct miscdevice profile_dev = {
++	.minor = DT_DEV_PROFILE_MINOR,
++	.name = "profile",
++	.nodename = "dtrace/provider/profile",
++	.fops = &profile_fops,
++};
++
++int profile_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&profile_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", profile_dev.name, profile_dev.minor);
++
++	return ret;
++}
++
++void profile_dev_exit(void)
++{
++	misc_deregister(&profile_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
+--- ../linux-2.6.34/kernel/dtrace/profile.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/profile.h	2010-08-02 23:59:56.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _PROFILE_H_
++#define _PROFILE_H_
++
++extern int profile_dev_init(void);
++extern int profile_dev_exit(void);
++
++#endif /* _PROFILE_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mod.c
+--- ../linux-2.6.34/kernel/dtrace/profile_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/profile_mod.c	2010-08-03 00:09:14.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	profile_mod.c
++ * DESCRIPTION:	Profile Interrupt Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "profile.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Profile Interrupt Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t profile_attr = {
++};
++
++static dtrace_pops_t profile_pops = {
++};
++
++DT_PROVIDER_MODULE(profile)
+diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
+--- ../linux-2.6.34/kernel/dtrace/sdt_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/sdt_dev.c	2010-08-02 15:41:17.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	sdt_dev.c
++ * DESCRIPTION:	Statically Defined Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long sdt_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int sdt_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int sdt_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations sdt_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = sdt_ioctl,
++        .open   = sdt_open,
++        .release = sdt_close,
++};
++
++static struct miscdevice sdt_dev = {
++	.minor = DT_DEV_SDT_MINOR,
++	.name = "sdt",
++	.nodename = "dtrace/provider/sdt",
++	.fops = &sdt_fops,
++};
++
++int sdt_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&sdt_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", sdt_dev.name, sdt_dev.minor);
++
++	return ret;
++}
++
++void sdt_dev_exit(void)
++{
++	misc_deregister(&sdt_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
+--- ../linux-2.6.34/kernel/dtrace/sdt.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/sdt.h	2010-08-03 00:00:08.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _SDT_H_
++#define _SDT_H_
++
++extern int sdt_dev_init(void);
++extern int sdt_dev_exit(void);
++
++#endif /* _SDT_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
+--- ../linux-2.6.34/kernel/dtrace/sdt_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/sdt_mod.c	2010-08-03 00:09:21.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	sdt_mod.c
++ * DESCRIPTION:	Statically Defined Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "sdt.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("Statically Defined Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t sdt_attr = {
++};
++
++static dtrace_pops_t sdt_pops = {
++};
++
++DT_PROVIDER_MODULE(sdt)
+diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_dev.c
+--- ../linux-2.6.34/kernel/dtrace/systrace_dev.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/systrace_dev.c	2010-08-02 16:02:24.000000000 -0400
+@@ -0,0 +1,57 @@
++/*
++ * FILE:	systrace_dev.c
++ * DESCRIPTION:	System Call Tracing: device file handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/miscdevice.h>
++
++#include "dtrace_dev.h"
++
++static long systrace_ioctl(struct file *file,
++			 unsigned int cmd, unsigned long arg)
++{
++	return -EAGAIN;
++}
++
++static int systrace_open(struct inode *inode, struct file *file)
++{
++	return -EAGAIN;
++}
++
++static int systrace_close(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++static const struct file_operations systrace_fops = {
++	.owner  = THIS_MODULE,
++        .unlocked_ioctl = systrace_ioctl,
++        .open   = systrace_open,
++        .release = systrace_close,
++};
++
++static struct miscdevice systrace_dev = {
++	.minor = DT_DEV_SYSTRACE_MINOR,
++	.name = "systrace",
++	.nodename = "dtrace/provider/systrace",
++	.fops = &systrace_fops,
++};
++
++int systrace_dev_init(void)
++{
++	int ret = 0;
++
++	ret = misc_register(&systrace_dev);
++	if (ret)
++		printk(KERN_ERR "%s: Can't register misc device %d\n", systrace_dev.name, systrace_dev.minor);
++
++	return ret;
++}
++
++void systrace_dev_exit(void)
++{
++	misc_deregister(&systrace_dev);
++}
+diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
+--- ../linux-2.6.34/kernel/dtrace/systrace.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/systrace.h	2010-08-03 00:00:11.000000000 -0400
+@@ -0,0 +1,7 @@
++#ifndef _SYSTRACE_H_
++#define _SYSTRACE_H_
++
++extern int systrace_dev_init(void);
++extern int systrace_dev_exit(void);
++
++#endif /* _SYSTRACE_H_ */
+diff -urN ../linux-2.6.34/kernel/dtrace/systrace_mod.c ./kernel/dtrace/systrace_mod.c
+--- ../linux-2.6.34/kernel/dtrace/systrace_mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/systrace_mod.c	2010-08-03 00:10:29.000000000 -0400
+@@ -0,0 +1,25 @@
++/*
++ * FILE:	systrace_mod.c
++ * DESCRIPTION:	System Call Tracing: module handling
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/module.h>
++
++#include "dtrace.h"
++#include "dtrace_dev.h"
++#include "systrace.h"
++
++MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
++MODULE_DESCRIPTION("System Call Tracing");
++MODULE_VERSION("v0.1");
++MODULE_LICENSE("Proprietary");
++
++static const dtrace_pattr_t systrace_attr = {
++};
++
++static dtrace_pops_t systrace_pops = {
++};
++
++DT_PROVIDER_MODULE(systrace);
+diff -urN ../linux-2.6.34/kernel/Makefile ./kernel/Makefile
+--- ../linux-2.6.34/kernel/Makefile	2010-07-28 17:48:29.000000000 -0400
++++ ./kernel/Makefile	2010-07-28 18:31:38.000000000 -0400
+@@ -105,6 +105,7 @@
+ obj-$(CONFIG_HAVE_HW_BREAKPOINT) += hw_breakpoint.o
+ obj-$(CONFIG_USER_RETURN_NOTIFIER) += user-return-notifier.o
+ obj-$(CONFIG_PADATA) += padata.o
++obj-$(CONFIG_DTRACE) += dtrace/
+ 
+ ifneq ($(CONFIG_SCHED_OMIT_FRAME_POINTER),y)
+ # According to Alan Modra <alan@linuxcare.com.au>, the -fno-omit-frame-pointer is
