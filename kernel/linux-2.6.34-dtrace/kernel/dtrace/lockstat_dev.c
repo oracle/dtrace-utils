@@ -46,7 +46,8 @@ int lockstat_dev_init(void)
 
 	ret = misc_register(&lockstat_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", lockstat_dev.name, lockstat_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       lockstat_dev.name, lockstat_dev.minor);
 
 	return ret;
 }

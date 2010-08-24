@@ -7,9 +7,9 @@
 
 #include "dtrace.h"
 
-static dtrace_hash_t	*dtrace_bymod;
-static dtrace_hash_t	*dtrace_byfunc;
-static dtrace_hash_t	*dtrace_byname;
+dtrace_hash_t	*dtrace_bymod;
+dtrace_hash_t	*dtrace_byfunc;
+dtrace_hash_t	*dtrace_byname;
 
 int dtrace_match_priv(const dtrace_probe_t *prp, uint32_t priv, uid_t uid)
 {

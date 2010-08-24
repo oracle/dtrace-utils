@@ -121,7 +121,7 @@ success:
 	 * to use kmalloc to aovid the vmalloc overhead (since vmalloc aligns
 	 * all allocations on a page boundary).
 	 */
-	aggid = (dtrace_aggid_t)kmalloc(1, GFP_KERNEL);
+	aggid = (dtrace_aggid_t)(uintptr_t)kmalloc(1, GFP_KERNEL);
 
 	if (aggid - 1 >= state->dts_naggregations) {
 		dtrace_aggregation_t	**oaggs = state->dts_aggregations;
@@ -476,9 +476,7 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 		if (oecbs != NULL)
 			memcpy(oecbs, ecbs, state->dts_necbs * sizeof (*ecbs));
 
-#ifdef FIXME
 		dtrace_membar_producer();
-#endif
 
 		state->dts_ecbs = ecbs;
 
@@ -489,9 +487,7 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 			kfree(oecbs);
 		}
 
-#ifdef FIXME
 		dtrace_membar_producer();
-#endif
 
 		state->dts_necbs = necbs;
 	}
@@ -500,9 +496,7 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 
 	BUG_ON(state->dts_ecbs[epid - 1] != NULL);
 
-#ifdef FIXME
 	dtrace_membar_producer();
-#endif
 
 	state->dts_ecbs[(ecb->dte_epid = epid) - 1] = ecb;
 

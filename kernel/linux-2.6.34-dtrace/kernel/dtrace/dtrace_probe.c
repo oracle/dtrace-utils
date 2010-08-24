@@ -6,11 +6,101 @@
  */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 
 #include "dtrace.h"
 
 int		dtrace_nprobes;
 dtrace_probe_t	**dtrace_probes;
+
+/*
+ * Create a new probe.
+ */
+dtrace_id_t dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
+				const char *func, const char *name,
+				int aframes, void *arg)
+{
+	dtrace_probe_t		*probe, **probes;
+	dtrace_provider_t	*provider = (dtrace_provider_t *)prov;
+	dtrace_id_t		id;
+
+	if (provider == dtrace_provider)
+		BUG_ON(!mutex_is_locked(&dtrace_lock));
+	else
+		mutex_lock(&dtrace_lock);
+
+        /*
+         * KVH FIXME: I am not too sure this is the best way to handle
+         * aggregate ids.  Essentially, a 1 byte allocation is performed,
+         * resulting in a unique virtual address that is converted into an
+         * integer value and used as id.  On Linux, I believe that this
+         * technique results in overhead due to the allocation.  I changed this
+         * to use kmalloc to aovid the vmalloc overhead (since vmalloc aligns
+         * all allocations on a page boundary).
+         */
+	id = (dtrace_id_t)(uintptr_t)kmalloc(1, GFP_KERNEL);
+
+	probe = kzalloc(sizeof (dtrace_probe_t), GFP_KERNEL);
+	probe->dtpr_id = id;
+	probe->dtpr_gen = dtrace_probegen++;
+	probe->dtpr_mod = kstrdup(mod, GFP_KERNEL);
+	probe->dtpr_func = kstrdup(func, GFP_KERNEL);
+	probe->dtpr_name = kstrdup(name, GFP_KERNEL);
+	probe->dtpr_arg = arg;
+	probe->dtpr_aframes = aframes;
+	probe->dtpr_provider = provider;
+
+	dtrace_hash_add(dtrace_bymod, probe);
+	dtrace_hash_add(dtrace_byfunc, probe);
+	dtrace_hash_add(dtrace_byname, probe);
+
+	if (id - 1 >= dtrace_nprobes) {
+		size_t	osize = dtrace_nprobes * sizeof (dtrace_probe_t *);
+		size_t	nsize = osize << 1;
+
+		if (nsize == 0) {
+			BUG_ON(osize != 0);
+			BUG_ON(dtrace_probes != NULL);
+
+			nsize = sizeof (dtrace_probe_t *);
+		}
+
+		probes = kzalloc(nsize, GFP_KERNEL);
+
+		if (dtrace_probes == NULL) {
+			BUG_ON(osize != 0);
+
+			dtrace_probes = probes;
+			dtrace_nprobes = 1;
+		} else {
+			dtrace_probe_t	**oprobes = dtrace_probes;
+
+			memcpy(probes, oprobes, osize);
+			dtrace_membar_producer();
+			dtrace_probes = probes;
+			dtrace_sync();
+
+			/*
+			 * All CPUs can now see the new probes array; time to
+			 * get rid of the old one.
+			 */
+			kfree(oprobes);
+
+			dtrace_nprobes <<= 1;
+		}
+
+		BUG_ON(id - 1 < dtrace_nprobes);
+	}
+
+	BUG_ON(dtrace_probes[id - 1] != NULL);
+
+	dtrace_probes[id - 1] = probe;
+
+	if (provider != dtrace_provider)
+		mutex_unlock(&dtrace_lock);
+
+	return id;
+}
 
 int dtrace_probe_enable(const dtrace_probedesc_t *desc, dtrace_enabling_t *enab)
 {

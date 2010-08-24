@@ -18,6 +18,11 @@
 
 #define NBBY			(__BITS_PER_LONG / sizeof (long))
 
+#define SEC			1
+#define MILLISEC		1000
+#define MICROSEC		1000000
+#define NANOSEC			1000000000
+
 #define DIF_TYPE_CTF		0
 #define DIF_TYPE_STRING		1
 
@@ -74,7 +79,15 @@
 #define DIFV_F_REF		0x1
 #define DIFV_F_MOD		0x2
 
+#define DTRACE_CPUALL		-1
 #define DTRACE_IDNONE		0
+#define DTRACE_EPIDNONE		0
+#define DTRACE_AGGIDNONE	0
+#define DTRACE_AGGVARIDNONE	0
+#define DTRACE_CACHEIDNONE	0
+#define DTRACE_PROVNONE		0
+#define DTRACE_METAPROVNONE	0
+#define DTRACE_ARGNONE		-1
 
 #define DTRACE_PROVNAMELEN	64
 #define DTRACE_MODNAMELEN	64
@@ -106,9 +119,23 @@
 #define DTRACE_COND_OWNER	0x01
 #define DTRACE_COND_USERMODE	0x02
 
+#define DTRACE_CRA_PROC				0x0001
+#define DTRACE_CRA_PROC_CONTROL			0x0002
+#define DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER	0x0004
+#define DTRACE_CRA_PROC_DESTRUCTIVE_CREDCHG	0x0010
+#define DTRACE_CRA_KERNEL			0x0020
+#define DTRACE_CRA_KERNEL_DESTRUCTIVE		0x0040
+
+#define DTRACE_CRA_ALL		(DTRACE_CRA_PROC | \
+				 DTRACE_CRA_PROC_CONTROL | \
+				 DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER | \
+				 DTRACE_CRA_PROC_DESTRUCTIVE_CREDCHG | \
+				 DTRACE_CRA_KERNEL | \
+				 DTRACE_CRA_KERNEL_DESTRUCTIVE)
+
 #define DTRACE_CRV_ALLPROC	0x01
 #define DTRACE_CRV_KERNEL	0x02
-#define DTRACE_DRV_ALL		(DTRACE_CRV_ALLPROC | DTRACE_CRV_KERNEL)
+#define DTRACE_CRV_ALL		(DTRACE_CRV_ALLPROC | DTRACE_CRV_KERNEL)
 
 #define DTRACE_MATCH_FAIL	-1
 #define DTRACE_MATCH_NEXT	0
@@ -269,6 +296,7 @@ typedef uint32_t	dtrace_aggid_t;
 typedef uint32_t	dtrace_cacheid_t;
 typedef uint32_t	dtrace_epid_t;
 typedef uint32_t	uint_t;
+typedef uint32_t	processorid_t;
 
 typedef uint64_t	dtrace_genid_t;
 typedef uint64_t	dtrace_optval_t;
@@ -283,7 +311,7 @@ typedef struct hrtimer	hrtime_t;
 
 typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
 
-typedef void		*cyclic_id_t;	/* FIXME */
+typedef uintptr_t	cyclic_id_t;
 
 #define P2ROUNDUP(x, a)	(-(-(x) & -(a)))
 
@@ -638,7 +666,7 @@ typedef struct dtrace_aggregation {
 } dtrace_aggregation_t;
 
 typedef struct dtrace_cred {
-	cred_t *dcr_cred;
+	const cred_t *dcr_cred;
 	uint8_t dcr_destructive;
 	uint8_t dcr_visible;
 	uint16_t dcr_action;
@@ -722,11 +750,37 @@ typedef struct dtrace_hash {
 	uintptr_t dth_stroffs;
 } dtrace_hash_t;
 
-extern struct mutex	dtrace_lock;
-extern struct mutex	dtrace_provider_lock;
-extern struct mutex	dtrace_meta_lock;
+/*
+ * DTrace supports safe loads from probe context; if the address turns out to
+ * be invalid, a bit will be set by the kernel indicating that DTrace
+ * encountered a memory error, and DTrace will propagate the error to the user
+ * accordingly.  However, there may exist some regions of memory in which an
+ * arbitrary load can change system state, and from which it is impossible to
+ * recover from such a load after it has been attempted.  Examples of this may
+ * include memory in which programmable I/O registers are mapped (for which a
+ * read may have some implications for the device) or (in the specific case of
+ * UltraSPARC-I and -II) the virtual address hole.  The platform is required
+ * to make DTrace aware of these toxic ranges; DTrace will then check that
+ * target addresses are not in a toxic range before attempting to issue a
+ * safe load.
+ */
+typedef struct dtrace_toxrange {
+	uintptr_t dtt_base;
+	uintptr_t dtt_limit;
+} dtrace_toxrange_t;
 
-extern dtrace_genid_t	dtrace_probegen;
+extern struct mutex		dtrace_lock;
+extern struct mutex		dtrace_provider_lock;
+extern struct mutex		dtrace_meta_lock;
+
+extern dtrace_genid_t		dtrace_probegen;
+
+extern dtrace_pops_t		dtrace_provider_ops;
+
+extern int			dtrace_opens;
+
+extern void dtrace_nullop(void);
+extern int dtrace_enable_nullop(void);
 
 /*
  * DTrace Probe Context Functions
@@ -745,13 +799,26 @@ extern void dtrace_aggregate_sum(uint64_t *, uint64_t, uint64_t);
  */
 #define DTRACE_HASHNEXT(hash, probe)	\
 	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_nextoffs)
+#define DTRACE_HASHPREV(hash, probe)	\
+	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_prevoffs)
 
+extern dtrace_hash_t *dtrace_hash_create(uintptr_t, uintptr_t, uintptr_t);
+extern void dtrace_hash_add(dtrace_hash_t *, dtrace_probe_t *);
 extern dtrace_probe_t *dtrace_hash_lookup(dtrace_hash_t *, dtrace_probe_t *);
 extern int dtrace_hash_collisions(dtrace_hash_t *, dtrace_probe_t *);
+extern void dtrace_hash_remove(dtrace_hash_t *, dtrace_probe_t *);
+
+/*
+ * DTrace Non-Probe Context Utility Functions
+ */
 
 /*
  * DTrace Matching Function
  */
+extern dtrace_hash_t		*dtrace_bymod;
+extern dtrace_hash_t		*dtrace_byfunc;
+extern dtrace_hash_t		*dtrace_byname;
+
 extern int dtrace_match_priv(const dtrace_probe_t *, uint32_t, uid_t);
 extern int dtrace_match_probe(const dtrace_probe_t *,
 			      const dtrace_probekey_t *, uint32_t, uid_t);
@@ -762,8 +829,8 @@ extern void dtrace_probekey(const dtrace_probedesc_t *, dtrace_probekey_t *);
 /*
  * DTrace Provider-to-Framework API Functions
  */
-typedef uintptr_t	dtrace_provider_id_t;
-typedef uintptr_t	dtrace_meta_provider_id_t;
+typedef uintptr_t		dtrace_provider_id_t;
+typedef uintptr_t		dtrace_meta_provider_id_t;
 
 extern dtrace_provider_t	*dtrace_provider;
 
@@ -779,9 +846,12 @@ extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 /*
  * DTrace Probe Management Functions
  */
-extern int		dtrace_nprobes;
-extern dtrace_probe_t	**dtrace_probes;
+extern int			dtrace_nprobes;
+extern dtrace_probe_t		**dtrace_probes;
 
+extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,
+				       const char *, const char *, int,
+				       void *);
 extern int dtrace_probe_enable(const dtrace_probedesc_t *,
 			       dtrace_enabling_t *);
 extern void dtrace_probe_provide(dtrace_probedesc_t *, dtrace_provider_t *);
@@ -808,12 +878,16 @@ extern void dtrace_predicate_release(dtrace_predicate_t *, dtrace_vstate_t *);
 /*
  * DTrace ECB Functions
  */
-extern dtrace_ecb_t	*dtrace_ecb_create_cache;
+extern dtrace_ecb_t		*dtrace_ecb_create_cache;
 
 extern int dtrace_ecb_create_enable(dtrace_probe_t *, void *);
 extern void dtrace_ecb_destroy(dtrace_ecb_t *);
 extern void dtrace_ecb_resize(dtrace_ecb_t *);
 extern int dtrace_ecb_enable(dtrace_ecb_t *);
+
+/*
+ * DTrace Buffer Functions
+ */
 
 /*
  * DTrace Enabling Functions
@@ -825,11 +899,31 @@ extern void dtrace_enabling_matchall(void);
 extern void dtrace_enabling_provide(dtrace_provider_t *);
 
 /*
+ * DTrace BOF Functions
+ */
+
+/*
+ * DTrace Anonymous Enabling Functions
+ */
+typedef struct dtrace_anon {
+	dtrace_state_t *dta_state;
+	dtrace_enabling_t *dta_enabling;
+	processorid_t dta_beganon;
+} dtrace_anon_t;
+
+extern dtrace_anon_t		dtrace_anon;
+
+/*
+ * DTrace Consumer State Functions
+ */
+extern dtrace_state_t *dtrace_state_create(struct file *);
+
+/*
  * DTrace Utility Functions
  */
 extern int dtrace_badattr(const dtrace_attribute_t *);
 extern int dtrace_badname(const char *);
-extern void dtrace_cred2priv(cred_t *, uint32_t *, uid_t *);
+extern void dtrace_cred2priv(const cred_t *, uint32_t *, uid_t *);
 
 #define DT_PROVIDER_MODULE(name)					\
   static dtrace_provider_id_t name##_id;				\
@@ -863,8 +957,13 @@ extern void dtrace_cred2priv(cred_t *, uint32_t *, uid_t *);
   module_init(name##_init);						\
   module_exit(name##_exit);
 
+#define dtrace_membar_producer()	mb()
+#define dtrace_membar_consumer()	mb()
+
 extern void dtrace_sync(void);
 extern void dtrace_vtime_enable(void);
 extern void dtrace_vtime_disable(void);
+
+extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
 
 #endif /* _DTRACE_H_ */

@@ -10,10 +10,24 @@ diff -urN ../linux-2.6.34/init/Kconfig ./init/Kconfig
  #
  # Place an empty function call at each tracepoint site. Can be
  # dynamically changed for a probe function.
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_anon.c ./kernel/dtrace/dtrace_anon.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_anon.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_anon.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,10 @@
++/*
++ * FILE:	dtrace_anon.c
++ * DESCRIPTION:	Dynamic Tracing: anonymous enabling functions
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include "dtrace.h"
++
++dtrace_anon_t	dtrace_anon;
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/dtrace_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,326 @@
 +/*
 + * FILE:	dtrace_dev.c
 + * DESCRIPTION:	Dynamic Tracing: device file handling
@@ -23,8 +37,63 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +
 +#include <linux/fs.h>
 +#include <linux/miscdevice.h>
++#include <linux/slab.h>
 +
++#include "dtrace.h"
 +#include "dtrace_dev.h"
++
++uint32_t			dtrace_helptrace_next = 0;
++uint32_t			dtrace_helptrace_nlocals;
++char				*dtrace_helptrace_buffer;
++int				dtrace_helptrace_bufsize = 512 * 1024;
++
++#ifdef DEBUG
++int				dtrace_helptrace_enabled = 1;
++#else
++int				dtrace_helptrace_enabled = 0;
++#endif
++
++int				dtrace_opens;
++
++dtrace_pops_t			dtrace_provider_ops = {
++	(void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop,
++	(void (*)(void *, struct module *))dtrace_nullop,
++	(int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop,
++	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
++	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
++	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
++	NULL,
++	NULL,
++	NULL,
++	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop
++};
++
++static size_t			dtrace_retain_max = 1024;
++
++static dtrace_id_t		dtrace_probeid_begin;
++static dtrace_id_t		dtrace_probeid_end;
++static dtrace_id_t		dtrace_probeid_error;
++
++static dtrace_toxrange_t	*dtrace_toxrange;
++static int			dtrace_toxranges;
++static int			dtrace_toxranges_max;
++
++static dtrace_pattr_t		dtrace_provider_attr = {
++{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
++{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
++{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
++{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
++{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
++};
++
++void dtrace_nullop(void)
++{
++}
++
++int dtrace_enable_nullop(void)
++{
++	return 0;
++}
 +
 +static long dtrace_ioctl(struct file *file,
 +			 unsigned int cmd, unsigned long arg)
@@ -34,7 +103,52 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +
 +static int dtrace_open(struct inode *inode, struct file *file)
 +{
-+	return -EAGAIN;
++	dtrace_state_t	*state;
++	uint32_t	priv;
++	uid_t		uid;
++
++	dtrace_cred2priv(file->f_cred, &priv, &uid);
++	if (priv == DTRACE_PRIV_NONE)
++		return -EACCES;
++
++	mutex_lock(&dtrace_provider_lock);
++	dtrace_probe_provide(NULL, NULL);
++	mutex_unlock(&dtrace_provider_lock);
++
++	/* FIXME: mutex_lock(&cpu_lock); */
++	mutex_lock(&dtrace_lock);
++	dtrace_opens++;
++	dtrace_membar_producer();
++
++#ifdef FIXME
++	/*
++	 * Is this relevant for Linux?  Is there an equivalent?
++	 */
++	if ((kdi_dtrace_set(KDI_DTSET_DTRACE_ACTIVATE) != 0) {
++		dtrace_opens--;
++		mutex_unlock(&cpu_lock);
++		mutex_unlock(&dtrace_lock);
++		return -EBUS);
++	}
++#endif
++
++	state = dtrace_state_create(file);
++	/* FIXME: mutex_unlock(&cpu_lock); */
++
++	if (state == NULL) {
++#ifdef FIXME
++		if (--dtrace_opens == 0)
++			(void)kdi_dtrace_set(KDI_DTSET_DTRACE_DEACTIVATE);
++#endif
++
++		mutex_unlock(&dtrace_lock);
++
++		return -EAGAIN;
++	}
++
++	mutex_unlock(&dtrace_lock);
++
++	return 0;
 +}
 +
 +static int dtrace_close(struct inode *inode, struct file *file)
@@ -56,15 +170,184 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +	.fops = &dtrace_fops,
 +};
 +
++/*
++ * Register a toxic range.
++ */
++static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
++{
++	if (dtrace_toxranges >= dtrace_toxranges_max) {
++		int			osize, nsize;
++		dtrace_toxrange_t	*range;
++
++		osize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
++
++		if (osize == 0) {
++			BUG_ON(dtrace_toxrange != NULL);
++			BUG_ON(dtrace_toxranges_max != 0);
++
++			dtrace_toxranges_max = 1;
++		} else
++			dtrace_toxranges_max <<= 1;
++
++		nsize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
++		range = kzalloc(nsize, GFP_KERNEL);
++
++		if (dtrace_toxrange != NULL) {
++			BUG_ON(osize == 0);
++
++			memcpy(range, dtrace_toxrange, osize);
++			kfree(dtrace_toxrange);
++		}
++
++		dtrace_toxrange = range;
++	}
++
++	BUG_ON(dtrace_toxrange[dtrace_toxranges].dtt_base != (uintptr_t)NULL);
++	BUG_ON(dtrace_toxrange[dtrace_toxranges].dtt_limit != (uintptr_t)NULL);
++
++	dtrace_toxrange[dtrace_toxranges].dtt_base = base;
++	dtrace_toxrange[dtrace_toxranges].dtt_limit = limit;
++	dtrace_toxranges++;
++}
++
++/*
++ * Initialize the DTrace core.
++ *
++ * Equivalent to: dtrace_attach()
++ */
 +int dtrace_dev_init(void)
 +{
-+	int ret = 0;
++	dtrace_provider_id_t	id;
++	int			rc = 0;
 +
-+	ret = misc_register(&dtrace_dev);
-+	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", dtrace_dev.name, dtrace_dev.minor);
++	/* FIXME: mutex_lock(&cpu_lock); */
++	mutex_lock(&dtrace_provider_lock);
++	mutex_lock(&dtrace_lock);
 +
-+	return ret;
++	/*
++	 * Register the device for the DTrace core.
++	 */
++	rc = misc_register(&dtrace_dev);
++	if (rc) {
++		pr_err("%s: Can't register misc device %d\n",
++		       dtrace_dev.name, dtrace_dev.minor);
++
++		/* FIXME: mutex_unlock(&cpu_lock); */
++		mutex_unlock(&dtrace_lock);
++		mutex_unlock(&dtrace_provider_lock);
++
++		return rc;
++	}
++
++#ifdef FIXME
++	dtrace_modload = dtrace_module_loaded;
++	dtrace_modunload = dtrace_module_unloaded;
++	dtrace_cpu_init = dtrace_cpu_setup_initial;
++	dtrace_helpers_cleanup = dtrace_helpers_destroy;
++	dtrace_helpers_fork = dtrace_helpers_duplicate;
++	dtrace_cpustart_init = dtrace_suspend;
++	dtrace_cpustart_fini = dtrace_resume;
++	dtrace_debugger_init = dtrace_suspend;
++	dtrace_debugger_fini = dtrace_resume;
++
++	register_cpu_setup_func((cpu_setup_func_t *)dtrace_cpu_setup, NULL);
++
++	dtrace_taskq = taskq_create("dtrace_taskq", 1, maxclsyspri, 1, INT_MAX,
++				    0);
++
++	dtrace_state_cache = kmem_cache_create(
++				"dtrace_state_cache",
++				sizeof (dtrace_dstate_percpu_t) * NCPU,
++				DTRACE_STATE_ALIGN, NULL, NULL, NULL, NULL,
++				NULL, 0);
++#endif
++
++	/*
++	 * Create the probe hashtables.
++	 */
++	dtrace_bymod = dtrace_hash_create(
++				offsetof(dtrace_probe_t, dtpr_mod),
++				offsetof(dtrace_probe_t, dtpr_nextmod),
++				offsetof(dtrace_probe_t, dtpr_prevmod));
++	dtrace_byfunc = dtrace_hash_create(
++				offsetof(dtrace_probe_t, dtpr_func),
++				offsetof(dtrace_probe_t, dtpr_nextfunc),
++				offsetof(dtrace_probe_t, dtpr_prevfunc));
++	dtrace_byname = dtrace_hash_create(
++				offsetof(dtrace_probe_t, dtpr_name),
++				offsetof(dtrace_probe_t, dtpr_nextname),
++				offsetof(dtrace_probe_t, dtpr_prevname));
++
++	/*
++	 * Ensure that the X configuration parameter has a legal value.
++	 */
++	if (dtrace_retain_max < 1) {
++		pr_warning("Illegal value (%lu) for dtrace_retain_max; "
++			   "setting to 1", (unsigned long)dtrace_retain_max);
++
++		dtrace_retain_max = 1;
++	}
++
++	/*
++	 * Discover our toxic ranges.
++	 */
++	dtrace_toxic_ranges(dtrace_toxrange_add);
++
++	/*
++	 * Register ourselves as a provider.
++	 */
++	(void)dtrace_register("dtrace", &dtrace_provider_attr,
++			      DTRACE_PRIV_NONE, 0, &dtrace_provider_ops, NULL,
++			      &id);
++
++	BUG_ON(dtrace_provider == NULL);
++	BUG_ON((dtrace_provider_id_t)dtrace_provider != id);
++
++	/*
++	 * Create BEGIN, END, and ERROR probes.
++	 */
++	dtrace_probeid_begin = dtrace_probe_create(
++				(dtrace_provider_id_t)dtrace_provider, NULL,
++				NULL, "BEGIN", 0, NULL);
++	dtrace_probeid_end = dtrace_probe_create(
++				(dtrace_provider_id_t)dtrace_provider, NULL,
++				NULL, "END", 0, NULL);
++	dtrace_probeid_error = dtrace_probe_create(
++				(dtrace_provider_id_t)dtrace_provider, NULL,
++				NULL, "ERROR", 1, NULL);
++
++#ifdef FIXME
++	dtrace_anon_property();
++	mutex_unlock(&cpu_lock);
++#endif
++
++	/*
++	 * If DTrace helper tracing is enabled, we need to allocate a trace
++	 * buffer.
++	 */
++	if (dtrace_helptrace_enabled) {
++		BUG_ON(dtrace_helptrace_buffer != NULL);
++
++		dtrace_helptrace_buffer = kzalloc(dtrace_helptrace_bufsize,
++						  GFP_KERNEL);
++		dtrace_helptrace_next = 0;
++	}
++
++#ifdef FIXME
++	/*
++	 * There is usually code here to handle the case where there already
++	 * are providers when we get to this code.  On Linux, that does not
++	 * seem to be possible since the DTrace core module (this code) is
++	 * loaded as a dependency for each provider, and thus this
++	 * initialization code is executed prior to the initialization code of
++	 * the first provider causing the core to be loaded.
++	 */
++#endif
++
++	mutex_unlock(&dtrace_lock);
++	mutex_unlock(&dtrace_provider_lock);
++
++	return 0;
 +}
 +
 +void dtrace_dev_exit(void)
@@ -73,8 +356,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.h	2010-08-19 00:32:07.000000000 -0400
-@@ -0,0 +1,13 @@
++++ ./kernel/dtrace/dtrace_dev.h	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,16 @@
 +#ifndef _DTRACE_DEV_H_
 +#define _DTRACE_DEV_H_
 +
@@ -87,10 +370,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.
 +#define DT_DEV_FASTTRAP_MINOR	(DT_DEV_SDT_MINOR + 1)
 +#define DT_DEV_LOCKSTAT_MINOR	(DT_DEV_FASTTRAP_MINOR + 1)
 +
++extern int dtrace_dev_init(void);
++extern void dtrace_dev_exit(void);
++
 +#endif /* _DTRACE_DEV_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dif.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dif.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_dif.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,112 @@
 +/*
 + * FILE:	dtrace_dif.c
@@ -206,8 +492,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ecb.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,650 @@
++++ ./kernel/dtrace/dtrace_ecb.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,644 @@
 +/*
 + * FILE:	dtrace_ecb.c
 + * DESCRIPTION:	Dynamic Tracing: ECB functions
@@ -331,7 +617,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +	 * to use kmalloc to aovid the vmalloc overhead (since vmalloc aligns
 +	 * all allocations on a page boundary).
 +	 */
-+	aggid = (dtrace_aggid_t)kmalloc(1, GFP_KERNEL);
++	aggid = (dtrace_aggid_t)(uintptr_t)kmalloc(1, GFP_KERNEL);
 +
 +	if (aggid - 1 >= state->dts_naggregations) {
 +		dtrace_aggregation_t	**oaggs = state->dts_aggregations;
@@ -686,9 +972,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +		if (oecbs != NULL)
 +			memcpy(oecbs, ecbs, state->dts_necbs * sizeof (*ecbs));
 +
-+#ifdef FIXME
 +		dtrace_membar_producer();
-+#endif
 +
 +		state->dts_ecbs = ecbs;
 +
@@ -699,9 +983,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +			kfree(oecbs);
 +		}
 +
-+#ifdef FIXME
 +		dtrace_membar_producer();
-+#endif
 +
 +		state->dts_necbs = necbs;
 +	}
@@ -710,9 +992,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +
 +	BUG_ON(state->dts_ecbs[epid - 1] != NULL);
 +
-+#ifdef FIXME
 +	dtrace_membar_producer();
-+#endif
 +
 +	state->dts_ecbs[(ecb->dte_epid = epid) - 1] = ecb;
 +
@@ -860,7 +1140,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_enable.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_enable.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_enable.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_enable.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,102 @@
 +/*
 + * FILE:	dtrace_enable.c
@@ -966,7 +1246,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_e
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_fmt.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_fmt.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,59 @@
 +/*
 + * FILE:	dtrace_fmt.c
@@ -1029,8 +1309,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace.h	2010-08-19 00:32:07.000000000 -0400
-@@ -0,0 +1,870 @@
++++ ./kernel/dtrace/dtrace.h	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,969 @@
 +#ifndef _DTRACE_H_
 +#define _DTRACE_H_
 +
@@ -1050,6 +1330,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#define UINT64_MIN		(0)
 +
 +#define NBBY			(__BITS_PER_LONG / sizeof (long))
++
++#define SEC			1
++#define MILLISEC		1000
++#define MICROSEC		1000000
++#define NANOSEC			1000000000
 +
 +#define DIF_TYPE_CTF		0
 +#define DIF_TYPE_STRING		1
@@ -1107,7 +1392,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#define DIFV_F_REF		0x1
 +#define DIFV_F_MOD		0x2
 +
++#define DTRACE_CPUALL		-1
 +#define DTRACE_IDNONE		0
++#define DTRACE_EPIDNONE		0
++#define DTRACE_AGGIDNONE	0
++#define DTRACE_AGGVARIDNONE	0
++#define DTRACE_CACHEIDNONE	0
++#define DTRACE_PROVNONE		0
++#define DTRACE_METAPROVNONE	0
++#define DTRACE_ARGNONE		-1
 +
 +#define DTRACE_PROVNAMELEN	64
 +#define DTRACE_MODNAMELEN	64
@@ -1139,9 +1432,23 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#define DTRACE_COND_OWNER	0x01
 +#define DTRACE_COND_USERMODE	0x02
 +
++#define DTRACE_CRA_PROC				0x0001
++#define DTRACE_CRA_PROC_CONTROL			0x0002
++#define DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER	0x0004
++#define DTRACE_CRA_PROC_DESTRUCTIVE_CREDCHG	0x0010
++#define DTRACE_CRA_KERNEL			0x0020
++#define DTRACE_CRA_KERNEL_DESTRUCTIVE		0x0040
++
++#define DTRACE_CRA_ALL		(DTRACE_CRA_PROC | \
++				 DTRACE_CRA_PROC_CONTROL | \
++				 DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER | \
++				 DTRACE_CRA_PROC_DESTRUCTIVE_CREDCHG | \
++				 DTRACE_CRA_KERNEL | \
++				 DTRACE_CRA_KERNEL_DESTRUCTIVE)
++
 +#define DTRACE_CRV_ALLPROC	0x01
 +#define DTRACE_CRV_KERNEL	0x02
-+#define DTRACE_DRV_ALL		(DTRACE_CRV_ALLPROC | DTRACE_CRV_KERNEL)
++#define DTRACE_CRV_ALL		(DTRACE_CRV_ALLPROC | DTRACE_CRV_KERNEL)
 +
 +#define DTRACE_MATCH_FAIL	-1
 +#define DTRACE_MATCH_NEXT	0
@@ -1302,6 +1609,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +typedef uint32_t	dtrace_cacheid_t;
 +typedef uint32_t	dtrace_epid_t;
 +typedef uint32_t	uint_t;
++typedef uint32_t	processorid_t;
 +
 +typedef uint64_t	dtrace_genid_t;
 +typedef uint64_t	dtrace_optval_t;
@@ -1316,7 +1624,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +
 +typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
 +
-+typedef void		*cyclic_id_t;	/* FIXME */
++typedef uintptr_t	cyclic_id_t;
 +
 +#define P2ROUNDUP(x, a)	(-(-(x) & -(a)))
 +
@@ -1671,7 +1979,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +} dtrace_aggregation_t;
 +
 +typedef struct dtrace_cred {
-+	cred_t *dcr_cred;
++	const cred_t *dcr_cred;
 +	uint8_t dcr_destructive;
 +	uint8_t dcr_visible;
 +	uint16_t dcr_action;
@@ -1755,11 +2063,37 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	uintptr_t dth_stroffs;
 +} dtrace_hash_t;
 +
-+extern struct mutex	dtrace_lock;
-+extern struct mutex	dtrace_provider_lock;
-+extern struct mutex	dtrace_meta_lock;
++/*
++ * DTrace supports safe loads from probe context; if the address turns out to
++ * be invalid, a bit will be set by the kernel indicating that DTrace
++ * encountered a memory error, and DTrace will propagate the error to the user
++ * accordingly.  However, there may exist some regions of memory in which an
++ * arbitrary load can change system state, and from which it is impossible to
++ * recover from such a load after it has been attempted.  Examples of this may
++ * include memory in which programmable I/O registers are mapped (for which a
++ * read may have some implications for the device) or (in the specific case of
++ * UltraSPARC-I and -II) the virtual address hole.  The platform is required
++ * to make DTrace aware of these toxic ranges; DTrace will then check that
++ * target addresses are not in a toxic range before attempting to issue a
++ * safe load.
++ */
++typedef struct dtrace_toxrange {
++	uintptr_t dtt_base;
++	uintptr_t dtt_limit;
++} dtrace_toxrange_t;
 +
-+extern dtrace_genid_t	dtrace_probegen;
++extern struct mutex		dtrace_lock;
++extern struct mutex		dtrace_provider_lock;
++extern struct mutex		dtrace_meta_lock;
++
++extern dtrace_genid_t		dtrace_probegen;
++
++extern dtrace_pops_t		dtrace_provider_ops;
++
++extern int			dtrace_opens;
++
++extern void dtrace_nullop(void);
++extern int dtrace_enable_nullop(void);
 +
 +/*
 + * DTrace Probe Context Functions
@@ -1778,13 +2112,26 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 + */
 +#define DTRACE_HASHNEXT(hash, probe)	\
 +	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_nextoffs)
++#define DTRACE_HASHPREV(hash, probe)	\
++	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_prevoffs)
 +
++extern dtrace_hash_t *dtrace_hash_create(uintptr_t, uintptr_t, uintptr_t);
++extern void dtrace_hash_add(dtrace_hash_t *, dtrace_probe_t *);
 +extern dtrace_probe_t *dtrace_hash_lookup(dtrace_hash_t *, dtrace_probe_t *);
 +extern int dtrace_hash_collisions(dtrace_hash_t *, dtrace_probe_t *);
++extern void dtrace_hash_remove(dtrace_hash_t *, dtrace_probe_t *);
++
++/*
++ * DTrace Non-Probe Context Utility Functions
++ */
 +
 +/*
 + * DTrace Matching Function
 + */
++extern dtrace_hash_t		*dtrace_bymod;
++extern dtrace_hash_t		*dtrace_byfunc;
++extern dtrace_hash_t		*dtrace_byname;
++
 +extern int dtrace_match_priv(const dtrace_probe_t *, uint32_t, uid_t);
 +extern int dtrace_match_probe(const dtrace_probe_t *,
 +			      const dtrace_probekey_t *, uint32_t, uid_t);
@@ -1795,8 +2142,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +/*
 + * DTrace Provider-to-Framework API Functions
 + */
-+typedef uintptr_t	dtrace_provider_id_t;
-+typedef uintptr_t	dtrace_meta_provider_id_t;
++typedef uintptr_t		dtrace_provider_id_t;
++typedef uintptr_t		dtrace_meta_provider_id_t;
 +
 +extern dtrace_provider_t	*dtrace_provider;
 +
@@ -1812,9 +2159,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +/*
 + * DTrace Probe Management Functions
 + */
-+extern int		dtrace_nprobes;
-+extern dtrace_probe_t	**dtrace_probes;
++extern int			dtrace_nprobes;
++extern dtrace_probe_t		**dtrace_probes;
 +
++extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,
++				       const char *, const char *, int,
++				       void *);
 +extern int dtrace_probe_enable(const dtrace_probedesc_t *,
 +			       dtrace_enabling_t *);
 +extern void dtrace_probe_provide(dtrace_probedesc_t *, dtrace_provider_t *);
@@ -1841,12 +2191,16 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +/*
 + * DTrace ECB Functions
 + */
-+extern dtrace_ecb_t	*dtrace_ecb_create_cache;
++extern dtrace_ecb_t		*dtrace_ecb_create_cache;
 +
 +extern int dtrace_ecb_create_enable(dtrace_probe_t *, void *);
 +extern void dtrace_ecb_destroy(dtrace_ecb_t *);
 +extern void dtrace_ecb_resize(dtrace_ecb_t *);
 +extern int dtrace_ecb_enable(dtrace_ecb_t *);
++
++/*
++ * DTrace Buffer Functions
++ */
 +
 +/*
 + * DTrace Enabling Functions
@@ -1858,11 +2212,31 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +extern void dtrace_enabling_provide(dtrace_provider_t *);
 +
 +/*
++ * DTrace BOF Functions
++ */
++
++/*
++ * DTrace Anonymous Enabling Functions
++ */
++typedef struct dtrace_anon {
++	dtrace_state_t *dta_state;
++	dtrace_enabling_t *dta_enabling;
++	processorid_t dta_beganon;
++} dtrace_anon_t;
++
++extern dtrace_anon_t		dtrace_anon;
++
++/*
++ * DTrace Consumer State Functions
++ */
++extern dtrace_state_t *dtrace_state_create(struct file *);
++
++/*
 + * DTrace Utility Functions
 + */
 +extern int dtrace_badattr(const dtrace_attribute_t *);
 +extern int dtrace_badname(const char *);
-+extern void dtrace_cred2priv(cred_t *, uint32_t *, uid_t *);
++extern void dtrace_cred2priv(const cred_t *, uint32_t *, uid_t *);
 +
 +#define DT_PROVIDER_MODULE(name)					\
 +  static dtrace_provider_id_t name##_id;				\
@@ -1896,21 +2270,28 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +  module_init(name##_init);						\
 +  module_exit(name##_exit);
 +
++#define dtrace_membar_producer()	mb()
++#define dtrace_membar_consumer()	mb()
++
 +extern void dtrace_sync(void);
 +extern void dtrace_vtime_enable(void);
 +extern void dtrace_vtime_disable(void);
 +
++extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
++
 +#endif /* _DTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_hash.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_hash.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_hash.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,59 @@
++++ ./kernel/dtrace/dtrace_hash.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,203 @@
 +/*
 + * FILE:	dtrace_hash.c
 + * DESCRIPTION:	Dynamic Tracing: probe hashing functions
 + *
 + * Copyright (C) 2010 Oracle Corporation
 + */
++
++#include <linux/slab.h>
 +
 +#include "dtrace.h"
 +
@@ -1934,6 +2315,97 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_has
 +	}
 +
 +	return hval;
++}
++
++dtrace_hash_t *dtrace_hash_create(uintptr_t stroffs, uintptr_t nextoffs,
++				  uintptr_t prevoffs)
++{
++	dtrace_hash_t	*hash = kzalloc(sizeof (dtrace_hash_t), GFP_KERNEL);
++
++	hash->dth_stroffs = stroffs;
++	hash->dth_nextoffs = nextoffs;
++	hash->dth_prevoffs = prevoffs;
++
++	hash->dth_size = 1;
++	hash->dth_mask = hash->dth_size - 1;
++
++	hash->dth_tab = kzalloc(hash->dth_size *
++				sizeof (dtrace_hashbucket_t *), GFP_KERNEL);
++
++	return hash;
++}
++
++static void dtrace_hash_resize(dtrace_hash_t *hash)
++{
++	int			size = hash->dth_size, i, ndx;
++	int			new_size = hash->dth_size << 1;
++	int			new_mask = new_size - 1;
++	dtrace_hashbucket_t	**new_tab, *bucket, *next;
++
++	BUG_ON((new_size & new_mask) != 0);
++
++	new_tab = kzalloc(new_size * sizeof (void *), GFP_KERNEL);
++
++	for (i = 0; i < size; i++) {
++		for (bucket = hash->dth_tab[i]; bucket != NULL;
++		     bucket = next) {
++			dtrace_probe_t *probe = bucket->dthb_chain;
++
++			BUG_ON(probe == NULL);
++			ndx = DTRACE_HASHSTR(hash, probe) & new_mask;
++
++			next = bucket->dthb_next;
++			bucket->dthb_next = new_tab[ndx];
++			new_tab[ndx] = bucket;
++		}
++	}
++
++	kfree(hash->dth_tab);
++	hash->dth_tab = new_tab;
++	hash->dth_size = new_size;
++	hash->dth_mask = new_mask;
++}
++
++void dtrace_hash_add(dtrace_hash_t *hash, dtrace_probe_t *new)
++{
++	int			hashval = DTRACE_HASHSTR(hash, new);
++	int			ndx = hashval & hash->dth_mask;
++	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
++	dtrace_probe_t		**nextp, **prevp;
++
++	for (; bucket != NULL; bucket = bucket->dthb_next) {
++		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, new))
++			goto add;
++	}
++
++	if ((hash->dth_nbuckets >> 1) > hash->dth_size) {
++		dtrace_hash_resize(hash);
++		dtrace_hash_add(hash, new);
++		return;
++	}
++
++	bucket = kzalloc(sizeof (dtrace_hashbucket_t), GFP_KERNEL);
++	bucket->dthb_next = hash->dth_tab[ndx];
++	hash->dth_tab[ndx] = bucket;
++	hash->dth_nbuckets++;
++
++add:
++	nextp = DTRACE_HASHNEXT(hash, new);
++
++	BUG_ON(*nextp != NULL || *(DTRACE_HASHPREV(hash, new)) != NULL);
++
++	*nextp = bucket->dthb_chain;
++
++	if (bucket->dthb_chain != NULL) {
++		prevp = DTRACE_HASHPREV(hash, bucket->dthb_chain);
++
++		BUG_ON(*prevp != NULL);
++
++		*prevp = new;
++	}
++
++	bucket->dthb_chain = new;
++	bucket->dthb_len++;
 +}
 +
 +dtrace_probe_t *dtrace_hash_lookup(dtrace_hash_t *hash,
@@ -1964,9 +2436,60 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_has
 +
 +	return 0;
 +}
++
++void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
++{
++	int			ndx = DTRACE_HASHSTR(hash, probe) &
++				      hash->dth_mask;
++	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
++	dtrace_probe_t		**prevp = DTRACE_HASHPREV(hash, probe);
++	dtrace_probe_t		**nextp = DTRACE_HASHNEXT(hash, probe);
++
++	for (; bucket != NULL; bucket = bucket->dthb_next) {
++		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, probe))
++			break;
++	}
++
++	BUG_ON(bucket == NULL);
++
++	if (*prevp == NULL) {
++		if (*nextp == NULL) {
++			/*
++			 * This is the last probe in the bucket; we can remove
++			 * the bucket.
++			 */
++			dtrace_hashbucket_t	*b = hash->dth_tab[ndx];
++
++			BUG_ON(bucket->dthb_chain != probe);
++			BUG_ON(b == NULL);
++
++			if (b == bucket)
++				hash->dth_tab[ndx] = bucket->dthb_next;
++			else {
++				while (b->dthb_next != bucket)
++					b = b->dthb_next;
++
++				b->dthb_next = bucket->dthb_next;
++			}
++
++			BUG_ON(hash->dth_nbuckets <= 0);
++
++			hash->dth_nbuckets--;
++			kfree(bucket);
++
++			return;
++		}
++
++		bucket->dthb_chain = *nextp;
++	} else
++		*(DTRACE_HASHNEXT(hash, *prevp)) = *nextp;
++
++	if (*nextp != NULL)
++		*(DTRACE_HASHPREV(hash, *nextp)) = *prevp;
++}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_match.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_match.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_match.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_match.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,301 @@
 +/*
 + * FILE:	dtrace_match.c
@@ -1977,9 +2500,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_ma
 +
 +#include "dtrace.h"
 +
-+static dtrace_hash_t	*dtrace_bymod;
-+static dtrace_hash_t	*dtrace_byfunc;
-+static dtrace_hash_t	*dtrace_byname;
++dtrace_hash_t	*dtrace_bymod;
++dtrace_hash_t	*dtrace_byfunc;
++dtrace_hash_t	*dtrace_byname;
 +
 +int dtrace_match_priv(const dtrace_probe_t *prp, uint32_t priv, uid_t uid)
 +{
@@ -2271,8 +2794,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_ma
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_mod.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,27 @@
++++ ./kernel/dtrace/dtrace_mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,34 @@
 +/*
 + * FILE:	dtrace_mod.c
 + * DESCRIPTION:	Dynamic Tracing: module handling
@@ -2289,20 +2812,54 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.
 +MODULE_VERSION("v0.1");
 +MODULE_LICENSE("Proprietary");
 +
++/*
++ * Initialize the module.
++ */
 +static int __init dtrace_init(void)
 +{
-+	return 0;
++	return dtrace_dev_init();
 +}
 +
++/*
++ * Perform cleanup before the module is removed.
++ */
 +static void __exit dtrace_exit(void)
 +{
++	dtrace_dev_exit();
 +}
 +
 +module_init(dtrace_init);
 +module_exit(dtrace_exit);
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.mod.c ./kernel/dtrace/dtrace.mod.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=";
++
++
++MODULE_INFO(srcversion, "C40708E80CB10802837FD2A");
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrace_predicate.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_predicate.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_predicate.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,32 @@
 +/*
 + * FILE:	dtrace_predicate.c
@@ -2338,8 +2895,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_probe.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,74 @@
++++ ./kernel/dtrace/dtrace_probe.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,164 @@
 +/*
 + * FILE:	dtrace_probe.c
 + * DESCRIPTION:	Dynamic Tracing: probe management functions
@@ -2348,11 +2905,101 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 + */
 +
 +#include <linux/module.h>
++#include <linux/slab.h>
 +
 +#include "dtrace.h"
 +
 +int		dtrace_nprobes;
 +dtrace_probe_t	**dtrace_probes;
++
++/*
++ * Create a new probe.
++ */
++dtrace_id_t dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
++				const char *func, const char *name,
++				int aframes, void *arg)
++{
++	dtrace_probe_t		*probe, **probes;
++	dtrace_provider_t	*provider = (dtrace_provider_t *)prov;
++	dtrace_id_t		id;
++
++	if (provider == dtrace_provider)
++		BUG_ON(!mutex_is_locked(&dtrace_lock));
++	else
++		mutex_lock(&dtrace_lock);
++
++        /*
++         * KVH FIXME: I am not too sure this is the best way to handle
++         * aggregate ids.  Essentially, a 1 byte allocation is performed,
++         * resulting in a unique virtual address that is converted into an
++         * integer value and used as id.  On Linux, I believe that this
++         * technique results in overhead due to the allocation.  I changed this
++         * to use kmalloc to aovid the vmalloc overhead (since vmalloc aligns
++         * all allocations on a page boundary).
++         */
++	id = (dtrace_id_t)(uintptr_t)kmalloc(1, GFP_KERNEL);
++
++	probe = kzalloc(sizeof (dtrace_probe_t), GFP_KERNEL);
++	probe->dtpr_id = id;
++	probe->dtpr_gen = dtrace_probegen++;
++	probe->dtpr_mod = kstrdup(mod, GFP_KERNEL);
++	probe->dtpr_func = kstrdup(func, GFP_KERNEL);
++	probe->dtpr_name = kstrdup(name, GFP_KERNEL);
++	probe->dtpr_arg = arg;
++	probe->dtpr_aframes = aframes;
++	probe->dtpr_provider = provider;
++
++	dtrace_hash_add(dtrace_bymod, probe);
++	dtrace_hash_add(dtrace_byfunc, probe);
++	dtrace_hash_add(dtrace_byname, probe);
++
++	if (id - 1 >= dtrace_nprobes) {
++		size_t	osize = dtrace_nprobes * sizeof (dtrace_probe_t *);
++		size_t	nsize = osize << 1;
++
++		if (nsize == 0) {
++			BUG_ON(osize != 0);
++			BUG_ON(dtrace_probes != NULL);
++
++			nsize = sizeof (dtrace_probe_t *);
++		}
++
++		probes = kzalloc(nsize, GFP_KERNEL);
++
++		if (dtrace_probes == NULL) {
++			BUG_ON(osize != 0);
++
++			dtrace_probes = probes;
++			dtrace_nprobes = 1;
++		} else {
++			dtrace_probe_t	**oprobes = dtrace_probes;
++
++			memcpy(probes, oprobes, osize);
++			dtrace_membar_producer();
++			dtrace_probes = probes;
++			dtrace_sync();
++
++			/*
++			 * All CPUs can now see the new probes array; time to
++			 * get rid of the old one.
++			 */
++			kfree(oprobes);
++
++			dtrace_nprobes <<= 1;
++		}
++
++		BUG_ON(id - 1 < dtrace_nprobes);
++	}
++
++	BUG_ON(dtrace_probes[id - 1] != NULL);
++
++	dtrace_probes[id - 1] = probe;
++
++	if (provider != dtrace_provider)
++		mutex_unlock(&dtrace_lock);
++
++	return id;
++}
 +
 +int dtrace_probe_enable(const dtrace_probedesc_t *desc, dtrace_enabling_t *enab)
 +{
@@ -2416,7 +3063,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrace_probe_ctx.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe_ctx.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_probe_ctx.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,183 @@
 +/*
 + * FILE:	dtrace_probe_ctx.c
@@ -2603,8 +3250,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_ptofapi.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ptofapi.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,146 @@
++++ ./kernel/dtrace/dtrace_ptofapi.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,317 @@
 +/*
 + * FILE:	dtrace_ptofapi.c
 + * DESCRIPTION:	Dynamic Tracing: provider-to-framework API
@@ -2623,60 +3270,61 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +DEFINE_MUTEX(dtrace_provider_lock);
 +DEFINE_MUTEX(dtrace_meta_lock);
 +
-+static void dtrace_nullop(void)
-+{
-+}
-+
-+static int dtrace_enable_nullop(void)
-+{
-+	return 0;
-+}
-+
-+static dtrace_pops_t		dtrace_provider_ops = {
-+	(void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop,
-+	(void (*)(void *, struct module *))dtrace_nullop,
-+	(int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop,
-+	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
-+	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
-+	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
-+	NULL,
-+	NULL,
-+	NULL,
-+	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop
-+};
-+
++/*
++ * Register the calling provider with the DTrace core.  This should generally
++ * be called by providers during module initialization.
++ */
 +int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 +		    cred_t *cr, const dtrace_pops_t *pops, void *arg,
 +		    dtrace_provider_id_t *idp)
 +{
 +	dtrace_provider_t	*provider;
 +
-+	if (name == NULL || pap == NULL || pops == NULL || idp == NULL)
++	if (name == NULL || pap == NULL || pops == NULL || idp == NULL) {
++		pr_warning("Failed to register provider %s: invalid args\n",
++			   name ? name : "<NULL>");
 +		return -EINVAL;
++	}
 +
-+	if (name[0] == '\0' || dtrace_badname(name))
++	if (name[0] == '\0' || dtrace_badname(name)) {
++		pr_warning("Failed to register provider %s: invalid name\n",
++			   name);
 +		return -EINVAL;
++	}
 +
 +	if ((pops->dtps_provide == NULL && pops->dtps_provide_module == NULL) ||
 +	    pops->dtps_enable == NULL || pops->dtps_disable == NULL ||
 +	    pops->dtps_destroy == NULL ||
-+	    ((pops->dtps_resume == NULL) != (pops->dtps_suspend == NULL)))
++	    ((pops->dtps_resume == NULL) != (pops->dtps_suspend == NULL))) {
++		pr_warning("Failed to register provider %s: invalid ops\n",
++			   name);
 +		return -EINVAL;
++	}
 +
 +	if (dtrace_badattr(&pap->dtpa_provider) ||
 +	    dtrace_badattr(&pap->dtpa_mod) ||
 +	    dtrace_badattr(&pap->dtpa_func) ||
 +	    dtrace_badattr(&pap->dtpa_name) ||
-+	    dtrace_badattr(&pap->dtpa_args))
++	    dtrace_badattr(&pap->dtpa_args)) {
++		pr_warning("Failed to register provider %s: invalid "
++			   "attributes\n", name);
 +		return -EINVAL;
++	}
 +
-+	if (priv & ~DTRACE_PRIV_ALL)
++	if (priv & ~DTRACE_PRIV_ALL) {
++		pr_warning("Failed to register provider %s: invalid privilege "
++			   "attributes\n", name);
 +		return -EINVAL;
++	}
 +
 +	if ((priv & DTRACE_PRIV_KERNEL) &&
 +	    (priv & (DTRACE_PRIV_USER | DTRACE_PRIV_OWNER)) &&
-+	    pops->dtps_usermode == NULL)
++	    pops->dtps_usermode == NULL) {
++		pr_warning("Failed to register provider %s: need "
++			   "dtps_usermode() op for given privilege "
++			   "attributes\n", name);
 +		return -EINVAL;
++	}
 +
 +	provider = kmalloc(sizeof (dtrace_provider_t), GFP_KERNEL);
 +	provider->dtpv_name = kstrdup(name, GFP_KERNEL);
@@ -2691,19 +3339,19 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +	provider->dtpv_pops = *pops;
 +
 +	if (pops->dtps_provide == NULL) {
-+		WARN_ON(pops->dtps_provide_module == NULL);
++		BUG_ON(pops->dtps_provide_module == NULL);
 +		provider->dtpv_pops.dtps_provide =
 +		    (void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop;
 +	}
 +
 +	if (pops->dtps_provide_module == NULL) {
-+		WARN_ON(pops->dtps_provide == NULL);
++		BUG_ON(pops->dtps_provide == NULL);
 +		provider->dtpv_pops.dtps_provide_module =
 +		    (void (*)(void *, struct module *))dtrace_nullop;
 +	}
 +
 +	if (pops->dtps_suspend == NULL) {
-+		WARN_ON(pops->dtps_resume == NULL);
++		BUG_ON(pops->dtps_resume == NULL);
 +		provider->dtpv_pops.dtps_suspend =
 +		    (void (*)(void *, dtrace_id_t, void *))dtrace_nullop;
 +		provider->dtpv_pops.dtps_resume =
@@ -2714,6 +3362,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +	*idp = (dtrace_provider_id_t)provider;
 +
 +	if (pops == &dtrace_provider_ops) {
++		BUG_ON(!mutex_is_locked(&dtrace_provider_lock));
++		BUG_ON(!mutex_is_locked(&dtrace_lock));
++		BUG_ON(dtrace_anon.dta_enabling != NULL);
++
++		/*
++		 * The DTrace provider must be at the head of the provider
++		 * chain.
++		 */
 +		provider->dtpv_next = dtrace_provider;
 +		dtrace_provider = provider;
 +
@@ -2723,6 +3379,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +	mutex_lock(&dtrace_provider_lock);
 +	mutex_lock(&dtrace_lock);
 +
++	/*
++	 * If there is at least one provider registered, we'll add this new one
++	 * after the first provider.
++	 */
 +	if (dtrace_provider != NULL) {
 +		provider->dtpv_next = dtrace_provider->dtpv_next;
 +		dtrace_provider->dtpv_next = provider;
@@ -2732,6 +3392,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +	if (dtrace_retained != NULL) {
 +		dtrace_enabling_provide(provider);
 +
++		/*
++		 * We must now call dtrace_enabling_matchall() which needs to
++		 * acquire FIXME(cpu_lock) and dtrace_lock.  We therefore need
++		 * to drop our locks before calling it.
++		 */
 +		mutex_unlock(&dtrace_lock);
 +		mutex_unlock(&dtrace_provider_lock);
 +		dtrace_enabling_matchall();
@@ -2746,14 +3411,316 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +}
 +EXPORT_SYMBOL(dtrace_register);
 +
++/*
++ * Unregister the specified provider from the DTrace core.  This should be
++ * called by provider during module cleanup.
++ */
 +int dtrace_unregister(dtrace_provider_id_t id)
 +{
++	dtrace_provider_t	*old = (dtrace_provider_t *)id;
++	dtrace_provider_t	*prev = NULL;
++	int			i, self = 0;
++	dtrace_probe_t		*probe, *first = NULL;
++
++	if (old->dtpv_pops.dtps_enable ==
++	    (int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop) {
++		/*
++		 * When the provider is the DTrace core itself, we're called
++		 * with locks already held.
++		 */
++		BUG_ON(old != dtrace_provider);
++		BUG_ON(!mutex_is_locked(&dtrace_provider_lock));
++		BUG_ON(!mutex_is_locked(&dtrace_lock));
++
++		self = 1;
++
++		if (dtrace_provider->dtpv_next != NULL) {
++			/*
++			 * We cannot and should not remove the DTrace provider
++			 * if there is any other provider left.
++			 */
++			return -EBUSY;
++		}
++	} else {
++		mutex_lock(&dtrace_provider_lock);
++		/* FIXME: mutex_lock(&mod_lock); */
++		mutex_lock(&dtrace_lock);
++	}
++
++	/*
++	 * If /dev/dtrace/dtrace is still held open by a process, or if there
++	 * are anonymous probes that are still enabled, we refuse to deregister
++	 * providers, unless the provider has been invalidated explicitly.
++	 */
++	if (!old->dtpv_defunct &&
++	    (dtrace_opens || (dtrace_anon.dta_state != NULL &&
++	     dtrace_anon.dta_state->dts_necbs > 0))) {
++		if (!self) {
++			mutex_unlock(&dtrace_lock);
++			/* FIXME: mutex_unlock(&mod_lock); */
++			mutex_unlock(&dtrace_provider_lock);
++		}
++
++		return -EBUSY;
++	}
++
++	/*
++	 * Check whether any of the probes associated with this provider are
++	 * still enabled (having at least one ECB).  If any are found, we
++	 * cannot remove this provider.
++	 */
++	for (i = 0; i < dtrace_nprobes; i++) {
++		if ((probe = dtrace_probes[i]) == NULL)
++			continue;
++
++		if (probe->dtpr_provider != old)
++			continue;
++
++		if (probe->dtpr_ecb == NULL)
++			continue;
++
++		if (!self) {
++			mutex_unlock(&dtrace_lock);
++			/* FIXME: mutex_unlock(&mod_lock); */
++			mutex_unlock(&dtrace_provider_lock);
++		}
++
++		return -EBUSY;
++	}
++
++	/*
++	 * All the probes associated with this provider are disabled.  We can
++	 * safely remove these probes from the hashtables and the probe array.
++	 * We chain all the probes together for further processing.
++	 */
++	for (i = 0; i < dtrace_nprobes; i++) {
++		if ((probe = dtrace_probes[i]) == NULL)
++			continue;
++
++		if (probe->dtpr_provider != old)
++			continue;
++
++		dtrace_probes[i] = NULL;
++
++		dtrace_hash_remove(dtrace_bymod, probe);
++		dtrace_hash_remove(dtrace_byfunc, probe);
++		dtrace_hash_remove(dtrace_byname, probe);
++
++		if (first == NULL) {
++			first = probe;
++			probe->dtpr_nextmod = NULL;
++		} else {
++			probe->dtpr_nextmod = first;
++			first = probe;
++		}
++	}
++
++	/*
++	 * The probes associated with the provider have been removed.  Ensure
++	 * synchronization on probe array processing.
++	 */
++	dtrace_sync();
++
++	/*
++	 * Now get rid of the actual probes.
++	 */
++	for (probe = first; probe != NULL; probe = first) {
++		first = probe->dtpr_nextmod;
++
++		old->dtpv_pops.dtps_destroy(old->dtpv_arg, probe->dtpr_id,
++					    probe->dtpr_arg);
++		kfree(probe->dtpr_mod);
++		kfree(probe->dtpr_func);
++		kfree(probe->dtpr_name);
++		kfree((void *)(uintptr_t)(probe->dtpr_id));
++		kfree(probe);
++	}
++
++	if ((prev = dtrace_provider) == old) {
++		/*
++		 * We are removing the provider at the head of the chain.
++		 */
++		BUG_ON(!self);
++		BUG_ON(old->dtpv_next != NULL);
++
++		dtrace_provider = old->dtpv_next;
++	} else {
++		while (prev != NULL && prev->dtpv_next != old)
++			prev = prev->dtpv_next;
++
++		if (prev == NULL) {
++			pr_err("Attempt to unregister non-existent DTrace "
++			       "provider %p\n", (void *)id);
++			BUG();
++		}
++
++		prev->dtpv_next = old->dtpv_next;
++	}
++
++	if (!self) {
++		mutex_unlock(&dtrace_lock);
++		/* FIXME: mutex_unlock(&mod_lock); */
++		mutex_unlock(&dtrace_provider_lock);
++	}
++
++	kfree(old->dtpv_name);
++	kfree(old);
++
 +	return 0;
 +}
 +EXPORT_SYMBOL(dtrace_unregister);
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_state.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_state.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_state.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,145 @@
++/*
++ * FILE:	dtrace_state.c
++ * DESCRIPTION:	Dynamic Tracing: consumer state functions
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include <linux/fs.h>
++#include <linux/slab.h>
++
++#include "dtrace.h"
++
++dtrace_optval_t	dtrace_nspec_default = 1;
++dtrace_optval_t	dtrace_specsize_default = 32 * 1024;
++size_t		dtrace_strsize_default = 256;
++dtrace_optval_t	dtrace_stackframes_default = 20;
++dtrace_optval_t	dtrace_ustackframes_default = 20;
++dtrace_optval_t	dtrace_cleanrate_default = 9900990;
++dtrace_optval_t	dtrace_aggrate_default = NANOSEC;
++dtrace_optval_t	dtrace_switchrate_default = NANOSEC;
++dtrace_optval_t	dtrace_statusrate_default = NANOSEC;
++dtrace_optval_t	dtrace_jstackframes_default = 50;
++dtrace_optval_t	dtrace_jstackstrsize_default = 512;
++
++dtrace_state_t *dtrace_state_create(struct file *file)
++{
++	dtrace_state_t	*state;
++	dtrace_optval_t	*opt;
++	int		bufsize = NR_CPUS * sizeof (dtrace_buffer_t), i;
++	const cred_t	*cr = file->f_cred;
++
++	BUG_ON(!mutex_is_locked(&dtrace_lock));
++	/* FIXME: BUG_ON(!mutex_is_locked(&cpu_lock)); */
++
++	state = kmalloc(sizeof (dtrace_state_t), GFP_KERNEL);
++	state->dts_epid = DTRACE_EPIDNONE + 1;
++	/* state->dts_dev = NULL;  -- FIXME: Do we even need this? */
++	state->dts_buffer = kzalloc(bufsize, GFP_KERNEL);
++	state->dts_aggbuffer = kzalloc(bufsize, GFP_KERNEL);
++	state->dts_cleaner = 0;
++	state->dts_deadman = 0;
++	state->dts_vstate.dtvs_state = state;
++
++	for (i = 0; i < DTRACEOPT_MAX; i++)
++		state->dts_options[i] = DTRACEOPT_UNSET;
++
++	/*
++	 * Set the default options.
++	 */
++	opt = state->dts_options;
++	opt[DTRACEOPT_BUFPOLICY] = DTRACEOPT_BUFPOLICY_SWITCH;
++	opt[DTRACEOPT_BUFRESIZE] = DTRACEOPT_BUFRESIZE_AUTO;
++	opt[DTRACEOPT_NSPEC] = dtrace_nspec_default;
++	opt[DTRACEOPT_SPECSIZE] = dtrace_specsize_default;
++	opt[DTRACEOPT_CPU] = (dtrace_optval_t)DTRACE_CPUALL;
++	opt[DTRACEOPT_STRSIZE] = dtrace_strsize_default;
++	opt[DTRACEOPT_STACKFRAMES] = dtrace_stackframes_default;
++	opt[DTRACEOPT_USTACKFRAMES] = dtrace_ustackframes_default;
++	opt[DTRACEOPT_CLEANRATE] = dtrace_cleanrate_default;
++	opt[DTRACEOPT_AGGRATE] = dtrace_aggrate_default;
++	opt[DTRACEOPT_SWITCHRATE] = dtrace_switchrate_default;
++	opt[DTRACEOPT_STATUSRATE] = dtrace_statusrate_default;
++	opt[DTRACEOPT_JSTACKFRAMES] = dtrace_jstackframes_default;
++	opt[DTRACEOPT_JSTACKSTRSIZE] = dtrace_jstackstrsize_default;
++
++	state->dts_activity = DTRACE_ACTIVITY_INACTIVE;
++
++#ifdef FIXME
++	/*
++	 * Set robe visibility and destructiveness based on the user credential
++	 * information.  For actual anonymous tracing or if all privileges are
++	 * set, checks are bypassed.
++	 */
++	if (cr == NULL ||
++	    PRIV_POLICY_ONLY(cr, PRIV_ALL, FALSE)) {
++		state->dts_cred.dcr_visible = DTRACE_CRV_ALL;
++		state->dts_cred.dcr_action = DTRACE_CRA_ALL;
++	} else {
++		state->dts_cred.dcr_cred = get_cred(cr);
++
++		/*
++		 * CRA_PROC means "we have *some* privilege for dtrace" and
++		 * it unlocks the use of variables like pid, etc.
++		 */
++		if (PRIV_POLICY_ONLY(cr, PRIV_DTRACE_USER, FALSE) ||
++		    PRIV_POLICY_ONLY(cr, PRIV_DTRACE_PROC, FALSE))
++			state->dts_cred.dcr_action |= DTRACE_CRA_PROC;
++
++		/*
++		 * The DTRACE_USER privilege allows the use of syscall and
++		 * profile providers.  If the user also has PROC_OWNER, we
++		 * extend the scope to include additional visibility and
++		 * destructive power.
++		 */
++		if (PRIV_POLICY_ONLY(cr, PRIV_DTRACE_USER, FALSE)) {
++			if (PRIV_POLICY_ONLY(cr, PRIV_PROC_OWNER, FALSE))
++				state->dts_cred.dcr_visible |=
++					DTRACE_CRV_ALLPROC;
++
++			state->dts_cred.dcr_action |=
++					DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER;
++		}
++
++		/*
++		 * Holding the DTRACE_KERNEL privilege also implies that
++		 * the user has the DTRACE_USER privilege from a visibility
++		 * perspective.  But without further privileges, some
++		 * destructive actions are not available.
++		 */
++		if (PRIV_POLICY_ONLY(cr, PRIV_DTRACE_KERNEL, FALSE)) {
++			/*
++			 * Make all probes in all zones visible.  However,
++			 * this doesn't mean that all actions become available
++			 * to all zones.
++			 */
++			state->dts_cred.dcr_visible |= DTRACE_CRV_KERNEL |
++						       DTRACE_CRV_ALLPROC;
++			state->dts_cred.dcr_action |= DTRACE_CRA_KERNEL |
++						      DTRACE_CRA_PROC;
++
++			/*
++			 * Holding PROC_OWNER means that destructive actions
++			 * are allowed.
++			 */
++			if (PRIV_POLICY_ONLY(cr, PRIV_PROC_OWNER, FALSE))
++				state->dts_cred.dcr_action |=
++					DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER;
++		}
++
++		/*
++		 * Holding the DTRACE_PROC privilege gives control over the
++		 * fasttrap and pid providers.  We need to grant wider
++		 * destructive privileges in the event that the user has
++		 * PROC_OWNER .
++		*/
++		if (PRIV_POLICY_ONLY(cr, PRIV_DTRACE_PROC, FALSE)) {
++			if (PRIV_POLICY_ONLY(cr, PRIV_PROC_OWNER, FALSE))
++				state->dts_cred.dcr_action |=
++					DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER;
++		}
++	}
++#endif
++
++	return state;
++}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_util.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_util.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_util.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/dtrace_util.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,74 @@
 +/*
 + * FILE:	dtrace_util.c
@@ -2792,7 +3759,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_uti
 +	return 0;
 +}
 +
-+void dtrace_cred2priv(cred_t *cr, uint32_t *privp, uid_t *uidp)
++void dtrace_cred2priv(const cred_t *cr, uint32_t *privp, uid_t *uidp)
 +{
 +#ifdef FIXME
 +/*
@@ -2831,8 +3798,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_uti
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/fasttrap_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	fasttrap_dev.c
 + * DESCRIPTION:	Fasttrap Tracing: device file handling
@@ -2881,7 +3848,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_
 +
 +	ret = misc_register(&fasttrap_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", fasttrap_dev.name, fasttrap_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       fasttrap_dev.name, fasttrap_dev.minor);
 +
 +	return ret;
 +}
@@ -2892,7 +3860,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 --- ../linux-2.6.34/kernel/dtrace/fasttrap.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/fasttrap.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _FASTTRAP_H_
 +#define _FASTTRAP_H_
@@ -2903,7 +3871,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 +#endif /* _FASTTRAP_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/fasttrap_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fasttrap_mod.c
@@ -2930,10 +3898,37 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_
 +};
 +
 +DT_PROVIDER_MODULE(fasttrap)
+diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.mod.c ./kernel/dtrace/fasttrap.mod.c
+--- ../linux-2.6.34/kernel/dtrace/fasttrap.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fasttrap.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "82B7CF816287450E0102DAD");
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/fbt_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	fbt_dev.c
 + * DESCRIPTION:	Function Boundary Tracing: device file handling
@@ -2982,7 +3977,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 +
 +	ret = misc_register(&fbt_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", fbt_dev.name, fbt_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       fbt_dev.name, fbt_dev.minor);
 +
 +	return ret;
 +}
@@ -2993,7 +3989,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 --- ../linux-2.6.34/kernel/dtrace/fbt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/fbt.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _FBT_H_
 +#define _FBT_H_
@@ -3004,7 +4000,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 +#endif /* _FBT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/fbt_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fbt_dmod.c
@@ -3031,9 +4027,36 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 +};
 +
 +DT_PROVIDER_MODULE(fbt);
+diff -urN ../linux-2.6.34/kernel/dtrace/fbt.mod.c ./kernel/dtrace/fbt.mod.c
+--- ../linux-2.6.34/kernel/dtrace/fbt.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/fbt.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "7D000DFFE4BEE6F0DEF8FA8");
 diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 --- ../linux-2.6.34/kernel/dtrace/Kconfig	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/Kconfig	2010-08-19 00:33:02.000000000 -0400
++++ ./kernel/dtrace/Kconfig	2010-08-24 11:20:06.000000000 -0400
 @@ -0,0 +1,49 @@
 +#
 +# DTrace Configuration
@@ -3086,8 +4109,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 +endif   #DTRACE
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_dev.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/lockstat_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	lockstat_dev.c
 + * DESCRIPTION:	Lock Statistics: device file handling
@@ -3136,7 +4159,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_
 +
 +	ret = misc_register(&lockstat_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", lockstat_dev.name, lockstat_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       lockstat_dev.name, lockstat_dev.minor);
 +
 +	return ret;
 +}
@@ -3147,7 +4171,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 --- ../linux-2.6.34/kernel/dtrace/lockstat.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/lockstat.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _LOCKSTAT_H_
 +#define _LOCKSTAT_H_
@@ -3158,7 +4182,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 +#endif /* _LOCKSTAT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_mod.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/lockstat_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	lockstat_mod.c
@@ -3185,10 +4209,37 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_
 +};
 +
 +DT_PROVIDER_MODULE(lockstat)
+diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.mod.c ./kernel/dtrace/lockstat.mod.c
+--- ../linux-2.6.34/kernel/dtrace/lockstat.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/lockstat.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "982A8EBA6158E193A83D13D");
 diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 --- ../linux-2.6.34/kernel/dtrace/Makefile	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/Makefile	2010-08-19 00:33:11.000000000 -0400
-@@ -0,0 +1,25 @@
++++ ./kernel/dtrace/Makefile	2010-08-24 11:19:57.000000000 -0400
+@@ -0,0 +1,26 @@
 +#
 +# Makefile for DTrace
 +#
@@ -3201,13 +4252,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 +obj-$(CONFIG_DT_SDT)		+= sdt.o
 +obj-$(CONFIG_DT_SYSTRACE)	+= systrace.o
 +
-+dtrace-y			:= dtrace_mod.o dtrace_dev.o dtrace_dif.o \
++dtrace-y			:= dtrace_mod.o dtrace_dev.o \
++				   dtrace_anon.o dtrace_dif.o \
 +				   dtrace_ecb.o dtrace_enable.o \
 +				   dtrace_fmt.o dtrace_hash.o \
 +				   dtrace_match.o dtrace_probe.o \
 +				   dtrace_probe_ctx.o \
 +				   dtrace_ptofapi.o dtrace_predicate.o \
-+				   dtrace_util.o
++				   dtrace_state.o dtrace_util.o
 +fasttrap-y			:= fasttrap_mod.o fasttrap_dev.o
 +fbt-y				:= fbt_mod.o fbt_dev.o
 +lockstat-y			:= lockstat_mod.o lockstat_dev.o
@@ -3216,8 +4268,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 +systrace-y			:= systrace_mod.o systrace_dev.o
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_dev.c
 --- ../linux-2.6.34/kernel/dtrace/profile_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/profile_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	profile_dev.c
 + * DESCRIPTION:	Profile Interrupt Tracing: device file handling
@@ -3266,7 +4318,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_de
 +
 +	ret = misc_register(&profile_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", profile_dev.name, profile_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       profile_dev.name, profile_dev.minor);
 +
 +	return ret;
 +}
@@ -3277,7 +4330,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_de
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 --- ../linux-2.6.34/kernel/dtrace/profile.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/profile.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _PROFILE_H_
 +#define _PROFILE_H_
@@ -3288,7 +4341,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 +#endif /* _PROFILE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mod.c
 --- ../linux-2.6.34/kernel/dtrace/profile_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/profile_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	profile_mod.c
@@ -3315,10 +4368,37 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mo
 +};
 +
 +DT_PROVIDER_MODULE(profile)
+diff -urN ../linux-2.6.34/kernel/dtrace/profile.mod.c ./kernel/dtrace/profile.mod.c
+--- ../linux-2.6.34/kernel/dtrace/profile.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/profile.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "1C2CA2A0461A807415EC4D9");
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/sdt_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	sdt_dev.c
 + * DESCRIPTION:	Statically Defined Tracing: device file handling
@@ -3367,7 +4447,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 +
 +	ret = misc_register(&sdt_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", sdt_dev.name, sdt_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       sdt_dev.name, sdt_dev.minor);
 +
 +	return ret;
 +}
@@ -3378,7 +4459,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 --- ../linux-2.6.34/kernel/dtrace/sdt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/sdt.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _SDT_H_
 +#define _SDT_H_
@@ -3389,7 +4470,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 +#endif /* _SDT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/sdt_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	sdt_mod.c
@@ -3416,10 +4497,37 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 +};
 +
 +DT_PROVIDER_MODULE(sdt)
+diff -urN ../linux-2.6.34/kernel/dtrace/sdt.mod.c ./kernel/dtrace/sdt.mod.c
+--- ../linux-2.6.34/kernel/dtrace/sdt.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/sdt.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "655EF1347FFB5C892EB90F3");
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_dev.c	2010-08-19 00:32:03.000000000 -0400
-@@ -0,0 +1,57 @@
++++ ./kernel/dtrace/systrace_dev.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,58 @@
 +/*
 + * FILE:	systrace_dev.c
 + * DESCRIPTION:	System Call Tracing: device file handling
@@ -3468,7 +4576,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_
 +
 +	ret = misc_register(&systrace_dev);
 +	if (ret)
-+		printk(KERN_ERR "%s: Can't register misc device %d\n", systrace_dev.name, systrace_dev.minor);
++		pr_err("%s: Can't register misc device %d\n",
++		       systrace_dev.name, systrace_dev.minor);
 +
 +	return ret;
 +}
@@ -3479,7 +4588,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 --- ../linux-2.6.34/kernel/dtrace/systrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace.h	2010-08-19 00:32:07.000000000 -0400
++++ ./kernel/dtrace/systrace.h	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,7 @@
 +#ifndef _SYSTRACE_H_
 +#define _SYSTRACE_H_
@@ -3490,7 +4599,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 +#endif /* _SYSTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_mod.c ./kernel/dtrace/systrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_mod.c	2010-08-19 00:32:03.000000000 -0400
++++ ./kernel/dtrace/systrace_mod.c	2010-08-24 11:19:51.000000000 -0400
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	systrace_mod.c
@@ -3517,6 +4626,33 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace_mod.c ./kernel/dtrace/systrace_
 +};
 +
 +DT_PROVIDER_MODULE(systrace);
+diff -urN ../linux-2.6.34/kernel/dtrace/systrace.mod.c ./kernel/dtrace/systrace.mod.c
+--- ../linux-2.6.34/kernel/dtrace/systrace.mod.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/systrace.mod.c	2010-08-24 11:19:51.000000000 -0400
+@@ -0,0 +1,23 @@
++#include <linux/module.h>
++#include <linux/vermagic.h>
++#include <linux/compiler.h>
++
++MODULE_INFO(vermagic, VERMAGIC_STRING);
++
++struct module __this_module
++__attribute__((section(".gnu.linkonce.this_module"))) = {
++ .name = KBUILD_MODNAME,
++ .init = init_module,
++#ifdef CONFIG_MODULE_UNLOAD
++ .exit = cleanup_module,
++#endif
++ .arch = MODULE_ARCH_INIT,
++};
++
++static const char __module_depends[]
++__used
++__attribute__((section(".modinfo"))) =
++"depends=dtrace";
++
++
++MODULE_INFO(srcversion, "530DC514BF1A010F3444A6B");
 diff -urN ../linux-2.6.34/kernel/Makefile ./kernel/Makefile
 --- ../linux-2.6.34/kernel/Makefile	2010-07-28 17:48:29.000000000 -0400
 +++ ./kernel/Makefile	2010-08-19 00:33:59.000000000 -0400

@@ -10,4 +10,7 @@
 #define DT_DEV_FASTTRAP_MINOR	(DT_DEV_SDT_MINOR + 1)
 #define DT_DEV_LOCKSTAT_MINOR	(DT_DEV_FASTTRAP_MINOR + 1)
 
+extern int dtrace_dev_init(void);
+extern void dtrace_dev_exit(void);
+
 #endif /* _DTRACE_DEV_H_ */

@@ -46,7 +46,8 @@ int systrace_dev_init(void)
 
 	ret = misc_register(&systrace_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", systrace_dev.name, systrace_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       systrace_dev.name, systrace_dev.minor);
 
 	return ret;
 }

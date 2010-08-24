@@ -14,21 +14,10 @@ __attribute__((section(".gnu.linkonce.this_module"))) = {
  .arch = MODULE_ARCH_INIT,
 };
 
-static const struct modversion_info ____versions[]
-__used
-__attribute__((section("__versions"))) = {
-	{ 0xdf881639, "module_layout" },
-	{ 0x14e76572, "dtrace_register" },
-	{ 0x2efbd192, "misc_register" },
-	{ 0xea147363, "printk" },
-	{ 0xf5106ffc, "dtrace_unregister" },
-	{ 0x70aa54cd, "misc_deregister" },
-};
-
 static const char __module_depends[]
 __used
 __attribute__((section(".modinfo"))) =
 "depends=dtrace";
 
 
-MODULE_INFO(srcversion, "D9A772112E54FC0D7B2E6C5");
+MODULE_INFO(srcversion, "982A8EBA6158E193A83D13D");

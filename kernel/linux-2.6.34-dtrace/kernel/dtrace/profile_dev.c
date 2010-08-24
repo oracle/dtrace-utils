@@ -46,7 +46,8 @@ int profile_dev_init(void)
 
 	ret = misc_register(&profile_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", profile_dev.name, profile_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       profile_dev.name, profile_dev.minor);
 
 	return ret;
 }

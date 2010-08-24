@@ -46,7 +46,8 @@ int sdt_dev_init(void)
 
 	ret = misc_register(&sdt_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", sdt_dev.name, sdt_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       sdt_dev.name, sdt_dev.minor);
 
 	return ret;
 }

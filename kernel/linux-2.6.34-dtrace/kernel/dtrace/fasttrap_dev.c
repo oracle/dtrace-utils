@@ -46,7 +46,8 @@ int fasttrap_dev_init(void)
 
 	ret = misc_register(&fasttrap_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", fasttrap_dev.name, fasttrap_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       fasttrap_dev.name, fasttrap_dev.minor);
 
 	return ret;
 }

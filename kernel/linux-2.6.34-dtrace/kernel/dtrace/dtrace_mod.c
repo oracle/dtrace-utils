@@ -14,13 +14,20 @@ MODULE_DESCRIPTION("Dynamic Tracing");
 MODULE_VERSION("v0.1");
 MODULE_LICENSE("Proprietary");
 
+/*
+ * Initialize the module.
+ */
 static int __init dtrace_init(void)
 {
-	return 0;
+	return dtrace_dev_init();
 }
 
+/*
+ * Perform cleanup before the module is removed.
+ */
 static void __exit dtrace_exit(void)
 {
+	dtrace_dev_exit();
 }
 
 module_init(dtrace_init);

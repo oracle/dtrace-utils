@@ -46,7 +46,8 @@ int fbt_dev_init(void)
 
 	ret = misc_register(&fbt_dev);
 	if (ret)
-		printk(KERN_ERR "%s: Can't register misc device %d\n", fbt_dev.name, fbt_dev.minor);
+		pr_err("%s: Can't register misc device %d\n",
+		       fbt_dev.name, fbt_dev.minor);
 
 	return ret;
 }
