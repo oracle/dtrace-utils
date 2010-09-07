@@ -26,12 +26,14 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <sys/isa_defs.h>
+/*#include <sys/isa_defs.h>*/
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include "libproc.h"
+
+#include <types_various.h>
 
 /*
  * fcntl() system call -- executed by subject process.
@@ -109,11 +111,13 @@ pr_fcntl(struct ps_prochandle *Pr, int fd, int cmd, void *argp)
 		case 27:
 			adp->arg_size = sizeof (struct flock64_32);
 #else	/* _LP64 */
+#if     defined(_LARGEFILE64_SOURCE)
 		case F_GETLK64:
 		case F_SETLK64:
 		case F_SETLKW64:
 		case F_FREESP64:
 			adp->arg_size = sizeof (struct flock64);
+#endif
 #endif	/* _LP64 */
 			break;
 		case F_SHARE:

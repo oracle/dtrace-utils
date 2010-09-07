@@ -51,7 +51,6 @@
 #include <door.h>
 #include <gelf.h>
 //#include <proc_service.h>
-#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <rtld_db.h>
@@ -60,6 +59,7 @@
 #include <sys/procfs.h>
 #include <sys/auxv.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
 //#include <sys/corectl.h>
@@ -73,6 +73,7 @@
 #if defined(__i386) || defined(__amd64)
 #include <sys/sysi86.h>
 #endif
+
 
 #ifdef	__cplusplus
 extern "C" {

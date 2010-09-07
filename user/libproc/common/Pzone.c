@@ -27,15 +27,16 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <errno.h>
-#include <libzonecfg.h>
-#include <link.h>
+/*#include <libzonecfg.h>*/
+/*#include <link.h>*/
+#include <sys/link.h>
 #include <string.h>
 #include <strings.h>
-#include <sys/list.h>
+/*#include <sys/list.h>*/
 #include <sys/types.h>
 #include <sys/mkdev.h>
 #include <sys/mman.h>
-#include <sys/mnttab.h>
+/*#include <sys/mnttab.h>*/
 
 #include "Pcontrol.h"
 

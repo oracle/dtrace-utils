@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-#include <sys/isa_defs.h>
+/*#include <sys/isa_defs.h>*/
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>

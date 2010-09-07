@@ -66,7 +66,11 @@ open_psinfo(const char *arg, int *perr)
 	 */
 	if ((fd = open64(path, O_RDONLY)) >= 0) {
 		if (fstat64(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+#ifdef linux
+		    0) {
+#else
 		    strcmp(st.st_fstype, "proc") != 0) {
+#endif
 			(void) close(fd);
 			fd = -1;
 		}

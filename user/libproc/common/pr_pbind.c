@@ -24,7 +24,7 @@
  */
 
 #include <sys/types.h>
-#include <sys/procset.h>
+/*#include <sys/procset.h>*/
 #include <sys/processor.h>
 #include <sys/pset.h>
 #include <stdlib.h>

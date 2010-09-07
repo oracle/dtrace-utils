@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include "Pcontrol.h"
 
 /*
@@ -57,5 +58,9 @@ Pisprocdir(struct ps_prochandle *Pr, const char *dir)
 	    statvfs(path, &statvfsb) == 0 &&
 	    (statb.st_mode & S_IFMT) == S_IFDIR &&
 	    statb.st_ino == 2 &&
+#ifdef linux
+	    1);
+#else
 	    strcmp(statvfsb.f_basetype, "proc") == 0);
+#endif
 }

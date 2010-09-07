@@ -30,10 +30,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <sys/stream.h>
+/*#include <sys/stream.h>*/
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include "libproc.h"
+
+#include <types_various.h>
 
 static int
 get_sock_peer_name(struct ps_prochandle *Pr,

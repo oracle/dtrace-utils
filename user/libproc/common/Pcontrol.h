@@ -41,6 +41,7 @@
 #include <limits.h>
 
 #include <mutex.h>
+#include <sys/priv.h>
 
 #ifdef	__cplusplus
 extern "C" {

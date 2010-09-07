@@ -28,12 +28,12 @@
 
 #define	_LARGEFILE64_SOURCE
 
-#include <sys/task.h>
+/*#include <sys/task.h>*/
 #include <sys/types.h>
 
 #include <zone.h>
 #include <errno.h>
-#include <project.h>
+/*#include <project.h>*/
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>

@@ -42,10 +42,10 @@
 //#include <atomic.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/param.h>
 //#include <sys/stack.h>
+#include <sys/stat.h>
 #include <sys/fault.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
@@ -58,6 +58,7 @@
 #include "libproc.h"
 #include "Putil.h"
 #include "P32ton.h"
+
 
 int	_libproc_debug;		/* set non-zero to enable debugging printfs */
 int	_libproc_no_qsort;	/* set non-zero to inhibit sorting */

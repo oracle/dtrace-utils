@@ -1,0 +1,11 @@
+2010-09-07  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* Adjust the header files at directory include to make the files of
+	libproc	can be compiled. Move some modified headers from uts to
+	include. Fix the source files at libproc.
+
+2010-08-31  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* Strip the Solaris header files dependency from the sources files.
+	Add the fix includes at the directory include. Fix the compile
+	options.

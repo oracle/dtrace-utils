@@ -33,10 +33,12 @@
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
 #include <gelf.h>
 #include <stddef.h>
+
+#include <types_various.h>
+#include <unistd.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"

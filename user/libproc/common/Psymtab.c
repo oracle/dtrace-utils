@@ -41,8 +41,10 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/systeminfo.h>
+/*#include <sys/systeminfo.h>*/
 #include <sys/sysmacros.h>
+
+#include <types_boolean.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"
@@ -1811,9 +1813,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				dprintf("Symbol table already there for %s\n",
 				    objectfile);
 			}
-		} else if (shp->sh_type == SHT_SUNW_LDYNSYM) {
+		/*} else if (shp->sh_type == SHT_SUNW_LDYNSYM) { */
 			/* .SUNW_ldynsym section is auxiliary to .dynsym */
-			if (fptr->file_dynsym.sym_data_aux == NULL) {
+			/*if (fptr->file_dynsym.sym_data_aux == NULL) {
 				dprintf(".SUNW_ldynsym symbol table"
 				    " found for %s\n", objectfile);
 				fptr->file_dynsym.sym_data_aux = cp->c_data;
@@ -1825,7 +1827,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			} else {
 				dprintf(".SUNW_ldynsym symbol table already"
 				    " there for %s\n", objectfile);
-			}
+			} */
 		} else if (shp->sh_type == SHT_DYNAMIC) {
 			dyn = cp;
 		} else if (strcmp(cp->c_name, ".plt") == 0) {
