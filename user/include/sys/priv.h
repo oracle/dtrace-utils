@@ -1,6 +1,6 @@
 #ifndef _SYS_PRIV_H
 #define _SYS_PRIV_H
- 
+#include <sys/int_types.h> 
 typedef struct priv_impl_info {
 	uint32_t	priv_headersize;	/* sizeof (priv_impl_info) */
 	uint32_t	priv_flags;		/* additional flags */

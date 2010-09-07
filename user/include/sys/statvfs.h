@@ -1,5 +1,5 @@
-#ifndef STATVFS_H
-#define STATVFS_H
+#ifndef _SYS_FIX_STATVFS_H
+#define _SYS_FIX_STATVFS_H
 
 #include "/usr/include/sys/statvfs.h"
 

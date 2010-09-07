@@ -1,10 +1,16 @@
-#ifndef SYS_STAT_H
-#define SYS_STAT_H 1
+#ifndef _32_SYS_STAT_H
+#define _32_SYS_STAT_H
 
+#include "/usr/include/sys/stat.h"
 #include "/usr/include/sys/types.h"
 #include <types_posix.h>
 #include <types_various.h>
-#include "/usr/include/sys/stat.h"
+
+#ifndef __USE_LARGEFILE64
+	
+#define stat64 stat
+ 	
+#endif
 
 #if defined(_SYSCALL32)
 
@@ -62,7 +68,5 @@ struct stat64_32 {
 #endif
 
 #endif /*_SYSCALL32*/
-
-struct stat64;
 
 #endif

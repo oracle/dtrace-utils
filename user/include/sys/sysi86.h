@@ -1,5 +1,5 @@
-#ifndef SYS_SYSI86_H
-#define SYS_SYSI86_H
+#ifndef _SYS_SYSI86_H
+#define _SYS_SYSI86_H
 struct ssd {
         unsigned int    sel;   /* descriptor selector */
         unsigned int    bo;    /* segment base or gate offset */
