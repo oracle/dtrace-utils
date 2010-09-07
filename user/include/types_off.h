@@ -46,7 +46,7 @@ typedef off_t           off64_t;        /* offsets within files */
 typedef longlong_t      off64_t;        /* offsets within files */
 #endif
 #else
-typedef unsigned long long	off64_t;
+typedef __off64_t	off64_t;
 #endif  /* _LARGEFILE64_SOURCE */
 
 #endif /* _OFF_T */

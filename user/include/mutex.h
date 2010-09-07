@@ -1,7 +1,5 @@
 #ifndef MUTEX_H
 #define MUTEX_H
-
-#include <semaphore.h>
-
-typedef struct semaphore mutex_t;
+#include <pthread.h>
+#define mutex_t pthread_mutex_t
 #endif
