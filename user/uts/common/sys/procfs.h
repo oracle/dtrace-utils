@@ -58,7 +58,7 @@ extern "C" {
 #include <sys/ucontext.h>
 
 #include <types_off.h>
-#include <processor.h>
+#include <sys/processor.h>
 
 /*
  * System call interfaces for /proc.

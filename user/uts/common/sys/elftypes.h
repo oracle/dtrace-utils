@@ -40,17 +40,17 @@ extern "C" {
 #endif
 
 #if defined(_LP64) || defined(_I32LPx)
-typedef unsigned int		Elf32_Addr;
+//typedef unsigned int		Elf32_Addr;
 typedef unsigned short		Elf32_Half;
-typedef unsigned int		Elf32_Off;
-typedef int			Elf32_Sword;
-typedef unsigned int		Elf32_Word;
+//typedef unsigned int		Elf32_Off;
+//typedef int			Elf32_Sword;
+//typedef unsigned int		Elf32_Word;
 #else
-typedef unsigned long		Elf32_Addr;
+//typedef unsigned long		Elf32_Addr;
 typedef unsigned short		Elf32_Half;
-typedef unsigned long		Elf32_Off;
-typedef long			Elf32_Sword;
-typedef unsigned long		Elf32_Word;
+//typedef unsigned long		Elf32_Off;
+//typedef long			Elf32_Sword;
+//typedef unsigned long		Elf32_Word;
 #endif
 
 #if defined(_LP64)
