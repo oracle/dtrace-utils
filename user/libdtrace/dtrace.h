@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <gelf.h>
 
-#include <processor.h>
+#include <sys/processor.h>
 
 #ifdef	__cplusplus
 extern "C" {

@@ -1,3 +1,10 @@
+2010-09-08  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* Define __USE_ATFILE before include <fcntl.h> when use AT_*
+	constants.
+	* Add makefile for libproc and libdtrace.
+	* Adjust the header files.
+
 2010-09-07  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* Adjust the header files at directory include to make the files of

@@ -23,9 +23,9 @@
  * Use is subject to license terms.
  */
 
-#include <sys/stack.h>
+/*#include <sys/stack.h>*/
 #include <sys/regset.h>
-#include <sys/frame.h>
+/*#include <sys/frame.h>*/
 #include <sys/sysmacros.h>
 #include <sys/trap.h>
 #include <sys/machelf.h>

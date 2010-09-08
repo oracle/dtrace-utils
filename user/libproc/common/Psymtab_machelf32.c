@@ -501,6 +501,7 @@ done_with_plt:
 	/*
 	 * Section Header: .SUNW_ldynsym
 	 */
+#if 0  /*SHT_SUNW_LDYNSYM is Solaris ABI specific values */
 	if (d[DI_SUNW_SYMTAB] != NULL) {
 		sp->sh_name = SHSTR_NDX_SUNW_ldynsym;
 		sp->sh_type = SHT_SUNW_LDYNSYM;
@@ -527,6 +528,7 @@ done_with_plt:
 		sp++;
 	}
 
+#endif
 	/*
 	 * Section Header: .dynsym
 	 */

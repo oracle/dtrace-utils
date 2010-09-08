@@ -31,7 +31,10 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#define __USE_ATFILE
 #include <sys/fcntl.h>
+
 #include <sys/sysmacros.h>
 #include "libproc.h"
 

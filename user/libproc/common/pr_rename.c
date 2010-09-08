@@ -28,6 +28,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
+#define __USE_ATFILE
+#include <fcntl.h>
+
 #include "libproc.h"
 
 /*

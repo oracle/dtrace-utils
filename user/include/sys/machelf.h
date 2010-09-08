@@ -31,6 +31,9 @@
 extern "C" {
 #endif
 
+#include <types_posix.h>
+#include <sys/elf.h>
+
 #if defined(__amd64) || (defined(__i386) && defined(_ELF64))
 #include <sys/elf_amd64.h>
 #elif defined(__i386)
@@ -90,8 +93,8 @@ typedef	Elf64_Vernaux	Vernaux;
 typedef	Elf64_Versym	Versym;
 typedef	Elf64_Move	Move;
 typedef	Elf64_Cap	Cap;
-typedef	Elf64_Capinfo	Capinfo;
-typedef	Elf64_Capchain	Capchain;
+/*typedef	Elf64_Capinfo	Capinfo;
+typedef	Elf64_Capchain	Capchain;*/
 #endif	/* _ASM */
 
 #else	/* _ILP32 */

@@ -41,7 +41,7 @@
 #include <libgen.h>
 #include <limits.h>
 
-#include <processor.h>
+#include <sys/processor.h>
 
 #include <dt_impl.h>
 

@@ -211,6 +211,7 @@ CC_CONTENT_SYMTAB)
  *	system call numbers
  *		syscall(SYS_xxxx, ...)
  */
+#define	SYS_fstatat		66
 #define	SYS_tasksys		70
 #define SYS_rctlsys		74
 #define	SYS_statvfs		103
