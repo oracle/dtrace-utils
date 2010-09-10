@@ -1,5 +1,6 @@
 BUILD_DIR = build-2.6.18-128.1.14.0.1.el5
-CC=gcc -g $(BUILD_BITS)
+BINDIR = ../$(BUILD_DIR)
+CC=/usr/bin/gcc -g $(BUILD_BITS)
 CPPFLAGS += -I. \
 	-I../common/ctf \
 	-I../uts/common/ \
@@ -18,6 +19,7 @@ all: $(LIB)
 
 $(LIB): \
 	$(LIB)(drti.o) \
+	$(LIB)(dt_lex.o) \
 	$(LIB)(dt_aggregate.o) \
 	$(LIB)(dt_as.o) \
 	$(LIB)(dt_buf.o) \
@@ -52,7 +54,22 @@ $(LIB): \
 	$(LIB)(dt_strtab.o) \
 	$(LIB)(dt_subr.o) \
 	$(LIB)(dt_work.o) \
-	$(LIB)(dt_xlator.o) \
+	$(LIB)(dt_xlator.o)
+
+$(BINDIR)/dt_grammar.h $(LIB)(dt_grammar.o): dt_grammar.y $(H)
+	$(YACC) -d dt_grammar.y
+	mv y.tab.h $(BINDIR)/dt_grammar.h
+	mv y.tab.c dt_grammar.c
+	$(CC) -DYYDEBUG=1 -DYYERROR_VERBOSE $(CPPFLAGS) -c dt_grammar.c
+	ar rv $(LIB) dt_grammar.o
+	-rm -f dt_grammar.c dt_grammar.o
+
+$(LIB)(dt_lex.o): $(BINDIR)/dt_grammar.h $(BINDIR)/dt_lex.c $(H)
+	 $(CC) $(CPPFLAGS) -c $(BINDIR)/dt_lex.c
+	 ar rv $(LIB) dt_lex.o
+	 -rm -f dt_lex.o
+$(BINDIR)/dt_lex.c: dt_lex.l
+	lex -t -v dt_lex.l > $(BINDIR)/dt_lex.c
 
 clean:
 	-rm -f *.o

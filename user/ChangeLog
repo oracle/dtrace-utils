@@ -1,3 +1,9 @@
+2010-09-10  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libport: Add compat functions support at libport.
+	* libdtrace/makefile: Handle the dt_lex.l and add it to the lib.
+	* libdtrace/dt_impl.h: Define different yytext at Linux.
+
 2010-09-08  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* Define __USE_ATFILE before include <fcntl.h> when use AT_*
