@@ -1,3 +1,9 @@
+2010-09-13  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* librtld: Added.
+	* libdtrace (dt_lex.l, makefile): Fixed.
+	* include/types_various.h: Define ino64_t and PS_OBJ_LDSO.
+
 2010-09-10  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libport: Add compat functions support at libport.

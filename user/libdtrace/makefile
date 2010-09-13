@@ -19,12 +19,12 @@ all: $(LIB)
 
 $(LIB): \
 	$(LIB)(drti.o) \
-	$(LIB)(dt_lex.o) \
 	$(LIB)(dt_aggregate.o) \
 	$(LIB)(dt_as.o) \
 	$(LIB)(dt_buf.o) \
 	$(LIB)(dt_cc.o) \
 	$(LIB)(dt_cg.o) \
+	$(LIB)(dt_lex.o) \
 	$(LIB)(./i386/dt_isadep.o) \
 	$(LIB)(dt_consume.o) \
 	$(LIB)(dt_decl.o) \
@@ -72,5 +72,5 @@ $(BINDIR)/dt_lex.c: dt_lex.l
 	lex -t -v dt_lex.l > $(BINDIR)/dt_lex.c
 
 clean:
-	-rm -f *.o
+	 -rm -f dt_grammar.h dt_lex.c *.o *.a	
 	

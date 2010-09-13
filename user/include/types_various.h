@@ -5,6 +5,7 @@
 #include <sys/int_types.h>
 #include <types_posix.h>
 #include <unistd.h>
+#include <types_off.h>
 
 typedef struct {                /* syscall set type */
         unsigned int    word[16];
@@ -32,6 +33,12 @@ typedef struct iovec iovec_t;
 typedef uint32_t dev32_t;
 typedef uint32_t size32_t;
 typedef uint32_t        caddr32_t;
+
+#ifdef _LP64
+typedef ino_t		ino64_t;
+#else
+typedef u_longlong_t	ino64_t;	/* expanded inode type	*/
+#endif
 
 #if __KERNEL__
 #define PAGESIZE        PAGE_SIZE
@@ -301,5 +308,7 @@ typedef struct fshare {
  */
 #define	SSYS	   0x00000001	/* system (resident) process */
 
+
+#define	PS_OBJ_LDSO	((const char *)0x1)	/* the dynamic linker */
 
 #endif

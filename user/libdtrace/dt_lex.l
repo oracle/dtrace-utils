@@ -697,7 +697,7 @@ yyinit(dt_pcb_t *pcb)
 	yypcb = pcb;
 	yylineno = 1;
 	yypragma = NULL;
-	yysptr = yysbuf;
+/*	yysptr = yysbuf; */
 }
 
 /*
@@ -792,7 +792,7 @@ id_or_type(const char *s)
 	unput(c0);
 	return (ttok);
 }
-
+#if 0
 static int
 input(void)
 {
@@ -834,3 +834,4 @@ unput(int c)
 	*yysptr++ = c;
 	yytchar = c;
 }
+#endif
