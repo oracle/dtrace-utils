@@ -1,3 +1,11 @@
+2010-09-16  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/mutex.h, libdtrace, libproc, librtld: Fix the mutex
+	problems.
+	* libport/proc_name.c, libport/strlcat.c: Added.
+	* include/port.h, uts/common/sys/mnttab.h, include/sys/bitmap.h,
+	include/sys/elftypes.h: Added.
+
 2010-09-13  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* librtld: Added.

@@ -36,9 +36,13 @@
 #include <sys/types.h>
 #include <sys/mkdev.h>
 #include <sys/mman.h>
-/*#include <sys/mnttab.h>*/
+#include <sys/mnttab.h>
+
+#include <types_various.h>
+#include <mutex.h>
 
 #include "Pcontrol.h"
+
 
 struct path_node {
 	struct path_node	*pn_next;
@@ -346,7 +350,7 @@ Plofspath(const char *path, char *s, size_t n)
 		tmp[rv] = '\0';
 
 	(void) mutex_lock(&lofs_lock);
-
+#if 0
 	/*
 	 * If /etc/mnttab has been modified since the last time
 	 * we looked, then rebuild the lofs lookup cache.
@@ -359,7 +363,7 @@ Plofspath(const char *path, char *s, size_t n)
 		lofs_mstat = statb;
 		rebuild_lofs_cache();
 	}
-
+#endif
 	/*
 	 * So now we're going to search the path for any components that
 	 * might be lofs mounts.  We'll start out search from the full

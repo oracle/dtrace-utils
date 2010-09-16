@@ -2,6 +2,8 @@
 #define TYPES_OFF_H
 
 #include <stdint.h>
+#include <sys/types.h>
+
 /*
  *  * Strictly conforming ANSI C environments prior to the 1999
  *   * revision of the C Standard (ISO/IEC 9899:1999) do not have
@@ -32,12 +34,6 @@ typedef union {
 */
 #ifndef _OFF_T
 #define _OFF_T
-
-#if defined(_LP64) || _FILE_OFFSET_BITS == 32
-typedef long            off_t;          /* offsets within files */
-#elif _FILE_OFFSET_BITS == 64
-typedef longlong_t      off_t;          /* offsets within files */
-#endif
 
 #if defined(_LARGEFILE64_SOURCE)
 #ifdef _LP64

@@ -31,6 +31,7 @@ $(LIB): \
 	$(LIB)(Psymtab.o) \
 	$(LIB)(Psyscall.o) \
 	$(LIB)(Putil.o) \
+	$(LIB)(Pzone.o)	\
 	$(LIB)(pr_door.o) \
 	$(LIB)(pr_exit.o) \
 	$(LIB)(pr_fcntl.o) \
@@ -59,5 +60,5 @@ $(LIB): \
 
 
 clean:
-	-rm -f *.o
+	-rm -f *.o ../../build-2.6.18-128.1.14.0.1.el5/libproc.a
 	

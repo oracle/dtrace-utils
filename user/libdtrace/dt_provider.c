@@ -28,6 +28,7 @@
 
 #include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/bitmap.h>
 
 #include <assert.h>
 #include <limits.h>

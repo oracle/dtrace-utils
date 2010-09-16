@@ -38,6 +38,10 @@
 #include	<rtld_msg.h>
 #include	<machdep_x86.h>
 #include	<types_various.h>
+#include	<mutex.h>
+
+
+#define MSG_ORIG(x) x
 
 /*
  * Mutex to protect global data

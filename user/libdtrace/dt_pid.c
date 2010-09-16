@@ -35,6 +35,7 @@
 #include <stddef.h>
 
 #include <types_boolean.h>
+#include <mutex.h>
 
 #include <dt_impl.h>
 #include <dt_program.h>

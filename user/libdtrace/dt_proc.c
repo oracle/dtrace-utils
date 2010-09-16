@@ -84,6 +84,7 @@
 #include <errno.h>
 
 #include <types_boolean.h>
+#include <mutex.h>
 
 #include <dt_proc.h>
 #include <dt_pid.h>

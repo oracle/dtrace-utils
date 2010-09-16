@@ -28,7 +28,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define __USE_ATFILE
+#define __USE_ATFILE 
 #include <fcntl.h>
 
 #include <errno.h>

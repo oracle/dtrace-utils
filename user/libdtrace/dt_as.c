@@ -27,6 +27,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/types.h>
+#include <sys/bitmap.h>
 #include <strings.h>
 #include <stdlib.h>
 #include <assert.h>

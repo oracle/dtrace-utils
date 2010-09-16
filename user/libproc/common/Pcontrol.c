@@ -53,6 +53,7 @@
 #include <sys/priv.h>
 #include <types_various.h>
 #include <sys/corectl.h>
+#include <mutex.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"

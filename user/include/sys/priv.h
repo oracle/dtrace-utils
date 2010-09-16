@@ -11,6 +11,13 @@ typedef struct priv_impl_info {
 	uint32_t	priv_globalinfosize;	/* Per system info */
 } priv_impl_info_t;
 
+#define	PRIV_PRPRIV_INFO_OFFSET(p) \
+ 		(sizeof (*(p)) + \
+ 		((p)->pr_nsets * (p)->pr_setsize - 1) * sizeof (priv_chunk_t))
+
+#define	PRIV_PRPRIV_SIZE(p) \
+ 		(PRIV_PRPRIV_INFO_OFFSET(p) + (p)->pr_infosize)
+
  
 
 #endif

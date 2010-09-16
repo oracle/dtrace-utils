@@ -166,10 +166,6 @@ typedef struct meminfo32 {
 #define SIG2STR_MAX     32
 
 
-#include     <pthread.h>
-#define   DEFAULTMUTEX PTHREAD_MUTEX_INITIALIZER
-
-
 /*
  * Definitions of synchronization types.
  */
@@ -310,5 +306,11 @@ typedef struct fshare {
 
 
 #define	PS_OBJ_LDSO	((const char *)0x1)	/* the dynamic linker */
+
+#define	Z_OK		0
+#define	Z_NO_ZONE		16	/* no such zone */
+#define	ZONENAME_MAX		64
+#define	GLOBAL_ZONENAME		"global"
+
 
 #endif

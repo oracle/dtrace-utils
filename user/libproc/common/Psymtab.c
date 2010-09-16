@@ -45,6 +45,7 @@
 #include <sys/sysmacros.h>
 
 #include <types_boolean.h>
+#include <mutex.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"
