@@ -33,12 +33,20 @@ typedef struct iovec iovec_t;
 typedef uint32_t dev32_t;
 typedef uint32_t size32_t;
 typedef uint32_t        caddr32_t;
-
+#if 0
 #ifdef _LP64
 typedef ino_t		ino64_t;
 #else
 typedef u_longlong_t	ino64_t;	/* expanded inode type	*/
 #endif
+#endif
+
+/*
+ * return x rounded up to an align boundary
+ * eg, P2ROUNDUP(0x1234, 0x100) == 0x1300 (0x13*align)
+ * eg, P2ROUNDUP(0x5600, 0x100) == 0x5600 (0x56*align)
+ */
+#define	P2ROUNDUP(x, align)		(-(-(x) & -(align)))
 
 #if __KERNEL__
 #define PAGESIZE        PAGE_SIZE

@@ -23,7 +23,7 @@ typedef union {
 	uint32_t        _l[2];
 } u_longlong_t;
 #endif  /* defined(_LONGLONG_TYPE) */
-
+#if 0
 /*
  * The size of off_t and related types depends on the setting of
  * _FILE_OFFSET_BITS.  (Note that other system headers define other types
@@ -46,7 +46,7 @@ typedef __off64_t	off64_t;
 #endif  /* _LARGEFILE64_SOURCE */
 
 #endif /* _OFF_T */
-
+#endif
 typedef u_longlong_t    core_content_t;
 
 #endif

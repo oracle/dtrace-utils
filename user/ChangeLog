@@ -1,3 +1,9 @@
+2010-09-17  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libport/gmatch.c: Added.
+	* librtld/makefile, libctf/makefile: Added.
+	* include/types_various.h, include/types_off.h: Update.
+
 2010-09-16  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/mutex.h, libdtrace, libproc, librtld: Fix the mutex
