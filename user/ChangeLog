@@ -1,3 +1,11 @@
+2010-09-19  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* driver/dis_tables.h: Include sys/int_types.h.
+	* driver/dis_tables.c: Added.
+	* libdtrace/mknames.sh: Use awk. 
+	* libdtrace/makefile: Include dis_tables.o, dt_errtags.o and
+	dt_names.o.
+
 2010-09-17  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libport/gmatch.c: Added.
