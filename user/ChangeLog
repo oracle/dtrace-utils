@@ -1,3 +1,13 @@
+2010-09-21  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/objfs.h: Move to uts/common/sys/.
+	* libdtrace/makefile: Export correct format to dt_errtags.c.
+	* libdtrace/dt_impl.h, dt_open.c, dt_parser.c, dt_dof.c: Fixed include
+	header files.
+	* librtld/makefile: Fix the compile options.
+	* include/types_various.h: Add ABS macro and and move OBJFS_ROOT to
+	objfs.h.
+
 2010-09-19  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* driver/dis_tables.h: Include sys/int_types.h.

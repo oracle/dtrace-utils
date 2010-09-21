@@ -68,8 +68,6 @@ typedef u_longlong_t	ino64_t;	/* expanded inode type	*/
 
 #define	SHN_SUNW_IGNORE	0xff3f
 
-#define OBJFS_ROOT      "/system/object"
-
 #define _MAP_NEW        0x80000000      /* users should not need to use this */
 
 #define MISYS_MEMINFO           0x0
@@ -319,6 +317,11 @@ typedef struct fshare {
 #define	Z_NO_ZONE		16	/* no such zone */
 #define	ZONENAME_MAX		64
 #define	GLOBAL_ZONENAME		"global"
+
+
+#ifndef ABS
+#define	ABS(a)		((a) < 0 ? -(a) : (a))
+#endif
 
 
 #endif

@@ -110,6 +110,7 @@
 #include <types_boolean.h>
 
 #include <dt_impl.h>
+#include <dt_errtags.h>
 #include <dt_grammar.h>
 #include <dt_module.h>
 #include <dt_provider.h>

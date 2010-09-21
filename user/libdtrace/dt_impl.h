@@ -28,7 +28,7 @@
 #define	_DT_IMPL_H
 
 #include <sys/param.h>
-#include <objfs.h>
+#include <sys/objfs.h>
 #include <setjmp.h>
 #include <libctf.h>
 #include <dtrace.h>
@@ -37,6 +37,7 @@
 
 #include <types_time.h>
 #include <sys/utsname.h>
+#include <types_various.h>
 
 
 #ifdef	__cplusplus

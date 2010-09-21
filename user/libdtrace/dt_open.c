@@ -51,6 +51,7 @@
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
+#include <rtld_db.h>
 
 /*
  * Stability and versioning definitions.  These #defines are used in the tables
@@ -645,9 +646,12 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 { DTRACE_STABILITY_UNSTABLE, DTRACE_STABILITY_UNSTABLE, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_UNSTABLE, DTRACE_STABILITY_UNSTABLE, DTRACE_CLASS_COMMON },
 };
-
+#if 0
 const char *_dtrace_defcpp = "/usr/ccs/lib/cpp"; /* default cpp(1) to invoke */
 const char *_dtrace_defld = "/usr/ccs/bin/ld";   /* default ld(1) to invoke */
+#endif
+const char *_dtrace_defcpp = "/usr/lib/cpp"; /* default cpp(1) to invoke */
+const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
 
 const char *_dtrace_libdir = "/usr/lib/dtrace"; /* default library directory */
 const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */

@@ -28,6 +28,7 @@
 
 #include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/bitmap.h>
 
 #include <string.h>
 #include <alloca.h>
