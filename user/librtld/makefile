@@ -17,8 +17,8 @@ all: $(LIB)
 	@/bin/true
 
 $(LIB): \
+	$(LIB)(rd_elf.o) \
 	$(LIB)(rtld_db.o)
-
 clean:
 	-rm -f *.o *.a
 

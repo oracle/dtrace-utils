@@ -44,9 +44,8 @@ typedef longlong_t      off64_t;        /* offsets within files */
 #else
 typedef __off64_t	off64_t;
 #endif  /* _LARGEFILE64_SOURCE */
-
-#endif /* _OFF_T */
 #endif
+#endif /* _OFF_T */
 typedef u_longlong_t    core_content_t;
 
 #endif

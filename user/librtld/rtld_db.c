@@ -170,7 +170,7 @@ rd_new(struct ps_prochandle *php)
 	LOG(ps_plog(MSG_ORIG(MSG_DB_RDNEW), php));
 	if ((rap = (rd_agent_t *)calloc(sizeof (rd_agent_t), 1)) == NULL)
 		return (0);
-
+	
 	rap->rd_psp = php;
 	(void) mutex_init(&rap->rd_mutex, USYNC_THREAD, 0);
 	if (rd_reset(rap) != RD_OK) {
@@ -201,113 +201,56 @@ rd_delete(rd_agent_t *rap)
 
 rd_err_e
 rd_loadobj_iter(rd_agent_t *rap, rl_iter_f *cb, void *client_data)
-{
-	rd_err_e	err;
+{       char    buf[256];
+        FILE    *fp;
+        int     ret;
 
-	RDAGLOCK(rap);
+        if ((fp = fopen(buf, "r")) == NULL) {
+                return RD_ERR;
+        }
+        while (fgets(buf, sizeof buf, fp) != NULL) {
+                char    *addr_str;
+		long int addr;
+                char    *perms;
+                char    *lib;
+                uint_t  abort_iter;
+                rd_loadobj_t lobj;
 
-#ifdef _LP64
-	if (rap->rd_dmodel == PR_MODEL_LP64)
-		err = _rd_loadobj_iter64(rap, cb, client_data);
-	else
-#endif
-		err = _rd_loadobj_iter32(rap, cb, client_data);
+                if (strcmp(buf + strlen(buf) - 3, ".so") != 0)
+                        continue;
+                lib = strrchr(buf, ' ');
+                if (lib == NULL)
+                        continue;
+                lib++;
+                addr_str = strtok(buf, " ");
+                perms = strtok(NULL, " ");
+                if (strchr(perms, 'x') == NULL)
+                        continue;
 
-	RDAGUNLOCK(rap);
-	return (err);
+                addr = strtol(addr_str, NULL, 16);
+printf("rd_loadobj_iter: %s %p\n", lib, addr);
+                lobj.rl_base = addr;
+                lobj.rl_nameaddr = lib;
+                ret = cb(&lobj, client_data);
+        }
+        fclose(fp);
+        printf("%s\n", __func__);
 }
 
-
-rd_err_e
-rd_plt_resolution(rd_agent_t *rap, psaddr_t pc, lwpid_t lwpid,
-	psaddr_t pltbase, rd_plt_info_t *rpi)
+void
+rd_event_addr()
 {
-	rd_err_e	err;
-	RDAGLOCK(rap);
-#ifdef	_LP64
-	if (rap->rd_dmodel == PR_MODEL_LP64)
-		err = plt64_resolution(rap, pc, lwpid, pltbase,
-		    rpi);
-	else
-#endif
-		err = plt32_resolution(rap, pc, lwpid, pltbase,
-		    rpi);
-	RDAGUNLOCK(rap);
-	return (err);
+        printf("proc-stub:%s\n", __func__);
 }
-
-rd_err_e
-rd_event_addr(rd_agent_t *rap, rd_event_e num, rd_notify_t *np)
+void
+rd_event_enable()
 {
-	rd_err_e	rc = RD_OK;
-
-	RDAGLOCK(rap);
-	switch (num) {
-	case RD_NONE:
-		break;
-	case RD_PREINIT:
-		np->type = RD_NOTIFY_BPT;
-		np->u.bptaddr = rap->rd_preinit;
-		break;
-	case RD_POSTINIT:
-		np->type = RD_NOTIFY_BPT;
-		np->u.bptaddr = rap->rd_postinit;
-		break;
-	case RD_DLACTIVITY:
-		np->type = RD_NOTIFY_BPT;
-		np->u.bptaddr = rap->rd_dlact;
-		break;
-	default:
-		LOG(ps_plog(MSG_ORIG(MSG_DB_UNEXPEVENT), num));
-		rc = RD_ERR;
-		break;
-	}
-	if (rc == RD_OK) {
-		LOG(ps_plog(MSG_ORIG(MSG_DB_RDEVENTADDR), num,
-		    EC_ADDR(np->u.bptaddr)));
-	}
-
-	RDAGUNLOCK(rap);
-	return (rc);
+        printf("proc-stub:%s\n", __func__);
 }
-
-
-/* ARGSUSED 0 */
-rd_err_e
-rd_event_enable(rd_agent_t *rap, int onoff)
+void
+rd_event_getmsg()
 {
-	rd_err_e	err;
-
-	RDAGLOCK(rap);
-
-#ifdef _LP64
-	if (rap->rd_dmodel == PR_MODEL_LP64)
-		err = _rd_event_enable64(rap, onoff);
-	else
-#endif
-		err = _rd_event_enable32(rap, onoff);
-
-	RDAGUNLOCK(rap);
-	return (err);
-}
-
-
-rd_err_e
-rd_event_getmsg(rd_agent_t *rap, rd_event_msg_t *emsg)
-{
-	rd_err_e	err;
-
-	RDAGLOCK(rap);
-
-#ifdef _LP64
-	if (rap->rd_dmodel == PR_MODEL_LP64)
-		err = _rd_event_getmsg64(rap, emsg);
-	else
-#endif
-		err = _rd_event_getmsg32(rap, emsg);
-
-	RDAGUNLOCK(rap);
-	return (err);
+        printf("proc-stub:%s\n", __func__);
 }
 
 
@@ -331,24 +274,6 @@ rd_binder_exit_addr(struct rd_agent *rap, const char *bname, psaddr_t *beaddr)
 	return (RD_OK);
 }
 
-
-rd_err_e
-rd_objpad_enable(struct rd_agent *rap, size_t padsize)
-{
-	rd_err_e	err;
-
-	RDAGLOCK(rap);
-
-#ifdef _LP64
-	if (rap->rd_dmodel == PR_MODEL_LP64)
-		err = _rd_objpad_enable64(rap, padsize);
-	else
-#endif
-		err = _rd_objpad_enable32(rap, padsize);
-
-	RDAGUNLOCK(rap);
-	return (err);
-}
 
 
 char *

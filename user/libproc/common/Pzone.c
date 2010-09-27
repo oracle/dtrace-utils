@@ -61,6 +61,7 @@ static struct lofs_mnttab {	/* linked list of all lofs mount points */
 } *lofs_mnttab = NULL;
 static mutex_t lofs_lock = DEFAULTMUTEX;	/* protects the lofs cache */
 
+#if 0
 static void
 rebuild_lofs_cache(void)
 {
@@ -108,6 +109,7 @@ rebuild_lofs_cache(void)
 
 	(void) fclose(fp);
 }
+#endif
 
 static const char *
 lookup_lofs_mount_point(const char *mountp)

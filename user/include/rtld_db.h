@@ -176,18 +176,15 @@ struct	ps_prochandle;
 #ifdef __STDC__
 extern void		rd_delete(rd_agent_t *);
 extern char		*rd_errstr(rd_err_e rderr);
-extern rd_err_e		rd_event_addr(rd_agent_t *, rd_event_e, rd_notify_t *);
-extern rd_err_e		rd_event_enable(rd_agent_t *, int);
-extern rd_err_e		rd_event_getmsg(rd_agent_t *, rd_event_msg_t *);
+extern void		rd_event_addr();
+extern void		rd_event_enable();
+extern void		rd_event_getmsg();
 extern rd_err_e		rd_init(int);
 extern rd_err_e		rd_ctl(int, void *);
 extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
 				void *);
 extern void		rd_log(const int);
 extern rd_agent_t	*rd_new(struct ps_prochandle *);
-extern rd_err_e		rd_objpad_enable(struct rd_agent *, size_t);
-extern rd_err_e		rd_plt_resolution(rd_agent_t *, psaddr_t, lwpid_t,
-				psaddr_t, rd_plt_info_t *);
 extern rd_err_e		rd_get_dyns(rd_agent_t *, psaddr_t, void **, size_t *);
 extern rd_err_e		rd_reset(struct rd_agent *);
 #else /* !__STDC__ */
@@ -201,8 +198,6 @@ extern rd_err_e		rd_ctl();
 extern rd_err_e		rd_loadobj_iter();
 extern void		rd_log();
 extern rd_agent_t	*rd_new();
-extern rd_err_e		rd_objpad_enable();
-extern rd_err_e		rd_plt_resolution();
 extern rd_err_e		rd_get_dyns();
 extern rd_err_e		rd_reset();
 #endif /* !__STDC__ */

@@ -1,4 +1,4 @@
-CC=gcc -g $(BUILD_BITS)
+CC=/usr/bin/gcc -g $(BUILD_BITS)
 PTR32=-D_ILP32
 BUILD_DIR=build-2.6.18-128.1.14.0.1.el5
 COMMON = ../common/ctf

@@ -1,3 +1,17 @@
+2010-09-27  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/rtld_db.h, include/types_off.h: Adjust definition.
+	* libctf/makefile: Use /usr/bin/gcc.
+	* libport/makefile, libport/p_online.c, libport/tasksys.c: New.
+	* libproc/common/makefile: Use -D_LARGEFILE64_SOURCE=1 to make the
+	off64_t available.
+	* libproc/common/Pzone.c: Comment some functions now be compiled.
+	* librtld/rd_elf.c: New.
+	* librtld/makefile: Added rd_elf.o to LIB.
+	* librtld/rtld_db.c (rd_loadobj_iter, rd_event_addr, rd_event_enable,
+	rd_event_getmsg): Change.
+	(rd_plt_resolution, rd_objpad_enable): Remove.
+
 2010-09-21  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/objfs.h: Move to uts/common/sys/.

@@ -103,7 +103,6 @@
 #define MSG_DB_RDEVENTENABLE	"rtld_db: rd_event_enable(dmodel=%d, onoff=%d)"
 #define MSG_DB_RDEVENTGETMSG	"rtld_db: rd_event_getmsg(dmodel=%d, type=%d, \
 			 state=%d)"
-#define MSG_DB_RDOBJPADE	"rtld_db: rd_objpad_enable(padsize=0x%llx)"
 #define MSG_DB_64BIT_PREFIX	"64/"
 #define MSG_DB_BRAND_HELPERPATH_PREFIX "%s/%s/%s/%s%s_librtld_db.so.1"
 #define MSG_DB_BRAND_HELPERPATH "%s/%s/%s%s_librtld_db.so.1"

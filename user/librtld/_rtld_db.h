@@ -54,6 +54,7 @@ extern "C" {
 #define	RTLD_DB_BRAND_OPS rtld_db_brand_ops32
 #endif /* !_LP64 */
 
+#define MSG_ORIG(x)	x
 /*
  * State kept for brand helper libraries
  *
@@ -139,7 +140,6 @@ extern rd_err_e		_rd_get_dyns32(struct rd_agent *,
 			    psaddr_t, Dyn **, size_t *);
 extern rd_err_e		_rd_get_ehdr32(struct rd_agent *,
 			    psaddr_t, Ehdr *, uint_t *);
-extern rd_err_e		_rd_objpad_enable32(struct rd_agent *, size_t);
 extern rd_err_e		_rd_loadobj_iter32(rd_agent_t *, rl_iter_f *, void *);
 extern rd_err_e		_rd_reset32(struct rd_agent *);
 extern rd_err_e		find_dynamic_ent32(struct rd_agent *, psaddr_t,
@@ -154,7 +154,6 @@ extern rd_err_e		_rd_get_dyns64(struct rd_agent *,
 			    psaddr_t, Elf64_Dyn **, size_t *);
 extern rd_err_e		_rd_get_ehdr64(struct rd_agent *,
 			    psaddr_t, Elf64_Ehdr *, uint_t *);
-extern rd_err_e		_rd_objpad_enable64(struct rd_agent *, size_t);
 extern rd_err_e		_rd_loadobj_iter64(rd_agent_t *, rl_iter_f *, void *);
 extern rd_err_e		_rd_reset64(struct rd_agent *);
 extern rd_err_e		find_dynamic_ent64(struct rd_agent *, psaddr_t,
