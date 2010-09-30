@@ -7,6 +7,29 @@
 
 #include "dtrace.h"
 
+static void dtrace_panic(const char *fmt, ...)
+{
+	va_list		alist;
+
+	va_start(alist, fmt);
+	vprintk(fmt, alist);
+	va_end(alist);
+
+	BUG();
+}
+
+int dtrace_assfail(const char *a, const char *f, int l)
+{
+	dtrace_panic("assertion failed: %s, file: %s, line: %d", a, f, l);
+
+	/*
+	 * FIXME: We can do better than this.  The OpenSolaris DTrace source
+	 * states that this cannot be optimized away.
+	 */
+	return a[(uintptr_t)f];
+}
+EXPORT_SYMBOL(dtrace_assfail);
+
 #define DT_MASK_LO	0x00000000FFFFFFFFULL
 
 static void dtrace_add_128(uint64_t *addend1, uint64_t *addend2, uint64_t *sum)
@@ -119,7 +142,7 @@ void dtrace_aggregate_quantize(uint64_t *quanta, uint64_t nval, uint64_t incr)
 		return;
 	}
 
-	BUG_ON(1);
+	ASSERT(0);
 }
 
 void dtrace_aggregate_lquantize(uint64_t *lquanta, uint64_t nval,
@@ -131,8 +154,8 @@ void dtrace_aggregate_lquantize(uint64_t *lquanta, uint64_t nval,
 	uint16_t	levels = DTRACE_LQUANTIZE_LEVELS(arg);
 	int32_t		val = (int32_t)nval, level;
 
-	BUG_ON(step == 0);
-	BUG_ON(levels == 0);
+	ASSERT(step != 0);
+	ASSERT(levels != 0);
 
 	if (val < base) {
 		lquanta[0] += incr;

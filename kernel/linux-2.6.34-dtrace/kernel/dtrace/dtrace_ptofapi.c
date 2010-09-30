@@ -5,6 +5,7 @@
  * Copyright (C) 2010 Oracle Corporation
  */
 
+#include <linux/idr.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 
@@ -85,19 +86,19 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 	provider->dtpv_pops = *pops;
 
 	if (pops->dtps_provide == NULL) {
-		BUG_ON(pops->dtps_provide_module == NULL);
+		ASSERT(pops->dtps_provide_module != NULL);
 		provider->dtpv_pops.dtps_provide =
 		    (void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop;
 	}
 
 	if (pops->dtps_provide_module == NULL) {
-		BUG_ON(pops->dtps_provide == NULL);
+		ASSERT(pops->dtps_provide != NULL);
 		provider->dtpv_pops.dtps_provide_module =
 		    (void (*)(void *, struct module *))dtrace_nullop;
 	}
 
 	if (pops->dtps_suspend == NULL) {
-		BUG_ON(pops->dtps_resume == NULL);
+		ASSERT(pops->dtps_resume != NULL);
 		provider->dtpv_pops.dtps_suspend =
 		    (void (*)(void *, dtrace_id_t, void *))dtrace_nullop;
 		provider->dtpv_pops.dtps_resume =
@@ -108,9 +109,9 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 	*idp = (dtrace_provider_id_t)provider;
 
 	if (pops == &dtrace_provider_ops) {
-		BUG_ON(!mutex_is_locked(&dtrace_provider_lock));
-		BUG_ON(!mutex_is_locked(&dtrace_lock));
-		BUG_ON(dtrace_anon.dta_enabling != NULL);
+		ASSERT(mutex_is_locked(&dtrace_provider_lock));
+		ASSERT(mutex_is_locked(&dtrace_lock));
+		ASSERT(dtrace_anon.dta_enabling == NULL);
 
 		/*
 		 * The DTrace provider must be at the head of the provider
@@ -158,6 +159,47 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 EXPORT_SYMBOL(dtrace_register);
 
 /*
+ * Check whether the given probe is still enabled for the given provider.
+ */
+static int dtrace_unregister_check(int id, void *p, void *data)
+{
+	dtrace_probe_t		*probe = (dtrace_probe_t *)p;
+	dtrace_provider_t	*prov = (dtrace_provider_t *)data;
+
+	if (probe->dtpr_provider != prov)
+		return 0;
+
+	if (probe->dtpr_ecb == NULL)
+		return 0;
+
+	return -EBUSY;
+}
+
+/*
+ * Remove the given probe from the hash tables and the probe IDR.  The probes
+ * are chained for further processing.
+ */
+static int dtrace_unregister_probe(int id, void *p, void *data)
+{
+	dtrace_probe_t	*probe = (dtrace_probe_t *)p;
+	dtrace_probe_t	**first = (dtrace_probe_t **)data;
+
+	dtrace_hash_remove(dtrace_bymod, probe);
+	dtrace_hash_remove(dtrace_byfunc, probe);
+	dtrace_hash_remove(dtrace_byname, probe);
+
+	if (*first == NULL) {
+		*first = probe;
+		probe->dtpr_nextmod = NULL;
+	} else {
+		probe->dtpr_nextmod = *first;
+		*first = probe;
+	}
+
+	return 0;
+}
+
+/*
  * Unregister the specified provider from the DTrace core.  This should be
  * called by provider during module cleanup.
  */
@@ -165,7 +207,7 @@ int dtrace_unregister(dtrace_provider_id_t id)
 {
 	dtrace_provider_t	*old = (dtrace_provider_t *)id;
 	dtrace_provider_t	*prev = NULL;
-	int			i, self = 0;
+	int			err, self = 0;
 	dtrace_probe_t		*probe, *first = NULL;
 
 	if (old->dtpv_pops.dtps_enable ==
@@ -174,9 +216,9 @@ int dtrace_unregister(dtrace_provider_id_t id)
 		 * When the provider is the DTrace core itself, we're called
 		 * with locks already held.
 		 */
-		BUG_ON(old != dtrace_provider);
-		BUG_ON(!mutex_is_locked(&dtrace_provider_lock));
-		BUG_ON(!mutex_is_locked(&dtrace_lock));
+		ASSERT(old == dtrace_provider);
+		ASSERT(mutex_is_locked(&dtrace_provider_lock));
+		ASSERT(mutex_is_locked(&dtrace_lock));
 
 		self = 1;
 
@@ -215,23 +257,15 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	 * still enabled (having at least one ECB).  If any are found, we
 	 * cannot remove this provider.
 	 */
-	for (i = 0; i < dtrace_nprobes; i++) {
-		if ((probe = dtrace_probes[i]) == NULL)
-			continue;
-
-		if (probe->dtpr_provider != old)
-			continue;
-
-		if (probe->dtpr_ecb == NULL)
-			continue;
-
+	err = idr_for_each(&dtrace_probe_idr, dtrace_unregister_check, old);
+	if (err < 0) {
 		if (!self) {
 			mutex_unlock(&dtrace_lock);
 			/* FIXME: mutex_unlock(&mod_lock); */
 			mutex_unlock(&dtrace_provider_lock);
 		}
 
-		return -EBUSY;
+		return err;
 	}
 
 	/*
@@ -239,31 +273,11 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	 * safely remove these probes from the hashtables and the probe array.
 	 * We chain all the probes together for further processing.
 	 */
-	for (i = 0; i < dtrace_nprobes; i++) {
-		if ((probe = dtrace_probes[i]) == NULL)
-			continue;
-
-		if (probe->dtpr_provider != old)
-			continue;
-
-		dtrace_probes[i] = NULL;
-
-		dtrace_hash_remove(dtrace_bymod, probe);
-		dtrace_hash_remove(dtrace_byfunc, probe);
-		dtrace_hash_remove(dtrace_byname, probe);
-
-		if (first == NULL) {
-			first = probe;
-			probe->dtpr_nextmod = NULL;
-		} else {
-			probe->dtpr_nextmod = first;
-			first = probe;
-		}
-	}
+	idr_for_each(&dtrace_probe_idr, dtrace_unregister_probe, &first);
 
 	/*
 	 * The probes associated with the provider have been removed.  Ensure
-	 * synchronization on probe array processing.
+	 * synchronization on probe IDR processing.
 	 */
 	dtrace_sync();
 
@@ -271,23 +285,27 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	 * Now get rid of the actual probes.
 	 */
 	for (probe = first; probe != NULL; probe = first) {
+		int	probe_id = probe->dtpr_id;
+
 		first = probe->dtpr_nextmod;
 
-		old->dtpv_pops.dtps_destroy(old->dtpv_arg, probe->dtpr_id,
+		old->dtpv_pops.dtps_destroy(old->dtpv_arg, probe_id,
 					    probe->dtpr_arg);
+
 		kfree(probe->dtpr_mod);
 		kfree(probe->dtpr_func);
 		kfree(probe->dtpr_name);
-		kfree((void *)(uintptr_t)(probe->dtpr_id));
 		kfree(probe);
+
+		idr_remove(&dtrace_probe_idr, probe_id);
 	}
 
 	if ((prev = dtrace_provider) == old) {
 		/*
 		 * We are removing the provider at the head of the chain.
 		 */
-		BUG_ON(!self);
-		BUG_ON(old->dtpv_next != NULL);
+		ASSERT(self);
+		ASSERT(old->dtpv_next == NULL);
 
 		dtrace_provider = old->dtpv_next;
 	} else {

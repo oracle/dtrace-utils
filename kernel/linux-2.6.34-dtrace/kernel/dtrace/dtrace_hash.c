@@ -56,7 +56,7 @@ static void dtrace_hash_resize(dtrace_hash_t *hash)
 	int			new_mask = new_size - 1;
 	dtrace_hashbucket_t	**new_tab, *bucket, *next;
 
-	BUG_ON((new_size & new_mask) != 0);
+	ASSERT((new_size & new_mask) == 0);
 
 	new_tab = kzalloc(new_size * sizeof (void *), GFP_KERNEL);
 
@@ -65,7 +65,7 @@ static void dtrace_hash_resize(dtrace_hash_t *hash)
 		     bucket = next) {
 			dtrace_probe_t *probe = bucket->dthb_chain;
 
-			BUG_ON(probe == NULL);
+			ASSERT(probe != NULL);
 			ndx = DTRACE_HASHSTR(hash, probe) & new_mask;
 
 			next = bucket->dthb_next;
@@ -106,14 +106,14 @@ void dtrace_hash_add(dtrace_hash_t *hash, dtrace_probe_t *new)
 add:
 	nextp = DTRACE_HASHNEXT(hash, new);
 
-	BUG_ON(*nextp != NULL || *(DTRACE_HASHPREV(hash, new)) != NULL);
+	ASSERT(*nextp == NULL && *(DTRACE_HASHPREV(hash, new)) == NULL);
 
 	*nextp = bucket->dthb_chain;
 
 	if (bucket->dthb_chain != NULL) {
 		prevp = DTRACE_HASHPREV(hash, bucket->dthb_chain);
 
-		BUG_ON(*prevp != NULL);
+		ASSERT(*prevp == NULL);
 
 		*prevp = new;
 	}
@@ -164,7 +164,7 @@ void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
 			break;
 	}
 
-	BUG_ON(bucket == NULL);
+	ASSERT(bucket != NULL);
 
 	if (*prevp == NULL) {
 		if (*nextp == NULL) {
@@ -174,8 +174,8 @@ void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
 			 */
 			dtrace_hashbucket_t	*b = hash->dth_tab[ndx];
 
-			BUG_ON(bucket->dthb_chain != probe);
-			BUG_ON(b == NULL);
+			ASSERT(bucket->dthb_chain == probe);
+			ASSERT(b != NULL);
 
 			if (b == bucket)
 				hash->dth_tab[ndx] = bucket->dthb_next;
@@ -186,7 +186,7 @@ void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
 				b->dthb_next = bucket->dthb_next;
 			}
 
-			BUG_ON(hash->dth_nbuckets <= 0);
+			ASSERT(hash->dth_nbuckets > 0);
 
 			hash->dth_nbuckets--;
 			kfree(bucket);

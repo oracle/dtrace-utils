@@ -25,7 +25,7 @@ static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
 	agg = kzalloc(sizeof (dtrace_aggregation_t), GFP_KERNEL);
 	agg->dtag_ecb = ecb;
 
-	BUG_ON(!DTRACEACT_ISAGG(desc->dtad_kind));
+	ASSERT(DTRACEACT_ISAGG(desc->dtad_kind));
 
 	switch (desc->dtad_kind) {
 	case DTRACEAGG_MIN:
@@ -96,17 +96,17 @@ static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
 		}
 	}
 
-	BUG_ON(ntuple == 0);
+	ASSERT(ntuple != 0);
 err:
 	kfree(agg);
 	return NULL;
 
 success:
-	BUG_ON(ecb->dte_action_last == NULL);
+	ASSERT(ecb->dte_action_last != NULL);
 	act = ecb->dte_action_last;
 
 	if (act->dta_kind == DTRACEACT_DIFEXPR) {
-		BUG_ON(act->dta_difo == NULL);
+		ASSERT(act->dta_difo != NULL);
 
 		if (act->dta_difo->dtdo_rtype.dtdt_size == 0)
 			agg->dtag_hasarg = 1;
@@ -129,10 +129,10 @@ success:
 		int			naggs = state->dts_naggregations << 1;
 		int			onaggs = state->dts_naggregations;
 
-		BUG_ON(aggid != state->dts_naggregations + 1);
+		ASSERT(aggid == state->dts_naggregations + 1);
 
 		if (naggs == 0) {
-			BUG_ON(oaggs != NULL);
+			ASSERT(oaggs == NULL);
 
 			naggs = 1;
 		}
@@ -147,7 +147,7 @@ success:
 		state->dts_naggregations = naggs;
 	}
 
-	BUG_ON(state->dts_aggregations[aggid - 1] != NULL);
+	ASSERT(state->dts_aggregations[aggid - 1] == NULL);
 	state->dts_aggregations[(agg->dtag_id = aggid) - 1] = agg;
 
 	frec = &agg->dtag_first->dta_rec;
@@ -155,7 +155,7 @@ success:
 		frec->dtrd_alignment = sizeof (dtrace_aggid_t);
 
 	for (act = agg->dtag_first; act != NULL; act = act->dta_next) {
-		BUG_ON(act->dta_intuple);
+		ASSERT(!act->dta_intuple);
 
 		act->dta_intuple = 1;
 	}
@@ -169,10 +169,10 @@ void dtrace_ecb_aggregation_destroy(dtrace_ecb_t *ecb, dtrace_action_t *act)
 	dtrace_state_t		*state = ecb->dte_state;
 	dtrace_aggid_t		aggid = agg->dtag_id;
 
-	BUG_ON(DTRACEACT_ISAGG(act->dta_kind));
+	ASSERT(DTRACEACT_ISAGG(act->dta_kind));
 	kfree(state->dts_aggid_arena);
 
-	BUG_ON(state->dts_aggregations[aggid - 1] != agg);
+	ASSERT(state->dts_aggregations[aggid - 1] == agg);
 	state->dts_aggregations[aggid - 1] = NULL;
 
 	kfree(agg);
@@ -189,7 +189,8 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 	dtrace_optval_t		*opt = state->dts_options, nframes, strsize;
 	uint64_t		arg = desc->dtad_arg;
 
-	BUG_ON(ecb->dte_action != NULL && ecb->dte_action->dta_refcnt != 1);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(ecb->dte_action == NULL || ecb->dte_action->dta_refcnt == 1);
 
 	if (DTRACEACT_ISAGG(desc->dtad_kind)) {
 		dtrace_action_t	*act;
@@ -217,13 +218,13 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 		case DTRACEACT_SYSTEM:
 		case DTRACEACT_FREOPEN:
 			if ((void *)(uintptr_t)arg == NULL) {
-				BUG_ON(desc->dtad_kind != DTRACEACT_PRINTA);
+				ASSERT(desc->dtad_kind == DTRACEACT_PRINTA);
 	
 				format = 0;
 			} else {
-				BUG_ON((void *)(uintptr_t)arg == NULL);
+				ASSERT((void *)(uintptr_t)arg != NULL);
 #ifdef FIXME
-				BUG_ON(arg <= KERNELBASE);
+				ASSERT(arg > KERNELBASE);
 #endif
 
 				format = dtrace_format_add(
@@ -251,7 +252,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 			if ((nframes = arg) == 0) {
 				nframes = opt[DTRACEOPT_STACKFRAMES];
 
-				BUG_ON(nframes <= 0);
+				ASSERT(nframes > 0);
 
 				arg = nframes;
 			}
@@ -274,7 +275,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 				strsize = DTRACE_USTACK_STRSIZE(arg);
 				nframes = opt[DTRACEOPT_USTACKFRAMES];
 
-				BUG_ON(nframes <= 0);
+				ASSERT(nframes > 0);
 
 				arg = DTRACE_USTACK_ARG(nframes, strsize);
 			}
@@ -393,12 +394,12 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 	rec->dtrd_format = format;
 
 	if ((last = ecb->dte_action_last) != NULL) {
-		BUG_ON(ecb->dte_action == NULL);
+		ASSERT(ecb->dte_action != NULL);
 
 		action->dta_prev = last;
 		last->dta_next = action;
 	} else {
-		BUG_ON(ecb->dte_action != NULL);
+		ASSERT(ecb->dte_action == NULL);
 
 		ecb->dte_action = action;
 	}
@@ -416,14 +417,14 @@ static void dtrace_ecb_action_remove(dtrace_ecb_t *ecb)
 	uint16_t	format;
 
 	if (act != NULL && act->dta_refcnt > 1) {
-		BUG_ON(act->dta_next != NULL && act->dta_next->dta_refcnt != 1);
+		ASSERT(act->dta_next == NULL || act->dta_next->dta_refcnt == 1);
 
 		act->dta_refcnt--;
 	} else {
 		for (; act != NULL; act = next) {
 			next = act->dta_next;
-			BUG_ON(next == NULL && act != ecb->dte_action_last);
-			BUG_ON(act->dta_refcnt != 1);
+			ASSERT(next != NULL || act == ecb->dte_action_last);
+			ASSERT(act->dta_refcnt == 1);
 
 			if ((format = act->dta_rec.dtrd_format) != 0)
 				dtrace_format_remove(ecb->dte_state, format);
@@ -443,11 +444,90 @@ static void dtrace_ecb_action_remove(dtrace_ecb_t *ecb)
 	ecb->dte_size = sizeof (dtrace_epid_t);
 }
 
+/*
+ * Disable the ECB by removing it from its probe.
+ */
+void dtrace_ecb_disable(dtrace_ecb_t *ecb)
+{
+	dtrace_ecb_t	*pecb, *prev = NULL;
+	dtrace_probe_t	*probe = ecb->dte_probe;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	if (probe == NULL)
+		return;
+
+	for (pecb = probe->dtpr_ecb; pecb != NULL; pecb = pecb->dte_next) {
+		if (pecb == ecb)
+			break;
+
+		prev = pecb;
+	}
+
+	ASSERT(pecb != NULL);
+
+	if (prev == NULL)
+		probe->dtpr_ecb = ecb->dte_next;
+	else
+		prev->dte_next = ecb->dte_next;
+
+	if (ecb == probe->dtpr_ecb_last) {
+		ASSERT(ecb->dte_next == NULL);
+		probe->dtpr_ecb_last = prev;
+	}
+
+	/*
+	 * The ECB has been disconnected from the probe; now sync to assure
+	 * that all CPUs have seen the change before returning.
+	 */
+	dtrace_sync();
+
+	if (probe->dtpr_ecb == NULL) {
+		/*
+		 * That was the last ECB on the probe; clear the predicate
+		 * cache ID for the probe, disable it and sync one more time
+		 * to assure that we'll never hit it again.
+		 */
+		dtrace_provider_t	*prov = probe->dtpr_provider;
+
+		ASSERT(ecb->dte_next == NULL);
+		ASSERT(probe->dtpr_ecb_last == NULL);
+
+		probe->dtpr_predcache = DTRACE_CACHEIDNONE;
+		prov->dtpv_pops.dtps_disable(prov->dtpv_arg,
+		probe->dtpr_id, probe->dtpr_arg);
+
+		dtrace_sync();
+	} else {
+		/*
+		 * There is at least one ECB remaining on the probe.  If there
+		 * is _exactly_ one, set the probe's predicate cache ID to be
+		 * the predicate cache ID of the remaining ECB.
+		 */
+		ASSERT(probe->dtpr_ecb_last != NULL);
+		ASSERT(probe->dtpr_predcache == DTRACE_CACHEIDNONE);
+
+		if (probe->dtpr_ecb == probe->dtpr_ecb_last) {
+			dtrace_predicate_t	*p =
+						probe->dtpr_ecb->dte_predicate;
+
+			ASSERT(probe->dtpr_ecb->dte_next == NULL);
+
+			if (p != NULL)
+				probe->dtpr_predcache = p->dtp_cacheid;
+		}
+
+		ecb->dte_next = NULL;
+	}
+}
+
 static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 				    dtrace_probe_t *probe)
 {
 	dtrace_ecb_t	*ecb;
 	dtrace_epid_t	epid;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
 
 	ecb = kzalloc(sizeof (dtrace_ecb_t), GFP_KERNEL);
 	ecb->dte_predicate = NULL;
@@ -461,11 +541,10 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 		dtrace_ecb_t	**oecbs = state->dts_ecbs, **ecbs;
 		int		necbs = state->dts_necbs << 1;
 
-		BUG_ON(epid != state->dts_necbs + 1);
-
+		ASSERT(epid == state->dts_necbs + 1);
 
 		if (necbs == 0) {
-			BUG_ON(oecbs != NULL);
+			ASSERT(oecbs == NULL);
 
 			necbs = 1;
 		}
@@ -494,7 +573,7 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 
 	ecb->dte_state = state;
 
-	BUG_ON(state->dts_ecbs[epid - 1] != NULL);
+	ASSERT(state->dts_ecbs[epid - 1] == NULL);
 
 	dtrace_membar_producer();
 
@@ -512,6 +591,9 @@ static dtrace_ecb_t *dtrace_ecb_create(dtrace_state_t *state,
 	dtrace_actdesc_t	*act;
 	dtrace_provider_t	*prov;
 	dtrace_ecbdesc_t	*desc = enab->dten_current;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(state != NULL);
 
 	ecb = dtrace_ecb_add(state, probe);
 	ecb->dte_uarg = desc->dted_uarg;
@@ -538,7 +620,7 @@ static dtrace_ecb_t *dtrace_ecb_create(dtrace_state_t *state,
 		dtrace_action_t	*act = cached->dte_action;
 
 		if (act != NULL) {
-			BUG_ON(act->dta_refcnt == 0);
+			ASSERT(act->dta_refcnt > 0);
 
 			act->dta_refcnt++;
 			ecb->dte_action = act;
@@ -569,7 +651,7 @@ int dtrace_ecb_create_enable(dtrace_probe_t *probe, void *arg)
 	dtrace_enabling_t	*enab = arg;
 	dtrace_state_t		*state = enab->dten_vstate->dtvs_state;
 
-	BUG_ON(state == NULL);
+	ASSERT(state != NULL);
 
 	if (probe != NULL && probe->dtpr_gen < enab->dten_probegen)
 		return DTRACE_MATCH_NEXT;
@@ -590,15 +672,16 @@ void dtrace_ecb_destroy(dtrace_ecb_t *ecb)
 	dtrace_predicate_t	*pred;
 	dtrace_epid_t		epid = ecb->dte_epid;
 
-	BUG_ON(ecb->dte_next != NULL);
-	BUG_ON(ecb->dte_probe != NULL && ecb->dte_probe->dtpr_ecb == ecb);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(ecb->dte_next == NULL);
+	ASSERT(ecb->dte_probe == NULL || ecb->dte_probe->dtpr_ecb != ecb);
 
 	if ((pred = ecb->dte_predicate) != NULL)
 		dtrace_predicate_release(pred, vstate);
 
 	dtrace_ecb_action_remove(ecb);
 
-	BUG_ON(state->dts_ecbs[epid - 1] != ecb);
+	ASSERT(state->dts_ecbs[epid - 1] == ecb);
 	state->dts_ecbs[epid - 1] = NULL;
 
 	kfree(ecb);
@@ -613,7 +696,9 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 {
 	dtrace_probe_t	*probe = ecb->dte_probe;
 
-	BUG_ON(ecb->dte_next != NULL);
+	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(ecb->dte_next == NULL);
 
 	if (probe == NULL)
 		return 0;
@@ -631,7 +716,7 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 						   probe->dtpr_id,
 						   probe->dtpr_arg);
 	} else {
-		BUG_ON(probe->dtpr_ecb_last == NULL);
+		ASSERT(probe->dtpr_ecb_last != NULL);
 
 		probe->dtpr_ecb_last->dte_next = ecb;
 		probe->dtpr_ecb_last = ecb;

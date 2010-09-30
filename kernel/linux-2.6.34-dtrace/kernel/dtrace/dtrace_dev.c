@@ -6,6 +6,7 @@
  */
 
 #include <linux/fs.h>
+#include <linux/idr.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
 
@@ -98,7 +99,7 @@ static int dtrace_open(struct inode *inode, struct file *file)
 		dtrace_opens--;
 		mutex_unlock(&cpu_lock);
 		mutex_unlock(&dtrace_lock);
-		return -EBUS);
+		return -EBUSY;
 	}
 #endif
 
@@ -107,7 +108,7 @@ static int dtrace_open(struct inode *inode, struct file *file)
 
 	if (state == NULL) {
 #ifdef FIXME
-		if (--dtrace_opens == 0)
+		if (--dtrace_opens == 0 && dtrace_anon.dta_enabling == NULL)
 			(void)kdi_dtrace_set(KDI_DTSET_DTRACE_DEACTIVATE);
 #endif
 
@@ -116,6 +117,8 @@ static int dtrace_open(struct inode *inode, struct file *file)
 		return -EAGAIN;
 	}
 
+	file->private_data = state;
+
 	mutex_unlock(&dtrace_lock);
 
 	return 0;
@@ -123,6 +126,32 @@ static int dtrace_open(struct inode *inode, struct file *file)
 
 static int dtrace_close(struct inode *inode, struct file *file)
 {
+	dtrace_state_t	*state;
+
+	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&dtrace_lock);
+
+	/*
+	 * If there is anonymous state, destroy that first.
+	 */
+	state = file->private_data;
+	if (state->dts_anon) {
+		ASSERT(dtrace_anon.dta_state == NULL);
+
+		dtrace_state_destroy(state->dts_anon);
+	}
+
+	dtrace_state_destroy(state);
+	ASSERT(dtrace_opens > 0);
+
+#ifdef FIXME
+	if (--dtrace_opens == 0 && dtrace_anon.dta_enabling == NULL)
+		(void)kdi_dtrace_set(KDI_DTSET_DTRACE_DEACTIVATE);
+#endif
+
+	mutex_unlock(&dtrace_lock);
+	/* FIXME: mutex_unlock(&cpu_lock); */
+
 	return 0;
 }
 
@@ -152,8 +181,8 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		osize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
 
 		if (osize == 0) {
-			BUG_ON(dtrace_toxrange != NULL);
-			BUG_ON(dtrace_toxranges_max != 0);
+			ASSERT(dtrace_toxrange == NULL);
+			ASSERT(dtrace_toxranges_max == 0);
 
 			dtrace_toxranges_max = 1;
 		} else
@@ -163,7 +192,7 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		range = kzalloc(nsize, GFP_KERNEL);
 
 		if (dtrace_toxrange != NULL) {
-			BUG_ON(osize == 0);
+			ASSERT(osize != 0);
 
 			memcpy(range, dtrace_toxrange, osize);
 			kfree(dtrace_toxrange);
@@ -172,8 +201,8 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		dtrace_toxrange = range;
 	}
 
-	BUG_ON(dtrace_toxrange[dtrace_toxranges].dtt_base != (uintptr_t)NULL);
-	BUG_ON(dtrace_toxrange[dtrace_toxranges].dtt_limit != (uintptr_t)NULL);
+	ASSERT(dtrace_toxrange[dtrace_toxranges].dtt_base == (uintptr_t)NULL);
+	ASSERT(dtrace_toxrange[dtrace_toxranges].dtt_limit == (uintptr_t)NULL);
 
 	dtrace_toxrange[dtrace_toxranges].dtt_base = base;
 	dtrace_toxrange[dtrace_toxranges].dtt_limit = limit;
@@ -221,16 +250,19 @@ int dtrace_dev_init(void)
 	dtrace_debugger_fini = dtrace_resume;
 
 	register_cpu_setup_func((cpu_setup_func_t *)dtrace_cpu_setup, NULL);
+#endif
 
+	idr_init(&dtrace_probe_idr);
+
+#ifdef FIXME
 	dtrace_taskq = taskq_create("dtrace_taskq", 1, maxclsyspri, 1, INT_MAX,
 				    0);
-
-	dtrace_state_cache = kmem_cache_create(
-				"dtrace_state_cache",
-				sizeof (dtrace_dstate_percpu_t) * NCPU,
-				DTRACE_STATE_ALIGN, NULL, NULL, NULL, NULL,
-				NULL, 0);
 #endif
+
+	dtrace_state_cache = kmem_cache_create("dtrace_state_cache",
+				sizeof (dtrace_dstate_percpu_t) * NR_CPUS,
+				__alignof__(dtrace_dstate_percpu_t),
+				SLAB_PANIC, NULL);
 
 	/*
 	 * Create the probe hashtables.
@@ -270,8 +302,8 @@ int dtrace_dev_init(void)
 			      DTRACE_PRIV_NONE, 0, &dtrace_provider_ops, NULL,
 			      &id);
 
-	BUG_ON(dtrace_provider == NULL);
-	BUG_ON((dtrace_provider_id_t)dtrace_provider != id);
+	ASSERT(dtrace_provider != NULL);
+	ASSERT((dtrace_provider_id_t)dtrace_provider == id);
 
 	/*
 	 * Create BEGIN, END, and ERROR probes.
@@ -296,7 +328,7 @@ int dtrace_dev_init(void)
 	 * buffer.
 	 */
 	if (dtrace_helptrace_enabled) {
-		BUG_ON(dtrace_helptrace_buffer != NULL);
+		ASSERT(dtrace_helptrace_buffer == NULL);
 
 		dtrace_helptrace_buffer = kzalloc(dtrace_helptrace_bufsize,
 						  GFP_KERNEL);
@@ -323,4 +355,6 @@ int dtrace_dev_init(void)
 void dtrace_dev_exit(void)
 {
 	misc_deregister(&dtrace_dev);
+
+	idr_destroy(&dtrace_probe_idr);
 }

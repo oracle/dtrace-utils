@@ -16,7 +16,7 @@ void dtrace_difo_hold(dtrace_difo_t *dp)
 	int	i;
 
 	dp->dtdo_refcnt++;
-	BUG_ON(dp->dtdo_refcnt == 0);
+	ASSERT(dp->dtdo_refcnt != 0);
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		dtrace_difv_t	*v = &dp->dtdo_vartab[i];
@@ -33,7 +33,7 @@ void dtrace_difo_destroy(dtrace_difo_t *dp, dtrace_vstate_t *vstate)
 {
 	int	i;
 
-	BUG_ON(dp->dtdo_refcnt == 0);
+	ASSERT(dp->dtdo_refcnt == 0);
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		dtrace_difv_t		*v = &dp->dtdo_vartab[i];
@@ -64,17 +64,17 @@ void dtrace_difo_destroy(dtrace_difo_t *dp, dtrace_vstate_t *vstate)
 			continue;
 
 		id -= DIF_VAR_OTHER_UBASE;
-		BUG_ON(id >= *np);
+		ASSERT(id < *np);
 
 		svar = svarp[id];
-		BUG_ON(svar == NULL);
-		BUG_ON(svar->dtsv_refcnt <= 0);
+		ASSERT(svar != NULL);
+		ASSERT(svar->dtsv_refcnt > 0);
 
 		if (--svar->dtsv_refcnt > 0)
 			continue;
 
 		if (svar->dtsv_size != 0) {
-			BUG_ON((void *)(uintptr_t)svar->dtsv_data == NULL);
+			ASSERT((void *)(uintptr_t)svar->dtsv_data != NULL);
 			kfree((void *)(uintptr_t)svar->dtsv_data);
 		}
 
@@ -93,7 +93,8 @@ void dtrace_difo_release(dtrace_difo_t *dp, dtrace_vstate_t *vstate)
 {
 	int	i;
 
-	BUG_ON(dp->dtdo_refcnt == 0);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(dp->dtdo_refcnt != 0);
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		dtrace_difv_t *v = &dp->dtdo_vartab[i];
@@ -101,7 +102,7 @@ void dtrace_difo_release(dtrace_difo_t *dp, dtrace_vstate_t *vstate)
 		if (v->dtdv_id != DIF_VAR_VTIMESTAMP)
 			continue;
 
-		BUG_ON(dtrace_vtime_references <= 0);
+		ASSERT(dtrace_vtime_references > 0);
 
 		if (--dtrace_vtime_references == 0)
 			dtrace_vtime_disable();

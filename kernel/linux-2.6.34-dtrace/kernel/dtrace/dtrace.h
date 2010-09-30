@@ -9,6 +9,8 @@
 #include <asm/bitsperlong.h>
 #include <asm/ptrace.h>
 
+#include "cyclic.h"
+
 #define UINT16_MAX		(0xffff)
 #define UINT16_MIN		0
 #define UINT32_MAX		(0xffffffff)
@@ -310,8 +312,6 @@ typedef struct cred	cred_t;
 typedef struct hrtimer	hrtime_t;
 
 typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
-
-typedef uintptr_t	cyclic_id_t;
 
 #define P2ROUNDUP(x, a)	(-(-(x) & -(a)))
 
@@ -785,6 +785,14 @@ extern int dtrace_enable_nullop(void);
 /*
  * DTrace Probe Context Functions
  */
+#undef ASSERT
+#ifdef DEBUG
+# define ASSERT(x)	((void)((x) || dtrace_assfail(#x, __FILE__, __LINE__)))
+#else
+# define ASSERT(x)	((void)0)
+#endif
+
+extern int dtrace_assfail(const char *, const char *, int);
 extern void dtrace_aggregate_min(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_max(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_quantize(uint64_t *, uint64_t, uint64_t);
@@ -846,8 +854,7 @@ extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 /*
  * DTrace Probe Management Functions
  */
-extern int			dtrace_nprobes;
-extern dtrace_probe_t		**dtrace_probes;
+extern struct idr		dtrace_probe_idr;
 
 extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,
 				       const char *, const char *, int,
@@ -868,6 +875,7 @@ extern void dtrace_difo_release(dtrace_difo_t *, dtrace_vstate_t *);
  */
 extern uint16_t dtrace_format_add(dtrace_state_t *, char *);
 extern void dtrace_format_remove(dtrace_state_t *, uint16_t);
+extern void dtrace_format_destroy(dtrace_state_t *);
 
 /*
  * DTrace Predicate Functions
@@ -876,11 +884,20 @@ extern void dtrace_predicate_hold(dtrace_predicate_t *);
 extern void dtrace_predicate_release(dtrace_predicate_t *, dtrace_vstate_t *);
 
 /*
+ * DTrace Action Description Functions
+ */
+extern dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t, uint32_t,
+					       uint64_t, uint64_t);
+extern void dtrace_actdesc_hold(dtrace_actdesc_t *);
+extern void dtrace_actdesc_release(dtrace_actdesc_t *, dtrace_vstate_t *);
+
+/*
  * DTrace ECB Functions
  */
 extern dtrace_ecb_t		*dtrace_ecb_create_cache;
 
 extern int dtrace_ecb_create_enable(dtrace_probe_t *, void *);
+extern void dtrace_ecb_disable(dtrace_ecb_t *);
 extern void dtrace_ecb_destroy(dtrace_ecb_t *);
 extern void dtrace_ecb_resize(dtrace_ecb_t *);
 extern int dtrace_ecb_enable(dtrace_ecb_t *);
@@ -888,6 +905,7 @@ extern int dtrace_ecb_enable(dtrace_ecb_t *);
 /*
  * DTrace Buffer Functions
  */
+extern void dtrace_buffer_free(dtrace_buffer_t *);
 
 /*
  * DTrace Enabling Functions
@@ -895,6 +913,8 @@ extern int dtrace_ecb_enable(dtrace_ecb_t *);
 extern dtrace_enabling_t	*dtrace_retained;
 extern dtrace_genid_t		dtrace_retained_gen;
 
+extern void dtrace_enabling_destroy(dtrace_enabling_t *);
+extern void dtrace_enabling_retract(dtrace_state_t *);
 extern void dtrace_enabling_matchall(void);
 extern void dtrace_enabling_provide(dtrace_provider_t *);
 
@@ -916,7 +936,12 @@ extern dtrace_anon_t		dtrace_anon;
 /*
  * DTrace Consumer State Functions
  */
+extern struct kmem_cache	*dtrace_state_cache;
+
+extern void dtrace_dstate_fini(dtrace_dstate_t *);
+extern void dtrace_vstate_fini(dtrace_vstate_t *);
 extern dtrace_state_t *dtrace_state_create(struct file *);
+extern void dtrace_state_destroy(dtrace_state_t *);
 
 /*
  * DTrace Utility Functions
@@ -961,9 +986,11 @@ extern void dtrace_cred2priv(const cred_t *, uint32_t *, uid_t *);
 #define dtrace_membar_consumer()	mb()
 
 extern void dtrace_sync(void);
+extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
+extern void dtrace_vpanic(const char *, va_list);
+
 extern void dtrace_vtime_enable(void);
 extern void dtrace_vtime_disable(void);
 
-extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
 
 #endif /* _DTRACE_H_ */

@@ -11,8 +11,9 @@
 
 void dtrace_predicate_hold(dtrace_predicate_t *pred)
 {
-	BUG_ON(pred->dtp_difo == NULL || pred->dtp_difo->dtdo_refcnt == 0);
-	BUG_ON(pred->dtp_refcnt <= 0);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(pred->dtp_difo != NULL && pred->dtp_difo->dtdo_refcnt != 0);
+	ASSERT(pred->dtp_refcnt > 0);
 
 	pred->dtp_refcnt++;
 }
@@ -22,11 +23,12 @@ void dtrace_predicate_release(dtrace_predicate_t *pred,
 {
 	dtrace_difo_t *dp = pred->dtp_difo;
 
-	BUG_ON(dp == NULL || dp->dtdo_refcnt == 0);
-	BUG_ON(pred->dtp_refcnt <= 0);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(dp != NULL && dp->dtdo_refcnt != 0);
+	ASSERT(pred->dtp_refcnt > 0);
 
 	if (--pred->dtp_refcnt == 0) {
-		dtrace_difo_release(pred->dtp_difo, vstate);
+		dtrace_difo_release(dp, vstate);
 		kfree(pred);
 	}
 }

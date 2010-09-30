@@ -5,6 +5,8 @@
  * Copyright (C) 2010 Oracle Corporation
  */
 
+#include <linux/idr.h>
+
 #include "dtrace.h"
 
 dtrace_hash_t	*dtrace_bymod;
@@ -181,13 +183,40 @@ static int dtrace_match_nonzero(const char *s, const char *p, int depth)
 	return s != NULL && s[0] != '\0';
 }
 
+struct probe_match {
+	const dtrace_probekey_t *pkp;
+	uint32_t		priv;
+	uid_t			uid;
+	int			(*matched)(dtrace_probe_t *, void *);
+	void			*arg;
+	int			nmatched;
+};
+
+static int dtrace_match_one(int id, void *p, void *data)
+{
+	struct probe_match	*pbm	= (struct probe_match *)data;
+	dtrace_probe_t		*probe	= (dtrace_probe_t *)p;
+	int			rc;
+
+	if (dtrace_match_probe(probe, pbm->pkp, pbm->priv, pbm->uid) <= 0)
+		return 0;
+
+	pbm->nmatched++;
+
+	if ((rc = (pbm->matched)(probe, pbm->arg)) != DTRACE_MATCH_NEXT) {
+		if (rc == DTRACE_MATCH_FAIL)
+			return DTRACE_MATCH_FAIL;
+	}
+
+	return 0;
+}
+
 int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, uid_t uid,
 		 int (*matched)(dtrace_probe_t *, void *), void *arg)
 {
 	dtrace_probe_t	template, *probe;
 	dtrace_hash_t	*hash = NULL;
 	int		len, rc, best = INT_MAX, nmatched = 0;
-	dtrace_id_t	i;
 
 	if (pkp->dtpk_id != DTRACE_IDNONE) {
 		if ((probe = dtrace_probe_lookup_id(pkp->dtpk_id)) != NULL &&
@@ -224,23 +253,20 @@ int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, uid_t uid,
 	}
 
 	if (hash == NULL) {
-		for (i = 0; i < dtrace_nprobes; i++) {
-			if ((probe = dtrace_probes[i]) == NULL ||
-			    dtrace_match_probe(probe, pkp, priv, uid) <= 0)
-				continue;
+		struct probe_match	pbm;
 
-			nmatched++;
+		pbm.pkp = pkp;
+		pbm.priv = priv;
+		pbm.uid = uid;
+		pbm.matched = matched;
+		pbm.arg = arg;
+		pbm.nmatched = 0;
 
-			if ((rc = (*matched)(probe, arg)) !=
-			    DTRACE_MATCH_NEXT) {
-				if (rc == DTRACE_MATCH_FAIL)
-					return DTRACE_MATCH_FAIL;
+		rc = idr_for_each(&dtrace_probe_idr, dtrace_match_one, &pbm);
+		if (rc == DTRACE_MATCH_FAIL)
+			return DTRACE_MATCH_FAIL;
 
-				break;
-			}
-		}
-
-		return nmatched;
+		return pbm.nmatched;
 	}
 
 	for (probe = dtrace_hash_lookup(hash, &template); probe != NULL;

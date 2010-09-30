@@ -11,13 +11,15 @@ obj-$(CONFIG_DT_SDT)		+= sdt.o
 obj-$(CONFIG_DT_SYSTRACE)	+= systrace.o
 
 dtrace-y			:= dtrace_mod.o dtrace_dev.o \
-				   dtrace_anon.o dtrace_dif.o \
+				   dtrace_actdesc.o dtrace_anon.o \
+				   dtrace_buffer.o dtrace_dif.o \
 				   dtrace_ecb.o dtrace_enable.o \
 				   dtrace_fmt.o dtrace_hash.o \
 				   dtrace_match.o dtrace_probe.o \
 				   dtrace_probe_ctx.o \
 				   dtrace_ptofapi.o dtrace_predicate.o \
-				   dtrace_state.o dtrace_util.o
+				   dtrace_state.o dtrace_util.o \
+				   cyclic.o
 fasttrap-y			:= fasttrap_mod.o fasttrap_dev.o
 fbt-y				:= fbt_mod.o fbt_dev.o
 lockstat-y			:= lockstat_mod.o lockstat_dev.o
