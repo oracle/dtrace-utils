@@ -46,7 +46,7 @@
 
 static int id_or_type(const char *);
 static int input(void);
-static void unput(int);
+static void unput(int i){};
 
 /*
  * We first define a set of labeled states for use in the D lexer and then a

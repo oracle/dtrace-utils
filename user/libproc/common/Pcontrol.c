@@ -139,7 +139,7 @@ set_minfd(void)
 				fd = 256;
 			else if ((fd = rlim.rlim_cur / 2) < 3)
 				fd = 3;
-			membar_producer();
+/*			membar_producer();*/
 			minfd = fd;
 		}
 		(void) mutex_unlock(&minfd_lock);
@@ -963,8 +963,9 @@ Pfree(struct ps_prochandle *P)
 			free(P->core->core_cred);
 		if (P->core->core_priv != NULL)
 			free(P->core->core_priv);
-		if (P->core->core_privinfo != NULL)
-			__priv_free_info(P->core->core_privinfo);
+/* NEED FIX */ 
+/*		if (P->core->core_privinfo != NULL)
+			__priv_free_info(P->core->core_privinfo); */
 		if (P->core->core_ppii != NULL)
 			free(P->core->core_ppii);
 		if (P->core->core_zonename != NULL)

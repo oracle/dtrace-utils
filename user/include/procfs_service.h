@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <types_posix.h>
+#include <elf.h>
 
 typedef unsigned long	psaddr_t;
 

@@ -61,10 +61,11 @@ try_exec(struct ps_prochandle *P, const char *cwd, const char *path, char *buf,
 	dprintf("try_exec \"%s\"\n", buf);
 
 	(void) Pfindobj(P, buf, buf, PATH_MAX);
-	if ((i = resolvepath(buf, buf, PATH_MAX)) > 0) {
+/* FIX ME */
+/*	if ((i = resolvepath(buf, buf, PATH_MAX)) > 0) {
 		buf[i] = '\0';
 		return (isexec(buf, isdata));
-	}
+	} */
 
 	return (0); /* resolvepath failed */
 }
@@ -135,7 +136,7 @@ Pfindexec(struct ps_prochandle *P, const char *aout,
 		if (strchr(path, '/') != NULL && (p = basename(path)) != NULL &&
 		    try_exec(P, cwd, p, buf, isexec, isdata))
 			goto found;
-
+#if 0
 		if (getzoneid() == GLOBAL_ZONEID &&
 		    pi->pr_zoneid != GLOBAL_ZONEID &&
 		    zone_getattr(pi->pr_zoneid, ZONE_ATTR_ROOT, zpath,
@@ -152,6 +153,7 @@ Pfindexec(struct ps_prochandle *P, const char *aout,
 			if (try_exec(P, zpath, p, buf, isexec, isdata))
 				goto found;
 		}
+#endif
 	}
 
 	/*

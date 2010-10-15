@@ -1,3 +1,22 @@
+2010-10-15  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* librtld/rtld_db.c: Comment some functions.
+	* cmd/common/makefile: New.
+	* include/mutex.h: Declare mutex_init.
+	* include/procs_service.h: include elf.h.
+	* include/rtld_db.h: Update declaration.
+	* include/type_posix.h: Define off64_t.
+	* libdtrace/dt_cc.c: Define yylineno.
+	* libdtrace/dt_lex.l: Define unput.
+	* libdtrace/makefile: Fix compile option.
+	* libport/proc_name.c: Define fork1.
+	* libport/time.c: Define pthread_cond_reltimedwait_np, mutex_init and
+	_lwp_kill.
+	* libproc/common/makefile: Fix.
+	* libproc/common/Pcontrol.c, libproc/common/Pexecname.c,
+	libproc/common/Pzone.c: Comment some lines that are not supported by
+	Linux.
+
 2010-09-27  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/rtld_db.h, include/types_off.h: Adjust definition.
@@ -5,9 +24,9 @@
 	* libport/makefile, libport/p_online.c, libport/tasksys.c: New.
 	* libproc/common/makefile: Use -D_LARGEFILE64_SOURCE=1 to make the
 	off64_t available.
-	* libproc/common/Pzone.c: Comment some functions now be compiled.
+	* libproc/common/Pzone.c: Comment some functions not be compiled.
 	* librtld/rd_elf.c: New.
-	* librtld/makefile: Added rd_elf.o to LIB.
+	* librtld/makefile: Add rd_elf.o to LIB.
 	* librtld/rtld_db.c (rd_loadobj_iter, rd_event_addr, rd_event_enable,
 	rd_event_getmsg): Change.
 	(rd_plt_resolution, rd_objpad_enable): Remove.

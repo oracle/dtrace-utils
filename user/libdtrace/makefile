@@ -10,7 +10,7 @@ CPPFLAGS += -I. \
 	-I../uts/intel \
 	-I../build-2.6.18-128.1.14.0.1.el5 \
 	-DCTF_OLD_VERSIONS $(PTR32)
-CPPFLAGS += -D_ILP32 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
+CPPFLAGS += -D_ILP32 -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 
 LIB = ../$(BUILD_DIR)/libdtrace.a
 
@@ -19,12 +19,12 @@ all: $(LIB)
 
 $(LIB): \
 	$(LIB)(drti.o) \
+	$(LIB)(dt_lex.o) \
 	$(LIB)(dt_aggregate.o) \
 	$(LIB)(dt_as.o) \
 	$(LIB)(dt_buf.o) \
 	$(LIB)(dt_cc.o) \
 	$(LIB)(dt_cg.o) \
-	$(LIB)(dt_lex.o) \
 	$(LIB)(../driver/dis_tables.o) \
 	$(LIB)(./i386/dt_isadep.o) \
 	$(LIB)(dt_consume.o) \

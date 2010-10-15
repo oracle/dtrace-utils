@@ -110,6 +110,8 @@
 #include <dt_string.h>
 #include <dt_impl.h>
 
+int yylineno;
+
 static const dtrace_diftype_t dt_void_rtype = {
 	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, 0
 };

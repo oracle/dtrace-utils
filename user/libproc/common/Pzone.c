@@ -247,8 +247,9 @@ Pzonename(struct ps_prochandle *P, char *s, size_t n)
 		}
 		(void) strlcpy(s, P->core->core_zonename, n);
 	} else {
-		if (getzonenamebyid(P->status.pr_zoneid, s, n) < 0)
-			return (NULL);
+/* FIX ME */
+/*		if (getzonenamebyid(P->status.pr_zoneid, s, n) < 0)
+			return (NULL);*/
 		s[n - 1] = '\0';
 	}
 	return (s);
@@ -288,7 +289,8 @@ Pzoneroot(struct ps_prochandle *P, char *s, size_t n)
 		return (s);
 	}
 	(void) strlcat(zpath, "/root", sizeof (zpath));
-
+/* FIX ME */
+/*
 	if ((rv = resolvepath(zpath, tmp, sizeof (tmp) - 1)) < 0) {
 		if ((P->zoneroot = strdup("")) == NULL) {
 			errno = ENOMEM;
@@ -299,7 +301,7 @@ Pzoneroot(struct ps_prochandle *P, char *s, size_t n)
 		    zname, zpath, GLOBAL_ZONENAME);
 		(void) strlcpy(s, P->zoneroot, n);
 		return (s);
-	}
+	} */
 	tmp[rv] = '\0';
 	(void) strlcpy(zpath, tmp, sizeof (zpath));
 
@@ -348,7 +350,8 @@ Plofspath(const char *path, char *s, size_t n)
 	 * Use resolvepath() to make sure there are no consecutive or
 	 * trailing '/'s in the path.
 	 */
-	if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0)
+/* FIX ME */
+/*	if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
 		tmp[rv] = '\0';
 
 	(void) mutex_lock(&lofs_lock);
@@ -411,7 +414,8 @@ Plofspath(const char *path, char *s, size_t n)
 			(void) strlcat(tmp2, "/", sizeof (tmp2) - 1);
 			(void) strlcat(tmp2, &p[1], sizeof (tmp2) - 1);
 			(void) strlcpy(tmp, tmp2, sizeof (tmp) - 1);
-			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0)
+/* FIX ME */
+/*			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
 				tmp[rv] = '\0';
 			p = &tmp[strlen(tmp)];
 			p[1] = '\0';
@@ -447,7 +451,8 @@ Plofspath(const char *path, char *s, size_t n)
 			 * resolvepath() to clean it up.
 			 */
 			(void) strlcpy(tmp2, tmp, sizeof (tmp2));
-			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0)
+/* FIX ME */
+/*			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
 				tmp[rv] = '\0';
 
 			/*
@@ -640,13 +645,14 @@ Pzonepath(struct ps_prochandle *P, const char *path, char *s, size_t n)
 			}
 
 			/* Verify that the path actually exists */
-			rv = resolvepath(zpath, tmp, sizeof (tmp) - 1);
+/* FIX ME*/
+/*			rv = resolvepath(zpath, tmp, sizeof (tmp) - 1);
 			if (rv < 0) {
 				dprintf("Pzonepath invalid native path '%s'\n",
 				    zpath);
 				return (NULL);
 			}
-			tmp[rv] = '\0';
+			tmp[rv] = '\0'; */
 
 			/* Return the path */
 			dprintf("Pzonepath found native path '%s'\n", tmp);
@@ -771,12 +777,12 @@ Pfindobj(struct ps_prochandle *P, const char *path, char *s, size_t n)
 	/* If that fails resolve any lofs links in the path */
 	if (Plofspath(path, s, n) != NULL)
 		return (s);
-
+/* FIX ME */
 	/* If that fails then just see if the path exists */
-	if ((len = resolvepath(path, s, n)) > 0) {
+/*	if ((len = resolvepath(path, s, n)) > 0) {
 		s[len] = '\0';
 		return (s);
-	}
+	}*/
 
 	return (NULL);
 }

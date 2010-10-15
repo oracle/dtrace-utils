@@ -18,4 +18,6 @@
 
 #define MUTEX_HELD(x)	mutex_is_locked(x)
 
+extern int mutex_init(mutex_t *, int, void *);
+
 #endif

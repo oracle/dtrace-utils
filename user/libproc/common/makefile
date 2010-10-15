@@ -1,5 +1,5 @@
 BUILD_DIR = build-2.6.18-128.1.14.0.1.el5
-CC=gcc -g $(BUILD_BITS)
+CC=/usr/bin/gcc -g $(BUILD_BITS)
 CPPFLAGS += -I../common \
 	-I../../common/ctf \
 	-I../../uts/common/ \
@@ -7,7 +7,7 @@ CPPFLAGS += -I../common \
 	-I../../libproc/common \
 	-I../../libctf \
 	-DCTF_OLD_VERSIONS $(PTR32)
-CPPFLAGS += -D_ILP32 -D_LONGLONG_TYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
+CPPFLAGS += -D_ILP32 -D_LONGLONG_TYPE -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64
 
 LIB = ../../$(BUILD_DIR)/libproc.a
 
@@ -58,6 +58,10 @@ $(LIB): \
 	$(LIB)(proc_set.o) \
 	$(LIB)(proc_stdio.o)
 
+$(LIB)(Pcore.o): Pcore.c
+	$(CC) $(CPPFLAGS) -D_XOPEN_SOURCE=500 -c Pcore.c
+	ar rv $(LIB) Pcore.o
+	rm -rf Pcore.o
 
 clean:
 	-rm -f *.o ../../build-2.6.18-128.1.14.0.1.el5/libproc.a

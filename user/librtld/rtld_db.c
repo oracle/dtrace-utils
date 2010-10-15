@@ -118,6 +118,7 @@ rd_ctl(int cmd, void *arg)
 rd_err_e
 rd_get_dyns(rd_agent_t *rap, psaddr_t addr, void **dynpp, size_t *dynpp_sz)
 {
+#if 0
 	if (rap->rd_helper.rh_ops != NULL)
 		return (rap->rd_helper.rh_ops->rho_get_dyns(
 		    rap->rd_helper.rh_data, addr, dynpp, dynpp_sz));
@@ -130,6 +131,11 @@ rd_get_dyns(rd_agent_t *rap, psaddr_t addr, void **dynpp, size_t *dynpp_sz)
 #endif
 		return (_rd_get_dyns32(rap,
 		    addr, (Dyn **)dynpp, dynpp_sz));
+#endif
+	*dynpp  = NULL;
+        printf("%s\n", __func__);
+        return RD_ERR;
+
 }
 
 rd_err_e
@@ -237,17 +243,14 @@ printf("rd_loadobj_iter: %s %p\n", lib, addr);
         printf("%s\n", __func__);
 }
 
-void
 rd_event_addr()
 {
         printf("proc-stub:%s\n", __func__);
 }
-void
 rd_event_enable()
 {
         printf("proc-stub:%s\n", __func__);
 }
-void
 rd_event_getmsg()
 {
         printf("proc-stub:%s\n", __func__);

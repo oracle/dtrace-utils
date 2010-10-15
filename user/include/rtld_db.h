@@ -176,9 +176,6 @@ struct	ps_prochandle;
 #ifdef __STDC__
 extern void		rd_delete(rd_agent_t *);
 extern char		*rd_errstr(rd_err_e rderr);
-extern void		rd_event_addr();
-extern void		rd_event_enable();
-extern void		rd_event_getmsg();
 extern rd_err_e		rd_init(int);
 extern rd_err_e		rd_ctl(int, void *);
 extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
@@ -190,9 +187,6 @@ extern rd_err_e		rd_reset(struct rd_agent *);
 #else /* !__STDC__ */
 extern void		rd_delete();
 extern char		*rd_errstr();
-extern rd_err_e		rd_event_addr();
-extern rd_err_e		rd_event_enable();
-extern rd_err_e		rd_event_getmsg();
 extern rd_err_e		rd_init();
 extern rd_err_e		rd_ctl();
 extern rd_err_e		rd_loadobj_iter();

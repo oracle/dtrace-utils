@@ -11,6 +11,10 @@ typedef	unsigned long	ulong_t;
 typedef	char		*caddr_t;	/* ?<core address> type */
 typedef	short		cnt_t;		/* ?<count> type */
 
+#ifndef _LARGEFILE64_SOURCE
+typedef unsigned long long off64_t;
+#endif
+
 #if !defined(_PTRDIFF_T) || __cplusplus >= 199711L
 #define	_PTRDIFF_T
 #if defined(_LP64) || defined(_I32LPx)
