@@ -1,3 +1,7 @@
+2010-10-21  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* demo/act/time.d: New.
+
 2010-10-15  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* librtld/rtld_db.c: Comment some functions.
