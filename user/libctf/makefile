@@ -1,6 +1,6 @@
 CC=/usr/bin/gcc -g $(BUILD_BITS)
+BUILD_DIR=build-$(shell uname -r)
 PTR32=-D_ILP32
-BUILD_DIR=build-2.6.18-128.1.14.0.1.el5
 COMMON = ../common/ctf
 CPPFLAGS += -I../common -I../common/ctf -I../uts/common/ \
 	-I$(COMMON) -I. \

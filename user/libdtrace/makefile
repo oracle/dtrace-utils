@@ -1,4 +1,4 @@
-BUILD_DIR = build-2.6.18-128.1.14.0.1.el5
+BUILD_DIR=build-$(shell uname -r)
 BINDIR = ../$(BUILD_DIR)
 CC=/usr/bin/gcc -g $(BUILD_BITS)
 CPPFLAGS += -I. \

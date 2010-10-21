@@ -1,6 +1,13 @@
 2010-10-21  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* demo/act/time.d: New.
+	* makefile: New.
+	* libproc/common/makefile: Fix BUILD_DIR.
+	* cmd/common/makefile: Same.
+	* libctf/makefile: Same.
+	* libdtrace/makefile: Same.
+	* libport/makefile: Same.
+	* librtld/makefile: Same.
 
 2010-10-15  Shujing Zhao  <pearly.zhao@oracle.com>
 

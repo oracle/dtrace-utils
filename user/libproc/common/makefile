@@ -1,5 +1,5 @@
-BUILD_DIR = build-2.6.18-128.1.14.0.1.el5
 CC=/usr/bin/gcc -g $(BUILD_BITS)
+BUILD_DIR=build-$(shell uname -r)
 CPPFLAGS += -I../common \
 	-I../../common/ctf \
 	-I../../uts/common/ \
