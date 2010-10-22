@@ -172,7 +172,6 @@ typedef int64_t	greg64_t;
 
 #endif	/* _SYSCALL32 */
 
-typedef greg_t	gregset_t[_NGREG];
 
 #if defined(_SYSCALL32)
 
