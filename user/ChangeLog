@@ -1,3 +1,8 @@
+2010-10-22  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cvs rm cmd/dtrace.c: Remove.
+	* uts/common/sys/elftypes.h: Remove.
+
 2010-10-21  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* demo/act/time.d: New.
