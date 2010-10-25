@@ -63,29 +63,6 @@ static int gen;			/* DOF helper generation */
 extern dof_hdr_t __SUNW_dof;	/* DOF defined in the .SUNW_dof section */
 static boolean_t dof_init_debug = B_FALSE;	/* From DTRACE_DOF_INIT_DEBUG */
 
-static void
-dprintf(int debug, const char *fmt, ...)
-{
-	va_list ap;
-
-	if (debug && !dof_init_debug)
-		return;
-
-	va_start(ap, fmt);
-
-	if (modname == NULL)
-		(void) fprintf(stderr, "dtrace DOF: ");
-	else
-		(void) fprintf(stderr, "dtrace DOF %s: ", modname);
-
-	(void) vfprintf(stderr, fmt, ap);
-
-	if (fmt[strlen(fmt) - 1] != '\n')
-		(void) fprintf(stderr, ": %s\n", strerror(errno));
-
-	va_end(ap);
-}
-
 #pragma init(dtrace_dof_init)
 static void
 dtrace_dof_init(void)

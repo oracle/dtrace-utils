@@ -1,3 +1,7 @@
+2010-10-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* libdtrace/drti.c (dprintf): Remove.
+
 2010-10-25  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/dt_grammar.c: Remove generated file.
