@@ -1,6 +1,13 @@
+2010-10-25  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/dt_grammar.c: Remove generated file.
+	* libdtrace/makefile: Fix BUILD_DIR.
+	* libport/makefile: Same.
+	* libproc/common/makefile: Same.
+
 2010-10-22  Shujing Zhao  <pearly.zhao@oracle.com>
 
-	* cvs rm cmd/dtrace.c: Remove.
+	* cmd/dtrace.c: Remove.
 	* uts/common/sys/elftypes.h: Remove.
 	* include/sys/int_types.h: Remove int_fast16_t etc.
 	* include/sys/regset.h: Remove gregset_t delaration.

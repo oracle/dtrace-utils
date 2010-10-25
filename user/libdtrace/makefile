@@ -8,7 +8,7 @@ CPPFLAGS += -I. \
 	-I../libproc/common \
 	-I../libctf \
 	-I../uts/intel \
-	-I../build-2.6.18-128.1.14.0.1.el5 \
+	-I$(BINDIR) \
 	-DCTF_OLD_VERSIONS $(PTR32)
 CPPFLAGS += -D_ILP32 -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 

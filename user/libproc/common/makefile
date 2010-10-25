@@ -1,4 +1,4 @@
-CC=/usr/bin/gcc -g $(BUILD_BITS)
+CC=gcc -g $(BUILD_BITS)
 BUILD_DIR=build-$(shell uname -r)
 CPPFLAGS += -I../common \
 	-I../../common/ctf \
@@ -64,5 +64,5 @@ $(LIB)(Pcore.o): Pcore.c
 	rm -rf Pcore.o
 
 clean:
-	-rm -f *.o ../../build-2.6.18-128.1.14.0.1.el5/libproc.a
+	-rm -f *.o ../../$(BUILD_DIR)/libproc.a
 	
