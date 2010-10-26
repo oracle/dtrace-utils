@@ -1,3 +1,7 @@
+2010-10-26  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* libdtrace/makefile: Fix dt_isadep.o.
+
 2010-10-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* libdtrace/drti.c (dprintf): Remove.

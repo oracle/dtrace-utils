@@ -26,7 +26,7 @@ $(LIB): \
 	$(LIB)(dt_cc.o) \
 	$(LIB)(dt_cg.o) \
 	$(LIB)(../driver/dis_tables.o) \
-	$(LIB)(./i386/dt_isadep.o) \
+	$(LIB)(dt_isadep.o) \
 	$(LIB)(dt_consume.o) \
 	$(LIB)(dt_decl.o) \
 	$(LIB)(dt_dis.o) \
@@ -79,6 +79,11 @@ $(LIB)(dis_tables.o): ../driver/dis_tables.c $(H)
 	$(CC) $(CPPFLAGS) -Ii386 -I../driver -c ../driver/dis_tables.c
 	ar rv $(LIB) dis_tables.o
 	-rm -f dis_tables.o
+
+$(LIB)(dt_isadep.o): ./i386/dt_isadep.c $(H)
+	$(CC) $(CPPFLAGS) -Ii386 -I../driver -c ./i386/dt_isadep.c
+	ar rv $(LIB) dt_isadep.o
+	-rm -f dt_isadep.o
 
 dt_errtags.c: dt_errtags.h mkerrtags.sh
 	./mkerrtags.sh <dt_errtags.h | sed -e 's/\\n/\n/g' > dt_errtags.c
