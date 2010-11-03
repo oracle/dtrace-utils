@@ -41,7 +41,7 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/param.h>
-/*#include <sys/stack.h>*/
+#include <sys/stack.h>
 #include <sys/fault.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>

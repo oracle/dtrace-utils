@@ -32,6 +32,8 @@
 #include <errno.h>
 #include "libproc.h"
 
+#include <types_time.h>
+
 /*
  * getitimer() system call -- executed by victim process.
  */

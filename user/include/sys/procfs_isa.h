@@ -49,6 +49,7 @@ extern "C" {
 #define	PR_MODEL_ILP32	1	/* process data model is ILP32 */
 #define	PR_MODEL_LP64	2	/* process data model is LP64 */
 
+
 /*
  * To determine whether application is running native.
  */
@@ -68,12 +69,12 @@ typedef	uchar_t instr_t;
 #endif
 
 #define	NPRGREG		_NGREG
+
 #define	prgreg_t	greg_t
 #define	prgregset_t	gregset_t
 #define	prfpregset	fpu
 #define	prfpregset_t	fpregset_t
 
-#if defined(_SYSCALL32)
 /*
  * kernel view of the ia32 register set
  */
@@ -91,7 +92,9 @@ typedef	uchar_t		instr32_t;
 #define	prfpregset32	fpu
 #define	prfpregset32_t	fpregset_t
 #endif
-#endif	/* _SYSCALL32 */
+
+
+
 
 #if defined(__amd64)
 /*

@@ -137,7 +137,7 @@ rd_get_dyns(rd_agent_t *rap, psaddr_t addr, void **dynpp, size_t *dynpp_sz)
         return RD_ERR;
 
 }
-
+#define _rd_reset64 _rd_reset32
 rd_err_e
 rd_reset(struct rd_agent *rap)
 {

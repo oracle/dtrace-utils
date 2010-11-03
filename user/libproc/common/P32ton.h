@@ -30,12 +30,14 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/types.h>
-//#include <sys/types32.h>
+#include <sys/types32.h>
 #include <sys/time_impl.h>
 #include <sys/regset.h>
 #include <sys/signal.h>
-//#include <sys/auxv.h>
-#include <sys/procfs.h>
+#include <sys/signal2.h>
+#include <sys/auxv.h>
+#include <procfs.h>
+#include <sys/procfs_isa.h>
 
 #ifdef	__cplusplus
 extern "C" {

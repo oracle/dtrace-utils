@@ -85,6 +85,20 @@ $(LIB)(dt_isadep.o): ./i386/dt_isadep.c $(H)
 	ar rv $(LIB) dt_isadep.o
 	-rm -f dt_isadep.o
 
+$(LIB)(dt_module.o): dt_module.c $(H)
+	$(CC) -I. -I../common/ctf \
+        -I../uts/common/ \
+        -I../include \
+        -I../libproc/common \
+        -I../libctf \
+        -I../uts/intel \
+        -I$(BINDIR) \
+        -DCTF_OLD_VERSIONS $(PTR32) \
+	-D_ILP32 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE \
+	-c dt_module.c
+	ar rv $(LIB) dt_module.o
+	-rm -f dt_module.o
+
 dt_errtags.c: dt_errtags.h mkerrtags.sh
 	./mkerrtags.sh <dt_errtags.h | sed -e 's/\\n/\n/g' > dt_errtags.c
 

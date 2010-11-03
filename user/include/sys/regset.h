@@ -165,15 +165,11 @@ typedef long	greg_t;
 typedef int	greg_t;
 #endif
 
-#if defined(_SYSCALL32)
 
 typedef int32_t greg32_t;
 typedef int64_t	greg64_t;
 
-#endif	/* _SYSCALL32 */
 
-
-#if defined(_SYSCALL32)
 
 #define	_NGREG32	19
 #define	_NGREG64	28
@@ -181,7 +177,6 @@ typedef int64_t	greg64_t;
 typedef greg32_t gregset32_t[_NGREG32];
 typedef	greg64_t gregset64_t[_NGREG64];
 
-#endif	/* _SYSCALL32 */
 
 #if !defined(_XPG4_2) || defined(__EXTENSIONS__)
 
@@ -324,7 +319,6 @@ typedef struct __old_fpu {
 
 #endif	/* __i386 */
 
-#if defined(_SYSCALL32)
 
 /* Kernel view of user i386 fpu structure */
 
@@ -342,7 +336,6 @@ typedef struct fpu32 {
 	} fp_reg_set;
 } fpregset32_t;
 
-#endif	/* _SYSCALL32 */
 
 /*
  * Kernel's FPU save area

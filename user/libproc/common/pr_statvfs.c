@@ -49,12 +49,13 @@ statvfs_32_to_n(statvfs32_t *src, statvfs_t *dest)
 	dest->f_ffree = src->f_ffree;
 	dest->f_favail = src->f_favail;
 	dest->f_fsid = src->f_fsid;
-	(void) memcpy(dest->f_basetype, src->f_basetype,
-		sizeof (dest->f_basetype));
+/* There is no member of f_basetype and f_fstr at struct statvfs on Linux. */
+/*	(void) memcpy(dest->f_basetype, src->f_basetype,
+		sizeof (dest->f_basetype));*/
 	dest->f_flag = src->f_flag;
 	dest->f_namemax = src->f_namemax;
-	(void) memcpy(dest->f_fstr, src->f_fstr,
-		sizeof (dest->f_fstr));
+/*	(void) memcpy(dest->f_fstr, src->f_fstr,
+		sizeof (dest->f_fstr));*/
 }
 #endif	/* _LP64 */
 

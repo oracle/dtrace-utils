@@ -570,7 +570,7 @@ struct r_debug {
 	rd_flags_e	r_flags;	/* misc flags. */
 };
 
-#ifdef _SYSCALL32
+/*#ifdef _SYSCALL32*/
 struct r_debug32 {
 	Elf32_Word	r_version;	/* debugging info version no. */
 	Elf32_Addr	r_map;		/* address of link_map */
@@ -581,7 +581,7 @@ struct r_debug32 {
 	rd_event_e	r_rdevent;	/* debug event */
 	rd_flags_e	r_flags;	/* misc flags. */
 };
-#endif
+/*endif*/
 
 
 #define	R_DEBUG_VERSION	2		/* current r_debug version */

@@ -1,6 +1,6 @@
 CC=gcc -g
 BUILD_DIR=build-$(shell uname -r)
-CPPFLAGS += -I../include
+CPPFLAGS += -I../uts/common/ -I../include
 BINDIR = ../$(BUILD_DIR)
 LIB = $(BINDIR)/libport.a
 
@@ -14,7 +14,8 @@ $(LIB): \
 	$(LIB)(strlcat.o) \
 	$(LIB)(strlcpy.o) \
 	$(LIB)(p_online.o) \
-	$(LIB)(time.o)
+	$(LIB)(time.o) \
+	$(LIB)(elf.o)
 
 clean:
 	-rm -f *.o $(LIB)

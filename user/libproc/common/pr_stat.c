@@ -60,8 +60,9 @@ stat64_32_to_n(struct stat64_32 *src, struct stat *dest)
 	TIMESPEC32_TO_TIMESPEC(&dest->st_ctim, &src->st_ctim);
 	dest->st_blksize = (blksize_t)src->st_blksize;
 	dest->st_blocks = (blkcnt_t)src->st_blocks;
-	(void) memcpy(dest->st_fstype, src->st_fstype,
-	    sizeof (dest->st_fstype));
+/*	(void) memcpy(dest->st_fstype, src->st_fstype,
+	    sizeof (dest->st_fstype));*/
+/* There is no st_fstype member at struct stat on Linux. */
 }
 #endif	/* _LP64 */
 

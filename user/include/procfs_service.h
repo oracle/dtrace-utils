@@ -4,10 +4,7 @@
 #include <stdint.h>
 #include <types_posix.h>
 #include <elf.h>
-
-typedef unsigned long	psaddr_t;
-
-typedef uint_t lwpid_t;
+#include <sys/procfs.h>
 
 typedef enum {
         PS_OK,          /* generic "call succeeded" */

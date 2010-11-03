@@ -43,7 +43,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/param.h>
-#include <sys/procfs.h>
+//#include <sys/procfs.h>
 #include <sys/ctf.h>
 
 #include <types_off.h>

@@ -90,7 +90,7 @@ sigaction_32_to_n(const struct sigaction32 *src, struct sigaction *dst)
 {
 	(void) memset(dst, 0, sizeof (struct sigaction));
 	dst->sa_flags = src->sa_flags;
-	dst->sa_handler = (void (*)())(uintptr_t)src->sa_handler;
+	dst->sa_handler = (void (*)())(uintptr_t)src->sa_handler32;
 	(void) memcpy(&dst->sa_mask, &src->sa_mask, sizeof (dst->sa_mask));
 }
 
@@ -112,8 +112,8 @@ siginfo_32_to_n(const siginfo32_t *src, siginfo_t *dst)
 	 */
 	if (SI_FROMUSER(src)) {
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+//		dst->si_ctid = src->si_ctid;
+//		dst->si_zoneid = src->si_zoneid;
 		dst->si_uid = src->si_uid;
 		if (SI_CANQUEUE(src->si_code)) {
 			dst->si_value.sival_int =
@@ -127,16 +127,16 @@ siginfo_32_to_n(const siginfo32_t *src, siginfo_t *dst)
 	switch (src->si_signo) {
 	default:
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+/*		dst->si_ctid = src->si_ctid;
+		dst->si_zoneid = src->si_zoneid;*/
 		dst->si_uid = src->si_uid;
 		dst->si_value.sival_int =
 		    (long)(uint32_t)src->si_value.sival_int;
 		break;
 	case SIGCLD:
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+/*		dst->si_ctid = src->si_ctid;
+		dst->si_zoneid = src->si_zoneid;*/
 		dst->si_status = src->si_status;
 		dst->si_stime = src->si_stime;
 		dst->si_utime = src->si_utime;
@@ -148,8 +148,8 @@ siginfo_32_to_n(const siginfo32_t *src, siginfo_t *dst)
 	case SIGFPE:
 	case SIGEMT:
 		dst->si_addr = (void *)(uintptr_t)src->si_addr;
-		dst->si_trapno = src->si_trapno;
-		dst->si_pc = (void *)(uintptr_t)src->si_pc;
+/*		dst->si_trapno = src->si_trapno;
+		dst->si_pc = (void *)(uintptr_t)src->si_pc;*/
 		break;
 	case SIGPOLL:
 	case SIGXFSZ:
@@ -157,12 +157,12 @@ siginfo_32_to_n(const siginfo32_t *src, siginfo_t *dst)
 		dst->si_band = src->si_band;
 		break;
 	case SIGPROF:
-		dst->si_faddr = (void *)(uintptr_t)src->si_faddr;
+/*		dst->si_faddr = (void *)(uintptr_t)src->si_faddr;
 		dst->si_tstamp.tv_sec = src->si_tstamp.tv_sec;
 		dst->si_tstamp.tv_nsec = src->si_tstamp.tv_nsec;
 		dst->si_syscall = src->si_syscall;
 		dst->si_nsysarg = src->si_nsysarg;
-		dst->si_fault = src->si_fault;
+		dst->si_fault = src->si_fault;*/
 		break;
 	}
 }
@@ -264,7 +264,8 @@ prfpregset_32_to_n(const prfpregset32_t *src, prfpregset_t *dst)
 	dst->pr_q_entrysize = src->pr_q_entrysize;
 	dst->pr_en = src->pr_en;
 
-#elif defined(__amd64)
+//#elif defined(__amd64)
+#if 0
 
 	struct _fpstate32 *src32 = (struct _fpstate32 *)src;
 	struct fpchip_state *dst64 = (struct fpchip_state *)dst;
@@ -294,8 +295,9 @@ prfpregset_32_to_n(const prfpregset32_t *src, prfpregset_t *dst)
 	for (i = 0; i < 8; i++)
 		if (((src32->tag >> (i * 2)) & 3) != 3)
 			dst64->fctw |= 1 << i;
-#else
-#error "unrecognized ISA"
+//#else
+#endif
+//#error "unrecognized ISA"
 #endif
 }
 
@@ -464,7 +466,7 @@ sigaction_n_to_32(const struct sigaction *src, struct sigaction32 *dst)
 {
 	(void) memset(dst, 0, sizeof (struct sigaction32));
 	dst->sa_flags = src->sa_flags;
-	dst->sa_handler = (caddr32_t)(uintptr_t)src->sa_handler;
+	dst->sa_handler32 = (caddr32_t)(uintptr_t)src->sa_handler;
 	(void) memcpy(&dst->sa_mask, &src->sa_mask, sizeof (dst->sa_mask));
 }
 
@@ -486,8 +488,8 @@ siginfo_n_to_32(const siginfo_t *src, siginfo32_t *dst)
 	 */
 	if (SI_FROMUSER(src)) {
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+/*		dst->si_ctid = src->si_ctid;
+		dst->si_zoneid = src->si_zoneid;*/
 		dst->si_uid = src->si_uid;
 		if (SI_CANQUEUE(src->si_code)) {
 			dst->si_value.sival_int =
@@ -501,16 +503,16 @@ siginfo_n_to_32(const siginfo_t *src, siginfo32_t *dst)
 	switch (src->si_signo) {
 	default:
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+/*		dst->si_ctid = src->si_ctid;
+		dst->si_zoneid = src->si_zoneid;*/
 		dst->si_uid = src->si_uid;
 		dst->si_value.sival_int =
 		    (int32_t)src->si_value.sival_int;
 		break;
 	case SIGCLD:
 		dst->si_pid = src->si_pid;
-		dst->si_ctid = src->si_ctid;
-		dst->si_zoneid = src->si_zoneid;
+/*		dst->si_ctid = src->si_ctid;
+		dst->si_zoneid = src->si_zoneid;*/
 		dst->si_status = src->si_status;
 		dst->si_stime = src->si_stime;
 		dst->si_utime = src->si_utime;
@@ -522,8 +524,8 @@ siginfo_n_to_32(const siginfo_t *src, siginfo32_t *dst)
 	case SIGFPE:
 	case SIGEMT:
 		dst->si_addr = (caddr32_t)(uintptr_t)src->si_addr;
-		dst->si_trapno = src->si_trapno;
-		dst->si_pc = (caddr32_t)(uintptr_t)src->si_pc;
+/*		dst->si_trapno = src->si_trapno;
+		dst->si_pc = (caddr32_t)(uintptr_t)src->si_pc;*/
 		break;
 	case SIGPOLL:
 	case SIGXFSZ:
@@ -531,12 +533,12 @@ siginfo_n_to_32(const siginfo_t *src, siginfo32_t *dst)
 		dst->si_band = src->si_band;
 		break;
 	case SIGPROF:
-		dst->si_faddr = (caddr32_t)(uintptr_t)src->si_faddr;
+/*		dst->si_faddr = (caddr32_t)(uintptr_t)src->si_faddr;
 		dst->si_tstamp.tv_sec = src->si_tstamp.tv_sec;
 		dst->si_tstamp.tv_nsec = src->si_tstamp.tv_nsec;
 		dst->si_syscall = src->si_syscall;
 		dst->si_nsysarg = src->si_nsysarg;
-		dst->si_fault = src->si_fault;
+		dst->si_fault = src->si_fault;*/
 		break;
 	}
 }
@@ -595,8 +597,9 @@ prfpregset_n_to_32(const prfpregset_t *src, prfpregset32_t *dst)
 	dst->pr_q_entrysize = src->pr_q_entrysize;
 	dst->pr_en = src->pr_en;
 
-#elif defined(__amd64)
+//#elif defined(__amd64)
 
+#if 0
 	struct _fpstate32 *dst32 = (struct _fpstate32 *)dst;
 	struct fpchip_state *src64 = (struct fpchip_state *)src;
 	uint32_t top;
@@ -667,8 +670,9 @@ prfpregset_n_to_32(const prfpregset_t *src, prfpregset32_t *dst)
 		}
 		dst32->tag |= tag_value << (tag_index * 2);
 	}
-#else
-#error "unrecognized ISA"
+#endif
+//#else
+//#error "unrecognized ISA"
 #endif
 }
 

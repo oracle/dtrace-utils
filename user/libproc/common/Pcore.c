@@ -1302,7 +1302,7 @@ core_find_text(struct ps_prochandle *P, Elf *elf, rd_loadobj_t *rlp)
 		if (gelf_getphdr(elf, i, &phdr) != NULL &&
 		    phdr.p_type == PT_LOAD && (phdr.p_flags & PF_X)) {
 			rlp->rl_base = phdr.p_vaddr;
-			return (Paddr2mptr(P, rlp->rl_base));
+			return (Paddr2mptr(P, (uintptr_t)rlp->rl_base));
 		}
 	}
 
@@ -1338,7 +1338,7 @@ core_find_data(struct ps_prochandle *P, Elf *elf, rd_loadobj_t *rlp)
 		    phdr.p_type == PT_LOAD && (phdr.p_flags & PF_W)) {
 			rlp->rl_data_base = phdr.p_vaddr;
 			if (ehdr.e_type == ET_DYN)
-				rlp->rl_data_base += rlp->rl_base;
+				rlp->rl_data_base += (unsigned long)rlp->rl_base;
 			break;
 		}
 	}

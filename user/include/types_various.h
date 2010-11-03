@@ -2,6 +2,7 @@
 #define TYPES_VARIOUS_H
 
 #include <sys/types.h>
+#include <sys/types32.h>
 #include <sys/int_types.h>
 #include <types_posix.h>
 #include <unistd.h>
@@ -16,8 +17,10 @@ typedef id_t    projid_t;
 typedef id_t    poolid_t;
 typedef id_t    zoneid_t;
 typedef id_t    ctid_t;
-
+typedef unsigned long   psaddr_t;
 typedef int psetid_t;
+
+typedef pid_t	lwpid_t;
 
 typedef uint32_t priv_chunk_t;
 
@@ -30,16 +33,32 @@ typedef struct rctlblk rctlblk_t;
 
 typedef struct iovec iovec_t;
 
-typedef uint32_t dev32_t;
-typedef uint32_t size32_t;
-typedef uint32_t        caddr32_t;
-#if 0
+#ifndef __ino64_t_defined
 #ifdef _LP64
 typedef ino_t		ino64_t;
 #else
 typedef u_longlong_t	ino64_t;	/* expanded inode type	*/
 #endif
+#define __ino64_t_defined
 #endif
+
+#ifndef _LARGEFILE64_SOURCE
+#ifdef _LP64
+typedef	blkcnt_t	blkcnt64_t;
+#else
+typedef longlong_t	blkcnt64_t;
+#endif
+#endif
+
+#ifndef __blksize_t_defined
+#ifdef _LP64
+typedef	int		blksize_t;	/* used for block sizes */
+#else
+typedef	long		blksize_t;	/* used for block sizes */
+#endif
+#define __blksize_t_defined
+#endif
+
 
 /*
  * return x rounded up to an align boundary
@@ -166,7 +185,7 @@ typedef struct meminfo32 {
 
 
 #define	SYS_forksys	142
-
+#define SYS_sigaction   98
 #define	SIGCANCEL 36
 
 #define SIG2STR_MAX     32
@@ -221,6 +240,7 @@ CC_CONTENT_SYMTAB)
  *		syscall(SYS_xxxx, ...)
  */
 #define	SYS_fstatat		66
+#define	SYS_fstatat64		67
 #define	SYS_tasksys		70
 #define SYS_rctlsys		74
 #define	SYS_statvfs		103
@@ -234,9 +254,6 @@ CC_CONTENT_SYMTAB)
 #define SYS_setrlimit64         220
 #define SYS_getrlimit64         221
 #define	SYS_zone		227
-#define SYS_getpeername         243
-#define SYS_getsockname         244
-#define SYS_getsockopt          245
 #define SYS_meminfosys          SYS_lgrpsys
 
 
@@ -249,6 +266,16 @@ typedef struct fshare {
  	short	f_deny;
  	int	f_id;
 } fshare_t;
+
+typedef struct flock64_32 {
+	int16_t	l_type;
+	int16_t	l_whence;
+	off64_t	l_start;
+	off64_t	l_len;		/* len == 0 means until end of file */
+	int32_t	l_sysid;
+	pid32_t	l_pid;
+	int32_t	l_pad[4];		/* reserve area */
+} flock64_32_t;
 
 
 /*
@@ -322,6 +349,17 @@ typedef struct fshare {
 #ifndef ABS
 #define	ABS(a)		((a) < 0 ? -(a) : (a))
 #endif
+
+
+/*
+ * negative signal codes are reserved for future use for user generated
+ * signals
+ */
+#define	SI_FROMUSER(sip)	((sip)->si_code <= 0)
+#define	SI_FROMKERNEL(sip)	((sip)->si_code > 0)
+
+/*  indication whether to queue the signal or not */
+#define	SI_CANQUEUE(c)	((c) <= SI_QUEUE)
 
 
 #endif

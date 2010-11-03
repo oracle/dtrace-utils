@@ -24,10 +24,13 @@
  * Use is subject to license terms.
  */
 
-#ifndef _SYS_PROCFS_H
-#define	_SYS_PROCFS_H
+#ifndef _SYS_PROCFS_SOLARIS_H
+#define	_SYS_PROCFS_SOLARIS_H
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
+
+#include <sys/signal2.h>
+#include <sys/procfs.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -524,7 +527,6 @@ typedef struct prheader {
 	(((unsigned)((flag)-1) < 32*sizeof (*(sp))/sizeof (uint32_t)) && \
 	    (((uint32_t *)(sp))[((flag)-1)/32] & (1U<<(((flag)-1)%32))))
 
-#if defined(_SYSCALL32)
 
 /*
  * dev32_t version of PRNODEV
@@ -813,7 +815,6 @@ typedef struct prheader32 {
 	int32_t	pr_entsize;	/* size of each entry, in bytes */
 } prheader32_t;
 
-#endif	/* _SYSCALL32 */
 
 #ifdef	__cplusplus
 }

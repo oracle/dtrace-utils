@@ -33,12 +33,12 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"	/* SVr4.0 1.2	*/
 
 #include <sys/types.h>
+#include <sys/types32.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#if !defined(_ASM)
 typedef struct
 {
 	int	a_type;
@@ -53,8 +53,6 @@ typedef struct
 	} a_un;
 } auxv_t;
 
-#if defined(_SYSCALL32)
-
 typedef struct {
 	int32_t	a_type;
 	union	{
@@ -64,9 +62,6 @@ typedef struct {
 	} a_un;
 } auxv32_t;
 
-#endif	/* _SYSCALL32 */
-
-#endif /* _ASM */
 
 #define	AT_NULL		0
 #define	AT_IGNORE	1

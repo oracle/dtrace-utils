@@ -6,6 +6,7 @@ CPPFLAGS += -I../common \
 	-I../../include \
 	-I../../libproc/common \
 	-I../../libctf \
+	-I../../uts/intel/ \
 	-DCTF_OLD_VERSIONS $(PTR32)
 CPPFLAGS += -D_ILP32 -D_LONGLONG_TYPE -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64
 
@@ -59,7 +60,7 @@ $(LIB): \
 	$(LIB)(proc_stdio.o)
 
 $(LIB)(Pcore.o): Pcore.c
-	$(CC) $(CPPFLAGS) -D_XOPEN_SOURCE=500 -c Pcore.c
+	$(CC) $(CPPFLAGS) -D_LARGEFILE64_SOURCE=1 -D_XOPEN_SOURCE=500 -c Pcore.c
 	ar rv $(LIB) Pcore.o
 	rm -rf Pcore.o
 

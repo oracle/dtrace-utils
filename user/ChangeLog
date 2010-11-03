@@ -1,6 +1,69 @@
+2010-11-03  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* common/ctf/ctf_create.c: Include types_various.h.
+	
+	include/
+	* ieeefp.h: New.
+	* sys/fp.h: New.
+	* sys/procfs.h: New.
+	* sys/signal2.h: New.
+	* sys/types32.h: New.
+	* procfs.h: Remove _STRUCTURED_PROC definition.
+	* types_posix.h: New type major_t and minor_t.
+	* types_time.h: New struct itimerval32.
+	* procfs_service.h: Move psaddr_t and lwpid_t to ...
+	* types_various.h: ... here.
+	(dev32_t, size32_t and caddr32_t): Removed.
+	(ino64_t): Define if ino64_t not defined.
+	(blkcnt64_t and blksize_t): New type.
+	(SYS_sigaction and SYS_fstatat64): New.
+	(SYS_getpeername, SYS_getsockname and SYS_getsockopt): Removed.
+	(flock64_32_t): New.
+	(SI_FROMUSER, SI_FROMKERNEL and SI_CANQUEUE): New.
+	* sys/auxv.h: Remove _ASM and _SYSCALL32 conditional.
+	* sys/link.h: Likewise. 
+	* sys/old_procfs.h: Likewise.
+	* sys/procfs_isa.h: Likewise.
+	* sys/regset.h: Likewise.
+	* sys/stat.h: Likewise.
+	* sys/statvfs.h: New type statvfs32_t.
+
+	libdtrace/
+	* dt_aggregate.c: Include sys/procfs.h.
+	* dt_module.c: Include sys/stat.h.
+	* makefile (dt_module.o): Use -D_LARGEFILE64_SOURCE=1 option.
+
+	libproc/common/
+	* P32ton.c (sigaction_32_to_n, sigaction_n_to_32): Use sa_handler32.
+	(siginfo_32_to_n, siginfo_n_to32): Remove the lines of asign to the
+	members that don't exist on Linux.
+	(prfpregset_32_to_n, prfpregset_n_to_32): Comment the part of amd64.
+	* P32ton.h: Fix the inclusions.
+	* Pcore.c (core_find_text, core_find_data): Convert the type.
+	* Psyscall.c: Include sys/stack.h.
+	* makefile: Add compile option -I../../uts/intel/
+	(Pcore.o): Add -D_LARGEFILE64_SOURCE=1 option.
+	* pr_getitimer.c: Include types_time.h.
+	* pr_stat.c: Remove the lines of st_fstype.
+	* pr_statvfs.c: Remove the lines of f_basetype and f_fstr.
+	
+	libport/
+	* elf.c: New
+	* makefile: Update.
+
+	librtld/
+	* rtld.h: Remove _SYSCALL32 conditional.
+	* rtld_db.c: Define _rd_reset64.
+
+	uts/common/
+	* sys/ctf_api.h: Include sys/procfs.h.
+	* sys/procfs.h: Removed.
+	* intel/sys/stack.h: New.
+
 2010-10-26  Shujing Zhao  <pearly.zhao@oracle.com>
 	
-	* libdtrace/makefile: Fix dt_isadep.o.
+	* libdtrace/makefile: Fix dt_isadep.o, dt_module.o.
+	* libdtrace/dt_module.c: Include sys/stat.h.
 
 2010-10-25  Paolo Carlini  <paolo.carlini@oracle.com>
 

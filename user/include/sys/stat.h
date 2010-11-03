@@ -2,7 +2,7 @@
 #define _32_SYS_STAT_H
 
 #include "/usr/include/sys/stat.h"
-#include "/usr/include/sys/types.h"
+#include <sys/types.h>
 #include <types_posix.h>
 #include <types_various.h>
 
@@ -12,7 +12,7 @@
  	
 #endif
 
-#if defined(_SYSCALL32)
+#define	_ST_FSTYPSZ 16		/* array size for file system type name */
 
 /*
  * Kernel's view of user ILP32 stat and stat64 structures
@@ -66,7 +66,5 @@ struct stat64_32 {
 #if _LONG_LONG_ALIGNMENT == 8 && _LONG_LONG_ALIGNMENT_32 == 4
 #pragma pack()
 #endif
-
-#endif /*_SYSCALL32*/
 
 #endif

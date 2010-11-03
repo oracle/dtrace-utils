@@ -43,16 +43,15 @@
 #include <sys/fault.h>
 #include <sys/syscall.h>
 #include <sys/procfs_isa.h>
-
 #include <types_dev.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-/*#if !defined(_LP64) && _FILE_OFFSET_BITS == 64
+#if !defined(_LP64) && _FILE_OFFSET_BITS == 64
 #error	"Cannot use procfs in the large file compilation environment"
-#endif */
+#endif
 
 #if _STRUCTURED_PROC == 0
 
@@ -460,7 +459,6 @@ typedef struct prasmap {
 
 #endif	/* _STRUCTURED_PROC == 0 */
 
-#ifdef _SYSCALL32
 
 #if _STRUCTURED_PROC == 0
 
@@ -625,8 +623,6 @@ typedef struct ioc_prasmap32 {
 } ioc_prasmap32_t;
 
 #endif	/* _STRUCTURED_PROC == 0 */
-
-#endif	/* _SYSCALL32 */
 
 #ifdef	__cplusplus
 }

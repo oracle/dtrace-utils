@@ -34,7 +34,7 @@
 #include <types_posix.h>
 #include <fcntl.h>
 
-#include "/usr/include/asm/stat.h"
+#include <sys/stat.h>
 
 #include <unistd.h>
 //#include <project.h>

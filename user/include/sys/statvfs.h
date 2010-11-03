@@ -4,5 +4,9 @@
 #include "/usr/include/sys/statvfs.h"
 
 typedef struct statvfs statvfs_t;
+#ifdef _LP64
+typedef struct statvfs statvfs32_t;
+#endif
+
 
 #endif

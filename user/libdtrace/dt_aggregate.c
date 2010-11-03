@@ -36,6 +36,7 @@
 #include <limits.h>
 
 #include <libproc.h>
+#include <sys/procfs.h>
 
 #include <confname_add.h>
 

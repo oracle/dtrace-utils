@@ -11,6 +11,14 @@ typedef	unsigned long	ulong_t;
 typedef	char		*caddr_t;	/* ?<core address> type */
 typedef	short		cnt_t;		/* ?<count> type */
 
+#if !defined(_LP64) && defined(__cplusplus)
+typedef ulong_t major_t;        /* major part of device number */
+typedef ulong_t minor_t;        /* minor part of device number */
+#else
+typedef uint_t major_t;
+typedef uint_t minor_t;
+#endif
+
 #ifndef _LARGEFILE64_SOURCE
 typedef unsigned long long off64_t;
 #endif
