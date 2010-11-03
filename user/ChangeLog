@@ -59,6 +59,7 @@
 	* sys/ctf_api.h: Include sys/procfs.h.
 	* sys/procfs.h: Removed.
 	* intel/sys/stack.h: New.
+	* intel/ia32/sys/stack.h: New.
 
 2010-10-26  Shujing Zhao  <pearly.zhao@oracle.com>
 	
