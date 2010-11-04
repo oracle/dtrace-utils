@@ -255,6 +255,9 @@ CC_CONTENT_SYMTAB)
 #define SYS_getrlimit64         221
 #define	SYS_zone		227
 #define SYS_meminfosys          SYS_lgrpsys
+#define SYS_getpeername         243
+#define SYS_getsockname         244
+#define SYS_getsockopt          245
 
 
 

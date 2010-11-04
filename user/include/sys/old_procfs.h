@@ -48,11 +48,11 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
+/*
 #if !defined(_LP64) && _FILE_OFFSET_BITS == 64
 #error	"Cannot use procfs in the large file compilation environment"
 #endif
-
+*/
 #if _STRUCTURED_PROC == 0
 
 /*

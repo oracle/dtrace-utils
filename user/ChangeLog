@@ -1,3 +1,16 @@
+2010-11-04  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/types_various.h (SYS_getpeername, SYS_getsockname and
+	SYS_getsockopt): New.
+	* include/sys/old_procfs.h: Make old_procfs.h can be included even
+	_LP64 is not defined.
+	* libdtrace/dt_module.c: Use elf_getshstrndx instead of
+	elf_getshdrstrndx.
+	* libport/elf.c: Removed.
+	* libport/makefile: Remove elf.o and fix the compile option.
+	* libproc/common/Psymtab.c: Use elf_getshstrndx and elf_getshnum
+	instead of elf_getshdrstrndx and elf_getshdrnum.
+
 2010-11-03  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* common/ctf/ctf_create.c: Include types_various.h.
