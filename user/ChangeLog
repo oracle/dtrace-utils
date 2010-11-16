@@ -1,3 +1,11 @@
+2010-11-16  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* libdtrace/makefile (dt_lex.c): Use "-l" compatibility option to write
+	  to the .c file.
+	* libdtrace/dt_impl.h: Remove the declaration of yytext for Linux.
+	* libdtrace/dt_lex.l: Undefine input() and unput() and define YY_INPUT()
+	  macro.
+
 2010-11-05  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/makefile (dt_errtags.c, dt_names.c): Use sh to run the

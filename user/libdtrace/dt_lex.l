@@ -18,12 +18,11 @@
  * information: Portions Copyright [yyyy] [name of copyright owner]
  *
  * CDDL HEADER END
- *
- * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
 
 #include <string.h>
 #include <stdlib.h>
@@ -41,12 +40,33 @@
  * We need to undefine lex's input and unput macros so that references to these
  * call the functions provided at the end of this source file.
  */
-#undef input
-#undef unput
+/*#undef input
+#undef unput */
 
 static int id_or_type(const char *);
-static int input(void);
-static void unput(int i){};
+/*static int input(void);
+static void unput(int);*/
+
+/* 
+ * Define YY_INPUT for flex since input() can't be re-defined.
+ */
+
+#define YY_INPUT(buf,result,max_size) \
+        if (yypcb->pcb_fileptr != NULL) { \
+                if (((result = fread(buf, 1, max_size, yypcb->pcb_fileptr)) == 0) \
+                    && ferror(yypcb->pcb_fileptr)) \
+                        longjmp(yypcb->pcb_jmpbuf, EDT_FIO); \
+		else if ((YYSTATE) == S1) \
+               		yyerror("end-of-file encountered before matching */\n"); \
+		else if ((YYSTATE) == S3) \
+        	        yyerror("end-of-file encountered before end of control line\n"); \
+        } else { \
+                int n; \
+                for (n = 0; n < max_size && \
+                    yypcb->pcb_strptr < yypcb->pcb_string + yypcb->pcb_strlen; n++) \
+                        buf[n] = *yypcb->pcb_strptr++; \
+                result = n; \
+        }
 
 /*
  * We first define a set of labeled states for use in the D lexer and then a
@@ -803,7 +823,7 @@ input(void)
 	else if (yypcb->pcb_fileptr != NULL)
 		c = fgetc(yypcb->pcb_fileptr);
 	else if (yypcb->pcb_strptr < yypcb->pcb_string + yypcb->pcb_strlen)
-		c = *yypcb->pcb_strptr++;
+		c = *(unsigned char *)(yypcb->pcb_strptr++);
 	else
 		c = EOF;
 

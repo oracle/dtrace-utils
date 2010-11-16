@@ -72,7 +72,7 @@ $(LIB)(dt_lex.o): $(BINDIR)/dt_grammar.h $(BINDIR)/dt_lex.c $(H)
 	 ar rv $(LIB) dt_lex.o
 	 -rm -f dt_lex.o
 $(BINDIR)/dt_lex.c: dt_lex.l
-	lex -t -v dt_lex.l > $(BINDIR)/dt_lex.c
+	lex -l -t -v dt_lex.l > $(BINDIR)/dt_lex.c
 
 
 $(LIB)(dis_tables.o): ../driver/dis_tables.c $(H)
