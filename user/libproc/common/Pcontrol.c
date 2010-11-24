@@ -175,6 +175,10 @@ dupfd(int fd, int dfd)
 	return (fd);
 }
 
+static int sig_int ()
+{
+  signal (SIGUSR1, sig_int);
+}
 /*
  * Create a new controlled process.
  * Leave it stopped on successful exit from exec() or execve().
@@ -196,6 +200,7 @@ Pxcreate(const char *file,	/* executable file name */
 	int fd;
 	char *fname;
 	int rc;
+	int status;
 	int lasterrno = 0;
 
 	if (len == 0)	/* zero length, no path */
@@ -227,6 +232,7 @@ Pxcreate(const char *file,	/* executable file name */
 			(void) setuid(id);
 
 		Pcreate_callback(P);	/* execute callback (see below) */
+		signal (SIGUSR1, sig_int);
 		(void) pause();		/* wait for PRSABORT from parent */
 
 		/*
@@ -269,8 +275,11 @@ Pxcreate(const char *file,	/* executable file name */
 	 * Exclusive write open advises others not to interfere.
 	 * There is no reason for any of these open()s to fail.
 	 */
-	(void) strcpy(fname, "as");
-	if ((fd = open(procname, (O_RDWR|O_EXCL))) < 0 ||
+/*	(void) strcpy(fname, "as"); */
+	(void) strcpy(fname, "mem");
+/*	if ((fd = open(procname, (O_RDWR|O_EXCL))) < 0 || */
+	if ((fd = open(procname, (O_RDONLY|O_EXCL))) < 0 ||
+	 /* Changed to O_RDONLY on Linux */
 	    (fd = dupfd(fd, 0)) < 0) {
 		dprintf("Pcreate: failed to open %s: %s\n",
 		    procname, strerror(errno));
@@ -279,7 +288,8 @@ Pxcreate(const char *file,	/* executable file name */
 	}
 	P->asfd = fd;
 
-	(void) strcpy(fname, "status");
+/*	(void) strcpy(fname, "status"); */
+	(void) strcpy(fname, "stat"); /* Read /proc/<pid>/stat on Linux */
 	if ((fd = open(procname, O_RDONLY)) < 0 ||
 	    (fd = dupfd(fd, 0)) < 0) {
 		dprintf("Pcreate: failed to open %s: %s\n",
@@ -289,16 +299,25 @@ Pxcreate(const char *file,	/* executable file name */
 	}
 	P->statfd = fd;
 
-	(void) strcpy(fname, "ctl");
+/*	(void) strcpy(fname, "ctl");
 	if ((fd = open(procname, O_WRONLY)) < 0 ||
 	    (fd = dupfd(fd, 0)) < 0) {
 		dprintf("Pcreate: failed to open %s: %s\n",
 		    procname, strerror(errno));
 		rc = C_STRANGE;
 		goto bad;
-	}
+	}*/
+	fd = -1;
 	P->ctlfd = fd;
-
+	
+	kill (pid, SIGUSR1);
+	waitpid (pid, &status, 0);
+        P->status.pr_flags |= PR_STOPPED;
+        P->state = PS_STOP;
+        P->status.pr_pid = pid;
+        *perr = 0;
+        return P;
+#if 0
 	(void) Pstop(P, 0);	/* stop the controlled process */
 
 	/*
@@ -432,6 +451,7 @@ Pxcreate(const char *file,	/* executable file name */
 
 	rc = lasterrno == ENOENT ? C_NOENT : C_NOEXEC;
 
+#endif
 bad:
 	(void) kill(pid, SIGKILL);
 	if (path != NULL && rc != C_PERM && rc != C_LP64)
@@ -574,7 +594,8 @@ again:	/* Come back here if we lose it in the Window of Vulnerability */
 	 * If this fails and the 'PGRAB_FORCE' flag is set, attempt to
 	 * open non-exclusively.
 	 */
-	(void) strcpy(fname, "as");
+/*	(void) strcpy(fname, "as"); */
+	(void) strcpy(fname, "mem");
 	omode = (flags & PGRAB_RDONLY) ? O_RDONLY : O_RDWR;
 
 	if (((fd = open(procname, omode | O_EXCL)) < 0 &&
@@ -607,7 +628,8 @@ again:	/* Come back here if we lose it in the Window of Vulnerability */
 	}
 	P->asfd = fd;
 
-	(void) strcpy(fname, "status");
+/*	(void) strcpy(fname, "status"); */
+	(void) strcpy(fname, "stat"); /* For Linux */
 	if ((fd = open(procname, O_RDONLY)) < 0 ||
 	    (fd = dupfd(fd, 0)) < 0) {
 		switch (errno) {
@@ -628,7 +650,7 @@ again:	/* Come back here if we lose it in the Window of Vulnerability */
 	P->statfd = fd;
 
 	if (!(flags & PGRAB_RDONLY)) {
-		(void) strcpy(fname, "ctl");
+/*		(void) strcpy(fname, "ctl");
 		if ((fd = open(procname, O_WRONLY)) < 0 ||
 		    (fd = dupfd(fd, 0)) < 0) {
 			switch (errno) {
@@ -645,7 +667,8 @@ again:	/* Come back here if we lose it in the Window of Vulnerability */
 				break;
 			}
 			goto err;
-		}
+		} */
+		fd = -1;
 		P->ctlfd = fd;
 	}
 
@@ -1311,7 +1334,8 @@ Preopen(struct ps_prochandle *P)
 	    procfs_path, (int)P->pid);
 	fname = procname + strlen(procname);
 
-	(void) strcpy(fname, "as");
+/*	(void) strcpy(fname, "as"); */
+	(void) strcpy(fname, "mem"); /* for Linux */
 	if ((fd = open(procname, O_RDWR)) < 0 ||
 	    close(P->asfd) < 0 ||
 	    (fd = dupfd(fd, P->asfd)) != P->asfd) {
@@ -1323,7 +1347,8 @@ Preopen(struct ps_prochandle *P)
 	}
 	P->asfd = fd;
 
-	(void) strcpy(fname, "status");
+/*	(void) strcpy(fname, "status");*/
+	(void) strcpy(fname, "stat");
 	if ((fd = open(procname, O_RDONLY)) < 0 ||
 	    close(P->statfd) < 0 ||
 	    (fd = dupfd(fd, P->statfd)) != P->statfd) {
@@ -1335,7 +1360,7 @@ Preopen(struct ps_prochandle *P)
 	}
 	P->statfd = fd;
 
-	(void) strcpy(fname, "ctl");
+/*	(void) strcpy(fname, "ctl");
 	if ((fd = open(procname, O_WRONLY)) < 0 ||
 	    close(P->ctlfd) < 0 ||
 	    (fd = dupfd(fd, P->ctlfd)) != P->ctlfd) {
@@ -1344,7 +1369,8 @@ Preopen(struct ps_prochandle *P)
 		if (fd >= 0)
 			(void) close(fd);
 		return (-1);
-	}
+	}*/
+	fd = -1;
 	P->ctlfd = fd;
 
 	/*
@@ -1668,6 +1694,7 @@ Pstopstatus(struct ps_prochandle *P,
 		return (-1);
 	}
 
+#if 0
 	ctl[0] = PCDSTOP;
 	ctl[1] = PCTWSTOP;
 	ctl[2] = (long)msec;
@@ -1691,18 +1718,19 @@ Pstopstatus(struct ps_prochandle *P,
 		return (-1);
 	}
 	err = (rc < 0)? errno : 0;
+#endif
 	Psync(P);
 
-	if (P->agentstatfd < 0) {
+/*	if (P->agentstatfd < 0) { */
 		if (pread(P->statfd, &P->status,
 		    sizeof (P->status), (off_t)0) < 0)
 			err = errno;
-	} else {
+/*	} else {
 		if (pread(P->agentstatfd, &P->status.pr_lwp,
 		    sizeof (P->status.pr_lwp), (off_t)0) < 0)
 			err = errno;
 		P->status.pr_flags = P->status.pr_lwp.pr_flags;
-	}
+	}*/ /* FOR Linux */
 
 	if (err) {
 		switch (err) {
@@ -1822,16 +1850,16 @@ deadcheck(struct ps_prochandle *P)
 	if (P->statfd < 0)
 		P->state = PS_UNDEAD;
 	else {
-		if (P->agentstatfd < 0) {
+/*		if (P->agentstatfd < 0) { */
 			fd = P->statfd;
 			buf = &P->status;
 			size = sizeof (P->status);
-		} else {
+/*		} else {
 			fd = P->agentstatfd;
 			buf = &P->status.pr_lwp;
 			size = sizeof (P->status.pr_lwp);
-		}
-		while (pread(fd, buf, size, (off_t)0) != size) {
+		}*/
+/*		while (pread(fd, buf, size, (off_t)0) != size) {
 			switch (errno) {
 			default:
 				P->state = PS_UNDEAD;
@@ -1844,7 +1872,10 @@ deadcheck(struct ps_prochandle *P)
 				break;
 			}
 			break;
-		}
+		} */
+		if (pread(fd, buf, size, (off_t)0) < 0) {
+			dprintf("Fail to open file /proc/<pid>/stat\n");	
+			}			
 		P->status.pr_flags = P->status.pr_lwp.pr_flags;
 	}
 }

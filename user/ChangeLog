@@ -1,3 +1,14 @@
+2010-11-24  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/Pcontrol.c (sig_int): New function used as signal
+	handler.
+	(Pxcreate): Add signal handler to child process. Use
+	/proc/<pid>/mem instead of /proc/<pid>/as, </proc/<pid>/stat instead
+	of /proc/<pid>/status and remove to use /proc/<pid>/ctl. Use waitpid
+	on the parent process.
+	(Pgrab, Preopen, Pstopstatus): Similar with the Pxcreat. Fix the proc
+	files and don't use ctl to control the process.
+
 2010-11-16  Shujing Zhao  <pearly.zhao@oracle.com>
 	
 	* libdtrace/makefile (dt_lex.c): Use "-l" compatibility option to write
