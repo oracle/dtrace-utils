@@ -1,1 +1,4 @@
 This project holds the development of the DTrace port to Linux.
+
+THe kernel/ sub-directory holds all the kernel space code, whereas the user/
+sub-directory holds the user space code (utilities).
