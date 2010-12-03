@@ -257,7 +257,7 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	 * still enabled (having at least one ECB).  If any are found, we
 	 * cannot remove this provider.
 	 */
-	err = idr_for_each(&dtrace_probe_idr, dtrace_unregister_check, old);
+	err = dtrace_probe_for_each(dtrace_unregister_check, old);
 	if (err < 0) {
 		if (!self) {
 			mutex_unlock(&dtrace_lock);
@@ -273,7 +273,7 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	 * safely remove these probes from the hashtables and the probe array.
 	 * We chain all the probes together for further processing.
 	 */
-	idr_for_each(&dtrace_probe_idr, dtrace_unregister_probe, &first);
+	dtrace_probe_for_each(dtrace_unregister_probe, &first);
 
 	/*
 	 * The probes associated with the provider have been removed.  Ensure
@@ -297,7 +297,7 @@ int dtrace_unregister(dtrace_provider_id_t id)
 		kfree(probe->dtpr_name);
 		kfree(probe);
 
-		idr_remove(&dtrace_probe_idr, probe_id);
+		dtrace_probe_remove_id(probe_id);
 	}
 
 	if ((prev = dtrace_provider) == old) {

@@ -5,8 +5,6 @@
  * Copyright (C) 2010 Oracle Corporation
  */
 
-#include <linux/idr.h>
-
 #include "dtrace.h"
 
 dtrace_hash_t	*dtrace_bymod;
@@ -262,7 +260,7 @@ int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, uid_t uid,
 		pbm.arg = arg;
 		pbm.nmatched = 0;
 
-		rc = idr_for_each(&dtrace_probe_idr, dtrace_match_one, &pbm);
+		rc = dtrace_probe_for_each(dtrace_match_one, &pbm);
 		if (rc == DTRACE_MATCH_FAIL)
 			return DTRACE_MATCH_FAIL;
 

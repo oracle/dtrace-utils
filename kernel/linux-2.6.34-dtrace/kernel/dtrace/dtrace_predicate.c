@@ -9,6 +9,38 @@
 
 #include "dtrace.h"
 
+static dtrace_cacheid_t	dtrace_predcache_id = DTRACE_CACHEIDNONE + 1;
+
+dtrace_predicate_t *dtrace_predicate_create(dtrace_difo_t *dp)
+{
+	dtrace_predicate_t	*pred;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+	ASSERT(dp->dtdo_refcnt != 0);
+
+	pred = kzalloc(sizeof (dtrace_predicate_t), GFP_KERNEL);
+	pred->dtp_difo = dp;
+	pred->dtp_refcnt = 1;
+
+	if (!dtrace_difo_cacheable(dp))
+		return pred;
+
+	/*
+	 * This is only theoretically possible -- we have had 2^32 cacheable
+	 * predicates on this machine.  We cannot allow any more predicates to
+	 * become cacheable:  as unlikely as it is, there may be a thread
+	 * caching a (now stale) predicate cache ID. (N.B.: the temptation is
+	 * being successfully resisted to have this cmn_err() "Holy shit -- we
+	 * executed this code!")
+	 */
+	if (dtrace_predcache_id == DTRACE_CACHEIDNONE)
+		return pred;
+
+	pred->dtp_cacheid = dtrace_predcache_id++;
+
+	return pred;
+}
+
 void dtrace_predicate_hold(dtrace_predicate_t *pred)
 {
 	ASSERT(mutex_is_locked(&dtrace_lock));

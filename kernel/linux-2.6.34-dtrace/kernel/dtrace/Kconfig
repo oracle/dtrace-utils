@@ -3,12 +3,18 @@
 #
 
 menuconfig DTRACE
-	tristate "DTrace (Dynamic Tracing) Support"
-	default m
+	bool "DTrace (Dynamic Tracing) Support"
+	default y
 	help
 	  To be written.
 
 if DTRACE
+
+config DT_CORE
+	tristate "DTrace core"
+	depends on DTRACE
+	help
+	  To be written.
 
 config DT_FASTTRAP
 	tristate "Fasttrap Tracing"

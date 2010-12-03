@@ -727,3 +727,36 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 		return 0;
 	}
 }
+
+dtrace_ecb_t *dtrace_epid2ecb(dtrace_state_t *state, dtrace_epid_t id)
+{
+	dtrace_ecb_t *ecb;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	if (id == 0 || id > state->dts_necbs)
+		return NULL;
+
+	ASSERT(state->dts_necbs > 0 && state->dts_ecbs != NULL);
+	ecb = state->dts_ecbs[id - 1];
+	ASSERT(ecb == NULL || ecb->dte_epid == id);
+
+	return ecb;
+}
+
+dtrace_aggregation_t *dtrace_aggid2agg(dtrace_state_t *state,
+				       dtrace_aggid_t id)
+{
+	dtrace_aggregation_t *agg;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	if (id == 0 || id > state->dts_naggregations)
+		return (NULL);
+
+	ASSERT(state->dts_naggregations > 0 && state->dts_aggregations != NULL);
+	agg = state->dts_aggregations[id - 1];
+	ASSERT(agg == NULL || agg->dtag_id == id);
+
+	return agg;
+}

@@ -6,12 +6,13 @@
  */
 
 #include <linux/fs.h>
-#include <linux/idr.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
+#include <asm/uaccess.h>
 
 #include "dtrace.h"
 #include "dtrace_dev.h"
+#include "dtrace_ioctl.h"
 
 uint32_t			dtrace_helptrace_next = 0;
 uint32_t			dtrace_helptrace_nlocals;
@@ -25,6 +26,7 @@ int				dtrace_helptrace_enabled = 0;
 #endif
 
 int				dtrace_opens;
+int				dtrace_err_verbose;
 
 dtrace_pops_t			dtrace_provider_ops = {
 	(void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop,
@@ -39,14 +41,11 @@ dtrace_pops_t			dtrace_provider_ops = {
 	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop
 };
 
+dtrace_toxrange_t		*dtrace_toxrange;
+int				dtrace_toxranges;
+
 static size_t			dtrace_retain_max = 1024;
 
-static dtrace_id_t		dtrace_probeid_begin;
-static dtrace_id_t		dtrace_probeid_end;
-static dtrace_id_t		dtrace_probeid_error;
-
-static dtrace_toxrange_t	*dtrace_toxrange;
-static int			dtrace_toxranges;
 static int			dtrace_toxranges_max;
 
 static dtrace_pattr_t		dtrace_provider_attr = {
@@ -66,10 +65,474 @@ int dtrace_enable_nullop(void)
 	return 0;
 }
 
+static int dtrace_ioctl_pmfound(dtrace_probe_t *probe, void *arg)
+{
+	*(dtrace_probe_t **)arg = probe;
+
+	return DTRACE_MATCH_DONE;
+}
+
 static long dtrace_ioctl(struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
-	return -EAGAIN;
+	dtrace_state_t	*state = (dtrace_state_t *)file->private_data;
+	int		rval;
+	void __user	*argp = (void __user *)arg;
+
+	if (state->dts_anon) {
+		ASSERT(dtrace_anon.dta_state == NULL);
+		state = state->dts_anon;
+	}
+
+	switch (cmd) {
+	case DTRACEIOC_PROVIDER: {
+		dtrace_providerdesc_t	pvd;
+		dtrace_provider_t	*pvp;
+
+		if (copy_from_user(&pvd, argp, sizeof (pvd)) != 0)
+			return -EFAULT;
+
+		pvd.dtvd_name[DTRACE_PROVNAMELEN - 1] = '\0';
+		mutex_lock(&dtrace_provider_lock);
+
+		for (pvp = dtrace_provider; pvp != NULL; pvp = pvp->dtpv_next) {
+			if (strcmp(pvp->dtpv_name, pvd.dtvd_name) == 0)
+				break;
+		}
+
+		mutex_unlock(&dtrace_provider_lock);
+
+		if (pvp == NULL)
+			return -ESRCH;
+
+		memcpy(&pvd.dtvd_priv, &pvp->dtpv_priv,
+		       sizeof (dtrace_ppriv_t));
+		memcpy(&pvd.dtvd_attr, &pvp->dtpv_attr,
+		       sizeof (dtrace_pattr_t));
+
+		if (copy_to_user(argp, &pvd, sizeof (pvd)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_EPROBE: {
+		dtrace_eprobedesc_t	epdesc;
+		dtrace_ecb_t		*ecb;
+		dtrace_action_t		*act;
+		void			*buf;
+		size_t			size;
+		uint8_t			*dest;
+		int			nrecs;
+
+		if (copy_from_user(&epdesc, argp, sizeof (epdesc)) != 0)
+			return -EFAULT;
+
+		mutex_lock(&dtrace_lock);
+
+		if ((ecb = dtrace_epid2ecb(state, epdesc.dtepd_epid)) == NULL) {
+			mutex_unlock(&dtrace_lock);
+			return -EINVAL;
+		}
+
+		if (ecb->dte_probe == NULL) {
+			mutex_unlock(&dtrace_lock);
+			return -EINVAL;
+		}
+
+		epdesc.dtepd_probeid = ecb->dte_probe->dtpr_id;
+		epdesc.dtepd_uarg = ecb->dte_uarg;
+		epdesc.dtepd_size = ecb->dte_size;
+
+		nrecs = epdesc.dtepd_nrecs;
+		epdesc.dtepd_nrecs = 0;
+		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
+			if (DTRACEACT_ISAGG(act->dta_kind) || act->dta_intuple)
+				continue;
+
+			epdesc.dtepd_nrecs++;
+		}
+
+		/*
+		 * Now that we have the size, we need to allocate a temporary
+		 * buffer in which to store the complete description.  We need
+		 * the temporary buffer to be able to drop dtrace_lock()
+		 * across the copy_to_user(), below.
+		 */
+		size = sizeof (dtrace_eprobedesc_t) +
+		       (epdesc.dtepd_nrecs * sizeof (dtrace_recdesc_t));
+
+		buf = kmalloc(size, GFP_KERNEL);
+		dest = buf;
+
+		memcpy(dest, &epdesc, sizeof (epdesc));
+		dest += offsetof(dtrace_eprobedesc_t, dtepd_rec[0]);
+
+		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
+			if (DTRACEACT_ISAGG(act->dta_kind) || act->dta_intuple)
+				continue;
+
+			if (nrecs-- == 0)
+				break;
+
+			memcpy(dest, &act->dta_rec, sizeof (dtrace_recdesc_t));
+			dest += sizeof (dtrace_recdesc_t);
+		}
+
+		mutex_unlock(&dtrace_lock);
+
+		if (copy_to_user(argp, buf,
+				 (uintptr_t)(dest - (uint8_t *)buf)) != 0) {
+			kfree(buf);
+			return -EFAULT;
+		}
+
+		kfree(buf);
+		return 0;
+	}
+
+	case DTRACEIOC_AGGDESC: {
+		dtrace_aggdesc_t	aggdesc;
+		dtrace_action_t		*act;
+		dtrace_aggregation_t	*agg;
+		int			nrecs;
+		uint32_t		offs;
+		dtrace_recdesc_t	*lrec;
+		void			*buf;
+		size_t			size;
+		uint8_t			*dest;
+
+		if (copy_from_user(&aggdesc, argp, sizeof (aggdesc)) != 0)
+			return -EFAULT;
+
+		mutex_lock(&dtrace_lock);
+
+		if ((agg = dtrace_aggid2agg(state, aggdesc.dtagd_id)) == NULL) {
+			mutex_unlock(&dtrace_lock);
+			return -EINVAL;
+		}
+
+		aggdesc.dtagd_epid = agg->dtag_ecb->dte_epid;
+
+		nrecs = aggdesc.dtagd_nrecs;
+		aggdesc.dtagd_nrecs = 0;
+
+		offs = agg->dtag_base;
+		lrec = &agg->dtag_action.dta_rec;
+		aggdesc.dtagd_size = lrec->dtrd_offset + lrec->dtrd_size -
+				     offs;
+
+		for (act = agg->dtag_first; ; act = act->dta_next) {
+			ASSERT(act->dta_intuple ||
+			       DTRACEACT_ISAGG(act->dta_kind));
+
+			/*
+			 * If this action has a record size of zero, it
+			 * denotes an argument to the aggregating action.
+			 * Because the presence of this record doesn't (or
+			 * shouldn't) affect the way the data is interpreted,
+			 * we don't copy it out to save user-level the
+			 * confusion of dealing with a zero-length record.
+			 */
+			if (act->dta_rec.dtrd_size == 0) {
+				ASSERT(agg->dtag_hasarg);
+				continue;
+			}
+
+			aggdesc.dtagd_nrecs++;
+
+			if (act == &agg->dtag_action)
+				break;
+		}
+
+		/*
+		 * Now that we have the size, we need to allocate a temporary
+		 * buffer in which to store the complete description.  We need
+		 * the temporary buffer to be able to drop dtrace_lock()
+		 * across the copyout(), below.
+		 */
+		size = sizeof (dtrace_aggdesc_t) +
+		       (aggdesc.dtagd_nrecs * sizeof (dtrace_recdesc_t));
+
+		buf = kmalloc(size, GFP_KERNEL);
+		dest = buf;
+
+		memcpy(dest, &aggdesc, sizeof (aggdesc));
+		dest += offsetof(dtrace_aggdesc_t, dtagd_rec[0]);
+
+		for (act = agg->dtag_first; ; act = act->dta_next) {
+			dtrace_recdesc_t	rec = act->dta_rec;
+
+			/*
+			 * See the comment in the above loop for why we pass
+			 * over zero-length records.
+			 */
+			if (rec.dtrd_size == 0) {
+				ASSERT(agg->dtag_hasarg);
+				continue;
+			}
+
+			if (nrecs-- == 0)
+				break;
+
+			rec.dtrd_offset -= offs;
+			memcpy(dest, &rec, sizeof (rec));
+			dest += sizeof (dtrace_recdesc_t);
+
+			if (act == &agg->dtag_action)
+				break;
+		}
+
+		mutex_unlock(&dtrace_lock);
+
+		if (copy_to_user(argp, buf,
+				 (uintptr_t)(dest - (uint8_t *)buf)) != 0) {
+			kfree(buf);
+			return -EFAULT;
+		}
+
+		kfree(buf);
+		return 0;
+	}
+
+	case DTRACEIOC_ENABLE: {
+		dof_hdr_t		*dof;
+		dtrace_enabling_t	*enab = NULL;
+		dtrace_vstate_t		*vstate;
+		int			err = 0;
+		int			rv;
+
+		rv = 0;
+
+		/*
+		 * If a NULL argument has been passed, we take this as our
+		 * cue to reevaluate our enablings.
+		 */
+		if (argp == NULL) {
+			dtrace_enabling_matchall();
+
+			return 0;
+		}
+
+		if ((dof = dtrace_dof_copyin(argp, &rval)) == NULL)
+			return rval;
+
+		/* FIXME: mutex_lock(&cpu_lock); */
+		mutex_lock(&dtrace_lock);
+		vstate = &state->dts_vstate;
+
+		if (state->dts_activity != DTRACE_ACTIVITY_INACTIVE) {
+			mutex_unlock(&dtrace_lock);
+			/* FIXME: mutex_unlock(&cpu_lock); */
+			dtrace_dof_destroy(dof);
+			return -EBUSY;
+		}
+
+		if (dtrace_dof_slurp(dof, vstate, file->f_cred, &enab, 0,
+				     TRUE) != 0) {
+			mutex_unlock(&dtrace_lock);
+			/* FIXME: mutex_unlock(&cpu_lock); */
+			dtrace_dof_destroy(dof);
+			return -EINVAL;
+		}
+
+		if ((rval = dtrace_dof_options(dof, state)) != 0) {
+			dtrace_enabling_destroy(enab);
+			mutex_unlock(&dtrace_lock);
+			/* FIXME: mutex_unlock(&cpu_lock); */
+			dtrace_dof_destroy(dof);
+			return rval;
+		}
+
+		if ((err = dtrace_enabling_match(enab, &rv)) == 0)
+			err = dtrace_enabling_retain(enab);
+		else
+			dtrace_enabling_destroy(enab);
+
+		mutex_unlock(&dtrace_lock);
+		/* FIXME: mutex_unlock(&cpu_lock); */
+		dtrace_dof_destroy(dof);
+
+		return err;
+	}
+
+	case DTRACEIOC_REPLICATE: {
+		dtrace_repldesc_t	desc;
+		dtrace_probedesc_t	*match = &desc.dtrpd_match;
+		dtrace_probedesc_t	*create = &desc.dtrpd_create;
+		int			err;
+
+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+			return -EFAULT;
+
+		match->dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
+		match->dtpd_mod[DTRACE_MODNAMELEN - 1] = '\0';
+		match->dtpd_func[DTRACE_FUNCNAMELEN - 1] = '\0';
+		match->dtpd_name[DTRACE_NAMELEN - 1] = '\0';
+
+		create->dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
+		create->dtpd_mod[DTRACE_MODNAMELEN - 1] = '\0';
+		create->dtpd_func[DTRACE_FUNCNAMELEN - 1] = '\0';
+		create->dtpd_name[DTRACE_NAMELEN - 1] = '\0';
+
+		mutex_lock(&dtrace_lock);
+		err = dtrace_enabling_replicate(state, match, create);
+		mutex_unlock(&dtrace_lock);
+
+		return err;
+	}
+
+	case DTRACEIOC_PROBEMATCH:
+	case DTRACEIOC_PROBES: {
+		dtrace_probe_t		*probe = NULL;
+		dtrace_probedesc_t	desc;
+		dtrace_probekey_t	pkey;
+		uint32_t		priv;
+		uid_t			uid;
+
+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+			return -EFAULT;
+
+		desc.dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
+		desc.dtpd_mod[DTRACE_MODNAMELEN - 1] = '\0';
+		desc.dtpd_func[DTRACE_FUNCNAMELEN - 1] = '\0';
+		desc.dtpd_name[DTRACE_NAMELEN - 1] = '\0';
+
+		/*
+		 * Before we attempt to match this probe, we want to give
+		 * all providers the opportunity to provide it.
+		 */
+		if (desc.dtpd_id == DTRACE_IDNONE) {
+			mutex_lock(&dtrace_provider_lock);
+			dtrace_probe_provide(&desc, NULL);
+			mutex_unlock(&dtrace_provider_lock);
+			desc.dtpd_id++;
+		}
+
+		if (cmd == DTRACEIOC_PROBEMATCH)  {
+			dtrace_probekey(&desc, &pkey);
+			pkey.dtpk_id = DTRACE_IDNONE;
+		}
+
+		dtrace_cred2priv(file->f_cred, &priv, &uid);
+
+		mutex_lock(&dtrace_lock);
+
+		/*
+		 * FIXME: I think that the logic here is meant to allow looking
+		 * for one specific probe using PROBEMATCH and to query all the
+		 * probes that match a given key using PROBES, where the
+		 * dtpd_id indicates the last returned probe.  Given that Linux
+		 * is not placing the probes in a linear list, this may be a
+		 * bit more complex.
+		 */
+		dtrace_match(&pkey, priv, uid, dtrace_ioctl_pmfound, &probe);
+
+		if (probe == NULL) {
+			mutex_unlock(&dtrace_lock);
+			return -ESRCH;
+		}
+
+		dtrace_probe_description(probe, &desc);
+		mutex_unlock(&dtrace_lock);
+
+		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_PROBEARG: {
+		dtrace_argdesc_t	desc;
+		dtrace_probe_t		*probe;
+		dtrace_provider_t	*prov;
+
+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+			return -EFAULT;
+
+		if (desc.dtargd_id == DTRACE_IDNONE)
+			return -EINVAL;
+
+		if (desc.dtargd_ndx == DTRACE_ARGNONE)
+			return -EINVAL;
+
+		mutex_lock(&dtrace_provider_lock);
+		/* FIXME: mutex_lock(&mod_lock); */
+		mutex_lock(&dtrace_lock);
+
+		probe = dtrace_probe_lookup_id(desc.dtargd_id);
+		if (probe == NULL) {
+			mutex_unlock(&dtrace_lock);
+			/* FIXME: mutex_unlock(&mod_lock); */
+			mutex_unlock(&dtrace_provider_lock);
+
+			return -EINVAL;
+		}
+
+		mutex_unlock(&dtrace_lock);
+
+		prov = probe->dtpr_provider;
+
+		if (prov->dtpv_pops.dtps_getargdesc == NULL) {
+			/*
+			 * There isn't any typed information for this probe.
+			 * Set the argument number to DTRACE_ARGNONE.
+			 */
+			desc.dtargd_ndx = DTRACE_ARGNONE;
+		} else {
+			desc.dtargd_native[0] = '\0';
+			desc.dtargd_xlate[0] = '\0';
+			desc.dtargd_mapping = desc.dtargd_ndx;
+
+			prov->dtpv_pops.dtps_getargdesc(
+				prov->dtpv_arg, probe->dtpr_id,
+				probe->dtpr_arg, &desc);
+		}
+
+		/* FIXME: mutex_unlock(&mod_lock); */
+		mutex_unlock(&dtrace_provider_lock);
+
+		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_GO: {
+		processorid_t	cpuid;
+
+		rval = dtrace_state_go(state, &cpuid);
+
+		if (rval != 0)
+			return rval;
+
+		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_STOP: {
+		processorid_t	cpuid;
+
+		mutex_lock(&dtrace_lock);
+		rval = dtrace_state_stop(state, &cpuid);
+		mutex_unlock(&dtrace_lock);
+
+		if (rval != 0)
+			return rval;
+
+		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	default:
+		break;
+	}
+
+	return -ENOTTY;
 }
 
 static int dtrace_open(struct inode *inode, struct file *file)
@@ -252,7 +715,7 @@ int dtrace_dev_init(void)
 	register_cpu_setup_func((cpu_setup_func_t *)dtrace_cpu_setup, NULL);
 #endif
 
-	idr_init(&dtrace_probe_idr);
+	dtrace_probe_init();
 
 #ifdef FIXME
 	dtrace_taskq = taskq_create("dtrace_taskq", 1, maxclsyspri, 1, INT_MAX,
@@ -318,10 +781,8 @@ int dtrace_dev_init(void)
 				(dtrace_provider_id_t)dtrace_provider, NULL,
 				NULL, "ERROR", 1, NULL);
 
-#ifdef FIXME
 	dtrace_anon_property();
-	mutex_unlock(&cpu_lock);
-#endif
+	/* FIXME: mutex_unlock(&cpu_lock); */
 
 	/*
 	 * If DTrace helper tracing is enabled, we need to allocate a trace
@@ -356,5 +817,5 @@ void dtrace_dev_exit(void)
 {
 	misc_deregister(&dtrace_dev);
 
-	idr_destroy(&dtrace_probe_idr);
+	dtrace_probe_exit();
 }

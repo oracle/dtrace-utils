@@ -14,6 +14,54 @@ int dtrace_badattr(const dtrace_attribute_t *a)
 	       a->dtat_class > DTRACE_CLASS_MAX;
 }
 
+/*
+ * Compare two strings using safe loads.
+ */
+int dtrace_strncmp(char *s1, char *s2, size_t limit)
+{
+	uint8_t			c1, c2;
+	volatile uint16_t	*flags;
+
+	if (s1 == s2 || limit == 0)
+		return 0;
+
+	flags = (volatile uint16_t *)
+		&cpu_core[smp_processor_id()].cpuc_dtrace_flags;
+
+	do {
+		if (s1 == NULL)
+			c1 = '\0';
+		else
+			c1 = dtrace_load8((uintptr_t)s1++);
+
+		if (s2 == NULL)
+			c2 = '\0';
+		else
+			c2 = dtrace_load8((uintptr_t)s2++);
+
+		if (c1 != c2)
+			return (c1 - c2);
+	} while (--limit && c1 != '\0' && !(*flags & CPU_DTRACE_FAULT));
+
+	return 0;
+}
+
+/*
+ * Compute strlen(s) for a string using safe memory accesses.  The additional
+ * len parameter is used to specify a maximum length to ensure completion.
+ */
+size_t dtrace_strlen(const char *s, size_t lim)
+{
+	uint_t	len;
+
+	for (len = 0; len != lim; len++) {
+		if (dtrace_load8((uintptr_t)s++) == '\0')
+			break;
+	}
+
+	return len;
+}
+
 #define DTRACE_ISALPHA(c)	(((c) >= 'a' && (c) <= 'z') || \
 				 ((c) >= 'A' && (c) <= 'Z'))
 int dtrace_badname(const char *s)
