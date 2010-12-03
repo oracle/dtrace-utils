@@ -9,6 +9,9 @@
 	* libproc/common/Psymtab.c (Preadauxvec): Change the way to read
 	/proc/<pid>/auxv, for the file size is zero at Linux.
 
+	* libproc/common/Pscantext.c (Pscantext): Change the way to read
+	/proc/<pid>/maps.
+
 2010-11-24  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Pcontrol.c (sig_int): New function used as signal

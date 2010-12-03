@@ -448,7 +448,6 @@ void
 Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
-	int mapfd;
 	FILE *fp;
 	struct stat statb;
 	prmap_t *Pmap = NULL;
@@ -488,16 +487,16 @@ Pupdate_maps(struct ps_prochandle *P)
 		return;
 	}
 #endif
-	Pmap = calloc(sizeof *Pmap, 1);
+	Pmap = calloc(sizeof(prmap_t), 1);
         for (i = 0; fgets(buf, sizeof(buf), fp); i++) {
                 unsigned long laddr, haddr, offset, inode;
                 char    perms[4];
                 char    majmin[128];
                 char    filename[BUFSIZ];
-                Pmap = realloc(Pmap, (i + 1) * sizeof *Pmap);
+                Pmap = realloc(Pmap, (i + 1) * sizeof(prmap_t));
                 sscanf(buf, "%lx-%lx %s %lx %s %ld %s",
                         &laddr, &haddr, perms, &offset, majmin, &inode, filename);
-                memset(&Pmap[i], 0, sizeof Pmap[i]);
+                memset(&Pmap[i], 0, sizeof(prmap_t));
                 Pmap[i].pr_vaddr = laddr;
                 Pmap[i].pr_size = haddr - laddr;
                 Pmap[i].pr_offset = offset;
@@ -511,8 +510,8 @@ Pupdate_maps(struct ps_prochandle *P)
                 strncpy(Pmap[i].pr_mapname, filename, sizeof(Pmap[i].pr_mapname));
                 nmap = i + 1;
         }
-
-	(void) close(mapfd);
+	
+	(void) close(fp);
 
 	if ((newmap = calloc(1, nmap * sizeof (map_info_t))) == NULL)
 		return;

@@ -48,7 +48,7 @@ int
 Pscantext(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
-	int mapfd;
+	FILE *fp;
 	off_t offset;		/* offset in text section */
 	off_t endoff;		/* ending offset in text section */
 	uintptr_t sysaddr;	/* address of SYSCALL instruction */
@@ -61,6 +61,8 @@ Pscantext(struct ps_prochandle *P)
 	unsigned nmap;		/* number of map descriptors */
 	uint32_t buf[2 * BLKSIZE / sizeof (uint32_t)];	/* text buffer */
 	uchar_t *p;
+	char mapbuf[BUFSIZ];
+	int i;
 
 	/* try the most recently-seen syscall address */
 	syspri = 0;
@@ -79,17 +81,39 @@ Pscantext(struct ps_prochandle *P)
 		return (0);
 	}
 
-	/* open the /proc/<pid>/map file */
-	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/map",
+	/* open the /proc/<pid>/maps file */
+	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
-	if ((mapfd = open(mapfile, O_RDONLY)) < 0) {
+	if ((fp = fopen(mapfile, "r")) < 0) {
 		dprintf("failed to open %s: %s\n", mapfile, strerror(errno));
 		return (-1);
 	}
 
-	/* allocate a plausible initial buffer size */
-	nmap = 50;
+	prbuf = calloc(sizeof (prmap_t), 1);
+        for (i = 0; fgets(mapbuf, sizeof(mapbuf), fp); i++) {
+                unsigned long laddr, haddr, offset, inode;
+                char    perms[4];
+                char    majmin[128];
+                char    filename[BUFSIZ];
+                prbuf = realloc(prbuf, (i + 1) * sizeof(prmap_t));
+                sscanf(mapbuf, "%lx-%lx %s %lx %s %ld %s",
+                        &laddr, &haddr, perms, &offset, majmin, &inode, filename);
+                memset(&prbuf[i], 0, sizeof(prmap_t));
+                prbuf[i].pr_vaddr = laddr;
+                prbuf[i].pr_size = haddr - laddr;
+                prbuf[i].pr_offset = offset;
+                prbuf[i].pr_pagesize = 4096;
+                if (perms[0] == 'r')
+                        prbuf[i].pr_mflags |= MA_READ;
+                if (perms[1] == 'w')
+                        prbuf[i].pr_mflags |= MA_WRITE;
+                if (perms[2] == 'x')
+                        prbuf[i].pr_mflags |= MA_EXEC;
+                strncpy(prbuf[i].pr_mapname, filename, sizeof(prbuf[i].pr_mapname));
+                nmappings = i + 1;
+        }
 
+#if 0
 	/* read all the map structures, allocating more space as needed */
 	for (;;) {
 		prbuf = malloc(nmap * sizeof (prmap_t));
@@ -113,7 +137,8 @@ Pscantext(struct ps_prochandle *P)
 		free(prbuf);
 		nmap *= 2;
 	}
-	(void) close(mapfd);
+#endif
+	(void) close(fp);
 
 	/*
 	 * Scan each executable mapping looking for a syscall instruction.
