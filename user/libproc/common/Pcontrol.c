@@ -40,6 +40,8 @@
 #include <limits.h>
 #include <signal.h>
 //#include <atomic.h>
+
+#include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
@@ -175,10 +177,6 @@ dupfd(int fd, int dfd)
 	return (fd);
 }
 
-static int sig_int ()
-{
-  signal (SIGUSR1, sig_int);
-}
 /*
  * Create a new controlled process.
  * Leave it stopped on successful exit from exec() or execve().
@@ -222,6 +220,8 @@ Pxcreate(const char *file,	/* executable file name */
 	if (pid == 0) {			/* child process */
 		id_t id;
 		extern char **environ;
+		
+		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 
 		/*
 		 * If running setuid or setgid, reset credentials to normal.
@@ -232,8 +232,8 @@ Pxcreate(const char *file,	/* executable file name */
 			(void) setuid(id);
 
 		Pcreate_callback(P);	/* execute callback (see below) */
-		signal (SIGUSR1, sig_int);
-		(void) pause();		/* wait for PRSABORT from parent */
+	//	signal (SIGUSR1, sig_int);
+//		(void) pause();		/* wait for PRSABORT from parent */
 
 		/*
 		 * This is ugly.  There is no execvep() function that takes a
@@ -310,8 +310,8 @@ Pxcreate(const char *file,	/* executable file name */
 	fd = -1;
 	P->ctlfd = fd;
 	
-	kill (pid, SIGUSR1);
 	waitpid (pid, &status, 0);
+	ptrace(PTRACE_DETACH, pid, NULL, NULL);
         P->status.pr_flags |= PR_STOPPED;
         P->state = PS_STOP;
         P->status.pr_pid = pid;

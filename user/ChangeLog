@@ -1,3 +1,14 @@
+2010-12-03  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/sys/procfs.h: Comment the definition of prxmap_t and
+	prxmap32_t. They are not be used.
+	* libproc/common/Pcontrol.c (Pxcreate): Use ptrace to trace child
+	process instead of using signal to control it.
+	* libproc/common/Psymtab.c (Pupdate_maps): Change the way to read
+	/proc/<pid>/maps, for the file size is zero at Linux.
+	* libproc/common/Psymtab.c (Preadauxvec): Change the way to read
+	/proc/<pid>/auxv, for the file size is zero at Linux.
+
 2010-11-24  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Pcontrol.c (sig_int): New function used as signal

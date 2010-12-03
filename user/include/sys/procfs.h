@@ -328,6 +328,7 @@ typedef struct prmap {
 	int	pr_filler[1];	/* filler for future expansion */
 } prmap_t;
 
+#if 0
 /*
  * HAT memory-map interface.  /proc/<pid>/xmap
  */
@@ -352,7 +353,7 @@ typedef struct prxmap {
 	ulong_t pr_filler[7];	/* filler for future expansion */
 #endif
 } prxmap_t;
-
+#endif
 
 /* Protection and attribute flags */
 #define	MA_READ		0x04	/* readable by the traced process */
@@ -694,6 +695,7 @@ typedef struct prmap32 {
 	int	pr_filler[1];	/* filler for future expansion */
 } prmap32_t;
 
+#if 0
 /*
  * _ILP32 HAT memory-map interface.  /proc/<pid>/xmap
  */
@@ -714,6 +716,7 @@ typedef struct prxmap32 {
 	uint64_t pr_hatpagesize; /* pagesize of the hat mapping */
 	uint32_t pr_filler[6];	/* filler for future expansion */
 } prxmap32_t;
+#endif
 
 /*
  * _ILP32 Process credentials.  PCSCRED and /proc/<pid>/cred

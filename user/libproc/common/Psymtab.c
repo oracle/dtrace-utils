@@ -449,6 +449,7 @@ Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
 	int mapfd;
+	FILE *fp;
 	struct stat statb;
 	prmap_t *Pmap = NULL;
 	prmap_t *pmap;
@@ -457,14 +458,22 @@ Pupdate_maps(struct ps_prochandle *P)
 	uint_t oldmapcount;
 	map_info_t *newmap, *newp;
 	map_info_t *mptr;
+	char buf[BUFSIZ];
+	
 
 	if (P->info_valid || P->state == PS_UNDEAD)
 		return;
 
 	Preadauxvec(P);
-
-	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/map",
+	
+	/*  The size of the file /proc/<pid>/maps is zero on Linux. */
+	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
+	if ((fp = fopen(mapfile, "r")) < 0) {
+		Preset_maps(P);
+		return;
+	}
+#if 0
 	if ((mapfd = open(mapfile, O_RDONLY)) < 0 ||
 	    fstat(mapfd, &statb) != 0 ||
 	    statb.st_size < sizeof (prmap_t) ||
@@ -478,6 +487,31 @@ Pupdate_maps(struct ps_prochandle *P)
 		Preset_maps(P);	/* utter failure; destroy tables */
 		return;
 	}
+#endif
+	Pmap = calloc(sizeof *Pmap, 1);
+        for (i = 0; fgets(buf, sizeof(buf), fp); i++) {
+                unsigned long laddr, haddr, offset, inode;
+                char    perms[4];
+                char    majmin[128];
+                char    filename[BUFSIZ];
+                Pmap = realloc(Pmap, (i + 1) * sizeof *Pmap);
+                sscanf(buf, "%lx-%lx %s %lx %s %ld %s",
+                        &laddr, &haddr, perms, &offset, majmin, &inode, filename);
+                memset(&Pmap[i], 0, sizeof Pmap[i]);
+                Pmap[i].pr_vaddr = laddr;
+                Pmap[i].pr_size = haddr - laddr;
+                Pmap[i].pr_offset = offset;
+                Pmap[i].pr_pagesize = 4096;
+                if (perms[0] == 'r')
+                        Pmap[i].pr_mflags |= MA_READ;
+                if (perms[1] == 'w')
+                        Pmap[i].pr_mflags |= MA_WRITE;
+                if (perms[2] == 'x')
+                        Pmap[i].pr_mflags |= MA_EXEC;
+                strncpy(Pmap[i].pr_mapname, filename, sizeof(Pmap[i].pr_mapname));
+                nmap = i + 1;
+        }
+
 	(void) close(mapfd);
 
 	if ((newmap = calloc(1, nmap * sizeof (map_info_t))) == NULL)
@@ -864,6 +898,7 @@ Preadauxvec(struct ps_prochandle *P)
 	struct stat statb;
 	ssize_t naux;
 	int fd;
+	size_t buf;
 
 	if (P->state == PS_DEAD)
 		return; /* Already read during Pgrab_core() */
@@ -875,12 +910,14 @@ Preadauxvec(struct ps_prochandle *P)
 		P->auxv = NULL;
 		P->nauxv = 0;
 	}
-
+	
 	(void) snprintf(auxfile, sizeof (auxfile), "%s/%d/auxv",
 	    procfs_path, (int)P->pid);
 	if ((fd = open(auxfile, O_RDONLY)) < 0)
 		return;
 
+	/* The file size of /proc/<pid>/auxv is zero on Linux. */
+#if 0
 	if (fstat(fd, &statb) == 0 &&
 	    statb.st_size >= sizeof (auxv_t) &&
 	    (P->auxv = malloc(statb.st_size + sizeof (auxv_t))) != NULL) {
@@ -894,6 +931,22 @@ Preadauxvec(struct ps_prochandle *P)
 			P->nauxv = (int)naux;
 		}
 	}
+#endif
+	/* The size of /proc/<pid>/auxv is 168 on Solaris */
+	
+	buf = 256 + sizeof (auxv_t);
+	P->auxv = malloc(buf);
+	if (P->auxv != NULL) {
+                if ((naux = read(fd, P->auxv, buf)) < 0 ||
+                     (naux /= sizeof (auxv_t)) < 1) {
+                        free(P->auxv);
+                        P->auxv = NULL;
+                } else {
+                        P->auxv[naux].a_type = AT_NULL;
+                        P->auxv[naux].a_un.a_val = 0L;
+                        P->nauxv = (int)naux;
+                }
+        }
 
 	(void) close(fd);
 }
