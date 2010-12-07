@@ -511,7 +511,7 @@ Pupdate_maps(struct ps_prochandle *P)
                 nmap = i + 1;
         }
 	
-	(void) close(fp);
+	(void) fclose(fp);
 
 	if ((newmap = calloc(1, nmap * sizeof (map_info_t))) == NULL)
 		return;

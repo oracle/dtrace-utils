@@ -1,3 +1,14 @@
+2010-12-07  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/dt_proc.c (dt_proc_control): Set dpr->dpr_quit to 1
+	instead of write ctl file.
+	* libproc/common/Pcontrol.c (Pxcreate): Don't detach to the child
+	process.
+	(Psetrun): Restarts the stopped child process by ptrace instead of
+	write to the ctl file.
+	* libproc/common/Psymtab.c (Pupdate_maps): Use fclose instead of close
+	to close the file.
+
 2010-12-03  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/sys/procfs.h: Comment the definition of prxmap_t and

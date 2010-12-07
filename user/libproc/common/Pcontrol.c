@@ -311,7 +311,7 @@ Pxcreate(const char *file,	/* executable file name */
 	P->ctlfd = fd;
 	
 	waitpid (pid, &status, 0);
-	ptrace(PTRACE_DETACH, pid, NULL, NULL);
+/*	ptrace(PTRACE_DETACH, pid, NULL, NULL); */
         P->status.pr_flags |= PR_STOPPED;
         P->state = PS_STOP;
         P->status.pr_pid = pid;
@@ -1946,6 +1946,7 @@ Psetrun(struct ps_prochandle *P,
 		return (-1);
 	}
 
+#if 0
 	Psync(P);	/* flush tracing flags and registers */
 
 	if (flags & PRCFAULT) {		/* clear current fault */
@@ -1970,9 +1971,8 @@ Psetrun(struct ps_prochandle *P,
 	*ctlp++ = PCRUN;
 	*ctlp++ = flags;
 	size = (char *)ctlp - (char *)ctl;
-
+#endif
 	P->info_valid = 0;	/* will need to update map and file info */
-
 	/*
 	 * If we've cached ucontext-list information while we were stopped,
 	 * free it now.
@@ -1983,6 +1983,7 @@ Psetrun(struct ps_prochandle *P,
 		P->ucnelems = 0;
 	}
 
+#if 0
 	if (write(ctlfd, ctl, size) != size) {
 		/* If it is dead or lost, return the real status, not PS_RUN */
 		if (errno == ENOENT || errno == EAGAIN) {
@@ -1997,6 +1998,8 @@ Psetrun(struct ps_prochandle *P,
 		}
 		/* Otherwise pretend that the job-stopped process is running */
 	}
+#endif
+	ptrace (PTRACE_CONT, P->pid, NULL, NULL);
 
 	P->state = PS_RUN;
 	return (0);

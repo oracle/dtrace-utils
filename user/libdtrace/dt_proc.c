@@ -541,10 +541,11 @@ dt_proc_control(void *arg)
 	 */
 	while (!dpr->dpr_quit) {
 		const lwpstatus_t *psp;
-
+#if 0
 		if (write(pfd, &wstop, sizeof (wstop)) == -1 && errno == EINTR)
 			continue; /* check dpr_quit and continue waiting */
-
+#endif
+		dpr->dpr_quit = 1;
 		(void) pthread_mutex_lock(&dpr->dpr_lock);
 pwait_locked:
 		if (Pstopstatus(P, PCNULL, 0) == -1 && errno == EINTR) {
