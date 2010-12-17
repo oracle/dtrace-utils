@@ -1169,6 +1169,8 @@ main(int argc, char *argv[])
 	struct ps_prochandle *P;
 	pid_t pid;
 
+	setenv("POSIXLY_CORRECT", "true", 1);
+
 	g_pname = basename(argv[0]);
 
 	if (argc == 1)

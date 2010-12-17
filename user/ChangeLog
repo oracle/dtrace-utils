@@ -1,3 +1,8 @@
+2010-12-17  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cmd/common/dtrace.c: set environment variable POSIXLY_CORRECT to
+	make getopt works on Linux.
+
 2010-12-07  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/dt_proc.c (dt_proc_control): Set dpr->dpr_quit to 1
