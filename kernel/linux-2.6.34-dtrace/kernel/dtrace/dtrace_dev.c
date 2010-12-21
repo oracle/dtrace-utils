@@ -673,6 +673,34 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 }
 
 /*
+ * Check if an address falls within a toxic region.
+ */
+int dtrace_istoxic(uintptr_t kaddr, size_t size)
+{
+	uintptr_t	taddr, tsize;
+	int		i;
+
+	for (i = 0; i < dtrace_toxranges; i++) {
+		taddr = dtrace_toxrange[i].dtt_base;
+		tsize = dtrace_toxrange[i].dtt_limit - taddr;
+
+		if (kaddr - taddr < tsize) {
+			DTRACE_CPUFLAG_SET(CPU_DTRACE_BADADDR);
+			cpu_core[smp_processor_id()].cpuc_dtrace_illval = kaddr;
+			return 1;
+		}
+
+		if (taddr - kaddr < size) {
+			DTRACE_CPUFLAG_SET(CPU_DTRACE_BADADDR);
+			cpu_core[smp_processor_id()].cpuc_dtrace_illval = taddr;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * Initialize the DTrace core.
  *
  * Equivalent to: dtrace_attach()

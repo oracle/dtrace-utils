@@ -13,11 +13,14 @@
 
 #include "dtrace.h"
 
-int			dtrace_destructive_disallow = 0;
-cycle_t			dtrace_deadman_timeout = (cycle_t)10 * NANOSEC;
+cycle_t				dtrace_deadman_timeout = (cycle_t)10 * NANOSEC;
+hrtime_t			dtrace_chill_interval = NANOSEC;
+hrtime_t			dtrace_chill_max = 500 * (NANOSEC / MILLISEC);
 
-static struct idr	dtrace_probe_idr;
-static uint64_t		dtrace_vtime_references;
+static struct idr		dtrace_probe_idr;
+static uint64_t			dtrace_vtime_references;
+
+static struct task_struct	*dtrace_panicked;
 
 /*
  * Create a new probe.
@@ -31,7 +34,7 @@ dtrace_id_t dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 	dtrace_id_t		id;
 	int			err;
 
-	probe = kzalloc(sizeof (dtrace_probe_t), __GFP_NOFAIL);
+	probe = kzalloc(sizeof(dtrace_probe_t), __GFP_NOFAIL);
 
 	/*
 	 * The idr_pre_get() function should be called without holding locks.
@@ -99,7 +102,7 @@ int dtrace_probe_enable(const dtrace_probedesc_t *desc, dtrace_enabling_t *enab)
 void dtrace_probe_description(const dtrace_probe_t *prp,
 			      dtrace_probedesc_t *pdp)
 {
-	memset(pdp, 0, sizeof (dtrace_probedesc_t));
+	memset(pdp, 0, sizeof(dtrace_probedesc_t));
 	pdp->dtpd_id = prp->dtpr_id;
 
 	strncpy(pdp->dtpd_provider, prp->dtpr_provider->dtpv_name,
@@ -188,6 +191,287 @@ static int dtrace_priv_kernel_destructive(dtrace_state_t *state)
 	cpu_core[smp_processor_id()].cpuc_dtrace_flags |= CPU_DTRACE_KPRIV;
 
 	return 0;
+}
+
+static void dtrace_action_breakpoint(dtrace_ecb_t *ecb)
+{
+	dtrace_probe_t		*probe = ecb->dte_probe;
+	dtrace_provider_t	*prov = probe->dtpr_provider;
+	char			c[DTRACE_FULLNAMELEN + 80], *str;
+	char			*msg = "dtrace: breakpoint action at probe ";
+	char			*ecbmsg = " (ecb ";
+	uintptr_t		mask = (0xf << (sizeof(uintptr_t) * NBBY / 4));
+	uintptr_t		val = (uintptr_t)ecb;
+	int			shift = (sizeof(uintptr_t) * NBBY) - 4, i = 0;
+
+	if (dtrace_destructive_disallow)
+		return;
+
+	/*
+	 * It's impossible to be taking action on the NULL probe.
+	 */
+	ASSERT(probe != NULL);
+
+	/*
+	 * This is a poor man's (destitute man's?) sprintf():  we want to
+	 * print the provider name, module name, function name and name of
+	 * the probe, along with the hex address of the ECB with the breakpoint
+	 * action -- all of which we must place in the character buffer by
+	 * hand.
+	 */
+	while (*msg != '\0')
+		c[i++] = *msg++;
+
+	for (str = prov->dtpv_name; *str != '\0'; str++)
+		c[i++] = *str;
+	c[i++] = ':';
+
+	for (str = probe->dtpr_mod; *str != '\0'; str++)
+		c[i++] = *str;
+	c[i++] = ':';
+
+	for (str = probe->dtpr_func; *str != '\0'; str++)
+		c[i++] = *str;
+	c[i++] = ':';
+
+	for (str = probe->dtpr_name; *str != '\0'; str++)
+		c[i++] = *str;
+
+	while (*ecbmsg != '\0')
+		c[i++] = *ecbmsg++;
+
+	while (shift >= 0) {
+		mask = (uintptr_t)0xf << shift;
+
+		if (val >= ((uintptr_t)1 << shift))
+			c[i++] = "0123456789abcdef"[(val & mask) >> shift];
+
+		shift -= 4;
+	}
+
+	c[i++] = ')';
+	c[i] = '\0';
+
+	debug_enter(c); /* FIXME */
+}
+
+static void dtrace_action_panic(dtrace_ecb_t *ecb)
+{
+	dtrace_probe_t	*probe = ecb->dte_probe;
+
+	/*
+	 * It's impossible to be taking action on the NULL probe.
+	 */
+	ASSERT(probe != NULL);
+
+	if (dtrace_destructive_disallow)
+		return;
+
+	if (dtrace_panicked != NULL)
+		return;
+
+	if (cmpxchg(&dtrace_panicked, NULL, current) != NULL)
+		return;
+
+	/*
+	 * We won the right to panic.  (We want to be sure that only one
+	 * thread calls panic() from dtrace_probe(), and that panic() is
+	 * called exactly once.)
+	 */
+	dtrace_panic("dtrace: panic action at probe %s:%s:%s:%s (ecb %p)",
+		     probe->dtpr_provider->dtpv_name, probe->dtpr_mod,
+		     probe->dtpr_func, probe->dtpr_name, (void *)ecb);
+}
+
+static void dtrace_action_raise(uint64_t sig)
+{
+	if (dtrace_destructive_disallow)
+		return;
+
+	if (sig >= _NSIG) {
+		DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
+		return;
+	}
+
+	/*
+	 * raise() has a queue depth of 1 -- we ignore all subsequent
+	 * invocations of the raise() action.
+	 */
+	if (current->dtrace_sig == 0)
+		current->dtrace_sig = (uint8_t)sig;
+
+	current->sig_check = 1;
+	aston(current);
+}
+
+static void dtrace_action_stop(void)
+{
+	if (dtrace_destructive_disallow)
+		return;
+
+	if (!current->dtrace_stop) {
+		current->dtrace_stop = 1;
+		current->sig_check = 1;
+		aston(current);
+	}
+}
+
+static void dtrace_action_chill(dtrace_mstate_t *mstate, hrtime_t val)
+{
+	hrtime_t		now;
+	volatile uint16_t	*flags;
+	cpu_core_t		*cpu = &cpu_core[smp_processor_id()];
+
+	if (dtrace_destructive_disallow)
+		return;
+
+	flags = (volatile uint16_t *)&cpu->cpuc_dtrace_flags;
+
+	now = dtrace_gethrtime();
+
+	if (now - cpu->cpu_dtrace_chillmark > dtrace_chill_interval) {
+		/*
+		 * We need to advance the mark to the current time.
+		 */
+		cpu->cpu_dtrace_chillmark = now;
+		cpu->cpu_dtrace_chilled = 0;
+	}
+
+	/*
+	 * Now check to see if the requested chill time would take us over
+	 * the maximum amount of time allowed in the chill interval.  (Or
+	 * worse, if the calculation itself induces overflow.)
+	 */
+	if (cpu->cpu_dtrace_chilled + val > dtrace_chill_max ||
+	    cpu->cpu_dtrace_chilled + val < cpu->cpu_dtrace_chilled) {
+		*flags |= CPU_DTRACE_ILLOP;
+		return;
+	}
+
+	while (dtrace_gethrtime() - now < val)
+		continue;
+
+	/*
+	 * Normally, we assure that the value of the variable "timestamp" does
+	 * not change within an ECB.  The presence of chill() represents an
+	 * exception to this rule, however.
+	 */
+	mstate->dtms_present &= ~DTRACE_MSTATE_TIMESTAMP;
+	cpu->cpu_dtrace_chilled += val;
+}
+
+static void dtrace_action_ustack(dtrace_mstate_t *mstate,
+				 dtrace_state_t *state, uint64_t *buf,
+				 uint64_t arg)
+{
+	int		nframes = DTRACE_USTACK_NFRAMES(arg);
+	int		strsize = DTRACE_USTACK_STRSIZE(arg);
+	uint64_t	*pcs = &buf[1], *fps;
+	char		*str = (char *)&pcs[nframes];
+	int		size, offs = 0, i, j;
+	uintptr_t	old = mstate->dtms_scratch_ptr, saved;
+	uint16_t	*flags = &cpu_core[
+					smp_processor_id()
+				  ].cpuc_dtrace_flags;
+	char		*sym;
+
+	/*
+	 * Should be taking a faster path if string space has not been
+	 * allocated.
+	 */
+	ASSERT(strsize != 0);
+
+	/*
+	 * We will first allocate some temporary space for the frame pointers.
+	 */
+	fps = (uint64_t *)P2ROUNDUP(mstate->dtms_scratch_ptr, 8);
+	size = (uintptr_t)fps - mstate->dtms_scratch_ptr +
+	       (nframes * sizeof (uint64_t));
+
+	if (!DTRACE_INSCRATCH(mstate, size)) {
+		/*
+		 * Not enough room for our frame pointers -- need to indicate
+		 * that we ran out of scratch space.
+		 */
+		DTRACE_CPUFLAG_SET(CPU_DTRACE_NOSCRATCH);
+		return;
+	}
+
+	mstate->dtms_scratch_ptr += size;
+	saved = mstate->dtms_scratch_ptr;
+
+	/*
+	 * Now get a stack with both program counters and frame pointers.
+	 */
+	DTRACE_CPUFLAG_SET(CPU_DTRACE_NOFAULT);
+	dtrace_getufpstack(buf, fps, nframes + 1);
+	DTRACE_CPUFLAG_CLEAR(CPU_DTRACE_NOFAULT);
+
+	/*
+	 * If that faulted, we're cooked.
+	 */
+	if (*flags & CPU_DTRACE_FAULT)
+		goto out;
+
+	/*
+	 * Now we want to walk up the stack, calling the USTACK helper.  For
+	 * each iteration, we restore the scratch pointer.
+	 */
+	for (i = 0; i < nframes; i++) {
+		mstate->dtms_scratch_ptr = saved;
+
+		if (offs >= strsize)
+			break;
+
+		sym = (char *)(uintptr_t)dtrace_helper(
+						DTRACE_HELPER_ACTION_USTACK,
+						mstate, state, pcs[i], fps[i]);
+
+		/*
+		 * If we faulted while running the helper, we're going to
+		 * clear the fault and null out the corresponding string.
+		 */
+		if (*flags & CPU_DTRACE_FAULT) {
+			*flags &= ~CPU_DTRACE_FAULT;
+			str[offs++] = '\0';
+			continue;
+		}
+
+		if (sym == NULL) {
+			str[offs++] = '\0';
+			continue;
+		}
+
+		DTRACE_CPUFLAG_SET(CPU_DTRACE_NOFAULT);
+
+		/*
+		 * Now copy in the string that the helper returned to us.
+		 */
+		for (j = 0; offs + j < strsize; j++) {
+			if ((str[offs + j] = sym[j]) == '\0')
+			break;
+		}
+
+		DTRACE_CPUFLAG_CLEAR(CPU_DTRACE_NOFAULT);
+
+		offs += j + 1;
+	}
+
+	/*
+	 * If we didn't have room for all of the strings, we don't abort
+	 * processing -- this needn't be a fatal error -- but we still want
+	 * to increment a counter (dts_stkstroverflows) to allow this condition
+	 * to be warned about.  (If this is from a jstack() action, it is
+	 * easily tuned via jstackstrsize.)
+	 */
+	if (offs >= strsize)
+		dtrace_error(&state->dts_stkstroverflows);
+
+	while (offs < strsize)
+		str[offs++] = '\0';
+
+out:
+	mstate->dtms_scratch_ptr = old;
 }
 
 void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
@@ -425,7 +709,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 					 * Update the predicate cache...
 					 */
 					ASSERT(cid == pred->dtp_cacheid);
-					current->t_predcache = cid;
+					current->predcache = cid;
 				}
 
 				continue;
@@ -454,348 +738,361 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 
 				if (*flags & CPU_DTRACE_ERROR)
 					continue;
-#error ToBeContinued
 
-/*
-* Note that we always pass the expression
-* value from the previous iteration of the
-* action loop.  This value will only be used
-* if there is an expression argument to the
-* aggregating action, denoted by the
-* dtag_hasarg field.
-*/
-dtrace_aggregate(agg, buf,
-offs, aggbuf, v, val);
-continue;
-}
+				/*
+				 * Note that we always pass the expression
+				 * value from the previous iteration of the
+				 * action loop.  This value will only be used
+				 * if there is an expression argument to the
+				 * aggregating action, denoted by the
+				 * dtag_hasarg field.
+				 */
+				dtrace_aggregate(agg, buf, offs, aggbuf, v,
+						 val);
+				continue;
+			}
 
-switch (act->dta_kind) {
-case DTRACEACT_STOP:
-if (dtrace_priv_proc_destructive(state))
-dtrace_action_stop();
-continue;
+			switch (act->dta_kind) {
+			case DTRACEACT_STOP:
+				if (dtrace_priv_proc_destructive(state))
+					dtrace_action_stop();
+				continue;
 
-case DTRACEACT_BREAKPOINT:
-if (dtrace_priv_kernel_destructive(state))
-dtrace_action_breakpoint(ecb);
-continue;
+			case DTRACEACT_BREAKPOINT:
+				if (dtrace_priv_kernel_destructive(state))
+					dtrace_action_breakpoint(ecb);
+				continue;
 
-case DTRACEACT_PANIC:
-if (dtrace_priv_kernel_destructive(state))
-dtrace_action_panic(ecb);
-continue;
+			case DTRACEACT_PANIC:
+				if (dtrace_priv_kernel_destructive(state))
+					dtrace_action_panic(ecb);
+				continue;
 
-case DTRACEACT_STACK:
-if (!dtrace_priv_kernel(state))
-continue;
+			case DTRACEACT_STACK:
+				if (!dtrace_priv_kernel(state))
+					continue;
 
-dtrace_getpcstack((pc_t *)(tomax + valoffs),
-size / sizeof (pc_t), probe->dtpr_aframes,
-DTRACE_ANCHORED(probe) ? NULL :
-(uint32_t *)arg0);
+				dtrace_getpcstack((pc_t *)(tomax + valoffs),
+						  size / sizeof(pc_t),
+						  probe->dtpr_aframes,
+						  DTRACE_ANCHORED(probe)
+							? NULL
+							: (uint32_t *)arg0);
 
-continue;
+				continue;
 
-case DTRACEACT_JSTACK:
-case DTRACEACT_USTACK:
-if (!dtrace_priv_proc(state))
-continue;
+			case DTRACEACT_JSTACK:
+			case DTRACEACT_USTACK:
+				if (!dtrace_priv_proc(state))
+					continue;
 
-/*
-* See comment in DIF_VAR_PID.
-*/
-if (DTRACE_ANCHORED(mstate.dtms_probe) &&
-CPU_ON_INTR(CPU)) {
-int depth = DTRACE_USTACK_NFRAMES(
-rec->dtrd_arg) + 1;
+				/*
+				 * See comment in DIF_VAR_PID.
+				 */
+				if (DTRACE_ANCHORED(mstate.dtms_probe) &&
+				    in_interrupt()) {
+					int	depth = DTRACE_USTACK_NFRAMES(
+							    rec->dtrd_arg) + 1;
 
-dtrace_bzero((void *)(tomax + valoffs),
-DTRACE_USTACK_STRSIZE(rec->dtrd_arg)
-+ depth * sizeof (uint64_t));
+					dtrace_bzero((void *)(tomax + valoffs),
+						     DTRACE_USTACK_STRSIZE(
+							rec->dtrd_arg) +
+						     depth * sizeof(uint64_t));
 
-continue;
-}
+					continue;
+				}
 
-if (DTRACE_USTACK_STRSIZE(rec->dtrd_arg) != 0 &&
-curproc->p_dtrace_helpers != NULL) {
-/*
-* This is the slow path -- we have
-* allocated string space, and we're
-* getting the stack of a process that
-* has helpers.  Call into a separate
-* routine to perform this processing.
-*/
-dtrace_action_ustack(&mstate, state,
-(uint64_t *)(tomax + valoffs),
-rec->dtrd_arg);
-continue;
-}
+				if (DTRACE_USTACK_STRSIZE(rec->dtrd_arg) != 0 &&
+				    current->dtrace_helpers != NULL) {
+					/*
+					 * This is the slow path -- we have
+					 * allocated string space, and we're
+					 * getting the stack of a process that
+					 * has helpers.  Call into a separate
+					 * routine to perform this processing.
+					 */
+					dtrace_action_ustack(
+						&mstate, state,
+						(uint64_t *)(tomax + valoffs),
+						rec->dtrd_arg);
+					continue;
+				}
 
-DTRACE_CPUFLAG_SET(CPU_DTRACE_NOFAULT);
-dtrace_getupcstack((uint64_t *)
-(tomax + valoffs),
-DTRACE_USTACK_NFRAMES(rec->dtrd_arg) + 1);
-DTRACE_CPUFLAG_CLEAR(CPU_DTRACE_NOFAULT);
-continue;
+				DTRACE_CPUFLAG_SET(CPU_DTRACE_NOFAULT);
+				dtrace_getupcstack(
+					(uint64_t *)(tomax + valoffs),
+					DTRACE_USTACK_NFRAMES(rec->dtrd_arg) +
+					1);
+				DTRACE_CPUFLAG_CLEAR(CPU_DTRACE_NOFAULT);
+				continue;
 
-default:
-break;
-}
+			default:
+				break;
+			}
 
-dp = act->dta_difo;
-ASSERT(dp != NULL);
+			dp = act->dta_difo;
+			ASSERT(dp != NULL);
 
-val = dtrace_dif_emulate(dp, &mstate, vstate, state);
+			val = dtrace_dif_emulate(dp, &mstate, vstate, state);
 
-if (*flags & CPU_DTRACE_ERROR)
-continue;
+			if (*flags & CPU_DTRACE_ERROR)
+				continue;
 
-switch (act->dta_kind) {
-case DTRACEACT_SPECULATE:
-ASSERT(buf == &state->dts_buffer[cpuid]);
-buf = dtrace_speculation_buffer(state,
-cpuid, val);
+			switch (act->dta_kind) {
+			case DTRACEACT_SPECULATE:
+				ASSERT(buf == &state->dts_buffer[cpuid]);
+				buf = dtrace_speculation_buffer(state, cpuid,
+								val);
 
-if (buf == NULL) {
-*flags |= CPU_DTRACE_DROP;
-continue;
-}
+				if (buf == NULL) {
+					*flags |= CPU_DTRACE_DROP;
+					continue;
+				}
 
-offs = dtrace_buffer_reserve(buf,
-ecb->dte_needed, ecb->dte_alignment,
-state, NULL);
+				offs = dtrace_buffer_reserve(buf,
+							     ecb->dte_needed,
+							     ecb->dte_alignment,
+							     state, NULL);
 
-if (offs < 0) {
-*flags |= CPU_DTRACE_DROP;
-continue;
-}
+				if (offs < 0) {
+					*flags |= CPU_DTRACE_DROP;
+					continue;
+				}
 
-tomax = buf->dtb_tomax;
-ASSERT(tomax != NULL);
+				tomax = buf->dtb_tomax;
+				ASSERT(tomax != NULL);
 
-if (ecb->dte_size != 0)
-DTRACE_STORE(uint32_t, tomax, offs,
-ecb->dte_epid);
-continue;
+				if (ecb->dte_size != 0)
+					DTRACE_STORE(uint32_t, tomax, offs,
+						     ecb->dte_epid);
 
-case DTRACEACT_CHILL:
-if (dtrace_priv_kernel_destructive(state))
-dtrace_action_chill(&mstate, val);
-continue;
+				continue;
 
-case DTRACEACT_RAISE:
-if (dtrace_priv_proc_destructive(state))
-dtrace_action_raise(val);
-continue;
+			case DTRACEACT_CHILL:
+				if (dtrace_priv_kernel_destructive(state))
+					dtrace_action_chill(&mstate, val);
 
-case DTRACEACT_COMMIT:
-ASSERT(!committed);
+				continue;
 
-/*
-* We need to commit our buffer state.
-*/
-if (ecb->dte_size)
-buf->dtb_offset = offs + ecb->dte_size;
-buf = &state->dts_buffer[cpuid];
-dtrace_speculation_commit(state, cpuid, val);
-committed = 1;
-continue;
+			case DTRACEACT_RAISE:
+				if (dtrace_priv_proc_destructive(state))
+					dtrace_action_raise(val);
 
-case DTRACEACT_DISCARD:
-dtrace_speculation_discard(state, cpuid, val);
-continue;
+				continue;
 
-case DTRACEACT_DIFEXPR:
-case DTRACEACT_LIBACT:
-case DTRACEACT_PRINTF:
-case DTRACEACT_PRINTA:
-case DTRACEACT_SYSTEM:
-case DTRACEACT_FREOPEN:
-break;
+			case DTRACEACT_COMMIT:
+				ASSERT(!committed);
 
-case DTRACEACT_SYM:
-case DTRACEACT_MOD:
-if (!dtrace_priv_kernel(state))
-continue;
-break;
+				/*
+				 * We need to commit our buffer state.
+				 */
+				if (ecb->dte_size)
+					buf->dtb_offset = offs + ecb->dte_size;
 
-case DTRACEACT_USYM:
-case DTRACEACT_UMOD:
-case DTRACEACT_UADDR: {
-struct pid *pid = curthread->t_procp->p_pidp;
+				buf = &state->dts_buffer[cpuid];
+				dtrace_speculation_commit(state, cpuid, val);
+				committed = 1;
+				continue;
 
-if (!dtrace_priv_proc(state))
-continue;
+			case DTRACEACT_DISCARD:
+				dtrace_speculation_discard(state, cpuid, val);
+				continue;
 
-DTRACE_STORE(uint64_t, tomax,
-valoffs, (uint64_t)pid->pid_id);
-DTRACE_STORE(uint64_t, tomax,
-valoffs + sizeof (uint64_t), val);
+			case DTRACEACT_DIFEXPR:
+			case DTRACEACT_LIBACT:
+			case DTRACEACT_PRINTF:
+			case DTRACEACT_PRINTA:
+			case DTRACEACT_SYSTEM:
+			case DTRACEACT_FREOPEN:
+				break;
 
-continue;
-}
+			case DTRACEACT_SYM:
+			case DTRACEACT_MOD:
+				if (!dtrace_priv_kernel(state))
+					continue;
+				break;
 
-case DTRACEACT_EXIT: {
-/*
-* For the exit action, we are going to attempt
-* to atomically set our activity to be
-* draining.  If this fails (either because
-* another CPU has beat us to the exit action,
-* or because our current activity is something
-* other than ACTIVE or WARMUP), we will
-* continue.  This assures that the exit action
-* can be successfully recorded at most once
-* when we're in the ACTIVE state.  If we're
-* encountering the exit() action while in
-* COOLDOWN, however, we want to honor the new
-* status code.  (We know that we're the only
-* thread in COOLDOWN, so there is no race.)
-*/
-void *activity = &state->dts_activity;
-dtrace_activity_t curr = state->dts_activity;
+			case DTRACEACT_USYM:
+			case DTRACEACT_UMOD:
+			case DTRACEACT_UADDR: {
+				pid_t	pid = current->pid;
 
-if (curr == DTRACE_ACTIVITY_COOLDOWN)
-break;
+				if (!dtrace_priv_proc(state))
+					continue;
 
-if (curr != DTRACE_ACTIVITY_WARMUP)
-curr = DTRACE_ACTIVITY_ACTIVE;
+				DTRACE_STORE(uint64_t, tomax, valoffs,
+					     (uint64_t)pid);
+				DTRACE_STORE(uint64_t, tomax,
+					     valoffs + sizeof(uint64_t), val);
 
-if (dtrace_cas32(activity, curr, DTRACE_ACTIVITY_DRAINING) != curr) {
-*flags |= CPU_DTRACE_DROP;
-continue;
-}
+				continue;
+			}
 
-break;
-}
+			case DTRACEACT_EXIT: {
+				/*
+				 * For the exit action, we are going to attempt
+				 * to atomically set our activity to be
+				 * draining.  If this fails (either because
+				 * another CPU has beat us to the exit action,
+				 * or because our current activity is something
+				 * other than ACTIVE or WARMUP), we will
+				 * continue.  This assures that the exit action
+				 * can be successfully recorded at most once
+				 * when we're in the ACTIVE state.  If we're
+				 * encountering the exit() action while in
+				 * COOLDOWN, however, we want to honor the new
+				 * status code.  (We know that we're the only
+				 * thread in COOLDOWN, so there is no race.)
+				 */
+				dtrace_activity_t	*activity =
+							&state->dts_activity;
+				dtrace_activity_t	curr =
+							state->dts_activity;
 
-default:
-ASSERT(0);
-}
+				if (curr == DTRACE_ACTIVITY_COOLDOWN)
+					break;
 
-if (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF) {
-uintptr_t end = valoffs + size;
+				if (curr != DTRACE_ACTIVITY_WARMUP)
+					curr = DTRACE_ACTIVITY_ACTIVE;
 
-if (!dtrace_vcanload((void *)(uintptr_t)val,
-&dp->dtdo_rtype, &mstate, vstate))
-continue;
+				if (cmpxchg(activity, curr,
+					    DTRACE_ACTIVITY_DRAINING) != curr) {
+					*flags |= CPU_DTRACE_DROP;
+					continue;
+				}
 
-/*
-* If this is a string, we're going to only
-* load until we find the zero byte -- after
-* which we'll store zero bytes.
-*/
-if (dp->dtdo_rtype.dtdt_kind ==
-DIF_TYPE_STRING) {
-char c = '\0' + 1;
-int intuple = act->dta_intuple;
-size_t s;
+				break;
+			}
 
-for (s = 0; s < size; s++) {
-if (c != '\0')
-c = dtrace_load8(val++);
+			default:
+				ASSERT(0);
+			}
 
-DTRACE_STORE(uint8_t, tomax,
-valoffs++, c);
+			if (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF) {
+				uintptr_t	end = valoffs + size;
 
-if (c == '\0' && intuple)
-break;
-}
+				if (!dtrace_vcanload((void *)(uintptr_t)val,
+						      &dp->dtdo_rtype, &mstate,
+						      vstate))
+					continue;
 
-continue;
-}
+				/*
+				 * If this is a string, we're going to only
+				 * load until we find the zero byte -- after
+				 * which we'll store zero bytes.
+				 */
+				if (dp->dtdo_rtype.dtdt_kind ==
+				    DIF_TYPE_STRING) {
+					char	c = '\0' + 1;
+					int	intuple = act->dta_intuple;
+					size_t	s;
 
-while (valoffs < end) {
-DTRACE_STORE(uint8_t, tomax, valoffs++,
-dtrace_load8(val++));
-}
+					for (s = 0; s < size; s++) {
+						if (c != '\0')
+							c = dtrace_load8(val++);
 
-continue;
-}
+						DTRACE_STORE(uint8_t, tomax,
+							     valoffs++, c);
 
-switch (size) {
-case 0:
-break;
+						if (c == '\0' && intuple)
+							break;
+					}
 
-case sizeof (uint8_t):
-DTRACE_STORE(uint8_t, tomax, valoffs, val);
-break;
-case sizeof (uint16_t):
-DTRACE_STORE(uint16_t, tomax, valoffs, val);
-break;
-case sizeof (uint32_t):
-DTRACE_STORE(uint32_t, tomax, valoffs, val);
-break;
-case sizeof (uint64_t):
-DTRACE_STORE(uint64_t, tomax, valoffs, val);
-break;
-default:
-/*
-* Any other size should have been returned by
-* reference, not by value.
-*/
-ASSERT(0);
-break;
-}
-}
+					continue;
+				}
 
-if (*flags & CPU_DTRACE_DROP)
-continue;
+				while (valoffs < end)
+					DTRACE_STORE(uint8_t, tomax, valoffs++,
+						     dtrace_load8(val++));
 
-if (*flags & CPU_DTRACE_FAULT) {
-int ndx;
-dtrace_action_t *err;
+				continue;
+			}
 
-buf->dtb_errors++;
+			switch (size) {
+			case 0:
+				break;
+			case sizeof(uint8_t):
+				DTRACE_STORE(uint8_t, tomax, valoffs, val);
+				break;
+			case sizeof(uint16_t):
+				DTRACE_STORE(uint16_t, tomax, valoffs, val);
+				break;
+			case sizeof(uint32_t):
+				DTRACE_STORE(uint32_t, tomax, valoffs, val);
+				break;
+			case sizeof(uint64_t):
+				DTRACE_STORE(uint64_t, tomax, valoffs, val);
+				break;
+			default:
+				/*
+				 * Any other size should have been returned by
+				 * reference, not by value.
+				 */
+				ASSERT(0);
+				break;
+			}
+		}
 
-if (probe->dtpr_id == dtrace_probeid_error) {
-/*
-* There's nothing we can do -- we had an
-* error on the error probe.  We bump an
-* error counter to at least indicate that
-* this condition happened.
-*/
-dtrace_error(&state->dts_dblerrors);
-continue;
-}
+		if (*flags & CPU_DTRACE_DROP)
+			continue;
 
-if (vtime) {
-/*
-* Before recursing on dtrace_probe(), we
-* need to explicitly clear out our start
-* time to prevent it from being accumulated
-* into t_dtrace_vtime.
-*/
-curthread->t_dtrace_start = 0;
-}
+		if (*flags & CPU_DTRACE_FAULT) {
+			int		ndx;
+			dtrace_action_t	*err;
 
-/*
-* Iterate over the actions to figure out which action
-* we were processing when we experienced the error.
-* Note that act points _past_ the faulting action; if
-* act is ecb->dte_action, the fault was in the
-* predicate, if it's ecb->dte_action->dta_next it's
-* in action #1, and so on.
-*/
-for (err = ecb->dte_action, ndx = 0;
-err != act; err = err->dta_next, ndx++)
-continue;
+			buf->dtb_errors++;
 
-dtrace_probe_error(state, ecb->dte_epid, ndx,
-(mstate.dtms_present & DTRACE_MSTATE_FLTOFFS) ?
-mstate.dtms_fltoffs : -1, DTRACE_FLAGS2FLT(*flags),
-cpu_core[cpuid].cpuc_dtrace_illval);
+			if (probe->dtpr_id == dtrace_probeid_error) {
+				/*
+				 * There's nothing we can do -- we had an
+				 * error on the error probe.  We bump an
+				 * error counter to at least indicate that
+				 * this condition happened.
+				 */
+				dtrace_error(&state->dts_dblerrors);
+				continue;
+			}
 
-continue;
-}
+			if (vtime)
+				/*
+				 * Before recursing on dtrace_probe(), we
+				 * need to explicitly clear out our start
+				 * time to prevent it from being accumulated
+				 * into t_dtrace_vtime.
+				 */
+				current->dtrace_start = 0;
 
-if (!committed)
-buf->dtb_offset = offs + ecb->dte_size;
-}
+			/*
+			 * Iterate over the actions to figure out which action
+			 * we were processing when we experienced the error.
+			 * Note that act points _past_ the faulting action; if
+			 * act is ecb->dte_action, the fault was in the
+			 * predicate, if it's ecb->dte_action->dta_next it's
+			 * in action #1, and so on.
+			 */
+			for (err = ecb->dte_action, ndx = 0;
+			     err != act; err = err->dta_next, ndx++)
+				continue;
 
-if (vtime)
-curthread->t_dtrace_start = dtrace_gethrtime();
+			dtrace_probe_error(
+				state, ecb->dte_epid, ndx,
+				(mstate.dtms_present & DTRACE_MSTATE_FLTOFFS)
+					?  mstate.dtms_fltoffs
+					: -1,
+				DTRACE_FLAGS2FLT(*flags),
+			cpu_core[cpuid].cpuc_dtrace_illval);
 
-dtrace_interrupt_enable(cookie);
+			continue;
+		}
+
+		if (!committed)
+			buf->dtb_offset = offs + ecb->dte_size;
+	}
+
+	if (vtime)
+		current->dtrace_start = dtrace_gethrtime();
+
+	dtrace_interrupt_enable(cookie);
 }
 
 void dtrace_probe_init(void)

@@ -43,7 +43,8 @@
 #define DTRACE_MODNAMELEN	64
 #define DTRACE_FUNCNAMELEN	128
 #define DTRACE_NAMELEN		64
-
+#define DTRACE_FULLNAMELEN	(DTRACE_PROVNAMELEN + DTRACE_MODNAMELEN + \
+				 DTRACE_FUNCNAMELEN + DTRACE_NAMELEN + 4)
 #define DTRACE_ARGTYPELEN	128
 
 #define DTRACE_PROBEKEY_MAXDEPTH	8
@@ -209,6 +210,28 @@
 		((x) == DTRACEACT_PRINTF || (x) == DTRACEACT_PRINTA || \
 		 (x) == DTRACEACT_SYSTEM || (x) == DTRACEACT_FREOPEN)
 
+/*
+ * DTrace Faults
+ *
+ * The constants below DTRACEFLT_LIBRARY indicate probe processing faults;
+ * constants at or above DTRACEFLT_LIBRARY indicate faults in probe
+ * postprocessing at user-level.  Probe processing faults induce an ERROR
+ * probe and are replicated in unistd.d to allow users' ERROR probes to decode
+ * the error condition using thse symbolic labels.
+ */
+#define DTRACEFLT_UNKNOWN		0	/* Unknown fault */
+#define DTRACEFLT_BADADDR		1	/* Bad address */
+#define DTRACEFLT_BADALIGN		2	/* Bad alignment */
+#define DTRACEFLT_ILLOP			3	/* Illegal operation */
+#define DTRACEFLT_DIVZERO		4	/* Divide-by-zero */
+#define DTRACEFLT_NOSCRATCH		5	/* Out of scratch space */
+#define DTRACEFLT_KPRIV			6	/* Illegal kernel access */
+#define DTRACEFLT_UPRIV			7	/* Illegal user access */
+#define DTRACEFLT_TUPOFLOW		8	/* Tuple stack overflow */
+#define DTRACEFLT_BADSTACK		9	/* Bad stack */
+
+#define DTRACEFLT_LIBRARY		1000	/* Library-level fault */
+
 #define DTRACEOPT_BUFSIZE	0
 #define DTRACEOPT_BUFPOLICY	1
 #define DTRACEOPT_DYNVARSIZE	2
@@ -277,6 +300,7 @@ typedef enum {
 
 typedef struct cred	cred_t;
 typedef cycle_t		hrtime_t;
+typedef __be32		ipaddr_t;
 
 typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
 
@@ -628,6 +652,48 @@ typedef struct dtrace_vstate {
 	dtrace_dstate_t dtvs_dynvars;
 } dtrace_vstate_t;
 
+/*
+ * DTrace Machine State
+ *
+ * In the process of processing a fired probe, DTrace needs to track and/or
+ * cache some per-CPU state associated with that particular firing.  This is
+ * state that is always discarded after the probe firing has completed, and
+ * much of it is not specific to any DTrace consumer, remaining valid across
+ * all ECBs.  This state is tracked in the dtrace_mstate structure.
+ */
+#define DTRACE_MSTATE_ARGS		0x00000001
+#define DTRACE_MSTATE_PROBE		0x00000002
+#define DTRACE_MSTATE_EPID		0x00000004
+#define DTRACE_MSTATE_TIMESTAMP		0x00000008
+#define DTRACE_MSTATE_STACKDEPTH	0x00000010
+#define DTRACE_MSTATE_CALLER		0x00000020
+#define DTRACE_MSTATE_IPL		0x00000040
+#define DTRACE_MSTATE_FLTOFFS		0x00000080
+#define DTRACE_MSTATE_WALLTIMESTAMP	0x00000100
+#define DTRACE_MSTATE_USTACKDEPTH	0x00000200
+#define DTRACE_MSTATE_UCALLER		0x00000400
+
+typedef struct dtrace_mstate {
+	uintptr_t dtms_scratch_base;
+	uintptr_t dtms_scratch_ptr;
+	size_t dtms_scratch_size;
+	uint32_t dtms_present;
+	uint64_t dtms_arg[5];
+	dtrace_epid_t dtms_epid;
+	uint64_t dtms_timestamp;
+	hrtime_t dtms_walltimestamp;
+	int dtms_stackdepth;
+	int dtms_ustackdepth;
+	struct dtrace_probe *dtms_probe;
+	uintptr_t dtms_caller;
+	uint64_t dtms_ucaller;
+	int dtms_ipl;
+	int dtms_fltoffs;
+	uintptr_t dtms_strtok;
+	uint32_t dtms_access;
+	dtrace_difo_t *dtms_difo;
+} dtrace_mstate_t;
+
 typedef struct dtrace_buffer {
 	uint64_t dtb_offset;
 	uint64_t dtb_size;
@@ -776,6 +842,156 @@ typedef struct dtrace_toxrange {
 	uintptr_t dtt_limit;
 } dtrace_toxrange_t;
 
+/*
+ * DTrace Helpers
+ *
+ * In general, DTrace establishes probes in processes and takes actions on
+ * processes without knowing their specific user-level structures.  Instead of
+ * existing in the framework, process-specific knowledge is contained by the
+ * enabling D program -- which can apply process-specific knowledge by making
+ * appropriate use of DTrace primitives like copyin() and copyinstr() to
+ * operate on user-level data.  However, there may exist some specific probes
+ * of particular semantic relevance that the application developer may wish to
+ * explicitly export.  For example, an application may wish to export a probe
+ * at the point that it begins and ends certain well-defined transactions.  In
+ * addition to providing probes, programs may wish to offer assistance for
+ * certain actions.  For example, in highly dynamic environments (e.g., Java),
+ * it may be difficult to obtain a stack trace in terms of meaningful symbol
+ * names (the translation from instruction addresses to corresponding symbol
+ * names may only be possible in situ); these environments may wish to define
+ * a series of actions to be applied in situ to obtain a meaningful stack
+ * trace.
+ *
+ * These two mechanisms -- user-level statically defined tracing and assisting
+ * DTrace actions -- are provided via DTrace _helpers_.  Helpers are specified
+ * via DOF, but unlike enabling DOF, helper DOF may contain definitions of
+ * providers, probes and their arguments.  If a helper wishes to provide
+ * action assistance, probe descriptions and corresponding DIF actions may be
+ * specified in the helper DOF.  For such helper actions, however, the probe
+ * description describes the specific helper:  all DTrace helpers have the
+ * provider name "dtrace" and the module name "helper", and the name of the
+ * helper is contained in the function name (for example, the ustack() helper
+ * is named "ustack").  Any helper-specific name may be contained in the name
+ * (for example, if a helper were to have a constructor, it might be named
+ * "dtrace:helper:<helper>:init").  Helper actions are only called when the
+ * action that they are helping is taken.  Helper actions may only return DIF
+ * expressions, and may only call the following subroutines:
+ *
+ *    alloca()      <= Allocates memory out of the consumer's scratch space
+ *    bcopy()       <= Copies memory to scratch space
+ *    copyin()      <= Copies memory from user-level into consumer's scratch
+ *    copyinto()    <= Copies memory into a specific location in scratch
+ *    copyinstr()   <= Copies a string into a specific location in scratch
+ *
+ * Helper actions may only access the following built-in variables:
+ *
+ *    curthread     <= Current kthread_t pointer
+ *    tid           <= Current thread identifier
+ *    pid           <= Current process identifier
+ *    ppid          <= Parent process identifier
+ *    uid           <= Current user ID
+ *    gid           <= Current group ID
+ *    execname      <= Current executable name
+ *    zonename      <= Current zone name
+ *
+ * Helper actions may not manipulate or allocate dynamic variables, but they
+ * may have clause-local and statically-allocated global variables.  The
+ * helper action variable state is specific to the helper action -- variables
+ * used by the helper action may not be accessed outside of the helper
+ * action, and the helper action may not access variables that like outside
+ * of it.  Helper actions may not load from kernel memory at-large; they are
+ * restricting to loading current user state (via copyin() and variants) and
+ * scratch space.  As with probe enablings, helper actions are executed in
+ * program order.  The result of the helper action is the result of the last
+ * executing helper expression.
+ *
+ * Helpers -- composed of either providers/probes or probes/actions (or both)
+ * -- are added by opening the "helper" minor node, and issuing an ioctl(2)
+ * (DTRACEHIOC_ADDDOF) that specifies the dof_helper_t structure. This
+ * encapsulates the name and base address of the user-level library or
+ * executable publishing the helpers and probes as well as the DOF that
+ * contains the definitions of those helpers and probes.
+ *
+ * The DTRACEHIOC_ADD and DTRACEHIOC_REMOVE are left in place for legacy
+ * helpers and should no longer be used.  No other ioctls are valid on the
+ * helper minor node.
+ */
+typedef struct dof_helper {
+	char dofhp_mod[DTRACE_MODNAMELEN];	/* executable or library name */
+	uint64_t dofhp_addr;			/* base address of object */
+	uint64_t dofhp_dof;			/* address of helper DOF */
+} dof_helper_t;
+
+/*
+ * DTrace Helper Implementation
+ *
+ * A description of the helper architecture may be found in <linux/dtrace.h>.
+ * Each process contains a pointer to its helpers in its dtrace_helpers
+ * member.  This is a pointer to a dtrace_helpers structure, which contains an
+ * array of pointers to dtrace_helper structures, helper variable state (shared
+ * among a process's helpers) and a generation count.  (The generation count is
+ * used to provide an identifier when a helper is added so that it may be
+ * subsequently removed.)  The dtrace_helper structure is self-explanatory,
+ * containing pointers to the objects needed to execute the helper.  Note that
+ * helpers are _duplicated_ across fork(2), and destroyed on exec(2).  No more
+ * than dtrace_helpers_max are allowed per-process.
+ */
+#define DTRACE_HELPER_ACTION_USTACK	0
+#define DTRACE_NHELPER_ACTIONS		1
+
+typedef struct dtrace_helper_action {
+	int dtha_generation;			/* helper action generation */
+	int dtha_nactions;			/* number of actions */
+	dtrace_difo_t *dtha_predicate;		/* helper action predicate */
+	dtrace_difo_t **dtha_actions;		/* array of actions */
+	struct dtrace_helper_action *dtha_next;	/* next helper action */
+} dtrace_helper_action_t;
+
+typedef struct dtrace_helper_provider {
+	int dthp_generation;			/* helper provider generation */
+	uint32_t dthp_ref;			/* reference count */
+	dof_helper_t dthp_prov;			/* DOF w/ provider and probes */
+} dtrace_helper_provider_t;
+
+typedef struct dtrace_helpers {
+	dtrace_helper_action_t **dthps_actions;	/* array of helper actions */
+	dtrace_vstate_t dthps_vstate;	/* helper action var. state */
+	dtrace_helper_provider_t **dthps_provs;	/* array of providers */
+	uint_t dthps_nprovs;			/* count of providers */
+	uint_t dthps_maxprovs;			/* provider array size */
+	int dthps_generation;			/* current generation */
+	pid_t dthps_pid;			/* pid of associated proc */
+	int dthps_deferred;			/* helper in deferred list */
+	struct dtrace_helpers *dthps_next;	/* next pointer */
+	struct dtrace_helpers *dthps_prev;	/* prev pointer */
+} dtrace_helpers_t;
+
+/*
+ * DTrace Helper Action Tracing
+ *
+ * Debugging helper actions can be arduous.  To ease the development and
+ * debugging of helpers, DTrace contains a tracing-framework-within-a-tracing-
+ * framework: helper tracing.  If dtrace_helptrace_enabled is non-zero (which
+ * it is by default on DEBUG kernels), all helper activity will be traced to a
+ * global, in-kernel ring buffer.  Each entry includes a pointer to the specific
+ * helper, the location within the helper, and a trace of all local variables.
+ * The ring buffer may be displayed in a human-readable format with the
+ * ::dtrace_helptrace mdb(1) dcmd.
+ */
+#define DTRACE_HELPTRACE_NEXT	(-1)
+#define DTRACE_HELPTRACE_DONE	(-2)
+#define DTRACE_HELPTRACE_ERR	(-3)
+
+typedef struct dtrace_helptrace {
+	dtrace_helper_action_t  *dtht_helper;	/* helper action */
+	int dtht_where;				/* where in helper action */
+	int dtht_nlocals;			/* number of locals */
+	int dtht_fault;				/* type of fault (if any) */
+	int dtht_fltoffs;			/* DIF offset */
+	uint64_t dtht_illval;			/* faulting value */
+	uint64_t dtht_locals[1];		/* local variables */
+} dtrace_helptrace_t;
+
 extern struct mutex		dtrace_lock;
 extern struct mutex		dtrace_provider_lock;
 extern struct mutex		dtrace_meta_lock;
@@ -792,6 +1008,7 @@ extern int			dtrace_toxranges;
 
 extern void dtrace_nullop(void);
 extern int dtrace_enable_nullop(void);
+extern int dtrace_istoxic(uintptr_t, size_t);
 
 /*
  * DTrace Probe Context Functions
@@ -803,6 +1020,7 @@ extern int dtrace_enable_nullop(void);
 # define ASSERT(x)	((void)0)
 #endif
 
+extern void dtrace_panic(const char *, ...);
 extern int dtrace_assfail(const char *, const char *, int);
 extern void dtrace_aggregate_min(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_max(uint64_t *, uint64_t, uint64_t);
@@ -812,6 +1030,8 @@ extern void dtrace_aggregate_avg(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_stddev(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_count(uint64_t *, uint64_t, uint64_t);
 extern void dtrace_aggregate_sum(uint64_t *, uint64_t, uint64_t);
+extern void dtrace_aggregate(dtrace_aggregation_t *, dtrace_buffer_t *,
+			     intptr_t, dtrace_buffer_t *, uint64_t, uint64_t);
 
 /*
  * DTrace Probe Hashing Functions
@@ -830,7 +1050,14 @@ extern void dtrace_hash_remove(dtrace_hash_t *, dtrace_probe_t *);
 /*
  * DTrace Speculation Functions
  */
+extern int dtrace_speculation(dtrace_state_t *);
+extern void dtrace_speculation_commit(dtrace_state_t *, processorid_t,
+				      dtrace_specid_t);
+extern void dtrace_speculation_discard(dtrace_state_t *, processorid_t,
+				       dtrace_specid_t);
 extern void dtrace_speculation_clean(dtrace_state_t *);
+extern dtrace_buffer_t *dtrace_speculation_buffer(dtrace_state_t *,
+                                           processorid_t, dtrace_specid_t);
 
 /*
  * DTrace Non-Probe Context Utility Functions
@@ -870,12 +1097,28 @@ extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 /*
  * DTrace Privilege Check Functions
  */
-extern int dtrace_priv_kernel(dtrace_state_t *);
+extern int dtrace_priv_proc_destructive(dtrace_state_t *);
+extern int dtrace_priv_proc_control(dtrace_state_t *);
 extern int dtrace_priv_proc(dtrace_state_t *);
+extern int dtrace_priv_kernel(dtrace_state_t *);
 
 /*
  * DTrace Probe Management Functions
  */
+#define DTRACE_ANCHORED(probe)	((probe)->dtpr_func[0] != '\0')
+#define DTRACE_FLAGS2FLT(flags)						\
+	(((flags) & CPU_DTRACE_BADADDR) ? DTRACEFLT_BADADDR :		\
+	 ((flags) & CPU_DTRACE_ILLOP) ? DTRACEFLT_ILLOP :		\
+	 ((flags) & CPU_DTRACE_DIVZERO) ? DTRACEFLT_DIVZERO :		\
+	 ((flags) & CPU_DTRACE_KPRIV) ? DTRACEFLT_KPRIV :		\
+	 ((flags) & CPU_DTRACE_UPRIV) ? DTRACEFLT_UPRIV :		\
+	 ((flags) & CPU_DTRACE_TUPOFLOW) ?  DTRACEFLT_TUPOFLOW :	\
+	 ((flags) & CPU_DTRACE_BADALIGN) ?  DTRACEFLT_BADALIGN :	\
+	 ((flags) & CPU_DTRACE_NOSCRATCH) ?  DTRACEFLT_NOSCRATCH :	\
+	 ((flags) & CPU_DTRACE_BADSTACK) ?  DTRACEFLT_BADSTACK :	\
+	 DTRACEFLT_UNKNOWN)
+
+
 extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,
 				       const char *, const char *, int,
 				       void *);
@@ -894,6 +1137,15 @@ extern int dtrace_probe_for_each(int (*)(int, void *, void *), void *);
 
 /*
  * DTrace DIF Object Functions
+ *
+ * DTrace Intermediate Format (DIF)
+ *
+ * The following definitions describe the DTrace Intermediate Format (DIF), a
+ * a RISC-like instruction set and program encoding used to represent
+ * predicates and actions that can be bound to DTrace probes.  The constants
+ * below defining the number of available registers are suggested minimums; the
+ * compiler should use DTRACEIOC_CONF to dynamically obtain the number of
+ * registers provided by the current DTrace implementation.
  */
 #define DIF_VERSION_1	1
 #define DIF_VERSION_2	2
@@ -1133,10 +1385,26 @@ extern int dtrace_probe_for_each(int (*)(int, void *, void *), void *);
 #define DIFV_F_REF		0x1
 #define DIFV_F_MOD		0x2
 
+/*
+ * Test whether alloc_sz bytes will fit in the scratch region.  We isolate
+ * alloc_sz on the righthand side of the comparison in order to avoid overflow
+ * or underflow in the comparison with it.  This is simpler than the INRANGE
+ * check above, because we know that the dtms_scratch_ptr is valid in the
+ * range.  Allocations of size zero are allowed.
+ */
+#define DTRACE_INSCRATCH(mstate, alloc_sz) \
+	((mstate)->dtms_scratch_base + (mstate)->dtms_scratch_size - \
+	 (mstate)->dtms_scratch_ptr >= (alloc_sz))
+
 extern uint8_t dtrace_load8(uintptr_t);
 extern uint16_t dtrace_load16(uintptr_t);
 extern uint32_t dtrace_load32(uintptr_t);
 extern uint64_t dtrace_load64(uintptr_t);
+
+extern void dtrace_bzero(void *, size_t);
+
+extern int dtrace_vcanload(void *, dtrace_diftype_t *, dtrace_mstate_t *,
+			   dtrace_vstate_t *);
 
 extern int dtrace_difo_validate(dtrace_difo_t *, dtrace_vstate_t *, uint_t,
 				const cred_t *);
@@ -1144,6 +1412,9 @@ extern int dtrace_difo_cacheable(dtrace_difo_t *);
 extern void dtrace_difo_hold(dtrace_difo_t *);
 extern void dtrace_difo_init(dtrace_difo_t *, dtrace_vstate_t *);
 extern void dtrace_difo_release(dtrace_difo_t *, dtrace_vstate_t *);
+
+extern uint64_t dtrace_dif_emulate(dtrace_difo_t *, dtrace_mstate_t *,
+				   dtrace_vstate_t *, dtrace_state_t *);
 
 /*
  * DTrace Format Functions
@@ -1166,6 +1437,12 @@ extern dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t, uint32_t,
 					       uint64_t, uint64_t);
 extern void dtrace_actdesc_hold(dtrace_actdesc_t *);
 extern void dtrace_actdesc_release(dtrace_actdesc_t *, dtrace_vstate_t *);
+
+/*
+ * DTrace Helper Functions
+ */
+extern uint64_t dtrace_helper(int, dtrace_mstate_t *, dtrace_state_t *,
+			      uint64_t, uint64_t);
 
 /*
  * DTrace ECB Functions
@@ -1346,48 +1623,6 @@ extern dtrace_aggregation_t *dtrace_aggid2agg(dtrace_state_t *,
 #define DTRACEBUF_FULL		0x0040		/* "fill" buffer is full */
 #define DTRACEBUF_CONSUMED	0x0080		/* buffer has been consumed */
 #define DTRACEBUF_INACTIVE	0x0100		/* buffer is not yet active */
-
-/*
- * DTrace Machine State
- *
- * In the process of processing a fired probe, DTrace needs to track and/or
- * cache some per-CPU state associated with that particular firing.  This is
- * state that is always discarded after the probe firing has completed, and
- * much of it is not specific to any DTrace consumer, remaining valid across
- * all ECBs.  This state is tracked in the dtrace_mstate structure.
- */
-#define DTRACE_MSTATE_ARGS		0x00000001
-#define DTRACE_MSTATE_PROBE		0x00000002
-#define DTRACE_MSTATE_EPID		0x00000004
-#define DTRACE_MSTATE_TIMESTAMP		0x00000008
-#define DTRACE_MSTATE_STACKDEPTH	0x00000010
-#define DTRACE_MSTATE_CALLER		0x00000020
-#define DTRACE_MSTATE_IPL		0x00000040
-#define DTRACE_MSTATE_FLTOFFS		0x00000080
-#define DTRACE_MSTATE_WALLTIMESTAMP	0x00000100
-#define DTRACE_MSTATE_USTACKDEPTH	0x00000200
-#define DTRACE_MSTATE_UCALLER		0x00000400
-
-typedef struct dtrace_mstate {
-	uintptr_t dtms_scratch_base;
-	uintptr_t dtms_scratch_ptr;
-	size_t dtms_scratch_size;
-	uint32_t dtms_present;
-	uint64_t dtms_arg[5];
-	dtrace_epid_t dtms_epid;
-	uint64_t dtms_timestamp;
-	hrtime_t dtms_walltimestamp;
-	int dtms_stackdepth;
-	int dtms_ustackdepth;
-	struct dtrace_probe *dtms_probe;
-	uintptr_t dtms_caller;
-	uint64_t dtms_ucaller;
-	int dtms_ipl;
-	int dtms_fltoffs;
-	uintptr_t dtms_strtok;
-	uint32_t dtms_access;
-	dtrace_difo_t *dtms_difo;
-} dtrace_mstate_t;
 
 #define DTRACE_STORE(type, tomax, offset, what) \
 	*((type *)((uintptr_t)(tomax) + (uintptr_t)offset)) = (type)(what);
@@ -1733,6 +1968,8 @@ extern void dtrace_anon_property(void);
 extern struct kmem_cache	*dtrace_state_cache;
 extern size_t			dtrace_strsize_default;
 
+extern int			dtrace_destructive_disallow;
+
 extern dtrace_id_t		dtrace_probeid_begin;
 extern dtrace_id_t		dtrace_probeid_end;
 extern dtrace_id_t		dtrace_probeid_error;
@@ -1832,6 +2069,10 @@ typedef struct cpu_core {
 	uint8_t cpuc_pad[CPUC_PADSIZE];
 	uintptr_t cpuc_dtrace_illval;
 	struct mutex cpuc_pid_lock;
+
+	uintptr_t cpu_dtrace_caller;
+	hrtime_t cpu_dtrace_chillmark;
+	hrtime_t cpu_dtrace_chilled;
 } cpu_core_t;
 
 extern cpu_core_t	cpu_core[];
@@ -1859,6 +2100,9 @@ extern uint16_t dtrace_fuword16(void *);
 extern uint32_t dtrace_fuword32(void *);
 extern uint64_t dtrace_fuword64(void *);
 
+extern void dtrace_probe_error(dtrace_state_t *, dtrace_epid_t, int, int, int,
+			       uintptr_t);
+
 extern void dtrace_getpcstack(pc_t *, int, int, uint32_t *);
 extern void dtrace_getupcstack(uint64_t *, int);
 extern void dtrace_getufpstack(uint64_t *, uint64_t *, int);
@@ -1866,6 +2110,12 @@ extern uint64_t dtrace_getarg(int, int);
 extern int dtrace_getstackdepth(int);
 extern int dtrace_getustackdepth(void);
 extern ulong_t dtrace_getreg(struct pt_regs *, uint_t);
+extern void dtrace_copyin(uintptr_t, uintptr_t, size_t, volatile uint16_t *);
+extern void dtrace_copyout(uintptr_t, uintptr_t, size_t, volatile uint16_t *);
+extern void dtrace_copyinstr(uintptr_t, uintptr_t, size_t,
+			     volatile uint16_t *);
+extern void dtrace_copyoutstr(uintptr_t, uintptr_t, size_t,
+			      volatile uint16_t *);
 extern uintptr_t dtrace_caller(int);
 
 #endif /* _DTRACE_H_ */
