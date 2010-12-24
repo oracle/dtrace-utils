@@ -29,6 +29,7 @@
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<string.h>
+#include	<Pcontrol.h>
 //#include	<proc_service.h>
 #include	<rtld_db.h>
 #include	<rtld.h>
@@ -204,44 +205,6 @@ rd_delete(rd_agent_t *rap)
 	free(rap);
 }
 
-
-rd_err_e
-rd_loadobj_iter(rd_agent_t *rap, rl_iter_f *cb, void *client_data)
-{       char    buf[256];
-        FILE    *fp;
-        int     ret;
-
-        if ((fp = fopen(buf, "r")) == NULL) {
-                return RD_ERR;
-        }
-        while (fgets(buf, sizeof buf, fp) != NULL) {
-                char    *addr_str;
-		long int addr;
-                char    *perms;
-                char    *lib;
-                uint_t  abort_iter;
-                rd_loadobj_t lobj;
-
-                if (strcmp(buf + strlen(buf) - 3, ".so") != 0)
-                        continue;
-                lib = strrchr(buf, ' ');
-                if (lib == NULL)
-                        continue;
-                lib++;
-                addr_str = strtok(buf, " ");
-                perms = strtok(NULL, " ");
-                if (strchr(perms, 'x') == NULL)
-                        continue;
-
-                addr = strtol(addr_str, NULL, 16);
-printf("rd_loadobj_iter: %s %p\n", lib, addr);
-                lobj.rl_base = addr;
-                lobj.rl_nameaddr = lib;
-                ret = cb(&lobj, client_data);
-        }
-        fclose(fp);
-        printf("%s\n", __func__);
-}
 
 rd_event_addr()
 {

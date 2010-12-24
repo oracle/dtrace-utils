@@ -178,8 +178,6 @@ extern void		rd_delete(rd_agent_t *);
 extern char		*rd_errstr(rd_err_e rderr);
 extern rd_err_e		rd_init(int);
 extern rd_err_e		rd_ctl(int, void *);
-extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
-				void *);
 extern void		rd_log(const int);
 extern rd_agent_t	*rd_new(struct ps_prochandle *);
 extern rd_err_e		rd_get_dyns(rd_agent_t *, psaddr_t, void **, size_t *);
@@ -189,7 +187,6 @@ extern void		rd_delete();
 extern char		*rd_errstr();
 extern rd_err_e		rd_init();
 extern rd_err_e		rd_ctl();
-extern rd_err_e		rd_loadobj_iter();
 extern void		rd_log();
 extern rd_agent_t	*rd_new();
 extern rd_err_e		rd_get_dyns();

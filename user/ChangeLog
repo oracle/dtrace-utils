@@ -1,3 +1,11 @@
+2010-12-24  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* librtld/rtld_db.c: Move rd_loadobj_iter to ...
+	* libproc/common/Psymtab.c: here and remove the first parameter rap
+	and adjust the callers.
+	* include/rtld_db.h (rd_loadobj_iter): Remove.
+	* libproc/common/Pcontrol.h (rd_loadobj_iter): Declare.
+
 2010-12-17  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* cmd/common/dtrace.c: set environment variable POSIXLY_CORRECT to

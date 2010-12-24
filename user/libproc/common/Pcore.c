@@ -2116,8 +2116,7 @@ Pfgrab_core(int core_fd, const char *aout_path, int *perr)
 	rd_log(_libproc_debug);
 
 	if ((P->rap = rd_new(P)) != NULL) {
-		(void) rd_loadobj_iter(P->rap, (rl_iter_f *)
-		    core_iter_mapping, P);
+		(void) rd_loadobj_iter((rl_iter_f *)core_iter_mapping, P);
 
 		if (P->core->core_errno != 0) {
 			errno = P->core->core_errno;

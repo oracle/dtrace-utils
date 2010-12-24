@@ -281,6 +281,8 @@ extern	void	Psort_mappings(struct ps_prochandle *);
 
 extern char	procfs_path[PATH_MAX];
 
+extern void     rd_loadobj_iter(rl_iter_f *, struct  ps_prochandle *);
+
 /*
  * Architecture-dependent definition of the breakpoint instruction.
  */

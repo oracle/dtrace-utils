@@ -47,6 +47,8 @@
 #include <types_boolean.h>
 #include <mutex.h>
 
+#include <rtld_db.h>
+
 #include "libproc.h"
 #include "Pcontrol.h"
 #include "Putil.h"
@@ -437,6 +439,47 @@ load_static_maps(struct ps_prochandle *P)
 		map_set(P, mptr, "ld.so.1");
 }
 
+void
+rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
+{       char    buf[256];
+        FILE    *fp;
+        int     ret;
+
+        (void)snprintf(buf, sizeof(buf), "/proc/%d/maps", (int)P->pid);
+        if ((fp = fopen(buf, "r")) == NULL) {
+                return;
+        }
+
+        while (fgets(buf, sizeof buf, fp) != NULL) {
+                char    *addr_str;
+                long int addr;
+                char    *perms;
+                char    *lib;
+                uint_t  abort_iter;
+                rd_loadobj_t lobj;
+
+                if (strcmp(buf + strlen(buf) - 3, ".so") != 0)
+                        continue;
+                lib = strrchr(buf, ' ');
+                if (lib == NULL)
+                        continue;
+                lib++;
+                addr_str = strtok(buf, " ");
+                perms = strtok(NULL, " ");
+                if (strchr(perms, 'x') == NULL)
+                        continue;
+
+                addr = strtol(addr_str, NULL, 16);
+printf("rd_loadobj_iter: %s %p\n", lib, addr);
+                lobj.rl_base = addr;
+                lobj.rl_nameaddr = lib;
+                ret = cb(&lobj, P);
+        }
+        fclose(fp);
+        printf("%s\n", __func__);
+}
+
+
 /*
  * Go through all the address space mappings, validating or updating
  * the information already gathered, or gathering new information.
@@ -604,7 +647,7 @@ Pupdate_maps(struct ps_prochandle *P)
 	 * names for all of the shared libraries.
 	 */
 	if (P->rap != NULL)
-		(void) rd_loadobj_iter(P->rap, map_iter, P);
+		(void) rd_loadobj_iter(map_iter, P);
 }
 
 /*
@@ -642,7 +685,7 @@ Prd_agent(struct ps_prochandle *P)
 			load_static_maps(P);
 		rd_log(_libproc_debug);
 		if ((P->rap = rd_new(P)) != NULL)
-			(void) rd_loadobj_iter(P->rap, map_iter, P);
+			(void) rd_loadobj_iter(map_iter, P);
 	}
 	return (P->rap);
 }
@@ -1091,7 +1134,7 @@ build_map_symtab(struct ps_prochandle *P, map_info_t *mptr)
 
 	if (P->map_ldso != mptr) {
 		if (P->rap != NULL)
-			(void) rd_loadobj_iter(P->rap, map_iter, P);
+			(void) rd_loadobj_iter(map_iter, P);
 		else
 			(void) Prd_agent(P);
 	} else {
