@@ -3444,7 +3444,7 @@ next:
 					*end-- = '.';
 			}
 			ASSERT(end + 1 >= base);
-
+#ifdef CONFIG_IPV6
 		} else if (af == AF_INET6) {
 			struct in6_addr ip6;
 			int firstzero, tryzero, numzero, v6end;
@@ -3577,7 +3577,7 @@ next:
 				}
 			}
 			ASSERT(end + 1 >= base);
-
+#endif
 		} else {
 			/*
 			 * The user didn't use AH_INET or AH_INET6.

@@ -206,6 +206,81 @@ void dtrace_aggregate_sum(uint64_t *oval, uint64_t nval, uint64_t arg)
 }
 
 /*
+ * DTrace Aggregation Buffers
+ *
+ * Aggregation buffers use much of the same mechanism as described above
+ * ("DTrace Buffers").  However, because an aggregation is fundamentally a
+ * hash, there exists dynamic metadata associated with an aggregation buffer
+ * that is not associated with other kinds of buffers.  This aggregation
+ * metadata is _only_ relevant for the in-kernel implementation of
+ * aggregations; it is not actually relevant to user-level consumers.  To do
+ * this, we allocate dynamic aggregation data (hash keys and hash buckets)
+ * starting below the _limit_ of the buffer, and we allocate data from the
+ * _base_ of the buffer.  When the aggregation buffer is copied out, _only_ the
+ * data is copied out; the metadata is simply discarded.  Schematically,
+ * aggregation buffers look like:
+ *
+ *      base of data buffer --->  +-------+------+-----------+-------+
+ *                                | aggid | key  | value     | aggid |
+ *                                +-------+------+-----------+-------+
+ *                                | key                              |
+ *                                +-------+-------+-----+------------+
+ *                                | value | aggid | key | value      |
+ *                                +-------+------++-----+------+-----+
+ *                                | aggid | key  | value       |     |
+ *                                +-------+------+-------------+     |
+ *                                |                ||                |
+ *                                |                ||                |
+ *                                |                \/                |
+ *                                :                                  :
+ *                                .                                  .
+ *                                .                                  .
+ *                                .                                  .
+ *                                :                                  :
+ *                                |                /\                |
+ *                                |                ||   +------------+
+ *                                |                ||   |            |
+ *                                +---------------------+            |
+ *                                | hash keys                        |
+ *                                | (dtrace_aggkey structures)       |
+ *                                |                                  |
+ *                                +----------------------------------+
+ *                                | hash buckets                     |
+ *                                | (dtrace_aggbuffer structure)     |
+ *                                |                                  |
+ *     limit of data buffer --->  +----------------------------------+
+ *
+ * As implied above, just as we assure that ECBs always store a constant
+ * amount of data, we assure that a given aggregation -- identified by its
+ * aggregation ID -- always stores data of a constant quantity and type.
+ * As with EPIDs, this allows the aggregation ID to serve as the metadata for a
+ * given record.
+ *
+ * Note that the size of the dtrace_aggkey structure must be sizeof (uintptr_t)
+ * aligned.  (If this the structure changes such that this becomes false, an
+ * assertion will fail in dtrace_aggregate().)
+ */
+#define DTRACE_AGGHASHSIZE_SLEW		17
+
+typedef struct dtrace_aggkey {
+	uint32_t dtak_hashval;			/* hash value */
+	uint32_t dtak_action:4;			/* action -- 4 bits */
+	uint32_t dtak_size:28;			/* size -- 28 bits */
+	caddr_t dtak_data;			/* data pointer */
+	struct dtrace_aggkey *dtak_next;	/* next in hash chain */
+} dtrace_aggkey_t;
+
+typedef struct dtrace_aggbuffer {
+	uintptr_t dtagb_hashsize;		/* number of buckets */
+	uintptr_t dtagb_free;			/* free list of keys */
+	dtrace_aggkey_t **dtagb_hash;		/* hash table */
+} dtrace_aggbuffer_t;
+
+#define DTRACEACT_ISSTRING(act)						      \
+	((act)->dta_kind == DTRACEACT_DIFEXPR &&			      \
+	 (act)->dta_difo->dtdo_rtype.dtdt_kind == DIF_TYPE_STRING)
+
+/*
  * Aggregate given the tuple in the principal data buffer, and the aggregating
  * action denoted by the specified dtrace_aggregation_t.  The aggregation
  * buffer is specified as the buf parameter.  This routine does not return

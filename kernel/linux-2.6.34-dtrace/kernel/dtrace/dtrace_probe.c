@@ -13,7 +13,6 @@
 
 #include "dtrace.h"
 
-cycle_t				dtrace_deadman_timeout = (cycle_t)10 * NANOSEC;
 hrtime_t			dtrace_chill_interval = NANOSEC;
 hrtime_t			dtrace_chill_max = 500 * (NANOSEC / MILLISEC);
 
@@ -300,8 +299,8 @@ static void dtrace_action_raise(uint64_t sig)
 	if (current->dtrace_sig == 0)
 		current->dtrace_sig = (uint8_t)sig;
 
-	current->sig_check = 1;
-	aston(current);
+//	current->sig_check = 1;	**FIXME**
+//	aston(current);		**FIXME**
 }
 
 static void dtrace_action_stop(void)
@@ -311,8 +310,8 @@ static void dtrace_action_stop(void)
 
 	if (!current->dtrace_stop) {
 		current->dtrace_stop = 1;
-		current->sig_check = 1;
-		aston(current);
+//		current->sig_check = 1; **FIXME**
+//		aston(current);		**FIXME**
 	}
 }
 
@@ -561,11 +560,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		 * arguments to aggregating actions, one iteration of the
 		 * action loop will use the last iteration's value.
 		 */
-#ifdef lint
 		uint64_t val = 0;
-#else
-		uint64_t val;
-#endif
 
 		mstate.dtms_present = DTRACE_MSTATE_ARGS | DTRACE_MSTATE_PROBE;
 		*flags &= ~CPU_DTRACE_ERROR;

@@ -16,7 +16,7 @@
  * in the INACTIVE state, 0 is returned.  In this case, no error counter is
  * incremented -- it is up to the caller to take appropriate action.
  */
-static int dtrace_speculation(dtrace_state_t *state)
+int dtrace_speculation(dtrace_state_t *state)
 {
 	int				i = 0;
 	dtrace_speculation_state_t	curr;
@@ -211,7 +211,7 @@ void dtrace_speculation_discard(dtrace_state_t *state, processorid_t cpu,
 				dtrace_specid_t which)
 {
 	dtrace_speculation_t		*spec;
-	dtrace_speculation_state_t	current, new;
+	dtrace_speculation_state_t	curr, new;
 	dtrace_buffer_t			*buf;
 
 	if (which == 0)

@@ -1968,6 +1968,7 @@ extern void dtrace_anon_property(void);
 extern struct kmem_cache	*dtrace_state_cache;
 extern size_t			dtrace_strsize_default;
 
+extern cycle_t			dtrace_deadman_timeout;
 extern int			dtrace_destructive_disallow;
 
 extern dtrace_id_t		dtrace_probeid_begin;
@@ -2117,5 +2118,7 @@ extern void dtrace_copyinstr(uintptr_t, uintptr_t, size_t,
 extern void dtrace_copyoutstr(uintptr_t, uintptr_t, size_t,
 			      volatile uint16_t *);
 extern uintptr_t dtrace_caller(int);
+
+extern void debug_enter(char *);
 
 #endif /* _DTRACE_H_ */
