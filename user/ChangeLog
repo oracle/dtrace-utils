@@ -1,3 +1,8 @@
+2011-01-07  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/Psymtab.c (rd_loadobj_iter): Fix this function to get
+	the right data of the library.
+
 2010-12-24  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* librtld/rtld_db.c: Move rd_loadobj_iter to ...

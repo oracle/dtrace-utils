@@ -441,16 +441,18 @@ load_static_maps(struct ps_prochandle *P)
 
 void
 rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
-{       char    buf[256];
+{
+	char mapfile[PATH_MAX];
+	char    buf[BUFSIZ];
         FILE    *fp;
         int     ret;
 
-        (void)snprintf(buf, sizeof(buf), "/proc/%d/maps", (int)P->pid);
-        if ((fp = fopen(buf, "r")) == NULL) {
+        (void)snprintf(mapfile, sizeof(mapfile), "/proc/%d/maps", (int)P->pid);
+        if ((fp = fopen(mapfile, "r")) == NULL) {
                 return;
         }
 
-        while (fgets(buf, sizeof buf, fp) != NULL) {
+        while (fgets(buf, sizeof(buf), fp) != NULL) {
                 char    *addr_str;
                 long int addr;
                 char    *perms;
@@ -458,7 +460,7 @@ rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
                 uint_t  abort_iter;
                 rd_loadobj_t lobj;
 
-                if (strcmp(buf + strlen(buf) - 3, ".so") != 0)
+		if (strstr(buf, ".so") == NULL)
                         continue;
                 lib = strrchr(buf, ' ');
                 if (lib == NULL)
@@ -470,13 +472,11 @@ rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
                         continue;
 
                 addr = strtol(addr_str, NULL, 16);
-printf("rd_loadobj_iter: %s %p\n", lib, addr);
                 lobj.rl_base = addr;
                 lobj.rl_nameaddr = lib;
                 ret = cb(&lobj, P);
         }
         fclose(fp);
-        printf("%s\n", __func__);
 }
 
 
