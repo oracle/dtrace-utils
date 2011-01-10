@@ -1,3 +1,7 @@
+2011-01-10  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/Psymtab.c (get_saddrs): Initial addrs to NULL.
+
 2011-01-07  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Psymtab.c (rd_loadobj_iter): Fix this function to get
