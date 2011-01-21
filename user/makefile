@@ -1,5 +1,7 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
+CC=/usr/bin/gcc
+COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
 all:
 	$(MAKE) all1
 	cd libctf; $(MAKE) $(NOPWD)

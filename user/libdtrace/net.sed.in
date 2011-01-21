@@ -33,7 +33,7 @@
  * Refer to the rules in libdtrace/Makefile.com for more information.
  */
 
-#include <sys/socket.h>
+/*#include <sys/socket.h> */
 
 #define	SED_REPLACE(x)	s/#x/x/g
 

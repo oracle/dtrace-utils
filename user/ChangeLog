@@ -1,3 +1,12 @@
+2011-01-21  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/dt_open.c: Fix the directory of _dtrace_defcpp.
+	* libdtrace/io.sed.in, ip.sed.in, net.sed.in, procfs.sed.in,
+	sysevent.sed.in, tcp.sed.in, udp.sed.in, i386/regs.sed.in: Remove the
+	header files that are not existed.
+	* libdtrace/makefile: Compile the D library and install to
+	/usr/lib/dtrace.
+
 2011-01-10  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Psymtab.c (get_saddrs): Initial addrs to NULL.

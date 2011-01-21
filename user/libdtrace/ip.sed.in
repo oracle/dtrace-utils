@@ -29,13 +29,13 @@
  * replace the #define tokens listed below to create the finished ip.d.
  * Refer to the rules in libdtrace/Makefile.com for more information.
  */
-
+/*
 #include <sys/netstack.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <inet/ip.h>
 #include <inet/tcp.h>
-
+*/
 #define	SED_REPLACE(x)	s/#x/x/g
 
 SED_REPLACE(AF_INET)

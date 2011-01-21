@@ -21,10 +21,10 @@
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
  */
-
+/*
 #include <inet/tcp.h>
 #include <sys/netstack.h>
-
+*/
 #define	SED_REPLACE(x)	s/#x/x/g
 
 SED_REPLACE(TH_FIN)

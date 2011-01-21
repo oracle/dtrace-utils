@@ -650,7 +650,7 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 const char *_dtrace_defcpp = "/usr/ccs/lib/cpp"; /* default cpp(1) to invoke */
 const char *_dtrace_defld = "/usr/ccs/bin/ld";   /* default ld(1) to invoke */
 #endif
-const char *_dtrace_defcpp = "/usr/lib/cpp"; /* default cpp(1) to invoke */
+const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
 const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
 
 const char *_dtrace_libdir = "/usr/lib/dtrace"; /* default library directory */

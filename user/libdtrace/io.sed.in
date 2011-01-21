@@ -33,11 +33,11 @@
  * replace the #define tokens listed below to create the finished io.d.
  * Refer to the rules in libdtrace/Makefile.com for more information.
  */
-
+/*
 #include <sys/buf.h>
 #include <sys/file.h>
 #include <sys/fcntl.h>
-
+*/
 #define	SED_REPLACE(x)	s/#x/x/g
 
 SED_REPLACE(B_BUSY)

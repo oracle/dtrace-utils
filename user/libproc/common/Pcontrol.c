@@ -1306,7 +1306,8 @@ Psync(struct ps_prochandle *P)
 		iov[n++].iov_len = sizeof (P->status.pr_sysexit);
 	}
 
-	if (n == 0 || writev(ctlfd, iov, n) < 0)
+/*	if (n == 0 || writev(ctlfd, iov, n) < 0) */
+	if (n == 0)
 		return;		/* nothing to do or write failed */
 
 	P->flags &= ~(SETSIG|SETFAULT|SETENTRY|SETEXIT|SETHOLD|SETREGS);
