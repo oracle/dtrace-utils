@@ -63,7 +63,6 @@ DLIBSRCS += \
         errno.d \
         net.d \
         fc.d \
-        io.d \
         ip.d \
         iscsit.d \
         nfs.d \
@@ -137,7 +136,12 @@ errno.d: mkerrno.sh /usr/include/asm-generic/errno-base.h
 
 signal.d: mksignal.sh /usr/include/bits/signum.h
 	sh mksignal.sh < /usr/include/bits/signum.h \
-	| sed -e 's/\\n/\n/g' > $@
+	| sed -e 's/\\n/\n/g' \
+	| sed -e '/inline int SIGCLD/{h;d}' -e '/"1.0" SIGCHLD/{G;}' \
+	| sed -e '/"1.0" SIGCLD/{h;d}' -e '/ = SIGCHLD;/{G;}' \
+	| sed -e '/inline int SIGPOLL/{h;d}' -e '/"1.0" SIGIO/{G;}' \
+	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
+	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
 
 procfs.d: procfs.sed procfs.d.in
@@ -162,6 +166,7 @@ udp.d: udp.sed udp.d.in
 	-rm ./$(MACH)/regs.sed.in.c
 regs.d: ./$(MACH)/regs.sed ./$(MACH)/regs.d.in
 	sed -f ./$(MACH)/regs.sed < ./$(MACH)/regs.d.in > $@
+	-rm ./$(MACH)/regs.sed
 
 clean:
 	-rm -f dt_grammar.h dt_lex.c dt_errtags.c dt_names.c *.o $(LIB) 
@@ -177,6 +182,7 @@ install:
 	if [ ! -d $(DLIBDIR) ] ; then \
 		mkdir $(DLIBDIR) ; \
 	fi
-	install -m 755 -o root $(DLIBSRCS) $(DLIBDIR)
+	install -m 755 -o root errno.d regs.d signal.d \
+	unistd.d $(DLIBDIR)
 
 

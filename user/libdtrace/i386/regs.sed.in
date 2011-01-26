@@ -39,7 +39,7 @@
 #include <sys/regset.h>
 
 #define	SED_REPLACE(x)		s/#x/x/g
-#define	SED_REPLACE64(x)	s/#x/SS @+@1@+@ x/g
+#define	SED_REPLACE64(x)	s/#x/SS +1+ x/g
 
 SED_REPLACE(GS)
 SED_REPLACE(FS)
