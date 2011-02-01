@@ -1,14 +1,15 @@
 #ifndef _DTRACE_H_
 #define _DTRACE_H_
 
-#include <linux/clocksource.h>
 #include <linux/cred.h>
-#include <linux/sched.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
-#include <linux/types.h>
+#include <linux/sched.h>
 #include <linux/stringify.h>
+#include <linux/types.h>
 #include <asm/bitsperlong.h>
 #include <asm/ptrace.h>
+#include <asm/sections.h>
 
 #include "cyclic.h"
 
@@ -299,12 +300,23 @@ typedef enum {
 } boolean_t;
 
 typedef struct cred	cred_t;
-typedef cycle_t		hrtime_t;
 typedef __be32		ipaddr_t;
 
 typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
 
 #define P2ROUNDUP(x, a)	(-(-(x) & -(a)))
+
+#if (BITS_PER_LONG == 64) || defined(CONFIG_KTIME_SCALAR)
+# define KTIME_INIT(s, ns)	{ .tv64 = (s64)(s) * NSEC_PER_SEC + (s64)(ns) }
+#else
+# define KTIME_INIT(n, ns)	{ .tv = { .sec = (s), .nsec = (ns) } }
+#endif
+#define ktime_lt(t0, t1)	((t0).tv64 < (t1).tv64)
+#define ktime_le(t0, t1)	((t0).tv64 <= (t1).tv64)
+#define ktime_ge(t0, t1)	((t0).tv64 >= (t1).tv64)
+#define ktime_gt(t0, t1)	((t0).tv64 > (t1).tv64)
+#define ktime_nz(t0)		((t0).tv64 != 0LL)
+#define ktime_cp(t0, t1)	((t0).tv64 = (t1).tv64)
 
 typedef struct dtrace_ppriv {
 	uint32_t dtpp_flags;
@@ -483,36 +495,59 @@ typedef struct dtrace_statvar {
 	dtrace_difv_t dtsv_var;
 } dtrace_statvar_t;
 
+/*
+ * DTrace Metadata Description Structures
+ *
+ * DTrace separates the trace data stream from the metadata stream.  The only
+ * metadata tokens placed in the data stream are enabled probe identifiers
+ * (EPIDs) or (in the case of aggregations) aggregation identifiers.  In order
+ * to determine the structure of the data, DTrace consumers pass the token to
+ * the kernel, and receive in return a corresponding description of the enabled
+ * probe (via the dtrace_eprobedesc structure) or the aggregation (via the
+ * dtrace_aggdesc structure).  Both of these structures are expressed in terms
+ * of record descriptions (via the dtrace_recdesc structure) that describe the
+ * exact structure of the data.  Some record descriptions may also contain a
+ * format identifier; this additional bit of metadata can be retrieved from the
+ * kernel, for which a format description is returned via the dtrace_fmtdesc
+ * structure.  Note that all four of these structures must be bitness-neutral
+ * to allow for a 32-bit DTrace consumer on a 64-bit kernel.
+ */
 typedef struct dtrace_recdesc {
-	dtrace_actkind_t dtrd_action;
-	uint32_t dtrd_size;
-	uint32_t dtrd_offset;
-	uint16_t dtrd_alignment;
-	uint16_t dtrd_format;
-	uint64_t dtrd_arg;
-	uint64_t dtrd_uarg;
+	dtrace_actkind_t dtrd_action;		/* kind of action */
+	uint32_t dtrd_size;			/* size of record */
+	uint32_t dtrd_offset;			/* offset in ECB's data */
+	uint16_t dtrd_alignment;		/* required alignment */
+	uint16_t dtrd_format;			/* format, if any */
+	uint64_t dtrd_arg;			/* action argument */
+	uint64_t dtrd_uarg;			/* user argument */
 } dtrace_recdesc_t;
 
 typedef struct dtrace_eprobedesc {
-	dtrace_epid_t dtepd_epid;
-	dtrace_id_t dtepd_probeid;
-	uint64_t dtepd_uarg;
-	uint32_t dtepd_size;
-	int dtepd_nrecs;
-	dtrace_recdesc_t dtepd_rec[1];
+	dtrace_epid_t dtepd_epid;		/* enabled probe ID */
+	dtrace_id_t dtepd_probeid;		/* probe ID */
+	uint64_t dtepd_uarg;			/* library argument */
+	uint32_t dtepd_size;			/* total size */
+	int dtepd_nrecs;			/* number of records */
+	dtrace_recdesc_t dtepd_rec[1];		/* recods themselves */
 } dtrace_eprobedesc_t;
 
 typedef struct dtrace_aggdesc {
-	DTRACE_PTR(char, dtagd_name);
-	dtrace_aggvarid_t dtagd_varid;
-	int dtagd_flags;
-	dtrace_aggid_t dtagd_id;
-	dtrace_epid_t dtagd_epid;
-	uint32_t dtagd_size;
-	int dtagd_nrecs;
-	uint32_t dtagd_pad;
-	dtrace_recdesc_t dtagd_rec[1];
+	DTRACE_PTR(char, dtagd_name);		/* not filled in by kernel */
+	dtrace_aggvarid_t dtagd_varid;		/* not filled in by kernel */
+	int dtagd_flags;			/* not filled in by kernel */
+	dtrace_aggid_t dtagd_id;		/* aggregation ID */
+	dtrace_epid_t dtagd_epid;		/* enabled probe ID */
+	uint32_t dtagd_size;			/* size in bytes */
+	int dtagd_nrecs;			/* number of records */
+	uint32_t dtagd_pad;			/* explicit padding */
+	dtrace_recdesc_t dtagd_rec[1];		/* record descriptions */
 } dtrace_aggdesc_t;
+
+typedef struct dtrace_fmtdesc {
+	DTRACE_PTR(char, dtfd_string);		/* format string */
+	int dtfd_length;			/* length of format string */
+	uint16_t dtfd_format;			/* format identifier */
+} dtrace_fmtdesc_t;
 
 typedef struct dtrace_action {
 	dtrace_actkind_t dta_kind;
@@ -680,8 +715,8 @@ typedef struct dtrace_mstate {
 	uint32_t dtms_present;
 	uint64_t dtms_arg[5];
 	dtrace_epid_t dtms_epid;
-	uint64_t dtms_timestamp;
-	hrtime_t dtms_walltimestamp;
+	ktime_t dtms_timestamp;
+	ktime_t dtms_walltimestamp;
 	int dtms_stackdepth;
 	int dtms_ustackdepth;
 	struct dtrace_probe *dtms_probe;
@@ -767,10 +802,10 @@ struct dtrace_state {
 	uint32_t dts_stkstroverflows;
 	uint32_t dts_dblerrors;
 	uint32_t dts_reserve;
-	hrtime_t dts_laststatus;
+	ktime_t dts_laststatus;
 	cyclic_id_t dts_cleaner;
 	cyclic_id_t dts_deadman;
-	hrtime_t dts_alive;
+	ktime_t dts_alive;
 	char dts_speculates;
 	char dts_destructive;
 	int dts_nformats;
@@ -1011,10 +1046,81 @@ extern int dtrace_enable_nullop(void);
 extern int dtrace_istoxic(uintptr_t, size_t);
 
 /*
+ * DTrace Buffer Interface
+ *
+ * In order to get a snapshot of the principal or aggregation buffer,
+ * user-level passes a buffer description to the kernel with the dtrace_bufdesc
+ * structure.  This describes which CPU user-level is interested in, and
+ * where user-level wishes the kernel to snapshot the buffer to (the
+ * dtbd_data field).  The kernel uses the same structure to pass back some
+ * information regarding the buffer:  the size of data actually copied out, the
+ * number of drops, the number of errors, and the offset of the oldest record.
+ * If the buffer policy is a "switch" policy, taking a snapshot of the
+ * principal buffer has the additional effect of switching the active and
+ * inactive buffers.  Taking a snapshot of the aggregation buffer _always_ has
+ * the additional effect of switching the active and inactive buffers.
+ */
+typedef struct dtrace_bufdesc {
+	uint64_t dtbd_size;			/* size of buffer */
+	uint32_t dtbd_cpu;			/* CPU or DTRACE_CPUALL */
+	uint32_t dtbd_errors;			/* number of errors */
+	uint64_t dtbd_drops;			/* number of drops */
+	DTRACE_PTR(char, dtbd_data);		/* data */
+	uint64_t dtbd_oldest;			/* offset of oldest record */
+} dtrace_bufdesc_t;
+
+/*
+ * DTrace Status
+ *
+ * The status of DTrace is relayed via the dtrace_status structure.  This
+ * structure contains members to count drops other than the capacity drops
+ * available via the buffer interface (see above).  This consists of dynamic
+ * drops (including capacity dynamic drops, rinsing drops and dirty drops), and
+ * speculative drops (including capacity speculative drops, drops due to busy
+ * speculative buffers and drops due to unavailable speculative buffers).
+ * Additionally, the status structure contains a field to indicate the number
+ * of "fill"-policy buffers have been filled and a boolean field to indicate
+ * that exit() has been called.  If the dtst_exiting field is non-zero, no
+ * further data will be generated until tracing is stopped (at which time any
+ * enablings of the END action will be processed); if user-level sees that
+ * this field is non-zero, tracing should be stopped as soon as possible.
+ */
+typedef struct dtrace_status {
+	uint64_t dtst_dyndrops;			/* dynamic drops */
+	uint64_t dtst_dyndrops_rinsing;		/* dyn drops due to rinsing */
+	uint64_t dtst_dyndrops_dirty;		/* dyn drops due to dirty */
+	uint64_t dtst_specdrops;		/* speculative drops */
+	uint64_t dtst_specdrops_busy;		/* spec drops due to busy */
+	uint64_t dtst_specdrops_unavail;	/* spec drops due to unavail */
+	uint64_t dtst_errors;			/* total errors */
+	uint64_t dtst_filled;			/* number of filled bufs */
+	uint64_t dtst_stkstroverflows;		/* stack string tab overflows */
+	uint64_t dtst_dblerrors;		/* errors in ERROR probes */
+	char dtst_killed;			/* non-zero if killed */
+	char dtst_exiting;			/* non-zero if exit() called */
+	char dtst_pad[6];			/* pad out to 64-bit align */
+} dtrace_status_t;
+
+/*
+ * DTrace Configuration
+ *
+ * User-level may need to understand some elements of the kernel DTrace
+ * configuration in order to generate correct DIF.  This information is
+ * conveyed via the dtrace_conf structure.
+ */
+typedef struct dtrace_conf {
+	uint_t dtc_difversion;			/* supported DIF version */
+	uint_t dtc_difintregs;			/* # of DIF integer registers */
+	uint_t dtc_diftupregs;			/* # of DIF tuple registers */
+	uint_t dtc_ctfmodel;			/* CTF data model */
+	uint_t dtc_pad[8];			/* reserved for future use */
+} dtrace_conf_t;
+
+/*
  * DTrace Probe Context Functions
  */
 #undef ASSERT
-#ifdef DEBUG
+#ifdef DT_DEBUG
 # define ASSERT(x)	((void)((x) || dtrace_assfail(#x, __FILE__, __LINE__)))
 #else
 # define ASSERT(x)	((void)0)
@@ -1627,11 +1733,13 @@ extern dtrace_aggregation_t *dtrace_aggid2agg(dtrace_state_t *,
 #define DTRACE_STORE(type, tomax, offset, what) \
 	*((type *)((uintptr_t)(tomax) + (uintptr_t)offset)) = (type)(what);
 
+extern void dtrace_buffer_switch(dtrace_buffer_t *);
 extern void dtrace_buffer_activate(dtrace_state_t *);
 extern int dtrace_buffer_alloc(dtrace_buffer_t *, size_t, int, processorid_t);
 extern void dtrace_buffer_drop(dtrace_buffer_t *);
 extern intptr_t dtrace_buffer_reserve(dtrace_buffer_t *, size_t, size_t,
 				      dtrace_state_t *, dtrace_mstate_t *);
+extern void dtrace_buffer_polish(dtrace_buffer_t *);
 extern void dtrace_buffer_free(dtrace_buffer_t *);
 
 /*
@@ -1941,6 +2049,7 @@ typedef struct dof_xlref {
 	uint32_t dofxr_argn;
 } dof_xlref_t;
 
+extern dof_hdr_t *dtrace_dof_create(dtrace_state_t *);
 extern dof_hdr_t *dtrace_dof_copyin(void __user *, int *);
 extern dof_hdr_t *dtrace_dof_property(const char *);
 extern void dtrace_dof_destroy(dof_hdr_t *);
@@ -1968,12 +2077,14 @@ extern void dtrace_anon_property(void);
 extern struct kmem_cache	*dtrace_state_cache;
 extern size_t			dtrace_strsize_default;
 
-extern cycle_t			dtrace_deadman_timeout;
+extern ktime_t			dtrace_deadman_timeout;
 extern int			dtrace_destructive_disallow;
 
 extern dtrace_id_t		dtrace_probeid_begin;
 extern dtrace_id_t		dtrace_probeid_end;
 extern dtrace_id_t		dtrace_probeid_error;
+
+extern dtrace_dynvar_t		dtrace_dynhash_sink;
 
 extern int dtrace_dstate_init(dtrace_dstate_t *, size_t);
 extern void dtrace_dstate_fini(dtrace_dstate_t *);
@@ -2029,7 +2140,7 @@ extern void dtrace_cred2priv(const cred_t *, uint32_t *, uid_t *);
 #define dtrace_membar_producer()	mb()
 #define dtrace_membar_consumer()	mb()
 
-typedef uintptr_t	dtrace_icookie_t;
+typedef unsigned long	dtrace_icookie_t;
 
 #define DTRACE_CPUFLAG_ISSET(flag) \
 	(cpu_core[smp_processor_id()].cpuc_dtrace_flags & (flag))
@@ -2072,8 +2183,8 @@ typedef struct cpu_core {
 	struct mutex cpuc_pid_lock;
 
 	uintptr_t cpu_dtrace_caller;
-	hrtime_t cpu_dtrace_chillmark;
-	hrtime_t cpu_dtrace_chilled;
+	ktime_t cpu_dtrace_chillmark;
+	ktime_t cpu_dtrace_chilled;
 } cpu_core_t;
 
 extern cpu_core_t	cpu_core[];
@@ -2083,11 +2194,21 @@ extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
 extern void dtrace_vpanic(const char *, va_list);
 extern int dtrace_getipl(void);
 
-extern hrtime_t dtrace_gethrestime(void);
+extern ktime_t dtrace_gethrestime(void);
+
+typedef enum dtrace_vtime_state {
+	DTRACE_VTIME_INACTIVE = 0,	/* No DTrace, no TNF */
+	DTRACE_VTIME_ACTIVE,		/* DTrace virtual time, no TNF */
+	DTRACE_VTIME_INACTIVE_TNF,	/* No DTrace, TNF active */
+	DTRACE_VTIME_ACTIVE_TNF		/* DTrace virtual time _and_ TNF */
+} dtrace_vtime_state_t;
+
+extern dtrace_vtime_state_t	dtrace_vtime_active;
+
 extern void dtrace_vtime_enable(void);
 extern void dtrace_vtime_disable(void);
 
-extern hrtime_t dtrace_gethrtime(void);
+extern ktime_t dtrace_gethrtime(void);
 
 extern dtrace_icookie_t dtrace_interrupt_disable(void);
 extern void dtrace_interrupt_enable(dtrace_icookie_t);
@@ -2120,5 +2241,7 @@ extern void dtrace_copyoutstr(uintptr_t, uintptr_t, size_t,
 extern uintptr_t dtrace_caller(int);
 
 extern void debug_enter(char *);
+
+#define KERNELBASE	(uintptr_t)_text
 
 #endif /* _DTRACE_H_ */

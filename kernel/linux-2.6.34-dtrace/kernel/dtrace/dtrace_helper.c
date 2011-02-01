@@ -12,7 +12,7 @@ static uint32_t	dtrace_helptrace_nlocals;
 static char	*dtrace_helptrace_buffer;
 static int	dtrace_helptrace_bufsize = 512 * 1024;
 
-#ifdef DEBUG
+#ifdef DT_DEBUG
 static int	dtrace_helptrace_enabled = 1;
 #else
 static int	dtrace_helptrace_enabled = 0;

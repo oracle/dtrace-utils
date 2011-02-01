@@ -30,15 +30,15 @@ dtrace_optval_t		dtrace_statusrate_default = NANOSEC;
 dtrace_optval_t		dtrace_statusrate_max = (uint64_t)10 * NANOSEC;
 dtrace_optval_t		dtrace_jstackframes_default = 50;
 dtrace_optval_t		dtrace_jstackstrsize_default = 512;
-cycle_t			dtrace_deadman_interval = NANOSEC;
-cycle_t			dtrace_deadman_timeout = (cycle_t)10 * NANOSEC;
-cycle_t			dtrace_deadman_user = (cycle_t)30 * NANOSEC;
+ktime_t			dtrace_deadman_interval = KTIME_INIT(0, 1);
+ktime_t			dtrace_deadman_timeout = KTIME_INIT(0, 10);
+ktime_t			dtrace_deadman_user = KTIME_INIT(0, 30);
 
 dtrace_id_t		dtrace_probeid_begin;
 dtrace_id_t		dtrace_probeid_end;
 dtrace_id_t		dtrace_probeid_error;
 
-static dtrace_dynvar_t	dtrace_dynhash_sink;
+dtrace_dynvar_t		dtrace_dynhash_sink;
 
 #define DTRACE_DYNHASH_FREE		0
 #define DTRACE_DYNHASH_SINK		1
@@ -136,7 +136,7 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 	dtrace_dynvar_t	*dvar, *next, *start;
 	int		i;
 
-	ASSERT(MUTEX_HELD(&dtrace_lock));
+	ASSERT(mutex_is_locked(&dtrace_lock));
 	ASSERT(dstate->dtds_base == NULL && dstate->dtds_percpu == NULL);
 
 	memset(dstate, 0, sizeof (dtrace_dstate_t));
@@ -267,26 +267,27 @@ static void dtrace_state_clean(dtrace_state_t *state)
 
 static void dtrace_state_deadman(dtrace_state_t *state)
 {
-	hrtime_t	now;
+	ktime_t	now;
 
 	dtrace_sync();
 
 	now = dtrace_gethrtime();
 
 	if (state != dtrace_anon.dta_state &&
-	    now - state->dts_laststatus >= dtrace_deadman_user)
+	    ktime_ge(ktime_sub(now, state->dts_laststatus),
+			       dtrace_deadman_user))
 		return;
 
 	/*
 	 * We must be sure that dts_alive never appears to be less than the
 	 * value upon entry to dtrace_state_deadman(), and because we lack a
 	 * dtrace_cas64(), we cannot store to it atomically.  We thus instead
-	 * store INT64_MAX to it, followed by a memory barrier, followed by
+	 * store KTIME_MAX to it, followed by a memory barrier, followed by
 	 * the new value.  This assures that dts_alive never appears to be
 	 * less than its true value, regardless of the order in which the
 	 * stores to the underlying storage are issued.
 	 */
-	state->dts_alive = INT64_MAX;
+	state->dts_alive = ktime_set(KTIME_SEC_MAX, 0);
 	dtrace_membar_producer();
 	state->dts_alive = now;
 }
@@ -712,8 +713,8 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 	hdlr.cyh_arg = state;
 	hdlr.cyh_level = CY_LOW_LEVEL;
 
-	when.cyt_when = 0;
-	when.cyt_interval = opt[DTRACEOPT_CLEANRATE];
+	when.cyt_when = ktime_set(0, 0);
+	when.cyt_interval = ns_to_ktime(opt[DTRACEOPT_CLEANRATE]);
 
 	state->dts_cleaner = cyclic_add(&hdlr, &when);
 
@@ -721,7 +722,7 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 	hdlr.cyh_arg = state;
 	hdlr.cyh_level = CY_LOW_LEVEL;
 
-	when.cyt_when = 0;
+	when.cyt_when = ktime_set(0, 0);
 	when.cyt_interval = dtrace_deadman_interval;
 
 	state->dts_alive = state->dts_laststatus = dtrace_gethrtime();
@@ -735,14 +736,14 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 	 * probe (the data from this CPU will be processed first at user
 	 * level) and to manually activate the buffer for this CPU.
 	 */
-	cookie = dtrace_interrupt_disable();
+	local_irq_save(cookie);
 	*cpu = smp_processor_id();
 	ASSERT(state->dts_buffer[*cpu].dtb_flags & DTRACEBUF_INACTIVE);
 	state->dts_buffer[*cpu].dtb_flags &= ~DTRACEBUF_INACTIVE;
 
 	dtrace_probe(dtrace_probeid_begin, (uint64_t)(uintptr_t)state, 0, 0, 0,
 		     0);
-	dtrace_interrupt_enable(cookie);
+	local_irq_restore(cookie);
 
 	/*
 	 * We may have had an exit action from a BEGIN probe; only change our
@@ -795,6 +796,57 @@ out:
 	/* FIXME: mutex_unlock(&cpu_lock); */
 
 	return rval;
+}
+
+int dtrace_state_stop(dtrace_state_t *state, processorid_t *cpu)
+{
+	dtrace_icookie_t	cookie;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	if (state->dts_activity != DTRACE_ACTIVITY_ACTIVE &&
+	    state->dts_activity != DTRACE_ACTIVITY_DRAINING)
+		return -EINVAL;
+
+	/*
+	 * We'll set the activity to DTRACE_ACTIVITY_DRAINING, and issue a sync
+	 * to be sure that every CPU has seen it.  See below for the details
+	 * on why this is done.
+	 */
+	state->dts_activity = DTRACE_ACTIVITY_DRAINING;
+	dtrace_sync();
+
+	/*
+	 * By this point, it is impossible for any CPU to be still processing
+	 * with DTRACE_ACTIVITY_ACTIVE.  We can thus set our activity to
+	 * DTRACE_ACTIVITY_COOLDOWN and know that we're not racing with any
+	 * other CPU in dtrace_buffer_reserve().  This allows dtrace_probe()
+	 * and callees to know that the activity is DTRACE_ACTIVITY_COOLDOWN
+	 * iff we're in the END probe.
+	 */
+	state->dts_activity = DTRACE_ACTIVITY_COOLDOWN;
+	dtrace_sync();
+	ASSERT(state->dts_activity == DTRACE_ACTIVITY_COOLDOWN);
+
+	/*
+	 * Finally, we can release the reserve and call the END probe.  We
+	 * disable interrupts across calling the END probe to allow us to
+	 * return the CPU on which we actually called the END probe.  This
+	 * allows user-land to be sure that this CPU's principal buffer is
+	 * processed last.
+	 */
+	state->dts_reserve = 0;
+
+	local_irq_save(cookie);
+	*cpu = smp_processor_id();
+	dtrace_probe(dtrace_probeid_end, (uint64_t)(uintptr_t)state, 0, 0, 0,
+		     0);
+	local_irq_restore(cookie);
+
+	state->dts_activity = DTRACE_ACTIVITY_STOPPED;
+	dtrace_sync();
+
+	return 0;
 }
 
 int dtrace_state_option(dtrace_state_t *state, dtrace_optid_t option,
@@ -941,7 +993,7 @@ void dtrace_state_destroy(dtrace_state_t *state)
 	kfree(state->dts_ecbs);
 
 	if (state->dts_aggregations != NULL) {
-#ifdef DEBUG
+#ifdef DT_DEBUG
 		for (i = 0; i < state->dts_naggregations; i++)
 			ASSERT(state->dts_aggregations[i] == NULL);
 #endif

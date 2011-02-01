@@ -998,6 +998,7 @@ static int dtrace_canstore(uint64_t addr, size_t sz, dtrace_mstate_t *mstate,
 				       (dstate->dtds_hashsize *
 					sizeof(dtrace_dynhash_t));
 		uintptr_t	chunkoffs;
+		uint64_t	num;
 
 		/*
 		 * Before we assume that we can store here, we need to make
@@ -1017,7 +1018,8 @@ static int dtrace_canstore(uint64_t addr, size_t sz, dtrace_mstate_t *mstate,
 		if (addr < base)
 			return 0;
 
-		chunkoffs = (addr - base) % dstate->dtds_chunksize;
+		num = addr - base;
+		chunkoffs = do_div(num, dstate->dtds_chunksize);
 
 		if (chunkoffs < sizeof(dtrace_dynvar_t))
 			return 0;
@@ -1340,168 +1342,180 @@ static dtrace_dynvar_t *dtrace_dynvar(dtrace_dstate_t *dstate, uint_t nkeys,
 	if (hashval == DTRACE_DYNHASH_FREE || hashval == DTRACE_DYNHASH_SINK)
 		hashval = DTRACE_DYNHASH_VALID;
 
-/*
-* Yes, it's painful to do a divide here.  If the cycle count becomes
-* important here, tricks can be pulled to reduce it.  (However, it's
-* critical that hash collisions be kept to an absolute minimum;
-* they're much more painful than a divide.)  It's better to have a
-* solution that generates few collisions and still keeps things
-* relatively simple.
-*/
-bucket = hashval % dstate->dtds_hashsize;
+	/*
+	 * Yes, it's painful to do a divide here.  If the cycle count becomes
+	 * important here, tricks can be pulled to reduce it.  (However, it's
+	 * critical that hash collisions be kept to an absolute minimum;
+	 * they're much more painful than a divide.)  It's better to have a
+	 * solution that generates few collisions and still keeps things
+	 * relatively simple.
+	 *
+	 * Linux cannot do a straight 64-bit divide without gcc requiring
+	 * linking in code that the kernel doesn't link, so we need to use an
+	 * alternative.
+	 *
+	 *	bucket = hashval % dstate->dtds_hashsize;
+	 */
+	{
+	    uint64_t	num;
 
-if (op == DTRACE_DYNVAR_DEALLOC) {
-volatile uintptr_t *lockp = &hash[bucket].dtdh_lock;
+	    num = hashval;
+	    bucket = do_div(num, dstate->dtds_hashsize);
+	}
 
-for (;;) {
-while ((lock = *lockp) & 1)
-continue;
+	if (op == DTRACE_DYNVAR_DEALLOC) {
+		volatile uintptr_t	*lockp = &hash[bucket].dtdh_lock;
 
-if (cmpxchg(lockp, lock, (lock + 1)) == lock)
-break;
-}
+		for (;;) {
+			while ((lock = *lockp) & 1)
+				continue;
 
-dtrace_membar_producer();
-}
+			if (cmpxchg(lockp, lock, (lock + 1)) == lock)
+				break;
+		}
+
+		dtrace_membar_producer();
+	}
 
 top:
-prev = NULL;
-lock = hash[bucket].dtdh_lock;
+	prev = NULL;
+	lock = hash[bucket].dtdh_lock;
 
-dtrace_membar_consumer();
+	dtrace_membar_consumer();
 
-start = hash[bucket].dtdh_chain;
-ASSERT(start != NULL && (start->dtdv_hashval == DTRACE_DYNHASH_SINK ||
-start->dtdv_hashval != DTRACE_DYNHASH_FREE ||
-op != DTRACE_DYNVAR_DEALLOC));
+	start = hash[bucket].dtdh_chain;
+	ASSERT(start != NULL && (start->dtdv_hashval == DTRACE_DYNHASH_SINK ||
+	       start->dtdv_hashval != DTRACE_DYNHASH_FREE ||
+	       op != DTRACE_DYNVAR_DEALLOC));
 
-for (dvar = start; dvar != NULL; dvar = dvar->dtdv_next) {
-dtrace_tuple_t *dtuple = &dvar->dtdv_tuple;
-dtrace_key_t *dkey = &dtuple->dtt_key[0];
+	for (dvar = start; dvar != NULL; dvar = dvar->dtdv_next) {
+		dtrace_tuple_t	*dtuple = &dvar->dtdv_tuple;
+		dtrace_key_t	*dkey = &dtuple->dtt_key[0];
 
-if (dvar->dtdv_hashval != hashval) {
-if (dvar->dtdv_hashval == DTRACE_DYNHASH_SINK) {
-/*
-* We've reached the sink, and therefore the
-* end of the hash chain; we can kick out of
-* the loop knowing that we have seen a valid
-* snapshot of state.
-*/
-ASSERT(dvar->dtdv_next == NULL);
-ASSERT(dvar == &dtrace_dynhash_sink);
-break;
-}
+		if (dvar->dtdv_hashval != hashval) {
+			if (dvar->dtdv_hashval == DTRACE_DYNHASH_SINK) {
+				/*
+				 * We've reached the sink, and therefore the
+				 * end of the hash chain; we can kick out of
+				 * the loop knowing that we have seen a valid
+				 * snapshot of state.
+				 */
+				ASSERT(dvar->dtdv_next == NULL);
+				ASSERT(dvar == &dtrace_dynhash_sink);
+				break;
+			}
 
-if (dvar->dtdv_hashval == DTRACE_DYNHASH_FREE) {
-/*
-* We've gone off the rails:  somewhere along
-* the line, one of the members of this hash
-* chain was deleted.  Note that we could also
-* detect this by simply letting this loop run
-* to completion, as we would eventually hit
-* the end of the dirty list.  However, we
-* want to avoid running the length of the
-* dirty list unnecessarily (it might be quite
-* long), so we catch this as early as
-* possible by detecting the hash marker.  In
-* this case, we simply set dvar to NULL and
-* break; the conditional after the loop will
-* send us back to top.
-*/
-dvar = NULL;
-break;
-}
+			if (dvar->dtdv_hashval == DTRACE_DYNHASH_FREE) {
+				/*
+				 * We've gone off the rails:  somewhere along
+				 * the line, one of the members of this hash
+				 * chain was deleted.  Note that we could also
+				 * detect this by simply letting this loop run
+				 * to completion, as we would eventually hit
+				 * the end of the dirty list.  However, we
+				 * want to avoid running the length of the
+				 * dirty list unnecessarily (it might be quite
+				 * long), so we catch this as early as
+				 * possible by detecting the hash marker.  In
+				 * this case, we simply set dvar to NULL and
+				 * break; the conditional after the loop will
+				 * send us back to top.
+				 */
+				dvar = NULL;
+				break;
+			}
 
-goto next;
-}
+			goto next;
+		}
 
-if (dtuple->dtt_nkeys != nkeys)
-goto next;
+		if (dtuple->dtt_nkeys != nkeys)
+			goto next;
 
-for (i = 0; i < nkeys; i++, dkey++) {
-if (dkey->dttk_size != key[i].dttk_size)
-goto next; /* size or type mismatch */
+		for (i = 0; i < nkeys; i++, dkey++) {
+			if (dkey->dttk_size != key[i].dttk_size)
+				goto next;	/* size or type mismatch */
 
-if (dkey->dttk_size != 0) {
-if (dtrace_bcmp(
-(void *)(uintptr_t)key[i].dttk_value,
-(void *)(uintptr_t)dkey->dttk_value,
-dkey->dttk_size))
-goto next;
-} else {
-if (dkey->dttk_value != key[i].dttk_value)
-goto next;
-}
-}
+			if (dkey->dttk_size != 0) {
+				if (dtrace_bcmp(
+					  (void *)(uintptr_t)key[i].dttk_value,
+					  (void *)(uintptr_t)dkey->dttk_value,
+					  dkey->dttk_size))
+					goto next;
+			} else {
+				if (dkey->dttk_value != key[i].dttk_value)
+					goto next;
+			}
+		}
 
-if (op != DTRACE_DYNVAR_DEALLOC)
-return dvar;
+		if (op != DTRACE_DYNVAR_DEALLOC)
+			return dvar;
 
-ASSERT(dvar->dtdv_next == NULL ||
-dvar->dtdv_next->dtdv_hashval != DTRACE_DYNHASH_FREE);
+		ASSERT(dvar->dtdv_next == NULL ||
+		dvar->dtdv_next->dtdv_hashval != DTRACE_DYNHASH_FREE);
 
-if (prev != NULL) {
-ASSERT(hash[bucket].dtdh_chain != dvar);
-ASSERT(start != dvar);
-ASSERT(prev->dtdv_next == dvar);
-prev->dtdv_next = dvar->dtdv_next;
-} else {
-if (cmpxchg(&hash[bucket].dtdh_chain, start, dvar->dtdv_next) != start) {
-/*
-* We have failed to atomically swing the
-* hash table head pointer, presumably because
-* of a conflicting allocation on another CPU.
-* We need to reread the hash chain and try
-* again.
-*/
-goto top;
-}
-}
+		if (prev != NULL) {
+			ASSERT(hash[bucket].dtdh_chain != dvar);
+			ASSERT(start != dvar);
+			ASSERT(prev->dtdv_next == dvar);
+			prev->dtdv_next = dvar->dtdv_next;
+		} else {
+			if (cmpxchg(&hash[bucket].dtdh_chain, start,
+				    dvar->dtdv_next) != start) {
+				/*
+				 * We have failed to atomically swing the
+				 * hash table head pointer, presumably because
+				 * of a conflicting allocation on another CPU.
+				 * We need to reread the hash chain and try
+				 * again.
+				 */
+				goto top;
+			}
+		}
 
-dtrace_membar_producer();
+		dtrace_membar_producer();
 
-/*
-* Now set the hash value to indicate that it's free.
-*/
-ASSERT(hash[bucket].dtdh_chain != dvar);
-dvar->dtdv_hashval = DTRACE_DYNHASH_FREE;
+		/*
+		 * Now set the hash value to indicate that it's free.
+		 */
+		ASSERT(hash[bucket].dtdh_chain != dvar);
+		dvar->dtdv_hashval = DTRACE_DYNHASH_FREE;
 
-dtrace_membar_producer();
+		dtrace_membar_producer();
 
-/*
-* Set the next pointer to point at the dirty list, and
-* atomically swing the dirty pointer to the newly freed dvar.
-*/
-do {
-next = dcpu->dtdsc_dirty;
-dvar->dtdv_next = next;
-} while (cmpxchg(&dcpu->dtdsc_dirty, next, dvar) != next);
+		/*
+		 * Set the next pointer to point at the dirty list, and
+		 * atomically swing the dirty pointer to the newly freed dvar.
+		 */
+		do {
+			next = dcpu->dtdsc_dirty;
+			dvar->dtdv_next = next;
+		} while (cmpxchg(&dcpu->dtdsc_dirty, next, dvar) != next);
 
-/*
-* Finally, unlock this hash bucket.
-*/
-ASSERT(hash[bucket].dtdh_lock == lock);
-ASSERT(lock & 1);
-hash[bucket].dtdh_lock++;
+		/*
+		 * Finally, unlock this hash bucket.
+		 */
+		ASSERT(hash[bucket].dtdh_lock == lock);
+		ASSERT(lock & 1);
+		hash[bucket].dtdh_lock++;
 
-return NULL;
+		return NULL;
 next:
-prev = dvar;
-continue;
-}
+		prev = dvar;
+		continue;
+	}
 
-if (dvar == NULL) {
-/*
-* If dvar is NULL, it is because we went off the rails:
-* one of the elements that we traversed in the hash chain
-* was deleted while we were traversing it.  In this case,
-* we assert that we aren't doing a dealloc (deallocs lock
-* the hash bucket to prevent themselves from racing with
-* one another), and retry the hash chain traversal.
-*/
-ASSERT(op != DTRACE_DYNVAR_DEALLOC);
-goto top;
-}
+	if (dvar == NULL) {
+		/*
+		 * If dvar is NULL, it is because we went off the rails:
+		 * one of the elements that we traversed in the hash chain
+		 * was deleted while we were traversing it.  In this case,
+		 * we assert that we aren't doing a dealloc (deallocs lock
+		 * the hash bucket to prevent themselves from racing with
+		 * one another), and retry the hash chain traversal.
+		 */
+		ASSERT(op != DTRACE_DYNVAR_DEALLOC);
+		goto top;
+	}
 
 	if (op != DTRACE_DYNVAR_ALLOC) {
 		/*
@@ -1834,12 +1848,12 @@ static uint64_t dtrace_dif_variable(dtrace_mstate_t *mstate,
 			mstate->dtms_present |= DTRACE_MSTATE_TIMESTAMP;
 		}
 
-		return mstate->dtms_timestamp;
+		return ktime_to_ns(mstate->dtms_timestamp);
 
 	case DIF_VAR_VTIMESTAMP:
 		ASSERT(dtrace_vtime_references != 0);
 
-		return current->dtrace_vtime;
+		return ktime_to_ns(current->dtrace_vtime);
 
 	case DIF_VAR_WALLTIMESTAMP:
 		if (!(mstate->dtms_present & DTRACE_MSTATE_WALLTIMESTAMP)) {
@@ -1847,7 +1861,7 @@ static uint64_t dtrace_dif_variable(dtrace_mstate_t *mstate,
 			mstate->dtms_present |= DTRACE_MSTATE_WALLTIMESTAMP;
 		}
 
-		return mstate->dtms_walltimestamp;
+		return ktime_to_ns(mstate->dtms_walltimestamp);
 
 	case DIF_VAR_IPL:
 		if (!dtrace_priv_kernel(state))
@@ -2153,7 +2167,8 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 
 	switch (subr) {
 	case DIF_SUBR_RAND:
-		regs[rd] = (dtrace_gethrtime() * 2416 + 374441) % 1771875;
+		regs[rd] = ktime_to_ns(dtrace_gethrtime()) * 2416 + 374441;
+		regs[rd] = do_div(regs[rd], 1771875);
 		break;
 
 	case DIF_SUBR_MUTEX_OWNED:
@@ -2448,9 +2463,9 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 		break;
 
 	case DIF_SUBR_COPYOUT: {
-		uintptr_t kaddr = tupregs[0].dttk_value;
-		uintptr_t uaddr = tupregs[1].dttk_value;
-		uint64_t size = tupregs[2].dttk_value;
+		uintptr_t	kaddr = tupregs[0].dttk_value;
+		uintptr_t	uaddr = tupregs[1].dttk_value;
+		uint64_t	size = tupregs[2].dttk_value;
 
 		if (!dtrace_destructive_disallow &&
 		    dtrace_priv_proc_control(state) &&
@@ -2463,9 +2478,9 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_COPYOUTSTR: {
-		uintptr_t kaddr = tupregs[0].dttk_value;
-		uintptr_t uaddr = tupregs[1].dttk_value;
-		uint64_t size = tupregs[2].dttk_value;
+		uintptr_t	kaddr = tupregs[0].dttk_value;
+		uintptr_t	uaddr = tupregs[1].dttk_value;
+		uint64_t	size = tupregs[2].dttk_value;
 
 		if (!dtrace_destructive_disallow &&
 		    dtrace_priv_proc_control(state) &&
@@ -2478,10 +2493,11 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_STRLEN: {
-		size_t sz;
-		uintptr_t addr = (uintptr_t)tupregs[0].dttk_value;
+		size_t		sz;
+		uintptr_t	addr = (uintptr_t)tupregs[0].dttk_value;
+
 		sz = dtrace_strlen((char *)addr,
-		    state->dts_options[DTRACEOPT_STRSIZE]);
+				   state->dts_options[DTRACEOPT_STRSIZE]);
 
 		if (!dtrace_canload(addr, sz + 1, mstate, vstate)) {
 			regs[rd] = 0;
@@ -2502,10 +2518,11 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 		 * is DIF_SUBR_STRRCHR, we will look for the last occurrence
 		 * of the specified character instead of the first.
 		 */
-		uintptr_t saddr = tupregs[0].dttk_value;
-		uintptr_t addr = tupregs[0].dttk_value;
-		uintptr_t limit = addr + state->dts_options[DTRACEOPT_STRSIZE];
-		char c, target = (char)tupregs[1].dttk_value;
+		uintptr_t	saddr = tupregs[0].dttk_value;
+		uintptr_t	addr = tupregs[0].dttk_value;
+		uintptr_t	limit = addr +
+					state->dts_options[DTRACEOPT_STRSIZE];
+		char		c, target = (char)tupregs[1].dttk_value;
 
 		for (regs[rd] = 0; addr < limit; addr++) {
 			if ((c = dtrace_load8(addr)) == target) {
@@ -2539,14 +2556,16 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 		 * relatively short, the complexity of Rabin-Karp or similar
 		 * hardly seems merited.)
 		 */
-		char *addr = (char *)(uintptr_t)tupregs[0].dttk_value;
-		char *substr = (char *)(uintptr_t)tupregs[1].dttk_value;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		size_t len = dtrace_strlen(addr, size);
-		size_t sublen = dtrace_strlen(substr, size);
-		char *limit = addr + len, *orig = addr;
-		int notfound = subr == DIF_SUBR_STRSTR ? 0 : -1;
-		int inc = 1;
+		char		*addr = (char *)(uintptr_t)
+							tupregs[0].dttk_value;
+		char		*substr = (char *)(uintptr_t)
+							tupregs[1].dttk_value;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		size_t		len = dtrace_strlen(addr, size);
+		size_t		sublen = dtrace_strlen(substr, size);
+		char		*limit = addr + len, *orig = addr;
+		int		notfound = subr == DIF_SUBR_STRSTR ? 0 : -1;
+		int		inc = 1;
 
 		regs[rd] = notfound;
 
@@ -2556,7 +2575,7 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 		}
 
 		if (!dtrace_canload((uintptr_t)substr, sublen + 1, mstate,
-		    vstate)) {
+				    vstate)) {
 			regs[rd] = 0;
 			break;
 		}
@@ -2587,7 +2606,7 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 			 * argument that denotes the starting position.
 			 */
 			if (nargs == 3) {
-				int64_t pos = (int64_t)tupregs[2].dttk_value;
+				int64_t	pos = (int64_t)tupregs[2].dttk_value;
 
 				/*
 				 * If the position argument to index() is
@@ -2678,13 +2697,13 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_STRTOK: {
-		uintptr_t addr = tupregs[0].dttk_value;
-		uintptr_t tokaddr = tupregs[1].dttk_value;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		uintptr_t limit, toklimit = tokaddr + size;
-		uint8_t c, tokmap[32];	 /* 256 / 8 */
-		char *dest = (char *)mstate->dtms_scratch_ptr;
-		int i;
+		uintptr_t	addr = tupregs[0].dttk_value;
+		uintptr_t	tokaddr = tupregs[1].dttk_value;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		uintptr_t	limit, toklimit = tokaddr + size;
+		uint8_t		c, tokmap[32];	/* 256 / 8 */
+		char		*dest = (char *)mstate->dtms_scratch_ptr;
+		int		i;
 
 		/*
 		 * Check both the token buffer and (later) the input buffer,
@@ -2788,13 +2807,13 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_SUBSTR: {
-		uintptr_t s = tupregs[0].dttk_value;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		char *d = (char *)mstate->dtms_scratch_ptr;
-		int64_t index = (int64_t)tupregs[1].dttk_value;
-		int64_t remaining = (int64_t)tupregs[2].dttk_value;
-		size_t len = dtrace_strlen((char *)s, size);
-		int64_t i = 0;
+		uintptr_t	s = tupregs[0].dttk_value;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		char		*d = (char *)mstate->dtms_scratch_ptr;
+		int64_t		index = (int64_t)tupregs[1].dttk_value;
+		int64_t		remaining = (int64_t)tupregs[2].dttk_value;
+		size_t		len = dtrace_strlen((char *)s, size);
+		int64_t		i = 0;
 
 		if (!dtrace_canload(s, len + 1, mstate, vstate)) {
 			regs[rd] = 0;
@@ -3043,11 +3062,11 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 #endif
 
 	case DIF_SUBR_STRJOIN: {
-		char *d = (char *)mstate->dtms_scratch_ptr;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		uintptr_t s1 = tupregs[0].dttk_value;
-		uintptr_t s2 = tupregs[1].dttk_value;
-		int i = 0;
+		char		*d = (char *)mstate->dtms_scratch_ptr;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		uintptr_t	s1 = tupregs[0].dttk_value;
+		uintptr_t	s2 = tupregs[1].dttk_value;
+		int		i = 0;
 
 		if (!dtrace_strcanload(s1, size, mstate, vstate) ||
 		    !dtrace_strcanload(s2, size, mstate, vstate)) {
@@ -3094,10 +3113,11 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_LLTOSTR: {
-		int64_t i = (int64_t)tupregs[0].dttk_value;
-		int64_t val = i < 0 ? i * -1 : i;
-		uint64_t size = 22;	/* enough room for 2^64 in decimal */
-		char *end = (char *)mstate->dtms_scratch_ptr + size - 1;
+		int64_t		i = (int64_t)tupregs[0].dttk_value;
+		int64_t		val = i < 0 ? i * -1 : i;
+		uint64_t	size = 22;	/* room for 2^64 in dec */
+		char		*end = (char *)mstate->dtms_scratch_ptr + size
+									- 1;
 
 		if (!DTRACE_INSCRATCH(mstate, size)) {
 			DTRACE_CPUFLAG_SET(CPU_DTRACE_NOSCRATCH);
@@ -3105,8 +3125,18 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 			break;
 		}
 
-		for (*end-- = '\0'; val; val /= 10)
-			*end-- = '0' + (val % 10);
+		/*
+		 * GCC on Linux introduces calls to functions that are not
+		 * linked into the kernel image, so we need to use the do_div()
+		 * function instead.  It modifies the first argument in place
+		 * (replaces it with the quotient), and returns the remainder.
+		 *
+		 * Was:
+		 *	for (*end-- = '\0'; val; val /= 10)
+		 *		*end-- = '0' + (val % 10);
+		 */
+		for (*end-- = '\0'; val; )
+			*end-- = '0' + do_div(val, 10);
 
 		if (i == 0)
 			*end-- = '0';
@@ -3151,12 +3181,12 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 
 	case DIF_SUBR_DIRNAME:
 	case DIF_SUBR_BASENAME: {
-		char *dest = (char *)mstate->dtms_scratch_ptr;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		uintptr_t src = tupregs[0].dttk_value;
-		int i, j, len = dtrace_strlen((char *)src, size);
-		int lastbase = -1, firstbase = -1, lastdir = -1;
-		int start, end;
+		char		*dest = (char *)mstate->dtms_scratch_ptr;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		uintptr_t	src = tupregs[0].dttk_value;
+		int		i, j, len = dtrace_strlen((char *)src, size);
+		int		lastbase = -1, firstbase = -1, lastdir = -1;
+		int		start, end;
 
 		if (!dtrace_canload(src, len + 1, mstate, vstate)) {
 			regs[rd] = 0;
@@ -3281,10 +3311,10 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 	}
 
 	case DIF_SUBR_CLEANPATH: {
-		char *dest = (char *)mstate->dtms_scratch_ptr, c;
-		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-		uintptr_t src = tupregs[0].dttk_value;
-		int i = 0, j = 0;
+		char		*dest = (char *)mstate->dtms_scratch_ptr, c;
+		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
+		uintptr_t	src = tupregs[0].dttk_value;
+		int		i = 0, j = 0;
 
 		if (!dtrace_strcanload(src, size, mstate, vstate)) {
 			regs[rd] = 0;
@@ -3391,9 +3421,9 @@ next:
 	case DIF_SUBR_INET_NTOA:
 	case DIF_SUBR_INET_NTOA6:
 	case DIF_SUBR_INET_NTOP: {
-		size_t size;
-		int af, argi, i;
-		char *base, *end;
+		size_t	size;
+		int	af, argi, i;
+		char	*base, *end;
 
 		if (subr == DIF_SUBR_INET_NTOP) {
 			af = (int)tupregs[0].dttk_value;
@@ -3404,8 +3434,8 @@ next:
 		}
 
 		if (af == AF_INET) {
-			ipaddr_t ip4;
-			uint8_t *ptr8, val;
+			ipaddr_t	ip4;
+			uint8_t		*ptr8, val;
 
 			/*
 			 * Safely load the IPv4 address.
@@ -3446,10 +3476,10 @@ next:
 			ASSERT(end + 1 >= base);
 #ifdef CONFIG_IPV6
 		} else if (af == AF_INET6) {
-			struct in6_addr ip6;
-			int firstzero, tryzero, numzero, v6end;
-			uint16_t val;
-			const char digits[] = "0123456789abcdef";
+			struct in6_addr	ip6;
+			int		firstzero, tryzero, numzero, v6end;
+			uint16_t	val;
+			const char	digits[] = "0123456789abcdef";
 
 			/*
 			 * Stringify using RFC 1884 convention 2 - 16 bit
@@ -3587,7 +3617,10 @@ next:
 			break;
 		}
 
-inetout:	regs[rd] = (uintptr_t)end + 1;
+#ifdef CONFIG_IPV6
+inetout:
+#endif
+		regs[rd] = (uintptr_t)end + 1;
 		mstate->dtms_scratch_ptr += size;
 		break;
 	}
@@ -3674,8 +3707,16 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 				regs[rd] = 0;
 				*flags |= CPU_DTRACE_DIVZERO;
 			} else {
-				regs[rd] = (int64_t)regs[r1] /
-					   (int64_t)regs[r2];
+				/*
+				 * We cannot simply do a 64-bit division, since
+				 * gcc translates it into a call to a function
+				 * that is not linked into the kernel.
+				 *
+				 * regs[rd] = (int64_t)regs[r1] /
+				 *	      (int64_t)regs[r2];
+				 */
+				regs[rd] = (int64_t)regs[r1];
+				do_div(regs[rd], (int64_t)regs[r2]);
 			}
 			break;
 
@@ -3684,7 +3725,15 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 				regs[rd] = 0;
 				*flags |= CPU_DTRACE_DIVZERO;
 			} else {
-				regs[rd] = regs[r1] / regs[r2];
+				/*
+				 * We cannot simply do a 64-bit division, since
+				 * gcc translates it into a call to a function
+				 * that is not linked into the kernel.
+				 *
+				 * regs[rd] = regs[r1] / regs[r2];
+				 */
+				regs[rd] = regs[r1];
+				do_div(regs[rd], regs[r2]);
 			}
 			break;
 
@@ -3693,8 +3742,17 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 				regs[rd] = 0;
 				*flags |= CPU_DTRACE_DIVZERO;
 			} else {
-				regs[rd] = (int64_t)regs[r1] %
-					   (int64_t)regs[r2];
+				/*
+				 * We cannot simply do a 64-bit division, since
+				 * gcc translates it into a call to a function
+				 * that is not linked into the kernel.
+				 *
+				 * regs[rd] = (int64_t)regs[r1] %
+				 *	      (int64_t)regs[r2];
+				 */
+				regs[rd] = (int64_t)regs[r1];
+				regs[rd] = do_div((int64_t)regs[rd],
+						  (int64_t)regs[r2]);
 			}
 			break;
 
@@ -3702,8 +3760,17 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 			if (regs[r2] == 0) {
 				regs[rd] = 0;
 				*flags |= CPU_DTRACE_DIVZERO;
-			} else
-				regs[rd] = regs[r1] % regs[r2];
+			} else {
+				/*
+				 * We cannot simply do a 64-bit division, since
+				 * gcc translates it into a call to a function
+				 * that is not linked into the kernel.
+				 *
+				 * regs[rd] = regs[r1] % regs[r2];
+				 */
+				regs[rd] = regs[r1];
+				regs[rd] = do_div(regs[rd], regs[r2]);
+			}
 			break;
 
 		case DIF_OP_NOT:
@@ -3947,7 +4014,7 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 			if (v->dtdv_type.dtdt_flags & DIF_TF_BYREF) {
 				uintptr_t	a = (uintptr_t)svar->dtsv_data;
 
-				ASSERT(a != NULL);
+				ASSERT(a != 0);
 				ASSERT(svar->dtsv_size != 0);
 
 				if (regs[rd] == 0) {

@@ -7,6 +7,8 @@
 
 #include "dtrace.h"
 
+dtrace_vtime_state_t		dtrace_vtime_active = 0;
+
 int dtrace_badattr(const dtrace_attribute_t *a)
 {
 	return a->dtat_name > DTRACE_STABILITY_MAX ||
@@ -119,4 +121,50 @@ void dtrace_cred2priv(const cred_t *cr, uint32_t *privp, uid_t *uidp)
 
 	*privp = priv;
 #endif
+}
+
+void dtrace_vtime_enable(void)
+{
+	dtrace_vtime_state_t	state, nstate;
+
+	do {
+		state = dtrace_vtime_active;
+
+		switch (state) {
+		case DTRACE_VTIME_INACTIVE:
+			nstate = DTRACE_VTIME_ACTIVE;
+			break;
+		case DTRACE_VTIME_INACTIVE_TNF:
+			nstate = DTRACE_VTIME_ACTIVE_TNF;
+			break;
+		case DTRACE_VTIME_ACTIVE:
+		case DTRACE_VTIME_ACTIVE_TNF:
+			panic("DTrace virtual time already enabled");
+			/*NOTREACHED*/
+		}
+	} while (cmpxchg((uint32_t *)&dtrace_vtime_active, state, nstate) !=
+		 state);
+}
+
+void dtrace_vtime_disable(void)
+{
+	dtrace_vtime_state_t	state, nstate;
+
+	do {
+		state = dtrace_vtime_active;
+
+		switch (state) {
+		case DTRACE_VTIME_ACTIVE:
+			nstate = DTRACE_VTIME_INACTIVE;
+			break;
+		case DTRACE_VTIME_ACTIVE_TNF:
+			nstate = DTRACE_VTIME_INACTIVE_TNF;
+			break;
+		case DTRACE_VTIME_INACTIVE:
+		case DTRACE_VTIME_INACTIVE_TNF:
+			panic("DTrace virtual time already disabled");
+			/*NOTREACHED*/
+		}
+	} while (cmpxchg((uint32_t *)&dtrace_vtime_active, state, nstate) !=
+		 state);
 }

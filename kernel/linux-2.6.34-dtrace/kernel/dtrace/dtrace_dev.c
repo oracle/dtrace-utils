@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 
+#include "ctf_api.h"
 #include "dtrace.h"
 #include "dtrace_dev.h"
 #include "dtrace_ioctl.h"
@@ -19,7 +20,7 @@ uint32_t			dtrace_helptrace_nlocals;
 char				*dtrace_helptrace_buffer;
 int				dtrace_helptrace_bufsize = 512 * 1024;
 
-#ifdef DEBUG
+#ifdef DT_DEBUG
 int				dtrace_helptrace_enabled = 1;
 #else
 int				dtrace_helptrace_enabled = 0;
@@ -89,7 +90,7 @@ static long dtrace_ioctl(struct file *file,
 		dtrace_providerdesc_t	pvd;
 		dtrace_provider_t	*pvp;
 
-		if (copy_from_user(&pvd, argp, sizeof (pvd)) != 0)
+		if (copy_from_user(&pvd, argp, sizeof(pvd)) != 0)
 			return -EFAULT;
 
 		pvd.dtvd_name[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -106,11 +107,11 @@ static long dtrace_ioctl(struct file *file,
 			return -ESRCH;
 
 		memcpy(&pvd.dtvd_priv, &pvp->dtpv_priv,
-		       sizeof (dtrace_ppriv_t));
+		       sizeof(dtrace_ppriv_t));
 		memcpy(&pvd.dtvd_attr, &pvp->dtpv_attr,
-		       sizeof (dtrace_pattr_t));
+		       sizeof(dtrace_pattr_t));
 
-		if (copy_to_user(argp, &pvd, sizeof (pvd)) != 0)
+		if (copy_to_user(argp, &pvd, sizeof(pvd)) != 0)
 			return -EFAULT;
 
 		return 0;
@@ -125,7 +126,7 @@ static long dtrace_ioctl(struct file *file,
 		uint8_t			*dest;
 		int			nrecs;
 
-		if (copy_from_user(&epdesc, argp, sizeof (epdesc)) != 0)
+		if (copy_from_user(&epdesc, argp, sizeof(epdesc)) != 0)
 			return -EFAULT;
 
 		mutex_lock(&dtrace_lock);
@@ -159,13 +160,13 @@ static long dtrace_ioctl(struct file *file,
 		 * the temporary buffer to be able to drop dtrace_lock()
 		 * across the copy_to_user(), below.
 		 */
-		size = sizeof (dtrace_eprobedesc_t) +
-		       (epdesc.dtepd_nrecs * sizeof (dtrace_recdesc_t));
+		size = sizeof(dtrace_eprobedesc_t) +
+		       (epdesc.dtepd_nrecs * sizeof(dtrace_recdesc_t));
 
 		buf = kmalloc(size, GFP_KERNEL);
 		dest = buf;
 
-		memcpy(dest, &epdesc, sizeof (epdesc));
+		memcpy(dest, &epdesc, sizeof(epdesc));
 		dest += offsetof(dtrace_eprobedesc_t, dtepd_rec[0]);
 
 		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
@@ -175,8 +176,8 @@ static long dtrace_ioctl(struct file *file,
 			if (nrecs-- == 0)
 				break;
 
-			memcpy(dest, &act->dta_rec, sizeof (dtrace_recdesc_t));
-			dest += sizeof (dtrace_recdesc_t);
+			memcpy(dest, &act->dta_rec, sizeof(dtrace_recdesc_t));
+			dest += sizeof(dtrace_recdesc_t);
 		}
 
 		mutex_unlock(&dtrace_lock);
@@ -202,7 +203,7 @@ static long dtrace_ioctl(struct file *file,
 		size_t			size;
 		uint8_t			*dest;
 
-		if (copy_from_user(&aggdesc, argp, sizeof (aggdesc)) != 0)
+		if (copy_from_user(&aggdesc, argp, sizeof(aggdesc)) != 0)
 			return -EFAULT;
 
 		mutex_lock(&dtrace_lock);
@@ -251,13 +252,13 @@ static long dtrace_ioctl(struct file *file,
 		 * the temporary buffer to be able to drop dtrace_lock()
 		 * across the copyout(), below.
 		 */
-		size = sizeof (dtrace_aggdesc_t) +
-		       (aggdesc.dtagd_nrecs * sizeof (dtrace_recdesc_t));
+		size = sizeof(dtrace_aggdesc_t) +
+		       (aggdesc.dtagd_nrecs * sizeof(dtrace_recdesc_t));
 
 		buf = kmalloc(size, GFP_KERNEL);
 		dest = buf;
 
-		memcpy(dest, &aggdesc, sizeof (aggdesc));
+		memcpy(dest, &aggdesc, sizeof(aggdesc));
 		dest += offsetof(dtrace_aggdesc_t, dtagd_rec[0]);
 
 		for (act = agg->dtag_first; ; act = act->dta_next) {
@@ -276,8 +277,8 @@ static long dtrace_ioctl(struct file *file,
 				break;
 
 			rec.dtrd_offset -= offs;
-			memcpy(dest, &rec, sizeof (rec));
-			dest += sizeof (dtrace_recdesc_t);
+			memcpy(dest, &rec, sizeof(rec));
+			dest += sizeof(dtrace_recdesc_t);
 
 			if (act == &agg->dtag_action)
 				break;
@@ -362,7 +363,7 @@ static long dtrace_ioctl(struct file *file,
 		dtrace_probedesc_t	*create = &desc.dtrpd_create;
 		int			err;
 
-		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 			return -EFAULT;
 
 		match->dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -390,7 +391,7 @@ static long dtrace_ioctl(struct file *file,
 		uint32_t		priv;
 		uid_t			uid;
 
-		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 			return -EFAULT;
 
 		desc.dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -436,7 +437,7 @@ static long dtrace_ioctl(struct file *file,
 		dtrace_probe_description(probe, &desc);
 		mutex_unlock(&dtrace_lock);
 
-		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
+		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
 			return -EFAULT;
 
 		return 0;
@@ -447,7 +448,7 @@ static long dtrace_ioctl(struct file *file,
 		dtrace_probe_t		*probe;
 		dtrace_provider_t	*prov;
 
-		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
+		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 			return -EFAULT;
 
 		if (desc.dtargd_id == DTRACE_IDNONE)
@@ -492,7 +493,7 @@ static long dtrace_ioctl(struct file *file,
 		/* FIXME: mutex_unlock(&mod_lock); */
 		mutex_unlock(&dtrace_provider_lock);
 
-		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
+		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
 			return -EFAULT;
 
 		return 0;
@@ -506,7 +507,7 @@ static long dtrace_ioctl(struct file *file,
 		if (rval != 0)
 			return rval;
 
-		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
+		if (copy_to_user(argp, &cpuid, sizeof(cpuid)) != 0)
 			return -EFAULT;
 
 		return 0;
@@ -522,8 +523,285 @@ static long dtrace_ioctl(struct file *file,
 		if (rval != 0)
 			return rval;
 
-		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
+		if (copy_to_user(argp, &cpuid, sizeof(cpuid)) != 0)
 			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_DOFGET: {
+		dof_hdr_t	hdr, *dof;
+		uint64_t	len;
+
+		if (copy_from_user(&hdr, argp, sizeof(hdr)) != 0)
+			return -EFAULT;
+
+		mutex_lock(&dtrace_lock);
+		dof = dtrace_dof_create(state);
+		mutex_unlock(&dtrace_lock);
+
+		len = min(hdr.dofh_loadsz, dof->dofh_loadsz);
+		rval = copy_to_user(argp, dof, len);
+		dtrace_dof_destroy(dof);
+
+		return rval == 0 ? 0 : -EFAULT;
+	}
+
+	case DTRACEIOC_AGGSNAP:
+	case DTRACEIOC_BUFSNAP: {
+		dtrace_bufdesc_t	desc;
+		caddr_t			cached;
+		dtrace_buffer_t		*buf;
+
+		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
+			return -EFAULT;
+
+		if (desc.dtbd_cpu < 0 || desc.dtbd_cpu >= NR_CPUS)
+			return -EINVAL;
+
+		mutex_lock(&dtrace_lock);
+
+		if (cmd == DTRACEIOC_BUFSNAP)
+			buf = &state->dts_buffer[desc.dtbd_cpu];
+		else
+			buf = &state->dts_aggbuffer[desc.dtbd_cpu];
+
+		if (buf->dtb_flags & (DTRACEBUF_RING | DTRACEBUF_FILL)) {
+			size_t	sz = buf->dtb_offset;
+
+			if (state->dts_activity != DTRACE_ACTIVITY_STOPPED) {
+				mutex_unlock(&dtrace_lock);
+				return -EBUSY;
+			}
+
+			/*
+			 * If this buffer has already been consumed, we're
+			 * going to indicate that there's nothing left here
+			 * to consume.
+			 */
+			if (buf->dtb_flags & DTRACEBUF_CONSUMED) {
+				mutex_unlock(&dtrace_lock);
+
+				desc.dtbd_size = 0;
+				desc.dtbd_drops = 0;
+				desc.dtbd_errors = 0;
+				desc.dtbd_oldest = 0;
+				sz = sizeof(desc);
+
+				if (copy_to_user(argp, &desc, sz) != 0)
+					return -EFAULT;
+
+				return 0;
+			}
+
+			/*
+			 * If this is a ring buffer that has wrapped, we want
+			 * to copy the whole thing out.
+			 */
+			if (buf->dtb_flags & DTRACEBUF_WRAPPED) {
+				dtrace_buffer_polish(buf);
+				sz = buf->dtb_size;
+			}
+
+			if (copy_to_user(desc.dtbd_data, buf->dtb_tomax,
+					 sz) != 0) {
+				mutex_unlock(&dtrace_lock);
+				return -EFAULT;
+			}
+
+			desc.dtbd_size = sz;
+			desc.dtbd_drops = buf->dtb_drops;
+			desc.dtbd_errors = buf->dtb_errors;
+			desc.dtbd_oldest = buf->dtb_xamot_offset;
+
+			mutex_unlock(&dtrace_lock);
+
+			if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
+				return -EFAULT;
+
+			buf->dtb_flags |= DTRACEBUF_CONSUMED;
+
+			return 0;
+		}
+
+		if (buf->dtb_tomax == NULL) {
+			ASSERT(buf->dtb_xamot == NULL);
+			mutex_unlock(&dtrace_lock);
+			return -ENOENT;
+		}
+
+		cached = buf->dtb_tomax;
+
+		dtrace_xcall(desc.dtbd_cpu,
+			     (dtrace_xcall_t)dtrace_buffer_switch, buf);
+
+		state->dts_errors += buf->dtb_xamot_errors;
+
+		/*
+		 * If the buffers did not actually switch, then the cross call
+		 * did not take place -- presumably because the given CPU is
+		 * not in the ready set.  If this is the case, we'll return
+		 * ENOENT.
+		 */
+		if (buf->dtb_tomax == cached) {
+			ASSERT(buf->dtb_xamot != cached);
+			mutex_unlock(&dtrace_lock);
+			return -ENOENT;
+		}
+
+		ASSERT(cached == buf->dtb_xamot);
+
+		/*
+		 * We have our snapshot; now copy it out.
+		 */
+		if (copy_to_user(desc.dtbd_data, buf->dtb_xamot,
+				 buf->dtb_xamot_offset) != 0) {
+			mutex_unlock(&dtrace_lock);
+			return -EFAULT;
+		}
+
+		desc.dtbd_size = buf->dtb_xamot_offset;
+		desc.dtbd_drops = buf->dtb_xamot_drops;
+		desc.dtbd_errors = buf->dtb_xamot_errors;
+		desc.dtbd_oldest = 0;
+
+		mutex_unlock(&dtrace_lock);
+
+		/*
+		 * Finally, copy out the buffer description.
+		 */
+		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_CONF: {
+		dtrace_conf_t	conf;
+
+		memset(&conf, 0, sizeof(conf));
+		conf.dtc_difversion = DIF_VERSION;
+		conf.dtc_difintregs = DIF_DIR_NREGS;
+		conf.dtc_diftupregs = DIF_DTR_NREGS;
+		conf.dtc_ctfmodel = CTF_MODEL_NATIVE;
+
+		if (copy_to_user(argp, &conf, sizeof(conf)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_STATUS: {
+		dtrace_status_t	stat;
+		dtrace_dstate_t	*dstate;
+		int		i, j;
+		uint64_t	nerrs;
+
+		/*
+		 * See the comment in dtrace_state_deadman() for the reason
+		 * for setting dts_laststatus to INT64_MAX before setting
+		 * it to the correct value.
+		 */
+		state->dts_laststatus = ns_to_ktime(INT64_MAX);
+		dtrace_membar_producer();
+		state->dts_laststatus = dtrace_gethrtime();
+
+		memset(&stat, 0, sizeof(stat));
+
+		mutex_lock(&dtrace_lock);
+
+		if (state->dts_activity == DTRACE_ACTIVITY_INACTIVE) {
+			mutex_unlock(&dtrace_lock);
+			return -ENOENT;
+		}
+
+		if (state->dts_activity == DTRACE_ACTIVITY_DRAINING)
+			stat.dtst_exiting = 1;
+
+		nerrs = state->dts_errors;
+		dstate = &state->dts_vstate.dtvs_dynvars;
+
+		for (i = 0; i < NR_CPUS; i++) {
+			dtrace_dstate_percpu_t	*dcpu = &dstate->dtds_percpu[i];
+
+			stat.dtst_dyndrops += dcpu->dtdsc_drops;
+			stat.dtst_dyndrops_dirty += dcpu->dtdsc_dirty_drops;
+			stat.dtst_dyndrops_rinsing += dcpu->dtdsc_rinsing_drops;
+
+			if (state->dts_buffer[i].dtb_flags & DTRACEBUF_FULL)
+				stat.dtst_filled++;
+
+			nerrs += state->dts_buffer[i].dtb_errors;
+
+			for (j = 0; j < state->dts_nspeculations; j++) {
+				dtrace_speculation_t	*spec;
+				dtrace_buffer_t		*buf;
+
+				spec = &state->dts_speculations[j];
+				buf = &spec->dtsp_buffer[i];
+				stat.dtst_specdrops += buf->dtb_xamot_drops;
+			}
+		}
+
+		stat.dtst_specdrops_busy = state->dts_speculations_busy;
+		stat.dtst_specdrops_unavail = state->dts_speculations_unavail;
+		stat.dtst_stkstroverflows = state->dts_stkstroverflows;
+		stat.dtst_dblerrors = state->dts_dblerrors;
+		stat.dtst_killed = (state->dts_activity ==
+				    DTRACE_ACTIVITY_KILLED);
+		stat.dtst_errors = nerrs;
+
+		mutex_unlock(&dtrace_lock);
+
+		if (copy_to_user(argp, &stat, sizeof(stat)) != 0)
+			return -EFAULT;
+
+		return 0;
+	}
+
+	case DTRACEIOC_FORMAT: {
+		dtrace_fmtdesc_t	fmt;
+		char			*str;
+		int			len;
+
+		if (copy_from_user(&fmt, argp, sizeof (fmt)) != 0)
+			return -EFAULT;
+
+		mutex_lock(&dtrace_lock);
+
+		if (fmt.dtfd_format == 0 ||
+		    fmt.dtfd_format > state->dts_nformats) {
+			mutex_unlock(&dtrace_lock);
+			return -EINVAL;
+		}
+
+		/*
+		 * Format strings are allocated contiguously and they are
+		 * never freed; if a format index is less than the number
+		 * of formats, we can assert that the format map is non-NULL
+		 * and that the format for the specified index is non-NULL.
+		 */
+		ASSERT(state->dts_formats != NULL);
+		str = state->dts_formats[fmt.dtfd_format - 1];
+		ASSERT(str != NULL);
+
+		len = strlen(str) + 1;
+
+		if (len > fmt.dtfd_length) {
+			fmt.dtfd_length = len;
+
+			if (copy_to_user(argp, &fmt, sizeof (fmt)) != 0) {
+				mutex_unlock(&dtrace_lock);
+				return -EINVAL;
+			}
+		} else {
+			if (copy_to_user(fmt.dtfd_string, str, len) != 0) {
+				mutex_unlock(&dtrace_lock);
+				return -EINVAL;
+			}
+		}
+
+		mutex_unlock(&dtrace_lock);
 
 		return 0;
 	}
@@ -641,7 +919,7 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		int			osize, nsize;
 		dtrace_toxrange_t	*range;
 
-		osize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
+		osize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
 
 		if (osize == 0) {
 			ASSERT(dtrace_toxrange == NULL);
@@ -651,7 +929,7 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		} else
 			dtrace_toxranges_max <<= 1;
 
-		nsize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
+		nsize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
 		range = kzalloc(nsize, GFP_KERNEL);
 
 		if (dtrace_toxrange != NULL) {
@@ -751,7 +1029,7 @@ int dtrace_dev_init(void)
 #endif
 
 	dtrace_state_cache = kmem_cache_create("dtrace_state_cache",
-				sizeof (dtrace_dstate_percpu_t) * NR_CPUS,
+				sizeof(dtrace_dstate_percpu_t) * NR_CPUS,
 				__alignof__(dtrace_dstate_percpu_t),
 				SLAB_PANIC, NULL);
 

@@ -15,8 +15,8 @@ dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
 	dtrace_actdesc_t	*act;
 
 	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
-	       (arg != NULL && arg >= KERNELBASE) ||
-	       (arg == NULL && kind == DTRACEACT_PRINTA));
+	       (arg != 0 && (uintptr_t)arg >= KERNELBASE) ||
+	       (arg == 0 && kind == DTRACEACT_PRINTA));
 
 	act = kzalloc(sizeof (dtrace_actdesc_t), GFP_KERNEL);
 	act->dtad_kind = kind;

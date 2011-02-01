@@ -1,15 +1,6 @@
 diff -urN ../linux-2.6.34/include/linux/sched.h ./include/linux/sched.h
 --- ../linux-2.6.34/include/linux/sched.h	2010-07-28 17:48:29.000000000 -0400
 +++ ./include/linux/sched.h	2010-12-21 16:03:41.000000000 -0500
-@@ -92,6 +92,8 @@
- #include <linux/latencytop.h>
- #include <linux/cred.h>
- 
-+#include <linux/clocksource.h>
-+
- #include <asm/processor.h>
- 
- struct exec_domain;
 @@ -1505,6 +1507,15 @@
  		unsigned long memsw_bytes; /* uncharged mem+swap usage */
  	} memcg_batch;
@@ -38,9 +29,29 @@ diff -urN ../linux-2.6.34/init/Kconfig ./init/Kconfig
  #
  # Place an empty function call at each tracepoint site. Can be
  # dynamically changed for a probe function.
+diff -urN ../linux-2.6.34/kernel/dtrace/ctf_api.h ./kernel/dtrace/ctf_api.h
+--- ../linux-2.6.34/kernel/dtrace/ctf_api.h	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/ctf_api.h	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,16 @@
++#ifndef __CTF_API_H_
++#define __CTF_API_H_
++
++/*
++ * The CTF data model is inferred to be the caller's data model or the data
++ * model of the given object, unless ctf_setmodel() is explicitly called.
++ */
++#define CTF_MODEL_ILP32		1	/* object data model is ILP32 */
++#define CTF_MODEL_LP64		2	/* object data model is LP64 */
++#ifdef CONFIG_64BIT
++# define CTF_MODEL_NATIVE	CTF_MODEL_LP64
++#else
++# define CTF_MODEL_NATIVE	CTF_MODEL_ILP32
++#endif
++
++#endif /* __CTF_API_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.c ./kernel/dtrace/cyclic.c
 --- ../linux-2.6.34/kernel/dtrace/cyclic.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/cyclic.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/cyclic.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,23 @@
 +/*
 + * FILE:	cyclic.c
@@ -67,12 +78,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.c ./kernel/dtrace/cyclic.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.h ./kernel/dtrace/cyclic.h
 --- ../linux-2.6.34/kernel/dtrace/cyclic.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/cyclic.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/cyclic.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,33 @@
 +#ifndef _CYCLIC_H_
 +#define _CYCLIC_H_
 +
-+#include <linux/clocksource.h>
++#include <linux/ktime.h>
 +#include <linux/types.h>
 +
 +#define CY_LOW_LEVEL	0
@@ -94,8 +105,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.h ./kernel/dtrace/cyclic.h
 +} cyc_handler_t;
 +
 +typedef struct cyc_time {
-+	cycle_t cyt_when;
-+	cycle_t cyt_interval;
++	ktime_t cyt_when;
++	ktime_t cyt_interval;
 +} cyc_time_t;
 +
 +extern cyclic_id_t cyclic_add(cyc_handler_t *, cyc_time_t *);
@@ -104,7 +115,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.h ./kernel/dtrace/cyclic.h
 +#endif /* _CYCLIC_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_actdesc.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_actdesc.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_actdesc.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,62 @@
 +/*
 + * FILE:	dtrace_actdesc.c
@@ -123,8 +134,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_
 +	dtrace_actdesc_t	*act;
 +
 +	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
-+	       (arg != NULL && arg >= KERNELBASE) ||
-+	       (arg == NULL && kind == DTRACEACT_PRINTA));
++	       (arg != 0 && (uintptr_t)arg >= KERNELBASE) ||
++	       (arg == 0 && kind == DTRACEACT_PRINTA));
 +
 +	act = kzalloc(sizeof (dtrace_actdesc_t), GFP_KERNEL);
 +	act->dtad_kind = kind;
@@ -170,7 +181,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_anon.c ./kernel/dtrace/dtrace_anon.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_anon.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_anon.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_anon.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,132 @@
 +/*
 + * FILE:	dtrace_anon.c
@@ -306,8 +317,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_anon.c ./kernel/dtrace/dtrace_ano
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_buffer.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_buffer.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,370 @@
++++ ./kernel/dtrace/dtrace_buffer.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,453 @@
 +/*
 + * FILE:	dtrace_buffer.c
 + * DESCRIPTION:	Dynamic Tracing: buffer functions
@@ -321,10 +332,49 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_b
 +
 +dtrace_optval_t		dtrace_nonroot_maxsize = (16 * 1024 * 1024);
 +
++/*
++ * Note:  called from cross call context.  This function switches the two
++ * buffers on a given CPU.  The atomicity of this operation is assured by
++ * disabling interrupts while the actual switch takes place; the disabling of
++ * interrupts serializes the execution with any execution of dtrace_probe() on
++ * the same CPU.
++ */
++void dtrace_buffer_switch(dtrace_buffer_t *buf)
++{
++	caddr_t			tomax = buf->dtb_tomax;
++	caddr_t			xamot = buf->dtb_xamot;
++	dtrace_icookie_t	cookie;
++
++	ASSERT(!(buf->dtb_flags & DTRACEBUF_NOSWITCH));
++	ASSERT(!(buf->dtb_flags & DTRACEBUF_RING));
++
++	local_irq_save(cookie);
++
++	buf->dtb_tomax = xamot;
++	buf->dtb_xamot = tomax;
++	buf->dtb_xamot_drops = buf->dtb_drops;
++	buf->dtb_xamot_offset = buf->dtb_offset;
++	buf->dtb_xamot_errors = buf->dtb_errors;
++	buf->dtb_xamot_flags = buf->dtb_flags;
++	buf->dtb_offset = 0;
++	buf->dtb_drops = 0;
++	buf->dtb_errors = 0;
++	buf->dtb_flags &= ~(DTRACEBUF_ERROR | DTRACEBUF_DROPPED);
++
++	local_irq_restore(cookie);
++}
++
++/*
++ * Note:  called from cross call context.  This function activates a buffer
++ * on a CPU.  As with dtrace_buffer_switch(), the atomicity of the operation
++ * is guaranteed by the disabling of interrupts.
++ */
 +void dtrace_buffer_activate(dtrace_state_t *state)
 +{
 +	dtrace_buffer_t		*buf;
-+	dtrace_icookie_t	cookie = dtrace_interrupt_disable();
++	dtrace_icookie_t	cookie;
++
++	local_irq_save(cookie);
 +
 +	buf = &state->dts_buffer[smp_processor_id()];
 +
@@ -339,7 +389,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_b
 +		 buf->dtb_flags &= ~DTRACEBUF_INACTIVE;
 +	}
 +
-+	dtrace_interrupt_enable(cookie);
++	local_irq_restore(cookie);
 +}
 +
 +int dtrace_buffer_alloc(dtrace_buffer_t *bufs, size_t size, int flags,
@@ -653,6 +703,50 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_b
 +	return offs;
 +}
 +
++void dtrace_buffer_polish(dtrace_buffer_t *buf)
++{
++	ASSERT(buf->dtb_flags & DTRACEBUF_RING);
++	ASSERT(mutex_is_locked(&dtrace_lock));
++
++	if (!(buf->dtb_flags & DTRACEBUF_WRAPPED))
++		return;
++
++	/*
++	 * We need to polish the ring buffer.  There are three cases:
++	 *
++	 * - The first (and presumably most common) is that there is no gap
++	 *   between the buffer offset and the wrapped offset.  In this case,
++	 *   there is nothing in the buffer that isn't valid data; we can
++	 *   mark the buffer as polished and return.
++	 *
++	 * - The second (less common than the first but still more common
++	 *   than the third) is that there is a gap between the buffer offset
++	 *   and the wrapped offset, and the wrapped offset is larger than the
++	 *   buffer offset.  This can happen because of an alignment issue, or
++	 *   can happen because of a call to dtrace_buffer_reserve() that
++	 *   didn't subsequently consume the buffer space.  In this case,
++	 *   we need to zero the data from the buffer offset to the wrapped
++	 *   offset.
++	 *
++	 * - The third (and least common) is that there is a gap between the
++	 *   buffer offset and the wrapped offset, but the wrapped offset is
++	 *   _less_ than the buffer offset.  This can only happen because a
++	 *   call to dtrace_buffer_reserve() induced a wrap, but the space
++	 *   was not subsequently consumed.  In this case, we need to zero the
++	 *   space from the offset to the end of the buffer _and_ from the
++	 *   top of the buffer to the wrapped offset.
++	 */
++	if (buf->dtb_offset < buf->dtb_xamot_offset)
++		memset(buf->dtb_tomax + buf->dtb_offset, 0,
++		       buf->dtb_xamot_offset - buf->dtb_offset);
++
++	if (buf->dtb_offset > buf->dtb_xamot_offset) {
++		memset(buf->dtb_tomax + buf->dtb_offset, 0,
++		       buf->dtb_size - buf->dtb_offset);
++		memset(buf->dtb_tomax, 0, buf->dtb_xamot_offset);
++	}
++}
++
 +void dtrace_buffer_free(dtrace_buffer_t *bufs)
 +{
 +	int	cpu;
@@ -680,8 +774,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_b
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,849 @@
++++ ./kernel/dtrace/dtrace_dev.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,1127 @@
 +/*
 + * FILE:	dtrace_dev.c
 + * DESCRIPTION:	Dynamic Tracing: device file handling
@@ -694,6 +788,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +#include <linux/slab.h>
 +#include <asm/uaccess.h>
 +
++#include "ctf_api.h"
 +#include "dtrace.h"
 +#include "dtrace_dev.h"
 +#include "dtrace_ioctl.h"
@@ -703,7 +798,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +char				*dtrace_helptrace_buffer;
 +int				dtrace_helptrace_bufsize = 512 * 1024;
 +
-+#ifdef DEBUG
++#ifdef DT_DEBUG
 +int				dtrace_helptrace_enabled = 1;
 +#else
 +int				dtrace_helptrace_enabled = 0;
@@ -773,7 +868,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		dtrace_providerdesc_t	pvd;
 +		dtrace_provider_t	*pvp;
 +
-+		if (copy_from_user(&pvd, argp, sizeof (pvd)) != 0)
++		if (copy_from_user(&pvd, argp, sizeof(pvd)) != 0)
 +			return -EFAULT;
 +
 +		pvd.dtvd_name[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -790,11 +885,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +			return -ESRCH;
 +
 +		memcpy(&pvd.dtvd_priv, &pvp->dtpv_priv,
-+		       sizeof (dtrace_ppriv_t));
++		       sizeof(dtrace_ppriv_t));
 +		memcpy(&pvd.dtvd_attr, &pvp->dtpv_attr,
-+		       sizeof (dtrace_pattr_t));
++		       sizeof(dtrace_pattr_t));
 +
-+		if (copy_to_user(argp, &pvd, sizeof (pvd)) != 0)
++		if (copy_to_user(argp, &pvd, sizeof(pvd)) != 0)
 +			return -EFAULT;
 +
 +		return 0;
@@ -809,7 +904,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		uint8_t			*dest;
 +		int			nrecs;
 +
-+		if (copy_from_user(&epdesc, argp, sizeof (epdesc)) != 0)
++		if (copy_from_user(&epdesc, argp, sizeof(epdesc)) != 0)
 +			return -EFAULT;
 +
 +		mutex_lock(&dtrace_lock);
@@ -843,13 +938,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		 * the temporary buffer to be able to drop dtrace_lock()
 +		 * across the copy_to_user(), below.
 +		 */
-+		size = sizeof (dtrace_eprobedesc_t) +
-+		       (epdesc.dtepd_nrecs * sizeof (dtrace_recdesc_t));
++		size = sizeof(dtrace_eprobedesc_t) +
++		       (epdesc.dtepd_nrecs * sizeof(dtrace_recdesc_t));
 +
 +		buf = kmalloc(size, GFP_KERNEL);
 +		dest = buf;
 +
-+		memcpy(dest, &epdesc, sizeof (epdesc));
++		memcpy(dest, &epdesc, sizeof(epdesc));
 +		dest += offsetof(dtrace_eprobedesc_t, dtepd_rec[0]);
 +
 +		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
@@ -859,8 +954,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +			if (nrecs-- == 0)
 +				break;
 +
-+			memcpy(dest, &act->dta_rec, sizeof (dtrace_recdesc_t));
-+			dest += sizeof (dtrace_recdesc_t);
++			memcpy(dest, &act->dta_rec, sizeof(dtrace_recdesc_t));
++			dest += sizeof(dtrace_recdesc_t);
 +		}
 +
 +		mutex_unlock(&dtrace_lock);
@@ -886,7 +981,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		size_t			size;
 +		uint8_t			*dest;
 +
-+		if (copy_from_user(&aggdesc, argp, sizeof (aggdesc)) != 0)
++		if (copy_from_user(&aggdesc, argp, sizeof(aggdesc)) != 0)
 +			return -EFAULT;
 +
 +		mutex_lock(&dtrace_lock);
@@ -935,13 +1030,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		 * the temporary buffer to be able to drop dtrace_lock()
 +		 * across the copyout(), below.
 +		 */
-+		size = sizeof (dtrace_aggdesc_t) +
-+		       (aggdesc.dtagd_nrecs * sizeof (dtrace_recdesc_t));
++		size = sizeof(dtrace_aggdesc_t) +
++		       (aggdesc.dtagd_nrecs * sizeof(dtrace_recdesc_t));
 +
 +		buf = kmalloc(size, GFP_KERNEL);
 +		dest = buf;
 +
-+		memcpy(dest, &aggdesc, sizeof (aggdesc));
++		memcpy(dest, &aggdesc, sizeof(aggdesc));
 +		dest += offsetof(dtrace_aggdesc_t, dtagd_rec[0]);
 +
 +		for (act = agg->dtag_first; ; act = act->dta_next) {
@@ -960,8 +1055,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +				break;
 +
 +			rec.dtrd_offset -= offs;
-+			memcpy(dest, &rec, sizeof (rec));
-+			dest += sizeof (dtrace_recdesc_t);
++			memcpy(dest, &rec, sizeof(rec));
++			dest += sizeof(dtrace_recdesc_t);
 +
 +			if (act == &agg->dtag_action)
 +				break;
@@ -1046,7 +1141,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		dtrace_probedesc_t	*create = &desc.dtrpd_create;
 +		int			err;
 +
-+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
++		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 +			return -EFAULT;
 +
 +		match->dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -1074,7 +1169,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		uint32_t		priv;
 +		uid_t			uid;
 +
-+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
++		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 +			return -EFAULT;
 +
 +		desc.dtpd_provider[DTRACE_PROVNAMELEN - 1] = '\0';
@@ -1120,7 +1215,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		dtrace_probe_description(probe, &desc);
 +		mutex_unlock(&dtrace_lock);
 +
-+		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
++		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
 +			return -EFAULT;
 +
 +		return 0;
@@ -1131,7 +1226,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		dtrace_probe_t		*probe;
 +		dtrace_provider_t	*prov;
 +
-+		if (copy_from_user(&desc, argp, sizeof (desc)) != 0)
++		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
 +			return -EFAULT;
 +
 +		if (desc.dtargd_id == DTRACE_IDNONE)
@@ -1176,7 +1271,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		/* FIXME: mutex_unlock(&mod_lock); */
 +		mutex_unlock(&dtrace_provider_lock);
 +
-+		if (copy_to_user(argp, &desc, sizeof (desc)) != 0)
++		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
 +			return -EFAULT;
 +
 +		return 0;
@@ -1190,7 +1285,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		if (rval != 0)
 +			return rval;
 +
-+		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
++		if (copy_to_user(argp, &cpuid, sizeof(cpuid)) != 0)
 +			return -EFAULT;
 +
 +		return 0;
@@ -1206,8 +1301,285 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		if (rval != 0)
 +			return rval;
 +
-+		if (copy_to_user(argp, &cpuid, sizeof (cpuid)) != 0)
++		if (copy_to_user(argp, &cpuid, sizeof(cpuid)) != 0)
 +			return -EFAULT;
++
++		return 0;
++	}
++
++	case DTRACEIOC_DOFGET: {
++		dof_hdr_t	hdr, *dof;
++		uint64_t	len;
++
++		if (copy_from_user(&hdr, argp, sizeof(hdr)) != 0)
++			return -EFAULT;
++
++		mutex_lock(&dtrace_lock);
++		dof = dtrace_dof_create(state);
++		mutex_unlock(&dtrace_lock);
++
++		len = min(hdr.dofh_loadsz, dof->dofh_loadsz);
++		rval = copy_to_user(argp, dof, len);
++		dtrace_dof_destroy(dof);
++
++		return rval == 0 ? 0 : -EFAULT;
++	}
++
++	case DTRACEIOC_AGGSNAP:
++	case DTRACEIOC_BUFSNAP: {
++		dtrace_bufdesc_t	desc;
++		caddr_t			cached;
++		dtrace_buffer_t		*buf;
++
++		if (copy_from_user(&desc, argp, sizeof(desc)) != 0)
++			return -EFAULT;
++
++		if (desc.dtbd_cpu < 0 || desc.dtbd_cpu >= NR_CPUS)
++			return -EINVAL;
++
++		mutex_lock(&dtrace_lock);
++
++		if (cmd == DTRACEIOC_BUFSNAP)
++			buf = &state->dts_buffer[desc.dtbd_cpu];
++		else
++			buf = &state->dts_aggbuffer[desc.dtbd_cpu];
++
++		if (buf->dtb_flags & (DTRACEBUF_RING | DTRACEBUF_FILL)) {
++			size_t	sz = buf->dtb_offset;
++
++			if (state->dts_activity != DTRACE_ACTIVITY_STOPPED) {
++				mutex_unlock(&dtrace_lock);
++				return -EBUSY;
++			}
++
++			/*
++			 * If this buffer has already been consumed, we're
++			 * going to indicate that there's nothing left here
++			 * to consume.
++			 */
++			if (buf->dtb_flags & DTRACEBUF_CONSUMED) {
++				mutex_unlock(&dtrace_lock);
++
++				desc.dtbd_size = 0;
++				desc.dtbd_drops = 0;
++				desc.dtbd_errors = 0;
++				desc.dtbd_oldest = 0;
++				sz = sizeof(desc);
++
++				if (copy_to_user(argp, &desc, sz) != 0)
++					return -EFAULT;
++
++				return 0;
++			}
++
++			/*
++			 * If this is a ring buffer that has wrapped, we want
++			 * to copy the whole thing out.
++			 */
++			if (buf->dtb_flags & DTRACEBUF_WRAPPED) {
++				dtrace_buffer_polish(buf);
++				sz = buf->dtb_size;
++			}
++
++			if (copy_to_user(desc.dtbd_data, buf->dtb_tomax,
++					 sz) != 0) {
++				mutex_unlock(&dtrace_lock);
++				return -EFAULT;
++			}
++
++			desc.dtbd_size = sz;
++			desc.dtbd_drops = buf->dtb_drops;
++			desc.dtbd_errors = buf->dtb_errors;
++			desc.dtbd_oldest = buf->dtb_xamot_offset;
++
++			mutex_unlock(&dtrace_lock);
++
++			if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
++				return -EFAULT;
++
++			buf->dtb_flags |= DTRACEBUF_CONSUMED;
++
++			return 0;
++		}
++
++		if (buf->dtb_tomax == NULL) {
++			ASSERT(buf->dtb_xamot == NULL);
++			mutex_unlock(&dtrace_lock);
++			return -ENOENT;
++		}
++
++		cached = buf->dtb_tomax;
++
++		dtrace_xcall(desc.dtbd_cpu,
++			     (dtrace_xcall_t)dtrace_buffer_switch, buf);
++
++		state->dts_errors += buf->dtb_xamot_errors;
++
++		/*
++		 * If the buffers did not actually switch, then the cross call
++		 * did not take place -- presumably because the given CPU is
++		 * not in the ready set.  If this is the case, we'll return
++		 * ENOENT.
++		 */
++		if (buf->dtb_tomax == cached) {
++			ASSERT(buf->dtb_xamot != cached);
++			mutex_unlock(&dtrace_lock);
++			return -ENOENT;
++		}
++
++		ASSERT(cached == buf->dtb_xamot);
++
++		/*
++		 * We have our snapshot; now copy it out.
++		 */
++		if (copy_to_user(desc.dtbd_data, buf->dtb_xamot,
++				 buf->dtb_xamot_offset) != 0) {
++			mutex_unlock(&dtrace_lock);
++			return -EFAULT;
++		}
++
++		desc.dtbd_size = buf->dtb_xamot_offset;
++		desc.dtbd_drops = buf->dtb_xamot_drops;
++		desc.dtbd_errors = buf->dtb_xamot_errors;
++		desc.dtbd_oldest = 0;
++
++		mutex_unlock(&dtrace_lock);
++
++		/*
++		 * Finally, copy out the buffer description.
++		 */
++		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
++			return -EFAULT;
++
++		return 0;
++	}
++
++	case DTRACEIOC_CONF: {
++		dtrace_conf_t	conf;
++
++		memset(&conf, 0, sizeof(conf));
++		conf.dtc_difversion = DIF_VERSION;
++		conf.dtc_difintregs = DIF_DIR_NREGS;
++		conf.dtc_diftupregs = DIF_DTR_NREGS;
++		conf.dtc_ctfmodel = CTF_MODEL_NATIVE;
++
++		if (copy_to_user(argp, &conf, sizeof(conf)) != 0)
++			return -EFAULT;
++
++		return 0;
++	}
++
++	case DTRACEIOC_STATUS: {
++		dtrace_status_t	stat;
++		dtrace_dstate_t	*dstate;
++		int		i, j;
++		uint64_t	nerrs;
++
++		/*
++		 * See the comment in dtrace_state_deadman() for the reason
++		 * for setting dts_laststatus to INT64_MAX before setting
++		 * it to the correct value.
++		 */
++		state->dts_laststatus = ns_to_ktime(INT64_MAX);
++		dtrace_membar_producer();
++		state->dts_laststatus = dtrace_gethrtime();
++
++		memset(&stat, 0, sizeof(stat));
++
++		mutex_lock(&dtrace_lock);
++
++		if (state->dts_activity == DTRACE_ACTIVITY_INACTIVE) {
++			mutex_unlock(&dtrace_lock);
++			return -ENOENT;
++		}
++
++		if (state->dts_activity == DTRACE_ACTIVITY_DRAINING)
++			stat.dtst_exiting = 1;
++
++		nerrs = state->dts_errors;
++		dstate = &state->dts_vstate.dtvs_dynvars;
++
++		for (i = 0; i < NR_CPUS; i++) {
++			dtrace_dstate_percpu_t	*dcpu = &dstate->dtds_percpu[i];
++
++			stat.dtst_dyndrops += dcpu->dtdsc_drops;
++			stat.dtst_dyndrops_dirty += dcpu->dtdsc_dirty_drops;
++			stat.dtst_dyndrops_rinsing += dcpu->dtdsc_rinsing_drops;
++
++			if (state->dts_buffer[i].dtb_flags & DTRACEBUF_FULL)
++				stat.dtst_filled++;
++
++			nerrs += state->dts_buffer[i].dtb_errors;
++
++			for (j = 0; j < state->dts_nspeculations; j++) {
++				dtrace_speculation_t	*spec;
++				dtrace_buffer_t		*buf;
++
++				spec = &state->dts_speculations[j];
++				buf = &spec->dtsp_buffer[i];
++				stat.dtst_specdrops += buf->dtb_xamot_drops;
++			}
++		}
++
++		stat.dtst_specdrops_busy = state->dts_speculations_busy;
++		stat.dtst_specdrops_unavail = state->dts_speculations_unavail;
++		stat.dtst_stkstroverflows = state->dts_stkstroverflows;
++		stat.dtst_dblerrors = state->dts_dblerrors;
++		stat.dtst_killed = (state->dts_activity ==
++				    DTRACE_ACTIVITY_KILLED);
++		stat.dtst_errors = nerrs;
++
++		mutex_unlock(&dtrace_lock);
++
++		if (copy_to_user(argp, &stat, sizeof(stat)) != 0)
++			return -EFAULT;
++
++		return 0;
++	}
++
++	case DTRACEIOC_FORMAT: {
++		dtrace_fmtdesc_t	fmt;
++		char			*str;
++		int			len;
++
++		if (copy_from_user(&fmt, argp, sizeof (fmt)) != 0)
++			return -EFAULT;
++
++		mutex_lock(&dtrace_lock);
++
++		if (fmt.dtfd_format == 0 ||
++		    fmt.dtfd_format > state->dts_nformats) {
++			mutex_unlock(&dtrace_lock);
++			return -EINVAL;
++		}
++
++		/*
++		 * Format strings are allocated contiguously and they are
++		 * never freed; if a format index is less than the number
++		 * of formats, we can assert that the format map is non-NULL
++		 * and that the format for the specified index is non-NULL.
++		 */
++		ASSERT(state->dts_formats != NULL);
++		str = state->dts_formats[fmt.dtfd_format - 1];
++		ASSERT(str != NULL);
++
++		len = strlen(str) + 1;
++
++		if (len > fmt.dtfd_length) {
++			fmt.dtfd_length = len;
++
++			if (copy_to_user(argp, &fmt, sizeof (fmt)) != 0) {
++				mutex_unlock(&dtrace_lock);
++				return -EINVAL;
++			}
++		} else {
++			if (copy_to_user(fmt.dtfd_string, str, len) != 0) {
++				mutex_unlock(&dtrace_lock);
++				return -EINVAL;
++			}
++		}
++
++		mutex_unlock(&dtrace_lock);
 +
 +		return 0;
 +	}
@@ -1325,7 +1697,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		int			osize, nsize;
 +		dtrace_toxrange_t	*range;
 +
-+		osize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
++		osize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
 +
 +		if (osize == 0) {
 +			ASSERT(dtrace_toxrange == NULL);
@@ -1335,7 +1707,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +		} else
 +			dtrace_toxranges_max <<= 1;
 +
-+		nsize = dtrace_toxranges_max * sizeof (dtrace_toxrange_t);
++		nsize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
 +		range = kzalloc(nsize, GFP_KERNEL);
 +
 +		if (dtrace_toxrange != NULL) {
@@ -1435,7 +1807,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +#endif
 +
 +	dtrace_state_cache = kmem_cache_create("dtrace_state_cache",
-+				sizeof (dtrace_dstate_percpu_t) * NR_CPUS,
++				sizeof(dtrace_dstate_percpu_t) * NR_CPUS,
 +				__alignof__(dtrace_dstate_percpu_t),
 +				SLAB_PANIC, NULL);
 +
@@ -1533,7 +1905,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_dev.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,16 @@
 +#ifndef _DTRACE_DEV_H_
 +#define _DTRACE_DEV_H_
@@ -1553,8 +1925,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.
 +#endif /* _DTRACE_DEV_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dif.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dif.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,4397 @@
++++ ./kernel/dtrace/dtrace_dif.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,4464 @@
 +/*
 + * FILE:	dtrace_dif.c
 + * DESCRIPTION:	Dynamic Tracing: DIF object functions
@@ -2555,6 +2927,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				       (dstate->dtds_hashsize *
 +					sizeof(dtrace_dynhash_t));
 +		uintptr_t	chunkoffs;
++		uint64_t	num;
 +
 +		/*
 +		 * Before we assume that we can store here, we need to make
@@ -2574,7 +2947,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		if (addr < base)
 +			return 0;
 +
-+		chunkoffs = (addr - base) % dstate->dtds_chunksize;
++		num = addr - base;
++		chunkoffs = do_div(num, dstate->dtds_chunksize);
 +
 +		if (chunkoffs < sizeof(dtrace_dynvar_t))
 +			return 0;
@@ -2897,168 +3271,180 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	if (hashval == DTRACE_DYNHASH_FREE || hashval == DTRACE_DYNHASH_SINK)
 +		hashval = DTRACE_DYNHASH_VALID;
 +
-+/*
-+* Yes, it's painful to do a divide here.  If the cycle count becomes
-+* important here, tricks can be pulled to reduce it.  (However, it's
-+* critical that hash collisions be kept to an absolute minimum;
-+* they're much more painful than a divide.)  It's better to have a
-+* solution that generates few collisions and still keeps things
-+* relatively simple.
-+*/
-+bucket = hashval % dstate->dtds_hashsize;
++	/*
++	 * Yes, it's painful to do a divide here.  If the cycle count becomes
++	 * important here, tricks can be pulled to reduce it.  (However, it's
++	 * critical that hash collisions be kept to an absolute minimum;
++	 * they're much more painful than a divide.)  It's better to have a
++	 * solution that generates few collisions and still keeps things
++	 * relatively simple.
++	 *
++	 * Linux cannot do a straight 64-bit divide without gcc requiring
++	 * linking in code that the kernel doesn't link, so we need to use an
++	 * alternative.
++	 *
++	 *	bucket = hashval % dstate->dtds_hashsize;
++	 */
++	{
++	    uint64_t	num;
 +
-+if (op == DTRACE_DYNVAR_DEALLOC) {
-+volatile uintptr_t *lockp = &hash[bucket].dtdh_lock;
++	    num = hashval;
++	    bucket = do_div(num, dstate->dtds_hashsize);
++	}
 +
-+for (;;) {
-+while ((lock = *lockp) & 1)
-+continue;
++	if (op == DTRACE_DYNVAR_DEALLOC) {
++		volatile uintptr_t	*lockp = &hash[bucket].dtdh_lock;
 +
-+if (cmpxchg(lockp, lock, (lock + 1)) == lock)
-+break;
-+}
++		for (;;) {
++			while ((lock = *lockp) & 1)
++				continue;
 +
-+dtrace_membar_producer();
-+}
++			if (cmpxchg(lockp, lock, (lock + 1)) == lock)
++				break;
++		}
++
++		dtrace_membar_producer();
++	}
 +
 +top:
-+prev = NULL;
-+lock = hash[bucket].dtdh_lock;
++	prev = NULL;
++	lock = hash[bucket].dtdh_lock;
 +
-+dtrace_membar_consumer();
++	dtrace_membar_consumer();
 +
-+start = hash[bucket].dtdh_chain;
-+ASSERT(start != NULL && (start->dtdv_hashval == DTRACE_DYNHASH_SINK ||
-+start->dtdv_hashval != DTRACE_DYNHASH_FREE ||
-+op != DTRACE_DYNVAR_DEALLOC));
++	start = hash[bucket].dtdh_chain;
++	ASSERT(start != NULL && (start->dtdv_hashval == DTRACE_DYNHASH_SINK ||
++	       start->dtdv_hashval != DTRACE_DYNHASH_FREE ||
++	       op != DTRACE_DYNVAR_DEALLOC));
 +
-+for (dvar = start; dvar != NULL; dvar = dvar->dtdv_next) {
-+dtrace_tuple_t *dtuple = &dvar->dtdv_tuple;
-+dtrace_key_t *dkey = &dtuple->dtt_key[0];
++	for (dvar = start; dvar != NULL; dvar = dvar->dtdv_next) {
++		dtrace_tuple_t	*dtuple = &dvar->dtdv_tuple;
++		dtrace_key_t	*dkey = &dtuple->dtt_key[0];
 +
-+if (dvar->dtdv_hashval != hashval) {
-+if (dvar->dtdv_hashval == DTRACE_DYNHASH_SINK) {
-+/*
-+* We've reached the sink, and therefore the
-+* end of the hash chain; we can kick out of
-+* the loop knowing that we have seen a valid
-+* snapshot of state.
-+*/
-+ASSERT(dvar->dtdv_next == NULL);
-+ASSERT(dvar == &dtrace_dynhash_sink);
-+break;
-+}
++		if (dvar->dtdv_hashval != hashval) {
++			if (dvar->dtdv_hashval == DTRACE_DYNHASH_SINK) {
++				/*
++				 * We've reached the sink, and therefore the
++				 * end of the hash chain; we can kick out of
++				 * the loop knowing that we have seen a valid
++				 * snapshot of state.
++				 */
++				ASSERT(dvar->dtdv_next == NULL);
++				ASSERT(dvar == &dtrace_dynhash_sink);
++				break;
++			}
 +
-+if (dvar->dtdv_hashval == DTRACE_DYNHASH_FREE) {
-+/*
-+* We've gone off the rails:  somewhere along
-+* the line, one of the members of this hash
-+* chain was deleted.  Note that we could also
-+* detect this by simply letting this loop run
-+* to completion, as we would eventually hit
-+* the end of the dirty list.  However, we
-+* want to avoid running the length of the
-+* dirty list unnecessarily (it might be quite
-+* long), so we catch this as early as
-+* possible by detecting the hash marker.  In
-+* this case, we simply set dvar to NULL and
-+* break; the conditional after the loop will
-+* send us back to top.
-+*/
-+dvar = NULL;
-+break;
-+}
++			if (dvar->dtdv_hashval == DTRACE_DYNHASH_FREE) {
++				/*
++				 * We've gone off the rails:  somewhere along
++				 * the line, one of the members of this hash
++				 * chain was deleted.  Note that we could also
++				 * detect this by simply letting this loop run
++				 * to completion, as we would eventually hit
++				 * the end of the dirty list.  However, we
++				 * want to avoid running the length of the
++				 * dirty list unnecessarily (it might be quite
++				 * long), so we catch this as early as
++				 * possible by detecting the hash marker.  In
++				 * this case, we simply set dvar to NULL and
++				 * break; the conditional after the loop will
++				 * send us back to top.
++				 */
++				dvar = NULL;
++				break;
++			}
 +
-+goto next;
-+}
++			goto next;
++		}
 +
-+if (dtuple->dtt_nkeys != nkeys)
-+goto next;
++		if (dtuple->dtt_nkeys != nkeys)
++			goto next;
 +
-+for (i = 0; i < nkeys; i++, dkey++) {
-+if (dkey->dttk_size != key[i].dttk_size)
-+goto next; /* size or type mismatch */
++		for (i = 0; i < nkeys; i++, dkey++) {
++			if (dkey->dttk_size != key[i].dttk_size)
++				goto next;	/* size or type mismatch */
 +
-+if (dkey->dttk_size != 0) {
-+if (dtrace_bcmp(
-+(void *)(uintptr_t)key[i].dttk_value,
-+(void *)(uintptr_t)dkey->dttk_value,
-+dkey->dttk_size))
-+goto next;
-+} else {
-+if (dkey->dttk_value != key[i].dttk_value)
-+goto next;
-+}
-+}
++			if (dkey->dttk_size != 0) {
++				if (dtrace_bcmp(
++					  (void *)(uintptr_t)key[i].dttk_value,
++					  (void *)(uintptr_t)dkey->dttk_value,
++					  dkey->dttk_size))
++					goto next;
++			} else {
++				if (dkey->dttk_value != key[i].dttk_value)
++					goto next;
++			}
++		}
 +
-+if (op != DTRACE_DYNVAR_DEALLOC)
-+return dvar;
++		if (op != DTRACE_DYNVAR_DEALLOC)
++			return dvar;
 +
-+ASSERT(dvar->dtdv_next == NULL ||
-+dvar->dtdv_next->dtdv_hashval != DTRACE_DYNHASH_FREE);
++		ASSERT(dvar->dtdv_next == NULL ||
++		dvar->dtdv_next->dtdv_hashval != DTRACE_DYNHASH_FREE);
 +
-+if (prev != NULL) {
-+ASSERT(hash[bucket].dtdh_chain != dvar);
-+ASSERT(start != dvar);
-+ASSERT(prev->dtdv_next == dvar);
-+prev->dtdv_next = dvar->dtdv_next;
-+} else {
-+if (cmpxchg(&hash[bucket].dtdh_chain, start, dvar->dtdv_next) != start) {
-+/*
-+* We have failed to atomically swing the
-+* hash table head pointer, presumably because
-+* of a conflicting allocation on another CPU.
-+* We need to reread the hash chain and try
-+* again.
-+*/
-+goto top;
-+}
-+}
++		if (prev != NULL) {
++			ASSERT(hash[bucket].dtdh_chain != dvar);
++			ASSERT(start != dvar);
++			ASSERT(prev->dtdv_next == dvar);
++			prev->dtdv_next = dvar->dtdv_next;
++		} else {
++			if (cmpxchg(&hash[bucket].dtdh_chain, start,
++				    dvar->dtdv_next) != start) {
++				/*
++				 * We have failed to atomically swing the
++				 * hash table head pointer, presumably because
++				 * of a conflicting allocation on another CPU.
++				 * We need to reread the hash chain and try
++				 * again.
++				 */
++				goto top;
++			}
++		}
 +
-+dtrace_membar_producer();
++		dtrace_membar_producer();
 +
-+/*
-+* Now set the hash value to indicate that it's free.
-+*/
-+ASSERT(hash[bucket].dtdh_chain != dvar);
-+dvar->dtdv_hashval = DTRACE_DYNHASH_FREE;
++		/*
++		 * Now set the hash value to indicate that it's free.
++		 */
++		ASSERT(hash[bucket].dtdh_chain != dvar);
++		dvar->dtdv_hashval = DTRACE_DYNHASH_FREE;
 +
-+dtrace_membar_producer();
++		dtrace_membar_producer();
 +
-+/*
-+* Set the next pointer to point at the dirty list, and
-+* atomically swing the dirty pointer to the newly freed dvar.
-+*/
-+do {
-+next = dcpu->dtdsc_dirty;
-+dvar->dtdv_next = next;
-+} while (cmpxchg(&dcpu->dtdsc_dirty, next, dvar) != next);
++		/*
++		 * Set the next pointer to point at the dirty list, and
++		 * atomically swing the dirty pointer to the newly freed dvar.
++		 */
++		do {
++			next = dcpu->dtdsc_dirty;
++			dvar->dtdv_next = next;
++		} while (cmpxchg(&dcpu->dtdsc_dirty, next, dvar) != next);
 +
-+/*
-+* Finally, unlock this hash bucket.
-+*/
-+ASSERT(hash[bucket].dtdh_lock == lock);
-+ASSERT(lock & 1);
-+hash[bucket].dtdh_lock++;
++		/*
++		 * Finally, unlock this hash bucket.
++		 */
++		ASSERT(hash[bucket].dtdh_lock == lock);
++		ASSERT(lock & 1);
++		hash[bucket].dtdh_lock++;
 +
-+return NULL;
++		return NULL;
 +next:
-+prev = dvar;
-+continue;
-+}
++		prev = dvar;
++		continue;
++	}
 +
-+if (dvar == NULL) {
-+/*
-+* If dvar is NULL, it is because we went off the rails:
-+* one of the elements that we traversed in the hash chain
-+* was deleted while we were traversing it.  In this case,
-+* we assert that we aren't doing a dealloc (deallocs lock
-+* the hash bucket to prevent themselves from racing with
-+* one another), and retry the hash chain traversal.
-+*/
-+ASSERT(op != DTRACE_DYNVAR_DEALLOC);
-+goto top;
-+}
++	if (dvar == NULL) {
++		/*
++		 * If dvar is NULL, it is because we went off the rails:
++		 * one of the elements that we traversed in the hash chain
++		 * was deleted while we were traversing it.  In this case,
++		 * we assert that we aren't doing a dealloc (deallocs lock
++		 * the hash bucket to prevent themselves from racing with
++		 * one another), and retry the hash chain traversal.
++		 */
++		ASSERT(op != DTRACE_DYNVAR_DEALLOC);
++		goto top;
++	}
 +
 +	if (op != DTRACE_DYNVAR_ALLOC) {
 +		/*
@@ -3391,12 +3777,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			mstate->dtms_present |= DTRACE_MSTATE_TIMESTAMP;
 +		}
 +
-+		return mstate->dtms_timestamp;
++		return ktime_to_ns(mstate->dtms_timestamp);
 +
 +	case DIF_VAR_VTIMESTAMP:
 +		ASSERT(dtrace_vtime_references != 0);
 +
-+		return current->dtrace_vtime;
++		return ktime_to_ns(current->dtrace_vtime);
 +
 +	case DIF_VAR_WALLTIMESTAMP:
 +		if (!(mstate->dtms_present & DTRACE_MSTATE_WALLTIMESTAMP)) {
@@ -3404,7 +3790,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			mstate->dtms_present |= DTRACE_MSTATE_WALLTIMESTAMP;
 +		}
 +
-+		return mstate->dtms_walltimestamp;
++		return ktime_to_ns(mstate->dtms_walltimestamp);
 +
 +	case DIF_VAR_IPL:
 +		if (!dtrace_priv_kernel(state))
@@ -3710,7 +4096,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +
 +	switch (subr) {
 +	case DIF_SUBR_RAND:
-+		regs[rd] = (dtrace_gethrtime() * 2416 + 374441) % 1771875;
++		regs[rd] = ktime_to_ns(dtrace_gethrtime()) * 2416 + 374441;
++		regs[rd] = do_div(regs[rd], 1771875);
 +		break;
 +
 +	case DIF_SUBR_MUTEX_OWNED:
@@ -4005,9 +4392,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		break;
 +
 +	case DIF_SUBR_COPYOUT: {
-+		uintptr_t kaddr = tupregs[0].dttk_value;
-+		uintptr_t uaddr = tupregs[1].dttk_value;
-+		uint64_t size = tupregs[2].dttk_value;
++		uintptr_t	kaddr = tupregs[0].dttk_value;
++		uintptr_t	uaddr = tupregs[1].dttk_value;
++		uint64_t	size = tupregs[2].dttk_value;
 +
 +		if (!dtrace_destructive_disallow &&
 +		    dtrace_priv_proc_control(state) &&
@@ -4020,9 +4407,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_COPYOUTSTR: {
-+		uintptr_t kaddr = tupregs[0].dttk_value;
-+		uintptr_t uaddr = tupregs[1].dttk_value;
-+		uint64_t size = tupregs[2].dttk_value;
++		uintptr_t	kaddr = tupregs[0].dttk_value;
++		uintptr_t	uaddr = tupregs[1].dttk_value;
++		uint64_t	size = tupregs[2].dttk_value;
 +
 +		if (!dtrace_destructive_disallow &&
 +		    dtrace_priv_proc_control(state) &&
@@ -4035,10 +4422,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_STRLEN: {
-+		size_t sz;
-+		uintptr_t addr = (uintptr_t)tupregs[0].dttk_value;
++		size_t		sz;
++		uintptr_t	addr = (uintptr_t)tupregs[0].dttk_value;
++
 +		sz = dtrace_strlen((char *)addr,
-+		    state->dts_options[DTRACEOPT_STRSIZE]);
++				   state->dts_options[DTRACEOPT_STRSIZE]);
 +
 +		if (!dtrace_canload(addr, sz + 1, mstate, vstate)) {
 +			regs[rd] = 0;
@@ -4059,10 +4447,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		 * is DIF_SUBR_STRRCHR, we will look for the last occurrence
 +		 * of the specified character instead of the first.
 +		 */
-+		uintptr_t saddr = tupregs[0].dttk_value;
-+		uintptr_t addr = tupregs[0].dttk_value;
-+		uintptr_t limit = addr + state->dts_options[DTRACEOPT_STRSIZE];
-+		char c, target = (char)tupregs[1].dttk_value;
++		uintptr_t	saddr = tupregs[0].dttk_value;
++		uintptr_t	addr = tupregs[0].dttk_value;
++		uintptr_t	limit = addr +
++					state->dts_options[DTRACEOPT_STRSIZE];
++		char		c, target = (char)tupregs[1].dttk_value;
 +
 +		for (regs[rd] = 0; addr < limit; addr++) {
 +			if ((c = dtrace_load8(addr)) == target) {
@@ -4096,14 +4485,16 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		 * relatively short, the complexity of Rabin-Karp or similar
 +		 * hardly seems merited.)
 +		 */
-+		char *addr = (char *)(uintptr_t)tupregs[0].dttk_value;
-+		char *substr = (char *)(uintptr_t)tupregs[1].dttk_value;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		size_t len = dtrace_strlen(addr, size);
-+		size_t sublen = dtrace_strlen(substr, size);
-+		char *limit = addr + len, *orig = addr;
-+		int notfound = subr == DIF_SUBR_STRSTR ? 0 : -1;
-+		int inc = 1;
++		char		*addr = (char *)(uintptr_t)
++							tupregs[0].dttk_value;
++		char		*substr = (char *)(uintptr_t)
++							tupregs[1].dttk_value;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		size_t		len = dtrace_strlen(addr, size);
++		size_t		sublen = dtrace_strlen(substr, size);
++		char		*limit = addr + len, *orig = addr;
++		int		notfound = subr == DIF_SUBR_STRSTR ? 0 : -1;
++		int		inc = 1;
 +
 +		regs[rd] = notfound;
 +
@@ -4113,7 +4504,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		}
 +
 +		if (!dtrace_canload((uintptr_t)substr, sublen + 1, mstate,
-+		    vstate)) {
++				    vstate)) {
 +			regs[rd] = 0;
 +			break;
 +		}
@@ -4144,7 +4535,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			 * argument that denotes the starting position.
 +			 */
 +			if (nargs == 3) {
-+				int64_t pos = (int64_t)tupregs[2].dttk_value;
++				int64_t	pos = (int64_t)tupregs[2].dttk_value;
 +
 +				/*
 +				 * If the position argument to index() is
@@ -4235,13 +4626,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_STRTOK: {
-+		uintptr_t addr = tupregs[0].dttk_value;
-+		uintptr_t tokaddr = tupregs[1].dttk_value;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		uintptr_t limit, toklimit = tokaddr + size;
-+		uint8_t c, tokmap[32];	 /* 256 / 8 */
-+		char *dest = (char *)mstate->dtms_scratch_ptr;
-+		int i;
++		uintptr_t	addr = tupregs[0].dttk_value;
++		uintptr_t	tokaddr = tupregs[1].dttk_value;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		uintptr_t	limit, toklimit = tokaddr + size;
++		uint8_t		c, tokmap[32];	/* 256 / 8 */
++		char		*dest = (char *)mstate->dtms_scratch_ptr;
++		int		i;
 +
 +		/*
 +		 * Check both the token buffer and (later) the input buffer,
@@ -4345,13 +4736,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_SUBSTR: {
-+		uintptr_t s = tupregs[0].dttk_value;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		char *d = (char *)mstate->dtms_scratch_ptr;
-+		int64_t index = (int64_t)tupregs[1].dttk_value;
-+		int64_t remaining = (int64_t)tupregs[2].dttk_value;
-+		size_t len = dtrace_strlen((char *)s, size);
-+		int64_t i = 0;
++		uintptr_t	s = tupregs[0].dttk_value;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		char		*d = (char *)mstate->dtms_scratch_ptr;
++		int64_t		index = (int64_t)tupregs[1].dttk_value;
++		int64_t		remaining = (int64_t)tupregs[2].dttk_value;
++		size_t		len = dtrace_strlen((char *)s, size);
++		int64_t		i = 0;
 +
 +		if (!dtrace_canload(s, len + 1, mstate, vstate)) {
 +			regs[rd] = 0;
@@ -4600,11 +4991,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +#endif
 +
 +	case DIF_SUBR_STRJOIN: {
-+		char *d = (char *)mstate->dtms_scratch_ptr;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		uintptr_t s1 = tupregs[0].dttk_value;
-+		uintptr_t s2 = tupregs[1].dttk_value;
-+		int i = 0;
++		char		*d = (char *)mstate->dtms_scratch_ptr;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		uintptr_t	s1 = tupregs[0].dttk_value;
++		uintptr_t	s2 = tupregs[1].dttk_value;
++		int		i = 0;
 +
 +		if (!dtrace_strcanload(s1, size, mstate, vstate) ||
 +		    !dtrace_strcanload(s2, size, mstate, vstate)) {
@@ -4651,10 +5042,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_LLTOSTR: {
-+		int64_t i = (int64_t)tupregs[0].dttk_value;
-+		int64_t val = i < 0 ? i * -1 : i;
-+		uint64_t size = 22;	/* enough room for 2^64 in decimal */
-+		char *end = (char *)mstate->dtms_scratch_ptr + size - 1;
++		int64_t		i = (int64_t)tupregs[0].dttk_value;
++		int64_t		val = i < 0 ? i * -1 : i;
++		uint64_t	size = 22;	/* room for 2^64 in dec */
++		char		*end = (char *)mstate->dtms_scratch_ptr + size
++									- 1;
 +
 +		if (!DTRACE_INSCRATCH(mstate, size)) {
 +			DTRACE_CPUFLAG_SET(CPU_DTRACE_NOSCRATCH);
@@ -4662,8 +5054,18 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			break;
 +		}
 +
-+		for (*end-- = '\0'; val; val /= 10)
-+			*end-- = '0' + (val % 10);
++		/*
++		 * GCC on Linux introduces calls to functions that are not
++		 * linked into the kernel image, so we need to use the do_div()
++		 * function instead.  It modifies the first argument in place
++		 * (replaces it with the quotient), and returns the remainder.
++		 *
++		 * Was:
++		 *	for (*end-- = '\0'; val; val /= 10)
++		 *		*end-- = '0' + (val % 10);
++		 */
++		for (*end-- = '\0'; val; )
++			*end-- = '0' + do_div(val, 10);
 +
 +		if (i == 0)
 +			*end-- = '0';
@@ -4708,12 +5110,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +
 +	case DIF_SUBR_DIRNAME:
 +	case DIF_SUBR_BASENAME: {
-+		char *dest = (char *)mstate->dtms_scratch_ptr;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		uintptr_t src = tupregs[0].dttk_value;
-+		int i, j, len = dtrace_strlen((char *)src, size);
-+		int lastbase = -1, firstbase = -1, lastdir = -1;
-+		int start, end;
++		char		*dest = (char *)mstate->dtms_scratch_ptr;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		uintptr_t	src = tupregs[0].dttk_value;
++		int		i, j, len = dtrace_strlen((char *)src, size);
++		int		lastbase = -1, firstbase = -1, lastdir = -1;
++		int		start, end;
 +
 +		if (!dtrace_canload(src, len + 1, mstate, vstate)) {
 +			regs[rd] = 0;
@@ -4838,10 +5240,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	}
 +
 +	case DIF_SUBR_CLEANPATH: {
-+		char *dest = (char *)mstate->dtms_scratch_ptr, c;
-+		uint64_t size = state->dts_options[DTRACEOPT_STRSIZE];
-+		uintptr_t src = tupregs[0].dttk_value;
-+		int i = 0, j = 0;
++		char		*dest = (char *)mstate->dtms_scratch_ptr, c;
++		uint64_t	size = state->dts_options[DTRACEOPT_STRSIZE];
++		uintptr_t	src = tupregs[0].dttk_value;
++		int		i = 0, j = 0;
 +
 +		if (!dtrace_strcanload(src, size, mstate, vstate)) {
 +			regs[rd] = 0;
@@ -4948,9 +5350,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +	case DIF_SUBR_INET_NTOA:
 +	case DIF_SUBR_INET_NTOA6:
 +	case DIF_SUBR_INET_NTOP: {
-+		size_t size;
-+		int af, argi, i;
-+		char *base, *end;
++		size_t	size;
++		int	af, argi, i;
++		char	*base, *end;
 +
 +		if (subr == DIF_SUBR_INET_NTOP) {
 +			af = (int)tupregs[0].dttk_value;
@@ -4961,8 +5363,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +		}
 +
 +		if (af == AF_INET) {
-+			ipaddr_t ip4;
-+			uint8_t *ptr8, val;
++			ipaddr_t	ip4;
++			uint8_t		*ptr8, val;
 +
 +			/*
 +			 * Safely load the IPv4 address.
@@ -5003,10 +5405,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			ASSERT(end + 1 >= base);
 +#ifdef CONFIG_IPV6
 +		} else if (af == AF_INET6) {
-+			struct in6_addr ip6;
-+			int firstzero, tryzero, numzero, v6end;
-+			uint16_t val;
-+			const char digits[] = "0123456789abcdef";
++			struct in6_addr	ip6;
++			int		firstzero, tryzero, numzero, v6end;
++			uint16_t	val;
++			const char	digits[] = "0123456789abcdef";
 +
 +			/*
 +			 * Stringify using RFC 1884 convention 2 - 16 bit
@@ -5144,7 +5546,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			break;
 +		}
 +
-+inetout:	regs[rd] = (uintptr_t)end + 1;
++#ifdef CONFIG_IPV6
++inetout:
++#endif
++		regs[rd] = (uintptr_t)end + 1;
 +		mstate->dtms_scratch_ptr += size;
 +		break;
 +	}
@@ -5231,8 +5636,16 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				regs[rd] = 0;
 +				*flags |= CPU_DTRACE_DIVZERO;
 +			} else {
-+				regs[rd] = (int64_t)regs[r1] /
-+					   (int64_t)regs[r2];
++				/*
++				 * We cannot simply do a 64-bit division, since
++				 * gcc translates it into a call to a function
++				 * that is not linked into the kernel.
++				 *
++				 * regs[rd] = (int64_t)regs[r1] /
++				 *	      (int64_t)regs[r2];
++				 */
++				regs[rd] = (int64_t)regs[r1];
++				do_div(regs[rd], (int64_t)regs[r2]);
 +			}
 +			break;
 +
@@ -5241,7 +5654,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				regs[rd] = 0;
 +				*flags |= CPU_DTRACE_DIVZERO;
 +			} else {
-+				regs[rd] = regs[r1] / regs[r2];
++				/*
++				 * We cannot simply do a 64-bit division, since
++				 * gcc translates it into a call to a function
++				 * that is not linked into the kernel.
++				 *
++				 * regs[rd] = regs[r1] / regs[r2];
++				 */
++				regs[rd] = regs[r1];
++				do_div(regs[rd], regs[r2]);
 +			}
 +			break;
 +
@@ -5250,8 +5671,17 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				regs[rd] = 0;
 +				*flags |= CPU_DTRACE_DIVZERO;
 +			} else {
-+				regs[rd] = (int64_t)regs[r1] %
-+					   (int64_t)regs[r2];
++				/*
++				 * We cannot simply do a 64-bit division, since
++				 * gcc translates it into a call to a function
++				 * that is not linked into the kernel.
++				 *
++				 * regs[rd] = (int64_t)regs[r1] %
++				 *	      (int64_t)regs[r2];
++				 */
++				regs[rd] = (int64_t)regs[r1];
++				regs[rd] = do_div((int64_t)regs[rd],
++						  (int64_t)regs[r2]);
 +			}
 +			break;
 +
@@ -5259,8 +5689,17 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			if (regs[r2] == 0) {
 +				regs[rd] = 0;
 +				*flags |= CPU_DTRACE_DIVZERO;
-+			} else
-+				regs[rd] = regs[r1] % regs[r2];
++			} else {
++				/*
++				 * We cannot simply do a 64-bit division, since
++				 * gcc translates it into a call to a function
++				 * that is not linked into the kernel.
++				 *
++				 * regs[rd] = regs[r1] % regs[r2];
++				 */
++				regs[rd] = regs[r1];
++				regs[rd] = do_div(regs[rd], regs[r2]);
++			}
 +			break;
 +
 +		case DIF_OP_NOT:
@@ -5504,7 +5943,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +			if (v->dtdv_type.dtdt_flags & DIF_TF_BYREF) {
 +				uintptr_t	a = (uintptr_t)svar->dtsv_data;
 +
-+				ASSERT(a != NULL);
++				ASSERT(a != 0);
 +				ASSERT(svar->dtsv_size != 0);
 +
 +				if (regs[rd] == 0) {
@@ -5954,8 +6393,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dof.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dof.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,989 @@
++++ ./kernel/dtrace/dtrace_dof.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,1051 @@
 +/*
 + * FILE:	dtrace_dof.c
 + * DESCRIPTION:	Dynamic Tracing: DOF object functions
@@ -5983,6 +6422,68 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +#endif
 +}
 +
++/*
++ * Create DOF out of a currently enabled state.  Right now, we only create
++ * DOF containing the run-time options -- but this could be expanded to create
++ * complete DOF representing the enabled state.
++ */
++dof_hdr_t *dtrace_dof_create(dtrace_state_t *state)
++{
++	dof_hdr_t	*dof;
++	dof_sec_t	*sec;
++	dof_optdesc_t	*opt;
++	int		i, len = sizeof(dof_hdr_t) +
++				 roundup(sizeof(dof_sec_t), sizeof(uint64_t)) +
++				 sizeof(dof_optdesc_t) * DTRACEOPT_MAX;
++
++	ASSERT(mutex_is_locked(&dtrace_lock));
++
++	dof = kmalloc(len, GFP_KERNEL);
++	dof->dofh_ident[DOF_ID_MAG0] = DOF_MAG_MAG0;
++	dof->dofh_ident[DOF_ID_MAG1] = DOF_MAG_MAG1;
++	dof->dofh_ident[DOF_ID_MAG2] = DOF_MAG_MAG2;
++	dof->dofh_ident[DOF_ID_MAG3] = DOF_MAG_MAG3;
++
++	dof->dofh_ident[DOF_ID_MODEL] = DOF_MODEL_NATIVE;
++	dof->dofh_ident[DOF_ID_ENCODING] = DOF_ENCODE_NATIVE;
++	dof->dofh_ident[DOF_ID_VERSION] = DOF_VERSION;
++	dof->dofh_ident[DOF_ID_DIFVERS] = DIF_VERSION;
++	dof->dofh_ident[DOF_ID_DIFIREG] = DIF_DIR_NREGS;
++	dof->dofh_ident[DOF_ID_DIFTREG] = DIF_DTR_NREGS;
++
++	dof->dofh_flags = 0;
++	dof->dofh_hdrsize = sizeof(dof_hdr_t);
++	dof->dofh_secsize = sizeof(dof_sec_t);
++	dof->dofh_secnum = 1;   /* only DOF_SECT_OPTDESC */
++	dof->dofh_secoff = sizeof(dof_hdr_t);
++	dof->dofh_loadsz = len;
++	dof->dofh_filesz = len;
++	dof->dofh_pad = 0;
++
++	/*
++	 * Fill in the option section header...
++	 */
++	sec = (dof_sec_t *)((uintptr_t)dof + sizeof(dof_hdr_t));
++	sec->dofs_type = DOF_SECT_OPTDESC;
++	sec->dofs_align = sizeof(uint64_t);
++	sec->dofs_flags = DOF_SECF_LOAD;
++	sec->dofs_entsize = sizeof(dof_optdesc_t);
++
++	opt = (dof_optdesc_t *)((uintptr_t)sec +
++				roundup(sizeof(dof_sec_t), sizeof(uint64_t)));
++
++	sec->dofs_offset = (uintptr_t)opt - (uintptr_t)dof;
++	sec->dofs_size = sizeof(dof_optdesc_t) * DTRACEOPT_MAX;
++
++	for (i = 0; i < DTRACEOPT_MAX; i++) {
++		opt[i].dofo_option = i;
++		opt[i].dofo_strtab = DOF_SECIDX_NONE;
++		opt[i].dofo_value = state->dts_options[i];
++	}
++
++	return dof;
++}
++
 +dof_hdr_t *dtrace_dof_copyin(void __user *argp, int *errp)
 +{
 +	dof_hdr_t	hdr, *dof;
@@ -5990,9 +6491,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	ASSERT(!mutex_is_locked(&dtrace_lock));
 +
 +	/*
-+	 * First, we're going to copyin() the sizeof (dof_hdr_t).
++	 * First, we're going to copyin() the sizeof(dof_hdr_t).
 +	 */
-+	if (copy_from_user(&hdr, argp, sizeof (hdr)) != 0) {
++	if (copy_from_user(&hdr, argp, sizeof(hdr)) != 0) {
 +		dtrace_dof_error(NULL, "failed to copyin DOF header");
 +		*errp = -EFAULT;
 +		return NULL;
@@ -6008,7 +6509,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return NULL;
 +	}
 +
-+	if (hdr.dofh_loadsz < sizeof (hdr)) {
++	if (hdr.dofh_loadsz < sizeof(hdr)) {
 +		dtrace_dof_error(&hdr, "invalid load size");
 +		*errp = -EINVAL;
 +		return NULL;
@@ -6051,7 +6552,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	for (i = 0; i < len; i++)
 +		buf[i] = (uchar_t)(((int *)buf)[i]);
 +
-+	if (len < sizeof (dof_hdr_t)) {
++	if (len < sizeof(dof_hdr_t)) {
 +#ifdef FIXME
 +		ddi_prop_free(buf);
 +#endif
@@ -6134,12 +6635,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_align != sizeof (dof_secidx_t)) {
++	if (sec->dofs_align != sizeof(dof_secidx_t)) {
 +		dtrace_dof_error(dof, "bad alignment in probe description");
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_offset + sizeof (dof_probedesc_t) > dof->dofh_loadsz) {
++	if (sec->dofs_offset + sizeof(dof_probedesc_t) > dof->dofh_loadsz) {
 +		dtrace_dof_error(dof, "truncated probe description");
 +		return NULL;
 +	}
@@ -6212,16 +6713,16 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +			DOF_SECT_DIF,
 +			offsetof(dtrace_difo_t, dtdo_buf),
 +			offsetof(dtrace_difo_t, dtdo_len),
-+			sizeof (dif_instr_t),
-+			sizeof (dif_instr_t),
++			sizeof(dif_instr_t),
++			sizeof(dif_instr_t),
 +			"multiple DIF sections"
 +		},
 +		{
 +			DOF_SECT_INTTAB,
 +			offsetof(dtrace_difo_t, dtdo_inttab),
 +			offsetof(dtrace_difo_t, dtdo_intlen),
-+			sizeof (uint64_t),
-+			sizeof (uint64_t),
++			sizeof(uint64_t),
++			sizeof(uint64_t),
 +			"multiple integer tables"
 +		},
 +		{
@@ -6229,15 +6730,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +			offsetof(dtrace_difo_t, dtdo_strtab),
 +			offsetof(dtrace_difo_t, dtdo_strlen),
 +			0,
-+			sizeof (char),
++			sizeof(char),
 +			"multiple string tables"
 +		},
 +		{
 +			DOF_SECT_VARTAB,
 +			offsetof(dtrace_difo_t, dtdo_vartab),
 +			offsetof(dtrace_difo_t, dtdo_varlen),
-+			sizeof (dtrace_difv_t),
-+			sizeof (uint_t),
++			sizeof(dtrace_difv_t),
++			sizeof(uint_t),
 +			"multiple variable tables"
 +		},
 +		{
@@ -6255,21 +6756,21 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_align != sizeof (dof_secidx_t)) {
++	if (sec->dofs_align != sizeof(dof_secidx_t)) {
 +		dtrace_dof_error(dof, "bad alignment in DIFO header");
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_size < sizeof (dof_difohdr_t) ||
-+	    sec->dofs_size % sizeof (dof_secidx_t)) {
++	if (sec->dofs_size < sizeof(dof_difohdr_t) ||
++	    sec->dofs_size % sizeof(dof_secidx_t)) {
 +		dtrace_dof_error(dof, "bad size in DIFO header");
 +		return NULL;
 +	}
 +
 +	dofd = (dof_difohdr_t *)(uintptr_t)(daddr + sec->dofs_offset);
-+	n = (sec->dofs_size - sizeof (*dofd)) / sizeof (dof_secidx_t) + 1;
++	n = (sec->dofs_size - sizeof(*dofd)) / sizeof(dof_secidx_t) + 1;
 +
-+	dp = kzalloc(sizeof (dtrace_difo_t), GFP_KERNEL);
++	dp = kzalloc(sizeof(dtrace_difo_t), GFP_KERNEL);
 +	dp->dtdo_rtype = dofd->dofd_rtype;
 +
 +	for (l = 0; l < n; l++) {
@@ -6421,12 +6922,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_offset + sizeof (dof_actdesc_t) > dof->dofh_loadsz) {
++	if (sec->dofs_offset + sizeof(dof_actdesc_t) > dof->dofh_loadsz) {
 +		dtrace_dof_error(dof, "truncated action description");
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_align != sizeof (uint64_t)) {
++	if (sec->dofs_align != sizeof(uint64_t)) {
 +		dtrace_dof_error(dof, "bad alignment in action description");
 +		return NULL;
 +	}
@@ -6436,7 +6937,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_entsize != sizeof (dof_actdesc_t)) {
++	if (sec->dofs_entsize != sizeof(dof_actdesc_t)) {
 +		dtrace_dof_error(dof, "bad entry size in action description");
 +		return NULL;
 +	}
@@ -6545,12 +7046,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	dtrace_probedesc_t	*desc;
 +	dtrace_predicate_t	*pred = NULL;
 +
-+	if (sec->dofs_size < sizeof (dof_ecbdesc_t)) {
++	if (sec->dofs_size < sizeof(dof_ecbdesc_t)) {
 +		dtrace_dof_error(dof, "truncated ECB description");
 +		return NULL;
 +	}
 +
-+	if (sec->dofs_align != sizeof (uint64_t)) {
++	if (sec->dofs_align != sizeof(uint64_t)) {
 +		dtrace_dof_error(dof, "bad alignment in ECB description");
 +		return NULL;
 +	}
@@ -6561,7 +7062,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	if (sec == NULL)
 +		return NULL;
 +
-+	ep = kzalloc(sizeof (dtrace_ecbdesc_t), GFP_KERNEL);
++	ep = kzalloc(sizeof(dtrace_ecbdesc_t), GFP_KERNEL);
 +	ep->dted_uarg = ecb->dofe_uarg;
 +	desc = &ep->dted_probe;
 +
@@ -6614,8 +7115,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	dof_relodesc_t	*r;
 +	uint_t		i, n;
 +
-+	if (sec->dofs_size < sizeof (dof_relohdr_t) ||
-+	    sec->dofs_align != sizeof (dof_secidx_t)) {
++	if (sec->dofs_size < sizeof(dof_relohdr_t) ||
++	    sec->dofs_align != sizeof(dof_secidx_t)) {
 +		dtrace_dof_error(dof, "invalid relocation header");
 +		return -1;
 +	}
@@ -6627,8 +7128,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	if (ss == NULL || rs == NULL || ts == NULL)
 +		return -1; /* dtrace_dof_error() has been called already */
 +
-+	if (rs->dofs_entsize < sizeof (dof_relodesc_t) ||
-+	    rs->dofs_align != sizeof (uint64_t)) {
++	if (rs->dofs_entsize < sizeof(dof_relodesc_t) ||
++	    rs->dofs_align != sizeof(uint64_t)) {
 +		dtrace_dof_error(dof, "invalid relocation section");
 +		return -1;
 +	}
@@ -6651,13 +7152,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +			break;
 +		case DOF_RELO_SETX:
 +			if (r->dofr_offset >= ts->dofs_size ||
-+			    r->dofr_offset + sizeof (uint64_t) >
++			    r->dofr_offset + sizeof(uint64_t) >
 +				ts->dofs_size) {
 +				dtrace_dof_error(dof, "bad relocation offset");
 +				return -1;
 +			}
 +
-+			if (!IS_ALIGNED(taddr, sizeof (uint64_t))) {
++			if (!IS_ALIGNED(taddr, sizeof(uint64_t))) {
 +				dtrace_dof_error(dof, "misaligned setx relo");
 +				return -1;
 +			}
@@ -6678,7 +7179,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +/*
 + * The dof_hdr_t passed to dtrace_dof_slurp() should be a partially validated
 + * header:  it should be at the front of a memory region that is at least
-+ * sizeof (dof_hdr_t) in size -- and then at least dof_hdr.dofh_loadsz in
++ * sizeof(dof_hdr_t) in size -- and then at least dof_hdr.dofh_loadsz in
 + * size.  It need not be validated in any other way.
 + */
 +int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
@@ -6691,7 +7192,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +	uint_t			i;
 +
 +	ASSERT(mutex_is_locked(&dtrace_lock));
-+	ASSERT(dof->dofh_loadsz >= sizeof (dof_hdr_t));
++	ASSERT(dof->dofh_loadsz >= sizeof(dof_hdr_t));
 +
 +	/*
 +	 * Check the DOF header identification bytes.  In addition to checking
@@ -6765,12 +7266,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		return -1;
 +	}
 +
-+	if (!IS_ALIGNED(dof->dofh_secoff, sizeof (uint64_t))) {
++	if (!IS_ALIGNED(dof->dofh_secoff, sizeof(uint64_t))) {
 +		dtrace_dof_error(dof, "misaligned section headers");
 +		return -1;
 +	}
 +
-+	if (!IS_ALIGNED(dof->dofh_secsize, sizeof (uint64_t))) {
++	if (!IS_ALIGNED(dof->dofh_secsize, sizeof(uint64_t))) {
 +		dtrace_dof_error(dof, "misaligned section size");
 +		return -1;
 +	}
@@ -6902,7 +7403,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +		if (sec->dofs_type != DOF_SECT_OPTDESC)
 +			continue;
 +
-+		if (sec->dofs_align != sizeof (uint64_t)) {
++		if (sec->dofs_align != sizeof(uint64_t)) {
 +			dtrace_dof_error(
 +				dof, "bad alignment in option description");
 +			return -EINVAL;
@@ -6913,7 +7414,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +			return -EINVAL;
 +		}
 +
-+		if (entsize < sizeof (dof_optdesc_t)) {
++		if (entsize < sizeof(dof_optdesc_t)) {
 +			dtrace_dof_error(dof, "bad option entry size");
 +			return -EINVAL;
 +		}
@@ -6947,7 +7448,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ecb.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_ecb.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,762 @@
 +/*
 + * FILE:	dtrace_ecb.c
@@ -7713,7 +8214,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_enable.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_enable.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_enable.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_enable.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,414 @@
 +/*
 + * FILE:	dtrace_enable.c
@@ -8131,7 +8632,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_e
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_fmt.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_fmt.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,84 @@
 +/*
 + * FILE:	dtrace_fmt.c
@@ -8219,19 +8720,20 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace.h	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,2124 @@
++++ ./kernel/dtrace/dtrace.h	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,2247 @@
 +#ifndef _DTRACE_H_
 +#define _DTRACE_H_
 +
-+#include <linux/clocksource.h>
 +#include <linux/cred.h>
-+#include <linux/sched.h>
++#include <linux/ktime.h>
 +#include <linux/module.h>
-+#include <linux/types.h>
++#include <linux/sched.h>
 +#include <linux/stringify.h>
++#include <linux/types.h>
 +#include <asm/bitsperlong.h>
 +#include <asm/ptrace.h>
++#include <asm/sections.h>
 +
 +#include "cyclic.h"
 +
@@ -8522,12 +9024,23 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +} boolean_t;
 +
 +typedef struct cred	cred_t;
-+typedef cycle_t		hrtime_t;
 +typedef __be32		ipaddr_t;
 +
 +typedef typeof(((struct pt_regs *)0)->ip)	pc_t;
 +
 +#define P2ROUNDUP(x, a)	(-(-(x) & -(a)))
++
++#if (BITS_PER_LONG == 64) || defined(CONFIG_KTIME_SCALAR)
++# define KTIME_INIT(s, ns)	{ .tv64 = (s64)(s) * NSEC_PER_SEC + (s64)(ns) }
++#else
++# define KTIME_INIT(n, ns)	{ .tv = { .sec = (s), .nsec = (ns) } }
++#endif
++#define ktime_lt(t0, t1)	((t0).tv64 < (t1).tv64)
++#define ktime_le(t0, t1)	((t0).tv64 <= (t1).tv64)
++#define ktime_ge(t0, t1)	((t0).tv64 >= (t1).tv64)
++#define ktime_gt(t0, t1)	((t0).tv64 > (t1).tv64)
++#define ktime_nz(t0)		((t0).tv64 != 0LL)
++#define ktime_cp(t0, t1)	((t0).tv64 = (t1).tv64)
 +
 +typedef struct dtrace_ppriv {
 +	uint32_t dtpp_flags;
@@ -8706,36 +9219,59 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	dtrace_difv_t dtsv_var;
 +} dtrace_statvar_t;
 +
++/*
++ * DTrace Metadata Description Structures
++ *
++ * DTrace separates the trace data stream from the metadata stream.  The only
++ * metadata tokens placed in the data stream are enabled probe identifiers
++ * (EPIDs) or (in the case of aggregations) aggregation identifiers.  In order
++ * to determine the structure of the data, DTrace consumers pass the token to
++ * the kernel, and receive in return a corresponding description of the enabled
++ * probe (via the dtrace_eprobedesc structure) or the aggregation (via the
++ * dtrace_aggdesc structure).  Both of these structures are expressed in terms
++ * of record descriptions (via the dtrace_recdesc structure) that describe the
++ * exact structure of the data.  Some record descriptions may also contain a
++ * format identifier; this additional bit of metadata can be retrieved from the
++ * kernel, for which a format description is returned via the dtrace_fmtdesc
++ * structure.  Note that all four of these structures must be bitness-neutral
++ * to allow for a 32-bit DTrace consumer on a 64-bit kernel.
++ */
 +typedef struct dtrace_recdesc {
-+	dtrace_actkind_t dtrd_action;
-+	uint32_t dtrd_size;
-+	uint32_t dtrd_offset;
-+	uint16_t dtrd_alignment;
-+	uint16_t dtrd_format;
-+	uint64_t dtrd_arg;
-+	uint64_t dtrd_uarg;
++	dtrace_actkind_t dtrd_action;		/* kind of action */
++	uint32_t dtrd_size;			/* size of record */
++	uint32_t dtrd_offset;			/* offset in ECB's data */
++	uint16_t dtrd_alignment;		/* required alignment */
++	uint16_t dtrd_format;			/* format, if any */
++	uint64_t dtrd_arg;			/* action argument */
++	uint64_t dtrd_uarg;			/* user argument */
 +} dtrace_recdesc_t;
 +
 +typedef struct dtrace_eprobedesc {
-+	dtrace_epid_t dtepd_epid;
-+	dtrace_id_t dtepd_probeid;
-+	uint64_t dtepd_uarg;
-+	uint32_t dtepd_size;
-+	int dtepd_nrecs;
-+	dtrace_recdesc_t dtepd_rec[1];
++	dtrace_epid_t dtepd_epid;		/* enabled probe ID */
++	dtrace_id_t dtepd_probeid;		/* probe ID */
++	uint64_t dtepd_uarg;			/* library argument */
++	uint32_t dtepd_size;			/* total size */
++	int dtepd_nrecs;			/* number of records */
++	dtrace_recdesc_t dtepd_rec[1];		/* recods themselves */
 +} dtrace_eprobedesc_t;
 +
 +typedef struct dtrace_aggdesc {
-+	DTRACE_PTR(char, dtagd_name);
-+	dtrace_aggvarid_t dtagd_varid;
-+	int dtagd_flags;
-+	dtrace_aggid_t dtagd_id;
-+	dtrace_epid_t dtagd_epid;
-+	uint32_t dtagd_size;
-+	int dtagd_nrecs;
-+	uint32_t dtagd_pad;
-+	dtrace_recdesc_t dtagd_rec[1];
++	DTRACE_PTR(char, dtagd_name);		/* not filled in by kernel */
++	dtrace_aggvarid_t dtagd_varid;		/* not filled in by kernel */
++	int dtagd_flags;			/* not filled in by kernel */
++	dtrace_aggid_t dtagd_id;		/* aggregation ID */
++	dtrace_epid_t dtagd_epid;		/* enabled probe ID */
++	uint32_t dtagd_size;			/* size in bytes */
++	int dtagd_nrecs;			/* number of records */
++	uint32_t dtagd_pad;			/* explicit padding */
++	dtrace_recdesc_t dtagd_rec[1];		/* record descriptions */
 +} dtrace_aggdesc_t;
++
++typedef struct dtrace_fmtdesc {
++	DTRACE_PTR(char, dtfd_string);		/* format string */
++	int dtfd_length;			/* length of format string */
++	uint16_t dtfd_format;			/* format identifier */
++} dtrace_fmtdesc_t;
 +
 +typedef struct dtrace_action {
 +	dtrace_actkind_t dta_kind;
@@ -8903,8 +9439,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	uint32_t dtms_present;
 +	uint64_t dtms_arg[5];
 +	dtrace_epid_t dtms_epid;
-+	uint64_t dtms_timestamp;
-+	hrtime_t dtms_walltimestamp;
++	ktime_t dtms_timestamp;
++	ktime_t dtms_walltimestamp;
 +	int dtms_stackdepth;
 +	int dtms_ustackdepth;
 +	struct dtrace_probe *dtms_probe;
@@ -8990,10 +9526,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	uint32_t dts_stkstroverflows;
 +	uint32_t dts_dblerrors;
 +	uint32_t dts_reserve;
-+	hrtime_t dts_laststatus;
++	ktime_t dts_laststatus;
 +	cyclic_id_t dts_cleaner;
 +	cyclic_id_t dts_deadman;
-+	hrtime_t dts_alive;
++	ktime_t dts_alive;
 +	char dts_speculates;
 +	char dts_destructive;
 +	int dts_nformats;
@@ -9234,10 +9770,81 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +extern int dtrace_istoxic(uintptr_t, size_t);
 +
 +/*
++ * DTrace Buffer Interface
++ *
++ * In order to get a snapshot of the principal or aggregation buffer,
++ * user-level passes a buffer description to the kernel with the dtrace_bufdesc
++ * structure.  This describes which CPU user-level is interested in, and
++ * where user-level wishes the kernel to snapshot the buffer to (the
++ * dtbd_data field).  The kernel uses the same structure to pass back some
++ * information regarding the buffer:  the size of data actually copied out, the
++ * number of drops, the number of errors, and the offset of the oldest record.
++ * If the buffer policy is a "switch" policy, taking a snapshot of the
++ * principal buffer has the additional effect of switching the active and
++ * inactive buffers.  Taking a snapshot of the aggregation buffer _always_ has
++ * the additional effect of switching the active and inactive buffers.
++ */
++typedef struct dtrace_bufdesc {
++	uint64_t dtbd_size;			/* size of buffer */
++	uint32_t dtbd_cpu;			/* CPU or DTRACE_CPUALL */
++	uint32_t dtbd_errors;			/* number of errors */
++	uint64_t dtbd_drops;			/* number of drops */
++	DTRACE_PTR(char, dtbd_data);		/* data */
++	uint64_t dtbd_oldest;			/* offset of oldest record */
++} dtrace_bufdesc_t;
++
++/*
++ * DTrace Status
++ *
++ * The status of DTrace is relayed via the dtrace_status structure.  This
++ * structure contains members to count drops other than the capacity drops
++ * available via the buffer interface (see above).  This consists of dynamic
++ * drops (including capacity dynamic drops, rinsing drops and dirty drops), and
++ * speculative drops (including capacity speculative drops, drops due to busy
++ * speculative buffers and drops due to unavailable speculative buffers).
++ * Additionally, the status structure contains a field to indicate the number
++ * of "fill"-policy buffers have been filled and a boolean field to indicate
++ * that exit() has been called.  If the dtst_exiting field is non-zero, no
++ * further data will be generated until tracing is stopped (at which time any
++ * enablings of the END action will be processed); if user-level sees that
++ * this field is non-zero, tracing should be stopped as soon as possible.
++ */
++typedef struct dtrace_status {
++	uint64_t dtst_dyndrops;			/* dynamic drops */
++	uint64_t dtst_dyndrops_rinsing;		/* dyn drops due to rinsing */
++	uint64_t dtst_dyndrops_dirty;		/* dyn drops due to dirty */
++	uint64_t dtst_specdrops;		/* speculative drops */
++	uint64_t dtst_specdrops_busy;		/* spec drops due to busy */
++	uint64_t dtst_specdrops_unavail;	/* spec drops due to unavail */
++	uint64_t dtst_errors;			/* total errors */
++	uint64_t dtst_filled;			/* number of filled bufs */
++	uint64_t dtst_stkstroverflows;		/* stack string tab overflows */
++	uint64_t dtst_dblerrors;		/* errors in ERROR probes */
++	char dtst_killed;			/* non-zero if killed */
++	char dtst_exiting;			/* non-zero if exit() called */
++	char dtst_pad[6];			/* pad out to 64-bit align */
++} dtrace_status_t;
++
++/*
++ * DTrace Configuration
++ *
++ * User-level may need to understand some elements of the kernel DTrace
++ * configuration in order to generate correct DIF.  This information is
++ * conveyed via the dtrace_conf structure.
++ */
++typedef struct dtrace_conf {
++	uint_t dtc_difversion;			/* supported DIF version */
++	uint_t dtc_difintregs;			/* # of DIF integer registers */
++	uint_t dtc_diftupregs;			/* # of DIF tuple registers */
++	uint_t dtc_ctfmodel;			/* CTF data model */
++	uint_t dtc_pad[8];			/* reserved for future use */
++} dtrace_conf_t;
++
++/*
 + * DTrace Probe Context Functions
 + */
 +#undef ASSERT
-+#ifdef DEBUG
++#ifdef DT_DEBUG
 +# define ASSERT(x)	((void)((x) || dtrace_assfail(#x, __FILE__, __LINE__)))
 +#else
 +# define ASSERT(x)	((void)0)
@@ -9850,11 +10457,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#define DTRACE_STORE(type, tomax, offset, what) \
 +	*((type *)((uintptr_t)(tomax) + (uintptr_t)offset)) = (type)(what);
 +
++extern void dtrace_buffer_switch(dtrace_buffer_t *);
 +extern void dtrace_buffer_activate(dtrace_state_t *);
 +extern int dtrace_buffer_alloc(dtrace_buffer_t *, size_t, int, processorid_t);
 +extern void dtrace_buffer_drop(dtrace_buffer_t *);
 +extern intptr_t dtrace_buffer_reserve(dtrace_buffer_t *, size_t, size_t,
 +				      dtrace_state_t *, dtrace_mstate_t *);
++extern void dtrace_buffer_polish(dtrace_buffer_t *);
 +extern void dtrace_buffer_free(dtrace_buffer_t *);
 +
 +/*
@@ -10164,6 +10773,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	uint32_t dofxr_argn;
 +} dof_xlref_t;
 +
++extern dof_hdr_t *dtrace_dof_create(dtrace_state_t *);
 +extern dof_hdr_t *dtrace_dof_copyin(void __user *, int *);
 +extern dof_hdr_t *dtrace_dof_property(const char *);
 +extern void dtrace_dof_destroy(dof_hdr_t *);
@@ -10191,12 +10801,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +extern struct kmem_cache	*dtrace_state_cache;
 +extern size_t			dtrace_strsize_default;
 +
-+extern cycle_t			dtrace_deadman_timeout;
++extern ktime_t			dtrace_deadman_timeout;
 +extern int			dtrace_destructive_disallow;
 +
 +extern dtrace_id_t		dtrace_probeid_begin;
 +extern dtrace_id_t		dtrace_probeid_end;
 +extern dtrace_id_t		dtrace_probeid_error;
++
++extern dtrace_dynvar_t		dtrace_dynhash_sink;
 +
 +extern int dtrace_dstate_init(dtrace_dstate_t *, size_t);
 +extern void dtrace_dstate_fini(dtrace_dstate_t *);
@@ -10252,7 +10864,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#define dtrace_membar_producer()	mb()
 +#define dtrace_membar_consumer()	mb()
 +
-+typedef uintptr_t	dtrace_icookie_t;
++typedef unsigned long	dtrace_icookie_t;
 +
 +#define DTRACE_CPUFLAG_ISSET(flag) \
 +	(cpu_core[smp_processor_id()].cpuc_dtrace_flags & (flag))
@@ -10295,8 +10907,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +	struct mutex cpuc_pid_lock;
 +
 +	uintptr_t cpu_dtrace_caller;
-+	hrtime_t cpu_dtrace_chillmark;
-+	hrtime_t cpu_dtrace_chilled;
++	ktime_t cpu_dtrace_chillmark;
++	ktime_t cpu_dtrace_chilled;
 +} cpu_core_t;
 +
 +extern cpu_core_t	cpu_core[];
@@ -10306,11 +10918,21 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +extern void dtrace_vpanic(const char *, va_list);
 +extern int dtrace_getipl(void);
 +
-+extern hrtime_t dtrace_gethrestime(void);
++extern ktime_t dtrace_gethrestime(void);
++
++typedef enum dtrace_vtime_state {
++	DTRACE_VTIME_INACTIVE = 0,	/* No DTrace, no TNF */
++	DTRACE_VTIME_ACTIVE,		/* DTrace virtual time, no TNF */
++	DTRACE_VTIME_INACTIVE_TNF,	/* No DTrace, TNF active */
++	DTRACE_VTIME_ACTIVE_TNF		/* DTrace virtual time _and_ TNF */
++} dtrace_vtime_state_t;
++
++extern dtrace_vtime_state_t	dtrace_vtime_active;
++
 +extern void dtrace_vtime_enable(void);
 +extern void dtrace_vtime_disable(void);
 +
-+extern hrtime_t dtrace_gethrtime(void);
++extern ktime_t dtrace_gethrtime(void);
 +
 +extern dtrace_icookie_t dtrace_interrupt_disable(void);
 +extern void dtrace_interrupt_enable(dtrace_icookie_t);
@@ -10344,10 +10966,12 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +
 +extern void debug_enter(char *);
 +
++#define KERNELBASE	(uintptr_t)_text
++
 +#endif /* _DTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_hash.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_hash.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_hash.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_hash.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,203 @@
 +/*
 + * FILE:	dtrace_hash.c
@@ -10554,7 +11178,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_has
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_helper.c ./kernel/dtrace/dtrace_helper.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_helper.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_helper.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_helper.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,175 @@
 +/*
 + * FILE:	dtrace_helper.c
@@ -10570,7 +11194,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_helper.c ./kernel/dtrace/dtrace_h
 +static char	*dtrace_helptrace_buffer;
 +static int	dtrace_helptrace_bufsize = 512 * 1024;
 +
-+#ifdef DEBUG
++#ifdef DT_DEBUG
 +static int	dtrace_helptrace_enabled = 1;
 +#else
 +static int	dtrace_helptrace_enabled = 0;
@@ -10733,7 +11357,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_helper.c ./kernel/dtrace/dtrace_h
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h ./kernel/dtrace/dtrace_ioctl.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ioctl.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_ioctl.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,30 @@
 +#ifndef _DTRACE_IOCTL_H_
 +#define _DTRACE_IOCTL_H_
@@ -10765,9 +11389,92 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h ./kernel/dtrace/dtrace_io
 +#define DTRACEHIOC_ADDDOF	_IOW(DTRACEHIOC, 3, dof_helper_t)
 +
 +#endif
+diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.c
+--- ../linux-2.6.34/kernel/dtrace/dtrace_isa.c	1969-12-31 19:00:00.000000000 -0500
++++ ./kernel/dtrace/dtrace_isa.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,79 @@
++/*
++ * FILE:	dtrace_isa.c
++ * DESCRIPTION:	Dynamic Tracing: architecture specific support functions
++ *
++ * Copyright (C) 2010 Oracle Corporation
++ */
++
++#include "dtrace.h"
++
++/* FIXME */
++uintptr_t _userlimit = 0xffffffffL;
++uintptr_t kernelbase = 0xffffffffL;
++
++cpu_core_t	cpu_core[NR_CPUS];
++
++extern void	dtrace_copy(uintptr_t, uintptr_t, size_t);
++extern void	dtrace_copystr(uintptr_t, uintptr_t, size_t,
++			       volatile uint16_t *);
++
++static int dtrace_copycheck(uintptr_t uaddr, uintptr_t kaddr, size_t size)
++{
++	ASSERT(kaddr >= kernelbase && kaddr + size >= kaddr);
++
++	if (uaddr + size >= kernelbase || uaddr + size < uaddr) {
++		DTRACE_CPUFLAG_SET(CPU_DTRACE_BADADDR);
++		cpu_core[smp_processor_id()].cpuc_dtrace_illval = uaddr;
++		return 0;
++	}
++
++	return 1;
++}
++
++void dtrace_copyin(uintptr_t uaddr, uintptr_t kaddr, size_t size,
++		   volatile uint16_t *flags)
++{
++	if (dtrace_copycheck(uaddr, kaddr, size))
++		dtrace_copy(uaddr, kaddr, size);
++}
++
++void dtrace_copyout(uintptr_t uaddr, uintptr_t kaddr, size_t size,
++		    volatile uint16_t *flags)
++{
++	if (dtrace_copycheck(uaddr, kaddr, size))
++		dtrace_copy(kaddr, uaddr, size);
++}
++
++void dtrace_copyinstr(uintptr_t uaddr, uintptr_t kaddr, size_t size,
++		      volatile uint16_t *flags)
++{
++	if (dtrace_copycheck(uaddr, kaddr, size))
++		dtrace_copystr(uaddr, kaddr, size, flags);
++}
++
++void dtrace_copyoutstr(uintptr_t uaddr, uintptr_t kaddr, size_t size,
++		       volatile uint16_t *flags)
++{
++	if (dtrace_copycheck(uaddr, kaddr, size))
++		dtrace_copystr(kaddr, uaddr, size, flags);
++}
++
++#define DTRACE_FUWORD(bits) \
++	uint##bits##_t dtrace_fuword##bits(void *uaddr)			      \
++	{								      \
++		extern uint##bits##_t	dtrace_fuword##bits##_nocheck(void *);\
++									      \
++		if ((uintptr_t)uaddr >= _userlimit) {			      \
++			DTRACE_CPUFLAG_SET(CPU_DTRACE_BADADDR);		      \
++			cpu_core[smp_processor_id()].cpuc_dtrace_illval =     \
++							(uintptr_t)uaddr;     \
++			return 0;					      \
++		}							      \
++									      \
++		return dtrace_fuword##bits##_nocheck(uaddr);		      \
++	}
++
++DTRACE_FUWORD(8)
++DTRACE_FUWORD(16)
++DTRACE_FUWORD(32)
++DTRACE_FUWORD(64)
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_match.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_match.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_match.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_match.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,325 @@
 +/*
 + * FILE:	dtrace_match.c
@@ -11096,7 +11803,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_ma
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,34 @@
 +/*
 + * FILE:	dtrace_mod.c
@@ -11134,7 +11841,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.
 +module_exit(dtrace_exit);
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrace_predicate.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_predicate.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_predicate.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,66 @@
 +/*
 + * FILE:	dtrace_predicate.c
@@ -11204,8 +11911,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_priv.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_priv.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_priv.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,67 @@
++++ ./kernel/dtrace/dtrace_priv.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,105 @@
 +/*
 + * FILE:	dtrace_priv.c
 + * DESCRIPTION:	Dynamic Tracing: privilege check functions
@@ -11215,13 +11922,52 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_pri
 +
 +#include "dtrace.h"
 +
++/*
++ * This privilege check should be used by actions and subroutines to
++ * verify that the user credentials of the process that enabled the
++ * invoking ECB match the target credentials
++ */
++int dtrace_priv_proc_common_user(dtrace_state_t *state)
++{
++	const cred_t	*cr, *s_cr = state->dts_cred.dcr_cred;
++
++	/*
++	 * We should always have a non-NULL state cred here, since if cred
++	 * is null (anonymous tracing), we fast-path bypass this routine.
++	 */
++	ASSERT(s_cr != NULL);
++
++	if ((cr = current_cred()) != NULL &&
++	    s_cr->euid == cr->euid &&
++	    s_cr->euid == cr->uid &&
++	    s_cr->euid == cr->suid &&
++	    s_cr->egid == cr->egid &&
++	    s_cr->egid == cr->gid &&
++	    s_cr->egid == cr->sgid)
++		return 1;
++
++	return 0;
++}
++
++/*
++ * This privilege check should be used by actions and subroutines to
++ * verify that the process has not setuid or changed credentials.
++ */
++int dtrace_priv_proc_common_nocd(void)
++{
++#ifdef FIXME
++	proc_t	*proc;
++
++	if ((proc = ttoproc(curthread)) != NULL && !(proc->p_flag & SNOCD))
++		return 1;
++#endif
++
++	return 0;
++}
++
 +int dtrace_priv_proc_destructive(dtrace_state_t *state)
 +{
 +	int	action = state->dts_cred.dcr_action;
-+
-+	if (((action & DTRACE_CRA_PROC_DESTRUCTIVE_ALLZONE) == 0) &&
-+	    dtrace_priv_proc_common_zone(state) == 0)
-+		goto bad;
 +
 +	if (((action & DTRACE_CRA_PROC_DESTRUCTIVE_ALLUSER) == 0) &&
 +	    dtrace_priv_proc_common_user(state) == 0)
@@ -11244,8 +11990,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_pri
 +	if (state->dts_cred.dcr_action & DTRACE_CRA_PROC_CONTROL)
 +		return 1;
 +
-+	if (dtrace_priv_proc_common_zone(state) &&
-+	    dtrace_priv_proc_common_user(state) &&
++	if (dtrace_priv_proc_common_user(state) &&
 +	    dtrace_priv_proc_common_nocd())
 +		return 1;
 +
@@ -11269,14 +12014,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_pri
 +	if (state->dts_cred.dcr_action & DTRACE_CRA_KERNEL)
 +		return 1;
 +
-+	cpu_core[smp_processir_id()].cpuc_dtrace_flags |= CPU_DTRACE_KPRIV;
++	cpu_core[smp_processor_id()].cpuc_dtrace_flags |= CPU_DTRACE_KPRIV;
 +
 +	return 0;
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_probe.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,1116 @@
++++ ./kernel/dtrace/dtrace_probe.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,1128 @@
 +/*
 + * FILE:	dtrace_probe.c
 + * DESCRIPTION:	Dynamic Tracing: probe management functions
@@ -11292,8 +12037,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +
 +#include "dtrace.h"
 +
-+hrtime_t			dtrace_chill_interval = NANOSEC;
-+hrtime_t			dtrace_chill_max = 500 * (NANOSEC / MILLISEC);
++ktime_t				dtrace_chill_interval =
++					KTIME_INIT(0, 1);
++ktime_t				dtrace_chill_max =
++					KTIME_INIT(0,
++						   500 * (NANOSEC / MILLISEC));
++
++dtrace_genid_t			dtrace_probegen;
 +
 +static struct idr		dtrace_probe_idr;
 +static uint64_t			dtrace_vtime_references;
@@ -11594,9 +12344,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	}
 +}
 +
-+static void dtrace_action_chill(dtrace_mstate_t *mstate, hrtime_t val)
++static void dtrace_action_chill(dtrace_mstate_t *mstate, ktime_t val)
 +{
-+	hrtime_t		now;
++	ktime_t			now;
 +	volatile uint16_t	*flags;
 +	cpu_core_t		*cpu = &cpu_core[smp_processor_id()];
 +
@@ -11607,12 +12357,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +
 +	now = dtrace_gethrtime();
 +
-+	if (now - cpu->cpu_dtrace_chillmark > dtrace_chill_interval) {
++	if (ktime_gt(ktime_sub(now, cpu->cpu_dtrace_chillmark),
++		     dtrace_chill_interval)) {
 +		/*
 +		 * We need to advance the mark to the current time.
 +		 */
 +		cpu->cpu_dtrace_chillmark = now;
-+		cpu->cpu_dtrace_chilled = 0;
++		cpu->cpu_dtrace_chilled = ktime_set(0, 0);
 +	}
 +
 +	/*
@@ -11620,13 +12371,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	 * the maximum amount of time allowed in the chill interval.  (Or
 +	 * worse, if the calculation itself induces overflow.)
 +	 */
-+	if (cpu->cpu_dtrace_chilled + val > dtrace_chill_max ||
-+	    cpu->cpu_dtrace_chilled + val < cpu->cpu_dtrace_chilled) {
++	if (ktime_gt(ktime_add(cpu->cpu_dtrace_chilled, val),
++		     dtrace_chill_max) ||
++	    ktime_lt(ktime_add(cpu->cpu_dtrace_chilled, val),
++		     cpu->cpu_dtrace_chilled)) {
 +		*flags |= CPU_DTRACE_ILLOP;
 +		return;
 +	}
 +
-+	while (dtrace_gethrtime() - now < val)
++	while (ktime_lt(ktime_sub(dtrace_gethrtime(), now), val))
 +		continue;
 +
 +	/*
@@ -11635,7 +12388,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	 * exception to this rule, however.
 +	 */
 +	mstate->dtms_present &= ~DTRACE_MSTATE_TIMESTAMP;
-+	cpu->cpu_dtrace_chilled += val;
++	cpu->cpu_dtrace_chilled = ktime_add(cpu->cpu_dtrace_chilled, val);
 +}
 +
 +static void dtrace_action_ustack(dtrace_mstate_t *mstate,
@@ -11765,7 +12518,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	size_t			size;
 +	int			vtime, onintr;
 +	volatile uint16_t	*flags;
-+	cycle_t			now;
++	ktime_t			now;
 +
 +#ifdef FIXME
 +	/*
@@ -11777,7 +12530,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +		return;
 +#endif
 +
-+	cookie = dtrace_interrupt_disable();
++	local_irq_save(cookie);
 +	probe = dtrace_probe_lookup_id(id);
 +	cpuid = smp_processor_id();
 +	onintr = in_interrupt();
@@ -11788,7 +12541,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +		 * We have hit in the predicate cache; we know that
 +		 * this predicate would evaluate to be false.
 +		 */
-+		dtrace_interrupt_enable(cookie);
++		local_irq_restore(cookie);
 +		return;
 +	}
 +
@@ -11797,7 +12550,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +		/*
 +		 * We don't trace anything if we're panicking.
 +		 */
-+		dtrace_interrupt_enable(cookie);
++		local_irq_restore(cookie);
 +		return;
 +	}
 +#endif
@@ -11805,8 +12558,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	now = dtrace_gethrtime();
 +	vtime = dtrace_vtime_references != 0;
 +
-+	if (vtime && current->dtrace_start)
-+		current->dtrace_vtime += now - current->dtrace_start;
++	if (vtime && ktime_nz(current->dtrace_start))
++		current->dtrace_vtime =
++			ktime_add(current->dtrace_vtime,
++				  ktime_sub(now,current->dtrace_start));
 +
 +	mstate.dtms_difo = NULL;
 +	mstate.dtms_probe = probe;
@@ -11924,7 +12679,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +			}
 +		}
 +
-+		if (now - state->dts_alive > dtrace_deadman_timeout) {
++		if (ktime_gt(ktime_sub(now, state->dts_alive ),
++			     dtrace_deadman_timeout)) {
 +			/*
 +			 * We seem to be dead.  Unless we (a) have kernel
 +			 * destructive permissions (b) have expicitly enabled
@@ -12144,7 +12900,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +
 +			case DTRACEACT_CHILL:
 +				if (dtrace_priv_kernel_destructive(state))
-+					dtrace_action_chill(&mstate, val);
++					dtrace_action_chill(&mstate,
++							    ns_to_ktime(val));
 +
 +				continue;
 +
@@ -12334,7 +13091,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +				 * time to prevent it from being accumulated
 +				 * into t_dtrace_vtime.
 +				 */
-+				current->dtrace_start = 0;
++				current->dtrace_start = ktime_set(0, 0);
 +
 +			/*
 +			 * Iterate over the actions to figure out which action
@@ -12366,7 +13123,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +	if (vtime)
 +		current->dtrace_start = dtrace_gethrtime();
 +
-+	dtrace_interrupt_enable(cookie);
++	local_irq_restore(cookie);
 +}
 +
 +void dtrace_probe_init(void)
@@ -12395,7 +13152,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrace_probe_ctx.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe_ctx.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_probe_ctx.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,537 @@
 +/*
 + * FILE:	dtrace_probe_ctx.c
@@ -12936,7 +13693,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_ptofapi.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ptofapi.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_ptofapi.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,335 @@
 +/*
 + * FILE:	dtrace_ptofapi.c
@@ -13275,7 +14032,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +EXPORT_SYMBOL(dtrace_unregister);
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spec.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_spec.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_spec.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/dtrace_spec.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,423 @@
 +/*
 + * FILE:	dtrace_spec.c
@@ -13347,7 +14104,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +	dtrace_speculation_t		*spec;
 +	dtrace_buffer_t			*src, *dest;
 +	uintptr_t			daddr, saddr, dlimit;
-+	dtrace_speculation_state_t	curr, new;
++	dtrace_speculation_state_t	curr, new = 0;
 +	intptr_t			offs;
 +
 +	if (which == 0)
@@ -13490,7 +14247,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +				dtrace_specid_t which)
 +{
 +	dtrace_speculation_t		*spec;
-+	dtrace_speculation_state_t	curr, new;
++	dtrace_speculation_state_t	curr, new = 0;
 +	dtrace_buffer_t			*buf;
 +
 +	if (which == 0)
@@ -13550,10 +14307,10 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +	dtrace_buffer_t		*dest = &state->dts_buffer[cpu];
 +	dtrace_specid_t		i;
 +
-+	cookie = dtrace_interrupt_disable();
++	local_irq_save(cookie);
 +
 +	if (dest->dtb_tomax == NULL) {
-+		dtrace_interrupt_enable(cookie);
++		local_irq_restore(cookie);
 +		return;
 +	}
 +
@@ -13578,7 +14335,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +		dtrace_speculation_commit(state, cpu, i + 1);
 +	}
 +
-+	dtrace_interrupt_enable(cookie);
++	local_irq_restore(cookie);
 +}
 +
 +void dtrace_speculation_clean(dtrace_state_t *state)
@@ -13642,7 +14399,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +					   dtrace_specid_t which)
 +{
 +	dtrace_speculation_t		*spec;
-+	dtrace_speculation_state_t	curr, new;
++	dtrace_speculation_state_t	curr, new = 0;
 +	dtrace_buffer_t			*buf;
 +
 +	if (which == 0)
@@ -13702,8 +14459,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_state.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_state.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_state.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,962 @@
++++ ./kernel/dtrace/dtrace_state.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,1014 @@
 +/*
 + * FILE:	dtrace_state.c
 + * DESCRIPTION:	Dynamic Tracing: consumer state functions
@@ -13736,15 +14493,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +dtrace_optval_t		dtrace_statusrate_max = (uint64_t)10 * NANOSEC;
 +dtrace_optval_t		dtrace_jstackframes_default = 50;
 +dtrace_optval_t		dtrace_jstackstrsize_default = 512;
-+cycle_t			dtrace_deadman_interval = NANOSEC;
-+cycle_t			dtrace_deadman_timeout = (cycle_t)10 * NANOSEC;
-+cycle_t			dtrace_deadman_user = (cycle_t)30 * NANOSEC;
++ktime_t			dtrace_deadman_interval = KTIME_INIT(0, 1);
++ktime_t			dtrace_deadman_timeout = KTIME_INIT(0, 10);
++ktime_t			dtrace_deadman_user = KTIME_INIT(0, 30);
 +
 +dtrace_id_t		dtrace_probeid_begin;
 +dtrace_id_t		dtrace_probeid_end;
 +dtrace_id_t		dtrace_probeid_error;
 +
-+static dtrace_dynvar_t	dtrace_dynhash_sink;
++dtrace_dynvar_t		dtrace_dynhash_sink;
 +
 +#define DTRACE_DYNHASH_FREE		0
 +#define DTRACE_DYNHASH_SINK		1
@@ -13842,7 +14599,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	dtrace_dynvar_t	*dvar, *next, *start;
 +	int		i;
 +
-+	ASSERT(MUTEX_HELD(&dtrace_lock));
++	ASSERT(mutex_is_locked(&dtrace_lock));
 +	ASSERT(dstate->dtds_base == NULL && dstate->dtds_percpu == NULL);
 +
 +	memset(dstate, 0, sizeof (dtrace_dstate_t));
@@ -13973,26 +14730,27 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +
 +static void dtrace_state_deadman(dtrace_state_t *state)
 +{
-+	hrtime_t	now;
++	ktime_t	now;
 +
 +	dtrace_sync();
 +
 +	now = dtrace_gethrtime();
 +
 +	if (state != dtrace_anon.dta_state &&
-+	    now - state->dts_laststatus >= dtrace_deadman_user)
++	    ktime_ge(ktime_sub(now, state->dts_laststatus),
++			       dtrace_deadman_user))
 +		return;
 +
 +	/*
 +	 * We must be sure that dts_alive never appears to be less than the
 +	 * value upon entry to dtrace_state_deadman(), and because we lack a
 +	 * dtrace_cas64(), we cannot store to it atomically.  We thus instead
-+	 * store INT64_MAX to it, followed by a memory barrier, followed by
++	 * store KTIME_MAX to it, followed by a memory barrier, followed by
 +	 * the new value.  This assures that dts_alive never appears to be
 +	 * less than its true value, regardless of the order in which the
 +	 * stores to the underlying storage are issued.
 +	 */
-+	state->dts_alive = INT64_MAX;
++	state->dts_alive = ktime_set(KTIME_SEC_MAX, 0);
 +	dtrace_membar_producer();
 +	state->dts_alive = now;
 +}
@@ -14418,8 +15176,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	hdlr.cyh_arg = state;
 +	hdlr.cyh_level = CY_LOW_LEVEL;
 +
-+	when.cyt_when = 0;
-+	when.cyt_interval = opt[DTRACEOPT_CLEANRATE];
++	when.cyt_when = ktime_set(0, 0);
++	when.cyt_interval = ns_to_ktime(opt[DTRACEOPT_CLEANRATE]);
 +
 +	state->dts_cleaner = cyclic_add(&hdlr, &when);
 +
@@ -14427,7 +15185,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	hdlr.cyh_arg = state;
 +	hdlr.cyh_level = CY_LOW_LEVEL;
 +
-+	when.cyt_when = 0;
++	when.cyt_when = ktime_set(0, 0);
 +	when.cyt_interval = dtrace_deadman_interval;
 +
 +	state->dts_alive = state->dts_laststatus = dtrace_gethrtime();
@@ -14441,14 +15199,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	 * probe (the data from this CPU will be processed first at user
 +	 * level) and to manually activate the buffer for this CPU.
 +	 */
-+	cookie = dtrace_interrupt_disable();
++	local_irq_save(cookie);
 +	*cpu = smp_processor_id();
 +	ASSERT(state->dts_buffer[*cpu].dtb_flags & DTRACEBUF_INACTIVE);
 +	state->dts_buffer[*cpu].dtb_flags &= ~DTRACEBUF_INACTIVE;
 +
 +	dtrace_probe(dtrace_probeid_begin, (uint64_t)(uintptr_t)state, 0, 0, 0,
 +		     0);
-+	dtrace_interrupt_enable(cookie);
++	local_irq_restore(cookie);
 +
 +	/*
 +	 * We may have had an exit action from a BEGIN probe; only change our
@@ -14501,6 +15259,57 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	/* FIXME: mutex_unlock(&cpu_lock); */
 +
 +	return rval;
++}
++
++int dtrace_state_stop(dtrace_state_t *state, processorid_t *cpu)
++{
++	dtrace_icookie_t	cookie;
++
++	ASSERT(mutex_is_locked(&dtrace_lock));
++
++	if (state->dts_activity != DTRACE_ACTIVITY_ACTIVE &&
++	    state->dts_activity != DTRACE_ACTIVITY_DRAINING)
++		return -EINVAL;
++
++	/*
++	 * We'll set the activity to DTRACE_ACTIVITY_DRAINING, and issue a sync
++	 * to be sure that every CPU has seen it.  See below for the details
++	 * on why this is done.
++	 */
++	state->dts_activity = DTRACE_ACTIVITY_DRAINING;
++	dtrace_sync();
++
++	/*
++	 * By this point, it is impossible for any CPU to be still processing
++	 * with DTRACE_ACTIVITY_ACTIVE.  We can thus set our activity to
++	 * DTRACE_ACTIVITY_COOLDOWN and know that we're not racing with any
++	 * other CPU in dtrace_buffer_reserve().  This allows dtrace_probe()
++	 * and callees to know that the activity is DTRACE_ACTIVITY_COOLDOWN
++	 * iff we're in the END probe.
++	 */
++	state->dts_activity = DTRACE_ACTIVITY_COOLDOWN;
++	dtrace_sync();
++	ASSERT(state->dts_activity == DTRACE_ACTIVITY_COOLDOWN);
++
++	/*
++	 * Finally, we can release the reserve and call the END probe.  We
++	 * disable interrupts across calling the END probe to allow us to
++	 * return the CPU on which we actually called the END probe.  This
++	 * allows user-land to be sure that this CPU's principal buffer is
++	 * processed last.
++	 */
++	state->dts_reserve = 0;
++
++	local_irq_save(cookie);
++	*cpu = smp_processor_id();
++	dtrace_probe(dtrace_probeid_end, (uint64_t)(uintptr_t)state, 0, 0, 0,
++		     0);
++	local_irq_restore(cookie);
++
++	state->dts_activity = DTRACE_ACTIVITY_STOPPED;
++	dtrace_sync();
++
++	return 0;
 +}
 +
 +int dtrace_state_option(dtrace_state_t *state, dtrace_optid_t option,
@@ -14647,7 +15456,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +	kfree(state->dts_ecbs);
 +
 +	if (state->dts_aggregations != NULL) {
-+#ifdef DEBUG
++#ifdef DT_DEBUG
 +		for (i = 0; i < state->dts_naggregations; i++)
 +			ASSERT(state->dts_aggregations[i] == NULL);
 +#endif
@@ -14668,8 +15477,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_util.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_util.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_util.c	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,122 @@
++++ ./kernel/dtrace/dtrace_util.c	2011-02-01 13:29:51.000000000 -0500
+@@ -0,0 +1,170 @@
 +/*
 + * FILE:	dtrace_util.c
 + * DESCRIPTION:	DTrace utility functions
@@ -14678,6 +15487,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_uti
 + */
 +
 +#include "dtrace.h"
++
++dtrace_vtime_state_t		dtrace_vtime_active = 0;
 +
 +int dtrace_badattr(const dtrace_attribute_t *a)
 +{
@@ -14792,9 +15603,55 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_uti
 +	*privp = priv;
 +#endif
 +}
++
++void dtrace_vtime_enable(void)
++{
++	dtrace_vtime_state_t	state, nstate;
++
++	do {
++		state = dtrace_vtime_active;
++
++		switch (state) {
++		case DTRACE_VTIME_INACTIVE:
++			nstate = DTRACE_VTIME_ACTIVE;
++			break;
++		case DTRACE_VTIME_INACTIVE_TNF:
++			nstate = DTRACE_VTIME_ACTIVE_TNF;
++			break;
++		case DTRACE_VTIME_ACTIVE:
++		case DTRACE_VTIME_ACTIVE_TNF:
++			panic("DTrace virtual time already enabled");
++			/*NOTREACHED*/
++		}
++	} while (cmpxchg((uint32_t *)&dtrace_vtime_active, state, nstate) !=
++		 state);
++}
++
++void dtrace_vtime_disable(void)
++{
++	dtrace_vtime_state_t	state, nstate;
++
++	do {
++		state = dtrace_vtime_active;
++
++		switch (state) {
++		case DTRACE_VTIME_ACTIVE:
++			nstate = DTRACE_VTIME_INACTIVE;
++			break;
++		case DTRACE_VTIME_ACTIVE_TNF:
++			nstate = DTRACE_VTIME_INACTIVE_TNF;
++			break;
++		case DTRACE_VTIME_INACTIVE:
++		case DTRACE_VTIME_INACTIVE_TNF:
++			panic("DTrace virtual time already disabled");
++			/*NOTREACHED*/
++		}
++	} while (cmpxchg((uint32_t *)&dtrace_vtime_active, state, nstate) !=
++		 state);
++}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fasttrap_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	fasttrap_dev.c
@@ -14856,7 +15713,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 --- ../linux-2.6.34/kernel/dtrace/fasttrap.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fasttrap.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _FASTTRAP_H_
 +#define _FASTTRAP_H_
@@ -14867,7 +15724,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 +#endif /* _FASTTRAP_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fasttrap_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fasttrap_mod.c
@@ -14896,7 +15753,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_
 +DT_PROVIDER_MODULE(fasttrap)
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fbt_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	fbt_dev.c
@@ -14958,7 +15815,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 --- ../linux-2.6.34/kernel/dtrace/fbt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fbt.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _FBT_H_
 +#define _FBT_H_
@@ -14969,7 +15826,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 +#endif /* _FBT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/fbt_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fbt_dmod.c
@@ -14998,8 +15855,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 +DT_PROVIDER_MODULE(fbt);
 diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 --- ../linux-2.6.34/kernel/dtrace/Kconfig	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/Kconfig	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,55 @@
++++ ./kernel/dtrace/Kconfig	2011-02-01 13:30:09.000000000 -0500
+@@ -0,0 +1,63 @@
 +#
 +# DTrace Configuration
 +#
@@ -15054,10 +15911,18 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 +	help
 +	  To be written.
 +
++config DT_DEBUG
++	bool "DTrace debugging"
++	depends on DTRACE
++	help
++	  This controls the inclusion of various piece of code that perform
++	  internal checks within the DTrace core.  It also enables all the
++	  assertions within the DTrace code.
++
 +endif   #DTRACE
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_dev.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/lockstat_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	lockstat_dev.c
@@ -15119,7 +15984,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 --- ../linux-2.6.34/kernel/dtrace/lockstat.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/lockstat.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _LOCKSTAT_H_
 +#define _LOCKSTAT_H_
@@ -15130,7 +15995,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 +#endif /* _LOCKSTAT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_mod.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/lockstat_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	lockstat_mod.c
@@ -15159,8 +16024,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_
 +DT_PROVIDER_MODULE(lockstat)
 diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 --- ../linux-2.6.34/kernel/dtrace/Makefile	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/Makefile	2011-01-03 15:31:05.000000000 -0500
-@@ -0,0 +1,28 @@
++++ ./kernel/dtrace/Makefile	2011-02-01 13:30:15.000000000 -0500
+@@ -0,0 +1,29 @@
 +#
 +# Makefile for DTrace
 +#
@@ -15174,12 +16039,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 +obj-$(CONFIG_DT_SYSTRACE)	+= systrace.o
 +
 +dtrace-y			:= dtrace_mod.o dtrace_dev.o \
++				   dtrace_asm.o dtrace_isa.o \
 +				   dtrace_actdesc.o dtrace_anon.o \
 +				   dtrace_buffer.o dtrace_dif.o dtrace_dof.o \
 +				   dtrace_ecb.o dtrace_enable.o \
 +				   dtrace_fmt.o dtrace_hash.o dtrace_helper.o \
-+				   dtrace_match.o dtrace_probe.o \
-+				   dtrace_probe_ctx.o \
++				   dtrace_match.o dtrace_priv.o \
++				   dtrace_probe.o dtrace_probe_ctx.o \
 +				   dtrace_ptofapi.o dtrace_predicate.o \
 +				   dtrace_spec.o dtrace_state.o dtrace_util.o \
 +				   cyclic.o
@@ -15191,7 +16057,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 +systrace-y			:= systrace_mod.o systrace_dev.o
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_dev.c
 --- ../linux-2.6.34/kernel/dtrace/profile_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/profile_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	profile_dev.c
@@ -15253,7 +16119,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_de
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 --- ../linux-2.6.34/kernel/dtrace/profile.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/profile.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _PROFILE_H_
 +#define _PROFILE_H_
@@ -15264,7 +16130,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 +#endif /* _PROFILE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mod.c
 --- ../linux-2.6.34/kernel/dtrace/profile_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/profile_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	profile_mod.c
@@ -15293,7 +16159,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mo
 +DT_PROVIDER_MODULE(profile)
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/sdt_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	sdt_dev.c
@@ -15355,7 +16221,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 --- ../linux-2.6.34/kernel/dtrace/sdt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/sdt.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _SDT_H_
 +#define _SDT_H_
@@ -15366,7 +16232,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 +#endif /* _SDT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/sdt_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	sdt_mod.c
@@ -15395,7 +16261,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 +DT_PROVIDER_MODULE(sdt)
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_dev.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/systrace_dev.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	systrace_dev.c
@@ -15457,7 +16323,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 --- ../linux-2.6.34/kernel/dtrace/systrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace.h	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/systrace.h	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _SYSTRACE_H_
 +#define _SYSTRACE_H_
@@ -15468,7 +16334,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 +#endif /* _SYSTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_mod.c ./kernel/dtrace/systrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_mod.c	2011-01-03 15:31:05.000000000 -0500
++++ ./kernel/dtrace/systrace_mod.c	2011-02-01 13:29:51.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	systrace_mod.c

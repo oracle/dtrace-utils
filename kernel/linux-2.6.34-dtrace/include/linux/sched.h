@@ -92,8 +92,6 @@ struct sched_param {
 #include <linux/latencytop.h>
 #include <linux/cred.h>
 
-#include <linux/clocksource.h>
-
 #include <asm/processor.h>
 
 struct exec_domain;

@@ -52,4 +52,12 @@ config DT_SYSTRACE
 	help
 	  To be written.
 
+config DT_DEBUG
+	bool "DTrace debugging"
+	depends on DTRACE
+	help
+	  This controls the inclusion of various piece of code that perform
+	  internal checks within the DTrace core.  It also enables all the
+	  assertions within the DTrace code.
+
 endif   #DTRACE

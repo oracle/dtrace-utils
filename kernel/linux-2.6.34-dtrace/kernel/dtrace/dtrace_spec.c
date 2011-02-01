@@ -68,7 +68,7 @@ void dtrace_speculation_commit(dtrace_state_t *state, processorid_t cpu,
 	dtrace_speculation_t		*spec;
 	dtrace_buffer_t			*src, *dest;
 	uintptr_t			daddr, saddr, dlimit;
-	dtrace_speculation_state_t	curr, new;
+	dtrace_speculation_state_t	curr, new = 0;
 	intptr_t			offs;
 
 	if (which == 0)
@@ -211,7 +211,7 @@ void dtrace_speculation_discard(dtrace_state_t *state, processorid_t cpu,
 				dtrace_specid_t which)
 {
 	dtrace_speculation_t		*spec;
-	dtrace_speculation_state_t	curr, new;
+	dtrace_speculation_state_t	curr, new = 0;
 	dtrace_buffer_t			*buf;
 
 	if (which == 0)
@@ -271,10 +271,10 @@ void dtrace_speculation_clean_here(dtrace_state_t *state)
 	dtrace_buffer_t		*dest = &state->dts_buffer[cpu];
 	dtrace_specid_t		i;
 
-	cookie = dtrace_interrupt_disable();
+	local_irq_save(cookie);
 
 	if (dest->dtb_tomax == NULL) {
-		dtrace_interrupt_enable(cookie);
+		local_irq_restore(cookie);
 		return;
 	}
 
@@ -299,7 +299,7 @@ void dtrace_speculation_clean_here(dtrace_state_t *state)
 		dtrace_speculation_commit(state, cpu, i + 1);
 	}
 
-	dtrace_interrupt_enable(cookie);
+	local_irq_restore(cookie);
 }
 
 void dtrace_speculation_clean(dtrace_state_t *state)
@@ -363,7 +363,7 @@ dtrace_buffer_t *dtrace_speculation_buffer(dtrace_state_t *state,
 					   dtrace_specid_t which)
 {
 	dtrace_speculation_t		*spec;
-	dtrace_speculation_state_t	curr, new;
+	dtrace_speculation_state_t	curr, new = 0;
 	dtrace_buffer_t			*buf;
 
 	if (which == 0)

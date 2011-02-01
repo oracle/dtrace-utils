@@ -25,6 +25,68 @@ static void dtrace_dof_error(dof_hdr_t *dof, const char *str)
 #endif
 }
 
+/*
+ * Create DOF out of a currently enabled state.  Right now, we only create
+ * DOF containing the run-time options -- but this could be expanded to create
+ * complete DOF representing the enabled state.
+ */
+dof_hdr_t *dtrace_dof_create(dtrace_state_t *state)
+{
+	dof_hdr_t	*dof;
+	dof_sec_t	*sec;
+	dof_optdesc_t	*opt;
+	int		i, len = sizeof(dof_hdr_t) +
+				 roundup(sizeof(dof_sec_t), sizeof(uint64_t)) +
+				 sizeof(dof_optdesc_t) * DTRACEOPT_MAX;
+
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	dof = kmalloc(len, GFP_KERNEL);
+	dof->dofh_ident[DOF_ID_MAG0] = DOF_MAG_MAG0;
+	dof->dofh_ident[DOF_ID_MAG1] = DOF_MAG_MAG1;
+	dof->dofh_ident[DOF_ID_MAG2] = DOF_MAG_MAG2;
+	dof->dofh_ident[DOF_ID_MAG3] = DOF_MAG_MAG3;
+
+	dof->dofh_ident[DOF_ID_MODEL] = DOF_MODEL_NATIVE;
+	dof->dofh_ident[DOF_ID_ENCODING] = DOF_ENCODE_NATIVE;
+	dof->dofh_ident[DOF_ID_VERSION] = DOF_VERSION;
+	dof->dofh_ident[DOF_ID_DIFVERS] = DIF_VERSION;
+	dof->dofh_ident[DOF_ID_DIFIREG] = DIF_DIR_NREGS;
+	dof->dofh_ident[DOF_ID_DIFTREG] = DIF_DTR_NREGS;
+
+	dof->dofh_flags = 0;
+	dof->dofh_hdrsize = sizeof(dof_hdr_t);
+	dof->dofh_secsize = sizeof(dof_sec_t);
+	dof->dofh_secnum = 1;   /* only DOF_SECT_OPTDESC */
+	dof->dofh_secoff = sizeof(dof_hdr_t);
+	dof->dofh_loadsz = len;
+	dof->dofh_filesz = len;
+	dof->dofh_pad = 0;
+
+	/*
+	 * Fill in the option section header...
+	 */
+	sec = (dof_sec_t *)((uintptr_t)dof + sizeof(dof_hdr_t));
+	sec->dofs_type = DOF_SECT_OPTDESC;
+	sec->dofs_align = sizeof(uint64_t);
+	sec->dofs_flags = DOF_SECF_LOAD;
+	sec->dofs_entsize = sizeof(dof_optdesc_t);
+
+	opt = (dof_optdesc_t *)((uintptr_t)sec +
+				roundup(sizeof(dof_sec_t), sizeof(uint64_t)));
+
+	sec->dofs_offset = (uintptr_t)opt - (uintptr_t)dof;
+	sec->dofs_size = sizeof(dof_optdesc_t) * DTRACEOPT_MAX;
+
+	for (i = 0; i < DTRACEOPT_MAX; i++) {
+		opt[i].dofo_option = i;
+		opt[i].dofo_strtab = DOF_SECIDX_NONE;
+		opt[i].dofo_value = state->dts_options[i];
+	}
+
+	return dof;
+}
+
 dof_hdr_t *dtrace_dof_copyin(void __user *argp, int *errp)
 {
 	dof_hdr_t	hdr, *dof;
@@ -32,9 +94,9 @@ dof_hdr_t *dtrace_dof_copyin(void __user *argp, int *errp)
 	ASSERT(!mutex_is_locked(&dtrace_lock));
 
 	/*
-	 * First, we're going to copyin() the sizeof (dof_hdr_t).
+	 * First, we're going to copyin() the sizeof(dof_hdr_t).
 	 */
-	if (copy_from_user(&hdr, argp, sizeof (hdr)) != 0) {
+	if (copy_from_user(&hdr, argp, sizeof(hdr)) != 0) {
 		dtrace_dof_error(NULL, "failed to copyin DOF header");
 		*errp = -EFAULT;
 		return NULL;
@@ -50,7 +112,7 @@ dof_hdr_t *dtrace_dof_copyin(void __user *argp, int *errp)
 		return NULL;
 	}
 
-	if (hdr.dofh_loadsz < sizeof (hdr)) {
+	if (hdr.dofh_loadsz < sizeof(hdr)) {
 		dtrace_dof_error(&hdr, "invalid load size");
 		*errp = -EINVAL;
 		return NULL;
@@ -93,7 +155,7 @@ len = 0;
 	for (i = 0; i < len; i++)
 		buf[i] = (uchar_t)(((int *)buf)[i]);
 
-	if (len < sizeof (dof_hdr_t)) {
+	if (len < sizeof(dof_hdr_t)) {
 #ifdef FIXME
 		ddi_prop_free(buf);
 #endif
@@ -176,12 +238,12 @@ static dtrace_probedesc_t *dtrace_dof_probedesc(dof_hdr_t *dof, dof_sec_t *sec,
 		return NULL;
 	}
 
-	if (sec->dofs_align != sizeof (dof_secidx_t)) {
+	if (sec->dofs_align != sizeof(dof_secidx_t)) {
 		dtrace_dof_error(dof, "bad alignment in probe description");
 		return NULL;
 	}
 
-	if (sec->dofs_offset + sizeof (dof_probedesc_t) > dof->dofh_loadsz) {
+	if (sec->dofs_offset + sizeof(dof_probedesc_t) > dof->dofh_loadsz) {
 		dtrace_dof_error(dof, "truncated probe description");
 		return NULL;
 	}
@@ -254,16 +316,16 @@ static dtrace_difo_t *dtrace_dof_difo(dof_hdr_t *dof, dof_sec_t *sec,
 			DOF_SECT_DIF,
 			offsetof(dtrace_difo_t, dtdo_buf),
 			offsetof(dtrace_difo_t, dtdo_len),
-			sizeof (dif_instr_t),
-			sizeof (dif_instr_t),
+			sizeof(dif_instr_t),
+			sizeof(dif_instr_t),
 			"multiple DIF sections"
 		},
 		{
 			DOF_SECT_INTTAB,
 			offsetof(dtrace_difo_t, dtdo_inttab),
 			offsetof(dtrace_difo_t, dtdo_intlen),
-			sizeof (uint64_t),
-			sizeof (uint64_t),
+			sizeof(uint64_t),
+			sizeof(uint64_t),
 			"multiple integer tables"
 		},
 		{
@@ -271,15 +333,15 @@ static dtrace_difo_t *dtrace_dof_difo(dof_hdr_t *dof, dof_sec_t *sec,
 			offsetof(dtrace_difo_t, dtdo_strtab),
 			offsetof(dtrace_difo_t, dtdo_strlen),
 			0,
-			sizeof (char),
+			sizeof(char),
 			"multiple string tables"
 		},
 		{
 			DOF_SECT_VARTAB,
 			offsetof(dtrace_difo_t, dtdo_vartab),
 			offsetof(dtrace_difo_t, dtdo_varlen),
-			sizeof (dtrace_difv_t),
-			sizeof (uint_t),
+			sizeof(dtrace_difv_t),
+			sizeof(uint_t),
 			"multiple variable tables"
 		},
 		{
@@ -297,21 +359,21 @@ static dtrace_difo_t *dtrace_dof_difo(dof_hdr_t *dof, dof_sec_t *sec,
 		return NULL;
 	}
 
-	if (sec->dofs_align != sizeof (dof_secidx_t)) {
+	if (sec->dofs_align != sizeof(dof_secidx_t)) {
 		dtrace_dof_error(dof, "bad alignment in DIFO header");
 		return NULL;
 	}
 
-	if (sec->dofs_size < sizeof (dof_difohdr_t) ||
-	    sec->dofs_size % sizeof (dof_secidx_t)) {
+	if (sec->dofs_size < sizeof(dof_difohdr_t) ||
+	    sec->dofs_size % sizeof(dof_secidx_t)) {
 		dtrace_dof_error(dof, "bad size in DIFO header");
 		return NULL;
 	}
 
 	dofd = (dof_difohdr_t *)(uintptr_t)(daddr + sec->dofs_offset);
-	n = (sec->dofs_size - sizeof (*dofd)) / sizeof (dof_secidx_t) + 1;
+	n = (sec->dofs_size - sizeof(*dofd)) / sizeof(dof_secidx_t) + 1;
 
-	dp = kzalloc(sizeof (dtrace_difo_t), GFP_KERNEL);
+	dp = kzalloc(sizeof(dtrace_difo_t), GFP_KERNEL);
 	dp->dtdo_rtype = dofd->dofd_rtype;
 
 	for (l = 0; l < n; l++) {
@@ -463,12 +525,12 @@ static dtrace_actdesc_t *dtrace_dof_actdesc(dof_hdr_t *dof, dof_sec_t *sec,
 		return NULL;
 	}
 
-	if (sec->dofs_offset + sizeof (dof_actdesc_t) > dof->dofh_loadsz) {
+	if (sec->dofs_offset + sizeof(dof_actdesc_t) > dof->dofh_loadsz) {
 		dtrace_dof_error(dof, "truncated action description");
 		return NULL;
 	}
 
-	if (sec->dofs_align != sizeof (uint64_t)) {
+	if (sec->dofs_align != sizeof(uint64_t)) {
 		dtrace_dof_error(dof, "bad alignment in action description");
 		return NULL;
 	}
@@ -478,7 +540,7 @@ static dtrace_actdesc_t *dtrace_dof_actdesc(dof_hdr_t *dof, dof_sec_t *sec,
 		return NULL;
 	}
 
-	if (sec->dofs_entsize != sizeof (dof_actdesc_t)) {
+	if (sec->dofs_entsize != sizeof(dof_actdesc_t)) {
 		dtrace_dof_error(dof, "bad entry size in action description");
 		return NULL;
 	}
@@ -587,12 +649,12 @@ static dtrace_ecbdesc_t *dtrace_dof_ecbdesc(dof_hdr_t *dof, dof_sec_t *sec,
 	dtrace_probedesc_t	*desc;
 	dtrace_predicate_t	*pred = NULL;
 
-	if (sec->dofs_size < sizeof (dof_ecbdesc_t)) {
+	if (sec->dofs_size < sizeof(dof_ecbdesc_t)) {
 		dtrace_dof_error(dof, "truncated ECB description");
 		return NULL;
 	}
 
-	if (sec->dofs_align != sizeof (uint64_t)) {
+	if (sec->dofs_align != sizeof(uint64_t)) {
 		dtrace_dof_error(dof, "bad alignment in ECB description");
 		return NULL;
 	}
@@ -603,7 +665,7 @@ static dtrace_ecbdesc_t *dtrace_dof_ecbdesc(dof_hdr_t *dof, dof_sec_t *sec,
 	if (sec == NULL)
 		return NULL;
 
-	ep = kzalloc(sizeof (dtrace_ecbdesc_t), GFP_KERNEL);
+	ep = kzalloc(sizeof(dtrace_ecbdesc_t), GFP_KERNEL);
 	ep->dted_uarg = ecb->dofe_uarg;
 	desc = &ep->dted_probe;
 
@@ -656,8 +718,8 @@ static int dtrace_dof_relocate(dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 	dof_relodesc_t	*r;
 	uint_t		i, n;
 
-	if (sec->dofs_size < sizeof (dof_relohdr_t) ||
-	    sec->dofs_align != sizeof (dof_secidx_t)) {
+	if (sec->dofs_size < sizeof(dof_relohdr_t) ||
+	    sec->dofs_align != sizeof(dof_secidx_t)) {
 		dtrace_dof_error(dof, "invalid relocation header");
 		return -1;
 	}
@@ -669,8 +731,8 @@ static int dtrace_dof_relocate(dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 	if (ss == NULL || rs == NULL || ts == NULL)
 		return -1; /* dtrace_dof_error() has been called already */
 
-	if (rs->dofs_entsize < sizeof (dof_relodesc_t) ||
-	    rs->dofs_align != sizeof (uint64_t)) {
+	if (rs->dofs_entsize < sizeof(dof_relodesc_t) ||
+	    rs->dofs_align != sizeof(uint64_t)) {
 		dtrace_dof_error(dof, "invalid relocation section");
 		return -1;
 	}
@@ -693,13 +755,13 @@ static int dtrace_dof_relocate(dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 			break;
 		case DOF_RELO_SETX:
 			if (r->dofr_offset >= ts->dofs_size ||
-			    r->dofr_offset + sizeof (uint64_t) >
+			    r->dofr_offset + sizeof(uint64_t) >
 				ts->dofs_size) {
 				dtrace_dof_error(dof, "bad relocation offset");
 				return -1;
 			}
 
-			if (!IS_ALIGNED(taddr, sizeof (uint64_t))) {
+			if (!IS_ALIGNED(taddr, sizeof(uint64_t))) {
 				dtrace_dof_error(dof, "misaligned setx relo");
 				return -1;
 			}
@@ -720,7 +782,7 @@ static int dtrace_dof_relocate(dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 /*
  * The dof_hdr_t passed to dtrace_dof_slurp() should be a partially validated
  * header:  it should be at the front of a memory region that is at least
- * sizeof (dof_hdr_t) in size -- and then at least dof_hdr.dofh_loadsz in
+ * sizeof(dof_hdr_t) in size -- and then at least dof_hdr.dofh_loadsz in
  * size.  It need not be validated in any other way.
  */
 int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
@@ -733,7 +795,7 @@ int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
 	uint_t			i;
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	ASSERT(dof->dofh_loadsz >= sizeof (dof_hdr_t));
+	ASSERT(dof->dofh_loadsz >= sizeof(dof_hdr_t));
 
 	/*
 	 * Check the DOF header identification bytes.  In addition to checking
@@ -807,12 +869,12 @@ int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
 		return -1;
 	}
 
-	if (!IS_ALIGNED(dof->dofh_secoff, sizeof (uint64_t))) {
+	if (!IS_ALIGNED(dof->dofh_secoff, sizeof(uint64_t))) {
 		dtrace_dof_error(dof, "misaligned section headers");
 		return -1;
 	}
 
-	if (!IS_ALIGNED(dof->dofh_secsize, sizeof (uint64_t))) {
+	if (!IS_ALIGNED(dof->dofh_secsize, sizeof(uint64_t))) {
 		dtrace_dof_error(dof, "misaligned section size");
 		return -1;
 	}
@@ -944,7 +1006,7 @@ int dtrace_dof_options(dof_hdr_t *dof, dtrace_state_t *state)
 		if (sec->dofs_type != DOF_SECT_OPTDESC)
 			continue;
 
-		if (sec->dofs_align != sizeof (uint64_t)) {
+		if (sec->dofs_align != sizeof(uint64_t)) {
 			dtrace_dof_error(
 				dof, "bad alignment in option description");
 			return -EINVAL;
@@ -955,7 +1017,7 @@ int dtrace_dof_options(dof_hdr_t *dof, dtrace_state_t *state)
 			return -EINVAL;
 		}
 
-		if (entsize < sizeof (dof_optdesc_t)) {
+		if (entsize < sizeof(dof_optdesc_t)) {
 			dtrace_dof_error(dof, "bad option entry size");
 			return -EINVAL;
 		}

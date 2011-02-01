@@ -11,10 +11,49 @@
 
 dtrace_optval_t		dtrace_nonroot_maxsize = (16 * 1024 * 1024);
 
+/*
+ * Note:  called from cross call context.  This function switches the two
+ * buffers on a given CPU.  The atomicity of this operation is assured by
+ * disabling interrupts while the actual switch takes place; the disabling of
+ * interrupts serializes the execution with any execution of dtrace_probe() on
+ * the same CPU.
+ */
+void dtrace_buffer_switch(dtrace_buffer_t *buf)
+{
+	caddr_t			tomax = buf->dtb_tomax;
+	caddr_t			xamot = buf->dtb_xamot;
+	dtrace_icookie_t	cookie;
+
+	ASSERT(!(buf->dtb_flags & DTRACEBUF_NOSWITCH));
+	ASSERT(!(buf->dtb_flags & DTRACEBUF_RING));
+
+	local_irq_save(cookie);
+
+	buf->dtb_tomax = xamot;
+	buf->dtb_xamot = tomax;
+	buf->dtb_xamot_drops = buf->dtb_drops;
+	buf->dtb_xamot_offset = buf->dtb_offset;
+	buf->dtb_xamot_errors = buf->dtb_errors;
+	buf->dtb_xamot_flags = buf->dtb_flags;
+	buf->dtb_offset = 0;
+	buf->dtb_drops = 0;
+	buf->dtb_errors = 0;
+	buf->dtb_flags &= ~(DTRACEBUF_ERROR | DTRACEBUF_DROPPED);
+
+	local_irq_restore(cookie);
+}
+
+/*
+ * Note:  called from cross call context.  This function activates a buffer
+ * on a CPU.  As with dtrace_buffer_switch(), the atomicity of the operation
+ * is guaranteed by the disabling of interrupts.
+ */
 void dtrace_buffer_activate(dtrace_state_t *state)
 {
 	dtrace_buffer_t		*buf;
-	dtrace_icookie_t	cookie = dtrace_interrupt_disable();
+	dtrace_icookie_t	cookie;
+
+	local_irq_save(cookie);
 
 	buf = &state->dts_buffer[smp_processor_id()];
 
@@ -29,7 +68,7 @@ void dtrace_buffer_activate(dtrace_state_t *state)
 		 buf->dtb_flags &= ~DTRACEBUF_INACTIVE;
 	}
 
-	dtrace_interrupt_enable(cookie);
+	local_irq_restore(cookie);
 }
 
 int dtrace_buffer_alloc(dtrace_buffer_t *bufs, size_t size, int flags,
@@ -341,6 +380,50 @@ out:
 	mstate->dtms_scratch_ptr = mstate->dtms_scratch_base;
 
 	return offs;
+}
+
+void dtrace_buffer_polish(dtrace_buffer_t *buf)
+{
+	ASSERT(buf->dtb_flags & DTRACEBUF_RING);
+	ASSERT(mutex_is_locked(&dtrace_lock));
+
+	if (!(buf->dtb_flags & DTRACEBUF_WRAPPED))
+		return;
+
+	/*
+	 * We need to polish the ring buffer.  There are three cases:
+	 *
+	 * - The first (and presumably most common) is that there is no gap
+	 *   between the buffer offset and the wrapped offset.  In this case,
+	 *   there is nothing in the buffer that isn't valid data; we can
+	 *   mark the buffer as polished and return.
+	 *
+	 * - The second (less common than the first but still more common
+	 *   than the third) is that there is a gap between the buffer offset
+	 *   and the wrapped offset, and the wrapped offset is larger than the
+	 *   buffer offset.  This can happen because of an alignment issue, or
+	 *   can happen because of a call to dtrace_buffer_reserve() that
+	 *   didn't subsequently consume the buffer space.  In this case,
+	 *   we need to zero the data from the buffer offset to the wrapped
+	 *   offset.
+	 *
+	 * - The third (and least common) is that there is a gap between the
+	 *   buffer offset and the wrapped offset, but the wrapped offset is
+	 *   _less_ than the buffer offset.  This can only happen because a
+	 *   call to dtrace_buffer_reserve() induced a wrap, but the space
+	 *   was not subsequently consumed.  In this case, we need to zero the
+	 *   space from the offset to the end of the buffer _and_ from the
+	 *   top of the buffer to the wrapped offset.
+	 */
+	if (buf->dtb_offset < buf->dtb_xamot_offset)
+		memset(buf->dtb_tomax + buf->dtb_offset, 0,
+		       buf->dtb_xamot_offset - buf->dtb_offset);
+
+	if (buf->dtb_offset > buf->dtb_xamot_offset) {
+		memset(buf->dtb_tomax + buf->dtb_offset, 0,
+		       buf->dtb_size - buf->dtb_offset);
+		memset(buf->dtb_tomax, 0, buf->dtb_xamot_offset);
+	}
 }
 
 void dtrace_buffer_free(dtrace_buffer_t *bufs)

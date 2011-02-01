@@ -1,7 +1,7 @@
 #ifndef _CYCLIC_H_
 #define _CYCLIC_H_
 
-#include <linux/clocksource.h>
+#include <linux/ktime.h>
 #include <linux/types.h>
 
 #define CY_LOW_LEVEL	0
@@ -23,8 +23,8 @@ typedef struct cyc_handler {
 } cyc_handler_t;
 
 typedef struct cyc_time {
-	cycle_t cyt_when;
-	cycle_t cyt_interval;
+	ktime_t cyt_when;
+	ktime_t cyt_interval;
 } cyc_time_t;
 
 extern cyclic_id_t cyclic_add(cyc_handler_t *, cyc_time_t *);
