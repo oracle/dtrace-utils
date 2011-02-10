@@ -1,3 +1,12 @@
+2011-02-10  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cmd/common/dtrace.c: Assigned g_ofp to stdout in main function for
+	stdout is a macro and not be address constants at compile time.
+	* demo/*: Add more test cases.
+	* runtest.sh: Added.
+	* libdtrace/makefile: Adjust regs.d.
+	* makefile: Adjust.
+
 2011-01-26  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/makefile (signal.d): Exchange the line of SIGCLD and

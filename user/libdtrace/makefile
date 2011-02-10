@@ -159,19 +159,19 @@ tcp.d: tcp.sed tcp.d.in
 udp.d: udp.sed udp.d.in
 	sed -f udp.sed < udp.d.in > $@
 
-./$(MACH)/regs.sed: ./$(MACH)/regs.sed.in
-	cp ./$(MACH)/regs.sed.in ./$(MACH)/regs.sed.in.c
-	$(COMPILE.cpp) -D_KERNEL ./$(MACH)/regs.sed.in.c | tr -d ' ' | tr '"' '@' | \
+./i386/regs.sed: ./i386/regs.sed.in
+	cp ./i386/regs.sed.in ./i386/regs.sed.in.c
+	$(COMPILE.cpp) -D_KERNEL ./i386/regs.sed.in.c | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
-	-rm ./$(MACH)/regs.sed.in.c
-regs.d: ./$(MACH)/regs.sed ./$(MACH)/regs.d.in
-	sed -f ./$(MACH)/regs.sed < ./$(MACH)/regs.d.in > $@
-	-rm ./$(MACH)/regs.sed
+	-rm ./i386/regs.sed.in.c
+regs.d: ./i386/regs.sed ./i386/regs.d.in
+	sed -f ./i386/regs.sed < ./i386/regs.d.in > $@
+	-rm ./i386/regs.sed
 
 clean:
 	-rm -f dt_grammar.h dt_lex.c dt_errtags.c dt_names.c *.o $(LIB) 
 	-rm -f errno.d signal.d regs.d procfs.d io.d ip.d net.d sysevent.d tcp.d udp.d
-	-rm -f *.sed $(MACH)/*.sed
+	-rm -f *.sed i386/*.sed
 uninstall:
 	-rm -rf $(DLIBDIR)
 
