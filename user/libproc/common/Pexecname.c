@@ -58,7 +58,7 @@ try_exec(struct ps_prochandle *P, const char *cwd, const char *path, char *buf,
 	else
 		(void) strcpy(buf, path);
 
-	dprintf("try_exec \"%s\"\n", buf);
+	_dprintf("try_exec \"%s\"\n", buf);
 
 	(void) Pfindobj(P, buf, buf, PATH_MAX);
 /* FIX ME */
@@ -88,7 +88,7 @@ Pfindexec(struct ps_prochandle *P, const char *aout,
 	uintptr_t addr;
 	char *p = path, *q;
 
-	dprintf("Pfindexec '%s'\n", aout);
+	_dprintf("Pfindexec '%s'\n", aout);
 
 	if (P->execname)
 		return (P->execname); /* Already found */
@@ -232,7 +232,7 @@ Pfindexec(struct ps_prochandle *P, const char *aout,
 
 found:
 	if ((P->execname = strdup(buf)) == NULL)
-		dprintf("failed to malloc; executable name is \"%s\"", buf);
+		_dprintf("failed to malloc; executable name is \"%s\"", buf);
 
 	return (P->execname);
 }

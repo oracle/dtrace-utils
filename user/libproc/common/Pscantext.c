@@ -85,7 +85,7 @@ Pscantext(struct ps_prochandle *P)
 	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
 	if ((fp = fopen(mapfile, "r")) < 0) {
-		dprintf("failed to open %s: %s\n", mapfile, strerror(errno));
+		_dprintf("failed to open %s: %s\n", mapfile, strerror(errno));
 		return (-1);
 	}
 

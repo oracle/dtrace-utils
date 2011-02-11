@@ -325,7 +325,7 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 
 	/* Ensure all required entries were collected */
 	if ((di_mask & di_req_mask) != di_req_mask) {
-		dprintf("text section missing required dynamic entries\n");
+		_dprintf("text section missing required dynamic entries\n");
 		goto bad;
 	}
 
@@ -357,7 +357,7 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 			hptr += addr;
 
 		if (Pread(P, hash, sizeof (hash), hptr) != sizeof (hash)) {
-			dprintf("Pread of .hash at %lx failed\n",
+			_dprintf("Pread of .hash at %lx failed\n",
 			    (long)(hptr));
 			goto bad;
 		}
@@ -408,15 +408,15 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 			/* fall back to the platform default */
 #if ((defined(__i386) || defined(__amd64)) && !defined(_ELF64))
 			pltentries = pltrelsz / sizeof (Rel);
-			dprintf("DI_PLTREL not found, defaulting to Rel");
+			_dprintf("DI_PLTREL not found, defaulting to Rel");
 #else /* (!(__i386 || __amd64)) || _ELF64 */
 			pltentries = pltrelsz / sizeof (Rela);
-			dprintf("DI_PLTREL not found, defaulting to Rela");
+			_dprintf("DI_PLTREL not found, defaulting to Rela");
 #endif /* (!(__i386 || __amd64) || _ELF64 */
 		}
 
 		if (pltentries < PLTREL_MIN_ENTRIES) {
-			dprintf("too few PLT relocation entries "
+			_dprintf("too few PLT relocation entries "
 			    "(found %lu, expected at least %d)\n",
 			    (long)pltentries, PLTREL_MIN_ENTRIES);
 			goto bad;
@@ -471,7 +471,7 @@ done_with_plt:
 	 */
 	if (Pread(P, &elfdata[ep->e_phoff], phnum * ep->e_phentsize,
 	    addr + ehdr->e_phoff) != phnum * ep->e_phentsize) {
-		dprintf("failed to read program headers\n");
+		_dprintf("failed to read program headers\n");
 		goto bad;
 	}
 
@@ -519,7 +519,7 @@ done_with_plt:
 
 		if (Pread(P, &elfdata[off], sp->sh_size,
 		    sp->sh_addr) != sp->sh_size) {
-			dprintf("failed to read .SUNW_ldynsym at %lx\n",
+			_dprintf("failed to read .SUNW_ldynsym at %lx\n",
 			    (long)sp->sh_addr);
 			goto bad;
 		}
@@ -547,7 +547,7 @@ done_with_plt:
 
 	if (Pread(P, &elfdata[off], sp->sh_size,
 	    sp->sh_addr) != sp->sh_size) {
-		dprintf("failed to read .dynsym at %lx\n",
+		_dprintf("failed to read .dynsym at %lx\n",
 		    (long)sp->sh_addr);
 		goto bad;
 	}
@@ -573,7 +573,7 @@ done_with_plt:
 
 	if (Pread(P, &elfdata[off], sp->sh_size,
 	    sp->sh_addr) != sp->sh_size) {
-		dprintf("failed to read .dynstr\n");
+		_dprintf("failed to read .dynstr\n");
 		goto bad;
 	}
 	off += roundup(sp->sh_size, SH_ADDRALIGN);
@@ -631,14 +631,14 @@ done_with_plt:
 		/* read the elf hash bucket index */
 		if (Pread(P, &ndx, sizeof (ndx), (uintptr_t)hash) !=
 		    sizeof (ndx)) {
-			dprintf("Pread of .hash at %lx failed\n", (long)hash);
+			_dprintf("Pread of .hash at %lx failed\n", (long)hash);
 			goto bad;
 		}
 
 		while (ndx) {
 			if (Pread(P, &sym, sizeof (sym),
 			    (uintptr_t)&symtabptr[ndx]) != sizeof (sym)) {
-				dprintf("Pread of .symtab at %lx failed\n",
+				_dprintf("Pread of .symtab at %lx failed\n",
 				    (long)&symtabptr[ndx]);
 				goto bad;
 			}
@@ -646,7 +646,7 @@ done_with_plt:
 			strtabname = strtabptr + sym.st_name;
 			if (Pread_string(P, strbuf, sizeof (strbuf),
 			    strtabname) < 0) {
-				dprintf("Pread of .strtab at %lx failed\n",
+				_dprintf("Pread of .strtab at %lx failed\n",
 				    (long)strtabname);
 				goto bad;
 			}
@@ -657,7 +657,7 @@ done_with_plt:
 			hash = &((uint_t *)hptr)[2 + hnbuckets + ndx];
 			if (Pread(P, &ndx, sizeof (ndx), (uintptr_t)hash) !=
 			    sizeof (ndx)) {
-				dprintf("Pread of .hash at %lx failed\n",
+				_dprintf("Pread of .hash at %lx failed\n",
 				    (long)hash);
 				goto bad;
 			}
@@ -665,7 +665,7 @@ done_with_plt:
 
 #if defined(__sparc)
 		if (sym.st_value != d[DI_PLTGOT]->d_un.d_ptr) {
-			dprintf("warning: DI_PLTGOT (%lx) doesn't match "
+			_dprintf("warning: DI_PLTGOT (%lx) doesn't match "
 			    ".plt symbol pointer (%lx)",
 			    (long)d[DI_PLTGOT]->d_un.d_ptr,
 			    (long)sym.st_value);
@@ -673,7 +673,7 @@ done_with_plt:
 #endif /* __sparc */
 
 		if (ndx == 0) {
-			dprintf(
+			_dprintf(
 			    "Failed to find \"_PROCEDURE_LINKAGE_TABLE_\"\n");
 			goto bad;
 		}
@@ -693,7 +693,7 @@ done_with_plt:
 
 		if (Pread(P, &elfdata[off], sp->sh_size, sp->sh_addr) !=
 		    sp->sh_size) {
-			dprintf("failed to read .plt at %lx\n",
+			_dprintf("failed to read .plt at %lx\n",
 			    (long)sp->sh_addr);
 			goto bad;
 		}

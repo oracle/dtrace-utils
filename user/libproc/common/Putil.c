@@ -122,7 +122,7 @@ prset_ismember(void *sp, size_t size, uint_t flag)
  */
 /*PRINTFLIKE1*/
 void
-dprintf(const char *format, ...)
+_dprintf(const char *format, ...)
 {
 	if (_libproc_debug) {
 		va_list alist;
