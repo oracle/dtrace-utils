@@ -59,11 +59,6 @@ extern void prset_add(void *, size_t, uint_t);
 extern void prset_del(void *, size_t, uint_t);
 extern int prset_ismember(void *, size_t, uint_t);
 
-/*
- * Routine to print debug messages:
- */
-extern void dprintf(const char *, ...);
-
 #ifdef	__cplusplus
 }
 #endif

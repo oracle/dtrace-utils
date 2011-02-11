@@ -1,3 +1,7 @@
+2011-02-11  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* libproc/common/Putil.h: Remove declaration of dprintf.
+
 2011-02-10  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* cmd/common/dtrace.c: Assigned g_ofp to stdout in main function for
