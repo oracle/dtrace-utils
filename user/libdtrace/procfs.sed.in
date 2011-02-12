@@ -35,10 +35,10 @@
  */
 /*
 #include <sys/model.h>
-#include <sys/thread.h>
+#include <sys/thread.h> */
 #include <sys/proc.h>
 #include <sys/procfs.h>
-#include <sys/sobject.h>
+/*#include <sys/sobject.h>
 #include <sys/siginfo.h>
 */
 #define	SED_REPLACE(x)	s/#x/x/g
