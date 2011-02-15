@@ -1507,10 +1507,10 @@ struct task_struct {
 #endif
 #ifdef CONFIG_DTRACE
 	uint32_t predcache;
-	cycle_t dtrace_vtime;
-	cycle_t dtrace_start;
-	cycle_t dtrace_stop;
-	cycle_t dtrace_sig;
+	ktime_t dtrace_vtime;
+	ktime_t dtrace_start;
+	uint8_t dtrace_stop;
+	uint8_t dtrace_sig;
 
 	void *dtrace_helpers;
 #endif

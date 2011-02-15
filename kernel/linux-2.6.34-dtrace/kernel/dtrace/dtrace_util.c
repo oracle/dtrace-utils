@@ -125,7 +125,7 @@ void dtrace_cred2priv(const cred_t *cr, uint32_t *privp, uid_t *uidp)
 
 void dtrace_vtime_enable(void)
 {
-	dtrace_vtime_state_t	state, nstate;
+	dtrace_vtime_state_t	state, nstate = 0;
 
 	do {
 		state = dtrace_vtime_active;
@@ -148,7 +148,7 @@ void dtrace_vtime_enable(void)
 
 void dtrace_vtime_disable(void)
 {
-	dtrace_vtime_state_t	state, nstate;
+	dtrace_vtime_state_t	state, nstate = 0;
 
 	do {
 		state = dtrace_vtime_active;
