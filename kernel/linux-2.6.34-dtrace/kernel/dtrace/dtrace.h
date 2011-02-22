@@ -2187,7 +2187,8 @@ typedef struct cpu_core {
 	ktime_t cpu_dtrace_chilled;
 } cpu_core_t;
 
-extern cpu_core_t	cpu_core[];
+extern cpu_core_t		cpu_core[];
+extern struct mutex		cpu_lock;
 
 extern void dtrace_sync(void);
 extern void dtrace_toxic_ranges(void (*)(uintptr_t, uintptr_t));
@@ -2228,6 +2229,7 @@ extern void dtrace_probe_error(dtrace_state_t *, dtrace_epid_t, int, int, int,
 extern void dtrace_getpcstack(pc_t *, int, int, uint32_t *);
 extern void dtrace_getupcstack(uint64_t *, int);
 extern void dtrace_getufpstack(uint64_t *, uint64_t *, int);
+extern uintptr_t dtrace_getfp(void);
 extern uint64_t dtrace_getarg(int, int);
 extern int dtrace_getstackdepth(int);
 extern int dtrace_getustackdepth(void);
@@ -2243,5 +2245,57 @@ extern uintptr_t dtrace_caller(int);
 extern void debug_enter(char *);
 
 #define KERNELBASE	(uintptr_t)_text
+
+/*
+ * regset.h information
+ */
+#ifdef __i386__
+# define REG_SS		18      /* only stored on a privilege transition */
+# define REG_UESP	17      /* only stored on a privilege transition */
+# define REG_EFL	16
+# define REG_CS		15
+# define REG_EIP	14
+# define REG_ERR	13
+# define REG_TRAPNO	12
+# define REG_EAX	11
+# define REG_ECX	10
+# define REG_EDX	9
+# define REG_EBX	8
+# define REG_ESP	7
+# define REG_EBP	6
+# define REG_ESI	5
+# define REG_EDI	4
+# define REG_DS		3
+# define REG_ES		2
+# define REG_FS		1
+# define REG_GS		0
+#else
+# define REG_DS		25
+# define REG_ES		24
+# define REG_GS		23
+# define REG_FS		22
+# define REG_SS		21
+# define REG_RSP	20
+# define REG_RFL	19
+# define REG_CS		18
+# define REG_RIP	17
+# define REG_ERR	16
+# define REG_TRAPNO	15
+# define REG_RAX	14
+# define REG_RCX	13
+# define REG_RDX	12
+# define REG_RBX	11
+# define REG_RBP	10
+# define REG_RSI	9
+# define REG_RDI	8
+# define REG_R8		7
+# define REG_R9		6
+# define REG_R10	5
+# define REG_R11	4
+# define REG_R12	3
+# define REG_R13	2
+# define REG_R14	1
+# define REG_R15	0
+#endif
 
 #endif /* _DTRACE_H_ */

@@ -39,7 +39,7 @@ void dtrace_anon_property(void)
 	char		c[32];             /* enough for "dof-data-" + digits */
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 
 	for (i = 0; ; i++) {
 		snprintf(c, sizeof (c), "dof-data-%d", i);

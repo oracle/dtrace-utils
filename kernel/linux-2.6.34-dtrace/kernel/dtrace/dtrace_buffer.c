@@ -78,7 +78,7 @@ int dtrace_buffer_alloc(dtrace_buffer_t *bufs, size_t size, int flags,
 	dtrace_buffer_t	*buf;
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 
 #ifdef FIXME
 	if (size > dtrace_nonroot_maxsize &&

@@ -256,7 +256,7 @@ static void dtrace_action_breakpoint(dtrace_ecb_t *ecb)
 	c[i++] = ')';
 	c[i] = '\0';
 
-	debug_enter(c); /* FIXME */
+//	debug_enter(c); /* FIXME */
 }
 
 static void dtrace_action_panic(dtrace_ecb_t *ecb)
@@ -304,8 +304,8 @@ static void dtrace_action_raise(uint64_t sig)
 	if (current->dtrace_sig == 0)
 		current->dtrace_sig = (uint8_t)sig;
 
-//	current->sig_check = 1;	**FIXME**
-//	aston(current);		**FIXME**
+//	current->sig_check = 1;	/* FIXME */
+//	aston(current);		/* FIXME */
 }
 
 static void dtrace_action_stop(void)
@@ -315,8 +315,8 @@ static void dtrace_action_stop(void)
 
 	if (!current->dtrace_stop) {
 		current->dtrace_stop = 1;
-//		current->sig_check = 1; **FIXME**
-//		aston(current);		**FIXME**
+//		current->sig_check = 1; /* FIXME */
+//		aston(current);		/* FIXME */
 	}
 }
 
@@ -331,7 +331,7 @@ static void dtrace_action_chill(dtrace_mstate_t *mstate, ktime_t val)
 
 	flags = (volatile uint16_t *)&cpu->cpuc_dtrace_flags;
 
-	now = dtrace_gethrtime();
+	now = ktime_get();
 
 	if (ktime_gt(ktime_sub(now, cpu->cpu_dtrace_chillmark),
 		     dtrace_chill_interval)) {
@@ -355,7 +355,7 @@ static void dtrace_action_chill(dtrace_mstate_t *mstate, ktime_t val)
 		return;
 	}
 
-	while (ktime_lt(ktime_sub(dtrace_gethrtime(), now), val))
+	while (ktime_lt(ktime_sub(ktime_get(), now), val))
 		continue;
 
 	/*
@@ -531,7 +531,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	}
 #endif
 
-	now = dtrace_gethrtime();
+	now = ktime_get();
 	vtime = dtrace_vtime_references != 0;
 
 	if (vtime && ktime_nz(current->dtrace_start))
@@ -1097,7 +1097,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	}
 
 	if (vtime)
-		current->dtrace_start = dtrace_gethrtime();
+		current->dtrace_start = ktime_get();
 
 	local_irq_restore(cookie);
 }

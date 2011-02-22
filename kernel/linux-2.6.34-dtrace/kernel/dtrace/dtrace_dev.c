@@ -318,13 +318,13 @@ static long dtrace_ioctl(struct file *file,
 		if ((dof = dtrace_dof_copyin(argp, &rval)) == NULL)
 			return rval;
 
-		/* FIXME: mutex_lock(&cpu_lock); */
+		mutex_lock(&cpu_lock);
 		mutex_lock(&dtrace_lock);
 		vstate = &state->dts_vstate;
 
 		if (state->dts_activity != DTRACE_ACTIVITY_INACTIVE) {
 			mutex_unlock(&dtrace_lock);
-			/* FIXME: mutex_unlock(&cpu_lock); */
+			mutex_unlock(&cpu_lock);
 			dtrace_dof_destroy(dof);
 			return -EBUSY;
 		}
@@ -332,7 +332,7 @@ static long dtrace_ioctl(struct file *file,
 		if (dtrace_dof_slurp(dof, vstate, file->f_cred, &enab, 0,
 				     TRUE) != 0) {
 			mutex_unlock(&dtrace_lock);
-			/* FIXME: mutex_unlock(&cpu_lock); */
+			mutex_unlock(&cpu_lock);
 			dtrace_dof_destroy(dof);
 			return -EINVAL;
 		}
@@ -340,7 +340,7 @@ static long dtrace_ioctl(struct file *file,
 		if ((rval = dtrace_dof_options(dof, state)) != 0) {
 			dtrace_enabling_destroy(enab);
 			mutex_unlock(&dtrace_lock);
-			/* FIXME: mutex_unlock(&cpu_lock); */
+			mutex_unlock(&cpu_lock);
 			dtrace_dof_destroy(dof);
 			return rval;
 		}
@@ -351,7 +351,7 @@ static long dtrace_ioctl(struct file *file,
 			dtrace_enabling_destroy(enab);
 
 		mutex_unlock(&dtrace_lock);
-		/* FIXME: mutex_unlock(&cpu_lock); */
+		mutex_unlock(&cpu_lock);
 		dtrace_dof_destroy(dof);
 
 		return err;
@@ -458,13 +458,13 @@ static long dtrace_ioctl(struct file *file,
 			return -EINVAL;
 
 		mutex_lock(&dtrace_provider_lock);
-		/* FIXME: mutex_lock(&mod_lock); */
+		mutex_lock(&module_mutex);
 		mutex_lock(&dtrace_lock);
 
 		probe = dtrace_probe_lookup_id(desc.dtargd_id);
 		if (probe == NULL) {
 			mutex_unlock(&dtrace_lock);
-			/* FIXME: mutex_unlock(&mod_lock); */
+			mutex_unlock(&module_mutex);
 			mutex_unlock(&dtrace_provider_lock);
 
 			return -EINVAL;
@@ -490,7 +490,7 @@ static long dtrace_ioctl(struct file *file,
 				probe->dtpr_arg, &desc);
 		}
 
-		/* FIXME: mutex_unlock(&mod_lock); */
+		mutex_unlock(&module_mutex);
 		mutex_unlock(&dtrace_provider_lock);
 
 		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
@@ -704,7 +704,7 @@ static long dtrace_ioctl(struct file *file,
 		 */
 		state->dts_laststatus = ns_to_ktime(INT64_MAX);
 		dtrace_membar_producer();
-		state->dts_laststatus = dtrace_gethrtime();
+		state->dts_laststatus = ktime_get();
 
 		memset(&stat, 0, sizeof(stat));
 
@@ -827,7 +827,7 @@ static int dtrace_open(struct inode *inode, struct file *file)
 	dtrace_probe_provide(NULL, NULL);
 	mutex_unlock(&dtrace_provider_lock);
 
-	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
 	dtrace_opens++;
 	dtrace_membar_producer();
@@ -845,7 +845,7 @@ static int dtrace_open(struct inode *inode, struct file *file)
 #endif
 
 	state = dtrace_state_create(file);
-	/* FIXME: mutex_unlock(&cpu_lock); */
+	mutex_unlock(&cpu_lock);
 
 	if (state == NULL) {
 #ifdef FIXME
@@ -869,7 +869,7 @@ static int dtrace_close(struct inode *inode, struct file *file)
 {
 	dtrace_state_t	*state;
 
-	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
 
 	/*
@@ -891,7 +891,7 @@ static int dtrace_close(struct inode *inode, struct file *file)
 #endif
 
 	mutex_unlock(&dtrace_lock);
-	/* FIXME: mutex_unlock(&cpu_lock); */
+	mutex_unlock(&cpu_lock);
 
 	return 0;
 }
@@ -988,7 +988,7 @@ int dtrace_dev_init(void)
 	dtrace_provider_id_t	id;
 	int			rc = 0;
 
-	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_provider_lock);
 	mutex_lock(&dtrace_lock);
 
@@ -1000,7 +1000,7 @@ int dtrace_dev_init(void)
 		pr_err("%s: Can't register misc device %d\n",
 		       dtrace_dev.name, dtrace_dev.minor);
 
-		/* FIXME: mutex_unlock(&cpu_lock); */
+		mutex_unlock(&cpu_lock);
 		mutex_unlock(&dtrace_lock);
 		mutex_unlock(&dtrace_provider_lock);
 
@@ -1088,7 +1088,7 @@ int dtrace_dev_init(void)
 				NULL, "ERROR", 1, NULL);
 
 	dtrace_anon_property();
-	/* FIXME: mutex_unlock(&cpu_lock); */
+	mutex_unlock(&cpu_lock);
 
 	/*
 	 * If DTrace helper tracing is enabled, we need to allocate a trace

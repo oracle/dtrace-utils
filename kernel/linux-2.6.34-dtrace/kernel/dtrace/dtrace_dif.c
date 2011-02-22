@@ -1844,7 +1844,7 @@ static uint64_t dtrace_dif_variable(dtrace_mstate_t *mstate,
 
 	case DIF_VAR_TIMESTAMP:
 		if (!(mstate->dtms_present & DTRACE_MSTATE_TIMESTAMP)) {
-			mstate->dtms_timestamp = dtrace_gethrtime();
+			mstate->dtms_timestamp = ktime_get();
 			mstate->dtms_present |= DTRACE_MSTATE_TIMESTAMP;
 		}
 
@@ -2167,7 +2167,7 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 
 	switch (subr) {
 	case DIF_SUBR_RAND:
-		regs[rd] = ktime_to_ns(dtrace_gethrtime()) * 2416 + 374441;
+		regs[rd] = ktime_to_ns(ktime_get()) * 2416 + 374441;
 		regs[rd] = do_div(regs[rd], 1771875);
 		break;
 
@@ -3751,8 +3751,7 @@ uint64_t dtrace_dif_emulate(dtrace_difo_t *difo, dtrace_mstate_t *mstate,
 				 *	      (int64_t)regs[r2];
 				 */
 				regs[rd] = (int64_t)regs[r1];
-				regs[rd] = do_div((int64_t)regs[rd],
-						  (int64_t)regs[r2]);
+				regs[rd] = do_div(regs[rd], (int64_t)regs[r2]);
 			}
 			break;
 

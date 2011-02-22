@@ -696,7 +696,7 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 {
 	dtrace_probe_t	*probe = ecb->dte_probe;
 
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 	ASSERT(mutex_is_locked(&dtrace_lock));
 	ASSERT(ecb->dte_next == NULL);
 

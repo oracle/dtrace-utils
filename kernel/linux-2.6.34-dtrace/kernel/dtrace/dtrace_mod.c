@@ -12,7 +12,8 @@
 MODULE_AUTHOR("Kris Van Hees (kris.van.hees@oracle.com)");
 MODULE_DESCRIPTION("Dynamic Tracing");
 MODULE_VERSION("v0.1");
-MODULE_LICENSE("Proprietary");
+//MODULE_LICENSE("Proprietary");
+MODULE_LICENSE("GPL");
 
 /*
  * Initialize the module.

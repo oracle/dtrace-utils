@@ -228,7 +228,7 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 
 void dtrace_dstate_fini(dtrace_dstate_t *dstate)
 {
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 
 	if (dstate->dtds_base == NULL)
 		return;
@@ -271,7 +271,7 @@ static void dtrace_state_deadman(dtrace_state_t *state)
 
 	dtrace_sync();
 
-	now = dtrace_gethrtime();
+	now = ktime_get();
 
 	if (state != dtrace_anon.dta_state &&
 	    ktime_ge(ktime_sub(now, state->dts_laststatus),
@@ -300,7 +300,7 @@ dtrace_state_t *dtrace_state_create(struct file *file)
 	const cred_t	*cr = file->f_cred;
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 
 	state = kmalloc(sizeof (dtrace_state_t), GFP_KERNEL);
 	state->dts_epid = DTRACE_EPIDNONE + 1;
@@ -422,7 +422,7 @@ static int dtrace_state_buffer(dtrace_state_t *state, dtrace_buffer_t *buf,
 	int		flags = 0, rval;
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 	ASSERT(which < DTRACEOPT_MAX);
 	ASSERT(state->dts_activity == DTRACE_ACTIVITY_INACTIVE ||
 	       (state == dtrace_anon.dta_state &&
@@ -539,7 +539,7 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 				bufsize = NR_CPUS * sizeof (dtrace_buffer_t);
 	dtrace_icookie_t	cookie;
 
-	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
 
 	if (state->dts_activity != DTRACE_ACTIVITY_INACTIVE) {
@@ -725,7 +725,7 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 	when.cyt_when = ktime_set(0, 0);
 	when.cyt_interval = dtrace_deadman_interval;
 
-	state->dts_alive = state->dts_laststatus = dtrace_gethrtime();
+	state->dts_alive = state->dts_laststatus = ktime_get();
 	state->dts_deadman = cyclic_add(&hdlr, &when);
 
 	state->dts_activity = DTRACE_ACTIVITY_WARMUP;
@@ -793,7 +793,7 @@ err:
 
 out:
 	mutex_unlock(&dtrace_lock);
-	/* FIXME: mutex_unlock(&cpu_lock); */
+	mutex_unlock(&cpu_lock);
 
 	return rval;
 }
@@ -911,7 +911,7 @@ void dtrace_state_destroy(dtrace_state_t *state)
 	uint32_t		match;
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
-	/* FIXME: ASSERT(mutex_is_locked(&cpu_lock)); */
+	ASSERT(mutex_is_locked(&cpu_lock));
 
 	/*
 	 * First, retract any retained enablings for this state.

@@ -141,8 +141,8 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 
 		/*
 		 * We must now call dtrace_enabling_matchall() which needs to
-		 * acquire FIXME(cpu_lock) and dtrace_lock.  We therefore need
-		 * to drop our locks before calling it.
+		 * acquire cpu_lock and dtrace_lock.  We therefore need to drop
+		 * our locks before calling it.
 		 */
 		mutex_unlock(&dtrace_lock);
 		mutex_unlock(&dtrace_provider_lock);

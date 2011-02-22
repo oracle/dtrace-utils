@@ -324,14 +324,14 @@ void dtrace_enabling_matchall(void)
 {
 	dtrace_enabling_t	*enab;
 
-	/* FIXME: mutex_lock(&cpu_lock); */
+	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
 
 	for (enab = dtrace_retained; enab != NULL; enab = enab->dten_next)
 		(void) dtrace_enabling_match(enab, NULL);
 
 	mutex_unlock(&dtrace_lock);
-	/* FIXME: mutex_unlock(&cpu_lock); */
+	mutex_unlock(&cpu_lock);
 }
 
 /*
