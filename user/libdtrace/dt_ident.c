@@ -26,7 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <sys/sysmacros.h>
 #include <string.h>
 #include <stdlib.h>
 #include <alloca.h>

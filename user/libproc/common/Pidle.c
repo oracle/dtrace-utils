@@ -29,7 +29,6 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
-#include <sys/sysmacros.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"

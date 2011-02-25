@@ -44,7 +44,7 @@
 #include <sys/stack.h>
 #include <sys/fault.h>
 #include <sys/syscall.h>
-#include <sys/sysmacros.h>
+/*#include <sys/sysmacros.h>*/
 
 #include "libproc.h"
 #include "Pcontrol.h"

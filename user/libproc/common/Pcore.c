@@ -25,7 +25,7 @@
 
 #include <sys/types.h>
 #include <sys/utsname.h>
-#include <sys/sysmacros.h>
+/*#include <sys/sysmacros.h>*/
 
 #include <alloca.h>
 #include <rtld_db.h>

@@ -35,7 +35,6 @@
 #define __USE_ATFILE 
 #include <sys/fcntl.h>
 
-#include <sys/sysmacros.h>
 #include "libproc.h"
 
 #ifdef _LP64

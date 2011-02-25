@@ -30,7 +30,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <memory.h>
-#include <sys/sysmacros.h>
 #include <sys/machelf.h>
 
 #include "Pcontrol.h"

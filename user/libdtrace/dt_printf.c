@@ -24,7 +24,6 @@
  * Use is subject to license terms.
  */
 
-#include <sys/sysmacros.h>
 #include <string.h>
 #include <stdlib.h>
 #include <alloca.h>

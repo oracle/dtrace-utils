@@ -27,7 +27,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <sys/sysmacros.h>
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <gelf.h>

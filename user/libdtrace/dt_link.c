@@ -30,7 +30,6 @@
 #include <elf.h>
 
 #include <sys/types.h>
-#include <sys/sysmacros.h>
 
 #include <sys/elf_amd64.h>
 

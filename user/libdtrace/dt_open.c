@@ -1066,7 +1066,7 @@ alloc:
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	dmp->dm_flags = DT_DM_LOADED; /* fake up loaded bit */
-	dmp->dm_modid = -1; /* no module ID */
+	/* dmp->dm_modid = -1; */ /* no module ID */
 
 	/*
 	 * Fill the dynamic "C" CTF container with all of the intrinsic
@@ -1132,7 +1132,7 @@ alloc:
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	dmp->dm_flags = DT_DM_LOADED; /* fake up loaded bit */
-	dmp->dm_modid = -1; /* no module ID */
+/*	dmp->dm_modid = -1; *//* no module ID */
 
 	if (ctf_import(dmp->dm_ctfp, dtp->dt_cdefs->dm_ctfp) == CTF_ERR) {
 		dt_dprintf("failed to import D parent container: %s\n",

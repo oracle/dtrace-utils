@@ -23,6 +23,10 @@ cmd=$dtrace\ -e\ -s\ $i
 		cmd=$cmd\ $pid\ _chdir
 	elif [ $i == "./demo/sched/pritime.d" ]; then
 		cmd=$cmd\ $pid\ 1
+	elif [ $i == "./demo/sched/userfunc.d" ]; then
+		cmd=$cmd\ $pid\ execute
+	elif [ $i == "./demo/struct/kstat.d" ]; then
+		cmd=$dtrace\ -q\ -e\ -s\ $i\ `pgrep mpstat`
 	fi
 $cmd
 echo $cmd

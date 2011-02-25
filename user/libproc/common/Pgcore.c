@@ -35,8 +35,9 @@
 #include <priv.h>
 #include <sys/elf.h>
 #include <sys/machelf.h>
+/*
 #include <sys/sysmacros.h>
-/*#include <sys/systeminfo.h>*/
+#include <sys/systeminfo.h>*/
 #include <sys/proc.h>
 #include <sys/utsname.h>
 

@@ -32,7 +32,6 @@
 
 #include <types_off.h>
 #include <sys/errno.h>
-#include <sys/sysmacros.h>
 #include <sys/ctf_api.h>
 
 #ifdef _KERNEL

@@ -33,7 +33,6 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/statvfs.h>
-#include <sys/sysmacros.h>
 #include "libproc.h"
 
 #ifdef _LP64

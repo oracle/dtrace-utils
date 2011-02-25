@@ -39,7 +39,6 @@
  * to check for errors and then perform a single check before using the buffer.
  */
 
-#include <sys/sysmacros.h>
 #include <strings.h>
 
 #include <dt_impl.h>

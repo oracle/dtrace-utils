@@ -27,7 +27,6 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/types.h>
-#include <sys/sysmacros.h>
 //#include <sys/isa_defs.h>
 
 #include <strings.h>

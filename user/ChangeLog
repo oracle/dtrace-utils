@@ -1,3 +1,14 @@
+2011-02-25  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/dt_impl.h (dt_module_t): Remove memeber dm_modid since
+	there is no module id at Linux.
+	* libdtrace/dtrace.h (dtrace_objinfo_t): Remove memeber dto_id.
+	* libdtrace/dt_module.c, libdtrace/dt_open.c: Remove the reference to
+	dm_modid and dto_id.
+	* libdtrace/*, common/ctf/*, libproc/common/*: Remove inclusion header
+	file sysmacros.h.
+	* runtest.sh: Update.
+
 2011-02-12  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/procfs.sed.in: Include the needed and existing header

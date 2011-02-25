@@ -50,7 +50,6 @@
 #include <sys/stat.h>
 #include <sys/fault.h>
 #include <sys/syscall.h>
-#include <sys/sysmacros.h>
 
 #include <sys/priv.h>
 #include <types_various.h>
