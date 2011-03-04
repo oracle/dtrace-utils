@@ -1,3 +1,8 @@
+2011-03-04  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/Pcontrol.c: Comment the codes about write ctf file.
+	Add ptrace code if needed.
+
 2011-02-25  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_module_t): Remove memeber dm_modid since

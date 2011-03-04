@@ -309,7 +309,7 @@ Pxcreate(const char *file,	/* executable file name */
 	fd = -1;
 	P->ctlfd = fd;
 	
-	waitpid (pid, &status, 0);
+/*	waitpid (pid, &status, 0); */
 /*	ptrace(PTRACE_DETACH, pid, NULL, NULL); */
         P->status.pr_flags |= PR_STOPPED;
         P->state = PS_STOP;
@@ -1250,6 +1250,8 @@ Pprivinfo(struct ps_prochandle *P)
 void
 Psync(struct ps_prochandle *P)
 {
+	return;
+#if 0
 	int ctlfd = (P->agentctlfd >= 0)? P->agentctlfd : P->ctlfd;
 	long cmd[6];
 	iovec_t iov[12];
@@ -1310,6 +1312,7 @@ Psync(struct ps_prochandle *P)
 		return;		/* nothing to do or write failed */
 
 	P->flags &= ~(SETSIG|SETFAULT|SETENTRY|SETEXIT|SETHOLD|SETREGS);
+#endif
 }
 
 /*
@@ -1510,6 +1513,8 @@ Prelease(struct ps_prochandle *P, int flags)
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",
 	    (void *)P, (int)P->pid);
+	
+	ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
 
 	if (P->ctlfd == -1) {
 		Pfree(P);
@@ -1731,7 +1736,7 @@ Pstopstatus(struct ps_prochandle *P,
 			err = errno;
 		P->status.pr_flags = P->status.pr_lwp.pr_flags;
 	}*/ /* FOR Linux */
-
+#if 0
 	if (err) {
 		switch (err) {
 		case EINTR:		/* user typed ctl-C */
@@ -1778,7 +1783,7 @@ Pstopstatus(struct ps_prochandle *P,
 		errno = EPROTO;
 		return (-1);
 	}
-
+#endif
 	P->state = PS_STOP;
 
 	if (_libproc_debug)	/* debugging */
@@ -1791,7 +1796,7 @@ Pstopstatus(struct ps_prochandle *P,
 	 */
 	if (old_state == PS_STOP)
 		return (0);
-
+#if 0
 	switch (P->status.pr_lwp.pr_why) {
 	case PR_SYSENTRY:
 	case PR_SYSEXIT:
@@ -1809,7 +1814,7 @@ Pstopstatus(struct ps_prochandle *P,
 		errno = EPROTO;
 		return (-1);
 	}
-
+#endif
 	return (0);
 }
 
@@ -2501,18 +2506,19 @@ int
 Psetflags(struct ps_prochandle *P, long flags)
 {
 	int rc;
-	long ctl[2];
+/* Only change P->status but not write to file at Linux. */
+/*	long ctl[2];
 
 	ctl[0] = PCSET;
 	ctl[1] = flags;
 
 	if (write(P->ctlfd, ctl, 2*sizeof (long)) != 2*sizeof (long)) {
 		rc = -1;
-	} else {
+	} else { */
 		P->status.pr_flags |= flags;
 		P->status.pr_lwp.pr_flags |= flags;
 		rc = 0;
-	}
+/*	} */
 
 	return (rc);
 }
@@ -2521,18 +2527,18 @@ int
 Punsetflags(struct ps_prochandle *P, long flags)
 {
 	int rc;
-	long ctl[2];
+/*	long ctl[2];
 
 	ctl[0] = PCUNSET;
 	ctl[1] = flags;
 
 	if (write(P->ctlfd, ctl, 2*sizeof (long)) != 2*sizeof (long)) {
 		rc = -1;
-	} else {
+	} else { */
 		P->status.pr_flags &= ~flags;
 		P->status.pr_lwp.pr_flags &= ~flags;
 		rc = 0;
-	}
+/*	} */
 
 	return (rc);
 }
