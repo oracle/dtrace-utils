@@ -13,50 +13,42 @@ if DTRACE
 
 config DT_CORE
 	tristate "DTrace core"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_FASTTRAP
 	tristate "Fasttrap Tracing"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_FBT
 	tristate "Function Boundary Tracing"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_LOCKSTAT
 	tristate "Lock Statistics"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_PROFILE
 	tristate "Profile Interrupt Tracing"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_SDT
 	tristate "Statically Defined Tracing"
-	depends on DTRACE
 	select KALLSYMS
 	help
 	  To be written.
 
 config DT_SYSTRACE
 	tristate "System Call Tracing"
-	depends on DTRACE
 	help
 	  To be written.
 
 config DT_DEBUG
 	bool "DTrace debugging"
-	depends on DTRACE
 	help
 	  This controls the inclusion of various piece of code that perform
 	  internal checks within the DTrace core.  It also enables all the
