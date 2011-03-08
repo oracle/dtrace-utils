@@ -324,6 +324,7 @@ GENKSYMS	= scripts/genksyms/genksyms
 INSTALLKERNEL  := installkernel
 DEPMOD		= /sbin/depmod
 KALLSYMS	= scripts/kallsyms
+DTRACE_RELOCS	= scripts/dtrace_relocs
 PERL		= perl
 CHECK		= sparse
 
@@ -802,6 +803,9 @@ define rule_ksym_ld
 	$(Q)echo 'cmd_$@ := $(cmd_vmlinux__)' > $(@D)/.$(@F).cmd
 endef
 
+# Needs to visit scripts/ before $(KALLSYMS) can be used.
+$(KALLSYMS): scripts ;
+
 # Generate .S file with all kernel symbols
 quiet_cmd_kallsyms = KSYM    $@
       cmd_kallsyms = $(NM) -n $< | $(KALLSYMS) \
@@ -810,21 +814,27 @@ quiet_cmd_kallsyms = KSYM    $@
 .tmp_kallsyms1.o .tmp_kallsyms2.o .tmp_kallsyms3.o: %.o: %.S scripts FORCE
 	$(call if_changed_dep,as_o_S)
 
+vmlinux_info.S: scripts
+	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
+
+vmlinux_info.o: vmlinux_info.S scripts
+	$(call if_changed_dep,as_o_S)
+
 .tmp_kallsyms%.S: .tmp_vmlinux% $(KALLSYMS)
 	$(call cmd,kallsyms)
+#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
 
 # .tmp_vmlinux1 must be complete except kallsyms, so update vmlinux version
 .tmp_vmlinux1: $(vmlinux-lds) $(vmlinux-all) FORCE
 	$(call if_changed_rule,ksym_ld)
 
-.tmp_vmlinux2: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms1.o FORCE
+.tmp_vmlinux2: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms1.o vmlinux_info.o FORCE
 	$(call if_changed,vmlinux__)
+#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
 
-.tmp_vmlinux3: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms2.o FORCE
+.tmp_vmlinux3: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms2.o vmlinux_info.o FORCE
 	$(call if_changed,vmlinux__)
-
-# Needs to visit scripts/ before $(KALLSYMS) can be used.
-$(KALLSYMS): scripts ;
+#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
 
 # Generate some data for debugging strange kallsyms problems
 debug_kallsyms: .tmp_map$(last_kallsyms)
@@ -895,6 +905,8 @@ else
 vmlinux.o: $(modpost-init) $(vmlinux-main) FORCE # w/o $(dtracestubs)
 	$(call if_changed_rule,mkstubs)
 	$(call if_changed_rule,vmlinux-modpost)
+	$(OBJDUMP) -h vmlinux.o > vmlinux_info
+	$(OBJDUMP) -r vmlinux.o | grep -E -e "^RELOC|__dtrace_probe_" >> vmlinux_info
 endif
 
 # The actual objects are generated when descending, 
@@ -1183,7 +1195,8 @@ endif # CONFIG_MODULES
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += $(MODVERDIR)
 CLEAN_FILES +=	vmlinux System.map \
-                .tmp_kallsyms* .tmp_version .tmp_vmlinux* .tmp_System.map
+                .tmp_kallsyms* .tmp_version .tmp_vmlinux* .tmp_System.map \
+		vmlinux_info* dtrace_stubs*
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config usr/include include/generated
