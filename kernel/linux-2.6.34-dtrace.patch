@@ -31,7 +31,7 @@ diff -urN ../linux-2.6.34/init/Kconfig ./init/Kconfig
  # dynamically changed for a probe function.
 diff -urN ../linux-2.6.34/kernel/dtrace/ctf_api.h ./kernel/dtrace/ctf_api.h
 --- ../linux-2.6.34/kernel/dtrace/ctf_api.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/ctf_api.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/ctf_api.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,16 @@
 +#ifndef __CTF_API_H_
 +#define __CTF_API_H_
@@ -51,7 +51,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/ctf_api.h ./kernel/dtrace/ctf_api.h
 +#endif /* __CTF_API_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.c ./kernel/dtrace/cyclic.c
 --- ../linux-2.6.34/kernel/dtrace/cyclic.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/cyclic.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/cyclic.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,23 @@
 +/*
 + * FILE:	cyclic.c
@@ -78,7 +78,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.c ./kernel/dtrace/cyclic.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.h ./kernel/dtrace/cyclic.h
 --- ../linux-2.6.34/kernel/dtrace/cyclic.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/cyclic.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/cyclic.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,33 @@
 +#ifndef _CYCLIC_H_
 +#define _CYCLIC_H_
@@ -115,8 +115,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/cyclic.h ./kernel/dtrace/cyclic.h
 +#endif /* _CYCLIC_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_actdesc.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_actdesc.c	2011-02-21 15:26:26.000000000 -0500
-@@ -0,0 +1,62 @@
++++ ./kernel/dtrace/dtrace_actdesc.c	2011-03-09 13:38:10.000000000 -0500
+@@ -0,0 +1,73 @@
 +/*
 + * FILE:	dtrace_actdesc.c
 + * DESCRIPTION:	Dynamic Tracing: action description functions
@@ -133,9 +133,15 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_
 +{
 +	dtrace_actdesc_t	*act;
 +
++#ifdef FIXME
 +	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
 +	       (arg != 0 && (uintptr_t)arg >= KERNELBASE) ||
 +	       (arg == 0 && kind == DTRACEACT_PRINTA));
++#else
++	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
++	       (arg != 0) ||
++	       (arg == 0 && kind == DTRACEACT_PRINTA));
++#endif
 +
 +	act = kzalloc(sizeof (dtrace_actdesc_t), GFP_KERNEL);
 +	act->dtad_kind = kind;
@@ -170,8 +176,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_
 +	if (DTRACEACT_ISPRINTFLIKE(kind)) {
 +		char	*str = (char *)(uintptr_t)act->dtad_arg;
 +
++#ifdef FIXME
 +		ASSERT((str != NULL && (uintptr_t)str >= KERNELBASE) ||
 +		       (str == NULL && act->dtad_kind == DTRACEACT_PRINTA));
++#else
++		ASSERT((str != NULL) ||
++		       (str == NULL && act->dtad_kind == DTRACEACT_PRINTA));
++#endif
 +
 +		if (str != NULL)
 +			kfree(str);
@@ -181,7 +192,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_actdesc.c ./kernel/dtrace/dtrace_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_anon.c ./kernel/dtrace/dtrace_anon.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_anon.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_anon.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_anon.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,132 @@
 +/*
 + * FILE:	dtrace_anon.c
@@ -649,7 +660,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_asm.S ./kernel/dtrace/dtrace_asm.
 +#endif	/* __i386__ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_buffer.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_buffer.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_buffer.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,453 @@
 +/*
 + * FILE:	dtrace_buffer.c
@@ -1106,7 +1117,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_buffer.c ./kernel/dtrace/dtrace_b
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,1127 @@
 +/*
 + * FILE:	dtrace_dev.c
@@ -2237,7 +2248,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.c ./kernel/dtrace/dtrace_dev.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dev.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dev.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_dev.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,16 @@
 +#ifndef _DTRACE_DEV_H_
 +#define _DTRACE_DEV_H_
@@ -2257,7 +2268,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dev.h ./kernel/dtrace/dtrace_dev.
 +#endif /* _DTRACE_DEV_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dif.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dif.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_dif.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,4463 @@
 +/*
 + * FILE:	dtrace_dif.c
@@ -4194,7 +4205,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				 * dtrace_caller() only guarantees correct
 +				 * results for anchored probes.
 +				 */
-+				pc_t	caller[2];
++				uint64_t	caller[2];
 +
 +				dtrace_getpcstack(caller, 2, aframes,
 +					(uint32_t *)(uintptr_t)
@@ -4207,7 +4218,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +				 * we must resort to the slower approach of
 +				 * calling dtrace_getpcstack().
 +				 */
-+				pc_t	caller;
++				uint64_t	caller;
 +
 +				dtrace_getpcstack(&caller, 1, aframes, NULL);
 +				mstate->dtms_caller = caller;
@@ -6724,7 +6735,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dif.c ./kernel/dtrace/dtrace_dif.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_dof.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_dof.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_dof.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,1051 @@
 +/*
 + * FILE:	dtrace_dof.c
@@ -7779,7 +7790,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_dof.c ./kernel/dtrace/dtrace_dof.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ecb.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_ecb.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,762 @@
 +/*
 + * FILE:	dtrace_ecb.c
@@ -7798,14 +7809,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +						      dtrace_actdesc_t *desc)
 +{
 +	dtrace_aggregation_t	*agg;
-+	size_t			size = sizeof (uint64_t);
++	size_t			size = sizeof(uint64_t);
 +	int			ntuple = desc->dtad_ntuple;
 +	dtrace_action_t		*act;
 +	dtrace_recdesc_t	*frec;
 +	dtrace_aggid_t		aggid;
 +	dtrace_state_t		*state = ecb->dte_state;
 +
-+	agg = kzalloc(sizeof (dtrace_aggregation_t), GFP_KERNEL);
++	agg = kzalloc(sizeof(dtrace_aggregation_t), GFP_KERNEL);
 +	agg->dtag_ecb = ecb;
 +
 +	ASSERT(DTRACEACT_ISAGG(desc->dtad_kind));
@@ -7827,8 +7838,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +
 +	case DTRACEAGG_QUANTIZE:
 +		agg->dtag_aggregate = dtrace_aggregate_quantize;
-+		size = (((sizeof (uint64_t) * NBBY) - 1) * 2 + 1) *
-+		       sizeof (uint64_t);
++		size = (((sizeof(uint64_t) * NBBY) - 1) * 2 + 1) *
++		       sizeof(uint64_t);
 +		break;
 +
 +	case DTRACEAGG_LQUANTIZE: {
@@ -7842,18 +7853,18 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +		if (step == 0 || levels == 0)
 +			goto err;
 +
-+		size = levels * sizeof (uint64_t) + 3 * sizeof (uint64_t);
++		size = levels * sizeof(uint64_t) + 3 * sizeof(uint64_t);
 +		break;
 +	}
 +
 +	case DTRACEAGG_AVG:
 +		agg->dtag_aggregate = dtrace_aggregate_avg;
-+		size = sizeof (uint64_t) * 2;
++		size = sizeof(uint64_t) * 2;
 +		break;
 +
 +	case DTRACEAGG_STDDEV:
 +		agg->dtag_aggregate = dtrace_aggregate_stddev;
-+		size = sizeof (uint64_t) * 4;
++		size = sizeof(uint64_t) * 4;
 +		break;
 +
 +	case DTRACEAGG_SUM:
@@ -7920,9 +7931,9 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +			naggs = 1;
 +		}
 +
-+		aggs = kzalloc(naggs * sizeof (*aggs), GFP_KERNEL);
++		aggs = kzalloc(naggs * sizeof(*aggs), GFP_KERNEL);
 +		if (oaggs != NULL) {
-+			memcpy(oaggs, aggs, onaggs * sizeof (*aggs));
++			memcpy(oaggs, aggs, onaggs * sizeof(*aggs));
 +			kfree(oaggs);
 +		}
 +
@@ -7934,8 +7945,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +	state->dts_aggregations[(agg->dtag_id = aggid) - 1] = agg;
 +
 +	frec = &agg->dtag_first->dta_rec;
-+	if (frec->dtrd_alignment < sizeof (dtrace_aggid_t))
-+		frec->dtrd_alignment = sizeof (dtrace_aggid_t);
++	if (frec->dtrd_alignment < sizeof(dtrace_aggid_t))
++		frec->dtrd_alignment = sizeof(dtrace_aggid_t);
 +
 +	for (act = agg->dtag_first; act != NULL; act = act->dta_next) {
 +		ASSERT(!act->dta_intuple);
@@ -7965,7 +7976,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +{
 +	dtrace_action_t		*action, *last;
 +	dtrace_difo_t		*dp = desc->dtad_difo;
-+	uint32_t		size = 0, align = sizeof (uint8_t), mask;
++	uint32_t		size = 0, align = sizeof(uint8_t), mask;
 +	uint16_t		format = 0;
 +	dtrace_recdesc_t	*rec;
 +	dtrace_state_t		*state = ecb->dte_state;
@@ -8040,7 +8051,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +				arg = nframes;
 +			}
 +
-+			size = nframes * sizeof (pc_t);
++			size = nframes * sizeof(uint64_t);
 +			break;
 +
 +		case DTRACEACT_JSTACK:
@@ -8063,16 +8074,16 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +				arg = DTRACE_USTACK_ARG(nframes, strsize);
 +			}
 +
-+			size = (nframes + 1) * sizeof (uint64_t);
++			size = (nframes + 1) * sizeof(uint64_t);
 +			size += DTRACE_USTACK_STRSIZE(arg);
-+			size = P2ROUNDUP(size, (uint32_t)(sizeof (uintptr_t)));
++			size = P2ROUNDUP(size, (uint32_t)(sizeof(uintptr_t)));
 +
 +			break;
 +
 +		case DTRACEACT_SYM:
 +		case DTRACEACT_MOD:
 +			if (dp == NULL || ((size = dp->dtdo_rtype.dtdt_size) !=
-+					   sizeof (uint64_t)) ||
++					   sizeof(uint64_t)) ||
 +			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 +				return -EINVAL;
 +
@@ -8082,11 +8093,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +		case DTRACEACT_UMOD:
 +		case DTRACEACT_UADDR:
 +			if (dp == NULL ||
-+			    (dp->dtdo_rtype.dtdt_size != sizeof (uint64_t)) ||
++			    (dp->dtdo_rtype.dtdt_size != sizeof(uint64_t)) ||
 +			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 +				return -EINVAL;
 +
-+			size = 2 * sizeof (uint64_t);
++			size = 2 * sizeof(uint64_t);
 +
 +			break;
 +
@@ -8105,14 +8116,14 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +
 +		case DTRACEACT_EXIT:
 +			if (dp == NULL || (size = dp->dtdo_rtype.dtdt_size) !=
-+					   sizeof (int) ||
++					   sizeof(int) ||
 +			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 +				return -EINVAL;
 +
 +			break;
 +
 +		case DTRACEACT_SPECULATE:
-+			if (ecb->dte_size > sizeof (dtrace_epid_t))
++			if (ecb->dte_size > sizeof(dtrace_epid_t))
 +				return -EINVAL;
 +
 +			if (dp == NULL)
@@ -8149,7 +8160,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +			}
 +		}
 +
-+		action = kzalloc(sizeof (dtrace_action_t), GFP_KERNEL);
++		action = kzalloc(sizeof(dtrace_action_t), GFP_KERNEL);
 +		action->dta_rec.dtrd_size = size;
 +	}
 +
@@ -8157,7 +8168,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +	rec = &action->dta_rec;
 +	size = rec->dtrd_size;
 +
-+	for (mask = sizeof (uint64_t) - 1; size != 0 && mask > 0; mask >>= 1) {
++	for (mask = sizeof(uint64_t) - 1; size != 0 && mask > 0; mask >>= 1) {
 +		if (!(size & mask)) {
 +			align = mask + 1;
 +
@@ -8224,7 +8235,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +
 +	ecb->dte_action = NULL;
 +	ecb->dte_action_last = NULL;
-+	ecb->dte_size = sizeof (dtrace_epid_t);
++	ecb->dte_size = sizeof(dtrace_epid_t);
 +}
 +
 +/*
@@ -8312,11 +8323,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +
 +	ASSERT(mutex_is_locked(&dtrace_lock));
 +
-+	ecb = kzalloc(sizeof (dtrace_ecb_t), GFP_KERNEL);
++	ecb = kzalloc(sizeof(dtrace_ecb_t), GFP_KERNEL);
 +	ecb->dte_predicate = NULL;
 +	ecb->dte_probe = probe;
-+	ecb->dte_size = ecb->dte_needed = sizeof (dtrace_epid_t);
-+	ecb->dte_alignment = sizeof (dtrace_epid_t);
++	ecb->dte_size = ecb->dte_needed = sizeof(dtrace_epid_t);
++	ecb->dte_alignment = sizeof(dtrace_epid_t);
 +
 +	epid = state->dts_epid++;
 +
@@ -8332,11 +8343,11 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +			necbs = 1;
 +		}
 +
-+		ecbs = kcalloc(necbs, sizeof (*ecbs), GFP_KERNEL);
++		ecbs = kcalloc(necbs, sizeof(*ecbs), GFP_KERNEL);
 +
 +
 +		if (oecbs != NULL)
-+			memcpy(oecbs, ecbs, state->dts_necbs * sizeof (*ecbs));
++			memcpy(oecbs, ecbs, state->dts_necbs * sizeof(*ecbs));
 +
 +		dtrace_membar_producer();
 +
@@ -8545,7 +8556,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ecb.c ./kernel/dtrace/dtrace_ecb.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_enable.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_enable.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_enable.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_enable.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,414 @@
 +/*
 + * FILE:	dtrace_enable.c
@@ -8963,7 +8974,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_enable.c ./kernel/dtrace/dtrace_e
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_fmt.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_fmt.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,84 @@
 +/*
 + * FILE:	dtrace_fmt.c
@@ -9051,7 +9062,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_fmt.c ./kernel/dtrace/dtrace_fmt.
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,2301 @@
 +#ifndef _DTRACE_H_
 +#define _DTRACE_H_
@@ -11281,7 +11292,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +extern void dtrace_probe_error(dtrace_state_t *, dtrace_epid_t, int, int, int,
 +			       uintptr_t);
 +
-+extern void dtrace_getpcstack(pc_t *, int, int, uint32_t *);
++extern void dtrace_getpcstack(uint64_t *, int, int, uint32_t *);
 +extern void dtrace_getupcstack(uint64_t *, int);
 +extern void dtrace_getufpstack(uint64_t *, uint64_t *, int);
 +extern uintptr_t dtrace_getfp(void);
@@ -11356,7 +11367,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace.h ./kernel/dtrace/dtrace.h
 +#endif /* _DTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_hash.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_hash.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_hash.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_hash.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,203 @@
 +/*
 + * FILE:	dtrace_hash.c
@@ -11563,7 +11574,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_hash.c ./kernel/dtrace/dtrace_has
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_helper.c ./kernel/dtrace/dtrace_helper.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_helper.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_helper.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_helper.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,175 @@
 +/*
 + * FILE:	dtrace_helper.c
@@ -11742,7 +11753,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_helper.c ./kernel/dtrace/dtrace_h
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h ./kernel/dtrace/dtrace_ioctl.h
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ioctl.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_ioctl.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,30 @@
 +#ifndef _DTRACE_IOCTL_H_
 +#define _DTRACE_IOCTL_H_
@@ -11776,8 +11787,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ioctl.h ./kernel/dtrace/dtrace_io
 +#endif
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_isa.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_isa.c	2011-02-21 15:26:26.000000000 -0500
-@@ -0,0 +1,331 @@
++++ ./kernel/dtrace/dtrace_isa.c	2011-03-09 13:38:10.000000000 -0500
+@@ -0,0 +1,535 @@
 +/*
 + * FILE:	dtrace_isa.c
 + * DESCRIPTION:	Dynamic Tracing: architecture specific support functions
@@ -11787,6 +11798,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.
 +
 +#include <linux/hardirq.h>
 +#include <linux/smp.h>
++#include <asm/stacktrace.h>
 +
 +#include "dtrace.h"
 +
@@ -11949,7 +11961,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.
 +ulong_t dtrace_getreg(struct pt_regs *rp, uint_t reg)
 +{
 +#ifdef __i386__
-+	if (reg > SS) {
++	if (reg > REG_SS) {
 +		DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
 +		return 0;
 +	}
@@ -12015,7 +12027,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.
 +				REG_SS,		/* 18 -> SS */
 +			   };
 +
-+	if (reg <= SS) {
++	if (reg <= REG_SS) {
 +		if (reg >= sizeof(regmap) / sizeof(int)) {
 +			DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
 +			return 0;
@@ -12023,7 +12035,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.
 +
 +		reg = regmap[reg];
 +	} else
-+		reg -= SS + 1;
++		reg -= REG_SS + 1;
 +
 +	switch (reg) {
 +	case REG_RDI:
@@ -12109,9 +12121,212 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_isa.c ./kernel/dtrace/dtrace_isa.
 +{
 +	return ktime_get();
 +}
++
++#define STACKTRACE_KERNEL	0x01
++#define STACKTRACE_USER		0x02
++#define STACKTRACE_SKIP		0x10
++
++struct stacktrace_state {
++	uint64_t	*pcs;
++	uint64_t	*fps;
++	int		limit;
++	int		depth;
++	int		flags;
++};
++
++static void dtrace_stacktrace_warning(void *data, char *msg)
++{
++}
++
++static void dtrace_stacktrace_warning_symbol(void *data, char *msg,
++					     unsigned long symbol)
++{
++}
++
++static int dtrace_stacktrace_stack(void *data, char *name)
++{
++	struct stacktrace_state	*st = (struct stacktrace_state *)data;
++
++	/*
++	 * We do not skip anything for non-user stack analysis.
++	 */
++	if (!(st->flags & STACKTRACE_USER))
++		return 0;
++
++	if (name != NULL && strlen(name) > 3) {
++		/*
++		 * Sadly, the dump stack code calls us with both <EOE> and EOI.
++		 * Consistency would be much nicer.
++		 */
++		if ((name[0] == '<' && name[1] == 'E' && name[2] == 'O') ||
++		    (name[0] == 'E' && name[2] == 'O'))
++			st->flags &= ~STACKTRACE_SKIP;
++	}
++
++	return 0;
++}
++
++static void dtrace_stacktrace_address(void *data, unsigned long addr,
++				      int reliable)
++{
++	struct stacktrace_state	*st = (struct stacktrace_state *)data;
++
++	if (st->flags & STACKTRACE_SKIP)
++		return;
++
++	if (reliable == 2) {
++		if (st->fps)
++			st->fps[st->depth] = addr;
++	} else {
++		if (st->pcs != NULL) {
++			if (st->depth < st->limit)
++				st->pcs[st->depth++] = addr;
++		} else
++			st->depth++;
++	}
++}
++
++static inline int valid_sp(struct thread_info *tinfo, void *p,
++			   unsigned int size, void *end)
++{
++	void	*t = tinfo;
++
++	if (end) {
++		if (p < end && p >= (end - THREAD_SIZE))
++			return 1;
++		else
++			return 0;
++	}
++
++	return p > t && p < t + THREAD_SIZE - size;
++}
++
++static unsigned long dtrace_stacktrace_walk_stack(
++					struct thread_info *tinfo,
++					unsigned long *stack,
++					unsigned long bp,
++					const struct stacktrace_ops *ops,
++					void *data, unsigned long *end,
++					int *graph)
++{
++	struct frame	*fr = (struct frame *)bp;
++	unsigned long	*pcp = &(fr->fr_savpc);
++
++	while (valid_sp(tinfo, pcp, sizeof(*pcp), end)) {
++		unsigned long	addr = *pcp;
++
++		fr = fr->fr_savfp;
++		ops->address(data, (unsigned long)fr, 2);
++		ops->address(data, addr, 1);
++		pcp = &(fr->fr_savpc);
++	}
++
++	return (unsigned long)fr;
++}
++
++static const struct stacktrace_ops	dtrace_tracetrace_ops = {
++	.warning	= dtrace_stacktrace_warning,
++	.warning_symbol	= dtrace_stacktrace_warning_symbol,
++	.stack		= dtrace_stacktrace_stack,
++	.address	= dtrace_stacktrace_address,
++	.walk_stack	= print_context_stack
++};
++
++void dtrace_getpcstack(uint64_t *pcstack, int pcstack_limit, int aframes,
++		       uint32_t *intrpc)
++{
++	struct stacktrace_state	st = {
++					pcstack,
++					NULL,
++					pcstack_limit,
++					0,
++					STACKTRACE_KERNEL
++				     };
++
++	dump_trace(NULL, NULL, NULL, 0, &dtrace_tracetrace_ops, &st);
++
++	while (st.depth < st.limit)
++		pcstack[st.depth++] = 0;
++}
++
++void dtrace_getupcstack(uint64_t *pcstack, int pcstack_limit)
++{
++	struct stacktrace_state	st = {
++					pcstack,
++					NULL,
++					pcstack_limit,
++					0,
++					STACKTRACE_USER
++				     };
++
++	dump_trace(NULL, NULL, NULL, 0, &dtrace_tracetrace_ops, &st);
++
++	while (st.depth < st.limit)
++		pcstack[st.depth++] = 0;
++}
++
++static const struct stacktrace_ops	dtrace_tracetrace_ops_alt = {
++	.warning	= dtrace_stacktrace_warning,
++	.warning_symbol	= dtrace_stacktrace_warning_symbol,
++	.stack		= dtrace_stacktrace_stack,
++	.address	= dtrace_stacktrace_address,
++	.walk_stack	= dtrace_stacktrace_walk_stack
++};
++
++void dtrace_getufpstack(uint64_t *pcstack, uint64_t *fpstack,
++			int pcstack_limit)
++{
++	struct stacktrace_state	st = {
++					pcstack,
++					fpstack,
++					pcstack_limit,
++					0,
++					STACKTRACE_USER
++				     };
++
++	dump_trace(NULL, NULL, NULL, 0, &dtrace_tracetrace_ops_alt, &st);
++
++	while (st.depth < st.limit) {
++		fpstack[st.depth] = 0;
++		pcstack[st.depth++] = 0;
++	}
++}
++
++int dtrace_getstackdepth(int aframes)
++{
++	struct stacktrace_state	st = {
++					NULL,
++					NULL,
++					0,
++					0,
++					STACKTRACE_KERNEL
++				     };
++
++	dump_trace(NULL, NULL, NULL, 0, &dtrace_tracetrace_ops, &st);
++
++	if (st.depth <= aframes)
++		return 0;
++
++	return st.depth - aframes;
++}
++
++int dtrace_getustackdepth(void)
++{
++	struct stacktrace_state	st = {
++					NULL,
++					NULL,
++					0,
++					0,
++					STACKTRACE_USER
++				     };
++
++	dump_trace(NULL, NULL, NULL, 0, &dtrace_tracetrace_ops, &st);
++
++	return st.depth;
++}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_match.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_match.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_match.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_match.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,325 @@
 +/*
 + * FILE:	dtrace_match.c
@@ -12440,7 +12655,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_match.c ./kernel/dtrace/dtrace_ma
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,35 @@
 +/*
 + * FILE:	dtrace_mod.c
@@ -12479,7 +12694,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_mod.c ./kernel/dtrace/dtrace_mod.
 +module_exit(dtrace_exit);
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrace_predicate.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_predicate.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_predicate.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,66 @@
 +/*
 + * FILE:	dtrace_predicate.c
@@ -12549,7 +12764,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_predicate.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_priv.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_priv.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_priv.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_priv.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,105 @@
 +/*
 + * FILE:	dtrace_priv.c
@@ -12658,8 +12873,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_priv.c ./kernel/dtrace/dtrace_pri
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_probe.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe.c	2011-02-21 15:26:26.000000000 -0500
-@@ -0,0 +1,1128 @@
++++ ./kernel/dtrace/dtrace_probe.c	2011-03-09 13:38:10.000000000 -0500
+@@ -0,0 +1,1129 @@
 +/*
 + * FILE:	dtrace_probe.c
 + * DESCRIPTION:	Dynamic Tracing: probe management functions
@@ -13440,12 +13655,13 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +				if (!dtrace_priv_kernel(state))
 +					continue;
 +
-+				dtrace_getpcstack((pc_t *)(tomax + valoffs),
-+						  size / sizeof(pc_t),
-+						  probe->dtpr_aframes,
-+						  DTRACE_ANCHORED(probe)
-+							? NULL
-+							: (uint32_t *)arg0);
++				dtrace_getpcstack(
++					(uint64_t *)(tomax + valoffs),
++					size / sizeof(pc_t),
++					probe->dtpr_aframes,
++					DTRACE_ANCHORED(probe)
++						? NULL
++						: (uint32_t *)arg0);
 +
 +				continue;
 +
@@ -13790,7 +14006,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe.c ./kernel/dtrace/dtrace_pr
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrace_probe_ctx.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_probe_ctx.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_probe_ctx.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,537 @@
 +/*
 + * FILE:	dtrace_probe_ctx.c
@@ -14331,7 +14547,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_probe_ctx.c ./kernel/dtrace/dtrac
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_ptofapi.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_ptofapi.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_ptofapi.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,335 @@
 +/*
 + * FILE:	dtrace_ptofapi.c
@@ -14670,7 +14886,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_ptofapi.c ./kernel/dtrace/dtrace_
 +EXPORT_SYMBOL(dtrace_unregister);
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spec.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_spec.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_spec.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_spec.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,423 @@
 +/*
 + * FILE:	dtrace_spec.c
@@ -15097,7 +15313,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_spec.c ./kernel/dtrace/dtrace_spe
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_state.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_state.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_state.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_state.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,1014 @@
 +/*
 + * FILE:	dtrace_state.c
@@ -16115,7 +16331,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_state.c ./kernel/dtrace/dtrace_st
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_util.c
 --- ../linux-2.6.34/kernel/dtrace/dtrace_util.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/dtrace_util.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/dtrace_util.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,170 @@
 +/*
 + * FILE:	dtrace_util.c
@@ -16289,7 +16505,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/dtrace_util.c ./kernel/dtrace/dtrace_uti
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fasttrap_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	fasttrap_dev.c
@@ -16351,7 +16567,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_dev.c ./kernel/dtrace/fasttrap_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 --- ../linux-2.6.34/kernel/dtrace/fasttrap.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fasttrap.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _FASTTRAP_H_
 +#define _FASTTRAP_H_
@@ -16362,7 +16578,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap.h ./kernel/dtrace/fasttrap.h
 +#endif /* _FASTTRAP_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fasttrap_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fasttrap_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fasttrap_mod.c
@@ -16391,7 +16607,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fasttrap_mod.c ./kernel/dtrace/fasttrap_
 +DT_PROVIDER_MODULE(fasttrap)
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fbt_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	fbt_dev.c
@@ -16453,7 +16669,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_dev.c ./kernel/dtrace/fbt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 --- ../linux-2.6.34/kernel/dtrace/fbt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fbt.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _FBT_H_
 +#define _FBT_H_
@@ -16464,7 +16680,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt.h ./kernel/dtrace/fbt.h
 +#endif /* _FBT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/fbt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/fbt_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/fbt_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	fbt_dmod.c
@@ -16493,8 +16709,8 @@ diff -urN ../linux-2.6.34/kernel/dtrace/fbt_mod.c ./kernel/dtrace/fbt_mod.c
 +DT_PROVIDER_MODULE(fbt);
 diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 --- ../linux-2.6.34/kernel/dtrace/Kconfig	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/Kconfig	2011-02-21 15:27:01.000000000 -0500
-@@ -0,0 +1,63 @@
++++ ./kernel/dtrace/Kconfig	2011-03-09 14:23:36.000000000 -0500
+@@ -0,0 +1,57 @@
 +#
 +# DTrace Configuration
 +#
@@ -16502,6 +16718,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 +menuconfig DTRACE
 +	bool "DTrace (Dynamic Tracing) Support"
 +	default y
++	depends on X86
 +	help
 +	  To be written.
 +
@@ -16509,49 +16726,42 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 +
 +config DT_CORE
 +	tristate "DTrace core"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_FASTTRAP
 +	tristate "Fasttrap Tracing"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_FBT
 +	tristate "Function Boundary Tracing"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_LOCKSTAT
 +	tristate "Lock Statistics"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_PROFILE
 +	tristate "Profile Interrupt Tracing"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_SDT
 +	tristate "Statically Defined Tracing"
-+	depends on DTRACE
++	select KALLSYMS
 +	help
 +	  To be written.
 +
 +config DT_SYSTRACE
 +	tristate "System Call Tracing"
-+	depends on DTRACE
 +	help
 +	  To be written.
 +
 +config DT_DEBUG
 +	bool "DTrace debugging"
-+	depends on DTRACE
 +	help
 +	  This controls the inclusion of various piece of code that perform
 +	  internal checks within the DTrace core.  It also enables all the
@@ -16560,7 +16770,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Kconfig ./kernel/dtrace/Kconfig
 +endif   #DTRACE
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_dev.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/lockstat_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	lockstat_dev.c
@@ -16622,7 +16832,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_dev.c ./kernel/dtrace/lockstat_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 --- ../linux-2.6.34/kernel/dtrace/lockstat.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/lockstat.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _LOCKSTAT_H_
 +#define _LOCKSTAT_H_
@@ -16633,7 +16843,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/lockstat.h ./kernel/dtrace/lockstat.h
 +#endif /* _LOCKSTAT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/lockstat_mod.c ./kernel/dtrace/lockstat_mod.c
 --- ../linux-2.6.34/kernel/dtrace/lockstat_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/lockstat_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/lockstat_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	lockstat_mod.c
@@ -16695,7 +16905,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/Makefile ./kernel/dtrace/Makefile
 +systrace-y			:= systrace_mod.o systrace_dev.o
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_dev.c
 --- ../linux-2.6.34/kernel/dtrace/profile_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/profile_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	profile_dev.c
@@ -16757,7 +16967,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_dev.c ./kernel/dtrace/profile_de
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 --- ../linux-2.6.34/kernel/dtrace/profile.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/profile.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _PROFILE_H_
 +#define _PROFILE_H_
@@ -16768,7 +16978,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile.h ./kernel/dtrace/profile.h
 +#endif /* _PROFILE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mod.c
 --- ../linux-2.6.34/kernel/dtrace/profile_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/profile_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/profile_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	profile_mod.c
@@ -16797,7 +17007,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/profile_mod.c ./kernel/dtrace/profile_mo
 +DT_PROVIDER_MODULE(profile)
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/sdt_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	sdt_dev.c
@@ -16859,7 +17069,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_dev.c ./kernel/dtrace/sdt_dev.c
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 --- ../linux-2.6.34/kernel/dtrace/sdt.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/sdt.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _SDT_H_
 +#define _SDT_H_
@@ -16870,7 +17080,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt.h ./kernel/dtrace/sdt.h
 +#endif /* _SDT_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 --- ../linux-2.6.34/kernel/dtrace/sdt_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/sdt_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/sdt_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	sdt_mod.c
@@ -16899,7 +17109,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/sdt_mod.c ./kernel/dtrace/sdt_mod.c
 +DT_PROVIDER_MODULE(sdt)
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_dev.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_dev.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_dev.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/systrace_dev.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,58 @@
 +/*
 + * FILE:	systrace_dev.c
@@ -16961,7 +17171,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace_dev.c ./kernel/dtrace/systrace_
 +}
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 --- ../linux-2.6.34/kernel/dtrace/systrace.h	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace.h	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/systrace.h	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,7 @@
 +#ifndef _SYSTRACE_H_
 +#define _SYSTRACE_H_
@@ -16972,7 +17182,7 @@ diff -urN ../linux-2.6.34/kernel/dtrace/systrace.h ./kernel/dtrace/systrace.h
 +#endif /* _SYSTRACE_H_ */
 diff -urN ../linux-2.6.34/kernel/dtrace/systrace_mod.c ./kernel/dtrace/systrace_mod.c
 --- ../linux-2.6.34/kernel/dtrace/systrace_mod.c	1969-12-31 19:00:00.000000000 -0500
-+++ ./kernel/dtrace/systrace_mod.c	2011-02-21 15:26:26.000000000 -0500
++++ ./kernel/dtrace/systrace_mod.c	2011-03-09 13:38:10.000000000 -0500
 @@ -0,0 +1,25 @@
 +/*
 + * FILE:	systrace_mod.c

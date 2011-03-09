@@ -15,14 +15,14 @@ static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
 						      dtrace_actdesc_t *desc)
 {
 	dtrace_aggregation_t	*agg;
-	size_t			size = sizeof (uint64_t);
+	size_t			size = sizeof(uint64_t);
 	int			ntuple = desc->dtad_ntuple;
 	dtrace_action_t		*act;
 	dtrace_recdesc_t	*frec;
 	dtrace_aggid_t		aggid;
 	dtrace_state_t		*state = ecb->dte_state;
 
-	agg = kzalloc(sizeof (dtrace_aggregation_t), GFP_KERNEL);
+	agg = kzalloc(sizeof(dtrace_aggregation_t), GFP_KERNEL);
 	agg->dtag_ecb = ecb;
 
 	ASSERT(DTRACEACT_ISAGG(desc->dtad_kind));
@@ -44,8 +44,8 @@ static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
 
 	case DTRACEAGG_QUANTIZE:
 		agg->dtag_aggregate = dtrace_aggregate_quantize;
-		size = (((sizeof (uint64_t) * NBBY) - 1) * 2 + 1) *
-		       sizeof (uint64_t);
+		size = (((sizeof(uint64_t) * NBBY) - 1) * 2 + 1) *
+		       sizeof(uint64_t);
 		break;
 
 	case DTRACEAGG_LQUANTIZE: {
@@ -59,18 +59,18 @@ static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
 		if (step == 0 || levels == 0)
 			goto err;
 
-		size = levels * sizeof (uint64_t) + 3 * sizeof (uint64_t);
+		size = levels * sizeof(uint64_t) + 3 * sizeof(uint64_t);
 		break;
 	}
 
 	case DTRACEAGG_AVG:
 		agg->dtag_aggregate = dtrace_aggregate_avg;
-		size = sizeof (uint64_t) * 2;
+		size = sizeof(uint64_t) * 2;
 		break;
 
 	case DTRACEAGG_STDDEV:
 		agg->dtag_aggregate = dtrace_aggregate_stddev;
-		size = sizeof (uint64_t) * 4;
+		size = sizeof(uint64_t) * 4;
 		break;
 
 	case DTRACEAGG_SUM:
@@ -137,9 +137,9 @@ success:
 			naggs = 1;
 		}
 
-		aggs = kzalloc(naggs * sizeof (*aggs), GFP_KERNEL);
+		aggs = kzalloc(naggs * sizeof(*aggs), GFP_KERNEL);
 		if (oaggs != NULL) {
-			memcpy(oaggs, aggs, onaggs * sizeof (*aggs));
+			memcpy(oaggs, aggs, onaggs * sizeof(*aggs));
 			kfree(oaggs);
 		}
 
@@ -151,8 +151,8 @@ success:
 	state->dts_aggregations[(agg->dtag_id = aggid) - 1] = agg;
 
 	frec = &agg->dtag_first->dta_rec;
-	if (frec->dtrd_alignment < sizeof (dtrace_aggid_t))
-		frec->dtrd_alignment = sizeof (dtrace_aggid_t);
+	if (frec->dtrd_alignment < sizeof(dtrace_aggid_t))
+		frec->dtrd_alignment = sizeof(dtrace_aggid_t);
 
 	for (act = agg->dtag_first; act != NULL; act = act->dta_next) {
 		ASSERT(!act->dta_intuple);
@@ -182,7 +182,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 {
 	dtrace_action_t		*action, *last;
 	dtrace_difo_t		*dp = desc->dtad_difo;
-	uint32_t		size = 0, align = sizeof (uint8_t), mask;
+	uint32_t		size = 0, align = sizeof(uint8_t), mask;
 	uint16_t		format = 0;
 	dtrace_recdesc_t	*rec;
 	dtrace_state_t		*state = ecb->dte_state;
@@ -257,7 +257,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 				arg = nframes;
 			}
 
-			size = nframes * sizeof (pc_t);
+			size = nframes * sizeof(uint64_t);
 			break;
 
 		case DTRACEACT_JSTACK:
@@ -280,16 +280,16 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 				arg = DTRACE_USTACK_ARG(nframes, strsize);
 			}
 
-			size = (nframes + 1) * sizeof (uint64_t);
+			size = (nframes + 1) * sizeof(uint64_t);
 			size += DTRACE_USTACK_STRSIZE(arg);
-			size = P2ROUNDUP(size, (uint32_t)(sizeof (uintptr_t)));
+			size = P2ROUNDUP(size, (uint32_t)(sizeof(uintptr_t)));
 
 			break;
 
 		case DTRACEACT_SYM:
 		case DTRACEACT_MOD:
 			if (dp == NULL || ((size = dp->dtdo_rtype.dtdt_size) !=
-					   sizeof (uint64_t)) ||
+					   sizeof(uint64_t)) ||
 			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 				return -EINVAL;
 
@@ -299,11 +299,11 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 		case DTRACEACT_UMOD:
 		case DTRACEACT_UADDR:
 			if (dp == NULL ||
-			    (dp->dtdo_rtype.dtdt_size != sizeof (uint64_t)) ||
+			    (dp->dtdo_rtype.dtdt_size != sizeof(uint64_t)) ||
 			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 				return -EINVAL;
 
-			size = 2 * sizeof (uint64_t);
+			size = 2 * sizeof(uint64_t);
 
 			break;
 
@@ -322,14 +322,14 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 
 		case DTRACEACT_EXIT:
 			if (dp == NULL || (size = dp->dtdo_rtype.dtdt_size) !=
-					   sizeof (int) ||
+					   sizeof(int) ||
 			    (dp->dtdo_rtype.dtdt_flags & DIF_TF_BYREF))
 				return -EINVAL;
 
 			break;
 
 		case DTRACEACT_SPECULATE:
-			if (ecb->dte_size > sizeof (dtrace_epid_t))
+			if (ecb->dte_size > sizeof(dtrace_epid_t))
 				return -EINVAL;
 
 			if (dp == NULL)
@@ -366,7 +366,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 			}
 		}
 
-		action = kzalloc(sizeof (dtrace_action_t), GFP_KERNEL);
+		action = kzalloc(sizeof(dtrace_action_t), GFP_KERNEL);
 		action->dta_rec.dtrd_size = size;
 	}
 
@@ -374,7 +374,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 	rec = &action->dta_rec;
 	size = rec->dtrd_size;
 
-	for (mask = sizeof (uint64_t) - 1; size != 0 && mask > 0; mask >>= 1) {
+	for (mask = sizeof(uint64_t) - 1; size != 0 && mask > 0; mask >>= 1) {
 		if (!(size & mask)) {
 			align = mask + 1;
 
@@ -441,7 +441,7 @@ static void dtrace_ecb_action_remove(dtrace_ecb_t *ecb)
 
 	ecb->dte_action = NULL;
 	ecb->dte_action_last = NULL;
-	ecb->dte_size = sizeof (dtrace_epid_t);
+	ecb->dte_size = sizeof(dtrace_epid_t);
 }
 
 /*
@@ -529,11 +529,11 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 
 	ASSERT(mutex_is_locked(&dtrace_lock));
 
-	ecb = kzalloc(sizeof (dtrace_ecb_t), GFP_KERNEL);
+	ecb = kzalloc(sizeof(dtrace_ecb_t), GFP_KERNEL);
 	ecb->dte_predicate = NULL;
 	ecb->dte_probe = probe;
-	ecb->dte_size = ecb->dte_needed = sizeof (dtrace_epid_t);
-	ecb->dte_alignment = sizeof (dtrace_epid_t);
+	ecb->dte_size = ecb->dte_needed = sizeof(dtrace_epid_t);
+	ecb->dte_alignment = sizeof(dtrace_epid_t);
 
 	epid = state->dts_epid++;
 
@@ -549,11 +549,11 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 			necbs = 1;
 		}
 
-		ecbs = kcalloc(necbs, sizeof (*ecbs), GFP_KERNEL);
+		ecbs = kcalloc(necbs, sizeof(*ecbs), GFP_KERNEL);
 
 
 		if (oecbs != NULL)
-			memcpy(oecbs, ecbs, state->dts_necbs * sizeof (*ecbs));
+			memcpy(oecbs, ecbs, state->dts_necbs * sizeof(*ecbs));
 
 		dtrace_membar_producer();
 

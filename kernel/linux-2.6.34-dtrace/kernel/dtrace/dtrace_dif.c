@@ -1933,7 +1933,7 @@ static uint64_t dtrace_dif_variable(dtrace_mstate_t *mstate,
 				 * dtrace_caller() only guarantees correct
 				 * results for anchored probes.
 				 */
-				pc_t	caller[2];
+				uint64_t	caller[2];
 
 				dtrace_getpcstack(caller, 2, aframes,
 					(uint32_t *)(uintptr_t)
@@ -1946,7 +1946,7 @@ static uint64_t dtrace_dif_variable(dtrace_mstate_t *mstate,
 				 * we must resort to the slower approach of
 				 * calling dtrace_getpcstack().
 				 */
-				pc_t	caller;
+				uint64_t	caller;
 
 				dtrace_getpcstack(&caller, 1, aframes, NULL);
 				mstate->dtms_caller = caller;

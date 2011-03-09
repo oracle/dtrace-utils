@@ -14,9 +14,15 @@ dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
 {
 	dtrace_actdesc_t	*act;
 
+#ifdef FIXME
 	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
 	       (arg != 0 && (uintptr_t)arg >= KERNELBASE) ||
 	       (arg == 0 && kind == DTRACEACT_PRINTA));
+#else
+	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
+	       (arg != 0) ||
+	       (arg == 0 && kind == DTRACEACT_PRINTA));
+#endif
 
 	act = kzalloc(sizeof (dtrace_actdesc_t), GFP_KERNEL);
 	act->dtad_kind = kind;
@@ -51,8 +57,13 @@ void dtrace_actdesc_release(dtrace_actdesc_t *act, dtrace_vstate_t *vstate)
 	if (DTRACEACT_ISPRINTFLIKE(kind)) {
 		char	*str = (char *)(uintptr_t)act->dtad_arg;
 
+#ifdef FIXME
 		ASSERT((str != NULL && (uintptr_t)str >= KERNELBASE) ||
 		       (str == NULL && act->dtad_kind == DTRACEACT_PRINTA));
+#else
+		ASSERT((str != NULL) ||
+		       (str == NULL && act->dtad_kind == DTRACEACT_PRINTA));
+#endif
 
 		if (str != NULL)
 			kfree(str);

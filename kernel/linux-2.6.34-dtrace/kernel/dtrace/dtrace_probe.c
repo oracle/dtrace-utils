@@ -778,12 +778,13 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 				if (!dtrace_priv_kernel(state))
 					continue;
 
-				dtrace_getpcstack((pc_t *)(tomax + valoffs),
-						  size / sizeof(pc_t),
-						  probe->dtpr_aframes,
-						  DTRACE_ANCHORED(probe)
-							? NULL
-							: (uint32_t *)arg0);
+				dtrace_getpcstack(
+					(uint64_t *)(tomax + valoffs),
+					size / sizeof(pc_t),
+					probe->dtpr_aframes,
+					DTRACE_ANCHORED(probe)
+						? NULL
+						: (uint32_t *)arg0);
 
 				continue;
 
