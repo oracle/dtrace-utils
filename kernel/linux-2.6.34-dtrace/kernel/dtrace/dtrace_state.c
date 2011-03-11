@@ -271,7 +271,7 @@ static void dtrace_state_deadman(dtrace_state_t *state)
 
 	dtrace_sync();
 
-	now = ktime_get();
+	now = ktime_get_nongpl();
 
 	if (state != dtrace_anon.dta_state &&
 	    ktime_ge(ktime_sub(now, state->dts_laststatus),
@@ -725,7 +725,7 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 	when.cyt_when = ktime_set(0, 0);
 	when.cyt_interval = dtrace_deadman_interval;
 
-	state->dts_alive = state->dts_laststatus = ktime_get();
+	state->dts_alive = state->dts_laststatus = ktime_get_nongpl();
 	state->dts_deadman = cyclic_add(&hdlr, &when);
 
 	state->dts_activity = DTRACE_ACTIVITY_WARMUP;

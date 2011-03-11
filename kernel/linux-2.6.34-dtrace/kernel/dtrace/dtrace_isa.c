@@ -328,7 +328,7 @@ void dtrace_toxic_ranges(void (*func)(uintptr_t, uintptr_t))
 
 ktime_t dtrace_gethrestime(void)
 {
-	return ktime_get();
+	return ktime_get_nongpl();
 }
 
 #define STACKTRACE_KERNEL	0x01
@@ -438,7 +438,7 @@ static const struct stacktrace_ops	dtrace_tracetrace_ops = {
 	.warning_symbol	= dtrace_stacktrace_warning_symbol,
 	.stack		= dtrace_stacktrace_stack,
 	.address	= dtrace_stacktrace_address,
-	.walk_stack	= print_context_stack
+	.walk_stack	= print_context_stack_nongpl
 };
 
 void dtrace_getpcstack(uint64_t *pcstack, int pcstack_limit, int aframes,

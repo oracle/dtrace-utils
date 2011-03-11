@@ -458,13 +458,13 @@ static long dtrace_ioctl(struct file *file,
 			return -EINVAL;
 
 		mutex_lock(&dtrace_provider_lock);
-		mutex_lock(&module_mutex);
+//		mutex_lock(&module_mutex); /* FIXME */
 		mutex_lock(&dtrace_lock);
 
 		probe = dtrace_probe_lookup_id(desc.dtargd_id);
 		if (probe == NULL) {
 			mutex_unlock(&dtrace_lock);
-			mutex_unlock(&module_mutex);
+//			mutex_unlock(&module_mutex); /* FIXME */
 			mutex_unlock(&dtrace_provider_lock);
 
 			return -EINVAL;
@@ -490,7 +490,7 @@ static long dtrace_ioctl(struct file *file,
 				probe->dtpr_arg, &desc);
 		}
 
-		mutex_unlock(&module_mutex);
+//		mutex_unlock(&module_mutex); /* FIXME */
 		mutex_unlock(&dtrace_provider_lock);
 
 		if (copy_to_user(argp, &desc, sizeof(desc)) != 0)
@@ -704,7 +704,7 @@ static long dtrace_ioctl(struct file *file,
 		 */
 		state->dts_laststatus = ns_to_ktime(INT64_MAX);
 		dtrace_membar_producer();
-		state->dts_laststatus = ktime_get();
+		state->dts_laststatus = ktime_get_nongpl();
 
 		memset(&stat, 0, sizeof(stat));
 
