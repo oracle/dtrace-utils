@@ -75,8 +75,8 @@
  * list and the control thread broadcasts to dph_cv.  dtrace_sleep() will wake
  * up using this condition and will then call the client handler as necessary.
  */
-
 #include <sys/wait.h>
+#include <sys/ptrace.h>
 //#include <sys/lwp.h>
 #include <string.h>
 #include <signal.h>
@@ -91,7 +91,8 @@
 #include <dt_impl.h>
 
 #define	IS_SYS_EXEC(w)	(w == SYS_execve)
-#define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_forksys)
+/* #define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_forksys) */
+#define      IS_SYS_FORK(w)  (w == SYS_vfork || w == SYS_fork) /* Fix at Linux. */
 
 static dt_bkpt_t *
 dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
@@ -506,10 +507,16 @@ dt_proc_control(void *arg)
 	 * the PR_FORK flag, so if fork succeeds the child begins executing and
 	 * does not inherit any other tracing behaviors or a control thread.
 	 */
+	/*
+ 	 * Use SYS_fork instead of SYS_forsys at Linux.
+ 	 */
+	(void) Psysentry(P, SYS_fork, B_TRUE);
+        (void) Psysexit(P, SYS_fork, B_TRUE);
 	(void) Psysentry(P, SYS_vfork, B_TRUE);
 	(void) Psysexit(P, SYS_vfork, B_TRUE);
-	(void) Psysentry(P, SYS_forksys, B_TRUE);
-	(void) Psysexit(P, SYS_forksys, B_TRUE);
+/*	(void) Psysentry(P, SYS_forksys, B_TRUE);
+	(void) Psysexit(P, SYS_forksys, B_TRUE); */
+	
 
 	Psync(P);				/* enable all /proc changes */
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
@@ -545,14 +552,12 @@ dt_proc_control(void *arg)
 		if (write(pfd, &wstop, sizeof (wstop)) == -1 && errno == EINTR)
 			continue; /* check dpr_quit and continue waiting */
 #endif
-		dpr->dpr_quit = 1;
 		(void) pthread_mutex_lock(&dpr->dpr_lock);
 pwait_locked:
 		if (Pstopstatus(P, PCNULL, 0) == -1 && errno == EINTR) {
 			(void) pthread_mutex_unlock(&dpr->dpr_lock);
 			continue; /* check dpr_quit and continue waiting */
 		}
-
 		switch (Pstate(P)) {
 		case PS_STOP:
 			psp = &Pstatus(P)->pr_lwp;
@@ -733,7 +738,11 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		 */
 		(void) pthread_mutex_lock(&dpr->dpr_lock);
 		dpr->dpr_quit = B_TRUE;
+#if defined(sun)
 		(void) _lwp_kill(dpr->dpr_tid, SIGCANCEL);
+#else
+		(void) pthread_kill(dpr->dpr_tid, SIGUSR1);
+#endif
 
 		/*
 		 * If the process is currently idling in dt_proc_stop(), re-
@@ -801,7 +810,11 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	(void) sigfillset(&nset);
 	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
+#if defined(sun)
 	(void) sigdelset(&nset, SIGCANCEL);	/* see dt_proc_destroy() */
+#else
+	(void) sigdelset(&nset, SIGUSR1);	 /* see dt_proc_destroy() */
+#endif
 
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -819,7 +832,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 	 * the caller can then apply dt_proc_continue() to resume both.
 	 */
 	if (err == 0) {
-		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
+		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE)) 
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		/*
@@ -885,9 +898,9 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	(void) Punsetflags(dpr->dpr_proc, PR_RLC);
 	(void) Psetflags(dpr->dpr_proc, PR_KLC);
 
-	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode) != 0)
+/*	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode) != 0) */
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_IDLE) != 0) 
 		return (NULL); /* dt_proc_error() has been called for us */
-
 	dpr->dpr_hash = dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)];
 	dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)] = dpr;
 	dt_list_prepend(&dph->dph_lrulist, dpr);

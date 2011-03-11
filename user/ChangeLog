@@ -1,3 +1,14 @@
+2011-03-11  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cmd/common/dtrace.c: Uncomment function dtrace_handle_proc.
+	* include/types_various.h: Remove SIGCANCEL and SYS_forksys.
+	* libdtrace/dt_proc.c (dt_proc_control): Trace SYS_fork instead of
+	SYS_forksys. Use SIGUSR1 instead of SIGCANCEL. Use pthread_kill
+	instead of _lwp_kill.
+	(dt_proc_creat): Pass DT_PROC_STOP_IDLE to dt_proc_create_thread.
+	* libport/time.c: Remove _lwp_kill.
+	* runtest.sh: Update
+
 2011-03-04  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Pcontrol.c: Comment the codes about write ctf file.

@@ -184,9 +184,7 @@ typedef struct meminfo32 {
 #define LM_ID_NUM               2
 
 
-#define	SYS_forksys	142
 #define SYS_sigaction   98
-#define	SIGCANCEL 36
 
 #define SIG2STR_MAX     32
 

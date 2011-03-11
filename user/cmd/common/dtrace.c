@@ -739,7 +739,6 @@ compile_str(dtrace_cmd_t *dcp)
 	dcp->dc_name = dcp->dc_arg;
 }
 
-#if 0
 /*ARGSUSED*/
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
@@ -782,7 +781,6 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 		break;
 	}
 }
-#endif
 
 /*ARGSUSED*/
 static int
@@ -1581,8 +1579,8 @@ main(int argc, char *argv[])
 		if (dtrace_handle_drop(g_dtp, &drophandler, NULL) == -1)
 			dfatal("failed to establish drop handler");
 
-		/*if (dtrace_handle_proc(g_dtp, &prochandler, NULL) == -1)
-			dfatal("failed to establish proc handler");*/
+		if (dtrace_handle_proc(g_dtp, &prochandler, NULL) == -1)
+			dfatal("failed to establish proc handler");
 
 		if (dtrace_handle_setopt(g_dtp, &setopthandler, NULL) == -1)
 			dfatal("failed to establish setopt handler");

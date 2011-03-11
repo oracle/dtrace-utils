@@ -38,7 +38,3 @@ mutex_init(mutex_t *m, int flags1, void *ptr)
   return pthread_mutex_init(m, NULL);
 }
 
-void
-_lwp_kill(lwpid_t lwpid, int sig)
-{
-}
