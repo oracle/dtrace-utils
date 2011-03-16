@@ -32,19 +32,12 @@ struct text_range {
 };
 
 static unsigned long long _text; // TBD: need this from System.map
-static struct text_range text_ranges[] = {
-	{ "_stext",     "_etext"     },
-	{ "_sinittext", "_einittext" },
-	{ "_stext_l1",  "_etext_l1"  },	/* Blackfin on-chip L1 inst SRAM */
-	{ "_stext_l2",  "_etext_l2"  },	/* Blackfin on-chip L2 SRAM */
-};
-#define text_range_text     (&text_ranges[0])
-#define text_range_inittext (&text_ranges[1])
 
 static struct sym_entry *table;
 static unsigned int table_size, table_cnt;
 static int this_section_index;
 static unsigned long long this_section_addr;
+static int relocs_count;
 
 static void usage(void)
 {
@@ -164,7 +157,7 @@ static int get_section_info(FILE *fin, char buf[500], struct sym_entry *sect)
 	if (!sect->sym) {
 		fprintf(stderr, "relocs failure: "
 			"unable to allocate required amount of memory\n");
-		exit(EXIT_FAILURE);
+		exit(1);
 	}
 	strcpy((char *)sect->sym, sect_name);
 
@@ -204,7 +197,7 @@ static int get_symbol_info(char buf[500], struct sym_entry *s)
 	if (!s->sym) {
 		fprintf(stderr, "relocs failure: "
 			"unable to allocate required amount of memory\n");
-		exit(EXIT_FAILURE);
+		exit(1);
 	}
 	strcpy((char *)s->sym, probepoint);
 
@@ -213,25 +206,9 @@ static int get_symbol_info(char buf[500], struct sym_entry *s)
 		s->addr, s->len, relo_type, s->sym);
 #endif
 
+	relocs_count++;
 	return 0;
 }
-
-#if 0
-static int symbol_valid_tr(struct sym_entry *s)
-{
-	size_t i;
-	struct text_range *tr;
-
-	for (i = 0; i < ARRAY_SIZE(text_ranges); ++i) {
-		tr = &text_ranges[i];
-
-		if (s->addr >= tr->start && s->addr <= tr->end)
-			return 1;
-	}
-
-	return 0;
-}
-#endif
 
 static void read_info(FILE *fin)
 {
@@ -302,6 +279,11 @@ static void write_relocs(FILE *fout)
 	fprintf(fout, "#endif\n");
 
 	fprintf(fout, "\t.section .rodata, \"a\"\n");
+	fprintf(fout, "\n");
+
+	output_label(fout, "dtrace_relocs_count");
+	fprintf(fout, "\tPTR\t%d\n", relocs_count);
+	fprintf(fout, "\n");
 
 	/*
 	 * Provide proper symbols relocatability by their '_text'
@@ -334,11 +316,14 @@ static void write_relocs(FILE *fout)
 			reloc_count++;
 		}
 	}
+
 	fprintf(fout, "\n");
 
-	output_label(fout, "dtrace_relocs_count");
-	fprintf(fout, "\tPTR\t%d\n", reloc_count);
-	fprintf(fout, "\n");
+	if (reloc_count != relocs_count) {
+		fprintf(fout, "relocs error: reloc counters do not agree (%d vs. %d\n)",
+			relocs_count, reloc_count);
+		exit(3);
+	}
 }
 
 #if 0

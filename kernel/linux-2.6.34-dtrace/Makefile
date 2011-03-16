@@ -782,6 +782,8 @@ endif
 
 kallsyms.o := .tmp_kallsyms$(last_kallsyms).o
 
+reloc_info.o := vmlinux_info.o
+
 define verify_kallsyms
 	$(Q)$(if $($(quiet)cmd_sysmap),                                      \
 	  echo '  $($(quiet)cmd_sysmap)  .tmp_System.map' &&)                \
@@ -822,7 +824,7 @@ vmlinux_info.o: vmlinux_info.S scripts
 
 .tmp_kallsyms%.S: .tmp_vmlinux% $(KALLSYMS)
 	$(call cmd,kallsyms)
-#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
+	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
 
 # .tmp_vmlinux1 must be complete except kallsyms, so update vmlinux version
 .tmp_vmlinux1: $(vmlinux-lds) $(vmlinux-all) FORCE
@@ -830,11 +832,11 @@ vmlinux_info.o: vmlinux_info.S scripts
 
 .tmp_vmlinux2: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms1.o vmlinux_info.o FORCE
 	$(call if_changed,vmlinux__)
-#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
+	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
 
 .tmp_vmlinux3: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms2.o vmlinux_info.o FORCE
 	$(call if_changed,vmlinux__)
-#	$(DTRACE_RELOCS) vmlinux_info vmlinux_info.S
+	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
 
 # Generate some data for debugging strange kallsyms problems
 debug_kallsyms: .tmp_map$(last_kallsyms)
@@ -863,7 +865,8 @@ define rule_vmlinux-modpost
 endef
 
 # vmlinux image - including updated kernel symbols
-vmlinux: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) vmlinux.o $(kallsyms.o) FORCE
+vmlinux: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) vmlinux.o \
+		$(kallsyms.o) $(reloc_info.o) FORCE
 ifdef CONFIG_HEADERS_CHECK
 	$(Q)$(MAKE) -f $(srctree)/Makefile headers_check
 endif
@@ -1196,7 +1199,7 @@ endif # CONFIG_MODULES
 CLEAN_DIRS  += $(MODVERDIR)
 CLEAN_FILES +=	vmlinux System.map \
                 .tmp_kallsyms* .tmp_version .tmp_vmlinux* .tmp_System.map \
-		vmlinux_info* dtrace_stubs*
+		vmlinux_info* dtracestubs*
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config usr/include include/generated
