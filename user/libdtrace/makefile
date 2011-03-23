@@ -1,8 +1,5 @@
-BUILD_DIR=build-$(shell uname -r)
 BINDIR = ../$(BUILD_DIR)
-CC=/usr/bin/gcc -g $(BUILD_BITS)
-COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
-MACH = $(shell uname -i)
+
 CPPFLAGS += -I. \
 	-I../common/ctf \
 	-I../uts/common/ \
@@ -11,8 +8,8 @@ CPPFLAGS += -I. \
 	-I../libctf \
 	-I../uts/intel \
 	-I$(BINDIR) \
-	-DCTF_OLD_VERSIONS $(PTR32)
-CPPFLAGS += -D_ILP32 -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
+	-DCTF_OLD_VERSIONS $(DTO)
+CPPFLAGS += -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 
 LIB = ../$(BUILD_DIR)/libdtrace.a
 DLIBDIR = /usr/lib/dtrace
@@ -111,8 +108,8 @@ $(LIB)(dt_module.o): dt_module.c $(H)
         -I../libctf \
         -I../uts/intel \
         -I$(BINDIR) \
-        -DCTF_OLD_VERSIONS $(PTR32) \
-	-D_ILP32 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE \
+        -DCTF_OLD_VERSIONS $(DTO) \
+	-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE \
 	-c dt_module.c
 	ar rv $(LIB) dt_module.o
 	-rm -f dt_module.o

@@ -1,3 +1,9 @@
+2011-03-22  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Remove the support to i386 and only support amd64.
+	* makefile: Use D_ILP64 instead of D_ILP32.
+	* libproc: Remove i386 and add amd64.
+
 2011-03-11  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* cmd/common/dtrace.c: Uncomment function dtrace_handle_proc.

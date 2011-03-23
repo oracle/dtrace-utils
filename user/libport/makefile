@@ -1,6 +1,4 @@
-CC=gcc -g
-BUILD_DIR=build-$(shell uname -r)
-CPPFLAGS += -I../uts/common/ -I../include -D_ILP32
+CPPFLAGS += -I../uts/common/ -I../include $(DTO)
 BINDIR = ../$(BUILD_DIR)
 LIB = $(BINDIR)/libport.a
 

@@ -1,5 +1,3 @@
-CC=gcc -g $(BUILD_BITS)
-BUILD_DIR=build-$(shell uname -r)
 CPPFLAGS += -I../common \
 	-I../../common/ctf \
 	-I../../uts/common/ \
@@ -8,7 +6,7 @@ CPPFLAGS += -I../common \
 	-I../../libctf \
 	-I../../uts/intel/ \
 	-DCTF_OLD_VERSIONS $(PTR32)
-CPPFLAGS += -D_ILP32 -D_LONGLONG_TYPE -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64
+CPPFLAGS += $(DTO) -D_LONGLONG_TYPE -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64
 
 LIB = ../../$(BUILD_DIR)/libproc.a
 
@@ -22,7 +20,7 @@ $(LIB): \
 	$(LIB)(Pexecname.o) \
 	$(LIB)(Pgcore.o) \
 	$(LIB)(Pidle.o) \
-	$(LIB)(../i386/Pisadep.o) \
+	$(LIB)(../amd64/Pisadep.o) \
 	$(LIB)(Plwpregs.o) \
 	$(LIB)(Psymtab_machelf32.o) \
 	$(LIB)(Psymtab_machelf64.o) \

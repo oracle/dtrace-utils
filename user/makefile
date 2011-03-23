@@ -1,8 +1,17 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
 CC=/usr/bin/gcc
+MACH=$(shell uname -i)
+DTO=-D_ILP64
 COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
+
+export CC
+export BUILD_DIR
+export DTO
+export COMPILE.cpp
+
 all:
+	$(MAKE) archcheck
 	$(MAKE) all1
 	cd libctf; $(MAKE) $(NOPWD)
 	cd libdtrace ; $(MAKE) $(NOPWD) all
@@ -13,6 +22,11 @@ all:
 all1:
 	if [ ! -d $(BUILD_DIR) ] ; then \
 		mkdir $(BUILD_DIR); \
+	fi
+archcheck:
+	if [ "$(MACH)" != "x86_64" ]; then \
+		echo "Dtrace for Linux only support x86_64"; \
+		exit 1; \
 	fi
 install:
 	cd libdtrace ; $(MAKE) $(NOPWD) install
