@@ -3,6 +3,7 @@
 	Remove the support to i386 and only support amd64.
 	* makefile: Use D_ILP64 instead of D_ILP32.
 	* libproc: Remove i386 and add amd64.
+	* driver/dis_tables.c, driver/dis_tables.h: Move to common/dis/.
 
 2011-03-11  Shujing Zhao  <pearly.zhao@oracle.com>
 

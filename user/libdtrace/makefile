@@ -14,6 +14,7 @@ CPPFLAGS += -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 LIB = ../$(BUILD_DIR)/libdtrace.a
 DLIBDIR = /usr/lib/dtrace
 
+
 $(LIB): \
 	$(LIB)(drti.o) \
 	$(LIB)(dt_lex.o) \
@@ -22,7 +23,7 @@ $(LIB): \
 	$(LIB)(dt_buf.o) \
 	$(LIB)(dt_cc.o) \
 	$(LIB)(dt_cg.o) \
-	$(LIB)(../driver/dis_tables.o) \
+	$(LIB)(dis_tables.o) \
 	$(LIB)(dt_isadep.o) \
 	$(LIB)(dt_consume.o) \
 	$(LIB)(dt_decl.o) \
@@ -90,13 +91,13 @@ $(BINDIR)/dt_lex.c: dt_lex.l
 	lex -l -t -v dt_lex.l > $(BINDIR)/dt_lex.c
 
 
-$(LIB)(dis_tables.o): ../driver/dis_tables.c $(H)
-	$(CC) $(CPPFLAGS) -Ii386 -I../driver -c ../driver/dis_tables.c
+$(LIB)(dis_tables.o): ../common/dis/dis_tables.c $(H)
+	$(CC) $(CPPFLAGS) -Ii386 -I../common/dis/ -c ../common/dis/dis_tables.c
 	ar rv $(LIB) dis_tables.o
 	-rm -f dis_tables.o
 
 $(LIB)(dt_isadep.o): ./i386/dt_isadep.c $(H)
-	$(CC) $(CPPFLAGS) -Ii386 -I../driver -c ./i386/dt_isadep.c
+	$(CC) $(CPPFLAGS) -Ii386 -I../common/dis/ -c ./i386/dt_isadep.c
 	ar rv $(LIB) dt_isadep.o
 	-rm -f dt_isadep.o
 
