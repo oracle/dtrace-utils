@@ -1,3 +1,15 @@
+2011-03-29  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Remove pr_*.c files from libpro/common/.
+	* libproc/common/makefile: Remove the pr_*.o from libproc.
+	* libproc/common/libproc.h: Remove the declarations for the functions
+	  definied at pr_*.c files.
+	* libdtrace/dt_pid.c: Don't use pr_open and pr_close.
+	* libproc/common/Psyscall.c: Don't use pr_lwp_exit.
+	* include/types_various.h: Clean the definitions.
+
+	* libdtrace/makefile: Fix.
+
 2011-03-22  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Remove the support to i386 and only support amd64.

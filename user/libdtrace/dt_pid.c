@@ -554,7 +554,7 @@ dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 
 		dt_pid_objname(dh.dofhp_mod, sizeof (dh.dofhp_mod),
 		    sip.prs_lmid, mname);
-
+#if 0
 		if (fd == -1 &&
 		    (fd = pr_open(P, "/dev/dtrace/helper", O_RDWR, 0)) < 0) {
 			dt_dprintf("pr_open of helper device failed: %s\n",
@@ -564,10 +564,12 @@ dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 
 		if (pr_ioctl(P, fd, DTRACEHIOC_ADDDOF, &dh, sizeof (dh)) < 0)
 			dt_dprintf("DOF was rejected for %s\n", dh.dofhp_mod);
+#endif
 	}
-
+#if 0
 	if (fd != -1)
 		(void) pr_close(P, fd);
+#endif
 
 	return (0);
 }

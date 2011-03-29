@@ -9,8 +9,13 @@
 #include <types_off.h>
 
 typedef struct {                /* syscall set type */
-        unsigned int    word[16];
+	unsigned int    word[16];
 } sysset_t;
+
+typedef struct {	/* return values from system call */
+  long	sys_rval1;	/* primary return value from system call */
+  long	sys_rval2;	/* second return value from system call */
+} sysret_t;
 
 typedef id_t    taskid_t;
 typedef id_t    projid_t;
@@ -23,13 +28,6 @@ typedef int psetid_t;
 typedef pid_t	lwpid_t;
 
 typedef uint32_t priv_chunk_t;
-
-typedef struct {	/* return values from system call */
-  long	sys_rval1;	/* primary return value from system call */
-  long	sys_rval2;	/* second return value from system call */
-} sysret_t;
-
-typedef struct rctlblk rctlblk_t;
 
 typedef struct iovec iovec_t;
 
@@ -89,45 +87,7 @@ typedef	long		blksize_t;	/* used for block sizes */
 
 #define _MAP_NEW        0x80000000      /* users should not need to use this */
 
-#define MISYS_MEMINFO           0x0
-struct memcntl_mha {
-        uint_t          mha_cmd;        /* command(s) */
-        uint_t          mha_flags;
-        size_t          mha_pagesize;
-};
-
-struct memcntl_mha32 {
-        uint_t          mha_cmd;        /* command(s) */
-        uint_t          mha_flags;
-        size32_t        mha_pagesize;
-};
-
 #define MC_HAT_ADVISE   7 
-
-typedef struct meminfo {
-        const uint64_t *mi_inaddr;      /* array of input addresses */
-        const uint_t *mi_info_req;      /* array of types of info requested */
-        uint64_t *mi_outdata;           /* array of results are placed */
-        uint_t *mi_validity;            /* array of bitwise result codes */
-        int mi_info_count;              /* number of pieces of info requested */
-} meminfo_t;
-typedef struct meminfo32 {
-        caddr32_t mi_inaddr;    /* array of input addresses */
-        caddr32_t mi_info_req;  /* array of types of information requested */
-        caddr32_t mi_outdata;   /* array of results are placed */
-        caddr32_t mi_validity;  /* array of bitwise result codes */
-        int32_t mi_info_count;  /* number of pieces of information requested */
-} meminfo32_t;
-
-/* sys/socketvar.h */
-/*
- *  * Socket versions. Used by the socket library when calling _so_socket().
- *   */
-#define SOV_STREAM      0       /* Not a socket - just a stream */
-#define SOV_DEFAULT     1       /* Select based on so_default_version */
-#define SOV_SOCKSTREAM  2       /* Socket plus streams operations */
-#define SOV_SOCKBSD     3       /* Socket with no streams operations */
-#define SOV_XPG4_2      4       /* Xnet socket */
 
 
 
@@ -184,8 +144,6 @@ typedef struct meminfo32 {
 #define LM_ID_NUM               2
 
 
-#define SYS_sigaction   98
-
 #define SIG2STR_MAX     32
 
 
@@ -231,100 +189,6 @@ CC_CONTENT_SHANON | CC_CONTENT_TEXT | CC_CONTENT_DATA | \
 CC_CONTENT_RODATA | CC_CONTENT_ANON | CC_CONTENT_CTF | \
 CC_CONTENT_SYMTAB)
 #define	CC_CONTENT_INVALID	(-1ULL)
-
-
-/*
- *	system call numbers
- *		syscall(SYS_xxxx, ...)
- */
-#define	SYS_fstatat		66
-#define	SYS_fstatat64		67
-#define	SYS_tasksys		70
-#define SYS_rctlsys		74
-#define	SYS_statvfs		103
-#define	SYS_fstatvfs		104
-#define SYS_memcntl 		131
-#define SYS_lwp_exit            160
-#define SYS_llseek              175
-#define SYS_lgrpsys             180
-#define	SYS_processor_bind	187
-#define	SYS_door		201
-#define SYS_setrlimit64         220
-#define SYS_getrlimit64         221
-#define	SYS_zone		227
-#define SYS_meminfosys          SYS_lgrpsys
-#define SYS_getpeername         243
-#define SYS_getsockname         244
-#define SYS_getsockopt          245
-
-
-
-/*
- * File share reservation type
- */
-typedef struct fshare {
-	short	f_access;
- 	short	f_deny;
- 	int	f_id;
-} fshare_t;
-
-typedef struct flock64_32 {
-	int16_t	l_type;
-	int16_t	l_whence;
-	off64_t	l_start;
-	off64_t	l_len;		/* len == 0 means until end of file */
-	int32_t	l_sysid;
-	pid32_t	l_pid;
-	int32_t	l_pad[4];		/* reserve area */
-} flock64_32_t;
-
-
-/*
- * Commands that refer to flock structures.  The argument types differ between
- * the large and small file environments; therefore, the #defined values must
- * as well.
- * The NBMAND forms are private and should not be used.
- */
-
-#if defined(_LP64) || _FILE_OFFSET_BITS == 32
-/* "Native" application compilation environment */
-#define	F_ALLOCSP	10	/* Allocate file space */
-#define	F_FREESP	11	/* Free file space */
-#define	F_SETLK_NBMAND	42	/* private */
-#else
-/* ILP32 large file application compilation environment version */
-#define	F_ALLOCSP	28	/* Alllocate file space */
-#define	F_FREESP	27	/* Free file space */
-#define	F_SETLK_NBMAND	44	/* private */
-#endif /* _LP64 || _FILE_OFFSET_BITS == 32 */
-
-#if 	defined(_LARGEFILE64_SOURCE)
-
-#if !defined(_LP64) || defined(_KERNEL)
-
-/*
- * transitional large file interface version
- * These are only valid in a 32 bit application compiled with large files
- * option, for source compatibility, the 64-bit versions are mapped back
- * to the native versions.
- */
-#define	F_ALLOCSP64	28	/* Allocate file space */
-#define	F_FREESP64	27	/* Free file space */
-#define	F_SETLK64_NBMAND	44	/* private */
-#else
-#define	F_ALLOCSP64	10	/* Allocate file space */
-#define	F_FREESP64	11	/* Free file space */
-#define	F_SETLK64_NBMAND	42	/* private */
-#endif /* !_LP64 || _KERNEL */
-
-#endif /* _LARGEFILE64_SOURCE */
-
-
-#define	F_SHARE		40	/* Set a file share reservation */
-#define	F_UNSHARE	41	/* Remove a file share reservation */
-#define	F_SHARE_NBMAND	43	/* private */
-
-#define	F_BADFD		46	/* Create Poison FD */
 
 
 /*

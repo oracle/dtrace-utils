@@ -205,8 +205,8 @@ Pdestroy_agent(struct ps_prochandle *P)
 		 * The agent itself is destroyed by forcing it to execute
 		 * the _lwp_exit(2) system call.  Close our agent descriptors
 		 * regardless of whether this is successful.
-		 */
-		(void) pr_lwp_exit(P);
+		 *//*
+		(void) pr_lwp_exit(P); */
 		(void) close(P->agentctlfd);
 		(void) close(P->agentstatfd);
 		P->agentctlfd = -1;
@@ -454,12 +454,14 @@ Psyscall(struct ps_prochandle *P,
 	 * If the system call was _lwp_exit(), we expect that our last call
 	 * to Pwait() will yield ENOENT because the LWP no longer exists.
 	 */
+	/* There is no SYS_lwp_exit at Linux. */
+	/*
 	if (sysindex == SYS_lwp_exit && errno == ENOENT) {
 		_dprintf("Psyscall(): _lwp_exit successful\n");
 		rval->sys_rval1 = rval->sys_rval2 = 0;
 		goto out;
 	}
-
+	*/
 	if (P->state != PS_STOP || P->status.pr_lwp.pr_why != PR_SYSEXIT)
 		goto bad22;
 

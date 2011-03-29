@@ -159,7 +159,7 @@ udp.d: udp.sed udp.d.in
 
 ./i386/regs.sed: ./i386/regs.sed.in
 	cp ./i386/regs.sed.in ./i386/regs.sed.in.c
-	$(COMPILE.cpp) -D_KERNEL ./i386/regs.sed.in.c | tr -d ' ' | tr '"' '@' | \
+	$(COMPILE.cpp) -I../include -D_KERNEL ./i386/regs.sed.in.c | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
 	-rm ./i386/regs.sed.in.c
 regs.d: ./i386/regs.sed ./i386/regs.d.in
