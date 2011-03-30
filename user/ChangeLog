@@ -1,4 +1,10 @@
 2011-03-30  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* include/sys/link.h: Include system link.h and remove the conflict
+	definitions.
+	* librtld/rd_elf.c, rtld.h: Fixed.
+
+2011-03-30  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Clean the header files.
 	include/

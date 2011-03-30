@@ -166,14 +166,14 @@ typedef struct rtld_db_priv {
 	size_t		rtd_objpad;	/* padding around mmap()ed objects */
 	APlist		**rtd_dynlmlst;	/* pointer to dynlm_list pointer */
 } Rtld_db_priv;
-
+#if 0
 typedef struct rtld_db_priv32 {
 	struct r_debug32 rtd_rdebug;	/* original r_debug structure */
 	Elf32_Word	rtd_version;	/* version no. */
 	Elf32_Word	rtd_objpad;	/* padding around mmap()ed objects */
 	Elf32_Addr	rtd_dynlmlst;	/* pointer to dynlm_list */
 } Rtld_db_priv32;
-
+#endif
 /*
  * External function definitions.  ld.so.1 must convey information to libc in
  * regards to threading.  libc also provides routines for atexit() and message

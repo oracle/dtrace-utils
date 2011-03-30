@@ -103,7 +103,7 @@ _rd_reset32(struct rd_agent *rap)
  */
 typedef ps_err_e (*ps_pbrandname_fp_t)(struct ps_prochandle *,
     char *, size_t);
-
+#if 0
 rd_err_e
 validate_rdebug32(struct rd_agent *rap)
 {
@@ -155,6 +155,7 @@ validate_rdebug32(struct rd_agent *rap)
 	    rap->rd_flags & RDF_FL_COREFILE));
 	return (RD_OK);
 }
+#endif
 #if 0
 rd_err_e
 find_dynamic_ent32(struct rd_agent *rap, psaddr_t dynaddr,

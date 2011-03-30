@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <gelf.h>
 #endif
+#include <link.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -507,20 +508,6 @@ typedef struct {
 #ifndef	_ASM
 
 typedef struct link_map	Link_map;
-
-struct link_map {
-	unsigned long	l_addr;		/* address at which object is mapped */
-	char 		*l_name;	/* full name of loaded object */
-#ifdef _LP64
-	Elf64_Dyn	*l_ld;		/* dynamic structure of object */
-#else
-	Elf32_Dyn	*l_ld;		/* dynamic structure of object */
-#endif
-	Link_map	*l_next;	/* next link object */
-	Link_map	*l_prev;	/* previous link object */
-	char		*l_refname;	/* filters reference name */
-};
-
 #ifdef _SYSCALL32
 typedef struct link_map32 Link_map32;
 
@@ -533,13 +520,6 @@ struct link_map32 {
 	Elf32_Addr	l_refname;
 };
 #endif
-
-typedef enum {
-	RT_CONSISTENT,
-	RT_ADD,
-	RT_DELETE
-} r_state_e;
-
 typedef enum {
 	RD_FL_NONE = 0,		/* no flags */
 	RD_FL_ODBG = (1<<0),	/* old style debugger present */
@@ -558,31 +538,6 @@ typedef enum {
 	RD_POSTINIT,		/* the Second rendezvous after .init */
 	RD_DLACTIVITY		/* a dlopen or dlclose has happened */
 } rd_event_e;
-
-struct r_debug {
-	int		r_version;	/* debugging info version no. */
-	Link_map	*r_map;		/* address of link_map */
-	unsigned long	r_brk;		/* address of update routine */
-	r_state_e	r_state;
-	unsigned long	r_ldbase;	/* base addr of ld.so */
-	Link_map	*r_ldsomap;	/* address of ld.so.1's link map */
-	rd_event_e	r_rdevent;	/* debug event */
-	rd_flags_e	r_flags;	/* misc flags. */
-};
-
-/*#ifdef _SYSCALL32*/
-struct r_debug32 {
-	Elf32_Word	r_version;	/* debugging info version no. */
-	Elf32_Addr	r_map;		/* address of link_map */
-	Elf32_Word	r_brk;		/* address of update routine */
-	r_state_e	r_state;
-	Elf32_Word	r_ldbase;	/* base addr of ld.so */
-	Elf32_Addr	r_ldsomap;	/* address of ld.so.1's link map */
-	rd_event_e	r_rdevent;	/* debug event */
-	rd_flags_e	r_flags;	/* misc flags. */
-};
-/*endif*/
-
 
 #define	R_DEBUG_VERSION	2		/* current r_debug version */
 #endif	/* _ASM */
