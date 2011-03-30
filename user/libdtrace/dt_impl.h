@@ -35,9 +35,8 @@
 #include <gelf.h>
 //#include <synch.h>
 
-#include <types_time.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
-#include <types_various.h>
 
 
 #ifdef	__cplusplus

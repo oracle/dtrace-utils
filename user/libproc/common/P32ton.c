@@ -31,11 +31,6 @@
 #include <sys/regset.h>
 #include <string.h>
 
-#if defined(__amd64)
-#include <sys/fp.h>
-#include <ieeefp.h>
-#endif
-
 #include "P32ton.h"
 
 dev_t

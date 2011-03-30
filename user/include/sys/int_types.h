@@ -71,6 +71,7 @@ extern "C" {
  * as an unsigned entity because there is no way to define an eight bit
  * signed integral.
  */
+#if 0
 #if defined(_CHAR_IS_SIGNED)
 typedef char			int8_t;
 #else
@@ -89,7 +90,7 @@ typedef long			int64_t;
 typedef	long long		int64_t;
 #endif
 #endif
-
+#endif
 typedef unsigned char		uint8_t;
 typedef unsigned short		uint16_t;
 typedef unsigned int		uint32_t;

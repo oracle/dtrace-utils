@@ -32,7 +32,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <zone.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"

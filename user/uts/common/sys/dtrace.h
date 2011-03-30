@@ -53,7 +53,6 @@ extern "C" {
 /*#include <sys/cyclic.h> 
 #include <sys/int_limits.h> */
 
-#include <types_various.h>
 
 /*
  * DTrace Universal Constants and Typedefs

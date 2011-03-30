@@ -52,7 +52,6 @@
 #include <sys/syscall.h>
 
 #include <sys/priv.h>
-#include <types_various.h>
 #include <sys/corectl.h>
 #include <mutex.h>
 

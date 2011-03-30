@@ -29,7 +29,7 @@
 #pragma weak _gettaskid = gettaskid
 #pragma weak _getprojid = getprojid
 
-#include <types_various.h>
+#include <sys/types.h>
 
 taskid_t
 gettaskid(void)

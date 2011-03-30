@@ -28,8 +28,6 @@
 #include <sys/link.h>
 #include <sys/dtrace.h>
 
-#include <types_boolean.h>
-#include <types_lmid.h>
 #include <gelf.h>
 
 #include <stdarg.h>

@@ -1,3 +1,22 @@
+2011-03-30  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Clean the header files.
+	include/
+	* confname_add.h, door.h, ieeefp.h, objfs.h, param.h, priv.h, procfs.h,
+	  types_blk.h, types_boolean.h, types_dev.h, types_lmid.h, types_off.h,
+	  types_pad.h, types_posix.h, types_time.h, zmod.h, zone.h, sys/fp.h,
+	  sys/old_procfs.h: Removed and moved the useful definitions to
+	types_various.h. Change the files that include these files.
+	* sys/types.h: Added.
+	* types_various.h: Added definitions. 
+	
+	cmd/
+	* dtrace.c, makefile: Move to the parent directory.
+	
+	libproc/
+	* common/Pgcore.c: Removed.
+	* common/makefile: Fixed.
+
 2011-03-29  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Remove pr_*.c files from libpro/common/.

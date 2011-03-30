@@ -31,8 +31,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include <types_posix.h>
-
 #include <dt_strtab.h>
 #include <dt_impl.h>
 

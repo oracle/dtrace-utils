@@ -34,7 +34,6 @@ extern "C" {
 #endif
 
 #include <sys/link.h>
-#include <types_lmid.h>
 #include <procfs_service.h>
 
 

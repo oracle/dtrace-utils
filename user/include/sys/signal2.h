@@ -1,7 +1,6 @@
 #ifndef _S_SYS_SIGNAL2_H
 #define	_S_SYS_SIGNAL2_H
 
-#include <types_various.h>
 #include <sys/types32.h>
 #include <sys/regset.h>
 #include <sys/ucontext.h>

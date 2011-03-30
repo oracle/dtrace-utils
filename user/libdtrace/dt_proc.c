@@ -83,7 +83,6 @@
 #include <assert.h>
 #include <errno.h>
 
-#include <types_boolean.h>
 #include <mutex.h>
 
 #include <dt_proc.h>

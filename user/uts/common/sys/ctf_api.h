@@ -43,10 +43,8 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/param.h>
-//#include <sys/procfs.h>
+#include <sys/types.h>
 #include <sys/ctf.h>
-
-#include <types_off.h>
 
 #ifdef	__cplusplus
 extern "C" {

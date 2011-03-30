@@ -39,7 +39,6 @@
 //#include <elfcap.h>
 
 #include <sys/machelf.h>
-#include <types_various.h>
 #include <mutex.h>
 
 #ifdef	_SYSCALL32

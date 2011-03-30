@@ -28,7 +28,6 @@
 //#include <sys/systeminfo.h>
 #include <sys/resource.h>
 
-#include <types_various.h>
 
 #include <libelf.h>
 #include <string.h>

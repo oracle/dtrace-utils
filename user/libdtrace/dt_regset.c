@@ -32,8 +32,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <types_posix.h>
-
 #include <dt_regset.h>
 
 dt_regset_t *

@@ -28,10 +28,11 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <string.h>
+#include <sys/types.h>
 #include <gelf.h>
 #include <ctf_impl.h>
 #include <sys/mman.h>
-#include <zmod.h>
+
 
 static const ctf_dmodel_t _libctf_models[] = {
 	{ "ILP32", CTF_MODEL_ILP32, 4, 1, 2, 4, 4 },

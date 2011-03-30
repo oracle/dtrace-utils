@@ -38,8 +38,6 @@
 #include <dt_module.h>
 #include <dt_impl.h>
 
-#include <types_boolean.h>
-
 static dt_decl_t *
 dt_decl_check(dt_decl_t *ddp)
 {

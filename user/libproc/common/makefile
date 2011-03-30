@@ -18,7 +18,6 @@ $(LIB): \
 	$(LIB)(Pcontrol.o) \
 	$(LIB)(Pcore.o) \
 	$(LIB)(Pexecname.o) \
-	$(LIB)(Pgcore.o) \
 	$(LIB)(Pidle.o) \
 	$(LIB)(../amd64/Pisadep.o) \
 	$(LIB)(Plwpregs.o) \

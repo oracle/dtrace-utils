@@ -39,8 +39,6 @@
 #if !defined(_ASM)
 //#include <sys/types.h>
 #include <stdint.h>
-#include <types_off.h>
-#include <types_pad.h>
 #endif
 
 #ifdef __cplusplus
@@ -205,43 +203,6 @@ struct fnsave_state {
 	} f_st[8];
 };	/* 108 bytes */
 
-/*
- * This structure is written to memory by an 'fxsave' instruction
- * Note the variant behaviour of this instruction between long mode
- * and legacy environments!
- */
-struct fxsave_state {
-	uint16_t	fx_fcw;
-	uint16_t	fx_fsw;
-	uint16_t	fx_fctw;	/* compressed tag word */
-	uint16_t	fx_fop;
-#if defined(__amd64)
-	uint64_t	fx_rip;
-	uint64_t	fx_rdp;
-#else
-	uint32_t	fx_eip;
-	uint16_t	fx_cs;
-	uint16_t	__fx_ign0;
-	uint32_t	fx_dp;
-	uint16_t	fx_ds;
-	uint16_t	__fx_ign1;
-#endif
-	uint32_t	fx_mxcsr;
-	uint32_t	fx_mxcsr_mask;
-	union {
-		uint16_t fpr_16[5];	/* 80-bits of x87 state */
-		u_longlong_t fpr_mmx;	/* 64-bit mmx register */
-		uint32_t __fpr_pad[4];	/* (pad out to 128-bits) */
-	} fx_st[8];
-#if defined(__amd64)
-	upad128_t	fx_xmm[16];	/* 128-bit registers */
-	upad128_t	__fx_ign2[6];
-#else
-	upad128_t	fx_xmm[8];	/* 128-bit registers */
-	upad128_t	__fx_ign2[14];
-#endif
-};	/* 512 bytes */
-
 #if defined(__amd64)
 #if 0
 typedef struct fpu {
@@ -336,20 +297,6 @@ typedef struct fpu32 {
 	} fp_reg_set;
 } fpregset32_t;
 
-
-/*
- * Kernel's FPU save area
- */
-typedef struct {
-	union _kfpu_u {
-		struct fxsave_state kfpu_fx;
-#if defined(__i386)
-		struct fnsave_state kfpu_fn;
-#endif
-	} kfpu_u;
-	uint32_t kfpu_status;		/* saved at #mf exception */
-	uint32_t kfpu_xstatus;		/* saved at #xm exception */
-} kfpu_t;
 
 #if defined(__amd64)
 #define	NDEBUGREG	16

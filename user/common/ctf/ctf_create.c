@@ -32,7 +32,6 @@
 #include <gelf.h>
 #include <string.h>
 #include <ctf_impl.h>
-#include <types_various.h>
 
 /*
  * This static string is used as the template for initially populating a

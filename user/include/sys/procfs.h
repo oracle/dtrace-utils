@@ -48,7 +48,6 @@ extern "C" {
 #define	_STRUCTURED_PROC	0
 #endif
 
-#include <types_various.h>
 #include <sys/feature_tests.h>
 #include <sys/types.h>
 #include <sys/time_impl.h>
@@ -59,9 +58,8 @@ extern "C" {
 #include <sys/procfs_isa.h>
 //#include <sys/priv.h>
 #include <sys/ucontext.h>
-
-#include <types_off.h>
 #include <sys/processor.h>
+
 
 /*
  * System call interfaces for /proc.

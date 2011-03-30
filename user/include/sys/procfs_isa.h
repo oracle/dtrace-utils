@@ -35,7 +35,6 @@
  */
 
 #include <sys/regset.h>
-#include <types_posix.h>
 
 #ifdef	__cplusplus
 extern "C" {

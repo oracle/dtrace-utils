@@ -43,7 +43,6 @@
 #include <sys/stat.h>
 /*#include <sys/systeminfo.h>*/
 
-#include <types_boolean.h>
 #include <mutex.h>
 
 #include <rtld_db.h>

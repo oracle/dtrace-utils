@@ -34,7 +34,6 @@
 #include <alloca.h>
 #include <dt_impl.h>
 #include <libproc.h>
-#include <confname_add.h>
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 

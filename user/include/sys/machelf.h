@@ -31,7 +31,6 @@
 extern "C" {
 #endif
 
-#include <types_posix.h>
 #include <sys/elf.h>
 
 #if defined(__amd64) || (defined(__i386) && defined(_ELF64))

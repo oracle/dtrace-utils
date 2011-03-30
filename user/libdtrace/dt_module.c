@@ -30,7 +30,6 @@
 #include <elf.h>
 //#include <sys/task.h>
 
-#include <types_posix.h>
 #include <fcntl.h>
 
 #include <sys/stat.h>

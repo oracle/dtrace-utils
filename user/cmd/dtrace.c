@@ -30,7 +30,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#include <types_various.h>
 
 #include <dtrace.h>
 #include <stdlib.h>

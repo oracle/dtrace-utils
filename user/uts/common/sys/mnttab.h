@@ -31,7 +31,6 @@
 #define	_SYS_MNTTAB_H
 
 #include <sys/types.h>
-#include <types_posix.h>
 #include <stdio.h>
 
 #ifdef	__cplusplus

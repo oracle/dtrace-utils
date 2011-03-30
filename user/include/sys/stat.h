@@ -3,8 +3,6 @@
 
 #include "/usr/include/sys/stat.h"
 #include <sys/types.h>
-#include <types_posix.h>
-#include <types_various.h>
 
 #ifndef __USE_LARGEFILE64
 	

@@ -30,9 +30,9 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <types_off.h>
 #include <sys/errno.h>
 #include <sys/ctf_api.h>
+#include <sys/types.h>
 
 #ifdef _KERNEL
 

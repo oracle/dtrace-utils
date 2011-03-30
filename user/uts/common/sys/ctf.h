@@ -29,7 +29,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <types_posix.h>
+#include <sys/types.h>
 
 #ifdef	__cplusplus
 extern "C" {

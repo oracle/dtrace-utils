@@ -38,7 +38,6 @@
 
 #include	<rtld_msg.h>
 #include	<machdep_x86.h>
-#include	<types_various.h>
 #include	<mutex.h>
 
 

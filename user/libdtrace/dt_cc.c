@@ -86,8 +86,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <types_boolean.h>
-
 #include <assert.h>
 #include <strings.h>
 #include <string.h>

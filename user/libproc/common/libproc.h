@@ -48,7 +48,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <nlist.h>
-#include <door.h>
 #include <gelf.h>
 //#include <proc_service.h>
 #include <sys/statvfs.h>
@@ -65,10 +64,7 @@
 //#include <sys/corectl.h>
 #include <sys/time.h>
 
-#include <types_off.h>
-#include <types_various.h>
 #include <procfs_service.h>
-#include <types_pad.h>
 
 #if defined(__i386) || defined(__amd64)
 #include <sys/sysi86.h>

@@ -2,7 +2,6 @@
 #define PROCFS_SERVERICE_H
 
 #include <stdint.h>
-#include <types_posix.h>
 #include <elf.h>
 #include <sys/procfs.h>
 

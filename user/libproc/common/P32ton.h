@@ -36,7 +36,7 @@
 #include <sys/signal.h>
 #include <sys/signal2.h>
 #include <sys/auxv.h>
-#include <procfs.h>
+#include <sys/procfs.h>
 #include <sys/procfs_isa.h>
 
 #ifdef	__cplusplus

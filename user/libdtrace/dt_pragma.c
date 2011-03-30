@@ -32,8 +32,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <types_boolean.h>
-
 #include <dt_parser.h>
 #include <dt_impl.h>
 #include <dt_provider.h>

@@ -38,7 +38,6 @@
 #include <sys/mman.h>
 #include <sys/mnttab.h>
 
-#include <types_various.h>
 #include <mutex.h>
 
 #include "Pcontrol.h"
