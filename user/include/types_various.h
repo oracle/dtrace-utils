@@ -4,9 +4,7 @@
 #include <sys/types.h>
 #include <sys/types32.h>
 #include <sys/int_types.h>
-#include <types_posix.h>
 #include <unistd.h>
-#include <types_off.h>
 
 typedef struct {                /* syscall set type */
 	unsigned int    word[16];
@@ -24,12 +22,77 @@ typedef id_t    zoneid_t;
 typedef id_t    ctid_t;
 typedef unsigned long   psaddr_t;
 typedef int psetid_t;
+typedef unsigned long	Lmid_t;
+typedef enum { B_FALSE, B_TRUE} boolean_t;
 
 typedef pid_t	lwpid_t;
 
 typedef uint32_t priv_chunk_t;
 
 typedef struct iovec iovec_t;
+
+/*
+ * Strictly conforming ANSI C environments prior to the 1999
+ * revision of the C Standard (ISO/IEC 9899:1999) do not have
+ * the long long data type.
+ */
+#if defined(_LONGLONG_TYPE)
+typedef long long               longlong_t;
+typedef unsigned long long      u_longlong_t;
+#else
+/* used to reserve space and generate alignment */
+typedef union {
+        double  _d;
+        int32_t _l[2];
+} longlong_t;
+typedef union {
+        double          _d;
+        uint32_t        _l[2];
+} u_longlong_t;
+#endif  /* defined(_LONGLONG_TYPE) */
+typedef u_longlong_t    core_content_t;
+
+typedef longlong_t      offset_t;
+typedef u_longlong_t    u_offset_t;
+typedef u_longlong_t    len_t;
+typedef u_longlong_t    diskaddr_t;
+#if (defined(_KERNEL) || defined(_KMEMUSER) || defined(_BOOT))
+typedef uint64_t        paddr_t;
+#endif
+
+typedef unsigned long long hrtime_t;
+
+/*
+ * POSIX Extensions
+ */
+typedef unsigned char   uchar_t;
+typedef unsigned short  ushort_t;
+typedef unsigned int    uint_t;
+typedef unsigned long   ulong_t;
+
+typedef short           cnt_t;          /* ?<count> type */
+
+#if !defined(_LP64) && defined(__cplusplus)
+typedef ulong_t major_t;        /* major part of device number */
+typedef ulong_t minor_t;        /* minor part of device number */
+#else
+typedef uint_t major_t;
+typedef uint_t minor_t;
+#endif
+
+#ifndef _LARGEFILE64_SOURCE
+typedef unsigned long long off64_t;
+#endif
+
+#if !defined(_PTRDIFF_T) || __cplusplus >= 199711L
+#define _PTRDIFF_T
+#if defined(_LP64) || defined(_I32LPx)
+typedef long    ptrdiff_t;              /* pointer difference */
+#else
+typedef int     ptrdiff_t;              /* (historical version) */
+#endif
+#endif
+
 
 #ifndef __ino64_t_defined
 #ifdef _LP64
@@ -56,7 +119,6 @@ typedef	long		blksize_t;	/* used for block sizes */
 #endif
 #define __blksize_t_defined
 #endif
-
 
 /*
  * return x rounded up to an align boundary
@@ -225,6 +287,9 @@ CC_CONTENT_SYMTAB)
 
 /*  indication whether to queue the signal or not */
 #define	SI_CANQUEUE(c)	((c) <= SI_QUEUE)
+
+#define _SC_NPROCESSORS_MAX     516     /* maximum # of processors */
+#define _SC_CPUID_MAX           517     /* maximum CPU id */
 
 
 #endif
