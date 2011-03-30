@@ -1,4 +1,4 @@
-BINDIR=../../$(BUILD_DIR)
+BINDIR=../$(BUILD_DIR)
 CPPFLAGS += $(DTO) -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 
 LIBELF=/usr/lib/libelf.so.1
@@ -27,11 +27,11 @@ $(BINDIR)/dtrace: $(BINDIR)/dtrace.o $(LIBS)
 
 $(BINDIR)/dtrace.o: dtrace.c
 	$(CC) $(CPPFLAGS) -c \
-	-I../../uts/common \
-	-I../../libctf \
-	-I../../libdtrace \
-	-I../../libproc/common \
-	-I../../include \
+	-I../uts/common \
+	-I../libctf \
+	-I../libdtrace \
+	-I../libproc/common \
+	-I../include \
 	dtrace.c
 	mv dtrace.o $(BINDIR)
 
