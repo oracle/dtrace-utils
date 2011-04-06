@@ -221,7 +221,6 @@ extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
 extern	const psinfo_t *Ppsinfo(struct ps_prochandle *);
 extern	const pstatus_t *Pstatus(struct ps_prochandle *);
-extern	int	Pcred(struct ps_prochandle *, prcred_t *, int);
 extern	int	Psetcred(struct ps_prochandle *, const prcred_t *);
 extern	ssize_t	Ppriv(struct ps_prochandle *, prpriv_t *, size_t);
 extern	int	Psetpriv(struct ps_prochandle *, prpriv_t *);
@@ -256,83 +255,6 @@ extern	void	Psync(struct ps_prochandle *);
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
 			int, uint_t, argdes_t *);
 extern	int	Pisprocdir(struct ps_prochandle *, const char *);
-
-/*
- * Function prototypes for lwp-specific operations.
- */
-extern	struct ps_lwphandle *Lgrab(struct ps_prochandle *, lwpid_t, int *);
-extern	const char *Lgrab_error(int);
-
-extern	struct ps_prochandle *Lprochandle(struct ps_lwphandle *);
-extern	void	Lfree(struct ps_lwphandle *);
-
-extern	int	Lctlfd(struct ps_lwphandle *);
-extern	int	Lwait(struct ps_lwphandle *, uint_t);
-extern	int	Lstop(struct ps_lwphandle *, uint_t);
-extern	int	Ldstop(struct ps_lwphandle *);
-extern	int	Lstate(struct ps_lwphandle *);
-extern	const lwpsinfo_t *Lpsinfo(struct ps_lwphandle *);
-extern	const lwpstatus_t *Lstatus(struct ps_lwphandle *);
-extern	int	Lgetareg(struct ps_lwphandle *, int, prgreg_t *);
-extern	int	Lputareg(struct ps_lwphandle *, int, prgreg_t);
-extern	int	Lsetrun(struct ps_lwphandle *, int, int);
-extern	int	Lclearsig(struct ps_lwphandle *);
-extern	int	Lclearfault(struct ps_lwphandle *);
-extern	int	Lxecbkpt(struct ps_lwphandle *, ulong_t);
-extern	int	Lxecwapt(struct ps_lwphandle *, const prwatch_t *);
-extern	void	Lsync(struct ps_lwphandle *);
-
-extern	int	Lstack(struct ps_lwphandle *, stack_t *);
-extern	int	Lmain_stack(struct ps_lwphandle *, stack_t *);
-extern	int	Lalt_stack(struct ps_lwphandle *, stack_t *);
-
-
-/*
- * Function prototypes for accessing per-LWP register information.
- */
-extern int Plwp_getregs(struct ps_prochandle *, lwpid_t, prgregset_t);
-extern int Plwp_setregs(struct ps_prochandle *, lwpid_t, const prgregset_t);
-
-extern int Plwp_getfpregs(struct ps_prochandle *, lwpid_t, prfpregset_t *);
-extern int Plwp_setfpregs(struct ps_prochandle *, lwpid_t,
-    const prfpregset_t *);
-
-#if defined(__sparc)
-
-extern int Plwp_getxregs(struct ps_prochandle *, lwpid_t, prxregset_t *);
-extern int Plwp_setxregs(struct ps_prochandle *, lwpid_t, const prxregset_t *);
-
-extern int Plwp_getgwindows(struct ps_prochandle *, lwpid_t, gwindows_t *);
-
-#if defined(__sparcv9)
-extern int Plwp_getasrs(struct ps_prochandle *, lwpid_t, asrset_t);
-extern int Plwp_setasrs(struct ps_prochandle *, lwpid_t, const asrset_t);
-#endif	/* __sparcv9 */
-
-#endif	/* __sparc */
-
-#if defined(__i386) || defined(__amd64)
-extern	int	Pldt(struct ps_prochandle *, struct ssd *, int);
-extern	int	proc_get_ldt(pid_t, struct ssd *, int);
-#endif	/* __i386 || __amd64 */
-
-extern int Plwp_getpsinfo(struct ps_prochandle *, lwpid_t, lwpsinfo_t *);
-
-extern int Plwp_stack(struct ps_prochandle *, lwpid_t, stack_t *);
-extern int Plwp_main_stack(struct ps_prochandle *, lwpid_t, stack_t *);
-extern int Plwp_alt_stack(struct ps_prochandle *, lwpid_t, stack_t *);
-
-/*
- * LWP iteration interface; iterate over all active LWPs.
- */
-typedef int proc_lwp_f(void *, const lwpstatus_t *);
-extern int Plwp_iter(struct ps_prochandle *, proc_lwp_f *, void *);
-
-/*
- * LWP iteration interface; iterate over all LWPs, active and zombie.
- */
-typedef int proc_lwp_all_f(void *, const lwpstatus_t *, const lwpsinfo_t *);
-extern int Plwp_iter_all(struct ps_prochandle *, proc_lwp_all_f *, void *);
 
 /*
  * Process iteration interface; iterate over all non-system processes.

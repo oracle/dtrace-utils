@@ -297,110 +297,6 @@ prfpregset_32_to_n(const prfpregset32_t *src, prfpregset_t *dst)
 }
 
 void
-lwpstatus_32_to_n(const lwpstatus32_t *src, lwpstatus_t *dst)
-{
-	int i;
-
-	dst->pr_flags = src->pr_flags;
-	dst->pr_lwpid = src->pr_lwpid;
-	dst->pr_why = src->pr_why;
-	dst->pr_what = src->pr_what;
-	dst->pr_cursig = src->pr_cursig;
-
-	siginfo_32_to_n(&src->pr_info, &dst->pr_info);
-
-	dst->pr_lwppend = src->pr_lwppend;
-	dst->pr_lwphold = src->pr_lwphold;
-
-	sigaction_32_to_n(&src->pr_action, &dst->pr_action);
-	stack_32_to_n(&src->pr_altstack, &dst->pr_altstack);
-
-	dst->pr_oldcontext = src->pr_oldcontext;
-	dst->pr_syscall = src->pr_syscall;
-	dst->pr_nsysarg = src->pr_nsysarg;
-	dst->pr_errno = src->pr_errno;
-
-	for (i = 0; i < PRSYSARGS; i++)
-		dst->pr_sysarg[i] = (long)(uint32_t)src->pr_sysarg[i];
-
-	dst->pr_rval1 = (long)(uint32_t)src->pr_rval1;
-	dst->pr_rval2 = (long)(uint32_t)src->pr_rval2;
-
-	(void) memcpy(&dst->pr_clname[0], &src->pr_clname[0], PRCLSZ);
-	timestruc_32_to_n(&src->pr_tstamp, &dst->pr_tstamp);
-
-	dst->pr_ustack = src->pr_ustack;
-	dst->pr_instr = src->pr_instr;
-
-	prgregset_32_to_n(src->pr_reg, dst->pr_reg);
-	prfpregset_32_to_n(&src->pr_fpreg, &dst->pr_fpreg);
-}
-
-void
-pstatus_32_to_n(const pstatus32_t *src, pstatus_t *dst)
-{
-	dst->pr_flags = src->pr_flags;
-	dst->pr_nlwp = src->pr_nlwp;
-	dst->pr_nzomb = src->pr_nzomb;
-	dst->pr_pid = src->pr_pid;
-	dst->pr_ppid = src->pr_ppid;
-	dst->pr_pgid = src->pr_pgid;
-	dst->pr_sid = src->pr_sid;
-	dst->pr_taskid = src->pr_taskid;
-	dst->pr_projid = src->pr_projid;
-	dst->pr_zoneid = src->pr_zoneid;
-	dst->pr_aslwpid = src->pr_aslwpid;
-	dst->pr_agentid = src->pr_agentid;
-	dst->pr_sigpend = src->pr_sigpend;
-	dst->pr_brkbase = src->pr_brkbase;
-	dst->pr_brksize = src->pr_brksize;
-	dst->pr_stkbase = src->pr_stkbase;
-	dst->pr_stksize = src->pr_stksize;
-
-	timestruc_32_to_n(&src->pr_utime, &dst->pr_utime);
-	timestruc_32_to_n(&src->pr_stime, &dst->pr_stime);
-	timestruc_32_to_n(&src->pr_cutime, &dst->pr_cutime);
-	timestruc_32_to_n(&src->pr_cstime, &dst->pr_cstime);
-
-	dst->pr_sigtrace = src->pr_sigtrace;
-	dst->pr_flttrace = src->pr_flttrace;
-	dst->pr_sysentry = src->pr_sysentry;
-	dst->pr_sysexit = src->pr_sysexit;
-	dst->pr_dmodel = src->pr_dmodel;
-
-	lwpstatus_32_to_n(&src->pr_lwp, &dst->pr_lwp);
-}
-
-void
-lwpsinfo_32_to_n(const lwpsinfo32_t *src, lwpsinfo_t *dst)
-{
-	dst->pr_flag = src->pr_flag;
-	dst->pr_lwpid = src->pr_lwpid;
-	dst->pr_addr = src->pr_addr;
-	dst->pr_wchan = src->pr_wchan;
-	dst->pr_stype = src->pr_stype;
-	dst->pr_state = src->pr_state;
-	dst->pr_sname = src->pr_sname;
-	dst->pr_nice = src->pr_nice;
-	dst->pr_syscall = src->pr_syscall;
-	dst->pr_oldpri = src->pr_oldpri;
-	dst->pr_cpu = src->pr_cpu;
-	dst->pr_pri = src->pr_pri;
-	dst->pr_pctcpu = src->pr_pctcpu;
-
-	timestruc_32_to_n(&src->pr_start, &dst->pr_start);
-	timestruc_32_to_n(&src->pr_time, &dst->pr_time);
-
-	(void) memcpy(&dst->pr_clname[0], &src->pr_clname[0], PRCLSZ);
-	(void) memcpy(&dst->pr_name[0], &src->pr_name[0], PRFNSZ);
-
-	dst->pr_onpro = src->pr_onpro;
-	dst->pr_bindpro = src->pr_bindpro;
-	dst->pr_bindpset = src->pr_bindpset;
-	dst->pr_lgrp = src->pr_lgrp;
-}
-
-void
 psinfo_32_to_n(const psinfo32_t *src, psinfo_t *dst)
 {
 	dst->pr_flag = src->pr_flag;
@@ -672,46 +568,6 @@ prfpregset_n_to_32(const prfpregset_t *src, prfpregset32_t *dst)
 }
 
 void
-lwpstatus_n_to_32(const lwpstatus_t *src, lwpstatus32_t *dst)
-{
-	int i;
-
-	dst->pr_flags = src->pr_flags;
-	dst->pr_lwpid = src->pr_lwpid;
-	dst->pr_why = src->pr_why;
-	dst->pr_what = src->pr_what;
-	dst->pr_cursig = src->pr_cursig;
-
-	siginfo_n_to_32(&src->pr_info, &dst->pr_info);
-
-	dst->pr_lwppend = src->pr_lwppend;
-	dst->pr_lwphold = src->pr_lwphold;
-
-	sigaction_n_to_32(&src->pr_action, &dst->pr_action);
-	stack_n_to_32(&src->pr_altstack, &dst->pr_altstack);
-
-	dst->pr_oldcontext = (caddr32_t)src->pr_oldcontext;
-	dst->pr_syscall = src->pr_syscall;
-	dst->pr_nsysarg = src->pr_nsysarg;
-	dst->pr_errno = src->pr_errno;
-
-	for (i = 0; i < PRSYSARGS; i++)
-		dst->pr_sysarg[i] = (int32_t)src->pr_sysarg[i];
-
-	dst->pr_rval1 = (int32_t)src->pr_rval1;
-	dst->pr_rval2 = (int32_t)src->pr_rval2;
-
-	(void) memcpy(&dst->pr_clname[0], &src->pr_clname[0], PRCLSZ);
-	timestruc_n_to_32(&src->pr_tstamp, &dst->pr_tstamp);
-
-	dst->pr_ustack = (caddr32_t)src->pr_ustack;
-	dst->pr_instr = src->pr_instr;
-
-	prgregset_n_to_32(src->pr_reg, dst->pr_reg);
-	prfpregset_n_to_32(&src->pr_fpreg, &dst->pr_fpreg);
-}
-
-void
 pstatus_n_to_32(const pstatus_t *src, pstatus32_t *dst)
 {
 	dst->pr_flags = src->pr_flags;
@@ -742,37 +598,9 @@ pstatus_n_to_32(const pstatus_t *src, pstatus32_t *dst)
 	dst->pr_sysentry = src->pr_sysentry;
 	dst->pr_sysexit = src->pr_sysexit;
 	dst->pr_dmodel = src->pr_dmodel;
-
+#if 0
 	lwpstatus_n_to_32(&src->pr_lwp, &dst->pr_lwp);
-}
-
-void
-lwpsinfo_n_to_32(const lwpsinfo_t *src, lwpsinfo32_t *dst)
-{
-	dst->pr_flag = src->pr_flag;
-	dst->pr_lwpid = (id32_t)src->pr_lwpid;
-	dst->pr_addr = (caddr32_t)src->pr_addr;
-	dst->pr_wchan = (caddr32_t)src->pr_wchan;
-	dst->pr_stype = src->pr_stype;
-	dst->pr_state = src->pr_state;
-	dst->pr_sname = src->pr_sname;
-	dst->pr_nice = src->pr_nice;
-	dst->pr_syscall = src->pr_syscall;
-	dst->pr_oldpri = src->pr_oldpri;
-	dst->pr_cpu = src->pr_cpu;
-	dst->pr_pri = src->pr_pri;
-	dst->pr_pctcpu = src->pr_pctcpu;
-
-	timestruc_n_to_32(&src->pr_start, &dst->pr_start);
-	timestruc_n_to_32(&src->pr_time, &dst->pr_time);
-
-	(void) memcpy(&dst->pr_clname[0], &src->pr_clname[0], PRCLSZ);
-	(void) memcpy(&dst->pr_name[0], &src->pr_name[0], PRFNSZ);
-
-	dst->pr_onpro = src->pr_onpro;
-	dst->pr_bindpro = src->pr_bindpro;
-	dst->pr_bindpset = src->pr_bindpset;
-	dst->pr_lgrp = src->pr_lgrp;
+#endif
 }
 
 void

@@ -256,8 +256,9 @@ init_uclist(uclist_t *ucl, struct ps_prochandle *P)
 	ucl->uc_addrs = NULL;
 	ucl->uc_nelems = 0;
 	ucl->uc_size = 0;
-
+#if 0
 	(void) Plwp_iter(P, (proc_lwp_f *)load_uclist, ucl);
+#endif
 	qsort(ucl->uc_addrs, ucl->uc_nelems, sizeof (uintptr_t), sort_uclist);
 
 	if (P->state == PS_STOP || P->state == PS_DEAD) {

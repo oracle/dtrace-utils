@@ -331,11 +331,12 @@ typedef struct dbregset {
  * that the core file content is defined by core(4) in terms of data types
  * defined by procfs -- see proc(4).
  */
+#if 0
 #if defined(__i386) && \
 	(!defined(_KERNEL) && !defined(_XPG4_2) || defined(__EXTENSIONS__))
 #include <sys/privregs.h>
 #endif	/* __i386 (!_KERNEL && !_XPG4_2 || __EXTENSIONS__) */
-
+#endif
 /*
  * The following is here for XPG4.2 standards compliance.
  * regset.h is included in ucontext.h for the definition of

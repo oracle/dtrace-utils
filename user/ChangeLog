@@ -1,3 +1,22 @@
+2011-04-06  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cmd/dtrace.c: clear function prochandler.
+	* include/sys/regset.h: Don't include privregs.h.
+	* libdtrace/dt_proc.c: Remove to get infor from Ppsinfo.
+	libproc/common
+	* P32ton.c: Remove the functions about lwp.
+	* Pcontrol.c: Remove the functions about lwp-specific operation.
+	* Pservice.c: Likewise.
+	* Pstack.c: Likewise.
+	* Plwpregs.c: Delete.
+	* proc_arg.c: Delete.
+	* proc_get_info.c: Delete.
+	* proc_names.c: Delete.
+	* proc_set.c: Delete.
+	* proc_stdio.c: Delete.
+	* libproc.h: Delete.
+	* makefile: Fixed.
+	
 2011-03-30  Shujing Zhao  <pearly.zhao@oracle.com>
 	
 	* include/sys/link.h: Include system link.h and remove the conflict

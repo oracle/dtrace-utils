@@ -20,7 +20,6 @@ $(LIB): \
 	$(LIB)(Pexecname.o) \
 	$(LIB)(Pidle.o) \
 	$(LIB)(../amd64/Pisadep.o) \
-	$(LIB)(Plwpregs.o) \
 	$(LIB)(Psymtab_machelf32.o) \
 	$(LIB)(Psymtab_machelf64.o) \
 	$(LIB)(Pscantext.o) \
@@ -30,11 +29,6 @@ $(LIB): \
 	$(LIB)(Psyscall.o) \
 	$(LIB)(Putil.o) \
 	$(LIB)(Pzone.o)	\
-	$(LIB)(proc_arg.o) \
-	$(LIB)(proc_get_info.o) \
-	$(LIB)(proc_names.o) \
-	$(LIB)(proc_set.o) \
-	$(LIB)(proc_stdio.o)
 
 $(LIB)(Pcore.o): Pcore.c
 	$(CC) $(CPPFLAGS) -D_LARGEFILE64_SOURCE=1 -D_XOPEN_SOURCE=500 -c Pcore.c

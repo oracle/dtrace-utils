@@ -841,14 +841,17 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 		 * small amount of useful information to help figure it out.
 		 */
 		if (dpr->dpr_done) {
+#if 0
 			const psinfo_t *prp = Ppsinfo(dpr->dpr_proc);
 			int stat = prp ? prp->pr_wstat : 0;
+#endif
 			int pid = dpr->dpr_pid;
 
 			if (Pstate(dpr->dpr_proc) == PS_LOST) {
 				(void) dt_proc_error(dpr->dpr_hdl, dpr,
 				    "failed to control pid %d: process exec'd "
 				    "set-id or unobservable program\n", pid);
+#if 0
 			} else if (WIFSIGNALED(stat)) {
 				(void) dt_proc_error(dpr->dpr_hdl, dpr,
 				    "failed to control pid %d: process died "
@@ -857,6 +860,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 				(void) dt_proc_error(dpr->dpr_hdl, dpr,
 				    "failed to control pid %d: process exited "
 				    "with status %d\n", pid, WEXITSTATUS(stat));
+#endif
 			}
 
 			err = ESRCH; /* cause grab() or create() to fail */

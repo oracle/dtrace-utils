@@ -742,6 +742,8 @@ compile_str(dtrace_cmd_t *dcp)
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 {
+/* FIXME */
+#if 0
 	const psinfo_t *prp = Ppsinfo(P);
 	int pid = Pstatus(P)->pr_pid;
 	char name[SIG2STR_MAX];
@@ -779,6 +781,7 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 		g_pslive--;
 		break;
 	}
+#endif
 }
 
 /*ARGSUSED*/

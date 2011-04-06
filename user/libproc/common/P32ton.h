@@ -61,8 +61,6 @@ extern void gwindows_32_to_n(const gwindows32_t *, gwindows_t *);
 
 extern void prgregset_32_to_n(const prgreg32_t *, prgreg_t *);
 extern void prfpregset_32_to_n(const prfpregset32_t *, prfpregset_t *);
-extern void lwpstatus_32_to_n(const lwpstatus32_t *, lwpstatus_t *);
-extern void pstatus_32_to_n(const pstatus32_t *, pstatus_t *);
 extern void lwpsinfo_32_to_n(const lwpsinfo32_t *, lwpsinfo_t *);
 extern void psinfo_32_to_n(const psinfo32_t *, psinfo_t *);
 
