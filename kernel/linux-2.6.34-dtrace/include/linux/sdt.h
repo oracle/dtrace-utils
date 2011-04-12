@@ -116,6 +116,20 @@ extern "C" {
 	    (uintptr_t)(arg6), (uintptr_t)(arg7), (uintptr_t)(arg8));	\
 }
 
+/*
+ * vmlinux dtrace_probe__ caller reloc info;
+ * comes from vmlinux_info.S
+ */
+extern unsigned long dtrace_relocs_count;
+extern void *dtrace_relocs;
+
+struct reloc_info {
+	unsigned long probe_offset;
+	unsigned long section_base;
+	unsigned long probe_name_len;
+	char probe_name[0];
+} __aligned(sizeof(unsigned long));
+
 #endif /* __KERNEL__ */
 
 #else /* DTRACE not enabled: */
@@ -412,7 +426,6 @@ typedef struct sdt_probedesc {
 	unsigned long		sdpd_offset;	/* offset of call in text */
 	struct sdt_probedesc	*sdpd_next;	/* next static probe */
 } sdt_probedesc_t;
-
 
 #ifdef	__cplusplus
 }
