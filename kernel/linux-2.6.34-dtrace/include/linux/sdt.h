@@ -120,8 +120,8 @@ extern "C" {
  * vmlinux dtrace_probe__ caller reloc info;
  * comes from vmlinux_info.S
  */
-extern unsigned long dtrace_relocs_count;
-extern void *dtrace_relocs;
+extern unsigned long dtrace_relocs_count __attribute__((weak));
+extern void *dtrace_relocs __attribute__((weak));
 
 struct reloc_info {
 	unsigned long probe_offset;
@@ -129,6 +129,14 @@ struct reloc_info {
 	unsigned long probe_name_len;
 	char probe_name[0];
 } __aligned(sizeof(unsigned long));
+
+void dtrace_register_builtins(void);
+
+#ifdef DEBUG
+#define DPRINTK(fmt, args...) printk(KERN_DEBUG "%s: " fmt, __func__, ## args)
+#else
+#define DPRINTK(fmt, args...)
+#endif
 
 #endif /* __KERNEL__ */
 
