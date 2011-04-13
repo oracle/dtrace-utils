@@ -263,6 +263,7 @@ dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
 	dt_proc_stop(dpr, DT_PROC_STOP_MAIN);
 }
 
+#if 0
 static void
 dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 {
@@ -365,6 +366,7 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 		    (int)dpr->dpr_pid, strerror(errno));
 	}
 }
+#endif
 
 /*
  * Wait for a stopped process to be set running again by some other debugger.
@@ -518,7 +520,9 @@ dt_proc_control(void *arg)
 	
 
 	Psync(P);				/* enable all /proc changes */
+#if defined(sun)
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
+#endif
 
 	/*
 	 * If PR_KLC is set, we created the process; otherwise we grabbed it.
@@ -559,6 +563,7 @@ pwait_locked:
 		}
 		switch (Pstate(P)) {
 		case PS_STOP:
+#if 0
 			psp = &Pstatus(P)->pr_lwp;
 
 			dt_dprintf("pid %d: proc stopped showing %d/%d\n",
@@ -601,6 +606,7 @@ pwait_locked:
 			else if (psp->pr_why == PR_SYSEXIT &&
 			    IS_SYS_EXEC(psp->pr_what))
 				dt_proc_attach(dpr, B_TRUE);
+#endif
 			break;
 
 		case PS_LOST:

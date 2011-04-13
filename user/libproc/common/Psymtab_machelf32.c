@@ -260,8 +260,10 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 		phdr->p_vaddr += addr;
 
 	if (P->rap != NULL) {
+#if 0
 		if (rd_get_dyns(P->rap, addr, (void **)&dp, NULL) != RD_OK)
 			goto bad;
+#endif
 	} else {
 		if ((dp = malloc(phdr->p_filesz)) == NULL)
 			goto bad;

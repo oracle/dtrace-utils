@@ -1,6 +1,6 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
-CC=/usr/bin/gcc
+CC=gcc -g
 MACH=$(shell uname -i)
 DTO=-D_ILP64
 COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
@@ -17,7 +17,6 @@ all:
 	cd libdtrace ; $(MAKE) $(NOPWD) all
 	cd libport ; $(MAKE) $(NOPWD)
 	cd libproc/common ; $(MAKE) $(NOPWD)
-	cd librtld ; $(MAKE) $(NOPWD)
 	cd cmd ; $(MAKE) $(NOPWD)
 all1:
 	if [ ! -d $(BUILD_DIR) ] ; then \

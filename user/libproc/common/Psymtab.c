@@ -681,9 +681,11 @@ Prd_agent(struct ps_prochandle *P)
 		Pupdate_maps(P);
 		if (P->num_files == 0)
 			load_static_maps(P);
+#if 0
 		rd_log(_libproc_debug);
 		if ((P->rap = rd_new(P)) != NULL)
 			(void) rd_loadobj_iter(map_iter, P);
+#endif
 	}
 	return (P->rap);
 }
@@ -3122,10 +3124,12 @@ Preset_maps(struct ps_prochandle *P)
 {
 	int i;
 
+#if 0
 	if (P->rap != NULL) {
 		rd_delete(P->rap);
 		P->rap = NULL;
 	}
+#endif
 
 	if (P->execname != NULL) {
 		free(P->execname);

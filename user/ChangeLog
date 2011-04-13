@@ -1,3 +1,10 @@
+2011-04-13  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Remove librtld.
+	* makefile: Adjust.
+	* libdtrace/dt_open.c, dt_proc.c: Fix.
+	* libproc/common/Psymtab.c, Psymtab_machelf32.c: Fix. 
+
 2011-04-06  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* cmd/dtrace.c: clear function prochandler.
