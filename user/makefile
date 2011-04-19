@@ -37,4 +37,3 @@ clean:
 	cd libdtrace ; $(MAKE) $(NOPWD) clean
 	cd libport ; $(MAKE) $(NOPWD) clean
 	cd libproc/common ; $(MAKE) $(NOPWD) clean 
-	cd librtld ; $(MAKE) $(NOPWD) clean

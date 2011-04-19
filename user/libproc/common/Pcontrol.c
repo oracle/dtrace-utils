@@ -1190,11 +1190,12 @@ Preopen(struct ps_prochandle *P)
 
 	if (P->state == PS_DEAD || P->state == PS_IDLE)
 		return (0);
-
+#if defined(sun)
 	if (P->agentcnt > 0) {
 		P->agentcnt = 1;
 		Pdestroy_agent(P);
 	}
+#endif
 
 	(void) snprintf(procname, sizeof (procname), "%s/%d/",
 	    procfs_path, (int)P->pid);
@@ -1383,11 +1384,12 @@ Prelease(struct ps_prochandle *P, int flags)
 		Pfree(P);
 		return;
 	}
-
+#if defined (sun)
 	if (P->agentcnt > 0) {
 		P->agentcnt = 1;
 		Pdestroy_agent(P);
 	}
+#endif
 
 	/*
 	 * Attempt to stop the process.

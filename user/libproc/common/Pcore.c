@@ -121,40 +121,7 @@ Pwrite_core(struct ps_prochandle *P, const void *buf, size_t n, uintptr_t addr)
 
 static const ps_rwops_t P_core_ops = { Pread_core, Pwrite_core };
 
-/*
- * Return the lwp_info_t for the given lwpid.  If no such lwpid has been
- * encountered yet, allocate a new structure and return a pointer to it.
- * Create a list of lwp_info_t structures sorted in decreasing lwp_id order.
- */
-static lwp_info_t *
-lwpid2info(struct ps_prochandle *P, lwpid_t id)
-{
-	lwp_info_t *lwp = list_next(&P->core->core_lwp_head);
-	lwp_info_t *next;
-	uint_t i;
 
-	for (i = 0; i < P->core->core_nlwp; i++, lwp = list_next(lwp)) {
-		if (lwp->lwp_id == id) {
-			P->core->core_lwp = lwp;
-			return (lwp);
-		}
-		if (lwp->lwp_id < id) {
-			break;
-		}
-	}
-
-	next = lwp;
-	if ((lwp = calloc(1, sizeof (lwp_info_t))) == NULL)
-		return (NULL);
-
-	list_link(lwp, next);
-	lwp->lwp_id = id;
-
-	P->core->core_lwp = lwp;
-	P->core->core_nlwp++;
-
-	return (lwp);
-}
 
 /*
  * The core file itself contains a series of NOTE segments containing saved
@@ -196,48 +163,6 @@ err:
 }
 
 static int
-note_lwpstatus(struct ps_prochandle *P, size_t nbytes)
-{
-	lwp_info_t *lwp;
-	lwpstatus_t lps;
-
-#ifdef _LP64
-	if (P->core->core_dmodel == PR_MODEL_ILP32) {
-		lwpstatus32_t l32;
-
-		if (nbytes < sizeof (lwpstatus32_t) ||
-		    read(P->asfd, &l32, sizeof (l32)) != sizeof (l32))
-			goto err;
-
-		lwpstatus_32_to_n(&l32, &lps);
-	} else
-#endif
-	if (nbytes < sizeof (lwpstatus_t) ||
-	    read(P->asfd, &lps, sizeof (lps)) != sizeof (lps))
-		goto err;
-
-	if ((lwp = lwpid2info(P, lps.pr_lwpid)) == NULL) {
-		_dprintf("Pgrab_core: failed to add NT_LWPSTATUS\n");
-		return (-1);
-	}
-
-	/*
-	 * Erase a useless and confusing artifact of the kernel implementation:
-	 * the lwps which did *not* create the core will show SIGKILL.  We can
-	 * be assured this is bogus because SIGKILL can't produce core files.
-	 */
-	if (lps.pr_cursig == SIGKILL)
-		lps.pr_cursig = 0;
-
-	(void) memcpy(&lwp->lwp_status, &lps, sizeof (lps));
-	return (0);
-
-err:
-	_dprintf("Pgrab_core: failed to read NT_LWPSTATUS\n");
-	return (-1);
-}
-
-static int
 note_psinfo(struct ps_prochandle *P, size_t nbytes)
 {
 #ifdef _LP64
@@ -263,40 +188,6 @@ note_psinfo(struct ps_prochandle *P, size_t nbytes)
 
 err:
 	_dprintf("Pgrab_core: failed to read NT_PSINFO\n");
-	return (-1);
-}
-
-static int
-note_lwpsinfo(struct ps_prochandle *P, size_t nbytes)
-{
-	lwp_info_t *lwp;
-	lwpsinfo_t lps;
-
-#ifdef _LP64
-	if (P->core->core_dmodel == PR_MODEL_ILP32) {
-		lwpsinfo32_t l32;
-
-		if (nbytes < sizeof (lwpsinfo32_t) ||
-		    read(P->asfd, &l32, sizeof (l32)) != sizeof (l32))
-			goto err;
-
-		lwpsinfo_32_to_n(&l32, &lps);
-	} else
-#endif
-	if (nbytes < sizeof (lwpsinfo_t) ||
-	    read(P->asfd, &lps, sizeof (lps)) != sizeof (lps))
-		goto err;
-
-	if ((lwp = lwpid2info(P, lps.pr_lwpid)) == NULL) {
-		_dprintf("Pgrab_core: failed to add NT_LWPSINFO\n");
-		return (-1);
-	}
-
-	(void) memcpy(&lwp->lwp_psinfo, &lps, sizeof (lps));
-	return (0);
-
-err:
-	_dprintf("Pgrab_core: failed to read NT_LWPSINFO\n");
 	return (-1);
 }
 
@@ -696,8 +587,6 @@ static int (*nhdlrs[])(struct ps_prochandle *, size_t) = {
 	note_psinfo,		/* 13	NT_PSINFO		*/
 	note_cred,		/* 14	NT_PRCRED		*/
 	note_utsname,		/* 15	NT_UTSNAME		*/
-	note_lwpstatus,		/* 16	NT_LWPSTATUS		*/
-	note_lwpsinfo,		/* 17	NT_LWPSINFO		*/
 	note_priv,		/* 18	NT_PRPRIV		*/
 	note_priv_info,		/* 19	NT_PRPRIVINFO		*/
 	note_content,		/* 20	NT_CONTENT		*/

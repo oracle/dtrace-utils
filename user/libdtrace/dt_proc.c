@@ -135,6 +135,7 @@ dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
 	}
 }
 
+#if 0
 static void
 dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
@@ -161,6 +162,7 @@ dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	dbp->dbp_func(dtp, dpr, dbp->dbp_data);
 	(void) Pxecbkpt(dpr->dpr_proc, dbp->dbp_instr);
 }
+#endif
 
 static void
 dt_proc_bpenable(dt_proc_t *dpr)

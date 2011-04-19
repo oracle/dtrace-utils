@@ -1,3 +1,15 @@
+2011-04-19  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* cmd/dtrace.c: Don't include libproc.h.
+	* makefile: Fix.
+	* libdtrace/dt_proc.c: Rmove dt_proc_bpmatch.
+	* libproc/common/Pcore.c: Remove note_lwpstatus, note_lwpsinfo and
+	  lwpid2info.
+	* libproc/common/Pcontrol.c: Remove the part about agentcnt.
+	* libproc/common/Pidle.c, Pscantext.c, Psyscall.c: Removed.
+	* libproc/common/makefile: Fix.
+	* uts/common/sys/ccompile.h, time_std_impl.h: Removed.
+
 2011-04-13  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Remove librtld.

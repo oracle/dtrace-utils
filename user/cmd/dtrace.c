@@ -43,7 +43,6 @@
 #include <signal.h>
 #include <alloca.h>
 #include <libgen.h>
-#include <libproc.h>
 
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
