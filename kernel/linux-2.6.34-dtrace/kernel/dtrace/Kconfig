@@ -17,6 +17,8 @@ config DT_CORE
 	help
 	  To be written.
 
+if DT_CORE
+
 config DT_FASTTRAP
 	tristate "Fasttrap Tracing"
 	help
@@ -54,5 +56,7 @@ config DT_DEBUG
 	  This controls the inclusion of various piece of code that perform
 	  internal checks within the DTrace core.  It also enables all the
 	  assertions within the DTrace code.
+
+endif	# DT_CORE
 
 endif   #DTRACE
