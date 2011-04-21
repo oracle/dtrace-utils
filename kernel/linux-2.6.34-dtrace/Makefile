@@ -709,6 +709,12 @@ else
 dtracestubs :=
 endif
 
+ifdef CONFIG_DTRACE
+reloc_info.o := vmlinux_info.o
+else
+reloc_info.o :=
+endif
+
 # Rule to link vmlinux - also used during CONFIG_KALLSYMS
 # May be overridden by arch/$(ARCH)/Makefile
 quiet_cmd_vmlinux__ ?= LD      $@
@@ -782,8 +788,6 @@ endif
 
 kallsyms.o := .tmp_kallsyms$(last_kallsyms).o
 
-reloc_info.o := vmlinux_info.o
-
 define verify_kallsyms
 	$(Q)$(if $($(quiet)cmd_sysmap),                                      \
 	  echo '  $($(quiet)cmd_sysmap)  .tmp_System.map' &&)                \
@@ -824,19 +828,25 @@ vmlinux_info.o: vmlinux_info.S scripts
 
 .tmp_kallsyms%.S: .tmp_vmlinux% $(KALLSYMS)
 	$(call cmd,kallsyms)
+ifdef CONFIG_DTRACE
 	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
+endif
 
 # .tmp_vmlinux1 must be complete except kallsyms, so update vmlinux version
 .tmp_vmlinux1: $(vmlinux-lds) $(vmlinux-all) FORCE
 	$(call if_changed_rule,ksym_ld)
 
-.tmp_vmlinux2: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms1.o vmlinux_info.o FORCE
+.tmp_vmlinux2: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms1.o $(reloc_info.o) FORCE
 	$(call if_changed,vmlinux__)
+ifdef CONFIG_DTRACE
 	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
+endif
 
-.tmp_vmlinux3: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms2.o vmlinux_info.o FORCE
+.tmp_vmlinux3: $(vmlinux-lds) $(vmlinux-all) .tmp_kallsyms2.o $(reloc_info.o) FORCE
 	$(call if_changed,vmlinux__)
+ifdef CONFIG_DTRACE
 	$(DTRACE_RELOCS) $(objtree)/vmlinux_info $(objtree)/vmlinux_info.S
+endif
 
 # Generate some data for debugging strange kallsyms problems
 debug_kallsyms: .tmp_map$(last_kallsyms)
