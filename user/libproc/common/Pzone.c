@@ -49,80 +49,6 @@ struct path_node {
 };
 typedef struct path_node path_node_t;
 
-/*
- * Parameters of the lofs lookup cache.
- */
-static struct stat64 lofs_mstat; /* last stat() of MNTTAB */
-static struct lofs_mnttab {	/* linked list of all lofs mount points */
-	struct lofs_mnttab *l_next;
-	char	*l_special;	/* extracted from MNTTAB */
-	char	*l_mountp;	/* ditto */
-} *lofs_mnttab = NULL;
-static mutex_t lofs_lock = DEFAULTMUTEX;	/* protects the lofs cache */
-
-#if 0
-static void
-rebuild_lofs_cache(void)
-{
-	struct mnttab mt;
-	struct mnttab mt_find;
-	struct lofs_mnttab *lmt;
-	struct lofs_mnttab *next;
-	FILE *fp;
-
-	assert(MUTEX_HELD(&lofs_lock));
-
-	/* destroy the old cache */
-	for (lmt = lofs_mnttab; lmt != NULL; lmt = next) {
-		next = lmt->l_next;
-		free(lmt->l_special);
-		free(lmt->l_mountp);
-		free(lmt);
-	}
-	lofs_mnttab = NULL;
-
-	/* prepare to create the new cache */
-	if ((fp = fopen(MNTTAB, "r")) == NULL)
-		return;
-
-	/*
-	 * We only care about lofs mount points.  But we need to
-	 * ignore lofs mounts where the source path is the same
-	 * as the target path.  (This can happen when a non-global
-	 * zone has a lofs mount of a global zone filesystem, since
-	 * the source path can't expose information about global
-	 * zone paths to the non-global zone.)
-	 */
-	bzero(&mt_find, sizeof (mt_find));
-	mt_find.mnt_fstype = "lofs";
-	while (getmntany(fp, &mt, &mt_find) == 0 &&
-	    (strcmp(mt.mnt_fstype, "lofs") == 0) &&
-	    (strcmp(mt.mnt_special, mt.mnt_mountp) != 0)) {
-		if ((lmt = malloc(sizeof (struct lofs_mnttab))) == NULL)
-			break;
-		lmt->l_special = strdup(mt.mnt_special);
-		lmt->l_mountp = strdup(mt.mnt_mountp);
-		lmt->l_next = lofs_mnttab;
-		lofs_mnttab = lmt;
-	}
-
-	(void) fclose(fp);
-}
-#endif
-
-static const char *
-lookup_lofs_mount_point(const char *mountp)
-{
-	struct lofs_mnttab *lmt;
-
-	assert(MUTEX_HELD(&lofs_lock));
-
-	for (lmt = lofs_mnttab; lmt != NULL; lmt = lmt->l_next) {
-		if (strcmp(lmt->l_mountp, mountp) == 0)
-			return (lmt->l_special);
-	}
-	return (NULL);
-}
 
 static path_node_t *
 pn_push(path_node_t **pnp, char *path)
@@ -313,186 +239,6 @@ Pzoneroot(struct ps_prochandle *P, char *s, size_t n)
 	return (s);
 }
 
-/*
- * Plofspath() takes a path, "path",  and removes any lofs components from
- * that path.  The resultant path (if different from the starting path)
- * is placed in "s", which is limited to "n" characters, and the return
- * value is the pointer s.  If there are no lofs components in the path
- * the NULL is returned and s is not modified.  It's ok for "path" and
- * "s" to be the same pointer.  (ie, the results can be stored directly
- * in the input buffer.)  The path that is passed in must be an absolute
- * path.
- *
- * Example:
- *	if "path" == "/foo/bar", and "/candy/" is lofs mounted on "/foo/"
- *	then "/candy/bar/" will be written into "s" and "s" will be returned.
- */
-char *
-Plofspath(const char *path, char *s, size_t n)
-{
-	char tmp[PATH_MAX + 1];
-	struct stat64 statb;
-	const char *special;
-	char *p, *p2;
-	int rv;
-
-	_dprintf("Plofspath path '%s'\n", path);
-
-	/* We only deal with absolute paths */
-	if (path[0] != '/')
-		return (NULL);
-
-	/* Make a copy of the path so that we can muck with it */
-	(void) strlcpy(tmp, path, sizeof (tmp) - 1);
-
-	/*
-	 * Use resolvepath() to make sure there are no consecutive or
-	 * trailing '/'s in the path.
-	 */
-/* FIX ME */
-/*	if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
-		tmp[rv] = '\0';
-
-	(void) mutex_lock(&lofs_lock);
-#if 0
-	/*
-	 * If /etc/mnttab has been modified since the last time
-	 * we looked, then rebuild the lofs lookup cache.
-	 */
-	if (stat64(MNTTAB, &statb) == 0 &&
-	    (statb.st_mtim.tv_sec != lofs_mstat.st_mtim.tv_sec ||
-	    statb.st_mtim.tv_nsec != lofs_mstat.st_mtim.tv_nsec ||
-	    statb.st_ctim.tv_sec != lofs_mstat.st_ctim.tv_sec ||
-	    statb.st_ctim.tv_nsec != lofs_mstat.st_ctim.tv_nsec)) {
-		lofs_mstat = statb;
-		rebuild_lofs_cache();
-	}
-#endif
-	/*
-	 * So now we're going to search the path for any components that
-	 * might be lofs mounts.  We'll start out search from the full
-	 * path and then step back through each parent directly till
-	 * we reach the root.  If we find a lofs mount point in the path
-	 * then we'll replace the initial portion of the path (up
-	 * to that mount point) with the source of that mount point
-	 * and then start our search over again.
-	 *
-	 * Here's some of the variables we're going to use:
-	 *
-	 *	tmp - A pointer to our working copy of the path.  Sometimes
-	 *		this path will be divided into two strings by a
-	 *		'\0' (NUL) character.  The first string is the
-	 *		component we're currently checking and the second
-	 *		string is the path components we've already checked.
-	 *
-	 *	p - A pointer to the last '/' seen in the string.
-	 *
-	 *	p[1] - A pointer to the component of the string we've already
-	 *		checked.
-	 *
-	 * Initially, p will point to the end of our path and p[1] will point
-	 * to an extra '\0' (NUL) that we'll append to the end of the string.
-	 * (This is why we declared tmp with a size of PATH_MAX + 1).
-	 */
-	p = &tmp[strlen(tmp)];
-	p[1] = '\0';
-	for (;;) {
-		if ((special = lookup_lofs_mount_point(tmp)) != NULL) {
-			char tmp2[PATH_MAX + 1];
-
-			/*
-			 * We found a lofs mount.  Update the path that we're
-			 * checking and start over.  This means append the
-			 * portion of the path we've already checked to the
-			 * source of the lofs mount and re-start this entire
-			 * lofs resolution loop.  Use resolvepath() to make
-			 * sure there are no consecutive or trailing '/'s
-			 * in the path.
-			 */
-			(void) strlcpy(tmp2, special, sizeof (tmp2) - 1);
-			(void) strlcat(tmp2, "/", sizeof (tmp2) - 1);
-			(void) strlcat(tmp2, &p[1], sizeof (tmp2) - 1);
-			(void) strlcpy(tmp, tmp2, sizeof (tmp) - 1);
-/* FIX ME */
-/*			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
-				tmp[rv] = '\0';
-			p = &tmp[strlen(tmp)];
-			p[1] = '\0';
-			continue;
-		}
-
-		/* No lofs mount found */
-		if ((p2 = strrchr(tmp, '/')) == NULL) {
-			char tmp2[PATH_MAX];
-
-			(void) mutex_unlock(&lofs_lock);
-
-			/*
-			 * We know that tmp was an absolute path, so if we
-			 * made it here we know that (p == tmp) and that
-			 * (*p == '\0').  This means that we've managed
-			 * to check the whole path and so we're done.
-			 */
-			assert(p == tmp);
-			assert(p[0] == '\0');
-
-			/* Restore the leading '/' in the path */
-			p[0] = '/';
-
-			if (strcmp(tmp, path) == 0) {
-				/* The path didn't change */
-				return (NULL);
-			}
-
-			/*
-			 * It's possible that lofs source path we just
-			 * obtained contains a symbolic link.  Use
-			 * resolvepath() to clean it up.
-			 */
-			(void) strlcpy(tmp2, tmp, sizeof (tmp2));
-/* FIX ME */
-/*			if ((rv = resolvepath(tmp, tmp, sizeof (tmp) - 1)) >= 0) */
-				tmp[rv] = '\0';
-
-			/*
-			 * It's always possible that our lofs source path is
-			 * actually another lofs mount.  So call ourselves
-			 * recursively to resolve that path.
-			 */
-			(void) Plofspath(tmp, tmp, PATH_MAX);
-
-			/* Copy out our final resolved lofs source path */
-			(void) strlcpy(s, tmp, n);
-			_dprintf("Plofspath path result '%s'\n", s);
-			return (s);
-		}
-
-		/*
-		 * So the path we just checked is not a lofs mount.  Next we
-		 * want to check the parent path component for a lofs mount.
-		 *
-		 * First, restore any '/' that we replaced with a '\0' (NUL).
-		 * We can determine if we should do this by looking at p[1].
-		 * If p[1] points to a '\0' (NUL) then we know that p points
-		 * to the end of the string and there is no '/' to restore.
-		 * if p[1] doesn't point to a '\0' (NUL) then it points to
-		 * the part of the path that we've already verified so there
-		 * is a '/' to restore.
-		 */
-		if (p[1] != '\0')
-			p[0] = '/';
-
-		/*
-		 * Second, replace the last '/' in the part of the path
-		 * that we've already checked with a '\0' (NUL) so that
-		 * when we loop around we check the parent component of the
-		 * path.
-		 */
-		p2[0] = '\0';
-		p = p2;
-	}
-	/*NOTREACHED*/
-}
 
 /*
  * Pzonepath() - Way too much code to attempt to derive the full path of
@@ -560,8 +306,6 @@ Pzonepath(struct ps_prochandle *P, const char *path, char *s, size_t n)
 	 * then strip the zone root out and verify the rest of the path.
 	 */
 	if (strcmp(tmp, zroot) == 0) {
-		(void) Plofspath(zroot, zroot, sizeof (zroot));
-		_dprintf("Pzonepath found zone path (1) '%s'\n", zroot);
 		(void) strlcpy(s, zroot, n);
 		return (s);
 	}
@@ -571,8 +315,6 @@ Pzonepath(struct ps_prochandle *P, const char *path, char *s, size_t n)
 
 	/* If no path is passed in, then it maps to the zone root */
 	if (strlen(tmp) == 0) {
-		(void) Plofspath(zroot, zroot, sizeof (zroot));
-		_dprintf("Pzonepath found zone path (2) '%s'\n", zroot);
 		(void) strlcpy(s, zroot, n);
 		return (s);
 	}
@@ -654,8 +396,6 @@ Pzonepath(struct ps_prochandle *P, const char *path, char *s, size_t n)
 			tmp[rv] = '\0'; */
 
 			/* Return the path */
-			_dprintf("Pzonepath found native path '%s'\n", tmp);
-			(void) Plofspath(tmp, tmp, sizeof (tmp));
 			(void) strlcpy(s, tmp, n);
 			return (s);
 		}
@@ -751,9 +491,6 @@ Pzonepath(struct ps_prochandle *P, const char *path, char *s, size_t n)
 	(void) strlcat(tmp, zpath, sizeof (tmp));
 	(void) strlcpy(zpath, tmp, sizeof (zpath));
 
-	(void) Plofspath(zpath, zpath, sizeof (zpath));
-	_dprintf("Pzonepath found zone path (3) '%s'\n", zpath);
-
 	(void) strlcpy(s, zpath, n);
 	return (s);
 }
@@ -773,9 +510,6 @@ Pfindobj(struct ps_prochandle *P, const char *path, char *s, size_t n)
 	if (Pzonepath(P, path, s, n) != NULL)
 		return (s);
 
-	/* If that fails resolve any lofs links in the path */
-	if (Plofspath(path, s, n) != NULL)
-		return (s);
 /* FIX ME */
 	/* If that fails then just see if the path exists */
 /*	if ((len = resolvepath(path, s, n)) > 0) {
@@ -815,7 +549,6 @@ Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
 		    procfs_path, (int)P->pid, mptr->map_pmap.pr_mapname);
 		if ((len = readlink(buf, buf, sizeof (buf))) > 0) {
 			buf[len] = '\0';
-			(void) Plofspath(buf, buf, sizeof (buf));
 			(void) strlcpy(s, buf, n);
 			return (s);
 		}

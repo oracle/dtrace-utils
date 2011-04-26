@@ -268,7 +268,6 @@ extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
 extern	int	getlwpstatus(struct ps_prochandle *, lwpid_t, lwpstatus_t *);
 int	Pstopstatus(struct ps_prochandle *, long, uint32_t);
 extern	file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
-extern	char	*Plofspath(const char *, char *, size_t);
 extern	char	*Pzoneroot(struct ps_prochandle *, char *, size_t);
 extern	char	*Pzonepath(struct ps_prochandle *, const char *, char *,
 	size_t);

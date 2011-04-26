@@ -22,7 +22,6 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
 #ifndef	_RTLD_DB_H
 #define	_RTLD_DB_H
 
@@ -118,19 +117,6 @@ typedef struct rd_loadobj {
 	unsigned long	rl_tlsmodid;	/* module ID for TLS references */
 } rd_loadobj_t;
 
-/*
- * Values for rl_flags
- */
-#define	RD_FLG_MEM_OBJECT	0x0001	/* Identifies this object as */
-					/* originating from a relocatable */
-					/* module which was dynamically */
-					/* loaded */
-
-/*
- * Commands for rd_ctl()
- */
-#define	RD_CTL_SET_HELPPATH	0x01	/* Set the path used to find helpers */
-
 typedef struct rd_agent rd_agent_t;
 #ifdef __STDC__
 typedef int rl_iter_f(const rd_loadobj_t *, void *);
@@ -139,58 +125,6 @@ typedef int rl_iter_f();
 #endif
 
 
-/*
- * PLT skipping
- */
-typedef enum {
-    RD_RESOLVE_NONE,		/* don't do anything special */
-    RD_RESOLVE_STEP,		/* step 'pi_nstep' instructions */
-    RD_RESOLVE_TARGET,		/* resolved target is in 'pi_target' */
-    RD_RESOLVE_TARGET_STEP	/* put a bpt on target, then step nstep times */
-} rd_skip_e;
-
-
-typedef struct rd_plt_info {
-	rd_skip_e	pi_skip_method;
-	long		pi_nstep;
-	psaddr_t	pi_target;
-	psaddr_t	pi_baddr;
-	unsigned int	pi_flags;
-} rd_plt_info_t;
-
-
-/*
- * Values for pi_flags
- */
-#define	RD_FLG_PI_PLTBOUND	0x0001	/* Indicates that the PLT */
-					/* has been bound - and that */
-					/* pi_baddr will contain its */
-					/* destination address */
-
-struct	ps_prochandle;
-
-/*
- * librtld_db.so entry points
- */
-#ifdef __STDC__
-extern void		rd_delete(rd_agent_t *);
-extern char		*rd_errstr(rd_err_e rderr);
-extern rd_err_e		rd_init(int);
-extern rd_err_e		rd_ctl(int, void *);
-extern void		rd_log(const int);
-extern rd_agent_t	*rd_new(struct ps_prochandle *);
-extern rd_err_e		rd_get_dyns(rd_agent_t *, psaddr_t, void **, size_t *);
-extern rd_err_e		rd_reset(struct rd_agent *);
-#else /* !__STDC__ */
-extern void		rd_delete();
-extern char		*rd_errstr();
-extern rd_err_e		rd_init();
-extern rd_err_e		rd_ctl();
-extern void		rd_log();
-extern rd_agent_t	*rd_new();
-extern rd_err_e		rd_get_dyns();
-extern rd_err_e		rd_reset();
-#endif /* !__STDC__ */
 
 #ifdef	__cplusplus
 }

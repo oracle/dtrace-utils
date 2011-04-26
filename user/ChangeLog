@@ -1,3 +1,8 @@
+2011-04-22  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/rtld_db.h: Clean.
+	* libproc/common/Pzone.c: Remove the functions that handle LOFS.	
+
 2011-04-19  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* cmd/dtrace.c: Don't include libproc.h.
