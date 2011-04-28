@@ -73,7 +73,6 @@ char	procfs_path[PATH_MAX] = "/proc";
 /*
  * Function prototypes for static routines in this module.
  */
-static	void	deadcheck(struct ps_prochandle *);
 static	void	restore_tracing_flags(struct ps_prochandle *);
 
 /*
@@ -284,17 +283,6 @@ Pxcreate(const char *file,	/* executable file name */
 		goto bad;
 	}
 	P->asfd = fd;
-
-/*	(void) strcpy(fname, "status"); */
-	(void) strcpy(fname, "stat"); /* Read /proc/<pid>/stat on Linux */
-	if ((fd = open(procname, O_RDONLY)) < 0 ||
-	    (fd = dupfd(fd, 0)) < 0) {
-		_dprintf("Pcreate: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}
-	P->statfd = fd;
 
 /*	(void) strcpy(fname, "ctl");
 	if ((fd = open(procname, O_WRONLY)) < 0 ||
@@ -539,343 +527,35 @@ struct ps_prochandle *
 Pgrab(pid_t pid, int flags, int *perr)
 {
 	struct ps_prochandle *P;
-	int fd, omode;
-	char procname[PATH_MAX];
-	char *fname;
-	int rc = 0;
-
-	/*
-	 * PGRAB_RDONLY means that we do not open the /proc/<pid>/control file,
-	 * and so it implies RETAIN and NOSTOP since both require control.
-	 */
-	if (flags & PGRAB_RDONLY)
-		flags |= PGRAB_RETAIN | PGRAB_NOSTOP;
+	int status;
 
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
 		*perr = G_STRANGE;
 		return (NULL);
-	}
-
-	P->asfd = -1;
-	P->ctlfd = -1;
-	P->statfd = -1;
-
-again:	/* Come back here if we lose it in the Window of Vulnerability */
-	if (P->ctlfd >= 0)
-		(void) close(P->ctlfd);
-	if (P->asfd >= 0)
-		(void) close(P->asfd);
-	if (P->statfd >= 0)
-		(void) close(P->statfd);
+        }
 	(void) memset(P, 0, sizeof (*P));
-	(void) mutex_init(&P->proc_lock, USYNC_THREAD, NULL);
-	P->ctlfd = -1;
-	P->asfd = -1;
-	P->statfd = -1;
-	P->agentctlfd = -1;
-	P->agentstatfd = -1;
-	P->ops = &P_live_ops;
-	Pinitsym(P);
-
-	/*
-	 * Open the /proc/pid files
-	 */
-	(void) snprintf(procname, sizeof (procname), "%s/%d/",
-	    procfs_path, (int)pid);
-	fname = procname + strlen(procname);
-	(void) set_minfd();
-
-	/*
-	 * Request exclusive open to avoid grabbing someone else's
-	 * process and to prevent others from interfering afterwards.
-	 * If this fails and the 'PGRAB_FORCE' flag is set, attempt to
-	 * open non-exclusively.
-	 */
-/*	(void) strcpy(fname, "as"); */
-	(void) strcpy(fname, "mem");
-	omode = (flags & PGRAB_RDONLY) ? O_RDONLY : O_RDWR;
-
-	if (((fd = open(procname, omode | O_EXCL)) < 0 &&
-	    (fd = ((flags & PGRAB_FORCE)? open(procname, omode) : -1)) < 0) ||
-	    (fd = dupfd(fd, 0)) < 0) {
-		switch (errno) {
-		case ENOENT:
-			rc = G_NOPROC;
-			break;
-		case EACCES:
-		case EPERM:
-			rc = G_PERM;
-			break;
-		case EMFILE:
-			rc = G_NOFD;
-			break;
-		case EBUSY:
-			if (!(flags & PGRAB_FORCE) || geteuid() != 0) {
-				rc = G_BUSY;
-				break;
-			}
-			/* FALLTHROUGH */
-		default:
-			_dprintf("Pgrab: failed to open %s: %s\n",
-			    procname, strerror(errno));
-			rc = G_STRANGE;
-			break;
-		}
-		goto err;
-	}
-	P->asfd = fd;
-
-/*	(void) strcpy(fname, "status"); */
-	(void) strcpy(fname, "stat"); /* For Linux */
-	if ((fd = open(procname, O_RDONLY)) < 0 ||
-	    (fd = dupfd(fd, 0)) < 0) {
-		switch (errno) {
-		case ENOENT:
-			rc = G_NOPROC;
-			break;
-		case EMFILE:
-			rc = G_NOFD;
-			break;
-		default:
-			_dprintf("Pgrab: failed to open %s: %s\n",
-			    procname, strerror(errno));
-			rc = G_STRANGE;
-			break;
-		}
-		goto err;
-	}
-	P->statfd = fd;
-
-	if (!(flags & PGRAB_RDONLY)) {
-/*		(void) strcpy(fname, "ctl");
-		if ((fd = open(procname, O_WRONLY)) < 0 ||
-		    (fd = dupfd(fd, 0)) < 0) {
-			switch (errno) {
-			case ENOENT:
-				rc = G_NOPROC;
-				break;
-			case EMFILE:
-				rc = G_NOFD;
-				break;
-			default:
-				_dprintf("Pgrab: failed to open %s: %s\n",
-				    procname, strerror(errno));
-				rc = G_STRANGE;
-				break;
-			}
-			goto err;
-		} */
-		fd = -1;
-		P->ctlfd = fd;
-	}
-
 	P->state = PS_RUN;
 	P->pid = pid;
+	P->ctlfd = -1;
+        P->asfd = -1;
+        P->statfd = -1;
+        P->agentctlfd = -1;
+        P->agentstatfd = -1;
+	P->status.pr_pid = pid;
 
-	/*
-	 * We are now in the Window of Vulnerability (WoV).  The process may
-	 * exec() a setuid/setgid or unreadable object file between the open()
-	 * and the PCSTOP.  We will get EAGAIN in this case and must start over.
-	 * As Pstopstatus will trigger the first read() from a /proc file,
-	 * we also need to handle EOVERFLOW here when 32-bit as an indicator
-	 * that this process is 64-bit.  Finally, if the process has become
-	 * a zombie (PS_UNDEAD) while we were trying to grab it, just remain
-	 * silent about this and pretend there was no process.
-	 */
-	if (Pstopstatus(P, PCNULL, 0) != 0) {
-#ifndef _LP64
-		if (errno == EOVERFLOW) {
-			rc = G_LP64;
-			goto err;
-		}
-#endif
-		if (P->state == PS_LOST) {	/* WoV */
-			(void) mutex_destroy(&P->proc_lock);
-			goto again;
-		}
-
-		if (P->state == PS_UNDEAD)
-			rc = G_NOPROC;
-		else
-			rc = G_STRANGE;
-
+	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {	
 		goto err;
-	}
-
-	/*
-	 * If the process is a system process, we can't control it even as root
-	 */
-	if (P->status.pr_flags & PR_ISSYS) {
-		rc = G_SYS;
+	} else if (waitpid(pid, &status, 0) == -1) {
 		goto err;
-	}
-#ifndef _LP64
-	/*
-	 * We must be a 64-bit process to deal with a 64-bit process
-	 */
-	if (P->status.pr_dmodel == PR_MODEL_LP64) {
-		rc = G_LP64;
+	} else if (WIFSTOPPED(status) == 0) {
 		goto err;
-	}
-#endif
-
-	/*
-	 * Remember the status for use by Prelease().
-	 */
-	P->orig_status = P->status;	/* structure copy */
-
-	/*
-	 * Before stopping the process, make sure we are not grabbing ourselves.
-	 * If we are, make sure we are doing it PGRAB_RDONLY.
-	 */
-	if (pid == getpid()) {
-		/*
-		 * Verify that the process is really ourself:
-		 * Set a magic number, read it through the
-		 * /proc file and see if the results match.
-		 */
-		uint32_t magic1 = 0;
-		uint32_t magic2 = 2;
-
-		errno = 0;
-
-		if (Pread(P, &magic2, sizeof (magic2), (uintptr_t)&magic1)
-		    == sizeof (magic2) &&
-		    magic2 == 0 &&
-		    (magic1 = 0xfeedbeef) &&
-		    Pread(P, &magic2, sizeof (magic2), (uintptr_t)&magic1)
-		    == sizeof (magic2) &&
-		    magic2 == 0xfeedbeef &&
-		    !(flags & PGRAB_RDONLY)) {
-			rc = G_SELF;
-			goto err;
-		}
-	}
-
-	/*
-	 * If the process is already stopped or has been directed
-	 * to stop via /proc, do not set run-on-last-close.
-	 */
-	if (!(P->status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP)) &&
-	    !(flags & PGRAB_RDONLY)) {
-		/*
-		 * Mark the process run-on-last-close so
-		 * it runs even if we die from SIGKILL.
-		 */
-		if (Psetflags(P, PR_RLC) != 0) {
-			if (errno == EAGAIN) {	/* WoV */
-				(void) mutex_destroy(&P->proc_lock);
-				goto again;
-			}
-			if (errno == ENOENT)	/* No complaint about zombies */
-				rc = G_ZOMB;
-			else {
-				_dprintf("Pgrab: failed to set RLC\n");
-				rc = G_STRANGE;
-			}
-			goto err;
-		}
-	}
-
-	/*
-	 * If a stop directive is pending and the process has not yet stopped,
-	 * then synchronously wait for the stop directive to take effect.
-	 * Limit the time spent waiting for the process to stop by iterating
-	 * at most 10 times. The time-out of 20 ms corresponds to the time
-	 * between sending the stop directive and the process actually stopped
-	 * as measured by DTrace on a slow, busy system. If the process doesn't
-	 * stop voluntarily, clear the PR_DSTOP flag so that the code below
-	 * forces the process to stop.
-	 */
-	if (!(flags & PGRAB_RDONLY)) {
-		int niter = 0;
-		while ((P->status.pr_lwp.pr_flags & (PR_STOPPED|PR_DSTOP)) ==
-		    PR_DSTOP && niter < 10 &&
-		    Pstopstatus(P, PCTWSTOP, 20) != 0) {
-			niter++;
-			if (flags & PGRAB_NOSTOP)
-				break;
-		}
-		if (niter == 10 && !(flags & PGRAB_NOSTOP)) {
-			/* Try it harder down below */
-			P->status.pr_lwp.pr_flags &= ~PR_DSTOP;
-		}
-	}
-
-	/*
-	 * If the process is not already stopped or directed to stop
-	 * and PGRAB_NOSTOP was not specified, stop the process now.
-	 */
-	if (!(P->status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP)) &&
-	    !(flags & PGRAB_NOSTOP)) {
-		/*
-		 * Stop the process, get its status and signal/syscall masks.
-		 */
-		if (((P->status.pr_lwp.pr_flags & PR_STOPPED) &&
-		    Pstopstatus(P, PCDSTOP, 0) != 0) ||
-		    Pstopstatus(P, PCSTOP, 2000) != 0) {
-#ifndef _LP64
-			if (errno == EOVERFLOW) {
-				rc = G_LP64;
-				goto err;
-			}
-#endif
-			if (P->state == PS_LOST) {	/* WoV */
-				(void) mutex_destroy(&P->proc_lock);
-				goto again;
-			}
-			if ((errno != EINTR && errno != ERESTART) ||
-			    (P->state != PS_STOP &&
-			    !(P->status.pr_flags & PR_DSTOP))) {
-				if (P->state != PS_RUN && errno != ENOENT) {
-					_dprintf("Pgrab: failed to PCSTOP\n");
-					rc = G_STRANGE;
-				} else {
-					rc = G_ZOMB;
-				}
-				goto err;
-			}
-		}
-
-		/*
-		 * Process should now either be stopped via /proc or there
-		 * should be an outstanding stop directive.
-		 */
-		if (!(P->status.pr_flags & (PR_ISTOP|PR_DSTOP))) {
-			_dprintf("Pgrab: process is not stopped\n");
-			rc = G_STRANGE;
-			goto err;
-		}
-#ifndef _LP64
-		/*
-		 * Test this again now because the 32-bit victim process may
-		 * have exec'd a 64-bit process in the meantime.
-		 */
-		if (P->status.pr_dmodel == PR_MODEL_LP64) {
-			rc = G_LP64;
-			goto err;
-		}
-#endif
-	}
-
-	/*
-	 * Cancel all tracing flags unless the PGRAB_RETAIN flag is set.
-	 */
-	if (!(flags & PGRAB_RETAIN)) {
-		(void) Psysentry(P, 0, FALSE);
-		(void) Psysexit(P, 0, FALSE);
-		(void) Psignal(P, 0, FALSE);
-		(void) Pfault(P, 0, FALSE);
-		Psync(P);
-	}
-
-	*perr = 0;
-	return (P);
-
+	} else
+		P->state = PS_STOP;
+	return P;
 err:
-	Pfree(P);
-	*perr = rc;
-	return (NULL);
+	*perr = errno;
+	Pfree (P);
+	return NULL;
 }
 
 /*
@@ -1019,16 +699,8 @@ Pfree(struct ps_prochandle *P)
 	(void) mutex_unlock(&P->proc_lock);
 	(void) mutex_destroy(&P->proc_lock);
 
-	if (P->agentctlfd >= 0)
-		(void) close(P->agentctlfd);
-	if (P->agentstatfd >= 0)
-		(void) close(P->agentstatfd);
-	if (P->ctlfd >= 0)
-		(void) close(P->ctlfd);
 	if (P->asfd >= 0)
 		(void) close(P->asfd);
-	if (P->statfd >= 0)
-		(void) close(P->statfd);
 	Preset_maps(P);
 
 	/* clear out the structure as a precaution against reuse */
@@ -1214,18 +886,6 @@ Preopen(struct ps_prochandle *P)
 	}
 	P->asfd = fd;
 
-/*	(void) strcpy(fname, "status");*/
-	(void) strcpy(fname, "stat");
-	if ((fd = open(procname, O_RDONLY)) < 0 ||
-	    close(P->statfd) < 0 ||
-	    (fd = dupfd(fd, P->statfd)) != P->statfd) {
-		_dprintf("Preopen: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		if (fd >= 0)
-			(void) close(fd);
-		return (-1);
-	}
-	P->statfd = fd;
 
 /*	(void) strcpy(fname, "ctl");
 	if ((fd = open(procname, O_WRONLY)) < 0 ||
@@ -1253,29 +913,7 @@ Preopen(struct ps_prochandle *P)
 		if (errno == EOVERFLOW)
 			P->status.pr_dmodel = PR_MODEL_LP64;
 #endif
-		P->status.pr_lwp.pr_why = PR_SYSEXIT;
-		P->status.pr_lwp.pr_what = SYS_execve;
-		P->status.pr_lwp.pr_errno = 0;
 		return (-1);
-	}
-
-	/*
-	 * The process should be stopped on exec (REQUESTED)
-	 * or else should be stopped on exit from exec() (SYSEXIT)
-	 */
-	if (P->state == PS_STOP &&
-	    (P->status.pr_lwp.pr_why == PR_REQUESTED ||
-	    (P->status.pr_lwp.pr_why == PR_SYSEXIT &&
-	    P->status.pr_lwp.pr_what == SYS_execve))) {
-		/* fake up stop-on-exit-from-execve */
-		if (P->status.pr_lwp.pr_why == PR_REQUESTED) {
-			P->status.pr_lwp.pr_why = PR_SYSEXIT;
-			P->status.pr_lwp.pr_what = SYS_execve;
-			P->status.pr_lwp.pr_errno = 0;
-		}
-	} else {
-		_dprintf("Preopen: expected REQUESTED or "
-		    "SYSEXIT(SYS_execve) stop\n");
 	}
 
 	return (0);
@@ -1406,16 +1044,6 @@ Prelease(struct ps_prochandle *P, int flags)
 	}
 
 	/*
-	 * If we lost control, all we can do now is close the files.
-	 * In this case, the last close sets the process running.
-	 */
-	if (P->state != PS_STOP &&
-	    (P->status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP)) == 0) {
-		Pfree(P);
-		return;
-	}
-
-	/*
 	 * We didn't lose control; we do more.
 	 */
 	Psync(P);
@@ -1431,29 +1059,6 @@ Prelease(struct ps_prochandle *P, int flags)
 		(void) Punsetflags(P, PR_RLC|PR_KLC);
 		Pfree(P);
 		return;
-	}
-
-	/*
-	 * Set the process running if we created it or if it was
-	 * not originally stopped or directed to stop via /proc
-	 * or if we were given the PRELEASE_CLEAR flag.
-	 */
-	if ((P->flags & CREATED) ||
-	    (P->orig_status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP)) == 0) {
-		(void) Psetflags(P, PR_RLC);
-		/*
-		 * We do this repeatedly because the process may have
-		 * more than one LWP stopped on an event of interest.
-		 * This makes sure all of them are set running.
-		 */
-		do {
-			if (Psetrun(P, 0, 0) == -1 && errno == EBUSY)
-				break; /* Agent LWP may be stuck */
-		} while (Pstopstatus(P, PCNULL, 0) == 0 &&
-		    P->status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP));
-
-		if (P->status.pr_lwp.pr_flags & (PR_ISTOP|PR_DSTOP))
-			_dprintf("Prelease: failed to set process running\n");
 	}
 
 	Pfree(P);
@@ -1545,16 +1150,6 @@ Pstopstatus(struct ps_prochandle *P,
 #endif
 	Psync(P);
 
-/*	if (P->agentstatfd < 0) { */
-		if (pread(P->statfd, &P->status,
-		    sizeof (P->status), (off_t)0) < 0)
-			err = errno;
-/*	} else {
-		if (pread(P->agentstatfd, &P->status.pr_lwp,
-		    sizeof (P->status.pr_lwp), (off_t)0) < 0)
-			err = errno;
-		P->status.pr_flags = P->status.pr_lwp.pr_flags;
-	}*/ /* FOR Linux */
 #if 0
 	if (err) {
 		switch (err) {
@@ -1664,92 +1259,6 @@ Pdstop(struct ps_prochandle *P)
 	return (Pstopstatus(P, PCDSTOP, 0));
 }
 
-static void
-deadcheck(struct ps_prochandle *P)
-{
-	int fd;
-	void *buf;
-	size_t size;
-
-	if (P->statfd < 0)
-		P->state = PS_UNDEAD;
-	else {
-/*		if (P->agentstatfd < 0) { */
-			fd = P->statfd;
-			buf = &P->status;
-			size = sizeof (P->status);
-/*		} else {
-			fd = P->agentstatfd;
-			buf = &P->status.pr_lwp;
-			size = sizeof (P->status.pr_lwp);
-		}*/
-/*		while (pread(fd, buf, size, (off_t)0) != size) {
-			switch (errno) {
-			default:
-				P->state = PS_UNDEAD;
-				break;
-			case EINTR:
-			case ERESTART:
-				continue;
-			case EAGAIN:
-				P->state = PS_LOST;
-				break;
-			}
-			break;
-		} */
-		if (pread(fd, buf, size, (off_t)0) < 0) {
-			_dprintf("Fail to open file /proc/<pid>/stat\n");	
-			}			
-		P->status.pr_flags = P->status.pr_lwp.pr_flags;
-	}
-}
-
-/*
- * Get the value of one register from stopped process.
- */
-int
-Pgetareg(struct ps_prochandle *P, int regno, prgreg_t *preg)
-{
-	if (regno < 0 || regno >= NPRGREG) {
-		errno = EINVAL;
-		return (-1);
-	}
-
-	if (P->state == PS_IDLE) {
-		errno = ENODATA;
-		return (-1);
-	}
-
-	if (P->state != PS_STOP && P->state != PS_DEAD) {
-		errno = EBUSY;
-		return (-1);
-	}
-
-	*preg = P->status.pr_lwp.pr_reg[regno];
-	return (0);
-}
-
-/*
- * Put value of one register into stopped process.
- */
-int
-Pputareg(struct ps_prochandle *P, int regno, prgreg_t reg)
-{
-	if (regno < 0 || regno >= NPRGREG) {
-		errno = EINVAL;
-		return (-1);
-	}
-
-	if (P->state != PS_STOP) {
-		errno = EBUSY;
-		return (-1);
-	}
-
-	P->status.pr_lwp.pr_reg[regno] = reg;
-	P->flags |= SETREGS;	/* set registers before continuing */
-	return (0);
-}
-
 int
 Psetrun(struct ps_prochandle *P,
 	int sig,	/* signal to pass to process */
@@ -1765,10 +1274,6 @@ Psetrun(struct ps_prochandle *P,
 	long *ctlp = ctl;
 	size_t size;
 
-	if (P->state != PS_STOP && (P->status.pr_lwp.pr_flags & sbits) == 0) {
-		errno = EBUSY;
-		return (-1);
-	}
 
 #if 0
 	Psync(P);	/* flush tracing flags and registers */
@@ -2335,7 +1840,6 @@ Psetflags(struct ps_prochandle *P, long flags)
 		rc = -1;
 	} else { */
 		P->status.pr_flags |= flags;
-		P->status.pr_lwp.pr_flags |= flags;
 		rc = 0;
 /*	} */
 
@@ -2355,7 +1859,6 @@ Punsetflags(struct ps_prochandle *P, long flags)
 		rc = -1;
 	} else { */
 		P->status.pr_flags &= ~flags;
-		P->status.pr_lwp.pr_flags &= ~flags;
 		rc = 0;
 /*	} */
 
@@ -2533,57 +2036,6 @@ Psetsysexit(struct ps_prochandle *P, const sysset_t *set)
 
 	if (P->state == PS_RUN)
 		Psync(P);
-}
-
-/*
- * Utility function to read the contents of a file that contains a
- * prheader_t at the start (/proc/pid/lstatus or /proc/pid/lpsinfo).
- * Returns a malloc()d buffer or NULL on failure.
- */
-static prheader_t *
-read_lfile(struct ps_prochandle *P, const char *lname)
-{
-	prheader_t *Lhp;
-	char lpath[PATH_MAX];
-	struct stat64 statb;
-	int fd;
-	size_t size;
-	ssize_t rval;
-
-	(void) snprintf(lpath, sizeof (lpath), "%s/%d/%s", procfs_path,
-	    (int)P->status.pr_pid, lname);
-	if ((fd = open(lpath, O_RDONLY)) < 0 || fstat64(fd, &statb) != 0) {
-		if (fd >= 0)
-			(void) close(fd);
-		return (NULL);
-	}
-
-	/*
-	 * 'size' is just the initial guess at the buffer size.
-	 * It will have to grow if the number of lwps increases
-	 * while we are looking at the process.
-	 * 'size' must be larger than the actual file size.
-	 */
-	size = statb.st_size + 32;
-
-	for (;;) {
-		if ((Lhp = malloc(size)) == NULL)
-			break;
-		if ((rval = pread(fd, Lhp, size, 0)) < 0 ||
-		    rval <= sizeof (prheader_t)) {
-			free(Lhp);
-			Lhp = NULL;
-			break;
-		}
-		if (rval < size)
-			break;
-		/* need a bigger buffer */
-		free(Lhp);
-		size *= 2;
-	}
-
-	(void) close(fd);
-	return (Lhp);
 }
 
 core_content_t

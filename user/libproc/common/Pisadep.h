@@ -82,19 +82,7 @@ extern int Pissyscall_text(struct ps_prochandle *, const void *buf,
  */
 extern uintptr_t Psyscall_setup(struct ps_prochandle *, int, int, uintptr_t);
 
-/*
- * Copies all arguments out to the stack once we're stopped before the syscall.
- */
-extern int Psyscall_copyinargs(struct ps_prochandle *, int, argdes_t *,
-    uintptr_t);
-
-/*
- * Copies out arguments to their original values.
- */
-extern int Psyscall_copyoutargs(struct ps_prochandle *, int, argdes_t *,
-    uintptr_t);
-
-#ifdef	__cplusplus
+ifdef	__cplusplus
 }
 #endif
 

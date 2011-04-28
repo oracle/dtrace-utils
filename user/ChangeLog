@@ -1,3 +1,21 @@
+2011-04-28  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* runtest.sh: Test "-p" option by grab self pid.
+	* libproc/amd64/Pisadep.c: Remove Psyscall_copyinarg and
+	Psyscall_copyoutargs.
+	* libproc/common/Pisadep.h: Same.
+	* libproc/common/Pcontrol.c: Don't use statfd to get the proc status
+	  information.
+	  (deadcheck, Pgetareg, Pputareg read_lfile): Remove.
+	  (Pgrab): Rewrite it by using ptrace.
+	  (Pxcreate): statfd is always be set to -1. Don't open or read any /proc
+	  files.
+	  (Preopen): Same. Also clean the codes of pr_lwp.
+	  (Pfree): Clean the codes since some fds would never be set.
+	  (Prelease): Clean the codes of pr_lwp.
+	  (Psetrun, Psetflags, Punsetflags): Same.
+	  (Pstopstatus): Clean the codes about statfd.
+
 2011-04-22  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/rtld_db.h: Clean.

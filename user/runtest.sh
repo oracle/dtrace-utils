@@ -33,3 +33,7 @@ cmd=$dtrace\ -e\ -s\ $i
 $cmd
 echo $cmd
 done
+#Test grap $pid
+cmd=$dtrace\ -e\ -p\ $pid
+$cmd
+echo $cmd
