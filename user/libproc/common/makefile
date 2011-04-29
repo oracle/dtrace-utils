@@ -16,13 +16,9 @@ all: $(LIB)
 $(LIB): \
 	$(LIB)(P32ton.o) \
 	$(LIB)(Pcontrol.o) \
-	$(LIB)(Pcore.o) \
-	$(LIB)(Pexecname.o) \
 	$(LIB)(../amd64/Pisadep.o) \
 	$(LIB)(Psymtab_machelf32.o) \
 	$(LIB)(Psymtab_machelf64.o) \
-	$(LIB)(Pservice.o) \
-	$(LIB)(Pstack.o) \
 	$(LIB)(Psymtab.o) \
 	$(LIB)(Putil.o) \
 	$(LIB)(Pzone.o)

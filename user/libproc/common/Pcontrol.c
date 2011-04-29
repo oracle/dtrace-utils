@@ -1264,43 +1264,8 @@ Psetrun(struct ps_prochandle *P,
 	int sig,	/* signal to pass to process */
 	int flags)	/* PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */
 {
-	int ctlfd = (P->agentctlfd >= 0) ? P->agentctlfd : P->ctlfd;
-	int sbits = (PR_DSTOP | PR_ISTOP | PR_ASLEEP);
-
-	long ctl[1 +					/* PCCFAULT	*/
-	    1 + sizeof (siginfo_t)/sizeof (long) +	/* PCSSIG/PCCSIG */
-	    2 ];					/* PCRUN	*/
-
-	long *ctlp = ctl;
-	size_t size;
-
-
-#if 0
 	Psync(P);	/* flush tracing flags and registers */
 
-	if (flags & PRCFAULT) {		/* clear current fault */
-		*ctlp++ = PCCFAULT;
-		flags &= ~PRCFAULT;
-	}
-
-	if (flags & PRCSIG) {		/* clear current signal */
-		*ctlp++ = PCCSIG;
-		flags &= ~PRCSIG;
-	} else if (sig && sig != P->status.pr_lwp.pr_cursig) {
-		/* make current signal */
-		siginfo_t *infop;
-
-		*ctlp++ = PCSSIG;
-		infop = (siginfo_t *)ctlp;
-		(void) memset(infop, 0, sizeof (*infop));
-		infop->si_signo = sig;
-		ctlp += sizeof (siginfo_t) / sizeof (long);
-	}
-
-	*ctlp++ = PCRUN;
-	*ctlp++ = flags;
-	size = (char *)ctlp - (char *)ctl;
-#endif
 	P->info_valid = 0;	/* will need to update map and file info */
 	/*
 	 * If we've cached ucontext-list information while we were stopped,
@@ -1312,23 +1277,10 @@ Psetrun(struct ps_prochandle *P,
 		P->ucnelems = 0;
 	}
 
-#if 0
-	if (write(ctlfd, ctl, size) != size) {
-		/* If it is dead or lost, return the real status, not PS_RUN */
-		if (errno == ENOENT || errno == EAGAIN) {
-			(void) Pstopstatus(P, PCNULL, 0);
-			return (0);
-		}
-		/* If it is not in a jobcontrol stop, issue an error message */
-		if (errno != EBUSY ||
-		    P->status.pr_lwp.pr_why != PR_JOBCONTROL) {
-			_dprintf("Psetrun: %s\n", strerror(errno));
-			return (-1);
-		}
-		/* Otherwise pretend that the job-stopped process is running */
+	if (ptrace (PTRACE_CONT, P->pid, NULL, sig) != 0) {
+		dprintf("Psetrun: %s\n", strerror(errno));
+		return (-1);
 	}
-#endif
-	ptrace (PTRACE_CONT, P->pid, NULL, NULL);
 
 	P->state = PS_RUN;
 	return (0);

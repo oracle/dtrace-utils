@@ -532,7 +532,7 @@ Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
 		(void) strlcpy(s, fptr->file_rname, n);
 		return (s);
 	}
-
+#if defined (sun)
 	/* If it's the a.out segment, defer to the magical Pexecname() */
 	if ((P->map_exec == mptr) ||
 	    (strcmp(mptr->map_pmap.pr_mapname, "a.out") == 0) ||
@@ -542,6 +542,7 @@ Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
 		(void) strlcpy(s, buf, n);
 		return (s);
 	}
+#endif
 
 	/* Try /proc first to get the real object name */
 	if ((Pstate(P) != PS_DEAD) && (mptr->map_pmap.pr_mapname[0] != '\0')) {

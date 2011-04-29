@@ -1,3 +1,14 @@
+2011-04-29  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/Pcore.c, Pexecname.c, Pisadep.h, Pservice.c,
+	Pstack.c, Pstack.h: Removed.
+	* libproc/common/makefile: Remove Pcore.o, Pexecname.o, Pservice and
+	Pstack.o.
+	* libproc/common/Pzone.c (Pfindmap): Don't handle a.out segment.
+	* libproc/common/Pcontrol.c (Psetrun): Pass the sig argument to ptrace.
+	* libproc/amd64/Pisadep.c: Remove the functions that would never be
+	called.
+
 2011-04-28  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* runtest.sh: Test "-p" option by grab self pid.
