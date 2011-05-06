@@ -1,7 +1,7 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
 CC=gcc -g
-MACH=$(shell uname -i)
+MACH=$(shell uname -m)
 DTO=-D_ILP64
 COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
 
@@ -24,7 +24,7 @@ all1:
 	fi
 archcheck:
 	if [ "$(MACH)" != "x86_64" ]; then \
-		echo "Dtrace for Linux only support x86_64"; \
+		echo "Dtrace for Linux only supports x86_64"; \
 		exit 1; \
 	fi
 install:

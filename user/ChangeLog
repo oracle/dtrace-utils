@@ -1,3 +1,8 @@
+2011-05-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* makefile (MACH): Use 'uname -m' to get machine arch.
+	* makefile (archcheck): Grammar fix.
+
 2011-05-05  Nick Alcock  <nick.alcock@oracle.com>
 
 	Remove syscall interposition.
