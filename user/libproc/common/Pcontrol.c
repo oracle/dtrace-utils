@@ -39,17 +39,15 @@
 #include <dirent.h>
 #include <limits.h>
 #include <signal.h>
-//#include <atomic.h>
 
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/param.h>
-//#include <sys/stack.h>
 #include <sys/stat.h>
 #include <sys/fault.h>
-#include <sys/syscall.h>
+#include <sys/wait.h>
 
 #include <sys/priv.h>
 #include <sys/corectl.h>
@@ -180,7 +178,8 @@ dupfd(int fd, int dfd)
  * Return NULL if process cannot be created (fork()/exec() not successful).
  */
 struct ps_prochandle *
-Pxcreate(const char *file,	/* executable file name */
+Pxcreate(
+	const char *file,	/* executable file name */
 	char *const *argv,	/* argument vector */
 	char *const *envp,	/* environment */
 	int *perr,	/* pointer to error return code */
@@ -216,7 +215,7 @@ Pxcreate(const char *file,	/* executable file name */
 	if (pid == 0) {			/* child process */
 		id_t id;
 		extern char **environ;
-		
+
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 
 		/*
@@ -226,10 +225,6 @@ Pxcreate(const char *file,	/* executable file name */
 			(void) setgid(id);
 		if ((id = getuid()) != geteuid())
 			(void) setuid(id);
-
-		Pcreate_callback(P);	/* execute callback (see below) */
-	//	signal (SIGUSR1, sig_int);
-//		(void) pause();		/* wait for PRSABORT from parent */
 
 		/*
 		 * This is ugly.  There is no execvep() function that takes a
@@ -260,19 +255,18 @@ Pxcreate(const char *file,	/* executable file name */
 	Pinitsym(P);
 
 	/*
-	 * Open the /proc/pid files.
+	 * Get the path to /proc/$pid.
 	 */
-	(void) snprintf(procname, sizeof (procname), "%s/%d/",
+
+	snprintf(procname, sizeof (procname), "%s/%d/",
 	    procfs_path, (int)pid);
 	fname = procname + strlen(procname);
-	(void) set_minfd();
 
 	/*
 	 * Exclusive write open advises others not to interfere.
 	 * There is no reason for any of these open()s to fail.
 	 */
-/*	(void) strcpy(fname, "as"); */
-	(void) strcpy(fname, "mem");
+	strcpy(fname, "mem");
 /*	if ((fd = open(procname, (O_RDWR|O_EXCL))) < 0 || */
 	if ((fd = open(procname, (O_RDONLY|O_EXCL))) < 0 ||
 	 /* Changed to O_RDONLY on Linux */
@@ -284,159 +278,30 @@ Pxcreate(const char *file,	/* executable file name */
 	}
 	P->asfd = fd;
 
-/*	(void) strcpy(fname, "ctl");
-	if ((fd = open(procname, O_WRONLY)) < 0 ||
-	    (fd = dupfd(fd, 0)) < 0) {
-		_dprintf("Pcreate: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}*/
 	fd = -1;
 	P->ctlfd = fd;
 	
-/*	waitpid (pid, &status, 0); */
-/*	ptrace(PTRACE_DETACH, pid, NULL, NULL); */
+	waitpid (pid, &status, 0);
+	if (WIFEXITED(status)) {
+		rc = C_NOENT;
+		_dprintf ("Pcreate: exec of %s failed: %s\n",
+		    procname, strerror(errno));
+		goto bad;
+	}
+
+	strcpy(fname, "exe");
+	if (readlink(procname, execpath, PATH_MAX) < 0) {
+		_dprintf("Pcreate: executable readlink failed: %s\n", strerror(errno));
+		rc = C_STRANGE;
+		goto bad;
+	}
+
         P->status.pr_flags |= PR_STOPPED;
         P->state = PS_STOP;
         P->status.pr_pid = pid;
         *perr = 0;
         return P;
-#if 0
-	(void) Pstop(P, 0);	/* stop the controlled process */
 
-	/*
-	 * Wait for process to sleep in pause().
-	 * If the process has already called pause(), then it should be
-	 * stopped (PR_REQUESTED) while asleep in pause and we are done.
-	 * Else we set up to catch entry/exit to pause() and set the process
-	 * running again, expecting it to stop when it reaches pause().
-	 * There is no reason for this to fail other than an interrupt.
-	 */
-	(void) Psysentry(P, SYS_pause, 1);
-	(void) Psysexit(P, SYS_pause, 1);
-	for (;;) {
-		if (P->state == PS_STOP &&
-		    P->status.pr_lwp.pr_syscall == SYS_pause &&
-		    (P->status.pr_lwp.pr_why == PR_REQUESTED ||
-		    P->status.pr_lwp.pr_why == PR_SYSENTRY ||
-		    P->status.pr_lwp.pr_why == PR_SYSEXIT))
-			break;
-
-		if (P->state != PS_STOP ||	/* interrupt or process died */
-		    Psetrun(P, 0, 0) != 0) {	/* can't restart */
-			if (errno == EINTR || errno == ERESTART)
-				rc = C_INTR;
-			else {
-				_dprintf("Pcreate: Psetrun failed: %s\n",
-				    strerror(errno));
-				rc = C_STRANGE;
-			}
-			goto bad;
-		}
-
-		(void) Pwait(P, 0);
-	}
-	(void) Psysentry(P, SYS_pause, 0);
-	(void) Psysexit(P, SYS_pause, 0);
-
-	/*
-	 * Kick the process off the pause() and catch
-	 * it again on entry to exec() or exit().
-	 */
-	(void) Psysentry(P, SYS_exit, 1);
-	(void) Psysentry(P, SYS_execve, 1);
-	if (Psetrun(P, 0, PRSABORT) == -1) {
-		_dprintf("Pcreate: Psetrun failed: %s\n", strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}
-	(void) Pwait(P, 0);
-	if (P->state != PS_STOP) {
-		_dprintf("Pcreate: Pwait failed: %s\n", strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}
-
-	/*
-	 * Move the process through instances of failed exec()s
-	 * to reach the point of stopped on successful exec().
-	 */
-	(void) Psysexit(P, SYS_execve, TRUE);
-
-	while (P->state == PS_STOP &&
-	    P->status.pr_lwp.pr_why == PR_SYSENTRY &&
-	    P->status.pr_lwp.pr_what == SYS_execve) {
-		/*
-		 * Fetch the exec path name now, before we complete
-		 * the exec().  We may lose the process and be unable
-		 * to get the information later.
-		 */
-		(void) Pread_string(P, execpath, sizeof (execpath),
-		    (off_t)P->status.pr_lwp.pr_sysarg[0]);
-		if (path != NULL)
-			(void) strncpy(path, execpath, len);
-		/*
-		 * Set the process running and wait for
-		 * it to stop on exit from the exec().
-		 */
-		(void) Psetrun(P, 0, 0);
-		(void) Pwait(P, 0);
-
-		if (P->state == PS_LOST &&		/* we lost control */
-		    Preopen(P) != 0) {		/* and we can't get it back */
-			rc = C_PERM;
-			goto bad;
-		}
-
-		/*
-		 * If the exec() failed, continue the loop, expecting
-		 * there to be more attempts to exec(), based on PATH.
-		 */
-		if (P->state == PS_STOP &&
-		    P->status.pr_lwp.pr_why == PR_SYSEXIT &&
-		    P->status.pr_lwp.pr_what == SYS_execve &&
-		    (lasterrno = P->status.pr_lwp.pr_errno) != 0) {
-			/*
-			 * The exec() failed.  Set the process running and
-			 * wait for it to stop on entry to the next exec().
-			 */
-			(void) Psetrun(P, 0, 0);
-			(void) Pwait(P, 0);
-
-			continue;
-		}
-		break;
-	}
-
-	if (P->state == PS_STOP &&
-	    P->status.pr_lwp.pr_why == PR_SYSEXIT &&
-	    P->status.pr_lwp.pr_what == SYS_execve &&
-	    P->status.pr_lwp.pr_errno == 0) {
-		/*
-		 * The process is stopped on successful exec() or execve().
-		 * Turn off all tracing flags and return success.
-		 */
-		restore_tracing_flags(P);
-#ifndef _LP64
-		/* We must be a 64-bit process to deal with a 64-bit process */
-		if (P->status.pr_dmodel == PR_MODEL_LP64) {
-			rc = C_LP64;
-			goto bad;
-		}
-#endif
-		/*
-		 * Set run-on-last-close so the controlled process
-		 * runs even if we die on a signal.
-		 */
-		(void) Psetflags(P, PR_RLC);
-		*perr = 0;
-		return (P);
-	}
-
-	rc = lasterrno == ENOENT ? C_NOENT : C_NOEXEC;
-
-#endif
 bad:
 	(void) kill(pid, SIGKILL);
 	if (path != NULL && rc != C_PERM && rc != C_LP64)
@@ -493,21 +358,6 @@ Pcreate_error(int error)
 	}
 
 	return (str);
-}
-
-/*
- * Callback to execute in each child process created with Pcreate() after fork
- * but before it execs the new process image.  By default, we do nothing, but
- * by calling this function we allow the client program to define its own
- * version of the function which will interpose on our empty default.  This
- * may be useful for clients that need to modify signal dispositions, terminal
- * attributes, or process group and session properties for each new victim.
- */
-/*ARGSUSED*/
-void
-Pcreate_callback(struct ps_prochandle *P)
-{
-	/* nothing to do here */
 }
 
 /*
@@ -788,8 +638,8 @@ Psync(struct ps_prochandle *P)
 	return;
 #if 0
 	int ctlfd = (P->agentctlfd >= 0)? P->agentctlfd : P->ctlfd;
-	long cmd[6];
-	iovec_t iov[12];
+	long cmd[4];
+	iovec_t iov[8];
 	int n = 0;
 
 	if (P->flags & SETHOLD) {
@@ -827,26 +677,12 @@ Psync(struct ps_prochandle *P)
 		iov[n].iov_base = (caddr_t)&P->status.pr_flttrace;
 		iov[n++].iov_len = sizeof (P->status.pr_flttrace);
 	}
-	if (P->flags & SETENTRY) {
-		cmd[4] = PCSENTRY;
-		iov[n].iov_base = (caddr_t)&cmd[4];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_sysentry;
-		iov[n++].iov_len = sizeof (P->status.pr_sysentry);
-	}
-	if (P->flags & SETEXIT) {
-		cmd[5] = PCSEXIT;
-		iov[n].iov_base = (caddr_t)&cmd[5];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_sysexit;
-		iov[n++].iov_len = sizeof (P->status.pr_sysexit);
-	}
 
 /*	if (n == 0 || writev(ctlfd, iov, n) < 0) */
 	if (n == 0)
 		return;		/* nothing to do or write failed */
 
-	P->flags &= ~(SETSIG|SETFAULT|SETENTRY|SETEXIT|SETHOLD|SETREGS);
+	P->flags &= ~(SETSIG|SETFAULT|SETHOLD|SETREGS);
 #endif
 }
 
@@ -934,22 +770,18 @@ restore_tracing_flags(struct ps_prochandle *P)
 {
 	long flags;
 	long cmd[4];
-	iovec_t iov[8];
+	iovec_t iov[4];
 
 	if (P->flags & CREATED) {
 		/* we created this process; clear all tracing flags */
 		premptyset(&P->status.pr_sigtrace);
 		premptyset(&P->status.pr_flttrace);
-		premptyset(&P->status.pr_sysentry);
-		premptyset(&P->status.pr_sysexit);
 		if ((P->status.pr_flags & ALL_SETTABLE_FLAGS) != 0)
 			(void) Punsetflags(P, ALL_SETTABLE_FLAGS);
 	} else {
 		/* we grabbed the process; restore its tracing flags */
 		P->status.pr_sigtrace = P->orig_status.pr_sigtrace;
 		P->status.pr_flttrace = P->orig_status.pr_flttrace;
-		P->status.pr_sysentry = P->orig_status.pr_sysentry;
-		P->status.pr_sysexit  = P->orig_status.pr_sysexit;
 		if ((P->status.pr_flags & ALL_SETTABLE_FLAGS) !=
 		    (flags = (P->orig_status.pr_flags & ALL_SETTABLE_FLAGS))) {
 			(void) Punsetflags(P, ALL_SETTABLE_FLAGS);
@@ -970,21 +802,9 @@ restore_tracing_flags(struct ps_prochandle *P)
 	iov[3].iov_base = (caddr_t)&P->status.pr_flttrace;
 	iov[3].iov_len = sizeof (P->status.pr_flttrace);
 
-	cmd[2] = PCSENTRY;
-	iov[4].iov_base = (caddr_t)&cmd[2];
-	iov[4].iov_len = sizeof (long);
-	iov[5].iov_base = (caddr_t)&P->status.pr_sysentry;
-	iov[5].iov_len = sizeof (P->status.pr_sysentry);
-
-	cmd[3] = PCSEXIT;
-	iov[6].iov_base = (caddr_t)&cmd[3];
-	iov[6].iov_len = sizeof (long);
-	iov[7].iov_base = (caddr_t)&P->status.pr_sysexit;
-	iov[7].iov_len = sizeof (P->status.pr_sysexit);
-
 	(void) writev(P->ctlfd, iov, 8);
 
-	P->flags &= ~(SETSIG|SETFAULT|SETENTRY|SETEXIT);
+	P->flags &= ~(SETSIG|SETFAULT);
 }
 
 /*
@@ -1212,12 +1032,6 @@ Pstopstatus(struct ps_prochandle *P,
 		return (0);
 #if 0
 	switch (P->status.pr_lwp.pr_why) {
-	case PR_SYSENTRY:
-	case PR_SYSEXIT:
-		if (Pissyscall_prev(P, P->status.pr_lwp.pr_reg[R_PC],
-		    &P->sysaddr) == 0)
-			P->sysaddr = P->status.pr_lwp.pr_reg[R_PC];
-		break;
 	case PR_REQUESTED:
 	case PR_SIGNALLED:
 	case PR_FAULTED:
@@ -1931,60 +1745,6 @@ Psetfault(struct ps_prochandle *P, const fltset_t *set)
 
 	P->status.pr_flttrace = *set;
 	P->flags |= SETFAULT;
-
-	if (P->state == PS_RUN)
-		Psync(P);
-}
-
-/*
- * Set action on specified system call entry.
- */
-int
-Psysentry(struct ps_prochandle *P, int which, int stop)
-{
-	return (Psetaction(P, &P->status.pr_sysentry, sizeof (sysset_t),
-	    SETENTRY, PRMAXSYS, which, stop));
-}
-
-/*
- * Set all system call entry tracing flags.
- */
-void
-Psetsysentry(struct ps_prochandle *P, const sysset_t *set)
-{
-	if (P->state == PS_DEAD || P->state == PS_UNDEAD ||
-	    P->state == PS_IDLE)
-		return;
-
-	P->status.pr_sysentry = *set;
-	P->flags |= SETENTRY;
-
-	if (P->state == PS_RUN)
-		Psync(P);
-}
-
-/*
- * Set action on specified system call exit.
- */
-int
-Psysexit(struct ps_prochandle *P, int which, int stop)
-{
-	return (Psetaction(P, &P->status.pr_sysexit, sizeof (sysset_t),
-	    SETEXIT, PRMAXSYS, which, stop));
-}
-
-/*
- * Set all system call exit tracing flags.
- */
-void
-Psetsysexit(struct ps_prochandle *P, const sysset_t *set)
-{
-	if (P->state == PS_DEAD || P->state == PS_UNDEAD ||
-	    P->state == PS_IDLE)
-		return;
-
-	P->status.pr_sysexit = *set;
-	P->flags |= SETEXIT;
 
 	if (P->state == PS_RUN)
 		Psync(P);

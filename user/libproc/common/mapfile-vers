@@ -96,7 +96,6 @@ SUNWprivate_1.1 {
 	Pcontent;
 	Pcreate;
 	Pcreate_agent;
-	Pcreate_callback;
 	Pcreate_error;
 	Pcred;
 	Pctlfd;
@@ -242,8 +241,6 @@ SUNWprivate_1.1 {
 	Psetpriv;
 	Psetrun;
 	Psetsignal;
-	Psetsysentry;
-	Psetsysexit;
 	Psetwapt;
 	Psetzoneid;
 	Psignal;
@@ -278,8 +275,6 @@ SUNWprivate_1.1 {
 	Psymbol_iter_by_name;
 	Psync;
 	Psyscall;
-	Psysentry;
-	Psysexit;
 	Puname;
 	Punsetflags;
 	Pupdate_maps;

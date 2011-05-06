@@ -244,12 +244,8 @@ extern	int	Psetflags(struct ps_prochandle *, long);
 extern	int	Punsetflags(struct ps_prochandle *, long);
 extern	int	Psignal(struct ps_prochandle *, int, int);
 extern	int	Pfault(struct ps_prochandle *, int, int);
-extern	int	Psysentry(struct ps_prochandle *, int, int);
-extern	int	Psysexit(struct ps_prochandle *, int, int);
 extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
 extern	void	Psetfault(struct ps_prochandle *, const fltset_t *);
-extern	void	Psetsysentry(struct ps_prochandle *, const sysset_t *);
-extern	void	Psetsysexit(struct ps_prochandle *, const sysset_t *);
 
 extern	void	Psync(struct ps_prochandle *);
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
@@ -463,11 +459,8 @@ extern int Pstack_iter(struct ps_prochandle *,
  * If the client program wishes to report additional error information, it
  * can provide its own version of Perror_printf.
  *
- * If the client program wishes to receive a callback after Pcreate forks
- * but before it execs, it can provide its own version of Pcreate_callback.
  */
 extern void Perror_printf(struct ps_prochandle *P, const char *format, ...);
-extern void Pcreate_callback(struct ps_prochandle *);
 
 /*
  * Remove unprintable characters from psinfo.pr_psargs and replace with

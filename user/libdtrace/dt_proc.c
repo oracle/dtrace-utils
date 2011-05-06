@@ -89,10 +89,6 @@
 #include <dt_pid.h>
 #include <dt_impl.h>
 
-#define	IS_SYS_EXEC(w)	(w == SYS_execve)
-/* #define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_forksys) */
-#define      IS_SYS_FORK(w)  (w == SYS_vfork || w == SYS_fork) /* Fix at Linux. */
-
 static dt_bkpt_t *
 dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
 {
@@ -303,28 +299,6 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 	}
 }
 
-static void
-dt_proc_rdwatch(dt_proc_t *dpr, rd_event_e event, const char *evname)
-{
-	rd_notify_t rdn;
-	rd_err_e err;
-
-	if ((err = rd_event_addr(dpr->dpr_rtld, event, &rdn)) != RD_OK) {
-		dt_dprintf("pid %d: failed to get event address for %s: %s\n",
-		    (int)dpr->dpr_pid, evname, rd_errstr(err));
-		return;
-	}
-
-	if (rdn.type != RD_NOTIFY_BPT) {
-		dt_dprintf("pid %d: event %s has unexpected type %d\n",
-		    (int)dpr->dpr_pid, evname, rdn.type);
-		return;
-	}
-
-	(void) dt_proc_bpcreate(dpr, rdn.u.bptaddr,
-	    (dt_bkpt_f *)dt_proc_rdevent, (void *)evname);
-}
-
 /*
  * Common code for enabling events associated with the run-time linker after
  * attaching to a process or after a victim process completes an exec(2).
@@ -346,7 +320,10 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 		Preset_maps(dpr->dpr_proc);
 	}
 
-	if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL &&
+#if 0
+        /* FIXME: We want to use static tracepoints for this. */
+
+        if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL &&
 	    (err = rd_event_enable(dpr->dpr_rtld, B_TRUE)) == RD_OK) {
 		dt_proc_rdwatch(dpr, RD_PREINIT, "RD_PREINIT");
 		dt_proc_rdwatch(dpr, RD_POSTINIT, "RD_POSTINIT");
@@ -358,7 +335,7 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 	}
 
 	Pupdate_maps(dpr->dpr_proc);
-
+#endif
 	if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
 	    "a.out", "main", &sym, NULL) == 0) {
 		(void) dt_proc_bpcreate(dpr, (uintptr_t)sym.st_value,
@@ -498,29 +475,6 @@ dt_proc_control(void *arg)
 	(void) Pfault(P, FLTBPT, B_TRUE);	/* always trace breakpoints */
 	(void) Pfault(P, FLTTRACE, B_TRUE);	/* always trace single-step */
 
-	/*
-	 * We must trace exit from exec() system calls so that if the exec is
-	 * successful, we can reset our breakpoints and re-initialize libproc.
-	 */
-	(void) Psysexit(P, SYS_execve, B_TRUE);
-
-	/*
-	 * We must trace entry and exit for fork() system calls in order to
-	 * disable our breakpoints temporarily during the fork.  We do not set
-	 * the PR_FORK flag, so if fork succeeds the child begins executing and
-	 * does not inherit any other tracing behaviors or a control thread.
-	 */
-	/*
- 	 * Use SYS_fork instead of SYS_forsys at Linux.
- 	 */
-	(void) Psysentry(P, SYS_fork, B_TRUE);
-        (void) Psysexit(P, SYS_fork, B_TRUE);
-	(void) Psysentry(P, SYS_vfork, B_TRUE);
-	(void) Psysexit(P, SYS_vfork, B_TRUE);
-/*	(void) Psysentry(P, SYS_forksys, B_TRUE);
-	(void) Psysexit(P, SYS_forksys, B_TRUE); */
-	
-
 	Psync(P);				/* enable all /proc changes */
 #if defined(sun)
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
@@ -599,15 +553,6 @@ pwait_locked:
 			 */
 			if (psp->pr_why == PR_FAULTED && psp->pr_what == FLTBPT)
 				dt_proc_bpmatch(dtp, dpr);
-			else if (psp->pr_why == PR_SYSENTRY &&
-			    IS_SYS_FORK(psp->pr_what))
-				dt_proc_bpdisable(dpr);
-			else if (psp->pr_why == PR_SYSEXIT &&
-			    IS_SYS_FORK(psp->pr_what))
-				dt_proc_bpenable(dpr);
-			else if (psp->pr_why == PR_SYSEXIT &&
-			    IS_SYS_EXEC(psp->pr_what))
-				dt_proc_attach(dpr, B_TRUE);
 #endif
 			break;
 

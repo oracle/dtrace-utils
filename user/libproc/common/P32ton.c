@@ -595,8 +595,6 @@ pstatus_n_to_32(const pstatus_t *src, pstatus32_t *dst)
 
 	dst->pr_sigtrace = src->pr_sigtrace;
 	dst->pr_flttrace = src->pr_flttrace;
-	dst->pr_sysentry = src->pr_sysentry;
-	dst->pr_sysexit = src->pr_sysexit;
 	dst->pr_dmodel = src->pr_dmodel;
 #if 0
 	lwpstatus_n_to_32(&src->pr_lwp, &dst->pr_lwp);

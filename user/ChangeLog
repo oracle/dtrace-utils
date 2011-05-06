@@ -1,3 +1,35 @@
+2011-05-05  Nick Alcock  <nick.alcock@oracle.com>
+
+	Remove syscall interposition.
+
+	* libproc/common/Pcontrol.c: Clean headers.
+	* libproc/common/Pcontrol.c (Pxcreate): No longer use pause() and syscall
+	interposition to trace after execvp(). Drop lots of commented-out code.
+	* libproc/common/Pcontrol.c (Pcreate_callback): Removed.
+	* libproc/common/Pcontrol.c (Psync): Delete SETENTRY and SETEXIT cases.
+	* libproc/common/Pcontrol.c (restore_tracing_flags): Likewise.
+	* libproc/common/Pcontrol.c (Pstopstatus): Likewise.
+	* libproc/common/Pcontrol.c (Psysentry): Remove.
+	* libproc/common/Pcontrol.c (Psetsysentry): Likewise.
+	* libproc/common/Pcontrol.c (Psysexit): Likewise.
+	* libproc/common/Pcontrol.c (Psetsysexit): Likewise.
+	* libproc/common/libproc.h ("C"): Remove Psysentry and Psysexit.
+	* libproc/common/P32ton.c (pstatus_n_to_32): Remove pr_sysentry and
+	pr_sysexit.
+	* libproc/common/mapfile-vers: Remove now-deleted functions.
+
+	* include/sys/procfs.h: Remove PCSENTRY, PCSEXIT, pr_sysentry
+	and pr_sysexit.
+
+	* libdtrace/dt_proc.c (IS_SYS_EXEC): Remove.
+	* libdtrace/dt_proc.c (IS_SYS_FORK): Likewise.
+	* libdtrace/dt_proc.c (dt_proc_rdwatch): Likewise.
+	* libdtrace/dt_proc.c (dt_proc_attach): Remove rtld tracing pending
+	addition of appropriate static tracepoints.
+	* libdtrace/dt_proc.c (dt_proc_control): Remove syscall hooking of
+	fork(), vfork(), and forksys(), and detachment/reattachment and
+	breakpoint manipulation around fork().
+
 2011-04-29  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Pcore.c, Pexecname.c, Pisadep.h, Pservice.c,

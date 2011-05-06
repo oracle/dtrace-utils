@@ -82,8 +82,6 @@ extern "C" {
 #define	PCSHOLD  11L	/* set lwp signal mask from sigset_t argument */
 #define	PCSTRACE 12L	/* set traced signal set from sigset_t argument */
 #define	PCSFAULT 13L	/* set traced fault set from fltset_t argument */
-#define	PCSENTRY 14L	/* set traced syscall entry set from sysset_t arg */
-#define	PCSEXIT  15L	/* set traced syscall exit set from sysset_t arg */
 #define	PCSET    16L	/* set modes from long argument */
 #define	PCUNSET  17L	/* unset modes from long argument */
 #define	PCSREG   18L	/* set lwp general registers from prgregset_t arg */
@@ -168,8 +166,6 @@ typedef struct pstatus {
 	timestruc_t pr_cstime;	/* sum of children's system times */
 	sigset_t pr_sigtrace;	/* set of traced signals */
 	fltset_t pr_flttrace;	/* set of traced faults */
-	sysset_t pr_sysentry;	/* set of system calls traced on entry */
-	sysset_t pr_sysexit;	/* set of system calls traced on exit */
 	char	pr_dmodel;	/* data model of the process (see below) */
 	char	pr_pad[3];
 	taskid_t pr_taskid;	/* task id */
@@ -223,8 +219,6 @@ typedef struct pstatus {
  */
 #define	PR_REQUESTED	1
 #define	PR_SIGNALLED	2
-#define	PR_SYSENTRY	3
-#define	PR_SYSEXIT	4
 #define	PR_JOBCONTROL	5
 #define	PR_FAULTED	6
 #define	PR_SUSPENDED	7
@@ -593,8 +587,6 @@ typedef struct pstatus32 {
 	timestruc32_t pr_cstime;	/* sum of children's system times */
 	sigset_t pr_sigtrace;	/* set of traced signals */
 	fltset_t pr_flttrace;	/* set of traced faults */
-	sysset_t pr_sysentry;	/* set of system calls traced on entry */
-	sysset_t pr_sysexit;	/* set of system calls traced on exit */
 	char	pr_dmodel;	/* data model of the process */
 	char	pr_pad[3];
 	id32_t	pr_taskid;	/* task id */
