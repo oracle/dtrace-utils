@@ -33,14 +33,7 @@
  * replace the #define tokens listed below to create the finished procfs.d.
  * Refer to the rules in libdtrace/Makefile.com for more information.
  */
-/*
-#include <sys/model.h>
-#include <sys/thread.h> */
-#include <sys/proc.h>
 #include <sys/procfs.h>
-/*#include <sys/sobject.h>
-#include <sys/siginfo.h>
-*/
 #define	SED_REPLACE(x)	s/#x/x/g
 
 SED_REPLACE(DATAMODEL_ILP32)

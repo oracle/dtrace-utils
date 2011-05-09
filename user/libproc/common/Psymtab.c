@@ -3293,11 +3293,6 @@ again:
 			nameval = NULL;
 		} else if (ret == buflen - 1) {
 			free(buf);
-			/*
-			 * Bail if we have a corrupted environment
-			 */
-			if (buflen >= ARG_MAX)
-				return (-1);
 			buflen *= 2;
 			buf = malloc(buflen);
 			goto again;
