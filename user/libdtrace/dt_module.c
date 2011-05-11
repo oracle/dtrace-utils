@@ -788,6 +788,7 @@ dt_module_modelname(dt_module_t *dmp)
 		return ("32-bit");
 }
 
+#if 0
 /*
  * Update our module cache by adding an entry for the specified module 'name'.
  * We create the dt_module_t and populate it using /system/object/<name>/.
@@ -890,6 +891,7 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	dt_dprintf("opened %d-bit module %s (%s)\n",
 	    bits, dmp->dm_name, dmp->dm_file);
 }
+#endif
 
 /*
  * Unload all the loaded modules and then refresh the module cache with the
@@ -905,6 +907,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 	    dmp != NULL; dmp = dt_list_next(dmp))
 		dt_module_unload(dtp, dmp);
 
+#if defined(sun)
 	/*
 	 * Open /system/object and attempt to create a libdtrace module for
 	 * each kernel module that is loaded on the current system.
@@ -920,7 +923,12 @@ dtrace_update(dtrace_hdl_t *dtp)
 
 		(void) closedir(dirp);
 	}
-
+#else
+	/* FIXME */
+	/* Use Linux kernel loader interface to discover what kernel
+         * modules are loaded and create a libdtrace module for each one. */
+	
+#endif
 	/*
 	 * Look up all the macro identifiers and set di_id to the latest value.
 	 * This code collaborates with dt_lex.l on the use of di_id.  We will

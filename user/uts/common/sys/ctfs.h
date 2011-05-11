@@ -35,11 +35,6 @@ extern "C" {
 #endif
 
 /*
- * Location of the contract filesystem.
- */
-#define	CTFS_ROOT	"/system/contract"
-
-/*
  * CTFS ioctl constants
  */
 #define	CTFS_PREFIX	('c' << 24 | 't' << 16)

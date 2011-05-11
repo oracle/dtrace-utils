@@ -1,3 +1,12 @@
+2011-05-11  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* libdtrace/dt_module.c (dtrace_update): Don't open the /system/object
+	files.
+	(dt_module_update): Remove.
+	* include/sys/link.h: Clean the useless macros.
+	* uts/common/sys/ctfs.h: Remove CTFS_ROOT.
+	* uts/common/sys/objfs.h: Remove OBJFS_ROOT and OBJFS_MODID.
+
 2011-05-09  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/common/Psymtab.c (Penv_iter): Remove bogus check on length of

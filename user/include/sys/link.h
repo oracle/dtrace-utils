@@ -255,52 +255,6 @@ typedef struct {
 #define	DF_STATIC_TLS	0x00000010	/* obj. contains static TLS refs */
 
 /*
- * Values for the DT_POSFLAG_1 .dynamic entry.
- * These values only affect the following DT_* entry.
- */
-#define	DF_P1_LAZYLOAD	0x00000001	/* following object is to be */
-					/*	lazy loaded */
-#define	DF_P1_GROUPPERM	0x00000002	/* following object's symbols are */
-					/*	not available for general */
-					/*	symbol bindings. */
-#define	DF_P1_DEFERRED	0x00000004	/* following object is deferred */
-
-/*
- * Values for the DT_FLAGS_1 .dynamic entry.
- */
-#define	DF_1_NOW	0x00000001	/* set RTLD_NOW for this object */
-#define	DF_1_GLOBAL	0x00000002	/* set RTLD_GLOBAL for this object */
-#define	DF_1_GROUP	0x00000004	/* set RTLD_GROUP for this object */
-#define	DF_1_NODELETE	0x00000008	/* set RTLD_NODELETE for this object */
-#define	DF_1_LOADFLTR	0x00000010	/* trigger filtee loading at runtime */
-#define	DF_1_INITFIRST	0x00000020	/* set RTLD_INITFIRST for this object */
-#define	DF_1_NOOPEN	0x00000040	/* set RTLD_NOOPEN for this object */
-#define	DF_1_ORIGIN	0x00000080	/* ORIGIN processing required */
-#define	DF_1_DIRECT	0x00000100	/* direct binding enabled */
-#define	DF_1_TRANS	0x00000200	/* unused obsolete name */
-#define	DF_1_INTERPOSE	0x00000400	/* object is an interposer */
-#define	DF_1_NODEFLIB	0x00000800	/* ignore default library search path */
-#define	DF_1_NODUMP	0x00001000	/* object can't be dldump(3x)'ed */
-#define	DF_1_CONFALT	0x00002000	/* configuration alternative created */
-#define	DF_1_ENDFILTEE	0x00004000	/* filtee terminates filters search */
-#define	DF_1_DISPRELDNE	0x00008000	/* disp reloc applied at build time */
-#define	DF_1_DISPRELPND	0x00010000	/* disp reloc applied at run-time */
-#define	DF_1_NODIRECT	0x00020000	/* object contains symbols that */
-					/*	cannot be directly bound to */
-#define	DF_1_IGNMULDEF	0x00040000	/* internal: krtld ignore muldefs */
-#define	DF_1_NOKSYMS	0x00080000	/* internal: don't export object's */
-					/*	symbols via /dev/ksyms */
-#define	DF_1_NOHDR	0x00100000	/* mapfile: 1st segment mapping */
-					/*	omits ELF & program headers */
-#define	DF_1_EDITED	0x00200000	/* object has been modified since */
-					/*	being built by 'ld' */
-#define	DF_1_NORELOC	0x00400000	/* internal: unrelocated object */
-#define	DF_1_SYMINTPOSE	0x00800000	/* individual symbol interposers */
-					/*	exist */
-#define	DF_1_GLOBAUDIT	0x01000000	/* establish global auditing */
-#define	DF_1_SINGLETON	0x02000000	/* singleton symbols exist */
-
-/*
  * Values set to DT_FEATURE_1 tag's d_val (unused obsolete tag)
  */
 #define	DTF_1_PARINIT	0x00000001	/* partially initialization feature */

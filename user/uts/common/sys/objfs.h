@@ -34,18 +34,6 @@ extern "C" {
 #endif
 
 /*
- * Root directory of the object filesystem
- */
-#define	OBJFS_ROOT	"/system/object"
-
-/*
- * Given an inode number, return the module ID for the given node.  When given
- * the root inode, the results are undefined.
- */
-#define	OBJFS_MODID(ino)	\
-	((ino) & 0xffffffff)
-
-/*
  * Private data structure found in '.info' section
  */
 typedef struct objfs_info {
