@@ -607,6 +607,7 @@ pwait_locked:
 }
 
 /*PRINTFLIKE3*/
+_dt_printflike_(3,4)
 static struct ps_prochandle *
 dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 {

@@ -27,7 +27,7 @@
 #ifndef	_PUTIL_H
 #define	_PUTIL_H
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+#include <sys/compiler.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -58,6 +58,12 @@ extern void prset_empty(void *, size_t);
 extern void prset_add(void *, size_t, uint_t);
 extern void prset_del(void *, size_t, uint_t);
 extern int prset_ismember(void *, size_t, uint_t);
+
+/*
+ * Routine to print debug messages:
+ */
+_dt_printflike_(1,2)
+extern void _dprintf(const char *, ...);
 
 #ifdef	__cplusplus
 }

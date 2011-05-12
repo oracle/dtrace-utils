@@ -1,5 +1,46 @@
 2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
 
+	Translate PRINTFLIKE into GCC attributes.
+
+	* include/sys/compiler.h: Don't bother with individual ifdef guards.
+	* include/sys/compiler.h (_dt_printflike_): New.
+	* include/sys/compiler.h (_dt_unused_): Likewise.
+
+	* libdtrace/dt_link.c (dt_link_error): Use _dt_printflike_().
+	* libdtrace/dt_parser.c (dnerror): Likewise.
+	(dnwarn): Likewise.
+	(xyerror): Likewise.
+	(xywarn): Likewise.
+	(yyerror): Likewise.
+	(yywarn): Likewise.
+	* libdtrace/dt_proc.c (dt_proc_error): Likewise.
+	* libdtrace/dt_subr.c (dt_dprintf): Likewise.
+	(dt_printf): Likewise.
+
+	* libctf/ctf_subr.c (ctf_dprintf): Likewise.
+	* common/ctf/ctf_decl.c (ctf_decl_sprintf): Likewise.
+
+	* cmd/dtrace.c: Include <sys/compiler.h>.
+	(fatal): Use _dt_printflike_().
+	(dfatal): Likewise.
+	(error): Likewise.
+	(notice): Likewise.
+	(oprintf): Likewise.
+
+	* libproc/common/Putil.c (_dprintf): Likewise.
+	(Perror_printf): Likewise. Also use _dt_unused_.
+
+	* libdtrace/dt_impl.h: Add to prototypes too.
+	* libdtrace/dt_parser.h: Likewise. Include <sys/compiler.h>.
+	* common/ctf/ctf_impl.h: Likewise. Include <sys/compiler.h>.
+	* libproc/common/libproc.h: Likewise.
+	* libproc/common/Putil.h: Reintroduce elided _dprintf()
+	declaration. Include <sys/compiler.h>.
+
+	* libproc/common/Pcontrol.c (Psetrun): Use _dprintf().
+
+2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
+
 	Begin transforming pragmas to GCC attributes.
 
 	* include/sys/compiler.h: New file, defining

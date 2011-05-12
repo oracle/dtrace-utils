@@ -121,6 +121,7 @@ prset_ismember(void *sp, size_t size, uint_t flag)
  * with an appropriate prefix.
  */
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 void
 _dprintf(const char *format, ...)
 {
@@ -145,8 +146,10 @@ _dprintf(const char *format, ...)
  */
 /*ARGSUSED*/
 /*PRINTFLIKE2*/
+_dt_printflike_(2,3)
 void
-Perror_printf(struct ps_prochandle *P, const char *format, ...)
+Perror_printf(struct ps_prochandle *P _dt_unused_,
+	      const char *format _dt_unused_, ...)
 {
 	/* nothing to do here */
 }

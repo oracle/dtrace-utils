@@ -29,7 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-
+#include <sys/compiler.h>
 
 #include <dtrace.h>
 #include <stdlib.h>
@@ -179,6 +179,7 @@ verror(const char *fmt, va_list ap)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 static void
 fatal(const char *fmt, ...)
 {
@@ -192,6 +193,7 @@ fatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 static void
 dfatal(const char *fmt, ...)
 {
@@ -223,6 +225,7 @@ dfatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 static void
 error(const char *fmt, ...)
 {
@@ -234,6 +237,7 @@ error(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 static void
 notice(const char *fmt, ...)
 {
@@ -248,6 +252,7 @@ notice(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 static void
 oprintf(const char *fmt, ...)
 {

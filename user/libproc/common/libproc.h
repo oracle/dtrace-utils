@@ -458,7 +458,9 @@ extern int Pstack_iter(struct ps_prochandle *,
  * can provide its own version of Perror_printf.
  *
  */
-extern void Perror_printf(struct ps_prochandle *P, const char *format, ...);
+_dt_printflike_(2,3)
+extern void Perror_printf(struct ps_prochandle *P _dt_unused_,
+			  const char *format _dt_unused_, ...);
 
 /*
  * Remove unprintable characters from psinfo.pr_psargs and replace with

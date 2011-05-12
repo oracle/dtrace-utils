@@ -456,6 +456,7 @@ dt_cpp_pop_arg(dtrace_hdl_t *dtp)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 void
 dt_dprintf(const char *format, ...)
 {
@@ -551,6 +552,7 @@ dt_write(dtrace_hdl_t *dtp, int fd, const void *buf, size_t n)
  * errno for the caller inside the specified dtrace_hdl_t.
  */
 /*PRINTFLIKE3*/
+_dt_printflike_(3,4)
 int
 dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 {

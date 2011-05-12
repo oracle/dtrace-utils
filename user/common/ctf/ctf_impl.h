@@ -33,6 +33,7 @@
 #include <sys/errno.h>
 #include <sys/ctf_api.h>
 #include <sys/types.h>
+#include <sys/compiler.h>
 
 #ifdef _KERNEL
 
@@ -298,6 +299,8 @@ extern ctf_dtdef_t *ctf_dtd_lookup(ctf_file_t *, ctf_id_t);
 extern void ctf_decl_init(ctf_decl_t *, char *, size_t);
 extern void ctf_decl_fini(ctf_decl_t *);
 extern void ctf_decl_push(ctf_decl_t *, ctf_file_t *, ctf_id_t);
+
+_dt_printflike_(2,3)
 extern void ctf_decl_sprintf(ctf_decl_t *, const char *, ...);
 
 extern const char *ctf_strraw(ctf_file_t *, uint_t);
@@ -318,6 +321,8 @@ extern void ctf_free(void *, size_t);
 
 extern char *ctf_strdup(const char *);
 extern const char *ctf_strerror(int);
+
+_dt_printflike_(1,2)
 extern void ctf_dprintf(const char *, ...);
 
 extern void *ctf_zopen(int *);

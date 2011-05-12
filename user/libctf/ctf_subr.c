@@ -70,6 +70,7 @@ ctf_strerror(int err)
 }
 
 /*PRINTFLIKE1*/
+_dt_printflike_(1,2)
 void
 ctf_dprintf(const char *format, ...)
 {

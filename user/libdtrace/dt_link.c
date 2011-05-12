@@ -982,6 +982,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 #endif
 
 /*PRINTFLIKE5*/
+_dt_printflike_(5,6)
 static int
 dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_pair_t *bufs,
     const char *format, ...)

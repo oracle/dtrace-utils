@@ -1090,7 +1090,7 @@ Psetrun(struct ps_prochandle *P,
 	}
 
 	if (ptrace (PTRACE_CONT, P->pid, NULL, sig) != 0) {
-		dprintf("Psetrun: %s\n", strerror(errno));
+		_dprintf("Psetrun: %s\n", strerror(errno));
 		return (-1);
 	}
 

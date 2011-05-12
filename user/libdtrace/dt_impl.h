@@ -555,6 +555,7 @@ extern int dt_ioctl(dtrace_hdl_t *, int, void *);
 extern int dt_status(dtrace_hdl_t *, processorid_t);
 extern long dt_sysconf(dtrace_hdl_t *, int);
 extern ssize_t dt_write(dtrace_hdl_t *, int, const void *, size_t);
+_dt_printflike_(3,4)
 extern int dt_printf(dtrace_hdl_t *, FILE *, const char *, ...);
 
 extern void *dt_zalloc(dtrace_hdl_t *, size_t);
@@ -578,6 +579,7 @@ extern uint64_t dt_stddev(uint64_t *, uint64_t);
 
 extern int dt_options_load(dtrace_hdl_t *);
 
+_dt_printflike_(1,2)
 extern void dt_dprintf(const char *, ...);
 
 extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
