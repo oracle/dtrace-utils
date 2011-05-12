@@ -49,11 +49,9 @@
 #include <fcntl.h>
 #include <nlist.h>
 #include <gelf.h>
-//#include <proc_service.h>
 #include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <rtld_db.h>
-//#include <rctl.h>
 #include <libctf.h>
 #include <sys/procfs.h>
 #include <sys/auxv.h>
@@ -61,9 +59,9 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
-//#include <sys/corectl.h>
 #include <sys/time.h>
 
+#include <sys/compiler.h>
 #include <procfs_service.h>
 
 #if defined(__i386) || defined(__amd64)

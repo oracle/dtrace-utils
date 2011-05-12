@@ -93,7 +93,7 @@ static const ps_rwops_t P_live_ops = { Pread_live, Pwrite_live };
 /*
  * This is the library's .init handler.
  */
-#pragma init(_libproc_init)
+_dt_constructor_(_libproc_init)
 void
 _libproc_init(void)
 {

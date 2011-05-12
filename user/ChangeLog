@@ -1,3 +1,27 @@
+2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
+
+	Begin transforming pragmas to GCC attributes.
+
+	* include/sys/compiler.h: New file, defining
+	_dt_constructor_ and _dt_destructor_.
+
+	* libdtrace/drti.c: Include <sys/compiler.h>.
+	* libdtrace/dt_impl.h: Likewise. Drop commented-
+	out include.
+	* libctf/ctf_lib.c: Likewise.
+	* libproc/common/libproc.h: Likewise.
+	* libproc/common/Pcontrol.h: Likewise.
+
+	* libproc/common/Pcontrol.c (_libproc_init):
+	Declare using _dt_constructor_.
+	* libctf/ctf_lib.c (_libctf_init): Likewise.
+	* libdtrace/dt_open.c (_dtrace_init): Likewise.
+	* libdtrace/drti.c (dtrace_dof_init): Likewise.
+	* libdtrace/drti.c (dtrace_dof_fini): Declare using
+	_dt_destructor_.
+
+	* libdtrace/dt_proc.h: Drop commented-out include.
+
 2011-05-12  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/P32ton.c, P32ton.h: Remove.

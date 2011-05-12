@@ -29,7 +29,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-//#include <libproc.h>
 #include <rtld_db.h>
 #include <dtrace.h>
 #include <pthread.h>

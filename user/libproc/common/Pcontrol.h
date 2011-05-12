@@ -33,7 +33,6 @@
 
 #include <stdio.h>
 #include <gelf.h>
-//#include <synch.h>
 #include <sys/procfs.h>
 #include <rtld_db.h>
 #include <libproc.h>

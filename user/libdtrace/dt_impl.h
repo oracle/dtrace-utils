@@ -33,11 +33,10 @@
 #include <libctf.h>
 #include <dtrace.h>
 #include <gelf.h>
-//#include <synch.h>
 
 #include <sys/types.h>
 #include <sys/utsname.h>
-
+#include <sys/compiler.h>
 
 #ifdef	__cplusplus
 extern "C" {

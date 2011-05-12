@@ -676,7 +676,7 @@ typedef struct dt_fdlist {
 	uint_t df_size;		/* size of df_fds[] */
 } dt_fdlist_t;
 
-#pragma init(_dtrace_init)
+_dt_constructor_(_dtrace_init)
 void
 _dtrace_init(void)
 {

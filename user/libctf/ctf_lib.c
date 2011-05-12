@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/compiler.h>
 #include <ctf_impl.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -51,7 +52,7 @@ static struct {
 static size_t _PAGESIZE;
 static size_t _PAGEMASK;
 
-#pragma init(_libctf_init)
+_dt_constructor_(_libctf_init)
 void
 _libctf_init(void)
 {

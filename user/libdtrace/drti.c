@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <sys/link.h>
 #include <sys/dtrace.h>
+#include <sys/compiler.h>
 
 #include <gelf.h>
 
@@ -61,7 +62,7 @@ static int gen;			/* DOF helper generation */
 extern dof_hdr_t __SUNW_dof;	/* DOF defined in the .SUNW_dof section */
 static boolean_t dof_init_debug = B_FALSE;	/* From DTRACE_DOF_INIT_DEBUG */
 
-#pragma init(dtrace_dof_init)
+_dt_constructor_(dtrace_dof_init)
 static void
 dtrace_dof_init(void)
 {
@@ -149,7 +150,7 @@ dtrace_dof_init(void)
 	(void) close(fd);
 }
 
-#pragma fini(dtrace_dof_fini)
+_dt_destructor_(dtrace_dof_fini)
 static void
 dtrace_dof_fini(void)
 {
