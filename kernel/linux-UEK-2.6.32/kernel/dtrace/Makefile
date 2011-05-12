@@ -7,7 +7,7 @@ obj-$(CONFIG_DT_FASTTRAP)	+= fasttrap.o
 obj-$(CONFIG_DT_FBT)		+= fbt.o
 obj-$(CONFIG_DT_LOCKSTAT)	+= lockstat.o
 obj-$(CONFIG_DT_PROFILE)	+= profile.o
-obj-$(CONFIG_DT_SDT)		+= sdt.o
+obj-$(CONFIG_DT_SDT)		+= sdt.o sdt_register.o
 obj-$(CONFIG_DT_SYSTRACE)	+= systrace.o
 
 dtrace-y			:= dtrace_mod.o dtrace_dev.o \
