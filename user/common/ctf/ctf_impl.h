@@ -240,8 +240,6 @@ enum {
 	ECTF_NOPARENT,		/* parent CTF container is not available */
 	ECTF_DMODEL,		/* data model mismatch */
 	ECTF_MMAP,		/* failed to mmap a data section */
-	ECTF_ZMISSING,		/* decompression library not installed */
-	ECTF_ZINIT,		/* failed to initialize decompression library */
 	ECTF_ZALLOC,		/* failed to allocate decompression buffer */
 	ECTF_DECOMPRESS,	/* failed to decompress CTF data */
 	ECTF_STRTAB,		/* string table for this string is missing */
@@ -324,8 +322,6 @@ extern const char *ctf_strerror(int);
 
 _dt_printflike_(1,2)
 extern void ctf_dprintf(const char *, ...);
-
-extern void *ctf_zopen(int *);
 
 extern const char _CTF_SECTION[];	/* name of CTF ELF section */
 extern const char _CTF_NULLSTR[];	/* empty string */

@@ -1,5 +1,25 @@
 2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
 
+	Purge zlib indirection machinery.
+
+	* libctf/ctf_lib.c (_libctf_zlib): Remove.
+	(struct zlib): Likewise.
+	(_libctf_init): Drop its initialization, and LIBCTF_DECOMPRESSOR.
+	Make static.
+	(ctf_zopen): Remove.
+	(z_uncompress): Likewise.
+	(z_strerror): Likewise.
+
+	* common/ctf/ctf_impl.h: Remove from header.
+	(ECTF_ZMISSING): Remove.
+	(ECTF_ZINIT): Likewise.
+
+	* common/ctf/ctf_open.c: Include zlib.h.
+	* common/ctf/ctf_open.c (ctf_bufopen): Call the zlib functions
+	directly.
+
+2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
+
 	Translate PRINTFLIKE into GCC attributes.
 
 	* include/sys/compiler.h: Don't bother with individual ifdef guards.

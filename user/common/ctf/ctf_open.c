@@ -32,7 +32,7 @@
 #include <gelf.h>
 #include <ctf_impl.h>
 #include <sys/mman.h>
-
+#include <zlib.h>
 
 static const ctf_dmodel_t _libctf_models[] = {
 	{ "ILP32", CTF_MODEL_ILP32, 4, 1, 2, 4, 4 },
@@ -638,9 +638,6 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 		const void *src;
 		int rc = Z_OK;
 
-		if (ctf_zopen(errp) == NULL)
-			return (NULL); /* errp is set for us */
-
 		if ((base = ctf_data_alloc(size + hdrsz)) == MAP_FAILED)
 			return (ctf_set_open_errno(errp, ECTF_ZALLOC));
 
@@ -652,8 +649,8 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 		srclen = ctfsect->cts_size - hdrsz;
 		dstlen = size;
 
-		if ((rc = z_uncompress(buf, &dstlen, src, srclen)) != Z_OK) {
-			ctf_dprintf("zlib inflate err: %s\n", z_strerror(rc));
+		if ((rc = uncompress(buf, &dstlen, src, srclen)) != Z_OK) {
+			ctf_dprintf("zlib inflate err: %s\n", zError(rc));
 			ctf_data_free(base, size + hdrsz);
 			return (ctf_set_open_errno(errp, ECTF_DECOMPRESS));
 		}

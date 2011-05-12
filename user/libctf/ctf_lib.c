@@ -37,81 +37,17 @@
 #include <dlfcn.h>
 #include <gelf.h>
 
-#ifdef _LP64
-static const char *_libctf_zlib = "/usr/lib/64/libz.so";
-#else
-static const char *_libctf_zlib = "/usr/lib/libz.so";
-#endif
-
-static struct {
-	int (*z_uncompress)(uchar_t *, ulong_t *, const uchar_t *, ulong_t);
-	const char *(*z_error)(int);
-	void *z_dlp;
-} zlib;
-
 static size_t _PAGESIZE;
 static size_t _PAGEMASK;
 
 _dt_constructor_(_libctf_init)
-void
+static void
 _libctf_init(void)
 {
-	const char *p = getenv("LIBCTF_DECOMPRESSOR");
-
-	if (p != NULL)
-		_libctf_zlib = p; /* use alternate decompression library */
-
 	_libctf_debug = getenv("LIBCTF_DEBUG") != NULL;
 
 	_PAGESIZE = getpagesize();
 	_PAGEMASK = ~(_PAGESIZE - 1);
-}
-
-/*
- * Attempt to dlopen the decompression library and locate the symbols of
- * interest that we will need to call.  This information in cached so
- * that multiple calls to ctf_bufopen() do not need to reopen the library.
- */
-void *
-ctf_zopen(int *errp)
-{
-	ctf_dprintf("decompressing CTF data using %s\n", _libctf_zlib);
-
-	if (zlib.z_dlp != NULL)
-		return (zlib.z_dlp); /* library is already loaded */
-
-	if (access(_libctf_zlib, R_OK) == -1)
-		return (ctf_set_open_errno(errp, ECTF_ZMISSING));
-
-	if ((zlib.z_dlp = dlopen(_libctf_zlib, RTLD_LAZY | RTLD_LOCAL)) == NULL)
-		return (ctf_set_open_errno(errp, ECTF_ZINIT));
-
-	zlib.z_uncompress = (int (*)()) dlsym(zlib.z_dlp, "uncompress");
-	zlib.z_error = (const char *(*)()) dlsym(zlib.z_dlp, "zError");
-
-	if (zlib.z_uncompress == NULL || zlib.z_error == NULL) {
-		(void) dlclose(zlib.z_dlp);
-		bzero(&zlib, sizeof (zlib));
-		return (ctf_set_open_errno(errp, ECTF_ZINIT));
-	}
-
-	return (zlib.z_dlp);
-}
-
-/*
- * The ctf_bufopen() routine calls these subroutines, defined by <sys/zmod.h>,
- * which we then patch through to the functions in the decompression library.
- */
-int
-z_uncompress(void *dst, size_t *dstlen, const void *src, size_t srclen)
-{
-	return (zlib.z_uncompress(dst, (ulong_t *)dstlen, src, srclen));
-}
-
-const char *
-z_strerror(int err)
-{
-	return (zlib.z_error(err));
 }
 
 /*
