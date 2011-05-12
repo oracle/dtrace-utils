@@ -1,3 +1,9 @@
+2011-05-12  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/P32ton.c, P32ton.h: Remove.
+	* libproc/common/Pcontrol.c: Clean headers.
+	* libproc/common/makefile: Remove P32ton.o from libproc.
+
 2011-05-11  Shujing Zhao  <pearly.zhao@oracle.com>
 	
 	* libdtrace/dt_module.c (dtrace_update): Don't open the /system/object

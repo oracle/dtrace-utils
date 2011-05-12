@@ -14,7 +14,6 @@ all: $(LIB)
 	@/bin/true
 
 $(LIB): \
-	$(LIB)(P32ton.o) \
 	$(LIB)(Pcontrol.o) \
 	$(LIB)(../amd64/Pisadep.o) \
 	$(LIB)(Psymtab_machelf32.o) \
