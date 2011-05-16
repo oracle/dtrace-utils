@@ -1771,9 +1771,14 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			name = fptr->file_pname;
 		(void) strlcpy(objectfile, name, sizeof (objectfile));
 	} else {
+#if defined (sun)
 		(void) snprintf(objectfile, sizeof (objectfile),
 		    "%s/%d/object/%s",
 		    procfs_path, (int)P->pid, fptr->file_pname);
+#else
+		(void) snprintf(objectfile, sizeof (objectfile),
+		    "%s/%d/exe", procfs_path, (int)P->pid);
+#endif
 	}
 
 	/*

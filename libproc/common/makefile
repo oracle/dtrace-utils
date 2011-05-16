@@ -22,11 +22,6 @@ $(LIB): \
 	$(LIB)(Putil.o) \
 	$(LIB)(Pzone.o)
 
-$(LIB)(Pcore.o): Pcore.c
-	$(CC) $(CPPFLAGS) -D_LARGEFILE64_SOURCE=1 -D_XOPEN_SOURCE=500 -c Pcore.c
-	ar rv $(LIB) Pcore.o
-	rm -rf Pcore.o
-
 clean:
 	-rm -f *.o ../../$(BUILD_DIR)/libproc.a
 	

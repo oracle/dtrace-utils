@@ -139,20 +139,6 @@ i_zone_get_zonepath(char *zone_name, char *zonepath, size_t rp_sz)
 	return (Z_NO_ZONE);
 }
 
-char *
-Pbrandname(struct ps_prochandle *P, char *buf, size_t buflen)
-{
-	long	addr;
-
-	if ((addr = Pgetauxval(P, AT_SUN_BRANDNAME)) == -1)
-		return (NULL);
-
-	if (Pread_string(P, buf, buflen, addr) == -1)
-		return (NULL);
-
-	return (buf);
-}
-
 /*
  * Get the zone name from the core file if we have it; look up the
  * name based on the zone id if this is a live process.
@@ -546,8 +532,13 @@ Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
 
 	/* Try /proc first to get the real object name */
 	if ((Pstate(P) != PS_DEAD) && (mptr->map_pmap.pr_mapname[0] != '\0')) {
+#if defined (sun)
 		(void) snprintf(buf, sizeof (buf), "%s/%d/path/%s",
 		    procfs_path, (int)P->pid, mptr->map_pmap.pr_mapname);
+#else
+		(void) snprintf(buf, sizeof (buf), "%s/%d/exe",
+		    procfs_path, (int)P->pid);
+#endif
 		if ((len = readlink(buf, buf, sizeof (buf))) > 0) {
 			buf[len] = '\0';
 			(void) strlcpy(s, buf, n);
