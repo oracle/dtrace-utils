@@ -32,6 +32,7 @@
 #include <sys/compiler.h>
 #include <ctf_impl.h>
 #include <unistd.h>
+#include <string.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <dlfcn.h>

@@ -510,10 +510,11 @@ ctf_discard(ctf_file_t *fp)
 		return (0); /* no update required */
 
 	for (dtd = ctf_list_next(&fp->ctf_dtdefs); dtd != NULL; dtd = ntd) {
+		ntd = ctf_list_next(dtd);
+
 		if (dtd->dtd_type <= fp->ctf_dtoldid)
 			continue; /* skip types that have been committed */
 
-		ntd = ctf_list_next(dtd);
 		ctf_dtd_delete(fp, dtd);
 	}
 

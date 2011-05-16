@@ -28,6 +28,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <ctf_impl.h>
+#include <string.h>
 
 ssize_t
 ctf_get_ctt_size(const ctf_file_t *fp, const ctf_type_t *tp, ssize_t *sizep,

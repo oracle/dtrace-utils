@@ -30,6 +30,7 @@
 #include <libctf.h>
 #include <sys/mman.h>
 #include <stdarg.h>
+#include <string.h>
 
 void *
 ctf_data_alloc(size_t size)

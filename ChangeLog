@@ -1,3 +1,17 @@
+2011-05-16  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libctf/ctf_lib.c: Include missing header.
+	* libctf/ctf_subr.c: Likewise.
+	* common/ctf/ctf_types.c: Likewise.
+	* common/ctf/ctf_labels.c: Likewise.
+
+	* common/ctf/ctf_labels.c (ctf_label_topmost): Convince GCC that
+	these variables are initialized when used.
+	* common/ctf/ctf_labels.c (ctf_label_iter): Likewise.
+
+	* common/ctf/ctf_create.c (ctf_discard): Do not assign to
+	uninitialized variables or infloop when skipping committed types.
+
 2011-05-13  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libproc/common/Psymtab.c (Pbuild_file_symtab): Replace
