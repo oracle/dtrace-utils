@@ -299,7 +299,7 @@
 
 2011-03-04  Shujing Zhao  <pearly.zhao@oracle.com>
 
-	* libproc/common/Pcontrol.c: Comment the codes about write ctf file.
+	* libproc/common/Pcontrol.c: Comment the code about writing a ctf file.
 	Add ptrace code if needed.
 
 2011-02-25  Shujing Zhao  <pearly.zhao@oracle.com>
