@@ -1,3 +1,8 @@
+2011-05-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/makefile: Create most .d files with one pattern rule.
+	No longer create .sed.in.c files. Clean up properly.
+
 2011-05-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libctf/ctf_lib.c: Include missing header.

@@ -75,6 +75,21 @@ DLIBSRCS += \
         udp.d \
         unistd.d
 
+SED_DLIBS += \
+	procfs.d \
+	io.d \
+	ip.d \
+	net.d \
+	sysevent.d \
+	tcp.d \
+	udp.d
+
+BUILD_DLIBS += \
+	$(SED_DLIBS) \
+	errno.d \
+	signal.d \
+	regs.d
+
 $(BINDIR)/dt_grammar.h $(LIB)(dt_grammar.o): dt_grammar.y $(H)
 	$(YACC) -d dt_grammar.y
 	mv y.tab.h $(BINDIR)/dt_grammar.h
@@ -121,12 +136,16 @@ dt_errtags.c: dt_errtags.h mkerrtags.sh
 dt_names.c: mknames.sh
 	sh mknames.sh <../uts/common/sys/dtrace.h | sed -e 's/\\n/\n/g' > dt_names.c
 
-%.sed.in.c: %.sed.in
-	cp $< $@
-%.sed: %.sed.in.c
-	$(COMPILE.cpp) -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
+# Normal substitutions.
+
+%.sed: %.sed.in
+	$(COMPILE.cpp) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
-	-rm -f $<
+
+$(SED_DLIBS): %.d: %.sed %.d.in
+	sed -f $*.sed < $*.d.in > $@
+
+# Custom substitutions.
 
 errno.d: mkerrno.sh /usr/include/asm-generic/errno-base.h
 	sh mkerrno.sh < /usr/include/asm-generic/errno-base.h \
@@ -141,34 +160,16 @@ signal.d: mksignal.sh /usr/include/bits/signum.h
 	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
 	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
-
-procfs.d: procfs.sed procfs.d.in
-	sed -f procfs.sed < procfs.d.in > $@
-io.d: io.sed io.d.in
-	sed -f io.sed < io.d.in > $@
-ip.d: ip.sed ip.d.in
-	sed -f ip.sed < ip.d.in > $@
-net.d: net.sed net.d.in
-	sed -f net.sed < net.d.in > $@
-sysevent.d: sysevent.sed sysevent.d.in
-	sed -f sysevent.sed < sysevent.d.in > $@
-tcp.d: tcp.sed tcp.d.in
-	sed -f tcp.sed < tcp.d.in > $@
-udp.d: udp.sed udp.d.in
-	sed -f udp.sed < udp.d.in > $@
-
 ./i386/regs.sed: ./i386/regs.sed.in
-	cp ./i386/regs.sed.in ./i386/regs.sed.in.c
-	$(COMPILE.cpp) -I../include -D_KERNEL ./i386/regs.sed.in.c | tr -d ' ' | tr '"' '@' | \
+	$(COMPILE.cpp) -x c -I../include -D_KERNEL ./i386/regs.sed.in | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
-	-rm ./i386/regs.sed.in.c
 regs.d: ./i386/regs.sed ./i386/regs.d.in
 	sed -f ./i386/regs.sed < ./i386/regs.d.in > $@
 	-rm ./i386/regs.sed
 
 clean:
 	-rm -f dt_grammar.h dt_lex.c dt_errtags.c dt_names.c *.o $(LIB) 
-	-rm -f errno.d signal.d regs.d procfs.d io.d ip.d net.d sysevent.d tcp.d udp.d
+	-rm -f $(BUILD_DLIBS)
 	-rm -f *.sed i386/*.sed
 uninstall:
 	-rm -rf $(DLIBDIR)
