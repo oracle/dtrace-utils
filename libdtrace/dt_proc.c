@@ -89,6 +89,7 @@
 #include <dt_pid.h>
 #include <dt_impl.h>
 
+#if defined(sun)
 static dt_bkpt_t *
 dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
 {
@@ -110,6 +111,7 @@ dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
 
 	return (dbp);
 }
+#endif
 
 static void
 dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
@@ -169,9 +171,11 @@ dt_proc_bpenable(dt_proc_t *dpr)
 
 	for (dbp = dt_list_next(&dpr->dpr_bps);
 	    dbp != NULL; dbp = dt_list_next(dbp)) {
+#if defined(sun)
 		if (!dbp->dbp_active && Psetbkpt(dpr->dpr_proc,
 		    dbp->dbp_addr, &dbp->dbp_instr) == 0)
 			dbp->dbp_active = B_TRUE;
+#endif
 	}
 
 	dt_dprintf("breakpoints enabled\n");

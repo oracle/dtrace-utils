@@ -273,10 +273,6 @@ extern	char	*Pzonepath(struct ps_prochandle *, const char *, char *,
 extern	char	*Pfindmap(struct ps_prochandle *, map_info_t *, char *,
 	size_t);
 
-extern	int	Padd_mapping(struct ps_prochandle *, off64_t, file_info_t *,
-    prmap_t *);
-extern	void	Psort_mappings(struct ps_prochandle *);
-
 extern char	procfs_path[PATH_MAX];
 
 extern void     rd_loadobj_iter(rl_iter_f *, struct  ps_prochandle *);

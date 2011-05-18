@@ -1,3 +1,25 @@
+2011-05-18  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/dt_proc.c: Remove dt_proc_bpcreate from Linux.
+	(dt_proc_bpenable): It can set bkpt by Psetbkpt. Remove it.
+	* libproc/common/Pcontrol.c (restore_tracing_flags): Remove the part
+	of writing ctl file.
+	(Pclearsig): Remove.
+	(Pclearfault): Remove.
+	(Psetbkpt): Remove.
+	(execute_bkpt): Remove.
+	(Pxecbkpt): Remove.
+	(Psetwapt): Remove.
+	(Pdelwapt): Remove.
+	(execute_wapt): Remove.
+	(Pxecwapt): Remove.
+	(Psignal): Remove.
+	(Padd_mapping): Remove.
+	(map_sort): Remove.
+	(Psort_mappings): Remove.
+	* libproc/common/libproc.h: Clear declarations.
+	* libproc/common/Pcontrol.h: Clear.
+
 2011-05-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/makefile: Create most .d files with one pattern rule.
