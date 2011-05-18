@@ -39,6 +39,8 @@
 #include <assert.h>
 #include <libgen.h>
 #include <limits.h>
+#include <sys/ioctl.h>
+#include <port.h>
 
 #include <sys/processor.h>
 
@@ -886,7 +888,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 		P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE, 0);
 
 	if (P == NULL) {
-		(void) snprintf(c, sizeof (c), "0x%llx", addr);
+		(void) snprintf(c, sizeof (c), "0x%llx", (unsigned long long) addr);
 		return (dt_string2str(c, str, nbytes));
 	}
 
@@ -905,9 +907,10 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 		}
 	} else if (Pobjname(P, addr, objname, sizeof (objname)) != NULL) {
 		(void) snprintf(c, sizeof (c), "%s`0x%llx",
-		    dt_basename(objname), addr);
+		    dt_basename(objname), (unsigned long long) addr);
 	} else {
-		(void) snprintf(c, sizeof (c), "0x%llx", addr);
+		(void) snprintf(c, sizeof (c), "0x%llx",
+		    (unsigned long long) addr);
 	}
 
 	dt_proc_unlock(dtp, P);

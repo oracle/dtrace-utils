@@ -1,3 +1,76 @@
+2011-05-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* makefile: Turn on warnings. Move to LARGEFILE64 mode, 
+	providing open64() et al.
+
+ 	* libproc/common/Pcontrol.c (prdump): Cure aliasing violation.
+	(restore_tracing_flags): Drop unused variable.
+	(Pxcreate): Likewise. Use fork(), not fork1().
+	* libdtrace/dt_cc.c (dt_preproc): Likewise.
+	(dt_compile): Make sure rv is always initialized.
+	* libport/proc_name.c: Drop fork1().
+
+	* include/port.h: Fix lethal typo. Import many more declarations.
+
+	* libdtrace/dt_cc.c: Include <port.h>.
+	* libdtrace/dt_aggregate.c: Likewise.
+	* libdtrace/dt_consume.c: Likewise.
+	* libdtrace/dt_pid.c: Likewise.
+	* libdtrace/dt_printf.c: Likewise.
+	* libdtrace/dt_provider.c: Likewise.
+	* libdtrace/dt_work.c: Likewise.
+	* cmd/dtrace.c: Likewise.
+	* libproc/common/Psymtab.c: Likewise.
+	* libproc/common/Pzone.c: Likewise.
+	* libdtrace/dt_module.c: Likewise. Also use <string.h>, not the
+	obsolete <strings.h>. Drop some commented-out headers.
+	* libdtrace/dt_proc.c: Include <port.h> and <poll.h>.
+	* libdtrace/dt_subr.c: Include <port.h> and <sys/ioctl.h>.
+
+	* libdtrace/dt_open.c (dt_get_sysinfo): Remove.
+	(dt_vopen): Drop nonportable sysinfo(), use uname() instead.
+	* libproc/common/Psymtab.c (Pplatform): Likewise.
+	* include/sys/auxv.h: Drop nonportable sysinfo().
+	* include/sys/elf.h (NT_PLATFORM): Likewise.
+	* include/types_various.h: Likewise.
+
+	* common/dis/dis_tables.c (dtrace_disx86): Add explicit brackets.
+	* libdtrace/dt_aggregate.c (dtrace_aggregate_snap): Likewise.
+	* libdtrace/dt_aggregate.c (dt_aggregate_valcmp): Note possible
+	site of crash (not fixed).
+	* libdtrace/dt_options.c (dt_options_load): Likewise.
+
+	* include/sys/compiler.h (_dt_noreturn_): New.
+	* libdtrace/dt_parser.c (dnerror): Use it.
+	(xyerror): Likewise.
+	(yyerror): Likewise.
+	* libdtrace/dt_parser.h: Likewise.
+
+	* libdtrace/i386/dt_isadep.c: Include missing header.
+	* libdtrace/drti.c: Likewise.
+	(dtrace_dof_init): Cast pointer. Avoid possible uninitialized
+	variable use.
+	* libdtrace/dt_consume.c (dt_print_stack): Cast uint64_t
+	to 'unsigned long long' as its size can vary.
+	* libdtrace/dt_handle.c (dt_handle_cpudrop): Likewise.
+	(dt_handle_status): Likewise.
+	* libdtrace/dt_subr.c (dtrace_uaddr2str): Likewise.
+	* libdtrace/i386/dt_isadep.c (dt_pid_create_glob_offset_probes):
+	Cast value sprintf()ed with %x to 'int'.
+	* libproc/common/Psymtab.c (Pupdate_maps): 'inode' is an unsigned
+	type. fopen() returns NULL on failure, not a value < 0.
+
+	* libdtrace/dt_handle.c (dt_handle_liberr): Assign '0' to numeric
+	types, not NULL.
+	* libdtrace/dt_module.c (dt_module_unload): Likewise.
+	* libproc/common/Psymtab_machelf32.c (fake_elf64): Likewise.
+	Avoid uninitialized data accesses due to #if 0'ed branch.
+
+	* libproc/common/Psymtab.c (rd_loadobj_iter): Remove unused variable.
+	Note possible pointer size bug (not fixed).
+
+	* libport/time.c (gethrtime): Use new-style definition.
+
 2011-05-18  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/dt_proc.c: Remove dt_proc_bpcreate from Linux.

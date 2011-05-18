@@ -37,6 +37,7 @@
 #include <sys/mkdev.h>
 #include <sys/mman.h>
 #include <sys/mnttab.h>
+#include <port.h>
 
 #include <mutex.h>
 

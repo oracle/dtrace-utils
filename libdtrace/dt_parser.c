@@ -4761,7 +4761,7 @@ dt_node_root(dt_node_t *dnp)
 }
 
 /*PRINTFLIKE3*/
-_dt_printflike_(3,4)
+_dt_printflike_(3,4) _dt_noreturn_
 void
 dnerror(const dt_node_t *dnp, dt_errtag_t tag, const char *format, ...)
 {
@@ -4796,7 +4796,7 @@ dnwarn(const dt_node_t *dnp, dt_errtag_t tag, const char *format, ...)
 }
 
 /*PRINTFLIKE2*/
-_dt_printflike_(2,3)
+_dt_printflike_(2,3) _dt_noreturn_
 void
 xyerror(dt_errtag_t tag, const char *format, ...)
 {
@@ -4832,7 +4832,7 @@ xyvwarn(dt_errtag_t tag, const char *format, va_list ap)
 }
 
 /*PRINTFLIKE1*/
-_dt_printflike_(1,2)
+_dt_printflike_(1,2) _dt_noreturn_
 void
 yyerror(const char *format, ...)
 {

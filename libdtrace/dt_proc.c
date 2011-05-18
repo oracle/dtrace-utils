@@ -77,11 +77,12 @@
  */
 #include <sys/wait.h>
 #include <sys/ptrace.h>
-//#include <sys/lwp.h>
 #include <string.h>
 #include <signal.h>
 #include <assert.h>
 #include <errno.h>
+#include <port.h>
+#include <poll.h>
 
 #include <mutex.h>
 

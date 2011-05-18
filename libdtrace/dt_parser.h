@@ -261,18 +261,18 @@ typedef enum {
 	YYS_CONTROL	/* lex/yacc state for parsing control lines */
 } yystate_t;
 
-_dt_printflike_(3,4)
+_dt_printflike_(3,4) _dt_noreturn_
 extern void dnerror(const dt_node_t *, dt_errtag_t, const char *, ...);
 _dt_printflike_(3,4)
 extern void dnwarn(const dt_node_t *, dt_errtag_t, const char *, ...);
 
-_dt_printflike_(2,3)
+_dt_printflike_(2,3) _dt_noreturn_
 extern void xyerror(dt_errtag_t, const char *, ...);
 _dt_printflike_(2,3)
 extern void xywarn(dt_errtag_t, const char *, ...);
 extern void xyvwarn(dt_errtag_t, const char *, va_list);
 
-_dt_printflike_(1,2)
+_dt_printflike_(1,2) _dt_noreturn_
 extern void yyerror(const char *, ...);
 _dt_printflike_(1,2)
 extern void yywarn(const char *, ...);

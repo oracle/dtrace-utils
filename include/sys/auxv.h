@@ -126,8 +126,7 @@ typedef struct {
 #define	AT_SUN_LPAGESZ	2007	/* large pagesize */
 /*
  * The following aux vector provides a null-terminated platform
- * identification string. This information is the same as provided
- * by sysinfo(2) when invoked with the command SI_PLATFORM.
+ * identification string.
  */
 #define	AT_SUN_PLATFORM	2008	/* platform name */
 

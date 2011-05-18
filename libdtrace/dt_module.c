@@ -24,25 +24,21 @@
  */
 
 #include <sys/types.h>
-//#include <sys/modctl.h>
-//#include <sys/kobj.h>
-//#include <sys/kobj_impl.h>
 #include <elf.h>
-//#include <sys/task.h>
 
 #include <fcntl.h>
 
 #include <sys/stat.h>
 
 #include <unistd.h>
-//#include <project.h>
-#include <strings.h>
+#include <string.h>
 #include <stdlib.h>
 #include <libelf.h>
 #include <limits.h>
 #include <assert.h>
 #include <errno.h>
 #include <dirent.h>
+#include <port.h>
 
 #include <dt_strtab.h>
 #include <dt_module.h>
@@ -700,11 +696,11 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_asrsv = 0;
 	dmp->dm_aslen = 0;
 
-	dmp->dm_text_va = NULL;
+	dmp->dm_text_va = 0; /* = NULL */
 	dmp->dm_text_size = 0;
-	dmp->dm_data_va = NULL;
+	dmp->dm_data_va = 0; /* = NULL */
 	dmp->dm_data_size = 0;
-	dmp->dm_bss_va = NULL;
+	dmp->dm_bss_va = 0; /* = NULL */
 	dmp->dm_bss_size = 0;
 
 	if (dmp->dm_extern != NULL) {

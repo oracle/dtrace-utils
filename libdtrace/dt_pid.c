@@ -35,6 +35,7 @@
 #include <stddef.h>
 
 #include <mutex.h>
+#include <port.h>
 
 #include <dt_impl.h>
 #include <dt_program.h>

@@ -25,7 +25,7 @@
 
 #include <sys/types.h>
 //#include <sys/modctl.h>
-//#include <sys/systeminfo.h>
+#include <sys/utsname.h>
 #include <sys/resource.h>
 
 
@@ -767,21 +767,6 @@ dt_provmod_destroy(dt_provmod_t **provmod)
 	*provmod = NULL;
 }
 
-static const char *
-dt_get_sysinfo(int cmd, char *buf, size_t len)
-{
-	ssize_t rv = sysinfo(cmd, buf, len);
-	char *p = buf;
-
-	if (rv < 0 || rv > len)
-		(void) snprintf(buf, len, "%s", "Unknown");
-
-	while ((p = strchr(p, '.')) != NULL)
-		*p++ = '_';
-
-	return (buf);
-}
-
 static dtrace_hdl_t *
 dt_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
@@ -805,7 +790,6 @@ dt_vopen(int version, int flags, int *errp,
 	dt_fdlist_t df = { NULL, 0, 0 };
 
 	char isadef[32], utsdef[32];
-	char s1[64], s2[64];
 
 	if (version <= 0)
 		return (set_open_errno(dtp, errp, EINVAL));
@@ -949,8 +933,7 @@ alloc:
 	    (uint_t)(sizeof (void *) * NBBY));
 
 	(void) snprintf(utsdef, sizeof (utsdef), "-D__%s_%s",
-	    dt_get_sysinfo(SI_SYSNAME, s1, sizeof (s1)),
-	    dt_get_sysinfo(SI_RELEASE, s2, sizeof (s2)));
+	    dtp->dt_uts.sysname, dtp->dt_uts.version);
 
 	if (dt_cpp_add_arg(dtp, "-D__sun") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__unix") == NULL ||

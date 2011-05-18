@@ -41,7 +41,7 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-/*#include <sys/systeminfo.h>*/
+#include <port.h>
 
 #include <mutex.h>
 
@@ -441,40 +441,42 @@ void
 rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
-	char    buf[BUFSIZ];
-        FILE    *fp;
-        int     ret;
+	char	buf[BUFSIZ];
+	FILE	*fp;
+	int	ret;
 
-        (void)snprintf(mapfile, sizeof(mapfile), "/proc/%d/maps", (int)P->pid);
-        if ((fp = fopen(mapfile, "r")) == NULL) {
-                return;
-        }
+	(void)snprintf(mapfile, sizeof(mapfile), "/proc/%d/maps", (int)P->pid);
+	if ((fp = fopen(mapfile, "r")) == NULL) {
+		return;
+	}
 
-        while (fgets(buf, sizeof(buf), fp) != NULL) {
-                char    *addr_str;
-                long int addr;
-                char    *perms;
-                char    *lib;
-                uint_t  abort_iter;
-                rd_loadobj_t lobj;
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		char	*addr_str;
+		long int addr;
+		char	*perms;
+		char	*lib;
+		rd_loadobj_t lobj;
 
 		if (strstr(buf, ".so") == NULL)
-                        continue;
-                lib = strrchr(buf, ' ');
-                if (lib == NULL)
-                        continue;
-                lib++;
-                addr_str = strtok(buf, " ");
-                perms = strtok(NULL, " ");
-                if (strchr(perms, 'x') == NULL)
-                        continue;
+			continue;
+		lib = strrchr(buf, ' ');
+		if (lib == NULL)
+			continue;
+		lib++;
+		addr_str = strtok(buf, " ");
+		perms = strtok(NULL, " ");
+		if (strchr(perms, 'x') == NULL)
+			continue;
 
-                addr = strtol(addr_str, NULL, 16);
-                lobj.rl_base = addr;
-                lobj.rl_nameaddr = lib;
-                ret = cb(&lobj, P);
-        }
-        fclose(fp);
+		/* FIXME: lib is a char *. rl_nameaddr is an 'unsigned long'.
+		   These may be different sizes. */
+
+		addr = strtol(addr_str, NULL, 16);
+		lobj.rl_base = addr;
+		lobj.rl_nameaddr = lib;
+		ret = cb(&lobj, P);
+	}
+	fclose(fp);
 }
 
 
@@ -509,7 +511,7 @@ Pupdate_maps(struct ps_prochandle *P)
 	/*  The size of the file /proc/<pid>/maps is zero on Linux. */
 	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
-	if ((fp = fopen(mapfile, "r")) < 0) {
+	if ((fp = fopen(mapfile, "r")) != NULL) {
 		Preset_maps(P);
 		return;
 	}
@@ -535,7 +537,7 @@ Pupdate_maps(struct ps_prochandle *P)
                 char    majmin[128];
                 char    filename[BUFSIZ];
                 Pmap = realloc(Pmap, (i + 1) * sizeof(prmap_t));
-                sscanf(buf, "%lx-%lx %s %lx %s %ld %s",
+                sscanf(buf, "%lx-%lx %s %lx %s %lu %s",
                         &laddr, &haddr, perms, &offset, majmin, &inode, filename);
                 memset(&Pmap[i], 0, sizeof(prmap_t));
                 Pmap[i].pr_vaddr = laddr;
@@ -3067,6 +3069,8 @@ Psymbol_iter_by_name(struct ps_prochandle *P,
 char *
 Pplatform(struct ps_prochandle *P, char *s, size_t n)
 {
+	struct utsname u;
+
 	if (P->state == PS_IDLE) {
 		errno = ENODATA;
 		return (NULL);
@@ -3080,8 +3084,11 @@ Pplatform(struct ps_prochandle *P, char *s, size_t n)
 		(void) strncpy(s, P->core->core_platform, n - 1);
 		s[n - 1] = '\0';
 
-	} else if (sysinfo(SI_PLATFORM, s, n) == -1)
+	} else if (Puname(P, &u) == -1) {
 		return (NULL);
+	} else {
+		strlcpy (s, u.machine, n);
+	}
 
 	return (s);
 }

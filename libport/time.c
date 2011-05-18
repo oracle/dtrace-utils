@@ -5,7 +5,7 @@
 #include <procfs_service.h>
 
 hrtime_t
-gethrtime()
+gethrtime(void)
 {
         struct timespec sp;
         int ret;

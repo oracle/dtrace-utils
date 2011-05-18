@@ -28,6 +28,7 @@
 #include <sys/link.h>
 #include <sys/dtrace.h>
 #include <sys/compiler.h>
+#include <sys/ioctl.h>
 
 #include <gelf.h>
 
@@ -73,8 +74,8 @@ dtrace_dof_init(void)
 	Elf32_Ehdr *elf;
 #endif
 	dof_helper_t dh;
-	Link_map *lmp;
-	Lmid_t lmid;
+	Link_map *lmp = NULL;
+	Lmid_t lmid = -1;
 	int fd;
 	const char *p;
 
@@ -143,9 +144,9 @@ dtrace_dof_init(void)
 	}
 
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
-		dprintf(1, "DTrace ioctl failed for DOF at %p", dof);
+		dprintf(1, "DTrace ioctl failed for DOF at %p", (void *) dof);
 	else
-		dprintf(1, "DTrace ioctl succeeded for DOF at %p\n", dof);
+		dprintf(1, "DTrace ioctl succeeded for DOF at %p\n", (void *) dof);
 
 	(void) close(fd);
 }

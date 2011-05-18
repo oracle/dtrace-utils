@@ -253,8 +253,9 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 	uint_t i;
 	Off off;
 	size_t pltsz = 0, pltentries = 0;
-	uintptr_t hptr = NULL;
-	Word hnchains, hnbuckets;
+	uintptr_t hptr = 0; /* = NULL */
+	Word hnchains = 0;
+	Word hnbuckets = 0;
 
 	if (ehdr->e_type == ET_DYN)
 		phdr->p_vaddr += addr;
@@ -262,8 +263,8 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 	if (P->rap != NULL) {
 #if 0
 		if (rd_get_dyns(P->rap, addr, (void **)&dp, NULL) != RD_OK)
-			goto bad;
 #endif
+			goto bad;
 	} else {
 		if ((dp = malloc(phdr->p_filesz)) == NULL)
 			goto bad;

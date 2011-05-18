@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <port.h>
 
 #include <dt_printf.h>
 #include <dt_string.h>

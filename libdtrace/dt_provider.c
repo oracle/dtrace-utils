@@ -36,6 +36,7 @@
 #include <alloca.h>
 #include <unistd.h>
 #include <errno.h>
+#include <port.h>
 
 #include <dt_provider.h>
 #include <dt_module.h>

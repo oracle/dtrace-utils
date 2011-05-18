@@ -37,6 +37,7 @@
 
 #include <libproc.h>
 #include <sys/procfs.h>
+#include <port.h>
 
 #define	DTRACE_AHASHSIZE	32779		/* big 'ol prime */
 
@@ -639,7 +640,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		return (0);
 
 	for (i = 0; i < agp->dtat_ncpus; i++) {
-		if (rval = dt_aggregate_snap_cpu(dtp, agp->dtat_cpus[i]))
+		if ((rval = dt_aggregate_snap_cpu(dtp, agp->dtat_cpus[i])) != 0)
 			return (rval);
 	}
 
@@ -814,6 +815,8 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 
 	if (lagg->dtagd_nrecs < ragg->dtagd_nrecs)
 		return (DT_LESSTHAN);
+
+	/* FIXME: what if lagg->dtagd_nrecs == 0? */
 
 	for (i = 0; i < lagg->dtagd_nrecs; i++) {
 		lrec = &lagg->dtagd_rec[i];

@@ -35,7 +35,7 @@ typedef struct {
 #define	NT_PRFPREG	2	/* prfpregset_t	<sys/old_procfs.h>	*/
 #define	NT_PRPSINFO	3	/* prpsinfo_t	<sys/old_procfs.h>	*/
 #define	NT_PRXREG	4	/* prxregset_t	<sys/procfs.h>		*/
-#define	NT_PLATFORM	5	/* string from sysinfo(SI_PLATFORM)	*/
+#define	NT_PLATFORM	5	/* string from auxv AT_PLATFORM		*/
 #define	NT_AUXV		6	/* auxv_t array	<sys/auxv.h>		*/
 #define	NT_GWINDOWS	7	/* gwindows_t	SPARC only		*/
 #define	NT_ASRS		8	/* asrset_t	SPARC V9 only		*/

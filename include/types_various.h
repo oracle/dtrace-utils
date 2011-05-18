@@ -152,44 +152,6 @@ typedef	long		blksize_t;	/* used for block sizes */
 #define MC_HAT_ADVISE   7 
 
 
-
-/*
- * Commands to sysinfo(2)
- *
- * Values for sysinfo(2) commands are to be assigned by the following
- * algorithm:
- *
- *    1 -  256  Unix International assigned numbers for `get' style commands.
- *  257 -  512  Unix International assigned numbers for `set' style commands
- *              where the value is selected to be the value for the
- *              corresponding `get' command plus 256.
- *  513 -  768  Solaris specific `get' style commands.
- *  769 - 1024  Solaris specific `set' style commands where the value is
- *              selected to be the value for the corresponding `get' command
- *              plus 256.
- *
- * These values have be registered
- * with Unix International can't be corrected now.  The status of a command
- * as published or unpublished does not alter the algorithm.
- */
-
-/* UI defined `get' commands (1-256) */
-#define SI_SYSNAME              1       /* return name of operating system */
-#define SI_HOSTNAME             2       /* return name of node */
-#define SI_RELEASE              3       /* return release of operating system */
-#define SI_VERSION              4       /* return version field of utsname */
-#define SI_MACHINE              5       /* return kind of machine */
-#define SI_ARCHITECTURE         6       /* return instruction set arch */
-#define SI_HW_SERIAL            7       /* return hardware serial number */
-#define SI_HW_PROVIDER          8       /* return hardware manufacturer */
-#define SI_SRPC_DOMAIN          9       /* return secure RPC domain */
-
-/* Solaris defined `get' commands (513-768) */
-#define	SI_PLATFORM		513	/* return platform identifier */
-#define	SI_ISALIST		514	/* return supported isa list */
-
-
-
 /*
  *      Definitions for commonly used resolutions.
  */

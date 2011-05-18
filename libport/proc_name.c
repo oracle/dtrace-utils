@@ -16,9 +16,3 @@ sig2str(int sig, char *buf)
         strcpy(buf, strsignal(sig));
         return 1;
 }
-
-pid_t
-fork1 ()
-{
-  return fork();
-}

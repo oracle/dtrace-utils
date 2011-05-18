@@ -98,6 +98,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <port.h>
 #include <dt_module.h>
 #include <dt_program.h>
 #include <dt_provider.h>
@@ -1666,7 +1667,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	act.sa_handler = SIG_DFL;
 	(void) sigaction(SIGCHLD, &act, &oact);
 
-	if ((pid = fork1()) == -1) {
+	if ((pid = fork()) == -1) {
 		(void) sigaction(SIGCHLD, &oact, NULL);
 		(void) sigprocmask(SIG_SETMASK, &omask, NULL);
 		(void) dt_set_errno(dtp, EDT_CPPFORK);
@@ -2061,7 +2062,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	dt_node_t *dnp;
 	dt_decl_t *ddp;
 	dt_pcb_t pcb;
-	void *rv;
+	void *rv = NULL;
 	int err;
 
 	if ((fp == NULL && s == NULL) || (cflags & ~DTRACE_C_MASK) != 0) {

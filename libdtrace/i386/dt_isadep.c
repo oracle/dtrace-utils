@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <string.h>
 #include <libgen.h>
+#include <sys/ioctl.h>
 
 #include <dt_impl.h>
 #include <dt_pid.h>
@@ -392,7 +393,7 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		char name[sizeof (i) * 2 + 1];
 
 		for (i = 0; i < end; i += size) {
-			(void) snprintf(name, sizeof (name), "%x", i);
+			(void) snprintf(name, sizeof (name), "%x", (int) i);
 			if (gmatch(name, pattern))
 				ftp->ftps_offs[ftp->ftps_noffs++] = i;
 

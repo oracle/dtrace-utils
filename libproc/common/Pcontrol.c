@@ -192,7 +192,6 @@ Pxcreate(
 	char *fname;
 	int rc;
 	int status;
-	int lasterrno = 0;
 
 	if (len == 0)	/* zero length, no path */
 		path = NULL;
@@ -204,7 +203,7 @@ Pxcreate(
 		return (NULL);
 	}
 
-	if ((pid = fork1()) == -1) {
+	if ((pid = fork()) == -1) {
 		free(P);
 		*perr = C_FORK;
 		return (NULL);
@@ -767,8 +766,6 @@ static void
 restore_tracing_flags(struct ps_prochandle *P)
 {
 	long flags;
-	long cmd[4];
-	iovec_t iov[4];
 
 	if (P->flags & CREATED) {
 		/* we created this process; clear all tracing flags */
@@ -877,7 +874,7 @@ prdump(struct ps_prochandle *P)
 #if 0
 	prldump("Pstopstatus", &P->status.pr_lwp);
 #endif
-	bits = *((uint32_t *)&P->status.pr_sigpend);
+	memcpy (&bits, &P->status.pr_sigpend, sizeof (uint32_t));
 	if (bits)
 		_dprintf("Pstopstatus: pr_sigpend = 0x%.8X\n", bits);
 }

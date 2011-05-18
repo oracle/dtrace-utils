@@ -811,6 +811,8 @@ dt_options_load(dtrace_hdl_t *dtp)
 	if (dt_ioctl(dtp, DTRACEIOC_DOFGET, dof) == -1)
 		return (dt_set_errno(dtp, errno));
 
+	/* FIXME: can we get a zero-section DOF back? */
+
 	for (i = 0; i < dof->dofh_secnum; i++) {
 		sec = (dof_sec_t *)(uintptr_t)((uintptr_t)dof +
 		    dof->dofh_secoff + i * dof->dofh_secsize);

@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <time.h>
+#include <port.h>
 
 static const struct {
 	int dtslt_option;
