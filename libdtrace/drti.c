@@ -56,7 +56,6 @@
  */
 
 static const char *devname = "/dev/dtrace/helper";
-static const char *olddevname = "/devices/pseudo/dtrace@0:helper";
 
 static const char *modname;	/* Name of this load object */
 static int gen;			/* DOF helper generation */
@@ -127,20 +126,7 @@ dtrace_dof_init(void)
 
 	if ((fd = open64(devname, O_RDWR)) < 0) {
 		dprintf(1, "failed to open helper device %s", devname);
-
-		/*
-		 * If the device path wasn't explicitly set, try again with
-		 * the old device path.
-		 */
-		if (p != NULL)
-			return;
-
-		devname = olddevname;
-
-		if ((fd = open64(devname, O_RDWR)) < 0) {
-			dprintf(1, "failed to open helper device %s", devname);
-			return;
-		}
+		return;
 	}
 
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)

@@ -1,3 +1,8 @@
+2011-05-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/drti.c: Remove needless back-compatibility.
+	* libdtrace/drti.c (dtrace_dof_init): Likewise.
+
 2011-05-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* makefile: Turn on warnings. Move to LARGEFILE64 mode, 
