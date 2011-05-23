@@ -1,5 +1,17 @@
 2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
 
+	* runtest.sh: Support regression tests via multiple dtrace build
+	directories. Use case rather than if/elif tree, and echo rather
+	than if. Post-process regtest output to conceal variable pointer
+	addresses.
+
+	* libdtrace/dt_dis.c (dt_dis): Print pointers via %p, not 0x%p:
+	%p under glibc, as on most systems, already includes an 0x.
+
+	* .gitignore: New.
+
+2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/dt_open.c (_dtrace_libdir): Use #define to decide value.
 	* libdtrace/makefile (CPPFLAGS): Set it.
 
@@ -21,7 +33,7 @@
 
 2011-05-18  Nick Alcock  <nick.alcock@oracle.com>
 
-	* makefile: Turn on warnings. Move to LARGEFILE64 mode, 
+	* makefile: Turn on warnings. Move to LARGEFILE64 mode,
 	providing open64() et al.
 
  	* libproc/common/Pcontrol.c (prdump): Cure aliasing violation.
