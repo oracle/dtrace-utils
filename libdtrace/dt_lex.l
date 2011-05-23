@@ -83,6 +83,7 @@ static void unput(int);*/
 %e 1500		/* maximum nodes */
 %p 3700		/* maximum positions */
 %n 600		/* maximum states */
+%option yylineno
 
 %s S0 S1 S2 S3 S4
 
@@ -94,8 +95,8 @@ RGX_FP		([0-9]+("."?)[0-9]*|"."[0-9]+)((e|E)("+"|-)?[0-9]+)?[fFlL]?
 RGX_WS		[\f\n\r\t\v ]
 RGX_STR		([^"\\\n]|\\[^"\n]|\\\")*
 RGX_CHR		([^'\\\n]|\\[^'\n]|\\')*
-RGX_INTERP	^[\f\t\v ]*#!.*
-RGX_CTL		^[\f\t\v ]*#
+RGX_INTERP	[\f\t\v ]*#!.*
+RGX_CTL		[\f\t\v ]*#
 
 %%
 
@@ -381,8 +382,8 @@ if (yypcb->pcb_token != 0) {
 
 <S0>{RGX_FP}	yyerror("floating-point constants are not permitted\n");
 
-<S0>\"{RGX_STR}$ |
-<S3>\"{RGX_STR}$ xyerror(D_STR_NL, "newline encountered in string literal");
+<S0>\"{RGX_STR}\n xyerror(D_STR_NL, "newline encountered in string literal");
+<S3>\"{RGX_STR}\n xyerror(D_STR_NL, "newline encountered in string literal");
 
 <S0>\"{RGX_STR}\" |
 <S3>\"{RGX_STR}\" {
@@ -403,7 +404,7 @@ if (yypcb->pcb_token != 0) {
 			    dt_node_string(yylval.l_str));
 		}
 
-<S0>'{RGX_CHR}$	xyerror(D_CHR_NL, "newline encountered in character constant");
+<S0>'{RGX_CHR}\n	xyerror(D_CHR_NL, "newline encountered in character constant");
 
 <S0>'{RGX_CHR}'	{
 			char *s, *p, *q;
@@ -445,12 +446,12 @@ if (yypcb->pcb_token != 0) {
 			BEGIN(S1);
 		}
 
-<S0>{RGX_INTERP} |
-<S2>{RGX_INTERP} ;	/* discard any #! lines */
+<S0>^{RGX_INTERP} |
+<S2>^{RGX_INTERP} ;	/* discard any #! lines */
 
-<S0>{RGX_CTL}	|
-<S2>{RGX_CTL}	|
-<S4>{RGX_CTL}	{
+<S0>^{RGX_CTL}	|
+<S2>^{RGX_CTL}	|
+<S4>^{RGX_CTL}	{
 			assert(yypragma == NULL);
 			yypcb->pcb_cstate = (YYSTATE);
 			BEGIN(S3);

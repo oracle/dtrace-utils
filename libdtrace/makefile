@@ -103,7 +103,7 @@ $(LIB)(dt_lex.o): $(BINDIR)/dt_grammar.h $(BINDIR)/dt_lex.c $(H)
 	 ar rv $(LIB) dt_lex.o
 	 -rm -f dt_lex.o
 $(BINDIR)/dt_lex.c: dt_lex.l
-	lex -l -t -v dt_lex.l > $(BINDIR)/dt_lex.c
+	flex -v -o $(BINDIR)/dt_lex.c dt_lex.l
 
 $(LIB)(dis_tables.o): ../common/dis/dis_tables.c $(H)
 	$(CC) $(CPPFLAGS) -Ii386 -I../common/dis/ -c ../common/dis/dis_tables.c

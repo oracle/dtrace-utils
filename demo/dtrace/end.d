@@ -1,3 +1,4 @@
+#!/usr/bin/dtrace
 /*
  * CDDL HEADER START
  *

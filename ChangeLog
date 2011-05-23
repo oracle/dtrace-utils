@@ -1,5 +1,23 @@
 2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libdtrace/dt_grammar.y (%): Prototype yylex().
+	* libdtrace/dt_impl.h (yytext): Make it a pointer, to allow flex
+	to parse tokens of unbounded length efficiently.
+	* libdtrace/makefile (dt_lex.c): No longer run flex in traditional
+	mode. Use -o rather than redirecting output.
+	* libdtrace/dt_lex.l: Turn on automatic yylineno updating.
+	Push the ^ in RGX_INTERP and RGX_CTL into the rules where they are
+	expanded, as POSIX mode wraps all variable expansions in (), and ^
+	is not meaningful inside ().
+	Fix dangerous trailing context: this has no meaningful
+	semantics and is undefined per POSIX.
+
+	* demo/dtrace/end.d: Test skipping of interpreter lines. (This
+	is the only rule modified above which does not yield an error
+	if matched.)
+
+2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
+
 	* runtest.sh: Support regression tests via multiple dtrace build
 	directories. Use case rather than if/elif tree, and echo rather
 	than if. Post-process regtest output to conceal variable pointer
