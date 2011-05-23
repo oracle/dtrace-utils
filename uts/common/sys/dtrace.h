@@ -1178,30 +1178,7 @@ typedef struct dtrace_providerdesc {
 	dtrace_ppriv_t dtvd_priv;		/* privileges required */
 } dtrace_providerdesc_t;
 
-/*
- * DTrace Pseudodevice Interface
- *
- * DTrace is controlled through ioctl(2)'s to the in-kernel dtrace:dtrace
- * pseudodevice driver.  These ioctls comprise the user-kernel interface to
- * DTrace.
- */
-#define	DTRACEIOC		(('d' << 24) | ('t' << 16) | ('r' << 8))
-#define	DTRACEIOC_PROVIDER	(DTRACEIOC | 1)		/* provider query */
-#define	DTRACEIOC_PROBES	(DTRACEIOC | 2)		/* probe query */
-#define	DTRACEIOC_BUFSNAP	(DTRACEIOC | 4)		/* snapshot buffer */
-#define	DTRACEIOC_PROBEMATCH	(DTRACEIOC | 5)		/* match probes */
-#define	DTRACEIOC_ENABLE	(DTRACEIOC | 6)		/* enable probes */
-#define	DTRACEIOC_AGGSNAP	(DTRACEIOC | 7)		/* snapshot agg. */
-#define	DTRACEIOC_EPROBE	(DTRACEIOC | 8)		/* get eprobe desc. */
-#define	DTRACEIOC_PROBEARG	(DTRACEIOC | 9)		/* get probe arg */
-#define	DTRACEIOC_CONF		(DTRACEIOC | 10)	/* get config. */
-#define	DTRACEIOC_STATUS	(DTRACEIOC | 11)	/* get status */
-#define	DTRACEIOC_GO		(DTRACEIOC | 12)	/* start tracing */
-#define	DTRACEIOC_STOP		(DTRACEIOC | 13)	/* stop tracing */
-#define	DTRACEIOC_AGGDESC	(DTRACEIOC | 15)	/* get agg. desc. */
-#define	DTRACEIOC_FORMAT	(DTRACEIOC | 16)	/* get format str */
-#define	DTRACEIOC_DOFGET	(DTRACEIOC | 17)	/* get DOF */
-#define	DTRACEIOC_REPLICATE	(DTRACEIOC | 18)	/* replicate enab */
+#include "dtrace_ioctl.h"
 
 /*
  * DTrace Helpers
@@ -1277,10 +1254,6 @@ typedef struct dtrace_providerdesc {
  * helpers and should no longer be used.  No other ioctls are valid on the
  * helper minor node.
  */
-#define	DTRACEHIOC		(('d' << 24) | ('t' << 16) | ('h' << 8))
-#define	DTRACEHIOC_ADD		(DTRACEHIOC | 1)	/* add helper */
-#define	DTRACEHIOC_REMOVE	(DTRACEHIOC | 2)	/* remove helper */
-#define	DTRACEHIOC_ADDDOF	(DTRACEHIOC | 3)	/* add helper DOF */
 
 typedef struct dof_helper {
 	char dofhp_mod[DTRACE_MODNAMELEN];	/* executable or library name */

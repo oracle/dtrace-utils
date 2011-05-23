@@ -1,3 +1,10 @@
+2011-05-23  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* uts/common/sys/dtrace_ioctl.h: New file - needed for correct
+	ioctl IDs.
+	* uts/common/sys/dtrace.h: Removed ioctl IDs, replaced with an
+	include of dtrace_ioctl.h.
+
 2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_grammar.y (%): Prototype yylex().
