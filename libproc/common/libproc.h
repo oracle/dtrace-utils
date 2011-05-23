@@ -243,21 +243,6 @@ extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
 extern	int	Pisprocdir(struct ps_prochandle *, const char *);
 
 /*
- * Process iteration interface; iterate over all non-system processes.
- */
-typedef int proc_walk_f(psinfo_t *, lwpsinfo_t *, void *);
-extern int proc_walk(proc_walk_f *, void *, int);
-
-#define	PR_WALK_PROC	0		/* walk processes only */
-#define	PR_WALK_LWP	1		/* walk all lwps */
-
-/*
- * Determine if an lwp is in a set as returned from proc_arg_xgrab().
- */
-extern int proc_lwp_in_set(const char *, lwpid_t);
-extern int proc_lwp_range_valid(const char *);
-
-/*
  * Symbol table interfaces.
  */
 
@@ -433,14 +418,6 @@ extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
 extern int Pissyscall_prev(struct ps_prochandle *, uintptr_t, uintptr_t *);
 
 /*
- * Stack frame iteration interface.
- */
-typedef int proc_stack_f(void *, prgregset_t, uint_t, const long *);
-
-extern int Pstack_iter(struct ps_prochandle *,
-    const prgregset_t, proc_stack_f *, void *);
-
-/*
  * The following functions define a set of passive interfaces: libproc provides
  * default, empty definitions that are called internally.  If a client wishes
  * to override these definitions, it can simply provide its own version with
@@ -454,100 +431,9 @@ _dt_printflike_(2,3)
 extern void Perror_printf(struct ps_prochandle *P _dt_unused_,
 			  const char *format _dt_unused_, ...);
 
-/*
- * Remove unprintable characters from psinfo.pr_psargs and replace with
- * whitespace characters so it is safe for printing.
- */
-extern void proc_unctrl_psinfo(psinfo_t *);
-
-/*
- * Utility functions for processing arguments which should be /proc files,
- * pids, and/or core files.  The returned error code can be passed to
- * Pgrab_error() in order to convert it to an error string.
- */
-#define	PR_ARG_PIDS	0x1	/* Allow pid and /proc file arguments */
-#define	PR_ARG_CORES	0x2	/* Allow core file arguments */
-
-#define	PR_ARG_ANY	(PR_ARG_PIDS | PR_ARG_CORES)
-
-extern struct ps_prochandle *proc_arg_grab(const char *, int, int, int *);
-extern struct ps_prochandle *proc_arg_xgrab(const char *, const char *, int,
-    int, int *, const char **);
-extern pid_t proc_arg_psinfo(const char *, int, psinfo_t *, int *);
-extern pid_t proc_arg_xpsinfo(const char *, int, psinfo_t *, int *,
-    const char **);
-
-/*
- * Utility functions for obtaining information via /proc without actually
- * performing a Pcreate() or Pgrab():
- */
-extern int proc_get_auxv(pid_t, auxv_t *, int);
-extern int proc_get_cred(pid_t, prcred_t *, int);
-extern prpriv_t *proc_get_priv(pid_t);
-extern int proc_get_psinfo(pid_t, psinfo_t *);
-extern int proc_get_status(pid_t, pstatus_t *);
-
-/*
- * Utility functions for debugging tools to convert numeric fault,
- * signal, and system call numbers to symbolic names:
- */
-#define	FLT2STR_MAX 32	/* max. string length of faults (like SIG2STR_MAX) */
-#define	SYS2STR_MAX 32	/* max. string length of syscalls (like SIG2STR_MAX) */
-
-extern char *proc_fltname(int, char *, size_t);
-extern char *proc_signame(int, char *, size_t);
-extern char *proc_sysname(int, char *, size_t);
-
-/*
- * Utility functions for debugging tools to convert fault, signal, and system
- * call names back to the numeric constants:
- */
-extern int proc_str2flt(const char *, int *);
-extern int proc_str2sig(const char *, int *);
-extern int proc_str2sys(const char *, int *);
-
-/*
- * Utility functions for debugging tools to convert a fault, signal or system
- * call set to a string representation (e.g. "BUS,SEGV" or "open,close,read").
- */
-#define	PRSIGBUFSZ	1024	/* buffer size for proc_sigset2str() */
-
-extern char *proc_fltset2str(const fltset_t *, const char *, int,
-    char *, size_t);
-extern char *proc_sigset2str(const sigset_t *, const char *, int,
-    char *, size_t);
-extern char *proc_sysset2str(const sysset_t *, const char *, int,
-    char *, size_t);
-
 extern int Pgcore(struct ps_prochandle *, const char *, core_content_t);
 extern int Pfgcore(struct ps_prochandle *, int, core_content_t);
 extern core_content_t Pcontent(struct ps_prochandle *);
-
-/*
- * Utility functions for debugging tools to convert a string representation of
- * a fault, signal or system call set back to the numeric value of the
- * corresponding set type.
- */
-extern char *proc_str2fltset(const char *, const char *, int, fltset_t *);
-extern char *proc_str2sigset(const char *, const char *, int, sigset_t *);
-extern char *proc_str2sysset(const char *, const char *, int, sysset_t *);
-
-/*
- * Utility functions for converting between strings and core_content_t.
- */
-#define	PRCONTENTBUFSZ	80	/* buffer size for proc_content2str() */
-
-extern int proc_str2content(const char *, core_content_t *);
-extern int proc_content2str(core_content_t, char *, size_t);
-
-/*
- * Utility functions for buffering output to stdout, stderr while
- * process is grabbed.  Prevents deadlocks due to pfiles `pgrep xterm`
- * and other varients.
- */
-extern int proc_initstdio(void);
-extern int proc_flushstdio(void);
-extern int proc_finistdio(void);
 
 #ifdef	__cplusplus
 }
