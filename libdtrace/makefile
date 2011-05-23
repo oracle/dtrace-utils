@@ -9,14 +9,14 @@ CPPFLAGS += -I. \
 	-I../uts/intel \
 	-I$(BINDIR) \
 	-DCTF_OLD_VERSIONS $(DTO)
-CPPFLAGS += -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE
 
 LIB = ../$(BUILD_DIR)/libdtrace.a
+DRTI_OBJ = ../$(BUILD_DIR)/drti.o
 DLIBDIR = /usr/lib/dtrace
 
+CPPFLAGS += -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -D_LONGLONG_TYPE -DDTRACE_LIBDIR="\"$(DLIBDIR)\""
 
 $(LIB): \
-	$(LIB)(drti.o) \
 	$(LIB)(dt_lex.o) \
 	$(LIB)(dt_aggregate.o) \
 	$(LIB)(dt_as.o) \
@@ -105,7 +105,6 @@ $(LIB)(dt_lex.o): $(BINDIR)/dt_grammar.h $(BINDIR)/dt_lex.c $(H)
 $(BINDIR)/dt_lex.c: dt_lex.l
 	lex -l -t -v dt_lex.l > $(BINDIR)/dt_lex.c
 
-
 $(LIB)(dis_tables.o): ../common/dis/dis_tables.c $(H)
 	$(CC) $(CPPFLAGS) -Ii386 -I../common/dis/ -c ../common/dis/dis_tables.c
 	ar rv $(LIB) dis_tables.o
@@ -129,6 +128,9 @@ $(LIB)(dt_module.o): dt_module.c $(H)
 	-c dt_module.c
 	ar rv $(LIB) dt_module.o
 	-rm -f dt_module.o
+
+$(DRTI_OBJ): drti.o
+	cp $< $@
 
 dt_errtags.c: dt_errtags.h mkerrtags.sh
 	sh mkerrtags.sh <dt_errtags.h | sed -e 's/\\n/\n/g' > dt_errtags.c
@@ -174,14 +176,13 @@ clean:
 uninstall:
 	-rm -rf $(DLIBDIR)
 
-all: $(LIB) $(DLIBSRCS)
+all: $(LIB) $(DLIBSRCS) $(DRTI_OBJ)
 	@/bin/true
 
 install:
-	if [ ! -d $(DLIBDIR) ] ; then \
-		mkdir $(DLIBDIR) ; \
-	fi
-	install -m 755 -o root errno.d regs.d signal.d \
-	unistd.d $(DLIBDIR)
+	mkdir -p $(DLIBDIR)
+	install -m 644 -o root -g root drti.o $(DLIBDIR)
+	install -m 644 -o root -g root errno.d regs.d signal.d unistd.d \
+		drti-vers $(DLIBDIR)
 
 

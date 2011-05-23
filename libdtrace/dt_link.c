@@ -1469,7 +1469,7 @@ int
 dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
     const char *file, int objc, char *const objv[])
 {
-	char drti[PATH_MAX];
+	char drti[PATH_MAX], symvers[PATH_MAX];
 	dof_hdr_t *dof;
 	int fd, status, i, cur;
 	char *cmd, tmp;
@@ -1589,22 +1589,23 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	}
 
 	if (!dtp->dt_lazyload) {
-		const char *fmt = "%s -o %s -r -Blocal -Breduce /dev/fd/%d %s";
+		const char *fmt = "%s -o %s -r --version-script=%s /dev/fd/%d %s";
 
-		if (dtp->dt_oflags & DTRACE_O_LP64) {
-			(void) snprintf(drti, sizeof (drti),
-			    "%s/64/drti.o", _dtrace_libdir);
-		} else {
-			(void) snprintf(drti, sizeof (drti),
-			    "%s/drti.o", _dtrace_libdir);
-		}
+		/*
+		 * FIXME: if 32/64-bit dual dtrace is ever revived, we will need
+		 * to identify the distinct libdirs properly.
+		 */
 
-		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file, fd,
+		snprintf(drti, sizeof (drti), "%s/drti.o", _dtrace_libdir);
+		snprintf(symvers, sizeof (symvers), "%s/drti-vers", _dtrace_libdir);
+
+		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file, symvers, fd,
 		    drti) + 1;
 
 		cmd = alloca(len);
 
-		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, file, fd, drti);
+		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, file, symvers, fd,
+		    drti);
 
 		if ((status = system(cmd)) == -1) {
 			ret = dt_link_error(dtp, NULL, -1, NULL,
@@ -1613,7 +1614,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 			goto done;
 		}
 
-		(void) close(fd); /* release temporary file */
+		(void) close(fd);
 
 		if (WIFSIGNALED(status)) {
 			ret = dt_link_error(dtp, NULL, -1, NULL,
@@ -1629,7 +1630,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 			goto done;
 		}
 	} else {
-		(void) close(fd);
+		(void) close(fd); /* release temporary file */
 	}
 
 done:

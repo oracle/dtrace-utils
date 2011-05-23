@@ -1,3 +1,19 @@
+2011-05-23  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_open.c (_dtrace_libdir): Use #define to decide value.
+	* libdtrace/makefile (CPPFLAGS): Set it.
+
+	* libdtrace/makefile (LIB): drti.o is not part of libdtrace.a...
+	* libdtrace/makefile (DRTI_OBJ): ... but is independent, and goes
+	in the build dir, like the library.
+	* libdtrace/makefile (all): Build it.
+	* libdtrace/drti-vers: New version script, for use by `dtrace -G'.
+	* libdtrace/makefile (install): Install it. Use mkdir -p.
+
+	* libdtrace/dt_link.c (dtrace_program_link): Link using drti-vers
+	as a version script to enforce locality. Don't use the 64/
+	subdirectory.
+
 2011-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/drti.c: Remove needless back-compatibility.
