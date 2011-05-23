@@ -9,8 +9,6 @@
 extern size_t strlcpy(char *, const char *, size_t);
 extern size_t strlcat(char *, const char *, size_t);
 
-extern int sig2str(int, char *);
-
 extern int gmatch(const char *s, const char *p);
 
 taskid_t gettaskid(void);

@@ -8,7 +8,6 @@ all: $(LIB)
 $(LIB): \
 	$(LIB)(tasksys.o) \
 	$(LIB)(gmatch.o) \
-	$(LIB)(proc_name.o) \
 	$(LIB)(strlcat.o) \
 	$(LIB)(strlcpy.o) \
 	$(LIB)(p_online.o) \
