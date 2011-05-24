@@ -99,7 +99,7 @@ $(BINDIR)/dt_grammar.h $(LIB)(dt_grammar.o): dt_grammar.y $(H)
 	-rm -f dt_grammar.c dt_grammar.o
 
 $(LIB)(dt_lex.o): $(BINDIR)/dt_grammar.h $(BINDIR)/dt_lex.c $(H)
-	 $(CC) $(CPPFLAGS) -c $(BINDIR)/dt_lex.c
+	 $(CC) $(CPPFLAGS) -DYYDEBUG=1 -c $(BINDIR)/dt_lex.c
 	 ar rv $(LIB) dt_lex.o
 	 -rm -f dt_lex.o
 $(BINDIR)/dt_lex.c: dt_lex.l

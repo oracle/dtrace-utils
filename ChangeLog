@@ -1,3 +1,7 @@
+2011-05-24  Nick Alcock    <nick.alcock@oracle.com>
+
+	* libdtrace/makefile (dt_lex.o): Pass -DYYDEBUG=1.
+
 2011-05-23  Kris Van Hees  <kris.van.hees@oracle.com>
 
 	* uts/common/sys/dtrace_ioctl.h: New file - needed for correct
