@@ -70,53 +70,6 @@ list_unlink(void *old)
 }
 
 /*
- * Routines to manipulate sigset_t, fltset_t, or sysset_t.  These routines
- * are provided as equivalents for the <sys/procfs.h> macros prfillset,
- * premptyset, praddset, and prdelset.  These functions are preferable
- * because they are not macros which rely on using sizeof (*sp), and thus
- * can be used to create common code to manipulate event sets.  The set
- * size must be passed explicitly, e.g. : prset_fill(&set, sizeof (set));
- */
-void
-prset_fill(void *sp, size_t size)
-{
-	size_t i = size / sizeof (uint32_t);
-
-	while (i != 0)
-		((uint32_t *)sp)[--i] = (uint32_t)0xFFFFFFFF;
-}
-
-void
-prset_empty(void *sp, size_t size)
-{
-	size_t i = size / sizeof (uint32_t);
-
-	while (i != 0)
-		((uint32_t *)sp)[--i] = (uint32_t)0;
-}
-
-void
-prset_add(void *sp, size_t size, uint_t flag)
-{
-	if (flag - 1 < 32 * size / sizeof (uint32_t))
-		((uint32_t *)sp)[(flag - 1) / 32] |= 1U << ((flag - 1) % 32);
-}
-
-void
-prset_del(void *sp, size_t size, uint_t flag)
-{
-	if (flag - 1 < 32 * size / sizeof (uint32_t))
-		((uint32_t *)sp)[(flag - 1) / 32] &= ~(1U << ((flag - 1) % 32));
-}
-
-int
-prset_ismember(void *sp, size_t size, uint_t flag)
-{
-	return ((flag - 1 < 32 * size / sizeof (uint32_t)) &&
-	    (((uint32_t *)sp)[(flag - 1) / 32] & (1U << ((flag - 1) % 32))));
-}
-
-/*
  * If _libproc_debug is set, printf the debug message to stderr
  * with an appropriate prefix.
  */

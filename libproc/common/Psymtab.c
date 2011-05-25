@@ -1754,16 +1754,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	if (P->state == PS_DEAD || P->state == PS_IDLE) {
 		char *name;
 		/*
-		 * If we're a not live, we can't open files from the /proc
+		 * If we're not live, we can't open files from the /proc
 		 * object directory; we have only the mapping and file names
 		 * to guide us.  We prefer the file_lname, but need to handle
 		 * the case of it being NULL in order to bootstrap: we first
 		 * come here during rd_new() when the only information we have
 		 * is interpreter name associated with the AT_BASE mapping.
-		 *
-		 * Also, if the zone associated with the core file seems
-		 * to exists on this machine we'll try to open the object
-		 * file within the zone.
 		 */
 		if (fptr->file_rname != NULL)
 			name = fptr->file_rname;
@@ -1773,14 +1769,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			name = fptr->file_pname;
 		(void) strlcpy(objectfile, name, sizeof (objectfile));
 	} else {
-#if defined (sun)
-		(void) snprintf(objectfile, sizeof (objectfile),
-		    "%s/%d/object/%s",
-		    procfs_path, (int)P->pid, fptr->file_pname);
-#else
 		(void) snprintf(objectfile, sizeof (objectfile),
 		    "%s/%d/exe", procfs_path, (int)P->pid);
-#endif
 	}
 
 	/*
@@ -2284,6 +2274,33 @@ object_name_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	return (mptr);
 }
 
+char *
+Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
+{
+	file_info_t *fptr = mptr->map_file;
+	char buf[PATH_MAX];
+	int len;
+
+	/* If it's already been explicitly set return that */
+	if ((fptr != NULL) && (fptr->file_rname != NULL)) {
+		(void) strlcpy(s, fptr->file_rname, n);
+		return (s);
+	}
+
+	/* Try /proc to get the real object name */
+	if ((Pstate(P) != PS_DEAD) && (mptr->map_pmap.pr_mapname[0] != '\0')) {
+		(void) snprintf(buf, sizeof (buf), "%s/%d/exe",
+		    procfs_path, (int)P->pid);
+		if ((len = readlink(buf, buf, sizeof (buf))) > 0) {
+			buf[len] = '\0';
+			(void) strlcpy(s, buf, n);
+			return (s);
+		}
+	}
+
+	return (NULL);
+}
+
 /*
  * When two symbols are found by address, decide which one is to be preferred.
  */
@@ -2714,17 +2731,6 @@ Pxlookup_by_name(
 }
 
 /*
- * Search the process symbol tables looking for a symbol whose name matches the
- * specified name, but without any restriction on the link map id.
- */
-int
-Plookup_by_name(struct ps_prochandle *P, const char *object,
-	const char *symbol, GElf_Sym *symp)
-{
-	return (Pxlookup_by_name(P, PR_LMID_EVERY, object, symbol, symp, NULL));
-}
-
-/*
  * Iterate over the process's address space mappings.
  */
 static int
@@ -2856,12 +2862,10 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 }
 
 /*
- * Given a virtual address, try to return a filesystem path to the
- * underlying mapped object (file).  If we're in the global zone,
- * this path could resolve to an object in another zone.  If we're
- * unable return a valid filesystem path, we'll fall back to providing
- * the mapped object (file) name provided by the dynamic linker in
- * the target process (ie, the object reported by Pobjname()).
+ * Given a virtual address, try to return a filesystem path to the underlying
+ * mapped object (file). If we're unable return a valid filesystem path, we'll
+ * fall back to providing the mapped object (file) name provided by the dynamic
+ * linker in the target process (ie, the object reported by Pobjname()).
  */
 char *
 Pobjname_resolved(struct ps_prochandle *P, uintptr_t addr,
@@ -3175,8 +3179,7 @@ typedef struct getenv_data {
 
 /*ARGSUSED*/
 static int
-getenv_func(void *data, struct ps_prochandle *P, uintptr_t addr,
-    const char *nameval)
+getenv_func(void *data, struct ps_prochandle *P, const char *nameval)
 {
 	getenv_data_t *d = data;
 	size_t len;
@@ -3221,104 +3224,57 @@ Pgetenv(struct ps_prochandle *P, const char *name, char *buf, size_t buflen)
 	return (NULL);
 }
 
-/* number of argument or environment pointers to read all at once */
-#define	NARG	100
-
 int
 Penv_iter(struct ps_prochandle *P, proc_env_f *func, void *data)
 {
-	const psinfo_t *psp;
-	uintptr_t envpoff;
-	GElf_Sym sym;
-	int ret;
-	char *buf, *nameval;
-	size_t buflen;
+	int env;
+	int ret = -1;
+	char procname[PATH_MAX];
+	char *buf = NULL;
+	size_t buflen = 0;
+	char chunk[4096];
+	ssize_t chunklen;
+	char *iter;
 
-	int nenv = NARG;
-	long envp[NARG];
+	(void) snprintf(procname, sizeof (procname), "/proc/%d/environ",
+	    (int)P->pid);
 
 	/*
-	 * Attempt to find the "_environ" variable in the process.
-	 * Failing that, use the original value provided by Ppsinfo().
+	 * Open up /proc/$pid/environ.
 	 */
-	if ((psp = Ppsinfo(P)) == NULL)
+	if ((env = open(procname, O_RDONLY)) < 0)
 		return (-1);
 
-	envpoff = psp->pr_envp; /* Default if no _environ found */
+	/*
+	 * Grab the whole environment, then iterate across it.
+	 * (Space-efficiency is not called for here: the environment is in
+	 * memory anyway.)
+	 */
 
-	if (Plookup_by_name(P, PR_OBJ_EXEC, "_environ", &sym) == 0) {
-		if (P->status.pr_dmodel == PR_MODEL_NATIVE) {
-			if (Pread(P, &envpoff, sizeof (envpoff),
-			    sym.st_value) != sizeof (envpoff))
-				envpoff = psp->pr_envp;
-		} else if (P->status.pr_dmodel == PR_MODEL_ILP32) {
-			uint32_t envpoff32;
+	while ((chunklen = read(env, chunk, sizeof (chunk))) > 0) {
+		char *newbuf;
 
-			if (Pread(P, &envpoff32, sizeof (envpoff32),
-			    sym.st_value) != sizeof (envpoff32))
-				envpoff = psp->pr_envp;
-			else
-				envpoff = envpoff32;
-		}
+		newbuf = realloc(buf, buflen + chunklen);
+		if (newbuf == NULL)
+			goto err;
+
+		buf = newbuf;
+		memcpy (buf + buflen, chunk, chunklen);
+		buflen += chunklen;
 	}
 
-	buflen = 128;
-	buf = malloc(buflen);
+	if (chunklen < 0)
+		goto err;
 
 	ret = 0;
-	for (;;) {
-		uintptr_t envoff;
-
-		if (nenv == NARG) {
-			(void) memset(envp, 0, sizeof (envp));
-			if (P->status.pr_dmodel == PR_MODEL_NATIVE) {
-				if (Pread(P, envp,
-				    sizeof (envp), envpoff) <= 0) {
-					ret = -1;
-					break;
-				}
-			} else if (P->status.pr_dmodel == PR_MODEL_ILP32) {
-				uint32_t e32[NARG];
-				int i;
-
-				(void) memset(e32, 0, sizeof (e32));
-				if (Pread(P, e32, sizeof (e32), envpoff) <= 0) {
-					ret = -1;
-					break;
-				}
-				for (i = 0; i < NARG; i++)
-					envp[i] = e32[i];
-			}
-			nenv = 0;
-		}
-
-		if ((envoff = envp[nenv++]) == NULL)
+	for (iter = buf; iter - buf < buflen;
+	     iter = ((char *)memchr(iter, '\0', buflen - (iter - buf))) + 1) {
+		if ((ret = func(data, P, iter)) != 0)
 			break;
-
-		/*
-		 * Attempt to read the string from the process.
-		 */
-again:
-		ret = Pread_string(P, buf, buflen, envoff);
-
-		if (ret <= 0) {
-			nameval = NULL;
-		} else if (ret == buflen - 1) {
-			free(buf);
-			buflen *= 2;
-			buf = malloc(buflen);
-			goto again;
-		} else {
-			nameval = buf;
-		}
-
-		if ((ret = func(data, P, envoff, nameval)) != 0)
-			break;
-
-		envpoff += (P->status.pr_dmodel == PR_MODEL_LP64)? 8 : 4;
 	}
 
+err:
 	free(buf);
-
-	return (ret);
+	close(env);
+	return(ret);
 }

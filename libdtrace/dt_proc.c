@@ -437,6 +437,8 @@ typedef struct dt_proc_control_data {
  * the process to stop on an event or die.  We process any events by calling
  * appropriate subroutines, and exit when the victim dies or we lose control.
  *
+ * FIXME
+ *
  * The control thread synchronizes the use of dpr_proc with other libdtrace
  * threads using dpr_lock.  We hold the lock for all of our operations except
  * waiting while the process is running: this is accomplished by writing a
@@ -476,9 +478,6 @@ dt_proc_control(void *arg)
 	(void) Punsetflags(P, PR_ASYNC);	/* require synchronous mode */
 	(void) Psetflags(P, PR_BPTADJ);		/* always adjust eip on x86 */
 	(void) Punsetflags(P, PR_FORK);		/* do not inherit on fork */
-
-	(void) Pfault(P, FLTBPT, B_TRUE);	/* always trace breakpoints */
-	(void) Pfault(P, FLTTRACE, B_TRUE);	/* always trace single-step */
 
 	Psync(P);				/* enable all /proc changes */
 #if defined(sun)

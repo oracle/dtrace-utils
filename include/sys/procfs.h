@@ -171,7 +171,6 @@ typedef struct pstatus {
 	taskid_t pr_taskid;	/* task id */
 	projid_t pr_projid;	/* project id */
 	int	pr_nzomb;	/* number of zombie lwps in the process */
-	zoneid_t pr_zoneid;	/* zone id */
 	int	pr_filler[15];	/* reserved for future use */
 	lwpstatus_t pr_lwp;	/* status of the representative lwp */
 } pstatus_t;
@@ -297,7 +296,6 @@ typedef struct psinfo {
 	projid_t pr_projid;	/* project id */
 	int	pr_nzomb;	/* number of zombie lwps in the process */
 	poolid_t pr_poolid;	/* pool id */
-	zoneid_t pr_zoneid;	/* zone id */
 	id_t	pr_contract;	/* process contract */
 	int	pr_filler[1];	/* reserved for future use */
 	lwpsinfo_t pr_lwp;	/* information for representative lwp */

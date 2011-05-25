@@ -19,9 +19,8 @@ $(LIB): \
 	$(LIB)(Psymtab_machelf32.o) \
 	$(LIB)(Psymtab_machelf64.o) \
 	$(LIB)(Psymtab.o) \
-	$(LIB)(Putil.o) \
-	$(LIB)(Pzone.o)
+	$(LIB)(Putil.o)
 
 clean:
 	-rm -f *.o ../../$(BUILD_DIR)/libproc.a
-	
+

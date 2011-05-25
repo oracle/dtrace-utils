@@ -116,8 +116,6 @@ struct core_globals {
 	corectl_content_t	*core_default_content;
 };
 
-extern	zone_key_t	core_zone_key;
-
 extern void init_core(void);
 extern void set_core_defaults(void);
 

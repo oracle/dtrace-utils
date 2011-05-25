@@ -1,4 +1,67 @@
-2011-05-24  Nick Alcock    <nick.alcock@oracle.com>
+2011-05-25  Nick Alcock  <nick.alcock@oracle.com>
+
+	Remove references to zones.
+
+	* uts/common/sys/dtrace.h: ... from here...
+	* include/sys/corectl.h: ... and here...
+	* include/sys/procfs.h: ... and here...
+	* include/types_various.h: ... and here...
+	* libdtrace/dt_open.c: ... and here...
+	* libproc/common/Pcontrol.c (Pfree): ... and here...
+	* libproc/common/Pcontrol.h: ... and here...
+	* libproc/common/Psymtab.c: ... and here.
+	* libproc/common/Pzone.c: Removed...
+	* libproc/common/makefile: ... and from here.
+	* libproc/common/Psymtab.c (Pfindmap): Migrated from
+	Pzone.c, with zone support removed.
+
+	Remove some references to <sys/procfs.h>.
+
+	* include/procfs_service.h: Remove inclusion.
+	* libdtrace/dt_aggregate.c: Likewise.
+	* libdtrace/procfs.sed.in: Likewise.
+	* libproc/common/Pcontrol.h: Likewise.
+
+	Remove process set functions.
+
+	* libproc/common/Putil.c (prset_fill): Remove.
+	(prset_empty): Likewise.
+	(prset_add): Likewise.
+	(prset_del): Likewise.
+	(prset_ismember): Likewise.
+	* libproc/common/Putil.h: Remove declarations.
+
+	Remove fault trapping.
+
+	* libdtrace/dt_proc.c (dt_proc_control): Removed.
+	* libproc/common/Pcontrol.c (Pfault): Likewise.
+	(Psetfault): Likewise.
+	(Psetaction): Likewise.
+	(Psync): Remove SETFAULT.
+	(restore_tracing_flags): Likewise.
+	libproc/common/Pcontrol.h: Likewise.
+
+	Fix environment handling.
+
+	* libproc/common/Psymtab.c (Plookup_by_name): Remove.
+	(NARG): Remove.
+	(Penv_iter): Get the environment the Linux way. Read in the whole
+	thing, then process it, rather than working chunk-by-chunk.
+	(getenv_func): Drop the address-of-environment arg.
+
+	Compensate for new ioctls.
+
+	* libdtrace/dt_subr.c (dt_ioctl): Use the Linux definition of
+	'val'.
+	* libdtrace/dt_impl.h: Adjust declaration.
+
+	Cleanup.
+
+	* libproc/common/libproc.h: Remove declarations of deleted
+	functions.
+	* libproc/common/mapfile-vers: Likewise.
+
+2011-05-24  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/makefile (dt_lex.o): Pass -DYYDEBUG=1.
 

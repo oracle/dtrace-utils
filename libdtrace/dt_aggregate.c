@@ -36,7 +36,6 @@
 #include <limits.h>
 
 #include <libproc.h>
-#include <sys/procfs.h>
 #include <port.h>
 
 #define	DTRACE_AHASHSIZE	32779		/* big 'ol prime */

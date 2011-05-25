@@ -106,7 +106,6 @@ SUNWprivate_1.1 {
 	Penv_iter;
 	Perror_printf;
 	Pexecname;
-	Pfault;
 	Pfgcore;
 	Pfgrab_core;
 	Pfree;
@@ -175,7 +174,6 @@ SUNWprivate_1.1 {
 	pr_getsockname;
 	pr_getsockopt;
 	pr_gettaskid;
-	pr_getzoneid;
 	pr_ioctl;
 	pr_link;
 	pr_llseek;
@@ -236,13 +234,11 @@ SUNWprivate_1.1 {
 	Pset_procfs_path;
 	Psetbkpt;
 	Psetcred;
-	Psetfault;
 	Psetflags;
 	Psetpriv;
 	Psetrun;
 	Psetsignal;
 	Psetwapt;
-	Psetzoneid;
 	Psignal;
 	ps_lcontinue;
 	ps_lgetfpregs;
@@ -288,9 +284,6 @@ SUNWprivate_1.1 {
 	Pxlookup_by_addr_resolved;
 	Pxlookup_by_name;
 	Pxsymbol_iter;
-	Pzonename;
-	Pzonepath;
-	Pzoneroot;
     local:
 	*;
 };

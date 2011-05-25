@@ -515,8 +515,6 @@ Pfree(struct ps_prochandle *P)
 			__priv_free_info(P->core->core_privinfo); */
 		if (P->core->core_ppii != NULL)
 			free(P->core->core_ppii);
-		if (P->core->core_zonename != NULL)
-			free(P->core->core_zonename);
 #if defined(__i386) || defined(__amd64)
 		if (P->core->core_ldt != NULL)
 			free(P->core->core_ldt);
@@ -667,19 +665,12 @@ Psync(struct ps_prochandle *P)
 		iov[n].iov_base = (caddr_t)&P->status.pr_sigtrace;
 		iov[n++].iov_len = sizeof (P->status.pr_sigtrace);
 	}
-	if (P->flags & SETFAULT) {
-		cmd[3] = PCSFAULT;
-		iov[n].iov_base = (caddr_t)&cmd[3];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_flttrace;
-		iov[n++].iov_len = sizeof (P->status.pr_flttrace);
-	}
 
 /*	if (n == 0 || writev(ctlfd, iov, n) < 0) */
 	if (n == 0)
 		return;		/* nothing to do or write failed */
 
-	P->flags &= ~(SETSIG|SETFAULT|SETHOLD|SETREGS);
+	P->flags &= ~(SETSIG|SETHOLD|SETREGS);
 #endif
 }
 
@@ -785,7 +776,7 @@ restore_tracing_flags(struct ps_prochandle *P)
 		}
 	}
 
-	P->flags &= ~(SETSIG|SETFAULT);
+	P->flags &= ~(SETSIG);
 }
 
 /*
@@ -1205,86 +1196,6 @@ Punsetflags(struct ps_prochandle *P, long flags)
 /*	} */
 
 	return (rc);
-}
-
-/*
- * Common function to allow clients to manipulate the action to be taken
- * on receipt of a signal, receipt of machine fault, entry to a system call,
- * or exit from a system call.  We make use of our private prset_* functions
- * in order to make this code be common.  The 'which' parameter identifies
- * the code for the event of interest (0 means change the entire set), and
- * the 'stop' parameter is a boolean indicating whether the process should
- * stop when the event of interest occurs.  The previous value is returned
- * to the caller; -1 is returned if an error occurred.
- */
-static int
-Psetaction(struct ps_prochandle *P, void *sp, size_t size,
-    uint_t flag, int max, int which, int stop)
-{
-	int oldval;
-
-	if (which < 0 || which > max) {
-		errno = EINVAL;
-		return (-1);
-	}
-
-	if (P->state == PS_DEAD || P->state == PS_UNDEAD ||
-	    P->state == PS_IDLE) {
-		errno = ENOENT;
-		return (-1);
-	}
-
-	oldval = prset_ismember(sp, size, which) ? TRUE : FALSE;
-
-	if (stop) {
-		if (which == 0) {
-			prset_fill(sp, size);
-			P->flags |= flag;
-		} else if (!oldval) {
-			prset_add(sp, size, which);
-			P->flags |= flag;
-		}
-	} else {
-		if (which == 0) {
-			prset_empty(sp, size);
-			P->flags |= flag;
-		} else if (oldval) {
-			prset_del(sp, size, which);
-			P->flags |= flag;
-		}
-	}
-
-	if (P->state == PS_RUN)
-		Psync(P);
-
-	return (oldval);
-}
-
-/*
- * Set action on specified fault.
- */
-int
-Pfault(struct ps_prochandle *P, int which, int stop)
-{
-	return (Psetaction(P, &P->status.pr_flttrace, sizeof (fltset_t),
-	    SETFAULT, PRMAXFAULT, which, stop));
-}
-
-/*
- * Set all machine fault tracing flags.
- */
-void
-Psetfault(struct ps_prochandle *P, const fltset_t *set)
-{
-	if (P->state == PS_DEAD || P->state == PS_UNDEAD ||
-	    P->state == PS_IDLE)
-		return;
-
-	P->status.pr_flttrace = *set;
-	P->flags |= SETFAULT;
-
-	if (P->state == PS_RUN)
-		Psync(P);
 }
 
 core_content_t

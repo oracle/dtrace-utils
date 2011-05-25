@@ -18,7 +18,6 @@ typedef struct {	/* return values from system call */
 typedef id_t    taskid_t;
 typedef id_t    projid_t;
 typedef id_t    poolid_t;
-typedef id_t    zoneid_t;
 typedef id_t    ctid_t;
 typedef unsigned long   psaddr_t;
 typedef int psetid_t;
@@ -228,12 +227,6 @@ CC_CONTENT_SYMTAB)
 
 
 #define	PS_OBJ_LDSO	((const char *)0x1)	/* the dynamic linker */
-
-#define	Z_OK		0
-#define	Z_NO_ZONE		16	/* no such zone */
-#define	ZONENAME_MAX		64
-#define	GLOBAL_ZONENAME		"global"
-
 
 #ifndef ABS
 #define	ABS(a)		((a) < 0 ? -(a) : (a))

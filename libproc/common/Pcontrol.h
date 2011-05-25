@@ -33,7 +33,6 @@
 
 #include <stdio.h>
 #include <gelf.h>
-#include <sys/procfs.h>
 #include <rtld_db.h>
 #include <libproc.h>
 #include <libctf.h>
@@ -153,7 +152,6 @@ typedef struct core_info {	/* information specific to core files */
 	size_t core_priv_size;	/* size of the privileges */
 	void *core_privinfo;	/* system privileges info from core file */
 	priv_impl_info_t *core_ppii;	/* NOTE entry for core_privinfo */
-	char *core_zonename;	/* zone name from core file */
 #if defined(__i386) || defined(__amd64)
 	struct ssd *core_ldt;	/* LDT entries from core file */
 	uint_t core_nldt;	/* number of LDT entries in core file */
@@ -224,15 +222,11 @@ struct ps_prochandle {
 	core_info_t *core;	/* information specific to core (if PS_DEAD) */
 	uintptr_t *ucaddrs;	/* ucontext-list addresses */
 	uint_t	ucnelems;	/* number of elements in the ucaddrs list */
-	char	*zoneroot;	/* cached path to zone root */
 };
 
 /* flags */
 #define	CREATED		0x01	/* process was created by Pcreate() */
 #define	SETSIG		0x02	/* set signal trace mask before continuing */
-#define	SETFAULT	0x04	/* set fault trace mask before continuing */
-#define	SETENTRY	0x08	/* set sysentry trace mask before continuing */
-#define	SETEXIT		0x10	/* set sysexit trace mask before continuing */
 #define	SETHOLD		0x20	/* set signal hold mask before continuing */
 #define	SETREGS		0x40	/* set registers before continuing */
 
@@ -267,9 +261,6 @@ extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
 extern	int	getlwpstatus(struct ps_prochandle *, lwpid_t, lwpstatus_t *);
 int	Pstopstatus(struct ps_prochandle *, long, uint32_t);
 extern	file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
-extern	char	*Pzoneroot(struct ps_prochandle *, char *, size_t);
-extern	char	*Pzonepath(struct ps_prochandle *, const char *, char *,
-	size_t);
 extern	char	*Pfindmap(struct ps_prochandle *, map_info_t *, char *,
 	size_t);
 

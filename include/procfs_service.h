@@ -1,9 +1,8 @@
-#ifndef PROCFS_SERVERICE_H
-#define PROCFS_SERVERICE_H
+#ifndef PROCFS_SERVICE_H
+#define PROCFS_SERVICE_H
 
 #include <stdint.h>
 #include <elf.h>
-#include <sys/procfs.h>
 
 typedef enum {
         PS_OK,          /* generic "call succeeded" */

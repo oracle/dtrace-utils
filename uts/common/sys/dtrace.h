@@ -229,7 +229,6 @@ typedef enum dtrace_probespec {
 #define	DIF_VAR_PID		0x0116	/* process ID */
 #define	DIF_VAR_TID		0x0117	/* (per-process) thread ID */
 #define	DIF_VAR_EXECNAME	0x0118	/* name of executable */
-#define	DIF_VAR_ZONENAME	0x0119	/* zone name associated with process */
 #define	DIF_VAR_WALLTIMESTAMP	0x011a	/* wall-clock timestamp */
 #define	DIF_VAR_USTACKDEPTH	0x011b	/* user-land stack depth */
 #define	DIF_VAR_UCALLER		0x011c	/* user-level caller */
@@ -1146,16 +1145,14 @@ typedef uint8_t dtrace_class_t;		/* architectural dependency class */
 #define	DTRACE_PRIV_USER	0x0002
 #define	DTRACE_PRIV_PROC	0x0004
 #define	DTRACE_PRIV_OWNER	0x0008
-#define	DTRACE_PRIV_ZONEOWNER	0x0010
 
 #define	DTRACE_PRIV_ALL	\
 	(DTRACE_PRIV_KERNEL | DTRACE_PRIV_USER | \
-	DTRACE_PRIV_PROC | DTRACE_PRIV_OWNER | DTRACE_PRIV_ZONEOWNER)
+	DTRACE_PRIV_PROC | DTRACE_PRIV_OWNER)
 
 typedef struct dtrace_ppriv {
 	uint32_t dtpp_flags;			/* privilege flags */
 	uid_t dtpp_uid;				/* user ID */
-	zoneid_t dtpp_zoneid;			/* zone ID */
 } dtrace_ppriv_t;
 
 typedef struct dtrace_attribute {
@@ -1230,7 +1227,6 @@ typedef struct dtrace_providerdesc {
  *    uid           <= Current user ID
  *    gid           <= Current group ID
  *    execname      <= Current executable name
- *    zonename      <= Current zone name
  *
  * Helper actions may not manipulate or allocate dynamic variables, but they
  * may have clause-local and statically-allocated global variables.  The
@@ -1649,21 +1645,14 @@ typedef struct dof_helper {
  *                             ID of the cred passed in the fourth argument
  *                             or (b) the PRIV_PROC_OWNER privilege.
  *
- *     DTRACE_PRIV_ZONEOWNER<= This flag places an additional constraint on
- *                             the privilege requirements above. These probes
- *                             require either (a) a zone ID matching the zone
- *                             ID of the cred passed in the fourth argument
- *                             or (b) the PRIV_PROC_ZONE privilege.
- *
  *   Note that these flags designate the _visibility_ of the probes, not
  *   the conditions under which they may or may not fire.
  *
- *   The fourth argument is the credential that is associated with the
- *   provider.  This argument should be NULL if the privilege flags don't
- *   include DTRACE_PRIV_OWNER or DTRACE_PRIV_ZONEOWNER.  If non-NULL, the
- *   framework stashes the uid and zoneid represented by this credential
- *   for use at probe-time, in implicit predicates.  These limit visibility
- *   of the probes to users and/or zones which have sufficient privilege to
+ *   The fourth argument is the credential that is associated with the provider.
+ *   This argument should be NULL if the privilege flags don't include
+ *   DTRACE_PRIV_OWNER. If non-NULL, the framework stashes the uid represented
+ *   by this credential for use at probe-time, in implicit predicates. These
+ *   limit visibility of the probes to users which have sufficient privilege to
  *   access them.
  *
  *   The fifth argument is a DTrace provider operations vector, which provides

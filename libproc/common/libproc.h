@@ -223,7 +223,6 @@ extern	int	Psetcred(struct ps_prochandle *, const prcred_t *);
 extern	ssize_t	Ppriv(struct ps_prochandle *, prpriv_t *, size_t);
 extern	int	Psetpriv(struct ps_prochandle *, prpriv_t *);
 extern	void   *Pprivinfo(struct ps_prochandle *);
-extern	int	Psetzoneid(struct ps_prochandle *, zoneid_t);
 extern	int	Pgetareg(struct ps_prochandle *, int, prgreg_t *);
 extern	int	Pputareg(struct ps_prochandle *, int, prgreg_t);
 extern	int	Psetrun(struct ps_prochandle *, int, int);
@@ -233,9 +232,7 @@ extern	ssize_t	Pwrite(struct ps_prochandle *, const void *, size_t, uintptr_t);
 extern	int	Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
 extern	int	Psetflags(struct ps_prochandle *, long);
 extern	int	Punsetflags(struct ps_prochandle *, long);
-extern	int	Pfault(struct ps_prochandle *, int, int);
 extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
-extern	void	Psetfault(struct ps_prochandle *, const fltset_t *);
 
 extern	void	Psync(struct ps_prochandle *);
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
@@ -270,9 +267,6 @@ extern	int	Pisprocdir(struct ps_prochandle *, const char *);
  * or an iteration over the process's mapped objects (Pobject_iter),
  * or else it is one of the special PR_OBJ_* values above.
  */
-extern int Plookup_by_name(struct ps_prochandle *,
-    const char *, const char *, GElf_Sym *);
-
 extern int Plookup_by_addr(struct ps_prochandle *,
     uintptr_t, char *, size_t, GElf_Sym *);
 
@@ -316,8 +310,6 @@ extern ctf_file_t *Pname_to_ctf(struct ps_prochandle *, const char *);
 
 extern char *Pplatform(struct ps_prochandle *, char *, size_t);
 extern int Puname(struct ps_prochandle *, struct utsname *);
-extern char *Pzonename(struct ps_prochandle *, char *, size_t);
-extern char *Pfindobj(struct ps_prochandle *, const char *, char *, size_t);
 
 extern char *Pexecname(struct ps_prochandle *, char *, size_t);
 extern char *Pobjname(struct ps_prochandle *, uintptr_t, char *, size_t);
@@ -325,7 +317,7 @@ extern char *Pobjname_resolved(struct ps_prochandle *, uintptr_t, char *,
     size_t);
 extern int Plmid(struct ps_prochandle *, uintptr_t, Lmid_t *);
 
-typedef int proc_env_f(void *, struct ps_prochandle *, uintptr_t, const char *);
+typedef int proc_env_f(void *, struct ps_prochandle *, const char *);
 extern	int Penv_iter(struct ps_prochandle *, proc_env_f *, void *);
 extern char *Pgetenv(struct ps_prochandle *, const char *, char *, size_t);
 extern long Pgetauxval(struct ps_prochandle *, int);

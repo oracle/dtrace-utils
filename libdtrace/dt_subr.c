@@ -473,7 +473,7 @@ dt_dprintf(const char *format, ...)
 }
 
 int
-dt_ioctl(dtrace_hdl_t *dtp, int val, void *arg)
+dt_ioctl(dtrace_hdl_t *dtp, unsigned long int val, void *arg)
 {
 	const dtrace_vector_t *v = dtp->dt_vector;
 

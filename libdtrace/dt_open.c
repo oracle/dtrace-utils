@@ -405,8 +405,6 @@ static const dt_ident_t _dtrace_globals[] = {
 { "walltimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_WALLTIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "int64_t" },
-{ "zonename", DT_IDENT_SCALAR, 0, DIF_VAR_ZONENAME,
-	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
 { NULL, 0, 0, 0, { 0, 0, 0 }, 0, NULL, NULL }
 };
 

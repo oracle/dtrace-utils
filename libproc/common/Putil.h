@@ -51,15 +51,6 @@ extern void list_unlink(void *);
 #define	list_prev(elem)	(void *)(((plist_t *)(elem))->list_back)
 
 /*
- * Routines to manipulate sigset_t, fltset_t, or sysset_t.
- */
-extern void prset_fill(void *, size_t);
-extern void prset_empty(void *, size_t);
-extern void prset_add(void *, size_t, uint_t);
-extern void prset_del(void *, size_t, uint_t);
-extern int prset_ismember(void *, size_t, uint_t);
-
-/*
  * Routine to print debug messages:
  */
 _dt_printflike_(1,2)
