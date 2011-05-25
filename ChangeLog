@@ -1,3 +1,7 @@
+2011-05-25  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libdtrace/makefile (dt_lex.c): Fix -o option of flex.
+
 2011-05-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	Remove references to zones.
