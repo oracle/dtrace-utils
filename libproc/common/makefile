@@ -6,7 +6,7 @@ CPPFLAGS += -I../common \
 	-I../../libctf \
 	-I../../uts/intel/ \
 	-DCTF_OLD_VERSIONS $(PTR32)
-CPPFLAGS += $(DTO) -D_LONGLONG_TYPE -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64
+CPPFLAGS += $(DTO) -D_LONGLONG_TYPE 
 
 LIB = ../../$(BUILD_DIR)/libproc.a
 

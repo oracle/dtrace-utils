@@ -62,14 +62,14 @@ for tst in $(echo demo/*/*.d); do
         dt_flags="-e -s $tst"
 
         case "$tst" in
-            ./demo/buf/ring.d) ;&
+            ./demo/buf/ring.d | \
             ./demo/sched/whererun.d) dt_flags="$dt_flags /bin/date";;
 
-            ./demo/user/badopen.d) ;&
-            ./demo/struct/rwinfo.d) ;&
-            ./demo/script/tracewrite.d) ;&
-            ./demo/profile/profpri.d) ;&
-            ./demo/intro/rwtime.d) ;&
+            ./demo/user/badopen.d | \
+            ./demo/struct/rwinfo.d | \
+            ./demo/script/tracewrite.d | \
+            ./demo/profile/profpri.d | \
+            ./demo/intro/rwtime.d | \
             ./demo/intro/trussrw.d) dt_flags="$dt_flags $pid";;
 
             ./demo/user/errorpath.d) dt_flags="$dt_flags $pid _chdir";;

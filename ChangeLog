@@ -1,3 +1,21 @@
+2011-05-31  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* makefile: Use -D_GNU_SOURCE and clean CC.
+	* cmd/makefile: Clean CPPFLAGS.
+	* libctf/makefile: Likewise.
+	* libdtrace/makefile: Likewise. 
+	* libproc/common/makefile: Likewise.
+	* libdtrace/dt_string.c: Remove strndup.
+	* libdtrace/dt_string.h: Likewise.
+	* include/types_various.h: Remove Lmid_t.
+
+	* include/sys/regset.h: Remove the definitions of register.
+	* libdtrace/i386/regs.sed.in: Rewrite according to the definitions at
+	reg.h.
+	* libdtrace/i386/regs.d.in: Rewrite. 
+
+	* runtest.sh: Downward compatibility case statement.
+
 2011-05-25  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* libdtrace/makefile (dt_lex.c): Fix -o option of flex.

@@ -34,19 +34,6 @@
 #include <dt_string.h>
 
 /*
- * Create a copy of string s, but only duplicate the first n bytes.
- */
-char *
-strndup(const char *s, size_t n)
-{
-	char *s2 = malloc(n + 1);
-
-	(void) strncpy(s2, s, n);
-	s2[n] = '\0';
-	return (s2);
-}
-
-/*
  * Transform string s inline, converting each embedded C escape sequence string
  * to the corresponding character.  For example, the substring "\n" is replaced
  * by an inline '\n' character.  The length of the resulting string is returned.

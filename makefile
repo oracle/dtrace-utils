@@ -1,10 +1,10 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
-CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
-CC=gcc -std=gnu99 -D_LARGEFILE64_SOURCE -D_LITTLE_ENDIAN $(CFLAGS)
+CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas -D_GNU_SOURCE
+CC=gcc -std=gnu99 -D_LITTLE_ENDIAN $(CFLAGS)
 MACH=$(shell uname -m)
 DTO=-D_ILP64
-COMPILE.cpp= $(CC) -E -C $(CFLAGS) $(CPPFLAGS)
+COMPILE.cpp= $(CC) -E -C
 
 export CC
 export CFLAGS

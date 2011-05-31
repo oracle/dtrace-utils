@@ -36,7 +36,6 @@
 extern "C" {
 #endif
 
-extern char *strndup(const char *, size_t);
 extern size_t stresc2chr(char *);
 extern char *strchr2esc(const char *, size_t);
 extern const char *strbasename(const char *);
