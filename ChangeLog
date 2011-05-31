@@ -1,3 +1,9 @@
+2011-05-31  Nick Alcock  <nick.alcock@oracle.com>
+
+	* INCOMPATIBILITIES: New file, describe known incompatibilities
+	between Solaris dtrace and Linux dtrace which we do not plan to
+	fix in v1.
+
 2011-05-31  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* makefile: Use -D_GNU_SOURCE and clean CC.
