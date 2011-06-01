@@ -56,7 +56,6 @@ extern "C" {
 #include <sys/syscall.h>
 //#include <sys/pset.h>
 #include <sys/procfs_isa.h>
-//#include <sys/priv.h>
 #include <sys/ucontext.h>
 #include <sys/processor.h>
 
@@ -376,16 +375,6 @@ typedef struct prcred {
 	int	pr_ngroups;	/* number of supplementary groups */
 	gid_t	pr_groups[1];	/* array of supplementary groups */
 } prcred_t;
-
-/*
- * Process privileges.  PCSPRIV and /proc/<pid>/priv
- */
-typedef struct prpriv {
-	uint32_t	pr_nsets;		/* number of privilege set */
-	uint32_t	pr_setsize;		/* size of privilege set */
-	uint32_t	pr_infosize;		/* size of supplementary data */
-	priv_chunk_t	pr_sets[1];		/* array of sets */
-} prpriv_t;
 
 /*
  * Watchpoint interface.  PCWATCH and /proc/<pid>/watch

@@ -39,7 +39,6 @@
 #include <limits.h>
 
 #include <mutex.h>
-#include <sys/priv.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -148,10 +147,6 @@ typedef struct core_info {	/* information specific to core files */
 	struct utsname *core_uts;	/* uname(2) data from core file */
 	prcred_t *core_cred;	/* process credential from core file */
 	core_content_t core_content;	/* content dumped to core file */
-	prpriv_t *core_priv;	/* process privileges from core file */
-	size_t core_priv_size;	/* size of the privileges */
-	void *core_privinfo;	/* system privileges info from core file */
-	priv_impl_info_t *core_ppii;	/* NOTE entry for core_privinfo */
 #if defined(__i386) || defined(__amd64)
 	struct ssd *core_ldt;	/* LDT entries from core file */
 	uint_t core_nldt;	/* number of LDT entries in core file */

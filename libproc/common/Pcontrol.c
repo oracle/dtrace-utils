@@ -42,15 +42,12 @@
 
 #include <sys/ptrace.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <sys/resource.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/fault.h>
 #include <sys/wait.h>
 
-#include <sys/priv.h>
-#include <sys/corectl.h>
 #include <mutex.h>
 
 #include "Pcontrol.h"
@@ -481,7 +478,6 @@ Pfree(struct ps_prochandle *P)
 	uint_t i;
 
 	if (P->core != NULL) {
-		extern void __priv_free_info(void *);
 		lwp_info_t *nlwp, *lwp = list_next(&P->core->core_lwp_head);
 
 		for (i = 0; i < P->core->core_nlwp; i++, lwp = nlwp) {
@@ -503,13 +499,6 @@ Pfree(struct ps_prochandle *P)
 			free(P->core->core_uts);
 		if (P->core->core_cred != NULL)
 			free(P->core->core_cred);
-		if (P->core->core_priv != NULL)
-			free(P->core->core_priv);
-/* NEED FIX */ 
-/*		if (P->core->core_privinfo != NULL)
-			__priv_free_info(P->core->core_privinfo); */
-		if (P->core->core_ppii != NULL)
-			free(P->core->core_ppii);
 #if defined(__i386) || defined(__amd64)
 		if (P->core->core_ldt != NULL)
 			free(P->core->core_ldt);
