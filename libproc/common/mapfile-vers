@@ -232,7 +232,6 @@ SUNWprivate_1.1 {
 	Pset_procfs_path;
 	Psetbkpt;
 	Psetcred;
-	Psetflags;
 	Psetpriv;
 	Psetrun;
 	Psetsignal;

@@ -222,7 +222,6 @@ extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	ssize_t	Pwrite(struct ps_prochandle *, const void *, size_t, uintptr_t);
 extern	int	Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
-extern	int	Psetflags(struct ps_prochandle *, long);
 extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
 
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,

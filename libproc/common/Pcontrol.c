@@ -905,26 +905,6 @@ Pdelbkpt(struct ps_prochandle *P, uintptr_t address, ulong_t saved)
 	return (0);
 }
 
-int
-Psetflags(struct ps_prochandle *P, long flags)
-{
-	int rc;
-/* Only change P->status but not write to file at Linux. */
-/*	long ctl[2];
-
-	ctl[0] = PCSET;
-	ctl[1] = flags;
-
-	if (write(P->ctlfd, ctl, 2*sizeof (long)) != 2*sizeof (long)) {
-		rc = -1;
-	} else { */
-		P->status.pr_flags |= flags;
-		rc = 0;
-/*	} */
-
-	return (rc);
-}
-
 core_content_t
 Pcontent(struct ps_prochandle *P)
 {

@@ -1,5 +1,11 @@
 2011-06-01  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libproc/common/Pcontrol.c (Psetflags): Remove, unused.
+	* libproc/common/libproc.h: Likewise.
+	* libproc/common/mapfile-vers: Likewise.
+
+2011-06-01  Nick Alcock  <nick.alcock@oracle.com>
+
 	Reshape the process control loop somewhat. Drop a lot of
 	Solaris-specific proc-handling code. Rip out code relating to
 	things we cannot implement (notably multiple-debugger support).
