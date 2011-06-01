@@ -102,7 +102,6 @@ SUNWprivate_1.1 {
 	Pdelbkpt;
 	Pdelwapt;
 	Pdestroy_agent;
-	Pdstop;
 	Penv_iter;
 	Perror_printf;
 	Pexecname;
@@ -158,7 +157,6 @@ SUNWprivate_1.1 {
 	Pread;
 	Pread_string;
 	Prelease;
-	Preopen;
 	Preset_maps;
 	pr_exit;
 	pr_fcntl;
@@ -263,16 +261,12 @@ SUNWprivate_1.1 {
 	Pstack_iter;
 	Pstate;
 	Pstatus;
-	Pstop;
-	Pstopstatus;
 	Psymbol_iter;
 	Psymbol_iter_by_addr;
 	Psymbol_iter_by_lmid;
 	Psymbol_iter_by_name;
-	Psync;
 	Psyscall;
 	Puname;
-	Punsetflags;
 	Pupdate_maps;
 	Pupdate_syms;
 	Pwait;

@@ -1,3 +1,45 @@
+2011-06-01  Nick Alcock  <nick.alcock@oracle.com>
+
+	Reshape the process control loop somewhat. Drop a lot of
+	Solaris-specific proc-handling code. Rip out code relating to
+	things we cannot implement (notably multiple-debugger support).
+
+	* libdtrace/dt_proc.c (dt_proc_rdevent): Delete unused function used
+	only for multiple-debugger support.
+	(dt_proc_waitrun): Likewise.
+	(dt_proc_control_data): Improve comment.
+
+	* libdtrace/dt_proc.h (dt_proc_t): New dpr_created flag.
+	* libdtrace/dt_proc.c (dt_proc_create): Assign it. Tear out
+	process flag manipulation.
+	(dt_proc_grab): Likewise.
+	(dt_proc_control): Likewise. Remodel the process-control loop.
+	Tear out PS_LOST support. Use Pwait() rather than write() to a
+	proc fd. Drop Pstopstatus() (the same as Pwait() nowadays). Drop
+	requested-stop stuff pro tem.
+
+	* (dt_proc_attach): Note that we need to reimplement breakpointing
+	on main() (and breakpointing in general).
+
+	* libproc/common/Pcontrol.c (Prelease): Simplify to a ptrace()
+	call (the only feature we use).
+	* libdtrace/dt_proc.c (dt_proc_destroy): Use dpr_created, and new
+	simplified Prelease().
+
+	* libproc/common/Pcontrol.c: Ditch dead code.
+	(Psync): Remove, process flags are gone.
+	(Preopen): Remove, PS_LOST is gone.
+	(restore_tracing_flags): Remove, all users gone.
+	(Punsetflags): Likewise.
+	(prdump): Drop an #if 0.
+	(Pwait): Replace with the body of...
+	(Pstopstatus): ... this (which no longer exists under this name).
+	(Pstop): Remove.
+	(Psetrun): Remove Psync() call.
+	* libproc/common/Pcontrol.h: Drop dead prototypes.
+	* libproc/common/libproc.h: Likewise: also dead flags.
+	* libproc/common/mapfile-vers: Likewise.
+
 2011-05-31  Nick Alcock  <nick.alcock@oracle.com>
 
 	* INCOMPATIBILITIES: New file, describe known incompatibilities

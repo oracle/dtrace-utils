@@ -67,11 +67,6 @@ static	int	minfd;	/* minimum file descriptor returned by dupfd(fd, 0) */
 char	procfs_path[PATH_MAX] = "/proc";
 
 /*
- * Function prototypes for static routines in this module.
- */
-static	void	restore_tracing_flags(struct ps_prochandle *);
-
-/*
  * Read/write interface for live processes: just pread/pwrite the
  * /proc/<pid>/as file:
  */
@@ -621,174 +616,12 @@ Pstatus(struct ps_prochandle *P)
 	return (&P->status);
 }
 
-
-/*
- * Ensure that all cached state is written to the process.
- * The cached state is the LWP's signal mask and registers
- * and the process's tracing flags.
- */
-void
-Psync(struct ps_prochandle *P)
-{
-	return;
-#if 0
-	int ctlfd = (P->agentctlfd >= 0)? P->agentctlfd : P->ctlfd;
-	long cmd[4];
-	iovec_t iov[8];
-	int n = 0;
-
-	if (P->flags & SETHOLD) {
-		cmd[0] = PCSHOLD;
-		iov[n].iov_base = (caddr_t)&cmd[0];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_lwp.pr_lwphold;
-		iov[n++].iov_len = sizeof (P->status.pr_lwp.pr_lwphold);
-	}
-	if (P->flags & SETREGS) {
-		cmd[1] = PCSREG;
-#ifdef __i386
-		/* XX64 we should probably restore REG_GS after this */
-		if (ctlfd == P->agentctlfd)
-			P->status.pr_lwp.pr_reg[GS] = 0;
-#elif defined(__amd64)
-		/* XX64 */
-#endif
-		iov[n].iov_base = (caddr_t)&cmd[1];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_lwp.pr_reg[0];
-		iov[n++].iov_len = sizeof (P->status.pr_lwp.pr_reg);
-	}
-	if (P->flags & SETSIG) {
-		cmd[2] = PCSTRACE;
-		iov[n].iov_base = (caddr_t)&cmd[2];
-		iov[n++].iov_len = sizeof (long);
-		iov[n].iov_base = (caddr_t)&P->status.pr_sigtrace;
-		iov[n++].iov_len = sizeof (P->status.pr_sigtrace);
-	}
-
-/*	if (n == 0 || writev(ctlfd, iov, n) < 0) */
-	if (n == 0)
-		return;		/* nothing to do or write failed */
-
-	P->flags &= ~(SETSIG|SETHOLD|SETREGS);
-#endif
-}
-
-/*
- * Reopen the /proc file (after PS_LOST).
- */
-int
-Preopen(struct ps_prochandle *P)
-{
-	int fd;
-	char procname[PATH_MAX];
-	char *fname;
-
-	if (P->state == PS_DEAD || P->state == PS_IDLE)
-		return (0);
-#if defined(sun)
-	if (P->agentcnt > 0) {
-		P->agentcnt = 1;
-		Pdestroy_agent(P);
-	}
-#endif
-
-	(void) snprintf(procname, sizeof (procname), "%s/%d/",
-	    procfs_path, (int)P->pid);
-	fname = procname + strlen(procname);
-
-/*	(void) strcpy(fname, "as"); */
-	(void) strcpy(fname, "mem"); /* for Linux */
-	if ((fd = open(procname, O_RDWR)) < 0 ||
-	    close(P->asfd) < 0 ||
-	    (fd = dupfd(fd, P->asfd)) != P->asfd) {
-		_dprintf("Preopen: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		if (fd >= 0)
-			(void) close(fd);
-		return (-1);
-	}
-	P->asfd = fd;
-
-
-/*	(void) strcpy(fname, "ctl");
-	if ((fd = open(procname, O_WRONLY)) < 0 ||
-	    close(P->ctlfd) < 0 ||
-	    (fd = dupfd(fd, P->ctlfd)) != P->ctlfd) {
-		_dprintf("Preopen: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		if (fd >= 0)
-			(void) close(fd);
-		return (-1);
-	}*/
-	fd = -1;
-	P->ctlfd = fd;
-
-	/*
-	 * Set the state to PS_RUN and wait for the process to stop so that
-	 * we re-read the status from the new P->statfd.  If this fails, Pwait
-	 * will reset the state to PS_LOST and we fail the reopen.  Before
-	 * returning, we also forge a bit of P->status to allow the debugger to
-	 * see that we are PS_LOST following a successful exec.
-	 */
-	P->state = PS_RUN;
-	if (Pwait(P, 0) == -1) {
-#ifdef _ILP32
-		if (errno == EOVERFLOW)
-			P->status.pr_dmodel = PR_MODEL_LP64;
-#endif
-		return (-1);
-	}
-
-	return (0);
-}
-
-/*
- * Define all settable flags other than the microstate accounting flags.
- */
-#define	ALL_SETTABLE_FLAGS (PR_FORK|PR_RLC|PR_KLC|PR_ASYNC|PR_BPTADJ|PR_PTRACE)
-
-/*
- * Restore /proc tracing flags to their original values
- * in preparation for releasing the process.
- * Also called by Pcreate() to clear all tracing flags.
- */
-static void
-restore_tracing_flags(struct ps_prochandle *P)
-{
-	long flags;
-
-	if (P->flags & CREATED) {
-		/* we created this process; clear all tracing flags */
-		premptyset(&P->status.pr_sigtrace);
-		premptyset(&P->status.pr_flttrace);
-		if ((P->status.pr_flags & ALL_SETTABLE_FLAGS) != 0)
-			(void) Punsetflags(P, ALL_SETTABLE_FLAGS);
-	} else {
-		/* we grabbed the process; restore its tracing flags */
-		P->status.pr_sigtrace = P->orig_status.pr_sigtrace;
-		P->status.pr_flttrace = P->orig_status.pr_flttrace;
-		if ((P->status.pr_flags & ALL_SETTABLE_FLAGS) !=
-		    (flags = (P->orig_status.pr_flags & ALL_SETTABLE_FLAGS))) {
-			(void) Punsetflags(P, ALL_SETTABLE_FLAGS);
-			if (flags)
-				(void) Psetflags(P, flags);
-		}
-	}
-
-	P->flags &= ~(SETSIG);
-}
-
 /*
  * Release the process.  Frees the process control structure.
- * flags:
- *	PRELEASE_CLEAR	Clear all tracing flags.
- *	PRELEASE_RETAIN	Retain current tracing flags.
- *	PRELEASE_HANG	Leave the process stopped and abandoned.
- *	PRELEASE_KILL	Terminate the process with SIGKILL.
+ * If kill_it is set, kill the process instead.
  */
 void
-Prelease(struct ps_prochandle *P, int flags)
+Prelease(struct ps_prochandle *P, boolean_t kill_it)
 {
 	if (P->state == PS_DEAD) {
 		_dprintf("Prelease: releasing handle %p PS_DEAD of pid %d\n",
@@ -807,51 +640,11 @@ Prelease(struct ps_prochandle *P, int flags)
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",
 	    (void *)P, (int)P->pid);
-	
-	ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
 
-	if (P->ctlfd == -1) {
-		Pfree(P);
-		return;
-	}
-#if defined (sun)
-	if (P->agentcnt > 0) {
-		P->agentcnt = 1;
-		Pdestroy_agent(P);
-	}
-#endif
-
-	/*
-	 * Attempt to stop the process.
-	 */
-	P->state = PS_RUN;
-	(void) Pstop(P, 1000);
-
-	if (flags & PRELEASE_KILL) {
-		if (P->state == PS_STOP)
-			(void) Psetrun(P, SIGKILL, 0);
-		(void) kill(P->pid, SIGKILL);
-		Pfree(P);
-		return;
-	}
-
-	/*
-	 * We didn't lose control; we do more.
-	 */
-	Psync(P);
-
-	if (flags & PRELEASE_CLEAR)
-		P->flags |= CREATED;
-
-	if (!(flags & PRELEASE_RETAIN))
-		restore_tracing_flags(P);
-
-	if (flags & PRELEASE_HANG) {
-		/* Leave the process stopped and abandoned */
-		(void) Punsetflags(P, PR_RLC|PR_KLC);
-		Pfree(P);
-		return;
-	}
+	if (kill_it)
+		ptrace(PTRACE_KILL, (int)P->pid, 0, 0);
+	else
+		ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
 
 	Pfree(P);
 }
@@ -862,25 +655,16 @@ static void
 prdump(struct ps_prochandle *P)
 {
 	uint32_t bits;
-#if 0
-	prldump("Pstopstatus", &P->status.pr_lwp);
-#endif
 	memcpy (&bits, &P->status.pr_sigpend, sizeof (uint32_t));
 	if (bits)
 		_dprintf("Pstopstatus: pr_sigpend = 0x%.8X\n", bits);
 }
 
 /*
- * Wait for the specified process to stop or terminate.
- * Or, just get the current status (PCNULL).
- * Or, direct it to stop and get the current status (PCDSTOP).
- * If the agent LWP exists, do these things to the agent,
- * else do these things to the process as a whole.
+ * Wait for the process to stop for any reason.
  */
 int
-Pstopstatus(struct ps_prochandle *P,
-	long request,		/* PCNULL, PCDSTOP, PCSTOP, PCWSTOP */
-	uint_t msec)		/* if non-zero, timeout in milliseconds */
+Pwait(struct ps_prochandle *P, uint_t msec)
 {
 	int ctlfd = (P->agentctlfd >= 0)? P->agentctlfd : P->ctlfd;
 	long ctl[3];
@@ -888,6 +672,9 @@ Pstopstatus(struct ps_prochandle *P,
 	int err;
 	int old_state = P->state;
 
+	/* TODO: use waitpid() instead. */
+
+#if 0
 	switch (P->state) {
 	case PS_RUN:
 		break;
@@ -915,24 +702,13 @@ Pstopstatus(struct ps_prochandle *P,
 		return (-1);
 	}
 
-#if 0
 	ctl[0] = PCDSTOP;
 	ctl[1] = PCTWSTOP;
 	ctl[2] = (long)msec;
 	rc = 0;
 	switch (request) {
-	case PCSTOP:
-		rc = write(ctlfd, &ctl[0], 3*sizeof (long));
-		break;
 	case PCWSTOP:
 		rc = write(ctlfd, &ctl[1], 2*sizeof (long));
-		break;
-	case PCDSTOP:
-		rc = write(ctlfd, &ctl[0], 1*sizeof (long));
-		break;
-	case PCNULL:
-		if (P->state == PS_DEAD || P->state == PS_IDLE)
-			return (0);
 		break;
 	default:	/* programming error */
 		errno = EINVAL;
@@ -940,7 +716,6 @@ Pstopstatus(struct ps_prochandle *P,
 	}
 	err = (rc < 0)? errno : 0;
 #endif
-	Psync(P);
 
 #if 0
 	if (err) {
@@ -1018,40 +793,11 @@ Pstopstatus(struct ps_prochandle *P,
 	return (0);
 }
 
-/*
- * Wait for the process to stop for any reason.
- */
-int
-Pwait(struct ps_prochandle *P, uint_t msec)
-{
-	return (Pstopstatus(P, PCWSTOP, msec));
-}
-
-/*
- * Direct the process to stop; wait for it to stop.
- */
-int
-Pstop(struct ps_prochandle *P, uint_t msec)
-{
-	return (Pstopstatus(P, PCSTOP, msec));
-}
-
-/*
- * Direct the process to stop; don't wait.
- */
-int
-Pdstop(struct ps_prochandle *P)
-{
-	return (Pstopstatus(P, PCDSTOP, 0));
-}
-
 int
 Psetrun(struct ps_prochandle *P,
 	int sig,	/* signal to pass to process */
 	int flags)	/* PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */
 {
-	Psync(P);	/* flush tracing flags and registers */
-
 	P->info_valid = 0;	/* will need to update map and file info */
 	/*
 	 * If we've cached ucontext-list information while we were stopped,
@@ -1173,25 +919,6 @@ Psetflags(struct ps_prochandle *P, long flags)
 		rc = -1;
 	} else { */
 		P->status.pr_flags |= flags;
-		rc = 0;
-/*	} */
-
-	return (rc);
-}
-
-int
-Punsetflags(struct ps_prochandle *P, long flags)
-{
-	int rc;
-/*	long ctl[2];
-
-	ctl[0] = PCUNSET;
-	ctl[1] = flags;
-
-	if (write(P->ctlfd, ctl, 2*sizeof (long)) != 2*sizeof (long)) {
-		rc = -1;
-	} else { */
-		P->status.pr_flags &= ~flags;
 		rc = 0;
 /*	} */
 

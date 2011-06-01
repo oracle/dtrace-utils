@@ -246,7 +246,6 @@ struct ps_lwphandle {
  * Implementation functions in the process control library.
  * These are not exported to clients of the library.
  */
-extern	void	prldump(const char *, lwpstatus_t *);
 extern	int	dupfd(int, int);
 extern	int	set_minfd(void);
 extern	int	Pscantext(struct ps_prochandle *);
@@ -259,7 +258,6 @@ extern	map_info_t *Paddr2mptr(struct ps_prochandle *, uintptr_t);
 extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
 	int (*)(const char *, void *), void *);
 extern	int	getlwpstatus(struct ps_prochandle *, lwpid_t, lwpstatus_t *);
-int	Pstopstatus(struct ps_prochandle *, long, uint32_t);
 extern	file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
 extern	char	*Pfindmap(struct ps_prochandle *, map_info_t *, char *,
 	size_t);

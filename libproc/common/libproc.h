@@ -158,12 +158,6 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 #define	G_NOFD		17	/* No more file descriptors */
 
 
-/* Flags accepted by Prelease */
-#define	PRELEASE_CLEAR	0x10	/* Clear all tracing flags */
-#define	PRELEASE_RETAIN	0x20	/* Retain final tracing flags */
-#define	PRELEASE_HANG	0x40	/* Leave the process stopped */
-#define	PRELEASE_KILL	0x80	/* Terminate the process */
-
 typedef	struct {	/* argument descriptor for system call (Psyscall) */
 	long	arg_value;	/* value of argument given to system call */
 	void	*arg_object;	/* pointer to object in controlling process */
@@ -203,8 +197,7 @@ extern struct ps_prochandle *Pfgrab_core(int, const char *, int *);
 extern struct ps_prochandle *Pgrab_file(const char *, int *);
 extern const char *Pgrab_error(int);
 
-extern	int	Preopen(struct ps_prochandle *);
-extern	void	Prelease(struct ps_prochandle *, int);
+extern	void	Prelease(struct ps_prochandle *, boolean_t);
 extern	void	Pfree(struct ps_prochandle *);
 
 extern	int	Pasfd(struct ps_prochandle *);
@@ -212,7 +205,6 @@ extern	char   *Pbrandname(struct ps_prochandle *, char *, size_t);
 extern	int	Pctlfd(struct ps_prochandle *);
 extern	int	Pcreate_agent(struct ps_prochandle *);
 extern	void	Pdestroy_agent(struct ps_prochandle *);
-extern	int	Pstopstatus(struct ps_prochandle *, long, uint_t);
 extern	int	Pwait(struct ps_prochandle *, uint_t);
 extern	int	Pstop(struct ps_prochandle *, uint_t);
 extern	int	Pdstop(struct ps_prochandle *);
@@ -231,10 +223,8 @@ extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	ssize_t	Pwrite(struct ps_prochandle *, const void *, size_t, uintptr_t);
 extern	int	Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
 extern	int	Psetflags(struct ps_prochandle *, long);
-extern	int	Punsetflags(struct ps_prochandle *, long);
 extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
 
-extern	void	Psync(struct ps_prochandle *);
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
 			int, uint_t, argdes_t *);
 extern	int	Pisprocdir(struct ps_prochandle *, const char *);

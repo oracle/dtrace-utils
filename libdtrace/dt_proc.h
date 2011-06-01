@@ -56,6 +56,8 @@ typedef struct dt_proc {
 	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
 	uint8_t dpr_stale;		/* proc flag: been deprecated */
 	uint8_t dpr_rdonly;		/* proc flag: opened read-only */
+	uint8_t dpr_created;            /* proc flag: true if we created this
+					   process, false if we grabbed it */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
 	dt_list_t dpr_bps;		/* list of dt_bkpt_t structures */
 } dt_proc_t;
