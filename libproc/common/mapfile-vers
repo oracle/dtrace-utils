@@ -145,8 +145,6 @@ SUNWprivate_1.1 {
 	Pobjname_resolved;
 	Pplatform;
 	Ppltdest;
-	Ppriv;
-	Pprivinfo;
 	Ppsinfo;
 	Pputareg;
 	pr_access;
@@ -232,7 +230,6 @@ SUNWprivate_1.1 {
 	Pset_procfs_path;
 	Psetbkpt;
 	Psetcred;
-	Psetpriv;
 	Psetrun;
 	Psetsignal;
 	Psetwapt;

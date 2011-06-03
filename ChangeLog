@@ -1,3 +1,15 @@
+2011-06-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/common/Pcontrol.c (Pwait): Rewrite to use waitid().
+	* (prdump): Removed.
+	* libproc/common/libproc.h ("C"): Remove priv functions.
+	* libproc/common/mapfile-vers: Likewise.
+
+	* libdtrace/dt_proc.c (dt_proc_control): Drop a bit of PS_UNDEAD
+	stuff, this state is impossible now.
+
+	* INCOMPATIBILITIES: Add a new problem with using ptrace().
+
 2011-06-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	* include/sys/corectl.h: Solaris-specific, delete.

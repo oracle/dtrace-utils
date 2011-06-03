@@ -40,6 +40,17 @@ it, I think. Nothing else seems likely to, and nobody seems to care (probably
 because kernel developers only care about kernel debugging).
 
 
+libdtrace users using wait*() should take care
+----------------------------------------------
+
+Because Linux dtrace depends on ptrace(), system calls that wait for children
+(namely, waitpid() for that process, wait() for all processes, and waitid()) may
+return trace results for it. libdtrace users must take care not to do so, lest
+they confuse libdtrace: so do not waitid() or waitpid() for processes in the
+current process group, and do not use wait() at all. (wait() is ugly and best
+avoided in any case.)
+
+
 Kernel provider names differ
 ----------------------------
 Difficulty: Very high

@@ -638,147 +638,57 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	Pfree(P);
 }
 
-
-/* debugging */
-static void
-prdump(struct ps_prochandle *P)
-{
-	uint32_t bits;
-	memcpy (&bits, &P->status.pr_sigpend, sizeof (uint32_t));
-	if (bits)
-		_dprintf("Pstopstatus: pr_sigpend = 0x%.8X\n", bits);
-}
-
 /*
  * Wait for the process to stop for any reason.
  */
 int
 Pwait(struct ps_prochandle *P, uint_t msec)
 {
-	int ctlfd = (P->agentctlfd >= 0)? P->agentctlfd : P->ctlfd;
-	long ctl[3];
-	ssize_t rc;
 	int err;
-	int old_state = P->state;
+	siginfo_t info;
 
-	/* TODO: use waitpid() instead. */
+	errno = 0;
+	do
+	{
+		err = waitid(P_PID, P->pid, &info, WEXITED | WSTOPPED);
 
-#if 0
-	switch (P->state) {
-	case PS_RUN:
-		break;
-	case PS_STOP:
-		if (request != PCNULL && request != PCDSTOP)
+		if (err == 0)
+			break;
+
+		if (errno == ECHILD) {
+			P->state = PS_DEAD;
 			return (0);
-		break;
-	case PS_LOST:
-		if (request != PCNULL) {
-			errno = EAGAIN;
+		}
+
+		if (errno != EINTR) {
+			_dprintf("Pwait: error waiting: %s", strerror(errno));
 			return (-1);
 		}
+	} while (errno == EINTR);
+
+	switch (info.si_code) {
+	case CLD_EXITED:
+	case CLD_KILLED:
+	case CLD_DUMPED:
+		P->state = PS_DEAD;
 		break;
-	case PS_UNDEAD:
-	case PS_DEAD:
-	case PS_IDLE:
-		if (request != PCNULL) {
-			errno = ENOENT;
-			return (-1);
-		}
+	case CLD_STOPPED:
+		P->state = PS_STOP;
 		break;
+	case CLD_TRAPPED:
+		/* All ptrace() traps are unexpected as we don't use ptrace() */
+		_dprintf("Pwait: Unexpected ptrace() trap");
+		exit (-1);
+	case CLD_CONTINUED:
+		_dprintf("Pwait: Child got CLD_CONTINUED: this can never happen");
+		exit (-1);
+
 	default:	/* corrupted state */
-		_dprintf("Pstopstatus: corrupted state: %d\n", P->state);
+		_dprintf("Pwait: unknown si_code: %li\n", info.si_code);
 		errno = EINVAL;
 		return (-1);
 	}
-
-	ctl[0] = PCDSTOP;
-	ctl[1] = PCTWSTOP;
-	ctl[2] = (long)msec;
-	rc = 0;
-	switch (request) {
-	case PCWSTOP:
-		rc = write(ctlfd, &ctl[1], 2*sizeof (long));
-		break;
-	default:	/* programming error */
-		errno = EINVAL;
-		return (-1);
-	}
-	err = (rc < 0)? errno : 0;
-#endif
-
-#if 0
-	if (err) {
-		switch (err) {
-		case EINTR:		/* user typed ctl-C */
-		case ERESTART:
-			_dprintf("Pstopstatus: EINTR\n");
-			break;
-		case EAGAIN:		/* we lost control of the the process */
-		case EOVERFLOW:
-			_dprintf("Pstopstatus: PS_LOST, errno=%d\n", err);
-			P->state = PS_LOST;
-			break;
-		default:		/* check for dead process */
-			if (_libproc_debug) {
-				const char *errstr;
-
-				switch (request) {
-				case PCNULL:
-					errstr = "Pstopstatus PCNULL"; break;
-				case PCSTOP:
-					errstr = "Pstopstatus PCSTOP"; break;
-				case PCDSTOP:
-					errstr = "Pstopstatus PCDSTOP"; break;
-				case PCWSTOP:
-					errstr = "Pstopstatus PCWSTOP"; break;
-				default:
-					errstr = "Pstopstatus PC???"; break;
-				}
-				_dprintf("%s: %s\n", errstr, strerror(err));
-			}
-			deadcheck(P);
-			break;
-		}
-		if (err != EINTR && err != ERESTART) {
-			errno = err;
-			return (-1);
-		}
-	}
-
-	if (!(P->status.pr_flags & PR_STOPPED)) {
-		P->state = PS_RUN;
-		if (request == PCNULL || request == PCDSTOP || msec != 0)
-			return (0);
-		_dprintf("Pstopstatus: process is not stopped\n");
-		errno = EPROTO;
-		return (-1);
-	}
-#endif
-	P->state = PS_STOP;
-
-	if (_libproc_debug)	/* debugging */
-		prdump(P);
-
-	/*
-	 * If the process was already stopped coming into Pstopstatus(),
-	 * then don't use its PC to set P->sysaddr since it may have been
-	 * changed since the time the process originally stopped.
-	 */
-	if (old_state == PS_STOP)
-		return (0);
-#if 0
-	switch (P->status.pr_lwp.pr_why) {
-	case PR_REQUESTED:
-	case PR_SIGNALLED:
-	case PR_FAULTED:
-	case PR_JOBCONTROL:
-	case PR_SUSPENDED:
-		break;
-	default:
-		errno = EPROTO;
-		return (-1);
-	}
-#endif
+	
 	return (0);
 }
 

@@ -450,23 +450,19 @@ dt_proc_control(void *arg)
 			break;
 
 		case PS_UNDEAD:
+		case PS_DEAD:
 			dt_dprintf("pid %d: proc died\n", pid);
 			dpr->dpr_quit = B_TRUE;
 			notify = B_TRUE;
 			break;
 		}
 
-		if (Pstate(P) != PS_UNDEAD && Psetrun(P, 0, 0) == -1) {
-			dt_dprintf("pid %d: failed to set running: %s\n",
-			    (int)dpr->dpr_pid, strerror(errno));
-		}
-
 		(void) pthread_mutex_unlock(&dpr->dpr_lock);
 	}
 
 	/*
-	 * If the control thread detected PS_UNDEAD or PS_LOST, then enqueue
-	 * the dt_proc_t structure on the dt_proc_hash_t notification list.
+	 * If the control thread detected PS_UNDEAD or PS_DEAD, then enqueue the
+	 * dt_proc_t structure on the dt_proc_hash_t notification list.
 	 */
 	if (notify)
 		dt_proc_notify(dtp, dph, dpr, NULL);
