@@ -1,6 +1,30 @@
+2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
+
+	Rip out breakpoint handling.
+
+	* libdtrace/dt_proc.h (dt_proc_t): Remove dpr_bps.
+	(dt_bkpt): Delete.
+	(bt_bkpt_f): Likewise.
+
+	* libdtrace/dt_proc.c: Fix header comment to describe what libproc
+	will do when I've finished with it.
+	(dt_proc_bpcreate): Delete.
+	(dt_proc_bpdestroy): Likewise.
+	(dt_proc_bpmatch): Likewise.
+	(dt_proc_bpenable): Likewise.
+	(dt_proc_bpdisable): Likewise.
+	(dt_proc_stop): Remove calls to these functions.
+	(dt_proc_attach): Likewise.
+	(dt_proc_notify): Likewise.
+	(dt_proc_destroy): Likewise.
+	(dt_proc_control): Likewise.
+
+	* libproc/common/Pcontrol.c (Pdelbkpt): Remove.
+	* libproc/common/mapfile-vers: Remove Pdelbkpt, Psetbkpt.
+
 2011-06-03  Shujing Zhao  <pearly.zhao@oracle.com>
 
-	* libproc/common/libproc.h: Drop PS_LOST, PS_UNDEAN, PS_IDLE. Remove
+	* libproc/common/libproc.h: Drop PS_LOST, PS_UNDEAD, PS_IDLE. Remove
 	Ppsinfo prototype.
 	* libdtrace/dt_proc.c (dt_proc_bpdestroy): Drop a bit of PS_LOST and
 	PS_UNDEAD.

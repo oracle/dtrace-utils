@@ -28,30 +28,19 @@
  * DTrace Process Control
  *
  * This file provides a set of routines that permit libdtrace and its clients
- * to create and grab process handles using libproc, and to share these handles
- * between library mechanisms that need libproc access, such as ustack(), and
- * client mechanisms that need libproc access, such as dtrace(1M) -c and -p.
+ * to cache process state as necessary, and avoid repeatedly pulling the same
+ * data out of /proc (which can be expensive).
  * The library provides several mechanisms in the libproc control layer:
- *
- * Reference Counting: The library code and client code can independently grab
- * the same process handles without interfering with one another.  Only when
- * the reference count drops to zero and the handle is not being cached (see
- * below for more information on caching) will Prelease() be called on it.
- *
- * Handle Caching: If a handle is grabbed PGRAB_RDONLY (e.g. by ustack()) and
- * the reference count drops to zero, the handle is not immediately released.
- * Instead, libproc handles are maintained on dph_lrulist in order from most-
- * recently accessed to least-recently accessed.  Idle handles are maintained
- * until a pre-defined LRU cache limit is exceeded, permitting repeated calls
- * to ustack() to avoid the overhead of releasing and re-grabbing processes.
  *
  * Process Control: For processes that are grabbed for control (~GRAB_RDONLY)
  * or created by dt_proc_create(), a control thread is created to provide
- * callbacks on process exit and symbol table caching on dlopen()s.
+ * callbacks on process exit.  (FIXME: Use process groups instead.)
  *
  * MT-Safety: Libproc is not MT-Safe, so dt_proc_lock() and dt_proc_unlock()
  * are provided to synchronize access to the libproc handle between libdtrace
  * code and client code and the control thread's use of the ps_prochandle.
+ *
+ * XXX is this still true?
  *
  * NOTE: MT-Safety is NOT provided for libdtrace itself, or for use of the
  * dtrace_proc_grab/dtrace_proc_create mechanisms.  Like all exported libdtrace
@@ -64,19 +53,16 @@
  * The dph_lrucnt and dph_lrulim count the number of cacheable processes and
  * the current limit on the number of actively cached entries.
  *
- * The control thread for a process establishes breakpoints at the rtld_db
- * locations of interest, updates mappings and symbol tables at these points,
- * and handles exec and fork (by always following the parent).  The control
- * thread automatically exits when the process dies or control is lost.
+ * The control thread for a process currently does nothing but notify interested
+ * parties when the process dies.
  *
  * A simple notification mechanism is provided for libdtrace clients using
- * dtrace_handle_proc() for notification of PS_UNDEAD or PS_LOST events.  If
- * such an event occurs, the dt_proc_t itself is enqueued on a notification
- * list and the control thread broadcasts to dph_cv.  dtrace_sleep() will wake
- * up using this condition and will then call the client handler as necessary.
+ * dtrace_handle_proc() for notification of process death.  When this event
+ * occurs, the dt_proc_t itself is enqueued on a notification list and the
+ * control thread broadcasts to dph_cv.  dtrace_sleep() will wake up using this
+ * condition and will then call the client handler as necessary.
  */
 #include <sys/wait.h>
-#include <sys/ptrace.h>
 #include <string.h>
 #include <signal.h>
 #include <assert.h>
@@ -89,113 +75,6 @@
 #include <dt_proc.h>
 #include <dt_pid.h>
 #include <dt_impl.h>
-
-#if defined(sun)
-static dt_bkpt_t *
-dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
-{
-	struct ps_prochandle *P = dpr->dpr_proc;
-	dt_bkpt_t *dbp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
-	if ((dbp = dt_zalloc(dpr->dpr_hdl, sizeof (dt_bkpt_t))) != NULL) {
-		dbp->dbp_func = func;
-		dbp->dbp_data = data;
-		dbp->dbp_addr = addr;
-
-		if (Psetbkpt(P, dbp->dbp_addr, &dbp->dbp_instr) == 0)
-			dbp->dbp_active = B_TRUE;
-
-		dt_list_append(&dpr->dpr_bps, dbp);
-	}
-
-	return (dbp);
-}
-#endif
-
-static void
-dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
-{
-	dt_bkpt_t *dbp, *nbp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps); dbp != NULL; dbp = nbp) {
-		if (delbkpts && dbp->dbp_active) {
-			(void) Pdelbkpt(dpr->dpr_proc,
-			    dbp->dbp_addr, dbp->dbp_instr);
-		}
-		nbp = dt_list_next(dbp);
-		dt_list_delete(&dpr->dpr_bps, dbp);
-		dt_free(dpr->dpr_hdl, dbp);
-	}
-}
-
-#if 0
-static void
-dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
-{
-	const lwpstatus_t *psp = &Pstatus(dpr->dpr_proc)->pr_lwp;
-	dt_bkpt_t *dbp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-		if (psp->pr_reg[R_PC] == dbp->dbp_addr)
-			break;
-	}
-
-	if (dbp == NULL) {
-		dt_dprintf("pid %d: spurious breakpoint wakeup for %lx\n",
-		    (int)dpr->dpr_pid, (ulong_t)psp->pr_reg[R_PC]);
-		return;
-	}
-
-	dt_dprintf("pid %d: hit breakpoint at %lx (%lu)\n",
-	    (int)dpr->dpr_pid, (ulong_t)dbp->dbp_addr, ++dbp->dbp_hits);
-
-	dbp->dbp_func(dtp, dpr, dbp->dbp_data);
-	(void) Pxecbkpt(dpr->dpr_proc, dbp->dbp_instr);
-}
-#endif
-
-static void
-dt_proc_bpenable(dt_proc_t *dpr)
-{
-	dt_bkpt_t *dbp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-#if defined(sun)
-		if (!dbp->dbp_active && Psetbkpt(dpr->dpr_proc,
-		    dbp->dbp_addr, &dbp->dbp_instr) == 0)
-			dbp->dbp_active = B_TRUE;
-#endif
-	}
-
-	dt_dprintf("breakpoints enabled\n");
-}
-
-static void
-dt_proc_bpdisable(dt_proc_t *dpr)
-{
-	dt_bkpt_t *dbp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
-	for (dbp = dt_list_next(&dpr->dpr_bps);
-	    dbp != NULL; dbp = dt_list_next(dbp)) {
-		if (dbp->dbp_active && Pdelbkpt(dpr->dpr_proc,
-		    dbp->dbp_addr, dbp->dbp_instr) == 0)
-			dbp->dbp_active = B_FALSE;
-	}
-
-	dt_dprintf("breakpoints disabled\n");
-}
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
@@ -242,17 +121,8 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 
 		(void) pthread_cond_broadcast(&dpr->dpr_cv);
 
-		/*
-		 * We disable breakpoints while stopped to preserve the
-		 * integrity of the program text for both our own disassembly
-		 * and that of the kernel.
-		 */
-		dt_proc_bpdisable(dpr);
-
 		while (dpr->dpr_stop & DT_PROC_STOP_IDLE)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
-
-		dt_proc_bpenable(dpr);
 	}
 }
 
@@ -281,7 +151,6 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 		if (psp->pr_lwp.pr_errno != 0)
 			return; /* exec failed: nothing needs to be done */
 
-		dt_proc_bpdestroy(dpr, B_FALSE);
 		Preset_maps(dpr->dpr_proc);
 	}
 
@@ -303,14 +172,6 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 
 	/* FIXME: put a breakpoint on main() */
 
-	if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
-	    "a.out", "main", &sym, NULL) == 0) {
-		(void) dt_proc_bpcreate(dpr, (uintptr_t)sym.st_value,
-		    (dt_bkpt_f *)dt_proc_bpmain, "a.out`main");
-	} else {
-		dt_dprintf("pid %d: failed to find a.out`main: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
-	}
 #endif
 }
 
@@ -440,11 +301,9 @@ dt_proc_control(void *arg)
 			 * occurs, we will fall through to Psetrun() but the
 			 * process will remain stopped in the kernel by the
 			 * corresponding mechanism (e.g. job control stop).
+			 *
+			 * FIXME: This used to be done using breakpoints.
 			 */
-#if MULTIPLE_DEBUGGERS
-			if (psp->pr_why == PR_FAULTED && psp->pr_what == FLTBPT)
-				dt_proc_bpmatch(dtp, dpr);
-#endif
 			break;
 
 		case PS_DEAD:
@@ -471,7 +330,6 @@ dt_proc_control(void *arg)
 	 */
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 
-	dt_proc_bpdestroy(dpr, B_TRUE);
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
 
@@ -561,11 +419,10 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 #endif
 
 		/*
-		 * If the process is currently idling in dt_proc_stop(), re-
-		 * enable breakpoints and poke it into running again.
+		 * If the process is currently idling in dt_proc_stop(), poke it
+		 * into running again.
 		 */
 		if (dpr->dpr_stop & DT_PROC_STOP_IDLE) {
-			dt_proc_bpenable(dpr);
 			dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
 			(void) pthread_cond_broadcast(&dpr->dpr_cv);
 		}

@@ -744,37 +744,6 @@ Pwrite(struct ps_prochandle *P,
 	return (P->ops->p_pwrite(P, buf, nbyte, address));
 }
 
-/*
- * Restore original instruction where a breakpoint was set.
- */
-int
-Pdelbkpt(struct ps_prochandle *P, uintptr_t address, ulong_t saved)
-{
-	instr_t old = (instr_t)saved;
-	instr_t cur;
-
-	if (P->state == PS_DEAD) {
-		errno = ENOENT;
-		return (-1);
-	}
-
-	/*
-	 * If the breakpoint instruction we had placed has been overwritten
-	 * with a new instruction, then don't try to replace it with the
-	 * old instruction. Doing do can cause problems with self-modifying
-	 * code -- PLTs for example. If the Pread() fails, we assume that we
-	 * should proceed though most likely the Pwrite() will also fail.
-	 */
-	if (Pread(P, &cur, sizeof (cur), address) == sizeof (cur) &&
-	    cur != BPT)
-		return (0);
-
-	if (Pwrite(P, &old, sizeof (old), address) != sizeof (old))
-		return (-1);
-
-	return (0);
-}
-
 core_content_t
 Pcontent(struct ps_prochandle *P)
 {

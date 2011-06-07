@@ -99,7 +99,6 @@ SUNWprivate_1.1 {
 	Pcreate_error;
 	Pcred;
 	Pctlfd;
-	Pdelbkpt;
 	Pdelwapt;
 	Pdestroy_agent;
 	Penv_iter;
@@ -227,7 +226,6 @@ SUNWprivate_1.1 {
 	pr_waitid;
 	pr_zmap;
 	Pset_procfs_path;
-	Psetbkpt;
 	Psetcred;
 	Psetrun;
 	Psetsignal;

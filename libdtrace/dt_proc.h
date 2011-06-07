@@ -59,7 +59,6 @@ typedef struct dt_proc {
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
-	dt_list_t dpr_bps;		/* list of dt_bkpt_t structures */
 } dt_proc_t;
 
 typedef struct dt_proc_notify {
@@ -74,18 +73,6 @@ typedef struct dt_proc_notify {
 #define	DT_PROC_STOP_PREINIT	0x08	/* wait on dpr_cv at rtld preinit */
 #define	DT_PROC_STOP_POSTINIT	0x10	/* wait on dpr_cv at rtld postinit */
 #define	DT_PROC_STOP_MAIN	0x20	/* wait on dpr_cv at a.out`main() */
-
-typedef void dt_bkpt_f(dtrace_hdl_t *, dt_proc_t *, void *);
-
-typedef struct dt_bkpt {
-	dt_list_t dbp_list;		/* prev/next pointers for bkpt list */
-	dt_bkpt_f *dbp_func;		/* callback function to execute */
-	void *dbp_data;			/* callback function private data */
-	uintptr_t dbp_addr;		/* virtual address of breakpoint */
-	ulong_t dbp_instr;		/* saved instruction from breakpoint */
-	ulong_t dbp_hits;		/* count of breakpoint hits for debug */
-	int dbp_active;			/* flag indicating breakpoint is on */
-} dt_bkpt_t;
 
 typedef struct dt_proc_hash {
 	pthread_mutex_t dph_lock;	/* lock protecting dph_notify list */
