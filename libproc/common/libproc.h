@@ -197,9 +197,8 @@ extern const char *Pgrab_error(int);
 extern	void	Prelease(struct ps_prochandle *, boolean_t);
 extern	void	Pfree(struct ps_prochandle *);
 
-extern	int	Pasfd(struct ps_prochandle *);
+extern	int	Pmemfd(struct ps_prochandle *);
 extern	char   *Pbrandname(struct ps_prochandle *, char *, size_t);
-extern	int	Pctlfd(struct ps_prochandle *);
 extern	int	Pcreate_agent(struct ps_prochandle *);
 extern	void	Pdestroy_agent(struct ps_prochandle *);
 extern	int	Pwait(struct ps_prochandle *, uint_t);

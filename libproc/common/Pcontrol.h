@@ -176,17 +176,9 @@ typedef struct elf_file {	/* convenience for managing ELF files */
 	int e_fd;		/* file descriptor */
 } elf_file_t;
 
-typedef struct ps_rwops {	/* ops vector for Pread() and Pwrite() */
-	ssize_t (*p_pread)(struct ps_prochandle *,
-	    void *, size_t, uintptr_t);
-	ssize_t (*p_pwrite)(struct ps_prochandle *,
-	    const void *, size_t, uintptr_t);
-} ps_rwops_t;
-
 #define	HASHSIZE		1024	/* hash table size, power of 2 */
 
 struct ps_prochandle {
-	struct ps_lwphandle **hashtab;	/* hash table for LWPs (Lgrab()) */
 	mutex_t	proc_lock;	/* protects hash table; serializes Lgrab() */
 	pstatus_t orig_status;	/* remembered status on Pgrab() */
 	pstatus_t status;	/* status when stopped */
@@ -196,11 +188,8 @@ struct ps_prochandle {
 	int	state;		/* state of the process, see "libproc.h" */
 	uint_t	flags;		/* see defines below */
 	uint_t	agentcnt;	/* Pcreate_agent()/Pdestroy_agent() ref count */
-	int	asfd;		/* /proc/<pid>/as filedescriptor */
-	int	ctlfd;		/* /proc/<pid>/ctl filedescriptor */
-	int	statfd;		/* /proc/<pid>/status filedescriptor */
-	int	agentctlfd;	/* /proc/<pid>/lwp/agent/ctl */
-	int	agentstatfd;	/* /proc/<pid>/lwp/agent/status */
+	int	statfd;		/* /proc/<pid>/stat filedescriptor */
+	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	map_info_t *mappings;	/* cached process mappings */
 	size_t	map_count;	/* number of mappings */
@@ -213,7 +202,6 @@ struct ps_prochandle {
 	rd_agent_t *rap;	/* cookie for rtld_db */
 	map_info_t *map_exec;	/* the mapping for the executable file */
 	map_info_t *map_ldso;	/* the mapping for ld.so.1 */
-	const ps_rwops_t *ops;	/* pointer to ops-vector for read and write */
 	core_info_t *core;	/* information specific to core (if PS_DEAD) */
 	uintptr_t *ucaddrs;	/* ucontext-list addresses */
 	uint_t	ucnelems;	/* number of elements in the ucaddrs list */
@@ -225,24 +213,10 @@ struct ps_prochandle {
 #define	SETHOLD		0x20	/* set signal hold mask before continuing */
 #define	SETREGS		0x40	/* set registers before continuing */
 
-struct ps_lwphandle {
-	struct ps_prochandle *lwp_proc;	/* process to which this lwp belongs */
-	struct ps_lwphandle *lwp_hash;	/* hash table linked list */
-	lwpstatus_t	lwp_status;	/* status when stopped */
-	lwpsinfo_t	lwp_psinfo;	/* lwpsinfo_t from last Lpsinfo() */
-	lwpid_t		lwp_id;		/* lwp identifier */
-	int		lwp_state;	/* state of the lwp, see "libproc.h" */
-	uint_t		lwp_flags;	/* SETHOLD and/or SETREGS */
-	int		lwp_ctlfd;	/* /proc/<pid>/lwp/<lwpid>/lwpctl */
-	int		lwp_statfd;	/* /proc/<pid>/lwp/<lwpid>/lwpstatus */
-};
-
 /*
  * Implementation functions in the process control library.
  * These are not exported to clients of the library.
  */
-extern	int	dupfd(int, int);
-extern	int	set_minfd(void);
 extern	int	Pscantext(struct ps_prochandle *);
 extern	void	Pinitsym(struct ps_prochandle *);
 extern	void	Preadauxvec(struct ps_prochandle *);

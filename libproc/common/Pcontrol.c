@@ -60,27 +60,7 @@ int	_libproc_no_qsort;	/* set non-zero to inhibit sorting */
 int	_libproc_incore_elf;	/* only use in-core elf data */
 
 sigset_t blockable_sigs;	/* signals to block when we need to be safe */
-static	int	minfd;	/* minimum file descriptor returned by dupfd(fd, 0) */
 char	procfs_path[PATH_MAX] = "/proc";
-
-/*
- * Read/write interface for live processes: just pread/pwrite the
- * /proc/<pid>/as file:
- */
-
-static ssize_t
-Pread_live(struct ps_prochandle *P, void *buf, size_t n, uintptr_t addr)
-{
-	return (pread(P->asfd, buf, n, (off_t)addr));
-}
-
-static ssize_t
-Pwrite_live(struct ps_prochandle *P, const void *buf, size_t n, uintptr_t addr)
-{
-	return (pwrite(P->asfd, buf, n, (off_t)addr));
-}
-
-static const ps_rwops_t P_live_ops = { Pread_live, Pwrite_live };
 
 /*
  * This is the library's .init handler.
@@ -105,63 +85,6 @@ Pset_procfs_path(const char *path)
 }
 
 /*
- * Call set_minfd() once before calling dupfd() several times.
- * We assume that the application will not reduce its current file
- * descriptor limit lower than 512 once it has set at least that value.
- */
-int
-set_minfd(void)
-{
-	static mutex_t minfd_lock = DEFAULTMUTEX;
-	struct rlimit rlim;
-	int fd;
-
-	if ((fd = minfd) < 256) {
-		(void) mutex_lock(&minfd_lock);
-		if ((fd = minfd) < 256) {
-			if (getrlimit(RLIMIT_NOFILE, &rlim) != 0)
-				rlim.rlim_cur = rlim.rlim_max = 0;
-			if (rlim.rlim_cur >= 512)
-				fd = 256;
-			else if ((fd = rlim.rlim_cur / 2) < 3)
-				fd = 3;
-/*			membar_producer();*/
-			minfd = fd;
-		}
-		(void) mutex_unlock(&minfd_lock);
-	}
-	return (fd);
-}
-
-int
-dupfd(int fd, int dfd)
-{
-	int mfd;
-
-	/*
-	 * Make fd be greater than 255 (the 32-bit stdio limit),
-	 * or at least make it greater than 2 so that the
-	 * program will work when spawned by init(1m).
-	 * Also, if dfd is non-zero, dup the fd to be dfd.
-	 */
-	if ((mfd = minfd) == 0)
-		mfd = set_minfd();
-	if (dfd > 0 || (0 <= fd && fd < mfd)) {
-		if (dfd <= 0)
-			dfd = mfd;
-		dfd = fcntl(fd, F_DUPFD, dfd);
-		(void) close(fd);
-		fd = dfd;
-	}
-	/*
-	 * Mark it close-on-exec so any created process doesn't inherit it.
-	 */
-	if (fd >= 0)
-		(void) fcntl(fd, F_SETFD, FD_CLOEXEC);
-	return (fd);
-}
-
-/*
  * Create a new controlled process.
  * Leave it stopped on successful exit from exec() or execve().
  * Return an opaque pointer to its process control structure.
@@ -180,7 +103,6 @@ Pxcreate(
 	char procname[PATH_MAX];
 	struct ps_prochandle *P;
 	pid_t pid;
-	int fd;
 	char *fname;
 	int rc;
 	int status;
@@ -235,12 +157,8 @@ Pxcreate(
 	P->flags |= CREATED;
 	P->state = PS_RUN;
 	P->pid = pid;
-	P->asfd = -1;
-	P->ctlfd = -1;
+	P->memfd = -1;
 	P->statfd = -1;
-	P->agentctlfd = -1;
-	P->agentstatfd = -1;
-	P->ops = &P_live_ops;
 	Pinitsym(P);
 
 	/*
@@ -251,25 +169,15 @@ Pxcreate(
 	    procfs_path, (int)pid);
 	fname = procname + strlen(procname);
 
-	/*
-	 * Exclusive write open advises others not to interfere.
-	 * There is no reason for any of these open()s to fail.
-	 */
 	strcpy(fname, "mem");
-/*	if ((fd = open(procname, (O_RDWR|O_EXCL))) < 0 || */
-	if ((fd = open(procname, (O_RDONLY|O_EXCL))) < 0 ||
-	 /* Changed to O_RDONLY on Linux */
-	    (fd = dupfd(fd, 0)) < 0) {
+	if ((P->memfd = open(procname, (O_RDONLY|O_EXCL))) < 0) {
 		_dprintf("Pcreate: failed to open %s: %s\n",
 		    procname, strerror(errno));
 		rc = C_STRANGE;
 		goto bad;
 	}
-	P->asfd = fd;
+	(void) fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
 
-	fd = -1;
-	P->ctlfd = fd;
-	
 	waitpid (pid, &status, 0);
 	if (WIFEXITED(status)) {
 		rc = C_NOENT;
@@ -375,11 +283,8 @@ Pgrab(pid_t pid, int flags, int *perr)
 	(void) memset(P, 0, sizeof (*P));
 	P->state = PS_RUN;
 	P->pid = pid;
-	P->ctlfd = -1;
-        P->asfd = -1;
+        P->memfd = -1;
         P->statfd = -1;
-        P->agentctlfd = -1;
-        P->agentstatfd = -1;
 	P->status.pr_pid = pid;
 
 	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {	
@@ -454,9 +359,6 @@ Pgrab_error(int error)
 	case G_ISAINVAL:
 		str = "wrong ELF machine type";
 		break;
-	case G_BADLWPS:
-		str = "bad lwp specification";
-		break;
 	case G_NOFD:
 		str = "too many open files";
 		break;
@@ -514,31 +416,17 @@ Pfree(struct ps_prochandle *P)
 	}
 
 	(void) mutex_lock(&P->proc_lock);
-	if (P->hashtab != NULL) {
-#if 0
-		struct ps_lwphandle *L;
-		for (i = 0; i < HASHSIZE; i++) {
-			while ((L = P->hashtab[i]) != NULL)
-				Lfree_internal(P, L);
-		}
-		free(P->hashtab);
-#endif
-		return; /* It would not happen at Linux. */
-	}
 	(void) mutex_unlock(&P->proc_lock);
 	(void) mutex_destroy(&P->proc_lock);
 
-	if (P->asfd >= 0)
-		(void) close(P->asfd);
+	if (P->memfd >= 0)
+		(void) close(P->memfd);
 	Preset_maps(P);
 
 	/* clear out the structure as a precaution against reuse */
 	(void) memset(P, 0, sizeof (*P));
-	P->ctlfd = -1;
-	P->asfd = -1;
+	P->memfd = -1;
 	P->statfd = -1;
-	P->agentctlfd = -1;
-	P->agentstatfd = -1;
 
 	free(P);
 }
@@ -553,25 +441,14 @@ Pstate(struct ps_prochandle *P)
 }
 
 /*
- * Return the open address space file descriptor for the process.
+ * Return the open memory file descriptor for the process.
  * Clients must not close this file descriptor, not use it
  * after the process is freed.
  */
 int
-Pasfd(struct ps_prochandle *P)
+Pmemfd(struct ps_prochandle *P)
 {
-	return (P->asfd);
-}
-
-/*
- * Return the open control file descriptor for the process.
- * Clients must not close this file descriptor, not use it
- * after the process is freed.
- */
-int
-Pctlfd(struct ps_prochandle *P)
-{
-	return (P->ctlfd);
+	return (P->memfd);
 }
 
 /*
@@ -656,7 +533,7 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 		exit (-1);
 
 	default:	/* corrupted state */
-		_dprintf("Pwait: unknown si_code: %li\n", info.si_code);
+		_dprintf("Pwait: unknown si_code: %li\n", (long int) info.si_code);
 		errno = EINVAL;
 		return (-1);
 	}
@@ -695,7 +572,7 @@ Pread(struct ps_prochandle *P,
 	size_t nbyte,		/* number of bytes to read */
 	uintptr_t address)	/* address in process */
 {
-	return (P->ops->p_pread(P, buf, nbyte, address));
+	return (pread(P->memfd, buf, nbyte, (off_t)address));
 }
 
 ssize_t
@@ -720,7 +597,7 @@ Pread_string(struct ps_prochandle *P,
 	string[STRSZ] = '\0';
 
 	for (nbyte = STRSZ; nbyte == STRSZ && leng < size; addr += STRSZ) {
-		if ((nbyte = P->ops->p_pread(P, string, STRSZ, addr)) <= 0) {
+		if ((nbyte = Pread(P, string, STRSZ, addr)) <= 0) {
 			buf[leng] = '\0';
 			return (leng ? leng : -1);
 		}
@@ -733,15 +610,6 @@ Pread_string(struct ps_prochandle *P,
 	}
 	buf[leng] = '\0';
 	return (leng);
-}
-
-ssize_t
-Pwrite(struct ps_prochandle *P,
-	const void *buf,	/* caller's buffer */
-	size_t nbyte,		/* number of bytes to write */
-	uintptr_t address)	/* address in process */
-{
-	return (P->ops->p_pwrite(P, buf, nbyte, address));
 }
 
 core_content_t

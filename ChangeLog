@@ -1,5 +1,34 @@
 2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libproc/common/Pcontrol.c (minfd): Remove, pointless now this
+	library is only being used by dtrace.
+	(set_minfd): Likewise.
+	(dupfd): Likewise, move its O_CLOEXEC to...
+	(Pxcreate): ... here.
+	(Pwrite_live): Remove.
+
+	(Pread_live): Migrate contents into...
+	(Pread): ... here.
+
+	* libproc/common/Pcontrol.c (Pxcreate): Drop ctlfd, agentctlfd,
+	agentstatfd; rename asfd to memfd. Drop ops initialization.
+	(Pread_string): Stop using it.
+	(Pgrab): Likewise.
+	(Pgrab_error): LWPs do not exist on Linux.
+	(Pfree): Likewise.
+	(Pasfd): Rename to Pmemfd().
+	(Pctlfd): Remove.
+	(Pwait): Fix int/long int confusion.
+
+	* libproc/common/mapfile-vers: Delete dead functions.
+	* libproc/common/Pcontrol.h: Likewise.
+	(ps_rwops): Delete.
+	(ps_lwphandle): Likewise.
+	(ps_prochandle_t): Delete hashtab, ctlfd, statfd, agentctlfd,
+	agentstatfd, ops. Rename asfd to memfd.
+
+2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
+
 	Rip out breakpoint handling.
 
 	* libdtrace/dt_proc.h (dt_proc_t): Remove dpr_bps.

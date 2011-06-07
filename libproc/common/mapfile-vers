@@ -66,7 +66,6 @@ SUNWprivate_1.1 {
 	Lalt_stack;
 	Lclearfault;
 	Lclearsig;
-	Lctlfd;
 	Ldstop;
 	Lfree;
 	Lgetareg;
@@ -90,7 +89,6 @@ SUNWprivate_1.1 {
 	Paddr_to_loadobj;
 	Paddr_to_map;
 	Paddr_to_text_map;
-	Pasfd;
 	Pclearfault;
 	Pclearsig;
 	Pcontent;
@@ -98,7 +96,6 @@ SUNWprivate_1.1 {
 	Pcreate_agent;
 	Pcreate_error;
 	Pcred;
-	Pctlfd;
 	Pdelwapt;
 	Pdestroy_agent;
 	Penv_iter;
@@ -135,6 +132,7 @@ SUNWprivate_1.1 {
 	Plwp_stack;
 	Pmapping_iter;
 	Pmapping_iter_resolved;
+	Pmemfd;
 	Pname_to_ctf;
 	Pname_to_loadobj;
 	Pname_to_map;
