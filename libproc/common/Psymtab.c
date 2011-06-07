@@ -503,7 +503,7 @@ Pupdate_maps(struct ps_prochandle *P)
 	char buf[BUFSIZ];
 	
 
-	if (P->info_valid || P->state == PS_UNDEAD)
+	if (P->info_valid)
 		return;
 
 	Preadauxvec(P);
@@ -679,7 +679,7 @@ Pupdate_syms(struct ps_prochandle *P)
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
-	if (P->rap == NULL && P->state != PS_DEAD && P->state != PS_IDLE) {
+	if (P->rap == NULL && P->state != PS_DEAD) {
 		Pupdate_maps(P);
 		if (P->num_files == 0)
 			load_static_maps(P);
@@ -946,8 +946,6 @@ Preadauxvec(struct ps_prochandle *P)
 
 	if (P->state == PS_DEAD)
 		return; /* Already read during Pgrab_core() */
-	if (P->state == PS_IDLE)
-		return; /* No aux vec for Pgrab_file() */
 
 	if (P->auxv != NULL) {
 		free(P->auxv);
@@ -1751,7 +1749,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		return;
 	}
 
-	if (P->state == PS_DEAD || P->state == PS_IDLE) {
+	if (P->state == PS_DEAD) {
 		char *name;
 		/*
 		 * If we're not live, we can't open files from the /proc
@@ -2266,7 +2264,7 @@ object_name_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 		mptr = P->map_exec;
 	else if (name == PR_OBJ_LDSO)
 		mptr = P->map_ldso;
-	else if (Prd_agent(P) != NULL || P->state == PS_IDLE)
+	else if (Prd_agent(P) != NULL)
 		mptr = object_to_map(P, lmid, name);
 	else
 		mptr = NULL;
@@ -3075,11 +3073,6 @@ Pplatform(struct ps_prochandle *P, char *s, size_t n)
 {
 	struct utsname u;
 
-	if (P->state == PS_IDLE) {
-		errno = ENODATA;
-		return (NULL);
-	}
-
 	if (P->state == PS_DEAD) {
 		if (P->core->core_platform == NULL) {
 			errno = ENODATA;
@@ -3104,11 +3097,6 @@ Pplatform(struct ps_prochandle *P, char *s, size_t n)
 int
 Puname(struct ps_prochandle *P, struct utsname *u)
 {
-	if (P->state == PS_IDLE) {
-		errno = ENODATA;
-		return (-1);
-	}
-
 	if (P->state == PS_DEAD) {
 		if (P->core->core_uts == NULL) {
 			errno = ENODATA;

@@ -117,10 +117,7 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 /* State values returned by Pstate() */
 #define	PS_RUN		1	/* process is running */
 #define	PS_STOP		2	/* process is stopped */
-#define	PS_LOST		3	/* process is lost to control (EAGAIN) */
-#define	PS_UNDEAD	4	/* process is terminated (zombie) */
-#define	PS_DEAD		5	/* process is terminated (core file) */
-#define	PS_IDLE		6	/* process has not been run */
+#define	PS_DEAD		3	/* process is terminated (core file) */
 
 /* Flags accepted by Pgrab() */
 #define	PGRAB_RETAIN	0x01	/* Retain tracing flags, else clear flags */
@@ -209,7 +206,6 @@ extern	int	Pwait(struct ps_prochandle *, uint_t);
 extern	int	Pstop(struct ps_prochandle *, uint_t);
 extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
-extern	const psinfo_t *Ppsinfo(struct ps_prochandle *);
 extern	const pstatus_t *Pstatus(struct ps_prochandle *);
 extern	int	Psetcred(struct ps_prochandle *, const prcred_t *);
 extern	int	Pgetareg(struct ps_prochandle *, int, prgreg_t *);

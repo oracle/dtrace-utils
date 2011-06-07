@@ -1,3 +1,19 @@
+2011-06-03  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* libproc/common/libproc.h: Drop PS_LOST, PS_UNDEAN, PS_IDLE. Remove
+	Ppsinfo prototype.
+	* libdtrace/dt_proc.c (dt_proc_bpdestroy): Drop a bit of PS_LOST and
+	PS_UNDEAD.
+	(dt_proc_control): Likewise.
+	(dt_proc_create_thread): Likewise.
+	* libproc/common/Pcontrol.c (Ppsinfo): Remove.
+	(Prelease): Drop a bit of PS_IDLE.
+	(Pdelbkpt): Likewise.
+	(Pcontent): Likewise.
+	* libproc/common/Psymtab.c (Pupdate_maps): Drop PS_UNDEAD.
+	(Pupdate_syms, Preadauxvec, Pbuild_file_symtab, object_name_to_map,
+	 Pplatform, Puname): Drop PS_IDLE.
+
 2011-06-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/common/Pcontrol.c (Pwait): Rewrite to use waitid().

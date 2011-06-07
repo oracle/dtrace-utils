@@ -145,7 +145,6 @@ SUNWprivate_1.1 {
 	Pobjname_resolved;
 	Pplatform;
 	Ppltdest;
-	Ppsinfo;
 	Pputareg;
 	pr_access;
 	pr_close;

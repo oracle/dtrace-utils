@@ -117,14 +117,12 @@ dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
 static void
 dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
 {
-	int state = Pstate(dpr->dpr_proc);
 	dt_bkpt_t *dbp, *nbp;
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
 	for (dbp = dt_list_next(&dpr->dpr_bps); dbp != NULL; dbp = nbp) {
-		if (delbkpts && dbp->dbp_active &&
-		    state != PS_LOST && state != PS_UNDEAD) {
+		if (delbkpts && dbp->dbp_active) {
 			(void) Pdelbkpt(dpr->dpr_proc,
 			    dbp->dbp_addr, dbp->dbp_instr);
 		}
@@ -449,7 +447,6 @@ dt_proc_control(void *arg)
 #endif
 			break;
 
-		case PS_UNDEAD:
 		case PS_DEAD:
 			dt_dprintf("pid %d: proc died\n", pid);
 			dpr->dpr_quit = B_TRUE;
@@ -661,28 +658,6 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 		 * small amount of useful information to help figure it out.
 		 */
 		if (dpr->dpr_done) {
-#if 0
-			const psinfo_t *prp = Ppsinfo(dpr->dpr_proc);
-			int stat = prp ? prp->pr_wstat : 0;
-#endif
-			int pid = dpr->dpr_pid;
-
-			if (Pstate(dpr->dpr_proc) == PS_LOST) {
-				(void) dt_proc_error(dpr->dpr_hdl, dpr,
-				    "failed to control pid %d: process exec'd "
-				    "set-id or unobservable program\n", pid);
-#if 0
-			} else if (WIFSIGNALED(stat)) {
-				(void) dt_proc_error(dpr->dpr_hdl, dpr,
-				    "failed to control pid %d: process died "
-				    "from signal %d\n", pid, WTERMSIG(stat));
-			} else {
-				(void) dt_proc_error(dpr->dpr_hdl, dpr,
-				    "failed to control pid %d: process exited "
-				    "with status %d\n", pid, WEXITSTATUS(stat));
-#endif
-			}
-
 			err = ESRCH; /* cause grab() or create() to fail */
 		}
 	} else {

@@ -575,26 +575,6 @@ Pctlfd(struct ps_prochandle *P)
 }
 
 /*
- * Return a pointer to the process psinfo structure.
- * Clients should not hold on to this pointer indefinitely.
- * It will become invalid on Prelease().
- */
-const psinfo_t *
-Ppsinfo(struct ps_prochandle *P)
-{
-	if (P->state == PS_IDLE) {
-		errno = ENODATA;
-		return (NULL);
-	}
-#if 0
-	if (P->state != PS_DEAD && proc_get_psinfo(P->pid, &P->psinfo) == -1)
-		return (NULL);
-#endif
-
-	return (&P->psinfo);
-}
-
-/*
  * Return a pointer to the process status structure.
  * Clients should not hold on to this pointer indefinitely.
  * It will become invalid on Prelease().
@@ -615,14 +595,6 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	if (P->state == PS_DEAD) {
 		_dprintf("Prelease: releasing handle %p PS_DEAD of pid %d\n",
 		    (void *)P, (int)P->pid);
-		Pfree(P);
-		return;
-	}
-
-	if (P->state == PS_IDLE) {
-		file_info_t *fptr = list_next(&P->file_head);
-		_dprintf("Prelease: releasing handle %p PS_IDLE of file %s\n",
-		    (void *)P, fptr->file_pname);
 		Pfree(P);
 		return;
 	}
@@ -781,8 +753,7 @@ Pdelbkpt(struct ps_prochandle *P, uintptr_t address, ulong_t saved)
 	instr_t old = (instr_t)saved;
 	instr_t cur;
 
-	if (P->state == PS_DEAD || P->state == PS_UNDEAD ||
-	    P->state == PS_IDLE) {
+	if (P->state == PS_DEAD) {
 		errno = ENOENT;
 		return (-1);
 	}
@@ -809,8 +780,6 @@ Pcontent(struct ps_prochandle *P)
 {
 	if (P->state == PS_DEAD)
 		return (P->core->core_content);
-	if (P->state == PS_IDLE)
-		return (CC_CONTENT_TEXT | CC_CONTENT_DATA | CC_CONTENT_CTF);
 
 	return (CC_CONTENT_ALL);
 }
