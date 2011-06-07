@@ -64,6 +64,15 @@ static int read_ehdr32(struct ps_prochandle *, Elf32_Ehdr *, uint_t *,
 static int read_ehdr64(struct ps_prochandle *, Elf64_Ehdr *, uint_t *,
     uintptr_t);
 #endif
+static file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
+static void rd_loadobj_iter(rl_iter_f *, struct ps_prochandle *);
+static rd_agent_t *Prd_agent(struct ps_prochandle *);
+static void Preadauxvec(struct ps_prochandle *);
+static long Pgetauxval(struct ps_prochandle *, int);
+static int byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname);
+static void optimize_symtab(sym_tbl_t *);
+static void Pbuild_file_symtab(struct ps_prochandle *, file_info_t *);
+static char *Pfindmap(struct ps_prochandle *, map_info_t *, char *, size_t);
 
 #define	DATA_TYPES	\
 	((1 << STT_OBJECT) | (1 << STT_FUNC) | \
@@ -171,7 +180,7 @@ get_saddrs(struct ps_prochandle *P, uintptr_t ehdr_start, uint_t *n)
 /*
  * Allocation function for a new file_info_t
  */
-file_info_t *
+static file_info_t *
 file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 {
 	file_info_t *fptr;
@@ -300,10 +309,6 @@ map_info_free(struct ps_prochandle *P, map_info_t *mptr)
 		if (fptr->file_map == mptr)
 			fptr->file_map = NULL;
 		file_info_free(P, fptr);
-	}
-	if (P->execname && mptr == P->map_exec) {
-		free(P->execname);
-		P->execname = NULL;
 	}
 	if (P->auxv && (mptr == P->map_exec || mptr == P->map_ldso)) {
 		free(P->auxv);
@@ -437,7 +442,7 @@ load_static_maps(struct ps_prochandle *P)
 		map_set(P, mptr, "ld.so.1");
 }
 
-void
+static void
 rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
@@ -639,7 +644,7 @@ Pupdate_maps(struct ps_prochandle *P)
 	if (P->mappings != NULL)
 		free(P->mappings);
 	P->mappings = newmap;
-	P->map_count = P->map_alloc = nmap;
+	P->map_count = nmap;
 	P->info_valid = 1;
 
 	/*
@@ -651,32 +656,13 @@ Pupdate_maps(struct ps_prochandle *P)
 }
 
 /*
- * Update all of the mappings and rtld_db as if by Pupdate_maps(), and then
- * forcibly cache all of the symbol tables associated with all object files.
- */
-void
-Pupdate_syms(struct ps_prochandle *P)
-{
-	file_info_t *fptr;
-	int i;
-
-	Pupdate_maps(P);
-
-	for (i = 0, fptr = list_next(&P->file_head); i < P->num_files;
-	    i++, fptr = list_next(fptr)) {
-		Pbuild_file_symtab(P, fptr);
-		(void) Pbuild_file_ctf(P, fptr);
-	}
-}
-
-/*
  * Return the librtld_db agent handle for the victim process.
  * The handle will become invalid at the next successful exec() and the
  * client (caller of proc_rd_agent()) must not use it beyond that point.
  * If the process is already dead, we've already tried our best to
  * create the agent during core file initialization.
  */
-rd_agent_t *
+static rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
 	if (P->rap == NULL && P->state != PS_DEAD) {
@@ -690,39 +676,6 @@ Prd_agent(struct ps_prochandle *P)
 #endif
 	}
 	return (P->rap);
-}
-
-/*
- * Return the prmap_t structure containing 'addr', but only if it
- * is in the dynamic linker's link map and is the text section.
- */
-const prmap_t *
-Paddr_to_text_map(struct ps_prochandle *P, uintptr_t addr)
-{
-	map_info_t *mptr;
-
-	if (!P->info_valid)
-		Pupdate_maps(P);
-
-	if ((mptr = Paddr2mptr(P, addr)) != NULL) {
-		file_info_t *fptr = build_map_symtab(P, mptr);
-		const prmap_t *pmp = &mptr->map_pmap;
-
-		/*
-		 * Assume that if rl_data_base is NULL, it means that no
-		 * data section was found for this load object, and that
-		 * a section must be text. Otherwise, a section will be
-		 * text unless it ends above the start of the data
-		 * section.
-		 */
-		if (fptr != NULL && fptr->file_lo != NULL &&
-		    (fptr->file_lo->rl_data_base == NULL ||
-		    pmp->pr_vaddr + pmp->pr_size <
-		    fptr->file_lo->rl_data_base))
-			return (pmp);
-	}
-
-	return (NULL);
 }
 
 /*
@@ -767,175 +720,13 @@ Pname_to_map(struct ps_prochandle *P, const char *name)
 	return (Plmid_to_map(P, PR_LMID_EVERY, name));
 }
 
-const rd_loadobj_t *
-Paddr_to_loadobj(struct ps_prochandle *P, uintptr_t addr)
-{
-	map_info_t *mptr;
-
-	if (!P->info_valid)
-		Pupdate_maps(P);
-
-	if ((mptr = Paddr2mptr(P, addr)) == NULL)
-		return (NULL);
-
-	/*
-	 * By building the symbol table, we implicitly bring the PLT
-	 * information up to date in the load object.
-	 */
-	(void) build_map_symtab(P, mptr);
-
-	return (mptr->map_file->file_lo);
-}
-
-const rd_loadobj_t *
-Plmid_to_loadobj(struct ps_prochandle *P, Lmid_t lmid, const char *name)
-{
-	map_info_t *mptr;
-
-	if (name == PR_OBJ_EVERY)
-		return (NULL);
-
-	if ((mptr = object_name_to_map(P, lmid, name)) == NULL)
-		return (NULL);
-
-	/*
-	 * By building the symbol table, we implicitly bring the PLT
-	 * information up to date in the load object.
-	 */
-	(void) build_map_symtab(P, mptr);
-
-	return (mptr->map_file->file_lo);
-}
-
-const rd_loadobj_t *
-Pname_to_loadobj(struct ps_prochandle *P, const char *name)
-{
-	return (Plmid_to_loadobj(P, PR_LMID_EVERY, name));
-}
-
-ctf_file_t *
-Pbuild_file_ctf(struct ps_prochandle *P, file_info_t *fptr)
-{
-	ctf_sect_t ctdata, symtab, strtab;
-	sym_tbl_t *symp;
-	int err;
-
-	if (fptr->file_ctfp != NULL)
-		return (fptr->file_ctfp);
-
-	Pbuild_file_symtab(P, fptr);
-
-	if (fptr->file_ctf_size == 0)
-		return (NULL);
-
-	symp = fptr->file_ctf_dyn ? &fptr->file_dynsym : &fptr->file_symtab;
-	if (symp->sym_data_pri == NULL)
-		return (NULL);
-
-	/*
-	 * The buffer may alread be allocated if this is a core file that
-	 * contained CTF data for this file.
-	 */
-	if (fptr->file_ctf_buf == NULL) {
-		fptr->file_ctf_buf = malloc(fptr->file_ctf_size);
-		if (fptr->file_ctf_buf == NULL) {
-			_dprintf("failed to allocate ctf buffer\n");
-			return (NULL);
-		}
-
-		if (pread(fptr->file_fd, fptr->file_ctf_buf,
-		    fptr->file_ctf_size, fptr->file_ctf_off) !=
-		    fptr->file_ctf_size) {
-			free(fptr->file_ctf_buf);
-			fptr->file_ctf_buf = NULL;
-			_dprintf("failed to read ctf data\n");
-			return (NULL);
-		}
-	}
-
-	ctdata.cts_name = ".SUNW_ctf";
-	ctdata.cts_type = SHT_PROGBITS;
-	ctdata.cts_flags = 0;
-	ctdata.cts_data = fptr->file_ctf_buf;
-	ctdata.cts_size = fptr->file_ctf_size;
-	ctdata.cts_entsize = 1;
-	ctdata.cts_offset = 0;
-
-	symtab.cts_name = fptr->file_ctf_dyn ? ".dynsym" : ".symtab";
-	symtab.cts_type = symp->sym_hdr_pri.sh_type;
-	symtab.cts_flags = symp->sym_hdr_pri.sh_flags;
-	symtab.cts_data = symp->sym_data_pri->d_buf;
-	symtab.cts_size = symp->sym_hdr_pri.sh_size;
-	symtab.cts_entsize = symp->sym_hdr_pri.sh_entsize;
-	symtab.cts_offset = symp->sym_hdr_pri.sh_offset;
-
-	strtab.cts_name = fptr->file_ctf_dyn ? ".dynstr" : ".strtab";
-	strtab.cts_type = symp->sym_strhdr.sh_type;
-	strtab.cts_flags = symp->sym_strhdr.sh_flags;
-	strtab.cts_data = symp->sym_strs;
-	strtab.cts_size = symp->sym_strhdr.sh_size;
-	strtab.cts_entsize = symp->sym_strhdr.sh_entsize;
-	strtab.cts_offset = symp->sym_strhdr.sh_offset;
-
-	fptr->file_ctfp = ctf_bufopen(&ctdata, &symtab, &strtab, &err);
-	if (fptr->file_ctfp == NULL) {
-		_dprintf("ctf_bufopen() failed, error code %d\n", err);
-		free(fptr->file_ctf_buf);
-		fptr->file_ctf_buf = NULL;
-		return (NULL);
-	}
-
-	_dprintf("loaded %lu bytes of CTF data for %s\n",
-	    (ulong_t)fptr->file_ctf_size, fptr->file_pname);
-
-	return (fptr->file_ctfp);
-}
-
-ctf_file_t *
-Paddr_to_ctf(struct ps_prochandle *P, uintptr_t addr)
-{
-	map_info_t *mptr;
-	file_info_t *fptr;
-
-	if (!P->info_valid)
-		Pupdate_maps(P);
-
-	if ((mptr = Paddr2mptr(P, addr)) == NULL ||
-	    (fptr = mptr->map_file) == NULL)
-		return (NULL);
-
-	return (Pbuild_file_ctf(P, fptr));
-}
-
-ctf_file_t *
-Plmid_to_ctf(struct ps_prochandle *P, Lmid_t lmid, const char *name)
-{
-	map_info_t *mptr;
-	file_info_t *fptr;
-
-	if (name == PR_OBJ_EVERY)
-		return (NULL);
-
-	if ((mptr = object_name_to_map(P, lmid, name)) == NULL ||
-	    (fptr = mptr->map_file) == NULL)
-		return (NULL);
-
-	return (Pbuild_file_ctf(P, fptr));
-}
-
-ctf_file_t *
-Pname_to_ctf(struct ps_prochandle *P, const char *name)
-{
-	return (Plmid_to_ctf(P, PR_LMID_EVERY, name));
-}
-
 /*
  * If we're not a core file, re-read the /proc/<pid>/auxv file and store
  * its contents in P->auxv.  In the case of a core file, we either
  * initialized P->auxv in Pcore() from the NT_AUXV, or we don't have an
  * auxv because the note was missing.
  */
-void
+static void
 Preadauxvec(struct ps_prochandle *P)
 {
 	char auxfile[64];
@@ -997,7 +788,7 @@ Preadauxvec(struct ps_prochandle *P)
  * Return a requested element from the process's aux vector.
  * Return -1 on failure (this is adequate for our purposes).
  */
-long
+static long
 Pgetauxval(struct ps_prochandle *P, int type)
 {
 	auxv_t *auxv;
@@ -1014,24 +805,6 @@ Pgetauxval(struct ps_prochandle *P, int type)
 	}
 
 	return (-1);
-}
-
-/*
- * Return a pointer to our internal copy of the process's aux vector.
- * The caller should not hold on to this pointer across any libproc calls.
- */
-const auxv_t *
-Pgetauxvec(struct ps_prochandle *P)
-{
-	static const auxv_t empty = { AT_NULL, 0L };
-
-	if (P->auxv == NULL)
-		Preadauxvec(P);
-
-	if (P->auxv == NULL)
-		return (&empty);
-
-	return (P->auxv);
 }
 
 /*
@@ -1491,7 +1264,7 @@ static mutex_t sort_mtx = DEFAULTMUTEX;
 static char *sort_strs;
 static GElf_Sym *sort_syms;
 
-int
+static int
 byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 {
 	if (a->st_value < b->st_value)
@@ -1598,7 +1371,7 @@ symtab_getsym(sym_tbl_t *symtab, int ndx, GElf_Sym *dst)
 	return (gelf_getsym(symtab->sym_data_aux, ndx, dst));
 }
 
-void
+static void
 optimize_symtab(sym_tbl_t *symtab)
 {
 	GElf_Sym *symp, *syms;
@@ -1715,7 +1488,7 @@ build_fake_elf(struct ps_prochandle *P, file_info_t *fptr, GElf_Ehdr *ehdr,
 /*
  * Build the symbol table for the given mapped file.
  */
-void
+static void
 Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 {
 	char objectfile[PATH_MAX];
@@ -2272,7 +2045,7 @@ object_name_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	return (mptr);
 }
 
-char *
+static char *
 Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
 {
 	file_info_t *fptr = mptr->map_file;
@@ -2608,20 +2381,6 @@ i_Pxlookup_by_addr(
 }
 
 int
-Pxlookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *buf,
-    size_t bufsize, GElf_Sym *symp, prsyminfo_t *sip)
-{
-	return (i_Pxlookup_by_addr(P, B_FALSE, addr, buf, bufsize, symp, sip));
-}
-
-int
-Pxlookup_by_addr_resolved(struct ps_prochandle *P, uintptr_t addr, char *buf,
-    size_t bufsize, GElf_Sym *symp, prsyminfo_t *sip)
-{
-	return (i_Pxlookup_by_addr(P, B_TRUE, addr, buf, bufsize, symp, sip));
-}
-
-int
 Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *buf,
     size_t size, GElf_Sym *symp)
 {
@@ -2729,52 +2488,10 @@ Pxlookup_by_name(
 }
 
 /*
- * Iterate over the process's address space mappings.
- */
-static int
-i_Pmapping_iter(struct ps_prochandle *P, boolean_t lmresolve,
-    proc_map_f *func, void *cd)
-{
-	map_info_t *mptr;
-	file_info_t *fptr;
-	char *object_name;
-	int rc = 0;
-	int i;
-
-	/* create all the file_info_t's for all the mappings */
-	(void) Prd_agent(P);
-
-	for (i = 0, mptr = P->mappings; i < P->map_count; i++, mptr++) {
-		if ((fptr = mptr->map_file) == NULL)
-			object_name = NULL;
-		else if (lmresolve && (fptr->file_rname != NULL))
-			object_name = fptr->file_rname;
-		else
-			object_name = fptr->file_lname;
-		if ((rc = func(cd, &mptr->map_pmap, object_name)) != 0)
-			return (rc);
-	}
-	return (0);
-}
-
-int
-Pmapping_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
-{
-	return (i_Pmapping_iter(P, B_FALSE, func, cd));
-}
-
-int
-Pmapping_iter_resolved(struct ps_prochandle *P, proc_map_f *func, void *cd)
-{
-	return (i_Pmapping_iter(P, B_TRUE, func, cd));
-}
-
-/*
  * Iterate over the process's mapped objects.
  */
-static int
-i_Pobject_iter(struct ps_prochandle *P, boolean_t lmresolve,
-    proc_map_f *func, void *cd)
+int
+Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 {
 	map_info_t *mptr;
 	file_info_t *fptr;
@@ -2788,9 +2505,7 @@ i_Pobject_iter(struct ps_prochandle *P, boolean_t lmresolve,
 	    cnt; cnt--, fptr = list_next(fptr)) {
 		const char *lname;
 
-		if (lmresolve && (fptr->file_rname != NULL))
-			lname = fptr->file_rname;
-		else if (fptr->file_lname != NULL)
+		if (fptr->file_lname != NULL)
 			lname = fptr->file_lname;
 		else
 			lname = "";
@@ -2807,20 +2522,13 @@ i_Pobject_iter(struct ps_prochandle *P, boolean_t lmresolve,
 	return (0);
 }
 
-int
-Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
-{
-	return (i_Pobject_iter(P, B_FALSE, func, cd));
-}
-
-int
-Pobject_iter_resolved(struct ps_prochandle *P, proc_map_f *func, void *cd)
-{
-	return (i_Pobject_iter(P, B_TRUE, func, cd));
-}
-
-static char *
-i_Pobjname(struct ps_prochandle *P, boolean_t lmresolve, uintptr_t addr,
+/*
+ * Given a virtual address, return the name of the underlying
+ * mapped object (file) as provided by the dynamic linker.
+ * Return NULL if we can't find any name information for the object.
+ */
+char *
+Pobjname(struct ps_prochandle *P, uintptr_t addr,
 	char *buffer, size_t bufsize)
 {
 	map_info_t *mptr;
@@ -2832,44 +2540,11 @@ i_Pobjname(struct ps_prochandle *P, boolean_t lmresolve, uintptr_t addr,
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)
 		return (NULL);
 
-	if (!lmresolve) {
-		if (((fptr = mptr->map_file) == NULL) ||
-		    (fptr->file_lname == NULL))
-			return (NULL);
-		(void) strlcpy(buffer, fptr->file_lname, bufsize);
-		return (buffer);
-	}
-
-	/* Check for a cached copy of the resolved path */
-	if (Pfindmap(P, mptr, buffer, bufsize) != NULL)
-		return (buffer);
-
-	return (NULL);
-}
-
-/*
- * Given a virtual address, return the name of the underlying
- * mapped object (file) as provided by the dynamic linker.
- * Return NULL if we can't find any name information for the object.
- */
-char *
-Pobjname(struct ps_prochandle *P, uintptr_t addr,
-	char *buffer, size_t bufsize)
-{
-	return (i_Pobjname(P, B_FALSE, addr, buffer, bufsize));
-}
-
-/*
- * Given a virtual address, try to return a filesystem path to the underlying
- * mapped object (file). If we're unable return a valid filesystem path, we'll
- * fall back to providing the mapped object (file) name provided by the dynamic
- * linker in the target process (ie, the object reported by Pobjname()).
- */
-char *
-Pobjname_resolved(struct ps_prochandle *P, uintptr_t addr,
-	char *buffer, size_t bufsize)
-{
-	return (i_Pobjname(P, B_TRUE, addr, buffer, bufsize));
+	if (((fptr = mptr->map_file) == NULL) ||
+	    (fptr->file_lname == NULL))
+		return (NULL);
+	(void) strlcpy(buffer, fptr->file_lname, bufsize);
+	return (buffer);
 }
 
 /*
@@ -2895,13 +2570,13 @@ Plmid(struct ps_prochandle *P, uintptr_t addr, Lmid_t *lmidp)
 }
 
 /*
- * Given an object name and optional lmid, iterate over the object's symbols.
+ * Given an object name, iterate over the object's symbols.
  * If which == PR_SYMTAB, search the normal symbol table.
  * If which == PR_DYNSYM, search the dynamic symbol table.
  */
-static int
-Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
-    int which, int mask, pr_order_t order, proc_xsym_f *func, void *cd)
+int
+Psymbol_iter_by_addr(struct ps_prochandle *P,
+    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
 {
 #if STT_NUM != (STT_TLS + 1)
 #error "STT_NUM has grown. update Psymbol_iter_com()"
@@ -2915,11 +2590,10 @@ Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
 	size_t symn;
 	const char *strs;
 	size_t strsz;
-	prsyminfo_t si;
 	int rv;
 	uint_t *map, i, count, ndx;
 
-	if ((mptr = object_name_to_map(P, lmid, object_name)) == NULL)
+	if ((mptr = object_name_to_map(P, PR_LMID_EVERY, object_name)) == NULL)
 		return (-1);
 
 	if ((fptr = build_map_symtab(P, mptr)) == NULL || /* no mapped file */
@@ -2932,40 +2606,19 @@ Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
 	switch (which) {
 	case PR_SYMTAB:
 		symtab = &fptr->file_symtab;
-		si.prs_table = PR_SYMTAB;
 		break;
 	case PR_DYNSYM:
 		symtab = &fptr->file_dynsym;
-		si.prs_table = PR_DYNSYM;
 		break;
 	default:
 		return (-1);
 	}
-
-	si.prs_object = object_name;
-	si.prs_lmid = fptr->file_lo == NULL ?
-	    LM_ID_BASE : fptr->file_lo->rl_lmident;
 
 	symn = symtab->sym_symn;
 	strs = symtab->sym_strs;
 	strsz = symtab->sym_strsz;
-
-	switch (order) {
-	case PRO_NATURAL:
-		map = NULL;
-		count = symn;
-		break;
-	case PRO_BYNAME:
-		map = symtab->sym_byname;
-		count = symtab->sym_count;
-		break;
-	case PRO_BYADDR:
-		map = symtab->sym_byaddr;
-		count = symtab->sym_count;
-		break;
-	default:
-		return (-1);
-	}
+	map = symtab->sym_byaddr;
+	count = symtab->sym_count;
 
 	if (symtab->sym_data_pri == NULL || strs == NULL || count == 0)
 		return (-1);
@@ -2976,6 +2629,7 @@ Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
 		ndx = map == NULL ? i : map[i];
 		if (symtab_getsym(symtab, ndx, &sym) != NULL) {
 			uint_t s_bind, s_type, type;
+			const char *prs_name;
 
 			if (sym.st_name >= strsz)	/* invalid st_name */
 				continue;
@@ -3001,7 +2655,7 @@ Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
 			if (GELF_ST_TYPE(sym.st_info) != STT_TLS)
 				sym.st_value += fptr->file_dyn_base;
 
-			si.prs_name = strs + sym.st_name;
+			prs_name = strs + sym.st_name;
 
 			/*
 			 * If symbol's type is STT_SECTION, then try to lookup
@@ -3013,99 +2667,14 @@ Psymbol_iter_com(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
 			    sym.st_shndx), &shdr) != NULL &&
 			    shdr.sh_name != 0 &&
 			    shdr.sh_name < fptr->file_shstrsz)
-				si.prs_name = fptr->file_shstrs + shdr.sh_name;
+				prs_name = fptr->file_shstrs + shdr.sh_name;
 
-			si.prs_id = ndx;
-			if ((rv = func(cd, &sym, si.prs_name, &si)) != 0)
+			if ((rv = func(cd, &sym, prs_name)) != 0)
 				break;
 		}
 	}
 
 	return (rv);
-}
-
-int
-Pxsymbol_iter(struct ps_prochandle *P, Lmid_t lmid, const char *object_name,
-    int which, int mask, proc_xsym_f *func, void *cd)
-{
-	return (Psymbol_iter_com(P, lmid, object_name, which, mask,
-	    PRO_NATURAL, func, cd));
-}
-
-int
-Psymbol_iter_by_lmid(struct ps_prochandle *P, Lmid_t lmid,
-    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
-{
-	return (Psymbol_iter_com(P, lmid, object_name, which, mask,
-	    PRO_NATURAL, (proc_xsym_f *)func, cd));
-}
-
-int
-Psymbol_iter(struct ps_prochandle *P,
-    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
-{
-	return (Psymbol_iter_com(P, PR_LMID_EVERY, object_name, which, mask,
-	    PRO_NATURAL, (proc_xsym_f *)func, cd));
-}
-
-int
-Psymbol_iter_by_addr(struct ps_prochandle *P,
-    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
-{
-	return (Psymbol_iter_com(P, PR_LMID_EVERY, object_name, which, mask,
-	    PRO_BYADDR, (proc_xsym_f *)func, cd));
-}
-
-int
-Psymbol_iter_by_name(struct ps_prochandle *P,
-    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
-{
-	return (Psymbol_iter_com(P, PR_LMID_EVERY, object_name, which, mask,
-	    PRO_BYNAME, (proc_xsym_f *)func, cd));
-}
-
-/*
- * Get the platform string from the core file if we have it;
- * just perform the system call for the caller if this is a live process.
- */
-char *
-Pplatform(struct ps_prochandle *P, char *s, size_t n)
-{
-	struct utsname u;
-
-	if (P->state == PS_DEAD) {
-		if (P->core->core_platform == NULL) {
-			errno = ENODATA;
-			return (NULL);
-		}
-		(void) strncpy(s, P->core->core_platform, n - 1);
-		s[n - 1] = '\0';
-
-	} else if (Puname(P, &u) == -1) {
-		return (NULL);
-	} else {
-		strlcpy (s, u.machine, n);
-	}
-
-	return (s);
-}
-
-/*
- * Get the uname(2) information from the core file if we have it;
- * just perform the system call for the caller if this is a live process.
- */
-int
-Puname(struct ps_prochandle *P, struct utsname *u)
-{
-	if (P->state == PS_DEAD) {
-		if (P->core->core_uts == NULL) {
-			errno = ENODATA;
-			return (-1);
-		}
-		(void) memcpy(u, P->core->core_uts, sizeof (struct utsname));
-		return (0);
-	}
-	return (uname(u));
 }
 
 /*
@@ -3135,11 +2704,6 @@ Preset_maps(struct ps_prochandle *P)
 	}
 #endif
 
-	if (P->execname != NULL) {
-		free(P->execname);
-		P->execname = NULL;
-	}
-
 	if (P->auxv != NULL) {
 		free(P->auxv);
 		P->auxv = NULL;
@@ -3153,116 +2717,7 @@ Preset_maps(struct ps_prochandle *P)
 		free(P->mappings);
 		P->mappings = NULL;
 	}
-	P->map_count = P->map_alloc = 0;
+	P->map_count = 0;
 
 	P->info_valid = 0;
-}
-
-typedef struct getenv_data {
-	char *buf;
-	size_t bufsize;
-	const char *search;
-	size_t searchlen;
-} getenv_data_t;
-
-/*ARGSUSED*/
-static int
-getenv_func(void *data, struct ps_prochandle *P, const char *nameval)
-{
-	getenv_data_t *d = data;
-	size_t len;
-
-	if (nameval == NULL)
-		return (0);
-
-	if (d->searchlen < strlen(nameval) &&
-	    strncmp(nameval, d->search, d->searchlen) == 0 &&
-	    nameval[d->searchlen] == '=') {
-		len = MIN(strlen(nameval), d->bufsize - 1);
-		(void) strncpy(d->buf, nameval, len);
-		d->buf[len] = '\0';
-		return (1);
-	}
-
-	return (0);
-}
-
-char *
-Pgetenv(struct ps_prochandle *P, const char *name, char *buf, size_t buflen)
-{
-	getenv_data_t d;
-
-	d.buf = buf;
-	d.bufsize = buflen;
-	d.search = name;
-	d.searchlen = strlen(name);
-
-	if (Penv_iter(P, getenv_func, &d) == 1) {
-		char *equals = strchr(d.buf, '=');
-
-		if (equals != NULL) {
-			(void) memmove(d.buf, equals + 1,
-			    d.buf + buflen - equals - 1);
-			d.buf[d.buf + buflen - equals] = '\0';
-
-			return (buf);
-		}
-	}
-
-	return (NULL);
-}
-
-int
-Penv_iter(struct ps_prochandle *P, proc_env_f *func, void *data)
-{
-	int env;
-	int ret = -1;
-	char procname[PATH_MAX];
-	char *buf = NULL;
-	size_t buflen = 0;
-	char chunk[4096];
-	ssize_t chunklen;
-	char *iter;
-
-	(void) snprintf(procname, sizeof (procname), "/proc/%d/environ",
-	    (int)P->pid);
-
-	/*
-	 * Open up /proc/$pid/environ.
-	 */
-	if ((env = open(procname, O_RDONLY)) < 0)
-		return (-1);
-
-	/*
-	 * Grab the whole environment, then iterate across it.
-	 * (Space-efficiency is not called for here: the environment is in
-	 * memory anyway.)
-	 */
-
-	while ((chunklen = read(env, chunk, sizeof (chunk))) > 0) {
-		char *newbuf;
-
-		newbuf = realloc(buf, buflen + chunklen);
-		if (newbuf == NULL)
-			goto err;
-
-		buf = newbuf;
-		memcpy (buf + buflen, chunk, chunklen);
-		buflen += chunklen;
-	}
-
-	if (chunklen < 0)
-		goto err;
-
-	ret = 0;
-	for (iter = buf; iter - buf < buflen;
-	     iter = ((char *)memchr(iter, '\0', buflen - (iter - buf))) + 1) {
-		if ((ret = func(data, P, iter)) != 0)
-			break;
-	}
-
-err:
-	free(buf);
-	close(env);
-	return(ret);
 }

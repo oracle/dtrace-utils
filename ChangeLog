@@ -1,5 +1,68 @@
 2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
 
+	Rip out more code from Psymtab.c, simplifying code audits.
+
+	* libproc/common/Psymtab.c: Prototypes for functions now called
+	only from within this file.
+	(file_info_new): Make static.
+	(rd_loadobj_iter): Likewise.
+	(Prd_agent): Likewise.
+	(Preadauxvec): Likewise.
+	(byaddr_cmp_common): Likewise.
+	(optimize_symtab): Likewise.
+	(Pbuild_file_symtab): Likewise.
+	(Pfindmap): Likewise.
+
+	(Pupdate_syms): Unused, remove.
+	(Paddr_to_text_map): Likewise.
+	(Paddr_to_loadobj): Likewise.
+	(Plmid_to_loadobj): Likewise.
+	(Pname_to_loadobj): Likewise.
+	(Pbuild_file_ctf): Likewise.
+	(Paddr_to_ctf): Likewise.
+	(Plmid_to_ctf): Likewise.
+	(Pname_to_ctf): Likewise.
+	(Pgetauxvec): Likewise.
+	(Pxlookup_by_addr): Likewise.
+	(Pxlookup_by_addr_resolved): Likewise.
+	(i_Pmapping_iter): Likewise.
+	(Pmapping_iter): Likewise.
+	(Pmapping_iter_resolved): Likewise.
+	(Pobjname_resolved): Likewise.
+	(Pxsymbol_iter): Likewise.
+	(Psymbol_iter_by_lmid): Likewise.
+	(Psymbol_iter): Likewise.
+	(Psymbol_iter_by_name): Likewise.
+	(Pplatform): Likewise.
+	(Puname): Likewise.
+	(struct getenv_data): Likewise.
+	(getenv_func): Likewise.
+	(Pgetenv): Likewise.
+	(Penv_iter): Likewise.
+
+	(i_Pobject_iter): Fold into...
+	(Pobject_iter): ... its only caller.
+
+	(i_Pobjname): Drop dead code, folding into...
+	(Pobjname): ... its only caller.
+
+	(Psymbol_iter_com): Drop dead code, folding into...
+	(Psymbol_iter_by_addr): ... its only caller.
+
+	* libproc/common/Pcontrol.h: Adjust accordingly.
+	* libproc/common/libproc.h: Likewise.
+	* libproc/common/mapfile-vers: Likewise.
+
+	* libproc/common/Pcontrol.h: Delete dead structure members.
+	* libproc/common/Psymtab.c (map_info_free): Likewise.
+	(Pupdate_maps): Likewise.
+	(Preset_maps): Likewise.
+	* libproc/common/Pcontrol.c (Pxcreate): Likewise.
+	(Pfree): Likewise.
+	(Psetrun): Likewise.
+
+2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libproc/common/Pcontrol.c (minfd): Remove, pointless now this
 	library is only being used by dtrace.
 	(set_minfd): Likewise.

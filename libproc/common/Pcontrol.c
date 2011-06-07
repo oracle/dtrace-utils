@@ -153,8 +153,6 @@ Pxcreate(
 	 * Initialize the process structure.
 	 */
 	(void) memset(P, 0, sizeof (*P));
-	(void) mutex_init(&P->proc_lock, USYNC_THREAD, NULL);
-	P->flags |= CREATED;
 	P->state = PS_RUN;
 	P->pid = pid;
 	P->memfd = -1;
@@ -409,16 +407,6 @@ Pfree(struct ps_prochandle *P)
 		free(P->core);
 	}
 
-	if (P->ucaddrs != NULL) {
-		free(P->ucaddrs);
-		P->ucaddrs = NULL;
-		P->ucnelems = 0;
-	}
-
-	(void) mutex_lock(&P->proc_lock);
-	(void) mutex_unlock(&P->proc_lock);
-	(void) mutex_destroy(&P->proc_lock);
-
 	if (P->memfd >= 0)
 		(void) close(P->memfd);
 	Preset_maps(P);
@@ -547,15 +535,6 @@ Psetrun(struct ps_prochandle *P,
 	int flags)	/* PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */
 {
 	P->info_valid = 0;	/* will need to update map and file info */
-	/*
-	 * If we've cached ucontext-list information while we were stopped,
-	 * free it now.
-	 */
-	if (P->ucaddrs != NULL) {
-		free(P->ucaddrs);
-		P->ucaddrs = NULL;
-		P->ucnelems = 0;
-	}
 
 	if (ptrace (PTRACE_CONT, P->pid, NULL, sig) != 0) {
 		_dprintf("Psetrun: %s\n", strerror(errno));

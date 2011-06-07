@@ -244,8 +244,7 @@ extern	int	Pisprocdir(struct ps_prochandle *, const char *);
 
 /*
  * 'object_name' is the name of a load object obtained from an
- * iteration over the process's address space mappings (Pmapping_iter),
- * or an iteration over the process's mapped objects (Pobject_iter),
+ * an iteration over the process's mapped objects (Pobject_iter),
  * or else it is one of the special PR_OBJ_* values above.
  */
 extern int Plookup_by_addr(struct ps_prochandle *,
@@ -262,70 +261,31 @@ typedef struct prsyminfo {
 extern int Pxlookup_by_name(struct ps_prochandle *,
     Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
 
-extern int Pxlookup_by_addr(struct ps_prochandle *,
-    uintptr_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
-extern int Pxlookup_by_addr_resolved(struct ps_prochandle *,
-    uintptr_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
-
 typedef int proc_map_f(void *, const prmap_t *, const char *);
 
-extern int Pmapping_iter(struct ps_prochandle *, proc_map_f *, void *);
-extern int Pmapping_iter_resolved(struct ps_prochandle *, proc_map_f *, void *);
 extern int Pobject_iter(struct ps_prochandle *, proc_map_f *, void *);
-extern int Pobject_iter_resolved(struct ps_prochandle *, proc_map_f *, void *);
 
 extern const prmap_t *Paddr_to_map(struct ps_prochandle *, uintptr_t);
-extern const prmap_t *Paddr_to_text_map(struct ps_prochandle *, uintptr_t);
 extern const prmap_t *Pname_to_map(struct ps_prochandle *, const char *);
 extern const prmap_t *Plmid_to_map(struct ps_prochandle *,
     Lmid_t, const char *);
 
-extern const rd_loadobj_t *Paddr_to_loadobj(struct ps_prochandle *, uintptr_t);
-extern const rd_loadobj_t *Pname_to_loadobj(struct ps_prochandle *,
-    const char *);
-extern const rd_loadobj_t *Plmid_to_loadobj(struct ps_prochandle *,
-    Lmid_t, const char *);
-
-extern ctf_file_t *Paddr_to_ctf(struct ps_prochandle *, uintptr_t);
-extern ctf_file_t *Pname_to_ctf(struct ps_prochandle *, const char *);
-
-extern char *Pplatform(struct ps_prochandle *, char *, size_t);
-extern int Puname(struct ps_prochandle *, struct utsname *);
-
-extern char *Pexecname(struct ps_prochandle *, char *, size_t);
 extern char *Pobjname(struct ps_prochandle *, uintptr_t, char *, size_t);
-extern char *Pobjname_resolved(struct ps_prochandle *, uintptr_t, char *,
-    size_t);
 extern int Plmid(struct ps_prochandle *, uintptr_t, Lmid_t *);
 
 typedef int proc_env_f(void *, struct ps_prochandle *, const char *);
-extern	int Penv_iter(struct ps_prochandle *, proc_env_f *, void *);
-extern char *Pgetenv(struct ps_prochandle *, const char *, char *, size_t);
-extern long Pgetauxval(struct ps_prochandle *, int);
-extern const auxv_t *Pgetauxvec(struct ps_prochandle *);
 
 extern void Pset_procfs_path(const char *);
 
 /*
- * Symbol table iteration interface.  The special lmid constants LM_ID_BASE,
- * LM_ID_LDSO, and PR_LMID_EVERY may be used with Psymbol_iter_by_lmid.
+ * Symbol table iteration interface.
  */
 typedef int proc_sym_f(void *, const GElf_Sym *, const char *);
 typedef int proc_xsym_f(void *, const GElf_Sym *, const char *,
     const prsyminfo_t *);
 
-extern int Psymbol_iter(struct ps_prochandle *,
-    const char *, int, int, proc_sym_f *, void *);
 extern int Psymbol_iter_by_addr(struct ps_prochandle *,
     const char *, int, int, proc_sym_f *, void *);
-extern int Psymbol_iter_by_name(struct ps_prochandle *,
-    const char *, int, int, proc_sym_f *, void *);
-
-extern int Psymbol_iter_by_lmid(struct ps_prochandle *,
-    Lmid_t, const char *, int, int, proc_sym_f *, void *);
-
-extern int Pxsymbol_iter(struct ps_prochandle *,
-    Lmid_t, const char *, int, int, proc_xsym_f *, void *);
 
 /*
  * 'which' selects which symbol table and can be one of the following.
@@ -349,20 +309,11 @@ extern int Pxsymbol_iter(struct ps_prochandle *,
 #define	TYPE_ANY (TYPE_NOTYPE|TYPE_OBJECT|TYPE_FUNC|TYPE_SECTION|TYPE_FILE)
 
 /*
- * This returns the rtld_db agent handle for the process.
- * The handle will become invalid at the next successful exec() and
- * must not be used beyond that point (see Preset_maps(), below).
- */
-extern rd_agent_t *Prd_agent(struct ps_prochandle *);
-
-/*
  * This should be called when an RD_DLACTIVITY event with the
  * RD_CONSISTENT state occurs via librtld_db's event mechanism.
  * This makes libproc's address space mappings and symbol tables current.
- * The variant Pupdate_syms() can be used to preload all symbol tables as well.
  */
 extern void Pupdate_maps(struct ps_prochandle *);
-extern void Pupdate_syms(struct ps_prochandle *);
 
 /*
  * This must be called after the victim process performs a successful

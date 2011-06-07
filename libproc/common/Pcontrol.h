@@ -176,42 +176,24 @@ typedef struct elf_file {	/* convenience for managing ELF files */
 	int e_fd;		/* file descriptor */
 } elf_file_t;
 
-#define	HASHSIZE		1024	/* hash table size, power of 2 */
-
 struct ps_prochandle {
-	mutex_t	proc_lock;	/* protects hash table; serializes Lgrab() */
-	pstatus_t orig_status;	/* remembered status on Pgrab() */
 	pstatus_t status;	/* status when stopped */
-	psinfo_t psinfo;	/* psinfo_t from last Ppsinfo() request */
-	uintptr_t sysaddr;	/* address of most recent syscall instruction */
 	pid_t	pid;		/* process-ID */
 	int	state;		/* state of the process, see "libproc.h" */
-	uint_t	flags;		/* see defines below */
-	uint_t	agentcnt;	/* Pcreate_agent()/Pdestroy_agent() ref count */
 	int	statfd;		/* /proc/<pid>/stat filedescriptor */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	map_info_t *mappings;	/* cached process mappings */
 	size_t	map_count;	/* number of mappings */
-	size_t	map_alloc;	/* number of mappings allocated */
 	uint_t	num_files;	/* number of file elements in file_info */
 	plist_t	file_head;	/* head of mapped files w/ symbol table info */
-	char	*execname;	/* name of the executable file */
 	auxv_t	*auxv;		/* the process's aux vector */
 	int	nauxv;		/* number of aux vector entries */
 	rd_agent_t *rap;	/* cookie for rtld_db */
 	map_info_t *map_exec;	/* the mapping for the executable file */
 	map_info_t *map_ldso;	/* the mapping for ld.so.1 */
 	core_info_t *core;	/* information specific to core (if PS_DEAD) */
-	uintptr_t *ucaddrs;	/* ucontext-list addresses */
-	uint_t	ucnelems;	/* number of elements in the ucaddrs list */
 };
-
-/* flags */
-#define	CREATED		0x01	/* process was created by Pcreate() */
-#define	SETSIG		0x02	/* set signal trace mask before continuing */
-#define	SETHOLD		0x20	/* set signal hold mask before continuing */
-#define	SETREGS		0x40	/* set registers before continuing */
 
 /*
  * Implementation functions in the process control library.
@@ -219,30 +201,12 @@ struct ps_prochandle {
  */
 extern	int	Pscantext(struct ps_prochandle *);
 extern	void	Pinitsym(struct ps_prochandle *);
-extern	void	Preadauxvec(struct ps_prochandle *);
-extern	void	optimize_symtab(sym_tbl_t *);
-extern	void	Pbuild_file_symtab(struct ps_prochandle *, file_info_t *);
-extern	ctf_file_t *Pbuild_file_ctf(struct ps_prochandle *, file_info_t *);
 extern	map_info_t *Paddr2mptr(struct ps_prochandle *, uintptr_t);
 extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
 	int (*)(const char *, void *), void *);
 extern	int	getlwpstatus(struct ps_prochandle *, lwpid_t, lwpstatus_t *);
-extern	file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
-extern	char	*Pfindmap(struct ps_prochandle *, map_info_t *, char *,
-	size_t);
 
 extern char	procfs_path[PATH_MAX];
-
-extern void     rd_loadobj_iter(rl_iter_f *, struct  ps_prochandle *);
-
-/*
- * Architecture-dependent definition of the breakpoint instruction.
- */
-#if defined(sparc) || defined(__sparc)
-#define	BPT	((instr_t)0x91d02001)
-#elif defined(__i386) || defined(__amd64)
-#define	BPT	((instr_t)0xcc)
-#endif
 
 /*
  * Simple convenience.
