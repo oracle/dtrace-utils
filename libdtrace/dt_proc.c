@@ -141,16 +141,12 @@ dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
 static void
 dt_proc_attach(dt_proc_t *dpr, int exec)
 {
-	const pstatus_t *psp = Pstatus(dpr->dpr_proc);
 	rd_err_e err;
 	GElf_Sym sym;
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
 	if (exec) {
-		if (psp->pr_lwp.pr_errno != 0)
-			return; /* exec failed: nothing needs to be done */
-
 		Preset_maps(dpr->dpr_proc);
 	}
 
@@ -273,7 +269,6 @@ dt_proc_control(void *arg)
 	 * immediately) and do our processing.
 	 */
 	while (!dpr->dpr_quit) {
-		const lwpstatus_t *psp;
 
 		if (Pwait (P, 0) == -1 && errno == EINTR)
 			continue; /* check dpr_quit and continue waiting */
@@ -282,11 +277,6 @@ dt_proc_control(void *arg)
 
 		switch (Pstate(P)) {
 		case PS_STOP:
-
-			psp = &Pstatus(P)->pr_lwp;
-
-			dt_dprintf("pid %d: proc stopped showing %d/%d\n",
-			    pid, psp->pr_why, psp->pr_what);
 
 			/*
 			 * FIXME: handle other debuggers interrupting us here.
@@ -362,7 +352,7 @@ dt_proc_t *
 dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
-	pid_t pid = Pstatus(P)->pr_pid;
+	pid_t pid = ps_getpid(P);
 	dt_proc_t *dpr, **dpp = &dph->dph_hash[pid & (dph->dph_hashlen - 1)];
 
 	for (dpr = *dpp; dpr != NULL; dpr = dpr->dpr_hash) {
@@ -548,7 +538,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	}
 
 	dpr->dpr_hdl = dtp;
-	dpr->dpr_pid = Pstatus(dpr->dpr_proc)->pr_pid;
+	dpr->dpr_pid = ps_getpid(dpr->dpr_proc);
 	dpr->dpr_created = B_TRUE;
 
 	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_IDLE) != 0) 
@@ -734,7 +724,7 @@ dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	struct ps_prochandle *P = dt_proc_create(dtp, file, argv);
 
 	if (P != NULL && idp != NULL && idp->di_id == 0)
-		idp->di_id = Pstatus(P)->pr_pid; /* $target = created pid */
+		idp->di_id = ps_getpid(P); /* $target = created pid */
 
 	return (P);
 }

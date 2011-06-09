@@ -191,9 +191,6 @@ Pxcreate(
 		goto bad;
 	}
 
-        P->status.pr_flags |= PR_STOPPED;
-        P->state = PS_STOP;
-        P->status.pr_pid = pid;
         *perr = 0;
         return P;
 
@@ -283,7 +280,6 @@ Pgrab(pid_t pid, int flags, int *perr)
 	P->pid = pid;
         P->memfd = -1;
         P->statfd = -1;
-	P->status.pr_pid = pid;
 
 	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {	
 		goto err;
@@ -377,36 +373,6 @@ Pfree(struct ps_prochandle *P)
 {
 	uint_t i;
 
-	if (P->core != NULL) {
-		lwp_info_t *nlwp, *lwp = list_next(&P->core->core_lwp_head);
-
-		for (i = 0; i < P->core->core_nlwp; i++, lwp = nlwp) {
-			nlwp = list_next(lwp);
-#ifdef __sparc
-			if (lwp->lwp_gwins != NULL)
-				free(lwp->lwp_gwins);
-			if (lwp->lwp_xregs != NULL)
-				free(lwp->lwp_xregs);
-			if (lwp->lwp_asrs != NULL)
-				free(lwp->lwp_asrs);
-#endif
-			free(lwp);
-		}
-
-		if (P->core->core_platform != NULL)
-			free(P->core->core_platform);
-		if (P->core->core_uts != NULL)
-			free(P->core->core_uts);
-		if (P->core->core_cred != NULL)
-			free(P->core->core_cred);
-#if defined(__i386) || defined(__amd64)
-		if (P->core->core_ldt != NULL)
-			free(P->core->core_ldt);
-#endif
-
-		free(P->core);
-	}
-
 	if (P->memfd >= 0)
 		(void) close(P->memfd);
 	Preset_maps(P);
@@ -437,17 +403,6 @@ int
 Pmemfd(struct ps_prochandle *P)
 {
 	return (P->memfd);
-}
-
-/*
- * Return a pointer to the process status structure.
- * Clients should not hold on to this pointer indefinitely.
- * It will become invalid on Prelease().
- */
-const pstatus_t *
-Pstatus(struct ps_prochandle *P)
-{
-	return (&P->status);
 }
 
 /*
@@ -594,9 +549,6 @@ Pread_string(struct ps_prochandle *P,
 core_content_t
 Pcontent(struct ps_prochandle *P)
 {
-	if (P->state == PS_DEAD)
-		return (P->core->core_content);
-
 	return (CC_CONTENT_ALL);
 }
 

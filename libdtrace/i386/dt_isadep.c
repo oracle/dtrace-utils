@@ -79,8 +79,13 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 {
 	ulong_t i;
 	int size;
-	pid_t pid = Pstatus(P)->pr_pid;
+	pid_t pid = ps_getpid(P);
+#ifdef USERSPACE_TRACEPOINTS
 	char dmodel = Pstatus(P)->pr_dmodel;
+#else
+	char dmodel =  PR_MODEL_LP64;
+#endif
+
 
 	/*
 	 * Take a pass through the function looking for a register-dependant
@@ -124,8 +129,12 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	uint8_t *text;
 	ulong_t i, end;
 	int size;
-	pid_t pid = Pstatus(P)->pr_pid;
-	char dmodel = Pstatus(P)->pr_dmodel;
+	pid_t pid = ps_getpid(P);
+#ifdef USERSPACE_TRACEPOINTS
+        char dmodel = Pstatus(P)->pr_dmodel;
+#else
+        char dmodel =  PR_MODEL_LP64;
+#endif
 
 	/*
 	 * We allocate a few extra bytes at the end so we don't have to check
@@ -276,9 +285,12 @@ dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		uint8_t *text;
 		ulong_t i;
 		int size;
-		pid_t pid = Pstatus(P)->pr_pid;
+		pid_t pid = ps_getpid(P);
+#ifdef USERSPACE_TRACEPOINTS
 		char dmodel = Pstatus(P)->pr_dmodel;
-
+#else
+		char dmodel =  PR_MODEL_LP64;
+#endif
 		if ((text = malloc(symp->st_size)) == NULL) {
 			dt_dprintf("mr sparkle: malloc() failed\n");
 			return (DT_PROC_ERR);
@@ -350,8 +362,12 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	uint8_t *text;
 	int size;
 	ulong_t i, end = symp->st_size;
-	pid_t pid = Pstatus(P)->pr_pid;
-	char dmodel = Pstatus(P)->pr_dmodel;
+	pid_t pid = ps_getpid(P);
+#ifdef USERSPACE_TRACEPOINTS
+        char dmodel = Pstatus(P)->pr_dmodel;
+#else
+        char dmodel =  PR_MODEL_LP64;
+#endif
 
 	ftp->ftps_type = DTFTP_OFFSETS;
 	ftp->ftps_pc = (uintptr_t)symp->st_value;

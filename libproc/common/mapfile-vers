@@ -106,7 +106,6 @@ SUNWprivate_1.1 {
 	Pgrab_error;
 	Pgrab_file;
 	Pisprocdir;
-	Pissyscall_prev;
 	Plmid;
 	Plmid_to_map;
 	Plookup_by_addr;

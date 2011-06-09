@@ -111,8 +111,17 @@ get_saddrs(struct ps_prochandle *P, uintptr_t ehdr_start, uint_t *n)
 {
 	uintptr_t a, addr, *addrs = NULL, last = 0;
 	uint_t i, naddrs = 0, unordered = 0;
+#ifdef USERSPACE_TRACEPOINTS
+	char dmodel = P->status.pr_dmodel;
+#else
+	char dmodel = PR_MODEL_LP64;
+#endif
 
+#ifdef USERSPACE_TRACEPOINTS
 	if (P->status.pr_dmodel == PR_MODEL_ILP32) {
+#else
+	if (dmodel == PR_MODEL_ILP32) {
+#endif
 		Elf32_Ehdr ehdr;
 		Elf32_Phdr phdr;
 		uint_t phnum;
@@ -1083,6 +1092,11 @@ file_differs(struct ps_prochandle *P, Elf *elf, file_info_t *fptr)
 	uint_t i, ndyn;
 	GElf_Xword cksum;
 	uintptr_t addr;
+#ifdef USERSPACE_TRACEPOINTS
+        char dmodel = P->status.pr_dmodel;
+#else
+        char dmodel = PR_MODEL_LP64;
+#endif
 
 	if (fptr->file_map == NULL)
 		return (0);
@@ -1105,7 +1119,7 @@ file_differs(struct ps_prochandle *P, Elf *elf, file_info_t *fptr)
 found_shdr:
 	if ((data = elf_getdata(scn, NULL)) == NULL)
 		return (0);
-
+#ifdef USERSPACE_TRACEPOINTS
 	if (P->status.pr_dmodel == PR_MODEL_ILP32)
 		ndyn = shdr.sh_size / sizeof (Elf32_Dyn);
 #ifdef _LP64
@@ -1114,6 +1128,9 @@ found_shdr:
 #endif
 	else
 		return (0);
+#else
+	ndyn = shdr.sh_size / sizeof (Elf64_Dyn);
+#endif
 
 	for (i = 0; i < ndyn; i++) {
 		if (gelf_getdyn(data, i, &dyn) != NULL &&
@@ -1136,7 +1153,11 @@ found_cksum:
 	 */
 	addr = fptr->file_map->map_pmap.pr_vaddr;
 
-	if (P->status.pr_dmodel == PR_MODEL_ILP32) {
+#ifdef USERSPACE_TRACEPOINTS
+        if (P->status.pr_dmodel == PR_MODEL_ILP32) {
+#else
+        if (dmodel == PR_MODEL_ILP32) {
+#endif
 		Elf32_Ehdr ehdr;
 		Elf32_Phdr phdr;
 		Elf32_Dyn dync, *dynp;
@@ -1171,7 +1192,11 @@ found_cksum:
 		    (u_longlong_t)dync.d_un.d_val);
 		return (dync.d_un.d_val != cksum);
 #ifdef _LP64
+# ifdef USERSPACE_TRACEPOINTS
 	} else if (P->status.pr_dmodel == PR_MODEL_LP64) {
+# else
+	} else if (dmodel == PR_MODEL_LP64) {
+# endif
 		Elf64_Ehdr ehdr;
 		Elf64_Phdr phdr;
 		Elf64_Dyn dync, *dynp;
@@ -1222,6 +1247,11 @@ fake_elf(struct ps_prochandle *P, file_info_t *fptr)
 	Elf *elf;
 	uintptr_t addr;
 	uint_t phnum;
+#ifdef USERSPACE_TRACEPOINTS
+        char dmodel = P->status.pr_dmodel;
+#else
+        char dmodel = PR_MODEL_LP64;
+#endif
 
 	if (fptr->file_map == NULL)
 		return (NULL);
@@ -1232,7 +1262,11 @@ fake_elf(struct ps_prochandle *P, file_info_t *fptr)
 
 	addr = fptr->file_map->map_pmap.pr_vaddr;
 
-	if (P->status.pr_dmodel == PR_MODEL_ILP32) {
+#ifdef USERSPACE_TRACEPOINTS
+        if (P->status.pr_dmodel == PR_MODEL_ILP32) {
+#else
+        if (dmodel == PR_MODEL_ILP32) {
+#endif
 		Elf32_Ehdr ehdr;
 		Elf32_Phdr phdr;
 

@@ -1,3 +1,45 @@
+2011-06-09  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Remove the structures that are correspond to Solaris proc files.
+
+	* include/sys/elf.h: Clean
+	* include/sys/procfs.h: Clean and remove pr_flags, pr_wflags.
+	(lwpstatus_t, pstatus_t, lwpsinfo_t, psinfo_t, prcred_t, priovec_t,
+	 prusage_t, prpageheader_t, prasmap_t, prheader_t, lwpstatus32_t,
+	 pstatus32_t, lwpsinfo32_t, psinfo32_t, prmap32_t, prxmap32_t,
+	 prcred32_t, prwatch32_t): Remove.
+	* libproc/common/proc.c: New.
+	* libproc/common/makefile: Add proc.o to libproc.
+	* libproc/amd64/Pisadep.c (int_syscall_instr, syscall_instr): Unused,
+	remove.
+	(Ppltdest): Set dmodel.
+	(Pissyscall): Unused, remove.
+	(Pissyscall_prev): Likewise.
+	* libproc/common/Pcontrol.c (Pxcreate): Remove setting P->status.
+	(Pgrab): Likewise.
+	(Pfree): Remove check P->core.
+	(Pstatus): Unused, remove.
+	(Pcontent): Remove return core.
+	* libproc/common/Pcontrol.h: Clean.
+	(lwp_info_t, core_info_t): Remove.
+	(ps_prochandle): Remove status and core.
+	* libproc/common/Psymtab.c (get_saddrs): Set dmodel.
+	(file_differs): Likewise.
+	(fake_elf): Likewise.
+	* libproc/common/libproc.h: Clean and add ps_getpid prototype.
+	* libdtrace/dt_pid.c (dt_pid_per_sym): Use ps_getpid.
+	(dt_pid_create_usdt_probes): Likewise.
+	(dt_pid_per_mod): Set st_size directly.
+	* libdtrace/dt_proc.c (dt_proc_bpmain): Remove psp.
+	(dt_proc_control): Likewise.
+	(dt_proc_lookup): Use ps_getpid.
+	(dt_proc_create): Likewise.
+	* libdtrace/i386/dt_isadep.c (dt_pid_has_jump_table): Use ps_getpid and set
+	dmodel.
+	(dt_pid_create_return_probe): Likewise.
+	(dt_pid_create_offset_probe): Likewise.
+	(dt_pid_create_glob_offset_probes): Likewise.	
+
 2011-06-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	Rip out more code from Psymtab.c, simplifying code audits.

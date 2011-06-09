@@ -205,8 +205,6 @@ extern	int	Pwait(struct ps_prochandle *, uint_t);
 extern	int	Pstop(struct ps_prochandle *, uint_t);
 extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
-extern	const pstatus_t *Pstatus(struct ps_prochandle *);
-extern	int	Psetcred(struct ps_prochandle *, const prcred_t *);
 extern	int	Pgetareg(struct ps_prochandle *, int, prgreg_t *);
 extern	int	Pputareg(struct ps_prochandle *, int, prgreg_t);
 extern	int	Psetrun(struct ps_prochandle *, int, int);
@@ -337,11 +335,6 @@ extern void Preset_maps(struct ps_prochandle *);
 extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
 
 /*
- * See comments for Pissyscall(), in Pisadep.h
- */
-extern int Pissyscall_prev(struct ps_prochandle *, uintptr_t, uintptr_t *);
-
-/*
  * The following functions define a set of passive interfaces: libproc provides
  * default, empty definitions that are called internally.  If a client wishes
  * to override these definitions, it can simply provide its own version with
@@ -358,6 +351,8 @@ extern void Perror_printf(struct ps_prochandle *P _dt_unused_,
 extern int Pgcore(struct ps_prochandle *, const char *, core_content_t);
 extern int Pfgcore(struct ps_prochandle *, int, core_content_t);
 extern core_content_t Pcontent(struct ps_prochandle *);
+
+extern pid_t ps_getpid(struct ps_prochandle *);
 
 #ifdef	__cplusplus
 }
