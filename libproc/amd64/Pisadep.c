@@ -38,9 +38,6 @@
 
 #include "Pcontrol.h"
 
-static uchar_t int_syscall_instr[] = { 0xCD, T_SYSCALLINT };
-static uchar_t syscall_instr[] = { 0x0f, 0x05 };
-
 const char *
 Ppltdest(struct ps_prochandle *P, uintptr_t pltaddr)
 {
@@ -48,6 +45,11 @@ Ppltdest(struct ps_prochandle *P, uintptr_t pltaddr)
 	file_info_t *fp;
 	size_t i;
 	uintptr_t r_addr;
+#ifdef USERSPACE_TRACEPOINTS
+	char dmodel = Pstatus(P)->pr_dmodel;
+#else
+	char dmodel =  PR_MODEL_LP64;
+#endif
 
 	if (mp == NULL || (fp = mp->map_file) == NULL ||
 	    fp->file_plt_base == 0 ||
@@ -58,7 +60,11 @@ Ppltdest(struct ps_prochandle *P, uintptr_t pltaddr)
 
 	i = (pltaddr - fp->file_plt_base) / M_PLT_ENTSIZE - M_PLT_XNumber;
 
+#ifdef USERSPACE_TRACEPOINTS
 	if (P->status.pr_dmodel == PR_MODEL_LP64) {
+#else
+	if (dmodel == PR_MODEL_LP64) {
+#endif
 		Elf64_Rela r;
 
 		r_addr = fp->file_jmp_rel + i * sizeof (r);
@@ -86,51 +92,3 @@ Ppltdest(struct ps_prochandle *P, uintptr_t pltaddr)
 
 	return (NULL);
 }
-
-int
-Pissyscall(struct ps_prochandle *P, uintptr_t addr)
-{
-       uchar_t instr[16];
-
-       if (P->status.pr_dmodel == PR_MODEL_LP64) {
-	       if (Pread(P, instr, sizeof (syscall_instr), addr) !=
-		   sizeof (syscall_instr) ||
-		   memcmp(instr, syscall_instr, sizeof (syscall_instr)) != 0)
-		       return (0);
-	       else
-		       return (1);
-       }
-
-       if (Pread(P, instr, sizeof (int_syscall_instr), addr) !=
-	   sizeof (int_syscall_instr))
-	       return (0);
-
-       if (memcmp(instr, int_syscall_instr, sizeof (int_syscall_instr)) == 0)
-	       return (1);
-
-       return (0);
-}
-
-int
-Pissyscall_prev(struct ps_prochandle *P, uintptr_t addr, uintptr_t *dst)
-{
-	int ret;
-
-	if (P->status.pr_dmodel == PR_MODEL_LP64) {
-		if (Pissyscall(P, addr - sizeof (syscall_instr))) {
-			if (dst)
-				*dst = addr - sizeof (syscall_instr);
-			return (1);
-		}
-		return (0);
-	}
-
-	if ((ret = Pissyscall(P, addr - sizeof (int_syscall_instr))) != 0) {
-		if (dst)
-			*dst = addr - sizeof (int_syscall_instr);
-		return (ret);
-	}
-
-	return (0);
-}
-

@@ -19,6 +19,7 @@ $(LIB): \
 	$(LIB)(Psymtab_machelf32.o) \
 	$(LIB)(Psymtab_machelf64.o) \
 	$(LIB)(Psymtab.o) \
+	$(LIB)(proc.o) \
 	$(LIB)(Putil.o)
 
 clean:

@@ -124,35 +124,6 @@ typedef struct map_info {	/* description of an address space mapping */
 	int map_relocate;	/* associated file_map needs to be relocated */
 } map_info_t;
 
-typedef struct lwp_info {	/* per-lwp information from core file */
-	plist_t	lwp_list;	/* linked list */
-	lwpid_t	lwp_id;		/* lwp identifier */
-	lwpsinfo_t lwp_psinfo;	/* /proc/<pid>/lwp/<lwpid>/lwpsinfo data */
-	lwpstatus_t lwp_status;	/* /proc/<pid>/lwp/<lwpid>/lwpstatus data */
-#if defined(sparc) || defined(__sparc)
-	gwindows_t *lwp_gwins;	/* /proc/<pid>/lwp/<lwpid>/gwindows data */
-	prxregset_t *lwp_xregs;	/* /proc/<pid>/lwp/<lwpid>/xregs data */
-	int64_t *lwp_asrs;	/* /proc/<pid>/lwp/<lwpid>/asrs data */
-#endif
-} lwp_info_t;
-
-typedef struct core_info {	/* information specific to core files */
-	char core_dmodel;	/* data model for core file */
-	int core_errno;		/* error during initialization if != 0 */
-	plist_t core_lwp_head;	/* head of list of lwp info */
-	lwp_info_t *core_lwp;	/* current lwp information */
-	uint_t core_nlwp;	/* number of lwp's in list */
-	off64_t core_size;	/* size of core file in bytes */
-	char *core_platform;	/* platform string from core file */
-	struct utsname *core_uts;	/* uname(2) data from core file */
-	prcred_t *core_cred;	/* process credential from core file */
-	core_content_t core_content;	/* content dumped to core file */
-#if defined(__i386) || defined(__amd64)
-	struct ssd *core_ldt;	/* LDT entries from core file */
-	uint_t core_nldt;	/* number of LDT entries in core file */
-#endif
-} core_info_t;
-
 typedef struct elf_file_header { /* extended ELF header */
 	unsigned char e_ident[EI_NIDENT];
 	Elf64_Half e_type;
@@ -177,7 +148,9 @@ typedef struct elf_file {	/* convenience for managing ELF files */
 } elf_file_t;
 
 struct ps_prochandle {
+#ifdef USERSPACE_TRACEPOINTS
 	pstatus_t status;	/* status when stopped */
+#endif
 	pid_t	pid;		/* process-ID */
 	int	state;		/* state of the process, see "libproc.h" */
 	int	statfd;		/* /proc/<pid>/stat filedescriptor */
@@ -192,7 +165,6 @@ struct ps_prochandle {
 	rd_agent_t *rap;	/* cookie for rtld_db */
 	map_info_t *map_exec;	/* the mapping for the executable file */
 	map_info_t *map_ldso;	/* the mapping for ld.so.1 */
-	core_info_t *core;	/* information specific to core (if PS_DEAD) */
 };
 
 /*
@@ -204,7 +176,6 @@ extern	void	Pinitsym(struct ps_prochandle *);
 extern	map_info_t *Paddr2mptr(struct ps_prochandle *, uintptr_t);
 extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
 	int (*)(const char *, void *), void *);
-extern	int	getlwpstatus(struct ps_prochandle *, lwpid_t, lwpstatus_t *);
 
 extern char	procfs_path[PATH_MAX];
 

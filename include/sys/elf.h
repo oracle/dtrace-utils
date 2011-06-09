@@ -41,11 +41,7 @@ typedef struct {
 #define	NT_ASRS		8	/* asrset_t	SPARC V9 only		*/
 #define	NT_LDT		9	/* ssd array	<sys/sysi86.h> IA32 only */
 #define	NT_PSTATUS	10	/* pstatus_t	<sys/procfs.h>		*/
-#define	NT_PSINFO	13	/* psinfo_t	<sys/procfs.h>		*/
-#define	NT_PRCRED	14	/* prcred_t	<sys/procfs.h>		*/
 #define	NT_UTSNAME	15	/* struct utsname <sys/utsname.h>	*/
-#define	NT_LWPSTATUS	16	/* lwpstatus_t	<sys/procfs.h>		*/
-#define	NT_LWPSINFO	17	/* lwpsinfo_t	<sys/procfs.h>		*/
 #define	NT_PRPRIV	18	/* prpriv_t	<sys/procfs.h>		*/
 #define	NT_PRPRIVINFO	19	/* priv_impl_info_t <sys/priv.h>	*/
 #define	NT_CONTENT	20	/* core_content_t <sys/corectl.h>	*/
