@@ -52,8 +52,6 @@
  * See these files for more details.
  */
 
-#include <sys/feature_tests.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

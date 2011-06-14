@@ -64,10 +64,6 @@
 #include <sys/compiler.h>
 #include <procfs_service.h>
 
-#if defined(__i386) || defined(__amd64)
-#include <sys/sysi86.h>
-#endif
-
 
 #ifdef	__cplusplus
 extern "C" {

@@ -1,3 +1,24 @@
+2011-06-14  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* include/sys/controlregs.h: Remove.
+	* include/sys/mkdev.h: Likewise.
+	* include/sys/pset.h: Likewise.
+	* include/sys/regset.h: Likewise.
+	* include/sys/signal2.h: Likewise.
+	* include/sys/statvfs.h: Likewise.
+	* include/sys/sysi86.h: Likewise.
+	* include/sys/time_impl.h: Likewise.
+	* include/sys/trap.h: Likewise.
+	* uts/common/sys/bitmap.h: Likewise.
+	* uts/intel/sys/frame.h: Likewise.
+	* include/sys/bitmap.h: Remove the unused header files.
+	* include/sys/elftypes.h: Likewise.
+	* include/sys/int_types.h: Likewise.
+	* include/sys/procfs.h: Likewise.
+	* include/sys/procfs_isa.h: Likewise.
+	* libproc/amd64/Pisadep.c: Likewise.
+	* libproc/common/libproc.h: Likewise.
+
 2011-06-09  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Remove the structures that are correspond to Solaris proc files.

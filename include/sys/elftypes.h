@@ -33,8 +33,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"	/* SVr4.0 1.1	*/
 
-#include <sys/feature_tests.h>
-
 #ifdef	__cplusplus
 extern "C" {
 #endif

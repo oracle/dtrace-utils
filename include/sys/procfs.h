@@ -29,7 +29,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <sys/signal2.h>
 #include <sys/procfs.h>
 
 #ifdef	__cplusplus
@@ -48,9 +47,7 @@ extern "C" {
 #define	_STRUCTURED_PROC	0
 #endif
 
-#include <sys/feature_tests.h>
 #include <sys/types.h>
-#include <sys/time_impl.h>
 #include <sys/signal.h>
 #include <sys/fault.h>
 #include <sys/syscall.h>

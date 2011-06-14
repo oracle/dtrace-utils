@@ -24,10 +24,7 @@
  */
 
 #include <sys/stack.h>
-#include <sys/regset.h>
-#include <sys/frame.h>
 #include <sys/sysmacros.h>
-#include <sys/trap.h>
 #include <sys/machelf.h>
 
 #include <stdlib.h>

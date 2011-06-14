@@ -34,8 +34,6 @@
  * i386 version
  */
 
-#include <sys/regset.h>
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
