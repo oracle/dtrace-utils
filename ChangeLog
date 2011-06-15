@@ -1,5 +1,10 @@
 2011-06-15  Nick Alcock  <nick.alcock@oracle.com>
 
+	* include/types_various.h: Put Lmid_t back (needed for compilation
+	at -O0).
+
+2011-06-15  Nick Alcock  <nick.alcock@oracle.com>
+
 	Process lifespan revamp.
 
 	* libdtrace/dt_proc.c (dt_proc_waitrun): Unused, delete.
