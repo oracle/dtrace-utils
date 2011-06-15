@@ -1062,7 +1062,9 @@ typedef struct dtrace_conf {
 	uint_t dtc_difintregs;			/* # of DIF integer registers */
 	uint_t dtc_diftupregs;			/* # of DIF tuple registers */
 	uint_t dtc_ctfmodel;			/* CTF data model */
-	uint_t dtc_pad[8];			/* reserved for future use */
+	/* Deviation from Solaris...  Used to just be 8 padding entries. */
+	uint_t dtc_maxbufs;			/* max # of buffers */
+	uint_t dtc_pad[7];			/* reserved for future use */
 } dtrace_conf_t;
 
 /*

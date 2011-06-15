@@ -1,3 +1,10 @@
+2011-06-15  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* libdtrace/dt_aggregate.c: Replace use of _SC_NPROCESSORS_MAX and
+	_SC_CPUID_MAX with nr_cpu_ids (much lower limit).  Get it from
+	dt_conf.dtc_maxbufs.
+	* uts/common/sys/dtrace.h: Add dtc_maxbufs field to dtrace_conf_t.
+
 2011-06-14  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/sys/controlregs.h: Remove.
