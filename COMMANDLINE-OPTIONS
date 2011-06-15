@@ -1,0 +1,325 @@
+DTRACE OPTIONS
+===============
+
+This file lists the dtrace commandline options, and indicates whether
+or not they have been made to work on Linux and roughly when. 
+
+-32
+-64
+-a
+-A
+-b
+-c
+-C
+-D
+-e  works 2011-06-15
+-f
+-F
+-G
+-H
+-i
+-I
+-l
+-L
+-m
+-n
+-o
+-p
+-P
+-q
+-s
+-S
+-U
+-v
+-V
+-w
+-x
+-X
+-Z
+
+
+
+
+
+
+DETAILED OPTIONS DESCRIPTION 
+================================ 
+-32, -64
+The D compiler produces programs using the native data model of the
+operating system kernel. You can use the isainfo(1) -b command to
+determine the current operating system data model. If the -32 option
+is specified, dtrace will force the D compiler to compile a D program
+using the 32-bit data model. If the -64 option is specified, dtrace
+will force the D compiler to compile a D program using the 64-bit data
+model. These options are typically not required as dtrace selects the
+native data model as the default. The data model affects the sizes of
+integer types and other language properties. D programs compiled for
+either data model may be executed on both 32-bit and 64-bit
+kernels. The -32 and -64 options also determine the ELF file format
+(ELF32 or ELF64) produced by the -G option.
+
+-a
+Claim anonymous tracing state and display the traced data. You can
+combine the -a option with the -e option to force dtrace to exit
+immediately after consuming the anonymous tracing state rather than
+continuing to wait for new data. See Chapter 36, Anonymous Tracing for
+more information about anonymous tracing.
+
+-A
+Generate driver.conf(4) directives for anonymous tracing. If the -A
+option is specified, dtrace compiles any D programs specified using
+the -s option or on the command-line and constructs a set of
+dtrace(7D) configuration file directives to enable the specified
+probes for anonymous tracing (see Chapter 36, Anonymous Tracing) and
+then exits. By default, dtrace attempts to store the directives to the
+file /kernel/drv/dtrace.conf. This behavior can be modified using the
+-o option to specify an alternate output file.
+
+-b
+Set principal trace buffer size. The trace buffer size can include any
+of the size suffixes k, m, g, or t as described in Chapter 36,
+Anonymous Tracing. If the buffer space cannot be allocated, dtrace
+attempts to reduce the buffer size or exit depending on the setting of
+the bufresize property.
+
+-c
+Run the specified command cmd and exit upon its completion. If more
+than one -c option is present on the command line, dtrace exits when
+all commands have exited, reporting the exit status for each child
+process as it terminates. The process-ID of the first command is made
+available to any D programs specified on the command line or using the
+-s option through the $target macro variable. Refer to Chapter 15,
+Scripting for more information on macro variables.
+
+-C
+Run the C preprocessor cpp(1) over D programs before compiling
+them. Options can be passed to the C preprocessor using the -D, -U,
+-I, and -H options. The degree of C standard conformance can be
+selected using the -X option. Refer to the description of the -X
+option for a description of the set of tokens defined by the D
+compiler when invoking the C preprocessor.
+
+-D
+Define the specified name when invoking cpp(1) (enabled using the -C
+option). If an equals sign (=) and additional value are specified, the
+name is assigned the corresponding value. This option passes the -D
+option to each cpp invocation.
+
+-e
+Exit after compiling any requests and consuming anonymous tracing
+state (-a option) but prior to enabling any probes. This option can be
+combined with the -a option to print anonymous tracing data and exit,
+or it can be combined with D compiler options to verify that the
+programs compile without actually executing them and enabling the
+corresponding instrumentation.
+
+-f
+Specify function name to trace or list (-l option). The corresponding
+argument can include any of the probe description forms
+provider:module:function, module:function, or function. Unspecified
+probe description fields are left blank and match any probes
+regardless of the values in those fields. If no qualifiers other than
+function are specified in the description, all probes with the
+corresponding function are matched. The -f argument can be suffixed
+with an optional D probe clause. More than one -f option may be
+specified on the command-line at a time.
+
+-F
+Coalesce trace output by identifying function entry and
+return. Function entry probe reports are indented and their output is
+prefixed with ->. Function return probe reports are unindented and
+their output is prefixed with <-. System call entry probe reports are
+indented and their output is prefixed with =>. System call return
+probe reports are unindented and their output is prefixed with <=.
+
+-G
+Generate an ELF file containing an embedded DTrace program. The DTrace
+probes specified in the program are saved inside of a relocatable ELF
+object that can be linked into another program. If the -o option is
+present, the ELF file is saved using the pathname specified as the
+argument for this operand. If the -o option is not present and the
+DTrace program is contained with a file whose name is filename.s, then
+the ELF file is saved using the name file.o; otherwise the ELF file is
+saved using the name d.out.
+
+-H
+Print the pathnames of included files when invoking cpp(1) (enabled
+using the -C option). This option passes the -H option to each cpp
+invocation, causing it to display the list of pathnames, one per line,
+to stderr.
+
+-i
+Specify probe identifier to trace or list (-l option). Probe IDs are
+specified using decimal integers as shown by dtrace -l. The -i
+argument can be suffixed with an optional D probe clause. More than
+one -i option may be specified on the command-line at a time.
+
+-I
+Add the specified directory path to the search path for #include files
+when invoking cpp(1) (enabled using the -C option). This option passes
+the -I option to each cpp invocation. The specified directory is
+inserted into the search path ahead of the default directory list.
+
+-l
+List probes instead of enabling them. If the -l option is specified,
+dtrace produces a report of the probes matching the descriptions given
+using the -P, -m, -f, -n, -i, and -s options. If none of these options
+are specified, all probes are listed.
+
+-L
+Add the specified directory path to the search path for DTrace
+libraries. DTrace libraries are used to contain common definitions
+that may be used when writing D programs. The specified path is added
+after the default library search path.
+
+-m
+Specify module name to trace or list (-l option). The corresponding
+argument can include any of the probe description forms
+provider:module or module. Unspecified probe description fields are
+left blank and match any probes regardless of the values in those
+fields. If no qualifiers other than module are specified in the
+description, all probes with a corresponding module are matched. The
+-m argument can be suffixed with an optional D probe clause. More than
+one -m option may be specified on the command-line at a time.
+
+-n
+Specify probe name to trace or list (-l option). The corresponding
+argument can include any of the probe description forms
+provider:module:function:name, module:function:name, function:name, or
+name. Unspecified probe description fields are left blank and match
+any probes regardless of the values in those fields. If no qualifiers
+other than name are specified in the description, all probes with a
+corresponding name are matched. The -n argument can be suffixed with
+an optional D probe clause. More than one -n option may be specified
+on the command-line at a time.
+
+-o
+Specify the output file for the -A , -G, and -l options, or for the
+traced data. If the -A option is present and -o is not present, the
+default output file is /kernel/drv/dtrace.conf. If the -G option is
+present and the -s option's argument is of the form filename.d and -o
+is not present, the default output file is filename.o; otherwise the
+default output file is d.out.
+
+-p
+Grab the specified process-ID pid, cache its symbol tables, and exit
+upon its completion. If more than one -p option is present on the
+command line, dtrace exits when all commands have exited, reporting
+the exit status for each process as it terminates. The first
+process-ID is made available to any D programs specified on the
+command line or using the -s option through the $target macro
+variable. Refer to Chapter 15, Scripting for more information on macro
+variables.
+
+-P
+Specify provider name to trace or list (-l option). The remaining
+probe description fields module, function, and name are left blank and
+match any probes regardless of the values in those fields. The -P
+argument can be suffixed with an optional D probe clause. More than
+one -P option may be specified on the command-line at a time.
+
+-q
+Set quiet mode. dtrace will suppress messages such as the number of
+probes matched by the specified options and D programs and will not
+print column headers, the CPU ID, the probe ID, or insert newlines
+into the output. Only data traced and formatted by D program
+statements such as trace and printf will be displayed to stdout.
+
+-s
+Compile the specified D program source file. If the -e option is
+present, the program is compiled but no instrumentation is enabled. If
+the -l option is present, the program is compiled and the set of
+probes matched by it is listed, but no instrumentation will be
+enabled. If neither -e nor -l are present, the instrumentation
+specified by the D program is enabled and tracing begins.
+
+-S
+Show D compiler intermediate code. The D compiler will produce a
+report of the intermediate code generated for each D program to
+stderr.
+
+-U
+Undefine the specified name when invoking cpp(1) (enabled using the -C
+option). This option passes the -U option to each cpp invocation.
+
+-v
+Set verbose mode. If the -v option is specified, dtrace produces a
+program stability report showing the minimum interface stability and
+dependency level for the specified D programs. DTrace stability levels
+are explained in further detail in Chapter 39, Stability.
+
+-V
+Report the highest D programming interface version supported by
+dtrace. The version information is printed to stdout and the dtrace
+command exits. See Chapter 41, Versioning for more information about
+DTrace versioning features.
+
+-w
+Permit destructive actions in D programs specified using the -s, -P,
+-m, -f, -n, or -i options. If the -w option is not specified, dtrace
+will not permit the compilation or enabling of a D program that
+contains destructive actions. Destructive actions are described in
+further detail in Chapter 10, Actions and Subroutines.
+
+-x
+Enable or modify a DTrace runtime option or D compiler option. The
+options are listed in Chapter 16, Options and Tunables. Boolean
+options are enabled by specifying their name. Options with values are
+set by separating the option name and value with an equals sign (=).
+
+-X
+Specify the degree of conformance to the ISO C standard that should be
+selected when invoking cpp(1) (enabled using the -C option). The -X
+option argument affects the value and presence of the _STDC_ macro
+depending upon the value of the argument letter:
+
+  a (default)
+    ISO C plus K&R compatibility extensions, with semantic changes
+    required by ISO C. This mode is the default mode if -X is not
+    specified. The predefined macro _STDC_ has a value of 0 when cpp
+    is invoked in conjunction with the -Xa option.
+
+  c (conformance)
+    Strictly conformant ISO C, without K&R C compatibility
+    extensions. The predefined macro _STDC_ has a value of 1 when cpp
+    is invoked in conjunction with the -Xc option.
+
+  s (K&R C)
+    K&R C only. The macro _STDC_ is not defined when cpp is invoked in
+    conjunction with the -Xs option.
+
+  t (transition)
+    ISO C plus K&R C compatibility extensions, without semantic
+    changes required by ISO C. The predefined macro _STDC_ has a value
+    of 0 when cpp is invoked in conjunction with the -Xt option.
+
+Because the -X option affects only how the D compiler invokes the C
+preprocessor, the -Xa and -Xt options are equivalent from the
+perspective of D. Both options are provided to ease re-use of settings
+from a C build environment.
+
+Regardless of the -X mode, the following additional C preprocessor
+definitions are always specified and valid in all modes:
+
+    * __sun
+    * __unix
+    * __SVR4
+    * __sparc (on SPARC® systems only)
+    * __sparcv9 (on SPARC® systems only when 64–bit programs are compiled)
+    * __i386 (on x86 systems only when 32–bit programs are compiled)
+    * __amd64 (on x86 systems only when 64–bit programs are compiled)
+    * _`uname -s`{}`uname -r` (for example, __SunOS_5_10)
+    * __SUNW_D=1
+    * _SUNW_D_VERSION=0x_MMmmmuuu (where MM is the Major release value
+      in hexadecimal, mmm is the Minor release value in hexadecimal,
+      and uuu is the Micro release value in hexadecimal; see Chapter
+      41, Versioning for more information about DTrace versioning)
+
+-Z
+Permit probe descriptions that match zero probes. If the -Z option is
+not specified, dtrace will report an error and exit if any probe
+descriptions specified in D program files (-s option) or on the
+command-line (-P, -m, -f, -n, or -i options) contain descriptions that
+do not match any known probes.
+
+
