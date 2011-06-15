@@ -662,8 +662,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
 
 	if (gmatch(provname, pdp->dtpd_provider) != 0) {
-		if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE,
-		    0)) == NULL) {
+		if ((P = dt_proc_grab(dtp, pid)) == NULL) {
 			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return (-1);
@@ -689,7 +688,10 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	 * If it's not strictly a pid provider, we might match a USDT provider.
 	 */
 	if (strcmp(provname, pdp->dtpd_provider) != 0) {
-		if ((P = dt_proc_grab(dtp, pid, 0, 1)) == NULL) {
+		/*
+		 * FIXME: only user of a writable grab
+		 */
+		if ((P = dt_proc_grab(dtp, pid)) == NULL) {
 			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return (-1);

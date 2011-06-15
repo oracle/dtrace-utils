@@ -1,3 +1,58 @@
+2011-06-15  Nick Alcock  <nick.alcock@oracle.com>
+
+	Process lifespan revamp.
+
+	* libdtrace/dt_proc.c (dt_proc_waitrun): Unused, delete.
+	(dt_proc_control): Drop Psetrun() flags: clarify comments.
+	(dt_proc_destroy): Close TOCTTOU race around destruction, grabbing
+	the lock around hash removal and permitting the refcnt to be >0
+	without an assertion failure.  Drop dpr_cacheable.
+	(dt_proc_retire): New function, wrapper around Pclose().
+	(dt_proc_retired): Likewise, wrapper around Phasfds().
+	(dt_proc_grab): Drop flags, nomonitor, staleness, cacheability,
+	readonly grabs, and upgrading; retire upon LRU expiry rather than
+	destroying; unretire when necessary.  Drop Pgrab() flags.  Always do
+	LRU expiry.
+	(dt_proc_release): Expire rather than destroying.  Drop lrucnt when
+	we do it.
+
+	* libproc/common/Pcontrol.c (Pcreate): Merge into...
+	(Pxcreate): ... this. Drop environment manipulation. Drop statfd.
+	Migrate memfd open() into...
+	(Pmemfd): ... here.
+	(Pcreate_error): Add C_FDS.
+	(Pgrab): Drop flags and statfd. Populate memfd.
+	(Pfree): Handle memfd closing using...
+	(Pclose): ... this new function.
+	(Phasfds): Return true if any fds are open.
+	(Psetrun): Drop unused sig and flags. Detach rather than
+	continuing. Only detach if already attached.
+	(Pwait): Slight clarification.
+	(Pread): Use Pmemfd() rather than direct P->memfd referencing.
+	* libproc/common/Psymtab.c (Preadauxvec): Pgrab_core() is gone: we
+	must do this some other way.
+	* libproc/common/Pcontrol.h: Drop statfd.
+	* libproc/common/libproc.h: Drop PGRAB flags and unused functions;
+	fix up now-flagless Psetrun() and Pgrab(). Add new exported
+	functions. Add C_FDS, and PS_TRACESTOP state.
+	* libproc/common/mapfile-vers: Adjust.
+
+	* libdtrace/dt_proc.h: Drop Pgrab() flags, dpr_rdonly, dpr_cacheable,
+	and dpr_stale.
+	* libdtrace/dt_aggregate.c (dt_aggregate_usym): Drop Pgrab() flags.
+	(dt_aggregate_umod): Likewise.
+	* libdtrace/dt_consume.c (dt_print_ustack): Likewise.
+	(dt_print_usym): Likewise.
+	(dt_print_umod): Likewise.
+	* libdtrace/dt_pid.c (dt_pid_create_probes): Likewise (noting that
+	one grab is not readonly and may need fixes later).
+	* libdtrace/dt_proc.c (dtrace_proc_grab): Likewise.
+	* libdtrace/dt_subr.c (dtrace_uaddr2str): Likewise.
+
+	* include/sys/procfs.h: Purge now-unused flags.
+
+	* INCOMPATIBILITIES: Most of the ptrace() incompatibilities are now gone.
+
 2011-06-14  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* include/sys/controlregs.h: Remove.

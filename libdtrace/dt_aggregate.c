@@ -257,7 +257,7 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE, 0)) == NULL)
+	if ((P = dt_proc_grab(dtp, pid)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);
@@ -280,7 +280,7 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE, 0)) == NULL)
+	if ((P = dt_proc_grab(dtp, pid)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);

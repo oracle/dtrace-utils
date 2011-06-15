@@ -47,11 +47,12 @@
  * calls, these are assumed to be MT-Unsafe.  MT-Safety is ONLY provided for
  * synchronization between libdtrace control threads and the client thread.
  *
- * The ps_prochandles themselves are maintained along with a dt_proc_t struct
- * in a hash table indexed by PID.  This provides basic locking and reference
- * counting.  The dt_proc_t is also maintained in LRU order on dph_lrulist.
- * The dph_lrucnt and dph_lrulim count the number of cacheable processes and
- * the current limit on the number of actively cached entries.
+ * The ps_prochandles themselves are maintained along with a dt_proc_t struct in
+ * a hash table indexed by PID.  This provides basic locking and reference
+ * counting.  The dt_proc_t is also maintained in LRU order on dph_lrulist.  The
+ * dph_lrucnt and dph_lrulim count the number of processes we have grabbed or
+ * created but not retired, and the current limit on the number of actively
+ * cached entries.
  *
  * The control thread for a process currently does nothing but notify interested
  * parties when the process dies.
@@ -171,30 +172,6 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 #endif
 }
 
-/*
- * Wait for a stopped process to be set running again by some other debugger.
- * This is typically not required by /proc-based debuggers, since the usual
- * model is that one debugger controls one victim.  But DTrace, as usual, has
- * its own needs: the stop() action assumes that prun(1) or some other tool
- * will be applied to resume the victim process.  This could be solved by
- * adding a PCWRUN directive to /proc, but that seems like overkill unless
- * other debuggers end up needing this functionality, so we implement a cheap
- * equivalent to PCWRUN using the set of existing kernel mechanisms.
- *
- * Our intent is really not just to wait for the victim to run, but rather to
- * wait for it to run and then stop again for a reason other than the current
- * PR_REQUESTED stop.  As each Pwait() waits until a stop, we can just
- * repeatedly Pwait().  dt_proc_control() will then rediscover the new state and
- * continue as usual.  When the process is still stopped in the same exact
- * state, we sleep for a brief interval before waiting again so as not to spin
- * consuming CPU cycles.
- */
-static void
-dt_proc_waitrun(dt_proc_t *dpr)
-{
-	/* FIXME: Not implementable on Linux. */
-}
-
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* proccess to control */
@@ -252,7 +229,7 @@ dt_proc_control(void *arg)
 	else
 		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
 
-	if (Psetrun(P, 0, 0) == -1) {
+	if (Psetrun(P) == -1) {
 		dt_dprintf("pid %d: failed to set running: %s\n",
 		    (int)dpr->dpr_pid, strerror(errno));
 	}
@@ -277,22 +254,20 @@ dt_proc_control(void *arg)
 
 		switch (Pstate(P)) {
 		case PS_STOP:
-
-			/*
-			 * FIXME: handle other debuggers interrupting us here.
-			 * Also distinguish stop() from normal stops (how?)
-			 */
+		case PS_TRACESTOP:
 
 			/*
 			 * If the process stops showing one of the events that
 			 * we are tracing, perform the appropriate response.
 			 * Note that we ignore PR_SUSPENDED, PR_CHECKPOINT, and
 			 * PR_JOBCONTROL by design: if one of these conditions
-			 * occurs, we will fall through to Psetrun() but the
-			 * process will remain stopped in the kernel by the
-			 * corresponding mechanism (e.g. job control stop).
+			 * occurs, we will fall through, but the process will
+			 * remain stopped in the kernel by the corresponding
+			 * mechanism (e.g. job control stop).
 			 *
 			 * FIXME: This used to be done using breakpoints.
+			 * Currently we have no mechanism: something must be
+			 * defined using dtrace.
 			 */
 			break;
 
@@ -307,8 +282,8 @@ dt_proc_control(void *arg)
 	}
 
 	/*
-	 * If the control thread detected PS_UNDEAD or PS_DEAD, then enqueue the
-	 * dt_proc_t structure on the dt_proc_hash_t notification list.
+	 * If the control thread detected PS_DEAD, then enqueue the dt_proc_t
+	 * structure on the dt_proc_hash_t notification list.
 	 */
 	if (notify)
 		dt_proc_notify(dtp, dph, dpr, NULL);
@@ -371,6 +346,28 @@ dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 	return (dpr);
 }
 
+
+/*
+ * Retirement of a process happens after a long period of nonuse, and serves to
+ * reduce the OS impact of process management of such processes.  A virtually
+ * unlimited number of processes may exist in retired state at any one time:
+ * they come out of retirement automatically when they are used again.
+ */
+static void
+dt_proc_retire(struct ps_prochandle *P)
+{
+	(void) Pclose(P);
+}
+
+/*
+ * Determine if a process is retired.  Very cheap.
+ */
+static int
+dt_proc_retired(struct ps_prochandle *P)
+{
+	return (!Phasfds(P));
+}
+
 static void
 dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
@@ -379,34 +376,54 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	dt_proc_notify_t *npr, **npp;
 	boolean_t kill_it;
 
-	assert(dpr != NULL);
+	/*
+	 * Before we free the process structure, remove this dt_proc_t from the
+	 * lookup hash, and then walk the dt_proc_hash_t's notification list
+	 * and remove this dt_proc_t if it is enqueued.
+	 *
+	 * Grab the dpr_lock around the removal, and verify that we have not
+	 * been Pgrab()bed (or destroyed by another identical call) since the
+	 * decision to call dt_proc_destroy() was made.
+	 */
+	if (dpr == NULL)
+		return;
+
+	(void) pthread_mutex_lock(&dpr->dpr_lock);
+	if (dpr->dpr_refs != 0)
+		return;
 
 	dt_dprintf("%s pid %d\n", dpr->dpr_created ? "killing" : "releasing",
 		dpr->dpr_pid);
 	kill_it = dpr->dpr_created;
 
+	(void) pthread_mutex_lock(&dph->dph_lock);
+	(void) dt_proc_lookup(dtp, P, B_TRUE);
+	npp = &dph->dph_notify;
+
+	while ((npr = *npp) != NULL) {
+		if (npr->dprn_dpr == dpr) {
+			*npp = npr->dprn_next;
+			dt_free(dtp, npr);
+		} else {
+			npp = &npr->dprn_next;
+		}
+	}
+
+	(void) pthread_mutex_unlock(&dph->dph_lock);
+	(void) pthread_mutex_unlock(&dpr->dpr_lock);
+
 	if (dpr->dpr_tid) {
 		/*
 		 * Set the dpr_quit flag to tell the daemon thread to exit.  We
-		 * send it a SIGCANCEL to poke it out of a ptrace() wait.  Our
+		 * send it a SIGUSR1 to poke it out of a ptrace() wait.  Our
 		 * daemon threads have POSIX cancellation disabled, so EINTR
 		 * will be the only effect.  We then wait for dpr_done to
 		 * indicate the thread has exited.
-		 *
-		 * We can't use pthread_kill() to send SIGCANCEL because the
-		 * interface forbids it and we can't use pthread_cancel()
-		 * because with cancellation disabled it won't actually
-		 * send SIGCANCEL to the target thread, so we use _lwp_kill()
-		 * to do the job.  This is all built on evil knowledge of
-		 * the details of the cancellation mechanism in libc.
 		 */
 		(void) pthread_mutex_lock(&dpr->dpr_lock);
+
 		dpr->dpr_quit = B_TRUE;
-#if defined(sun)
-		(void) _lwp_kill(dpr->dpr_tid, SIGCANCEL);
-#else
 		(void) pthread_kill(dpr->dpr_tid, SIGUSR1);
-#endif
 
 		/*
 		 * If the process is currently idling in dt_proc_stop(), poke it
@@ -424,31 +441,12 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	}
 
 	/*
-	 * Before we free the process structure, remove this dt_proc_t from the
-	 * lookup hash, and then walk the dt_proc_hash_t's notification list
-	 * and remove this dt_proc_t if it is enqueued.
-	 */
-	(void) pthread_mutex_lock(&dph->dph_lock);
-	(void) dt_proc_lookup(dtp, P, B_TRUE);
-	npp = &dph->dph_notify;
-
-	while ((npr = *npp) != NULL) {
-		if (npr->dprn_dpr == dpr) {
-			*npp = npr->dprn_next;
-			dt_free(dtp, npr);
-		} else {
-			npp = &npr->dprn_next;
-		}
-	}
-
-	(void) pthread_mutex_unlock(&dph->dph_lock);
-
-	/*
 	 * Remove the dt_proc_list from the LRU list, release the underlying
 	 * libproc handle, and free our dt_proc_t data structure.
 	 */
-	if (dpr->dpr_cacheable) {
+	if (!dt_proc_retired(P)) {
 		assert(dph->dph_lrucnt != 0);
+		dt_proc_retire(P);
 		dph->dph_lrucnt--;
 	}
 
@@ -554,7 +552,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 }
 
 struct ps_prochandle *
-dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
+dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	uint_t h = pid & (dph->dph_hashlen - 1);
@@ -565,27 +563,29 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
 	 * Search the hash table for the pid.  If it is already grabbed or
 	 * created, move the handle to the front of the lrulist, increment
 	 * the reference count, and return the existing ps_prochandle.
+	 *
+	 * If it is retired, bring it out of retirement aggressively, so as to
+	 * ensure that dph_lrucnt and dt_proc_retired() do not get out of synch
+	 * (which would cause aggressive early retirement of processes even when
+	 * unnecessary).
+	 *
+	 * Since nothing ever removes the process from this list until
+	 * dt_proc_hash_destroy() / dtrace_close(), it is impossible for a
+	 * process to be Pgrab()bed or Pcreate()d more than once: thus it will
+	 * only be stopped once, and we do not need to deal with the downsides
+	 * of ptrace() in normal operation.
 	 */
 	for (dpr = dph->dph_hash[h]; dpr != NULL; dpr = dpr->dpr_hash) {
-		if (dpr->dpr_pid == pid && !dpr->dpr_stale) {
-			/*
-			 * If the cached handle was opened read-only and
-			 * this request is for a writeable handle, mark
-			 * the cached handle as stale and open a new handle.
-			 * Since it's stale, unmark it as cacheable.
-			 */
-			if (dpr->dpr_rdonly && !(flags & PGRAB_RDONLY)) {
-				dt_dprintf("upgrading pid %d\n", (int)pid);
-				dpr->dpr_stale = B_TRUE;
-				dpr->dpr_cacheable = B_FALSE;
-				dph->dph_lrucnt--;
-				break;
-			}
-
+		if (dpr->dpr_pid == pid) {
 			dt_dprintf("grabbed pid %d (cached)\n", (int)pid);
 			dt_list_delete(&dph->dph_lrulist, dpr);
 			dt_list_prepend(&dph->dph_lrulist, dpr);
 			dpr->dpr_refs++;
+			if (dt_proc_retired(dpr->dpr_proc)) {
+				/* not retired any more */
+				(void) Pmemfd(dpr->dpr_proc);
+				dph->dph_lrucnt++;
+			}
 			return (dpr->dpr_proc);
 		}
 	}
@@ -596,7 +596,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
 
-	if ((dpr->dpr_proc = Pgrab(pid, flags, &err)) == NULL) {
+	if ((dpr->dpr_proc = Pgrab(pid, &err)) == NULL) {
 		return (dt_proc_error(dtp, dpr,
 		    "failed to grab pid %d: %s\n", (int)pid, Pgrab_error(err)));
 	}
@@ -606,34 +606,35 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
 	dpr->dpr_created = B_FALSE;
 
 	/*
-	 * If we are attempting to grab the process without a monitor
-	 * thread, then mark the process cacheable only if it's being
-	 * grabbed read-only.  If we're currently caching more process
-	 * handles than dph_lrulim permits, attempt to find the
-	 * least-recently-used handle that is currently unreferenced and
-	 * release it from the cache.  Otherwise we are grabbing the process
-	 * for control: create a control thread for this process and store
-	 * its ID in dpr->dpr_tid.
+	 * Create a control thread for this process and store its ID in
+	 * dpr->dpr_tid.
 	 */
-	if (nomonitor || (flags & PGRAB_RDONLY)) {
-		if (dph->dph_lrucnt >= dph->dph_lrulim) {
-			for (opr = dt_list_prev(&dph->dph_lrulist);
-			    opr != NULL; opr = dt_list_prev(opr)) {
-				if (opr->dpr_cacheable && opr->dpr_refs == 0) {
-					dt_proc_destroy(dtp, opr->dpr_proc);
-					break;
-				}
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB) != 0)
+		return (NULL); /* dt_proc_error() has been called for us */
+
+	/*
+	 * If we're currently caching more processes than dph_lrulim permits,
+	 * attempt to find the least-recently-used process that is currently
+	 * unreferenced and has not already been retired, and retire it.  (This
+	 * does not actually delete it, because its presence is still necessary
+	 * to ensure that we do put it into halted state again.  It merely
+	 * closes any associated filehandles.)
+	 *
+	 * We know this expiry run cannot affect the handle currently being
+	 * grabbed, or we'd have boosted its refcnt and returned already.
+	 */
+	if (dph->dph_lrucnt >= dph->dph_lrulim) {
+		for (opr = dt_list_prev(&dph->dph_lrulist);
+		     opr != NULL; opr = dt_list_prev(opr)) {
+			if (opr->dpr_refs == 0 && !dt_proc_retired(opr->dpr_proc)) {
+				dt_proc_retire(opr->dpr_proc);
+				dph->dph_lrucnt--;
+				break;
 			}
 		}
+	}
 
-		if (flags & PGRAB_RDONLY) {
-			dpr->dpr_cacheable = B_TRUE;
-			dpr->dpr_rdonly = B_TRUE;
-			dph->dph_lrucnt++;
-		}
-
-	} else if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB) != 0)
-		return (NULL); /* dt_proc_error() has been called for us */
+	dph->dph_lrucnt++;
 
 	dpr->dpr_hash = dph->dph_hash[h];
 	dph->dph_hash[h] = dpr;
@@ -655,8 +656,11 @@ dt_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	assert(dpr->dpr_refs != 0);
 
 	if (--dpr->dpr_refs == 0 &&
-	    (!dpr->dpr_cacheable || dph->dph_lrucnt > dph->dph_lrulim))
-		dt_proc_destroy(dtp, P);
+	    (dph->dph_lrucnt > dph->dph_lrulim) &&
+	    !dt_proc_retired(dpr->dpr_proc)) {
+		dt_proc_retire(P);
+		dph->dph_lrucnt--;
+	}
 }
 
 void
@@ -733,7 +737,7 @@ struct ps_prochandle *
 dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 {
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *P = dt_proc_grab(dtp, pid, flags, 0);
+	struct ps_prochandle *P = dt_proc_grab(dtp, pid);
 
 	if (P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = pid; /* $target = grabbed pid */

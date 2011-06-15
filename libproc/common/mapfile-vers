@@ -88,6 +88,7 @@ SUNWprivate_1.1 {
 	Paddr_to_map;
 	Pclearfault;
 	Pclearsig;
+	Pclose;
 	Pcontent;
 	Pcreate;
 	Pcreate_agent;
@@ -97,15 +98,13 @@ SUNWprivate_1.1 {
 	Pdestroy_agent;
 	Perror_printf;
 	Pfgcore;
-	Pfgrab_core;
 	Pfree;
 	Pgcore;
 	Pgetareg;
 	Pgrab;
-	Pgrab_core;
 	Pgrab_error;
-	Pgrab_file;
 	Pisprocdir;
+	Phasfds;
 	Plmid;
 	Plmid_to_map;
 	Plookup_by_addr;
@@ -243,7 +242,6 @@ SUNWprivate_1.1 {
 	Pupdate_maps;
 	Pwait;
 	Pwrite;
-	Pxcreate;
 	Pxecbkpt;
 	Pxecwapt;
 	Pxlookup_by_name;

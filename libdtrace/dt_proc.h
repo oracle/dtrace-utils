@@ -49,13 +49,10 @@ typedef struct dt_proc {
 	pthread_cond_t dpr_cv;		/* cond for dpr_stop/quit/done */
 	pid_t dpr_pid;			/* pid of process */
 	uint_t dpr_refs;		/* reference count */
-	uint8_t dpr_cacheable;		/* cache handle using lru list */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
 	uint8_t dpr_quit;		/* quit flag: ctl thread should quit */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */
 	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
-	uint8_t dpr_stale;		/* proc flag: been deprecated */
-	uint8_t dpr_rdonly;		/* proc flag: opened read-only */
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
@@ -88,7 +85,7 @@ typedef struct dt_proc_hash {
 extern struct ps_prochandle *dt_proc_create(dtrace_hdl_t *,
     const char *, char *const *);
 
-extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t, int, int);
+extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t);
 extern void dt_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_lock(dtrace_hdl_t *, struct ps_prochandle *);

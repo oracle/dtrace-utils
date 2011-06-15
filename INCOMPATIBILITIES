@@ -3,52 +3,19 @@ together with the difficulty of overcoming them, and the likelihood that they
 will be overcome.
 
 
-Variations in behaviour of dtraced processes
---------------------------------------------
-Difficulty: Moderate
-Likelihood: Medium
-
-Because Linux dtrace depends on ptrace(), various behavioural changes can be
-expected in dtraced processes and their parents, mostly to do with signal
-handling:
-
- - suspending a dtraced process with SIGSTOP or control-Z is unlikely to work
-
- - parents of dtraced processes will not receive SIGCHLD or otherwise get
-   a waitpid() exit notification when they die
-
- - killing a dtraced process while its parent is dtracing it and it is
-   stop()ped is unlikely to work as expected (it might die, but not for
-   a while: it might not die at all)
-
-These are all acknowledged as problems by others in the Linux world, and
-backportable patches might come about that might enable us to fix some of these
-things.
-
-
-Cannot dtrace a ptrace()d process
----------------------------------
+Tiny variations in behaviour of dtraced processes immediately after startup
+---------------------------------------------------------------------------
 Difficulty: High
 Likelihood: Low
 
-Because Linux dtrace depends on ptrace(), and a process can only be ptrace()d by
-a single process at any one time, you cannot simultaneously dtrace a process and
-debug it, strace it, and so on.
+Because Linux dtrace depends on ptrace() at attachment time, a very few tiny
+behavioural changes can be expected in dtraced processes in the instant
+dtrace begins attaching to them.  Notably, a process that has just been
+created or grabbed by dtrace may lose signals sent to it and will not be
+debuggable until dtrace has set it going.  This problem does not exist
+for processes that are already being debugged.
 
-Fixing this would require fixing ptrace, which is hard. utrace would have fixed
-it, I think. Nothing else seems likely to, and nobody seems to care (probably
-because kernel developers only care about kernel debugging).
-
-
-libdtrace users using wait*() should take care
-----------------------------------------------
-
-Because Linux dtrace depends on ptrace(), system calls that wait for children
-(namely, waitpid() for that process, wait() for all processes, and waitid()) may
-return trace results for it. libdtrace users must take care not to do so, lest
-they confuse libdtrace: so do not waitid() or waitpid() for processes in the
-current process group, and do not use wait() at all. (wait() is ugly and best
-avoided in any case.)
+It is highly unlikely that anyone will ever notice this.
 
 
 Kernel provider names differ

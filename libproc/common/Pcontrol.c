@@ -91,10 +91,9 @@ Pset_procfs_path(const char *path)
  * Return NULL if process cannot be created (fork()/exec() not successful).
  */
 struct ps_prochandle *
-Pxcreate(
+Pcreate(
 	const char *file,	/* executable file name */
 	char *const *argv,	/* argument vector */
-	char *const *envp,	/* environment */
 	int *perr,	/* pointer to error return code */
 	char *path,	/* if non-null, holds exec path name on return */
 	size_t len)	/* size of the path buffer */
@@ -137,14 +136,6 @@ Pxcreate(
 		if ((id = getuid()) != geteuid())
 			(void) setuid(id);
 
-		/*
-		 * This is ugly.  There is no execvep() function that takes a
-		 * path and an environment.  We cheat here by replacing the
-		 * global 'environ' variable right before we call this.
-		 */
-		if (envp)
-			environ = (char **)envp;
-
 		(void) execvp(file, argv);  /* execute the program */
 		_exit(127);
 	}
@@ -155,9 +146,8 @@ Pxcreate(
 	(void) memset(P, 0, sizeof (*P));
 	P->state = PS_RUN;
 	P->pid = pid;
-	P->memfd = -1;
-	P->statfd = -1;
 	Pinitsym(P);
+	(void) Pmemfd(P);			/* populate ->memfd */
 
 	/*
 	 * Get the path to /proc/$pid.
@@ -166,15 +156,6 @@ Pxcreate(
 	snprintf(procname, sizeof (procname), "%s/%d/",
 	    procfs_path, (int)pid);
 	fname = procname + strlen(procname);
-
-	strcpy(fname, "mem");
-	if ((P->memfd = open(procname, (O_RDONLY|O_EXCL))) < 0) {
-		_dprintf("Pcreate: failed to open %s: %s\n",
-		    procname, strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}
-	(void) fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
 
 	waitpid (pid, &status, 0);
 	if (WIFEXITED(status)) {
@@ -201,17 +182,6 @@ bad:
 	Pfree(P);
 	*perr = rc;
 	return (NULL);
-}
-
-struct ps_prochandle *
-Pcreate(
-	const char *file,	/* executable file name */
-	char *const *argv,	/* argument vector */
-	int *perr,	/* pointer to error return code */
-	char *path,	/* if non-null, holds exec path name on return */
-	size_t len)	/* size of the path buffer */
-{
-	return (Pxcreate(file, argv, NULL, perr, path, len));
 }
 
 /*
@@ -241,6 +211,9 @@ Pcreate_error(int error)
 	case C_STRANGE:
 		str = "unanticipated system error";
 		break;
+	case C_FDS:
+		str = "out of file descriptors";
+		break;
 	case C_NOENT:
 		str = "cannot find executable file";
 		break;
@@ -253,20 +226,15 @@ Pcreate_error(int error)
 }
 
 /*
- * Grab an existing process.
+ * Grab an existing process.  Try to force it to stop (but failure at this is
+ * not an error, except if we manage to ptrace() but not stop).
  * Return an opaque pointer to its process control structure.
  *
  * pid:		UNIX process ID.
- * flags:
- *	PGRAB_RETAIN	Retain tracing flags (default clears all tracing flags).
- *	PGRAB_FORCE	Grab regardless of whether process is already traced.
- *	PGRAB_RDONLY	Open the address space file O_RDONLY instead of O_RDWR,
- *                      and do not open the process control file.
- *	PGRAB_NOSTOP	Open the process but do not force it to stop.
  * perr:	pointer to error return code.
  */
 struct ps_prochandle *
-Pgrab(pid_t pid, int flags, int *perr)
+Pgrab(pid_t pid, int *perr)
 {
 	struct ps_prochandle *P;
 	int status;
@@ -278,17 +246,16 @@ Pgrab(pid_t pid, int flags, int *perr)
 	(void) memset(P, 0, sizeof (*P));
 	P->state = PS_RUN;
 	P->pid = pid;
-        P->memfd = -1;
-        P->statfd = -1;
+	(void) Pmemfd(P);			/* populate ->memfd */
 
-	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {	
-		goto err;
+	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {
+		/* Not an error */
 	} else if (waitpid(pid, &status, 0) == -1) {
 		goto err;
 	} else if (WIFSTOPPED(status) == 0) {
 		goto err;
 	} else
-		P->state = PS_STOP;
+		P->state = PS_TRACESTOP;
 	return P;
 err:
 	*perr = errno;
@@ -371,18 +338,36 @@ Pgrab_error(int error)
 void
 Pfree(struct ps_prochandle *P)
 {
-	uint_t i;
-
-	if (P->memfd >= 0)
-		(void) close(P->memfd);
+	(void) Pclose(P);
 	Preset_maps(P);
 
 	/* clear out the structure as a precaution against reuse */
 	(void) memset(P, 0, sizeof (*P));
-	P->memfd = -1;
-	P->statfd = -1;
 
 	free(P);
+}
+
+/*
+ * Close the process's cached file descriptors.
+ *
+ * They are reopened when needed.
+ */
+void
+Pclose(struct ps_prochandle *P)
+{
+	if (P->memfd > -1) {
+		(void) close(P->memfd);
+		P->memfd = -1;
+	}
+}
+
+/*
+ * Return true if this process has any fds open.
+ */
+int
+Phasfds(struct ps_prochandle *P)
+{
+	return (P->memfd > -1);
 }
 
 /*
@@ -395,13 +380,38 @@ Pstate(struct ps_prochandle *P)
 }
 
 /*
- * Return the open memory file descriptor for the process.
- * Clients must not close this file descriptor, not use it
- * after the process is freed.
+ * Return the open memory file descriptor for the process, reopening it if
+ * needed.
+ *
+ * Clients must not close this file descriptor, not use it after the process is
+ * freed or Pclose()d.
  */
 int
 Pmemfd(struct ps_prochandle *P)
 {
+	char procname[PATH_MAX];
+	char *fname;
+
+	if (P->memfd != -1)
+		return (P->memfd);
+
+	/*
+	 * Get the path to /proc/$pid.
+	 */
+
+	snprintf(procname, sizeof (procname), "%s/%d/",
+	    procfs_path, (int)P->pid);
+	fname = procname + strlen(procname);
+
+	(void) Pmemfd(P);			/* populate ->memfd */
+	strcpy(fname, "mem");
+	if ((P->memfd = open(procname, (O_RDONLY|O_EXCL))) < 0) {
+		_dprintf("Pcreate: failed to open %s: %s\n",
+		    procname, strerror(errno));
+		exit(-1);
+	}
+
+	(void) fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
 	return (P->memfd);
 }
 
@@ -468,12 +478,13 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 		P->state = PS_STOP;
 		break;
 	case CLD_TRAPPED:
-		/* All ptrace() traps are unexpected as we don't use ptrace() */
+		/* All ptrace() traps are unexpected as we don't use ptrace()
+		   except at initial process connection time. */
 		_dprintf("Pwait: Unexpected ptrace() trap");
-		exit (-1);
+		exit(-1);
 	case CLD_CONTINUED:
 		_dprintf("Pwait: Child got CLD_CONTINUED: this can never happen");
-		exit (-1);
+		exit(-1);
 
 	default:	/* corrupted state */
 		_dprintf("Pwait: unknown si_code: %li\n", (long int) info.si_code);
@@ -485,18 +496,18 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 }
 
 int
-Psetrun(struct ps_prochandle *P,
-	int sig,	/* signal to pass to process */
-	int flags)	/* PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */
+Psetrun(struct ps_prochandle *P)
 {
 	P->info_valid = 0;	/* will need to update map and file info */
 
-	if (ptrace (PTRACE_CONT, P->pid, NULL, sig) != 0) {
-		_dprintf("Psetrun: %s\n", strerror(errno));
-		return (-1);
+	if (P->state == PS_TRACESTOP) {
+		if (ptrace(PTRACE_DETACH, P->pid, NULL, 0) != 0) {
+			_dprintf("Psetrun: %s\n", strerror(errno));
+			return (-1);
+		}
+		P->state = PS_RUN;
 	}
 
-	P->state = PS_RUN;
 	return (0);
 }
 
@@ -506,7 +517,7 @@ Pread(struct ps_prochandle *P,
 	size_t nbyte,		/* number of bytes to read */
 	uintptr_t address)	/* address in process */
 {
-	return (pread(P->memfd, buf, nbyte, (off_t)address));
+	return (pread(Pmemfd(P), buf, nbyte, (off_t)address));
 }
 
 ssize_t

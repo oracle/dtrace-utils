@@ -745,7 +745,7 @@ Preadauxvec(struct ps_prochandle *P)
 	size_t buf;
 
 	if (P->state == PS_DEAD)
-		return; /* Already read during Pgrab_core() */
+		return; /* FIXME Already read during Pgrab_core() */
 
 	if (P->auxv != NULL) {
 		free(P->auxv);
@@ -2712,8 +2712,8 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 }
 
 /*
- * Called from Pcreate(), Pgrab(), and Pfgrab_core() to initialize
- * the symbol table heads in the new ps_prochandle.
+ * Called from Pcreate() and Pgrab() to initialize the symbol table heads in the
+ * new ps_prochandle.
  */
 void
 Pinitsym(struct ps_prochandle *P)

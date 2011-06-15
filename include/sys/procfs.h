@@ -62,50 +62,6 @@ extern "C" {
  */
 
 /*
- * Control codes (long values) for messages written to ctl and lwpctl files.
- */
-#define	PCNULL   0L	/* null request, advance to next message */
-#define	PCSTOP   1L	/* direct process or lwp to stop and wait for stop */
-#define	PCDSTOP  2L	/* direct process or lwp to stop */
-#define	PCWSTOP  3L	/* wait for process or lwp to stop, no timeout */
-#define	PCTWSTOP 4L	/* wait for stop, with long millisecond timeout arg */
-#define	PCRUN    5L	/* make process/lwp runnable, w/ long flags argument */
-#define	PCCSIG   6L	/* clear current signal from lwp */
-#define	PCCFAULT 7L	/* clear current fault from lwp */
-#define	PCSSIG   8L	/* set current signal from siginfo_t argument */
-#define	PCKILL   9L	/* post a signal to process/lwp, long argument */
-#define	PCUNKILL 10L	/* delete a pending signal from process/lwp, long arg */
-#define	PCSHOLD  11L	/* set lwp signal mask from sigset_t argument */
-#define	PCSTRACE 12L	/* set traced signal set from sigset_t argument */
-#define	PCSFAULT 13L	/* set traced fault set from fltset_t argument */
-#define	PCSET    16L	/* set modes from long argument */
-#define	PCUNSET  17L	/* unset modes from long argument */
-#define	PCSREG   18L	/* set lwp general registers from prgregset_t arg */
-#define	PCSFPREG 19L	/* set lwp floating-point registers from prfpregset_t */
-#define	PCSXREG  20L	/* set lwp extra registers from prxregset_t arg */
-#define	PCNICE   21L	/* set nice priority from long argument */
-#define	PCSVADDR 22L	/* set %pc virtual address from long argument */
-#define	PCAGENT  24L	/* create agent lwp with regs from prgregset_t arg */
-#define	PCREAD   25L	/* read from the address space via priovec_t arg */
-#define	PCWRITE  26L	/* write to the address space via priovec_t arg */
-#define	PCSASRS  28L	/* set ancillary state registers from asrset_t arg */
-#define	PCSPRIV  29L	/* set process privileges from prpriv_t argument */
-#define	PCSZONE  30L	/* set zoneid from zoneid_t argument */
-#define	PCSCREDX 31L	/* as PCSCRED but with supplemental groups */
-/*
- * PCRUN long operand flags.
- */
-#define	PRCSIG		0x01	/* clear current signal, if any */
-#define	PRCFAULT	0x02	/* clear current fault, if any */
-#define	PRSTEP		0x04	/* direct the lwp to single-step */
-#define	PRSABORT	0x08	/* abort syscall, if in syscall */
-#define	PRSTOP		0x10	/* set directed stop request */
-
-/*
- * See <sys/procfs_isa.h> for possible values of pr_dmodel.
- */
-
-/*
  * Reasons for stopping (pr_why).
  */
 #define	PR_REQUESTED	1

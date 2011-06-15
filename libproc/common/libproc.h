@@ -113,13 +113,8 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 /* State values returned by Pstate() */
 #define	PS_RUN		1	/* process is running */
 #define	PS_STOP		2	/* process is stopped */
-#define	PS_DEAD		3	/* process is terminated (core file) */
-
-/* Flags accepted by Pgrab() */
-#define	PGRAB_RETAIN	0x01	/* Retain tracing flags, else clear flags */
-#define	PGRAB_FORCE	0x02	/* Open the process w/o O_EXCL */
-#define	PGRAB_RDONLY	0x04	/* Open the process or core w/ O_RDONLY */
-#define	PGRAB_NOSTOP	0x08	/* Open the process but do not stop it */
+#define	PS_TRACESTOP	3	/* process is stopped by ptrace() */
+#define	PS_DEAD		4	/* process is terminated (core file) */
 
 /* Error codes from Pcreate() */
 #define	C_STRANGE	-1	/* Unanticipated error, errno is meaningful */
@@ -129,8 +124,9 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 #define	C_INTR		4	/* Interrupt received while creating */
 #define	C_LP64		5	/* Program is _LP64, self is _ILP32 */
 #define	C_NOENT		6	/* Cannot find executable file */
+#define C_FDS           7	/* Out of file descriptors */
 
-/* Error codes from Pgrab(), Pfgrab_core(), and Pgrab_core() */
+/* Error codes from Pgrab() */
 #define	G_STRANGE	-1	/* Unanticipated error, errno is meaningful */
 #define	G_NOPROC	1	/* No such process */
 #define	G_NOCORE	2	/* No such core file */
@@ -179,19 +175,15 @@ typedef	struct {	/* argument descriptor for system call (Psyscall) */
  */
 extern struct ps_prochandle *Pcreate(const char *, char *const *,
     int *, char *, size_t);
-extern struct ps_prochandle *Pxcreate(const char *, char *const *,
-    char *const *, int *, char *, size_t);
 
 extern const char *Pcreate_error(int);
 
-extern struct ps_prochandle *Pgrab(pid_t, int, int *);
-extern struct ps_prochandle *Pgrab_core(const char *, const char *, int, int *);
-extern struct ps_prochandle *Pfgrab_core(int, const char *, int *);
-extern struct ps_prochandle *Pgrab_file(const char *, int *);
+extern struct ps_prochandle *Pgrab(pid_t, int *);
 extern const char *Pgrab_error(int);
 
 extern	void	Prelease(struct ps_prochandle *, boolean_t);
 extern	void	Pfree(struct ps_prochandle *);
+extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);
 extern	char   *Pbrandname(struct ps_prochandle *, char *, size_t);
@@ -203,12 +195,13 @@ extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
 extern	int	Pgetareg(struct ps_prochandle *, int, prgreg_t *);
 extern	int	Pputareg(struct ps_prochandle *, int, prgreg_t);
-extern	int	Psetrun(struct ps_prochandle *, int, int);
+extern	int	Psetrun(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	ssize_t	Pwrite(struct ps_prochandle *, const void *, size_t, uintptr_t);
 extern	int	Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
 extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
+extern	int	Phasfds(struct ps_prochandle *);
 
 extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
 			int, uint_t, argdes_t *);
