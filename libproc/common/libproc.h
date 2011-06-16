@@ -193,8 +193,6 @@ extern	int	Pwait(struct ps_prochandle *, uint_t);
 extern	int	Pstop(struct ps_prochandle *, uint_t);
 extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
-extern	int	Pgetareg(struct ps_prochandle *, int, prgreg_t *);
-extern	int	Pputareg(struct ps_prochandle *, int, prgreg_t);
 extern	int	Psetrun(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);

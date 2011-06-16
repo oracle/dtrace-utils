@@ -1,3 +1,21 @@
+2011-06-16  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	Include C99 standard library head file stdint.h.
+
+	* include/sys/int_types.h: Removed.
+	* include/sys/stat.h: Removed.
+	* include/sys/types32.h: Removed.
+	* common/dis/dis_tables.h: Clean header files.
+	* include/sys/auxv.h: Clean header files and remove aux32_t.
+	* include/sys/elf_386.h: Remove unused macros.
+	* include/sys/link.h: Clean #if 0.
+	* include/sys/procfs.h: Remove unused header files and unused
+	declarations.
+	* include/sys/procfs_isa.h: Likewise.
+	* include/types_various.h: Include stdint.h and clean the header files.
+	* libproc/common/libproc.h: Remove unused Pgetareg and Pputareg.
+	* uts/common/sys/dtrace.h: Remove unused header files.
+
 2011-06-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* include/types_various.h: Put Lmid_t back (needed for compilation

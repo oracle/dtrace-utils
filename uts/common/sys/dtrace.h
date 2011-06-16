@@ -45,13 +45,7 @@ extern "C" {
 #ifndef _ASM
 
 #include <sys/types.h>
-#include <sys/int_types.h>
-/*#include <sys/modctl.h>
-#include <sys/processor.h>
-#include <sys/systm.h> */
 #include <sys/ctf_api.h>
-/*#include <sys/cyclic.h> 
-#include <sys/int_limits.h> */
 
 
 /*

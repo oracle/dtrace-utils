@@ -2,8 +2,7 @@
 #define TYPES_VARIOUS_H
 
 #include <sys/types.h>
-#include <sys/types32.h>
-#include <sys/int_types.h>
+#include <stdint.h>
 #include <unistd.h>
 
 typedef struct {                /* syscall set type */

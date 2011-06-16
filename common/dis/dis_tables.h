@@ -40,8 +40,6 @@ extern "C" {
 #endif
 
 #include <sys/types.h>
-#include <sys/int_types.h>
-//#include <sys/inttypes.h>
 #include <sys/param.h>
 
 /*
