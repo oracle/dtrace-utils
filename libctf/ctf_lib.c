@@ -101,7 +101,7 @@ ctf_sect_mmap(ctf_sect_t *sp, int fd)
 {
 	size_t pageoff = sp->cts_offset & ~_PAGEMASK;
 
-	caddr_t base = mmap64(NULL, sp->cts_size + pageoff, PROT_READ,
+	caddr_t base = mmap(NULL, sp->cts_size + pageoff, PROT_READ,
 	    MAP_PRIVATE, fd, sp->cts_offset & _PAGEMASK);
 
 	if (base != MAP_FAILED)
@@ -134,7 +134,7 @@ ctf_fdopen(int fd, int *errp)
 	ctf_sect_t ctfsect, symsect, strsect;
 	ctf_file_t *fp = NULL;
 
-	struct stat64 st;
+	struct stat st;
 	ssize_t nbytes;
 
 	union {
@@ -148,10 +148,10 @@ ctf_fdopen(int fd, int *errp)
 	bzero(&strsect, sizeof (ctf_sect_t));
 	bzero(&hdr.ctf, sizeof (hdr));
 
-	if (fstat64(fd, &st) == -1)
+	if (fstat(fd, &st) == -1)
 		return (ctf_set_open_errno(errp, errno));
 
-	if ((nbytes = pread64(fd, &hdr.ctf, sizeof (hdr), 0)) <= 0)
+	if ((nbytes = pread(fd, &hdr.ctf, sizeof (hdr), 0)) <= 0)
 		return (ctf_set_open_errno(errp, nbytes < 0? errno : ECTF_FMT));
 
 	/*
@@ -163,7 +163,7 @@ ctf_fdopen(int fd, int *errp)
 		if (hdr.ctf.ctp_version > CTF_VERSION)
 			return (ctf_set_open_errno(errp, ECTF_CTFVERS));
 
-		ctfsect.cts_data = mmap64(NULL, st.st_size, PROT_READ,
+		ctfsect.cts_data = mmap(NULL, st.st_size, PROT_READ,
 		    MAP_PRIVATE, fd, 0);
 
 		if (ctfsect.cts_data == MAP_FAILED)
@@ -233,7 +233,7 @@ ctf_fdopen(int fd, int *errp)
 
 			nbytes = sizeof (Elf32_Shdr) * n;
 
-			if ((sp32 = malloc(nbytes)) == NULL || pread64(fd,
+			if ((sp32 = malloc(nbytes)) == NULL || pread(fd,
 			    sp32, nbytes, hdr.e64.e_shoff) != nbytes) {
 				free(sp);
 				return (ctf_set_open_errno(errp, errno));
@@ -244,7 +244,7 @@ ctf_fdopen(int fd, int *errp)
 
 			free(sp32);
 
-		} else if (pread64(fd, sp, nbytes, hdr.e64.e_shoff) != nbytes) {
+		} else if (pread(fd, sp, nbytes, hdr.e64.e_shoff) != nbytes) {
 			free(sp);
 			return (ctf_set_open_errno(errp, errno));
 		}
@@ -256,7 +256,7 @@ ctf_fdopen(int fd, int *errp)
 		strs_mapsz = sp[hdr.e64.e_shstrndx].sh_size +
 		    (sp[hdr.e64.e_shstrndx].sh_offset & ~_PAGEMASK);
 
-		strs_map = mmap64(NULL, strs_mapsz, PROT_READ, MAP_PRIVATE,
+		strs_map = mmap(NULL, strs_mapsz, PROT_READ, MAP_PRIVATE,
 		    fd, sp[hdr.e64.e_shstrndx].sh_offset & _PAGEMASK);
 
 		strs = (const char *)strs_map +
@@ -360,7 +360,7 @@ ctf_open(const char *filename, int *errp)
 	ctf_file_t *fp;
 	int fd;
 
-	if ((fd = open64(filename, O_RDONLY)) == -1) {
+	if ((fd = open(filename, O_RDONLY)) == -1) {
 		if (errp != NULL)
 			*errp = errno;
 		return (NULL);

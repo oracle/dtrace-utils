@@ -124,7 +124,7 @@ dtrace_dof_init(void)
 	if ((p = getenv("DTRACE_DOF_INIT_DEVNAME")) != NULL)
 		devname = p;
 
-	if ((fd = open64(devname, O_RDWR)) < 0) {
+	if ((fd = open(devname, O_RDWR)) < 0) {
 		dprintf(1, "failed to open helper device %s", devname);
 		return;
 	}
@@ -143,7 +143,7 @@ dtrace_dof_fini(void)
 {
 	int fd;
 
-	if ((fd = open64(devname, O_RDWR)) < 0) {
+	if ((fd = open(devname, O_RDWR)) < 0) {
 		dprintf(1, "failed to open helper device %s", devname);
 		return;
 	}

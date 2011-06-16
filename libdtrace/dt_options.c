@@ -188,7 +188,7 @@ dt_opt_ctypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	if ((fd = open64(arg, O_CREAT | O_WRONLY, 0666)) == -1)
+	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
 		return (dt_set_errno(dtp, errno));
 
 	(void) close(dtp->dt_cdefs_fd);
@@ -213,7 +213,7 @@ dt_opt_dtypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	if ((fd = open64(arg, O_CREAT | O_WRONLY, 0666)) == -1)
+	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
 		return (dt_set_errno(dtp, errno));
 
 	(void) close(dtp->dt_ddefs_fd);

@@ -20,7 +20,6 @@ typedef id_t    poolid_t;
 typedef id_t    ctid_t;
 typedef unsigned long   psaddr_t;
 typedef int psetid_t;
-typedef unsigned long	Lmid_t;
 typedef enum { B_FALSE, B_TRUE} boolean_t;
 
 typedef pid_t	lwpid_t;

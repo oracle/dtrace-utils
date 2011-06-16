@@ -1,7 +1,7 @@
 BUILD_DIR=build-$(shell uname -r)
 NOPWD = --no-print-directory
-CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas -D_GNU_SOURCE
-CC=gcc -std=gnu99 -D_LITTLE_ENDIAN $(CFLAGS)
+CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
+CC=gcc $(CFLAGS) -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 MACH=$(shell uname -m)
 DTO=-D_ILP64
 COMPILE.cpp= $(CC) -E -C

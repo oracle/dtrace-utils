@@ -1615,7 +1615,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	 * We start cpp just prior to the \n at the end of this line so that
 	 * it still sees the newline, ensuring that #line values are correct.
 	 */
-	if (isatty(fileno(ifp)) == 0 && (off = ftello64(ifp)) != -1) {
+	if (isatty(fileno(ifp)) == 0 && (off = ftello(ifp)) != -1) {
 		if ((c = fgetc(ifp)) == '#' && (c = fgetc(ifp)) == '!') {
 			for (off += 2; c != '\n'; off++) {
 				if ((c = fgetc(ifp)) == EOF)
@@ -1625,7 +1625,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 				off--; /* start cpp just prior to \n */
 		}
 		(void) fflush(ifp);
-		(void) fseeko64(ifp, off, SEEK_SET);
+		(void) fseeko(ifp, off, SEEK_SET);
 	}
 
 	(void) snprintf(ipath, sizeof (ipath), "/dev/fd/%d", fileno(ifp));
@@ -2206,13 +2206,13 @@ out:
 	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3))
 		dt_node_printr(yypcb->pcb_root, stderr, 0);
 
-	if (dtp->dt_cdefs_fd != -1 && (ftruncate64(dtp->dt_cdefs_fd, 0) == -1 ||
-	    lseek64(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
+	if (dtp->dt_cdefs_fd != -1 && (ftruncate(dtp->dt_cdefs_fd, 0) == -1 ||
+	    lseek(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
 	    ctf_write(dtp->dt_cdefs->dm_ctfp, dtp->dt_cdefs_fd) == CTF_ERR))
 		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
 
-	if (dtp->dt_ddefs_fd != -1 && (ftruncate64(dtp->dt_ddefs_fd, 0) == -1 ||
-	    lseek64(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
+	if (dtp->dt_ddefs_fd != -1 && (ftruncate(dtp->dt_ddefs_fd, 0) == -1 ||
+	    lseek(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
 	    ctf_write(dtp->dt_ddefs->dm_ctfp, dtp->dt_ddefs_fd) == CTF_ERR))
 		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
 

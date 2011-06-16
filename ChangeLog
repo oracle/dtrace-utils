@@ -1,6 +1,32 @@
+2011-06-16  Nick Alcock  <nick.alcock@oracle.com>
+
+	Drop obsolescent LFS transitional functions.
+	Support CFLAGS modification from the command line better.
+
+	* makefile (CFLAGS): Move parts needed for compilation...
+	(CC): ... here. Move CFLAGS to the front, so it cannot
+	override things given in CC.
+
+	* cmd/dtrace.c (main): Drop LFS transitional *64()
+	functions.
+
+	* libctf/ctf_lib.c (ctf_sect_mmap): Likewise.
+	(ctf_fdopen): Likewise.
+	(ctf_open): Likewise.
+	* libdtrace/drti.c (dtrace_dof_init): Likewise.
+	(dtrace_dof_fini): Likewise.
+	* libdtrace/dt_cc.c (dt_preproc): Likewise.
+	(dt_compile): Likewise.
+	* libdtrace/dt_module.c (dt_module_update): Likewise.
+	* libdtrace/dt_options.c (dt_opt_ctypes): Likewise.
+	* libdtrace/dt_options.c (dt_opt_dtypes): Likewise.
+
+	* include/types_various.h (Lmid_t): Delete again, it is in
+	<dlfcn.h>.
+
 2011-06-16  Shujing Zhao  <pearly.zhao@oracle.com>
-	
-	Include C99 standard library head file stdint.h.
+
+	Include C99 standard library header file stdint.h.
 
 	* include/sys/int_types.h: Removed.
 	* include/sys/stat.h: Removed.

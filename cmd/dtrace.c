@@ -1300,7 +1300,7 @@ main(int argc, char *argv[])
 		GElf_Ehdr ehdr;
 
 		for (i = 1; i < g_argc; i++) {
-			if ((fd = open64(g_argv[i], O_RDONLY)) == -1)
+			if ((fd = open(g_argv[i], O_RDONLY)) == -1)
 				break;
 
 			if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
