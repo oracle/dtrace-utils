@@ -59,7 +59,6 @@ int	_libproc_no_qsort;	/* set non-zero to inhibit sorting */
 				/* of symbol tables */
 int	_libproc_incore_elf;	/* only use in-core elf data */
 
-sigset_t blockable_sigs;	/* signals to block when we need to be safe */
 char	procfs_path[PATH_MAX] = "/proc";
 
 /*
@@ -72,10 +71,6 @@ _libproc_init(void)
 	_libproc_debug = getenv("LIBPROC_DEBUG") != NULL;
 	_libproc_no_qsort = getenv("LIBPROC_NO_QSORT") != NULL;
 	_libproc_incore_elf = getenv("LIBPROC_INCORE_ELF") != NULL;
-
-	(void) sigfillset(&blockable_sigs);
-	(void) sigdelset(&blockable_sigs, SIGKILL);
-	(void) sigdelset(&blockable_sigs, SIGSTOP);
 }
 
 void

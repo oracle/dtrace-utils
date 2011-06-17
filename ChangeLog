@@ -1,3 +1,27 @@
+2011-06-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	Fix locking and signal handling around process termination.
+
+	* libdtrace/dt_proc.h (dt_proc_t): Remove dpr_quit.  Maintain
+	dpr_tid_locked inside the control thread to detect cancellation
+	while dpr_lock is held.
+
+	* libdtrace/dt_proc.c (dt_proc_control_cleanup): New cancellation
+	function for control threads.
+	(dt_proc_control): Call it.  No longer disable cancellation.  No
+	longer mention SIGCANCEL or SIGUSR1, or check dpr_quit.  Remove
+	unnecessary holds of dpr_lock.  Track dpr_tid_locked around
+	dpr_lock holds.  Warn on PS_TRACESTOP hits, but do not terminate.
+	Clean up on process exit using the cleanup function.
+	(dt_proc_destroy): No longer grab dpr_lock around the dph cleanup.
+	No longer set dpr_quit or send SIGUSR1: pthread_cancel() instead.
+	Fix locking.
+	(dt_proc_create_thread): No longer unmask SIGUSR1.
+	(dt_proc_control_data): Spelling fix.
+
+	* libproc/common/Pcontrol.c (blockable_sigs): Remove.
+	(_libproc_init): Likewise.
+
 2011-06-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	Drop obsolescent LFS transitional functions.

@@ -46,11 +46,12 @@ typedef struct dt_proc {
 	char dpr_errmsg[BUFSIZ];	/* error message */
 	rd_agent_t *dpr_rtld;		/* rtld handle for librtld_db calls */
 	pthread_mutex_t dpr_lock;	/* lock for manipulating dpr_hdl */
+	uint8_t dpr_tid_locked;		/* true if the control thread holds
+					 * dpr_locked */
 	pthread_cond_t dpr_cv;		/* cond for dpr_stop/quit/done */
 	pid_t dpr_pid;			/* pid of process */
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
-	uint8_t dpr_quit;		/* quit flag: ctl thread should quit */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */
 	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
 	uint8_t dpr_created;            /* proc flag: true if we created this

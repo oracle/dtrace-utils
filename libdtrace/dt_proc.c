@@ -174,8 +174,10 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
-	dt_proc_t *dpcd_proc;			/* proccess to control */
+	dt_proc_t *dpcd_proc;			/* process to control */
 } dt_proc_control_data_t;
+
+static void dt_proc_control_cleanup(void *arg);
 
 /*
  * Main loop for all victim process control threads.  We initialize all the
@@ -186,7 +188,7 @@ typedef struct dt_proc_control_data {
  * The control thread synchronizes the use of dpr_proc with other libdtrace
  * threads using dpr_lock.  We hold the lock for all of our operations except
  * waiting while the process is running.  If the libdtrace client wishes to exit
- * or abort our wait, SIGCANCEL can be used.
+ * or abort our wait, thread cancellation can be used.
  */
 static void *
 dt_proc_control(void *arg)
@@ -199,20 +201,16 @@ dt_proc_control(void *arg)
 
 	int pid = dpr->dpr_pid;
 
-	int notify = B_FALSE;
-
 	/*
-	 * We disable the POSIX thread cancellation mechanism so that the
-	 * client program using libdtrace can't accidentally cancel our thread.
-	 * dt_proc_destroy() uses SIGCANCEL explicitly to simply poke us out
-	 * of PCWSTOP with EINTR, at which point we will see dpr_quit and exit.
+	 * Arrange to clean up when cancelled by dt_proc_destroy() on shutdown.
 	 */
-	(void) pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	pthread_cleanup_push(dt_proc_control_cleanup, dpr);
 
 	/*
 	 * Lock our mutex.
 	 */
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
+	pthread_mutex_lock(&dpr->dpr_lock);
+	dpr->dpr_tid_locked = B_TRUE;
 
 	/* FIXME: turn on synchronous mode here, when implemented: remember to
 	 * adjust breakpoint EIP. */
@@ -234,74 +232,90 @@ dt_proc_control(void *arg)
 		    (int)dpr->dpr_pid, strerror(errno));
 	}
 
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
+	dpr->dpr_tid_locked = B_FALSE;
+	pthread_mutex_unlock(&dpr->dpr_lock);
 
 	/*
 	 * Wait for the process corresponding to this control thread to stop,
 	 * process the event, and then set it running again.  We want to sleep
 	 * with dpr_lock *unheld* so that other parts of libdtrace can use the
-	 * ps_prochandle in the meantime (e.g. ustack()).  To do this, we wait
-	 * for /proc/<pid>ctl using Pwait(). Once the process stops, we wake
-	 * up, grab dpr_lock, and then call Pwait() (which will return
-	 * immediately) and do our processing.
+	 * ps_prochandle in the meantime (e.g. ustack()) without corrupting any
+	 * shared caches.  We do not expect them to modify the Pstate(), so we
+	 * can call that without grabbing the lock.
 	 */
-	while (!dpr->dpr_quit) {
-
+	for (;;) {
 		if (Pwait (P, 0) == -1 && errno == EINTR)
-			continue; /* check dpr_quit and continue waiting */
-
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
+			continue; /* hit by signal: continue waiting */
 
 		switch (Pstate(P)) {
 		case PS_STOP:
-		case PS_TRACESTOP:
 
 			/*
 			 * If the process stops showing one of the events that
 			 * we are tracing, perform the appropriate response.
-			 * Note that we ignore PR_SUSPENDED, PR_CHECKPOINT, and
-			 * PR_JOBCONTROL by design: if one of these conditions
-			 * occurs, we will fall through, but the process will
-			 * remain stopped in the kernel by the corresponding
-			 * mechanism (e.g. job control stop).
 			 *
 			 * FIXME: This used to be done using breakpoints.
 			 * Currently we have no mechanism: something must be
-			 * defined using dtrace.
+			 * defined using dtrace.  Currently, we just keep
+			 * waiting when a stop happens.
 			 */
-			break;
+			continue;
+
+			/*
+			 * If the libdtrace caller (as opposed to any other
+			 * process) tries to debug a monitored process, it
+			 * may lead to our waitpid() returning strange
+			 * results.  Fail in this case, until we define a
+			 * protocol for communicating the waitpid() results to
+			 * the caller, or relinquishing control temporarily.
+			 * FIXME.
+			 */
+		case PS_TRACESTOP:
+			dt_dprintf("pid %d: trace stop, nothing we can do\n",
+			    pid);
+			continue;
 
 		case PS_DEAD:
 			dt_dprintf("pid %d: proc died\n", pid);
-			dpr->dpr_quit = B_TRUE;
-			notify = B_TRUE;
 			break;
 		}
-
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
 	}
 
 	/*
-	 * If the control thread detected PS_DEAD, then enqueue the dt_proc_t
-	 * structure on the dt_proc_hash_t notification list.
+	 * We only get here if the caller has died.  Enqueue the dt_proc_t
+	 * structure on the dt_proc_hash_t notification list, then clean up.
 	 */
-	if (notify)
-		dt_proc_notify(dtp, dph, dpr, NULL);
+	dt_proc_notify(dtp, dph, dpr, NULL);
+	pthread_cleanup_pop(1);
+	return (NULL);
+}
 
+/*
+ * Cleanup handler, called when a process control thread exits or is cancelled.
+ */
+static void
+dt_proc_control_cleanup(void *arg)
+{
+	dt_proc_t *dpr = arg;
 	/*
-	 * Destroy and remove any remaining breakpoints, set dpr_done and clear
-	 * dpr_tid to indicate the control thread has exited, and notify any
-	 * waiting thread in dt_proc_destroy() that we have succesfully exited.
-	 */
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
+	 * Set dpr_done and clear dpr_tid to indicate that the control thread
+	 * has exited, and notify any waiting thread in dt_proc_destroy() that
+	 * we have successfully exited.
+	 *
+	 * If we were cancelled while already holding the mutex, don't lock it
+	 * again.
+ 	 */
+	if(!dpr->dpr_tid_locked) {
+		pthread_mutex_lock(&dpr->dpr_lock);
+		dpr->dpr_tid_locked = B_TRUE;
+	}
 
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
+	pthread_cond_broadcast(&dpr->dpr_cv);
 
-	(void) pthread_cond_broadcast(&dpr->dpr_cv);
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
-	return (NULL);
+	dpr->dpr_tid_locked = B_FALSE;
+	pthread_mutex_unlock(&dpr->dpr_lock);
 }
 
 /*PRINTFLIKE3*/
@@ -380,24 +394,16 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	 * Before we free the process structure, remove this dt_proc_t from the
 	 * lookup hash, and then walk the dt_proc_hash_t's notification list
 	 * and remove this dt_proc_t if it is enqueued.
-	 *
-	 * Grab the dpr_lock around the removal, and verify that we have not
-	 * been Pgrab()bed (or destroyed by another identical call) since the
-	 * decision to call dt_proc_destroy() was made.
 	 */
 	if (dpr == NULL)
-		return;
-
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
-	if (dpr->dpr_refs != 0)
 		return;
 
 	dt_dprintf("%s pid %d\n", dpr->dpr_created ? "killing" : "releasing",
 		dpr->dpr_pid);
 	kill_it = dpr->dpr_created;
 
-	(void) pthread_mutex_lock(&dph->dph_lock);
-	(void) dt_proc_lookup(dtp, P, B_TRUE);
+	pthread_mutex_lock(&dph->dph_lock);
+	dt_proc_lookup(dtp, P, B_TRUE);
 	npp = &dph->dph_notify;
 
 	while ((npr = *npp) != NULL) {
@@ -409,35 +415,30 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		}
 	}
 
-	(void) pthread_mutex_unlock(&dph->dph_lock);
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-
+	pthread_mutex_unlock(&dph->dph_lock);
 	if (dpr->dpr_tid) {
 		/*
-		 * Set the dpr_quit flag to tell the daemon thread to exit.  We
-		 * send it a SIGUSR1 to poke it out of a ptrace() wait.  Our
-		 * daemon threads have POSIX cancellation disabled, so EINTR
-		 * will be the only effect.  We then wait for dpr_done to
-		 * indicate the thread has exited.
-		 */
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
-
-		dpr->dpr_quit = B_TRUE;
-		(void) pthread_kill(dpr->dpr_tid, SIGUSR1);
-
-		/*
-		 * If the process is currently idling in dt_proc_stop(), poke it
-		 * into running again.
+		 * If the process is currently waiting in dt_proc_stop(), poke it
+		 * into running again.  This is essential to ensure that the
+		 * thread cancel does not hit while it already has the mutex
+		 * locked.
 		 */
 		if (dpr->dpr_stop & DT_PROC_STOP_IDLE) {
 			dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
-			(void) pthread_cond_broadcast(&dpr->dpr_cv);
+			pthread_cond_broadcast(&dpr->dpr_cv);
 		}
+
+		/*
+		 * Cancel the daemon thread, then wait for dpr_done to indicate
+		 * the thread has exited.
+		 */
+		pthread_mutex_lock(&dpr->dpr_lock);
+		pthread_cancel(dpr->dpr_tid);
 
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		pthread_mutex_unlock(&dpr->dpr_lock);
 	}
 
 	/*
@@ -471,11 +472,6 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	(void) sigfillset(&nset);
 	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
-#if defined(sun)
-	(void) sigdelset(&nset, SIGCANCEL);	/* see dt_proc_destroy() */
-#else
-	(void) sigdelset(&nset, SIGUSR1);	 /* see dt_proc_destroy() */
-#endif
 
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -498,9 +494,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 		/*
 		 * If dpr_done is set, the control thread aborted before it
-		 * reached the rendezvous event.  This is either due to PS_LOST
-		 * or PS_UNDEAD (i.e. the process died).  We try to provide a
-		 * small amount of useful information to help figure it out.
+		 * reached the rendezvous event.  We try to provide a small
+		 * amount of useful information to help figure out why.
 		 */
 		if (dpr->dpr_done) {
 			err = ESRCH; /* cause grab() or create() to fail */
