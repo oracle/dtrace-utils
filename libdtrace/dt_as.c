@@ -495,8 +495,5 @@ dt_as(dt_pcb_t *pcb)
 	pcb->pcb_difo = NULL;
 	pcb->pcb_dret = NULL;
 
-	if (pcb->pcb_cflags & DTRACE_C_DIFV)
-		dt_dis(dp, stderr);
-
 	return (dp);
 }

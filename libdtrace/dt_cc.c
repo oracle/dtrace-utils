@@ -2228,16 +2228,28 @@ dtrace_prog_t *
 dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
     dtrace_probespec_t spec, uint_t cflags, int argc, char *const argv[])
 {
-	return (dt_compile(dtp, DT_CTX_DPROG,
-	    spec, NULL, cflags, argc, argv, NULL, s));
+	dtrace_prog_t *rv;
+
+	rv = dt_compile(dtp, DT_CTX_DPROG,
+	    spec, NULL, cflags, argc, argv, NULL, s);
+
+	if (cflags & DTRACE_C_DIFV)
+		dt_dis_program(dtp, rv, stderr);
+	return (rv);
 }
 
 dtrace_prog_t *
 dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
     uint_t cflags, int argc, char *const argv[])
 {
-	return (dt_compile(dtp, DT_CTX_DPROG,
-	    DTRACE_PROBESPEC_NAME, NULL, cflags, argc, argv, fp, NULL));
+	dtrace_prog_t *rv;
+
+	rv = dt_compile(dtp, DT_CTX_DPROG,
+	    DTRACE_PROBESPEC_NAME, NULL, cflags, argc, argv, fp, NULL);
+
+	if (cflags & DTRACE_C_DIFV)
+		dt_dis_program(dtp, rv, stderr);
+	return (rv);
 }
 
 int

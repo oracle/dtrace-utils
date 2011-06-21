@@ -1,3 +1,25 @@
+2011-06-21  Nick Alcock  <nick.alcock@oracle.com>
+
+	Improve intermediate format printing.
+
+	* libdtrace/dt_as.c (dt_as): Do not emit intermediate output here.
+
+	* libdtrace/dt_cc.c (dtrace_program_strcompile): Emit it here instead.
+	(dtrace_program_fcompile): Likewise.
+
+	* libdtrace/dt_dis.c: Include <dt_printf.h>.
+	(dt_dis): Rename to...
+	(dt_dis_difo): ... this.  No longer print out the header line.
+	(dt_dis_action): New, decode action names and printf() and
+	printa() format strings.
+	(dt_dis_format_print): New, print printf() and printa() format strings,
+	eliding trailing linefeeds.
+	(dt_dis_stmts): Disassemble a statement, including name of
+	containing probe.
+	(dt_dis_program): Disassemble a DTrace program.
+	(dt_dis_iter): New helper type.
+	* libdtrace/dt_impl.h: Drop dt_dis() in favour of dt_dis_program().
+
 2011-06-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	Fix locking and signal handling around process termination.
