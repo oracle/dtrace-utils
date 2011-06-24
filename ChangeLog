@@ -1,3 +1,9 @@
+2011-06-24  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_cc.c (dtrace_program_strcompile): Do not
+	debugging-dump programs on error.
+	(dtrace_program_fcompile): Likewise.
+
 2011-06-24  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	Remove include/sys/elf.h.
