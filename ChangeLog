@@ -1,3 +1,10 @@
+2011-06-24  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	Remove include/sys/elf.h.
+	* include/sys/elf.h: Remove.
+	* include/sys/link.h: Clean the flags and declarations.
+	* include/sys/machelf.h: Likewise.
+
 2011-06-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	Improve intermediate format printing.

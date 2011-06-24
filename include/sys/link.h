@@ -233,69 +233,6 @@ extern "C" {
 #define	DTF_1_PARINIT	0x00000001	/* partially initialization feature */
 #define	DTF_1_CONFEXP	0x00000002	/* configuration file expected */
 
-
-/*
- * Versym symbol index values.  Values greater than VER_NDX_GLOBAL
- * and less then VER_NDX_LORESERVE associate symbols with user
- * specified version descriptors.
- */
-#define	VER_NDX_LOCAL		0	/* symbol is local */
-#define	VER_NDX_GLOBAL		1	/* symbol is global and assigned to */
-					/*	the base version */
-#define	VER_NDX_LORESERVE	0xff00	/* beginning of RESERVED entries */
-#define	VER_NDX_ELIMINATE	0xff01	/* symbol is to be eliminated */
-
-/*
- * Verdef (vd_flags) and Vernaux (vna_flags) flags values.
- */
-#define	VER_FLG_BASE		0x1	/* version definition of file itself */
-					/*	(Verdef only) */
-#define	VER_FLG_WEAK		0x2	/* weak version identifier */
-#define	VER_FLG_INFO		0x4	/* version is recorded in object for */
-					/*	informational purposes */
-					/*	(Versym reference) only. No */
-					/*	runtime verification is */
-					/*	required. (Vernaux only) */
-
-/*
- * Verdef version values.
- */
-#define	VER_DEF_NONE		0	/* Ver_def version */
-#define	VER_DEF_CURRENT		1
-#define	VER_DEF_NUM		2
-
-/*
- * Verneed version values.
- */
-#define	VER_NEED_NONE		0	/* Ver_need version */
-#define	VER_NEED_CURRENT	1
-#define	VER_NEED_NUM		2
-
-
-/*
- * Syminfo flag values
- */
-#define	SYMINFO_FLG_DIRECT	0x0001	/* symbol ref has direct association */
-					/*	to object containing defn. */
-#define	SYMINFO_FLG_FILTER	0x0002	/* symbol ref is associated to a */
-					/* 	standard filter */
-#if 0
-#define	SYMINFO_FLG_PASSTHRU	SYMINFO_FLG_FILTER /* unused obsolete name */
-#endif
-#define	SYMINFO_FLG_COPY	0x0004	/* symbol is a copy-reloc */
-#define	SYMINFO_FLG_LAZYLOAD	0x0008	/* object containing defn. should be */
-					/*	lazily-loaded */
-#define	SYMINFO_FLG_DIRECTBIND	0x0010	/* ref should be bound directly to */
-					/*	object containing defn. */
-#define	SYMINFO_FLG_NOEXTDIRECT	0x0020	/* don't let an external reference */
-					/*	directly bind to this symbol */
-#define	SYMINFO_FLG_AUXILIARY	0x0040	/* symbol ref is associated to a */
-					/* 	auxiliary filter */
-#define	SYMINFO_FLG_INTERPOSE	0x0080	/* symbol defines an interposer */
-#define	SYMINFO_FLG_CAP		0x0100	/* symbol is capabilities specific */
-#define	SYMINFO_FLG_DEFERRED	0x0200	/* symbol should not be included in */
-					/*	BIND_NOW relocations */
-
 /*
  * Syminfo.si_boundto values.
  */
@@ -351,31 +288,6 @@ typedef enum {
 } rd_event_e;
 
 #define	R_DEBUG_VERSION	2		/* current r_debug version */
-#endif	/* _ASM */
-
-/*
- * Attribute/value structures used to bootstrap ELF-based dynamic linker.
- */
-#ifndef	_ASM
-typedef struct {
-	Elf32_Sword eb_tag;		/* what this one is */
-	union {				/* possible values */
-		Elf32_Word eb_val;
-		Elf32_Addr eb_ptr;
-		Elf32_Off  eb_off;
-	} eb_un;
-} Elf32_Boot;
-
-#if defined(_LP64) || defined(_LONGLONG_TYPE)
-typedef struct {
-	Elf64_Xword eb_tag;		/* what this one is */
-	union {				/* possible values */
-		Elf64_Xword eb_val;
-		Elf64_Addr eb_ptr;
-		Elf64_Off eb_off;
-	} eb_un;
-} Elf64_Boot;
-#endif	/* defined(_LP64) || defined(_LONGLONG_TYPE) */
 #endif	/* _ASM */
 
 /*
