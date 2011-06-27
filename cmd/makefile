@@ -1,18 +1,19 @@
-BINDIR=../$(BUILD_DIR)
+BUILD_DIR := ../$(BUILD_DIR)
+SBINDIR = /usr/sbin
 CPPFLAGS += $(DTO) -D_LONGLONG_TYPE
 
 LIBELF=/usr/lib/libelf.so.1
 LIBS = \
-        $(BINDIR)/libctf.a \
-        $(BINDIR)/libdtrace.a \
-        $(BINDIR)/libproc.a \
-        $(BINDIR)/libport.a
+        $(BUILD_DIR)/libctf.a \
+        $(BUILD_DIR)/libdtrace.a \
+        $(BUILD_DIR)/libproc.a \
+        $(BUILD_DIR)/libport.a
 
-COMPILE = $(CC) $(CFLAGS) -o $(BINDIR)/dtrace \
-	-L$(BINDIR) $$LIB32 \
-	$(BINDIR)/dtrace.o -ldtrace -lctf -lproc -lport -lz -lrt -lpthread $$libelf -ldl
+COMPILE = $(CC) $(CFLAGS) -o $(BUILD_DIR)/dtrace \
+	-L$(BUILD_DIR) $$LIB32 \
+	$(BUILD_DIR)/dtrace.o -ldtrace -lctf -lproc -lport -lz -lrt -lpthread $$libelf -ldl
 
-$(BINDIR)/dtrace: $(BINDIR)/dtrace.o $(LIBS)
+$(BUILD_DIR)/dtrace: $(BUILD_DIR)/dtrace.o $(LIBS)
 	@libelf=$(LIBELF) ; \
 	if [ "x$(BUILD_BITS)" = "x-m32" ]; then \
 	        LIB32=-L/usr/lib32 ; \
@@ -25,7 +26,7 @@ $(BINDIR)/dtrace: $(BINDIR)/dtrace.o $(LIBS)
         echo $(COMPILE) ; \
         $(COMPILE)
 
-$(BINDIR)/dtrace.o: dtrace.c
+$(BUILD_DIR)/dtrace.o: dtrace.c
 	$(CC) $(CPPFLAGS) -c \
 	-I../uts/common \
 	-I../libctf \
@@ -33,6 +34,8 @@ $(BINDIR)/dtrace.o: dtrace.c
 	-I../libproc/common \
 	-I../include \
 	dtrace.c
-	mv dtrace.o $(BINDIR)
+	mv dtrace.o $(BUILD_DIR)
 
-
+install: $(BUILD_DIR)/dtrace
+	mkdir -p $(DESTDIR)$(SBINDIR)
+	install -m 755 -o root -g root $(BUILD_DIR)/dtrace $(DESTDIR)$(SBINDIR)

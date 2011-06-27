@@ -20,19 +20,22 @@ all:
 	cd libport ; $(MAKE) $(NOPWD)
 	cd libproc/common ; $(MAKE) $(NOPWD)
 	cd cmd ; $(MAKE) $(NOPWD)
+
 all1:
 	if [ ! -d $(BUILD_DIR) ] ; then \
 		mkdir $(BUILD_DIR); \
 	fi
+
 archcheck:
 	if [ "$(MACH)" != "x86_64" ]; then \
 		echo "Dtrace for Linux only supports x86_64"; \
 		exit 1; \
 	fi
+
 install:
 	cd libdtrace ; $(MAKE) $(NOPWD) install
-uninstall:
-	cd libdtrace ; $(MAKE) $(NOPWD) uninstall
+	cd cmd ; $(MAKE) $(NOPWD) install
+
 clean:
 	-rm -rf $(BUILD_DIR)
 	cd libctf; $(MAKE) $(NOPWD) clean

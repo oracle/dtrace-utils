@@ -173,16 +173,12 @@ clean:
 	-rm -f dt_grammar.h dt_lex.c dt_errtags.c dt_names.c *.o $(LIB) 
 	-rm -f $(BUILD_DLIBS)
 	-rm -f *.sed i386/*.sed
-uninstall:
-	-rm -rf $(DLIBDIR)
 
 all: $(LIB) $(DLIBSRCS) $(DRTI_OBJ)
 	@/bin/true
 
 install:
-	mkdir -p $(DLIBDIR)
-	install -m 644 -o root -g root drti.o $(DLIBDIR)
+	mkdir -p $(DESTDIR)$(DLIBDIR)
+	install -m 644 -o root -g root drti.o $(DESTDIR)$(DLIBDIR)
 	install -m 644 -o root -g root errno.d regs.d signal.d unistd.d \
-		drti-vers $(DLIBDIR)
-
-
+		drti-vers $(DESTDIR)$(DLIBDIR)

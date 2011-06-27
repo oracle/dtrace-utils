@@ -1,3 +1,16 @@
+2011-06-27  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec: New (thanks, Pearly).
+
+	* makefile (uninstall): Removed, they never work properly.
+	(install): Install in cmd/ as well.
+	* libdtrace/makefile (uninstall): Removed.
+	(install): Use DESTDIR.
+	* cmd/makefile (BINDIR): Renamed to...
+	(BUILD_DIR): ... this.
+	* cmd/makefile (SBINDIR): New.
+	* cmd/makefile (install): New.
+
 2011-06-24  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_cc.c (dtrace_program_strcompile): Do not
