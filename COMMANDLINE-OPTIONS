@@ -4,42 +4,48 @@ DTRACE OPTIONS
 This file lists the dtrace commandline options, and indicates whether
 or not they have been made to work on Linux and roughly when. 
 
--32
--64
--a
--A
--b
--c
--C
--D
--e  works 2011-06-15
--f
--F
--G
--H
--i
--I
--l
--L
--m
--n
--o
--p
--P
--q
--s
--S
--U
--v
--V
--w
--x
--X
--Z
+Notations:
 
+ [*]: Buggy.
+ [+]: Missing feature, to be implemented later
+ [-]: Missing feature, no implementation planned
+ [?]: Missing feature, to-implement status unknown
 
+Dates are the dates of verification or (where known) the dates at which the
+feature transitioned to working state.
 
-
+[-] -32: nonfunctional, not expected to work
+    -64: useless (default)
+[?] -a: Anonymous tracing: probably not implemented, certainly not tested
+[?] -A: Anonymous tracing, see above
+    -b: Implemented in userspace, hard to test until static probes work
+[*] -c: Assertion failure
+[*] -C: doesn't seem to do anything, probably buggy
+    -D: (cpp feature)
+    -e: works (2011-06-15)
+    -f
+    -F: works (2011-06-27)
+    -G: works (2011-05-23), but not very useful without userspace probes
+    -H: (cpp feature)
+    -i: works (2011-06-27)
+    -I: (cpp feature)
+    -l: works (2011-06-27)
+    -L
+    -m: Can't test until some static probes exist
+    -n: Can't test until some static probes exist
+    -o: works (2011-06-27)
+    -p: works, but not useful until userspace probes work
+    -P: Can't test until some static probes exist
+    -q: works (2011-06-27)
+    -s: works (2011-06-27)
+    -S: works, probably better than Solaris (2011-06-21)
+    -U: (cpp feature)
+    -v: works (2011-06-27)
+    -V: works (2011-06-27)
+    -w: works (2011-06-27)
+    -x: works (2011-06-27)
+    -X: (cpp feature)
+    -Z: works (2011-06-27)
 
 
 DETAILED OPTIONS DESCRIPTION 
