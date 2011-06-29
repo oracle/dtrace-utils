@@ -198,8 +198,12 @@ dt_proc_control(void *arg)
 	dt_proc_t *dpr = datap->dpcd_proc;
 	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
 	struct ps_prochandle *P = dpr->dpr_proc;
-
 	int pid = dpr->dpr_pid;
+
+	/*
+	 * Note: this function must not exit before dt_proc_stop() is called, or
+	 * dt_proc_create_thread() will hang indefinitely.
+	 */
 
 	/*
 	 * Arrange to clean up when cancelled by dt_proc_destroy() on shutdown.
@@ -207,7 +211,8 @@ dt_proc_control(void *arg)
 	pthread_cleanup_push(dt_proc_control_cleanup, dpr);
 
 	/*
-	 * Lock our mutex.
+	 * Lock our mutex, preventing races between cv broadcast to our
+	 * controlling thread and dt_proc_continue() or process destruction.
 	 */
 	pthread_mutex_lock(&dpr->dpr_lock);
 	dpr->dpr_tid_locked = B_TRUE;
@@ -220,7 +225,7 @@ dt_proc_control(void *arg)
 #endif
 
 	/*
-	 * Check for an appropriate stop request and wait for dt_proc_continue.
+	 * Wait for a rendezvous from dt_proc_continue().
 	 */
 	if (dpr->dpr_created)
 		dt_proc_stop(dpr, DT_PROC_STOP_CREATE);
@@ -489,7 +494,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 	 * the caller can then apply dt_proc_continue() to resume both.
 	 */
 	if (err == 0) {
-		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE)) 
+		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		/*
@@ -534,8 +539,10 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	dpr->dpr_pid = ps_getpid(dpr->dpr_proc);
 	dpr->dpr_created = B_TRUE;
 
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_IDLE) != 0) 
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_CREATE) != 0) 
 		return (NULL); /* dt_proc_error() has been called for us */
+
+	dph->dph_lrucnt++;
 	dpr->dpr_hash = dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)];
 	dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)] = dpr;
 	dt_list_prepend(&dph->dph_lrulist, dpr);
@@ -630,7 +637,6 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	}
 
 	dph->dph_lrucnt++;
-
 	dpr->dpr_hash = dph->dph_hash[h];
 	dph->dph_hash[h] = dpr;
 	dt_list_prepend(&dph->dph_lrulist, dpr);

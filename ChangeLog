@@ -1,3 +1,11 @@
+2011-06-29  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_proc.c (dt_proc_control): Improve comments.
+	* (dt_proc_create): Pass in DT_PROC_STOP_CREATE, not
+	DT_PROC_STOP_IDLE, to allow dt_proc_create_thread() to wait for
+	thread creation to complete before returning.
+	* (dt_proc_create): Increment hash lrucnt before adding to it.
+
 2011-06-27  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec: New (thanks, Pearly).
