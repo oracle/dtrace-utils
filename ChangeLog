@@ -1,5 +1,11 @@
 2011-07-06  Nick Alcock  <nick.alcock@oracle.com>
 
+	* makefile (COMPILE.preprocess): Rename to...
+	(PREPROCESS): ... this.
+	* libdtrace/makefile: Adjust accordingly.
+
+2011-07-06  Nick Alcock  <nick.alcock@oracle.com>
+
 	* makefile (COMPILE.cpp): Rename to...
 	(COMPILE.preprocess): ... this.
 	* libdtrace/makefile: Adjust accordingly.
