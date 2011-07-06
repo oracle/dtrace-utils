@@ -141,7 +141,7 @@ dt_names.c: mknames.sh
 # Normal substitutions.
 
 %.sed: %.sed.in
-	$(COMPILE.cpp) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
+	$(COMPILE.preprocess) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
 
 $(SED_DLIBS): %.d: %.sed %.d.in
@@ -163,7 +163,7 @@ signal.d: mksignal.sh /usr/include/bits/signum.h
 	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
 ./i386/regs.sed: ./i386/regs.sed.in
-	$(COMPILE.cpp) -x c -I../include -D_KERNEL ./i386/regs.sed.in | tr -d ' ' | tr '"' '@' | \
+	$(COMPILE.preprocess) -x c -I../include -D_KERNEL ./i386/regs.sed.in | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
 regs.d: ./i386/regs.sed ./i386/regs.d.in
 	sed -f ./i386/regs.sed < ./i386/regs.d.in > $@

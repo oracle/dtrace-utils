@@ -4,13 +4,13 @@ CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 CC=gcc $(CFLAGS) -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 MACH=$(shell uname -m)
 DTO=-D_ILP64
-COMPILE.cpp= $(CC) -E -C
+COMPILE.preprocess = $(CC) -E -C
 
 export CC
 export CFLAGS
 export BUILD_DIR
 export DTO
-export COMPILE.cpp
+export COMPILE.preprocess
 
 all:
 	$(MAKE) archcheck
