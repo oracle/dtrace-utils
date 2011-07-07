@@ -13,7 +13,7 @@ src-name = $(addprefix $($(1)_DIR),$(2))
 
 cc-dependencies = -MP -MMD -MT $(obj-name)
 
-define cc-template =
+define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep)))
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(CFLAGS) $($(1)_CFLAGS) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
@@ -21,7 +21,7 @@ endef
 # Rule to build a library, and all its sources.
 # Syntax: $(call lib-template,primary)
 
-define lib-template =
+define lib-template
 $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
@@ -33,7 +33,7 @@ endef
 # Rule to build a binary, and all its sources.
 # Syntax: $(call lib-template,primary)
 
-define cmd-template =
+define cmd-template
 $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))

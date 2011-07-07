@@ -1,5 +1,9 @@
 2011-07-07  Nick Alcock  <nick.alcock@oracle.com>
 
+	* Makefunctions: Make compatible with GNU make 3.81.
+
+2011-07-07  Nick Alcock  <nick.alcock@oracle.com>
+
 	Major build system remodel.
 
 	* README.build-system: Document it.
