@@ -1,8 +1,6 @@
-2011-07-06  Nick Alcock  <nick.alcock@oracle.com>
-
-	* makefile (COMPILE.preprocess): Rename to...
-	(PREPROCESS): ... this.
-	* libdtrace/makefile: Adjust accordingly.
+2011-07-07  Shujing Zhao  <pearly.zhao@oracle.com>
+	
+	* include/sys/elf_amd64.h: Remove AMD x86-64 relocations.
 
 2011-07-06  Nick Alcock  <nick.alcock@oracle.com>
 

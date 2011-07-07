@@ -69,24 +69,6 @@ extern "C" {
 #define	R_AMD64_SIZE64		33
 #define	R_AMD64_NUM		34
 
-
-/*
- * The "System V Application Binary Interface, AMD64 Architecture Processor
- * Supplement", defines relocations in terms of R_X86_64_ rather than R_AMD64_.
- * Maintain both relocation naming conventions for compatibility.
- */
-#define	R_X86_64_PC64		R_AMD64_PC64
-#define	R_X86_64_GOTPC32	R_AMD64_GOTPC32
-#define	R_X86_64_GOTOFF64	R_AMD64_GOTOFF64
-#define	R_X86_64_GOT64		R_AMD64_GOT64
-#define	R_X86_64_GOTPCREL64	R_AMD64_GOTPCREL64
-#define	R_X86_64_GOTPC64	R_AMD64_GOTPC64
-#define	R_X86_64_GOTPLT64	R_AMD64_GOTPLT64
-#define	R_X86_64_PLTOFF64	R_AMD64_PLTOFF64
-#define	R_X86_64_SIZE32		R_AMD64_SIZE32
-#define	R_X86_64_SIZE64		R_AMD64_SIZE64
-
-
 #define	ELF_AMD64_MAXPGSZ	0x100000	/* maximum page size */
 
 /*
