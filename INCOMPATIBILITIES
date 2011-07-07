@@ -18,12 +18,13 @@ for processes that are already being debugged.
 It is highly unlikely that anyone will ever notice this.
 
 
-Kernel provider names differ
-----------------------------
+Kernel probe names differ
+-------------------------
 Difficulty: Very high
 Likelihood: Nil
 
-Kernel provider names largely differ between Solaris and Linux. This is no
+Kernel probe names largely differ between Solaris and Linux. This is no
 different from other dtrace platforms, for the same reason, and is just as
-unlikely to be fixed. The kernels are different, thus the providers are
-different.
+unlikely to be fixed. The kernels are different, with differently-named
+functions in, the probe names are derived from the names of the functions, thus
+the probes are different.
