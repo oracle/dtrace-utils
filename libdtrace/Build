@@ -1,0 +1,113 @@
+LIBS += libdtrace
+libdtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -Ilibctf -Iuts/intel -Ilibdtrace/i386 -D_LONGLONG_TYPE \
+                     -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
+libdtrace_TARGET = libdtrace.a
+libdtrace_DIR := $(current-dir)
+libdtrace_SRCDEPS = dt_grammar.h
+libdtrace_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c dt_cg.c \
+                    i386/dis_tables.c i386/dt_isadep.c dt_consume.c dt_decl.c dt_dis.c \
+                    dt_dof.c dt_error.c dt_errtags.c dt_grammar.c dt_handle.c \
+                    dt_ident.c dt_inttab.c dt_link.c dt_list.c dt_map.c \
+                    dt_module.c dt_names.c dt_open.c dt_options.c dt_parser.c \
+                    dt_pcb.c dt_pid.c dt_pragma.c dt_printf.c dt_proc.c \
+                    dt_program.c dt_provider.c dt_regset.c dt_string.c \
+                    dt_strtab.c dt_subr.c dt_work.c dt_xlator.c
+
+DRTI_OBJ = $(objdir)/drti.o
+
+$(libdtrace_DIR)dt_errtags.c: $(libdtrace_DIR)dt_errtags.h $(libdtrace_DIR)/mkerrtags.sh
+	sh $(libdtrace_DIR)mkerrtags.sh < $(libdtrace_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace_DIR)dt_errtags.c
+
+$(libdtrace_DIR)dt_names.c: uts/common/sys/dtrace.h $(libdtrace_DIR)/mknames.sh
+	sh $(libdtrace_DIR)mknames.sh < uts/common/sys/dtrace.h | sed -e 's/\\n/\n/g' > $(libdtrace_DIR)dt_names.c
+
+$(libdtrace_DIR)dt_grammar.h $(libdtrace_DIR)dt_grammar.c: $(libdtrace_DIR)dt_grammar.y
+	$(YACC) -o $(libdtrace_DIR)dt_grammar.c -d $(libdtrace_DIR)dt_grammar.y
+
+$(libdtrace_DIR)dt_lex.c: $(libdtrace_DIR)dt_grammar.h $(libdtrace_DIR)dt_lex.l
+	flex -v -o$(libdtrace_DIR)dt_lex.c $(libdtrace_DIR)dt_lex.l
+
+SED_DLIBS += \
+	procfs.d \
+	io.d \
+	ip.d \
+	net.d \
+	sysevent.d \
+	tcp.d \
+	udp.d
+
+BUILD_DLIBS += \
+	$(SED_DLIBS) \
+	errno.d \
+	signal.d \
+	regs.d
+
+DLIBSRCS += \
+        errno.d \
+        net.d \
+        fc.d \
+        ip.d \
+        iscsit.d \
+        nfs.d \
+        procfs.d \
+        regs.d \
+        sched.d \
+        signal.d \
+        scsi.d \
+        srp.d \
+        sysevent.d \
+        tcp.d \
+        udp.d \
+        unistd.d
+
+# Normal substitutions.
+
+$(libdtrace_DIR)%.sed: $(libdtrace_DIR)%.sed.in
+	$(PREPROCESS) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
+            sed 's/\&/\\\&/g' | grep '^s/' > $@
+
+$(foreach dlib,$(SED_DLIBS),$(call src-name,libdtrace,$(dlib))): %.d: %.sed %.d.in
+	sed -f $*.sed < $*.d.in > $@
+
+PHONIES += dlibs
+TARGETS += dlibs
+dlibs: $(call src-name,libdtrace,$(DLIBSRCS))
+
+PHONIES += objs
+TARGETS += objs
+objs: $(DRTI_OBJ)
+$(DRTI_OBJ): $(libdtrace_DIR)drti.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(libdtrace_CPPFLAGS) -MP -MMD -c -o $(DRTI_OBJ) $(libdtrace_DIR)drti.c
+
+# Custom substitutions.
+
+$(libdtrace_DIR)errno.d: /usr/include/asm-generic/errno-base.h
+	$(libdtrace_DIR)mkerrno.sh < /usr/include/asm-generic/errno-base.h \
+	| sed -e 's/\\n/\n/g' > $@
+
+$(libdtrace_DIR)signal.d: /usr/include/bits/signum.h
+	$(libdtrace_DIR)mksignal.sh < /usr/include/bits/signum.h \
+	| sed -e 's/\\n/\n/g' \
+	| sed -e '/inline int SIGCLD/{h;d}' -e '/"1.0" SIGCHLD/{G;}' \
+	| sed -e '/"1.0" SIGCLD/{h;d}' -e '/ = SIGCHLD;/{G;}' \
+	| sed -e '/inline int SIGPOLL/{h;d}' -e '/"1.0" SIGIO/{G;}' \
+	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
+	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
+
+$(libdtrace_DIR)regs.d: $(libdtrace_DIR)i386/regs.sed.in $(libdtrace_DIR)i386/regs.d.in
+	$(PREPROCESS) -x c -Iinclude -D_KERNEL $(libdtrace_DIR)i386/regs.sed.in | \
+            tr -d ' ' | tr '"' '@' | sed 's/\&/\\\&/g' | grep '^s/' > $(libdtrace_DIR)i386/regs.sed
+	sed -f $(libdtrace_DIR)i386/regs.sed < $(libdtrace_DIR)i386/regs.d.in > $@
+	-rm $(libdtrace_DIR)i386/regs.sed
+
+clean::
+	rm -f $(libdtrace_DIR)dt_errtags.c $(libdtrace_DIR)dt_names.c
+	rm -f $(libdtrace_DIR)dt_grammar.h $(libdtrace_DIR)dt_grammar.c
+	rm -f $(libdtrace_DIR)dt_lex.c
+	rm -f $(addprefix $(libdtrace_DIR),$(BUILD_DLIBS))
+
+install::
+	mkdir -p $(LIBDIR)/dtrace
+	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
+	cd $(libdtrace_DIR) && install -m 644 -o root -g root errno.d regs.d signal.d \
+		unistd.d drti-vers $(LIBDIR)/dtrace

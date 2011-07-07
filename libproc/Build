@@ -1,0 +1,5 @@
+LIBS += libproc
+libproc_CPPFLAGS = -Ilibproc -Ilibctf -Iuts/intel -D_LONGLONG_TYPE
+libproc_TARGET = libproc.a
+libproc_DIR := $(current-dir)
+libproc_SOURCES = Pcontrol.c amd64/Pisadep.c Psymtab_machelf32.c Psymtab_machelf64.c Psymtab.c proc.c Putil.c

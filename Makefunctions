@@ -1,0 +1,45 @@
+# Functions used by the individual Build files.
+
+current-dir = $(dir $(lastword $(MAKEFILE_LIST)))
+
+# Rules to generate the name of an object file and source file for a given primary.
+# Syntax: $(call *-name,primary,filename)
+
+obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.c=.o)))
+src-name = $(addprefix $($(1)_DIR),$(2))
+
+# Rule to build a C source file.
+# Syntax: $(call cc-template,primary,filename-without-dir)
+
+cc-dependencies = -MP -MMD -MT $(obj-name)
+
+define cc-template =
+$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep)))
+	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(CFLAGS) $($(1)_CFLAGS) $(cc-dependencies) -c -o $(obj-name) $(src-name)
+endef
+
+# Rule to build a library, and all its sources.
+# Syntax: $(call lib-template,primary)
+
+define lib-template =
+$(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+                          $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
+                          $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
+	ar r $(objdir)/$($(1)_TARGET) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
+
+$(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
+endef
+
+# Rule to build a binary, and all its sources.
+# Syntax: $(call lib-template,primary)
+
+define cmd-template =
+$(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+                          $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
+                          $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
+	$(CC) $(CFLAGS) $($(1)_CFLAGS) $(LDFLAGS) -o $(objdir)/$($(1)_TARGET) \
+	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+	      $($(1)_LIBS)
+
+$(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
+endef

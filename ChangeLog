@@ -1,5 +1,30 @@
+2011-07-07  Nick Alcock  <nick.alcock@oracle.com>
+
+	Major build system remodel.
+
+	* README.build-system: Document it.
+	* Makefile: Renamed to...
+	* GNUmakefile: this to indicate GNU Make specificity. Nearly
+	completely rewritten.
+	* Makefunctions, Makerules: New.
+	* cmd/Build, libctf/Build, libproc/Build, libport/Build: New.
+	* libdtrace/makefile: Rename to...
+	* libdtrace/Build: ... this, ripping out all C-code-specific rules
+	and converting to nonrecursive form.
+	* cmd/GNUmakefile, libctf/GNUmakefile, libdtrace/GNUmakefile,
+	libport/GNUmakefile, libproc/GNUmakefile: New stubs calling the
+	top-level makefile.
+	* libproc/common/*: Move to libproc/.
+	* common/ctf/*: Move to libctf/.
+	* common/dis/*: Move to libdtrace/i386/.
+	* makefile, cmd/makefile, libctf/makefile, libdtrace/makefile,
+	libport/makefile, libproc/makefile: Removed.
+	* demo/Makefile, libdtrace/Makefile, libdtrace/Makefile.com,
+	libdtrace/amd64/Makefile, libdtrace/i386/Makefile: Removed.
+	* libdtrace/mkerrno.sh, libdtrace/mksignal.sh: Make executable.
+
 2011-07-07  Shujing Zhao  <pearly.zhao@oracle.com>
-	
+
 	* include/sys/elf_amd64.h: Remove AMD x86-64 relocations.
 
 2011-07-06  Nick Alcock  <nick.alcock@oracle.com>

@@ -1,0 +1,48 @@
+The dtrace build system is intended to take some of the repetitive pain
+out of make. The build system's components are:
+
+ - GNUmakefile: the top-level file. Sets some variables, runs
+                everything else
+
+ - Makefunctions: defines a few functions that other files can
+                  use, and a set of templates which generate make
+                  rules for building various things.
+
+ - */Build: each of these specifies the building of a library
+            or a set of commands out of the contents of some
+            directory.
+
+ - Makerules: this triggers the building of all commands and
+              libraries specified in the Build files.
+
+The Build files are perfectly normal makefiles, with a few caveats. Firstly,
+they are *included* by the top-level makefile, not recursively run by it.
+This has advantages (the ability to do proper cross-directory dependencies
+and maximum-speed parallel make) and disadvantages (you have to specify
+directory names everywhere).
+
+For building C code at least we have routines in Makefunctions and Makerules to
+take the pain out of this (and we could in principle add further routines for
+other sorts of target). You can build and link C code just by defining a few
+variables, as below:
+
+LIBS += library target names
+CMDS += command names
+name_DIR := $(current-dir) (obligatory)
+name_SOURCES = list of source filenames
+name_TARGET = name of library or binary to build, without directory
+name_CPPFLAGS = list of preprocessor flags applying to this target
+name_CFLAGS := list of cflags applying only to this target
+name_LIBS := list of libraries applying only to this target;
+             see name_DEPS
+name_EXPLICIT := list of names with explicit targets for which
+                 automatic targets should not be generated
+name_SRCDEPS := list of explicit dependencies in the source tree
+                for (built) source files to be added to the dep
+                list of every target
+name_DEPS := list of explicit dependencies in the build tree
+             applying to this target's link step
+
+Extra targets with custom rules can be added as desired by appending
+to TARGETS and name_EXPLICIT: libdtrace/ uses this to build object
+files and .d files.
