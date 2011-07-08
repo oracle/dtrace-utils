@@ -3,6 +3,7 @@
 # Trigger the library-building rule.
 
 PHONIES += libs
+TARGETS += libs
 
 $(foreach lib,$(LIBS),$(eval $(call lib-template,$(lib))))
 
@@ -11,6 +12,7 @@ libs: $(foreach lib,$(LIBS),$(objdir)/$($(lib)_TARGET))
 # Trigger the command-building rule.
 
 PHONIES += cmds
+TARGETS += cmds
 
 $(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(CMDS))))
 

@@ -1,3 +1,9 @@
+2011-07-08  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile: Slight ordering improvements.
+	* GNUmakefile (TARGETS): Blank at first...
+	* Makerules: ... append to it here.
+
 2011-07-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makefunctions: Make compatible with GNU make 3.81.
