@@ -1,3 +1,7 @@
+2011-07-11  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec (build): Parallelize by default.
+
 2011-07-08  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile: Slight ordering improvements.

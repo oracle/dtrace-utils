@@ -32,7 +32,7 @@ Nick Alcock <nick.alcock@oracle.com>
 %setup -q
 
 %build
-make
+make $(grep ^processor /proc/cpuinfo | wc -l)
 
 %install
 echo rm -rf $RPM_BUILD_ROOT
