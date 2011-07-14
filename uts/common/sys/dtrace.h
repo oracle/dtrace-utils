@@ -798,24 +798,25 @@ typedef struct dof_xlref {
  * result, the definition can change depending on the presence of _KERNEL.
  */
 typedef struct dtrace_difo {
-	dif_instr_t *dtdo_buf;		/* instruction buffer */
-	uint64_t *dtdo_inttab;		/* integer table (optional) */
-	char *dtdo_strtab;		/* string table (optional) */
-	dtrace_difv_t *dtdo_vartab;	/* variable table (optional) */
-	uint_t dtdo_len;		/* length of instruction buffer */
-	uint_t dtdo_intlen;		/* length of integer table */
-	uint_t dtdo_strlen;		/* length of string table */
-	uint_t dtdo_varlen;		/* length of variable table */
-	dtrace_diftype_t dtdo_rtype;	/* return type */
-	uint_t dtdo_refcnt;		/* owner reference count */
-	uint_t dtdo_destructive;	/* invokes destructive subroutines */
+	dif_instr_t *dtdo_buf;			/* instruction buffer */
+	uint64_t *dtdo_inttab;			/* integer table (optional) */
+	char *dtdo_strtab;			/* string table (optional) */
+	dtrace_difv_t *dtdo_vartab;		/* variable table (optional) */
+	uint_t dtdo_len;			/* length of instruction buffer */
+	uint_t dtdo_intlen;			/* length of integer table */
+	uint_t dtdo_strlen;			/* length of string table */
+	uint_t dtdo_varlen;			/* length of variable table */
+	dtrace_diftype_t dtdo_rtype;		/* return type */
+	uint_t dtdo_refcnt;			/* owner reference count */
+	uint_t dtdo_destructive;		/* invokes destructive subroutines */
 #ifndef _KERNEL
-	dof_relodesc_t *dtdo_kreltab;	/* kernel relocations */
-	dof_relodesc_t *dtdo_ureltab;	/* user relocations */
-	struct dt_node **dtdo_xlmtab;	/* translator references */
-	uint_t dtdo_krelen;		/* length of krelo table */
-	uint_t dtdo_urelen;		/* length of urelo table */
-	uint_t dtdo_xlmlen;		/* length of translator table */
+	dtrace_diftype_t orig_dtdo_rtype;	/* orignal return type */
+	dof_relodesc_t *dtdo_kreltab;		/* kernel relocations */
+	dof_relodesc_t *dtdo_ureltab;		/* user relocations */
+	struct dt_node **dtdo_xlmtab;		/* translator references */
+	uint_t dtdo_krelen;			/* length of krelo table */
+	uint_t dtdo_urelen;			/* length of urelo table */
+	uint_t dtdo_xlmlen;			/* length of translator table */
 #endif
 } dtrace_difo_t;
 

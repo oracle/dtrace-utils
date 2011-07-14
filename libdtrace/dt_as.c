@@ -495,5 +495,8 @@ dt_as(dt_pcb_t *pcb)
 	pcb->pcb_difo = NULL;
 	pcb->pcb_dret = NULL;
 
+	/* Track the orignal type. */
+	dp->orig_dtdo_rtype = dp->dtdo_rtype;
+
 	return (dp);
 }

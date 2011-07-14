@@ -1,3 +1,11 @@
+2011-07-14  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* uts/common/sys/dtrace.h (dtrace_difo_t): Add a member
+	orig_dtdo_rtype to track the return type.
+	* libdtrace/dt_as.c (dt_as): Keep the return type.
+	* libdtrace/dt_dis.c (dt_dis_action): Get the type information from
+	orig_dtdo_rtype.
+
 2011-07-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec (build): Parallelize by default.
