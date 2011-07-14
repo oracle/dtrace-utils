@@ -54,6 +54,14 @@ if [[ $(echo $dtrace | wc -w) -gt 1 ]]; then
     regression=t
 fi
 
+# Initialize test coverage.
+
+for name in build-*; do
+    if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
+        lcov --capture --base-directory . --directory $name --initial -o $name/initial.lcov
+    fi
+done
+
 # Loop over each dtrace test. Non-regression-tests print all output:
 # regression tests only print output when something is different.
 
@@ -121,3 +129,15 @@ else
         diff -urN $first_dtest_dir $name
     done
 fi
+
+# Test coverage.
+for name in build-*; do
+    if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
+        echo "Coverage info for $name:"
+        lcov --capture --base-directory . --directory $name -o $name/runtest.lcov
+        lcov --add-tracefile $name/initial.lcov --add-tracefile $name/runtest.lcov -o $name/coverage.lcov
+        mkdir $name/coverage
+        genhtml --frames --show-details -o $name/coverage --title "DTrace coverage" \
+                --highlight --legend $name/coverage.lcov
+    fi
+done

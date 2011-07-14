@@ -1,3 +1,13 @@
+2011-07-14  Nick Alcock  <nick.alcock@oracle.com>
+
+	Test coverage.
+
+	* GNUmakefile (LDFLAGS): New.
+	Include Makeoptions for option processing.
+	* Makeoptions: New, provide debugging and test coverage support.
+	* runtest.sh: Automatically run lcov to generate HTML coverage
+	info if coverage statistics are available.
+
 2011-07-14  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* uts/common/sys/dtrace.h (dtrace_difo_t): Add a member
