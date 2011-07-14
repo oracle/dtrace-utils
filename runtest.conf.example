@@ -1,0 +1,10 @@
+# Test configuration file.
+#
+# Copy this file to runtest.conf and edit it.
+
+# Kernel build directory.
+#
+# If this is not specified, kernel test coverage information will not
+# be available.
+
+# KERNEL_BUILD_DIR=

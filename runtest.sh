@@ -8,10 +8,12 @@
 #               and generated intermediate representation.
 #
 
-# Sanitize the shell.
+# Sanitize the shell and get configuration info.
 
 shopt -s nullglob
 unset CDPATH
+
+[[ -f ./runtest.conf ]] && . ./runtest.conf
 
 #
 # get_dir_name
@@ -58,9 +60,20 @@ fi
 
 for name in build-*; do
     if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
-        lcov --capture --base-directory . --directory $name --initial -o $name/initial.lcov
+        rm -rf $name/coverage
+        mkdir -p $name/coverage
+        lcov --capture --base-directory . --directory $name --initial \
+             --quiet -o $name/coverage/initial.lcov
     fi
 done
+
+if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
+   [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
+        rm -rf $KERNEL_BUILD_DIR/coverage
+        mkdir -p $KERNEL_BUILD_DIR/coverage
+        lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
+             --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov
+fi
 
 # Loop over each dtrace test. Non-regression-tests print all output:
 # regression tests only print output when something is different.
@@ -134,10 +147,30 @@ fi
 for name in build-*; do
     if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
         echo "Coverage info for $name:"
-        lcov --capture --base-directory . --directory $name -o $name/runtest.lcov
-        lcov --add-tracefile $name/initial.lcov --add-tracefile $name/runtest.lcov -o $name/coverage.lcov
-        mkdir $name/coverage
-        genhtml --frames --show-details -o $name/coverage --title "DTrace coverage" \
-                --highlight --legend $name/coverage.lcov
+        lcov --capture --base-directory . --directory $name \
+             --quiet -o $name/coverage/runtest.lcov
+        lcov --add-tracefile $name/coverage/initial.lcov \
+             --add-tracefile $name/coverage/runtest.lcov \
+             --quiet -o $name/coverage/coverage.lcov
+        genhtml --frames --show-details -o $name/coverage \
+                --title "DTrace userspace coverage" \
+                --highlight --legend $name/coverage/coverage.lcov | \
+            awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'
     fi
 done
+
+if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
+       [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
+    echo "Coverage info for kernel:"
+
+    lcov --capture --base-directory $KERNEL_BUILD_DIR \
+         --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
+    lcov --add-tracefile $KERNEL_BUILD_DIR/coverage/initial.lcov \
+         --add-tracefile $KERNEL_BUILD_DIR/coverage/coverage.lcov \
+         --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
+
+    genhtml --frames --show-details -o $KERNEL_BUILD_DIR/coverage \
+            --title "DTrace kernel coverage" --highlight --legend \
+            $KERNEL_BUILD_DIR/coverage/coverage.lcov | \
+        awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'
+fi

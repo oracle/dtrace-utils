@@ -1,5 +1,12 @@
 2011-07-14  Nick Alcock  <nick.alcock@oracle.com>
 
+	* runtest.sh: Add kernel testing support. Eliminate
+	extraneous output on stdout. Move all coverage testing info
+	into one directory under build-*/ or the kernel build tree.
+	* runtest.conf.example: New, configuration file for runtest.
+
+2011-07-14  Nick Alcock  <nick.alcock@oracle.com>
+
 	Test coverage.
 
 	* GNUmakefile (LDFLAGS): New.
