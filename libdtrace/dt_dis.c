@@ -587,12 +587,12 @@ dt_dis_action(const dtrace_actdesc_t *ap, FILE *fp, const char *fmt)
 	else if (act == NULL)
 	{
 		fprintf(fp, "\nDIFO %p returns %s\n", (void *)dp,
-		    dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
+		    dt_dis_typestr(&dp->orig_dtdo_rtype, type, sizeof (type)));
 	}
 	else
 	{
 		fprintf(fp, "\nDIFO %p returning %s for action ", (void *)dp,
-		    dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
+		    dt_dis_typestr(&dp->orig_dtdo_rtype, type, sizeof (type)));
 		if (act->act_print != NULL)
 			act->act_print(act->act_name, fmt, fp);
 		else
