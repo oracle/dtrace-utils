@@ -1,3 +1,9 @@
+2011-07-15  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Turn off coverage analysis if no info is present.
+	Use the absence of .gcno files as proof of this before the run,
+	and .gcda afterwards.
+
 2011-07-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Add kernel testing support. Eliminate

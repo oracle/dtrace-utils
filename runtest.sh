@@ -59,7 +59,7 @@ fi
 # Initialize test coverage.
 
 for name in build-*; do
-    if [[ -n "$(echo $name/*.gcda)" ]]; then
+    if [[ -n "$(echo $name/*.gcno)" ]]; then
         rm -rf $name/coverage
         mkdir -p $name/coverage
         lcov --capture --base-directory . --directory $name --initial \
