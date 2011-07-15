@@ -59,7 +59,7 @@ fi
 # Initialize test coverage.
 
 for name in build-*; do
-    if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
+    if [[ -n "$(echo $name/*.gcda)" ]]; then
         rm -rf $name/coverage
         mkdir -p $name/coverage
         lcov --capture --base-directory . --directory $name --initial \
@@ -78,7 +78,7 @@ fi
 # Loop over each dtrace test. Non-regression-tests print all output:
 # regression tests only print output when something is different.
 
-for tst in $(echo demo/*/*.d); do
+for tst in demo/*/*.d; do
     for dt in $dtrace; do
         dt_flags="-e -s $tst"
 
@@ -145,7 +145,7 @@ fi
 
 # Test coverage.
 for name in build-*; do
-    if [[ "$(eval echo $name/*.gcda)" != "$name/"'*.gcda' ]]; then
+    if [[ -n "$(echo $name/*.gcda)" ]]; then
         echo "Coverage info for $name:"
         lcov --capture --base-directory . --directory $name \
              --quiet -o $name/coverage/runtest.lcov
