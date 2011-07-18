@@ -24,7 +24,17 @@
  * Use is subject to license terms.
  */
 
-pid$target:libc.so::entry
+/* @@runtest-opts: $_pid */
+
+syscall::open:entry
+/pid == $1/
 {
-	@[probefunc] = count();
+	self->path = copyinstr(arg0);
+}
+
+syscall::open:return
+/self->path != NULL && arg1 == -1/
+{
+	printf("open for '%s' failed", self->path);
+	ustack();
 }

@@ -1,3 +1,33 @@
+2011-07-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	Testsuite remodel.
+
+	* demo/*: Rename to...
+	* test/*: ... this.
+
+	* runtest.sh: Migrate dt_flag setting out of this file:
+	make data-driven, from the .d files themselves.
+	Drop hardwired dtrace -e -p $pid-without-.d-file
+	invocation of dtrace when regression testing was off.
+
+	* test/buf/ring.d: Migrate options from runtest.sh.
+	* test/intro/rwtime.d: Likewise.
+	* test/intro/trussrw.d: Likewise.
+	* test/profile/profpri.d: Likewise.
+	* test/sched/pritime.d: Likewise.
+	* test/sched/whererun.d: Likewise.
+	* test/struct/rwinfo.d: Likewise.
+	* test/user/badopen.d: Likewise.
+	* test/user/errorpath.d: Likewise.
+	* test/user/libc.d: Likewise.
+	* test/user/userfunc.d: Likewise.
+	* test/struct/kstat.d: Likewise (using -override).
+
+	* test/script/tracewrite.d: Likewise. Move #! line to the right
+	place.
+	* test/script/interp.d: Move #! line to the right place.
+	* test/spec/specopen.d: Likewise.
+
 2011-07-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Turn off coverage analysis if no info is present.

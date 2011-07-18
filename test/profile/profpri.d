@@ -24,15 +24,10 @@
  * Use is subject to license terms.
  */
 
-syscall::open:entry
+/* @@runtest-opts: $_pid */
+
+profile-1001
 /pid == $1/
 {
-	self->path = copyinstr(arg0);
-}
-
-syscall::open:return
-/self->path != NULL && arg1 == -1/
-{
-	printf("open for '%s' failed", self->path);
-	ustack();
+	@proc[execname] = lquantize(curlwpsinfo->pr_pri, 0, 100, 10);
 }

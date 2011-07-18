@@ -1,3 +1,5 @@
+#!/usr/sbin/dtrace -s
+
 /*
  * CDDL HEADER START
  *
@@ -24,21 +26,9 @@
  * Use is subject to license terms.
  */
 
-#pragma D option quiet
+/* @@runtest-opts: $_pid */
 
-BEGIN
+syscall::write:entry
+/pid == $1/
 {
-	start = timestamp;
-}
-
-sched:::change-pri
-/args[1]->pr_pid == $1 && args[0]->pr_lwpid == $2/
-{
-	printf("%d %d\n", timestamp - start, args[2]);
-}
-
-tick-1sec
-/++n == 5/
-{
-	exit(0);
 }

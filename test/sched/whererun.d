@@ -24,29 +24,39 @@
  * Use is subject to license terms.
  */
 
-pid$1::$2:entry
+/* @@runtest-opts: /bin/date */
+
+#pragma D option quiet
+
+dtrace:::BEGIN
 {
-	self->spec = speculation();
-	speculate(self->spec);
-	printf("%x %x %x %x %x", arg0, arg1, arg2, arg3, arg4);
+	start = timestamp;
 }
 
-pid$1::$2:
-/self->spec/
+sched:::on-cpu
+/execname == $$1/
 {
-	speculate(self->spec);
+	self->ts = timestamp;
 }
 
-pid$1::$2:return
-/self->spec && arg1 == 0/
+sched:::off-cpu
+/self->ts/
 {
-	discard(self->spec);
-	self->spec = 0;
+	@[cpu] = sum(timestamp - self->ts);
+	self->ts = 0;
 }
 
-pid$1::$2:return
-/self->spec && arg1 != 0/
+profile:::tick-1sec
+/++x == 10/
 {
-	commit(self->spec);
-	self->spec = 0;
+	exit(0);
+}
+        
+dtrace:::END
+{
+	printf("CPU distribution over %d seconds:\n\n",
+	    (timestamp - start) / 1000000000);
+	printf("CPU microseconds\n--- ------------\n");
+	normalize(@, 1000);
+	printa("%3d %@d\n", @);
 }

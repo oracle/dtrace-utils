@@ -24,16 +24,17 @@
  * Use is subject to license terms.
  */
 
-#pragma D option bufpolicy=ring
-#pragma D option bufsize=16k
+/* @@runtest-opts: $_pid */
 
-syscall:::entry
-/execname == $1/
+syscall::read:entry,
+syscall::write:entry
+/pid == $1/
 {
-	trace(timestamp);
+	printf("%s(%d, 0x%x, %4d)", probefunc, arg0, arg1, arg2);
 }
 
-syscall::rexit:entry
+syscall::read:return, syscall::write:return
+/pid == $1/
 {
-	exit(0);
+	printf("\t\t = %d\n", arg1);
 }

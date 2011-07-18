@@ -41,7 +41,17 @@ get_dir_name()
 typeset tmpdir=$(get_dir_name)
 trap 'cd; rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
 
-pid=`echo $$`
+# Variables usable in demo flags.
+
+# TODO: allow specification of a program to auto-launch and later
+# attach to, instead of using our own shell's PID. Allow
+# overriding of -e, so as to test things with execution (but
+# this requires some way to force the execution to terminate:
+# perhaps time-based via wait(1)?).
+
+_pid=`echo $$`
+_exit="-e"
+
 dtrace="./build-*/dtrace"
 if [[ -z $dtrace ]]; then
 	echo "No dtraces available.";
@@ -78,31 +88,41 @@ fi
 # Loop over each dtrace test. Non-regression-tests print all output:
 # regression tests only print output when something is different.
 
-for tst in demo/*/*.d; do
+for _test in $(find test -name "*.d"); do
     for dt in $dtrace; do
-        dt_flags="-e -s $tst"
+        dt_flags="$_exit -s $_test"
 
-        case "$tst" in
-            ./demo/buf/ring.d | \
-            ./demo/sched/whererun.d) dt_flags="$dt_flags /bin/date";;
+        # Find embedded commands.
 
-            ./demo/user/badopen.d | \
-            ./demo/struct/rwinfo.d | \
-            ./demo/script/tracewrite.d | \
-            ./demo/profile/profpri.d | \
-            ./demo/intro/rwtime.d | \
-            ./demo/intro/trussrw.d) dt_flags="$dt_flags $pid";;
+        if grep -q @@runtest- $_test; then
 
-            ./demo/user/errorpath.d) dt_flags="$dt_flags $pid _chdir";;
+            # Optionally skip this test.
 
-            ./demo/sched/pritime.d) dt_flags="$dt_flags $pid 1";;
+            if grep -Eq '@@runtest-skip' $_test; then
+                continue
+            fi
 
-            ./demo/user/userfunc.d) dt_flags="$dt_flags $pid execute";;
+            # Substitute in flags. The horrendous echo '' here is because
+            # printf squashes out spaces, echo -e -e foo prints 'foo',
+            # and echo -e -- "foo" prints "-- foo".
 
-            ./demo/struct/kstat.d) dt_flags="-q -e -s $tst $(pgrep mpstat)";;
+            if grep -Eq '@@runtest-opts:|@@runtest-opts-override:' $_test; then
+                opts="$(grep -E '@@runtest-opts:|@@runtest-opts-override:' $_test | \
+                        sed 's,^.*runtest-opts[^:]*: ,,; s,\*/$,,')"
+                override="$(grep '@@runtest-opts-override:' $_test)"
 
-            ./demo/user/libc.d) dt_flags="$dt_flags -c /usr/bin/date";;
-        esac
+                # If runtest-opts is used, rather than runtest-opts-override,
+                # the flags go after the dt_flags above. Otherwise, they
+                # replace them completely: the runtest-opts-override
+                # must use $_test to specify the test to run, and $_exit
+                # to specify whether to exit before execution.
+                if [[ -n $opts ]] && [[ -z $override ]]; then
+                    dt_flags="$dt_flags $(eval echo '' "$opts")"
+                else
+                    dt_flags="$(eval echo '' "$opts")"
+                fi
+            fi
+        fi
 
         if [[ -z $regression ]]; then
             # Non-regression-tests just print the output.
@@ -114,7 +134,7 @@ for tst in demo/*/*.d; do
             # output redirected to a per-test, per-dtrace temporary file.
 
             dtest_dir="$tmpdir/$(basename $(dirname $dt))"
-            logfile="$(echo $tst | sed 's,/,-,g').log"
+            logfile="$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
             echo $dt_flags > $dtest_dir/$logfile
             echo >> $dtest_dir/$logfile
@@ -128,11 +148,7 @@ for tst in demo/*/*.d; do
     done
 done
 
-if [[ -z $regression ]]; then
-    #Test grep $pid
-    echo $dtrace -e -p $pid
-    $dtrace -e -p $pid
-else
+if [[ -n $regression ]]; then
     # Regtest comparison. Skip one directory and diff all the others
     # against it.
 

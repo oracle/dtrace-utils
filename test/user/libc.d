@@ -24,19 +24,9 @@
  * Use is subject to license terms.
  */
 
-pid$1::$2:entry
-{
-	self->trace = 1;
-}
+/* @@runtest-opts: -c /bin/date */
 
-pid$1::$2:return
-/self->trace/
+pid$target:libc.so::entry
 {
-	self->trace = 0;
-}
-
-pid$1:::entry,
-pid$1:::return
-/self->trace/
-{
+	@[probefunc] = count();
 }

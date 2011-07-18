@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@runtest-opts: $_pid */
+
 syscall::read:entry,
 syscall::write:entry
 /pid == $1/

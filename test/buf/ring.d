@@ -24,37 +24,18 @@
  * Use is subject to license terms.
  */
 
-#pragma D option quiet
+/* @@runtest-opts: /bin/date */
 
-dtrace:::BEGIN
+#pragma D option bufpolicy=ring
+#pragma D option bufsize=16k
+
+syscall:::entry
+/execname == $1/
 {
-	start = timestamp;
+	trace(timestamp);
 }
 
-sched:::on-cpu
-/execname == $$1/
-{
-	self->ts = timestamp;
-}
-
-sched:::off-cpu
-/self->ts/
-{
-	@[cpu] = sum(timestamp - self->ts);
-	self->ts = 0;
-}
-
-profile:::tick-1sec
-/++x == 10/
+syscall::rexit:entry
 {
 	exit(0);
-}
-        
-dtrace:::END
-{
-	printf("CPU distribution over %d seconds:\n\n",
-	    (timestamp - start) / 1000000000);
-	printf("CPU microseconds\n--- ------------\n");
-	normalize(@, 1000);
-	printa("%3d %@d\n", @);
 }

@@ -1,3 +1,5 @@
+#!/usr/sbin/dtrace -Fs
+
 /*
  * CDDL HEADER START
  *
@@ -23,8 +25,6 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#!/usr/sbin/dtrace -Fs
 
 syscall::open:entry,
 syscall::open64:entry
