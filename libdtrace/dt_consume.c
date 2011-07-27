@@ -2125,7 +2125,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
 	if (max_ncpus == 0)
-		max_ncpus = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
+		max_ncpus = dtp->dt_conf.dtc_maxbufs;
 
 	for (i = 0; i < max_ncpus; i++) {
 		nbuf.dtbd_cpu = i;
@@ -2203,7 +2203,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		return (dt_set_errno(dtp, EINVAL));
 
 	if (max_ncpus == 0)
-		max_ncpus = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
+		max_ncpus = dtp->dt_conf.dtc_maxbufs;
 
 	if (pf == NULL)
 		pf = (dtrace_consume_probe_f *)dt_nullprobe;
