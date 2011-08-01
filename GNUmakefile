@@ -35,6 +35,6 @@ include Makerules
 all:: $(TARGETS)
 
 clean::
-	-rm -rf $(objdir)
+	-rm -rf $(objdir) test/log
 
 .PHONY: $(PHONIES)

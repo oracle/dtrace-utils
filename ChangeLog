@@ -1,3 +1,11 @@
+2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
+
+	More testsuite changes.
+
+	runtest.sh: Support test logging, test timeouts, automatic diffs,
+	expected-results capturing. Refactor to reduce code repetition.
+	GNUmakefile: Clean up test/log too.
+
 2011-07-28  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* test/dt_test/fired.d: New test case to test dt_test.

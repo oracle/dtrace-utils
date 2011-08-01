@@ -12,10 +12,10 @@
 
 shopt -s nullglob
 unset CDPATH
+unset POSIXLY_CORRECT  # Interferes with 'wait'
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
-#
 # get_dir_name
 #
 # Pick a unique temporary directory name to stick things in.
@@ -25,7 +25,7 @@ unset CDPATH
 
 get_dir_name()
 {
-    typeset tmpname;                  # A subdir name being tested for uniqueness
+    local tmpname;                  # A subdir name being tested for uniqueness
 
     false;                            # Starting state - reset $?
     while [[ $? -ne 0 ]]; do
@@ -36,10 +36,224 @@ get_dir_name()
     echo $tmpname                     # Name is unique, return it
 }
 
+# find_next_numeric_dir DIR
+#
+# Create and return the first empty numerically-named directory under DIR.
+
+find_next_numeric_dir()
+{
+    local i;
+
+    mkdir -p $1
+    for ((i=0; ; i++)); do
+        if [[ ! -e $1/$i ]]; then
+            mkdir -p $1/$i
+            rm -f $1/current
+            ln -s $i $1/current
+            echo $1/$i
+            return
+        fi
+    done
+}
+
+# call_with_timeout TIMEOUT CMD [ARGS ...]
+#
+# Call command CMD with argument ARGS, with the specified timeout.
+# Return the exitcode of the command, or 126 if a timeout occurred.
+
+call_with_timeout()
+{
+    local timeout=$1
+    local cmd=$2
+    local pid
+    local sleepid
+    local exited
+
+    # We must turn 'monitor' on here to ensure that the CHLD trap fires,
+    # but should leave it off at all other times to prevent annoying screen
+    # output.
+    set -o monitor
+
+    # We use two background jobs, one sleeping for the timeout interval, one
+    # executing the desired command. When either of these jobs exit, this trap
+    # kicks in and kills off the other job. It does a check with ps(1) to guard
+    # against PID recycling causing the wrong process to be killed if the other
+    # job exits at just the wrong instant. The check for pid being set allows us
+    # to avoid one ps(1) call in the common case of no timeout.
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $$ ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $$ ]]; then kill -9 $pid >/dev/null 2>&1; exited=; fi' CHLD
+    shift 2
+
+    sleep $timeout &
+    sleepid=$!
+
+    $cmd "$@" &
+    pid=$!
+
+    wait $pid >/dev/null 2>&1
+    local exitcode=$?
+    pid=
+
+    wait $sleepid >/dev/null 2>&1
+
+    if [[ -n $exited ]]; then
+        return $exitcode
+    else
+        return 126
+    fi
+}
+
+# exist_flags NAME FILE
+#
+# Return 0 iff a set of runtest flags named NAME exists in FILE.
+#
+# The flags have the form @@NAME.
+
+exist_flags()
+{
+    grep -Eq "@@"$1 $2
+}
+
+# extract_flags NAME FILE EXPAND
+#
+# Extract the flags named NAME from FILE, and return them on stdout.
+# If EXPAND is set, do a round of shell evaluation on them first.
+
+extract_flags()
+{
+    local val="$(grep -E "@@"$1 $2 | sed 's,.*@@'$1' *: ,,; s,\*/$,,')"
+
+    # This trick is because printf squashes out spaces, echo -e -e foo
+    # prints 'foo', and echo -e -- "foo" prints "-- foo".
+
+    if [[ -n $3 ]]; then
+        eval echo ''"$val"
+    else
+        echo ''"$val"
+    fi
+}
+
+usage()
+{
+    cat <<EOF
+$0 -- testsuite engine for DTrace
+
+Usage: runtest options [TEST ...]
+
+Options:
+ --timeout=TIME: Time out test runs after TIME seconds (default 10).
+                 (Timeouts are not considered test failures: timing out
+                 is normal.)
+ --[no-]capture-expected: Record results of tests that exit successfully
+                          or with a timeout, but have no expected results,
+                          as the expected results.
+ --help: This message.
+
+If one or more TESTs is provided, they must be the name of .d files existing
+undwer the test/ directory. If none is provided, all available tests are run.
+EOF
+exit 0
+}
+
+# Parameters.
+
+CAPTURE_EXPECTED=
+
+ONLY_TESTS=
+TESTS=
+TIMEOUT=10
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --capture-expected) CAPTURE_EXPECTED=t;;
+        --no-capture-expected) CAPTURE_EXPECTED=;;
+        --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
+        --help|--*) usage;;
+        *) ONLY_TESTS=t
+           if [[ -f $1 ]]; then
+               TESTS="$TESTS $1"
+           else
+               echo "Test $1 not found, ignored." >&2
+           fi;;
+    esac
+    shift
+done
+
+# Store test results in a directory with an incrementing name.
+# We arbitrarily assume that we are being run from ~: since
+# this is what 'make check' does, that's a reasonable
+# assumption.
+
+cd $(dirname $0)
+logdir=$(find_next_numeric_dir test/log)
+
+LOGFILE=$logdir/runtest.log
+SUMFILE=$logdir/runtest.sum
+
 # Make a temporary directory for intermediate result storage.
 
 typeset tmpdir=$(get_dir_name)
 trap 'cd; rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
+
+# Log and failure functions.
+
+out()
+{
+    printf "$@"
+    sum "$@"
+}
+
+sum()
+{
+    printf "$@" >> $SUMFILE
+    log "$@"
+}
+
+log()
+{
+    printf "$@" >> $LOGFILE
+}
+
+# fail XFAILMSG $FAILMSG
+#
+# Report a test failure, whether expected or otherwise, with the given message.
+
+fail()
+{
+    local xfail="$1"
+
+    shift
+    if [[ -n "$xfail" ]]; then
+        out "XFAIL: $@ ($1).\n"
+    else
+        out "FAIL: $@.\n"
+    fi
+}
+
+# pass XFAILMSG
+#
+# Report a test pass, possibly unexpected. The output format is subtly
+# different from failures, to emphasise that the message is less important
+# than the fact of passing.
+
+pass()
+{
+    if [[ -n "$1" ]]; then
+        out "X"
+    fi
+
+    shift
+    if [[ $# -gt 0 ]]; then
+        out "PASS ($@).\n"
+    else
+        out "PASS.\n"
+    fi
+}
+
+dtrace="./build-*/dtrace"
+if [[ -z $dtrace ]]; then
+	echo "No dtraces available.";
+	exit 1;
+fi
 
 # Variables usable in demo flags.
 
@@ -51,12 +265,6 @@ trap 'cd; rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
 
 _pid=`echo $$`
 _exit="-e"
-
-dtrace="./build-*/dtrace"
-if [[ -z $dtrace ]]; then
-	echo "No dtraces available.";
-	exit 1;
-fi
 
 # More than one dtrace tree -> verify identical results for each dtrace.
 
@@ -70,10 +278,10 @@ fi
 
 for name in build-*; do
     if [[ -n "$(echo $name/*.gcno)" ]]; then
-        rm -rf $name/coverage
-        mkdir -p $name/coverage
+        rm -rf $logdir/coverage
+        mkdir -p $logdir/coverage
         lcov --capture --base-directory . --directory $name --initial \
-             --quiet -o $name/coverage/initial.lcov
+             --quiet -o $logdir/coverage/initial.lcov
     fi
 done
 
@@ -85,55 +293,146 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
              --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov
 fi
 
-# Loop over each dtrace test. Non-regression-tests print all output:
-# regression tests only print output when something is different.
+# Loop over each test in turn, or the specified subset if test names were passed
+# on the command line.
 
-for _test in $(find test -name "*.d"); do
-    for dt in $dtrace; do
+# Tests are .d files, representing D programs passed to dtrace.
+
+for dt in $dtrace; do
+
+    if [[ -n $regression ]]; then
+        out "\nTest of $dtrace:\n"
+    fi
+
+    for _test in $(if [[ $ONLY_TESTS ]]; then echo $TESTS; else find test -name "*.d"; fi); do
+
+        base=${_test%.d}
+        timeout="$TIMEOUT"
+
+        if [[ ! -e $_test ]]; then
+            out "$_test: Not found."
+            continue;
+        fi
+
+        # Various options can be set in the test .d script, usually embedded in
+        # comments.
+        #
+        # runtest-opts: A set of options to be added to the default set (normally -S
+        #               -e -s, where the -S and -e may not necessarily be provided.)
+        #
+        # timeout: The timeout to use for this test. Overrides the --timeout
+        #          parameter.
+        #
+        # skip: If true, the test is silently skipped.
+        #
+        # xfail: A single line containing a reason for this test's expected failure.
+        #        (If the test passes unexpectedly, this message is not printed.)
+
+        # Various other files can exist with the same basename as the test. Many
+        #
+        # .r: Expected results, after postprocessing. If not present,
+        #     no expected-result comparison is done (the results are
+        #     merely dumped into the logfile, and the test is deemed to
+        #     pass as long as dtrace exits with a zero exitcode or
+        #     times out).
+
         dt_flags="$_exit -s $_test"
 
-        # Find embedded commands.
+        # Optionally skip this test.
 
-        if grep -q @@runtest- $_test; then
+        if exist_flags skip $_test; then
+            continue
+        fi
 
-            # Optionally skip this test.
+        # Substitute in flags.
 
-            if grep -Eq '@@runtest-skip' $_test; then
-                continue
-            fi
+        if exist_flags runtest_opts $_test; then
+             opts="$(extract_flags runtest_opts $_test t)"
 
-            # Substitute in flags. The horrendous echo '' here is because
-            # printf squashes out spaces, echo -e -e foo prints 'foo',
-            # and echo -e -- "foo" prints "-- foo".
-
-            if grep -Eq '@@runtest-opts:|@@runtest-opts-override:' $_test; then
-                opts="$(grep -E '@@runtest-opts:|@@runtest-opts-override:' $_test | \
-                        sed 's,^.*runtest-opts[^:]*: ,,; s,\*/$,,')"
-                override="$(grep '@@runtest-opts-override:' $_test)"
-
-                # If runtest-opts is used, rather than runtest-opts-override,
-                # the flags go after the dt_flags above. Otherwise, they
-                # replace them completely: the runtest-opts-override
-                # must use $_test to specify the test to run, and $_exit
-                # to specify whether to exit before execution.
-                if [[ -n $opts ]] && [[ -z $override ]]; then
-                    dt_flags="$dt_flags $(eval echo '' "$opts")"
-                else
-                    dt_flags="$(eval echo '' "$opts")"
-                fi
+            # The flags go after the dt_flags above.
+            if [[ -n $opts ]] && [[ -z $override ]]; then
+                dt_flags="$dt_flags $opts"
             fi
         fi
 
-        if [[ -z $regression ]]; then
-            # Non-regression-tests just print the output.
+        # Per-test timeout.
 
-            echo $dt $dt_flags
-            $dt $dt_flags
+        if exist_flags timeout $_test; then
+            timeout="$(extract_flags timeout $_test)"
+        fi
+
+        # Note if this is expected to fail.
+        xfail=
+        if exist_flags xfail $_test; then
+            xfail="$(extract_flags xfail)"
+        fi
+
+        # Run dtrace, with a timeout, recording the output into a
+        # temporary file.
+
+        failed=
+        out "$_test: "
+        call_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2>&1
+
+        exitcode=$?
+
+        # First, compare results, if available, and log the diff.
+
+        if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
+            fail "$xfail" "expected results differ"
+            log "$dt $dt_flags\n"
+
+            cat $tmpdir/test.out >> $LOGFILE
+            log "Diff against expected:\n"
+
+            diff -u $base.r $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
         else
-            # Regression tests run with intermediate results displayed, and
-            # output redirected to a per-test, per-dtrace temporary file.
+            if [[ $exitcode != 0 ]] && [[ $exitcode != 126 ]]; then
 
-            dtest_dir="$tmpdir/$(basename $(dirname $dt))"
+                # Some sort of exitcode error. Assume that errors in the
+                # range 129 -- 193 (a common value of SIGRTMAX) are signal
+                # exits.
+
+                if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
+                    fail "$xfail" "nonzero exitcode ($exitcode)"
+                else
+                    fail "$xfail" "hit by signal $((exitcode - 128))"
+                fi
+
+                log "$dt $dt_flags\n"
+            else
+
+                # Success!
+
+                # Generate results, if requested.
+
+                if [[ -n $CAPTURE_EXPECTED ]]; then
+                    cp $tmpdir/test.out $base.r
+                    pass "$xfail" "results captured"
+                else
+                    pass "$xfail"
+                fi
+
+                log "$dt $dt_flags\n"
+            fi
+
+            if [[ ! -e $base.r ]]; then
+                # No expected results? Log and summarize the lot.
+                tee -a < $tmpdir/test.out $LOGFILE >> $SUMFILE
+            else
+                # Results as expected: only log them.
+                cat $tmpdir/test.out >> $LOGFILE
+            fi
+        fi
+
+        log "\n"
+
+        if [[ $regression ]]; then
+            # If regtesting, we run a second time, with intermediate results
+            # displayed, and output redirected to a per-test, per-dtrace
+            # temporary file.
+
+            dtest_dir="$tmpdir/$(basename $base)"
             logfile="$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
             echo $dt_flags > $dtest_dir/$logfile
@@ -143,7 +442,6 @@ for _test in $(find test -name "*.d"); do
             if [[ -z $first_dtest_dir ]]; then
                 first_dtest_dir=$dtest_dir
             fi
-
         fi
     done
 done
@@ -152,10 +450,14 @@ if [[ -n $regression ]]; then
     # Regtest comparison. Skip one directory and diff all the others
     # against it.
 
+    out "\n\nRegression test comparison.\n"
+
     for name in $tmpdir/*; do
         [[ $name = $first_dtest_dir ]] && continue
 
-        diff -urN $first_dtest_dir $name
+        if ! diff -urN $first_dtest_dir $name | tee -a $LOGFILE | tee -a $SUMFILE; then
+            out "Regression test comparison failed."
+        fi
     done
 fi
 
@@ -164,13 +466,13 @@ for name in build-*; do
     if [[ -n "$(echo $name/*.gcda)" ]]; then
         echo "Coverage info for $name:"
         lcov --capture --base-directory . --directory $name \
-             --quiet -o $name/coverage/runtest.lcov
-        lcov --add-tracefile $name/coverage/initial.lcov \
-             --add-tracefile $name/coverage/runtest.lcov \
-             --quiet -o $name/coverage/coverage.lcov
-        genhtml --frames --show-details -o $name/coverage \
+             --quiet -o $logdir/coverage/runtest.lcov
+        lcov --add-tracefile $logdir/coverage/initial.lcov \
+             --add-tracefile $logdir/coverage/runtest.lcov \
+             --quiet -o $logdir/coverage/coverage.lcov
+        genhtml --frames --show-details -o $logdir \
                 --title "DTrace userspace coverage" \
-                --highlight --legend $name/coverage/coverage.lcov | \
+                --highlight --legend $logdir/coverage/coverage.lcov | \
             awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'
     fi
 done
