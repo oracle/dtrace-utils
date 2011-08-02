@@ -213,23 +213,27 @@ log()
     printf "$@" >> $LOGFILE
 }
 
-# fail XFAILMSG $FAILMSG
+# fail XFAIL XFAILMSG FAILMSG
 #
-# Report a test failure, whether expected or otherwise, with the given message.
+# Report a test failure, whether expected or otherwise, with the given
+# message. If XFAIL is unset, XFAILMSG is ignored.
 
 fail()
 {
     local xfail="$1"
+    local xfailmsg="$2"
 
     shift
-    if [[ -n "$xfail" ]]; then
-        out "XFAIL: $@ ($1).\n"
+    if [[ -n "$xfail" ]] && [[ -n "$xfailmsg" ]]; then
+        out "XFAIL: $@ ($xfailmsg).\n"
+    elif [[ -n "$xfail" ]]; then
+        out "XFAIL: $@.\n"
     else
         out "FAIL: $@.\n"
     fi
 }
 
-# pass XFAILMSG
+# pass XFAIL MSG
 #
 # Report a test pass, possibly unexpected. The output format is subtly
 # different from failures, to emphasise that the message is less important
@@ -249,8 +253,41 @@ pass()
     fi
 }
 
+# postprocess POSTPROCESSOR OUTPUT FINAL
+#
+# Run postprocessing over some test OUTPUT, yielding a file named
+# FINAL. Possibly run the POSTPROCESSOR first.
+
+postprocess()
+{
+    local postprocessor=$1
+    local output=$2
+    local final=$3
+    local retval=0
+
+    cp -f $output $tmpdir/pp.out
+
+    # Postprocess the output, if need be.
+    if [[ -x $postprocessor ]]; then
+        if $postprocessor < $output > $tmpdir/pp.out; then
+            mv -f $tmpdir/output.post $final
+        else
+            retval=$?
+            cp -f $output $tmpdir/pp.out
+        fi
+    fi
+
+    # Transform any printed hex strings into a fixed string.
+    # TODO: may need adjustment or making optional if scripts emit hex
+    # values which are not continuously variable.
+    
+    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out > $final
+    return $retval
+}
+
 dtrace="./build-*/dtrace"
-if [[ -z $dtrace ]]; then
+
+if [[ "$(eval echo $dtrace)" = './build-*/dtrace' ]]; then
 	echo "No dtraces available.";
 	exit 1;
 fi
@@ -311,7 +348,7 @@ for dt in $dtrace; do
 
         if [[ ! -e $_test ]]; then
             out "$_test: Not found."
-            continue;
+            continue
         fi
 
         # Various options can be set in the test .d script, usually embedded in
@@ -329,20 +366,52 @@ for dt in $dtrace; do
         #        (If the test passes unexpectedly, this message is not printed.)
 
         # Various other files can exist with the same basename as the test. Many
+        # of these serve the same purpose as embedded comments: both exist to
+        # permit identical D scripts to be symlinked together while still permitting
+        # e.g. different triggering programs to be used.
+        #
+        # The full list of suffxes is as follows:
+        #
+        # .d: The D program itself. Mandatory (the only mandatory file).
         #
         # .r: Expected results, after postprocessing. If not present,
         #     no expected-result comparison is done (the results are
         #     merely dumped into the logfile, and the test is deemed to
         #     pass as long as dtrace exits with a zero exitcode or
         #     times out).
-
-        dt_flags="$_exit -s $_test"
+        #
+        # .r.p: Expected-results postprocessor: a filter run before a hardwired
+        #       pointer-value-replacement preprocessor which transforms
+        #       all 0x[a-f]* strings into the string {ptr}, so this
+        #       postprocessor can do things like pointer-value correlation.
+        #       Receives one argument, the name of the testcase.
+        #
+        # .p: D script preprocessor: a filter run over the D script before
+        #     passing to dtrace. Unlike dtrace's -D options, this can vary
+        #     based on the name of the test.
+        #
+        # .x: If executable, a program which when executed returns 0 if the program
+        #     is not expected to fail and nonzero if a failure is expected (in which
+        #     case it can emit to standard output a one-line message describing the
+        #     reason for failure). This permits tests to inspect their environment
+        #     and determine whether failure is expected. See 'xfail'. If both .x
+        #     and xfail exist, only the .x is respected.
+        #
 
         # Optionally skip this test.
 
         if exist_flags skip $_test; then
             continue
         fi
+
+        # Optionally preprocess the D script.
+
+        if [[ -x $base.p ]]; then
+            preprocess $base.p $_test "$tmpdir/$(basename $_test)"
+            _test="$tmpdir/$(basename $_test)"
+        fi
+
+        dt_flags="$_exit -s $_test"
 
         # Substitute in flags.
 
@@ -363,8 +432,16 @@ for dt in $dtrace; do
 
         # Note if this is expected to fail.
         xfail=
-        if exist_flags xfail $_test; then
-            xfail="$(extract_flags xfail)"
+        xfailmsg=
+        if [[ -x $base.x ]]; then
+            # xfail program. Run and capture its output.
+            xfailmsg="$($base.x)"
+            if [[ $? -eq 0 ]]; then
+                xfail=t
+            fi
+        elif exist_flags xfail $_test; then
+            xfail=t
+            xfailmsg="$(extract_flags xfail)"
         fi
 
         # Run dtrace, with a timeout, recording the output into a
@@ -376,10 +453,14 @@ for dt in $dtrace; do
 
         exitcode=$?
 
-        # First, compare results, if available, and log the diff.
+        if ! postprocess $base.r.p $tmpdir/test.out $tmpdir/test.out; then
+            out "(results postprocessor failed with exitcode $?) "
+        fi
+
+        # Compare results, if available, and log the diff.
 
         if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
-            fail "$xfail" "expected results differ"
+            fail "$xfail" "$xfailmsg" "expected results differ"
             log "$dt $dt_flags\n"
 
             cat $tmpdir/test.out >> $LOGFILE
@@ -394,9 +475,9 @@ for dt in $dtrace; do
                 # exits.
 
                 if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
-                    fail "$xfail" "nonzero exitcode ($exitcode)"
+                    fail "$xfail" "$xfailmsg" "nonzero exitcode ($exitcode)"
                 else
-                    fail "$xfail" "hit by signal $((exitcode - 128))"
+                    fail "$xfail" "$xfailmsg" "hit by signal $((exitcode - 128))"
                 fi
 
                 log "$dt $dt_flags\n"
@@ -408,9 +489,9 @@ for dt in $dtrace; do
 
                 if [[ -n $CAPTURE_EXPECTED ]]; then
                     cp $tmpdir/test.out $base.r
-                    pass "$xfail" "results captured"
+                    pass "$xfail" "$xfailmsg" "results captured"
                 else
-                    pass "$xfail"
+                    pass "$xfail" "$xfailmsg"
                 fi
 
                 log "$dt $dt_flags\n"
@@ -432,12 +513,14 @@ for dt in $dtrace; do
             # displayed, and output redirected to a per-test, per-dtrace
             # temporary file.
 
-            dtest_dir="$tmpdir/$(basename $base)"
-            logfile="$(echo $_test | sed 's,/,-,g').log"
+            dtest_dir="$tmpdir/regtest/$(basename $base)"
+            reglog="$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
-            echo $dt_flags > $dtest_dir/$logfile
-            echo >> $dtest_dir/$logfile
-            $dt -S $dt_flags 2>&1 | sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' >> $dtest_dir/$logfile
+            echo $dt_flags > $dtest_dir/$reglog
+            echo >> $dtest_dir/$reglog
+            $dt -S $dt_flags 2>&1 > $tmpdir/regtest.out
+            postprocess $base.r.p $tmpdir/regtest.out $tmpdir/regtest.out
+            cat $tmpdir/regtest.out >> $reglog
 
             if [[ -z $first_dtest_dir ]]; then
                 first_dtest_dir=$dtest_dir
@@ -452,7 +535,7 @@ if [[ -n $regression ]]; then
 
     out "\n\nRegression test comparison.\n"
 
-    for name in $tmpdir/*; do
+    for name in $tmpdir/regtest/*; do
         [[ $name = $first_dtest_dir ]] && continue
 
         if ! diff -urN $first_dtest_dir $name | tee -a $LOGFILE | tee -a $SUMFILE; then

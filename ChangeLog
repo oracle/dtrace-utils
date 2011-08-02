@@ -3,7 +3,9 @@
 	More testsuite changes.
 
 	runtest.sh: Support test logging, test timeouts, automatic diffs,
-	expected-results capturing. Refactor to reduce code repetition.
+	expected-results postprocessing and capturing, D script
+	preprocessing, and programmable expected-failure support. Refactor
+	to reduce code repetition.
 	GNUmakefile: Clean up test/log too.
 
 2011-07-28  Shujing Zhao  <pearly.zhao@oracle.com>
