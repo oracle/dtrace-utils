@@ -9,6 +9,9 @@
 	test/struct/kstat.d: No longer use runtest-opts-override, as it no
 	longer exists.
 
+	runtest.sh: .x files return nonzero if failure is expected, not
+	zero.
+
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	runtest.sh: Support triggers (in @@trigger options and .t files)

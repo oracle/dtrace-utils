@@ -485,7 +485,7 @@ for dt in $dtrace; do
         if [[ -x $base.x ]]; then
             # xfail program.  Run and capture its output.
             xfailmsg="$($base.x)"
-            if [[ $? -eq 0 ]]; then
+            if [[ $? -ne 0 ]]; then
                 xfail=t
             fi
         elif exist_flags xfail $_test; then
