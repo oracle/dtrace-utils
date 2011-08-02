@@ -1,0 +1,19 @@
+TRIGGERS =
+
+define trigger-template
+CMDS += $(1)
+$(1)_DIR := $(current-dir)
+$(1)_TARGET = $(1)
+$(1)_SOURCES = $(1).c
+$(1)_POST := link-trigger
+
+clean::
+	rm -f test/triggers/$(1)
+endef
+
+define link-trigger
+	rm -f test/triggers/$(notdir $(1))
+	ln -s ../../$(1) test/triggers/$(notdir $(1))
+endef
+
+$(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))

@@ -1,5 +1,20 @@
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
+	runtest.sh: Support triggers (in @@trigger options and .t files)
+	and a new --execute option.  Postprocess CPU and probe IDs out of
+	expected results.  Fix use of call_with_timeout (now named
+	run_with_timeout) in cheap subshells (not requiring shell
+	reinitialization).  Don't leak monitor state out of
+	call_with_timeout.  Fix PASS/FAIL appearance bugs.
+
+	test/triggers/Build: New file, build all named TRIGGERS,
+	symlink them into test/triggers for the testsuite, and
+	clean them up on 'make clean'.
+
+	test/Build: New file, simply run test/triggers/Build.
+
+2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
+
 	Makerules: No longer fail if CMDS contains more than one word.
 
 	Makefunctions: Support post-linkage actions.

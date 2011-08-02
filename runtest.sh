@@ -56,12 +56,16 @@ find_next_numeric_dir()
     done
 }
 
-# call_with_timeout TIMEOUT CMD [ARGS ...]
+# run_with_timeout TIMEOUT CMD [ARGS ...]
 #
-# Call command CMD with argument ARGS, with the specified timeout.
+# Run command CMD with argument ARGS, with the specified timeout.
 # Return the exitcode of the command, or 126 if a timeout occurred.
+#
+# Note: this function depends on CHLD traps. If other subprocesses may
+# exit during the invocation of this command, you may need to run it in
+# a subshell.
 
-call_with_timeout()
+run_with_timeout()
 {
     local timeout=$1
     local cmd=$2
@@ -75,12 +79,12 @@ call_with_timeout()
     set -o monitor
 
     # We use two background jobs, one sleeping for the timeout interval, one
-    # executing the desired command. When either of these jobs exit, this trap
-    # kicks in and kills off the other job. It does a check with ps(1) to guard
+    # executing the desired command.  When either of these jobs exit, this trap
+    # kicks in and kills off the other job.  It does a check with ps(1) to guard
     # against PID recycling causing the wrong process to be killed if the other
-    # job exits at just the wrong instant. The check for pid being set allows us
+    # job exits at just the wrong instant.  The check for pid being set allows us
     # to avoid one ps(1) call in the common case of no timeout.
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $$ ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $$ ]]; then kill -9 $pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
     shift 2
 
     sleep $timeout &
@@ -94,6 +98,8 @@ call_with_timeout()
     pid=
 
     wait $sleepid >/dev/null 2>&1
+
+    set +o monitor
 
     if [[ -n $exited ]]; then
         return $exitcode
@@ -143,13 +149,14 @@ Options:
  --timeout=TIME: Time out test runs after TIME seconds (default 10).
                  (Timeouts are not considered test failures: timing out
                  is normal.)
+ --[no-]execute: Execute probes with associated triggers.
  --[no-]capture-expected: Record results of tests that exit successfully
                           or with a timeout, but have no expected results,
                           as the expected results.
  --help: This message.
 
 If one or more TESTs is provided, they must be the name of .d files existing
-undwer the test/ directory. If none is provided, all available tests are run.
+under the test/ directory.  If none is provided, all available tests are run.
 EOF
 exit 0
 }
@@ -157,6 +164,7 @@ exit 0
 # Parameters.
 
 CAPTURE_EXPECTED=
+NOEXEC=
 
 ONLY_TESTS=
 TESTS=
@@ -166,6 +174,8 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --capture-expected) CAPTURE_EXPECTED=t;;
         --no-capture-expected) CAPTURE_EXPECTED=;;
+        --execute) NOEXEC=;;
+        --no-execute) NOEXEC=t;;
         --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
         --help|--*) usage;;
         *) ONLY_TESTS=t
@@ -192,7 +202,7 @@ SUMFILE=$logdir/runtest.sum
 # Make a temporary directory for intermediate result storage.
 
 typeset tmpdir=$(get_dir_name)
-trap 'cd; rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
+trap 'rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
@@ -216,28 +226,38 @@ log()
 # fail XFAIL XFAILMSG FAILMSG
 #
 # Report a test failure, whether expected or otherwise, with the given
-# message. If XFAIL is unset, XFAILMSG is ignored.
+# message.  If XFAIL is unset, XFAILMSG is ignored.  If FAILMSG
+# would be printed but is unset, $testmsg is used instead.
 
 fail()
 {
     local xfail="$1"
     local xfailmsg="$2"
 
-    shift
+    shift 2
+    local failmsg="$(echo ''"$@" | sed 's,^ *,,; s, $,,;')"
+
+    if [[ -z $failmsg ]]; then
+        failmsg="$testmsg"
+    fi
+
     if [[ -n "$xfail" ]] && [[ -n "$xfailmsg" ]]; then
         out "XFAIL: $@ ($xfailmsg).\n"
     elif [[ -n "$xfail" ]]; then
         out "XFAIL: $@.\n"
+    elif [[ -n $failmsg ]]; then
+        out "FAIL: $failmsg.\n"
     else
-        out "FAIL: $@.\n"
+        out "FAIL.\n"
     fi
 }
 
 # pass XFAIL MSG
 #
-# Report a test pass, possibly unexpected. The output format is subtly
+# Report a test pass, possibly unexpected.  The output format is subtly
 # different from failures, to emphasise that the message is less important
-# than the fact of passing.
+# than the fact of passing.  If MSG would be printed but is unset, $testmsg
+# is used instead.
 
 pass()
 {
@@ -246,8 +266,14 @@ pass()
     fi
 
     shift
-    if [[ $# -gt 0 ]]; then
-        out "PASS ($@).\n"
+    local msg="$(echo ''"$@" | sed 's,^ *,,; s, $,,;')"
+
+    if [[ -z $msg ]]; then
+        msg="$testmsg"
+    fi
+
+    if [[ $# -gt 0 ]] && [[ -n "$msg" ]]; then
+        out "PASS ($msg).\n"
     else
         out "PASS.\n"
     fi
@@ -256,7 +282,7 @@ pass()
 # postprocess POSTPROCESSOR OUTPUT FINAL
 #
 # Run postprocessing over some test OUTPUT, yielding a file named
-# FINAL. Possibly run the POSTPROCESSOR first.
+# FINAL.  Possibly run the POSTPROCESSOR first.
 
 postprocess()
 {
@@ -280,8 +306,16 @@ postprocess()
     # Transform any printed hex strings into a fixed string.
     # TODO: may need adjustment or making optional if scripts emit hex
     # values which are not continuously variable.
-    
-    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out > $final
+
+    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out | \
+    # Blank out CPU and probe IDs. TODO: this is horrible, do it better
+        gawk 'BEGIN {  }
+              { if (cpu) { $1="   "; }
+                if (id) { $2="      "; }
+                print $0; }
+              /^CPU  *ID / { FIELDWIDTHS="4 7 99999"; cpu=1; id=1; next; }
+              /^CPU/ { FIELDWIDTHS="4 99999"; cpu=1; } ' > $final
+
     return $retval
 }
 
@@ -295,15 +329,13 @@ fi
 # Variables usable in demo flags.
 
 # TODO: allow specification of a program to auto-launch and later
-# attach to, instead of using our own shell's PID. Allow
-# overriding of -e, so as to test things with execution (but
-# this requires some way to force the execution to terminate:
-# perhaps time-based via wait(1)?).
+# attach to, instead of using our own shell's PID.
 
 _pid=`echo $$`
-_exit="-e"
+_exit="${NOEXEC:+-e}"
 
-# More than one dtrace tree -> verify identical results for each dtrace.
+# More than one dtrace tree -> run tests for all dtraces, and verify identical
+# intermediate code is produced by each dtrace.
 
 regression=
 first_dtest_dir=
@@ -354,49 +386,66 @@ for dt in $dtrace; do
         # Various options can be set in the test .d script, usually embedded in
         # comments.
         #
-        # runtest-opts: A set of options to be added to the default set (normally -S
-        #               -e -s, where the -S and -e may not necessarily be provided.)
+        # @@runtest-opts: A set of options to be added to the default set
+        #                 (normally -S -e -s, where the -S and -e may not
+        #                 necessarily be provided.) Subjected to shell
+        #                 expansion.
         #
-        # timeout: The timeout to use for this test. Overrides the --timeout
-        #          parameter.
+        # @@timeout: The timeout to use for this test.  Overrides the --timeout
+        #            parameter.
         #
-        # skip: If true, the test is silently skipped.
+        # @@skip: If true, the test is silently skipped.
         #
-        # xfail: A single line containing a reason for this test's expected failure.
-        #        (If the test passes unexpectedly, this message is not printed.)
+        # @@xfail: A single line containing a reason for this test's expected
+        #          failure.  (If the test passes unexpectedly, this message is
+        #          not printed.) See '.x'.
+        #
+        # @@trigger: A single line containing the name of a program in
+        #            test/triggers which is executed after dtrace is started.
+        #            When this program exits, dtrace will be killed.  If the
+        #            timeout expires, both programs are killed.  Arguments may be
+        #            provided as normal, and are subjected to shell expansion.
+        #            For the sake of reproducible testcases, only tests with a
+        #            trigger are ever executed against the kernel.  Triggers
+        #            should not emit anything to stdout or stderr, as their
+        #            output is not currently trapped and it will spoil the
+        #            screen display.  See '.trigger'.
 
-        # Various other files can exist with the same basename as the test. Many
+        # Various other files can exist with the same basename as the test.  Many
         # of these serve the same purpose as embedded comments: both exist to
-        # permit identical D scripts to be symlinked together while still permitting
-        # e.g. different triggering programs to be used.
+        # permit identical D scripts to be symlinked together while still
+        # permitting e.g. different triggering programs to be used.
         #
         # The full list of suffxes is as follows:
         #
-        # .d: The D program itself. Mandatory (the only mandatory file).
+        # .d: The D program itself.  Mandatory (the only mandatory file).
         #
-        # .r: Expected results, after postprocessing. If not present,
+        # .r: Expected results, after postprocessing.  If not present,
         #     no expected-result comparison is done (the results are
         #     merely dumped into the logfile, and the test is deemed to
         #     pass as long as dtrace exits with a zero exitcode or
         #     times out).
         #
-        # .r.p: Expected-results postprocessor: a filter run before a hardwired
-        #       pointer-value-replacement preprocessor which transforms
-        #       all 0x[a-f]* strings into the string {ptr}, so this
-        #       postprocessor can do things like pointer-value correlation.
+        # .r.p: Expected-results postprocessor: a filter run before various
+        #       hardwired pointer-value-replacement preprocessors which transform
+        #       all 0x[a-f]* strings into the string {ptr} and edit out
+        #       CPU and probe IDs.
         #       Receives one argument, the name of the testcase.
         #
         # .p: D script preprocessor: a filter run over the D script before
-        #     passing to dtrace. Unlike dtrace's -D options, this can vary
+        #     passing to dtrace.  Unlike dtrace's -D options, this can vary
         #     based on the name of the test.
         #
         # .x: If executable, a program which when executed returns 0 if the program
         #     is not expected to fail and nonzero if a failure is expected (in which
         #     case it can emit to standard output a one-line message describing the
-        #     reason for failure). This permits tests to inspect their environment
-        #     and determine whether failure is expected. See 'xfail'. If both .x
+        #     reason for failure).  This permits tests to inspect their environment
+        #     and determine whether failure is expected.  See 'xfail'.  If both .x
         #     and xfail exist, only the .x is respected.
         #
+        # .t: If executable, serves the same purpose as the 'trigger'
+        #     option above.  If both .trigger and trigger exist, only the
+        #     .trigger is respected.
 
         # Optionally skip this test.
 
@@ -434,7 +483,7 @@ for dt in $dtrace; do
         xfail=
         xfailmsg=
         if [[ -x $base.x ]]; then
-            # xfail program. Run and capture its output.
+            # xfail program.  Run and capture its output.
             xfailmsg="$($base.x)"
             if [[ $? -eq 0 ]]; then
                 xfail=t
@@ -444,17 +493,66 @@ for dt in $dtrace; do
             xfailmsg="$(extract_flags xfail)"
         fi
 
-        # Run dtrace, with a timeout, recording the output into a
-        # temporary file.
+        # Check for a trigger.
+
+        trigger=
+        if exist_flags trigger $_test; then
+            trigger="$(extract_flags trigger $_test t)"
+            if [[ ! -x test/triggers/$trigger ]]; then
+                trigger=
+            else
+                trigger=test/triggers/$trigger
+            fi
+        fi
+
+        if [[ -x $base.t ]]; then
+            trigger=$base.t
+        fi
+
+        # No trigger.  Run dtrace, with a timeout, without permitting
+        # execution, recording the output and exitcode into temporary files.
 
         failed=
+        this_noexec=$NOEXEC
         out "$_test: "
-        call_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2>&1
+        testmsg=
 
-        exitcode=$?
+        if [[ -z $trigger ]]; then
+            run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2>&1
+            exitcode=$?
+            this_noexec=t
+        else
+            # A trigger.  Run dtrace with timeout, and permit execution.  First,
+            # run the trigger with a 1s delay before invocation, and record
+            # its PID.
+            #
+            # We have to run each of these in separate subprocesses to avoid
+            # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
+            # and confusing it. (This happens even if disowned.)
+
+            ( sleep 1; exec $trigger; ) &
+            trigger_pid=$!
+            disown %-
+
+            ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2>&1
+              echo $? > $tmpdir/dtrace.exit; )
+            exitcode="$(cat $tmpdir/dtrace.exit)"
+
+            # If the trigger is still running, kill it, and wait for it, to
+            # quiesce the background-process-kill noise the shell would
+            # otherwise emit.
+
+            if [[ "$(ps -p $trigger_pid -o ppid=)" -eq $BASHPID ]]; then
+                kill $trigger_pid >/dev/null 2>&1
+            fi
+        fi
+
+        if [[ -n $this_noexec ]]; then
+            testmsg="no execution"
+        fi
 
         if ! postprocess $base.r.p $tmpdir/test.out $tmpdir/test.out; then
-            out "(results postprocessor failed with exitcode $?) "
+            testmsg="results postprocessor failed with exitcode $?"
         fi
 
         # Compare results, if available, and log the diff.
@@ -470,7 +568,7 @@ for dt in $dtrace; do
         else
             if [[ $exitcode != 0 ]] && [[ $exitcode != 126 ]]; then
 
-                # Some sort of exitcode error. Assume that errors in the
+                # Some sort of exitcode error.  Assume that errors in the
                 # range 129 -- 193 (a common value of SIGRTMAX) are signal
                 # exits.
 
@@ -511,14 +609,15 @@ for dt in $dtrace; do
         if [[ $regression ]]; then
             # If regtesting, we run a second time, with intermediate results
             # displayed, and output redirected to a per-test, per-dtrace
-            # temporary file.
+            # temporary file. We always ban execution during regtesting:
+            # our real interest is whether intermediate results have changed.
 
             dtest_dir="$tmpdir/regtest/$(basename $base)"
             reglog="$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
-            echo $dt_flags > $dtest_dir/$reglog
+            echo "$dt_flags -e" > $dtest_dir/$reglog
             echo >> $dtest_dir/$reglog
-            $dt -S $dt_flags 2>&1 > $tmpdir/regtest.out
+            $dt "-S $dt_flags -e" 2>&1 > $tmpdir/regtest.out
             postprocess $base.r.p $tmpdir/regtest.out $tmpdir/regtest.out
             cat $tmpdir/regtest.out >> $reglog
 
@@ -530,7 +629,7 @@ for dt in $dtrace; do
 done
 
 if [[ -n $regression ]]; then
-    # Regtest comparison. Skip one directory and diff all the others
+    # Regtest comparison.  Skip one directory and diff all the others
     # against it.
 
     out "\n\nRegression test comparison.\n"
