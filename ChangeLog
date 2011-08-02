@@ -6,6 +6,9 @@
 	test/dt_test/fired.d: Use it.
 	test/dt_test/fired.r: Expected results.
 
+	test/struct/kstat.d: No longer use runtest-opts-override, as it no
+	longer exists.
+
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	runtest.sh: Support triggers (in @@trigger options and .t files)

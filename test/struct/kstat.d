@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts-override: -q $_exit -s $_test $(pgrep mpstat) */
+/* @@runtest-opts: -q $(pgrep mpstat) */
 
 pid$1:libkstat:kstat_data_lookup:entry
 {
