@@ -42,6 +42,9 @@ name_SRCDEPS := list of explicit dependencies in the source tree
                 list of every target
 name_DEPS := list of explicit dependencies in the build tree
              applying to this target's link step
+name_POST := list of names of Make variables which should be run
+             after thie target is linked: $(1) is the name of the
+             target just created, with path
 
 Extra targets with custom rules can be added as desired by appending
 to TARGETS and name_EXPLICIT: libdtrace/ uses this to build object

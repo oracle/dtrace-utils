@@ -2,6 +2,9 @@
 
 	Makerules: No longer fail if CMDS contains more than one word.
 
+	Makefunctions: Support post-linkage actions.
+	README.build-system: Document them.
+
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	More testsuite changes.

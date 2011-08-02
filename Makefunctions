@@ -26,6 +26,7 @@ $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
 	ar r $(objdir)/$($(1)_TARGET) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
+	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
 endef
@@ -40,6 +41,7 @@ $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),
 	$(CC) $(CFLAGS) $($(1)_CFLAGS) $(LDFLAGS) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
 	      $($(1)_LIBS)
+	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
 endef
