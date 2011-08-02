@@ -1,5 +1,9 @@
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
+	Makerules: No longer fail if CMDS contains more than one word.
+
+2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
+
 	More testsuite changes.
 
 	runtest.sh: Support test logging, test timeouts, automatic diffs,

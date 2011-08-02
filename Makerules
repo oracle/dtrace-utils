@@ -14,6 +14,6 @@ libs: $(foreach lib,$(LIBS),$(objdir)/$($(lib)_TARGET))
 PHONIES += cmds
 TARGETS += cmds
 
-$(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(CMDS))))
+$(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(cmd))))
 
 cmds: $(foreach cmd,$(CMDS),$(objdir)/$($(cmd)_TARGET))
