@@ -1,5 +1,13 @@
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
+	test/triggers/testprobe.c: New test script to fire the dt_test
+	dtrace test provider's test probe.
+	test/triggers/Build: Link it.
+	test/dt_test/fired.d: Use it.
+	test/dt_test/fired.r: Expected results.
+
+2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
+
 	runtest.sh: Support triggers (in @@trigger options and .t files)
 	and a new --execute option.  Postprocess CPU and probe IDs out of
 	expected results.  Fix use of call_with_timeout (now named

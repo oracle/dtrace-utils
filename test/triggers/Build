@@ -1,4 +1,4 @@
-TRIGGERS =
+TRIGGERS = testprobe
 
 define trigger-template
 CMDS += $(1)
