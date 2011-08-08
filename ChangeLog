@@ -1,7 +1,8 @@
 2011-08-08  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Drop userspace test coverage info into the coverage/
-	subdirectory of the test logdir.
+	subdirectory of the test logdir.  Emit test coverage info into the
+	logfile and sumfile. Zero test coverage counters.
 
 	* README.build-system (name_NOCFLAGS): New, filter out unwanted
 	CFLAGS from a target.

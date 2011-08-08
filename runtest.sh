@@ -349,6 +349,7 @@ for name in build-*; do
     if [[ -n "$(echo $name/*.gcno)" ]]; then
         rm -rf $logdir/coverage
         mkdir -p $logdir/coverage
+        lcov --zerocounters --directory $name --quiet
         lcov --capture --base-directory . --directory $name --initial \
              --quiet -o $logdir/coverage/initial.lcov
     fi
@@ -358,6 +359,7 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
    [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
         rm -rf $KERNEL_BUILD_DIR/coverage
         mkdir -p $KERNEL_BUILD_DIR/coverage
+        lcov --zerocounters --quiet
         lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
              --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov
 fi
@@ -637,7 +639,7 @@ if [[ -n $regression ]]; then
     for name in $tmpdir/regtest/*; do
         [[ $name = $first_dtest_dir ]] && continue
 
-        if ! diff -urN $first_dtest_dir $name | tee -a $LOGFILE | tee -a $SUMFILE; then
+        if ! diff -urN $first_dtest_dir $name | tee -a $LOGFILE $SUMFILE; then
             out "Regression test comparison failed."
         fi
     done
@@ -646,7 +648,7 @@ fi
 # Test coverage.
 for name in build-*; do
     if [[ -n "$(echo $name/*.gcda)" ]]; then
-        echo "Coverage info for $name:"
+        out "Coverage info for $name:\n"
         lcov --capture --base-directory . --directory $name \
              --quiet -o $logdir/coverage/runtest.lcov
         lcov --add-tracefile $logdir/coverage/initial.lcov \
@@ -655,13 +657,14 @@ for name in build-*; do
         genhtml --frames --show-details -o $logdir/coverage \
                 --title "DTrace userspace coverage" \
                 --highlight --legend $logdir/coverage/coverage.lcov | \
-            awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'
+            awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
+            tee -a $LOGFILE $SUMFILE
     fi
 done
 
 if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
        [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
-    echo "Coverage info for kernel:"
+    out "Coverage info for kernel:\n"
 
     lcov --capture --base-directory $KERNEL_BUILD_DIR \
          --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
@@ -672,5 +675,6 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
     genhtml --frames --show-details -o $KERNEL_BUILD_DIR/coverage \
             --title "DTrace kernel coverage" --highlight --legend \
             $KERNEL_BUILD_DIR/coverage/coverage.lcov | \
-        awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'
+        awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
+        tee -a $LOGFILE $SUMFILE
 fi
