@@ -652,7 +652,7 @@ for name in build-*; do
         lcov --add-tracefile $logdir/coverage/initial.lcov \
              --add-tracefile $logdir/coverage/runtest.lcov \
              --quiet -o $logdir/coverage/coverage.lcov
-        genhtml --frames --show-details -o $logdir \
+        genhtml --frames --show-details -o $logdir/coverage \
                 --title "DTrace userspace coverage" \
                 --highlight --legend $logdir/coverage/coverage.lcov | \
             awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }'

@@ -15,7 +15,7 @@ cc-dependencies = -MP -MMD -MT $(obj-name)
 
 define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep)))
-	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(CFLAGS) $($(1)_CFLAGS) $(cc-dependencies) -c -o $(obj-name) $(src-name)
+	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
 
 # Rule to build a library, and all its sources.
@@ -38,7 +38,7 @@ define cmd-template
 $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
-	$(CC) $(CFLAGS) $($(1)_CFLAGS) $(LDFLAGS) -o $(objdir)/$($(1)_TARGET) \
+	$(CC) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS)) $(LDFLAGS) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
 	      $($(1)_LIBS)
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))

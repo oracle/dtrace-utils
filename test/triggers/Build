@@ -6,6 +6,7 @@ $(1)_DIR := $(current-dir)
 $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c
 $(1)_POST := link-trigger
+$(1)_NOCFLAGS := --coverage
 
 clean::
 	rm -f test/triggers/$(1)

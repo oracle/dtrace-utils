@@ -1,3 +1,14 @@
+2011-08-08  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Drop userspace test coverage info into the coverage/
+	subdirectory of the test logdir.
+
+	* README.build-system (name_NOCFLAGS): New, filter out unwanted
+	CFLAGS from a target.
+	* Makefunctions (cc-dependencies): Implement it.
+	* test/triggers/Build (TRIGGERS): Use it to filter out test coverage
+	info from triggers.
+
 2011-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	test/triggers/testprobe.c: New test script to fire the dt_test

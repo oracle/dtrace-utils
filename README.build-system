@@ -33,6 +33,8 @@ name_SOURCES = list of source filenames
 name_TARGET = name of library or binary to build, without directory
 name_CPPFLAGS = list of preprocessor flags applying to this target
 name_CFLAGS := list of cflags applying only to this target
+name_NOCFLAGS := list of cflags which should never be applied to this target,
+                 even if they would otherwise appear in CFLAGS
 name_LIBS := list of libraries applying only to this target;
              see name_DEPS
 name_EXPLICIT := list of names with explicit targets for which
