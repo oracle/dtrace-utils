@@ -37,4 +37,7 @@ all:: $(TARGETS)
 clean::
 	-rm -rf $(objdir) test/log
 
+check: all
+	./runtest.sh
+
 .PHONY: $(PHONIES)

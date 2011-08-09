@@ -170,6 +170,8 @@ ONLY_TESTS=
 TESTS=
 TIMEOUT=10
 
+ERRORS=
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --capture-expected) CAPTURE_EXPECTED=t;;
@@ -246,8 +248,10 @@ fail()
     elif [[ -n "$xfail" ]]; then
         out "XFAIL: $@.\n"
     elif [[ -n $failmsg ]]; then
+        ERRORS=t
         out "FAIL: $failmsg.\n"
     else
+        ERRORS=t
         out "FAIL.\n"
     fi
 }
@@ -678,3 +682,9 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
         awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
         tee -a $LOGFILE $SUMFILE
 fi
+
+if [[ -n $ERRORS ]]; then
+    exit 1
+fi
+
+exit 0
