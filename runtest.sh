@@ -313,7 +313,15 @@ postprocess()
 
     sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out | \
     # Blank out CPU and probe IDs. TODO: this is horrible, do it better
-        gawk 'BEGIN {  }
+        gawk 'BEGIN { possibly_non_columnar=0; }
+              /^$/ { possibly_non_columnar=1; }
+              /^./ { if (possibly_non_columnar) {
+                         if (substr ($0,40,1) != ":") {
+                             FIELDWIDTHS=""; cpu=0; id=0;
+                         }
+                         possibly_non_columnar=0;
+                   }
+              }
               { if (cpu) { $1="   "; }
                 if (id) { $2="      "; }
                 print $0; }
