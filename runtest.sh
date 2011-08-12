@@ -384,8 +384,14 @@ for dt in $dtrace; do
         base=${_test%.d}
         timeout="$TIMEOUT"
 
+        # Hidden files and editor backup files are not tests.
+
+        if [[ $_test =~ /\. ]] || [[ $test =~ ~$ ]]; then
+            continue
+        fi
+
         if [[ ! -e $_test ]]; then
-            out "$_test: Not found."
+            out "$_test: Not found.\n"
             continue
         fi
 
@@ -536,6 +542,7 @@ for dt in $dtrace; do
             # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
             # and confusing it. (This happens even if disowned.)
 
+            log "Running trigger $trigger\n"
             ( sleep 1; exec $trigger; ) &
             trigger_pid=$!
             disown %-
@@ -588,10 +595,9 @@ for dt in $dtrace; do
             else
 
                 # Success!
+                # Generate results, if requested and if they don't already exist.
 
-                # Generate results, if requested.
-
-                if [[ -n $CAPTURE_EXPECTED ]]; then
+                if [[ -n $CAPTURE_EXPECTED ]] && [[ ! -e $base.r ]]; then
                     cp $tmpdir/test.out $base.r
                     pass "$xfail" "$xfailmsg" "results captured"
                 else
