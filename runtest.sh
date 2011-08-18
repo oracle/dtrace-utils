@@ -316,7 +316,7 @@ postprocess()
         gawk 'BEGIN { possibly_non_columnar=0; }
               /^$/ { possibly_non_columnar=1; }
               /^./ { if (possibly_non_columnar) {
-                         if (substr ($0,40,1) != ":") {
+                         if (substr ($0,34,1) != ":" && substr ($0,40,1) != ":") {
                              FIELDWIDTHS=""; cpu=0; id=0;
                          }
                          possibly_non_columnar=0;
