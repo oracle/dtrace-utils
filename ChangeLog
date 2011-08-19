@@ -1,3 +1,8 @@
+2011-08-19  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* runtest.sh: Optimize postprocessor and increase TIMEOUT to 11 since
+	some test cases need 10 seconds to finish.
+
 2011-08-09  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile (check): New target.
