@@ -484,8 +484,8 @@ for dt in $dtrace; do
 
         # Substitute in flags.
 
-        if exist_flags runtest_opts $_test; then
-             opts="$(extract_flags runtest_opts $_test t)"
+        if exist_flags runtest-opts $_test; then
+             opts="$(extract_flags runtest-opts $_test t)"
 
             # The flags go after the dt_flags above.
             if [[ -n $opts ]] && [[ -z $override ]]; then
