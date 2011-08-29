@@ -299,8 +299,8 @@ postprocess()
 
     # Postprocess the output, if need be.
     if [[ -x $postprocessor ]]; then
-        if $postprocessor < $output > $tmpdir/pp.out; then
-            mv -f $tmpdir/output.post $final
+        if $postprocessor < $output > $tmpdir/output.post; then
+            mv -f $tmpdir/output.post $tmpdir/pp.out
         else
             retval=$?
             cp -f $output $tmpdir/pp.out
