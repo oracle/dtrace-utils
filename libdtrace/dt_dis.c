@@ -631,9 +631,7 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		fmt = pfv->pfv_format;
 	}
 
-	for (; ap != NULL; ap = ap->dtad_next) {
-		dt_dis_action(ap, d->fp, fmt);
-	}
+	dt_dis_action(ap, d->fp, fmt);
 	return 0;
 }
 
