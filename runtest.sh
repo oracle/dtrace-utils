@@ -633,10 +633,10 @@ for dt in $dtrace; do
             # our real interest is whether intermediate results have changed.
 
             dtest_dir="$tmpdir/regtest/$(basename $base)"
-            reglog="$(echo $_test | sed 's,/,-,g').log"
+            reglog="$dtest_dir/$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
-            echo "$dt_flags -e" > $dtest_dir/$reglog
-            echo >> $dtest_dir/$reglog
+            echo "$dt_flags -e" > $reglog
+            echo >> $reglog
             $dt "-S $dt_flags -e" 2>&1 > $tmpdir/regtest.out
             postprocess $base.r.p $tmpdir/regtest.out $tmpdir/regtest.out
             cat $tmpdir/regtest.out >> $reglog

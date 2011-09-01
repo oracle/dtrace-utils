@@ -3,6 +3,8 @@
 	* libdtrace/dt_dis.c (dt_dis_stmts): Do not loop over the actions
 	list.
 
+	* runtest.sh: Emit regression test logs to the right directory.
+
 2011-08-29  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* runtest.sh: Fix the error when process postprocessor.
