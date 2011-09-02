@@ -1,4 +1,3 @@
-dtrace: script 'test/dt_test/fired.d' matched 3 probes
 CPU     ID                    FUNCTION:NAME
                                       :test         1
                                       :test         2
@@ -24,3 +23,5 @@ CPU     ID                    FUNCTION:NAME
                                        :END test probe is fired: 20
           
           
+-- @@stderr --
+dtrace: script 'test/dt_test/fired.d' matched 3 probes

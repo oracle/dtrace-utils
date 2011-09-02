@@ -1,3 +1,10 @@
+2011-09-02  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh (first_dtest_dir): Segregate stderr output from
+	dtrace into a separate section of the output delineated by
+	-- @@stderr --.
+	* test/**/*.r: Fix up expected results.
+
 2011-09-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_dis.c (dt_dis_stmts): Do not loop over the actions

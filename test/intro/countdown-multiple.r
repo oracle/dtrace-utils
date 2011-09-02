@@ -1,4 +1,3 @@
-dtrace: script 'test/intro/countdown-multiple.d' matched 6 probes
 CPU     ID                    FUNCTION:NAME
                                  :tick-1sec   blastoff!                        
                                        :END 
@@ -63,3 +62,5 @@ Hits mod 5: (17, 6, 5, 6, 6)
               39 |@                                        1        
            >= 40 |                                         0        
 
+-- @@stderr --
+dtrace: script 'test/intro/countdown-multiple.d' matched 6 probes

@@ -1,4 +1,3 @@
-dtrace: script 'test/intro/countdown-quant.d' matched 3 probes
 CPU     ID                    FUNCTION:NAME
                                  :tick-1sec   blastoff!                        
           
@@ -37,3 +36,5 @@ CPU     ID                    FUNCTION:NAME
               18 |@@@@                                     1        
               19 |                                         0        
 
+-- @@stderr --
+dtrace: script 'test/intro/countdown-quant.d' matched 3 probes

@@ -444,7 +444,9 @@ for dt in $dtrace; do
         #     no expected-result comparison is done (the results are
         #     merely dumped into the logfile, and the test is deemed to
         #     pass as long as dtrace exits with a zero exitcode or
-        #     times out).
+        #     times out).  If any output is expected on standard error, it
+        #     should be appended to this file, after a single line reading
+        #     only "-- @@stderr --".
         #
         # .r.p: Expected-results postprocessor: a filter run before various
         #       hardwired pointer-value-replacement preprocessors which transform
@@ -538,7 +540,7 @@ for dt in $dtrace; do
         testmsg=
 
         if [[ -z $trigger ]]; then
-            run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2>&1
+            run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
             exitcode=$?
             this_noexec=t
         else
@@ -555,7 +557,7 @@ for dt in $dtrace; do
             trigger_pid=$!
             disown %-
 
-            ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2>&1
+            ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
               echo $? > $tmpdir/dtrace.exit; )
             exitcode="$(cat $tmpdir/dtrace.exit)"
 
@@ -571,6 +573,12 @@ for dt in $dtrace; do
         if [[ -n $this_noexec ]]; then
             testmsg="no execution"
         fi
+
+        if [[ -s $tmpdir/test.err ]]; then
+            echo "-- @@stderr --" >> $tmpdir/test.out
+            cat $tmpdir/test.err >> $tmpdir/test.out
+        fi
+        rm -f $tmpdir/test.err
 
         if ! postprocess $base.r.p $tmpdir/test.out $tmpdir/test.out; then
             testmsg="results postprocessor failed with exitcode $?"
