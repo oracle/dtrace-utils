@@ -164,6 +164,7 @@ exit 0
 # Parameters.
 
 CAPTURE_EXPECTED=
+OVERWRITE_RESULTS=
 NOEXEC=
 
 ONLY_TESTS=
@@ -181,6 +182,7 @@ while [[ $# -gt 0 ]]; do
         --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
         --help|--*) usage;;
         *) ONLY_TESTS=t
+           OVERWRITE_RESULTS=t
            if [[ -f $1 ]]; then
                TESTS="$TESTS $1"
            else
@@ -340,9 +342,6 @@ fi
 
 # Variables usable in demo flags.
 
-# TODO: allow specification of a program to auto-launch and later
-# attach to, instead of using our own shell's PID.
-
 _pid=`echo $$`
 _exit="${NOEXEC:+-e}"
 
@@ -387,7 +386,11 @@ for dt in $dtrace; do
         out "\nTest of $dtrace:\n"
     fi
 
-    for _test in $(if [[ $ONLY_TESTS ]]; then echo $TESTS; else find test -name "*.d"; fi); do
+    for _test in $(if [[ $ONLY_TESTS ]]; then
+                      echo $TESTS | sed 's,\.r$,\.d,; s,\.r ,.d ,';
+                   else
+                      find test -name "*.d";
+                   fi); do
 
         base=${_test%.d}
         timeout="$TIMEOUT"
@@ -564,7 +567,6 @@ for dt in $dtrace; do
             # If the trigger is still running, kill it, and wait for it, to
             # quiesce the background-process-kill noise the shell would
             # otherwise emit.
-
             if [[ "$(ps -p $trigger_pid -o ppid=)" -eq $BASHPID ]]; then
                 kill $trigger_pid >/dev/null 2>&1
             fi
@@ -584,10 +586,17 @@ for dt in $dtrace; do
             testmsg="results postprocessor failed with exitcode $?"
         fi
 
+        # Note if we will certainly capture results.
+
+        capturing=
+        if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $OVERWRITE_RESULTS ]]; then
+            capturing="results captured"
+        fi
+
         # Compare results, if available, and log the diff.
 
         if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
-            fail "$xfail" "$xfailmsg" "expected results differ"
+            fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
             log "$dt $dt_flags\n"
 
             cat $tmpdir/test.out >> $LOGFILE
@@ -602,24 +611,23 @@ for dt in $dtrace; do
                 # exits.
 
                 if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
-                    fail "$xfail" "$xfailmsg" "nonzero exitcode ($exitcode)"
+                    fail "$xfail" "$xfailmsg" "nonzero exitcode ($exitcode)${capturing:+, $capturing}"
                 else
-                    fail "$xfail" "$xfailmsg" "hit by signal $((exitcode - 128))"
+                    fail "$xfail" "$xfailmsg" "hit by signal $((exitcode - 128))${capturing:+, $capturing}"
                 fi
 
                 log "$dt $dt_flags\n"
             else
 
                 # Success!
-                # Generate results, if requested and if they don't already exist.
+                # If results don't already exist and we in capture mode, then
+                # capture them even if forcible capturing is off.
 
                 if [[ -n $CAPTURE_EXPECTED ]] && [[ ! -e $base.r ]]; then
-                    cp $tmpdir/test.out $base.r
-                    pass "$xfail" "$xfailmsg" "results captured"
-                else
-                    pass "$xfail" "$xfailmsg"
+                    capturing="results captured"
                 fi
 
+                pass "$xfail" "$xfailmsg" "$capturing"
                 log "$dt $dt_flags\n"
             fi
 
@@ -627,9 +635,16 @@ for dt in $dtrace; do
                 # No expected results? Log and summarize the lot.
                 tee -a < $tmpdir/test.out $LOGFILE >> $SUMFILE
             else
-                # Results as expected: only log them.
+                # Results as expected: log them.
+
                 cat $tmpdir/test.out >> $LOGFILE
             fi
+        fi
+
+        # If capturing results is requested, capture them now.
+
+        if [[ -n $capturing ]]; then
+            cp -f $tmpdir/test.out $base.r
         fi
 
         log "\n"

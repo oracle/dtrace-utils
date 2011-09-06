@@ -1,3 +1,9 @@
+2011-09-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Automatically overwrite .r files if --capture-expected
+	is on and specific tests are named on the command line.  Translate
+	.r files named on the command line into their corresponding .d files.
+
 2011-09-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh (first_dtest_dir): Segregate stderr output from
