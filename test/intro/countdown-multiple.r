@@ -1,7 +1,7 @@
-CPU     ID                    FUNCTION:NAME
-                                 :tick-1sec   blastoff!                        
-                                       :END 
-          
+                   FUNCTION:NAME
+                      :tick-1sec   blastoff!                        
+                            :END 
+
 Hits mod 5: (17, 6, 5, 6, 6)
 
 

@@ -67,7 +67,7 @@ typedef struct dtrace_cmd {
 #define	E_USAGE		2
 
 static const char DTRACE_OPTSTR[] =
-	"3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:X:Z";
+	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:tSU:vVwx:X:Z";
 
 static char **g_argv;
 static int g_argc;
@@ -80,6 +80,7 @@ static int g_psc;
 static int g_pslive;
 static char *g_pname;
 static int g_quiet;
+static int g_testing;
 static int g_flowindent;
 static int g_intr;
 static int g_impatient;
@@ -156,6 +157,7 @@ usage(FILE *fp)
 	    "\t-q  set quiet mode (only output explicitly traced data)\n"
 	    "\t-s  enable or list probes according to the specified D script\n"
 	    "\t-S  print D compiler intermediate code\n"
+	    "\t-t  eliminate variable output, for reproducible testsuite runs\n"
 	    "\t-U  undefine symbol when invoking preprocessor\n"
 	    "\t-v  set verbose mode (report stability attributes, arguments)\n"
 	    "\t-V  report DTrace API version\n"
@@ -1010,11 +1012,19 @@ chew(const dtrace_probedata_t *data, void *arg)
 	if (heading == 0) {
 		if (!g_flowindent) {
 			if (!g_quiet) {
-				oprintf("%3s %6s %32s\n",
-				    "CPU", "ID", "FUNCTION:NAME");
+				if (!g_testing) {
+					oprintf("%3s %6s %32s\n",
+					    "CPU", "ID", "FUNCTION:NAME");
+				} else {
+					oprintf("%32s\n", "FUNCTION:NAME");
+				}
 			}
 		} else {
-			oprintf("%3s %-41s\n", "CPU", "FUNCTION");
+			if (!g_testing) {
+				oprintf("%3s %-41s\n", "CPU", "FUNCTION");
+			} else {
+				oprintf("%-41s\n", "FUNCTION");
+			}
 		}
 		heading = 1;
 	}
@@ -1026,7 +1036,11 @@ chew(const dtrace_probedata_t *data, void *arg)
 			(void) snprintf(name, sizeof (name), "%s:%s",
 			    pd->dtpd_func, pd->dtpd_name);
 
-			oprintf("%3d %6d %32s ", cpu, pd->dtpd_id, name);
+			if (!g_testing) {
+				oprintf("%3d %6d %32s ", cpu, pd->dtpd_id, name);
+			} else {
+				oprintf("%32s ", name);
+			}
 		}
 	} else {
 		int indent = data->dtpda_indent;
@@ -1046,7 +1060,11 @@ chew(const dtrace_probedata_t *data, void *arg)
 			    data->dtpda_prefix, pd->dtpd_func);
 		}
 
-		oprintf("%3d %-41s ", cpu, name);
+		if (!g_testing) {
+			oprintf("%3d %-41s ", cpu, name);
+		} else {
+			oprintf("%-41s ", name);
+		}
 	}
 
 	return (DTRACE_CONSUME_THIS);
@@ -1175,8 +1193,6 @@ main(int argc, char *argv[])
 	pid_t pid;
 
 	g_ofp = stdout;
-
-	setenv("POSIXLY_CORRECT", "true", 1);
 
 	g_pname = basename(argv[0]);
 
@@ -1483,6 +1499,10 @@ main(int argc, char *argv[])
 
 			case 'S':
 				g_cflags |= DTRACE_C_DIFV;
+				break;
+
+			case 't':
+				g_testing = 1;
 				break;
 
 			case 'U':

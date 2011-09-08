@@ -1,6 +1,6 @@
-CPU     ID                    FUNCTION:NAME
-                                 :tick-1sec   blastoff!                        
-          
+                   FUNCTION:NAME
+                      :tick-1sec   blastoff!                        
+
   quantized countdown                               
            value  ------------- Distribution ------------- count    
               -1 |                                         0        

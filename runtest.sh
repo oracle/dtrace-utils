@@ -13,6 +13,7 @@
 shopt -s nullglob
 unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
+export LC_COLLATE="C"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
@@ -56,6 +57,8 @@ find_next_numeric_dir()
     done
 }
 
+ZAPTHESE=
+
 # run_with_timeout TIMEOUT CMD [ARGS ...]
 #
 # Run command CMD with argument ARGS, with the specified timeout.
@@ -72,6 +75,7 @@ run_with_timeout()
     local pid
     local sleepid
     local exited
+    local old_ZAPTHESE
 
     # We must turn 'monitor' on here to ensure that the CHLD trap fires,
     # but should leave it off at all other times to prevent annoying screen
@@ -89,9 +93,12 @@ run_with_timeout()
 
     sleep $timeout &
     sleepid=$!
+    old_ZAPTHESE="$ZAPTHESE"
+    ZAPTHESE="$ZAPTHESE $sleepid"
 
     $cmd "$@" &
     pid=$!
+    ZAPTHESE="$ZAPTHESE $pid"
 
     wait $pid >/dev/null 2>&1
     local exitcode=$?
@@ -100,6 +107,7 @@ run_with_timeout()
     wait $sleepid >/dev/null 2>&1
 
     set +o monitor
+    ZAPTHESE="$old_ZAPTHESE"
 
     if [[ -n $exited ]]; then
         return $exitcode
@@ -127,6 +135,10 @@ exist_flags()
 extract_flags()
 {
     local val="$(grep -E "@@"$1 $2 | sed 's,.*@@'$1' *: ,,; s,\*/$,,')"
+
+    # Force the $_pid to expand to itself.
+
+    _pid='$_pid'
 
     # This trick is because printf squashes out spaces, echo -e -e foo
     # prints 'foo', and echo -e -- "foo" prints "-- foo".
@@ -206,7 +218,9 @@ SUMFILE=$logdir/runtest.sum
 # Make a temporary directory for intermediate result storage.
 
 typeset tmpdir=$(get_dir_name)
-trap 'rm -rf ${tmpdir}; exit' INT QUIT TERM SEGV EXIT
+
+# Delete this directory, and kill requested processes, at shutdown.
+trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 $ZAPTHESE; fi; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
@@ -313,22 +327,7 @@ postprocess()
     # TODO: may need adjustment or making optional if scripts emit hex
     # values which are not continuously variable.
 
-    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out | \
-    # Blank out CPU and probe IDs. TODO: this is horrible, do it better
-        gawk 'BEGIN { possibly_non_columnar=0; }
-              /^$/ { possibly_non_columnar=1; }
-              /^./ { if (possibly_non_columnar) {
-                         if (substr ($0,34,1) != ":" && substr ($0,40,1) != ":") {
-                             FIELDWIDTHS=""; cpu=0; id=0;
-                         }
-                         possibly_non_columnar=0;
-                   }
-              }
-              { if (cpu) { $1="   "; }
-                if (id) { $2="      "; }
-                print $0; }
-              /^CPU  *ID / { FIELDWIDTHS="4 7 99999"; cpu=1; id=1; next; }
-              /^CPU/ { FIELDWIDTHS="4 99999"; cpu=1; } ' > $final
+    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out > $final
 
     return $retval
 }
@@ -339,11 +338,6 @@ if [[ "$(eval echo $dtrace)" = './build-*/dtrace' ]]; then
 	echo "No dtraces available.";
 	exit 1;
 fi
-
-# Variables usable in demo flags.
-
-_pid=`echo $$`
-_exit="${NOEXEC:+-e}"
 
 # More than one dtrace tree -> run tests for all dtraces, and verify identical
 # intermediate code is produced by each dtrace.
@@ -375,6 +369,9 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
              --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov
 fi
 
+# Export some variables so triggers can get at them.
+export _test _trigger_pid 
+
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
@@ -387,7 +384,7 @@ for dt in $dtrace; do
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
-                      echo $TESTS | sed 's,\.r$,\.d,; s,\.r ,.d ,';
+                      echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g';
                    else
                       find test -name "*.d";
                    fi); do
@@ -472,6 +469,10 @@ for dt in $dtrace; do
         #     option above.  If both .trigger and trigger exist, only the
         #     .trigger is respected.
 
+        # Set a variable usable in tests.
+
+        _exit="${NOEXEC:+-e}"
+
         # Optionally skip this test.
 
         if exist_flags skip $_test; then
@@ -483,19 +484,6 @@ for dt in $dtrace; do
         if [[ -x $base.p ]]; then
             preprocess $base.p $_test "$tmpdir/$(basename $_test)"
             _test="$tmpdir/$(basename $_test)"
-        fi
-
-        dt_flags="$_exit -s $_test"
-
-        # Substitute in flags.
-
-        if exist_flags runtest-opts $_test; then
-             opts="$(extract_flags runtest-opts $_test t)"
-
-            # The flags go after the dt_flags above.
-            if [[ -n $opts ]] && [[ -z $override ]]; then
-                dt_flags="$dt_flags $opts"
-            fi
         fi
 
         # Per-test timeout.
@@ -534,6 +522,19 @@ for dt in $dtrace; do
             trigger=$base.t
         fi
 
+        # Default and substitute in flags.
+
+        dt_flags="$_exit -t -s $_test"
+
+        if exist_flags runtest-opts $_test; then
+             opts="$(extract_flags runtest-opts $_test t)"
+
+            # The flags go after the dt_flags above.
+            if [[ -n $opts ]] && [[ -z $override ]]; then
+                dt_flags="$dt_flags $opts"
+            fi
+        fi
+
         # No trigger.  Run dtrace, with a timeout, without permitting
         # execution, recording the output and exitcode into temporary files.
 
@@ -548,8 +549,8 @@ for dt in $dtrace; do
             this_noexec=t
         else
             # A trigger.  Run dtrace with timeout, and permit execution.  First,
-            # run the trigger with a 1s delay before invocation, and record
-            # its PID.
+            # run the trigger with a 1s delay before invocation, record
+            # its PID, and note it in the dt_flags if $_pid is there.
             #
             # We have to run each of these in separate subprocesses to avoid
             # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
@@ -557,9 +558,15 @@ for dt in $dtrace; do
 
             log "Running trigger $trigger\n"
             ( sleep 1; exec $trigger; ) &
-            trigger_pid=$!
+            _pid=$!
             disown %-
+            ZAPTHESE="$_pid"
 
+            if [[ $dt_flags =~ \$_pid ]]; then
+                dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
+            fi
+
+            log "Running $dt $dt_flags\n"
             ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
               echo $? > $tmpdir/dtrace.exit; )
             exitcode="$(cat $tmpdir/dtrace.exit)"
@@ -567,9 +574,11 @@ for dt in $dtrace; do
             # If the trigger is still running, kill it, and wait for it, to
             # quiesce the background-process-kill noise the shell would
             # otherwise emit.
-            if [[ "$(ps -p $trigger_pid -o ppid=)" -eq $BASHPID ]]; then
-                kill $trigger_pid >/dev/null 2>&1
+            if [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
+                kill $_pid >/dev/null 2>&1
             fi
+            ZAPTHESE=
+            unset _pid
         fi
 
         if [[ -n $this_noexec ]]; then

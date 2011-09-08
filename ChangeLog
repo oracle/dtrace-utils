@@ -1,3 +1,20 @@
+2011-09-08  Nick Alcock  <nick.alcock@oracle.com>
+
+	* cmd/dtrace.c: New -t switch, turning off CPU and ID output for
+	reproducible test results.
+	(usage): Document it.
+	(chew): Use it.
+	(main): Set it.  Mark options with + rather than contaminating
+	child environments with POSIXLY_CORRECT.
+
+	* runtest.sh: Use it.  Rip out the awk-based results
+	postprocessor.  Always use the C collation locale.  Ensure that we
+	kill dtrace and trigger processes on SIGINT. $_pid is now the
+	trigger PID (manually expanded, left unexpanded at '$_pid' if
+	there is no trigger).
+
+	* test/*/*.r: Adjust for removal of postprocessor.
+
 2011-09-06  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Automatically overwrite .r files if --capture-expected
