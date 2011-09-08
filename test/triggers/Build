@@ -1,4 +1,4 @@
-TRIGGERS = testprobe
+TRIGGERS = testprobe readwholedir
 
 define trigger-template
 CMDS += $(1)

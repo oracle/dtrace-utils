@@ -1,5 +1,20 @@
 2011-09-08  Nick Alcock  <nick.alcock@oracle.com>
 
+	* test/struct/rwinfo.d: Adjust: fix copyright date, assign
+	trigger, report if elapsed time >0ns rather than emitting the
+	(highly variable) actual time.
+	* test/struct/rwinfo.r: Expected results.
+
+	* test/triggers/readwholedir.c: New trigger, read all .d files in
+	the trigger directory in consistent order using chunks as close to
+	4Kb as possible, and write them to a temporary file in chunks of
+	the same size.
+	* test/triggers/Build (TRIGGERS): Build it.
+
+	* test/triggers/testprobe.c: Add CDDL header.
+
+2011-09-08  Nick Alcock  <nick.alcock@oracle.com>
+
 	* cmd/dtrace.c: New -t switch, turning off CPU and ID output for
 	reproducible test results.
 	(usage): Document it.

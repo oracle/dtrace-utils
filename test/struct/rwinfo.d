@@ -20,10 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
+/* @@trigger: readwholedir */
 /* @@runtest-opts: $_pid */
 
 struct callinfo {
@@ -52,10 +53,10 @@ syscall::read:return, syscall::write:return
 
 END
 {
-	printf("        calls  max bytes  elapsed nsecs\n");
-	printf("------  -----  ---------  -------------\n");
-	printf("  read  %5d  %9d  %d\n",
-	    i["read"].calls, i["read"].maxbytes, i["read"].elapsed);
-	printf(" write  %5d  %9d  %d\n",
-	    i["write"].calls, i["write"].maxbytes, i["write"].elapsed);
+	printf("\n        calls  max bytes  elapsed\n");
+	printf("------  -----  ---------  -------\n");
+	printf("  read  %5d  %9d  %s\n",
+	    i["read"].calls, i["read"].maxbytes, i["read"].elapsed != 0 ? "yes" : "no");
+	printf(" write  %5d  %9d  %s\n",
+	    i["write"].calls, i["write"].maxbytes, i["write"].elapsed != 0 ? "yes" : "no");
 }
