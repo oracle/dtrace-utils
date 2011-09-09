@@ -1,5 +1,3 @@
-#!/usr/sbin/dtrace -s
-
 /*
  * CDDL HEADER START
  *
@@ -26,10 +24,4 @@
  * Use is subject to license terms.
  */
 
-/* @@trigger: readwholedir */
-/* @@runtest-opts: $_pid */
-
-syscall::write:entry
-/pid == $1/
-{
-}
+sed /[0-9]/{s/$1//g}
