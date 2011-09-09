@@ -33,7 +33,7 @@ tick-1sec
 {
 	printf("walltime  : %Y\n", walltimestamp);
 	printf("date      : ");
-	system("date");
+	system("date +'%%Y %%b %%d  %%H:%%M:%%S'");
 	printf("\n");
 }
 

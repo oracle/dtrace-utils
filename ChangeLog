@@ -7,6 +7,21 @@
 	Erase C comments. $1 is not meaningful in sed scripts;
 	use s// instead.
 
+	* test/act/time.d: Use the same format for date(1) output as
+	printf ("%Y") does.
+	* test/act/time.r.p: New postprocessor, detect and mark
+	identical walltimestamp and date output.
+	* test/act/time.r: New, postprocessed results.
+
+	* test/script/syscall.r: Fake results to ensure that result
+	comparison fails (this test is known to fail right now).
+
+	* test/vars/clause.d: Strip out pointless linefeeds.
+	* test/vars/clause.r: Expected results.
+	* test/vars/clause.t: New (fake) trigger, /bin/true as this D
+	script runs on its own.
+	* test/act/time.t: Likewise.
+
 2011-09-09  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* test/script/tracewrite.d: Adjust: fix copyright date, assign
