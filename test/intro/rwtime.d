@@ -20,10 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
+/* @@trigger: readwholedir */
 /* @@runtest-opts: $_pid */
 
 syscall::read:entry,
