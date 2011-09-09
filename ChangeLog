@@ -16,11 +16,14 @@
 	* test/script/syscall.r: Fake results to ensure that result
 	comparison fails (this test is known to fail right now).
 
+	* test/dtrace/error.r: Expected results for error.d.
+
 	* test/vars/clause.d: Strip out pointless linefeeds.
 	* test/vars/clause.r: Expected results.
 	* test/vars/clause.t: New (fake) trigger, /bin/true as this D
 	script runs on its own.
 	* test/act/time.t: Likewise.
+	* test/dtrace/error.t: Likewise.
 
 2011-09-09  Shujing Zhao  <pearly.zhao@oracle.com>
 
