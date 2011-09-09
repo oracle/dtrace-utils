@@ -1,14 +1,20 @@
+2011-09-09  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/intro/rwtime.r.p: Make a !#/usr/bin/sed script.
+	Erase C comments. $1 is not meaningful in sed scripts;
+	use s// instead.
+
 2011-09-09  Shujing Zhao  <pearly.zhao@oracle.com>
 
 	* test/script/tracewrite.d: Adjust: fix copyright date, assign
 	trigger.
 	* test/script/tracewrite.r: Expected results.
-	
+
 	* test/intro/rwtime.d: Adjust: fix copyright date, assign trigger.
 	* test/intro/rwtime.r.p: Expected-results postprocessor.
 	* test/intro/rwtime.r: Expected results.
-	
-2011-09-0 8 Nick Alcock  <nick.alcock@oracle.com>
+
+2011-09-08  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/struct/rwinfo.d: Adjust: fix copyright date, assign
 	trigger, report if elapsed time >0ns rather than emitting the
