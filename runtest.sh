@@ -3,7 +3,7 @@
 # runtest.sh -- A dtrace tester and regression tester.
 #
 #               Runs a bunch of .d scripts and tests their results.
-#               If more than dtrace build directory is available,
+#               If more than one dtrace build directory is available,
 #               runs them each in turn, comparing their output
 #               and generated intermediate representation.
 #
