@@ -503,7 +503,7 @@ for dt in $dtrace; do
             fi
         elif exist_flags xfail $_test; then
             xfail=t
-            xfailmsg="$(extract_flags xfail)"
+            xfailmsg="$(extract_flags xfail $_test | sed 's, *$,,')"
         fi
 
         # Check for a trigger.

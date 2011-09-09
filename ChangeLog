@@ -1,5 +1,8 @@
 2011-09-09  Nick Alcock  <nick.alcock@oracle.com>
 
+	* runtest.sh: Stop @@xfail from hanging runtest. Strip trailing
+	spaces off the xfail reason.
+
 	* test/intro/rwtime.r.p: Make a !#/usr/bin/sed script.
 	Erase C comments. $1 is not meaningful in sed scripts;
 	use s// instead.
