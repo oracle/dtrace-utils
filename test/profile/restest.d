@@ -24,7 +24,11 @@
  * Use is subject to license terms.
  */
 
+/* @@runtest-opts: $_pid */
+/* @@xfail: needs trigger */
+
 profile-5000
+/pid == $1/
 {
 	/*
 	 * We divide by 1,000,000 to convert nanoseconds to milliseconds, and

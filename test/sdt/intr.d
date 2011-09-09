@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: sdt provider not yet implemented */
+
 interrupt-start
 {
 	self->ts = vtimestamp;

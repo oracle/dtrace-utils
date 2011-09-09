@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: fbt provider not yet implemented */
+
 /*
  * To make the output more readable, we want to indent every function entry
  * (and unindent every function return).  This is done by setting the

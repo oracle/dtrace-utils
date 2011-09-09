@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: $_pid execute */
+/* @@xfail: pid provider not yet implemented */
 
 pid$1::$2:entry
 {

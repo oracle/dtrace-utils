@@ -24,7 +24,11 @@
  * Use is subject to license terms.
  */
 
+/* @@runtest-opts: $_pid */
+/* @@xfail: speculations not working yet */
+
 syscall::open:entry
+/pid==$1/
 {
 	self->spec = speculation();
 }

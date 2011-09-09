@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: -c /bin/date */
+/* @@xfail: userspace probing not yet implemented */
 
 pid$target:libc.so::entry
 {

@@ -26,8 +26,10 @@
  * Use is subject to license terms.
  */
 
+/* @@runtest-opts: $_pid */
+/* @@xfail: fbt provider not yet implemented; needs a trigger with failing open()s */
+
 syscall::open:entry,
-syscall::open64:entry
 {
 	/*
 	 * The call to speculation() creates a new speculation.  If this fails,
@@ -57,7 +59,6 @@ fbt:::
 }
 
 syscall::open:return,
-syscall::open64:return
 /self->spec/
 {
 	/*
@@ -71,7 +72,6 @@ syscall::open64:return
 }
 
 syscall::open:return,
-syscall::open64:return
 /self->spec && errno != 0/
 {
 	/*
@@ -82,7 +82,6 @@ syscall::open64:return
 }
 
 syscall::open:return,
-syscall::open64:return
 /self->spec && errno == 0/
 {
 	/*

@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: Solaris-specific, unconverted */
+
 /*
  * When our strings(1) invocation starts a read(2), set a watched flag on
  * the current thread.  When the read(2) finishes, clear the watched flag.

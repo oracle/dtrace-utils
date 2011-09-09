@@ -23,6 +23,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: ip provider not yet implemented */
+
 #pragma D option quiet
 #pragma D option switchrate=10hz
 

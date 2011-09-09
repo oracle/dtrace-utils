@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: sched provider not yet implemented */
+
 sched:::off-cpu
 /curlwpsinfo->pr_state == SSLEEP/
 {

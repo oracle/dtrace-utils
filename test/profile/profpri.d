@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: $_pid */
+/* @@xfail: needs trigger */
 
 profile-1001
 /pid == $1/

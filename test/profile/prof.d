@@ -24,10 +24,12 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: needs trigger */
+
 #pragma D option quiet
 
 profile-97
-/pid != 0/
+/pid == $1/
 {
 	@proc[pid, execname] = count();
 }

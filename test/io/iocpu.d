@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: io provider not yet implemented */
+
 #pragma D option quiet
 
 sched:::on-cpu

@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: $_pid 1 */
+/* @@xfail: sched provider not yet implemented */
 
 #pragma D option quiet
 

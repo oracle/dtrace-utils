@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: Solaris-specific, unconverted */
+
 /* @@runtest-opts: /bin/date */
 
 #pragma D option bufpolicy=ring

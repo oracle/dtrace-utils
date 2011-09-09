@@ -15,6 +15,7 @@
 
 	* test/script/syscall.r: Fake results to ensure that result
 	comparison fails (this test is known to fail right now).
+	* test/struct/spec.r: likewise (though this failure is expected).
 
 	* test/dtrace/error.r: Expected results for error.d.
 
@@ -24,6 +25,13 @@
 	script runs on its own.
 	* test/act/time.t: Likewise.
 	* test/dtrace/error.t: Likewise.
+	* test/struct/spec.t: Likewise.
+
+	* test/struct/kstat.t: Define this, instead of...
+	* test/struct/kstat.d: ... using a $(pidof ...) here, which fails
+	unless someone has already started the process.
+
+	Also, mark a lot of tests as XFAIL.
 
 2011-09-09  Shujing Zhao  <pearly.zhao@oracle.com>
 

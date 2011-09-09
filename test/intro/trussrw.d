@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: $_pid */
+/* @@xfail: needs trigger and reproducibility changes */
 
 syscall::read:entry,
 syscall::write:entry

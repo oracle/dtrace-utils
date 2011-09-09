@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: sched provider not yet implemented */
+
 uint64_t last[int];
 
 sched:::tick

@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: sched provider not yet implemented */
+
 self int last;
 
 sched:::wakeup

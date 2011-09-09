@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: lockstat provider not yet implemented */
+
 lockstat:::adaptive-acquire
 /execname == "date"/
 {

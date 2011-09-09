@@ -24,7 +24,8 @@
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: $_pid _chdir */
+/* @@runtest-opts: $_pid chdir */
+/* @@xfail: no pid provider yet */
 
 pid$1::$2:entry
 {

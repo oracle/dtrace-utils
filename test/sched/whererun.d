@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: /bin/date */
+/* @@xfail: sched provider not yet implemented */
 
 #pragma D option quiet
 

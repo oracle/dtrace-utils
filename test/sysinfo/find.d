@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: Solaris-specific, unconverted */
+
 syscall:::entry
 /execname == "find"/
 {

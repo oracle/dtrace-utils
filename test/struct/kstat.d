@@ -24,7 +24,9 @@
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: -q $(pgrep mpstat) */
+/* @@runtest-opts: -q $_pid */
+/* @@xfail: userspace tracing not implemented */
+/* @@skip: solaris-specific, not yet converted */
 
 pid$1:libkstat:kstat_data_lookup:entry
 {
