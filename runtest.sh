@@ -17,6 +17,15 @@ export LC_COLLATE="C"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
+# If running as root, pull in appropriate modules
+if [[ "x$(id -u)" = "x0" ]]; then
+    for name in $(cat ./test/modules); do
+        modprobe $name
+    done
+else
+    echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
+fi
+
 # get_dir_name
 #
 # Pick a unique temporary directory name to stick things in.
