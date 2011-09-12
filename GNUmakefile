@@ -38,6 +38,9 @@ clean::
 	-rm -rf $(objdir) test/log
 
 check: all
-	./runtest.sh
+	./runtest.sh --quiet
+
+check-verbose: all
+	./runtest.sh --verbose
 
 .PHONY: $(PHONIES)

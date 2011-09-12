@@ -181,6 +181,7 @@ NOEXEC=
 
 ONLY_TESTS=
 TESTS=
+QUIET=
 TIMEOUT=11
 
 ERRORS=
@@ -192,6 +193,8 @@ while [[ $# -gt 0 ]]; do
         --execute) NOEXEC=;;
         --no-execute) NOEXEC=t;;
         --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
+        --quiet) QUIET=t;;
+        --verbose) QUIET=;;
         --help|--*) usage;;
         *) ONLY_TESTS=t
            OVERWRITE_RESULTS=t
@@ -224,7 +227,16 @@ trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 $ZAPTHESE; fi; exit'
 
 # Log and failure functions.
 
+FORCE_OUT=
 out()
+{
+    if [[ -z $QUIET ]] || [[ ! -z $FORCE_OUT ]]; then
+        printf "$@"
+    fi
+    sum "$@"
+}
+
+force_out()
 {
     printf "$@"
     sum "$@"
@@ -252,6 +264,12 @@ fail()
     local xfail="$1"
     local xfailmsg="$2"
 
+    # In quiet mode, we may need to print out the test name too.
+
+    if [[ -n $QUIET ]] && [[ -z $xfail ]]; then
+        force_out "$_test: "
+    fi
+
     shift 2
     local failmsg="$(echo ''"$@" | sed 's,^ *,,; s, $,,;')"
 
@@ -265,10 +283,10 @@ fail()
         out "XFAIL: $@.\n"
     elif [[ -n $failmsg ]]; then
         ERRORS=t
-        out "FAIL: $failmsg.\n"
+        force_out "FAIL: $failmsg.\n"
     else
         ERRORS=t
-        out "FAIL.\n"
+        force_out "FAIL.\n"
     fi
 }
 
@@ -281,7 +299,16 @@ fail()
 
 pass()
 {
-    if [[ -n "$1" ]]; then
+    local xpass="$1"
+
+    # In quiet mode, we may need to print out the test name too.
+
+    if [[ -n $QUIET ]] && [[ -n $xpass ]]; then
+        FORCE_OUT=t
+        force_out "$_test: "
+    fi
+
+    if [[ -n "$xpass" ]]; then
         out "X"
     fi
 
@@ -297,6 +324,7 @@ pass()
     else
         out "PASS.\n"
     fi
+    unset FORCE_OUT
 }
 
 # postprocess POSTPROCESSOR OUTPUT FINAL
@@ -356,7 +384,7 @@ for name in build-*; do
         mkdir -p $logdir/coverage
         lcov --zerocounters --directory $name --quiet
         lcov --capture --base-directory . --directory $name --initial \
-             --quiet -o $logdir/coverage/initial.lcov
+             --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
     fi
 done
 
@@ -366,7 +394,7 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
         mkdir -p $KERNEL_BUILD_DIR/coverage
         lcov --zerocounters --quiet
         lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
-             --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov
+             --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
 fi
 
 # Export some variables so triggers can get at them.
@@ -380,7 +408,7 @@ export _test _trigger_pid
 for dt in $dtrace; do
 
     if [[ -n $regression ]]; then
-        out "\nTest of $dtrace:\n"
+        force_out "\nTest of $dtrace:\n"
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
@@ -399,7 +427,7 @@ for dt in $dtrace; do
         fi
 
         if [[ ! -e $_test ]]; then
-            out "$_test: Not found.\n"
+            force_out "$_test: Not found.\n"
             continue
         fi
 
@@ -540,8 +568,8 @@ for dt in $dtrace; do
 
         failed=
         this_noexec=$NOEXEC
-        out "$_test: "
         testmsg=
+        [[ -z $QUIET ]] && out "$_test: "
 
         if [[ -z $trigger ]]; then
             run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
@@ -605,6 +633,7 @@ for dt in $dtrace; do
         # Compare results, if available, and log the diff.
 
         if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
+
             fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
             log "$dt $dt_flags\n"
 
@@ -684,13 +713,13 @@ if [[ -n $regression ]]; then
     # Regtest comparison.  Skip one directory and diff all the others
     # against it.
 
-    out "\n\nRegression test comparison.\n"
+    force_out "\n\nRegression test comparison.\n"
 
     for name in $tmpdir/regtest/*; do
         [[ $name = $first_dtest_dir ]] && continue
 
         if ! diff -urN $first_dtest_dir $name | tee -a $LOGFILE $SUMFILE; then
-            out "Regression test comparison failed."
+            force_out "Regression test comparison failed."
         fi
     done
 fi
@@ -698,7 +727,7 @@ fi
 # Test coverage.
 for name in build-*; do
     if [[ -n "$(echo $name/*.gcda)" ]]; then
-        out "Coverage info for $name:\n"
+        force_out "Coverage info for $name:\n"
         lcov --capture --base-directory . --directory $name \
              --quiet -o $logdir/coverage/runtest.lcov
         lcov --add-tracefile $logdir/coverage/initial.lcov \
@@ -714,7 +743,7 @@ done
 
 if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
        [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
-    out "Coverage info for kernel:\n"
+    force_out "Coverage info for kernel:\n"
 
     lcov --capture --base-directory $KERNEL_BUILD_DIR \
          --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
