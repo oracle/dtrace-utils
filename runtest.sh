@@ -17,14 +17,27 @@ export LC_COLLATE="C"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
-# If running as root, pull in appropriate modules
-if [[ "x$(id -u)" = "x0" ]]; then
-    for name in $(cat ./test/modules); do
-        modprobe $name
-    done
-else
-    echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
-fi
+load_modules()
+{
+    # If running as root, pull in appropriate modules
+    if [[ "x$(id -u)" = "x0" ]]; then
+        for name in $(cat ./test/modules); do
+            modprobe $name
+        done
+    else
+        echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
+    fi
+}
+
+unload_modules()
+{
+    # If running as root, unload all appropriate modules
+    if [[ "x$(id -u)" = "x0" ]]; then
+        for name in $(tac ./test/modules); do
+            rmmod $name 2>/dev/null
+        done
+    fi
+}
 
 # get_dir_name
 #
@@ -385,6 +398,10 @@ if [[ $(echo $dtrace | wc -w) -gt 1 ]]; then
     regression=t
 fi
 
+# Unload all modules before initializing test coverage: then load them again
+# afterwards, to acquire initialization and shutdown coverage.
+unload_modules
+
 # Initialize test coverage.
 
 for name in build-*; do
@@ -405,6 +422,8 @@ if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
         lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
              --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
 fi
+
+load_modules
 
 # Export some variables so triggers can get at them.
 export _test _trigger_pid 
@@ -732,6 +751,9 @@ if [[ -n $regression ]]; then
         fi
     done
 fi
+
+# Now unload modules before acquiring coverage info.
+unload_modules
 
 # Test coverage.
 for name in build-*; do
