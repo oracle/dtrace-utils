@@ -426,7 +426,7 @@ fi
 load_modules
 
 # Export some variables so triggers can get at them.
-export _test _trigger_pid 
+export _test _pid 
 
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
