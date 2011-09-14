@@ -25,6 +25,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 BEGIN
 {
 	start = timestamp;

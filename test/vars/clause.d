@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 int me;			/* an integer global variable */
 this int foo;		/* an integer clause-local variable */
 

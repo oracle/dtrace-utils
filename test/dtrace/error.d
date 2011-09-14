@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 BEGIN
 {
 	*(char *)NULL;

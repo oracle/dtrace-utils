@@ -479,13 +479,15 @@ for dt in $dtrace; do
         # @@trigger: A single line containing the name of a program in
         #            test/triggers which is executed after dtrace is started.
         #            When this program exits, dtrace will be killed.  If the
-        #            timeout expires, both programs are killed.  Arguments may be
-        #            provided as normal, and are subjected to shell expansion.
-        #            For the sake of reproducible testcases, only tests with a
-        #            trigger are ever executed against the kernel.  Triggers
-        #            should not emit anything to stdout or stderr, as their
-        #            output is not currently trapped and it will spoil the
-        #            screen display.  See '.trigger'.
+        #            timeout expires, both programs are killed.  Arguments may
+        #            be provided as normal, and are subjected to shell
+        #            expansion.  For the sake of reproducible testcases, only
+        #            tests with a trigger, or that explicitly declare that they
+        #            can produce reproducible output via /* @@trigger: none */
+        #            are ever executed against the kernel.  Triggers should not
+        #            emit anything to stdout or stderr, as their output is not
+        #            currently trapped and it will spoil the screen display.
+        #            See '.trigger'.
 
         # Various other files can exist with the same basename as the test.  Many
         # of these serve the same purpose as embedded comments: both exist to
@@ -567,7 +569,9 @@ for dt in $dtrace; do
         trigger=
         if exist_flags trigger $_test; then
             trigger="$(extract_flags trigger $_test t)"
-            if [[ ! -x test/triggers/$trigger ]]; then
+            if [[ $trigger = "none" ]]; then
+                :
+            elif  [[ ! -x test/triggers/$trigger ]]; then
                 trigger=
             else
                 trigger=test/triggers/$trigger
@@ -603,6 +607,9 @@ for dt in $dtrace; do
             run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
             exitcode=$?
             this_noexec=t
+        elif [[ "$trigger" = "none" ]]; then
+            run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+            exitcode=$?
         else
             # A trigger.  Run dtrace with timeout, and permit execution.  First,
             # run the trigger with a 1s delay before invocation, record

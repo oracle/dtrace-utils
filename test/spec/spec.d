@@ -26,6 +26,7 @@
 
 /* @@runtest-opts: $_pid */
 /* @@xfail: speculations not working yet */
+/* @@trigger: none */
 
 syscall::open:entry
 /pid==$1/

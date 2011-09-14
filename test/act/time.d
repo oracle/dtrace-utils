@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 #pragma D option quiet
 #pragma D option destructive
 #pragma D option switchrate=5sec

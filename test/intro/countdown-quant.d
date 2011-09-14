@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 dtrace:::BEGIN
 {
 	i = 20;

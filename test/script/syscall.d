@@ -23,7 +23,9 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
 /* @@runtest-opts: -c /bin/date */
+/* @@trigger: none */
 
 syscall:::entry
 /pid == $target/
