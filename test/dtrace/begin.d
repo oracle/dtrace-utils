@@ -24,8 +24,8 @@
  * Use is subject to license terms.
  */
 
-/* @8runtest-opts: $_pid */
-/* @@xfail: needs trigger */
+/* @@runtest-opts: $_pid */
+/* @@trigger: mmap */
 
 BEGIN
 {
@@ -40,7 +40,7 @@ BEGIN
 }
 
 syscall::mmap:entry
-/pid = $1/
+/pid == $1/
 {
 	printf("mmap with prot = %s", prot[arg2 & 0x7]);
 }
