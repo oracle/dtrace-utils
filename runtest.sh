@@ -440,9 +440,9 @@ for dt in $dtrace; do
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
-                      echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g';
+                      echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
-                      find test -name "*.d";
+                      find test -name "*.d" | sort -u
                    fi); do
 
         base=${_test%.d}
