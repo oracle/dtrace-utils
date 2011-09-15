@@ -60,6 +60,11 @@ DLIBSRCS += \
         udp.d \
         unistd.d
 
+WORKING_DLIBS = errno.d \
+                regs.d \
+                signal.d \
+                unistd.d
+
 # Normal substitutions.
 
 $(libdtrace_DIR)%.sed: $(libdtrace_DIR)%.sed.in
@@ -69,9 +74,13 @@ $(libdtrace_DIR)%.sed: $(libdtrace_DIR)%.sed.in
 $(foreach dlib,$(SED_DLIBS),$(call src-name,libdtrace,$(dlib))): %.d: %.sed %.d.in
 	sed -f $*.sed < $*.d.in > $@
 
-PHONIES += dlibs
-TARGETS += dlibs
+PHONIES += dlibs working-dlibs
+TARGETS += dlibs working-dlibs
 dlibs: $(call src-name,libdtrace,$(DLIBSRCS))
+
+working-dlibs: $(call src-name,libdtrace,$(WORKING_DLIBS))
+	mkdir -p $(libdtrace_DIR)/dlibs
+	cp -f $^ $(libdtrace_DIR)/dlibs
 
 PHONIES += objs
 TARGETS += objs
@@ -105,9 +114,10 @@ clean::
 	rm -f $(libdtrace_DIR)dt_grammar.h $(libdtrace_DIR)dt_grammar.c
 	rm -f $(libdtrace_DIR)dt_lex.c
 	rm -f $(addprefix $(libdtrace_DIR),$(BUILD_DLIBS))
+	rm -rf $(libdtrace_DIR)dlibs
 
 install::
 	mkdir -p $(LIBDIR)/dtrace
 	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
-	cd $(libdtrace_DIR) && install -m 644 -o root -g root errno.d regs.d signal.d \
-		unistd.d drti-vers $(LIBDIR)/dtrace
+	cd $(libdtrace_DIR)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
+		../drti-vers $(LIBDIR)/dtrace

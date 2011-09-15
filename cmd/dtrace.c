@@ -157,7 +157,7 @@ usage(FILE *fp)
 	    "\t-q  set quiet mode (only output explicitly traced data)\n"
 	    "\t-s  enable or list probes according to the specified D script\n"
 	    "\t-S  print D compiler intermediate code\n"
-	    "\t-t  eliminate variable output, for reproducible testsuite runs\n"
+	    "\t-t  various changes needed for reproducible testsuite runs\n"
 	    "\t-U  undefine symbol when invoking preprocessor\n"
 	    "\t-v  set verbose mode (report stability attributes, arguments)\n"
 	    "\t-V  report DTrace API version\n"
@@ -1503,6 +1503,8 @@ main(int argc, char *argv[])
 
 			case 't':
 				g_testing = 1;
+				if (dtrace_setopt(g_dtp, "syslibdir", "libdtrace/dlibs") != 0)
+					dfatal("failed to set syslibdir to libdtrace/dlibs");
 				break;
 
 			case 'U':

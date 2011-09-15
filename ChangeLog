@@ -1,5 +1,17 @@
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
+	* cmd/dtrace.c (main): When testing is active, look in
+	libdtrace/dlibs for .d libraries.
+	(usage): Vague up the -t option description.
+
+	* libdtrace/Build (WORKING_DLIBS): New, names of those .d
+	libraries that work.
+	(install): Install only those libraries.
+	(working-dlibs): New, push them into the new dlibs/ subdir.
+	(clean): Clean up that subdir.
+
+2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/dt_cc.c (dt_preproc): Use C89 mode, not GNU89.
 	* libdtrace/dt_open.c (dt_vopen): Undefine __GNUC__.
 
