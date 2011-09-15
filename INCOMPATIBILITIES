@@ -28,3 +28,21 @@ different from other dtrace platforms, for the same reason, and is just as
 unlikely to be fixed. The kernels are different, with differently-named
 functions in, the probe names are derived from the names of the functions, thus
 the probes are different.
+
+
+
+-Xs semantics differ
+--------------------
+Difficulty: High
+Likelihood: Nil
+
+GNU cpp does not implement the various conformance levels supported by Solaris
+cpp: instead, you in practice have a choice between a traditional cpp and a
+fully standards-conformant one with __STDC__=1. The other variants (with
+__STDC__=0 but ISO C rules, and turning various header K&R compatibility
+extensions off and on) only exist because of Solaris's commitment to backward-
+compatibility-to-a-fault in the C library headers. glibc does not have this
+commitment, so most of these options make no sense.
+
+In Linux dtrace, -Xa, -Xc and -Xt all set __STDC__=1; -Xs unsets it and sets
+-traditional.

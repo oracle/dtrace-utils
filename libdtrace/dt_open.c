@@ -927,10 +927,10 @@ alloc:
 	(void) snprintf(isadef, sizeof (isadef), "-D__SUNW_D_%u",
 	    (uint_t)(sizeof (void *) * NBBY));
 
-	(void) snprintf(utsdef, sizeof (utsdef), "-D__%s_%s",
-	    dtp->dt_uts.sysname, dtp->dt_uts.version);
+	(void) snprintf(utsdef, sizeof (utsdef), "-D__%s",
+	    dtp->dt_uts.sysname);
 
-	if (dt_cpp_add_arg(dtp, "-D__sun") == NULL ||
+	if (dt_cpp_add_arg(dtp, "-D__linux") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__unix") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SVR4") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SUNW_D=1") == NULL ||

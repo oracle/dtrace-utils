@@ -339,10 +339,8 @@ struct dtrace_hdl {
  * Values for the dt_stdcmode property, which is used by the compiler when
  * running cpp to determine the presence and setting of the __STDC__ macro.
  */
-#define	DT_STDC_XA	0	/* ISO C + K&R C compat w/o ISO: __STDC__=0 */
-#define	DT_STDC_XC	1	/* Strict ISO C: __STDC__=1 */
-#define	DT_STDC_XS	2	/* K&R C: __STDC__ not defined */
-#define	DT_STDC_XT	3	/* ISO C + K&R C compat with ISO: __STDC__=0 */
+#define	DT_STDC_XA	0	/* Strict ISO C. */
+#define	DT_STDC_XS	1	/* K&R C: __STDC__ not defined */
 
 /*
  * Macro to test whether a given pass bit is set in the dt_treedump bit-vector.

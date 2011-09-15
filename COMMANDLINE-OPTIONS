@@ -45,7 +45,7 @@ feature transitioned to working state.
     -V: works (2011-06-27)
     -w: works (2011-06-27)
     -x: works (2011-06-27)
-    -X: works (2011-06-30)
+    -X: works (2011-09-15), with differences due to GNU cpp
     -Z: works (2011-06-27)
 
 

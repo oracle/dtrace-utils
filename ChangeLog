@@ -1,5 +1,19 @@
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libdtrace/dt_open.c (dt_vopen): Don't pass in -D options with
+	spaces in them. Pass in __linux, not __sun.
+
+	* libdtrace/dt_impl.h (DT_STDC_XC): Drop.
+	(DT_STDC_XT): Likewise.
+	* libdtrace/dt_cc.c (dt_preproc): Use GNU cpp options.
+	* libdtrace/dt_options.c (dt_opt_stdc): Everything but -Xs now activates
+	DT_STDC_XA.
+
+	* COMMANDLINE-OPTIONS (Notations): Document change in behaviour of -X[atcs].
+	* INCOMPATIBILITIES: Likewise.
+
+2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
+
 	* test/triggers/mmap.c: Use tmpfile(), not open(). Reindent.
 	* test/triggers/testprobe.c (main): Tiny formatting fix.
 

@@ -379,11 +379,11 @@ dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (strcmp(arg, "a") == 0)
 		dtp->dt_stdcmode = DT_STDC_XA;
 	else if (strcmp(arg, "c") == 0)
-		dtp->dt_stdcmode = DT_STDC_XC;
+		dtp->dt_stdcmode = DT_STDC_XA;
+	else if (strcmp(arg, "t") == 0)
+		dtp->dt_stdcmode = DT_STDC_XA;
 	else if (strcmp(arg, "s") == 0)
 		dtp->dt_stdcmode = DT_STDC_XS;
-	else if (strcmp(arg, "t") == 0)
-		dtp->dt_stdcmode = DT_STDC_XT;
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
