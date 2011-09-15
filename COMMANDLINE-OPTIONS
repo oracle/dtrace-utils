@@ -308,14 +308,14 @@ from a C build environment.
 Regardless of the -X mode, the following additional C preprocessor
 definitions are always specified and valid in all modes:
 
-    * __sun
+    * __linux
     * __unix
     * __SVR4
     * __sparc (on SPARC® systems only)
     * __sparcv9 (on SPARC® systems only when 64–bit programs are compiled)
     * __i386 (on x86 systems only when 32–bit programs are compiled)
     * __amd64 (on x86 systems only when 64–bit programs are compiled)
-    * _`uname -s`{}`uname -r` (for example, __SunOS_5_10)
+    * _`uname -s` (for example, __Linux)
     * __SUNW_D=1
     * _SUNW_D_VERSION=0x_MMmmmuuu (where MM is the Major release value
       in hexadecimal, mmm is the Minor release value in hexadecimal,
