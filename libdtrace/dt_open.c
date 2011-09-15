@@ -934,6 +934,7 @@ alloc:
 	    dt_cpp_add_arg(dtp, "-D__unix") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SVR4") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SUNW_D=1") == NULL ||
+	    dt_cpp_add_arg(dtp, "-U__GNUC__") == NULL ||
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));

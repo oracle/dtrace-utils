@@ -1,5 +1,10 @@
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libdtrace/dt_cc.c (dt_preproc): Use C89 mode, not GNU89.
+	* libdtrace/dt_open.c (dt_vopen): Undefine __GNUC__.
+
+2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/dt_open.c (dt_vopen): Don't pass in -D options with
 	spaces in them. Pass in __linux, not __sun.
 

@@ -1639,7 +1639,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 
 	switch (dtp->dt_stdcmode) {
 	case DT_STDC_XA:
-		argv[argc++] = "-std=gnu99";
+		argv[argc++] = "-std=c99";
 		break;
 	case DT_STDC_XS:
 		argv[argc++] = "-traditional-cpp";
