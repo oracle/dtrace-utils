@@ -35,7 +35,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     int fd, i;
 
     if ((fd = open("/dev/dtrace/provider/dt_test", O_RDONLY)) == -1) {

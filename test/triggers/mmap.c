@@ -32,42 +32,41 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#define FILEPATH "/tmp/mmaptmp"
 #define NUMINTS  (1000)
 #define FILESIZE (NUMINTS * sizeof(int))
 
 int main(int argc, char *argv[])
 {
-    int i;
-    int fd;
-    int *map;
+	int i;
+	FILE *foo;
+	int fd;
+	int *map;
 
-    fd = open(FILEPATH, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
-    if (fd == -1) {
-	exit(1);
-    }
-
-    if (lseek(fd, FILESIZE-1, SEEK_SET) == -1) {
-	close(fd);
-	exit(1);
-    }
+	foo = tmpfile();
+	if (foo == NULL) {
+		exit(1);
+	}
+	
+	fd = fileno (foo);
+	
+	if (lseek(fd, FILESIZE-1, SEEK_SET) == -1) {
+		exit(1);
+	}
+	
+	if (write(fd, "", 1) == -1) {
+		exit(1);
+	}
+	
+	map = mmap(0, FILESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (map == MAP_FAILED) {
+		exit(1);
+	}
     
-    if (write(fd, "", 1) == -1) {
-	close(fd);
-	exit(1);
-    }
+	for (i = 1; i <=NUMINTS; ++i) {
+		map[i] = i; 
+	}
 
-    map = mmap(0, FILESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (map == MAP_FAILED) {
+	munmap(map, FILESIZE);
 	close(fd);
-	exit(1);
-    }
-    
-    for (i = 1; i <=NUMINTS; ++i) {
-	map[i] = i; 
-    }
-
-    munmap(map, FILESIZE);
-    close(fd);
-    return 0;
+	return 0;
 }
