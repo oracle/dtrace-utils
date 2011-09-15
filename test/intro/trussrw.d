@@ -20,12 +20,12 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@runtest-opts: $_pid */
-/* @@xfail: needs trigger and reproducibility changes */
+/* @@trigger: mmap */
 
 syscall::read:entry,
 syscall::write:entry

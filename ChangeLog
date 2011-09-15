@@ -1,3 +1,11 @@
+2011-09-15  Shujing Zhao  <pearly.zhao@oracle.com>
+
+	* test/intro/trussrw.d: Adjust: fix copyright date, assign trigger.
+	* test/intro/trussrw.r: Expected results.
+	* test/intro/trussrw.r.p: Expected-results postprocessor.
+
+	* test/triggers/mmap.c: Change the tmp file and clean.
+
 2011-09-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Support /* @@trigger: none */ to run untriggered tests.
