@@ -161,7 +161,7 @@ exist_options()
         path="$(dirname $path)"
         file="$path/test.options"
         # Halt at top level.
-        if [[ -e $path/.mailmap ]]; then
+        if [[ -e $path/Makefunctions ]]; then
             break
         fi
     done
@@ -203,7 +203,7 @@ extract_options()
         path="$(dirname $path)"
         file="$path/test.options"
         # Halt at top level.
-        if [[ -e $path/.mailmap ]]; then
+        if [[ -e $path/Makefunctions ]]; then
             return
         fi
     done

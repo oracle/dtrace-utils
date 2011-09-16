@@ -1,5 +1,10 @@
 2011-09-16  Nick Alcock  <nick.alcock@oracle.com>
 
+	* runtest.sh: Look for Makefunctions, not .mailmap, to find
+	top-of-tree.
+
+2011-09-16  Nick Alcock  <nick.alcock@oracle.com>
+
 	* runtest.sh: Support recursive option searching up to the test/
 	root.  Call them options consistently, not flags.  Try to catch
 	coredumps even if core_pattern or core_uses_pid are set, and even
