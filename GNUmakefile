@@ -19,6 +19,7 @@ prefix = /usr
 objdir := build-$(shell uname -r)
 LIBDIR := $(DESTDIR)$(prefix)/lib
 BINDIR := $(DESTDIR)$(prefix)/bin
+INCLUDEDIR := $(DESTDIR)$(prefix)/include
 SBINDIR := $(DESTDIR)$(prefix)/sbin
 TARGETS =
 

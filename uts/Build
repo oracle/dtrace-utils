@@ -1,0 +1,6 @@
+uts_DIR := $(current-dir)
+
+install::
+	mkdir -p $(INCLUDEDIR)/sys
+	cd $(uts_DIR) && install -m 644 -o root -g root common/sys/dtrace.h \
+            common/sys/ctf.h common/sys/ctf_api.h $(INCLUDEDIR)/sys

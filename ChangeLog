@@ -22,6 +22,9 @@
 	test/{fbt,io,ip,lockstat,proc,sched,sdt,vminfo}/*.d: Strip out
 	individual @@xfail markers.
 
+	* GNUmakefile (INCLUDEDIR): New, include directory.
+	* uts/Build: New, install include files in uts/common/sys.
+
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): When testing is active, look in
