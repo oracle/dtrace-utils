@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sched provider not yet implemented */
-
 #pragma D option quiet
 #pragma D option nspec=4
 #pragma D option specsize=100k

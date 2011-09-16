@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: fbt provider not yet implemented */
-
 fbt::putnext:entry
 {
 	@calls[stringof(args[0]->q_qinfo->qi_minfo->mi_idname)] = count();

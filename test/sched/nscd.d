@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sched provider not yet implemented */
-
 sched:::sleep
 /curlwpsinfo->pr_stype == SOBJ_SHUTTLE/
 {

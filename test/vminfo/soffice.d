@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: vminfo provider not yet implemented */
-
 vminfo:::maj_fault,
 vminfo:::zfod,
 vminfo:::as_fault

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: io provider not yet implemented */
-
 io:::start
 /execname == "soffice.bin" && args[2]->fi_name == "applicat.rdb"/
 {

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sdt provider not yet implemented */
-
 #pragma D option quiet
 
 sdt:::callout-start

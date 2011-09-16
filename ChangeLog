@@ -17,6 +17,11 @@
 	corrupt it and hand it to the DTrace device.
 	* test/utils/Build: New, build them.
 
+	test/{fbt,io,ip,lockstat,proc,sched,sdt,vminfo}/test.options:
+	New, @@xfail these directories.
+	test/{fbt,io,ip,lockstat,proc,sched,sdt,vminfo}/*.d: Strip out
+	individual @@xfail markers.
+
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): When testing is active, look in

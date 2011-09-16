@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: fbt provider not yet implemented */
-
 fbt::delay:entry,
 fbt::drv_usecwait:entry
 {

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sched provider not yet implemented */
-
 sched:::change-pri
 {
 	@[stringof(args[0]->pr_clname)] =

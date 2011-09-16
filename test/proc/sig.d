@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: proc provider not yet implemented */
-
 #pragma D option quiet
 
 proc:::signal-send

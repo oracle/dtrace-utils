@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sched provider not yet implemented */
-
 sched:::enqueue
 {
 	this->len = qlen[args[2]->cpu_id]++;
