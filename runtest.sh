@@ -112,6 +112,7 @@ run_with_timeout()
     # to avoid one ps(1) call in the common case of no timeout.
     trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
     shift 2
+    log "Running $cmd $@ with timeout $timeout\n"
 
     sleep $timeout &
     sleepid=$!
@@ -138,38 +139,74 @@ run_with_timeout()
     fi
 }
 
-# exist_flags NAME FILE
+# exist_options NAME FILE
 #
-# Return 0 iff a set of runtest flags named NAME exists in FILE.
+# Return 0 iff a set of runtest options named NAME exists in FILE,
+# or in the test.options file in its directory or in any parent
+# up to test/.
 #
-# The flags have the form @@NAME.
+# The options have the form @@NAME.
 
-exist_flags()
+exist_options()
 {
-    grep -Eq "@@"$1 $2
+    local retval=1
+    local path=$2
+    local file=$2
+
+    while [[ $retval -ne 0 ]]; do
+        if [[ -f $file ]]; then
+            grep -Eq "@@"$1 $file
+            retval=$?
+        fi
+        path="$(dirname $path)"
+        file="$path/test.options"
+        # Halt at top level.
+        if [[ -e $path/.mailmap ]]; then
+            break
+        fi
+    done
+
+    return $retval
 }
 
-# extract_flags NAME FILE EXPAND
+# extract_options NAME FILE EXPAND
 #
-# Extract the flags named NAME from FILE, and return them on stdout.
+# Extract the options named NAME from FILE, or in the test.options file in its
+# directory or any parent up to test/, and return them on stdout.
+#
 # If EXPAND is set, do a round of shell evaluation on them first.
 
-extract_flags()
+extract_options()
 {
-    local val="$(grep -E "@@"$1 $2 | sed 's,.*@@'$1' *: ,,; s,\*/$,,')"
+    local retval=1
+    local path=$2
+    local file=$2
 
-    # Force the $_pid to expand to itself.
+    while :; do
+        if [[ -f $file ]] && grep -Eq "@@"$1 $file; then
+            local val="$(grep -E "@@"$1 $file | sed 's,.*@@'$1' *: ,,; s,\*/$,,')"
 
-    _pid='$_pid'
+            # Force the $_pid to expand to itself.
 
-    # This trick is because printf squashes out spaces, echo -e -e foo
-    # prints 'foo', and echo -e -- "foo" prints "-- foo".
+            _pid='$_pid'
 
-    if [[ -n $3 ]]; then
-        eval echo ''"$val"
-    else
-        echo ''"$val"
-    fi
+            # This trick is because printf squashes out spaces, echo -e -e foo
+            # prints 'foo', and echo -e -- "foo" prints "-- foo".
+
+            if [[ -n $3 ]]; then
+                eval echo ''"$val"
+            else
+                echo ''"$val"
+            fi
+            return
+        fi
+        path="$(dirname $path)"
+        file="$path/test.options"
+        # Halt at top level.
+        if [[ -e $path/.mailmap ]]; then
+            return
+        fi
+    done
 }
 
 usage()
@@ -200,6 +237,7 @@ exit 0
 CAPTURE_EXPECTED=
 OVERWRITE_RESULTS=
 NOEXEC=
+BADDOF=
 
 ONLY_TESTS=
 TESTS=
@@ -214,6 +252,8 @@ while [[ $# -gt 0 ]]; do
         --no-capture-expected) CAPTURE_EXPECTED=;;
         --execute) NOEXEC=;;
         --no-execute) NOEXEC=t;;
+        --baddof) BADDOF=;;
+        --no-baddof) BADDOF=t;;
         --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -240,12 +280,27 @@ logdir=$(find_next_numeric_dir test/log)
 LOGFILE=$logdir/runtest.log
 SUMFILE=$logdir/runtest.sum
 
+# If running as root, remember and turn off core_pattern, and set the
+# coredumpsize to a biggish value.
+
+orig_core_pattern=
+orig_core_uses_pid=
+
+if [[ "x$(id -u)" = "x0" ]]; then
+    orig_core_pattern="$(cat /proc/sys/kernel/core_pattern)"
+    orig_core_uses_pid="$(cat /proc/sys/kernel/core_uses_pid)"
+    echo core > /proc/sys/kernel/core_pattern
+    echo 0 > /proc/sys/kernel/core_uses_pid
+    ulimit -c 100000
+fi
+
 # Make a temporary directory for intermediate result storage.
 
-typeset tmpdir=$(get_dir_name)
+declare tmpdir="$(get_dir_name)"
 
-# Delete this directory, and kill requested processes, at shutdown.
-trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 $ZAPTHESE; fi; exit' INT QUIT TERM SEGV EXIT
+# At shutdown, delete this directory, kill requested processes, and restore
+# core_pattern.
+trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 $ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
@@ -335,7 +390,7 @@ pass()
     fi
 
     shift
-    local msg="$(echo ''"$@" | sed 's,^ *,,; s, $,,;')"
+    local msg="$(echo ''"$@" | sed 's,^ *,,; s, $,,; s,^# *,,')"
 
     if [[ -z $msg ]]; then
         msg="$testmsg"
@@ -404,34 +459,71 @@ unload_modules
 
 # Initialize test coverage.
 
-for name in build-*; do
-    if [[ -n "$(echo $name/*.gcno)" ]]; then
-        rm -rf $logdir/coverage
-        mkdir -p $logdir/coverage
-        lcov --zerocounters --directory $name --quiet
-        lcov --capture --base-directory . --directory $name --initial \
-             --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
-    fi
-done
+if [[ -z $BADDOF ]]; then
+    for name in build-*; do
+        if [[ -n "$(echo $name/*.gcno)" ]]; then
+            rm -rf $logdir/coverage
+            mkdir -p $logdir/coverage
+            lcov --zerocounters --directory $name --quiet
+            lcov --capture --base-directory . --directory $name --initial \
+                 --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
+        fi
+    done
 
-if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
-   [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
-        rm -rf $KERNEL_BUILD_DIR/coverage
-        mkdir -p $KERNEL_BUILD_DIR/coverage
-        lcov --zerocounters --quiet
-        lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
-             --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
+    if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
+       [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
+            rm -rf $KERNEL_BUILD_DIR/coverage
+            mkdir -p $KERNEL_BUILD_DIR/coverage
+            lcov --zerocounters --quiet
+            lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
+                 --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
+    fi
 fi
 
 load_modules
 
-# Export some variables so triggers can get at them.
-export _test _pid 
+if [[ -n $BADDOF ]]; then
+    # Run DOF-corruption tests instead.
+
+    test/utils/badioctl > dev/null 2> $tmpdir/badioctl.err &
+    declare ioctlpid=$!
+
+    ZAPTHESE="$ioctlpid"
+    for _test in $(if [[ $ONLY_TESTS ]]; then
+                      echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
+                   else
+                      find test -name "*.d" | sort -u
+                   fi); do
+
+        if ! run_with_timeout $TIMEOUT test/utils/baddof $_test > /dev/null 2> $tmpdir/baddof.err; then
+            out "$_test: FAIL (bad DOF)"
+        fi
+        if [[ -s $tmpdir/baddof.err ]]; then
+            sum "baddof stderr:"
+            tee -a < $tmpdir/baddof.err $LOGFILE >> $SUMFILE
+        fi
+    done
+
+    if [[ "$(ps -p $ioctlpid -o ppid=)" -eq $BASHPID ]]; then
+        kill -9 $ioctlpid >/dev/null 2>&1
+    fi
+    if [[ -s $tmpdir/badioctl.err ]]; then
+        sum "badioctl stderr:"
+        tee -a < $tmpdir/badioctl.err $LOGFILE >> $SUMFILE
+    fi
+    ZAPTHESE=
+    exit 0
+fi
+
+
+# Export some variables so triggers and .sh scripts can get at them.
+export _test _pid dt_flags
 
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
-# Tests are .d files, representing D programs passed to dtrace.
+# Tests are .d files, representing D programs passed to dtrace, or .sh files,
+# representing shell scripts which invoke dtrace and analyze the results.
 
 for dt in $dtrace; do
 
@@ -442,10 +534,12 @@ for dt in $dtrace; do
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
-                      find test -name "*.d" | sort -u
+                      find test \( -name "*.d" -o -name "*.sh" \) | sort -u
                    fi); do
 
         base=${_test%.d}
+        base=${base%.sh}
+        testonly="$(basename $_test)"
         timeout="$TIMEOUT"
 
         # Hidden files and editor backup files are not tests.
@@ -460,7 +554,10 @@ for dt in $dtrace; do
         fi
 
         # Various options can be set in the test .d script, usually embedded in
-        # comments.
+        # comments.  In addition, any options listed in a file test.options in 
+        # any directory from test/ on down will automatically be imposed on
+        # any tests in that directory tree which do not themselves impose a
+        # value for that option.
         #
         # @@runtest-opts: A set of options to be added to the default set
         #                 (normally -S -e -s, where the -S and -e may not
@@ -488,15 +585,36 @@ for dt in $dtrace; do
         #            emit anything to stdout or stderr, as their output is not
         #            currently trapped and it will spoil the screen display.
         #            See '.trigger'.
+        #
+        # Certain filenames of test .d script are treated specially:
+        #
+        # tst.*.d: These are assumed to have /* @@trigger: none */ by default.
+        #
+        # err.*.d: As with tst.*.d, only these are additionally expected to
+        #          return 1.  (This is not the same as an XFAIL, which suggests
+        #          that this test is known to be not passing: this indicates
+        #          that this test is marked PASS if it returns 1, which would
+        #          normally indicate failure.)
+        #
+        # err.D_*.d: As with err.*.d, only run with -xerrtags.
+        #
+        # drp.*.d: As with tst.*.d, only run -xdroptags.
 
-        # Various other files can exist with the same basename as the test.  Many
-        # of these serve the same purpose as embedded comments: both exist to
-        # permit identical D scripts to be symlinked together while still
+        # Various other files can exist with the same basename as the test.
+        # Many of these serve the same purpose as embedded comments: both exist
+        # to permit identical D scripts to be symlinked together while still
         # permitting e.g. different triggering programs to be used.
         #
         # The full list of suffxes is as follows:
         #
-        # .d: The D program itself.  Mandatory (the only mandatory file).
+        # .d: The D program itself. Either this, or .sh, are mandatory.
+        #
+        # .sh: If executable, a shell script that is run instead of dtrace with
+        #      a single argument, the path to dtrace.  All other features are still
+        #      provided, including timeouts.  The script is run as if with
+        #      /* @@trigger: none */.  Arguments specified by @@runtest-opts, and
+        #      a minimal set without which no tests will work, are passed in
+        #      the environment variable dt_flags.
         #
         # .r: Expected results, after postprocessing.  If not present,
         #     no expected-result comparison is done (the results are
@@ -507,47 +625,46 @@ for dt in $dtrace; do
         #     only "-- @@stderr --".
         #
         # .r.p: Expected-results postprocessor: a filter run before various
-        #       hardwired pointer-value-replacement preprocessors which transform
-        #       all 0x[a-f]* strings into the string {ptr} and edit out
-        #       CPU and probe IDs.
+        #       hardwired pointer-value-replacement preprocessors which
+        #       transform all 0x[a-f]* strings into the string {ptr} and edit
+        #       out CPU and probe IDs.
         #       Receives one argument, the name of the testcase.
         #
         # .p: D script preprocessor: a filter run over the D script before
         #     passing to dtrace.  Unlike dtrace's -D options, this can vary
         #     based on the name of the test.
         #
-        # .x: If executable, a program which when executed returns 0 if the program
-        #     is not expected to fail and nonzero if a failure is expected (in which
-        #     case it can emit to standard output a one-line message describing the
-        #     reason for failure).  This permits tests to inspect their environment
-        #     and determine whether failure is expected.  See 'xfail'.  If both .x
-        #     and xfail exist, only the .x is respected.
+        # .x: If executable, a program which when executed returns 0 if the
+        #     program is not expected to fail and nonzero if a failure is
+        #     expected (in which case it can emit to standard output a one-line
+        #     message describing the reason for failure).  This permits tests to
+        #     inspect their environment and determine whether failure is
+        #     expected.  See '@@xfail'.  If both .x and @@xfail exist, only the
+        #     .x is respected.
         #
-        # .t: If executable, serves the same purpose as the 'trigger'
-        #     option above.  If both .trigger and trigger exist, only the
-        #     .trigger is respected.
-
-        # Set a variable usable in tests.
+        # .t: If executable, serves the same purpose as the '@@trigger'
+        #     option above.  If both .t and @@trigger exist, only the .t is
+        #     respected.
 
         _exit="${NOEXEC:+-e}"
 
         # Optionally skip this test.
 
-        if exist_flags skip $_test; then
+        if exist_options skip $_test; then
             continue
         fi
 
         # Optionally preprocess the D script.
 
         if [[ -x $base.p ]]; then
-            preprocess $base.p $_test "$tmpdir/$(basename $_test)"
-            _test="$tmpdir/$(basename $_test)"
+            preprocess $base.p $_test "$tmpdir/$testonly"
+            _test="$tmpdir/$testonly"
         fi
 
         # Per-test timeout.
 
-        if exist_flags timeout $_test; then
-            timeout="$(extract_flags timeout $_test)"
+        if exist_options timeout $_test; then
+            timeout="$(extract_options timeout $_test)"
         fi
 
         # Note if this is expected to fail.
@@ -559,40 +676,80 @@ for dt in $dtrace; do
             if [[ $? -ne 0 ]]; then
                 xfail=t
             fi
-        elif exist_flags xfail $_test; then
+        elif exist_options xfail $_test; then
             xfail=t
-            xfailmsg="$(extract_flags xfail $_test | sed 's, *$,,')"
+            xfailmsg="$(extract_options xfail $_test | sed 's, *$,,')"
         fi
 
         # Check for a trigger.
 
         trigger=
-        if exist_flags trigger $_test; then
-            trigger="$(extract_flags trigger $_test t)"
-            if [[ $trigger = "none" ]]; then
-                :
-            elif  [[ ! -x test/triggers/$trigger ]]; then
-                trigger=
-            else
-                trigger=test/triggers/$trigger
-            fi
+
+        # tst.*, err.* and drp.* default to running despite the absence of
+        # a trigger.
+        if [[ $testonly =~ ^(tst|err|drp)\. ]]; then
+            trigger=none
         fi
 
+        # Get a trigger from @@trigger, if possible.
+        if exist_options trigger $_test; then
+            trigger="$(extract_options trigger $_test t)"
+        fi
+
+        # Non-'none' @@triggers must exist in test/triggers.
+        if [[ "x$trigger" = "xnone" ]] || [[ -z $trigger ]]; then
+            :
+        elif [[ ! -x test/triggers/$trigger ]]; then
+            trigger=
+        else
+            trigger=test/triggers/$trigger
+        fi
+
+        # Finally, look for a .t file.
         if [[ -x $base.t ]]; then
             trigger=$base.t
         fi
 
-        # Default and substitute in flags.
+        # Note the expected exitcode of this test.
 
-        dt_flags="$_exit -t -s $_test"
+        expected_exitcode=0
+        if [[ $testonly =~ ^err\. ]]; then
+            expected_exitcode=1
+        fi
 
-        if exist_flags runtest-opts $_test; then
-             opts="$(extract_flags runtest-opts $_test t)"
+        # Default and substitute in flags.  The raw_dt_flags apply even to a
+        # sh invocation.
 
-            # The flags go after the dt_flags above.
+        raw_dt_flags="-t -Iuts/common"
+
+        if [[ $testonly =~ ^err\.D_ ]]; then
+            raw_dt_flags="$raw_dt_flags -xerrtags"
+        elif [[ $testonly =~ ^drp\. ]]; then
+            raw_dt_flags="$raw_dt_flags -xdroptags"
+        fi
+
+        dt_flags="$_exit $raw_dt_flags -s $_test"
+
+        if exist_options runtest-opts $_test; then
+             opts="$(extract_options runtest-opts $_test t)"
+
+            # The flags go after the dt_flags above, and also land in
+            # raw_dt_flags for the sake of shell-script runners.
             if [[ -n $opts ]] && [[ -z $override ]]; then
                 dt_flags="$dt_flags $opts"
+                raw_dt_flags="$raw_dt_flags $opts"
             fi
+        fi
+
+        # Handle an executable .sh.
+
+        shellrun=
+        if [[ -x $base.sh ]]; then
+            shellrun=$base.sh
+            if [[ -z $trigger ]]; then
+                trigger=none
+            fi
+            dt_flags="$raw_dt_flags"
         fi
 
         # No trigger.  Run dtrace, with a timeout, without permitting
@@ -604,11 +761,19 @@ for dt in $dtrace; do
         [[ -z $QUIET ]] && out "$_test: "
 
         if [[ -z $trigger ]]; then
-            run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
+            if [[ -z $shellrun ]]; then
+                this_noexec=t
+                run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
+            else
+                run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+            fi
             exitcode=$?
-            this_noexec=t
         elif [[ "$trigger" = "none" ]]; then
-            run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+            if [[ -z $shellrun ]]; then
+                run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+            else
+                run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+            fi
             exitcode=$?
         else
             # A trigger.  Run dtrace with timeout, and permit execution.  First,
@@ -629,9 +794,13 @@ for dt in $dtrace; do
                 dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
             fi
 
-            log "Running $dt $dt_flags\n"
-            ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
-              echo $? > $tmpdir/dtrace.exit; )
+            if [[ -z $shellrun ]]; then
+                ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+                  echo $? > $tmpdir/dtrace.exit; )
+            else
+                ( run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+                  echo $? > $tmpdir/dtrace.exit; )
+            fi
             exitcode="$(cat $tmpdir/dtrace.exit)"
 
             # If the trigger is still running, kill it, and wait for it, to
@@ -670,26 +839,29 @@ for dt in $dtrace; do
         if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
 
             fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
-            log "$dt $dt_flags\n"
 
             cat $tmpdir/test.out >> $LOGFILE
             log "Diff against expected:\n"
 
             diff -u $base.r $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
         else
-            if [[ $exitcode != 0 ]] && [[ $exitcode != 126 ]]; then
+            if [[ -f core ]]; then
+                # A coredump. Preserve it in the logdir.
+
+                mv core $logdir/$(echo $base | tr '/' '-').core
+                fail "$xfail" "$xfailmsg" "core dumped${capturing:+, $capturing}"
+
+            elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode != 126 ]]; then
 
                 # Some sort of exitcode error.  Assume that errors in the
                 # range 129 -- 193 (a common value of SIGRTMAX) are signal
                 # exits.
 
                 if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
-                    fail "$xfail" "$xfailmsg" "nonzero exitcode ($exitcode)${capturing:+, $capturing}"
+                    fail "$xfail" "$xfailmsg" "erroneous exitcode ($exitcode)${capturing:+, $capturing}"
                 else
                     fail "$xfail" "$xfailmsg" "hit by signal $((exitcode - 128))${capturing:+, $capturing}"
                 fi
-
-                log "$dt $dt_flags\n"
             else
 
                 # Success!
@@ -701,7 +873,6 @@ for dt in $dtrace; do
                 fi
 
                 pass "$xfail" "$xfailmsg" "$capturing"
-                log "$dt $dt_flags\n"
             fi
 
             if [[ ! -e $base.r ]]; then
@@ -722,7 +893,7 @@ for dt in $dtrace; do
 
         log "\n"
 
-        if [[ $regression ]]; then
+        if [[ -n $regression ]]; then
             # If regtesting, we run a second time, with intermediate results
             # displayed, and output redirected to a per-test, per-dtrace
             # temporary file. We always ban execution during regtesting:

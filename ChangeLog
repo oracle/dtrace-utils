@@ -1,3 +1,22 @@
+2011-09-16  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Support recursive option searching up to the test/
+	root.  Call them options consistently, not flags.  Try to catch
+	coredumps even if core_pattern or core_uses_pid are set, and even
+	if the coredump ulimit is small.  Support --badddof.  Support
+	shell comment-quoted test options.  Export $dt_flags to children.
+	Support .sh script-driven tests.  Tests named tst.*, err.* and
+	drp.* are run as if with /* @@trigger:none */.  Tests named
+	err.* assume that exitcode 1 is success.  Tests named err.D_*
+	are run with -xerrtags.  Tests named drp.*.d are run with
+	-xdroptags.
+
+	* test/utils/badioctl.c: New tool, spray random junk at the DTrace
+	device.
+	* test/utils/baddof.c: New tool, compile D to DOF and repeatedly
+	corrupt it and hand it to the DTrace device.
+	* test/utils/Build: New, build them.
+
 2011-09-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): When testing is active, look in
