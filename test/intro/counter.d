@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: none */
+
 /*
  * Count off and report the number of seconds elapsed
  */
