@@ -1,4 +1,4 @@
-TRIGGERS = testprobe readwholedir mmap
+TRIGGERS = testprobe readwholedir mmap bogus-ioctl pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 ustack-tst-bigstack ustack-tst-spin
 
 define trigger-template
 CMDS += $(1)
@@ -7,6 +7,7 @@ $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c
 $(1)_POST := link-trigger
 $(1)_NOCFLAGS := --coverage
+$(1)_LIBS := -lrt
 
 clean::
 	rm -f test/triggers/$(1)

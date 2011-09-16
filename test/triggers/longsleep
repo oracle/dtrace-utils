@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec sleep 1000000

@@ -1,0 +1,2 @@
+sizeof (NULL): 4
+

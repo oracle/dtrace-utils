@@ -1,0 +1,2 @@
+-- @@stderr --
+dtrace: failed to compile script test/unittest/funcs/err.D_PROTO_LEN.copyouttoofew.d: [D_PROTO_LEN] line 40: copyout( ) prototype mismatch: 2 args passed, 3 expected
