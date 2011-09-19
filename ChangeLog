@@ -2,6 +2,7 @@
 
 	* libdtrace/Build (working-dlibs): Depend on distinct rules for each
 	working dlib.
+	* dtrace.spec (files): Add the headers.
 
 2011-09-16  Nick Alcock  <nick.alcock@oracle.com>
 

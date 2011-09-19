@@ -50,7 +50,9 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 %exclude /usr/lib/debug
 /usr/lib/dtrace/*
 /usr/sbin/dtrace
-
+/usr/include/sys/dtrace.h
+/usr/include/sys/ctf.h
+/usr/include/sys/ctf_api.h
 
 %changelog
 * Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
