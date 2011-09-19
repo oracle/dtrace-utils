@@ -1,3 +1,5 @@
+# @@xfail: invalid address expected
+
 #pragma D option destructive
 
 BEGIN

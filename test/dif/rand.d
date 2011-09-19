@@ -1,5 +1,5 @@
 BEGIN
 {
-	trace(rand())
+	trace(rand());
 	exit(0);
 }
