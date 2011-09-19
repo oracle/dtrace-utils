@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@skip: kernel crasher */
-
 /*
  * ASSERTION:
  *	Checks that setting "bufresize" to "auto" will cause buffer
