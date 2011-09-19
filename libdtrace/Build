@@ -78,9 +78,11 @@ PHONIES += dlibs working-dlibs
 TARGETS += dlibs working-dlibs
 dlibs: $(call src-name,libdtrace,$(DLIBSRCS))
 
-working-dlibs: $(call src-name,libdtrace,$(WORKING_DLIBS))
-	mkdir -p $(libdtrace_DIR)/dlibs
-	cp -f $^ $(libdtrace_DIR)/dlibs
+working-dlibs: $(addprefix $(libdtrace_DIR)dlibs/,$(WORKING_DLIBS))
+
+$(addprefix $(libdtrace_DIR)dlibs/,$(WORKING_DLIBS)): $(libdtrace_DIR)dlibs/%: $(libdtrace_DIR)%
+	@mkdir -p $(libdtrace_DIR)dlibs
+	cp -f $^ $@
 
 PHONIES += objs
 TARGETS += objs

@@ -1,3 +1,8 @@
+2011-09-19  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build (working-dlibs): Depend on distinct rules for each
+	working dlib.
+
 2011-09-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Look for Makefunctions, not .mailmap, to find
