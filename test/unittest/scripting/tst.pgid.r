@@ -1,6 +1,6 @@
                    FUNCTION:NAME
-                          :BEGIN The pgid is 10854
+                          :BEGIN The pgid is 
 
 
 -- @@stderr --
-dtrace: script 'test/unittest/scripting/tst.pgid.d' matched 1 probe
+dtrace: script 'test/unittest/scripting/tst.pgid.d' matched  probe

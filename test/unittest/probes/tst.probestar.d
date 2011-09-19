@@ -20,9 +20,10 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2011 Oracle Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+/* @@trigger: testprobe */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -46,5 +47,6 @@ BEGIN
 
 syscall::*exit*:entry
 {
+	trace(i);
 	exit(0);
 }
