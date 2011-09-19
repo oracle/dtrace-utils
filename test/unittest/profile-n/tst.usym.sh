@@ -26,6 +26,8 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: No support for profile-* probes in the profile provider yet
+
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
