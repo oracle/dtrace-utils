@@ -20,6 +20,9 @@
 	* cmd/Build: Likewise.
 	* test/triggers/readwholedir.c: Fix copyright date.
 
+	* test/mkemo.pl: Delete, no longer used.
+	* test/unittest/tick-n/*: These are not xfail.
+
 2011-09-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (working-dlibs): Depend on distinct rules for each
