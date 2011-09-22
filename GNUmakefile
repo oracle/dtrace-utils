@@ -44,4 +44,12 @@ check: all
 check-verbose: all
 	./runtest.sh --verbose
 
+TAGS:
+	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
+
+tags:
+	rm -f TAGS; find . -name '*.[ch]' | xargs ctags -a
+
+PHONIES += all clean check check-verbose TAGS tags
+
 .PHONY: $(PHONIES)
