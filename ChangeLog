@@ -7,6 +7,19 @@
 	* runtest.sh (TIMEOUTSIG): New, allow sending a non-kill signal
 	to dtrace on timeout.
 
+	* GNUmakefile: Add missing CDDL header.
+	* Makefunctions: Likewise.
+	* Makerules: Likewise.
+	* test/utils/Build: Likewise.
+	* test/triggers/Build: Likewise.
+	* runtest.sh: Likewise.
+	* libproc/Build: Likewise.
+	* libport/Build: Likewise.
+	* libdtrace/Build: Likewise.
+	* libctf/Build: Likewise.
+	* cmd/Build: Likewise.
+	* test/triggers/readwholedir.c: Fix copyright date.
+
 2011-09-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (working-dlibs): Depend on distinct rules for each
