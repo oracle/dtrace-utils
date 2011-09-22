@@ -4,6 +4,9 @@
 	(tags): Likewise.
 	(PHONIES): Mark targets in the top-level makefile as phony.
 
+	* runtest.sh (TIMEOUTSIG): New, allow sending a non-kill signal
+	to dtrace on timeout.
+
 2011-09-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (working-dlibs): Depend on distinct rules for each

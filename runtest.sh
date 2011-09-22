@@ -15,6 +15,8 @@ unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
 export LC_COLLATE="C"
 
+TIMEOUTSIG=KILL
+
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
 load_modules()
@@ -110,7 +112,7 @@ run_with_timeout()
     # against PID recycling causing the wrong process to be killed if the other
     # job exits at just the wrong instant.  The check for pid being set allows us
     # to avoid one ps(1) call in the common case of no timeout.
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
@@ -505,7 +507,7 @@ if [[ -n $BADDOF ]]; then
     done
 
     if [[ "$(ps -p $ioctlpid -o ppid=)" -eq $BASHPID ]]; then
-        kill -9 $ioctlpid >/dev/null 2>&1
+        kill -$TIMEOUTSIG $ioctlpid >/dev/null 2>&1
     fi
     if [[ -s $tmpdir/badioctl.err ]]; then
         sum "badioctl stderr:"
