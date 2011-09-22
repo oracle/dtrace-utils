@@ -696,6 +696,9 @@ Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 {
 	map_info_t *mptr;
 
+	/* Temporarily stubbed out. */
+	return NULL;
+
 	if (!P->info_valid)
 		Pupdate_maps(P);
 
@@ -713,6 +716,9 @@ const prmap_t *
 Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 {
 	map_info_t *mptr;
+
+	/* Temporarily stubbed out. */
+	return NULL;
 
 	if (name == PR_OBJ_EVERY)
 		return (NULL); /* A reasonable mistake */
@@ -2365,6 +2371,9 @@ i_Pxlookup_by_addr(
 	map_info_t	*mptr;
 	file_info_t	*fptr;
 
+	/* Temporarily stubbed out. */
+	return (-1);
+
 	(void) Prd_agent(P);
 
 	if ((mptr = Paddr2mptr(P, addr)) == NULL ||	/* no such address */
@@ -2444,6 +2453,9 @@ Pxlookup_by_name(
 	prsyminfo_t si;
 	int rv = -1;
 	uint_t id;
+
+	/* Temporarily stubbed out. */
+	return (-1);
 
 	if (oname == PR_OBJ_EVERY) {
 		/* create all the file_info_t's for all the mappings */
@@ -2567,6 +2579,9 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 {
 	map_info_t *mptr;
 	file_info_t *fptr;
+
+	/* Temporarily stubbed out. */
+	return NULL;
 
 	/* create all the file_info_t's for all the mappings */
 	(void) Prd_agent(P);

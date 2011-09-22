@@ -1,5 +1,13 @@
 2011-09-22  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libproc/Psymtab.c (Paddr_to_map): Temporarily stub out.
+	(Plmid_to_map): Likewise.
+	(i_Pxlookup_by_addr): Likewise.
+	(Pxlookup_by_name): Likewise.
+	(Pobjname): Likewise.
+
+2011-09-22  Nick Alcock  <nick.alcock@oracle.com>
+
 	* GNUmakefile (TAGS): New.
 	(tags): Likewise.
 	(PHONIES): Mark targets in the top-level makefile as phony.
