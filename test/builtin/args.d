@@ -1,4 +1,4 @@
-# @@xfail: BEGIN probe has no arguments
+/* @@xfail: BEGIN probe has no arguments */
 
 BEGIN {
 	printf("0=%u 1=%u 2=%u 3=%u 4=%u 5=%u 6=%u 7=%u 8=%u 9=%u\n",
