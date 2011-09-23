@@ -7,6 +7,30 @@
 #               runs them each in turn, comparing their output
 #               and generated intermediate representation.
 #
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License, Version 1.0 only
+# (the "License").  You may not use this file except in compliance
+# with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+#
 
 # Sanitize the shell and get configuration info.
 
@@ -14,6 +38,8 @@ shopt -s nullglob
 unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
 export LC_COLLATE="C"
+
+TIMEOUTSIG=KILL
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
@@ -110,7 +136,7 @@ run_with_timeout()
     # against PID recycling causing the wrong process to be killed if the other
     # job exits at just the wrong instant.  The check for pid being set allows us
     # to avoid one ps(1) call in the common case of no timeout.
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -9 $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
@@ -505,7 +531,7 @@ if [[ -n $BADDOF ]]; then
     done
 
     if [[ "$(ps -p $ioctlpid -o ppid=)" -eq $BASHPID ]]; then
-        kill -9 $ioctlpid >/dev/null 2>&1
+        kill -$TIMEOUTSIG $ioctlpid >/dev/null 2>&1
     fi
     if [[ -s $tmpdir/badioctl.err ]]; then
         sum "badioctl stderr:"

@@ -20,7 +20,7 @@
 # CDDL HEADER END
 #
 
-/* @@xfail: needs conversion into a trigger-and-postprocessor model */
+# @@xfail: needs conversion into a trigger-and-postprocessor model
 
 #
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
