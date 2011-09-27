@@ -26,6 +26,7 @@
 
 /* @@runtest-opts: -c /bin/date */
 /* @@trigger: none */
+/* @@skip: kernel crasher */
 
 syscall:::entry
 /pid == $target/
