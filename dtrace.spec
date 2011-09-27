@@ -14,7 +14,7 @@ Provides:     dtrace-user
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel fakeroot
 Summary:      Dtrace user interface.
-Version:      0.0.1
+Version:      0.1
 Release:      0.1
 Source:       dtrace-user-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -57,3 +57,5 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 %changelog
 * Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
 - Initial build for dtrace.  
+* Tue Sep 27 2011 - nick.alcock@oracle.com - 0.1
+- Branch for initial release.
