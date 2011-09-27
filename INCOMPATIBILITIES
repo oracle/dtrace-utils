@@ -2,6 +2,56 @@ This file documents known incompatibilities between Linux and Solaris dtrace,
 together with the difficulty of overcoming them, and the likelihood that they
 will be overcome.
 
+Missing providers
+-----------------
+Difficulty: Medium
+Likelihood: High
+
+A number of providers are missing, including sdt: and net:.
+
+
+No userspace tracing
+--------------------
+Difficulty: Medium
+Likelihood: High
+
+Userspace tracing is simply not implemented yet.
+
+
+No userspace traceback in ustack()
+----------------------------------
+Difficulty: Low
+Likelihood: High
+
+ustack() and related actions which should print out symbol names in userspace
+tracebacks currently print out addresses only.  This is due to a not-yet-
+fixed Solaris/Linux incompatibility, and will be fixed.
+
+
+No traceback for local functions
+--------------------------------
+Difficulty: Medium
+Likelihood: Medium
+
+However, even when ustack() is fixed, the userspace traceback will not be up to
+the standards you may expect from Solaris, because Linux has no analogue of the
+Solaris local dynamic symbol table, so static symbols and those hidden via
+-fvisibility=hidden will not be named in the traceback.
+
+There are two options to fix this: firstly, we could use DWARF to look up the
+symbols, as gdb does: alternatively, we could implement a local dynamic symbol
+table, and alter the compiler to handle it.  The former solution provides
+theoretically complete compatibility with existing binaries, but has the problem
+that DWARF debugging info is so voluminous that it would make dtrace terribly
+slow and memory-hungry (as slow and memory-hungry as gdb is when tracing a large
+program).  Worse yet, because DWARF debugging info is so large, it is rarely
+installed, so the output would be incomplete anyway.
+
+So this will instead be fixed by introducing support for .SUNW_ldynsym in the
+Oracle Enterprise Linux toolchain.  Binaries compiled with other toolchains
+won't get full tracebacks, but we can live with that.
+
+
 
 Tiny variations in behaviour of dtraced processes immediately after startup
 ---------------------------------------------------------------------------
