@@ -2,7 +2,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <mutex.h>
-#include <procfs_service.h>
 
 hrtime_t
 gethrtime(void)

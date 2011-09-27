@@ -50,7 +50,6 @@
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
-#include <rtld_db.h>
 
 /*
  * Stability and versioning definitions.  These #defines are used in the tables

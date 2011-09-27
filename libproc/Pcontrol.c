@@ -45,7 +45,6 @@
 #include <sys/resource.h>
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/fault.h>
 #include <sys/wait.h>
 
 #include <mutex.h>
@@ -71,12 +70,6 @@ _libproc_init(void)
 	_libproc_debug = getenv("LIBPROC_DEBUG") != NULL;
 	_libproc_no_qsort = getenv("LIBPROC_NO_QSORT") != NULL;
 	_libproc_incore_elf = getenv("LIBPROC_INCORE_ELF") != NULL;
-}
-
-void
-Pset_procfs_path(const char *path)
-{
-	(void) snprintf(procfs_path, sizeof (procfs_path), "%s", path);
 }
 
 /*

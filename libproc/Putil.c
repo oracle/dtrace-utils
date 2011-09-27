@@ -87,22 +87,3 @@ _dprintf(const char *format, ...)
 		va_end(alist);
 	}
 }
-
-/*
- * Printf-style error reporting function.  This is used to supplement the error
- * return codes from various libproc functions with additional text.  Since we
- * are a library, and should not be spewing messages to stderr, we provide a
- * default version of this function that does nothing, but by calling this
- * function we allow the client program to define its own version of the
- * function that will interpose on our empty default.  This may be useful for
- * clients that wish to display such messages to the user.
- */
-/*ARGSUSED*/
-/*PRINTFLIKE2*/
-_dt_printflike_(2,3)
-void
-Perror_printf(struct ps_prochandle *P _dt_unused_,
-	      const char *format _dt_unused_, ...)
-{
-	/* nothing to do here */
-}

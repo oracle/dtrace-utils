@@ -91,11 +91,9 @@ SUNWprivate_1.1 {
 	Pclose;
 	Pcontent;
 	Pcreate;
-	Pcreate_agent;
 	Pcreate_error;
 	Pcred;
 	Pdelwapt;
-	Pdestroy_agent;
 	Perror_printf;
 	Pfgcore;
 	Pfree;
@@ -103,7 +101,6 @@ SUNWprivate_1.1 {
 	Pgetareg;
 	Pgrab;
 	Pgrab_error;
-	Pisprocdir;
 	Phasfds;
 	Plmid;
 	Plmid_to_map;
@@ -208,9 +205,7 @@ SUNWprivate_1.1 {
 	Pset_procfs_path;
 	Psetcred;
 	Psetrun;
-	Psetsignal;
 	Psetwapt;
-	Psignal;
 	ps_lcontinue;
 	ps_lgetfpregs;
 	ps_lgetregs;
@@ -238,10 +233,8 @@ SUNWprivate_1.1 {
 	Psymbol_iter_by_addr;
 	Psymbol_iter_by_lmid;
 	Psymbol_iter_by_name;
-	Psyscall;
 	Pupdate_maps;
 	Pwait;
-	Pwrite;
 	Pxecbkpt;
 	Pxecwapt;
 	Pxlookup_by_name;

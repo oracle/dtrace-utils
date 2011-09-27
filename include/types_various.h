@@ -5,15 +5,6 @@
 #include <stdint.h>
 #include <unistd.h>
 
-typedef struct {                /* syscall set type */
-	unsigned int    word[16];
-} sysset_t;
-
-typedef struct {	/* return values from system call */
-  long	sys_rval1;	/* primary return value from system call */
-  long	sys_rval2;	/* second return value from system call */
-} sysret_t;
-
 typedef id_t    taskid_t;
 typedef id_t    projid_t;
 typedef id_t    poolid_t;
@@ -21,12 +12,6 @@ typedef id_t    ctid_t;
 typedef unsigned long   psaddr_t;
 typedef int psetid_t;
 typedef enum { B_FALSE, B_TRUE} boolean_t;
-
-typedef pid_t	lwpid_t;
-
-typedef uint32_t priv_chunk_t;
-
-typedef struct iovec iovec_t;
 
 /*
  * Strictly conforming ANSI C environments prior to the 1999
@@ -50,9 +35,6 @@ typedef union {
 typedef u_longlong_t    core_content_t;
 
 typedef longlong_t      offset_t;
-typedef u_longlong_t    u_offset_t;
-typedef u_longlong_t    len_t;
-typedef u_longlong_t    diskaddr_t;
 #if (defined(_KERNEL) || defined(_KMEMUSER) || defined(_BOOT))
 typedef uint64_t        paddr_t;
 #endif
@@ -66,16 +48,6 @@ typedef unsigned char   uchar_t;
 typedef unsigned short  ushort_t;
 typedef unsigned int    uint_t;
 typedef unsigned long   ulong_t;
-
-typedef short           cnt_t;          /* ?<count> type */
-
-#if !defined(_LP64) && defined(__cplusplus)
-typedef ulong_t major_t;        /* major part of device number */
-typedef ulong_t minor_t;        /* minor part of device number */
-#else
-typedef uint_t major_t;
-typedef uint_t minor_t;
-#endif
 
 #ifndef _LARGEFILE64_SOURCE
 typedef unsigned long long off64_t;
@@ -91,31 +63,6 @@ typedef int     ptrdiff_t;              /* (historical version) */
 #endif
 
 
-#ifndef __ino64_t_defined
-#ifdef _LP64
-typedef ino_t		ino64_t;
-#else
-typedef u_longlong_t	ino64_t;	/* expanded inode type	*/
-#endif
-#define __ino64_t_defined
-#endif
-
-#ifndef _LARGEFILE64_SOURCE
-#ifdef _LP64
-typedef	blkcnt_t	blkcnt64_t;
-#else
-typedef longlong_t	blkcnt64_t;
-#endif
-#endif
-
-#ifndef __blksize_t_defined
-#ifdef _LP64
-typedef	int		blksize_t;	/* used for block sizes */
-#else
-typedef	long		blksize_t;	/* used for block sizes */
-#endif
-#define __blksize_t_defined
-#endif
 
 /*
  * return x rounded up to an align boundary
@@ -129,11 +76,6 @@ typedef	long		blksize_t;	/* used for block sizes */
 #else
 #define PAGESIZE        (_sysconf(_SC_PAGESIZE))
 #endif /*__KERNEL__*/
-
-#ifndef __USE_FILE_OFFSET64
-#define pread64		pread
-#define pwrite64	pwrite
-#endif
 
 
 #define	SHT_SUNW_dof		0x6ffffff4
@@ -224,25 +166,9 @@ CC_CONTENT_SYMTAB)
 #define	SSYS	   0x00000001	/* system (resident) process */
 
 
-#define	PS_OBJ_LDSO	((const char *)0x1)	/* the dynamic linker */
-
 #ifndef ABS
 #define	ABS(a)		((a) < 0 ? -(a) : (a))
 #endif
-
-
-/*
- * negative signal codes are reserved for future use for user generated
- * signals
- */
-#define	SI_FROMUSER(sip)	((sip)->si_code <= 0)
-#define	SI_FROMKERNEL(sip)	((sip)->si_code > 0)
-
-/*  indication whether to queue the signal or not */
-#define	SI_CANQUEUE(c)	((c) <= SI_QUEUE)
-
-#define _SC_NPROCESSORS_MAX     516     /* maximum # of processors */
-#define _SC_CPUID_MAX           517     /* maximum CPU id */
 
 
 #endif

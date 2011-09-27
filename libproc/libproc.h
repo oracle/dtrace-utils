@@ -62,8 +62,6 @@
 #include <sys/time.h>
 
 #include <sys/compiler.h>
-#include <procfs_service.h>
-
 
 #ifdef	__cplusplus
 extern "C" {
@@ -105,11 +103,6 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 
 #define	R_RVAL	R_RVAL1		/* simple function return value register */
 
-/* maximum sizes of things */
-#define	PRMAXSIG	(32 * sizeof (sigset_t) / sizeof (uint32_t))
-#define	PRMAXFAULT	(32 * sizeof (fltset_t) / sizeof (uint32_t))
-#define	PRMAXSYS	(32 * sizeof (sysset_t) / sizeof (uint32_t))
-
 /* State values returned by Pstate() */
 #define	PS_RUN		1	/* process is running */
 #define	PS_STOP		2	/* process is stopped */
@@ -146,15 +139,6 @@ extern	int	_libproc_incore_elf;	/* only use in-core elf data */
 #define	G_BADLWPS	16	/* Bad '/lwps' specification */
 #define	G_NOFD		17	/* No more file descriptors */
 
-
-typedef	struct {	/* argument descriptor for system call (Psyscall) */
-	long	arg_value;	/* value of argument given to system call */
-	void	*arg_object;	/* pointer to object in controlling process */
-	char	arg_type;	/* AT_BYVAL, AT_BYREF */
-	char	arg_inout;	/* AI_INPUT, AI_OUTPUT, AI_INOUT */
-	ushort_t arg_size;	/* if AT_BYREF, size of object in bytes */
-} argdes_t;
-
 /* values for type */
 #define	AT_BYVAL	1
 #define	AT_BYREF	2
@@ -186,24 +170,12 @@ extern	void	Pfree(struct ps_prochandle *);
 extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);
-extern	char   *Pbrandname(struct ps_prochandle *, char *, size_t);
-extern	int	Pcreate_agent(struct ps_prochandle *);
-extern	void	Pdestroy_agent(struct ps_prochandle *);
 extern	int	Pwait(struct ps_prochandle *, uint_t);
-extern	int	Pstop(struct ps_prochandle *, uint_t);
-extern	int	Pdstop(struct ps_prochandle *);
 extern	int	Pstate(struct ps_prochandle *);
 extern	int	Psetrun(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
-extern	ssize_t	Pwrite(struct ps_prochandle *, const void *, size_t, uintptr_t);
-extern	int	Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
-extern	void	Psetsignal(struct ps_prochandle *, const sigset_t *);
 extern	int	Phasfds(struct ps_prochandle *);
-
-extern	int	Psyscall(struct ps_prochandle *, sysret_t *,
-			int, uint_t, argdes_t *);
-extern	int	Pisprocdir(struct ps_prochandle *, const char *);
 
 /*
  * Symbol table interfaces.
@@ -258,16 +230,10 @@ extern const prmap_t *Plmid_to_map(struct ps_prochandle *,
 extern char *Pobjname(struct ps_prochandle *, uintptr_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, uintptr_t, Lmid_t *);
 
-typedef int proc_env_f(void *, struct ps_prochandle *, const char *);
-
-extern void Pset_procfs_path(const char *);
-
 /*
  * Symbol table iteration interface.
  */
 typedef int proc_sym_f(void *, const GElf_Sym *, const char *);
-typedef int proc_xsym_f(void *, const GElf_Sym *, const char *,
-    const prsyminfo_t *);
 
 extern int Psymbol_iter_by_addr(struct ps_prochandle *,
     const char *, int, int, proc_sym_f *, void *);
@@ -321,22 +287,6 @@ extern void Preset_maps(struct ps_prochandle *);
  */
 extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
 
-/*
- * The following functions define a set of passive interfaces: libproc provides
- * default, empty definitions that are called internally.  If a client wishes
- * to override these definitions, it can simply provide its own version with
- * the same signature that interposes on the libproc definition.
- *
- * If the client program wishes to report additional error information, it
- * can provide its own version of Perror_printf.
- *
- */
-_dt_printflike_(2,3)
-extern void Perror_printf(struct ps_prochandle *P _dt_unused_,
-			  const char *format _dt_unused_, ...);
-
-extern int Pgcore(struct ps_prochandle *, const char *, core_content_t);
-extern int Pfgcore(struct ps_prochandle *, int, core_content_t);
 extern core_content_t Pcontent(struct ps_prochandle *);
 
 extern pid_t ps_getpid(struct ps_prochandle *);
