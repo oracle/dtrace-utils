@@ -1,3 +1,7 @@
+2011-09-28  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec: Fix package name to dtrace-utils.
+
 2011-09-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* INCOMPATIBILITIES: Document lack of userspace tracing, lack of
