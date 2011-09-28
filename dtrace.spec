@@ -1,5 +1,5 @@
 #
-# spec file for package dtrace-user
+# spec file for package dtrace-utils
 #
 # Copyright (c) 2010-2011 Oracle Corporation.
 # This file and all modifications and additions to the pristine
@@ -7,16 +7,16 @@
 #
 
 BuildRequires: rpm
-Name:         dtrace-user
+Name:         dtrace-utils
 License:      CDDL
 Group:        Development/Tools
-Provides:     dtrace-user
+Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel fakeroot
 Summary:      Dtrace user interface.
 Version:      0.1
 Release:      0.1
-Source:       dtrace-user-%{version}.tar.bz2
+Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 BuildArch:    x86_64
 
