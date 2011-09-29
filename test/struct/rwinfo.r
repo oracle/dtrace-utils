@@ -3,7 +3,7 @@
                             :END 
         calls  max bytes  elapsed
 ------  -----  ---------  -------
-  read      7       4096  yes
+  read      9       4096  yes
  write      3       1989  yes
 
 

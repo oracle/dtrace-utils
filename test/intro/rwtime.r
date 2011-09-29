@@ -1,6 +1,5 @@
                    FUNCTION:NAME
                      read:return  nsecs
-                     read:return  nsecs
                     write:return  nsecs
                      read:return  nsecs
                      read:return  nsecs
@@ -20,6 +19,9 @@
                      read:return  nsecs
                      read:return  nsecs
                     write:return  nsecs
+                     read:return  nsecs
+                     read:return  nsecs
+                     read:return  nsecs
                      read:return  nsecs
 
 
