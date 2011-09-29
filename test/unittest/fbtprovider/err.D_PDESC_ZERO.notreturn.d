@@ -26,6 +26,7 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
+/* @@skip: until the fbt provider is implemented */
 
 /*
  * ASSERTION: Call fbt provider over non existent function and make
