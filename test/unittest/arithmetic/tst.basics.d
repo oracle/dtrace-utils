@@ -26,7 +26,7 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: wild negative numbers, tst.basics.d.out does not exist: validate */
+/* @@note: wild negative numbers, tst.basics.d.out does not exist: validate */
 
 /*
  * ASSERTION:
