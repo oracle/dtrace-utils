@@ -65,7 +65,7 @@ if [ "$status" -ne 0 ]; then
 	exit $status
 fi
 
-if [ ! -a "outputFile" ]; then
+if [ ! -e "outputFile" ]; then
 	echo $tst: file not generated
 	exit 1
 fi

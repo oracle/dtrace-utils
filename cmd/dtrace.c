@@ -87,7 +87,7 @@ static int g_impatient;
 static int g_newline;
 static int g_total;
 static int g_cflags;
-static int g_oflags;
+static int g_oflags = DTRACE_O_LP64;
 static int g_verbose;
 static int g_exec = 1;
 static int g_mode = DMODE_EXEC;
