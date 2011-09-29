@@ -69,5 +69,5 @@ if [ ! -e "d.out" ]; then
 	exit 1
 fi
 
-/usr/bin/rm -f "d.out"
+rm -f "d.out"
 exit 0
