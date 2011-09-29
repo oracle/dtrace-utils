@@ -1,6 +1,8 @@
 2011-09-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (g_oflags): Force to the equivalent of -64.
+	* runtest.sh: Fix bug causing runtest.sum and runtest.log to be
+	incomplete in --quiet mode.
 
 2011-09-28  Nick Alcock  <nick.alcock@oracle.com>
 
