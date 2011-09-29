@@ -71,7 +71,7 @@ sleeper()
 		/usr/bin/sleep 1
 		kill -SEGV $!
 	done
-	/usr/bin/rm -f $corefile
+	rm -f $corefile
 }
 
 if [ $# != 1 ]; then

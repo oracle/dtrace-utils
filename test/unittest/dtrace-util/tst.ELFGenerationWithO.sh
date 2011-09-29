@@ -70,5 +70,5 @@ if [ ! -e "outputFile" ]; then
 	exit 1
 fi
 
-/usr/bin/rm -f "outputFile"
+rm -f "outputFile"
 exit 0
