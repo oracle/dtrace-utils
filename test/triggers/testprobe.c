@@ -46,9 +46,7 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < 20; i++) {
         int arg = i;
-
-        if (ioctl(fd, 128, arg) < 0)
-            perror("Req");
+        ioctl(fd, 128, arg);
     }
 
     close(fd);
