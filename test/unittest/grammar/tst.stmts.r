@@ -1,18 +1,5 @@
                    FUNCTION:NAME
                          :tick-1 
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
-              {ptr}
 
                          :tick-1 
 
