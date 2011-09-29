@@ -367,10 +367,13 @@ fail()
     local xfail="$1"
     local xfailmsg="$2"
 
-    # In quiet mode, we may need to print out the test name too.
+    # In quiet mode, we may need to print out the test name too: we will
+    # always want to ensure that it hits the summary file.
 
     if [[ -n $QUIET ]] && [[ -z $xfail ]]; then
         force_out "$_test: "
+    elif [[ -n $QUIET ]]; then
+        out "$_test: "
     fi
 
     shift 2
@@ -404,11 +407,14 @@ pass()
 {
     local xpass="$1"
 
-    # In quiet mode, we may need to print out the test name too.
+    # In quiet mode, we may need to print out the test name too: we will
+    # always want to ensure that it hits the summary file.
 
     if [[ -n $QUIET ]] && [[ -n $xpass ]]; then
         FORCE_OUT=t
         force_out "$_test: "
+    elif [[ -n $QUIET ]]; then
+        out "$_test: "
     fi
 
     if [[ -n "$xpass" ]]; then
