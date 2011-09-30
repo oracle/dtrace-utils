@@ -1,3 +1,17 @@
+2011-09-30  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/Build (libproc_SOURCES): Dropped dt_proc.c.
+	* libproc/dt_proc.c: Deleted.
+	(ps_getpid): Renamed to Pgetpid() and moved to...
+	* libproc/Pcontrol.c (Pgetpid): ... here.
+	* libproc/libproc.h: Renamed ps_getpid() to Pgetpid().
+	* libproc/mapfile-vers: Dropped a lot of nonexistent functions.
+
+	* libdtrace/dt_pid.c: Renamed calls.
+	* libdtrace/dt_proc.c: Likewise.
+
+	* libdtrace/i386/dt_isadep.c: Likewise.
+
 2011-09-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (g_oflags): Force to the equivalent of -64.

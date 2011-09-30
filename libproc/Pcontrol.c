@@ -551,3 +551,10 @@ Pcontent(struct ps_prochandle *P)
 	return (CC_CONTENT_ALL);
 }
 
+pid_t
+Pgetpid(struct ps_prochandle *P)
+{
+	if (P == NULL)
+		return -1;
+	return (P->pid);
+}
