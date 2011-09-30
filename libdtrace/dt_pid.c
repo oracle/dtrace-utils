@@ -115,7 +115,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	int isdash = strcmp("-", func) == 0;
 	pid_t pid;
 
-	pid = ps_getpid(pp->dpp_pr);
+	pid = Pgetpid(pp->dpp_pr);
 
 	dt_dprintf("creating probe pid%d:%s:%s:%s\n", (int)pid, pp->dpp_obj,
 	    func, pp->dpp_name);
@@ -591,7 +591,7 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 		ret = -1;
 		(void) dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_USDT,
 		    "failed to instantiate probes for pid %d: %s",
-		    (int)ps_getpid(P), strerror(errno));
+		    (int)Pgetpid(P), strerror(errno));
 	}
 
 	/*

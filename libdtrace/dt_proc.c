@@ -345,7 +345,7 @@ dt_proc_t *
 dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
-	pid_t pid = ps_getpid(P);
+	pid_t pid = Pgetpid(P);
 	dt_proc_t *dpr, **dpp = &dph->dph_hash[pid & (dph->dph_hashlen - 1)];
 
 	for (dpr = *dpp; dpr != NULL; dpr = dpr->dpr_hash) {
@@ -535,7 +535,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	}
 
 	dpr->dpr_hdl = dtp;
-	dpr->dpr_pid = ps_getpid(dpr->dpr_proc);
+	dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
 	dpr->dpr_created = B_TRUE;
 
 	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_CREATE) != 0) 
@@ -728,7 +728,7 @@ dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	struct ps_prochandle *P = dt_proc_create(dtp, file, argv);
 
 	if (P != NULL && idp != NULL && idp->di_id == 0)
-		idp->di_id = ps_getpid(P); /* $target = created pid */
+		idp->di_id = Pgetpid(P); /* $target = created pid */
 
 	return (P);
 }

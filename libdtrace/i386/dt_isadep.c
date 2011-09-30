@@ -79,7 +79,7 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 {
 	ulong_t i;
 	int size;
-	pid_t pid = ps_getpid(P);
+	pid_t pid = Pgetpid(P);
 #ifdef USERSPACE_TRACEPOINTS
 	char dmodel = Pstatus(P)->pr_dmodel;
 #else
@@ -129,7 +129,7 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	uint8_t *text;
 	ulong_t i, end;
 	int size;
-	pid_t pid = ps_getpid(P);
+	pid_t pid = Pgetpid(P);
 #ifdef USERSPACE_TRACEPOINTS
         char dmodel = Pstatus(P)->pr_dmodel;
 #else
@@ -285,7 +285,7 @@ dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		uint8_t *text;
 		ulong_t i;
 		int size;
-		pid_t pid = ps_getpid(P);
+		pid_t pid = Pgetpid(P);
 #ifdef USERSPACE_TRACEPOINTS
 		char dmodel = Pstatus(P)->pr_dmodel;
 #else
@@ -362,7 +362,7 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	uint8_t *text;
 	int size;
 	ulong_t i, end = symp->st_size;
-	pid_t pid = ps_getpid(P);
+	pid_t pid = Pgetpid(P);
 #ifdef USERSPACE_TRACEPOINTS
         char dmodel = Pstatus(P)->pr_dmodel;
 #else
