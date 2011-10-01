@@ -73,7 +73,7 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 /usr/include/sys/ctf_api.h
 
 %changelog
-* Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
-- Initial build for dtrace.  
 * Tue Sep 27 2011 - nick.alcock@oracle.com - 0.1
 - Branch for initial release.
+* Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
+- Initial build for dtrace.  
