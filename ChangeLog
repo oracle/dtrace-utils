@@ -1,3 +1,7 @@
+2011-10-01  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec (%changelog): Sort correctly.
+
 2011-09-30  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Build (libproc_SOURCES): Dropped dt_proc.c.
