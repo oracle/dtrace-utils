@@ -30,5 +30,6 @@ dtrace_DEPS = libctf.a libdtrace.a libproc.a libport.a
 dtrace_LIBS = -L$(objdir) -lctf -ldtrace -lproc -lport -lelf -lz -lrt -lpthread -ldl
 
 install::
-	mkdir -p $(SBINDIR)
+	mkdir -p $(SBINDIR) $(MANDIR)
 	install -m 755 -o root -g root $(objdir)/dtrace $(SBINDIR)
+	install -m 644 -o root -g root $(dtrace_DIR)/dtrace.1 $(MANDIR)

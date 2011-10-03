@@ -50,7 +50,7 @@ Nick Alcock <nick.alcock@oracle.com>
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN)
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version}
 
 %install
 echo rm -rf $RPM_BUILD_ROOT
@@ -68,9 +68,11 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 %exclude /usr/lib/debug
 /usr/lib/dtrace/*
 /usr/sbin/dtrace
+/usr/share/man/man1/dtrace.1
 /usr/include/sys/dtrace.h
 /usr/include/sys/ctf.h
 /usr/include/sys/ctf_api.h
+/usr/share/doc/dtrace-%{version}/*
 
 %changelog
 * Tue Sep 27 2011 - nick.alcock@oracle.com - 0.1

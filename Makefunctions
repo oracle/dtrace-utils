@@ -55,7 +55,7 @@ $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-t
 endef
 
 # Rule to build a binary, and all its sources.
-# Syntax: $(call lib-template,primary)
+# Syntax: $(call cmd-template,primary)
 
 define cmd-template
 $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
