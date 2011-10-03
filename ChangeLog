@@ -1,5 +1,8 @@
 2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
 
+	* dtrace.spec: Depend on kernel-headers and glibc-headers, to
+	allow successful building on bare systems.
+
 2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* README: New.
