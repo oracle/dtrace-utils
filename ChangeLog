@@ -10,7 +10,7 @@
 	(MANDIR): New.
 	(all): Include a local Build as well.
 	* dtrace.spec: Pass in VERSION. Mention new files.
-	* Build: New, install README, LICENSE and INCOMPATIBILITIES.
+	* Build: New, install README and INCOMPATIBILITIES.
 	* cmd/Build (install): Install cmd/dtrace.1 too.
 
 	* Makefunctions: Fix comment typo.
