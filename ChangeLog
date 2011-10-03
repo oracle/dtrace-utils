@@ -1,3 +1,25 @@
+2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* README: New.
+	* cmd/dtrace.1: Likewise, from OpenSolaris 2009.6.
+	* INCOMPATIBILITIES: Be less emphatic: we don't know how to solve
+	some of these problems yet.
+
+	* GNUmakefile (VERSION): New.
+	(DOCDIR): New, uses VERSION.
+	(MANDIR): New.
+	(all): Include a local Build as well.
+	* dtrace.spec: Pass in VERSION. Mention new files.
+	* Build: New, install README, LICENSE and INCOMPATIBILITIES.
+	* cmd/Build (install): Install cmd/dtrace.1 too.
+
+	* Makefunctions: Fix comment typo.
+
+2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* INCOMPATIBILITIES (Likelihood):
+	* Makefunctions (cc-dependencies):
+
 2011-10-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile: Ensure $(BITNESS) is defined before (INVARIANT_CFLAGS).

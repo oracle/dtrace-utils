@@ -28,6 +28,8 @@
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
+VERSION := 0.1
+
 # Verify supported hardware.
 
 $(if $(subst "x86_64",,$(shell uname -m)),,$(error "Error: Dtrace for Linux only supports x86_64"),)
@@ -48,6 +50,8 @@ LIBDIR := $(DESTDIR)$(prefix)/lib
 BINDIR := $(DESTDIR)$(prefix)/bin
 INCLUDEDIR := $(DESTDIR)$(prefix)/include
 SBINDIR := $(DESTDIR)$(prefix)/sbin
+DOCDIR := $(DESTDIR)$(prefix)/share/doc/dtrace-$(VERSION)
+MANDIR := $(DESTDIR)$(prefix)/share/man/man1
 TARGETS =
 
 all::
@@ -56,7 +60,7 @@ $(shell mkdir -p $(objdir))
 
 include Makeoptions
 include Makefunctions
-include */Build
+include Build */Build
 -include $(objdir)/*.d
 include Makerules
 

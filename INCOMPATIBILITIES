@@ -47,8 +47,8 @@ slow and memory-hungry (as slow and memory-hungry as gdb is when tracing a large
 program).  Worse yet, because DWARF debugging info is so large, it is rarely
 installed, so the output would be incomplete anyway.
 
-So this will instead be fixed by introducing support for .SUNW_ldynsym in the
-Oracle Enterprise Linux toolchain.  Binaries compiled with other toolchains
+So this may instead need to be fixed by introducing support for .SUNW_ldynsym in
+the Oracle Enterprise Linux toolchain.  Binaries compiled with other toolchains
 won't get full tracebacks, but we can live with that.
 
 
@@ -59,11 +59,11 @@ Difficulty: High
 Likelihood: Low
 
 Because Linux dtrace depends on ptrace() at attachment time, a very few tiny
-behavioural changes can be expected in dtraced processes in the instant
-dtrace begins attaching to them.  Notably, a process that has just been
-created or grabbed by dtrace may lose signals sent to it and will not be
-debuggable until dtrace has set it going.  This problem does not exist
-for processes that are already being debugged.
+behavioural changes can be expected in dtraced processes in the instant dtrace
+begins attaching to them.  Notably, a process that has just been created or
+grabbed by dtrace may lose signals sent to it and will not be debuggable until
+dtrace has set it going.  This problem does not exist for processes that are
+already being debugged.
 
 It is highly unlikely that anyone will ever notice this.
 

@@ -1,0 +1,22 @@
+Linux DTrace v0.1 for x86_64 Oracle Unbreakable Enterprise Kernel 2.6.32
+------------
+
+This is the official Linux port of the advanced tracing tool DTrace.
+It relies on a userspace component, a CDDLed kernel module, and a
+few changes in the kernel.
+
+The following components work, so far:
+
+ - the entire D language, with the exception of parts that depend on
+   symbol lookup
+
+ - the syscall provider (with the exception of the clone probe, which
+   is disabled)
+
+ - the profile provider (with the exception of arbitrary-precision
+   profile timers).
+
+ - kernel stack tracebacks, but ustack() prints addresses only, no symbols
+
+Major components not yet present include all the other providers, including sdt
+and usdt.
