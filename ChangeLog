@@ -1,3 +1,7 @@
+2011-10-02  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile: Ensure $(BITNESS) is defined before (INVARIANT_CFLAGS).
+
 2011-10-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec (%changelog): Sort correctly.

@@ -35,8 +35,8 @@ $(if $(subst "Linux",,$(shell uname -s)),,$(error "Error: Dtrace only supports L
 
 CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
-INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(DTO) -D_ILP$(BITNESS) -DCTF_OLD_VERSIONS
 BITNESS := 64
+INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(DTO) -D_ILP$(BITNESS) -DCTF_OLD_VERSIONS
 CPPFLAGS += -Iinclude -Iuts/common
 CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
