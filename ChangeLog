@@ -1,7 +1,9 @@
 2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
 
-	* dtrace.spec (BuildRequires): Depend on kernel-headers and
-	glibc-headers, to allow successful building on bare systems.
+	* dtrace.spec (BuildRequires): Depend on kernel-headers,
+	glibc-headers, byacc, flex, and zlib-devel, to allow successful
+	building on bare systems.
+
 	(%files): Manpage filenames must be gzipped.
 	(%install): Pass VERSION at install-time too.  Don't install the
 	binary twice.
