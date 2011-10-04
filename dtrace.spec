@@ -30,7 +30,7 @@ License:      CDDL
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
-BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot
+BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      Dtrace user interface.
 Version:      0.1
 Release:      0.1
