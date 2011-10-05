@@ -25,6 +25,7 @@ TRIGGERS = testprobe readwholedir mmap bogus-ioctl pid-tst-args1 pid-tst-float p
 
 define trigger-template
 CMDS += $(1)
+TRIGGERS += $(1)
 $(1)_DIR := $(current-dir)
 $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c

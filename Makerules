@@ -40,3 +40,10 @@ TARGETS += cmds
 $(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(cmd))))
 
 cmds: $(foreach cmd,$(CMDS),$(objdir)/$($(cmd)_TARGET))
+
+# The trigger-building rule.  This rule is only used by check targets that do
+# not force a complete build first, so it does not appear in TARGETS.
+# It is otherwise identical to the comamnd-building rule, and relies on
+# the rules it generates.
+
+triggers: $(foreach trigger,$(TRIGGERS),$(objdir)/$($(trigger)_TARGET))

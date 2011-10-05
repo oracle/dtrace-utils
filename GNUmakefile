@@ -75,6 +75,12 @@ check: all
 check-verbose: all
 	./runtest.sh --verbose
 
+check-installed: triggers
+	./runtest.sh --quiet --use-installed
+
+check-installed-verbose: triggers
+	./runtest.sh --verbose --use-installed
+
 TAGS:
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
 

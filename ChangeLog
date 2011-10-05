@@ -1,3 +1,14 @@
+2011-10-05  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Add --use-installed option, to use a dtrace
+	installed to /usr/sbin/dtrace rather than one in the source tree.
+
+	* test/triggers/Build (trigger-template): Append trigger names to
+	new TRIGGERS variable.
+	* Makerules (triggers): New target building only triggers.
+	* GNUmakefile (check-installed): New target, depending on triggers.
+	(check-installed-verbose): Likewise.
+
 2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec (BuildRequires): Depend on kernel-headers,

@@ -250,6 +250,9 @@ Options:
  --[no-]capture-expected: Record results of tests that exit successfully
                           or with a timeout, but have no expected results,
                           as the expected results.
+ --[no-]baddof: Run corrupt-DOF tests.
+ --[no-]use-installed: Use an installed dtrace rather than a copy in the
+                       source tree.
  --help: This message.
 
 If one or more TESTs is provided, they must be the name of .d files existing
@@ -264,6 +267,7 @@ CAPTURE_EXPECTED=
 OVERWRITE_RESULTS=
 NOEXEC=
 BADDOF=
+USE_INSTALLED=
 
 ONLY_TESTS=
 TESTS=
@@ -280,6 +284,8 @@ while [[ $# -gt 0 ]]; do
         --no-execute) NOEXEC=t;;
         --baddof) BADDOF=;;
         --no-baddof) BADDOF=t;;
+        --use-installed) USE_INSTALLED=t;;
+        --no-use-installed) USE_INSTALLED=;;
         --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -469,11 +475,19 @@ postprocess()
     return $retval
 }
 
-dtrace="./build-*/dtrace"
+if [[ -z $USE_INSTALLED ]]; then
+    dtrace="./build-*/dtrace"
 
-if [[ "$(eval echo $dtrace)" = './build-*/dtrace' ]]; then
-	echo "No dtraces available.";
-	exit 1;
+    if [[ "$(eval echo $dtrace)" = './build-*/dtrace' ]]; then
+    	echo "No dtraces available." >&2
+    	exit 1
+    fi
+else
+    dtrace="/usr/sbin/dtrace"
+    if [[ ! -x $dtrace ]]; then
+        echo "$dtrace not available." >&2
+        exit 1
+    fi
 fi
 
 # More than one dtrace tree -> run tests for all dtraces, and verify identical
