@@ -1,3 +1,9 @@
+2011-10-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/*.d*: Remove CDDL.
+	* uts/common/sys/*.h (installed only): Likewise.
+	* dtrace.spec: Likewise.
+
 2011-10-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec (BuildRequires): Depend on kernel-headers,
