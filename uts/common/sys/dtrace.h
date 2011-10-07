@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2009 Oracle, Inc.  All rights reserved.
  */
 
 #ifndef _SYS_DTRACE_H

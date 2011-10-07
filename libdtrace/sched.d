@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2006 Oracle, Inc.  All rights reserved.
  */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"

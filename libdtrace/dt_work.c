@@ -21,7 +21,7 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 

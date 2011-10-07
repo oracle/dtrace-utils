@@ -21,14 +21,14 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2005 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
 echo "\
 /*\n\
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.\n\
+ * Copyright 2005 Oracle, Inc.  All rights reserved.\n\
  * Use is subject to license terms.\n\
  */\n\
 \n\

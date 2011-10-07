@@ -21,10 +21,12 @@
 #
 
 #
-# Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2007 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
+
+# @@skip: not yet ported
 
 #
 # This script tests that several of the mib:::tcp* probes fire and fire
