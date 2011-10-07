@@ -56,6 +56,7 @@ elif [ ! -e $MANDIR/dtrace.1.gz ]; then
 fi
 
 %postun
+MANDIR=/usr/share/man/man1
 if [ -h $MANDIR/dtrace.1.gz ]; then
     rm -f $MANDIR/dtrace.1.gz
 fi
