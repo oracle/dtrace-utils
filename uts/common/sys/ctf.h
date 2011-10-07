@@ -1,5 +1,5 @@
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2004 Oracle, Inc.  All rights reserved.
  */
 
 #ifndef	_CTF_H
