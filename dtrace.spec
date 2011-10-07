@@ -39,7 +39,7 @@ fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} install
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page referances a non-existent binary)
 mv $RPM_BUILD_ROOT/usr/share/man/man1/dtrace.1 \
-    $RPM_BUILD_ROOT/usr/share/man/man1/real-dtrace.1
+    $RPM_BUILD_ROOT/usr/share/man/man1/orcl-dtrace.1
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf "$RPM_BUILD_ROOT"
@@ -50,7 +50,14 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 MANDIR=/usr/share/man/man1
 if [ -e $MANDIR/dtrace.1.gz -a ! -e $MANDIR/systemtap-dtrace.1.gz ]; then
     mv $MANDIR/dtrace.1.gz $MANDIR/systemtap-dtrace.1.gz
-    ln -s $MANDIR/real-dtrace.1.gz $MANDIR/dtrace.1.gz
+    ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
+elif [ ! -e $MANDIR/dtrace.1.gz ]; then
+    ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
+fi
+
+%postun
+if [ -h $MANDIR/dtrace.1.gz ]; then
+    rm -f $MANDIR/dtrace.1.gz
 fi
 
 %files
@@ -59,7 +66,7 @@ fi
 %exclude /usr/lib/debug
 /usr/lib/dtrace/*
 /usr/sbin/dtrace
-/usr/share/man/man1/real-dtrace.1.gz
+/usr/share/man/man1/orcl-dtrace.1.gz
 /usr/include/sys/dtrace.h
 /usr/include/sys/ctf.h
 /usr/include/sys/ctf_api.h
