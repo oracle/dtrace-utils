@@ -1,3 +1,7 @@
+2011-01-07  Philip Copeland  <philip.copeland@oracle.com>
+
+	* dtrace.spec: Work around conflict with SystemTap.
+
 2011-10-06  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/*.d*: Remove CDDL.
