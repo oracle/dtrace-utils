@@ -1,3 +1,8 @@
+2011-10-28  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh (run_with_timeout): Detect dtraces that resist the
+	timeout kill and terminate the test.
+
 2011-10-06  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/*.d*: Remove CDDL.

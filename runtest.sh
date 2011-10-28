@@ -121,6 +121,7 @@ run_with_timeout()
     local timeout=$1
     local cmd=$2
     local pid
+    local dtpid
     local sleepid
     local exited
     local old_ZAPTHESE
@@ -147,6 +148,7 @@ run_with_timeout()
 
     $cmd "$@" &
     pid=$!
+    dtpid=$pid
     ZAPTHESE="$ZAPTHESE $pid"
 
     wait $pid >/dev/null 2>&1
@@ -157,6 +159,15 @@ run_with_timeout()
 
     set +o monitor
     ZAPTHESE="$old_ZAPTHESE"
+
+    if [[ "$(ps -p $dtpid -o ppid=)" -eq $BASHPID ]]; then
+        out "ERROR: hanging dtrace detected. Testing terminated." >&2
+        ps -p $dtpid -o args= | tee -a $LOGFILE >> $SUMFILE
+        # Terminate the test run early: future runs cannot succeed,
+        # and test coverage output is meaningless.
+        unload_modules
+        exit 1
+    fi
 
     if [[ -n $exited ]]; then
         return $exitcode
