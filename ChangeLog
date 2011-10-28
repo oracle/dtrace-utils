@@ -2,6 +2,8 @@
 
 	* runtest.sh (run_with_timeout): Detect dtraces that resist the
 	timeout kill and terminate the test.
+	(unload_modules): Do not hide errors at post-test module unload time.
+	test/modules: Load dtrace before its depenedent modules, not afterwards.
 
 2011-10-06  Nick Alcock  <nick.alcock@oracle.com>
 

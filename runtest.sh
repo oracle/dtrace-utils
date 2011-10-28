@@ -57,10 +57,15 @@ load_modules()
 
 unload_modules()
 {
+    HIDE=$1
     # If running as root, unload all appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
         for name in $(tac ./test/modules); do
-            rmmod $name 2>/dev/null
+            if [[ -z $HIDE ]]; then
+                rmmod $name
+            else
+                rmmod $name 2>/dev/null
+            fi
         done
     fi
 }
@@ -512,7 +517,7 @@ fi
 
 # Unload all modules before initializing test coverage: then load them again
 # afterwards, to acquire initialization and shutdown coverage.
-unload_modules
+unload_modules hide
 
 # Initialize test coverage.
 
