@@ -1,5 +1,10 @@
 2011-11-01  Nick Alcock  <nick.alcock@oracle.com>
 
+	* runtest.sh: Kill dtrace with the TIMEOUTSIG, not just the sleeper.
+	Kill whole process groups at once, not single processes.
+
+2011-11-01  Nick Alcock  <nick.alcock@oracle.com>
+
 	* runtest.sh: Only look for dtraces matching the current kernel.
 	Cater for shell nullglob when checking for lack of dtraces.
 	Fix printout of dtrace name.

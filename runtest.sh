@@ -142,7 +142,7 @@ run_with_timeout()
     # against PID recycling causing the wrong process to be killed if the other
     # job exits at just the wrong instant.  The check for pid being set allows us
     # to avoid one ps(1) call in the common case of no timeout.
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG $sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
@@ -155,7 +155,6 @@ run_with_timeout()
     pid=$!
     dtpid=$pid
     ZAPTHESE="$ZAPTHESE $pid"
-
     wait $pid >/dev/null 2>&1
     local exitcode=$?
     pid=
@@ -346,9 +345,9 @@ fi
 
 declare tmpdir="$(get_dir_name)"
 
-# At shutdown, delete this directory, kill requested processes, and restore
+# At shutdown, delete this directory, kill requested process groups, and restore
 # core_pattern.
-trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 $ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
+trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -$ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
