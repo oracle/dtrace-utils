@@ -1,3 +1,9 @@
+2011-11-01  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Only look for dtraces matching the current kernel.
+	Cater for shell nullglob when checking for lack of dtraces.
+	Fix printout of dtrace name.
+
 2011-10-28  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh (run_with_timeout): Detect dtraces that resist the

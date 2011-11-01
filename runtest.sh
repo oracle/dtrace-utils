@@ -492,9 +492,9 @@ postprocess()
 }
 
 if [[ -z $USE_INSTALLED ]]; then
-    dtrace="./build-*/dtrace"
+    dtrace="./build-$(uname -r)*/dtrace"
 
-    if [[ "$(eval echo $dtrace)" = './build-*/dtrace' ]]; then
+    if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
     	exit 1
     fi
@@ -590,7 +590,7 @@ export _test _pid dt_flags
 for dt in $dtrace; do
 
     if [[ -n $regression ]]; then
-        force_out "\nTest of $dtrace:\n"
+        force_out "\nTest of $dt:\n"
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
