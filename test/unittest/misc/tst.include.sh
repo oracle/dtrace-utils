@@ -75,7 +75,7 @@ if [ ! -x $CC ]; then
 	exit 1
 fi
 
-concurrency=`psrinfo | wc -l`
+concurrency=`grep processor /proc/cpuinfo | wc -l`
 let concurrency=concurrency*4
 let i=0
 
