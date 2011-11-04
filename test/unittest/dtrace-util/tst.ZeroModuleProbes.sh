@@ -25,9 +25,9 @@
 # Use is subject to license terms.
 #
 
-# @@skip: Never terminates for unknown reasons
-
 #ident	"%Z%%M%	%I%	%E% SMI"
+
+# @@xfail: No unix module (yet?)
 
 ##
 #
