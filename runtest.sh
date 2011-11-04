@@ -268,6 +268,8 @@ Options:
  --[no-]baddof: Run corrupt-DOF tests.
  --[no-]use-installed: Use an installed dtrace rather than a copy in the
                        source tree.
+ --quiet: Only show unexpected output (FAILs and XPASSes).
+ --verbose: The opposite of --quiet (and the default).
  --help: This message.
 
 If one or more TESTs is provided, they must be the name of .d files existing

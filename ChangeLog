@@ -1,3 +1,7 @@
+2011-11-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Document --quiet and --verbose.
+
 2011-11-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Kill dtrace with the TIMEOUTSIG, not just the sleeper.
