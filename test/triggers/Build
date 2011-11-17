@@ -31,7 +31,6 @@ $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c
 $(1)_POST := link-trigger
 $(1)_NOCFLAGS := --coverage
-$(1)_LIBS := -lrt
 
 clean::
 	rm -f test/triggers/$(1)
@@ -43,3 +42,5 @@ define link-trigger
 endef
 
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
+proc-tst-sigwait_LIBS := -lrt
+
