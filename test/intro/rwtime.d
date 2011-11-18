@@ -40,3 +40,9 @@ syscall::write:return
 {
 	printf("%d nsecs", timestamp - ts[probefunc]);
 }
+
+syscall::exit_group:entry
+/pid == $1/
+{
+       exit(0);
+}

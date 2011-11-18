@@ -37,6 +37,12 @@ dt_test:::test
 	trace(start);
 }
 
+syscall::exit_group:entry
+/execname == "testprobe"/
+{
+	exit(0);
+}
+
 END
 {
 	printf("test probe is fired: %d\n", start);

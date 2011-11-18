@@ -44,3 +44,9 @@ syscall::mmap:entry
 {
 	printf("mmap with prot = %s", prot[arg2 & 0x7]);
 }
+
+syscall::exit_group:entry
+/pid == $1/
+{
+	exit(0);
+}

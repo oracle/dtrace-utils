@@ -1,11 +1,11 @@
-
                    FUNCTION:NAME
+                exit_group:entry 
                             :END 
         calls  max bytes  elapsed
 ------  -----  ---------  -------
-  read      9       4096  yes
- write      3       1989  yes
+  read      7       4096  yes
+ write      3       2048  yes
 
 
 -- @@stderr --
-dtrace: script 'test/struct/rwinfo.d' matched 5 probes
+dtrace: script 'test/struct/rwinfo.d' matched 6 probes

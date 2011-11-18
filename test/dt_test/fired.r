@@ -19,9 +19,9 @@
                            :test        18
                            :test        19
                            :test        20
-
+                exit_group:entry 
                             :END test probe is fired: 20
 
 
 -- @@stderr --
-dtrace: script 'test/dt_test/fired.d' matched 3 probes
+dtrace: script 'test/dt_test/fired.d' matched 4 probes

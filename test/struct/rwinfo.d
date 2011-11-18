@@ -51,6 +51,12 @@ syscall::read:return, syscall::write:return
 	i[probefunc].elapsed += timestamp - i[probefunc].ts;
 }
 
+syscall::exit_group:entry
+/pid == $1/
+{
+       exit(0);
+}
+
 END
 {
 	printf("\n        calls  max bytes  elapsed\n");

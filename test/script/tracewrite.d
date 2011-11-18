@@ -33,3 +33,10 @@ syscall::write:entry
 /pid == $1/
 {
 }
+
+syscall::exit_group:entry
+/pid == $1/
+{
+       exit(0);
+}
+
