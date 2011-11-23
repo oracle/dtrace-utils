@@ -43,7 +43,7 @@ extern "C" {
 #ifndef	_ASM
 #include <sys/types.h>
 #include <sys/elftypes.h>
-#include <sys/link.h>	/* for Elf*_Dyn */
+#include <link.h>	/* for Elf*_Dyn */
 #endif	/* _ASM */
 
 /*

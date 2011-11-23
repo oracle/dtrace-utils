@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-#include <sys/link.h>
+#include <link.h>
 
 /*
  * iteration over load objects

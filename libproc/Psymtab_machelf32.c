@@ -306,12 +306,14 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 			d[DI_SYMENT] = &dp[i];
 			di_mask |= (1 << DI_SYMENT);
 			break;
+#if 0
 		case DT_SUNW_SYMTAB:
 			d[DI_SUNW_SYMTAB] = &dp[i];
 			break;
 		case DT_SUNW_SYMSZ:
 			d[DI_SUNW_SYMSZ] = &dp[i];
 			break;
+#endif
 
 		/* For the .dynstr section */
 		case DT_STRTAB:

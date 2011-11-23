@@ -25,7 +25,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/link.h>
+#include <link.h>
 #include <sys/dtrace.h>
 #include <sys/compiler.h>
 #include <sys/ioctl.h>
@@ -61,6 +61,8 @@ static const char *modname;	/* Name of this load object */
 static int gen;			/* DOF helper generation */
 extern dof_hdr_t __SUNW_dof;	/* DOF defined in the .SUNW_dof section */
 static boolean_t dof_init_debug = B_FALSE;	/* From DTRACE_DOF_INIT_DEBUG */
+
+typedef struct link_map Link_map;
 
 _dt_constructor_(dtrace_dof_init)
 static void

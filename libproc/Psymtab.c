@@ -1850,10 +1850,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				_dprintf("DT_PLTGOT is %p\n",
 				    (void *)(uintptr_t)d.d_un.d_ptr);
 				break;
+#if 0
 			case DT_SUNW_SYMTAB:
 				_dprintf("DT_SUNW_SYMTAB is %p\n",
 				    (void *)(uintptr_t)d.d_un.d_ptr);
 				break;
+#endif
 			case DT_SYMTAB:
 				_dprintf("DT_SYMTAB is %p\n",
 				    (void *)(uintptr_t)d.d_un.d_ptr);
