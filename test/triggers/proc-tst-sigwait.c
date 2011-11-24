@@ -26,6 +26,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+#include <sys/dtrace_types.h>
 #include <signal.h>
 #include <time.h>
 #include <stdlib.h>

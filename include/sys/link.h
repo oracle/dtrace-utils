@@ -20,25 +20,36 @@
  */
 
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ *	Copyright (c) 1988 AT&T
+ *	  All Rights Reserved
+ *
+ * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+#ifndef _SYS_LINK_H
+#define	_SYS_LINK_H
 
-#pragma weak _gettaskid = gettaskid
-#pragma weak _getprojid = getprojid
-
+#ifndef	_ASM
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
+#include <gelf.h>
+#endif
+#include <link.h>
 
-taskid_t
-gettaskid(void)
-{
-	return 0;
-}
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
-projid_t
-getprojid(void)
-{
-	return 0;
+/*
+ * Public structure defined and maintained within the runtime linker
+ */
+#ifndef        _ASM
+
+typedef struct link_map        Link_map;
+#endif
+
+#ifdef	__cplusplus
 }
+#endif
+
+#endif	/* _SYS_LINK_H */

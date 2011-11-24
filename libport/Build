@@ -24,4 +24,4 @@
 LIBS += libport
 libport_TARGET = libport.a
 libport_DIR := $(current-dir)
-libport_SOURCES = tasksys.c gmatch.c strlcat.c strlcpy.c p_online.c time.c
+libport_SOURCES = gmatch.c strlcat.c strlcpy.c p_online.c time.c

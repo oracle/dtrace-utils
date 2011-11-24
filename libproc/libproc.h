@@ -287,8 +287,6 @@ extern void Preset_maps(struct ps_prochandle *);
  */
 extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
 
-extern core_content_t Pcontent(struct ps_prochandle *);
-
 extern pid_t Pgetpid(struct ps_prochandle *);
 
 #ifdef	__cplusplus

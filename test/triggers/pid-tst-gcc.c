@@ -26,6 +26,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+#include <stdlib.h>
 #include <spawn.h>
 #include <signal.h>
 
@@ -34,7 +35,7 @@ go(void)
 {
 	pid_t pid;
 
-	(void) posix_spawn(&pid, "/usr/bin/ls", NULL, NULL, NULL, NULL);
+	(void) posix_spawn(&pid, "/bin/ls", NULL, NULL, NULL, NULL);
 
 	(void) waitpid(pid, NULL, 0);
 }

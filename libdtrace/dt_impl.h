@@ -35,6 +35,7 @@
 #include <gelf.h>
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 #include <sys/utsname.h>
 #include <sys/compiler.h>
 

@@ -545,12 +545,6 @@ Pread_string(struct ps_prochandle *P,
 	return (leng);
 }
 
-core_content_t
-Pcontent(struct ps_prochandle *P)
-{
-	return (CC_CONTENT_ALL);
-}
-
 pid_t
 Pgetpid(struct ps_prochandle *P)
 {

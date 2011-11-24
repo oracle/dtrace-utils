@@ -8,6 +8,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 
 #ifdef	__cplusplus
 extern "C" {

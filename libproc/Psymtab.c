@@ -1107,10 +1107,6 @@ file_differs(struct ps_prochandle *P, Elf *elf, file_info_t *fptr)
 	if (fptr->file_map == NULL)
 		return (0);
 
-	if ((Pcontent(P) & (CC_CONTENT_TEXT | CC_CONTENT_DATA)) !=
-	    (CC_CONTENT_TEXT | CC_CONTENT_DATA))
-		return (0);
-
 	/*
 	 * First, we find the checksum value in the elf file.
 	 */
@@ -1260,10 +1256,6 @@ fake_elf(struct ps_prochandle *P, file_info_t *fptr)
 #endif
 
 	if (fptr->file_map == NULL)
-		return (NULL);
-
-	if ((Pcontent(P) & (CC_CONTENT_TEXT | CC_CONTENT_DATA)) !=
-	    (CC_CONTENT_TEXT | CC_CONTENT_DATA))
 		return (NULL);
 
 	addr = fptr->file_map->map_pmap.pr_vaddr;

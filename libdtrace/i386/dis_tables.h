@@ -40,6 +40,7 @@ extern "C" {
 #endif
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 #include <sys/param.h>
 
 /*

@@ -24,17 +24,13 @@
  * Use is subject to license terms.
  */
 
-#ifndef TYPES_VARIOUS_H
-#define TYPES_VARIOUS_H
+#ifndef DTRACE_SYS_TYPES_H
+#define DTRACE_SYS_TYPES_H
 
 #include <sys/types.h>
 #include <stdint.h>
 #include <unistd.h>
 
-typedef id_t    taskid_t;
-typedef id_t    projid_t;
-typedef id_t    poolid_t;
-typedef id_t    ctid_t;
 typedef unsigned long   psaddr_t;
 typedef int psetid_t;
 typedef enum { B_FALSE, B_TRUE} boolean_t;
@@ -58,7 +54,6 @@ typedef union {
         uint32_t        _l[2];
 } u_longlong_t;
 #endif  /* defined(_LONGLONG_TYPE) */
-typedef u_longlong_t    core_content_t;
 
 typedef longlong_t      offset_t;
 #if (defined(_KERNEL) || defined(_KMEMUSER) || defined(_BOOT))
@@ -110,13 +105,6 @@ typedef int     ptrdiff_t;              /* (historical version) */
 
 #define	STV_ELIMINATE	6
 
-#define	SHN_SUNW_IGNORE	0xff3f
-
-#define _MAP_NEW        0x80000000      /* users should not need to use this */
-
-#define MC_HAT_ADVISE   7 
-
-
 /*
  *      Definitions for commonly used resolutions.
  */
@@ -125,60 +113,7 @@ typedef int     ptrdiff_t;              /* (historical version) */
 #define MICROSEC        1000000
 #define NANOSEC         1000000000
 
-/*
- *  * Runtime link-map identifiers.
- *   */
-#define LM_ID_BASE              0x00
-#define LM_ID_LDSO              0x01
-#define LM_ID_NUM               2
-
-
 #define SIG2STR_MAX     32
-
-
-/*
- * Definitions of synchronization types.
- */
-#define USYNC_THREAD    0x00            /* private to a process */
-#define USYNC_PROCESS   0x01            /* shared by processes */
-
-#define	PF_SUNW_FAILURE	0x00100000	/* mapping absent due to failure */
-#define	PN_XNUM		0xffff		/* extended program header index */
-
-/*
- * Definitions for corectl() system call.
- */
-
-/* contents */
-#define	CC_CONTENT_STACK	0x0001ULL /* process stack */
-#define	CC_CONTENT_HEAP		0x0002ULL /* process heap */
- 
-/* MAP_SHARED file mappings */
-#define	CC_CONTENT_SHFILE	0x0004ULL /* file-backed shared mapping */
-#define	CC_CONTENT_SHANON	0x0008ULL /* anonymous shared mapping */
- 
-/* MAP_PRIVATE file mappings */
-#define	CC_CONTENT_TEXT		0x0010ULL /* read/exec file mappings */
-#define	CC_CONTENT_DATA		0x0020ULL /* writable file mappings */
-#define	CC_CONTENT_RODATA	0x0040ULL /* read-only file mappings */
-#define	CC_CONTENT_ANON		0x0080ULL /* anonymous mappings (MAP_ANON) */
- 
-#define	CC_CONTENT_SHM		0x0100ULL /* System V shared memory */
-#define	CC_CONTENT_ISM		0x0200ULL /* intimate shared memory */
-#define	CC_CONTENT_DISM		0x0400ULL /* dynamic intimate shared memory */
- 
-#define	CC_CONTENT_CTF		0x0800ULL /* CTF data */
-#define	CC_CONTENT_SYMTAB	0x1000ULL /* symbol table */
- 
-#define	CC_CONTENT_ALL		0x1fffULL
-#define	CC_CONTENT_NONE		0ULL
-#define	CC_CONTENT_DEFAULT	(CC_CONTENT_STACK | CC_CONTENT_HEAP | \
-CC_CONTENT_ISM | CC_CONTENT_DISM | CC_CONTENT_SHM | \
-CC_CONTENT_SHANON | CC_CONTENT_TEXT | CC_CONTENT_DATA | \
-CC_CONTENT_RODATA | CC_CONTENT_ANON | CC_CONTENT_CTF | \
-CC_CONTENT_SYMTAB)
-#define	CC_CONTENT_INVALID	(-1ULL)
-
 
 /*
  * p_flag codes

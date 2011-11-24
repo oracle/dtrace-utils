@@ -25,6 +25,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 #include <time.h>
 #include <pthread.h>
 #include <mutex.h>

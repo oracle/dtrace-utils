@@ -936,9 +936,11 @@ dtrace_update(dtrace_hdl_t *dtp)
 	dt_idhash_lookup(dtp->dt_macros, "pid")->di_id = getpid();
 	dt_idhash_lookup(dtp->dt_macros, "pgid")->di_id = getpgid(0);
 	dt_idhash_lookup(dtp->dt_macros, "ppid")->di_id = getppid();
-	dt_idhash_lookup(dtp->dt_macros, "projid")->di_id = getprojid();
+/*	dt_idhash_lookup(dtp->dt_macros, "projid")->di_id = getprojid(); */
+	dt_idhash_lookup(dtp->dt_macros, "projid")->di_id = 0;
 	dt_idhash_lookup(dtp->dt_macros, "sid")->di_id = getsid(0);
-	dt_idhash_lookup(dtp->dt_macros, "taskid")->di_id = gettaskid();
+/*	dt_idhash_lookup(dtp->dt_macros, "taskid")->di_id = gettaskid(); */
+	dt_idhash_lookup(dtp->dt_macros, "taskid")->di_id = 0;
 	dt_idhash_lookup(dtp->dt_macros, "uid")->di_id = getuid();
 
 	/*
