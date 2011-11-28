@@ -83,7 +83,9 @@ typedef int     ptrdiff_t;              /* (historical version) */
 #endif
 #endif
 
-
+#if !defined(PN_XNUM)
+#define        PN_XNUM         0xffff          /* extended program header index */
+#endif
 
 /*
  * return x rounded up to an align boundary
