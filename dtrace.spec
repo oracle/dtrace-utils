@@ -48,6 +48,7 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 /usr/sbin/dtrace
 /usr/share/man/man1/dtrace.1.gz
 /usr/include/sys/dtrace.h
+/usr/include/sys/dtrace_types.h
 /usr/include/sys/ctf.h
 /usr/include/sys/ctf_api.h
 /usr/share/doc/dtrace-%{version}/*

@@ -1,3 +1,7 @@
+2011-12-04  Nick Alcock <nick.alcock@oracle.com>
+
+	* dtrace.spec: Install /usr/include/sys/dtrace_types.h.
+
 2011-11-23  Pearly Zhao <pearly.zhao@oracle.com>
 
 	* include/sys/link.h: Remove.
@@ -6,7 +10,6 @@
 	* libdtrace/drti.c: Delare Link_map.
 	* libproc/Psymtab.c: Remove the cases that do not exist on Linux.
 	* libproc/Psymtab_machelf32.c: Likewise.
-	 
 
 2011-11-03  Nick Alcock  <nick.alcock@oracle.com>
 
