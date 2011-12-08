@@ -46,7 +46,7 @@ cat > $DIR/Makefile <<EOF
 all: main altlib.so
 
 main: main.o provmain.o
-	cc -o main main.o provmain.o
+	cc -o main main.o provmain.o -ldl
 
 main.o: main.c prov.h
 	cc -c main.c
@@ -64,7 +64,7 @@ altlib.o: altlib.c prov.h
 	cc -c altlib.c
 
 provalt.o: prov.d altlib.o
-	$dtrace -G -o provalt.o -s prov.d altlib.o
+	$dtrace -G -fPIC -o provalt.o -s prov.d altlib.o
 EOF
 
 cat > $DIR/prov.d <<EOF

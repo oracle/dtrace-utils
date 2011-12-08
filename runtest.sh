@@ -493,7 +493,7 @@ postprocess()
 }
 
 if [[ -z $USE_INSTALLED ]]; then
-    dtrace="./build-$(uname -r)*/dtrace"
+    dtrace="$(pwd)/build-$(uname -r)*/dtrace"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2

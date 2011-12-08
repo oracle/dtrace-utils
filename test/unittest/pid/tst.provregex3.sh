@@ -43,7 +43,7 @@ DIR=${TMPDIR:-/tmp}/dtest.$$
 mkdir $DIR
 
 cat > $DIR/Makefile <<EOF
-	all: main
+all: main
 
 main: main.o prov.o
 	cc -o main main.o prov.o

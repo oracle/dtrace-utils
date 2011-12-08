@@ -42,7 +42,7 @@ fi
 
 dtrace=$1
 
-$dtrace $dt_flags -qs /dev/stdin -c "/usr/bin/echo" <<EOF
+$dtrace $dt_flags -qs /dev/stdin -c "/bin/echo" <<EOF
 pid\$target:ld.so.1:calloc:entry
 {
 	self->calloc = 1;
