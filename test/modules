@@ -2,3 +2,4 @@ dtrace
 dt_test
 profile
 systrace
+sdt

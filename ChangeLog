@@ -1,3 +1,7 @@
+2012-01-10  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/modules: Add sdt.
+
 2011-12-04  Nick Alcock <nick.alcock@oracle.com>
 
 	* dtrace.spec: Install /usr/include/sys/dtrace_types.h.
@@ -31,7 +35,7 @@
 	* runtest.sh (run_with_timeout): Detect dtraces that resist the
 	timeout kill and terminate the test.
 	(unload_modules): Do not hide errors at post-test module unload time.
-	test/modules: Load dtrace before its depenedent modules, not afterwards.
+	* test/modules: Load dtrace before its depenedent modules, not afterwards.
 
 2011-10-06  Nick Alcock  <nick.alcock@oracle.com>
 
