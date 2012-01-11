@@ -1,5 +1,9 @@
 2012-01-11  Nick Alcock  <nick.alcock@oracle.com>
 
+	* INCOMPATIBILITIES: sdt is implemented now: mention fbt instead.
+
+2012-01-11  Nick Alcock  <nick.alcock@oracle.com>
+
 	Testsuite cleanups and new bugs.
 
 	* COMMANDLINE-OPTIONS: -c and ranges in -i are broken.

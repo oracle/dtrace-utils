@@ -7,7 +7,7 @@ Missing providers
 Difficulty: Medium
 Likelihood: High
 
-A number of providers are missing, including sdt: and net:.
+A number of providers are missing, including fbt and net.
 
 
 No userspace tracing
@@ -20,7 +20,7 @@ Userspace tracing is simply not implemented yet.
 
 No userspace traceback in ustack()
 ----------------------------------
-Difficulty: Low
+Difficulty: Medium
 Likelihood: High
 
 ustack() and related actions which should print out symbol names in userspace
