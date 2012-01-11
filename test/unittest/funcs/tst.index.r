@@ -1,4 +1,4 @@
-#!/usr/perl5/bin/perl
+#!/usr/bin/perl
 
 BEGIN {
 	if (index("foobarbaz", "barbaz") != 3) {

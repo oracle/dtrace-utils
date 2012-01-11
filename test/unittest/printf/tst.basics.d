@@ -67,7 +67,7 @@ BEGIN
 	printf("%%p = %p\n", (void *)i);
 	printf("%%s = %s\n", "hello");
 	printf("%%u = %u\n", (uint_t)i);
-	printf("%%wc = %wc\n", i);
+/*	printf("%%wc = %wc\n", i); */
 	printf("%%x = %x\n", (uint_t)i);
 	printf("%%X = %X\n", (uint_t)i);
 

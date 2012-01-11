@@ -26,6 +26,8 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+/* @@skip: test.options lossage */
+
 /*
  * ASSERTION:
  *   We set our buffer size absurdly low to prevent a flood of errors that we

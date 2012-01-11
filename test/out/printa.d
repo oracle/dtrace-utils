@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-profile:::profile-997
+profile:::tick-997
 {
 	@a[caller] = count();
 }

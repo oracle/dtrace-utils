@@ -26,6 +26,8 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+/* @@xfail: needs CTF */
+
 /*
  * ASSERTION:
  *   Positive test for ring buffer policy.

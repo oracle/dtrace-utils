@@ -1,5 +1,4 @@
                    FUNCTION:NAME
-                    :tick-10msec       295
                     :tick-10msec       296
                     :tick-10msec       297
                     :tick-10msec       298

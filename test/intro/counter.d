@@ -25,6 +25,7 @@
  */
 
 /* @@trigger: none */
+/* @@timeout: 12 */
 
 /*
  * Count off and report the number of seconds elapsed
@@ -35,6 +36,7 @@ dtrace:::BEGIN
 }
 
 profile:::tick-1sec
+/i < 11/
 {
 	i = i + 1;
 	trace(i);
