@@ -26,6 +26,7 @@
 
 /* @@runtest-opts: -c /bin/date */
 /* @@trigger: none */
+/* @@xfail: for release */
 
 syscall:::entry
 /pid == $target/

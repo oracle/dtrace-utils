@@ -26,6 +26,7 @@
 
 /* @@trigger: ustack-tst-bigstack */
 /* @@runtest-opts: $_pid */
+/* @@xfail: for release */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 

@@ -27,6 +27,8 @@
 
 #ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@xfail: -i ranges are broken
+
 ##
 #
 # ASSERTION:

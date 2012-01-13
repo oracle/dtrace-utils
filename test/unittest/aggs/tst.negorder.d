@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: for release */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option quiet

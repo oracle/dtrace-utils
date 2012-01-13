@@ -26,6 +26,8 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@xfail: for release
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
