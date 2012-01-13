@@ -1,3 +1,15 @@
+2012-01-12  Nick Alcock  <nick.alcock@oracle.com>
+
+	* cmd/dtrace.c (main): Don't emit the inter-loop blank line
+	when testing.
+
+	* test/dt_test/aggcount.r: Adjust accordingly.
+	* test/dtrace/end.r: Likewise.
+	* test/dtrace/error.r: Likewise.
+	* test/intro/counter.r: Likewise.
+	* test/intro/trussrw.r: Likewise.
+	* test/unittest/drops/drp.DTRACEDROP_PRINCIPAL.r: Likewise.
+
 2012-01-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* INCOMPATIBILITIES: sdt is implemented now: mention fbt instead.

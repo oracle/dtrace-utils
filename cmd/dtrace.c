@@ -1829,11 +1829,13 @@ main(int argc, char *argv[])
 		if (!g_intr && !done)
 			dtrace_sleep(g_dtp);
 
-		if (g_newline) {
+		if ((g_newline) && (!g_testing)) {
 			/*
 			 * Output a newline just to make the output look
 			 * slightly cleaner.  Note that we do this even in
-			 * "quiet" mode...
+			 * "quiet" mode...  We don't do it when testing, as the
+			 * newline appears at an essentially random position in
+			 * the output.
 			 */
 			oprintf("\n");
 			g_newline = 0;

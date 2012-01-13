@@ -3,6 +3,5 @@
                     write:return 		 = 
 
 
-
 -- @@stderr --
 dtrace: script 'test/intro/trussrw.d' matched 5 probes

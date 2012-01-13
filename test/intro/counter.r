@@ -10,7 +10,6 @@
                       :tick-1sec         9
                       :tick-1sec        10
                       :tick-1sec        11
-
                             :END        11
 
 -- @@stderr --
