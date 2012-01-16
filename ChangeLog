@@ -1,3 +1,10 @@
+2012-01-16  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/regression/tst.exit_panic.d: New test for crash on
+	destructive exit.
+	* test/unittest/drops/drp.DTRACEDROP_STKSTROVERFLOW.d: No longer
+	expected to fail.
+
 2012-01-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): Don't emit the inter-loop blank line

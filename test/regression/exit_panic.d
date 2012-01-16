@@ -24,30 +24,16 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/* @@trigger: none */
 
 #pragma D option destructive
-#pragma D option jstackstrsize=1
-#pragma D option quiet
 
 BEGIN
 {
-	system("java -version");
-}
-
-syscall:::entry
-{
-	@[jstack()] = count();
+        /* Force some process to exit sharpish. */
+	system("true");
 }
 
 proc:::exit
-/progenyof($pid) && execname == "java"/
 {
-	exit(0);
-}
-
-END
-{
-	printa("\r", @);
-	printf("\n");
 }
