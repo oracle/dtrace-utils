@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: proc:::start not yet implemented */
+
 proc:::start
 {
 	self->start = timestamp;
