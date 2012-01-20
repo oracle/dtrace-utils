@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: for release */
+/* @@skip: for release */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
