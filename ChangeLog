@@ -1,3 +1,7 @@
+2012-01-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec: Set version number.
+
 2012-01-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/regression/tst.exit_panic.d: New test for crash on

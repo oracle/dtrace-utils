@@ -11,7 +11,7 @@ Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      Dtrace user interface.
-Version:      0.1
+Version:      0.2
 Release:      0.1
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -54,6 +54,8 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 /usr/share/doc/dtrace-%{version}/*
 
 %changelog
+* Web Jan 18 2012 - nick.alcock@oracle.com - 0.2
+- Second release, adding SDT support.
 * Tue Sep 27 2011 - nick.alcock@oracle.com - 0.1
 - Branch for initial release.
 * Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
