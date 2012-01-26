@@ -25,6 +25,8 @@
 # Use is subject to license terms.
 #
 
+# @@skip: intermittent lack of trailing linefeed torpedoes results.
+
 #ident	"%Z%%M%	%I%	%E% SMI"
 
 ##
