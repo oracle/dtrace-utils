@@ -4,6 +4,9 @@
 	library path changes for testing of installed dtrace.
 	* runtest.sh (FORCE_OUT): Use it.
 
+	* dtrace.spec: Rename to...
+	* dtrace-utils.spec: ... this, and update.
+
 2012-01-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/regression/tst.exit_panic.d: New test for crash on
