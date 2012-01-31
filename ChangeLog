@@ -1,3 +1,9 @@
+2012-01-31  Nick Alcock  <nick.alcock@oracle.com>
+
+	* cmd/dtrace.c (main): New argument for -t option, disabling
+	library path changes for testing of installed dtrace.
+	* runtest.sh (FORCE_OUT): Use it.
+
 2012-01-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/regression/tst.exit_panic.d: New test for crash on
