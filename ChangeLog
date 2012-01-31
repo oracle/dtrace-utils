@@ -1,3 +1,9 @@
+2012-01-31  Nick Alcock  <nick.alcock@oracle.com>
+
+	* cmd/dtrace.c (main): New argument for -t option, disabling
+	library path changes for testing of installed dtrace.
+	* runtest.sh (FORCE_OUT): Use it.
+
 2012-01-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec: Set version number.

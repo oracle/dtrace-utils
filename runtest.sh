@@ -494,6 +494,7 @@ postprocess()
 
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build-$(uname -r)*/dtrace"
+    use_installed_flag="build"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -501,6 +502,7 @@ if [[ -z $USE_INSTALLED ]]; then
     fi
 else
     dtrace="/usr/sbin/dtrace"
+    use_installed_flag="installed"
     if [[ ! -x $dtrace ]]; then
         echo "$dtrace not available." >&2
         exit 1
@@ -783,7 +785,7 @@ for dt in $dtrace; do
         # Default and substitute in flags.  The raw_dt_flags apply even to a
         # sh invocation.
 
-        raw_dt_flags="-t -Iuts/common"
+        raw_dt_flags="-t $use_installed_flag -Iuts/common"
 
         if [[ $testonly =~ ^err\.D_ ]]; then
             raw_dt_flags="$raw_dt_flags -xerrtags"

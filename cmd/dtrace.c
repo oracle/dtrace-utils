@@ -67,7 +67,7 @@ typedef struct dtrace_cmd {
 #define	E_USAGE		2
 
 static const char DTRACE_OPTSTR[] =
-	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:tSU:vVwx:X:Z";
+	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:t:SU:vVwx:X:Z";
 
 static char **g_argv;
 static int g_argc;
@@ -1503,8 +1503,14 @@ main(int argc, char *argv[])
 
 			case 't':
 				g_testing = 1;
-				if (dtrace_setopt(g_dtp, "syslibdir", "libdtrace/dlibs") != 0)
-					dfatal("failed to set syslibdir to libdtrace/dlibs");
+				/*
+				 * Adjust the library search path only if not
+				 * running a check of an installed dtrace.
+				 */
+				if (strcmp(optarg, "installed") != 0) {
+					if (dtrace_setopt(g_dtp, "syslibdir", "libdtrace/dlibs") != 0)
+						dfatal("failed to set syslibdir to libdtrace/dlibs");
+				}
 				break;
 
 			case 'U':
