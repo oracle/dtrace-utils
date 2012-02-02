@@ -395,7 +395,7 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 static const prmap_t *
 dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P)
 {
-	char m[MAXPATHLEN];
+	char m[PATH_MAX];
 	Lmid_t lmid = PR_LMID_EVERY;
 	const char *obj;
 	const prmap_t *pmp;

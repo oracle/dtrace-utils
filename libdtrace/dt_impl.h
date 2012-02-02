@@ -39,6 +39,10 @@
 #include <sys/utsname.h>
 #include <sys/compiler.h>
 
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -105,7 +109,7 @@ typedef struct dt_sym {
 typedef struct dt_module {
 	dt_list_t dm_list;	/* list forward/back pointers */
 	char dm_name[DTRACE_MODNAMELEN]; /* string name of module */
-	char dm_file[MAXPATHLEN]; /* file path of module (if any) */
+	char dm_file[PATH_MAX]; /* file path of module */
 	struct dt_module *dm_next; /* pointer to next module in hash chain */
 	const dt_modops_t *dm_ops; /* pointer to data model's ops vector */
 	Elf *dm_elf;		/* libelf handle for module object */

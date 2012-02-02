@@ -1,3 +1,12 @@
+2012-02-02  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_impl.h: Use PATH_MAX, not MAXPATHLEN.
+	Give it a reasonably large value if undefined.
+	* libdtrace/dt_cc.c (dt_lib_depend_add): Likewise.
+	* libdtrace/dt_module.c (dt_module_update): Likewise.
+	* libdtrace/dt_pid.c (dt_pid_fix_mod): Likewise.
+	* libdtrace/dt_pragma.c (dt_pragma_depends): Likewise.
+
 2012-01-31  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): New argument for -t option, disabling

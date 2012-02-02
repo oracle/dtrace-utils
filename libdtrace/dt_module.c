@@ -792,7 +792,7 @@ dt_module_modelname(dt_module_t *dmp)
 static void
 dt_module_update(dtrace_hdl_t *dtp, const char *name)
 {
-	char fname[MAXPATHLEN];
+	char fname[PATH_MAX];
 	struct stat st;
 	int fd, err, bits;
 

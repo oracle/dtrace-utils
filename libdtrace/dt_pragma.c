@@ -211,7 +211,7 @@ dt_pragma_depends(const char *prname, dt_node_t *cnp)
 	dt_node_t *nnp = cnp ? cnp->dn_list : NULL;
 	int found;
 	dt_lib_depend_t *dld;
-	char lib[MAXPATHLEN];
+	char lib[PATH_MAX];
 
 	if (cnp == NULL || nnp == NULL ||
 	    cnp->dn_kind != DT_NODE_IDENT || nnp->dn_kind != DT_NODE_IDENT) {

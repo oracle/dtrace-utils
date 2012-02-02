@@ -1738,7 +1738,7 @@ dt_lib_depend_add(dtrace_hdl_t *dtp, dt_list_t *dlp, const char *arg)
 	if ((dld = dt_zalloc(dtp, sizeof (dt_lib_depend_t))) == NULL)
 		return (-1);
 
-	if ((dld->dtld_libpath = dt_alloc(dtp, MAXPATHLEN)) == NULL) {
+	if ((dld->dtld_libpath = dt_alloc(dtp, PATH_MAX)) == NULL) {
 		dt_free(dtp, dld);
 		return (-1);
 	}
