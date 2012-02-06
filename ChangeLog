@@ -1,3 +1,10 @@
+2012-02-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec: Set version number for release.
+	* test/unittest/buffering/err.resize*.d: Boost the timeout.
+	* test/unittest/buffering/tst.resize*.d: Likewise.
+	* test/unittest/buffering/tst.resize*.r: Adjust expected results.
+
 2012-02-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h: Use PATH_MAX, not MAXPATHLEN.
