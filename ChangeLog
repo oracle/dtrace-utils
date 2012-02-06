@@ -1,3 +1,10 @@
+2012-02-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace.spec: Set version number for release.
+	* test/unittest/buffering/err.resize*.d: Boost the timeout.
+	* test/unittest/buffering/tst.resize*.d: Likewise.
+	* test/unittest/buffering/tst.resize*.r: Adjust expected results.
+
 2012-01-31  Nick Alcock  <nick.alcock@oracle.com>
 
 	* cmd/dtrace.c (main): New argument for -t option, disabling
