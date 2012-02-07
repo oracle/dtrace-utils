@@ -36,8 +36,6 @@ libdtrace_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c dt_cg.c \
                     dt_program.c dt_provider.c dt_regset.c dt_string.c \
                     dt_strtab.c dt_subr.c dt_work.c dt_xlator.c
 
-DRTI_OBJ = $(objdir)/drti.o
-
 $(libdtrace_DIR)dt_errtags.c: $(libdtrace_DIR)dt_errtags.h $(libdtrace_DIR)/mkerrtags.sh
 	sh $(libdtrace_DIR)mkerrtags.sh < $(libdtrace_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace_DIR)dt_errtags.c
 
@@ -101,17 +99,28 @@ PHONIES += dlibs working-dlibs
 TARGETS += dlibs working-dlibs
 dlibs: $(call src-name,libdtrace,$(DLIBSRCS))
 
-working-dlibs: $(addprefix $(libdtrace_DIR)dlibs/,$(WORKING_DLIBS))
+working-dlibs: $(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS))
 
-$(addprefix $(libdtrace_DIR)dlibs/,$(WORKING_DLIBS)): $(libdtrace_DIR)dlibs/%: $(libdtrace_DIR)%
-	@mkdir -p $(libdtrace_DIR)dlibs
+$(objdir)/dlibs/.dir.stamp:
+	mkdir -p $(objdir)/dlibs
+	@touch $(objdir)/dlibs/.dir.stamp
+	ln -s ../../$(libdtrace_DIR)/drti-vers $(objdir)/dlibs
+
+$(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/.dir.stamp
+
+$(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/%: $(libdtrace_DIR)%
 	cp -f $^ $@
 
 PHONIES += objs
 TARGETS += objs
+BUILD_DRTI_OBJ = $(objdir)/drti.o
+DRTI_OBJ = $(objdir)/dlibs/drti.o
+
 objs: $(DRTI_OBJ)
-$(DRTI_OBJ): $(libdtrace_DIR)drti.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(libdtrace_CPPFLAGS) -MP -MMD -c -o $(DRTI_OBJ) $(libdtrace_DIR)drti.c
+$(BUILD_DRTI_OBJ): $(libdtrace_DIR)drti.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(libdtrace_CPPFLAGS) -MP -MMD -c -o $@ $^
+$(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
+	ln -s ../../$(BUILD_DRTI_OBJ) $(DRTI_OBJ)
 
 # Custom substitutions.
 
@@ -139,10 +148,9 @@ clean::
 	rm -f $(libdtrace_DIR)dt_grammar.h $(libdtrace_DIR)dt_grammar.c
 	rm -f $(libdtrace_DIR)dt_lex.c
 	rm -f $(addprefix $(libdtrace_DIR),$(BUILD_DLIBS))
-	rm -rf $(libdtrace_DIR)dlibs
 
 install::
 	mkdir -p $(LIBDIR)/dtrace
 	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
-	cd $(libdtrace_DIR)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
-		../drti-vers $(LIBDIR)/dtrace
+	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
+		drti-vers $(LIBDIR)/dtrace

@@ -1508,8 +1508,8 @@ main(int argc, char *argv[])
 				 * running a check of an installed dtrace.
 				 */
 				if (strcmp(optarg, "installed") != 0) {
-					if (dtrace_setopt(g_dtp, "syslibdir", "libdtrace/dlibs") != 0)
-						dfatal("failed to set syslibdir to libdtrace/dlibs");
+					if (dtrace_setopt(g_dtp, "syslibdir", optarg) != 0)
+						dfatal("failed to set syslibdir to %s", optarg);
 				}
 				break;
 

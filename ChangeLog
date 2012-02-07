@@ -1,3 +1,22 @@
+2012-02-07  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build: Install .d files into a subdirectory of the
+	objdir, not the builddir.  Symlink drti.o in there too.
+	* runtest.sh: Pass that new location to dtrace.
+
+	* cmd/dtrace.c (main): Set the syslibdir from the value of the -t
+	option, rather than setting to a hardwired value.
+
+	* libdtrace/dt_impl.h (_dtrace_libdir): Remove: its value is fixed at
+	compile-time, so it should not be used for anything other than setting a
+	default.
+	* libdtrace/dt_link.c (dtrace_program_link): Use the item at the head of
+	the dt_lib_path, rather than the hardwired _dtrace_libdir.
+	* libdtrace/dt_open.c (_dtrace_libdir): Make static.
+	(_dtrace_defcpp): Likewise.
+	(_dtrace_defld): Likewise.
+	(_dtrace_provdir): Likewise.
+
 2012-02-06  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace.spec: Set version number for release.

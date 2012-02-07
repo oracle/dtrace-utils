@@ -1589,6 +1589,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	}
 
 	if (!dtp->dt_lazyload) {
+		dt_dirpath_t *libdir = dt_list_next(&dtp->dt_lib_path);
 		const char *fmt = "%s -o %s -r --version-script=%s /dev/fd/%d %s";
 
 		/*
@@ -1596,8 +1597,8 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		 * to identify the distinct libdirs properly.
 		 */
 
-		snprintf(drti, sizeof (drti), "%s/drti.o", _dtrace_libdir);
-		snprintf(symvers, sizeof (symvers), "%s/drti-vers", _dtrace_libdir);
+		snprintf(drti, sizeof (drti), "%s/drti.o", libdir->dir_path);
+		snprintf(symvers, sizeof (symvers), "%s/drti-vers", libdir->dir_path);
 
 		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file, symvers, fd,
 		    drti) + 1;
