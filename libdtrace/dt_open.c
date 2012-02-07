@@ -643,11 +643,11 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 { DTRACE_STABILITY_UNSTABLE, DTRACE_STABILITY_UNSTABLE, DTRACE_CLASS_COMMON },
 };
 
-const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
-const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
+static const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
+static const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
 
-const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
-const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
+static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
+static const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
 int _dtrace_intbuckets = 256;	/* default number of integer buckets (Pof2) */
