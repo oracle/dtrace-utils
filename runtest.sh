@@ -699,13 +699,15 @@ for dt in $dtrace; do
         #     passing to dtrace.  Unlike dtrace's -D options, this can vary
         #     based on the name of the test.
         #
-        # .x: If executable, a program which when executed returns 0 if the
-        #     program is not expected to fail and nonzero if a failure is
-        #     expected (in which case it can emit to standard output a one-line
-        #     message describing the reason for failure).  This permits tests to
-        #     inspect their environment and determine whether failure is
-        #     expected.  See '@@xfail'.  If both .x and @@xfail exist, only the
-        #     .x is respected.
+        # .x: If executable, a program which when executed indicates whether
+        #     the test is expected to succeed or not in this environment.
+        #     0 indicates expected success, 1 expected failure (in which case
+        #     it can emit to standard output a one-line message describing the
+        #     reason for failure), 2 that the test is unreliable and should be
+        #     skipped.  This permits tests to inspect their environment and
+        #     determine whether failure is expected, or whether they can safely
+        #     run at all.  See '@@xfail'.  If both .x and @@xfail exist, only
+        #     the .x is respected.
         #
         # .t: If executable, serves the same purpose as the '@@trigger'
         #     option above.  If both .t and @@trigger exist, only the .t is
@@ -736,11 +738,14 @@ for dt in $dtrace; do
         xfail=
         xfailmsg=
         if [[ -x $base.x ]]; then
-            # xfail program.  Run and capture its output.
+            # xfail program.  Run, and capture its output.
             xfailmsg="$($base.x)"
-            if [[ $? -ne 0 ]]; then
-                xfail=t
-            fi
+            case $? in
+               0) ;;         # no failure expected
+               1) xfail=t;;  # failure expected
+               2) continue;; # skip
+               *) echo "$base.x: Unexpected return value $?." >&2;;
+            esac
         elif exist_options xfail $_test; then
             xfail=t
             xfailmsg="$(extract_options xfail $_test | sed 's, *$,,')"
