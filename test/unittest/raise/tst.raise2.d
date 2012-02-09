@@ -41,9 +41,9 @@
 BEGIN
 {
 	/*
-	 * Wait no more than a second for the process to call getpid().
+	 * Wait no more than five seconds for the process to call getpid().
 	 */
-	timeout = timestamp + 1000000000;
+	timeout = timestamp + 5000000000;
 }
 
 syscall::getpid:return
@@ -52,12 +52,13 @@ syscall::getpid:return
 	trace("raised");
 	raise(SIGINT);
 	/*
-	 * Wait no more than half a second for the process to die.
+	 * Wait no more than three seconds for the process to die.
 	 */
-	timeout = timestamp + 500000000;
+	timeout = timestamp + 3000000000;
 }
 
-syscall::exit*:entry
+syscall::exit_group:entry
+/pid == $1/
 {
 	exit(0);
 }

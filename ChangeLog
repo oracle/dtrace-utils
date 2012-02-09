@@ -14,6 +14,15 @@
 	* test/spec/spec.d: Check the pid everywhere.
 	* test/unittest/drops/drp.DTRACEDROP.STKSTROVERFLOW.d: Check that
 	the process is ours.
+	* test/raise/tst.raise1.d: Likewise.  Wait longer.
+	* test/raise/tst.raise2.d: Likewise.  Wait longer.
+	* test/raise/tst.raise3.d: Likewise.  Wait longer.
+	* test/raise/tst.raise1.r: We were catching the pre-trigger exit
+	before: regenerate with correct results.
+	* test/raise/tst.raise2.r: Likewise.
+	* test/raise/tst.raise3.r: Likewise.
+	* test/raise/test.options: The raise() action is not yet implemented:
+	these tests are expected to fail.
 
 	* runtest.sh: .x files now return 0 (test), 1 (XFAIL) or 2 (skip).
 	* test/unittest/buffering/tst.resize1.x: New, skip if loadavg > 10.
