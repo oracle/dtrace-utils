@@ -1,5 +1,17 @@
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
+	Fixes for improved test reproducibility under load.
+
+	* test/triggers/open.c: New trigger, call open().
+	* test/triggers/Build (TRIGGERS): Build it.
+	* test/unittest/speculation/tst.NoSpecBuffer.d: Use it.
+
+	* test/spec/spec.d: Check the pid everywhere.
+	* test/unittest/drops/drp.DTRACEDROP.STKSTROVERFLOW.d: Check that
+	the process is ours.
+
+2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
+
 	* uts/common/sys/dtrace.h (DTRACEOPT_QUIETRESIZE): New.
 	(DTRACEOPT_MAX): Adjust.
 

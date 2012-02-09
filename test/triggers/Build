@@ -18,10 +18,10 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
-TRIGGERS = testprobe readwholedir mmap bogus-ioctl pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 ustack-tst-bigstack ustack-tst-spin
+TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 ustack-tst-bigstack ustack-tst-spin
 
 define trigger-template
 CMDS += $(1)

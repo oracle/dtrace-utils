@@ -58,6 +58,7 @@ syscall::getpid:entry
 }
 
 syscall::exit*:entry
+/pid == $1/
 {
 	exit(0);
 }
