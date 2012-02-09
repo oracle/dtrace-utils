@@ -34,7 +34,7 @@
 
 # Sanitize the shell and get configuration info.
 
-shopt -s nullglob
+shopt -s nullglob extglob
 unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
 export LC_COLLATE="C"
@@ -881,6 +881,17 @@ for dt in $dtrace; do
             fi
             ZAPTHESE=
             unset _pid
+        fi
+
+        # Note if dtrace mentions running out of memory at any point.
+        # If it does, this test quietly becomes an expected failure
+        # (without transforming an err.* test into an XPASS).
+        if grep -q "Cannot allocate memory" $tmpdir/test.@(out|err); then
+            xfailmsg="out of memory"
+
+            if [[ $expected_exitcode -eq 0 ]]; then
+                xfail=t
+            fi
         fi
 
         if [[ -n $this_noexec ]]; then
