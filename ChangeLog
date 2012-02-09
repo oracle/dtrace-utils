@@ -3,6 +3,8 @@
 	* runtest.sh: Detect failures due to out-of-memory conditions, and
 	turn them into relatively easy-to-ignore XFAILs.
 
+	* dtrace.spec: Release.
+
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
 	Fixes for improved test reproducibility under load.
