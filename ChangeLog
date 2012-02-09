@@ -1,3 +1,8 @@
+2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build: Relink drti.o correctly if headers change.
+	Do not fail if the drti.o symlink already exists.
+
 2012-02-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build: Install .d files into a subdirectory of the
