@@ -1074,6 +1074,7 @@ static void
 go(void)
 {
 	int i;
+	dtrace_optval_t quiet;
 
 	struct {
 		char *name;
@@ -1103,6 +1104,11 @@ go(void)
 
 	if (dtrace_go(g_dtp) == -1)
 		dfatal("could not enable tracing");
+
+	(void) dtrace_getopt(g_dtp, "quietresize", &quiet);
+
+	if (quiet != DTRACEOPT_UNSET)
+		return;
 
 	for (i = 0; bufs[i].name != NULL; i++) {
 		dtrace_optval_t j = 0, mul = 10;
@@ -1511,6 +1517,10 @@ main(int argc, char *argv[])
 					if (dtrace_setopt(g_dtp, "syslibdir", optarg) != 0)
 						dfatal("failed to set syslibdir to %s", optarg);
 				}
+				/*
+				 * By default, quieten buffer-resize messages.
+				 */
+				dtrace_setopt(g_dtp, "quietresize", 0);
 				break;
 
 			case 'U':

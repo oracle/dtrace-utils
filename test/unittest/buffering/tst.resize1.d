@@ -43,6 +43,7 @@
  *	kernel's trace buffer.
  */
 
+#pragma D option quietresize=no
 #pragma D option preallocate=100t
 #pragma D option bufresize=auto
 #pragma D option bufsize=100t

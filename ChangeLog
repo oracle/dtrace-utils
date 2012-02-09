@@ -1,5 +1,22 @@
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
+	* uts/common/sys/dtrace.h (DTRACEOPT_QUIETRESIZE): New.
+	(DTRACEOPT_MAX): Adjust.
+
+	* libdtrace/dt_options.c (_dtrace_drtoptions): Set it
+	when "quietresize" is requested...
+	* cmd/dtrace.c (main): ... and here, when -t is on.
+	(go): Do not emit buffer-resizing warnings in this case.
+
+	* test/unittest/buffering/err.resize1.d: Turn it off explicitly.
+	* test/unittest/buffering/err.resize2.d: Likewise.
+	* test/unittest/buffering/err.resize3.d: Likewise.
+	* test/unittest/buffering/tst.resize1.d: Likewise.
+	* test/unittest/buffering/tst.resize2.d: Likewise.
+	* test/unittest/buffering/tst.resize3.d: Likewise.
+
+2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/Build: Relink drti.o correctly if headers change.
 	Do not fail if the drti.o symlink already exists.
 
