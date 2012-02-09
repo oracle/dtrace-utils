@@ -39,6 +39,7 @@
  *
  */
 
+#pragma D option quietresize=no
 #pragma D option bufresize=manual
 #pragma D option bufsize=100t
 

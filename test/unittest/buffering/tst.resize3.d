@@ -50,6 +50,7 @@
  *
  */
 
+#pragma D option quietresize=no
 #pragma D option bufresize=auto
 #pragma D option specsize=100t
 

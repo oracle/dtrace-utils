@@ -952,6 +952,7 @@ static const dt_option_t _dtrace_drtoptions[] = {
 	{ "aggsortrev", dt_opt_runtime, DTRACEOPT_AGGSORTREV },
 	{ "flowindent", dt_opt_runtime, DTRACEOPT_FLOWINDENT },
 	{ "quiet", dt_opt_runtime, DTRACEOPT_QUIET },
+	{ "quietresize", dt_opt_runtime, DTRACEOPT_QUIETRESIZE },
 	{ "rawbytes", dt_opt_runtime, DTRACEOPT_RAWBYTES },
 	{ "stackindent", dt_opt_runtime, DTRACEOPT_STACKINDENT },
 	{ "switchrate", dt_opt_rate, DTRACEOPT_SWITCHRATE },
