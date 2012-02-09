@@ -1,6 +1,4 @@
 /*
- * CDDL HEADER START
- *
  * The contents of this file are subject to the terms of the
  * Common Development and Distribution License, Version 1.0 only
  * (the "License").  You may not use this file except in compliance
@@ -20,22 +18,18 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: $_pid */
-/* @@xfail: needs trigger */
+/* A trigger to call open(). */
 
-syscall::open:entry
-/pid==$1/
-{
-	self->spec = speculation();
-}
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-syscall:::
-/self->spec && pid==$1/
+int main (void)
 {
-	speculate(self->spec);
-	printf("this is speculative");
+	int fd = open ("/dev/null", O_RDONLY);
+	return !fd; /* i.e. 0 */
 }

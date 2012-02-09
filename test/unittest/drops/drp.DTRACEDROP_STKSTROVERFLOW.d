@@ -36,6 +36,7 @@ BEGIN
 }
 
 syscall:::entry
+/progenyof($pid)/
 {
 	@[jstack()] = count();
 }

@@ -24,6 +24,9 @@
  * Use is subject to license terms.
  */
 
+/* @@trigger: open */
+/* @@runtest-opts: $_pid */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
@@ -42,7 +45,7 @@ BEGIN
 }
 
 syscall::open:entry
-/i < 2/
+/(i < 2) && (pid == $1)/
 {
 	self->spec = speculation();
 	printf("Speculative buffer ID: %d\n", self->spec);
@@ -50,14 +53,14 @@ syscall::open:entry
 }
 
 syscall:::
-/(2 == i) && (0 == self->spec)/
+/(2 == i) && (0 == self->spec) && (pid == $1)/
 {
 	printf("i: %d\tself->spec: %d", i, self->spec);
 	exit(0);
 }
 
 syscall:::
-/(2 == i) && (0 != self->spec)/
+/(2 == i) && (0 != self->spec) && (pid == $1)/
 {
 	printf("i: %d\tself->spec: %d", i, self->spec);
 	exit(1);
