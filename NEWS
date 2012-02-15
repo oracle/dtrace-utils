@@ -15,3 +15,23 @@ Bugfixes:
  - Several crash fixes.
  - Fixes to arithmetic inside aggregations, fixing quantize().
  - Improvements to the installed headers.
+
+
+0.1
+---
+
+First release. Working components:
+
+ - the entire D language, with the exception of parts that depend on
+   symbol lookup or CTF
+
+ - the syscall provider (with the exception of the clone probe, which
+   is disabled)
+
+ - the profile provider (with the exception of arbitrary-precision
+   profile timers).
+
+ - kernel stack tracebacks, but ustack() prints addresses only, no symbols
+
+Major components not yet present include all the other providers, including sdt
+and usdt.
