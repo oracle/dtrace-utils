@@ -1,3 +1,4 @@
 install::
 	mkdir -p $(DOCDIR)
-	install -m 644 -o root -g root README NEWS INCOMPATIBILITIES $(DOCDIR)
+	install -m 644 -o root -g root README NEWS INCOMPATIBILITIES PROBLEMS \
+		$(DOCDIR)

@@ -1,0 +1,17 @@
+Known problems with DTrace
+--------------
+
+You may occasionally see an oops containing the backtrace
+
+  warn_slowpath_common+0x7f/0xc0
+  warn_slowpath_null+0x1a/0x20
+  smp_call_function_many+0xbd/0x260
+  smp_call_function+0x22/0x30
+  dtrace_xcall+0x35/0x40 [dtrace]
+  dtrace_sync+0x1c/0x20 [dtrace]
+  dtrace_state_clean+0xdd/0x150 [dtrace]
+  cyclic_fire_fn+0x2c/0x60
+  __run_hrtimer+0x84/0x1e0
+  hrtimer_interrupt+0xd6/0x210
+
+This is believed harmless.
