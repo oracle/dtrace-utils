@@ -28,7 +28,7 @@
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
-VERSION := 0.1
+VERSION := 0.2.3
 
 # Verify supported hardware.
 

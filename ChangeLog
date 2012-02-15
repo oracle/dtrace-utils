@@ -1,3 +1,11 @@
+2012-02-15  Nick Alcock  <nick.alcock@oracle.com>
+
+	* NEWS: New, mention changes.
+	* Build: Install it.
+
+	* README: Updated.
+	* GNUmakefile: This is v0.2.3.
+
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Detect failures due to out-of-memory conditions, and

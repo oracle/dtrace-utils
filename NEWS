@@ -1,0 +1,17 @@
+0.2
+---
+
+New features:
+
+ - The SDT provider is implemented, providing in-kernel static probes.  Some of
+   the proc provider is implemented using this facility.
+
+Bugfixes:
+
+ - Syscall tracing of stub-based syscalls (such as fork, clone, exit, and
+   sigreturn) now works.
+ - Invalid memory accesses inside D scripts no longer cause oopses or panics.
+ - Memory exhaustion inside D scripts no longer emits spurious oopses.
+ - Several crash fixes.
+ - Fixes to arithmetic inside aggregations, fixing quantize().
+ - Improvements to the installed headers.
