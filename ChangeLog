@@ -4,7 +4,8 @@
 	* Build: Install it.
 
 	* README: Updated.
-	* GNUmakefile: This is v0.2.3.
+	* GNUmakefile: This is v0.2.4.
+	* dtrace.spec: Likewise.
 
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 

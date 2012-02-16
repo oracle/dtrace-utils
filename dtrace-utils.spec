@@ -11,7 +11,7 @@ Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      DTrace user interface.
-Version:      0.2.3
+Version:      0.2.4
 Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -77,6 +77,8 @@ fi
 /usr/share/doc/dtrace-%{version}/*
 
 %changelog
+* Thu Feb 16 2010 - nick.alcock@oracle.com - 0.2.4
+- Updated README; new NEWS and PROBLEMS; synch with module version
 * Thu Feb  9 2012 - nick.alcock@oracle.com - 0.2.3
 - Fixes for reproducibility of test results under load
 - Fix -G when setting the syslibdir
