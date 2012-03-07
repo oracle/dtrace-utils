@@ -150,7 +150,9 @@ clean::
 	rm -f $(addprefix $(libdtrace_DIR),$(BUILD_DLIBS))
 
 install::
-	mkdir -p $(LIBDIR)/dtrace
+	mkdir -p $(LIBDIR)/dtrace $(INCLUDEDIR)
+	ar rc $(LIBDIR)/libdtrace.a $(wildcard $(objdir)/libdtrace-*.o) $(wildcard $(objdir)/libproc-*.o) $(wildcard $(objdir)libctf-*.o)
+	install -m 644 $(libdtrace_DIR)dtrace.h $(INCLUDEDIR)
 	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
 	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
 		drti-vers $(LIBDIR)/dtrace
