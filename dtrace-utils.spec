@@ -68,8 +68,10 @@ fi
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
 /usr/lib/dtrace/*
+/usr/lib/libdtrace.a
 /usr/sbin/dtrace
 /usr/share/man/man1/orcl-dtrace.1.gz
+/usr/include/dtrace.h
 /usr/include/sys/dtrace.h
 /usr/include/sys/dtrace_types.h
 /usr/include/sys/ctf.h

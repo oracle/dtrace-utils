@@ -1,3 +1,9 @@
+2012-03-07  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build (install): Install a usable libdtrace.a and dtrace.h.
+	* dtrace.utils.spec (%files): Adjusted.
+	* README.build-system: Mention the lack of automated install targets.
+
 2012-02-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* NEWS: New, mention changes.
