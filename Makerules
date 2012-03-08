@@ -46,4 +46,6 @@ cmds: $(foreach cmd,$(CMDS),$(objdir)/$($(cmd)_TARGET))
 # It is otherwise identical to the comamnd-building rule, and relies on
 # the rules it generates.
 
+PHONIES += triggers
+
 triggers: $(foreach trigger,$(TRIGGERS),$(objdir)/$($(trigger)_TARGET))
