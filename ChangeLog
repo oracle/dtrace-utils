@@ -1,3 +1,9 @@
+2012-03-08  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile (PHONIES): Add missing check-installed targets.
+	* Makeoptions (PHONIES): Add help target.
+	* Makerules (PHONIES): Add triggers.
+
 2012-03-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (install): Install a usable libdtrace.a and dtrace.h.

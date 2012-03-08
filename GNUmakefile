@@ -22,7 +22,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 .DELETE_ON_ERROR:
@@ -87,6 +87,6 @@ TAGS:
 tags:
 	rm -f TAGS; find . -name '*.[ch]' | xargs ctags -a
 
-PHONIES += all clean check check-verbose TAGS tags
+PHONIES += all clean check check-verbose check-installed check-installed-verbose TAGS tags
 
 .PHONY: $(PHONIES)
