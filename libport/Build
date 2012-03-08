@@ -18,10 +18,12 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
+BUILDLIBS += libport
 LIBS += libport
-libport_TARGET = libport.a
+libport_TARGET = libport
 libport_DIR := $(current-dir)
 libport_SOURCES = gmatch.c strlcat.c strlcpy.c p_online.c time.c
+libport_LIBSOURCES := libport

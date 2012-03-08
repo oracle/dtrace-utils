@@ -1,5 +1,60 @@
 2012-03-08  Nick Alcock  <nick.alcock@oracle.com>
 
+	Shared library support.
+
+	* README.build-system: Document it.
+
+	* Makerules (libs): Rename to...
+	(build-libs): ... this.  Adjust for _TARGET suffix-derivation.
+	(libs): New.  Build installable static libraries.
+	(shlibs): New. Build shared libraries.
+	(PHONIES): Updated.
+	(TARGETS): Likewise.
+
+	* Makefunctions (cc-template): Allow specification of call-
+	dependent flags.
+	(lib-template): Rename to...
+	(build-lib-template): ... this.  Adjust for _TARGET suffix-
+	derivation.  Prefix the library name with build- automatically.
+	Pass in -fPIC to cc-template.
+	(lib-template): New.  Build an .a from a set of build libraries (or,
+	rather, from the same set of sources as those libraries were built
+	from).
+	(shlib-template): New.  Build an .so, with optional soname and
+	version map file, from a set of build libraries, incorporating
+	everything in those libraries not listed as secondaries.
+
+	* libproc/Build: This is now a build library only (as no
+	non-library uses it).  Adjust for _TARGET suffix-derivation.
+	* libctf/Build: This is a build library as well as static library.
+	Adjust for _TARGET suffix-derivation.
+	* libport/Build: Likewise.
+	* cmd/Build: Link against them, and libdtrace.  Do not link against
+	all of libdtrace's library dependencies.
+	* libdtrace/Build (libdtrace_*): Rename to...
+	(libdtrace-build_*): ... this, to avoid confusion with the
+	installable library.
+	(SHLIBS): libdtrace is now an installable shared library.
+	(libdtrace_LIBS): Imported deps from cmd/Build.
+	(libdtrace_VERSION): This is version 0.0.0.
+	(libdtrace_SONAME): Likewise.
+	(libdtrace_VERSCRIPT): Point at the version script.
+	(libdtrace_LIBSOURCES): Point at the build libraries that go into
+	this shared library.
+	(libdtrace_SECONDARY): Only libdtrace must be included in toto.
+	(install): Install the shared library, not a kludged-together
+	static library.
+
+	* libdtrace/mapfile-vers: Rename to...
+	* libdtrace/libdtrace.ver: ... this.  Remove obsolescent
+	README.mapfiles notice.  Change version name to no longer mention
+	Sun.
+
+	* runtest.sh (first_dtest_dir): Set LD_LIBRARY_PATH when testing a
+	non-installed dtrace.
+
+2012-03-08  Nick Alcock  <nick.alcock@oracle.com>
+
 	* GNUmakefile (PHONIES): Add missing check-installed targets.
 	* Makeoptions (PHONIES): Add help target.
 	* Makerules (PHONIES): Add triggers.

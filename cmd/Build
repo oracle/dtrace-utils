@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 CMDS += dtrace
@@ -26,8 +26,8 @@ dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -Ilibctf -D_LONGLONG_TYPE
 dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
-dtrace_DEPS = libctf.a libdtrace.a libproc.a libport.a
-dtrace_LIBS = -L$(objdir) -lctf -ldtrace -lproc -lport -lelf -lz -lrt -lpthread -ldl
+dtrace_DEPS = libdtrace.so libctf.a libport.a
+dtrace_LIBS = -L$(objdir) -ldtrace -lctf -lport
 
 install::
 	mkdir -p $(SBINDIR) $(MANDIR)
