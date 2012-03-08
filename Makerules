@@ -20,17 +20,22 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
-# Trigger the library-building rule.
+# Trigger the library-building rules.
 
-PHONIES += libs
-TARGETS += libs
+PHONIES += build-libs libs shlibs
+TARGETS += build-libs libs shlibs
+
+$(foreach lib,$(BUILDLIBS),$(eval $(call build-lib-template,$(lib))))
+build-libs: $(foreach lib,$(BUILDLIBS),$(objdir)/build-$($(lib)_TARGET).a)
 
 $(foreach lib,$(LIBS),$(eval $(call lib-template,$(lib))))
+libs: build-libs $(foreach lib,$(LIBS),$(objdir)/$($(lib)_TARGET).a)
 
-libs: $(foreach lib,$(LIBS),$(objdir)/$($(lib)_TARGET))
+$(foreach lib,$(SHLIBS),$(eval $(call shlib-template,$(lib))))
+shlibs: build-libs $(foreach lib,$(SHLIBS),$(objdir)/$($(lib)_TARGET).so)
 
 # Trigger the command-building rule.
 

@@ -19,25 +19,11 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2009 Oracle, Inc.  All rights reserved.
+# Copyright 2009, 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
-#
-# MAPFILE HEADER START
-#
-# WARNING:  STOP NOW.  DO NOT MODIFY THIS FILE.
-# Object versioning must comply with the rules detailed in
-#
-#	usr/src/lib/README.mapfiles
-#
-# You should not be making modifications here until you've read the most current
-# copy of that file. If you need help, contact a gatekeeper for guidance.
-#
-# MAPFILE HEADER END
-#
-
-SUNWprivate_1.1 {
+LIBDTRACE_1.0 {
     global:
 	dtrace_addr2str;
 	dtrace_aggregate_clear;

@@ -596,6 +596,12 @@ for dt in $dtrace; do
         force_out "\nTest of $dt:\n"
     fi
 
+    # If not testing an installed dtrace, we must look for our shared libraries
+    # in the right place.
+    if [[ "x$test_libdir" != "xinstalled" ]]; then
+        export LD_LIBRARY_PATH="$(dirname $dtrace)"
+    fi
+
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
