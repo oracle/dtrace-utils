@@ -166,7 +166,7 @@ install::
 	install -m 644 $(libdtrace-build_DIR)dtrace.h $(INCLUDEDIR)
 	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
 	install -m 755 -o root -g root $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(LIBDIR)
-	ln -s libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_SONAME)
-	ln -s libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
+	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_SONAME)
+	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
 	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
 		drti-vers $(LIBDIR)/dtrace
