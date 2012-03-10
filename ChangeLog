@@ -1,3 +1,9 @@
+2012-03-10  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build: Overwrite already-existing stale shared-
+	library symlinks.
+	* dtrace-utils: We have a .so now, not a .a.
+
 2012-03-08  Nick Alcock  <nick.alcock@oracle.com>
 
 	Shared library support.
