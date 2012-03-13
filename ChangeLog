@@ -1,3 +1,9 @@
+2012-03-13  Nick Alcock  <nick.alcock@oracle.com>
+
+	* NEWS: Mention shared library support.
+	* GNUmakefile: This is v0.2.5.
+	* dtrace.spec: Likewise.
+
 2012-03-10  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build: Overwrite already-existing stale shared-

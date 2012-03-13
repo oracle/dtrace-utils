@@ -1,3 +1,13 @@
+0.2.5
+-----
+
+New features:
+
+ - libdtrace is now a shared library, just as on OpenSolaris, with a very
+   similar API.  No API or ABI compatibility guarantees are made regarding
+   this library, at present.
+
+
 0.2
 ---
 
