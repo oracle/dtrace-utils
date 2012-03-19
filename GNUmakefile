@@ -28,7 +28,7 @@
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
-VERSION := 0.1
+VERSION := trunk
 
 # Verify supported hardware.
 
