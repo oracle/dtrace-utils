@@ -11,7 +11,7 @@ Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      DTrace user interface.
-Version:      0.2.5
+Version:      0.2.6
 Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -47,6 +47,7 @@ mv $RPM_BUILD_ROOT/usr/share/man/man1/dtrace.1 \
 rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 
 %post
+/sbin/ldconfig
 # if systemtap-dtrace.1.gz doesn't exist then we can move the existing dtrace manpage
 MANDIR=/usr/share/man/man1
 if [ -e $MANDIR/dtrace.1.gz -a ! -e $MANDIR/systemtap-dtrace.1.gz ]; then
@@ -57,6 +58,7 @@ elif [ ! -e $MANDIR/dtrace.1.gz ]; then
 fi
 
 %postun
+/sbin/ldconfig
 MANDIR=/usr/share/man/man1
 if [ -h $MANDIR/dtrace.1.gz ]; then
     rm -f $MANDIR/dtrace.1.gz
@@ -79,6 +81,8 @@ fi
 /usr/share/doc/dtrace-%{version}/*
 
 %changelog
+* Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.6
+- Call ldconfig at appropriate times.
 * Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5
 - libdtrace is now a shared library, with non-stable API/ABI.
 * Thu Feb 16 2012 - nick.alcock@oracle.com - 0.2.4

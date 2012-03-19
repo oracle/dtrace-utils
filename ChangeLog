@@ -1,14 +1,19 @@
+2012-03-19  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace-utils.spec: Call ldconfig when necessary.
+	This is v0.2.6.
+
 2012-03-13  Nick Alcock  <nick.alcock@oracle.com>
 
 	* NEWS: Mention shared library support.
 	* GNUmakefile: This is v0.2.5.
-	* dtrace.spec: Likewise.
+	* dtrace-utils.spec: Likewise.
 
 2012-03-10  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build: Overwrite already-existing stale shared-
 	library symlinks.
-	* dtrace-utils: We have a .so now, not a .a.
+	* dtrace-utils.spec: We have a .so now, not a .a.
 
 2012-03-08  Nick Alcock  <nick.alcock@oracle.com>
 
@@ -74,7 +79,7 @@
 2012-03-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (install): Install a usable libdtrace.a and dtrace.h.
-	* dtrace.utils.spec (%files): Adjusted.
+	* dtrace-utils.spec (%files): Adjusted.
 	* README.build-system: Mention the lack of automated install targets.
 
 2012-02-15  Nick Alcock  <nick.alcock@oracle.com>
@@ -84,14 +89,14 @@
 
 	* README: Updated.
 	* GNUmakefile: This is v0.2.4.
-	* dtrace.spec: Likewise.
+	* dtrace-utils.spec: Likewise.
 
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Detect failures due to out-of-memory conditions, and
 	turn them into relatively easy-to-ignore XFAILs.
 
-	* dtrace.spec: Release.
+	* dtrace-utils.spec: Release.
 
 2012-02-09  Nick Alcock  <nick.alcock@oracle.com>
 
@@ -162,7 +167,7 @@
 
 2012-02-06  Nick Alcock  <nick.alcock@oracle.com>
 
-	* dtrace.spec: Set version number for release.
+	* dtrace-utils.spec: Set version number for release.
 	* test/unittest/buffering/err.resize*.d: Boost the timeout.
 	* test/unittest/buffering/tst.resize*.d: Likewise.
 	* test/unittest/buffering/tst.resize*.r: Adjust expected results.
