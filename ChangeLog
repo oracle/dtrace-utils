@@ -1,7 +1,7 @@
 2012-03-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: Call ldconfig when necessary.
-	This is v0.2.6.
+	This is v0.2.5-2.
 
 2012-03-13  Nick Alcock  <nick.alcock@oracle.com>
 
