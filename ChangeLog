@@ -7,10 +7,13 @@
 	(check-verbose): Pass in RUNTESTFLAGS.
 	(check-installed-verbose): Likewise.
 	(check-*-stress): New targets for testing in parallel with stress
-	tests: skips stressful tests that allocate a lot of memory.
+	tests: skips stressful tests that allocate a lot of memory, and
+	avoids comparisons.
 
 	* runtest.sh: New --testsuites= option, constraining test execution
-	to specific subdirectories of test/.
+	to specific subdirectories of test/.  New --no-comparison option,
+	suppressing comparison of expected results and silently converting
+	XPASSes into PASSes.
 
 	* test/{act,buf,builtin,dt_test,dtrace,fbt,intro,io,ip,lockstate,out,
 	proc,profile,sched,script,sdt,spec,struct,sysinfo}/*: Move under

@@ -82,16 +82,16 @@ check-installed-verbose: triggers
 	./runtest.sh --use-installed $(RUNTESTFLAGS)
 
 check-stress: check
-check-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+check-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 check-verbose-stress: check-verbose
-check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 check-installed-stress: check-installed
-check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 check-installed-verbose-stress: check-installed-verbose
-check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 TAGS:
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a

@@ -264,9 +264,14 @@ Options:
  --testsuites=SUITES: Which testsuites (directories under test/) to run,
                       as a comma-separated list.
  --[no-]execute: Execute probes with associated triggers.
+ --[no-]comparison: (Do not) compare results against expected results.
+                    If result comparison is suppressed, XPASSes are
+                    silently converted to PASSes (catering for expected
+                    failures which are shown only via a miscomparison).
  --[no-]capture-expected: Record results of tests that exit successfully
                           or with a timeout, but have no expected results,
-                          as the expected results.
+                          as the expected results.  (Only useful if
+                          --no-comparison is not specified.)
  --[no-]baddof: Run corrupt-DOF tests.
  --[no-]use-installed: Use an installed dtrace rather than a copy in the
                        source tree.
@@ -288,6 +293,7 @@ NOEXEC=
 BADDOF=
 USE_INSTALLED=
 TESTSUITES="unittest stress demo"
+COMPARISON=t
 
 ONLY_TESTS=
 TESTS=
@@ -302,6 +308,8 @@ while [[ $# -gt 0 ]]; do
         --no-capture-expected) CAPTURE_EXPECTED=;;
         --execute) NOEXEC=;;
         --no-execute) NOEXEC=t;;
+        --comparison) COMPARISON=t;;
+        --no-comparison) COMPARISON=;;
         --baddof) BADDOF=;;
         --no-baddof) BADDOF=t;;
         --use-installed) USE_INSTALLED=t;;
@@ -437,14 +445,14 @@ pass()
     # In quiet mode, we may need to print out the test name too: we will
     # always want to ensure that it hits the summary file.
 
-    if [[ -n $QUIET ]] && [[ -n $xpass ]]; then
+    if [[ -n $QUIET ]] && [[ -n $xpass ]] && [[ -n $COMPARISON ]]; then
         FORCE_OUT=t
         force_out "$_test: "
     elif [[ -n $QUIET ]]; then
         out "$_test: "
     fi
 
-    if [[ -n "$xpass" ]]; then
+    if [[ -n "$xpass" ]] && [[ -n $COMPARISON ]]; then
         out "X"
     fi
 
@@ -701,7 +709,8 @@ for dt in $dtrace; do
         #     pass as long as dtrace exits with a zero exitcode or
         #     times out).  If any output is expected on standard error, it
         #     should be appended to this file, after a single line reading
-        #     only "-- @@stderr --".
+        #     only "-- @@stderr --".  Expected-result comparison can also
+        #     be suppressed with the --no-expected command-line parameter.
         #
         # .r.p: Expected-results postprocessor: a filter run before various
         #       hardwired pointer-value-replacement preprocessors which
@@ -925,13 +934,15 @@ for dt in $dtrace; do
         # Note if we will certainly capture results.
 
         capturing=
-        if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $OVERWRITE_RESULTS ]]; then
+        if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $OVERWRITE_RESULTS ]] &&
+           [[ -n $COMPARISON ]]; then
             capturing="results captured"
         fi
 
         # Compare results, if available, and log the diff.
 
-        if [[ -e $base.r ]] && ! diff -u $base.r $tmpdir/test.out >/dev/null; then
+        if [[ -e $base.r ]] && [[ -n $COMPARISON ]] &&
+           ! diff -u $base.r $tmpdir/test.out >/dev/null; then
 
             fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
 
@@ -963,7 +974,8 @@ for dt in $dtrace; do
                 # If results don't already exist and we in capture mode, then
                 # capture them even if forcible capturing is off.
 
-                if [[ -n $CAPTURE_EXPECTED ]] && [[ ! -e $base.r ]]; then
+                if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $COMPARISON ]] &&
+                   [[ ! -e $base.r ]]; then
                     capturing="results captured"
                 fi
 
