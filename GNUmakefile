@@ -69,17 +69,29 @@ all:: $(TARGETS)
 clean::
 	-rm -rf $(objdir) test/log
 
-check: all
-	./runtest.sh --quiet
+check: check-verbose
+check: RUNTESTFLAGS+=--quiet
 
 check-verbose: all
-	./runtest.sh --verbose
+	./runtest.sh $(RUNTESTFLAGS)
 
-check-installed: triggers
-	./runtest.sh --quiet --use-installed
+check-installed: check-installed-verbose
+check-installed: RUNTESTFLAGS+=--quiet
 
 check-installed-verbose: triggers
-	./runtest.sh --verbose --use-installed
+	./runtest.sh --use-installed $(RUNTESTFLAGS)
+
+check-stress: check
+check-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+
+check-verbose-stress: check-verbose
+check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+
+check-installed-stress: check-installed
+check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
+
+check-installed-verbose-stress: check-installed-verbose
+check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo
 
 TAGS:
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
