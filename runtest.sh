@@ -261,6 +261,8 @@ Options:
  --timeout=TIME: Time out test runs after TIME seconds (default 10).
                  (Timeouts are not considered test failures: timing out
                  is normal.)
+ --testsuites=SUITES: Which testsuites (directories under test/) to run,
+                      as a comma-separated list.
  --[no-]execute: Execute probes with associated triggers.
  --[no-]capture-expected: Record results of tests that exit successfully
                           or with a timeout, but have no expected results,
@@ -285,6 +287,7 @@ OVERWRITE_RESULTS=
 NOEXEC=
 BADDOF=
 USE_INSTALLED=
+TESTSUITES="unittest stress demo"
 
 ONLY_TESTS=
 TESTS=
@@ -303,7 +306,8 @@ while [[ $# -gt 0 ]]; do
         --no-baddof) BADDOF=t;;
         --use-installed) USE_INSTALLED=t;;
         --no-use-installed) USE_INSTALLED=;;
-        --timeout=*) TIMEOUT="$(echo $1 | cut -d= -f2-)";;
+        --timeout=*) TIMEOUT="$(printf -- $1 | cut -d= -f2-)";;
+        --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
         --help|--*) usage;;
@@ -557,7 +561,9 @@ if [[ -n $BADDOF ]]; then
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
-                      find test -name "*.d" | sort -u
+                      for name in $TESTSUITES; do
+                          find test/$name -name "*.d" | sort -u
+                      done
                    fi); do
 
         if ! run_with_timeout $TIMEOUT test/utils/baddof $_test > /dev/null 2> $tmpdir/baddof.err; then
@@ -605,7 +611,9 @@ for dt in $dtrace; do
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
-                      find test \( -name "*.d" -o -name "*.sh" \) | sort -u
+                      for name in $TESTSUITES; do
+                          find test/$name \( -name "*.d" -o -name "*.sh" \) | sort -u
+                      done
                    fi); do
 
         base=${_test%.d}

@@ -1,3 +1,24 @@
+2012-03-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	Changes for easier stress-testing.
+
+	* GNUmakefile (check): Reformulate in terms of check-verbose.
+	(check-installed): Reformulate in terms of check-installed-verbose.
+	(check-verbose): Pass in RUNTESTFLAGS.
+	(check-installed-verbose): Likewise.
+	(check-*-stress): New targets for testing in parallel with stress
+	tests: skips stressful tests that allocate a lot of memory.
+
+	* runtest.sh: New --testsuites= option, constraining test execution
+	to specific subdirectories of test/.
+
+	* test/{act,buf,builtin,dt_test,dtrace,fbt,intro,io,ip,lockstate,out,
+	proc,profile,sched,script,sdt,spec,struct,sysinfo}/*: Move under
+	test/demo.
+	* test/{dif,regression}/*: Move under test/unittest.
+	* test/unittest/buffering/*.resize*: Move under stress/buffering.
+	* test/{demo,unittest,stress}/README: New, describe these testsuites.
+
 2012-03-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: Call ldconfig when necessary.
