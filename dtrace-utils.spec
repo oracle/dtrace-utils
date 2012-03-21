@@ -11,8 +11,8 @@ Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf
 BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      DTrace user interface.
-Version:      0.2.5
-Release:      2.el6
+Version:      0.2.6
+Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -81,6 +81,8 @@ fi
 /usr/share/doc/dtrace-%{version}/*
 
 %changelog
+* Wed Mar 21 2012 - nick.alcock@oracle.com - 0.2.6
+- New stress-testing targets 'make check-*-stress'.
 * Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2
 - Call ldconfig at appropriate times.
 * Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5
