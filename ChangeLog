@@ -1,3 +1,15 @@
+2012-03-21  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile: Split out checking targets into...
+	* Makecheck: ... this new makefile fragment. Comment it up.
+	(check-module-loading): New target, load the modules which 'make
+	check' would load, for load-but-no-run checking.
+	(check-probe-all-syscalls, check-installed-probe-all-syscalls):
+	Check a null probe of all syscalls with the build and installed
+	dtrace.
+	(check-probe-all-syscalls-internal): Internal target, doing the
+	work of the above two.
+
 2012-03-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	Changes for easier stress-testing.
