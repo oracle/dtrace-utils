@@ -63,35 +63,12 @@ include Makefunctions
 include Build */Build
 -include $(objdir)/*.d
 include Makerules
+include Makecheck
 
 all:: $(TARGETS)
 
 clean::
 	-rm -rf $(objdir) test/log
-
-check: check-verbose
-check: RUNTESTFLAGS+=--quiet
-
-check-verbose: all
-	./runtest.sh $(RUNTESTFLAGS)
-
-check-installed: check-installed-verbose
-check-installed: RUNTESTFLAGS+=--quiet
-
-check-installed-verbose: triggers
-	./runtest.sh --use-installed $(RUNTESTFLAGS)
-
-check-stress: check
-check-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
-
-check-verbose-stress: check-verbose
-check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
-
-check-installed-stress: check-installed
-check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
-
-check-installed-verbose-stress: check-installed-verbose
-check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 TAGS:
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
@@ -99,6 +76,6 @@ TAGS:
 tags:
 	rm -f TAGS; find . -name '*.[ch]' | xargs ctags -a
 
-PHONIES += all clean check check-verbose check-installed check-installed-verbose TAGS tags
+PHONIES += all clean TAGS tags
 
 .PHONY: $(PHONIES)

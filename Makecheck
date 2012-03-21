@@ -1,0 +1,92 @@
+# Testing targets.
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License, Version 1.0 only
+# (the "License").  You may not use this file except in compliance
+# with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Use is subject to license terms.
+
+# Core testing targets, running the DTrace testsuite runner runtest.sh.
+# -verbose in a target name means to report even tests that pass and
+#           those that are expected to fail;
+# -installed in a target name means to test an installed /usr/sbin/dtrace
+#            rather than a copy in the build tree;
+# -stress in a target name means to skip tests that may fail inappropriately
+#         when the system is under load.
+
+check: check-verbose
+check: RUNTESTFLAGS+=--quiet
+
+check-verbose: all
+	./runtest.sh $(RUNTESTFLAGS)
+
+check-installed: check-installed-verbose
+check-installed: RUNTESTFLAGS+=--quiet
+
+check-installed-verbose: triggers
+	./runtest.sh --use-installed $(RUNTESTFLAGS)
+
+check-stress: check
+check-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+
+check-verbose-stress: check-verbose
+check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+
+check-installed-stress: check-installed
+check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+
+check-installed-verbose-stress: check-installed-verbose
+check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+
+# Load the DTrace modules, and do nothing else.  Useful for testing
+# the impact of inactive DTrace.
+
+check-module-loading:
+	@if [[ "x$$(id -u)" = "x0" ]]; then \
+		for name in $$(cat ./test/modules); do \
+		    modprobe $$name; \
+		done; \
+	else \
+	        echo "Error: cannot load modules as non-root." >&2; \
+		false; \
+	fi
+
+# Trace all syscalls, forever, and throw the results away.
+# The modules are loaded during this process but are not unloaded afterwards.
+
+check-probe-all-syscalls: all check-module-loading check-probe-all-syscalls-internal
+check-probe-all-syscalls: DTRACE=$(objdir)/dtrace
+check-probe-all-syscalls: DT_LIBS=$(objdir)/dtrace/dlibs
+
+# Likewise, using /usr/sbin/dtrace rather than a copy in the build tree.
+
+check-installed-probe-all-syscalls: check-module-loading check-probe-all-syscalls-internal
+check-installed-probe-all-syscalls: DTRACE=/usr/sbin/dtrace
+check-installed-probe-all-syscalls: DT_LIBS=installed
+
+check-probe-all-syscalls-internal:
+	$(DTRACE) -t $(DT_LIBS) -qm 'syscall: {}'
+	@true
+
+PHONIES += check check-verbose check-installed check-installed-verbose
+PHONIES += check-stress check-verbose-stress check-installed-stress
+PHONIES += check-installed-verbose-stress check-module-loading
+PHONIES += check-probe-all-syscalls check-installed-probe-all-syscalls
+PHONIES += check-probe-all-syscalls-internal
