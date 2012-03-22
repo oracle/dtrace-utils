@@ -1,3 +1,7 @@
+2012-03-22  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace-utils.spec: Describe this change.
+
 2012-03-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile: Split out checking targets into...

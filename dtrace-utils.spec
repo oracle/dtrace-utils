@@ -81,8 +81,9 @@ fi
 /usr/share/doc/dtrace-%{version}/*
 
 %changelog
-* Wed Mar 21 2012 - nick.alcock@oracle.com - 0.2.6
-- New stress-testing targets 'make check-*-stress'.
+* Thu Mar 22 2012 - nick.alcock@oracle.com - 0.2.6
+- New testing targets 'make check-*-stress', 'make check-*-probe-all-syscalls',
+  'make check-module-loading'.
 * Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2
 - Call ldconfig at appropriate times.
 * Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5
