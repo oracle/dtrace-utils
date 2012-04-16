@@ -52,13 +52,16 @@ $(libdtrace_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-bui
 	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_errtags.c
 
 $(libdtrace-build_DIR)dt_names.c: uts/common/sys/dtrace.h $(libdtrace-build_DIR)/mknames.sh
+	$(call describe-target,MKNAMES,$(libdtrace-build_DIR)dt_names.c)
 	sh $(libdtrace-build_DIR)mknames.sh < uts/common/sys/dtrace.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_names.c
 
 $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c: $(libdtrace-build_DIR)dt_grammar.y
+	$(call describe-target,YACC,$(libdtrace-build_DIR)dt_grammar.c)
 	$(YACC) -o $(libdtrace-build_DIR)dt_grammar.c -d $(libdtrace-build_DIR)dt_grammar.y
 
 $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_lex.l
-	flex -v -o$(libdtrace-build_DIR)dt_lex.c $(libdtrace-build_DIR)dt_lex.l
+	$(call describe-target,LEX,$(libdtrace-build_DIR)dt_lex.c)
+	flex -o$(libdtrace-build_DIR)dt_lex.c $(libdtrace-build_DIR)dt_lex.l
 
 SED_DLIBS += \
 	procfs.d \
@@ -101,10 +104,12 @@ WORKING_DLIBS = errno.d \
 # Normal substitutions.
 
 $(libdtrace-build_DIR)%.sed: $(libdtrace-build_DIR)%.sed.in
+	$(call describe-target,SED,$<)
 	$(PREPROCESS) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
 
 $(foreach dlib,$(SED_DLIBS),$(call src-name,libdtrace,$(dlib))): %.d: %.sed %.d.in
+	$(call describe-target,SED,$*.d.in)
 	sed -f $*.sed < $*.d.in > $@
 
 PHONIES += dlibs working-dlibs
@@ -121,6 +126,7 @@ $(objdir)/dlibs/.dir.stamp:
 $(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/.dir.stamp
 
 $(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/%: $(libdtrace-build_DIR)%
+	$(call describe-target,CP,$^)
 	cp -f $^ $@
 
 PHONIES += objs
@@ -130,6 +136,7 @@ DRTI_OBJ = $(objdir)/dlibs/drti.o
 
 objs: $(DRTI_OBJ)
 $(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
+	$(call describe-target,CC,$<)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
 $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 	ln -sf ../../$(BUILD_DRTI_OBJ) $(DRTI_OBJ)
@@ -137,10 +144,12 @@ $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 # Custom substitutions.
 
 $(libdtrace-build_DIR)errno.d: /usr/include/asm-generic/errno-base.h
+	$(call describe-target,SED,$(libdtrace-build_DIR)errno.d)
 	$(libdtrace-build_DIR)mkerrno.sh < /usr/include/asm-generic/errno-base.h \
 	| sed -e 's/\\n/\n/g' > $@
 
 $(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
+	$(call describe-target,SED,$(libdtrace-build_DIR)signal.d)
 	$(libdtrace-build_DIR)mksignal.sh < /usr/include/bits/signum.h \
 	| sed -e 's/\\n/\n/g' \
 	| sed -e '/inline int SIGCLD/{h;d}' -e '/"1.0" SIGCHLD/{G;}' \
@@ -150,12 +159,14 @@ $(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
 	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
 $(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)i386/regs.sed.in $(libdtrace-build_DIR)i386/regs.d.in
+	$(call describe-target,SED,$(libdtrace-build_DIR)regs.d)
 	$(PREPROCESS) -x c -Iinclude -D_KERNEL $(libdtrace-build_DIR)i386/regs.sed.in | \
             tr -d ' ' | tr '"' '@' | sed 's/\&/\\\&/g' | grep '^s/' > $(libdtrace-build_DIR)i386/regs.sed
 	sed -f $(libdtrace-build_DIR)i386/regs.sed < $(libdtrace-build_DIR)i386/regs.d.in > $@
 	-rm $(libdtrace-build_DIR)i386/regs.sed
 
 clean::
+	$(call describe-target,CLEAN,libdtrace)
 	rm -f $(libdtrace-build_DIR)dt_errtags.c $(libdtrace-build_DIR)dt_names.c
 	rm -f $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c
 	rm -f $(libdtrace-build_DIR)dt_lex.c
@@ -163,10 +174,16 @@ clean::
 
 install::
 	mkdir -p $(LIBDIR)/dtrace $(INCLUDEDIR)
+	$(call describe-install-target,$(INCLUDEDIR),dtrace.h)
 	install -m 644 $(libdtrace-build_DIR)dtrace.h $(INCLUDEDIR)
-	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
+	$(call describe-install-target,$(LIBDIR),$(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION))
 	install -m 755 -o root -g root $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(LIBDIR)
+	$(call describe-install-target,$(LIBDIR),$(objdir)/$(libdtrace_SONAME))
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_SONAME)
+	$(call describe-install-target,$(LIBDIR),$(objdir)/$(libdtrace_TARGET).so)
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
+	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI_OBJ))
+	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
+	$(call describe-install-target,$(LIBDIR)/dtrace,$(WORKING_DLIBS) drti-vers)
 	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
 		drti-vers $(LIBDIR)/dtrace

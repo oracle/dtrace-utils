@@ -31,5 +31,7 @@ dtrace_LIBS = -L$(objdir) -ldtrace -lctf -lport
 
 install::
 	mkdir -p $(SBINDIR) $(MANDIR)
+	$(call describe-install-target,$(SBINDIR),dtrace)
 	install -m 755 -o root -g root $(objdir)/dtrace $(SBINDIR)
+	$(call describe-install-target,$(MANDIR),dtrace.1)
 	install -m 644 -o root -g root $(dtrace_DIR)/dtrace.1 $(MANDIR)

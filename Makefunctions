@@ -28,11 +28,25 @@
 
 current-dir = $(dir $(lastword $(MAKEFILE_LIST)))
 
-# Rules to generate the name of an object file and source file for a given primary.
+# Functions to generate the name of an object file and source file for a
+# given primary.
 # Syntax: $(call *-name,primary,filename)
 
 obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.c=.o)))
 src-name = $(addprefix $($(1)_DIR),$(2))
+
+# If 'verbose' is not set, this echoes a description and truncated target (or
+# other identifier) for this rule.
+# Syntax: $(call describe-target,description,optional names)
+define describe-target
+$(if $(filter-out $(verbose),no),,$(foreach name,$(2),printf '%s: %s\n' '$(1)' '$(name)';))
+endef
+
+# Describe an installation target.
+# Syntax: $(call describe-install-target,directory,names)
+define describe-install-target
+$(call describe-target,INSTALL,$(addprefix $(1)/,$(2)))
+endef
 
 # Rule to build a C source file.
 # Syntax: $(call cc-template,primary,filename-without-dir,optional flags)
@@ -41,6 +55,7 @@ cc-dependencies = -MP -MMD -MT $(obj-name)
 
 define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep)))
+	$(call describe-target,CC,$(src-name))
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
 
@@ -51,7 +66,8 @@ define build-lib-template
 $(objdir)/build-$($(1)_TARGET).a: $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                                   $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                                   $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
-	ar r $(objdir)/build-$($(1)_TARGET).a $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
+	$(call describe-target,BUILD-AR,$(1)_TARGET.a)
+	ar rc $(objdir)/build-$($(1)_TARGET).a $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/build-$($(1)_TARGET).a))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file),-fPIC)))
@@ -62,7 +78,8 @@ endef
 
 define lib-template
 $(objdir)/$($(1)_TARGET).a: $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
-	ar r $(objdir)/$($(1)_TARGET).a $(foreach build-lib,$($(1)_LIBSOURCES),$(foreach source,$($(build-lib)_SOURCES),$(call obj-name,$(build-lib),$(source))))
+	$(call describe-target,AR,$($(1)_TARGET).a)
+	ar rc $(objdir)/$($(1)_TARGET).a $(foreach build-lib,$($(1)_LIBSOURCES),$(foreach source,$($(build-lib)_SOURCES),$(call obj-name,$(build-lib),$(source))))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET).a))
 endef
 
@@ -73,6 +90,7 @@ comma := ,
 define shlib-template
 $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION)) $(if $($(1)_SONAME),$(objdir)/$($(1)_SONAME)): \
                 $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
+	$(call describe-target,SHLINK,$(objdir)/$($(1)_TARGET).so)
 	$(CC) -o $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION),$(objdir)/$($(1)_TARGET).so) \
 	      -shared $(LDFLAGS) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
 	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$($(1)_VERSCRIPT)) \
@@ -90,6 +108,7 @@ define cmd-template
 $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
+	$(call describe-target,LINK,$($(1)_TARGET))
 	$(CC) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS)) $(LDFLAGS) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
 	      $($(1)_LIBS)

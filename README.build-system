@@ -100,9 +100,38 @@ name_SOANME := soname of this target (strongly recommended)
 name_VERSCRIPT := filename of version script for this target
 name_SECONDARY := list of secondary BUILDLIBS for this target
 
-Extra targets with custom rules can be added as desired by appending
-to TARGETS and name_EXPLICIT: libdtrace/ uses this to build object
-files and .d files.  There is no attempt to automate installation
-rules, so you'll probably need install targets here and there.
-You probably don't want to install build libraries, but there is
-no explicit attempt to stop you.
+Extra targets with custom rules can be added as desired by appending to TARGETS
+and name_EXPLICIT: libdtrace/ uses this to build object files and .d files.
+There is no attempt to automate installation rules, so you'll probably need
+install targets here and there.  You probably don't want to install build
+libraries, but there is no explicit attempt to stop you.
+
+
+Finally, a note on quiet builds.  If 'verbose=yes' is not specified at make time,
+all command echoing is suppressed.  To produce output, two make functions are
+provided, 'describe-target' and 'describe-install-target', which you might want
+to use in custom rules and install targets.  The former, if called like this:
+
+	$(call describe-target,ACTION,file1 file2 file3)
+
+will print
+
+ACTION: file1
+ACTION: file2
+ACTION: file3
+
+The latter, if called like this:
+
+	$(call describe-install-target,/install/directory,file1 file2 file3)
+
+will print
+
+INSTALL: /install/directory/file1
+INSTALL: /install/directory/file2
+INSTALL: /install/directory/file3
+
+You probably want to put a single call to 'describe-target' at the top of a
+custom rule, and put calls to 'describe-install-target' right before each
+invocation of 'install', so that failed installations will indicate their
+failure by the last line they print.  (This is notably annoying: in the future,
+it may be automated away.)

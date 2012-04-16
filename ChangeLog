@@ -1,3 +1,26 @@
+2012-04-16  Nick Alcock  <nick.alcock@oracle.com>
+
+	Silent-by-default build.
+
+	* Makefunctions (describe-target): New, describe a target when silent
+	(describe-install-target): Likewise, for installation.
+	(cc-template): Use it.
+	(build-lib-template): Likewise.
+	(lib-template): Likewise.
+	(shlib-template) Likewise.
+	(cmd-template): Likewise.
+
+	* Makeoptions (verbose): New option: silence make when turned off.
+	(help): Document it.
+	* README.build-system: Likewise.
+
+	* GNUmakefile: Document custom targets.
+	* Build (install): Document this target.
+	* cmd/Build (install): Likewise.
+	* uts/Build (install): Likewise. Split out list of installed files...
+	(HEADERS_INSTALL): ... into this new variable.
+	* libdtrace/Build: Document custom targets and install target.
+
 2012-03-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile: Split out checking targets into...

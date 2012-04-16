@@ -68,12 +68,15 @@ include Makecheck
 all:: $(TARGETS)
 
 clean::
+	$(call describe-target,CLEAN,$(objdir) test/log)
 	-rm -rf $(objdir) test/log
 
 TAGS:
+	$(call describe-target,TAGS)
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
 
 tags:
+	$(call describe-target,tags)
 	rm -f TAGS; find . -name '*.[ch]' | xargs ctags -a
 
 PHONIES += all clean TAGS tags

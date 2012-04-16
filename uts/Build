@@ -24,8 +24,13 @@
 
 uts_DIR := $(current-dir)
 
+HEADERS_INSTALL := common/sys/dtrace.h \
+                   common/sys/dtrace_types.h \
+                   common/sys/ctf.h \
+                   common/sys/ctf_api.h
+
 install::
 	mkdir -p $(INCLUDEDIR)/sys
-	cd $(uts_DIR) && install -m 644 -o root -g root common/sys/dtrace.h \
-	    common/sys/dtrace_types.h common/sys/ctf.h common/sys/ctf_api.h \
+	$(call describe-install-target,$(INCLUDEDIR)/sys,$(HEADERS_INSTALL))
+	cd $(uts_DIR) && install -m 644 -o root -g root $(HEADERS_INSTALL) \
 	    $(INCLUDEDIR)/sys
