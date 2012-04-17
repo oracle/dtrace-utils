@@ -1,3 +1,8 @@
+2012-04-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libctf/ctf_lib.c (ctf_gzwrite): New, compressed writeout.
+	* uts/common/sys/ctf_api.h: Add here too.
+
 2012-04-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	Silent-by-default build.

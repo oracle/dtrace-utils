@@ -23,6 +23,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/ctf.h>
+#include <zlib.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -203,6 +204,7 @@ extern int ctf_set_array(ctf_file_t *, ctf_id_t, const ctf_arinfo_t *);
 extern int ctf_update(ctf_file_t *);
 extern int ctf_discard(ctf_file_t *);
 extern int ctf_write(ctf_file_t *, int);
+extern int ctf_gzwrite(ctf_file_t *fp, gzFile fd);
 
 #ifdef _KERNEL
 

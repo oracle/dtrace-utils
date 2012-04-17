@@ -372,6 +372,27 @@ ctf_open(const char *filename, int *errp)
 }
 
 /*
+ * Write the compressed CTF data stream to the specified gzFile descriptor.
+ * This is useful for saving the results of dynamic CTF containers.
+ */
+int
+ctf_gzwrite(ctf_file_t *fp, gzFile fd)
+{
+	const uchar_t *buf = fp->ctf_base;
+	ssize_t resid = fp->ctf_size;
+	ssize_t len;
+
+	while (resid != 0) {
+		if ((len = gzwrite(fd, buf, resid)) <= 0)
+			return (ctf_set_errno(fp, errno));
+		resid -= len;
+		buf += len;
+	}
+
+	return (0);
+}
+
+/*
  * Write the uncompressed CTF data stream to the specified file descriptor.
  * This is useful for saving the results of dynamic CTF containers.
  */
