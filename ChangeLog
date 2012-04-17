@@ -9,6 +9,9 @@
 	* libctf_ctf_impl.h: Migrate CTF errors into...
 	* uts/common/sys/ctf_api.h: ... here. Add new functions.
 
+	* uts/common/sys/ctf.h: Note that the CTF library does not track
+	parent/child relationships at all.
+
 2012-04-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	Silent-by-default build.

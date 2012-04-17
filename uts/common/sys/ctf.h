@@ -74,6 +74,10 @@ extern "C" {
  * edges may refer to type nodes that exist in another CTF object.  The debugger
  * and libctf library are responsible for connecting the appropriate objects
  * together so that the full set of types can be explored and manipulated.
+ *
+ * This connection is done purely using the ctf_import() function.  There is no
+ * notation anywhere in the child CTF file indicating which parent it is
+ * connected to: it is the debugger's responsibility to track this.
  */
 
 #define	CTF_MAX_TYPE	0xffff	/* max type identifier value */
