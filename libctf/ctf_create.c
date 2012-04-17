@@ -915,7 +915,8 @@ ctf_add_enumerator(ctf_file_t *fp, ctf_id_t enid, const char *name, int value)
 }
 
 int
-ctf_add_member(ctf_file_t *fp, ctf_id_t souid, const char *name, ctf_id_t type)
+ctf_add_member_offset(ctf_file_t *fp, ctf_id_t souid, const char *name,
+    ctf_id_t type, ulong_t bit_offset)
 {
 	ctf_dtdef_t *dtd = ctf_dtd_lookup(fp, souid);
 	ctf_dmdef_t *dmd;
@@ -966,31 +967,42 @@ ctf_add_member(ctf_file_t *fp, ctf_id_t souid, const char *name, ctf_id_t type)
 	dmd->dmd_value = -1;
 
 	if (kind == CTF_K_STRUCT && vlen != 0) {
-		ctf_dmdef_t *lmd = ctf_list_prev(&dtd->dtd_u.dtu_members);
-		ctf_id_t ltype = ctf_type_resolve(fp, lmd->dmd_type);
-		size_t off = lmd->dmd_offset;
+		if (bit_offset == (ulong_t) -1) {
+			/* Natural alignment. */
 
-		ctf_encoding_t linfo;
-		ssize_t lsize;
+			ctf_dmdef_t *lmd = ctf_list_prev(&dtd->dtd_u.dtu_members);
+			ctf_id_t ltype = ctf_type_resolve(fp, lmd->dmd_type);
+			size_t off = lmd->dmd_offset;
 
-		if (ctf_type_encoding(fp, ltype, &linfo) != CTF_ERR)
-			off += linfo.cte_bits;
-		else if ((lsize = ctf_type_size(fp, ltype)) != CTF_ERR)
-			off += lsize * NBBY;
+			ctf_encoding_t linfo;
+			ssize_t lsize;
 
-		/*
-		 * Round up the offset of the end of the last member to the
-		 * next byte boundary, convert 'off' to bytes, and then round
-		 * it up again to the next multiple of the alignment required
-		 * by the new member.  Finally, convert back to bits and store
-		 * the result in dmd_offset.  Technically we could do more
-		 * efficient packing if the new member is a bit-field, but
-		 * we're the "compiler" and ANSI says we can do as we choose.
-		 */
-		off = roundup(off, NBBY) / NBBY;
-		off = roundup(off, MAX(malign, 1));
-		dmd->dmd_offset = off * NBBY;
-		ssize = off + msize;
+			if (ctf_type_encoding(fp, ltype, &linfo) != CTF_ERR)
+				off += linfo.cte_bits;
+			else if ((lsize = ctf_type_size(fp, ltype)) != CTF_ERR)
+				off += lsize * NBBY;
+
+			/*
+			 * Round up the offset of the end of the last member to
+			 * the next byte boundary, convert 'off' to bytes, and
+			 * then round it up again to the next multiple of the
+			 * alignment required by the new member.  Finally,
+			 * convert back to bits and store the result in
+			 * dmd_offset.  Technically we could do more efficient
+			 * packing if the new member is a bit-field, but we're
+			 * the "compiler" and ANSI says we can do as we choose.
+			 */
+			off = roundup(off, NBBY) / NBBY;
+			off = roundup(off, MAX(malign, 1));
+			dmd->dmd_offset = off * NBBY;
+			ssize = off + msize;
+		} else {
+			/* Specified offset in bits. */
+
+			dmd->dmd_offset = bit_offset;
+			ssize = ctf_get_ctt_size(fp, &dtd->dtd_data, NULL, NULL);
+			ssize = MAX(ssize, (bit_offset / NBBY) + msize);
+		}
 	} else {
 		dmd->dmd_offset = 0;
 		ssize = ctf_get_ctt_size(fp, &dtd->dtd_data, NULL, NULL);
@@ -1012,6 +1024,12 @@ ctf_add_member(ctf_file_t *fp, ctf_id_t souid, const char *name, ctf_id_t type)
 
 	fp->ctf_flags |= LCTF_DIRTY;
 	return (0);
+}
+
+int
+ctf_add_member(ctf_file_t *fp, ctf_id_t souid, const char *name, ctf_id_t type)
+{
+	return ctf_add_member_offset(fp, souid, name, type, (ulong_t) -1);
 }
 
 static int

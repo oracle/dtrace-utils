@@ -1,7 +1,12 @@
 2012-04-17  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libctf/ctf_create.c (ctf_add_member): Re-express in terms
+	of...
+	(ctf_add_member_offset): ... this new function, which can
+	explicitly specify the offset of members.
 	* libctf/ctf_lib.c (ctf_gzwrite): New, compressed writeout.
-	* uts/common/sys/ctf_api.h: Add here too.
+
+	* uts/common/sys/ctf_api.h: New functions.
 
 2012-04-16  Nick Alcock  <nick.alcock@oracle.com>
 
