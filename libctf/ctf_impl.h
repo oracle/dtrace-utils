@@ -223,53 +223,6 @@ struct ctf_file {
 #define	LCTF_RDWR	0x0004	/* CTF container is writable */
 #define	LCTF_DIRTY	0x0008	/* CTF container has been modified */
 
-#define	ECTF_BASE	1000	/* base value for libctf errnos */
-
-enum {
-	ECTF_FMT = ECTF_BASE,	/* file is not in CTF or ELF format */
-	ECTF_ELFVERS,		/* ELF version is more recent than libctf */
-	ECTF_CTFVERS,		/* CTF version is more recent than libctf */
-	ECTF_ENDIAN,		/* data is different endian-ness than lib */
-	ECTF_SYMTAB,		/* symbol table uses invalid entry size */
-	ECTF_SYMBAD,		/* symbol table data buffer invalid */
-	ECTF_STRBAD,		/* string table data buffer invalid */
-	ECTF_CORRUPT,		/* file data corruption detected */
-	ECTF_NOCTFDATA,		/* ELF file does not contain CTF data */
-	ECTF_NOCTFBUF,		/* buffer does not contain CTF data */
-	ECTF_NOSYMTAB,		/* symbol table data is not available */
-	ECTF_NOPARENT,		/* parent CTF container is not available */
-	ECTF_DMODEL,		/* data model mismatch */
-	ECTF_MMAP,		/* failed to mmap a data section */
-	ECTF_ZALLOC,		/* failed to allocate decompression buffer */
-	ECTF_DECOMPRESS,	/* failed to decompress CTF data */
-	ECTF_STRTAB,		/* string table for this string is missing */
-	ECTF_BADNAME,		/* string offset is corrupt w.r.t. strtab */
-	ECTF_BADID,		/* invalid type ID number */
-	ECTF_NOTSOU,		/* type is not a struct or union */
-	ECTF_NOTENUM,		/* type is not an enum */
-	ECTF_NOTSUE,		/* type is not a struct, union, or enum */
-	ECTF_NOTINTFP,		/* type is not an integer or float */
-	ECTF_NOTARRAY,		/* type is not an array */
-	ECTF_NOTREF,		/* type does not reference another type */
-	ECTF_NAMELEN,		/* buffer is too small to hold type name */
-	ECTF_NOTYPE,		/* no type found corresponding to name */
-	ECTF_SYNTAX,		/* syntax error in type name */
-	ECTF_NOTFUNC,		/* symtab entry does not refer to a function */
-	ECTF_NOFUNCDAT,		/* no func info available for function */
-	ECTF_NOTDATA,		/* symtab entry does not refer to a data obj */
-	ECTF_NOTYPEDAT,		/* no type info available for object */
-	ECTF_NOLABEL,		/* no label found corresponding to name */
-	ECTF_NOLABELDATA,	/* file does not contain any labels */
-	ECTF_NOTSUP,		/* feature not supported */
-	ECTF_NOENUMNAM,		/* enum element name not found */
-	ECTF_NOMEMBNAM,		/* member name not found */
-	ECTF_RDONLY,		/* CTF container is read-only */
-	ECTF_DTFULL,		/* CTF type is full (no more members allowed) */
-	ECTF_FULL,		/* CTF container is full */
-	ECTF_DUPMEMBER,		/* duplicate member name definition */
-	ECTF_CONFLICT		/* conflicting type definition present */
-};
-
 extern ssize_t ctf_get_ctt_size(const ctf_file_t *, const ctf_type_t *,
     ssize_t *, ssize_t *);
 

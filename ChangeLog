@@ -6,7 +6,8 @@
 	explicitly specify the offset of members.
 	* libctf/ctf_lib.c (ctf_gzwrite): New, compressed writeout.
 
-	* uts/common/sys/ctf_api.h: New functions.
+	* libctf_ctf_impl.h: Migrate CTF errors into...
+	* uts/common/sys/ctf_api.h: ... here. Add new functions.
 
 2012-04-16  Nick Alcock  <nick.alcock@oracle.com>
 
