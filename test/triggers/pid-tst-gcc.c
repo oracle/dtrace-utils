@@ -27,7 +27,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <stdlib.h>
-#include <spawn.h>
+#include <unistd.h>
 #include <signal.h>
 
 void

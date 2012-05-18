@@ -37,6 +37,8 @@
 
 #pragma weak _go = go
 
+int _go(int a);
+
 int
 go(int a)
 {
