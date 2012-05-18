@@ -76,8 +76,6 @@ fi
 /usr/include/dtrace.h
 /usr/include/sys/dtrace.h
 /usr/include/sys/dtrace_types.h
-/usr/include/sys/ctf.h
-/usr/include/sys/ctf_api.h
 %doc /usr/share/doc/dtrace-%{version}/*
 
 %changelog
