@@ -30,6 +30,10 @@
 	* uts/common/sys/ctfs.h: Delete, we do not have an in-kernel CTF
 	filesystem.
 	* uts/common/sys/ctfs_impl.h: Likewise.
+	* uts/common/sys/dtrace_types.h: Migrate some types into
+	<sys/ctf_types.h> in the submodule.  Drop a bunch of
+	kernel-only declarations, declarations of stuff provided by Linux
+	for years, and declarations of stuff in C for years.
 
 	* GNUmakefile (PROJECT): New, name this project (used by
 	libdtrace-ctf Build files to detect building as part of dtrace).

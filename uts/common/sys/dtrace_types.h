@@ -28,7 +28,7 @@
 #define DTRACE_SYS_TYPES_H
 
 #include <sys/types.h>
-#include <stdint.h>
+#include <sys/ctf_types.h>
 #include <unistd.h>
 
 typedef unsigned long   psaddr_t;
@@ -56,50 +56,10 @@ typedef union {
 #endif  /* defined(_LONGLONG_TYPE) */
 
 typedef longlong_t      offset_t;
-#if (defined(_KERNEL) || defined(_KMEMUSER) || defined(_BOOT))
-typedef uint64_t        paddr_t;
-#endif
 
 typedef unsigned long long hrtime_t;
 
-/*
- * POSIX Extensions
- */
-typedef unsigned char   uchar_t;
-typedef unsigned short  ushort_t;
-typedef unsigned int    uint_t;
-typedef unsigned long   ulong_t;
-
-#ifndef _LARGEFILE64_SOURCE
-typedef unsigned long long off64_t;
-#endif
-
-#if !defined(_PTRDIFF_T) || __cplusplus >= 199711L
-#define _PTRDIFF_T
-#if defined(_LP64) || defined(_I32LPx)
-typedef long    ptrdiff_t;              /* pointer difference */
-#else
-typedef int     ptrdiff_t;              /* (historical version) */
-#endif
-#endif
-
-#if !defined(PN_XNUM)
-#define        PN_XNUM         0xffff          /* extended program header index */
-#endif
-
-/*
- * return x rounded up to an align boundary
- * eg, P2ROUNDUP(0x1234, 0x100) == 0x1300 (0x13*align)
- * eg, P2ROUNDUP(0x5600, 0x100) == 0x5600 (0x56*align)
- */
-#define	P2ROUNDUP(x, align)		(-(-(x) & -(align)))
-
-#if __KERNEL__
-#define PAGESIZE        PAGE_SIZE
-#else
 #define PAGESIZE        (_sysconf(_SC_PAGESIZE))
-#endif /*__KERNEL__*/
-
 
 #define	SHT_SUNW_dof		0x6ffffff4
 
