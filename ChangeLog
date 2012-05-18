@@ -64,6 +64,14 @@
 	(tags): Fix filename.
 	(realclean): Like clean, only removes tags files too.
 
+	* Makefunctions (describe-install-target): Strip the
+	path from the name.
+	(lib-template): Expand the TARGET in the description of the built
+	library.
+	* libdtrace/Build (install): Strip the path from the installed
+	object descriptions.
+	* uts/Build (install): Likewise.
+
 2012-04-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libctf/ctf_create.c (ctf_add_member): Re-express in terms

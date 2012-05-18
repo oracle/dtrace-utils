@@ -29,6 +29,6 @@ HEADERS_INSTALL := common/sys/dtrace.h \
 
 install::
 	mkdir -p $(INCLUDEDIR)/sys
-	$(call describe-install-target,$(INCLUDEDIR)/sys,$(HEADERS_INSTALL))
+	$(call describe-install-target,$(INCLUDEDIR)/sys,$(notdir $(HEADERS_INSTALL)))
 	cd $(uts_DIR) && install -m 644 -o root -g root $(HEADERS_INSTALL) \
 	    $(INCLUDEDIR)/sys

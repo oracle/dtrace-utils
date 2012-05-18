@@ -42,10 +42,10 @@ define describe-target
 $(if $(filter-out $(verbose),no),,$(foreach name,$(2),printf '%s: %s\n' '$(1)' '$(name)';))
 endef
 
-# Describe an installation target.
+# Describe an installation target. All paths on the 'names' are stripped.
 # Syntax: $(call describe-install-target,directory,names)
 define describe-install-target
-$(call describe-target,INSTALL,$(addprefix $(1)/,$(2)))
+$(call describe-target,INSTALL,$(addprefix $(1)/,$(notdir $(2))))
 endef
 
 # Rule to build a C source file.
@@ -66,7 +66,7 @@ define build-lib-template
 $(objdir)/build-$($(1)_TARGET).a: $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                                   $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                                   $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
-	$(call describe-target,BUILD-AR,$(1)_TARGET.a)
+	$(call describe-target,BUILD-AR,$($(1)_TARGET).a)
 	ar rc $(objdir)/build-$($(1)_TARGET).a $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/build-$($(1)_TARGET).a))
 
