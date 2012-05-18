@@ -52,7 +52,7 @@
 #include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <rtld_db.h>
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <sys/procfs.h>
 #include <sys/auxv.h>
 #include <sys/resource.h>

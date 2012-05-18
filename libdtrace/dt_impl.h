@@ -30,7 +30,7 @@
 #include <sys/param.h>
 #include <sys/objfs.h>
 #include <setjmp.h>
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <dtrace.h>
 #include <gelf.h>
 

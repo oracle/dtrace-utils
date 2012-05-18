@@ -31,8 +31,8 @@
 #include <sys/types.h>
 #include <sys/dtrace.h>
 #include <sys/compiler.h>
+#include <sys/ctf_api.h>
 
-#include <libctf.h>
 #include <stdarg.h>
 #include <stdio.h>
 

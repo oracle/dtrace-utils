@@ -22,7 +22,7 @@
 # Use is subject to license terms.
 
 BUILDLIBS += libproc
-libproc_CPPFLAGS = -Ilibproc -Ilibctf -Iuts/intel -D_LONGLONG_TYPE
+libproc_CPPFLAGS = -Ilibproc -Iuts/intel -D_LONGLONG_TYPE
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
 libproc_SOURCES = Pcontrol.c amd64/Pisadep.c Psymtab_machelf32.c Psymtab_machelf64.c Psymtab.c Putil.c

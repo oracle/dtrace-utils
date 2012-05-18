@@ -30,7 +30,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/types.h>
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <dtrace.h>
 #include <stdio.h>
 

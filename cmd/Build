@@ -22,12 +22,12 @@
 # Use is subject to license terms.
 
 CMDS += dtrace
-dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -Ilibctf -D_LONGLONG_TYPE
+dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
 dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
-dtrace_DEPS = libdtrace.so libctf.a libport.a
-dtrace_LIBS = -L$(objdir) -ldtrace -lctf -lport
+dtrace_DEPS = libdtrace.so libport.a
+dtrace_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
 
 install::
 	mkdir -p $(SBINDIR) $(MANDIR)

@@ -25,9 +25,7 @@
 uts_DIR := $(current-dir)
 
 HEADERS_INSTALL := common/sys/dtrace.h \
-                   common/sys/dtrace_types.h \
-                   common/sys/ctf.h \
-                   common/sys/ctf_api.h
+                   common/sys/dtrace_types.h
 
 install::
 	mkdir -p $(INCLUDEDIR)/sys

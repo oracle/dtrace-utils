@@ -35,7 +35,7 @@
 #include <gelf.h>
 #include <rtld_db.h>
 #include <libproc.h>
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <limits.h>
 
 #include <mutex.h>

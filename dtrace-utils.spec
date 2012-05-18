@@ -8,7 +8,7 @@ Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
-Requires:     gcc elfutils-libelf
+Requires:     gcc elfutils-libelf zlib libdtrace-ctf
 BuildRequires: elfutils-libelf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      DTrace user interface.
 Version:      0.2.5

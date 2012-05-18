@@ -1,0 +1,3 @@
+[submodule "libdtrace-ctf"]
+	path = libdtrace-ctf
+	url = ssh://ca-tools4.us.oracle.com/home/nix/git/libdtrace-ctf.git

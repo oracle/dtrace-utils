@@ -28,21 +28,28 @@
 .DELETE_ON_ERROR:
 .SUFFIXES:
 
+PROJECT := dtrace
 VERSION := trunk
 
 # Verify supported hardware.
 
-$(if $(subst "x86_64",,$(shell uname -m)),,$(error "Error: Dtrace for Linux only supports x86_64"),)
-$(if $(subst "Linux",,$(shell uname -s)),,$(error "Error: Dtrace only supports Linux"),)
+$(if $(subst "x86_64",,$(shell uname -m)),,$(error "Error: DTrace for Linux only supports x86_64"),)
+$(if $(subst "Linux",,$(shell uname -s)),,$(error "Error: DTrace only supports Linux"),)
 
 CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
-INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(DTO) -D_ILP$(BITNESS) -DCTF_OLD_VERSIONS
+INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(DTO) -D_ILP$(BITNESS)
 CPPFLAGS += -Iinclude -Iuts/common
 CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E -C
+
+# If libdtrace-ctf is initialized, we want to get headers from it.
+
+ifneq ($(wildcard libdtrace-ctf/Make*),)
+CPPFLAGS += -Ilibdtrace-ctf/include
+endif
 
 prefix = /usr
 objdir := build-$(shell uname -r)

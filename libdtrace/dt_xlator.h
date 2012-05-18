@@ -29,7 +29,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <dtrace.h>
 #include <dt_ident.h>
 #include <dt_list.h>

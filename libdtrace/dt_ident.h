@@ -29,7 +29,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <libctf.h>
+#include <sys/ctf_api.h>
 #include <dtrace.h>
 
 #ifdef	__cplusplus

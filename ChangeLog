@@ -1,5 +1,61 @@
 2012-05-18  Nick Alcock  <nick.alcock@oracle.com>
 
+	The libctf split.
+
+	* libctf/libctf.h: Delete, useless.
+	* libdtrace/dt_decl.h: Include <sys/ctf_api.h> directly, instead
+	of <libctf.h>.
+	* libdtrace/dt_ident.h: Likewise.
+	* libdtrace/dt_impl.h: Likewise.
+	* libdtrace/dt_parser.h: Likewise.
+	* libdtrace/dt_printf.h: Likewise.
+	* libdtrace/dt_xlator.h: Likewise.
+	* libproc/Pcontrol.h: Likewise.
+	* libproc/libproc.h: Likewise.
+
+	* .gitmodules: New: libdtrace-ctf is now an optional git
+	submodule.
+
+	* libctf/*.c, libctf/*.h: Moved into...
+	* libdtrace-ctf: ... the new submodule (and git repository).
+	* libctf/GNUmakefile: Likewise.
+	* uts/common/sys/ctf.h: Likewise.
+	* uts/common/sys/ctf_api.h: Likewise.
+	* libctf/Build: Likewise, with changes for shared library build,
+	and optional integrated-into-dtrace build.
+	* libdtrace-ctf.ver: Likewise with this new version script.
+	* uts/Build (HEADERS_INSTALL): Drop the CTF header files.
+
+	* libctf/llib-lctf: Delete, lint libraries are obsolete.
+	* uts/common/sys/ctfs.h: Delete, we do not have an in-kernel CTF
+	filesystem.
+	* uts/common/sys/ctfs_impl.h: Likewise.
+
+	* GNUmakefile (PROJECT): New, name this project (used by
+	libdtrace-ctf Build files to detect building as part of dtrace).
+	(warnings): Fix the spelling of DTrace.
+	(INVARIANT_CFLAGS): -DCTF_OLD_VERSIONS is only needed when
+	building libctf itself, drop from global flags.
+	(CPPFLAGS): If we have libdtrace-ctf as an initialized submodule,
+	point the header search path into it.
+
+	* dtrace-utils.spec: Require libdtrace.ctf (and zlib, omitted
+	earlier by mistake).
+
+	* libdtrace/Build (libdtrace-build_CPPFLAGS): No longer need
+	-Ilibctf.
+	(LIBS): Delete, no static library is required.
+	(libdtrace_LIBS): Depend on -ldtrace-ctf. Look in the objdir for
+	libraries (in case of a build with an initialized submodule).
+	(libdtrace_LIBSOURCES): Drop libctf.
+	(libdtrace_SECONDARY): Likewise.
+
+	* libproc/Build (libproc_CPPFLAGS): No longer need -Ilibctf.
+	* cmd/Build (dtrace_CPPFLAGS): Likewise.
+	(dtrace_DEPS): No longer need libctf.a.
+	(dtrace_LIBS): Link against -ldtrace-ctf rather than -lctf.
+	* test/utils/Build: Likewise.
+
 	* test/triggers/.gitignore: Ignore everything other than C files,
 	a single shell-script-based trigger and the Build file. (In
 	particular, ignore compiled triggers.)
