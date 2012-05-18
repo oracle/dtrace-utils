@@ -60,6 +60,10 @@
 	a single shell-script-based trigger and the Build file. (In
 	particular, ignore compiled triggers.)
 
+	* GNUmakefile (gtags): GNU GLOBAL support.
+	(tags): Fix filename.
+	(realclean): Like clean, only removes tags files too.
+
 2012-04-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libctf/ctf_create.c (ctf_add_member): Re-express in terms

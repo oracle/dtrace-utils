@@ -78,14 +78,21 @@ clean::
 	$(call describe-target,CLEAN,$(objdir) test/log)
 	-rm -rf $(objdir) test/log
 
+realclean: clean
+	-rm -f TAGS tags GTAGS GRTAGS GPATH
+
 TAGS:
 	$(call describe-target,TAGS)
 	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
 
 tags:
 	$(call describe-target,tags)
-	rm -f TAGS; find . -name '*.[ch]' | xargs ctags -a
+	rm -f tags; find . -name '*.[ch]' | xargs ctags -a
 
-PHONIES += all clean TAGS tags
+gtags:
+	$(call describe-target,gtags)
+	gtags -i
+
+PHONIES += all clean TAGS tags gtags
 
 .PHONY: $(PHONIES)
