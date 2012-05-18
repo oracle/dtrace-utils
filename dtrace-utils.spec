@@ -20,10 +20,10 @@ ExclusiveArch:    x86_64
 %description
 DTrace user interface
 
-Authors:
--------
-Pearly Zhao <pearly.zhao@oracle.com>
+Maintainers:
+-----------
 Nick Alcock <nick.alcock@oracle.com>
+Kris van Hees <kris.van.hees@oracle.com>
 
 %prep
 %setup -q
@@ -69,7 +69,7 @@ fi
 %defattr(-,root,root,755)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
-/usr/lib/dtrace/*
+/usr/lib/dtrace
 /usr/lib/libdtrace.so*
 /usr/sbin/dtrace
 /usr/share/man/man1/orcl-dtrace.1.gz
@@ -78,7 +78,7 @@ fi
 /usr/include/sys/dtrace_types.h
 /usr/include/sys/ctf.h
 /usr/include/sys/ctf_api.h
-/usr/share/doc/dtrace-%{version}/*
+%doc /usr/share/doc/dtrace-%{version}/*
 
 %changelog
 * Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2

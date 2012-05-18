@@ -40,7 +40,7 @@
 	point the header search path into it.
 
 	* dtrace-utils.spec: Require libdtrace.ctf (and zlib, omitted
-	earlier by mistake).
+	earlier by mistake).  Other tiny cleanups.
 
 	* libdtrace/Build (libdtrace-build_CPPFLAGS): No longer need
 	-Ilibctf.
