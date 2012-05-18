@@ -68,6 +68,15 @@ typedef unsigned long long hrtime_t;
 #define	STV_ELIMINATE	6
 
 /*
+ * This is unnecessary on OEL6, but necessary on the snapshot build host, which
+ * runs OEL5.
+ */
+#if !defined(PN_XNUM)
+#define PN_XNUM 0xffff		        /* extended program header index */
+#endif
+
+
+/*
  *      Definitions for commonly used resolutions.
  */
 #define SEC             1
