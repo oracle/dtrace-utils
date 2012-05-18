@@ -1,3 +1,9 @@
+2012-05-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/triggers/.gitignore: Ignore everything other than C files,
+	a single shell-script-based trigger and the Build file. (In
+	particular, ignore compiled triggers.)
+
 2012-04-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libctf/ctf_create.c (ctf_add_member): Re-express in terms
