@@ -558,13 +558,10 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	}
 
 	dmp->dm_flags |= DT_DM_KERNEL;
-/*	dmp->dm_modid = (int)OBJFS_MODID(st.st_ino); */
 
 	if (dmp->dm_info.objfs_info_primary)
 		dmp->dm_flags |= DT_DM_PRIMARY;
 
-/*	dt_dprintf("opened %d-bit module %s (%s) [%d]\n",
-	    bits, dmp->dm_name, dmp->dm_file, dmp->dm_modid); */
 	dt_dprintf("opened %d-bit module %s (%s)\n",
 	    bits, dmp->dm_name, dmp->dm_file);
 }
@@ -939,7 +936,6 @@ dt_module_info(const dt_module_t *dmp, dtrace_objinfo_t *dto)
 {
 	dto->dto_name = dmp->dm_name;
 	dto->dto_file = dmp->dm_file;
-/*	dto->dto_id = dmp->dm_modid; */
 	dto->dto_flags = 0;
 
 	if (dmp->dm_flags & DT_DM_KERNEL)

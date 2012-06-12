@@ -1,3 +1,11 @@
+2012-06-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_impl.h (dt_module): Purge dm_modid.
+	* libdtrace/dt_module.c (dt_module_update): Likewise.
+	(dtrace_symbol_type): Likewise.
+	* libdtrace/dt_open.c (dt_vopen): Likewise.
+	* libdtrace/dtrace.h (dtrace_objinfo): Purge dto_id too.
+
 2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	Eliminate symbol-lookup duplication via macro-expansion.

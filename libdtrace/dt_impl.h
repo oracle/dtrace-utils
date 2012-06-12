@@ -128,9 +128,6 @@ typedef struct dt_module {
 	uint_t dm_aslen;	/* number of entries in dm_asmap */
 	uint_t dm_flags;	/* module flags (see below) */
 
-/*	There is no module identifier at Linux. */
-/*	int dm_modid;	*/	/* modinfo(1M) module identifier */
-
 	GElf_Addr dm_text_va;	/* virtual address of text section */
 	GElf_Xword dm_text_size; /* size in bytes of text section */
 	GElf_Addr dm_data_va;	/* virtual address of data section */

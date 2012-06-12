@@ -444,8 +444,6 @@ extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 typedef struct dtrace_objinfo {
 	const char *dto_name;			/* object file scope name */
 	const char *dto_file;			/* object file path (if any) */
-/*	Removed just like dm_modid. */
-/*	int dto_id;	*/			/* object file id (if any) */
 	uint_t dto_flags;			/* object flags (see below) */
 	GElf_Addr dto_text_va;			/* address of text section */
 	GElf_Xword dto_text_size;		/* size of text section */
