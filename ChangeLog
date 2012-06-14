@@ -1,3 +1,20 @@
+2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
+
+	Eliminate symbol-lookup duplication via macro-expansion.
+
+	* libdtrace/dt_module.c (dt_module_syminit32, dt_module_syminit64)
+	(dt_module_symcomp32, dt_module_symcomp64)
+	(dt_module_symsort32, dt_module_symsort64)
+	(dt_module_symname32, dt_module_symname64)
+	(dt_module_symaddr32, dt_module_symaddr64):
+	Merge and move into...
+
+	* libdtrace/dt_symbol_modops.h (dt_module_syminit)
+	(dt_module_symcomp, dt_module_symsort, dt_module_symname)
+	(dt_module_symaddr): ... this new file.
+
+	* libdtrace/dt_module.c: Include it repeatedly.
+
 2012-05-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	The libctf split.
