@@ -2324,7 +2324,7 @@ dt_node_inline(dt_node_t *expr)
 
 	if (rdp != NULL) {
 		idp->di_flags |= (rdp->di_flags &
-		    (DT_IDFLG_WRITE | DT_IDFLG_USER | DT_IDFLG_PRIM));
+		    (DT_IDFLG_WRITE | DT_IDFLG_USER));
 	}
 
 	idp->di_attr = dt_attr_min(_dtrace_defattr, expr->dn_attr);
@@ -2705,9 +2705,6 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 
 		if (idp == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-
-		if (mp->dm_flags & DT_DM_PRIMARY)
-			idp->di_flags |= DT_IDFLG_PRIM;
 
 		idp->di_next = dtp->dt_externs;
 		dtp->dt_externs = idp;

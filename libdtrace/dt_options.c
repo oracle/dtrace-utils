@@ -303,8 +303,6 @@ dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	if (strcmp(arg, "kernel") == 0)
 		dtp->dt_linkmode = DT_LINK_KERNEL;
-	else if (strcmp(arg, "primary") == 0)
-		dtp->dt_linkmode = DT_LINK_PRIMARY;
 	else if (strcmp(arg, "dynamic") == 0)
 		dtp->dt_linkmode = DT_LINK_DYNAMIC;
 	else if (strcmp(arg, "static") == 0)

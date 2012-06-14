@@ -139,7 +139,6 @@ typedef struct dt_module {
 
 #define	DT_DM_LOADED	0x1	/* module symbol and type data is loaded */
 #define	DT_DM_KERNEL	0x2	/* module is associated with a kernel object */
-#define	DT_DM_PRIMARY	0x4	/* module is a krtld primary kernel object */
 
 typedef struct dt_provmod {
 	char *dp_name;				/* name of provider module */
@@ -221,7 +220,6 @@ struct dtrace_hdl {
 	uint_t dt_nmods;	/* number of modules in hash and list */
 	dt_provmod_t *dt_provmod; /* linked list of provider modules */
 	dt_module_t *dt_exec;	/* pointer to executable module */
-	dt_module_t *dt_rtld;	/* pointer to run-time linker module */
 	dt_module_t *dt_cdefs;	/* pointer to C dynamic type module */
 	dt_module_t *dt_ddefs;	/* pointer to D dynamic type module */
 	dt_list_t dt_provlist;	/* linked list of dt_provider_t's */
@@ -319,9 +317,8 @@ struct dtrace_hdl {
  * processing external symbol references.  User can set using -xlink=<mode>.
  */
 #define	DT_LINK_KERNEL	0	/* kernel syms static, user syms dynamic */
-#define	DT_LINK_PRIMARY	1	/* primary kernel syms static, others dynamic */
-#define	DT_LINK_DYNAMIC	2	/* all symbols dynamic */
-#define	DT_LINK_STATIC	3	/* all symbols static */
+#define	DT_LINK_DYNAMIC	1	/* all symbols dynamic */
+#define	DT_LINK_STATIC	2	/* all symbols static */
 
 /*
  * Values for the dt_linktype property, which is used by dtrace_program_link()

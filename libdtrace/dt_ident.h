@@ -109,9 +109,8 @@ typedef struct dt_ident {
 #define	DT_IDFLG_DIFW	0x0080	/* variable is modified by current DIFO */
 #define	DT_IDFLG_CGREG	0x0100	/* variable is inlined by code generator */
 #define	DT_IDFLG_USER	0x0200	/* variable is associated with userland */
-#define	DT_IDFLG_PRIM	0x0400	/* variable is associated with primary object */
-#define	DT_IDFLG_DECL	0x0800	/* variable is associated with explicit decl */
-#define	DT_IDFLG_ORPHAN	0x1000	/* variable is in a dt_node and not dt_idhash */
+#define	DT_IDFLG_DECL	0x0400	/* variable is associated with explicit decl */
+#define	DT_IDFLG_ORPHAN	0x0800	/* variable is in a dt_node and not dt_idhash */
 
 typedef struct dt_idhash {
 	dt_list_t dh_list;	/* list prev/next pointers for dt_idstack */

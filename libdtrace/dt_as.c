@@ -193,10 +193,8 @@ dt_as_undef(const dt_ident_t *idp, uint_t offset)
 
 	if (idp->di_flags & DT_IDFLG_USER)
 		kind = "user";
-	else if (idp->di_flags & DT_IDFLG_PRIM)
-		kind = "primary kernel";
 	else
-		kind = "loadable kernel";
+		kind = "kernel";
 
 	yylineno = idp->di_lineno;
 
@@ -226,7 +224,6 @@ dt_as(dt_pcb_t *pcb)
 	 * symbol should have a relocation entry generated in the loop below.
 	 *
 	 * DT_LINK_KERNEL = kernel symbols static, user symbols dynamic
-	 * DT_LINK_PRIMARY = primary kernel symbols static, others dynamic
 	 * DT_LINK_DYNAMIC = all symbols dynamic
 	 * DT_LINK_STATIC = all symbols static
 	 *
@@ -238,12 +235,6 @@ dt_as(dt_pcb_t *pcb)
 	case DT_LINK_KERNEL:
 		kmask = 0;
 		kbits = -1u;
-		umask = DT_IDFLG_USER;
-		ubits = DT_IDFLG_USER;
-		break;
-	case DT_LINK_PRIMARY:
-		kmask = DT_IDFLG_USER | DT_IDFLG_PRIM;
-		kbits = 0;
 		umask = DT_IDFLG_USER;
 		ubits = DT_IDFLG_USER;
 		break;

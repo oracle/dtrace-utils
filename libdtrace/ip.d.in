@@ -83,7 +83,6 @@ typedef struct csinfo {
 	uintptr_t cs_addr;
 	uint64_t cs_cid;
 	pid_t cs_pid;
-	zoneid_t cs_zoneid;
 } csinfo_t;
 
 /*
@@ -187,14 +186,6 @@ translator csinfo_t < ip_xmit_attr_t *C > {
 	cs_addr = (uintptr_t)C;
 	cs_cid = C ? C->ixa_conn_id : NULL;
 	cs_pid = C ? C->ixa_cpid : -1;
-	cs_zoneid = C ?
-	    (C->ixa_ipst == NULL || C->ixa_ipst->ips_netstack == NULL ||
-	    C->ixa_ipst->ips_netstack->netstack_stackid ==
-	    @GLOBAL_NETSTACKID@ ||
-	    C->ixa_cred == NULL ||
-	    C->ixa_cred->cr_zone == NULL ||
-	    C->ixa_cred->cr_uid == -1 ?
-	    C->ixa_zoneid : C->ixa_cred->cr_zone->zone_id) : -1;
 };
 
 #pragma D binding "1.5" translator

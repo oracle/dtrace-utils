@@ -154,8 +154,7 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	Elf_Data *dp;
 	Elf_Scn *sp;
 
-/*	if (elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1) */
-	if (elf_getshstrndx(dmp->dm_elf, &shstrs) != 1)
+	if (elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1)
 		return (dt_set_errno(dtp, EDT_NOTLOADED));
 
 	for (sp = NULL; (sp = elf_nextscn(dmp->dm_elf, sp)) != NULL; ) {
@@ -505,7 +504,6 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	(void) close(fd);
 
 	if (dmp->dm_elf == NULL || err == -1 ||
-/*	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1) { */
 	    elf_getshstrndx(dmp->dm_elf, &shstrs) != 1) {
 		dt_dprintf("failed to load %s: %s\n",
 		    fname, elf_errmsg(elf_errno()));
@@ -546,10 +544,6 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 		} else if (strcmp(s, ".bss") == 0) {
 			dmp->dm_bss_size = sh.sh_size;
 			dmp->dm_bss_va = sh.sh_addr;
-		} else if (strcmp(s, ".info") == 0 &&
-		    (dp = elf_getdata(sp, NULL)) != NULL) {
-			bcopy(dp->d_buf, &dmp->dm_info,
-			    MIN(sh.sh_size, sizeof (dmp->dm_info)));
 		} else if (strcmp(s, ".filename") == 0 &&
 		    (dp = elf_getdata(sp, NULL)) != NULL) {
 			(void) strlcpy(dmp->dm_file,
@@ -558,9 +552,6 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	}
 
 	dmp->dm_flags |= DT_DM_KERNEL;
-
-	if (dmp->dm_info.objfs_info_primary)
-		dmp->dm_flags |= DT_DM_PRIMARY;
 
 	dt_dprintf("opened %d-bit module %s (%s)\n",
 	    bits, dmp->dm_name, dmp->dm_file);
@@ -614,11 +605,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 	dt_idhash_lookup(dtp->dt_macros, "pid")->di_id = getpid();
 	dt_idhash_lookup(dtp->dt_macros, "pgid")->di_id = getpgid(0);
 	dt_idhash_lookup(dtp->dt_macros, "ppid")->di_id = getppid();
-/*	dt_idhash_lookup(dtp->dt_macros, "projid")->di_id = getprojid(); */
-	dt_idhash_lookup(dtp->dt_macros, "projid")->di_id = 0;
 	dt_idhash_lookup(dtp->dt_macros, "sid")->di_id = getsid(0);
-/*	dt_idhash_lookup(dtp->dt_macros, "taskid")->di_id = gettaskid(); */
-	dt_idhash_lookup(dtp->dt_macros, "taskid")->di_id = 0;
 	dt_idhash_lookup(dtp->dt_macros, "uid")->di_id = getuid();
 
 	/*
@@ -628,9 +615,6 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * instead.
 	 */
 	dtp->dt_exec = dt_module_lookup_by_name(dtp, "genunix");
-	dtp->dt_rtld = dt_module_lookup_by_name(dtp, "krtld");
-	if (dtp->dt_rtld == NULL)
-		dtp->dt_rtld = dt_module_lookup_by_name(dtp, "unix");
 
 	/*
 	 * If this is the first time we are initializing the module list,
@@ -655,9 +639,6 @@ dt_module_from_object(dtrace_hdl_t *dtp, const char *object)
 	switch ((uintptr_t)object) {
 	case (uintptr_t)DTRACE_OBJ_EXEC:
 		dmp = dtp->dt_exec;
-		break;
-	case (uintptr_t)DTRACE_OBJ_RTLD:
-		dmp = dtp->dt_rtld;
 		break;
 	case (uintptr_t)DTRACE_OBJ_CDEFS:
 		dmp = dtp->dt_cdefs;
@@ -940,8 +921,6 @@ dt_module_info(const dt_module_t *dmp, dtrace_objinfo_t *dto)
 
 	if (dmp->dm_flags & DT_DM_KERNEL)
 		dto->dto_flags |= DTRACE_OBJ_F_KERNEL;
-	if (dmp->dm_flags & DT_DM_PRIMARY)
-		dto->dto_flags |= DTRACE_OBJ_F_PRIMARY;
 
 	dto->dto_text_va = dmp->dm_text_va;
 	dto->dto_text_size = dmp->dm_text_size;

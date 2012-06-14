@@ -1,11 +1,3 @@
-2012-06-06  Nick Alcock  <nick.alcock@oracle.com>
-
-	* libdtrace/dt_impl.h (dt_module): Purge dm_modid.
-	* libdtrace/dt_module.c (dt_module_update): Likewise.
-	(dtrace_symbol_type): Likewise.
-	* libdtrace/dt_open.c (dt_vopen): Likewise.
-	* libdtrace/dtrace.h (dtrace_objinfo): Purge dto_id too.
-
 2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	Eliminate symbol-lookup duplication via macro-expansion.
@@ -22,6 +14,46 @@
 	(dt_module_symaddr): ... this new file.
 
 	* libdtrace/dt_module.c: Include it repeatedly.
+
+	Eliminate the concept of 'primary objects' and most mentions of
+	the kernel runtime loader interface.
+
+	* libdtrace/dt_ident.h (DT_IDFLG_PRIM): Deleted.
+	* libdtrace/dt_parser.c (dt_node_inline): ... and from here...
+	(dt_xcook_ident): ... and from here...
+	* libdtrace/dt_as.c (dt_as_undef): ... and from here.
+	(dt_as): DT_LINK_PRIMARY is gone.
+
+	* libdtrace/dt_impl.h (DT_DM_PRIMARY): Deleted.
+	(DT_LINK_PRIMARY): Likewise.
+	(dtrace_hdl): Deleted dt_rtld.
+	* libdtrace/dt_module.c (dt_module_info): Drop DT_DM_PRIMARY
+	handling.
+	(dt_module_update): Likewise. Drop .info section parsing.
+	(dtrace_update): Drop projid, taskid, and dt_rtld references.
+	(dt_module_from_object): Drop DTRACE_OBJ_RTLD handling.
+	* libdtrace/dt_options.c (dt_opt_linkmode): Drop the primary
+	linkmode.
+	* libdtrace/dtrace.h (DTRACE_OBJ_RTLD): Deleted.
+	(DTRACE_OBJ_F_PRIMARY): Deleted.
+
+	More project/task/zone/contract removal.
+
+	* libdtrace/dt_open.c (_dtrace_macros): Drop projid and taskid.
+	* libdtrace/ip.d.in: Drop cs_zoneid and all reference to zones.
+	* libdtrace/procfs.d.in: Drop pr_taskid, pr_projid, pr_poolid,
+	pr_zoneid, and pr_contract.
+
+	* INCOMPATIBILITIES: Mention the libdtrace API differences and
+	task/contract/zone/project removal.
+
+2012-06-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_impl.h (dt_module): Purge dm_modid.
+	* libdtrace/dt_module.c (dt_module_update): Likewise.
+	(dtrace_symbol_type): Likewise.
+	* libdtrace/dt_open.c (dt_vopen): Likewise.
+	* libdtrace/dtrace.h (dtrace_objinfo): Purge dto_id too.
 
 2012-05-18  Nick Alcock  <nick.alcock@oracle.com>
 
@@ -1839,7 +1871,7 @@
 	* libproc/common/makefile: Remove P32ton.o from libproc.
 
 2011-05-11  Shujing Zhao  <pearly.zhao@oracle.com>
-	
+
 	* libdtrace/dt_module.c (dtrace_update): Don't open the /system/object
 	files.
 	(dt_module_update): Remove.

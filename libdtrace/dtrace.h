@@ -44,11 +44,11 @@ extern "C" {
  * DTrace Dynamic Tracing Software: Library Interfaces
  *
  * Note: The contents of this file are private to the implementation of the
- * Solaris system and DTrace subsystem and are subject to change at any time
- * without notice.  Applications and drivers using these interfaces will fail
- * to run on future releases.  These interfaces should not be used for any
- * purpose except those expressly outlined in dtrace(7D) and libdtrace(3LIB).
- * Please refer to the "Solaris Dynamic Tracing Guide" for more information.
+ * DTrace subsystem and are subject to change at any time without notice.
+ * Applications and drivers using these interfaces will fail to run on future
+ * releases.  These interfaces should not be used for any purpose except those
+ * expressly outlined in dtrace(7D) and libdtrace(3LIB).  Please refer to the
+ * "Solaris Dynamic Tracing Guide" for more information.
  */
 
 #define	DTRACE_VERSION	3		/* library ABI interface version */
@@ -434,9 +434,8 @@ extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
  */
 
 #define	DTRACE_OBJ_EXEC	 ((const char *)0L)	/* primary executable file */
-#define	DTRACE_OBJ_RTLD	 ((const char *)1L)	/* run-time link-editor */
-#define	DTRACE_OBJ_CDEFS ((const char *)2L)	/* C include definitions */
-#define	DTRACE_OBJ_DDEFS ((const char *)3L)	/* D program definitions */
+#define	DTRACE_OBJ_CDEFS ((const char *)1L)	/* C include definitions */
+#define	DTRACE_OBJ_DDEFS ((const char *)2L)	/* D program definitions */
 #define	DTRACE_OBJ_EVERY ((const char *)-1L)	/* all known objects */
 #define	DTRACE_OBJ_KMODS ((const char *)-2L)	/* all kernel objects */
 #define	DTRACE_OBJ_UMODS ((const char *)-3L)	/* all user objects */
@@ -454,7 +453,6 @@ typedef struct dtrace_objinfo {
 } dtrace_objinfo_t;
 
 #define	DTRACE_OBJ_F_KERNEL	0x1		/* object is a kernel module */
-#define	DTRACE_OBJ_F_PRIMARY	0x2		/* object is a primary module */
 
 typedef int dtrace_obj_f(dtrace_hdl_t *, const dtrace_objinfo_t *, void *);
 

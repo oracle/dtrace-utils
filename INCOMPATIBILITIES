@@ -52,6 +52,16 @@ the Oracle Enterprise Linux toolchain.  Binaries compiled with other toolchains
 won't get full tracebacks, but we can live with that.
 
 
+No projects, zones, tasks, or contracts
+---------------------------------------
+Difficulty: High
+Likelihood: Low (unless kernel support is added)
+
+The Linux kernel does not implement projects, zones, tasks, or contracts:
+all corresponding identifiers are gone.  (It would be possible to keep them
+but mark them reserved, but the result would be the same: D scripts that use
+these identifiers would fail to compile.)
+
 
 Tiny variations in behaviour of dtraced processes immediately after startup
 ---------------------------------------------------------------------------
@@ -80,7 +90,6 @@ functions in, the probe names are derived from the names of the functions, thus
 the probes are different.
 
 
-
 -Xs semantics differ
 --------------------
 Difficulty: High
@@ -96,3 +105,18 @@ commitment, so most of these options make no sense.
 
 In Linux dtrace, -Xa, -Xc and -Xt all set __STDC__=1; -Xs unsets it and sets
 -traditional.
+
+
+Library differences
+-------------------
+Difficulty: Very high
+Likelihood: Nil
+
+For consumers of libdtrace, <dtrace.h> has various differences. These reflect
+intrinsic Solaris/Linux differences which will not be fixed.
+
+Currently:
+
+dtrace_objinfo.dto_flags has lost the DTRACE_OBJ_F_PRIMARY value: the Linux
+kernel has no concept of 'primary modules'.  As a consequence, the 'primary'
+linkmode option is gone.
