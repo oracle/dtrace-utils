@@ -27,6 +27,8 @@
 	* libproc/Pcontrol.c (Pset_procfs_path): New function.
 	* libproc/libproc.h: Prototype it.
 
+	* test/triggers/testprobe.c: Warning fix.
+
 2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	Eliminate symbol-lookup duplication via macro-expansion.
