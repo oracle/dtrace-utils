@@ -24,7 +24,6 @@
  */
 
 #include <sys/types.h>
-//#include <sys/modctl.h>
 #include <sys/utsname.h>
 #include <sys/resource.h>
 
@@ -43,6 +42,8 @@
 #define	_POSIX_PTHREAD_SEMANTICS
 #include <dirent.h>
 #undef	_POSIX_PTHREAD_SEMANTICS
+
+#include <libproc.h>
 
 #include <dt_impl.h>
 #include <dt_program.h>
@@ -643,6 +644,7 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 
 static const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
 static const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
+static const char *_dtrace_defproc = "/proc";   /* default /proc path */
 
 static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
 static const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
@@ -905,6 +907,8 @@ alloc:
 	dtp->dt_cpp_argc = 1;
 	dtp->dt_cpp_args = 1;
 	dtp->dt_ld_path = strdup(_dtrace_defld);
+	dtp->dt_procfs_path = strdup(_dtrace_defproc);
+	Pset_procfs_path(dtp->dt_procfs_path);
 	dtp->dt_provmod = provmod;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;

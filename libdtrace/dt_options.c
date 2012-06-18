@@ -41,6 +41,7 @@
 
 #include <dt_impl.h>
 #include <dt_string.h>
+#include <libproc.h>
 
 static int
 dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -361,6 +362,28 @@ dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	dtp->dt_procs->dph_lrulim = n;
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_procfs_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *proc;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if ((proc = strdup(arg)) == NULL)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	free(dtp->dt_procfs_path);
+	dtp->dt_procfs_path = proc;
+	Pset_procfs_path(dtp->dt_procfs_path);
+
 	return (0);
 }
 
@@ -900,6 +923,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
+	{ "procfspath", dt_opt_procfs_path },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },

@@ -16,6 +16,17 @@
 	elf_getshdrnum() rather than elf_getshnum().
 	* (Pbuild_file_symtab): Likewise.
 
+	Allow overriding of path to /proc.
+
+	* libdtrace/dt_impl.h (dtrace_hdl): Add dt_procfs_path.
+	* libdtrace/dt_open.c (_dtrace_defproc): Default value.
+	(dt_vopen): Set the default.
+	* libdtrace/dt_options.c (_dtrace_ctoptions): New 'procfspath'
+	compile-time option (though also used at runtime).
+	(dt_opt_procfs_path): New.
+	* libproc/Pcontrol.c (Pset_procfs_path): New function.
+	* libproc/libproc.h: Prototype it.
+
 2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	Eliminate symbol-lookup duplication via macro-expansion.

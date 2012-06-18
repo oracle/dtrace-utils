@@ -176,6 +176,7 @@ extern	int	Psetrun(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	int	Phasfds(struct ps_prochandle *);
+extern	void	Pset_procfs_path(const char *);
 
 /*
  * Symbol table interfaces.

@@ -552,3 +552,10 @@ Pgetpid(struct ps_prochandle *P)
 		return -1;
 	return (P->pid);
 }
+
+/* Set the path to /proc. */
+void
+Pset_procfs_path (const char *path)
+{
+	strcpy(procfs_path, path);
+}
