@@ -15,6 +15,12 @@ out of make.  The build system's components are:
  - Makerules: this triggers the building of all commands and
               libraries specified in the Build files.
 
+ - Makeconfig: this can scan for symbols in libraries, like Autoconf's
+               AC_CHECK_LIB, and generate a config.h header that describes
+               whether those symbols are present.  (This header file exists
+               even if no such checks are done, and every compiled C file
+               is forced to depend on it.)
+
 The Build files are perfectly normal makefiles, with a few caveats.  Firstly,
 they are *included* by the top-level makefile, not recursively run by it.
 This has advantages (the ability to do proper cross-directory dependencies

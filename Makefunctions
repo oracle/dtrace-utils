@@ -54,7 +54,7 @@ endef
 cc-dependencies = -MP -MMD -MT $(obj-name)
 
 define cc-template
-$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep)))
+$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(CONFIG_H)
 	$(call describe-target,CC,$(src-name))
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
