@@ -1,12 +1,20 @@
 2012-06-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	Add a crude symbol-checking infrastructure, like Autoconf's
-	AC_CHECK_LIB.
+	AC_CHECK_LIB.  Use it to check for elf_getshdrstrndx().
 
 	* Makeconfig: New file.
 	* GNUmakefile: Include it.  Search the objdir for generated header files.
 	* Makefunctions: All C compilations depend on the config.h file.
 	* README.build.system: Describe the new infrastructure briefly.
+
+	* include/port.h: Include config.h and provide the new names for
+	the obsolete elf_getshstrndx() and elf_getshdrnum() if necessary.
+	* libdtrace/dt_module.c (dt_module_update): Use elf_getshdrstrndx():
+	elf_getshstrndx() is obsolete.
+	* libproc/Psymtab.c (build_fake_elf): Likewise.  Also use
+	elf_getshdrnum() rather than elf_getshnum().
+	* (Pbuild_file_symtab): Likewise.
 
 2012-06-14  Nick Alcock  <nick.alcock@oracle.com>
 

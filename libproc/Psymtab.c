@@ -1502,10 +1502,8 @@ build_fake_elf(struct ps_prochandle *P, file_info_t *fptr, GElf_Ehdr *ehdr,
 	if ((elf = fake_elf(P, fptr)) == NULL ||
 	    elf_kind(elf) != ELF_K_ELF ||
 	    gelf_getehdr(elf, ehdr) == NULL ||
-/*	    elf_getshdrnum(elf, nshdrs) == -1 ||
-	    elf_getshdrstrndx(elf, &shstrndx) == -1 ||  */
-	    elf_getshnum(elf, nshdrs) != 1 ||
-	    elf_getshstrndx(elf, &shstrndx) != 1 ||
+	    elf_getshdrnum(elf, nshdrs) == -1 ||
+	    elf_getshdrstrndx(elf, &shstrndx) == -1 ||
 	    (scn = elf_getscn(elf, shstrndx)) == NULL ||
 	    (*shdata = elf_getdata(scn, NULL)) == NULL) {
 		if (elf != NULL)
@@ -1602,10 +1600,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	} else if ((elf = elf_begin(fptr->file_fd, ELF_C_READ, NULL)) == NULL ||
 	    elf_kind(elf) != ELF_K_ELF ||
 	    gelf_getehdr(elf, &ehdr) == NULL ||
-/*	    elf_getshdrnum(elf, &nshdrs) == -1 ||
-	    elf_getshdrstrndx(elf, &shstrndx) == -1 || */
-	    elf_getshnum(elf, &nshdrs) != 1 ||
-	    elf_getshstrndx(elf, &shstrndx) != 1 ||
+	    elf_getshdrnum(elf, &nshdrs) == -1 ||
+	    elf_getshdrstrndx(elf, &shstrndx) == -1 ||
 	    (scn = elf_getscn(elf, shstrndx)) == NULL ||
 	    (shdata = elf_getdata(scn, NULL)) == NULL) {
 		int err = elf_errno();

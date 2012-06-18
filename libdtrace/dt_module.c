@@ -504,7 +504,7 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	(void) close(fd);
 
 	if (dmp->dm_elf == NULL || err == -1 ||
-	    elf_getshstrndx(dmp->dm_elf, &shstrs) != 1) {
+	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) != 1) {
 		dt_dprintf("failed to load %s: %s\n",
 		    fname, elf_errmsg(elf_errno()));
 		dt_module_destroy(dtp, dmp);

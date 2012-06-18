@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -32,6 +32,7 @@
 #include <sys/processor.h>
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
+#include <config.h>
 
 extern size_t strlcpy(char *, const char *, size_t);
 extern size_t strlcat(char *, const char *, size_t);
@@ -46,5 +47,10 @@ int pthread_cond_reltimedwait_np(pthread_cond_t *cvp, pthread_mutex_t *mp,
     struct timespec *reltime);
 
 int mutex_init(mutex_t *m, int flags1, void *ptr);
+
+#ifndef HAVE_ELF_GETSHDRSTRNDX
+#define elf_getshdrstrndx elf_getshstrndx
+#define elf_getshdrnum elf_getshnum
+#endif
 
 #endif
