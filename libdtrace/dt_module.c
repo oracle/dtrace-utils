@@ -397,9 +397,22 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 void
 dt_module_destroy(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
+	uint_t h = dt_strtab_hash(dmp->dm_name, NULL) % dtp->dt_modbuckets;
+	dt_module_t *scan_dmp;
+	dt_module_t *prev_dmp = NULL;
+
 	dt_list_delete(&dtp->dt_modlist, dmp);
 	assert(dtp->dt_nmods != 0);
 	dtp->dt_nmods--;
+
+	for (scan_dmp = dtp->dt_mods[h]; (scan_dmp != NULL) && (scan_dmp != dmp);
+	     scan_dmp = scan_dmp->dm_next) {
+		prev_dmp = scan_dmp;
+	}
+	if (prev_dmp == NULL)
+		dtp->dt_mods[h] = dmp->dm_next;
+	else
+		prev_dmp->dm_next = dmp->dm_next;
 
 	dt_module_unload(dtp, dmp);
 	free(dmp);

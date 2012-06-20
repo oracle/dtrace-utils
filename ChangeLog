@@ -2,6 +2,9 @@
 
 	* Makeconfig (CONFIG_H): Add missing path slash.
 
+	* libdtrace/dt_module.c (dt_module_destroy): Unchain destroyed
+	modules from the module hash.
+
 2012-06-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	Add a crude symbol-checking infrastructure, like Autoconf's
