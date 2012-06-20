@@ -25,7 +25,7 @@
 
 # The configuration header file.
 
-CONFIG_H = $(objdir)config.h
+CONFIG_H = $(objdir)/config.h
 
 # Generate a makefile rule to check for the presence of SYMBOL
 # in LIBRARY and emit an appropriate header file fragment into

@@ -1,3 +1,7 @@
+2012-06-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	* Makeconfig (CONFIG_H): Add missing path slash.
+
 2012-06-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	Add a crude symbol-checking infrastructure, like Autoconf's
