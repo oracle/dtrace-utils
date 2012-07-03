@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -309,4 +309,18 @@ strhyphenate(char *s)
 	}
 
 	return (s);
+}
+
+/*
+ * Search for the last occurrence of the given needle in the given haystack.
+ */
+char *strrstr(const char *haystack, const char *needle)
+{
+	const char *s = haystack - 1;
+	const char *prev_s = NULL;
+
+	while ((s = strstr(s + 1, needle)) != NULL)
+		prev_s = s;
+
+	return (char *)prev_s;
 }

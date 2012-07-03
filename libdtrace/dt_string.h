@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2004 Oracle, Inc.  All rights reserved.
+ * Copyright 2004, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -31,6 +31,7 @@
 
 #include <sys/types.h>
 #include <strings.h>
+#include <config.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -42,6 +43,9 @@ extern const char *strbasename(const char *);
 extern const char *strbadidnum(const char *);
 extern int strisglob(const char *);
 extern char *strhyphenate(char *);
+#ifndef HAVE_STRRSTR
+extern char *strrstr(const char *, const char *);
+#endif
 
 #ifdef	__cplusplus
 }

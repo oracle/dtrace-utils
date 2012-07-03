@@ -55,3 +55,4 @@ $(CONFIG_H):
 	cat $(objdir)/.config/*.h >> $(objdir)/config.h 2>/dev/null || true
 
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
+$(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
