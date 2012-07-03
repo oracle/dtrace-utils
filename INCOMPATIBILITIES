@@ -112,7 +112,7 @@ Library differences
 Difficulty: Very high
 Likelihood: Nil
 
-For consumers of libdtrace, <dtrace.h> has various differences. These reflect
+For consumers of libdtrace, <dtrace.h> has various differences.  These reflect
 intrinsic Solaris/Linux differences which will not be fixed.
 
 Currently:
@@ -120,3 +120,29 @@ Currently:
 dtrace_objinfo.dto_flags has lost the DTRACE_OBJ_F_PRIMARY value: the Linux
 kernel has no concept of 'primary modules'.  As a consequence, the 'primary'
 linkmode option is gone.
+
+Because modules in the Linux kernel may have many discontiguous regions of text
+and data interspersed with other modules, dtrace_objinfo no longer has
+dto_text_va, dto_data_va, dto_bss_va or the corresponding _size members;
+instead, dto_text_addrs and dto_data_addrs and corresponding _size members
+provide access to sorted arrays of dtrace_addr_range_t structures representing
+all text and data ranges in the object: these arrays are freed at
+dt_module_destroy() time.  A new function dtrace_addr_range_cmp() permits
+bsearch()ing of these arrays.  (We no longer distinguish between initialized
+data and bss sections.)
+
+The dtrace_syminfo_t type populated by dtrace_lookup_by_name() and
+dtrace_lookup_by_addr() no longer guarantees population of its dts_id member:
+for kernel symbols, it will always be zero.  In future a further API change may
+require the caller to free the dts_name member: this will be signalled by its no
+longer being declared const.
+
+The GElf_Sym parameter populated by dtrace_lookup_by_name() and
+dtrace_lookup_by_addr() no longer guarantees population of its st_name or
+st_other fields, and the only thing guaranteed about st_shndx is SHN_UNDEF
+versus !SHN_UNDEF (there is no guarantee that it will correspond to an actual
+ELF section).  If you want the symbol name, you should use the
+dtrace_syminfo.dts_name instead.  There is no guaranteed replacement for
+st_other.
+
+dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().

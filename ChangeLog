@@ -1,5 +1,7 @@
 2012-07-03  Nick Alcock  <nick.alcock@oracle.com>
 
+	The great dt_module revamp.
+
 	* libdtrace/dt_symtab.h: New file, symbol table management.
 	* libdtrace/dt_symtab.c: New file, implementation thereof.
 	* libdtrace/Build: Add it.
@@ -20,6 +22,113 @@
 	(dt_opt_module_path): New.
 	(dt_opt_rate): Quash compiler warning.
 
+	* libdtrace/dtrace.h (DTRACE_O_NOSYS): Delete, irrelevant.
+	Renumber later flags.
+	(dtrace_update): Now returns an int.
+	(dtrace_addr_range): New.
+	(dtrace_addr_range_cmp): Likewise.
+	(dtrace_objinfo): dto_text_va and dto_data_va are transformed
+	into address ranges: dto_bss_va and dto_bss_size are dropped.
+	(comment): Mention that address ranges need to be freed.
+
+	* libdtrace/dt_error.c (EDT_CORRUPT_KALLSYMS): New error,
+	reported when /proc/kallsyms is corrupt.
+	(EDT_ELFCLASS): New error, reported when the ELF class is unknown.
+	(EDT_OBJIO): New error, reported when object files are unreadable.
+
+	* libdtrace/dt_impl.h: Introduce the errors here too.
+	No longer include <sys/objfs.h> or <gelf.h>. Include <dt_symtab.h>.
+	(dt_sym): Rename to...
+	(dt_modsym): ... this, for clarity.  Adjust field names too.
+	(dt_module): dm_*_va and dm_*_size changes as in the dtrace_objinfo,
+	using address ranges rather than single addresses.  Emphasise which
+	fields are only useful for userspace modules versus kernel moudules.
+	Introduce dm_ctdata_name and dm_kernsyms. Drop dm_info.
+	(dt_kern_path): New, module name -> filesystem path mapping for a
+	kernel module.
+	(DT_DM_BUILTIN): New flag indicating a built-in kernel module with
+	no corresponding .ko file on disk.
+	(dtrace_hdl): Introduce dt_ctf_elf, dt_ctf_ops, dt_kernpathlist,
+	dt_kernpaths, dt_kernpathbuckets, dt_nkernpaths.
+
+	* libdtrace/dt_open.c (dt_vopen): Initialize the kernel paths.
+	dtrace_update() may now return an error.
+	(dtrace_close): Destroy and free the kernel paths.
+
+	* libdtrace/dt_symbol_modops.h (dt_module_symcomp): Adjust to
+	accept a third argument rather than using the dt_module_strtab
+	global variable.
+	(dt_module_symsort): Use qsort_r(), not qsort(). Adjust for
+	dt_sym_t -> dt_modsym_t rename.
+	(dt_module_symname): Adjust likewise.
+
+	* libdtrace/dt_module.c: Adjust for dt_sym_t -> dt_modsym_t rename.
+	Remove redundant (void) casts.
+	(dt_module_strtab): Deleted.
+	(KSYM_NAME_MAX): New, derived from kernel/scripts/kallsyms.c.
+	(dt_kern_path_create): New, create a kernel path.
+	(dt_kern_path_destroy): New, destroy it.
+	(dt_kern_path_lookup_by_name): New, find a pathname given a kernel
+	module name.
+	(dt_kern_path_update): New, find the mapping from module names
+	to kernel paths.
+	(dt_module_lookup_by_name): Allow 'genunix' as a compatibility
+	alias for 'vmlinux'.
+	(dt_module_update): Move ELF reading...
+	(dt_module_init_elf): ... to this new function.  Built-in modules
+	are read in once across all built-in modules, cached in dt_ctf_elf,
+	then cloned from that.  Use ELF_C_READ_MMAP in elf_cntl() to work
+	around elfutils bug.
+	(dt_module_load): Now static.  Vary the CTF file name if this is a
+	built-in module; store that varied name in a new field so that we
+	can deallocate it later.  Do not try to load the string or symbol
+	tables, set up the symchains or do anything else ELFish for kernel
+	modules.
+	(dt_module_unload): Now static. Don't bother checking for NULLity
+	before freeing, free() does that itself.  Adjust for new
+	dynamically-allocated fields and removed fields.  Free the ELF
+	handle only for non-builtin modules, since for builtin modules
+	that handle is shared.
+	(dt_module_getctf): dt_module.dm_ops is NULL for kernel modules:
+	this is the same as 64-bit.
+	(dt_module_extern): Likewise.
+	(dtrace_addr_range_cmp): New, compare a GElf_Addr to an address range.
+	(dtrace_addr_range_sort_cmp): New sort an address range into order.
+	(dtrace_addr_range_populating_cmp): Likewise, addresses just
+	off the end but contiguous with a range are considered to be in the
+	range (i.e. an open range).
+	(dtrace_addr_range_find_populating): Find the range in which an
+	address lies, if any, given a module and a text/data flag.
+	(dtrace_addr_range_grow): Add a new text or data range for a
+	module (growing the range array).
+	(sym_type_to_info): New: given an nm(1)-style info field as
+	seen in /proc/kallsyms or /proc/kallmodsyms, return an ELF
+	st_info value.
+	(dt_kern_module_init): New, initialize a new kernel dt_module.
+	(dt_modsym_update): New, given a line in /proc/kallmodsyms
+	representing a kernel symbol, create or extend a dt_module,
+	its ranges, and its dm_kernsyms appropriately, skipping various
+	symbols believed to be useless.
+	(dtrace_update): This can now fail.  Remove Solaris /system/object-
+	objfs-and-ELF scanning, instead sucking in /proc/kallmodsyms and
+	passing each line to dt_modsym_update(), finally sorting its
+	kernel symbol tables with dt_symtab_sort().  Rename the "genunix"
+	module to "vmlinux".
+	(dtrace_lookup_by_name): Kernel modules follow a new path,
+	looking up the symbol in the dm_kernsyms for each module and
+	synthesising an ELF object for it via dt_symbol_to_elfsym().
+	(dtrace_lookup_by_addr): Likewise. bsearch() the address ranges
+	rather than comparing dm_{text,data,bss}_va.
+	(dt_module_info): dm_*_va and dm_*_size changes as in the
+	dtrace_objinfo.
+	* libdtrace/dt_module.h: dt_module_load() and dt_module_unload()
+	are no longer public.  dt_kern_path_destroy() is now public.
+
+	* libdtrace/dt_aggregate.c (dt_aggregate_mod): bsearch() the
+	address ranges rather than comparing dm_text_va.
+
+	* uts/common/sys/objfs.h: Deleted.
+
 	* GNUmakefile: No longer specify 64-bitness of file I/O: it is
 	redundant on x86-64 and breaks fts().
 
@@ -28,6 +137,10 @@
 	* libdtrace/dt_strtab.c (dt_strtab_destroy): Likewise.
 	* libdtrace/dt_provider.c (dtrace_probe_iter): Quash compiler
 	warning.
+
+	* INCOMPATIBILITIES: Updated to mention the dtrace.h changes
+	and the changes in population of dtrace_syminfo_t and GElf_Sym
+	parameters for kernel symbols.
 
 2012-06-20  Nick Alcock  <nick.alcock@oracle.com>
 

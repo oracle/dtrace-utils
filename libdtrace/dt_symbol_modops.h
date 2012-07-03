@@ -70,10 +70,11 @@ BITIZE(dt_module_syminit)(dt_module_t *dmp)
  * non-zero sized, typed, not weak, or lexically first, in that order.
  */
 static int
-BITIZE(dt_module_symcomp)(const void *lp, const void *rp)
+BITIZE(dt_module_symcomp)(const void *lp, const void *rp, void *strtabp)
 {
 	ElfIZE(Sym) *lhs = *((ElfIZE(Sym) **)lp);
 	ElfIZE(Sym) *rhs = *((ElfIZE(Sym) **)rp);
+	const char *strtab = strtabp;
 
 	if (lhs->st_value != rhs->st_value)
 		return (lhs->st_value > rhs->st_value ? 1 : -1);
@@ -89,8 +90,8 @@ BITIZE(dt_module_symcomp)(const void *lp, const void *rp)
 	    (ELFIZE(ST_BIND)(rhs->st_info) == STB_WEAK))
 		return (ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK ? 1 : -1);
 
-	return (strcmp(dt_module_strtab + lhs->st_name,
-	    dt_module_strtab + rhs->st_name));
+	return (strcmp(strtab + lhs->st_name,
+	    strtab + rhs->st_name));
 }
 
 static void
@@ -98,11 +99,11 @@ BITIZE(dt_module_symsort)(dt_module_t *dmp)
 {
 	ElfIZE(Sym) *symtab = (ElfIZE(Sym) *)dmp->dm_symtab.cts_data;
 	ElfIZE(Sym) **sympp = (ElfIZE(Sym) **)dmp->dm_asmap;
-	const dt_sym_t *dsp = dmp->dm_symchains + 1;
+	const dt_modsym_t *dmsp = dmp->dm_symchains + 1;
 	uint_t i, n = dmp->dm_symfree;
 
-	for (i = 1; i < n; i++, dsp++) {
-		ElfIZE(Sym) *sym = symtab + dsp->ds_symid;
+	for (i = 1; i < n; i++, dmsp++) {
+		ElfIZE(Sym) *sym = symtab + dmsp->dms_symid;
 		if (sym->st_value != 0 &&
 		    (ELFIZE(ST_BIND)(sym->st_info) != STB_LOCAL || sym->st_size))
 			*sympp++ = sym;
@@ -111,10 +112,9 @@ BITIZE(dt_module_symsort)(dt_module_t *dmp)
 	dmp->dm_aslen = (uint_t)(sympp - (ElfIZE(Sym) **)dmp->dm_asmap);
 	assert(dmp->dm_aslen <= dmp->dm_asrsv);
 
-	dt_module_strtab = dmp->dm_strtab.cts_data;
-	qsort(dmp->dm_asmap, dmp->dm_aslen,
-	    sizeof (ElfIZE(Sym) *), BITIZE(dt_module_symcomp));
-	dt_module_strtab = NULL;
+	qsort_r(dmp->dm_asmap, dmp->dm_aslen,
+	    sizeof (ElfIZE(Sym) *), BITIZE(dt_module_symcomp),
+	    (void *) dmp->dm_strtab.cts_data);
 }
 
 static GElf_Sym *
@@ -125,7 +125,7 @@ BITIZE(dt_module_symname)(dt_module_t *dmp, const char *name,
 	const char *strtab = dmp->dm_strtab.cts_data;
 
 	const ElfIZE(Sym) *sym;
-	const dt_sym_t *dsp;
+	const dt_modsym_t *dmsp;
 	uint_t i, h;
 
 	if (dmp->dm_nsymelems == 0)
@@ -133,13 +133,13 @@ BITIZE(dt_module_symname)(dt_module_t *dmp, const char *name,
 
 	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
 
-	for (i = dmp->dm_symbuckets[h]; i != 0; i = dsp->ds_next) {
-		dsp = &dmp->dm_symchains[i];
-		sym = symtab + dsp->ds_symid;
+	for (i = dmp->dm_symbuckets[h]; i != 0; i = dmsp->dms_next) {
+		dmsp = &dmp->dm_symchains[i];
+		sym = symtab + dmsp->dms_symid;
 
 		if (strcmp(name, strtab + sym->st_name) == 0) {
 			if (idp != NULL)
-				*idp = dsp->ds_symid;
+				*idp = dmsp->dms_symid;
 			return (BITIZE(dt_module_symgelf)(sym, symp));
 		}
 	}

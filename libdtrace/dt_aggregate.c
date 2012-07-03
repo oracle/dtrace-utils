@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <dt_impl.h>
+#include <dtrace.h>
 #include <assert.h>
 #include <alloca.h>
 #include <limits.h>
@@ -322,8 +323,13 @@ dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *data)
 
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
-		if (*pc - dmp->dm_text_va < dmp->dm_text_size) {
-			*pc = dmp->dm_text_va;
+		dtrace_addr_range_t *i;
+
+		i = bsearch(pc, dmp->dm_text_addrs, dmp->dm_text_addrs_size,
+		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+
+		if (i) {
+			*pc = i->dar_va;
 			return;
 		}
 	}

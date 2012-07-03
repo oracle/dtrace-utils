@@ -60,10 +60,9 @@ typedef struct dtrace_vector dtrace_vector_t;
 typedef struct dtrace_aggdata dtrace_aggdata_t;
 
 #define	DTRACE_O_NODEV		0x01	/* do not open dtrace(7D) device */
-#define	DTRACE_O_NOSYS		0x02	/* do not load /system/object modules */
-#define	DTRACE_O_LP64		0x04	/* force D compiler to be LP64 */
-#define	DTRACE_O_ILP32		0x08	/* force D compiler to be ILP32 */
-#define	DTRACE_O_MASK		0x0f	/* mask of valid flags to dtrace_open */
+#define	DTRACE_O_LP64		0x02	/* force D compiler to be LP64 */
+#define	DTRACE_O_ILP32		0x04	/* force D compiler to be ILP32 */
+#define	DTRACE_O_MASK		0x07	/* mask of valid flags to dtrace_open */
 
 extern dtrace_hdl_t *dtrace_open(int, int, int *);
 extern dtrace_hdl_t *dtrace_vopen(int, int, int *,
@@ -82,7 +81,7 @@ extern const char *dtrace_subrstr(dtrace_hdl_t *, int);
 extern int dtrace_setopt(dtrace_hdl_t *, const char *, const char *);
 extern int dtrace_getopt(dtrace_hdl_t *, const char *, dtrace_optval_t *);
 
-extern void dtrace_update(dtrace_hdl_t *);
+extern int dtrace_update(dtrace_hdl_t *);
 extern int dtrace_ctlfd(dtrace_hdl_t *);
 
 /*
@@ -427,10 +426,11 @@ extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
  * Library clients can use libdtrace to perform symbol and C type information
  * lookups by symbol name, symbol address, or C type name, or to lookup meta-
  * information cached for each of the program objects in use by DTrace.  The
- * resulting struct contain pointers to arbitrary-length strings, including
- * object, symbol, and type names, that are persistent until the next call to
- * dtrace_update().  Once dtrace_update() is called, any cached values must
- * be flushed and not used subsequently by the client program.
+ * resulting struct contains pointers to address range arrays and arbitrary-
+ * length strings, including object, symbol, and type names, that are persistent
+ * until the next call to dtrace_update().  Once dtrace_update() is called, any
+ * cached values must be flushed and not used subsequently by the client
+ * program.
  */
 
 #define	DTRACE_OBJ_EXEC	 ((const char *)0L)	/* primary executable file */
@@ -440,16 +440,21 @@ extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 #define	DTRACE_OBJ_KMODS ((const char *)-2L)	/* all kernel objects */
 #define	DTRACE_OBJ_UMODS ((const char *)-3L)	/* all user objects */
 
+typedef struct dtrace_addr_range {
+	GElf_Addr dar_va;	/* virtual start address of range */
+	GElf_Xword dar_size;	/* size of range */
+} dtrace_addr_range_t;
+
+extern int dtrace_addr_range_cmp(const void *, const void *);
+
 typedef struct dtrace_objinfo {
 	const char *dto_name;			/* object file scope name */
 	const char *dto_file;			/* object file path (if any) */
 	uint_t dto_flags;			/* object flags (see below) */
-	GElf_Addr dto_text_va;			/* address of text section */
-	GElf_Xword dto_text_size;		/* size of text section */
-	GElf_Addr dto_data_va;			/* address of data section */
-	GElf_Xword dto_data_size;		/* size of data section */
-	GElf_Addr dto_bss_va;			/* address of BSS */
-	GElf_Xword dto_bss_size;		/* size of BSS */
+	dtrace_addr_range_t *dto_text_addrs;	/* text addresses, sorted */
+	size_t dto_text_addrs_size;		/* number of entries */
+	dtrace_addr_range_t *dto_data_addrs;	/* data/BSS addresses, sorted */
+	size_t dto_data_addrs_size;		/* number of entries */
 } dtrace_objinfo_t;
 
 #define	DTRACE_OBJ_F_KERNEL	0x1		/* object is a kernel module */

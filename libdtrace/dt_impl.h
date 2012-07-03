@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 Oracle, Inc.  All rights reserved.
+ * Copyright 2010, 2011, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -28,11 +28,9 @@
 #define	_DT_IMPL_H
 
 #include <sys/param.h>
-#include <sys/objfs.h>
 #include <setjmp.h>
 #include <sys/ctf_api.h>
 #include <dtrace.h>
-#include <gelf.h>
 
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
@@ -51,6 +49,7 @@ extern "C" {
 #include <dt_regset.h>
 #include <dt_inttab.h>
 #include <dt_strtab.h>
+#include <dt_symtab.h>
 #include <dt_ident.h>
 #include <dt_list.h>
 #include <dt_decl.h>
@@ -101,44 +100,69 @@ typedef struct dt_arg {
 	struct dt_arg *da_next;	/* next argument */
 } dt_arg_t;
 
-typedef struct dt_sym {
-	uint_t ds_symid;	/* id of corresponding symbol */
-	uint_t ds_next;		/* index of next element in hash chain */
-} dt_sym_t;
+typedef struct dt_modsym {
+	uint_t dms_symid;	/* id of corresponding symbol */
+	uint_t dms_next;	/* index of next element in hash chain */
+} dt_modsym_t;
 
 typedef struct dt_module {
 	dt_list_t dm_list;	/* list forward/back pointers */
 	char dm_name[DTRACE_MODNAMELEN]; /* string name of module */
 	char dm_file[PATH_MAX]; /* file path of module */
+	uint_t dm_flags;	/* module flags (see below) */
 	struct dt_module *dm_next; /* pointer to next module in hash chain */
+
+	dtrace_addr_range_t *dm_text_addrs; /* text addresses, sorted */
+	size_t dm_text_addrs_size;	 /* number of entries */
+	dtrace_addr_range_t *dm_data_addrs; /* data/BSS addresses, sorted */
+	size_t dm_data_addrs_size;	 /* number of entries */
+
+	dt_idhash_t *dm_extern;	/* external symbol definitions */
+
+	/*
+	 * Kernel modules populate the fields below only for the sake of CTF.
+	 */
 	const dt_modops_t *dm_ops; /* pointer to data model's ops vector */
 	Elf *dm_elf;		/* libelf handle for module object */
-	objfs_info_t dm_info;	/* object filesystem private info */
-	ctf_sect_t dm_symtab;	/* symbol table for module */
-	ctf_sect_t dm_strtab;	/* string table for module */
-	ctf_sect_t dm_ctdata;	/* CTF data for module */
 	ctf_file_t *dm_ctfp;	/* CTF container handle */
+	char *dm_ctdata_name;	/* CTF section name (dynamically allocated) */
+	ctf_sect_t dm_ctdata;	/* CTF data for module */
+	ctf_sect_t dm_symtab;	/* symbol table */
+	ctf_sect_t dm_strtab;	/* string table */
+
+	/*
+	 * Kernel modules only.
+	 */
+	dt_symtab_t *dm_kernsyms; /* module kernel symbol table */
+
+	/*
+	 * Userspace modules only.
+	 */
 	uint_t *dm_symbuckets;	/* symbol table hash buckets (chain indices) */
-	dt_sym_t *dm_symchains;	/* symbol table hash chains buffer */
+	dt_modsym_t *dm_symchains; /* symbol table hash chains buffer */
 	void *dm_asmap;		/* symbol pointers sorted by value */
 	uint_t dm_symfree;	/* index of next free hash element */
 	uint_t dm_nsymbuckets;	/* number of elements in bucket array */
 	uint_t dm_nsymelems;	/* number of elements in hash table */
 	uint_t dm_asrsv;	/* actual reserved size of dm_asmap */
 	uint_t dm_aslen;	/* number of entries in dm_asmap */
-	uint_t dm_flags;	/* module flags (see below) */
-
-	GElf_Addr dm_text_va;	/* virtual address of text section */
-	GElf_Xword dm_text_size; /* size in bytes of text section */
-	GElf_Addr dm_data_va;	/* virtual address of data section */
-	GElf_Xword dm_data_size; /* size in bytes of data section */
-	GElf_Addr dm_bss_va;	/* virtual address of BSS */
-	GElf_Xword dm_bss_size;	/* size in bytes of BSS */
-	dt_idhash_t *dm_extern;	/* external symbol definitions */
 } dt_module_t;
+
+/*
+ * The path to an actual kernel module residing on the disk.  Used only for
+ * initialization of the corresponding dt_module, since modprobe -l is
+ * deprecated (and removed in the kmod tools).
+ */
+typedef struct dt_kern_path {
+	dt_list_t dkp_list;	       /* list forward/back pointers */
+	struct dt_kern_path *dkp_next; /* hash chain next pointer */
+	char *dkp_name;		       /* name of this kernel module */
+	char *dkp_path;		       /* full name including path */
+} dt_kern_path_t;
 
 #define	DT_DM_LOADED	0x1	/* module symbol and type data is loaded */
 #define	DT_DM_KERNEL	0x2	/* module is associated with a kernel object */
+#define DT_DM_BUILTIN   0x4     /* module is built-in or the core kernel */
 
 typedef struct dt_provmod {
 	char *dp_name;				/* name of provider module */
@@ -218,6 +242,12 @@ struct dtrace_hdl {
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */
 	uint_t dt_nmods;	/* number of modules in hash and list */
+	Elf *dt_ctf_elf;	/* ELF handle to the special 'dtrace_ctf' module */
+	const dt_modops_t *dt_ctf_ops; /* data model's ops vector for CTF module */
+	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
+	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
+	uint_t dt_kernpathbuckets; /* number of kernel module path hash buckets */
+	uint_t dt_nkernpaths;	/* number of kernel module paths in hash and list */
 	dt_provmod_t *dt_provmod; /* linked list of provider modules */
 	dt_module_t *dt_exec;	/* pointer to executable module */
 	dt_module_t *dt_cdefs;	/* pointer to C dynamic type module */
@@ -457,7 +487,7 @@ enum {
 	EDT_DATAMODEL,		/* module and program data models don't match */
 	EDT_DIFVERS,		/* library has newer DIF version than driver */
 	EDT_BADAGG,		/* unrecognized aggregating action */
-	EDT_FIO,		/* file i/o error */
+	EDT_FIO,		/* error occurred while reading from input stream */
 	EDT_DIFINVAL,		/* invalid DIF program */
 	EDT_DIFSIZE,		/* invalid DIF size */
 	EDT_DIFFAULT,		/* failed to copyin DIF program */
@@ -503,7 +533,10 @@ enum {
 	EDT_BADSTACKPC,		/* invalid stack program counter size */
 	EDT_BADAGGVAR,		/* invalid aggregation variable identifier */
 	EDT_OVERSION,		/* client is requesting deprecated version */
-	EDT_ENABLING_ERR	/* failed to enable probe */
+	EDT_ENABLING_ERR,	/* failed to enable probe */
+	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
+	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
+	EDT_OBJIO		/* cannot read object file */
 };
 
 /*

@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2004 Oracle, Inc.  All rights reserved.
+ * Copyright 2004, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -36,9 +36,8 @@ extern "C" {
 #endif
 
 extern dt_module_t *dt_module_create(dtrace_hdl_t *, const char *);
-extern int dt_module_load(dtrace_hdl_t *, dt_module_t *);
-extern void dt_module_unload(dtrace_hdl_t *, dt_module_t *);
 extern void dt_module_destroy(dtrace_hdl_t *, dt_module_t *);
+extern void dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp);
 
 extern dt_module_t *dt_module_lookup_by_name(dtrace_hdl_t *, const char *);
 extern dt_module_t *dt_module_lookup_by_ctf(dtrace_hdl_t *, ctf_file_t *);

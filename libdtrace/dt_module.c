@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2011, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -38,25 +38,175 @@
 #include <assert.h>
 #include <errno.h>
 #include <dirent.h>
+#include <ctype.h>
 #include <port.h>
+#include <fts.h>
 
 #include <dt_strtab.h>
 #include <dt_module.h>
 #include <dt_impl.h>
+#include <dt_string.h>
 
-static const char *dt_module_strtab; /* active strtab for qsort callbacks */
+#define KSYM_NAME_MAX 128            /* from kernel/scripts/kallsyms.c */
+
+static void
+dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp);
+
+/*
+ * Kernel module list management.  We must maintain bindings from
+ * name->filesystem path for all the current kernel's modules, since the system
+ * maintains no such list and all mechanisms other than find(1)-analogues have
+ * been deprecated or removed in kmod.
+ */
+
+static dt_kern_path_t *
+dt_kern_path_create(dtrace_hdl_t *dtp, const char *name, const char *path)
+{
+	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
+	dt_kern_path_t *dkpp;
+
+	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
+		if (strcmp(dkpp->dkp_name, name) == 0)
+			return (dkpp);
+	}
+
+	if ((dkpp = malloc(sizeof (dt_kern_path_t))) == NULL)
+		return (NULL); /* caller must handle allocation failure */
+
+	bzero(dkpp, sizeof (dt_kern_path_t));
+	dkpp->dkp_name = strdup(name);
+	dkpp->dkp_path = strdup(path);
+	dt_list_append(&dtp->dt_kernpathlist, dkpp);
+	dkpp->dkp_next = dtp->dt_kernpaths[h];
+	dtp->dt_kernpaths[h] = dkpp;
+	dtp->dt_nkernpaths++;
+
+	return (dkpp);
+}
+
+void
+dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
+{
+	uint_t h = dt_strtab_hash(dkpp->dkp_name, NULL) % dtp->dt_kernpathbuckets;
+	dt_kern_path_t *scan_dkpp;
+	dt_kern_path_t *prev_dkpp = NULL;
+
+	dt_list_delete(&dtp->dt_kernpathlist, dkpp);
+	assert(dtp->dt_nkernpaths != 0);
+	dtp->dt_nkernpaths--;
+
+	for (scan_dkpp = dtp->dt_kernpaths[h]; (scan_dkpp != NULL) &&
+		 (scan_dkpp != dkpp); scan_dkpp = scan_dkpp->dkp_next) {
+		prev_dkpp = scan_dkpp;
+	}
+	if (prev_dkpp == NULL)
+		dtp->dt_kernpaths[h] = dkpp->dkp_next;
+	else
+		prev_dkpp->dkp_next = dkpp->dkp_next;
+
+	free(dkpp->dkp_name);
+	free(dkpp->dkp_path);
+	free(dkpp);
+}
+
+dt_kern_path_t *
+dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
+{
+	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
+	dt_kern_path_t *dkpp;
+
+	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
+		if (strcmp(dkpp->dkp_name, name) == 0)
+			return (dkpp);
+	}
+
+	return (NULL);
+}
+
+/*
+ * Construct the mapping of kernel module name -> path for all modules.
+ */
+static int
+dt_kern_path_update(dtrace_hdl_t *dtp)
+{
+	FTS *ftp;
+	FTSENT *module;
+	char *modpathargs[2] = { dtp->dt_module_path, NULL };
+
+	ftp = fts_open(modpathargs, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+
+	if (ftp == NULL)
+		return errno;
+
+	while ((module = fts_read(ftp)) != NULL) {
+		int fterrno;
+		char *suffix;
+		char modname[PATH_MAX];
+
+		switch (module->fts_info) {
+		case FTS_DNR:
+		case FTS_ERR:
+			fterrno = module->fts_errno;
+			fts_close(ftp);
+			dt_dprintf("Failed to read kernel module hierarchy "
+			    "rooted at %s: %s\n", dtp->dt_module_path,
+			    strerror(fterrno));
+
+			return fterrno;
+		case FTS_F:
+			break;
+		default:
+			continue;
+		}
+
+		suffix = strrstr(module->fts_name, ".ko");
+		if ((suffix == NULL) || (suffix[3] != '\0'))
+			continue;
+
+		strcpy(modname, module->fts_name);
+		suffix = strrstr(modname, ".ko");
+		suffix[0] = '\0';
+
+		if (dt_kern_path_create(dtp, modname, module->fts_path) == NULL) {
+			fts_close(ftp);
+			return EDT_NOMEM;
+		}
+	}
+
+	/*
+	 * fts_read() is unusual in that it sets errno to 0 on a successful
+	 * return.
+	 */
+	if (errno != 0) {
+		int error;
+
+		fts_close(ftp);
+		error = errno;
+		dt_dprintf("Failed to close search for kernel module hierarchy "
+		    "rooted at %s/kernel: %s\n", dtp->dt_module_path,
+		    strerror(error));
+
+		return error;
+	}
+
+	return 0;
+}
+
+/*
+ * Symbol table management for userspace modules, via ELF parsing.
+ */
 
 static void
 dt_module_symhash_insert(dt_module_t *dmp, const char *name, uint_t id)
 {
-	dt_sym_t *dsp = &dmp->dm_symchains[dmp->dm_symfree];
+	dt_modsym_t *dsp = &dmp->dm_symchains[dmp->dm_symfree];
 	uint_t h;
 
 	assert(dmp->dm_symfree < dmp->dm_nsymelems + 1);
 
-	dsp->ds_symid = id;
+	dsp->dms_symid = id;
 	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
-	dsp->ds_next = dmp->dm_symbuckets[h];
+	dsp->dms_next = dmp->dm_symbuckets[h];
 	dmp->dm_symbuckets[h] = dmp->dm_symfree++;
 }
 
@@ -89,10 +239,10 @@ dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 #endif
 
 #define BITS 32
-#include "dt_symbol_modops.h"
+#include <dt_symbol_modops.h>
 #undef BITS
 #define BITS 64
-#include "dt_symbol_modops.h"
+#include <dt_symbol_modops.h>
 #undef BITS
 
 dt_module_t *
@@ -110,7 +260,7 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 		return (NULL); /* caller must handle allocation failure */
 
 	bzero(dmp, sizeof (dt_module_t));
-	(void) strlcpy(dmp->dm_name, name, sizeof (dmp->dm_name));
+	strlcpy(dmp->dm_name, name, sizeof (dmp->dm_name));
 	dt_list_append(&dtp->dt_modlist, dmp);
 	dmp->dm_next = dtp->dt_mods[h];
 	dtp->dt_mods[h] = dmp;
@@ -130,6 +280,12 @@ dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_modbuckets;
 	dt_module_t *dmp;
 
+	/* 'genunix' is an alias for 'vmlinux'. */
+
+	if (strcmp(name, "genunix") == 0) {
+		name = "vmlinux";
+	}
+
 	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next) {
 		if (strcmp(dmp->dm_name, name) == 0)
 			return (dmp);
@@ -143,6 +299,76 @@ dt_module_t *
 dt_module_lookup_by_ctf(dtrace_hdl_t *dtp, ctf_file_t *ctfp)
 {
 	return (ctfp ? ctf_getspecific(ctfp) : NULL);
+}
+
+static int
+dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+{
+	int fd, err, bits;
+	size_t shstrs;
+
+	if ((dmp->dm_flags & DT_DM_BUILTIN) &&
+	    (dtp->dt_ctf_elf != NULL)) {
+		dmp->dm_elf = dtp->dt_ctf_elf;
+		dmp->dm_ops = dtp->dt_ctf_ops;
+		return 0;
+	}
+
+	if (!dmp->dm_file) {
+		dt_dprintf("failed to open ELF file for module %s: "
+		    "no file name known\n", dmp->dm_name);
+		return (dt_set_errno(dtp, EDT_NOTLOADED));
+	}
+
+	if ((fd = open(dmp->dm_file, O_RDONLY)) == -1) {
+		dt_dprintf("failed to open module %s at %s: %s\n",
+		    dmp->dm_name, dmp->dm_file, strerror(errno));
+		return dt_set_errno(dtp, EDT_OBJIO);
+	}
+
+	/*
+	 * Don't hold the fd open forever. (ELF_C_READ followed by
+	 * elf_cntl(..., ELF_C_FDREAD) triggers assertion failures in elfutils
+	 * at gelf_getshdr() time: ELF_C_READ_MMAP works around this.)
+	 */
+
+	dmp->dm_elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	err = elf_cntl(dmp->dm_elf, ELF_C_FDREAD);
+	close(fd);
+
+	if (dmp->dm_elf == NULL || err == -1 ||
+	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1) {
+		dt_dprintf("failed to load %s: %s\n", dmp->dm_file,
+		    elf_errmsg(elf_errno()));
+		dt_module_destroy(dtp, dmp);
+		return dt_set_errno(dtp, EDT_OBJIO);
+	}
+
+	switch (gelf_getclass(dmp->dm_elf)) {
+	case ELFCLASS32:
+		dmp->dm_ops = &dt_modops_32;
+		bits = 32;
+		break;
+	case ELFCLASS64:
+		dmp->dm_ops = &dt_modops_64;
+		bits = 64;
+		break;
+	default:
+		dt_dprintf("failed to load %s: unknown ELF class\n",
+		    dmp->dm_file);
+		dt_module_destroy(dtp, dmp);
+		return dt_set_errno(dtp, EDT_ELFCLASS);
+	}
+
+	dt_dprintf("opened %d-bit module %s (%s)\n", bits, dmp->dm_name,
+	    dmp->dm_file);
+
+	if (dmp->dm_flags & DT_DM_BUILTIN) {
+		dtp->dt_ctf_elf = dmp->dm_elf;
+		dtp->dt_ctf_ops = dmp->dm_ops;
+	}
+
+	return 0;
 }
 
 static int
@@ -184,19 +410,65 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	return (0);
 }
 
-int
+static int
 dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
 	if (dmp->dm_flags & DT_DM_LOADED)
 		return (0); /* module is already loaded */
 
-	dmp->dm_ctdata.cts_name = ".SUNW_ctf";
+	/*
+	 * There are two possibilities here: a non-kernel module must pull in
+	 * the symbol and string tables in addition to the CTF section, while
+	 * kernel modules need only the appropriately-named CTF section from the
+	 * dm_file (which will be dtrace_ctf.ko for built-in modules and the
+	 * kernel proper). Builtin kernel modules have a section name that
+	 * varies per-module: all other modules have a constant name.
+	 */
+
+	if ((dmp->dm_elf == NULL) && (!dt_module_init_elf(dtp, dmp)))
+		return -1; /* dt_errno is set for us */
+
+	if (dmp->dm_flags & DT_DM_BUILTIN) {
+		dmp->dm_ctdata_name = malloc(strlen(".SUNW_ctf.") +
+		    strlen(dmp->dm_name) + 1);
+
+		strcpy(dmp->dm_ctdata_name, ".SUNW_ctf.");
+		strcat(dmp->dm_ctdata_name, dmp->dm_name);
+		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
+	}
+	else {
+		dmp->dm_ctdata_name = strdup(".SUNW_ctf");
+		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
+	}
+
 	dmp->dm_ctdata.cts_type = SHT_PROGBITS;
 	dmp->dm_ctdata.cts_flags = 0;
 	dmp->dm_ctdata.cts_data = NULL;
 	dmp->dm_ctdata.cts_size = 0;
 	dmp->dm_ctdata.cts_entsize = 0;
 	dmp->dm_ctdata.cts_offset = 0;
+
+	/*
+	 * Attempt to load the module's CTF section.  Note that modules might
+	 * not contain CTF data: this will result in a successful load_sect but
+	 * data of size zero.  We will then fail if dt_module_getctf() is
+	 * called, as shown below.
+	 */
+
+	if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
+		dt_module_unload(dtp, dmp);
+		return (-1); /* dt_errno is set for us */
+	}
+
+	/*
+	 * Nothing more to do for kernel modules: we already have their symbols
+	 * loaded into the dm_kernsyms.
+	 */
+
+	if (dmp->dm_flags & DT_DM_KERNEL) {
+		dmp->dm_flags |= DT_DM_LOADED;
+		return (0);
+	}
 
 	dmp->dm_symtab.cts_name = ".symtab";
 	dmp->dm_symtab.cts_type = SHT_SYMTAB;
@@ -216,13 +488,9 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_strtab.cts_offset = 0;
 
 	/*
-	 * Attempt to load the module's CTF section, symbol table section, and
-	 * string table section.  Note that modules may not contain CTF data:
-	 * this will result in a successful load_sect but data of size zero.
-	 * We will then fail if dt_module_getctf() is called, as shown below.
+	 * Now load the module's symbol and string table sections.
 	 */
-	if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1 ||
-	    dt_module_load_sect(dtp, dmp, &dmp->dm_symtab) == -1 ||
+	if (dt_module_load_sect(dtp, dmp, &dmp->dm_symtab) == -1 ||
 	    dt_module_load_sect(dtp, dmp, &dmp->dm_strtab) == -1) {
 		dt_module_unload(dtp, dmp);
 		return (-1); /* dt_errno is set for us */
@@ -241,7 +509,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_symfree = 1;		/* first free element is index 1 */
 
 	dmp->dm_symbuckets = malloc(sizeof (uint_t) * dmp->dm_nsymbuckets);
-	dmp->dm_symchains = malloc(sizeof (dt_sym_t) * dmp->dm_nsymelems + 1);
+	dmp->dm_symchains = malloc(sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
 
 	if (dmp->dm_symbuckets == NULL || dmp->dm_symchains == NULL) {
 		dt_module_unload(dtp, dmp);
@@ -249,7 +517,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	}
 
 	bzero(dmp->dm_symbuckets, sizeof (uint_t) * dmp->dm_nsymbuckets);
-	bzero(dmp->dm_symchains, sizeof (dt_sym_t) * dmp->dm_nsymelems + 1);
+	bzero(dmp->dm_symchains, sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
 
 	/*
 	 * Iterate over the symbol table data buffer and insert each symbol
@@ -286,7 +554,7 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dmp->dm_ctfp != NULL || dt_module_load(dtp, dmp) != 0)
 		return (dmp->dm_ctfp);
 
-	if (dmp->dm_ops == &dt_modops_64)
+	if ((dmp->dm_ops == &dt_modops_64) || (dmp->dm_ops == NULL))
 		model = CTF_MODEL_LP64;
 	else
 		model = CTF_MODEL_ILP32;
@@ -298,12 +566,12 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 * future for combined kernel/user tracing, this can be removed.
 	 */
 	if (dtp->dt_conf.dtc_ctfmodel != model) {
-		(void) dt_set_errno(dtp, EDT_DATAMODEL);
+		dt_set_errno(dtp, EDT_DATAMODEL);
 		return (NULL);
 	}
 
 	if (dmp->dm_ctdata.cts_size == 0) {
-		(void) dt_set_errno(dtp, EDT_NOCTF);
+		dt_set_errno(dtp, EDT_NOCTF);
 		return (NULL);
 	}
 
@@ -311,24 +579,24 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	    &dmp->dm_symtab, &dmp->dm_strtab, &dtp->dt_ctferr);
 
 	if (dmp->dm_ctfp == NULL) {
-		(void) dt_set_errno(dtp, EDT_CTF);
+		dt_set_errno(dtp, EDT_CTF);
 		return (NULL);
 	}
 
-	(void) ctf_setmodel(dmp->dm_ctfp, model);
+	ctf_setmodel(dmp->dm_ctfp, model);
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	if ((parent = ctf_parent_name(dmp->dm_ctfp)) != NULL) {
 		if ((pmp = dt_module_create(dtp, parent)) == NULL ||
 		    (pfp = dt_module_getctf(dtp, pmp)) == NULL) {
 			if (pmp == NULL)
-				(void) dt_set_errno(dtp, EDT_NOMEM);
+				dt_set_errno(dtp, EDT_NOMEM);
 			goto err;
 		}
 
 		if (ctf_import(dmp->dm_ctfp, pfp) == CTF_ERR) {
 			dtp->dt_ctferr = ctf_errno(dmp->dm_ctfp);
-			(void) dt_set_errno(dtp, EDT_CTF);
+			dt_set_errno(dtp, EDT_CTF);
 			goto err;
 		}
 	}
@@ -345,30 +613,30 @@ err:
 }
 
 /*ARGSUSED*/
-void
+static void
 dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
 	ctf_close(dmp->dm_ctfp);
 	dmp->dm_ctfp = NULL;
 
+	free(dmp->dm_ctdata_name);
+	dmp->dm_ctdata_name = NULL;
+
 	bzero(&dmp->dm_ctdata, sizeof (ctf_sect_t));
 	bzero(&dmp->dm_symtab, sizeof (ctf_sect_t));
 	bzero(&dmp->dm_strtab, sizeof (ctf_sect_t));
 
-	if (dmp->dm_symbuckets != NULL) {
-		free(dmp->dm_symbuckets);
-		dmp->dm_symbuckets = NULL;
-	}
+	free(dmp->dm_symbuckets);
+	dmp->dm_symbuckets = NULL;
 
-	if (dmp->dm_symchains != NULL) {
-		free(dmp->dm_symchains);
-		dmp->dm_symchains = NULL;
-	}
+	free(dmp->dm_symchains);
+	dmp->dm_symchains = NULL;
 
-	if (dmp->dm_asmap != NULL) {
-		free(dmp->dm_asmap);
-		dmp->dm_asmap = NULL;
-	}
+	free(dmp->dm_asmap);
+	dmp->dm_asmap = NULL;
+
+	dt_symtab_destroy(dmp->dm_kernsyms);
+	dmp->dm_kernsyms = NULL;
 
 	dmp->dm_symfree = 0;
 	dmp->dm_nsymbuckets = 0;
@@ -376,19 +644,22 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_asrsv = 0;
 	dmp->dm_aslen = 0;
 
-	dmp->dm_text_va = 0; /* = NULL */
-	dmp->dm_text_size = 0;
-	dmp->dm_data_va = 0; /* = NULL */
-	dmp->dm_data_size = 0;
-	dmp->dm_bss_va = 0; /* = NULL */
-	dmp->dm_bss_size = 0;
+	free(dmp->dm_text_addrs);
+	free(dmp->dm_data_addrs);
+	dmp->dm_text_addrs = NULL;
+	dmp->dm_data_addrs = NULL;
+	dmp->dm_text_addrs_size = 0;
+	dmp->dm_data_addrs_size = 0;
 
-	if (dmp->dm_extern != NULL) {
-		dt_idhash_destroy(dmp->dm_extern);
-		dmp->dm_extern = NULL;
-	}
+	dt_idhash_destroy(dmp->dm_extern);
+	dmp->dm_extern = NULL;
 
-	(void) elf_end(dmp->dm_elf);
+	/*
+	 * Built-in modules may be sharing their libelf handle with other
+	 * modules, so should not close it.
+	 */
+	if (!(dmp->dm_flags | DT_DM_BUILTIN))
+		elf_end(dmp->dm_elf);
 	dmp->dm_elf = NULL;
 
 	dmp->dm_flags &= ~DT_DM_LOADED;
@@ -434,17 +705,17 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 
 	if (dmp->dm_extern == NULL && (dmp->dm_extern = dt_idhash_create(
 	    "extern", NULL, dmp->dm_nsymelems, UINT_MAX)) == NULL) {
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+		dt_set_errno(dtp, EDT_NOMEM);
 		return (NULL);
 	}
 
 	if (dt_idhash_nextid(dmp->dm_extern, &id) == -1) {
-		(void) dt_set_errno(dtp, EDT_SYMOFLOW);
+		dt_set_errno(dtp, EDT_SYMOFLOW);
 		return (NULL);
 	}
 
 	if ((sip = malloc(sizeof (dtrace_syminfo_t))) == NULL) {
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+		dt_set_errno(dtp, EDT_NOMEM);
 		return (NULL);
 	}
 
@@ -452,7 +723,7 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 	    _dtrace_symattr, 0, &dt_idops_thaw, NULL, dtp->dt_gen);
 
 	if (idp == NULL) {
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+		dt_set_errno(dtp, EDT_NOMEM);
 		free(sip);
 		return (NULL);
 	}
@@ -471,142 +742,427 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 const char *
 dt_module_modelname(dt_module_t *dmp)
 {
-	if (dmp->dm_ops == &dt_modops_64)
+	if ((dmp->dm_ops == &dt_modops_64) || (dmp->dm_ops == NULL))
 		return ("64-bit");
 	else
 		return ("32-bit");
 }
 
-#if 0
 /*
- * Update our module cache by adding an entry for the specified module 'name'.
- * We create the dt_module_t and populate it using /system/object/<name>/.
+ * Exported interface to compare a GElf_Addr to an address range member, for
+ * bsearch()ing.
  */
-static void
-dt_module_update(dtrace_hdl_t *dtp, const char *name)
+int
+dtrace_addr_range_cmp(const void *addr_, const void *range_)
 {
-	char fname[PATH_MAX];
-	struct stat st;
-	int fd, err, bits;
+	const GElf_Addr *addr = addr_;
+	const dtrace_addr_range_t *range = range_;
 
-	dt_module_t *dmp;
-	const char *s;
-	size_t shstrs;
-	GElf_Shdr sh;
-	Elf_Data *dp;
-	Elf_Scn *sp;
+	if (range->dar_va > *addr)
+		return -1;
 
-	(void) snprintf(fname, sizeof (fname),
-	    "%s/%s/object", OBJFS_ROOT, name);
+	if (range->dar_va + range->dar_size < *addr)
+		return 1;
 
-	if ((fd = open(fname, O_RDONLY)) == -1 || fstat(fd, &st) == -1 ||
-	    (dmp = dt_module_create(dtp, name)) == NULL) {
-		dt_dprintf("failed to open %s: %s\n", fname, strerror(errno));
-		(void) close(fd);
-		return;
+	return 0;
+}
+
+/*
+ * Sort the ranges in a dtrace_addr_range array into order.
+ */
+static int
+dtrace_addr_range_sort_cmp(const void *lp, const void *rp)
+{
+	const dtrace_addr_range_t *lhs = lp;
+	const dtrace_addr_range_t *rhs = rp;
+
+	if (lhs->dar_va < rhs->dar_va)
+		return -1;
+	if (lhs->dar_va > rhs->dar_va)
+		return 1;
+	if (lhs->dar_size < rhs->dar_size)
+		return -1;
+	if (lhs->dar_size > rhs->dar_size)
+		return 1;
+	return 0;
+}
+
+/*
+ * Interface to compare a GElf_Addr to an address range member: used when
+ * bsearch()ing for the range during population, when an off-the-end address
+ * should be considered part of the range.
+ */
+static int
+dtrace_addr_range_populating_cmp(const void *addr_, const void *range_)
+{
+	const GElf_Addr *addr = addr_;
+	const dtrace_addr_range_t *range = range_;
+
+	if (range->dar_va > *addr)
+		return -1;
+
+	if (range->dar_va + range->dar_size + 1 < *addr)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * A range locator, used when populating ranges only, since it considers
+ * off-the-end addresses to be part of a range.
+ */
+static dtrace_addr_range_t *
+dtrace_addr_range_find_populating(dt_module_t *dmp, GElf_Addr addr, int is_text)
+{
+	dtrace_addr_range_t **range;
+	size_t *size;
+
+	if (is_text) {
+		range = &dmp->dm_text_addrs;
+		size = &dmp->dm_text_addrs_size;
+	} else {
+		range = &dmp->dm_data_addrs;
+		size = &dmp->dm_data_addrs_size;
 	}
 
 	/*
-	 * Since the module can unload out from under us (and /system/object
-	 * will return ENOENT), tell libelf to cook the entire file now and
-	 * then close the underlying file descriptor immediately.  If this
-	 * succeeds, we know that we can continue safely using dmp->dm_elf.
+	 * A new range is absolutely required if there are no ranges.
 	 */
-	dmp->dm_elf = elf_begin(fd, ELF_C_READ, NULL);
-	err = elf_cntl(dmp->dm_elf, ELF_C_FDREAD);
-	(void) close(fd);
+	if(*size == 0)
+		return NULL;
 
-	if (dmp->dm_elf == NULL || err == -1 ||
-	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) != 1) {
-		dt_dprintf("failed to load %s: %s\n",
-		    fname, elf_errmsg(elf_errno()));
-		dt_module_destroy(dtp, dmp);
-		return;
+	/*
+	 * The last range is highly likely to be the right one, so check it by
+	 * hand first.
+	 */
+	if (dtrace_addr_range_populating_cmp(&addr, &(*range)[(*size)-1]) == 0)
+		return &(*range)[(*size)-1];
+
+	/*
+	 * Search for the range.
+	 */
+	return bsearch(&addr, *range, *size, sizeof (struct dtrace_addr_range),
+	    dtrace_addr_range_populating_cmp);
+
+}
+
+static dtrace_addr_range_t *
+dtrace_addr_range_grow(dt_module_t *dmp, int is_text)
+{
+	dtrace_addr_range_t **range;
+	dtrace_addr_range_t *new_range;
+	dtrace_addr_range_t *final_range;
+	size_t *size;
+
+	if (is_text) {
+		range = &dmp->dm_text_addrs;
+		size = &dmp->dm_text_addrs_size;
+	} else {
+		range = &dmp->dm_data_addrs;
+		size = &dmp->dm_data_addrs_size;
 	}
 
-	switch (gelf_getclass(dmp->dm_elf)) {
-	case ELFCLASS32:
-		dmp->dm_ops = &dt_modops_32;
-		bits = 32;
+	new_range = realloc(*range, sizeof (struct dtrace_addr_range) *
+	    (*size+1));
+	if (new_range == NULL)
+		return NULL;
+
+	*range = new_range;
+	final_range = new_range + (*size);
+	final_range->dar_va = 0;
+	final_range->dar_size = 0;
+
+	(*size)++;
+
+	return final_range;
+}
+
+
+/*
+ * Transform an nm(1)-style type field into an ELF info character.  This is the
+ * rough inverse of code in nm(1) and kernel/module.c:elf_type().  (Extreme
+ * accuracy is hardly called for in this application.)
+ */
+static char
+sym_type_to_info(char info)
+{
+	int local = islower(info);
+	int binding = local ? STB_LOCAL : STB_GLOBAL;
+	int type;
+	char lowinfo = tolower(info);
+
+	switch (lowinfo) {
+	case 't':
+		type = STT_FUNC; break;
+	case 'w':
+		binding = STB_WEAK;
+		type = STT_FUNC;
 		break;
-	case ELFCLASS64:
-		dmp->dm_ops = &dt_modops_64;
-		bits = 64;
+	case 'v':
+		binding = STB_WEAK;
+		type = STT_OBJECT;
 		break;
+	case 'a': /* a sort of data */
+	case 'r':
+	case 'g':
+	case 'd':
+	case 's':
+	case 'b':
+		type = STT_OBJECT; break;
+	case 'c':
+		type = STT_COMMON; break;
+
+	case 'u': /* highly unlikely, kludge it */
+	case '?':
+	case 'n':
 	default:
-		dt_dprintf("failed to load %s: unknown ELF class\n", fname);
-		dt_module_destroy(dtp, dmp);
-		return;
+		type = STT_NOTYPE; break;
 	}
 
-	/*
-	 * Iterate over the section headers locating various sections of
-	 * interest and use their attributes to flesh out the dt_module_t.
-	 */
-	for (sp = NULL; (sp = elf_nextscn(dmp->dm_elf, sp)) != NULL; ) {
-		if (gelf_getshdr(sp, &sh) == NULL || sh.sh_type == SHT_NULL ||
-		    (s = elf_strptr(dmp->dm_elf, shstrs, sh.sh_name)) == NULL)
-			continue; /* skip any malformed sections */
+	return GELF_ST_INFO(binding, type);
+}
+/*
+ * Do all necessary post-creation initialization of a module of type
+ * DT_DM_KERNEL.
+ */
+static int
+dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
+{
+	dt_kern_path_t *dkpp;
 
-		if (strcmp(s, ".text") == 0) {
-			dmp->dm_text_size = sh.sh_size;
-			dmp->dm_text_va = sh.sh_addr;
-		} else if (strcmp(s, ".data") == 0) {
-			dmp->dm_data_size = sh.sh_size;
-			dmp->dm_data_va = sh.sh_addr;
-		} else if (strcmp(s, ".bss") == 0) {
-			dmp->dm_bss_size = sh.sh_size;
-			dmp->dm_bss_va = sh.sh_addr;
-		} else if (strcmp(s, ".filename") == 0 &&
-		    (dp = elf_getdata(sp, NULL)) != NULL) {
-			(void) strlcpy(dmp->dm_file,
-			    dp->d_buf, sizeof (dmp->dm_file));
+	/*
+	 * Kernel modules that don't exist on the disk are either built-in
+	 * modules or the core kernel itself. The CTF data for all such modules
+	 * comes from the module dtrace_ctf.ko instead, which is never
+	 * built-in. This module contains no symbols, hence never appears in
+	 * /proc/kallmodsyms and is never actually loaded as a module: instead,
+	 * it is instantiated in the dm_ctfp of many modules.
+	 *
+	 * All such modules share their dm_elf with dtp->dt_ctf_elf, and have
+	 * the DT_DM_BUILTIN flag turned on.
+	 */
+	dt_dprintf("initializing module %s\n", dmp->dm_name);
+	dkpp = dt_kern_path_lookup_by_name(dtp, dmp->dm_name);
+	if (!dkpp) {
+		dkpp = dt_kern_path_lookup_by_name(dtp, "dtrace_ctf");
+
+		/*
+		 * With no dtrace_ctf.ko, we are in real trouble. Likely we have
+		 * no modules at all: CTF lookup cannot work.
+		 */
+		if (!dkpp) {
+			dt_dprintf("no dtrace_ctf.ko\n");
+			return EDT_NOCTF;
+		}
+
+		dmp->dm_flags |= DT_DM_BUILTIN;
+	}
+
+	strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
+
+	dmp->dm_ops = NULL;
+	dmp->dm_text_addrs = NULL;
+	dmp->dm_data_addrs = NULL;
+ 	dmp->dm_text_addrs_size = 0;
+	dmp->dm_data_addrs_size = 0;
+	dmp->dm_flags |= DT_DM_KERNEL;
+
+	return 0;
+}
+
+/*
+ * Update our module cache.  For each line in /proc/kallmodsyms, create or
+ * populate the dt_module_t for this module (if necessary), extend its address
+ * ranges as needed, and add the symbol in this line to the module's kernel
+ * symbol table.
+ *
+ * If we return NULL, we have strong evidence of a changing /proc/kallmodsyms,
+ * probably due to module unloading during read.
+ */
+static int
+dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
+{
+	GElf_Addr sym_addr;
+	long long unsigned sym_size;
+	char sym_type;
+	int sym_text;
+	dt_module_t *dmp;
+	dtrace_addr_range_t *range;
+	char sym_name[KSYM_NAME_MAX];
+	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
+	int skip;
+
+	if ((line[0] == '\n') || (line[0] == 0))
+		return 0;
+
+	if (sscanf(line, "%llx %llx %c %s [%s", (long long unsigned *)&sym_addr,
+		(long long unsigned *)&sym_size, &sym_type,
+		sym_name, mod_name) < 3) {
+		dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
+		return EDT_CORRUPT_KALLSYMS;
+	}
+
+	sym_text = ((sym_type == 't') || (sym_type == 'T'));
+	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+
+	/*
+	 * Some very voluminous and unuseful symbols are silently skipped, being
+	 * used to update ranges but not added to the kernel symbol table.  They
+	 * are always considered to be in the same module (if any) as the last
+	 * symbol we encountered.  It doesn't matter much if this net is cast
+	 * too wide, since we only care if a symbol is present if control flow
+	 * or data lookups might pass through it while a probe fires, and that
+	 * won't happen to any of these symbols.
+	 */
+	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
+	    (strcmp(sym_name, "__per_cpu_end") == 0) ||
+	    (strstr(sym_name, "__func__") != NULL) ||
+	    (strstr(sym_name, "__ksymtab_") != NULL) ||
+	    (strstr(sym_name, "__kcrctab_") != NULL) ||
+	    (strstr(sym_name, "__kstrtab_") != NULL) ||
+	    (strstr(sym_name, "__param_") != NULL) ||
+	    (strstr(sym_name, "__syscall_meta_") != NULL) ||
+	    (strstr(sym_name, "event_enter__") != NULL) ||
+	    (strstr(sym_name, "event_exit__") != NULL) ||
+	    (strstr(sym_name, "types__") != NULL) ||
+	    (strstr(sym_name, "args__") != NULL) ||
+	    (strstr(sym_name, "__tracepoint_") != NULL) ||
+	    (strstr(sym_name, ".") != NULL)) {
+		dmp = *last_dmp;
+		skip = 1;
+	} else {
+		dmp = dt_module_lookup_by_name(dtp, mod_name);
+		skip = 0;
+		if (dmp == NULL) {
+			int err;
+
+			dmp = dt_module_create(dtp, mod_name);
+			if (dmp == NULL)
+				return EDT_NOMEM;
+
+			err = dt_kern_module_init(dtp, dmp);
+			if (err != 0)
+				return err;
 		}
 	}
 
-	dmp->dm_flags |= DT_DM_KERNEL;
+	/*
+	 * Add this symbol to the module's kernel symbol table.
+	 */
 
-	dt_dprintf("opened %d-bit module %s (%s)\n",
-	    bits, dmp->dm_name, dmp->dm_file);
+	if (!skip) {
+		if (dmp->dm_kernsyms == NULL)
+			dmp->dm_kernsyms = dt_symtab_create();
+
+		if (dmp->dm_kernsyms == NULL)
+			return EDT_NOMEM;
+
+		if (dt_symbol_insert(dmp->dm_kernsyms, sym_name, sym_addr, sym_size,
+			sym_type_to_info(sym_type)) == NULL)
+			return EDT_NOMEM;
+	}
+
+	range = dtrace_addr_range_find_populating(dmp, sym_addr, sym_text);
+	if (range)
+		range->dar_size = sym_addr - range->dar_va + sym_size;
+
+	if (skip)
+		return 0;
+
+	if (!range) {
+		dtrace_addr_range_t *new_range;
+
+		new_range = dtrace_addr_range_grow(dmp, sym_text);
+		if (new_range == NULL)
+			return EDT_NOMEM;
+
+		new_range->dar_va = sym_addr;
+		new_range->dar_size = sym_size;
+	}
+
+	*last_dmp = dmp;
+	return 0;
 }
-#endif
 
 /*
  * Unload all the loaded modules and then refresh the module cache with the
  * latest list of loaded modules and their address ranges.
  */
-void
+int
 dtrace_update(dtrace_hdl_t *dtp)
 {
 	dt_module_t *dmp;
-	DIR *dirp;
+	FILE *fd;
 
 	for (dmp = dt_list_next(&dtp->dt_modlist);
 	    dmp != NULL; dmp = dt_list_next(dmp))
 		dt_module_unload(dtp, dmp);
 
-#if defined(sun)
-	/*
-	 * Open /system/object and attempt to create a libdtrace module for
-	 * each kernel module that is loaded on the current system.
-	 */
-	if (!(dtp->dt_oflags & DTRACE_O_NOSYS) &&
-	    (dirp = opendir(OBJFS_ROOT)) != NULL) {
-		struct dirent *dp;
+	if (dtp->dt_nkernpaths == 0) {
+		int dterrno = dt_kern_path_update(dtp);
 
-		while ((dp = readdir(dirp)) != NULL) {
-			if (dp->d_name[0] != '.')
-				dt_module_update(dtp, dp->d_name);
+		if (dterrno != 0)
+			return dterrno;
+	}
+
+	/*
+	 * Note all the symbols currently loaded into the kernel's address
+	 * space and construct modules with appropriate address ranges from
+	 * each.
+	 */
+	if ((fd = fopen("/proc/kallmodsyms", "r")) != NULL) {
+		char *line = NULL;
+		dt_module_t *last_dmp = NULL;
+		size_t line_n;
+
+		while ((getline(&line, &line_n, fd)) > 0) {
+			int err;
+
+			err = dt_modsym_update(dtp, line, &last_dmp);
+
+			if (err != 0) {
+				/* TODO: waiting on a warning infrastructure */
+				dt_dprintf("warning: module CTF loading "
+				    "failed on kallmodsyms line %s\n", line);
+				break; /* no hope of (much) CTF */
+			}
 		}
 
-		(void) closedir(dirp);
+		free(line);
+		fclose(fd);
+
+		/*
+		 * Now work over all modules, and sort their kernel symbol
+		 * tables and address ranges now they are fully populated.
+		 *
+		 * TODO: merge adjacent ranges, of which there will be many for
+		 * non-built-in modules.
+		 */
+
+		for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
+		     dmp = dt_list_next(dmp))
+			if (dmp->dm_kernsyms != NULL) {
+				dt_symtab_sort(dmp->dm_kernsyms);
+
+				if (dmp->dm_text_addrs)
+					qsort(dmp->dm_text_addrs,
+					    dmp->dm_text_addrs_size,
+					    sizeof (struct dtrace_addr_range),
+					    dtrace_addr_range_sort_cmp);
+
+				if (dmp->dm_data_addrs)
+					qsort(dmp->dm_data_addrs,
+					    dmp->dm_data_addrs_size,
+					    sizeof (struct dtrace_addr_range),
+					    dtrace_addr_range_sort_cmp);
+			}
+	} else {
+		/* TODO: waiting on a warning infrastructure */
+		dt_dprintf("warning: /proc/kallmodsyms is not "
+		    "present: consider setting -x procfspath\n");
+		dt_dprintf("warning: module CTF loading failed\n");
 	}
-#else
-	/* FIXME */
-	/* Use Linux kernel loader interface to discover what kernel
-         * modules are loaded and create a libdtrace module for each one. */
-	
-#endif
+
 	/*
 	 * Look up all the macro identifiers and set di_id to the latest value.
 	 * This code collaborates with dt_lex.l on the use of di_id.  We will
@@ -622,18 +1178,17 @@ dtrace_update(dtrace_hdl_t *dtp)
 	dt_idhash_lookup(dtp->dt_macros, "uid")->di_id = getuid();
 
 	/*
-	 * Cache the pointers to the modules representing the base executable
-	 * and the run-time linker in the dtrace client handle. Note that on
-	 * x86 krtld is folded into unix, so if we don't find it, use unix
-	 * instead.
+	 * Cache the pointers to the module representing the shared kernel
+	 * symbols in the dtrace client handle.  (This is the same as 'genunix'
+	 * in Solaris.)
 	 */
-	dtp->dt_exec = dt_module_lookup_by_name(dtp, "genunix");
+	dtp->dt_exec = dt_module_lookup_by_name(dtp, "vmlinux");
 
 	/*
 	 * If this is the first time we are initializing the module list,
-	 * remove the module for genunix from the module list and then move it
+	 * remove the module for vmlinux from the module list and then move it
 	 * to the front of the module list.  We do this so that type and symbol
-	 * queries encounter genunix and thereby optimize for the common case
+	 * queries encounter vmlinux and thereby optimize for the common case
 	 * in dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.
 	 */
 	if (dtp->dt_exec != NULL &&
@@ -641,6 +1196,8 @@ dtrace_update(dtrace_hdl_t *dtp)
 		dt_list_delete(&dtp->dt_modlist, dtp->dt_exec);
 		dt_list_prepend(&dtp->dt_modlist, dtp->dt_exec);
 	}
+
+	return 0;
 }
 
 static dt_module_t *
@@ -665,14 +1222,21 @@ dt_module_from_object(dtrace_hdl_t *dtp, const char *object)
 	}
 
 	if (dmp == NULL)
-		(void) dt_set_errno(dtp, err);
+		dt_set_errno(dtp, err);
 
 	return (dmp);
 }
 
 /*
- * Exported interface to look up a symbol by name.  We return the GElf_Sym and
- * complete symbol information for the matching symbol.
+ * Exported interface to look up a symbol by name.  We return the (possibly
+ * partial) GElf_Sym and complete symbol information for the matching symbol.
+ *
+ * Only the st_info, st_value, and st_size fields of the GElf_Sym are guaranteed
+ * to be populated: the st_shndx is populated but its only meaningful value is
+ * SHN_UNDEF versus !SHN_UNDEF.
+ *
+ * XXX profile this: possibly introduce a symbol->name mapping for
+ * first-matching-symbol across all modules.
  */
 int
 dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
@@ -680,7 +1244,7 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 {
 	dt_module_t *dmp;
 	dt_ident_t *idp;
-	uint_t n, id;
+	uint_t n;
 	GElf_Sym sym;
 
 	uint_t mask = 0; /* mask of dt_module flags to match */
@@ -716,14 +1280,35 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 		if (dt_module_load(dtp, dmp) == -1)
 			continue; /* failed to load symbol table */
 
-		if (dmp->dm_ops->do_symname(dmp, name, symp, &id) != NULL) {
-			if (sip != NULL) {
-				sip->dts_object = dmp->dm_name;
-				sip->dts_name = (const char *)
-				    dmp->dm_strtab.cts_data + symp->st_name;
-				sip->dts_id = id;
-			}
+		if (dmp->dm_flags & DT_DM_KERNEL) {
+			dt_symbol_t *dt_symp;
+
+			if (!dmp->dm_kernsyms)
+				continue;
+
+			dt_symp = dt_symbol_by_name(dmp->dm_kernsyms, name);
+
+			if (!dt_symp)
+				continue;
+
+			sip->dts_object = dmp->dm_name;
+			sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+			sip->dts_id = 0;	/* undefined */
+			dt_symbol_to_elfsym(dtp, dt_symp, symp);
+
 			return (0);
+		} else {
+			uint_t id;
+
+			if (dmp->dm_ops->do_symname(dmp, name, symp, &id) != NULL) {
+				if (sip != NULL) {
+					sip->dts_object = dmp->dm_name;
+					sip->dts_name = (const char *)
+					    dmp->dm_strtab.cts_data + symp->st_name;
+					sip->dts_id = id;
+				}
+				return (0);
+			}
 		}
 
 		if (dmp->dm_extern != NULL &&
@@ -753,8 +1338,13 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 }
 
 /*
- * Exported interface to look up a symbol by address.  We return the GElf_Sym
- * and complete symbol information for the matching symbol.
+ * Exported interface to look up a symbol by address.  We return the (possibly
+ * partial) GElf_Sym and complete symbol information for the matching symbol.
+ *
+ * Only the st_info, st_value, and st_size fields of the GElf_Sym are guaranteed
+ * to be populated: the st_shndx is populated but its only meaningful value is
+ * SHN_UNDEF versus !SHN_UNDEF.
+ *
  */
 int
 dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
@@ -769,9 +1359,18 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
-		if (addr - dmp->dm_text_va < dmp->dm_text_size ||
-		    addr - dmp->dm_data_va < dmp->dm_data_size ||
-		    addr - dmp->dm_bss_va < dmp->dm_bss_size)
+		void *i;
+
+		i = bsearch(&addr, dmp->dm_text_addrs, dmp->dm_text_addrs_size,
+		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+
+		if (i)
+			break;
+
+		i = bsearch(&addr, dmp->dm_data_addrs, dmp->dm_data_addrs_size,
+		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+
+		if (i)
 			break;
 	}
 
@@ -781,21 +1380,40 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 	if (dt_module_load(dtp, dmp) == -1)
 		return (-1); /* dt_errno is set for us */
 
-	if (symp != NULL) {
-		if (dmp->dm_ops->do_symaddr(dmp, addr, symp, &id) == NULL)
+	if (dmp->dm_flags & DT_DM_KERNEL) {
+		dt_symbol_t *dt_symp;
+
+		if (!dmp->dm_kernsyms)
 			return (dt_set_errno(dtp, EDT_NOSYMADDR));
-	}
 
-	if (sip != NULL) {
+		dt_symp = dt_symbol_by_addr(dmp->dm_kernsyms, addr);
+
+		if (!dt_symp)
+			return (dt_set_errno(dtp, EDT_NOSYMADDR));
+
 		sip->dts_object = dmp->dm_name;
+		sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+		sip->dts_id = 0;	/* undefined */
+		dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
+		return (0);
+	} else {
 		if (symp != NULL) {
-			sip->dts_name = (const char *)
-			    dmp->dm_strtab.cts_data + symp->st_name;
-			sip->dts_id = id;
-		} else {
-			sip->dts_name = NULL;
-			sip->dts_id = 0;
+			if (dmp->dm_ops->do_symaddr(dmp, addr, symp, &id) == NULL)
+				return (dt_set_errno(dtp, EDT_NOSYMADDR));
+		}
+
+		if (sip != NULL) {
+			sip->dts_object = dmp->dm_name;
+
+			if (symp != NULL) {
+				sip->dts_name = (const char *)
+				    dmp->dm_strtab.cts_data + symp->st_name;
+				sip->dts_id = id;
+			} else {
+				sip->dts_name = NULL;
+				sip->dts_id = 0;
+			}
 		}
 	}
 
@@ -935,12 +1553,10 @@ dt_module_info(const dt_module_t *dmp, dtrace_objinfo_t *dto)
 	if (dmp->dm_flags & DT_DM_KERNEL)
 		dto->dto_flags |= DTRACE_OBJ_F_KERNEL;
 
-	dto->dto_text_va = dmp->dm_text_va;
-	dto->dto_text_size = dmp->dm_text_size;
-	dto->dto_data_va = dmp->dm_data_va;
-	dto->dto_data_size = dmp->dm_data_size;
-	dto->dto_bss_va = dmp->dm_bss_va;
-	dto->dto_bss_size = dmp->dm_bss_size;
+	dto->dto_text_addrs = dmp->dm_text_addrs;
+	dto->dto_text_addrs_size = dmp->dm_text_addrs_size;
+	dto->dto_data_addrs = dmp->dm_data_addrs;
+	dto->dto_data_addrs_size = dmp->dm_data_addrs_size;
 
 	return (dto);
 }
@@ -975,6 +1591,6 @@ dtrace_object_info(dtrace_hdl_t *dtp, const char *object, dtrace_objinfo_t *dto)
 	if (dt_module_load(dtp, dmp) == -1)
 		return (-1); /* dt_errno is set for us */
 
-	(void) dt_module_info(dmp, dto);
+	dt_module_info(dmp, dto);
 	return (0);
 }
