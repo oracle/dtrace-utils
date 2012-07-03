@@ -15,6 +15,10 @@
 	* GNUmakefile: No longer specify 64-bitness of file I/O: it is
 	redundant on x86-64 and breaks fts().
 
+	* libdtrace/dt_ident.c (dt_idhash_destroy): Accept a NULL
+	argument, like free().
+	* libdtrace/dt_strtab.c (dt_strtab_destroy): Likewise.
+
 2012-06-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makeconfig (CONFIG_H): Add missing path slash.

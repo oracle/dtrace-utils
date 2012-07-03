@@ -100,6 +100,9 @@ dt_strtab_destroy(dt_strtab_t *sp)
 	dt_strhash_t *hp, *hq;
 	ulong_t i;
 
+	if(sp == NULL)
+		return;
+
 	for (i = 0; i < sp->str_hashsz; i++) {
 		for (hp = sp->str_hash[i]; hp != NULL; hp = hq) {
 			hq = hp->str_next;

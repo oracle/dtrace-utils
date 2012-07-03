@@ -668,6 +668,9 @@ dt_idhash_destroy(dt_idhash_t *dhp)
 	dt_ident_t *idp, *next;
 	ulong_t i;
 
+	if (!dhp)
+		return;
+
 	for (i = 0; i < dhp->dh_hashsz; i++) {
 		for (idp = dhp->dh_hash[i]; idp != NULL; idp = next) {
 			next = idp->di_next;
