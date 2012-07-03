@@ -1,11 +1,19 @@
 2012-07-03  Nick Alcock  <nick.alcock@oracle.com>
 
-	* GNUmakefile: No longer specify 64-bitness of file I/O: it is
-	redundant on x86-64 and breaks fts().
+	* libdtrace/dt_symtab.h: New file, symbol table management.
+	* libdtrace/dt_symtab.c: New file, implementation thereof.
+	* libdtrace/Build: Add it.
+
+	* libdtrace/dt_link.c (dt_symtab_lookup): Rename to...
+	(dt_elf_symtab_lookup): ... this less confusing name.
+	(process_obj): Adjust accordingly.
 
 	* libdtrace/dt_string.c (strrstr): New function.
 	* libdtrace/dt_string.h (strrstr): Prototype it.
 	* Makeconfig: Provide it if not already available.
+
+	* GNUmakefile: No longer specify 64-bitness of file I/O: it is
+	redundant on x86-64 and breaks fts().
 
 2012-06-20  Nick Alcock  <nick.alcock@oracle.com>
 

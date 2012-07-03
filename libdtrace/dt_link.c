@@ -718,7 +718,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 }
 
 static int
-dt_symtab_lookup(Elf_Data *data_sym, int nsym, uintptr_t addr, uint_t shn,
+dt_elf_symtab_lookup(Elf_Data *data_sym, int nsym, uintptr_t addr, uint_t shn,
     GElf_Sym *sym)
 {
 	int i, ret = -1;
@@ -1200,7 +1200,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			if (strncmp(s, dt_prefix, sizeof (dt_prefix) - 1) != 0)
 				continue;
 
-			if (dt_symtab_lookup(data_sym, isym, rela.r_offset,
+			if (dt_elf_symtab_lookup(data_sym, isym, rela.r_offset,
 			    shdr_rel.sh_info, &fsym) != 0) {
 				dt_strtab_destroy(strtab);
 				goto err;
@@ -1361,7 +1361,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			p = strhyphenate(p + 3); /* strlen("___") */
 
-			if (dt_symtab_lookup(data_sym, isym, rela.r_offset,
+			if (dt_elf_symtab_lookup(data_sym, isym, rela.r_offset,
 			    shdr_rel.sh_info, &fsym) != 0)
 				goto err;
 
@@ -1377,7 +1377,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 * name if the symbol is locally scoped; the function
 			 * name may need to change if we've found the global
 			 * alias for the locally scoped symbol (we prefer
-			 * global symbols to locals in dt_symtab_lookup()).
+			 * global symbols to locals in dt_elf_symtab_lookup()).
 			 */
 			s = (char *)data_str->d_buf + fsym.st_name;
 			r = NULL;
