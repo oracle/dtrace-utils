@@ -42,6 +42,7 @@ endif
 
 ifneq ($(coverage),no)
 override CFLAGS += -O0 --coverage
+override LDFLAGS += --coverage
 endif
 
 ifeq ($(verbose),no)

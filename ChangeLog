@@ -14,6 +14,8 @@
 	* libdtrace/dt_string.h (strrstr): Prototype it.
 	* Makeconfig: Provide it if not already available.
 
+	* Makeoptions (coverage): Set LDFLAGS as well.
+
 	* libdtrace/dt_impl.h (dtrace_hdl): Introduce dt_module_path.
 	* libdtrace/dt_open.c (dt_vopen): Default it from /lib/modules/
 	and the OS release.
