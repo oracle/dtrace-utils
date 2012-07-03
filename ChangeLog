@@ -12,6 +12,14 @@
 	* libdtrace/dt_string.h (strrstr): Prototype it.
 	* Makeconfig: Provide it if not already available.
 
+	* libdtrace/dt_impl.h (dtrace_hdl): Introduce dt_module_path.
+	* libdtrace/dt_open.c (dt_vopen): Default it from /lib/modules/
+	and the OS release.
+	* libdtrace/dt_options.c (_dtrace_ctoptions): New 'modpath'
+	compile-time option (though also used at runtime).
+	(dt_opt_module_path): New.
+	(dt_opt_rate): Quash compiler warning.
+
 	* GNUmakefile: No longer specify 64-bitness of file I/O: it is
 	redundant on x86-64 and breaks fts().
 

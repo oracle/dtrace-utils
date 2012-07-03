@@ -333,6 +333,27 @@ dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_module_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *proc;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if ((proc = strdup(arg)) == NULL)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	free(dtp->dt_module_path);
+	dtp->dt_module_path = proc;
+
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
@@ -674,7 +695,7 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 			}
 		}
 
-		if (suffix[i].name == NULL && *end != '\0' || val < 0)
+		if ((suffix[i].name == NULL && *end != '\0') || val < 0)
 			return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 		if (mul == 0) {
@@ -920,6 +941,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "libdir", dt_opt_libdir },
 	{ "linkmode", dt_opt_linkmode },
 	{ "linktype", dt_opt_linktype },
+	{ "modpath", dt_opt_module_path },
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },

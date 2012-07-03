@@ -771,6 +771,7 @@ dt_vopen(int version, int flags, int *errp,
 	dt_module_t *dmp;
 	dt_provmod_t *provmod = NULL;
 	int i, err;
+	char modpath[PATH_MAX];
 	struct rlimit rl;
 
 	const dt_intrinsic_t *dinp;
@@ -914,6 +915,14 @@ alloc:
 	dtp->dt_varg = arg;
 	dt_dof_init(dtp);
 	(void) uname(&dtp->dt_uts);
+
+	/*
+	 * The default module path is derived in part from the utsname release
+	 * string.
+	 */
+	strcpy(modpath, "/lib/modules/");
+	strcat(modpath, dtp->dt_uts.release);
+	dtp->dt_module_path = strdup(modpath);
 
 	if (dtp->dt_mods == NULL || dtp->dt_provs == NULL ||
 	    dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
