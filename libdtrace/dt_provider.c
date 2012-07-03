@@ -823,7 +823,8 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 
 	dtrace_probedesc_t pd;
 	dt_probe_iter_t pit;
-	int cmd, rv;
+	int rv;
+	unsigned long int cmd;
 
 	bzero(&pit, sizeof (pit));
 	pit.pit_hdl = dtp;

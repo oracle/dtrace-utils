@@ -26,6 +26,8 @@
 	* libdtrace/dt_ident.c (dt_idhash_destroy): Accept a NULL
 	argument, like free().
 	* libdtrace/dt_strtab.c (dt_strtab_destroy): Likewise.
+	* libdtrace/dt_provider.c (dtrace_probe_iter): Quash compiler
+	warning.
 
 2012-06-20  Nick Alcock  <nick.alcock@oracle.com>
 
