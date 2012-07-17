@@ -167,7 +167,7 @@
 	elf_getshstrndx() is obsolete.
 	* libproc/Psymtab.c (build_fake_elf): Likewise.  Also use
 	elf_getshdrnum() rather than elf_getshnum().
-	* (Pbuild_file_symtab): Likewise.
+	(Pbuild_file_symtab): Likewise.
 
 	Allow overriding of path to /proc.
 

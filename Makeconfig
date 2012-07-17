@@ -29,7 +29,7 @@ CONFIG_H = $(objdir)/config.h
 
 # Generate a makefile rule to check for the presence of SYMBOL
 # in LIBRARY and emit an appropriate header file fragment into
-# a file under $(objdir)/.conf.
+# a file under $(objdir)/.config.
 #
 # The first argument must be suitable for a filename fragment,
 # for a makefile rule name and for a #define.
@@ -37,7 +37,8 @@ CONFIG_H = $(objdir)/config.h
 # Syntax: $(call check-symbol,name,symbol,library)
 define check-symbol-rule
 $(objdir)/.config/config.$(1).h: $(objdir)/.config/.dir.stamp
-	if echo 'void $(2)(); int main(void) { $(2)(); }' | $(CC) $(CFLAGS) $(LDFLAGS) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	if echo 'void $(2)(); int main(void) { $(2)(); }' | \
+		$(CC) $(CFLAGS) $(LDFLAGS) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
 	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
 	else \
 	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
