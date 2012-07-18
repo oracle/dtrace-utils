@@ -451,8 +451,9 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	/*
 	 * Attempt to load the module's CTF section.  Note that modules might
 	 * not contain CTF data: this will result in a successful load_sect but
-	 * data of size zero.  We will then fail if dt_module_getctf() is
-	 * called, as shown below.
+	 * data of size zero (or, alas, 1, thanks to a workaround for a bug in
+	 * objcopy in binutils 2.20).  We will then fail if dt_module_getctf()
+	 * is called, as shown below.
 	 */
 
 	if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
@@ -570,7 +571,8 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return (NULL);
 	}
 
-	if (dmp->dm_ctdata.cts_size == 0) {
+	if ((dmp->dm_ctdata.cts_size == 0) ||
+	    (dmp->dm_ctdata.cts_size == 1)) {
 		dt_set_errno(dtp, EDT_NOCTF);
 		return (NULL);
 	}

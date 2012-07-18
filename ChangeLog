@@ -1,3 +1,8 @@
+2012-07-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_module.c (dt_module_load): Modules with no CTF data
+	may have a one-byte dummy CTF section.
+
 2012-07-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	The great dt_module revamp.
