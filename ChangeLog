@@ -1,3 +1,10 @@
+2012-07-19  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build (errno.d): Pass errno.h through the preprocessor
+	before feeding it to mkerrno.sh: do not transform \n into linefeeds.
+	* libdtrace/mkerrno.sh: Rewrite, using awk to handle errnos defined in
+	terms of other errnos.
+
 2012-07-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_module.c (dt_module_load): Modules with no CTF data

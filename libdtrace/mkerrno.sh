@@ -21,20 +21,25 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2003 Oracle, Inc.  All rights reserved.
+# Copyright 2012 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
-#
-#ident	"%Z%%M%	%I%	%E% SMI"
 
-echo "\
+awk 'BEGIN {
+    print "\n\
 /*\n\
- * Copyright 2003 Oracle, Inc.  All rights reserved.\n\
+ * Copyright 2012 Oracle, Inc.  All rights reserved.\n\
  * Use is subject to license terms.\n\
  */\n\
-\n\
-#pragma ident\t\"%Z%%M%\t%I%\t%E% SMI\"\n"
+";
+}
+{
+    if ($3+0 == 0) {
+	val=errno[$3];
+    } else {
+	val=$3;
+    }
+    errno[$2]=$3;
 
-pattern='^#define[	 ]\(E[A-Z0-9]*\)[	 ]*\([A-Z0-9]*\).*$'
-replace='inline int \1 = \2;@#pragma D binding "1.0" \1'
-
-sed -n "s/$pattern/$replace/p" | tr '@' '\n'
+    print "inline int " $2 " = " val ";";
+    print "#pragma D binding \"1.0\" " $2;
+}'

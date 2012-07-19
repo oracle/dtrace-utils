@@ -142,10 +142,10 @@ $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 
 # Custom substitutions.
 
-$(libdtrace-build_DIR)errno.d: /usr/include/asm-generic/errno-base.h
-	$(call describe-target,SED,$(libdtrace-build_DIR)errno.d)
-	$(libdtrace-build_DIR)mkerrno.sh < /usr/include/asm-generic/errno-base.h \
-	| sed -e 's/\\n/\n/g' > $@
+$(libdtrace-build_DIR)errno.d: /usr/include/linux/errno.h
+	$(call describe-target,AWK,$(libdtrace-build_DIR)errno.d)
+	echo '#include <errno.h>' | $(CC) -x c -E -dD - \
+	| grep '^#define E' | $(libdtrace-build_DIR)mkerrno.sh > $@
 
 $(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
 	$(call describe-target,SED,$(libdtrace-build_DIR)signal.d)
