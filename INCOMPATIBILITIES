@@ -52,15 +52,16 @@ the Oracle Enterprise Linux toolchain.  Binaries compiled with other toolchains
 won't get full tracebacks, but we can live with that.
 
 
-No projects, zones, tasks, or contracts
----------------------------------------
+No projects, zones, tasks, contracts, or message queues
+-------------------------------------------------------
 Difficulty: High
 Likelihood: Low (unless kernel support is added)
 
-The Linux kernel does not implement projects, zones, tasks, or contracts:
-all corresponding identifiers are gone.  (It would be possible to keep them
-but mark them reserved, but the result would be the same: D scripts that use
-these identifiers would fail to compile.)
+The Linux kernel does not implement projects, zones, tasks, contracts, or
+message queues: all corresponding identifiers are gone, and the msgdsize() and
+msgsize() subroutines no longer work.  (It would be possible to keep them but
+mark them reserved, but the result would be the same: D scripts that use these
+identifiers would fail to compile, or fail to work as expected.)
 
 
 Tiny variations in behaviour of dtraced processes immediately after startup
