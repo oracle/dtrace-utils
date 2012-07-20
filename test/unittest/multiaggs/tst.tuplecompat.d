@@ -19,8 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: curthread is not yet implemented */
-
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.

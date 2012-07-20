@@ -2,7 +2,7 @@
 
 	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,
 	holding dynamically-allocated decompressed CTF data.
-	* libdtrace/dt_module.c: Include zlib.
+	* libdtrace/dt_module.c: Include <zlib.h>.
 	(GZCHUNKSIZE): New macro, arbitrarily set at 512Kb.
 	(dt_ctf_uncompress): New function.
 	(dt_module_load): Call it when CTF sections are present.  Do not
@@ -21,6 +21,17 @@
 
 	* INCOMPATIBILITIES: Document the permanent unavailability of the
 	msgdsize() and msgsize() subroutines.
+
+	* test/demo/builtin/{curthread,uid,gid}.d: No longer expected
+	to fail.
+        * test/unittest/funcs/tst.inet_ntoa.d: Likewise.
+	* test/demo/script/syscall.r: We know the expected results of
+	this test now.
+	* test/unittest/enum/err.D_UNKNOWN.RepeatIdentifiers.r: The
+	error from this test has improved now we have CTF support.
+	* test/unittest/offsetof/err.D_UNKNOWN.OffsetofNULL.r: Likewise.
+	* test/unittest/types/err.D_UNKNOWN.dupenum.r: Likewise.
+	* test/unittest/types/err.D_UNKNOWN.dupstruct.r: Likewise.
 
 	* Makeconfig: Do not generate coverage datafiles for configure-
 	test compilations.

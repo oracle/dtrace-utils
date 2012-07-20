@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: depends on ip */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option quiet

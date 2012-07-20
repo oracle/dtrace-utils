@@ -26,7 +26,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs CTF */
+/* @@xfail: needs porting */
 
 /*
  * ASSERTION:
@@ -53,8 +53,6 @@
 #pragma D option bufpolicy=ring
 #pragma D option bufsize=40
 #pragma D option quiet
-
-/* xfail: curthread not yet available */
 
 int n;
 
