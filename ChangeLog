@@ -1,12 +1,28 @@
+2012-07-21  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,
+	holding dynamically-allocated decompressed CTF data.
+	* libdtrace/dt_module.c: Include zlib.
+	(GZCHUNKSIZE): New macro, arbitrarily set at 512Kb.
+	(dt_ctf_uncompress): New function.
+	(dt_module_load): Call it when CTF sections are present.  Do not
+	try to pass the uninitialized symbol and string tables to
+	ctf_bufopen().  Log CTF errors in the debugging stream.
+	(dt_module_getctf): Kernel modules with CTF with a parent of
+	"PARENT" should use dtrace_ctf instead.
+	(dt_module_unload): Free dm_ctdata_data.
+	(dt_kern_module_init): Consider the dtrace_ctf module to be
+	built-in.
+
+	* Makeconfig: Do not generate coverage datafiles for configure-
+	test compilations.
+
 2012-07-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (errno.d): Pass errno.h through the preprocessor
 	before feeding it to mkerrno.sh: do not transform \n into linefeeds.
 	* libdtrace/mkerrno.sh: Rewrite, using awk to handle errnos defined in
 	terms of other errnos.
-
-	* Makeconfig: Do not generate coverage datafiles for configure-
-	test compilations.
 
 2012-07-18  Nick Alcock  <nick.alcock@oracle.com>
 

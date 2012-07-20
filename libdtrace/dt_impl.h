@@ -126,6 +126,7 @@ typedef struct dt_module {
 	Elf *dm_elf;		/* libelf handle for module object */
 	ctf_file_t *dm_ctfp;	/* CTF container handle */
 	char *dm_ctdata_name;	/* CTF section name (dynamically allocated) */
+	void *dm_ctdata_data;	/* CTF section data (dynamically allocated) */
 	ctf_sect_t dm_ctdata;	/* CTF data for module */
 	ctf_sect_t dm_symtab;	/* symbol table */
 	ctf_sect_t dm_strtab;	/* string table */

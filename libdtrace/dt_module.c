@@ -27,7 +27,6 @@
 #include <elf.h>
 
 #include <fcntl.h>
-
 #include <sys/stat.h>
 
 #include <unistd.h>
@@ -42,12 +41,15 @@
 #include <port.h>
 #include <fts.h>
 
+#include <zlib.h>
+
 #include <dt_strtab.h>
 #include <dt_module.h>
 #include <dt_impl.h>
 #include <dt_string.h>
 
-#define KSYM_NAME_MAX 128            /* from kernel/scripts/kallsyms.c */
+#define KSYM_NAME_MAX 128		    /* from kernel/scripts/kallsyms.c */
+#define GZCHUNKSIZE (1024*512)		    /* gzip uncompression chunk size */
 
 static void
 dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp);
@@ -410,6 +412,85 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	return (0);
 }
 
+static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
+{
+	z_stream s;
+	int ret;
+	unsigned char out[GZCHUNKSIZE];
+	char *output = NULL;
+	size_t out_size = 0;
+
+	s.opaque = Z_NULL;
+	s.zalloc = Z_NULL;
+	s.zfree = Z_NULL;
+	s.avail_in = ctsp->cts_size;
+	s.next_in = (void *)ctsp->cts_data;
+	s.next_out = out;
+	s.avail_out = GZCHUNKSIZE;
+
+	switch (inflateInit2(&s, 15 + 32)) {
+	case Z_OK: break;
+	case Z_MEM_ERROR: goto oom;
+	default: goto zerr;
+	}
+
+	do {
+		ret = inflate(&s, Z_NO_FLUSH);
+		switch (ret) {
+		case Z_STREAM_END:
+			break;
+		case Z_BUF_ERROR:
+		case Z_OK:
+			if (s.avail_out == GZCHUNKSIZE) {
+				s.msg = "no output possible after inflate round";
+				goto zerr;
+			}
+			break;
+		case Z_DATA_ERROR:
+			inflateEnd(&s);
+			goto uncompressed;
+		case Z_MEM_ERROR:
+			goto oom;
+		default:
+			goto zerr;
+		}
+
+		output = realloc(output, out_size +
+		    (GZCHUNKSIZE - s.avail_out));
+
+		if (output == NULL)
+			goto oom;
+
+		memcpy(output + out_size, out, (GZCHUNKSIZE - s.avail_out));
+		out_size += (GZCHUNKSIZE - s.avail_out);
+		s.next_out = out;
+		s.avail_out = GZCHUNKSIZE;
+
+	} while ((ret != Z_STREAM_END) && (ret != Z_BUF_ERROR));
+
+	inflateEnd(&s);
+	ctsp->cts_size = out_size;
+	ctsp->cts_data = output;
+
+	return output;
+
+ uncompressed:
+	free(output);
+	return NULL;
+
+ zerr:
+	inflateEnd(&s);
+	dt_dprintf("CTF decompression error in module %s: %s\n", dmp->dm_name,
+	    s.msg);
+	ctsp->cts_data = NULL;
+	ctsp->cts_size = 0;
+	return NULL;
+
+ oom:
+	fprintf(stderr, "Out of memory decompressing CTF section.\n");
+	exit(1);
+}
+
 static int
 dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
@@ -435,8 +516,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		strcpy(dmp->dm_ctdata_name, ".SUNW_ctf.");
 		strcat(dmp->dm_ctdata_name, dmp->dm_name);
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
-	}
-	else {
+	} else {
 		dmp->dm_ctdata_name = strdup(".SUNW_ctf");
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 	}
@@ -449,17 +529,23 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_ctdata.cts_offset = 0;
 
 	/*
-	 * Attempt to load the module's CTF section.  Note that modules might
-	 * not contain CTF data: this will result in a successful load_sect but
-	 * data of size zero (or, alas, 1, thanks to a workaround for a bug in
-	 * objcopy in binutils 2.20).  We will then fail if dt_module_getctf()
-	 * is called, as shown below.
+	 * Attempt to load and uncompress the module's CTF section.  Note that
+	 * modules might not contain CTF data: this will result in a successful
+	 * load_sect but data of size zero (or, alas, 1, thanks to a workaround
+	 * for a bug in objcopy in binutils 2.20).  We will then fail if
+	 * dt_module_getctf() is called, as shown below.
 	 */
 
 	if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
 		dt_module_unload(dtp, dmp);
 		return (-1); /* dt_errno is set for us */
 	}
+
+	/*
+	 * The CTF section is often gzip-compressed.  Uncompress it.
+	 */
+	if (dmp->dm_ctdata.cts_size > 1)
+		dmp->dm_ctdata_name = dt_ctf_uncompress(dmp, &dmp->dm_ctdata);
 
 	/*
 	 * Nothing more to do for kernel modules: we already have their symbols
@@ -577,10 +663,17 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return (NULL);
 	}
 
-	dmp->dm_ctfp = ctf_bufopen(&dmp->dm_ctdata,
-	    &dmp->dm_symtab, &dmp->dm_strtab, &dtp->dt_ctferr);
+	if (dmp->dm_flags & DT_DM_KERNEL) {
+		dmp->dm_ctfp = ctf_bufopen(&dmp->dm_ctdata, NULL, NULL,
+		    &dtp->dt_ctferr);
+	} else {
+		dmp->dm_ctfp = ctf_bufopen(&dmp->dm_ctdata,
+		    &dmp->dm_symtab, &dmp->dm_strtab, &dtp->dt_ctferr);
+	}
 
 	if (dmp->dm_ctfp == NULL) {
+		dt_dprintf("ctfp for module %s; error: %s\n", dmp->dm_name,
+		    ctf_errmsg(dtp->dt_ctferr));
 		dt_set_errno(dtp, EDT_CTF);
 		return (NULL);
 	}
@@ -589,6 +682,17 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	if ((parent = ctf_parent_name(dmp->dm_ctfp)) != NULL) {
+
+		/*
+		 * Kernel modules currently use the dynamic CTF writing
+		 * infrastructure, which does not write out a parent name.
+		 * Thankfully we don't need one: we know what it must be.
+		 */
+
+		if ((dmp->dm_flags & DT_DM_KERNEL) &&
+		    (strcmp(parent, "PARENT") == 0))
+			parent = "dtrace_ctf";
+
 		if ((pmp = dt_module_create(dtp, parent)) == NULL ||
 		    (pfp = dt_module_getctf(dtp, pmp)) == NULL) {
 			if (pmp == NULL)
@@ -623,6 +727,8 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	free(dmp->dm_ctdata_name);
 	dmp->dm_ctdata_name = NULL;
+	free(dmp->dm_ctdata_data);
+	dmp->dm_ctdata_data = NULL;
 
 	bzero(&dmp->dm_ctdata, sizeof (ctf_sect_t));
 	bzero(&dmp->dm_symtab, sizeof (ctf_sect_t));
@@ -960,7 +1066,20 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_flags |= DT_DM_BUILTIN;
 	}
 
-	strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
+	if (strcmp(dmp->dm_name, "dtrace_ctf") == 0)
+		/*
+		 * dtrace_ctf.ko itself is a special case: it contains no code
+		 * or types of its own, and is loaded purely to force allocation
+		 * of a dt_module for it into which we can load the shared
+		 * types.  We pretend that it is built-in, in order to load the
+		 * CTF data for it from the .SUNW_ctf.dtrace_ctf section where
+		 * the shared types are found, rather than .SUNW_ctf, which is
+		 * empty (as it is for all modules that contain no types of
+		 * their own).
+		 */
+		dmp->dm_flags |= DT_DM_BUILTIN;
+	else
+		strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
 
 	dmp->dm_ops = NULL;
 	dmp->dm_text_addrs = NULL;
