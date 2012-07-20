@@ -5,6 +5,9 @@
 	* libdtrace/mkerrno.sh: Rewrite, using awk to handle errnos defined in
 	terms of other errnos.
 
+	* Makeconfig: Do not generate coverage datafiles for configure-
+	test compilations.
+
 2012-07-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_module.c (dt_module_load): Modules with no CTF data

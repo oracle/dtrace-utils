@@ -38,7 +38,7 @@ CONFIG_H = $(objdir)/config.h
 define check-symbol-rule
 $(objdir)/.config/config.$(1).h: $(objdir)/.config/.dir.stamp
 	if echo 'void $(2)(); int main(void) { $(2)(); }' | \
-		$(CC) $(CFLAGS) $(LDFLAGS) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+		$(CC) $(CFLAGS) --no-coverage $(LDFLAGS) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
 	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
 	else \
 	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
