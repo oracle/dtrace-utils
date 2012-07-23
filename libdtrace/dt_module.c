@@ -54,6 +54,9 @@
 static void
 dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp);
 
+static void
+dt_module_shuffle_to_start(dtrace_hdl_t *dtp, const char *name);
+
 /*
  * Kernel module list management.  We must maintain bindings from
  * name->filesystem path for all the current kernel's modules, since the system
@@ -1311,18 +1314,32 @@ dtrace_update(dtrace_hdl_t *dtp)
 
 	/*
 	 * If this is the first time we are initializing the module list,
-	 * remove the module for vmlinux from the module list and then move it
-	 * to the front of the module list.  We do this so that type and symbol
-	 * queries encounter vmlinux and thereby optimize for the common case
-	 * in dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.
+	 * shuffle the modules for vmlinux and dtrace_ctf to the front of the
+	 * module list.  We do this so that type and symbol queries encounter
+	 * vmlinux and thereby optimize for the common case in
+	 * dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.
 	 */
-	if (dtp->dt_exec != NULL &&
-	    dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
-		dt_list_delete(&dtp->dt_modlist, dtp->dt_exec);
-		dt_list_prepend(&dtp->dt_modlist, dtp->dt_exec);
-	}
+       if (dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
+	       dt_module_shuffle_to_start(dtp, "dtrace_ctf");
+	       dt_module_shuffle_to_start(dtp, "vmlinux");
+       }
 
-	return 0;
+       return 0;
+}
+
+/*
+ * Shuffle one module to the start of the module list.
+ */
+static void
+dt_module_shuffle_to_start(dtrace_hdl_t *dtp, const char *name)
+{
+	dt_module_t *dmp = dt_module_lookup_by_name(dtp, name);
+
+	if (!dmp)
+		return;
+
+	dt_list_delete(&dtp->dt_modlist, dmp);
+	dt_list_prepend(&dtp->dt_modlist, dmp);
 }
 
 static dt_module_t *
