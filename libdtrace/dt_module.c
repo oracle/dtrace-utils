@@ -506,7 +506,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 * varies per-module: all other modules have a constant name.
 	 */
 
-	if ((dmp->dm_elf == NULL) && (!dt_module_init_elf(dtp, dmp)))
+	if ((dmp->dm_elf == NULL) && (dt_module_init_elf(dtp, dmp) != 0))
 		return -1; /* dt_errno is set for us */
 
 	if (dmp->dm_flags & DT_DM_BUILTIN) {
@@ -638,7 +638,11 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	ctf_file_t *pfp;
 	int model;
 
-	if (dmp->dm_ctfp != NULL || dt_module_load(dtp, dmp) != 0)
+	if (!(dmp->dm_flags & DT_DM_LOADED))
+		if (dt_module_load(dtp, dmp) != 0)
+			return (NULL);
+
+	if (dmp->dm_ctfp != NULL)
 		return (dmp->dm_ctfp);
 
 	if ((dmp->dm_ops == &dt_modops_64) || (dmp->dm_ops == NULL))

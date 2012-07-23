@@ -4,6 +4,11 @@
 	times in a given va_start/va_end round.
 	* COMMANDLINE-OPTIONS: Document that -B works.
 
+	* libdtrace/dt_module.c (dt_module_load): Fix flipped failure case
+	in module loading.
+	(dt_module_getctf): Only try to load the module if it's not
+	already loaded: try to load it before checking CTF state.
+
 2012-07-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,
