@@ -19,6 +19,7 @@ feature transitioned to working state.
 [?] -a: Anonymous tracing: probably not implemented, certainly not tested
 [?] -A: Anonymous tracing, see above
     -b: Implemented in userspace, hard to test until static probes work
+    -B: works (2012-07-23)
     -c: broken, fails to resume the process after startup (2012-01-11
         but known to be many months older)
 [?] -C: works as well as on Solaris (on .d files only, not on D scripts

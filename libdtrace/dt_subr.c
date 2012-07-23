@@ -561,8 +561,6 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 	va_list ap;
 	int n;
 
-	va_start(ap, format);
-
 	if (dtp->dt_sprintf_buflen != 0) {
 		int len;
 		char *buf;
@@ -573,9 +571,9 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		len = dtp->dt_sprintf_buflen - len;
 		assert(len >= 0);
 
+		va_start(ap, format);
 		if ((n = vsnprintf(buf, len, format, ap)) < 0)
 			n = dt_set_errno(dtp, errno);
-
 		va_end(ap);
 
 		return (n);
@@ -586,38 +584,34 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		size_t avail;
 
 		/*
-		 * It's not legal to use buffered ouput if there is not a
+		 * It's not legal to use buffered output if there is not a
 		 * handler for buffered output.
 		 */
-		if (dtp->dt_bufhdlr == NULL) {
-			va_end(ap);
+		if (dtp->dt_bufhdlr == NULL)
 			return (dt_set_errno(dtp, EDT_NOBUFFERED));
-		}
 
 		if (dtp->dt_buffered_buf == NULL) {
 			assert(dtp->dt_buffered_size == 0);
 			dtp->dt_buffered_size = 1;
 			dtp->dt_buffered_buf = malloc(dtp->dt_buffered_size);
 
-			if (dtp->dt_buffered_buf == NULL) {
-				va_end(ap);
+			if (dtp->dt_buffered_buf == NULL)
 				return (dt_set_errno(dtp, EDT_NOMEM));
-			}
 
 			dtp->dt_buffered_offs = 0;
 			dtp->dt_buffered_buf[0] = '\0';
 		}
 
+		va_start(ap, format);
 		if ((needed = vsnprintf(NULL, 0, format, ap)) < 0) {
 			rval = dt_set_errno(dtp, errno);
 			va_end(ap);
 			return (rval);
 		}
 
-		if (needed == 0) {
-			va_end(ap);
+		va_end(ap);
+		if (needed == 0)
 			return (0);
-		}
 
 		for (;;) {
 			char *newbuf;
@@ -638,18 +632,22 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 			dtp->dt_buffered_size <<= 1;
 		}
 
+		va_start(ap, format);
 		if (vsnprintf(&dtp->dt_buffered_buf[dtp->dt_buffered_offs],
 		    avail, format, ap) < 0) {
 			rval = dt_set_errno(dtp, errno);
 			va_end(ap);
 			return (rval);
 		}
+		va_end(ap);
 
 		dtp->dt_buffered_offs += needed;
 		assert(dtp->dt_buffered_buf[dtp->dt_buffered_offs] == '\0');
+
 		return (0);
 	}
 
+	va_start(ap, format);
 	n = vfprintf(fp, format, ap);
 	va_end(ap);
 

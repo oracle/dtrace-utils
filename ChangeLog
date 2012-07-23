@@ -1,3 +1,9 @@
+2012-07-23  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_subr.c (dt_printf): Don't call vsnprintf() multiple
+	times in a given va_start/va_end round.
+	* COMMANDLINE-OPTIONS: Document that -B works.
+
 2012-07-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,
