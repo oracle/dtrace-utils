@@ -109,7 +109,7 @@ typedef struct dtrace_proginfo {
 #define	DTRACE_C_CPP	0x0010	/* Preprocess input file with cpp(1) utility */
 #define	DTRACE_C_KNODEF	0x0020	/* Permit unresolved kernel symbols in DIFO */
 #define	DTRACE_C_UNODEF	0x0040	/* Permit unresolved user symbols in DIFO */
-#define	DTRACE_C_PSPEC	0x0080	/* Intepret ambiguous specifiers as probes */
+#define	DTRACE_C_PSPEC  0x0080	/* Interpret ambiguous specifiers as probes */
 #define	DTRACE_C_ETAGS	0x0100	/* Prefix error messages with error tags */
 #define	DTRACE_C_ARGREF	0x0200	/* Do not require all macro args to be used */
 #define	DTRACE_C_DEFARG	0x0800	/* Use 0/"" as value for unspecified args */
