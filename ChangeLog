@@ -11,6 +11,9 @@
 	(dt_module_shuffle_to_start): New function.
 	(dtrace_update): Call it.
 
+	* libdtrace/dt_open.c (dt_vopen): Shuffle the C and D modules to
+	the start of the list before doing type lookups that use them.
+
 2012-07-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,

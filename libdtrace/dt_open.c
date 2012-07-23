@@ -1205,6 +1205,17 @@ alloc:
 	}
 
 	/*
+	 * Now that we've created the "C" and "D" containers, move them to the
+	 * start of the module list so that these types and symbols are found
+	 * first (for stability) when iterating through the module list.
+	 */
+	dt_list_delete(&dtp->dt_modlist, dtp->dt_ddefs);
+	dt_list_prepend(&dtp->dt_modlist, dtp->dt_ddefs);
+
+	dt_list_delete(&dtp->dt_modlist, dtp->dt_cdefs);
+	dt_list_prepend(&dtp->dt_modlist, dtp->dt_cdefs);
+
+	/*
 	 * Initialize the integer description table used to convert integer
 	 * constants to the appropriate types.  Refer to the comments above
 	 * dt_node_int() for a complete description of how this table is used.
@@ -1220,17 +1231,6 @@ alloc:
 		dtp->dt_ints[i].did_ctfp = dtt.dtt_ctfp;
 		dtp->dt_ints[i].did_type = dtt.dtt_type;
 	}
-
-	/*
-	 * Now that we've created the "C" and "D" containers, move them to the
-	 * start of the module list so that these types and symbols are found
-	 * first (for stability) when iterating through the module list.
-	 */
-	dt_list_delete(&dtp->dt_modlist, dtp->dt_ddefs);
-	dt_list_prepend(&dtp->dt_modlist, dtp->dt_ddefs);
-
-	dt_list_delete(&dtp->dt_modlist, dtp->dt_cdefs);
-	dt_list_prepend(&dtp->dt_modlist, dtp->dt_cdefs);
 
 	if (dt_pfdict_create(dtp) == -1)
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
