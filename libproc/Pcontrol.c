@@ -371,7 +371,7 @@ Pstate(struct ps_prochandle *P)
  * Return the open memory file descriptor for the process, reopening it if
  * needed.
  *
- * Clients must not close this file descriptor, not use it after the process is
+ * Clients must not close this file descriptor, nor use it after the process is
  * freed or Pclose()d.
  */
 int

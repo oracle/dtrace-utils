@@ -1902,9 +1902,10 @@
 	* libdtrace/makefile (CPPFLAGS): Set it.
 
 	* libdtrace/makefile (LIB): drti.o is not part of libdtrace.a...
-	* libdtrace/makefile (DRTI_OBJ): ... but is independent, and goes
-	in the build dir, like the library.
-	* libdtrace/makefile (all): Build it.
+	(DRTI_OBJ): ... but is independent, and goes in the build dir,
+	like the library.
+	(all): Build it.
+
 	* libdtrace/drti-vers: New version script, for use by `dtrace -G'.
 	* libdtrace/makefile (install): Install it. Use mkdir -p.
 
@@ -2065,16 +2066,15 @@
 	(ECTF_ZINIT): Likewise.
 
 	* common/ctf/ctf_open.c: Include zlib.h.
-	* common/ctf/ctf_open.c (ctf_bufopen): Call the zlib functions
-	directly.
+	(ctf_bufopen): Call the zlib functions directly.
 
 2011-05-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	Translate PRINTFLIKE into GCC attributes.
 
 	* include/sys/compiler.h: Don't bother with individual ifdef guards.
-	* include/sys/compiler.h (_dt_printflike_): New.
-	* include/sys/compiler.h (_dt_unused_): Likewise.
+	(_dt_printflike_): New.
+	(_dt_unused_): Likewise.
 
 	* libdtrace/dt_link.c (dt_link_error): Use _dt_printflike_().
 	* libdtrace/dt_parser.c (dnerror): Likewise.
@@ -2128,8 +2128,7 @@
 	* libctf/ctf_lib.c (_libctf_init): Likewise.
 	* libdtrace/dt_open.c (_dtrace_init): Likewise.
 	* libdtrace/drti.c (dtrace_dof_init): Likewise.
-	* libdtrace/drti.c (dtrace_dof_fini): Declare using
-	_dt_destructor_.
+	(dtrace_dof_fini): Declare using _dt_destructor_.
 
 	* libdtrace/dt_proc.h: Drop commented-out include.
 
@@ -2158,23 +2157,23 @@
 2011-05-06  Nick Alcock  <nick.alcock@oracle.com>
 
 	* makefile (MACH): Use 'uname -m' to get machine arch.
-	* makefile (archcheck): Grammar fix.
+	(archcheck): Grammar fix.
 
 2011-05-05  Nick Alcock  <nick.alcock@oracle.com>
 
 	Remove syscall interposition.
 
 	* libproc/common/Pcontrol.c: Clean headers.
-	* libproc/common/Pcontrol.c (Pxcreate): No longer use pause() and syscall
-	interposition to trace after execvp(). Drop lots of commented-out code.
-	* libproc/common/Pcontrol.c (Pcreate_callback): Removed.
-	* libproc/common/Pcontrol.c (Psync): Delete SETENTRY and SETEXIT cases.
-	* libproc/common/Pcontrol.c (restore_tracing_flags): Likewise.
-	* libproc/common/Pcontrol.c (Pstopstatus): Likewise.
-	* libproc/common/Pcontrol.c (Psysentry): Remove.
-	* libproc/common/Pcontrol.c (Psetsysentry): Likewise.
-	* libproc/common/Pcontrol.c (Psysexit): Likewise.
-	* libproc/common/Pcontrol.c (Psetsysexit): Likewise.
+	(Pxcreate): No longer use pause() and syscall interposition to
+	trace after execvp(). Drop lots of commented-out code.
+	(Pcreate_callback): Removed.
+	(Psync): Delete SETENTRY and SETEXIT cases.
+	(restore_tracing_flags): Likewise.
+	(Pstopstatus): Likewise.
+	(Psysentry): Remove.
+	(Psetsysentry): Likewise.
+	(Psysexit): Likewise.
+	(Psetsysexit): Likewise.
 	* libproc/common/libproc.h ("C"): Remove Psysentry and Psysexit.
 	* libproc/common/P32ton.c (pstatus_n_to_32): Remove pr_sysentry and
 	pr_sysexit.
@@ -2184,13 +2183,13 @@
 	and pr_sysexit.
 
 	* libdtrace/dt_proc.c (IS_SYS_EXEC): Remove.
-	* libdtrace/dt_proc.c (IS_SYS_FORK): Likewise.
-	* libdtrace/dt_proc.c (dt_proc_rdwatch): Likewise.
-	* libdtrace/dt_proc.c (dt_proc_attach): Remove rtld tracing pending
-	addition of appropriate static tracepoints.
-	* libdtrace/dt_proc.c (dt_proc_control): Remove syscall hooking of
-	fork(), vfork(), and forksys(), and detachment/reattachment and
-	breakpoint manipulation around fork().
+	(IS_SYS_FORK): Likewise.
+	(dt_proc_rdwatch): Likewise.
+	(dt_proc_attach): Remove rtld tracing pending addition of
+	appropriate static tracepoints.
+	(dt_proc_control): Remove syscall hooking of fork(), vfork(), and
+	forksys(), and detachment/reattachment and breakpoint manipulation
+	around fork().
 
 2011-04-29  Shujing Zhao  <pearly.zhao@oracle.com>
 
