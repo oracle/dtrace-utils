@@ -36,16 +36,7 @@
 #include <dt_parser.h>
 #include <dt_string.h>
 
-/*
- * We need to undefine lex's input and unput macros so that references to these
- * call the functions provided at the end of this source file.
- */
-/*#undef input
-#undef unput */
-
 static int id_or_type(const char *);
-/*static int input(void);
-static void unput(int);*/
 
 /* 
  * Define YY_INPUT for flex since input() can't be re-defined.
@@ -892,46 +883,3 @@ id_or_type(const char *s)
 	 */
 	return (DT_TOK_TNAME);
 }
-#if 0
-static int
-input(void)
-{
-	int c;
-
-	if (yysptr > yysbuf)
-		c = *--yysptr;
-	else if (yypcb->pcb_fileptr != NULL)
-		c = fgetc(yypcb->pcb_fileptr);
-	else if (yypcb->pcb_strptr < yypcb->pcb_string + yypcb->pcb_strlen)
-		c = *(unsigned char *)(yypcb->pcb_strptr++);
-	else
-		c = EOF;
-
-	if (c == '\n')
-		yylineno++;
-
-	if (c != EOF)
-		return (c);
-
-	if ((YYSTATE) == S1)
-		yyerror("end-of-file encountered before matching */\n");
-
-	if ((YYSTATE) == S3)
-		yyerror("end-of-file encountered before end of control line\n");
-
-	if (yypcb->pcb_fileptr != NULL && ferror(yypcb->pcb_fileptr))
-		longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
-
-	return (0); /* EOF */
-}
-
-static void
-unput(int c)
-{
-	if (c == '\n')
-		yylineno--;
-
-	*yysptr++ = c;
-	yytchar = c;
-}
-#endif

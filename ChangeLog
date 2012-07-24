@@ -17,6 +17,8 @@
 	* dt_lex.c (S2{RGX_PSPEC}): Filter out BEGIN, END, and ERROR.
 	Avoid depending on yytext while unput()ting.
 	(id_or_type): Reformulate to avoid looking up unknown types.
+	(input): Delete dead code.
+	(unput): Likewise.
 
 	* test/unittest/offsetof/err.D_UNKNOWN.badmemb.r: Adjust.
 	* test/unittest/typedef/err.D_SYNTAX.BadExistingTypedef.r: Likewise.
