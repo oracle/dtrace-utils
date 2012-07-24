@@ -161,9 +161,9 @@ typedef struct dt_kern_path {
 	char *dkp_path;		       /* full name including path */
 } dt_kern_path_t;
 
-#define	DT_DM_LOADED	0x1	/* module symbol and type data is loaded */
-#define	DT_DM_KERNEL	0x2	/* module is associated with a kernel object */
-#define DT_DM_BUILTIN   0x4     /* module is built-in or the core kernel */
+#define DT_DM_LOADED	0x1		/* module symbol and type data is loaded */
+#define DT_DM_KERNEL	0x2		/* module is associated with a kernel object */
+#define DT_DM_BUILTIN   0x4		/* module is built-in or the core kernel */
 
 typedef struct dt_provmod {
 	char *dp_name;				/* name of provider module */

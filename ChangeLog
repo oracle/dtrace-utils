@@ -13,6 +13,14 @@
 	the dependency graph correct and prevent .d-file overwriting
 	corrupting dependencies.
 
+	* LICENSE: Fix copyright date.
+
+	* README: We have CTF now.
+
+	* dt_impl.h: Tiny layout fix.
+	* dt_module.c (dt_module_getctf): Remove extraneous braces.
+	* dt_open.c (dtrace_close): Don't leak the dt_ctf_elf handle.
+
 2012-07-23  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_subr.c (dt_printf): Don't call vsnprintf() multiple
@@ -854,16 +862,6 @@
 	* libdtrace/dt_proc.c: Likewise.
 
 	* libdtrace/i386/dt_isadep.c: Likewise.
-
-2011-09-29  Nick Alcock  <nick.alcock@oracle.com>
-
-	* cmd/dtrace.c (g_oflags): Force to the equivalent of -64.
-	* runtest.sh: Fix bug causing runtest.sum and runtest.log to be
-	incomplete in --quiet mode.
-
-2011-09-28  Nick Alcock  <nick.alcock@oracle.com>
-
-	* dtrace.spec: Fix package name to dtrace-utils.
 
 2011-09-29  Nick Alcock  <nick.alcock@oracle.com>
 

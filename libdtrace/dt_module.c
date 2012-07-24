@@ -670,13 +670,12 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return (NULL);
 	}
 
-	if (dmp->dm_flags & DT_DM_KERNEL) {
+	if (dmp->dm_flags & DT_DM_KERNEL)
 		dmp->dm_ctfp = ctf_bufopen(&dmp->dm_ctdata, NULL, NULL,
 		    &dtp->dt_ctferr);
-	} else {
+	else
 		dmp->dm_ctfp = ctf_bufopen(&dmp->dm_ctdata,
 		    &dmp->dm_symtab, &dmp->dm_strtab, &dtp->dt_ctferr);
-	}
 
 	if (dmp->dm_ctfp == NULL) {
 		dt_dprintf("ctfp for module %s; error: %s\n", dmp->dm_name,
