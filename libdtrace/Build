@@ -26,7 +26,6 @@ libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/i386 -D
                            -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 libdtrace-build_TARGET = libdtrace
 libdtrace-build_DIR := $(current-dir)
-libdtrace-build_SRCDEPS = dt_grammar.h
 libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c dt_cg.c \
                           i386/dis_tables.c i386/dt_isadep.c dt_consume.c dt_decl.c dt_dis.c \
                           dt_dof.c dt_error.c dt_errtags.c dt_grammar.c dt_handle.c \
@@ -54,9 +53,9 @@ $(libdtrace-build_DIR)dt_names.c: uts/common/sys/dtrace.h $(libdtrace-build_DIR)
 	$(call describe-target,MKNAMES,$(libdtrace-build_DIR)dt_names.c)
 	sh $(libdtrace-build_DIR)mknames.sh < uts/common/sys/dtrace.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_names.c
 
-$(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c: $(libdtrace-build_DIR)dt_grammar.y
-	$(call describe-target,YACC,$(libdtrace-build_DIR)dt_grammar.c)
-	$(YACC) -o $(libdtrace-build_DIR)dt_grammar.c -d $(libdtrace-build_DIR)dt_grammar.y
+$(libdtrace-build_DIR)%.h $(libdtrace-build_DIR)%.c: $(libdtrace-build_DIR)%.y
+	$(call describe-target,YACC,$(libdtrace-build_DIR)$*.c)
+	$(YACC) -o $(libdtrace-build_DIR)$*.c -d $(libdtrace-build_DIR)$*.y
 
 $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_lex.l
 	$(call describe-target,LEX,$(libdtrace-build_DIR)dt_lex.c)

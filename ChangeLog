@@ -8,6 +8,11 @@
 	DT_TOK_IDENT rule: no longer required.
 	(struct_or_union_definition): Likewise.
 
+	* libdtrace/Build (libdtrace-build_SRCDEPS): Remove.
+	(dt_grammar.[chy]): Make into a %.y-origin pattern rule, to get
+	the dependency graph correct and prevent .d-file overwriting
+	corrupting dependencies.
+
 2012-07-23  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_subr.c (dt_printf): Don't call vsnprintf() multiple
