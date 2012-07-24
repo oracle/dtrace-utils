@@ -4,6 +4,10 @@
 	* libdtrace/dt_lex.l: Use it to track certain-to-be-types in the
 	type slot of structs, unions, and enums.
 
+	* libdtrace/dt_grammar.y (struct_or_union_specifier): Remove
+	DT_TOK_IDENT rule: no longer required.
+	(struct_or_union_definition): Likewise.
+
 2012-07-23  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_subr.c (dt_printf): Don't call vsnprintf() multiple

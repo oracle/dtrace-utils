@@ -653,13 +653,11 @@ struct_or_union_specifier:
 		struct_or_union_definition struct_declaration_list '}' {
 			$$ = dt_scope_pop();
 		}
-	|	struct_or_union DT_TOK_IDENT { $$ = dt_decl_spec($1, $2); }
 	|	struct_or_union DT_TOK_TNAME { $$ = dt_decl_spec($1, $2); }
 	;
 
 struct_or_union_definition:
 		struct_or_union '{' { dt_decl_sou($1, NULL); }
-	|	struct_or_union DT_TOK_IDENT '{' { dt_decl_sou($1, $2); }
 	|	struct_or_union DT_TOK_TNAME '{' { dt_decl_sou($1, $2); }
 	;
 
