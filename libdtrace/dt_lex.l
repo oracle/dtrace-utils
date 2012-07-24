@@ -592,9 +592,16 @@ if (yypcb->pcb_token != 0) {
 			 * If C_PSPEC is off, the user can avoid ambiguity by
 			 * including a ':' delimiter in the specifier, which
 			 * they should be doing anyway to specify the provider.
+			 *
+			 * We also include special cases for the BEGIN / END /
+			 * ERROR probes, since there is no way to write these
+			 * with a comma and they cannot be type names.
 			 */
 			if (!(yypcb->pcb_cflags & DTRACE_C_PSPEC) &&
-			    strchr(yytext, ':') == NULL) {
+			    strchr(yytext, ':') == NULL &&
+			    strcmp(yytext, "BEGIN") != 0 &&
+			    strcmp(yytext, "END") != 0 &&
+			    strcmp(yytext, "ERROR") != 0) {
 
 				char *p = strchr(yytext, '*');
 				char *q = yytext + yyleng - 1;
@@ -610,7 +617,11 @@ if (yypcb->pcb_token != 0) {
 						    EDT_NOMEM);
 					}
 
-					if (p != NULL && p > yytext) {
+					if (p != NULL)
+						p = yylval.l_str + (p - yytext);
+					q = yylval.l_str + (q - yytext);
+
+					if (p != NULL && p > yylval.l_str) {
 						for (*p = '*'; q >= p; q--)
 							unput(*q);
 					}
@@ -727,26 +738,137 @@ yyinit(dt_pcb_t *pcb)
  * User-defined global variables always take precedence over types, but we do
  * use some heuristics because D programs can look at an ever-changing set of
  * kernel types and also can implicitly instantiate variables by assignment,
- * unlike in C.  The code here is ordered carefully as lookups are not cheap.
+ * unlike in C.  The code here is ordered carefully as lookups are not cheap,
+ * and the first unknown type lookup in program execution is exceedingly
+ * expensive.
  */
 static int
 id_or_type(const char *s)
 {
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	dt_decl_t *ddp = yypcb->pcb_dstack.ds_decl;
-	int c0, c1, ttok = DT_TOK_TNAME;
+	int c0, c1;
 	dt_ident_t *idp;
 
 	if ((s = yylval.l_str = strdup(s)) == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 	/*
-	 * If the lexeme is a global variable or likely identifier or *not* a
-	 * type_name, then it is an identifier token.
+	 * If the lexeme is a global variable or likely identifier, then it is
+	 * an identifier token.
 	 */
 	if (dt_idstack_lookup(&yypcb->pcb_globals, s) != NULL ||
-	    dt_idhash_lookup(yypcb->pcb_idents, s) != NULL ||
-	    dt_type_lookup(s, NULL) != 0)
+	    dt_idhash_lookup(yypcb->pcb_idents, s) != NULL)
+		return (DT_TOK_IDENT);
+
+	/*
+	 * If the lexeme is in a program clause, then it could be a type or it
+	 * could be an undefined variable.  Peek at the next token to decide.
+	 * If we see ++, --, [, =, or ; we know there might be an assignment
+	 * that is trying to create a global variable, so we optimistically
+	 * return DT_TOK_IDENT.	 There is no harm in being wrong:
+	 * a type_name followed by ++, --, [, =, or ; is a syntax error.
+	 *
+	 * We do this before checking to see if this is a known type name so as
+	 * to avoid looking up unknown types unless absolutely necessary.
+	 */
+	if (YYSTATE == (S0)) {
+		int ttok = DT_TOK_TNAME;
+		int inputs = 0, linefeeds = 0;
+
+		while ((c0 = input()) != 0) {
+			if (strchr("\f\n\r\t\v ", c0) == NULL)
+				break;
+			if (c0 == '\n')
+				linefeeds++;
+			inputs++;
+		}
+
+		switch (c0) {
+		case '+':
+		case '-':
+			if ((c1 = input()) == c0)
+				ttok = DT_TOK_IDENT;
+			unput(c1);
+			break;
+
+		case '=':
+			if ((c1 = input()) != c0)
+				ttok = DT_TOK_IDENT;
+			unput(c1);
+			break;
+		case '[':
+		case ';':
+			ttok = DT_TOK_IDENT;
+			break;
+		case ',':
+			if (yypcb->pcb_parens == 0)
+				ttok = DT_TOK_IDENT;
+			break;
+		}
+
+		if ((ttok == DT_TOK_IDENT) &&
+		    (yypcb->pcb_dstack.ds_class != DT_DC_TYPEDEF)) {
+			idp = dt_idhash_insert(yypcb->pcb_idents, s, DT_IDENT_SCALAR, 0,
+			    0, _dtrace_defattr, 0, &dt_idops_thaw, NULL, dtp->dt_gen);
+
+			if (idp == NULL)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+		}
+
+		unput(c0);
+		while (inputs > 0) {
+			inputs--;
+			if (linefeeds > 0) {
+				unput('\n');
+				linefeeds--;
+			} else
+				unput(' ');
+		}
+
+		if (ttok == DT_TOK_IDENT)
+			return (DT_TOK_IDENT);
+	}
+
+	/*
+	 * Outside a program clause, we can still aggressively rule out
+	 * typeness in some common cases: a type immediately followed by
+	 * a semicolon or comma is a syntax error here too.
+	 */
+	if (YYSTATE == (S2)) {
+		int ttok = DT_TOK_TNAME;
+		int inputs = 0, linefeeds = 0;
+
+		while ((c0 = input()) != 0) {
+			if (strchr("\f\n\r\t\v ", c0) == NULL)
+				break;
+			if (c0 == '\n')
+				linefeeds++;
+			inputs++;
+		}
+
+		if ((c0 == ';') || (c0 == ','))
+			ttok = DT_TOK_IDENT;
+
+		unput(c0);
+		while (inputs > 0) {
+			inputs--;
+			if (linefeeds > 0) {
+				unput('\n');
+				linefeeds--;
+			} else
+				unput(' ');
+		}
+
+		if (ttok == DT_TOK_IDENT)
+			return (DT_TOK_IDENT);
+	}
+
+	/*
+	 * If the lexeme is known not to be a type_name, then it is an
+	 * identifier token.
+	 */
+	if (dt_type_lookup(s, NULL) != 0)
 		return (DT_TOK_IDENT);
 
 	/*
@@ -765,53 +887,10 @@ id_or_type(const char *s)
 		return (DT_TOK_IDENT);
 
 	/*
-	 * If the lexeme is a type name and we are not in a program clause,
-	 * then always interpret it as a type and return DT_TOK_TNAME.
+	 * Tthe lexeme is a type name.  (Ambiguous parses with identifiers in
+	 * program clauses are already ruled out by the code above.)
 	 */
-	if ((YYSTATE) != S0)
-		return (DT_TOK_TNAME);
-
-	/*
-	 * If the lexeme matches a type name but is in a program clause, then
-	 * it could be a type or it could be an undefined variable.  Peek at
-	 * the next token to decide.  If we see ++, --, [, or =, we know there
-	 * might be an assignment that is trying to create a global variable,
-	 * so we optimistically return DT_TOK_IDENT.  There is no harm in being
-	 * wrong: a type_name followed by ++, --, [, or = is a syntax error.
-	 */
-	while ((c0 = input()) != 0) {
-		if (strchr("\f\n\r\t\v ", c0) == NULL)
-			break;
-	}
-
-	switch (c0) {
-	case '+':
-	case '-':
-		if ((c1 = input()) == c0)
-			ttok = DT_TOK_IDENT;
-		unput(c1);
-		break;
-
-	case '=':
-		if ((c1 = input()) != c0)
-			ttok = DT_TOK_IDENT;
-		unput(c1);
-		break;
-	case '[':
-		ttok = DT_TOK_IDENT;
-		break;
-	}
-
-	if (ttok == DT_TOK_IDENT) {
-		idp = dt_idhash_insert(yypcb->pcb_idents, s, DT_IDENT_SCALAR, 0,
-		    0, _dtrace_defattr, 0, &dt_idops_thaw, NULL, dtp->dt_gen);
-
-		if (idp == NULL)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-	}
-
-	unput(c0);
-	return (ttok);
+	return (DT_TOK_TNAME);
 }
 #if 0
 static int

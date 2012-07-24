@@ -14,6 +14,13 @@
 	* libdtrace/dt_open.c (dt_vopen): Shuffle the C and D modules to
 	the start of the list before doing type lookups that use them.
 
+	* dt_lex.c (S2{RGX_PSPEC}): Filter out BEGIN, END, and ERROR.
+	Avoid depending on yytext while unput()ting.
+	(id_or_type): Reformulate to avoid looking up unknown types.
+
+	* test/unittest/offsetof/err.D_UNKNOWN.badmemb.r: Adjust.
+	* test/unittest/typedef/err.D_SYNTAX.BadExistingTypedef.r: Likewise.
+
 2012-07-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_module): New dm_ctdata_data member,
