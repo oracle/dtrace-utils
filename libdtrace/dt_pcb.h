@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -91,6 +91,7 @@ typedef struct dt_pcb {
 	int pcb_braces;		/* number of open curly braces in lexer */
 	int pcb_brackets;	/* number of open square brackets in lexer */
 	int pcb_parens;		/* number of open parentheses in lexer */
+	int pcb_sou_type;	/* lexer in struct/union type name */
 } dt_pcb_t;
 
 extern void dt_pcb_push(dtrace_hdl_t *, dt_pcb_t *);

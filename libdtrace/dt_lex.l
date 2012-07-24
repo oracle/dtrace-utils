@@ -21,7 +21,7 @@
  */
 
 /*
- * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003 -- 2012 Oracle and/or its affiliates. All rights reserved.
  */
 
 #include <string.h>
@@ -119,7 +119,7 @@ if (yypcb->pcb_token != 0) {
 <S0>do		return (DT_KEY_DO);
 <S0>double	return (DT_KEY_DOUBLE);
 <S0>else	return (DT_KEY_ELSE);
-<S0>enum	return (DT_KEY_ENUM);
+<S0>enum	{ yypcb->pcb_sou_type = 1; return (DT_KEY_ENUM); }
 <S0>extern	return (DT_KEY_EXTERN);
 <S0>float	return (DT_KEY_FLOAT);
 <S0>for		return (DT_KEY_FOR);
@@ -142,12 +142,12 @@ if (yypcb->pcb_token != 0) {
 <S0>static	return (DT_KEY_STATIC);
 <S0>string	return (DT_KEY_STRING);
 <S0>stringof	return (DT_TOK_STRINGOF);
-<S0>struct	return (DT_KEY_STRUCT);
+<S0>struct	{ yypcb->pcb_sou_type = 1; return (DT_KEY_STRUCT); }
 <S0>switch	return (DT_KEY_SWITCH);
 <S0>this	return (DT_KEY_THIS);
 <S0>translator	return (DT_KEY_XLATOR);
 <S0>typedef	return (DT_KEY_TYPEDEF);
-<S0>union	return (DT_KEY_UNION);
+<S0>union	{ yypcb->pcb_sou_type = 1; return (DT_KEY_UNION); }
 <S0>unsigned	return (DT_KEY_UNSIGNED);
 <S0>void	return (DT_KEY_VOID);
 <S0>volatile	return (DT_KEY_VOLATILE);
@@ -159,7 +159,8 @@ if (yypcb->pcb_token != 0) {
 <S2>const	{ yybegin(YYS_EXPR);	return (DT_KEY_CONST); }
 <S2>counter	{ yybegin(YYS_DEFINE);	return (DT_KEY_COUNTER); }
 <S2>double	{ yybegin(YYS_EXPR);	return (DT_KEY_DOUBLE); }
-<S2>enum	{ yybegin(YYS_EXPR);	return (DT_KEY_ENUM); }
+<S2>enum	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
+					return (DT_KEY_ENUM); }
 <S2>extern	{ yybegin(YYS_EXPR);	return (DT_KEY_EXTERN); }
 <S2>float	{ yybegin(YYS_EXPR);	return (DT_KEY_FLOAT); }
 <S2>import	{ yybegin(YYS_EXPR);	return (DT_KEY_IMPORT); }
@@ -174,11 +175,13 @@ if (yypcb->pcb_token != 0) {
 <S2>signed	{ yybegin(YYS_EXPR);	return (DT_KEY_SIGNED); }
 <S2>static	{ yybegin(YYS_EXPR);	return (DT_KEY_STATIC); }
 <S2>string	{ yybegin(YYS_EXPR);	return (DT_KEY_STRING); }
-<S2>struct	{ yybegin(YYS_EXPR);	return (DT_KEY_STRUCT); }
+<S2>struct	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
+					return (DT_KEY_STRUCT); }
 <S2>this	{ yybegin(YYS_EXPR);	return (DT_KEY_THIS); }
 <S2>translator	{ yybegin(YYS_DEFINE);	return (DT_KEY_XLATOR); }
 <S2>typedef	{ yybegin(YYS_EXPR);	return (DT_KEY_TYPEDEF); }
-<S2>union	{ yybegin(YYS_EXPR);	return (DT_KEY_UNION); }
+<S2>union	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
+					return (DT_KEY_UNION); }
 <S2>unsigned	{ yybegin(YYS_EXPR);	return (DT_KEY_UNSIGNED); }
 <S2>void	{ yybegin(YYS_EXPR);	return (DT_KEY_VOID); }
 <S2>volatile	{ yybegin(YYS_EXPR);	return (DT_KEY_VOLATILE); }
@@ -487,12 +490,14 @@ if (yypcb->pcb_token != 0) {
 
 <S0>"("		{
 			yypcb->pcb_parens++;
+			yypcb->pcb_sou_type = 0;
 			return (DT_TOK_LPAR);
 		}
 
 <S0>")"		{
 			if (--yypcb->pcb_parens < 0)
 				yyerror("extra ) in input stream\n");
+			yypcb->pcb_sou_type = 0;
 			return (DT_TOK_RPAR);
 		}
 
@@ -510,6 +515,7 @@ if (yypcb->pcb_token != 0) {
 <S0>"{"		|
 <S2>"{"		{
 			yypcb->pcb_braces++;
+			yypcb->pcb_sou_type = 0;
 			return ('{');
 		}
 
@@ -527,9 +533,9 @@ if (yypcb->pcb_token != 0) {
 <S0>"||"	return (DT_TOK_LOR);
 <S0>"=="	return (DT_TOK_EQU);
 <S0>"!="	return (DT_TOK_NEQ);
-<S0>"<"		return (DT_TOK_LT);
+<S0>"<"		yypcb->pcb_sou_type = 0; return (DT_TOK_LT);
 <S0>"<="	return (DT_TOK_LE);
-<S0>">"		return (DT_TOK_GT);
+<S0>">"		yypcb->pcb_sou_type = 0; return (DT_TOK_GT);
 <S0>">="	return (DT_TOK_GE);
 <S0>"<<"	return (DT_TOK_LSH);
 <S0>">>"	return (DT_TOK_RSH);
@@ -743,6 +749,15 @@ id_or_type(const char *s)
 
 	if ((s = yylval.l_str = strdup(s)) == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	/*
+	 * If we have just seen a struct / union / enum, this must be a
+	 * type name, but whatever follows will not be one.
+	 */
+	if (yypcb->pcb_sou_type) {
+		yypcb->pcb_sou_type = 0;
+		return (DT_TOK_TNAME);
+	}
 
 	/*
 	 * If the lexeme is a global variable or likely identifier, then it is

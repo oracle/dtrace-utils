@@ -1,3 +1,9 @@
+2012-07-24  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_pcb.h (pcb_sou_type): New.
+	* libdtrace/dt_lex.l: Use it to track certain-to-be-types in the
+	type slot of structs, unions, and enums.
+
 2012-07-23  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_subr.c (dt_printf): Don't call vsnprintf() multiple
