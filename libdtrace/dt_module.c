@@ -688,17 +688,6 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	if ((parent = ctf_parent_name(dmp->dm_ctfp)) != NULL) {
-
-		/*
-		 * Kernel modules currently use the dynamic CTF writing
-		 * infrastructure, which does not write out a parent name.
-		 * Thankfully we don't need one: we know what it must be.
-		 */
-
-		if ((dmp->dm_flags & DT_DM_KERNEL) &&
-		    (strcmp(parent, "PARENT") == 0))
-			parent = "dtrace_ctf";
-
 		if ((pmp = dt_module_create(dtp, parent)) == NULL ||
 		    (pfp = dt_module_getctf(dtp, pmp)) == NULL) {
 			if (pmp == NULL)
