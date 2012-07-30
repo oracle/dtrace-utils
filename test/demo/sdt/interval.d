@@ -26,6 +26,8 @@
 
 #pragma D option quiet
 
+/* @@xfail: fbt provider not yet implemented */
+
 sdt:::callout-start
 {
 	self->callout = ((callout_t *)arg0)->c_func;

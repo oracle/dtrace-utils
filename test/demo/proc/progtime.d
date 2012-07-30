@@ -20,13 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/* @@xfail: proc:::start not yet implemented */
-
-proc:::start
+proc:::create
 {
 	self->start = timestamp;
 }

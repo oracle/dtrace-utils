@@ -26,6 +26,8 @@
 
 #pragma D option quiet
 
+/* @@xfail: not yet ported */
+
 sdt:::callout-start
 {
 	@callouts[((callout_t *)arg0)->c_func] = count();

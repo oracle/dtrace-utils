@@ -85,6 +85,12 @@
 	task_struct rather than char, testing struct type lookup.
 	`kmem_flags -> `max_pfn.
 
+	* test/demo/proc/progtime.d: Test proc:::create, not proc:::start.
+	* test/demo/proc/test.options: Deleted; no longer XFAIL this directory.
+	* test/demo/sdt/callout.d: This test is still XFAIL.
+	* test/demo/sdt/interval.d: Likewise.
+	* test/demo/sdt/intr.d: Likewise.
+
 	Miscellaneous makefile work.
 
 	* GNUmakefile: Install libraries to lib64, not lib.
