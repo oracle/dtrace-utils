@@ -91,6 +91,11 @@
 	* test/demo/sdt/interval.d: Likewise.
 	* test/demo/sdt/intr.d: Likewise.
 
+	* test/unittest/dtrace-util/tst.InvalidId2.sh: This is XFAIL, -li
+	ranges are known broken.
+	* test/unittest/dtrace-util/tst.InvalidId2.r: Give the output we
+	expect, not the output we see.
+
 	Miscellaneous makefile work.
 
 	* GNUmakefile: Install libraries to lib64, not lib.

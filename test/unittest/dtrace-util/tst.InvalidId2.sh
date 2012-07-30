@@ -38,6 +38,8 @@
 #
 ##
 
+/* @@xfail: ranges are known broken. */
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
