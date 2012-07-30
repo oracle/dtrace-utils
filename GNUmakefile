@@ -53,7 +53,7 @@ endif
 
 prefix = /usr
 objdir := build-$(shell uname -r)
-LIBDIR := $(DESTDIR)$(prefix)/lib
+LIBDIR := $(DESTDIR)$(prefix)/lib$(BITNESS)
 BINDIR := $(DESTDIR)$(prefix)/bin
 INCLUDEDIR := $(DESTDIR)$(prefix)/include
 SBINDIR := $(DESTDIR)$(prefix)/sbin

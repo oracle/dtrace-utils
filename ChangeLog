@@ -1,3 +1,8 @@
+2012-07-30  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile: Install libraries to lib64, not lib.
+	* dtrace-utils.spec: Likewise.
+
 2012-07-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_module.c (dt_module_getctf): Drop dtrace_ctf
