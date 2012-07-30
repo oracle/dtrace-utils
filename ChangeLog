@@ -2,7 +2,7 @@
 
 	Support CTF types for global kernel variables (the ` operator).
 
-	libdtrace-ctf: Updated: ctf_lookup_variable() is now available.
+	* libdtrace-ctf: Updated: ctf_lookup_variable() is now available.
 	* libdtrace/dt_module.c (dtrace_symbol_type): Use it in new
 	code for kernel module symbol->type mapping.
 	(dtrace_lookup_by_name): Only update the syminfo pointer if it
@@ -10,6 +10,10 @@
 	(dt_modsym_update): Many new unimportant symbols: look for name
 	prefixes in most cases, not arbitrary substrings.
 	(dt_module_getctf): Improve CTF failure error message.
+	(dt_module_load): Change the CTF section name.
+	(dt_kern_module_init): Change comment accordingly.
+	* libproc/Psymtab.c (Pbuild_file_symtab): Change the CTF
+	section name.  Support CTF section name prefixes.
 
 	Testsuite updates.
 

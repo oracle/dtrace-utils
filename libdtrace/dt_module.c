@@ -513,14 +513,14 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return -1; /* dt_errno is set for us */
 
 	if (dmp->dm_flags & DT_DM_BUILTIN) {
-		dmp->dm_ctdata_name = malloc(strlen(".SUNW_ctf.") +
+		dmp->dm_ctdata_name = malloc(strlen(".dtrace_ctf.") +
 		    strlen(dmp->dm_name) + 1);
 
-		strcpy(dmp->dm_ctdata_name, ".SUNW_ctf.");
+		strcpy(dmp->dm_ctdata_name, ".dtrace_ctf.");
 		strcat(dmp->dm_ctdata_name, dmp->dm_name);
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 	} else {
-		dmp->dm_ctdata_name = strdup(".SUNW_ctf");
+		dmp->dm_ctdata_name = strdup(".dtrace_ctf");
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 	}
 
@@ -1067,8 +1067,8 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		 * or types of its own, and is loaded purely to force allocation
 		 * of a dt_module for it into which we can load the shared
 		 * types.  We pretend that it is built-in, in order to load the
-		 * CTF data for it from the .SUNW_ctf.dtrace_ctf section where
-		 * the shared types are found, rather than .SUNW_ctf, which is
+		 * CTF data for it from the .dtrace_ctf.dtrace_ctf section where
+		 * the shared types are found, rather than .dtrace_ctf, which is
 		 * empty (as it is for all modules that contain no types of
 		 * their own).
 		 */
