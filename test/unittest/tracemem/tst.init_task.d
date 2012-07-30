@@ -20,18 +20,16 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs CTF types */
-
 /*
  * ASSERTION:
- *  Test tracemem() by tracing out the contents of the root vnode
- *  as a raw stream of bytes.
+ *  Test tracemem() by tracing out the contents of the initial
+ *  task_struct as a raw stream of bytes.
  *
  * SECTION: Actions and Subroutines/tracemem()
  */
@@ -45,7 +43,7 @@ BEGIN
 tick-1
 /i != 5/
 {
-	tracemem(`rootvp, 20);
+	tracemem((void *)`init_task, 20);
 	i++;
 }
 

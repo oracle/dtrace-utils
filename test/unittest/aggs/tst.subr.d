@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -58,13 +58,13 @@
 	}
 
 INTFUNC(rand())
-INTFUNC(mutex_owned(&`cpu_lock))
-INTFUNC(mutex_owner(&`cpu_lock))
-INTFUNC(mutex_type_adaptive(&`cpu_lock))
-INTFUNC(mutex_type_spin(&`cpu_lock))
-INTFUNC(rw_read_held(&`vfssw_lock))
-INTFUNC(rw_write_held(&`vfssw_lock))
-INTFUNC(rw_iswriter(&`vfssw_lock))
+INTFUNC(mutex_owned(&`text_mutex))
+INTFUNC(mutex_owner(&`text_mutex))
+INTFUNC(mutex_type_adaptive(&`text_mutex))
+INTFUNC(mutex_type_spin(&`text_mutex))
+INTFUNC(rw_read_held(&`tasklist_lock))
+INTFUNC(rw_write_held(&`tasklist_lock))
+INTFUNC(rw_iswriter(&`tasklist_lock))
 INTFUNC(copyin(NULL, 1))
 STRFUNC(copyinstr(NULL, 1))
 INTFUNC(speculation())

@@ -20,13 +20,11 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-/* @@xfail: kmem not yet implemented */
 
 /*
  * ASSERTION: Pointer declarations are global.
@@ -42,20 +40,20 @@
 BEGIN
 {
 	i = 0;
-	kmemAddress = &`kmem_flags;
-	kmemValue = *kmemAddress;
-	printf("Address of kmem_flags: %x\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", kmemValue);
+	pfnAddress = &`max_pfn;
+	pfnValue = *pfnAddress;
+	printf("Address of max_pfn: %x\n", (int) pfnAddress);
+	printf("Value of max_pfn: %d\n", pfnValue);
 }
 
 profile:::tick-1sec
-/(i < 1) && (&`kmem_flags == kmemAddress) && (*kmemAddress == kmemValue)/
+/(i < 1) && (&`max_pfn == pfnAddress) && (*pfnAddress == pfnValue)/
 {
 	exit(1);
 }
 
 END
-/(&`kmem_flags == kmemAddress) && (*kmemAddress == kmemValue)/
+/(&`max_pfn == pfnAddress) && (*pfnAddress == pfnValue)/
 {
 	exit(0);
 }

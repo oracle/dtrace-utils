@@ -26,7 +26,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs psinfo.d and CTF types */
+/* @@xfail: needs psinfo.d */
 
 /*
  * ASSERTION:

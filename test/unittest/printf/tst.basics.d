@@ -20,13 +20,11 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-/* FIXME: reenable %a testing when kmem works. */
 
 /*
  * ASSERTION:
@@ -46,7 +44,7 @@ BEGIN
 
 	printf("\n");
 
-/*	printf("%%a = %a\n", &`kmem_alloc); */
+	printf("%%a = %a\n", &`max_pfn);
 	printf("%%c = %c\n", i);
 	printf("%%d = %d\n", i);
 	printf("%%hd = %hd\n", (short)i);

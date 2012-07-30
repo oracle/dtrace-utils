@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -34,8 +34,6 @@
  *
  */
 
-/* @@xfail: kmem not yet implemented */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option quiet
@@ -44,8 +42,8 @@
 typedef char new_char;
 inline new_char char_var = 'c';
 
-typedef int * pointer;
-inline pointer p = &`kmem_flags;
+typedef unsigned long * pointer;
+inline pointer p = &`max_pfn;
 
 BEGIN
 {

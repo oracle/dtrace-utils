@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -40,6 +40,6 @@
 
 BEGIN
 {
-	(char)trace(`kmem_flags);
+	(struct task_struct)trace(`max_pfn);
 	exit();
 }

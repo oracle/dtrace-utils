@@ -26,6 +26,8 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: nonportable */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*

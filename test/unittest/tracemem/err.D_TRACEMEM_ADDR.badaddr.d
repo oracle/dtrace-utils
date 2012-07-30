@@ -26,14 +26,16 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs CTF types */
-
 /*
  * ASSERTION:
  *  Test tracemem() with an invalid address argument.
  *
  * SECTION: Actions and Subroutines/tracemem()
  */
+
+/* @@note: not sure how to fix this one. We can't use *(char *)NULL
+   because we want *tracemem()* to do the dereferencing... OpenSolaris
+   uses `v, whatever *that* is, but obviously Linux doesn't have that. */
 
 BEGIN
 {

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -35,8 +35,6 @@
  * once the functionality is implemented.
  *
  */
-
-/* @@xfail: kmem not yet implemented */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -64,7 +62,7 @@ inline double new_double = 2.34567890;
 inline long double new_long_double = 3.567890123;
 */
 
-inline int * pointer = &`kmem_flags;
+inline unsigned long * pointer = &`max_pfn;
 inline int result = 3 > 2 ? 3 : 2;
 
 BEGIN

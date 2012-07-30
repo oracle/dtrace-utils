@@ -19,10 +19,8 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: needs CTF types */
-
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -53,8 +51,8 @@ tick-1
 	trace(12345);		/* DT_TYPE_INT (constant) */
 	trace(x++);		/* DT_TYPE_INT (derived) */
 	trace(timestamp);	/* DT_TYPE_INT (variable) */
-	trace(`kmem_flags);	/* CTF type (by value) */
-	trace(*`rootvp);	/* CTF type (by ref) */
+	trace(`max_pfn);	/* CTF type (by value) */
+	trace(*`sdt_prefix);	/* CTF type (by ref) */
 	i++;
 }
 

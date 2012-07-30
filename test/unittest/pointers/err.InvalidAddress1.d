@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -39,10 +39,10 @@
 
 BEGIN
 {
-	kmemAddress = &`kmem_flags;
-	*kmemAddress = 20;
-	printf("Address of kmem_flags: %d\n", (int) kmemAddress);
-	printf("Value of kmem_flags: %d\n", `kmem_flags);
+	pfnAddress = &`max_pfn;
+	*pfnAddress = 20;
+	printf("Address of pfnAddress: %d\n", (int) pfnAddress);
+	printf("Value of pfnAddress: %d\n", `max_pfn);
 	exit(0);
 }
 

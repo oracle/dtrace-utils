@@ -19,10 +19,10 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: no kmem yet */
+/* @@xfail: symbol lookup from addresses is broken. */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -40,6 +40,6 @@
 
 BEGIN
 {
-	printf("symbol = %a", &`kmem_flags);
+	printf("symbol = %a", &`max_pfn);
 	exit(0);
 }

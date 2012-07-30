@@ -1,5 +1,92 @@
 2012-07-30  Nick Alcock  <nick.alcock@oracle.com>
 
+	Support CTF types for global kernel variables (the ` operator).
+
+	libdtrace-ctf: Updated: ctf_lookup_variable() is now available.
+	* libdtrace/dt_module.c (dtrace_symbol_type): Use it in new
+	code for kernel module symbol->type mapping.
+	(dtrace_lookup_by_name): Only update the syminfo pointer if it
+	is non-NULL.
+	(dt_modsym_update): Many new unimportant symbols: look for name
+	prefixes in most cases, not arbitrary substrings.
+	(dt_module_getctf): Improve CTF failure error message.
+
+	Testsuite updates.
+
+	* test/unittest/aggs/tst.subr.d: `cpu_lock -> `text_mutex;
+	`vfssw_lock -> `tasklist_lock.
+
+	* test/unittest/assocs/err.D_OP_INCOMPAT.dupgtype.d:
+	`kmem_flags -> `max_pfn; `rootvp -> `cad_pid.
+	* test/unittest/assocs/err.D_OP_INCOMPAT.dupttype.d: Likewise.
+	* test/unittest/scalars/err.D_OP_INCOMPAT.dupgtype.d: Likewise.
+	* test/unittest/scalars/err.D_OP_INCOMPAT.dupltype.d: Likewise.
+	* test/unittest/scalars/err.D_OP_INCOMPAT.dupttype.d: Likewise.
+	* test/unittest/funcs/err.badbcopy.d: Likewise.
+	* test/unittest/funcs/err.badbcopy1.d: Likewise.
+	* test/unittest/funcs/err.badbcopy2.d: Likewise.
+	* test/unittest/funcs/err.badbcopy3.d: Likewise.
+	* test/unittest/pointers/err.D_OP_LVAL.AddressChange.d: Likewise.
+	* test/unittest/pointers/err.InvalidAddress1.d: Likewise.
+	* test/unittest/struct/tst.StructDataTypes.d: Likewise.
+	* test/unittest/funcs/tst.bcopy.d: Likewise.  No longer XFAILed.
+	* test/unittest/inline/tst.InlineDataAssign.d: Likewise.
+	* test/unittest/inline/tst.InlineExpression.d: Likewise.
+	* test/unittest/inline/tst.InlineTypedef.d: Likewise.
+	* test/unittest/pointers/tst.GlobalVar.d: Likewise.
+	* test/unittest/pointers/tst.basic1.d: Likewise.
+	* test/unittest/pointers/tst.basic2.d: Likewise.
+	* test/unittest/trace/err.D_TRACE_VOID.bad.d: Likewise.
+	* test/unittest/types/tst.ptrincop.d: Likewise.
+	* test/unittest/types/tst.ptrops.d: Likewise.
+	* test/unittest/union/tst.UnionDataTypes.d: Likewise.
+
+	* test/unittest/trace/tst.misc.d: `kmem_flags -> `max_pfn;
+	`rootvp -> `sdt_prefix.  No longer XFAIL.
+	* test/unittest/printf/tst.basics.d: `kmem_alloc -> `max_pfn. No
+	longer XFAILed.
+	* test/unittest/printf/tst.str.d: `rootfs.bo_fstype ->
+	vmlinux`saved_command_line.  No longer XFAILed.
+	* test/unittest/printf/tst.sym.d: `kmem_flags -> `max_pfn; change
+	reason for XFAILing.
+	* test/unittest/safety/test.options: Change reason for XFAILing.
+	* test/unittest/types/tst.struct.d: Likewise.
+	* test/unittest/types/tst.typedef.d: Likewise.
+
+	* test/unittest/safety/tst.rw.d: `clock -> `max_pfn.  Fix casts.
+
+	* test/unittest/assocs/err.D_OP_INCOMPAT.dupgtype.r: Adjusted.
+	* test/unittest/assocs/err.D_OP_INCOMPAT.dupttype.r: Likewise.
+	* test/unittest/printf/tst.basics.r: Likewise.
+	* test/unittest/printf/tst.str.r: Deleted, we cannot predict the
+	contents of the kernel command line.
+	* test/unittest/printf/tst.sym.r: Adjusted.
+
+	* test/unittest/enum/err.D_UNKNOWN.RepeatIdentifiers.r: Adjust
+	for change in libdtrace-ctf error message text.
+	* test/unittest/types/err.D_UNKNOWN.dupenum.r: Likewise.
+	* test/unittest/types/err.D_UNKNOWN.dupstruct.r: Likewise.
+	* test/unittest/trace/err.D_TRACE_VOID.bad.r: Adjust for tiny
+	(harmless) change in parsing precedence in the presence of
+	multiple interpretations of an error.
+
+	* test/unittest/safety/tst.vahole.d: Note that this test is
+	nonportable.
+	* test/unittest/scalars/tst.misc.d: Likewise.
+
+	* test/unittest/tracemem/err.D_TRACEMEM_ADDR.badaddr.d: Note
+	not yet fixed.
+
+	* test/unittest/tracemem/tst.rootvp.d: renamed to...
+	* test/unittest/tracemem/tst.init_task.d: ... this, and
+	`rootvp -> `init_task.  No longer XFAIL.
+
+	* test/unittest/types/err.D_CAST_INVAL.badcast.d: Cast to struct
+	task_struct rather than char, testing struct type lookup.
+	`kmem_flags -> `max_pfn.
+
+	Miscellaneous makefile work.
+
 	* GNUmakefile: Install libraries to lib64, not lib.
 	* dtrace-utils.spec: Likewise.
 

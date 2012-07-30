@@ -19,10 +19,8 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: no rootfs structure yet */
-
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -40,6 +38,6 @@
 
 BEGIN
 {
-	printf("rootfs = %s", `rootfs.bo_fstype);
+	printf("command line = %s", stringof(vmlinux`saved_command_line));
 	exit(0);
 }

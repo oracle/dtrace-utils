@@ -26,7 +26,7 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI" 
 
-/* @@xfail: kmem not implemented */
+/* @@xfail: needs porting */
 
 /*
  * ASSERTION:
@@ -41,7 +41,7 @@
 
 BEGIN
 {
-	printf("\nkmem_flags = 0x%x\n", `kmem_flags);
+	printf("\nmax_pfn = 0x%x\n", `max_pfn);
 	printf("ufs`ufs_allow_shared_writes = %d\n",
 	    ufs`ufs_allow_shared_writes);
 	x = 123;

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -44,7 +44,7 @@ BEGIN
 	ptr = alloca(0);
 
 	/* Attempt to bcopy to scratch memory that isn't allocated */
-	bcopy((void *)&`kmem_flags, ptr, sizeof (int));
+	bcopy((void *)&`max_pfn, ptr, sizeof (unsigned long));
 	exit(0);
 }
 

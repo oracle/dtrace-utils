@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -38,22 +38,22 @@ fbt:::
 fbt:::
 /on/
 {
-	@[rw_read_held((krwlock_t *)&`clock)] = count();
-	@[rw_read_held((krwlock_t *)rand())] = count();
+	@[rw_read_held((rwlock_t *)&`max_pfn)] = count();
+	@[rw_read_held((rwlock_t *)rand())] = count();
 }
 
 fbt:::
 /on/
 {
-	@[rw_write_held((krwlock_t *)&`clock)] = count();
-	@[rw_write_held((krwlock_t *)rand())] = count();
+	@[rw_write_held((rwlock_t *)&`max_pfn)] = count();
+	@[rw_write_held((rwlock_t *)rand())] = count();
 }
 
 fbt:::
 /on/
 {
-	@[rw_iswriter((krwlock_t *)&`clock)] = count();
-	@[rw_iswriter((krwlock_t *)rand())] = count();
+	@[rw_iswriter((rwlock_t *)&`max_pfn)] = count();
+	@[rw_iswriter((rwlock_t *)rand())] = count();
 }
 
 tick-1sec

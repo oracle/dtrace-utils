@@ -20,13 +20,11 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
-/* @@xfail: kmem not yet implemented */
 
 /*
  * ASSERTION:
@@ -42,10 +40,10 @@
 
 BEGIN
 {
-	ptr = alloca(sizeof (int));
-	bcopy((void *)&`kmem_flags, ptr, sizeof (int));
-	intp = (int *)ptr;
-	ret = (`kmem_flags == *intp) ? 0 : 1;
+	ptr = alloca(sizeof (unsigned long));
+	bcopy((void *)&`max_pfn, ptr, sizeof (unsigned long));
+	ulongp = (unsigned long *)ptr;
+	ret = (`max_pfn == *ulongp) ? 0 : 1;
 }
 
 tick-1
@@ -58,6 +56,6 @@ tick-1
 /ret == 1/
 {
 	printf("memory address contained 0x%x, expected 0x%x\n",
-		*intp, `kmem_flags);
+		*ulongp, `max_pfn);
 	exit(1);
 }

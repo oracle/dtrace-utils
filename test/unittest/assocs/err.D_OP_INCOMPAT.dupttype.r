@@ -1,2 +1,2 @@
 -- @@stderr --
-dtrace: failed to compile script test/unittest/assocs/err.D_OP_INCOMPAT.dupttype.d: [D_IDENT_UNDEF] line 40: failed to resolve `kmem_flags: Unknown symbol name
+dtrace: failed to compile script test/unittest/assocs/err.D_OP_INCOMPAT.dupttype.d: [D_OP_INCOMPAT] line 41: operands have incompatible types: "struct pid" = "long unsigned int"

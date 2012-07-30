@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -37,6 +37,6 @@
 
 BEGIN
 {
-	x[123] = `kmem_flags;
-	x[456] = *`rootvp;
+	x[123] = *`cad_pid;
+	x[456] = `max_pfn;
 }

@@ -1,1 +1,1 @@
-symbol = genunix`kmem_flags
+symbol = vmlinux`max_pfn

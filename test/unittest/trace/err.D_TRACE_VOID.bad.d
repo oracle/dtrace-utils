@@ -19,10 +19,8 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: needs CTF types */
-
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -37,5 +35,5 @@
 
 BEGIN
 {
-	trace((void)`kmem_flags);
+	trace((void)`max_pfn);
 }

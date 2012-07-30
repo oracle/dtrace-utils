@@ -678,8 +678,8 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		    &dmp->dm_symtab, &dmp->dm_strtab, &dtp->dt_ctferr);
 
 	if (dmp->dm_ctfp == NULL) {
-		dt_dprintf("ctfp for module %s; error: %s\n", dmp->dm_name,
-		    ctf_errmsg(dtp->dt_ctferr));
+		dt_dprintf("ctf loading for module %s failed: error: %s\n",
+		    dmp->dm_name, ctf_errmsg(dtp->dt_ctferr));
 		dt_set_errno(dtp, EDT_CTF);
 		return (NULL);
 	}
@@ -1130,19 +1130,27 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	 * or data lookups might pass through it while a probe fires, and that
 	 * won't happen to any of these symbols.
 	 */
+#define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
 	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
 	    (strcmp(sym_name, "__per_cpu_end") == 0) ||
-	    (strstr(sym_name, "__func__") != NULL) ||
-	    (strstr(sym_name, "__ksymtab_") != NULL) ||
-	    (strstr(sym_name, "__kcrctab_") != NULL) ||
-	    (strstr(sym_name, "__kstrtab_") != NULL) ||
-	    (strstr(sym_name, "__param_") != NULL) ||
-	    (strstr(sym_name, "__syscall_meta_") != NULL) ||
-	    (strstr(sym_name, "event_enter__") != NULL) ||
-	    (strstr(sym_name, "event_exit__") != NULL) ||
-	    (strstr(sym_name, "types__") != NULL) ||
-	    (strstr(sym_name, "args__") != NULL) ||
-	    (strstr(sym_name, "__tracepoint_") != NULL) ||
+	    (strstarts(sym_name, "__crc_")) ||
+	    (strstarts(sym_name, "__ksymtab_")) ||
+	    (strstarts(sym_name, "__kcrctab_")) ||
+	    (strstarts(sym_name, "__kstrtab_")) ||
+	    (strstarts(sym_name, "__param_")) ||
+	    (strstarts(sym_name, "__syscall_meta__")) ||
+	    (strstarts(sym_name, "__p_syscall_meta__")) ||
+	    (strstarts(sym_name, "__event_")) ||
+	    (strstarts(sym_name, "event_")) ||
+	    (strstarts(sym_name, "ftrace_event_")) ||
+	    (strstarts(sym_name, "types__")) ||
+	    (strstarts(sym_name, "args__")) ||
+	    (strstarts(sym_name, "__tracepoint_")) ||
+	    (strstarts(sym_name, "__tpstrtab_")) ||
+	    (strstarts(sym_name, "__tpstrtab__")) ||
+	    (strstarts(sym_name, "__initcall_")) ||
+	    (strstarts(sym_name, "__setup_")) ||
+	    (strstarts(sym_name, "__pci_fixup_")) ||
 	    (strstr(sym_name, ".") != NULL)) {
 		dmp = *last_dmp;
 		skip = 1;
@@ -1161,6 +1169,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 				return err;
 		}
 	}
+#undef strstarts
 
 	/*
 	 * Add this symbol to the module's kernel symbol table.
@@ -1421,9 +1430,11 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 			if (!dt_symp)
 				continue;
 
-			sip->dts_object = dmp->dm_name;
-			sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
-			sip->dts_id = 0;	/* undefined */
+			if (sip != NULL) {
+				sip->dts_object = dmp->dm_name;
+				sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+				sip->dts_id = 0;	/* undefined */
+			}
 			dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
 			return (0);
@@ -1634,6 +1645,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
     const dtrace_syminfo_t *sip, dtrace_typeinfo_t *tip)
 {
 	dt_module_t *dmp;
+	int undefined = 0;
 
 	tip->dtt_object = NULL;
 	tip->dtt_ctfp = NULL;
@@ -1642,15 +1654,26 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 	if ((dmp = dt_module_lookup_by_name(dtp, sip->dts_object)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMOD));
 
-	if (symp->st_shndx == SHN_UNDEF && dmp->dm_extern != NULL) {
-		dt_ident_t *idp =
-		    dt_idhash_lookup(dmp->dm_extern, sip->dts_name);
+	if (dmp->dm_flags & DT_DM_KERNEL)
+	{
+		if (dt_module_getctf(dtp, dmp) == NULL)
+			return (-1); /* errno is set for us */
 
-		if (idp == NULL)
-			return (dt_set_errno(dtp, EDT_NOSYM));
+		tip->dtt_ctfp = dmp->dm_ctfp;
+		tip->dtt_type = ctf_lookup_variable(dmp->dm_ctfp,
+		    sip->dts_name);
 
-		tip->dtt_ctfp = idp->di_ctfp;
-		tip->dtt_type = idp->di_type;
+		if (tip->dtt_type == CTF_ERR) {
+			dtp->dt_ctferr = ctf_errno(tip->dtt_ctfp);
+
+			if (ctf_errno(tip->dtt_ctfp) == ECTF_NOTYPEDAT)
+				undefined = 1;
+			else
+				return (dt_set_errno(dtp, EDT_CTF));
+		}
+
+	} else if (symp->st_shndx == SHN_UNDEF) {
+		undefined = 1;
 
 	} else if (GELF_ST_TYPE(symp->st_info) != STT_FUNC) {
 		if (dt_module_getctf(dtp, dmp) == NULL)
@@ -1667,6 +1690,17 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 	} else {
 		tip->dtt_ctfp = DT_FPTR_CTFP(dtp);
 		tip->dtt_type = DT_FPTR_TYPE(dtp);
+	}
+
+	if (undefined && dmp->dm_extern != NULL) {
+		dt_ident_t *idp =
+		    dt_idhash_lookup(dmp->dm_extern, sip->dts_name);
+
+		if (idp == NULL)
+			return (dt_set_errno(dtp, EDT_NOSYM));
+
+		tip->dtt_ctfp = idp->di_ctfp;
+		tip->dtt_type = idp->di_type;
 	}
 
 	tip->dtt_object = dmp->dm_name;

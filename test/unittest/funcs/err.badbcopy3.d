@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -40,7 +40,7 @@
 BEGIN
 {
 	/* Attempt to copy to a NULL address */
-	bcopy((void *)&`kmem_flags, (void *)NULL, sizeof (int));
+	bcopy((void *)&`max_pfn, (void *)NULL, sizeof (unsigned long));
 	exit(0);
 }
 

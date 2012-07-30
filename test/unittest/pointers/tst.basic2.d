@@ -20,13 +20,11 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-/* @@xfail: kmem not yet implemented */
 
 /*
  * ASSERTION: Pointers can be stored in associative arrays.
@@ -41,9 +39,9 @@
 
 BEGIN
 {
-	assoc_array["kmemAddress"] = &`kmem_flags;
-	kmemValue = *(assoc_array["kmemAddress"]);
-	printf("Address of kmem_flags: %x\n", (int) assoc_array["kmemAddress"]);
-	printf("Value of kmem_flags: %d\n", kmemValue);
+	assoc_array["pfnAddress"] = &`max_pfn;
+	pfnValue = *(assoc_array["pfnAddress"]);
+	printf("Address of max_pfn: %x\n", (int) assoc_array["pfnAddress"]);
+	printf("Value of max_pfm: %d\n", pfnValue);
 	exit(0);
 }

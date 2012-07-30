@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -34,7 +34,7 @@
  *
  * NOTES: The floats, doubles and strings have not been implemented yet.
  * When they do, appropriate lines in the code below should be uncommented.
- * Similarly, the lines with the kmem_flags pointer assignment should be
+ * Similarly, the lines with the max_pfn pointer assignment should be
  * uncommented when the issues pertaining to it are clarified.
  *
  */
@@ -84,12 +84,13 @@ enum {
 } new_enum;
 
 
-	int *pointer;
+	unsigned long *pointer;
 } var;
 
-/*
-	var.pointer = &`kmem_flags;
-*/
+/* @@note: is this even supported? */
+
+/* var.pointer = &`max_pfn; */
+
 BEGIN
 {
 	var.new_char = 'c';
@@ -115,9 +116,7 @@ BEGIN
 	var.new_string = "hello";
 	*/
 
-	/*
-	var.pointer = &`kmem_flags;
-	*/
+	var.pointer = &`max_pfn;
 
 	var.new_struct.ch = 'c';
 	var.new_struct.in = 4;

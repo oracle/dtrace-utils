@@ -20,13 +20,11 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
-/* @@xfail: needs CTF types */
 
 /*
  * ASSERTION:
@@ -41,19 +39,19 @@
 
 BEGIN
 {
-	ptr_orig = &`kmem_flags;
-	ptr_pos = &`kmem_flags+1;
-	ptr_neg = &`kmem_flags-1;
+	ptr_orig = &`max_pfn;
+	ptr_pos = &`max_pfn+1;
+	ptr_neg = &`max_pfn-1;
 
 	ptr_pos_before = ++ptr_orig;
-	ptr_orig = &`kmem_flags;
+	ptr_orig = &`max_pfn;
 	ptr_neg_before = --ptr_orig;
 
-	ptr_orig = &`kmem_flags;
+	ptr_orig = &`max_pfn;
 	ptr_pos_after = ptr_orig++;
-	ptr_orig = &`kmem_flags;
+	ptr_orig = &`max_pfn;
 	ptr_neg_after = ptr_orig--;
-	ptr_orig = &`kmem_flags;
+	ptr_orig = &`max_pfn;
 
 }
 
