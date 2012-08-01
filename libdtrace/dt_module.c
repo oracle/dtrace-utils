@@ -57,6 +57,9 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp);
 static void
 dt_module_shuffle_to_start(dtrace_hdl_t *dtp, const char *name);
 
+static void
+dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp);
+
 /*
  * Kernel module list management.  We must maintain bindings from
  * name->filesystem path for all the current kernel's modules, since the system
@@ -112,20 +115,6 @@ dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
 	free(dkpp->dkp_name);
 	free(dkpp->dkp_path);
 	free(dkpp);
-}
-
-dt_kern_path_t *
-dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
-{
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
-	dt_kern_path_t *dkpp;
-
-	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
-		if (strcmp(dkpp->dkp_name, name) == 0)
-			return (dkpp);
-	}
-
-	return (NULL);
 }
 
 /*
@@ -195,6 +184,30 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 	}
 
 	return 0;
+}
+
+dt_kern_path_t *
+dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
+{
+	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
+	dt_kern_path_t *dkpp;
+
+	if (dtp->dt_nkernpaths == 0) {
+		int dterrno = dt_kern_path_update(dtp);
+
+		dt_dprintf("Initialized %i kernel module paths, errno %i\n",
+		    dtp->dt_nkernpaths, dterrno);
+
+		if (dterrno != 0)
+			return (NULL);
+	}
+
+	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
+		if (strcmp(dkpp->dkp_name, name) == 0)
+			return (dkpp);
+	}
+
+	return (NULL);
 }
 
 /*
@@ -499,6 +512,12 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
 	if (dmp->dm_flags & DT_DM_LOADED)
 		return (0); /* module is already loaded */
+
+	/*
+	 * First find out where the module is.  If this fails, we don't care:
+	 * the problem will be detected in dt_module_init_elf().
+	 */
+	dt_kern_module_find(dtp, dmp);
 
 	/*
 	 * There are two possibilities here: a non-kernel module must pull in
@@ -1031,6 +1050,24 @@ sym_type_to_info(char info)
 static int
 dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
+	dt_dprintf("initializing module %s\n", dmp->dm_name);
+
+	dmp->dm_ops = NULL;
+	dmp->dm_text_addrs = NULL;
+	dmp->dm_data_addrs = NULL;
+ 	dmp->dm_text_addrs_size = 0;
+	dmp->dm_data_addrs_size = 0;
+	dmp->dm_flags |= DT_DM_KERNEL;
+
+	return 0;
+}
+
+/*
+ * Determine the path to a module.
+ */
+static void
+dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
+{
 	dt_kern_path_t *dkpp;
 
 	/*
@@ -1044,18 +1081,18 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 * All such modules share their dm_elf with dtp->dt_ctf_elf, and have
 	 * the DT_DM_BUILTIN flag turned on.
 	 */
-	dt_dprintf("initializing module %s\n", dmp->dm_name);
 	dkpp = dt_kern_path_lookup_by_name(dtp, dmp->dm_name);
 	if (!dkpp) {
 		dkpp = dt_kern_path_lookup_by_name(dtp, "dtrace_ctf");
 
 		/*
 		 * With no dtrace_ctf.ko, we are in real trouble. Likely we have
-		 * no modules at all: CTF lookup cannot work.
+		 * no modules at all: CTF lookup cannot work.  At any rate, the
+		 * module path must remain unknown.
 		 */
 		if (!dkpp) {
-			dt_dprintf("no dtrace_ctf.ko\n");
-			return EDT_NOCTF;
+			dt_dprintf("No dtrace_ctf.ko\n");
+			return;
 		}
 
 		dmp->dm_flags |= DT_DM_BUILTIN;
@@ -1075,15 +1112,6 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_flags |= DT_DM_BUILTIN;
 	else
 		strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
-
-	dmp->dm_ops = NULL;
-	dmp->dm_text_addrs = NULL;
-	dmp->dm_data_addrs = NULL;
- 	dmp->dm_text_addrs_size = 0;
-	dmp->dm_data_addrs_size = 0;
-	dmp->dm_flags |= DT_DM_KERNEL;
-
-	return 0;
 }
 
 /*
@@ -1222,13 +1250,6 @@ dtrace_update(dtrace_hdl_t *dtp)
 	for (dmp = dt_list_next(&dtp->dt_modlist);
 	    dmp != NULL; dmp = dt_list_next(dmp))
 		dt_module_unload(dtp, dmp);
-
-	if (dtp->dt_nkernpaths == 0) {
-		int dterrno = dt_kern_path_update(dtp);
-
-		if (dterrno != 0)
-			return dterrno;
-	}
 
 	/*
 	 * Note all the symbols currently loaded into the kernel's address

@@ -1,5 +1,14 @@
 2012-08-01  Nick Alcock  <nick.alcock@oracle.com>
 
+	Lazy kernel module path initialization.
+
+	* libdtrace/dt_module.c (dtrace_update): Move kernpath update...
+	(dt_kern_path_lookup_by_name): ... to here.
+	(dt_kern_module_init): Split out dm_file initialization...
+	(dt_kern_module_find): ... to this new function.
+	(dt_module_load): Call it at module load time.
+	* INCOMPATIBILITIES: Note the effect of this on the library API.
+
 	* test/unittest/buffering/tst.cputime.sh: No longer expected to fail.
 	* test/unittest/sched/test.options: These tests are no longer XFAIL...
 	* test/unittest/sched/tst.enqueue.d: ... except this one.
