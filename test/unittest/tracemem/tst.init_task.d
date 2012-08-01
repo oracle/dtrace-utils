@@ -43,7 +43,7 @@ BEGIN
 tick-1
 /i != 5/
 {
-	tracemem((void *)`init_task, 20);
+	tracemem((void *)&`init_task, 20);
 	i++;
 }
 

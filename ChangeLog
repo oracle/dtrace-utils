@@ -12,6 +12,7 @@
 	* test/unittest/buffering/tst.cputime.sh: No longer expected to fail.
 	* test/unittest/sched/test.options: These tests are no longer XFAIL...
 	* test/unittest/sched/tst.enqueue.d: ... except this one.
+	* test/unittest/tracemem/tst.init_task.d: Avoid cast problem.
 	* libproc/Psymtab.c: Coding style fix.
 	* README: Mention CTF external variable support.
 
