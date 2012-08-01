@@ -26,8 +26,6 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: sched provider not yet implemented
-
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin -x bufpolicy=$1 $1 <<EOF

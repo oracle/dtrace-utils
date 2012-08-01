@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: sched:::enqueue not yet implemented */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option switchrate=100hz

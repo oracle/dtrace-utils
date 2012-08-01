@@ -1,3 +1,11 @@
+2012-08-01  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/unittest/buffering/tst.cputime.sh: No longer expected to fail.
+	* test/unittest/sched/test.options: These tests are no longer XFAIL...
+	* test/unittest/sched/tst.enqueue.d: ... except this one.
+	* libproc/Psymtab.c: Coding style fix.
+	* README: Mention CTF external variable support.
+
 2012-07-30  Nick Alcock  <nick.alcock@oracle.com>
 
 	Support CTF types for global kernel variables (the ` operator).

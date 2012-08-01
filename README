@@ -7,8 +7,8 @@ few changes in the kernel.
 
 The following components work, so far:
 
- - the entire D language, including lookup of kernel types, with a few
-   limited exceptions (see INCOMPATIBILITIES).
+ - the entire D language, including lookup of kernel types and external
+   variables, with a few limited exceptions (see INCOMPATIBILITIES).
 
  - the syscall provider (with the exception of the clone probe, which
    is disabled)

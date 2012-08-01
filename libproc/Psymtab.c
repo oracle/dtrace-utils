@@ -1730,8 +1730,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			plt = cp;
 		} else if ((strcmp(cp->c_name, ".dtrace_ctf") == 0) ||
 			   (strncmp(cp->c_name, ".dtrace_ctf.",
-			       strlen (".dtrace_ctf.")) == 0))
-		{
+			       strlen(".dtrace_ctf.")) == 0)) {
 			/*
 			 * Skip over bogus CTF sections so they don't come back
 			 * to haunt us later.
