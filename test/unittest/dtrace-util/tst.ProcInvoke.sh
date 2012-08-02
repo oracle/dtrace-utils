@@ -48,7 +48,7 @@ fi
 dtrace=$1
 
 $dtrace $dt_flags -q -c '/bin/true' -n '
-proc:::exec-success /pid == $target/ { printf("exec seen\n"); } 
+proc:::exec-success /pid == $target/ { printf("exec of %s seen\n", execname); } 
 proc:::exit /pid == $target/ { printf ("exit seen, exitcode %i\n", arg0); }'
 
 status=$?

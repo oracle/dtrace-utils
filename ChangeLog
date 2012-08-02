@@ -36,9 +36,10 @@
 	* test/unittest/dtrace-util/tst.ProcGrab.sh*: Test that dtrace -p
 	works, and does not miss the exit probe.
 	* test/unittest/dtrace-util/tst.ProcInvoke.sh*: Test that dtrace -c
-	works, and does not miss the exec-success nor exit probes.
+	works, does not miss the exec-success nor exit probes, and that
+	execname has the right value in exec-success.
 	* test/unittest/dtrace-util/err.NoProcNoGrab.sh: Test that
-	dtrace -p of a nonexistent process fails immediately
+	dtrace -p of a nonexistent process fails immediately.
 	* test/unittest/dtrace-util/err.NoProcNoInvoke.sh: Likewise, for
 	dtrace -c of a nonexistent binary.
 
