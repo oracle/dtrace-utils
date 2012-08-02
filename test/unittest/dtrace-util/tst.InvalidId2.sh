@@ -38,7 +38,7 @@
 #
 ##
 
-/* @@xfail: ranges are known broken. */
+# @@xfail: ranges are known broken
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'

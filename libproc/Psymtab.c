@@ -487,7 +487,7 @@ rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
 
 		addr = strtol(addr_str, NULL, 16);
 		lobj.rl_base = addr;
-		lobj.rl_nameaddr = lib;
+		lobj.rl_nameaddr = (psaddr_t) lib;
 		ret = cb(&lobj, P);
 	}
 	fclose(fp);
@@ -509,7 +509,7 @@ Pupdate_maps(struct ps_prochandle *P)
 	struct stat statb;
 	prmap_t *Pmap = NULL;
 	prmap_t *pmap;
-	ssize_t nmap;
+	ssize_t nmap = 0;
 	int i;
 	uint_t oldmapcount;
 	map_info_t *newmap, *newp;

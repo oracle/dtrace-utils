@@ -145,8 +145,6 @@ dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
 static void
 dt_proc_attach(dt_proc_t *dpr, int exec)
 {
-	GElf_Sym sym;
-
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
 	if (exec) {

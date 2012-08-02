@@ -42,6 +42,13 @@
 	* test/unittest/dtrace-util/err.NoProcNoInvoke.sh: Likewise, for
 	dtrace -c of a nonexistent binary.
 
+	* libdtrace/dt_proc.c (dt_proc_attach): Remove unused variable.
+	* libproc/Psymtab.c (rd_loadobj_iter): Fix compiler warning.
+	(Pupdate_maps): Avoid use of uniniitalized variable when called
+	for a process with an empty memory map (perhaps a dead one).
+	* test/unittest/dtrace-util/tst.InvalidId2.sh: Fix @@xfail
+	comment.
+
 2012-08-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	Lazy kernel module path initialization.
