@@ -42,7 +42,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <alloca.h>
-#include <libgen.h>
 #include <port.h>
 
 typedef struct dtrace_cmd {
@@ -745,50 +744,25 @@ compile_str(dtrace_cmd_t *dcp)
 	dcp->dc_name = dcp->dc_arg;
 }
 
-/*ARGSUSED*/
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 {
-/* FIXME */
-#if 0
-	const psinfo_t *prp = Ppsinfo(P);
-	int pid = Pstatus(P)->pr_pid;
-	char name[SIG2STR_MAX];
+	/*
+	 * These days, this is only called on process death.  We can easily
+	 * prove this by checking P's nullity state.
+	 */
 
-	if (msg != NULL) {
-		notice("pid %d: %s\n", pid, msg);
+	if (P == NULL) {
+		g_pslive--;
 		return;
 	}
 
-	switch (Pstate(P)) {
-	case PS_UNDEAD:
-		/*
-		 * Ideally we would like to always report pr_wstat here, but it
-		 * isn't possible given current /proc semantics.  If we grabbed
-		 * the process, Ppsinfo() will either fail or return a zeroed
-		 * psinfo_t depending on how far the parent is in reaping it.
-		 * When /proc provides a stable pr_wstat in the status file,
-		 * this code can be improved by examining this new pr_wstat.
-		 */
-		if (prp != NULL && WIFSIGNALED(prp->pr_wstat)) {
-			notice("pid %d terminated by %s\n", pid,
-			    proc_signame(WTERMSIG(prp->pr_wstat),
-			    name, sizeof (name)));
-		} else if (prp != NULL && WEXITSTATUS(prp->pr_wstat) != 0) {
-			notice("pid %d exited with status %d\n",
-			    pid, WEXITSTATUS(prp->pr_wstat));
-		} else {
-			notice("pid %d has exited\n", pid);
-		}
-		g_pslive--;
-		break;
-
-	case PS_LOST:
-		notice("pid %d exec'd a set-id or unobservable program\n", pid);
-		g_pslive--;
-		break;
-	}
-#endif
+	/*
+	 * We don't know what's happened here, but at least we can print a
+	 * message out, if there is one.
+	 */
+	if (msg != NULL)
+		notice("%s\n", msg);
 }
 
 /*ARGSUSED*/

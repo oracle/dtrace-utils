@@ -20,8 +20,7 @@ feature transitioned to working state.
 [?] -A: Anonymous tracing, see above
     -b: works (2012-08-01)
     -B: works (2012-07-23)
-    -c: broken, fails to resume the process after startup (2012-01-11
-        but known to be many months older)
+    -c: works (2012-08-02)
 [?] -C: works as well as on Solaris (on .d files only, not on D scripts
         entered at the command line)
     -D: works (2011-06-30)
@@ -37,7 +36,7 @@ feature transitioned to working state.
     -m: works (2012-08-01)
     -n: works (2012-08-01)
     -o: works (2011-06-27)
-    -p: works (2012-08-01)
+    -p: works (2012-08-02)
     -P: works (2012-08-01)
     -q: works (2011-06-27)
     -s: works (2011-06-27)

@@ -54,8 +54,9 @@
  * created but not retired, and the current limit on the number of actively
  * cached entries.
  *
- * The control thread for a process currently does nothing but notify interested
- * parties when the process dies.
+ * The control thread for a process currently invokes the process, resumes it
+ * when dt_proc_continue() is called, then notifies interested parties when the
+ * process dies.
  *
  * A simple notification mechanism is provided for libdtrace clients using
  * dtrace_handle_proc() for notification of process death.  When this event
@@ -76,6 +77,8 @@
 #include <dt_proc.h>
 #include <dt_pid.h>
 #include <dt_impl.h>
+
+static void dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid);
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
@@ -171,18 +174,41 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 #endif
 }
 
+/*PRINTFLIKE3*/
+_dt_printflike_(3,4)
+static struct ps_prochandle *
+dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, format, ap);
+	va_end(ap);
+
+	(void) dt_set_errno(dtp, EDT_COMPILER);
+	return (NULL);
+}
+
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* process to control */
+	/*
+	 * The next two are only valid while the master thread is calling
+	 * dt_proc_create(), and only useful when dpr_created is true.
+	 */
+	const char *dpcd_start_proc;
+	char * const *dpcd_start_proc_argv;
 } dt_proc_control_data_t;
 
 static void dt_proc_control_cleanup(void *arg);
 
 /*
  * Main loop for all victim process control threads.  We initialize all the
- * appropriate /proc control mechanisms, and then enter a loop waiting for
- * the process to stop on an event or die.  We process any events by calling
- * appropriate subroutines, and exit when the victim dies or we lose control.
+ * appropriate /proc control mechanisms, start the process and halt it, notify
+ * the caller of this, then wait for the caller to indicate its readiness and
+ * resume the process: only then do we enter a loop waiting for the process to
+ * stop on an event or die.  We process any events by calling appropriate
+ * subroutines, and exit when the victim dies or we lose control.
  *
  * The control thread synchronizes the use of dpr_proc with other libdtrace
  * threads using dpr_lock.  We hold the lock for all of our operations except
@@ -196,8 +222,9 @@ dt_proc_control(void *arg)
 	dtrace_hdl_t *dtp = datap->dpcd_hdl;
 	dt_proc_t *dpr = datap->dpcd_proc;
 	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
-	struct ps_prochandle *P = dpr->dpr_proc;
-	int pid = dpr->dpr_pid;
+	int err;
+	pid_t pid;
+	struct ps_prochandle *P;
 
 	/*
 	 * Note: this function must not exit before dt_proc_stop() is called, or
@@ -210,11 +237,37 @@ dt_proc_control(void *arg)
 	pthread_cleanup_push(dt_proc_control_cleanup, dpr);
 
 	/*
-	 * Lock our mutex, preventing races between cv broadcast to our
+	 * Lock our mutex, preventing races between cv broadcasts to our
 	 * controlling thread and dt_proc_continue() or process destruction.
 	 */
 	pthread_mutex_lock(&dpr->dpr_lock);
 	dpr->dpr_tid_locked = B_TRUE;
+
+	/*
+	 * Either create the process, or grab it.  Whichever, on failure, quit
+	 * and let our cleanup run (signalling failure to
+	 * dt_proc_create_thread() in the process).
+	 */
+
+	if (dpr->dpr_created) {
+		if ((dpr->dpr_proc = Pcreate(datap->dpcd_start_proc,
+			    datap->dpcd_start_proc_argv, &err, NULL, 0)) == NULL) {
+			dt_proc_error(dtp, dpr, "failed to execute %s: %s\n",
+			    datap->dpcd_start_proc, Pcreate_error(err));
+			pthread_exit(NULL);
+		}
+		dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
+	} else {
+		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, &err)) == NULL) {
+			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
+			    (long) dpr->dpr_pid, Pgrab_error(err));
+			dt_dprintf("grab failure\n");
+			pthread_exit(NULL);
+		}
+	}
+
+	pid = dpr->dpr_pid;
+	P = dpr->dpr_proc;
 
 	/* FIXME: turn on synchronous mode here, when implemented: remember to
 	 * adjust breakpoint EIP. */
@@ -224,16 +277,17 @@ dt_proc_control(void *arg)
 #endif
 
 	/*
-	 * Wait for a rendezvous from dt_proc_continue().
+	 * Wait for a rendezvous from dt_proc_continue().  After this point,
+	 * datap and all that it points to is no longer valid.
 	 */
 	if (dpr->dpr_created)
 		dt_proc_stop(dpr, DT_PROC_STOP_CREATE);
 	else
 		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
 
-	if (Psetrun(P) == -1) {
+	if (Psetrun(P, dpr->dpr_created) == -1) {
 		dt_dprintf("pid %d: failed to set running: %s\n",
-		    (int)dpr->dpr_pid, strerror(errno));
+		    pid, strerror(errno));
 	}
 
 	dpr->dpr_tid_locked = B_FALSE;
@@ -283,14 +337,21 @@ dt_proc_control(void *arg)
 			dt_dprintf("pid %d: proc died\n", pid);
 			break;
 		}
+
+		if (Pstate(P) == PS_DEAD)
+			break;
 	}
 
 	/*
-	 * We only get here if the caller has died.  Enqueue the dt_proc_t
-	 * structure on the dt_proc_hash_t notification list, then clean up.
+	 * We only get here if the monitored process has died.  Enqueue the
+	 * dt_proc_t structure on the dt_proc_hash_t notification list, then
+	 * clean up.
 	 */
+	dpr->dpr_proc = NULL;
 	dt_proc_notify(dtp, dph, dpr, NULL);
 	pthread_cleanup_pop(1);
+	dt_proc_remove(dtp, pid);
+	dt_free(dtp, dpr);
 	return (NULL);
 }
 
@@ -301,6 +362,8 @@ static void
 dt_proc_control_cleanup(void *arg)
 {
 	dt_proc_t *dpr = arg;
+	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
+
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
 	 * has exited, and notify any waiting thread in dt_proc_destroy() that
@@ -314,31 +377,21 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_tid_locked = B_TRUE;
 	}
 
+	if (dpr->dpr_proc)
+		Prelease(dpr->dpr_proc, dpr->dpr_created);
+
+	/*
+	 * Now erase ourselves from the lrulist.  FIXME we probably need some
+	 * locking of the lrulist here.
+	 */
+	dt_list_delete(&dph->dph_lrulist, dpr);
+
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
 	pthread_cond_broadcast(&dpr->dpr_cv);
 
 	dpr->dpr_tid_locked = B_FALSE;
 	pthread_mutex_unlock(&dpr->dpr_lock);
-}
-
-/*PRINTFLIKE3*/
-_dt_printflike_(3,4)
-static struct ps_prochandle *
-dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
-{
-	va_list ap;
-
-	va_start(ap, format);
-	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, format, ap);
-	va_end(ap);
-
-	if (dpr->dpr_proc != NULL)
-		Prelease(dpr->dpr_proc, 0);
-
-	dt_free(dtp, dpr);
-	(void) dt_set_errno(dtp, EDT_COMPILER);
-	return (NULL);
 }
 
 dt_proc_t *
@@ -364,6 +417,23 @@ dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 	return (dpr);
 }
 
+static void
+dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid)
+{
+	dt_proc_hash_t *dph = dtp->dt_procs;
+	dt_proc_t *dpr, **dpp = &dph->dph_hash[pid & (dph->dph_hashlen - 1)];
+
+	for (dpr = *dpp; dpr != NULL; dpr = dpr->dpr_hash) {
+		if (dpr->dpr_pid == pid)
+			break;
+		else
+			dpp = &dpr->dpr_hash;
+	}
+	if (dpr == NULL)
+		return;
+
+	*dpp = dpr->dpr_hash;
+}
 
 /*
  * Retirement of a process happens after a long period of nonuse, and serves to
@@ -392,7 +462,6 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_notify_t *npr, **npp;
-	boolean_t kill_it;
 
 	/*
 	 * Before we free the process structure, remove this dt_proc_t from the
@@ -404,7 +473,6 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	dt_dprintf("%s pid %d\n", dpr->dpr_created ? "killing" : "releasing",
 		dpr->dpr_pid);
-	kill_it = dpr->dpr_created;
 
 	pthread_mutex_lock(&dph->dph_lock);
 	dt_proc_lookup(dtp, P, B_TRUE);
@@ -434,7 +502,8 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 		/*
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
-		 * the thread has exited.
+		 * the thread has exited.  (This will also terminate the
+		 * process.)
 		 */
 		pthread_mutex_lock(&dpr->dpr_lock);
 		pthread_cancel(dpr->dpr_tid);
@@ -456,12 +525,12 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	}
 
 	dt_list_delete(&dph->dph_lrulist, dpr);
-	Prelease(dpr->dpr_proc, kill_it);
 	dt_free(dtp, dpr);
 }
 
 static int
-dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
+dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
+    const char *file, char *const *argv)
 {
 	dt_proc_control_data_t data;
 	sigset_t nset, oset;
@@ -479,6 +548,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
+	data.dpcd_start_proc = file;
+	data.dpcd_start_proc_argv = argv;
 
 	(void) pthread_sigmask(SIG_SETMASK, &nset, &oset);
 	err = pthread_create(&dpr->dpr_tid, &a, dt_proc_control, &data);
@@ -486,11 +557,11 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	/*
 	 * If the control thread was created, then wait on dpr_cv for either
-	 * dpr_done to be set (the victim died or the control thread failed)
-	 * or DT_PROC_STOP_IDLE to be set, indicating that the victim is now
-	 * stopped by /proc and the control thread is at the rendezvous event.
-	 * On success, we return with the process and control thread stopped:
-	 * the caller can then apply dt_proc_continue() to resume both.
+	 * dpr_done to be set (the victim died or the control thread failed) or
+	 * DT_PROC_STOP_IDLE to be set, indicating that the victim is now
+	 * stopped and the control thread is at the rendezvous event.  On
+	 * success, we return with the process and control thread stopped: the
+	 * caller can then apply dt_proc_continue() to resume both.
 	 */
 	if (err == 0) {
 		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
@@ -513,6 +584,9 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
 	(void) pthread_attr_destroy(&a);
 
+	if (err != 0)
+		dt_free(dtp, dpr);
+
 	return (err);
 }
 
@@ -521,7 +595,6 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr;
-	int err;
 
 	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
 		return (NULL); /* errno is set for us */
@@ -529,16 +602,11 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
 
-	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0)) == NULL) {
-		return (dt_proc_error(dtp, dpr,
-		    "failed to execute %s: %s\n", file, Pcreate_error(err)));
-	}
-
 	dpr->dpr_hdl = dtp;
-	dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
 	dpr->dpr_created = B_TRUE;
 
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_CREATE) != 0) 
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_CREATE,
+		file, argv) != 0)
 		return (NULL); /* dt_proc_error() has been called for us */
 
 	dph->dph_lrucnt++;
@@ -558,7 +626,6 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	uint_t h = pid & (dph->dph_hashlen - 1);
 	dt_proc_t *dpr, *opr;
-	int err;
 
 	/*
 	 * Search the hash table for the pid.  If it is already grabbed or
@@ -597,11 +664,6 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
 
-	if ((dpr->dpr_proc = Pgrab(pid, &err)) == NULL) {
-		return (dt_proc_error(dtp, dpr,
-		    "failed to grab pid %d: %s\n", (int)pid, Pgrab_error(err)));
-	}
-
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_pid = pid;
 	dpr->dpr_created = B_FALSE;
@@ -610,7 +672,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	 * Create a control thread for this process and store its ID in
 	 * dpr->dpr_tid.
 	 */
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB) != 0)
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, NULL, NULL) != 0)
 		return (NULL); /* dt_proc_error() has been called for us */
 
 	/*

@@ -67,7 +67,7 @@ _dt_constructor_(_libproc_init)
 void
 _libproc_init(void)
 {
-	_libproc_debug = getenv("LIBPROC_DEBUG") != NULL;
+	_libproc_debug = getenv("DTRACE_DEBUG") != NULL;
 	_libproc_no_qsort = getenv("LIBPROC_NO_QSORT") != NULL;
 	_libproc_incore_elf = getenv("LIBPROC_INCORE_ELF") != NULL;
 }
@@ -112,18 +112,19 @@ Pcreate(
 
 	if (pid == 0) {			/* child process */
 		id_t id;
-		extern char **environ;
 
-		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+		ptrace(PTRACE_TRACEME, 0, 0, 0);
 
 		/*
-		 * If running setuid or setgid, reset credentials to normal.
+		 * If running setuid or setgid, reset credentials to normal,
+		 * then wait for our parent to set up exec options.
 		 */
 		if ((id = getgid()) != getegid())
 			(void) setgid(id);
 		if ((id = getuid()) != geteuid())
 			(void) setuid(id);
 
+		raise(SIGSTOP);
 		(void) execvp(file, argv);  /* execute the program */
 		_exit(127);
 	}
@@ -132,7 +133,7 @@ Pcreate(
 	 * Initialize the process structure.
 	 */
 	(void) memset(P, 0, sizeof (*P));
-	P->state = PS_RUN;
+	P->state = PS_TRACESTOP;
 	P->pid = pid;
 	Pinitsym(P);
 	(void) Pmemfd(P);			/* populate ->memfd */
@@ -145,13 +146,28 @@ Pcreate(
 	    procfs_path, (int)pid);
 	fname = procname + strlen(procname);
 
-	waitpid (pid, &status, 0);
-	if (WIFEXITED(status)) {
+	waitpid(pid, &status, 0);
+	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
 		rc = C_NOENT;
-		_dprintf ("Pcreate: exec of %s failed: %s\n",
-		    procname, strerror(errno));
+		_dprintf ("Pcreate: post-fork sync with %s failed\n",
+		    procname);
 		goto bad;
 	}
+	ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC);
+	ptrace(PTRACE_CONT, pid, 0, 0);
+
+	waitpid(pid, &status, 0);
+	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
+	    status>>8 != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
+		rc = C_NOENT;
+		_dprintf ("Pcreate: exec of %s failed\n", procname);
+		goto bad;
+	}
+	ptrace(PTRACE_SETOPTIONS, pid, 0, 0);
+
+	/*
+	 * The process is now stopped, waiting in execve() until resumed.
+	 */
 
 	strcpy(fname, "exe");
 	if (readlink(procname, execpath, PATH_MAX) < 0) {
@@ -236,17 +252,21 @@ Pgrab(pid_t pid, int *perr)
 	P->pid = pid;
 	(void) Pmemfd(P);			/* populate ->memfd */
 
-	if (ptrace(PT_ATTACH, pid, NULL, 0) != 0) {
-		/* Not an error */
-	} else if (waitpid(pid, &status, 0) == -1) {
+	ptrace(PT_ATTACH, pid, 0, 0);		/* failure not an error */
+
+	if (waitpid(pid, &status, 0) == -1)
 		goto err;
-	} else if (WIFSTOPPED(status) == 0) {
+	else if (WIFSTOPPED(status) == 0)
 		goto err;
-	} else
+	else
 		P->state = PS_TRACESTOP;
+
 	return P;
 err:
-	*perr = errno;
+	if (errno != ECHILD)
+		*perr = errno;
+	else
+		*perr = ESRCH; /* for a clearer message */
 	Pfree (P);
 	return NULL;
 }
@@ -421,7 +441,7 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	    (void *)P, (int)P->pid);
 
 	if (kill_it)
-		ptrace(PTRACE_KILL, (int)P->pid, 0, 0);
+		kill(P->pid, SIGKILL);
 	else
 		ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
 
@@ -484,15 +504,15 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 }
 
 int
-Psetrun(struct ps_prochandle *P)
+Psetrun(struct ps_prochandle *P, boolean_t detach_it)
 {
 	P->info_valid = 0;	/* will need to update map and file info */
 
 	if (P->state == PS_TRACESTOP) {
-		if (ptrace(PTRACE_DETACH, P->pid, NULL, 0) != 0) {
-			_dprintf("Psetrun: %s\n", strerror(errno));
+		int ptrace_req = detach_it ? PTRACE_DETACH : PTRACE_CONT;
+
+		if (ptrace(ptrace_req, P->pid, 0, 0) < 0)
 			return (-1);
-		}
 		P->state = PS_RUN;
 	}
 

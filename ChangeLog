@@ -1,3 +1,47 @@
+2012-08-02  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_proc.c (dt_proc_control_data): New members
+	dpcd_start_proc and dpcd_start_proc_argv.
+	(dt_proc_create_thread): Accept them from callers, and assign.
+	Free the dpr on error.
+	(dt_proc_remove): New function.
+	(dt_proc_create): Relocate process creation...
+	(dt_proc_grab): ... and grabbing...
+	(dt_proc_control): ... to here.  Pass created flag in to Psetrun().
+	Drop all the way out of the loop when PS_DEAD.  Null out dpr_proc
+	then too, and clean up and free the dpr.
+	(dt_proc_error): Relocate: no longer Prelease(), or free the dpr.
+	(dt_proc_destroy): No longer Prelease() here either.
+	(dt_proc_control_cleanup): Prelease() here instead, and erase
+	ourselves from the dpr lrulist.
+	* libdtrace/dt_proc.h (dt_proc_t): Fix description of dpr_cv.
+	* cmd/dtrace.c (prochandler): Rewrite, reducing process live count
+	when no process is given.
+	* COMMANDLINE-OPTIONS: -c now works, as does -p.
+
+	* libproc/Pcontrol.c (_libproc_init): Put debugging under
+	DTRACE_DEBUG.
+	(Pcreate): Raise SIGSTOP before execution, flip on
+	PTRACE_O_TRACEEXEC and resume.  Processes start in tracestop
+	state.
+	(Pgrab): Failure to ptrace() is not an error, but successful
+	ptrace()s must be followed by a waitpid() to prevent pollution of
+	Pwait() calls with SIGTRAPs.  Relabel ECHILD errors to ESRCH.
+	(Prelease): Don't use deprecated PTRACE_KILL (which doesn't work
+	when detached anyway).
+	(Psetrun): Optionally (if grabbed) set running via PTRACE_CONT,
+	not PTRACE_DETACH.
+	* libproc/libproc.h (Psetrun): Adjust prototype.
+
+	* test/unittest/dtrace-util/tst.ProcGrab.sh*: Test that dtrace -p
+	works, and does not miss the exit probe.
+	* test/unittest/dtrace-util/tst.ProcInvoke.sh*: Test that dtrace -c
+	works, and does not miss the exec-success nor exit probes.
+	* test/unittest/dtrace-util/err.NoProcNoGrab.sh: Test that
+	dtrace -p of a nonexistent process fails immediately
+	* test/unittest/dtrace-util/err.NoProcNoInvoke.sh: Likewise, for
+	dtrace -c of a nonexistent binary.
+
 2012-08-01  Nick Alcock  <nick.alcock@oracle.com>
 
 	Lazy kernel module path initialization.

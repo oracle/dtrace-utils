@@ -48,7 +48,7 @@ typedef struct dt_proc {
 	pthread_mutex_t dpr_lock;	/* lock for manipulating dpr_hdl */
 	uint8_t dpr_tid_locked;		/* true if the control thread holds
 					 * dpr_locked */
-	pthread_cond_t dpr_cv;		/* cond for dpr_stop/quit/done */
+	pthread_cond_t dpr_cv;		/* cond for startup/stop/quit/done */
 	pid_t dpr_pid;			/* pid of process */
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */

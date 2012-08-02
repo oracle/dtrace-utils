@@ -172,7 +172,7 @@ extern	void	Pclose(struct ps_prochandle *);
 extern	int	Pmemfd(struct ps_prochandle *);
 extern	int	Pwait(struct ps_prochandle *, uint_t);
 extern	int	Pstate(struct ps_prochandle *);
-extern	int	Psetrun(struct ps_prochandle *);
+extern	int	Psetrun(struct ps_prochandle *, boolean_t);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	int	Phasfds(struct ps_prochandle *);
