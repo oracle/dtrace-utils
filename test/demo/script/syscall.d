@@ -20,11 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: -c /bin/date */
+/* @@runtest-opts: -c /bin/true */
 /* @@trigger: none */
 
 syscall:::entry

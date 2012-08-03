@@ -4,6 +4,9 @@
 	messages to standard error even when in quiet mode.  Tiny
 	grammar nit.
 
+	* test/demo/script/syscall.d: Run /bin/true, not /bin/date.
+	* test/demo/script/syscall.r: Adjust.
+
 2012-08-02  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_proc.c (dt_proc_control_data): New members
