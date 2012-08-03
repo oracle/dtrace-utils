@@ -165,7 +165,7 @@ run_with_timeout()
     ZAPTHESE="$old_ZAPTHESE"
 
     if [[ "$(ps -p $dtpid -o ppid=)" -eq $BASHPID ]]; then
-        out "ERROR: hanging dtrace detected. Testing terminated." >&2
+        force_out "ERROR: hanging dtrace detected. Testing terminated.\n"
         ps -p $dtpid -o args= | tee -a $LOGFILE >> $SUMFILE
         # Terminate the test run early: future runs cannot succeed,
         # and test coverage output is meaningless.
@@ -942,7 +942,7 @@ for dt in $dtrace; do
         # Compare results, if available, and log the diff.
 
         if [[ -e $base.r ]] && [[ -n $COMPARISON ]] &&
-           ! diff -u $base.r $tmpdir/test.out >/dev/null; then
+           ! diff -u <(sort $base.r) <(sort $tmpdir/test.out) >/dev/null; then
 
             fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
 
@@ -971,7 +971,7 @@ for dt in $dtrace; do
             else
 
                 # Success!
-                # If results don't already exist and we in capture mode, then
+                # If results don't already exist and we are in capture mode, then
                 # capture them even if forcible capturing is off.
 
                 if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $COMPARISON ]] &&
