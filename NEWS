@@ -1,0 +1,124 @@
+0.3
+---
+
+New features:
+
+ - CTF support.  This exposes all kernel types declared at the global scope to
+   DTrace scripts (even those private to single files).  All global kernel
+   variables not declared static are also available to the ` operator as
+   external variables.
+
+   The module for kernel-wide symbols is known as vmlinux, but genunix can
+   still be used as a name for it to aid script portability.
+
+   Kernel modules from a compatible kernel must be visible to DTrace for this
+   feature to work, as must the kernel-provided file /proc/kallmodsyms.  DTrace
+   will work with no kernel modules, with no visible /proc, or with a kernel
+   whose modules do not contain type information, but no kernel types or
+   variables will be available.  (See -xprocfspath and -xmodpath below.)
+
+New providers:
+
+ - sdt.ko now provides sched:::tick, sched:::on-cpu, and sched:::off-cpu.
+
+New dependencies:
+
+ - DTrace now depends on libdtrace-ctf, a modified, GPLed port of the Solaris
+   libctf type-storage library.  Despite its name it cannot read Solaris CTF
+   files: the file formats are incompatible.
+
+New options:
+
+ - -xprocfspath: if set, specifies the path to /proc.  May be useful in chroots,
+   though glibc and other things may break if /proc is moved to another
+   location.
+
+ - -xmodpath: if set, specifies the path to kernel modules, rather than looking
+   in /lib/modules/$(uname -r).
+
+Options removed:
+
+ - The undocumented -xlinkmode=primary option is removed: it never worked in
+   DTrace for Linux in any case.
+
+Bugfixes:
+
+ - The -c and -p command-line options work.
+
+ - Lexer bugs causing aggressive and unnecessary reading of modules are fixed.
+   As a result, when used with typo-free scripts, DTrace now starts much faster
+   than ever it did on Solaris (often taking half the time or less).  You may
+   find a few error messages have changed error text (though not error tag) as a
+   result of this bugfix and the following one.
+
+ - The SDT provider now describes its argument types to DTrace userspace.
+
+ - Supported SDT probes in non-text segments
+
+ - The types of many DTrace actions and variables are fixed to correspond to
+   the Linux reality.
+
+ - The set of available error numbers in errno.d is more complete.
+
+ - DTrace libraries are installed to /usr/lib64 now, not /usr/lib.
+
+Changes to user-visible internals:
+
+ - A new file /proc/kallmodsyms now exists, like /proc/kallsyms but giving
+   object sizes and listing the module each kernel object would be part of
+   were it built as a module, even if it is currently built in.
+
+ - A new module dtrace_ctf.ko is pulled in whenever dtrace.ko is loaded.
+   It is a container for type information.
+
+ - The undocumented -B buffer-inspection command-line option no longer crashes
+   DTrace.
+
+
+0.2.5
+-----
+
+New features:
+
+ - libdtrace is now a shared library, just as on OpenSolaris, with a very
+   similar API.  No API or ABI compatibility guarantees are made regarding
+   this library, at present.
+
+
+0.2
+---
+
+New features:
+
+ - The SDT provider is implemented, providing in-kernel static probes.  Some of
+   the proc provider is implemented using this facility.
+
+Bugfixes:
+
+ - Syscall tracing of stub-based syscalls (such as fork, clone, exit, and
+   sigreturn) now works.
+ - Invalid memory accesses inside D scripts no longer cause oopses or panics.
+ - Memory exhaustion inside D scripts no longer emits spurious oopses.
+ - Several crash fixes.
+ - Fixes to arithmetic inside aggregations, fixing quantize().
+ - Improvements to the installed headers.
+
+
+0.1
+---
+
+First release. Working components:
+
+ - the entire D language, with the exception of parts that depend on
+   symbol lookup or CTF
+
+ - the syscall provider (with the exception of the clone probe, which
+   is disabled)
+
+ - the profile provider (with the exception of arbitrary-precision
+   profile timers).
+
+ - kernel stack tracebacks, but ustack() prints addresses only, no symbols
+
+Major components not yet present include all the other providers, including sdt
+usdt.
