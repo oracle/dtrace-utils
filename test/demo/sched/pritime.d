@@ -25,6 +25,7 @@
  */
 
 /* @@runtest-opts: $_pid 1 */
+/* @@xfail: needs porting */
 
 #pragma D option quiet
 

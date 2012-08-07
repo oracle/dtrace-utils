@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: needs porting */
+
 sched:::change-pri
 {
 	@[stringof(args[0]->pr_clname)] =

@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: needs porting */
+
 #pragma D option quiet
 #pragma D option nspec=4
 #pragma D option specsize=100k

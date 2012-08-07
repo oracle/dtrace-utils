@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: needs porting */
+
 sched:::enqueue
 {
 	self->ts = timestamp;

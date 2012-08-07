@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: needs porting */
+
 sched:::enqueue
 {
 	this->len = qlen[args[2]->cpu_id]++;
