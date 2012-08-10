@@ -4,6 +4,8 @@
 	to specify modules that should only be unloaded, not
 	loaded.
 	* test/modules: Use it for dtrace-ctf and dtrace.
+	* test/unittest/regression/tst.array.d: New test for the
+	array CTF ID wrapped-type propagation bug.
 
 2012-08-03  Nick Alcock  <nick.alcock@oracle.com>
 
