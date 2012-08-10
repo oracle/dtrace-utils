@@ -47,7 +47,7 @@ load_modules()
 {
     # If running as root, pull in appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        for name in $(cat ./test/modules); do
+        for name in $(grep -v '^@@unload-only' ./test/modules | cut -d\  -f2-); do
             modprobe $name
         done
     else
@@ -60,7 +60,7 @@ unload_modules()
     HIDE=$1
     # If running as root, unload all appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        for name in $(tac ./test/modules); do
+        for name in $(tac ./test/modules | cut -d\  -f2-); do
             if [[ -z $HIDE ]]; then
                 rmmod $name
             else

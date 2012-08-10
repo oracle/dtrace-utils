@@ -1,3 +1,10 @@
+2012-08-10  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Allow @@unload-modules in test/modules
+	to specify modules that should only be unloaded, not
+	loaded.
+	* test/modules: Use it for dtrace-ctf and dtrace.
+
 2012-08-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Compare sorted results.  Print hanging-dtrace

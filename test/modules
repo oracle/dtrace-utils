@@ -1,4 +1,5 @@
-dtrace
+@@unload-only dtrace_ctf
+@@unload-only dtrace
 dt_test
 profile
 systrace
