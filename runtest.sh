@@ -660,6 +660,10 @@ for dt in $dtrace; do
         #          failure.  (If the test passes unexpectedly, this message is
         #          not printed.) See '.x'.
         #
+        # @@no-xfail: If present,t his means that a test is *not* expected to
+        #             fail, even though a test.options in a directory above
+        #             this test says otherwise.
+        #
         # @@trigger: A single line containing the name of a program in
         #            test/triggers which is executed after dtrace is started.
         #            When this program exits, dtrace will be killed.  If the
@@ -769,7 +773,7 @@ for dt in $dtrace; do
                2) continue;; # skip
                *) echo "$base.x: Unexpected return value $?." >&2;;
             esac
-        elif exist_options xfail $_test; then
+        elif exist_options xfail $_test && ! exist_options no-xfail $_test; then
             xfail=t
             xfailmsg="$(extract_options xfail $_test | sed 's, *$,,')"
         fi

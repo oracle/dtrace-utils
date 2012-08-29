@@ -1,6 +1,8 @@
 2012-08-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_lex.l (yyinit): Call yyrestart().
+	* runtest.sh: Add @@no-xfail.
+	* test/unittest/profile-n/err.*.d: @@skip -> @@no-xfail.
 
 2012-08-10  Nick Alcock  <nick.alcock@oracle.com>
 

@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 
-/* @@skip: blitzed by test.options */
+/* @@no-xfail */
 
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
