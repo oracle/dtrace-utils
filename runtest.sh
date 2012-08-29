@@ -851,25 +851,32 @@ for dt in $dtrace; do
 
         # No trigger.  Run dtrace, with a timeout, without permitting
         # execution, recording the output and exitcode into temporary files.
+        # (We use a different temporary file on every invocation, so that
+        # hanging subprocesses emitting output into these files do not mess up
+        # subsequent tests.  This won't strictly fix the problem, but will
+        # drive its probability of occurrence way down, even in the presence
+        # of a hanging test.)
 
         failed=
         this_noexec=$NOEXEC
         testmsg=
+        testout=$tmpdir/test.out.$RANDOM
+        testerr=$tmpdir/test.err.$RANDOM
         [[ -z $QUIET ]] && out "$_test: "
 
         if [[ -z $trigger ]]; then
             if [[ -z $shellrun ]]; then
                 this_noexec=t
-                run_with_timeout $timeout $dt $dt_flags -e > $tmpdir/test.out 2> $tmpdir/test.err
+                run_with_timeout $timeout $dt $dt_flags -e > $testout 2> $testerr
             else
-                run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+                run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
             fi
             exitcode=$?
         elif [[ "$trigger" = "none" ]]; then
             if [[ -z $shellrun ]]; then
-                run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+                run_with_timeout $timeout $dt $dt_flags > $testout 2> $testerr
             else
-                run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+                run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
             fi
             exitcode=$?
         else
@@ -892,10 +899,10 @@ for dt in $dtrace; do
             fi
 
             if [[ -z $shellrun ]]; then
-                ( run_with_timeout $timeout $dt $dt_flags > $tmpdir/test.out 2> $tmpdir/test.err
+                ( run_with_timeout $timeout $dt $dt_flags > $testout 2> $testerr
                   echo $? > $tmpdir/dtrace.exit; )
             else
-                ( run_with_timeout $timeout $shellrun $dt > $tmpdir/test.out 2> $tmpdir/test.err
+                ( run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
                   echo $? > $tmpdir/dtrace.exit; )
             fi
             exitcode="$(cat $tmpdir/dtrace.exit)"
@@ -913,7 +920,7 @@ for dt in $dtrace; do
         # Note if dtrace mentions running out of memory at any point.
         # If it does, this test quietly becomes an expected failure
         # (without transforming an err.* test into an XPASS).
-        if grep -q "Cannot allocate memory" $tmpdir/test.@(out|err); then
+        if grep -q "Cannot allocate memory" $testout $testerr; then
             xfailmsg="out of memory"
 
             if [[ $expected_exitcode -eq 0 ]]; then
@@ -925,15 +932,15 @@ for dt in $dtrace; do
             testmsg="no execution"
         fi
 
-        if [[ -s $tmpdir/test.err ]]; then
-            echo "-- @@stderr --" >> $tmpdir/test.out
-            cat $tmpdir/test.err >> $tmpdir/test.out
+        if [[ -s $testerr ]]; then
+            echo "-- @@stderr --" >> $testout
+            cat $testerr >> $testout
         fi
-        rm -f $tmpdir/test.err
 
-        if ! postprocess $base.r.p $tmpdir/test.out $tmpdir/test.out; then
+        if ! postprocess $base.r.p $testout $tmpdir/test.out; then
             testmsg="results postprocessor failed with exitcode $?"
         fi
+        rm -f $testout $testerr
 
         # Note if we will certainly capture results.
 
