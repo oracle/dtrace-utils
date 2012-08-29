@@ -950,61 +950,82 @@ for dt in $dtrace; do
             capturing="results captured"
         fi
 
-        # Compare results, if available, and log the diff.
+        # Results processing is complicated by the existence of a
+        # class-of-failure hierarchy (e.g. coredumps should be reported in
+        # preference to comparison failures, but we still want comparison
+        # failures to be logged) and by the need to print a message about each
+        # failure at most once, and by our desire to print any expected-results
+        # diff after the logged output (so it stands out).
+        want_expected_diff=
+        want_all_output=
+        fail=
+        failmsg=
 
+        # Compare results, if available, and log the diff.
         if [[ -e $base.r ]] && [[ -n $COMPARISON ]] &&
            ! diff -u <(sort $base.r) <(sort $tmpdir/test.out) >/dev/null; then
 
-            fail "$xfail" "$xfailmsg" "expected results differ${capturing:+, $capturing}"
+            fail=t
+            failmsg="expected results differ"
+            want_expected_diff=t
+        elif [[ ! -e $base.r ]]; then
+            # No expected results?  Write all the output to the sumfile.
+            # (It is also always written to the logfile: see below.)
+            want_all_output=t
+        fi
 
-            cat $tmpdir/test.out >> $LOGFILE
-            log "Diff against expected:\n"
+        if [[ -f core ]]; then
+            # A coredump. Preserve it in the logdir.
 
-            diff -u $base.r $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
-        else
-            if [[ -f core ]]; then
-                # A coredump. Preserve it in the logdir.
+            mv core $logdir/$(echo $base | tr '/' '-').core
+            fail=t
+            failmsg="core dumped"
 
-                mv core $logdir/$(echo $base | tr '/' '-').core
-                fail "$xfail" "$xfailmsg" "core dumped${capturing:+, $capturing}"
+        # Exitcodes are not useful if there's been a coredump, but otherwise...
+        elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode != 126 ]]; then
 
-            elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode != 126 ]]; then
+            # Some sort of exitcode error.  Assume that errors in the
+            # range 129 -- 193 (a common value of SIGRTMAX) are signal
+            # exits.
 
-                # Some sort of exitcode error.  Assume that errors in the
-                # range 129 -- 193 (a common value of SIGRTMAX) are signal
-                # exits.
-
-                if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
-                    fail "$xfail" "$xfailmsg" "erroneous exitcode ($exitcode)${capturing:+, $capturing}"
-                else
-                    fail "$xfail" "$xfailmsg" "hit by signal $((exitcode - 128))${capturing:+, $capturing}"
-                fi
+            fail=t
+            if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
+                failmsg="erroneous exitcode ($exitcode)"
             else
-
-                # Success!
-                # If results don't already exist and we are in capture mode, then
-                # capture them even if forcible capturing is off.
-
-                if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $COMPARISON ]] &&
-                   [[ ! -e $base.r ]]; then
-                    capturing="results captured"
-                fi
-
-                pass "$xfail" "$xfailmsg" "$capturing"
-            fi
-
-            if [[ ! -e $base.r ]]; then
-                # No expected results? Log and summarize the lot.
-                tee -a < $tmpdir/test.out $LOGFILE >> $SUMFILE
-            else
-                # Results as expected: log them.
-
-                cat $tmpdir/test.out >> $LOGFILE
+                failmsg="hit by signal $((exitcode - 128))"
             fi
         fi
 
-        # If capturing results is requested, capture them now.
+        if [[ -z $fail ]]; then
 
+            # Success!
+            # If results don't already exist and we are in capture mode, then
+            # capture them even if forcible capturing is off.
+
+            if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $COMPARISON ]] &&
+               [[ ! -e $base.r ]]; then
+                capturing="results captured"
+            fi
+
+            pass "$xfail" "$xfailmsg" "$capturing"
+
+        else
+            fail "$xfail" "$xfailmsg" "$failmsg${capturing:+, $capturing}"
+        fi
+
+        # Always log the test output.
+        cat $tmpdir/test.out >> $LOGFILE
+
+        if [[ -n $want_all_output ]]; then
+            cat $tmpdir/test.out >> $SUMFILE
+
+        elif [[ -n $want_expected_diff ]]; then
+            log "Diff against expected:\n"
+
+            diff -u $base.r $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
+        fi
+
+        # If capturing results is requested, capture them now.
         if [[ -n $capturing ]]; then
             cp -f $tmpdir/test.out $base.r
         fi
