@@ -726,7 +726,7 @@ yyinit(dt_pcb_t *pcb)
 	yypcb = pcb;
 	yylineno = 1;
 	yypragma = NULL;
-/*	yysptr = yysbuf; */
+	yyrestart(yyin);
 }
 
 /*

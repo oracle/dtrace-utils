@@ -1,3 +1,7 @@
+2012-08-29  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_lex.l (yyinit): Call yyrestart().
+
 2012-08-10  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Allow @@unload-modules in test/modules
