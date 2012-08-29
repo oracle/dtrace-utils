@@ -660,7 +660,7 @@ for dt in $dtrace; do
         #          failure.  (If the test passes unexpectedly, this message is
         #          not printed.) See '.x'.
         #
-        # @@no-xfail: If present,t his means that a test is *not* expected to
+        # @@no-xfail: If present, this means that a test is *not* expected to
         #             fail, even though a test.options in a directory above
         #             this test says otherwise.
         #
