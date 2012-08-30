@@ -507,7 +507,7 @@ postprocess()
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build-$(uname -r)*/dtrace"
     test_libdir="$(pwd)/build-$(uname -r)/dlibs"
-    test_libdir="$(pwd)/build-$(uname -r)/dlibs/include"
+    test_incdir="$(pwd)/build-$(uname -r)/dlibs/include"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
