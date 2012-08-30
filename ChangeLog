@@ -9,6 +9,16 @@
 	(enum_definition): Likewise.
 	* unittest/types/tst.notypeload.sh: Test this case.
 
+	* Makeconfig: Filter --coverage out of the LDFLAGS as well as the
+	CFLAGS.
+	* README.build-system (name_NOLDFLAGS): New, filter out unwanted
+	LDFLAGS from a target.
+	* Makefunctions (shlib-template): Implement it for shared libraries.
+	(cmd-template): Likewise for binaries.
+	* test/triggers/Build (TRIGGERS): Use it to filter out test coverage
+	info from triggers.
+	* test/utils/Build (CMDS): Likewise, for utils.
+
 2012-08-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_lex.l (yyinit): Call yyrestart().

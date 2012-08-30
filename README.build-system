@@ -78,6 +78,8 @@ name_CPPFLAGS = list of preprocessor flags applying to this target
 name_CFLAGS := list of cflags applying only to this target
 name_NOCFLAGS := list of cflags which should never be applied to this target,
                  even if they would otherwise appear in CFLAGS
+name_NOLDFLAGS := list of cflags which should never be applied to this target,
+                 even if they would otherwise appear in LDFLAGS
 name_EXPLICIT := list of source files with explicit targets for which
                  automatic targets should not be generated
 name_DEPS := list of explicit dependencies in the build tree
