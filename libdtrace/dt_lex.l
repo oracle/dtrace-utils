@@ -547,8 +547,8 @@ if (yypcb->pcb_token != 0) {
 <S0>"!"		return (DT_TOK_LNEG);
 <S0>"?"		return (DT_TOK_QUESTION);
 <S0>":"		return (DT_TOK_COLON);
-<S0>"."		return (DT_TOK_DOT);
-<S0>"->"	return (DT_TOK_PTR);
+<S0>"."		yypcb->pcb_sou_deref = 1; return (DT_TOK_DOT);
+<S0>"->"	yypcb->pcb_sou_deref = 1; return (DT_TOK_PTR);
 <S0>"="		return (DT_TOK_ASGN);
 <S0>"+="	return (DT_TOK_ADD_EQ);
 <S0>"-="	return (DT_TOK_SUB_EQ);
@@ -760,6 +760,14 @@ id_or_type(const char *s)
 	}
 
 	/*
+	 * If we have just seen a -> or ., this cannot be a type name.
+	 */
+	if (yypcb->pcb_sou_deref) {
+		yypcb->pcb_sou_deref = 0;
+		return (DT_TOK_IDENT);
+	}
+
+	/*
 	 * If the lexeme is a global variable or likely identifier, then it is
 	 * an identifier token.
 	 */
@@ -872,7 +880,8 @@ id_or_type(const char *s)
 
 	/*
 	 * If the lexeme is known not to be a type_name, then it is an
-	 * identifier token.
+	 * identifier token.  This check can be *very* expensive, so we
+         * had better not get here for identifiers in trivial D code.
 	 */
 	if (dt_type_lookup(s, NULL) != 0)
 		return (DT_TOK_IDENT);
@@ -893,7 +902,7 @@ id_or_type(const char *s)
 		return (DT_TOK_IDENT);
 
 	/*
-	 * Tthe lexeme is a type name.  (Ambiguous parses with identifiers in
+	 * The lexeme is a type name.  (Ambiguous parses with identifiers in
 	 * program clauses are already ruled out by the code above.)
 	 */
 	return (DT_TOK_TNAME);

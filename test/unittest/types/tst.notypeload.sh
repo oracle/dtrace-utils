@@ -64,6 +64,7 @@ bigger()
 
 proc::create {
 	this->pid = ((struct task_struct *)arg0)->pid;
+	printf("%s\n", curthread->comm);
 	exit(0);
 }
 

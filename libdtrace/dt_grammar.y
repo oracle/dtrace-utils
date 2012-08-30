@@ -388,13 +388,7 @@ postfix_expression:
 	|	postfix_expression DT_TOK_DOT DT_TOK_IDENT {
 			$$ = OP2(DT_TOK_DOT, $1, dt_node_ident($3));
 		}
-	|	postfix_expression DT_TOK_DOT DT_TOK_TNAME {
-			$$ = OP2(DT_TOK_DOT, $1, dt_node_ident($3));
-		}
 	|	postfix_expression DT_TOK_PTR DT_TOK_IDENT {
-			$$ = OP2(DT_TOK_PTR, $1, dt_node_ident($3));
-		}
-	|	postfix_expression DT_TOK_PTR DT_TOK_TNAME {
 			$$ = OP2(DT_TOK_PTR, $1, dt_node_ident($3));
 		}
 	|	postfix_expression DT_TOK_ADDADD {
@@ -405,10 +399,6 @@ postfix_expression:
 		}
 	|	DT_TOK_OFFSETOF DT_TOK_LPAR type_name DT_TOK_COMMA 
 		    DT_TOK_IDENT DT_TOK_RPAR {
-			$$ = dt_node_offsetof($3, $5);
-		}
-	|	DT_TOK_OFFSETOF DT_TOK_LPAR type_name DT_TOK_COMMA 
-		    DT_TOK_TNAME DT_TOK_RPAR {
 			$$ = dt_node_offsetof($3, $5);
 		}
 	|	DT_TOK_XLATE DT_TOK_LT type_name DT_TOK_GT
@@ -713,13 +703,11 @@ struct_declarator:
 
 enum_specifier:
 		enum_definition enumerator_list '}' { $$ = dt_scope_pop(); }
-	|	DT_KEY_ENUM DT_TOK_IDENT { $$ = dt_decl_spec(CTF_K_ENUM, $2); }
 	|	DT_KEY_ENUM DT_TOK_TNAME { $$ = dt_decl_spec(CTF_K_ENUM, $2); }
 	;
 
 enum_definition:
 		DT_KEY_ENUM '{' { dt_decl_enum(NULL); }
-	|	DT_KEY_ENUM DT_TOK_IDENT '{' { dt_decl_enum($2); }
 	|	DT_KEY_ENUM DT_TOK_TNAME '{' { dt_decl_enum($2); }
 	;
 

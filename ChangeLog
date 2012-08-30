@@ -1,3 +1,14 @@
+2012-08-30  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_pcb.h (pcb_sou_deref): New.
+	* libdtrace/dt_lex.l (id_or_type): Use it to track certain-to-
+	be-identifiers after -> and .
+	* libdtrace/dt_grammar.y (postfix_expression): Remove
+	various DT_TOK_TNAME rules: no longer required.
+	(enum_specifier): Likewise.
+	(enum_definition): Likewise.
+	* unittest/types/tst.notypeload.sh: Test this case.
+
 2012-08-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_lex.l (yyinit): Call yyrestart().
