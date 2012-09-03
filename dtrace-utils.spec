@@ -9,16 +9,16 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf zlib libdtrace-ctf
-BuildRequires: elfutils-libelf-devel libdtrace-ctf kernel-headers glibc-headers fakeroot byacc flex zlib-devel
+BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel kernel-headers glibc-headers fakeroot byacc flex zlib-devel
 Summary:      DTrace user interface.
-Version:      0.2.5
-Release:      2.el6
+Version:      0.3
+Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
 
 %description
-DTrace user interface
+DTrace user interface and dtrace(1) command.
 
 Maintainers:
 -----------
@@ -69,16 +69,21 @@ fi
 %defattr(-,root,root,755)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
-/usr/lib64/dtrace
-/usr/lib64/libdtrace.so*
-/usr/sbin/dtrace
-/usr/share/man/man1/orcl-dtrace.1.gz
-/usr/include/dtrace.h
-/usr/include/sys/dtrace.h
-/usr/include/sys/dtrace_types.h
-%doc /usr/share/doc/dtrace-%{version}/*
+${_libdir}/dtrace
+${_libdir}/libdtrace.so*
+${_sbindir}/dtrace
+${_mandir}/man1/orcl-dtrace.1.gz
+${_includedir}/dtrace.h
+${_includedir}/sys/dtrace.h
+${_includedir}/sys/dtrace_types.h
+%doc ${_docdir}/dtrace-%{version}/*
 
 %changelog
+* Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3-1
+- CTF support.
+- Fixed install path for dtrace libraries.
+- Fixed -c and -p options.
+- Faster startup.
 * Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2
 - Call ldconfig at appropriate times.
 * Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5

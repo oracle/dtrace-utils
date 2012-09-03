@@ -1,3 +1,10 @@
+2012-09-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace-ctf: Pull in the libdtrace-ctf-devel package split.
+	* dtrace-utils.spec: Adapt to libdtrace-ctf-devel package split.
+	Next version is 0.3.  Use macros for most file locations.
+	Improve RPM changelog.
+
 2012-08-30  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_pcb.h (pcb_sou_deref): New.
