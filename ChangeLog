@@ -6,6 +6,9 @@
 	libdtrace/dtrace.h that depends on libdtrace-ctf-devel.
 	* libdtrace-ctf: Pull in the <sys/ctf_types.h> move.
 
+	* uts/common/sys/dtrace_ioctl.h: No longer include
+	<linux/types.h>.
+
 2012-09-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace-ctf: Pull in the libdtrace-ctf-devel package split.

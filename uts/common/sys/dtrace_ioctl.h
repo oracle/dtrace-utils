@@ -1,7 +1,6 @@
 #ifndef _DTRACE_IOCTL_H_
 #define _DTRACE_IOCTL_H_
 
-#include <linux/types.h>
 #include <linux/ioctl.h>
 
 #define DTRACEIOC		0xd4
