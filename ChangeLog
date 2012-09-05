@@ -12,6 +12,9 @@
 	* uts/common/sys/dtrace_ioctl.h: No longer include
 	<linux/types.h>.
 
+	* test/unittest/aggs/tst.subr.d: Enable this test, commenting out
+	unimplemented subrs and compensating accordingly.
+
 2012-09-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace-ctf: Pull in the libdtrace-ctf-devel package split.
