@@ -1,5 +1,8 @@
 2012-09-05  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libdtrace/dt_pragma.c (dt_pragma_line): Support GCC-style
+	#line directives.
+
 	* uts/common/sys/dtrace.h: No longer include <sys/ctf_api.h>...
 	* libdtrace/dtrace.h: ... do it here instead.
 	* dtrace-utils.spec: Split out a -devel package containing

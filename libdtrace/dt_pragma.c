@@ -358,15 +358,16 @@ dt_pragma_option(const char *prname, dt_node_t *dnp)
 
 /*
  * The #line directive is used to reset the input line number and to optionally
- * note the file name for use in error messages.  Sun cpp(1) also produces a
- * third integer token after the filename which is one of the following:
+ * note the file name for use in error messages.  cpp(1) also produces a stream
+ * of integer tokens after the filename from the following set:
  *
- * 0 - line change has nothing to do with an #include file
  * 1 - line change because we just entered a #include file
  * 2 - line change because we just exited a #include file
+ * 3 - the following text comes from a system header file
+ * 4 - the following text should be treated as if wrapped in 'extern "C"'
  *
- * We use these state tokens to adjust pcb_idepth, which in turn controls
- * whether type lookups access the global type space or not.
+ * We use the first two of these state tokens to adjust pcb_idepth, which in
+ * turn controls whether type lookups access the global type space or not.
  */
 static void
 dt_pragma_line(const char *prname, dt_node_t *dnp)
@@ -388,13 +389,12 @@ dt_pragma_line(const char *prname, dt_node_t *dnp)
 	if (fnp != NULL) {
 		if (yypcb->pcb_filetag != NULL)
 			free(yypcb->pcb_filetag);
-
 		/*
-		 * This is not pretty, but is a necessary evil until we either
-		 * write "dpp" or get a useful standalone cpp from DevPro.  If
-		 * the filename begins with /dev/fd, we know it's the master
-		 * input file (see dt_preproc() in dt_cc.c), so just clear the
-		 * dt_filetag pointer so error messages refer to the main file.
+		 * This is not pretty, but is a necessary evil until we rewrite
+		 * dt_preproc().  If the filename begins with /dev/fd, we know
+		 * it's the master input file (see dt_preproc() in dt_cc.c), so
+		 * just clear the dt_filetag pointer so error messages refer to
+		 * the main file.
 		 */
 		if (strncmp(fnp->dn_string, "/dev/fd/", 8) != 0) {
 			yypcb->pcb_filetag = fnp->dn_string;
@@ -403,11 +403,17 @@ dt_pragma_line(const char *prname, dt_node_t *dnp)
 			yypcb->pcb_filetag = NULL;
 	}
 
-	if (inp != NULL) {
+	while (inp != NULL) {
 		if (inp->dn_value == 1)
 			yypcb->pcb_idepth++;
 		else if (inp->dn_value == 2 && yypcb->pcb_idepth != 0)
 			yypcb->pcb_idepth--;
+
+		inp = inp->dn_list;
+		if (inp != NULL && inp->dn_kind != DT_NODE_INT) {
+			xyerror(D_PRAGMA_MALFORM, "malformed #%s "
+			    "<line> [ [\"file\"] state ]\n", prname);
+		}
 	}
 
 	yylineno = dnp->dn_value;
