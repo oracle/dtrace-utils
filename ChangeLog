@@ -14,6 +14,9 @@
 
 	* test/unittest/aggs/tst.subr.d: Enable this test, commenting out
 	unimplemented subrs and compensating accordingly.
+	* test/unittest/dtrace-util/tst.InvalidId2.sh: Note that the
+	behaviour this tests for is simply not implemented yet.
+	* test/unittest/regression/exit_panic.d: Fix copyright date.
 
 2012-09-03  Nick Alcock  <nick.alcock@oracle.com>
 

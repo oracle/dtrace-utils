@@ -38,7 +38,7 @@
 #
 ##
 
-# @@xfail: ranges are known broken
+# @@xfail: ranges are not implemented yet
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
