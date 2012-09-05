@@ -24,7 +24,6 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
-#include <sys/ctf_api.h>
 
 
 /*

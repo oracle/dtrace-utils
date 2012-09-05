@@ -25,6 +25,17 @@ Maintainers:
 Nick Alcock <nick.alcock@oracle.com>
 Kris van Hees <kris.van.hees@oracle.com>
 
+%package devel
+Summary:      DTrace development headers.
+Requires:     libdtrace-ctf-devel
+
+%description devel
+Headers and libraries to develop DTrace applications.
+
+You do not need this package merely to compile providers and probe points into
+applications that will be probed by dtrace, but rather when developing
+replacements for dtrace(1) itself.
+
 %prep
 %setup -q
 
@@ -70,13 +81,19 @@ fi
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
 ${_libdir}/dtrace
-${_libdir}/libdtrace.so*
+${_libdir}/libdtrace.so.*
 ${_sbindir}/dtrace
 ${_mandir}/man1/orcl-dtrace.1.gz
-${_includedir}/dtrace.h
 ${_includedir}/sys/dtrace.h
 ${_includedir}/sys/dtrace_types.h
 %doc ${_docdir}/dtrace-%{version}/*
+
+%files devel
+%defattr(-,root,root,755)
+%exclude /usr/src/debug
+%exclude /usr/lib/debug
+${_libdir}/libdtrace.so
+${_includedir}/dtrace.h
 
 %changelog
 * Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3-1
@@ -84,6 +101,7 @@ ${_includedir}/sys/dtrace_types.h
 - Fixed install path for dtrace libraries.
 - Fixed -c and -p options.
 - Faster startup.
+- Split out a -devel package.
 * Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2
 - Call ldconfig at appropriate times.
 * Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5
