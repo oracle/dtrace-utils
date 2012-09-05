@@ -86,6 +86,7 @@ ${_sbindir}/dtrace
 ${_mandir}/man1/orcl-dtrace.1.gz
 ${_includedir}/sys/dtrace.h
 ${_includedir}/sys/dtrace_types.h
+${_includedir}/sys/dtrace_ioctl.h
 %doc ${_docdir}/dtrace-%{version}/*
 
 %files devel

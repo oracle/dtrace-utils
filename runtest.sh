@@ -507,7 +507,7 @@ postprocess()
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build-$(uname -r)*/dtrace"
     test_libdir="$(pwd)/build-$(uname -r)/dlibs"
-    test_incdir="$(pwd)/build-$(uname -r)/dlibs/include"
+    test_incflags="-Iuts/common -Ilibdtrace-ctf/include"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -818,7 +818,7 @@ for dt in $dtrace; do
         # Default and substitute in flags.  The raw_dt_flags apply even to a
         # sh invocation.
 
-        raw_dt_flags="-t $test_libdir -Iuts/common -I$test_incdir"
+        raw_dt_flags="-t $test_libdir $test_incflags"
 
         if [[ $testonly =~ ^err\.D_ ]]; then
             raw_dt_flags="$raw_dt_flags -xerrtags"

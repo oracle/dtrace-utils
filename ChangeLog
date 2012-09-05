@@ -18,6 +18,10 @@
 	behaviour this tests for is simply not implemented yet.
 	* test/unittest/regression/exit_panic.d: Fix copyright date.
 
+	* runtest.sh: Fix non-installed include path.
+	* uts/Build: Install sys/dtrace_ioctl.h.
+	* dtrace-utils.spec: Add it to %files.
+
 2012-09-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace-ctf: Pull in the libdtrace-ctf-devel package split.
