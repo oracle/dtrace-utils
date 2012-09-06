@@ -1197,7 +1197,9 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	 * symbol we encountered.  It doesn't matter much if this net is cast
 	 * too wide, since we only care if a symbol is present if control flow
 	 * or data lookups might pass through it while a probe fires, and that
-	 * won't happen to any of these symbols.
+	 * won't happen to any of these symbols.  (Hence the exclusion from this
+	 * filter of symbols corresponding to cloned functions, since these
+	 * could very possibly be in the call stack while a probe fires.)
 	 */
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
 	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
@@ -1220,7 +1222,8 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	    (strstarts(sym_name, "__initcall_")) ||
 	    (strstarts(sym_name, "__setup_")) ||
 	    (strstarts(sym_name, "__pci_fixup_")) ||
-	    (strstr(sym_name, ".") != NULL)) {
+	    ((strstr(sym_name, ".") != NULL) &&
+		(strstr(sym_name, ".clone.") == NULL))) {
 		dmp = *last_dmp;
 		skip = 1;
 	} else {
