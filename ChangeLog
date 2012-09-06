@@ -1,3 +1,8 @@
+2012-09-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_module.c (dt_modsym_update): Do not filter out
+	cloned functions.
+
 2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_module.c (dtrace_update): Shuffle dtrace to the
