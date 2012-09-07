@@ -1,3 +1,7 @@
+2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace-utils.spec: RPM macros use %, not $.
+
 2012-09-05  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_pragma.c (dt_pragma_line): Support GCC-style

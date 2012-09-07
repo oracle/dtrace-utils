@@ -80,21 +80,21 @@ fi
 %defattr(-,root,root,755)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
-${_libdir}/dtrace
-${_libdir}/libdtrace.so.*
-${_sbindir}/dtrace
-${_mandir}/man1/orcl-dtrace.1.gz
-${_includedir}/sys/dtrace.h
-${_includedir}/sys/dtrace_types.h
-${_includedir}/sys/dtrace_ioctl.h
-%doc ${_docdir}/dtrace-%{version}/*
+%{_libdir}/dtrace
+%{_libdir}/libdtrace.so.*
+%{_sbindir}/dtrace
+%{_mandir}/man1/orcl-dtrace.1.gz
+%{_includedir}/sys/dtrace.h
+%{_includedir}/sys/dtrace_types.h
+%{_includedir}/sys/dtrace_ioctl.h
+%doc %{_docdir}/dtrace-%{version}/*
 
 %files devel
 %defattr(-,root,root,755)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
-${_libdir}/libdtrace.so
-${_includedir}/dtrace.h
+%{_libdir}/libdtrace.so
+%{_includedir}/dtrace.h
 
 %changelog
 * Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3-1
