@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # This script tests that the proc:::exit probe fires with the correct argument
 # when the process is killed.
@@ -70,9 +68,7 @@ child=$!
 script
 status=$?
 
-pstop $child
 pkill -P $child
 kill $child
-prun $child
 
 exit $status

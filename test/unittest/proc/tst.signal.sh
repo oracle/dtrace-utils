@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # This script tests that the proc:::signal-send and proc:::signal-handle
 # probes fire correctly and with the correct arguments.

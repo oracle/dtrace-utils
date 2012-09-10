@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@skip: nonportable
-
 #
 # Copyright 2007 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
@@ -65,13 +63,18 @@ EOF
 
 sleeper()
 {
-	/usr/bin/coreadm -p $corefile
+	d=/tmp/exitcore.$$
+	mkdir $d
+	cd $d
+
+	ulimit -c 4096
 	while true; do
 		$longsleep &
-		/usr/bin/sleep 1
+		sleep 1
 		kill -SEGV $!
 	done
-	rm -f $corefile
+
+	rm -rf $d
 }
 
 if [ $# != 1 ]; then
@@ -80,7 +83,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-longsleep="/usr/bin/sleep 10000"
+longsleep="sleep 10000"
 corefile=/tmp/core.$$
 
 sleeper &
@@ -89,10 +92,8 @@ child=$!
 script
 status=$?
 
-pstop $child
 pkill -P $child
 kill $child
-prun $child
 
 rm -f $corefile
 exit $status
