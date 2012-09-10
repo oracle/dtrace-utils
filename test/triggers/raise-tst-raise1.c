@@ -28,6 +28,7 @@
 
 #include <unistd.h>
 #include <signal.h>
+#include <sys/ioctl.h>
 
 int
 main(int argc, char **argv)
@@ -39,7 +40,7 @@ main(int argc, char **argv)
 	(void) sigprocmask(SIG_BLOCK, &ss, NULL);
 
 	do {
-		(void) getpid();
+		(void) ioctl(-1, -1, NULL);
 		(void) sigpending(&ss);
 	} while (!sigismember(&ss, SIGINT));
 

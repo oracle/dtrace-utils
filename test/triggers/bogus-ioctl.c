@@ -47,7 +47,7 @@ interrupt(int sig)
 int
 main(void)
 {
-	const char *file = "/dev/null";
+	const char *file = "/proc/self/mem";
 	int i, n, fds[10];
 	struct sigaction act;
 	struct rlimit rl;

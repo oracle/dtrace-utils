@@ -26,7 +26,6 @@
 
 /* @@trigger: bogus-ioctl */
 /* @@runtest-opts: $_pid */
-/* @@xfail: userspace array inspection is not yet implemented */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -36,18 +35,24 @@
 syscall::ioctl:entry
 /pid == $1 && arg0 == -1u/
 {
-	raise(SIGUSR1); /* kick tst.fds.c out of its busy-wait loop */
+	raise(SIGUSR1);
 }
 
+/*
+ * On Linux, the ioctl prototype is
+ *	extern int ioctl (int, unsigned long int, ...)
+ * so under 64-bit architecture this means that -1 as first argument is
+ * represented as -1u (32-bit) and -1 as second argument is -1 (64-bit).
+ */
 syscall::ioctl:entry
-/pid == $1 && arg0 != -1u && arg1 == -1u && arg2 == NULL/
+/pid == $1 && arg0 != -1u && arg1 == -1 && arg2 == NULL/
 {
 	printf("fds[%d] fi_name = %s\n", arg0, fds[arg0].fi_name);
 	printf("fds[%d] fi_dirname = %s\n", arg0, fds[arg0].fi_dirname);
 	printf("fds[%d] fi_pathname = %s\n", arg0, fds[arg0].fi_pathname);
 	printf("fds[%d] fi_mount = %s\n", arg0, fds[arg0].fi_mount);
 	printf("fds[%d] fi_offset = %d\n", arg0, fds[arg0].fi_offset);
-	printf("fds[%d] fi_oflags = 0x%x\n", arg0, fds[arg0].fi_oflags);
+	printf("fds[%d] fi_oflags = %x\n", arg0, fds[arg0].fi_oflags);
 }
 
 proc:::exit

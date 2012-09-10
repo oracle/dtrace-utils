@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 
 static void
 handle(int sig)
@@ -48,6 +49,6 @@ main(int argc, char **argv)
 	(void) sigaction(SIGINT, &sa, NULL);
 
 	for (;;) {
-		(void) getpid();
+		(void) ioctl(-1, -1, NULL);
 	}
 }

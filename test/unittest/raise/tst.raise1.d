@@ -41,13 +41,14 @@
 BEGIN
 {
 	/*
-	 * Wait no more than five seconds for the process to call getpid().
+	 * Wait no more than five seconds for the process to call ioctl().
 	 */
 	timeout = timestamp + 5000000000;
+	self->raised = 0;
 }
 
-syscall::getpid:entry
-/pid == $1/
+syscall::ioctl:entry
+/pid == $1 && !self->raised/
 {
 	trace("raised");
 	raise(SIGINT);
@@ -55,6 +56,7 @@ syscall::getpid:entry
 	 * Wait no more than three seconds for the process to die.
 	 */
 	timeout = timestamp + 3000000000;
+	self->raised = 1;
 }
 
 syscall::exit_group:entry

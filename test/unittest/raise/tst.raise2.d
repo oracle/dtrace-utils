@@ -41,12 +41,12 @@
 BEGIN
 {
 	/*
-	 * Wait no more than five seconds for the process to call getpid().
+	 * Wait no more than five seconds for the process to call ioctl().
 	 */
 	timeout = timestamp + 5000000000;
 }
 
-syscall::getpid:return
+syscall::ioctl:return
 /pid == $1/
 {
 	trace("raised");
