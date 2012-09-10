@@ -56,7 +56,7 @@ main(int argc, char **argv)
 	(void) sigaddset(&set, SIGUSR1);
 	(void) sigprocmask(SIG_BLOCK, &set, NULL);
 
-	ts.it_value.tv_sec = 1;
+	ts.it_value.tv_sec = 5;
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = NANOSEC / 2;

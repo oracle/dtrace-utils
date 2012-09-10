@@ -29,27 +29,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
-void grow1(int);
+int limit = 4096;
 
-void
+int grow1(int);
+
+int
+shouldGrow(int frame)
+{
+	return frame >= limit-- ? 0 : 1;
+}
+
+int
 grow(int frame)
 {
 	/*
 	 * Create a ridiculously large stack - enough to push us over
 	 * the default setting of 'dtrace_ustackdepth_max' (2048).
+	 *
+	 * This loop used to repeatedly call getpid(), but on Linux the result
+	 * of that call gets cached, so that repeated calls actually do not
+	 * trigger a system call anymore.  We use ioctl() instead.
 	 */
-	if (frame >= 2048)
-		for (;;)
-			getpid();
+	if (shouldGrow(frame))
+		frame = grow1(frame++);
 
-	grow1(++frame);
+	for (;;)
+		ioctl(-1, -1, NULL);
+
+	grow1(frame);
 }
 
-void
+int
 grow1(int frame)
 {
-	grow(++frame);
+	if (shouldGrow(frame))
+		frame = grow(frame++);
+
+	for (;;)
+		ioctl(-2, -2, NULL);
+
+	grow(frame);
 }
 
 int
