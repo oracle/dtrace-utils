@@ -4,4 +4,4 @@
 
 -- @@stderr --
 dtrace: script 'test/stress/buffering/tst.resize3.d' matched 4 probes
-dtrace: speculation size lowered to 400m
+dtrace: speculation size lowered to #
