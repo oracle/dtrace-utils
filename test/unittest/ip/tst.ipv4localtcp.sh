@@ -26,7 +26,7 @@
 #
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: not yet ported
+# @@xfail: ip provider not yet implemented
 
 #
 # Test ip:::{send,receive} of IPv4 TCP to a remote host.

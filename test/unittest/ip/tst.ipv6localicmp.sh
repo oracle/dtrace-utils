@@ -26,8 +26,6 @@
 #
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # Test ip:::{send,receive} of IPv6 ICMP to a local address.  This creates a
 # temporary lo0/inet6 interface if one doesn't already exist.

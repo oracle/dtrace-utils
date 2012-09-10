@@ -26,7 +26,7 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
+# @@timeout: 10
 
 #
 # This script tests that several of the mib:::tcp* probes fire and fire
@@ -40,7 +40,7 @@ fi
 
 dtrace=$1
 dtraceout=/tmp/dtrace.out.$$
-timeout=15
+timeout=5
 port=2000
 
 if [ -f $dtraceout ]; then
@@ -131,7 +131,7 @@ dtrace_pid=$!
 
 #
 # Sleep while the above script fires into life. To guard against dtrace dying
-# and us sleeping forever we allow 15 secs for this to happen. This should be
+# and us sleeping forever we allow 5 secs for this to happen. This should be
 # enough for even the slowest systems.
 #
 while [ ! -f $dtraceout ]; do

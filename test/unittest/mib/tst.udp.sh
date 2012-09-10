@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # This script tests that several of the the mib:::udp* probes fire and fire
 # with a valid args[0].
@@ -56,8 +54,8 @@ EOF
 rupper()
 {
 	while true; do
-		rup localhost
-		/usr/bin/sleep 1
+		rup localhost || exit 1
+		sleep 1
 	done
 }
 

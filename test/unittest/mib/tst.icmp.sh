@@ -26,7 +26,7 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
+# @@skip: leaves a ping hanging, causing interference
 
 #
 # This script tests that several of the the mib:::icmp* probes fire and fire

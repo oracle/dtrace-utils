@@ -28,7 +28,6 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-fork */
-/* @@xfail: userspace probes not yet implemented */
 
 /*
  * ASSERTION: make sure fork(2) is okay

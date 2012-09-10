@@ -26,8 +26,6 @@
 #
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # Test ip:::{send,receive} of IPv6 ICMP to a remote host.  This test is
 # skipped if there are no physical interfaces configured with IPv6, or no

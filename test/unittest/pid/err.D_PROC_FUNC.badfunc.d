@@ -21,7 +21,7 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: longsleep */
-/* @@skip: blitzed by test.options */
+/* @@no-xfail */
 
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.

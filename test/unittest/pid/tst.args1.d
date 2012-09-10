@@ -21,7 +21,6 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-args1 */
-/* @@xfail: userspace probes and pid provider not yet implemented */
 
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.

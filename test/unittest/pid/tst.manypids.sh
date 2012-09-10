@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -58,10 +56,10 @@ export LD_PRELOAD=
 
 let i=0
 
-echo "tick-1sec\n{\n\texit(0);\n}\n" > $tmpfile
+echo "tick-1sec { exit(0); }" > $tmpfile
 
 while [ "$i" -lt "$numkids" ]; do
-	echo "pid${pids[$i]}::malloc:entry\n{}\n" >> $tmpfile
+	echo "pid${pids[$i]}::malloc:entry {}" >> $tmpfile
 	let i=i+1
 done
 
@@ -69,5 +67,5 @@ $dtrace $dt_flags -s $tmpfile
 status=$?
 
 rm $tmpfile
-pkill sleep
+pkill sleep -P $$
 exit $status

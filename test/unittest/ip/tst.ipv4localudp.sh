@@ -26,8 +26,6 @@
 #
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 #
 # Test ip:::{send,receive} of IPv4 UDP to a local address.
 #
