@@ -1,15 +1,13 @@
-# @@xfail: invalid address expected
-
 #pragma D option destructive
 
 BEGIN
 {
 	i = 3;
 	copyout((void *)i, 0, 5);
-	exit(0);
+	exit(1);
 }
 
 ERROR
 {
-	exit(1);
+	exit(0);
 }

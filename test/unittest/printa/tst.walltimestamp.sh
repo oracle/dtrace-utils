@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@xfail: no definition of hrtime_t
-
 #
 # Copyright 2007 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
@@ -44,7 +42,7 @@ $dtrace $dt_flags -s /dev/stdin <<EOF
 
 BEGIN
 {
-	@foo = min(1075064400 * (hrtime_t)1000000000);
+	@foo = min(1075064400 * 1000000000);
 	@bar = max(walltimestamp);
 	printa("%@T\n", @foo);
 	printa("%@Y\n", @foo);

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: sched:::enqueue not yet implemented */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option switchrate=100hz
@@ -38,7 +36,7 @@ sched:::enqueue
 }
 
 sched:::enqueue
-/self->one && args[2]->cpu_id >= 0 && args[2]->cpu_id <= `max_cpuid/
+/self->one && args[2]->cpu_id >= 0 && args[2]->cpu_id <= `nr_cpu_ids/
 {
 	self->two = 1;
 }

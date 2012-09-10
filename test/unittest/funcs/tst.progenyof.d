@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@skip: kernel crasher */
-
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 /*

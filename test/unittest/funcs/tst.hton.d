@@ -26,14 +26,13 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: contains nonportable inclusion */
 /* @@runtest-opts: -C */
 
 /*
  * ASSERTION: Test network byte-ordering routines.
  */
 
-#include <sys/isa_defs.h>
+#include <endian.h>
 
 BEGIN
 {
@@ -41,7 +40,7 @@ BEGIN
 	before[1] = 0x11223344LL;
 	before[2] = 0x1122334455667788LL;
 
-#ifdef _LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	after[0] = 0x2211LL;
 	after[1] = 0x44332211LL;
 	after[2] = 0x8877665544332211LL;

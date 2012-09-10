@@ -27,6 +27,10 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
+ * @@skip: Linux does not have zones
+ */
+
+/*
  * ASSERTION:
  * 	collect zonename at every fbt probe and at every firing of a
  *	high-frequency profile probe

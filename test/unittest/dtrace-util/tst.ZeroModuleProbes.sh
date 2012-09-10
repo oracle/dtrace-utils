@@ -27,8 +27,6 @@
 
 #ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: No unix module (yet?)
-
 ##
 #
 # ASSERTION:
@@ -48,7 +46,7 @@ fi
 dtrace=$1
 
 $dtrace $dt_flags -qZm wassup'{printf("Iamkool");}' \
--qm unix'{printf("I am done"); exit(0);}'
+-qm vmlinux'{printf("I am done"); exit(0);}'
 
 status=$?
 

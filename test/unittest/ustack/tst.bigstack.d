@@ -26,10 +26,11 @@
 
 /* @@trigger: ustack-tst-bigstack */
 /* @@runtest-opts: $_pid */
+/* @@xfail: userspace stack traces are not implemented yet */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-syscall::getpid:entry
+syscall::ioctl:entry
 /pid == $1/
 {
 	@[ustackdepth] = count();

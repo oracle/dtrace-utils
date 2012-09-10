@@ -33,7 +33,7 @@
 # those assumptions have become false, please accept my apologies...
 #
 
-# @@xfail: userspace tracing is not yet implemented
+# @@xfail: pid provider not yet implemented
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'

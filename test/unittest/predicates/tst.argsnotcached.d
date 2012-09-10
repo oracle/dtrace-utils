@@ -29,7 +29,7 @@
 int schedules;
 int executes;
 
-/* @@skip: terrifyingly nonportable */
+/* @@xfail: Solaris-specific */
 
 /*
  * This script is a bit naughty:  it's assuming the implementation of the

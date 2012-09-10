@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: mutex_enter provider not yet implemented */
+/* @@xfail: no adaptive-acquire probe in mutex_enter() implemented yet */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 

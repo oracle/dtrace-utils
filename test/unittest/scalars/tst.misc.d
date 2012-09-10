@@ -26,8 +26,6 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI" 
 
-/* @@xfail: needs porting */
-
 /*
  * ASSERTION:
  *  Test the different kinds of integer scalar references.  In particular, we
@@ -41,9 +39,8 @@
 
 BEGIN
 {
-	printf("\nmax_pfn = 0x%x\n", `max_pfn);
-	printf("ufs`ufs_allow_shared_writes = %d\n",
-	    ufs`ufs_allow_shared_writes);
+	printf("\nr_cpu_ids = 0x%x\n", `nr_cpu_ids);
+	printf("ext3`ext3_dir_operations = %p\n", &ext3`ext3_dir_operations);
 	x = 123;
 	printf("x = %u\n", x);
 	self->x = 456;

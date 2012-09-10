@@ -26,7 +26,7 @@
 
 /*
  * ASSERTION:
- *	verify the use of char type
+ *	verify the use of string type
  *
  * SECTION: Types, Operators, and Expressions/Constants
  */

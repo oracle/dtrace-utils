@@ -27,8 +27,6 @@
 
 #ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: module 'unix' not yet implemented
-
 ##
 #
 # ASSERTION:
@@ -46,7 +44,7 @@ fi
 
 dtrace=$1
 
-$dtrace $dt_flags -qwm unix'{chill(15); printf("Done chilling"); exit(0);}'
+$dtrace $dt_flags -qwm vmlinux'{chill(15); printf("Done chilling"); exit(0);}'
 status=$?
 
 if [ "$status" -ne 0 ]; then

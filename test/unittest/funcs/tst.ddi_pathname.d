@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: depends on a translator */
+/* @@xfail: depends on a Solaris-specific DIF subroutine */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 

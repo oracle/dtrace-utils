@@ -19,8 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: depends on vnode_t, ctf stuff */
-
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
@@ -58,8 +56,8 @@ extern unsigned long long e17;
 extern float e18;
 extern double e19;
 extern long double e20;
-extern vnode_t e21;
-extern struct vnode e22;
+extern cpuinfo_t e21;
+extern struct inode e22;
 extern union sigval e23;
 extern enum uio_rw e24;
 

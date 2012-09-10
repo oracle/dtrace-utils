@@ -26,7 +26,7 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: userspace probes, nonportable
+# @@skip: Solaris specific - requires rewriting
 
 unload()
 {

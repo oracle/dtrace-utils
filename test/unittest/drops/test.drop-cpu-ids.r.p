@@ -1,3 +1,3 @@
 #!/bin/sed -f
-# Drop reports have a variable CPU ID in them.
+# Rewrite reports that have a variable CPI ID in them to make them generic.
 s/CPU [0-9][0-9]*/CPU #/g
