@@ -19,14 +19,14 @@
  * CDDL HEADER END
  */
 
-/* @@no-xfail */
-
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
+
+/* @@no-xfail */
 
 /*
  * ASSERTION:

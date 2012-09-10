@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: not yet ported
-
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF

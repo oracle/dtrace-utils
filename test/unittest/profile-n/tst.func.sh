@@ -26,9 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: profile-1234 not yet implemented
-# @@skip: not yet ported
-
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF

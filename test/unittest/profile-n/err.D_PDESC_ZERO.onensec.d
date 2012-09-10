@@ -19,19 +19,19 @@
  * CDDL HEADER END
  */
 
-/* @@no-xfail */
-
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
+/* @@no-xfail */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
  * ASSERTION:
  *
- * profile-usec; less than 200 micro seconds.
+ * Call profile-1nsec; less than 200 micro seconds.
  *
  * SECTION: profile Provider/profile-n probes
  *
@@ -39,8 +39,8 @@
 
 #pragma D option quiet
 
-profile-1usec
+profile-1nsec
 {
-	printf("profile-usec; less than 200 micro seconds \n");
+	printf("Call profile-1nsec; less than 200 micro seconds\n");
 	exit (0);
 }
