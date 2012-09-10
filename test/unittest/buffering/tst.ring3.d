@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs porting */
-
 /*
  * ASSERTION:
  *   Positive test for ring buffer policy.
@@ -64,11 +62,11 @@ BEGIN
 tick-10msec
 /cpuid == -1/
 {
-	cpuid = curthread->t_cpu->cpu_id;
+	cpuid = curcpu->cpu_id;
 }
 
 tick-10msec
-/curthread->t_cpu->cpu_id == cpuid && n < 100/
+/curcpu->cpu_id == cpuid && n < 100/
 {
 	printf("%d\n", n++);
 }
