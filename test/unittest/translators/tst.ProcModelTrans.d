@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs procfs.d */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
@@ -40,7 +38,7 @@
 
 #pragma D option quiet
 
-proc_t *T;
+struct task_struct *T;
 
 BEGIN
 {

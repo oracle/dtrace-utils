@@ -78,8 +78,8 @@ INTFUNC(alloca(10))
 VOIDFUNC(bcopy)
 VOIDFUNC(copyinto)
 /* Not implemented.
-INTFUNC(msgdsize(NULL))
-INTFUNC(msgsize(NULL)) */
+   INTFUNC(msgdsize(NULL))
+   INTFUNC(msgsize(NULL)) */
 INTFUNC(getmajor(0))
 INTFUNC(getminor(0))
 STRFUNC(ddi_pathname(NULL, 0))
@@ -102,9 +102,10 @@ INTFUNC(ntohs(0x1234))
 INTFUNC(ntohl(0x12345678))
 INTFUNC(ntohll(0x1234567890abcdefL))
 /* waiting for ip.d.
-  STRFUNC(inet_ntoa((ipaddr_t *)alloca(sizeof (ipaddr_t))))
-STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof (in6_addr_t))))
-STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof (ipaddr_t))))*/
+   STRFUNC(inet_ntoa((ipaddr_t *)alloca(sizeof (ipaddr_t))))
+   STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof (in6_addr_t))))
+   STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof (ipaddr_t)))) */
+STRFUNC(d_path(&(curthread->fs->root)))
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1 - NUM_UNIMPLEMENTED/

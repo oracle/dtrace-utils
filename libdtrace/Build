@@ -73,8 +73,7 @@ SED_DLIBS += \
 BUILD_DLIBS += \
 	$(SED_DLIBS) \
 	errno.d \
-	signal.d \
-	regs.d
+	signal.d
 
 DLIBSRCS += \
         errno.d \
@@ -95,7 +94,10 @@ DLIBSRCS += \
         unistd.d
 
 WORKING_DLIBS = errno.d \
+                io.d \
+                procfs.d \
                 regs.d \
+                sched.d \
                 signal.d \
                 unistd.d
 
@@ -103,7 +105,9 @@ WORKING_DLIBS = errno.d \
 
 $(libdtrace-build_DIR)%.sed: $(libdtrace-build_DIR)%.sed.in
 	$(call describe-target,SED,$<)
-	$(PREPROCESS) -x c -D_KERNEL $< | tr -d ' ' | tr '"' '@' | \
+	$(PREPROCESS) -x c -I/lib/modules/`uname -r`/build/include \
+		      -D_KERNEL -D__KERNEL__ $< 2>/dev/null | \
+	    tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
 
 $(foreach dlib,$(SED_DLIBS),$(call src-name,libdtrace,$(dlib))): %.d: %.sed %.d.in
@@ -156,12 +160,8 @@ $(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
 	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
 	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
-$(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)i386/regs.sed.in $(libdtrace-build_DIR)i386/regs.d.in
-	$(call describe-target,SED,$(libdtrace-build_DIR)regs.d)
-	$(PREPROCESS) -x c -Iinclude -D_KERNEL $(libdtrace-build_DIR)i386/regs.sed.in | \
-            tr -d ' ' | tr '"' '@' | sed 's/\&/\\\&/g' | grep '^s/' > $(libdtrace-build_DIR)i386/regs.sed
-	sed -f $(libdtrace-build_DIR)i386/regs.sed < $(libdtrace-build_DIR)i386/regs.d.in > $@
-	-rm $(libdtrace-build_DIR)i386/regs.sed
+$(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)i386/regs.d
+	cp $< $@
 
 clean::
 	$(call describe-target,CLEAN,libdtrace)

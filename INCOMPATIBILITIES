@@ -148,3 +148,11 @@ dtrace_syminfo.dts_name instead.  There is no guaranteed replacement for
 st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
+
+Incompatible behaviour for specific probes
+------------------------------------------
+proc:::signal-discard
+	If a signal that is sent as event notification for a POSIX timer
+	expiration should be discarded, no signal-discard probe is fired.
+	The reason for this behaviour is that SDT probes do not work in
+	IRQ context.

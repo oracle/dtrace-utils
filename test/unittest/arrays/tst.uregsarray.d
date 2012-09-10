@@ -27,8 +27,6 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: Solaris-specific, unconverted */
-
 /*
  * ASSERTION:
  *	Positive test to make sure that we can invoke common

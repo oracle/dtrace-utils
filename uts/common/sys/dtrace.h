@@ -208,6 +208,7 @@ typedef enum dtrace_probespec {
 #define	DIF_VAR_UID		0x011e	/* process user ID */
 #define	DIF_VAR_GID		0x011f	/* process group ID */
 #define	DIF_VAR_ERRNO		0x0120	/* thread errno */
+#define	DIF_VAR_CURCPU		0x0121	/* cpu identifier */
 
 #define	DIF_SUBR_RAND			0
 #define	DIF_SUBR_MUTEX_OWNED		1
@@ -253,8 +254,9 @@ typedef enum dtrace_probespec {
 #define	DIF_SUBR_INET_NTOP		41
 #define	DIF_SUBR_INET_NTOA		42
 #define	DIF_SUBR_INET_NTOA6		43
+#define DIF_SUBR_D_PATH			44
 
-#define	DIF_SUBR_MAX			43	/* max subroutine value */
+#define	DIF_SUBR_MAX			44	/* max subroutine value */
 
 typedef uint32_t dif_instr_t;
 
