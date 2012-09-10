@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs porting */
-
 #pragma D option quiet
 
 dtrace:::BEGIN
@@ -34,7 +32,7 @@ dtrace:::BEGIN
 }
 
 sched:::wakeup
-/stringof(args[1]->pr_fname) == "xterm"/
+/stringof(args[1]->pr_fname) == "dtrace"/
 {
 	@[execname] = lquantize((timestamp - start) / 1000000000, 0, 10);
 }

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: proc:::lwp-start not yet implemented */
-
 proc:::lwp-start
 /tid != 1/
 {

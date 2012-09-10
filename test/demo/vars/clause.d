@@ -55,3 +55,10 @@ tick-1sec
 	this->foo = (me % 3 == 0) ? 30 : this->foo;
 	printf("Clause 3 is number %d; foo is %d", me++ % 3, this->foo++);
 }
+
+tick-1sec
+/me >= 12/
+{
+	printf("Completed %d iterations.", me);
+	exit(0);
+}

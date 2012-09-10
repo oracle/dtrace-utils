@@ -1,4 +1,4 @@
-/* @@xfail: Linux has no zones. */
+/* @@skip: Linux has no zones. */
 
 BEGIN {
 	trace(zonename);

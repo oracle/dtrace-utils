@@ -24,7 +24,9 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs porting */
+/*
+ * @@xfail: needs a trigger
+ */
 
 #pragma D option quiet
 
@@ -34,7 +36,7 @@ dtrace:::BEGIN
 }
 
 sched:::on-cpu
-/execname == $$1/
+/execname == $1/
 {
 	self->ts = timestamp;
 }

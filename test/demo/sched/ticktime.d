@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs porting */
-
 uint64_t last[int];
 
 sched:::tick

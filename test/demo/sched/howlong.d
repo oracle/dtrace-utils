@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs porting */
-
 sched:::off-cpu
 /curlwpsinfo->pr_state == SSLEEP/
 {
