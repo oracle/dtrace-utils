@@ -26,11 +26,9 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: depends on procfs.d */
-
 /*
  * ASSERTION:
- * To print lwpsinfo_t variables and make sure it succeeds
+ * To print lwpsinfo_t structure values.
  *
  * SECTION: Variables/Built-in Variables
  */
@@ -39,15 +37,15 @@
 
 BEGIN
 {
-	printf("The current thread's pr_flag is %d\n", curlwpsinfo->pr_flag);
-	printf("The current threads lwpid is %d\n", curlwpsinfo->pr_lwpid);
-	printf("The current thread's internal address is %u\n",
+	printf("The current lwp pr_flag is %d\n", curlwpsinfo->pr_flag);
+	printf("The current lwp lwpid is %d\n", curlwpsinfo->pr_lwpid);
+	printf("The current lwp internal address is %u\n",
 			curlwpsinfo->pr_addr);
-	printf("The current thread's wait addr for sleeping lwp is %u\n",
-			curlwpsinfo->pr_wchan);
-	printf("The current lwp stat is %d\n", curlwpsinfo->pr_state);
+	printf("The current lwp state is %d\n", curlwpsinfo->pr_state);
 	printf("The printable character for pr_state %c\n",
 		curlwpsinfo->pr_sname);
-	printf("The syscall number = %d\n", curlwpsinfo->pr_syscall);
+	printf("The current lwp has priority %d\n", curlwpsinfo->pr_pri);
+	printf("The current lwp is named %s\n", curlwpsinfo->pr_name);
+	printf("The current lwp is on cpu %d\n", curlwpsinfo->pr_onpro);
 	exit (0);
 }

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: needs procfs.d */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option quiet
@@ -34,7 +32,7 @@
 
 struct bar {
 	int pid;
-	kthread_t *curthread;
+	struct task_struct *curthread;
 };
 
 self struct bar foo[int];

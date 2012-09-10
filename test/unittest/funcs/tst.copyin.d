@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: depends on procfs.d */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*

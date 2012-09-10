@@ -37,7 +37,7 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::exit
-	/curpsinfo->pr_ppid == $child && args[0] == CLD_EXITED/
+	/ppid == $child && args[0] == 0/
 	{
 		exit(0);
 	}

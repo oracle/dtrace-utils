@@ -28,35 +28,55 @@
 
 /*
  * ASSERTION:
- *   Declare a dynamic type and then use it to access the root path for the
- *   current process.
+ *   Declare a dynamic type and then use it to copyin the first 3 environment
+ *   variable pointers from the current process.
  *
  * SECTION: Structs and Unions/Structs;
+ *	Actions and Subroutines/copyin();
+ * 	Actions and Subroutines/copyinstr();
  *	Variables/External Variables
  *
  * NOTES:
- *  This test program declares a dynamic type and then uses it to bcopy() the
- *  qstr representing the name of the root dentry for the current process.  We
- *  then use the dynamic type to access the result of our bcopy().  The
+ *  This test program declares a dynamic type and then uses it to copyin the
+ *  first three environment variable pointers from the current process.  We
+ *  then use the dynamic type to access the result of our copyin().  The
  *  special "D" module type scope is also tested.
  */
 
 #pragma D option quiet
 
-typedef struct dqstr {
-	unsigned int hash;
-	unsigned int len;
-	unsigned char *name;
-} dqstr_t;
+struct env_vars_32 {
+	uint32_t e1;
+	uint32_t e2;
+	uint32_t e3;
+};
+
+struct env_vars_64 {
+	uint64_t e1;
+	uint64_t e2;
+	uint64_t e3;
+};
 
 BEGIN
+/curpsinfo->pr_dmodel == PR_MODEL_ILP32/
 {
-	s = (D`dqstr_t *)alloca(sizeof(D`dqstr_t));
-	bcopy(&curthread->fs->root.dentry->d_name, s, sizeof (D`dqstr_t));
+	e32 = (struct D`env_vars_32 *)curpsinfo->pr_envp;
 
-	printf("hash = %d\n", s->hash);
-	printf("len = %d\n", s->len);
-	printf("name = \"%s\"\n", stringof(s->name));
+	printf("e1 = \"%s\"\n", stringof(e32->e1));
+	printf("e2 = \"%s\"\n", stringof(e32->e2));
+	printf("e3 = \"%s\"\n", stringof(e32->e3));
+
+	exit(0);
+}
+
+BEGIN
+/curpsinfo->pr_dmodel == PR_MODEL_LP64/
+{
+	e64 = (struct D`env_vars_64 *)curpsinfo->pr_envp;
+
+	printf("e1 = \"%s\"\n", stringof(e64->e1));
+	printf("e2 = \"%s\"\n", stringof(e64->e2));
+	printf("e3 = \"%s\"\n", stringof(e64->e3));
 
 	exit(0);
 }

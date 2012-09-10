@@ -40,6 +40,6 @@
 
 BEGIN
 {
-	printf("The nice for cpu usage %c\n", curlwpsinfo->pr_nice);
+	printf("The nice setting = %c\n", curlwpsinfo->pr_nice);
 	exit (0);
 }

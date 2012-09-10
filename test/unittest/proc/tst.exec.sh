@@ -37,7 +37,7 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::exec
-	/curpsinfo->pr_ppid == $child && args[0] == "/usr/bin/sleep"/
+	/ppid == $child && args[0] == "/bin/sleep"/
 	{
 		self->exec = 1;
 	}

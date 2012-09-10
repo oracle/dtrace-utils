@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: curthread not yet available */
-
 /*
  * This test confirms the orthogonality of associative arrays and thread-local
  * variables by intentionally deriving a matching key signature (based on
@@ -41,13 +39,13 @@ BEGIN
 }
 
 BEGIN
-/b[curthread->t_did] == 0/
+/b[(uint64_t)curthread] == 0/
 {
 	exit(0);
 }
 
 BEGIN
 {
-	printf("value should be 0; value is %x!", b[curthread->t_did]);
+	printf("value should be 0; value is %x!", b[(uint64_t)curthread]);
 	exit(1);
 }

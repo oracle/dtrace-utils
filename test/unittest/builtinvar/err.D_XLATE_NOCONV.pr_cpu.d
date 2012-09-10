@@ -26,17 +26,20 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
+
 /*
  * ASSERTION:
  * print non assigned value and make sure it fails.
  *
  * SECTION: Variables/Built-in Variables
+ *
+ *
  */
 
 #pragma D option quiet
 
 BEGIN
 {
-	printf("The cpuusage = %d\n", curlwpsinfo->pr_cpu);
+	printf("The cpu-usage setting = %c\n", curlwpsinfo->pr_cpu);
 	exit (0);
 }

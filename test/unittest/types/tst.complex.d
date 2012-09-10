@@ -35,8 +35,6 @@
  * 	Actions and Subroutines/tracemem()
  */
 
-/* @@xfail: needs curthread */
-
 #pragma D option quiet
 
 struct s {
@@ -47,8 +45,8 @@ struct s {
 	long l;
 	long long ll;
 	union sigval u;
-	enum uio_rw e;
-	struct vnode s;
+	enum pid_type e;
+	struct inode s;
 	struct s1 {
 		int i;
 		char c;
@@ -57,8 +55,8 @@ struct s {
 		long l;
 		long long ll;
 		union sigval u;
-		enum uio_rw e;
-		struct vnode s;
+		enum pid_type e;
+		struct inode s;
 	} sx;
 	int a[2];
 	int *p;

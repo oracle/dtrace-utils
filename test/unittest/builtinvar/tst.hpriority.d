@@ -26,8 +26,6 @@
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: depends on procfs.d */
-
 /*
  * ASSERTION:
  * To print hpriority and make sure it succeeds

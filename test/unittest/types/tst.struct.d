@@ -26,61 +26,37 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: needs psinfo.d */
-
 /*
  * ASSERTION:
- *   Declare a dynamic type and then use it to copyin the first 3 environment
- *   variable pointers from the current process.
+ *   Declare a dynamic type and then use it to access the root path for the
+ *   current process.
  *
  * SECTION: Structs and Unions/Structs;
- *	Actions and Subroutines/copyin();
- * 	Actions and Subroutines/copyinstr();
  *	Variables/External Variables
  *
  * NOTES:
- *  This test program declares a dynamic type and then uses it to copyin the
- *  first three environment variable pointers from the current process.  We
- *  then use the dynamic type to access the result of our copyin().  The
+ *  This test program declares a dynamic type and then uses it to bcopy() the
+ *  qstr representing the name of the root dentry for the current process.  We
+ *  then use the dynamic type to access the result of our bcopy().  The
  *  special "D" module type scope is also tested.
  */
 
 #pragma D option quiet
 
-struct env_vars_32 {
-	uint32_t e1;
-	uint32_t e2;
-	uint32_t e3;
-};
-
-struct env_vars_64 {
-	uint64_t e1;
-	uint64_t e2;
-	uint64_t e3;
+struct dqstr {
+	unsigned int hash;
+	unsigned int len;
+	unsigned char *name;
 };
 
 BEGIN
-/curpsinfo->pr_dmodel == PR_MODEL_ILP32/
 {
-	e32 = (struct D`env_vars_32 *)
-	    copyin(curpsinfo->pr_envp, sizeof (struct D`env_vars_32));
+	s = (struct D`dqstr *)alloca(sizeof(struct D`dqstr));
+	bcopy(&curthread->fs->root.dentry->d_name, s, sizeof (struct D`dqstr));
 
-	printf("e1 = \"%s\"\n", stringof(copyinstr(e32->e1)));
-	printf("e2 = \"%s\"\n", stringof(copyinstr(e32->e2)));
-	printf("e3 = \"%s\"\n", stringof(copyinstr(e32->e3)));
-
-	exit(0);
-}
-
-BEGIN
-/curpsinfo->pr_dmodel == PR_MODEL_LP64/
-{
-	e64 = (struct D`env_vars_64 *)
-	    copyin(curpsinfo->pr_envp, sizeof (struct D`env_vars_64));
-
-	printf("e1 = \"%s\"\n", stringof(copyinstr(e64->e1)));
-	printf("e2 = \"%s\"\n", stringof(copyinstr(e64->e2)));
-	printf("e3 = \"%s\"\n", stringof(copyinstr(e64->e3)));
+	printf("hash = %d\n", s->hash);
+	printf("len = %d\n", s->len);
+	printf("name = \"%s\"\n", stringof(s->name));
 
 	exit(0);
 }

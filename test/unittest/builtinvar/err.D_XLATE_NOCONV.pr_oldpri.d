@@ -38,6 +38,6 @@
 BEGIN
 {
 	printf("The low value is high priority field = %d\n",
-		curlwpsinfo->pr_nice);
+		curlwpsinfo->pr_oldpri);
 	exit (0);
 }

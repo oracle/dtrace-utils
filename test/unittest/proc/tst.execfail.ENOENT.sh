@@ -38,7 +38,7 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::exec
-	/curpsinfo->pr_ppid == $child && args[0] == "$badexec"/
+	/ppid == $child && args[0] == "$badexec"/
 	{
 		self->exec = 1;
 	}

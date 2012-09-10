@@ -41,7 +41,7 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::start
-	/curpsinfo->pr_ppid == $child/
+	/ppid == $child/
 	{
 		self->start = 1;
 	}
