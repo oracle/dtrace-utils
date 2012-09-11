@@ -55,7 +55,7 @@ $(libdtrace-build_DIR)dt_names.c: uts/common/sys/dtrace.h $(libdtrace-build_DIR)
 
 $(libdtrace-build_DIR)%.h $(libdtrace-build_DIR)%.c: $(libdtrace-build_DIR)%.y
 	$(call describe-target,YACC,$(libdtrace-build_DIR)$*.c)
-	$(YACC) -o $(libdtrace-build_DIR)$*.c -d $(libdtrace-build_DIR)$*.y
+	bison -o $(libdtrace-build_DIR)$*.c -d $(libdtrace-build_DIR)$*.y
 
 $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_lex.l
 	$(call describe-target,LEX,$(libdtrace-build_DIR)dt_lex.c)

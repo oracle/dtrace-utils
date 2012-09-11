@@ -28,6 +28,8 @@
 	* test/modules: Add ext3, hidden.
 	* test/unittest/misc/tst.include.sh: Skip it.
 
+	* libdtrace/Build: Use Bison as the parser generator.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.
