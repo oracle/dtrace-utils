@@ -24,8 +24,9 @@
 	variables in unloaded kernel modules does not work.
 
 	* runtest.sh: Add @@hide for modules whose removal should not
-	be commented on.
+	be commented on.  Log skips.
 	* test/modules: Add ext3, hidden.
+	* test/unittest/misc/tst.include.sh: Skip it.
 
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 

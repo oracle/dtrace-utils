@@ -656,7 +656,7 @@ for dt in $dtrace; do
         # @@timeout: The timeout to use for this test.  Overrides the --timeout
         #            parameter.
         #
-        # @@skip: If true, the test is silently skipped.
+        # @@skip: If true, the test is skipped.
         #
         # @@xfail: A single line containing a reason for this test's expected
         #          failure.  (If the test passes unexpectedly, this message is
@@ -747,6 +747,7 @@ for dt in $dtrace; do
         # Optionally skip this test.
 
         if exist_options skip $_test; then
+            log "Skipping $_test: $(extract_options skip $_test)"
             continue
         fi
 
