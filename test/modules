@@ -4,3 +4,4 @@ dt_test
 profile
 systrace
 sdt
+@@quiet ext3

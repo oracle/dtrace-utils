@@ -23,6 +23,10 @@
 	* test/unittest/types/err.unloaded_var.d: Verify that using
 	variables in unloaded kernel modules does not work.
 
+	* runtest.sh: Add @@hide for modules whose removal should not
+	be commented on.
+	* test/modules: Add ext3, hidden.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.

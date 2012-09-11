@@ -47,7 +47,7 @@ load_modules()
 {
     # If running as root, pull in appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        for name in $(grep -v '^@@unload-only' ./test/modules | cut -d\  -f2-); do
+        for name in $(grep -v '^@@unload-only' ./test/modules | sed 's,@@[a-z-]*,,g'); do
             modprobe $name
         done
     else
@@ -60,8 +60,9 @@ unload_modules()
     HIDE=$1
     # If running as root, unload all appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        for name in $(tac ./test/modules | cut -d\  -f2-); do
-            if [[ -z $HIDE ]]; then
+        tac ./test/modules | while read -r line; do
+            name="$(echo $line | sed 's,@@[a-z-]*,,g')"
+            if [[ -z $HIDE ]] && echo "$line" | grep -qv @@quiet; then
                 rmmod $name
             else
                 rmmod $name 2>/dev/null
