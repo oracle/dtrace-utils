@@ -768,6 +768,23 @@ id_or_type(const char *s)
 	}
 
 	/*
+	 * In type context -> must be a type name.
+	 */
+	if (yypcb->pcb_context == DT_CTX_DTYPE)
+		return (DT_TOK_TNAME);
+
+	/*
+	 * Inside an array declaration, having already seen a type: this must
+	 * be an identifier.  Intern it as such.
+	 */
+	if (yypcb->pcb_array_dimens && ddp != NULL && ddp->dd_name != NULL) {
+		idp = dt_idhash_insert(yypcb->pcb_idents, s, DT_IDENT_SCALAR,
+			DT_IDFLG_DECL, 0, _dtrace_defattr, 0, &dt_idops_thaw,
+			NULL, dtp->dt_gen);
+		return (DT_TOK_IDENT);
+	}
+
+	/*
 	 * If the lexeme is a global variable or likely identifier, then it is
 	 * an identifier token.
 	 */

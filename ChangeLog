@@ -31,13 +31,17 @@
 	* libdtrace/Build: Use Bison as the parser generator.
 
 	* libdtrace/dt_pcb.h (pcb_xlator_input): New.
+	(pcb_array_dimens): Likewise.
 	* libdtrace/dt_grammar.y (translator_input_type): New, type_name with
 	pcb_xlator_input flipped on beforehand.
 	(translator_close_paren): Flip pcb_xlator_input off again.
 	(translator_definition): Use them.
+	(array): Flip pcb_array_dimens.
 	* libdtrace/dt_lex.l (id_or_type): In a program clause with
 	pcb_xlator_input turned on, an id_or_type followed by > is an
-	identifier.
+	identifier.  In type context, anything we see is a type.  In an
+	array dimension, after having already seen a type, this is a new
+	identifier: intern it.
 
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 

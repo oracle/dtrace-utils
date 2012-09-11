@@ -39,7 +39,8 @@ fi
 
 dtrace=$1
 
-# This should load no CTF at all.
+# These should both load only vmlinux and dtrace_ctf (the first due to
+# dlibs, the second due to both that and direct referencing).
 
 tiny()
 {
@@ -56,7 +57,6 @@ BEGIN {
 EOF
 }
 
-# This should load only vmlinux and dtrace_ctf.
 bigger()
 {
     DTRACE_DEBUG=t $dtrace $dt_flags -s /dev/stdin <<EOF

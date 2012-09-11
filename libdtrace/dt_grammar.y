@@ -805,10 +805,13 @@ direct_abstract_declarator:
 	|	function { dt_decl_func(NULL, $1); }
 	;
 
-array:		DT_TOK_LBRAC { dt_scope_push(NULL, CTF_ERR); }
+array:		{ yypcb->pcb_array_dimens = 1; }
+		DT_TOK_LBRAC { dt_scope_push(NULL, CTF_ERR); }
 		    array_parameters DT_TOK_RBRAC {
 			dt_scope_pop();
-			$$ = $3;
+			yypcb->pcb_array_dimens = 0;
+
+			$$ = $4;
 		}
 	;
 
