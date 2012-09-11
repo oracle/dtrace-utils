@@ -1,3 +1,13 @@
+2012-09-11  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_proc.h (dt_proc.hash_t): New members
+	dph_destroy_lock and dph_destroy_locked.
+	* libdtrace/dt_proc.c (dt_proc_hash_create): Initialize the lock.
+	(dt_proc_hash_destroy): Take it out around proc destruction...
+	(dt_proc_control): ... and around control thread termination.
+	Erase ourselves from the lrulist here...
+	(dt_proc_control_cleanup): ... not here.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.

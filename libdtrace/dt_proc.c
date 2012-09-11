@@ -345,11 +345,19 @@ dt_proc_control(void *arg)
 	 * dt_proc_t structure on the dt_proc_hash_t notification list, then
 	 * clean up.
 	 */
+	pthread_mutex_lock(&dph->dph_destroy_lock);
+
 	dpr->dpr_proc = NULL;
 	dt_proc_notify(dtp, dph, dpr, NULL);
+
 	pthread_cleanup_pop(1);
+
+	dt_list_delete(&dph->dph_lrulist, dpr);
 	dt_proc_remove(dtp, pid);
 	dt_free(dtp, dpr);
+
+	pthread_mutex_unlock(&dph->dph_destroy_lock);
+
 	return (NULL);
 }
 
@@ -360,15 +368,11 @@ static void
 dt_proc_control_cleanup(void *arg)
 {
 	dt_proc_t *dpr = arg;
-	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
 
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
 	 * has exited, and notify any waiting thread in dt_proc_destroy() that
 	 * we have successfully exited.
-	 *
-	 * If we were cancelled while already holding the mutex, don't lock it
-	 * again.
  	 */
 	if(!dpr->dpr_tid_locked) {
 		pthread_mutex_lock(&dpr->dpr_lock);
@@ -377,12 +381,6 @@ dt_proc_control_cleanup(void *arg)
 
 	if (dpr->dpr_proc)
 		Prelease(dpr->dpr_proc, dpr->dpr_created);
-
-	/*
-	 * Now erase ourselves from the lrulist.  FIXME we probably need some
-	 * locking of the lrulist here.
-	 */
-	dt_list_delete(&dph->dph_lrulist, dpr);
 
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
@@ -761,6 +759,7 @@ dt_proc_hash_create(dtrace_hdl_t *dtp)
 	    sizeof (dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
 
 		(void) pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
+		(void) pthread_mutex_init(&dtp->dt_procs->dph_destroy_lock, NULL);
 		(void) pthread_cond_init(&dtp->dt_procs->dph_cv, NULL);
 
 		dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
@@ -774,8 +773,10 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr;
 
+	pthread_mutex_lock(&dph->dph_destroy_lock);
 	while ((dpr = dt_list_next(&dph->dph_lrulist)) != NULL)
 		dt_proc_destroy(dtp, dpr->dpr_proc);
+	pthread_mutex_unlock(&dph->dph_destroy_lock);
 
 	dtp->dt_procs = NULL;
 	dt_free(dtp, dph);
