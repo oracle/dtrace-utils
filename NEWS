@@ -62,6 +62,8 @@ Bugfixes:
 
  - DTrace libraries are installed to /usr/lib64 now, not /usr/lib.
 
+ - Users of dtrace -C can now #include <sys/dtrace.h> without incident.
+
 Changes to user-visible internals:
 
  - A new file /proc/kallmodsyms now exists, like /proc/kallsyms but giving
