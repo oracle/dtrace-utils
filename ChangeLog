@@ -23,7 +23,7 @@
 	* test/unittest/types/err.unloaded_var.d: Verify that using
 	variables in unloaded kernel modules does not work.
 
-	* runtest.sh: Add @@hide for modules whose removal should not
+	* runtest.sh: Add @@quiet for modules whose removal should not
 	be commented on.  Log skips.
 	* test/modules: Add ext3, hidden.
 	* test/unittest/misc/tst.include.sh: Skip it.

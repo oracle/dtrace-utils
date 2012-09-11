@@ -373,6 +373,9 @@ dt_proc_control_cleanup(void *arg)
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
 	 * has exited, and notify any waiting thread in dt_proc_destroy() that
 	 * we have successfully exited.
+	 *
+	 * If we were cancelled while already holding the mutex, don't lock it
+	 * again.
  	 */
 	if(!dpr->dpr_tid_locked) {
 		pthread_mutex_lock(&dpr->dpr_lock);
