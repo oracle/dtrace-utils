@@ -172,6 +172,7 @@ int yylex (void);
 %type	<l_decl>	type_name
 %type	<l_decl>	abstract_declarator
 %type	<l_decl>	direct_abstract_declarator
+%type	<l_decl>	translator_input_type
 
 %type	<l_node>	parameter_type_list
 %type	<l_node>	parameter_list
@@ -254,14 +255,23 @@ inline_definition:
 			$$ = dt_node_inline($6);
 		}
 	;
+translator_input_type:
+		{ yypcb->pcb_xlator_input = 1; }
+		type_name
+		{ $$ = $2; }
+	;
+
+translator_close_paren: DT_TOK_GT { yypcb->pcb_xlator_input = 0; }
+	;
 
 translator_definition:
-		DT_KEY_XLATOR type_name DT_TOK_LT type_name
-		    DT_TOK_IDENT DT_TOK_GT '{' translator_member_list '}' ';' {
+		DT_KEY_XLATOR type_name DT_TOK_LT translator_input_type
+		     DT_TOK_IDENT translator_close_paren
+		     '{' translator_member_list '}' ';' {
 			$$ = dt_node_xlator($2, $4, $5, $8);
 		}
-	|	DT_KEY_XLATOR type_name DT_TOK_LT type_name
-		    DT_TOK_IDENT DT_TOK_GT '{' '}' ';' {
+	|	DT_KEY_XLATOR type_name DT_TOK_LT translator_input_type
+		    DT_TOK_IDENT translator_close_paren '{' '}' ';' {
 			$$ = dt_node_xlator($2, $4, $5, NULL);
 		}
 	;

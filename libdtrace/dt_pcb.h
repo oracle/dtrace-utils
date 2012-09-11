@@ -93,6 +93,7 @@ typedef struct dt_pcb {
 	int pcb_parens;		/* number of open parentheses in lexer */
 	int pcb_sou_type;	/* lexer in struct/union type name */
 	int pcb_sou_deref;	/* lexer in struct/union dereference */
+	int pcb_xlator_input;	/* in translator input type */
 } dt_pcb_t;
 
 extern void dt_pcb_push(dtrace_hdl_t *, dt_pcb_t *);

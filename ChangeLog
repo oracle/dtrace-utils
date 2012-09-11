@@ -30,6 +30,15 @@
 
 	* libdtrace/Build: Use Bison as the parser generator.
 
+	* libdtrace/dt_pcb.h (pcb_xlator_input): New.
+	* libdtrace/dt_grammar.y (translator_input_type): New, type_name with
+	pcb_xlator_input flipped on beforehand.
+	(translator_close_paren): Flip pcb_xlator_input off again.
+	(translator_definition): Use them.
+	* libdtrace/dt_lex.l (id_or_type): In a program clause with
+	pcb_xlator_input turned on, an id_or_type followed by > is an
+	identifier.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.

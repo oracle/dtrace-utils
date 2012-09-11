@@ -178,7 +178,7 @@ if (yypcb->pcb_token != 0) {
 <S2>struct	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
 					return (DT_KEY_STRUCT); }
 <S2>this	{ yybegin(YYS_EXPR);	return (DT_KEY_THIS); }
-<S2>translator	{ yybegin(YYS_DEFINE);	return (DT_KEY_XLATOR); }
+<S2>translator	{ yybegin(YYS_DEFINE);  return (DT_KEY_XLATOR); }
 <S2>typedef	{ yybegin(YYS_EXPR);	return (DT_KEY_TYPEDEF); }
 <S2>union	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
 					return (DT_KEY_UNION); }
@@ -783,6 +783,9 @@ id_or_type(const char *s)
 	 * return DT_TOK_IDENT.	 There is no harm in being wrong:
 	 * a type_name followed by ++, --, [, =, or ; is a syntax error.
 	 *
+	 * If we are in a translator input declaration, the appearance of >
+	 * also indicates that this is an identifier.
+	 *
 	 * We do this before checking to see if this is a known type name so as
 	 * to avoid looking up unknown types unless absolutely necessary.
 	 */
@@ -817,6 +820,10 @@ id_or_type(const char *s)
 			break;
 		case ',':
 			if (yypcb->pcb_parens == 0)
+				ttok = DT_TOK_IDENT;
+			break;
+		case '>':
+			if (yypcb->pcb_xlator_input)
 				ttok = DT_TOK_IDENT;
 			break;
 		}
