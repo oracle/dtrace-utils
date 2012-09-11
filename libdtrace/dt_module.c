@@ -520,12 +520,13 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dt_kern_module_find(dtp, dmp);
 
 	/*
-	 * There are two possibilities here: a non-kernel module must pull in
-	 * the symbol and string tables in addition to the CTF section, while
-	 * kernel modules need only the appropriately-named CTF section from the
-	 * dm_file (which will be dtrace_ctf.ko for built-in modules and the
-	 * kernel proper). Builtin kernel modules have a section name that
-	 * varies per-module: all other modules have a constant name.
+	 * There are two possibilities here: a non-kernel module and non-loaded
+	 * kernel module must pull in the symbol and string tables in addition
+	 * to the CTF section, while loaded kernel modules need only the
+	 * appropriately-named CTF section from the dm_file (which will be
+	 * dtrace_ctf.ko for built-in modules and the kernel proper).  Builtin
+	 * kernel modules have a section name that varies per-module: all other
+	 * modules have a constant name.
 	 */
 
 	if ((dmp->dm_elf == NULL) && (dt_module_init_elf(dtp, dmp) != 0))
@@ -570,11 +571,12 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_ctdata_name = dt_ctf_uncompress(dmp, &dmp->dm_ctdata);
 
 	/*
-	 * Nothing more to do for kernel modules: we already have their symbols
-	 * loaded into the dm_kernsyms.
+	 * Nothing more to do for loaded kernel modules: we already have their
+	 * symbols loaded into the dm_kernsyms.
 	 */
 
-	if (dmp->dm_flags & DT_DM_KERNEL) {
+	if ((dmp->dm_flags & DT_DM_KERNEL) &&
+	    (!(dmp->dm_flags & DT_DM_KERN_UNLOADED))) {
 		dmp->dm_flags |= DT_DM_LOADED;
 		return (0);
 	}
@@ -1080,9 +1082,22 @@ dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 *
 	 * All such modules share their dm_elf with dtp->dt_ctf_elf, and have
 	 * the DT_DM_BUILTIN flag turned on.
+	 *
+	 * Note: before we call this function we cannot distinguish between a
+	 * non-loaded kernel module and a userspace module.  Neither have
+	 * DT_DM_KERNEL turned on: the only difference is that the latter has no
+	 * entry in the kernpath hash.
 	 */
 	dkpp = dt_kern_path_lookup_by_name(dtp, dmp->dm_name);
 	if (!dkpp) {
+
+		/*
+		 * This may have failed because this is not a kernel module at
+		 * all.  That's quite acceptable: just return.
+		 */
+		if (!(dmp->dm_flags & DT_DM_KERNEL))
+			return;
+
 		dkpp = dt_kern_path_lookup_by_name(dtp, "dtrace_ctf");
 
 		/*
@@ -1098,6 +1113,17 @@ dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_flags |= DT_DM_BUILTIN;
 	}
 
+	/*
+	 * Unloaded kernel module?  Note that.
+         */
+	if (!(dmp->dm_flags & DT_DM_KERNEL)) {
+		dmp->dm_flags |= DT_DM_KERNEL;
+		dmp->dm_flags |= DT_DM_KERN_UNLOADED;
+		dt_kern_module_init(dtp, dmp);
+	}
+	/*
+	 * This is definitely a kernel module (though perhaps not a loaded one).
+	 */
 	if (strcmp(dmp->dm_name, "dtrace_ctf") == 0)
 		/*
 		 * dtrace_ctf.ko itself is a special case: it contains no code
@@ -1440,7 +1466,8 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 		if (dt_module_load(dtp, dmp) == -1)
 			continue; /* failed to load symbol table */
 
-		if (dmp->dm_flags & DT_DM_KERNEL) {
+		if ((dmp->dm_flags & DT_DM_KERNEL) &&
+		    (!(dmp->dm_flags & DT_DM_KERN_UNLOADED))) {
 			dt_symbol_t *dt_symp;
 
 			if (!dmp->dm_kernsyms)
@@ -1545,6 +1572,10 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 	if (dmp->dm_flags & DT_DM_KERNEL) {
 		dt_symbol_t *dt_symp;
 
+		/*
+		 * This is probably a non-loaded kernel module.  Looking
+		 * anything up by address in this case is hopeless.
+		 */
 		if (!dmp->dm_kernsyms)
 			return (dt_set_errno(dtp, EDT_NOSYMADDR));
 
@@ -1677,6 +1708,9 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 
 	if (dmp->dm_flags & DT_DM_KERNEL)
 	{
+		if (dmp->dm_flags & DT_DM_KERN_UNLOADED)
+			return (dt_set_errno(dtp, EDT_NOSYMADDR));
+
 		if (dt_module_getctf(dtp, dmp) == NULL)
 			return (-1); /* errno is set for us */
 

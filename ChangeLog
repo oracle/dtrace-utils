@@ -8,6 +8,21 @@
 	Erase ourselves from the lrulist here...
 	(dt_proc_control_cleanup): ... not here.
 
+	* libdtrace/dt_impl.h (DT_DM_KERN_UNLOADED): New module flag.
+	* libdtrace/dt_module.c (dt_kern_module_find): Set it.  Never
+	point non-kernel-modules at dtrace_ctf.
+	(dt_module_load): Return without loading ELF symbol table only for
+	loaded kernel modules.
+	(dtrace_lookup_by_name): Look up symbols in dt_kernsyms only
+	if loaded: otherwise, use ELF lookup.
+	(dtrace_lookup_by_addr): Always error for non-loaded kernel
+	modules.
+	(dtrace_symbol_type): Likewise.
+	* test/unittest/types/tst.unloaded.d: Verify that casting to types
+	in unloaded kernel modules works.
+	* test/unittest/types/err.unloaded_var.d: Verify that using
+	variables in unloaded kernel modules does not work.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.
