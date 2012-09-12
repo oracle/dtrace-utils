@@ -3,13 +3,18 @@
 # Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 #
 
+# The version below need not be accurate: any version will likely do,
+# and we use wildcards to pluck an appropriate one out of the morass.
+%define kver_min 2.6.39-201
+%define kver_max 2.6.39-201
+
 BuildRequires: rpm
 Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf zlib libdtrace-ctf dtrace-kernel-interface = 1
-BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel kernel-headers glibc-headers fakeroot bison flex zlib-devel
+BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel kernel-headers glibc-headers fakeroot bison flex zlib-devel kernel-uek-devel >= %{kver_min} kernel-uek-devel <= %{kver_max}
 Summary:      DTrace user interface.
 Version:      0.3.0
 Release:      1.el6
@@ -40,7 +45,7 @@ replacements for dtrace(1) itself.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version}
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver_min}*; do echo $ver; break; done)
 
 %install
 echo rm -rf $RPM_BUILD_ROOT

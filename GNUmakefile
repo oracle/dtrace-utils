@@ -45,6 +45,13 @@ CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E -C
 
+# The substitution process in libdtrace needs a kernel build tree.
+
+KERNELDIR := /lib/modules/$(shell uname -r)/build
+ifeq ($(wildcard $(KERNELDIR)/include/linux),)
+$(error "Error: Point KERNELDIR=... at the Linux kernel source")
+endif
+
 # If libdtrace-ctf is initialized, we want to get headers from it.
 
 ifneq ($(wildcard libdtrace-ctf/Make*),)

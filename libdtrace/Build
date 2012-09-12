@@ -105,7 +105,7 @@ WORKING_DLIBS = errno.d \
 
 $(libdtrace-build_DIR)%.sed: $(libdtrace-build_DIR)%.sed.in
 	$(call describe-target,SED,$<)
-	$(PREPROCESS) -x c -I/lib/modules/`uname -r`/build/include \
+	$(PREPROCESS) -x c -I$(KERNELDIR)/include \
 		      -D_KERNEL -D__KERNEL__ $< 2>/dev/null | \
 	    tr -d ' ' | tr '"' '@' | \
             sed 's/\&/\\\&/g' | grep '^s/' > $@
