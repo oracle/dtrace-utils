@@ -43,6 +43,25 @@
 	array dimension, after having already seen a type, this is a new
 	identifier: intern it.
 
+2012-09-10  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* INCOMPATIBILITIES: Document signal-discard incompatibility.
+	* libdtrace/Build: Change substitution of regs.d and sedded .d
+	files.  regs.d is no longer built.  io.d, procfs.d, and sched.d
+	are now installed.
+
+	* libdtrace/dt_open.c (_dtrace_globals): Add curcpu and d_path.
+	* uts/common/sys/dtrace.h: Likewise.  Fix DIF_SUBR_MAX.
+
+	* libdtrace/i386/regs.d.in: Rename to...
+	* libdtrace/i386/regs.d: ... this, and hardwire values.
+	* libdtrace/i386/regs.sed.in: Remove.
+	* libdtrace/io.d.in: Rewrite.
+	* libdtrace/io.sed.in: Likewise.
+	* libdtrace/procfs.d.in: Likewise.
+	* libdtrace/sched.d: Fix dependencies.  Remove dead curcpu-related
+	code.
+
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.
