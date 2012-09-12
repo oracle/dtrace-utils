@@ -1,3 +1,16 @@
+2012-09-12  Nick Alcock  <nick.alcock@oracle.com>
+
+	* GNUmakefile (KERNELDIR): New variable pointing to a kernel
+	tree.
+	* libdtrace/Build (%.sed): Use it instead of a direct uname -r
+	invocation.
+	* dtrace-utils.spec (%build): Set it, pointing at any suitable
+	kernel devel package.
+	(kver_min): New, minimum kernel version this userspace works with.
+	(kver_max): New, maximum kernel version this userspace works with.
+	(BuildRequires): Require an appropriate development kernel, for
+	header substitutions.
+
 2012-09-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_proc.h (dt_proc.hash_t): New members
