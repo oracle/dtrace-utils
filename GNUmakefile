@@ -59,7 +59,7 @@ CPPFLAGS += -Ilibdtrace-ctf/include
 endif
 
 prefix = /usr
-objdir := build-$(shell uname -r)
+objdir := build
 LIBDIR := $(DESTDIR)$(prefix)/lib$(BITNESS)
 BINDIR := $(DESTDIR)$(prefix)/bin
 INCLUDEDIR := $(DESTDIR)$(prefix)/include

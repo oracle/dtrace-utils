@@ -506,8 +506,8 @@ postprocess()
 }
 
 if [[ -z $USE_INSTALLED ]]; then
-    dtrace="$(pwd)/build-$(uname -r)*/dtrace"
-    test_libdir="$(pwd)/build-$(uname -r)/dlibs"
+    dtrace="$(pwd)/build*/dtrace"
+    test_libdir="$(pwd)/build/dlibs"
     test_incflags="-Iuts/common -Ilibdtrace-ctf/include"
 
     if [[ -z $(eval echo $dtrace) ]]; then
@@ -539,7 +539,7 @@ unload_modules hide
 # Initialize test coverage.
 
 if [[ -z $BADDOF ]]; then
-    for name in build-*; do
+    for name in build*; do
         if [[ -n "$(echo $name/*.gcno)" ]]; then
             rm -rf $logdir/coverage
             mkdir -p $logdir/coverage
@@ -1076,7 +1076,7 @@ fi
 unload_modules
 
 # Test coverage.
-for name in build-*; do
+for name in build*; do
     if [[ -n "$(echo $name/*.gcda)" ]]; then
         force_out "Coverage info for $name:\n"
         lcov --capture --base-directory . --directory $name \

@@ -11,6 +11,9 @@
 	(BuildRequires): Require an appropriate development kernel, for
 	header substitutions.
 
+	* GNUmakefile (objdir): Do not use uname -r.
+	* runtest.sh: Adjust.
+
 2012-09-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_proc.h (dt_proc.hash_t): New members
