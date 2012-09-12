@@ -12,7 +12,7 @@
 	header substitutions.
 
 	* GNUmakefile (objdir): Do not use uname -r.
-	* runtest.sh: Adjust.
+	* runtest.sh: Adjust.  Fix the LD_LIBRARY_PATH.
 
 2012-09-11  Nick Alcock  <nick.alcock@oracle.com>
 

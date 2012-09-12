@@ -615,7 +615,7 @@ for dt in $dtrace; do
     # If not testing an installed dtrace, we must look for our shared libraries
     # in the right place.
     if [[ "x$test_libdir" != "xinstalled" ]]; then
-        export LD_LIBRARY_PATH="$(dirname $dtrace)"
+        export LD_LIBRARY_PATH="$(dirname $dt)"
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
