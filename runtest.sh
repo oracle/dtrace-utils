@@ -747,7 +747,7 @@ for dt in $dtrace; do
         # Optionally skip this test.
 
         if exist_options skip $_test; then
-            log "Skipping $_test: $(extract_options skip $_test)"
+            log "Skipping $_test: $(extract_options skip $_test)\n"
             continue
         fi
 
