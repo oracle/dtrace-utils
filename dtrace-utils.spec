@@ -50,7 +50,7 @@ make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /
 %install
 echo rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} install
+fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver_min}*; do echo $ver; break; done) install
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)
