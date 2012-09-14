@@ -1,3 +1,7 @@
+2012-09-14  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build (libdtrace-build_SRCDEPS): Add dt_grammar.h.
+
 2012-09-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* GNUmakefile (KERNELDIR): New variable pointing to a kernel
