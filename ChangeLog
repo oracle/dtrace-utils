@@ -1,3 +1,23 @@
+2012-09-14  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/sed-replace.m4: New, generate sed script containing
+	warning tokens if preprocessor replacement failed.
+	* libdtrace/Build (%.sed): Use m4: grep for the warning token and
+	fail if found.  Put the resulting sed scripts in the objdir.
+	(dlib creation): Work only over WORKING_DLIBS to prevent spurious
+	errors.  Look in the objdir for sed scripts.
+	(dlibs): Only process WORKING_DLIBS.
+	* libdtrace/io.sed.in: Change comment and SED_REPLACE. Introduce
+	diversion before seddery.
+	* libdtrace/ip.sed.in: Likewise.
+	* libdtrace/net.sed.in: Likewise.
+	* libdtrace/procfs.sed.in: Likewise.
+	* libdtrace/tcp.sed.in: Likewise.
+	* libdtrace/udp.sed.in: Likewise.
+	* GNUmakefile (PREPROCESS): No longer preserve comments.
+	(SECONDEXPANSION): Enable.
+	* dtrace-utils.spec (BuildRequires): Require m4.
+
 2012-09-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (BuildRequires): Do not require kernel-headers.

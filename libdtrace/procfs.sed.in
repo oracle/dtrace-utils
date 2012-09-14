@@ -1,3 +1,4 @@
+divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -24,20 +25,18 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 /*
- * This file is a sed script which is first preprocessed by cpp or cc -E to
- * define a set of sed directives which replace #define tokens with their
- * values.  After preprocessing, the sed script is run over procfs.d.in to
- * replace the #define tokens listed below to create the finished procfs.d.
- * Refer to the rules in libdtrace/Makefile.com for more information.
+ * This file is an m4 script which is first preprocessed by cpp or cc -E to
+ * substitute #define tokens for their values. It is then run over procfs.d.in
+ * to produce a sed script, which is finally run over procfs.d.in to replace
+ * the #define tokens listed below to create the finished procfs.d.
  */
 #define __KERNEL__
 #include <linux/sched.h>
 
-#define	SED_REPLACE(x)	s/#x/x/g
+#define	SED_REPLACE(x)	__sed_replace(#x,x)
 
+divert(0)
 SED_REPLACE(TASK_RUNNING)
 SED_REPLACE(TASK_INTERRUPTIBLE)
 SED_REPLACE(TASK_UNINTERRUPTIBLE)

@@ -104,20 +104,24 @@ WORKING_DLIBS = errno.d \
 
 # Normal substitutions.
 
-$(libdtrace-build_DIR)%.sed: $(libdtrace-build_DIR)%.sed.in
+$(objdir)/%.sed: $(libdtrace-build_DIR)%.sed.in
 	$(call describe-target,SED,$<)
 	$(PREPROCESS) -x c -I$(KERNELDIR)/include \
 		      -D_KERNEL -D__KERNEL__ $< 2>/dev/null | \
-	    tr -d ' ' | tr '"' '@' | \
-            sed 's/\&/\\\&/g' | grep '^s/' > $@
+	    m4 $(libdtrace-build_DIR)sed-replace.m4 - > $@
+	if grep -q @@@@SUBST-FAIL@@@@ $@; then \
+		echo "Error: Not all tokens in $^ defined in headers." >&2; \
+		exit 1; \
+	fi
 
-$(foreach dlib,$(SED_DLIBS),$(call src-name,libdtrace,$(dlib))): %.d: %.sed %.d.in
+$(foreach dlib,$(filter $(WORKING_DLIBS),$(SED_DLIBS)),$(call src-name,libdtrace,$(dlib))): \
+		%.d: $$(addprefix $$(objdir)/,$$(notdir %.sed)) %.d.in
 	$(call describe-target,SED,$*.d.in)
-	sed -f $*.sed < $*.d.in > $@
+	sed -f $(addprefix $(objdir)/,$(notdir $*.sed)) < $*.d.in > $@
 
 PHONIES += dlibs working-dlibs
 TARGETS += dlibs working-dlibs
-dlibs: $(call src-name,libdtrace,$(DLIBSRCS))
+dlibs: $(call src-name,libdtrace,$(WORKING_DLIBS))
 
 working-dlibs: $(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS))
 
