@@ -1,3 +1,4 @@
+divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -19,19 +20,17 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 /*
- * This file is a sed script which is first preprocessed by cpp or cc -E to
- * define a set of sed directives which replace #define tokens with their
- * values.  After preprocessing, the sed script is run over io.d.in to
- * replace the #define tokens listed below to create the finished io.d.
- * Refer to the rules in libdtrace/Makefile.com for more information.
+ * This file is an m4 script which is first preprocessed by cpp or cc -E to
+ * substitute #define tokens for their values. It is then run over io.d.in
+ * to produce a sed script, which is finally run over io.d.in to replace
+ * the #define tokens listed below to create the finished io.d.
  */
 
 /* #include <linux/buffer_head.h> */
@@ -46,8 +45,9 @@
 #endif
 #include <sys/fcntl.h>
 
-#define	SED_REPLACE(x)	s/#x/x/g
+#define	SED_REPLACE(x)	__sed_replace(#x,x)
 
+divert(0)
 SED_REPLACE(O_ACCMODE)
 SED_REPLACE(O_RDONLY)
 SED_REPLACE(O_WRONLY)

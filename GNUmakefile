@@ -27,6 +27,7 @@
 
 .DELETE_ON_ERROR:
 .SUFFIXES:
+.SECONDEXPANSION:
 
 PROJECT := dtrace
 VERSION := trunk
@@ -43,7 +44,7 @@ INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE $(DTO) -D_ILP$(BIT
 CPPFLAGS += -Iinclude -Iuts/common -I$(objdir)
 CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
-PREPROCESS = $(CC) -E -C
+PREPROCESS = $(CC) -E
 
 # The substitution process in libdtrace needs a kernel build tree.
 

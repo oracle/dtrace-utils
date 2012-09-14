@@ -1,3 +1,4 @@
+divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -20,16 +21,17 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2010, 2012, Oracle and/or its affiliates.
+ * All rights reserved.
  */
 
 /*
- * This file is a sed script which is first preprocessed by cpp or cc -E to
- * define a set of sed directives which replace #define tokens with their
- * values.  After preprocessing, the sed script is run over ip.d.in to
- * replace the #define tokens listed below to create the finished ip.d.
- * Refer to the rules in libdtrace/Makefile.com for more information.
+ * This file is an m4 script which is first preprocessed by cpp or cc -E to
+ * substitute #define tokens for their values. It is then run over ip.d.in
+ * to produce a sed script, which is finally run over ip.d.in to replace
+ * the #define tokens listed below to create the finished ip.d.
  */
+
 /*
 #include <sys/netstack.h>
 #include <sys/socket.h>
@@ -37,8 +39,9 @@
 #include <inet/ip.h>
 #include <inet/tcp.h>
 */
-#define	SED_REPLACE(x)	s/#x/x/g
+#define	SED_REPLACE(x)	__sed_replace(#x,x)
 
+divert(0)
 SED_REPLACE(AF_INET)
 SED_REPLACE(AF_INET6)
 

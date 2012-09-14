@@ -1,3 +1,4 @@
+divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -19,14 +20,15 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012 Oracle and/or its affiliates. All rights reserved.
  */
 /*
 #include <inet/tcp.h>
 #include <sys/netstack.h>
 */
-#define	SED_REPLACE(x)	s/#x/x/g
+#define	SED_REPLACE(x)	__sed_replace(#x,x)
 
+divert(0)
 SED_REPLACE(TH_FIN)
 SED_REPLACE(TH_SYN)
 SED_REPLACE(TH_RST)
