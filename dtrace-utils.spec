@@ -3,10 +3,9 @@
 # Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 #
 
-# The version below need not be accurate: any version will likely do,
-# and we use wildcards to pluck an appropriate one out of the morass.
-%define kver_min 2.6.39-201
-%define kver_max 2.6.39-201
+# The version below need not be accurate: the latest version that dtrace-modules
+# has been built against at the time this release was made will do.
+%define kver 2.6.39-201.0.1.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -14,7 +13,7 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf zlib libdtrace-ctf dtrace-kernel-interface = 1
-BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel kernel-headers glibc-headers fakeroot m4 bison flex zlib-devel kernel-uek-devel >= %{kver_min} kernel-uek-devel <= %{kver_max}
+BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel kernel-headers glibc-headers fakeroot bison flex zlib-devel kernel-uek-dtrace-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.3.0
 Release:      1.el6
@@ -45,12 +44,12 @@ replacements for dtrace(1) itself.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver_min}*; do echo $ver; break; done)
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done)
 
 %install
 echo rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver_min}*; do echo $ver; break; done) install
+fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done) install
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)

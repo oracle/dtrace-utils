@@ -1,3 +1,12 @@
+2012-09-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace-utils.spec (kver_max): Remove;
+	(kver_min): Rename to...
+	(kver): ... this, and hardwire to current dtrace-modules version.
+	(BuildRequires): Use it.
+	(%build): Adjust.
+	(%install): Likewise.
+
 2012-09-14  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/sed-replace.m4: New, generate sed script containing
