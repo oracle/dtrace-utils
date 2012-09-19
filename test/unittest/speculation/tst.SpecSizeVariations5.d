@@ -35,7 +35,7 @@
  */
 
 #pragma D option quiet
-#pragma D option specsize=8
+#pragma D option specsize=40
 
 BEGIN
 {
@@ -67,12 +67,12 @@ BEGIN
 /1 <= self->commitFlag/
 {
 	printf("Statement was executed\n");
-	exit(1);
+	exit(0);
 }
 
 BEGIN
 /1 > self->commitFlag/
 {
 	printf("Statement wasn't executed\n");
-	exit(0);
+	exit(1);
 }
