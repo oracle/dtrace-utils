@@ -35,7 +35,7 @@
  */
 
 #pragma D option quiet
-#pragma D option specsize=0
+#pragma D option specsize=7
 
 BEGIN
 {
