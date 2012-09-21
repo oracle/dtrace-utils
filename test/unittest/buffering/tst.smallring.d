@@ -50,8 +50,8 @@ tick-10ms
 	trace((int)1);
 }
 
-tick-100ms
-/i++ > 2/
+tick-10ms
+/i++ > 20/
 {
 	exit(0);
 }
