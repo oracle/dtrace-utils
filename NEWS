@@ -17,10 +17,6 @@ New features:
    whose modules do not contain type information, but no kernel types or
    variables will be available.  (See -xprocfspath and -xmodpath below.)
 
-New providers:
-
- - sdt.ko now provides sched:::tick, sched:::on-cpu, and sched:::off-cpu.
-
 New dependencies:
 
  - DTrace now depends on libdtrace-ctf, a modified, GPLed port of the Solaris
