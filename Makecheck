@@ -60,7 +60,7 @@ check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-co
 
 check-module-loading:
 	@if [[ "x$$(id -u)" = "x0" ]]; then \
-		for name in $$(cat ./test/modules); do \
+		for name in $$(grep -v '^@@unload-only' ./test/modules | sed 's,@@[a-z-]*,,g'); do \
 		    modprobe $$name; \
 		done; \
 	else \
