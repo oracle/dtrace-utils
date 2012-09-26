@@ -28,6 +28,8 @@
 
 #pragma D option quiet
 
+/* @@skip: DTrace API semantics do not guarantee consistent output */
+
 #pragma D option switchrate=1ms
 #pragma D option aggrate=1ms
 
