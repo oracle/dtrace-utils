@@ -20,6 +20,7 @@
 	renaming.
 	* test/modules: Cater for the module renaming.
 	* test/unittest/types/tst.notypeload.sh: Likewise.
+	* dtrace-utils.spec (Requires): Boost dtrace-kernel-interface.
 
 2012-09-26  Nick Alcock  <nick.alcock@oracle.com>
 
