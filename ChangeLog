@@ -2,6 +2,25 @@
 
 	* .gitignore: Ignore build*, not build-*.
 
+	Rename dtrace_ctf -> ctf / ctf_shared renaming.
+
+	* libdtrace-ctf: Pull in .dtrace_ctf -> .ctf changes.
+	* libdtrace/dt_impl.h (DT_DM_SHARED): New.
+	(DT_DM_KERN_UNLOADED): Renumber.
+	(dt_ctf_elf): Fix comment to cater for the renaming.
+	* libdtrace/dt_module.c (dt_module_load): Build section names for
+	DT_DM_SHARED modules differently.
+	(dt_kern_module_find): Look up "ctf" in the kernpath hash and
+	"shared_ctf" in the module list, not "dtrace_ctf" in both.
+	Set DT_DM_SHARED appropriately.  Adjust error messages.
+	(dt_modsym_update): Transform the "ctf" module's name to
+	"shared_ctf".
+	(dtrace_update): Shuffle "shared_ctf" to start, not "dtrace_ctf".
+	* libproc/Psymtab.c (Pbuild_file_symtab): Cater for the section
+	renaming.
+	* test/modules: Cater for the module renaming.
+	* test/unittest/types/tst.notypeload.sh: Likewise.
+
 2012-09-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (kver_max): Remove;

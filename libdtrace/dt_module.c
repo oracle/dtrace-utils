@@ -524,23 +524,29 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 * kernel module must pull in the symbol and string tables in addition
 	 * to the CTF section, while loaded kernel modules need only the
 	 * appropriately-named CTF section from the dm_file (which will be
-	 * dtrace_ctf.ko for built-in modules and the kernel proper).  Builtin
-	 * kernel modules have a section name that varies per-module: all other
-	 * modules have a constant name.
+	 * ctf.ko for built-in modules and the kernel proper).  Builtin kernel
+	 * modules have a section name that varies per-module: the shared type
+	 * repository has a unique name of its own: all other modules have a
+	 * constant name.
 	 */
 
 	if ((dmp->dm_elf == NULL) && (dt_module_init_elf(dtp, dmp) != 0))
 		return -1; /* dt_errno is set for us */
 
-	if (dmp->dm_flags & DT_DM_BUILTIN) {
-		dmp->dm_ctdata_name = malloc(strlen(".dtrace_ctf.") +
+	if (dmp->dm_flags & DT_DM_SHARED) {
+		dmp->dm_ctdata_name = malloc(strlen(".ctf.shared_ctf") +
 		    strlen(dmp->dm_name) + 1);
 
-		strcpy(dmp->dm_ctdata_name, ".dtrace_ctf.");
+		strcpy(dmp->dm_ctdata_name, ".ctf.shared_ctf");
+	} else if (dmp->dm_flags & DT_DM_BUILTIN) {
+		dmp->dm_ctdata_name = malloc(strlen(".ctf.") +
+		    strlen(dmp->dm_name) + 1);
+
+		strcpy(dmp->dm_ctdata_name, ".ctf.");
 		strcat(dmp->dm_ctdata_name, dmp->dm_name);
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 	} else {
-		dmp->dm_ctdata_name = strdup(".dtrace_ctf");
+		dmp->dm_ctdata_name = strdup(".ctf");
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 	}
 
@@ -1075,10 +1081,9 @@ dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	/*
 	 * Kernel modules that don't exist on the disk are either built-in
 	 * modules or the core kernel itself. The CTF data for all such modules
-	 * comes from the module dtrace_ctf.ko instead, which is never
-	 * built-in. This module contains no symbols, hence never appears in
-	 * /proc/kallmodsyms and is never actually loaded as a module: instead,
-	 * it is instantiated in the dm_ctfp of many modules.
+	 * comes from the module ctf.ko instead, which is never built-in. This
+	 * module is then instantiated in the dm_ctfp of many modules.  The
+	 * corresponding dt_module for ctf.ko is named 'shared_ctf'.
 	 *
 	 * All such modules share their dm_elf with dtp->dt_ctf_elf, and have
 	 * the DT_DM_BUILTIN flag turned on.
@@ -1098,15 +1103,15 @@ dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		if (!(dmp->dm_flags & DT_DM_KERNEL))
 			return;
 
-		dkpp = dt_kern_path_lookup_by_name(dtp, "dtrace_ctf");
+		dkpp = dt_kern_path_lookup_by_name(dtp, "ctf");
 
 		/*
-		 * With no dtrace_ctf.ko, we are in real trouble. Likely we have
-		 * no modules at all: CTF lookup cannot work.  At any rate, the
+		 * With no ctf.ko, we are in real trouble. Likely we have no
+		 * modules at all: CTF lookup cannot work.  At any rate, the
 		 * module path must remain unknown.
 		 */
 		if (!dkpp) {
-			dt_dprintf("No dtrace_ctf.ko\n");
+			dt_dprintf("No ctf.ko\n");
 			return;
 		}
 
@@ -1124,18 +1129,18 @@ dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	/*
 	 * This is definitely a kernel module (though perhaps not a loaded one).
 	 */
-	if (strcmp(dmp->dm_name, "dtrace_ctf") == 0)
+	if (strcmp(dmp->dm_name, "shared_ctf") == 0)
 		/*
-		 * dtrace_ctf.ko itself is a special case: it contains no code
-		 * or types of its own, and is loaded purely to force allocation
-		 * of a dt_module for it into which we can load the shared
-		 * types.  We pretend that it is built-in, in order to load the
-		 * CTF data for it from the .dtrace_ctf.dtrace_ctf section where
-		 * the shared types are found, rather than .dtrace_ctf, which is
-		 * empty (as it is for all modules that contain no types of
-		 * their own).
+		 * ctf.ko itself is a special case: it contains no code or types
+		 * of its own, and is loaded purely to force allocation of a
+		 * dt_module for it into which we can load the shared types.  We
+		 * pretend that it is built-in and transform its name to
+		 * 'shared_ctf', in order to load the CTF data for it from the
+		 * .ctf.shared_ctf section where the shared types are found,
+		 * rather than .ctf, which is empty (as it is for all modules
+		 * that contain no types of their own).
 		 */
-		dmp->dm_flags |= DT_DM_BUILTIN;
+		dmp->dm_flags |= DT_DM_BUILTIN & DT_DM_SHARED;
 	else
 		strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
 }
@@ -1174,6 +1179,16 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 
 	sym_text = ((sym_type == 't') || (sym_type == 'T'));
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+
+	/*
+	 * Special case: rename the 'ctf' module to 'shared_ctf': the
+	 * parent-name lookup code presumes that names that appear in CTF's
+	 * parent section are the names of modules, but the ctf module's CTF
+	 * section is special-acsed to contain the contents of the shared_ctf
+	 * repository, not ctf.ko's types.
+	 */
+	if (strcmp(mod_name, "ctf") == 0)
+		strcpy(mod_name, "shared_ctf");
 
 	/*
 	 * Some very voluminous and unuseful symbols are silently skipped, being
@@ -1358,13 +1373,13 @@ dtrace_update(dtrace_hdl_t *dtp)
 
 	/*
 	 * If this is the first time we are initializing the module list,
-	 * shuffle the modules for vmlinux and dtrace_ctf to the front of the
-	 * module list.  We do this so that type and symbol queries encounter
-	 * vmlinux and thereby optimize for the common case in
+	 * shuffle the modules for vmlinux and the shared ctf to the front of
+	 * the module list.  We do this so that type and symbol queries
+	 * encounter vmlinux and thereby optimize for the common case in
 	 * dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.
 	 */
        if (dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
-	       dt_module_shuffle_to_start(dtp, "dtrace_ctf");
+	       dt_module_shuffle_to_start(dtp, "shared_ctf");
 	       dt_module_shuffle_to_start(dtp, "vmlinux");
        }
 

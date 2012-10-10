@@ -164,7 +164,8 @@ typedef struct dt_kern_path {
 #define DT_DM_LOADED	0x1	/* module symbol and type data is loaded */
 #define DT_DM_KERNEL	0x2	/* module is associated with a kernel object */
 #define DT_DM_BUILTIN	0x4	/* module is built-in or the core kernel */
-#define DT_DM_KERN_UNLOADED 0x8 /* module not loaded into the kernel */
+#define DT_DM_SHARED	0x8	/* module is the shared type repository */
+#define DT_DM_KERN_UNLOADED 0x10 /* module not loaded into the kernel */
 
 typedef struct dt_provmod {
 	char *dp_name;				/* name of provider module */
@@ -244,7 +245,7 @@ struct dtrace_hdl {
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */
 	uint_t dt_nmods;	/* number of modules in hash and list */
-	Elf *dt_ctf_elf;	/* ELF handle to the special 'dtrace_ctf' module */
+	Elf *dt_ctf_elf;	/* ELF handle to the special 'ctf' module */
 	const dt_modops_t *dt_ctf_ops; /* data model's ops vector for CTF module */
 	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
 	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
