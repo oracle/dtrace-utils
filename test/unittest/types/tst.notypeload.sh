@@ -39,7 +39,7 @@ fi
 
 dtrace=$1
 
-# These should both load only vmlinux and dtrace_ctf (the first due to
+# These should both load only vmlinux and ctf (the first due to
 # dlibs, the second due to both that and direct referencing).
 
 tiny()

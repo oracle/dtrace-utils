@@ -1675,7 +1675,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	/*
 	 * Now iterate through the section cache in order to locate info
 	 * for the .symtab, .dynsym, .SUNW_ldynsym, .dynamic, .plt,
-	 * and .dtrace_ctf sections:
+	 * and .ctf sections:
 	 */
 	for (i = 1, cp = cache + 1; i < nshdrs; i++, cp++) {
 		GElf_Shdr *shp = &cp->c_shdr;
@@ -1728,9 +1728,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			dyn = cp;
 		} else if (strcmp(cp->c_name, ".plt") == 0) {
 			plt = cp;
-		} else if ((strcmp(cp->c_name, ".dtrace_ctf") == 0) ||
-			   (strncmp(cp->c_name, ".dtrace_ctf.",
-			       strlen(".dtrace_ctf.")) == 0)) {
+		} else if ((strcmp(cp->c_name, ".ctf") == 0) ||
+			   (strncmp(cp->c_name, ".ctf.",
+			       strlen(".ctf.")) == 0)) {
 			/*
 			 * Skip over bogus CTF sections so they don't come back
 			 * to haunt us later.

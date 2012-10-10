@@ -1,4 +1,4 @@
-@@unload-only dtrace_ctf
+@@unload-only ctf
 @@unload-only dtrace
 dt_test
 profile
