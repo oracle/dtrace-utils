@@ -1376,10 +1376,14 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * shuffle the modules for vmlinux and the shared ctf to the front of
 	 * the module list.  We do this so that type and symbol queries
 	 * encounter vmlinux and thereby optimize for the common case in
-	 * dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.
+	 * dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.  The
+	 * dtrace module is also shuffled to the front so that types used only,
+	 * or largely, by DTrace translators and the DTrace module are resolved
+	 * quickly.  (There are a few of these, mostly Solaris-compatibility
+	 * types such as caddr_t.)
 	 */
        if (dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
-	       dt_module_shuffle_to_start(dtp, "shared_ctf");
+	       dt_module_shuffle_to_start(dtp, "dtrace");
 	       dt_module_shuffle_to_start(dtp, "vmlinux");
        }
 

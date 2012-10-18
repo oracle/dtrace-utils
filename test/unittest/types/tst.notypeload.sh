@@ -40,7 +40,8 @@ fi
 dtrace=$1
 
 # These should both load only vmlinux and ctf (the first due to
-# dlibs, the second due to both that and direct referencing).
+# dlibs, the second due to both that and direct referencing),
+# or perhaps vmlinux, ctf and dtrace.
 
 tiny()
 {
@@ -71,7 +72,15 @@ proc::create {
 EOF
 }
 
-tiny 2>&1 | grep 'loaded CTF' | wc -l
-bigger 2>&1 | grep 'loaded CTF' | wc -l
+COUNT1="$(tiny 2>&1 | grep 'loaded CTF' | wc -l)"
+COUNT2="$(bigger 2>&1 | grep 'loaded CTF' | wc -l)"
 
-exit 0
+case $COUNT1:$COUNT2 in
+ [23]:[23]) exit 0;;
+ *) echo "Excessive type loads incurred."
+    echo "Tiny:"
+    tiny 2>&1 | grep 'loaded CTF'
+    echo "Bigger:"
+    bigger 2>&1 | grep 'loaded CTF'
+    exit 1;;
+esac
