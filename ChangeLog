@@ -1,3 +1,12 @@
+2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_module.c (dtrace_update): Shuffle dtrace to the
+	front of the module list, not shared_ctf.
+	* test/unittest/types/tst.notypeload.d: Both 2 and 3 are valid
+	outputs. Emit a list of modules from which CTF was loaded on test
+	failure.
+	* test/unittest/types/tst.notypeload.d: Adjust.
+
 2012-10-10  Nick Alcock  <nick.alcock@oracle.com>
 
 	* .gitignore: Ignore build*, not build-*.
