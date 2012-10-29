@@ -1,5 +1,5 @@
 
-%a = {ptr}
+%a = vmlinux`max_pfn
 %c = a
 %d = 97
 %hd = 97

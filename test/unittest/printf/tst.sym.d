@@ -19,8 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: symbol lookup from addresses is broken. */
-
 /*
  * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.

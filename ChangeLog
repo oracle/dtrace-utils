@@ -2,6 +2,15 @@
 
 	* libdtrace/dt_module.c (dtrace_lookup_by_addr): sip and symp can
 	both be NULL.
+	* libdtrace/dt_symtab.c (dt_symbol_search_arg): Unused, remove.
+	(dt_symbol_search_cmp): Consider addresses within the range
+	symbol..symbol+size to match the symbol.
+	(dt_symbol_by_addr): Likewise.  bsearch() returns a pointer to a
+	pointer to the symbol.
+
+	* test/unittest/grammar/tst.stmts.r: Regenerated.
+	* test/unittest/printf/tst.basics.r: Likewise.
+	* test/unittest/printf/tst.sym.d: No longer XFAIL.
 
 2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
 

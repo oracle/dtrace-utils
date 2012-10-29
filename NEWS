@@ -1,3 +1,11 @@
+0.4
+---
+
+New features:
+
+ - Kernel symbol lookup now works: stack() now prints symbols, as does & of
+   kernel symbols.
+
 0.3
 ---
 
