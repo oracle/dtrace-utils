@@ -1,5 +1,9 @@
 2012-10-29  Nick Alcock  <nick.alcock@oracle.com>
 
+2012-10-29  Nick Alcock  <nick.alcock@oracle.com>
+
+2012-10-29  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/dt_module.c (dtrace_lookup_by_addr): sip and symp can
 	both be NULL.
 	* libdtrace/dt_symtab.c (dt_symbol_search_arg): Unused, remove.
@@ -11,6 +15,9 @@
 	* test/unittest/grammar/tst.stmts.r: Regenerated.
 	* test/unittest/printf/tst.basics.r: Likewise.
 	* test/unittest/printf/tst.sym.d: No longer XFAIL.
+	* test/unittest/stack/tst.default.r: New.
+	* test/unittest/stack/tst.default.r.p: Filter out everything but
+	unresolved addresses and dtrace_stacktrace().
 
 2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
 
