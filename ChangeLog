@@ -1,7 +1,7 @@
-2012-09-06  Nick Alcock  <nick.alcock@oracle.com>
+2012-10-29  Nick Alcock  <nick.alcock@oracle.com>
 
-	* libdtrace/dt_module.c (dt_modsym_update): Do not filter out
-	cloned functions.
+	* libdtrace/dt_module.c (dtrace_lookup_by_addr): sip and symp can
+	both be NULL.
 
 2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
 
@@ -161,6 +161,11 @@
 2012-09-07  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec: RPM macros use %, not $.
+
+2012-09-06  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_module.c (dt_modsym_update): Do not filter out
+	cloned functions.
 
 2012-09-05  Nick Alcock  <nick.alcock@oracle.com>
 
