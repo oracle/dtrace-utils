@@ -1,5 +1,6 @@
                    FUNCTION:NAME
                          :tick-1 
+              vmlinux`cyclic_fire_fn
 
                          :tick-1 
 

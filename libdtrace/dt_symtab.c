@@ -72,6 +72,10 @@ dt_symtab_grow_addrs(dt_symtab_t *symtab)
  * (It is theoretically possible to have two identical symbols with identical
  * addresses coming from different modules, but since this code does not track
  * modules it doesn't need to care.)
+ *
+ * We do not bother to handle the pathological case of symbols with distinct
+ * addresses which nonetheless overlap: the assumption is that if N symbols span
+ * an address, they all have the same starting address and size.
  */
 static int
 dt_symbol_sort_cmp(const void *lp, const void *rp)
@@ -96,16 +100,6 @@ dt_symbol_sort_cmp(const void *lp, const void *rp)
 }
 
 /*
- * Used to communicate between dt_symbol_by_addr() and dt_symbol_search_cmp(),
- * since there is no bsearch_r() and we need to dig into the symtab to look up
- * other addresses (and avoid doing so if we are the first address in the array).
- */
-typedef struct dt_symbol_search_arg {
-	GElf_Addr addr;
-	dt_symtab_t *symtab;
-} dt_symbol_search_arg_t;
-
-/*
  * Find some symbol in dtst_addrs spanning the desired address.
  *
  * If several symbols span that address, return an arbitrary one.
@@ -113,10 +107,11 @@ typedef struct dt_symbol_search_arg {
 static int dt_symbol_search_cmp(const void *lp, const void *rp)
 {
 	const GElf_Addr *lhsp = lp;
-	const dt_symbol_t *rhs = rp;
+	dt_symbol_t * const *rhsp = rp;
 	const GElf_Addr lhs = *lhsp;
+	const dt_symbol_t *rhs = *rhsp;
 
-	if (lhs == rhs->dts_addr)
+	if ((lhs >= rhs->dts_addr) && (lhs < rhs->dts_addr + rhs->dts_size))
 		return 0;
 	else if (lhs < rhs->dts_addr)
 		return -1;
@@ -247,7 +242,7 @@ dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
 dt_symbol_t *
 dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr)
 {
-	dt_symbol_t *symp, *lastsymp;
+	dt_symbol_t **sympp, *symp, *lastsymp;
 
 	if (symtab->dtst_addrs == NULL)
 		return NULL;
@@ -256,22 +251,27 @@ dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr)
 		return NULL;
 
 	/*
-	 * After finding a symbol with the desired address, hunt backwards for
-	 * the first such symbol: it is the most desirable one.
+	 * After finding a symbol spanning the desired address, hunt backwards
+	 * for the first such symbol: it is the most desirable one.
 	 */
 
-	symp = bsearch(&dts_addr, symtab->dtst_addrs, symtab->dtst_nsyms,
+	sympp = bsearch(&dts_addr, symtab->dtst_addrs, symtab->dtst_nsyms,
 	    sizeof (struct dt_symbol *), dt_symbol_search_cmp);
 
-	if (symp == NULL)
+	if (sympp == NULL)
 		return NULL;
 
+	symp = *sympp;
+
 	for (lastsymp = symp;
-	     (symp > *symtab->dtst_addrs) && (symp->dts_addr == dts_addr);
+	     (symp > *symtab->dtst_addrs) &&
+		 (symp->dts_addr <= dts_addr) &&
+		 (symp->dts_addr + symp->dts_size > dts_addr);
 	     lastsymp = symp, symp -= sizeof (struct dt_symbol))
 		;
 
-	if (lastsymp->dts_addr == dts_addr)
+	if ((lastsymp->dts_addr <= dts_addr) &&
+	    (lastsymp->dts_addr + lastsymp->dts_size > dts_addr))
 		return lastsymp;
 
 	return NULL;
