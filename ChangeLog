@@ -11,6 +11,9 @@
 	* test/unittest/grammar/tst.stmts.r: Regenerated.
 	* test/unittest/printf/tst.basics.r: Likewise.
 	* test/unittest/printf/tst.sym.d: No longer XFAIL.
+	* test/unittest/stack/tst.default.r: New.
+	* test/unittest/stack/tst.default.r.p: Filter out everything but
+	unresolved addresses and dtrace_stacktrace().
 
 2012-10-18  Nick Alcock  <nick.alcock@oracle.com>
 
