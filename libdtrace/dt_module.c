@@ -1606,10 +1606,14 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 		if (!dt_symp)
 			return (dt_set_errno(dtp, EDT_NOSYMADDR));
 
-		sip->dts_object = dmp->dm_name;
-		sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
-		sip->dts_id = 0;	/* undefined */
-		dt_symbol_to_elfsym(dtp, dt_symp, symp);
+		if (sip != NULL) {
+		    sip->dts_object = dmp->dm_name;
+		    sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+		    sip->dts_id = 0;	/* undefined */
+		}
+
+		if (symp != NULL)
+		    dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
 		return (0);
 	} else {
