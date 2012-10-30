@@ -31,9 +31,7 @@
 #ifndef	_DT_SYMTAB_H
 #define	_DT_SYMTAB_H
 
-#include <unistd.h>
 #include <gelf.h>
-#include <dt_list.h>
 #include <dtrace.h>
 
 #ifdef	__cplusplus
@@ -50,28 +48,8 @@ extern "C" {
  * space- or time-efficiency.)
  */
 
-#define DT_ST_SORTED 0x01		/* Sorted, ready for searching. */
-#define DT_ST_PACKED 0x03		/* Symbol table packed
-					 * (necessarily sorted too) */
-
-typedef struct dt_symbol {
-	dt_list_t dts_list;		/* list forward/back pointers */
-	char *dts_name;			/* symbol name */
-	GElf_Addr dts_addr;		/* symbol address */
-	GElf_Xword dts_size;		/* symbol size */
-	unsigned char dts_info;		/* ELF symbol information */
-	struct dt_symbol *dts_next;	/* hash chain pointer */
-} dt_symbol_t;
-
-typedef struct dt_symtab {
-	dt_list_t dtst_symlist;		/* symbol list */
-	dt_symbol_t **dtst_syms_by_name;/* symbol name->addr hash buckets */
-	uint_t dtst_symbuckets;		/* number of buckets */
-	uint_t dtst_nsyms;		/* number of symbols */
-	dt_symbol_t **dtst_addrs;	/* sorted address->symbol mapping */
-	uint_t dtst_alloc_addrs;	/* number of allocated addrs */
-	int dtst_flags;			/* symbol table flags */
-} dt_symtab_t;
+typedef struct dt_symbol dt_symbol_t;
+typedef struct dt_symtab dt_symtab_t;
 
 extern dt_symtab_t *dt_symtab_create(void);
 extern void dt_symtab_destroy(dt_symtab_t *symtab);

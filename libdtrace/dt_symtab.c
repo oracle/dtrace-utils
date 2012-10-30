@@ -38,6 +38,31 @@
 #include <string.h>
 #include <dt_symtab.h>
 #include <dt_impl.h>
+#include <dt_list.h>
+#include <unistd.h>
+
+#define DT_ST_SORTED 0x01		/* Sorted, ready for searching. */
+#define DT_ST_PACKED 0x03		/* Symbol table packed
+					 * (necessarily sorted too) */
+
+struct dt_symbol {
+	dt_list_t dts_list;		/* list forward/back pointers */
+	char *dts_name;			/* symbol name */
+	GElf_Addr dts_addr;		/* symbol address */
+	GElf_Xword dts_size;		/* symbol size */
+	unsigned char dts_info;		/* ELF symbol information */
+	struct dt_symbol *dts_next;	/* hash chain pointer */
+};
+
+struct dt_symtab {
+	dt_list_t dtst_symlist;		/* symbol list */
+	dt_symbol_t **dtst_syms_by_name;/* symbol name->addr hash buckets */
+	uint_t dtst_symbuckets;		/* number of buckets */
+	uint_t dtst_nsyms;		/* number of symbols */
+	dt_symbol_t **dtst_addrs;	/* sorted address->symbol mapping */
+	uint_t dtst_alloc_addrs;	/* number of allocated addrs */
+	int dtst_flags;			/* symbol table flags */
+};
 
 /*
  * Grow the address->symbol mapping, zeroing out the new elements.
