@@ -5,7 +5,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 2.6.39-201.0.1.el6uek
+%define kver 2.6.39-201.0.2.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
