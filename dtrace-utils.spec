@@ -15,7 +15,7 @@ Provides:     dtrace-utils
 Requires:     gcc elfutils-libelf zlib libdtrace-ctf dtrace-kernel-interface = 1
 BuildRequires: elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel kernel-uek-dtrace-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.3.1
+Version:      0.3.2
 Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -101,8 +101,11 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Thu Nov  1 2012 - nick.alcock@oracle.com - 0.3.2-1
+- stack() and & now resolve kernel symbol names.
+- CTF section renaming.
 * Wed Sep 26 2012 - kris.van,hees@oracle.com - 0.3.1-1
-- Test case fixes to handle inconisstent output.
+- Test case fixes to handle inconsistent output.
 * Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3.0-1
 - CTF support.
 - Fixed install path for dtrace libraries.
