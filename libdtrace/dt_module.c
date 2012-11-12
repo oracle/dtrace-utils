@@ -1322,8 +1322,9 @@ dtrace_update(dtrace_hdl_t *dtp)
 		fclose(fd);
 
 		/*
-		 * Now work over all modules, and sort their kernel symbol
-		 * tables and address ranges now they are fully populated.
+		 * Now work over all modules, and sort and pack their kernel
+		 * symbol tables and address ranges now they are fully
+		 * populated.
 		 *
 		 * TODO: merge adjacent ranges, of which there will be many for
 		 * non-built-in modules.
@@ -1333,6 +1334,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 		     dmp = dt_list_next(dmp))
 			if (dmp->dm_kernsyms != NULL) {
 				dt_symtab_sort(dmp->dm_kernsyms);
+				dt_symtab_pack(dmp->dm_kernsyms);
 
 				if (dmp->dm_text_addrs)
 					qsort(dmp->dm_text_addrs,

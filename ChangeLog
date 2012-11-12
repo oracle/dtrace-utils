@@ -1,3 +1,19 @@
+2012-11-12  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_symtab.c (DT_ST_PACKED): Use 0x02, not 0x03, so
+	that flag testing works.
+	(dt_symbol): Make dts_name a union with string and offset fields.
+	(dt_symtab): New field dtst_strtab.
+	(dt_symbol_sort_cmp): Adjust string field name.
+	(dt_symbol_insert): Likewise.
+	(dt_symtab_destroy): Likewise. Free the strtab; free the symbol
+	name only if not packed.
+	(dt_symbol_by_name): Look in the string table if packed.
+	(dt_symbol_name): Likewise.
+	(dt_symtab_pack): Do nothing if already packed.  Construct the
+	string table.
+	* libdtrace/dt_module.c (dtrace_update): Pack the symbol tables.
+
 2012-10-30  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_symtab.h (dt_symbol, dt_symtab, DT_ST_*): Move to...

@@ -42,12 +42,15 @@
 #include <unistd.h>
 
 #define DT_ST_SORTED 0x01		/* Sorted, ready for searching. */
-#define DT_ST_PACKED 0x03		/* Symbol table packed
+#define DT_ST_PACKED 0x02		/* Symbol table packed
 					 * (necessarily sorted too) */
 
 struct dt_symbol {
 	dt_list_t dts_list;		/* list forward/back pointers */
-	char *dts_name;			/* symbol name */
+	union {
+		char *str;		/* symbol name */
+		size_t off;		/* symbol offset in strtab */
+	} dts_name;
 	GElf_Addr dts_addr;		/* symbol address */
 	GElf_Xword dts_size;		/* symbol size */
 	unsigned char dts_info;		/* ELF symbol information */
@@ -59,6 +62,7 @@ struct dt_symtab {
 	dt_symbol_t **dtst_syms_by_name;/* symbol name->addr hash buckets */
 	uint_t dtst_symbuckets;		/* number of buckets */
 	uint_t dtst_nsyms;		/* number of symbols */
+	char *dtst_strtab;		/* string table of symbol names */
 	dt_symbol_t **dtst_addrs;	/* sorted address->symbol mapping */
 	uint_t dtst_alloc_addrs;	/* number of allocated addrs */
 	int dtst_flags;			/* symbol table flags */
@@ -121,7 +125,11 @@ dt_symbol_sort_cmp(const void *lp, const void *rp)
 	    (GELF_ST_BIND(rhs->dts_info) == STB_WEAK))
 		return GELF_ST_BIND(lhs->dts_info) == STB_WEAK ? 1 : -1;
 
-	return (strcmp(lhs->dts_name, rhs->dts_name));
+	/*
+	 * Note: packed strtabs must already be sorted and cannot be changed nor
+	 * resorted.
+	 */
+	return (strcmp(lhs->dts_name.str, rhs->dts_name.str));
 }
 
 /*
@@ -178,10 +186,12 @@ dt_symtab_destroy(dt_symtab_t *symtab)
 
 	free(symtab->dtst_addrs);
 	free(symtab->dtst_syms_by_name);
+	free(symtab->dtst_strtab);
 
 	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
 	     dtsp = dt_list_next(dtsp)) {
-		free(dtsp->dts_name);
+		if (!(symtab->dtst_flags & DT_ST_PACKED))
+			free(dtsp->dts_name.str);
 		free(last_dtsp);
 		last_dtsp = dtsp;
 	}
@@ -217,13 +227,13 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 		}
 
 	bzero(dtsp, sizeof (dt_symbol_t));
-	dtsp->dts_name = strdup(name);
+	dtsp->dts_name.str = strdup(name);
 	dtsp->dts_addr = addr;
 	dtsp->dts_size = size;
 	dtsp->dts_info = info;
 
-	if (dtsp->dts_name == NULL) {
-		free(dtsp->dts_name);
+	if (dtsp->dts_name.str == NULL) {
+		free(dtsp->dts_name.str);
 		free(dtsp);
 		return NULL;
 	}
@@ -255,10 +265,18 @@ dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
 {
 	uint_t h = dt_strtab_hash(name, NULL) % symtab->dtst_symbuckets;
 	dt_symbol_t *dtsp;
+	int packed = symtab->dtst_flags & DT_ST_PACKED;
 
-	for (dtsp = symtab->dtst_syms_by_name[h]; dtsp != NULL; dtsp = dtsp->dts_next) {
-		if (strcmp(dtsp->dts_name, name) == 0)
-			return (dtsp);
+	for (dtsp = symtab->dtst_syms_by_name[h]; dtsp != NULL;
+	     dtsp = dtsp->dts_next) {
+		if (packed) {
+			if (strcmp(&symtab->dtst_strtab[dtsp->dts_name.off],
+				name) == 0)
+				return (dtsp);
+		}
+		else
+			if (strcmp(dtsp->dts_name.str, name) == 0)
+				return (dtsp);
 	}
 
 	return NULL;
@@ -317,14 +335,46 @@ dt_symtab_sort(dt_symtab_t *symtab)
 void
 dt_symtab_pack(dt_symtab_t *symtab)
 {
+	dt_symbol_t *dtsp;
+	size_t strsz = 0, offset = 0;
+
 	/*
-	 * Nothing yet.
+	 * For now, merely pack the symbols into a string table.
 	 *
 	 * In future, Huffman-coding the symbols seems sensible: they have many
 	 * identical components (a property which scripts/kallsyms.c also takes
 	 * advantage of).
 	 */
+
+	if (symtab->dtst_flags & DT_ST_PACKED)
+		return;
+
 	dt_symtab_sort(symtab);
+
+	/*
+	 * Size and allocate the string table: give up if we can't.
+	 */
+	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
+	     dtsp = dt_list_next(dtsp))
+		strsz += strlen(dtsp->dts_name.str) + 1;
+
+	symtab->dtst_strtab = malloc(strsz);
+	if (symtab->dtst_strtab == NULL)
+		return;
+
+	/*
+	 * Fill it out.
+	 */
+	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
+	     dtsp = dt_list_next(dtsp)) {
+		size_t len = strlen(dtsp->dts_name.str) + 1;
+
+		memcpy(&symtab->dtst_strtab[offset], dtsp->dts_name.str, len);
+		free(dtsp->dts_name.str);
+		dtsp->dts_name.off = offset;
+		offset += len;
+	}
+
 	symtab->dtst_flags |= DT_ST_PACKED;
 }
 
@@ -338,7 +388,10 @@ dt_symtab_pack(dt_symtab_t *symtab)
 const char *
 dt_symbol_name(dt_symtab_t *symtab _dt_unused_, dt_symbol_t *symbol)
 {
-	return symbol->dts_name;
+	if (symtab->dtst_flags & DT_ST_PACKED)
+		return &symtab->dtst_strtab[symbol->dts_name.off];
+	else
+		return symbol->dts_name.str;
 }
 
 void
