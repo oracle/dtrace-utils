@@ -976,6 +976,9 @@ dtrace_addr_range_find_populating(dt_module_t *dmp, GElf_Addr addr, int is_text)
 
 }
 
+/*
+ * Expand an address range and return the new entry.
+ */
 static dtrace_addr_range_t *
 dtrace_addr_range_grow(dt_module_t *dmp, int is_text)
 {
@@ -1007,6 +1010,59 @@ dtrace_addr_range_grow(dt_module_t *dmp, int is_text)
 	return final_range;
 }
 
+/*
+ * Merge adjacent entries in a sorted dtrace_addr_range.
+ */
+static void
+dtrace_addr_range_merge(dt_module_t *dmp, int is_text)
+{
+	dtrace_addr_range_t *range;
+	size_t out;
+	size_t in;
+	size_t *size;
+
+	if (is_text) {
+		range = dmp->dm_text_addrs;
+		size = &dmp->dm_text_addrs_size;
+	} else {
+		range = dmp->dm_data_addrs;
+		size = &dmp->dm_data_addrs_size;
+	}
+	if (*size < 2)
+		return;
+
+	for (out = 0, in = 1; in < *size; in++) {
+		size_t in_move = out + 1;
+
+		if (range[out].dar_va + range[out].dar_size == range[in].dar_va)
+			range[out].dar_size += range[in].dar_size;
+		else {
+			range[in_move].dar_va = range[in].dar_va;
+			range[in_move].dar_size = range[in].dar_size;
+			out++;
+		}
+	}
+
+	/*
+	 * If we merged any ranges, reallocate and shrink accordingly.
+	 *
+	 * If OOM on shrinking a range, just don't assign back: we can just give
+	 * up on shrinking and waste a bit of memory.
+	 */
+
+	if (out != (*size - 1)) {
+		*size = out + 1;
+		range = realloc (range, sizeof (struct dtrace_addr_range) *
+		    *size);
+
+		if (range != NULL) {
+			if (is_text)
+				dmp->dm_text_addrs = range;
+			else
+				dmp->dm_data_addrs = range;
+		}
+	}
+}
 
 /*
  * Transform an nm(1)-style type field into an ELF info character.  This is the
@@ -1325,29 +1381,33 @@ dtrace_update(dtrace_hdl_t *dtp)
 		 * Now work over all modules, and sort and pack their kernel
 		 * symbol tables and address ranges now they are fully
 		 * populated.
-		 *
-		 * TODO: merge adjacent ranges, of which there will be many for
-		 * non-built-in modules.
 		 */
 
 		for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
-		     dmp = dt_list_next(dmp))
+		     dmp = dt_list_next(dmp)) {
 			if (dmp->dm_kernsyms != NULL) {
 				dt_symtab_sort(dmp->dm_kernsyms);
 				dt_symtab_pack(dmp->dm_kernsyms);
-
-				if (dmp->dm_text_addrs)
-					qsort(dmp->dm_text_addrs,
-					    dmp->dm_text_addrs_size,
-					    sizeof (struct dtrace_addr_range),
-					    dtrace_addr_range_sort_cmp);
-
-				if (dmp->dm_data_addrs)
-					qsort(dmp->dm_data_addrs,
-					    dmp->dm_data_addrs_size,
-					    sizeof (struct dtrace_addr_range),
-					    dtrace_addr_range_sort_cmp);
 			}
+
+			if (dmp->dm_text_addrs) {
+				qsort(dmp->dm_text_addrs,
+				    dmp->dm_text_addrs_size,
+				    sizeof (struct dtrace_addr_range),
+				    dtrace_addr_range_sort_cmp);
+
+				dtrace_addr_range_merge(dmp, 1);
+			}
+
+			if (dmp->dm_data_addrs) {
+				qsort(dmp->dm_data_addrs,
+				    dmp->dm_data_addrs_size,
+				    sizeof (struct dtrace_addr_range),
+				    dtrace_addr_range_sort_cmp);
+
+				dtrace_addr_range_merge(dmp, 0);
+			}
+		}
 	} else {
 		/* TODO: waiting on a warning infrastructure */
 		dt_dprintf("warning: /proc/kallmodsyms is not "
