@@ -2491,7 +2491,7 @@ dtrace_disx86(dis86_t *x, uint_t cpu_mode)
 #endif
 	uint_t opnd_size;	/* SIZE16, SIZE32 or SIZE64 */
 	uint_t addr_size;	/* SIZE16, SIZE32 or SIZE64 */
-	uint_t wbit;		/* opcode wbit, 0 is 8 bit, !0 for opnd_size */
+	uint_t wbit = 0;	/* opcode wbit, 0 is 8 bit, !0 for opnd_size */
 	uint_t w2;		/* wbit value for second operand */
 	uint_t vbit;
 	uint_t mode = 0;	/* mode value from ModRM byte */
@@ -2543,7 +2543,7 @@ dtrace_disx86(dis86_t *x, uint_t cpu_mode)
 	uint_t vex_X = 1;
 	uint_t vex_B = 1;
 	uint_t vex_W = 0;
-	uint_t vex_L;
+	uint_t vex_L = 0;
 
 
 	size_t	off;

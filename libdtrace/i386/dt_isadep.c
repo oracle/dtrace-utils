@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -30,6 +30,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <sys/ioctl.h>
+#include <port.h>
 
 #include <dt_impl.h>
 #include <dt_pid.h>

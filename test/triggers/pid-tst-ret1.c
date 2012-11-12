@@ -20,14 +20,13 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <signal.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 /*
  * The canonical name should be 'go' since we prefer symbol names with fewer

@@ -821,7 +821,8 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 	if (lagg->dtagd_nrecs < ragg->dtagd_nrecs)
 		return (DT_LESSTHAN);
 
-	/* FIXME: what if lagg->dtagd_nrecs == 0? */
+	if (lagg->dtagd_nrecs == 0)
+	    return 0;
 
 	for (i = 0; i < lagg->dtagd_nrecs; i++) {
 		lrec = &lagg->dtagd_rec[i];

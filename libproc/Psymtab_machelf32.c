@@ -248,7 +248,7 @@ fake_elf32(struct ps_prochandle *P, file_info_t *fptr, uintptr_t addr,
 	int dynstr_shndx;
 	Ehdr *ep;
 	Shdr *sp;
-	Dyn *dp;
+	Dyn *dp = NULL;
 	Dyn *d[DI_NENT] = { 0 };
 	uint_t i;
 	Off off;
@@ -720,9 +720,7 @@ done_with_plt:
 	return (elf);
 
 bad:
-	if (dp != NULL)
-		free(dp);
-	if (elfdata != NULL)
-		free(elfdata);
+	free(dp);
+	free(elfdata);
 	return (NULL);
 }

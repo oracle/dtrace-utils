@@ -18,6 +18,26 @@
 	merges adjacent address range entries.
 	(dtrace_update): Use it after sorting the address ranges.
 
+	Warning police.
+
+	* libdtrace/dt_aggregate.c (dt_aggregate_valcmp): If there are no
+	aggregate records, return 0, since two nonexistent aggregate
+	records are by definition equal to each other.
+	* libdtrace/dt_pid.c (dt_pid_usdt_mapping): #if out the variable
+	as well as its uses.
+	* libproc/Psymtab.c (Pupdate_maps): Likewise.
+	(Preadauxvec): Likewise.
+	(Pbuild_file_symtab): Clarify loop condition.
+	* libdtrace/dt_proc.c (dt_proc_bpmain): Not currently used, #if out.
+	(dt_proc_attach): Likewise.
+	* libdtrace/i386/dis_tables.c (dtrace_disx86): Initialize some
+	variables which could well be unused uninitialized.
+	* libproc/Psymtab_machelf32.c (fake_elf32): Likewise.  Drop
+	pointless conditionals around free().
+	* libdtrace/i386/dt_isadep.c: Include <port.h> for gmatch().
+	* test/triggers/pid-tst-gcc.c: Fix includes.
+	* test/triggers/pid-tst-ret1.c: Likewise.
+
 2012-10-30  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_symtab.h (dt_symbol, dt_symtab, DT_ST_*): Move to...

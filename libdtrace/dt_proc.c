@@ -130,6 +130,7 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 	}
 }
 
+#if 0
 /*ARGSUSED*/
 static void
 dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
@@ -171,7 +172,7 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 
 #endif
 }
-
+#endif
 /*PRINTFLIKE3*/
 _dt_printflike_(3,4)
 static struct ps_prochandle *

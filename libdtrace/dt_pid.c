@@ -525,7 +525,10 @@ dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 	GElf_Half e_type;
 	const char *mname;
 	const char *syms[] = { "___SUNW_dof", "__SUNW_dof" };
-	int i, fd = -1;
+	int i;
+#if 0
+	int fd = -1;
+#endif
 
 	/*
 	 * The symbol ___SUNW_dof is for lazy-loaded DOF sections, and

@@ -506,7 +506,6 @@ Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
 	FILE *fp;
-	struct stat statb;
 	prmap_t *Pmap = NULL;
 	prmap_t *pmap;
 	ssize_t nmap = 0;
@@ -530,6 +529,8 @@ Pupdate_maps(struct ps_prochandle *P)
 		return;
 	}
 #if 0
+	struct stat statb;
+
 	if ((mapfd = open(mapfile, O_RDONLY)) < 0 ||
 	    fstat(mapfd, &statb) != 0 ||
 	    statb.st_size < sizeof (prmap_t) ||
@@ -745,7 +746,6 @@ static void
 Preadauxvec(struct ps_prochandle *P)
 {
 	char auxfile[64];
-	struct stat statb;
 	ssize_t naux;
 	int fd;
 	size_t buf;
@@ -766,6 +766,8 @@ Preadauxvec(struct ps_prochandle *P)
 
 	/* The file size of /proc/<pid>/auxv is zero on Linux. */
 #if 0
+	struct stat statb;
+
 	if (fstat(fd, &statb) == 0 &&
 	    statb.st_size >= sizeof (auxv_t) &&
 	    (P->auxv = malloc(statb.st_size + sizeof (auxv_t))) != NULL) {
@@ -1651,7 +1653,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * Iterate through each section, caching its section header, data
 	 * pointer, and name.  We use this for handling sh_link values below.
 	 */
-	for (cp = cache + 1, scn = NULL; scn = elf_nextscn(elf, scn); cp++) {
+	for (cp = cache + 1, scn = NULL; (scn = elf_nextscn(elf, scn)) != NULL;
+	     cp++) {
 		if (gelf_getshdr(scn, &cp->c_shdr) == NULL) {
 			_dprintf("Pbuild_file_symtab: Failed to get section "
 			    "header\n");
