@@ -7,6 +7,15 @@
 	* libdtrace/dt_consume.c (dt_print_aggs): Likewise.
 	(dt_print_agg): Likewise.
 
+	* libdtrace/dt_options.c (dt_opt_getenv_prefix): New, get an
+	env var with a given prefix and upcased option name.
+	(dtrace_setoptenv): New function, set options from applicable
+	env vars.
+	* libdtrace/dtrace.h: Declare it.
+	* libdtrace/libdtrace.ver: Export it.
+	* cmd/dtrace.c (main): Use it.
+	* cmd/dtrace.1: Document all useful env vars.
+
 2012-11-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_symtab.c (DT_ST_PACKED): Use 0x02, not 0x03, so

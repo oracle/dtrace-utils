@@ -426,6 +426,46 @@ For D program requests, an exit status of \fB1\fR indicates that program compila
 Invalid command line options or arguments were specified.
 .RE
 
+.SH "ENVIRONMENT VARIABLES"
+.SP
+.LP
+The following environment variables are consulted:
+
+.SP
+.NE 2
+.MK
+.NA
+\fBDTRACE_DEBUG\fR
+.AD
+.RS 5n
+.RT
+Print libdtrace debugging output on standard error.
+.RE
+
+.SP
+.NE 2
+.MK
+.NA
+\fBLIBCTF_DEBUG\fR
+.AD
+.RS 5n
+.RT
+Print CTF type library debugging output on standard error.
+.RE
+
+.SP
+.NE 2
+.MK
+.NA
+\fBDTRACE_OPT_*\fR
+.AD
+.RS 5n
+.RT
+Set a given DTrace option.
+.SP
+Options set this way are overridden both by options specified via \fB-X\fR on the command line, and by \fBsetopt\fR statements.
+.RE
+
 .SH SEE ALSO
 .sp
 .LP

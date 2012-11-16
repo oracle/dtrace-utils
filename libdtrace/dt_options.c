@@ -20,11 +20,9 @@
  */
 
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/resource.h>
 #include <sys/mman.h>
@@ -38,6 +36,7 @@
 #include <alloca.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include <dt_impl.h>
 #include <dt_string.h>
@@ -1064,4 +1063,55 @@ dtrace_setopt(dtrace_hdl_t *dtp, const char *opt, const char *val)
 	}
 
 	return (dt_set_errno(dtp, EDT_BADOPTNAME));
+}
+
+static const char *
+dt_opt_getenv_prefix(dtrace_hdl_t *dtp, const char *op, const char *prefix)
+{
+	char *prefix_op = malloc(strlen(op) + strlen(prefix) + 1);
+	char *c;
+	const char *val;
+
+	if (prefix_op == NULL) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
+	}
+
+	strcpy(prefix_op, prefix);
+	strcat(prefix_op, op);
+	for (c = prefix_op; *c; c++)
+		*c = (char)toupper(*c);
+
+	val = getenv(prefix_op);
+
+	free(prefix_op);
+	return val;
+}
+
+void
+dtrace_setoptenv(dtrace_hdl_t *dtp, const char *prefix)
+{
+	const dt_option_t *op;
+	const char *val;
+
+	if (prefix == NULL)
+		prefix = "DTRACE_OPT_";
+
+	for (op = _dtrace_ctoptions; op->o_name != NULL; op++) {
+		if ((val = dt_opt_getenv_prefix(dtp, op->o_name,
+			    prefix)) != NULL)
+			op->o_func(dtp, val, op->o_option);
+	}
+
+	for (op = _dtrace_drtoptions; op->o_name != NULL; op++) {
+		if ((val = dt_opt_getenv_prefix(dtp, op->o_name,
+			    prefix)) != NULL)
+			op->o_func(dtp, val, op->o_option);
+	}
+
+	for (op = _dtrace_rtoptions; op->o_name != NULL; op++) {
+		if ((val = dt_opt_getenv_prefix(dtp, op->o_name,
+			    prefix)) != NULL)
+			op->o_func(dtp, val, op->o_option);
+	}
 }

@@ -1350,6 +1350,13 @@ main(int argc, char *argv[])
 	(void) dtrace_setopt(g_dtp, "aggsize", "4m");
 
 	/*
+	 * The very first thing we do after buffer-size sanitization is run
+	 * through the environment and set DTrace options based on environment
+	 * variables.
+	 */
+	dtrace_setoptenv(g_dtp, "DTRACE_OPT_");
+
+	/*
 	 * If -G is specified, enable -xlink=dynamic and -xunodefs to permit
 	 * references to undefined symbols to remain as unresolved relocations.
 	 * If -A is specified, enable -xlink=primary to permit static linking

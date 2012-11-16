@@ -80,6 +80,7 @@ extern const char *dtrace_subrstr(dtrace_hdl_t *dtp, int subr);
 extern int dtrace_setopt(dtrace_hdl_t *dtp, const char *opt, const char *val);
 extern int dtrace_getopt(dtrace_hdl_t *dtp, const char *opt,
     dtrace_optval_t *val);
+extern void dtrace_setoptenv(dtrace_hdl_t *dtp, const char *prefix);
 
 extern int dtrace_update(dtrace_hdl_t *dtp);
 extern int dtrace_ctlfd(dtrace_hdl_t *dtp);
