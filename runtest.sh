@@ -613,9 +613,10 @@ for dt in $dtrace; do
     fi
 
     # If not testing an installed dtrace, we must look for our shared libraries
-    # in the right place.
+    # and system .d files in the right place.
     if [[ "x$test_libdir" != "xinstalled" ]]; then
         export LD_LIBRARY_PATH="$(dirname $dt)"
+        export DTRACE_OPT_SYSLIBDIR="$test_libdir"
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
@@ -820,7 +821,8 @@ for dt in $dtrace; do
         # Default and substitute in flags.  The raw_dt_flags apply even to a
         # sh invocation.
 
-        raw_dt_flags="-t $test_libdir $test_incflags"
+        raw_dt_flags="$test_incflags"
+        export _DTRACE_TESTING=t
 
         if [[ $testonly =~ ^err\.D_ ]]; then
             raw_dt_flags="$raw_dt_flags -xerrtags"

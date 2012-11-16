@@ -66,7 +66,7 @@ typedef struct dtrace_cmd {
 #define	E_USAGE		2
 
 static const char DTRACE_OPTSTR[] =
-	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:t:SU:vVwx:X:Z";
+	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:X:Z";
 
 static char **g_argv;
 static int g_argc;
@@ -156,7 +156,6 @@ usage(FILE *fp)
 	    "\t-q  set quiet mode (only output explicitly traced data)\n"
 	    "\t-s  enable or list probes according to the specified D script\n"
 	    "\t-S  print D compiler intermediate code\n"
-	    "\t-t  various changes needed for reproducible testsuite runs\n"
 	    "\t-U  undefine symbol when invoking preprocessor\n"
 	    "\t-v  set verbose mode (report stability attributes, arguments)\n"
 	    "\t-V  report DTrace API version\n"
@@ -1488,22 +1487,6 @@ main(int argc, char *argv[])
 				g_cflags |= DTRACE_C_DIFV;
 				break;
 
-			case 't':
-				g_testing = 1;
-				/*
-				 * Adjust the library search path only if not
-				 * running a check of an installed dtrace.
-				 */
-				if (strcmp(optarg, "installed") != 0) {
-					if (dtrace_setopt(g_dtp, "syslibdir", optarg) != 0)
-						dfatal("failed to set syslibdir to %s", optarg);
-				}
-				/*
-				 * By default, quieten buffer-resize messages.
-				 */
-				dtrace_setopt(g_dtp, "quietresize", 0);
-				break;
-
 			case 'U':
 				if (dtrace_setopt(g_dtp, "undef", optarg) != 0)
 					dfatal("failed to set -U %s", optarg);
@@ -1552,6 +1535,16 @@ main(int argc, char *argv[])
 		(void) fprintf(stderr, "%s: -B not valid in combination"
 		    " with -o option\n", g_pname);
 		return (E_USAGE);
+	}
+
+	/*
+	 * Turn on testing mode if requested.  This only affects dtrace.c, so is
+	 * not controlled by a dtrace option.  This quiesces a variety of
+	 * nondetermistic output, for better expected-results comparison.
+	 */
+	if (getenv("_DTRACE_TESTING") != NULL) {
+		g_testing = 1;
+		dtrace_setopt(g_dtp, "quietresize", 0);
 	}
 
 	/*

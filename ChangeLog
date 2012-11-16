@@ -16,6 +16,12 @@
 	* cmd/dtrace.c (main): Use it.
 	* cmd/dtrace.1: Document all useful env vars.
 
+	* cmd/dtrace.c (DTRACE_OPTSTR): Remove -t.
+	(usage): Likewise.
+	(main): Likewise.  Respect _DTRACE_TESTING instead.
+	* runtest.sh: Export DTRACE_OPT_SYSLIBDIR and _DTRACE_TESTING
+	instead of using the undocumented -t option.
+
 2012-11-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_symtab.c (DT_ST_PACKED): Use 0x02, not 0x03, so
