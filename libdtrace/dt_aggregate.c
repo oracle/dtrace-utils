@@ -1801,7 +1801,7 @@ int
 dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_aggregate_walk_f *func)
 {
-	dt_print_aggdata_t pd;
+	dtrace_print_aggdata_t pd;
 
 	pd.dtpa_dtp = dtp;
 	pd.dtpa_fp = fp;

@@ -20,14 +20,12 @@
  */
 
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DTRACE_H
 #define	_DTRACE_H
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/dtrace.h>
 #include <stdarg.h>
@@ -65,25 +63,26 @@ typedef struct dtrace_aggdata dtrace_aggdata_t;
 #define	DTRACE_O_ILP32		0x04	/* force D compiler to be ILP32 */
 #define	DTRACE_O_MASK		0x07	/* mask of valid flags to dtrace_open */
 
-extern dtrace_hdl_t *dtrace_open(int, int, int *);
-extern dtrace_hdl_t *dtrace_vopen(int, int, int *,
-    const dtrace_vector_t *, void *);
+extern dtrace_hdl_t *dtrace_open(int version, int flags, int *errp);
+extern dtrace_hdl_t *dtrace_vopen(int version, int flags, int *errp,
+    const dtrace_vector_t *vector, void *arg);
 
-extern int dtrace_go(dtrace_hdl_t *);
-extern int dtrace_stop(dtrace_hdl_t *);
-extern void dtrace_sleep(dtrace_hdl_t *);
-extern void dtrace_close(dtrace_hdl_t *);
+extern int dtrace_go(dtrace_hdl_t *dtp);
+extern int dtrace_stop(dtrace_hdl_t *dtp);
+extern void dtrace_sleep(dtrace_hdl_t *dtp);
+extern void dtrace_close(dtrace_hdl_t *dtp);
 
-extern int dtrace_errno(dtrace_hdl_t *);
-extern const char *dtrace_errmsg(dtrace_hdl_t *, int);
-extern const char *dtrace_faultstr(dtrace_hdl_t *, int);
-extern const char *dtrace_subrstr(dtrace_hdl_t *, int);
+extern int dtrace_errno(dtrace_hdl_t *dtp);
+extern const char *dtrace_errmsg(dtrace_hdl_t *dtp, int error);
+extern const char *dtrace_faultstr(dtrace_hdl_t *dtp, int fault);
+extern const char *dtrace_subrstr(dtrace_hdl_t *dtp, int subr);
 
-extern int dtrace_setopt(dtrace_hdl_t *, const char *, const char *);
-extern int dtrace_getopt(dtrace_hdl_t *, const char *, dtrace_optval_t *);
+extern int dtrace_setopt(dtrace_hdl_t *dtp, const char *opt, const char *val);
+extern int dtrace_getopt(dtrace_hdl_t *dtp, const char *opt,
+    dtrace_optval_t *val);
 
-extern int dtrace_update(dtrace_hdl_t *);
-extern int dtrace_ctlfd(dtrace_hdl_t *);
+extern int dtrace_update(dtrace_hdl_t *dtp);
+extern int dtrace_ctlfd(dtrace_hdl_t *dtp);
 
 /*
  * DTrace Program Interface
@@ -118,31 +117,33 @@ typedef struct dtrace_proginfo {
 #define	DTRACE_C_CTL	0x2000	/* Only process control directives */
 #define	DTRACE_C_MASK	0x3bff	/* mask of all valid flags to dtrace_*compile */
 
-extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *,
-    const char *, dtrace_probespec_t, uint_t, int, char *const []);
+extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
+    dtrace_probespec_t spec, uint_t cflags, int argc, char *const argv[]);
 
-extern dtrace_prog_t *dtrace_program_fcompile(dtrace_hdl_t *,
-    FILE *, uint_t, int, char *const []);
+extern dtrace_prog_t *dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
+    uint_t cflags, int argc, char *const argv[]);
 
-extern int dtrace_program_exec(dtrace_hdl_t *, dtrace_prog_t *,
-    dtrace_proginfo_t *);
-extern void dtrace_program_info(dtrace_hdl_t *, dtrace_prog_t *,
-    dtrace_proginfo_t *);
+extern int dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    dtrace_proginfo_t *pip);
+extern void dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    dtrace_proginfo_t *pip);
 
 #define	DTRACE_D_STRIP	0x01	/* strip non-loadable sections from program */
 #define	DTRACE_D_PROBES	0x02	/* include provider and probe definitions */
 #define	DTRACE_D_MASK	0x03	/* mask of valid flags to dtrace_dof_create */
 
-extern int dtrace_program_link(dtrace_hdl_t *, dtrace_prog_t *,
-    uint_t, const char *, int, char *const []);
+extern int dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    uint_t dflags, const char *file, int objc, char *const objv[]);
 
-extern int dtrace_program_header(dtrace_hdl_t *, FILE *, const char *);
+extern int dtrace_program_header(dtrace_hdl_t *dtp, FILE *out,
+    const char *fname);
 
-extern void *dtrace_dof_create(dtrace_hdl_t *, dtrace_prog_t *, uint_t);
-extern void dtrace_dof_destroy(dtrace_hdl_t *, void *);
+extern void *dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    uint_t flags);
+extern void dtrace_dof_destroy(dtrace_hdl_t *dtp, void *dof);
 
-extern void *dtrace_getopt_dof(dtrace_hdl_t *);
-extern void *dtrace_geterr_dof(dtrace_hdl_t *);
+extern void *dtrace_getopt_dof(dtrace_hdl_t *dtp);
+extern void *dtrace_geterr_dof(dtrace_hdl_t *dtp);
 
 typedef struct dtrace_stmtdesc {
 	dtrace_ecbdesc_t *dtsd_ecbdesc;		/* ECB description */
@@ -156,18 +157,18 @@ typedef struct dtrace_stmtdesc {
 	dtrace_attribute_t dtsd_stmtattr;	/* statement attributes */
 } dtrace_stmtdesc_t;
 
-typedef int dtrace_stmt_f(dtrace_hdl_t *, dtrace_prog_t *,
-    dtrace_stmtdesc_t *, void *);
+typedef int dtrace_stmt_f(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    dtrace_stmtdesc_t *sdp, void *data);
 
-extern dtrace_stmtdesc_t *dtrace_stmt_create(dtrace_hdl_t *,
-    dtrace_ecbdesc_t *);
-extern dtrace_actdesc_t *dtrace_stmt_action(dtrace_hdl_t *,
-    dtrace_stmtdesc_t *);
-extern int dtrace_stmt_add(dtrace_hdl_t *, dtrace_prog_t *,
-    dtrace_stmtdesc_t *);
-extern int dtrace_stmt_iter(dtrace_hdl_t *, dtrace_prog_t *,
-    dtrace_stmt_f *, void *);
-extern void dtrace_stmt_destroy(dtrace_hdl_t *, dtrace_stmtdesc_t *);
+extern dtrace_stmtdesc_t *dtrace_stmt_create(dtrace_hdl_t *dtp,
+    dtrace_ecbdesc_t *edp);
+extern dtrace_actdesc_t *dtrace_stmt_action(dtrace_hdl_t *dtp,
+    dtrace_stmtdesc_t *sdp);
+extern int dtrace_stmt_add(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    dtrace_stmtdesc_t *sdp);
+extern int dtrace_stmt_iter(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
+    dtrace_stmt_f *sdp, void *data);
+extern void dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp);
 
 /*
  * DTrace Data Consumption Interface
@@ -194,12 +195,12 @@ typedef struct dtrace_probedata {
 	int dtpda_indent;			/* recommended flow indent */
 } dtrace_probedata_t;
 
-typedef int dtrace_consume_probe_f(const dtrace_probedata_t *, void *);
-typedef int dtrace_consume_rec_f(const dtrace_probedata_t *,
-    const dtrace_recdesc_t *, void *);
+typedef int dtrace_consume_probe_f(const dtrace_probedata_t *data, void *arg);
+typedef int dtrace_consume_rec_f(const dtrace_probedata_t *data,
+    const dtrace_recdesc_t *rec, void *arg);
 
-extern int dtrace_consume(dtrace_hdl_t *, FILE *,
-    dtrace_consume_probe_f *, dtrace_consume_rec_f *, void *);
+extern int dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
+    dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg);
 
 #define	DTRACE_STATUS_NONE	0	/* no status; not yet time */
 #define	DTRACE_STATUS_OKAY	1	/* status okay */
@@ -207,7 +208,7 @@ extern int dtrace_consume(dtrace_hdl_t *, FILE *,
 #define	DTRACE_STATUS_FILLED	3	/* fill buffer filled; tracing stoped */
 #define	DTRACE_STATUS_STOPPED	4	/* tracing already stopped */
 
-extern int dtrace_status(dtrace_hdl_t *);
+extern int dtrace_status(dtrace_hdl_t *dtp);
 
 /*
  * DTrace Formatted Output Interfaces
@@ -221,25 +222,26 @@ extern int dtrace_status(dtrace_hdl_t *);
  * member of the format description may be passed to dtrace_print{fa}_create()
  * to create the opaque format data.
  */
-extern void *dtrace_printf_create(dtrace_hdl_t *, const char *);
-extern void *dtrace_printa_create(dtrace_hdl_t *, const char *);
-extern size_t dtrace_printf_format(dtrace_hdl_t *, void *, char *, size_t);
+extern void *dtrace_printf_create(dtrace_hdl_t *dtp, const char *s);
+extern void *dtrace_printa_create(dtrace_hdl_t *dtp, const char *s);
+extern size_t dtrace_printf_format(dtrace_hdl_t *dtp, void *fmtdata, char *s,
+    size_t len);
 
-extern int dtrace_fprintf(dtrace_hdl_t *, FILE *, void *,
-    const dtrace_probedata_t *, const dtrace_recdesc_t *, uint_t,
-    const void *, size_t);
+extern int dtrace_fprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+    const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
+    uint_t nrecs, const void *buf, size_t len);
 
-extern int dtrace_fprinta(dtrace_hdl_t *, FILE *, void *,
-    const dtrace_probedata_t *, const dtrace_recdesc_t *, uint_t,
-    const void *, size_t);
+extern int dtrace_fprinta(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+    const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
+    uint_t nrecs, const void *buf, size_t len);
 
-extern int dtrace_system(dtrace_hdl_t *, FILE *, void *,
-    const dtrace_probedata_t *, const dtrace_recdesc_t *, uint_t,
-    const void *, size_t);
+extern int dtrace_system(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+    const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
+    uint_t nrecs, const void *buf, size_t len);
 
-extern int dtrace_freopen(dtrace_hdl_t *, FILE *, void *,
-    const dtrace_probedata_t *, const dtrace_recdesc_t *, uint_t,
-    const void *, size_t);
+extern int dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+    const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
+    uint_t nrecs, const void *buf, size_t len);
 
 /*
  * DTrace Work Interface
@@ -250,8 +252,8 @@ typedef enum {
 	DTRACE_WORKSTATUS_DONE
 } dtrace_workstatus_t;
 
-extern dtrace_workstatus_t dtrace_work(dtrace_hdl_t *, FILE *,
-    dtrace_consume_probe_f *, dtrace_consume_rec_f *, void *);
+extern dtrace_workstatus_t dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
+    dtrace_consume_probe_f *pfunc, dtrace_consume_rec_f *rfunc, void *arg);
 
 /*
  * DTrace Handler Interface
@@ -271,8 +273,9 @@ typedef struct dtrace_errdata {
 	const char *dteda_msg;			/* preconstructed message */
 } dtrace_errdata_t;
 
-typedef int dtrace_handle_err_f(const dtrace_errdata_t *, void *);
-extern int dtrace_handle_err(dtrace_hdl_t *, dtrace_handle_err_f *, void *);
+typedef int dtrace_handle_err_f(const dtrace_errdata_t *err, void *arg);
+extern int dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr,
+    void *arg);
 
 typedef enum {
 	DTRACEDROP_PRINCIPAL,			/* drop to principal buffer */
@@ -296,11 +299,14 @@ typedef struct dtrace_dropdata {
 	const char *dtdda_msg;			/* preconstructed message */
 } dtrace_dropdata_t;
 
-typedef int dtrace_handle_drop_f(const dtrace_dropdata_t *, void *);
-extern int dtrace_handle_drop(dtrace_hdl_t *, dtrace_handle_drop_f *, void *);
+typedef int dtrace_handle_drop_f(const dtrace_dropdata_t *drop, void *arg);
+extern int dtrace_handle_drop(dtrace_hdl_t *dtp, dtrace_handle_drop_f *hdlr,
+    void *arg);
 
-typedef void dtrace_handle_proc_f(struct ps_prochandle *, const char *, void *);
-extern int dtrace_handle_proc(dtrace_hdl_t *, dtrace_handle_proc_f *, void *);
+typedef void dtrace_handle_proc_f(struct ps_prochandle *proc, const char *err,
+    void *arg);
+extern int dtrace_handle_proc(dtrace_hdl_t *dtp, dtrace_handle_proc_f *hdlr,
+    void *arg);
 
 #define	DTRACE_BUFDATA_AGGKEY		0x0001	/* aggregation key */
 #define	DTRACE_BUFDATA_AGGVAL		0x0002	/* aggregation value */
@@ -316,9 +322,9 @@ typedef struct dtrace_bufdata {
 	uint32_t dtbda_flags;			/* flags; see above */
 } dtrace_bufdata_t;
 
-typedef int dtrace_handle_buffered_f(const dtrace_bufdata_t *, void *);
-extern int dtrace_handle_buffered(dtrace_hdl_t *,
-    dtrace_handle_buffered_f *, void *);
+typedef int dtrace_handle_buffered_f(const dtrace_bufdata_t *data, void *arg);
+extern int dtrace_handle_buffered(dtrace_hdl_t *dtp,
+    dtrace_handle_buffered_f *hdlr, void *arg);
 
 typedef struct dtrace_setoptdata {
 	dtrace_hdl_t *dtsda_handle;		/* handle to DTrace library */
@@ -328,9 +334,9 @@ typedef struct dtrace_setoptdata {
 	dtrace_optval_t dtsda_newval;		/* new value */
 } dtrace_setoptdata_t;
 
-typedef int dtrace_handle_setopt_f(const dtrace_setoptdata_t *, void *);
-extern int dtrace_handle_setopt(dtrace_hdl_t *,
-    dtrace_handle_setopt_f *, void *);
+typedef int dtrace_handle_setopt_f(const dtrace_setoptdata_t *data, void *arg);
+extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
+    dtrace_handle_setopt_f *hdlr, void *arg);
 
 /*
  * DTrace Aggregate Interface
@@ -361,48 +367,57 @@ struct dtrace_aggdata {
 	caddr_t *dtada_percpu_delta;		/* per CPU delta, if avail */
 };
 
-typedef int dtrace_aggregate_f(const dtrace_aggdata_t *, void *);
-typedef int dtrace_aggregate_walk_f(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
-typedef int dtrace_aggregate_walk_joined_f(const dtrace_aggdata_t **,
-    const int, void *);
+typedef struct dtrace_print_aggdata {
+	dtrace_hdl_t *dtpa_dtp;			/* handle to DTrace library */
+	dtrace_aggvarid_t dtpa_id;		/* aggregation variable */
+	FILE *dtpa_fp;				/* file pointer */
+	int dtpa_allunprint;			/* print only unprinted aggs */
+} dtrace_print_aggdata_t;
 
-extern void dtrace_aggregate_clear(dtrace_hdl_t *);
-extern int dtrace_aggregate_snap(dtrace_hdl_t *);
-extern int dtrace_aggregate_print(dtrace_hdl_t *, FILE *,
-    dtrace_aggregate_walk_f *);
+typedef int dtrace_aggregate_f(const dtrace_aggdata_t *func, void *arg);
+typedef int dtrace_aggregate_walk_f(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
+typedef int dtrace_aggregate_walk_joined_f(const dtrace_aggdata_t **aggvars,
+    const int naggvars, void *arg);
 
-extern int dtrace_aggregate_walk(dtrace_hdl_t *, dtrace_aggregate_f *, void *);
+extern void dtrace_aggregate_clear(dtrace_hdl_t *dtp);
+extern int dtrace_aggregate_snap(dtrace_hdl_t *dtp);
+extern int dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
+    dtrace_aggregate_walk_f *func); /* func must take dtrace_print_aggdata_t */
 
-extern int dtrace_aggregate_walk_joined(dtrace_hdl_t *,
-    dtrace_aggvarid_t *, int, dtrace_aggregate_walk_joined_f *, void *);
+extern int dtrace_aggregate_walk(dtrace_hdl_t *dtp, dtrace_aggregate_f *func,
+    void *arg);
 
-extern int dtrace_aggregate_walk_sorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp,
+    dtrace_aggvarid_t *aggvars, int naggvars,
+    dtrace_aggregate_walk_joined_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_keysorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_sorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_valsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_keysorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_keyvarsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_valsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_valvarsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_keyvarsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_keyrevsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_valvarsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_valrevsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_keyrevsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_keyvarrevsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_valrevsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
-extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *,
-    dtrace_aggregate_f *, void *);
+extern int dtrace_aggregate_walk_keyvarrevsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
+
+extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *dtp,
+    dtrace_aggregate_f *func, void *arg);
 
 #define	DTRACE_AGD_PRINTED	0x1	/* aggregation printed in program */
 
@@ -414,12 +429,13 @@ extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *,
  * request that libdtrace obtain control of the process using libproc.
  */
 
-extern struct ps_prochandle *dtrace_proc_create(dtrace_hdl_t *,
-    const char *, char *const *);
+extern struct ps_prochandle *dtrace_proc_create(dtrace_hdl_t *dtp,
+    const char *file, char *const *argv);
 
-extern struct ps_prochandle *dtrace_proc_grab(dtrace_hdl_t *, pid_t, int);
-extern void dtrace_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
-extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
+extern struct ps_prochandle *dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid,
+    int flags);
+extern void dtrace_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P);
+extern void dtrace_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P);
 
 /*
  * DTrace Object, Symbol, and Type Interfaces
@@ -446,7 +462,7 @@ typedef struct dtrace_addr_range {
 	GElf_Xword dar_size;	/* size of range */
 } dtrace_addr_range_t;
 
-extern int dtrace_addr_range_cmp(const void *, const void *);
+extern int dtrace_addr_range_cmp(const void *addr, const void *range);
 
 typedef struct dtrace_objinfo {
 	const char *dto_name;			/* object file scope name */
@@ -460,10 +476,13 @@ typedef struct dtrace_objinfo {
 
 #define	DTRACE_OBJ_F_KERNEL	0x1		/* object is a kernel module */
 
-typedef int dtrace_obj_f(dtrace_hdl_t *, const dtrace_objinfo_t *, void *);
+typedef int dtrace_obj_f(dtrace_hdl_t *dtp, const dtrace_objinfo_t *modinfo,
+    void *data);
 
-extern int dtrace_object_iter(dtrace_hdl_t *, dtrace_obj_f *, void *);
-extern int dtrace_object_info(dtrace_hdl_t *, const char *, dtrace_objinfo_t *);
+extern int dtrace_object_iter(dtrace_hdl_t *dtp, dtrace_obj_f *func,
+    void *data);
+extern int dtrace_object_info(dtrace_hdl_t *dtp, const char *object,
+    dtrace_objinfo_t *dto);
 
 typedef struct dtrace_syminfo {
 	const char *dts_object;			/* object name */
@@ -471,11 +490,11 @@ typedef struct dtrace_syminfo {
 	ulong_t dts_id;				/* symbol id */
 } dtrace_syminfo_t;
 
-extern int dtrace_lookup_by_name(dtrace_hdl_t *, const char *, const char *,
-    GElf_Sym *, dtrace_syminfo_t *);
+extern int dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object,
+    const char *name, GElf_Sym *symp, dtrace_syminfo_t *sip);
 
-extern int dtrace_lookup_by_addr(dtrace_hdl_t *, GElf_Addr addr,
-    GElf_Sym *, dtrace_syminfo_t *);
+extern int dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
+    GElf_Sym *symp, dtrace_syminfo_t *sip);
 
 typedef struct dtrace_typeinfo {
 	const char *dtt_object;			/* object containing type */
@@ -483,17 +502,17 @@ typedef struct dtrace_typeinfo {
 	ctf_id_t dtt_type;			/* CTF type identifier */
 } dtrace_typeinfo_t;
 
-extern int dtrace_lookup_by_type(dtrace_hdl_t *, const char *, const char *,
-    dtrace_typeinfo_t *);
+extern int dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object,
+    const char *name, dtrace_typeinfo_t *tip);
 
-extern int dtrace_symbol_type(dtrace_hdl_t *, const GElf_Sym *,
-    const dtrace_syminfo_t *, dtrace_typeinfo_t *);
+extern int dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
+    const dtrace_syminfo_t *sip, dtrace_typeinfo_t *tip);
 
-extern int dtrace_type_strcompile(dtrace_hdl_t *,
-    const char *, dtrace_typeinfo_t *);
+extern int dtrace_type_strcompile(dtrace_hdl_t *dtp, const char *s,
+    dtrace_typeinfo_t *dtt);
 
-extern int dtrace_type_fcompile(dtrace_hdl_t *,
-    FILE *, dtrace_typeinfo_t *);
+extern int dtrace_type_fcompile(dtrace_hdl_t *dtp, FILE *fp,
+    dtrace_typeinfo_t *dtt);
 
 /*
  * DTrace Probe Interface
@@ -509,13 +528,14 @@ typedef struct dtrace_probeinfo {
 	int dtp_argc;				/* arg count */
 } dtrace_probeinfo_t;
 
-typedef int dtrace_probe_f(dtrace_hdl_t *, const dtrace_probedesc_t *, void *);
+typedef int dtrace_probe_f(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pd,
+    void *arg);
 
-extern int dtrace_probe_iter(dtrace_hdl_t *,
-    const dtrace_probedesc_t *pdp, dtrace_probe_f *, void *);
+extern int dtrace_probe_iter(dtrace_hdl_t *dtp,
+    const dtrace_probedesc_t *pdp, dtrace_probe_f *func, void *arg);
 
-extern int dtrace_probe_info(dtrace_hdl_t *,
-    const dtrace_probedesc_t *, dtrace_probeinfo_t *);
+extern int dtrace_probe_info(dtrace_hdl_t *dtp,
+    const dtrace_probedesc_t *pdp, dtrace_probeinfo_t *pip);
 
 /*
  * DTrace Vector Interface
@@ -526,11 +546,11 @@ extern int dtrace_probe_info(dtrace_hdl_t *,
  * entry point to obtain a library handle.
  */
 struct dtrace_vector {
-	int (*dtv_ioctl)(void *, int, void *);
-	int (*dtv_lookup_by_addr)(void *, GElf_Addr, GElf_Sym *,
-	    dtrace_syminfo_t *);
-	int (*dtv_status)(void *, processorid_t);
-	long (*dtv_sysconf)(void *, int);
+	int (*dtv_ioctl)(void *varg, int val, void *arg);
+	int (*dtv_lookup_by_addr)(void *varg, GElf_Addr addr, GElf_Sym *symp,
+	    dtrace_syminfo_t *sip);
+	int (*dtv_status)(void *varg, processorid_t cpu);
+	long (*dtv_sysconf)(void *varg, int name);
 };
 
 /*
@@ -541,30 +561,35 @@ struct dtrace_vector {
  * dtrace_probedesc_t representation, and to perform similar conversions on
  * stability attributes.
  */
-extern int dtrace_addr2str(dtrace_hdl_t *, uint64_t, char *, int);
-extern int dtrace_uaddr2str(dtrace_hdl_t *, pid_t, uint64_t, char *, int);
+extern int dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str,
+    int nbytes);
+extern int dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
+    uint64_t addr, char *str, int nbytes);
 
-extern int dtrace_xstr2desc(dtrace_hdl_t *, dtrace_probespec_t,
-    const char *, int, char *const [], dtrace_probedesc_t *);
+extern int dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
+    const char *s, int argc, char *const argv[], dtrace_probedesc_t *pdp);
 
-extern int dtrace_str2desc(dtrace_hdl_t *, dtrace_probespec_t,
-    const char *, dtrace_probedesc_t *);
+extern int dtrace_str2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
+    const char *s, dtrace_probedesc_t *pdp);
 
-extern int dtrace_id2desc(dtrace_hdl_t *, dtrace_id_t, dtrace_probedesc_t *);
+extern int dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id,
+    dtrace_probedesc_t *pdp);
 
 #define	DTRACE_DESC2STR_MAX	1024	/* min buf size for dtrace_desc2str() */
 
-extern char *dtrace_desc2str(const dtrace_probedesc_t *, char *, size_t);
+extern char *dtrace_desc2str(const dtrace_probedesc_t *pdp, char *buf,
+    size_t len);
 
 #define	DTRACE_ATTR2STR_MAX	64	/* min buf size for dtrace_attr2str() */
 
-extern char *dtrace_attr2str(dtrace_attribute_t, char *, size_t);
-extern int dtrace_str2attr(const char *, dtrace_attribute_t *);
+extern char *dtrace_attr2str(dtrace_attribute_t attr, char *buf, size_t len);
+extern int dtrace_str2attr(const char *str, dtrace_attribute_t *attr);
 
-extern const char *dtrace_stability_name(dtrace_stability_t);
-extern const char *dtrace_class_name(dtrace_class_t);
+extern const char *dtrace_stability_name(dtrace_stability_t s);
+extern const char *dtrace_class_name(dtrace_class_t c);
 
-extern int dtrace_provider_modules(dtrace_hdl_t *, const char **, int);
+extern int dtrace_provider_modules(dtrace_hdl_t *dtp, const char **mods,
+    int nmods);
 
 extern const char *const _dtrace_version;
 extern int _dtrace_debug;

@@ -199,13 +199,6 @@ typedef struct dt_aggregate {
 	dt_ahash_t dtat_hash;		/* aggregate hash table */
 } dt_aggregate_t;
 
-typedef struct dt_print_aggdata {
-	dtrace_hdl_t *dtpa_dtp;		/* pointer to libdtrace handle */
-	dtrace_aggvarid_t dtpa_id;	/* aggregation variable of interest */
-	FILE *dtpa_fp;			/* file pointer */
-	int dtpa_allunprint;		/* print only unprinted aggregations */
-} dt_print_aggdata_t;
-
 typedef struct dt_dirpath {
 	dt_list_t dir_list;		/* linked-list forward/back pointers */
 	char *dir_path;			/* directory pathname */

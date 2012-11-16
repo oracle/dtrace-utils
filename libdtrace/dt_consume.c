@@ -1442,7 +1442,7 @@ int
 dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 {
 	int i, aggact = 0;
-	dt_print_aggdata_t *pd = arg;
+	dtrace_print_aggdata_t *pd = arg;
 	const dtrace_aggdata_t *aggdata = aggsdata[0];
 	dtrace_aggdesc_t *agg = aggdata->dtada_desc;
 	FILE *fp = pd->dtpa_fp;
@@ -1515,7 +1515,7 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 int
 dt_print_agg(const dtrace_aggdata_t *aggdata, void *arg)
 {
-	dt_print_aggdata_t *pd = arg;
+	dtrace_print_aggdata_t *pd = arg;
 	dtrace_aggdesc_t *agg = aggdata->dtada_desc;
 	dtrace_aggvarid_t aggvarid = pd->dtpa_id;
 
@@ -1847,7 +1847,7 @@ again:
 
 nofmt:
 			if (act == DTRACEACT_PRINTA) {
-				dt_print_aggdata_t pd;
+				dtrace_print_aggdata_t pd;
 				dtrace_aggvarid_t *aggvars;
 				int j, naggvars = 0;
 				size_t size = ((epd->dtepd_nrecs - i) *
