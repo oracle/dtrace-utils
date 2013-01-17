@@ -20,14 +20,12 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef _SYS_PROCFS_SOLARIS_H
 #define	_SYS_PROCFS_SOLARIS_H
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/procfs.h>
 
@@ -35,37 +33,12 @@
 extern "C" {
 #endif
 
-/*
- * This definition is temporary.  Structured proc is the preferred API,
- * and the older ioctl-based interface will be removed in a future version
- * of Solaris.  Until then, by default, including <sys/procfs.h> will
- * provide the older ioctl-based /proc definitions.  To get the structured
- * /proc definitions, either include <procfs.h> or define _STRUCTURED_PROC
- * to be 1 before including <sys/procfs.h>.
- */
-#ifndef	_STRUCTURED_PROC
-#define	_STRUCTURED_PROC	0
-#endif
-
 #include <sys/types.h>
 #include <sys/procfs_isa.h>
-
 
 /*
  * System call interfaces for /proc.
  */
-
-/*
- * Reasons for stopping (pr_why).
- */
-#define	PR_REQUESTED	1
-#define	PR_SIGNALLED	2
-#define	PR_JOBCONTROL	5
-#define	PR_FAULTED	6
-#define	PR_SUSPENDED	7
-#define	PR_CHECKPOINT	8
-
-#define	PRNODEV	(dev_t)(-1)	/* non-existent device */
 
 /*
  * Memory-map interface.  /proc/<pid>/map /proc/<pid>/rmap

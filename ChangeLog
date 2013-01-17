@@ -6,6 +6,7 @@
 	* libdtrace/dt_link.c (prepare_elf64): Use standard name for
 	relocation constant.
 	* libdtrace/dt_ident.c: Remove unused header.
+	* include/sys/procfs.h: Remove unused junk.
 
 2012-11-16  Nick Alcock  <nick.alcock@oracle.com>
 
