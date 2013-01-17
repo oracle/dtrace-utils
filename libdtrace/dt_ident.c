@@ -32,7 +32,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <ctype.h>
-#include <sys/procfs_isa.h>
 #include <limits.h>
 
 #include <dt_ident.h>

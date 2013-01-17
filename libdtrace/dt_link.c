@@ -20,18 +20,14 @@
  */
 
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #define	ELF_TARGET_ALL
 #include <elf.h>
 
 #include <sys/types.h>
-
-#include <sys/elf_amd64.h>
 
 #define	SHN_SUNW_IGNORE	0xff3f
 
@@ -397,7 +393,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 			rel->r_offset = s->dofs_offset +
 			    dofr[j].dofr_offset;
 			rel->r_info = ELF64_R_INFO(count + dep->de_global,
-			    R_AMD64_64);
+			    R_X86_64_64);
 #elif defined(__sparc)
 			rel->r_offset = s->dofs_offset +
 			    dofr[j].dofr_offset;

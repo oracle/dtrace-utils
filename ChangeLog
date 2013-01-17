@@ -1,3 +1,12 @@
+2013-01-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	* include/sys/elf_amd64.h (R_*, ELF_AMD64_*): Drop relocation
+	constants with nonstandard names.
+	(SHT_*, SHF_*, SHN_*): Unused, remove.
+	* libdtrace/dt_link.c (prepare_elf64): Use standard name for
+	relocation constant.
+	* libdtrace/dt_ident.c: Remove unused header.
+
 2012-11-16  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_impl.h (dt_print_aggdata): Move to...
