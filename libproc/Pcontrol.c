@@ -54,9 +54,6 @@
 #include "Putil.h"
 
 int	_libproc_debug;		/* set non-zero to enable debugging printfs */
-int	_libproc_no_qsort;	/* set non-zero to inhibit sorting */
-				/* of symbol tables */
-int	_libproc_incore_elf;	/* only use in-core elf data */
 
 char	procfs_path[PATH_MAX] = "/proc";
 
@@ -68,8 +65,6 @@ void
 _libproc_init(void)
 {
 	_libproc_debug = getenv("DTRACE_DEBUG") != NULL;
-	_libproc_no_qsort = getenv("LIBPROC_NO_QSORT") != NULL;
-	_libproc_incore_elf = getenv("LIBPROC_INCORE_ELF") != NULL;
 }
 
 /*

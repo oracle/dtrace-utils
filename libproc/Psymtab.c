@@ -1164,31 +1164,18 @@ optimize_symtab(sym_tbl_t *symtab)
 	}
 
 	/*
-	 * Sort the two tables according to the appropriate criteria,
-	 * unless the user has overridden this behaviour.
-	 *
-	 * An example where we might not sort the tables is the relatively
-	 * unusual case of a process with very large symbol tables in which
-	 * we perform few lookups. In such a case the total time would be
-	 * dominated by the sort. It is difficult to determine a priori
-	 * how many lookups an arbitrary client will perform, and
-	 * hence whether the symbol tables should be sorted. We therefore
-	 * sort the tables by default, but provide the user with a
-	 * "chicken switch" in the form of the LIBPROC_NO_QSORT
-	 * environment variable.
+	 * Sort the two tables according to the appropriate criteria.
 	 */
-	if (!_libproc_no_qsort) {
-		(void) mutex_lock(&sort_mtx);
-		sort_strs = symtab->sym_strs;
-		sort_syms = syms;
+	(void) mutex_lock(&sort_mtx);
+	sort_strs = symtab->sym_strs;
+	sort_syms = syms;
 
-		qsort(symtab->sym_byaddr, count, sizeof (uint_t), byaddr_cmp);
-		qsort(symtab->sym_byname, count, sizeof (uint_t), byname_cmp);
+	qsort(symtab->sym_byaddr, count, sizeof (uint_t), byaddr_cmp);
+	qsort(symtab->sym_byname, count, sizeof (uint_t), byname_cmp);
 
-		sort_strs = NULL;
-		sort_syms = NULL;
-		(void) mutex_unlock(&sort_mtx);
-	}
+	sort_strs = NULL;
+	sort_syms = NULL;
+	(void) mutex_unlock(&sort_mtx);
 
 	free(syms);
 }
@@ -1776,11 +1763,14 @@ sym_prefer(GElf_Sym *sym1, char *name1, GElf_Sym *sym2, char *name2)
 }
 
 /*
- * Use a binary search to do the work of sym_by_addr().
+ * Look up a symbol by address in the specified symbol table, using a binary
+ * search.
+ *
+ * Adjustment to 'addr' must already have been made for the
+ * offset of the symbol if this is a dynamic library symbol table.
  */
 static GElf_Sym *
-sym_by_addr_binary(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp,
-    uint_t *idp)
+sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 {
 	GElf_Sym sym, osym;
 	uint_t i, oid, *byaddr = symtab->sym_byaddr;
@@ -1845,70 +1835,11 @@ sym_by_addr_binary(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp,
 }
 
 /*
- * Use a linear search to do the work of sym_by_addr().
+ * Look up a symbol by name in the specified symbol table, using a binary
+ * search.
  */
 static GElf_Sym *
-sym_by_addr_linear(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symbolp,
-    uint_t *idp)
-{
-	size_t symn = symtab->sym_symn;
-	char *strs = symtab->sym_strs;
-	GElf_Sym sym, *symp = NULL;
-	GElf_Sym osym, *osymp = NULL;
-	int i, id;
-
-	if (symtab->sym_data_pri == NULL || symn == 0 || strs == NULL)
-		return (NULL);
-
-	for (i = 0; i < symn; i++) {
-		if ((symp = symtab_getsym(symtab, i, &sym)) != NULL) {
-			if (addr >= sym.st_value &&
-			    addr < sym.st_value + sym.st_size) {
-				if (osymp)
-					symp = sym_prefer(
-					    symp, strs + symp->st_name,
-					    osymp, strs + osymp->st_name);
-				if (symp != osymp) {
-					osym = sym;
-					osymp = &osym;
-					id = i;
-				}
-			}
-		}
-	}
-	if (osymp) {
-		*symbolp = osym;
-		if (idp)
-			*idp = id;
-		return (symbolp);
-	}
-	return (NULL);
-}
-
-/*
- * Look up a symbol by address in the specified symbol table.
- * Adjustment to 'addr' must already have been made for the
- * offset of the symbol if this is a dynamic library symbol table.
- *
- * Use a linear or a binary search depending on whether or not we
- * chose to sort the table in optimize_symtab().
- */
-static GElf_Sym *
-sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
-{
-	if (_libproc_no_qsort) {
-		return (sym_by_addr_linear(symtab, addr, symp, idp));
-	} else {
-		return (sym_by_addr_binary(symtab, addr, symp, idp));
-	}
-}
-
-/*
- * Use a binary search to do the work of sym_by_name().
- */
-static GElf_Sym *
-sym_by_name_binary(sym_tbl_t *symtab, const char *name, GElf_Sym *symp,
-    uint_t *idp)
+sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 {
 	char *strs = symtab->sym_strs;
 	uint_t i, *byname = symtab->sym_byname;
@@ -1940,48 +1871,6 @@ sym_by_name_binary(sym_tbl_t *symtab, const char *name, GElf_Sym *symp,
 	}
 
 	return (NULL);
-}
-
-/*
- * Use a linear search to do the work of sym_by_name().
- */
-static GElf_Sym *
-sym_by_name_linear(sym_tbl_t *symtab, const char *name, GElf_Sym *symp,
-    uint_t *idp)
-{
-	size_t symn = symtab->sym_symn;
-	char *strs = symtab->sym_strs;
-	int i;
-
-	if (symtab->sym_data_pri == NULL || symn == 0 || strs == NULL)
-		return (NULL);
-
-	for (i = 0; i < symn; i++) {
-		if (symtab_getsym(symtab, i, symp) &&
-		    strcmp(name, strs + symp->st_name) == 0) {
-			if (idp)
-				*idp = i;
-			return (symp);
-		}
-	}
-
-	return (NULL);
-}
-
-/*
- * Look up a symbol by name in the specified symbol table.
- *
- * Use a linear or a binary search depending on whether or not we
- * chose to sort the table in optimize_symtab().
- */
-static GElf_Sym *
-sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
-{
-	if (_libproc_no_qsort) {
-		return (sym_by_name_linear(symtab, name, symp, idp));
-	} else {
-		return (sym_by_name_binary(symtab, name, symp, idp));
-	}
 }
 
 /*
