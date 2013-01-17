@@ -18,11 +18,11 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 BUILDLIBS += libproc
 libproc_CPPFLAGS = -Ilibproc -Iuts/intel -D_LONGLONG_TYPE
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
-libproc_SOURCES = Pcontrol.c amd64/Pisadep.c Psymtab_machelf32.c Psymtab_machelf64.c Psymtab.c Putil.c
+libproc_SOURCES = Pcontrol.c amd64/Pisadep.c Psymtab.c Putil.c

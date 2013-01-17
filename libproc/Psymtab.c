@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 Oracle, Inc.  All rights reserved.
+ * Copyright 2009 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -41,6 +41,7 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ptrace.h>
 #include <port.h>
 
 #include <mutex.h>
@@ -50,7 +51,13 @@
 #include "libproc.h"
 #include "Pcontrol.h"
 #include "Putil.h"
-#include "Psymtab_machelf.h"
+
+/*
+ * This is very new and not widely supported yet.
+ */
+#ifndef PTRACE_GETMAPFD
+#define PTRACE_GETMAPFD		0x42A5
+#endif
 
 static file_info_t *build_map_symtab(struct ps_prochandle *, map_info_t *);
 static map_info_t *exec_map(struct ps_prochandle *);
@@ -78,8 +85,6 @@ static char *Pfindmap(struct ps_prochandle *, map_info_t *, char *, size_t);
 	((1 << STT_OBJECT) | (1 << STT_FUNC) | \
 	(1 << STT_COMMON) | (1 << STT_TLS))
 #define	IS_DATA_TYPE(tp)	(((1 << (tp)) & DATA_TYPES) != 0)
-
-#define	MA_RWX	(MA_READ | MA_WRITE | MA_EXEC)
 
 typedef enum {
 	PRO_NATURAL,
@@ -982,24 +987,6 @@ read_ehdr32(struct ps_prochandle *P, Elf32_Ehdr *ehdr, uint_t *phnum,
 	return (0);
 }
 
-static int
-read_dynamic_phdr32(struct ps_prochandle *P, const Elf32_Ehdr *ehdr,
-    uint_t phnum, Elf32_Phdr *phdr, uintptr_t addr)
-{
-	uint_t i;
-
-	for (i = 0; i < phnum; i++) {
-		uintptr_t a = addr + ehdr->e_phoff + i * ehdr->e_phentsize;
-		if (Pread(P, phdr, sizeof (*phdr), a) != sizeof (*phdr))
-			return (-1);
-
-		if (phdr->p_type == PT_DYNAMIC)
-			return (0);
-	}
-
-	return (-1);
-}
-
 #ifdef _LP64
 static int
 read_ehdr64(struct ps_prochandle *P, Elf64_Ehdr *ehdr, uint_t *phnum,
@@ -1035,261 +1022,7 @@ read_ehdr64(struct ps_prochandle *P, Elf64_Ehdr *ehdr, uint_t *phnum,
 
 	return (0);
 }
-
-static int
-read_dynamic_phdr64(struct ps_prochandle *P, const Elf64_Ehdr *ehdr,
-    uint_t phnum, Elf64_Phdr *phdr, uintptr_t addr)
-{
-	uint_t i;
-
-	for (i = 0; i < phnum; i++) {
-		uintptr_t a = addr + ehdr->e_phoff + i * ehdr->e_phentsize;
-		if (Pread(P, phdr, sizeof (*phdr), a) != sizeof (*phdr))
-			return (-1);
-
-		if (phdr->p_type == PT_DYNAMIC)
-			return (0);
-	}
-
-	return (-1);
-}
 #endif	/* _LP64 */
-
-/*
- * The text segment for each load object contains the elf header and
- * program headers. We can use this information to determine if the
- * file that corresponds to the load object is the same file that
- * was loaded into the process's address space. There can be a discrepency
- * if a file is recompiled after the process is started or if the target
- * represents a core file from a differently configured system -- two
- * common examples. The DT_CHECKSUM entry in the dynamic section
- * provides an easy method of comparison. It is important to note that
- * the dynamic section usually lives in the data segment, but the meta
- * data we use to find the dynamic section lives in the text segment so
- * if either of those segments is absent we can't proceed.
- *
- * We're looking through the elf file for several items: the symbol tables
- * (both dynsym and symtab), the procedure linkage table (PLT) base,
- * size, and relocation base, and the CTF information. Most of this can
- * be recovered from the loaded image of the file itself, the exceptions
- * being the symtab and CTF data.
- *
- * First we try to open the file that we think corresponds to the load
- * object, if the DT_CHECKSUM values match, we're all set, and can simply
- * recover all the information we need from the file. If the values of
- * DT_CHECKSUM don't match, or if we can't access the file for whatever
- * reasaon, we fake up a elf file to use in its stead. If we can't read
- * the elf data in the process's address space, we fall back to using
- * the file even though it may give inaccurate information.
- *
- * The elf file that we fake up has to consist of sections for the
- * dynsym, the PLT and the dynamic section. Note that in the case of a
- * core file, we'll get the CTF data in the file_info_t later on from
- * a section embedded the core file (if it's present).
- *
- * file_differs() conservatively looks for mismatched files, identifying
- * a match when there is any ambiguity (since that's the legacy behavior).
- */
-static int
-file_differs(struct ps_prochandle *P, Elf *elf, file_info_t *fptr)
-{
-	Elf_Scn *scn;
-	GElf_Shdr shdr;
-	GElf_Dyn dyn;
-	Elf_Data *data;
-	uint_t i, ndyn;
-	GElf_Xword cksum;
-	uintptr_t addr;
-#ifdef USERSPACE_TRACEPOINTS
-        char dmodel = P->status.pr_dmodel;
-#else
-        char dmodel = PR_MODEL_LP64;
-#endif
-
-	if (fptr->file_map == NULL)
-		return (0);
-
-	/*
-	 * First, we find the checksum value in the elf file.
-	 */
-	scn = NULL;
-	while ((scn = elf_nextscn(elf, scn)) != NULL) {
-		if (gelf_getshdr(scn, &shdr) != NULL &&
-		    shdr.sh_type == SHT_DYNAMIC)
-			goto found_shdr;
-	}
-	return (0);
-
-found_shdr:
-	if ((data = elf_getdata(scn, NULL)) == NULL)
-		return (0);
-#ifdef USERSPACE_TRACEPOINTS
-	if (P->status.pr_dmodel == PR_MODEL_ILP32)
-		ndyn = shdr.sh_size / sizeof (Elf32_Dyn);
-#ifdef _LP64
-	else if (P->status.pr_dmodel == PR_MODEL_LP64)
-		ndyn = shdr.sh_size / sizeof (Elf64_Dyn);
-#endif
-	else
-		return (0);
-#else
-	ndyn = shdr.sh_size / sizeof (Elf64_Dyn);
-#endif
-
-	for (i = 0; i < ndyn; i++) {
-		if (gelf_getdyn(data, i, &dyn) != NULL &&
-		    dyn.d_tag == DT_CHECKSUM)
-			goto found_cksum;
-	}
-
-	/*
-	 * The in-memory ELF has no DT_CHECKSUM section, but we will report it
-	 * as matching the file anyhow.
-	 */
-	return (0);
-
-found_cksum:
-	cksum = dyn.d_un.d_val;
-	_dprintf("elf cksum value is %llx\n", (u_longlong_t)cksum);
-
-	/*
-	 * Get the base of the text mapping that corresponds to this file.
-	 */
-	addr = fptr->file_map->map_pmap.pr_vaddr;
-
-#ifdef USERSPACE_TRACEPOINTS
-        if (P->status.pr_dmodel == PR_MODEL_ILP32) {
-#else
-        if (dmodel == PR_MODEL_ILP32) {
-#endif
-		Elf32_Ehdr ehdr;
-		Elf32_Phdr phdr;
-		Elf32_Dyn dync, *dynp;
-		uint_t phnum, i;
-
-		if (read_ehdr32(P, &ehdr, &phnum, addr) != 0 ||
-		    read_dynamic_phdr32(P, &ehdr, phnum, &phdr, addr) != 0)
-			return (0);
-
-		if (ehdr.e_type == ET_DYN)
-			phdr.p_vaddr += addr;
-		if ((dynp = malloc(phdr.p_filesz)) == NULL)
-			return (0);
-		dync.d_tag = DT_NULL;
-		if (Pread(P, dynp, phdr.p_filesz, phdr.p_vaddr) !=
-		    phdr.p_filesz) {
-			free(dynp);
-			return (0);
-		}
-
-		for (i = 0; i < phdr.p_filesz / sizeof (Elf32_Dyn); i++) {
-			if (dynp[i].d_tag == DT_CHECKSUM)
-				dync = dynp[i];
-		}
-
-		free(dynp);
-
-		if (dync.d_tag != DT_CHECKSUM)
-			return (0);
-
-		_dprintf("image cksum value is %llx\n",
-		    (u_longlong_t)dync.d_un.d_val);
-		return (dync.d_un.d_val != cksum);
-#ifdef _LP64
-# ifdef USERSPACE_TRACEPOINTS
-	} else if (P->status.pr_dmodel == PR_MODEL_LP64) {
-# else
-	} else if (dmodel == PR_MODEL_LP64) {
-# endif
-		Elf64_Ehdr ehdr;
-		Elf64_Phdr phdr;
-		Elf64_Dyn dync, *dynp;
-		uint_t phnum, i;
-
-		if (read_ehdr64(P, &ehdr, &phnum, addr) != 0 ||
-		    read_dynamic_phdr64(P, &ehdr, phnum, &phdr, addr) != 0)
-			return (0);
-
-		if (ehdr.e_type == ET_DYN)
-			phdr.p_vaddr += addr;
-		if ((dynp = malloc(phdr.p_filesz)) == NULL)
-			return (0);
-		dync.d_tag = DT_NULL;
-		if (Pread(P, dynp, phdr.p_filesz, phdr.p_vaddr) !=
-		    phdr.p_filesz) {
-			free(dynp);
-			return (0);
-		}
-
-		for (i = 0; i < phdr.p_filesz / sizeof (Elf64_Dyn); i++) {
-			if (dynp[i].d_tag == DT_CHECKSUM)
-				dync = dynp[i];
-		}
-
-		free(dynp);
-
-		if (dync.d_tag != DT_CHECKSUM)
-			return (0);
-
-		_dprintf("image cksum value is %llx\n",
-		    (u_longlong_t)dync.d_un.d_val);
-		return (dync.d_un.d_val != cksum);
-#endif	/* _LP64 */
-	}
-
-	return (0);
-}
-
-/*
- * Read data from the specified process and construct an in memory
- * image of an ELF file that represents it well enough to let
- * us probe it for information.
- */
-static Elf *
-fake_elf(struct ps_prochandle *P, file_info_t *fptr)
-{
-	Elf *elf;
-	uintptr_t addr;
-	uint_t phnum;
-#ifdef USERSPACE_TRACEPOINTS
-        char dmodel = P->status.pr_dmodel;
-#else
-        char dmodel = PR_MODEL_LP64;
-#endif
-
-	if (fptr->file_map == NULL)
-		return (NULL);
-
-	addr = fptr->file_map->map_pmap.pr_vaddr;
-
-#ifdef USERSPACE_TRACEPOINTS
-        if (P->status.pr_dmodel == PR_MODEL_ILP32) {
-#else
-        if (dmodel == PR_MODEL_ILP32) {
-#endif
-		Elf32_Ehdr ehdr;
-		Elf32_Phdr phdr;
-
-		if ((read_ehdr32(P, &ehdr, &phnum, addr) != 0) ||
-		    read_dynamic_phdr32(P, &ehdr, phnum, &phdr, addr) != 0)
-			return (NULL);
-
-		elf = fake_elf32(P, fptr, addr, &ehdr, phnum, &phdr);
-#ifdef _LP64
-	} else {
-		Elf64_Ehdr ehdr;
-		Elf64_Phdr phdr;
-
-		if (read_ehdr64(P, &ehdr, &phnum, addr) != 0 ||
-		    read_dynamic_phdr64(P, &ehdr, phnum, &phdr, addr) != 0)
-			return (NULL);
-
-		elf = fake_elf64(P, fptr, addr, &ehdr, phnum, &phdr);
-#endif
-	}
-
-	return (elf);
-}
 
 /*
  * We wouldn't need these if qsort(3C) took an argument for the callback...
@@ -1492,38 +1225,12 @@ optimize_symtab(sym_tbl_t *symtab)
 	free(syms);
 }
 
-
-static Elf *
-build_fake_elf(struct ps_prochandle *P, file_info_t *fptr, GElf_Ehdr *ehdr,
-	size_t *nshdrs, Elf_Data **shdata)
-{
-	size_t shstrndx;
-	Elf_Scn *scn;
-	Elf *elf;
-
-	if ((elf = fake_elf(P, fptr)) == NULL ||
-	    elf_kind(elf) != ELF_K_ELF ||
-	    gelf_getehdr(elf, ehdr) == NULL ||
-	    elf_getshdrnum(elf, nshdrs) == -1 ||
-	    elf_getshdrstrndx(elf, &shstrndx) == -1 ||
-	    (scn = elf_getscn(elf, shstrndx)) == NULL ||
-	    (*shdata = elf_getdata(scn, NULL)) == NULL) {
-		if (elf != NULL)
-			(void) elf_end(elf);
-		_dprintf("failed to fake up ELF file\n");
-		return (NULL);
-	}
-
-	return (elf);
-}
-
 /*
  * Build the symbol table for the given mapped file.
  */
 static void
 Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 {
-	char objectfile[PATH_MAX];
 	uint_t i;
 
 	GElf_Ehdr ehdr;
@@ -1531,7 +1238,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	Elf_Data *shdata;
 	Elf_Scn *scn;
-	Elf *elf;
+	Elf *elf = NULL;
 	size_t nshdrs, shstrndx;
 
 	struct {
@@ -1555,51 +1262,48 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	}
 
 	if (P->state == PS_DEAD) {
-		char *name;
 		/*
-		 * If we're not live, we can't open files from the /proc
-		 * object directory; we have only the mapping and file names
-		 * to guide us.  We prefer the file_lname, but need to handle
-		 * the case of it being NULL in order to bootstrap: we first
-		 * come here during rd_new() when the only information we have
-		 * is interpreter name associated with the AT_BASE mapping.
+		 * If we're not live, there is nothing we can do.  (This should
+		 * never happen in DTrace anyway.)
 		 */
-		if (fptr->file_rname != NULL)
-			name = fptr->file_rname;
-		else if (fptr->file_lname != NULL)
-			name = fptr->file_lname;
-		else
-			name = fptr->file_pname;
-		(void) strlcpy(objectfile, name, sizeof (objectfile));
-	} else {
-		(void) snprintf(objectfile, sizeof (objectfile),
-		    "%s/%d/exe", procfs_path, (int)P->pid);
+		_dprintf("cannot work over dead process\n");
+		goto bad;
 	}
 
 	/*
-	 * Open the object file, create the elf file, and then get the elf
-	 * header and .shstrtab data buffer so we can process sections by
-	 * name. If anything goes wrong try to fake up an elf file from
-	 * the in-core elf image.
+	 * Acquire an fd to this mapping.  This requires ptrace()ing.  Then
+	 * create the elf file and get the elf header and .shstrtab data buffer
+	 * so we can process sections by name.  Since dtrace cannot work on dead
+	 * processes or processes we cannot ptrace(), no fallback is needed: we
+	 * must always have a mapping.  (If we don't, this is likely not an ELF
+	 * executable: it might be something faked up in memory and mapped
+	 * executable, but this rare case is not worth supporting and seems
+	 * highly unlikely to have all the ELF structures in place.  Anything
+	 * that is working this way can just change to writing an ELF executable
+	 * to an unlinked file in /tmp instead.  Solaris DTrace cannot handle
+	 * this case either.)
 	 */
+	if (!P->ptraced) {
+		if (ptrace(PTRACE_ATTACH, P->pid, 0, 0) != 0) {
+			_dprintf("cannot ptrace() process %li\n",
+			    (long) P->pid);
+			goto bad;
+		}
+	}
+	if (ptrace(PTRACE_GETMAPFD, P->pid,
+		fptr->file_map->map_pmap.pr_vaddr, &fptr->file_fd) == 0) {
+		_dprintf("cannot acquire file descriptor for mapping at %lx "
+		    "named %s\n", fptr->file_map->map_pmap.pr_vaddr,
+			fptr->file_map->map_pmap.pr_mapname);
+		if (!P->ptraced)
+			ptrace(PTRACE_DETACH, P->pid, 0, 0);
+		goto bad;
+	}
 
-	if (_libproc_incore_elf) {
-		_dprintf("Pbuild_file_symtab: using in-core data for: %s\n",
-		    fptr->file_pname);
+	if (!P->ptraced)
+		ptrace(PTRACE_DETACH, P->pid, 0, 0);
 
-		if ((elf = build_fake_elf(P, fptr, &ehdr, &nshdrs, &shdata)) ==
-		    NULL)
-			return;
-
-	} else if ((fptr->file_fd = open(objectfile, O_RDONLY)) < 0) {
-		_dprintf("Pbuild_file_symtab: failed to open %s: %s\n",
-		    objectfile, strerror(errno));
-
-		if ((elf = build_fake_elf(P, fptr, &ehdr, &nshdrs, &shdata)) ==
-		    NULL)
-			return;
-
-	} else if ((elf = elf_begin(fptr->file_fd, ELF_C_READ, NULL)) == NULL ||
+	if ((elf = elf_begin(fptr->file_fd, ELF_C_READ, NULL)) == NULL ||
 	    elf_kind(elf) != ELF_K_ELF ||
 	    gelf_getehdr(elf, &ehdr) == NULL ||
 	    elf_getshdrnum(elf, &nshdrs) == -1 ||
@@ -1609,40 +1313,19 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		int err = elf_errno();
 
 		_dprintf("failed to process ELF file %s: %s\n",
-		    objectfile, (err == 0) ? "<null>" : elf_errmsg(err));
-		(void) elf_end(elf);
+		    fptr->file_map->map_pmap.pr_mapname, (err == 0) ?
+		    "<null>" : elf_errmsg(err));
+		goto bad;
 
-		if ((elf = build_fake_elf(P, fptr, &ehdr, &nshdrs, &shdata)) ==
-		    NULL)
-			return;
-
-	} else if (file_differs(P, elf, fptr)) {
-		Elf *newelf;
-
-		/*
-		 * Before we get too excited about this elf file, we'll check
-		 * its checksum value against the value we have in memory. If
-		 * they don't agree, we try to fake up a new elf file and
-		 * proceed with that instead.
-		 */
-		_dprintf("ELF file %s (%lx) doesn't match in-core image\n",
-		    fptr->file_pname,
-		    (ulong_t)fptr->file_map->map_pmap.pr_vaddr);
-
-		if ((newelf = build_fake_elf(P, fptr, &ehdr, &nshdrs, &shdata))
-		    != NULL) {
-			(void) elf_end(elf);
-			elf = newelf;
-			_dprintf("switched to faked up ELF file\n");
-		}
 	}
-
 	if ((cache = malloc(nshdrs * sizeof (*cache))) == NULL) {
-		_dprintf("failed to malloc section cache for %s\n", objectfile);
+		_dprintf("failed to malloc section cache for mapping of %s\n",
+			fptr->file_map->map_pmap.pr_mapname);
 		goto bad;
 	}
 
-	_dprintf("processing ELF file %s\n", objectfile);
+	_dprintf("processing ELF file %s\n",
+	    fptr->file_map->map_pmap.pr_mapname);
 	fptr->file_class = ehdr.e_ident[EI_CLASS];
 	fptr->file_etype = ehdr.e_type;
 	fptr->file_elf = elf;
@@ -1688,17 +1371,14 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			    &fptr->file_symtab : &fptr->file_dynsym;
 			/*
 			 * It's possible that the we already got the symbol
-			 * table from the core file itself. Either the file
-			 * differs in which case our faked up elf file will
-			 * only contain the dynsym (not the symtab) or the
-			 * file matches in which case we'll just be replacing
-			 * the symbol table we pulled out of the core file
-			 * with an equivalent one. In either case, this
+			 * table from the core file itself.  We'll just be
+			 * replacing the symbol table we pulled out of the core
+			 * file with an equivalent one.  In either case, this
 			 * check isn't essential, but it's a good idea.
 			 */
 			if (symp->sym_data_pri == NULL) {
 				_dprintf("Symbol table found for %s\n",
-				    objectfile);
+				    fptr->file_map->map_pmap.pr_mapname);
 				symp->sym_data_pri = cp->c_data;
 				symp->sym_symn +=
 				    shp->sh_size / shp->sh_entsize;
@@ -1710,13 +1390,15 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				symp->sym_strhdr = cache[shp->sh_link].c_shdr;
 			} else {
 				_dprintf("Symbol table already there for %s\n",
-				    objectfile);
+				    fptr->file_map->map_pmap.pr_mapname);
 			}
-		/*} else if (shp->sh_type == SHT_SUNW_LDYNSYM) { */
+#ifdef LATER
+		} else if (shp->sh_type == SHT_SUNW_LDYNSYM) {
 			/* .SUNW_ldynsym section is auxiliary to .dynsym */
-			/*if (fptr->file_dynsym.sym_data_aux == NULL) {
+			if (fptr->file_dynsym.sym_data_aux == NULL) {
 				_dprintf(".SUNW_ldynsym symbol table"
-				    " found for %s\n", objectfile);
+				    " found for %s\n",
+				    fptr->file_map->map_pmap.pr_mapname);
 				fptr->file_dynsym.sym_data_aux = cp->c_data;
 				fptr->file_dynsym.sym_symn_aux =
 				    shp->sh_size / shp->sh_entsize;
@@ -1725,8 +1407,10 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				fptr->file_dynsym.sym_hdr_aux = cp->c_shdr;
 			} else {
 				_dprintf(".SUNW_ldynsym symbol table already"
-				    " there for %s\n", objectfile);
-			} */
+				    " there for %s\n",
+					fptr->file_map->map_pmap.pr_mapname);
+			}
+#endif
 		} else if (shp->sh_type == SHT_DYNAMIC) {
 			dyn = cp;
 		} else if (strcmp(cp->c_name, ".plt") == 0) {
@@ -1767,7 +1451,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		fptr->file_dyn_base = fptr->file_map->map_pmap.pr_vaddr -
 		    fptr->file_map->map_pmap.pr_offset;
 		_dprintf("setting file_dyn_base for %s to %lx\n",
-		    objectfile, (long)fptr->file_dyn_base);
+		    fptr->file_map->map_pmap.pr_mapname,
+		    (long)fptr->file_dyn_base);
 	}
 
 	/*
@@ -1791,7 +1476,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	if (fptr->file_etype == ET_DYN &&
 	    fptr->file_lo->rl_base != fptr->file_dyn_base) {
 		_dprintf("resetting file_dyn_base for %s to %lx\n",
-		    objectfile, (long)fptr->file_lo->rl_base);
+		    fptr->file_map->map_pmap.pr_mapname,
+		    (long)fptr->file_lo->rl_base);
 		fptr->file_dyn_base = fptr->file_lo->rl_base;
 	}
 
@@ -1869,16 +1555,10 @@ done:
 	return;
 
 bad:
-	if (cache != NULL)
-		free(cache);
-
-	(void) elf_end(elf);
+	free(cache);
+	elf_end(elf);
 	fptr->file_elf = NULL;
-	if (fptr->file_elfmem != NULL) {
-		free(fptr->file_elfmem);
-		fptr->file_elfmem = NULL;
-	}
-	(void) close(fptr->file_fd);
+	close(fptr->file_fd);
 	fptr->file_fd = -1;
 }
 

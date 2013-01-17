@@ -5,6 +5,25 @@
 	(Prelease): Likewise.
 	(Psetrun): Likewise.
 
+	* libproc/Psymtab.c (PTRACE_GETMAPFD): Add definition: this is not
+	in glibc yet.
+	(MA_RWX): Remove, unused.
+	(read_dynamic_phdr32): Likewise.
+	(read_dynamic_phdr64): Likewise.
+	(file_differs): Likewise.
+	(fake_elf): Likewise.
+	(build_fake_elf): Likewise.
+	(Pbuild_file_symtab): Rewrite ELF file-acquisition code to use
+	PTRACE_GETMAPFD rather than file opening and build_fake_elf().
+	Remove support for building symtabs of dead processes.  Do not
+	assume that we can always acquire all ELF objects via
+	/proc/$pid/exe: this is not true of any mapping other than the
+	executable's.
+	* libproc/Psymtab_machelf32.c: Remove, unused.
+	* libproc/Psymtab_machelf64.c: Likewise.
+	* libproc/Psymtab_machelf.h: Likewise.
+	* libproc/Build: Adjust.
+
 	* include/sys/elf_amd64.h (R_*, ELF_AMD64_*): Drop relocation
 	constants with nonstandard names.
 	(SHT_*, SHF_*, SHN_*): Unused, remove.
