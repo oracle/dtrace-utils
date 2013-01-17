@@ -1,5 +1,10 @@
 2013-01-17  Nick Alcock  <nick.alcock@oracle.com>
 
+	* libproc/Pcontrol.h (ps_prochandle): Add ptraced.
+	* libproc/Pcontrol.c (Pcreate): Set it.
+	(Prelease): Likewise.
+	(Psetrun): Likewise.
+
 	* include/sys/elf_amd64.h (R_*, ELF_AMD64_*): Drop relocation
 	constants with nonstandard names.
 	(SHT_*, SHF_*, SHN_*): Unused, remove.

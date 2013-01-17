@@ -134,6 +134,7 @@ Pcreate(
 	 */
 	(void) memset(P, 0, sizeof (*P));
 	P->state = PS_TRACESTOP;
+	P->ptraced = TRUE;
 	P->pid = pid;
 	Pinitsym(P);
 	(void) Pmemfd(P);			/* populate ->memfd */
@@ -444,6 +445,7 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 		kill(P->pid, SIGKILL);
 	else
 		ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
+	P->ptraced = FALSE;
 
 	Pfree(P);
 }
@@ -514,6 +516,7 @@ Psetrun(struct ps_prochandle *P, boolean_t detach_it)
 		if (ptrace(ptrace_req, P->pid, 0, 0) < 0)
 			return (-1);
 		P->state = PS_RUN;
+		P->ptraced = !detach_it;
 	}
 
 	return (0);

@@ -153,6 +153,7 @@ struct ps_prochandle {
 #endif
 	pid_t	pid;		/* process-ID */
 	int	state;		/* state of the process, see "libproc.h" */
+	int	ptraced;	/* if nonzero, this process is ptrace-attached */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	map_info_t *mappings;	/* cached process mappings */
