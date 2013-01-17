@@ -206,7 +206,7 @@ file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 		return (NULL);
 
 	list_link(fptr, &P->file_head);
-	(void) strcpy(fptr->file_pname, mptr->map_pmap.pr_mapname);
+	fptr->file_pname = strdup(mptr->map_pmap.pr_mapname);
 	mptr->map_file = fptr;
 	fptr->file_ref = 1;
 	fptr->file_fd = -1;
@@ -270,42 +270,24 @@ file_info_free(struct ps_prochandle *P, file_info_t *fptr)
 {
 	if (--fptr->file_ref == 0) {
 		list_unlink(fptr);
-		if (fptr->file_symtab.sym_elf) {
-			(void) elf_end(fptr->file_symtab.sym_elf);
-			free(fptr->file_symtab.sym_elfmem);
-		}
-		if (fptr->file_symtab.sym_byname)
-			free(fptr->file_symtab.sym_byname);
-		if (fptr->file_symtab.sym_byaddr)
-			free(fptr->file_symtab.sym_byaddr);
+		free(fptr->file_symtab.sym_byname);
+		free(fptr->file_symtab.sym_byaddr);
 
-		if (fptr->file_dynsym.sym_elf) {
-			(void) elf_end(fptr->file_dynsym.sym_elf);
-			free(fptr->file_dynsym.sym_elfmem);
-		}
-		if (fptr->file_dynsym.sym_byname)
-			free(fptr->file_dynsym.sym_byname);
-		if (fptr->file_dynsym.sym_byaddr)
-			free(fptr->file_dynsym.sym_byaddr);
+		free(fptr->file_dynsym.sym_byname);
+		free(fptr->file_dynsym.sym_byaddr);
 
-		if (fptr->file_lo)
-			free(fptr->file_lo);
-		if (fptr->file_lname)
-			free(fptr->file_lname);
-		if (fptr->file_rname)
-			free(fptr->file_rname);
-		if (fptr->file_elf)
-			(void) elf_end(fptr->file_elf);
-		if (fptr->file_elfmem != NULL)
-			free(fptr->file_elfmem);
+		free(fptr->file_lo);
+		free(fptr->file_lname);
+		free(fptr->file_rname);
+		free(fptr->file_pname);
+		(void) elf_end(fptr->file_elf);
 		if (fptr->file_fd >= 0)
 			(void) close(fptr->file_fd);
 		if (fptr->file_ctfp) {
 			ctf_close(fptr->file_ctfp);
 			free(fptr->file_ctf_buf);
 		}
-		if (fptr->file_saddrs)
-			free(fptr->file_saddrs);
+		free(fptr->file_saddrs);
 		free(fptr);
 		P->num_files--;
 	}
@@ -324,6 +306,8 @@ map_info_free(struct ps_prochandle *P, map_info_t *mptr)
 			fptr->file_map = NULL;
 		file_info_free(P, fptr);
 	}
+	free(mptr->map_pmap.pr_mapname);
+	mptr->map_pmap.pr_mapname = NULL;
 	if (P->auxv && (mptr == P->map_exec || mptr == P->map_ldso)) {
 		free(P->auxv);
 		P->auxv = NULL;
@@ -529,48 +513,33 @@ Pupdate_maps(struct ps_prochandle *P)
 	/*  The size of the file /proc/<pid>/maps is zero on Linux. */
 	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
-	if ((fp = fopen(mapfile, "r")) != NULL) {
+	if ((fp = fopen(mapfile, "r")) == NULL) {
 		Preset_maps(P);
 		return;
 	}
-#if 0
-	struct stat statb;
 
-	if ((mapfd = open(mapfile, O_RDONLY)) < 0 ||
-	    fstat(mapfd, &statb) != 0 ||
-	    statb.st_size < sizeof (prmap_t) ||
-	    (Pmap = malloc(statb.st_size)) == NULL ||
-	    (nmap = pread(mapfd, Pmap, statb.st_size, 0L)) <= 0 ||
-	    (nmap /= sizeof (prmap_t)) == 0) {
-		if (Pmap != NULL)
-			free(Pmap);
-		if (mapfd >= 0)
-			(void) close(mapfd);
-		Preset_maps(P);	/* utter failure; destroy tables */
-		return;
-	}
-#endif
 	Pmap = calloc(sizeof(prmap_t), 1);
         for (i = 0; fgets(buf, sizeof(buf), fp); i++) {
                 unsigned long laddr, haddr, offset, inode;
-                char    perms[4];
+                char    perms[5];
                 char    majmin[128];
-                char    filename[BUFSIZ];
+                char    *filename;
                 Pmap = realloc(Pmap, (i + 1) * sizeof(prmap_t));
-                sscanf(buf, "%lx-%lx %s %lx %s %lu %s",
-                        &laddr, &haddr, perms, &offset, majmin, &inode, filename);
+                sscanf(buf, "%lx-%lx %s %lx %s %lu %ms",
+                        &laddr, &haddr, perms, &offset, majmin, &inode, &filename);
                 memset(&Pmap[i], 0, sizeof(prmap_t));
                 Pmap[i].pr_vaddr = laddr;
                 Pmap[i].pr_size = haddr - laddr;
                 Pmap[i].pr_offset = offset;
-                Pmap[i].pr_pagesize = 4096;
+                Pmap[i].pr_pagesize = getpagesize();
                 if (perms[0] == 'r')
                         Pmap[i].pr_mflags |= MA_READ;
                 if (perms[1] == 'w')
                         Pmap[i].pr_mflags |= MA_WRITE;
                 if (perms[2] == 'x')
                         Pmap[i].pr_mflags |= MA_EXEC;
-                strncpy(Pmap[i].pr_mapname, filename, sizeof(Pmap[i].pr_mapname));
+		Pmap[i].pr_mapname = filename;
+		Pmap[i].pr_inum = inode;
                 nmap = i + 1;
         }
 	
@@ -599,10 +568,8 @@ Pupdate_maps(struct ps_prochandle *P)
 		} else if (pmap->pr_vaddr == mptr->map_pmap.pr_vaddr &&
 		    pmap->pr_size == mptr->map_pmap.pr_size &&
 		    pmap->pr_offset == mptr->map_pmap.pr_offset &&
-		    (pmap->pr_mflags & ~(MA_BREAK | MA_STACK)) ==
-		    (mptr->map_pmap.pr_mflags & ~(MA_BREAK | MA_STACK)) &&
 		    pmap->pr_pagesize == mptr->map_pmap.pr_pagesize &&
-		    pmap->pr_shmid == mptr->map_pmap.pr_shmid &&
+		    pmap->pr_inum == mptr->map_pmap.pr_inum &&
 		    strcmp(pmap->pr_mapname, mptr->map_pmap.pr_mapname) == 0) {
 
 			/*
@@ -620,6 +587,7 @@ Pupdate_maps(struct ps_prochandle *P)
 			if (mptr->map_file != NULL &&
 			    mptr->map_file->file_map == mptr)
 				mptr->map_file->file_map = newp;
+			free(pmap->pr_mapname);
 			oldmapcount--;
 			mptr++;
 

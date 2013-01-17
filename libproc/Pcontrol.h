@@ -77,8 +77,6 @@ typedef struct sym_tbl {	/* symbol table */
 	GElf_Shdr sym_hdr_pri;	/* primary symbol table section header */
 	GElf_Shdr sym_hdr_aux;	/* auxiliary symbol table section header */
 	GElf_Shdr sym_strhdr;	/* string table section header */
-	Elf	*sym_elf;	/* faked-up ELF handle from core file */
-	void	*sym_elfmem;	/* data for faked-up ELF handle */
 	uint_t	*sym_byname;	/* symbols sorted by name */
 	uint_t	*sym_byaddr;	/* symbols sorted by addr */
 	size_t	sym_count;	/* number of symbols in each sorted list */
@@ -86,7 +84,7 @@ typedef struct sym_tbl {	/* symbol table */
 
 typedef struct file_info {	/* symbol information for a mapped file */
 	plist_t	file_list;	/* linked list */
-	char	file_pname[PRMAPSZ];	/* name from prmap_t */
+	char	*file_pname;	/* name from prmap_t */
 	struct map_info *file_map;	/* primary (text) mapping */
 	int	file_ref;	/* references from map_info_t structures */
 	int	file_fd;	/* file descriptor for the mapped file */
@@ -99,7 +97,6 @@ typedef struct file_info {	/* symbol information for a mapped file */
 	char	*file_rname;	/* resolved on-disk object pathname */
 	char	*file_rbase;	/* pointer to basename of file_rname */
 	Elf	*file_elf;	/* ELF handle so we can close */
-	void	*file_elfmem;	/* data for faked-up ELF handle */
 	sym_tbl_t file_symtab;	/* symbol table */
 	sym_tbl_t file_dynsym;	/* dynamic symbol table */
 	uintptr_t file_dyn_base;	/* load address for ET_DYN files */

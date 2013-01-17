@@ -43,16 +43,14 @@ extern "C" {
 /*
  * Memory-map interface.  /proc/<pid>/map /proc/<pid>/rmap
  */
-#define	PRMAPSZ	64
 typedef struct prmap {
 	uintptr_t pr_vaddr;	/* virtual address of mapping */
 	size_t	pr_size;	/* size of mapping in bytes */
-	char	pr_mapname[PRMAPSZ];	/* name in /proc/<pid>/object */
+	char	*pr_mapname;	/* name in /proc/<pid>/object */
 	offset_t pr_offset;	/* offset into mapped object, if any */
 	int	pr_mflags;	/* protection and attribute flags (see below) */
 	int	pr_pagesize;	/* pagesize (bytes) for this mapping */
-	int	pr_shmid;	/* SysV shmid, -1 if not SysV shared memory */
-	int	pr_filler[1];	/* filler for future expansion */
+	ino_t	pr_inum;	/* inode number */
 } prmap_t;
 
 
@@ -60,19 +58,6 @@ typedef struct prmap {
 #define	MA_READ		0x04	/* readable by the traced process */
 #define	MA_WRITE	0x02	/* writable by the traced process */
 #define	MA_EXEC		0x01	/* executable by the traced process */
-#define	MA_SHARED	0x08	/* changes are shared by mapped object */
-#define	MA_ANON		0x40	/* anonymous memory (e.g. /dev/zero) */
-#define	MA_ISM		0x80	/* intimate shared mem (shared MMU resources) */
-#define	MA_NORESERVE	0x100	/* mapped with MAP_NORESERVE */
-#define	MA_SHM		0x200	/* System V shared memory */
-#define	MA_RESERVED1	0x400	/* reserved for future use */
-
-/*
- * These are obsolete and unreliable.
- * They are included here only for historical compatibility.
- */
-#define	MA_BREAK	0x10	/* grown by brk(2) */
-#define	MA_STACK	0x20	/* grown automatically on stack faults */
 
 #ifdef	__cplusplus
 }
