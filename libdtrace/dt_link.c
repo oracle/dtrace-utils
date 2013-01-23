@@ -1438,6 +1438,20 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				rsym.st_shndx = SHN_SUNW_IGNORE;
 				(void) gelf_update_sym(data_sym, ndx, &rsym);
 			}
+
+			/*
+			 * This relocation is no longer needed.
+			 */
+			if (shdr_rel.sh_type == SHT_RELA) {
+				rela.r_info = GELF_R_INFO(ndx, 0);
+				(void) gelf_update_rela(data_rel, i, &rela);
+			} else {
+				GElf_Rel rel;
+
+				rel.r_offset = rela.r_offset;
+				rel.r_info = GELF_R_INFO(ndx, 0);
+				(void) gelf_update_rel(data_rel, i, &rel);
+			}
 		}
 	}
 
