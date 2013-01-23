@@ -60,10 +60,10 @@
 #define NUM_UNIMPLEMENTED 5
 
 INTFUNC(rand())
-INTFUNC(mutex_owned(&`text_mutex))
-INTFUNC(mutex_owner(&`text_mutex))
-INTFUNC(mutex_type_adaptive(&`text_mutex))
-INTFUNC(mutex_type_spin(&`text_mutex))
+INTFUNC(mutex_owned(&dtrace`dtrace_lock))
+INTFUNC(mutex_owner(&dtrace`dtrace_lock))
+INTFUNC(mutex_type_adaptive(&dtrace`dtrace_lock))
+INTFUNC(mutex_type_spin(&dtrace`dtrace_lock))
 INTFUNC(rw_read_held(&`tasklist_lock))
 INTFUNC(rw_write_held(&`tasklist_lock))
 INTFUNC(rw_iswriter(&`tasklist_lock))
