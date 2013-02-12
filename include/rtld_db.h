@@ -19,52 +19,89 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 #ifndef	_RTLD_DB_H
 #define	_RTLD_DB_H
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#include <sys/link.h>
+#include <link.h>
+
+struct ps_prochandle;
+
+/*
+ * Errors.
+ */
+
+typedef enum {
+	RD_ERR,		/* generic */
+	RD_OK,		/* generic "call" succeeded */
+	RD_NOMAPS	/* link-maps are not yet available */
+} rd_err_e;
+
+/*
+ * Debugging events inside the runtime linker.
+ */
+
+typedef enum {
+	RD_NONE = 0,		/* no event */
+	RD_PREINIT,		/* the Initial rendezvous before .init: not yet
+				   implemented */
+	RD_POSTINIT,		/* the Second rendezvous after .init: not yet
+				   implemented */
+	RD_DLACTIVITY		/* a dlopen or dlclose has happened */
+} rd_event_e;
+
+/*
+ * Information about event instance.  Identical to the r_state enumeration in
+ * <link.h>, save for slightly different enumeration names.
+ */
+typedef enum {
+	RD_CONSISTENT,		/* link-maps are stable */
+	RD_ADD,			/* currently adding object to link-maps */
+	RD_DELETE		/* currently deleting object from link-maps */
+} rd_state_e;
+
+typedef struct rd_event_msg {
+	rd_event_e	type;
+	rd_state_e	state;	/* for DLACTIVITY */
+} rd_event_msg_t;
+
+struct rd_agent;
+typedef struct rd_agent rd_agent_t;
+/*
+ * Called with rd_event_msg_t of NULL when deallocating state.
+ */
+typedef void (*rd_event_fun)(rd_agent_t *, rd_event_msg_t *, void *);
 
 /*
  * iteration over load objects
  */
 typedef struct rd_loadobj {
-	psaddr_t	rl_nameaddr;	/* address of the name in user space */
-	unsigned	rl_flags;
-	psaddr_t	rl_base;	/* base of address of code */
-	psaddr_t	rl_data_base;	/* base of address of data */
+	intptr_t	rl_base;	/* base address (base load bias) of
+					   object, from PT_LOAD */
+	uintptr_t	rl_data_base;	/* base of address of data */
+	uintptr_t	rl_nameaddr;	/* address of the name in user space */
+	uintptr_t	rl_dyn;		/* dynamic section of object */
 	Lmid_t		rl_lmident;	/* ident of link map */
-	psaddr_t	rl_refnameaddr;	/* reference name of filter in user */
-					/* space.  If non null object is a */
-					/* filter. */
-	psaddr_t	rl_plt_base;	/* These fields are present for 4.x */
+	uintptr_t	rl_plt_base;	/* These fields are present for 4.x */
 	unsigned	rl_plt_size;	/* compatibility and are not */
-					/* currently used  in SunOS5.x */
-	psaddr_t	rl_bend;	/* end of image (text+data+bss) */
-	psaddr_t	rl_padstart;	/* start of padding */
-	psaddr_t	rl_padend;	/* end of image after padding */
-	psaddr_t	rl_dynamic;	/* points to the DYNAMIC section */
-					/* in the target process */
-	unsigned long	rl_tlsmodid;	/* module ID for TLS references */
+				       /* currently used  in SunOS5.x */
+	uintptr_t	rl_bend;	/* end of image (text+data+bss) */
 } rd_loadobj_t;
 
-typedef struct rd_agent rd_agent_t;
-#ifdef __STDC__
 typedef int rl_iter_f(const rd_loadobj_t *, void *);
-#else
-typedef int rl_iter_f();
-#endif
 
-
+extern void		rd_delete(rd_agent_t *);
+extern rd_err_e		rd_event_enable(rd_agent_t *, rd_event_fun fun, void *data);
+extern void		rd_event_disable(rd_agent_t *rd);
+extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
+				void *);
+extern rd_agent_t	*rd_new(struct ps_prochandle *);
 
 #ifdef	__cplusplus
 }

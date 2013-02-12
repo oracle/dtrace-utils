@@ -35,10 +35,11 @@
 #include <gelf.h>
 #include <rtld_db.h>
 #include <libproc.h>
-#include <sys/ctf_api.h>
 #include <limits.h>
+#include <dtrace.h>
+#include <dt_list.h>
 
-#include <mutex.h>
+#include <sys/auxv.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -175,6 +176,29 @@ typedef struct bkpt {
 } bkpt_t;
 
 /*
+ * librtld_db agent state.
+ */
+
+struct rd_agent {
+	struct ps_prochandle *P;	/* pointer back to our ps_prochandle */
+	uintptr_t r_brk_addr;		/* if nonzero, the address of r_brk */
+	int	rd_monitoring;		/* 1 whenever rtld_db has a breakpoint
+					   set on the dynamic linker. */
+	rd_event_fun rd_event_fun;	/* function to call on rtld event */
+	void	*rd_event_data;		/* state passed to rtld_event_fun */
+
+	/* Transition to an inconsistent state is barred.  (If multiple such
+	   prohibitions are in force, this is >1).  If we are actively waiting
+	   for a transition, ic_transitioned > 0 indicates that we have hit
+	   one: otherwise, it is not meaningful. */
+
+	int	no_inconsistent;
+	int	ic_transitioned;
+	int	prev_state;		/* process state before consistency
+					   checking was enabled */
+};
+
+/*
  * Handler for exec()s.
  */
 typedef void (*exec_handler_fun)(struct ps_prochandle *);
@@ -183,20 +207,16 @@ typedef void (*exec_handler_fun)(struct ps_prochandle *);
  * A process under management.
  */
 
-typedef struct elf_file {	/* convenience for managing ELF files */
-	elf_file_header_t e_hdr; /* Extended ELF header */
-	Elf *e_elf;		/* ELF library handle */
-	int e_fd;		/* file descriptor */
-} elf_file_t;
-
 struct ps_prochandle {
 	pid_t	pid;		/* process ID */
 	int	state;		/* state of the process, see "libproc.h" */
 	int	ptraced;	/* true if ptrace-attached */
 	int	ptrace_count;	/* count of Ptrace() calls */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
+	int	no_dyn;		/* true if this is probably a static lib */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
+	int	elf64;		/* if nonzero, this is a 64-bit process */
 	map_info_t *mappings;	/* cached process mappings */
 	size_t	map_count;	/* number of mappings */
 	uint_t	num_files;	/* number of file elements in file_info */
@@ -209,6 +229,7 @@ struct ps_prochandle {
 				   past, if any */
 	int	singlestepped;	/* when tracing_bkpt, 1 iff we have done the
 				   singlestep. */
+	uintptr_t r_debug_addr;	/* address of r_debug in the child */
 	rd_agent_t *rap;	/* rtld_db state */
 	map_info_t *map_exec;	/* the mapping for the executable file */
 	map_info_t *map_ldso;	/* the mapping for ld.so */
@@ -219,7 +240,10 @@ struct ps_prochandle {
  * Implementation functions in the process control library.
  * These are not exported to clients of the library.
  */
-extern	int	Pscantext(struct ps_prochandle *);
+extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
+extern	void	Preadauxvec(struct ps_prochandle *P);
+extern	uint64_t Pgetauxval(struct ps_prochandle *P, int type);
+extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,
     exec_handler_fun handler);
 extern	void	Pinitsym(struct ps_prochandle *);

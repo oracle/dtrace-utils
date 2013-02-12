@@ -22,7 +22,18 @@
 # Use is subject to license terms.
 
 BUILDLIBS += libproc
-libproc_CPPFLAGS = -Ilibproc -Iuts/intel -D_LONGLONG_TYPE
+libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -I$(objdir) -Iuts/intel -D_LONGLONG_TYPE
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
-libproc_SOURCES = Pcontrol.c amd64/Pisadep.c Psymtab.c Putil.c
+libproc_SOURCES = Pcontrol.c amd64/Pisadep.c elfish.c elfish_64.c elfish_32.c Psymtab.c Putil.c rtld_db.c rtld_offsets.c
+libproc_SRCDEPS := $(objdir)/rtld_offsets.stamp
+
+$(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c: $(objdir)/rtld_offsets.stamp
+
+$(objdir)/rtld_offsets.stamp: include/sys/glibc_internal_link.h $(libproc_DIR)mkoffsets.sh
+	CPPFLAGS="$(CPPFLAGS)" $(libproc_DIR)mkoffsets.sh $(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c
+	touch $(objdir)/rtld_offsets.stamp
+
+clean::
+	$(call describe-target,CLEAN,libproc)
+	rm -f $(libproc_DIR)rtld_offsets.c

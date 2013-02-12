@@ -136,41 +136,69 @@ dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
 	dt_dprintf("pid %d: breakpoint at %s()\n", (int)dpr->dpr_pid, fname);
 	dt_proc_stop(dpr, DT_PROC_STOP_MAIN);
 }
+#endif
+
+static void
+dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
+{
+	dt_proc_t *dpr = state;
+	dtrace_hdl_t *dtp = dpr->dpr_hdl;
+
+	/*
+	 * Ignore the state deallocation call.
+	 */
+	if (msg == NULL)
+		return;
+
+	dt_dprintf("pid %d: rtld event, type=%d state %d\n",
+	    (int)dpr->dpr_pid, msg->type, msg->state);
+
+	switch (msg->type) {
+	case RD_DLACTIVITY:
+		if (msg->state != RD_CONSISTENT)
+			break;
+
+		Pupdate_syms(dpr->dpr_proc);
+		if (dt_pid_create_probes_module(dtp, dpr) != 0)
+			dt_proc_notify(dtp, dtp->dt_procs, dpr,
+			    dpr->dpr_errmsg);
+
+		break;
+	case RD_PREINIT:
+		Pupdate_syms(dpr->dpr_proc);
+		dt_proc_stop(dpr, DT_PROC_STOP_PREINIT);
+		break;
+	case RD_POSTINIT:
+		Pupdate_syms(dpr->dpr_proc);
+		dt_proc_stop(dpr, DT_PROC_STOP_POSTINIT);
+		break;
+	case RD_NONE:
+		/* cannot happen, but do nothing anyway */
+		break;
+	}
+}
 
 /*
  * Common code for enabling events associated with the run-time linker after
- * attaching to a process or after a victim process completes an exec(2).
+ * attaching to a process.
  */
 static void
 dt_proc_attach(dt_proc_t *dpr, int exec)
 {
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
-	if (exec) {
-		Preset_maps(dpr->dpr_proc);
-	}
-
-#if 0
-        /* FIXME: We want to use static tracepoints for this. */
-
-        if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL &&
-	    (err = rd_event_enable(dpr->dpr_rtld, B_TRUE)) == RD_OK) {
-		dt_proc_rdwatch(dpr, RD_PREINIT, "RD_PREINIT");
-		dt_proc_rdwatch(dpr, RD_POSTINIT, "RD_POSTINIT");
-		dt_proc_rdwatch(dpr, RD_DLACTIVITY, "RD_DLACTIVITY");
+	/*
+	 * TODO: this doesn't yet cope with statically linked programs, for
+	 * which rd_event_enable() will return RD_NOMAPS until the first
+	 * dlopen() happens, who knows how late into the program's execution.
+	 */
+        if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL) {
+		rd_event_enable(dpr->dpr_rtld, dt_proc_rdevent, dpr);
 	} else {
-		dt_dprintf("pid %d: failed to enable rtld events: %s\n",
-		    (int)dpr->dpr_pid, dpr->dpr_rtld ? rd_errstr(err) :
-		    "rtld_db agent initialization failed");
+		dt_dprintf("pid %d: failed to enable rtld events\n",
+		    (int)dpr->dpr_pid);
 	}
-
-	Pupdate_maps(dpr->dpr_proc);
-
-	/* FIXME: put a breakpoint on main() */
-
-#endif
 }
-#endif
 /*PRINTFLIKE3*/
 _dt_printflike_(3,4)
 static struct ps_prochandle *
@@ -266,12 +294,7 @@ dt_proc_control(void *arg)
 	pid = dpr->dpr_pid;
 	P = dpr->dpr_proc;
 
-	/* FIXME: turn on synchronous mode here, when implemented: remember to
-	 * adjust breakpoint EIP. */
-
-#ifdef USERSPACE_TRACEPOINTS
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
-#endif
 
 	/*
 	 * Wait for a rendezvous from dt_proc_continue().  After this point,
@@ -307,10 +330,7 @@ dt_proc_control(void *arg)
 			 * If the process stops showing one of the events that
 			 * we are tracing, perform the appropriate response.
 			 *
-			 * FIXME: This used to be done using breakpoints.
-			 * Currently we have no mechanism: something must be
-			 * defined using dtrace.  Currently, we just keep
-			 * waiting when a stop happens.
+			 * TODO: the stop() action may need some work here.
 			 */
 			continue;
 

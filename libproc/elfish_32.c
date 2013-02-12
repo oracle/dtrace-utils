@@ -1,4 +1,8 @@
 /*
+ * ELF-related support code, 32-bit.
+ */
+
+/*
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
@@ -18,38 +22,10 @@
  *
  * CDDL HEADER END
  */
-
 /*
- *	Copyright (c) 1988 AT&T
- *	  All Rights Reserved
- *
- * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Use is subject to license terms.
  */
 
-#ifndef _SYS_LINK_H
-#define	_SYS_LINK_H
-
-#ifndef	_ASM
-#include <sys/types.h>
-#include <sys/dtrace_types.h>
-#include <gelf.h>
-#endif
-#include <link.h>
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
-/*
- * Public structure defined and maintained within the runtime linker
- */
-#ifndef        _ASM
-
-typedef struct link_map        Link_map;
-#endif
-
-#ifdef	__cplusplus
-}
-#endif
-
-#endif	/* _SYS_LINK_H */
+#define BITS 32
+#include "elfish_64.c"

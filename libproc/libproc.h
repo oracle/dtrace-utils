@@ -43,7 +43,7 @@
 #include <rtld_db.h>
 #include <sys/ctf_api.h>
 #include <sys/procfs.h>
-#include <sys/auxv.h>
+#include <sys/dtrace_types.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -126,6 +126,8 @@ extern	int	Pwait(struct ps_prochandle *, boolean_t block);
 extern	int	Pstate(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
+extern 	ssize_t	Pread_scalar(struct ps_prochandle *P, void *buf, size_t nbyte,
+    size_t nscalar, uintptr_t address);
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
 
@@ -253,6 +255,14 @@ extern void Preset_maps(struct ps_prochandle *);
 extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
 
 extern pid_t Pgetpid(struct ps_prochandle *);
+
+/*
+ * Return the librtld_db agent handle for the victim process.
+ * The handle will become invalid at the next successful exec() and the
+ * client (caller of proc_rd_agent()) must not use it beyond that point.
+ * If the process is already dead, there's nothing we can do.
+ */
+rd_agent_t *Prd_agent(struct ps_prochandle *);
 
 #ifdef	__cplusplus
 }

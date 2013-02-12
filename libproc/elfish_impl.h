@@ -1,4 +1,8 @@
 /*
+ * ELF-related support code, bitness-dependent prototypes.
+ */
+
+/*
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
@@ -18,37 +22,35 @@
  *
  * CDDL HEADER END
  */
-/*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
-/*	  All Rights Reserved  	*/
-
-
 /*
- * Copyright 2008, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2012 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#ifndef	_SYS_AUXV_H
-#define	_SYS_AUXV_H
+/*
+ * This file can be repeatedly #included with different values of BITS.  Hence,
+ * no include guards.
+ */
 
-#include <sys/types.h>
+#include <inttypes.h>
+#include "Pcontrol.h"
 
-#ifdef	__cplusplus
-extern "C" {
+#ifndef BITS
+#error BITS must be set before including elfish_impl.h
+#endif
+
+#ifndef BITIZE
+#define JOIN(pre,post) pre##_elf##post
+#define EXJOIN(pre,post) JOIN(pre,post)
+#define BITIZE(pre) EXJOIN(pre,BITS)
 #endif
 
 /*
- * A bitness-independent auxv representation.
+ * Prototypes for this value of BITS.
  */
-typedef struct
-{
-	uint64_t a_type;
-	union {
-		uint64_t a_val;
-		void *a_ptr;
-	} a_un;
-} auxv_t;
 
-#ifdef	__cplusplus
-}
-#endif
-#endif	/* _SYS_AUXV_H */
+extern uintptr_t BITIZE(r_debug)(struct ps_prochandle *P);
+
+#undef JOIN
+#undef EXJOIN
+#undef BITIZE

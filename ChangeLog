@@ -93,8 +93,66 @@
 	(dt_proc_control_cleanup): Likewise.
 	(dt_proc_destroy): Likewise.
 
+	rtld_db support.
+
+	* sys/link.h: Remove.
+	* libdtrace/drti.c: Adjust.
+	* include/sys/machelf.h: Likewise.
+	* include/rtld_db.h: Likewise.  Remove pre-ANSI-C support.
+	New prototypes.
+	(rd_err_e): New.
+	(rd_event_e): Likewise.
+	(rd_state_e): Likewise.
+	(rd_event_msg_t): Likewise.
+	(rd_event_fun): Likewise.
+	(rd_loadobj_t): Most fields removed, types of remaining fields
+	adjusted.
+	* include/sys/auxv.h: Remove pre-ANSI-C support.  Use Linux's
+	definition.
+	* libproc/Psymtab.c (Prd_agent): No longer static.
+	(Pupdate_maps): Adjust rd_loadobj_iter() call.
+	(Pupdate_syms): New, unconditionally update the maps.
+	(Prd_agent): Likewise.
+	(build_map_symtab): Likewise.
+	(rd_loadobj_iter): Move this...
+	* libproc/rtld_db.c: ... to this new file, an implementation of
+	rtld_db, and reimplement.
+	* libproc/Psymtab.c (Preadauxvec): Move this...
+	(Pgetauxval): ... and this...
+	* libproc/elfish.c: ... to this new file, a library of ELF
+	manipulation routines, and reimplement.
+	* libproc/elfish_64.c: New file, bitness-dependent ELF
+	manipulation routines.
+	* libporc/elfish_32.c: Likewise, 32-bit wrapper.
+	* libproc/elfish_impl.h: Prototypes for elfish_*.c routines.
+	* libproc/mkoffsets.sh: New, compute 64/32-bit fields offsets and
+	sizes at compile time.
+	* libproc/Build: Run it when needed.  Adjust include paths,
+	dependencies, sources, and clean target appropriately.
+	* libproc/.gitignore: New, ignore mkoffsets-generated file.
+	* libproc/libproc.h: Header modifications.  New prototypes.
+	* libproc/Pcontrol.h: Likewise.
+	(rd_agent_t): New, state of a rd_agent.
+	(elf_file_t): Unused, remove.
+	(ps_prochandle.no_dyn): New, 1 if statically linked.
+	(ps_prochandle.r_debug_addr): New, address of _r_debug.
+	(ps_prochandle.elf64): New, 1 if 64-bit.
+	* libproc/Pcontrol.c (Pgrab): Set it.
+	(Pcreate): Likewise.
+	(Prelease): Don't bother to set fields in something we're about to
+	free.
+	(Pwait): Reset r_debug_addr on exec().
+	(Pread_scalar): New function, read a primitive type.
+	* libdtrace/dt_proc.c (dt_proc_rdevent): New, rd_loadobj_iter()
+	callback.
+	(dt_proc_attach): Call it.  Rip out breakpoint manipulation.
+	Uncomment.
+	(dt_proc_control): Remove obsolete references to 'synchronous
+	mode' and breakpoints.
+
 	* libproc/Pcontrol.c (Pset_procfs_path): Code style.
 	* libdtrace/dt_proc.h: Purge #ident.
+	* include/sys/procfs.h: Adjust includes.
 
 2013-01-17  Nick Alcock  <nick.alcock@oracle.com>
 

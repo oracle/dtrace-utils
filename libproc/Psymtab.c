@@ -72,10 +72,6 @@ static int read_ehdr64(struct ps_prochandle *, Elf64_Ehdr *, uint_t *,
     uintptr_t);
 #endif
 static file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
-static void rd_loadobj_iter(rl_iter_f *, struct ps_prochandle *);
-static rd_agent_t *Prd_agent(struct ps_prochandle *);
-static void Preadauxvec(struct ps_prochandle *);
-static long Pgetauxval(struct ps_prochandle *, int);
 static int byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname);
 static void optimize_symtab(sym_tbl_t *);
 static void Pbuild_file_symtab(struct ps_prochandle *, file_info_t *);
@@ -440,48 +436,6 @@ load_static_maps(struct ps_prochandle *P)
 		map_set(P, mptr, "ld.so.1");
 }
 
-static void
-rd_loadobj_iter(rl_iter_f *cb, struct ps_prochandle *P)
-{
-	char mapfile[PATH_MAX];
-	char	buf[BUFSIZ];
-	FILE	*fp;
-	int	ret;
-
-	(void)snprintf(mapfile, sizeof(mapfile), "/proc/%d/maps", (int)P->pid);
-	if ((fp = fopen(mapfile, "r")) == NULL) {
-		return;
-	}
-
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		char	*addr_str;
-		long int addr;
-		char	*perms;
-		char	*lib;
-		rd_loadobj_t lobj;
-
-		if (strstr(buf, ".so") == NULL)
-			continue;
-		lib = strrchr(buf, ' ');
-		if (lib == NULL)
-			continue;
-		lib++;
-		addr_str = strtok(buf, " ");
-		perms = strtok(NULL, " ");
-		if (strchr(perms, 'x') == NULL)
-			continue;
-
-		/* FIXME: lib is a char *. rl_nameaddr is an 'unsigned long'.
-		   These may be different sizes. */
-
-		addr = strtol(addr_str, NULL, 16);
-		lobj.rl_base = addr;
-		lobj.rl_nameaddr = (psaddr_t) lib;
-		ret = cb(&lobj, P);
-	}
-	fclose(fp);
-}
-
 
 /*
  * Go through all the address space mappings, validating or updating
@@ -635,7 +589,21 @@ Pupdate_maps(struct ps_prochandle *P)
 	 * names for all of the shared libraries.
 	 */
 	if (P->rap != NULL)
-		(void) rd_loadobj_iter(map_iter, P);
+		(void) rd_loadobj_iter(P->rap, map_iter, P);
+}
+
+/*
+ * Update all of the mappings as if by Pupdate_maps(), and then forcibly cache
+ * all of the symbol tables associated with all object files.
+ */
+void
+Pupdate_syms(struct ps_prochandle *P)
+{
+       file_info_t *fptr;
+       int i;
+
+       P->info_valid = 0;
+       Pupdate_maps(P);
 }
 
 /*
@@ -645,7 +613,7 @@ Pupdate_maps(struct ps_prochandle *P)
  * If the process is already dead, we've already tried our best to
  * create the agent during core file initialization.
  */
-static rd_agent_t *
+rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
 	if (P->rap == NULL && P->state != PS_DEAD) {
@@ -655,7 +623,7 @@ Prd_agent(struct ps_prochandle *P)
 #if 0
 		rd_log(_libproc_debug);
 		if ((P->rap = rd_new(P)) != NULL)
-			(void) rd_loadobj_iter(map_iter, P);
+			(void) rd_loadobj_iter(P->rap, map_iter, P);
 #endif
 	}
 	return (P->rap);
@@ -707,94 +675,6 @@ const prmap_t *
 Pname_to_map(struct ps_prochandle *P, const char *name)
 {
 	return (Plmid_to_map(P, PR_LMID_EVERY, name));
-}
-
-/*
- * If we're not a core file, re-read the /proc/<pid>/auxv file and store
- * its contents in P->auxv.  In the case of a core file, we either
- * initialized P->auxv in Pcore() from the NT_AUXV, or we don't have an
- * auxv because the note was missing.
- */
-static void
-Preadauxvec(struct ps_prochandle *P)
-{
-	char auxfile[64];
-	ssize_t naux;
-	int fd;
-	size_t buf;
-
-	if (P->state == PS_DEAD)
-		return; /* FIXME Already read during Pgrab_core() */
-
-	if (P->auxv != NULL) {
-		free(P->auxv);
-		P->auxv = NULL;
-		P->nauxv = 0;
-	}
-	
-	(void) snprintf(auxfile, sizeof (auxfile), "%s/%d/auxv",
-	    procfs_path, (int)P->pid);
-	if ((fd = open(auxfile, O_RDONLY)) < 0)
-		return;
-
-	/* The file size of /proc/<pid>/auxv is zero on Linux. */
-#if 0
-	struct stat statb;
-
-	if (fstat(fd, &statb) == 0 &&
-	    statb.st_size >= sizeof (auxv_t) &&
-	    (P->auxv = malloc(statb.st_size + sizeof (auxv_t))) != NULL) {
-		if ((naux = read(fd, P->auxv, statb.st_size)) < 0 ||
-		    (naux /= sizeof (auxv_t)) < 1) {
-			free(P->auxv);
-			P->auxv = NULL;
-		} else {
-			P->auxv[naux].a_type = AT_NULL;
-			P->auxv[naux].a_un.a_val = 0L;
-			P->nauxv = (int)naux;
-		}
-	}
-#endif
-	/* The size of /proc/<pid>/auxv is 168 on Solaris */
-	
-	buf = 256 + sizeof (auxv_t);
-	P->auxv = malloc(buf);
-	if (P->auxv != NULL) {
-                if ((naux = read(fd, P->auxv, buf)) < 0 ||
-                     (naux /= sizeof (auxv_t)) < 1) {
-                        free(P->auxv);
-                        P->auxv = NULL;
-                } else {
-                        P->auxv[naux].a_type = AT_NULL;
-                        P->auxv[naux].a_un.a_val = 0L;
-                        P->nauxv = (int)naux;
-                }
-        }
-
-	(void) close(fd);
-}
-
-/*
- * Return a requested element from the process's aux vector.
- * Return -1 on failure (this is adequate for our purposes).
- */
-static long
-Pgetauxval(struct ps_prochandle *P, int type)
-{
-	auxv_t *auxv;
-
-	if (P->auxv == NULL)
-		Preadauxvec(P);
-
-	if (P->auxv == NULL)
-		return (-1);
-
-	for (auxv = P->auxv; auxv->a_type != AT_NULL; auxv++) {
-		if (auxv->a_type == type)
-			return (auxv->a_un.a_val);
-	}
-
-	return (-1);
 }
 
 /*
@@ -897,7 +777,7 @@ build_map_symtab(struct ps_prochandle *P, map_info_t *mptr)
 
 	if (P->map_ldso != mptr) {
 		if (P->rap != NULL)
-			(void) rd_loadobj_iter(map_iter, P);
+			(void) rd_loadobj_iter(P->rap, map_iter, P);
 		else
 			(void) Prd_agent(P);
 	} else {

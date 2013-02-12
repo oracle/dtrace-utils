@@ -19,13 +19,14 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/link.h>
+#include <dlfcn.h>
+#include <link.h>
 #include <sys/dtrace.h>
 #include <sys/compiler.h>
 #include <sys/ioctl.h>
@@ -74,7 +75,7 @@ dtrace_dof_init(void)
 	Elf32_Ehdr *elf;
 #endif
 	dof_helper_t dh;
-	Link_map *lmp = NULL;
+	struct link_map *lmp = NULL;
 	Lmid_t lmid = -1;
 	int fd;
 	const char *p;
@@ -82,7 +83,7 @@ dtrace_dof_init(void)
 	char mfn[PATH_MAX];		/* "/proc/<pid>/maps" */
 	char str[4096];			/* read buffer */
 	FILE *fp;
-	Link_map fmap = { 0x0, };
+	struct link_map fmap = { 0x0, };
 #endif
 
 	if (getenv("DTRACE_DOF_INIT_DISABLE") != NULL)

@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 #include <sys/procfs_isa.h>
 
 /*
