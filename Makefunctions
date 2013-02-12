@@ -92,7 +92,7 @@ $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($
                 $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
 	$(call describe-target,SHLINK,$($(1)_TARGET).so)
 	$(CC) -o $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION),$(objdir)/$($(1)_TARGET).so) \
-	      -shared $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS)) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
+	      -shared $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
 	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$($(1)_VERSCRIPT)) \
 	      -Wl,--whole-archive $(foreach primary,$(filter-out $($(1)_SECONDARY),$($(1)_LIBSOURCES)),$(objdir)/build-$($(primary)_TARGET).a) -Wl,--no-whole-archive \
 	      $(foreach secondary,$($(1)_SECONDARY),$(objdir)/build-$($(secondary)_TARGET).a) $($(1)_LIBS)
@@ -110,7 +110,7 @@ $(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),
                           $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
 	$(call describe-target,LINK,$($(1)_TARGET))
 	$(CC) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS)) \
-	      $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS)) -o $(objdir)/$($(1)_TARGET) \
+	      $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
 	      $($(1)_LIBS)
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))

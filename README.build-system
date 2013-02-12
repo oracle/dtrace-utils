@@ -92,6 +92,7 @@ name_SRCDEPS := list of explicit dependencies for (built) source files to be
 Names in the SHLIBS and CMDS (the only things processed by the linker) can have
 the following variables associated with them:
 
+name_LDFLAGS := list of ldflags applying only to this target
 name_LIBS := list of libraries applying only to this target.  Full ld syntax,
              including -l.
 

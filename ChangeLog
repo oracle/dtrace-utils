@@ -9,6 +9,10 @@
 	* test/triggers/Build (link-trigger): So is this link target.
 	* test/utils/Build (link-test-util): And this one.
 
+	* Makefunctions (cmd-template): Support target-specific LDFLAGS.
+	(shlib-template): Likewise.
+	* README.build-system: Document it.
+
 2013-01-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle): Add ptraced.
