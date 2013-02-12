@@ -84,9 +84,10 @@ name_EXPLICIT := list of source files with explicit targets for which
                  automatic targets should not be generated
 name_DEPS := list of explicit dependencies in the build tree
              applying to this target's link step
-name_SRCDEPS := list of explicit dependencies in the source tree
-                for (built) source files to be added to the dep
-                list of every target
+name_SRCDEPS := list of explicit dependencies for (built) source files to be
+                added to the dep list of every target.  If no pathname is
+                specified, the source files are assumed to be in the same
+                directory as the name_SOURCES.
 
 Names in the SHLIBS and CMDS (the only things processed by the linker) can have
 the following variables associated with them:

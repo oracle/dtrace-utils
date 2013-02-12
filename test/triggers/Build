@@ -39,7 +39,7 @@ endef
 
 define link-trigger
 	rm -f test/triggers/$(notdir $(1))
-	ln -s ../../$(1) test/triggers/$(notdir $(1))
+	ln -s $(1) test/triggers/$(notdir $(1))
 endef
 
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))

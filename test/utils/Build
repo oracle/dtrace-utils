@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 TEST_UTILS = baddof badioctl
@@ -40,7 +40,7 @@ endef
 
 define link-test-util
 	rm -f test/utils/$(notdir $(1))
-	ln -s ../../$(1) test/utils/$(notdir $(1))
+	ln -s $(1) test/utils/$(notdir $(1))
 endef
 
 $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))

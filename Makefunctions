@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # A variable expanding to the directory of the currently included makefile
@@ -29,11 +29,11 @@
 current-dir = $(dir $(lastword $(MAKEFILE_LIST)))
 
 # Functions to generate the name of an object file and source file for a
-# given primary.
+# given primary.  If called with an absolute pathname, return it unchanged.
 # Syntax: $(call *-name,primary,filename)
 
 obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.c=.o)))
-src-name = $(addprefix $($(1)_DIR),$(2))
+src-name = $(if $(filter-out $(abspath $(2)),$(2)),$(addprefix $($(1)_DIR),$(2)),$(2))
 
 # If 'verbose' is not set, this echoes a description and truncated target (or
 # other identifier) for this rule.
@@ -90,7 +90,7 @@ comma := ,
 define shlib-template
 $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION)) $(if $($(1)_SONAME),$(objdir)/$($(1)_SONAME)): \
                 $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
-	$(call describe-target,SHLINK,$(objdir)/$($(1)_TARGET).so)
+	$(call describe-target,SHLINK,$($(1)_TARGET).so)
 	$(CC) -o $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION),$(objdir)/$($(1)_TARGET).so) \
 	      -shared $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS)) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
 	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$($(1)_VERSCRIPT)) \
