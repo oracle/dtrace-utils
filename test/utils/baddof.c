@@ -20,19 +20,20 @@
  */
 
 /*
- * Copyright 2007, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <fcntl.h>
-#include <sys/varargs.h>
 #include <errno.h>
 #include <math.h>
+#include <string.h>
 #include <dtrace.h>
 
 void
@@ -191,7 +192,7 @@ main(int argc, char **argv)
 		fatal("could not allocate copy of %d bytes", len);
 
 	for (;;) {
-		bcopy(dof, copy, len);
+		memcpy(copy, dof, len);
 		/*
 		 * Open another instance of the dtrace device.
 		 */

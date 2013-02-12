@@ -20,20 +20,22 @@
  */
 
 /*
- * Copyright 2007, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sys/varargs.h>
+#include <stdarg.h>
+#include <string.h>
 #include <errno.h>
-#include <sys/mman.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #define	DTRACEIOC	(('d' << 24) | ('t' << 16) | ('r' << 8))
@@ -59,9 +61,9 @@ void
 badioctl(pid_t parent)
 {
 	int fd = -1, random, ps = sysconf(_SC_PAGESIZE);
-	int i = 0, seconds;
+	int i = 0;
 	caddr_t addr;
-	hrtime_t now, last = 0, end;
+	struct timeval now, last = {0};
 
 	if ((random = open("/dev/urandom", O_RDONLY)) == -1)
 		fatal("couldn't open /dev/urandom");
@@ -73,7 +75,8 @@ badioctl(pid_t parent)
 	for (;;) {
 		unsigned int ioc;
 
-		if ((now = gethrtime()) - last > NANOSEC) {
+		gettimeofday(&now, NULL);
+		if (now.tv_sec > last.tv_sec) {
 			if (kill(parent, 0) == -1 && errno == ESRCH) {
 				/*
 				 * Our parent died.  We will kill ourselves in
