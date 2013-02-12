@@ -20,13 +20,12 @@
  */
 
 /*
- * Copyright 2010 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -45,9 +44,11 @@
 #include <sys/resource.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/user.h>
 #include <sys/wait.h>
 
 #include <mutex.h>
+#include <platform.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
@@ -57,11 +58,20 @@ int	_libproc_debug;		/* set non-zero to enable debugging printfs */
 
 char	procfs_path[PATH_MAX] = "/proc";
 
+static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
+
+static void Pfree(struct ps_prochandle *P);
+static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
+static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
+static int bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
+static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt);
+static void bkpt_flush(struct ps_prochandle *P, int gone);
+
 /*
  * This is the library's .init handler.
  */
 _dt_constructor_(_libproc_init)
-void
+static void
 _libproc_init(void)
 {
 	_libproc_debug = getenv("DTRACE_DEBUG") != NULL;
@@ -78,30 +88,29 @@ Pcreate(
 	const char *file,	/* executable file name */
 	char *const *argv,	/* argument vector */
 	int *perr,	/* pointer to error return code */
-	char *path,	/* if non-null, holds exec path name on return */
 	size_t len)	/* size of the path buffer */
 {
-	char execpath[PATH_MAX];
-	char procname[PATH_MAX];
 	struct ps_prochandle *P;
+	char procname[PATH_MAX];
 	pid_t pid;
-	char *fname;
 	int rc;
 	int status;
 
-	if (len == 0)	/* zero length, no path */
-		path = NULL;
-	if (path != NULL)
-		*path = '\0';
-
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
-		*perr = C_STRANGE;
+		*perr = ENOMEM;
 		return (NULL);
+	}
+
+	memset(P, 0, sizeof (*P));
+	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
+	if (!P->bkpts) {
+		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
+		exit(1);
 	}
 
 	if ((pid = fork()) == -1) {
 		free(P);
-		*perr = C_FORK;
+		*perr = EAGAIN;
 		return (NULL);
 	}
 
@@ -127,26 +136,16 @@ Pcreate(
 	/*
 	 * Initialize the process structure.
 	 */
-	(void) memset(P, 0, sizeof (*P));
 	P->state = PS_TRACESTOP;
+	P->ptrace_count++;
 	P->ptraced = TRUE;
 	P->pid = pid;
-	Pinitsym(P);
-	(void) Pmemfd(P);			/* populate ->memfd */
-
-	/*
-	 * Get the path to /proc/$pid.
-	 */
-
-	snprintf(procname, sizeof (procname), "%s/%d/",
-	    procfs_path, (int)pid);
-	fname = procname + strlen(procname);
 
 	waitpid(pid, &status, 0);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
-		rc = C_NOENT;
-		_dprintf ("Pcreate: post-fork sync with %s failed\n",
-		    procname);
+		rc = EDEADLK;
+		_dprintf ("Pcreate: post-fork sync with PID %i failed\n",
+		    (int)pid);
 		goto bad;
 	}
 	ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC);
@@ -155,79 +154,46 @@ Pcreate(
 	waitpid(pid, &status, 0);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
 	    status>>8 != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
-		rc = C_NOENT;
-		_dprintf ("Pcreate: exec of %s failed\n", procname);
+		rc = ENOENT;
+		_dprintf ("Pcreate: exec of %s failed\n", file);
 		goto bad;
 	}
-	ptrace(PTRACE_SETOPTIONS, pid, 0, 0);
+
+	/*
+	 * Initialize the memfd, now we have exec()ed.
+	 */
+	P->memfd = -1;
+	if (Pmemfd(P) == -1)	{		/* populate ->memfd */
+		/* error already reported */
+		rc = errno;
+		goto bad;
+	}
 
 	/*
 	 * The process is now stopped, waiting in execve() until resumed.
 	 */
 
-	strcpy(fname, "exe");
-	if (readlink(procname, execpath, PATH_MAX) < 0) {
-		_dprintf("Pcreate: executable readlink failed: %s\n", strerror(errno));
-		rc = C_STRANGE;
-		goto bad;
-	}
+	snprintf(procname, sizeof (procname), "%s/%d/exe",
+	    procfs_path, P->pid);
 
-        *perr = 0;
+	*perr = 0;
         return P;
 
 bad:
 	(void) kill(pid, SIGKILL);
-	if (path != NULL && rc != C_PERM && rc != C_LP64)
-		*path = '\0';
 	Pfree(P);
 	*perr = rc;
 	return (NULL);
 }
 
 /*
- * Return a printable string corresponding to a Pcreate() error return.
- */
-const char *
-Pcreate_error(int error)
-{
-	const char *str;
-
-	switch (error) {
-	case C_FORK:
-		str = "cannot fork";
-		break;
-	case C_PERM:
-		str = "file is set-id or unreadable";
-		break;
-	case C_NOEXEC:
-		str = "cannot execute file";
-		break;
-	case C_INTR:
-		str = "operation interrupted";
-		break;
-	case C_LP64:
-		str = "program is _LP64, self is not";
-		break;
-	case C_STRANGE:
-		str = "unanticipated system error";
-		break;
-	case C_FDS:
-		str = "out of file descriptors";
-		break;
-	case C_NOENT:
-		str = "cannot find executable file";
-		break;
-	default:
-		str = "unknown error";
-		break;
-	}
-
-	return (str);
-}
-
-/*
  * Grab an existing process.  Try to force it to stop (but failure at this is
  * not an error, except if we manage to ptrace() but not stop).
+ *
+ * By default, upon Puntrace(), the process will be set running again, but not
+ * released.  Use Ptrace_set_detached() to change this behaviour, or Prelease() to
+ * unconditionally release.
+ *
  * Return an opaque pointer to its process control structure.
  *
  * pid:		UNIX process ID.
@@ -237,117 +203,62 @@ struct ps_prochandle *
 Pgrab(pid_t pid, int *perr)
 {
 	struct ps_prochandle *P;
-	int status;
+	char procname[PATH_MAX];
+
+	*perr = 0;
+	if (kill(pid, 0) == ESRCH) {
+		*perr = errno;
+		return (NULL);
+	}
 
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
-		*perr = G_STRANGE;
+		*perr = ENOMEM;
 		return (NULL);
         }
-	(void) memset(P, 0, sizeof (*P));
+	memset(P, 0, sizeof (*P));
 	P->state = PS_RUN;
 	P->pid = pid;
-	(void) Pmemfd(P);			/* populate ->memfd */
+	P->detach = 1;
+	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
+	if (!P->bkpts) {
+		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
+		exit(1);
+	}
+	P->memfd = -1;
+	if (Pmemfd(P) == -1)		/* populate ->memfd */
+		/* error already reported */
+		goto bad;
 
-	ptrace(PT_ATTACH, pid, 0, 0);		/* failure not an error */
+	Pgrabbing = 1;
+	*perr = Ptrace(P, 1);
+	Pgrabbing = 0;
 
-	if (waitpid(pid, &status, 0) == -1)
-		goto err;
-	else if (WIFSTOPPED(status) == 0)
-		goto err;
-	else
-		P->state = PS_TRACESTOP;
+	if (*perr < 0) {
+		Pfree(P);
+		return NULL;
+	}
 
 	return P;
-err:
-	if (errno != ECHILD)
-		*perr = errno;
-	else
-		*perr = ESRCH; /* for a clearer message */
-	Pfree (P);
+bad:
+	*perr = errno;
+	Pfree(P);
 	return NULL;
 }
 
 /*
- * Return a printable string corresponding to a Pgrab() error return.
- */
-const char *
-Pgrab_error(int error)
-{
-	const char *str;
-
-	switch (error) {
-	case G_NOPROC:
-		str = "no such process";
-		break;
-	case G_NOCORE:
-		str = "no such core file";
-		break;
-	case G_NOPROCORCORE:
-		str = "no such process or core file";
-		break;
-	case G_NOEXEC:
-		str = "cannot find executable file";
-		break;
-	case G_ZOMB:
-		str = "zombie process";
-		break;
-	case G_PERM:
-		str = "permission denied";
-		break;
-	case G_BUSY:
-		str = "process is traced";
-		break;
-	case G_SYS:
-		str = "system process";
-		break;
-	case G_SELF:
-		str = "attempt to grab self";
-		break;
-	case G_INTR:
-		str = "operation interrupted";
-		break;
-	case G_LP64:
-		str = "program is _LP64, self is not";
-		break;
-	case G_FORMAT:
-		str = "file is not an ELF core file";
-		break;
-	case G_ELF:
-		str = "libelf error";
-		break;
-	case G_NOTE:
-		str = "core file is corrupt or missing required data";
-		break;
-	case G_STRANGE:
-		str = "unanticipated system error";
-		break;
-	case G_ISAINVAL:
-		str = "wrong ELF machine type";
-		break;
-	case G_NOFD:
-		str = "too many open files";
-		break;
-	default:
-		str = "unknown error";
-		break;
-	}
-
-	return (str);
-}
-
-/*
  * Free a process control structure.
- * Close the file descriptors but don't do the Prelease logic.
+ *
+ * Close the file descriptors but don't do the Prelease logic, nor replace
+ * breakpoints with their original content.  (Thus, extremely internal.)
  */
-void
+static void
 Pfree(struct ps_prochandle *P)
 {
-	(void) Pclose(P);
-	Preset_maps(P);
+	Pclose(P);
 
-	/* clear out the structure as a precaution against reuse */
-	(void) memset(P, 0, sizeof (*P));
+	free(P->auxv);
 
+	free(P->bkpts);
 	free(P);
 }
 
@@ -407,27 +318,36 @@ Pmemfd(struct ps_prochandle *P)
 	    procfs_path, (int)P->pid);
 	fname = procname + strlen(procname);
 
-	(void) Pmemfd(P);			/* populate ->memfd */
 	strcpy(fname, "mem");
 	if ((P->memfd = open(procname, (O_RDONLY|O_EXCL))) < 0) {
-		_dprintf("Pcreate: failed to open %s: %s\n",
+		_dprintf("Pmemfd: failed to open %s: %s\n",
 		    procname, strerror(errno));
-		exit(-1);
+		return (-1);
 	}
 
-	(void) fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
+	fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
 	return (P->memfd);
 }
 
 /*
- * Release the process.  Frees the process control structure.
+ * Release the process.  Free the process control structure.
  * If kill_it is set, kill the process instead.
+ *
+ * Note: unlike Puntrace(), this releases *all* outstanding traces, cleans up
+ * all breakpoints, and detaches unconditionally.  It's meant to be used if the
+ * tracer is dying or completely losing interest in its tracee, not merely if it
+ * doesn't want to trace it right now.
  */
 void
 Prelease(struct ps_prochandle *P, boolean_t kill_it)
 {
+	if (!P)
+		return;
+
+	bkpt_flush(P, FALSE);
+
 	if (P->state == PS_DEAD) {
-		_dprintf("Prelease: releasing handle %p PS_DEAD of pid %d\n",
+		_dprintf("Prelease: releasing handle %p of dead pid %d\n",
 		    (void *)P, (int)P->pid);
 		Pfree(P);
 		return;
@@ -446,18 +366,20 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 }
 
 /*
- * Wait for the process to stop for any reason.
+ * Wait for the process to stop for any reason, possibly blocking.
  */
 int
-Pwait(struct ps_prochandle *P, uint_t msec)
+Pwait(struct ps_prochandle *P, boolean_t block)
 {
 	int err;
 	siginfo_t info;
 
-	errno = 0;
+	info.si_pid = 0;
 	do
 	{
-		err = waitid(P_PID, P->pid, &info, WEXITED | WSTOPPED);
+		errno = 0;
+		err = waitid(P_PID, P->pid, &info, WEXITED | WSTOPPED |
+		    (!block ? WNOHANG : 0));
 
 		if (err == 0)
 			break;
@@ -468,10 +390,16 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 		}
 
 		if (errno != EINTR) {
-			_dprintf("Pwait: error waiting: %s", strerror(errno));
+			_dprintf("Pwait: error waiting: %s\n", strerror(errno));
 			return (-1);
 		}
 	} while (errno == EINTR);
+
+	/*
+	 * WNOHANG and nothing happened?
+	 */
+	if (info.si_pid == 0)
+		return (0);
 
 	switch (info.si_code) {
 	case CLD_EXITED:
@@ -480,16 +408,134 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 		P->state = PS_DEAD;
 		break;
 	case CLD_STOPPED:
-		P->state = PS_STOP;
+	case CLD_TRAPPED: {
+		long ip;
+
+		/*
+		 * Exit under ptrace() monitoring.
+		 */
+		if (WIFEXITED(info.si_status)) {
+			_dprintf("%i: exited with exitcode %i\n", P->pid,
+			    WEXITSTATUS(info.si_status));
+
+			P->state = PS_DEAD;
+			break;
+		}
+
+		/*
+		 * Signal receipt.  If the signal is not SIGSTOP under ptrace(),
+		 * resend the signal and continue immediately.  (If this is a
+		 * group-stop, this will have no effect. Under ptrace(), the
+		 * child is already stopped at this point.)
+		 */
+		if (WIFSTOPPED(info.si_status)) {
+			_dprintf("%i: child got stopping signal %i\n", P->pid,
+			    WSTOPSIG(info.si_status));
+			if (P->ptraced && WSTOPSIG(info.si_status) != SIGSTOP)
+				ptrace(PTRACE_CONT, P->pid, NULL,
+				    WSTOPSIG(info.si_status));
+
+			P->state = PS_STOP;
+			break;
+		}
+
+		/*
+		 * Ordinary signal injection, or a terminating signal. If this
+		 * is not a SIGSTOP, reinject it.  (SIGTRAP is handled further
+		 * down.)
+		 */
+		if ((WIFSIGNALED(info.si_status)) &&
+		    (WTERMSIG(info.si_status) != SIGTRAP)) {
+
+			if (!P->ptraced) {
+				_dprintf("%i: terminated by signal %i\n",
+				    P->pid, WTERMSIG(info.si_status));
+				P->state = PS_DEAD;
+			}
+			else if (WTERMSIG(info.si_status) != SIGSTOP)
+				ptrace(PTRACE_CONT, P->pid, NULL,
+				    WTERMSIG(info.si_status));
+			else
+				P->state = PS_TRACESTOP;
+
+			break;
+		}
+
+		/*
+		 * Other ptrace() traps are generally unexpected unless some
+		 * breakpoints are active.  We can only get this when
+		 * ptrace()ing, so we know it must be valid to call ptrace()
+		 * ourselves.
+		 */
+
+		P->state = PS_TRACESTOP;
+		if (P->num_bkpts == 0) {
+			_dprintf("Pwait: Unexpected ptrace() trap: si_code %i, si_status %i\n",
+			    info.si_code, info.si_status);
+			return (-1);
+		}
+
+		/*
+		 * TRACEEXEC trap.  Our breakpoints are gone, our auxv has
+		 * changed, our memfd needs reopening, any (internal) exec()
+		 * handler should be called, and we need to seize control again.
+		 * We also need to arrange to trap the *next* exec(), then
+		 * resume.
+		 *
+		 * We are always tracing the thread group leader, so most of the
+		 * complexity around execve() tracing goes away.
+		 */
+		if (info.si_status == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
+
+			_dprintf("%i: exec() detected, resetting...\n", P->pid);
+			Pclose(P);
+			if (Pmemfd(P) == -1)
+				_dprintf("%i: Cannot reopen memory\n", P->pid);
+			bkpt_flush(P, TRUE);
+
+			free(P->auxv);
+			P->auxv = NULL;
+			P->nauxv = 0;
+			P->ptrace_count = 1;
+			P->ptraced = TRUE;
+
+			if (P->exec_handler)
+				P->exec_handler(P);
+
+			Puntrace(P, 0);
+
+			break;
+		}
+
+		/*
+		 * Breakpoint trap.  The kernel translates between 32- and 64-bit
+		 * regsets for us, but does not helpfully adjust for the fact
+		 * that the trap address needs adjustment on some platforms
+		 * before it will correspond to the address of the breakpoint.
+		 *
+		 * If we are in the midst of processing a breakpoint, we already
+		 * know our breakpoint address.
+		 */
+
+		ip = P->tracing_bkpt;
+		if (ip == 0) {
+			errno = 0;
+			ip = ptrace(PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
+			if (errno != 0) {
+				_dprintf("Pwait: Unexpected ptrace (PTRACE_PEEKUSER) "
+				    "error: %s\n", strerror(errno));
+				return(-1);
+			}
+			ip += plat_trap_ip_adjust;
+		}
+
+		P->state = bkpt_handle(P, ip);
+
 		break;
-	case CLD_TRAPPED:
-		/* All ptrace() traps are unexpected as we don't use ptrace()
-		   except at initial process connection time. */
-		_dprintf("Pwait: Unexpected ptrace() trap");
-		exit(-1);
+	}
 	case CLD_CONTINUED:
-		_dprintf("Pwait: Child got CLD_CONTINUED: this can never happen");
-		exit(-1);
+		P->state = PS_RUN;
+		break;
 
 	default:	/* corrupted state */
 		_dprintf("Pwait: unknown si_code: %li\n", (long int) info.si_code);
@@ -500,21 +546,733 @@ Pwait(struct ps_prochandle *P, uint_t msec)
 	return (0);
 }
 
-int
-Psetrun(struct ps_prochandle *P, boolean_t detach_it)
+/*
+ * If true, detach the process when no ptraces or breakpoints are outstanding.
+ * Otherwise, leave it attached, but running.
+ */
+void
+Ptrace_set_detached(struct ps_prochandle *P, boolean_t detach)
 {
-	P->info_valid = 0;	/* will need to update map and file info */
+	P->detach = detach;
+}
 
-	if (P->state == PS_TRACESTOP) {
-		int ptrace_req = detach_it ? PTRACE_DETACH : PTRACE_CONT;
+/*
+ * Grab a ptrace(), unless one is already grabbed: increment the ptrace count.
+ * Regardless, the process will be PS_TRACESTOP on return if 'stopped'.
+ *
+ * Returns the previous stop state, or, if <0, an error code.
+ *
+ * Failure to trace is considered an error unless called from within Pgrab().
+ */
+int
+Ptrace(struct ps_prochandle *P, int stopped)
+{
+	int err;
+	int status;
 
-		if (ptrace(ptrace_req, P->pid, 0, 0) < 0)
-			return (-1);
-		P->state = PS_RUN;
-		P->ptraced = !detach_it;
+	P->ptrace_count++;
+	if (P->ptraced) {
+		int state;
+
+		/*
+		 * In this case, we must take care that anything already queued
+		 * for Pwait() is correctly processed, before demanding a stop.
+		 * We should also not try to stop something that is already
+		 * stopped, nor try to resume it.
+		 */
+		Pwait(P, 0);
+		if ((!stopped) || (P->state == PS_TRACESTOP))
+			return P->state;
+
+		state = P->state;
+		kill(P->pid, SIGSTOP);
+		Pwait(P, 1);
+		return state;
 	}
 
-	return (0);
+	err = ptrace(PT_ATTACH, P->pid, 0, 0);
+
+	if ((!Pgrabbing) && (err < 0))
+		goto err2;
+
+	if (err == 0)
+		P->ptraced = TRUE;
+
+	err = P->state;
+
+	if (waitpid(P->pid, &status, 0) == -1)
+		goto err2;
+	else if (WIFSTOPPED(status) == 0)
+		goto err2;
+	P->state = PS_TRACESTOP;
+
+	if (!stopped) {
+		int err;
+
+		err = ptrace(PTRACE_CONT, P->pid, 0, 0);
+		if (err < 0)
+			goto err;
+		Pwait(P, 1);
+	}
+
+	return err;
+err:
+	err = errno;
+err2:
+	P->ptrace_count--;
+	if (err != ECHILD)
+		return err;
+	else
+		return ESRCH; /* for a clearer message */
+}
+
+/*
+ * Ungrab a ptrace(). If none are left, set running, or detach if P->detach.
+ * If stuck at a breakpoint, resume the process.
+ *
+ * If nonzero, 'state' is the previous stop state returned from the matching
+ * call to Ptrace().  (This is only useful when not undoing the top-level
+ * Ptrace(): the top-level Puntrace() will always resume execution.)
+ *
+ * Lots of P->state comparisons are needed here, because a PTRACE_CONT is only
+ * valid if the processe was stopped beforehand: otherwise, you get -ESRCH,
+ * which is helpfully indistinguishable from the error when the process is dead.
+ *
+ * A state <0 is considered a sign that the original Ptrace() call failed, and
+ * silently does nothing.
+ */
+void
+Puntrace(struct ps_prochandle *P, int state)
+{
+	/*
+	 * Protect against unbalanced Ptrace()/Puntrace().
+	 */
+	if ((!P->ptraced) || (state < 0))
+		return;
+
+	P->ptrace_count--;
+
+	/*
+	 * Still under Ptrace()? OK, nothing needs doing, except possibly a
+	 * resume, using Pbkpt_continue() so as to do the right thing if a
+	 * breakpoint is outstanding.
+	 */
+	if (P->ptrace_count) {
+		if ((state == PS_RUN) && (P->state == PS_TRACESTOP)) {
+			P->state = state;
+			_dprintf("%i: Continuing because previous state was "
+			    "PS_RUN\n", P->pid);
+			Pbkpt_continue(P);
+		}
+		return;
+	}
+
+	/*
+	 * Continue the process, or detach it if requested, no breakpoints
+	 * are outstanding, and no rd_agent is active.
+	 */
+	if ((!P->detach) || P->rap || (P->num_bkpts > 0)) {
+		if (P->state == PS_TRACESTOP) {
+			_dprintf("%i: Continuing.\n", P->pid);
+			Pbkpt_continue(P);
+			Pwait(P, 0);
+		}
+
+	} else {
+		_dprintf("%i: Detaching\n", P->pid);
+		P->state = PS_RUN;
+		P->ptraced = FALSE;
+		if ((ptrace(PTRACE_DETACH, P->pid, 0, 0) < 0) &&
+		    (errno == ESRCH))
+			P->state = PS_DEAD;
+	}
+}
+
+/*
+ * Given a breakpoint address, find the corresponding bkpt structure, or NULL if
+ * none.  If delete is set, remove it from the hash too.
+ */
+static bkpt_t
+*bkpt_by_addr(struct ps_prochandle *P, uintptr_t addr,
+	int delete)
+{
+	uint_t h = addr % BKPT_HASH_BUCKETS;
+	bkpt_t *last_bkpt = NULL;
+	bkpt_t *bkpt;
+
+	for (bkpt = P->bkpts[h]; bkpt != NULL; bkpt = bkpt->bkpt_next) {
+		if (bkpt->bkpt_addr == addr) {
+			if (delete) {
+				if (last_bkpt)
+					last_bkpt->bkpt_next = bkpt->bkpt_next;
+				else
+					P->bkpts[h] = bkpt->bkpt_next;
+				bkpt->bkpt_next = NULL;
+			}
+			return (bkpt);
+		}
+		last_bkpt = bkpt;
+	}
+
+	return NULL;
+}
+
+/*
+ * Return a given machine word with the breakpoint instruction masked over the
+ * start of it.
+ */
+static unsigned long
+mask_bkpt(unsigned long word)
+{
+	union {
+		unsigned long insn;
+		char bkpt[sizeof (unsigned long)];
+	} bkpt;
+
+	bkpt.insn = word;
+	memcpy(bkpt.bkpt, (char *) plat_bkpt, sizeof (plat_bkpt));
+	return bkpt.insn;
+}
+
+/*
+ * Introduce a breakpoint on a particular address with the given handler.
+ *
+ * The breakpoint handler should return nonzero to remain stopped at this
+ * breakpoint, or zero to continue.  The cleanup handler can clean up any
+ * additional state associated with this breakpoint's 'data' on Punbkpt() or
+ * Prelease().
+ *
+ * If after_singlestep, the handler is called after singlestepping, rather than
+ * before. In both cases, the process is trace-stopped when the call happens,
+ * and the instruction at the breakpoint site is the original instruction
+ * (not the breakpoint instruction).
+ *
+ * The handler returns a PS_ value that indicates what it wants doing to
+ * the process:
+ *  PS_RUN: continue past breakpoint
+ *  PS_TRACESTOP, PS_STOP: stop at breakpoint
+ *  PS_DEAD: process was killed
+ *
+ * Calling this function on an existing breakpoint cleans up the old one's state
+ * and reassigns it.
+ *
+ * Returns 0 on success, or an errno value on failure.
+ */
+int
+Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
+    int (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data)
+{
+	bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
+	uint_t h = addr % BKPT_HASH_BUCKETS;
+	int orig_state;
+	int err;
+
+	/*
+	 * Already present? Just tweak it.
+	 */
+	if (bkpt) {
+		if (bkpt->bkpt_handler.bkpt_cleanup)
+			bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
+		bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
+		bkpt->bkpt_handler.bkpt_cleanup = bkpt_cleanup;
+		bkpt->bkpt_handler.bkpt_data = data;
+		bkpt->after_singlestep = after_singlestep;
+		return 0;
+	}
+
+	orig_state = Ptrace(P, 1);
+	if (orig_state < 0) {
+		err = orig_state;
+		goto err2;
+	}
+
+	/*
+	 * Allocate and poke in a new breakpoint.
+	 */
+
+	bkpt = malloc(sizeof (struct bkpt));
+	if (!bkpt)
+		goto err;
+
+	memset(bkpt, 0, sizeof (struct bkpt));
+	bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
+	bkpt->bkpt_handler.bkpt_cleanup = bkpt_cleanup;
+	bkpt->bkpt_handler.bkpt_data = data;
+	bkpt->after_singlestep = after_singlestep;
+	bkpt->bkpt_addr = addr;
+
+	errno = 0;
+	bkpt->orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid,
+	    addr, 0);
+	if (errno != 0) {
+		free(bkpt);
+		goto err;
+		return errno;
+	}
+	if (ptrace(PTRACE_POKETEXT, P->pid, addr,
+		mask_bkpt(bkpt->orig_insn)) < 0) {
+		free(bkpt);
+		goto err;
+		return errno;
+	}
+
+	bkpt->bkpt_next = P->bkpts[h];
+	P->bkpts[h] = bkpt;
+	P->num_bkpts++;
+
+	_dprintf("%i: Added breakpoint on %lx\n", P->pid, addr);
+
+	/*
+	 * Breakpoint added.  Because at least one breakpoint is in force, this
+	 * Puntrace() will have the effect of resuming the child iff it is the
+	 * topmost such, but never of detaching, no matter what the state of
+	 * P->detach.
+	 */
+	Puntrace(P, orig_state);
+	return 0;
+err:
+	err = errno;
+err2:
+	_dprintf("%i: Cannot add breakpoint on %lx: %s\n", P->pid,
+	    addr, strerror(errno));
+	Puntrace(P, orig_state);
+	return err;
+}
+
+/*
+ * Remove a breakpoint on a given address, if one exists there.
+ *
+ * The cleanup handler, if any, is called.
+ */
+void
+Punbkpt(struct ps_prochandle *P, uintptr_t addr)
+{
+	bkpt_t *bkpt;
+	int orig_state;
+
+	/*
+	 * Sanity check, twice, to avoid bugs leading to underflow.
+	 *
+	 * Halt the child and Pwait() before we start manipulating the
+	 * breakpoint hash, to avoid incoming traps on breakpoints we have
+	 * stopped tracking.
+	 */
+
+	if (P->num_bkpts == 0) {
+		_dprintf("%i: Punbkpt() called with %lx, but no breakpoints are "
+		    "outstanding.\n", P->pid, addr);
+		return;
+	}
+
+	orig_state = Ptrace(P, 1);
+	if (orig_state < 0)
+		_dprintf("%i: Unexpected error %s ptrace()ing to remove "
+		    "breakpoint.", P->pid, strerror(orig_state));
+
+	Pwait(P, 0);
+	bkpt = bkpt_by_addr(P, addr, TRUE);
+	if (!bkpt) {
+		_dprintf("%i: Punbkpt() called with %lx, which is not a known "
+		    "breakpoint.\n", P->pid, addr);
+		return;
+	}
+
+	P->num_bkpts--;
+
+	/*
+	 * If we are not singlestepping past this breakpoint now, we have to
+	 * poke the old content back in.  Otherwise, we just have to adjust our
+	 * IP address and resume (and the resumption is done automatically for
+	 * us when we Puntrace() in any case).
+	 */
+	if (P->tracing_bkpt != bkpt->bkpt_addr) {
+		uintptr_t insn;
+		/*
+		 * Only overwrite the breakpoint insn if it is still a
+		 * breakpoint.  If it has changed (perhaps due to a new text
+		 * section being mapped in), do nothing.
+		 */
+		errno = 0;
+		insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
+
+		if (errno == 0 && insn == mask_bkpt(insn) &&
+		    ptrace(PTRACE_POKETEXT, P->pid,
+			bkpt->bkpt_addr, bkpt->orig_insn) < 0)
+			switch (errno) {
+			case ESRCH:
+				P->state = PS_DEAD;
+				return;
+			case EIO:
+			case EFAULT:
+				/* The address in the child has disappeared. */
+			case 0: break;
+			default:
+				_dprintf("%i: Unknown error removing breakpoint:"
+				    "%s\n", P->pid, strerror(errno));
+			}
+	} else {
+		if (ptrace(PTRACE_POKEUSER, P->pid, PLAT_IP * sizeof (long),
+			P->tracing_bkpt) < 0)
+			switch (errno) {
+			case ESRCH:
+				P->state = PS_DEAD;
+				return;
+			case 0: break;
+			default:
+				_dprintf("%i: Unknown error doing instruction "
+				    "pointer adjustment while removing "
+				    "breakpoint: %s\n", P->pid,
+				    strerror(errno));
+			}
+
+		P->tracing_bkpt = 0;
+		P->singlestepped = 0;
+		orig_state = PS_RUN;
+	}
+	if (bkpt->bkpt_handler.bkpt_cleanup)
+		bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
+
+	free(bkpt);
+
+	Puntrace(P, orig_state);
+
+	_dprintf("%i: Removed breakpoint on %lx\n", P->pid, addr);
+}
+
+/*
+ * Discard breakpoint state.
+ *
+ * Done when the child process is dead or being released or its address space
+ * has vanished due to an exec().
+ *
+ * Rendered more complicated by the need to do local breakpoint cleanup even if
+ * the process is gone.  (We cannot use Punbkpt() because the process might have
+ * exec()ed, and we do not want to continue it, nor modify the address of
+ * breakpoints that can no longer exist within it.)
+ */
+static void
+bkpt_flush(struct ps_prochandle *P, int gone) {
+	size_t i;
+
+	for (i = 0; i < BKPT_HASH_BUCKETS; i++) {
+		bkpt_t *bkpt;
+		bkpt_t *old_bkpt = NULL;
+
+		for (bkpt = P->bkpts[i]; bkpt != NULL;
+		     old_bkpt = bkpt, bkpt = bkpt->bkpt_next) {
+			if (old_bkpt != NULL) {
+				if (!gone)
+					Punbkpt(P, old_bkpt->bkpt_addr);
+				else {
+					bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
+
+					if (bkpt->bkpt_handler.bkpt_cleanup)
+						bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
+
+					free(bkpt);
+				}
+			}
+		}
+
+		if (old_bkpt != NULL) {
+			if (!gone)
+				Punbkpt(P, old_bkpt->bkpt_addr);
+			else {
+				bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
+
+				if (bkpt->bkpt_handler.bkpt_cleanup)
+					bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
+
+				free(bkpt);
+			}
+		}
+	}
+
+	P->tracing_bkpt = 0;
+	P->singlestepped = 0;
+	P->num_bkpts = 0;
+}
+
+/*
+ * Handle a breakpoint.
+ *
+ * Returns a process state.
+ */
+static int
+bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
+{
+	/*
+	 * Either we have stopped at an address we know, or we are
+	 * singlestepping past one of our breakpoints, or this is an unknown
+	 * breakpoint.  If the latter, just return in TRACESTOP state, and hope
+	 * our caller knows what to do.
+	 */
+	if (P->tracing_bkpt == addr)
+		return bkpt_handle_singlestep(P,
+		    bkpt_by_addr(P, P->tracing_bkpt, FALSE));
+	else {
+		bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
+
+		if (!bkpt) {
+			_dprintf("%i: No breakpoint found at %lx, remaining in "
+			    "trace stop.\n", P->pid, addr);
+			return PS_TRACESTOP;
+		}
+
+		if (P->tracing_bkpt != 0) {
+			_dprintf("%i: Nested breakpoint detected, probable bug.\n",
+			    P->pid);
+			/*
+			 * Nested breakpoint.  Oo-er.  Probably an explicit
+			 * continue by the caller.  Overwrite the original addr
+			 * with a breakpoint, if known.  (Do not call the
+			 * handler: we are long past the breakpoint address at
+			 * this point.  Do not even trap errors.  If you do
+			 * this, you are on your own!)
+			 */
+			bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
+			if (bkpt) {
+				uintptr_t orig_insn;
+				orig_insn = ptrace(PTRACE_PEEKTEXT,
+				    P->pid, bkpt->bkpt_addr, 0);
+				ptrace(PTRACE_POKETEXT, P->pid,
+				    bkpt->bkpt_addr, mask_bkpt(orig_insn));
+
+				/*
+				 * If the 'original' instruction is a breakpoint,
+				 * the caller has overwritten the breakpoint
+				 * itself: do not remember it.
+				 */
+				if (orig_insn != mask_bkpt(orig_insn))
+					bkpt->orig_insn = orig_insn;
+			}
+			P->tracing_bkpt = 0;
+		}
+
+		return bkpt_handle_start(P, bkpt);
+	}
+}
+
+/*
+ * Handle a breakpoint at the breakpoint insn itself.  Overwrite the breakpoint
+ * instruction, possibly call the handler, and run.
+ *
+ * Returns a process state.
+ */
+static int
+bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
+{
+	if (ptrace(PTRACE_POKETEXT, P->pid,
+		bkpt->bkpt_addr, bkpt->orig_insn) < 0)
+		switch (errno) {
+		case ESRCH:
+			return PS_DEAD;
+		case 0:
+			break;
+		case EIO:
+		case EFAULT:
+			/*
+			 * The address in the child has disappeared.  This
+			 * cannot happen: we just stopped there!
+			 */
+		default:
+			_dprintf("Unexpected error removing breakpoint on PID %i:"
+			    "%s\n", P->pid, strerror(errno));
+			return PS_TRACESTOP;
+		}
+
+	P->tracing_bkpt = bkpt->bkpt_addr;
+	P->singlestepped = 0;
+
+	if (!bkpt->after_singlestep) {
+		int state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
+		    bkpt->bkpt_handler.bkpt_data);
+
+		if (state != PS_RUN)
+			return state;
+
+		/*
+		 * Look up the breakpoint anew, in case the handler erased it.
+		 *
+		 * If it did, Punbkpt() will have continued for us.
+		 */
+		bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
+		if (!bkpt)
+			return PS_RUN;
+	}
+
+	return Pbkpt_continue_internal(P, bkpt);
+}
+
+/*
+ * Continue a process stopped at a breakpoint.
+ */
+void
+Pbkpt_continue(struct ps_prochandle *P)
+{
+	bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
+
+	if (!P->ptraced)
+		return;
+
+	/*
+	 * We don't know where we are.  We might not be stopped at a breakpoint
+	 * at all: we might not even be ptracing the process (or it might have
+	 * done something that prohibits our tracing it, like exec()ed a setuid
+	 * process).  Just issue a continue.
+	 */
+	if (P->tracing_bkpt == 0 || !bkpt) {
+		if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
+			if (errno == ESRCH) {
+				if ((kill(P->pid, 0) < 0) && errno == ESRCH)
+					P->state = PS_DEAD;
+			}
+			/*
+			 * Since we must have an outstanding Ptrace() anyway,
+			 * assume that an EPERM means that this process is not
+			 * stopped: it cannot mean that we aren't allowed to
+			 * ptrace() it.
+			 */
+			if (errno != EPERM) {
+				_dprintf("%i: Unexpected error resuming: %s\n",
+				    P->pid, strerror(errno));
+				return;
+			}
+		}
+		P->state = PS_RUN;
+		return;
+	}
+
+	/*
+	 * We are at a breakpoint locus.
+	 */
+	P->state = Pbkpt_continue_internal(P, bkpt);
+}
+
+/*
+ * Continue a process stopped at a given breakpoint locus, resetting the
+ * instruction pointer and issuing a singlestep if needed, or calling
+ * bkpt_handle_singlestep() to call the breakpoint handler, poke the breakpoint
+ * instruction back in, and resume execution.
+ */
+static int
+Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt)
+{
+	if (!P->singlestepped) {
+		P->singlestepped = 1;
+
+		if ((ptrace(PTRACE_POKEUSER, P->pid, PLAT_IP * sizeof (long),
+			    bkpt->bkpt_addr) == 0) &&
+		    (ptrace(PTRACE_SINGLESTEP, P->pid, 0, 0) == 0))
+			return PS_RUN;
+		else if (errno == ESRCH)
+			return PS_DEAD;
+		else
+			return PS_TRACESTOP;
+	}
+
+	return bkpt_handle_singlestep(P, bkpt);
+}
+
+/*
+ * Single-step past a breakpoint.  When called, we are known to have completed a
+ * singlestep over the specified breakpoint and to be in trace-stop state.
+ *
+ * Returns a process state.
+ */
+static int
+bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
+{
+	int state = PS_RUN;
+	int orig_insn;
+
+	if (bkpt->after_singlestep)
+		state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
+		    bkpt->bkpt_handler.bkpt_data);
+
+	/*
+	 * If the handler wants us to stay single-stepping, obey it.  (We assume
+	 * that if it sets the state to PS_DEAD, it has killed the process
+	 * itself.)
+	 */
+	if (state != PS_RUN)
+		return state;
+
+	/*
+	 * Look up the breakpoint anew, in case the handler erased it.
+	 *
+	 * If it did, Punbkpt() will have continued for us.
+	 */
+	bkpt = bkpt_by_addr(P, bkpt->bkpt_addr, FALSE);
+	if (!bkpt)
+		return PS_RUN;
+
+	/*
+	 * The handler wants us to run. Resume.
+	 *
+	 * Always re-peek the original instruction, in case of self-modifying
+	 * code.  If it fails, hold on to the old one.
+	 */
+
+	errno = 0;
+	orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
+	if (errno != 0)
+		_dprintf("Unexpected error re-peeking original instruction "
+		    "on PID %i: %s\n", P->pid, strerror(errno));
+	else
+		bkpt->orig_insn = orig_insn;
+
+	/*
+	 * The error handling here is verbose and annoying, but unavoidable, as
+	 * the process could be SIGKILLed at any time, even between these
+	 * ptrace() calls.
+	 */
+
+	if (ptrace(PTRACE_POKETEXT, P->pid, bkpt->bkpt_addr,
+		mask_bkpt(orig_insn)) < 0)
+		switch (errno) {
+		case ESRCH:
+			return PS_DEAD;
+		case 0:
+			break;
+		case EIO:
+		case EFAULT:
+			/*
+			 * The address in the child has disappeared.  Probably a
+			 * very unlucky unmap after singlestepping across pages.
+			 * Delete the breakpoint.
+			 */
+			Punbkpt(P, bkpt->bkpt_addr);
+			break;
+		default:
+			_dprintf("Unexpected error reinserting breakpoint on "
+			    "PID %i: %s\n", P->pid, strerror(errno));
+			return PS_TRACESTOP;
+		}
+
+	/*
+	 * We are no longer stopped at a breakpoint.
+	 */
+	P->tracing_bkpt = 0;
+	P->singlestepped = 0;
+
+	if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
+		switch (errno) {
+		case ESRCH:
+			return PS_DEAD;
+		case 0: break;
+		case EIO:
+		case EFAULT:
+		default:
+			_dprintf("Strange error continuing after breakpoint "
+			    "on PID %i: %s\n", P->pid, strerror(errno));
+			return PS_TRACESTOP;
+		}
+	}
+
+	return PS_RUN;
 }
 
 ssize_t
@@ -571,9 +1329,20 @@ Pgetpid(struct ps_prochandle *P)
 	return (P->pid);
 }
 
-/* Set the path to /proc. */
+/*
+ * Set the path to /proc.
+ */
 void
-Pset_procfs_path (const char *path)
+Pset_procfs_path(const char *path)
 {
 	strcpy(procfs_path, path);
+}
+
+/*
+ * Set a handler for exec()s.
+ */
+void
+set_exec_handler(struct ps_prochandle *P, exec_handler_fun handler)
+{
+	P->exec_handler = handler;
 }

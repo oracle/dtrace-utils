@@ -20,6 +20,82 @@
 	* test/utils/badioctl.c: Modernize includes. Use gettimeofday(),
 	not gethrtime().
 
+	Breakpoints and Pcontrol API revisions.
+
+	* GNUmakefile (CC): Export.
+	(CPPFLAGS): Include the platform directory, include/i386.
+	* include/i386/platform.h: New file, define platform-specific
+	constants needed for breakpoint handling.
+	* libproc/Pcontrol.h (BKPT_HASH_BUCKETS): New.
+	(bkpt_handler_t): New structure, the handler for one
+	breakpoint. Used by...
+	(bkpt_t): ... this new structure, representing a single
+	breakpoint.
+	(exec_handler_fun): New, a handler for exec()s.
+	(ps_prochandle_t.ptrace_count): New, a count of simultaneous
+	ptrace() attaches.
+	(ps_prochandle_t.detach): New, nonzero if detaching when
+	ptrace_count reaches zero.
+	(ps_prochandle_t.bkpts): New, breakpoint hash.
+	(ps_prochandle_t.num_bkpts): New, counts of active breakpoints.
+	(ps_prochandle_t.tracing_bkpt): New, address of breakpoint we are
+	stepping past.
+	(ps_prochandle_t.singlestepped): New, 1 if we are stopped having
+	singlestepped past a breakpoint.
+	(ps_prochandle_t.exec_handler): New, handler for exec()s.
+	* libproc/libproc.h: Remove obsolete comments.  Fix includes.
+	Introduce new prototypes: remove obsolete ones.
+	(C_*): Remove obsolete error codes.
+	* libproc/Pcontrol.c (Pgrabbing): New, horrible internal hack to
+	change error behaviour of Ptrace() inside Pgrab().
+	(_libproc_init): Now static.
+	(Pgrab): Return errnos, not C_*/G_* constants.  Allocate space for
+	breakpoints: initialize new fields.  Adjust to Ptrace()/Puntrace()
+	API changes.
+	(Pcreate): Likewise. No longer return a pathname.  Set up Pmemfd()
+	only after fork()/exec().
+	(Pcreate_error): Remove.
+	(Pgrab_error): Likewise.
+	(Pfree): Now static.  Do not reset maps on free.  Free the auxv
+	and breakpoint structures.
+	(Pmemfd): Fix error message.  Return on error, rather than
+	exiting.
+	(Prelease): Support NULL calls, like free().  Flush breakpoints.
+	(Ptrace_set_detached): New, set the detach state on final
+	Puntrace() / Prelease().
+	(Psetrun): Removed, replaced with...
+	(Ptrace): ... this new function...
+	(Puntrace): ... and this one.
+	(Pwait): Take a block boolean, not a block timeout.  Pass WNOHANG
+	if it is set: handle a WNOHANG that did nothing.  Handle stops and
+	traps under Ptrace(), including breakpoint handling and exec
+	detection.
+	(bkpt_by_addr): New, return a breakpoint structure from the hash
+	given its address, optionally unchaining it from that hash.
+	(mask_bkpt): New, mask out the machine-specific breakpoint
+	instruction from the given machine word.
+	(Pbkpt): New, introduce a breakpoint with the given handler on the
+	given address.
+	(Punbkpt): New, remove a breakpoint from the given address,
+	running its cleanup handler (if any).
+	(bkpt_flush): New, destroy all breakpoints.
+	(bkpt_handle): New, handle a breakpoint.
+	(bkpt_handle_start): New, handle the start of a breakpoint,
+	immediately after trap at the breakpoint address.
+	(Pbkpt_continue): New, continue execution, even if we are stopped
+	at a breakpoint.
+	(Pbkpt_continue_internal): New, do the singlestepping part of
+	continuing execution, if necessary.
+	(Pbkpt_handle_singlestep): New, do all post-singlestep work.
+	(set_exec_handler): New.
+	* libdtrace/dt_proc.c (dt_proc_control): Adjust to the API
+	changes.
+	(dt_proc_control_cleanup): Likewise.
+	(dt_proc_destroy): Likewise.
+
+	* libproc/Pcontrol.c (Pset_procfs_path): Code style.
+	* libdtrace/dt_proc.h: Purge #ident.
+
 2013-01-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle): Add ptraced.

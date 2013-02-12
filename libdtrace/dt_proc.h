@@ -20,14 +20,12 @@
  */
 
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DT_PROC_H
 #define	_DT_PROC_H
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <rtld_db.h>
 #include <dtrace.h>

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier
@@ -28,17 +28,6 @@
 
 /*
  * Interfaces available from the process control library, libproc.
- *
- * libproc provides process control functions for the /proc tools
- * (commands in /usr/proc/bin), /usr/bin/truss, and /usr/bin/gcore.
- * libproc is a private support library for these commands only.
- * It is _not_ a public interface, although it might become one
- * in the fullness of time, when the interfaces settle down.
- *
- * In the meantime, be aware that any program linked with libproc in this
- * release of Solaris is almost guaranteed to break in the next release.
- *
- * In short, do not use this header file or libproc for any purpose.
  */
 
 #ifndef	_LIBPROC_H
@@ -60,6 +49,7 @@
 #include <sys/socket.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <sys/user.h>
 
 #include <sys/compiler.h>
 
@@ -73,11 +63,7 @@ extern "C" {
  * The implementation of struct ps_prochandle can change w/o affecting clients.
  */
 struct ps_prochandle;
-
-/*
- * Opaque structure tag reference to an lwp control structure.
- */
-struct ps_lwphandle;
+typedef struct ps_prochandle ps_prochandle;
 
 extern	int	_libproc_debug;	/* set non-zero to enable debugging fprintfs */
 
@@ -106,36 +92,6 @@ extern	int	_libproc_debug;	/* set non-zero to enable debugging fprintfs */
 #define	PS_TRACESTOP	3	/* process is stopped by ptrace() */
 #define	PS_DEAD		4	/* process is terminated (core file) */
 
-/* Error codes from Pcreate() */
-#define	C_STRANGE	-1	/* Unanticipated error, errno is meaningful */
-#define	C_FORK		1	/* Unable to fork */
-#define	C_PERM		2	/* No permission (file set-id or unreadable) */
-#define	C_NOEXEC	3	/* Cannot execute file */
-#define	C_INTR		4	/* Interrupt received while creating */
-#define	C_LP64		5	/* Program is _LP64, self is _ILP32 */
-#define	C_NOENT		6	/* Cannot find executable file */
-#define C_FDS           7	/* Out of file descriptors */
-
-/* Error codes from Pgrab() */
-#define	G_STRANGE	-1	/* Unanticipated error, errno is meaningful */
-#define	G_NOPROC	1	/* No such process */
-#define	G_NOCORE	2	/* No such core file */
-#define	G_NOPROCORCORE	3	/* No such proc or core (for proc_arg_grab) */
-#define	G_NOEXEC	4	/* Cannot locate executable file */
-#define	G_ZOMB		5	/* Zombie process */
-#define	G_PERM		6	/* No permission */
-#define	G_BUSY		7	/* Another process has control */
-#define	G_SYS		8	/* System process */
-#define	G_SELF		9	/* Process is self */
-#define	G_INTR		10	/* Interrupt received while grabbing */
-#define	G_LP64		11	/* Process is _LP64, self is ILP32 */
-#define	G_FORMAT	12	/* File is not an ELF format core file */
-#define	G_ELF		13	/* Libelf error, elf_errno() is meaningful */
-#define	G_NOTE		14	/* Required PT_NOTE Phdr not present in core */
-#define	G_ISAINVAL	15	/* Wrong ELF machine type */
-#define	G_BADLWPS	16	/* Bad '/lwps' specification */
-#define	G_NOFD		17	/* No more file descriptors */
-
 /* values for type */
 #define	AT_BYVAL	1
 #define	AT_BYREF	2
@@ -154,26 +110,37 @@ extern	int	_libproc_debug;	/* set non-zero to enable debugging fprintfs */
 /*
  * Function prototypes for routines in the process control package.
  */
-extern struct ps_prochandle *Pcreate(const char *, char *const *,
-    int *, char *, size_t);
+extern	struct ps_prochandle *Pcreate(const char *, char *const *,
+    int *, size_t);
 
-extern const char *Pcreate_error(int);
-
-extern struct ps_prochandle *Pgrab(pid_t, int *);
-extern const char *Pgrab_error(int);
+extern	struct ps_prochandle *Pgrab(pid_t, int *);
+extern	int	Ptrace(struct ps_prochandle *, int stopped);
+extern	void	Ptrace_set_detached(struct ps_prochandle *, boolean_t);
 
 extern	void	Prelease(struct ps_prochandle *, boolean_t);
-extern	void	Pfree(struct ps_prochandle *);
+extern	void	Puntrace(struct ps_prochandle *, int state);
 extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);
-extern	int	Pwait(struct ps_prochandle *, uint_t);
+extern	int	Pwait(struct ps_prochandle *, boolean_t block);
 extern	int	Pstate(struct ps_prochandle *);
-extern	int	Psetrun(struct ps_prochandle *, boolean_t);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
+
+/*
+ * Breakpoints.
+ *
+ * This is not a completely safe interface: it cannot handle breakpoints on
+ * signal return.
+ */
+extern	int	Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
+    int (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data);
+extern	void	Punbkpt(struct ps_prochandle *P, uintptr_t address);
+extern	void	Pbkpt_continue(struct ps_prochandle *P);
 
 /*
  * Symbol table interfaces.

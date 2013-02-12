@@ -41,8 +41,8 @@ CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
 INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE $(DTO) -D_ILP$(BITNESS)
-CPPFLAGS += -Iinclude -Iuts/common -I$(objdir)
-CC = gcc
+CPPFLAGS += -Iinclude -Iuts/common -Iinclude/i386 -I$(objdir)
+export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 

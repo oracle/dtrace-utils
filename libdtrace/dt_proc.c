@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -39,8 +39,6 @@
  * MT-Safety: Libproc is not MT-Safe, so dt_proc_lock() and dt_proc_unlock()
  * are provided to synchronize access to the libproc handle between libdtrace
  * code and client code and the control thread's use of the ps_prochandle.
- *
- * XXX is this still true?
  *
  * NOTE: MT-Safety is NOT provided for libdtrace itself, or for use of the
  * dtrace_proc_grab/dtrace_proc_create mechanisms.  Like all exported libdtrace
@@ -250,16 +248,16 @@ dt_proc_control(void *arg)
 
 	if (dpr->dpr_created) {
 		if ((dpr->dpr_proc = Pcreate(datap->dpcd_start_proc,
-			    datap->dpcd_start_proc_argv, &err, NULL, 0)) == NULL) {
+			    datap->dpcd_start_proc_argv, &err, 0)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to execute %s: %s\n",
-			    datap->dpcd_start_proc, Pcreate_error(err));
+			    datap->dpcd_start_proc, strerror(err));
 			pthread_exit(NULL);
 		}
 		dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
 	} else {
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
-			    (long) dpr->dpr_pid, Pgrab_error(err));
+			    (long) dpr->dpr_pid, strerror(err));
 			dt_dprintf("grab failure\n");
 			pthread_exit(NULL);
 		}
@@ -284,10 +282,8 @@ dt_proc_control(void *arg)
 	else
 		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
 
-	if (Psetrun(P, dpr->dpr_created) == -1) {
-		dt_dprintf("pid %d: failed to set running: %s\n",
-		    pid, strerror(errno));
-	}
+	Ptrace_set_detached(P, dpr->dpr_created);
+	Puntrace(P, 0);
 
 	dpr->dpr_tid_locked = B_FALSE;
 	pthread_mutex_unlock(&dpr->dpr_lock);
@@ -301,7 +297,7 @@ dt_proc_control(void *arg)
 	 * can call that without grabbing the lock.
 	 */
 	for (;;) {
-		if (Pwait (P, 0) == -1 && errno == EINTR)
+		if (Pwait(P, B_TRUE) == -1 && errno == EINTR)
 			continue; /* hit by signal: continue waiting */
 
 		switch (Pstate(P)) {
@@ -383,8 +379,10 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_tid_locked = B_TRUE;
 	}
 
-	if (dpr->dpr_proc)
+	if (dpr->dpr_proc) {
 		Prelease(dpr->dpr_proc, dpr->dpr_created);
+		dpr->dpr_proc = NULL;
+	}
 
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
@@ -466,7 +464,8 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	/*
 	 * Before we free the process structure, remove this dt_proc_t from the
 	 * lookup hash, and then walk the dt_proc_hash_t's notification list
-	 * and remove this dt_proc_t if it is enqueued.
+	 * and remove this dt_proc_t if it is enqueued.  If the dpr is already
+	 * gone, do nothing.
 	 */
 	if (dpr == NULL)
 		return;
@@ -504,6 +503,9 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
 		 * the thread has exited.  (This will also terminate the
 		 * process.)
+		 *
+		 * Do not use P below this point: it has been freed by the
+		 * daemon's cleanup process.
 		 */
 		pthread_mutex_lock(&dpr->dpr_lock);
 		pthread_cancel(dpr->dpr_tid);
@@ -512,19 +514,17 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		pthread_mutex_unlock(&dpr->dpr_lock);
-	}
+	} else
+		/*
+		 * No daemon thread to clean up for us. Prelease() the
+		 * underlying process explicitly.
+		 */
+		Prelease(P, dpr->dpr_created);
 
-	/*
-	 * Remove the dt_proc_list from the LRU list, release the underlying
-	 * libproc handle, and free our dt_proc_t data structure.
-	 */
-	if (!dt_proc_retired(P)) {
-		assert(dph->dph_lrucnt != 0);
-		dt_proc_retire(P);
-		dph->dph_lrucnt--;
-	}
-
+	assert(dph->dph_lrucnt != 0);
+	dph->dph_lrucnt--;
 	dt_list_delete(&dph->dph_lrulist, dpr);
+	dt_proc_remove(dtp, dpr->dpr_pid);
 	dt_free(dtp, dpr);
 }
 

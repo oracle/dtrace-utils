@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2011 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -138,6 +138,51 @@ typedef struct elf_file_header { /* extended ELF header */
 	Elf64_Word e_shstrndx;	/* shdr string index extended to 32 bits */
 } elf_file_header_t;
 
+/*
+ * Number of buckets in our hash of address->breakpoint.  (We expect very few
+ * breakpoints.)
+ */
+
+#define BKPT_HASH_BUCKETS	17
+
+/*
+ * Handler for breakpoints.
+ */
+
+typedef struct bkpt_handler {
+	/*
+	 * Return nonzero if the process should remain stopped at this
+	 * breakpoint, or zero to continue.
+	 */
+	int (*bkpt_handler) (uintptr_t addr, void *data);
+	/*
+	 * Clean up any breakpoint state on Prelease() or breakpoint delete.
+	 */
+	void (*bkpt_cleanup) (void *data);
+	void *bkpt_data;
+} bkpt_handler_t;
+
+/*
+ * An active breakpoint.
+ */
+typedef struct bkpt {
+	struct bkpt *bkpt_next;		/* next in hash chain */
+	uintptr_t bkpt_addr;		/* breakpoint address */
+	unsigned long orig_insn;	/* original instruction word */
+	bkpt_handler_t bkpt_handler;	/* handler for this breakpoint. */
+	int after_singlestep;		/* call handler before or after
+				           singlestepping? */
+} bkpt_t;
+
+/*
+ * Handler for exec()s.
+ */
+typedef void (*exec_handler_fun)(struct ps_prochandle *);
+
+/*
+ * A process under management.
+ */
+
 typedef struct elf_file {	/* convenience for managing ELF files */
 	elf_file_header_t e_hdr; /* Extended ELF header */
 	Elf *e_elf;		/* ELF library handle */
@@ -145,12 +190,11 @@ typedef struct elf_file {	/* convenience for managing ELF files */
 } elf_file_t;
 
 struct ps_prochandle {
-#ifdef USERSPACE_TRACEPOINTS
-	pstatus_t status;	/* status when stopped */
-#endif
-	pid_t	pid;		/* process-ID */
+	pid_t	pid;		/* process ID */
 	int	state;		/* state of the process, see "libproc.h" */
-	int	ptraced;	/* if nonzero, this process is ptrace-attached */
+	int	ptraced;	/* true if ptrace-attached */
+	int	ptrace_count;	/* count of Ptrace() calls */
+	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	map_info_t *mappings;	/* cached process mappings */
@@ -159,9 +203,16 @@ struct ps_prochandle {
 	plist_t	file_head;	/* head of mapped files w/ symbol table info */
 	auxv_t	*auxv;		/* the process's aux vector */
 	int	nauxv;		/* number of aux vector entries */
-	rd_agent_t *rap;	/* cookie for rtld_db */
+	bkpt_t	**bkpts;	/* hash of active breakpoints by address */
+	uint_t	num_bkpts;	/* number of active breakpoints */
+	uintptr_t tracing_bkpt;	/* address of breakpoint we are single-stepping
+				   past, if any */
+	int	singlestepped;	/* when tracing_bkpt, 1 iff we have done the
+				   singlestep. */
+	rd_agent_t *rap;	/* rtld_db state */
 	map_info_t *map_exec;	/* the mapping for the executable file */
-	map_info_t *map_ldso;	/* the mapping for ld.so.1 */
+	map_info_t *map_ldso;	/* the mapping for ld.so */
+	exec_handler_fun exec_handler;	/* exec() handler */
 };
 
 /*
@@ -169,6 +220,8 @@ struct ps_prochandle {
  * These are not exported to clients of the library.
  */
 extern	int	Pscantext(struct ps_prochandle *);
+extern	void	set_exec_handler(struct ps_prochandle *P,
+    exec_handler_fun handler);
 extern	void	Pinitsym(struct ps_prochandle *);
 extern	map_info_t *Paddr2mptr(struct ps_prochandle *, uintptr_t);
 extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
