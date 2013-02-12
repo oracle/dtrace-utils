@@ -18,10 +18,10 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
-TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 ustack-tst-bigstack ustack-tst-spin
+TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 ustack-tst-bigstack ustack-tst-spin libproc-pldd libproc-consistency libproc-sleeper libproc-sleeper-32 libproc-sleeper-pie libproc-sleeper-pie-32 libproc-dlmadopen
 
 define trigger-template
 CMDS += $(1)
@@ -44,4 +44,57 @@ endef
 
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
 proc-tst-sigwait_LIBS := -lrt
+
+# We are using machinery from libproc directly, but libproc calls into
+# nonpublic parts of libdtrace for various shared machinery (dt_list
+# and so on).  Thus, we must link directly to the build libraries, since
+# these have no symbol visibility constraints.
+
+# (Technically libproc-pldd and libproc-consistency are not triggers,
+# because they are run directly by the test rather than being invoked in
+# parallel by the build machinery.  It seems easier to reuse that machinery
+# than to introduce a whole new abstraction for 'testing things that are
+# not dtrace' into the DTrace testsuite.  We do want test coverage analysis
+# for this stuff, or at least for the libproc parts of it.)
+
+libproc-pldd_CFLAGS := -Ilibproc -Ilibdtrace
+libproc-pldd_NOCFLAGS :=
+libproc-pldd_DEPS := build-libproc.a build-libdtrace.a libport.a
+libproc-pldd_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
+
+libproc-consistency_CFLAGS := -Ilibproc -Ilibdtrace
+libproc-consistency_NOCFLAGS :=
+libproc-consistency_DEPS := build-libproc.a build-libdtrace.a libport.a
+libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
+
+# We need multiple versions of libproc-sleeper with different combinations
+# of flags.
+
+libproc-sleeper-32_CFLAGS := -m32
+libproc-sleeper-pie_CFLAGS := -fPIE
+libproc-sleeper-pie_LDFLAGS := -fPIE -pie
+libproc-sleeper-pie-32_CFLAGS := -m32 -fPIE
+libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
+
+# Make dlmadopen PIE so that we can ensure that we can track execve()s
+# in which the value of r_brk changes.
+libproc-dlmadopen_LIBS := -ldl
+libproc-dlmadopen_CFLAGS := -fPIE
+libproc-dlmadopen_LDFLAGS := -fPIE -pie
+
+# libproc-consistency runs libproc-dlmadopen, which repeatedly opens a
+# shared library in different ld.so namespaces.  This is that library.
+
+BUILDLIBS += libproc-dlmlib-build
+SHLIBS += libproc-dlmlib
+
+libproc-dlmlib-build_TARGET := libproc-dlmlib
+libproc-dlmlib-build_DIR := $(current-dir)
+libproc-dlmlib-build_SOURCES := libproc-dlmlib.c
+
+libproc-dlmlib_DIR := $(current-dir)
+libproc-dlmlib_TARGET := libproc-dlmlib
+libproc-dlmlib_SONAME := libproc-dlmlib.so.0
+libproc-dlmlib_VERSION := libproc-dlmlib.so.0.0.0
+libproc-dlmlib_LIBSOURCES := libproc-dlmlib-build
 
