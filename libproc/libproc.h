@@ -150,11 +150,9 @@ extern	void	Pbkpt_continue(struct ps_prochandle *P);
 
 /*
  * Pseudo-names passed to Plookup_by_name() for well-known load objects.
- * NOTE: It is required that PR_OBJ_EXEC and PR_OBJ_LDSO exactly match
- * the definitions of PS_OBJ_EXEC and PS_OBJ_LDSO from <proc_service.h>.
  */
 #define	PR_OBJ_EXEC	((const char *)0)	/* search the executable file */
-#define	PR_OBJ_LDSO	((const char *)1)	/* search ld.so.1 */
+#define	PR_OBJ_LDSO	((const char *)1)	/* search ld.so */
 #define	PR_OBJ_EVERY	((const char *)-1)	/* search every load object */
 
 /*
@@ -230,8 +228,10 @@ extern int Psymbol_iter_by_addr(struct ps_prochandle *,
  * This should be called when an RD_DLACTIVITY event with the
  * RD_CONSISTENT state occurs via librtld_db's event mechanism.
  * This makes libproc's address space mappings and symbol tables current.
+ * The variant Pupdate_syms() can be used to preload all symbol tables as well.
  */
 extern void Pupdate_maps(struct ps_prochandle *);
+extern void Pupdate_syms(struct ps_prochandle *);
 
 /*
  * This must be called after the victim process performs a successful
@@ -248,11 +248,12 @@ extern void Pupdate_maps(struct ps_prochandle *);
 extern void Preset_maps(struct ps_prochandle *);
 
 /*
- * Given an address, Ppltdest() determines if this is part of a PLT, and if
- * so returns a pointer to the symbol name that will be used for resolution.
- * If the specified address is not part of a PLT, the function returns NULL.
+ * Return 1 if this address is within a valid mapping, file-backed mapping, or
+ * writable mapping, respectively.
  */
-extern const char *Ppltdest(struct ps_prochandle *, uintptr_t);
+extern int Pvalid_mapping(struct ps_prochandle *P, uintptr_t addr);
+extern int Pfile_mapping(struct ps_prochandle *P, uintptr_t addr);
+extern int Pwritable_mapping(struct ps_prochandle *P, uintptr_t addr);
 
 extern pid_t Pgetpid(struct ps_prochandle *);
 

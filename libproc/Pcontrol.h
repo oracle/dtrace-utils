@@ -45,8 +45,6 @@
 extern "C" {
 #endif
 
-#include "Putil.h"
-
 /*
  * Definitions of the process control structures, internal to libproc.
  * These may change without affecting clients of libproc.
@@ -83,67 +81,47 @@ typedef struct sym_tbl {	/* symbol table */
 	size_t	sym_count;	/* number of symbols in each sorted list */
 } sym_tbl_t;
 
+struct map_info;
 typedef struct file_info {	/* symbol information for a mapped file */
-	plist_t	file_list;	/* linked list */
-	char	*file_pname;	/* name from prmap_t */
-	struct map_info *file_map;	/* primary (text) mapping */
+	dt_list_t file_list;	/* linked list */
+	ssize_t	file_map; 	/* primary (text) mapping idx, or -1 if none */
+	char	*file_pname;	/* name from prmap_file_t */
+	dev_t	file_dev;	/* device number of file */
+	ino_t	file_inum;	/* inode number of file */
 	int	file_ref;	/* references from map_info_t structures */
 	int	file_fd;	/* file descriptor for the mapped file */
 	int	file_init;	/* 0: initialization yet to be performed */
 	GElf_Half file_etype;	/* ELF e_type from ehdr */
-	GElf_Half file_class;	/* ELF e_ident[EI_CLASS] from ehdr */
 	rd_loadobj_t *file_lo;	/* load object structure from rtld_db */
 	char	*file_lname;	/* load object name from rtld_db */
 	char	*file_lbase;	/* pointer to basename of file_lname */
-	char	*file_rname;	/* resolved on-disk object pathname */
-	char	*file_rbase;	/* pointer to basename of file_rname */
-	Elf	*file_elf;	/* ELF handle so we can close */
+	Elf	*file_elf;	/* ELF handle */
 	sym_tbl_t file_symtab;	/* symbol table */
 	sym_tbl_t file_dynsym;	/* dynamic symbol table */
 	uintptr_t file_dyn_base;	/* load address for ET_DYN files */
-	uintptr_t file_plt_base;	/* base address for PLT */
-	size_t	file_plt_size;	/* size of PLT region */
-	uintptr_t file_jmp_rel;	/* base address of PLT relocations */
-	uintptr_t file_ctf_off;	/* offset of CTF data in object file */
-	size_t	file_ctf_size;	/* size of CTF data in object file */
-	int	file_ctf_dyn;	/* does the CTF data reference the dynsym */
-	void	*file_ctf_buf;	/* CTF data for this file */
-	ctf_file_t *file_ctfp;	/* CTF container for this file */
 	char	*file_shstrs;	/* section header string table */
 	size_t	file_shstrsz;	/* section header string table size */
-	uintptr_t *file_saddrs; /* section header addresses */
-	uint_t  file_nsaddrs;   /* number of section header addresses */
 } file_info_t;
 
+/*
+ * The mappings are stored in ps_prochandle_t.mappings; the hash of mapping
+ * filenames are stored in ps_prochandle_t.map_files.
+ *
+ * There is no ownership relationship between the prmap_file_t and the prmap_t:
+ * they just point to each other.
+ */
 typedef struct map_info {	/* description of an address space mapping */
 	prmap_t	map_pmap;	/* /proc description of this mapping */
 	file_info_t *map_file;	/* pointer into list of mapped files */
-	off64_t map_offset;	/* offset into core file (if core) */
-	int map_relocate;	/* associated file_map needs to be relocated */
 } map_info_t;
 
-typedef struct elf_file_header { /* extended ELF header */
-	unsigned char e_ident[EI_NIDENT];
-	Elf64_Half e_type;
-	Elf64_Half e_machine;
-	Elf64_Word e_version;
-	Elf64_Addr e_entry;
-	Elf64_Off e_phoff;
-	Elf64_Off e_shoff;
-	Elf64_Word e_flags;
-	Elf64_Half e_ehsize;
-	Elf64_Half e_phentsize;
-	Elf64_Half e_shentsize;
-	Elf64_Word e_phnum;	/* phdr count extended to 32 bits */
-	Elf64_Word e_shnum;	/* shdr count extended to 32 bits */
-	Elf64_Word e_shstrndx;	/* shdr string index extended to 32 bits */
-} elf_file_header_t;
-
 /*
- * Number of buckets in our hash of address->breakpoint.  (We expect very few
- * breakpoints.)
+ * Number of buckets in our hashes of process -> mapping name and
+ * address->breakpoint.  (We expect quite a lot of mappings, and
+ * very few breakpoints.)
  */
 
+#define MAP_HASH_BUCKETS	277
 #define BKPT_HASH_BUCKETS	17
 
 /*
@@ -217,10 +195,11 @@ struct ps_prochandle {
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	int	elf64;		/* if nonzero, this is a 64-bit process */
-	map_info_t *mappings;	/* cached process mappings */
-	size_t	map_count;	/* number of mappings */
-	uint_t	num_files;	/* number of file elements in file_info */
-	plist_t	file_head;	/* head of mapped files w/ symbol table info */
+	map_info_t *mappings;	/* process mappings, sorted by address */
+	size_t	num_mappings;	/* number of mappings */
+	prmap_file_t **map_files; /* hash of mappings by filename */
+	uint_t  num_files;	/* number of file elements in file_list */
+	dt_list_t file_list;	/* list of mapped files w/ symbol table info */
 	auxv_t	*auxv;		/* the process's aux vector */
 	int	nauxv;		/* number of aux vector entries */
 	bkpt_t	**bkpts;	/* hash of active breakpoints by address */
@@ -240,18 +219,22 @@ struct ps_prochandle {
  * Implementation functions in the process control library.
  * These are not exported to clients of the library.
  */
+extern	void	Psym_init(struct ps_prochandle *);
+extern	void	Psym_free(struct ps_prochandle *);
+extern	map_info_t *Paddr2mptr(struct ps_prochandle *P, uintptr_t addr);
 extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uint64_t Pgetauxval(struct ps_prochandle *P, int type);
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,
     exec_handler_fun handler);
-extern	void	Pinitsym(struct ps_prochandle *);
-extern	map_info_t *Paddr2mptr(struct ps_prochandle *, uintptr_t);
-extern	char 	*Pfindexec(struct ps_prochandle *, const char *,
-	int (*)(const char *, void *), void *);
-
 extern char	procfs_path[PATH_MAX];
+
+/*
+ * Routine to print debug messages.
+ */
+_dt_printflike_(1,2)
+extern void _dprintf(const char *, ...);
 
 /*
  * Simple convenience.

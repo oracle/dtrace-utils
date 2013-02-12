@@ -50,7 +50,6 @@
 
 #include "libproc.h"
 #include "Pcontrol.h"
-#include "Putil.h"
 
 /*
  * This is very new and not widely supported yet.
@@ -59,412 +58,283 @@
 #define PTRACE_GETMAPFD		0x42A5
 #endif
 
-static file_info_t *build_map_symtab(struct ps_prochandle *, map_info_t *);
-static map_info_t *exec_map(struct ps_prochandle *);
 static map_info_t *object_to_map(struct ps_prochandle *, Lmid_t, const char *);
 static map_info_t *object_name_to_map(struct ps_prochandle *,
 	Lmid_t, const char *);
 static GElf_Sym *sym_by_name(sym_tbl_t *, const char *, GElf_Sym *, uint_t *);
-static int read_ehdr32(struct ps_prochandle *, Elf32_Ehdr *, uint_t *,
-    uintptr_t);
-#ifdef _LP64
-static int read_ehdr64(struct ps_prochandle *, Elf64_Ehdr *, uint_t *,
-    uintptr_t);
-#endif
 static file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
 static int byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname);
 static void optimize_symtab(sym_tbl_t *);
 static void Pbuild_file_symtab(struct ps_prochandle *, file_info_t *);
-static char *Pfindmap(struct ps_prochandle *, map_info_t *, char *, size_t);
 
 #define	DATA_TYPES	\
 	((1 << STT_OBJECT) | (1 << STT_FUNC) | \
 	(1 << STT_COMMON) | (1 << STT_TLS))
 #define	IS_DATA_TYPE(tp)	(((1 << (tp)) & DATA_TYPES) != 0)
 
-typedef enum {
-	PRO_NATURAL,
-	PRO_BYADDR,
-	PRO_BYNAME
-} pr_order_t;
 
-static int
-addr_cmp(const void *aa, const void *bb)
+static ulong_t
+string_hash(const char *key)
 {
-	uintptr_t a = *((uintptr_t *)aa);
-	uintptr_t b = *((uintptr_t *)bb);
+	ulong_t g, h = 0;
+	const char *p;
 
-	if (a > b)
-		return (1);
-	if (a < b)
-		return (-1);
-	return (0);
-}
+	for (p = key; *p != '\0'; p++) {
+		h = (h << 4) + *p;
 
-/*
- * This function creates a list of addresses for a load object's sections.
- * The list is in ascending address order and alternates start address
- * then end address for each section we're interested in. The function
- * returns a pointer to the list, which must be freed by the caller.
- */
-static uintptr_t *
-get_saddrs(struct ps_prochandle *P, uintptr_t ehdr_start, uint_t *n)
-{
-	uintptr_t a, addr, *addrs = NULL, last = 0;
-	uint_t i, naddrs = 0, unordered = 0;
-#ifdef USERSPACE_TRACEPOINTS
-	char dmodel = P->status.pr_dmodel;
-#else
-	char dmodel = PR_MODEL_LP64;
-#endif
-
-#ifdef USERSPACE_TRACEPOINTS
-	if (P->status.pr_dmodel == PR_MODEL_ILP32) {
-#else
-	if (dmodel == PR_MODEL_ILP32) {
-#endif
-		Elf32_Ehdr ehdr;
-		Elf32_Phdr phdr;
-		uint_t phnum;
-
-		if (read_ehdr32(P, &ehdr, &phnum, ehdr_start) != 0)
-			return (NULL);
-
-		addrs = malloc(sizeof (uintptr_t) * phnum * 2);
-		a = ehdr_start + ehdr.e_phoff;
-		for (i = 0; i < phnum; i++, a += ehdr.e_phentsize) {
-			if (Pread(P, &phdr, sizeof (phdr), a) !=
-			    sizeof (phdr)) {
-				free(addrs);
-				return (NULL);
-			}
-			if (phdr.p_type != PT_LOAD || phdr.p_memsz == 0)
-				continue;
-
-			addr = phdr.p_vaddr;
-			if (ehdr.e_type == ET_DYN)
-				addr += ehdr_start;
-			if (last > addr)
-				unordered = 1;
-			addrs[naddrs++] = addr;
-			addrs[naddrs++] = last = addr + phdr.p_memsz - 1;
+		if ((g = (h & 0xf0000000)) != 0) {
+			h ^= (g >> 24);
+			h ^= g;
 		}
-#ifdef _LP64
-	} else {
-		Elf64_Ehdr ehdr;
-		Elf64_Phdr phdr;
-		uint_t phnum;
-
-		if (read_ehdr64(P, &ehdr, &phnum, ehdr_start) != 0)
-			return (NULL);
-
-		addrs = malloc(sizeof (uintptr_t) * phnum * 2);
-		a = ehdr_start + ehdr.e_phoff;
-		for (i = 0; i < phnum; i++, a += ehdr.e_phentsize) {
-			if (Pread(P, &phdr, sizeof (phdr), a) !=
-			    sizeof (phdr)) {
-				free(addrs);
-				return (NULL);
-			}
-			if (phdr.p_type != PT_LOAD || phdr.p_memsz == 0)
-				continue;
-
-			addr = phdr.p_vaddr;
-			if (ehdr.e_type == ET_DYN)
-				addr += ehdr_start;
-			if (last > addr)
-				unordered = 1;
-			addrs[naddrs++] = addr;
-			addrs[naddrs++] = last = addr + phdr.p_memsz - 1;
-		}
-#endif
 	}
 
-	if (unordered)
-		qsort(addrs, naddrs, sizeof (uintptr_t), addr_cmp);
-
-	*n = naddrs;
-	return (addrs);
+	return (h);
 }
 
 /*
- * Allocation function for a new file_info_t
+ * Allocation function for a new file_info_t.
  */
 static file_info_t *
 file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 {
 	file_info_t *fptr;
-	map_info_t *mp;
-	uintptr_t mstart, mend, sstart, send;
-	uint_t i;
 
 	if ((fptr = calloc(1, sizeof (file_info_t))) == NULL)
 		return (NULL);
 
-	list_link(fptr, &P->file_head);
-	fptr->file_pname = strdup(mptr->map_pmap.pr_mapname);
+	dt_list_append(&P->file_list, fptr);
+	fptr->file_pname = strdup(mptr->map_pmap.pr_file->prf_mapname);
+	fptr->file_dev = mptr->map_pmap.pr_dev;
+	fptr->file_inum = mptr->map_pmap.pr_inum;
 	mptr->map_file = fptr;
 	fptr->file_ref = 1;
-	fptr->file_fd = -1;
 	P->num_files++;
-
-	/*
-	 * To figure out which map_info_t instances correspond to the mappings
-	 * for this load object we try to obtain the start and end address
-	 * for each section of our in-memory ELF image. If successful, we
-	 * walk down the list of addresses and the list of map_info_t
-	 * instances in lock step to correctly find the mappings that
-	 * correspond to this load object.
-	 */
-	if ((fptr->file_saddrs = get_saddrs(P, mptr->map_pmap.pr_vaddr,
-	    &fptr->file_nsaddrs)) == NULL)
-		return (fptr);
-
-	mp = P->mappings;
-	i = 0;
-	while (mp < P->mappings + P->map_count && i < fptr->file_nsaddrs) {
-
-		/* Calculate the start and end of the mapping and section */
-		mstart = mp->map_pmap.pr_vaddr;
-		mend = mp->map_pmap.pr_vaddr + mp->map_pmap.pr_size;
-		sstart = fptr->file_saddrs[i];
-		send = fptr->file_saddrs[i + 1];
-
-		if (mend <= sstart) {
-			/* This mapping is below the current section */
-			mp++;
-		} else if (mstart >= send) {
-			/* This mapping is above the current section */
-			i += 2;
-		} else {
-			/* This mapping overlaps the current section */
-			if (mp->map_file == NULL) {
-				_dprintf("file_info_new: associating "
-				    "segment at %p\n",
-				    (void *)mp->map_pmap.pr_vaddr);
-				mp->map_file = fptr;
-				fptr->file_ref++;
-			} else {
-				_dprintf("file_info_new: segment at %p "
-				    "already associated with %s\n",
-				    (void *)mp->map_pmap.pr_vaddr,
-				    (mp == mptr ? "this file" :
-				    mp->map_file->file_pname));
-			}
-			mp++;
-		}
-	}
 
 	return (fptr);
 }
 
 /*
- * Deallocation function for a file_info_t
+ * Deallocation function for a zero-refcount file_info_t.
+ *
+ * (Not the inverse of file_info_new(), hence the _del() name rather than
+ * _free().)
  */
 static void
-file_info_free(struct ps_prochandle *P, file_info_t *fptr)
+file_info_del(struct ps_prochandle *P, file_info_t *fptr)
 {
-	if (--fptr->file_ref == 0) {
-		list_unlink(fptr);
-		free(fptr->file_symtab.sym_byname);
-		free(fptr->file_symtab.sym_byaddr);
+	_dprintf("%s: dropping file info with zero refcount\n",
+	    fptr->file_pname);
 
-		free(fptr->file_dynsym.sym_byname);
-		free(fptr->file_dynsym.sym_byaddr);
+	dt_list_delete(&P->file_list, fptr);
+	free(fptr->file_symtab.sym_byname);
+	free(fptr->file_symtab.sym_byaddr);
 
-		free(fptr->file_lo);
-		free(fptr->file_lname);
-		free(fptr->file_rname);
-		free(fptr->file_pname);
-		(void) elf_end(fptr->file_elf);
-		if (fptr->file_fd >= 0)
-			(void) close(fptr->file_fd);
-		if (fptr->file_ctfp) {
-			ctf_close(fptr->file_ctfp);
-			free(fptr->file_ctf_buf);
+	free(fptr->file_dynsym.sym_byname);
+	free(fptr->file_dynsym.sym_byaddr);
+
+	free(fptr->file_lo);
+	free(fptr->file_lname);
+	free(fptr->file_pname);
+	elf_end(fptr->file_elf);
+	free(fptr);
+	P->num_files--;
+}
+
+/*
+ * Deallocate all file_info_t's with zero reference count.
+ */
+static void
+file_info_purge(struct ps_prochandle *P)
+{
+	uint_t i;
+	file_info_t *fptr;
+	file_info_t *old_fptr = NULL;
+
+	for (i = 0, fptr = dt_list_next(&P->file_list);
+	     i < P->num_files; i++, old_fptr = fptr,
+		 fptr = dt_list_next(fptr)) {
+		if (old_fptr && old_fptr->file_ref == 0)
+			file_info_del(P, old_fptr);
+	}
+	if (old_fptr && old_fptr->file_ref == 0)
+		file_info_del(P, old_fptr);
+}
+
+
+/*
+ * Deallocates all map_info_t, prmap_file_t and prmaps from a prochandle.  Does
+ * not free file_info_t's; use file_info_purge() for that.  Does not free the
+ * mapping array itself because it will often be reused immediately.
+ */
+static void
+mapping_purge(struct ps_prochandle *P)
+{
+	file_info_t *fptr;
+	size_t i;
+
+	for (i = 0; i < P->num_mappings; i++) {
+		if ((fptr = P->mappings[i].map_file) != NULL) {
+			fptr->file_ref--;
+			fptr->file_map = -1;
 		}
-		free(fptr->file_saddrs);
-		free(fptr);
-		P->num_files--;
+	}
+	P->num_mappings = 0;
+
+	for (i = 0; i < MAP_HASH_BUCKETS; i++) {
+		prmap_file_t *prf;
+		prmap_file_t *old_prf = NULL;
+
+		for (prf = P->map_files[i]; prf != NULL;
+		     old_prf = prf, prf = prf->prf_next) {
+			free(old_prf);
+			free(prf->prf_mappings);
+			free(prf->prf_mapname);
+		}
+		free(old_prf);
+	}
+
+	memset(P->map_files, 0, sizeof (struct prmap_file *) * MAP_HASH_BUCKETS);
+
+	P->map_exec = NULL;
+	P->map_ldso = NULL;
+}
+
+/*
+ * Called from Pcreate() and Pgrab() to initialize the symbol table state in the
+ * new ps_prochandle.
+ */
+void
+Psym_init(struct ps_prochandle *P)
+{
+	P->map_files = calloc(MAP_HASH_BUCKETS, sizeof (struct prmap_file_t *));
+	if (!P->map_files) {
+		fprintf(stderr, "Out of memory initializing map_files hash\n");
+		exit(1);
 	}
 }
 
 /*
- * Deallocation function for a map_info_t
+ * The opposite of Psym_init().
  */
-static void
-map_info_free(struct ps_prochandle *P, map_info_t *mptr)
+void
+Psym_free(struct ps_prochandle *P)
 {
-	file_info_t *fptr;
+	Preset_maps(P);
+	rd_delete(P->rap);
+	P->rap = NULL;
+	free(P->map_files);
+	P->map_files = NULL;
+}
 
-	if ((fptr = mptr->map_file) != NULL) {
-		if (fptr->file_map == mptr)
-			fptr->file_map = NULL;
-		file_info_free(P, fptr);
-	}
-	free(mptr->map_pmap.pr_mapname);
-	mptr->map_pmap.pr_mapname = NULL;
-	if (P->auxv && (mptr == P->map_exec || mptr == P->map_ldso)) {
-		free(P->auxv);
-		P->auxv = NULL;
-		P->nauxv = 0;
-	}
-	if (mptr == P->map_exec)
-		P->map_exec = NULL;
-	if (mptr == P->map_ldso)
-		P->map_ldso = NULL;
+/*
+ * Given a process handle, find a corresponding prmap_file by file name, or NULL
+ * if none.
+ */
+static prmap_file_t *Pprmap_file_by_name(struct ps_prochandle *P,
+    const char *name)
+{
+	uint_t h = string_hash(name) % MAP_HASH_BUCKETS;
+	prmap_file_t *prf;
+
+	for (prf = P->map_files[h]; prf != NULL; prf = prf->prf_next)
+		if (strcmp(prf->prf_mapname, name) == 0)
+			return (prf);
+
+	return NULL;
 }
 
 /*
  * Call-back function for librtld_db to iterate through all of its shared
- * libraries.  We use this to get the load object names for the mappings.
+ * libraries and determine their load object names and lmids.
  */
 static int
-map_iter(const rd_loadobj_t *lop, void *cd)
+map_iter(const rd_loadobj_t *lop, void *prochandle)
 {
 	char buf[PATH_MAX];
-	struct ps_prochandle *P = cd;
+	struct ps_prochandle *P = prochandle;
 	map_info_t *mptr;
 	file_info_t *fptr;
 
 	_dprintf("encountered rd object at %p\n", (void *)lop->rl_base);
 
-	if ((mptr = Paddr2mptr(P, lop->rl_base)) == NULL) {
+	if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
 		_dprintf("map_iter: base address doesn't match any mapping\n");
-		return (1); /* Base address does not match any mapping */
+		return (1);
 	}
 
-	if ((fptr = mptr->map_file) == NULL &&
-	    (fptr = file_info_new(P, mptr)) == NULL) {
-		_dprintf("map_iter: failed to allocate a new file_info_t\n");
-		return (1); /* Failed to allocate a new file_info_t */
+	if (mptr->map_file == NULL) {
+		_dprintf("map_iter: no file_info_t for this mapping\n");
+		return (1);
 	}
+
+	fptr = mptr->map_file;
 
 	if ((fptr->file_lo == NULL) &&
 	    (fptr->file_lo = malloc(sizeof (rd_loadobj_t))) == NULL) {
 		_dprintf("map_iter: failed to allocate rd_loadobj_t\n");
-		file_info_free(P, fptr);
-		return (1); /* Failed to allocate rd_loadobj_t */
+		return (1);
 	}
 
-	fptr->file_map = mptr;
 	*fptr->file_lo = *lop;
 
-	fptr->file_lo->rl_plt_base = fptr->file_plt_base;
-	fptr->file_lo->rl_plt_size = fptr->file_plt_size;
-
-	if (fptr->file_lname) {
-		free(fptr->file_lname);
-		fptr->file_lname = NULL;
-		fptr->file_lbase = NULL;
-	}
-	if (fptr->file_rname) {
-		free(fptr->file_rname);
-		fptr->file_rname = NULL;
-		fptr->file_rbase = NULL;
-	}
-
 	if (Pread_string(P, buf, sizeof (buf), lop->rl_nameaddr) > 0) {
-		if ((fptr->file_lname = strdup(buf)) != NULL)
-			fptr->file_lbase = basename(fptr->file_lname);
+		if ((fptr->file_lname == NULL) ||
+		    (strcmp(fptr->file_lname, buf) != 0)) {
+
+			free(fptr->file_lname);
+			fptr->file_lbase = NULL;
+			if ((fptr->file_lname = strdup(buf)) != NULL)
+				fptr->file_lbase = basename(fptr->file_lname);
+		}
 	} else {
 		_dprintf("map_iter: failed to read string at %p\n",
 		    (void *)lop->rl_nameaddr);
 	}
 
-	if ((Pfindmap(P, mptr, buf, sizeof (buf)) != NULL) &&
-	    ((fptr->file_rname = strdup(buf)) != NULL))
-		fptr->file_rbase = basename(fptr->file_rname);
-
 	_dprintf("loaded rd object %s lmid %lx\n",
-	    fptr->file_lname ? buf : "<NULL>", lop->rl_lmident);
+	    fptr->file_lname ? fptr->file_lname : "<NULL>", lop->rl_lmident);
 	return (1);
 }
-
-static void
-map_set(struct ps_prochandle *P, map_info_t *mptr, const char *lname)
-{
-	file_info_t *fptr;
-	char buf[PATH_MAX];
-
-	if ((fptr = mptr->map_file) == NULL &&
-	    (fptr = file_info_new(P, mptr)) == NULL)
-		return; /* Failed to allocate a new file_info_t */
-
-	fptr->file_map = mptr;
-
-	if ((fptr->file_lo == NULL) &&
-	    (fptr->file_lo = malloc(sizeof (rd_loadobj_t))) == NULL) {
-		file_info_free(P, fptr);
-		return; /* Failed to allocate rd_loadobj_t */
-	}
-
-	(void) memset(fptr->file_lo, 0, sizeof (rd_loadobj_t));
-	fptr->file_lo->rl_base = mptr->map_pmap.pr_vaddr;
-	fptr->file_lo->rl_bend =
-	    mptr->map_pmap.pr_vaddr + mptr->map_pmap.pr_size;
-
-	fptr->file_lo->rl_plt_base = fptr->file_plt_base;
-	fptr->file_lo->rl_plt_size = fptr->file_plt_size;
-
-	if ((fptr->file_lname == NULL) &&
-	    (fptr->file_lname = strdup(lname)) != NULL)
-		fptr->file_lbase = basename(fptr->file_lname);
-
-	if ((Pfindmap(P, mptr, buf, sizeof (buf)) != NULL) &&
-	    ((fptr->file_rname = strdup(buf)) != NULL))
-		fptr->file_rbase = basename(fptr->file_rname);
-}
-
-static void
-load_static_maps(struct ps_prochandle *P)
-{
-	map_info_t *mptr;
-
-	/*
-	 * Construct the map for the a.out.
-	 */
-	if ((mptr = object_name_to_map(P, PR_LMID_EVERY, PR_OBJ_EXEC)) != NULL)
-		map_set(P, mptr, "a.out");
-
-	/*
-	 * If the dynamic linker exists for this process,
-	 * construct the map for it.
-	 */
-	if (Pgetauxval(P, AT_BASE) != -1L &&
-	    (mptr = object_name_to_map(P, PR_LMID_EVERY, PR_OBJ_LDSO)) != NULL)
-		map_set(P, mptr, "ld.so.1");
-}
-
 
 /*
  * Go through all the address space mappings, validating or updating
  * the information already gathered, or gathering new information.
  *
  * This function is only called when we suspect that the mappings have changed
- * because this is the first time we're calling it or because of rtld activity.
+ * because of rtld activity, or when a process is referenced for the first time.
  */
 void
 Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
+	char exefile[PATH_MAX] = "";
 	FILE *fp;
-	prmap_t *Pmap = NULL;
-	prmap_t *pmap;
-	ssize_t nmap = 0;
-	int i;
-	uint_t oldmapcount;
-	map_info_t *newmap, *newp;
-	map_info_t *mptr;
-	char buf[BUFSIZ];
-	
+
+	size_t old_num_mappings = P->num_mappings;
+	size_t i = 0;
+	char *line = NULL;
+	size_t len;
 
 	if (P->info_valid)
 		return;
 
-	Preadauxvec(P);
-	
-	/*  The size of the file /proc/<pid>/maps is zero on Linux. */
+	_dprintf("Updating mappings for PID %i\n", P->pid);
+
+	/*
+	 * For now, just throw away and reconstruct all the mappings from
+	 * scratch.  This is theoretically inefficient, as a dlopen() or
+	 * dlclose() will normally change only a few mappings: but it is much
+	 * simpler to implement than the alternatives, and it ends up being
+	 * cheaper than expected because we can avoid having to resort any of
+	 * the mappings arrays (since /proc/$pid/maps is always sorted by
+	 * address).  We are left with allocator overhead and nothing else.
+	 *
+	 * Because it is much more expensive to recompute the file_info_t, we
+	 * preserve them (with zero reference count) and reuse them where
+	 * possible.
+	 */
+	mapping_purge(P);
+
 	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
 	if ((fp = fopen(mapfile, "r")) == NULL) {
@@ -472,124 +342,230 @@ Pupdate_maps(struct ps_prochandle *P)
 		return;
 	}
 
-	Pmap = calloc(sizeof(prmap_t), 1);
-        for (i = 0; fgets(buf, sizeof(buf), fp); i++) {
-                unsigned long laddr, haddr, offset, inode;
+	snprintf(exefile, sizeof (exefile), "%s/%d/exe", procfs_path,
+	    (int)P->pid);
+	if ((len = readlink(exefile, exefile, sizeof (exefile))) > 0)
+		exefile[len] = '\0';
+
+	while (getline(&line, &len, fp) >= 0) {
+                unsigned long laddr, haddr, offset;
+		ino_t	inode;
+		unsigned int major;
+		unsigned int minor;
                 char    perms[5];
-                char    majmin[128];
-                char    *filename;
-                Pmap = realloc(Pmap, (i + 1) * sizeof(prmap_t));
-                sscanf(buf, "%lx-%lx %s %lx %s %lu %ms",
-                        &laddr, &haddr, perms, &offset, majmin, &inode, &filename);
-                memset(&Pmap[i], 0, sizeof(prmap_t));
-                Pmap[i].pr_vaddr = laddr;
-                Pmap[i].pr_size = haddr - laddr;
-                Pmap[i].pr_offset = offset;
-                Pmap[i].pr_pagesize = getpagesize();
-                if (perms[0] == 'r')
-                        Pmap[i].pr_mflags |= MA_READ;
-                if (perms[1] == 'w')
-                        Pmap[i].pr_mflags |= MA_WRITE;
-                if (perms[2] == 'x')
-                        Pmap[i].pr_mflags |= MA_EXEC;
-		Pmap[i].pr_mapname = filename;
-		Pmap[i].pr_inum = inode;
-                nmap = i + 1;
-        }
-	
-	(void) fclose(fp);
+                char    *fn;
+		map_info_t *mptr;
+		prmap_file_t *prf;
+                prmap_t *pmptr;
 
-	if ((newmap = calloc(1, nmap * sizeof (map_info_t))) == NULL)
-		return;
+                sscanf(line, "%lx-%lx %s %lx %x:%x %lu %ms",
+		    &laddr, &haddr, perms, &offset, &major, &minor, &inode,
+		    &fn);
 
-	/*
-	 * We try to merge any file information we may have for existing
-	 * mappings, to avoid having to rebuild the file info.
-	 */
-	mptr = P->mappings;
-	pmap = Pmap;
-	newp = newmap;
-	oldmapcount = P->map_count;
-	for (i = 0; i < nmap; i++, pmap++, newp++) {
-
-		if (oldmapcount == 0) {
-			/*
-			 * We've exhausted all the old mappings.  Every new
-			 * mapping should be added.
-			 */
-			newp->map_pmap = *pmap;
-
-		} else if (pmap->pr_vaddr == mptr->map_pmap.pr_vaddr &&
-		    pmap->pr_size == mptr->map_pmap.pr_size &&
-		    pmap->pr_offset == mptr->map_pmap.pr_offset &&
-		    pmap->pr_pagesize == mptr->map_pmap.pr_pagesize &&
-		    pmap->pr_inum == mptr->map_pmap.pr_inum &&
-		    strcmp(pmap->pr_mapname, mptr->map_pmap.pr_mapname) == 0) {
-
-			/*
-			 * This mapping matches exactly.  Copy over the old
-			 * mapping, taking care to get the latest flags.
-			 * Make sure the associated file_info_t is updated
-			 * appropriately.
-			 */
-			*newp = *mptr;
-			if (P->map_exec == mptr)
-				P->map_exec = newp;
-			if (P->map_ldso == mptr)
-				P->map_ldso = newp;
-			newp->map_pmap.pr_mflags = pmap->pr_mflags;
-			if (mptr->map_file != NULL &&
-			    mptr->map_file->file_map == mptr)
-				mptr->map_file->file_map = newp;
-			free(pmap->pr_mapname);
-			oldmapcount--;
-			mptr++;
-
-		} else if (pmap->pr_vaddr + pmap->pr_size >
-		    mptr->map_pmap.pr_vaddr) {
-
-			/*
-			 * The old mapping doesn't exist any more, remove it
-			 * from the list.
-			 */
-			map_info_free(P, mptr);
-			oldmapcount--;
-			i--;
-			newp--;
-			pmap--;
-			mptr++;
-
-		} else {
-
-			/*
-			 * This is a new mapping, add it directly.
-			 */
-			newp->map_pmap = *pmap;
+		/*
+		 * Skip anonymous mappings, and special mappings like the stack,
+		 * heap, and vdso.
+		 */
+		if ((fn == NULL) || (fn[0] == '[')) {
+			free(fn);
+			continue;
 		}
-	}
+
+		/*
+		 * Allocate a new map_info, and see if we need to allocate a new
+		 * map_file.  Expand the map_info region only if necessary.
+		 * (This makes multiple sequential unmaps cheap, though nothing
+		 * we can do can make multiple sequential maps cheap.)
+		 */
+
+		if (P->num_mappings >= old_num_mappings) {
+			P->mappings = realloc(P->mappings,
+			    sizeof (struct map_info) * (P->num_mappings + 1));
+			if (!P->mappings)
+				goto err;
+		}
+
+		mptr = &P->mappings[P->num_mappings];
+		memset(mptr, 0, sizeof (struct map_info));
+		pmptr = &mptr->map_pmap;
+
+		if ((prf = Pprmap_file_by_name(P, fn)) == NULL) {
+			uint_t h = string_hash(fn) % MAP_HASH_BUCKETS;
+
+			prf = malloc(sizeof (struct prmap_file));
+			memset(prf, 0, sizeof(struct prmap_file));
+			prf->prf_mapname = fn;
+			prf->prf_next = P->map_files[h];
+			P->map_files[h] = prf;
+		}
+		else {
+			free(fn);
+			fn = NULL;
+		}
+
+		prf->prf_mappings = realloc(prf->prf_mappings,
+		    (prf->prf_num_mappings + 1) * sizeof (struct prmap_t *));
+
+		if (!prf->prf_mappings)
+			goto err;
+
+		prf->prf_mappings[prf->prf_num_mappings] = pmptr;
+		prf->prf_num_mappings++;
+
+                pmptr->pr_vaddr = laddr;
+                pmptr->pr_size = haddr - laddr;
+                pmptr->pr_offset = offset;
+
+		/*
+		 * Both ld.so and the kernel follow the rule that the first
+                 * executable mapping they establish is the primary text
+                 * mapping, and the first writable mapping is the primary data
+                 * mapping.
+                 */
+                if (perms[0] == 'r')
+                        pmptr->pr_mflags |= MA_READ;
+                if (perms[1] == 'w') {
+                        pmptr->pr_mflags |= MA_WRITE;
+			if (prf->prf_data_map == NULL)
+				prf->prf_data_map = pmptr;
+		}
+                if (perms[2] == 'x') {
+			char *basename = strrchr(prf->prf_mapname, '/');
+			char *suffix = strrchr(prf->prf_mapname, '.');
+
+			pmptr->pr_mflags |= MA_EXEC;
+
+			/*
+			 * The primary text mapping must correspond to an
+			 * on-disk mapping somewhere (since we cannot mmap()
+			 * nor create a file_info for anonymous mappings).
+			 * This is universally true in any case.
+			 */
+			if ((prf->prf_text_map == NULL) &&
+			    (prf->prf_mapname[0] == '/'))
+				prf->prf_text_map = pmptr;
+
+			/*
+			 * Heuristic to recognize the dynamic linker.  Works
+			 * for /lib, /lib64, and Debian multiarch as well as
+			 * conventional /lib/ld-2.13.so style systems.  (All
+			 * versions of glibc 2.x name their dynamic linker
+			 * something like ld-*.so.)
+			 *
+			 * If this heuristic fails, object_name_to_map() can use
+			 * the AT_BASE auxv entry to come up with another guess
+			 * (though this is likely to be stymied by dynamic
+			 * linker relocation for non-statically-linked
+			 * programs).
+			 */
+
+			if (basename && suffix && P->map_ldso == NULL &&
+			    (strncmp(prf->prf_mapname, "/lib", 4) == 0) &&
+			    (strncmp(basename, "/ld-", 4) == 0) &&
+			    (strcmp(suffix, ".so") == 0))
+				P->map_ldso = mptr;
+
+			/*
+			 * Recognize the executable mapping.
+			 */
+
+			if (exefile[0] != '\0' && P->map_exec == NULL &&
+			    (strcmp(prf->prf_mapname, exefile) == 0))
+				P->map_exec = mptr;
+		}
+		pmptr->pr_dev = makedev(major, minor);
+		pmptr->pr_inum = inode;
+		pmptr->pr_file = prf;
+
+		/*
+		 * We try to merge any file information we may have for existing
+		 * mappings, to avoid having to rebuild the file info.
+		 *
+		 * This is quite expensive if we have a lot of mappings, so we
+		 * avoid doing it for those mappings that cannot possibly
+		 * correspond to on-disk files.
+		 */
+
+		if (prf->prf_mapname[0] == '/') {
+			file_info_t *fptr;
+
+			for (i = 0, fptr = dt_list_next(&P->file_list);
+			     i < P->num_files; i++, fptr = dt_list_next(fptr)) {
+
+				if (fptr->file_dev == pmptr->pr_dev &&
+				    fptr->file_inum == pmptr->pr_inum &&
+				    (strcmp(fptr->file_pname,
+					prf->prf_mapname) == 0)) {
+					/*
+					 * This mapping matches. Revive it.
+					 */
+
+					fptr->file_ref++;
+					mptr->map_file = fptr;
+					break;
+				}
+			}
+
+			if ((mptr->map_file == NULL) &&
+			    (mptr->map_file = file_info_new(P, mptr)) == NULL) {
+				_dprintf("failed to allocate a new "
+				    "file_info_t for %s\n", prf->prf_mapname);
+				/*
+				 * Keep going: we can still work out other
+				 * mappings.
+				 */
+			}
+
+			if (mptr->map_file->file_map == -1 &&
+			    mptr->map_pmap.pr_file->prf_text_map == &mptr->map_pmap)
+				mptr->map_file->file_map = P->num_mappings;
+		}
+
+		_dprintf("Added mapping for %s: %lx(%lx)\n", prf->prf_mapname,
+		    pmptr->pr_vaddr, pmptr->pr_size);
+		P->num_mappings++;
+        }
 
 	/*
-	 * Free any old maps
+	 * Drop file_info_t's corresponding to closed mappings, which will still
+	 * have a zero refcount.
 	 */
-	while (oldmapcount) {
-		map_info_free(P, mptr);
-		oldmapcount--;
-		mptr++;
-	}
+	file_info_purge(P);
 
-	free(Pmap);
-	if (P->mappings != NULL)
-		free(P->mappings);
-	P->mappings = newmap;
-	P->map_count = nmap;
+	/*
+	 * Iterate across all mappings and recompute their lmids.  (Mappings
+	 * which the dynamic linker does not know about, such as that for the
+	 * dynamic linker itself, will be left in lmid 0 by default.  This is
+	 * almost certainly correct, since lmid use is vanishingly rare on
+	 * Linux.)
+	 *
+	 * Don't do this if we know this is a statically linked binary, since
+	 * they have no analogue of lmids at all.  (If we are not sure, rd_new()
+	 * will compute it.  The rd_new() initialization process itself can call
+	 * back into symbol lookup if this turns out to be a statically linked
+	 * binary, to prevent unnecessary recursion.)
+	 */
+
 	P->info_valid = 1;
 
-	/*
-	 * Consult librtld_db to get the load object
-	 * names for all of the shared libraries.
-	 */
-	if (P->rap != NULL)
-		(void) rd_loadobj_iter(P->rap, map_iter, P);
+	if (!P->no_dyn) {
+		if (P->rap == NULL)
+			P->rap = rd_new(P);
+
+		if (P->rap != NULL)
+			rd_loadobj_iter(P->rap, map_iter, P);
+	}
+
+	fclose(fp);
+	free(line);
+
+	return;
+
+err:
+	fclose(fp);
+	free(line);
+	Preset_maps(P);
+	return;
 }
 
 /*
@@ -604,29 +580,24 @@ Pupdate_syms(struct ps_prochandle *P)
 
        P->info_valid = 0;
        Pupdate_maps(P);
+
+       for (i = 0, fptr = dt_list_next(&P->file_list);
+	    i < P->num_files; i++, fptr = dt_list_next(fptr))
+               Pbuild_file_symtab(P, fptr);
 }
 
 /*
  * Return the librtld_db agent handle for the victim process.
  * The handle will become invalid at the next successful exec() and the
  * client (caller of proc_rd_agent()) must not use it beyond that point.
- * If the process is already dead, we've already tried our best to
- * create the agent during core file initialization.
+ * If the process is already dead, there's nothing we can do.
  */
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
-	if (P->rap == NULL && P->state != PS_DEAD) {
-		Pupdate_maps(P);
-		if (P->num_files == 0)
-			load_static_maps(P);
-#if 0
-		rd_log(_libproc_debug);
-		if ((P->rap = rd_new(P)) != NULL)
-			(void) rd_loadobj_iter(P->rap, map_iter, P);
-#endif
-	}
-	return (P->rap);
+       if (P->rap == NULL && P->state != PS_DEAD)
+               Pupdate_maps(P);
+       return (P->rap);
 }
 
 /*
@@ -637,9 +608,6 @@ const prmap_t *
 Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 {
 	map_info_t *mptr;
-
-	/* Temporarily stubbed out. */
-	return NULL;
 
 	if (!P->info_valid)
 		Pupdate_maps(P);
@@ -659,9 +627,6 @@ Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 {
 	map_info_t *mptr;
 
-	/* Temporarily stubbed out. */
-	return NULL;
-
 	if (name == PR_OBJ_EVERY)
 		return (NULL); /* A reasonable mistake */
 
@@ -676,201 +641,6 @@ Pname_to_map(struct ps_prochandle *P, const char *name)
 {
 	return (Plmid_to_map(P, PR_LMID_EVERY, name));
 }
-
-/*
- * Return 1 if the given mapping corresponds to the given file_info_t's
- * load object; return 0 otherwise.
- */
-static int
-is_mapping_in_file(struct ps_prochandle *P, map_info_t *mptr, file_info_t *fptr)
-{
-	prmap_t *pmap = &mptr->map_pmap;
-	rd_loadobj_t *lop = fptr->file_lo;
-	uint_t i;
-	uintptr_t mstart, mend, sstart, send;
-
-	/*
-	 * We can get for free the start address of the text and data
-	 * sections of the load object. Start by seeing if the mapping
-	 * encloses either of these.
-	 */
-	if ((pmap->pr_vaddr <= lop->rl_base &&
-	    lop->rl_base < pmap->pr_vaddr + pmap->pr_size) ||
-	    (pmap->pr_vaddr <= lop->rl_data_base &&
-	    lop->rl_data_base < pmap->pr_vaddr + pmap->pr_size))
-		return (1);
-
-	/*
-	 * It's still possible that this mapping correponds to the load
-	 * object. Consider the example of a mapping whose start and end
-	 * addresses correspond to those of the load object's text section.
-	 * If the mapping splits, e.g. as a result of a segment demotion,
-	 * then although both mappings are still backed by the same section,
-	 * only one will be seen to enclose that section's start address.
-	 * Thus, to be rigorous, we ask not whether this mapping encloses
-	 * the start of a section, but whether there exists a section that
-	 * overlaps this mapping.
-	 *
-	 * If we don't already have the section addresses, and we successfully
-	 * get them, then we cache them in case we come here again.
-	 */
-	if (fptr->file_saddrs == NULL &&
-	    (fptr->file_saddrs = get_saddrs(P,
-	    fptr->file_map->map_pmap.pr_vaddr, &fptr->file_nsaddrs)) == NULL)
-		return (0);
-
-	mstart = mptr->map_pmap.pr_vaddr;
-	mend = mptr->map_pmap.pr_vaddr + mptr->map_pmap.pr_size;
-	for (i = 0; i < fptr->file_nsaddrs; i += 2) {
-		/* Does this section overlap the mapping? */
-		sstart = fptr->file_saddrs[i];
-		send = fptr->file_saddrs[i + 1];
-		if (!(mend <= sstart || mstart >= send))
-			return (1);
-	}
-
-	return (0);
-}
-
-/*
- * Find or build the symbol table for the given mapping.
- */
-static file_info_t *
-build_map_symtab(struct ps_prochandle *P, map_info_t *mptr)
-{
-	prmap_t *pmap = &mptr->map_pmap;
-	file_info_t *fptr;
-	uint_t i;
-
-	if ((fptr = mptr->map_file) != NULL) {
-		Pbuild_file_symtab(P, fptr);
-		return (fptr);
-	}
-
-	if (pmap->pr_mapname[0] == '\0')
-		return (NULL);
-
-	/*
-	 * Attempt to find a matching file.
-	 * (A file can be mapped at several different addresses.)
-	 */
-	for (i = 0, fptr = list_next(&P->file_head); i < P->num_files;
-	    i++, fptr = list_next(fptr)) {
-		if (strcmp(fptr->file_pname, pmap->pr_mapname) == 0 &&
-		    fptr->file_lo && is_mapping_in_file(P, mptr, fptr)) {
-			mptr->map_file = fptr;
-			fptr->file_ref++;
-			Pbuild_file_symtab(P, fptr);
-			return (fptr);
-		}
-	}
-
-	/*
-	 * If we need to create a new file_info structure, iterate
-	 * through the load objects in order to attempt to connect
-	 * this new file with its primary text mapping.  We again
-	 * need to handle ld.so as a special case because we need
-	 * to be able to bootstrap librtld_db.
-	 */
-	if ((fptr = file_info_new(P, mptr)) == NULL)
-		return (NULL);
-
-	if (P->map_ldso != mptr) {
-		if (P->rap != NULL)
-			(void) rd_loadobj_iter(P->rap, map_iter, P);
-		else
-			(void) Prd_agent(P);
-	} else {
-		fptr->file_map = mptr;
-	}
-
-	/*
-	 * If librtld_db wasn't able to help us connect the file to a primary
-	 * text mapping, set file_map to the current mapping because we require
-	 * fptr->file_map to be set in Pbuild_file_symtab.  librtld_db may be
-	 * unaware of what's going on in the rare case that a legitimate ELF
-	 * file has been mmap(2)ed into the process address space *without*
-	 * the use of dlopen(3x).
-	 */
-	if (fptr->file_map == NULL)
-		fptr->file_map = mptr;
-
-	Pbuild_file_symtab(P, fptr);
-
-	return (fptr);
-}
-
-static int
-read_ehdr32(struct ps_prochandle *P, Elf32_Ehdr *ehdr, uint_t *phnum,
-    uintptr_t addr)
-{
-	if (Pread(P, ehdr, sizeof (*ehdr), addr) != sizeof (*ehdr))
-		return (-1);
-
-	if (ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
-	    ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
-	    ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
-	    ehdr->e_ident[EI_MAG3] != ELFMAG3 ||
-	    ehdr->e_ident[EI_CLASS] != ELFCLASS32 ||
-#ifdef _BIG_ENDIAN
-	    ehdr->e_ident[EI_DATA] != ELFDATA2MSB ||
-#else
-	    ehdr->e_ident[EI_DATA] != ELFDATA2LSB ||
-#endif
-	    ehdr->e_ident[EI_VERSION] != EV_CURRENT)
-		return (-1);
-
-	if ((*phnum = ehdr->e_phnum) == PN_XNUM) {
-		Elf32_Shdr shdr0;
-
-		if (ehdr->e_shoff == 0 || ehdr->e_shentsize < sizeof (shdr0) ||
-		    Pread(P, &shdr0, sizeof (shdr0), addr + ehdr->e_shoff) !=
-		    sizeof (shdr0))
-			return (-1);
-
-		if (shdr0.sh_info != 0)
-			*phnum = shdr0.sh_info;
-	}
-
-	return (0);
-}
-
-#ifdef _LP64
-static int
-read_ehdr64(struct ps_prochandle *P, Elf64_Ehdr *ehdr, uint_t *phnum,
-    uintptr_t addr)
-{
-	if (Pread(P, ehdr, sizeof (Elf64_Ehdr), addr) != sizeof (Elf64_Ehdr))
-		return (-1);
-
-	if (ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
-	    ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
-	    ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
-	    ehdr->e_ident[EI_MAG3] != ELFMAG3 ||
-	    ehdr->e_ident[EI_CLASS] != ELFCLASS64 ||
-#ifdef _BIG_ENDIAN
-	    ehdr->e_ident[EI_DATA] != ELFDATA2MSB ||
-#else
-	    ehdr->e_ident[EI_DATA] != ELFDATA2LSB ||
-#endif
-	    ehdr->e_ident[EI_VERSION] != EV_CURRENT)
-		return (-1);
-
-	if ((*phnum = ehdr->e_phnum) == PN_XNUM) {
-		Elf64_Shdr shdr0;
-
-		if (ehdr->e_shoff == 0 || ehdr->e_shentsize < sizeof (shdr0) ||
-		    Pread(P, &shdr0, sizeof (shdr0), addr + ehdr->e_shoff) !=
-		    sizeof (shdr0))
-			return (-1);
-
-		if (shdr0.sh_info != 0)
-			*phnum = shdr0.sh_info;
-	}
-
-	return (0);
-}
-#endif	/* _LP64 */
 
 /*
  * We wouldn't need these if qsort(3C) took an argument for the callback...
@@ -1069,18 +839,22 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	uint_t i;
 
 	GElf_Ehdr ehdr;
-	GElf_Sym s;
 
+	int fd;
 	Elf_Data *shdata;
 	Elf_Scn *scn;
 	Elf *elf = NULL;
 	size_t nshdrs, shstrndx;
+	int p_state;
 
 	struct {
 		GElf_Shdr c_shdr;
 		Elf_Data *c_data;
 		const char *c_name;
-	} *cp, *cache = NULL, *dyn = NULL, *plt = NULL, *ctf = NULL;
+	} *cp, *cache = NULL;
+
+	if (!fptr) /* no file */
+		return;
 
 	if (fptr->file_init)
 		return;	/* We've already processed this file */
@@ -1113,32 +887,39 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * must always have a mapping.  (If we don't, this is likely not an ELF
 	 * executable: it might be something faked up in memory and mapped
 	 * executable, but this rare case is not worth supporting and seems
-	 * highly unlikely to have all the ELF structures in place.  Anything
-	 * that is working this way can just change to writing an ELF executable
-	 * to an unlinked file in /tmp instead.  Solaris DTrace cannot handle
-	 * this case either.)
+	 * highly unlikely to have all the ELF structures in place: we won't
+	 * have a file_info_t for it either.  Anything that is working this way
+	 * should just change to writing an ELF executable to an unlinked file
+	 * in /tmp instead.  Solaris DTrace cannot handle this case either.)
 	 */
-	if (!P->ptraced) {
-		if (ptrace(PTRACE_ATTACH, P->pid, 0, 0) != 0) {
-			_dprintf("cannot ptrace() process %li\n",
-			    (long) P->pid);
-			goto bad;
-		}
-	}
-	if (ptrace(PTRACE_GETMAPFD, P->pid,
-		fptr->file_map->map_pmap.pr_vaddr, &fptr->file_fd) == 0) {
-		_dprintf("cannot acquire file descriptor for mapping at %lx "
-		    "named %s\n", fptr->file_map->map_pmap.pr_vaddr,
-			fptr->file_map->map_pmap.pr_mapname);
-		if (!P->ptraced)
-			ptrace(PTRACE_DETACH, P->pid, 0, 0);
+	p_state = Ptrace(P, 1);
+
+	if (fptr->file_map == -1) {
+		fprintf(stderr, "Internal error: file %s with refcount %i "
+		    "is named in a text mapping but has no file_map!\n",
+		    fptr->file_pname, fptr->file_ref);
+		Puntrace(P, p_state);
 		goto bad;
 	}
 
-	if (!P->ptraced)
-		ptrace(PTRACE_DETACH, P->pid, 0, 0);
+	if ((p_state < 0) || (ptrace(PTRACE_GETMAPFD, P->pid,
+		    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
+		_dprintf("cannot acquire file descriptor for mapping at %lx "
+		    "named %s\n", P->mappings[fptr->file_map].map_pmap.pr_vaddr,
+			fptr->file_pname);
+		Puntrace(P, p_state);
+		goto bad;
+	}
 
-	if ((elf = elf_begin(fptr->file_fd, ELF_C_READ, NULL)) == NULL ||
+	Puntrace(P, p_state);
+
+	/*
+	 * Don't hold the fd open forever. (ELF_C_READ followed by
+	 * elf_cntl(..., ELF_C_FDREAD) triggers assertion failures in elfutils
+	 * at gelf_getshdr() time: ELF_C_READ_MMAP works around this.)
+	 */
+	if ((elf = elf_begin(fd, ELF_C_READ_MMAP, NULL)) == NULL ||
+	    elf_cntl(elf, ELF_C_FDREAD) == -1 ||
 	    elf_kind(elf) != ELF_K_ELF ||
 	    gelf_getehdr(elf, &ehdr) == NULL ||
 	    elf_getshdrnum(elf, &nshdrs) == -1 ||
@@ -1147,21 +928,20 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	    (shdata = elf_getdata(scn, NULL)) == NULL) {
 		int err = elf_errno();
 
+		close(fd);
 		_dprintf("failed to process ELF file %s: %s\n",
-		    fptr->file_map->map_pmap.pr_mapname, (err == 0) ?
-		    "<null>" : elf_errmsg(err));
+		    fptr->file_pname, (err == 0) ? "<null>" : elf_errmsg(err));
 		goto bad;
 
 	}
+	close(fd);
 	if ((cache = malloc(nshdrs * sizeof (*cache))) == NULL) {
 		_dprintf("failed to malloc section cache for mapping of %s\n",
-			fptr->file_map->map_pmap.pr_mapname);
+		    fptr->file_pname);
 		goto bad;
 	}
 
-	_dprintf("processing ELF file %s\n",
-	    fptr->file_map->map_pmap.pr_mapname);
-	fptr->file_class = ehdr.e_ident[EI_CLASS];
+	_dprintf("processing ELF file %s\n", fptr->file_pname);
 	fptr->file_etype = ehdr.e_type;
 	fptr->file_elf = elf;
 	fptr->file_shstrs = shdata->d_buf;
@@ -1195,8 +975,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	/*
 	 * Now iterate through the section cache in order to locate info
-	 * for the .symtab, .dynsym, .SUNW_ldynsym, .dynamic, .plt,
-	 * and .ctf sections:
+	 * for the .symtab, .dynsym and .SUNW_ldynsym sections.
 	 */
 	for (i = 1, cp = cache + 1; i < nshdrs; i++, cp++) {
 		GElf_Shdr *shp = &cp->c_shdr;
@@ -1213,7 +992,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			 */
 			if (symp->sym_data_pri == NULL) {
 				_dprintf("Symbol table found for %s\n",
-				    fptr->file_map->map_pmap.pr_mapname);
+				    fptr->file_pname);
 				symp->sym_data_pri = cp->c_data;
 				symp->sym_symn +=
 				    shp->sh_size / shp->sh_entsize;
@@ -1225,7 +1004,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				symp->sym_strhdr = cache[shp->sh_link].c_shdr;
 			} else {
 				_dprintf("Symbol table already there for %s\n",
-				    fptr->file_map->map_pmap.pr_mapname);
+				    fptr->file_pname);
 			}
 #ifdef LATER
 		} else if (shp->sh_type == SHT_SUNW_LDYNSYM) {
@@ -1233,7 +1012,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			if (fptr->file_dynsym.sym_data_aux == NULL) {
 				_dprintf(".SUNW_ldynsym symbol table"
 				    " found for %s\n",
-				    fptr->file_map->map_pmap.pr_mapname);
+				    fptr->file_pname);
 				fptr->file_dynsym.sym_data_aux = cp->c_data;
 				fptr->file_dynsym.sym_symn_aux =
 				    shp->sh_size / shp->sh_entsize;
@@ -1242,30 +1021,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 				fptr->file_dynsym.sym_hdr_aux = cp->c_shdr;
 			} else {
 				_dprintf(".SUNW_ldynsym symbol table already"
-				    " there for %s\n",
-					fptr->file_map->map_pmap.pr_mapname);
+				    " there for %s\n", fptr->file_pname);
 			}
 #endif
-		} else if (shp->sh_type == SHT_DYNAMIC) {
-			dyn = cp;
-		} else if (strcmp(cp->c_name, ".plt") == 0) {
-			plt = cp;
-		} else if ((strcmp(cp->c_name, ".ctf") == 0) ||
-			   (strncmp(cp->c_name, ".ctf.",
-			       strlen(".ctf.")) == 0)) {
-			/*
-			 * Skip over bogus CTF sections so they don't come back
-			 * to haunt us later.
-			 */
-			if (shp->sh_link == 0 ||
-			    shp->sh_link >= nshdrs ||
-			    (cache[shp->sh_link].c_shdr.sh_type != SHT_DYNSYM &&
-				cache[shp->sh_link].c_shdr.sh_type != SHT_SYMTAB)) {
-				_dprintf("Bad sh_link %d for "
-				    "CTF\n", shp->sh_link);
-				continue;
-			}
-			ctf = cp;
 		}
 	}
 
@@ -1280,110 +1038,28 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	/*
 	 * Fill in the base address of the text mapping for shared libraries.
-	 * This allows us to translate symbols before librtld_db is ready.
 	 */
 	if (fptr->file_etype == ET_DYN) {
-		fptr->file_dyn_base = fptr->file_map->map_pmap.pr_vaddr -
-		    fptr->file_map->map_pmap.pr_offset;
+		fptr->file_dyn_base =
+		    P->mappings[fptr->file_map].map_pmap.pr_vaddr -
+		    P->mappings[fptr->file_map].map_pmap.pr_offset;
 		_dprintf("setting file_dyn_base for %s to %lx\n",
-		    fptr->file_map->map_pmap.pr_mapname,
-		    (long)fptr->file_dyn_base);
-	}
-
-	/*
-	 * Record the CTF section information in the file info structure.
-	 */
-	if (ctf != NULL) {
-		fptr->file_ctf_off = ctf->c_shdr.sh_offset;
-		fptr->file_ctf_size = ctf->c_shdr.sh_size;
-		if (ctf->c_shdr.sh_link != 0 &&
-		    cache[ctf->c_shdr.sh_link].c_shdr.sh_type == SHT_DYNSYM)
-			fptr->file_ctf_dyn = 1;
+		    fptr->file_pname, (long)fptr->file_dyn_base);
 	}
 
 	if (fptr->file_lo == NULL)
 		goto done; /* Nothing else to do if no load object info */
 
-	/*
-	 * If the object is a shared library and we have a different rl_base
-	 * value, reset file_dyn_base according to librtld_db's information.
-	 */
-	if (fptr->file_etype == ET_DYN &&
-	    fptr->file_lo->rl_base != fptr->file_dyn_base) {
-		_dprintf("resetting file_dyn_base for %s to %lx\n",
-		    fptr->file_map->map_pmap.pr_mapname,
-		    (long)fptr->file_lo->rl_base);
-		fptr->file_dyn_base = fptr->file_lo->rl_base;
-	}
-
-	/*
-	 * Fill in the PLT information for this file if a PLT symbol is found.
-	 */
-	if (sym_by_name(&fptr->file_dynsym, "_PROCEDURE_LINKAGE_TABLE_", &s,
-	    NULL) != NULL) {
-		fptr->file_plt_base = s.st_value + fptr->file_dyn_base;
-		fptr->file_plt_size = (plt != NULL) ? plt->c_shdr.sh_size : 0;
-
-		/*
-		 * Bring the load object up to date; it is the only way the
-		 * user has to access the PLT data. The PLT information in the
-		 * rd_loadobj_t is not set in the call to map_iter() (the
-		 * callback for rd_loadobj_iter) where we set file_lo.
-		 */
-		fptr->file_lo->rl_plt_base = fptr->file_plt_base;
-		fptr->file_lo->rl_plt_size = fptr->file_plt_size;
-
-		_dprintf("PLT found at %p, size = %lu\n",
-		    (void *)fptr->file_plt_base, (ulong_t)fptr->file_plt_size);
-	}
-
-	/*
-	 * Fill in the PLT information.
-	 */
-	if (dyn != NULL) {
-		uintptr_t dynaddr = dyn->c_shdr.sh_addr + fptr->file_dyn_base;
-		size_t ndyn = dyn->c_shdr.sh_size / dyn->c_shdr.sh_entsize;
-		GElf_Dyn d;
-
-		for (i = 0; i < ndyn; i++) {
-			if (gelf_getdyn(dyn->c_data, i, &d) == NULL)
-				continue;
-
-			switch (d.d_tag) {
-			case DT_JMPREL:
-				_dprintf("DT_JMPREL is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				fptr->file_jmp_rel =
-				    d.d_un.d_ptr + fptr->file_dyn_base;
-				break;
-			case DT_STRTAB:
-				_dprintf("DT_STRTAB is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				break;
-			case DT_PLTGOT:
-				_dprintf("DT_PLTGOT is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				break;
-#if 0
-			case DT_SUNW_SYMTAB:
-				_dprintf("DT_SUNW_SYMTAB is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				break;
-#endif
-			case DT_SYMTAB:
-				_dprintf("DT_SYMTAB is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				break;
-			case DT_HASH:
-				_dprintf("DT_HASH is %p\n",
-				    (void *)(uintptr_t)d.d_un.d_ptr);
-				break;
-			}
-		}
-
-		_dprintf("_DYNAMIC found at %p, %lu entries, DT_JMPREL = %p\n",
-		    (void *)dynaddr, (ulong_t)ndyn, (void *)fptr->file_jmp_rel);
-	}
+       /*
+	* If the object is a shared library, adjut file_dyn_base to take into
+	* account the dynamic linker's idea of its load bias.
+	*/
+       if (fptr->file_etype == ET_DYN &&
+	   fptr->file_lo != NULL) {
+	       fptr->file_dyn_base -= fptr->file_lo->rl_base;
+	       _dprintf("reset file_dyn_base for %s to %lx\n",
+		   fptr->file_pname, fptr->file_dyn_base);
+       }
 
 done:
 	free(cache);
@@ -1393,8 +1069,6 @@ bad:
 	free(cache);
 	elf_end(elf);
 	fptr->file_elf = NULL;
-	close(fptr->file_fd);
-	fptr->file_fd = -1;
 }
 
 /*
@@ -1405,7 +1079,7 @@ map_info_t *
 Paddr2mptr(struct ps_prochandle *P, uintptr_t addr)
 {
 	int lo = 0;
-	int hi = P->map_count - 1;
+	int hi = P->num_mappings - 1;
 	int mid;
 	map_info_t *mp;
 
@@ -1428,57 +1102,8 @@ Paddr2mptr(struct ps_prochandle *P, uintptr_t addr)
 }
 
 /*
- * Return the map_info_t for the executable file.
- * If not found, return NULL.
- */
-static map_info_t *
-exec_map(struct ps_prochandle *P)
-{
-	uint_t i;
-	map_info_t *mptr;
-	map_info_t *mold = NULL;
-	file_info_t *fptr;
-	uintptr_t base;
-
-	for (i = 0, mptr = P->mappings; i < P->map_count; i++, mptr++) {
-		if (mptr->map_pmap.pr_mapname[0] == '\0')
-			continue;
-		if (strcmp(mptr->map_pmap.pr_mapname, "a.out") == 0) {
-			if ((fptr = mptr->map_file) != NULL &&
-			    fptr->file_lo != NULL) {
-				base = fptr->file_lo->rl_base;
-				if (base >= mptr->map_pmap.pr_vaddr &&
-				    base < mptr->map_pmap.pr_vaddr +
-				    mptr->map_pmap.pr_size)	/* text space */
-					return (mptr);
-				mold = mptr;	/* must be the data */
-				continue;
-			}
-			/* This is a poor way to test for text space */
-			if (!(mptr->map_pmap.pr_mflags & MA_EXEC) ||
-			    (mptr->map_pmap.pr_mflags & MA_WRITE)) {
-				mold = mptr;
-				continue;
-			}
-			return (mptr);
-		}
-	}
-
-	return (mold);
-}
-
-/*
  * Given a shared object name, return the map_info_t for it.  If no matching
- * object is found, return NULL.  Normally, the link maps contain the full
- * object pathname, e.g. /usr/lib/libc.so.1.  We allow the object name to
- * take one of the following forms:
- *
- * 1. An exact match (i.e. a full pathname): "/usr/lib/libc.so.1"
- * 2. An exact basename match: "libc.so.1"
- * 3. An initial basename match up to a '.' suffix: "libc.so" or "libc"
- * 4. The literal string "a.out" is an alias for the executable mapping
- *
- * The third case is a convenience for callers and may not be necessary.
+ * object is found, return NULL.
  *
  * As the exact same object name may be loaded on different link maps (see
  * dlmopen(3DL)), we also allow the caller to resolve the object name by
@@ -1490,7 +1115,6 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 {
 	map_info_t *mp;
 	file_info_t *fp;
-	size_t objlen;
 	uint_t i;
 
 	/*
@@ -1501,14 +1125,13 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 		lmid = PR_LMID_EVERY;
 
 	/*
-	 * First pass: look for exact matches of the entire pathname or
-	 * basename (cases 1 and 2 above):
+	 * Look for exact matches of the entire pathname, or matches
+	 * of the name used by the dynamic linker.
 	 */
-	for (i = 0, mp = P->mappings; i < P->map_count; i++, mp++) {
+	for (i = 0, mp = P->mappings; i < P->num_mappings; i++, mp++) {
 
-		if (mp->map_pmap.pr_mapname[0] == '\0' ||
-		    (fp = mp->map_file) == NULL ||
-		    ((fp->file_lname == NULL) && (fp->file_rname == NULL)))
+		if (mp->map_pmap.pr_file->prf_mapname[0] != '/' ||
+		    (fp = mp->map_file) == NULL)
 			continue;
 
 		if (lmid != PR_LMID_EVERY &&
@@ -1516,49 +1139,18 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 			continue;
 
 		/*
-		 * If we match, return the primary text mapping; otherwise
-		 * just return the mapping we matched.
+		 * If we match, return the primary text mapping, if there is
+		 * one; if none (unlikely), just return the mapping we matched.
 		 */
-		if ((fp->file_lbase && strcmp(fp->file_lbase, objname) == 0) ||
-		    (fp->file_rbase && strcmp(fp->file_rbase, objname) == 0) ||
-		    (fp->file_lname && strcmp(fp->file_lname, objname) == 0) ||
-		    (fp->file_rname && strcmp(fp->file_rname, objname) == 0))
-			return (fp->file_map ? fp->file_map : mp);
-	}
-
-	objlen = strlen(objname);
-
-	/*
-	 * Second pass: look for partial matches (case 3 above):
-	 */
-	for (i = 0, mp = P->mappings; i < P->map_count; i++, mp++) {
-
-		if (mp->map_pmap.pr_mapname[0] == '\0' ||
-		    (fp = mp->map_file) == NULL ||
-		    ((fp->file_lname == NULL) && (fp->file_rname == NULL)))
-			continue;
-
-		if (lmid != PR_LMID_EVERY &&
-		    (fp->file_lo == NULL || lmid != fp->file_lo->rl_lmident))
-			continue;
-
-		/*
-		 * If we match, return the primary text mapping; otherwise
-		 * just return the mapping we matched.
-		 */
-		if ((fp->file_lbase != NULL) &&
-		    (strncmp(fp->file_lbase, objname, objlen) == 0) &&
-		    (fp->file_lbase[objlen] == '.'))
-			return (fp->file_map ? fp->file_map : mp);
-		if ((fp->file_rbase != NULL) &&
-		    (strncmp(fp->file_rbase, objname, objlen) == 0) &&
-		    (fp->file_rbase[objlen] == '.'))
-			return (fp->file_map ? fp->file_map : mp);
+		if ((fp->file_pname && strcmp(fp->file_pname, objname) == 0) ||
+		    (fp->file_lbase && strcmp(fp->file_lbase, objname) == 0) ||
+		    (fp->file_lname && strcmp(fp->file_lname, objname) == 0))
+			return (fp->file_map != -1 ? &P->mappings[fp->file_map] : mp);
 	}
 
 	/*
-	 * One last check: we allow "a.out" to always alias the executable,
-	 * assuming this name was not in use for something else.
+	 * We allow "a.out" to always alias the executable, assuming this name
+	 * was not in use for something else.
 	 */
 	if ((lmid == PR_LMID_EVERY || lmid == LM_ID_BASE) &&
 	    (strcmp(objname, "a.out") == 0))
@@ -1575,51 +1167,18 @@ object_name_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	if (!P->info_valid)
 		Pupdate_maps(P);
 
-	if (P->map_exec == NULL && ((mptr = Paddr2mptr(P,
-	    Pgetauxval(P, AT_ENTRY))) != NULL || (mptr = exec_map(P)) != NULL))
-		P->map_exec = mptr;
-
-	if (P->map_ldso == NULL && (mptr = Paddr2mptr(P,
-	    Pgetauxval(P, AT_BASE))) != NULL)
+	if (P->map_ldso == NULL &&
+	    (mptr = Paddr2mptr(P, Pgetauxval(P, AT_BASE))) != NULL)
 		P->map_ldso = mptr;
 
 	if (name == PR_OBJ_EXEC)
 		mptr = P->map_exec;
 	else if (name == PR_OBJ_LDSO)
 		mptr = P->map_ldso;
-	else if (Prd_agent(P) != NULL)
-		mptr = object_to_map(P, lmid, name);
 	else
-		mptr = NULL;
+		mptr = object_to_map(P, lmid, name);
 
 	return (mptr);
-}
-
-static char *
-Pfindmap(struct ps_prochandle *P, map_info_t *mptr, char *s, size_t n)
-{
-	file_info_t *fptr = mptr->map_file;
-	char buf[PATH_MAX];
-	int len;
-
-	/* If it's already been explicitly set return that */
-	if ((fptr != NULL) && (fptr->file_rname != NULL)) {
-		(void) strlcpy(s, fptr->file_rname, n);
-		return (s);
-	}
-
-	/* Try /proc to get the real object name */
-	if ((Pstate(P) != PS_DEAD) && (mptr->map_pmap.pr_mapname[0] != '\0')) {
-		(void) snprintf(buf, sizeof (buf), "%s/%d/exe",
-		    procfs_path, (int)P->pid);
-		if ((len = readlink(buf, buf, sizeof (buf))) > 0) {
-			buf[len] = '\0';
-			(void) strlcpy(s, buf, n);
-			return (s);
-		}
-	}
-
-	return (NULL);
 }
 
 /*
@@ -1757,20 +1316,13 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
  * Search the process symbol tables looking for a symbol whose
  * value to value+size contain the address specified by addr.
  * Return values are:
- *	sym_name_buffer containing the symbol name
- *	GElf_Sym symbol table entry
- *	prsyminfo_t ancillary symbol information
+ *	sym_name_buffer  buffer containing the symbol name
+ *	GElf_Sym         symbol table entry
  * Returns 0 on success, -1 on failure.
  */
-static int
-i_Pxlookup_by_addr(
-	struct ps_prochandle *P,
-	int lmresolve,			/* use resolve linker object names */
-	uintptr_t addr,			/* process address being sought */
-	char *sym_name_buffer,		/* buffer for the symbol name */
-	size_t bufsize,			/* size of sym_name_buffer */
-	GElf_Sym *symbolp,		/* returned symbol table entry */
-	prsyminfo_t *sip)		/* returned symbol info */
+int
+Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
+    size_t bufsize, GElf_Sym *symbolp)
 {
 	GElf_Sym	*symp;
 	char		*name;
@@ -1783,14 +1335,16 @@ i_Pxlookup_by_addr(
 	map_info_t	*mptr;
 	file_info_t	*fptr;
 
-	/* Temporarily stubbed out. */
-	return (-1);
+	Pupdate_maps(P);
 
-	(void) Prd_agent(P);
+	if ((mptr = Paddr2mptr(P, addr)) == NULL)	/* no such address */
+		return (-1);
 
-	if ((mptr = Paddr2mptr(P, addr)) == NULL ||	/* no such address */
-	    (fptr = build_map_symtab(P, mptr)) == NULL || /* no mapped file */
-	    fptr->file_elf == NULL)			/* not an ELF file */
+	fptr = mptr->map_file;
+
+	Pbuild_file_symtab(P, fptr);
+
+	if (fptr->file_elf == NULL)			/* not an ELF file */
 		return (-1);
 
 	/*
@@ -1817,29 +1371,10 @@ i_Pxlookup_by_addr(
 	}
 
 	*symbolp = *symp;
-	if (sip != NULL) {
-		sip->prs_name = bufsize == 0 ? NULL : sym_name_buffer;
-		if (lmresolve && (fptr->file_rname != NULL))
-			sip->prs_object = fptr->file_rbase;
-		else
-			sip->prs_object = fptr->file_lbase;
-		sip->prs_id = (symp == sym1p) ? i1 : i2;
-		sip->prs_table = (symp == sym1p) ? PR_SYMTAB : PR_DYNSYM;
-		sip->prs_lmid = (fptr->file_lo == NULL) ? LM_ID_BASE :
-		    fptr->file_lo->rl_lmident;
-	}
-
 	if (GELF_ST_TYPE(symbolp->st_info) != STT_TLS)
 		symbolp->st_value += fptr->file_dyn_base;
 
 	return (0);
-}
-
-int
-Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *buf,
-    size_t size, GElf_Sym *symp)
-{
-	return (i_Pxlookup_by_addr(P, B_FALSE, addr, buf, size, symp, NULL));
 }
 
 /*
@@ -1852,7 +1387,7 @@ int
 Pxlookup_by_name(
 	struct ps_prochandle *P,
 	Lmid_t lmid,			/* link map to match, or -1 for any */
-	const char *oname,		/* load object name */
+	const char *oname,		/* load object name, or PR_OBJ_EVERY */
 	const char *sname,		/* symbol name */
 	GElf_Sym *symp,			/* returned symbol table entry */
 	prsyminfo_t *sip)		/* returned symbol info */
@@ -1866,19 +1401,21 @@ Pxlookup_by_name(
 	int rv = -1;
 	uint_t id;
 
-	/* Temporarily stubbed out. */
-	return (-1);
+	memset(&sym, 0, sizeof (GElf_Sym));
+	memset(&si, 0, sizeof (prsyminfo_t));
 
 	if (oname == PR_OBJ_EVERY) {
 		/* create all the file_info_t's for all the mappings */
-		(void) Prd_agent(P);
+		Pupdate_maps(P);
 		cnt = P->num_files;
-		fptr = list_next(&P->file_head);
+		fptr = dt_list_next(&P->file_list);
 	} else {
 		cnt = 1;
-		if ((mptr = object_name_to_map(P, lmid, oname)) == NULL ||
-		    (fptr = build_map_symtab(P, mptr)) == NULL)
+		if ((mptr = object_name_to_map(P, lmid, oname)) == NULL)
 			return (-1);
+
+		fptr = mptr->map_file;
+		Pbuild_file_symtab(P, fptr);
 	}
 
 	/*
@@ -1888,7 +1425,7 @@ Pxlookup_by_name(
 	 * This means that a name such as "puts" will match the puts function
 	 * in libc instead of matching the puts PLT entry in the a.out file.
 	 */
-	for (; cnt > 0; cnt--, fptr = list_next(fptr)) {
+	for (; cnt > 0; cnt--, fptr = dt_list_next(fptr)) {
 		Pbuild_file_symtab(P, fptr);
 
 		if (fptr->file_elf == NULL)
@@ -1925,7 +1462,7 @@ Pxlookup_by_name(
 		if (GELF_ST_TYPE(symp->st_info) != STT_TLS)
 			symp->st_value += fptr->file_dyn_base;
 
-		if (symp->st_shndx != SHN_UNDEF)
+		if (sym.st_shndx != SHN_UNDEF)
 			return (0);
 
 		if (rv != 0) {
@@ -1946,7 +1483,7 @@ Pxlookup_by_name(
 }
 
 /*
- * Iterate over the process's mapped objects.
+ * Iterate over the text mappings of the process's mapped objects.
  */
 int
 Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
@@ -1956,11 +1493,10 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 	uint_t cnt;
 	int rc = 0;
 
-	(void) Prd_agent(P); /* create file_info_t's for all the mappings */
 	Pupdate_maps(P);
 
-	for (cnt = P->num_files, fptr = list_next(&P->file_head);
-	    cnt; cnt--, fptr = list_next(fptr)) {
+	for (cnt = P->num_files, fptr = dt_list_next(&P->file_list);
+	    cnt; cnt--, fptr = dt_list_next(fptr)) {
 		const char *lname;
 
 		if (fptr->file_lname != NULL)
@@ -1968,9 +1504,10 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 		else
 			lname = "";
 
-		if ((mptr = fptr->file_map) == NULL)
+		if (fptr->file_map == -1)
 			continue;
 
+		mptr = &P->mappings[fptr->file_map];
 		if ((rc = func(cd, &mptr->map_pmap, lname)) != 0)
 			return (rc);
 
@@ -1983,6 +1520,8 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 /*
  * Given a virtual address, return the name of the underlying
  * mapped object (file) as provided by the dynamic linker.
+ * Failing that, return the basename of its name on disk.
+ *
  * Return NULL if we can't find any name information for the object.
  */
 char *
@@ -1992,19 +1531,21 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 	map_info_t *mptr;
 	file_info_t *fptr;
 
-	/* Temporarily stubbed out. */
-	return NULL;
-
-	/* create all the file_info_t's for all the mappings */
-	(void) Prd_agent(P);
+	Pupdate_maps(P);
 
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)
 		return (NULL);
 
-	if (((fptr = mptr->map_file) == NULL) ||
-	    (fptr->file_lname == NULL))
+	if ((fptr = mptr->map_file) == NULL)
 		return (NULL);
-	(void) strlcpy(buffer, fptr->file_lname, bufsize);
+
+	if (fptr->file_lname != NULL)
+		(void) strlcpy(buffer, fptr->file_lname, bufsize);
+	else if (fptr->file_pname != NULL)
+		(void) strlcpy(buffer, fptr->file_pname, bufsize);
+	else
+		return NULL;
+
 	return (buffer);
 }
 
@@ -2019,7 +1560,7 @@ Plmid(struct ps_prochandle *P, uintptr_t addr, Lmid_t *lmidp)
 	file_info_t *fptr;
 
 	/* create all the file_info_t's for all the mappings */
-	(void) Prd_agent(P);
+	Pupdate_maps(P);
 
 	if ((mptr = Paddr2mptr(P, addr)) != NULL &&
 	    (fptr = mptr->map_file) != NULL && fptr->file_lo != NULL) {
@@ -2057,8 +1598,10 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 	if ((mptr = object_name_to_map(P, PR_LMID_EVERY, object_name)) == NULL)
 		return (-1);
 
-	if ((fptr = build_map_symtab(P, mptr)) == NULL || /* no mapped file */
-	    fptr->file_elf == NULL)			/* not an ELF file */
+	fptr = mptr->map_file;
+	Pbuild_file_symtab(P, fptr);
+
+	if (fptr->file_elf == NULL)			/* not an ELF file */
 		return (-1);
 
 	/*
@@ -2139,46 +1682,55 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 }
 
 /*
- * Called from Pcreate() and Pgrab() to initialize the symbol table heads in the
- * new ps_prochandle.
+ * Return 1 if this address is within a valid mapping.
  */
-void
-Pinitsym(struct ps_prochandle *P)
+int
+Pvalid_mapping(struct ps_prochandle *P, uintptr_t addr)
 {
-	P->num_files = 0;
-	list_link(&P->file_head, NULL);
+	Pupdate_maps(P);
+	return (Paddr2mptr(P, addr) != NULL);
 }
 
 /*
- * Called from Prelease() to destroy the symbol tables.
+ * Return 1 if this address is within a file-backed mapping.
+ */
+int
+Pfile_mapping(struct ps_prochandle *P, uintptr_t addr)
+{
+	map_info_t *mptr;
+
+	Pupdate_maps(P);
+	if ((mptr = Paddr2mptr(P, addr)) != NULL)
+		return (mptr->map_file != NULL);
+	return 0;
+}
+/*
+ * Return 1 if this address is within a writable mapping.
+ */
+int
+Pwritable_mapping(struct ps_prochandle *P, uintptr_t addr)
+{
+	map_info_t *mptr;
+
+	Pupdate_maps(P);
+	if ((mptr = Paddr2mptr(P, addr)) == NULL)
+		return 0;
+	return ((mptr->map_pmap.pr_mflags & MA_WRITE) != 0);
+}
+
+/*
+ * Called to destroy the symbol tables.  They will be recreated later as needed.
+ *
  * Must be called by the client after an exec() in the victim process.
  */
 void
 Preset_maps(struct ps_prochandle *P)
 {
-	int i;
+	mapping_purge(P);
+	free(P->mappings);
+	P->mappings = NULL;
 
-#if 0
-	if (P->rap != NULL) {
-		rd_delete(P->rap);
-		P->rap = NULL;
-	}
-#endif
-
-	if (P->auxv != NULL) {
-		free(P->auxv);
-		P->auxv = NULL;
-		P->nauxv = 0;
-	}
-
-	for (i = 0; i < P->map_count; i++)
-		map_info_free(P, &P->mappings[i]);
-
-	if (P->mappings != NULL) {
-		free(P->mappings);
-		P->mappings = NULL;
-	}
-	P->map_count = 0;
+	file_info_purge(P);
 
 	P->info_valid = 0;
 }

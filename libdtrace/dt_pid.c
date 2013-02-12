@@ -337,10 +337,11 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 			return (0);
 
 		/*
-		 * We don't instrument PLTs -- they're dynamically rewritten,
-		 * and, so, inherently dicey to instrument.
+		 * We don't instrument writable mappings such as PLTs -- they're
+		 * dynamically rewritten, and, so, inherently dicey to
+		 * instrument.
 		 */
-		if (Ppltdest(pp->dpp_pr, sym.st_value) != NULL)
+		if (Pwritable_mapping(pp->dpp_pr, sym.st_value))
 			return (0);
 
 		(void) Plookup_by_addr(pp->dpp_pr, sym.st_value, pp->dpp_func,

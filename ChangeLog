@@ -150,6 +150,125 @@
 	(dt_proc_control): Remove obsolete references to 'synchronous
 	mode' and breakpoints.
 
+	Userspace symbol management revamp.
+
+	* include/rtld_db.h (rd_loadobj_t): Remove more unnecessary
+	fields.
+	* include/sys/procfs.h (prmap_file_t): New structure, a single
+	mapped file, possibly mapped many times, hashed by name (the
+	mappings themselves are sorted by address).
+	(prmap_t.pr_mapname): This moved into the prmap_file_t.
+	(prmap_t.pr_file): Points to this mapping's prmap_file_t.
+	(prmap_t.pr_pagesize): Redundant, removed.
+	(prmap_t.pr_dev): Track the device as well as inode number of each
+	mapping.
+	* libproc/Pcontrol.h: Adjust prototypes.
+	(file_info_t): Drop dead CTF and PLT-related fields. Track dev/ino
+	of mapping, and its real name: track its primary text mapping by
+	index, not pointer, so we can realloc() the array freely.  Stop
+	using plist_t.  Drop the file_class; we have ps_prochandle_t.elf64
+	now.  Drop file_r*; we have prmap_file_t.prf_mapname now.  Drop
+	saddrs-related noise.
+	(map_info_t): Drop map_offset, we do not work with core files.
+	Drop map_relocate.
+	(elf_file_header): Remove, unused.
+	(ps_prochandle_t.map_count): Rename to...
+	(ps_prochandle_t.num_mappings): ... this.
+	(ps_prochandle_t.file_head): Transform this list...
+	(ps_prochandle_t.file_list): ... into this one.
+	(ps_prochandle_t.map_files): Hash of prmap_file_t by name.
+	(MAP_HASH_BUCKETS): New, bucket count of map_files.
+	* libproc/libproc.h: Tweaks, prototype adjustments.
+
+	* libproc/Psymtab.c: Adjust includes, prototypes.
+	(string_hash): New, map_files hash function.
+	(pr_order_t): Remove, unused.
+	(get_saddrs): Likewise.
+	(file_info_new): Don't call it. No need to mess about with address
+	spaces anymore: just chase the map_pmap.pr_file.
+	(file_info_free): Split into...
+	(file_info_del): ... this unconditional zero-refcount deallocator,
+	and...
+	(file_info_purge): ... this purger of all zero-refcount
+	file_infos.
+	(map_info_free): Resculpt into...
+	(mapping_purge): ... this purger of all map_info_t, prmap_file_t
+	and prmap_t's.
+	(Psym_init): New, initialize the sybmol table machinery.
+	(Psym_free): New, the opposite of Psym_init().
+	(Pprmap_file_by_name): New, search the map_files hash table.
+	(map_iter): Use rl_dyn, not rl_base, to find the associated
+	mapping.  No longer allocate file_info_t's: just find the existing
+	one. No longer initialize file_r*.  Populate file_lname /
+	file_lbase in the file_info only if not already populated.
+	(Pupdate_maps): Purge mappings wholesale and rebuild them each
+	time, building the new prmap_file structures.  Use getline(), not
+	fgets().  Skip anonymous and special mappings.  Determine the
+	primary text and data mappings correctly.  Recognize the dynamic
+	linker rather than taking a flying guess.
+	(Prd_agent): Revive.
+	(Pbuild_file_symtab): No longer read in the dynamic or CTF
+	sections, or the PLT.  Use Ptrace()/Puntrace() machinery.  Do not
+	hold the ELF file open.  Populate the file_dyn_base correctly, and
+	adjust it according to the bias.
+	(Paddr2mptr): Adjust.
+	(Pobject_iter): Adjust for data structure changes.
+	(Plmid): Always catch uninitialized mappings.
+	(Psymbol_iter_by_addr): Adjust for removal of build_map_symtab()
+	in favour of Pbuild_file_symtab().
+	(Preset_maps): Adjust for data structure changes.
+
+	(object_to_map): Fix inaccurate comment.  Adjust for data
+	structure changes: remove terminally broken 'partial match'
+	support (if needed, we can reimplement it).
+	(object_name_to_map): Remove special-casing for executable
+	mapping.
+	(Paddr_to_map): No longer stub out.
+	(Plmid_to_map): Likewise.
+	(i_Pxlookup_by_addr): Likewise. Fold into...
+	(Plookup_by_addr): ... its only caller.  Adjust for data structure
+	changes: always catch uninitialized mappings.  Drop pointless
+	symbol thrashing about.
+	(Pxlookup_by_name): No longer stub out.  Use DTrace lists.
+	Properly initialize returned structures.  Adjust for removal of
+	build_map_symtab() in favour of Pbuild_file_symtab(), and data
+	structure changes.
+	(Pobjname): No longer stub out.  Adjust for data structure
+	changes: always catch uninitialized mappings.  Don't crash if the
+	lname or pname of the mapping is NULL.
+
+	(Pvalid_mapping): New function.
+	(Pfile_mapping): Likewise.
+	(Pwritable_mapping): Likewise.
+
+	(map_set): Remove, unused.
+	(load_static_maps): Likewise.
+	(exec_map): Likewise.
+	(is_mapping_in_file): Likewise.
+	(build_map_symtab): Likewise.
+	(read_ehdr32): Likewise.
+	(read_ehdr64): Likewise.
+	(Pfindmap): Likewise.
+	(Pinitsym): Likewise.
+
+	* include/sys/elf_386.h: Remove, obsolete.
+	* include/sys/elf_amd64.h: Likewise.
+	* include/sys/elftypes.h: Likewise.
+	* include/sys/machelf.h: Likewise.
+	* libproc/Putil.h: Likewise.
+	* libproc/Putil.c: Likewise.
+	* libproc/mapfile-vers: Likewise.
+	* libproc/amd64/Pisadep.c: Likewise.
+	* libdtrace/dt_pid.c (dt_pid_per_mod): Use Pwritable_mapping(),
+	not Ppltdest().
+	* libproc/Build: Drop deleted files.
+	* libproc/Pcontrol.c (_dprintf): Moved from Putil.c.
+	(Pcreate): Initialize symbol tables.
+	(Pgrab): Likewise.
+	(Pfree): Free them.
+	(Pclose): Reset (discard) mappings.  Act like free() when passed a
+	null pointer.
+
 	* libproc/Pcontrol.c (Pset_procfs_path): Code style.
 	* libdtrace/dt_proc.h: Purge #ident.
 	* include/sys/procfs.h: Adjust includes.

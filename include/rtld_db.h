@@ -84,14 +84,9 @@ typedef void (*rd_event_fun)(rd_agent_t *, rd_event_msg_t *, void *);
 typedef struct rd_loadobj {
 	intptr_t	rl_base;	/* base address (base load bias) of
 					   object, from PT_LOAD */
-	uintptr_t	rl_data_base;	/* base of address of data */
 	uintptr_t	rl_nameaddr;	/* address of the name in user space */
 	uintptr_t	rl_dyn;		/* dynamic section of object */
 	Lmid_t		rl_lmident;	/* ident of link map */
-	uintptr_t	rl_plt_base;	/* These fields are present for 4.x */
-	unsigned	rl_plt_size;	/* compatibility and are not */
-				       /* currently used  in SunOS5.x */
-	uintptr_t	rl_bend;	/* end of image (text+data+bss) */
 } rd_loadobj_t;
 
 typedef int rl_iter_f(const rd_loadobj_t *, void *);

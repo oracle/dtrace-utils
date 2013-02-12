@@ -52,7 +52,6 @@
 
 #include "Pcontrol.h"
 #include "libproc.h"
-#include "Putil.h"
 
 int	_libproc_debug;		/* set non-zero to enable debugging printfs */
 
@@ -75,6 +74,24 @@ static void
 _libproc_init(void)
 {
 	_libproc_debug = getenv("DTRACE_DEBUG") != NULL;
+}
+
+/*
+ * If _libproc_debug is set, printf the debug message to stderr
+ * with an appropriate prefix.
+ */
+_dt_printflike_(1,2)
+void
+_dprintf(const char *format, ...)
+{
+       if (_libproc_debug) {
+               va_list alist;
+
+               va_start(alist, format);
+               fputs("libproc DEBUG: ", stderr);
+               vfprintf(stderr, format, alist);
+               va_end(alist);
+       }
 }
 
 /*
@@ -140,6 +157,7 @@ Pcreate(
 	P->ptrace_count++;
 	P->ptraced = TRUE;
 	P->pid = pid;
+	Psym_init(P);
 
 	waitpid(pid, &status, 0);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
@@ -225,6 +243,7 @@ Pgrab(pid_t pid, int *perr)
 	P->state = PS_RUN;
 	P->pid = pid;
 	P->detach = 1;
+	Psym_init(P);
 	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
 	if (!P->bkpts) {
 		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
@@ -267,6 +286,7 @@ static void
 Pfree(struct ps_prochandle *P)
 {
 	Pclose(P);
+	Psym_free(P);
 
 	free(P->auxv);
 
@@ -275,15 +295,19 @@ Pfree(struct ps_prochandle *P)
 }
 
 /*
- * Close the process's cached file descriptors.
+ * Close the process's cached file descriptors and expensive state.
  *
- * They are reopened when needed.
+ * It is reloaded when needed.
  */
 void
 Pclose(struct ps_prochandle *P)
 {
+	if (!P)
+		return;
+
+	Preset_maps(P);
 	if (P->memfd > -1) {
-		(void) close(P->memfd);
+		close(P->memfd);
 		P->memfd = -1;
 	}
 }

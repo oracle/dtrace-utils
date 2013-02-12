@@ -36,22 +36,35 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/procfs_isa.h>
+#include <dt_list.h>
+#include <link.h>
 
 /*
- * System call interfaces for /proc.
+ * The prmap_file points to all mappings corresponding to a single file, sorted
+ * by address.  prmap_files are hashed by name (including the terminating \0,
+ * so anonymous maps are all hashed together).
  */
+struct prmap;
+typedef struct prmap_file {
+	struct prmap_file *prf_next;	/* next in hash chain */
+	char	*prf_mapname;		/* name in /proc/<pid>/maps */
+	struct prmap **prf_mappings;	/* sorted by address */
+	size_t prf_num_mappings;	/* number of mappings */
+	struct prmap *prf_text_map;	/* primary text mapping, if known */
+	struct prmap *prf_data_map;	/* primary data mapping, if known */
+} prmap_file_t;
 
 /*
- * Memory-map interface.  /proc/<pid>/map /proc/<pid>/rmap
+ * A single mapping.
  */
 typedef struct prmap {
 	uintptr_t pr_vaddr;	/* virtual address of mapping */
 	size_t	pr_size;	/* size of mapping in bytes */
-	char	*pr_mapname;	/* name in /proc/<pid>/object */
 	offset_t pr_offset;	/* offset into mapped object, if any */
 	int	pr_mflags;	/* protection and attribute flags (see below) */
-	int	pr_pagesize;	/* pagesize (bytes) for this mapping */
+	dev_t	pr_dev;		/* device number */
 	ino_t	pr_inum;	/* inode number */
+	prmap_file_t *pr_file;	/* backpointer to corresponding file mapping */
 } prmap_t;
 
 
