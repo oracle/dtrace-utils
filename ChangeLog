@@ -13,6 +13,38 @@
 	* libproc/libproc.h: Prototype it.
 	* libproc/rtld_db.c (rd_ldso_consistent_end): Use it.
 
+	* libproc/Pcontrol.h: Fix comment.  Remove prototype of function
+	now static.
+	(ps_prochandle_t.map_exec): Make an index, not a pointer.
+	(ps_prochandle_t.map_ldso): Likewise.
+	(ps_prochandle_t.lmids_valid): New, 0 if the link map is unscanned.
+	* libproc/Psymtab.c (mapping_purge): Adjust accordingly.
+	(object_name_to_map): Likewise.
+	(object_to_map): Likewise.
+	(Pupdate_maps): Likewise.  Cater for realloc() failure and NULL
+	map_file.  Do not look for the dynamic linker in static processes.
+	Do not rd_loadobj_iter() ourself: merely set lmids_valid.
+	(Paddr2idx): New, like Paddr2mptr() but returning an index.
+	(Paddr2mptr): Reimplement in terms of Paddr2idx().
+
+	(file_info_new): Populate file_map.
+	(Pbuild_file_symtab): Do not fail if text mappings have no
+	file_map.
+
+	(Pupdate_lmids): New, scan the link map iff we have valid
+	mappings and are dynamic and haven't done so already.
+	(Paddr_to_map): Call it.
+	(Plookup_by_addr): Likewise.
+	(Pxlookup_by_name): Likewise.
+	(Pobject_iter): Likewise.
+	(Pobjname): Likewise.
+	(Plmid): Likewise.
+	(Pvalid_mapping): Likewise.
+	(Pfile_mapping): Likewise.
+	(Pwritable_mapping): Likewise.
+
+	(symtab_getsym): Coding style fix.
+
 2013-02-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makefunctions (src-name): Pass through absolute path unchanged.

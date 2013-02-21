@@ -52,11 +52,11 @@ extern "C" {
 
 /*
  * sym_tbl_t contains a primary and an (optional) auxiliary symbol table, which
- * we wish to treat as a single logical symbol table. In this logical table,
- * the data from the auxiliary table preceeds that from the primary. Symbol
+ * we wish to treat as a single logical symbol table.  In this logical table,
+ * the data from the auxiliary table precedes that from the primary.  Symbol
  * indices start at [0], which is the first item in the auxiliary table
- * if there is one. The sole purpose for this is so that we can treat the
- * combination of .SUNW_ldynsym and .dynsym sections as a logically single
+ * if there is one.  The sole purpose for this is so that we can treat the
+ * combination of .ldynsym and .dynsym sections as a logically single
  * entity without having to violate the public interface to libelf.
  *
  * Both tables must share the same string table section.
@@ -194,6 +194,7 @@ struct ps_prochandle {
 	int	no_dyn;		/* true if this is probably a static lib */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
+	int	lmids_valid;	/* 0 if we haven't yet scanned the link map */
 	int	elf64;		/* if nonzero, this is a 64-bit process */
 	map_info_t *mappings;	/* process mappings, sorted by address */
 	size_t	num_mappings;	/* number of mappings */
@@ -208,11 +209,11 @@ struct ps_prochandle {
 				   past, if any */
 	int	singlestepped;	/* when tracing_bkpt, 1 iff we have done the
 				   singlestep. */
+	int	bkpt_halted;	/* halted at breakpoint by handler */
 	uintptr_t r_debug_addr;	/* address of r_debug in the child */
 	rd_agent_t *rap;	/* rtld_db state */
-	map_info_t *map_exec;	/* the mapping for the executable file */
-	int	bkpt_halted;	/* halted at breakpoint by handler */
-	map_info_t *map_ldso;	/* the mapping for ld.so */
+	ssize_t map_exec;	/* the index of the executable mapping */
+	ssize_t map_ldso;	/* the index of the ld.so mapping */
 	exec_handler_fun exec_handler;	/* exec() handler */
 };
 
@@ -222,7 +223,6 @@ struct ps_prochandle {
  */
 extern	void	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
-extern	map_info_t *Paddr2mptr(struct ps_prochandle *P, uintptr_t addr);
 extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uint64_t Pgetauxval(struct ps_prochandle *P, int type);
