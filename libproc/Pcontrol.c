@@ -667,8 +667,11 @@ err2:
  * If stuck at a breakpoint, resume the process.
  *
  * If nonzero, 'state' is the previous stop state returned from the matching
- * call to Ptrace().  (This is only useful when not undoing the top-level
- * Ptrace(): the top-level Puntrace() will always resume execution.)
+ * call to Ptrace().  If a state other than PS_RUN is stipulated, we do not
+ * resume, but in fact remain under ptrace().  This is so that
+ * Ptrace()/Puntrace() pairs called from within a breakpoint trap function
+ * properly and do not affect the state of the system. In effect, Puntrace()
+ * should cause a resume only if Ptrace() caused a stop.
  *
  * Lots of P->state comparisons are needed here, because a PTRACE_CONT is only
  * valid if the processe was stopped beforehand: otherwise, you get -ESRCH,
@@ -689,11 +692,13 @@ Puntrace(struct ps_prochandle *P, int state)
 	P->ptrace_count--;
 
 	/*
-	 * Still under Ptrace()? OK, nothing needs doing, except possibly a
-	 * resume, using Pbkpt_continue() so as to do the right thing if a
-	 * breakpoint is outstanding.
+	 * Still under Ptrace(), or a stay in stop state requested, or stuck in
+	 * stop state by request of an earlier breakpoint handler?  OK, nothing
+	 * needs doing, except possibly a resume, using Pbkpt_continue() so as
+	 * to do the right thing if a breakpoint is outstanding.
 	 */
-	if (P->ptrace_count) {
+	if (P->ptrace_count || P->bkpt_halted ||
+	    ((state != 0) && (state != PS_RUN))) {
 		if ((state == PS_RUN) && (P->state == PS_TRACESTOP)) {
 			P->state = state;
 			_dprintf("%i: Continuing because previous state was "
@@ -965,6 +970,7 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 
 		P->tracing_bkpt = 0;
 		P->singlestepped = 0;
+		P->bkpt_halted = 0;
 		orig_state = PS_RUN;
 	}
 	if (bkpt->bkpt_handler.bkpt_cleanup)
@@ -1028,6 +1034,7 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 
 	P->tracing_bkpt = 0;
 	P->singlestepped = 0;
+	P->bkpt_halted = 0;
 	P->num_bkpts = 0;
 }
 
@@ -1126,8 +1133,10 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		int state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
 		    bkpt->bkpt_handler.bkpt_data);
 
-		if (state != PS_RUN)
+		if (state != PS_RUN) {
+			P->bkpt_halted = 1;
 			return state;
+		}
 
 		/*
 		 * Look up the breakpoint anew, in case the handler erased it.
@@ -1153,6 +1162,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 	if (!P->ptraced)
 		return;
 
+	P->bkpt_halted = 0;
 	/*
 	 * We don't know where we are.  We might not be stopped at a breakpoint
 	 * at all: we might not even be ptracing the process (or it might have
@@ -1233,8 +1243,10 @@ bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 * that if it sets the state to PS_DEAD, it has killed the process
 	 * itself.)
 	 */
-	if (state != PS_RUN)
+	if (state != PS_RUN) {
+		P->bkpt_halted = 1;
 		return state;
+	}
 
 	/*
 	 * Look up the breakpoint anew, in case the handler erased it.
@@ -1309,6 +1321,14 @@ bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	}
 
 	return PS_RUN;
+}
+
+/*
+ * If we are stopped at a breakpoint, return its address, or 0 if none.
+ */
+uintptr_t Pbkpt_addr(struct ps_prochandle *P)
+{
+	return P->tracing_bkpt;
 }
 
 ssize_t

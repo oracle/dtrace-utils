@@ -211,6 +211,7 @@ struct ps_prochandle {
 	uintptr_t r_debug_addr;	/* address of r_debug in the child */
 	rd_agent_t *rap;	/* rtld_db state */
 	map_info_t *map_exec;	/* the mapping for the executable file */
+	int	bkpt_halted;	/* halted at breakpoint by handler */
 	map_info_t *map_ldso;	/* the mapping for ld.so */
 	exec_handler_fun exec_handler;	/* exec() handler */
 };

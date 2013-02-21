@@ -200,9 +200,10 @@ rd_ldso_consistent_end(rd_agent_t *rd)
 	}
 
 	/*
-	 * End tracing. If the child was stopped to retain consistency, this
-	 * will resume it.
+	 * End tracing.
 	 */
+	if (Pbkpt_addr(rd->P) != 0)
+		Pbkpt_continue(rd->P);
 	Puntrace(rd->P, rd->prev_state);
 }
 

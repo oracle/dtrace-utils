@@ -1,3 +1,18 @@
+2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while
+	a breakpoint handler requests that we not continue execution.
+	* libproc/Pcontrol.c (Puntrace): Do not resume even on top-level
+	Puntrace() unless state is 0 or PS_RUN, and no breakpoint handler
+	has requested that we stall.
+	(bkpt_handle_start): Set bkpt_halted if a handler so requests.
+	(bkpt_handle_singlestep): Likewise.
+	(Punbkpt): Clear it if removing the current breakpoint.
+	(Pbkpt_continue): Clear it when resuming.
+	(Pbkpt_addr): New function.
+	* libproc/libproc.h: Prototype it.
+	* libproc/rtld_db.c (rd_ldso_consistent_end): Use it.
+
 2013-02-12  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makefunctions (src-name): Pass through absolute path unchanged.
