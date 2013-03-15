@@ -606,6 +606,7 @@ Pupdate_syms(struct ps_prochandle *P)
 
        P->info_valid = 0;
        Pupdate_maps(P);
+       Pupdate_lmids(P);
 
        for (i = 0, fptr = dt_list_next(&P->file_list);
 	    i < P->num_files; i++, fptr = dt_list_next(fptr))
