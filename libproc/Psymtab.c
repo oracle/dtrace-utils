@@ -281,7 +281,8 @@ map_iter(const rd_loadobj_t *lop, void *prochandle)
 
 	if (Pread_string(P, buf, sizeof (buf), lop->rl_nameaddr) > 0) {
 		if ((fptr->file_lname == NULL) ||
-		    (strcmp(fptr->file_lname, buf) != 0)) {
+		    (strcmp(fptr->file_lname, buf) != 0) ||
+		    (buf[0] != '\0')) {
 
 			free(fptr->file_lname);
 			fptr->file_lbase = NULL;

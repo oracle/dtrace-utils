@@ -1,3 +1,7 @@
+2013-03-15  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/Psymtab.c (map_iter): Allow a null string.
+
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while
