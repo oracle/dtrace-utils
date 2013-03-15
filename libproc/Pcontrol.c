@@ -1404,59 +1404,59 @@ Pread_scalar(struct ps_prochandle *P,
     size_t nscalar,		/* scalar size on this platform */
     uintptr_t address)		/* address in process */
 {
-    union
-    {
-	uint8_t b1;
-	uint16_t b2;
-	uint32_t b4;
-	uint64_t b8;
-    } conv;
+	union
+	{
+		uint8_t b1;
+		uint16_t b2;
+		uint32_t b4;
+		uint64_t b8;
+	} conv;
 
-    conv.b8 = 0;
+	conv.b8 = 0;
 
-    if (nbyte > sizeof (conv.b8)) {
-	_dprintf("Pread_scalar(): Attempt to read scalar of size %lu "
-	    "greater than max supported size %lu from PID %i\n",
-	    nbyte, sizeof (conv.b8), P->pid);
-	return (-1);
-    }
+	if (nbyte > sizeof (conv.b8)) {
+		_dprintf("Pread_scalar(): Attempt to read scalar of size %lu "
+		    "greater than max supported size %lu from PID %i\n",
+		    nbyte, sizeof (conv.b8), P->pid);
+		return (-1);
+	}
 
-    if (nscalar > sizeof (conv.b8)) {
-	_dprintf("Pread_scalar(): Attempt to read into scalar of size %lu "
-	    "greater than max supported size %lu from PID %i\n",
-	    nscalar, sizeof (conv.b8), P->pid);
-	return (-1);
-    }
+	if (nscalar > sizeof (conv.b8)) {
+		_dprintf("Pread_scalar(): Attempt to read into scalar of size %lu "
+		    "greater than max supported size %lu from PID %i\n",
+		    nscalar, sizeof (conv.b8), P->pid);
+		return (-1);
+	}
 
-    /*
-     * Prohibit 32-on-64 debugging.  Just too much chance of data loss.
-     * DTrace is 64-bit anyway so only an autobuilder error could cause this.
-     */
-    if (nbyte > nscalar) {
-	_dprintf("Pread_scalar(): Attempt to read scalar of size %lu into "
-	    "scalar of size %lu PID %i: narrowing conversions are not "
-	    "supported\n", nbyte, nscalar, P->pid);
-	return (-1);
-    }
+	/*
+	 * Prohibit 32-on-64 debugging.  Just too much chance of data loss.
+	 * DTrace is 64-bit anyway so only an autobuilder error could cause this.
+	 */
+	if (nbyte > nscalar) {
+		_dprintf("Pread_scalar(): Attempt to read scalar of size %lu into "
+		    "scalar of size %lu PID %i: narrowing conversions are not "
+		    "supported\n", nbyte, nscalar, P->pid);
+		return (-1);
+	}
 
-    if (Pread(P, (void *)&conv.b1, nbyte, address) != nbyte) {
-	_dprintf("Pread_scalar(): attempt to read %lu bytes from PID %i at "
-	    "address %lx read fewer bytes than expected.\n", nbyte,
-	    P->pid, address);
-	return(-1);
-    }
+	if (Pread(P, (void *)&conv.b1, nbyte, address) != nbyte) {
+		_dprintf("Pread_scalar(): attempt to read %lu bytes from PID %i at "
+		    "address %lx read fewer bytes than expected.\n", nbyte,
+		    P->pid, address);
+		return(-1);
+	}
 
-    switch (nscalar) {
-    case sizeof(conv.b1): memcpy(buf, &conv.b1, nscalar); break;
-    case sizeof(conv.b2): memcpy(buf, &conv.b2, nscalar); break;
-    case sizeof(conv.b4): memcpy(buf, &conv.b4, nscalar); break;
-    case sizeof(conv.b8): memcpy(buf, &conv.b8, nscalar); break;
-    default: _dprintf("Pread_scalar(): Attempt to read into a scalar of "
-	"%lu bytes is not supported.\n", nscalar);
-	return(-1);
-    }
+	switch (nscalar) {
+	case sizeof(conv.b1): memcpy(buf, &conv.b1, nscalar); break;
+	case sizeof(conv.b2): memcpy(buf, &conv.b2, nscalar); break;
+	case sizeof(conv.b4): memcpy(buf, &conv.b4, nscalar); break;
+	case sizeof(conv.b8): memcpy(buf, &conv.b8, nscalar); break;
+	default: _dprintf("Pread_scalar(): Attempt to read into a scalar of "
+	    "%lu bytes is not supported.\n", nscalar);
+		return(-1);
+	}
 
-    return nbyte;
+	return nbyte;
 }
 
 pid_t

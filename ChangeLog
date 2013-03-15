@@ -19,6 +19,7 @@
 
 	* libproc/Pcontrol.c (Pwait): Repeatedly self-invoke to drain all
 	outstanding state changes.
+	(Pread_scalar): Fix indentation.
 
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
