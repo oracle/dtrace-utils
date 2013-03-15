@@ -4,6 +4,9 @@
 	(debug_dump_symtab): New, dump a symbol table.
 	(debug_dump_status): New, dump the status of a process.
 	(Pupdate_syms): Add a missing update_lmids() call.
+	(sym_by_addr): Quash warnings and a potential use of
+	uninitialized data.
+	(sym_by_name): Note if a null symbol is found.
 
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 

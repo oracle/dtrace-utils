@@ -1311,8 +1311,8 @@ static GElf_Sym *
 sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 {
 	GElf_Sym sym, osym;
-	uint_t i, oid, *byaddr = symtab->sym_byaddr;
-	int min, max, mid, omid, found = 0;
+	uint_t i, oid = 0, *byaddr = symtab->sym_byaddr;
+	int min, max, mid, omid = 0, found = 0;
 
 	if (symtab->sym_data_pri == NULL || symtab->sym_count == 0)
 		return (NULL);
@@ -1329,11 +1329,10 @@ sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 		mid = (max + min) / 2;
 
 		i = byaddr[mid];
-		(void) symtab_getsym(symtab, i, &sym);
-
-		if (addr >= sym.st_value &&
-		    addr < sym.st_value + sym.st_size &&
-		    (!found || sym.st_value > osym.st_value)) {
+		if ((symtab_getsym(symtab, i, &sym)) &&
+		    (addr >= sym.st_value &&
+			addr < sym.st_value + sym.st_size &&
+			(!found || sym.st_value > osym.st_value))) {
 			osym = sym;
 			omid = mid;
 			oid = i;
@@ -1361,7 +1360,7 @@ sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 			break;
 
 		oid = byaddr[--omid];
-		(void) symtab_getsym(symtab, oid, &osym);
+		symtab_getsym(symtab, oid, &osym);
 	} while (addr >= osym.st_value &&
 	    addr < sym.st_value + osym.st_size &&
 	    osym.st_value == sym.st_value);
@@ -1395,7 +1394,9 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 		mid = (max + min) / 2;
 
 		i = byname[mid];
-		(void) symtab_getsym(symtab, i, symp);
+		sym = symtab_getsym(symtab, i, symp);
+		if (sym == NULL)
+			_dprintf("null sym %i!\n", i);
 
 		if ((cmp = strcmp(name, strs + symp->st_name)) == 0) {
 			if (idp != NULL)
