@@ -1,6 +1,8 @@
 2013-03-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (map_iter): Allow a null string.
+	(debug_dump_symtab): New, dump a symbol table.
+	(debug_dump_status): New, dump the status of a process.
 
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 

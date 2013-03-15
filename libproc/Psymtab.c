@@ -783,6 +783,50 @@ symtab_getsym(sym_tbl_t *symtab, int ndx, GElf_Sym *dst)
 	return (gelf_getsym(symtab->sym_data_aux, ndx, dst));
 }
 
+void __attribute__((__used__))
+debug_dump_symtab(sym_tbl_t *symtab, const char *description)
+{
+	uint_t i;
+
+	_dprintf("Symbol table dump of %s:\n", description);
+	for (i = 0; i < symtab->sym_symn; i++) {
+		GElf_Sym sym;
+		if (symtab_getsym(symtab, i, &sym) != NULL) {
+			_dprintf("%i %s %lx(%li), section %i\n", i,
+			    sym.st_name < symtab->sym_strsz ?
+			    symtab->sym_strs + sym.st_name :
+			    "[unnamed]", sym.st_value, sym.st_size,
+			    sym.st_shndx);
+		}
+	}
+}
+
+void __attribute__((__used__))
+debug_dump_status(struct ps_prochandle *P)
+{
+	char status[PATH_MAX];
+	FILE *fp;
+	char *line = NULL;
+	size_t len;
+
+	snprintf(status, sizeof(status), "/proc/%i/status",
+	    P->pid);
+
+	if ((fp = fopen(status, "r")) == NULL) {
+		_dprintf("Process is dead.\n");
+		return;
+	}
+
+	while (getline(&line, &len, fp) >= 0) {
+		if (strncmp(line, "State:", strlen("State:")) == 0) {
+			_dprintf("%s", line);
+			break;
+		}
+	}
+	free(line);
+	fclose(fp);
+}
+
 static void
 optimize_symtab(sym_tbl_t *symtab)
 {
