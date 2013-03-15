@@ -45,6 +45,15 @@
 	needed.  Simply consume process state changes (and fire handlers)
 	if the process is still running.
 
+	* libproc/Pcontrol.h (ps_prochandle_t.pending_stops): New, counts
+	sent-but-unconsumed SIGSTOPs.
+	(ps_prochandle_t.pending_pre_exec): New, number of SIGSTOPs sent
+	before exec() and not consumed yet.
+	* libproc/Pcontrol.c (Pwait): Handle SIGSTOP in the right place.
+	Maintain pending_stops and pending_pre_exec on SIGSTOP receipt
+	and detected exec(), resuming appropriately.
+	(Ptrace): Increase pending_stops whenever a SIGSTOP is sent.
+
 	* libproc/Pcontrol.c (Pwait): Repeatedly self-invoke to drain all
 	outstanding state changes.
 	(Pread_scalar): Fix indentation.

@@ -191,6 +191,10 @@ struct ps_prochandle {
 	int	ptraced;	/* true if ptrace-attached */
 	int	ptrace_count;	/* count of Ptrace() calls */
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
+	int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that
+				   have yet to be consumed */
+	int	pending_pre_exec; /* number of pending_stops that were sent
+				     before a detected exec() */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	no_dyn;		/* true if this is probably a static lib */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */

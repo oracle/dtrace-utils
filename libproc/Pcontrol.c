@@ -467,26 +467,58 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 		}
 
 		/*
-		 * Signal receipt.  If the signal is not SIGSTOP under ptrace(),
-		 * resend the signal and continue immediately.  (If this is a
-		 * group-stop, this will have no effect. Under ptrace(), the
-		 * child is already stopped at this point.)
+		 * Stopping signal receipt.  If the signal is not SIGSTOP under
+		 * ptrace(), resend the signal and continue immediately.  (If
+		 * this is a group-stop, this will have no effect. Under
+		 * ptrace(), the child is already stopped at this point.)
 		 */
-		if (WIFSTOPPED(info.si_status)) {
-			_dprintf("%i: child got stopping signal %i\n", P->pid,
-			    WSTOPSIG(info.si_status));
-			if (P->ptraced && WSTOPSIG(info.si_status) != SIGSTOP)
-				ptrace(PTRACE_CONT, P->pid, NULL,
-				    WSTOPSIG(info.si_status));
+		if (WIFSTOPPED(info.si_status) ||
+		    (WIFSIGNALED(info.si_status) &&
+			WTERMSIG(info.si_status) == SIGSTOP)) {
+			int stopsig;
 
 			P->state = PS_STOP;
+
+			if (WIFSTOPPED(info.si_status))
+				stopsig = WSTOPSIG(info.si_status);
+			else
+				stopsig = WTERMSIG(info.si_status);
+
+			_dprintf("%i: child got stopping signal %i.\n", P->pid,
+			    stopsig);
+			if (P->ptraced && stopsig != SIGSTOP)
+				ptrace(PTRACE_CONT, P->pid, NULL,
+				    stopsig);
+			else if (stopsig == SIGSTOP) {
+				/*
+				 * If Ptrace() itself sent this SIGSTOP, this is
+				 * a TRACESTOP, not a STOP.  If this happened
+				 * before an exec() hit, re-CONTinue the
+				 * process.
+				 */
+				if (P->pending_stops > 0) {
+					P->pending_stops--;
+					P->state = PS_TRACESTOP;
+				}
+
+				if (P->pending_pre_exec > 0) {
+					if (P->ptraced)
+						ptrace(PTRACE_CONT, P->pid,
+						    NULL, SIGCONT);
+					else
+						kill(P->pid, SIGCONT);
+					P->pending_pre_exec--;
+					P->state = PS_RUN;
+				}
+			}
+
 			break;
 		}
 
 		/*
-		 * Ordinary signal injection, or a terminating signal. If this
-		 * is not a SIGSTOP, reinject it.  (SIGTRAP is handled further
-		 * down.)
+		 * Ordinary signal injection (other than SIGSTOP), or a
+		 * terminating signal. If this is not a SIGTRAP, reinject it.
+		 * (SIGTRAP is handled further down.)
 		 */
 		if ((WIFSIGNALED(info.si_status)) &&
 		    (WTERMSIG(info.si_status) != SIGTRAP)) {
@@ -532,6 +564,9 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 		if (info.si_status == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 
 			_dprintf("%i: exec() detected, resetting...\n", P->pid);
+
+			P->pending_pre_exec += P->pending_stops;
+
 			Pclose(P);
 			if (Pmemfd(P) == -1)
 				_dprintf("%i: Cannot reopen memory\n", P->pid);
@@ -630,6 +665,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 	int status;
 
 	P->ptrace_count++;
+
 	if (P->ptraced) {
 		int state;
 
@@ -646,6 +682,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		state = P->state;
 		P->ptrace_halted = TRUE;
 		kill(P->pid, SIGSTOP);
+		P->pending_stops++;
 		Pwait(P, 1);
 		return state;
 	}
