@@ -14,6 +14,8 @@
 	(Pxlookup_by_name_internal): ... this, adding fixup_load_addr
 	parameter.
 	(Pxlookup_by_name): New wrapper.
+	(Pbuild_file_symtab): Call it to compute the file_dyn_base of
+	ld.so.
 
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
