@@ -83,8 +83,8 @@ typedef void (*rd_event_fun)(rd_agent_t *, rd_event_msg_t *, void *);
  * iteration over load objects
  */
 typedef struct rd_loadobj {
-	intptr_t	rl_base;	/* base address (base load bias) of
-					   object, from PT_LOAD */
+	intptr_t	rl_diff_addr;	/* Difference between addresses in ELF
+					   file and addresses in memory */
 	uintptr_t	rl_nameaddr;	/* address of the name in user space */
 	uintptr_t	rl_dyn;		/* dynamic section of object */
 	Lmid_t		rl_lmident;	/* ident of link map */

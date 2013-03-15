@@ -1139,9 +1139,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * for relocatable objects.
 	 *
 	 * ld.so has a special kludge to work this out, since it relocates
-	 * itself without setting its rl_base correspondingly.  We look up the
-	 * address of the _r_debug symbol in ld.so, and subtract that from the
-	 * address given in DT_DEBUG.
+	 * itself without setting its rl_diff_addr correspondingly.  We look up
+	 * the address of the _r_debug symbol in ld.so, and subtract that from
+	 * the address given in DT_DEBUG.
 	 */
 	if(fptr->file_map == P->map_ldso) {
 		GElf_Sym r_debug_sym = {0};
@@ -1176,7 +1176,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	*/
        if (fptr->file_etype == ET_DYN &&
 	   fptr->file_lo != NULL) {
-	       fptr->file_dyn_base = fptr->file_lo->rl_base;
+	       fptr->file_dyn_base = fptr->file_lo->rl_diff_addr;
 	       _dprintf("reset file_dyn_base for %s to %lx\n",
 		   fptr->file_pname, fptr->file_dyn_base);
        }

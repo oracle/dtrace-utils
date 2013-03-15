@@ -133,6 +133,13 @@
 	* test/triggers/libproc-sleeper.c: Add some output on exit, to
 	detect crashes of the child.
 
+	* include/rtld_db.h (rd_loadobj_t.rl_base): Rename to...
+	(rd_loadobj_t.rl_diff_addr): ... this.
+	* libproc/Psymtab.c (Pbuild_file_symtab): Adjust accordingly.
+	* libproc/rtld_db.c (rd_loadobj_iter): Likewise.
+	* test/triggers/libproc-consistency.c: Likewise.
+	* test/triggers/libproc-pldd.c: Likewise.
+
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while

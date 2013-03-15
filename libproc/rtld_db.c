@@ -1168,7 +1168,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 
 			found_any = TRUE;
 
-			if ((read_scalar_child(rd->P, &obj.rl_base, loadobj,
+			if ((read_scalar_child(rd->P, &obj.rl_diff_addr, loadobj,
 				link_map_offsets, link_map, l_addr) <= 0) ||
 			    (read_scalar_child(rd->P, &obj.rl_nameaddr, loadobj,
 				link_map_offsets, link_map, l_name) <= 0) ||

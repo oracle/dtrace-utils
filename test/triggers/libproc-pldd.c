@@ -48,7 +48,7 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 	}
 
 	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li\n", buf, loadobj->rl_dyn,
-	    loadobj->rl_base, loadobj->rl_lmident);
+	    loadobj->rl_diff_addr, loadobj->rl_lmident);
 
 	libs_seen++;
 	return (1);
