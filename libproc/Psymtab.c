@@ -972,8 +972,18 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * have a file_info_t for it either.  Anything that is working this way
 	 * should just change to writing an ELF executable to an unlinked file
 	 * in /tmp instead.  Solaris DTrace cannot handle this case either.)
+	 *
+	 * Note: This Ptrace() call may trigger breakpoint handlers, which can
+	 * look up addresses, which can call this function: so temporarily mark
+	 * this file as not initialized, in case of such a recursive call, and
+	 * drop out immediately afterwards if it is marked as done now.  The
+	 * same is true of the Puntrace().
 	 */
-	p_state = Ptrace(P, 1);
+	fptr->file_init = 0;
+	p_state = Ptrace(P, 0);
+	if (fptr->file_init == 1)
+		return;
+	fptr->file_init = 1;
 
 	if ((p_state < 0) || (ptrace(PTRACE_GETMAPFD, P->pid,
 		    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
@@ -984,7 +994,11 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		goto bad;
 	}
 
+	fptr->file_init = 0;
 	Puntrace(P, p_state);
+	if (fptr->file_init == 1)
+		return;
+	fptr->file_init = 1;
 
 	/*
 	 * Don't hold the fd open forever. (ELF_C_READ followed by

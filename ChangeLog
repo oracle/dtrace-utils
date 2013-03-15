@@ -7,6 +7,8 @@
 	(sym_by_addr): Quash warnings and a potential use of
 	uninitialized data.
 	(sym_by_name): Note if a null symbol is found.
+	(Pbuild_file_symtab): Fix faulty recursion if a breakpoint handler
+	looks up a name.
 
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
