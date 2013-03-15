@@ -36,7 +36,7 @@
 static int libs_seen;
 
 static int
-print_ldd(const rd_loadobj_t *loadobj, void *p)
+print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 {
 	struct ps_prochandle *P = p;
 	char buf[PATH_MAX];
@@ -55,7 +55,7 @@ print_ldd(const rd_loadobj_t *loadobj, void *p)
 }
 
 static int
-note_ldd(const rd_loadobj_t *loadobj, void *p)
+note_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 {
 	struct ps_prochandle *P = p;
 	char buf[PATH_MAX];
@@ -71,10 +71,14 @@ note_ldd(const rd_loadobj_t *loadobj, void *p)
 }
 
 static int
-do_nothing(const rd_loadobj_t *loadobj, void *p)
+do_nothing(const rd_loadobj_t *loadobj, size_t num, void *p)
 {
     return (1);
 }
+struct rd_agent {
+	struct ps_prochandle *P;	/* pointer back to our ps_prochandle */
+	/* other stuff ... */
+};
 
 int
 main(int argc, char *argv[])
@@ -107,9 +111,11 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Initialization failed.\n");
 		return (1);
 	}
+
 	/*
 	 * Iterate immediately after initialization to enure that, whether we
-	 * get RD_OK or RD_NOMAPS, we do not get a crash.
+	 * get RD_OK or RD_NOMAPS, we do not get a crash.  (Note: this may
+	 * resume, briefly, in order to ensure that we get a consistent state.)
 	 */
 	switch (rd_loadobj_iter(rd, do_nothing, P)) {
 	case RD_OK:
@@ -133,7 +139,7 @@ main(int argc, char *argv[])
 	really_seen = libs_seen;
 
 	/*
-	 * Finally, kill rtld_db (disconnecting from the ptrace()d process),
+	 * Kill rtld_db (disconnecting from the ptrace()d process),
 	 * then recreate it and iterate, ensuring that librtld_db can reattach
 	 * on its own if it needs to.
 	 */

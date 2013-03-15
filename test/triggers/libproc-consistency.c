@@ -33,20 +33,23 @@
 #include <libproc.h>
 #include <rtld_db.h>
 
+static int nonzero;
+static int lmids_fell;
+
 static int
-print_ldd(const rd_loadobj_t *loadobj, void *p)
+print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 {
+	static long highest_lmid;
 	struct ps_prochandle *P = p;
 	char buf[PATH_MAX];
 
 	/*
-	 * Only print info for those libraries with an LMID >0.
+	 * Only print info for libraries until we start to see LMIDs lower than
+	 * we already have, to avoid flooding the log
 	 *
-	 * (We still traverse all others, thus testing that the link map is in
-	 * fact uncorrupted.)
+	 * (We still traverse all others and read their strings, thus testing
+	 * that the link map is in fact uncorrupted.)
 	 */
-	if (loadobj->rl_lmident == 0)
-		return (1);
 
 	if (Pread_string(P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
 		fprintf(stderr, "Failed to read string at %lx\n",
@@ -54,8 +57,17 @@ print_ldd(const rd_loadobj_t *loadobj, void *p)
 		return (0);
 	}
 
-	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li\n", buf, loadobj->rl_dyn,
-	    loadobj->rl_base, loadobj->rl_lmident);
+	if (highest_lmid > loadobj->rl_lmident)
+		lmids_fell = 1;
+	else
+		highest_lmid = loadobj->rl_lmident;
+
+	if (loadobj->rl_lmident != 0)
+		nonzero++;
+
+	if (!lmids_fell)
+		printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li\n", buf, loadobj->rl_dyn,
+		    loadobj->rl_base, loadobj->rl_lmident);
 	return (1);
 }
 
@@ -119,9 +131,10 @@ int main(int argc, char *argv[])
 	while (Pstate(P) != PS_DEAD) {
 		struct timeval a, b;
 		gettimeofday(&a, NULL);
-		rd_loadobj_iter(rd, print_ldd, P);
+		if (rd_loadobj_iter(rd, print_ldd, P) == RD_ERR)
+			fprintf(stderr, "rd_loadobj_iter() returned error\n");
 		gettimeofday(&b, NULL);
-		if (b.tv_sec - 2 > a.tv_sec) {
+ 		if (b.tv_sec - 2 > a.tv_sec) {
 			fprintf(stderr, "rd_loadobj_iter took implausibly "
 			    "long\n");
 			err = 1;
@@ -131,8 +144,8 @@ int main(int argc, char *argv[])
 
 	Prelease(P, 1);
 
-	printf("%i adds, %i deletes, %i stables\n", adds_seen, deletes_seen,
-	    stables_seen);
+	printf("%i adds, %i deletes, %i stables, %i nonzero lmids\n", adds_seen,
+	    deletes_seen, stables_seen, nonzero);
 
 	/*
 	 * Spot an outright failure to latch the dynamic linker state
@@ -141,6 +154,23 @@ int main(int argc, char *argv[])
 
 	if (adds_seen < 50 || deletes_seen < 50 || stables_seen < 50) {
 		fprintf(stderr, "Implausibly few adds/deletes/stables seen\n");
+		err = 1;
+	}
+
+	/*
+	 * Spot a failure to traverse nonzero lmids.
+	 */
+	if (nonzero == 0) {
+		fprintf(stderr, "No nonzero lmids seen!");
+		err = 1;
+	}
+
+	/*
+	 * Spot a failure to traverse lmids more than once.
+	 */
+	else if (!lmids_fell) {
+		fprintf(stderr, "lmids never seen to fall, despite repeated "
+		    "iterations!\n");
 		err = 1;
 	}
 

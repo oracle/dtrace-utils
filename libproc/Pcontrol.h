@@ -38,6 +38,7 @@
 #include <limits.h>
 #include <dtrace.h>
 #include <dt_list.h>
+#include <setjmp.h>
 
 #include <sys/auxv.h>
 
@@ -159,21 +160,41 @@ typedef struct bkpt {
 
 struct rd_agent {
 	struct ps_prochandle *P;	/* pointer back to our ps_prochandle */
+	int maps_ready;			/* 1 if the link maps are ready */
 	uintptr_t r_brk_addr;		/* if nonzero, the address of r_brk */
+	uintptr_t rtld_global_addr;	/* if nonzero, the address of
+					   _rtld_global */
 	int	rd_monitoring;		/* 1 whenever rtld_db has a breakpoint
 					   set on the dynamic linker. */
 	rd_event_fun rd_event_fun;	/* function to call on rtld event */
 	void	*rd_event_data;		/* state passed to rtld_event_fun */
 
-	/* Transition to an inconsistent state is barred.  (If multiple such
-	   prohibitions are in force, this is >1).  If we are actively waiting
-	   for a transition, ic_transitioned > 0 indicates that we have hit
-	   one: otherwise, it is not meaningful. */
+	/*
+	 * This is used to detect if an exec() has happened deep inside the call
+	 * stack of rtld_db.
+	 */
+	int	exec_detected;
+	jmp_buf	*exec_jmp;
+
+	/*
+	 * Transition to an inconsistent state is barred.  (If multiple such
+	 * prohibitions are in force, this is >1).  If we are actively waiting
+	 * for a transition, ic_transitioned > 0 indicates that we have hit one:
+	 * otherwise, it is not meaningful.  If stop_on_consistent is 1, stop on
+	 * transition to a consistent state, not an inconsistent one.
+	 */
 
 	int	no_inconsistent;
+	int	stop_on_consistent;
 	int	ic_transitioned;
 	int	prev_state;		/* process state before consistency
 					   checking was enabled */
+
+	int	lmid_halted;		/* if nonzero, the process was halted by
+					   rd_ldso_nonzero_lmid_consistent_begin(). */
+	int	lmid_halt_prev_state;	/* process state before said halt */
+	int	lmid_bkpted;		/* halted on bkpt by rlnlcb(). */
+	int	lmid_incompatible_glibc; /* glibc data structure change. */
 };
 
 /*

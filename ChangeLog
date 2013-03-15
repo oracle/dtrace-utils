@@ -58,6 +58,81 @@
 	outstanding state changes.
 	(Pread_scalar): Fix indentation.
 
+	* include/rtld_db.h (rl_iter_f): Add num parameter.
+	* libproc/Psymtab.c (map_iter): Use it to distinguish the executable
+	from the vdso.
+	* libproc/elfish_64.c: Improve comment.
+
+	* include/sys/glibc_internal_link.h: Revise completely: we are now
+	pulling data out of _rtld_global, not private parts of the link
+	map.
+	* libproc/mkoffsets.sh: Adjust accordingly.
+	* libproc/Pcontrol.h: Adjust includes.
+	(rd_agent_t.maps_ready): New, false if maps are not ready yet.
+	(rd_agent_t.rtld_global_addr): New, address of _rtld_global in the
+	child.
+	(rd_agent_t.exec_detected): New, 1 if an exec() has been seen.
+	(rd_agent_t.exec_jmp): Location to longjmp() to on exec(), if
+	non-NULL.
+	(rd_agent_t.stop_on_consistent): New, if 1, stop on RD_CONSISTENT
+	state rather than !RD_CONSISTENT state.
+	(rd_agent_t.lmid_halted): If nonzero, rd_ldso_nonzero_lmid_consistent_begin()
+	halted the process.
+	(rd_agent_t.lmid_halt_prev_state): State before that halt, for
+	Puntrace().
+	(rd_agent_t.lmid_bkpted): If nonzero, r_l_n_l_c_b() breakpointed
+	the process.
+	(rd_agent_t.lmid_incompatible_glibc): Nonzero if this glibc
+	appears to be incompatible with our offsets.
+	* libproc/rtld_db.c (sane_nanosleep): New, nanosleep() taking a
+	useful argument.
+	(dl_nns): New, returns number of active namespaces, or 1 if static
+	or glibc is incompatible.
+	(rtld_global): New, returns address of _rtld_global in child.
+	(ns_debug_addr): New, returns address of ns_debug for a given
+	namespace in child.
+	(link_map): New, returns address of link map for a given namespace
+	in child.
+	(ns_nloaded): New, returns number of items in link map for a given
+	namespace.
+	(load_lock): New, returns the address of the lock protecting
+	dlopen()/dlclose() in child.
+	(rd_ldso_consistency): Now recursive.  lmid of -1 means to scan
+	all lmids and return the least consistent state.
+	(rd_ldso_consistent_begin): Set stop_on_consistent when needed.
+	Scan the base lmid for consistency.  Do a nonblocking Pwait()
+	before our first consistency-checking loop.  Fail if the process
+	is dead.
+	(rd_ldso_nonzero_lmid_consistent_begin): New, ensure that
+	link maps for lmid != 0 are consistent...
+	(rd_ldso_nonzero_lmid_consistent_end): ... and its new
+	counterpart.
+	(rd_brk_trap): Adjust for rd_ldso_consistency() changes.  Respect
+	rd->stop_on_consistent.
+	(r_brk): Handle an r_debug_addr of zero ("not yet initialized").
+	(rd_new): Look up rtld_global (if child is dynamically linked).
+	(rd_start_trap): Likewise.  Only look up r_brk() if we have an
+	address for r_debug.  Note that the maps are ready.
+	(rd_exec_handler): Reset all our new state on exec().  Note that
+	exec_detected.  Jup to the exec_jmp handler, if it was set.
+	(rd_event_enable): Do nothing unless the maps are ready.
+	(rd_loadobj_iter): Likewise.  Trap exec()s.  Iterate over all
+	namespaces, taking out a nonzero-lmid consistent region when
+	needed.  Look up the link map for the appropriate lmid.  No longer
+	read the lmid out of the child: use our loop counter instead.
+
+	* test/triggers/libproc-consistency.c: Adjust for rl_iter_f
+	change.  Do not skip nonzero lmids: instead, report all libraries
+	until the lmids start to fall (indicating one successful pass).
+	Count nonzero lmids: fail iff there were none, if
+	rd_loadobj_iter() errored, or if lmids never fell (suggesting a
+	failure to traverse the link maps more than once).
+	* test/triggers/libproc-pldd.c: Adjust for rl_iter_f change.
+	* test/triggers/libproc-dlmadopen.c: Add some informational output
+	to confirm that libraries were opened in multiple lmids.
+	* test/triggers/libproc-sleeper.c: Add some output on exit, to
+	detect crashes of the child.
+
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while
@@ -234,6 +309,7 @@
 	* libproc/elfish_impl.h: Prototypes for elfish_*.c routines.
 	* libproc/mkoffsets.sh: New, compute 64/32-bit fields offsets and
 	sizes at compile time.
+	* libproc/glibc_internal_link.h: ... from this.
 	* libproc/Build: Run it when needed.  Adjust include paths,
 	dependencies, sources, and clean target appropriately.
 	* libproc/.gitignore: New, ignore mkoffsets-generated file.

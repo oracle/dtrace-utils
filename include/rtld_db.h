@@ -58,7 +58,8 @@ typedef enum {
 
 /*
  * Information about event instance.  Identical to the r_state enumeration in
- * <link.h>, save for slightly different enumeration names.
+ * <link.h>, save for slightly different enumeration names.  If this ever
+ * changes (very unlikely), we will need to adapt, or add a translation layer.
  */
 typedef enum {
 	RD_CONSISTENT,		/* link-maps are stable */
@@ -89,7 +90,7 @@ typedef struct rd_loadobj {
 	Lmid_t		rl_lmident;	/* ident of link map */
 } rd_loadobj_t;
 
-typedef int rl_iter_f(const rd_loadobj_t *, void *);
+typedef int rl_iter_f(const rd_loadobj_t *, size_t, void *);
 
 extern void		rd_delete(rd_agent_t *);
 extern rd_err_e		rd_event_enable(rd_agent_t *, rd_event_fun fun, void *data);

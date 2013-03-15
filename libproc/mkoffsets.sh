@@ -74,11 +74,19 @@ int main(void)
 	BITNESS_OFFSET(R_STATE, r_debug, r_state);
 	BITNESS_OFFSET(R_LDBASE, r_debug, r_ldbase);
 
-	BITNESS_OFFSET(L_ADDR, internal_link_map, l_addr);
-	BITNESS_OFFSET(L_NAME, internal_link_map, l_name);
-	BITNESS_OFFSET(L_LD, internal_link_map, l_ld);
-	BITNESS_OFFSET(L_NEXT, internal_link_map, l_next);
-	BITNESS_OFFSET(L_LMID, internal_link_map, l_ns);
+	BITNESS_OFFSET(L_ADDR, link_map, l_addr);
+	BITNESS_OFFSET(L_NAME, link_map, l_name);
+	BITNESS_OFFSET(L_LD, link_map, l_ld);
+	BITNESS_OFFSET(L_NEXT, link_map, l_next);
+
+	BITNESS_OFFSET(G_DEBUG, rtld_global, _dl_ns[0]._ns_debug);
+	BITNESS_OFFSET(G_DEBUG_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_debug);
+	BITNESS_OFFSET(G_NLOADED, rtld_global, _dl_ns[0]._ns_nloaded);
+	BITNESS_OFFSET(G_NLOADED_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_nloaded);
+	BITNESS_OFFSET(G_NS_LOADED, rtld_global, _dl_ns[0]._ns_loaded);
+	BITNESS_OFFSET(G_NS_LOADED_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_loaded);
+	BITNESS_OFFSET(G_DL_NNS, rtld_global, _dl_nns);
+	BITNESS_OFFSET(G_DL_LOAD_LOCK, rtld_global, _dl_load_lock.mutex.__data.__count);
 }
 EOF
 
@@ -98,14 +106,16 @@ cat >> $HEADER <<'EOF'
 #define R_LAST_OFFSET R_LDBASE_64_OFFSET
 #endif
 
-#if L_LMID_32_OFFSET > L_LMID_64_OFFSET
-#define L_LAST_OFFSET L_LMID_32_OFFSET
+#if L_NEXT_32_OFFSET > L_NEXT_64_OFFSET
+#define L_LAST_OFFSET L_NEXT_32_OFFSET
 #else
-#define L_LAST_OFFSET L_LMID_64_OFFSET
+#define L_LAST_OFFSET L_NEXT_64_OFFSET
 #endif
 
 /*
- * Index field sizes by native offset.
+ * Index field sizes by native offset.  (Only possible for those structures
+ * with a public definition outside glibc_internal_link.h.  Other structure
+ * offset computations must be done the ugly way.)
  *
  * This won't cope with unions, but will do for now, and frees us from
  * having to litter the code with ugly R_ and L_ constants.

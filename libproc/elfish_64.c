@@ -54,8 +54,11 @@
 #endif
 
 /*
- * Find the r_debug structure in a running, traced process.  Return -1 if none,
- * or if the process is not running.
+ * Find the r_debug structure for the base lmid in a running, traced process.
+ * Return -1 if none, or if the process is not running.
+ *
+ * r_debugs for lmids other than LM_ID_BASE require a different method:
+ * see rtld_db.c:ns_debug_addr().
  */
 uintptr_t
 BITIZE(r_debug)(struct ps_prochandle *P)

@@ -29,9 +29,11 @@
  */
 
 #include <unistd.h>
+#include <stdio.h>
 
 int main(void)
 {
 	sleep(10);
+	fprintf(stderr, "Exiting.\n");
 	return 0;
 }

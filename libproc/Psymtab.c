@@ -253,16 +253,24 @@ static prmap_file_t *Pprmap_file_by_name(struct ps_prochandle *P,
  * libraries and determine their load object names and lmids.
  */
 static int
-map_iter(const rd_loadobj_t *lop, void *prochandle)
+map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 {
 	char buf[PATH_MAX];
 	struct ps_prochandle *P = prochandle;
 	map_info_t *mptr;
 	file_info_t *fptr;
 
-	_dprintf("encountered rd object at %p\n", (void *)lop->rl_base);
+	_dprintf("encountered rd object with dyn at %p\n", (void *)lop->rl_dyn);
 
-	if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
+	/*
+	 * The first mptr is the executable itself: the second is the vdso.
+	 */
+	if (num == 0)
+	    mptr = &P->mappings[P->map_exec];
+	else if (num == 1) {
+		_dprintf("map_iter: skipping vdso\n");
+	    return (1);
+	} else if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
 		_dprintf("map_iter: base address doesn't match any mapping\n");
 		return (1);
 	}
