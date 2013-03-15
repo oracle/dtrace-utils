@@ -402,11 +402,17 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 
 /*
  * Wait for the process to stop for any reason, possibly blocking.
+ *
+ * (A blocking wait will be automatically followed by as many nonblocking waits
+ * as are necessary to drain the queue of requests.)
+ *
+ * Returns the number of state changes processed, or -1 on error.
  */
 int
 Pwait(struct ps_prochandle *P, boolean_t block)
 {
 	int err;
+	int num_waits = 0;
 	siginfo_t info;
 
 	info.si_pid = 0;
@@ -578,8 +584,19 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 		errno = EINVAL;
 		return (-1);
 	}
-	
-	return (0);
+
+	/*
+	 * Now repeatedly loop, processing more waits until none remain.
+	 */
+	if (block != 0) {
+		int this_wait;
+		do {
+			this_wait = Pwait(P, 0);
+			num_waits += this_wait;
+		} while (this_wait > 0);
+	}
+
+	return (num_waits + 1);
 }
 
 /*

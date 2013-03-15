@@ -17,6 +17,9 @@
 	(Pbuild_file_symtab): Call it to compute the file_dyn_base of
 	ld.so.
 
+	* libproc/Pcontrol.c (Pwait): Repeatedly self-invoke to drain all
+	outstanding state changes.
+
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while
