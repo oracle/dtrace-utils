@@ -25,7 +25,27 @@
 	(Punbkpt): Use it to determine whether to resume on breakpoint
 	removal.
 
-	(Pwait): Repeatedly self-invoke to drain all
+	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_consume): New
+	(ps_prochandle_t.singlestepped): Remove.
+	* libproc/Pcontrol.c (bkpt_handle_singlestep): Rename to...
+	(bkpt_handle_post_singlestep): ... this.  Remove 'singlestepped'.
+	(Pbkpt_continue_internal): Pass in the singlestepping state.
+	Adjust for renaming.
+	(bkpt_ip): New, split from...
+	(Pwait): ... here, with added optional ignoring of -ESRCH.  Reset
+	new state variables on exec().  Do not call breakpoint handlers
+	when bkpt_consume is set.
+	(Punbkpt): Remove 'singlestepped'.
+	(bkpt_flush): Likewise.
+	(bkpt_handle_start): Likewise. Adjust for renaming: always ask
+	Pbkpt_continue_internal() to singlestep.
+	(bkpt_handle): Adjust for renaming.
+	(Pbkpt_continue): Determine need for singlestep by inspection of
+	IP address.  Consume pending SIGTRAPs if singlestepping is not
+	needed.  Simply consume process state changes (and fire handlers)
+	if the process is still running.
+
+	* libproc/Pcontrol.c (Pwait): Repeatedly self-invoke to drain all
 	outstanding state changes.
 	(Pread_scalar): Fix indentation.
 

@@ -62,9 +62,11 @@ static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 static void Pfree(struct ps_prochandle *P);
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
 static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
-static int bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
-static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt);
+static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
+static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
+	int singlestep);
 static void bkpt_flush(struct ps_prochandle *P, int gone);
+static long bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 
 /*
  * This is the library's .init handler.
@@ -538,7 +540,11 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 			free(P->auxv);
 			P->auxv = NULL;
 			P->nauxv = 0;
+			P->tracing_bkpt = 0;
+			P->bkpt_halted = 0;
+			P->bkpt_consume = 0;
 			P->r_debug_addr = 0;
+			P->info_valid = 0;
 			P->ptrace_count = 1;
 			P->ptraced = TRUE;
 
@@ -551,28 +557,27 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 		}
 
 		/*
-		 * Breakpoint trap.  The kernel translates between 32- and 64-bit
-		 * regsets for us, but does not helpfully adjust for the fact
-		 * that the trap address needs adjustment on some platforms
-		 * before it will correspond to the address of the breakpoint.
+		 * Breakpoint trap.
 		 *
 		 * If we are in the midst of processing a breakpoint, we already
-		 * know our breakpoint address.
+		 * know our breakpoint address.  Otherwise, we must acquire the
+		 * tracee's IP address.
+		 *
+		 * If bkpt_consume is turned on, we want to simply consume the
+		 * trap without invoking the breakpoint handler.  (This is used
+		 * when doing a Pbkpt_continue() on a singlestepping SIGSTOPPed
+		 * process which may or may not already have trapped.)
 		 */
 
 		ip = P->tracing_bkpt;
 		if (ip == 0) {
-			errno = 0;
-			ip = ptrace(PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
-			if (errno != 0) {
-				_dprintf("Pwait: Unexpected ptrace (PTRACE_PEEKUSER) "
-				    "error: %s\n", strerror(errno));
+			ip = bkpt_ip(P, 0);
+			if (ip < 0)
 				return(-1);
-			}
-			ip += plat_trap_ip_adjust;
 		}
 
-		P->state = bkpt_handle(P, ip);
+		if (!P->bkpt_consume)
+			P->state = bkpt_handle(P, ip);
 
 		break;
 	}
@@ -696,7 +701,8 @@ err2:
  *
  * Lots of P->state comparisons are needed here, because a PTRACE_CONT is only
  * valid if the processe was stopped beforehand: otherwise, you get -ESRCH,
- * which is helpfully indistinguishable from the error when the process is dead.
+ * which is helpfully indistinguishable from the error you get when the process
+ * is dead.
  *
  * A state <0 is considered a sign that the original Ptrace() call failed, and
  * silently does nothing.
@@ -795,6 +801,30 @@ mask_bkpt(unsigned long word)
 	bkpt.insn = word;
 	memcpy(bkpt.bkpt, (char *) plat_bkpt, sizeof (plat_bkpt));
 	return bkpt.insn;
+}
+
+/*
+ * The kernel translates between 32- and 64-bit regsets for us, but does not
+ * helpfully adjust for the fact that the trap address needs adjustment on some
+ * platforms before it will correspond to the address of the breakpoint.
+ */
+static long
+bkpt_ip(struct ps_prochandle *P, int expect_esrch)
+{
+	long ip;
+	errno = 0;
+	ip = ptrace(PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
+	if ((errno == ESRCH) && (expect_esrch))
+	    return(0);
+
+	if (errno != 0) {
+		_dprintf("Unexpected ptrace (PTRACE_PEEKUSER) error: %s\n",
+		    strerror(errno));
+		return(-1);
+	}
+	ip += plat_trap_ip_adjust;
+
+	return ip;
 }
 
 /*
@@ -992,7 +1022,6 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 			}
 
 		P->tracing_bkpt = 0;
-		P->singlestepped = 0;
 		P->bkpt_halted = 0;
 
 		/*
@@ -1062,13 +1091,12 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 	}
 
 	P->tracing_bkpt = 0;
-	P->singlestepped = 0;
 	P->bkpt_halted = 0;
 	P->num_bkpts = 0;
 }
 
 /*
- * Handle a breakpoint.
+ * Handle a breakpoint, upon receipt of a SIGTRAP.
  *
  * Returns a process state.
  */
@@ -1082,7 +1110,7 @@ bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 	 * our caller knows what to do.
 	 */
 	if (P->tracing_bkpt == addr)
-		return bkpt_handle_singlestep(P,
+		return bkpt_handle_post_singlestep(P,
 		    bkpt_by_addr(P, P->tracing_bkpt, FALSE));
 	else {
 		bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
@@ -1156,11 +1184,12 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		}
 
 	P->tracing_bkpt = bkpt->bkpt_addr;
-	P->singlestepped = 0;
 
 	if (!bkpt->after_singlestep) {
 		int state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
 		    bkpt->bkpt_handler.bkpt_data);
+
+		_dprintf("%i: Breakpoint handler returned %i\n", P->pid, state);
 
 		if (state != PS_RUN) {
 			P->bkpt_halted = 1;
@@ -1177,21 +1206,21 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 			return PS_RUN;
 	}
 
-	return Pbkpt_continue_internal(P, bkpt);
+	return Pbkpt_continue_internal(P, bkpt, TRUE);
 }
 
 /*
- * Continue a process stopped at a breakpoint.
+ * Continue a process, possibly stopped at a breakpoint.
  */
 void
 Pbkpt_continue(struct ps_prochandle *P)
 {
 	bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
+	long ip;
 
 	if (!P->ptraced)
 		return;
 
-	P->bkpt_halted = 0;
 	/*
 	 * We don't know where we are.  We might not be stopped at a breakpoint
 	 * at all: we might not even be ptracing the process (or it might have
@@ -1221,23 +1250,50 @@ Pbkpt_continue(struct ps_prochandle *P)
 	}
 
 	/*
-	 * We are at a breakpoint locus.
+	 * We are at a breakpoint.  We could be stopped on the breakpoint locus,
+	 * or elsewhere, depending on whether we have singlestepped already and
+	 * on whether we were hit by a SIGSTOP while that happened: or we might
+	 * not be stopped at all.
+	 *
+	 * We can only determine this by comparing the current IP address with
+	 * the breakpoint address.
 	 */
-	P->state = Pbkpt_continue_internal(P, bkpt);
+
+	ip = bkpt_ip(P, 1);
+	if (ip == 0)
+		/*
+		 * Not stopped at all.  Just do a quick Pwait().
+		 */
+		Pwait(P, 0);
+	else if (ip == P->tracing_bkpt)
+		/*
+		 * Still need to singlestep.
+		 */
+		P->state = Pbkpt_continue_internal(P, bkpt, 1);
+	else {
+		/*
+		 * No need to singlestep, but may need to consume
+		 * a SIGTRAP.
+		 */
+		P->bkpt_consume = 1;
+		Pwait(P, 0);
+		P->bkpt_consume = 0;
+		P->state = Pbkpt_continue_internal(P, bkpt, 0);
+	}
 }
 
 /*
  * Continue a process stopped at a given breakpoint locus, resetting the
  * instruction pointer and issuing a singlestep if needed, or calling
- * bkpt_handle_singlestep() to call the breakpoint handler, poke the breakpoint
- * instruction back in, and resume execution.
+ * bkpt_handle_post_singlestep() to call the breakpoint handler, poke the
+ * breakpoint instruction back in, and resume execution.
  */
 static int
-Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt)
+Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt, int singlestep)
 {
-	if (!P->singlestepped) {
-		P->singlestepped = 1;
+	P->bkpt_halted = 0;
 
+	if (singlestep) {
 		if ((ptrace(PTRACE_POKEUSER, P->pid, PLAT_IP * sizeof (long),
 			    bkpt->bkpt_addr) == 0) &&
 		    (ptrace(PTRACE_SINGLESTEP, P->pid, 0, 0) == 0))
@@ -1248,24 +1304,28 @@ Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt)
 			return PS_TRACESTOP;
 	}
 
-	return bkpt_handle_singlestep(P, bkpt);
+	return bkpt_handle_post_singlestep(P, bkpt);
 }
 
 /*
- * Single-step past a breakpoint.  When called, we are known to have completed a
- * singlestep over the specified breakpoint and to be in trace-stop state.
+ * Do everything necessary after singlestepping past a breakpoint.  When called,
+ * we are known to have completed a singlestep over the specified breakpoint and
+ * to be in trace-stop state.
  *
  * Returns a process state.
  */
 static int
-bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
+bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 {
 	int state = PS_RUN;
 	int orig_insn;
 
-	if (bkpt->after_singlestep)
+	if (bkpt->after_singlestep) {
 		state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
 		    bkpt->bkpt_handler.bkpt_data);
+
+		_dprintf("%i: Breakpoint handler returned %i\n", P->pid, state);
+	}
 
 	/*
 	 * If the handler wants us to stay single-stepping, obey it.  (We assume
@@ -1295,9 +1355,11 @@ bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 
 	errno = 0;
 	orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
-	if (errno != 0)
+	if (errno != 0) {
 		_dprintf("Unexpected error re-peeking original instruction "
-		    "on PID %i: %s\n", P->pid, strerror(errno));
+		    "at %lx on PID %i: %s\n", bkpt->bkpt_addr, P->pid,
+		    strerror(errno));
+	}
 	else
 		bkpt->orig_insn = orig_insn;
 
@@ -1333,7 +1395,6 @@ bkpt_handle_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 * We are no longer stopped at a breakpoint.
 	 */
 	P->tracing_bkpt = 0;
-	P->singlestepped = 0;
 
 	if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
 		switch (errno) {

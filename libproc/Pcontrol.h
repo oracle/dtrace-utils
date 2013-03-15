@@ -208,9 +208,8 @@ struct ps_prochandle {
 	uint_t	num_bkpts;	/* number of active breakpoints */
 	uintptr_t tracing_bkpt;	/* address of breakpoint we are single-stepping
 				   past, if any */
-	int	singlestepped;	/* when tracing_bkpt, 1 iff we have done the
-				   singlestep. */
 	int	bkpt_halted;	/* halted at breakpoint by handler */
+	int	bkpt_consume;	/* Ask Pwait() to consume any breakpoint traps */
 	uintptr_t r_debug_addr;	/* address of r_debug in the child */
 	rd_agent_t *rap;	/* rtld_db state */
 	ssize_t map_exec;	/* the index of the executable mapping */
