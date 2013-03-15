@@ -17,7 +17,15 @@
 	(Pbuild_file_symtab): Call it to compute the file_dyn_base of
 	ld.so.
 
-	* libproc/Pcontrol.c (Pwait): Repeatedly self-invoke to drain all
+	* libproc/Pcontrol.h (ps_prochandle_t.ptrace_halted): New, set
+	when the process was halted via Ptrace() rather than a breakpoint.
+	* libproc/Pcontrol.c (Pcreate): Set it.
+	(Ptrace): Likewise.
+	(Puntrace): Likewise.
+	(Punbkpt): Use it to determine whether to resume on breakpoint
+	removal.
+
+	(Pwait): Repeatedly self-invoke to drain all
 	outstanding state changes.
 	(Pread_scalar): Fix indentation.
 

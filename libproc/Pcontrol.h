@@ -190,6 +190,7 @@ struct ps_prochandle {
 	int	state;		/* state of the process, see "libproc.h" */
 	int	ptraced;	/* true if ptrace-attached */
 	int	ptrace_count;	/* count of Ptrace() calls */
+	int	ptrace_halted;	/* true if halted by Ptrace() call */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	no_dyn;		/* true if this is probably a static lib */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */

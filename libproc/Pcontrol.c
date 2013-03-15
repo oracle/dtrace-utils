@@ -156,6 +156,7 @@ Pcreate(
 	P->state = PS_TRACESTOP;
 	P->ptrace_count++;
 	P->ptraced = TRUE;
+	P->ptrace_halted = TRUE;
 	P->pid = pid;
 	Psym_init(P);
 
@@ -638,6 +639,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 			return P->state;
 
 		state = P->state;
+		P->ptrace_halted = TRUE;
 		kill(P->pid, SIGSTOP);
 		Pwait(P, 1);
 		return state;
@@ -645,6 +647,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 
 	err = ptrace(PT_ATTACH, P->pid, 0, 0);
 
+	P->ptrace_halted = TRUE;
 	if ((!Pgrabbing) && (err < 0))
 		goto err2;
 
@@ -663,6 +666,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		int err;
 
 		err = ptrace(PTRACE_CONT, P->pid, 0, 0);
+		P->ptrace_halted = FALSE;
 		if (err < 0)
 			goto err;
 		Pwait(P, 1);
@@ -721,6 +725,7 @@ Puntrace(struct ps_prochandle *P, int state)
 			_dprintf("%i: Continuing because previous state was "
 			    "PS_RUN\n", P->pid);
 			Pbkpt_continue(P);
+			P->ptrace_halted = FALSE;
 		}
 		return;
 	}
@@ -735,15 +740,15 @@ Puntrace(struct ps_prochandle *P, int state)
 			Pbkpt_continue(P);
 			Pwait(P, 0);
 		}
-
 	} else {
-		_dprintf("%i: Detaching\n", P->pid);
+		_dprintf("%i: Detaching.\n", P->pid);
 		P->state = PS_RUN;
 		P->ptraced = FALSE;
 		if ((ptrace(PTRACE_DETACH, P->pid, 0, 0) < 0) &&
 		    (errno == ESRCH))
 			P->state = PS_DEAD;
 	}
+	P->ptrace_halted = FALSE;
 }
 
 /*
@@ -909,6 +914,7 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 {
 	bkpt_t *bkpt;
 	int orig_state;
+	int orig_ptrace_halted = P->ptrace_halted;
 
 	/*
 	 * Sanity check, twice, to avoid bugs leading to underflow.
@@ -988,7 +994,13 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		P->tracing_bkpt = 0;
 		P->singlestepped = 0;
 		P->bkpt_halted = 0;
-		orig_state = PS_RUN;
+
+		/*
+		 * If we were stopped by the breakpoint rather than by a nested
+		 * Ptrace(), set ourselves running again on Puntrace().
+		 */
+		if (!orig_ptrace_halted)
+			orig_state = PS_RUN;
 	}
 	if (bkpt->bkpt_handler.bkpt_cleanup)
 		bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
