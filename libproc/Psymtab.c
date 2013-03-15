@@ -60,13 +60,16 @@
 
 static map_info_t *object_to_map(struct ps_prochandle *, Lmid_t, const char *);
 static map_info_t *object_name_to_map(struct ps_prochandle *,
-	Lmid_t, const char *);
+    Lmid_t, const char *);
 static GElf_Sym *sym_by_name(sym_tbl_t *, const char *, GElf_Sym *, uint_t *);
 static file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
 static int byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname);
 static void optimize_symtab(sym_tbl_t *);
 static void Pbuild_file_symtab(struct ps_prochandle *, file_info_t *);
 static map_info_t *Paddr2mptr(struct ps_prochandle *P, uintptr_t addr);
+static int Pxlookup_by_name_internal(struct ps_prochandle *P, Lmid_t lmid,
+    const char *oname, const char *sname, int fixup_load_addr, GElf_Sym *symp,
+    prsyminfo_t *sip);
 
 #define	DATA_TYPES	\
 	((1 << STT_OBJECT) | (1 << STT_FUNC) | \
@@ -1487,24 +1490,27 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
 	}
 
 	*symbolp = *symp;
+
 	if (GELF_ST_TYPE(symbolp->st_info) != STT_TLS)
 		symbolp->st_value += fptr->file_dyn_base;
 
 	return (0);
 }
-
 /*
- * Search the process symbol tables looking for a symbol whose name matches the
+ * Search a specific symbol table looking for a symbol whose name matches the
  * specified name and whose object and link map optionally match the specified
  * parameters.  On success, the function returns 0 and fills in the GElf_Sym
- * symbol table entry.  On failure, -1 is returned.
+ * symbol table entry, optionally without applying any form of compensation for
+ * the load object's load address.  On failure, -1 is returned.
  */
-int
-Pxlookup_by_name(
+static int
+Pxlookup_by_name_internal(
 	struct ps_prochandle *P,
 	Lmid_t lmid,			/* link map to match, or -1 for any */
-	const char *oname,		/* load object name, or PR_OBJ_EVERY */
+	const char *oname,		/* load object name, PR_OBJ_EVERY, or
+					   PR_OBJ_LDSO */
 	const char *sname,		/* symbol name */
+	int fixup_load_addr,		/* compensate for load address */
 	GElf_Sym *symp,			/* returned symbol table entry */
 	prsyminfo_t *sip)		/* returned symbol info */
 {
@@ -1572,11 +1578,10 @@ Pxlookup_by_name(
 				sip->prs_lmid = fptr->file_lo == NULL ?
 				    LM_ID_BASE : fptr->file_lo->rl_lmident;
 			}
-		} else {
+		} else
 			continue;
-		}
 
-		if (GELF_ST_TYPE(symp->st_info) != STT_TLS)
+		if (fixup_load_addr && GELF_ST_TYPE(symp->st_info) != STT_TLS)
 			symp->st_value += fptr->file_dyn_base;
 
 		if (sym.st_shndx != SHN_UNDEF)
@@ -1597,6 +1602,26 @@ Pxlookup_by_name(
 	}
 
 	return (rv);
+}
+
+/*
+ * Search the process symbol tables looking for a symbol whose name matches the
+ * specified name and whose object and link map optionally match the specified
+ * parameters.  On success, the function returns 0 and fills in the GElf_Sym
+ * symbol table entry.  On failure, -1 is returned.
+ */
+int
+Pxlookup_by_name(
+	struct ps_prochandle *P,
+	Lmid_t lmid,			/* link map to match, or -1 for any */
+	const char *oname,		/* load object name, PR_OBJ_EVERY, or
+					   PR_OBJ_LDSO */
+	const char *sname,		/* symbol name */
+	GElf_Sym *symp,			/* returned symbol table entry */
+	prsyminfo_t *sip)		/* returned symbol info */
+{
+	return Pxlookup_by_name_internal (P, lmid, oname, sname, TRUE,
+	    symp, sip);
 }
 
 /*

@@ -10,6 +10,11 @@
 	(Pbuild_file_symtab): Fix faulty recursion if a breakpoint handler
 	looks up a name.
 
+	(Pxlookup_by_name): Rename to...
+	(Pxlookup_by_name_internal): ... this, adding fixup_load_addr
+	parameter.
+	(Pxlookup_by_name): New wrapper.
+
 2013-02-21  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.bkpt_halted): New, set while
