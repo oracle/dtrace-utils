@@ -662,7 +662,6 @@ uint_t _dtrace_pidlrulim = 8;	/* default number of pid handles to cache */
 size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
-int _dtrace_debug = 0;		/* debug messages enabled (off) */
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 
 typedef struct dt_fdlist {
@@ -670,13 +669,6 @@ typedef struct dt_fdlist {
 	uint_t df_ents;		/* number of valid elements in df_fds[] */
 	uint_t df_size;		/* size of df_fds[] */
 } dt_fdlist_t;
-
-_dt_constructor_(_dtrace_init)
-void
-_dtrace_init(void)
-{
-	_dtrace_debug = getenv("DTRACE_DEBUG") != NULL;
-}
 
 static dtrace_hdl_t *
 set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
@@ -1362,6 +1354,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_kernpaths);
 	free(dtp->dt_provs);
 	free(dtp);
+
+	dt_debug_dump(0);
 }
 
 int

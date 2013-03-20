@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010, 2011, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -57,6 +57,7 @@ extern "C" {
 #include <dt_proc.h>
 #include <dt_dof.h>
 #include <dt_pcb.h>
+#include <dt_debug.h>
 
 struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */
@@ -607,9 +608,6 @@ extern uint64_t dt_stddev(uint64_t *, uint64_t);
 
 extern int dt_options_load(dtrace_hdl_t *);
 
-_dt_printflike_(1,2)
-extern void dt_dprintf(const char *, ...);
-
 extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
@@ -674,7 +672,6 @@ extern int _dtrace_intbuckets;		/* number of hash buckets for ints */
 extern uint_t _dtrace_stkindent;	/* default indent for stack/ustack */
 extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
-extern int _dtrace_debug;		/* debugging messages enabled */
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */
 

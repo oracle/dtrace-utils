@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2007, 2011, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011 -- 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -594,6 +594,8 @@ extern int dtrace_provider_modules(dtrace_hdl_t *dtp, const char **mods,
 
 extern const char *const _dtrace_version;
 extern int _dtrace_debug;
+
+extern void dtrace_debug_set_dump_sig(int signal);
 
 #ifdef	__cplusplus
 }

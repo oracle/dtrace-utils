@@ -45,6 +45,7 @@ LIBDTRACE_1.0 {
 	dtrace_consume;
 	dtrace_ctlfd;
 	_dtrace_debug;
+	dtrace_debug_set_dump_sig;
 	dtrace_desc2str;
 	dtrace_dof_create;
 	dtrace_dof_destroy;

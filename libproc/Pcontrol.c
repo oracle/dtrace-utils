@@ -47,13 +47,13 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 
+#include <dt_debug.h>
+
 #include <mutex.h>
 #include <platform.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
-
-int	_libproc_debug;		/* set non-zero to enable debugging printfs */
 
 char	procfs_path[PATH_MAX] = "/proc";
 
@@ -68,32 +68,18 @@ static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
 static void bkpt_flush(struct ps_prochandle *P, int gone);
 static long bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 
-/*
- * This is the library's .init handler.
- */
-_dt_constructor_(_libproc_init)
-static void
-_libproc_init(void)
-{
-	_libproc_debug = getenv("DTRACE_DEBUG") != NULL;
-}
-
-/*
- * If _libproc_debug is set, printf the debug message to stderr
- * with an appropriate prefix.
- */
 _dt_printflike_(1,2)
 void
 _dprintf(const char *format, ...)
 {
-       if (_libproc_debug) {
-               va_list alist;
+	va_list alist;
 
-               va_start(alist, format);
-               fputs("libproc DEBUG: ", stderr);
-               vfprintf(stderr, format, alist);
-               va_end(alist);
-       }
+	if (!_dtrace_debug)
+		return;
+
+	va_start(alist, format);
+	dt_debug_printf("libproc", format, alist);
+	va_end(alist);
 }
 
 /*
@@ -389,6 +375,9 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 		_dprintf("Prelease: releasing handle %p of dead pid %d\n",
 		    (void *)P, (int)P->pid);
 		Pfree(P);
+
+		dt_debug_dump(0);
+
 		return;
 	}
 
@@ -401,6 +390,8 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 		ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
 
 	Pfree(P);
+
+	dt_debug_dump(0);
 }
 
 /*

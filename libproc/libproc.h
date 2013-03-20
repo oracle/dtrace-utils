@@ -65,8 +65,6 @@ extern "C" {
 struct ps_prochandle;
 typedef struct ps_prochandle ps_prochandle;
 
-extern	int	_libproc_debug;	/* set non-zero to enable debugging fprintfs */
-
 #if defined(__sparc)
 #define	R_RVAL1	R_O0		/* register holding a function return value */
 #define	R_RVAL2	R_O1		/* 32 more bits for a 64-bit return value */

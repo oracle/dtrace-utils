@@ -1,8 +1,29 @@
 2013-03-20  Nick Alcock  <nick.alcock@oracle.com>
 
-	* libproc/dt_open.c (_dtrace_init): rd_init() no longer exists: do
-	not use it.
-	(_dtrace_rdvers): Likewise.
+	* libdtrace/dt_debug.c: New file, ring-buffer-based signal-to-dump
+	debugging machinery.
+	* libdtrace/dt_debug.h: Header for it.
+	* libdtrace/Build: Add it, and reflow libdtrace-build_SOURCES.
+
+	* libdtrace/dt_open.c (_dtrace_rdvers): Remove, unused.
+	(dtrace_close): Flush the ring buffer.
+	(_dtrace_init): rd_init() no longer exists: do not use it. Move to
+	dt_debug.c, and rename to _dtrace_debug_init.
+	* libdtrace/dt_subr.c (dt_dprintf): Move to dt_debug.c, and
+	reimplement in terms of new lower-level dt_debug_printf().
+	* libdtrace/dt_impl.h: Inlude dt_debug.h.  Move debugging prototypes
+	there.
+
+	* libproc/libproc.h (_libproc_debug): Remove.
+	* libproc/Pcontrol.c (_libproc_debug): Likewise.
+	(_libproc_init): Likewise.
+	(_dprintf): Reimplement in terms of dt_debug_printf().
+	(Prelease): Flush the ring buffer.
+
+	* libdtrace/dtrace.h (dtrace_debug_set_dump_sig): New public
+	interface.
+	* libdtrace/libdtrace.ver: Add it.
+	* INCOMPATIBILITIES: Mention it.
 
 2013-03-15  Nick Alcock  <nick.alcock@oracle.com>
 

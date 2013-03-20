@@ -149,6 +149,16 @@ st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
 
+There is a new dtrace_debug_set_dump_sig() function, which sets the signal (by
+default SIGUSR1); when DTRACE_DEBUG=signal is set in the environment at startup,
+debugging output then goes into a ring buffer which is dumped to stderr when
+this signal is sent.  If set to 0, this debugging facility is disabled.  (The
+buffer is also dumped on dtrace_close() and on disconnection from traced
+processes.)
+
+The ring buffer is 100Mb long, by default: the optional DTRACE_DEBUG_BUF_SIZE
+environment variable gives a new size, in Mb.
+
 Incompatible behaviour for specific probes
 ------------------------------------------
 proc:::signal-discard

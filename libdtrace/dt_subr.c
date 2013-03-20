@@ -457,21 +457,6 @@ dt_cpp_pop_arg(dtrace_hdl_t *dtp)
 	return (arg);
 }
 
-/*PRINTFLIKE1*/
-_dt_printflike_(1,2)
-void
-dt_dprintf(const char *format, ...)
-{
-	if (_dtrace_debug) {
-		va_list alist;
-
-		va_start(alist, format);
-		(void) fputs("libdtrace DEBUG: ", stderr);
-		(void) vfprintf(stderr, format, alist);
-		va_end(alist);
-	}
-}
-
 int
 dt_ioctl(dtrace_hdl_t *dtp, unsigned long int val, void *arg)
 {
