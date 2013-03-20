@@ -35,17 +35,20 @@
 
 static int nonzero;
 static int lmids_fell;
+static int many_lmids;
 
 static int
 print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 {
-	static long highest_lmid;
+	static long highest;
 	struct ps_prochandle *P = p;
 	char buf[PATH_MAX];
 
 	/*
 	 * Only print info for libraries until we start to see LMIDs lower than
-	 * we already have, to avoid flooding the log
+	 * we already have, to avoid flooding the log.  (If multiple lmids are
+	 * not in use, use the iteration counter instead: lmids_fell is a
+	 * misnomer in this case.)
 	 *
 	 * (We still traverse all others and read their strings, thus testing
 	 * that the link map is in fact uncorrupted.)
@@ -57,10 +60,13 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 		return (0);
 	}
 
-	if (highest_lmid > loadobj->rl_lmident)
+	if ((many_lmids && highest > loadobj->rl_lmident) ||
+	    (!many_lmids && highest > num))
 		lmids_fell = 1;
+	else if (many_lmids)
+		highest = loadobj->rl_lmident;
 	else
-		highest_lmid = loadobj->rl_lmident;
+		highest = num;
 
 	if (loadobj->rl_lmident != 0)
 		nonzero++;
@@ -99,6 +105,9 @@ int main(int argc, char *argv[])
 	struct ps_prochandle *P;
 	struct rd_agent *rd;
 	int err;
+	int implausibly_low;
+
+	many_lmids = (getenv("MANY_LMIDS") != NULL);
 
 	if (argc < 2) {
 		fprintf(stderr, "Syntax: libproc-consistency process [args ...]\n");
@@ -149,19 +158,29 @@ int main(int argc, char *argv[])
 
 	/*
 	 * Spot an outright failure to latch the dynamic linker state
-	 * breakpoint.
+	 * breakpoint.  Use a much lower definition of 'implausibly low' when
+	 * multiple lmids are in use, because the child spends so much time
+	 * halted in that case.
 	 */
 
-	if (adds_seen < 50 || deletes_seen < 50 || stables_seen < 50) {
+	implausibly_low = (many_lmids ? 5 : 50);
+
+	if (adds_seen < implausibly_low ||
+	    deletes_seen < implausibly_low ||
+	    stables_seen < implausibly_low) {
 		fprintf(stderr, "Implausibly few adds/deletes/stables seen\n");
 		err = 1;
 	}
 
 	/*
-	 * Spot a failure to traverse nonzero lmids.
+	 * Spot a failure to traverse nonzero lmids -- or, if many_lmids is off,
+	 * spot any nonzero lmids at all.
 	 */
-	if (nonzero == 0) {
+	if (many_lmids && nonzero == 0) {
 		fprintf(stderr, "No nonzero lmids seen!");
+		err = 1;
+	} else if (!many_lmids && nonzero != 0) {
+		fprintf(stderr, "Nonzero lmids seen!");
 		err = 1;
 	}
 

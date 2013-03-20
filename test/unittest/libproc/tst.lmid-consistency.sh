@@ -26,12 +26,10 @@
 
 #
 # This script tests that libproc can still track the state of the link map when
-# it is continuously changing.  We turn LD_AUDIT off first to make sure that
-# only one lmid is in use.
+# it is continuously changing, even when lmids != 0 are in use.
 #
 
 # @@timeout: 25
 
-unset LD_AUDIT
-
+export MANY_LMIDS=t
 exec test/triggers/libproc-consistency test/triggers/libproc-dlmadopen

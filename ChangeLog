@@ -25,6 +25,18 @@
 	* libdtrace/libdtrace.ver: Add it.
 	* INCOMPATIBILITIES: Mention it.
 
+	* test/triggers/libproc-dlmadopen.c: Do not dlmopen() unless
+	MANY_LMIDS is set.
+	* test/triggers/libproc-consistency.c: Expect fewer
+	dlopen()/dlclose() calls when MANY_LMIDS is set.  Do not use
+	nonzero lmids as a trigger to suppress log output if MANY_LMIDS is
+	not set.
+	* test/unittest/libproc/tst.lmid-consistency.sh: New test,
+	testing nonzero lmid link map consistency, setting MANY_LMIDS.
+	test/unittest/libproc/tst.consistency.sh: Unset LD_AUDIT to be
+	reasonably sure that glibc does not spontaneously create nonzero
+	lmids for us.
+
 2013-03-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (map_iter): Allow a null string.

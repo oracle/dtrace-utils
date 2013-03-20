@@ -47,6 +47,7 @@ int main (int argc, char *argv[])
 	char *error;
 	int load_count = 0;
 	int unload_count = 0;
+	int many_lmids = (getenv("MANY_LMIDS") != NULL);
 
 	if (argc == 2)
 		start.tv_sec = strtol(argv[1], NULL, 10);
@@ -82,7 +83,7 @@ int main (int argc, char *argv[])
 		}
 
 		dlerror();
-		if (loaded[n] == NULL) {
+		if (many_lmids && loaded[n] == NULL) {
 			loaded[n] = dlmopen(lmids[n], "build/libproc-dlmlib.so.0", RTLD_NOW);
 			fprintf(stderr, "opened in lmid %i: %p\n", n, loaded[n]);
 		}
