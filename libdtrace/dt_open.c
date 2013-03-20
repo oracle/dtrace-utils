@@ -664,9 +664,6 @@ int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
 int _dtrace_debug = 0;		/* debug messages enabled (off) */
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
-#if defined(sun)
-int _dtrace_rdvers = RD_VERSION; /* rtld_db feature version */
-#endif
 
 typedef struct dt_fdlist {
 	int *df_fds;		/* array of provider driver file descriptors */
@@ -679,12 +676,6 @@ void
 _dtrace_init(void)
 {
 	_dtrace_debug = getenv("DTRACE_DEBUG") != NULL;
-#if 0
-	for (; _dtrace_rdvers > 0; _dtrace_rdvers--) {
-		if (rd_init(_dtrace_rdvers) == RD_OK)
-			break;
-	}
-#endif
 }
 
 static dtrace_hdl_t *

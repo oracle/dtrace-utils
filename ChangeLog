@@ -1,3 +1,9 @@
+2013-03-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/dt_open.c (_dtrace_init): rd_init() no longer exists: do
+	not use it.
+	(_dtrace_rdvers): Likewise.
+
 2013-03-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (map_iter): Allow a null string.
