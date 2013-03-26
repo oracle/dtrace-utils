@@ -1,3 +1,8 @@
+2013-03-26  Nick Alcock  <nick.alcock@oracle.com>
+
+	* dtrace-utils.spec (Requires): Ask for 32-bit dependencies
+	correctly.
+
 2013-03-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_debug.c: New file, ring-buffer-based signal-to-dump
