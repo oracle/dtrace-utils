@@ -82,6 +82,17 @@ typedef struct sym_tbl {	/* symbol table */
 	size_t	sym_count;	/* number of symbols in each sorted list */
 } sym_tbl_t;
 
+/*
+ * This structure persists even across shared library loads and unloads: it is
+ * reference-counted by file_ref and deallocated only when this reaches zero.
+ *
+ * However, file_lo and file_symsearch have different lifetimes: as with the
+ * map_info, the latter is discarded whenever !ps_prochandle_t.info_valid, and
+ * the former is malloced only once but is overwritten whenever a map_iter() is
+ * carried out (generally right after info_valid becomes 1 again).  Within the
+ * file_lo, rl_scope is also dynamically allocated, but is freed and reallocated
+ * whenever map_iter() is run.
+ */
 struct map_info;
 typedef struct file_info {	/* symbol information for a mapped file */
 	dt_list_t file_list;	/* linked list */
@@ -97,6 +108,8 @@ typedef struct file_info {	/* symbol information for a mapped file */
 	char	*file_lname;	/* load object name from rtld_db */
 	char	*file_lbase;	/* pointer to basename of file_lname */
 	Elf	*file_elf;	/* ELF handle */
+	struct file_info **file_symsearch; /* Symbol search path */
+	unsigned int file_nsymsearch; /* number of items therein */
 	sym_tbl_t file_symtab;	/* symbol table */
 	sym_tbl_t file_dynsym;	/* dynamic symbol table */
 	uintptr_t file_dyn_base;	/* load address for ET_DYN files */

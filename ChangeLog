@@ -39,6 +39,26 @@
 	scopes.
 	* test/unittest/libproc/test.pldd*.r: Adjust accordingly.
 
+	Name lookups along symbol lookup scopes.
+
+	* libproc/Pcontrol.h (file_info_t): Describe lifetime rules.
+	(file_info_t.file_symsearch): New element, symbol search path.
+	(file_info_t.file_nsymsearch): Length of that path.
+
+	* libproc/Psymtab.c (map_iter): Copy the rl_scope in our copy of
+	the received rd_loadobj_t, to avoid its being overwritten.  Free
+	that copy on every subsequent invocation for a given library.
+	(file_info_del): Free the copy on file_info deletion.
+	(mapping_purge): Also free it on mapping purge.
+	(Pupdate_symsearch): Populate it, if possible.
+	(sym_search_iter_t): State for the symbol search iterator.
+	(sym_search_next): New, symbol search iterator following
+	search paths.
+	(Pxlookup_by_name_internal): Use it rather than counting.  Global
+	searches no longer iterate over the whole list, but over the
+	executable's symbol search path. Call Pupdate_symsearch() when
+	doing global searches.
+
 2013-03-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (Requires): Ask for 32-bit dependencies

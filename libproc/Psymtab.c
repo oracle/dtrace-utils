@@ -137,9 +137,13 @@ file_info_del(struct ps_prochandle *P, file_info_t *fptr)
 	free(fptr->file_dynsym.sym_byname);
 	free(fptr->file_dynsym.sym_byaddr);
 
+	if (fptr->file_lo)
+		free(fptr->file_lo->rl_scope);
+
 	free(fptr->file_lo);
 	free(fptr->file_lname);
 	free(fptr->file_pname);
+	free(fptr->file_symsearch);
 	elf_end(fptr->file_elf);
 	free(fptr);
 	P->num_files--;
@@ -167,9 +171,10 @@ file_info_purge(struct ps_prochandle *P)
 
 
 /*
- * Deallocates all map_info_t, prmap_file_t and prmaps from a prochandle.  Does
- * not free file_info_t's; use file_info_purge() for that.  Does not free the
- * mapping array itself because it will often be reused immediately.
+ * Deallocates all map_info_t, prmap_file_t, prmaps, and search paths from a
+ * prochandle.  Does not free file_info_t's, except for their search path
+ * components; use file_info_purge() for that.  Does not free the mapping array
+ * itself because it will often be reused immediately.
  */
 static void
 mapping_purge(struct ps_prochandle *P)
@@ -199,6 +204,15 @@ mapping_purge(struct ps_prochandle *P)
 	}
 
 	memset(P->map_files, 0, sizeof (struct prmap_file *) * MAP_HASH_BUCKETS);
+
+	for (i = 0, fptr = dt_list_next(&P->file_list);
+	     i < P->num_files; i++, fptr = dt_list_next(fptr)) {
+		if (fptr->file_symsearch) {
+			free(fptr->file_symsearch);
+			fptr->file_symsearch = NULL;
+			fptr->file_nsymsearch = 0;
+		}
+	}
 
 	P->map_exec = -1;
 	P->map_ldso = -1;
@@ -259,6 +273,7 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 	struct ps_prochandle *P = prochandle;
 	map_info_t *mptr;
 	file_info_t *fptr;
+	size_t scopes_size;
 
 	_dprintf("encountered rd object with dyn at %p\n", (void *)lop->rl_dyn);
 
@@ -282,8 +297,13 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 
 	fptr = mptr->map_file;
 
-	if ((fptr->file_lo == NULL) &&
-	    (fptr->file_lo = malloc(sizeof (rd_loadobj_t))) == NULL) {
+	/*
+	 * Allocate a new file_lo, or free its dynamically allocated interior
+	 * structure if already allocated.
+	 */
+	if (fptr->file_lo != NULL) {
+		free(fptr->file_lo->rl_scope);
+	} else if ((fptr->file_lo = malloc(sizeof (rd_loadobj_t))) == NULL) {
 		_dprintf("map_iter: failed to allocate rd_loadobj_t\n");
 		return (1);
 	}
@@ -305,9 +325,93 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 		    (void *)lop->rl_nameaddr);
 	}
 
+	/*
+	 * We must take a copy of rl_scope, since it is aggressively reused by
+	 * rtld_db.
+	 */
+	scopes_size = lop->rl_nscopes * sizeof(uintptr_t);
+	fptr->file_lo->rl_scope = malloc(scopes_size);
+
+	if (!fptr->file_lo->rl_scope) {
+		_dprintf("map_iter: failed to allocate raw symbol search "
+		    "path\n");
+		return (1);
+	}
+	memcpy(fptr->file_lo->rl_scope, lop->rl_scope, scopes_size);
+
 	_dprintf("loaded rd object %s lmid %lx\n",
 	    fptr->file_lname ? fptr->file_lname : "<NULL>", lop->rl_lmident);
 	return (1);
+}
+
+/*
+ * Compute the file_symsearch for a given file_info.
+ *
+ * This is expensive to construct, and is only needed for a few file_info
+ * instances, so is lazily constructed here.
+ */
+static void
+Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
+{
+	rd_loadobj_t scope_lo = {0};
+	size_t i = 0;
+
+	if (fptr->file_symsearch)
+		return;
+
+	fptr->file_symsearch = calloc(fptr->file_lo->rl_nscopes,
+	    sizeof (struct file_info *));
+
+	/*
+	 * Failure to allocate here is particularly serious because all symbol
+	 * lookups in this context will fail, and we already know that at least
+	 * one is wanted.
+	 */
+	if (!fptr->file_symsearch) {
+		fprintf(stderr, "Cannot allocate %li bytes for symbol search "
+		    "path for library with soname %s\n",
+		    fptr->file_lo->rl_nscopes * sizeof (struct file_info *),
+		    fptr->file_lbase);
+		exit(1);
+	}
+
+	/*
+	 * Simply skip scopes we can't read out.  There's no point making a fuss
+	 * if we can't a few of them, since the target process may have mutated
+	 * them since we read them in, and aborting is excessive.  This means
+	 * we'll often allocate a little too much space. That's not a problem.
+	 */
+	for (i = 0; i < fptr->file_lo->rl_nscopes; i++) {
+		map_info_t *mptr;
+
+		if (rd_get_scope(P->rap, &scope_lo, fptr->file_lo,
+			i) == NULL) {
+			_dprintf("Cannot read scope %lu in symbol search path "
+			    "for library with soname %s\n", i,
+			    fptr->file_lbase);
+			continue;
+		}
+
+		/*
+		 * In map_iter(), we have special cases for the vdso (skipping
+		 * it) and for the executable, because we wanted to get info on
+		 * it even if it had no dynamic section (and thus no rl_dyn).
+		 * Here, we will simply skip any scope we cannot find, so a
+		 * special case for the vdso is redundant; and a special case
+		 * for the executable is pointless because if it has no dynamic
+		 * section we cannot look up symbols in it anyway.
+		 *
+		 * TODO: if/when we get .ldynsym support, this needs rethinking,
+		 *       since that will not affect rl_dyn but will nonetheless
+		 *       permit symbol lookup in the executable.
+		 */
+
+		if (((mptr = Paddr2mptr(P, fptr->file_lo->rl_dyn)) == NULL) ||
+		    mptr->map_file == NULL)
+			continue;
+
+		fptr->file_symsearch[fptr->file_nsymsearch++] = mptr->map_file;
+	}
 }
 
 /*
@@ -1461,6 +1565,89 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 }
 
 /*
+ * State for the symbol search iterator.
+ */
+typedef struct sym_search_iter {
+	enum { SSI_START, SSI_PATH, SSI_START_LINEAR, SSI_LINEAR, SSI_END } ssi_state;
+	size_t path_index;
+	file_info_t *fptr;
+} sym_search_iter_t;
+
+/*
+ * An iterator over file_info_t's, scanning the symbol search path from a given
+ * point, then every library in turn.  Symbols may be returned more than once.
+ */
+static file_info_t *
+sym_search_next(struct ps_prochandle *P, file_info_t *fptr,
+    sym_search_iter_t *state, int just_one)
+{
+	/*
+	 * Trivial case first: just_one alternates between returning what is
+	 * passed in, and returning NULL (to end the loop).
+	 */
+	if (just_one) {
+		if (state->ssi_state == SSI_START) {
+			state->ssi_state = SSI_END;
+			return fptr;
+		} else {
+			state->ssi_state = SSI_START;
+			return NULL;
+		}
+	}
+
+	/*
+	 * Start: first hit is always ourself.
+	 */
+	if (state->ssi_state == SSI_START) {
+		state->fptr = fptr;
+		state->path_index = 0;
+
+		if (fptr->file_nsymsearch == 0)
+			state->ssi_state = SSI_PATH;
+		else
+			state->ssi_state = SSI_START_LINEAR;
+
+		return fptr;
+	}
+
+	switch (state->ssi_state) {
+	case SSI_START: /* can never happen: quash a warning */
+	case SSI_PATH: {
+		file_info_t *ret = fptr->file_symsearch[state->path_index++];
+
+		if (state->fptr->file_nsymsearch < state->path_index) {
+			state->ssi_state = SSI_START_LINEAR;
+		}
+		return ret;
+	}
+	case SSI_START_LINEAR:
+		state->path_index = 0;
+		state->fptr = (file_info_t *) &P->file_list;
+		state->ssi_state = SSI_LINEAR;
+		/* Fall through */
+
+	case SSI_LINEAR:
+		if (state->path_index++ < P->num_files) {
+			state->fptr = dt_list_next(state->fptr);
+		} else {
+			state->ssi_state = SSI_END;
+			state->fptr = NULL;
+		}
+		return state->fptr;
+
+	case SSI_END:
+		state->ssi_state = SSI_START;
+		state->path_index = 0;
+		return NULL;
+	}
+
+	/*
+	 * This can never happen.
+	 */
+	return NULL;
+}
+
+/*
  * Search the process symbol tables looking for a symbol whose
  * value to value+size contain the address specified by addr.
  * Return values are:
@@ -1544,9 +1731,9 @@ Pxlookup_by_name_internal(
 	GElf_Sym *symp,			/* returned symbol table entry */
 	prsyminfo_t *sip)		/* returned symbol info */
 {
-	map_info_t *mptr;
 	file_info_t *fptr;
-	int cnt;
+	int just_one = 0;
+	sym_search_iter_t state = {0};
 
 	GElf_Sym sym;
 	prsyminfo_t si;
@@ -1560,14 +1747,26 @@ Pxlookup_by_name_internal(
 		/* create all the file_info_t's for all the mappings */
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
-		cnt = P->num_files;
-		fptr = dt_list_next(&P->file_list);
+
+		/*
+		 * Start from the executable mapping, if known.
+		 */
+		if ((P->map_exec != -1) &&
+		    (P->mappings[P->map_exec].map_file != NULL))
+			fptr = P->mappings[P->map_exec].map_file;
+		else
+			fptr = dt_list_next(&P->file_list);
+
+		Pupdate_symsearch(P, fptr);
 	} else {
-		cnt = 1;
+		map_info_t *mptr;
+
+		just_one = 1;
 		if ((mptr = object_name_to_map(P, lmid, oname)) == NULL)
 			return (-1);
 
 		fptr = mptr->map_file;
+
 		Pbuild_file_symtab(P, fptr);
 	}
 
@@ -1578,7 +1777,7 @@ Pxlookup_by_name_internal(
 	 * This means that a name such as "puts" will match the puts function
 	 * in libc instead of matching the puts PLT entry in the a.out file.
 	 */
-	for (; cnt > 0; cnt--, fptr = dt_list_next(fptr)) {
+	while ((fptr = sym_search_next(P, fptr, &state, just_one)) != NULL) {
 		Pbuild_file_symtab(P, fptr);
 
 		if (fptr->file_elf == NULL)
