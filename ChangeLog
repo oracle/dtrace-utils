@@ -3,6 +3,42 @@
 	* libproc/Pcontrol.c (Ptrace): Do not trigger a SIGSTOP if we are
 	already in SIGSTOPped state.
 
+	Symbol lookup scope support in rtld_db.
+
+	* include/i386/platform.h (DT_THISPROCNUM): Define.
+	* include/rtld_db.h (rd_loadobj_t.rl_scope). New, pointers to
+	search scopes in victim.
+	(rd_loadobj_t.rl_nscopes): New, number of scopes.
+	(rd_loadobj_t.rl_default_scope): New, 1 if this scope is a
+	clone of the lmid's default.
+	(rd_loadobj_t.rl_nscopes_alloced): New, number of scopes allocated
+	in rl_nscopes (some of which may be unused or stale).
+	(rd_get_scope): New prototype.
+
+	* include/sys/glibc_internal_link.h (r_scope_elem): New, a search
+	scope element in the dynamic linker.
+	(internal_link_map): New, the glibc link map structure with
+	private elements up to l_searchlist.
+	* libproc/mkoffsets.sh: Add internal_link_map (header only, no
+	offset array support since that is not useful for things which
+	are only defined in glibc_internal_link.h).
+	* libproc/rtld_db.c (link_map): Rename to...
+	(first_link_map): ... this better name.
+	(rd_get_link_map): New, get a link map given an
+	address. Refactored from...
+	(rd_loadobj_iter): ... here.
+	(rd_get_loadobj_link_map): New, populate loadobj given link map
+	and address, expanding the scopes array only as necessary.
+	(rd_get_scope): New, use these new functions, populating lmident
+	ourself (always the same as the loadobj we are looking in).
+	(rd_loadobj_iter): Likewise.  Track the first scope in each
+	lmid and substitute it into all libs in that lmid which have
+	no scopes of their own.
+
+	* test/triggers/libproc-pldd.c: Print out the symbol search
+	scopes.
+	* test/unittest/libproc/test.pldd*.r: Adjust accordingly.
+
 2013-03-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (Requires): Ask for 32-bit dependencies

@@ -35,50 +35,68 @@
 
 static int libs_seen;
 
-static int
-print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
-{
-	struct ps_prochandle *P = p;
-	char buf[PATH_MAX];
+struct rd_and_p {
+	struct ps_prochandle *P;
+	rd_agent_t *rd;
+};
 
-	if (Pread_string(P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
+static int
+print_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
+{
+	struct rd_and_p *rp = state;
+	size_t i;
+	char buf[PATH_MAX];
+	rd_loadobj_t scope = {0};
+
+	if (Pread_string(rp->P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
 		fprintf(stderr, "Failed to read string at %lx\n",
 		    loadobj->rl_nameaddr);
 		return (0);
 	}
 
-	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li\n", buf, loadobj->rl_dyn,
-	    loadobj->rl_diff_addr, loadobj->rl_lmident);
+	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li: %s (", buf, loadobj->rl_dyn,
+	    loadobj->rl_diff_addr, loadobj->rl_lmident, loadobj->rl_default_scope ?
+	    "inherited symbol search path: ": "symbol search path: ");
+
+	for (i = 0; i < loadobj->rl_nscopes; i++) {
+		if (rd_get_scope(rp->rd, &scope, loadobj, i) == NULL)
+			fprintf(stderr, "Scope %li -> NULL\n", i);
+		else {
+			if (Pread_string(rp->P, buf, sizeof (buf), scope.rl_nameaddr) < 0) {
+				fprintf(stderr, "Failed to read string at %lx\n",
+				    scope.rl_nameaddr);
+				return (0);
+			}
+			printf("%s%s", i > 0 ? ", ": "", buf);
+		}
+	}
+	free(scope.rl_scope);
+	printf(")\n");
+	libs_seen++;
+	return (1);
+}
+
+static int
+note_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
+{
+	struct rd_and_p *rp = state;
+	char buf[PATH_MAX];
+
+	if (Pread_string(rp->P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
+		fprintf(stderr, "Failed to read string at %lx\n",
+		    loadobj->rl_nameaddr);
+		return (0);
+	}
 
 	libs_seen++;
 	return (1);
 }
 
 static int
-note_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
-{
-	struct ps_prochandle *P = p;
-	char buf[PATH_MAX];
-
-	if (Pread_string(P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
-		fprintf(stderr, "Failed to read string at %lx\n",
-		    loadobj->rl_nameaddr);
-		return (0);
-	}
-
-	libs_seen++;
-	return (1);
-}
-
-static int
-do_nothing(const rd_loadobj_t *loadobj, size_t num, void *p)
+do_nothing(const rd_loadobj_t *loadobj, size_t num, void *state)
 {
     return (1);
 }
-struct rd_agent {
-	struct ps_prochandle *P;	/* pointer back to our ps_prochandle */
-	/* other stuff ... */
-};
 
 int
 main(int argc, char *argv[])
@@ -88,6 +106,7 @@ main(int argc, char *argv[])
 	struct rd_agent *rd;
 	int err;
 	int really_seen;
+	struct rd_and_p rp;
 
 	if (argc < 2) {
 		fprintf(stderr, "Syntax: libproc-pldd PID | process [args ...]\n");
@@ -112,12 +131,14 @@ main(int argc, char *argv[])
 		return (1);
 	}
 
+	rp.P = P;
+	rp.rd = rd;
 	/*
 	 * Iterate immediately after initialization to enure that, whether we
 	 * get RD_OK or RD_NOMAPS, we do not get a crash.  (Note: this may
 	 * resume, briefly, in order to ensure that we get a consistent state.)
 	 */
-	switch (rd_loadobj_iter(rd, do_nothing, P)) {
+	switch (rd_loadobj_iter(rd, do_nothing, &rp)) {
 	case RD_OK:
 	case RD_NOMAPS:
 		break;
@@ -133,7 +154,7 @@ main(int argc, char *argv[])
 	 * Now iterate and print.
 	 */
 
-	while (rd_loadobj_iter(rd, print_ldd, P) == RD_NOMAPS)
+	while (rd_loadobj_iter(rd, print_ldd, &rp) == RD_NOMAPS)
 		sleep (1);
 
 	really_seen = libs_seen;
@@ -151,7 +172,7 @@ main(int argc, char *argv[])
 		return (1);
 	}
 
-	while (rd_loadobj_iter(rd, note_ldd, P) == RD_NOMAPS)
+	while (rd_loadobj_iter(rd, note_ldd, &rp) == RD_NOMAPS)
 		sleep (1);
 
 	printf("%i libs seen.\n", really_seen);

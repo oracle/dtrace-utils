@@ -196,10 +196,11 @@ ns_debug_addr(rd_agent_t *rd, Lmid_t lmid)
 }
 
 /*
- * Determine the address of the Nth link map, or 0 if unknown or out of bounds.
+ * Determine the address of the first link map in a given lmid, or 0 if the lmid
+ * is unknown or out of bounds.
  */
 static uintptr_t
-link_map(rd_agent_t *rd, Lmid_t lmid)
+first_link_map(rd_agent_t *rd, Lmid_t lmid)
 {
 	uintptr_t global;
 	uintptr_t link_map_addr;
@@ -243,6 +244,96 @@ link_map(rd_agent_t *rd, Lmid_t lmid)
 		return 0;
 	}
 	return link_map_addr;
+}
+
+/*
+ * Get a link map, given an address.
+ */
+static struct link_map *
+rd_get_link_map(rd_agent_t *rd, struct link_map *buf, uintptr_t addr)
+{
+	if ((read_scalar_child(rd->P, &buf->l_addr, addr,
+		    link_map_offsets, link_map, l_addr) <= 0) ||
+	    (read_scalar_child(rd->P, &buf->l_name, addr,
+		link_map_offsets, link_map, l_name) <= 0) ||
+	    (read_scalar_child(rd->P, &buf->l_ld, addr,
+		link_map_offsets, link_map, l_ld) <= 0) ||
+	    (read_scalar_child(rd->P, &buf->l_next, addr,
+		link_map_offsets, link_map, l_next) <= 0) ||
+	    (read_scalar_child(rd->P, &buf->l_prev, addr,
+		link_map_offsets, link_map, l_prev) <= 0))
+		return NULL;
+
+	return buf;
+}
+
+/*
+ * Populate a loadobj element, given a link map and an address.
+ *
+ * The scopes array in the returned structure is realloc()ed as needed, should
+ * be NULL to start with, and must be freed by the caller when done.
+ *
+ * rl_lmident is not populated.
+ */
+static struct rd_loadobj *
+rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
+    struct link_map *map, uintptr_t addr)
+{
+	uintptr_t searchlist;
+	size_t i;
+
+	buf->rl_diff_addr = map->l_addr;
+	buf->rl_nameaddr = (uintptr_t) map->l_name;
+	buf->rl_dyn = (uintptr_t) map->l_ld;
+
+	/*
+	 * Now put together the scopes array.  Avoid calling the allocator too
+	 * often by allocating the array only once, expanding it as needed.
+	 */
+	if (Pread_scalar(rd->P, &searchlist, rd->P->elf64 ?
+		L_SEARCHLIST_64_SIZE : L_SEARCHLIST_32_SIZE,
+		sizeof (uintptr_t), addr + (rd->P->elf64 ?
+		    L_SEARCHLIST_64_OFFSET : L_SEARCHLIST_32_OFFSET)) < 0)
+		return NULL;
+
+	if (Pread_scalar(rd->P, &buf->rl_nscopes, rd->P->elf64 ?
+		L_NSEARCHLIST_64_SIZE : L_NSEARCHLIST_32_SIZE,
+		sizeof (unsigned int), addr + (rd->P->elf64 ?
+		    L_NSEARCHLIST_64_OFFSET : L_NSEARCHLIST_32_OFFSET)) < 0)
+		return NULL;
+
+	if (buf->rl_nscopes_alloced < buf->rl_nscopes) {
+		size_t nscopes_size = buf->rl_nscopes * sizeof(uintptr_t);
+
+		buf->rl_scope = realloc(buf->rl_scope, nscopes_size);
+		if (buf->rl_scope == NULL) {
+			fprintf(stderr, "Out of memory allocating scopes list "
+			    "of length %lu bytes\n", nscopes_size);
+			exit(1);
+		}
+
+		buf->rl_nscopes_alloced = buf->rl_nscopes;
+	}
+
+	for (i = 0; i < buf->rl_nscopes; i++) {
+		/*
+		 * This is a pointer to a link map.  We know its address, since
+		 * this is an array, but have no explicit reference to its
+		 * size. However, we have other things which we know must always
+		 * be pointers to link maps -- like L_NEXT.
+		 */
+
+		size_t link_map_ptr_size = rd->P->elf64 ? L_NEXT_64_SIZE :
+		    L_NEXT_32_SIZE;
+
+		if (Pread_scalar(rd->P, &buf->rl_scope[i], link_map_ptr_size,
+			sizeof (uintptr_t), searchlist +
+			(i * link_map_ptr_size)) < 0) {
+			return NULL;
+		}
+	}
+
+	return buf;
 }
 
 /*
@@ -1088,6 +1179,9 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	int found_any = FALSE;
 	size_t num = 0;
 	jmp_buf exec_jmp;
+	rd_loadobj_t obj = {0};
+	uintptr_t *primary_scope = NULL;
+	uintptr_t primary_nscopes = 0; /* quash a warning */
 
 	/*
 	 * Trap exec()s at any point within this code.
@@ -1126,6 +1220,8 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 		unsigned int nloaded = 0;
 		unsigned int n = 0;
 
+		primary_scope = NULL;
+
 		if (!nonzero_consistent && nns > 1) {
 			nonzero_consistent = TRUE;
 			if (rd_ldso_nonzero_lmid_consistent_begin(rd) < 0)
@@ -1145,7 +1241,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 		 * be read, the link maps are not yet ready.
 		 */
 
-		loadobj = link_map(rd, lmid);
+		loadobj = first_link_map(rd, lmid);
 
 		if (lmid == 0 && loadobj == 0)
 			goto err;
@@ -1164,24 +1260,64 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 
 		while ((loadobj != 0) &&
 		    (lmid == 0 || (lmid > 0 && n < nloaded))) {
-			rd_loadobj_t obj;
+			struct link_map map;
+			uintptr_t *real_scope = NULL;
+			unsigned int real_nscopes;
 
 			found_any = TRUE;
 
-			if ((read_scalar_child(rd->P, &obj.rl_diff_addr, loadobj,
-				link_map_offsets, link_map, l_addr) <= 0) ||
-			    (read_scalar_child(rd->P, &obj.rl_nameaddr, loadobj,
-				link_map_offsets, link_map, l_name) <= 0) ||
-			    (read_scalar_child(rd->P, &obj.rl_dyn, loadobj,
-				link_map_offsets, link_map, l_ld) <= 0))
-				goto err;
+			if (rd_get_link_map(rd, &map, loadobj) == NULL)
+			    goto err;
 
 			obj.rl_lmident = lmid;
+			if (rd_get_loadobj_link_map(rd, &obj, &map,
+				loadobj) == NULL)
+				goto err;
+
+			/*
+			 * If this is the first library in this lmid, its
+			 * searchlist is used as the default for all those
+			 * libraries that do not have searchlists already.
+			 */
+			if (!primary_scope) {
+				size_t nscopes_size = obj.rl_nscopes *
+				    sizeof(uintptr_t);
+
+				primary_scope = malloc(nscopes_size);
+				primary_nscopes = obj.rl_nscopes;
+
+				if (!primary_scope) {
+					fprintf(stderr, "Out of memory allocating "
+					    "primary scopes list of length %lu "
+					    "bytes\n", nscopes_size);
+					exit(1);
+				}
+				memcpy(primary_scope, obj.rl_scope,
+				    nscopes_size);
+			}
+
+			if (obj.rl_nscopes == 0) {
+				real_scope = obj.rl_scope;
+				real_nscopes = obj.rl_nscopes;
+				obj.rl_scope = primary_scope;
+				obj.rl_nscopes = primary_nscopes;
+				obj.rl_default_scope = 1;
+			} else
+				obj.rl_default_scope = 0;
 
 			rd->exec_jmp = NULL;
 
-			if (fun(&obj, num, state) == 0)
+			if (fun(&obj, num, state) == 0) {
+				if (real_scope)
+					obj.rl_scope = real_scope;
 				goto err;
+			}
+
+			if (real_scope) {
+				obj.rl_scope = real_scope;
+				obj.rl_nscopes = real_nscopes;
+			}
+
 			if (rd->exec_detected)
 				goto spotted_exec;
 
@@ -1190,12 +1326,13 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 			num++;
 			n++;
 
-			if (read_scalar_child(rd->P, &loadobj, loadobj,
-				link_map_offsets, link_map, l_next) <= 0)
-				goto err;
+			loadobj = (uintptr_t) map.l_next;
 		}
+
+		free(primary_scope);
 	}
 
+	free(obj.rl_scope);
 	if (nonzero_consistent)
 		rd_ldso_nonzero_lmid_consistent_end(rd);
 
@@ -1222,6 +1359,9 @@ err:
 	 */
 
 spotted_exec:
+	free(primary_scope);
+	free(obj.rl_scope);
+
 	rd->exec_jmp = NULL;
 	old_r_brk = r_brk(rd);
 	Pwait(rd->P, 0);
@@ -1236,4 +1376,32 @@ spotted_exec:
 
 	_dprintf("%i: link map iteration: read from child failed.\n", rd->P->pid);
 	return RD_ERR;
+}
+
+/*
+ * Look up a scope element in a loadobj structure and a second loadobj structure
+ * to populate.
+ *
+ * The scopes array in the returned structure is realloc()ed as needed, should
+ * be NULL to start with, and must be freed by the caller when done.
+ */
+struct rd_loadobj *
+rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf, const rd_loadobj_t *obj,
+    unsigned int scope)
+{
+	struct link_map map;
+
+	if (scope > obj->rl_nscopes)
+		return NULL;
+
+	if (rd_get_link_map(rd, &map, obj->rl_scope[scope]) == NULL)
+		return NULL;
+
+	if (rd_get_loadobj_link_map(rd, buf, &map,
+		obj->rl_scope[scope]) == NULL)
+		return NULL;
+
+	buf->rl_lmident = obj->rl_lmident;
+
+	return buf;
 }

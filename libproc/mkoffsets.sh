@@ -74,10 +74,13 @@ int main(void)
 	BITNESS_OFFSET(R_STATE, r_debug, r_state);
 	BITNESS_OFFSET(R_LDBASE, r_debug, r_ldbase);
 
-	BITNESS_OFFSET(L_ADDR, link_map, l_addr);
-	BITNESS_OFFSET(L_NAME, link_map, l_name);
-	BITNESS_OFFSET(L_LD, link_map, l_ld);
-	BITNESS_OFFSET(L_NEXT, link_map, l_next);
+	BITNESS_OFFSET(L_ADDR, internal_link_map, l_addr);
+	BITNESS_OFFSET(L_NAME, internal_link_map, l_name);
+	BITNESS_OFFSET(L_LD, internal_link_map, l_ld);
+	BITNESS_OFFSET(L_NEXT, internal_link_map, l_next);
+	BITNESS_OFFSET(L_PREV, internal_link_map, l_prev);
+	BITNESS_OFFSET(L_SEARCHLIST, internal_link_map, l_searchlist.r_list);
+	BITNESS_OFFSET(L_NSEARCHLIST, internal_link_map, l_searchlist.r_nlist);
 
 	BITNESS_OFFSET(G_DEBUG, rtld_global, _dl_ns[0]._ns_debug);
 	BITNESS_OFFSET(G_DEBUG_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_debug);
@@ -106,10 +109,10 @@ cat >> $HEADER <<'EOF'
 #define R_LAST_OFFSET R_LDBASE_64_OFFSET
 #endif
 
-#if L_NEXT_32_OFFSET > L_NEXT_64_OFFSET
-#define L_LAST_OFFSET L_NEXT_32_OFFSET
+#if L_NSEARCHLIST_32_OFFSET > L_NSEARCHLIST_64_OFFSET
+#define L_LAST_OFFSET L_NSEARCHLIST_32_OFFSET
 #else
-#define L_LAST_OFFSET L_NEXT_64_OFFSET
+#define L_LAST_OFFSET L_NSEARCHLIST_64_OFFSET
 #endif
 
 /*

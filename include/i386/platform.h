@@ -46,5 +46,10 @@ const static intptr_t plat_trap_ip_adjust = -1;
  */
 #define PLAT_IP RIP
 
+/*
+ * Number of processor-specific dynamic tags on this platform.
+ */
+#define DT_THISPROCNUM 0
+
 #endif
 

@@ -80,7 +80,7 @@ typedef struct rd_agent rd_agent_t;
 typedef void (*rd_event_fun)(rd_agent_t *, rd_event_msg_t *, void *);
 
 /*
- * iteration over load objects
+ * iteration over load objects.
  */
 typedef struct rd_loadobj {
 	intptr_t	rl_diff_addr;	/* Difference between addresses in ELF
@@ -88,6 +88,13 @@ typedef struct rd_loadobj {
 	uintptr_t	rl_nameaddr;	/* address of the name in user space */
 	uintptr_t	rl_dyn;		/* dynamic section of object */
 	Lmid_t		rl_lmident;	/* ident of link map */
+	uintptr_t	*rl_scope;	/* symbol search scope array */
+	unsigned int	rl_nscopes;	/* size of that array */
+	int		rl_default_scope; /* If 1, this is the same as the
+					     default search scope for this
+					     lmid */
+	unsigned int	rl_nscopes_alloced; /* number of elements allocated
+					       (internal use) */
 } rd_loadobj_t;
 
 typedef int rl_iter_f(const rd_loadobj_t *, size_t, void *);
@@ -98,6 +105,9 @@ extern void		rd_event_disable(rd_agent_t *rd);
 extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
 				void *);
 extern rd_agent_t	*rd_new(struct ps_prochandle *);
+
+extern rd_loadobj_t	*rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf,
+    const rd_loadobj_t *obj, unsigned int scope);
 
 #ifdef	__cplusplus
 }
