@@ -109,6 +109,11 @@ main (void)
 	rw_files(path, dir, writefile);
 	fclose(tmp);
 
+	/*
+	 * Let dtrace catch up, for ustack() tests that need a running process.
+	 */
+	sleep(2);
+
 	return 0;
 }
 

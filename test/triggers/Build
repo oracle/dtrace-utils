@@ -45,6 +45,9 @@ endef
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
 proc-tst-sigwait_LIBS := -lrt
 
+# readwholedir is used for ustack() tests, so needs a symbol table.
+readwholedir_LDFLAGS := -Bdynamic
+
 # We are using machinery from libproc directly, but libproc calls into
 # nonpublic parts of libdtrace for various shared machinery (dt_list
 # and so on).  Thus, we must link directly to the build libraries, since

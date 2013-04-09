@@ -59,6 +59,13 @@
 	executable's symbol search path. Call Pupdate_symsearch() when
 	doing global searches.
 
+	Minor ustack()-related fixes.
+
+	* test/demo/act/ustack.d: Try a ustack() on readwholedir.
+	* test/triggers/Build: readwholedir needs a symbol table.
+	* test/triggers/readwholedir: don't die before being
+	stack-traced.
+
 2013-03-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (Requires): Ask for 32-bit dependencies
