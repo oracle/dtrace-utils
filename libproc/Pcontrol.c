@@ -667,7 +667,8 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		 * stopped, nor try to resume it.
 		 */
 		Pwait(P, 0);
-		if ((!stopped) || (P->state == PS_TRACESTOP))
+		if ((!stopped) || (P->state == PS_TRACESTOP) ||
+		    (P->state == PS_STOP))
 			return P->state;
 
 		state = P->state;

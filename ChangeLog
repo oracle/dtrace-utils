@@ -1,3 +1,8 @@
+2013-04-09  Nick Alcock	 <nick.alcock@oracle.com>
+
+	* libproc/Pcontrol.c (Ptrace): Do not trigger a SIGSTOP if we are
+	already in SIGSTOPped state.
+
 2013-03-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* dtrace-utils.spec (Requires): Ask for 32-bit dependencies
