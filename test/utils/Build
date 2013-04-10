@@ -29,6 +29,7 @@ $(1)_DIR := $(current-dir)
 $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c
 $(1)_POST := link-test-util
+$(1)_CFLAGS := -Ilibdtrace
 $(1)_NOCFLAGS := --coverage
 $(1)_NOLDFLAGS := --coverage
 $(1)_DEPS = libdtrace.so build-libproc.a libport.a
