@@ -3,7 +3,8 @@
 	* test/triggers/.gitignore: Do not ignore *.h.
 	* test/triggers/libproc-lookup*.[ch]: New test of name lookup.
 
-	* test/utils/Build: Look for headers in the right place.
+	* test/utils/Build: Look for headers in the right place.  Link
+	against libdtrace.so only.
 
 2013-04-09  Nick Alcock	 <nick.alcock@oracle.com>
 

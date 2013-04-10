@@ -32,8 +32,8 @@ $(1)_POST := link-test-util
 $(1)_CFLAGS := -Ilibdtrace
 $(1)_NOCFLAGS := --coverage
 $(1)_NOLDFLAGS := --coverage
-$(1)_DEPS = libdtrace.so build-libproc.a libport.a
-$(1)_LIBS = -L$(objdir) -ldtrace-ctf -ldtrace -lproc -lport -lelf -lz -lrt -lpthread -ldl
+$(1)_DEPS = libdtrace.so
+$(1)_LIBS = -L$(objdir) -ldtrace
 
 clean::
 	rm -f test/utils/$(1)
