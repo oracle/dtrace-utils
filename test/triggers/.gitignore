@@ -1,5 +1,5 @@
 *
 !Build
-!*.c
+!*.[ch]
 !longsleep
 !.gitignore

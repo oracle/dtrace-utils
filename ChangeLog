@@ -1,3 +1,8 @@
+2013-04-10  Nick Alcock  <nick.alcock@oracle.com>
+
+	* test/triggers/.gitignore: Do not ignore *.h.
+	* test/triggers/libproc-lookup*.[ch]: New test of name lookup.
+
 2013-04-09  Nick Alcock	 <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.c (Ptrace): Do not trigger a SIGSTOP if we are
@@ -62,7 +67,8 @@
 	Minor ustack()-related fixes.
 
 	* test/demo/act/ustack.d: Try a ustack() on readwholedir.
-	* test/triggers/Build: readwholedir needs a symbol table.
+	* test/triggers/Build
+	: readwholedir needs a symbol table.
 	* test/triggers/readwholedir: don't die before being
 	stack-traced.
 
