@@ -1,3 +1,7 @@
+2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Log skips in the summary file.
+
 2013-04-10  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/triggers/.gitignore: Do not ignore *.h.
