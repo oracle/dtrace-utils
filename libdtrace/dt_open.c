@@ -938,6 +938,8 @@ alloc:
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
+	dtrace_ioctl_sizes();
+
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
 	else if (dt_ioctl(dtp, DTRACEIOC_CONF, &dtp->dt_conf) != 0)
@@ -1254,6 +1256,12 @@ alloc:
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
 
 	return (dtp);
+}
+
+void
+dtrace_size_dbg_print(const char *type, size_t size)
+{
+	dt_dprintf("Size of %s: %lx\n", type, size);
 }
 
 dtrace_hdl_t *

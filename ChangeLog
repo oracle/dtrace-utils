@@ -16,7 +16,9 @@
 	* Makecheck: Depend on `external-triggers' in installed tests:
 	include internal testsuite in other tests.
 
-	test/triggers/Build: Add rpath to victim processes.
+	* test/triggers/Build: Add rpath to victim processes.
+
+	Bugfixes.
 
 	* libproc/Psymtab.c (Pxlookup_by_name_internal): Do not look at
 	executable mappings if mappings cannot be determined.
@@ -26,6 +28,36 @@
 	produce negative output.
 	(dt_optval_parse): Likewise.
 	(dt_opt_rate): Likewise.
+
+	Header split.
+
+	* uts/Build (HEADERS_INSTALL): Split into...
+	(SYS_HEADERS_INSTALL): ... this, for installs into include/sys/...
+	(LINUX_HEADERS_INSTALL): ... and this, for installs into include/linux.
+	Install dtrace_cpu_defines.h into linux/; do not install dtrace_ioctl.h
+	at all.
+	(install): Adjust accordingly.
+
+	* uts/common/sys/dtrace.h: Delete almost all content, reducing to
+	#includes of userspace-side types header and two headers provided
+	by the dtrace module.
+	* uts/common/sys/dtrace_ioctl.h: Delete, now provided by the
+	dtrace module.
+	* uts/common/sys/dtrace_types.h: Provide dtrace_id_t, not in the
+	shared headers.  Drop some unused stuff.
+	* libdtrace/dtrace.h (dtrace_probespec_t): This is purely
+	userspace: migrated from uts/common/sys/dtrace.h.
+
+	* libdtrace/dt_open.c (dt_vopen): Do an ioctl size dump.
+	(dtrace_size_dbg_print): New, dump ioctl sizes under DTRACE_DEBUG.
+
+	* dtrace-utils.spec (Requires): Add dtrace-modules-headers.
+	(BuildRequires): Likewise.
+	(devel/Group): Add.
+	(%install): Remove 'echo rm -rf'.
+	(%files devel): Don't hardwire a mode, the installed mode is OK.
+	(%files): Likewise.  No longer install dtrace_ioctl.h: install
+	dtrace_cpu_defines.h instead.
 
 2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
 

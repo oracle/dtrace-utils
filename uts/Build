@@ -19,17 +19,27 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 uts_DIR := $(current-dir)
 
-HEADERS_INSTALL := common/sys/dtrace.h \
-                   common/sys/dtrace_ioctl.h \
-                   common/sys/dtrace_types.h
+# linux/dtrace_cpu_defines.h is #included by the DTrace kernel headers, but is
+# not marked uapi so is not installed.  So we install a stripped-down copy of it
+# into linux/ ourselves.  dtrace.h and dtrace_types.h are unique to this
+# userspace tree.
+
+SYS_HEADERS_INSTALL := common/sys/dtrace.h \
+                       common/sys/dtrace_types.h
+
+LINUX_HEADERS_INSTALL := common/linux/dtrace_cpu_defines.h
 
 install::
 	mkdir -p $(INCLUDEDIR)/sys
-	$(call describe-install-target,$(INCLUDEDIR)/sys,$(notdir $(HEADERS_INSTALL)))
-	cd $(uts_DIR) && install -m 644 -o root -g root $(HEADERS_INSTALL) \
+	$(call describe-install-target,$(INCLUDEDIR)/sys,$(notdir $(SYS_HEADERS_INSTALL)))
+	cd $(uts_DIR) && install -m 644 -o root -g root $(SYS_HEADERS_INSTALL) \
 	    $(INCLUDEDIR)/sys
+	mkdir -p $(INCLUDEDIR)/linux
+	$(call describe-install-target,$(INCLUDEDIR)/linux,$(notdir $(LINUX_HEADERS_INSTALL)))
+	cd $(uts_DIR) && install -m 644 -o root -g root $(LINUX_HEADERS_INSTALL) \
+	    $(INCLUDEDIR)/linux

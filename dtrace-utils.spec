@@ -12,10 +12,10 @@ Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-kernel-interface = 1
-BuildRequires: glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel kernel-uek-dtrace-devel = %{kver}
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 dtrace-kernel-interface = 1
+BuildRequires: glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel dtrace-modules-headers = 1 kernel-uek-dtrace-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.3.0
+Version:      0.4.0
 Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -32,6 +32,7 @@ Kris van Hees <kris.van.hees@oracle.com>
 %package devel
 Summary:      DTrace development headers.
 Requires:     libdtrace-ctf-devel
+Group:	      Development/System
 
 %description devel
 Headers and libraries to develop DTrace applications.
@@ -47,7 +48,6 @@ replacements for dtrace(1) itself.
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done)
 
 %install
-echo rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
 fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done) install
 # Because systemtap creates a dtrace.1 manpage we have to rename
@@ -81,7 +81,7 @@ fi
 
 
 %files
-%defattr(-,root,root,755)
+%defattr(-,root,root,-)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
 %{_libdir}/dtrace
@@ -90,11 +90,11 @@ fi
 %{_mandir}/man1/orcl-dtrace.1.gz
 %{_includedir}/sys/dtrace.h
 %{_includedir}/sys/dtrace_types.h
-%{_includedir}/sys/dtrace_ioctl.h
+%{_includedir}/linux/dtrace_cpu_defines.h
 %doc %{_docdir}/dtrace-%{version}/*
 
 %files devel
-%defattr(-,root,root,755)
+%defattr(-,root,root,-)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
 %{_libdir}/libdtrace.so

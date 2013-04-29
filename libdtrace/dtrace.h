@@ -94,6 +94,14 @@ extern int dtrace_ctlfd(dtrace_hdl_t *dtp);
  * enable the probes and actions described by these statements.
  */
 
+typedef enum dtrace_probespec {
+	DTRACE_PROBESPEC_NONE = -1,
+	DTRACE_PROBESPEC_PROVIDER = 0,
+	DTRACE_PROBESPEC_MOD,
+	DTRACE_PROBESPEC_FUNC,
+	DTRACE_PROBESPEC_NAME
+} dtrace_probespec_t;
+
 typedef struct dtrace_proginfo {
 	dtrace_attribute_t dpi_descattr; /* minimum probedesc attributes */
 	dtrace_attribute_t dpi_stmtattr; /* minimum statement attributes */

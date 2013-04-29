@@ -32,7 +32,6 @@
 #include <unistd.h>
 
 typedef unsigned long   psaddr_t;
-typedef int psetid_t;
 typedef enum { B_FALSE, B_TRUE} boolean_t;
 
 /*
@@ -86,21 +85,14 @@ typedef unsigned long long hrtime_t;
 
 #define SIG2STR_MAX     32
 
-/*
- * p_flag codes
- *
- * note that two of these flags, SMSACCT and SSYS, are exported to /proc's
- * psinfo_t.p_flag field.  Historically, all were, but since they are
- * implementation dependant, we only export the ones people have come to
- * rely upon.  Hence, the bit positions of SSYS and SMSACCT should not be
- * altered.
- */
-#define	SSYS	   0x00000001	/* system (resident) process */
-
-
 #ifndef ABS
 #define	ABS(a)		((a) < 0 ? -(a) : (a))
 #endif
 
+/*
+ * This comes from <linux/dtrace_os.h>.
+ */
+
+typedef uint32_t dtrace_id_t;
 
 #endif
