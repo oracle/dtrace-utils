@@ -572,6 +572,8 @@ dt_opt_runtime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	};
 
 	if (arg != NULL) {
+		long long negtest;
+
 		if (arg[0] == '\0') {
 			val = DTRACEOPT_UNSET;
 			goto out;
@@ -589,10 +591,11 @@ dt_opt_runtime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 			}
 		}
 
+		negtest = strtoll(arg, NULL, 0);
 		errno = 0;
 		val = strtoull(arg, &end, 0);
 
-		if (*end != '\0' || errno != 0 || val < 0)
+		if (*end != '\0' || errno != 0 || val < 0 || negtest < 0)
 			return (dt_set_errno(dtp, EDT_BADOPTVAL));
 	}
 
@@ -607,6 +610,7 @@ dt_optval_parse(const char *arg, dtrace_optval_t *rval)
 	dtrace_optval_t mul = 1;
 	size_t len;
 	char *end;
+	long long negtest;
 
 	len = strlen(arg);
 	errno = 0;
@@ -632,11 +636,12 @@ dt_optval_parse(const char *arg, dtrace_optval_t *rval)
 		break;
 	}
 
+	negtest = strtoll(arg, NULL, 0);
 	errno = 0;
 	*rval = strtoull(arg, &end, 0) * mul;
 
 	if ((mul > 1 && end != &arg[len - 1]) || (mul == 1 && *end != '\0') ||
-	    *rval < 0 || errno != 0)
+	    *rval < 0 || negtest < 0 || errno != 0)
 		return (-1);
 
 	return (0);
@@ -684,6 +689,9 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	};
 
 	if (arg != NULL) {
+		long long negtest;
+
+		negtest = strtoll(arg, NULL, 0);
 		errno = 0;
 		val = strtoull(arg, &end, 0);
 
@@ -694,7 +702,8 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 			}
 		}
 
-		if ((suffix[i].name == NULL && *end != '\0') || val < 0)
+		if ((suffix[i].name == NULL && *end != '\0') || val < 0 ||
+			negtest < 0)
 			return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 		if (mul == 0) {

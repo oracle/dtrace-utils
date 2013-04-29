@@ -22,6 +22,11 @@
 	executable mappings if mappings cannot be determined.
 	(Pobject_iter): Likewise.
 
+	* dt_options.c (dt_opt_runtime): Do not assume that strtoull() can
+	produce negative output.
+	(dt_optval_parse): Likewise.
+	(dt_opt_rate): Likewise.
+
 2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Log skips in the summary file.
