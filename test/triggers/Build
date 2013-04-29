@@ -73,6 +73,11 @@ libproc-consistency_NOCFLAGS :=
 libproc-consistency_DEPS := build-libproc.a build-libdtrace.a libport.a
 libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
 
+# The victim also needs to have an rpath baked into it, since when testing
+# in --use-installed mode, there is no LD_LIBRARY_PATH pointing into build/
+# by default.
+
+libproc-lookup-victim_LDFLAGS := -Wl,-rpath build
 libproc-lookup-victim_DEPS := libproc-lookup-victim-lib.so
 libproc-lookup-victim_LIBS := $(objdir)/libproc-lookup-victim-lib.so -ldl
 
@@ -84,7 +89,6 @@ libproc-lookup-by-name_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtra
 
 # We need multiple versions of libproc-sleeper with different combinations
 # of flags.
-
 libproc-sleeper-32_CFLAGS := -m32
 libproc-sleeper-pie_CFLAGS := -fPIE
 libproc-sleeper-pie_LDFLAGS := -fPIE -pie
@@ -92,10 +96,11 @@ libproc-sleeper-pie-32_CFLAGS := -m32 -fPIE
 libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
 
 # Make dlmadopen PIE so that we can ensure that we can track execve()s
-# in which the value of r_brk changes.
+# in which the value of r_brk changes.  As with the libproc-lookup-victim,
+# this needs an rpath, too.
 libproc-dlmadopen_LIBS := -ldl
 libproc-dlmadopen_CFLAGS := -fPIE
-libproc-dlmadopen_LDFLAGS := -fPIE -pie
+libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath build
 
 # libproc-consistency runs libproc-dlmadopen, which repeatedly opens a
 # shared library in different ld.so namespaces.  This is that library.
