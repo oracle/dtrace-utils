@@ -59,6 +59,8 @@
 	(%files): Likewise.  No longer install dtrace_ioctl.h: install
 	dtrace_cpu_defines.h instead.
 
+	* INCOMPATIBILITIES: ptrace() differences no longer apply.
+
 2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Log skips in the summary file.

@@ -64,21 +64,6 @@ mark them reserved, but the result would be the same: D scripts that use these
 identifiers would fail to compile, or fail to work as expected.)
 
 
-Tiny variations in behaviour of dtraced processes immediately after startup
----------------------------------------------------------------------------
-Difficulty: High
-Likelihood: Low
-
-Because Linux dtrace depends on ptrace() at attachment time, a very few tiny
-behavioural changes can be expected in dtraced processes in the instant dtrace
-begins attaching to them.  Notably, a process that has just been created or
-grabbed by dtrace may lose signals sent to it and will not be debuggable until
-dtrace has set it going.  This problem does not exist for processes that are
-already being debugged.
-
-It is highly unlikely that anyone will ever notice this.
-
-
 Kernel probe names differ
 -------------------------
 Difficulty: Very high
