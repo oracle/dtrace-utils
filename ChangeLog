@@ -18,6 +18,10 @@
 
 	test/triggers/Build: Add rpath to victim processes.
 
+	* libproc/Psymtab.c (Pxlookup_by_name_internal): Do not look at
+	executable mappings if mappings cannot be determined.
+	(Pobject_iter): Likewise.
+
 2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Log skips in the summary file.

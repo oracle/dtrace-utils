@@ -1748,6 +1748,9 @@ Pxlookup_by_name_internal(
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
 
+		if (!P->info_valid)
+		    return (-1);
+
 		/*
 		 * Start from the executable mapping, if known.
 		 */
@@ -1866,6 +1869,9 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
+
+	if (!P->info_valid)
+	    return (-1);
 
 	for (cnt = P->num_files, fptr = dt_list_next(&P->file_list);
 	    cnt; cnt--, fptr = dt_list_next(fptr)) {
