@@ -27,7 +27,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #
@@ -293,7 +293,7 @@ OVERWRITE_RESULTS=
 NOEXEC=
 BADDOF=
 USE_INSTALLED=
-TESTSUITES="unittest stress demo"
+TESTSUITES="unittest internals stress demo"
 COMPARISON=t
 
 ONLY_TESTS=

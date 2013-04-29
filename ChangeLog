@@ -1,3 +1,21 @@
+2013-04-29  Nick Alcock  <nick.alcock@oracle.com>
+
+	Move libproc tests into a separate testsuite.
+
+	* test/unittest/libproc/*: Move to...
+	* test/internals/libproc/*: ... here.
+	* test/triggers/Build (TRIGGERS): Newly compose from...
+	(EXTERNAL_TRIGGERS): These, run by 'make check-installed'...
+	(INTERNAL_TRIGGERS): ... and these, which are not.
+	(trigger-template): No longer add to TRIGGERS (it was redundant
+	anyway).
+	* runtest.sh: Include 'internals' in default testsuites.
+	* Makerules (external-triggers): New target, running over
+	EXTERNAL_TRIGGERS.
+	(PHONIES): Adjust.
+	* Makecheck: Depend on `external-triggers' in installed tests:
+	include internal testsuite in other tests.
+
 2013-04-25  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Log skips in the summary file.

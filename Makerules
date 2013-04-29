@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # Trigger the library-building rules.
@@ -46,11 +46,12 @@ $(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(cmd))))
 
 cmds: $(foreach cmd,$(CMDS),$(objdir)/$($(cmd)_TARGET))
 
-# The trigger-building rule.  This rule is only used by check targets that do
-# not force a complete build first, so it does not appear in TARGETS.
-# It is otherwise identical to the comamnd-building rule, and relies on
-# the rules it generates.
+# The trigger-building rules.  These rules are only used by check targets that
+# do not force a complete build first, so they do not appear in TARGETS.
+# They are otherwise identical to the command-building rule, and relies on
+# the rules the command-building rule generates.
 
-PHONIES += triggers
+PHONIES += triggers external-triggers
 
 triggers: $(foreach trigger,$(TRIGGERS),$(objdir)/$($(trigger)_TARGET))
+external-triggers: $(foreach trigger,$(EXTERNAL_TRIGGERS),$(objdir)/$($(trigger)_TARGET))
