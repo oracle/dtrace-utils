@@ -737,8 +737,10 @@ Pupdate_syms(struct ps_prochandle *P)
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
-       if (P->rap == NULL && P->state != PS_DEAD)
-               Pupdate_maps(P);
+	if (P->rap == NULL && P->state != PS_DEAD) {
+		Pupdate_maps(P);
+		Pupdate_lmids(P);
+	}
        return (P->rap);
 }
 

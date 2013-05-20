@@ -1,3 +1,8 @@
+2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the
+	agent.
+
 2013-04-29  Nick Alcock  <nick.alcock@oracle.com>
 
 	Move libproc tests into a separate testsuite.
