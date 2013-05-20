@@ -544,15 +544,20 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 
 		/*
 		 * TRACEEXEC trap.  Our breakpoints are gone, our auxv has
-		 * changed, our memfd needs reopening, any (internal) exec()
-		 * handler should be called, and we need to seize control again.
-		 * We also need to arrange to trap the *next* exec(), then
-		 * resume.
+		 * changed, our memfd needs reopening, we need to figure out if
+		 * this is a 64-bit process anew, any (internal) exec() handler
+		 * should be called, and we need to seize control again.  We
+		 * also need to arrange to trap the *next* exec(), then resume.
 		 *
 		 * We are always tracing the thread group leader, so most of the
 		 * complexity around execve() tracing goes away.
+		 *
+		 * We can't do much about errors here: if we lose control, we
+		 * lose control.
 		 */
 		if (info.si_status == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
+
+			char procname[PATH_MAX];
 
 			_dprintf("%i: exec() detected, resetting...\n", P->pid);
 
@@ -561,6 +566,12 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 			Pclose(P);
 			if (Pmemfd(P) == -1)
 				_dprintf("%i: Cannot reopen memory\n", P->pid);
+
+			snprintf(procname, sizeof (procname), "%s/%d/exe",
+			    procfs_path, P->pid);
+
+			P->elf64 = process_elf64(P, procname);
+
 			bkpt_flush(P, TRUE);
 
 			free(P->auxv);

@@ -2,6 +2,7 @@
 
 	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the
 	agent.
+	* libproc/Pcontrol.c (Pwait): Check 64-bitness on every exec().
 
 2013-04-29  Nick Alcock  <nick.alcock@oracle.com>
 
