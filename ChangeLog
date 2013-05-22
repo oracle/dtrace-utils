@@ -39,9 +39,10 @@
 	Miscellaneous.
 
 	* libproc/Pcontrol.c (add_bkpt): Remove spurious return.
-
 	* libproc/Psymtab.c (Pupdate_symsearch): Do not crash if rtld_db
 	is not initialized.
+	(sym_search_next): Use a symbol scope search when there are
+	symbols, not when there aren't.  Fix off-by-one bug.
 
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 

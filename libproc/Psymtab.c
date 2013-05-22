@@ -1599,13 +1599,14 @@ sym_search_next(struct ps_prochandle *P, file_info_t *fptr,
 	}
 
 	/*
-	 * Start: first hit is always ourself.
+	 * Start: first hit is always ourself.  Subsequently, use the path
+	 * search, if possible, or a linear search otherwise.
 	 */
 	if (state->ssi_state == SSI_START) {
 		state->fptr = fptr;
 		state->path_index = 0;
 
-		if (fptr->file_nsymsearch == 0)
+		if (fptr->file_nsymsearch != 0)
 			state->ssi_state = SSI_PATH;
 		else
 			state->ssi_state = SSI_START_LINEAR;
@@ -1618,7 +1619,7 @@ sym_search_next(struct ps_prochandle *P, file_info_t *fptr,
 	case SSI_PATH: {
 		file_info_t *ret = fptr->file_symsearch[state->path_index++];
 
-		if (state->fptr->file_nsymsearch < state->path_index) {
+		if (state->path_index >= state->fptr->file_nsymsearch) {
 			state->ssi_state = SSI_START_LINEAR;
 		}
 		return ret;
