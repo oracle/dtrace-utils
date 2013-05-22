@@ -168,6 +168,8 @@ typedef struct bkpt {
 	dt_list_t bkpt_notifiers;	/* notifier chain */
 	int after_singlestep;		/* call handler before or after
 				           singlestepping? */
+	int in_handler;			/* in the handler now */
+	int pending_removal;		/* some handler has called Punbkpt() */
 } bkpt_t;
 
 /*

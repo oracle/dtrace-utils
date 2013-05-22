@@ -20,6 +20,18 @@
 	(bkpt_handle_post_singlestep): Likewise, for post-singlestep
 	breakpoints.
 
+	Post-handler breakpoint removal.
+
+	* libproc/Pcontrol.h (bkpt_t.in_handler): New, true if this handler
+	is executing now.
+	(bkpt_t.pending_removal): New, true if Punbkpt() was called while
+	in-handler.
+	* libproc/Pcontrol.c (Punbkpt): Set pending_removal iff
+	in_handler, rather than unhashing or removing the breakpoint.
+	(bkpt_handle_start): Set in_handler around handler calls.  Call
+	Punbkpt() afterwards iff pending_removal.
+	(bkpt_handle_post_singlestep): Likewise.
+
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the

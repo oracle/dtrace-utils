@@ -1036,7 +1036,8 @@ err2:
 }
 
 /*
- * Remove a breakpoint on a given address, if one exists there.
+ * Remove a breakpoint on a given address, if one exists there, or (if we are
+ * currently in a handler for that address) arrange to do it later.
  *
  * The cleanup handlers, if any, are called, in reverse order of handler
  * addition.
@@ -1066,6 +1067,18 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 	if (orig_state < 0)
 		_dprintf("%i: Unexpected error %s ptrace()ing to remove "
 		    "breakpoint.", P->pid, strerror(orig_state));
+
+	/*
+	 * If we are currently inside a handler for this breakpoint, arrange to
+	 * remove it later, after handler execution is complete.  Only do a
+	 * lookup-with-unchain if this is not so.
+	 */
+	bkpt = bkpt_by_addr(P, addr, FALSE);
+	if (bkpt->in_handler) {
+		bkpt->pending_removal = 1;
+		Puntrace(P, orig_state);
+		return;
+	}
 
 	Pwait(P, 0);
 	bkpt = bkpt_by_addr(P, addr, TRUE);
@@ -1313,6 +1326,7 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		int state = PS_RUN;
 		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
 
+		bkpt->in_handler++;
 		for (; notifier; notifier = dt_list_next(notifier)) {
 			void (*notify) (uintptr_t, void *) =
 			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
@@ -1326,7 +1340,7 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
 			    state);
 		}
-
+		bkpt->in_handler--;
 
 		if (state != PS_RUN) {
 			P->bkpt_halted = 1;
@@ -1334,13 +1348,13 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		}
 
 		/*
-		 * Look up the breakpoint anew, in case the handler erased it.
-		 *
-		 * If it did, Punbkpt() will have continued for us.
+		 * If the handler wants to erase the breakpoint, do so. Punbkpt() will
+		 * automatically continue for us.
 		 */
-		bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
-		if (!bkpt)
+		if (bkpt->pending_removal) {
+			Punbkpt(P, bkpt->bkpt_addr);
 			return PS_RUN;
+		}
 	}
 
 	return Pbkpt_continue_internal(P, bkpt, TRUE);
@@ -1359,10 +1373,11 @@ Pbkpt_continue(struct ps_prochandle *P)
 		return;
 
 	/*
-	 * We don't know where we are.  We might not be stopped at a breakpoint
-	 * at all: we might not even be ptracing the process (or it might have
-	 * done something that prohibits our tracing it, like exec()ed a setuid
-	 * process).  Just issue a continue.
+	 * We don't know where we are.  We might be stopped at an erased
+	 * breakpoint; we might not be stopped at a breakpoint at all: we might
+	 * not even be ptracing the process (or it might have done something
+	 * that prohibits our tracing it, like exec()ed a setuid process).  Just
+	 * issue a continue.
 	 */
 	if (P->tracing_bkpt == 0 || !bkpt) {
 		if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
@@ -1460,7 +1475,7 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	if (bkpt->after_singlestep) {
 		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
 
-
+		bkpt->in_handler++;
 		for (; notifier; notifier = dt_list_next(notifier)) {
 			void (*notify) (uintptr_t, void *) =
 			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
@@ -1474,7 +1489,16 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
 			    state);
 		}
+		bkpt->in_handler--;
 	}
+
+	/*
+	 * If the handler wants to erase the breakpoint, do so. Punbkpt() will
+	 * automatically continue for us.
+	 */
+	if (bkpt->pending_removal) {
+		Punbkpt(P, bkpt->bkpt_addr);
+		return PS_RUN;
 	}
 
 	/*
@@ -1488,21 +1512,11 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	}
 
 	/*
-	 * Look up the breakpoint anew, in case the handler erased it.
-	 *
-	 * If it did, Punbkpt() will have continued for us.
-	 */
-	bkpt = bkpt_by_addr(P, bkpt->bkpt_addr, FALSE);
-	if (!bkpt)
-		return PS_RUN;
-
-	/*
 	 * The handler wants us to run. Resume.
 	 *
 	 * Always re-peek the original instruction, in case of self-modifying
 	 * code.  If it fails, hold on to the old one.
 	 */
-
 	errno = 0;
 	orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
 	if (errno != 0) {
@@ -1518,7 +1532,6 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 * the process could be SIGKILLed at any time, even between these
 	 * ptrace() calls.
 	 */
-
 	if (ptrace(PTRACE_POKETEXT, P->pid, bkpt->bkpt_addr,
 		mask_bkpt(orig_insn)) < 0)
 		switch (errno) {
