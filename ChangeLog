@@ -36,6 +36,42 @@
 	Punbkpt() afterwards iff pending_removal.
 	(bkpt_handle_post_singlestep): Likewise.
 
+	evaltime={preinit,postinit,main} implementation.
+
+	* libproc/Pcontrol.h (Pgetauxval): Move this prototype...
+	* libproc/libproc.h: ... to here.
+	(rt_proc_t.dpr_rtld): Remove, unused.
+	* libdtrace/dt_proc.c (dt_proc_bpmain): Rename to...
+	(dt_break_interesting): ... this, and fix the prototype to the
+	style of our breakpoint handlers.  Take out the dpr lock before
+	calling dt_proc_stop().  Remove the breakpoint after a single
+	firing.  Use the dt_prcmode, not DT_PROC_STOP_MAIN.
+	(dt_break_drop_main): New, called on ELF entry point to attach a
+	breakpoint to main().
+	(dt_proc_rdagent): New, from dt_proc_attach.
+	(dt_proc_attach): Use it.  Can now fail (iff a necessary
+	breakpoint cannot be dropped).  No longer takes exec argument:
+	takes before_continue instead.  Largely rewritten.
+	(dt_proc_control): Change dt_proc_attach() call to conform to new
+	prototype.  Call dt_proc_rdagent() on every pass.  Comment
+	improvements.
+	(dt_proc_create): Pass in the dt_prcmode when creating the thread,
+	not unconditional DT_PROC_STOP_CREATE.
+
+	* test/triggers/visible-constructor.c: New test, print something
+	in a constructor and in main().
+	* test/triggers/visible-constructor-unstripped.c: New symlink to
+	visible-constructor.c.
+	* test/triggers/Build (EXTERNAL_TRIGGERS): New tests.
+	(visible-constructor-unstripped_LDFLAGS): Include a symbol table.
+	(visible-constructor_LDFLAGS): Always strip, no symbol table.
+	* test/unittest/dtrace-util/tst.ProcInvoke.sh: Call repeatedly
+	with every valid value of evaltime, including the default.
+	* test/unittest/dtrace-util/tst.ProcInvoke.r: Adjust (taking into
+	account the extra blank line after every dtrace invocation).
+	* test/unittest/dtrace-util/tst.evaltime.sh: New test...
+	* test/unittest/dtrace-util/tst.evaltime.r: ... and results.
+
 	Miscellaneous.
 
 	* libproc/Pcontrol.c (add_bkpt): Remove spurious return.

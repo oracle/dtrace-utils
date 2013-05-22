@@ -197,6 +197,7 @@ extern const prmap_t *Plmid_to_map(struct ps_prochandle *,
 
 extern char *Pobjname(struct ps_prochandle *, uintptr_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, uintptr_t, Lmid_t *);
+extern uint64_t Pgetauxval(struct ps_prochandle *P, int type);
 
 /*
  * Symbol table iteration interface.

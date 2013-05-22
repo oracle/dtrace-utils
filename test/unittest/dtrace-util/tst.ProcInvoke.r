@@ -1,3 +1,11 @@
-exec of true seen
-exit seen, exitcode 1
+exec of true under exec seen
+exit seen, reason 1
+
+exit seen, reason 1
+
+exit seen, reason 1
+
+exit seen, reason 1
+
+exit seen, reason 1
 

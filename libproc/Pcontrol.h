@@ -268,7 +268,6 @@ extern	void	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
 extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
-extern	uint64_t Pgetauxval(struct ps_prochandle *P, int type);
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,
     exec_handler_fun handler);

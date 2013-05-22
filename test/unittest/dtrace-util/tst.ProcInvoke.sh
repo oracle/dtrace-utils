@@ -29,7 +29,8 @@
 #
 # ASSERTION:
 # The -c option can be used to invoke a new process, and catches both the
-# process invocation and the process termination event when it exits.
+# process invocation and the process termination event when it exits, but
+# does not catch process invocation if evaltime is not 'exec'.
 #
 # NOTE: This can be improved when proc:::exec-success reports the execed
 # filename.
@@ -47,14 +48,14 @@ fi
 
 dtrace=$1
 
-$dtrace $dt_flags -q -c '/bin/true' -n '
-proc:::exec-success /pid == $target/ { printf("exec of %s seen\n", execname); } 
-proc:::exit /pid == $target/ { printf ("exit seen, exitcode %i\n", arg0); }'
+for name in exec preinit postinit main; do 
+    $dtrace $dt_flags -q -c '/bin/true' -x evaltime=$name -s /dev/stdin <<EOF
+proc:::exec-success /pid == \$target/ { printf("exec of %s under $name seen\n", execname); } 
+proc:::exit /pid == \$target/ { printf ("exit seen, reason %i\n", args[0]); }
+EOF
+done
 
-status=$?
-
-if [ "$status" -ne 0 ]; then
-	echo $tst: dtrace failed
-fi
-
-exit $status
+$dtrace $dt_flags -q -c '/bin/true' -s /dev/stdin <<EOF
+proc:::exec-success /pid == \$target/ { printf("exec of %s under default seen\n", execname); } 
+proc:::exit /pid == \$target/ { printf ("exit seen, reason %i\n", args[0]); }
+EOF

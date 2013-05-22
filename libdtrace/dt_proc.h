@@ -42,7 +42,6 @@ typedef struct dt_proc {
 	dtrace_hdl_t *dpr_hdl;		/* back pointer to libdtrace handle */
 	struct ps_prochandle *dpr_proc;	/* proc handle for libproc calls */
 	char dpr_errmsg[BUFSIZ];	/* error message */
-	rd_agent_t *dpr_rtld;		/* rtld handle for librtld_db calls */
 	pthread_mutex_t dpr_lock;	/* lock for manipulating dpr_hdl */
 	uint8_t dpr_tid_locked;		/* true if the control thread holds
 					 * dpr_locked */

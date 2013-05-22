@@ -76,6 +76,7 @@
 #include <dt_pid.h>
 #include <dt_impl.h>
 
+static int dt_proc_attach(dt_proc_t *dpr, int before_continue);
 static void dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid);
 
 static void
@@ -128,15 +129,57 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 	}
 }
 
-#if 0
-/*ARGSUSED*/
-static void
-dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
+/*
+ * Fire a one-shot breakpoint to say that the child has got to an interesting
+ * place from which we should grab control, possibly blocking.
+ */
+static int
+dt_break_interesting(uintptr_t addr, void *dpr_data)
 {
-	dt_dprintf("pid %d: breakpoint at %s()\n", (int)dpr->dpr_pid, fname);
-	dt_proc_stop(dpr, DT_PROC_STOP_MAIN);
+	dt_proc_t *dpr = dpr_data;
+
+	dt_dprintf("pid %d: breakpoint\n", (int)dpr->dpr_pid);
+	pthread_mutex_lock(&dpr->dpr_lock);
+	dpr->dpr_tid_locked = B_TRUE;
+
+	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
+	Punbkpt(dpr->dpr_proc, addr);
+
+	dpr->dpr_tid_locked = B_FALSE;
+	pthread_mutex_unlock(&dpr->dpr_lock);
+	return PS_RUN;
 }
-#endif
+
+/*
+ * A one-shot breakpoint that fires at a point at which the dynamic linker has
+ * initialized far enough to enable us to do reliable symbol lookups, and thus
+ * drop a breakpoint on main().
+ */
+static int
+dt_break_drop_main(uintptr_t addr, void *dpr_data)
+{
+	dt_proc_t *dpr = dpr_data;
+	int ret;
+
+	ret = dt_proc_attach(dpr, B_FALSE);
+	Punbkpt(dpr->dpr_proc, addr);
+
+	/*
+	 * If we couldn't dt_proc_attach(), because we couldn't find main();
+	 * rendezvous here, instead.
+	 */
+	if (ret < 0) {
+		pthread_mutex_lock(&dpr->dpr_lock);
+		dpr->dpr_tid_locked = B_TRUE;
+
+		dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
+
+		dpr->dpr_tid_locked = B_FALSE;
+		pthread_mutex_unlock(&dpr->dpr_lock);
+	}
+
+	return PS_RUN;
+}
 
 static void
 dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
@@ -179,26 +222,102 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 }
 
 /*
- * Common code for enabling events associated with the run-time linker after
- * attaching to a process.
+ * Aarrange to be notified whenever the set of shared libraries in the child is
+ * updated.
  */
 static void
-dt_proc_attach(dt_proc_t *dpr, int exec)
+dt_proc_rdagent(dt_proc_t *dpr)
 {
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-
 	/*
 	 * TODO: this doesn't yet cope with statically linked programs, for
 	 * which rd_event_enable() will return RD_NOMAPS until the first
 	 * dlopen() happens, who knows how late into the program's execution.
+	 *
+	 * All of these calls are basically free if the agent already exists
+	 * and monitoring is already active.
 	 */
-        if ((dpr->dpr_rtld = Prd_agent(dpr->dpr_proc)) != NULL) {
-		rd_event_enable(dpr->dpr_rtld, dt_proc_rdevent, dpr);
-	} else {
-		dt_dprintf("pid %d: failed to enable rtld events\n",
-		    (int)dpr->dpr_pid);
-	}
+        if (Prd_agent(dpr->dpr_proc) != NULL)
+		rd_event_enable(Prd_agent(dpr->dpr_proc), dt_proc_rdevent, dpr);
 }
+
+/*
+ * Possibly arrange to stop the process, post-attachment, at the right place.
+ * This may be called twice, before the dt_proc_continue() rendezvous just in
+ * case the dynamic linker is far enough up to help us out, and from a
+ * breakpoint set on preinit otherwise.
+ *
+ * Returns 0 on success, or -1 on failure (in which case the process is
+ * still halted).
+ */
+static int
+dt_proc_attach(dt_proc_t *dpr, int before_continue)
+{
+	uintptr_t addr = 0;
+	GElf_Sym main_sym;
+	dtrace_hdl_t *dtp = dpr->dpr_hdl;
+	int (*handler) (uintptr_t addr, void *data) = dt_break_interesting;
+
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+
+	dt_proc_rdagent(dpr);
+
+	/*
+	 * If we're stopping on exec we have no breakpoints to drop: if
+	 * we're stopping on preinit and it's after the dt_proc_continue()
+	 * rendezvous, we've already dropped the necessary breakpoints.
+	 */
+
+	if (dtp->dt_prcmode == DT_PROC_STOP_CREATE)
+		return 0;
+
+	if (!before_continue && dtp->dt_prcmode == DT_PROC_STOP_PREINIT)
+		return 0;
+
+	if (before_continue)
+		/*
+		 * Before dt_proc_continue().  Preinit, postinit and main all
+		 * get a breakpoint dropped on the process entry point, though
+		 * postinit and main use a different handler.
+		 */
+		switch (dtp->dt_prcmode) {
+		case DT_PROC_STOP_POSTINIT:
+		case DT_PROC_STOP_MAIN:
+			handler = dt_break_drop_main;
+		case DT_PROC_STOP_PREINIT:
+			addr = Pgetauxval(dpr->dpr_proc, AT_ENTRY);
+		}
+	else
+		/*
+		 * After dt_proc_continue().  Postinit and main get a breakpoint
+		 * dropped on main().
+		 */
+		switch (dtp->dt_prcmode) {
+		case DT_PROC_STOP_POSTINIT:
+		case DT_PROC_STOP_MAIN:
+			if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
+				PR_OBJ_EVERY, "main", &main_sym, NULL) == 0)
+				addr = main_sym.st_value;
+		}
+
+	if (addr &&
+	    Pbkpt(dpr->dpr_proc, addr, B_FALSE, handler, NULL, dpr) == 0)
+		return 0;
+
+	dt_dprintf("Cannot drop breakpoint in child process: acting as if "
+	    "evaltime=%s were in force.\n", before_continue ? "exec" :
+	    "preinit");
+	dpr->dpr_stop &= ~dtp->dt_prcmode;
+	if (before_continue) {
+		dpr->dpr_stop |= DT_PROC_STOP_CREATE;
+		dtp->dt_prcmode = DT_PROC_STOP_CREATE;
+	} else {
+		dpr->dpr_stop |= DT_PROC_STOP_PREINIT;
+		dtp->dt_prcmode = DT_PROC_STOP_PREINIT;
+	}
+
+	return -1;
+}
+
 /*PRINTFLIKE3*/
 _dt_printflike_(3,4)
 static struct ps_prochandle *
@@ -272,6 +391,8 @@ dt_proc_control(void *arg)
 	 * Either create the process, or grab it.  Whichever, on failure, quit
 	 * and let our cleanup run (signalling failure to
 	 * dt_proc_create_thread() in the process).
+	 *
+	 * At this point, the process is halted at exec(), if created.
 	 */
 
 	if (dpr->dpr_created) {
@@ -294,11 +415,20 @@ dt_proc_control(void *arg)
 	pid = dpr->dpr_pid;
 	P = dpr->dpr_proc;
 
-	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
+	/*
+	 * Enable rtld breakpoints at the location specified by dt_prcmode (or
+	 * drop other breakpoints which will eventually enable us to drop
+	 * breakpoints at that location).
+	 */
+	dt_proc_attach(dpr, B_TRUE);
 
 	/*
 	 * Wait for a rendezvous from dt_proc_continue().  After this point,
 	 * datap and all that it points to is no longer valid.
+	 *
+	 * This covers evaltime=exec and grabs, but not the three evaltimes that
+	 * depend on breakpoints.  Those wait for rendezvous from within the
+	 * breakpoint handler, invoked from Pwait() below.
 	 */
 	if (dpr->dpr_created)
 		dt_proc_stop(dpr, DT_PROC_STOP_CREATE);
@@ -318,10 +448,20 @@ dt_proc_control(void *arg)
 	 * ps_prochandle in the meantime (e.g. ustack()) without corrupting any
 	 * shared caches.  We do not expect them to modify the Pstate(), so we
 	 * can call that without grabbing the lock.
+	 *
+	 * TODO: this is impossible to implement properly at present (and
+	 * useless, since other parts of libdtrace cannot use the ps_prochandle
+	 * at all), but will be fixed once waitfds are in use.
 	 */
 	for (;;) {
 		if (Pwait(P, B_TRUE) == -1 && errno == EINTR)
 			continue; /* hit by signal: continue waiting */
+
+		/*
+		 * If we don't yet have an rtld_db handle, try again to get one.
+		 * (ld.so can take arbitrarily long to get ready for this.)
+		 */
+		dt_proc_rdagent(dpr);
 
 		switch (Pstate(P)) {
 		case PS_STOP:
@@ -625,7 +765,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_created = B_TRUE;
 
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_CREATE,
+	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode,
 		file, argv) != 0)
 		return (NULL); /* dt_proc_error() has been called for us */
 
