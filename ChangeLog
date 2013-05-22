@@ -20,6 +20,10 @@
 	(bkpt_handle_post_singlestep): Likewise, for post-singlestep
 	breakpoints.
 
+	* libproc/rtld_db.c (rd_start_trap): Now a notifier, returning void.
+	(rd_exec_handler): Add it with Pbkpt_notifier(), not Pbkpt().
+	(rd_new): Likewise.
+
 	Post-handler breakpoint removal.
 
 	* libproc/Pcontrol.h (bkpt_t.in_handler): New, true if this handler

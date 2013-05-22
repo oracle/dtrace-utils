@@ -65,7 +65,7 @@ static int rd_brk_trap(uintptr_t addr, void *rd_data);
 /*
  * Tripped when the child process hits our breakpoint on the start address.
  */
-static int rd_start_trap(uintptr_t addr, void *rd_data);
+static void rd_start_trap(uintptr_t addr, void *rd_data);
 
 /*
  * Try to get the address of r_brk, if not already known: return that address,
@@ -902,7 +902,7 @@ r_brk(rd_agent_t *rd)
  * At this point, in a dynamically linked program, the dynamic linker is
  * initialized.
  */
-static int
+static void
 rd_start_trap(uintptr_t addr, void *rd_data)
 {
 	rd_agent_t *rd = rd_data;
@@ -948,7 +948,6 @@ done:
 	_dprintf("%i: Hit start trap, r_brk is %lx; removing breakpoint\n",
 	    rd->P->pid, rd->r_brk_addr);
 	Punbkpt(rd->P, addr);
-	return PS_RUN;
 }
 
 /*
@@ -967,7 +966,7 @@ rd_exec_handler(struct ps_prochandle *P)
 	P->rap->lmid_bkpted = 0;
 	P->rap->lmid_incompatible_glibc = 0;
 
-	if (Pbkpt(P, Pgetauxval(P, AT_ENTRY), FALSE,
+	if (Pbkpt_notifier(P, Pgetauxval(P, AT_ENTRY), FALSE,
 		rd_start_trap, NULL, P->rap) != 0)
 		_dprintf("%i: cannot drop breakpoint at process "
 		    "start.\n", P->pid);
@@ -1060,7 +1059,7 @@ rd_new(struct ps_prochandle *P)
 		rd->maps_ready = 1;
 	} else
 		/*
-		 * Dynamic linker not yet initialized.  Drop a breakpoint on the
+		 * Dynamic linker not yet initialized.  Drop a notifier on the
 		 * entry address, so we can initialize it then.  If this is a
 		 * statically linked binary, this is not sufficient: _r_debug is
 		 * initialized at an unknown distant future point, when
@@ -1069,7 +1068,7 @@ rd_new(struct ps_prochandle *P)
 		 */
 
 		if (!P->no_dyn &&
-		    Pbkpt(rd->P, Pgetauxval(rd->P, AT_ENTRY), FALSE,
+		    Pbkpt_notifier(rd->P, Pgetauxval(rd->P, AT_ENTRY), FALSE,
 			rd_start_trap, NULL, rd) != 0) {
 			_dprintf("%i: cannot drop breakpoint at process start.\n",
 			    rd->P->pid);
