@@ -516,7 +516,7 @@ dt_proc_control(void *arg)
 
 	dt_list_delete(&dph->dph_lrulist, dpr);
 	dt_proc_remove(dtp, pid);
-	dt_free(dtp, dpr);
+	/* dt_free(dtp, dpr); -- XXX temporarily diked out */
 
 	pthread_mutex_unlock(&dph->dph_destroy_lock);
 
