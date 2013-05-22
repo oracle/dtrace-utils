@@ -43,6 +43,8 @@
 	is not initialized.
 	(sym_search_next): Use a symbol scope search when there are
 	symbols, not when there aren't.  Fix off-by-one bug.
+	(map_iter): Don't bother trying to look up the address of mappings
+	with no dynamic section.
 
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 

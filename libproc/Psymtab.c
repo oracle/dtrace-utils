@@ -285,8 +285,14 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 	else if (num == 1) {
 		_dprintf("map_iter: skipping vdso\n");
 	    return (1);
-	} else if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
-		_dprintf("map_iter: base address doesn't match any mapping\n");
+	} else if (lop->rl_dyn == 0)
+		/*
+		 * No dynamic section: this cannot be anything we are interested
+		 * in.
+		 */
+		return (1);
+	else if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
+		_dprintf("map_iter: base address of %lu doesn't match any mapping\n", lop->rl_dyn);
 		return (1);
 	}
 
