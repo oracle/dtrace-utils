@@ -1008,7 +1008,6 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 		mask_bkpt(bkpt->orig_insn)) < 0) {
 		free(bkpt);
 		goto err;
-		return errno;
 	}
 
 	bkpt->bkpt_next = P->bkpts[h];

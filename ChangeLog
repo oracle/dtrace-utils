@@ -32,6 +32,10 @@
 	Punbkpt() afterwards iff pending_removal.
 	(bkpt_handle_post_singlestep): Likewise.
 
+	Miscellaneous.
+
+	* libproc/Pcontrol.c (add_bkpt): Remove spurious return.
+
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the
