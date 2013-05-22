@@ -67,6 +67,12 @@ static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
 	int singlestep);
 static void bkpt_flush(struct ps_prochandle *P, int gone);
 static long bkpt_ip(struct ps_prochandle *P, int expect_esrch);
+static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
+    int after_singlestep, int notifier,
+    int (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data);
+static void delete_bkpt_handler(struct bkpt *bkpt);
 
 _dt_printflike_(1,2)
 void
@@ -897,15 +903,44 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
     void (*bkpt_cleanup) (void *data),
     void *data)
 {
+	return add_bkpt(P, addr, after_singlestep, FALSE, bkpt_handler,
+	    bkpt_cleanup, data);
+}
+
+/*
+ * A notifier is just like a breakpoint, except that it cannot change the
+ * control flow of the program.  One address can have only one breakpoint
+ * associated with it, but as many notifiers as you like.  A notifier shares
+ * the same after-singlestepping property as any breakpoint at its address, but
+ * has its own cleanup and private data.
+ */
+int
+Pbkpt_notifier(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
+    void (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data)
+{
+	return add_bkpt(P, addr, after_singlestep, TRUE,
+	    (int (*) (uintptr_t addr, void *data)) bkpt_handler,
+	    bkpt_cleanup, data);
+}
+
+static int
+add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
+    int is_notifier, int (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data)
+{
 	bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
 	uint_t h = addr % BKPT_HASH_BUCKETS;
+	bkpt_handler_t *notifier = NULL;
 	int orig_state;
 	int err;
 
 	/*
 	 * Already present? Just tweak it.
 	 */
-	if (bkpt) {
+	if (bkpt && !is_notifier) {
 		if (bkpt->bkpt_handler.bkpt_cleanup)
 			bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
 		bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
@@ -915,6 +950,26 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 		return 0;
 	}
 
+	/*
+	 * Prepare the notifier structure.  Adding a notifier multiple times
+	 * leads to its being called multiple times.
+	 */
+	if (is_notifier) {
+		notifier = malloc(sizeof (struct bkpt_handler));
+		if (!notifier)
+			return -ENOMEM;
+		memset(notifier, 0, sizeof (struct bkpt_handler));
+
+		notifier->bkpt_handler = bkpt_handler;
+		notifier->bkpt_cleanup = bkpt_cleanup;
+		notifier->bkpt_data = data;
+
+		if (bkpt) {
+			dt_list_append(&bkpt->bkpt_notifiers, notifier);
+			return 0;
+		}
+	}
+
 	orig_state = Ptrace(P, 1);
 	if (orig_state < 0) {
 		err = orig_state;
@@ -922,7 +977,8 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	}
 
 	/*
-	 * Allocate and poke in a new breakpoint.
+	 * Allocate and poke in a new breakpoint.  This breakpoint may have no
+	 * handler, if this is a notifier addition.
 	 */
 
 	bkpt = malloc(sizeof (struct bkpt));
@@ -930,9 +986,13 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 		goto err;
 
 	memset(bkpt, 0, sizeof (struct bkpt));
-	bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
-	bkpt->bkpt_handler.bkpt_cleanup = bkpt_cleanup;
-	bkpt->bkpt_handler.bkpt_data = data;
+	if (!is_notifier) {
+		bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
+		bkpt->bkpt_handler.bkpt_cleanup = bkpt_cleanup;
+		bkpt->bkpt_handler.bkpt_data = data;
+	} else
+		dt_list_append(&bkpt->bkpt_notifiers, notifier);
+
 	bkpt->after_singlestep = after_singlestep;
 	bkpt->bkpt_addr = addr;
 
@@ -971,13 +1031,15 @@ err2:
 	_dprintf("%i: Cannot add breakpoint on %lx: %s\n", P->pid,
 	    addr, strerror(errno));
 	Puntrace(P, orig_state);
+	free(notifier);
 	return err;
 }
 
 /*
  * Remove a breakpoint on a given address, if one exists there.
  *
- * The cleanup handler, if any, is called.
+ * The cleanup handlers, if any, are called, in reverse order of handler
+ * addition.
  */
 void
 Punbkpt(struct ps_prochandle *P, uintptr_t addr)
@@ -1071,10 +1133,8 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		if (!orig_ptrace_halted)
 			orig_state = PS_RUN;
 	}
-	if (bkpt->bkpt_handler.bkpt_cleanup)
-		bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
 
-	free(bkpt);
+	delete_bkpt_handler(bkpt);
 
 	Puntrace(P, orig_state);
 
@@ -1096,6 +1156,7 @@ static void
 bkpt_flush(struct ps_prochandle *P, int gone) {
 	size_t i;
 
+	_dprintf("Flushing breakpoints.\n");
 	for (i = 0; i < BKPT_HASH_BUCKETS; i++) {
 		bkpt_t *bkpt;
 		bkpt_t *old_bkpt = NULL;
@@ -1107,11 +1168,7 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 					Punbkpt(P, old_bkpt->bkpt_addr);
 				else {
 					bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
-
-					if (bkpt->bkpt_handler.bkpt_cleanup)
-						bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
-
-					free(bkpt);
+					delete_bkpt_handler(bkpt);
 				}
 			}
 		}
@@ -1121,11 +1178,7 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 				Punbkpt(P, old_bkpt->bkpt_addr);
 			else {
 				bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
-
-				if (bkpt->bkpt_handler.bkpt_cleanup)
-					bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
-
-				free(bkpt);
+				delete_bkpt_handler(bkpt);
 			}
 		}
 	}
@@ -1133,6 +1186,37 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 	P->tracing_bkpt = 0;
 	P->bkpt_halted = 0;
 	P->num_bkpts = 0;
+}
+
+/*
+ * Delete a single breakpoint handler's state, calling cleanups as needed.
+ *
+ * Frees the breakpoint, but does not unhash it: the caller must do that
+ * beforehand.
+ */
+static void
+delete_bkpt_handler(struct bkpt *bkpt)
+{
+	bkpt_handler_t *deleting, *next;
+	deleting = dt_list_prev(&bkpt->bkpt_notifiers);
+
+	if (deleting) {
+		next = dt_list_prev(deleting);
+		do {
+
+			if (deleting->bkpt_cleanup)
+				deleting->bkpt_cleanup(deleting->bkpt_data);
+
+			dt_list_delete(&bkpt->bkpt_notifiers, deleting);
+			free(deleting);
+			deleting = next;
+		} while (deleting != NULL);
+	}
+
+	if (bkpt->bkpt_handler.bkpt_cleanup)
+		bkpt->bkpt_handler.bkpt_cleanup(bkpt->bkpt_handler.bkpt_data);
+
+	free(bkpt);
 }
 
 /*
@@ -1226,10 +1310,23 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 	P->tracing_bkpt = bkpt->bkpt_addr;
 
 	if (!bkpt->after_singlestep) {
-		int state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
-		    bkpt->bkpt_handler.bkpt_data);
+		int state = PS_RUN;
+		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
 
-		_dprintf("%i: Breakpoint handler returned %i\n", P->pid, state);
+		for (; notifier; notifier = dt_list_next(notifier)) {
+			void (*notify) (uintptr_t, void *) =
+			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
+
+			notify(bkpt->bkpt_addr, notifier->bkpt_data);
+		}
+
+		if (bkpt->bkpt_handler.bkpt_handler) {
+			state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
+			    bkpt->bkpt_handler.bkpt_data);
+			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
+			    state);
+		}
+
 
 		if (state != PS_RUN) {
 			P->bkpt_halted = 1;
@@ -1361,10 +1458,23 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	int orig_insn;
 
 	if (bkpt->after_singlestep) {
-		state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
-		    bkpt->bkpt_handler.bkpt_data);
+		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
 
-		_dprintf("%i: Breakpoint handler returned %i\n", P->pid, state);
+
+		for (; notifier; notifier = dt_list_next(notifier)) {
+			void (*notify) (uintptr_t, void *) =
+			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
+
+			notify(bkpt->bkpt_addr, notifier->bkpt_data);
+		}
+
+		if (bkpt->bkpt_handler.bkpt_handler) {
+			state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
+			    bkpt->bkpt_handler.bkpt_data);
+			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
+			    state);
+		}
+	}
 	}
 
 	/*

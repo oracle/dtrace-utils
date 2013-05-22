@@ -1,3 +1,25 @@
+2013-05-22  Nick Alcock  <nick.alcock@oracle.com>
+
+	Breakpoint notifiers.
+
+	* libproc/libproc.h (Pbkpt_notifier): New prototype.
+	* libproc/Pcontrol.h (bkpt_handler_t.notifier_list): New, this is
+	sometimes now kept in a list.
+	(bkpt_t.bkpt_notifiers): The list (of notifiers).
+	* libproc/Pcontrol.c (Pbkpt): Rename to...
+	(add_bkpt): ... this, and add is_notifier argument and optional
+	addition to the notifier list.
+	(Pbkpt): Re-express as wrapper around add_bkpt.
+	(Pbkpt_notifier): New function, wrapper around add_bkpt.
+	(Punbkpt): Refactor out cleanup calls and bkpt freeing into...
+	(delete_bkpt_handler): ... this new function.  Add notifier
+	cleanup calls and freeing.
+	(bkpt_flush): Use it rather than open-coding the cleanup.
+	(bkpt_handle_start): Call the notifiers, if any.  Don't call the
+	handler if there is none.
+	(bkpt_handle_post_singlestep): Likewise, for post-singlestep
+	breakpoints.
+
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the

@@ -139,6 +139,10 @@ extern	int	Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
     int (*bkpt_handler) (uintptr_t addr, void *data),
     void (*bkpt_cleanup) (void *data),
     void *data);
+extern	int	Pbkpt_notifier(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
+    void (*bkpt_handler) (uintptr_t addr, void *data),
+    void (*bkpt_cleanup) (void *data),
+    void *data);
 extern	void	Punbkpt(struct ps_prochandle *P, uintptr_t address);
 extern	void	Pbkpt_continue(struct ps_prochandle *P);
 extern 	uintptr_t Pbkpt_addr(struct ps_prochandle *P);

@@ -139,10 +139,12 @@ typedef struct map_info {	/* description of an address space mapping */
 #define BKPT_HASH_BUCKETS	17
 
 /*
- * Handler for breakpoints.
+ * Handler for breakpoints.  (Notifiers use the same data structure, but cast
+ * the handler to return void.)
  */
 
 typedef struct bkpt_handler {
+	dt_list_t notifier_list;	/* linked list (notifiers only) */
 	/*
 	 * Return nonzero if the process should remain stopped at this
 	 * breakpoint, or zero to continue.
@@ -163,6 +165,7 @@ typedef struct bkpt {
 	uintptr_t bkpt_addr;		/* breakpoint address */
 	unsigned long orig_insn;	/* original instruction word */
 	bkpt_handler_t bkpt_handler;	/* handler for this breakpoint. */
+	dt_list_t bkpt_notifiers;	/* notifier chain */
 	int after_singlestep;		/* call handler before or after
 				           singlestepping? */
 } bkpt_t;
