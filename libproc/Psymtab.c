@@ -356,7 +356,8 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	rd_loadobj_t scope_lo = {0};
 	size_t i = 0;
 
-	if (fptr->file_symsearch)
+	if (fptr->file_symsearch != NULL ||
+	    fptr->file_lo == NULL)
 		return;
 
 	fptr->file_symsearch = calloc(fptr->file_lo->rl_nscopes,

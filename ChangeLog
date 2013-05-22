@@ -40,6 +40,9 @@
 
 	* libproc/Pcontrol.c (add_bkpt): Remove spurious return.
 
+	* libproc/Psymtab.c (Pupdate_symsearch): Do not crash if rtld_db
+	is not initialized.
+
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Psymtab.c (Prd_agent): Update lmids to initialize the
