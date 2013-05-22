@@ -1289,6 +1289,9 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_dirpath_t *dirp;
 	int i;
 
+	if (dtp == NULL)
+		return;
+
 	if (dtp->dt_procs != NULL)
 		dt_proc_hash_destroy(dtp);
 

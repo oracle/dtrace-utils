@@ -45,6 +45,9 @@
 	symbols, not when there aren't.  Fix off-by-one bug.
 	(map_iter): Don't bother trying to look up the address of mappings
 	with no dynamic section.
+	* cmd/dtrace.c (fatal): Close the DTrace handle.
+	* libdtrace/dt_open.c (dtrace_close): Do nothing on
+	dtrace_close(NULL), like free().
 
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
