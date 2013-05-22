@@ -196,6 +196,9 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 	dt_dprintf("pid %d: rtld event, type=%d state %d\n",
 	    (int)dpr->dpr_pid, msg->type, msg->state);
 
+	pthread_mutex_lock(&dpr->dpr_lock);
+	dpr->dpr_tid_locked = B_TRUE;
+
 	switch (msg->type) {
 	case RD_DLACTIVITY:
 		if (msg->state != RD_CONSISTENT)
@@ -219,6 +222,8 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 		/* cannot happen, but do nothing anyway */
 		break;
 	}
+	dpr->dpr_tid_locked = B_FALSE;
+	pthread_mutex_unlock(&dpr->dpr_lock);
 }
 
 /*

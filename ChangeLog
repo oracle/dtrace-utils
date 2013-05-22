@@ -84,6 +84,8 @@
 	* cmd/dtrace.c (fatal): Close the DTrace handle.
 	* libdtrace/dt_open.c (dtrace_close): Do nothing on
 	dtrace_close(NULL), like free().
+	* libdtrace/dt_proc.c (dt_proc_rdevent): Add a missing process
+	lock.
 
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 
