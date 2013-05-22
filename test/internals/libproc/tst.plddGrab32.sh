@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #
 # CDDL HEADER START
@@ -31,6 +32,7 @@
 
 test/triggers/libproc-sleeper-32 &
 SLEEPER=$!
+disown $SLEEPER
 test/triggers/libproc-pldd $SLEEPER
 EXIT=$?
 kill $SLEEPER

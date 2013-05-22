@@ -87,6 +87,7 @@
 	* libdtrace/dt_proc.c (dt_proc_rdevent): Add a missing process
 	lock.
 	(dt_proc_control): Don't dt_free() ourself.
+	* test/internals/libproc/tst.plddGrab*.sh: Disown before killing.
 
 2013-05-20  Nick Alcock  <nick.alcock@oracle.com>
 

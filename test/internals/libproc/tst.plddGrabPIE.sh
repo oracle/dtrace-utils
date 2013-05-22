@@ -31,6 +31,7 @@
 
 test/triggers/libproc-sleeper-pie &
 SLEEPER=$!
+disown $SLEEPER
 test/triggers/libproc-pldd $SLEEPER
 EXIT=$?
 kill $SLEEPER
