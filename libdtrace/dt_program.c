@@ -421,7 +421,7 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		    buf, sizeof (buf))) < 0)
 			return (dt_set_errno(dtp, errno));
 
-		if (i + 1 != prp->pr_nargc &&
+		if (i + 1 < prp->pr_nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
 			return (dt_set_errno(dtp, errno));
 	}
