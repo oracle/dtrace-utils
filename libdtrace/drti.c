@@ -112,7 +112,7 @@ dtrace_dof_init(void)
 	}
 	while (fgets(str, sizeof(str), fp) != NULL) {
 		uintptr_t	start, end;
-		char		*p = str;
+		char		*p = str, *q;
 
 		start = strtol(p, &p, 16);
 		if (*p != '-')
@@ -126,6 +126,8 @@ dtrace_dof_init(void)
 
 		if ((p = strrchr(str, ' ')) == NULL)
 			continue;
+		if ((q = strchr(p, '\n')) != NULL)
+			*q = '\0';
 
 		fmap.l_addr = start;
 		fmap.l_name = p + 1;
