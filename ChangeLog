@@ -1,3 +1,8 @@
+2013-06-03  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_program.c (dtrace_program_header): Emit missing
+	#include.
+
 2013-05-22  Nick Alcock  <nick.alcock@oracle.com>
 
 	Breakpoint notifiers.

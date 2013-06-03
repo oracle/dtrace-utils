@@ -592,7 +592,8 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 			return (dt_set_errno(dtp, errno));
 	}
 
-	if (fprintf(out, "#include <unistd.h>\n\n") < 0)
+	if (fprintf(out, "#include <unistd.h>\n"
+		"#include <inttypes.h>\n\n") < 0)
 		return (-1);
 
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)
