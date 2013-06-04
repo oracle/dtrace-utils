@@ -1,3 +1,7 @@
+2013-06-04  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/Build (DRTI_OBJ): Always build -fPIC.
+
 2013-06-03  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_program.c (dtrace_program_header): Emit missing

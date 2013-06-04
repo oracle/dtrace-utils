@@ -146,7 +146,7 @@ DRTI_OBJ = $(objdir)/dlibs/drti.o
 objs: $(DRTI_OBJ)
 $(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
 	$(call describe-target,CC,$<)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
 $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 	ln -sf $(BUILD_DRTI_OBJ) $(DRTI_OBJ)
 
