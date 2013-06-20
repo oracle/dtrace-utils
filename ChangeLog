@@ -197,7 +197,7 @@
 
 	Miscellaneous.
 
-	* runtest: Wait for a second for coredumps to make it to disk.
+	* runtest.sh: Wait for a second for coredumps to make it to disk.
 	* libproc/Psymtab.c (Pbuild_file_symtab): Fix Ptrace()/Puntrace()
 	imbalance.  If PTRACE_GETMAPFD doesn't work, say why.
 	* libproc/Pcontrol.h (exec_handler_fun): Make it clearer that this
@@ -205,6 +205,7 @@
 	(ps_prochandle_t.exec_handler): Likewise.
 	(set_exec_handler): Likewise.
 	* libproc/Pcontrol.c (set_exec_handler): Likewise.
+	(Pgrab): Prohibit self-grabs.
 	* libproc/rtld_db.c (rd_event_enable): Turn on the rd_monitoring
 	flag when rtld activity monitoring is turned on.
 	(rd_ldso_nonzero_lmid_consistent_begin): Consistently use 0/1

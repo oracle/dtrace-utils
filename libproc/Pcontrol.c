@@ -247,6 +247,12 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 		return (NULL);
 	}
 
+	if (pid == getpid()) {
+		_dprintf("Self-grabs are not supported.\n");
+		*perr = ESRCH;
+		return (NULL);
+	}
+
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
 		*perr = ENOMEM;
 		return (NULL);
