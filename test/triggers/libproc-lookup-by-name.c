@@ -106,6 +106,7 @@ main(int argc, char *argv[])
 	} while (Pstate(P) == PS_RUN);
 
 	Prelease(P, 1);
+	Pfree(P);
 
 	return (0);
 }

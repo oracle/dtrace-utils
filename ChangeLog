@@ -141,6 +141,43 @@
 	continue when not resumed waits for resumption after the
 	broadcast.
 
+	Process termination cleanup.
+
+	* libdtrace/dt_proc.h (dt_prox_hash.dph_destroy_lock): Remove.
+	* libproc/Pcontrol.h (ps_prochandle_t.released): New.
+	Add prototypes.
+	* libproc/Pcontrol.c (Pfree): Rename to...
+	(Pfree_internal): ... this.
+	(Pfree): New, free storage used by already-released process.
+	(Pcreate): Puntrace() at appropriate times. Call Pfree_internal(),
+	not Pfree().
+	(Pgrab): Likewise.
+	(Prelease): Do nothing if already released.  Don't free storage,
+	just deallocate other OS resources.
+	* libproc/Psymtab.c (Psym_free): Don't free the rd_agent here...
+	(Psym_release): ... but in this new function, called from
+	Prelease().
+	* test/triggers/libproc-consistency.c: Call Pfree().
+	* test/triggers/libproc-lookup-by-name.c: Likewise.
+	* test/triggers/libproc-pldd.c: Likewise.
+	* libdtrace/dt_proc.c (dt_proc_control): Don't blank out
+	the dpr_proc, remove from the lrulist or dph hash,
+	or free the prochandle.
+	(dt_proc_destroy): Do it here instead.  Also clean up all the
+	mutexes, but do not free the dt_proc itself.  Use
+	dt_proc_dpr_lock().
+	(dt_proc_create_thread): Free the proc on error.
+	(dt_proc_grab): Destroy the dpr_msg_cv on error.
+	(dt_proc_release): If the process is dead, destroy it, don't
+	just retire it.
+	(dt_proc_hash_create): No more dph_destroy_lock.
+	(dt_proc_hash_destroy): Likewise.  Fix the broken list iteration.
+	Free the dpr ourselves, after using it to iterate to the next
+	member in the list.
+	* libdtrace/dt_work.c (dtrace_sleep): Translate a PS_DEAD process
+	into a NULL one for the process handler (which has no access to
+	the Pstate() function).
+
 	Drop RD_PREINIT / RD_POSTINIT.
 
 	* include/rtld_db.h (rd_event_e): Drop them.

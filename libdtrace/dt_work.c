@@ -21,17 +21,16 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <dt_impl.h>
 #include <stddef.h>
 #include <errno.h>
 #include <assert.h>
 #include <time.h>
+#include <libproc.h>
 #include <port.h>
 
 static const struct {
@@ -95,12 +94,16 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
+			struct ps_prochandle *P = dprn->dprn_dpr->dpr_proc;
 			char *err = dprn->dprn_errmsg;
+
 			if (*err == '\0')
 				err = NULL;
 
-			dtp->dt_prochdlr(dprn->dprn_dpr->dpr_proc, err,
-			    dtp->dt_procarg);
+			if (Pstate(P) == PS_DEAD)
+				P = NULL;
+
+			dtp->dt_prochdlr(P, err, dtp->dt_procarg);
 		}
 
 		dph->dph_notify = dprn->dprn_next;

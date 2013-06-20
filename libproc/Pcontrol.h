@@ -228,6 +228,7 @@ typedef void exec_handler_fun(struct ps_prochandle *);
 struct ps_prochandle {
 	pid_t	pid;		/* process ID */
 	int	state;		/* state of the process, see "libproc.h" */
+	int	released;	/* true if released but not yet freed */
 	int	ptraced;	/* true if ptrace-attached */
 	int	ptrace_count;	/* count of Ptrace() calls */
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
@@ -270,6 +271,7 @@ struct ps_prochandle {
  */
 extern	void	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
+extern	void	Psym_release(struct ps_prochandle *);
 extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uintptr_t r_debug(struct ps_prochandle *P);

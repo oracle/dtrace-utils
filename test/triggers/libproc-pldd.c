@@ -183,6 +183,7 @@ main(int argc, char *argv[])
 		really_seen);
 
 	Prelease(P, (pid == 0));
+	Pfree(P);
 
 	return (0);
 }

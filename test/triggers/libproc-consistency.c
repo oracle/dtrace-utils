@@ -152,6 +152,7 @@ int main(int argc, char *argv[])
 	}
 
 	Prelease(P, 1);
+	Pfree(P);
 
 	printf("%i adds, %i deletes, %i stables, %i nonzero lmids\n", adds_seen,
 	    deletes_seen, stables_seen, nonzero);

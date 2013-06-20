@@ -38,6 +38,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <signal.h>
+#include <assert.h>
 
 #include <sys/ptrace.h>
 #include <sys/types.h>
@@ -59,9 +60,9 @@ char	procfs_path[PATH_MAX] = "/proc";
 
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
-static void Pfree(struct ps_prochandle *P);
 static ptrace_lock_hook_fun *ptrace_lock_hook;
 
+static void Pfree_internal(struct ps_prochandle *P);
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
 static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
 static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
@@ -180,7 +181,7 @@ Pcreate(
 	    status>>8 != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 		rc = ENOENT;
 		_dprintf ("Pcreate: exec of %s failed\n", file);
-		goto bad;
+		goto bad_untrace;
 	}
 
 	/*
@@ -190,7 +191,7 @@ Pcreate(
 	if (Pmemfd(P) == -1)	{		/* populate ->memfd */
 		/* error already reported */
 		rc = errno;
-		goto bad;
+		goto bad_untrace;
 	}
 
 	/*
@@ -203,15 +204,17 @@ Pcreate(
 	if ((P->elf64 = process_elf64(P, procname)) < 0) {
 		/* error already reported */
 		rc = errno;
-		goto bad;
+		goto bad_untrace;
 	}
 
 	*perr = 0;
         return P;
 
+bad_untrace:
+	Puntrace(P, 0);
 bad:
 	(void) kill(pid, SIGKILL);
-	Pfree(P);
+	Pfree_internal(P);
 	*perr = rc;
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
@@ -272,7 +275,7 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 	Pgrabbing = 0;
 
 	if (*perr < 0) {
-		Pfree(P);
+		Pfree_internal(P);
 		return NULL;
 	}
 	snprintf(procname, sizeof (procname), "%s/%d/exe",
@@ -280,12 +283,14 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 
 	if ((P->elf64 = process_elf64(P, procname)) < 0)
 		/* error already reported */
-		goto bad;
+		goto bad_untrace;
 
 	return P;
+bad_untrace:
+	Puntrace(P, 0);
 bad:
 	*perr = errno;
-	Pfree(P);
+	Pfree_internal(P);
 	return NULL;
 }
 
@@ -296,15 +301,30 @@ bad:
  * breakpoints with their original content.  (Thus, extremely internal.)
  */
 static void
-Pfree(struct ps_prochandle *P)
+Pfree_internal(struct ps_prochandle *P)
 {
 	Pclose(P);
 	Psym_free(P);
 
 	free(P->auxv);
-
 	free(P->bkpts);
 	free(P);
+}
+
+/*
+ * Free a process control structure, external version.
+
+ * Aborts if the process is not already released.
+ */
+void
+Pfree(struct ps_prochandle *P)
+{
+	if (P == NULL)
+		return;
+
+	assert(P->released);
+
+	Pfree_internal(P);
 }
 
 /*
@@ -379,13 +399,14 @@ Pmemfd(struct ps_prochandle *P)
 }
 
 /*
- * Release the process.  Free the process control structure.
- * If kill_it is set, kill the process instead.
+ * Release the process.  If kill_it is set, kill the process instead.
  *
  * Note: unlike Puntrace(), this releases *all* outstanding traces, cleans up
  * all breakpoints, and detaches unconditionally.  It's meant to be used if the
  * tracer is dying or completely losing interest in its tracee, not merely if it
  * doesn't want to trace it right now.
+ *
+ * This function is safe to call repeatedly.
  */
 void
 Prelease(struct ps_prochandle *P, boolean_t kill_it)
@@ -393,17 +414,24 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	if (!P)
 		return;
 
-	bkpt_flush(P, FALSE);
+	if (P->released)
+		return;
+
+	Psym_release(P);
 
 	if (P->state == PS_DEAD) {
 		_dprintf("Prelease: releasing handle %p of dead pid %d\n",
 		    (void *)P, (int)P->pid);
-		Pfree(P);
+
+		bkpt_flush(P, TRUE);
+		P->released = TRUE;
 
 		dt_debug_dump(0);
 
 		return;
 	}
+
+	bkpt_flush(P, FALSE);
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",
 	    (void *)P, (int)P->pid);
@@ -416,7 +444,8 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	if (P->ptrace_count != 0 && ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
 
-	Pfree(P);
+	P->state = PS_DEAD;
+	P->released = TRUE;
 
 	dt_debug_dump(0);
 }

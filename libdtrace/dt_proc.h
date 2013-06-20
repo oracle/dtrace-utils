@@ -110,8 +110,6 @@ typedef struct dt_proc_hash {
 	pthread_mutex_t dph_lock;	/* lock protecting dph_notify list */
 	pthread_cond_t dph_cv;		/* cond for waiting for dph_notify */
 	dt_proc_notify_t *dph_notify;	/* list of pending proc notifications */
-	pthread_mutex_t dph_destroy_lock; /* lock serializing destruction:
-					   * ordered outside dpr_lock */
 	dt_list_t dph_lrulist;		/* list of dt_proc_t's in lru order */
 	uint_t dph_lrulim;		/* limit on number of procs to hold */
 	uint_t dph_lrucnt;		/* count of cached process handles */

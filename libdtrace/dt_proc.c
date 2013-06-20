@@ -752,18 +752,9 @@ dt_proc_control(void *arg)
 	 * dt_proc_t structure on the dt_proc_hash_t notification list, then
 	 * clean up.
 	 */
-	pthread_mutex_lock(&dph->dph_destroy_lock);
 
-	dpr->dpr_proc = NULL;
 	dt_proc_notify(dtp, dph, dpr, NULL);
-
 	pthread_cleanup_pop(1);
-
-	dt_list_delete(&dph->dph_lrulist, dpr);
-	dt_proc_remove(dtp, pid);
-	/* dt_free(dtp, dpr); -- XXX temporarily diked out */
-
-	pthread_mutex_unlock(&dph->dph_destroy_lock);
 
 	return (NULL);
 }
@@ -903,10 +894,13 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	dt_proc_notify_t *npr, **npp;
 
 	/*
-	 * Before we free the process structure, remove this dt_proc_t from the
-	 * lookup hash, and then walk the dt_proc_hash_t's notification list
-	 * and remove this dt_proc_t if it is enqueued.  If the dpr is already
-	 * gone, do nothing.
+	 * Remove this dt_proc_t from the lookup hash, and then walk the
+	 * dt_proc_hash_t's notification list and remove this dt_proc_t if it is
+	 * enqueued.  If the dpr is already gone, do nothing.
+	 *
+	 * Note that we do not actually free the dpr: the caller must do that.
+	 * (This is because the caller may need the dpr to exist while it
+	 * navigates to the next item on the list to delete.)
 	 */
 	if (dpr == NULL)
 		return;
@@ -928,45 +922,42 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	}
 
 	pthread_mutex_unlock(&dph->dph_lock);
+
+	/*
+	 * If the daemon thread is still alive, clean it up.
+	 */
 	if (dpr->dpr_tid) {
-		/*
-		 * If the process is currently waiting in dt_proc_stop(), poke it
-		 * into running again.  This is essential to ensure that the
-		 * thread cancel does not hit while it already has the mutex
-		 * locked.
-		 */
-		if (dpr->dpr_stop & DT_PROC_STOP_IDLE) {
-			dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
-			pthread_cond_broadcast(&dpr->dpr_cv);
-		}
+		unsigned long lock_count;
 
 		/*
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
 		 * the thread has exited.  (This will also terminate the
 		 * process.)
-		 *
-		 * Do not use P below this point: it has been freed by the
-		 * daemon's cleanup process.
 		 */
-		pthread_mutex_lock(&dpr->dpr_lock);
+		dt_proc_dpr_lock(dpr);
 		pthread_cancel(dpr->dpr_tid);
+
+		lock_count = dpr->dpr_lock_count;
+		dpr->dpr_lock_count = 0;
 
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
-		pthread_mutex_unlock(&dpr->dpr_lock);
-	} else
-		/*
-		 * No daemon thread to clean up for us. Prelease() the
-		 * underlying process explicitly.
-		 */
-		Prelease(P, dpr->dpr_created);
+		dpr->dpr_lock_holder = pthread_self();
+		dpr->dpr_lock_count = lock_count;
+
+		dt_proc_dpr_unlock(dpr);
+	}
 
 	assert(dph->dph_lrucnt != 0);
 	dph->dph_lrucnt--;
 	dt_list_delete(&dph->dph_lrulist, dpr);
 	dt_proc_remove(dtp, dpr->dpr_pid);
-	dt_free(dtp, dpr);
+	Pfree(dpr->dpr_proc);
+
+	pthread_cond_destroy(&dpr->dpr_cv);
+	pthread_cond_destroy(&dpr->dpr_msg_cv);
+	pthread_mutex_destroy(&dpr->dpr_lock);
 }
 
 static int
@@ -1033,15 +1024,12 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 		}
 	} else {
 		(void) dt_proc_error(dpr->dpr_hdl, dpr,
-		    "failed to create control thread for process-id %d: %s\n",
+		    "failed to create control thread for pid %d: %s\n",
 		    (int)dpr->dpr_pid, strerror(err));
 	}
 
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
 	(void) pthread_attr_destroy(&a);
-
-	if (err != 0)
-		dt_free(dtp, dpr);
 
 	return (err);
 }
@@ -1168,6 +1156,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, NULL, NULL) != 0) {
 
 		pthread_cond_destroy(&dpr->dpr_cv);
+		pthread_cond_destroy(&dpr->dpr_msg_cv);
 		pthread_mutex_destroy(&dpr->dpr_lock);
 		dt_free(dtp, dpr);
 
@@ -1228,6 +1217,11 @@ dt_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	    !dt_proc_retired(dpr->dpr_proc)) {
 		dt_proc_retire(P);
 		dph->dph_lrucnt--;
+	}
+
+	if (dpr->dpr_done) {
+		dt_proc_destroy(dtp, P);
+		dt_free(dtp, dpr);
 	}
 }
 
@@ -1340,7 +1334,6 @@ dt_proc_hash_create(dtrace_hdl_t *dtp)
 	    sizeof (dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
 
 		(void) pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
-		(void) pthread_mutex_init(&dtp->dt_procs->dph_destroy_lock, NULL);
 		(void) pthread_cond_init(&dtp->dt_procs->dph_cv, NULL);
 
 		dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
@@ -1352,12 +1345,17 @@ void
 dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
-	dt_proc_t *dpr;
+	dt_proc_t *dpr, *old_dpr = NULL;
 
-	pthread_mutex_lock(&dph->dph_destroy_lock);
-	while ((dpr = dt_list_next(&dph->dph_lrulist)) != NULL)
+	for (dpr = dt_list_next(&dph->dph_lrulist);
+	     dpr != NULL; dpr = dt_list_next(dpr)) {
 		dt_proc_destroy(dtp, dpr->dpr_proc);
-	pthread_mutex_unlock(&dph->dph_destroy_lock);
+		dt_free(dtp, old_dpr);
+		old_dpr = dpr;
+	}
+	dt_free(dtp, old_dpr);
+
+	pthread_cond_destroy(&dph->dph_cv);
 
 	dtp->dt_procs = NULL;
 	dt_free(dtp, dph);

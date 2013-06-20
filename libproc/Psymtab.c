@@ -239,10 +239,18 @@ void
 Psym_free(struct ps_prochandle *P)
 {
 	Preset_maps(P);
-	rd_delete(P->rap);
-	P->rap = NULL;
 	free(P->map_files);
 	P->map_files = NULL;
+}
+
+/*
+ * Do those things that must be done on a Prelease().
+ */
+void
+Psym_release(struct ps_prochandle *P)
+{
+	rd_delete(P->rap);
+	P->rap = NULL;
 }
 
 /*
