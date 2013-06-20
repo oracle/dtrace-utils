@@ -40,6 +40,7 @@
  */
 
 int _dtrace_debug = 0;		/* debug messages enabled (off) */
+int _dtrace_debug_assert = 0;	/* expensive debug assertions enabled (off) */
 
 static char *ring;		/* ring buffer, if non-NULL */
 static size_t ring_size;	/* ring size */

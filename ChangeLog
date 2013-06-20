@@ -45,6 +45,19 @@
 	* test/triggers/libproc-consistency.c (main): Likewise.
 	* test/triggers/libproc-lookup-by-name.c (main): Likewise.
 
+	Mutex debugging.
+
+	* libdtrace/dt_impl.h (_dtrace_debug_assert): New variable, the
+	set of active debug assertions.
+	(DT_DEBUG_MUTEXES): The only such assertion so far.
+	* libdtrace/dt_options.c (dt_opt_debug_assert): Set it...
+	(_dtrace_ctoptions): ... and here.
+	* libdtrace/dt_debug.c: Define it.
+	* runtest.sh: Set it, via the environment variable method.
+	* libdtrace/dt_proc.c (dt_proc_create): Use error-checking
+	mutexes if DT_DEBUG_MUTEXES. Fix leak on error path.
+	(dt_proc_grab): Likewise.
+
 	Drop RD_PREINIT / RD_POSTINIT.
 
 	* include/rtld_db.h (rd_event_e): Drop them.

@@ -234,6 +234,21 @@ dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_debug_assert(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (!strcmp(arg, "mutexes") == 0)
+		_dtrace_debug_assert |= DT_DEBUG_MUTEXES;
+	else
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	int n;
@@ -934,6 +949,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "defaultargs", dt_opt_cflags, DTRACE_C_DEFARG },
 	{ "dtypes", dt_opt_dtypes },
 	{ "debug", dt_opt_debug },
+	{ "debugassert", dt_opt_debug_assert },
 	{ "define", dt_opt_cpp_opts, (uintptr_t)"-D" },
 	{ "droptags", dt_opt_droptags },
 	{ "empty", dt_opt_cflags, DTRACE_C_EMPTY },

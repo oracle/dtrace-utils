@@ -752,19 +752,38 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr;
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_t *attrp = NULL;
 
 	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
 		return (NULL); /* errno is set for us */
 
-	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
+	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
+		attrp = &attr;
+		pthread_mutexattr_init(attrp);
+		pthread_mutexattr_settype(attrp, PTHREAD_MUTEX_ERRORCHECK);
+	}
+
+	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
+
+	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
+		pthread_mutexattr_destroy(attrp);
+		attrp = NULL;
+	}
 
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_created = B_TRUE;
 
 	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode,
-		file, argv) != 0)
+		file, argv) != 0) {
+
+		pthread_cond_destroy(&dpr->dpr_cv);
+		pthread_mutex_destroy(&dpr->dpr_lock);
+		dt_free(dtp, dpr);
+
 		return (NULL); /* dt_proc_error() has been called for us */
+	}
 
 	dph->dph_lrucnt++;
 	dpr->dpr_hash = dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)];
@@ -783,6 +802,8 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	uint_t h = pid & (dph->dph_hashlen - 1);
 	dt_proc_t *dpr, *opr;
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_t *attrp = NULL;
 
 	/*
 	 * Search the hash table for the pid.  If it is already grabbed or
@@ -818,8 +839,19 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
 		return (NULL); /* errno is set for us */
 
-	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
+	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
+		attrp = &attr;
+		pthread_mutexattr_init(attrp);
+		pthread_mutexattr_settype(attrp, PTHREAD_MUTEX_ERRORCHECK);
+	}
+
+	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
+
+	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
+		pthread_mutexattr_destroy(attrp);
+		attrp = NULL;
+	}
 
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_pid = pid;
@@ -829,8 +861,14 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	 * Create a control thread for this process and store its ID in
 	 * dpr->dpr_tid.
 	 */
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, NULL, NULL) != 0)
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, NULL, NULL) != 0) {
+
+		pthread_cond_destroy(&dpr->dpr_cv);
+		pthread_mutex_destroy(&dpr->dpr_lock);
+		dt_free(dtp, dpr);
+
 		return (NULL); /* dt_proc_error() has been called for us */
+	}
 
 	/*
 	 * If we're currently caching more processes than dph_lrulim permits,

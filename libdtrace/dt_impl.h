@@ -371,6 +371,12 @@ struct dtrace_hdl {
 #define	DT_STDC_XS	1	/* K&R C: __STDC__ not defined */
 
 /*
+ * Values for the DTrace debug assertion property, which turns on assertions
+ * which may be expensive while running the testsuite.
+ */
+#define DT_DEBUG_MUTEXES 0x01
+
+/*
  * Macro to test whether a given pass bit is set in the dt_treedump bit-vector.
  * If the bit for pass 'p' is set, the D compiler displays the parse tree for
  * the program by printing it to stderr at the end of compiler pass 'p'.
@@ -674,6 +680,7 @@ extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */
+extern int _dtrace_debug_assert;	/* turn on expensive assertions */
 
 extern const char *_dtrace_moddir;	/* default kernel module directory */
 

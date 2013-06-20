@@ -604,6 +604,9 @@ fi
 # Export some variables so triggers and .sh scripts can get at them.
 export _test _pid dt_flags
 
+# Arrange to do (relatively expensive) mutex debugging.
+export DTRACE_OPT_DEBUGASSERT="mutexes"
+
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
