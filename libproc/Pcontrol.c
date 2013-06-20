@@ -1761,7 +1761,7 @@ Pset_procfs_path(const char *path)
  * Set a handler for exec()s.
  */
 void
-set_exec_handler(struct ps_prochandle *P, exec_handler_fun handler)
+set_exec_handler(struct ps_prochandle *P, exec_handler_fun *handler)
 {
 	P->exec_handler = handler;
 }

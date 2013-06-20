@@ -219,7 +219,7 @@ struct rd_agent {
 /*
  * Handler for exec()s.
  */
-typedef void (*exec_handler_fun)(struct ps_prochandle *);
+typedef void exec_handler_fun(struct ps_prochandle *);
 
 /*
  * A process under management.
@@ -258,7 +258,7 @@ struct ps_prochandle {
 	rd_agent_t *rap;	/* rtld_db state */
 	ssize_t map_exec;	/* the index of the executable mapping */
 	ssize_t map_ldso;	/* the index of the ld.so mapping */
-	exec_handler_fun exec_handler;	/* exec() handler */
+	exec_handler_fun *exec_handler;	/* exec() handler */
 	ptrace_fun *ptrace_wrap; /* ptrace() wrapper */
 	pwait_fun *pwait_wrap;	 /* pwait() wrapper */
 	void *wrap_arg;		 /* args for hooks and wrappers */
@@ -274,8 +274,8 @@ extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,
-    exec_handler_fun handler);
-extern char	procfs_path[PATH_MAX];
+    exec_handler_fun *handler);
+extern	char	procfs_path[PATH_MAX];
 
 /*
  * The wrapper functions are somewhat inconsistently named, because we can
