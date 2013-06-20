@@ -42,6 +42,6 @@ BEGIN
 	assoc_array["pfnAddress"] = &`max_pfn;
 	pfnValue = *(assoc_array["pfnAddress"]);
 	printf("Address of max_pfn: %x\n", (int) assoc_array["pfnAddress"]);
-	printf("Value of max_pfm: %d\n", pfnValue);
+	printf("Value of max_pfn: %d\n", pfnValue);
 	exit(0);
 }

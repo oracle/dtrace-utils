@@ -217,6 +217,11 @@
 	Pupdate_maps().
 	* test/triggers/pid-tst-gcc.c (go): Don't use a NULL argv
 	or spam stdout.
+	* test/unittest/pointers/tst.basic2.d: Fix typo.
+	* test/unittest/profile-n/tst.func.sh: Use /bin/date, not
+	/usr/bin/date.
+	* test/unittest/profile-n/tst.mod.sh: Likewise.
+	* test/unittest/profile-n/tst.sym.sh: Likewise.
 
 2013-06-04  Nick Alcock  <nick.alcock@oracle.com>
 

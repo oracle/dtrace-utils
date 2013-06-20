@@ -26,6 +26,8 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: Solaris-specific, needs porting
+
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
@@ -46,7 +48,7 @@ EOF
 spinny()
 {
 	while true; do
-		/usr/bin/date > /dev/null
+		/bin/date > /dev/null
 	done
 }
 

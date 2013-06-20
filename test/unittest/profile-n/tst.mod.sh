@@ -46,7 +46,7 @@ EOF
 spinny()
 {
 	while true; do
-		/usr/bin/date > /dev/null
+		/bin/date > /dev/null
 	done
 }
 
