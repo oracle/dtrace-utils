@@ -766,7 +766,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 		rd->lmid_bkpted = TRUE;
 	else {
 		rd->lmid_halted = 1;
-		rd->lmid_halt_prev_state = Ptrace(rd->P, TRUE);
+		rd->lmid_halt_prev_state = Ptrace(rd->P, 1);
 	}
 
 	return 0;
@@ -1136,6 +1136,7 @@ rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 	if (Pbkpt(rd->P, rd->r_brk_addr, FALSE, rd_brk_trap, NULL, rd) != 0)
 		return RD_ERR;
 
+	rd->rd_monitoring = TRUE;
 	_dprintf("%i: enabled rtld activity monitoring.\n", rd->P->pid);
 
 	return RD_OK;
