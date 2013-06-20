@@ -63,7 +63,7 @@
 
 	* runtest: Wait for a second for coredumps to make it to disk.
 	* libproc/Psymtab.c (Pbuild_file_symtab): Fix Ptrace()/Puntrace()
-	imbalance.
+	imbalance.  If PTRACE_GETMAPFD doesn't work, say why.
 
 2013-06-04  Nick Alcock  <nick.alcock@oracle.com>
 
