@@ -1104,9 +1104,11 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * same is true of the Puntrace().
 	 */
 	fptr->file_init = 0;
-	p_state = Ptrace(P, 0);
-	if (fptr->file_init == 1)
+	p_state = Ptrace(P, 1);
+	if (fptr->file_init == 1) {
+		Puntrace(P, p_state);
 		return;
+	}
 	fptr->file_init = 1;
 
 	if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
