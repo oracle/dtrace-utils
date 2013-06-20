@@ -33,7 +33,6 @@ syscall::read:entry
 /pid == $1/
 {
 	ustack();
-	exit(0);
 }
 
 syscall::exit_group:entry

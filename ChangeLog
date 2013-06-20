@@ -50,6 +50,15 @@
 	* include/rtld_db.h (rd_event_e): Drop them.
 	* libdtrace/dt_proc.c (dt_proc_rdevent): Likewise.
 
+	ustack() testcase fixes.
+
+	* test/demo/act/ustack.d: Don't exit right after the ustack().
+	* test/triggers/Build: Pass in --export-dynamic to the linker, not
+	-Bdynamic to the compiler.  Don't use sibcalls or inlines.
+	* test/triggers/readwholedir.c (main): Wait for dtrace for a bit.
+	(is_regular_test_file): Make non-static.
+	(rw_files): Likewise.
+
 	Miscellaneous.
 
 	* runtest: Wait for a second for coredumps to make it to disk.

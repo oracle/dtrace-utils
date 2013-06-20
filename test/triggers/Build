@@ -48,8 +48,10 @@ endef
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
 proc-tst-sigwait_LIBS := -lrt
 
-# readwholedir is used for ustack() tests, so needs a symbol table.
-readwholedir_LDFLAGS := -Bdynamic
+# readwholedir is used for ustack() tests, so needs a symbol table and needs
+# all its functions in it, even if they would be sibcalled out of existence.
+readwholedir_CFLAGS := -fno-inline -fno-optimize-sibling-calls
+readwholedir_LDFLAGS := -Wl,--export-dynamic
 
 # visible-constructor-unstripped needs evaltime=main to work, so needs a
 # symbol table.  visible-constructor should never have one, even if building

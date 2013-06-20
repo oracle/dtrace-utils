@@ -61,8 +61,8 @@ const char *path;
 static struct dirent **dir;
 static size_t dir_count = 0;
 
-static int is_regular_test_file (const struct dirent *d);
-static void rw_files(const char *path, struct dirent **dir, int outfile);
+int is_regular_test_file (const struct dirent *d);
+void rw_files(const char *path, struct dirent **dir, int outfile);
 
 int
 main (void)
@@ -72,7 +72,9 @@ main (void)
 	FILE *tmp;
 	int writefile = -1;
 
-	/* Reduce the testname to a path. */
+	/*
+	 * Reduce the testname to a path.
+	 */
 
 	path = getenv("_test");
 	chop = strrchr(path, '/');
@@ -112,14 +114,14 @@ main (void)
 	/*
 	 * Let dtrace catch up, for ustack() tests that need a running process.
 	 */
-	sleep(2);
+	sleep(5);
 
 	return 0;
 }
 
 /* Identify regular .d files. */
 
-static int
+int
 is_regular_test_file (const struct dirent *d)
 {
 	struct stat s;
@@ -157,7 +159,7 @@ is_regular_test_file (const struct dirent *d)
  * are immediately fatal.  Short writes are not diagnosed and will lead to a
  * test failure.
  */
-static void
+void
 rw_files(const char *path, struct dirent **dir, int outfile)
 {
 	size_t i;
