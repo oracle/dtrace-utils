@@ -1148,6 +1148,13 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 	 * lookup-with-unchain if this is not so.
 	 */
 	bkpt = bkpt_by_addr(P, addr, FALSE);
+	if (!bkpt) {
+		_dprintf("%i: Punbkpt() called with %lx, which is not a known "
+		    "breakpoint.\n", P->pid, addr);
+		Puntrace(P, orig_state);
+		return;
+	}
+
 	if (bkpt->in_handler) {
 		bkpt->pending_removal = 1;
 		Puntrace(P, orig_state);
@@ -1156,11 +1163,6 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 
 	Pwait(P, 0);
 	bkpt = bkpt_by_addr(P, addr, TRUE);
-	if (!bkpt) {
-		_dprintf("%i: Punbkpt() called with %lx, which is not a known "
-		    "breakpoint.\n", P->pid, addr);
-		return;
-	}
 
 	P->num_bkpts--;
 
