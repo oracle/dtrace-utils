@@ -1249,6 +1249,12 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 	size_t i;
 
 	_dprintf("Flushing breakpoints.\n");
+
+	/*
+	 * Consume all SIGTRAPs from here until flush completion.
+	 */
+	P->bkpt_consume = 1;
+
 	for (i = 0; i < BKPT_HASH_BUCKETS; i++) {
 		bkpt_t *bkpt;
 		bkpt_t *old_bkpt = NULL;
@@ -1275,6 +1281,14 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 		}
 	}
 
+	/*
+	 * One last Pwait() to consume a potential trap on the last now-dead
+	 * breakpoint.
+	 */
+	if (!gone)
+		Pwait(P, 0);
+
+	P->bkpt_consume = 0;
 	P->tracing_bkpt = 0;
 	P->bkpt_halted = 0;
 	P->num_bkpts = 0;
