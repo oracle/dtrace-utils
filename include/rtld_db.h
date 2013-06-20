@@ -49,10 +49,6 @@ typedef enum {
 
 typedef enum {
 	RD_NONE = 0,		/* no event */
-	RD_PREINIT,		/* the Initial rendezvous before .init: not yet
-				   implemented */
-	RD_POSTINIT,		/* the Second rendezvous after .init: not yet
-				   implemented */
 	RD_DLACTIVITY		/* a dlopen or dlclose has happened */
 } rd_event_e;
 

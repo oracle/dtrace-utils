@@ -210,14 +210,6 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 			    dpr->dpr_errmsg);
 
 		break;
-	case RD_PREINIT:
-		Pupdate_syms(dpr->dpr_proc);
-		dt_proc_stop(dpr, DT_PROC_STOP_PREINIT);
-		break;
-	case RD_POSTINIT:
-		Pupdate_syms(dpr->dpr_proc);
-		dt_proc_stop(dpr, DT_PROC_STOP_POSTINIT);
-		break;
 	case RD_NONE:
 		/* cannot happen, but do nothing anyway */
 		break;
