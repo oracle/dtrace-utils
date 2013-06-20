@@ -112,6 +112,35 @@
 	(Pwait): Likewise.
 	* libproc/libproc.h: Adjust prototypes.
 
+	Two-phase continue.
+
+	* libdtrace/dt_proc.h (dt_proc_t.dpr_tid_locked): Remove.
+	(dt_proc_t.dpr_cond_waiting): New.
+	(DT_PROC_STOP_RESUMING): New, thread needs to resume.
+	(DT_PROC_STOP_RESUMED): Thread has resumed.
+	* libdtrace/dt_proc.c (dt_proc_stop): Stash the lock count aroud
+	the condvar wait.  Note that we are in a condvar wait, so that on
+	cancellation we do not need to take out the lock again.  Go into
+	DT_PROC_STOP_RESUMING state afterwards.
+	(dt_proc_resume): New, if DT_PROC_STOP_RESUMING, broadcast to
+	resume the main thread, and go to DT_PROC_STOP_RESUMED.
+	(dt_break_interesting): Use dt_proc_resume() after dt_proc_stop().
+	Don't take the lock out, we are always called under it.
+	(dt_break_drop_main): Likewise.
+	(dt_proc_rdevent): Likewise.
+	(dt_proc_control): Call dt_proc_resume() after the Puntrace(),
+	and on process death.
+	(dt_proc_control_cleanup): Only take out the lock if we are not
+	already recorded as the owner and we were not cancelled during a
+	condwait (in which case we are the owner but not recorded as
+	such).  Release the process even if we don't take out the lock.
+	Reset the lock count all the way to zero as we unlock.
+	(dt_proc_create_thread): Set the dpr_lock_holder to ourself
+	after the condwait.
+	(dt_proc_continue): A continue when resumed does nothing. A
+	continue when not resumed waits for resumption after the
+	broadcast.
+
 	Drop RD_PREINIT / RD_POSTINIT.
 
 	* include/rtld_db.h (rd_event_e): Drop them.

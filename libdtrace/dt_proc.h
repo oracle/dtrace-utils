@@ -43,13 +43,13 @@ typedef struct dt_proc {
 	dtrace_hdl_t *dpr_hdl;		/* back pointer to libdtrace handle */
 	struct ps_prochandle *dpr_proc;	/* proc handle for libproc calls */
 	char dpr_errmsg[BUFSIZ];	/* error message */
-	uint8_t dpr_tid_locked;         /* true if the control thread holds
-					 * dpr_locked */
 	pthread_mutex_t dpr_lock;	/* lock around many libproc operations,
 					   and our condition variables */
 	pthread_t dpr_lock_holder;	/* holder of the dpr_lock, if nonzero
 					   lock count */
 	unsigned long dpr_lock_count;	/* lock count of the dpr_lock */
+	uint8_t dpr_cond_waiting;	/* true if the control thread is waiting
+					   for a condvar under dpr_lock */
 	pthread_cond_t dpr_cv;		/* cond for startup/stop/quit/done */
 	pthread_cond_t dpr_msg_cv;	/* cond for msgs from main thread */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
@@ -100,9 +100,11 @@ typedef struct dt_proc_notify {
 #define	DT_PROC_STOP_IDLE	0x01	/* idle on owner's stop request */
 #define	DT_PROC_STOP_CREATE	0x02	/* wait on dpr_cv at process exec */
 #define	DT_PROC_STOP_GRAB	0x04	/* wait on dpr_cv at process grab */
-#define	DT_PROC_STOP_PREINIT	0x08	/* wait on dpr_cv at rtld preinit */
-#define	DT_PROC_STOP_POSTINIT	0x10	/* wait on dpr_cv at rtld postinit */
-#define	DT_PROC_STOP_MAIN	0x20	/* wait on dpr_cv at a.out`main() */
+#define	DT_PROC_STOP_RESUMING	0x08    /* tell dt_proc_resume() to resume */
+#define	DT_PROC_STOP_RESUMED	0x10    /* wait on dpr_cv after resume */
+#define	DT_PROC_STOP_PREINIT	0x20	/* wait on dpr_cv at rtld preinit */
+#define	DT_PROC_STOP_POSTINIT	0x40	/* wait on dpr_cv at rtld postinit */
+#define	DT_PROC_STOP_MAIN	0x80	/* wait on dpr_cv at a.out`main() */
 
 typedef struct dt_proc_hash {
 	pthread_mutex_t dph_lock;	/* lock protecting dph_notify list */

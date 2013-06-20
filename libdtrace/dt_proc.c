@@ -122,37 +122,75 @@ static void
 dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 {
 	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_holder == pthread_self());
 	assert(why != DT_PROC_STOP_IDLE);
 
 	if (dpr->dpr_stop & why) {
+		unsigned long lock_count;
+
 		dpr->dpr_stop |= DT_PROC_STOP_IDLE;
 		dpr->dpr_stop &= ~why;
 
-		(void) pthread_cond_broadcast(&dpr->dpr_cv);
+		pthread_cond_broadcast(&dpr->dpr_cv);
+
+		lock_count = dpr->dpr_lock_count;
+		dpr->dpr_lock_count = 0;
+		dpr->dpr_cond_waiting = B_TRUE;
 
 		while (dpr->dpr_stop & DT_PROC_STOP_IDLE)
-			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+			pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+
+		dpr->dpr_cond_waiting = B_FALSE;
+		dpr->dpr_lock_holder = pthread_self();
+		dpr->dpr_lock_count = lock_count;
+		dpr->dpr_stop |= DT_PROC_STOP_RESUMING;
+
+		dt_dprintf("%p: dt_proc_stop(), control thread now waiting "
+		    "for resume.\n", (int) dpr->dpr_pid);
+	}
+}
+
+/*
+ * After a stop is carried out and we have carried out any operations that must
+ * be done serially, we must signal back to the process waiting in
+ * dt_proc_continue() that it can resume.
+ */
+static void
+dt_proc_resume(dt_proc_t *dpr)
+{
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_holder == pthread_self());
+
+	dt_dprintf("dt_proc_resume(), dpr_stop: %x (%i)\n",
+	    dpr->dpr_stop, dpr->dpr_stop & DT_PROC_STOP_RESUMING);
+
+	if (dpr->dpr_stop & DT_PROC_STOP_RESUMING) {
+		dpr->dpr_stop &= ~DT_PROC_STOP_RESUMING;
+		dpr->dpr_stop |= DT_PROC_STOP_RESUMED;
+		pthread_cond_broadcast(&dpr->dpr_cv);
+
+		dt_dprintf("dt_proc_resume(), control thread resumed. Lock count: %i\n",
+			dpr->dpr_lock_count);
 	}
 }
 
 /*
  * Fire a one-shot breakpoint to say that the child has got to an interesting
  * place from which we should grab control, possibly blocking.
+ *
+ * The dt_proc_lock is already held when this function is called.
  */
 static int
 dt_break_interesting(uintptr_t addr, void *dpr_data)
 {
 	dt_proc_t *dpr = dpr_data;
 
-	dt_dprintf("pid %d: breakpoint\n", (int)dpr->dpr_pid);
-	pthread_mutex_lock(&dpr->dpr_lock);
-	dpr->dpr_tid_locked = B_TRUE;
+	dt_dprintf("pid %d: breakpoint on interesting locus\n", (int)dpr->dpr_pid);
 
 	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
+	dt_proc_resume(dpr);
 	Punbkpt(dpr->dpr_proc, addr);
 
-	dpr->dpr_tid_locked = B_FALSE;
-	pthread_mutex_unlock(&dpr->dpr_lock);
 	return PS_RUN;
 }
 
@@ -160,12 +198,16 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
  * A one-shot breakpoint that fires at a point at which the dynamic linker has
  * initialized far enough to enable us to do reliable symbol lookups, and thus
  * drop a breakpoint on main().
+ *
+ * The dt_proc_lock is already held when this function is called.
  */
 static int
 dt_break_drop_main(uintptr_t addr, void *dpr_data)
 {
 	dt_proc_t *dpr = dpr_data;
 	int ret;
+
+	dt_dprintf("pid %d: breakpoint on main()\n", (int)dpr->dpr_pid);
 
 	ret = dt_proc_attach(dpr, B_FALSE);
 	Punbkpt(dpr->dpr_proc, addr);
@@ -175,17 +217,20 @@ dt_break_drop_main(uintptr_t addr, void *dpr_data)
 	 * rendezvous here, instead.
 	 */
 	if (ret < 0) {
-		pthread_mutex_lock(&dpr->dpr_lock);
-		dpr->dpr_tid_locked = B_TRUE;
-
+		dt_dprintf("pid %d: main() lookup failed, resuming now\n", (int)dpr->dpr_pid);
 		dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
-
-		dpr->dpr_tid_locked = B_FALSE;
-		pthread_mutex_unlock(&dpr->dpr_lock);
+		dt_proc_resume(dpr);
 	}
 
 	return PS_RUN;
 }
+
+/*
+ * Event handler invoked automatically from within Pwait() when an interesting
+ * event occurs.
+ *
+ * The dt_proc_lock is already held when this function is called.
+ */
 
 static void
 dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
@@ -202,9 +247,6 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 	dt_dprintf("pid %d: rtld event, type=%d state %d\n",
 	    (int)dpr->dpr_pid, msg->type, msg->state);
 
-	pthread_mutex_lock(&dpr->dpr_lock);
-	dpr->dpr_tid_locked = B_TRUE;
-
 	switch (msg->type) {
 	case RD_DLACTIVITY:
 		if (msg->state != RD_CONSISTENT)
@@ -220,8 +262,6 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 		/* cannot happen, but do nothing anyway */
 		break;
 	}
-	dpr->dpr_tid_locked = B_FALSE;
-	pthread_mutex_unlock(&dpr->dpr_lock);
 }
 
 /*
@@ -560,16 +600,17 @@ dt_proc_control(void *arg)
 	 * depend on breakpoints.  Those wait for rendezvous from within the
 	 * breakpoint handler, invoked from Pwait() below.
 	 */
-	if (dpr->dpr_created)
-		dt_proc_stop(dpr, DT_PROC_STOP_CREATE);
-	else
-		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
+	dt_proc_stop(dpr, dpr->dpr_created ? DT_PROC_STOP_CREATE :
+	    DT_PROC_STOP_GRAB);
+
+	/*
+	 * Set the process going, and notify the main thread that it is now safe
+	 * to return from dt_proc_continue().
+	 */
 
 	Ptrace_set_detached(P, dpr->dpr_created);
 	Puntrace(P, 0);
-
-	dpr->dpr_tid_locked = B_FALSE;
-	pthread_mutex_unlock(&dpr->dpr_lock);
+	dt_proc_resume(dpr);
 
 	/*
 	 * Wait for the process corresponding to this control thread to stop,
@@ -702,6 +743,11 @@ dt_proc_control(void *arg)
 	}
 
 	/*
+	 * If the caller is still waiting in dt_proc_continue(), resume it.
+	 */
+	dt_proc_resume(dpr);
+
+	/*
 	 * We only get here if the monitored process has died.  Enqueue the
 	 * dt_proc_t structure on the dt_proc_hash_t notification list, then
 	 * clean up.
@@ -733,26 +779,36 @@ dt_proc_control_cleanup(void *arg)
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
 	 * has exited, and notify any waiting thread in dt_proc_destroy() that
-	 * we have successfully exited.
+	 * we have successfully exited.  Clean up the libproc state.
 	 *
 	 * If we were cancelled while already holding the mutex, don't lock it
-	 * again.
+	 * again.  If we were cancelled while in a pthread_cond_wait(), the
+	 * owner might be inaccurate, but the lock will be taken out anyway, so
+	 * track this via dpr_cond_waiting.  (Only the control thread ever sets
+	 * this.)
+	 *
+	 * Forcibly reset the lock count: we don't care about nested locks taken
+	 * out by ptrace() wrappers above us in the call stack, since the whole
+	 * thread is going away.
  	 */
-	if(!dpr->dpr_tid_locked) {
-		pthread_mutex_lock(&dpr->dpr_lock);
-		dpr->dpr_tid_locked = B_TRUE;
+	if((!dpr->dpr_cond_waiting) &&
+	    (dpr->dpr_lock_count == 0 ||
+		dpr->dpr_lock_holder != pthread_self())) {
+		dt_proc_dpr_lock(dpr);
+		dpr->dpr_lock_count = 1;
+	} else if (dpr->dpr_cond_waiting) {
+		/*
+		 * Fix up the lock holder and count so that internal locks taken
+		 * out by Prelease() don't go awry.
+		 */
+		dpr->dpr_lock_holder = pthread_self();
+		dpr->dpr_lock_count = 1;
 	}
 
-	if (dpr->dpr_proc) {
-		Prelease(dpr->dpr_proc, dpr->dpr_created);
-		dpr->dpr_proc = NULL;
-	}
-
+	Prelease(dpr->dpr_proc, dpr->dpr_created);
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
-	pthread_cond_broadcast(&dpr->dpr_cv);
 
-	dpr->dpr_tid_locked = B_FALSE;
 	/*
 	 * fd closing must be done with some care.  The thread may be cancelled
 	 * before any of these fds have been assigned!
@@ -766,6 +822,14 @@ dt_proc_control_cleanup(void *arg)
 
 	if (dpr->dpr_proxy_fd[1])
 	    close(dpr->dpr_proxy_fd[1]);
+
+	pthread_cond_broadcast(&dpr->dpr_cv);
+
+	/*
+	 * Completely unlock the lock, no matter what its depth.
+	 */
+
+	dpr->dpr_lock_count = 0;
 	pthread_mutex_unlock(&dpr->dpr_lock);
 }
 
@@ -956,6 +1020,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	if (err == 0) {
 		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+
+		dpr->dpr_lock_holder = pthread_self();
 
 		/*
 		 * If dpr_done is set, the control thread aborted before it
@@ -1172,10 +1238,35 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 
+	dt_dprintf("%i: doing a dt_proc_continue().\n", dpr->dpr_pid);
+
+	/*
+	 * A continue has two phases.  First, we broadcast to tell the control
+	 * thread to awaken its child; then we wait for its signal to tell us
+	 * that it has completed detaching that child.  Without this, we may
+	 * grab the dpr_lock before it can be re-grabbed by the control thread
+	 * and used to detach, leading to unbalanced Ptrace()/Puntrace() calls,
+	 * a child permanently stuck in PS_TRACESTOP, and a rapid deadlock.
+	 *
+	 * This can only be called once for a given process: once the process
+	 * has been resumed, that's it.
+	 */
+
+	if (dpr->dpr_stop & DT_PROC_STOP_RESUMED) {
+		dt_dprintf("%i: Already resumed, returning.\n",
+			dpr->dpr_pid);
+		return;
+	}
+
 	if (dpr->dpr_stop & DT_PROC_STOP_IDLE) {
-		dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
+ 		dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
 		(void) pthread_cond_broadcast(&dpr->dpr_cv);
 	}
+
+	while (!(dpr->dpr_stop & DT_PROC_STOP_RESUMED))
+		pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+
+	dt_dprintf("%i: dt_proc_continue()d.\n", dpr->dpr_pid);
 
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
 }
