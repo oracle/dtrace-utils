@@ -42,6 +42,7 @@
 #include <sys/wait.h>
 #include <rtld_db.h>
 #include <sys/ctf_api.h>
+#include <sys/ptrace.h>
 #include <sys/procfs.h>
 #include <sys/dtrace_types.h>
 #include <sys/resource.h>
@@ -109,9 +110,9 @@ typedef struct ps_prochandle ps_prochandle;
  * Function prototypes for routines in the process control package.
  */
 extern	struct ps_prochandle *Pcreate(const char *, char *const *,
-    int *, size_t);
+    void *, int *);
 
-extern	struct ps_prochandle *Pgrab(pid_t, int *);
+extern	struct ps_prochandle *Pgrab(pid_t, void *, int *);
 extern	int	Ptrace(struct ps_prochandle *, int stopped);
 extern	void	Ptrace_set_detached(struct ps_prochandle *, boolean_t);
 
@@ -128,6 +129,55 @@ extern 	ssize_t	Pread_scalar(struct ps_prochandle *P, void *buf, size_t nbyte,
     size_t nscalar, uintptr_t address);
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
+
+/*
+ * Hook and wrapper functions.  These functions all get their 'arg' argument
+ * from the corresponding argument to Pcreate() and Pgrab().
+ *
+ * Route all calls to ptrace() via the specified wrapper function.
+ *
+ * _arg_ is constant for all calls using this prochandle until the next call to
+ * Pset_ptrace_wrapper().
+ */
+typedef long ptrace_fun(enum __ptrace_request request, void *arg, pid_t pid,
+    void *addr, void *data);
+
+extern	void	Pset_ptrace_wrapper(struct ps_prochandle *P,
+    ptrace_fun *wrapper);
+
+/*
+ * Likewise, but for Pwait().
+ *
+ * A program intending to call libproc functions from threads other than those
+ * grabbing the process will typically need to wrap both ptrace() and Pwait().
+ */
+typedef long pwait_fun(struct ps_prochandle *P, void *arg, boolean_t block);
+
+extern	void	Pset_pwait_wrapper(struct ps_prochandle *P, pwait_fun *wrapper);
+
+/*
+ * The function that implements the guts of Pwait(), that the Pwait() wrapper
+ * function should end up calling (somehow, from some thread or other).  Safe to
+ * call only from the thread that did Pgrab() or Pcreate().
+ */
+extern  int	Pwait_internal(struct ps_prochandle *P, boolean_t block);
+
+/*
+ * Register a function to be called around the outermost layer of Ptrace()/
+ * Puntrace() calls.  This can, e.g., take a mutex to ensure that other threads
+ * do not interfere and unbalance the Ptrace()/Puntrace() stack by issuing
+ * further Ptrace()/Puntrace() calls while inside at least one Ptrace().
+ *
+ * Note that on exit from Pgrab()/Pcreate(), we are in a Ptrace(), so the lock
+ * will be taken out then.
+ *
+ * This locking function is *global* and applies to all libproc calls, but P and
+ * the arg are not global.
+ */
+typedef	void	ptrace_lock_hook_fun(struct ps_prochandle *P, void *arg,
+    int ptracing);
+
+extern	void	Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook);
 
 /*
  * Breakpoints.

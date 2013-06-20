@@ -1109,7 +1109,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		return;
 	fptr->file_init = 1;
 
-	if ((p_state < 0) || (ptrace(PTRACE_GETMAPFD, P->pid,
+	if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
 		    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
 		_dprintf("cannot acquire file descriptor for mapping at %lx "
 		    "named %s\n", P->mappings[fptr->file_map].map_pmap.pr_vaddr,

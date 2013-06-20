@@ -116,9 +116,9 @@ main(int argc, char *argv[])
 	pid = strtol(argv[1], NULL, 10);
 
 	if (!pid)
-		P = Pcreate(argv[1], &argv[1], &err, 0);
+		P = Pcreate(argv[1], &argv[1], NULL, &err);
 	else
-		P = Pgrab(pid, &err);
+		P = Pgrab(pid, NULL, &err);
 
 	if (!P) {
 		fprintf(stderr, "Cannot execute: %s\n", strerror(err));

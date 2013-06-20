@@ -39,6 +39,7 @@
 #include <dtrace.h>
 #include <dt_list.h>
 #include <setjmp.h>
+#include <sys/ptrace.h>
 
 #include <sys/auxv.h>
 
@@ -258,6 +259,9 @@ struct ps_prochandle {
 	ssize_t map_exec;	/* the index of the executable mapping */
 	ssize_t map_ldso;	/* the index of the ld.so mapping */
 	exec_handler_fun exec_handler;	/* exec() handler */
+	ptrace_fun *ptrace_wrap; /* ptrace() wrapper */
+	pwait_fun *pwait_wrap;	 /* pwait() wrapper */
+	void *wrap_arg;		 /* args for hooks and wrappers */
 };
 
 /*
@@ -272,6 +276,22 @@ extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,
     exec_handler_fun handler);
 extern char	procfs_path[PATH_MAX];
+
+/*
+ * The wrapper functions are somewhat inconsistently named, because we can
+ * rename the guts of Pwait() to Pwait_internal() while retaining the helpful
+ * external name but have no such luxury with ptrace().  hooked_ptrace() is for
+ * our internal use, to dispatch on to the wrapper.
+ */
+extern	long wrapped_ptrace(struct ps_prochandle *P, enum __ptrace_request request,
+    pid_t pid, ...);
+
+/*
+ * Poison all calls to ptrace() from everywhere but the ptrace hook.
+ */
+#ifndef DO_NOT_POISON_PTRACE
+#pragma GCC poison ptrace
+#endif
 
 /*
  * Routine to print debug messages.

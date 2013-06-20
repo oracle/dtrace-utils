@@ -60,6 +60,8 @@ char	procfs_path[PATH_MAX] = "/proc";
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
 static void Pfree(struct ps_prochandle *P);
+static ptrace_lock_hook_fun *ptrace_lock_hook;
+
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
 static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
 static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
@@ -98,8 +100,8 @@ struct ps_prochandle *
 Pcreate(
 	const char *file,	/* executable file name */
 	char *const *argv,	/* argument vector */
-	int *perr,	/* pointer to error return code */
-	size_t len)	/* size of the path buffer */
+	void *wrap_arg,		/* args for hooks and wrappers */
+	int *perr)		/* pointer to error return code */
 {
 	struct ps_prochandle *P;
 	char procname[PATH_MAX];
@@ -119,6 +121,10 @@ Pcreate(
 		exit(1);
 	}
 
+	P->wrap_arg = wrap_arg;
+	Pset_ptrace_wrapper(P, NULL);
+	Pset_pwait_wrapper(P, NULL);
+
 	if ((pid = fork()) == -1) {
 		free(P);
 		*perr = EAGAIN;
@@ -128,7 +134,7 @@ Pcreate(
 	if (pid == 0) {			/* child process */
 		id_t id;
 
-		ptrace(PTRACE_TRACEME, 0, 0, 0);
+		wrapped_ptrace(P, PTRACE_TRACEME, 0, 0, 0);
 
 		/*
 		 * If running setuid or setgid, reset credentials to normal,
@@ -145,13 +151,18 @@ Pcreate(
 	}
 
 	/*
-	 * Initialize the process structure.
+	 * Initialize the process structure.  Because we have ptrace()d
+	 * explicitly, without using Ptrace(), we must update the ptrace count
+	 * and related state, and call the lock hook ourselves.
 	 */
 	P->state = PS_TRACESTOP;
 	P->ptrace_count++;
 	P->ptraced = TRUE;
 	P->ptrace_halted = TRUE;
 	P->pid = pid;
+	if (ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 1);
+
 	Psym_init(P);
 
 	waitpid(pid, &status, 0);
@@ -161,8 +172,8 @@ Pcreate(
 		    (int)pid);
 		goto bad;
 	}
-	ptrace(PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC);
-	ptrace(PTRACE_CONT, pid, 0, 0);
+	wrapped_ptrace(P, PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC);
+	wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
 
 	waitpid(pid, &status, 0);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
@@ -202,6 +213,8 @@ bad:
 	(void) kill(pid, SIGKILL);
 	Pfree(P);
 	*perr = rc;
+	if (ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 0);
 	return (NULL);
 }
 
@@ -216,10 +229,11 @@ bad:
  * Return an opaque pointer to its process control structure.
  *
  * pid:		UNIX process ID.
+ * wrap_arg:	arg for hooks and wrappers
  * perr:	pointer to error return code.
  */
 struct ps_prochandle *
-Pgrab(pid_t pid, int *perr)
+Pgrab(pid_t pid, void *wrap_arg, int *perr)
 {
 	struct ps_prochandle *P;
 	char procname[PATH_MAX];
@@ -244,6 +258,10 @@ Pgrab(pid_t pid, int *perr)
 		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
 		exit(1);
 	}
+	P->wrap_arg = wrap_arg;
+	Pset_ptrace_wrapper(P, NULL);
+	Pset_pwait_wrapper(P, NULL);
+
 	P->memfd = -1;
 	if (Pmemfd(P) == -1)		/* populate ->memfd */
 		/* error already reported */
@@ -393,7 +411,10 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 	if (kill_it)
 		kill(P->pid, SIGKILL);
 	else
-		ptrace(PTRACE_DETACH, (int)P->pid, 0, 0);
+		wrapped_ptrace(P, PTRACE_DETACH, (int)P->pid, 0, 0);
+
+	if (P->ptrace_count != 0 && ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 0);
 
 	Pfree(P);
 
@@ -409,7 +430,7 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
  * Returns the number of state changes processed, or -1 on error.
  */
 int
-Pwait(struct ps_prochandle *P, boolean_t block)
+Pwait_internal(struct ps_prochandle *P, boolean_t block)
 {
 	int err;
 	int num_waits = 0;
@@ -481,12 +502,12 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 			else
 				stopsig = WTERMSIG(info.si_status);
 
-			_dprintf("%i: child got stopping signal %i.\n", P->pid,
-			    stopsig);
-			if (P->ptraced && stopsig != SIGSTOP)
-				ptrace(PTRACE_CONT, P->pid, NULL,
+			if (P->ptraced && stopsig != SIGSTOP) {
+				_dprintf("%i: child got stopping signal %i.\n", P->pid,
 				    stopsig);
-			else if (stopsig == SIGSTOP) {
+				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
+				    stopsig);
+			} else if (stopsig == SIGSTOP) {
 				/*
 				 * If Ptrace() itself sent this SIGSTOP, this is
 				 * a TRACESTOP, not a STOP.  If this happened
@@ -499,8 +520,11 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 				}
 
 				if (P->pending_pre_exec > 0) {
+					_dprintf("%i: internal tracestop "
+					    "signal pending from before exec() "
+					    "received.\n", P->pid);
 					if (P->ptraced)
-						ptrace(PTRACE_CONT, P->pid,
+						wrapped_ptrace(P, PTRACE_CONT, P->pid,
 						    NULL, SIGCONT);
 					else
 						kill(P->pid, SIGCONT);
@@ -526,7 +550,7 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 				P->state = PS_DEAD;
 			}
 			else if (WTERMSIG(info.si_status) != SIGSTOP)
-				ptrace(PTRACE_CONT, P->pid, NULL,
+				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
 				    WTERMSIG(info.si_status));
 			else
 				P->state = PS_TRACESTOP;
@@ -588,6 +612,9 @@ Pwait(struct ps_prochandle *P, boolean_t block)
 			P->bkpt_consume = 0;
 			P->r_debug_addr = 0;
 			P->info_valid = 0;
+			if ((P->ptrace_count == 0) && ptrace_lock_hook)
+				ptrace_lock_hook(P, P->wrap_arg, 1);
+
 			P->ptrace_count = 1;
 			P->ptraced = TRUE;
 
@@ -669,8 +696,10 @@ Ptrace_set_detached(struct ps_prochandle *P, boolean_t detach)
 int
 Ptrace(struct ps_prochandle *P, int stopped)
 {
-	int err;
-	int status;
+	int err = 0;
+
+	if (P->ptrace_count == 0 && ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 1);
 
 	P->ptrace_count++;
 
@@ -696,31 +725,31 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		return state;
 	}
 
-	err = ptrace(PT_ATTACH, P->pid, 0, 0);
+	if (wrapped_ptrace(P, PTRACE_ATTACH, P->pid, 0, 0) < 0) {
+		if (!Pgrabbing)
+			goto err;
+		else
+			goto err2;
+	}
 
+	P->ptraced = TRUE;
 	P->ptrace_halted = TRUE;
-	if ((!Pgrabbing) && (err < 0))
-		goto err2;
+	P->pending_stops++;
 
-	if (err == 0)
-		P->ptraced = TRUE;
-
-	err = P->state;
-
-	if (waitpid(P->pid, &status, 0) == -1)
+	if (Pwait(P, 1) == -1)
+		goto err;
+	else if (P->state != PS_TRACESTOP) {
+		err = ECHILD;
 		goto err2;
-	else if (WIFSTOPPED(status) == 0)
-		goto err2;
-	P->state = PS_TRACESTOP;
+	}
 
 	if (!stopped) {
 		int err;
 
-		err = ptrace(PTRACE_CONT, P->pid, 0, 0);
+		err = wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
 		P->ptrace_halted = FALSE;
 		if (err < 0)
 			goto err;
-		Pwait(P, 1);
 	}
 
 	return err;
@@ -728,6 +757,10 @@ err:
 	err = errno;
 err2:
 	P->ptrace_count--;
+
+	if (P->ptrace_count == 0 && ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 0);
+
 	if (err != ECHILD)
 		return err;
 	else
@@ -779,6 +812,10 @@ Puntrace(struct ps_prochandle *P, int state)
 			Pbkpt_continue(P);
 			P->ptrace_halted = FALSE;
 		}
+
+		if (P->ptrace_count == 0 && ptrace_lock_hook)
+			ptrace_lock_hook(P, P->wrap_arg, 0);
+
 		return;
 	}
 
@@ -796,11 +833,14 @@ Puntrace(struct ps_prochandle *P, int state)
 		_dprintf("%i: Detaching.\n", P->pid);
 		P->state = PS_RUN;
 		P->ptraced = FALSE;
-		if ((ptrace(PTRACE_DETACH, P->pid, 0, 0) < 0) &&
+		if ((wrapped_ptrace(P, PTRACE_DETACH, P->pid, 0, 0) < 0) &&
 		    (errno == ESRCH))
 			P->state = PS_DEAD;
 	}
 	P->ptrace_halted = FALSE;
+
+	if (P->ptrace_count == 0 && ptrace_lock_hook)
+		ptrace_lock_hook(P, P->wrap_arg, 0);
 }
 
 /*
@@ -859,7 +899,7 @@ bkpt_ip(struct ps_prochandle *P, int expect_esrch)
 {
 	long ip;
 	errno = 0;
-	ip = ptrace(PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
+	ip = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
 	if ((errno == ESRCH) && (expect_esrch))
 	    return(0);
 
@@ -997,14 +1037,14 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	bkpt->bkpt_addr = addr;
 
 	errno = 0;
-	bkpt->orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid,
+	bkpt->orig_insn = wrapped_ptrace(P, PTRACE_PEEKTEXT, P->pid,
 	    addr, 0);
 	if (errno != 0) {
 		free(bkpt);
 		goto err;
 		return errno;
 	}
-	if (ptrace(PTRACE_POKETEXT, P->pid, addr,
+	if (wrapped_ptrace(P, PTRACE_POKETEXT, P->pid, addr,
 		mask_bkpt(bkpt->orig_insn)) < 0) {
 		free(bkpt);
 		goto err;
@@ -1103,13 +1143,16 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		 * section being mapped in), do nothing.
 		 */
 		errno = 0;
-		insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
+		insn = wrapped_ptrace(P, PTRACE_PEEKTEXT, P->pid,
+		    bkpt->bkpt_addr, 0);
 
 		if (errno == 0 && insn == mask_bkpt(insn) &&
-		    ptrace(PTRACE_POKETEXT, P->pid,
+		    wrapped_ptrace(P, PTRACE_POKETEXT, P->pid,
 			bkpt->bkpt_addr, bkpt->orig_insn) < 0)
 			switch (errno) {
 			case ESRCH:
+				_dprintf("%i: -ESRCH, process is dead.\n",
+				    P->pid);
 				P->state = PS_DEAD;
 				return;
 			case EIO:
@@ -1121,10 +1164,12 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 				    "%s\n", P->pid, strerror(errno));
 			}
 	} else {
-		if (ptrace(PTRACE_POKEUSER, P->pid, PLAT_IP * sizeof (long),
-			P->tracing_bkpt) < 0)
+		if (wrapped_ptrace(P, PTRACE_POKEUSER, P->pid,
+			PLAT_IP * sizeof (long), P->tracing_bkpt) < 0)
 			switch (errno) {
 			case ESRCH:
+				_dprintf("%i: -ESRCH, process is dead.\n",
+				    P->pid);
 				P->state = PS_DEAD;
 				return;
 			case 0: break;
@@ -1271,9 +1316,9 @@ bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 			bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
 			if (bkpt) {
 				uintptr_t orig_insn;
-				orig_insn = ptrace(PTRACE_PEEKTEXT,
+				orig_insn = wrapped_ptrace(P, PTRACE_PEEKTEXT,
 				    P->pid, bkpt->bkpt_addr, 0);
-				ptrace(PTRACE_POKETEXT, P->pid,
+				wrapped_ptrace(P, PTRACE_POKETEXT, P->pid,
 				    bkpt->bkpt_addr, mask_bkpt(orig_insn));
 
 				/*
@@ -1300,7 +1345,7 @@ bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 static int
 bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 {
-	if (ptrace(PTRACE_POKETEXT, P->pid,
+	if (wrapped_ptrace(P, PTRACE_POKETEXT, P->pid,
 		bkpt->bkpt_addr, bkpt->orig_insn) < 0)
 		switch (errno) {
 		case ESRCH:
@@ -1379,7 +1424,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 	 * issue a continue.
 	 */
 	if (P->tracing_bkpt == 0 || !bkpt) {
-		if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
+		if (wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0) < 0) {
 			if (errno == ESRCH) {
 				if ((kill(P->pid, 0) < 0) && errno == ESRCH)
 					P->state = PS_DEAD;
@@ -1445,9 +1490,10 @@ Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt, int singlestep)
 	P->bkpt_halted = 0;
 
 	if (singlestep) {
-		if ((ptrace(PTRACE_POKEUSER, P->pid, PLAT_IP * sizeof (long),
+		if ((wrapped_ptrace(P, PTRACE_POKEUSER, P->pid,
+			    PLAT_IP * sizeof (long),
 			    bkpt->bkpt_addr) == 0) &&
-		    (ptrace(PTRACE_SINGLESTEP, P->pid, 0, 0) == 0))
+		    (wrapped_ptrace(P, PTRACE_SINGLESTEP, P->pid, 0, 0) == 0))
 			return PS_RUN;
 		else if (errno == ESRCH)
 			return PS_DEAD;
@@ -1517,7 +1563,7 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 * code.  If it fails, hold on to the old one.
 	 */
 	errno = 0;
-	orig_insn = ptrace(PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
+	orig_insn = wrapped_ptrace(P, PTRACE_PEEKTEXT, P->pid, bkpt->bkpt_addr, 0);
 	if (errno != 0) {
 		_dprintf("Unexpected error re-peeking original instruction "
 		    "at %lx on PID %i: %s\n", bkpt->bkpt_addr, P->pid,
@@ -1531,7 +1577,7 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 * the process could be SIGKILLed at any time, even between these
 	 * ptrace() calls.
 	 */
-	if (ptrace(PTRACE_POKETEXT, P->pid, bkpt->bkpt_addr,
+	if (wrapped_ptrace(P, PTRACE_POKETEXT, P->pid, bkpt->bkpt_addr,
 		mask_bkpt(orig_insn)) < 0)
 		switch (errno) {
 		case ESRCH:
@@ -1558,7 +1604,7 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 	 */
 	P->tracing_bkpt = 0;
 
-	if (ptrace(PTRACE_CONT, P->pid, 0, 0) < 0) {
+	if (wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0) < 0) {
 		switch (errno) {
 		case ESRCH:
 			return PS_DEAD;
@@ -1718,4 +1764,13 @@ void
 set_exec_handler(struct ps_prochandle *P, exec_handler_fun handler)
 {
 	P->exec_handler = handler;
+}
+
+/*
+ * Set the ptrace() lock hook.
+ */
+void
+Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook)
+{
+	ptrace_lock_hook = hook;
 }

@@ -394,14 +394,14 @@ dt_proc_control(void *arg)
 
 	if (dpr->dpr_created) {
 		if ((dpr->dpr_proc = Pcreate(datap->dpcd_start_proc,
-			    datap->dpcd_start_proc_argv, &err, 0)) == NULL) {
+			    datap->dpcd_start_proc_argv, dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to execute %s: %s\n",
 			    datap->dpcd_start_proc, strerror(err));
 			pthread_exit(NULL);
 		}
 		dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
 	} else {
-		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, &err)) == NULL) {
+		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
 			dt_dprintf("grab failure\n");

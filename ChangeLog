@@ -7,6 +7,44 @@
 	* include/port.h: Prototype it when !HAVE_WAITFD.
 	* libport/Build: Adjust.
 
+	Wrappable ptrace() / Pwait() / Ptrace() locking.
+
+	* libproc/wrap.c: New file, implement the default ptrace() and
+	Pwait() wrappers and wrapper setting functions.
+	* libproc/Pcontrol.h (ps_prochandle_t.ptrace_wrap): New,
+	pointer to the ptrace() wrapper for this process.
+	(ps_prochandle_t.pwait_wrap): Likewise for the Pwait() wrapper.
+	(wrap_arg): Argument for the wrappers.
+	Poison ptrace() everywhere other than wrap.c.
+	(wrapped_ptrace): Add new prototype.
+	* libproc/Pcontrol.c (ptrace_lock_hook): New variable, global
+	locking function called around Ptrace()/Puntrace() calls.
+	(Pset_ptrace_lock_hook): New, set it.
+	(Pcreate): Set the ptrace() and Pwait() wrappers (to NULL)
+	and hook argument (from a new parameter). Wrap ptrace() calls.
+	Call the ptrace_lock_hook() appropriately.
+	(Pgrab): Likewise.
+	(Pwait): Rename to...
+	(Pwait_internal): ... this.  Pwait() is now a wrapper, in wrap.c.
+	Wrap ptrace() calls.
+	(Puntrace): Wrap ptrace() calls.  Call the ptrace_lock_hook().
+	(bkpt_ip): Likewise.
+	(add_bkpt): Likewise.
+	(Punbkpt): Likewise.
+	(bkpt_handle): Likewise.
+	(Pbkpt_continue): Likewise.
+	(Pbkpt_continue_internal): Likewise.
+	(bkpt_handle_post_singlestep): Likewise.
+	(Ptrace): Likewise.  Rejig to not misbehave on failed grabs.
+	* Psymtab.c (Pbuild_file_symtab): Wrap ptrace() call.
+	* libproc.h: Add wrapper types and new public functions.  Adjust
+	Pgrab() and Pcreate() prototypes.
+	* libdtrace/dt_proc.c (dt_proc_control): Adjust Pgrab() and
+	Pcreate() calls.
+	* test/triggers/libproc-pldd.c (main): Likewise.
+	* test/triggers/libproc-consistency.c (main): Likewise.
+	* test/triggers/libproc-lookup-by-name.c (main): Likewise.
+
 	Drop RD_PREINIT / RD_POSTINIT.
 
 	* include/rtld_db.h (rd_event_e): Drop them.

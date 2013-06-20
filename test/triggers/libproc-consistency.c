@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	P = Pcreate(argv[1], &argv[1], &err, 0);
+	P = Pcreate(argv[1], &argv[1], NULL, &err);
 
 	if (!P) {
 		fprintf(stderr, "Cannot execute: %s\n", strerror(err));

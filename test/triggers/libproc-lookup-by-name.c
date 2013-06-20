@@ -63,7 +63,7 @@ main(int argc, char *argv[])
 	symbol = argv[1];
 	lmid = strtol(argv[2], NULL, 10);
 
-	P = Pcreate(argv[3], &argv[3], &err, 0);
+	P = Pcreate(argv[3], &argv[3], NULL, &err);
 
 	if (!P) {
 		fprintf(stderr, "Cannot execute %s: %s\n", argv[2], strerror(err));
