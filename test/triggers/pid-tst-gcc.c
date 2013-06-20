@@ -20,22 +20,35 @@
  */
 
 /*
- * Copyright 2006, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include <signal.h>
+#include <unistd.h>
 #include <spawn.h>
 
 void
 go(void)
 {
+	char *argv[] = { "/bin/ls", NULL };
 	pid_t pid;
+	int null = open("/dev/null", O_RDWR);
 
-	(void) posix_spawn(&pid, "/bin/ls", NULL, NULL, NULL, NULL);
+	/*
+	 * Don't spam the screen with ls output.
+	 */
+	dup2(null, 0);
+	dup2(null, 1);
+	dup2(null, 2);
+	close(null);
+
+	(void) posix_spawn(&pid, "/bin/ls", NULL, NULL, argv, NULL);
 
 	(void) waitpid(pid, NULL, 0);
 }
