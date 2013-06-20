@@ -174,6 +174,10 @@ run_with_timeout()
         exit 1
     fi
 
+    # Nonzero exitcode?  Wait for a second, to allow any coredump to trickle
+    # out to disk.
+    [[ $exitcode -ne 0 ]] && sleep 1
+
     if [[ -n $exited ]]; then
         return $exitcode
     else
