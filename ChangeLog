@@ -1,3 +1,12 @@
+2013-06-20  Nick Alcock  <nick.alcock@oracle.com>
+
+	Waitfd support.
+
+	* Makeconfig: Test for waitfd().
+	* libport/waitfd.c: New syscall wrapper when !HAVE_WAITFD.
+	* include/port.h: Prototype it when !HAVE_WAITFD.
+	* libport/Build: Adjust.
+
 2013-06-04  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (DRTI_OBJ): Always build -fPIC.

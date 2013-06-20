@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # The configuration header file.
@@ -57,3 +57,4 @@ $(CONFIG_H):
 
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
+$(eval $(call check-symbol-rule,WAITFD,waitfd,c))

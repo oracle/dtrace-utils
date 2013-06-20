@@ -25,5 +25,5 @@ BUILDLIBS += libport
 LIBS += libport
 libport_TARGET = libport
 libport_DIR := $(current-dir)
-libport_SOURCES = gmatch.c strlcat.c strlcpy.c p_online.c time.c
+libport_SOURCES = gmatch.c strlcat.c strlcpy.c p_online.c time.c waitfd.c
 libport_LIBSOURCES := libport

@@ -19,42 +19,20 @@
  * CDDL HEADER END
  */
 
-/*
- * Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
-
-#ifndef _PORT_H
-#define _PORT_H
-
-#include <pthread.h>
-#include <mutex.h>
-#include <sys/processor.h>
-#include <sys/types.h>
-#include <sys/dtrace_types.h>
-#include <config.h>
-
-extern size_t strlcpy(char *, const char *, size_t);
-extern size_t strlcat(char *, const char *, size_t);
-
-extern int gmatch(const char *s, const char *p);
-
-hrtime_t gethrtime(void);
-
-int p_online (processorid_t cpun, int new_status);
-
-int pthread_cond_reltimedwait_np(pthread_cond_t *cvp, pthread_mutex_t *mp,
-    struct timespec *reltime);
-
-int mutex_init(mutex_t *m, int flags1, void *ptr);
-
-#ifndef HAVE_ELF_GETSHDRSTRNDX
-#define elf_getshdrstrndx elf_getshstrndx
-#define elf_getshdrnum elf_getshnum
-#endif
+#include <config.h>				/* for HAVE_* */
 
 #ifndef HAVE_WAITFD
-int waitfd(int which, pid_t upid, int options, int flags);
+#include <unistd.h>				/* for syscall() */
+#include <sys/syscall.h>			/* for __NR_* */
+
+#ifndef __NR_waitfd
+#define __NR_waitfd 473
 #endif
+
+int
+waitfd(int which, pid_t upid, int options, int flags)
+{
+        return syscall(__NR_waitfd, which, upid, options, flags);
+}
 
 #endif
