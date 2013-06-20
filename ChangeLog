@@ -58,6 +58,60 @@
 	mutexes if DT_DEBUG_MUTEXES. Fix leak on error path.
 	(dt_proc_grab): Likewise.
 
+	libproc operation proxying.
+
+	* libdtrace/dt_proc.h: Improve comments. Fix prototypes.
+	(dt_proc_t.dpr_lock_holder): New, holder of dpr_lock when...
+	(dt_proc_t.dpr_lock_count): ... this is nonzero.
+	(dt_proc_t.dpr_msg_cv): Condition variable used for proxy
+	communication.
+	(dt_proc_t.dpr_proxy_fd): fds used for proxy communication.
+	(dt_proc_t.dpr_fd): Waitfd for process.
+	(dt_proc_t.dpr_proxy_rq): Proxy request ID.
+	(dt_proc_t.dpr_proxy_ret): Proxy return value.
+	(dt_proc_t.dpr_proxy_errno): Proxy errno.
+	(dt_proc_t.dpr_proxy_args): Proxy arguments.
+	* libdtrace/dt_proc.c: Improve comments.
+	(proxy_pwait): New, proxy Pwait() to the control thread, unless
+	called from the control thread.
+	(proxy_ptrace): Likewise, for ptrace().
+	(dt_proc_control_data_t.dpcd_proxy_fd): Proxy pipe fd.
+	(dt_proc_control): Revamp main control loop using waitfds.
+	Detect and handle incoming proxy requests.
+	(dt_proc_control_cleanup): Close the proxy pipe and waitfd, if
+	opened.
+	(dt_proc_create_thread): Open the proxy pipe.  Set the ptrace()
+	lock hook...
+	(dt_proc_ptrace_lock): ... to this new function.
+	(dt_proc_create): Create the proxy condition variable.  When
+	DTRACE_PROC_WAITING, automatically dt_proc_continue().
+	(dt_proc_grab): Likewise.
+	(dt_proc_lock): Re-express in terms of...
+	(dt_proc_dpr_lock): ... this, making a recursive mutex out of a
+	nonrecursive one.
+	(dt_proc_unlock): Likewise, in terms of...
+	(dt_proc_dpr_unlock): ... this.
+	(dtrace_proc_create): Adjust to include flags argument.
+	(dtrace_proc_grab): Likewise.
+	* libdtrace/dtrace.h (DT_PROC_WAITING): Define.
+	Adjust prototypes.
+	* cmd/dtrace.c (main): Adjust accordingly (no flags).
+	* libdtrace/dt_aggregate.c (dt_aggregate_usym): Likewise, passing
+	in DTRACE_PROC_WAITING.
+	(dt_aggregate_umod): Likewise.
+	* libdtrace/dt_consume.c (dt_print_ustack): Likewise.
+	(dt_print_usym): Likewise.
+	(dt_print_umod): Likewise.
+	* libdtrace/dt_pid.c (dt_pid_create_probes): Likewise.  Drop
+	writable grabs comment: we no longer have the concept of grab
+	writability.
+	* libdtrace/dt_subr.c (dtrace_uaddr2str): Likewise.
+
+	* libproc/Pcontrol.c (Pwait_internal): Return a long.
+	* libproc/wrap.c (default_pwait_wrapper): Likewise.
+	(Pwait): Likewise.
+	* libproc/libproc.h: Adjust prototypes.
+
 	Drop RD_PREINIT / RD_POSTINIT.
 
 	* include/rtld_db.h (rd_event_e): Drop them.
@@ -71,6 +125,9 @@
 	* test/triggers/readwholedir.c (main): Wait for dtrace for a bit.
 	(is_regular_test_file): Make non-static.
 	(rw_files): Likewise.
+	* test/demo/act/ustack.r: Expected results.
+	* test/demo/act/ustack.r.p: Keep only relatively unchanging parts
+	of the stack trace.
 
 	Miscellaneous.
 

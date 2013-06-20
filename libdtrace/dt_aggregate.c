@@ -20,11 +20,9 @@
  */
 
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2011--2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <stdlib.h>
 #include <strings.h>
@@ -258,7 +256,7 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid)) == NULL)
+	if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);
@@ -281,7 +279,7 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid)) == NULL)
+	if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);

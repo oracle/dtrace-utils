@@ -121,7 +121,7 @@ extern	void	Puntrace(struct ps_prochandle *, int state);
 extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);
-extern	int	Pwait(struct ps_prochandle *, boolean_t block);
+extern	long	Pwait(struct ps_prochandle *, boolean_t block);
 extern	int	Pstate(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
@@ -160,7 +160,7 @@ extern	void	Pset_pwait_wrapper(struct ps_prochandle *P, pwait_fun *wrapper);
  * function should end up calling (somehow, from some thread or other).  Safe to
  * call only from the thread that did Pgrab() or Pcreate().
  */
-extern  int	Pwait_internal(struct ps_prochandle *P, boolean_t block);
+extern  long	Pwait_internal(struct ps_prochandle *P, boolean_t block);
 
 /*
  * Register a function to be called around the outermost layer of Ptrace()/

@@ -438,8 +438,14 @@ extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *dtp,
  * request that libdtrace obtain control of the process using libproc.
  */
 
+/*
+ * If this bit is set in flags, an automatic dtrace_proc_continue() is
+ * performed before returning from dtrace_proc_{create|grab}().
+ */
+#define DTRACE_PROC_WAITING 0x01
+
 extern struct ps_prochandle *dtrace_proc_create(dtrace_hdl_t *dtp,
-    const char *file, char *const *argv);
+    const char *file, char *const *argv, int flags);
 
 extern struct ps_prochandle *dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid,
     int flags);

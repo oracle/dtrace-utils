@@ -71,7 +71,7 @@ wrapped_ptrace(struct ps_prochandle *P, enum __ptrace_request request, pid_t pid
 /*
  * Default (degenerate) Pwait() wrapper.
  */
-static int
+static long
 default_pwait_wrapper(struct ps_prochandle *P, void *arg, boolean_t block)
 {
     return Pwait_internal(P, block);
@@ -80,7 +80,7 @@ default_pwait_wrapper(struct ps_prochandle *P, void *arg, boolean_t block)
 /*
  * Call Pwait_internal() using the wrapper.
  */
-int
+long
 Pwait(struct ps_prochandle *P, boolean_t block)
 {
 	return P->pwait_wrap(P, P->wrap_arg, block);

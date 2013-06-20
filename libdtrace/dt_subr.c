@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 Oracle, Inc.  All rights reserved.
+ * Copyright 2010, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -868,7 +868,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 	char *obj;
 
 	if (pid != 0)
-		P = dt_proc_grab(dtp, pid);
+		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING);
 
 	if (P == NULL) {
 		(void) snprintf(c, sizeof (c), "0x%llx", (unsigned long long) addr);

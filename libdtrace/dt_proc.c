@@ -27,23 +27,22 @@
 /*
  * DTrace Process Control
  *
- * This file provides a set of routines that permit libdtrace and its clients
- * to cache process state as necessary, and avoid repeatedly pulling the same
- * data out of /proc (which can be expensive).
- * The library provides several mechanisms in the libproc control layer:
+ * This library provides several mechanisms in the libproc control layer:
  *
- * Process Control: For processes that are grabbed for control (~GRAB_RDONLY)
- * or created by dt_proc_create(), a control thread is created to provide
- * callbacks on process exit.  (FIXME: Use process groups instead.)
+ * Process Control: a control thread is created for each process to provide
+ * callbacks on process exit, to handle ptrace()-related signal dispatch tasks,
+ * and to provide a central point that all ptrace()-related requests from the
+ * rest of DTrace can flow through, working around the limitation that ptrace()
+ * is per-thread and that libproc makes extensive use of it.
  *
- * MT-Safety: Libproc is not MT-Safe, so dt_proc_lock() and dt_proc_unlock()
- * are provided to synchronize access to the libproc handle between libdtrace
- * code and client code and the control thread's use of the ps_prochandle.
+ * MT-Safety: due to the above ptrace() limitations, libproc is not MT-Safe or
+ * even capable of multithreading, so a marshalling layer is provided to
+ * route all communication with libproc through the control thread.
  *
  * NOTE: MT-Safety is NOT provided for libdtrace itself, or for use of the
  * dtrace_proc_grab/dtrace_proc_create mechanisms.  Like all exported libdtrace
  * calls, these are assumed to be MT-Unsafe.  MT-Safety is ONLY provided for
- * synchronization between libdtrace control threads and the client thread.
+ * calls via the libproc marshalling layer.
  *
  * The ps_prochandles themselves are maintained along with a dt_proc_t struct in
  * a hash table indexed by PID.  This provides basic locking and reference
@@ -52,8 +51,10 @@
  * created but not retired, and the current limit on the number of actively
  * cached entries.
  *
- * The control thread for a process currently invokes the process, resumes it
- * when dt_proc_continue() is called, then notifies interested parties when the
+ * The control threads currently invoke processes, resume them when
+ * dt_proc_continue() is called, manage ptrace()-related signal dispatch and
+ * breakpoint handling tasks, handle libproc requests from the rest of DTrace
+ * relating to their specific process, and notify interested parties when the
  * process dies.
  *
  * A simple notification mechanism is provided for libdtrace clients using
@@ -62,6 +63,7 @@
  * control thread broadcasts to dph_cv.  dtrace_sleep() will wake up using this
  * condition and will then call the client handler as necessary.
  */
+
 #include <sys/wait.h>
 #include <string.h>
 #include <signal.h>
@@ -78,6 +80,10 @@
 
 static int dt_proc_attach(dt_proc_t *dpr, int before_continue);
 static void dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid);
+static void dt_proc_dpr_lock(dt_proc_t *dpr);
+static void dt_proc_dpr_unlock(dt_proc_t *dpr);
+static void dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg,
+    int ptracing);
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
@@ -330,9 +336,117 @@ dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 	return (NULL);
 }
 
+/*
+ * Proxies for Pwait() and ptrace() that route all calls via the control thread.
+ *
+ * Must be called under dpr_lock.
+ */
+static long
+proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
+{
+	dt_proc_t *dpr = arg;
+	char junk = '\0'; /* unimportant */
+	unsigned long lock_count;
+
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_holder == pthread_self());
+
+	/*
+	 * If we are already in the right thread, pass the call
+	 * straight on.
+	 */
+	if (dpr->dpr_tid == pthread_self())
+		return Pwait_internal(P, block);
+
+	/*
+	 * Proxy it, signal the control thread, and wait for the response.
+	 */
+
+	dpr->dpr_proxy_rq = proxy_pwait;
+	dpr->dpr_proxy_args.dpr_pwait.P = P;
+	dpr->dpr_proxy_args.dpr_pwait.block = block;
+
+	errno = 0;
+	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
+	if (errno != 0 && errno != EINTR) {
+		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
+		    "for Pwait(), deadlock is certain: %s\n", strerror(errno));
+		return (-1);
+	}
+
+	lock_count = dpr->dpr_lock_count;
+	dpr->dpr_lock_count = 0;
+
+	while (dpr->dpr_proxy_rq != NULL)
+		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
+
+	dpr->dpr_lock_holder = pthread_self();
+	dpr->dpr_lock_count = lock_count;
+
+	errno = dpr->dpr_proxy_errno;
+	return dpr->dpr_proxy_ret;
+}
+
+static long
+proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
+    void *data)
+{
+	dt_proc_t *dpr = arg;
+	char junk = '\0'; /* unimportant */
+	unsigned long lock_count;
+
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_holder == pthread_self());
+
+	/*
+	 * If we are already in the right thread, pass the call
+	 * straight on.
+	 */
+	if (dpr->dpr_tid == pthread_self())
+		return ptrace(request, pid, addr, data);
+
+	/*
+	 * Proxy it, signal the control thread, and wait for the response.
+	 */
+
+	dpr->dpr_proxy_rq = proxy_ptrace;
+	dpr->dpr_proxy_args.dpr_ptrace.request = request;
+	dpr->dpr_proxy_args.dpr_ptrace.pid = pid;
+	dpr->dpr_proxy_args.dpr_ptrace.addr = addr;
+	dpr->dpr_proxy_args.dpr_ptrace.data = data;
+
+	errno = 0;
+	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
+	if (errno != 0 && errno != EINTR) {
+		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
+		    "for Pwait(), deadlock is certain: %s\n", strerror(errno));
+		return (-1);
+	}
+
+	lock_count = dpr->dpr_lock_count;
+	dpr->dpr_lock_count = 0;
+
+	while (dpr->dpr_proxy_rq != NULL)
+		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
+
+	dpr->dpr_lock_holder = pthread_self();
+	dpr->dpr_lock_count = lock_count;
+
+	errno = dpr->dpr_proxy_errno;
+	return dpr->dpr_proxy_ret;
+}
+
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* process to control */
+
+	/*
+	 * This pipe contains data only when the dt_proc.proxy_rq contains a
+	 * proxy request that needs handling on behalf of DTrace's main thread.
+	 * DTrace will be waiting for the response on the dpr_msg_cv.
+	 */
+	int dpcd_proxy_fd[2];
+
 	/*
 	 * The next two are only valid while the master thread is calling
 	 * dt_proc_create(), and only useful when dpr_created is true.
@@ -366,11 +480,7 @@ dt_proc_control(void *arg)
 	int err;
 	pid_t pid;
 	struct ps_prochandle *P;
-
-	/*
-	 * Note: this function must not exit before dt_proc_stop() is called, or
-	 * dt_proc_create_thread() will hang indefinitely.
-	 */
+	struct pollfd pfd[2];
 
 	/*
 	 * Arrange to clean up when cancelled by dt_proc_destroy() on shutdown.
@@ -381,8 +491,10 @@ dt_proc_control(void *arg)
 	 * Lock our mutex, preventing races between cv broadcasts to our
 	 * controlling thread and dt_proc_continue() or process destruction.
 	 */
-	pthread_mutex_lock(&dpr->dpr_lock);
-	dpr->dpr_tid_locked = B_TRUE;
+	dt_proc_dpr_lock(dpr);
+
+	dpr->dpr_proxy_fd[0] = datap->dpcd_proxy_fd[0];
+	dpr->dpr_proxy_fd[1] = datap->dpcd_proxy_fd[1];
 
 	/*
 	 * Either create the process, or grab it.  Whichever, on failure, quit
@@ -404,13 +516,34 @@ dt_proc_control(void *arg)
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
-			dt_dprintf("grab failure\n");
 			pthread_exit(NULL);
 		}
 	}
 
+	/*
+	 * Arrange to proxy Pwait() and ptrace() calls through the
+	 * thread-spanning proxies.
+	 */
+	Pset_pwait_wrapper(dpr->dpr_proc, proxy_pwait);
+	Pset_ptrace_wrapper(dpr->dpr_proc, proxy_ptrace);
+
 	pid = dpr->dpr_pid;
 	P = dpr->dpr_proc;
+
+	/*
+	 * Make a waitfd to this process, and set up polling structures
+	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
+	 */
+	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
+		dt_proc_error(dtp, dpr, "failed to get waitfd for pid %li: %s\n",
+		    (long) dpr->dpr_pid, strerror(err));
+		pthread_exit(NULL);
+	}
+
+	pfd[0].fd = dpr->dpr_fd;
+	pfd[0].events = POLLIN;
+	pfd[1].fd = dpr->dpr_proxy_fd[0];
+	pfd[1].events = POLLIN;
 
 	/*
 	 * Enable rtld breakpoints at the location specified by dt_prcmode (or
@@ -441,57 +574,131 @@ dt_proc_control(void *arg)
 	/*
 	 * Wait for the process corresponding to this control thread to stop,
 	 * process the event, and then set it running again.  We want to sleep
-	 * with dpr_lock *unheld* so that other parts of libdtrace can use the
-	 * ps_prochandle in the meantime (e.g. ustack()) without corrupting any
-	 * shared caches.  We do not expect them to modify the Pstate(), so we
+	 * with dpr_lock *unheld* so that other parts of libdtrace can send
+	 * requests to us, which is protected by that lock.  It is impossible
+	 * for them, or any thread but this one, to modify the Pstate(), so we
 	 * can call that without grabbing the lock.
-	 *
-	 * TODO: this is impossible to implement properly at present (and
-	 * useless, since other parts of libdtrace cannot use the ps_prochandle
-	 * at all), but will be fixed once waitfds are in use.
 	 */
 	for (;;) {
-		if (Pwait(P, B_TRUE) == -1 && errno == EINTR)
-			continue; /* hit by signal: continue waiting */
+		dt_proc_dpr_unlock(dpr);
+
+		while (errno = EINTR,
+		    poll(pfd, 2, -1) <= 0 && errno == EINTR)
+			continue;
 
 		/*
-		 * If we don't yet have an rtld_db handle, try again to get one.
-		 * (ld.so can take arbitrarily long to get ready for this.)
+		 * We can block for arbitrarily long periods on this lock if the
+		 * main thread is in a Ptrace()/Puntrace() region, unblocking
+		 * only briefly when requests come in from the process.  This
+		 * will not introduce additional latencies because the process
+		 * is generally halted at this point, and being frequently
+		 * Pwait()ed on by libproc (which proxies back to here).
+		 *
+		 * Note that if the process state changes while the lock is
+		 * taken out by the main thread, the main thread will often
+		 * proceed to Pwait() on it.  The ordering of these next two
+		 * block is therefore crucial: we must check for proxy requests
+		 * from the main thread *before* we check for process state
+		 * changes via Pwait(), because one of the proxy requests is a
+		 * Pwait(), and the libproc in the main thread often wants to
+		 * unblock only once that Pwait() has returned (possibly after
+		 * running breakpoint handlers and the like, which will run in
+		 * the control thread, with their effects visible in the main
+		 * thread, all serialized by dpr_lock).
 		 */
-		dt_proc_rdagent(dpr);
+		dt_proc_dpr_lock(dpr);
 
-		switch (Pstate(P)) {
-		case PS_STOP:
+		/*
+		 * Incoming proxy request.  Drain this byte out of the pipe, and
+		 * handle it.  (Multiple bytes cannot land on the pipe, so we
+		 * don't need to consider this case -- but if they do, it is
+		 * harmless, because the dpr_proxy_rq will be NULL in subsequent
+		 * calls.)
+		 */
+		if (pfd[1].revents != 0) {
+			char junk;
+			read(dpr->dpr_proxy_fd[0], &junk, 1);
+			pfd[1].revents = 0;
 
-			/*
-			 * If the process stops showing one of the events that
-			 * we are tracing, perform the appropriate response.
-			 *
-			 * TODO: the stop() action may need some work here.
-			 */
-			continue;
+			if (dpr->dpr_proxy_rq == proxy_pwait) {
+				dt_dprintf("%d: Handling a proxy Pwait(%i)\n",
+				    pid, dpr->dpr_proxy_args.dpr_pwait.block);
+				errno = 0;
+				dpr->dpr_proxy_ret = proxy_pwait
+				    (dpr->dpr_proxy_args.dpr_pwait.P, dpr,
+					dpr->dpr_proxy_args.dpr_pwait.block);
 
-			/*
-			 * If the libdtrace caller (as opposed to any other
-			 * process) tries to debug a monitored process, it
-			 * may lead to our waitpid() returning strange
-			 * results.  Fail in this case, until we define a
-			 * protocol for communicating the waitpid() results to
-			 * the caller, or relinquishing control temporarily.
-			 * FIXME.
-			 */
-		case PS_TRACESTOP:
-			dt_dprintf("pid %d: trace stop, nothing we can do\n",
-			    pid);
-			continue;
+			} else if (dpr->dpr_proxy_rq == proxy_ptrace) {
+				dt_dprintf("%d: Handling a proxy ptrace()\n", pid);
+				errno = 0;
+				dpr->dpr_proxy_ret = proxy_ptrace
+				    (dpr->dpr_proxy_args.dpr_ptrace.request,
+					dpr,
+					dpr->dpr_proxy_args.dpr_ptrace.pid,
+					dpr->dpr_proxy_args.dpr_ptrace.addr,
+					dpr->dpr_proxy_args.dpr_ptrace.data);
+			} else
+				dt_dprintf("%d: unknown libproc request\n",
+				    pid);
 
-		case PS_DEAD:
-			dt_dprintf("pid %d: proc died\n", pid);
-			break;
+			dpr->dpr_proxy_errno = errno;
+			dpr->dpr_proxy_rq = NULL;
+			pthread_cond_signal(&dpr->dpr_msg_cv);
 		}
 
-		if (Pstate(P) == PS_DEAD)
-			break;
+		/*
+		 * The process needs attention. Pwait() for it (which will make
+		 * the waitfd transition back to empty).
+		 */
+		if (pfd[0].revents != 0) {
+			dt_dprintf("%d: Handling a process state change\n",
+			    pid);
+			pfd[0].revents = 0;
+			Pwait(P, B_FALSE);
+
+			/*
+			 * If we don't yet have an rtld_db handle, try again to
+			 * get one.  (ld.so can take arbitrarily long to get
+			 * ready for this.)
+			 */
+			dt_proc_rdagent(dpr);
+
+			switch (Pstate(P)) {
+			case PS_STOP:
+
+				/*
+				 * If the process stops showing one of the
+				 * events that we are tracing, perform the
+				 * appropriate response.
+				 *
+				 * TODO: the stop() action may need some work
+				 * here.
+				 */
+				break;
+
+				/*
+				 * If the libdtrace caller (as opposed to any
+				 * other process) tries to debug a monitored
+				 * process, it may lead to our waitpid()
+				 * returning strange results.  Fail in this
+				 * case, until we define a protocol for
+				 * communicating the waitpid() results to the
+				 * caller, or relinquishing control temporarily.
+				 * FIXME.
+				 */
+			case PS_TRACESTOP:
+				dt_dprintf("%d: trace stop, nothing we can do\n",
+				    pid);
+				break;
+
+			case PS_DEAD:
+				dt_dprintf("%d: proc died\n", pid);
+				break;
+			}
+
+			if (Pstate(P) == PS_DEAD)
+				break; /* all the way out */
+		}
 	}
 
 	/*
@@ -546,6 +753,19 @@ dt_proc_control_cleanup(void *arg)
 	pthread_cond_broadcast(&dpr->dpr_cv);
 
 	dpr->dpr_tid_locked = B_FALSE;
+	/*
+	 * fd closing must be done with some care.  The thread may be cancelled
+	 * before any of these fds have been assigned!
+	 */
+
+	if (dpr->dpr_fd)
+	    close(dpr->dpr_fd);
+
+	if (dpr->dpr_proxy_fd[0])
+	    close(dpr->dpr_proxy_fd[0]);
+
+	if (dpr->dpr_proxy_fd[1])
+	    close(dpr->dpr_proxy_fd[1]);
 	pthread_mutex_unlock(&dpr->dpr_lock);
 }
 
@@ -708,6 +928,19 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	data.dpcd_start_proc = file;
 	data.dpcd_start_proc_argv = argv;
 
+	if (pipe(data.dpcd_proxy_fd) < 0) {
+		err = errno;
+		(void) dt_proc_error(dpr->dpr_hdl, dpr,
+		    "failed to create communicating pipe for pid %d: %s\n",
+		    (int)dpr->dpr_pid, strerror(err));
+
+		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		(void) pthread_attr_destroy(&a);
+		return (err);
+	}
+
+	Pset_ptrace_lock_hook(dt_proc_ptrace_lock);
+
 	(void) pthread_sigmask(SIG_SETMASK, &nset, &oset);
 	err = pthread_create(&dpr->dpr_tid, &a, dt_proc_control, &data);
 	(void) pthread_sigmask(SIG_SETMASK, &oset, NULL);
@@ -748,7 +981,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 }
 
 struct ps_prochandle *
-dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
+dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
+	int flags)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr;
@@ -766,6 +1000,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 
 	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
+	(void) pthread_cond_init(&dpr->dpr_msg_cv, NULL);
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
 		pthread_mutexattr_destroy(attrp);
@@ -779,6 +1014,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 		file, argv) != 0) {
 
 		pthread_cond_destroy(&dpr->dpr_cv);
+		pthread_cond_destroy(&dpr->dpr_msg_cv);
 		pthread_mutex_destroy(&dpr->dpr_lock);
 		dt_free(dtp, dpr);
 
@@ -793,11 +1029,18 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	dt_dprintf("created pid %d\n", (int)dpr->dpr_pid);
 	dpr->dpr_refs++;
 
+	/*
+	 * If requested, wait for the control thread to finish initialization
+	 * and rendezvous.
+	 */
+	if (flags & DTRACE_PROC_WAITING)
+		dt_proc_continue(dtp, dpr->dpr_proc);
+
 	return (dpr->dpr_proc);
 }
 
 struct ps_prochandle *
-dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
+dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	uint_t h = pid & (dph->dph_hashlen - 1);
@@ -814,12 +1057,6 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	 * ensure that dph_lrucnt and dt_proc_retired() do not get out of synch
 	 * (which would cause aggressive early retirement of processes even when
 	 * unnecessary).
-	 *
-	 * Since nothing ever removes the process from this list until
-	 * dt_proc_hash_destroy() / dtrace_close(), it is impossible for a
-	 * process to be Pgrab()bed or Pcreate()d more than once: thus it will
-	 * only be stopped once, and we do not need to deal with the downsides
-	 * of ptrace() in normal operation.
 	 */
 	for (dpr = dph->dph_hash[h]; dpr != NULL; dpr = dpr->dpr_hash) {
 		if (dpr->dpr_pid == pid) {
@@ -847,6 +1084,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 
 	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
+	(void) pthread_cond_init(&dpr->dpr_msg_cv, NULL);
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
 		pthread_mutexattr_destroy(attrp);
@@ -900,6 +1138,13 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid)
 	dt_dprintf("grabbed pid %d\n", (int)pid);
 	dpr->dpr_refs++;
 
+	/*
+	 * If requested, wait for the control thread to finish initialization
+	 * and rendezvous.
+	 */
+	if (flags & DTRACE_PROC_WAITING)
+		dt_proc_continue(dtp, dpr->dpr_proc);
+
 	return (dpr->dpr_proc);
 }
 
@@ -938,17 +1183,63 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 void
 dt_proc_lock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
-	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
-	int err = pthread_mutex_lock(&dpr->dpr_lock);
-	assert(err == 0); /* check for recursion */
+	dt_proc_dpr_lock(dt_proc_lookup(dtp, P, B_FALSE));
 }
 
 void
 dt_proc_unlock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
-	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
-	int err = pthread_mutex_unlock(&dpr->dpr_lock);
-	assert(err == 0); /* check for unheld lock */
+	dt_proc_dpr_unlock(dt_proc_lookup(dtp, P, B_FALSE));
+}
+
+static void
+dt_proc_dpr_lock(dt_proc_t *dpr)
+{
+	dt_dprintf("LOCK: depth %i, by %llx\n", dpr->dpr_lock_count,
+	    pthread_self());
+
+	if (dpr->dpr_lock_holder != pthread_self() ||
+	    dpr->dpr_lock_count == 0) {
+		dt_dprintf("Taking out lock\n");
+		pthread_mutex_lock(&dpr->dpr_lock);
+		dpr->dpr_lock_holder = pthread_self();
+	}
+
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_count == 0 ||
+	    dpr->dpr_lock_holder == pthread_self());
+
+	dpr->dpr_lock_count++;
+}
+
+static void
+dt_proc_dpr_unlock(dt_proc_t *dpr)
+{
+	int err;
+
+	assert(dpr->dpr_lock_holder == pthread_self() &&
+	    dpr->dpr_lock_count > 0);
+	dpr->dpr_lock_count--;
+
+	dt_dprintf("UNLOCK: depth %i, by %llx\n", dpr->dpr_lock_count,
+	    pthread_self());
+	if (dpr->dpr_lock_count == 0) {
+		dt_dprintf("Relinquishing lock\n");
+		err = pthread_mutex_unlock(&dpr->dpr_lock);
+		assert(err == 0); /* check for unheld lock */
+	} else
+		assert(MUTEX_HELD(&dpr->dpr_lock));
+}
+
+static void
+dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
+{
+	dt_proc_t *dpr = arg;
+
+	if (ptracing)
+		dt_proc_dpr_lock(dpr);
+	else
+		dt_proc_dpr_unlock(dpr);
 }
 
 void
@@ -982,10 +1273,11 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 }
 
 struct ps_prochandle *
-dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
+dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
+	int flags)
 {
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *P = dt_proc_create(dtp, file, argv);
+	struct ps_prochandle *P = dt_proc_create(dtp, file, argv, flags);
 
 	if (P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = Pgetpid(P); /* $target = created pid */
@@ -997,7 +1289,7 @@ struct ps_prochandle *
 dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 {
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *P = dt_proc_grab(dtp, pid);
+	struct ps_prochandle *P = dt_proc_grab(dtp, pid, flags);
 
 	if (P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = pid; /* $target = grabbed pid */

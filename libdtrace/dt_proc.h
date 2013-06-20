@@ -28,6 +28,7 @@
 #define	_DT_PROC_H
 
 #include <rtld_db.h>
+#include <libproc.h>
 #include <dtrace.h>
 #include <pthread.h>
 #include <dt_list.h>
@@ -42,18 +43,52 @@ typedef struct dt_proc {
 	dtrace_hdl_t *dpr_hdl;		/* back pointer to libdtrace handle */
 	struct ps_prochandle *dpr_proc;	/* proc handle for libproc calls */
 	char dpr_errmsg[BUFSIZ];	/* error message */
-	pthread_mutex_t dpr_lock;	/* lock for manipulating dpr_hdl */
-	uint8_t dpr_tid_locked;		/* true if the control thread holds
+	uint8_t dpr_tid_locked;         /* true if the control thread holds
 					 * dpr_locked */
+	pthread_mutex_t dpr_lock;	/* lock around many libproc operations,
+					   and our condition variables */
+	pthread_t dpr_lock_holder;	/* holder of the dpr_lock, if nonzero
+					   lock count */
+	unsigned long dpr_lock_count;	/* lock count of the dpr_lock */
 	pthread_cond_t dpr_cv;		/* cond for startup/stop/quit/done */
+	pthread_cond_t dpr_msg_cv;	/* cond for msgs from main thread */
+	pthread_t dpr_tid;		/* control thread (or zero if none) */
 	pid_t dpr_pid;			/* pid of process */
+	int dpr_fd;			/* waitfd for process */
+	int dpr_proxy_fd[2];		/* proxy request pipe from main thread */
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */
 	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
-	pthread_t dpr_tid;		/* control thread (or zero if none) */
+
+	/*
+	 * Proxying. These structures encode the return type and parameters of
+	 * all libproc functions which are unsafe to call from multiple threads
+	 * for which we provide proxies.  The dpr_libproc_rq simply holds the
+	 * address of the currently-executing proxy function (which is private
+	 * to libproc.c, so not interpretable from here).  Executing one
+	 * proxy from inside another is not possible, because each proxy
+	 * degenerates to an immediate call if it is executed from the
+	 * process-control thread itself.
+	 */
+	long (*dpr_proxy_rq)();
+	long dpr_proxy_ret;
+	int dpr_proxy_errno;
+	union {
+		struct {
+			enum __ptrace_request request;
+			pid_t pid;
+			void *addr;
+			void *data;
+		} dpr_ptrace;
+
+		struct {
+			struct ps_prochandle *P;
+			boolean_t block;
+		} dpr_pwait;
+	} dpr_proxy_args;
 } dt_proc_t;
 
 typedef struct dt_proc_notify {
@@ -83,9 +118,9 @@ typedef struct dt_proc_hash {
 } dt_proc_hash_t;
 
 extern struct ps_prochandle *dt_proc_create(dtrace_hdl_t *,
-    const char *, char *const *);
+    const char *, char *const *, int flags);
 
-extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t);
+extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t, int flags);
 extern void dt_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_lock(dtrace_hdl_t *, struct ps_prochandle *);

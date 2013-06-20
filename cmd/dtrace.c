@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2011--2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -1565,7 +1565,7 @@ main(int argc, char *argv[])
 				if ((v = make_argv(optarg)) == NULL)
 					fatal("failed to allocate memory");
 
-				P = dtrace_proc_create(g_dtp, v[0], v);
+				P = dtrace_proc_create(g_dtp, v[0], v, 0);
 				if (P == NULL)
 					dfatal(NULL); /* dtrace_errmsg() only */
 

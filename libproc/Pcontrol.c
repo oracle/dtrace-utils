@@ -429,11 +429,11 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
  *
  * Returns the number of state changes processed, or -1 on error.
  */
-int
+long
 Pwait_internal(struct ps_prochandle *P, boolean_t block)
 {
-	int err;
-	int num_waits = 0;
+	long err;
+	long num_waits = 0;
 	siginfo_t info;
 
 	info.si_pid = 0;
@@ -665,7 +665,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	 * Now repeatedly loop, processing more waits until none remain.
 	 */
 	if (block != 0) {
-		int this_wait;
+		long this_wait;
 		do {
 			this_wait = Pwait(P, 0);
 			num_waits += this_wait;
