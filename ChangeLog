@@ -209,6 +209,8 @@
 	flag when rtld activity monitoring is turned on.
 	(rd_ldso_nonzero_lmid_consistent_begin): Consistently use 0/1
 	for the last argument of Ptrace(), not TRUE/FALSE.
+	* libdtrace/dt_pid.c (dt_pid_create_usdt_probes): Don't
+	Pupdate_maps().
 
 2013-06-04  Nick Alcock  <nick.alcock@oracle.com>
 
