@@ -551,7 +551,8 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	info.dthi_pfname = alloca(strlen(pvp->pv_desc.dtvd_name) + 1 + i);
 	dt_header_fmt_func(info.dthi_pfname, pvp->pv_desc.dtvd_name);
 
-	if (fprintf(out, "#if _DTRACE_VERSION\n\n") < 0)
+	if (fprintf(out, "#define _DTRACE_VERSION 1\n\n"
+			 "#if _DTRACE_VERSION\n\n") < 0)
 		return (dt_set_errno(dtp, errno));
 
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_probe, &info) != 0)
@@ -579,7 +580,7 @@ int
 dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 {
 	dt_provider_t *pvp;
-	char *mfname, *p;
+	char *mfname = NULL, *p;
 
 	if (fname != NULL) {
 		if ((p = strrchr(fname, '/')) != NULL)

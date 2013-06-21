@@ -892,12 +892,15 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	(*off) -= 1;
 
 	/*
-	 * We only know about some specific relocation types. Luckily
-	 * these types have the same values on both 32-bit and 64-bit
-	 * x86 architectures.
+	 * We only know about some specific relocation types. Luckily these
+	 * types have the same values on both 32-bit and 64-bit x86
+	 * architectures.
+	 * We also recognize relocation type NONE, since that gets used for
+	 * relocations of USDT probes, and we might be re-processing a file.
 	 */
 	if (GELF_R_TYPE(rela->r_info) != R_386_PC32 &&
-	    GELF_R_TYPE(rela->r_info) != R_386_PLT32)
+	    GELF_R_TYPE(rela->r_info) != R_386_PLT32 &&
+	    GELF_R_TYPE(rela->r_info) != R_386_NONE)
 		return (-1);
 
 	/*
@@ -1440,7 +1443,11 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			}
 
 			/*
-			 * This relocation is no longer needed.
+			 * This relocation is no longer needed.  The linker on
+			 * Linux doesn't know about SHN_SUNW_IGNORE, so we mark
+			 * the relocation with type NONE.  Failing to do so
+			 * causes the linker to try to fill in an address on
+			 * top of the NOPs we so carefully planted.
 			 */
 			if (shdr_rel.sh_type == SHT_RELA) {
 				rela.r_info = GELF_R_INFO(ndx, 0);
