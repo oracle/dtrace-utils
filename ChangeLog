@@ -17,6 +17,17 @@
 	(rd_start_trap): Trip a rd_event callback if turned on when the
 	start trap is hit.
 
+	* libdtrace/dt_proc.c (dt_proc_rdagent): Split out the dlactivity
+	code into..
+	(dt_proc_scan): ... this new function.
+	(dt_break_drop_main): Call it here.
+	(dt_break_interesting): Likewise.
+
+	(dt_proc_resume): Line-wrapping.
+	(dt_proc_stop): Format string bug in debugging statement.
+	(dt_proc_dpr_lock): Remove some stray debugging.
+	(dt_proc_dpr_unlock): Likewise.
+
 2013-06-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	Waitfd support.

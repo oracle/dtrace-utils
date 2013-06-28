@@ -79,6 +79,7 @@
 #include <dt_impl.h>
 
 static int dt_proc_attach(dt_proc_t *dpr, int before_continue);
+static void dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 static void dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid);
 static void dt_proc_dpr_lock(dt_proc_t *dpr);
 static void dt_proc_dpr_unlock(dt_proc_t *dpr);
@@ -145,7 +146,7 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 		dpr->dpr_lock_count = lock_count;
 		dpr->dpr_stop |= DT_PROC_STOP_RESUMING;
 
-		dt_dprintf("%p: dt_proc_stop(), control thread now waiting "
+		dt_dprintf("%d: dt_proc_stop(), control thread now waiting "
 		    "for resume.\n", (int) dpr->dpr_pid);
 	}
 }
@@ -169,8 +170,8 @@ dt_proc_resume(dt_proc_t *dpr)
 		dpr->dpr_stop |= DT_PROC_STOP_RESUMED;
 		pthread_cond_broadcast(&dpr->dpr_cv);
 
-		dt_dprintf("dt_proc_resume(), control thread resumed. Lock count: %i\n",
-			dpr->dpr_lock_count);
+		dt_dprintf("dt_proc_resume(), control thread resumed. "
+		    "Lock count: %lu\n", dpr->dpr_lock_count);
 	}
 }
 
@@ -187,6 +188,7 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
 
 	dt_dprintf("pid %d: breakpoint on interesting locus\n", (int)dpr->dpr_pid);
 
+	dt_proc_scan(dpr->dpr_hdl, dpr);
 	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
 	dt_proc_resume(dpr);
 	Punbkpt(dpr->dpr_proc, addr);
@@ -209,6 +211,7 @@ dt_break_drop_main(uintptr_t addr, void *dpr_data)
 
 	dt_dprintf("pid %d: breakpoint on main()\n", (int)dpr->dpr_pid);
 
+	dt_proc_scan(dpr->dpr_hdl, dpr);
 	ret = dt_proc_attach(dpr, B_FALSE);
 	Punbkpt(dpr->dpr_proc, addr);
 
@@ -223,6 +226,18 @@ dt_break_drop_main(uintptr_t addr, void *dpr_data)
 	}
 
 	return PS_RUN;
+}
+
+/*
+ * New shared libraries seen: update our idea of the process's state
+ * accordingly.
+ */
+static void
+dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
+{
+	Pupdate_syms(dpr->dpr_proc);
+	if (dt_pid_create_probes_module(dtp, dpr) != 0)
+		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg);
 }
 
 /*
@@ -251,12 +266,7 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 	case RD_DLACTIVITY:
 		if (msg->state != RD_CONSISTENT)
 			break;
-
-		Pupdate_syms(dpr->dpr_proc);
-		if (dt_pid_create_probes_module(dtp, dpr) != 0)
-			dt_proc_notify(dtp, dtp->dt_procs, dpr,
-			    dpr->dpr_errmsg);
-
+		dt_proc_scan(dtp, dpr);
 		break;
 	case RD_NONE:
 		/* cannot happen, but do nothing anyway */
@@ -1280,9 +1290,6 @@ dt_proc_unlock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 static void
 dt_proc_dpr_lock(dt_proc_t *dpr)
 {
-	dt_dprintf("LOCK: depth %i, by %llx\n", dpr->dpr_lock_count,
-	    pthread_self());
-
 	if (dpr->dpr_lock_holder != pthread_self() ||
 	    dpr->dpr_lock_count == 0) {
 		dt_dprintf("Taking out lock\n");
@@ -1306,8 +1313,6 @@ dt_proc_dpr_unlock(dt_proc_t *dpr)
 	    dpr->dpr_lock_count > 0);
 	dpr->dpr_lock_count--;
 
-	dt_dprintf("UNLOCK: depth %i, by %llx\n", dpr->dpr_lock_count,
-	    pthread_self());
 	if (dpr->dpr_lock_count == 0) {
 		dt_dprintf("Relinquishing lock\n");
 		err = pthread_mutex_unlock(&dpr->dpr_lock);
