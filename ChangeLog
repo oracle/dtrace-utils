@@ -28,6 +28,9 @@
 	(dt_proc_dpr_lock): Remove some stray debugging.
 	(dt_proc_dpr_unlock): Likewise.
 
+	* test/demo/act/ustack.d: Print only two ustack()s.
+	* test/demo/act/ustack.r: Adjust.
+
 2013-06-20  Nick Alcock  <nick.alcock@oracle.com>
 
 	Waitfd support.

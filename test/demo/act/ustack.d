@@ -30,9 +30,10 @@
 #pragma D option quiet
 
 syscall::read:entry
-/pid == $1/
+/pid == $1 && ustacked < 3/
 {
 	ustack();
+        ustacked++;
 }
 
 syscall::exit_group:entry
