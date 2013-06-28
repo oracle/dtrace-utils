@@ -471,6 +471,15 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	long num_waits = 0;
 	siginfo_t info;
 
+	/*
+	 * If we wait for something to happen while stopped at a breakpoint, we
+	 * will deadlock, especially if what we get is another SIGTRAP.  So
+	 * claim that nothing ever happened.  (This is the only situation in
+	 * which a blocking Pwait() can return 0.)
+	 */
+	if (P->bkpt_halted)
+		return 0;
+
 	info.si_pid = 0;
 	do
 	{
@@ -862,6 +871,7 @@ Puntrace(struct ps_prochandle *P, int state)
 		if (P->state == PS_TRACESTOP) {
 			_dprintf("%i: Continuing.\n", P->pid);
 			Pbkpt_continue(P);
+			P->ptrace_halted = FALSE;
 			Pwait(P, 0);
 		}
 	} else {
@@ -871,8 +881,8 @@ Puntrace(struct ps_prochandle *P, int state)
 		if ((wrapped_ptrace(P, PTRACE_DETACH, P->pid, 0, 0) < 0) &&
 		    (errno == ESRCH))
 			P->state = PS_DEAD;
+		P->ptrace_halted = FALSE;
 	}
-	P->ptrace_halted = FALSE;
 
 	if (P->ptrace_count == 0 && ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
@@ -1422,6 +1432,7 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
 
 		bkpt->in_handler++;
+		P->bkpt_halted = 1;
 		for (; notifier; notifier = dt_list_next(notifier)) {
 			void (*notify) (uintptr_t, void *) =
 			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
@@ -1437,10 +1448,10 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		}
 		bkpt->in_handler--;
 
-		if (state != PS_RUN) {
-			P->bkpt_halted = 1;
+		if (state != PS_RUN)
 			return state;
-		}
+
+		P->bkpt_halted = 0;
 
 		/*
 		 * If the handler wants to erase the breakpoint, do so. Punbkpt() will

@@ -508,6 +508,19 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 	int err;
 
 	/*
+	 * If we are already stopped at a breakpoint, do nothing.  Return
+	 * success, unless we are in an inconsistent state (in which case we
+	 * cannot move into a consistent state without causing trouble
+	 * elsewhere).
+	 */
+	if (rd->P->bkpt_halted) {
+		if (rd_ldso_consistency(rd, LM_ID_BASE) == RD_CONSISTENT)
+			return 0;
+		else
+			return EDEADLK;
+	}
+
+	/*
 	 * Begin ptracing, and record the run state of the process before
 	 * consistency enforcement began.
 	 */
@@ -596,7 +609,8 @@ static void
 rd_ldso_consistent_end(rd_agent_t *rd)
 {
 	/*
-	 * Protect against unbalanced calls.
+	 * Protect against unbalanced calls, and calls from inside a breakpoint
+	 * handler.
 	 */
 	if (!rd->no_inconsistent)
 		return;
@@ -634,6 +648,19 @@ static int
 rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 {
 	long long timeout_nsec;
+
+	/*
+	 * If we are already stopped at a breakpoint, do nothing.  Return
+	 * success, unless we are in an inconsistent state (in which case we
+	 * cannot move into a consistent state without causing trouble
+	 * elsewhere).
+	 */
+	if (rd->P->bkpt_halted) {
+		if (rd_ldso_consistency(rd, -1) == RD_CONSISTENT)
+			return 0;
+		else
+			return EDEADLK;
+	}
 
 	/*
 	 * If we have detected that our idea of the location of ld.so's load
