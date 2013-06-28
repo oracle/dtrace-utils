@@ -962,12 +962,23 @@ rd_start_trap(uintptr_t addr, void *rd_data)
 	/*
 	 * Reactivate the rd_monitoring breakpoint, if it should be active (e.g.
 	 * if it was active before an exec()).  Silently disable monitoring if
-	 * we cannot reactivate the breakpoint.
+	 * we cannot reactivate the breakpoint.  Automatically trigger a
+	 * dlopen() callback.
 	 */
-	if (rd->rd_monitoring)
+	if (rd->rd_monitoring) {
 		if (Pbkpt(rd->P, rd->r_brk_addr, FALSE, rd_brk_trap,
 			NULL, rd) != 0)
 			rd->rd_monitoring = FALSE;
+		else {
+			rd_event_msg_t msg;
+			msg.type = RD_DLACTIVITY;
+			msg.state = RD_CONSISTENT;
+
+			_dprintf("%i: initial rtld activity event fired.\n",
+			    rd->P->pid);
+			rd->rd_event_fun(rd, &msg, rd->rd_event_data);
+		}
+	}
 
 	rd->maps_ready = 1;
 
