@@ -938,7 +938,9 @@ alloc:
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
+#if 0
 	dtrace_ioctl_sizes();
+#endif
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
