@@ -4,4 +4,5 @@ dt_test
 profile
 systrace
 sdt
+fasttrap
 @@quiet ext3

@@ -45,7 +45,7 @@
  * introduce, which have names of the pattern __attribute_blah__.
  */
 
-#define _dt_constructor_(x) __attribute__((__constructor__))
+#define _dt_constructor_(x) __attribute__((__constructor__(0)))
 #define _dt_destructor_(x) __attribute__((__destructor__))
 #define _dt_printflike_(string_index,first_to_check) __attribute__((__format__(__printf__,(string_index),(first_to_check))))
 #define _dt_unused_ __attribute__((__unused__))
