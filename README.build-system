@@ -88,6 +88,12 @@ name_SRCDEPS := list of explicit dependencies for (built) source files to be
                 added to the dep list of every target.  If no pathname is
                 specified, the source files are assumed to be in the same
                 directory as the name_SOURCES.
+name_PROV := name of a DTrade provider definition file (.d) that is to be
+             compiled in with the named target (shared library or executable).
+             It will be used to generate a header file (.h) containing macros
+             for the USDT probes specified for the provider, and a object file
+             (.o) with a DOF section that contains the provider definition to
+             be passed to the kernel.
 
 Names in the SHLIBS and CMDS (the only things processed by the linker) can have
 the following variables associated with them:
