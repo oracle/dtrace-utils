@@ -47,6 +47,6 @@ endef
 $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))
 
 # The showUSDT utility needs to be linked against libelf, and should be linked
-# against listdtrace.
+# against libdtrace.
 showUSDT_DEPS =
 showUSDT_LIBS = -lelf
