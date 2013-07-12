@@ -69,6 +69,9 @@ DOCDIR := $(DESTDIR)$(prefix)/share/doc/dtrace-$(VERSION)
 MANDIR := $(DESTDIR)$(prefix)/share/man/man1
 TARGETS =
 
+DTRACE := $(objdir)/dtrace
+export LD_LIBRARY_PATH := $(objdir)
+
 all::
 
 $(shell mkdir -p $(objdir))

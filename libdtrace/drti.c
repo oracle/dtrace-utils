@@ -147,7 +147,7 @@ dtrace_dof_init(void)
 	    dof->dofh_ident[DOF_ID_MAG1] != DOF_MAG_MAG1 ||
 	    dof->dofh_ident[DOF_ID_MAG2] != DOF_MAG_MAG2 ||
 	    dof->dofh_ident[DOF_ID_MAG3] != DOF_MAG_MAG3) {
-		dprintf(0, "DRTI: .SUNW_dof section corrupt in %s.\n",
+		dprintf(1, "DRTI: .SUNW_dof section corrupt in %s.\n",
 			lmp->l_name);
 		return;
 	}
@@ -175,7 +175,7 @@ dtrace_dof_init(void)
 
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
 		dprintf(1, "DRTI: Ioctl failed for DOF at %p\n", (void *)dof);
-	else
+	else if (dof_init_debug)
 		dprintf(1, "DRTI: Ioctl OK for DOF at %p (gen %d)\n",
 			(void *)dof, gen);
 
@@ -195,7 +195,7 @@ dtrace_dof_fini(void)
 
 	if ((gen = ioctl(fd, DTRACEHIOC_REMOVE, gen)) == -1)
 		dprintf(1, "DRTI: Ioctl failed to remove DOF (gen %d)\n", gen);
-	else
+	else if (dof_init_debug)
 		dprintf(1, "DRTI: Ioctl removed DOF (gen %d)\n", gen);
 
 	close(fd);

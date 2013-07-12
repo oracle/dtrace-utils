@@ -26,6 +26,8 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+inline int R_TRAPNO = 25;
+#pragma D binding "1.0" R_TRAPNO
 inline int R_GS = 24;
 #pragma D binding "1.0" R_GS
 inline int R_FS = 23;
@@ -45,8 +47,8 @@ inline int R_CS = 17;
 #pragma D binding "1.0" R_CS
 inline int R_RIP = 16;
 #pragma D binding "1.0" R_RIP
-inline int R_TRAPNO = 15;
-#pragma D binding "1.0" R_TRAPNO
+inline int R_ERR = 15;
+#pragma D binding "1.0" R_ERR
 inline int R_RDI = 14;
 #pragma D binding "1.0" R_RDI
 inline int R_RSI = 13;

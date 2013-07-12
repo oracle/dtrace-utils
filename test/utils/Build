@@ -35,9 +35,6 @@ $(1)_NOLDFLAGS := --coverage
 $(1)_DEPS = libdtrace.so
 $(1)_LIBS = -L$(objdir) -ldtrace
 
-showUSDT_DEPS =
-showUSDT_LIBS = -lelf
-
 clean::
 	rm -f test/utils/$(1)
 endef
@@ -48,3 +45,8 @@ define link-test-util
 endef
 
 $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))
+
+# The showUSDT utility needs to be linked against libelf, and should be linked
+# against listdtrace.
+showUSDT_DEPS =
+showUSDT_LIBS = -lelf

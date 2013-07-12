@@ -35,6 +35,13 @@ current-dir = $(dir $(lastword $(MAKEFILE_LIST)))
 obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.c=.o)))
 src-name = $(if $(filter-out $(abspath $(2)),$(2)),$(addprefix $($(1)_DIR),$(2)),$(2))
 
+# Functions to generate the name of a header file and DOF object file for a
+# given primary.  If called with an absolute pathname, return it unchanged.
+# Syntax: $(call *-name,primary,filename)
+
+hdr-name = $(addprefix $($(1)_DIR)/,$(subst /,-,$(2:.d=.h)))
+dof-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.d=.o)))
+
 # If 'verbose' is not set, this echoes a description and truncated target (or
 # other identifier) for this rule.
 # Syntax: $(call describe-target,description,optional names)
@@ -57,6 +64,24 @@ define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(CONFIG_H)
 	$(call describe-target,CC,$(src-name))
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
+endef
+
+# Rule to build a DTrace USDT header file.
+# Syntax: $(call hdr-template,primary,filename-without-dir)
+
+define hdr-template
+$(hdr-name): $(src-name)
+	$(call describe-target,GENHDR,$(src-name))
+	$(DTRACE) -h -o $(hdr-name) -s $(src-name)
+endef
+
+# Rule to build a DOF object file.
+# Syntax: $(call dof-template,primary,filename-without-dir)
+
+define dof-template
+$(dof-name): $(src-name)
+	$(call describe-target,GENDOF,$(src-name))
+	$(DTRACE) -G -o $(dof-name) -s $(src-name) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))))
 endef
 
 # Rule to build a build library, and all its sources.
@@ -105,15 +130,20 @@ endef
 # Syntax: $(call cmd-template,primary)
 
 define cmd-template
-$(objdir)/$($(1)_TARGET): $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+$(objdir)/$($(1)_TARGET): $(foreach prov,$($(1)_PROV),$(call hdr-name,$(1),$(prov))) \
+			  $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
                           $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
-                          $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
+                          $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))) \
+                          $(foreach prov,$($(1)_PROV),$(call dof-name,$(1),$(prov)))
 	$(call describe-target,LINK,$($(1)_TARGET))
 	$(CC) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS)) \
 	      $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+              $(foreach prov,$($(1)_PROV),$(call dof-name,$(1),$(prov))) \
 	      $($(1)_LIBS)
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
+$(foreach prov,$($(1)_PROV),$(call hdr-template,$(1),$(prov)))
+$(foreach prov,$($(1)_PROV),$(call dof-template,$(1),$(prov)))
 endef
