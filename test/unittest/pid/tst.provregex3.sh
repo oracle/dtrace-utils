@@ -38,7 +38,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-DIR=${TMPDIR:-/tmp}/dtest.$$
+DIR=${TMPDIR:-/tmp}/provregex3.$$
 
 mkdir $DIR
 

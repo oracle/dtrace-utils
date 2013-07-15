@@ -37,7 +37,7 @@ $(1)_NOCFLAGS := --coverage
 $(1)_NOLDFLAGS := --coverage
 
 clean::
-	rm -f test/triggers/$(1)
+	rm -f test/triggers/$(1) $(addprefix test/triggers/,$($(1)_PROV:.d=.h))
 endef
 
 define link-trigger
@@ -45,7 +45,6 @@ define link-trigger
 	ln -s $(1) test/triggers/$(notdir $(1))
 endef
 
-$(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
 proc-tst-sigwait_LIBS := -lrt
 
 # readwholedir is used for ustack() tests, so needs a symbol table and needs
@@ -151,3 +150,5 @@ usdt-tst-args_PROV := usdt-tst-args-prov.d
 
 # usdt-tst-forker calls USDT probes (defined in args.d) based on dtrace -h
 usdt-tst-forker_PROV := usdt-tst-forker-prov.d
+
+$(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))

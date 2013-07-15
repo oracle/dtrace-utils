@@ -915,19 +915,19 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		    ip[1] == DT_OP_NOP && ip[2] == DT_OP_NOP &&
 		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP)
 			return (0);
-	} else if (dtp->dt_oflags & DTRACE_O_LP64) {
+	} else if (dtp->dt_oflags & DTRACE_O_ILP32) {
+		if (ip[0] == DT_OP_XOR_EAX_0 && ip[1] == DT_OP_XOR_EAX_1 &&
+		    (ip[2] == DT_OP_NOP || ip[2] == DT_OP_RET) &&
+		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP) {
+			(*off) += 2;
+			return (0);
+		}
+	} else {
 		if (ip[0] == DT_OP_REX_RAX &&
 		    ip[1] == DT_OP_XOR_EAX_0 && ip[2] == DT_OP_XOR_EAX_1 &&
 		    (ip[3] == DT_OP_NOP || ip[3] == DT_OP_RET) &&
 		    ip[4] == DT_OP_NOP) {
 			(*off) += 3;
-			return (0);
-		}
-	} else {
-		if (ip[0] == DT_OP_XOR_EAX_0 && ip[1] == DT_OP_XOR_EAX_1 &&
-		    (ip[2] == DT_OP_NOP || ip[2] == DT_OP_RET) &&
-		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP) {
-			(*off) += 2;
 			return (0);
 		}
 	}
@@ -957,20 +957,20 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		ip[2] = DT_OP_NOP;
 		ip[3] = DT_OP_NOP;
 		ip[4] = DT_OP_NOP;
-	} else if (dtp->dt_oflags & DTRACE_O_LP64) {
-		ip[0] = DT_OP_REX_RAX;
-		ip[1] = DT_OP_XOR_EAX_0;
-		ip[2] = DT_OP_XOR_EAX_1;
-		ip[3] = ret;
-		ip[4] = DT_OP_NOP;
-		(*off) += 3;
-	} else {
+	} else if (dtp->dt_oflags & DTRACE_O_ILP32) {
 		ip[0] = DT_OP_XOR_EAX_0;
 		ip[1] = DT_OP_XOR_EAX_1;
 		ip[2] = ret;
 		ip[3] = DT_OP_NOP;
 		ip[4] = DT_OP_NOP;
 		(*off) += 2;
+	} else {
+		ip[0] = DT_OP_REX_RAX;
+		ip[1] = DT_OP_XOR_EAX_0;
+		ip[2] = DT_OP_XOR_EAX_1;
+		ip[3] = ret;
+		ip[4] = DT_OP_NOP;
+		(*off) += 3;
 	}
 
 	return (0);
@@ -1061,15 +1061,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		    obj));
 	}
 
-	if (dtp->dt_oflags & DTRACE_O_LP64) {
-		eclass = ELFCLASS64;
-#if defined(__sparc)
-		emachine1 = emachine2 = EM_SPARCV9;
-#elif defined(__i386) || defined(__amd64)
-		emachine1 = emachine2 = EM_AMD64;
-#endif
-		symsize = sizeof (Elf64_Sym);
-	} else {
+	if (dtp->dt_oflags & DTRACE_O_ILP32) {
 		eclass = ELFCLASS32;
 #if defined(__sparc)
 		emachine1 = EM_SPARC;
@@ -1078,6 +1070,14 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		emachine1 = emachine2 = EM_386;
 #endif
 		symsize = sizeof (Elf32_Sym);
+	} else {
+		eclass = ELFCLASS64;
+#if defined(__sparc)
+		emachine1 = emachine2 = EM_SPARCV9;
+#elif defined(__i386) || defined(__amd64)
+		emachine1 = emachine2 = EM_AMD64;
+#endif
+		symsize = sizeof (Elf64_Sym);
 	}
 
 	if (ehdr.e_ident[EI_CLASS] != eclass) {
@@ -1595,10 +1595,10 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	if (!dtp->dt_lazyload)
 		(void) unlink(file);
 
-	if (dtp->dt_oflags & DTRACE_O_LP64)
-		status = dump_elf64(dtp, dof, fd);
-	else
+	if (dtp->dt_oflags & DTRACE_O_ILP32)
 		status = dump_elf32(dtp, dof, fd);
+	else
+		status = dump_elf64(dtp, dof, fd);
 
 	if (status != 0 || lseek(fd, 0, SEEK_SET) != 0) {
 		return (dt_link_error(dtp, NULL, -1, NULL,
@@ -1607,23 +1607,30 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 
 	if (!dtp->dt_lazyload) {
 		dt_dirpath_t *libdir = dt_list_next(&dtp->dt_lib_path);
-		const char *fmt = "%s -o %s -r --version-script=%s /dev/fd/%d %s";
+		const char *fmt = "%s%s -o %s -r --version-script=%s /dev/fd/%d %s";
+		const char *emu; 
 
 		/*
 		 * FIXME: if 32/64-bit dual dtrace is ever revived, we will need
 		 * to identify the distinct libdirs properly.
 		 */
 
-		snprintf(drti, sizeof (drti), "%s/drti.o", libdir->dir_path);
+		if (dtp->dt_oflags & DTRACE_O_ILP32) {
+			snprintf(drti, sizeof (drti), "%s/drti32.o", libdir->dir_path);
+			emu = " -m elf_i386";
+		} else {
+			snprintf(drti, sizeof (drti), "%s/drti.o", libdir->dir_path);
+			emu = "";
+		}
 		snprintf(symvers, sizeof (symvers), "%s/drti-vers", libdir->dir_path);
 
-		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file, symvers, fd,
-		    drti) + 1;
+		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, emu, file,
+			       symvers, fd, drti) + 1;
 
 		cmd = alloca(len);
 
-		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, file, symvers, fd,
-		    drti);
+		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, emu, file,
+				symvers, fd, drti);
 
 		if ((status = system(cmd)) == -1) {
 			ret = dt_link_error(dtp, NULL, -1, NULL,

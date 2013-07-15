@@ -142,13 +142,20 @@ PHONIES += objs
 TARGETS += objs
 BUILD_DRTI_OBJ = $(objdir)/drti.o
 DRTI_OBJ = $(objdir)/dlibs/drti.o
+BUILD_DRTI32_OBJ = $(objdir)/drti32.o
+DRTI32_OBJ = $(objdir)/dlibs/drti32.o
 
-objs: $(DRTI_OBJ)
+objs: $(DRTI_OBJ) $(DRTI32_OBJ)
 $(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
 	$(call describe-target,CC,$<)
 	$(CC) $(CFLAGS) -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
 $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 	ln -sf $(BUILD_DRTI_OBJ) $(DRTI_OBJ)
+$(BUILD_DRTI32_OBJ): $(libdtrace-build_DIR)drti.c
+	$(call describe-target,CC-32,$<)
+	$(CC) $(CFLAGS) -m32 -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
+$(DRTI32_OBJ): $(BUILD_DRTI32_OBJ) $(objdir)/dlibs/.dir.stamp
+	ln -sf $(BUILD_DRTI32_OBJ) $(DRTI32_OBJ)
 
 # Custom substitutions.
 
@@ -175,6 +182,7 @@ clean::
 	rm -f $(libdtrace-build_DIR)dt_errtags.c $(libdtrace-build_DIR)dt_names.c
 	rm -f $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c
 	rm -f $(libdtrace-build_DIR)dt_lex.c
+	rm -f $(libdtrace-build_DIR)regs.d
 	rm -f $(addprefix $(libdtrace-build_DIR),$(BUILD_DLIBS))
 
 install::
@@ -189,6 +197,8 @@ install::
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI_OBJ))
 	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
+	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI32_OBJ))
+	install -m 644 -o root -g root $(DRTI32_OBJ) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(WORKING_DLIBS) drti-vers)
 	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
 		drti-vers $(LIBDIR)/dtrace
