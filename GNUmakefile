@@ -70,6 +70,7 @@ MANDIR := $(DESTDIR)$(prefix)/share/man/man1
 TARGETS =
 
 DTRACE := $(objdir)/dtrace
+export DTRACE_OPT_SYSLIBDIR := $(objdir)/dlibs
 export LD_LIBRARY_PATH := $(objdir)
 
 all::
