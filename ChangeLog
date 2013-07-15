@@ -1,6 +1,8 @@
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
 
-	* Makefunctions (cc-dependencies): Use .deps for depfiles.
+	* Makefunctions (hdr-template): Depend on the DTrace binary.
+	(dof-template): Likewise.
+	(cc-dependencies): Use .deps for depfiles.
 	* GNUmakefile: Likewise.
 
 2013-06-28  Nick Alcock  <nick.alcock@oracle.com>

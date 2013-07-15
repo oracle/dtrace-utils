@@ -70,7 +70,7 @@ endef
 # Syntax: $(call hdr-template,primary,filename-without-dir)
 
 define hdr-template
-$(hdr-name): $(src-name)
+$(hdr-name): $(src-name) $(DTRACE)
 	$(call describe-target,GENHDR,$(src-name))
 	$(DTRACE) -h -o $(hdr-name) -s $(src-name)
 endef
@@ -79,7 +79,7 @@ endef
 # Syntax: $(call dof-template,primary,filename-without-dir)
 
 define dof-template
-$(dof-name): $(src-name)
+$(dof-name): $(src-name) $(DTRACE)
 	$(call describe-target,GENDOF,$(src-name))
 	$(DTRACE) -G -o $(dof-name) -s $(src-name) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))))
 endef
