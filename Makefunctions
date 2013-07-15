@@ -58,7 +58,7 @@ endef
 # Rule to build a C source file.
 # Syntax: $(call cc-template,primary,filename-without-dir,optional flags)
 
-cc-dependencies = -MP -MMD -MT $(obj-name)
+cc-dependencies = -MP -MMD -MF $(obj-name).deps -MT $(obj-name)
 
 define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(CONFIG_H)

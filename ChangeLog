@@ -1,3 +1,8 @@
+2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
+
+	* Makefunctions (cc-dependencies): Use .deps for depfiles.
+	* GNUmakefile: Likewise.
+
 2013-06-28  Nick Alcock  <nick.alcock@oracle.com>
 
 	* test/demo/act/ustack-size.*: New test, ustack() with a size

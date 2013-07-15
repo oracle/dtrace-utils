@@ -81,7 +81,7 @@ include Makeoptions
 include Makefunctions
 include Makeconfig
 include Build */Build
--include $(objdir)/*.d
+-include $(objdir)/*.deps
 include Makerules
 include Makecheck
 
