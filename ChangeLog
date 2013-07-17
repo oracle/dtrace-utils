@@ -1,9 +1,34 @@
 2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
 
+	First-pointer-argument fetching code, and associated ISA-dependent
+	runtime switching.
+
+	* libproc/Pcontrol.h (ps_prochandle_t.elf_machine): New field, the
+	ELF architecture header value.
+	* libproc/elfish.c (process_elf64): Rename to...
+	(Pread_isa_info): ... this, initializing the new field. Also
+	initialize P->elf64 explicitlyra ther than depending on the caller
+	to do it.
+	* libproc/Pcontrol.c (Pcreate): Adjust accordingly.
+	(Pgrab): Likewise.
+	(Pwait_internal): Likewise, adding comment explaining the lack of
+	error handling.
+	* libproc/isadep.c: New, ISA-selection dispatcher conditionalizing
+	off elf64 and elf_machine, and one dispatched function:
+	Pread_first_arg.
+	* libproc/isadep_impl.h: New, prototypes for ISA-dependent
+	functions called by isadep.c.
+	* libproc/isadep_x86.c: New, all underlying ISA-dependent
+	functions that can be called on x86-compatible systems.
+	* libproc/libproc.h: Adjust.
+
+	Miscellaneous bugfixes.
+
 	* libproc/Psymtab.c (Pxlookup_by_name_internal): Assign to result
 	if last result was undef, as well as if there was none.
 	* libproc/elfish_64.c (r_debug): Demote some stderr fprintfs to
 	debugging output.
+	* libproc/Pcontrol.h (ps_prochandle_t.no_dyn): Fix comment.
 	* libdtrace/dt_options.c (dt_opt_debug_assert): Fix comparison.
 
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>

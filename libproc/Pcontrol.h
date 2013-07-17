@@ -237,11 +237,12 @@ struct ps_prochandle {
 	int	pending_pre_exec; /* number of pending_stops that were sent
 				     before a detected exec() */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
-	int	no_dyn;		/* true if this is probably a static lib */
+	int	no_dyn;		/* true if this is probably statically linked */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
 	int	info_valid;	/* if zero, map and file info need updating */
 	int	lmids_valid;	/* 0 if we haven't yet scanned the link map */
 	int	elf64;		/* if nonzero, this is a 64-bit process */
+	int	elf_machine;	/* the e_machine of this process */
 	map_info_t *mappings;	/* process mappings, sorted by address */
 	size_t	num_mappings;	/* number of mappings */
 	prmap_file_t **map_files; /* hash of mappings by filename */
@@ -272,7 +273,7 @@ struct ps_prochandle {
 extern	void	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
 extern	void	Psym_release(struct ps_prochandle *);
-extern	int	process_elf64(struct ps_prochandle *P, const char *procname);
+extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	void	set_exec_handler(struct ps_prochandle *P,

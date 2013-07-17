@@ -132,6 +132,14 @@ extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
 
 /*
+ * Read the first argument of the function at which the process P is
+ * halted, which must be a pointer.
+ *
+ * On error, -1 cast to a uintptr_t is returned, and errno is set.
+ */
+extern	uintptr_t Pread_first_arg(struct ps_prochandle *P);
+
+/*
  * Hook and wrapper functions.  These functions all get their 'arg' argument
  * from the corresponding argument to Pcreate() and Pgrab().
  *

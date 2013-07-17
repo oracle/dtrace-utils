@@ -201,7 +201,7 @@ Pcreate(
 	snprintf(procname, sizeof (procname), "%s/%d/exe",
 	    procfs_path, P->pid);
 
-	if ((P->elf64 = process_elf64(P, procname)) < 0) {
+	if ((Pread_isa_info(P, procname)) < 0) {
 		/* error already reported */
 		rc = errno;
 		goto bad_untrace;
@@ -287,7 +287,7 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 	snprintf(procname, sizeof (procname), "%s/%d/exe",
 	    procfs_path, P->pid);
 
-	if ((P->elf64 = process_elf64(P, procname)) < 0)
+	if ((Pread_isa_info(P, procname)) < 0)
 		/* error already reported */
 		goto bad_untrace;
 
@@ -644,7 +644,13 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 			snprintf(procname, sizeof (procname), "%s/%d/exe",
 			    procfs_path, P->pid);
 
-			P->elf64 = process_elf64(P, procname);
+			/*
+			 * This reports its error itself, but if there *is* an
+			 * error, there's not much we can do.  Leave elf64 et al
+			 * unchanged: most of the time, the ELF class and
+			 * bitness don't change across exec().
+			 */
+			Pread_isa_info(P, procname);
 
 			bkpt_flush(P, TRUE);
 

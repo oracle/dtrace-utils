@@ -25,7 +25,7 @@ BUILDLIBS += libproc
 libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -I$(objdir) -Iuts/intel -D_LONGLONG_TYPE
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
-libproc_SOURCES = Pcontrol.c elfish.c elfish_64.c elfish_32.c Psymtab.c rtld_db.c rtld_offsets.c wrap.c
+libproc_SOURCES = Pcontrol.c elfish.c elfish_64.c elfish_32.c Psymtab.c rtld_db.c rtld_offsets.c wrap.c isadep.c isadep_x86.c
 libproc_SRCDEPS := $(objdir)/rtld_offsets.stamp
 
 $(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c: $(objdir)/rtld_offsets.stamp

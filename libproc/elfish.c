@@ -44,10 +44,11 @@
 #undef BITS
 
 /*
- * Returns 1 if the process is 64-bit.
+ * Determine ISA-related info about the ELF file, and stash it in the
+ * ps_prochandle.
  */
 int
-process_elf64(struct ps_prochandle *P, const char *procname)
+Pread_isa_info(struct ps_prochandle *P, const char *procname)
 {
     int fd;
     Elf64_Ehdr hdr;
@@ -67,10 +68,9 @@ process_elf64(struct ps_prochandle *P, const char *procname)
 	return -1;
     }
 
-    if (hdr.e_ident[EI_CLASS] == ELFCLASS64)
-	return 1;
-    else
-	return 0;
+    P->elf64 = hdr.e_ident[EI_CLASS] == ELFCLASS64;
+    P->elf_machine = hdr.e_machine;
+    return 0;
 }
 
 /*
