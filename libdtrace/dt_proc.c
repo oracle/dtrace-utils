@@ -707,13 +707,6 @@ dt_proc_control(void *arg)
 			pfd[0].revents = 0;
 			Pwait(P, B_FALSE);
 
-			/*
-			 * If we don't yet have an rtld_db handle, try again to
-			 * get one.  (ld.so can take arbitrarily long to get
-			 * ready for this.)
-			 */
-			dt_proc_rdagent(dpr);
-
 			switch (Pstate(P)) {
 			case PS_STOP:
 
@@ -749,6 +742,14 @@ dt_proc_control(void *arg)
 
 			if (Pstate(P) == PS_DEAD)
 				break; /* all the way out */
+
+			/*
+			 * If we don't yet have an rtld_db handle, try again to
+			 * get one.  (ld.so can take arbitrarily long to get
+			 * ready for this.)
+			 */
+			dt_proc_rdagent(dpr);
+
 		}
 	}
 

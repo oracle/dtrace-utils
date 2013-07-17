@@ -31,6 +31,8 @@
 	debugging output.
 	* libproc/Pcontrol.h (ps_prochandle_t.no_dyn): Fix comment.
 	* libdtrace/dt_options.c (dt_opt_debug_assert): Fix comparison.
+	* libdtrace/dt_proc.c (dt_proc_control): Get rtld_db handle
+	only after catering for the dead-process case.
 
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
 
