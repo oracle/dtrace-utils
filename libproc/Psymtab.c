@@ -1839,7 +1839,8 @@ Pxlookup_by_name_internal(
 		if (sym.st_shndx != SHN_UNDEF)
 			return (0);
 
-		if (rv != 0) {
+		if (rv != 0 ||
+		    sym.st_shndx == SHN_UNDEF) {
 			if (sip != NULL)
 				si = *sip;
 			sym = *symp;

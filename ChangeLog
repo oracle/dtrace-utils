@@ -1,3 +1,8 @@
+2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libproc/Psymtab.c (Pxlookup_by_name_internal): Assign to result
+	if last result was undef, as well as if there was none.
+
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makefunctions (hdr-template): Depend on the DTrace binary.
