@@ -405,6 +405,22 @@ Pmemfd(struct ps_prochandle *P)
 }
 
 /*
+ * Return 1 if the process is dynamically linked.
+ */
+int
+Pdynamically_linked(struct ps_prochandle *P)
+{
+	/*
+	 * This is populated by the r_debug computation code, so call it now,
+	 * and fail if it fails.
+	 */
+	if (r_debug(P) < 0)
+		return -1;
+
+	return !P->no_dyn;
+}
+
+/*
  * Release the process.  If kill_it is set, kill the process instead.
  *
  * Note: unlike Puntrace(), this releases *all* outstanding traces, cleans up

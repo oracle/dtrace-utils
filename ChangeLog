@@ -13,6 +13,7 @@
 	(Pgrab): Likewise.
 	(Pwait_internal): Likewise, adding comment explaining the lack of
 	error handling.
+	(Pdynamically_linked): New function.
 	* libproc/isadep.c: New, ISA-selection dispatcher conditionalizing
 	off elf64 and elf_machine, and one dispatched function:
 	Pread_first_arg.

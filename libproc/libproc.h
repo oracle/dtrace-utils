@@ -130,6 +130,7 @@ extern 	ssize_t	Pread_scalar(struct ps_prochandle *P, void *buf, size_t nbyte,
     size_t nscalar, uintptr_t address);
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
+extern	int	Pdynamically_linked(struct ps_prochandle *);
 
 /*
  * Read the first argument of the function at which the process P is
