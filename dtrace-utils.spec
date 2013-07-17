@@ -13,7 +13,7 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 dtrace-kernel-interface = 1
-BuildRequires: glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel dtrace-modules-headers = 1 kernel-uek-dtrace-devel = %{kver}
+BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel dtrace-modules-headers = 1 kernel-uek-dtrace-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
 Release:      1.el6
