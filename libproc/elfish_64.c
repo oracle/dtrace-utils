@@ -77,13 +77,13 @@ BITIZE(r_debug)(struct ps_prochandle *P)
 	uint64_t i;
 
 	if ((phaddr == -1) || (phent == -1) || (phnum == -1)) {
-		fprintf(stderr, "%i: no phaddr, phent or phnum auxvec "
-		    "entry.\n", P->pid);
+		_dprintf("%i: no phaddr, phent or phnum auxvec entry.\n",
+		    P->pid);
 		return -1;
 	}
 
 	if (P->state == PS_DEAD) {
-		fprintf(stderr, "%i: process is dead.", P->pid);
+		_dprintf("%i: process is dead.", P->pid);
 		return -1;
 	}
 

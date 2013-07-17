@@ -2,6 +2,8 @@
 
 	* libproc/Psymtab.c (Pxlookup_by_name_internal): Assign to result
 	if last result was undef, as well as if there was none.
+	* libproc/elfish_64.c (r_debug): Demote some stderr fprintfs to
+	debugging output.
 
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
 
