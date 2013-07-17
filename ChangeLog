@@ -4,6 +4,7 @@
 	if last result was undef, as well as if there was none.
 	* libproc/elfish_64.c (r_debug): Demote some stderr fprintfs to
 	debugging output.
+	* libdtrace/dt_options.c (dt_opt_debug_assert): Fix comparison.
 
 2013-07-15  Nick Alcock  <nick.alcock@oracle.com>
 

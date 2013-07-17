@@ -239,7 +239,7 @@ dt_opt_debug_assert(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	if (!strcmp(arg, "mutexes") == 0)
+	if (strcmp(arg, "mutexes") == 0)
 		_dtrace_debug_assert |= DT_DEBUG_MUTEXES;
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
