@@ -31,14 +31,15 @@
 # -x evaltime=exec runs before all constructors run and so early that it can
 # see syscalls made by the dynamic loader; -x evaltime=preinit runs before all
 # constructors run, but not early enough to see the dynamic loader syscalls;
-# -x evaltime={postinit|main} runs after constructors for any normal executables,
-# but not for statically linked ones sans symbol table.
+# -x evaltime={postinit|main} runs after constructors for any normal executables.
+# 32-bit version.
 #
 # SECTION: evaltime is not yet documented.
 #
 ##
 
 # @@timeout: 20
+# @@xfail: 32-on-64 systrace provider doesn't work yet
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -51,7 +52,7 @@ dtrace=$1
 # (This is even made by statically linked executables, albeit later,
 # and not visible to preinit.)
 
-for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
+for trigger in visible-constructor-32; do
     for stage in exec preinit postinit main; do 
         $dtrace $dt_flags -q -c build/$trigger -x evaltime=$stage -s /dev/stdin <<EOF
 syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1;}
@@ -62,7 +63,7 @@ EOF
     done
 done
 
-for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
+for trigger in visible-constructor-32; do
     $dtrace $dt_flags -q -c build/$trigger -s /dev/stdin <<EOF
 syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1; }
 syscall::write*:entry /pid == \$target/ { writes++; }

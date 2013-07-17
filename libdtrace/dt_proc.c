@@ -78,9 +78,12 @@
 #include <dt_pid.h>
 #include <dt_impl.h>
 
-static int dt_proc_attach(dt_proc_t *dpr, int before_continue);
+enum dt_attach_time_t { ATTACH_START, ATTACH_ENTRY, ATTACH_FIRST_ARG_MAIN,
+			ATTACH_DIRECT_MAIN };
+
+static int dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time);
 static void dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr);
-static void dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid);
+static void dt_main_fail_rendezvous(dt_proc_t *dpr);
 static void dt_proc_dpr_lock(dt_proc_t *dpr);
 static void dt_proc_dpr_unlock(dt_proc_t *dpr);
 static void dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg,
@@ -186,7 +189,8 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
 {
 	dt_proc_t *dpr = dpr_data;
 
-	dt_dprintf("pid %d: breakpoint on interesting locus\n", (int)dpr->dpr_pid);
+	dt_dprintf("pid %d: breakpoint on interesting locus\n",
+	    (int)dpr->dpr_pid);
 
 	dt_proc_scan(dpr->dpr_hdl, dpr);
 	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
@@ -199,33 +203,90 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
 /*
  * A one-shot breakpoint that fires at a point at which the dynamic linker has
  * initialized far enough to enable us to do reliable symbol lookups, and thus
- * drop a breakpoint on main().
+ * drop a breakpoint on a function.  The function we drop it on is
+ * __libc_start_main(), in libc, which takes the address of main() as its first
+ * argument.  Statically linked programs don't have this function, but might
+ * have an exported main() we can look up directly, or might have nothing, in
+ * which case we resume immediately, just as if evaltime=preinit were used.
  *
  * The dt_proc_lock is already held when this function is called.
  */
 static int
-dt_break_drop_main(uintptr_t addr, void *dpr_data)
+dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 {
 	dt_proc_t *dpr = dpr_data;
-	int ret;
+	int ret = -1;
 
-	dt_dprintf("pid %d: breakpoint on main()\n", (int)dpr->dpr_pid);
-
-	dt_proc_scan(dpr->dpr_hdl, dpr);
-	ret = dt_proc_attach(dpr, B_FALSE);
-	Punbkpt(dpr->dpr_proc, addr);
+	dt_dprintf("pid %d: breakpoint on process start()\n",
+	    (int)dpr->dpr_pid);
 
 	/*
-	 * If we couldn't dt_proc_attach(), because we couldn't find main();
-	 * rendezvous here, instead.
+	 * Dynamically linked: scan for shared libraries, and drop a breakpoint
+	 * on __libc_start_main().
 	 */
-	if (ret < 0) {
-		dt_dprintf("pid %d: main() lookup failed, resuming now\n", (int)dpr->dpr_pid);
-		dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
-		dt_proc_resume(dpr);
+	if (Pdynamically_linked(dpr->dpr_proc) > 0) {
+		dt_proc_scan(dpr->dpr_hdl, dpr);
+		ret = dt_proc_attach(dpr, ATTACH_ENTRY);
 	}
 
+	/*
+	 * If statically linked, or if for whatever reason we couldn't find
+	 * __libc_start_main(), just try dropping a breakpoint on main(),
+	 * instead.
+	 */
+
+	if (ret < 0)
+		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
+
+	Punbkpt(dpr->dpr_proc, addr);
+
+	if (ret < 0)
+		dt_main_fail_rendezvous(dpr);
+
 	return PS_RUN;
+}
+
+/*
+ * A one-shot breakpoint that fires at the start of __libc_start_main(), the
+ * libc function which is the immediate parent of main() in the call stack.
+ *
+ * It is passed the address of main() as its first (pointer) argument.
+ */
+static int
+dt_break_libc_start_main(uintptr_t addr, void *dpr_data)
+{
+	dt_proc_t *dpr = dpr_data;
+	int ret = -1;
+
+	dt_dprintf("pid %d: breakpoint on __libc_start_main()\n",
+	    (int)dpr->dpr_pid);
+
+	ret = dt_proc_attach(dpr, ATTACH_FIRST_ARG_MAIN);
+
+	/*
+	 * Failed. Just try dropping a breakpoint on main(), instead.
+	 */
+	if (ret < 0)
+		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
+
+	Punbkpt(dpr->dpr_proc, addr);
+
+	if (ret < 0)
+		dt_main_fail_rendezvous(dpr);
+
+	return PS_RUN;
+}
+
+/*
+ * If we couldn't dt_proc_attach(), because we couldn't find main() in
+ * any fashion, rendezvous here, instead.
+ */
+static void
+dt_main_fail_rendezvous(dt_proc_t *dpr)
+{
+	dt_dprintf("pid %d: main() lookup failed, resuming now\n", (int)dpr->dpr_pid);
+	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
+	dt_proc_resume(dpr);
 }
 
 /*
@@ -303,16 +364,18 @@ dt_proc_rdagent(dt_proc_t *dpr)
  * still halted).
  */
 static int
-dt_proc_attach(dt_proc_t *dpr, int before_continue)
+dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 {
 	uintptr_t addr = 0;
-	GElf_Sym main_sym;
+	GElf_Sym sym;
 	dtrace_hdl_t *dtp = dpr->dpr_hdl;
 	int (*handler) (uintptr_t addr, void *data) = dt_break_interesting;
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
 	dt_proc_rdagent(dpr);
+
+	dt_dprintf("Called dt_attach() with attach_time %i\n", attach_time);
 
 	/*
 	 * If we're stopping on exec we have no breakpoints to drop: if
@@ -323,10 +386,12 @@ dt_proc_attach(dt_proc_t *dpr, int before_continue)
 	if (dtp->dt_prcmode == DT_PROC_STOP_CREATE)
 		return 0;
 
-	if (!before_continue && dtp->dt_prcmode == DT_PROC_STOP_PREINIT)
+	if (attach_time != ATTACH_START &&
+	    dtp->dt_prcmode == DT_PROC_STOP_PREINIT)
 		return 0;
 
-	if (before_continue)
+	switch (attach_time) {
+	case ATTACH_START:
 		/*
 		 * Before dt_proc_continue().  Preinit, postinit and main all
 		 * get a breakpoint dropped on the process entry point, though
@@ -335,32 +400,86 @@ dt_proc_attach(dt_proc_t *dpr, int before_continue)
 		switch (dtp->dt_prcmode) {
 		case DT_PROC_STOP_POSTINIT:
 		case DT_PROC_STOP_MAIN:
-			handler = dt_break_drop_main;
+			handler = dt_break_prepare_drop_main;
 		case DT_PROC_STOP_PREINIT:
+			dt_dprintf("pid %d: dropping breakpoint on AT_ENTRY\n",
+			    (int)dpr->dpr_pid);
 			addr = Pgetauxval(dpr->dpr_proc, AT_ENTRY);
 		}
-	else
+		break;
+	case ATTACH_ENTRY:
 		/*
-		 * After dt_proc_continue().  Postinit and main get a breakpoint
-		 * dropped on main().
+		 * Stopped at the process entry point.  Drop a breakpoint on
+		 * __libc_start_main().  If we can't, immediately return an
+		 * error: we may be called again with a request to use a
+		 * different approach to find main().
 		 */
-		switch (dtp->dt_prcmode) {
-		case DT_PROC_STOP_POSTINIT:
-		case DT_PROC_STOP_MAIN:
-			if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
-				PR_OBJ_EVERY, "main", &main_sym, NULL) == 0)
-				addr = main_sym.st_value;
+		dt_dprintf("pid %d: dropping breakpoint on __libc_start_main\n",
+		    (int)dpr->dpr_pid);
+
+		handler = dt_break_libc_start_main;
+		if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
+			PR_OBJ_EVERY, "__libc_start_main", &sym, NULL) == 0)
+			addr = sym.st_value;
+		else {
+			dt_dprintf("pid %d: cannot resolve __libc_start_main\n",
+			    (int)dpr->dpr_pid);
+			return -1;
 		}
+		dt_dprintf("pid %d: __libc_start_main = %p\n",
+		    (int)dpr->dpr_pid, addr);
+		break;
+	case ATTACH_FIRST_ARG_MAIN:
+		/*
+		 * After dt_proc_continue(), stopped at __libc_start_main().
+		 * main()s address is passed as the first argument to this
+		 * function.
+		 */
+		dt_dprintf("pid %d: dropping breakpoint on address of "
+		    "__libc_start_main's first arg\n", (int)dpr->dpr_pid);
+
+		addr = Pread_first_arg(dpr->dpr_proc);
+		if (addr == (uintptr_t) -1) {
+			dt_dprintf("Cannot look up __libc_start_main()'s "
+			    "first arg: %s\n", strerror(errno));
+			return -1;
+		}
+		break;
+	case ATTACH_DIRECT_MAIN:
+		/*
+		 * After dt_proc_continue().  Drop a breakpoint on main(),
+		 * via a normal symbol lookup.
+		 */
+		dt_dprintf("pid %d: dropping breakpoint on main() by symbol "
+		    "lookup\n", (int)dpr->dpr_pid);
+
+		if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
+			PR_OBJ_EVERY, "main", &sym, NULL) == 0)
+			addr = sym.st_value;
+		break;
+	}
 
 	if (addr &&
 	    Pbkpt(dpr->dpr_proc, addr, B_FALSE, handler, NULL, dpr) == 0)
 		return 0;
 
+	/*
+	 * This statement is not quite accurate: there is no way to simulate the
+	 * effect of a DTrace that resumes tracing at e.g. __libc_start_main()
+	 * via any evaltime option.  But it's nearly right.
+	 */
 	dt_dprintf("Cannot drop breakpoint in child process: acting as if "
-	    "evaltime=%s were in force.\n", before_continue ? "exec" :
-	    "preinit");
+	    "evaltime=%s were in force.\n", attach_time == ATTACH_START ?
+	    "exec" : "preinit");
+
+	/*
+	 * Arrange to stall DTrace until either the creation rendezvous (if this
+	 * is the first attachment) or until the preinit rendezvous (an
+	 * arbitrary later rendezvous point reached when the eventual breakpoint
+	 * on main() or wherever is finally reached).
+	 */
 	dpr->dpr_stop &= ~dtp->dt_prcmode;
-	if (before_continue) {
+	if (attach_time == ATTACH_START) {
 		dpr->dpr_stop |= DT_PROC_STOP_CREATE;
 		dtp->dt_prcmode = DT_PROC_STOP_CREATE;
 	} else {
@@ -600,10 +719,11 @@ dt_proc_control(void *arg)
 	 * drop other breakpoints which will eventually enable us to drop
 	 * breakpoints at that location).
 	 */
-	dt_proc_attach(dpr, B_TRUE);
+	dt_proc_attach(dpr, ATTACH_START);
 
 	/*
-	 * Wait for a rendezvous from dt_proc_continue().  After this point,
+	 * Wait for a rendezvous from dt_proc_continue(), iff we were called
+	 * under DT_PROC_STOP_CREATE or DT_PROC_STOP_GRAB.  After this point,
 	 * datap and all that it points to is no longer valid.
 	 *
 	 * This covers evaltime=exec and grabs, but not the three evaltimes that
@@ -614,8 +734,9 @@ dt_proc_control(void *arg)
 	    DT_PROC_STOP_GRAB);
 
 	/*
-	 * Set the process going, and notify the main thread that it is now safe
-	 * to return from dt_proc_continue().
+	 * Set the process going, if it was stopped by the call above, and
+	 * notify the main thread that it is now safe to return from
+	 * dt_proc_continue().
 	 */
 
 	Ptrace_set_detached(P, dpr->dpr_created);

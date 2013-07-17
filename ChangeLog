@@ -23,6 +23,37 @@
 	functions that can be called on x86-compatible systems.
 	* libproc/libproc.h: Adjust.
 
+	Improved evaltime=main support.
+
+	* libdtrace/dt_proc.c (dt_attach_time_t): New enum, second
+	parameter to...
+	(dt_proc_attach): ... this, which is also reformulated to use a
+	switch and to handle the additional case of a breakpoint on
+	__libc_start_main() and getting main() addresses via
+	Pread_first_arg().  Improve comments around the dpr_stop /
+	dt_prcmode changes.
+	(dt_main_fail_rendezvous): Split out of...
+	(dt_break_drop_main): ... this, which is renamed to...
+	(dt_break_prepare_drop_main): ... this, and tries to drop a
+	breakpoint on __libc_start_main first.
+	(dt_break_libc_start_main): New, try to drop a breakpoint
+	on main() using the Pread_first_arg() code in dt_proc_attach().
+	(dt_proc_control): Adjust dt_proc_attach() call.
+	* test/unittest/dtrace-util/tst.evaltime.sh: Adjust, testing
+	static stripped and unstripped binaries, and not bothering to test
+	unstripped dynamically linked binaries.  Emit output only in END,
+	to avoid racing with the trigger's output.  Fix wrong copyright
+	date.
+	* test/unittest/dtrace-util/tst.evaltime32.sh: New, test 32-bit
+	binaries (XFAIL because syscall:: isn't working for the compat
+	table yet).
+	* test/triggers/visible-constructor-unstripped.c: Removed.
+	* test/triggers/visible-constructor-static.c: New.
+	* test/triggers/visible-constructor-static-unstripped.c: Likewise.
+	* test/triggers/visible-constructor-32.c: Likewise.
+	* test/triggers/Build: Adjust accordingly.  No longer bother to
+	-Bdynamic up anything but the unstripped static test.
+
 	Miscellaneous bugfixes.
 
 	* libproc/Psymtab.c (Pxlookup_by_name_internal): Assign to result
