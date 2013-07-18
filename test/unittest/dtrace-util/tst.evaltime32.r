@@ -16,5 +16,5 @@ evaltime is main, trigger is visible-constructor-32, 1 write()s; dynamic loader 
 
 Constructor run.
 main() run.
-evaltime is default, trigger is visible-constructor-32, 2 write()s; dynamic loader syscalls not seen.
+evaltime is default, trigger is visible-constructor-32, 1 write()s; dynamic loader syscalls not seen.
 

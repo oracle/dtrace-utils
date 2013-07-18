@@ -4,6 +4,9 @@
 	options during option extraction.  Strip trailing spaces from
 	option values.  Add @@trigger-timing.
 
+	* test/unittest/dtrace-util/tst.evaltime.r: Fix evaltime results.
+	* test/unittest/dtrace-util/tst.evaltime32.r: Likewise.
+
 2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	First-pointer-argument fetching code, and associated ISA-dependent
