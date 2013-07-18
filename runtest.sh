@@ -229,8 +229,10 @@ extract_options()
     local file=$2
 
     while :; do
-        if [[ -f $file ]] && grep -Eq "@@"$1 $file; then
-            local val="$(grep -E "@@"$1 $file | sed 's,.*@@'$1' *: ,,; s,\*/$,,')"
+        # This horrible sequence of patterns catches @@foo, @@foo: bar, and @@foo */,
+        # while not catching @@foo-bar or @@foo-bar: baz. */
+        if [[ -f $file ]] && grep -Eq -e "@@"$1' *:' -e "@@"$1" " -e "@@"$1'$' $file; then
+            local val="$(grep -E -e "@@"$1' *:' -e "@@"$1" " -e "@@"$1'$' $file | sed 's,.*@@'$1' *: ,,; s,\*/$,,; s,  *$,,')"
 
             # Force the $_pid to expand to itself.
 

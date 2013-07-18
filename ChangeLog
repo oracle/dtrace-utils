@@ -1,3 +1,9 @@
+2013-07-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* runtest.sh: Avoid catching options with names containing other
+	options during option extraction.  Strip trailing spaces from
+	option values.
+
 2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	First-pointer-argument fetching code, and associated ISA-dependent
