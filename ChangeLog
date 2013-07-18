@@ -7,6 +7,9 @@
 	* test/unittest/dtrace-util/tst.evaltime.r: Fix evaltime results.
 	* test/unittest/dtrace-util/tst.evaltime32.r: Likewise.
 
+	* Makefunctions (cc-template): Depend on provider headers.
+	(dof-template): Depend on all relevant object files.
+
 2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
 
 	First-pointer-argument fetching code, and associated ISA-dependent

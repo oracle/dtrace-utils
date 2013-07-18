@@ -61,7 +61,7 @@ endef
 cc-dependencies = -MP -MMD -MF $(obj-name).deps -MT $(obj-name)
 
 define cc-template
-$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(CONFIG_H)
+$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(foreach prov,$($(1)_PROV),$(call hdr-name,$(1),$(prov))) $(CONFIG_H)
 	$(call describe-target,CC,$(src-name))
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
@@ -79,7 +79,7 @@ endef
 # Syntax: $(call dof-template,primary,filename-without-dir)
 
 define dof-template
-$(dof-name): $(src-name) $(DTRACE)
+$(dof-name): $(src-name) $(DTRACE) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))))
 	$(call describe-target,GENDOF,$(src-name))
 	$(DTRACE) -G -o $(dof-name) -s $(src-name) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))))
 endef
