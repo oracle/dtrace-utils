@@ -2,7 +2,7 @@
 
 	* runtest.sh: Avoid catching options with names containing other
 	options during option extraction.  Strip trailing spaces from
-	option values.
+	option values.  Add @@trigger-timing.
 
 2013-07-17  Nick Alcock  <nick.alcock@oracle.com>
 

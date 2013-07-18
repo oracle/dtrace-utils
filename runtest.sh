@@ -689,6 +689,14 @@ for dt in $dtrace; do
         #            currently trapped and it will spoil the screen display.
         #            See '.trigger'.
         #
+        # @@trigger-timing: A single line containing 'before', 'after', or a
+        #                   number.  If 'after' (the default) the trigger will
+        #                   be exec()ed (from a pre-existing PID) after DTrace
+        #                   has started.  If 'before', the trigger will already
+        #                   be running when DTrace starts.  If a number,  it is
+        #                   a count in seconds to delay trigger execution (to
+        #                   wait for DTrace to start).
+        #
         # Certain filenames of test .d script are treated specially:
         #
         # tst.*.d: These are assumed to have /* @@trigger: none */ by default.
@@ -902,8 +910,19 @@ for dt in $dtrace; do
             # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
             # and confusing it. (This happens even if disowned.)
 
+            trigger_delay=1
+            if exist_options trigger-timing $_test; then
+                if [[ "x$(extract_options trigger-timing $_test)" = "xbefore" ]]; then
+                    trigger_delay=
+                elif [[ "x$(extract_options trigger-timing $_test)" = "xafter" ]]; then
+                    : # default
+                else
+		    trigger_delay="$(extract_options trigger-timing $_test)"
+                fi
+            fi
+
             log "Running trigger $trigger\n"
-            ( sleep 1; exec $trigger; ) &
+            ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
             _pid=$!
             disown %-
             ZAPTHESE="$_pid"
