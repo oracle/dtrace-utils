@@ -496,6 +496,23 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	if (P->bkpt_halted)
 		return 0;
 
+	/*
+	 * If we are waiting for a pending stop, but pending_stops is zero, we
+	 * know an earlier Pwait() (whether from a breakpoint handler or from
+	 * another thread) has raced with this one and consumed the stop.  A
+	 * blocking Pwait() will follow: in order not to block forever, we must
+	 * convert it to nonblocking.
+	 */
+	if (P->awaiting_pending_stops && P->pending_stops == 0 && block)
+		block = 0;
+
+	/*
+	 * Never do a blocking wait for a process we already know is dead or
+	 * stopped.
+	 */
+	if (P->state != PS_RUN)
+		block = 0;
+
 	info.si_pid = 0;
 	do
 	{
@@ -783,11 +800,19 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		    (P->state == PS_STOP))
 			return P->state;
 
+		if (P->state == PS_DEAD)
+			return P->state;
+
 		state = P->state;
 		P->ptrace_halted = TRUE;
 		kill(P->pid, SIGSTOP);
+
 		P->pending_stops++;
-		Pwait(P, 1);
+		P->awaiting_pending_stops++;
+		while (P->pending_stops && P->state == PS_RUN)
+			Pwait(P, 1);
+		P->awaiting_pending_stops--;
+
 		return state;
 	}
 
@@ -800,11 +825,16 @@ Ptrace(struct ps_prochandle *P, int stopped)
 
 	P->ptraced = TRUE;
 	P->ptrace_halted = TRUE;
-	P->pending_stops++;
 
-	if (Pwait(P, 1) == -1)
-		goto err;
-	else if (P->state != PS_TRACESTOP) {
+	P->pending_stops++;
+	P->awaiting_pending_stops++;
+	while (P->pending_stops && P->state == PS_RUN) {
+		if (Pwait(P, 1) == -1)
+			goto err;
+	}
+	P->awaiting_pending_stops--;
+
+	if (P->state != PS_TRACESTOP) {
 		err = ECHILD;
 		goto err2;
 	}

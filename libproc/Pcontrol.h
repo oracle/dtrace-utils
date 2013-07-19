@@ -236,6 +236,10 @@ struct ps_prochandle {
 				   have yet to be consumed */
 	int	pending_pre_exec; /* number of pending_stops that were sent
 				     before a detected exec() */
+	int	awaiting_pending_stops; /* if 1, a pending stop is being waited
+					   for: all blocking Pwait()s when
+					   pending_stops == 0 are converted
+					   to nonblocking */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	no_dyn;		/* true if this is probably statically linked */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
