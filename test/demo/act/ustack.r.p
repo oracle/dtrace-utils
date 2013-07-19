@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Condense out lines from ld.so and lines with no symbols.
-# The remainder should be fairly invariant across libc versions.
+# The ordering of lines is fairly random, due to noise from dead stack
+# frames being picked up as real ones.  Just look for various things
+# we know should be there, in whatever order.
 
-grep -v -e 'ld-linux-x86-64\.so\.2`' -e '`0x[0-9a-f][0-9a-f]*'
+sed 's,+0x[0-9a-f]*,,g' | grep -F -e 'readwholedir`is_regular_test_file' -e 'libc.so.6`scandir' -e 'readwholedir`main' | sort -u 

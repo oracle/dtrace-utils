@@ -22,6 +22,10 @@
 	(dt_proc_control): Do not whine about PS_TRACESTOPped processes
 	if we have just done a proxy Pwait() for just that.
 
+	* test/demo/act/ustack*: Check lstat/newlstat, not read().
+	Just check for the presence of particular functions, not the
+	precise output of the stack trace.
+
 2013-07-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Avoid catching options with names containing other

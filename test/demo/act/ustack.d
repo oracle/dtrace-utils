@@ -29,7 +29,7 @@
 
 #pragma D option quiet
 
-syscall::read:entry
+syscall::*lstat:entry
 /pid == $1 && ustacked < 3/
 {
 	ustack();
