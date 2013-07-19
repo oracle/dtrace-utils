@@ -1197,8 +1197,10 @@ rd_event_disable(rd_agent_t *rd)
 
 	rd->rd_event_fun = NULL;
 	rd->rd_event_data = NULL;
-	if (rd->rd_monitoring && rd->no_inconsistent == 0)
+	if (rd->rd_monitoring && rd->no_inconsistent == 0) {
 		Punbkpt(rd->P, rd->r_brk_addr);
+		rd->rd_monitoring = 0;
+	}
 
 	_dprintf("%i: disabled rtld activity monitoring.\n", rd->P->pid);
 }

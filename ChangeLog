@@ -18,6 +18,8 @@
 	child dies while we are waiting for a consistent state,
 	note it rather than trying to wait for it.
 	(rd_loadobj_iter): Do not try to run over a dead process.
+	(rd_event_disable): Unset rd_monitoring when removing the r_brk
+	breakpoint.
 	* libdtrace/dt_proc.c (dt_proc_attach): Ditch useless debugging.
 	(dt_proc_control): Do not whine about PS_TRACESTOPped processes
 	if we have just done a proxy Pwait() for just that.
