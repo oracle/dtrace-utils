@@ -426,8 +426,6 @@ dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 			    (int)dpr->dpr_pid);
 			return -1;
 		}
-		dt_dprintf("pid %d: __libc_start_main = %p\n",
-		    (int)dpr->dpr_pid, addr);
 		break;
 	case ATTACH_FIRST_ARG_MAIN:
 		/*
@@ -752,6 +750,8 @@ dt_proc_control(void *arg)
 	 * can call that without grabbing the lock.
 	 */
 	for (;;) {
+		int did_proxy_pwait = 0;
+
 		dt_proc_dpr_unlock(dpr);
 
 		while (errno = EINTR,
@@ -799,6 +799,8 @@ dt_proc_control(void *arg)
 				dpr->dpr_proxy_ret = proxy_pwait
 				    (dpr->dpr_proxy_args.dpr_pwait.P, dpr,
 					dpr->dpr_proxy_args.dpr_pwait.block);
+
+				did_proxy_pwait = 1;
 
 			} else if (dpr->dpr_proxy_rq == proxy_ptrace) {
 				dt_dprintf("%d: Handling a proxy ptrace()\n", pid);
@@ -850,10 +852,15 @@ dt_proc_control(void *arg)
 				 * communicating the waitpid() results to the
 				 * caller, or relinquishing control temporarily.
 				 * FIXME.
+				 *
+				 * Do not warn if we just did a proxy Pwait(),
+				 * un which case we may well have detected an
+				 * intentional transition to trace-stop.
 				 */
 			case PS_TRACESTOP:
-				dt_dprintf("%d: trace stop, nothing we can do\n",
-				    pid);
+				if (!did_proxy_pwait)
+					dt_dprintf("%d: trace stop, nothing we "
+					    "can do\n", pid);
 				break;
 
 			case PS_DEAD:

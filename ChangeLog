@@ -6,6 +6,9 @@
 	child dies while we are waiting for a consistent state,
 	note it rather than trying to wait for it.
 	(rd_loadobj_iter): Do not try to run over a dead process.
+	* libdtrace/dt_proc.c (dt_proc_attach): Ditch useless debugging.
+	(dt_proc_control): Do not whine about PS_TRACESTOPped processes
+	if we have just done a proxy Pwait() for just that.
 
 2013-07-18  Nick Alcock  <nick.alcock@oracle.com>
 
