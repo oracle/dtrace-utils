@@ -26,6 +26,8 @@
 	Just check for the presence of particular functions, not the
 	precise output of the stack trace.
 
+	* test/triggers/.gitignore: Ignore provider header files.
+
 2013-07-18  Nick Alcock  <nick.alcock@oracle.com>
 
 	* runtest.sh: Avoid catching options with names containing other
