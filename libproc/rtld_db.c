@@ -508,12 +508,12 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 	int err;
 
 	/*
-	 * If we are already stopped at a breakpoint, do nothing.  Return
-	 * success, unless we are in an inconsistent state (in which case we
-	 * cannot move into a consistent state without causing trouble
-	 * elsewhere).
+	 * If we are already stopped at a breakpoint or otherwise in tracing
+	 * stop, do nothing.  Return success, unless we are in an inconsistent
+	 * state (in which case we cannot move into a consistent state without
+	 * causing trouble elsewhere).
 	 */
-	if (rd->P->bkpt_halted) {
+	if ((rd->P->bkpt_halted) || (rd->P->state != PS_RUN)) {
 		if (rd_ldso_consistency(rd, LM_ID_BASE) == RD_CONSISTENT)
 			return 0;
 		else
@@ -650,12 +650,12 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 	long long timeout_nsec;
 
 	/*
-	 * If we are already stopped at a breakpoint, do nothing.  Return
-	 * success, unless we are in an inconsistent state (in which case we
-	 * cannot move into a consistent state without causing trouble
-	 * elsewhere).
+	 * If we are already stopped at a breakpoint or otherwise in tracing
+	 * stop, do nothing.  Return success, unless we are in an inconsistent
+	 * state (in which case we cannot move into a consistent state without
+	 * causing trouble elsewhere).
 	 */
-	if (rd->P->bkpt_halted) {
+	if ((rd->P->bkpt_halted) || (rd->P->state != PS_RUN)) {
 		if (rd_ldso_consistency(rd, -1) == RD_CONSISTENT)
 			return 0;
 		else
@@ -791,6 +791,8 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 	 */
 	if (rd->ic_transitioned && rd->P->state == PS_TRACESTOP)
 		rd->lmid_bkpted = TRUE;
+	else if (rd->P->state == PS_DEAD)
+		return -1;
 	else {
 		rd->lmid_halted = 1;
 		rd->lmid_halt_prev_state = Ptrace(rd->P, 1);
@@ -1231,6 +1233,15 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	rd->exec_jmp = &exec_jmp;
 
 	Pwait(rd->P, 0);
+
+	if (rd->P->state == PS_DEAD) {
+		rd->exec_jmp = NULL;
+
+		_dprintf("%i: link map iteration failed: process is dead..\n",
+		    rd->P->pid);
+		return RD_ERR;
+	}
+
 	if (r_brk(rd) == 0 || !rd->maps_ready) {
 		rd->exec_jmp = NULL;
 
