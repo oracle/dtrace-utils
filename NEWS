@@ -3,20 +3,19 @@
 
 New features:
 
- - Kernel symbol lookup now works: stack() now prints symbols, as does & of
-   kernel symbols.
+ - Symbol lookup now works: stack() and ustack() now print symbols, as does &.
 
  - -xevaltime={preinit, postinit, main} now work, with a few caveats:
 
-   - postinit is equivalent to main.
-
-   - On stripped binaries, postinit and main are equivalent to preinit,
-     because we cannot look up the 'main' symbol when there is no symbol
-     table.
+   - postinit (the default) is equivalent to main.
 
    - On statically linked binaries, preinit is equivalent to exec, and may
      not skip ld.so initialization (which can happen after main() on such
      binaries).
+
+   - On stripped, statically linked binaries, postinit and main are equivalent
+     to preinit, because we cannot look up the 'main' symbol when there is no
+     symbol table.
 
 0.3
 ---
