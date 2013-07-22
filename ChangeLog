@@ -4,6 +4,9 @@
 	(dt_proc_control_cleanup): Mention when a lock is being reset.
 	(dt_proc_dpr_lock): Mention the PID being locked.
 	(dt_proc_dpr_unlock): Likewise for unlocking.
+	(dt_proc_destroy): Only reduce dph_lrucnt if not already retired.
+	(dt_proc_grab): Add to the dph_lrulist and boost dpr_refs before
+	scanning for zero-ref retired processes to discard.
 
 2013-07-19  Nick Alcock  <nick.alcock@oracle.com>
 

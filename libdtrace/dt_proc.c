@@ -1090,8 +1090,10 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		dt_proc_dpr_unlock(dpr);
 	}
 
-	assert(dph->dph_lrucnt != 0);
-	dph->dph_lrucnt--;
+	if (!dt_proc_retired(dpr->dpr_proc)) {
+		assert(dph->dph_lrucnt != 0);
+		dph->dph_lrucnt--;
+	}
 	dt_list_delete(&dph->dph_lrulist, dpr);
 	dt_proc_remove(dtp, dpr->dpr_pid);
 	Pfree(dpr->dpr_proc);
@@ -1304,6 +1306,14 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 		return (NULL); /* dt_proc_error() has been called for us */
 	}
 
+	dph->dph_lrucnt++;
+	dpr->dpr_hash = dph->dph_hash[h];
+	dph->dph_hash[h] = dpr;
+	dt_list_prepend(&dph->dph_lrulist, dpr);
+
+	dt_dprintf("grabbed pid %d\n", (int)pid);
+	dpr->dpr_refs++;
+
 	/*
 	 * If we're currently caching more processes than dph_lrulim permits,
 	 * attempt to find the least-recently-used process that is currently
@@ -1313,9 +1323,9 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * closes any associated filehandles.)
 	 *
 	 * We know this expiry run cannot affect the handle currently being
-	 * grabbed, or we'd have boosted its refcnt and returned already.
+	 * grabbed, since we have already boosted its refcnt.
 	 */
-	if (dph->dph_lrucnt >= dph->dph_lrulim) {
+	if (dph->dph_lrucnt > dph->dph_lrulim) {
 		for (opr = dt_list_prev(&dph->dph_lrulist);
 		     opr != NULL; opr = dt_list_prev(opr)) {
 			if (opr->dpr_refs == 0 && !dt_proc_retired(opr->dpr_proc)) {
@@ -1325,14 +1335,6 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 			}
 		}
 	}
-
-	dph->dph_lrucnt++;
-	dpr->dpr_hash = dph->dph_hash[h];
-	dph->dph_hash[h] = dpr;
-	dt_list_prepend(&dph->dph_lrulist, dpr);
-
-	dt_dprintf("grabbed pid %d\n", (int)pid);
-	dpr->dpr_refs++;
 
 	/*
 	 * If requested, wait for the control thread to finish initialization
