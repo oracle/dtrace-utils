@@ -165,7 +165,7 @@ dt_proc_resume(dt_proc_t *dpr)
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	assert(dpr->dpr_lock_holder == pthread_self());
 
-	dt_dprintf("dt_proc_resume(), dpr_stop: %x (%i)\n",
+	dt_dprintf("dt_proc_resume(), dpr_stop: 0x%x (%i)\n",
 	    dpr->dpr_stop, dpr->dpr_stop & DT_PROC_STOP_RESUMING);
 
 	if (dpr->dpr_stop & DT_PROC_STOP_RESUMING) {
@@ -921,6 +921,8 @@ dt_proc_control_cleanup(void *arg)
 	 * out by ptrace() wrappers above us in the call stack, since the whole
 	 * thread is going away.
  	 */
+	dt_dprintf("%i: process control thread going away, relinquished all locks\n",
+	    dpr->dpr_pid);
 	if((!dpr->dpr_cond_waiting) &&
 	    (dpr->dpr_lock_count == 0 ||
 		dpr->dpr_lock_holder != pthread_self())) {
@@ -1421,7 +1423,7 @@ dt_proc_dpr_lock(dt_proc_t *dpr)
 {
 	if (dpr->dpr_lock_holder != pthread_self() ||
 	    dpr->dpr_lock_count == 0) {
-		dt_dprintf("Taking out lock\n");
+		dt_dprintf("%i: Taking out lock\n", dpr->dpr_pid);
 		pthread_mutex_lock(&dpr->dpr_lock);
 		dpr->dpr_lock_holder = pthread_self();
 	}
@@ -1443,7 +1445,7 @@ dt_proc_dpr_unlock(dt_proc_t *dpr)
 	dpr->dpr_lock_count--;
 
 	if (dpr->dpr_lock_count == 0) {
-		dt_dprintf("Relinquishing lock\n");
+		dt_dprintf("%i: Relinquishing lock\n", dpr->dpr_pid);
 		err = pthread_mutex_unlock(&dpr->dpr_lock);
 		assert(err == 0); /* check for unheld lock */
 	} else

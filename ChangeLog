@@ -1,3 +1,10 @@
+2013-07-22  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_proc.c (dt_proc_resume): Debugging improvement.
+	(dt_proc_control_cleanup): Mention when a lock is being reset.
+	(dt_proc_dpr_lock): Mention the PID being locked.
+	(dt_proc_dpr_unlock): Likewise for unlocking.
+
 2013-07-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libproc/Pcontrol.h (ps_prochandle_t.awaiting_pending_stops):
