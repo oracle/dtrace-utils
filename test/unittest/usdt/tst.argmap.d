@@ -25,6 +25,7 @@
  */
 
 /* @@trigger: usdt-tst-argmap */
+/* @@trigger-timing: before */
 /* @@runtest-opts: $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"

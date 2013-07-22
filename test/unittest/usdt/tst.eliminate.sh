@@ -20,6 +20,8 @@
 # CDDL HEADER END
 #
 
+# @@xfail: Linux ld does not seem to supoprt STV_ELIMINATE
+
 #
 # Copyright 2007 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.

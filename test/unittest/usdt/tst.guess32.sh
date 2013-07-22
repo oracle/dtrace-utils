@@ -20,6 +20,8 @@
 # CDDL HEADER END
 #
 
+# @@xfail: 32-on-64 support is still under development
+
 #
 # Copyright 2006 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
