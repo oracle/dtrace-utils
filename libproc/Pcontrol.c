@@ -490,11 +490,11 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	/*
 	 * If we wait for something to happen while stopped at a breakpoint, we
 	 * will deadlock, especially if what we get is another SIGTRAP.  So
-	 * claim that nothing ever happened.  (This is the only situation in
-	 * which a blocking Pwait() can return 0.)
+	 * demote the Pwait() to a nonblocking one, in case a significant state
+	 * change (e.g. death) has happened that we need to know about.
 	 */
 	if (P->bkpt_halted)
-		return 0;
+		block = 0;
 
 	/*
 	 * If we are waiting for a pending stop, but pending_stops is zero, we
@@ -512,6 +512,14 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	 */
 	if (P->state != PS_RUN)
 		block = 0;
+
+	/*
+	 * Never wait at all for a process we already know is dead: the PID may
+	 * have been reallocated, and we'll end up waiting for the wrong
+	 * process.
+	 */
+	if (P->state == PS_DEAD)
+		return (0);
 
 	info.si_pid = 0;
 	do

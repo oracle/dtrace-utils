@@ -7,6 +7,9 @@
 	(dt_proc_destroy): Only reduce dph_lrucnt if not already retired.
 	(dt_proc_grab): Add to the dph_lrulist and boost dpr_refs before
 	scanning for zero-ref retired processes to discard.
+	* libproc/Pcontrol.c (Pwait_internal): Don't return on attempt to
+	Pwait() for a breakpointed process, just don't block.  Immediately
+	return on attempt to Pwait() for a dead process.
 
 2013-07-19  Nick Alcock  <nick.alcock@oracle.com>
 
