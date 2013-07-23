@@ -2,7 +2,8 @@
 
 	* NEWS: Updated.
 	* dtrace-utils.spec: changelog and expected kernel version updated.
-	Support multiple kernel variants.  Install sdt.h.
+	Support multiple kernel variants.  Install sdt.h.  Do not depend
+	on fakeroot.
 
 	* GNUmakefile (DTRACE_OPT_SYSLIBDIR): Remove.
 	(LD_LIBRARY_PATH): Likewise.
@@ -16,6 +17,8 @@
 	run-dtrace uses, and recursively run...
 	(check-installed*-internal): ... these new rules, renamed from the
 	old -install rules.
+	* */Build (install): Do not explicitly specify installation user
+	and group.
 
 2013-07-22  Nick Alcock  <nick.alcock@oracle.com>
 

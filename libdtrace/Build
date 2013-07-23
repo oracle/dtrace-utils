@@ -190,15 +190,15 @@ install::
 	$(call describe-install-target,$(INCLUDEDIR),dtrace.h)
 	install -m 644 $(libdtrace-build_DIR)dtrace.h $(INCLUDEDIR)
 	$(call describe-install-target,$(LIBDIR),$(libdtrace_TARGET).so.$(libdtrace_VERSION))
-	install -m 755 -o root -g root $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(LIBDIR)
+	install -m 755 $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(LIBDIR)
 	$(call describe-install-target,$(LIBDIR),$(libdtrace_SONAME))
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_SONAME)
 	$(call describe-install-target,$(LIBDIR),$(libdtrace_TARGET).so)
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI_OBJ))
-	install -m 644 -o root -g root $(DRTI_OBJ) $(LIBDIR)/dtrace
+	install -m 644 $(DRTI_OBJ) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI32_OBJ))
-	install -m 644 -o root -g root $(DRTI32_OBJ) $(LIBDIR)/dtrace
+	install -m 644 $(DRTI32_OBJ) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(WORKING_DLIBS) drti-vers)
-	cd $(objdir)/dlibs && install -m 644 -o root -g root $(WORKING_DLIBS) \
+	cd $(objdir)/dlibs && install -m 644 $(WORKING_DLIBS) \
 		drti-vers $(LIBDIR)/dtrace

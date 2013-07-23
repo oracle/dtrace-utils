@@ -38,9 +38,7 @@ LINUX_HEADERS_INSTALL := common/linux/dtrace_cpu_defines.h
 install::
 	mkdir -p $(INCLUDEDIR)/sys
 	$(call describe-install-target,$(INCLUDEDIR)/sys,$(notdir $(SYS_HEADERS_INSTALL)))
-	cd $(uts_DIR) && install -m 644 -o root -g root $(SYS_HEADERS_INSTALL) \
-	    $(INCLUDEDIR)/sys
+	cd $(uts_DIR) && install -m 644 $(SYS_HEADERS_INSTALL) $(INCLUDEDIR)/sys
 	mkdir -p $(INCLUDEDIR)/linux
 	$(call describe-install-target,$(INCLUDEDIR)/linux,$(notdir $(LINUX_HEADERS_INSTALL)))
-	cd $(uts_DIR) && install -m 644 -o root -g root $(LINUX_HEADERS_INSTALL) \
-	    $(INCLUDEDIR)/linux
+	cd $(uts_DIR) && install -m 644 $(LINUX_HEADERS_INSTALL) $(INCLUDEDIR)/linux
