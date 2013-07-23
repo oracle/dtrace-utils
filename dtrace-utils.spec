@@ -60,6 +60,10 @@ fakeroot make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in 
 mv $RPM_BUILD_ROOT/usr/share/man/man1/dtrace.1 \
    $RPM_BUILD_ROOT/usr/share/man/man1/orcl-dtrace.1
 
+# The same is true of sdt.h.
+mv $RPM_BUILD_ROOT/usr/include/sys/sdt.h \
+   $RPM_BUILD_ROOT/usr/include/sys/sdt-dtrace.h
+
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf "$RPM_BUILD_ROOT"
@@ -74,6 +78,15 @@ if [ -e $MANDIR/dtrace.1.gz -a ! -e $MANDIR/systemtap-dtrace.1.gz ]; then
     ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
 elif [ ! -e $MANDIR/dtrace.1.gz ]; then
     ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
+fi
+
+# likewise for sdt.h
+SYSINCDIR=/usr/include/sys
+if [ -e $SYSINCDIR/sdt.h -a ! -e $SYSINCDIR/sdt-systemtap.h ]; then
+    mv $SYSINCDIR/sdt.h $SYSINCDIR/sdt-systemtap.h
+    ln -s $SYSINCDIR/sdt-dtrace.h $SYSINCDIR/sdt.h
+elif [ ! -e $SYSINCDIR/sdt.h ]; then
+    ln -s $SYSINCDIR/sdt-dtrace.h $SYSINCDIR/sdt.h
 fi
 
 %postun
@@ -95,6 +108,7 @@ fi
 %{_includedir}/sys/dtrace.h
 %{_includedir}/sys/dtrace_types.h
 %{_includedir}/linux/dtrace_cpu_defines.h
+%{_includedir}/sys/sdt-dtrace.h
 %doc %{_docdir}/dtrace-%{version}/*
 
 %files devel

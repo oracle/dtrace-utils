@@ -2,7 +2,7 @@
 
 	* NEWS: Updated.
 	* dtrace-utils.spec: changelog and expected kernel version updated.
-	Support multiple kernel variants.
+	Support multiple kernel variants.  Install sdt.h.
 
 	* GNUmakefile (DTRACE_OPT_SYSLIBDIR): Remove.
 	(LD_LIBRARY_PATH): Likewise.
