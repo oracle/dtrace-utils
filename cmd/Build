@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 CMDS += dtrace
@@ -28,6 +28,21 @@ dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
 dtrace_DEPS = libdtrace.so libport.a
 dtrace_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
+
+$(objdir)/run-dtrace: $(DTRACE)
+	printf > $@ "\
+#!/bin/sh\n\
+# run-dtrace -- A wrapper to run DTrace out of the build tree, or from /usr/sbin\n\
+#               if this is a check-installed run\n\
+\n\
+if [ -z \$$_DTRACE_CHECK_INSTALLED ]; then\n\
+    export DTRACE_OPT_SYSLIBDIR=$(objdir)/dlibs\n\
+    export LD_LIBRARY_PATH=$(objdir)\n\
+    exec $(objdir)/dtrace \"\$$@\"\n\
+else\n\
+    exec /usr/sbin/dtrace \"\$$@\"\n\
+fi\n"
+	chmod a+x $(objdir)/run-dtrace
 
 install::
 	mkdir -p $(SBINDIR) $(MANDIR)

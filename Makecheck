@@ -30,6 +30,8 @@
 #            rather than a copy in the build tree;
 # -stress in a target name means to skip tests that may fail inappropriately
 #         when the system is under load.
+# -internal in a target name means that this is an internal implementation
+#           detail and should not be run directly.
 
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
@@ -37,10 +39,13 @@ check: RUNTESTFLAGS+=--quiet
 check-verbose: all
 	./runtest.sh $(RUNTESTFLAGS)
 
-check-installed: check-installed-verbose
-check-installed: RUNTESTFLAGS+=--quiet
+check-installed check-installed-stress check-installed-verbose check-installed-verbose-stress:
+	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
 
-check-installed-verbose: external-triggers
+check-installed-internal: check-installed-verbose-internal
+check-installed-internal: RUNTESTFLAGS+=--quiet
+
+check-installed-verbose-internal: external-triggers
 	./runtest.sh --use-installed --testsuites=unittest,stress,demo $(RUNTESTFLAGS)
 
 check-stress: check
@@ -49,11 +54,11 @@ check-stress: RUNTESTFLAGS+=--testsuites=unittest,internal,demo --no-comparison
 check-verbose-stress: check-verbose
 check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 
-check-installed-stress: check-installed
-check-installed-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+check-installed-stress-internal: check-installed-internal
+check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
-check-installed-verbose-stress: check-installed-verbose
-check-installed-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+check-installed-verbose-stress-internal: check-installed-verbose-internal
+check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
 
 # Load the DTrace modules, and do nothing else.  Useful for testing
 # the impact of inactive DTrace.
@@ -90,3 +95,6 @@ PHONIES += check-stress check-verbose-stress check-installed-stress
 PHONIES += check-installed-verbose-stress check-module-loading
 PHONIES += check-probe-all-syscalls check-installed-probe-all-syscalls
 PHONIES += check-probe-all-syscalls-internal
+PHONIES += check-installed-internal check-installed-stress-internal
+PHONIES += check-installed-verbose-internal
+PHONIES += check-installed-verbose-stress-internal

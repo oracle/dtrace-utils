@@ -4,6 +4,19 @@
 	* dtrace-utils.spec: changelog and expected kernel version updated.
 	Support multiple kernel variants.
 
+	* GNUmakefile (DTRACE_OPT_SYSLIBDIR): Remove.
+	(LD_LIBRARY_PATH): Likewise.
+	(DTRACE): Set only if not set on the command line. Prerequisite
+	of...
+	* cmd/Build (run-dtrace): ... this new target, runs dtrace from
+	the objdir or /usr/sbin depending on an env var.
+	* Makefunctions (hdr-template): Use run-dtrace, not $(DTRACE).
+	(dof-template): Likewise.
+	* Makecheck (check-installed*): These now set DTRACE and the env var
+	run-dtrace uses, and recursively run...
+	(check-installed*-internal): ... these new rules, renamed from the
+	old -install rules.
+
 2013-07-22  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_proc.c (dt_proc_resume): Debugging improvement.
