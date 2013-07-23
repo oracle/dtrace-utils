@@ -30,7 +30,8 @@ uts_DIR := $(current-dir)
 # userspace tree.
 
 SYS_HEADERS_INSTALL := common/sys/dtrace.h \
-                       common/sys/dtrace_types.h
+                       common/sys/dtrace_types.h \
+                       common/sys/sdt.h
 
 LINUX_HEADERS_INSTALL := common/linux/dtrace_cpu_defines.h
 
