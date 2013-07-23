@@ -4,6 +4,7 @@
 	* dtrace-utils.spec: changelog and expected kernel version updated.
 	Support multiple kernel variants.  Install sdt.h.  Do not depend
 	on fakeroot.
+	* libdtrace-ctf: Pull in 0.4.0.
 
 	* GNUmakefile (DTRACE_OPT_SYSLIBDIR): Remove.
 	(LD_LIBRARY_PATH): Likewise.
@@ -1385,7 +1386,7 @@
 	Rename dtrace_ctf -> ctf / ctf_shared renaming.
 
 	* libdtrace-ctf: Pull in .dtrace_ctf -> .ctf changes.
-	* libdtrace/dt_impl.h (DT_DM_SHARED): New.
+	* Libdtrace/dt_impl.h (DT_DM_SHARED): New.
 	(DT_DM_KERN_UNLOADED): Renumber.
 	(dt_ctf_elf): Fix comment to cater for the renaming.
 	* libdtrace/dt_module.c (dt_module_load): Build section names for
