@@ -1,3 +1,8 @@
+2013-07-23  Nick Alcock  <nick.alcock@oracle.com>
+
+	* NEWS: Updated.
+	* dtrace-utils.spec: changelog and expected kernel version updated.
+
 2013-07-22  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_proc.c (dt_proc_resume): Debugging improvement.

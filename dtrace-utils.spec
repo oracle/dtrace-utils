@@ -5,7 +5,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.12-101.1.0.el6uek
+%define kver 3.8.13-1.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -101,6 +101,13 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue Jul 23 2013 - nick.alcock%oracle.com - 0.4.0-1
+- ustack() support and symbol lookups.
+- USDT support.  dtrace -G works.
+- evaltime option now works.
+- DTrace headers largely moved to dtrace-modules-headers.
+- DTRACE_OPT_* environment variables now set options.
+  DTRACE_DEBUG=signal emits debugging output on SIGUSR1 receipt.
 * Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3.0-1
 - CTF support.
 - Fixed install path for dtrace libraries.
