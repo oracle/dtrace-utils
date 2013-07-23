@@ -3,6 +3,10 @@
 # Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
 #
 
+# Redefine 'build_variant' at build time to create a kernel package named
+# something like 'kernel-uek-dtrace'.
+%define variant %{?build_variant:%{build_variant}}%{!?build_variant:-uek}
+
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
 %define kver 3.8.13-1.el6uek
@@ -13,7 +17,7 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 dtrace-kernel-interface = 1
-BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel dtrace-modules-headers = 1 kernel-uek-dtrace-devel = %{kver}
+BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers fakeroot bison flex zlib-devel dtrace-modules-headers = 1 kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
 Release:      1.el6
