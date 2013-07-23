@@ -17,6 +17,14 @@ New features:
      to preinit, because we cannot look up the 'main' symbol when there is no
      symbol table.
 
+ - A new header file (sys/sdt.h) is installed in support of USDT probes.
+
+Bugfixes:
+
+ - The -h and -G command-line options work.  Please note that the Linux linker
+   does not currently handle linking the generated DOF ELF object into a shared
+   library correctly.
+
 0.3
 ---
 
