@@ -1108,7 +1108,7 @@ unload_modules
 # Test coverage.
 for name in build*; do
     if [[ -n "$(echo $name/*.gcda)" ]]; then
-        force_out "Coverage info for $name:\n"
+        force_out "Coverage info for $(echo $name | sed 's,build,userspace,'):\n"
         lcov --capture --base-directory . --directory $name \
              --quiet -o $logdir/coverage/runtest.lcov
         lcov --add-tracefile $logdir/coverage/initial.lcov \
