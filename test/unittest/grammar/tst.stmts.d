@@ -46,7 +46,7 @@ tick-1
 {
 	i++;
 	x = 0;
-	stack();
+	stack(10);
 	@a = count();
 	@b = max(x);
 	@c[x] = count();
