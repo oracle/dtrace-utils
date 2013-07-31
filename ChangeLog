@@ -3,6 +3,7 @@
 	* libdtrace/Build (DRTI_OBJ): Build without coverage.
 	* test/triggers/Build: Move trigger template eval above overrides.
 	Override NOLDFLAGS for internals tests that can have coverage.
+	* runtest.sh: Fix userspace coverage output.
 
 2013-07-23  Nick Alcock  <nick.alcock@oracle.com>
 
