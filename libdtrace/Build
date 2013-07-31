@@ -148,12 +148,12 @@ DRTI32_OBJ = $(objdir)/dlibs/drti32.o
 objs: $(DRTI_OBJ) $(DRTI32_OBJ)
 $(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
 	$(call describe-target,CC,$<)
-	$(CC) $(CFLAGS) -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
+	$(CC) $(filter-out --coverage,$(CFLAGS)) -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
 $(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
 	ln -sf $(BUILD_DRTI_OBJ) $(DRTI_OBJ)
 $(BUILD_DRTI32_OBJ): $(libdtrace-build_DIR)drti.c
 	$(call describe-target,CC-32,$<)
-	$(CC) $(CFLAGS) -m32 -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
+	$(CC) $(filter-out --coverage,$(CFLAGS)) -m32 -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
 $(DRTI32_OBJ): $(BUILD_DRTI32_OBJ) $(objdir)/dlibs/.dir.stamp
 	ln -sf $(BUILD_DRTI32_OBJ) $(DRTI32_OBJ)
 
