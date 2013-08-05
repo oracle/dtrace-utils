@@ -78,16 +78,16 @@ check-module-loading:
 
 check-probe-all-syscalls: all check-module-loading check-probe-all-syscalls-internal
 check-probe-all-syscalls: DTRACE=$(objdir)/dtrace
-check-probe-all-syscalls: DT_LIBS=$(objdir)/dtrace/dlibs
+check-probe-all-syscalls: export DTRACE_OPT_SYSLIBDIR=$(objdir)/dtrace/dlibs
+check-probe-all-syscalls: export LD_LIBRARY_PATH=$(objdir)
 
 # Likewise, using /usr/sbin/dtrace rather than a copy in the build tree.
 
 check-installed-probe-all-syscalls: check-module-loading check-probe-all-syscalls-internal
-check-installed-probe-all-syscalls: DTRACE=/usr/sbin/dtrace
-check-installed-probe-all-syscalls: DT_LIBS=installed
+check-installed-probe-all-syscalls: export DTRACE=/usr/sbin/dtrace
 
 check-probe-all-syscalls-internal:
-	$(DTRACE) -t $(DT_LIBS) -qm 'syscall: {}'
+	$(DTRACE) -qm 'syscall: {}'
 	@true
 
 PHONIES += check check-verbose check-installed check-installed-verbose
