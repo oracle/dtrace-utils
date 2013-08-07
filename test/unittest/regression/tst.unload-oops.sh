@@ -43,13 +43,14 @@ dtrace=$1
 $dtrace $dt_flags -n dt_test:::test &
 dt_pid=$!
 sleep 1
-if rmmod sdt >/dev/null 2>&1; then
+if rmmod sdt; then
     ret=1
 fi
 kill $dt_pid
-if ! rmmod dt_test >/dev/null 2>&1; then
-   ret=1
-fi
+rmmod dt_test
 modprobe sdt >/dev/null 2>/dev/null
 modprobe dt_test >/dev/null 2>/dev/null
+# Sleep here to give the kernel time to reduce all refcounts before the
+# harness tries to unload everything.
+sleep 1
 exit $ret
