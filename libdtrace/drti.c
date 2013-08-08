@@ -169,7 +169,9 @@ dtrace_dof_init(void)
 		devname = p;
 
 	if ((fd = open(devname, O_RDWR)) < 0) {
-		dprintf(1, "DRTI: Failed to open helper device %s\n", devname);
+		if (dof_init_debug)
+			dprintf(1, "DRTI: Failed to open helper device %s\n",
+				devname);
 		return;
 	}
 
@@ -189,7 +191,9 @@ dtrace_dof_fini(void)
 	int fd;
 
 	if ((fd = open(devname, O_RDWR)) < 0) {
-		dprintf(1, "DRTI: Failed to open helper device %s\n", devname);
+		if (dof_init_debug)
+			dprintf(1, "DRTI: Failed to open helper device %s\n",
+				devname);
 		return;
 	}
 
