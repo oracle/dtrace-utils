@@ -29,10 +29,12 @@
 
 #include <inttypes.h>
 #include <errno.h>
-#include <sys/reg.h>
+#include <string.h>
+#include <sys/ptrace.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
+#include "platform.h"
 
 /*
  * Read the first argument of the function at which the process P is halted,
@@ -89,4 +91,53 @@ Pread_first_arg_x86(struct ps_prochandle *P)
 		return (uintptr_t) -1;
 
 	return addr;
+}
+
+/*
+ * The kernel translates between 32- and 64-bit regsets for us, but does not
+ * helpfully adjust for the fact that the trap address needs adjustment on some
+ * platforms before it will correspond to the address of the breakpoint.
+ */
+long
+Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch)
+{
+	long ip;
+	errno = 0;
+	ip = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, RIP * sizeof (long));
+	if ((errno == ESRCH) && (expect_esrch))
+	    return(0);
+
+	if (errno != 0) {
+		_dprintf("Unexpected ptrace (PTRACE_PEEKUSER) error: %s\n",
+		    strerror(errno));
+		return(-1);
+	}
+	/*
+	 * The x86 increments its instruction pointer before triggering the
+	 * trap, so we must undo it again.
+	 */
+	ip -= 1;
+
+	return ip;
+}
+
+/*
+ * Reset the instruction pointer address at which the process P is stopped.
+ * (Only used to reset the instruction pointer to compensate for
+ * platform-specific IP adjustment in Pget_bkpt_ip_x86().)
+ */
+long
+Preset_bkpt_ip_x86(struct ps_prochandle *P, uintptr_t addr)
+{
+	return wrapped_ptrace(P, PTRACE_POKEUSER, P->pid, RIP * sizeof (long),
+	    addr);
+}
+
+/*
+ * Single-step past the next instruction, when halted at a given breakpoint.
+ */
+long
+Pbkpt_singlestep_x86(struct ps_prochandle *P, bkpt_t *bkpt)
+{
+	return wrapped_ptrace(P, PTRACE_SINGLESTEP, P->pid, 0, 0);
 }

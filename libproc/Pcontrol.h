@@ -274,6 +274,10 @@ extern	void	Psym_free(struct ps_prochandle *);
 extern	void	Psym_release(struct ps_prochandle *);
 extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
+extern  long	Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);
+extern  long	Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr);
+extern	long	Pbkpt_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
+
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	char	procfs_path[PATH_MAX];
 

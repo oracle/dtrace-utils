@@ -32,19 +32,7 @@
 /*
  * Must be no larger than an 'unsigned long'.
  */
-
 const static unsigned char plat_bkpt[] = { 0xcc };
-
-/*
- * Adjustment needed to a trapped process's instruction pointer to yield the
- * address of the breakpoint it trapped on.
- */
-const static intptr_t plat_trap_ip_adjust = -1;
-
-/*
- * Name of this platform's instruction pointer.
- */
-#define PLAT_IP RIP
 
 /*
  * Number of processor-specific dynamic tags on this platform.

@@ -69,7 +69,6 @@ static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
 static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
 	int singlestep);
 static void bkpt_flush(struct ps_prochandle *P, int gone);
-static long bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 static bkpt_t *bkpt_by_addr(struct ps_prochandle *P, uintptr_t addr,
     int delete);
 static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
@@ -932,7 +931,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	ip = P->tracing_bkpt;
 	if (ip == 0) {
 		bkpt_t *bkpt;
-		ip = bkpt_ip(P, 0);
+		ip = Pget_bkpt_ip(P, 0);
 		bkpt = bkpt_by_addr(P, ip, FALSE);
 
 		if ((ip < 0) || (!bkpt)) {
@@ -1213,33 +1212,9 @@ mask_bkpt(unsigned long word)
 }
 
 /*
- * The kernel translates between 32- and 64-bit regsets for us, but does not
- * helpfully adjust for the fact that the trap address needs adjustment on some
- * platforms before it will correspond to the address of the breakpoint.
- */
-static long
-bkpt_ip(struct ps_prochandle *P, int expect_esrch)
-{
-	long ip;
-	errno = 0;
-	ip = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, PLAT_IP * sizeof (long));
-	if ((errno == ESRCH) && (expect_esrch))
-	    return(0);
-
-	if (errno != 0) {
-		_dprintf("Unexpected ptrace (PTRACE_PEEKUSER) error: %s\n",
-		    strerror(errno));
-		return(-1);
-	}
-	ip += plat_trap_ip_adjust;
-
-	return ip;
-}
-
-/*
  * Introduce a breakpoint on a particular address with the given handler.
  *
- * The breakpoint handler should return nonzero to remain stopped at this
+ * The breakpoint handler should return nonzero to remain stopped at this4
  * breakpoint, or zero to continue.  The cleanup handler can clean up any
  * additional state associated with this breakpoint's 'data' on Punbkpt() or
  * Prelease().
@@ -1500,8 +1475,7 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 	} else {
 		_dprintf("%i: Breakpoint at %lx already poked back, changing "
 		    "instruction pointer\n", P->pid, bkpt->bkpt_addr);
-		if (wrapped_ptrace(P, PTRACE_POKEUSER, P->pid,
-			PLAT_IP * sizeof (long), P->tracing_bkpt) < 0)
+		if (Preset_bkpt_ip(P, P->tracing_bkpt) < 0)
 			switch (errno) {
 			case ESRCH:
 				_dprintf("%i: -ESRCH, process is dead.\n",
@@ -1825,7 +1799,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 	 * the breakpoint address.
 	 */
 
-	ip = bkpt_ip(P, 1);
+	ip = Pget_bkpt_ip(P, 1);
 	if (ip == 0)
 		/*
 		 * Not stopped at all.  Just do a quick Pwait().
@@ -1860,10 +1834,8 @@ Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt, int singlestep)
 	P->bkpt_halted = 0;
 
 	if (singlestep) {
-		if ((wrapped_ptrace(P, PTRACE_POKEUSER, P->pid,
-			    PLAT_IP * sizeof (long),
-			    bkpt->bkpt_addr) == 0) &&
-		    (wrapped_ptrace(P, PTRACE_SINGLESTEP, P->pid, 0, 0) == 0))
+		if (Preset_bkpt_ip(P, bkpt->bkpt_addr) == 0 &&
+		    Pbkpt_singlestep(P, bkpt) == 0)
 			return PS_RUN;
 		else if (errno == ESRCH)
 			return PS_DEAD;

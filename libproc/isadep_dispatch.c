@@ -33,7 +33,31 @@
 
 #include "Pcontrol.h"
 #include "libproc.h"
-#include "isadep_impl.h"
+#include "platform.h"
+
+/*
+ * Generate types for an ISA dispatch function.
+ */
+#define ISADEP_TYPES(ret, ...) \
+	typedef ret dispatch_fun_t(__VA_ARGS__)
+
+/*
+ * Generate the body of an ISA dispatch function.
+ */
+#define ISADEP_BODY(ret, ...) do {					\
+	dispatch_fun_t *dispatch_fun;					\
+									\
+	dispatch_fun = (dispatch_fun_t *) search_dispatch(P, dispatch);	\
+    									\
+	if (dispatch_fun == NULL) {					\
+		_dprintf("%s: no ISA match for %s-bit process for ELF machine " \
+		    "%i\n", __func__, P->elf64?"64":"32", P->elf_machine); \
+		errno = ENOEXEC;					\
+		return (ret) -1;					\
+	}								\
+									\
+	return dispatch_fun(__VA_ARGS__);				\
+	} while(0);
 
 /*
  * General function dispatch table for ISA-specific functions.  A separate
@@ -84,24 +108,53 @@ search_dispatch(struct ps_prochandle *P, isa_dispatch_t *dispatch)
 uintptr_t
 Pread_first_arg(struct ps_prochandle *P)
 {
-	isa_dispatch_t dispatch[] = {
-		{B_TRUE, EM_X86_64, (dispatch_fun_t *) Pread_first_arg_x86_64},
-		{B_FALSE, EM_386, (dispatch_fun_t *) Pread_first_arg_x86},
-		{0, 0, NULL} };
+#define WANT_FIRST_ARG_DISPATCH
+#include "isadep.h"
+#undef WANT_FIRST_ARG_DISPATCH
 
-	typedef uintptr_t read_first_arg_fun_t(struct ps_prochandle *P);
-	read_first_arg_fun_t *read_first_arg_fun;
+	ISADEP_TYPES(uintptr_t, struct ps_prochandle *);
+	ISADEP_BODY(uintptr_t, P);
+}
 
-	read_first_arg_fun = (read_first_arg_fun_t *) search_dispatch(P,
-	    dispatch);
+/*
+ * Determine the instruction pointer address at which the process P is stopped.
+ * An -ESRCH may be considered "acceptable fallout".
+ */
+long
+Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch)
+{
+#define WANT_GET_BKPT_IP
+#include "isadep.h"
+#undef WANT_GET_BKPT_IP
 
-	if (read_first_arg_fun == NULL) {
-		_dprintf("No ISA match for %s-bit process for ELF machine %i "
-		    "while reading first arg\n", P->elf64?"64":"32",
-		    P->elf_machine);
-		errno = ENOEXEC;
-		return (uintptr_t) -1;
-	}
+	ISADEP_TYPES(long, struct ps_prochandle *, int);
+	ISADEP_BODY(long, P, expect_esrch);
+}
 
-	return read_first_arg_fun(P);
+/*
+ * Reset the instruction pointer address at which the process P is stopped.
+ */
+long
+Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr)
+{
+#define WANT_RESET_BKPT_IP
+#include "isadep.h"
+#undef WANT_RESET_BKPT_IP
+
+	ISADEP_TYPES(long, struct ps_prochandle *, uintptr_t);
+	ISADEP_BODY(long, P, addr);
+}
+
+/*
+ * Single-step past the next instruction, when halted at a given breakpoint.
+ */
+long
+Pbkpt_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
+{
+#define WANT_BKPT_SINGLESTEP
+#include "isadep.h"
+#undef WANT_BKPT_SINGLESTEP
+
+	ISADEP_TYPES(long, struct ps_prochandle *, bkpt_t *);
+	ISADEP_BODY(long, P, bkpt);
 }
