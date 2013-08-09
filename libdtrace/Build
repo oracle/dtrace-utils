@@ -22,21 +22,21 @@
 # Use is subject to license terms.
 
 BUILDLIBS += libdtrace-build
-libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/i386 -D_LONGLONG_TYPE \
+libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/$(ARCHINC) -D_LONGLONG_TYPE \
                            -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 libdtrace-build_TARGET = libdtrace
 libdtrace-build_DIR := $(current-dir)
 libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c \
-                          dt_cg.c i386/dis_tables.c i386/dt_isadep.c \
-                          dt_consume.c dt_debug.c dt_decl.c dt_dis.c \
+                          dt_cg.c dt_consume.c dt_debug.c dt_decl.c dt_dis.c \
                           dt_dof.c dt_error.c dt_errtags.c dt_grammar.c \
-                          dt_handle.c dt_ident.c dt_inttab.c \
-                          dt_kernel_module.c dt_link.c dt_list.c dt_map.c \
-                          dt_module.c dt_names.c dt_open.c dt_options.c \
-                          dt_parser.c dt_pcb.c dt_pid.c dt_pragma.c \
-                          dt_printf.c dt_proc.c dt_program.c dt_provider.c \
-                          dt_regset.c dt_string.c dt_strtab.c dt_subr.c \
-                          dt_symtab.c dt_work.c dt_xlator.c
+                          dt_handle.c dt_ident.c dt_inttab.c dt_link.c \
+                          dt_kernel_module.c dt_list.c dt_map.c dt_module.c \
+                          dt_names.c dt_open.c dt_options.c dt_parser.c \
+                          dt_pcb.c dt_pid.c dt_pragma.c dt_printf.c dt_proc.c \
+                          dt_program.c dt_provider.c dt_regset.c dt_string.c \
+                          dt_strtab.c dt_subr.c dt_symtab.c dt_work.c \
+                          dt_xlator.c $(ARCHINC)/dt_isadep.c
+
 libdtrace-build_SRCDEPS := dt_grammar.h
 
 SHLIBS += libdtrace
@@ -49,6 +49,8 @@ libdtrace_SONAME := libdtrace.so.0
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
 libdtrace_SECONDARY := libproc libport
+
+-include libdtrace/$(ARCHINC)/Build
 
 $(libdtrace_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
 	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_errtags.c

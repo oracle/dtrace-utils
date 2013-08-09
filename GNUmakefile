@@ -34,14 +34,17 @@ VERSION := 0.4.5
 
 # Verify supported hardware.
 
-$(if $(subst "x86_64",,$(shell uname -m)),,$(error "Error: DTrace for Linux only supports x86_64"),)
-$(if $(subst "Linux",,$(shell uname -s)),,$(error "Error: DTrace only supports Linux"),)
+$(if $(subst sparc64,,$(subst x86_64,,$(shell uname -m))), \
+    $(error "Error: DTrace for Linux only supports x86_64 and sparc64"),)
+$(if $(subst Linux,,$(shell uname -s)), \
+    $(error "Error: DTrace only supports Linux"),)
 
 CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
-INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(DTO) -D_ILP$(BITNESS)
-CPPFLAGS += -Iinclude -Iuts/common -Iinclude/i386 -I$(objdir)
+ARCHINC := $(subst sparc64,sparc,$(subst x86_64,i386,$(shell uname -m)))
+INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_ILP$(BITNESS)
+CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
 export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E

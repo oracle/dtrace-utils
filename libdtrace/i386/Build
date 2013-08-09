@@ -1,0 +1,3 @@
+# Adjust the sources to pull in an x86-specific file.
+
+libdtrace-build_SOURCES += $(ARCHINC)/dis_tables.c
