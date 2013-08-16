@@ -49,13 +49,13 @@ tick-1s
 tick-1s
 /(i % 2) == 0/
 {
-	system("dtrace -c date -ln 'pid\$target::main:entry' >/dev/null");
+	system("$dtrace $dt_flags -c date -ln 'pid\$target::main:entry' >/dev/null");
 }
 
 tick-1s
 /(i % 2) == 1/
 {
-	system("dtrace -c date -ln 'pid\$target::main:return' >/dev/null");
+	system("$dtrace $dt_flags -c date -ln 'pid\$target::main:return' >/dev/null");
 }
 EOF
 
