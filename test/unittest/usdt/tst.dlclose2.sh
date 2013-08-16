@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@xfail: linking DOF into shared libraries fails to handle relocations
-
 #
 # Copyright 2006 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
