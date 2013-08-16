@@ -1,3 +1,7 @@
+2013-08-16  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* libdtrace/dt_link.c (prepare_elf64): Fix relocation type.
+
 2013-08-05  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Makecheck (check*-probe-all-syscalls*): Avoid using -t.
