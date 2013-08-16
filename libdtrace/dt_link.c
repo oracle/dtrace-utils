@@ -393,7 +393,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 			rel->r_offset = s->dofs_offset +
 			    dofr[j].dofr_offset;
 			rel->r_info = ELF64_R_INFO(count + dep->de_global,
-			    R_X86_64_64);
+			    R_X86_64_GLOB_DAT);
 #elif defined(__sparc)
 			rel->r_offset = s->dofs_offset +
 			    dofr[j].dofr_offset;
