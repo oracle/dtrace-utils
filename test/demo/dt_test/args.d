@@ -2,8 +2,9 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License (the "License").
- * You may not use this file except in compliance with the License.
+ * Common Development and Distribution License, Version 1.0 only
+ * (the "License").  You may not use this file except in compliance
+ * with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -18,18 +19,21 @@
  *
  * CDDL HEADER END
  */
-
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2011 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/* @@skip: provider declaration - not a test */
+/* @@trigger: testprobe */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-provider test_prov {
-	probe place(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
-		    uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7,
-		    uint64_t a8, uint64_t a9);
-};
+/*
+ * Ensure that arguments to direct-call probes can be retrieved both from
+ * registers and the stack.
+ */
+dt_test:::test
+/i++ == 0/
+{
+	printf("%d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+	exit(0);
+}
