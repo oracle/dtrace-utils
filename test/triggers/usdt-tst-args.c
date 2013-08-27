@@ -26,13 +26,13 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-#include <sys/sdt.h>
+#include "usdt-tst-args-prov.h"
 
 int
 main(int argc, char **argv)
 {
 	for (;;) {
-		DTRACE_PROBE2(test_prov, place, 10, 4);
+		TEST_PROV_PLACE(10, 4, 20, 30, 40, 50, 60, 70, 80, 90);
 	}
 
 	return (0);

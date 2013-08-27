@@ -24,12 +24,39 @@
  * Use is subject to license terms.
  */
 
-/* @@skip: provider declaration - not a test */
+/* @@trigger: usdt-tst-args */
+/* @@trigger-timing: before */
+/* @@runtest-opts: $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-provider test_prov {
-	probe place(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
-		    uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7,
-		    uint64_t a8, uint64_t a9);
-};
+/*
+ * Ensure that arguments to USDT probes can be retrieved both from registers
+ * and the stack.
+ */
+BEGIN
+{
+	/* Timeout after 5 seconds */
+	timeout = timestamp + 5000000000;
+}
+
+test_prov$1:::place
+/arg0 == 10 && arg1 ==  4 && arg2 == 20 && arg3 == 30 && arg4 == 40 &&
+ arg5 == 50 && arg6 == 60 && arg7 == 70 && (int)arg8 == 80 && arg9 == 90/
+{
+	exit(0);
+}
+
+test_prov$1:::place
+{
+	printf("args are %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, (int)arg8, arg9);
+	exit(1);
+}
+
+profile:::tick-1
+/timestamp > timeout/
+{
+	trace("test timed out");
+	exit(1);
+}
