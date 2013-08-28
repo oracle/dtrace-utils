@@ -3,5 +3,5 @@
              psinfo_cleaner:test 
 
 -- @@stderr --
-dtrace: script 'test/tmp/tst.args-sdt.d' matched 4 probes
+dtrace: script 'test/unittest/sdt/tst.args-sdt.d' matched 4 probes
 dtrace: allowing destructive actions
