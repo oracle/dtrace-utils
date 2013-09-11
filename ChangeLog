@@ -20,6 +20,10 @@
 
 	* runtest.sh: Export the tmpdir variable.
 
+	* Makefunctions (hdr-clean-template): Clean up the USDT headers here.
+	(cmd-template): Call it.
+	* test/triggers/Build (trigger-template): Don't do the cleanup here.
+
 2013-08-16  Kris Van Hees  <kris.van.hees@oracle.com>
 
 	* libdtrace/dt_link.c (prepare_elf64): Fix relocation type.

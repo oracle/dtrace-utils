@@ -75,6 +75,14 @@ $(hdr-name): $(src-name) $(objdir)/run-dtrace
 	$(objdir)/run-dtrace -h -o $(hdr-name) -s $(src-name)
 endef
 
+# Rule to clean up a DTrace USDT header file.
+# Syntax: $(call hdr-clean-template,primary,filename-without-dir)
+
+define hdr-clean-template
+clean::
+	rm -f $(hdr-name)
+endef
+
 # Rule to build a DOF object file.
 # Syntax: $(call dof-template,primary,filename-without-dir)
 
@@ -145,5 +153,6 @@ $(objdir)/$($(1)_TARGET): $(foreach prov,$($(1)_PROV),$(call hdr-name,$(1),$(pro
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
 $(foreach prov,$($(1)_PROV),$(call hdr-template,$(1),$(prov)))
+$(foreach prov,$($(1)_PROV),$(call hdr-clean-template,$(1),$(prov)))
 $(foreach prov,$($(1)_PROV),$(call dof-template,$(1),$(prov)))
 endef
