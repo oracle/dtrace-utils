@@ -1,6 +1,22 @@
 2013-09-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_pid.c (dt_pid_create_probes): Avoid direct lock use.
+	* libdtrace/dt_proc.h (dt_proc_t.dpr_cond_waiting): Remove.
+	Note the set of currently valid proxy requests.
+	* libdtrace/dt_proc.c (dt_proc_loop): Split out of
+	dt_proc_control() and add awaiting_continue machinery and
+	dt_proc_continue handling.
+	(dt_proc_continue): Use it.
+	(dt_proc_stop): No longer maintain dt_proc_waiting or wait on the
+	dpr_cv: thunk down to dt_proc_loop() instead, exiting fast if the
+	process has terminated while there.  Force the lock count to 1 so
+	that dt_proc_loop() can unlock it, not 0.
+	(dt_proc_control_cleanup): No longer check dpr_cond_waiting.
+	(dt_proc_create_thread): Remove redundant braces.
+	(dt_proc_continue): Adjust return so that this can be used as a
+	proxy request.  No longer broadcast to the cv: talk down the proxy
+	pipe instead.
+	(dt_proc_dpr_lock): Add debugging around lock acquisition.
 
 2013-08-16  Kris Van Hees  <kris.van.hees@oracle.com>
 
