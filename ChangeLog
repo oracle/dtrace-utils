@@ -1,3 +1,7 @@
+2013-09-11  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_pid.c (dt_pid_create_probes): Avoid direct lock use.
+
 2013-08-16  Kris Van Hees  <kris.van.hees@oracle.com>
 
 	* libdtrace/dt_link.c (prepare_elf64): Fix relocation type.
