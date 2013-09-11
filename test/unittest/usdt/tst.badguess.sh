@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/badguess.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-badguess
+cd $tmpdir/usdt-badguess
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -80,8 +79,5 @@ if [ $? -eq 0 ]; then
 	echo "DOF generation failed to generate a warning" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

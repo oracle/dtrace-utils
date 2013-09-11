@@ -36,10 +36,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/guess32.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-guess32
+cd $tmpdir/usdt-guess32
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -94,8 +93,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

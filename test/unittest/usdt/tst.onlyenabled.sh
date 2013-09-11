@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/onlyenabled.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-onlyenabled
+cd $tmpdir/usdt-onlyenabled
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -80,8 +79,5 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

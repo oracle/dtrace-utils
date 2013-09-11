@@ -36,10 +36,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
-DIR=${TMPDIR:-/tmp}/linkunpriv.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-linkunpriv
+cd $tmpdir/usdt-linkunpriv
 
 ppriv -s A=basic $$
 
@@ -84,8 +83,5 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

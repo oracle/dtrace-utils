@@ -41,10 +41,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/dlclose1.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-dlclose1
+cd $tmpdir/usdt-dlclose1
 
 cat > Makefile <<EOF
 all: main livelib.so deadlib.so
@@ -156,8 +155,5 @@ EOF
 
 script 2>&1
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

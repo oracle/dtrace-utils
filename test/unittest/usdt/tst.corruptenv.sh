@@ -39,10 +39,9 @@ if [ $# != 1 ]; then
 fi
 
 dtrace="$1"
-DIR=${TMPDIR:-/tmp}/corruptenv.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-corruptenv
+cd $tmpdir/usdt-corruptenv
 
 cat > Makefile <<EOF
 all: main
@@ -87,8 +86,5 @@ else
 	./main
 	status=$?
 fi
-
-cd /
-rm -rf $DIR
 
 exit $status

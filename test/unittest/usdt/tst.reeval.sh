@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
-DIR=${TMPDIR:-/tmp}/reeval.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-reeval
+cd $tmpdir/usdt-reeval
 
 cat > test.c <<EOF
 #include <sys/sdt.h>
@@ -76,7 +75,7 @@ script()
 	$dtrace -wZs /dev/stdin <<EOF
 	BEGIN
 	{
-		system("$DIR/test");
+		system("$tmpdir/usdt-reeval/test");
 	}
 
 	test_prov*:::
@@ -96,8 +95,5 @@ EOF
 script
 status=$?
 echo $status
-
-cd /
-rm -rf $DIR
 
 exit $status

@@ -36,10 +36,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/user.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-user
+cd $tmpdir/usdt-user
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -93,8 +92,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status
