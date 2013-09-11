@@ -364,7 +364,7 @@ fi
 
 # Make a temporary directory for intermediate result storage.
 
-declare tmpdir="$(get_dir_name)"
+export tmpdir="$(get_dir_name)"
 
 # At shutdown, delete this directory, kill requested process groups, and restore
 # core_pattern.
