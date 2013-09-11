@@ -673,7 +673,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 		dpr = dt_proc_lookup(dtp, P, 0);
 		assert(dpr != NULL);
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
+		dt_proc_lock(dtp, dpr->dpr_proc);
 
 		if ((err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr)) == 0) {
 			/*
@@ -683,7 +683,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 			(void) dt_ioctl(dtp, DTRACEIOC_ENABLE, NULL);
 		}
 
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		dt_proc_unlock(dtp, dpr->dpr_proc);
 		dt_proc_release(dtp, P);
 	}
 
@@ -699,14 +699,14 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 		dpr = dt_proc_lookup(dtp, P, 0);
 		assert(dpr != NULL);
-		(void) pthread_mutex_lock(&dpr->dpr_lock);
+		dt_proc_lock(dtp, dpr->dpr_proc);
 
 		if (!dpr->dpr_usdt) {
 			err = dt_pid_create_usdt_probes(pdp, dtp, pcb, dpr);
 			dpr->dpr_usdt = B_TRUE;
 		}
 
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
+		dt_proc_unlock(dtp, dpr->dpr_proc);
 		dt_proc_release(dtp, P);
 	}
 
