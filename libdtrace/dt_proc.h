@@ -48,8 +48,6 @@ typedef struct dt_proc {
 	pthread_t dpr_lock_holder;	/* holder of the dpr_lock, if nonzero
 					   lock count */
 	unsigned long dpr_lock_count;	/* lock count of the dpr_lock */
-	uint8_t dpr_cond_waiting;	/* true if the control thread is waiting
-					   for a condvar under dpr_lock */
 	pthread_cond_t dpr_cv;		/* cond for startup/stop/quit/done */
 	pthread_cond_t dpr_msg_cv;	/* cond for msgs from main thread */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
@@ -72,6 +70,9 @@ typedef struct dt_proc {
 	 * proxy from inside another is not possible, because each proxy
 	 * degenerates to an immediate call if it is executed from the
 	 * process-control thread itself.
+	 *
+	 * Currently proxied requests are proxy_pwait(), proxy_ptrace(),
+	 * and dt_proc_continue(): the latter takes no arguments.
 	 */
 	long (*dpr_proxy_rq)();
 	long dpr_proxy_ret;
@@ -122,7 +123,7 @@ extern struct ps_prochandle *dt_proc_create(dtrace_hdl_t *,
 
 extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t, int flags);
 extern void dt_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
-extern void dt_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
+extern long dt_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_lock(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_unlock(dtrace_hdl_t *, struct ps_prochandle *);
 extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct ps_prochandle *, int);
