@@ -41,10 +41,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/eliminate.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-eliminate
+cd $tmpdir/usdt-eliminate
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -104,8 +103,5 @@ if [ $? -eq 0 ]; then
 	echo "failed to eliminate temporary symbols" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

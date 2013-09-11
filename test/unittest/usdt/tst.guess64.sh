@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/guess64.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-guess64
+cd $tmpdir/usdt-guess64
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -96,8 +95,5 @@ if [ "`uname -m`" != "x64_64" ]; then
 else
 	status=0
 fi
-
-cd /
-rm -rf $DIR
 
 exit $status

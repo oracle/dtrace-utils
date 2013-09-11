@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
-DIR=${TMPDIR:-/tmp}/static.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-static
+cd $tmpdir/usdt-static
 
 cat > test.c <<EOF
 #include <unistd.h>
@@ -94,8 +93,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/header.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-header
+cd $tmpdir/usdt-header
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -83,8 +82,5 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

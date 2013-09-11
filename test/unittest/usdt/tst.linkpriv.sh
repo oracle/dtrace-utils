@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
-DIR=${TMPDIR:-/tmp}/linkpriv.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-linkpriv
+cd $tmpdir/usdt-linkpriv
 
 cat > test.c <<EOF
 #include <sys/sdt.h>
@@ -80,8 +79,5 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
-
-cd /
-rm -rf $DIR
 
 exit 0

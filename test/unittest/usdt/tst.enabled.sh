@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/enabled.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-enabled
+cd $tmpdir/usdt-enabled
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -92,8 +91,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

@@ -36,10 +36,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/fork.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-fork
+cd $tmpdir/usdt-fork
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -102,8 +101,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

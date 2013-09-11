@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
-DIR=${TMPDIR:-/tmp}/entryreturn.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-entryreturn
+cd $tmpdir/usdt-entryreturn
 
 cat > test.c <<EOF
 #include <sys/sdt.h>
@@ -94,7 +93,7 @@ script()
 	$dtrace -wqZFs /dev/stdin <<EOF
 	BEGIN
 	{
-		system("$DIR/test");
+		system("$tmpdir/usdt-entryreturn/test");
 		printf("\n");
 	}
 
@@ -115,8 +114,5 @@ EOF
 # script | cut -c5-
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status

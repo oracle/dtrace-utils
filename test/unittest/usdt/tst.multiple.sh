@@ -34,10 +34,9 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-DIR=${TMPDIR:-/tmp}/multiple.$$
 
-mkdir $DIR
-cd $DIR
+mkdir $tmpdir/usdt-multiple
+cd $tmpdir/usdt-multiple
 
 cat > prov.d <<EOF
 provider test_prov {
@@ -94,8 +93,5 @@ EOF
 
 script
 status=$?
-
-cd /
-rm -rf $DIR
 
 exit $status
