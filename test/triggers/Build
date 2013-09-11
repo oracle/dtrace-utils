@@ -37,7 +37,7 @@ $(1)_NOCFLAGS := --coverage
 $(1)_NOLDFLAGS := --coverage
 
 clean::
-	rm -f test/triggers/$(1) $(addprefix test/triggers/,$($(1)_PROV:.d=.h))
+	rm -f test/triggers/$(1)
 endef
 
 define link-trigger
