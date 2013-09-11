@@ -18,6 +18,8 @@
 	pipe instead.
 	(dt_proc_dpr_lock): Add debugging around lock acquisition.
 
+	* runtest.sh: Export the tmpdir variable.
+
 2013-08-16  Kris Van Hees  <kris.van.hees@oracle.com>
 
 	* libdtrace/dt_link.c (prepare_elf64): Fix relocation type.
