@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@xfail: USDT probes across fork() fire (incorrectly) under the parent's provider
-
 #
 # Copyright 2006 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
