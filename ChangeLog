@@ -1,3 +1,9 @@
+2013-09-18  Nick Alcock  <nick.alcock@oracle.com>
+
+	* INCOMPATIBILITIES: Update.
+	* NEWS: Likewise.
+	* dtrace-utils.spec: 
+
 2013-09-11  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_pid.c (dt_pid_create_probes): Avoid direct lock use.

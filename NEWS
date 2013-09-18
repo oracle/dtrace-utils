@@ -44,7 +44,8 @@ Changes to user-visible internals:
  - The storage representation of internal kernel symbols is improved, saving
    DTrace memory usage at startup by a megabyte or so.
 
- - The libdtrace public API header now names its arguments.
+ - The libdtrace public API header now names its arguments.  A few other
+   libdtrace functions have changed prototype: see INCOMPATIBILITIES.
 
  - Two undocumented libproc environment variables from Solaris are removed,
    because the code whose behaviour they adjusted no longer exists:
