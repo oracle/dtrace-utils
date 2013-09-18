@@ -2,41 +2,25 @@ This file documents known incompatibilities between Linux and Solaris dtrace,
 together with the difficulty of overcoming them, and the likelihood that they
 will be overcome.
 
+
 Missing providers
 -----------------
 Difficulty: Medium
 Likelihood: High
 
-A number of providers are missing, including fbt and net.
+A number of providers are missing, including pid, fbt, and net.
 
 
-No userspace tracing
---------------------
-Difficulty: Medium
-Likelihood: High
-
-Userspace tracing is simply not implemented yet.
-
-
-No userspace traceback in ustack()
-----------------------------------
-Difficulty: Medium
-Likelihood: High
-
-ustack() and related actions which should print out symbol names in userspace
-tracebacks currently print out addresses only.  This is due to a not-yet-
-fixed Solaris/Linux incompatibility, and will be fixed.
-
-
-No traceback for local functions
---------------------------------
+No traceback for local functions or stripped executables
+--------------------------------------------------------
 Difficulty: Medium
 Likelihood: Medium
 
 However, even when ustack() is fixed, the userspace traceback will not be up to
 the standards you may expect from Solaris, because Linux has no analogue of the
 Solaris local dynamic symbol table, so static symbols and those hidden via
--fvisibility=hidden will not be named in the traceback.
+-fvisibility=hidden will not be named in the traceback.  In particular the pid
+provider will be negatively impacted.
 
 There are two options to fix this: firstly, we could use DWARF to look up the
 symbols, as gdb does: alternatively, we could implement a local dynamic symbol
@@ -134,6 +118,15 @@ st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
 
+dtrace_proc_create() has grown a flags parameter, with one nonzero value,
+DTRACE_PROC_WAITING, indicating that a dtrace_proc_continue() should
+autoamtically be performed before returning.  This provides an analogue of the
+nomonitor parameter to dtrace_proc_grab(), which has itself transformed into a
+similar flags parameter.  (Unlike on Solaris libproc, all monitored processes
+have an associated monitor thread: this parameter minimizes the effect of this
+change, leading to an immediately running process similar to an unmonitored
+process on Solaris.)
+
 There is a new dtrace_debug_set_dump_sig() function, which sets the signal (by
 default SIGUSR1); when DTRACE_DEBUG=signal is set in the environment at startup,
 debugging output then goes into a ring buffer which is dumped to stderr when
@@ -143,6 +136,7 @@ processes.)
 
 The ring buffer is 100Mb long, by default: the optional DTRACE_DEBUG_BUF_SIZE
 environment variable gives a new size, in Mb.
+
 
 Incompatible behaviour for specific probes
 ------------------------------------------
