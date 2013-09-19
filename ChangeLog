@@ -1,6 +1,7 @@
 2013-09-19  Nick Alcock  <nick.alcock@oracle.com>
 
 	* Build: Install NEWS too.
+	* GNUmakefile: This is 0.4.0.
 
 2013-09-18  Nick Alcock  <nick.alcock@oracle.com>
 
