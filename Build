@@ -1,4 +1,4 @@
 install::
 	mkdir -p $(DOCDIR)
-	$(call describe-install-target,$(DOCDIR),README INCOMPATIBILITIES)
-	install -m 644 README INCOMPATIBILITIES $(DOCDIR)
+	$(call describe-install-target,$(DOCDIR),README INCOMPATIBILITIES NEWS)
+	install -m 644 README INCOMPATIBILITIES NEWS $(DOCDIR)
