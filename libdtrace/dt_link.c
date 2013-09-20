@@ -252,7 +252,7 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 	sym->st_value = 0;
 	sym->st_size = dof->dofh_filesz;
 	sym->st_info = ELF32_ST_INFO(STB_GLOBAL, STT_OBJECT);
-	sym->st_other = 0;
+	sym->st_other = ELF32_ST_VISIBILITY(STV_HIDDEN);
 	sym->st_shndx = ESHDR_DOF;
 	sym++;
 
@@ -424,7 +424,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 	sym->st_value = 0;
 	sym->st_size = dof->dofh_filesz;
 	sym->st_info = GELF_ST_INFO(STB_GLOBAL, STT_OBJECT);
-	sym->st_other = 0;
+	sym->st_other = ELF64_ST_VISIBILITY(STV_HIDDEN);
 	sym->st_shndx = ESHDR_DOF;
 	sym++;
 
