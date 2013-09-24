@@ -59,9 +59,7 @@ Changes to user-visible internals:
 
 Bugfixes:
 
- - The -h and -G command-line options work.  Please note that the Linux linker
-   does not currently handle linking the generated DOF ELF object into a shared
-   library correctly.
+ - The -h and -G command-line options work.
 
  - Negative values passed to DTrace options that take only positive integers are
    correctly diagnosed as errors again.
