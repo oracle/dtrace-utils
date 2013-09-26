@@ -79,24 +79,6 @@ BUILD_DLIBS += \
 	errno.d \
 	signal.d
 
-DLIBSRCS += \
-        errno.d \
-        net.d \
-        fc.d \
-        ip.d \
-        iscsit.d \
-        nfs.d \
-        procfs.d \
-        regs.d \
-        sched.d \
-        signal.d \
-        scsi.d \
-        srp.d \
-        sysevent.d \
-        tcp.d \
-        udp.d \
-        unistd.d
-
 WORKING_DLIBS = errno.d \
                 io.d \
                 procfs.d \
