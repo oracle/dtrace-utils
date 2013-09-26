@@ -132,12 +132,3 @@ Preset_bkpt_ip_x86(struct ps_prochandle *P, uintptr_t addr)
 	return wrapped_ptrace(P, PTRACE_POKEUSER, P->pid, RIP * sizeof (long),
 	    addr);
 }
-
-/*
- * Single-step past the next instruction, when halted at a given breakpoint.
- */
-long
-Pbkpt_singlestep_x86(struct ps_prochandle *P, bkpt_t *bkpt)
-{
-	return wrapped_ptrace(P, PTRACE_SINGLESTEP, P->pid, 0, 0);
-}

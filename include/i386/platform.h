@@ -39,5 +39,10 @@ const static unsigned char plat_bkpt[] = { 0xcc };
  */
 #define DT_THISPROCNUM 0
 
+/*
+ * TRUE if this platform requires software singlestepping.
+ */
+#undef NEED_SOFTWARE_SINGLESTEP
+
 #endif
 

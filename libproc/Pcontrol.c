@@ -934,9 +934,10 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		ip = Pget_bkpt_ip(P, 0);
 		bkpt = bkpt_by_addr(P, ip, FALSE);
 
-		if ((ip < 0) || (!bkpt)) {
+		if ((ip < 0) || !bkpt) {
 			/*
-			 * This is not a known breakpoint.  Drop it (pro tem).
+			 * This is not a known breakpoint nor a temporary
+			 * singlestepping breakpoint.  Drop it (pro tem).
 			 */
 			_dprintf("Pwait: %i: process status change at "
 			    "address %lx: SIGTRAP does not correspond to a "
@@ -1412,8 +1413,9 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		    "breakpoint.", P->pid, strerror(orig_state));
 
 	/*
-	 * If we are currently inside a handler for this breakpoint, arrange to
-	 * remove it later, after handler execution is complete.  Only do a
+	 * If we are currently inside a handler for this breakpoint, or inside
+	 * the temporary singlestepping breakpoint associated with it, arrange
+	 * to remove it later, after handler execution is complete.  Only do a
 	 * lookup-with-unchain if this is not so.
 	 */
 	bkpt = bkpt_by_addr(P, addr, FALSE);
@@ -1426,6 +1428,12 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 
 	if (bkpt->in_handler) {
 		bkpt->pending_removal = 1;
+		Puntrace(P, orig_state);
+		return;
+	}
+
+	if (bkpt->bkpt_singlestep && bkpt->bkpt_singlestep->in_handler) {
+		bkpt->bkpt_singlestep->pending_removal = 1;
 		Puntrace(P, orig_state);
 		return;
 	}
@@ -1616,8 +1624,9 @@ bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 {
 	/*
 	 * We have either have stopped at an address we know, or we are
-	 * singlestepping past one of our breakpoints; our caller has already
-	 * validated that this breakpoint is known.
+	 * singlestepping past one of our breakpoints and have ended a hardware
+	 * singlestep or hit the temporary singlestepping breakpoint; our caller
+	 * has already validated that this breakpoint is known.
 	 *
 	 * But first, decree that we are already tracestopped, for the sake of
 	 * any handlers that rely on this.
@@ -1630,6 +1639,12 @@ bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 		    bkpt_by_addr(P, P->tracing_bkpt, FALSE));
 	else {
 		bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
+
+		if (bkpt->bkpt_singlestep) {
+			bkpt_t *real_bkpt = bkpt->bkpt_singlestep;
+			Punbkpt(P, bkpt->bkpt_addr);
+			return bkpt_handle_post_singlestep(P, real_bkpt);
+		}
 
 		if (P->tracing_bkpt != 0) {
 			_dprintf("%i: Nested breakpoint detected, probable bug.\n",
@@ -1809,7 +1824,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 		/*
 		 * Still need to singlestep.
 		 */
-		P->state = Pbkpt_continue_internal(P, bkpt, 1);
+		P->state = Pbkpt_continue_internal(P, bkpt, TRUE);
 	else {
 		/*
 		 * No need to singlestep, but may need to consume
@@ -1818,7 +1833,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 		P->bkpt_consume = 1;
 		Pwait(P, 0);
 		P->bkpt_consume = 0;
-		P->state = Pbkpt_continue_internal(P, bkpt, 0);
+		P->state = Pbkpt_continue_internal(P, bkpt, FALSE);
 	}
 }
 
@@ -1834,10 +1849,56 @@ Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt, int singlestep)
 	P->bkpt_halted = 0;
 
 	if (singlestep) {
-		if (Preset_bkpt_ip(P, bkpt->bkpt_addr) == 0 &&
-		    Pbkpt_singlestep(P, bkpt) == 0)
-			return PS_RUN;
-		else if (errno == ESRCH)
+		if (Preset_bkpt_ip(P, bkpt->bkpt_addr) != 0)
+			goto err;
+
+		/*
+		 * If hardware singlestepping is supported, this is easy.
+		 * Otherwise, drop a temporary breakpoint associated with this
+		 * one.
+		 */
+#ifndef NEED_SOFTWARE_SINGLESTEP
+		if (wrapped_ptrace(P, PTRACE_SINGLESTEP, P->pid, 0, 0) != 0)
+			goto err;
+#else
+		uintptr_t next_ip = Pget_next_ip(P);
+		bkpt_t *next_bkpt = bkpt_by_addr(P, next_ip, FALSE);
+
+		/*
+		 * Only drop a temporary breakpoint if there isn't already a
+		 * breakpoint there.  (If there is one, various things will go
+		 * somewhat wrong: in particular, it's impossible to call any
+		 * after_singlestep handlers on the original breakpoint.  DTrace
+		 * never does this, so we should be fine.)
+		 */
+		if (next_bkpt == NULL) {
+			Pbkpt(P, next_ip, FALSE, NULL, NULL, NULL);
+			next_bkpt = bkpt_by_addr(P, next_ip, FALSE);
+			next_bkpt->bkpt_singlestep = bkpt;
+		}
+
+		/*
+		 * If the next breakpoint is the same as the current one, emit a
+		 * warning and delete the breakpoint: we cannot implement this
+		 * without instruction emulation, since we cannot drop a
+		 * breakpoint on this instruction and execute it at the same
+		 * time.
+		 */
+		if (next_bkpt == bkpt) {
+			fprintf(stderr, "%i; Breakpoint loops are unimplemented on "
+			    "this platform: breakpoint at %lx deleted.\n", P->pid,
+			    bkpt->bkpt_addr);
+			Punbkpt(P, bkpt->bkpt_addr);
+		}
+
+		if (wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0) != 0)
+			goto err;
+#endif
+
+		return PS_RUN;
+
+	err:
+		if (errno == ESRCH)
 			return PS_DEAD;
 		else
 			return PS_TRACESTOP;

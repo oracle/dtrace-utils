@@ -1,5 +1,5 @@
 /*
- * Underlying ISA-dependent functions.
+ * Underlying ISA-dependent functions for x86 and x86-64.
  */
 
 /*
@@ -67,13 +67,8 @@ isa_dispatch_t dispatch[] = {
 
 #endif
 
-#ifdef WANT_BKPT_SINGLESTEP
+#ifdef WANT_GET_NEXT_IP
 
-extern	long Pbkpt_singlestep_x86(struct ps_prochandle *P, bkpt_t *bkpt);
-
-isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_X86_64, (dispatch_fun_t *) Pbkpt_singlestep_x86},
-    {B_FALSE, EM_386, (dispatch_fun_t *) Pbkpt_singlestep_x86},
-    {0, 0, NULL}};
+#error get_next_ip() is not implemented on this platform.
 
 #endif

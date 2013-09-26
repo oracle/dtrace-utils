@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <elf.h>
+#include <sys/ptrace.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
@@ -145,16 +146,20 @@ Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr)
 	ISADEP_BODY(long, P, addr);
 }
 
+#ifdef NEED_SOFTWARE_SINGLESTEP
 /*
- * Single-step past the next instruction, when halted at a given breakpoint.
+ * Get the next instruction pointer after this breakpoint.  Generally only
+ * implemented (and only needed) on platforms without hardware singlestepping.
  */
-long
-Pbkpt_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
+uintptr_t
+Pget_next_ip(struct ps_prochandle *P)
 {
-#define WANT_BKPT_SINGLESTEP
+#define WANT_GET_NEXT_IP
 #include "isadep.h"
-#undef WANT_BKPT_SINGLESTEP
+#undef WANT_GET_NEXT_IP
 
-	ISADEP_TYPES(long, struct ps_prochandle *, bkpt_t *);
-	ISADEP_BODY(long, P, bkpt);
+	ISADEP_TYPES(uintptr_t, struct ps_prochandle *);
+	ISADEP_BODY(uintptr_t, P);
 }
+
+#endif

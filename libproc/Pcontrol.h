@@ -168,6 +168,9 @@ typedef struct bkpt_handler {
  */
 typedef struct bkpt {
 	struct bkpt *bkpt_next;		/* next in hash chain */
+	struct bkpt *bkpt_singlestep;	/* if non-NULL, this is a temporary
+					   breakpoint used for singlestepping
+					   past this other breakpoint. */
 	uintptr_t bkpt_addr;		/* breakpoint address */
 	unsigned long orig_insn;	/* original instruction word */
 	bkpt_handler_t bkpt_handler;	/* handler for this breakpoint. */
@@ -276,7 +279,10 @@ extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern  long	Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 extern  long	Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr);
-extern	long	Pbkpt_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
+
+#ifdef NEED_SOFTWARE_SINGLESTEP
+extern	uintptr_t	Pget_next_ip(struct ps_prochandle *P);
+#endif
 
 extern	uintptr_t r_debug(struct ps_prochandle *P);
 extern	char	procfs_path[PATH_MAX];
