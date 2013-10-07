@@ -31,9 +31,11 @@
 #include <errno.h>
 #include <string.h>
 #include <libgen.h>
+#include <sys/ioctl.h>
 
 #include <dt_impl.h>
 #include <dt_pid.h>
+#include <port.h>
 
 #define	OP(x)		((x) >> 30)
 #define	OP2(x)		(((x) >> 22) & 0x07)
@@ -108,7 +110,7 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		while (text[i] == FASTTRAP_INSTR) {
 			fasttrap_instr_query_t instr;
 
-			instr.ftiq_pid = Pstatus(P)->pr_pid;
+			instr.ftiq_pid = Pgetpid(P);
 			instr.ftiq_pc = symp->st_value + i * 4;
 
 			if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_GETINSTR,
