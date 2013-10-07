@@ -43,7 +43,7 @@ CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
 ARCHINC := $(subst sparc64,sparc,$(subst x86_64,i386,$(shell uname -m)))
-INVARIANT_CFLAGS := -std=gnu99 -D_LITTLE_ENDIAN -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_ILP$(BITNESS)
+INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
 export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)

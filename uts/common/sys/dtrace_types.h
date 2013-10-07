@@ -29,6 +29,7 @@
 
 #include <sys/types.h>
 #include <sys/ctf_types.h>
+#include <endian.h>
 #include <unistd.h>
 
 typedef unsigned long   psaddr_t;
@@ -87,6 +88,14 @@ typedef unsigned long long hrtime_t;
 
 #ifndef ABS
 #define	ABS(a)		((a) < 0 ? -(a) : (a))
+#endif
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define _LITTLE_ENDIAN 1
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define _BIG_ENDIAN 1
+#else
+#warning Unknown endianness
 #endif
 
 /*
