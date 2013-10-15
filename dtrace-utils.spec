@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-16.el6uek
+%define kver 3.8.13-17.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers = 1 kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
-Release:      5.el6
+Release:      6.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -119,11 +119,14 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
-* Tue Sep 17 2013 - nick.alcock%oracle.com - 0.4.0-5
+* Wed Oct 16 2013 - nick.alcock@oracle.com - 0.4.0-6
+- Fix visibility of .SUNW_dof sections in dtrace -G object files.
+- Fix typos in changelog and specfile copyright date
+* Tue Sep 17 2013 - nick.alcock@oracle.com - 0.4.0-5
 - avoid deadlocking when doing process operations during dtrace -l.
-* Fri Aug 16 2013 - kris.van.hees%oracle.com - 0.4.0-2
+* Fri Aug 16 2013 - kris.van.hees@oracle.com - 0.4.0-2
 - Support for USDT in shared libraries.
-* Tue Jul 23 2013 - nick.alcock%oracle.com - 0.4.0-1
+* Tue Jul 23 2013 - nick.alcock@oracle.com - 0.4.0-1
 - ustack() support and symbol lookups.
 - USDT support.  dtrace -G works.
 - evaltime option now works.
