@@ -33,6 +33,12 @@
 
 HEADER=$1
 INIT=$2
+NATIVE_BITNESS_ONLY=$3
+NATIVE_BITNESS=
+
+if [[ -n $NATIVE_BITNESS_ONLY ]]; then
+    NATIVE_BITNESS=64
+fi
 
 set -e
 
@@ -49,8 +55,8 @@ echo >>$HEADER
 
 for BITNESS in 32 64; do
     sed "s,@BITNESS@,$BITNESS,g" <<'EOF' | \
-    $CC -std=gnu99 -o $objdir/mkoffsets $CPPFLAGS -m$BITNESS -DCOMPILE_TIME \
-	-D_GNU_SOURCE -x c - >/dev/null
+    $CC -std=gnu99 -o $objdir/mkoffsets $CPPFLAGS -m${NATIVE_BITNESS:-$BITNESS} -DBITNESS=$BITNESS \
+	${NATIVE_BITNESS:+-DNATIVE_BITNESS=$NATIVE_BITNESS} -DCOMPILE_TIME -D_GNU_SOURCE -x c - >/dev/null
 /* Compute the offsets and sizes of various structure fields in the dynamic
    linker needed for debugging.
 
@@ -60,11 +66,17 @@ for BITNESS in 32 64; do
 #include <stdio.h>
 #include <sys/glibc_internal_link.h>
 
+#if defined(NATIVE_BITNESS) && NATIVE_BITNESS != BITNESS
+#define BITNESS_OFFSET(name, s, m) \
+	printf("#define " #name "_@BITNESS@_OFFSET\t0\n"); \
+	printf("#define " #name "_@BITNESS@_SIZE\t0\n")
+#else
 #define BITNESS_OFFSET(name, s, m) \
 	printf("#define " #name "_@BITNESS@_OFFSET\t%li\n", \
 		offsetof(struct s, m)); \
 	printf("#define " #name "_@BITNESS@_SIZE\t%li\n", \
 		sizeof(((struct s *)0)->m))
+#endif
 
 int main(void)
 {
@@ -103,7 +115,6 @@ EOF
 done
 
 cat >> $HEADER <<'EOF'
-
 #if R_LDBASE_32_OFFSET > R_LDBASE_64_OFFSET
 #define R_LAST_OFFSET R_LDBASE_32_OFFSET
 #else
@@ -138,7 +149,7 @@ EOF
 
 # .c file (initialization).
 
-build_offsets()
+build_offsets_all()
 {
     # Note: this will fail if 32-bit compilation of DTrace is attempted,
     # since it assumes that the native offsets are the 64-bit ones.
@@ -154,6 +165,24 @@ build_offsets()
 EOF
     done
 }
+
+build_offsets_native_only()
+{
+    for name in $(grep '^#define' $HEADER | grep -v 'LAST_OFFSET' | \
+                  grep -o " ${2}"'_.*_64_OFFSET'); do
+        name_64_size="$(echo $name | sed 's,_OFFSET,_SIZE,')"
+    cat >> $INIT <<EOF
+	rtld_offsets_t ${name}_build = {{0, ${name}}, {0, ${name_64_size}}};
+	$1_build[${name}] = ${name}_build;
+EOF
+    done
+}
+
+if [[ -z $NATIVE_BITNESS_ONLY ]]; then
+    build_offsets=build_offsets_all
+else
+    build_offsets=build_offsets_native_only
+fi
 
 cat > $INIT <<'EOF'
 /* Initialize offsets and sizes for various structures in the dynamic linker.
@@ -181,7 +210,7 @@ static void rtld_offsets_init(void)
 	    (R_LAST_OFFSET+1));
 
 EOF
-build_offsets r_debug_offsets R
+$build_offsets r_debug_offsets R
 
 cat >> $INIT <<'EOF'
 	memcpy((void *) r_debug_offsets, r_debug_offsets_build,
@@ -191,7 +220,7 @@ cat >> $INIT <<'EOF'
 	    (L_LAST_OFFSET+1));
 
 EOF
-build_offsets link_map_offsets L
+$build_offsets link_map_offsets L
 cat >> $INIT <<'EOF'
 
 	memcpy((void *) link_map_offsets, link_map_offsets_build,

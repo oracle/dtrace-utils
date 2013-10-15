@@ -31,7 +31,7 @@ libproc_SRCDEPS := $(objdir)/rtld_offsets.stamp
 $(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c: $(objdir)/rtld_offsets.stamp
 
 $(objdir)/rtld_offsets.stamp: include/sys/glibc_internal_link.h $(libproc_DIR)mkoffsets.sh
-	CPPFLAGS="$(CPPFLAGS)" $(libproc_DIR)mkoffsets.sh $(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c
+	CPPFLAGS="$(CPPFLAGS)" $(libproc_DIR)mkoffsets.sh $(objdir)/rtld_offsets.h $(libproc_DIR)rtld_offsets.c $(NATIVE_BITNESS_ONLY)
 	touch $(objdir)/rtld_offsets.stamp
 
 clean::

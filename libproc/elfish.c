@@ -35,10 +35,13 @@
 #include <errno.h>
 #include <elf.h>
 #include <link.h>
+#include <platform.h>
 
+#ifndef NATIVE_BITNESS_ONLY
 #define BITS 32
 #include "elfish_impl.h"
 #undef BITS
+#endif
 #define BITS 64
 #include "elfish_impl.h"
 #undef BITS
@@ -63,15 +66,23 @@ Pread_isa_info(struct ps_prochandle *P, const char *procname)
 		close(fd);
 		return -1;
 	}
-	close(fd);
 
 	if (memcmp(&hdr, ELFMAG, SELFMAG) != 0) {
 		_dprintf("%s is not an ELF file\n", procname);
+		close(fd);
 		return -1;
 	}
 
 	P->elf64 = hdr.e_ident[EI_CLASS] == ELFCLASS64;
 	P->elf_machine = hdr.e_machine;
+
+#ifdef NATIVE_BITNESS_ONLY
+	if (!P->elf64) {
+		_dprintf("%s: cannot trace 32-bit processes on this platform.\n",
+		    procname);
+		return -1;
+	}
+#endif
 	return 0;
 }
 
@@ -173,8 +184,10 @@ r_debug(struct ps_prochandle *P)
 
 	if (P->elf64)
 		P->r_debug_addr = r_debug_elf64(P);
+#ifndef NATIVE_BITNESS_ONLY
 	else
 		P->r_debug_addr = r_debug_elf32(P);
+#endif
 
 	return P->r_debug_addr;
 }
