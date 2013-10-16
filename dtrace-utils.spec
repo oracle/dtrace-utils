@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers = 1 kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
-Release:      6.el6
+Release:      8.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -119,53 +119,84 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
-* Fri Aug 16 2013 - kris.van.hees%oracle.com - 0.4.0-9
+* Fri Aug 16 2013 Kris Van Hees <kris.van.hees%oracle.com> - 0.4.0-9
 - Install showUSDT in docdir.
-* Wed Oct 16 2013 - nick.alcock@oracle.com - 0.4.0-6
+
+* Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-8
+- Fix format of RPM changelog
+- Add missing RPM changelog entries
+
+* Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-7
+- never released, necessary for release management
+
+* Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-6
 - Fix visibility of .SUNW_dof sections in dtrace -G object files.
+  (Kris van Hees) [Orabug: 17476663]
 - Fix typos in changelog and specfile copyright date
-* Tue Sep 17 2013 - nick.alcock@oracle.com - 0.4.0-5
+
+* Tue Sep 17 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-5
 - avoid deadlocking when doing process operations during dtrace -l.
-* Fri Aug 16 2013 - kris.van.hees@oracle.com - 0.4.0-2
+  [Orabug: 17442388]
+
+* Fri Aug 16 2013 Kris van Hees <kris.van.hees@oracle.com> - 0.4.0-4
 - Support for USDT in shared libraries.
-* Tue Jul 23 2013 - nick.alcock@oracle.com - 0.4.0-1
+
+* Fri Aug 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-3
+- never released, necessary for release management
+
+* Fri Aug 16 2013 Kris van Hees <kris.van.hees@oracle.com> - 0.4.0-2
+- never released, necessary for release management
+
+* Tue Jul 23 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-1
 - ustack() support and symbol lookups.
 - USDT support.  dtrace -G works.
 - evaltime option now works.
 - DTrace headers largely moved to dtrace-modules-headers.
 - DTRACE_OPT_* environment variables now set options.
   DTRACE_DEBUG=signal emits debugging output on SIGUSR1 receipt.
-* Fri Aug 31 2012 - nick.alcock@oracle.com - 0.3.0-1
+
+* Fri Aug 31 2012 Nick Alcock <nick.alcock@oracle.com> - 0.3.0-1
 - CTF support.
 - Fixed install path for dtrace libraries.
 - Fixed -c and -p options.
 - Faster startup.
 - Split out a -devel package.
-* Mon Mar 19 2012 - nick.alcock@oracle.com - 0.2.5-2
+
+* Mon Mar 19 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.5-2
 - Call ldconfig at appropriate times.
-* Tue Mar 13 2012 - nick.alcock@oracle.com - 0.2.5
+
+* Tue Mar 13 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.5
 - libdtrace is now a shared library, with non-stable API/ABI.
-* Thu Feb 16 2012 - nick.alcock@oracle.com - 0.2.4
+
+* Thu Feb 16 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.4
 - Updated README; new NEWS and PROBLEMS; synch with module version
-* Thu Feb  9 2012 - nick.alcock@oracle.com - 0.2.3
+
+* Thu Feb  9 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.3
 - Fixes for reproducibility of test results under load
 - Fix -G when setting the syslibdir
-* Mon Feb  6 2012 - nick.alcock@oracle.com - 0.2.2
+
+* Mon Feb  6 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.2
 - Fix spurious failures of tst.resize*.d.
-* Tue Jan 31 2012 - nick.alcock@oracle.com - 0.2.1
+
+* Tue Jan 31 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.1
 - Fix 'make check-installed' with an unbuilt source tree.
-* Thu Jan 26 2012 - kris.van.hees@oracle.com - 0.2.0
+
+* Thu Jan 26 2012 Kris van Hees <kris.van.hees@oracle.com> - 0.2.0
 - Branch for 0.2.0 release.
-* Fri Oct  7 2011 - philip.copeland@oracle.com - 0.1-0.3
+
+* Fri Oct  7 2011 Philip Copeland <philip.copeland@oracle.com> - 0.1-0.3
 - The systemtap package in the 'wild' creates a dtrace.1 manpage
   which is bizarre since it doesn't have an associated dtrace 
   binary. This will cause a conflict and the rpm will not install
   Since that man page is superfluous I've had to add a %post
   section here to move our manpage into position in such a way as
   to keep the rpm database happy. Technically this is a bit evil.
-* Tue Oct 06 2011 - nick.alcock@oracle.com - 0.2
+
+* Tue Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
 - Fix copyright.
-* Tue Sep 27 2011 - nick.alcock@oracle.com - 0.1
+
+* Tue Sep 27 2011 Nick Alcock <nick.alcock@oracle.com> - 0.1
 - Branch for initial release.
-* Mon Jun 27 2011 - pearly.zhao@oracle.com - 0.0.1
+
+* Mon Jun 27 2011 Pearly Zhao <pearly.zhao@oracle.com> - 0.0.1
 - Initial build for dtrace.  
