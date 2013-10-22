@@ -1,4 +1,3 @@
-divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -22,15 +21,14 @@ divert(-1)
  */
 
 /*
- * Copyright 2005, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /*
  * This file is an m4 script which is first preprocessed by cpp or cc -E to
  * substitute #define tokens for their values. It is then run over io.d.in
- * to produce a sed script, which is finally run over io.d.in to replace
- * the #define tokens listed below to create the finished io.d.
+ * to replace those tokens with their values to create the finished io.d.
  */
 
 /* #include <linux/buffer_head.h> */
@@ -45,25 +43,24 @@ divert(-1)
 #endif
 #include <sys/fcntl.h>
 
-#define	SED_REPLACE(x)	__sed_replace(#x,x)
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-divert(0)
-SED_REPLACE(O_ACCMODE)
-SED_REPLACE(O_RDONLY)
-SED_REPLACE(O_WRONLY)
-SED_REPLACE(O_RDWR)
-SED_REPLACE(O_CREAT)
-SED_REPLACE(O_EXCL)
-SED_REPLACE(O_NOCTTY)
-SED_REPLACE(O_TRUNC)
-SED_REPLACE(O_APPEND)
-SED_REPLACE(O_NONBLOCK)
-SED_REPLACE(O_NDELAY)
-SED_REPLACE(O_SYNC)
-SED_REPLACE(O_FSYNC)
-SED_REPLACE(O_ASYNC)
-SED_REPLACE(O_DIRECTORY)
-SED_REPLACE(O_NOFOLLOW)
-SED_REPLACE(O_CLOEXEC)
-SED_REPLACE(O_DSYNC)
-SED_REPLACE(O_RSYNC)
+DEF_REPLACE(O_ACCMODE)
+DEF_REPLACE(O_RDONLY)
+DEF_REPLACE(O_WRONLY)
+DEF_REPLACE(O_RDWR)
+DEF_REPLACE(O_CREAT)
+DEF_REPLACE(O_EXCL)
+DEF_REPLACE(O_NOCTTY)
+DEF_REPLACE(O_TRUNC)
+DEF_REPLACE(O_APPEND)
+DEF_REPLACE(O_NONBLOCK)
+DEF_REPLACE(O_NDELAY)
+DEF_REPLACE(O_SYNC)
+DEF_REPLACE(O_ASYNC)
+DEF_REPLACE(O_DIRECTORY)
+DEF_REPLACE(O_NOFOLLOW)
+DEF_REPLACE(O_CLOEXEC)
+DEF_REPLACE(O_DSYNC)
+DEF_REPLACE(O_RSYNC)
+#include "io.platform.m4"

@@ -19,16 +19,20 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * This file is an m4 script which is first preprocessed by cpp or cc -E to
+ * substitute #define tokens for their values. It is then run over sysevent.d.in
+ * to replace those tokens with their values to create the finished sysevent.d.
+ */
 
 /*#include <sys/sysevent_impl.h>*/
 
-#define	SED_MACRO(x)	s/#x(ev)/x(ev)/g
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-SED_MACRO(SE_CLASS_NAME)
-SED_MACRO(SE_SUBCLASS_NAME)
-SED_MACRO(SE_PUB_NAME)
+DEF_REPLACE(SE_CLASS_NAME)
+DEF_REPLACE(SE_SUBCLASS_NAME)
+DEF_REPLACE(SE_PUB_NAME)

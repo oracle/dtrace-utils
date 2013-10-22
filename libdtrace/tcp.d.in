@@ -1,53 +1,33 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2013 Oracle and/or its affiliates.
+ * All rights reserved.
  */
 
 #pragma D depends_on module unix
 #pragma D depends_on provider tcp
 
-inline int TH_FIN = @TH_FIN@;
-#pragma D binding "1.6.3" TH_FIN
-inline int TH_SYN = @TH_SYN@;
-#pragma D binding "1.6.3" TH_SYN
-inline int TH_RST = @TH_RST@;
-#pragma D binding "1.6.3" TH_RST
-inline int TH_PUSH = @TH_PUSH@;
-#pragma D binding "1.6.3" TH_PUSH
-inline int TH_ACK = @TH_ACK@;
-#pragma D binding "1.6.3" TH_ACK
-inline int TH_URG = @TH_URG@;
-#pragma D binding "1.6.3" TH_URG
-inline int TH_ECE = @TH_ECE@;
-#pragma D binding "1.6.3" TH_ECE
-inline int TH_CWR = @TH_CWR@;
-#pragma D binding "1.6.3" TH_CWR
+def_constant([[TH_FIN]],1.6.3)
+def_constant([[TH_SYN]],1.6.3)
+def_constant([[TH_RST]],1.6.3)
+def_constant([[TH_PUSH]],1.6.3)
+def_constant([[TH_ACK]],1.6.3)
+def_constant([[TH_URG]],1.6.3)
+def_constant([[TH_ECE]],1.6.3)
+def_constant([[TH_CWR]],1.6.3)
 
-inline int32_t TCP_STATE_CLOSED = @TCPS_CLOSED@;
-#pragma D binding "1.6.3" TCP_STATE_CLOSED
-inline int32_t TCP_STATE_IDLE = @TCPS_IDLE@;
-#pragma D binding "1.6.3" TCP_STATE_IDLE
-inline int32_t TCP_STATE_BOUND = @TCPS_BOUND@;
-#pragma D binding "1.6.3" TCP_STATE_BOUND
-inline int32_t TCP_STATE_LISTEN = @TCPS_LISTEN@;
-#pragma D binding "1.6.3" TCP_STATE_LISTEN
-inline int32_t TCP_STATE_SYN_SENT = @TCPS_SYN_SENT@;
-#pragma D binding "1.6.3" TCP_STATE_SYN_SENT
-inline int32_t TCP_STATE_SYN_RECEIVED = @TCPS_SYN_RCVD@;
-#pragma D binding "1.6.3" TCP_STATE_SYN_RECEIVED
-inline int32_t TCP_STATE_ESTABLISHED = @TCPS_ESTABLISHED@;
-#pragma D binding "1.6.3" TCP_STATE_ESTABLISHED
-inline int32_t TCP_STATE_CLOSE_WAIT = @TCPS_CLOSE_WAIT@;
-#pragma D binding "1.6.3" TCP_STATE_CLOSE_WAIT
-inline int32_t TCP_STATE_FIN_WAIT_1 = @TCPS_FIN_WAIT_1@;
-#pragma D binding "1.6.3" TCP_STATE_FIN_WAIT_1
-inline int32_t TCP_STATE_CLOSING = @TCPS_CLOSING@;
-#pragma D binding "1.6.3" TCP_STATE_CLOSING
-inline int32_t TCP_STATE_LAST_ACK = @TCPS_LAST_ACK@;
-#pragma D binding "1.6.3" TCP_STATE_LAST_ACK
-inline int32_t TCP_STATE_FIN_WAIT_2 = @TCPS_FIN_WAIT_2@;
-#pragma D binding "1.6.3" TCP_STATE_FIN_WAIT_2
-inline int32_t TCP_STATE_TIME_WAIT = @TCPS_TIME_WAIT@;
-#pragma D binding "1.6.3" TCP_STATE_TIME_WAIT
+def_constant_renamed(int32_t,TCP_STATE_CLOSED,[[TCPS_CLOSED]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_IDLE,[[TCPS_IDLE]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_BOUND,[[TCPS_BOUND]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_LISTEN,[[TCPS_LISTEN]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_SYN_SENT,[[TCPS_SYN_SENT]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_SYN_RECEIVED,[[TCPS_SYN_RCVD]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_ESTABLISHED,[[TCPS_ESTABLISHED]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_CLOSE_WAIT,[[TCPS_CLOSE_WAIT]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_FIN_WAIT_1,[[TCPS_FIN_WAIT_1]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_CLOSING,[[TCPS_CLOSING]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_LAST_ACK,[[TCPS_LAST_ACK]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_FIN_WAIT_2,[[TCPS_FIN_WAIT_2]],1.6.3)
+def_constant_renamed(int32_t,TCP_STATE_TIME_WAIT,[[TCPS_TIME_WAIT]],1.6.3)
 
 /*
  * Convert a TCP state value to a string.
@@ -179,7 +159,7 @@ translator tcpinfo_t < __dtrace_tcp_tcph_t *T > {
 	    0;
 	tcp_offset = T != NULL ? 
 	    (*(uint8_t *)((tcph_t *)T)->th_offset_and_rsrvd & 0xf0) >> 2 :
-	    @TCP_MIN_HEADER_LENGTH@;
+	    TCP_MIN_HEADER_LENGTH;
 	tcp_flags = T != NULL ? *(uint8_t *)((tcph_t *)T)->th_flags : TH_ACK;
 	tcp_window = T != NULL ? ntohs(*(uint16_t *)((tcph_t *)T)->th_win) :
 	    arg3 != NULL ? ((tcp_t *)arg3)->tcp_swnd : 0;

@@ -1,4 +1,3 @@
-divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -19,22 +18,30 @@ divert(-1)
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2007, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /*
  * This file is an m4 script which is first preprocessed by cpp or cc -E to
- * substitute #define tokens for their values. It is then run over net.d.in
- * to produce a sed script, which is finally run over net.d.in to replace
- * the #define tokens listed below to create the finished net.d.
+ * substitute #define tokens for their values. It is then run over procfs.d.in
+ * to replace those tokens with their values to create the finished procfs.d.
  */
 
-/*#include <sys/socket.h> */
+#define __KERNEL__
+#include <linux/sched.h>
 
-#define	SED_REPLACE(x)	__sed_replace(#x,x)
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-divert(0)
-SED_REPLACE(AF_INET)
-SED_REPLACE(AF_INET6)
+DEF_REPLACE(TASK_RUNNING)
+DEF_REPLACE(TASK_INTERRUPTIBLE)
+DEF_REPLACE(TASK_UNINTERRUPTIBLE)
+DEF_REPLACE(__TASK_STOPPED)
+DEF_REPLACE(__TASK_TRACED)
+DEF_REPLACE(EXIT_ZOMBIE)
+DEF_REPLACE(EXIT_DEAD)
+DEF_REPLACE(TASK_DEAD)
+DEF_REPLACE(TASK_WAKEKILL)
+DEF_REPLACE(TASK_WAKING)

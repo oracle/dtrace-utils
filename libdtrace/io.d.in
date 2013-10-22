@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2012, 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -105,44 +105,25 @@ translator fileinfo_t < struct buffer_head *B > {
 	fi_oflags = 0;
 };
 
-inline int O_ACCMODE = @O_ACCMODE@;
-#pragma D binding "1.1" O_ACCMODE
-inline int O_RDONLY = @O_RDONLY@;
-#pragma D binding "1.1" O_RDONLY
-inline int O_WRONLY = @O_WRONLY@;
-#pragma D binding "1.1" O_WRONLY
-inline int O_RDWR = @O_RDWR@;
-#pragma D binding "1.1" O_RDWR
-inline int O_CREAT = @O_CREAT@;
-#pragma D binding "1.1" O_CREAT
-inline int O_EXCL = @O_EXCL@;
-#pragma D binding "1.1" O_EXCL
-inline int O_NOCTTY = @O_NOCTTY@;
-#pragma D binding "1.1" O_NOCTTY
-inline int O_TRUNC = @O_TRUNC@;
-#pragma D binding "1.1" O_TRUNC
-inline int O_APPEND = @O_APPEND@;
-#pragma D binding "1.1" O_APPEND
-inline int O_NONBLOCK = @O_NONBLOCK@;
-#pragma D binding "1.1" O_NONBLOCK
-inline int O_NDELAY = @O_NDELAY@;
-#pragma D binding "1.1" O_NDELAY
-inline int O_SYNC = @O_SYNC@;
-#pragma D binding "1.1" O_SYNC
-inline int O_FSYNC = @O_FSYNC@;
-#pragma D binding "1.1" O_FSYNC
-inline int O_ASYNC = @O_ASYNC@;
-#pragma D binding "1.1" O_ASYNC
-inline int O_DIRECTORY = @O_DIRECTORY@;
-#pragma D binding "1.1" O_DIRECTORY
-inline int O_NOFOLLOW = @O_NOFOLLOW@;
-#pragma D binding "1.1" O_NOFOLLOW
-inline int O_CLOEXEC = @O_CLOEXEC@;
-#pragma D binding "1.1" O_CLOEXEC
-inline int O_DSYNC = @O_DSYNC@;
-#pragma D binding "1.1" O_DSYNC
-inline int O_RSYNC = @O_RSYNC@;
-#pragma D binding "1.1" O_RSYNC
+def_constant([[O_ACCMODE]],1.1)
+def_constant([[O_RDONLY]],1.1)
+def_constant([[O_WRONLY]],1.1)
+def_constant([[O_RDWR]],1.1)
+def_constant([[O_CREAT]],1.1)
+def_constant([[O_EXCL]],1.1)
+def_constant([[O_NOCTTY]],1.1)
+def_constant([[O_TRUNC]],1.1)
+def_constant([[O_APPEND]],1.1)
+def_constant([[O_NONBLOCK]],1.1)
+def_constant([[O_NDELAY]],1.1)
+def_constant([[O_SYNC]],1.1)
+def_constant([[O_FSYNC]],1.1)
+def_constant([[O_ASYNC]],1.1)
+def_constant([[O_DIRECTORY]],1.1)
+def_constant([[O_NOFOLLOW]],1.1)
+def_constant([[O_CLOEXEC]],1.1)
+def_constant([[O_DSYNC]],1.1)
+def_constant([[O_RSYNC]],1.1)
 
 #pragma D binding "1.1" translator
 translator fileinfo_t < struct file *F > {

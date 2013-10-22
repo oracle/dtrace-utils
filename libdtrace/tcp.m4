@@ -1,4 +1,3 @@
-divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -19,31 +18,37 @@ divert(-1)
  *
  * CDDL HEADER END
  */
-
 /*
- * Copyright 2012 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2010, 2012, 2013 Oracle and/or its affiliates.
+ * All rights reserved.
  */
-
 /*
- * This file is an m4 script which is first preprocessed by cpp or cc -E to
- * substitute #define tokens for their values. It is then run over procfs.d.in
- * to produce a sed script, which is finally run over procfs.d.in to replace
- * the #define tokens listed below to create the finished procfs.d.
- */
-#define __KERNEL__
-#include <linux/sched.h>
+#include <inet/tcp.h>
+#include <sys/netstack.h>
+*/
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-#define	SED_REPLACE(x)	__sed_replace(#x,x)
+DEF_REPLACE(TH_FIN)
+DEF_REPLACE(TH_SYN)
+DEF_REPLACE(TH_RST)
+DEF_REPLACE(TH_PUSH)
+DEF_REPLACE(TH_ACK)
+DEF_REPLACE(TH_URG)
+DEF_REPLACE(TH_ECE)
+DEF_REPLACE(TH_CWR)
 
-divert(0)
-SED_REPLACE(TASK_RUNNING)
-SED_REPLACE(TASK_INTERRUPTIBLE)
-SED_REPLACE(TASK_UNINTERRUPTIBLE)
-SED_REPLACE(__TASK_STOPPED)
-SED_REPLACE(__TASK_TRACED)
-SED_REPLACE(EXIT_ZOMBIE)
-SED_REPLACE(EXIT_DEAD)
-SED_REPLACE(TASK_DEAD)
-SED_REPLACE(TASK_WAKEKILL)
-SED_REPLACE(TASK_WAKING)
+DEF_REPLACE(TCPS_CLODEF)
+DEF_REPLACE(TCPS_IDLE)
+DEF_REPLACE(TCPS_BOUND)
+DEF_REPLACE(TCPS_LISTEN)
+DEF_REPLACE(TCPS_SYN_SENT)
+DEF_REPLACE(TCPS_SYN_RCVD)
+DEF_REPLACE(TCPS_ESTABLISHED)
+DEF_REPLACE(TCPS_CLOSE_WAIT)
+DEF_REPLACE(TCPS_FIN_WAIT_1)
+DEF_REPLACE(TCPS_CLOSING)
+DEF_REPLACE(TCPS_LAST_ACK)
+DEF_REPLACE(TCPS_FIN_WAIT_2)
+DEF_REPLACE(TCPS_TIME_WAIT)
+
+DEF_REPLACE(TCP_MIN_HEADER_LENGTH)

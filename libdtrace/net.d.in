@@ -1,13 +1,9 @@
 /*
- * Copyright 2007 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2012, 2013 Oracle, Inc.  All rights reserved.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-inline int AF_INET = @AF_INET@;
-#pragma D binding "1.0" AF_INET
-inline int AF_INET6 = @AF_INET6@;
-#pragma D binding "1.0" AF_INET6
+def_constant([[AF_INET]],1.0)
+def_constant([[AF_INET6]],1.0)
 
 /*
  * The conninfo_t structure should be used by all application protocol

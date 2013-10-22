@@ -1,4 +1,3 @@
-divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -20,36 +19,19 @@ divert(-1)
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2010, 2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2007, 2012, 2013 Oracle, Inc.  All rights reserved.
+ * Use is subject to license terms.
  */
+
 /*
-#include <inet/tcp.h>
-#include <sys/netstack.h>
-*/
-#define	SED_REPLACE(x)	__sed_replace(#x,x)
+ * This file is an m4 script which is first preprocessed by cpp or cc -E to
+ * substitute #define tokens for their values. It is then run over net.d.in
+ * to replace those tokens with their values to create the finished net.d.
+ */
 
-divert(0)
-SED_REPLACE(TH_FIN)
-SED_REPLACE(TH_SYN)
-SED_REPLACE(TH_RST)
-SED_REPLACE(TH_PUSH)
-SED_REPLACE(TH_ACK)
-SED_REPLACE(TH_URG)
-SED_REPLACE(TH_ECE)
-SED_REPLACE(TH_CWR)
+/*#include <sys/socket.h> */
 
-SED_REPLACE(TCPS_CLOSED)
-SED_REPLACE(TCPS_IDLE)
-SED_REPLACE(TCPS_BOUND)
-SED_REPLACE(TCPS_LISTEN)
-SED_REPLACE(TCPS_SYN_SENT)
-SED_REPLACE(TCPS_SYN_RCVD)
-SED_REPLACE(TCPS_ESTABLISHED)
-SED_REPLACE(TCPS_CLOSE_WAIT)
-SED_REPLACE(TCPS_FIN_WAIT_1)
-SED_REPLACE(TCPS_CLOSING)
-SED_REPLACE(TCPS_LAST_ACK)
-SED_REPLACE(TCPS_FIN_WAIT_2)
-SED_REPLACE(TCPS_TIME_WAIT)
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-SED_REPLACE(TCP_MIN_HEADER_LENGTH)
+DEF_REPLACE(AF_INET)
+DEF_REPLACE(AF_INET6)

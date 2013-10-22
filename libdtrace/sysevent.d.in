@@ -14,9 +14,9 @@ typedef struct syseventinfo {
 
 #pragma D binding "1.0" translator
 translator syseventinfo_t < sysevent_impl_t *ev > {
-	se_class = stringof(@SE_CLASS_NAME@(ev));
-	se_subclass = stringof(@SE_SUBCLASS_NAME@(ev));
-	se_publisher = stringof(@SE_PUB_NAME@(ev));
+	se_class = stringof(SE_CLASS_NAME(ev));
+	se_subclass = stringof(SE_SUBCLASS_NAME(ev));
+	se_publisher = stringof(SE_PUB_NAME(ev));
 };
 
 typedef struct syseventchaninfo {

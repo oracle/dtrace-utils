@@ -1,71 +1,41 @@
 /*
- * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2010, 2012, 2013 Oracle and/or its affiliates. All rights reserved.
  */
 
 #pragma D depends_on module ip
 #pragma D depends_on provider ip
 
-inline int IPH_DF = @IPH_DF@;
-#pragma D binding "1.5" IPH_DF
-inline int IPH_MF = @IPH_MF@;
-#pragma D binding "1.5" IPH_MF
+def_constant([[IPH_DF]],1.5)
+def_constant([[IPH_MF]],1.5)
 
-#pragma D binding "1.5" IPPROTO_IP
-inline int IPPROTO_IP = @IPPROTO_IP@;
-#pragma D binding "1.5" IPPROTO_HOPOPTS
-inline int IPPROTO_HOPOPTS = @IPPROTO_HOPOPTS@;
-#pragma D binding "1.5" IPPROTO_ICMP
-inline int IPPROTO_ICMP = @IPPROTO_ICMP@;
-#pragma D binding "1.5" IPPROTO_IGMP
-inline int IPPROTO_IGMP = @IPPROTO_IGMP@;
-#pragma D binding "1.5" IPPROTO_GGP
-inline int IPPROTO_GGP = @IPPROTO_GGP@;
-#pragma D binding "1.5" IPPROTO_ENCAP
-inline int IPPROTO_ENCAP = @IPPROTO_ENCAP@;
-#pragma D binding "1.5" IPPROTO_TCP
-inline int IPPROTO_TCP = @IPPROTO_TCP@;
-#pragma D binding "1.5" IPPROTO_EGP
-inline int IPPROTO_EGP = @IPPROTO_EGP@;
-#pragma D binding "1.5" IPPROTO_PUP
-inline int IPPROTO_PUP = @IPPROTO_PUP@;
-#pragma D binding "1.5" IPPROTO_UDP
-inline int IPPROTO_UDP = @IPPROTO_UDP@;
-#pragma D binding "1.5" IPPROTO_IDP
-inline int IPPROTO_IDP = @IPPROTO_IDP@;
-#pragma D binding "1.5" IPPROTO_IPV6
-inline int IPPROTO_IPV6 = @IPPROTO_IPV6@;
-#pragma D binding "1.5" IPPROTO_ROUTING
-inline int IPPROTO_ROUTING = @IPPROTO_ROUTING@;
-#pragma D binding "1.5" IPPROTO_FRAGMENT
-inline int IPPROTO_FRAGMENT = @IPPROTO_FRAGMENT@;
-#pragma D binding "1.5" IPPROTO_RSVP
-inline int IPPROTO_RSVP = @IPPROTO_RSVP@;
-#pragma D binding "1.5" IPPROTO_ESP
-inline int IPPROTO_ESP = @IPPROTO_ESP@;
-#pragma D binding "1.5" IPPROTO_AH
-inline int IPPROTO_AH = @IPPROTO_AH@;
-#pragma D binding "1.5" IPPROTO_ICMPV6
-inline int IPPROTO_ICMPV6 = @IPPROTO_ICMPV6@;
-#pragma D binding "1.5" IPPROTO_NONE
-inline int IPPROTO_NONE = @IPPROTO_NONE@;
-#pragma D binding "1.5" IPPROTO_DSTOPTS
-inline int IPPROTO_DSTOPTS = @IPPROTO_DSTOPTS@;
-#pragma D binding "1.5" IPPROTO_HELLO
-inline int IPPROTO_HELLO = @IPPROTO_HELLO@;
-#pragma D binding "1.5" IPPROTO_ND
-inline int IPPROTO_ND = @IPPROTO_ND@;
-#pragma D binding "1.5" IPPROTO_EON
-inline int IPPROTO_EON = @IPPROTO_EON@;
-#pragma D binding "1.5" IPPROTO_OSPF
-inline int IPPROTO_OSPF = @IPPROTO_OSPF@;
-#pragma D binding "1.5" IPPROTO_PIM
-inline int IPPROTO_PIM = @IPPROTO_PIM@;
-#pragma D binding "1.5" IPPROTO_SCTP
-inline int IPPROTO_SCTP = @IPPROTO_SCTP@;
-#pragma D binding "1.5" IPPROTO_RAW
-inline int IPPROTO_RAW = @IPPROTO_RAW@;
-#pragma D binding "1.5" IPPROTO_MAX
-inline int IPPROTO_MAX = @IPPROTO_MAX@;
+def_constant([[IPPROTO_IP]],1.5)
+def_constant([[IPPROTO_HOPOPTS]],1.5)
+def_constant([[IPPROTO_ICMP]],1.5)
+def_constant([[IPPROTO_IGMP]],1.5)
+def_constant([[IPPROTO_GGP]],1.5)
+def_constant([[IPPROTO_ENCAP]],1.5)
+def_constant([[IPPROTO_TCP]],1.5)
+def_constant([[IPPROTO_EGP]],1.5)
+def_constant([[IPPROTO_PUP]],1.5)
+def_constant([[IPPROTO_UDP]],1.5)
+def_constant([[IPPROTO_IDP]],1.5)
+def_constant([[IPPROTO_IPV6]],1.5)
+def_constant([[IPPROTO_ROUTING]],1.5)
+def_constant([[IPPROTO_FRAGMENT]],1.5)
+def_constant([[IPPROTO_RSVP]],1.5)
+def_constant([[IPPROTO_ESP]],1.5)
+def_constant([[IPPROTO_AH]],1.5)
+def_constant([[IPPROTO_ICMPV6]],1.5)
+def_constant([[IPPROTO_NONE]],1.5)
+def_constant([[IPPROTO_DSTOPTS]],1.5)
+def_constant([[IPPROTO_HELLO]],1.5)
+def_constant([[IPPROTO_ND]],1.5)
+def_constant([[IPPROTO_EON]],1.5)
+def_constant([[IPPROTO_OSPF]],1.5)
+def_constant([[IPPROTO_PIM]],1.5)
+def_constant([[IPPROTO_SCTP]],1.5)
+def_constant([[IPPROTO_RAW]],1.5)
+def_constant([[IPPROTO_MAX]],1.5)
 
 /*
  * pktinfo is where packet ID info can be made available for deeper
@@ -246,9 +216,9 @@ translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
 	    ntohs(((ip6_t *)I)->ip6_ctlun.ip6_un1.ip6_un1_plen) :
 	    I != NULL ? 0 :
 	    arg3 != NULL && probename == "send" ?
-	    ((tcp_t *)arg3)->tcp_last_sent_len + @TCP_MIN_HEADER_LENGTH@ :
+	    ((tcp_t *)arg3)->tcp_last_sent_len + TCP_MIN_HEADER_LENGTH :
 	    arg3 != NULL && probename == "receive" ?
-	    ((tcp_t *)arg3)->tcp_last_recv_len + @TCP_MIN_HEADER_LENGTH@ :
+	    ((tcp_t *)arg3)->tcp_last_recv_len + TCP_MIN_HEADER_LENGTH :
 	    0;
 	ip_saddr =
 	    I != NULL && *(uint8_t *)I >> 4 == 4 ?

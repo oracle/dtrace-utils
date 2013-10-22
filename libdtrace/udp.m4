@@ -1,4 +1,3 @@
-divert(-1)
 /*
  * CDDL HEADER START
  *
@@ -20,12 +19,12 @@ divert(-1)
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2012, 2013 Oracle and/or its affiliates.
+ * All rights reserved.
  */
 
 /*#include <inet/ip.h>*/
 
-#define	SED_REPLACE(x)	__sed_replace(#x,x)
+#define	DEF_REPLACE(x)	__def_replace(#x,x)
 
-divert(0)
-SED_REPLACE(UDPH_SIZE)
+DEF_REPLACE(UDPH_SIZE)

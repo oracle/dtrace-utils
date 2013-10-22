@@ -67,7 +67,7 @@ $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-b
 	$(call describe-target,LEX,$(libdtrace-build_DIR)dt_lex.c)
 	flex -o$(libdtrace-build_DIR)dt_lex.c $(libdtrace-build_DIR)dt_lex.l
 
-SED_DLIBS += \
+M4_DLIBS += \
 	procfs.d \
 	io.d \
 	ip.d \
@@ -77,7 +77,7 @@ SED_DLIBS += \
 	udp.d
 
 BUILD_DLIBS += \
-	$(SED_DLIBS) \
+	$(M4_DLIBS) \
 	errno.d \
 	signal.d
 
@@ -89,34 +89,27 @@ WORKING_DLIBS = errno.d \
                 signal.d \
                 unistd.d
 
-# Normal substitutions.
-
-$(objdir)/%.sed: $(libdtrace-build_DIR)%.sed.in
-	$(call describe-target,SED,$<)
-	if [[ ! -d $(KERNELDIR)/include/linux ]]; then \
-		echo "Error: Point KERNELDIR=... at the Linux kernel source." >&2; \
+# M4-driven substitutions.
+$(foreach dlib,$(filter $(WORKING_DLIBS),$(M4_DLIBS)),$(call src-name,libdtrace,$(dlib))): \
+		%.d: %.d.in
+	$(call describe-target,M4,$*.d.in)
+	$(PREPROCESS) -x c -Ilibdtrace/$(ARCHINC) -I$(KERNELDIR)/include -I$(KERNELDIR)/arch/$(KERNELARCH)/include \
+		      -D_KERNEL -D__KERNEL__ $(addsuffix .m4,$*) 2>$@.h.err | tee $@.h | \
+	m4 --prefix-builtins $(libdtrace-build_DIR)def-replace.m4 - $(libdtrace-build_DIR)/d-subst.m4 $*.d.in > $@; \
+        if [[ $$? -ne 0 ]]; then \
+		cat $@.h.err >&2; \
+		echo "Error: Not all tokens in $^ defined in headers." >&2; \
+		rm -f $@.h $@.h.err; \
 		exit 1; \
 	fi
-	$(PREPROCESS) -x c -I$(KERNELDIR)/include -I$(KERNELDIR)/arch/$(KERNELARCH)/include \
-		      -D_KERNEL -D__KERNEL__ $< 2>$@.h.err | tee $@.h | \
-	    m4 $(libdtrace-build_DIR)sed-replace.m4 - > $@
-	if ! grep -q __sed_replace $@.h; then \
-		cat $@.h.err >&2; \
+	if ! grep -q __def_replace $@.h; then \
+		cat @$.h; \
+                cat $@.h.err >&2; \
 		echo "Error: Preprocessing of header included in $^ failed." >&2; \
 		rm -f $@.h $@.h.err; \
 		exit 1; \
 	fi
-	rm -f $@.h $@.h.err; \
-	if grep -q @@@@SUBST-FAIL@@@@ $@; then \
-		cat $@; \
-		echo "Error: Not all tokens in $^ defined in headers." >&2; \
-		exit 1; \
-	fi
-
-$(foreach dlib,$(filter $(WORKING_DLIBS),$(SED_DLIBS)),$(call src-name,libdtrace,$(dlib))): \
-		%.d: $$(addprefix $$(objdir)/,$$(notdir %.sed)) %.d.in
-	$(call describe-target,SED,$*.d.in)
-	sed -f $(addprefix $(objdir)/,$(notdir $*.sed)) < $*.d.in > $@
+	rm -f $@.h $@.h.err;
 
 PHONIES += dlibs working-dlibs
 TARGETS += dlibs working-dlibs
