@@ -37,27 +37,10 @@
 #include <dt_string.h>
 
 static int id_or_type(const char *);
+static size_t dt_input(char *buf, size_t max_size);
 
-/* 
- * Define YY_INPUT for flex since input() can't be re-defined.
- */
-
-#define YY_INPUT(buf,result,max_size) \
-        if (yypcb->pcb_fileptr != NULL) { \
-                if (((result = fread(buf, 1, max_size, yypcb->pcb_fileptr)) == 0) \
-                    && ferror(yypcb->pcb_fileptr)) \
-                        longjmp(yypcb->pcb_jmpbuf, EDT_FIO); \
-		else if ((YYSTATE) == S1) \
-               		yyerror("end-of-file encountered before matching */\n"); \
-		else if ((YYSTATE) == S3) \
-        	        yyerror("end-of-file encountered before end of control line\n"); \
-        } else { \
-                int n; \
-                for (n = 0; n < max_size && \
-                    yypcb->pcb_strptr < yypcb->pcb_string + yypcb->pcb_strlen; n++) \
-                        buf[n] = *yypcb->pcb_strptr++; \
-                result = n; \
-        }
+#define YY_INPUT(buf,result,max_size)                                   \
+        result = dt_input(buf,max_size);
 
 /*
  * We first define a set of labeled states for use in the D lexer and then a
@@ -572,6 +555,7 @@ if (yypcb->pcb_token != 0) {
 <S1>"/*"	yyerror("/* encountered inside a comment\n");
 <S1>"*/"	BEGIN(yypcb->pcb_cstate);
 <S1>.|\n	; /* discard */
+<S1><<EOF>>	yyerror("end-of-file encountered before matching */\n");
 
 <S2>{RGX_PSPEC}	{
 			/*
@@ -671,6 +655,7 @@ if (yypcb->pcb_token != 0) {
 		}
 
 <S3>.		yyerror("syntax error near \"%c\"\n", yytext[0]);
+<S3><<EOF>>	yyerror("end-of-file encountered before end of control line\n");
 
 %%
 
@@ -930,4 +915,26 @@ id_or_type(const char *s)
 	 * program clauses are already ruled out by the code above.)
 	 */
 	return (DT_TOK_TNAME);
+}
+
+/*
+ * Do I/O efficiently, including from the pcb_string.
+ */
+static size_t
+dt_input(char *buf, size_t max_size)
+{
+        size_t result;
+
+	if (yypcb->pcb_fileptr != NULL) {
+		result = fread(buf, 1, max_size, yypcb->pcb_fileptr);
+		if (result == 0 && ferror(yypcb->pcb_fileptr))
+                	longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
+        } else {
+                size_t len_left = (yypcb->pcb_strlen - (yypcb->pcb_strptr - yypcb->pcb_string));
+                result = len_left > max_size ? max_size : len_left;
+                memcpy(buf, yypcb->pcb_strptr, result);
+                yypcb->pcb_strptr += result;
+        }
+
+        return result;
 }

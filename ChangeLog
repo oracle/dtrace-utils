@@ -1,3 +1,17 @@
+2013-10-22  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_lex.c (YY_INPUT): Split out into...
+	(dt_input): ... this new function.  No longer check for parser
+	errors.  Use memcpy() for string input.
+	(EOF rules): Introduce, for states S1 and S3.
+	* test/unittest/lexer/err.eof-in-comment.d: Check that EOF in a
+	comment is diagnosed.
+	* test/unittest/lexer/err.eof-in-pragma.d: Likewise, for pragmata.
+	* test/unittest/lexer/tst.yyinput-pragma-bug.d: Make sure that
+	pragmata that span the 8192-byte boundary do not cause spurious
+	errors.
+	* NEWS: Describe this change.
+
 2013-09-26  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/Build (DLIBSRCS): No longer used, delete.

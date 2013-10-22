@@ -1,3 +1,12 @@
+0.4.1
+-----
+
+Bugfixes:
+
+ - A parser bug causing spurious errors if D scripts contained a #pragma or
+   comment at intervals of 8192 characters was fixed.
+   [Introduced in the original Linux port]
+
 0.4
 ---
 
