@@ -1,3 +1,9 @@
+2013-10-31  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dtrace.h (dtrace_stmtdesc_t): Add padding to work
+	around a GCC bug.
+	* INCOMPATIBILITIES: Document it.
+
 2013-10-22  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dt_lex.c (YY_INPUT): Split out into...

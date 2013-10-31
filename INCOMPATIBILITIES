@@ -11,6 +11,7 @@ Likelihood: High
 A number of providers are missing, including pid, fbt, and net.
 
 
+
 No traceback for local functions or stripped executables
 --------------------------------------------------------
 Difficulty: Medium
@@ -126,6 +127,13 @@ similar flags parameter.  (Unlike on Solaris libproc, all monitored processes
 have an associated monitor thread: this parameter minimizes the effect of this
 change, leading to an immediately running process similar to an unmonitored
 process on Solaris.)
+
+'struct dtrace_stmtdesc' has a new padding word, to work around GCC bug 36043,
+which otherwise causes spurious reads off the end of this structure, which could
+potentially cause DTrace to dump core if one of these structures wound up at the
+end of a page at the end of a malloc() arena.  When this bug is fixed, this
+padding will disappear.
+
 
 There is a new dtrace_debug_set_dump_sig() function, which sets the signal (by
 default SIGUSR1); when DTRACE_DEBUG=signal is set in the environment at startup,
