@@ -280,7 +280,6 @@ struct dtrace_hdl {
 	int dt_cpp_args;	/* size of dt_cpp_argv[] array */
 	char *dt_ld_path;	/* pathname of ld(1) to invoke if needed */
 	dt_list_t dt_lib_path;	/* linked-list forming library search path */
-	char *dt_procfs_path;	/* pathname of /proc */
 	char *dt_module_path;	/* pathname of kernel module root */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
 	uint_t dt_droptags;	/* boolean:  set via -xdroptags */

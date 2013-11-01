@@ -899,8 +899,7 @@ alloc:
 	dtp->dt_cpp_argc = 1;
 	dtp->dt_cpp_args = 1;
 	dtp->dt_ld_path = strdup(_dtrace_defld);
-	dtp->dt_procfs_path = strdup(_dtrace_defproc);
-	Pset_procfs_path(dtp->dt_procfs_path);
+	Pset_procfs_path(_dtrace_defproc);
 	dtp->dt_provmod = provmod;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;
