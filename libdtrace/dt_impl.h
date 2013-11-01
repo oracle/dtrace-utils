@@ -240,6 +240,7 @@ struct dtrace_hdl {
 	uint_t dt_modbuckets;	/* number of module hash buckets */
 	uint_t dt_nmods;	/* number of modules in hash and list */
 	Elf *dt_ctf_elf;	/* ELF handle to the special 'ctf' module */
+	uint_t dt_ctf_elf_ref;  /* Number of references to this handle */
 	const dt_modops_t *dt_ctf_ops; /* data model's ops vector for CTF module */
 	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
 	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
