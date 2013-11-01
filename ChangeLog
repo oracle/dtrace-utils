@@ -9,6 +9,19 @@
 	* libdtrace/dt_impl.h (dtrace_hdt_t.dt_ctf_elf_ref): New refcount.
 	* libdtrace/dt_module.c (dt_module_init_elf): Bump it approriately.
 	(dt_module_unload): Unbump it when a built-in module is closed.
+	(dt_module_load): Assign the uncompressed data to the right variable.
+
+2013-11-01  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_impl.h (dtrace_hdl_t.dt_procfs_path): Remove, unused.
+	* libdtrace/dt_open.c (dt_vopen): Just call Pset_procfs_path() directly.
+	* libdtrace/dt_options.c (dt_opt_procfs_path): Likewise.
+
+	* libdtrace/dt_open.c (dtrace_close): Free the dt_module_path.
+	* libdtrace/dt_module.c (d_tkern_path_update): Close the fts handle.
+	* libdtrace/dt_impl.h (dtrace_hdt_t.dt_ctf_elf_ref): New refcount.
+	* libdtrace/dt_module.c (dt_module_init_elf): Bump it approriately.
+	(dt_module_unload): Unbump it when a built-in module is closed.
 
 2013-11-01  Nick Alcock  <nick.alcock@oracle.com>
 
