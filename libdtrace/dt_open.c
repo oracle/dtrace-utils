@@ -1363,6 +1363,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	elf_end(dtp->dt_ctf_elf);
 	free(dtp->dt_mods);
+	free(dtp->dt_module_path);
 	free(dtp->dt_kernpaths);
 	free(dtp->dt_provs);
 	free(dtp);

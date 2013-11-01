@@ -8,6 +8,8 @@
 	* libdtrace/dt_open.c (dt_vopen): Just call Pset_procfs_path() directly.
 	* libdtrace/dt_options.c (dt_opt_procfs_path): Likewise.
 
+	* libdtrace/dt_open.c (dtrace_close): Free the dt_module_path.
+
 2013-10-31  Nick Alcock  <nick.alcock@oracle.com>
 
 	* libdtrace/dtrace.h (dtrace_stmtdesc_t): Add padding to work
