@@ -415,9 +415,7 @@ dt_opt_procfs_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if ((proc = strdup(arg)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
-	free(dtp->dt_procfs_path);
-	dtp->dt_procfs_path = proc;
-	Pset_procfs_path(dtp->dt_procfs_path);
+	Pset_procfs_path(proc);
 
 	return (0);
 }
