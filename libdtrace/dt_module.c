@@ -330,6 +330,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	    (dtp->dt_ctf_elf != NULL)) {
 		dmp->dm_elf = dtp->dt_ctf_elf;
 		dmp->dm_ops = dtp->dt_ctf_ops;
+		dtp->dt_ctf_elf_ref++;
 		return 0;
 	}
 
@@ -385,6 +386,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dmp->dm_flags & DT_DM_BUILTIN) {
 		dtp->dt_ctf_elf = dmp->dm_elf;
 		dtp->dt_ctf_ops = dmp->dm_ops;
+		dtp->dt_ctf_elf_ref++;
 	}
 
 	return 0;
@@ -787,9 +789,14 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	/*
 	 * Built-in modules may be sharing their libelf handle with other
-	 * modules, so should not close it.
+	 * modules, so should not close it until its refcount falls to zero.
 	 */
-	if (!(dmp->dm_flags | DT_DM_BUILTIN))
+	if (dmp->dm_flags & DT_DM_BUILTIN) {
+		if (--dtp->dt_ctf_elf_ref == 0) {
+			elf_end(dtp->dt_ctf_elf);
+			dtp->dt_ctf_elf = NULL;
+		}
+	} else
 		elf_end(dmp->dm_elf);
 	dmp->dm_elf = NULL;
 
