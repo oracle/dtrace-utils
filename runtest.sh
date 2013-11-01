@@ -616,12 +616,14 @@ export _test _pid dt_flags
 # Arrange to do (relatively expensive) mutex debugging.
 export DTRACE_OPT_DEBUGASSERT="mutexes"
 
-# If running DTrace inside valgrind, make sure valgrind works.
+# If running DTrace inside valgrind, make sure valgrind works, and multiply
+# the timeout by ten.
 if [[ -n $VALGRIND ]]; then
     if ! valgrind -q /bin/true >/dev/null 2>&1; then
         echo "valgrind does not work: cannot run in --valgrind mode." >&2
         exit 1
     fi
+    TIMEOUT=$((TIMEOUT * 10))
 fi
 
 # Loop over each test in turn, or the specified subset if test names were passed
@@ -807,6 +809,9 @@ for dt in $dtrace; do
 
         if exist_options timeout $_test; then
             timeout="$(extract_options timeout $_test)"
+            if [[ -n $VALGRIND ]]; then
+                timeout=$((timeout * 10))
+            fi
         fi
 
         # Note if this is expected to fail.

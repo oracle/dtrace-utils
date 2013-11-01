@@ -1,7 +1,8 @@
 2013-11-01  Nick Alcock  <nick.alcock@oracle.com>
 
-	* runtest.sh: Support valgrind, running DTrace via a wrapper script.
-	Pointer-elision skips valgrind errors.
+	* runtest.sh: Support valgrind, running DTrace via a wrapper
+	script.  Pointer-elision skips valgrind errors.  Boost the timeout
+	by a factor of ten when valgrinding.
 
 2013-10-31  Nick Alcock  <nick.alcock@oracle.com>
 
