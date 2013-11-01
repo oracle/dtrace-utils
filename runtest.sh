@@ -300,6 +300,7 @@ NOEXEC=
 BADDOF=
 USE_INSTALLED=
 TESTSUITES="unittest internals stress demo"
+VALGRIND=
 COMPARISON=t
 
 ONLY_TESTS=
@@ -317,6 +318,8 @@ while [[ $# -gt 0 ]]; do
         --no-execute) NOEXEC=t;;
         --comparison) COMPARISON=t;;
         --no-comparison) COMPARISON=;;
+        --valgrind) VALGRIND=t;;
+        --no-valgrind) VALGRIND=;;
         --baddof) BADDOF=;;
         --no-baddof) BADDOF=t;;
         --use-installed) USE_INSTALLED=t;;
@@ -363,8 +366,11 @@ if [[ "x$(id -u)" = "x0" ]]; then
 fi
 
 # Make a temporary directory for intermediate result storage.
+# Make a binary directory within it, for wrapper scripts.
 
 export tmpdir="$(get_dir_name)"
+mkdir $tmpdir/bin
+export PATH=$tmpdir/bin:$PATH
 
 # At shutdown, delete this directory, kill requested process groups, and restore
 # core_pattern.
@@ -502,11 +508,12 @@ postprocess()
         fi
     fi
 
-    # Transform any printed hex strings into a fixed string.
+    # Transform any printed hex strings into a fixed string, excepting
+    # only valgrind errors.
     # TODO: may need adjustment or making optional if scripts emit hex
     # values which are not continuously variable.
 
-    sed 's,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out > $final
+    sed '/^==[0-9][0-9]*== /!s,0x[0-9a-f][0-9a-f]*,{ptr},g' < $tmpdir/pp.out > $final
 
     return $retval
 }
@@ -609,6 +616,14 @@ export _test _pid dt_flags
 # Arrange to do (relatively expensive) mutex debugging.
 export DTRACE_OPT_DEBUGASSERT="mutexes"
 
+# If running DTrace inside valgrind, make sure valgrind works.
+if [[ -n $VALGRIND ]]; then
+    if ! valgrind -q /bin/true >/dev/null 2>&1; then
+        echo "valgrind does not work: cannot run in --valgrind mode." >&2
+        exit 1
+    fi
+fi
+
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
@@ -626,6 +641,18 @@ for dt in $dtrace; do
     if [[ "x$test_libdir" != "xinstalled" ]]; then
         export LD_LIBRARY_PATH="$(dirname $dt)"
         export DTRACE_OPT_SYSLIBDIR="$test_libdir"
+    fi
+
+    # If we are running valgrind, invoke dtrace via a wrapper.
+
+    if [[ -n $VALGRIND ]]; then
+	cat >> $tmpdir/bin/$(basename $dt) <<-EOT
+	#!/bin/bash
+	# Wrap DTrace calls inside valgrind.
+	valgrind -q $dt "\$@"
+	EOT
+        dt="$tmpdir/bin/$(basename $dt)"
+	chmod a+x $tmpdir/bin/$(basename $dt)
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
