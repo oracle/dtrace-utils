@@ -577,7 +577,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 * The CTF section is often gzip-compressed.  Uncompress it.
 	 */
 	if (dmp->dm_ctdata.cts_size > 1)
-		dmp->dm_ctdata_name = dt_ctf_uncompress(dmp, &dmp->dm_ctdata);
+		dmp->dm_ctdata_data = dt_ctf_uncompress(dmp, &dmp->dm_ctdata);
 
 	/*
 	 * Nothing more to do for loaded kernel modules: we already have their
