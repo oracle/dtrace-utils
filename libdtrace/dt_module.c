@@ -183,6 +183,7 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 		return error;
 	}
 
+	fts_close(ftp);
 	return 0;
 }
 

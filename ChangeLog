@@ -9,6 +9,7 @@
 	* libdtrace/dt_options.c (dt_opt_procfs_path): Likewise.
 
 	* libdtrace/dt_open.c (dtrace_close): Free the dt_module_path.
+	* libdtrace/dt_module.c (d_tkern_path_update): Close the fts handle.
 
 2013-10-31  Nick Alcock  <nick.alcock@oracle.com>
 
