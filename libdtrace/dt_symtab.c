@@ -304,13 +304,11 @@ dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr)
 	if (sympp == NULL)
 		return NULL;
 
-	symp = *sympp;
-
-	for (lastsymp = symp;
-	     (symp > *symtab->dtst_addrs) &&
+	for (symp = *sympp, lastsymp = symp;
+	     (sympp > symtab->dtst_addrs) &&
 		 (symp->dts_addr <= dts_addr) &&
 		 (symp->dts_addr + symp->dts_size > dts_addr);
-	     lastsymp = symp, symp -= sizeof (struct dt_symbol))
+	     lastsymp = symp, sympp -= sizeof (struct dt_symbol *), symp = *sympp)
 		;
 
 	if ((lastsymp->dts_addr <= dts_addr) &&

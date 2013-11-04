@@ -1,8 +1,11 @@
 2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
 
+2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libproc/Pcontrol.c (Pcreate): Fix use-after-free.
 	* libproc/isadep_x86.c (Pread_first_arg_x86): Check the right
 	variable for failure.
+	* libdtrace/dt_symtab.c (dt_symbol_by_addr): Fix scanning loop.
 
 2013-11-01  Nick Alcock  <nick.alcock@oracle.com>
 
