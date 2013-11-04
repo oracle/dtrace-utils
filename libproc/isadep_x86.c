@@ -81,9 +81,9 @@ Pread_first_arg_x86(struct ps_prochandle *P)
 	stackaddr = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid,
 	    RSP * sizeof (long));
 
-	if ((errno == ESRCH) || (addr < 0))
+	if ((errno == ESRCH) || (stackaddr < 0))
 		return (uintptr_t) -1;
-	
+
 	stackaddr += 4; /* 32-bit Linux x86's sizeof (long), stack grows down */
 	if (Pread_scalar(P, &addr, 4, sizeof(addr), stackaddr) < 0)
 		return (uintptr_t) -1;
