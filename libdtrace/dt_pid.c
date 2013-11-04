@@ -449,6 +449,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	pp.dpp_dpr = dpr;
 	pp.dpp_pr = dpr->dpr_proc;
 	pp.dpp_pcb = pcb;
+	pp.dpp_nmatches = 0;
 
 	/*
 	 * We can only trace dynamically-linked executables (since we've
