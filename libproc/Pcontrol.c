@@ -214,10 +214,10 @@ bad_untrace:
 	Puntrace(P, 0);
 bad:
 	(void) kill(pid, SIGKILL);
-	Pfree_internal(P);
 	*perr = rc;
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
+	Pfree_internal(P);
 	return (NULL);
 }
 
