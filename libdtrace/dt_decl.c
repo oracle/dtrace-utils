@@ -432,12 +432,13 @@ dt_decl_array(dt_node_t *dnp)
 dt_decl_t *
 dt_decl_func(dt_decl_t *pdp, dt_node_t *dnp)
 {
-	dt_decl_t *ddp = dt_decl_alloc(CTF_K_FUNCTION, NULL);
-
-	ddp->dd_node = dnp;
+	dt_decl_t *ddp;
 
 	(void) dt_decl_prototype(dnp, dnp, "function",
 	    DT_DP_VARARGS | DT_DP_VOID | DT_DP_ANON);
+
+	ddp = dt_decl_alloc(CTF_K_FUNCTION, NULL);
+	ddp->dd_node = dnp;
 
 	if (pdp == NULL || pdp->dd_kind != CTF_K_POINTER)
 		return (dt_decl_push(ddp));

@@ -1,3 +1,8 @@
+2013-11-05  Nick Alcock  <nick.alcock@oracle.com>
+
+	* libdtrace/dt_decl.c (dt_decl_func): Allocate declarator after
+	prototype checks.
+
 2013-11-05  Kris Van Hees <kris.van.hees@oracle.com>
 
 	* test/unittest/builtinvar/tst.errno2.d: Test errno value in syscall.
