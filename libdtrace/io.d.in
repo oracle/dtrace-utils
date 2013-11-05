@@ -71,11 +71,17 @@ translator devinfo_t < struct buffer_head *B > {
 	    : B->b_bdev->bd_disk->part0.__dev.driver->name
 		? stringof(B->b_bdev->bd_disk->part0.__dev.driver->name)
 		: "<none>";
-	dev_statname = strjoin(stringof(B->b_bdev->bd_disk->disk_name),
-			       lltostr(B->b_bdev->bd_part->partno));
-	dev_pathname = strjoin("/dev/",
-			       strjoin(stringof(B->b_bdev->bd_disk->disk_name),
-				       lltostr(B->b_bdev->bd_part->partno)));
+	dev_statname = B->b_bdev->bd_part->partno == 0
+			? stringof(B->b_bdev->bd_disk->disk_name)
+			: strjoin(stringof(B->b_bdev->bd_disk->disk_name),
+				  lltostr(B->b_bdev->bd_part->partno));
+	dev_pathname = strjoin(
+			"/dev/",
+			B->b_bdev->bd_part->partno == 0
+			    ? stringof(B->b_bdev->bd_disk->disk_name)
+			    : strjoin(stringof(B->b_bdev->bd_disk->disk_name),
+				      lltostr(B->b_bdev->bd_part->partno))
+		       );
 };
 
 typedef struct fileinfo {
