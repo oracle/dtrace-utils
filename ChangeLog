@@ -1,5 +1,7 @@
 2013-11-05  Nick Alcock  <nick.alcock@oracle.com>
 
+2013-11-05  Nick Alcock  <nick.alcock@oracle.com>
+
 	* libdtrace/dt_decl.c (dt_decl_func): Allocate declarator after
 	prototype checks.
 	* cmd/dtrace.c (main): Free the argv on error.
@@ -12,6 +14,7 @@
 	(dt_break_libc_start_main): Likewise.
 	* libproc/Pcontrol.c (bkpt_flush): Mark all breakpoints as
 	not being in handlers any more.  Note why this is safe.
+	* libdtrace/dt_open.c (dtrace_close): Free the dt_sprintf_buf.
 
 2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
 

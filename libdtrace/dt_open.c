@@ -1361,6 +1361,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_cpp_path);
 	free(dtp->dt_ld_path);
 
+	free(dtp->dt_sprintf_buf);
+
 	elf_end(dtp->dt_ctf_elf);
 	free(dtp->dt_mods);
 	free(dtp->dt_module_path);
