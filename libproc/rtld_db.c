@@ -270,7 +270,7 @@ rd_get_link_map(rd_agent_t *rd, struct link_map *buf, uintptr_t addr)
 /*
  * Populate a loadobj element, given a link map and an address.
  *
- * The scopes array in the returned structure is realloc()ed as needed, should
+ * The rl_scope array in the returned structure is realloc()ed as needed, should
  * be NULL to start with, and must be freed by the caller when done.
  *
  * rl_lmident is not populated.
@@ -1433,7 +1433,7 @@ spotted_exec:
  * Look up a scope element in a loadobj structure and a second loadobj structure
  * to populate.
  *
- * The scopes array in the returned structure is realloc()ed as needed, should
+ * The rl_scope array in the returned structure is realloc()ed as needed, should
  * be NULL to start with, and must be freed by the caller when done.
  */
 struct rd_loadobj *

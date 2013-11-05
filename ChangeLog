@@ -3,6 +3,9 @@
 	* libdtrace/dt_decl.c (dt_decl_func): Allocate declarator after
 	prototype checks.
 	* cmd/dtrace.c (main): Free the argv on error.
+	* libproc/Psymtab.c (Pupdate_symsearch): Free the scopes array.
+	* rtld_db.c (rd_get_scope): Fix comment.
+	(rd_get_loadobj_link_map): Likewise.
 
 2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
 

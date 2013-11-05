@@ -427,6 +427,8 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 
 		fptr->file_symsearch[fptr->file_nsymsearch++] = mptr->map_file;
 	}
+
+	free(scope_lo.rl_scope);
 }
 
 /*
