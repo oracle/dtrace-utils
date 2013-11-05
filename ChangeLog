@@ -12,6 +12,7 @@
 	(dt_break_libc_start_main): Likewise.
 	* libproc/Pcontrol.c (bkpt_flush): Mark all breakpoints as
 	not being in handlers any more.  Note why this is safe.
+	* libdtrace/dt_open.c (dtrace_close): Free the dt_sprintf_buf.
 
 2013-11-05  Kris Van Hees <kris.van.hees@oracle.com>
 
