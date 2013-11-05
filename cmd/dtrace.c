@@ -1566,8 +1566,10 @@ main(int argc, char *argv[])
 					fatal("failed to allocate memory");
 
 				P = dtrace_proc_create(g_dtp, v[0], v, 0);
-				if (P == NULL)
+				if (P == NULL) {
+					free(v);
 					dfatal(NULL); /* dtrace_errmsg() only */
+				}
 
 				g_psv[g_psc++] = P;
 				free(v);
