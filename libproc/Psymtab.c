@@ -155,12 +155,12 @@ file_info_del(struct ps_prochandle *P, file_info_t *fptr)
 static void
 file_info_purge(struct ps_prochandle *P)
 {
-	uint_t i;
+	uint_t i, num_files = P->num_files;
 	file_info_t *fptr;
 	file_info_t *old_fptr = NULL;
 
 	for (i = 0, fptr = dt_list_next(&P->file_list);
-	     i < P->num_files; i++, old_fptr = fptr,
+	     i < num_files; i++, old_fptr = fptr,
 		 fptr = dt_list_next(fptr)) {
 		if (old_fptr && old_fptr->file_ref == 0)
 			file_info_del(P, old_fptr);

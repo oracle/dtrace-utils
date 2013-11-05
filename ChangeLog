@@ -4,6 +4,8 @@
 	prototype checks.
 	* cmd/dtrace.c (main): Free the argv on error.
 	* libproc/Psymtab.c (Pupdate_symsearch): Free the scopes array.
+	(file_info_purge): Use a snapshot of num_files when purging
+	the file_info list.
 	* rtld_db.c (rd_get_scope): Fix comment.
 	(rd_get_loadobj_link_map): Likewise.
 	* libdtrace/dt_proc.c (dt_break_interesting): Remove oneshot
