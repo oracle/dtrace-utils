@@ -1,6 +1,7 @@
 2013-11-05  Kris Van Hees <kris.van.hees@oracle.com>
 
 	* test/unittest/builtinvar/tst.errno2.d: Test errno value in syscall.
+	* libdtrace/io.d.in: Fix dev_statname and dev_pathname.
 
 2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
 
