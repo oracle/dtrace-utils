@@ -6,6 +6,12 @@
 	* libproc/Psymtab.c (Pupdate_symsearch): Free the scopes array.
 	* rtld_db.c (rd_get_scope): Fix comment.
 	(rd_get_loadobj_link_map): Likewise.
+	* libdtrace/dt_proc.c (dt_break_interesting): Remove oneshot
+	breakpoint as early as possible.
+	(dt_break_prepare_drop_main): Likewise.
+	(dt_break_libc_start_main): Likewise.
+	* libproc/Pcontrol.c (bkpt_flush): Mark all breakpoints as
+	not being in handlers any more.  Note why this is safe.
 
 2013-11-04  Nick Alcock  <nick.alcock@oracle.com>
 

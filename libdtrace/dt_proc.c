@@ -203,10 +203,10 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
 	dt_dprintf("pid %d: breakpoint on interesting locus\n",
 	    (int)dpr->dpr_pid);
 
+	Punbkpt(dpr->dpr_proc, addr);
 	dt_proc_scan(dpr->dpr_hdl, dpr);
 	dt_proc_stop(dpr, dpr->dpr_hdl->dt_prcmode);
 	dt_proc_resume(dpr);
-	Punbkpt(dpr->dpr_proc, addr);
 
 	return PS_RUN;
 }
@@ -231,6 +231,8 @@ dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 	dt_dprintf("pid %d: breakpoint on process start()\n",
 	    (int)dpr->dpr_pid);
 
+	Punbkpt(dpr->dpr_proc, addr);
+
 	/*
 	 * Dynamically linked: scan for shared libraries, and drop a breakpoint
 	 * on __libc_start_main().
@@ -248,8 +250,6 @@ dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 
 	if (ret < 0)
 		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
-
-	Punbkpt(dpr->dpr_proc, addr);
 
 	if (ret < 0)
 		dt_main_fail_rendezvous(dpr);
@@ -272,6 +272,8 @@ dt_break_libc_start_main(uintptr_t addr, void *dpr_data)
 	dt_dprintf("pid %d: breakpoint on __libc_start_main()\n",
 	    (int)dpr->dpr_pid);
 
+	Punbkpt(dpr->dpr_proc, addr);
+
 	ret = dt_proc_attach(dpr, ATTACH_FIRST_ARG_MAIN);
 
 	/*
@@ -279,8 +281,6 @@ dt_break_libc_start_main(uintptr_t addr, void *dpr_data)
 	 */
 	if (ret < 0)
 		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
-
-	Punbkpt(dpr->dpr_proc, addr);
 
 	if (ret < 0)
 		dt_main_fail_rendezvous(dpr);

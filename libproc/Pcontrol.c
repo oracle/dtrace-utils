@@ -1314,7 +1314,12 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
  * Rendered more complicated by the need to do local breakpoint cleanup even if
  * the process is gone.  (We cannot use Punbkpt() because the process might have
  * exec()ed, and we do not want to continue it, nor modify the address of
- * breakpoints that can no longer exist within it.)
+ * breakpoints that can no longer exist within it: we also need to cancel out
+ * the 'in local handler' flag which otherwise stops breakpoints being removed
+ * immediately, since if this function is called any active handlers will never
+ * be re-entered: either the ps_prochandle is about to disappear, or the process
+ * has just exec()ed, thus is running, thus we cannot be inside a breakpoint
+ * handler, since that implies the process is stopped.)
  */
 static void
 bkpt_flush(struct ps_prochandle *P, int gone) {
@@ -1334,6 +1339,7 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 		for (bkpt = P->bkpts[i]; bkpt != NULL;
 		     old_bkpt = bkpt, bkpt = bkpt->bkpt_next) {
 			if (old_bkpt != NULL) {
+				old_bkpt->in_handler = FALSE;
 				if (!gone)
 					Punbkpt(P, old_bkpt->bkpt_addr);
 				else {
@@ -1344,9 +1350,10 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 		}
 
 		if (old_bkpt != NULL) {
-			if (!gone)
+			if (!gone) {
+				old_bkpt->in_handler = FALSE;
 				Punbkpt(P, old_bkpt->bkpt_addr);
-			else {
+			} else {
 				bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
 				delete_bkpt_handler(bkpt);
 			}
@@ -1381,7 +1388,6 @@ delete_bkpt_handler(struct bkpt *bkpt)
 	if (deleting) {
 		next = dt_list_prev(deleting);
 		do {
-
 			if (deleting->bkpt_cleanup)
 				deleting->bkpt_cleanup(deleting->bkpt_data);
 
