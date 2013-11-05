@@ -7,6 +7,11 @@ Bugfixes:
    comment at intervals of 8192 characters was fixed.
    [Introduced in the original Linux port]
 
+ - A variety of memory leaks and uninitialized memory reads are fixed.
+
+ - A bug whereby breakpoints could be left outstanding in a process if dtrace
+   was interrupted with an ordinary SIGINT at just the wrong instant is fixed.
+
 0.4
 ---
 
