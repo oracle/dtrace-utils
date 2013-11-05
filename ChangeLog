@@ -2,6 +2,7 @@
 
 	* libdtrace/dt_decl.c (dt_decl_func): Allocate declarator after
 	prototype checks.
+	* cmd/dtrace.c (main): Free the argv on error.
 
 2013-11-05  Kris Van Hees <kris.van.hees@oracle.com>
 
