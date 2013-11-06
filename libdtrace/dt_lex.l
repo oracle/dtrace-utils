@@ -928,7 +928,7 @@ dt_input(char *buf, size_t max_size)
 	if (yypcb->pcb_fileptr != NULL) {
 		result = fread(buf, 1, max_size, yypcb->pcb_fileptr);
 		if (result == 0 && ferror(yypcb->pcb_fileptr))
-                	longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
+			longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
         } else {
                 size_t len_left = (yypcb->pcb_strlen - (yypcb->pcb_strptr - yypcb->pcb_string));
                 result = len_left > max_size ? max_size : len_left;
