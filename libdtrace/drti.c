@@ -116,7 +116,7 @@ dtrace_dof_init(void)
 	lmid = 0;			/* We need a way to determine this. */
 
 	snprintf(mfn, sizeof(mfn), "/proc/%d/maps", getpid());
-	if ((fp = fopen(mfn, "r")) == NULL) {
+	if ((fp = fopen(mfn, "re")) == NULL) {
 		dprintf(1, "DRTI: Failed to open maps file.\n");
                 goto out;
 	}
@@ -191,7 +191,7 @@ dtrace_dof_fini(void)
 {
 	int fd;
 
-	if ((fd = open(devname, O_RDWR)) < 0) {
+	if ((fd = open(devname, O_RDWR | O_CLOEXEC)) < 0) {
 		if (dof_init_debug)
 			dprintf(1, "DRTI: Failed to open helper device %s\n",
 				devname);
