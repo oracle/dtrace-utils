@@ -97,19 +97,19 @@ dtrace_dof_init(void)
 
 	if ((fd = open(devname, O_RDWR)) < 0) {
 		if (dof_init_debug)
-			dprintf(1, "DRTI: Failed to open helper device %s\n",
+			dprintf(2, "DRTI: Failed to open helper device %s\n",
 				devname);
 		return;
 	}
 
 #if 0
 	if (dlinfo(RTLD_SELF, RTLD_DI_LINKMAP, &lmp) == -1 || lmp == NULL) {
-		dprintf(1, "DRTI: Couldn't discover module name or address.\n");
+		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
                 goto out;
 	}
 
 	if (dlinfo(RTLD_SELF, RTLD_DI_LMID, &lmid) == -1) {
-		dprintf(1, "DRTI: Couldn't discover link map ID.\n");
+		dprintf(2, "DRTI: Couldn't discover link map ID.\n");
                 goto out;
 	}
 #else
@@ -117,7 +117,7 @@ dtrace_dof_init(void)
 
 	snprintf(mfn, sizeof(mfn), "/proc/%d/maps", getpid());
 	if ((fp = fopen(mfn, "re")) == NULL) {
-		dprintf(1, "DRTI: Failed to open maps file.\n");
+		dprintf(2, "DRTI: Failed to open maps file.\n");
                 goto out;
 	}
 	while (fgets(str, sizeof(str), fp) != NULL) {
@@ -157,7 +157,7 @@ dtrace_dof_init(void)
 	    dof->dofh_ident[DOF_ID_MAG1] != DOF_MAG_MAG1 ||
 	    dof->dofh_ident[DOF_ID_MAG2] != DOF_MAG_MAG2 ||
 	    dof->dofh_ident[DOF_ID_MAG3] != DOF_MAG_MAG3) {
-		dprintf(1, "DRTI: .SUNW_dof section corrupt in %s.\n",
+		dprintf(2, "DRTI: .SUNW_dof section corrupt in %s.\n",
 			lmp->l_name);
                 goto out;
 	}
@@ -176,9 +176,9 @@ dtrace_dof_init(void)
 	}
 
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
-		dprintf(1, "DRTI: Ioctl failed for DOF at %p\n", (void *)dof);
+		dprintf(2, "DRTI: Ioctl failed for DOF at %p\n", (void *)dof);
 	else if (dof_init_debug)
-		dprintf(1, "DRTI: Ioctl OK for DOF at %p (gen %d)\n",
+		dprintf(2, "DRTI: Ioctl OK for DOF at %p (gen %d)\n",
 			(void *)dof, gen);
 
  out:
@@ -193,15 +193,15 @@ dtrace_dof_fini(void)
 
 	if ((fd = open(devname, O_RDWR | O_CLOEXEC)) < 0) {
 		if (dof_init_debug)
-			dprintf(1, "DRTI: Failed to open helper device %s\n",
+			dprintf(2, "DRTI: Failed to open helper device %s\n",
 				devname);
 		return;
 	}
 
 	if ((gen = ioctl(fd, DTRACEHIOC_REMOVE, gen)) == -1)
-		dprintf(1, "DRTI: Ioctl failed to remove DOF (gen %d)\n", gen);
+		dprintf(2, "DRTI: Ioctl failed to remove DOF (gen %d)\n", gen);
 	else if (dof_init_debug)
-		dprintf(1, "DRTI: Ioctl removed DOF (gen %d)\n", gen);
+		dprintf(2, "DRTI: Ioctl removed DOF (gen %d)\n", gen);
 
 	close(fd);
 }
