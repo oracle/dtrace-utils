@@ -49,7 +49,7 @@
  * /dev link doesn't exist it falls back to looking for the /devices node
  * as this code may be embedded in a binary which runs on Solaris 10 GA.
  *
- * Users may set the following environment variable to affect the way
+ * Users may set the following environment variables to affect the way
  * helper initialization takes place:
  *
  *	DTRACE_DOF_INIT_DEBUG		enable debugging output
@@ -92,15 +92,25 @@ dtrace_dof_init(void)
 	if (getenv("DTRACE_DOF_INIT_DEBUG") != NULL)
 		dof_init_debug = B_TRUE;
 
+	if ((p = getenv("DTRACE_DOF_INIT_DEVNAME")) != NULL)
+		devname = p;
+
+	if ((fd = open(devname, O_RDWR)) < 0) {
+		if (dof_init_debug)
+			dprintf(1, "DRTI: Failed to open helper device %s\n",
+				devname);
+		return;
+	}
+
 #if 0
 	if (dlinfo(RTLD_SELF, RTLD_DI_LINKMAP, &lmp) == -1 || lmp == NULL) {
 		dprintf(1, "DRTI: Couldn't discover module name or address.\n");
-		return;
+                goto out;
 	}
 
 	if (dlinfo(RTLD_SELF, RTLD_DI_LMID, &lmid) == -1) {
 		dprintf(1, "DRTI: Couldn't discover link map ID.\n");
-		return;
+                goto out;
 	}
 #else
 	lmid = 0;			/* We need a way to determine this. */
@@ -108,7 +118,7 @@ dtrace_dof_init(void)
 	snprintf(mfn, sizeof(mfn), "/proc/%d/maps", getpid());
 	if ((fp = fopen(mfn, "r")) == NULL) {
 		dprintf(1, "DRTI: Failed to open maps file.\n");
-		return;
+                goto out;
 	}
 	while (fgets(str, sizeof(str), fp) != NULL) {
 		uintptr_t	start, end;
@@ -149,7 +159,7 @@ dtrace_dof_init(void)
 	    dof->dofh_ident[DOF_ID_MAG3] != DOF_MAG_MAG3) {
 		dprintf(1, "DRTI: .SUNW_dof section corrupt in %s.\n",
 			lmp->l_name);
-		return;
+                goto out;
 	}
 
 	elf = (void *)lmp->l_addr;
@@ -165,22 +175,13 @@ dtrace_dof_init(void)
 		    "LM%lu`%s", lmid, modname);
 	}
 
-	if ((p = getenv("DTRACE_DOF_INIT_DEVNAME")) != NULL)
-		devname = p;
-
-	if ((fd = open(devname, O_RDWR)) < 0) {
-		if (dof_init_debug)
-			dprintf(1, "DRTI: Failed to open helper device %s\n",
-				devname);
-		return;
-	}
-
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
 		dprintf(1, "DRTI: Ioctl failed for DOF at %p\n", (void *)dof);
 	else if (dof_init_debug)
 		dprintf(1, "DRTI: Ioctl OK for DOF at %p (gen %d)\n",
 			(void *)dof, gen);
 
+ out:
 	close(fd);
 }
 
