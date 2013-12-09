@@ -119,6 +119,9 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Wed Dec 18 2013 - nick.alcock@oracle.com - 0.4.1-1
+- (Kris van Hees) Install showUSDT in docdir.
+
 * Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-8
 - Fix format of RPM changelog
 - Add missing RPM changelog entries
