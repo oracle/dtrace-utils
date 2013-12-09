@@ -119,7 +119,7 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
-* Fri Aug 16 2013 Kris Van Hees <kris.van.hees%oracle.com> - 0.4.0-9
+* Fri Dec  9 2013 Kris Van Hees <kris.van.hees%oracle.com> - 0.4.0-9
 - Install showUSDT in docdir.
 
 * Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-8
