@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers = 1 kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
-Release:      5.el6
+Release:      6.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -119,6 +119,8 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Fri Aug 16 2013 - kris.van.hees%oracle.com - 0.4.0-6
+- Install showUSDT in docdir.
 * Tue Sep 17 2013 - nick.alcock%oracle.com - 0.4.0-5
 - avoid deadlocking when doing process operations during dtrace -l.
 * Fri Aug 16 2013 - kris.van.hees%oracle.com - 0.4.0-2
