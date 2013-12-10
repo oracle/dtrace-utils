@@ -16,8 +16,8 @@ Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers = 1 dtrace-kernel-interface = 1
-BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers = 1 kernel%{variant}-devel = %{kver}
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
+BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.0
 Release:      9.el6
@@ -35,7 +35,7 @@ Kris van Hees <kris.van.hees@oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel
+Requires:     libdtrace-ctf-devel dtrace-modules-headers
 Group:	      Development/System
 
 %description devel

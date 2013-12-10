@@ -1171,7 +1171,7 @@ main(int argc, char *argv[])
 	dtrace_optval_t opt;
 	dtrace_cmd_t *dcp;
 
-	int done = 0, mode = 0;
+	int done = 0, mode = 0, tried_loading = 0;
 	int err, i;
 	char c, *p, **v;
 	struct ps_prochandle *P;
@@ -1338,14 +1338,24 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Open libdtrace.  If we are not actually going to be enabling any
-	 * instrumentation attempt to reopen libdtrace using DTRACE_O_NODEV.
+	 * Open libdtrace. If we are not actually going to be enabling any
+	 * instrumentation attempt to reopen libdtrace using DTRACE_O_NODEV; if
+	 * even that fails, attempt to reopen without DTRACE_O_NODEV, but after
+	 * running a script to load the dtrace module. (The name of this script
+	 * is presently hardwired.)
 	 */
 	while ((g_dtp = dtrace_open(DTRACE_VERSION, g_oflags, &err)) == NULL) {
 		if (!(g_oflags & DTRACE_O_NODEV) && !g_exec && !g_grabanon) {
 			g_oflags |= DTRACE_O_NODEV;
 			continue;
 		}
+
+                if (!tried_loading) {
+                        tried_loading = 1;
+                        if (system(DTRACE_LIBDIR "/load_dtrace_modules") == 0)
+                                continue;
+                        g_oflags &= ~DTRACE_O_NODEV;
+                }
 
 		fatal("failed to initialize dtrace: %s\n",
 		    dtrace_errmsg(NULL, err));
