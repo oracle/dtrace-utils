@@ -22,7 +22,8 @@
 # Use is subject to license terms.
 
 CMDS += dtrace
-dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
+dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE \
+	-DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
@@ -45,8 +46,10 @@ fi\n"
 	chmod a+x $(objdir)/run-dtrace
 
 install::
-	mkdir -p $(SBINDIR) $(MANDIR)
+	mkdir -p $(SBINDIR) $(MANDIR) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(SBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(SBINDIR)
 	$(call describe-install-target,$(MANDIR),dtrace.1)
 	install -m 644 $(dtrace_DIR)/dtrace.1 $(MANDIR)
+	$(call describe-install-target,$(LIBDIR)/dtrace,modules)
+	install -m 755 $(dtrace_DIR)/load_dtrace_modules $(LIBDIR)/dtrace
