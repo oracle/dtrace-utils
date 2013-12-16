@@ -22,7 +22,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 .DELETE_ON_ERROR:
@@ -81,29 +81,7 @@ include Makeconfig
 include Build */Build
 -include $(objdir)/*.deps
 include Makerules
+include Maketargets
 include Makecheck
-
-all:: $(TARGETS)
-
-clean::
-	$(call describe-target,CLEAN,$(objdir) test/log)
-	-rm -rf $(objdir) test/log
-
-realclean: clean
-	-rm -f TAGS tags GTAGS GRTAGS GPATH
-
-TAGS:
-	$(call describe-target,TAGS)
-	rm -f TAGS; find . -name '*.[ch]' | xargs etags -a
-
-tags:
-	$(call describe-target,tags)
-	rm -f tags; find . -name '*.[ch]' | xargs ctags -a
-
-gtags:
-	$(call describe-target,gtags)
-	gtags -i
-
-PHONIES += all clean TAGS tags gtags
 
 .PHONY: $(PHONIES)
