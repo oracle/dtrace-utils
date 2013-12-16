@@ -33,6 +33,10 @@
 # -internal in a target name means that this is an internal implementation
 #           detail and should not be run directly.
 
+# Specialist targets for QA, check-qa-*, all of which run against the installed
+# DTrace:
+# check-qa-smoke: Runs the smoke testsuite.
+
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
@@ -59,6 +63,14 @@ check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-c
 
 check-installed-verbose-stress-internal: check-installed-verbose-internal
 check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+
+# QA targets.
+
+check-qa-smoke:
+	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
+
+check-qa-smoke-internal:
+	./runtest.sh --use-installed --testsuites=smoke --quiet
 
 # Load the DTrace modules, and do nothing else.  Useful for testing
 # the impact of inactive DTrace.
