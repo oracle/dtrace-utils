@@ -27,8 +27,6 @@ debugging ?= no
 coverage ?= no
 verbose ?= no
 
-PHONIES += help
-
 help::
 	@printf "Options:\n\n" >&2
 	@printf "make debugging=yes [targets]   Disable optimization to make debugger use easier\n" >&2

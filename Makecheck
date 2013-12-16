@@ -37,6 +37,20 @@
 # DTrace:
 # check-qa-smoke: Runs the smoke testsuite.
 
+help::
+	@printf "Checking targets (as root):\n\n" >&2
+	@printf "check                          Test the built DTrace.\n" >&2
+	@printf "check-verbose                  Report successes too.\n" >&2
+	@printf "check-installed                Check the installed DTrace.\n" >&2
+	@printf "check-installed-verbose        Report successes too.\n" >&2
+	@printf "check-stress                   Run testsuites that stress the system.\n" >&2
+	@printf "check-installed-stress         Check the installed DTrace.\n" >&2
+	@printf "check-installed-verbose-stress Report successes too.\n" >&2
+	@printf "check-module-loading           Check that all modules load.\n" >&2
+	@printf "check-probe-all-syscalls       Probe all syscalls, forever.\n" >&2
+	@printf "check-qa-smoke                 Smoke-test the installed DTrace.\n" >&2
+	@printf "\n" >&2
+
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
