@@ -37,7 +37,6 @@ extern "C" {
 
 extern dt_module_t *dt_module_create(dtrace_hdl_t *, const char *);
 extern void dt_module_destroy(dtrace_hdl_t *, dt_module_t *);
-extern void dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp);
 
 extern dt_module_t *dt_module_lookup_by_name(dtrace_hdl_t *, const char *);
 extern dt_module_t *dt_module_lookup_by_ctf(dtrace_hdl_t *, ctf_file_t *);

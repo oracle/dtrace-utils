@@ -48,6 +48,7 @@
 #include <dt_impl.h>
 #include <dt_program.h>
 #include <dt_module.h>
+#include <dt_kernel_module.h>
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
