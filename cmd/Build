@@ -21,7 +21,7 @@
 # Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
-CMDS += dtrace
+CMDS += dtrace ctf_module_dump
 dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE \
 	-DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 dtrace_TARGET = dtrace
@@ -29,6 +29,13 @@ dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
 dtrace_DEPS = libdtrace.so libport.a
 dtrace_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
+
+ctf_module_dump_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
+ctf_module_dump_TARGET = ctf_module_dump
+ctf_module_dump_DIR := $(current-dir)
+ctf_module_dump_SOURCES = ctf_module_dump.c
+ctf_module_dump_DEPS = libdtrace.so libport.a
+ctf_module_dump_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
 
 $(objdir)/run-dtrace: $(DTRACE)
 	printf > $@ "\
@@ -46,9 +53,11 @@ fi\n"
 	chmod a+x $(objdir)/run-dtrace
 
 install::
-	mkdir -p $(SBINDIR) $(MANDIR) $(LIBDIR)/dtrace
+	mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(SBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(SBINDIR)
+	$(call describe-install-target,$(BINDIR),ctf_module_dump)
+	install -m 755 $(objdir)/ctf_module_dump $(BINDIR)
 	$(call describe-install-target,$(MANDIR),dtrace.1)
 	install -m 644 $(dtrace_DIR)/dtrace.1 $(MANDIR)
 	$(call describe-install-target,$(LIBDIR)/dtrace,modules)

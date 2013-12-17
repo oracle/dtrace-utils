@@ -115,6 +115,7 @@ fi
 %defattr(-,root,root,-)
 %exclude /usr/src/debug
 %exclude /usr/lib/debug
+%{_bindir}/ctf_module_dump
 %{_libdir}/libdtrace.so
 %{_includedir}/dtrace.h
 
