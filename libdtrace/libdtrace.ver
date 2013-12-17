@@ -19,7 +19,7 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2009, 2012 Oracle, Inc.  All rights reserved.
+# Copyright 2009, 2012, 2013 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -111,4 +111,10 @@ LIBDTRACE_1.0 {
 	dtrace_xstr2desc;
     local:
 	*;
+};
+
+# These are used by the CTF dumper, and are not part of the public interface.
+LIBDTRACE_PRIVATE
+{
+	dtrace__internal_*;
 };
