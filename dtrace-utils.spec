@@ -19,8 +19,8 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.0
-Release:      8.el6
+Version:      0.4.1
+Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,8 +120,22 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
-* Wed Dec 18 2013 - nick.alcock@oracle.com - 0.4.1-1
-- (Kris van Hees) Install showUSDT in docdir.
+* Wed Dec 18 2013 - <nick.alcock@oracle.com> - 0.4.1-1
+- Install showUSDT in docdir. (Kris van Hees) [Orabug: 17968414]
+- Install ctf_module_dump. [Orabug: 17968381]
+- A lexer bug was fixed causing spurious errors if D scripts contained a
+  pragma or comment at intervals of 8192 characters, and preventing
+  the use of scripts >16KiB entirely. [Orabug: 17742866]
+- Fix devinfo_t's dev_statname and dev_pathanme for cases where the
+  device does not have partitions. (Kris van Hees) [Orabug: 17973698]
+- A variety of memory leaks and uninitialized memory reads are fixed.
+  [Orabug: 17743019]
+- Improve drti.o to minimize overhead when DTrace is not running.
+  [Orabug: 17973604]
+- Emit errors from drti.o on stderr, not stdout. [Orabug: 17973604]
+- Use O_CLOEXEC when opening files in drti.o. [Orabug: 17973604]
+- Fix RPM dependencies; automatically install and modprobe the dtrace
+  modules as needed. [Orabug: 17804881]
 
 * Wed Oct 16 2013 Nick Alcock <nick.alcock@oracle.com> - 0.4.0-8
 - Fix format of RPM changelog
