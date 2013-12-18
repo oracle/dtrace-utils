@@ -1,16 +1,41 @@
 0.4.1
 -----
 
+New features:
+
+ - New development tools showUSDT (for dumping of DOF sections) and
+   ctf_module_dump (for dumping of CTF in kernel modules).  (The former tool is
+   an example only, and is installed in the documentation directory.)
+
+ - DTrace now automatically modprobes for dtrace.ko if needed, and yum installs
+   it if it is not found on the system.  Provider modules are not automatically
+   modprobed, but running (for example) dtrace -l is now a good way to make sure
+   that the modules are present on the system so you can modprobe them.
+
 Bugfixes:
 
- - A parser bug causing spurious errors if D scripts contained a #pragma or
-   comment at intervals of 8192 characters was fixed.
+ - A lexer bug was fixed which caused spurious errors if D scripts contained a
+   #pragma or comment at intervals of 8192 characters, and prevented the use
+   of scripts >16KiB entirely.
    [Introduced in the original Linux port]
 
  - A variety of memory leaks and uninitialized memory reads are fixed.
 
  - A bug whereby breakpoints could be left outstanding in a process if dtrace
    was interrupted with an ordinary SIGINT at just the wrong instant is fixed.
+   [Introduced in DTrace 0.4.0.]
+
+ - The visibility of .SUNW_dof sections was wrong.
+   [Introduced in DTrace 0.4.0.]
+
+ - Fix devinfo_t's dev_statname and dev_pathname for cases where the
+   device does not have partitions.
+   [Introduced in DTrace 0.4.0.]
+
+ - drti.o, which contributes a constructor to programs and shared libraries
+   that contain DOF, now has lower overhead when DTrace is not running,
+   emits its errors to stdout, not stderr, and opens its files with O_CLOEXEC.
+   [Introduced in DTrace 0.4.0.]
 
 0.4
 ---
