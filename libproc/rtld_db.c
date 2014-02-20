@@ -23,7 +23,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -1051,7 +1051,8 @@ rd_new(struct ps_prochandle *P)
 
 	/*
 	 * Can't find r_debug?  This is hopeless.  Quite possibly the process is
-	 * dead, or a stripped statically linked binary.
+	 * dead, or a stripped statically linked binary, or this is a
+	 * noninvasive ptrace().
 	 */
 	if (r_debug_addr == -1) {
 		if (P->state == PS_DEAD)

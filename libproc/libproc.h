@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009, 2012, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2012 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier
@@ -112,7 +112,7 @@ typedef struct ps_prochandle ps_prochandle;
 extern	struct ps_prochandle *Pcreate(const char *, char *const *,
     void *, int *);
 
-extern	struct ps_prochandle *Pgrab(pid_t, void *, int *);
+extern	struct ps_prochandle *Pgrab(pid_t, int, void *, int *);
 extern	int	Ptrace(struct ps_prochandle *, int stopped);
 extern	void	Ptrace_set_detached(struct ps_prochandle *, boolean_t);
 
@@ -131,6 +131,14 @@ extern 	ssize_t	Pread_scalar(struct ps_prochandle *P, void *buf, size_t nbyte,
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
 extern	int	Pdynamically_linked(struct ps_prochandle *);
+extern	int	Ptraceable(struct ps_prochandle *);
+
+/*
+ * Calls that do not take a process structure.  These are used to determine
+ * whether it is sensible to grab a pid at all, before the grab takes place.
+ */
+extern int Pexists(int pid);
+extern int Phastty(int pid);
 
 /*
  * Read the first argument of the function at which the process P is

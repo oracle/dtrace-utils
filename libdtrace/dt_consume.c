@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009, 20111--2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 20111--2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -941,7 +941,8 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	 * this is a vector open, we just print the raw address or string.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING);
+		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+				 DTRACE_PROC_NONINVASIVE);
 	else
 		P = NULL;
 
@@ -1048,7 +1049,8 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 	if (act == DTRACEACT_USYM && dtp->dt_vector == NULL) {
 		struct ps_prochandle *P;
 
-		if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING)) != NULL) {
+		if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+				      DTRACE_PROC_NONINVASIVE)) != NULL) {
 			GElf_Sym sym;
 
 			dt_proc_lock(dtp, P);
@@ -1089,7 +1091,8 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	 * printing raw addresses in the vectored case.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING);
+		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+				 DTRACE_PROC_NONINVASIVE);
 	else
 		P = NULL;
 

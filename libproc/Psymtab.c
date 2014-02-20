@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2009 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -715,7 +715,8 @@ err:
 static void
 Pupdate_lmids(struct ps_prochandle *P)
 {
-	if (P->info_valid && !P->no_dyn && !P->lmids_valid) {
+	if (P->info_valid && !P->noninvasive &&
+	    !P->no_dyn && !P->lmids_valid) {
 		if (P->rap == NULL)
 			P->rap = rd_new(P);
 
@@ -749,12 +750,13 @@ Pupdate_syms(struct ps_prochandle *P)
  * Return the librtld_db agent handle for the victim process.
  * The handle will become invalid at the next successful exec() and the
  * client (caller of proc_rd_agent()) must not use it beyond that point.
- * If the process is already dead, there's nothing we can do.
+ * If the process is already dead or noninvasively grabbed, there's
+ * nothing we can do.
  */
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
-	if (P->rap == NULL && P->state != PS_DEAD) {
+	if (P->rap == NULL && !P->noninvasive && P->state != PS_DEAD) {
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
 	}
@@ -850,7 +852,7 @@ byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 		return (1);
 
 	/*
-	 * Prefer the name with fewer leading underscores in the name.
+	 * Prefer the name with fewer leading underscores.
 	 */
 	while (*aname == '_' && *bname == '_') {
 		aname++;
@@ -1097,15 +1099,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	/*
 	 * Acquire an fd to this mapping.  This requires ptrace()ing.  Then
 	 * create the elf file and get the elf header and .shstrtab data buffer
-	 * so we can process sections by name.  Since dtrace cannot work on dead
-	 * processes or processes we cannot ptrace(), no fallback is needed: we
-	 * must always have a mapping.  (If we don't, this is likely not an ELF
-	 * executable: it might be something faked up in memory and mapped
-	 * executable, but this rare case is not worth supporting and seems
-	 * highly unlikely to have all the ELF structures in place: we won't
-	 * have a file_info_t for it either.  Anything that is working this way
-	 * should just change to writing an ELF executable to an unlinked file
-	 * in /tmp instead.  Solaris DTrace cannot handle this case either.)
+	 * so we can process sections by name.  If we're 'grabbing' without
+	 * ptracing and without a monitor thread, try to open the ELF object
+	 * directly, though this is less reliable and can fail in the presence
+	 * of deleted files and running executables for which we don't have read
+	 * permission.  If we can't even do that, there is no way for us to read
+	 * any kind of symbol table out of this executable.
 	 *
 	 * Note: This Ptrace() call may trigger breakpoint handlers, which can
 	 * look up addresses, which can call this function: so temporarily mark
@@ -1113,28 +1112,42 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * drop out immediately afterwards if it is marked as done now.  The
 	 * same is true of the Puntrace().
 	 */
-	fptr->file_init = 0;
-	p_state = Ptrace(P, 1);
-	if (fptr->file_init == 1) {
-		Puntrace(P, p_state);
-		return;
-	}
-	fptr->file_init = 1;
+	if (!P->noninvasive) {
+		fptr->file_init = 0;
+		p_state = Ptrace(P, 1);
+		if (fptr->file_init == 1) {
+			Puntrace(P, p_state);
+			return;
+		}
+		fptr->file_init = 1;
 
-	if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
-		    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
-		_dprintf("cannot acquire file descriptor for mapping at %lx "
-		    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap.pr_vaddr,
-		    fptr->file_pname, strerror(errno));
-		Puntrace(P, p_state);
-		goto bad;
-	}
+		if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
+			    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
+			_dprintf("cannot acquire file descriptor for mapping at %lx "
+			    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap.pr_vaddr,
+			    fptr->file_pname, strerror(errno));
+			Puntrace(P, p_state);
+			goto bad;
+		}
 
-	fptr->file_init = 0;
-	Puntrace(P, p_state);
-	if (fptr->file_init == 1)
-		return;
-	fptr->file_init = 1;
+		fptr->file_init = 0;
+		Puntrace(P, p_state);
+		if (fptr->file_init == 1)
+			return;
+		fptr->file_init = 1;
+	} else {
+		struct stat s;
+
+		if ((stat(fptr->file_pname, &s) < 0) ||
+		    s.st_dev != fptr->file_dev ||
+		    s.st_ino != fptr->file_inum ||
+		    ((fd = open(fptr->file_pname, O_RDONLY)) < 0)) {
+			_dprintf("%i: cannot open %s in non-ptraced() "
+			    "process: replaced file or open() error\n",
+			    P->pid, fptr->file_pname);
+			goto bad;
+		}
+	}
 
 	/*
 	 * Don't hold the fd open forever. (ELF_C_READ followed by
@@ -1258,6 +1271,13 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 */
 	optimize_symtab(&fptr->file_symtab);
 	optimize_symtab(&fptr->file_dynsym);
+
+	/*
+	 * Only runtime adjustments below, not meaningful when scanning an
+	 * on-disk executable.
+	 */
+	if (P->noninvasive)
+		goto done;
 
 	/*
 	 * Fill in the base address of the text mapping and entry point address
@@ -1706,8 +1726,10 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
 		return (-1);
 
 	/*
-	 * Adjust the address by the load object base address in
-	 * case the address turns out to be in a shared library.
+	 * Adjust the address by the load object base address in case the
+	 * address turns out to be in a shared library.  (This will likely fail
+	 * or work only erratically for noninvasive grabs, since we cannot
+	 * determine the runtime value of file_dyn_base in that case.)
 	 */
 	addr -= fptr->file_dyn_base;
 
