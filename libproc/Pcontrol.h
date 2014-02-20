@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008, 2011 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2011 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -230,6 +230,7 @@ struct ps_prochandle {
 	int	state;		/* state of the process, see "libproc.h" */
 	int	released;	/* true if released but not yet freed */
 	int	ptraced;	/* true if ptrace-attached */
+	int	noninvasive;	/* true if this is a noninvasive grab */
 	int	ptrace_count;	/* count of Ptrace() calls */
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
 	int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that

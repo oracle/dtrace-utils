@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -118,7 +118,7 @@ main(int argc, char *argv[])
 	if (!pid)
 		P = Pcreate(argv[1], &argv[1], NULL, &err);
 	else
-		P = Pgrab(pid, NULL, &err);
+		P = Pgrab(pid, 0, NULL, &err);
 
 	if (!P) {
 		fprintf(stderr, "Cannot execute: %s\n", strerror(err));

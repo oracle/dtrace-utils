@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -617,6 +617,7 @@ proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* process to control */
+	int dpcd_flags;
 
 	/*
 	 * This pipe contains data only when the dt_proc.proxy_rq contains a
@@ -690,9 +691,39 @@ dt_proc_control(void *arg)
 		}
 		dpr->dpr_pid = Pgetpid(dpr->dpr_proc);
 	} else {
-		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, dpr, &err)) == NULL) {
+		int noninvasive = 0;
+
+		/*
+		 * "Noninvasive" means that the monitoring of this process is
+		 * not especially important: that it is one of many processes
+		 * being grabbed by something like a mass u*() action.  It might
+		 * still be worth ptracing it so that we get better symbol
+		 * resolution, but if the process has no controlling terminal,
+		 * avoid ptracing it entirely, to avoid rtld_db dropping
+		 * breakpoints in crucial system daemons.
+		 */
+		if (datap->dpcd_flags & DTRACE_PROC_NONINVASIVE) {
+			noninvasive = 1;
+
+			if (Phastty(dpr->dpr_pid) <= 0)
+				noninvasive = 2;
+		}
+
+		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, noninvasive,
+			    dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
+			pthread_exit(NULL);
+		}
+
+		/*
+		 * If this was a noninvasive grab, quietly exit without calling
+		 * the cleanup handlers: the process is running, but does not
+		 * need a monitoring thread.
+		 */
+		if (noninvasive && !Ptraceable(dpr->dpr_proc)) {
+			dt_dprintf("%i: noninvasive grab, control thread "
+			    "suiciding\n", dpr->dpr_pid);
 			pthread_exit(NULL);
 		}
 	}
@@ -954,7 +985,10 @@ dt_proc_control_cleanup(void *arg)
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
 	 * has exited, and notify any waiting thread in dt_proc_destroy() that
-	 * we have successfully exited.	 Clean up the libproc state.
+	 * we have successfully exited.	 Clean up the libproc state, unless this
+	 * is a non-ptraceable process that doesn't need a monitor thread. (In
+	 * that case, the monitor thread is suiciding but the libproc state
+	 * should remain.)
 	 *
 	 * If we were cancelled while already holding the mutex, don't lock it
 	 * again.
@@ -971,7 +1005,9 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_lock_count = 1;
 	}
 
-	Prelease(dpr->dpr_proc, dpr->dpr_created);
+	if (dpr->dpr_proc)
+		Prelease(dpr->dpr_proc, dpr->dpr_created);
+
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
 
@@ -1139,7 +1175,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 static int
 dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
-    const char *file, char *const *argv)
+    int flags, const char *file, char *const *argv)
 {
 	dt_proc_control_data_t data;
 	sigset_t nset, oset;
@@ -1159,6 +1195,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	data.dpcd_proc = dpr;
 	data.dpcd_start_proc = file;
 	data.dpcd_start_proc_argv = argv;
+	data.dpcd_flags = flags;
 
 	if (pipe(data.dpcd_proxy_fd) < 0) {
 		err = errno;
@@ -1179,11 +1216,12 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 
 	/*
 	 * If the control thread was created, then wait on dpr_cv for either
-	 * dpr_done to be set (the victim died or the control thread failed) or
-	 * DT_PROC_STOP_IDLE to be set, indicating that the victim is now
-	 * stopped and the control thread is at the rendezvous event.  On
-	 * success, we return with the process and control thread stopped: the
-	 * caller can then apply dt_proc_continue() to resume both.
+	 * dpr_done to be set (the victim died, the control thread failed, or no
+	 * control thread was ultimately needed) or DT_PROC_STOP_IDLE to be set,
+	 * indicating that the victim is now stopped and the control thread is
+	 * at the rendezvous event.  On success, we return with the process and
+	 * control thread stopped: the caller can then apply dt_proc_continue()
+	 * to resume both.
 	 */
 	if (err == 0) {
 		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
@@ -1193,11 +1231,12 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 
 		/*
 		 * If dpr_done is set, the control thread aborted before it
-		 * reached the rendezvous event.  We try to provide a small
-		 * amount of useful information to help figure out why.
+		 * reached the rendezvous event; if this happened because the
+		 * monitored process is dead, note as much.
 		 */
 		if (dpr->dpr_done)
-			err = ESRCH; /* cause grab() or create() to fail */
+			if (!dpr->dpr_proc)
+				err = ESRCH; /* cause grab() or create() to fail */
 	} else {
 		(void) dt_proc_error(dpr->dpr_hdl, dpr,
 		    "failed to create control thread for pid %d: %s\n",
@@ -1237,10 +1276,16 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 		attrp = NULL;
 	}
 
+	/*
+	 * Newly-created processes must be invasively grabbed.
+	 */
+	if (flags & DTRACE_PROC_NONINVASIVE)
+		flags &= ~DTRACE_PROC_NONINVASIVE;
+
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_created = B_TRUE;
 
-	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode,
+	if (dt_proc_create_thread(dtp, dpr, dtp->dt_prcmode, flags,
 		file, argv) != 0) {
 
 		pthread_cond_destroy(&dpr->dpr_cv);
@@ -1287,13 +1332,30 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * ensure that dph_lrucnt and dt_proc_retired() do not get out of synch
 	 * (which would cause aggressive early retirement of processes even when
 	 * unnecessary).
+	 *
+	 * If it is noninvasive, or the process is dead, and the request was for
+	 * an invasive grab, destroy it and make a new one (if the process is
+	 * dead, this will obviously fail).  This destruction is safe because
+	 * we know there is no control thread, so it is impossible for anything
+	 * to be holding a reference to it.
 	 */
 	for (dpr = dph->dph_hash[h]; dpr != NULL; dpr = dpr->dpr_hash) {
-		if (dpr->dpr_pid == pid) {
+		if ((dpr->dpr_pid == pid) &&
+		    !(flags & DTRACE_PROC_NONINVASIVE) && !dpr->dpr_tid) {
+				dt_dprintf("pid %d (cached, but noninvasive) "
+				    "dropped.\n", (int)pid);
+
+				dt_list_delete(&dph->dph_lrulist, dpr);
+				dt_proc_destroy(dtp, dpr->dpr_proc);
+				dt_free(dtp, dpr);
+
+		} else if (dpr->dpr_pid == pid) {
 			dt_dprintf("grabbed pid %d (cached)\n", (int)pid);
+
 			dt_list_delete(&dph->dph_lrulist, dpr);
 			dt_list_prepend(&dph->dph_lrulist, dpr);
 			dpr->dpr_refs++;
+
 			if (dt_proc_retired(dpr->dpr_proc)) {
 				/* not retired any more */
 				(void) Pmemfd(dpr->dpr_proc);
@@ -1303,6 +1365,17 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 		}
 	}
 
+	/*
+	 * Quick check if the process is dead, catering for short-lived
+	 * processes and ustack().  This avoids forking off a lot of short-lived
+	 * threads to check the same process time and again.
+	 */
+	if (!Pexists(pid)) {
+		dt_dprintf("Pgrab(%d): Process does not exist, early exit\n",
+		    pid);
+		return NULL;
+	}
+		
 	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
 		return (NULL); /* errno is set for us */
 
@@ -1329,7 +1402,8 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * Create a control thread for this process and store its ID in
 	 * dpr->dpr_tid.
 	 */
-	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, NULL, NULL) != 0) {
+	if (dt_proc_create_thread(dtp, dpr, DT_PROC_STOP_GRAB, flags,
+		NULL, NULL) != 0) {
 
 		pthread_cond_destroy(&dpr->dpr_cv);
 		pthread_cond_destroy(&dpr->dpr_msg_cv);
@@ -1371,7 +1445,8 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 
 	/*
 	 * If requested, wait for the control thread to finish initialization
-	 * and rendezvous.
+	 * and rendezvous.  (This will have no effect on a noninvasively-grabbed
+	 * process, which is already running in any case.)
 	 */
 	if (flags & DTRACE_PROC_WAITING)
 		dt_proc_continue(dtp, dpr->dpr_proc);
@@ -1406,12 +1481,19 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
 	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 
+	/*
+	 * Noninvasively-grabbed processes are never stopped by us, so
+	 * continuing them is meaningless.
+	 */
+	if (!Ptraceable(P))
+		return 0;
+
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 
 	dt_dprintf("%i: doing a dt_proc_continue().\n", dpr->dpr_pid);
 
 	/*
-	 * Calling dt_proc_contineu() from the control thread is banned.
+	 * Calling dt_proc_continue() from the control thread is banned.
 	 */
 	assert(dpr->dpr_tid != pthread_self());
 

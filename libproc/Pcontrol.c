@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier
@@ -160,6 +160,7 @@ Pcreate(
 	P->ptrace_count++;
 	P->ptraced = TRUE;
 	P->ptrace_halted = TRUE;
+	P->noninvasive = FALSE;
 	P->pid = pid;
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 1);
@@ -232,11 +233,13 @@ bad:
  * Return an opaque pointer to its process control structure.
  *
  * pid:		UNIX process ID.
+ * noninvasiveness: if 1, inability to ptrace() is not an error; if 2, do a
+ *                  noninvasive grab unconditionally
  * wrap_arg:	arg for hooks and wrappers
  * perr:	pointer to error return code.
  */
 struct ps_prochandle *
-Pgrab(pid_t pid, void *wrap_arg, int *perr)
+Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
 {
 	struct ps_prochandle *P;
 	char procname[PATH_MAX];
@@ -247,6 +250,9 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 		return (NULL);
 	}
 
+	/*
+	 * We have to ban self-grabs to avoid infinite recursion.
+	 */
 	if (pid == getpid()) {
 		_dprintf("Self-grabs are not supported.\n");
 		*perr = ESRCH;
@@ -272,18 +278,46 @@ Pgrab(pid_t pid, void *wrap_arg, int *perr)
 	Pset_pwait_wrapper(P, NULL);
 
 	P->memfd = -1;
-	if (Pmemfd(P) == -1)		/* populate ->memfd */
-		/* error already reported */
-		goto bad;
 
-	Pgrabbing = 1;
-	*perr = Ptrace(P, 1);
-	Pgrabbing = 0;
+	if (noninvasiveness < 2) {
 
-	if (*perr < 0) {
-		Pfree_internal(P);
-		return NULL;
+		/*
+		 * Populate ->memfd as a side-effect.
+		 */
+		if (Pmemfd(P) == -1) {
+			if (noninvasiveness < 1)
+				/* error already reported */
+				goto bad;
+			else
+				noninvasiveness = 2;
+		} else {
+			/*
+			 * Pmemfd() grabbed, try to ptrace().
+			 */
+			Pgrabbing = 1;
+			*perr = Ptrace(P, 1);
+			Pgrabbing = 0;
+
+			if (*perr < 0) {
+				if (noninvasiveness < 1) {
+					Pfree_internal(P);
+					return NULL;
+				}
+				close(P->memfd);
+				noninvasiveness = 2;
+			}
+		}
 	}
+
+	/*
+	 * Noninvasive grab, or error doing possibly-noninvasive grab promoted
+	 * it to definite noninvasiveness.
+	 */
+	if (*perr || noninvasiveness > 1) {
+		dt_dprintf("%i: grabbing noninvasively.\n", P->pid);
+		P->noninvasive = TRUE;
+	}
+
 	snprintf(procname, sizeof (procname), "%s/%d/exe",
 	    procfs_path, P->pid);
 
@@ -373,6 +407,10 @@ Pstate(struct ps_prochandle *P)
  * Return the open memory file descriptor for the process, reopening it if
  * needed.
  *
+ * Although technically unnecessary, also prohibit digging about in process
+ * memory if the process is not being ptrace()d, since such digging is risky if
+ * we cannot robustly stop the process before it hits regions of interest.
+ *
  * Clients must not close this file descriptor, nor use it after the process is
  * freed or Pclose()d.
  */
@@ -382,7 +420,7 @@ Pmemfd(struct ps_prochandle *P)
 	char procname[PATH_MAX];
 	char *fname;
 
-	if (P->memfd != -1)
+	if ((P->memfd != -1) || P->noninvasive)
 		return (P->memfd);
 
 	/*
@@ -460,7 +498,7 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 
 	if (kill_it)
 		kill(P->pid, SIGKILL);
-	else
+	else if (P->ptraced)
 		wrapped_ptrace(P, PTRACE_DETACH, (int)P->pid, 0, 0);
 
 	if (P->ptrace_count != 0 && ptrace_lock_hook)
@@ -570,8 +608,8 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 		}
 
 		/*
-		 * Stopping signal receipt.  If the signal is not SIGSTOP under
-		 * ptrace(), resend the signal and continue immediately.  (If
+		 * Stopping signal receipt.  If the signal under ptrace() but is
+		 * not SIGSTOP, resend the signal and continue immediately.  (If
 		 * this is a group-stop, this will have no effect. Under
 		 * ptrace(), the child is already stopped at this point.)
 		 */
@@ -789,6 +827,9 @@ Ptrace(struct ps_prochandle *P, int stopped)
 {
 	int err = 0;
 
+	if (P->noninvasive)
+		return -ESRCH;
+
 	if (P->ptrace_count == 0 && ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 1);
 
@@ -854,6 +895,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		P->ptrace_halted = FALSE;
 		if (err < 0)
 			goto err;
+
 	}
 
 	return err;
@@ -1048,6 +1090,9 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
     void (*bkpt_cleanup) (void *data),
     void *data)
 {
+	if (P->noninvasive)
+		return -ESRCH;
+
 	return add_bkpt(P, addr, after_singlestep, FALSE, bkpt_handler,
 	    bkpt_cleanup, data);
 }
@@ -1065,6 +1110,9 @@ Pbkpt_notifier(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
     void (*bkpt_cleanup) (void *data),
     void *data)
 {
+	if (P->noninvasive)
+		return -ESRCH;
+
 	return add_bkpt(P, addr, after_singlestep, TRUE,
 	    (int (*) (uintptr_t addr, void *data)) bkpt_handler,
 	    bkpt_cleanup, data);
@@ -1901,4 +1949,82 @@ void
 Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook)
 {
 	ptrace_lock_hook = hook;
+}
+
+/*
+ * Return 1 if the process is invasively grabbed, and thus ptrace()able.
+ */
+int
+Ptraceable(struct ps_prochandle *P)
+{
+	return !P->noninvasive;
+}
+
+/*
+ * Return 1 if this process exists (or, in the presence of PID wraparound, some
+ * other process that happens to have the same PID).
+ *
+ * WARNING: intrinsically racy: use only when this is not a problem!
+ *
+ * Note: This takes a pid, not a ps_prochandle, because it is used to decide
+ * how to grab a process, before a ps_prochandle exists.
+ */
+int
+Pexists(int pid)
+{
+	char procname[PATH_MAX];
+
+	snprintf(procname, sizeof (procname), "%s/%d",
+	    procfs_path, pid);
+	return access(procname, F_OK) == 0;
+}
+
+/*
+ * Return 1 if this process has a controlling terminal.
+ *
+ * Note: This takes a pid, not a ps_prochandle, because it is used to decide
+ * how to grab a process, before a ps_prochandle exists.
+ */
+int
+Phastty(int pid)
+{
+	char procname[PATH_MAX];
+	char *buf = NULL;
+	char *s;
+	size_t n;
+	FILE *fp;
+	int tty;
+
+	snprintf(procname, sizeof (procname), "%s/%d/stat",
+	    procfs_path, pid);
+
+	if ((fp = fopen(procname, "r")) == NULL) {
+		_dprintf("Phastty: failed to open %s: %s\n",
+		    procname, strerror(errno));
+		return -1;
+	}
+
+	if (getline(&buf, &n, fp) < 0) {
+		fclose(fp);
+		return -1;
+	}
+
+	fclose(fp);
+	s = strchr (buf, ')');
+	if (!s) {
+		free(buf);
+		return -1;
+	}
+
+	s++;
+
+	if (sscanf(s, " %*c %*d %*d %*d %d", &tty) != 1) {
+		free(buf);
+		return -1;
+	}
+
+	_dprintf("%i: tty: %i\n", pid, tty);
+
+	free(buf);
+	return (tty != 0);
 }
