@@ -27,7 +27,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #
@@ -903,14 +903,15 @@ for dt in $dtrace; do
             dt_flags="$raw_dt_flags"
         fi
 
-        # No trigger.  Run dtrace, with a timeout, without permitting
-        # execution, recording the output and exitcode into temporary files.
-        # (We use a different temporary file on every invocation, so that
-        # hanging subprocesses emitting output into these files do not mess up
-        # subsequent tests.  This won't strictly fix the problem, but will
-        # drive its probability of occurrence way down, even in the presence
-        # of a hanging test.)
+        # No trigger.  Erase any pre-existing coredump, then un dtrace, with a
+        # timeout, without permitting execution, recording the output and
+        # exitcode into temporary files.  (We use a different temporary file on
+        # every invocation, so that hanging subprocesses emitting output into
+        # these files do not mess up subsequent tests.  This won't strictly fix
+        # the problem, but will drive its probability of occurrence way down,
+        # even in the presence of a hanging test.)
 
+	rm -f core
         failed=
         this_noexec=$NOEXEC
         testmsg=
