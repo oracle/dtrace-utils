@@ -50,27 +50,29 @@
 int
 Pread_isa_info(struct ps_prochandle *P, const char *procname)
 {
-    int fd;
-    Elf64_Ehdr hdr;
+	int fd;
+	Elf64_Ehdr hdr;
 
-    if ((fd = open(procname, O_RDONLY)) < 0) {
-	    _dprintf("Cannot open %s: %s\n", procname, strerror(errno));
-	    return -1;
-    }
+	if ((fd = open(procname, O_RDONLY)) < 0) {
+		_dprintf("Cannot open %s: %s\n", procname, strerror(errno));
+		return -1;
+	}
 
-    if (read(fd, &hdr, sizeof (hdr)) < 0) {
-	_dprintf("%s is not an ELF file\n", procname);
-	return -1;
-    }
+	if (read(fd, &hdr, sizeof (hdr)) < 0) {
+		_dprintf("%s is not an ELF file\n", procname);
+		close(fd);
+		return -1;
+	}
+	close(fd);
 
-    if (memcmp(&hdr, ELFMAG, SELFMAG) != 0) {
-	_dprintf("%s is not an ELF file\n", procname);
-	return -1;
-    }
+	if (memcmp(&hdr, ELFMAG, SELFMAG) != 0) {
+		_dprintf("%s is not an ELF file\n", procname);
+		return -1;
+	}
 
-    P->elf64 = hdr.e_ident[EI_CLASS] == ELFCLASS64;
-    P->elf_machine = hdr.e_machine;
-    return 0;
+	P->elf64 = hdr.e_ident[EI_CLASS] == ELFCLASS64;
+	P->elf_machine = hdr.e_machine;
+	return 0;
 }
 
 /*
