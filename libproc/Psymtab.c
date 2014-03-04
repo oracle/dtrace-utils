@@ -1132,8 +1132,10 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 		fptr->file_init = 0;
 		Puntrace(P, p_state);
-		if (fptr->file_init == 1)
+		if (fptr->file_init == 1) {
+			close(fd);
 			return;
+		}
 		fptr->file_init = 1;
 	} else {
 		struct stat s;
