@@ -906,7 +906,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     caddr_t addr, uint64_t arg)
 {
 	/* LINTED - alignment */
-	uint64_t *pc = (uint64_t *)addr;
+	uint64_t *pc = ((uint64_t *)addr) + 1;
 	uint32_t depth = DTRACE_USTACK_NFRAMES(arg);
 	uint32_t strsize = DTRACE_USTACK_STRSIZE(arg);
 	const char *strbase = addr + (depth + 1) * sizeof (uint64_t);
@@ -917,12 +917,12 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	struct ps_prochandle *P;
 	GElf_Sym sym;
 	int i, indent;
-	pid_t pid;
+	pid_t tgid;
 
 	if (depth == 0)
 		return (0);
 
-	pid = (pid_t)*pc++;
+	tgid = (pid_t)*pc++;
 
 	if (dt_printf(dtp, fp, "\n") < 0)
 		return (-1);
@@ -937,11 +937,11 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	/*
 	 * Ultimately, we need to add an entry point in the library vector for
-	 * determining <symbol, offset> from <pid, address>.  For now, if
+	 * determining <symbol, offset> from <tgid, address>.  For now, if
 	 * this is a vector open, we just print the raw address or string.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
 				 DTRACE_PROC_NONINVASIVE);
 	else
 		P = NULL;
@@ -1039,9 +1039,9 @@ static int
 dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 {
 	/* LINTED - alignment */
-	uint64_t pid = ((uint64_t *)addr)[0];
+	uint64_t tgid = ((uint64_t *)addr)[1];
 	/* LINTED - alignment */
-	uint64_t pc = ((uint64_t *)addr)[1];
+	uint64_t pc = ((uint64_t *)addr)[2];
 	const char *format = "  %-50s";
 	char *s;
 	int n, len = 256;
@@ -1049,7 +1049,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 	if (act == DTRACEACT_USYM && dtp->dt_vector == NULL) {
 		struct ps_prochandle *P;
 
-		if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+		if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
 				      DTRACE_PROC_NONINVASIVE)) != NULL) {
 			GElf_Sym sym;
 
@@ -1066,7 +1066,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 	do {
 		n = len;
 		s = alloca(n);
-	} while ((len = dtrace_uaddr2str(dtp, pid, pc, s, n)) > n);
+	} while ((len = dtrace_uaddr2str(dtp, tgid, pc, s, n)) > n);
 
 	return (dt_printf(dtp, fp, format, s));
 }
@@ -1075,9 +1075,9 @@ int
 dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 {
 	/* LINTED - alignment */
-	uint64_t pid = ((uint64_t *)addr)[0];
+	uint64_t tgid = ((uint64_t *)addr)[1];
 	/* LINTED - alignment */
-	uint64_t pc = ((uint64_t *)addr)[1];
+	uint64_t pc = ((uint64_t *)addr)[2];
 	int err = 0;
 
 	char objname[PATH_MAX], c[PATH_MAX * 2];
@@ -1091,7 +1091,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	 * printing raw addresses in the vectored case.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
 				 DTRACE_PROC_NONINVASIVE);
 	else
 		P = NULL;
