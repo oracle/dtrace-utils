@@ -56,14 +56,12 @@ $dtrace $dt_flags -o $file -c test/triggers/ustack-tst-mtspin -s /dev/stdin <<EO
 
 	tick-1s
 	{
-		trace("tick\n");
 		secs++;
 	}
 
 	tick-1s
 	/secs > 5/
 	{
-		trace("done\n");
 		done = 1;
 	}
 
@@ -77,7 +75,6 @@ $dtrace $dt_flags -o $file -c test/triggers/ustack-tst-mtspin -s /dev/stdin <<EO
 	profile-1999
 	/pid == \$target && done/
 	{
-		trace("raising\n");
 		raise(SIGINT);
 		exit(0);
 	}
