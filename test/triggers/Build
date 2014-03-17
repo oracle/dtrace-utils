@@ -18,10 +18,10 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
-EXTERNAL_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args usdt-tst-argmap usdt-tst-args usdt-tst-forker ustack-tst-bigstack ustack-tst-spin visible-constructor visible-constructor-32 visible-constructor-static visible-constructor-static-unstripped
+EXTERNAL_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args usdt-tst-argmap usdt-tst-args usdt-tst-forker ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-32 visible-constructor-static visible-constructor-static-unstripped
 
 INTERNAL_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libproc-sleeper-32 libproc-sleeper-pie libproc-sleeper-pie-32 libproc-dlmadopen libproc-lookup-by-name libproc-lookup-victim
 
@@ -164,3 +164,10 @@ usdt-tst-args_PROV := usdt-tst-args-prov.d
 
 # usdt-tst-forker calls USDT probes (defined in args.d) based on dtrace -h
 usdt-tst-forker_PROV := usdt-tst-forker-prov.d
+
+# ustack-tst-mtspin uses threads, and neither ustack-tst-spin nor
+# ustack-tst-mtspin want optimization.
+
+ustack-tst-spin_CFLAGS := -O0
+ustack-tst-mtspin_CFLAGS := -O0
+ustack-tst-mtspin_LIBS := -lpthread
