@@ -24,6 +24,8 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: multithreaded ustacks crash
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -34,7 +36,7 @@ dtrace=$1
 
 rm -f $file
 
-$dtrace $dt_flags -o $file -c test/triggers/ustack-tst-spin -s /dev/stdin <<EOF
+$dtrace $dt_flags -o $file -c test/triggers/ustack-tst-mtspin -s /dev/stdin <<EOF
 
 	#pragma D option quiet
 	#pragma D option destructive
@@ -49,17 +51,19 @@ $dtrace $dt_flags -o $file -c test/triggers/ustack-tst-spin -s /dev/stdin <<EOF
 	/pid == \$target && n++ > 100/
 	{
 		@total = count();
-		@stacks[ustack(4)] = count();
+		@stacks[ustack()] = count();
 	}
 
 	tick-1s
 	{
+		trace("tick\n");
 		secs++;
 	}
 
 	tick-1s
 	/secs > 5/
 	{
+		trace("done\n");
 		done = 1;
 	}
 
@@ -73,8 +77,14 @@ $dtrace $dt_flags -o $file -c test/triggers/ustack-tst-spin -s /dev/stdin <<EOF
 	profile-1999
 	/pid == \$target && done/
 	{
+		trace("raising\n");
 		raise(SIGINT);
 		exit(0);
+	}
+
+	BEGIN
+	{
+		printf("%i\n", \$target);
 	}
 
 	END
@@ -91,43 +101,11 @@ if [ "$status" -ne 0 ]; then
 	exit $status
 fi
 
-perl /dev/stdin $file <<EOF
-	\$_ = <>;
-	chomp;
-	die "output problem\n" unless /^TOTAL (\d+)/;
-	\$count = \$1;
-	die "too few samples (\$count)\n" unless \$count >= 1000;
-
-	while (<>) {
-		chomp;
-
-		last if /^$/;
-
-		die "expected START at \$.\n" unless /^START/;
-
-
-		\$_ = <>;
-		chomp;
-		die "expected END at \$.\n" unless /\`baz\+/;
-
-		\$_ = <>;
-		chomp;
-		die "expected END at \$.\n" unless /\`bar\+/;
-
-		\$_ = <>;
-		chomp;
-		die "expected END at \$.\n" unless /\`foo\+/;
-
-		\$_ = <>;
-		chomp;
-		die "expected END at \$.\n" unless /\`main\+/;
-
-		\$_ = <>;
-		chomp;
-		die "expected END at \$.\n" unless /^END\$/;
-	}
-
-EOF
+if ps -p $(head $file) >/dev/null 2>&1; then
+	echo "PID $(head $file) is still alive: was probably crashed by ustack()." >&2;
+	kill -9 $(head $file)
+	exit 1;
+fi
 
 status=$?
 rm -f $file
