@@ -248,15 +248,15 @@ dt_aggregate_quantizedcmp(int64_t *lhs, int64_t *rhs)
 static void
 dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 {
-	uint64_t pid = data[0];
-	uint64_t *pc = &data[1];
+	uint64_t tgid = data[1];
+	uint64_t *pc = &data[2];
 	struct ps_prochandle *P;
 	GElf_Sym sym;
 
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
 			      DTRACE_PROC_NONINVASIVE)) == NULL)
 		return;
 
@@ -272,15 +272,15 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 static void
 dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 {
-	uint64_t pid = data[0];
-	uint64_t *pc = &data[1];
+	uint64_t tgid = data[1];
+	uint64_t *pc = &data[2];
 	struct ps_prochandle *P;
 	const prmap_t *map;
 
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
+	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
 			      DTRACE_PROC_NONINVASIVE)) == NULL)
 		return;
 

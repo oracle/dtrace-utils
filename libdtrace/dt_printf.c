@@ -356,7 +356,7 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 {
 	char *s;
 	int n, len = 256;
-	uint64_t val, pid = 0;
+	uint64_t val, tgid = 0;
 
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 
@@ -367,21 +367,21 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	case sizeof (uint64_t):
 		val = (u_longlong_t)*((uint64_t *)addr);
 		break;
-	case sizeof (uint64_t) * 2:
-		pid = ((uint64_t *)(uintptr_t)addr)[0];
-		val = ((uint64_t *)(uintptr_t)addr)[1];
+	case sizeof (uint64_t) * 3:
+		tgid = ((uint64_t *)(uintptr_t)addr)[1];
+		val = ((uint64_t *)(uintptr_t)addr)[2];
 		break;
 	default:
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 	}
 
-	if (pid == 0 && dtp->dt_vector == NULL && idp != NULL)
-		pid = idp->di_id;
+	if (tgid == 0 && dtp->dt_vector == NULL && idp != NULL)
+		tgid = idp->di_id; /* pretend it is a pid */
 
 	do {
 		n = len;
 		s = alloca(n);
-	} while ((len = dtrace_uaddr2str(dtp, pid, val, s, n)) > n);
+	} while ((len = dtrace_uaddr2str(dtp, tgid, val, s, n)) > n);
 
 	return (dt_printf(dtp, fp, format, s));
 }
