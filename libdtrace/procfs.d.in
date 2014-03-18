@@ -103,8 +103,8 @@ inline char PR_MODEL_LP64 = 2;
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
-	pr_pid = T->pid;
-	pr_ppid = T->real_parent->pid;
+	pr_pid = T->tgid;
+	pr_ppid = T->real_parent->tgid;
 	pr_pgid = T->group_leader->pids[1].pid->numbers[
 						T->nsproxy->pid_ns->level].nr;
 	pr_sid = T->group_leader->pids[2].pid->numbers[
