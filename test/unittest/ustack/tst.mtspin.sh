@@ -24,8 +24,6 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: multithreaded ustacks crash
-
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -92,6 +90,7 @@ $dtrace $dt_flags -o $file -c test/triggers/ustack-tst-mtspin -s /dev/stdin <<EO
 EOF
 
 status=$?
+cat $file
 if [ "$status" -ne 0 ]; then
 	echo $tst: dtrace failed
 	rm -f $file
@@ -104,7 +103,6 @@ if ps -p $(head $file) >/dev/null 2>&1; then
 	exit 1;
 fi
 
-status=$?
 rm -f $file
 
 exit $status

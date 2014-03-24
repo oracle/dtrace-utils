@@ -19,7 +19,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2006 Oracle, Inc.  All rights reserved.
+# Copyright 2006, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
@@ -108,19 +108,19 @@ perl /dev/stdin $file <<EOF
 
 		\$_ = <>;
 		chomp;
-		die "expected END at \$.\n" unless /\`baz\+/;
+		die "expected END at \$.\n" unless /\`baz\+?/;
 
 		\$_ = <>;
 		chomp;
-		die "expected END at \$.\n" unless /\`bar\+/;
+		die "expected END at \$.\n" unless /\`bar\+?/;
 
 		\$_ = <>;
 		chomp;
-		die "expected END at \$.\n" unless /\`foo\+/;
+		die "expected END at \$.\n" unless /\`foo\+?/;
 
 		\$_ = <>;
 		chomp;
-		die "expected END at \$.\n" unless /\`main\+/;
+		die "expected END at \$.\n" unless /\`main\+?/;
 
 		\$_ = <>;
 		chomp;
