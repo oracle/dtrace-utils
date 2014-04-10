@@ -28,14 +28,14 @@ dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
 dtrace_DEPS = libdtrace.so libport.a
-dtrace_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
+dtrace_LIBS = -ldtrace -ldtrace-ctf -lport
 
 ctf_module_dump_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
 ctf_module_dump_TARGET = ctf_module_dump
 ctf_module_dump_DIR := $(current-dir)
 ctf_module_dump_SOURCES = ctf_module_dump.c
 ctf_module_dump_DEPS = libdtrace.so libport.a
-ctf_module_dump_LIBS = -L$(objdir) -ldtrace -ldtrace-ctf -lport
+ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf -lport
 
 $(objdir)/run-dtrace: $(DTRACE)
 	printf > $@ "\
