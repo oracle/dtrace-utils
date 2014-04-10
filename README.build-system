@@ -100,7 +100,8 @@ the following variables associated with them:
 
 name_LDFLAGS := list of ldflags applying only to this target
 name_LIBS := list of libraries applying only to this target.  Full ld syntax,
-             including -l.
+             including -l.  A -L argument specifying the object file directory
+             is automatically prepended to this list.
 
 Names in the LIBS and SHLIBS must have the following variables associated with
 them:

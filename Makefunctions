@@ -128,7 +128,7 @@ $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($
 	      -shared $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
 	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$($(1)_VERSCRIPT)) \
 	      -Wl,--whole-archive $(foreach primary,$(filter-out $($(1)_SECONDARY),$($(1)_LIBSOURCES)),$(objdir)/build-$($(primary)_TARGET).a) -Wl,--no-whole-archive \
-	      $(foreach secondary,$($(1)_SECONDARY),$(objdir)/build-$($(secondary)_TARGET).a) $($(1)_LIBS)
+	      $(foreach secondary,$($(1)_SECONDARY),$(objdir)/build-$($(secondary)_TARGET).a) -L$(objdir) $($(1)_LIBS)
 	$(if $($(1)_VERSION),ln -sf $($(1)_TARGET).so.$($(1)_VERSION) $(objdir)/$($(1)_TARGET).so)
 	$(if $($(1)_SONAME),ln -sf $($(1)_TARGET).so.$($(1)_VERSION) $(objdir)/$($(1)_SONAME))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET).so$(if $($(1)_VERSION),.$($(1)_VERSION))))
@@ -148,7 +148,7 @@ $(objdir)/$($(1)_TARGET): $(foreach prov,$($(1)_PROV),$(call hdr-name,$(1),$(pro
 	      $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) -o $(objdir)/$($(1)_TARGET) \
 	      $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
               $(foreach prov,$($(1)_PROV),$(call dof-name,$(1),$(prov))) \
-	      $($(1)_LIBS)
+	      -L$(objdir) $($(1)_LIBS)
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET)))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file))))
