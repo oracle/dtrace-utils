@@ -43,7 +43,7 @@ SHLIBS += libdtrace
 
 libdtrace_DIR := $(current-dir)
 libdtrace_TARGET = libdtrace
-libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpthread -ldl
+libdtrace_LIBS := -ldtrace-ctf -lport -lelf -lz -lrt -lpthread -ldl
 libdtrace_VERSION := 0.0.0
 libdtrace_SONAME := libdtrace.so.0
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
