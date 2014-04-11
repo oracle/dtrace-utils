@@ -78,7 +78,7 @@ $(shell mkdir -p $(objdir))
 include Makeoptions
 include Makefunctions
 include Makeconfig
-include Build */Build
+include Build $(sort $(wildcard */Build))
 -include $(objdir)/*.deps
 include Makerules
 include Maketargets
