@@ -85,13 +85,13 @@ libproc-pldd_CFLAGS := -Ilibproc -Ilibdtrace
 libproc-pldd_NOCFLAGS :=
 libproc-pldd_NOLDFLAGS :=
 libproc-pldd_DEPS := build-libproc.a build-libdtrace.a libport.a
-libproc-pldd_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
+libproc-pldd_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
 
 libproc-consistency_CFLAGS := -Ilibproc -Ilibdtrace
 libproc-consistency_NOCFLAGS :=
 libproc-consistency_NOLDFLAGS :=
 libproc-consistency_DEPS := build-libproc.a build-libdtrace.a libport.a
-libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
+libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
 
 # The victim also needs to have an rpath baked into it, since when testing
 # in --use-installed mode, there is no LD_LIBRARY_PATH pointing into build/
@@ -106,7 +106,7 @@ libproc-lookup-by-name_LDFLAGS := -Bdynamic
 libproc-lookup-by-name_NOCFLAGS :=
 libproc-lookup-by-name_NOLDFLAGS :=
 libproc-lookup-by-name_DEPS := build-libproc.a build-libdtrace.a libport.a
-libproc-lookup-by-name_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a -lport $(libdtrace_LIBS)
+libproc-lookup-by-name_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
 
 # We need multiple versions of libproc-sleeper with different combinations
 # of flags.

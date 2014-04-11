@@ -35,7 +35,7 @@ ctf_module_dump_TARGET = ctf_module_dump
 ctf_module_dump_DIR := $(current-dir)
 ctf_module_dump_SOURCES = ctf_module_dump.c
 ctf_module_dump_DEPS = libdtrace.so libport.a
-ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf -lport
+ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf
 
 $(objdir)/run-dtrace: $(DTRACE)
 	printf > $@ "\
