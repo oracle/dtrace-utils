@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@xfail: arbitrary profile probes not yet implemented */
-
 /*
  * ASSERTION:
  *   Positive test for ring buffer policy.

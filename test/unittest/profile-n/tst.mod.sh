@@ -61,10 +61,10 @@ spinny &
 child=$!
 
 #
-# The only thing we can be sure of is that some module named "unix" (or
-# "genunix") did some work -- so that's all we'll check.
+# The only thing we can be sure of is that some module named "vmlinux"
+# did some work -- so that's all we'll check.
 #
-script | tee /dev/fd/2 | grep unix > /dev/null
+script | tee /dev/fd/2 | grep vmlinux > /dev/null
 status=$? 
 
 kill $child

@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@xfail: depends on specific-hz profile probes
-
 #
 # Copyright 2006 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.

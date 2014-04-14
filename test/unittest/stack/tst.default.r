@@ -1,1 +1,1 @@
-              vmlinux`dtrace_stacktrace+{ptr}
+              dtrace`dtrace_state_go+{ptr}

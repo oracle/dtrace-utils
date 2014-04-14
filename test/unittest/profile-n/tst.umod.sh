@@ -26,11 +26,9 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@xfail: No support for profile-* probes in the profile provider yet
-
 script()
 {
-	$dtrace $dtrace -qs /dev/stdin <<EOF
+	$dtrace -qs /dev/stdin <<EOF
 	profile-1234hz
 	/arg1 != 0/
 	{
