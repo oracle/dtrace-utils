@@ -19,8 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: needs profile-4000 */
-
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.

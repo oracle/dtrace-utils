@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip Solaris-specific, needs porting
-
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
@@ -48,7 +46,7 @@ EOF
 spinny()
 {
 	while true; do
-		bin/date > /dev/null
+		/bin/date > /dev/null
 	done
 }
 
@@ -63,14 +61,10 @@ spinny &
 child=$!
 
 #
-# This is gutsy -- we're assuming that mutex_enter(9F) will show up in the
-# output.  This is most likely _not_ to show up in the output if the 
-# platform does not support arbitrary resolution interval timers -- but
-# the above script was stress-tested down to 100 hertz and still ran
-# successfully on all platforms, so one is hopeful that this test will pass
-# even in that case.
+# This is gutsy -- we're assuming that find_vma will show up in the
+# output.
 #
-script | tee /dev/fd/2 | grep mutex_enter > /dev/null
+script | tee /dev/fd/2 | grep find_vma > /dev/null
 status=$?
 
 kill $child

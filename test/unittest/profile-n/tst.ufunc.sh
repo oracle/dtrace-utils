@@ -62,10 +62,10 @@ child=$!
 
 #
 # The only thing we can be sure of here is that we caught some function in
-# ksh doing work.  (This actually goes one step further and assumes that we
-# catch some non-static function in ksh.)
+# bash doing work.  (This actually goes one step further and assumes that we
+# catch some non-static function in bash.)
 #
-script | tee /dev/fd/2 | grep 'ksh`[a-zA-Z_]' > /dev/null
+script | tee /dev/fd/2 | grep 'bash`[a-zA-Z_]' > /dev/null
 status=$? 
 
 kill $child

@@ -26,8 +26,6 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
-# @@skip: Solaris-specific, needs porting
-
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
@@ -66,7 +64,7 @@ child=$!
 # This is the same gutsy test as that found in the func() test; see that
 # test for the rationale.
 #
-script | tee /dev/fd/2 | grep mutex_enter > /dev/null
+script | tee /dev/fd/2 | grep find_vma > /dev/null
 status=$?
 
 kill $child

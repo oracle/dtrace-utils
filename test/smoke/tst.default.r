@@ -1,1 +1,1 @@
-../unittest/stack/tst.default.r
+              dtrace`dtrace_state_go+{ptr}
