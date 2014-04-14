@@ -28,7 +28,7 @@
 
 /*
  * ASSERTION:
- * To print build-in variable 'vtimestamp'
+ * To print built-in variable 'vtimestamp'
  *
  * SECTION: Variables/Built-in Variables
  */
