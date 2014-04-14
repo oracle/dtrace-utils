@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2013 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -28,7 +28,7 @@
 
 /*
  * ASSERTION:
- * To ensure build-in variable 'vtimestamp' has a sensible value
+ * To ensure built-in variable 'vtimestamp' has a sensible value
  *
  * SECTION: Variables/Built-in Variables
  */
