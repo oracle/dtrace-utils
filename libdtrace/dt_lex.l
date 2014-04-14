@@ -39,6 +39,8 @@
 static int id_or_type(const char *);
 static size_t dt_input(char *buf, size_t max_size);
 
+int yydebug;
+
 #define YY_INPUT(buf,result,max_size)                                   \
         result = dt_input(buf,max_size);
 
