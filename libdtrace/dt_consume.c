@@ -942,7 +942,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	 */
 	if (dtp->dt_vector == NULL)
 		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-				 DTRACE_PROC_NONINVASIVE);
+				 DTRACE_PROC_SHORTLIVED);
 	else
 		P = NULL;
 
@@ -1050,7 +1050,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 		struct ps_prochandle *P;
 
 		if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-				      DTRACE_PROC_NONINVASIVE)) != NULL) {
+				      DTRACE_PROC_SHORTLIVED)) != NULL) {
 			GElf_Sym sym;
 
 			dt_proc_lock(dtp, P);
@@ -1092,7 +1092,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	 */
 	if (dtp->dt_vector == NULL)
 		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-				 DTRACE_PROC_NONINVASIVE);
+				 DTRACE_PROC_SHORTLIVED);
 	else
 		P = NULL;
 

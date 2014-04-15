@@ -446,14 +446,12 @@ extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *dtp,
 #define DTRACE_PROC_WAITING 0x01
 
 /*
- * If this bit is set, a noninvasive grab is performed, minimizing the use of
- * ptrace() and never stopping the process: failing to ptrace() is nonfatal.
- * (Note: this does not necessarily avoid a ptrace(), merely avoids ptracing
- * processes that may impair system functioning if they should die with
- * breakpoints outstanding inside them, and discards any ptrace()s as soon as
- * possible.)
+ * If this bit is set, this is a relatively unimportant and short-lived grab:
+ * the system can sacrifice accuracy for performance and safety, minimizing the
+ * use of ptrace() and possibly not stopping the process: failing to ptrace() is
+ * nonfatal.
  */
-#define DTRACE_PROC_NONINVASIVE 0x02
+#define DTRACE_PROC_SHORTLIVED 0x02
 
 extern struct ps_prochandle *dtrace_proc_create(dtrace_hdl_t *dtp,
     const char *file, char *const *argv, int flags);

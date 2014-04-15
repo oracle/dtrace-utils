@@ -869,7 +869,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 
 	if (pid != 0)
 		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING |
-				 DTRACE_PROC_NONINVASIVE);
+				 DTRACE_PROC_SHORTLIVED);
 
 	if (P == NULL) {
 		(void) snprintf(c, sizeof (c), "0x%llx", (unsigned long long) addr);
