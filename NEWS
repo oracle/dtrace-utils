@@ -20,6 +20,9 @@ Bugfixes:
    to the POSIX pid and parent respectively rather than the thread and thread
    group leader.
 
+ - resolving kernel symbols located at the start of modules will no longer
+   cause dtrace userspace to dereference uninitialized memory as a pointer.
+
 0.4.1
 -----
 

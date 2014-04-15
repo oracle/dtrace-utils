@@ -126,6 +126,8 @@ fi
 - Fix a leak of filehandles to executables [Orabug: 18600594]
 - Fix ustack() of multithreaded processes [Orabug: 18412802]
 - Get the pid and ppid right for multithreaded processes [Orabug: 18412802]
+- Fix an uninitialized memory read looking up certain kernel symbols
+  [Orabug: 18603463]
 - Fixes for newer versions of make, ld, and bison [Orabug: 18551552]
 
 * Tue Jan  7 2014 - <nick.alcock@oracle.com> - 0.4.1-1
