@@ -702,7 +702,7 @@ dt_proc_control(void *arg)
 		 * avoid ptracing it entirely, to avoid rtld_db dropping
 		 * breakpoints in crucial system daemons.
 		 */
-		if (datap->dpcd_flags & DTRACE_PROC_NONINVASIVE) {
+		if (datap->dpcd_flags & DTRACE_PROC_SHORTLIVED) {
 			noninvasive = 1;
 
 			if (Phastty(dpr->dpr_pid) <= 0)
@@ -1279,8 +1279,8 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	/*
 	 * Newly-created processes must be invasively grabbed.
 	 */
-	if (flags & DTRACE_PROC_NONINVASIVE)
-		flags &= ~DTRACE_PROC_NONINVASIVE;
+	if (flags & DTRACE_PROC_SHORTLIVED)
+		flags &= ~DTRACE_PROC_SHORTLIVED;
 
 	dpr->dpr_hdl = dtp;
 	dpr->dpr_created = B_TRUE;
@@ -1341,7 +1341,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 */
 	for (dpr = dph->dph_hash[h]; dpr != NULL; dpr = dpr->dpr_hash) {
 		if ((dpr->dpr_pid == pid) &&
-		    !(flags & DTRACE_PROC_NONINVASIVE) && !dpr->dpr_tid) {
+		    !(flags & DTRACE_PROC_SHORTLIVED) && !dpr->dpr_tid) {
 				dt_dprintf("pid %d (cached, but noninvasive) "
 				    "dropped.\n", (int)pid);
 

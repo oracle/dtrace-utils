@@ -257,7 +257,7 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 		return;
 
 	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-			      DTRACE_PROC_NONINVASIVE)) == NULL)
+			      DTRACE_PROC_SHORTLIVED)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);
@@ -281,7 +281,7 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 		return;
 
 	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-			      DTRACE_PROC_NONINVASIVE)) == NULL)
+			      DTRACE_PROC_SHORTLIVED)) == NULL)
 		return;
 
 	dt_proc_lock(dtp, P);
