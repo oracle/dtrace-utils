@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-22.el6uek
+%define kver 3.8.13-26.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -19,7 +19,7 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.1
+Version:      0.4.2
 Release:      1.el6
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -120,6 +120,14 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Wed Apr 16 2014 - <nick.alcock@oracle.com> - 0.4.2-1
+- killing dtrace while a ustack() is in progress no longer risks killing
+  crucial system daemons [Orabug: 18600515]
+- Fix a leak of filehandles to executables [Orabug: 18600594]
+- Fix ustack() of multithreaded processes [Orabug: 18412802]
+- Get the pid and ppid right for multithreaded processes [Orabug: 18412802]
+- Fixes for newer versions of make, ld, and bison [Orabug: 18551552]
+
 * Tue Jan  7 2014 - <nick.alcock@oracle.com> - 0.4.1-1
 - Install showUSDT in docdir. (Kris van Hees) [Orabug: 17968414]
 - Install ctf_module_dump. [Orabug: 17968381]

@@ -1,3 +1,25 @@
+0.4.2
+-----
+
+Bugfixes:
+
+ - Kill -9'ing a running dtrace will no longer leave breakpoints outstanding in
+   processes with no controlling terminal that were grabbed as a side effect of
+   ustack(), usym(), uaddr() or umod); as a side effect, symbol resolution will
+   be less accurate for such processes.  Grabbing a process with no controlling
+   terminal via dtrace -p restores full symbol resolution accuracy for these
+   processes, at the cost of dropping breakpoints in them again.  Processes with
+   a controlling terminal are still treated as in prior releases.
+
+ - ustack(), usym(), uaddr() and umod() of multithreaded processes no longer
+   crashes the system, oopses the kernel, hangs the process being probed,
+   crashes dtrace(1) itself, or runs dtrace or the system as a whole out of
+   filehandles.
+
+ - pid and ppid are now correctly derived for multithreaded processes, pointing
+   to the POSIX pid and parent respectively rather than the thread and thread
+   group leader.
+
 0.4.1
 -----
 
