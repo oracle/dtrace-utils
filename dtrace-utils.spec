@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.2
-Release:      1.el6
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
