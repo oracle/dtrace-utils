@@ -27,7 +27,7 @@
 # CDDL HEADER END
 #
 #
-# Copyright 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -68,6 +68,8 @@ for BITNESS in 32 64; do
 
 int main(void)
 {
+	printf("#define UINT_@BITNESS@_SIZE\t%li\n", sizeof(unsigned int));
+
 	BITNESS_OFFSET(R_VERSION, r_debug, r_version);
 	BITNESS_OFFSET(R_MAP, r_debug, r_map);
 	BITNESS_OFFSET(R_BRK, r_debug, r_brk);
@@ -80,7 +82,6 @@ int main(void)
 	BITNESS_OFFSET(L_NEXT, internal_link_map, l_next);
 	BITNESS_OFFSET(L_PREV, internal_link_map, l_prev);
 	BITNESS_OFFSET(L_SEARCHLIST, internal_link_map, l_searchlist.r_list);
-	BITNESS_OFFSET(L_NSEARCHLIST, internal_link_map, l_searchlist.r_nlist);
 
 	BITNESS_OFFSET(G_DEBUG, rtld_global, _dl_ns[0]._ns_debug);
 	BITNESS_OFFSET(G_DEBUG_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_debug);
@@ -109,10 +110,10 @@ cat >> $HEADER <<'EOF'
 #define R_LAST_OFFSET R_LDBASE_64_OFFSET
 #endif
 
-#if L_NSEARCHLIST_32_OFFSET > L_NSEARCHLIST_64_OFFSET
-#define L_LAST_OFFSET L_NSEARCHLIST_32_OFFSET
+#if L_SEARCHLIST_32_OFFSET > L_SEARCHLIST_64_OFFSET
+#define L_LAST_OFFSET L_SEARCHLIST_32_OFFSET
 #else
-#define L_LAST_OFFSET L_NSEARCHLIST_64_OFFSET
+#define L_LAST_OFFSET L_SEARCHLIST_64_OFFSET
 #endif
 
 /*

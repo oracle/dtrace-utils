@@ -29,6 +29,7 @@
 
 #include <inttypes.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <limits.h>
@@ -78,6 +79,18 @@ static uintptr_t r_brk(rd_agent_t *rd);
  * address, or 0 if none.
  */
 static uintptr_t rtld_global(rd_agent_t *rd);
+
+/*
+ * Get a link map, given an address.
+ */
+static struct link_map *rd_get_link_map(rd_agent_t *rd, struct link_map *buf,
+    uintptr_t addr);
+
+/*
+ * Wait for the dynamic linker to be in a consistent state.
+ */
+static int rd_ldso_consistent_begin(rd_agent_t *rd);
+static void rd_ldso_consistent_end(rd_agent_t *rd);
 
 /* Internal functions. */
 
@@ -247,6 +260,216 @@ first_link_map(rd_agent_t *rd, Lmid_t lmid)
 }
 
 /*
+ * A qsort() / bsearch() function that sorts uintptr_t's into ascending order.
+ */
+static int
+ascending_uintptrs(const void *onep, const void *twop)
+{
+	uintptr_t one = *(uintptr_t *)onep;
+	uintptr_t two = *(uintptr_t *)twop;
+
+	if (one < two)
+		return -1;
+	else if (two < one)
+		return 1;
+	else
+		return 0;
+}
+
+/*
+ * Find the offset of the l_searchlist in the link_map structure.
+ *
+ * Although this offset is relatively constant, it can vary e.g. across glibc
+ * upgrades: so carry it out afresh for each process attached to.
+ *
+ * Returns -1 if nothing resembling a scope searchlist can be found.
+ * (May return -1 spuriously in obscure cases, such as processes with no dynamic
+ * linker initialized yet.  In such cases, it will leave the searchlist
+ * uninitialized and recheck on every ustack() et al: potentially slow, but
+ * the only safe approach.)
+ *
+ * Must be called under rd_ldso_consistent_begin() to prevent mutation of the
+ * set of link maps while we are using them.
+ */
+static int
+find_l_searchlist(rd_agent_t *rd)
+{
+	/*
+	 * We search in the primary link mpa, because we know this must exist if
+	 * any do, and that all the link maps will use the same offset for
+	 * l_seachlist.
+	 *
+	 * Iterate through the link maps twice: once to count the number of
+	 * maps, the second time to remember their addresses.
+	 */
+	size_t nmaps = 0;
+	uintptr_t first_loadobj, loadobj;
+	struct link_map map;
+
+	_dprintf("%i: Finding l_searchlist\n", rd->P->pid);
+
+	if ((first_loadobj = first_link_map(rd, 0)) == 0)
+		return -1;
+
+	for (loadobj = first_loadobj; loadobj != 0;
+	     loadobj = (uintptr_t) map.l_next) {
+		nmaps++;
+		if (rd_get_link_map(rd, &map, loadobj) == NULL)
+			break;
+	}
+
+	_dprintf("%i: Counted %zi link maps\n", rd->P->pid, nmaps);
+	if (nmaps == 0)
+		return -1;
+
+	uintptr_t *map_addrs;
+	uintptr_t *mapp;
+
+	map_addrs = calloc(nmaps, sizeof (uintptr_t));
+	if (!map_addrs) {
+		fprintf(stderr, "Out of memory locating glibc searchlist "
+		    "when allocating room for %li link maps\n", nmaps);
+		exit(1);
+	}
+
+	for (mapp = map_addrs,
+		 loadobj = first_link_map(rd, 0);
+	     loadobj != 0;
+	     loadobj = (uintptr_t) map.l_next, mapp++) {
+
+		_dprintf("%i: Noted map at %lx\n", rd->P->pid, loadobj);
+
+		*mapp = loadobj;
+		if (rd_get_link_map(rd, &map, loadobj) == NULL)
+			break;
+	}
+
+	qsort(map_addrs, nmaps, sizeof (uintptr_t), ascending_uintptrs);
+
+	/*
+	 * We now have the primary link maps' addresses in a rapidly searchable
+	 * form.  Search forward in the first link map from the offset of
+	 * l_searchlist in glibc 2.12 (an optimization, since it is implausible
+	 * that its offset will ever fall), until we fall off the end of
+	 * accessible memory, or until we find a pointer followed by an integer,
+	 * where the integer is at least 2 and the pointer points to an array of
+	 * that many addresses in map_addrs.  (For sanity, cap the iteration at
+	 * 64K, so as not to waste too much time in a massive search which can
+	 * never succeed.)
+	 *
+	 * If we find such an item, this is l_searchlist.  (There are other
+	 * r_scope_elems in the link_map structure, but they are all *pointers*
+	 * to such, and there are no other link map arrays followed by a count.
+	 * If a new one is ever inserted before l_searchlist but after its glibc
+	 * 2.12 offset, this algorithm will break, but for now we are trying to
+	 * compensate for shifts in offset caused by addition of things like new
+	 * ELF dynamic tags, expanding the l_info array, which is not an array
+	 * of pointers to link maps, thus will never cause this algorithm to
+	 * fail.)
+	 *
+	 * Do all the reads in this process quietly: we may be probing a lot of
+	 * things that aren't addresses.
+	 *
+	 * As for the size of the hop to make: we know the address of the
+	 * pointer to the link map, since this is an array, but have no explicit
+	 * reference to its size.  However, we have other things which we know
+	 * must always be pointers to link maps, like L_NEXT.  (It also happens
+	 * that POSIX implicitly requires pointers to void and to functions to
+	 * be interconvertible, but that seems like a bad thing to rely on when
+	 * we don't have to, even here.)
+	 */
+
+	uintptr_t scan;
+	uintptr_t scan_next;
+
+	scan = first_loadobj;
+	scan += rd->P->elf64 ? L_SEARCHLIST_64_OFFSET : L_SEARCHLIST_32_OFFSET;
+	scan_next = scan + (rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE);
+
+	for (;; scan += (rd->P->elf64 ? UINT_64_SIZE : UINT_32_SIZE),
+		scan_next += (rd->P->elf64 ? UINT_64_SIZE : UINT_32_SIZE)) {
+
+		uintptr_t poss_l_searchlist_r_list;
+		unsigned int poss_l_searchlist_r_nlist;
+
+		_dprintf("%i: scanning %lx\n", rd->P->pid,
+		    scan - first_loadobj);
+
+		if ((scan - first_loadobj) > 65535)
+			break;
+
+		if (Pread_scalar_quietly(rd->P, &poss_l_searchlist_r_list,
+			rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE,
+			sizeof (uintptr_t), scan, 1) < 0) {
+			break;
+		}
+
+		if (Pread_scalar_quietly(rd->P, &poss_l_searchlist_r_nlist,
+			rd->P->elf64 ? UINT_64_SIZE : UINT_32_SIZE,
+			sizeof (unsigned int), scan_next, 1) < 0) {
+			break;
+		}
+
+		/*
+		 * A possible scope array.  Is it long enough?
+		 */
+		if (poss_l_searchlist_r_nlist < 2)
+			continue;
+
+		uintptr_t scope_array_scan;
+		unsigned int nscopes;
+		int unmatched = 0;
+
+		/*
+		 * Now scan the possible scopes list until we hit the end or
+		 * find something that isn't in map_addrs.
+		 */
+
+		scope_array_scan = poss_l_searchlist_r_list;
+
+		for (nscopes = 0; nscopes < poss_l_searchlist_r_nlist;
+		     nscopes++,
+		     scope_array_scan += rd->P->elf64 ?
+			 L_NEXT_64_SIZE : L_NEXT_32_SIZE)
+		{
+			uintptr_t poss_map;
+
+			if (Pread_scalar_quietly(rd->P, &poss_map,
+				rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE,
+				sizeof (uintptr_t), scope_array_scan, 1) < 0) {
+				unmatched = 1;
+				break;
+			}
+
+			if (bsearch(&poss_map, map_addrs, nmaps,
+				sizeof (uintptr_t),
+				ascending_uintptrs) == NULL) {
+				unmatched = 1;
+				break;
+			}
+			_dprintf("%i: %i: matched with %lx\n", rd->P->pid,
+			    nscopes, poss_map);
+		}
+
+		/*
+		 * If everything matched, this is the l_searchlist.
+		 */
+
+		if (!unmatched) {
+			free(map_addrs);
+			rd->l_searchlist_offset = scan - first_loadobj;
+			_dprintf("%i: found l_searchlist at offset %zi\n",
+			    rd->P->pid, rd->l_searchlist_offset);
+			return 0;
+		}
+	}
+
+	free(map_addrs);
+	_dprintf("%i: no searchlist found\n", rd->P->pid);
+	return -1;
+}
+
+/*
  * Get a link map, given an address.
  */
 static struct link_map *
@@ -282,6 +505,13 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 	uintptr_t searchlist;
 	size_t i;
 
+	if (rd_ldso_consistent_begin(rd) != 0)
+		return NULL;
+
+	if (!rd->l_searchlist_offset)
+		if (find_l_searchlist(rd) < 0)
+			goto fail;
+
 	buf->rl_diff_addr = map->l_addr;
 	buf->rl_nameaddr = (uintptr_t) map->l_name;
 	buf->rl_dyn = (uintptr_t) map->l_ld;
@@ -289,18 +519,23 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 	/*
 	 * Now put together the scopes array.  Avoid calling the allocator too
 	 * often by allocating the array only once, expanding it as needed.
+	 *
+	 * We are grabbing a pointer to a link map.  We know its address, since
+	 * this is an array, but have no explicit reference to its
+	 * size. However, we have other things which we know must always be
+	 * pointers to link maps -- like L_NEXT.
 	 */
+
 	if (Pread_scalar(rd->P, &searchlist, rd->P->elf64 ?
-		L_SEARCHLIST_64_SIZE : L_SEARCHLIST_32_SIZE,
-		sizeof (uintptr_t), addr + (rd->P->elf64 ?
-		    L_SEARCHLIST_64_OFFSET : L_SEARCHLIST_32_OFFSET)) < 0)
-		return NULL;
+		L_NEXT_64_SIZE : L_NEXT_32_SIZE,
+		sizeof (uintptr_t), addr + rd->l_searchlist_offset) < 0)
+		goto fail;
 
 	if (Pread_scalar(rd->P, &buf->rl_nscopes, rd->P->elf64 ?
-		L_NSEARCHLIST_64_SIZE : L_NSEARCHLIST_32_SIZE,
-		sizeof (unsigned int), addr + (rd->P->elf64 ?
-		    L_NSEARCHLIST_64_OFFSET : L_NSEARCHLIST_32_OFFSET)) < 0)
-		return NULL;
+		UINT_64_SIZE : UINT_32_SIZE,
+		sizeof (unsigned int), addr + rd->l_searchlist_offset +
+		(rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE)) < 0)
+		goto fail;
 
 	if (buf->rl_nscopes_alloced < buf->rl_nscopes) {
 		size_t nscopes_size = buf->rl_nscopes * sizeof(uintptr_t);
@@ -316,24 +551,20 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 	}
 
 	for (i = 0; i < buf->rl_nscopes; i++) {
-		/*
-		 * This is a pointer to a link map.  We know its address, since
-		 * this is an array, but have no explicit reference to its
-		 * size. However, we have other things which we know must always
-		 * be pointers to link maps -- like L_NEXT.
-		 */
-
 		size_t link_map_ptr_size = rd->P->elf64 ? L_NEXT_64_SIZE :
 		    L_NEXT_32_SIZE;
 
 		if (Pread_scalar(rd->P, &buf->rl_scope[i], link_map_ptr_size,
 			sizeof (uintptr_t), searchlist +
-			(i * link_map_ptr_size)) < 0) {
-			return NULL;
-		}
+			(i * link_map_ptr_size)) < 0)
+			goto fail;
 	}
 
+	rd_ldso_consistent_end(rd);
 	return buf;
+fail:
+	rd_ldso_consistent_end(rd);
+	return NULL;
 }
 
 /*
