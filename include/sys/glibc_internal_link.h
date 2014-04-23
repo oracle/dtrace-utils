@@ -47,7 +47,13 @@ struct internal_link_map
   struct link_map *l_next, *l_prev; /* Chain of loaded objects.  */
 
   /* All following members are internal to the dynamic linker.
-     They may change without notice.  */
+     They may change without notice.
+
+     From this point down, the content of this structure is from glibc-2.12 and
+     need not change for future glibc releases unless l_searchlist moves out of
+     the structure or moves closer to its start:
+     libproc/rtld_db.c:find_l_searchlist() wil adapt to most changes that move
+     l_searchlist to higher offsets. */
 
   /* This is an element which is only ever different from a pointer to
      the very same copy of this type for ld.so when it is used in more

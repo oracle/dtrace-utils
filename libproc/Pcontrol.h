@@ -180,6 +180,8 @@ typedef struct bkpt {
 struct rd_agent {
 	struct ps_prochandle *P;	/* pointer back to our ps_prochandle */
 	int maps_ready;			/* 1 if the link maps are ready */
+	size_t l_searchlist_offset;	/* Offset of the l_searchlist in the
+					   link map structure. */
 	uintptr_t r_brk_addr;		/* if nonzero, the address of r_brk */
 	uintptr_t rtld_global_addr;	/* if nonzero, the address of
 					   _rtld_global */
