@@ -508,6 +508,16 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 	int err;
 
 	/*
+	 * If we are already inside a consistency-enforcement block, just note
+	 * the increased nesting level and return: we are necessarily already
+	 * consistent, so there is nothing to do.
+	 */
+	if (rd->no_inconsistent > 0) {
+		rd->no_inconsistent++;
+		return 0;
+	}
+
+	/*
 	 * If we are already stopped at a breakpoint or otherwise in tracing
 	 * stop, do nothing.  Return success, unless we are in an inconsistent
 	 * state (in which case we cannot move into a consistent state without
@@ -528,25 +538,19 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 	rd->prev_state = rd->P->state;
 
 	/*
-	 * If consistent state monitoring is not yet active, reset the marker
-	 * that signals that a state transition was detected.  Do this before we
+	 * Reset the marker that signals that a state transition was detected,
+	 * bar transition of the dynamic linker into an inconsistent state (if
+	 * it is currently in a consistent state), and arrange to signal when a
+	 * transition is detected. Do all this before we drop the breakpoint to
 	 * start monitoring.
 	 */
-	if (!rd->no_inconsistent)
-		rd->ic_transitioned = 0;
-
-	/*
-	 * Bar transition of the dynamic linker into an inconsistent state (if
-	 * it is currently in a consistent state), and arrange to signal when
-	 * a transition is detected.
-	 */
+	rd->ic_transitioned = 0;
 	rd->no_inconsistent++;
 
 	/*
-	 * If needed, set up the breakpoint to detect transitions into
-	 * consistent/inconsistent states.
+	 * Set up the breakpoint to detect consistency state transitions.
 	 */
-	if (rd->no_inconsistent == 1 && !rd->rd_monitoring) {
+	if (!rd->rd_monitoring) {
 		err = Pbkpt(rd->P, rd->r_brk_addr, FALSE, rd_brk_trap, NULL, rd);
 		rd->rd_monitoring = TRUE;
 		if (err != 0) {
