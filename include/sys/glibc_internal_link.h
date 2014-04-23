@@ -52,7 +52,7 @@ struct internal_link_map
      From this point down, the content of this structure is from glibc-2.12 and
      need not change for future glibc releases unless l_searchlist moves out of
      the structure or moves closer to its start:
-     libproc/rtld_db.c:find_l_searchlist() wil adapt to most changes that move
+     libproc/rtld_db.c:find_l_searchlist() will adapt to most changes that move
      l_searchlist to higher offsets. */
 
   /* This is an element which is only ever different from a pointer to
