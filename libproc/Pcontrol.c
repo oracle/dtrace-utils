@@ -1852,14 +1852,16 @@ Pread_string(struct ps_prochandle *P,
 }
 
 /*
- * Read from process, doing endianness and size conversions.
+ * Read from process, doing endianness and size conversions, possibly quashing
+ * address-related errors.
  */
 ssize_t
-Pread_scalar(struct ps_prochandle *P,
+Pread_scalar_quietly(struct ps_prochandle *P,
     void *buf,			/* caller's buffer */
     size_t nbyte,		/* number of bytes to read */
     size_t nscalar,		/* scalar size on this platform */
-    uintptr_t address)		/* address in process */
+    uintptr_t address,		/* address in process */
+    int quietly)		/* do not emit error messages */
 {
 	union
 	{
@@ -1897,9 +1899,10 @@ Pread_scalar(struct ps_prochandle *P,
 	}
 
 	if (Pread(P, (void *)&conv.b1, nbyte, address) != nbyte) {
-		_dprintf("Pread_scalar(): attempt to read %lu bytes from PID %i at "
-		    "address %lx read fewer bytes than expected.\n", nbyte,
-		    P->pid, address);
+		if (!quietly)
+			_dprintf("Pread_scalar(): attempt to read %lu bytes from PID %i at "
+			    "address %lx read fewer bytes than expected.\n", nbyte,
+			    P->pid, address);
 		return(-1);
 	}
 
@@ -1914,6 +1917,20 @@ Pread_scalar(struct ps_prochandle *P,
 	}
 
 	return nbyte;
+}
+
+/*
+ * Read from process, doing endianness and size conversions, with noisy errors
+ * if things go wrong.
+ */
+ssize_t
+Pread_scalar(struct ps_prochandle *P,
+    void *buf,			/* caller's buffer */
+    size_t nbyte,		/* number of bytes to read */
+    size_t nscalar,		/* scalar size on this platform */
+    uintptr_t address)		/* address in process */
+{
+	return Pread_scalar_quietly(P, buf, nbyte, nscalar, address, 0);
 }
 
 pid_t
