@@ -128,6 +128,8 @@ extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
 extern 	ssize_t	Pread_scalar(struct ps_prochandle *P, void *buf, size_t nbyte,
     size_t nscalar, uintptr_t address);
+extern 	ssize_t	Pread_scalar_quietly(struct ps_prochandle *P, void *buf,
+    size_t nbyte, size_t nscalar, uintptr_t address, int quietly);
 extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
 extern	int	Pdynamically_linked(struct ps_prochandle *);
