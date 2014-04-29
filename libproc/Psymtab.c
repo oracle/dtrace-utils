@@ -454,6 +454,9 @@ Pupdate_maps(struct ps_prochandle *P)
 	if (P->info_valid)
 		return;
 
+	if (P->state == PS_DEAD)
+		return;
+
 	_dprintf("Updating mappings for PID %i\n", P->pid);
 
 	/*
@@ -735,16 +738,19 @@ Pupdate_lmids(struct ps_prochandle *P)
 void
 Pupdate_syms(struct ps_prochandle *P)
 {
-       file_info_t *fptr;
-       int i;
+	file_info_t *fptr;
+	int i;
 
-       P->info_valid = 0;
-       Pupdate_maps(P);
-       Pupdate_lmids(P);
+	if (P->state == PS_DEAD)
+		return;
 
-       for (i = 0, fptr = dt_list_next(&P->file_list);
-	    i < P->num_files; i++, fptr = dt_list_next(fptr))
-               Pbuild_file_symtab(P, fptr);
+	P->info_valid = 0;
+	Pupdate_maps(P);
+	Pupdate_lmids(P);
+
+	for (i = 0, fptr = dt_list_next(&P->file_list);
+	     i < P->num_files; i++, fptr = dt_list_next(fptr))
+		Pbuild_file_symtab(P, fptr);
 }
 
 /*
@@ -757,7 +763,10 @@ Pupdate_syms(struct ps_prochandle *P)
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
-	if (P->rap == NULL && !P->noninvasive && P->state != PS_DEAD) {
+	if (P->state == PS_DEAD)
+		return (NULL);
+
+	if (P->rap == NULL && !P->noninvasive) {
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
 	}
@@ -772,6 +781,9 @@ const prmap_t *
 Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 {
 	map_info_t *mptr;
+
+	if (P->state == PS_DEAD)
+		return (NULL);
 
 	if (!P->info_valid) {
 		Pupdate_maps(P);
@@ -792,6 +804,9 @@ const prmap_t *
 Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 {
 	map_info_t *mptr;
+
+	if (P->state == PS_DEAD)
+		return (NULL);
 
 	if (name == PR_OBJ_EVERY)
 		return (NULL); /* A reasonable mistake */
@@ -1715,6 +1730,9 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
 	map_info_t	*mptr;
 	file_info_t	*fptr;
 
+	if (P->state == PS_DEAD)
+		return (-1);
+
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
@@ -1786,6 +1804,9 @@ Pxlookup_by_name_internal(
 	prsyminfo_t si;
 	int rv = -1;
 	uint_t id;
+
+	if (P->state == PS_DEAD)
+		return (-1);
 
 	memset(&sym, 0, sizeof (GElf_Sym));
 	memset(&si, 0, sizeof (prsyminfo_t));
@@ -1915,6 +1936,9 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 	uint_t cnt;
 	int rc = 0;
 
+	if (P->state == PS_DEAD)
+		return (-1);
+
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
@@ -1959,6 +1983,9 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 	map_info_t *mptr;
 	file_info_t *fptr;
 
+	if (P->state == PS_DEAD)
+		return (NULL);
+
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
@@ -1973,7 +2000,7 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 	else if (fptr->file_pname != NULL)
 		(void) strlcpy(buffer, fptr->file_pname, bufsize);
 	else
-		return NULL;
+		return (NULL);
 
 	return (buffer);
 }
@@ -1987,6 +2014,9 @@ Plmid(struct ps_prochandle *P, uintptr_t addr, Lmid_t *lmidp)
 {
 	map_info_t *mptr;
 	file_info_t *fptr;
+
+	if (P->state == PS_DEAD)
+		return (-1);
 
 	/* create all the file_info_t's for all the mappings */
 	Pupdate_maps(P);
@@ -2024,6 +2054,9 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 	size_t strsz;
 	int rv;
 	uint_t *map, i, count, ndx;
+
+	if (P->state == PS_DEAD)
+		return (-1);
 
 	if ((mptr = object_name_to_map(P, PR_LMID_EVERY, object_name)) == NULL)
 		return (-1);
@@ -2117,6 +2150,9 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 int
 Pvalid_mapping(struct ps_prochandle *P, uintptr_t addr)
 {
+	if (P->state == PS_DEAD)
+		return (-1);
+
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 	return (Paddr2mptr(P, addr) != NULL);
@@ -2129,6 +2165,9 @@ int
 Pfile_mapping(struct ps_prochandle *P, uintptr_t addr)
 {
 	map_info_t *mptr;
+
+	if (P->state == PS_DEAD)
+		return (-1);
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
@@ -2143,6 +2182,9 @@ int
 Pwritable_mapping(struct ps_prochandle *P, uintptr_t addr)
 {
 	map_info_t *mptr;
+
+	if (P->state == PS_DEAD)
+		return (-1);
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
