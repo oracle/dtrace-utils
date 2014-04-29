@@ -1032,37 +1032,46 @@ rd_exec_handler(struct ps_prochandle *P)
 rd_agent_t *
 rd_new(struct ps_prochandle *P)
 {
-	rd_agent_t *rd = calloc(sizeof (struct rd_agent), 1);
+	rd_agent_t *rd;
 	int r_version = 0;
 	int oldstate;
-	uintptr_t r_debug_addr = r_debug(P);
+	uintptr_t r_debug_addr;
+
+	/*
+	 * Give up right away if the process is dead.
+	 */
+	if (P->state == PS_DEAD) {
+		_dprintf ("%i: Cannot initialize rd_agent: "
+		    "process is dead.\n", P->pid);
+		return (NULL);
+	}
+
+	/*
+	 * Can't find r_debug? This is hopeless. Maybe this is a stripped
+	 * statically linked binary, or this is a noninvasive ptrace().
+	 */
+	r_debug_addr = r_debug(P);
+	if (r_debug_addr == -1) {
+                _dprintf("%i: Cannot initialize rd_agent: no "
+                    "r_debug.\n", rd->P->pid);
+		return (NULL);
+	}
 
 	Pwait(P, 0);
+
+	rd = calloc(sizeof (struct rd_agent), 1);
 	if (rd == NULL)
 		return (NULL);
 	/*
 	 * Protect against multiple calls.
 	 */
-	if (P->rap)
+	if (P->rap) {
+		free(rd);
 		return (P->rap);
+        }
 
 	rd->P = P;
 	oldstate = Ptrace(P, 1);
-
-	/*
-	 * Can't find r_debug?  This is hopeless.  Quite possibly the process is
-	 * dead, or a stripped statically linked binary, or this is a
-	 * noninvasive ptrace().
-	 */
-	if (r_debug_addr == -1) {
-		if (P->state == PS_DEAD)
-			_dprintf ("%i: Cannot initialize rd_agent: "
-			    "process is dead.\n", rd->P->pid);
-		else
-			_dprintf("%i: Cannot initialize rd_agent: no "
-			    "r_debug.\n", rd->P->pid);
-		goto err;
-	}
 
 	/*
 	 * Check its version.  An _r_debug address or version of zero means that
