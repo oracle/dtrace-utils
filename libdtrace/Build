@@ -91,7 +91,7 @@ WORKING_DLIBS = errno.d \
 
 $(objdir)/%.sed: $(libdtrace-build_DIR)%.sed.in
 	$(call describe-target,SED,$<)
-	$(PREPROCESS) -x c -I$(KERNELDIR)/include \
+	$(PREPROCESS) -x c -I$(KERNELDIR)/include -I$(KERNELDIR)/arch/$(KERNELARCH)/include \
 		      -D_KERNEL -D__KERNEL__ $< 2>/dev/null | \
 	    m4 $(libdtrace-build_DIR)sed-replace.m4 - > $@
 	if grep -q @@@@SUBST-FAIL@@@@ $@; then \

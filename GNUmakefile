@@ -22,7 +22,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 .DELETE_ON_ERROR:
@@ -46,9 +46,11 @@ export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 
-# The substitution process in libdtrace needs a kernel build tree.
+# The substitution process in libdtrace needs a kernel build tree, and needs to
+# know the name of the kernel architecture (as used in pathnames).
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
+KERNELARCH := x86
 ifeq ($(wildcard $(KERNELDIR)/include/linux),)
 $(error "Error: Point KERNELDIR=... at the Linux kernel source")
 endif
