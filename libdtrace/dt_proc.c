@@ -1380,7 +1380,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * threads to check the same process time and again.
 	 */
 	if (!Pexists(pid)) {
-		dt_dprintf("Pgrab(%d): Process does not exist, early exit\n",
+		dt_dprintf("Pgrab(%d): Process does not exist, cannot grab\n",
 		    pid);
 		return NULL;
 	}
