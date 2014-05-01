@@ -16,11 +16,17 @@ Bugfixes:
    crashes dtrace(1) itself, or runs dtrace or the system as a whole out of
    filehandles.
 
+ - Interrupting dtrace with a SIGINT while monitored processes are dying
+   simultaneously now consistently stops it rather than hanging forever.
+
+ - dtrace's symbol-resolution paths are armoured against various problems which
+   could occur when processes died while lookups were underway.
+
  - pid and ppid are now correctly derived for multithreaded processes, pointing
    to the POSIX pid and parent respectively rather than the thread and thread
    group leader.
 
- - resolving kernel symbols located at the start of modules will no longer
+ - Resolving kernel symbols located at the start of modules will no longer
    cause dtrace userspace to dereference uninitialized memory as a pointer.
 
 0.4.1
