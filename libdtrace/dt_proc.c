@@ -1028,6 +1028,15 @@ dt_proc_control_cleanup(void *arg)
 	pthread_cond_broadcast(&dpr->dpr_cv);
 
 	/*
+	 * A proxy request may have come in since the last time we checked for
+	 * one: abort any such request with a notice that the process is not
+	 * there any more.
+	 */
+	dpr->dpr_proxy_errno = ESRCH;
+	dpr->dpr_proxy_rq = NULL;
+	pthread_cond_signal(&dpr->dpr_msg_cv);
+
+	/*
 	 * Completely unlock the lock, no matter what its depth.
 	 */
 
