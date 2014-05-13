@@ -107,9 +107,9 @@ file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 		return (NULL);
 
 	dt_list_append(&P->file_list, fptr);
-	fptr->file_pname = strdup(mptr->map_pmap.pr_file->prf_mapname);
-	fptr->file_dev = mptr->map_pmap.pr_dev;
-	fptr->file_inum = mptr->map_pmap.pr_inum;
+	fptr->file_pname = strdup(mptr->map_pmap->pr_file->prf_mapname);
+	fptr->file_dev = mptr->map_pmap->pr_dev;
+	fptr->file_inum = mptr->map_pmap->pr_inum;
 	mptr->map_file = fptr;
 	fptr->file_map = -1;
 	fptr->file_ref = 1;
@@ -187,6 +187,8 @@ mapping_purge(struct ps_prochandle *P)
 			fptr->file_ref--;
 			fptr->file_map = -1;
 		}
+		free(P->mappings[i].map_pmap);
+		P->mappings[i].map_pmap = NULL;
 	}
 	P->num_mappings = 0;
 
@@ -513,8 +515,8 @@ Pupdate_maps(struct ps_prochandle *P)
 		/*
 		 * Allocate a new map_info, and see if we need to allocate a new
 		 * map_file.  Expand the map_info region only if necessary.
-		 * (This makes multiple sequential unmaps cheap, though nothing
-		 * we can do can make multiple sequential maps cheap.)
+		 * (This makes multiple sequential unmaps cheaper, though
+		 * nothing we can do can make multiple sequential maps cheap.)
 		 */
 
 		if (P->num_mappings >= old_num_mappings) {
@@ -527,7 +529,12 @@ Pupdate_maps(struct ps_prochandle *P)
 
 		mptr = &P->mappings[P->num_mappings];
 		memset(mptr, 0, sizeof (struct map_info));
-		pmptr = &mptr->map_pmap;
+
+		mptr->map_pmap = malloc(sizeof (struct prmap));
+		if (!mptr->map_pmap)
+			goto err;
+		pmptr = mptr->map_pmap;
+		memset(pmptr, 0, sizeof (struct prmap));
 
 		if ((prf = Pprmap_file_by_name(P, fn)) == NULL) {
 			uint_t h = string_hash(fn) % MAP_HASH_BUCKETS;
@@ -546,8 +553,10 @@ Pupdate_maps(struct ps_prochandle *P)
 		prf->prf_mappings = realloc(prf->prf_mappings,
 		    (prf->prf_num_mappings + 1) * sizeof (struct prmap_t *));
 
-		if (!prf->prf_mappings)
+		if (!prf->prf_mappings) {
+			free(mptr->map_pmap);
 			goto err;
+		}
 
 		prf->prf_mappings[prf->prf_num_mappings] = pmptr;
 		prf->prf_num_mappings++;
@@ -660,7 +669,7 @@ Pupdate_maps(struct ps_prochandle *P)
 
 			if (mptr->map_file &&
 			    mptr->map_file->file_map == -1 &&
-			    mptr->map_pmap.pr_file->prf_text_map == &mptr->map_pmap)
+			    mptr->map_pmap->pr_file->prf_text_map == mptr->map_pmap)
 				mptr->map_file->file_map = P->num_mappings;
 		}
 
@@ -791,7 +800,7 @@ Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 	}
 
 	if ((mptr = Paddr2mptr(P, addr)) != NULL)
-		return (&mptr->map_pmap);
+		return (mptr->map_pmap);
 
 	return (NULL);
 }
@@ -812,7 +821,7 @@ Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 		return (NULL); /* A reasonable mistake */
 
 	if ((mptr = object_name_to_map(P, lmid, name)) != NULL)
-		return (&mptr->map_pmap);
+		return (mptr->map_pmap);
 
 	return (NULL);
 }
@@ -1138,9 +1147,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		fptr->file_init = 1;
 
 		if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
-			    P->mappings[fptr->file_map].map_pmap.pr_vaddr, &fd) < 0)) {
+			    P->mappings[fptr->file_map].map_pmap->pr_vaddr, &fd) < 0)) {
 			_dprintf("cannot acquire file descriptor for mapping at %lx "
-			    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap.pr_vaddr,
+			    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap->pr_vaddr,
 			    fptr->file_pname, strerror(errno));
 			Puntrace(P, p_state);
 			goto bad;
@@ -1322,12 +1331,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			_dprintf("cannot set file_dyn_base for ld.so!\n");
 	} else if (fptr->file_etype == ET_DYN) {
 		fptr->file_dyn_base =
-		    P->mappings[fptr->file_map].map_pmap.pr_vaddr -
+		    P->mappings[fptr->file_map].map_pmap->pr_vaddr -
 		    ehdr.e_entry;
 		_dprintf("setting file_dyn_base for %s to %lx, "
 		    "from vaddr of %lx and e_entry of %lx\n",
 		    fptr->file_pname, (long)fptr->file_dyn_base,
-		    P->mappings[fptr->file_map].map_pmap.pr_vaddr,
+		    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
 			ehdr.e_entry);
 	}
 	if (fptr->file_lo == NULL)
@@ -1372,10 +1381,10 @@ Paddr2idx(struct ps_prochandle *P, uintptr_t addr)
 		mp = &P->mappings[mid];
 
 		/* check that addr is in [vaddr, vaddr + size) */
-		if ((addr - mp->map_pmap.pr_vaddr) < mp->map_pmap.pr_size)
+		if ((addr - mp->map_pmap->pr_vaddr) < mp->map_pmap->pr_size)
 			return (mid);
 
-		if (addr < mp->map_pmap.pr_vaddr)
+		if (addr < mp->map_pmap->pr_vaddr)
 			hi = mid - 1;
 		else
 			lo = mid + 1;
@@ -1430,7 +1439,7 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 	 */
 	for (i = 0, mp = P->mappings; i < P->num_mappings; i++, mp++) {
 
-		if (mp->map_pmap.pr_file->prf_mapname[0] != '/' ||
+		if (mp->map_pmap->pr_file->prf_mapname[0] != '/' ||
 		    (fp = mp->map_file) == NULL)
 			continue;
 
@@ -1958,7 +1967,7 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 			continue;
 
 		mptr = &P->mappings[fptr->file_map];
-		if ((rc = func(cd, &mptr->map_pmap, lname)) != 0)
+		if ((rc = func(cd, mptr->map_pmap, lname)) != 0)
 			return (rc);
 
 		if (!P->info_valid) {
@@ -2190,7 +2199,7 @@ Pwritable_mapping(struct ps_prochandle *P, uintptr_t addr)
 	Pupdate_lmids(P);
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)
 		return 0;
-	return ((mptr->map_pmap.pr_mflags & MA_WRITE) != 0);
+	return ((mptr->map_pmap->pr_mflags & MA_WRITE) != 0);
 }
 
 /*
