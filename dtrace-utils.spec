@@ -19,8 +19,8 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.2
-Release:      2%{?dist}
+Version:      0.4.3
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,10 +120,19 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue May 13 2014 - <nick.alcock@oracle.com> - 0.4.3-1
+- Fix array underrun when no textual mapping for the executable can be found
+  [Orabug: 18550863]
+- Fix unlikely buffer overrun at process-map-read time [Orabug: 18550863]
+- Fix traversal of realloc()ed pointer which could lead to textual mappings
+  being spuriously missed [Orabug: 18550863]
+- Fix error-path dereference of uninitialized variable in error message
+  [Orabug: 18550863]
+
 * Thu May  1 2014 - <nick.alcock@oracle.com> - 0.4.2-2
-- interrupting dtrace with a SIGINT while monitored processes are dying no
+- Interrupting dtrace with a SIGINT while monitored processes are dying no
   longer hangs dtrace on a condition variable [Orabug: 18689795]
-- symbol lookups on processes that died at the same instant now always fail
+- Symbol lookups on processes that died at the same instant now always fail
   and no longer access freed memory [Orabug: 18550863]
 
 * Wed Apr 16 2014 - <nick.alcock@oracle.com> - 0.4.2-1

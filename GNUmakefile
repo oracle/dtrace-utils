@@ -30,7 +30,7 @@
 .SECONDEXPANSION:
 
 PROJECT := dtrace
-VERSION := 0.4.0
+VERSION := 0.4.3
 
 # Verify supported hardware.
 

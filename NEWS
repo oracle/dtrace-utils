@@ -1,3 +1,13 @@
+0.4.3
+-----
+
+Bugfixes:
+
+ - Several memory-allocation, underrun and overrun bugs in process handling
+   were fixed.  With sufficient ingenuity these may be exploitable by local
+   users who can craft and run unusual ELF executables and arrange for dtrace
+   to attach to them.
+
 0.4.2
 -----
 
