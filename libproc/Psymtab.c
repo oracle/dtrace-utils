@@ -445,7 +445,7 @@ void
 Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
-	char exefile[PATH_MAX] = "";
+	char exefile[PATH_MAX + 10] = "";       /* strlen(" (deleted)") */
 	FILE *fp;
 
 	size_t old_num_mappings = P->num_mappings;
