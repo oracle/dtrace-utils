@@ -1053,7 +1053,7 @@ rd_new(struct ps_prochandle *P)
 	r_debug_addr = r_debug(P);
 	if (r_debug_addr == -1) {
                 _dprintf("%i: Cannot initialize rd_agent: no "
-                    "r_debug.\n", rd->P->pid);
+                    "r_debug.\n", P->pid);
 		return (NULL);
 	}
 
