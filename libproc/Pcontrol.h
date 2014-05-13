@@ -126,7 +126,7 @@ typedef struct file_info {	/* symbol information for a mapped file */
  * they just point to each other.
  */
 typedef struct map_info {	/* description of an address space mapping */
-	prmap_t	map_pmap;	/* /proc description of this mapping */
+	prmap_t	*map_pmap;	/* /proc description of this mapping */
 	file_info_t *map_file;	/* pointer into list of mapped files */
 } map_info_t;
 
