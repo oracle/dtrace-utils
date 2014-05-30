@@ -109,10 +109,22 @@ WORKING_DLIBS = errno.d \
 
 $(objdir)/%.sed: $(libdtrace-build_DIR)%.sed.in
 	$(call describe-target,SED,$<)
+	if [[ ! -d $(KERNELDIR)/include/linux ]]; then \
+		echo "Error: Point KERNELDIR=... at the Linux kernel source." >&2; \
+		exit 1; \
+	fi
 	$(PREPROCESS) -x c -I$(KERNELDIR)/include -I$(KERNELDIR)/arch/$(KERNELARCH)/include \
-		      -D_KERNEL -D__KERNEL__ $< 2>/dev/null | \
+		      -D_KERNEL -D__KERNEL__ $< 2>$@.h.err | tee $@.h | \
 	    m4 $(libdtrace-build_DIR)sed-replace.m4 - > $@
+	if ! grep -q __sed_replace $@.h; then \
+		cat $@.h.err >&2; \
+		echo "Error: Preprocessing of header included in $^ failed." >&2; \
+		rm -f $@.h $@.h.err; \
+		exit 1; \
+	fi
+	rm -f $@.h $@.h.err; \
 	if grep -q @@@@SUBST-FAIL@@@@ $@; then \
+		cat $@; \
 		echo "Error: Not all tokens in $^ defined in headers." >&2; \
 		exit 1; \
 	fi

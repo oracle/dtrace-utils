@@ -51,9 +51,6 @@ PREPROCESS = $(CC) -E
 
 KERNELDIR := /lib/modules/$(shell uname -r)/build
 KERNELARCH := x86
-ifeq ($(wildcard $(KERNELDIR)/include/linux),)
-$(error "Error: Point KERNELDIR=... at the Linux kernel source")
-endif
 
 # If libdtrace-ctf is initialized, we want to get headers from it.
 
