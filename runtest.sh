@@ -143,10 +143,13 @@ run_with_timeout()
     # against PID recycling causing the wrong process to be killed if the other
     # job exits at just the wrong instant.  The check for pid being set allows us
     # to avoid one ps(1) call in the common case of no timeout.
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
+    #
+    # Note: because log, sum, out and force_out invoke subprocesses, you cannot
+    # call either of them while the CHLD trap is in force.
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
     sleep $timeout &
     sleepid=$!
     old_ZAPTHESE="$ZAPTHESE"
@@ -162,6 +165,7 @@ run_with_timeout()
 
     wait $sleepid >/dev/null 2>&1
 
+    trap - CHLD
     set +o monitor
     ZAPTHESE="$old_ZAPTHESE"
 
