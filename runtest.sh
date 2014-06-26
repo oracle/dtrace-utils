@@ -533,6 +533,25 @@ else
     fi
 fi
 
+# Flip a few env vars to tell dtrace to produce reproducible output.
+export _DTRACE_TESTING=t
+export LANGUAGE=C
+
+# Figure out if the preprocessor supports -fno-diagnostics-show-option: if it
+# does, add a bunch of options designed to make GCC output look like it used
+# to.
+# Regardless, turn off display of column numbers, if possible: they vary
+# between GCC releases.
+
+test_cppflags=
+if ! /usr/bin/cpp -x c -fno-diagnostics-show-caret - /dev/null < /dev/null 2>&1 | \
+	grep -q 'unrecognized command line option'; then
+    export DTRACE_OPT_CPPARGS="-fno-diagnostics-show-caret -fdiagnostics-color=never -fno-diagnostics-show-option -fno-show-column"
+elif ! /usr/bin/cpp -x c -fno-show-column - /dev/null < /dev/null 2>&1 | \
+	grep -q 'unrecognized command line option'; then
+    export DTRACE_OPT_CPPARGS="-fno-show-column"
+fi
+
 # More than one dtrace tree -> run tests for all dtraces, and verify identical
 # intermediate code is produced by each dtrace.
 
@@ -843,7 +862,6 @@ for dt in $dtrace; do
         # sh invocation.
 
         raw_dt_flags="$test_incflags"
-        export _DTRACE_TESTING=t
 
         if [[ $testonly =~ ^err\.D_ ]]; then
             raw_dt_flags="$raw_dt_flags -xerrtags"

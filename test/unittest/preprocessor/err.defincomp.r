@@ -1,3 +1,3 @@
 -- @@stderr --
-/dev/fd/4:38:8: error: no macro name given in #define directive
+/dev/fd/4:38: error: no macro name given in #define directive
 dtrace: failed to compile script test/unittest/preprocessor/err.defincomp.d: Preprocessor failed to process input program
