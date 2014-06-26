@@ -3,12 +3,6 @@
                       mmap:entry mmap with prot = r--
                       mmap:entry mmap with prot = r-x
                       mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
-                      mmap:entry mmap with prot = rw-
                 exit_group:entry 
 
 -- @@stderr --
