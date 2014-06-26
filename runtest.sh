@@ -386,26 +386,26 @@ FORCE_OUT=
 out()
 {
     if [[ -z $QUIET ]] || [[ ! -z $FORCE_OUT ]]; then
-        printf "%s" "$@" | sed 's,%,%%,g' | xargs -0n 1 printf
+        printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf
     fi
     sum "$@"
 }
 
 force_out()
 {
-    printf "%s" "$@" | sed 's,%,%%,g' | xargs -0n 1 printf
+    printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf
     sum "$@"
 }
 
 sum()
 {
-    printf "%s" "$@" | sed 's,%,%%,g' | xargs -0n 1 printf >> $SUMFILE
+    printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf >> $SUMFILE
     log "$@"
 }
 
 log()
 {
-    printf "%s" "$@" | sed 's,%,%%,g' | xargs -0n 1 printf >> $LOGFILE
+    printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf >> $LOGFILE
 }
 
 # fail XFAIL XFAILMSG FAILMSG
