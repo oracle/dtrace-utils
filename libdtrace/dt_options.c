@@ -116,6 +116,35 @@ dt_opt_core(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (dt_set_errno(dtp, errno));
 }
 
+static int
+dt_opt_cpp_args(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	const char *ws = "\f\n\r\t\v ";
+	char *splitarg;
+	char *p;
+	char *save = NULL;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if ((splitarg = strdup(arg)) == NULL)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	for (p = strtok_r(splitarg, ws, &save); p != NULL;
+	     p = strtok_r(NULL, ws, &save))
+		if (dt_cpp_add_arg(dtp, p) == NULL) {
+			free(splitarg);
+			return (dt_set_errno(dtp, EDT_NOMEM));
+		}
+
+	free(splitarg);
+
+	return (0);
+}
+
 /*ARGSUSED*/
 static int
 dt_opt_cpp_hdrs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -941,6 +970,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "argref", dt_opt_cflags, DTRACE_C_ARGREF },
 	{ "core", dt_opt_core },
 	{ "cpp", dt_opt_cflags, DTRACE_C_CPP },
+	{ "cppargs", dt_opt_cpp_args },
 	{ "cpphdrs", dt_opt_cpp_hdrs },
 	{ "cpppath", dt_opt_cpp_path },
 	{ "ctypes", dt_opt_ctypes },
