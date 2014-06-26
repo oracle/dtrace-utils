@@ -37,6 +37,6 @@
 
 BEGIN
 {
-	t = can`can_stattimer;
+	t = hysdn`cardmax;
 	exit(0);
 }
