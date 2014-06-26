@@ -1560,7 +1560,9 @@ main(int argc, char *argv[])
 	 */
 	if (getenv("_DTRACE_TESTING") != NULL) {
 		g_testing = 1;
-		dtrace_setopt(g_dtp, "quietresize", 0);
+		if (dtrace_setopt(g_dtp, "quietresize", 0) != 0)
+			(void) fprintf(stderr, "%s: cannot set quietresize for "
+			    "testing", g_pname);
 	}
 
 	/*
