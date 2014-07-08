@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-26.el6uek
+%define kver 3.8.13-35.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -19,7 +19,7 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.3
+Version:      0.4.4
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -120,6 +120,10 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue Jul  8 2014 - <nick.alcock@oracle.com> - 0.4.4-1
+- New -xcppargs option as part of fixes for the testsuite on OL7
+  [Orabug: 19054052]
+
 * Tue May 13 2014 - <nick.alcock@oracle.com> - 0.4.3-1
 - Fix array underrun when no textual mapping for the executable can be found
   [Orabug: 18550863]
@@ -208,7 +212,8 @@ fi
 * Tue Mar 13 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.5
 - libdtrace is now a shared library, with non-stable API/ABI.
 
-* Thu Feb 16 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.4
+* Thu Feb 16 2012 Nick Alcock <nick
+.alcock@oracle.com> - 0.2.4
 - Updated README; new NEWS and PROBLEMS; synch with module version
 
 * Thu Feb  9 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.3
