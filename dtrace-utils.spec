@@ -212,8 +212,7 @@ fi
 * Tue Mar 13 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.5
 - libdtrace is now a shared library, with non-stable API/ABI.
 
-* Thu Feb 16 2012 Nick Alcock <nick
-.alcock@oracle.com> - 0.2.4
+* Thu Feb 16 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.4
 - Updated README; new NEWS and PROBLEMS; synch with module version
 
 * Thu Feb  9 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.3
@@ -237,7 +236,7 @@ fi
   section here to move our manpage into position in such a way as
   to keep the rpm database happy. Technically this is a bit evil.
 
-* Thu Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
+* Tue Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
 - Fix copyright.
 
 * Tue Sep 27 2011 Nick Alcock <nick.alcock@oracle.com> - 0.1
