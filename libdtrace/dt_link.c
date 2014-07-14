@@ -51,11 +51,12 @@
 
 #define	ESHDR_NULL	0
 #define	ESHDR_SHSTRTAB	1
-#define	ESHDR_DOF	2
-#define	ESHDR_STRTAB	3
-#define	ESHDR_SYMTAB	4
-#define	ESHDR_REL	5
-#define	ESHDR_NUM	6
+#define	ESHDR_STACKNOTE	2
+#define	ESHDR_DOF	3
+#define	ESHDR_STRTAB	4
+#define	ESHDR_SYMTAB	5
+#define	ESHDR_REL	6
+#define	ESHDR_NUM	7
 
 #define	PWRITE_SCN(index, data) \
 	(lseek64(fd, (off64_t)elf_file.shdr[(index)].sh_offset, SEEK_SET) != \
@@ -64,22 +65,30 @@
 	elf_file.shdr[(index)].sh_size)
 
 static const char DTRACE_SHSTRTAB32[] = "\0"
-".shstrtab\0"		/* 1 */
-".SUNW_dof\0"		/* 11 */
-".strtab\0"		/* 21 */
-".symtab\0"		/* 29 */
+#define NAMEOFF_SHSTRTAB	1
+					".shstrtab\0"		/* 1 */
+#define NAMEOFF_STACKNOTE	11
+					".note.GNU-stack\0"	/* 11 */
+#define NAMEOFF_DOF		27
+					".SUNW_dof\0"		/* 27 */
+#define NAMEOFF_STRTAB		37
+					".strtab\0"		/* 37 */
+#define NAMEOFF_SYMTAB		45
+					".symtab\0"		/* 45 */
+#define NAMEOFF_REL		53
 #ifdef __sparc
-".rela.SUNW_dof";	/* 37 */
+					".rela.SUNW_dof";	/* 53 */
 #else
-".rel.SUNW_dof";	/* 37 */
+					".rel.SUNW_dof";	/* 53 */
 #endif
 
 static const char DTRACE_SHSTRTAB64[] = "\0"
-".shstrtab\0"		/* 1 */
-".SUNW_dof\0"		/* 11 */
-".strtab\0"		/* 21 */
-".symtab\0"		/* 29 */
-".rela.SUNW_dof";	/* 37 */
+					".shstrtab\0"		/* 1 */
+					".note.GNU-stack\0"	/* 11 */
+					".SUNW_dof\0"		/* 27 */
+					".strtab\0"		/* 37 */
+					".symtab\0"		/* 45 */
+					".rela.SUNW_dof";	/* 53 */
 
 static const char DOFSTR[] = "__SUNW_dof";
 static const char DOFLAZYSTR[] = "___SUNW_dof";
@@ -500,15 +509,23 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = sizeof (elf_file) + nshdr * sizeof (Elf32_Shdr);
 
 	shp = &elf_file.shdr[ESHDR_SHSTRTAB];
-	shp->sh_name = 1; /* DTRACE_SHSTRTAB32[1] = ".shstrtab" */
+	shp->sh_name = NAMEOFF_SHSTRTAB;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_size = sizeof (DTRACE_SHSTRTAB32);
 	shp->sh_addralign = sizeof (char);
+	off = shp->sh_offset + shp->sh_size;
+
+	shp = &elf_file.shdr[ESHDR_STACKNOTE];
+	shp->sh_name = NAMEOFF_STACKNOTE;
+	shp->sh_type = SHT_PROGBITS;
+	shp->sh_offset = off;
+	shp->sh_size = 0;
+	shp->sh_addralign = sizeof (char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_DOF];
-	shp->sh_name = 11; /* DTRACE_SHSTRTAB32[11] = ".SUNW_dof" */
+	shp->sh_name = NAMEOFF_DOF;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SUNW_dof;
 	shp->sh_offset = off;
@@ -517,7 +534,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = shp->sh_offset + shp->sh_size;
 
 	shp = &elf_file.shdr[ESHDR_STRTAB];
-	shp->sh_name = 21; /* DTRACE_SHSTRTAB32[21] = ".strtab" */
+	shp->sh_name = NAMEOFF_STRTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
@@ -526,7 +543,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 4);
 
 	shp = &elf_file.shdr[ESHDR_SYMTAB];
-	shp->sh_name = 29; /* DTRACE_SHSTRTAB32[29] = ".symtab" */
+	shp->sh_name = NAMEOFF_SYMTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SYMTAB;
 	shp->sh_entsize = sizeof (Elf32_Sym);
@@ -548,7 +565,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 		}
 	} else {
 		shp = &elf_file.shdr[ESHDR_REL];
-		shp->sh_name = 37; /* DTRACE_SHSTRTAB32[37] = ".rel.SUNW_dof" */
+		shp->sh_name = NAMEOFF_REL;
 		shp->sh_flags = SHF_ALLOC;
 #ifdef __sparc
 		shp->sh_type = SHT_RELA;
@@ -637,15 +654,23 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = sizeof (elf_file) + nshdr * sizeof (Elf64_Shdr);
 
 	shp = &elf_file.shdr[ESHDR_SHSTRTAB];
-	shp->sh_name = 1; /* DTRACE_SHSTRTAB64[1] = ".shstrtab" */
+	shp->sh_name = NAMEOFF_SHSTRTAB;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_size = sizeof (DTRACE_SHSTRTAB64);
 	shp->sh_addralign = sizeof (char);
+	off = shp->sh_offset + shp->sh_size;
+
+	shp = &elf_file.shdr[ESHDR_STACKNOTE];
+	shp->sh_name = NAMEOFF_STACKNOTE;
+	shp->sh_type = SHT_PROGBITS;
+	shp->sh_offset = off;
+	shp->sh_size = 0;
+	shp->sh_addralign = sizeof (char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_DOF];
-	shp->sh_name = 11; /* DTRACE_SHSTRTAB64[11] = ".SUNW_dof" */
+	shp->sh_name = NAMEOFF_DOF;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SUNW_dof;
 	shp->sh_offset = off;
@@ -654,7 +679,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = shp->sh_offset + shp->sh_size;
 
 	shp = &elf_file.shdr[ESHDR_STRTAB];
-	shp->sh_name = 21; /* DTRACE_SHSTRTAB64[21] = ".strtab" */
+	shp->sh_name = NAMEOFF_STRTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
@@ -663,7 +688,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_SYMTAB];
-	shp->sh_name = 29; /* DTRACE_SHSTRTAB64[29] = ".symtab" */
+	shp->sh_name = NAMEOFF_SYMTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SYMTAB;
 	shp->sh_entsize = sizeof (Elf64_Sym);
@@ -685,7 +710,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 		}
 	} else {
 		shp = &elf_file.shdr[ESHDR_REL];
-		shp->sh_name = 37; /* DTRACE_SHSTRTAB64[37] = ".rel.SUNW_dof" */
+		shp->sh_name = NAMEOFF_REL;
 		shp->sh_flags = SHF_ALLOC;
 		shp->sh_type = SHT_RELA;
 		shp->sh_entsize = sizeof (de.de_rel[0]);
