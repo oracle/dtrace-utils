@@ -26,6 +26,8 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+/* @@skip: hanging on sparc64 */
+
 /*
  * ASSERTION:
  *   Positive test for dynamic variable size.

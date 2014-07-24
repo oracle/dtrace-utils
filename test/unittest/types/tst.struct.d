@@ -26,6 +26,8 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
+/* @@runtest-opts: -C */
+
 /*
  * ASSERTION:
  *   Declare a dynamic type and then use it to access the root path for the
@@ -43,9 +45,16 @@
 
 #pragma D option quiet
 
+#include <endian.h>
+
 struct dqstr {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	unsigned int hash;
 	unsigned int len;
+#else
+	unsigned int len;
+	unsigned int hash;
+#endif
 	unsigned char *name;
 };
 

@@ -47,7 +47,10 @@ ERROR
 
 BEGIN
 {
+/*
 	x = (int *) 64;
+ */
+	x = (int *) 16384;
 	y = *x;
 	trace(y);
 }

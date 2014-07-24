@@ -1,1 +1,2 @@
+@@skip: pid provider not yet implemented (sparc64)
 @@xfail: pid provider not yet implemented
