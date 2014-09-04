@@ -39,8 +39,14 @@ BEGIN
 	prot[7] = "rwx";
 }
 
-syscall::mmap:entry
+syscall::write:entry
 /pid == $1/
+{
+	fd = arg0;
+}
+
+syscall::mmap:entry
+/pid == $1 && arg4 == fd/
 {
 	printf("mmap with prot = %s", prot[arg2 & 0x7]);
 }
