@@ -530,10 +530,12 @@ postprocess()
     return $retval
 }
 
+arch=$(uname -m)
+
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
-    test_incflags="-Iuts/common -Ilibdtrace-ctf/include"
+    test_incflags="-Iuts/common -Ilibdtrace-ctf/include -DARCH_$arch"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -542,6 +544,8 @@ if [[ -z $USE_INSTALLED ]]; then
 else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"
+    test_incflags="-DARCH_$arch"
+
     if [[ ! -x $dtrace ]]; then
         echo "$dtrace not available." >&2
         exit 1
@@ -1062,8 +1066,11 @@ for dt in $dtrace; do
         failmsg=
 
         # Compare results, if available, and log the diff.
-        if [[ -e $base.r ]] && [[ -n $COMPARISON ]] &&
-           ! diff -u <(sort $base.r) <(sort $tmpdir/test.out) >/dev/null; then
+	rfile=$base.$arch.r
+	[[ -e $rfile ]] || rfile=$base.r
+
+        if [[ -e $rfile ]] && [[ -n $COMPARISON ]] &&
+           ! diff -u <(sort $rfile) <(sort $tmpdir/test.out) >/dev/null; then
 
             fail=t
             failmsg="expected results differ"
@@ -1122,7 +1129,7 @@ for dt in $dtrace; do
         elif [[ -n $want_expected_diff ]]; then
             log "Diff against expected:\n"
 
-            diff -u $base.r $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
+            diff -u $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
         fi
 
         # If capturing results is requested, capture them now.

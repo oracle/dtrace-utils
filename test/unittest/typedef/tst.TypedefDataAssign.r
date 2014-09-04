@@ -1,3 +1,3 @@
-Struct: c, 4, 4
-Union: , 5, 5
+Struct: c, 64, 64
+Union: @, 64, 64
 

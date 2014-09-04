@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@runtest-opts: -C */
+
 /*
  * ASSERTION:
  * Test the typedef keyword with the different D data types. Declare different
@@ -32,6 +34,16 @@
  * SECTION: Type and Constant Definitions/Typedef
  *
  */
+
+#include <endian.h>
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# define INT_VALUE      0x40
+# define LNG_VALUE      0x40
+#else
+# define INT_VALUE      0x40000000
+# define LNG_VALUE      0x4000000000000000
+#endif
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -103,12 +115,12 @@ pointer p;
 BEGIN
 {
 	ns.ch = 'c';
-	ns.in = 4;
-	ns.lg = 4;
+	ns.in = INT_VALUE;
+	ns.lg = LNG_VALUE;
 
 	nu.ch = 'd';
-	nu.in = 5;
-	nu.lg = 5;
+	nu.in = INT_VALUE;
+	nu.lg = LNG_VALUE;
 
 	i = 10;
 

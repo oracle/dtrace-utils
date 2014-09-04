@@ -25,7 +25,7 @@
  */
 
 /* @@trigger: bogus-ioctl */
-/* @@runtest-opts: $_pid */
+/* @@runtest-opts: -C $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -33,19 +33,25 @@
 #pragma D option quiet
 
 syscall::ioctl:entry
+#if defined(ARCH_x86_64)
 /pid == $1 && arg0 == -1u/
+#elif defined(ARCH_sparc64)
+/pid == $1 && arg0 == -1/
+#else
+# error Unsupported architecture
+#endif
 {
 	raise(SIGUSR1);
 }
 
-/*
- * On Linux, the ioctl prototype is
- *	extern int ioctl (int, unsigned long int, ...)
- * so under 64-bit architecture this means that -1 as first argument is
- * represented as -1u (32-bit) and -1 as second argument is -1 (64-bit).
- */
 syscall::ioctl:entry
+#if defined(ARCH_x86_64)
 /pid == $1 && arg0 != -1u && arg1 == -1 && arg2 == NULL/
+#elif defined(ARCH_sparc64)
+/pid == $1 && arg0 != -1 && arg1 == -1 && arg2 == NULL/
+#else
+# error Unsupported architecture
+#endif
 {
 	printf("fds[%d] fi_name = %s\n", arg0, fds[arg0].fi_name);
 	printf("fds[%d] fi_dirname = %s\n", arg0, fds[arg0].fi_dirname);
