@@ -24,6 +24,7 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: depends on userspace tracing using -c */
 /* @@runtest-opts: -c /bin/true */
 /* @@trigger: none */
 
