@@ -69,7 +69,10 @@ main(void)
 	 */
 	if (sigsetjmp(env, 1) == 0) {
 		for (;;)
+{
 			(void) ioctl(-1, -1, NULL);
+usleep(100);
+}
 	}
 
 	/*

@@ -62,6 +62,17 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	
+	/*
+	 * First accomodate the demo/dtrace/begin.d test.
+	 */
+	for (i = 0; i < 8; i++) {
+		map = mmap(0, FILESIZE, i, MAP_SHARED, fd, 0);
+		munmap(map, FILESIZE);
+	}
+
+	/*
+	 * Now perform the mmap for the demo/intro/trussrw.d test.
+	 */
 	map = mmap(0, FILESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (map == MAP_FAILED) {
 		exit(1);
