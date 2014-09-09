@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.4
-Release:      1%{?dist}
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,6 +120,10 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue Jul 22 2014 - <nick.alcock@oracle.com> - 0.4.4-2
+- Ensure that the DOF ELF object does not require execstack
+  (Kris Van Hees) [Orabug: 19217436]
+
 * Tue Jul  8 2014 - <nick.alcock@oracle.com> - 0.4.4-1
 - New -xcppargs option as part of fixes for the testsuite on OL7
   [Orabug: 19054052]
@@ -212,8 +216,7 @@ fi
 * Tue Mar 13 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.5
 - libdtrace is now a shared library, with non-stable API/ABI.
 
-* Thu Feb 16 2012 Nick Alcock <nick
-.alcock@oracle.com> - 0.2.4
+* Thu Feb 16 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.4
 - Updated README; new NEWS and PROBLEMS; synch with module version
 
 * Thu Feb  9 2012 Nick Alcock <nick.alcock@oracle.com> - 0.2.3
@@ -237,7 +240,7 @@ fi
   section here to move our manpage into position in such a way as
   to keep the rpm database happy. Technically this is a bit evil.
 
-* Thu Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
+* Tue Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
 - Fix copyright.
 
 * Tue Sep 27 2011 Nick Alcock <nick.alcock@oracle.com> - 0.1
