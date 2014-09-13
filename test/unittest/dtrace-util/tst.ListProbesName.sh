@@ -25,6 +25,8 @@
 # Use is subject to license terms.
 #
 
+# @@timeout: 20
+
 ##
 #
 # ASSERTION:
@@ -53,6 +55,6 @@ $dtrace $dt_flags -ln 'read*:' -n fight:
 $dtrace $dt_flags -ln fight: -n write:
 $dtrace $dt_flags -ln read:'{printf("FOUND");}'
 $dtrace $dt_flags -ln read:entry'{printf("FOUND");}'
-$dtrace $dt_flags -ln BEGIN'{Printf("FOUND");}'
-$dtrace $dt_flags -ln BEGIN'/probename=="entry"/{Printf("FOUND");}'
+$dtrace $dt_flags -ln BEGIN'{printf("FOUND");}'
+$dtrace $dt_flags -ln BEGIN'/probename=="entry"/{printf("FOUND");}'
 exit 0

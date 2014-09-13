@@ -49,9 +49,11 @@
  XX    syscall           vmlinux                              read return
    ID   PROVIDER            MODULE                          FUNCTION NAME
  XX    syscall           vmlinux                              read entry
+   ID   PROVIDER            MODULE                          FUNCTION NAME
+ XX     dtrace                                                     BEGIN
+   ID   PROVIDER            MODULE                          FUNCTION NAME
+ XX     dtrace                                                     BEGIN
 -- @@stderr --
 dtrace: failed to match ::fight:: No probe matches description
 dtrace: failed to match ::fight:: No probe matches description
 dtrace: failed to match ::fight:: No probe matches description
-dtrace: invalid probe specifier BEGIN{Printf("FOUND");}: undefined function name: Printf
-dtrace: invalid probe specifier BEGIN/probename=="entry"/{Printf("FOUND");}: undefined function name: Printf
