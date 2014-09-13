@@ -25,6 +25,8 @@
 # Use is subject to license terms.
 #
 
+# @@timeout: 20
+
 ##
 #
 # ASSERTION:
@@ -51,6 +53,4 @@ $dtrace $dt_flags -ln :vmlinux:
 $dtrace $dt_flags -ln fbt:des:des3_crunch_block:return
 $dtrace $dt_flags -ln :'read*'::
 $dtrace $dt_flags -ln read'{printf("FOUND");}'
-$dtrace $dt_flags -ln BEGIN '{Printf("FOUND");}'
-$dtrace $dt_flags -ln BEGIN '/probename=="entry"/{Printf("FOUND");}'
 exit 0

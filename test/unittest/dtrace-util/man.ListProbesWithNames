@@ -117,7 +117,7 @@
  * RESULT: Silent output without any probes listed.
  *
  * 20) Has been automated.
- * /usr/sbin/dtrace -ln BEGIN'{Printf("FOUND");}'
+ * /usr/sbin/dtrace -ln BEGIN'{printf("FOUND");}'
  * RESULT: Silent output without any probes listed.
  *
  * 21) Has been automated.
