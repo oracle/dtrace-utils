@@ -1,0 +1,2 @@
+These are expensive tests, generally to detect race conditions that do not
+emerge without many repetitions.  They take a very long time.
