@@ -60,6 +60,8 @@ typedef struct dt_proc {
 	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
+	uint8_t dpr_monitoring;		/* true if we should background-monitor
+					   the process right now */
 
 	/*
 	 * Proxying. These structures encode the return type and parameters of
@@ -71,14 +73,17 @@ typedef struct dt_proc {
 	 * degenerates to an immediate call if it is executed from the
 	 * process-control thread itself.
 	 *
-	 * Currently proxied requests are proxy_pwait(), proxy_ptrace(),
-	 * dt_proxy_reattach(), and dt_proc_continue(): the latter takes no
-	 * arguments.  In all cases bar dt_proxy_reattach(), if an exec is
-	 * detected, dpr_proxy_exec_retry is set on return: it is then the
-	 * proxy's responsibility to rethrow and unwind all the way out, destroy
-	 * and reattach to the libproc structure, and retry whatever it was
-	 * doing.  (dt_proxy_reattach() is part of this mechanism, so does not
-	 * trigger it.)
+	 * Currently proxied requests are proxy_pwait(), proxy_ptrace() and
+	 * dt_proc_continue(): the latter takes no arguments.  In all these
+	 * cases, if an exec is detected, dpr_proxy_exec_retry is set on return:
+	 * it is then the proxy's responsibility to rethrow and unwind all the
+	 * way out, destroy and reattach to the libproc structure, and retry
+	 * whatever it was doing.
+	 *
+	 * In addition, communication between the main thread and
+	 * process-control thread also uses this mechanism but does not
+	 * participate in the exec-detection mechanism.  This uses requests
+	 * proxy_reattach() and proxy_monitor().
 	 */
 	long (*dpr_proxy_rq)();
 	long dpr_proxy_ret;
@@ -96,6 +101,10 @@ typedef struct dt_proc {
 			struct ps_prochandle *P;
 			boolean_t block;
 		} dpr_pwait;
+
+		struct {
+			boolean_t monitor;
+		} dpr_monitor;
 	} dpr_proxy_args;
 } dt_proc_t;
 
