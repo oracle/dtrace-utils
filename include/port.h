@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -32,6 +32,7 @@
 #include <sys/processor.h>
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
+#include <sys/ptrace.h>
 #include <config.h>
 
 extern size_t strlcpy(char *, const char *, size_t);
@@ -56,5 +57,25 @@ int mutex_init(mutex_t *m, int flags1, void *ptr);
 #ifndef HAVE_WAITFD
 int waitfd(int which, pid_t upid, int options, int flags);
 #endif
+
+/*
+ * New ptrace requests not widely supported in glibc headers.
+ */
+#ifndef PTRACE_SEIZE
+#define PTRACE_SEIZE		0x4206
+#endif
+#ifndef PTRACE_INTERRUPT
+#define PTRACE_INTERRUPT	0x4207
+#endif
+#ifndef PTRACE_LISTEN
+#define PTRACE_LISTEN		0x4208
+#endif
+#ifndef PTRACE_GETMAPFD
+#define PTRACE_GETMAPFD		0x42A5
+#endif
+#ifndef PTRACE_EVENT_STOP
+#define PTRACE_EVENT_STOP       128
+#endif
+
 
 #endif

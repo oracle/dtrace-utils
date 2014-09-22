@@ -51,13 +51,6 @@
 #include "libproc.h"
 #include "Pcontrol.h"
 
-/*
- * This is very new and not widely supported yet.
- */
-#ifndef PTRACE_GETMAPFD
-#define PTRACE_GETMAPFD		0x42A5
-#endif
-
 static map_info_t *object_to_map(struct ps_prochandle *, Lmid_t, const char *);
 static map_info_t *object_name_to_map(struct ps_prochandle *,
     Lmid_t, const char *);

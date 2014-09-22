@@ -243,6 +243,8 @@ struct ps_prochandle {
 					   for: all blocking Pwait()s when
 					   pending_stops == 0 are converted
 					   to nonblocking */
+	int	group_stopped;	/* if 1, in group-stop */
+	int	listening;	/* if 1, in PTRACE_LISTEN */
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	no_dyn;		/* true if this is probably statically linked */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
