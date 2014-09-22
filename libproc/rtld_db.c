@@ -827,7 +827,8 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 		 * return with inconsistent link maps.  Don't do that.
 		 */
 		Pwait(rd->P, FALSE);
-		while (!rd->ic_transitioned && rd->P->state == PS_RUN &&
+		while (!rd->ic_transitioned && (rd->P->state == PS_RUN ||
+			rd->P->group_stopped) &&
 		    rd_ldso_consistency(rd, LM_ID_BASE) != RD_CONSISTENT)
 			Pwait(rd->P, TRUE);
 
@@ -990,13 +991,16 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 	 */
 
 	/*
-	 * Actually loop, waiting for the breakpoint to be hit.  Note that the
-	 * lock is taken out before _dl_debug_state() is called for the first
-	 * time, so we can hit the breakpoint more than once.  So wait until we
-	 * hit the breakpoint at least once *and* stop running.
+	 * Actually loop, waiting for the process to not be in stopped state and
+	 * for the breakpoint to be hit.  Note that the lock is taken out before
+	 * _dl_debug_state() is called for the first time, so we can hit the
+	 * breakpoint more than once.  So wait until we hit the breakpoint at
+	 * least once *and* stop running.
 	 */
 
-	Pwait(rd->P, FALSE);
+	do {
+		Pwait(rd->P, FALSE);
+	} while (rd->P->state == PS_STOP);
 
 	timeout_nsec = 1000000;
 	while (rd->P->state == PS_RUN && load_lock(rd) > 0) {

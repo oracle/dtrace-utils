@@ -52,6 +52,7 @@
 
 #include <mutex.h>
 #include <platform.h>
+#include <port.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
@@ -63,6 +64,7 @@ static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 static ptrace_lock_hook_fun *ptrace_lock_hook;
 
 static void Pfree_internal(struct ps_prochandle *P);
+static int Pwait_handle_waitpid(struct ps_prochandle *P, int status);
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
 static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
 static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
@@ -70,6 +72,8 @@ static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
 	int singlestep);
 static void bkpt_flush(struct ps_prochandle *P, int gone);
 static long bkpt_ip(struct ps_prochandle *P, int expect_esrch);
+static bkpt_t *bkpt_by_addr(struct ps_prochandle *P, uintptr_t addr,
+    int delete);
 static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
     int after_singlestep, int notifier,
     int (*bkpt_handler) (uintptr_t addr, void *data),
@@ -109,6 +113,7 @@ Pcreate(
 	pid_t pid;
 	int rc;
 	int status;
+	int forkblock[2];
 
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
 		*perr = ENOMEM;
@@ -125,31 +130,41 @@ Pcreate(
 	P->wrap_arg = wrap_arg;
 	Pset_ptrace_wrapper(P, NULL);
 	Pset_pwait_wrapper(P, NULL);
+	if (pipe(forkblock) < 0) {
+		_dprintf ("Pcreate: out of fds forking %s\n", file);
+		free(P);
+		*perr = errno;
+		return (NULL);
+        }
 
 	if ((pid = fork()) == -1) {
 		free(P);
+		close(forkblock[0]);
+		close(forkblock[1]);
 		*perr = EAGAIN;
 		return (NULL);
 	}
 
 	if (pid == 0) {			/* child process */
 		id_t id;
-
-		wrapped_ptrace(P, PTRACE_TRACEME, 0, 0, 0);
+		int dummy;
 
 		/*
 		 * If running setuid or setgid, reset credentials to normal,
-		 * then wait for our parent to set up exec options.
+		 * then wait for our parent to ptrace us.
 		 */
 		if ((id = getgid()) != getegid())
 			(void) setgid(id);
 		if ((id = getuid()) != geteuid())
 			(void) setuid(id);
 
-		raise(SIGSTOP);
+		close(forkblock[1]);
+		read(forkblock[0], &dummy, 1);
+		close(forkblock[0]);
 		(void) execvp(file, argv);  /* execute the program */
 		_exit(127);
 	}
+	close(forkblock[0]);
 
 	/*
 	 * Initialize the process structure.  Because we have ptrace()d
@@ -167,19 +182,20 @@ Pcreate(
 
 	Psym_init(P);
 
-	waitpid(pid, &status, 0);
-	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
-		rc = EDEADLK;
-		_dprintf ("Pcreate: post-fork sync with PID %i failed\n",
-		    (int)pid);
+	/*
+	 * ptrace() the process with TRACEEXEC active, and unblock it.
+	 */
+	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, PTRACE_O_TRACEEXEC) < 0) {
+		_dprintf ("Pcreate: seize of %s failed: %s\n", file,
+		    strerror(errno));
+		rc = errno;
 		goto bad;
 	}
-	wrapped_ptrace(P, PTRACE_SETOPTIONS, pid, 0, PTRACE_O_TRACEEXEC);
-	wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
+	close(forkblock[1]);
 
 	waitpid(pid, &status, 0);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
-	    status>>8 != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
+	    (status >> 8) != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 		rc = ENOENT;
 		_dprintf ("Pcreate: exec of %s failed\n", file);
 		goto bad_untrace;
@@ -514,16 +530,21 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
  * Wait for the process to stop for any reason, possibly blocking.
  *
  * (A blocking wait will be automatically followed by as many nonblocking waits
- * as are necessary to drain the queue of requests.)
+ * as are necessary to drain the queue of requests and leave the child in a
+ * state capable of handling more ptrace() requests -- or dead.)
  *
  * Returns the number of state changes processed, or -1 on error.
+ *
+ * The debugging strings starting "process status change" are relied upon by the
+ * libproc/tst.signals.sh test.
  */
 long
 Pwait_internal(struct ps_prochandle *P, boolean_t block)
 {
 	long err;
 	long num_waits = 0;
-	siginfo_t info;
+	long one_wait;
+	int status;
 
 	/*
 	 * If we wait for something to happen while stopped at a breakpoint, we
@@ -546,9 +567,11 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 
 	/*
 	 * Never do a blocking wait for a process we already know is dead or
-	 * stopped.
+	 * trace-stopped.  (A process that is merely stopped can be waited for:
+	 * we will still receive state transitions for it courtesy of
+	 * PTRACE_LISTEN.)
 	 */
-	if (P->state != PS_RUN)
+	if (P->state == PS_TRACESTOP)
 		block = 0;
 
 	/*
@@ -559,249 +582,313 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	if (P->state == PS_DEAD)
 		return (0);
 
-	info.si_pid = 0;
 	do
 	{
 		errno = 0;
-		err = waitid(P_PID, P->pid, &info, WEXITED | WSTOPPED |
-		    (!block ? WNOHANG : 0));
+		err = waitpid(P->pid, &status, __WALL | (!block ? WNOHANG : 0));
 
-		if (err == 0)
-			break;
+		switch (err) {
+		case 0:
+			return(0);
+		case -1:
+			if (errno == ECHILD) {
+				P->state = PS_DEAD;
+				return (0);
+			}
 
-		if (errno == ECHILD) {
-			P->state = PS_DEAD;
-			return (0);
-		}
-
-		if (errno != EINTR) {
-			_dprintf("Pwait: error waiting: %s\n", strerror(errno));
-			return (-1);
+			if (errno != EINTR) {
+				_dprintf("Pwait: error waiting: %s\n",
+				    strerror(errno));
+				return (-1);
+			}
 		}
 	} while (errno == EINTR);
 
-	/*
-	 * WNOHANG and nothing happened?
-	 */
-	if (info.si_pid == 0)
-		return (0);
-
-	switch (info.si_code) {
-	case CLD_EXITED:
-	case CLD_KILLED:
-	case CLD_DUMPED:
-		P->state = PS_DEAD;
-		break;
-	case CLD_STOPPED:
-	case CLD_TRAPPED: {
-		long ip;
-
-		/*
-		 * Exit under ptrace() monitoring.
-		 */
-		if (WIFEXITED(info.si_status)) {
-			_dprintf("%i: exited with exitcode %i\n", P->pid,
-			    WEXITSTATUS(info.si_status));
-
-			P->state = PS_DEAD;
-			break;
-		}
-
-		/*
-		 * Stopping signal receipt.  If the signal under ptrace() but is
-		 * not SIGSTOP, resend the signal and continue immediately.  (If
-		 * this is a group-stop, this will have no effect. Under
-		 * ptrace(), the child is already stopped at this point.)
-		 */
-		if (WIFSTOPPED(info.si_status) ||
-		    (WIFSIGNALED(info.si_status) &&
-			WTERMSIG(info.si_status) == SIGSTOP)) {
-			int stopsig;
-
-			P->state = PS_STOP;
-
-			if (WIFSTOPPED(info.si_status))
-				stopsig = WSTOPSIG(info.si_status);
-			else
-				stopsig = WTERMSIG(info.si_status);
-
-			if (P->ptraced && stopsig != SIGSTOP) {
-				_dprintf("%i: child got stopping signal %i.\n", P->pid,
-				    stopsig);
-				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
-				    stopsig);
-			} else if (stopsig == SIGSTOP) {
-				/*
-				 * If Ptrace() itself sent this SIGSTOP, this is
-				 * a TRACESTOP, not a STOP.  If this happened
-				 * before an exec() hit, re-CONTinue the
-				 * process.
-				 */
-				if (P->pending_stops > 0) {
-					P->pending_stops--;
-					P->state = PS_TRACESTOP;
-				}
-
-				if (P->pending_pre_exec > 0) {
-					_dprintf("%i: internal tracestop "
-					    "signal pending from before exec() "
-					    "received.\n", P->pid);
-					if (P->ptraced)
-						wrapped_ptrace(P, PTRACE_CONT, P->pid,
-						    NULL, SIGCONT);
-					else
-						kill(P->pid, SIGCONT);
-					P->pending_pre_exec--;
-					P->state = PS_RUN;
-				}
-			}
-
-			break;
-		}
-
-		/*
-		 * Ordinary signal injection (other than SIGSTOP), or a
-		 * terminating signal. If this is not a SIGTRAP, reinject it.
-		 * (SIGTRAP is handled further down.)
-		 */
-		if ((WIFSIGNALED(info.si_status)) &&
-		    (WTERMSIG(info.si_status) != SIGTRAP)) {
-
-			if (!P->ptraced) {
-				_dprintf("%i: terminated by signal %i\n",
-				    P->pid, WTERMSIG(info.si_status));
-				P->state = PS_DEAD;
-			}
-			else if (WTERMSIG(info.si_status) != SIGSTOP)
-				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
-				    WTERMSIG(info.si_status));
-			else
-				P->state = PS_TRACESTOP;
-
-			break;
-		}
-
-		/*
-		 * Other ptrace() traps are generally unexpected unless some
-		 * breakpoints are active.  We can only get this when
-		 * ptrace()ing, so we know it must be valid to call ptrace()
-		 * ourselves.
-		 */
-
-		P->state = PS_TRACESTOP;
-		if (P->num_bkpts == 0) {
-			_dprintf("Pwait: Unexpected ptrace() trap: si_code %i, si_status %i\n",
-			    info.si_code, info.si_status);
-			return (-1);
-		}
-
-		/*
-		 * TRACEEXEC trap.  Our breakpoints are gone, our auxv has
-		 * changed, our memfd needs reopening, we need to figure out if
-		 * this is a 64-bit process anew, any (internal) exec() handler
-		 * should be called, and we need to seize control again.  We
-		 * also need to arrange to trap the *next* exec(), then resume.
-		 *
-		 * We are always tracing the thread group leader, so most of the
-		 * complexity around execve() tracing goes away.
-		 *
-		 * We can't do much about errors here: if we lose control, we
-		 * lose control.
-		 */
-		if (info.si_status == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
-
-			char procname[PATH_MAX];
-
-			_dprintf("%i: exec() detected, resetting...\n", P->pid);
-
-			P->pending_pre_exec += P->pending_stops;
-
-			Pclose(P);
-			if (Pmemfd(P) == -1)
-				_dprintf("%i: Cannot reopen memory\n", P->pid);
-
-			snprintf(procname, sizeof (procname), "%s/%d/exe",
-			    procfs_path, P->pid);
-
-			/*
-			 * This reports its error itself, but if there *is* an
-			 * error, there's not much we can do.  Leave elf64 et al
-			 * unchanged: most of the time, the ELF class and
-			 * bitness don't change across exec().
-			 */
-			Pread_isa_info(P, procname);
-
-			bkpt_flush(P, TRUE);
-
-			free(P->auxv);
-			P->auxv = NULL;
-			P->nauxv = 0;
-			P->tracing_bkpt = 0;
-			P->bkpt_halted = 0;
-			P->bkpt_consume = 0;
-			P->r_debug_addr = 0;
-			P->info_valid = 0;
-			if ((P->ptrace_count == 0) && ptrace_lock_hook)
-				ptrace_lock_hook(P, P->wrap_arg, 1);
-
-			P->ptrace_count = 1;
-			P->ptraced = TRUE;
-
-			if (P->exec_handler)
-				P->exec_handler(P);
-
-			Puntrace(P, 0);
-
-			break;
-		}
-
-		/*
-		 * Breakpoint trap.
-		 *
-		 * If we are in the midst of processing a breakpoint, we already
-		 * know our breakpoint address.  Otherwise, we must acquire the
-		 * tracee's IP address.
-		 *
-		 * If bkpt_consume is turned on, we want to simply consume the
-		 * trap without invoking the breakpoint handler.  (This is used
-		 * when doing a Pbkpt_continue() on a singlestepping SIGSTOPPed
-		 * process which may or may not already have trapped.)
-		 */
-
-		ip = P->tracing_bkpt;
-		if (ip == 0) {
-			ip = bkpt_ip(P, 0);
-			if (ip < 0)
-				return(-1);
-		}
-
-		if (!P->bkpt_consume)
-			P->state = bkpt_handle(P, ip);
-
-		break;
-	}
-	case CLD_CONTINUED:
-		P->state = PS_RUN;
-		break;
-
-	default:	/* corrupted state */
-		_dprintf("Pwait: unknown si_code: %li\n", (long int) info.si_code);
-		errno = EINVAL;
+	if (Pwait_handle_waitpid(P, status) < 0)
 		return (-1);
-	}
 
 	/*
 	 * Now repeatedly loop, processing more waits until none remain.
 	 */
-	if (block != 0) {
-		long this_wait;
-		do {
-			this_wait = Pwait(P, 0);
-			num_waits += this_wait;
-		} while (this_wait > 0);
-	}
+	do {
+		one_wait = Pwait(P, 0);
+		num_waits += one_wait;
+	} while (one_wait > 0);
 
 	return (num_waits + 1);
+}
+
+/*
+ * Change the process status according to the status word returned by waitpid().
+ *
+ * Returns -1 on error.
+ */
+static int
+Pwait_handle_waitpid(struct ps_prochandle *P, int status)
+{
+	long ip;
+
+	if (WIFCONTINUED(status)) {
+		_dprintf("%i: process got SIGCONT.\n", P->pid);
+		P->state = PS_RUN;
+		return (0);
+	}
+
+	/*
+	 * Exit under ptrace() monitoring.
+	 */
+	if (WIFEXITED(status)) {
+		_dprintf("%i: process status change: exited with "
+		    "exitcode %i\n", P->pid, WEXITSTATUS(status));
+
+		P->state = PS_DEAD;
+		return (0);
+	}
+
+	/*
+	 * PTRACE_INTERRUPT stop or group-stop.
+	 */
+	if ((status >> 16) == PTRACE_EVENT_STOP) {
+
+		/*
+		 * This is a PTRACE_INTERRUPT trickling in, or a group-stop
+		 * trickling in *after* resumption but before SIGCONT arrives.
+		 * Check pending_stops and group_stopped to see if we are
+		 * expecting an interrupt, or have changed state in such a way
+		 * that a stop is no longer expected: if so, just resume.
+		 */
+
+		if (WSTOPSIG(status) == SIGTRAP) {
+			P->listening = 0;
+			if (P->group_stopped) {
+				/*
+				 * We change the state to PS_RUN here to
+				 * immediately indicate to callers of Pstate()
+				 * that the process has been resumed: the
+				 * SIGCONT's arrival also sets it, but this
+				 * generally has no effect.
+				 */
+				_dprintf("%i: group-stop ending, SIGCONT expected soon.\n",
+				    P->pid);
+				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, 0);
+				P->group_stopped = 0;
+				P->state = PS_RUN;
+			} else if (P->pending_stops > 0) {
+				/*
+				 * Expected PTRACE_INTERRUPT.  Do not resume.
+				 */
+				_dprintf("%i: process status change: "
+				    "PTRACE_INTERRUPTed.\n", P->pid);
+
+				P->pending_stops--;
+				P->state = PS_TRACESTOP;
+			} else {
+				/*
+				 * Unexpected / latent PTRACE_INTERRUPT.  Resume
+				 * automatically.
+				 */
+				wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, 0);
+				_dprintf("%i: Unexpected PTRACE_EVENT_STOP, "
+				    "resuming automatically.\n", P->pid);
+				P->state = PS_RUN;
+			}
+		} else if ((P->listening) && (P->pending_stops > 0)) {
+			/*
+			 * PTRACE_INTERRUPT during PTRACE_LISTEN.  Do not
+		         * resume: transition out of listening state, but not
+		         * out of group-stop.
+		         */
+			_dprintf("%i: process status change: no longer "
+			    "LISTENing, PTRACE_INTERRUPTed.\n", P->pid);
+
+			P->listening = 0;
+			P->pending_stops--;
+			P->state = PS_TRACESTOP;
+		} else if ((P->state == PS_RUN) || (P->state == PS_STOP)) {
+			/*
+			 * Group-stop: we will already be in stopped state, if
+			 * need be.  LISTEN for further changes, but do not
+			 * resume.  (If already traced, Puntrace() will do a
+			 * LISTEN for us.)
+			 */
+			_dprintf("%i: Process status change: group-stop: "
+			    "LISTENed.\n", P->pid);
+			P->group_stopped = 1;
+			P->listening = 1;
+			P->state = PS_STOP;
+
+			wrapped_ptrace(P, PTRACE_LISTEN, P->pid, NULL,
+			    NULL);
+		} else {
+			_dprintf("%i: random PTRACE_EVENT_STOP.\n", P->pid);
+		}
+
+		return (0);
+	}
+
+	/*
+	 * Hit by a signal after PTRACE_LISTEN.  Resend it and resume (causing a
+	 * signal-delivery stop, to be processed on the next cycle).
+	 */
+
+	if (WIFSTOPPED(status) &&
+	    (WSTOPSIG(status) != SIGTRAP) &&
+	    ((status >> 16) == PTRACE_EVENT_STOP)) {
+		_dprintf("%i: process status change: child got stopping signal, "
+		    "received after PTRACE_LISTEN: reinjecting.\n",
+		    WSTOPSIG(status));
+		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
+		    WSTOPSIG(status));
+		return(0);
+	}
+
+	/*
+	 * Signal-delivery-stop.  Possibly adjust process state, and reinject.
+	 */
+	if ((WIFSTOPPED(status)) && (WSTOPSIG(status) != SIGTRAP)) {
+
+		switch (WSTOPSIG(status)) {
+		case SIGSTOP:
+		case SIGTSTP:
+		case SIGTTIN:
+		case SIGTTOU:
+			_dprintf("%i: process status change: child got "
+			    "stopping signal %i.\n", P->pid, WSTOPSIG(status));
+			P->state = PS_STOP;
+			break;
+		case SIGCONT:
+			_dprintf("%i: process status change: SIGCONT.\n",
+			    P->pid);
+			P->state = PS_RUN;
+			break;
+		default: ;
+			_dprintf("%i: process status change: child got "
+			    "signal %i.\n", P->pid, WSTOPSIG(status));
+			/*
+			 * Not a stopping signal.
+			 */
+		}
+		if (P->ptraced) {
+			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
+			    WSTOPSIG(status));
+		}
+		return(0);
+	}
+
+	/*
+	 * A terminating signal. If this is not a SIGTRAP, reinject it.
+	 * (SIGTRAP is handled further down.)
+	 */
+	if ((WIFSIGNALED(status)) && (WTERMSIG(status) != SIGTRAP)) {
+		_dprintf("%i: process status change: child got "
+		    "terminating signal %i.\n", P->pid, WTERMSIG(status));
+
+		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, WTERMSIG(status));
+		return(0);
+	}
+
+	/*
+	 * TRACEEXEC trap.  Our breakpoints are gone, our auxv has changed, our
+	 * memfd needs closing for a later reopen, we need to figure out if this
+	 * is a 64-bit process anew, any (internal) exec() handler should be
+	 * called, and we need to seize control again.  We also need to arrange
+	 * to trap the *next* exec(), then resume.
+	 *
+	 * We are always tracing the thread group leader, so most of the
+	 * complexity around execve() tracing goes away.
+	 *
+	 * We can't do much about errors here: if we lose control, we lose
+	 * control.
+	 */
+	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
+
+		char procname[PATH_MAX];
+
+		_dprintf("%i: process status change: exec() detected, "
+		    "resetting...\n", P->pid);
+
+		Pclose(P);
+
+		snprintf(procname, sizeof (procname), "%s/%d/exe",
+		    procfs_path, P->pid);
+
+			if (P->exec_handler)
+				P->exec_handler(P);
+		/*
+		 * This reports its error itself, but if there *is* an
+		 * error, there's not much we can do.  Leave elf64 et al
+		 * unchanged: most of the time, the ELF class and
+		 * bitness don't change across exec().
+		 */
+		Pread_isa_info(P, procname);
+
+		bkpt_flush(P, TRUE);
+
+		free(P->auxv);
+		P->auxv = NULL;
+		P->nauxv = 0;
+		P->tracing_bkpt = 0;
+		P->bkpt_halted = 0;
+		P->bkpt_consume = 0;
+		P->r_debug_addr = 0;
+		P->info_valid = 0;
+		P->group_stopped = 0;
+		P->listening = 0;
+		if ((P->ptrace_count == 0) && ptrace_lock_hook)
+			ptrace_lock_hook(P, P->wrap_arg, 1);
+
+		P->ptrace_count = 1;
+		P->ptraced = TRUE;
+		P->ptrace_halted = TRUE;
+		P->state = PS_TRACESTOP;
+
+		/*
+		 */
+
+		Puntrace(P, 0);
+
+		return(0);
+	}
+
+	/*
+	 * Other ptrace() traps are generally unexpected unless some breakpoints
+	 * are active.  We can only get this far when ptrace()ing, so we know it
+	 * must be valid to call ptrace() ourselves.
+	 *
+	 * Trap, possibly breakpoint trap.
+	 *
+	 * If we are in the midst of processing a breakpoint, we already know
+	 * our breakpoint address.  Otherwise, we must acquire the tracee's IP
+	 * address and verify that it really is a breakpoint and not a random
+	 * third-party SIGTRAP, and pass it on if not.
+	 *
+	 * If bkpt_consume is turned on, we want to simply consume the trap
+	 * without invoking the breakpoint handler.  (This is used when doing a
+	 * Pbkpt_continue() on a singlestepping SIGSTOPPed process which may or
+	 * may not already have trapped.)
+	 */
+
+	ip = P->tracing_bkpt;
+	if (ip == 0) {
+		bkpt_t *bkpt;
+		ip = bkpt_ip(P, 0);
+		bkpt = bkpt_by_addr(P, ip, FALSE);
+
+		if ((ip < 0) || (!bkpt)) {
+			/*
+			 * This is not a known breakpoint.  Pass it on.
+			 */
+			_dprintf("Pwait: %i: process status change: SIGTRAP "
+			    "passed on: status %x\n", P->pid, status);
+			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
+			    SIGTRAP);
+			return(0);
+		}
+	}
+
+	if (!P->bkpt_consume)
+		P->state = bkpt_handle(P, ip);
+	return(0);
 }
 
 /*
@@ -837,35 +924,47 @@ Ptrace(struct ps_prochandle *P, int stopped)
 
 	if (P->ptraced) {
 		int state;
+		int listen_interrupt;
 
 		/*
 		 * In this case, we must take care that anything already queued
 		 * for Pwait() is correctly processed, before demanding a stop.
 		 * We should also not try to stop something that is already
-		 * stopped, nor try to resume it.
+		 * stopped in ptrace(), nor try to resume it.  We know the
+		 * PTRACE_INTERRUPT has arrived when the traceee is no longer in
+		 * run state.
+		 *
+		 * Additionally, if the tracee is already stopped by a SIGSTOP
+		 * and we are LISTENing for it, waiting is expected: we want to
+		 * hang on until the PTRACE_INTERRUPT is processed, since only
+		 * that event clears the listening state and makes it possible
+		 * for other ptrace requests to succeed.
 		 */
 		Pwait(P, 0);
-		if ((!stopped) || (P->state == PS_TRACESTOP) ||
-		    (P->state == PS_STOP))
+		if ((!stopped) || (P->state == PS_TRACESTOP))
 			return P->state;
 
 		if (P->state == PS_DEAD)
 			return P->state;
 
+		listen_interrupt = P->listening;
 		state = P->state;
 		P->ptrace_halted = TRUE;
-		kill(P->pid, SIGSTOP);
+
+		wrapped_ptrace(P, PTRACE_INTERRUPT, P->pid, 0);
 
 		P->pending_stops++;
 		P->awaiting_pending_stops++;
-		while (P->pending_stops && P->state == PS_RUN)
+		while (P->pending_stops &&
+		    ((P->state == PS_RUN) ||
+			(listen_interrupt && P->listening)))
 			Pwait(P, 1);
 		P->awaiting_pending_stops--;
 
 		return state;
 	}
 
-	if (wrapped_ptrace(P, PTRACE_ATTACH, P->pid, 0, 0) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, PTRACE_O_TRACEEXEC) < 0) {
 		if (!Pgrabbing)
 			goto err;
 		else
@@ -873,29 +972,35 @@ Ptrace(struct ps_prochandle *P, int stopped)
 	}
 
 	P->ptraced = TRUE;
-	P->ptrace_halted = TRUE;
 
-	P->pending_stops++;
-	P->awaiting_pending_stops++;
-	while (P->pending_stops && P->state == PS_RUN) {
-		if (Pwait(P, 1) == -1)
-			goto err;
-	}
-	P->awaiting_pending_stops--;
+	if (stopped) {
+		P->ptrace_halted = TRUE;
 
-	if (P->state != PS_TRACESTOP) {
-		err = ECHILD;
-		goto err2;
-	}
+		if (wrapped_ptrace(P, PTRACE_INTERRUPT, P->pid, 0,
+			PTRACE_O_TRACEEXEC) < 0) {
+			wrapped_ptrace(P, PTRACE_DETACH, P->pid, 0, 0);
+			if (!Pgrabbing)
+				goto err;
+			else
+				goto err2;
+		}
 
-	if (!stopped) {
-		int err;
+		/*
+		 * Now wait for the interrupt to trickle in.
+		 */
+		P->pending_stops++;
+		P->awaiting_pending_stops++;
+		while (P->pending_stops && P->state == PS_RUN) {
+			if (Pwait(P, 1) == -1)
+				goto err;
+		}
+		P->awaiting_pending_stops--;
 
-		err = wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
-		P->ptrace_halted = FALSE;
-		if (err < 0)
-			goto err;
-
+		if ((P->state != PS_TRACESTOP) &&
+		    (P->state != PS_STOP)) {
+			err = ECHILD;
+			goto err2;
+		}
 	}
 
 	return err;
@@ -925,7 +1030,7 @@ err2:
  * should cause a resume only if Ptrace() caused a stop.
  *
  * Lots of P->state comparisons are needed here, because a PTRACE_CONT is only
- * valid if the processe was stopped beforehand: otherwise, you get -ESRCH,
+ * valid if the process was stopped beforehand: otherwise, you get -ESRCH,
  * which is helpfully indistinguishable from the error you get when the process
  * is dead.
  *
@@ -957,6 +1062,14 @@ Puntrace(struct ps_prochandle *P, int state)
 			    "PS_RUN\n", P->pid);
 			Pbkpt_continue(P);
 			P->ptrace_halted = FALSE;
+		} else if ((state == PS_STOP) && (P->state == PS_TRACESTOP)) {
+			P->state = state;
+			P->group_stopped = 1;
+			P->listening = 1;
+			_dprintf("%i: LISTENing because previous state was "
+			    "PS_STOP\n", P->pid);
+			wrapped_ptrace(P, PTRACE_LISTEN, P->pid, NULL,
+			    NULL);
 		}
 
 		if (P->ptrace_count == 0 && ptrace_lock_hook)
@@ -1460,22 +1573,21 @@ static int
 bkpt_handle(struct ps_prochandle *P, uintptr_t addr)
 {
 	/*
-	 * Either we have stopped at an address we know, or we are
-	 * singlestepping past one of our breakpoints, or this is an unknown
-	 * breakpoint.  If the latter, just return in TRACESTOP state, and hope
-	 * our caller knows what to do.
+	 * We have either have stopped at an address we know, or we are
+	 * singlestepping past one of our breakpoints; our caller has already
+	 * validated that this breakpoint is known.
+	 *
+	 * But first, decree that we are already tracestopped, for the sake of
+	 * any handlers that rely on this.
 	 */
+
+	P->state = PS_TRACESTOP;
+
 	if (P->tracing_bkpt == addr)
 		return bkpt_handle_post_singlestep(P,
 		    bkpt_by_addr(P, P->tracing_bkpt, FALSE));
 	else {
 		bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
-
-		if (!bkpt) {
-			_dprintf("%i: No breakpoint found at %lx, remaining in "
-			    "trace stop.\n", P->pid, addr);
-			return PS_TRACESTOP;
-		}
 
 		if (P->tracing_bkpt != 0) {
 			_dprintf("%i: Nested breakpoint detected, probable bug.\n",
