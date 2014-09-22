@@ -87,8 +87,8 @@ typedef struct ps_prochandle ps_prochandle;
 
 /* State values returned by Pstate() */
 #define	PS_RUN		1	/* process is running */
-#define	PS_STOP		2	/* process is stopped */
-#define	PS_TRACESTOP	3	/* process is stopped by ptrace() */
+#define	PS_STOP		2	/* process is stopped by SIGSTOP etc */
+#define	PS_TRACESTOP	3	/* process is stopped by ptrace() or bkpts */
 #define	PS_DEAD		4	/* process is terminated (core file) */
 
 /* Values for Prelease()'s release_mode argument */
