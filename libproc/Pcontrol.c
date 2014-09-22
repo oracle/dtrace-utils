@@ -1723,6 +1723,18 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		if (bkpt->bkpt_handler.bkpt_handler) {
 			state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
 			    bkpt->bkpt_handler.bkpt_data);
+
+			/*
+			 * PS_STOP always means that the process was stopped by
+			 * SIGSTOP: we remain able to listen for state changes
+			 * on it (e.g. when PTRACE_INTERRUPTed).  A process
+			 * halted by a breakpoint is already interrupted and
+			 * will never change state without our connivance: so
+			 * translate PS_STOPs from breakpoint handlers into
+			 * PS_TRACESTOP.
+			 */
+			if (state == PS_STOP)
+				state = PS_TRACESTOP;
 			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
 			    state);
 		}
@@ -1873,6 +1885,11 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 		if (bkpt->bkpt_handler.bkpt_handler) {
 			state = bkpt->bkpt_handler.bkpt_handler(bkpt->bkpt_addr,
 			    bkpt->bkpt_handler.bkpt_data);
+			/*
+			 * See comment in bkpt_handle_start().
+			 */
+			if (state == PS_STOP)
+				state = PS_TRACESTOP;
 			_dprintf("%i: Breakpoint handler returned %i\n", P->pid,
 			    state);
 		}

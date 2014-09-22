@@ -1019,7 +1019,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 
 	do {
 		Pwait(rd->P, FALSE);
-	} while (rd->P->state == PS_STOP);
+	} while (rd->P->state == PS_TRACESTOP);
 
 	timeout_nsec = 1000000;
 	while (rd->P->state == PS_RUN && load_lock(rd) > 0) {
