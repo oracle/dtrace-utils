@@ -1447,8 +1447,8 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 	/*
 	 * If we are not singlestepping past this breakpoint now, we have to
 	 * poke the old content back in.  Otherwise, we just have to adjust our
-	 * IP address and resume (and the resumption is done automatically for
-	 * us when we Puntrace() in any case).
+	 * instruction pointer and resume (and the resumption is done
+	 * automatically for us when we Puntrace() in any case).
 	 */
 	if (P->tracing_bkpt != bkpt->bkpt_addr) {
 		uintptr_t insn;
@@ -1473,12 +1473,17 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 			case EIO:
 			case EFAULT:
 				/* The address in the child has disappeared. */
+				_dprintf("%i: Instruction pokeback into %lx "
+				    "failed: %s\n", P->pid, bkpt->bkpt_addr,
+				    strerror(errno));
 			case 0: break;
 			default:
 				_dprintf("%i: Unknown error removing breakpoint:"
 				    "%s\n", P->pid, strerror(errno));
 			}
 	} else {
+		_dprintf("%i: Breakpoint at %lx already poked back, changing "
+		    "instruction pointer\n", P->pid, bkpt->bkpt_addr);
 		if (wrapped_ptrace(P, PTRACE_POKEUSER, P->pid,
 			PLAT_IP * sizeof (long), P->tracing_bkpt) < 0)
 			switch (errno) {
@@ -1685,6 +1690,8 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		case ESRCH:
 			return PS_DEAD;
 		case 0:
+			_dprintf("%i: Hit %lx, setting insn to %lx\n",
+			    P->pid, bkpt->bkpt_addr, bkpt->orig_insn);
 			break;
 		case EIO:
 		case EFAULT:
@@ -1921,6 +1928,8 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 			break;
 		case EIO:
 		case EFAULT:
+			_dprintf("%i: Post-singlestep at %lx but %s: unbkptting\n",
+			    P->pid, bkpt->bkpt_addr, strerror(errno));
 			/*
 			 * The address in the child has disappeared.  Probably a
 			 * very unlucky unmap after singlestepping across pages.

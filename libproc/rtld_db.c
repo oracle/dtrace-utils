@@ -159,6 +159,16 @@ rtld_global(rd_agent_t *rd)
 	if (rd->rtld_global_addr)
 		return rd->rtld_global_addr;
 
+	/*
+	 * Note: Pxlookup_by_name() can eventually call back into rtld_db,
+	 * because it calls Pupdate_lmids() which can then call rd_new() and
+	 * rd_loadobj_iter().  rd_new() cannot be called because we cannot get
+	 * to this point without an rd, but rd_loadobj_iter() can be called if a
+	 * mapping update just happened for some reason.  This is still safe
+	 * against recursive calls into rtld_global(), because rtld_global() is
+	 * only consulted when non-default lmids are looked up, PR_OBJ_LDSO is
+	 * always looked up in LM_ID_BASE.
+	*/
 	if (Pxlookup_by_name(rd->P, 0, PR_OBJ_LDSO,
 		"_rtld_global", &sym, NULL) < 0) {
 		_dprintf("%i: cannot find _rtld_global.\n", rd->P->pid);
@@ -398,7 +408,7 @@ find_l_searchlist(rd_agent_t *rd)
 		uintptr_t poss_l_searchlist_r_list;
 		unsigned int poss_l_searchlist_r_nlist;
 
-		_dprintf("%i: scanning %lx\n", rd->P->pid,
+		_dprintf("%i: scanning from link_map offset %lx\n", rd->P->pid,
 		    scan - first_loadobj);
 
 		if ((scan - first_loadobj) > 65535)
@@ -630,7 +640,7 @@ load_lock(rd_agent_t *rd)
 /*
  * Dynamic linker consistency enforcement.
  *
- * The dynamic linker's link maps are consistent at only particular
+ * The dynamic linker's link maps are consistent only at particular
  * points.
  *
  * dlopen()/dlclose()
