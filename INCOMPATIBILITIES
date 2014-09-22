@@ -128,6 +128,13 @@ have an associated monitor thread: this parameter minimizes the effect of this
 change, leading to an immediately running process similar to an unmonitored
 process on Solaris.)
 
+The dtrace_proc_*() functions now take a dtrace_prochandle *, not a
+ps_prochandle *, to emphasise that this argument should not be passed directly
+to libproc functions without going through a dtrace_proc_*() wrapper. The
+creation functions return the structure itself, not a wrapper: failure is
+indicated by its sole member being NULL. (This member may change whenever a
+dtrace_proc_*() function is called.)
+
 'struct dtrace_stmtdesc' has a new padding word, to work around GCC bug 36043,
 which otherwise causes spurious reads off the end of this structure, which could
 potentially cause DTrace to dump core if one of these structures wound up at the

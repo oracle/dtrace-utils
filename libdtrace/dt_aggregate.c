@@ -250,23 +250,24 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 {
 	uint64_t tgid = data[1];
 	uint64_t *pc = &data[2];
-	struct ps_prochandle *P;
+	struct dtrace_prochandle P;
 	GElf_Sym sym;
 
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-			      DTRACE_PROC_SHORTLIVED)) == NULL)
+	P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
+	    DTRACE_PROC_SHORTLIVED);
+	if (P.P == NULL)
 		return;
 
-	dt_proc_lock(dtp, P);
+	dt_proc_lock(dtp, &P);
 
-	if (Plookup_by_addr(P, *pc, NULL, 0, &sym) == 0)
+	if (dt_Plookup_by_addr(dtp, &P, *pc, NULL, 0, &sym) == 0)
 		*pc = sym.st_value;
 
-	dt_proc_unlock(dtp, P);
-	dt_proc_release(dtp, P);
+	dt_proc_unlock(dtp, &P);
+	dt_proc_release(dtp, &P);
 }
 
 static void
@@ -274,23 +275,24 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 {
 	uint64_t tgid = data[1];
 	uint64_t *pc = &data[2];
-	struct ps_prochandle *P;
+	struct dtrace_prochandle P;
 	const prmap_t *map;
 
 	if (dtp->dt_vector != NULL)
 		return;
 
-	if ((P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-			      DTRACE_PROC_SHORTLIVED)) == NULL)
+	P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
+	    DTRACE_PROC_SHORTLIVED);
+	if (P.P == NULL)
 		return;
 
-	dt_proc_lock(dtp, P);
+	dt_proc_lock(dtp, &P);
 
-	if ((map = Paddr_to_map(P, *pc)) != NULL)
+	if ((map = dt_Paddr_to_map(dtp, &P, *pc)) != NULL)
 		*pc = map->pr_vaddr;
 
-	dt_proc_unlock(dtp, P);
-	dt_proc_release(dtp, P);
+	dt_proc_unlock(dtp, &P);
+	dt_proc_release(dtp, &P);
 }
 
 static void
