@@ -1857,7 +1857,7 @@ static int
 bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 {
 	int state = PS_RUN;
-	int orig_insn;
+	unsigned long orig_insn;
 
 	if (bkpt->after_singlestep) {
 		bkpt_handler_t *notifier = dt_list_next(&bkpt->bkpt_notifiers);
