@@ -85,6 +85,7 @@ enum dt_attach_time_t { ATTACH_START, ATTACH_ENTRY, ATTACH_FIRST_ARG_MAIN,
 
 static int dt_proc_attach_break(dt_proc_t *dpr, enum dt_attach_time_t attach_time);
 static int dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr);
+static int dt_proc_monitor(dt_proc_t *dpr, int monitor);
 static void dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 static int dt_proc_loop(dt_proc_t *dpr, int awaiting_continue);
 static void dt_main_fail_rendezvous(dt_proc_t *dpr);
@@ -649,7 +650,58 @@ proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
  * participate in it itself.
  */
 static long
-dt_proxy_reattach(dt_proc_t *dpr)
+proxy_reattach(dt_proc_t *dpr)
+{
+	char junk = '\0'; /* unimportant */
+	unsigned long lock_count;
+
+	assert(MUTEX_HELD(&dpr->dpr_lock));
+	assert(dpr->dpr_lock_holder == pthread_self());
+
+	/*
+	 * If we are already in the right thread, pass the call straight on.
+	 */
+	if (dpr->dpr_tid == pthread_self())
+		return dt_proc_reattach(dpr->dpr_hdl, dpr);
+
+	/*
+	 * Proxy it, signal the control thread, and wait for the response.
+	 */
+
+	dpr->dpr_proxy_rq = proxy_reattach;
+
+	errno = 0;
+	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
+	if (errno != 0 && errno != EINTR) {
+		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
+		    "for proxy reattach, deadlock is certain: %s\n",
+		    strerror(errno));
+		return (-1);
+	}
+
+	lock_count = dpr->dpr_lock_count;
+	dpr->dpr_lock_count = 0;
+
+	while (dpr->dpr_proxy_rq != NULL)
+		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
+
+	dpr->dpr_lock_holder = pthread_self();
+	dpr->dpr_lock_count = lock_count;
+
+	errno = dpr->dpr_proxy_errno;
+	return dpr->dpr_proxy_ret;
+}
+
+/*
+ * This proxy request requests that the controlling thread cease background
+ * monitoring of the process: monitor requests will arrive via proxy Pwait()
+ * calls.  It is also used to re-enable said monitoring.
+ *
+ * This request cannot trigger an exec-retry, as it does not monitor process
+ * state changes.
+ */
+static long
+proxy_monitor(dt_proc_t *dpr, int monitor)
 {
 	char junk = '\0'; /* unimportant */
 	unsigned long lock_count;
@@ -662,19 +714,20 @@ dt_proxy_reattach(dt_proc_t *dpr)
 	 * straight on.
 	 */
 	if (dpr->dpr_tid == pthread_self())
-		return dt_proc_reattach(dpr->dpr_hdl, dpr);
+		return dt_proc_monitor(dpr, monitor);
 
 	/*
 	 * Proxy it, signal the control thread, and wait for the response.
 	 */
 
-	dpr->dpr_proxy_rq = dt_proxy_reattach;
+	dpr->dpr_proxy_rq = proxy_monitor;
+	dpr->dpr_proxy_args.dpr_monitor.monitor = monitor;
 
 	errno = 0;
 	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
 	if (errno != 0 && errno != EINTR) {
 		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
-		    "for proxy reattach, deadlock is certain: %s\n",
+		    "for proxy monitor, deadlock is certain: %s\n",
 		    strerror(errno));
 		return (-1);
 	}
@@ -920,7 +973,11 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
-	pfd[0].fd = dpr->dpr_fd;
+	/*
+	 * We always want to listen on the proxy pipe; we only want to listen on
+	 * the process's waitfd pipe sometimes.
+	 */
+
 	pfd[0].events = POLLIN;
 	pfd[1].fd = dpr->dpr_proxy_fd[0];
 	pfd[1].events = POLLIN;
@@ -930,7 +987,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 	 * avoid waiting on the process's fd.
 	 */
 	if (awaiting_continue)
-		pfd[0].fd *= -1;
+		pfd[0].fd = dpr->dpr_fd * -1;
 
 	/*
 	 * Wait for the process corresponding to this control thread to stop,
@@ -945,6 +1002,21 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 
 		dt_proc_dpr_unlock(dpr);
 
+		/*
+		 * If we should stop monitoring the process and only listen for
+		 * proxy requests, avoid waiting on its fd.
+		 */
+
+		if (!awaiting_continue) {
+			if (!dpr->dpr_monitoring)
+				pfd[0].fd = dpr->dpr_fd * -1;
+			else
+				pfd[0].fd = dpr->dpr_fd;
+		}
+
+		dt_dprintf("Looping, listening for requests from proc fd: %i; proxy fd: %i.\n",
+		    pfd[0].fd, pfd[1].fd);
+		debug_dump_status(dpr->dpr_proc);
 		while (errno = EINTR,
 		    poll((struct pollfd *) pfd, 2, -1) <= 0 && errno == EINTR)
 			continue;
@@ -1051,8 +1123,8 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 				 * that we reattach to the traced process, and
 				 * set it going again.
 				 */
-				} else if (dpr->dpr_proxy_rq == dt_proxy_reattach) {
-					dt_dprintf("%d: Handling a dt_proxy_reattach()\n",
+				} else if (dpr->dpr_proxy_rq == proxy_reattach) {
+					dt_dprintf("%d: Handling a proxy_reattach()\n",
 				 	    dpr->dpr_pid);
 					errno = 0;
 					dpr->dpr_proxy_ret = 0;
@@ -1063,6 +1135,16 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 						pthread_cond_signal(&dpr->dpr_msg_cv);
 						pthread_exit(NULL);
 					}
+				/*
+				 * Request to cease background process
+				 * monitoring.
+				 */
+				} else if (dpr->dpr_proxy_rq == proxy_monitor) {
+					dt_dprintf("%d: Handling a proxy_monitor(%i)\n",
+				 	    dpr->dpr_pid, dpr->dpr_proxy_args.dpr_monitor.monitor);
+					errno = 0;
+					dpr->dpr_proxy_ret = proxy_monitor(dpr,
+					    dpr->dpr_proxy_args.dpr_monitor.monitor);
 				} else
 					dt_dprintf("%d: unknown libproc request\n",
 					    dpr->dpr_pid);
@@ -1233,6 +1315,7 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	assert(dpr->dpr_lock_holder == pthread_self());
+	assert(dpr->dpr_tid == pthread_self());
 	pthread_mutex_lock(&dph->dph_lock);
 
 	Prelease(dpr->dpr_proc, PS_RELEASE_NO_DETACH);
@@ -1260,6 +1343,18 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	pthread_mutex_unlock(&dph->dph_lock);
 
 	return(0);
+}
+
+/*
+ * Request that the dt_proc_loop() thread cease monitoring of the process, or
+ * resume monitoring again.  Always called from the control thread, so we do not
+ * need to worry about interrupting an existing monitoring round.
+ */
+static int dt_proc_monitor(dt_proc_t *dpr, int monitor)
+{
+	assert(dpr->dpr_tid == pthread_self());
+	dpr->dpr_monitoring = monitor;
+	return 0;
 }
 
 dt_proc_t *
@@ -1377,8 +1472,13 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
 		 * the thread has exited.  (This will also terminate the
 		 * process.)
+		 *
+		 * We must turn off background state change monitoring first,
+		 * since cancellation triggers a libproc release, which flushes
+		 * breakpoints and can wait on process state changes.
 		 */
 		dt_proc_dpr_lock(dpr);
+		proxy_monitor(dpr, 0);
 		pthread_cancel(dpr->dpr_tid);
 
 		lock_count = dpr->dpr_lock_count;
@@ -1417,6 +1517,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 	dpr->dpr_stop |= stop; /* set bit for initial rendezvous */
+	dpr->dpr_monitoring = B_TRUE;
 
 	(void) pthread_attr_init(&a);
 	(void) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
@@ -1792,6 +1893,13 @@ dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 long
 dt_proc_continue(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
+	/*
+	 * Note: we intentionally do not call proxy_monitor() to suppress
+	 * background Pwait()ing here, since we are relying on exactly that
+	 * background Pwait()ing to tell when the process has reached a
+	 * continuable state.
+	 */
+
 	return dt_ps_proc_continue(dtp, P->P);
 }
 
@@ -1872,12 +1980,14 @@ dt_Plookup_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Plookup_by_addr(P->P, addr, sym_name_buffer, bufsize, symbolp);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -1893,12 +2003,14 @@ dt_Paddr_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr)
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (NULL);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Paddr_to_map(P->P, addr);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -1915,12 +2027,14 @@ dt_Pname_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (NULL);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Pname_to_map(P->P, name);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -1937,12 +2051,14 @@ dt_Plmid_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (NULL);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Plmid_to_map(P->P, lmid, name);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -1959,12 +2075,14 @@ dt_Pobjname(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (NULL);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Pobjname(P->P, addr, buffer, bufsize);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -1981,12 +2099,14 @@ dt_Plmid(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Plmid(P->P, addr, lmidp);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -2003,12 +2123,14 @@ dt_Pxlookup_by_name(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Pxlookup_by_name(P->P, lmid, oname, sname, symp, sip);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -2025,12 +2147,14 @@ dt_Pwritable_mapping(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Pwritable_mapping(P->P, addr);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -2047,12 +2171,14 @@ dt_Psymbol_iter_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Psymbol_iter_by_addr(P->P, object_name, which, mask, func, cd);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
@@ -2069,12 +2195,14 @@ dt_Pobject_iter(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 	old_exec_jmp = unwinder_pad;
 	if (setjmp(this_exec_jmp)) {
-		if (!dt_proxy_reattach((dt_proc_t *) dpr))
+		if (!proxy_reattach((dt_proc_t *) dpr))
 			return (-1);
 		P->P = dpr->dpr_proc;
 	}
 	unwinder_pad = &this_exec_jmp;
+	proxy_monitor((dt_proc_t *) dpr, 0);
 	ret = Pobject_iter(P->P, func, cd);
+	proxy_monitor((dt_proc_t *) dpr, 1);
 	unwinder_pad = old_exec_jmp;
 
 	return ret;
