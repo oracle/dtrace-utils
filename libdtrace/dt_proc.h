@@ -72,10 +72,17 @@ typedef struct dt_proc {
 	 * process-control thread itself.
 	 *
 	 * Currently proxied requests are proxy_pwait(), proxy_ptrace(),
-	 * and dt_proc_continue(): the latter takes no arguments.
+	 * dt_proxy_reattach(), and dt_proc_continue(): the latter takes no
+	 * arguments.  In all cases bar dt_proxy_reattach(), if an exec is
+	 * detected, dpr_proxy_exec_retry is set on return: it is then the
+	 * proxy's responsibility to rethrow and unwind all the way out, destroy
+	 * and reattach to the libproc structure, and retry whatever it was
+	 * doing.  (dt_proxy_reattach() is part of this mechanism, so does not
+	 * trigger it.)
 	 */
 	long (*dpr_proxy_rq)();
 	long dpr_proxy_ret;
+	long dpr_proxy_exec_retry;
 	int dpr_proxy_errno;
 	union {
 		struct {

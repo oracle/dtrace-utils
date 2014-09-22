@@ -43,6 +43,7 @@
 #include <sys/stat.h>
 #include <sys/ptrace.h>
 #include <port.h>
+#include <setjmp.h>
 
 #include <mutex.h>
 
@@ -369,7 +370,9 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 static void
 Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 {
-	rd_loadobj_t scope_lo = {0};
+	volatile rd_loadobj_t scope_lo = {0};
+	volatile jmp_buf *old_exec_jmp;
+	jmp_buf **jmp_pad, this_exec_jmp;
 	size_t i = 0;
 
 	if (fptr->file_symsearch != NULL ||
@@ -394,6 +397,24 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	}
 
 	/*
+	 * If we spot an exec() in this function, free the scopes array and
+	 * rethrow (or just return, alternatively).
+	 */
+	jmp_pad = libproc_unwinder_pad(P);
+	old_exec_jmp = (volatile jmp_buf *) *jmp_pad;
+	if (setjmp(this_exec_jmp)) {
+		jmp_buf *jmp_here = (jmp_buf *) old_exec_jmp;
+
+		free(scope_lo.rl_scope);
+		if (old_exec_jmp)
+			longjmp(*jmp_here, 1);
+		*jmp_pad = jmp_here;
+
+		return;
+	}
+	*jmp_pad = &this_exec_jmp;
+
+	/*
 	 * Simply skip scopes we can't read out.  There's no point making a fuss
 	 * if we can't a few of them, since the target process may have mutated
 	 * them since we read them in, and aborting is excessive.  This means
@@ -402,7 +423,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	for (i = 0; i < fptr->file_lo->rl_nscopes; i++) {
 		map_info_t *mptr;
 
-		if (rd_get_scope(P->rap, &scope_lo, fptr->file_lo,
+		if (rd_get_scope(P->rap, (rd_loadobj_t *) &scope_lo, fptr->file_lo,
 			i) == NULL) {
 			_dprintf("Cannot read scope %lu in symbol search path "
 			    "for library with soname %s\n", i,
@@ -432,6 +453,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	}
 
 	free(scope_lo.rl_scope);
+	*jmp_pad = (jmp_buf *) old_exec_jmp;
 }
 
 /*

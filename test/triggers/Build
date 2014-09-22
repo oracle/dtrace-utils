@@ -23,7 +23,7 @@
 
 EXTERNAL_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args usdt-tst-argmap usdt-tst-args usdt-tst-forker ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-32 visible-constructor-static visible-constructor-static-unstripped
 
-INTERNAL_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libproc-sleeper-32 libproc-sleeper-pie libproc-sleeper-pie-32 libproc-dlmadopen libproc-lookup-by-name libproc-lookup-victim
+INTERNAL_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libproc-sleeper-32 libproc-sleeper-pie libproc-sleeper-pie-32 libproc-dlmadopen libproc-lookup-by-name libproc-lookup-victim libproc-execing-bkpts libproc-execing-bkpts-victim
 
 TRIGGERS = $(EXTERNAL_TRIGGERS) $(INTERNAL_TRIGGERS)
 
@@ -74,12 +74,12 @@ visible-constructor-32_LDFLAGS := -s
 # and so on).  Thus, we must link directly to the build libraries, since
 # these have no symbol visibility constraints.
 
-# (Technically libproc-pldd, libproc-consistency, and libproc-lookup are not
-# triggers, because they are run directly by the test rather than being invoked
-# in parallel by the build machinery.  It seems easier to reuse that machinery
-# than to introduce a whole new abstraction for 'testing things that are not
-# dtrace' into the DTrace testsuite.  We do want test coverage analysis for this
-# stuff, or at least for the libproc parts of it.)
+# (Technically libproc-* are not triggers, because they are run directly by the
+# test rather than being invoked in parallel by the build machinery.  It seems
+# easier to reuse that machinery than to introduce a whole new abstraction for
+# 'testing things that are not dtrace' into the DTrace testsuite.  We do want
+# test coverage analysis for this stuff, or at least for the libproc parts of
+# it.)
 
 libproc-pldd_CFLAGS := -Ilibproc -Ilibdtrace
 libproc-pldd_NOCFLAGS :=
@@ -93,9 +93,9 @@ libproc-consistency_NOLDFLAGS :=
 libproc-consistency_DEPS := build-libproc.a build-libdtrace.a libport.a
 libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
 
-# The victim also needs to have an rpath baked into it, since when testing
-# in --use-installed mode, there is no LD_LIBRARY_PATH pointing into build/
-# by default.
+# The lookup victim also needs to have an rpath baked into it, since when
+# testing in --use-installed mode, there is no LD_LIBRARY_PATH pointing into
+# build/ by default.
 
 libproc-lookup-victim_LDFLAGS := -Wl,-rpath build
 libproc-lookup-victim_DEPS := libproc-lookup-victim-lib.so
@@ -107,6 +107,13 @@ libproc-lookup-by-name_NOCFLAGS :=
 libproc-lookup-by-name_NOLDFLAGS :=
 libproc-lookup-by-name_DEPS := build-libproc.a build-libdtrace.a libport.a
 libproc-lookup-by-name_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
+
+libproc-execing-bkpts_CFLAGS := -Ilibproc -Ilibdtrace
+libproc-execing-bkpts_LDFLAGS :=
+libproc-execing-bkpts_NOCFLAGS :=
+libproc-execing-bkpts_NOLDFLAGS :=
+libproc-execing-bkpts_DEPS := build-libproc.a build-libdtrace.a libport.a
+libproc-execing-bkpts_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.a $(libdtrace_LIBS)
 
 # We need multiple versions of libproc-sleeper with different combinations
 # of flags.

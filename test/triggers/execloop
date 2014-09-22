@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [[ -z $LOOP ]]; then
+    export LOOP=0
+fi
+
+if [[ $LOOP -eq 10000000 ]]; then
+    exit 0
+fi
+
+LOOP=$(($LOOP+1))
+
+exec $0

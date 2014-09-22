@@ -282,11 +282,11 @@ ascending_uintptrs(const void *onep, const void *twop)
  * Although this offset is relatively constant, it can vary e.g. across glibc
  * upgrades: so carry it out afresh for each process attached to.
  *
- * Returns -1 if nothing resembling a scope searchlist can be found.
- * (May return -1 spuriously in obscure cases, such as processes with no dynamic
- * linker initialized yet.  In such cases, it will leave the searchlist
- * uninitialized and recheck on every ustack() et al: potentially slow, but
- * the only safe approach.)
+ * Returns -1 if nothing resembling a scope searchlist can be found. (May return
+ * -1 spuriously in obscure cases, such as processes with no dynamic linker
+ * initialized yet, as well as if an exec() strikes while scanning.  In such
+ * cases, it will leave the searchlist uninitialized and recheck on every
+ * ustack() et al: potentially slow, but the only safe approach.)
  *
  * Must be called under rd_ldso_consistent_begin() to prevent mutation of the
  * set of link maps while we are using them.
@@ -321,6 +321,12 @@ find_l_searchlist(rd_agent_t *rd)
 	_dprintf("%i: Counted %zi link maps\n", rd->P->pid, nmaps);
 	if (nmaps == 0)
 		return -1;
+
+	/*
+	 * After this point, we must not call anything which, even transitively,
+	 * calls Pwait(), since that may longjmp out if an execve() is detected,
+	 * and leak map_addrs.
+	 */
 
 	uintptr_t *map_addrs;
 	uintptr_t *mapp;
@@ -1229,40 +1235,6 @@ done:
 	Punbkpt(rd->P, addr);
 }
 
-/*
- * Carry the rd_agent over an exec().  Drop a breakpoint on the process entry
- * point.
- */
-static void
-rd_exec_handler(struct ps_prochandle *P)
-{
-	P->rap->r_brk_addr = 0;
-	P->rap->rtld_global_addr = 0;
-	P->rap->maps_ready = 0;
-	P->rap->no_inconsistent = 0;
-	P->rap->stop_on_consistent = 0;
-	P->rap->lmid_halted = 0;
-	P->rap->lmid_bkpted = 0;
-	P->rap->lmid_incompatible_glibc = 0;
-
-	if (Pbkpt_notifier(P, Pgetauxval(P, AT_ENTRY), FALSE,
-		rd_start_trap, NULL, P->rap) != 0)
-		_dprintf("%i: cannot drop breakpoint at process "
-		    "start.\n", P->pid);
-
-	P->rap->exec_detected = 1;
-
-	/*
-	 * If we have a callback, reverse the Ptrace() done immediately after
-	 * exec(), then jump out.
-	 */
-
-	if (P->rap->exec_jmp != NULL) {
-		Puntrace(P, 0);
-		longjmp(*P->rap->exec_jmp, 1);
-	}
-}
-
 /* API functions. */ 
 
 /*
@@ -1310,6 +1282,7 @@ rd_new(struct ps_prochandle *P)
         }
 
 	rd->P = P;
+	P->rap = rd;
 	oldstate = Ptrace(P, 1);
 
 	/*
@@ -1364,15 +1337,14 @@ rd_new(struct ps_prochandle *P)
 			goto err;
 		}
 
-	set_exec_handler(rd->P, rd_exec_handler);
-	P->rap = rd;
 	Puntrace(P, oldstate);
 
 	_dprintf("%i: Activated rtld_db agent.\n", rd->P->pid);
 	return (rd);
 err:
 	Puntrace(P, oldstate);
-	free(rd);
+	free(P->rap);
+	P->rap = NULL;
 	return (NULL);
 }
 
@@ -1395,7 +1367,6 @@ rd_delete(rd_agent_t *rd)
 		rd_ldso_consistent_end(rd);
 
 	rd_event_disable(rd);
-	set_exec_handler(rd->P, NULL);
 
 	if (rd->rd_monitoring) {
 		Punbkpt(rd->P, rd->r_brk_addr);
@@ -1469,7 +1440,8 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	size_t nns;
 	int found_any = FALSE;
 	size_t num = 0;
-	jmp_buf exec_jmp;
+	volatile jmp_buf *old_exec_jmp;
+	jmp_buf **jmp_pad, this_exec_jmp;
 	rd_loadobj_t obj = {0};
 	uintptr_t *primary_scope = NULL;
 	uintptr_t primary_nscopes = 0; /* quash a warning */
@@ -1477,16 +1449,16 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	/*
 	 * Trap exec()s at any point within this code.
 	 */
-	rd->exec_detected = 0;
-	if (setjmp(exec_jmp) != 0)
+	jmp_pad = libproc_unwinder_pad(rd->P);
+	old_exec_jmp = (volatile jmp_buf *) *jmp_pad;
+	if (setjmp(this_exec_jmp))
 		goto spotted_exec;
-
-	rd->exec_jmp = &exec_jmp;
+	*jmp_pad = &this_exec_jmp;
 
 	Pwait(rd->P, 0);
 
 	if (rd->P->state == PS_DEAD) {
-		rd->exec_jmp = NULL;
+		*jmp_pad = (jmp_buf *) old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: process is dead..\n",
 		    rd->P->pid);
@@ -1494,7 +1466,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	}
 
 	if (r_brk(rd) == 0 || !rd->maps_ready) {
-		rd->exec_jmp = NULL;
+		*jmp_pad = (jmp_buf *) old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: maps are not ready.\n",
 		    rd->P->pid);
@@ -1502,7 +1474,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	}
 
 	if (rd_ldso_consistent_begin(rd) != 0) {
-		rd->exec_jmp = NULL;
+		*jmp_pad = (jmp_buf *) old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: cannot wait for "
 		    "consistent state.\n", rd->P->pid);
@@ -1550,11 +1522,10 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 
 			if (nonzero_consistent)
 				rd_ldso_nonzero_lmid_consistent_end(rd);
-
 			rd_ldso_consistent_end(rd);
 
+			*jmp_pad = (jmp_buf *) old_exec_jmp;
 			_dprintf("%i: link map iteration: no maps.\n", rd->P->pid);
-			rd->exec_jmp = NULL;
 			return RD_NOMAPS;
 		}
 
@@ -1605,8 +1576,6 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 			} else
 				obj.rl_default_scope = 0;
 
-			rd->exec_jmp = NULL;
-
 			if (fun(&obj, num, state) == 0) {
 				if (real_scope)
 					obj.rl_scope = real_scope;
@@ -1617,11 +1586,6 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 				obj.rl_scope = real_scope;
 				obj.rl_nscopes = real_nscopes;
 			}
-
-			if (rd->exec_detected)
-				goto spotted_exec;
-
-			rd->exec_jmp = &exec_jmp;
 
 			num++;
 			n++;
@@ -1635,22 +1599,20 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	free(obj.rl_scope);
 	if (nonzero_consistent)
 		rd_ldso_nonzero_lmid_consistent_end(rd);
-
 	rd_ldso_consistent_end(rd);
+
+	*jmp_pad = (jmp_buf *) old_exec_jmp;
 
 	if (!found_any) {
 		_dprintf("%i: link map iteration: no maps.\n", rd->P->pid);
 		return RD_NOMAPS;
 	}
 
-	rd->exec_detected = 0;
-	rd->exec_jmp = NULL;
 	return RD_OK;
 
 err:
 	if (nonzero_consistent)
 		rd_ldso_nonzero_lmid_consistent_end(rd);
-
 	rd_ldso_consistent_end(rd);
 
 	/*
@@ -1658,24 +1620,37 @@ err:
 	 * iteration.  Pwait() to pick that up.
 	 */
 
-spotted_exec:
 	free(primary_scope);
 	free(obj.rl_scope);
+	primary_scope = NULL;
+	obj.rl_scope = NULL;
 
-	rd->exec_jmp = NULL;
 	old_r_brk = r_brk(rd);
-	Pwait(rd->P, 0);
+	Pwait(rd->P, FALSE);
+
+	jmp_pad = libproc_unwinder_pad(rd->P);
+	*jmp_pad = (jmp_buf *) old_exec_jmp;
 
 	if (rd->P->state == PS_DEAD ||
-	    r_brk(rd) == 0 || rd->exec_detected || r_brk(rd) != old_r_brk) {
+	    r_brk(rd) == 0 || r_brk(rd) != old_r_brk) {
 		_dprintf("%i: link map iteration failed: maps are not ready.\n",
 		    rd->P->pid);
-		rd->exec_detected = 0;
 		return RD_NOMAPS;
 	}
 
 	_dprintf("%i: link map iteration: read from child failed.\n", rd->P->pid);
 	return RD_ERR;
+
+ spotted_exec:
+	_dprintf("%i: spotted exec() in rd_loadobj_iter()\n", rd->P->pid);
+	free(primary_scope);
+	free(obj.rl_scope);
+	if (old_exec_jmp)
+		longjmp(*((jmp_buf *) old_exec_jmp), 1);
+
+	jmp_pad = libproc_unwinder_pad(rd->P);
+	*jmp_pad = (jmp_buf *) old_exec_jmp;
+	return RD_NOMAPS;
 }
 
 /*
