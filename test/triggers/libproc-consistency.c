@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -29,9 +29,17 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+#include <setjmp.h>
 
 #include <libproc.h>
 #include <rtld_db.h>
+
+/*
+ * The default single-threaded unwinder pad is fine for us, and we are linked
+ * directly to libproc so can fish it straight out without registering a new
+ * unwinder pad function and all that rigmarole.
+ */
+extern libproc_unwinder_pad_fun *libproc_unwinder_pad;
 
 static int nonzero;
 static int lmids_fell;
@@ -104,8 +112,10 @@ int main(int argc, char *argv[])
 {
 	struct ps_prochandle *P;
 	struct rd_agent *rd;
+	jmp_buf exec;
 	int err;
 	int implausibly_low;
+	jmp_buf **jmp_pad;
 
 	many_lmids = (getenv("MANY_LMIDS") != NULL);
 
@@ -129,6 +139,32 @@ int main(int argc, char *argv[])
 	rd_event_enable(rd, rtld_load_unload, NULL);
  	Ptrace_set_detached(P, 1);
 	Puntrace(P, 0);
+	jmp_pad = libproc_unwinder_pad(P);
+
+	if (setjmp(exec)) {
+		fprintf(stderr, "Spotted exec()\n");
+		pid_t pid = Pgetpid(P);
+		/*
+		 * We spotted an exec(). Kill the ps_prochandle and make a new
+		 * one.
+		 */
+		Prelease(P, PS_RELEASE_NO_DETACH);
+		Pfree(P);
+		P = Pgrab(pid, 0, 1, NULL, &err);
+		if (!P) {
+			perror("Cannot regrab after exec()");
+			return(1);
+		}
+		rd = rd_new(P);
+		if (!rd) {
+			fprintf(stderr, "Initialization failed.\n");
+			return (1);
+		}
+		rd_event_enable(rd, rtld_load_unload, NULL);
+		Ptrace_set_detached(P, 1);
+		Puntrace(P, 0);
+	}
+	*jmp_pad = &exec;
 
 	/*
 	 * Continuously try to iterate over the link map, doing Pwait()s to run
@@ -145,13 +181,13 @@ int main(int argc, char *argv[])
 		gettimeofday(&b, NULL);
  		if (b.tv_sec - 2 > a.tv_sec) {
 			fprintf(stderr, "rd_loadobj_iter took implausibly "
-			    "long\n");
+			    "long: %li seconds.\n", (long) (b.tv_sec - a.tv_sec));
 			err = 1;
 		}
 		Pwait(P, 0);
 	}
 
-	Prelease(P, 1);
+	Prelease(P, PS_RELEASE_KILL);
 	Pfree(P);
 
 	printf("%i adds, %i deletes, %i stables, %i nonzero lmids\n", adds_seen,

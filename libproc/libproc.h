@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <nlist.h>
+#include <setjmp.h>
 #include <gelf.h>
 #include <sys/statvfs.h>
 #include <sys/wait.h>
@@ -91,6 +91,11 @@ typedef struct ps_prochandle ps_prochandle;
 #define	PS_TRACESTOP	3	/* process is stopped by ptrace() */
 #define	PS_DEAD		4	/* process is terminated (core file) */
 
+/* Values for Prelease()'s release_mode argument */
+#define PS_RELEASE_NORMAL 0	/* ptrace detach, do not kill */
+#define PS_RELEASE_KILL 1	/* ptrace detach and kill */
+#define PS_RELEASE_NO_DETACH 2	/* no ptrace detach or lock release */
+
 /* values for type */
 #define	AT_BYVAL	1
 #define	AT_BYREF	2
@@ -112,11 +117,12 @@ typedef struct ps_prochandle ps_prochandle;
 extern	struct ps_prochandle *Pcreate(const char *, char *const *,
     void *, int *);
 
-extern	struct ps_prochandle *Pgrab(pid_t, int, void *, int *);
+extern	struct ps_prochandle *Pgrab(pid_t pid, int noninvasiveness,
+	int already_ptraced, void *wrap_arg, int *perr);
 extern	int	Ptrace(struct ps_prochandle *, int stopped);
 extern	void	Ptrace_set_detached(struct ps_prochandle *, boolean_t);
 
-extern	void	Prelease(struct ps_prochandle *, boolean_t);
+extern	void	Prelease(struct ps_prochandle *, int);
 extern	void	Pfree(struct ps_prochandle *P);
 extern	void	Puntrace(struct ps_prochandle *, int state);
 extern	void	Pclose(struct ps_prochandle *);
@@ -199,6 +205,19 @@ typedef	void	ptrace_lock_hook_fun(struct ps_prochandle *P, void *arg,
     int ptracing);
 
 extern	void	Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook);
+
+/*
+ * Register a function that returns the address of a per-thread pointer-sized
+ * area suitable for storing a jmp_buf, to be called on exec() to register a
+ * chain of setjmp loci to unwind out of libproc.  Must never return NULL (but
+ * can return a pointer to NULL to indicate that no rethrowing is needed at this
+ * point, even if an exec() is detected).
+ *
+ * As with the ptrace lock hook, this is global, for the same reason (it must
+ * work during Pcreate() and Pgrab()).
+ */
+typedef	jmp_buf **libproc_unwinder_pad_fun(struct ps_prochandle *P);
+extern	void	Pset_libproc_unwinder_pad(libproc_unwinder_pad_fun *unwinder_pad);
 
 /*
  * Breakpoints.

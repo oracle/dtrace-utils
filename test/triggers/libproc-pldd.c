@@ -118,7 +118,7 @@ main(int argc, char *argv[])
 	if (!pid)
 		P = Pcreate(argv[1], &argv[1], NULL, &err);
 	else
-		P = Pgrab(pid, 0, NULL, &err);
+		P = Pgrab(pid, 0, 0, NULL, &err);
 
 	if (!P) {
 		fprintf(stderr, "Cannot execute: %s\n", strerror(err));
@@ -182,7 +182,7 @@ main(int argc, char *argv[])
 		"where first scan saw %i\n", libs_seen - really_seen,
 		really_seen);
 
-	Prelease(P, (pid == 0));
+	Prelease(P, (pid == 0) ? PS_RELEASE_KILL : PS_RELEASE_NORMAL);
 	Pfree(P);
 
 	return (0);

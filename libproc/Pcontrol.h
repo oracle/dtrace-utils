@@ -48,6 +48,11 @@ extern "C" {
 #endif
 
 /*
+ * The unwinder pad function.  Used by code throughout libproc, so extern.
+ */
+extern libproc_unwinder_pad_fun *libproc_unwinder_pad;
+
+/*
  * Definitions of the process control structures, internal to libproc.
  * These may change without affecting clients of libproc.
  */
@@ -191,13 +196,6 @@ struct rd_agent {
 	void	*rd_event_data;		/* state passed to rtld_event_fun */
 
 	/*
-	 * This is used to detect if an exec() has happened deep inside the call
-	 * stack of rtld_db.
-	 */
-	int	exec_detected;
-	jmp_buf	*exec_jmp;
-
-	/*
 	 * Transition to an inconsistent state is barred.  (If multiple such
 	 * prohibitions are in force, this is >1).  If we are actively waiting
 	 * for a transition, ic_transitioned > 0 indicates that we have hit one:
@@ -219,11 +217,6 @@ struct rd_agent {
 };
 
 /*
- * Handler for exec()s.
- */
-typedef void exec_handler_fun(struct ps_prochandle *);
-
-/*
  * A process under management.
  */
 
@@ -237,8 +230,6 @@ struct ps_prochandle {
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
 	int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that
 				   have yet to be consumed */
-	int	pending_pre_exec; /* number of pending_stops that were sent
-				     before a detected exec() */
 	int	awaiting_pending_stops; /* if 1, a pending stop is being waited
 					   for: all blocking Pwait()s when
 					   pending_stops == 0 are converted
@@ -269,7 +260,6 @@ struct ps_prochandle {
 	rd_agent_t *rap;	/* rtld_db state */
 	ssize_t map_exec;	/* the index of the executable mapping */
 	ssize_t map_ldso;	/* the index of the ld.so mapping */
-	exec_handler_fun *exec_handler;	/* exec() handler */
 	ptrace_fun *ptrace_wrap; /* ptrace() wrapper */
 	pwait_fun *pwait_wrap;	 /* pwait() wrapper */
 	void *wrap_arg;		 /* args for hooks and wrappers */
@@ -285,8 +275,6 @@ extern	void	Psym_release(struct ps_prochandle *);
 extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern	uintptr_t r_debug(struct ps_prochandle *P);
-extern	void	set_exec_handler(struct ps_prochandle *P,
-    exec_handler_fun *handler);
 extern	char	procfs_path[PATH_MAX];
 
 /*

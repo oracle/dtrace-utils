@@ -75,9 +75,8 @@ main(int argc, char *argv[])
 	/*
 	 * Wait until halted and waiting for a SIGCONT.
 	 */
-	while (Pstate(P) == PS_RUN) {
+	while (Pstate(P) == PS_RUN)
 		Pwait(P, 1);
-	}
 
 	/*
 	 * Look up the name.
@@ -100,12 +99,12 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	Pbkpt_continue(P);
-	do {
+	kill(Pgetpid(P), SIGCONT);
+	do
 		Pwait(P, 1);
-	} while (Pstate(P) == PS_RUN);
+	while (Pstate(P) == PS_RUN);
 
-	Prelease(P, 1);
+	Prelease(P, PS_RELEASE_KILL);
 	Pfree(P);
 
 	return (0);

@@ -61,8 +61,6 @@ char	procfs_path[PATH_MAX] = "/proc";
 
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
-static ptrace_lock_hook_fun *ptrace_lock_hook;
-
 static void Pfree_internal(struct ps_prochandle *P);
 static int Pwait_handle_waitpid(struct ps_prochandle *P, int status);
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
@@ -80,6 +78,10 @@ static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
     void (*bkpt_cleanup) (void *data),
     void *data);
 static void delete_bkpt_handler(struct bkpt *bkpt);
+static jmp_buf **single_thread_unwinder_pad(struct ps_prochandle *unused);
+
+static ptrace_lock_hook_fun *ptrace_lock_hook;
+libproc_unwinder_pad_fun *libproc_unwinder_pad = single_thread_unwinder_pad;
 
 _dt_printflike_(1,2)
 void
@@ -93,6 +95,17 @@ _dprintf(const char *format, ...)
 	va_start(alist, format);
 	dt_debug_printf("libproc", format, alist);
 	va_end(alist);
+}
+
+/*
+ * Single-threaded unwinder pad, used if no other pad is registered.
+ */
+static __thread jmp_buf *default_unwinder_pad;
+
+static jmp_buf **
+single_thread_unwinder_pad(struct ps_prochandle *unused)
+{
+	return &default_unwinder_pad;
 }
 
 /*
@@ -224,6 +237,8 @@ Pcreate(
 		goto bad_untrace;
 	}
 
+	_dprintf("Pcreate: forked off PID %i from %s\n", P->pid, file);
+
 	*perr = 0;
         return P;
 
@@ -251,11 +266,13 @@ bad:
  * pid:		UNIX process ID.
  * noninvasiveness: if 1, inability to ptrace() is not an error; if 2, do a
  *                  noninvasive grab unconditionally
+ * already_ptraced: if 1, this process is already in ptrace() trace-stop state
  * wrap_arg:	arg for hooks and wrappers
  * perr:	pointer to error return code.
  */
 struct ps_prochandle *
-Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
+Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
+    int *perr)
 {
 	struct ps_prochandle *P;
 	char procname[PATH_MAX];
@@ -280,7 +297,7 @@ Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
 		return (NULL);
         }
 	memset(P, 0, sizeof (*P));
-	P->state = PS_RUN;
+	P->state = already_ptraced ? PS_TRACESTOP : PS_RUN;
 	P->pid = pid;
 	P->detach = 1;
 	Psym_init(P);
@@ -306,7 +323,7 @@ Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
 				goto bad;
 			else
 				noninvasiveness = 2;
-		} else {
+		} else if (!already_ptraced) {
 			/*
 			 * Pmemfd() grabbed, try to ptrace().
 			 */
@@ -322,6 +339,10 @@ Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
 				close(P->memfd);
 				noninvasiveness = 2;
 			}
+		} else {
+			P->ptrace_count = 1;
+			P->ptraced = TRUE;
+			P->ptrace_halted = TRUE;
 		}
 	}
 
@@ -340,6 +361,8 @@ Pgrab(pid_t pid, int noninvasiveness, void *wrap_arg, int *perr)
 	if ((Pread_isa_info(P, procname)) < 0)
 		/* error already reported */
 		goto bad_untrace;
+
+	_dprintf ("Pcreate: grabbed PID %i.\n", P->pid);
 
 	return P;
 bad_untrace:
@@ -475,17 +498,31 @@ Pdynamically_linked(struct ps_prochandle *P)
 }
 
 /*
- * Release the process.  If kill_it is set, kill the process instead.
+ * Release the process.
  *
- * Note: unlike Puntrace(), this releases *all* outstanding traces, cleans up
- * all breakpoints, and detaches unconditionally.  It's meant to be used if the
- * tracer is dying or completely losing interest in its tracee, not merely if it
- * doesn't want to trace it right now.
+ * release_mode is one of the PS_RELEASE_* constants:
+ *
+ * PS_RELEASE_NORMAL: detach, remove breakpoints, but do not kill
+ *
+ * PS_RELEASE_KILL: kill the process and detach.
+ *
+ * PS_RELEASE_NO_DETACH: do not resume, unpoke breakpoints, or detach.  This
+ * lets the caller reinitialize libproc state without affecting a process halted
+ * at exec().  We also do not call the lock hook in this situation, balancing a
+ * lack of lock hook invocation in Pgrab() when already_ptraced is set: this
+ * means that other threads cannot sneak in in the brief instant while the
+ * ps_prochandle no longer exists.
+ *
+ * Note: unlike Puntrace(), this operation (in PS_RELEASE_NORMAL mode) releases
+ * *all* outstanding traces, cleans up all breakpoints, and detaches
+ * unconditionally.  It's meant to be used if the tracer is dying or completely
+ * losing interest in its tracee, not merely if it doesn't want to trace it
+ * right now.
  *
  * This function is safe to call repeatedly.
  */
 void
-Prelease(struct ps_prochandle *P, boolean_t kill_it)
+Prelease(struct ps_prochandle *P, int release_mode)
 {
 	if (!P)
 		return;
@@ -507,17 +544,18 @@ Prelease(struct ps_prochandle *P, boolean_t kill_it)
 		return;
 	}
 
-	bkpt_flush(P, FALSE);
+	bkpt_flush(P, release_mode == PS_RELEASE_NO_DETACH);
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",
 	    (void *)P, (int)P->pid);
 
-	if (kill_it)
+	if (release_mode == PS_RELEASE_KILL)
 		kill(P->pid, SIGKILL);
-	else if (P->ptraced)
+	else if (P->ptraced && (release_mode != PS_RELEASE_NO_DETACH))
 		wrapped_ptrace(P, PTRACE_DETACH, (int)P->pid, 0, 0);
 
-	if (P->ptrace_count != 0 && ptrace_lock_hook)
+	if (P->ptrace_count != 0 && ptrace_lock_hook &&
+	    release_mode != PS_RELEASE_NO_DETACH)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
 
 	P->state = PS_DEAD;
@@ -794,6 +832,10 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 * called, and we need to seize control again.  We also need to arrange
 	 * to trap the *next* exec(), then resume.
 	 *
+	 * Note: much of this may be unnecessary if the caller has defined an
+	 * exec() pad to longjmp() to, but there's no guarantee that the caller
+	 * will always Pfree() us after that jump, so do it anyway.
+	 *
 	 * We are always tracing the thread group leader, so most of the
 	 * complexity around execve() tracing goes away.
 	 *
@@ -803,6 +845,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 
 		char procname[PATH_MAX];
+		jmp_buf *exec_jmp;
 
 		_dprintf("%i: process status change: exec() detected, "
 		    "resetting...\n", P->pid);
@@ -812,8 +855,6 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		snprintf(procname, sizeof (procname), "%s/%d/exe",
 		    procfs_path, P->pid);
 
-			if (P->exec_handler)
-				P->exec_handler(P);
 		/*
 		 * This reports its error itself, but if there *is* an
 		 * error, there's not much we can do.  Leave elf64 et al
@@ -843,7 +884,13 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		P->state = PS_TRACESTOP;
 
 		/*
+		 * If we have an exec jump buffer, jump to it.  Do not move out
+		 * of trace-stop: the caller can do that after resetting itself
+		 * properly.
 		 */
+		exec_jmp = *(libproc_unwinder_pad(P));
+		if (exec_jmp != NULL)
+			longjmp(*exec_jmp, 1);
 
 		Puntrace(P, 0);
 
@@ -2063,12 +2110,13 @@ Pset_procfs_path(const char *path)
 }
 
 /*
- * Set a handler for exec()s.
+ * Set a function returning a pointer to a jmp_buf we should use to throw
+ * exceptions.
  */
 void
-set_exec_handler(struct ps_prochandle *P, exec_handler_fun *handler)
+Pset_libproc_unwinder_pad(libproc_unwinder_pad_fun *unwinder_pad)
 {
-	P->exec_handler = handler;
+	libproc_unwinder_pad = unwinder_pad;
 }
 
 /*

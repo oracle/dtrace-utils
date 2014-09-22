@@ -2,5 +2,6 @@
 !Build
 !*.[cdh]
 !longsleep
+!execloop
 !.gitignore
 usdt-*prov.h
