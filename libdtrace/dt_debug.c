@@ -31,6 +31,7 @@
 #include <string.h>
 #include <signal.h>
 #include <dt_impl.h>
+#include <time.h>
 
 /*
  * These things do not go into the dtrace_hdl both because dt_dprintf doesn't
@@ -136,17 +137,17 @@ dt_debug_printf(const char *subsys, const char *format, va_list alist)
 		return;
 
 	if (!ring) {
-		fprintf(stderr, "%s DEBUG: ", subsys);
+		fprintf(stderr, "%s DEBUG %i: ", subsys, time(NULL));
 		vfprintf(stderr, format, alist);
 	} else {
 		va_list on_err;
 		size_t new_ring_end;
 
 		errno = 0;
-		fprintf(ring_fd, "%s DEBUG: ", subsys);
+		fprintf(ring_fd, "%s DEBUG: %i: ", subsys, time(NULL));
 		if (errno == ENOSPC) {
 			rewind(ring_fd);
-			fprintf(ring_fd, "%s DEBUG: ", subsys);
+			fprintf(ring_fd, "%s DEBUG: %i: ", subsys, time(NULL));
 		}
 
 		va_copy(on_err, alist);
