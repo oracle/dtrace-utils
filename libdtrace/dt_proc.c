@@ -82,7 +82,7 @@
 enum dt_attach_time_t { ATTACH_START, ATTACH_ENTRY, ATTACH_FIRST_ARG_MAIN,
 			ATTACH_DIRECT_MAIN };
 
-static int dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time);
+static int dt_proc_attach_break(dt_proc_t *dpr, enum dt_attach_time_t attach_time);
 static void dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 static int dt_proc_loop(dt_proc_t *dpr, int awaiting_continue);
 static void dt_main_fail_rendezvous(dt_proc_t *dpr);
@@ -195,7 +195,7 @@ dt_proc_resume(dt_proc_t *dpr)
  * Fire a one-shot breakpoint to say that the child has got to an interesting
  * place from which we should grab control, possibly blocking.
  *
- * The dt_proc_lock is already held when this function is called.
+ * The dpr_lock is already held when this function is called.
  */
 static int
 dt_break_interesting(uintptr_t addr, void *dpr_data)
@@ -222,7 +222,7 @@ dt_break_interesting(uintptr_t addr, void *dpr_data)
  * have an exported main() we can look up directly, or might have nothing, in
  * which case we resume immediately, just as if evaltime=preinit were used.
  *
- * The dt_proc_lock is already held when this function is called.
+ * The dpr_lock is already held when this function is called.
  */
 static int
 dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
@@ -241,7 +241,7 @@ dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 	 */
 	if (Pdynamically_linked(dpr->dpr_proc) > 0) {
 		dt_proc_scan(dpr->dpr_hdl, dpr);
-		ret = dt_proc_attach(dpr, ATTACH_ENTRY);
+		ret = dt_proc_attach_break(dpr, ATTACH_ENTRY);
 	}
 
 	/*
@@ -251,7 +251,7 @@ dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 	 */
 
 	if (ret < 0)
-		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
+		ret = dt_proc_attach_break(dpr, ATTACH_DIRECT_MAIN);
 
 	if (ret < 0)
 		dt_main_fail_rendezvous(dpr);
@@ -276,13 +276,13 @@ dt_break_libc_start_main(uintptr_t addr, void *dpr_data)
 
 	Punbkpt(dpr->dpr_proc, addr);
 
-	ret = dt_proc_attach(dpr, ATTACH_FIRST_ARG_MAIN);
+	ret = dt_proc_attach_break(dpr, ATTACH_FIRST_ARG_MAIN);
 
 	/*
 	 * Failed. Just try dropping a breakpoint on main(), instead.
 	 */
 	if (ret < 0)
-		ret = dt_proc_attach(dpr, ATTACH_DIRECT_MAIN);
+		ret = dt_proc_attach_break(dpr, ATTACH_DIRECT_MAIN);
 
 	if (ret < 0)
 		dt_main_fail_rendezvous(dpr);
@@ -291,8 +291,8 @@ dt_break_libc_start_main(uintptr_t addr, void *dpr_data)
 }
 
 /*
- * If we couldn't dt_proc_attach(), because we couldn't find main() in
- * any fashion, rendezvous here, instead.
+ * If we couldn't dt_proc_attach_break(), because we couldn't find main() in any
+ * fashion, rendezvous here, instead.
  */
 static void
 dt_main_fail_rendezvous(dt_proc_t *dpr)
@@ -318,7 +318,7 @@ dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
  * Event handler invoked automatically from within Pwait() when an interesting
  * event occurs.
  *
- * The dt_proc_lock is already held when this function is called.
+ * The dpr_lock is already held when this function is called.
  */
 
 static void
@@ -369,7 +369,7 @@ dt_proc_rdagent(dt_proc_t *dpr)
 
 /*
  * Possibly arrange to stop the process, post-attachment, at the right place.
- * This may be called twice, before the dt_proc_continue() rendezvous just in
+ * This may be called twice, before the dt_ps_proc_continue() rendezvous just in
  * case the dynamic linker is far enough up to help us out, and from a
  * breakpoint set on preinit otherwise.
  *
@@ -377,7 +377,7 @@ dt_proc_rdagent(dt_proc_t *dpr)
  * still halted).
  */
 static int
-dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
+dt_proc_attach_break(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 {
 	uintptr_t addr = 0;
 	GElf_Sym sym;
@@ -752,7 +752,7 @@ dt_proc_control(void *arg)
 	 * drop other breakpoints which will eventually enable us to drop
 	 * breakpoints at that location).
 	 */
-	dt_proc_attach(dpr, ATTACH_START);
+		dt_proc_attach_break((dt_proc_t *) dpr, ATTACH_START);
 
 	/*
 	 * Wait for a rendezvous from dt_proc_continue(), iff we were called
