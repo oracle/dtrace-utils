@@ -1090,7 +1090,7 @@ Puntrace(struct ps_prochandle *P, int state)
 	/*
 	 * Protect against unbalanced Ptrace()/Puntrace().
 	 */
-	if ((!P->ptraced) || (state < 0))
+	if ((!P->ptraced) || (P->ptrace_count == 0) || (state < 0))
 		return;
 
 	P->ptrace_count--;
