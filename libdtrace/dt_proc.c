@@ -52,7 +52,7 @@
  * cached entries.
  *
  * The control threads currently invoke processes, resume them when
- * dt_proc_continue() is called, manage ptrace()-related signal dispatch and
+ * dt_ps_proc_continue() is called, manage ptrace()-related signal dispatch and
  * breakpoint handling tasks, handle libproc requests from the rest of DTrace
  * relating to their specific process, and notify interested parties when the
  * process dies.
@@ -74,6 +74,7 @@
 
 #include <mutex.h>
 
+#include <libproc.h>
 #include <dt_proc.h>
 #include <dt_pid.h>
 #include <dt_impl.h>
@@ -89,6 +90,7 @@ static void dt_proc_dpr_lock(dt_proc_t *dpr);
 static void dt_proc_dpr_unlock(dt_proc_t *dpr);
 static void dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg,
     int ptracing);
+static long dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P);
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
@@ -120,7 +122,7 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 /*
  * Check to see if the control thread was requested to stop when the victim
  * process reached a particular event (why) rather than continuing the victim.
- * If 'why' is set in the stop mask, we wait on dpr_cv for dt_proc_continue().
+ * If 'why' is set in the stop mask, we wait on dpr_cv for dt_ps_proc_continue().
  * If 'why' is not set, this function returns immediately and does nothing.
  */
 static void
@@ -168,7 +170,7 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 /*
  * After a stop is carried out and we have carried out any operations that must
  * be done serially, we must signal back to the process waiting in
- * dt_proc_continue() that it can resume.
+ * dt_ps_proc_continue() that it can resume.
  */
 static void
 dt_proc_resume(dt_proc_t *dpr)
@@ -390,7 +392,7 @@ dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 
 	/*
 	 * If we're stopping on exec we have no breakpoints to drop: if
-	 * we're stopping on preinit and it's after the dt_proc_continue()
+	 * we're stopping on preinit and it's after the dt_ps_proc_continue()
 	 * rendezvous, we've already dropped the necessary breakpoints.
 	 */
 
@@ -404,7 +406,7 @@ dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 	switch (attach_time) {
 	case ATTACH_START:
 		/*
-		 * Before dt_proc_continue().  Preinit, postinit and main all
+		 * Before dt_ps_proc_continue().  Preinit, postinit and main all
 		 * get a breakpoint dropped on the process entry point, though
 		 * postinit and main use a different handler.
 		 */
@@ -440,7 +442,7 @@ dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 		break;
 	case ATTACH_FIRST_ARG_MAIN:
 		/*
-		 * After dt_proc_continue(), stopped at __libc_start_main().
+		 * After dt_ps_proc_continue(), stopped at __libc_start_main().
 		 * main()s address is passed as the first argument to this
 		 * function.
 		 */
@@ -456,7 +458,7 @@ dt_proc_attach(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 		break;
 	case ATTACH_DIRECT_MAIN:
 		/*
-		 * After dt_proc_continue().  Drop a breakpoint on main(),
+		 * After dt_ps_proc_continue().  Drop a breakpoint on main(),
 		 * via a normal symbol lookup.
 		 */
 		dt_dprintf("pid %d: dropping breakpoint on main() by symbol "
@@ -628,7 +630,7 @@ typedef struct dt_proc_control_data {
 
 	/*
 	 * The next two are only valid while the master thread is calling
-	 * dt_proc_create(), and only useful when dpr_created is true.
+	 * dt_ps_proc_create(), and only useful when dpr_created is true.
 	 */
 	const char *dpcd_start_proc;
 	char * const *dpcd_start_proc_argv;
@@ -664,7 +666,7 @@ dt_proc_control(void *arg)
 
 	/*
 	 * Lock our mutex, preventing races between cv broadcasts to our
-	 * controlling thread and dt_proc_continue() or process destruction.
+	 * controlling thread and dt_ps_proc_continue() or process destruction.
 	 *
 	 * It is eventually unlocked by dt_proc_control_cleanup(), and
 	 * temporarily unlocked (while waiting) by dt_proc_loop().
@@ -677,7 +679,7 @@ dt_proc_control(void *arg)
 	/*
 	 * Either create the process, or grab it.  Whichever, on failure, quit
 	 * and let our cleanup run (signalling failure to
-	 * dt_proc_create_thread() in the process).
+	 * dt_ps_proc_create_thread() in the process).
 	 *
 	 * At this point, the process is halted at exec(), if created.
 	 */
@@ -814,8 +816,8 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 	pfd[1].events = POLLIN;
 
 	/*
-	 * If we're only proxying while waiting for a dt_proc_continue(), avoid
-	 * waiting on the process's fd.
+	 * If we're only proxying while waiting for a dt_ps_proc_continue(),
+	 * avoid waiting on the process's fd.
 	 */
 	if (awaiting_continue)
 		pfd[0].fd *= -1;
@@ -984,11 +986,11 @@ dt_proc_control_cleanup(void *arg)
 
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
-	 * has exited, and notify any waiting thread in dt_proc_destroy() that
-	 * we have successfully exited.	 Clean up the libproc state, unless this
-	 * is a non-ptraceable process that doesn't need a monitor thread. (In
-	 * that case, the monitor thread is suiciding but the libproc state
-	 * should remain.)
+	 * has exited, and notify any waiting thread on the dph_cv or in
+	 * dt_ps_proc_destroy() that we have successfully exited.  Clean up the
+	 * libproc state, unless this is a non-ptraceable process that doesn't
+	 * need a monitor thread. (In that case, the monitor thread is suiciding
+	 * but the libproc state should remain.)
 	 *
 	 * If we were cancelled while already holding the mutex, don't lock it
 	 * again.
@@ -1045,7 +1047,7 @@ dt_proc_control_cleanup(void *arg)
 }
 
 dt_proc_t *
-dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
+dt_ps_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	pid_t pid = Pgetpid(P);
@@ -1065,6 +1067,12 @@ dt_proc_lookup(dtrace_hdl_t *dtp, struct ps_prochandle *P, int remove)
 		*dpp = dpr->dpr_hash; /* remove from pid hash chain */
 
 	return (dpr);
+}
+
+dt_proc_t *
+dt_proc_lookup(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, int remove)
+{
+	return dt_ps_proc_lookup(dtp, P->P, remove);
 }
 
 static void
@@ -1092,7 +1100,7 @@ dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid)
  * they come out of retirement automatically when they are used again.
  */
 static void
-dt_proc_retire(struct ps_prochandle *P)
+dt_ps_proc_retire(struct ps_prochandle *P)
 {
 	(void) Pclose(P);
 }
@@ -1101,15 +1109,15 @@ dt_proc_retire(struct ps_prochandle *P)
  * Determine if a process is retired.  Very cheap.
  */
 static int
-dt_proc_retired(struct ps_prochandle *P)
+dt_ps_proc_retired(struct ps_prochandle *P)
 {
 	return (!Phasfds(P));
 }
 
 static void
-dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
-	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
+	dt_proc_t *dpr = dt_ps_proc_lookup(dtp, P, B_FALSE);
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_notify_t *npr, **npp;
 
@@ -1129,7 +1137,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		dpr->dpr_pid);
 
 	pthread_mutex_lock(&dph->dph_lock);
-	dt_proc_lookup(dtp, P, B_TRUE);
+	dt_ps_proc_lookup(dtp, P, B_TRUE);
 	npp = &dph->dph_notify;
 
 	while ((npr = *npp) != NULL) {
@@ -1169,7 +1177,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		dt_proc_dpr_unlock(dpr);
 	}
 
-	if (!dt_proc_retired(dpr->dpr_proc)) {
+	if (!dt_ps_proc_retired(dpr->dpr_proc)) {
 		assert(dph->dph_lrucnt != 0);
 		dph->dph_lrucnt--;
 	}
@@ -1229,8 +1237,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	 * control thread was ultimately needed) or DT_PROC_STOP_IDLE to be set,
 	 * indicating that the victim is now stopped and the control thread is
 	 * at the rendezvous event.  On success, we return with the process and
-	 * control thread stopped: the caller can then apply dt_proc_continue()
-	 * to resume both.
+	 * control thread stopped: the caller can then apply
+	 * dt_ps_proc_continue() to resume both.
 	 */
 	if (err == 0) {
 		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
@@ -1259,7 +1267,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 }
 
 struct ps_prochandle *
-dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
+dt_ps_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	int flags)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
@@ -1318,13 +1326,22 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	 * and rendezvous.
 	 */
 	if (flags & DTRACE_PROC_WAITING)
-		dt_proc_continue(dtp, dpr->dpr_proc);
+		dt_ps_proc_continue(dtp, dpr->dpr_proc);
 
 	return (dpr->dpr_proc);
 }
 
+struct dtrace_prochandle
+dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
+	int flags)
+{
+	struct dtrace_prochandle P;
+	P.P = dt_ps_proc_create(dtp, file, argv, flags);
+	return P;
+}
+
 struct ps_prochandle *
-dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
+dt_ps_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	uint_t h = pid & (dph->dph_hashlen - 1);
@@ -1338,7 +1355,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * the reference count, and return the existing ps_prochandle.
 	 *
 	 * If it is retired, bring it out of retirement aggressively, so as to
-	 * ensure that dph_lrucnt and dt_proc_retired() do not get out of synch
+	 * ensure that dph_lrucnt and dt_ps_proc_retired() do not get out of synch
 	 * (which would cause aggressive early retirement of processes even when
 	 * unnecessary).
 	 *
@@ -1355,7 +1372,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 				    "dropped.\n", (int)pid);
 
 				dt_list_delete(&dph->dph_lrulist, dpr);
-				dt_proc_destroy(dtp, dpr->dpr_proc);
+				dt_ps_proc_destroy(dtp, dpr->dpr_proc);
 				dt_free(dtp, dpr);
 
 		} else if (dpr->dpr_pid == pid) {
@@ -1365,7 +1382,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 			dt_list_prepend(&dph->dph_lrulist, dpr);
 			dpr->dpr_refs++;
 
-			if (dt_proc_retired(dpr->dpr_proc)) {
+			if (dt_ps_proc_retired(dpr->dpr_proc)) {
 				/* not retired any more */
 				(void) Pmemfd(dpr->dpr_proc);
 				dph->dph_lrucnt++;
@@ -1444,8 +1461,8 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	if (dph->dph_lrucnt > dph->dph_lrulim) {
 		for (opr = dt_list_prev(&dph->dph_lrulist);
 		     opr != NULL; opr = dt_list_prev(opr)) {
-			if (opr->dpr_refs == 0 && !dt_proc_retired(opr->dpr_proc)) {
-				dt_proc_retire(opr->dpr_proc);
+			if (opr->dpr_refs == 0 && !dt_ps_proc_retired(opr->dpr_proc)) {
+				dt_ps_proc_retire(opr->dpr_proc);
 				dph->dph_lrucnt--;
 				break;
 			}
@@ -1458,13 +1475,21 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * process, which is already running in any case.)
 	 */
 	if (flags & DTRACE_PROC_WAITING)
-		dt_proc_continue(dtp, dpr->dpr_proc);
+		dt_ps_proc_continue(dtp, dpr->dpr_proc);
 
 	return (dpr->dpr_proc);
 }
 
+struct dtrace_prochandle
+dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
+{
+	struct dtrace_prochandle P;
+	P.P = dt_ps_proc_grab(dtp, pid, flags);
+	return P;
+}
+
 void
-dt_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dt_proc_release(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
 	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	dt_proc_hash_t *dph = dtp->dt_procs;
@@ -1474,21 +1499,21 @@ dt_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	if (--dpr->dpr_refs == 0 &&
 	    (dph->dph_lrucnt > dph->dph_lrulim) &&
-	    !dt_proc_retired(dpr->dpr_proc)) {
-		dt_proc_retire(P);
+	    !dt_ps_proc_retired(dpr->dpr_proc)) {
+		dt_ps_proc_retire(P->P);
 		dph->dph_lrucnt--;
 	}
 
 	if (dpr->dpr_done) {
-		dt_proc_destroy(dtp, P);
+		dt_ps_proc_destroy(dtp, P->P);
 		dt_free(dtp, dpr);
 	}
 }
 
-long
-dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+static long
+dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
-	dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
+	dt_proc_t *dpr = dt_ps_proc_lookup(dtp, P, B_FALSE);
 
 	/*
 	 * Noninvasively-grabbed processes are never stopped by us, so
@@ -1499,10 +1524,10 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 
-	dt_dprintf("%i: doing a dt_proc_continue().\n", dpr->dpr_pid);
+	dt_dprintf("%i: doing a dt_ps_proc_continue().\n", dpr->dpr_pid);
 
 	/*
-	 * Calling dt_proc_continue() from the control thread is banned.
+	 * Calling dt_ps_proc_continue() from the control thread is banned.
 	 */
 	assert(dpr->dpr_tid != pthread_self());
 
@@ -1534,7 +1559,7 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
 		if (errno != 0 && errno != EINTR) {
 			dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to "
-			    "proxy pipe for dt_proc_continue(), deadlock is "
+			    "proxy pipe for dt_ps_proc_continue(), deadlock is "
 			    "certain: %s\n", strerror(errno));
 			return (-1);
 		}
@@ -1543,21 +1568,27 @@ dt_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	while (!(dpr->dpr_stop & DT_PROC_STOP_RESUMED))
 		pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
-	dt_dprintf("%i: dt_proc_continue()d.\n", dpr->dpr_pid);
+	dt_dprintf("%i: dt_ps_proc_continue()d.\n", dpr->dpr_pid);
 
 	(void) pthread_mutex_unlock(&dpr->dpr_lock);
 
 	return 0;
 }
 
+long
+dt_proc_continue(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
+{
+	return dt_ps_proc_continue(dtp, P->P);
+}
+
 void
-dt_proc_lock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dt_proc_lock(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
 	dt_proc_dpr_lock(dt_proc_lookup(dtp, P, B_FALSE));
 }
 
 void
-dt_proc_unlock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dt_proc_unlock(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
 	dt_proc_dpr_unlock(dt_proc_lookup(dtp, P, B_FALSE));
 }
@@ -1608,6 +1639,76 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 		dt_proc_dpr_unlock(dpr);
 }
 
+int
+dt_Plookup_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
+    uintptr_t addr, char *sym_name_buffer, size_t bufsize,
+    GElf_Sym *symbolp)
+{
+	return Plookup_by_addr(P->P, addr, sym_name_buffer, bufsize, symbolp);
+}
+
+const prmap_t *
+dt_Paddr_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr)
+{
+	return Paddr_to_map(P->P, addr);
+}
+
+const prmap_t *
+dt_Pname_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
+    const char *name)
+{
+	return Pname_to_map(P->P, name);
+}
+
+const prmap_t *
+dt_Plmid_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
+    const char *name)
+{
+	return Plmid_to_map(P->P, lmid, name);
+}
+
+char *
+dt_Pobjname(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
+	char *buffer, size_t bufsize)
+{
+	return Pobjname(P->P, addr, buffer, bufsize);
+}
+
+int
+dt_Plmid(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
+    Lmid_t *lmidp)
+{
+	return Plmid(P->P, addr, lmidp);
+}
+
+int
+dt_Pxlookup_by_name(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
+    const char *oname, const char *sname, GElf_Sym *symp, prsyminfo_t *sip)
+{
+	return Pxlookup_by_name(P->P, lmid, oname, sname, symp, sip);
+}
+
+int
+dt_Pwritable_mapping(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
+    uintptr_t addr)
+{
+	return Pwritable_mapping(P->P, addr);
+}
+
+int
+dt_Psymbol_iter_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
+    const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
+{
+	return Psymbol_iter_by_addr(P->P, object_name, which, mask, func, cd);
+}
+
+int
+dt_Pobject_iter(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
+    proc_map_f *func, void *cd)
+{
+	return Pobject_iter(P->P, func, cd);
+}
+
 void
 dt_proc_hash_create(dtrace_hdl_t *dtp)
 {
@@ -1630,7 +1731,7 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 
 	for (dpr = dt_list_next(&dph->dph_lrulist);
 	     dpr != NULL; dpr = dt_list_next(dpr)) {
-		dt_proc_destroy(dtp, dpr->dpr_proc);
+		dt_ps_proc_destroy(dtp, dpr->dpr_proc);
 		dt_free(dtp, old_dpr);
 		old_dpr = dpr;
 	}
@@ -1642,39 +1743,45 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 	dt_free(dtp, dph);
 }
 
-struct ps_prochandle *
+struct dtrace_prochandle
 dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	int flags)
 {
+	struct dtrace_prochandle P;
+
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *P = dt_proc_create(dtp, file, argv, flags);
+	struct ps_prochandle *ps_P = dt_ps_proc_create(dtp, file, argv, flags);
 
-	if (P != NULL && idp != NULL && idp->di_id == 0)
-		idp->di_id = Pgetpid(P); /* $target = created pid */
+	if (ps_P != NULL && idp != NULL && idp->di_id == 0)
+		idp->di_id = Pgetpid(ps_P); /* $target = created pid */
 
-	return (P);
+	P.P = ps_P;
+	return P;
 }
 
-struct ps_prochandle *
+struct dtrace_prochandle
 dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 {
-	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *P = dt_proc_grab(dtp, pid, flags);
+	struct dtrace_prochandle P;
 
-	if (P != NULL && idp != NULL && idp->di_id == 0)
+	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
+	struct ps_prochandle *ps_P = dt_ps_proc_grab(dtp, pid, flags);
+
+	if (ps_P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = pid; /* $target = grabbed pid */
 
-	return (P);
+	P.P = ps_P;
+	return P;
 }
 
 void
-dtrace_proc_release(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dtrace_proc_release(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
 	dt_proc_release(dtp, P);
 }
 
 void
-dtrace_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+dtrace_proc_continue(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 {
 	dt_proc_continue(dtp, P);
 }

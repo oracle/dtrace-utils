@@ -94,16 +94,18 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
-			struct ps_prochandle *P = dprn->dprn_dpr->dpr_proc;
+			struct ps_prochandle *ps_P = dprn->dprn_dpr->dpr_proc;
+			struct dtrace_prochandle P;
 			char *err = dprn->dprn_errmsg;
+			P.P = ps_P;
 
 			if (*err == '\0')
 				err = NULL;
 
-			if (Pstate(P) == PS_DEAD)
-				P = NULL;
+			if (Pstate(P.P) == PS_DEAD)
+				P.P = NULL;
 
-			dtp->dt_prochdlr(P, err, dtp->dt_procarg);
+			dtp->dt_prochdlr(&P, err, dtp->dt_procarg);
 		}
 
 		dph->dph_notify = dprn->dprn_next;

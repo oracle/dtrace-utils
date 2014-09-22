@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2007, 2011 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011 -- 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -118,15 +118,39 @@ typedef struct dt_proc_hash {
 	dt_proc_t *dph_hash[1];		/* hash chains array */
 } dt_proc_hash_t;
 
-extern struct ps_prochandle *dt_proc_create(dtrace_hdl_t *,
+extern struct dtrace_prochandle dt_proc_create(dtrace_hdl_t *,
     const char *, char *const *, int flags);
 
-extern struct ps_prochandle *dt_proc_grab(dtrace_hdl_t *, pid_t, int flags);
-extern void dt_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
-extern long dt_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
-extern void dt_proc_lock(dtrace_hdl_t *, struct ps_prochandle *);
-extern void dt_proc_unlock(dtrace_hdl_t *, struct ps_prochandle *);
-extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct ps_prochandle *, int);
+extern struct dtrace_prochandle dt_proc_grab(dtrace_hdl_t *, pid_t, int flags);
+extern void dt_proc_release(dtrace_hdl_t *, struct dtrace_prochandle *);
+extern long dt_proc_continue(dtrace_hdl_t *, struct dtrace_prochandle *);
+extern void dt_proc_lock(dtrace_hdl_t *, struct dtrace_prochandle *);
+extern void dt_proc_unlock(dtrace_hdl_t *, struct dtrace_prochandle *);
+extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct dtrace_prochandle *, int);
+
+/*
+ * Proxies for operations in libproc, respecting the execve-retry protocol.
+ */
+extern int dt_Plookup_by_addr(dtrace_hdl_t *, struct dtrace_prochandle *,
+    uintptr_t, char *, size_t, GElf_Sym *);
+extern const prmap_t *dt_Paddr_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
+    uintptr_t);
+extern const prmap_t *dt_Plmid_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
+    Lmid_t, const char *);
+extern const prmap_t *dt_Pname_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
+    const char *);
+extern char *dt_Pobjname(dtrace_hdl_t *, struct dtrace_prochandle *,
+    uintptr_t, char *, size_t);
+extern int dt_Plmid(dtrace_hdl_t *, struct dtrace_prochandle *, uintptr_t,
+    Lmid_t *);
+extern int dt_Pxlookup_by_name(dtrace_hdl_t *, struct dtrace_prochandle *,
+    Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
+extern int dt_Pwritable_mapping(dtrace_hdl_t *, struct dtrace_prochandle *,
+    uintptr_t);
+extern int dt_Psymbol_iter_by_addr(dtrace_hdl_t *, struct dtrace_prochandle *,
+    const char *, int, int, proc_sym_f *, void *);
+extern int dt_Pobject_iter(dtrace_hdl_t *, struct dtrace_prochandle *,
+    proc_map_f *, void *);
 
 extern void dt_proc_hash_create(dtrace_hdl_t *);
 extern void dt_proc_hash_destroy(dtrace_hdl_t *);
