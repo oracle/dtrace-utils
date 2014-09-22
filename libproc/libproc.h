@@ -134,6 +134,7 @@ extern	int	Phasfds(struct ps_prochandle *);
 extern	void	Pset_procfs_path(const char *);
 extern	int	Pdynamically_linked(struct ps_prochandle *);
 extern	int	Ptraceable(struct ps_prochandle *);
+extern	int	Pelf64(struct ps_prochandle *);
 
 /*
  * Calls that do not take a process structure.  These are used to determine

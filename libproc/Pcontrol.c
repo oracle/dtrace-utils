@@ -2090,6 +2090,15 @@ Ptraceable(struct ps_prochandle *P)
 }
 
 /*
+ * Return 1 if this is a 64-bit process.
+ */
+int
+Pelf64(struct ps_prochandle *P)
+{
+	return P->elf64;
+}
+
+/*
  * Return 1 if this process exists (or, in the presence of PID wraparound, some
  * other process that happens to have the same PID).
  *

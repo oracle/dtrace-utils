@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2012, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -81,12 +81,7 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ulong_t i;
 	int size;
 	pid_t pid = Pgetpid(P);
-#ifdef USERSPACE_TRACEPOINTS
-	char dmodel = Pstatus(P)->pr_dmodel;
-#else
-	char dmodel =  PR_MODEL_LP64;
-#endif
-
+        char dmodel = Pelf64(P) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 
 	/*
 	 * Take a pass through the function looking for a register-dependant
@@ -131,11 +126,7 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ulong_t i, end;
 	int size;
 	pid_t pid = Pgetpid(P);
-#ifdef USERSPACE_TRACEPOINTS
-        char dmodel = Pstatus(P)->pr_dmodel;
-#else
-        char dmodel =  PR_MODEL_LP64;
-#endif
+        char dmodel = Pelf64(P) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 
 	/*
 	 * We allocate a few extra bytes at the end so we don't have to check
@@ -287,11 +278,7 @@ dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		ulong_t i;
 		int size;
 		pid_t pid = Pgetpid(P);
-#ifdef USERSPACE_TRACEPOINTS
-		char dmodel = Pstatus(P)->pr_dmodel;
-#else
-		char dmodel =  PR_MODEL_LP64;
-#endif
+		char dmodel = Pelf64(P) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 		if ((text = malloc(symp->st_size)) == NULL) {
 			dt_dprintf("mr sparkle: malloc() failed\n");
 			return (DT_PROC_ERR);
@@ -364,11 +351,7 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	int size;
 	ulong_t i, end = symp->st_size;
 	pid_t pid = Pgetpid(P);
-#ifdef USERSPACE_TRACEPOINTS
-        char dmodel = Pstatus(P)->pr_dmodel;
-#else
-        char dmodel =  PR_MODEL_LP64;
-#endif
+        char dmodel = Pelf64(P) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 
 	ftp->ftps_type = DTFTP_OFFSETS;
 	ftp->ftps_pc = (uintptr_t)symp->st_value;

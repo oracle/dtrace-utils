@@ -323,12 +323,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 				    GELF_ST_INFO(STB_LOCAL, STT_FUNC);
 				sym.st_other = 0;
 				sym.st_value = 0;
-#ifdef USERSPACE_TRACEPOINTS
-				sym.st_size = Pstatus(pp->dpp_pr.P)->pr_dmodel ==
-				    PR_MODEL_ILP32 ? -1U : -1ULL;
-#else
-				sym.st_size = ~((Elf64_Xword) 0);
-#endif
+				sym.st_size = Pelf64(pp->dpp_pr.P) ? -1ULL : -1U;
 			} else if (!strisglob(pp->dpp_mod)) {
 				return (dt_pid_error(dtp, pcb, dpr, NULL,
 				    D_PROC_FUNC,
