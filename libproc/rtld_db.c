@@ -968,8 +968,11 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 
 		/*
 		 * Stop the process while we check the state of the load lock.
+		 * If it dies before this, fail.
 		 */
 		rd->lmid_halt_prev_state = Ptrace(rd->P, 1);
+		if (rd->lmid_halt_prev_state == PS_DEAD)
+			return -1;
 
 		if ((lock_count = load_lock(rd)) < 0) {
 			_dprintf("%i: Cannot read load lock count\n",
