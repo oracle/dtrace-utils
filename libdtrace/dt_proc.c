@@ -1014,9 +1014,6 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 				pfd[0].fd = dpr->dpr_fd;
 		}
 
-		dt_dprintf("Looping, listening for requests from proc fd: %i; proxy fd: %i.\n",
-		    pfd[0].fd, pfd[1].fd);
-		debug_dump_status(dpr->dpr_proc);
 		while (errno = EINTR,
 		    poll((struct pollfd *) pfd, 2, -1) <= 0 && errno == EINTR)
 			continue;

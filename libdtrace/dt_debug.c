@@ -137,17 +137,17 @@ dt_debug_printf(const char *subsys, const char *format, va_list alist)
 		return;
 
 	if (!ring) {
-		fprintf(stderr, "%s DEBUG %i: ", subsys, time(NULL));
+		fprintf(stderr, "%s DEBUG %li: ", subsys, time(NULL));
 		vfprintf(stderr, format, alist);
 	} else {
 		va_list on_err;
 		size_t new_ring_end;
 
 		errno = 0;
-		fprintf(ring_fd, "%s DEBUG: %i: ", subsys, time(NULL));
+		fprintf(ring_fd, "%s DEBUG: %li: ", subsys, time(NULL));
 		if (errno == ENOSPC) {
 			rewind(ring_fd);
-			fprintf(ring_fd, "%s DEBUG: %i: ", subsys, time(NULL));
+			fprintf(ring_fd, "%s DEBUG: %li: ", subsys, time(NULL));
 		}
 
 		va_copy(on_err, alist);
