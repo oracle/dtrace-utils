@@ -36,13 +36,16 @@
  * is per-thread and that libproc makes extensive use of it.
  *
  * MT-Safety: due to the above ptrace() limitations, libproc is not MT-Safe or
- * even capable of multithreading, so a marshalling layer is provided to
- * route all communication with libproc through the control thread.
+ * even capable of multithreading, so a marshalling and proxying layer is
+ * provided to route all communication with libproc through the control thread.
  *
  * NOTE: MT-Safety is NOT provided for libdtrace itself, or for use of the
  * dtrace_proc_grab/dtrace_proc_create mechanisms.  Like all exported libdtrace
  * calls, these are assumed to be MT-Unsafe.  MT-Safety is ONLY provided for
- * calls via the libproc marshalling layer.
+ * calls via the libproc marshalling layer.  All calls from the rest of DTrace
+ * must go via the dt_P*() functions, which in addition to routing calls via the
+ * proxying layer also arrange to automatically retry in the event of child
+ * exec().
  *
  * The ps_prochandles themselves are maintained along with a dt_proc_t struct in
  * a hash table indexed by PID.  This provides basic locking and reference
@@ -94,6 +97,15 @@ static void dt_proc_dpr_unlock(dt_proc_t *dpr);
 static void dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg,
     int ptracing);
 static long dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P);
+
+/*
+ * Locking assertions.
+ */
+#define assert_self_locked(dpr)			\
+	do { \
+		assert(MUTEX_HELD(&dpr->dpr_lock));		\
+		assert(dpr->dpr_lock_holder == pthread_self()); \
+	} while(0)						\
 
 /*
  * Unwinder pad for libproc setjmp() chains.
@@ -531,38 +543,24 @@ dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 }
 
 /*
- * Proxies for Pwait() and ptrace() that route all calls via the control thread.
- *
- * FIXME: overly redundant: refactor.
+ * Proxy requests, routed via the control thread.
  *
  * Must be called under dpr_lock.
+ *
+ * Optionally, triggers a longjmp() to the exec-handler pad if an exec() is
+ * detected in the child.  (Not all calls trigger this, because not all calls to
+ * the control thread are related to the child process, and because some calls
+ * to the child process are themselves involved in the implementation of the
+ * exec-retry protocol.)
  */
+
 static long
-proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
+proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 {
-	dt_proc_t *dpr = arg;
-	char junk = '\0'; /* unimportant */
 	unsigned long lock_count;
+	char junk = '\0'; /* unimportant */
 
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
-
-	/*
-	 * If we are already in the right thread, pass the call
-	 * straight on.
-	 */
-	if (dpr->dpr_tid == pthread_self())
-		return Pwait_internal(P, block);
-
-	/*
-	 * Proxy it, signal the control thread, and wait for the response.
-	 *
-	 * If the response is an exceptional longjmp(), keep jumping.
-	 */
-
-	dpr->dpr_proxy_rq = proxy_pwait;
-	dpr->dpr_proxy_args.dpr_pwait.P = P;
-	dpr->dpr_proxy_args.dpr_pwait.block = block;
+	dpr->dpr_proxy_rq = proxy_rq;
 
 	errno = 0;
 	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
@@ -581,7 +579,7 @@ proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
 	dpr->dpr_lock_holder = pthread_self();
 	dpr->dpr_lock_count = lock_count;
 
-	if (dpr->dpr_proxy_exec_retry && *unwinder_pad)
+	if (exec_retry && dpr->dpr_proxy_exec_retry && *unwinder_pad)
 		longjmp(*unwinder_pad, dpr->dpr_proxy_exec_retry);
 
 	errno = dpr->dpr_proxy_errno;
@@ -589,15 +587,31 @@ proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
 }
 
 static long
+proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
+{
+	dt_proc_t *dpr = arg;
+
+	assert_self_locked(dpr);
+
+	/*
+	 * If we are already in the right thread, pass the call straight on.
+	 */
+	if (dpr->dpr_tid == pthread_self())
+		return Pwait_internal(P, block);
+
+	dpr->dpr_proxy_args.dpr_pwait.P = P;
+	dpr->dpr_proxy_args.dpr_pwait.block = block;
+
+	return proxy_call(dpr, proxy_pwait, 1);
+}
+
+static long
 proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
     void *data)
 {
 	dt_proc_t *dpr = arg;
-	char junk = '\0'; /* unimportant */
-	unsigned long lock_count;
 
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
+	assert_self_locked(dpr);
 
 	/*
 	 * If we are already in the right thread, pass the call
@@ -606,57 +620,22 @@ proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
 	if (dpr->dpr_tid == pthread_self())
 		return ptrace(request, pid, addr, data);
 
-	/*
-	 * Proxy it, signal the control thread, and wait for the response.
-	 *
-	 * If the response is an exceptional longjmp(), keep jumping.
-	 */
-
-	dpr->dpr_proxy_rq = proxy_ptrace;
 	dpr->dpr_proxy_args.dpr_ptrace.request = request;
 	dpr->dpr_proxy_args.dpr_ptrace.pid = pid;
 	dpr->dpr_proxy_args.dpr_ptrace.addr = addr;
 	dpr->dpr_proxy_args.dpr_ptrace.data = data;
 
-	errno = 0;
-	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
-	if (errno != 0 && errno != EINTR) {
-		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
-		    "for Pwait(), deadlock is certain: %s\n", strerror(errno));
-		return (-1);
-	}
-
-	lock_count = dpr->dpr_lock_count;
-	dpr->dpr_lock_count = 0;
-
-	while (dpr->dpr_proxy_rq != NULL)
-		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
-
-	dpr->dpr_lock_holder = pthread_self();
-	dpr->dpr_lock_count = lock_count;
-
-	if (dpr->dpr_proxy_exec_retry && *unwinder_pad)
-		longjmp(*unwinder_pad, dpr->dpr_proxy_exec_retry);
-
-	errno = dpr->dpr_proxy_errno;
-	return dpr->dpr_proxy_ret;
+	return proxy_call(dpr, proxy_ptrace, 1);
 }
 
 /*
  * This proxy request serves to force the controlling thread to recreate its
  * ps_prochandle after an exec().
- *
- * This request is part of the exec-retry protocol, and as such does not
- * participate in it itself.
  */
 static long
 proxy_reattach(dt_proc_t *dpr)
 {
-	char junk = '\0'; /* unimportant */
-	unsigned long lock_count;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
+	assert_self_locked(dpr);
 
 	/*
 	 * If we are already in the right thread, pass the call straight on.
@@ -664,32 +643,7 @@ proxy_reattach(dt_proc_t *dpr)
 	if (dpr->dpr_tid == pthread_self())
 		return dt_proc_reattach(dpr->dpr_hdl, dpr);
 
-	/*
-	 * Proxy it, signal the control thread, and wait for the response.
-	 */
-
-	dpr->dpr_proxy_rq = proxy_reattach;
-
-	errno = 0;
-	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
-	if (errno != 0 && errno != EINTR) {
-		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
-		    "for proxy reattach, deadlock is certain: %s\n",
-		    strerror(errno));
-		return (-1);
-	}
-
-	lock_count = dpr->dpr_lock_count;
-	dpr->dpr_lock_count = 0;
-
-	while (dpr->dpr_proxy_rq != NULL)
-		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
-
-	dpr->dpr_lock_holder = pthread_self();
-	dpr->dpr_lock_count = lock_count;
-
-	errno = dpr->dpr_proxy_errno;
-	return dpr->dpr_proxy_ret;
+	return proxy_call(dpr, proxy_reattach, 0);
 }
 
 /*
@@ -703,46 +657,17 @@ proxy_reattach(dt_proc_t *dpr)
 static long
 proxy_monitor(dt_proc_t *dpr, int monitor)
 {
-	char junk = '\0'; /* unimportant */
-	unsigned long lock_count;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
+	assert_self_locked(dpr);
 
 	/*
-	 * If we are already in the right thread, pass the call
-	 * straight on.
+	 * If we are already in the right thread, pass the call straight on.
 	 */
 	if (dpr->dpr_tid == pthread_self())
 		return dt_proc_monitor(dpr, monitor);
 
-	/*
-	 * Proxy it, signal the control thread, and wait for the response.
-	 */
-
-	dpr->dpr_proxy_rq = proxy_monitor;
 	dpr->dpr_proxy_args.dpr_monitor.monitor = monitor;
 
-	errno = 0;
-	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
-	if (errno != 0 && errno != EINTR) {
-		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
-		    "for proxy monitor, deadlock is certain: %s\n",
-		    strerror(errno));
-		return (-1);
-	}
-
-	lock_count = dpr->dpr_lock_count;
-	dpr->dpr_lock_count = 0;
-
-	while (dpr->dpr_proxy_rq != NULL)
-		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
-
-	dpr->dpr_lock_holder = pthread_self();
-	dpr->dpr_lock_count = lock_count;
-
-	errno = dpr->dpr_proxy_errno;
-	return dpr->dpr_proxy_ret;
+	return proxy_call(dpr, proxy_monitor, 0);
 }
 
 typedef struct dt_proc_control_data {
