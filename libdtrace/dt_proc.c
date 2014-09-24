@@ -1145,6 +1145,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 static void
 dt_proc_control_cleanup(void *arg)
 {
+	int proc_existed = 0;
 	dt_proc_t *dpr = arg;
 
 	/*
@@ -1176,9 +1177,11 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_lock_count = 1;
 	}
 
-	if (dpr->dpr_proc)
+	if (dpr->dpr_proc) {
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
+		proc_existed = 1;
+	}
 
 	dpr->dpr_done = B_TRUE;
 	dpr->dpr_tid = 0;
@@ -1198,7 +1201,17 @@ dt_proc_control_cleanup(void *arg)
 	    close(dpr->dpr_proxy_fd[1]);
 
 	pthread_cond_broadcast(&dpr->dpr_cv);
-	dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs, dpr, NULL);
+
+	/*
+	 * Death-notification queueing is complicated by the fact that we might
+	 * have died due to failure to create or grab a process in the first
+	 * place, which means both that the dpr will not be queued into the dpr
+	 * hash and that dt_ps_proc_{grab,create}() will Pfree it as soon as
+	 * they notice that it's failed.  So we cannot enqueue the dpr in that
+	 * case, and must enqueue a NULL instead.
+	 */
+	dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
+	    proc_existed ? dpr : NULL, NULL);
 
 	/*
 	 * A proxy request may have come in since the last time we checked for

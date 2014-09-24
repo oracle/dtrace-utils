@@ -94,10 +94,17 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
-			struct ps_prochandle *ps_P = dprn->dprn_dpr->dpr_proc;
 			struct dtrace_prochandle P;
 			char *err = dprn->dprn_errmsg;
-			P.P = ps_P;
+
+			/*
+			 * The dprn_dpr may be NULL if attachment or process
+			 * creation has failed.
+			 */
+			if (dprn->dprn_dpr != NULL)
+				P.P = dprn->dprn_dpr->dpr_proc;
+			else
+				P.P = NULL;
 
 			if (*err == '\0')
 				err = NULL;
