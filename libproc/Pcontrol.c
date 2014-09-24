@@ -439,6 +439,13 @@ Phasfds(struct ps_prochandle *P)
 int
 Pstate(struct ps_prochandle *P)
 {
+	/*
+	 * Act like free() with respect to null pointers: a null pointer is dead,
+	 * by definition.
+	 */
+	if (P == NULL)
+		return PS_DEAD;
+
 	return (P->state);
 }
 
