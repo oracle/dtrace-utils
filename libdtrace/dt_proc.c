@@ -1884,57 +1884,42 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 }
 
 /*
- * FIXME: eliminate redundancy. (Varargs macro trickery? Machine-generation?)
- *
- * Note: no rethrows in any of these functions: these are the upper termini of
- * the exec-detection sjlj chain, and respond to an exec in the victim by
- * retrying, not by rethrowing.
+ * Define the public interface to a libproc function from the rest of DTrace,
+ * automatically proxying via the process-control thread and retrying on
+ * exec().
  */
+#define DEFINE_dt_Pfunction(function, err_ret, ...)		   \
+	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE); \
+	jmp_buf this_exec_jmp, *old_exec_jmp; \
+	\
+	assert(MUTEX_HELD(&dpr->dpr_lock)); \
+	old_exec_jmp = unwinder_pad; \
+	if (setjmp(this_exec_jmp)) { \
+		if (!proxy_reattach((dt_proc_t *) dpr)) \
+			return (err_ret); \
+		P->P = dpr->dpr_proc; \
+	} \
+	unwinder_pad = &this_exec_jmp; \
+	proxy_monitor((dt_proc_t *) dpr, 0); \
+	ret = function(P->P, __VA_ARGS__); \
+	proxy_monitor((dt_proc_t *) dpr, 1); \
+	unwinder_pad = old_exec_jmp;
+
 int
 dt_Plookup_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
     uintptr_t addr, char *sym_name_buffer, size_t bufsize,
     GElf_Sym *symbolp)
 {
 	int ret;
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Plookup_by_addr(P->P, addr, sym_name_buffer, bufsize, symbolp);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Plookup_by_addr, -1, addr, sym_name_buffer, bufsize, symbolp);
 	return ret;
 }
 
 const prmap_t *
 dt_Paddr_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	const prmap_t *ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (NULL);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Paddr_to_map(P->P, addr);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Paddr_to_map, NULL, addr);
 	return ret;
 }
 
@@ -1942,23 +1927,8 @@ const prmap_t *
 dt_Pname_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
     const char *name)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	const prmap_t *ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (NULL);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Pname_to_map(P->P, name);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Pname_to_map, NULL, name);
 	return ret;
 }
 
@@ -1966,23 +1936,8 @@ const prmap_t *
 dt_Plmid_to_map(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
     const char *name)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	const prmap_t *ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (NULL);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Plmid_to_map(P->P, lmid, name);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Plmid_to_map, NULL, lmid, name);
 	return ret;
 }
 
@@ -1990,23 +1945,8 @@ char *
 dt_Pobjname(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
 	char *buffer, size_t bufsize)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	char *ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (NULL);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Pobjname(P->P, addr, buffer, bufsize);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Pobjname, NULL, addr, buffer, bufsize);
 	return ret;
 }
 
@@ -2014,23 +1954,8 @@ int
 dt_Plmid(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, uintptr_t addr,
     Lmid_t *lmidp)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	int ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Plmid(P->P, addr, lmidp);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Plmid, -1, addr, lmidp);
 	return ret;
 }
 
@@ -2038,23 +1963,9 @@ int
 dt_Pxlookup_by_name(dtrace_hdl_t *dtp, struct dtrace_prochandle *P, Lmid_t lmid,
     const char *oname, const char *sname, GElf_Sym *symp, prsyminfo_t *sip)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	int ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Pxlookup_by_name(P->P, lmid, oname, sname, symp, sip);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Pxlookup_by_name, -1, lmid, oname, sname, symp,
+	    sip);
 	return ret;
 }
 
@@ -2062,23 +1973,8 @@ int
 dt_Pwritable_mapping(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
     uintptr_t addr)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	int ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Pwritable_mapping(P->P, addr);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Pwritable_mapping, -1, addr);
 	return ret;
 }
 
@@ -2086,23 +1982,9 @@ int
 dt_Psymbol_iter_by_addr(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
     const char *object_name, int which, int mask, proc_sym_f *func, void *cd)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	int ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Psymbol_iter_by_addr(P->P, object_name, which, mask, func, cd);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Psymbol_iter_by_addr, -1, object_name, which,
+	    mask, func, cd);
 	return ret;
 }
 
@@ -2110,23 +1992,8 @@ int
 dt_Pobject_iter(dtrace_hdl_t *dtp, struct dtrace_prochandle *P,
     proc_map_f *func, void *cd)
 {
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE);
 	int ret;
-	jmp_buf this_exec_jmp, *old_exec_jmp;
-
-	assert(MUTEX_HELD(&dpr->dpr_lock));
-	old_exec_jmp = unwinder_pad;
-	if (setjmp(this_exec_jmp)) {
-		if (!proxy_reattach((dt_proc_t *) dpr))
-			return (-1);
-		P->P = dpr->dpr_proc;
-	}
-	unwinder_pad = &this_exec_jmp;
-	proxy_monitor((dt_proc_t *) dpr, 0);
-	ret = Pobject_iter(P->P, func, cd);
-	proxy_monitor((dt_proc_t *) dpr, 1);
-	unwinder_pad = old_exec_jmp;
-
+	DEFINE_dt_Pfunction(Pobject_iter, -1, func, cd);
 	return ret;
 }
 
