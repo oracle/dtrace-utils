@@ -1505,8 +1505,6 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 		unsigned int nloaded = 0;
 		unsigned int n = 0;
 
-		primary_scope = NULL;
-
 		if (!nonzero_consistent && nns > 1) {
 			nonzero_consistent = TRUE;
 			if (rd_ldso_nonzero_lmid_consistent_begin(rd) < 0)
@@ -1606,10 +1604,19 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 			loadobj = (uintptr_t) map.l_next;
 		}
 
+		/*
+		 * The assignments to NULL below are crucial -- we could spot an
+		 * exec() after this point, and longjmp() into spotted_exec:,
+		 * which free()s them again.
+		 */
+
 		free(primary_scope);
+		primary_scope = NULL;
 	}
 
 	free(obj.rl_scope);
+	obj.rl_scope = NULL;
+
 	if (nonzero_consistent)
 		rd_ldso_nonzero_lmid_consistent_end(rd);
 	rd_ldso_consistent_end(rd);
