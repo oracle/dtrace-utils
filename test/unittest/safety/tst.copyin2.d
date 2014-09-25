@@ -27,6 +27,7 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /* @@runtest-opts: -C */
+/* @@no-xfail */
 
 /*
  * Test that there is no value of 'size' which can be passed to copyin
@@ -53,7 +54,7 @@ syscall:::
 syscall:::
 /pid == $pid/
 {
-	tracemem(copyin(curthread->t_procp->p_user.u_envp, size), 10);
+	tracemem(copyin((uintptr_t)curthread->dtrace_psinfo->envp, size), 10);
 }
 
 syscall:::

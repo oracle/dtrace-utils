@@ -26,7 +26,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@skip: test.options lossage */
+/* @@no-xfail */
 
 /*
  * ASSERTION:
