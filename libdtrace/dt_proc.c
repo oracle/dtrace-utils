@@ -707,9 +707,9 @@ static void dt_proc_control_cleanup(void *arg);
 static void *
 dt_proc_control(void *arg)
 {
-	volatile dt_proc_control_data_t *datap = arg;
-	volatile dtrace_hdl_t *dtp = datap->dpcd_hdl;
-	volatile dt_proc_t *dpr = datap->dpcd_proc;
+	dt_proc_control_data_t * volatile datap = arg;
+	dtrace_hdl_t * volatile dtp = datap->dpcd_hdl;
+	dt_proc_t * volatile dpr = datap->dpcd_proc;
 	int err;
 	jmp_buf exec_jmp;
 
@@ -723,7 +723,7 @@ dt_proc_control(void *arg)
 	/*
 	 * Arrange to clean up when cancelled by dt_ps_proc_destroy() on shutdown.
 	 */
-	pthread_cleanup_push(dt_proc_control_cleanup, (dt_proc_t *) dpr);
+	pthread_cleanup_push(dt_proc_control_cleanup, dpr);
 
 	/*
 	 * Lock our mutex, preventing races between cv broadcasts to our
@@ -732,7 +732,7 @@ dt_proc_control(void *arg)
 	 * It is eventually unlocked by dt_proc_control_cleanup(), and
 	 * temporarily unlocked (while waiting) by dt_proc_loop().
 	 */
-	dt_proc_dpr_lock((dt_proc_t *) dpr);
+	dt_proc_dpr_lock(dpr);
 
 	dpr->dpr_proxy_fd[0] = datap->dpcd_proxy_fd[0];
 	dpr->dpr_proxy_fd[1] = datap->dpcd_proxy_fd[1];
@@ -747,10 +747,9 @@ dt_proc_control(void *arg)
 
 	if (dpr->dpr_created) {
 		if ((dpr->dpr_proc = Pcreate(datap->dpcd_start_proc,
-			    datap->dpcd_start_proc_argv, (dt_proc_t *) dpr,
-			    &err)) == NULL) {
-			dt_proc_error((dtrace_hdl_t *) dtp, (dt_proc_t *) dpr,
-			    "failed to execute %s: %s\n", datap->dpcd_start_proc,
+			    datap->dpcd_start_proc_argv, dpr, &err)) == NULL) {
+			dt_proc_error(dtp, dpr, "failed to execute %s: %s\n",
+			    datap->dpcd_start_proc,
 			    strerror(err));
 			pthread_exit(NULL);
 		}
@@ -775,9 +774,8 @@ dt_proc_control(void *arg)
 		}
 
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, noninvasive, 0,
-			    (dt_proc_t *) dpr, &err)) == NULL) {
-			dt_proc_error((dtrace_hdl_t *) dtp, (dt_proc_t *) dpr,
-			    "failed to grab pid %li: %s\n",
+			    dpr, &err)) == NULL) {
+			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
 			pthread_exit(NULL);
 		}
@@ -806,8 +804,7 @@ dt_proc_control(void *arg)
 	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
 	 */
 	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
-		dt_proc_error((dtrace_hdl_t *) dtp, (dt_proc_t *) dpr,
-		    "failed to get waitfd for pid %li: %s\n",
+		dt_proc_error(dtp, dpr, "failed to get waitfd for pid %li: %s\n",
 		    (long) dpr->dpr_pid, strerror(err));
 		pthread_exit(NULL);
 	}
@@ -821,10 +818,14 @@ dt_proc_control(void *arg)
 	 * point, the process is stopped at exec() just as after a Pcreate().
 	 */
 	if (setjmp(exec_jmp)) {
-		if (dt_proc_reattach((dtrace_hdl_t *) dtp,
-			(dt_proc_t *) dpr) != 0) {
-			dt_proc_error((dtrace_hdl_t *) dtp,
-			    (dt_proc_t *) dpr,
+		/*
+		 * dt_proc_reattach() calls P*() functions which can rethrow.
+		 * The unwinder-pad is not reset during the throw: we must
+		 * reset it now so that such a rethrow will work.
+		 */
+		unwinder_pad = &exec_jmp;
+		if (dt_proc_reattach(dtp, dpr) != 0) {
+			dt_proc_error(dtp, dpr,
 			    "failed to regrab pid %li after exec(): %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
 			pthread_exit(NULL);
@@ -836,7 +837,7 @@ dt_proc_control(void *arg)
 		 * dt_prcmode (or drop other breakpoints which will eventually
 		 * enable us to drop breakpoints at that location).
 		 */
-		dt_proc_attach_break((dt_proc_t *) dpr, ATTACH_START);
+		dt_proc_attach_break(dpr, ATTACH_START);
 
 		/*
 		 * Wait for a rendezvous from dt_ps_proc_continue(), iff we were
@@ -849,8 +850,8 @@ dt_proc_control(void *arg)
 		 * rendezvous from within the breakpoint handler, invoked from
 		 * Pwait() in dt_proc_loop().
 		 */
-		dt_proc_stop((dt_proc_t *) dpr,
-		    dpr->dpr_created ? DT_PROC_STOP_CREATE : DT_PROC_STOP_GRAB);
+		dt_proc_stop(dpr, dpr->dpr_created ? DT_PROC_STOP_CREATE :
+		    DT_PROC_STOP_GRAB);
 
 		/*
 		 * Set the process going, if it was stopped by the call above.
@@ -869,15 +870,15 @@ dt_proc_control(void *arg)
 	 * Then enter the main control loop.
 	 */
 
-	dt_proc_resume((dt_proc_t *) dpr);
-	dt_proc_loop((dt_proc_t *) dpr, 0);
+	dt_proc_resume(dpr);
+	dt_proc_loop(dpr, 0);
 
 	/*
 	 * If the caller is *still* waiting in dt_ps_proc_continue() (i.e. the
 	 * monitored process died before dtracing could start), resume it; then
 	 * clean up.
 	 */
-	dt_proc_resume((dt_proc_t *) dpr);
+	dt_proc_resume(dpr);
 	pthread_cleanup_pop(1);
 
 	return (NULL);
@@ -1902,20 +1903,21 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
  * exec().
  */
 #define DEFINE_dt_Pfunction(function, err_ret, ...)		   \
-	volatile dt_proc_t *dpr = dt_proc_lookup(dtp, P, B_FALSE); \
+	dt_proc_t * volatile dpr = dt_proc_lookup(dtp, P, B_FALSE); \
 	jmp_buf this_exec_jmp, *old_exec_jmp; \
 	\
 	assert(MUTEX_HELD(&dpr->dpr_lock)); \
 	old_exec_jmp = unwinder_pad; \
 	if (setjmp(this_exec_jmp)) { \
-		if (!proxy_reattach((dt_proc_t *) dpr)) \
+		unwinder_pad = &this_exec_jmp; \
+		if (!proxy_reattach(dpr)) \
 			return (err_ret); \
 		P->P = dpr->dpr_proc; \
 	} \
 	unwinder_pad = &this_exec_jmp; \
-	proxy_monitor((dt_proc_t *) dpr, 0); \
+	proxy_monitor(dpr, 0); \
 	ret = function(P->P, __VA_ARGS__); \
-	proxy_monitor((dt_proc_t *) dpr, 1); \
+	proxy_monitor(dpr, 1); \
 	unwinder_pad = old_exec_jmp;
 
 int

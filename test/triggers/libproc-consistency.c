@@ -111,11 +111,12 @@ rtld_load_unload(rd_agent_t *rd, rd_event_msg_t *msg, void *unused)
 int main(int argc, char *argv[])
 {
 	struct ps_prochandle *P;
+	struct ps_prochandle * volatile P_preserved = NULL;
 	struct rd_agent *rd;
-	jmp_buf exec;
+	jmp_buf exec_jmp;
 	int err;
 	int implausibly_low;
-	jmp_buf **jmp_pad;
+	jmp_buf ** volatile jmp_pad;
 
 	many_lmids = (getenv("MANY_LMIDS") != NULL);
 
@@ -139,11 +140,20 @@ int main(int argc, char *argv[])
 	rd_event_enable(rd, rtld_load_unload, NULL);
  	Ptrace_set_detached(P, 1);
 	Puntrace(P, 0);
-	jmp_pad = libproc_unwinder_pad(P);
+	jmp_pad = (jmp_buf ** volatile) libproc_unwinder_pad(P);
 
-	if (setjmp(exec)) {
+	if (setjmp(exec_jmp)) {
+		pid_t pid;
+		/*
+		 * The jmp_pad is not reset during the throw: we must reset it
+		 * now, in case the rd_new() or other operation within the
+		 * exec-spotted path is interrupted by another exec().
+		 */
+		*jmp_pad = (jmp_buf * volatile) &exec_jmp;
+		P = (struct ps_prochandle *) P_preserved;
+		pid = Pgetpid(P);
+
 		fprintf(stderr, "Spotted exec()\n");
-		pid_t pid = Pgetpid(P);
 		/*
 		 * We spotted an exec(). Kill the ps_prochandle and make a new
 		 * one.
@@ -164,7 +174,8 @@ int main(int argc, char *argv[])
 		Ptrace_set_detached(P, 1);
 		Puntrace(P, 0);
 	}
-	*jmp_pad = &exec;
+	*jmp_pad = (jmp_buf * volatile) &exec_jmp;
+	P_preserved = P;
 
 	/*
 	 * Continuously try to iterate over the link map, doing Pwait()s to run

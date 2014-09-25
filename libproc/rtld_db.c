@@ -1453,7 +1453,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	size_t nns;
 	int found_any = FALSE;
 	size_t num = 0;
-	volatile jmp_buf *old_exec_jmp;
+	jmp_buf * volatile old_exec_jmp;
 	jmp_buf **jmp_pad, this_exec_jmp;
 	rd_loadobj_t obj = {0};
 	uintptr_t *primary_scope = NULL;
@@ -1463,7 +1463,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	 * Trap exec()s at any point within this code.
 	 */
 	jmp_pad = libproc_unwinder_pad(rd->P);
-	old_exec_jmp = (volatile jmp_buf *) *jmp_pad;
+	old_exec_jmp = *jmp_pad;
 	if (setjmp(this_exec_jmp))
 		goto spotted_exec;
 	*jmp_pad = &this_exec_jmp;
@@ -1471,7 +1471,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	Pwait(rd->P, 0);
 
 	if (rd->P->state == PS_DEAD) {
-		*jmp_pad = (jmp_buf *) old_exec_jmp;
+		*jmp_pad = old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: process is dead..\n",
 		    rd->P->pid);
@@ -1479,7 +1479,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	}
 
 	if (r_brk(rd) == 0 || !rd->maps_ready) {
-		*jmp_pad = (jmp_buf *) old_exec_jmp;
+		*jmp_pad = old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: maps are not ready.\n",
 		    rd->P->pid);
@@ -1487,7 +1487,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	}
 
 	if (rd_ldso_consistent_begin(rd) != 0) {
-		*jmp_pad = (jmp_buf *) old_exec_jmp;
+		*jmp_pad = old_exec_jmp;
 
 		_dprintf("%i: link map iteration failed: cannot wait for "
 		    "consistent state.\n", rd->P->pid);
@@ -1537,7 +1537,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 				rd_ldso_nonzero_lmid_consistent_end(rd);
 			rd_ldso_consistent_end(rd);
 
-			*jmp_pad = (jmp_buf *) old_exec_jmp;
+			*jmp_pad = old_exec_jmp;
 			_dprintf("%i: link map iteration: no maps.\n", rd->P->pid);
 			return RD_NOMAPS;
 		}
@@ -1614,7 +1614,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 		rd_ldso_nonzero_lmid_consistent_end(rd);
 	rd_ldso_consistent_end(rd);
 
-	*jmp_pad = (jmp_buf *) old_exec_jmp;
+	*jmp_pad = old_exec_jmp;
 
 	if (!found_any) {
 		_dprintf("%i: link map iteration: no maps.\n", rd->P->pid);
@@ -1642,7 +1642,7 @@ err:
 	Pwait(rd->P, FALSE);
 
 	jmp_pad = libproc_unwinder_pad(rd->P);
-	*jmp_pad = (jmp_buf *) old_exec_jmp;
+	*jmp_pad = old_exec_jmp;
 
 	if (rd->P->state == PS_DEAD ||
 	    r_brk(rd) == 0 || r_brk(rd) != old_r_brk) {
@@ -1659,10 +1659,10 @@ err:
 	free(primary_scope);
 	free(obj.rl_scope);
 	if (old_exec_jmp)
-		longjmp(*((jmp_buf *) old_exec_jmp), 1);
+		longjmp(*old_exec_jmp, 1);
 
 	jmp_pad = libproc_unwinder_pad(rd->P);
-	*jmp_pad = (jmp_buf *) old_exec_jmp;
+	*jmp_pad = old_exec_jmp;
 	return RD_NOMAPS;
 }
 

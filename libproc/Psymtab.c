@@ -371,7 +371,7 @@ static void
 Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 {
 	volatile rd_loadobj_t scope_lo = {0};
-	volatile jmp_buf *old_exec_jmp;
+	jmp_buf * volatile old_exec_jmp;
 	jmp_buf **jmp_pad, this_exec_jmp;
 	size_t i = 0;
 
@@ -401,14 +401,12 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	 * rethrow (or just return, alternatively).
 	 */
 	jmp_pad = libproc_unwinder_pad(P);
-	old_exec_jmp = (volatile jmp_buf *) *jmp_pad;
+	old_exec_jmp = *jmp_pad;
 	if (setjmp(this_exec_jmp)) {
-		jmp_buf *jmp_here = (jmp_buf *) old_exec_jmp;
-
 		free(scope_lo.rl_scope);
 		if (old_exec_jmp)
-			longjmp(*jmp_here, 1);
-		*jmp_pad = jmp_here;
+			longjmp(*old_exec_jmp, 1);
+		*jmp_pad = old_exec_jmp;
 
 		return;
 	}
@@ -453,7 +451,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	}
 
 	free(scope_lo.rl_scope);
-	*jmp_pad = (jmp_buf *) old_exec_jmp;
+	*jmp_pad = old_exec_jmp;
 }
 
 /*
