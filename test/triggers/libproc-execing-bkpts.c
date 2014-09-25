@@ -56,12 +56,13 @@ dt_unwinder_pad(struct ps_prochandle *unused)
 int
 main(int argc, char *argv[])
 {
+	struct ps_prochandle * volatile P_preserved = NULL;
 	struct ps_prochandle *P;
 	const char *symbol;
 	GElf_Sym sym;
 	prsyminfo_t sip;
 	int err;
-	int execs = 0;
+	volatile int execs = 0;
 	jmp_buf exec_jmp;
 
 	if (argc < 2) {
@@ -92,6 +93,14 @@ main(int argc, char *argv[])
 		int err;
 		pid_t pid;
 
+		/*
+		 * The jmp_pad is not reset during the throw: we must reset it
+		 * now, in case the Pgrab() or other operation within the
+		 * exec-spotted path is interrupted by another exec().
+		 */
+
+		unwinder_pad = &exec_jmp;
+		P = (struct ps_prochandle *) P_preserved;
 		execs++;
 		pid = Pgetpid(P);
 		Prelease(P, PS_RELEASE_NO_DETACH);
@@ -102,6 +111,7 @@ main(int argc, char *argv[])
 		}
 		Ptrace_set_detached(P, 0);
 	}
+	P_preserved = P;
 
 	while (Pstate(P) != PS_DEAD) {
 		Pwait(P, 0);
