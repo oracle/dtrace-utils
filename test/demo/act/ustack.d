@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@skip: no ustack support (sparc64) */
+
 /* @@trigger: readwholedir */
 /* @@runtest-opts: $_pid */
 
