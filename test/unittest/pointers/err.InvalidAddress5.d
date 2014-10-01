@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@skip: nonportable (SPARC, MIPS, et seq only) */
-
 /*
  * ASSERTION:
  * Using integer arithmetic providing a non-aligned memory address will throw
