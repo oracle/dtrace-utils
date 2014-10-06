@@ -930,12 +930,14 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 
 		if ((ip < 0) || (!bkpt)) {
 			/*
-			 * This is not a known breakpoint.  Pass it on.
+			 * This is not a known breakpoint.  Drop it (pro tem).
 			 */
-			_dprintf("Pwait: %i: process status change: SIGTRAP "
-			    "passed on: status %x\n", P->pid, status);
+			_dprintf("Pwait: %i: process status change at "
+			    "address %lx: SIGTRAP does not correspond to a "
+			    "known breakpoint, process resumed.\n", P->pid,
+				ip);
 			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
-			    SIGTRAP);
+			    0);
 			return(0);
 		}
 	}

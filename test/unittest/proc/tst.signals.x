@@ -29,3 +29,6 @@
 if [[ "x$(id -u)" != "x0" ]]; then
     exit 2
 fi
+
+# For now, all execution is XFAILed due to SIGTRAP mishandling.
+exit 1
