@@ -26,8 +26,6 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-/* @@skip: hanging on sparc64 */
-
 #pragma D option strsize=1024
 #pragma D option dynvarsize=512
 
