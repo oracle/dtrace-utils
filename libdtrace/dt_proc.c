@@ -2031,6 +2031,7 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr, *old_dpr = NULL;
+	dt_proc_notify_t *npr, **npp;
 
 	for (dpr = dt_list_next(&dph->dph_lrulist);
 	     dpr != NULL; dpr = dt_list_next(dpr)) {
@@ -2040,6 +2041,16 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 	}
 	dt_free(dtp, old_dpr);
 
+	/*
+	 * Some notification enqueues may have been missed by
+	 * dt_ps_proc_destroy(), notably those with a NULL dpr that result from
+	 * notifications that process attachment failed.
+	 */
+	npp = &dph->dph_notify;
+	while ((npr = *npp) != NULL) {
+		*npp = npr->dprn_next;
+		dt_free(dtp, npr);
+	}
 	pthread_cond_destroy(&dph->dph_cv);
 
 	dtp->dt_procs = NULL;
