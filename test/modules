@@ -1,8 +1,8 @@
-@@unload-only ctf
-@@unload-only dtrace
+##unload-only ctf
+##unload-only dtrace
 dt_test
 profile
 systrace
 sdt
 fasttrap
-@@quiet ext3
+##quiet ext3

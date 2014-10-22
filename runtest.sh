@@ -47,9 +47,16 @@ load_modules()
 {
     # If running as root, pull in appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        for name in $(grep -v '^@@unload-only' ./test/modules | sed 's,@@[a-z-]*,,g'); do
-            modprobe $name
-        done
+        DTRACE_MODULES_CONF="$(pwd)/test/modules" $dtrace -qn 'BEGIN { exit(0); }' >/dev/null
+
+        comm -13 \
+             <(lsmod | awk '{print $1}' | sort -u) \
+             <(cat test/modules | grep -v '^#' | sort -u) > $tmpdir/failed-modules
+        if test -s $tmpdir/failed-modules; then
+            echo -e "Error: cannot load all modules:" >&2
+            cat $tmpdir/failed-modules >&2
+            exit 1
+        fi
     else
         echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
     fi
@@ -61,8 +68,8 @@ unload_modules()
     # If running as root, unload all appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
         tac ./test/modules | while read -r line; do
-            name="$(echo $line | sed 's,@@[a-z-]*,,g')"
-            if [[ -z $HIDE ]] && echo "$line" | grep -qv @@quiet; then
+            name="$(echo $line | sed 's,##[a-z-]*,,g')"
+            if [[ -z $HIDE ]] && echo "$line" | grep -qv '##quiet'; then
                 rmmod $name
             else
                 rmmod $name 2>/dev/null
@@ -561,8 +568,14 @@ if [[ $(echo $dtrace | wc -w) -gt 1 ]]; then
     regression=t
 fi
 
-# Unload all modules before initializing test coverage: then load them again
-# afterwards, to acquire initialization and shutdown coverage.
+# If not testing an installed dtrace, we must look for our system .d files
+# in the right place.  (load_dtrace_modules is also found here.)
+if [[ "x$test_libdir" != "xinstalled" ]]; then
+    export DTRACE_OPT_SYSLIBDIR="$test_libdir"
+fi
+
+# Unload all modules before initializing test coverage: then ask dtrace to load
+# them again afterwards, to acquire initialization and shutdown coverage.
 unload_modules hide
 
 # Initialize test coverage.
@@ -644,11 +657,9 @@ for dt in $dtrace; do
         force_out "\nTest of $dt:\n"
     fi
 
-    # If not testing an installed dtrace, we must look for our shared libraries
-    # and system .d files in the right place.
+    # Look for our shared libraries in the right place.
     if [[ "x$test_libdir" != "xinstalled" ]]; then
         export LD_LIBRARY_PATH="$(dirname $dt)"
-        export DTRACE_OPT_SYSLIBDIR="$test_libdir"
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
