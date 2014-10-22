@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006, 2011--2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2011--2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -1342,7 +1342,9 @@ main(int argc, char *argv[])
 	 * instrumentation attempt to reopen libdtrace using DTRACE_O_NODEV; if
 	 * even that fails, attempt to reopen without DTRACE_O_NODEV, but after
 	 * running a script to load the dtrace module. (The name of this script
-	 * is presently hardwired.)
+	 * is presently hardwired, but its location is not, though since we
+	 * cannot yet have initialized the DTrace option-parsing machinery we
+	 * have to hardwire the name of the syslibdir option here.)
 	 */
 	while ((g_dtp = dtrace_open(DTRACE_VERSION, g_oflags, &err)) == NULL) {
 		if (!(g_oflags & DTRACE_O_NODEV) && !g_exec && !g_grabanon) {
@@ -1351,10 +1353,23 @@ main(int argc, char *argv[])
 		}
 
                 if (!tried_loading) {
-                        tried_loading = 1;
-                        if (system(DTRACE_LIBDIR "/load_dtrace_modules") == 0)
-                                continue;
-                        g_oflags &= ~DTRACE_O_NODEV;
+			const char *libdir = DTRACE_LIBDIR;
+			char *script;
+
+			if (getenv("DTRACE_OPT_SYSLIBDIR") != NULL)
+				libdir = getenv("DTRACE_OPT_SYSLIBDIR");
+
+			if (asprintf(&script, "%s/%s", libdir,
+				"load_dtrace_modules") >= 0) {
+				tried_loading = 1;
+
+				if (system(script) == 0) {
+					free(script);
+					continue;
+				}
+				free(script);
+			}
+			g_oflags &= ~DTRACE_O_NODEV;
                 }
 
 		fatal("failed to initialize dtrace: %s\n",
