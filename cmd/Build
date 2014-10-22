@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 CMDS += dtrace ctf_module_dump
@@ -51,6 +51,9 @@ else\n\
     exec /usr/sbin/dtrace \"\$$@\"\n\
 fi\n"
 	chmod a+x $(objdir)/run-dtrace
+
+$(objdir)/dlibs/load_dtrace_modules: $(dtrace_DIR)/load_dtrace_modules $(objdir)/dlibs/.dir.stamp
+	cp $(dtrace_DIR)/load_dtrace_modules $(objdir)/dlibs
 
 install::
 	mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR) $(LIBDIR)/dtrace

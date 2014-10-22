@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # Core testing targets, running the DTrace testsuite runner runtest.sh.
@@ -54,7 +54,7 @@ help::
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
-check-verbose: all
+check-verbose: all $(objdir)/dlibs/load_dtrace_modules
 	./runtest.sh $(RUNTESTFLAGS)
 
 check-installed check-installed-stress check-installed-verbose check-installed-verbose-stress:
