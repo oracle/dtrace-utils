@@ -1,6 +1,9 @@
 #!/bin/bash
 # Attempt to load the appropriate DTrace module for this kernel.
 #
+# Also load any modules named in /etc/dtrace-modules.  Failure to
+# load these is not fatal (nor even reported).
+#
 
 #
 # CDDL HEADER START
@@ -24,9 +27,27 @@
 #
 
 #
-# Copyright 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+
+load_modules()
+{
+    if ! modprobe -q dtrace 2>/dev/null; then
+        return $?
+    fi
+
+    test -f ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} || return 0
+
+    # Failure to load modules from /etc/dtrace-modules is nonfatal.
+    cat ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} | while read -r MODULE; do
+        [[ $MODULE =~ ^# ]] && continue;
+
+        modprobe -q $MODULE >/dev/null 2>&1 || true
+    done
+
+    return 0
+}
 
 # Suppress all normal output.
 exec >/dev/null
@@ -36,7 +57,7 @@ exec >/dev/null
 
 # First, try to simply modprobe it.
 
-modprobe -q dtrace 2>/dev/null && exit 0
+load_modules && exit 0
 
 # Not installed. Ask yum for it: print a message first, since this may take
 # a while to time out if the network is not up.
@@ -46,4 +67,4 @@ yum install -q -y dtrace-modules-$(uname -r)
 
 # One last try to modprobe.
 
-modprobe -q dtrace 2>/dev/null
+load_modules

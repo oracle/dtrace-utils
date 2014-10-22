@@ -1,6 +1,6 @@
 '\" te
-.\" Copyright (c) 2009, 2011, Oracle, Inc. All Rights Reserved.
-.TH dtrace 1M "03 Oct 2011" "Oracle Enterprise Linux" "Linux Programmer's Manual"
+.\" Copyright (c) 2009, 2011, 2014 Oracle, Inc. All Rights Reserved.
+.TH dtrace 1M "22 Oct 2014" "Oracle Enterprise Linux" "Linux Programmer's Manual"
 .SH NAME
 dtrace \- DTrace dynamic tracing compiler and tracing utility
 .SH SYNOPSIS
@@ -464,6 +464,35 @@ Print CTF type library debugging output on standard error.
 Set a given DTrace option.
 .SP
 Options set this way are overridden both by options specified via \fB-X\fR on the command line, and by \fBsetopt\fR statements.
+.RE
+
+.SP
+.NE 2
+.MK
+.NA
+\fBDTRACE_MODULES_CONF\fR
+.AD
+.RS 5n
+.RT
+The location of the file containing names of kernel modules to load (see below).
+.SP
+If unset, \fB/etc/dtrace-modules\fR.
+.RE
+
+.SH "FILES"
+.SP
+.LP
+The following files are consulted:
+
+.SP
+.NE 2
+.MK
+.NA
+\fB/etc/dtrace-modules\fR
+.AD
+.RS 5n
+.RT
+A list of kernel module names, one per line, which are loaded in addition to \fBdtrace.ko\fR if the \fBdtrace\fR device is not found.  (Failure to load these modules is not an error.)
 .RE
 
 .SH SEE ALSO
