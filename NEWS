@@ -1,3 +1,50 @@
+0.4.5
+-----
+
+New features:
+
+ - Provider modules are now automatically loaded from /etc/dtrace-modules
+   when DTrace initializes for the first time, at the same time as dtrace.ko.
+   (Providers that do not come from the dtrace-modules package are not
+   automatically 'yum install'ed.)
+
+Bugfixes:
+
+ - Fix intermittent dtrace crash on failure of initial grabs or creations of
+   processes (via dtrace -p or -c, or via ustack(), usym(), uaddr(), or umod()).
+
+ - Fix dtrace -S DIF subr names.
+   [Introduced in DTrace 0.4.0.]
+
+ - DTrace can now reliably monitor processes that undergo exec() and processes
+   that are hit by stopping signals and later resumed.  (Previously, it would
+   sometimes lose track of the victim process, sometimes kill it with a SIGTRAP,
+   and sometimes crash itself.)  Numerous other subtle bugs and deadlocks in
+   this area have been fixed as a side-effect.
+
+ - Fix a sign-extension bug in breakpoint-instruction poking which could cause
+   the monitored process to crash.
+   [Introduced in DTrace 0.4.0.]
+
+ - DTrace is now more resilient against changes to glibc: many places where
+   non-ABI-guaranteed internals of glibc are relied upon now dynamically search
+   for the correct field offsets, so are resilient against new fields appearing
+   in glibc's internal structures, and against fields changing size.
+
+Library interface changes:
+
+ - The dtrace_proc_*() functions have changed the type they take (it is now a
+   small structure passed by value).  See INCOMPATIBILITIES.
+
+   There are still no binary-compatibility guarantees for libdtrace consumers.
+
+Known bugs:
+
+ - Processes under u{stack,sym,addr,mod}() cannot receive SIGTRAP.
+
+ - Multithreaded processes under u{stack,sym,addr,mod}() which do dlopen() in
+   threads other than the first may crash.
+
 0.4.4
 -----
 
