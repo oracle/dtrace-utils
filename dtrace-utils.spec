@@ -131,7 +131,8 @@ fi
 - Fix a sign-extension bug in breakpoint instruction poking [Orabug: 18674244]
 - Fix some broken tests (Kris Van Hees) [Orabug: 19616155]
 - Robustify DTrace against changes to glibc's internal data structures
-- Fix DIF subr names in dtrace -S output
+  [Orabug: 19882050]
+- Fix DIF subr names in dtrace -S output [Orabug: 19881997]
 
 * Tue Jul 22 2014 - <nick.alcock@oracle.com> - 0.4.4-2
 - Ensure that the DOF ELF object does not require execstack
