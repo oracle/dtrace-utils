@@ -119,14 +119,19 @@ st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
 
-dtrace_proc_create() has grown a flags parameter, with one nonzero value,
-DTRACE_PROC_WAITING, indicating that a dtrace_proc_continue() should
-autoamtically be performed before returning.  This provides an analogue of the
-nomonitor parameter to dtrace_proc_grab(), which has itself transformed into a
-similar flags parameter.  (Unlike on Solaris libproc, all monitored processes
-have an associated monitor thread: this parameter minimizes the effect of this
-change, leading to an immediately running process similar to an unmonitored
-process on Solaris.)
+dtrace_proc_create() has grown a flags parameter.  Allowable values:
+
+ - DTRACE_PROC_WAITING, indicating that a dtrace_proc_continue() should
+   automatically be performed before returning.  This provides an analogue of
+   the nomonitor parameter to dtrace_proc_grab(), which has itself transformed
+   into a similar flags parameter.  (Unlike on Solaris libproc, all monitored
+   processes have an associated monitor thread: this parameter minimizes the
+   effect of this change, leading to an immediately running process similar to
+   an unmonitored process on Solaris.)
+
+ - DTRACE_PROC_SHORTLIVED, indicating that this process is not expected to be
+   traced for long.  DTrace may respond by avoiding creation of a monitor
+   thread, by aggressively aging the process out of any caches, etc.
 
 The dtrace_proc_*() functions now take a dtrace_prochandle *, not a
 ps_prochandle *, to emphasise that this argument should not be passed directly

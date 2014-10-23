@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-22.el6uek
+%define kver 3.8.13-35.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -19,8 +19,8 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.1
-Release:      1%{?dist}
+Version:      0.4.4
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,6 +120,39 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue Jul 22 2014 - <nick.alcock@oracle.com> - 0.4.4-2
+- Ensure that the DOF ELF object does not require execstack
+  (Kris Van Hees) [Orabug: 19217436]
+
+* Tue Jul  8 2014 - <nick.alcock@oracle.com> - 0.4.4-1
+- New -xcppargs option as part of fixes for the testsuite on OL7
+  [Orabug: 19054052]
+
+* Tue May 13 2014 - <nick.alcock@oracle.com> - 0.4.3-1
+- Fix array underrun when no textual mapping for the executable can be found
+  [Orabug: 18550863]
+- Fix unlikely buffer overrun at process-map-read time [Orabug: 18550863]
+- Fix traversal of realloc()ed pointer which could lead to textual mappings
+  being spuriously missed [Orabug: 18550863]
+- Fix error-path dereference of uninitialized variable in error message
+  [Orabug: 18550863]
+
+* Thu May  1 2014 - <nick.alcock@oracle.com> - 0.4.2-2
+- Interrupting dtrace with a SIGINT while monitored processes are dying no
+  longer hangs dtrace on a condition variable [Orabug: 18689795]
+- Symbol lookups on processes that died at the same instant now always fail
+  and no longer access freed memory [Orabug: 18550863]
+
+* Wed Apr 16 2014 - <nick.alcock@oracle.com> - 0.4.2-1
+- killing dtrace while a ustack() is in progress no longer risks killing
+  crucial system daemons [Orabug: 18600515]
+- Fix a leak of filehandles to executables [Orabug: 18600594]
+- Fix ustack() of multithreaded processes [Orabug: 18412802]
+- Get the pid and ppid right for multithreaded processes [Orabug: 18412802]
+- Fix an uninitialized memory read looking up certain kernel symbols
+  [Orabug: 18603463]
+- Fixes for newer versions of make, ld, and bison [Orabug: 18551552]
+
 * Tue Jan  7 2014 - <nick.alcock@oracle.com> - 0.4.1-1
 - Install showUSDT in docdir. (Kris van Hees) [Orabug: 17968414]
 - Install ctf_module_dump. [Orabug: 17968381]
