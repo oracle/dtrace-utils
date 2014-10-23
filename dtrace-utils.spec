@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-35.el6uek
+%define kver 3.8.13-44.1.3.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -19,8 +19,8 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
-Version:      0.4.4
-Release:      2%{?dist}
+Version:      0.4.5
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,6 +120,19 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Fri Oct 23 2014 - <nick.alcock@oracle.com> - 0.4.5-1
+- Automatically load provider modules from /etc/dtrace-modules, if present
+  [Orabug: 19821254]
+- Fix intermittent crash on failure of initial grabs or creations of processes
+  via dtrace -c, -p, or u*() functions [Orabug: 19679998]
+- Reliably track and compensate for processes undergoing execve()s
+  [Orabug: 19046684]
+- Handle processes hit by stopping signals correctly [Orabug: 18674244]
+- Fix a sign-extension bug in breakpoint instruction poking [Orabug: 18674244]
+- Fix some broken tests (Kris Van Hees) [Orabug: 19616155]
+- Robustify DTrace against changes to glibc's internal data structures
+- Fix DIF subr names in dtrace -S output
+
 * Tue Jul 22 2014 - <nick.alcock@oracle.com> - 0.4.4-2
 - Ensure that the DOF ELF object does not require execstack
   (Kris Van Hees) [Orabug: 19217436]
