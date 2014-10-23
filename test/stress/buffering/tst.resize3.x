@@ -4,6 +4,8 @@
 
 if [[ "$(cat /proc/loadavg | cut -d\  -f1 | cut -d\. -f1)" -gt 9 ]]; then
     exit 2
+elif [[ "`uname -m`" == "sparc64" ]]; then
+    exit 2
 else
     exit 0
 fi
