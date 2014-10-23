@@ -34,7 +34,7 @@
 load_modules()
 {
     if ! modprobe -q dtrace 2>/dev/null; then
-        return $?
+        return 1
     fi
 
     test -f ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} || return 0
