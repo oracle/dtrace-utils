@@ -40,7 +40,7 @@ load_modules()
     test -f ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} || return 0
 
     # Failure to load modules from /etc/dtrace-modules is nonfatal.
-    cat ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} | while read -r MODULE; do
+    cat ${DTRACE_MODULES_CONF:-/etc/dtrace-modules} | sed 's,\(.\)#.*$,\1,' | while read -r MODULE; do
         [[ $MODULE =~ ^# ]] && continue;
 
         modprobe -q $MODULE >/dev/null 2>&1 || true

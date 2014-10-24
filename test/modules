@@ -5,4 +5,4 @@ profile
 systrace
 sdt
 fasttrap
-##quiet ext3
+ext3 # unload-quietly
