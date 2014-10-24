@@ -51,7 +51,7 @@ load_modules()
 
         comm -13 \
              <(lsmod | awk '{print $1}' | sort -u) \
-             <(cat test/modules | grep -v '^#' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
+             <(cat test/modules | grep -v '^#' | grep -qv '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
         if test -s $tmpdir/failed-modules; then
             echo -e "Error: cannot load all modules:" >&2
             cat $tmpdir/failed-modules >&2
