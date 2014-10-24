@@ -51,7 +51,7 @@ load_modules()
 
         comm -13 \
              <(lsmod | awk '{print $1}' | sort -u) \
-             <(cat test/modules | grep -v '^#' | sort -u) > $tmpdir/failed-modules
+             <(cat test/modules | grep -v '^#' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
         if test -s $tmpdir/failed-modules; then
             echo -e "Error: cannot load all modules:" >&2
             cat $tmpdir/failed-modules >&2
@@ -69,10 +69,11 @@ unload_modules()
     if [[ "x$(id -u)" = "x0" ]]; then
         tac ./test/modules | while read -r line; do
             name="$(echo $line | sed 's,##[a-z-]*,,g')"
-            if [[ -z $HIDE ]] && echo "$line" | grep -qv '##quiet'; then
-                rmmod $name
+            [[ -z $name ]] && continue;
+            if [[ -z $HIDE ]] && echo "$line" | grep -qv '# unload-quietly'; then
+                rmmod $(echo $name | sed 's,#.*$,,')
             else
-                rmmod $name 2>/dev/null
+                rmmod $(echo $name | sed 's,#.*$,,') 2>/dev/null
             fi
         done
     fi
