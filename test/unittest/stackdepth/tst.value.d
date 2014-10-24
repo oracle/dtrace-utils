@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: known bug, off by one. */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option quiet

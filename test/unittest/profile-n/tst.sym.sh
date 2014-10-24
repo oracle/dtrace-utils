@@ -26,6 +26,8 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: for release, unreliable.
+
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
