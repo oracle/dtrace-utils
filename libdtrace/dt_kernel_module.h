@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2012, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -29,8 +29,8 @@
 
 #include <dt_impl.h>
 
-extern dt_kern_path_t *dt_kern_path_create(dtrace_hdl_t *dtp,
-    const char *name, const char *path);
+extern dt_kern_path_t *dt_kern_path_create(dtrace_hdl_t *dtp, char *name,
+    char *path);
 extern int dt_kern_path_update(dtrace_hdl_t *dtp);
 extern dt_kern_path_t *dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp,
     const char *name);
@@ -45,8 +45,7 @@ extern void dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp);
  */
 
 extern dt_kern_path_t *
-dtrace__internal_kern_path_create(dtrace_hdl_t *dtp, const char *name,
-    const char *path);
+dtrace__internal_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path);
 
 extern void
 dtrace__internal_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp);
