@@ -129,8 +129,8 @@ libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
 
 # Make dlmadopen PIE so that we can ensure that we can track execve()s
 # in which the value of r_brk changes.  As with the libproc-lookup-victim,
-# this needs an rpath, too.
-libproc-dlmadopen_LIBS := -ldl
+# this needs an rpath, too.  It's also threaded (sometimes, anyway).
+libproc-dlmadopen_LIBS := -ldl -lpthread
 libproc-dlmadopen_CFLAGS := -fPIE
 libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath build
 

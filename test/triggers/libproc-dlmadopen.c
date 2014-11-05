@@ -1,6 +1,6 @@
 /*
- * A process that madly dlopen()s and dlclose()s shared libraries: some
- * of them are in secondary namespaces.
+ * A process that madly dlopen()s and dlclose()s shared libraries in a number of
+ * threads: some of them are in secondary namespaces.
  *
  * It also exec()s itself once.
  */
@@ -27,7 +27,7 @@
  */
 
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -36,25 +36,22 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
-int main (int argc, char *argv[])
+static int load_count;
+static int unload_count;
+static long looptime = 10;
+static int many_lmids;
+
+static void *churn(void *unused)
 {
 	struct timeval start, now;
-	char buf[32];
 	Lmid_t lmids[6] = {0};
 	void *loaded[6] = {0};
 	void *non_dlm = NULL;
 	char *error;
-	int load_count = 0;
-	int unload_count = 0;
-	int many_lmids = (getenv("MANY_LMIDS") != NULL);
-
-	if (argc == 2)
-		start.tv_sec = strtol(argv[1], NULL, 10);
 
 	gettimeofday(&start, NULL);
-
-	srand(start.tv_sec);
 
 	/*
 	 * Populate the dlmopen set.
@@ -63,10 +60,13 @@ int main (int argc, char *argv[])
 	 * impossible: this causes a massive TLS space leak and failure to
 	 * dlopen() after only a dozen or so opens.  So for now, dlmopen()
 	 * a few times, then switch to a dlopen()/dlclose() alternation.
+	 *
+	 * I'd rather use __atomic_add_fetch() here, but it's not supported in
+	 * GCC 4.4.
 	 */
 
 	while (gettimeofday(&now, NULL),
-	    now.tv_sec < start.tv_sec + 10) {
+	    now.tv_sec < start.tv_sec + looptime) {
 		int n = rand() % 6;
 
 		if (lmids[n] == 0)
@@ -79,7 +79,7 @@ int main (int argc, char *argv[])
 				fprintf(stderr, "Error closing library: %s\n",
 				    error);
 
-			unload_count++;
+			__sync_add_and_fetch(&unload_count, 1);
 		}
 
 		dlerror();
@@ -92,14 +92,43 @@ int main (int argc, char *argv[])
 		if ((error = dlerror()) != NULL)
 			fprintf(stderr, "Error opening library: %s\n",
 			    error);
-		load_count++;
+		__sync_add_and_fetch(&load_count, 1);
 	}
+	return NULL;
+}
+
+int main (int argc, char *argv[])
+{
+	int num_threads = (getenv("NUM_THREADS") != NULL) ?
+	    strtol(getenv("NUM_THREADS"), NULL, 10) : 1;
+	pthread_t children[num_threads];
+
+	many_lmids = (getenv("MANY_LMIDS") != NULL);
+	if (argc == 2)
+		looptime = strtol(argv[1], NULL, 10);
+
+	srand(time(NULL));
+
+	if (num_threads > 1) {
+		size_t i;
+		for (i = 0; i < num_threads; i++)
+			if (pthread_create(&children[i], NULL, churn,
+				    NULL) < 0) {
+				perror("creating thread");
+				exit(1);
+			}
+		for (i = 0; i < num_threads; i++)
+			pthread_join(children[i], NULL);
+	} else
+		churn(NULL);
 
 	printf("%i loads, %i unloads\n", load_count, unload_count);
 
 	if (argc == 1) {
+		char buf[32];
+
 		fprintf(stderr, "Execing...\n");
-		snprintf(buf, sizeof(buf), "%li", start.tv_sec);
+		snprintf(buf, sizeof(buf), "%li", looptime);
 		execl(argv[0], argv[0], buf, NULL);
 	}
 

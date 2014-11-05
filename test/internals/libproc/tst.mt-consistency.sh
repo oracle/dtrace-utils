@@ -21,16 +21,21 @@
 #
 
 #
-# Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2014 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 #
-# This script tests that libproc can still track the state of the link map when
-# it is continuously changing, even when lmids != 0 are in use.
+# This script tests that libproc can still track the state of the link map of a
+# multithreaded process when it is continuously changing.  We turn LD_AUDIT off
+# first to make sure that only one lmid is in use.
+#
+# The number of threads is arbitrary: it only matters that it is >1.
 #
 
 # @@timeout: 25
+# @@xfail: needs multithread-capable libproc
 
 unset LD_AUDIT
-export MANY_LMIDS=t
+export NUM_THREADS=4
+
 exec test/triggers/libproc-consistency test/triggers/libproc-dlmadopen
