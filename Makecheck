@@ -67,7 +67,7 @@ check-installed-verbose-internal: external-triggers
 	./runtest.sh --use-installed --testsuites=unittest,stress,demo $(RUNTESTFLAGS)
 
 check-stress: check
-check-stress: RUNTESTFLAGS+=--testsuites=unittest,internal,demo --no-comparison
+check-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 
 check-verbose-stress: check-verbose
 check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
