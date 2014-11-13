@@ -44,6 +44,7 @@ static const char *default_module_root = "/lib/modules/";
 static dtrace_hdl_t dt;
 static dtrace_hdl_t *dtp = &dt;
 
+
 /*
  * Override the dt_dprintf() in libdtrace with one that doesn't pull in half the
  * library, and emits errors as errors.
@@ -173,6 +174,11 @@ find_module_ctf(const char *name)
 		secname = malloc(strlen(".ctf.") + strlen(name) + 1);
 		strcpy(secname, ".ctf.");
 		strcat(secname, name);
+	}
+
+	if (secname == NULL) {
+		fprintf(stderr, "Out of memory\n");
+		exit(1);
 	}
 
 	fp = load_sect(dkpp->dkp_path, secname);
@@ -306,6 +312,12 @@ main(int argc, char *argv[])
 	dtp->dt_kernpathbuckets = BUCKETS;
 	dtp->dt_kernpaths = calloc(dtp->dt_kernpathbuckets, sizeof (dt_kern_path_t *));
 	dtp->dt_module_path = strdup(modpath);
+
+	if (dtp->dt_kernpaths == NULL ||
+	    dtp->dt_module_path == NULL) {
+		fprintf(stderr, "Out of memory\n");
+		exit(1);
+	}
 
 	while (optind < argc)
 		ctf_dump(argv[optind++]);

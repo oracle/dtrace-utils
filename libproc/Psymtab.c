@@ -559,7 +559,11 @@ Pupdate_maps(struct ps_prochandle *P)
 		if ((prf = Pprmap_file_by_name(P, fn)) == NULL) {
 			uint_t h = string_hash(fn) % MAP_HASH_BUCKETS;
 
-			prf = malloc(sizeof (struct prmap_file));
+			if ((prf = malloc(sizeof (struct prmap_file))) == NULL) {
+				free(mptr->map_pmap);
+				goto err;
+			}
+
 			memset(prf, 0, sizeof(struct prmap_file));
 			prf->prf_mapname = fn;
 			prf->prf_next = P->map_files[h];
