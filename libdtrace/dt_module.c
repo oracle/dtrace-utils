@@ -302,6 +302,7 @@ static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
 	}
 
 	do {
+		char *new_output;
 		ret = inflate(&s, Z_NO_FLUSH);
 		switch (ret) {
 		case Z_STREAM_END:
@@ -322,11 +323,12 @@ static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
 			goto zerr;
 		}
 
-		output = realloc(output, out_size +
+		new_output = realloc(output, out_size +
 		    (GZCHUNKSIZE - s.avail_out));
 
-		if (output == NULL)
+		if (new_output == NULL)
 			goto oom;
+		output = new_output;
 
 		memcpy(output + out_size, out, (GZCHUNKSIZE - s.avail_out));
 		out_size += (GZCHUNKSIZE - s.avail_out);
@@ -347,6 +349,7 @@ static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
 
  zerr:
 	inflateEnd(&s);
+	free(output);
 	dt_dprintf("CTF decompression error in module %s: %s\n", dmp->dm_name,
 	    s.msg);
 	ctsp->cts_data = NULL;

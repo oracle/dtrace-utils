@@ -509,15 +509,16 @@ Pupdate_maps(struct ps_prochandle *P)
 		exefile[len] = '\0';
 
 	while (getline(&line, &len, fp) >= 0) {
-                unsigned long laddr, haddr, offset;
+		unsigned long laddr, haddr, offset;
 		ino_t	inode;
 		unsigned int major;
 		unsigned int minor;
-                char    perms[5];
-                char    *fn;
+		char	perms[5];
+		char	*fn;
 		map_info_t *mptr;
 		prmap_file_t *prf;
-                prmap_t *pmptr;
+		prmap_t *pmptr;
+		struct prmap **new_prf_mappings;
 
                 sscanf(line, "%lx-%lx %s %lx %x:%x %lu %ms",
 		    &laddr, &haddr, perms, &offset, &major, &minor, &inode,
@@ -574,14 +575,15 @@ Pupdate_maps(struct ps_prochandle *P)
 			fn = NULL;
 		}
 
-		prf->prf_mappings = realloc(prf->prf_mappings,
+		new_prf_mappings = realloc(prf->prf_mappings,
 		    (prf->prf_num_mappings + 1) * sizeof (struct prmap_t *));
 
-		if (!prf->prf_mappings) {
+		if (new_prf_mappings == NULL) {
 			free(mptr->map_pmap);
 			goto err;
 		}
 
+		prf->prf_mappings = new_prf_mappings;
 		prf->prf_mappings[prf->prf_num_mappings] = pmptr;
 		prf->prf_num_mappings++;
 
@@ -1850,7 +1852,7 @@ Pxlookup_by_name_internal(
 		Pupdate_lmids(P);
 
 		if (!P->info_valid)
-		    return (-1);
+			return (-1);
 
 		/*
 		 * Start from the executable mapping, if known.
