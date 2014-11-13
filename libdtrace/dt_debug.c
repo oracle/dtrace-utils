@@ -74,7 +74,6 @@ _dtrace_debug_init(void)
 
 		ring_size = size_mb * 1024 * 1024;
 		ring = malloc(ring_size + 1);
-		ring[0] = '\0';
 
 		if (!ring) {
 			dt_dprintf("Out of memory allocating debug buffer of "
@@ -82,6 +81,7 @@ _dtrace_debug_init(void)
 			    size_mb);
 		}
 
+		ring[0] = '\0';
 		ring_fd = fmemopen(ring, size_mb * 1024 * 1024, "w");
 		setvbuf(ring_fd, NULL, _IONBF, 0);
 	}
