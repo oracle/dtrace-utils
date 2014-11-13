@@ -388,10 +388,16 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_ctdata_name = malloc(strlen(".ctf.shared_ctf") +
 		    strlen(dmp->dm_name) + 1);
 
+		if (dmp->dm_ctdata_name == NULL)
+			goto oom;
+
 		strcpy(dmp->dm_ctdata_name, ".ctf.shared_ctf");
 	} else if (dmp->dm_flags & DT_DM_BUILTIN) {
 		dmp->dm_ctdata_name = malloc(strlen(".ctf.") +
 		    strlen(dmp->dm_name) + 1);
+
+		if (dmp->dm_ctdata_name == NULL)
+			goto oom;
 
 		strcpy(dmp->dm_ctdata_name, ".ctf.");
 		strcat(dmp->dm_ctdata_name, dmp->dm_name);
@@ -399,6 +405,9 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	} else {
 		dmp->dm_ctdata_name = strdup(".ctf");
 		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
+
+		if (dmp->dm_ctdata_name == NULL)
+			goto oom;
 	}
 
 	dmp->dm_ctdata.cts_type = SHT_PROGBITS;
@@ -479,10 +488,8 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_symbuckets = malloc(sizeof (uint_t) * dmp->dm_nsymbuckets);
 	dmp->dm_symchains = malloc(sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
 
-	if (dmp->dm_symbuckets == NULL || dmp->dm_symchains == NULL) {
-		dt_module_unload(dtp, dmp);
-		return (dt_set_errno(dtp, EDT_NOMEM));
-	}
+	if (dmp->dm_symbuckets == NULL || dmp->dm_symchains == NULL)
+		goto oom;
 
 	bzero(dmp->dm_symbuckets, sizeof (uint_t) * dmp->dm_nsymbuckets);
 	bzero(dmp->dm_symchains, sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
@@ -497,10 +504,8 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dt_dprintf("hashed %s [%s] (%u symbols)\n",
 	    dmp->dm_name, dmp->dm_symtab.cts_name, dmp->dm_symfree - 1);
 
-	if ((dmp->dm_asmap = malloc(sizeof (void *) * dmp->dm_asrsv)) == NULL) {
-		dt_module_unload(dtp, dmp);
-		return (dt_set_errno(dtp, EDT_NOMEM));
-	}
+	if ((dmp->dm_asmap = malloc(sizeof (void *) * dmp->dm_asrsv)) == NULL)
+		goto oom;
 
 	dmp->dm_ops->do_symsort(dmp);
 
@@ -509,6 +514,9 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	dmp->dm_flags |= DT_DM_LOADED;
 	return (0);
+oom:
+	dt_module_unload(dtp, dmp);
+	return (dt_set_errno(dtp, EDT_NOMEM));
 }
 
 ctf_file_t *

@@ -915,9 +915,10 @@ alloc:
 	strcat(modpath, dtp->dt_uts.release);
 	dtp->dt_module_path = strdup(modpath);
 
-	if (dtp->dt_mods == NULL || dtp->dt_provs == NULL ||
-	    dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
-	    dtp->dt_cpp_path == NULL || dtp->dt_cpp_argv == NULL)
+	if (dtp->dt_mods == NULL || dtp->dt_kernpaths == NULL || 
+	    dtp->dt_provs == NULL || dtp->dt_procs == NULL ||
+	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
+	    dtp->dt_cpp_argv == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)

@@ -165,13 +165,18 @@ dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
 	modname = strndup(&fpath[ftwbuf->base],
 	    strlen(&fpath[ftwbuf->base]) - 3);
 
-	if (dt_kern_path_create(locked_dtp, modname, modpath) == NULL) {
-		free(modname);
-		free(modpath);
-		return EDT_NOMEM;
-	}
+	if ((modname == NULL) || (modpath == NULL))
+		goto oom;
+
+	if (dt_kern_path_create(locked_dtp, modname, modpath) == NULL)
+		goto oom;
 
 	return 0;
+ oom:
+
+	free(modname);
+	free(modpath);
+	return EDT_NOMEM;
 }
 
 dt_kern_path_t *
