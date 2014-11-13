@@ -555,14 +555,16 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 
 	if (buf->rl_nscopes_alloced < buf->rl_nscopes) {
 		size_t nscopes_size = buf->rl_nscopes * sizeof(uintptr_t);
+		uintptr_t *rl_newscope;
 
-		buf->rl_scope = realloc(buf->rl_scope, nscopes_size);
-		if (buf->rl_scope == NULL) {
-			fprintf(stderr, "Out of memory allocating scopes list "
+		rl_newscope = realloc(buf->rl_scope, nscopes_size);
+		if (rl_newscope == NULL) {
+			_dprintf("Out of memory allocating scopes list "
 			    "of length %lu bytes\n", nscopes_size);
 			exit(1);
 		}
 
+		buf->rl_scope = rl_newscope;
 		buf->rl_nscopes_alloced = buf->rl_nscopes;
 	}
 
