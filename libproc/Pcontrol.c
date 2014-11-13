@@ -146,9 +146,9 @@ Pcreate(
 	Pset_ptrace_wrapper(P, NULL);
 	Pset_pwait_wrapper(P, NULL);
 	if (pipe(forkblock) < 0) {
-		_dprintf ("Pcreate: out of fds forking %s\n", file);
-		free(P);
 		*perr = errno;
+		_dprintf("Pcreate: out of fds forking %s\n", file);
+		free(P);
 		return (NULL);
         }
 
@@ -206,9 +206,9 @@ Pcreate(
 	 * ptrace() the process with TRACEEXEC active, and unblock it.
 	 */
 	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, PTRACE_O_TRACEEXEC) < 0) {
-		_dprintf ("Pcreate: seize of %s failed: %s\n", file,
-		    strerror(errno));
 		rc = errno;
+		_dprintf("Pcreate: seize of %s failed: %s\n", file,
+		    strerror(errno));
 		goto bad;
 	}
 	close(forkblock[1]);
