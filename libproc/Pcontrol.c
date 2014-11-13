@@ -136,8 +136,10 @@ Pcreate(
 	memset(P, 0, sizeof (*P));
 	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
 	if (!P->bkpts) {
-		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
-		exit(1);
+		_dprintf("Out of memory initializing breakpoint hash\n");
+		*perr = ENOMEM;
+		free(P);
+		return (NULL);
 	}
 
 	P->wrap_arg = wrap_arg;
@@ -193,7 +195,12 @@ Pcreate(
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 1);
 
-	Psym_init(P);
+	if (Psym_init(P) < 0) {
+		rc = errno;
+		_dprintf("Pcreate: error initializing symbol table: %s\n",
+		    strerror(errno));
+		goto bad;
+	}
 
 	/*
 	 * ptrace() the process with TRACEEXEC active, and unblock it.
@@ -300,12 +307,13 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 	P->state = already_ptraced ? PS_TRACESTOP : PS_RUN;
 	P->pid = pid;
 	P->detach = 1;
+	if (Psym_init(P) < 0)
+		goto bad;
+
 	Psym_init(P);
 	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
-	if (!P->bkpts) {
-		fprintf(stderr, "Out of memory initializing breakpoint hash\n");
-		exit(1);
-	}
+	if (!P->bkpts)
+		goto bad;
 	P->wrap_arg = wrap_arg;
 	Pset_ptrace_wrapper(P, NULL);
 	Pset_pwait_wrapper(P, NULL);

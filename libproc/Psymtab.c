@@ -218,14 +218,15 @@ mapping_purge(struct ps_prochandle *P)
  * Called from Pcreate() and Pgrab() to initialize the symbol table state in the
  * new ps_prochandle.
  */
-void
+int
 Psym_init(struct ps_prochandle *P)
 {
 	P->map_files = calloc(MAP_HASH_BUCKETS, sizeof (struct prmap_file_t *));
 	if (!P->map_files) {
-		fprintf(stderr, "Out of memory initializing map_files hash\n");
-		exit(1);
+		_dprintf("Out of memory initializing map_files hash\n");
+		return -ENOMEM;
 	}
+	return 0;
 }
 
 /*
@@ -384,16 +385,16 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	    sizeof (struct file_info *));
 
 	/*
-	 * Failure to allocate here is particularly serious because all symbol
-	 * lookups in this context will fail, and we already know that at least
-	 * one is wanted.
+	 * Failure to allocate here is not as serious as it seems: symbol
+	 * lookups will fall back to an inaccurate linear lookup (as inaccurate
+	 * as GDB!).
 	 */
 	if (!fptr->file_symsearch) {
-		fprintf(stderr, "Cannot allocate %li bytes for symbol search "
+		_dprintf("Cannot allocate %li bytes for symbol search "
 		    "path for library with soname %s\n",
 		    fptr->file_lo->rl_nscopes * sizeof (struct file_info *),
 		    fptr->file_lbase);
-		exit(1);
+		return;
 	}
 
 	/*

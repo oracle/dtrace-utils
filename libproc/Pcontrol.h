@@ -269,7 +269,7 @@ struct ps_prochandle {
  * Implementation functions in the process control library.
  * These are not exported to clients of the library.
  */
-extern	void	Psym_init(struct ps_prochandle *);
+extern	int	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
 extern	void	Psym_release(struct ps_prochandle *);
 extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);

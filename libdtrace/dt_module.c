@@ -357,8 +357,12 @@ static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
 	return NULL;
 
  oom:
-	fprintf(stderr, "Out of memory decompressing CTF section.\n");
-	exit(1);
+	free(output);
+	dt_dprintf("Out of memory decompressing CTF section for module %s.\n",
+	    dmp->dm_name);
+	ctsp->cts_data = NULL;
+	ctsp->cts_size = 0;
+	return NULL;
 }
 
 static int
