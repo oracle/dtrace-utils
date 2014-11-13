@@ -343,9 +343,9 @@ find_l_searchlist(rd_agent_t *rd)
 
 	map_addrs = calloc(nmaps, sizeof (uintptr_t));
 	if (!map_addrs) {
-		fprintf(stderr, "Out of memory locating glibc searchlist "
+		_dprintf("Out of memory locating glibc searchlist "
 		    "when allocating room for %li link maps\n", nmaps);
-		exit(1);
+		return -1;
 	}
 
 	for (mapp = map_addrs,
@@ -561,7 +561,7 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 		if (rl_newscope == NULL) {
 			_dprintf("Out of memory allocating scopes list "
 			    "of length %lu bytes\n", nscopes_size);
-			exit(1);
+			goto fail;
 		}
 
 		buf->rl_scope = rl_newscope;
@@ -1574,7 +1574,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 					fprintf(stderr, "Out of memory allocating "
 					    "primary scopes list of length %lu "
 					    "bytes\n", nscopes_size);
-					exit(1);
+					goto err;
 				}
 				memcpy(primary_scope, obj.rl_scope,
 				    nscopes_size);

@@ -119,8 +119,9 @@ Preadauxvec(struct ps_prochandle *P)
 	_dprintf("%i: %u auxv entries.\n", P->pid, P->nauxv);
 
 	if ((P->auxv = malloc(P->nauxv * sizeof (auxv_t))) == NULL) {
-		fprintf(stderr, "Out of memory allocating aux vector\n");
-		exit(1);
+		_dprintf("Out of memory allocating aux vector\n");
+		close(fd);
+		return;
 	}
 
 	for (i = 0; i < P->nauxv && read(fd, buf, auxv_size) == auxv_size;
