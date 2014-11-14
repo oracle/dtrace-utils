@@ -310,7 +310,6 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 	if (Psym_init(P) < 0)
 		goto bad;
 
-	Psym_init(P);
 	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
 	if (!P->bkpts)
 		goto bad;
