@@ -31,6 +31,10 @@ Bugfixes:
    for the correct field offsets, so are resilient against new fields appearing
    in glibc's internal structures, and against fields changing size.
 
+ - A number of cases where DTrace would crash when memory is exhausted are
+   fixed.
+   [Introduced in DTrace 0.4.0.]
+
 Library interface changes:
 
  - The dtrace_proc_*() functions have changed the type they take (it is now a

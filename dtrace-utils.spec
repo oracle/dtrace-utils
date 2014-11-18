@@ -20,7 +20,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
 BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.5
-Release:      1%{?dist}
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -120,6 +120,9 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Tue Nov 18 2014 - <nick.alcock@oracle.com> - 0.4.5-2
+- A number of crashes when out of memory are fixed. [Orabug: 20014606]
+
 * Fri Oct 23 2014 - <nick.alcock@oracle.com> - 0.4.5-1
 - Automatically load provider modules from /etc/dtrace-modules, if present
   [Orabug: 19821254]
