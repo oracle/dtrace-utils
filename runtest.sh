@@ -374,7 +374,7 @@ if [[ "x$(id -u)" = "x0" ]]; then
     orig_core_uses_pid="$(cat /proc/sys/kernel/core_uses_pid)"
     echo core > /proc/sys/kernel/core_pattern
     echo 0 > /proc/sys/kernel/core_uses_pid
-    ulimit -c 100000
+    ulimit -c 1000000
 fi
 
 # Make a temporary directory for intermediate result storage.
