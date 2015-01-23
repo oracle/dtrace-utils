@@ -2045,6 +2045,26 @@ dt_load_libs(dtrace_hdl_t *dtp)
 
 	for (dirp = dt_list_next(&dtp->dt_lib_path);
 	    dirp != NULL; dirp = dt_list_next(dirp)) {
+
+		if (dtp->dt_minor_kernver) {
+			char *kernvered_libpath;
+
+			kernvered_libpath = malloc(strlen(dirp->dir_path) + 1 +
+			    strlen(dtp->dt_minor_kernver) + 1);
+			if (!kernvered_libpath)
+				return(dt_set_errno(dtp, EDT_NOMEM));
+			strcpy(kernvered_libpath, dirp->dir_path);
+			strcat(kernvered_libpath, "/");
+			strcat(kernvered_libpath, dtp->dt_minor_kernver);
+
+			if (dt_load_libs_dir(dtp, kernvered_libpath) != 0) {
+				dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
+				free(kernvered_libpath);
+				return (-1); /* errno is set for us */
+			}
+			free(kernvered_libpath);
+		}
+
 		if (dt_load_libs_dir(dtp, dirp->dir_path) != 0) {
 			dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
 			return (-1); /* errno is set for us */

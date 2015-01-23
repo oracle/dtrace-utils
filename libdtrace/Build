@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 BUILDLIBS += libdtrace-build
@@ -49,6 +49,8 @@ libdtrace_SONAME := libdtrace.so.0
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
 libdtrace_SECONDARY := libproc libport
+
+KERNELS := 3.8 3.18
 
 -include libdtrace/$(ARCHINC)/Build
 
@@ -90,12 +92,32 @@ WORKING_DLIBS = errno.d \
                 unistd.d
 
 # M4-driven substitutions.
-$(foreach dlib,$(filter $(WORKING_DLIBS),$(M4_DLIBS)),$(call src-name,libdtrace,$(dlib))): \
-		%.d: %.d.in
-	$(call describe-target,M4,$*.d.in)
+
+override m4-dlib-targets = $(foreach kernel,$(KERNELS), \
+	$(addprefix $(objdir)/dlibs/$(kernel)/, \
+	$(filter $(WORKING_DLIBS),$(M4_DLIBS))))
+override other-dlib-targets = $(foreach kernel,$(KERNELS), \
+	$(addprefix $(objdir)/dlibs/$(kernel)/, \
+	$(filter-out $(M4_DLIBS),$(WORKING_DLIBS))))
+
+$(objdir)/dlibs/.dir.stamp:
+	mkdir -p $(objdir)/dlibs $(foreach kernel,$(KERNELS),$(objdir)/dlibs/$(kernel))
+	@touch $(objdir)/dlibs/.dir.stamp
+	ln -sf ../../$(libdtrace-build_DIR)/drti-vers $(objdir)/dlibs
+
+define dlib-kernel-ver-template
+$(objdir)/dlibs/$(1)/%.d: override KERNELVER := $(1)
+endef
+
+$(foreach kernel,$(KERNELS),$(eval $(call dlib-kernel-ver-template,$(kernel))))
+
+$(m4-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d.in), \
+			$$(call src-name,libdtrace,$$(name))) \
+			$(objdir)/dlibs/.dir.stamp
+	$(call describe-target,M4,$<)
 	$(PREPROCESS) -x c -Ilibdtrace/$(ARCHINC) -I$(KERNELDIR)/include -I$(KERNELDIR)/arch/$(KERNELARCH)/include \
-		      -D_KERNEL -D__KERNEL__ $(addsuffix .m4,$*) 2>$@.h.err | tee $@.h | \
-	m4 --prefix-builtins $(libdtrace-build_DIR)def-replace.m4 - $(libdtrace-build_DIR)/d-subst.m4 $*.d.in > $@; \
+		      -D_KERNEL -D__KERNEL__ $(basename $(basename $<)).m4 2>$@.h.err | tee $@.h | \
+	m4 --prefix-builtins -DKERNEL_$(KERNELVER) $(libdtrace-build_DIR)def-replace.m4 - $(libdtrace-build_DIR)/d-subst.m4 $< > $@; \
         if [[ $$? -ne 0 ]]; then \
 		cat $@.h.err >&2; \
 		echo "Error: Not all tokens in $^ defined in headers." >&2; \
@@ -111,22 +133,15 @@ $(foreach dlib,$(filter $(WORKING_DLIBS),$(M4_DLIBS)),$(call src-name,libdtrace,
 	fi
 	rm -f $@.h $@.h.err;
 
-PHONIES += dlibs working-dlibs
-TARGETS += dlibs working-dlibs
-dlibs: $(call src-name,libdtrace,$(WORKING_DLIBS))
+$(other-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d), \
+			$$(call src-name,libdtrace,$$(name))) \
+			$(objdir)/dlibs/.dir.stamp
+	$(call describe-target,CP,$<)
+	cp -f $< $@
 
-working-dlibs: $(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS))
-
-$(objdir)/dlibs/.dir.stamp:
-	mkdir -p $(objdir)/dlibs
-	@touch $(objdir)/dlibs/.dir.stamp
-	ln -sf ../../$(libdtrace-build_DIR)/drti-vers $(objdir)/dlibs
-
-$(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/.dir.stamp
-
-$(addprefix $(objdir)/dlibs/,$(WORKING_DLIBS)):: $(objdir)/dlibs/%: $(libdtrace-build_DIR)%
-	$(call describe-target,CP,$^)
-	cp -f $^ $@
+PHONIES += dlibs
+TARGETS += dlibs
+dlibs: $(m4-dlib-targets) $(other-dlib-targets)
 
 PHONIES += objs
 TARGETS += objs
@@ -189,6 +204,10 @@ install::
 	install -m 644 $(DRTI_OBJ) $(LIBDIR)/dtrace
 	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI32_OBJ))
 	install -m 644 $(DRTI32_OBJ) $(LIBDIR)/dtrace
-	$(call describe-install-target,$(LIBDIR)/dtrace,$(WORKING_DLIBS) drti-vers)
-	cd $(objdir)/dlibs && install -m 644 $(WORKING_DLIBS) \
-		drti-vers $(LIBDIR)/dtrace
+	$(call describe-install-target,$(LIBDIR)/dtrace,drti-vers)
+	install -m 644 $(objdir)/dlibs/drti-vers $(LIBDIR)/dtrace
+	for kernel in $(KERNELS); do \
+		$(call describe-expanded-install-target,$(LIBDIR)/dtrace/$$kernel,$(WORKING_DLIBS)) \
+		mkdir -p $(LIBDIR)/dtrace/$$kernel && \
+		cd $(objdir)/dlibs/$$kernel && install -m 644 $(WORKING_DLIBS) $(LIBDIR)/dtrace/$$kernel; \
+	done

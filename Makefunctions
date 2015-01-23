@@ -55,6 +55,18 @@ define describe-install-target
 $(call describe-target,INSTALL,$(addprefix $(1)/,$(notdir $(2))))
 endef
 
+# Like 'describe-target', but with shell expansion on the names.
+# Syntax: $(call describe-expanded-target,description,optional names)
+define describe-expanded-target
+$(if $(filter-out $(verbose),no),,$(foreach name,$(2),printf '%s: %s\n' '$(1)' $(name);))
+endef
+
+# Like 'describe-install-target', but with shell expansion on the names.
+# Syntax: $(call describe-install-target,directory,names)
+define describe-expanded-install-target
+$(call describe-expanded-target,INSTALL,$(addprefix $(1)/,$(notdir $(2))))
+endef
+
 # Rule to build a C source file.
 # Syntax: $(call cc-template,primary,filename-without-dir,optional flags)
 

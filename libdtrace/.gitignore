@@ -3,8 +3,3 @@ dt_errtags.c
 dt_grammar.[ch]
 dt_lex.c
 dt_names.c
-errno.d
-io.d
-procfs.d
-regs.d
-signal.d

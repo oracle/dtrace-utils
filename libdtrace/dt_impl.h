@@ -282,6 +282,7 @@ struct dtrace_hdl {
 	char *dt_ld_path;	/* pathname of ld(1) to invoke if needed */
 	dt_list_t dt_lib_path;	/* linked-list forming library search path */
 	char *dt_module_path;	/* pathname of kernel module root */
+	char *dt_minor_kernver;	/* major kernel version, used in the libpath */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
 	uint_t dt_droptags;	/* boolean:  set via -xdroptags */
 	uint_t dt_active;	/* boolean:  set once tracing is active */
