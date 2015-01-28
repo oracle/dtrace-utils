@@ -9,7 +9,7 @@
 
 # The version below need not be accurate: the latest version that dtrace-modules
 # has been built against at the time this release was made will do.
-%define kver 3.8.13-44.1.3.el6uek
+%define kver38 3.8.13-44.1.3.el6uek
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -17,7 +17,7 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver38}
 Summary:      DTrace user interface.
 Version:      0.4.5
 Release:      1%{?dist}
@@ -55,11 +55,11 @@ replacements for dtrace(1) itself.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done)
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS=$( ( cd /usr/src/kernels; for ver in %{kver38}*; do echo $ver; break; done) )
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIR=$(for ver in /usr/src/kernels/%{kver}*; do echo $ver; break; done) install
+make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS=$( ( cd /usr/src/kernels; for ver in %{kver38}*; do echo $ver; break; done) ) install
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)

@@ -50,10 +50,17 @@ export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 
-# The substitution process in libdtrace needs a kernel build tree, and needs to
-# know the name of the kernel architecture (as used in pathnames).
+# The substitution process in libdtrace needs kernel build trees for every
+# kernel this userspace will be used with.  It only needs to know about major
+# versions because to a first approximation the kernel-header-file #defines and
+# data structures needed in translators do not change on a finer grain than
+# that.  It also needs to know the name of the kernel architecture (as used in
+# pathnames), and about the pieces of the pathname before and after the kernel
+# version (so it can build include paths).
 
-KERNELDIR := /lib/modules/$(shell uname -r)/build
+KERNELS=$(shell uname -r)
+KERNELDIRPREFIX=/lib/modules/
+KERNELDIRSUFFIX=/build
 KERNELARCH := x86
 
 # If libdtrace-ctf is initialized, we want to get headers from it.
