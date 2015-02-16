@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014, 2015 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -16,11 +16,11 @@ Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
-BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver}
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
+BuildRequires: glibc-static glibc-devel(x86-32) libgcc(x86-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers kernel%{variant}-devel = %{kver}
 Summary:      DTrace user interface.
 Version:      0.4.5
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -35,7 +35,7 @@ Kris van Hees <kris.van.hees@oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-headers
+Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-shared-headers
 Group:	      Development/System
 
 %description devel
@@ -120,6 +120,10 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Mon Feb 16 2015 - <nick.alcock@oracle.com> - 0.4.5-3
+- The dependencies are adjusted to pick up the renamed dtrace headers package.
+[Orabug: 20508087]
+
 * Tue Nov 18 2014 - <nick.alcock@oracle.com> - 0.4.5-2
 - A number of crashes when out of memory are fixed. [Orabug: 20014606]
 
