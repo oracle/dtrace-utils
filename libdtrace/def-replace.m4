@@ -1,6 +1,3 @@
-m4_divert(-1)
-m4_changecom(`/*',`*/')
-
 /*
  * Run before all other M4 scripts in the replacement path,
  * this script arranges to define macros corresponding to each

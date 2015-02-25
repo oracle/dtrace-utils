@@ -18,4 +18,3 @@ m4_define([[def_constant]],[[m4_ifdef([[$1]],[[inline int [[$1]] = $1;
 #pragma D binding "$2" [[$1]]]])]])
 m4_define([[def_constant_renamed]],[[m4_ifdef([[$3]],[[inline [[$1]] [[$2]] = $3;
 #pragma D binding "$4" [[$2]]]])]])
-m4_divert(0)m4_dnl
