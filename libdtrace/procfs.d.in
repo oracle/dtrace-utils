@@ -100,8 +100,6 @@ inline char PR_MODEL_ILP32 = 1;
 inline char PR_MODEL_LP64 = 2;
 #pragma D binding "1.0" PR_MODEL_LP64
 
-m4_dnl 3.18 and before use pid_ns, not pid_ns_for_children.
-define_for_kernel([[[[3.0]],[[3.18]]]],[[pid_ns_for_children]],[[pid_ns]])m4_dnl
 m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids.
 define_for_kernel([[[[3.18]],[[3.19]]]],[[ugid]],[[$1.val]],[[$1]])m4_dnl
 #pragma D binding "1.0" translator
@@ -109,10 +107,8 @@ translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
 	pr_pid = T->tgid;
 	pr_ppid = T->real_parent->tgid;
-	pr_pgid = T->group_leader->pids[1].pid->numbers[
-						T->nsproxy->pid_ns_for_children->level].nr;
-	pr_sid = T->group_leader->pids[2].pid->numbers[
-						T->nsproxy->pid_ns_for_children->level].nr;
+	pr_pgid = T->group_leader->pids[1].pid->numbers[0].nr;
+	pr_sid = T->group_leader->pids[2].pid->numbers[0].nr;
 	pr_uid = T->cred->ugid(uid);
 	pr_euid = T->cred->ugid(euid);
 	pr_gid = T->cred->ugid(gid);
