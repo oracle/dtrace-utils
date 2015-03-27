@@ -1584,7 +1584,15 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
 /*
  * Fork and exec the cpp(1) preprocessor to run over the specified input file,
  * and return a FILE handle for the cpp output.  We use the /dev/fd filesystem
- * here to simplify the code by leveraging file descriptor inheritance.
+ * here to simplify the code by leveraging file descriptor inheritance (using
+ * an output pipe would be possible, but would require extra complexity to
+ * avoid deadlocking).
+ *
+ * There is extra complexity here because cpp checks to see if its input file is
+ * a regular file, and complains if the number of bytes it reads does not equal
+ * the size of said file.  So we must stick a splice(2) before it, to de-
+ * regularize the file into a pipe! (A cat(1) would do just as well or a
+ * read/write loop, but a splice is more efficient.)
  */
 static FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
@@ -1592,17 +1600,19 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	int argc = dtp->dt_cpp_argc;
 	char **argv = malloc(sizeof (char *) * (argc + 5));
 	FILE *ofp = tmpfile();
+	int pipe_needed = 0;
+	int catpipe[2];
 
-	char ipath[20], opath[20]; /* big enough for /dev/fd/ + INT_MAX + \0 */
+	char opath[20]; /* big enough for /dev/fd/ + INT_MAX + \0 */
 	char verdef[32]; /* big enough for -D__SUNW_D_VERSION=0x%08x + \0 */
 
 	struct sigaction act, oact;
 	sigset_t mask, omask;
 
-	int wstat, estat;
+	int wstat, estat, junk;
+	pid_t catpid;
 	pid_t pid;
-	off64_t off;
-	int c;
+	off_t off;
 
 	if (argv == NULL || ofp == NULL) {
 		(void) dt_set_errno(dtp, errno);
@@ -1616,6 +1626,9 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	 * it still sees the newline, ensuring that #line values are correct.
 	 */
 	if (isatty(fileno(ifp)) == 0 && (off = ftello(ifp)) != -1) {
+		int c;
+
+		pipe_needed = 1;
 		if ((c = fgetc(ifp)) == '#' && (c = fgetc(ifp)) == '!') {
 			for (off += 2; c != '\n'; off++) {
 				if ((c = fgetc(ifp)) == EOF)
@@ -1625,10 +1638,17 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 				off--; /* start cpp just prior to \n */
 		}
 		(void) fflush(ifp);
-		(void) fseeko(ifp, off, SEEK_SET);
-	}
+		/*
+		 * Do not touch ifp via stdio from this point on, to avoid
+		 * caching or prereading throwing off the file position.
+		 */
+		(void) lseek(fileno(ifp), off, SEEK_SET);
 
-	(void) snprintf(ipath, sizeof (ipath), "/dev/fd/%d", fileno(ifp));
+		if (pipe(catpipe) < 0) {
+			(void) dt_set_errno(dtp, errno);
+			goto err;
+		}
+	}
 	(void) snprintf(opath, sizeof (opath), "/dev/fd/%d", fileno(ofp));
 
 	bcopy(dtp->dt_cpp_argv, argv, sizeof (char *) * argc);
@@ -1646,7 +1666,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 		break;
 	}
 
-	argv[argc++] = ipath;
+	argv[argc++] = "/dev/stdin";
 	argv[argc++] = opath;
 	argv[argc] = NULL;
 
@@ -1666,6 +1686,32 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	act.sa_handler = SIG_DFL;
 	(void) sigaction(SIGCHLD, &act, &oact);
 
+	if (pipe_needed) {
+		if ((catpid = fork()) == -1) {
+			(void) sigaction(SIGCHLD, &oact, NULL);
+			(void) sigprocmask(SIG_SETMASK, &omask, NULL);
+			(void) dt_set_errno(dtp, EDT_CPPFORK);
+			goto err;
+		}
+
+		if (catpid == 0) {
+			int ret = 1;
+
+			while (ret > 0) {
+				ret = splice(fileno(ifp), NULL, catpipe[1],
+				    NULL, PIPE_BUF, SPLICE_F_MORE);
+				if (ret < 0) {
+					dt_dprintf("error splicing in "
+					    "preprocessor catpipe: %s\n",
+					    strerror(errno));
+					    _exit(1);
+				}
+			}
+			_exit(0);
+		}
+		close(catpipe[1]);
+	}
+
 	if ((pid = fork()) == -1) {
 		(void) sigaction(SIGCHLD, &oact, NULL);
 		(void) sigprocmask(SIG_SETMASK, &omask, NULL);
@@ -1674,6 +1720,13 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 
 	if (pid == 0) {
+		if (!pipe_needed) {
+			(void) dup2(fileno(ifp), 0);
+		} else {
+			(void) dup2(catpipe[0], 0);
+			(void) close(catpipe[0]);
+		}
+		(void) close(fileno(ifp));
 		(void) execvp(dtp->dt_cpp_path, argv);
 		_exit(errno == ENOENT ? 127 : 126);
 	}
@@ -1683,10 +1736,18 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 		    (int)pid);
 	} while (waitpid(pid, &wstat, 0) == -1 && errno == EINTR);
 
+	if (pipe_needed) {
+		close(catpipe[0]);
+
+		do {
+			dt_dprintf("waiting for catpipe (PID %d)\n", (int)catpid);
+		} while (waitpid(catpid, &junk, 0) == -1 && errno == EINTR);
+	}
+
 	(void) sigaction(SIGCHLD, &oact, NULL);
 	(void) sigprocmask(SIG_SETMASK, &omask, NULL);
 
-	dt_dprintf("%s returned exit status 0x%x\n", dtp->dt_cpp_path, wstat);
+	dt_dprintf("%s returned exit status %i\n", dtp->dt_cpp_path, wstat);
 	estat = WIFEXITED(wstat) ? WEXITSTATUS(wstat) : -1;
 
 	if (estat != 0) {
@@ -1705,10 +1766,22 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 
 	free(argv);
 	(void) fflush(ofp);
+	(void) fseek(ofp, 0, SEEK_END);
+	(void) fflush(ofp);
+	dt_dprintf("length of cpp output file: %li\n", ftello(ofp));
+
+	{
+		struct stat s;
+		dt_dprintf("length of cpp output file from stat: %li\n", (fstat(fileno(ofp), &s), s.st_size));
+	}
 	(void) fseek(ofp, 0, SEEK_SET);
 	return (ofp);
 
 err:
+	if (pipe_needed) {
+		close(catpipe[0]);
+		close(catpipe[1]);
+	}
 	free(argv);
 	(void) fclose(ofp);
 	return (NULL);

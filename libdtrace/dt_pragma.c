@@ -391,12 +391,12 @@ dt_pragma_line(const char *prname, dt_node_t *dnp)
 			free(yypcb->pcb_filetag);
 		/*
 		 * This is not pretty, but is a necessary evil until we rewrite
-		 * dt_preproc().  If the filename begins with /dev/fd, we know
-		 * it's the master input file (see dt_preproc() in dt_cc.c), so
-		 * just clear the dt_filetag pointer so error messages refer to
-		 * the main file.
+		 * dt_preproc().  If the filename is "/dev/stdin", we know it's
+		 * the master input file (see dt_preproc() in dt_cc.c), so just
+		 * clear the dt_filetag pointer so error messages refer to the
+		 * main file.
 		 */
-		if (strncmp(fnp->dn_string, "/dev/fd/", 8) != 0) {
+		if (strcmp(fnp->dn_string, "/dev/stdin") != 0) {
 			yypcb->pcb_filetag = fnp->dn_string;
 			fnp->dn_string = NULL;
 		} else
