@@ -35,5 +35,5 @@
 
 BEGIN
 {
-	tracemem(`super_blocks, 123);
+	tracemem(`init_mm, 123);
 }
