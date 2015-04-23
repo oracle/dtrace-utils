@@ -70,7 +70,8 @@ static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
 static int bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt);
 static int Pbkpt_continue_internal(struct ps_prochandle *P, bkpt_t *bkpt,
 	int singlestep);
-static void bkpt_flush(struct ps_prochandle *P, int gone);
+static void Punbkpt_child_poke(struct ps_prochandle *P, pid_t pid, bkpt_t *bkpt);
+static void bkpt_flush(struct ps_prochandle *P, pid_t pid, int gone);
 static bkpt_t *bkpt_by_addr(struct ps_prochandle *P, uintptr_t addr,
     int delete);
 static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
@@ -209,9 +210,11 @@ Pcreate(
 	}
 
 	/*
-	 * ptrace() the process with TRACEEXEC active, and unblock it.
+	 * ptrace() the process with exec and fork tracing active, and unblock
+	 * it.
 	 */
-	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, PTRACE_O_TRACEEXEC) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, PTRACE_O_TRACEEXEC |
+		PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK) < 0) {
 		rc = errno;
 		_dprintf("Pcreate: seize of %s failed: %s\n", file,
 		    strerror(errno));
@@ -561,7 +564,7 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		_dprintf("Prelease: releasing handle %p of dead pid %d\n",
 		    (void *)P, (int)P->pid);
 
-		bkpt_flush(P, TRUE);
+		bkpt_flush(P, 0, TRUE);
 		P->released = TRUE;
 
 		dt_debug_dump(0);
@@ -569,7 +572,7 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		return;
 	}
 
-	bkpt_flush(P, release_mode == PS_RELEASE_NO_DETACH);
+	bkpt_flush(P, 0, release_mode == PS_RELEASE_NO_DETACH);
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",
 	    (void *)P, (int)P->pid);
@@ -887,7 +890,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		 */
 		Pread_isa_info(P, procname);
 
-		bkpt_flush(P, TRUE);
+		bkpt_flush(P, 0, TRUE);
 
 		free(P->auxv);
 		P->auxv = NULL;
@@ -921,6 +924,31 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 
 		Puntrace(P, 0);
 
+		return(0);
+	}
+
+	/*
+	 * TRACEFORK or TRACEVFORK trap.  Remove the breakpoints in the new
+	 * child, since we don't trace forked children (yet).  All other state
+	 * remains unchanged.
+	 */
+	if (((status >> 8) == (SIGTRAP | PTRACE_EVENT_FORK << 8)) ||
+	    ((status >> 8) == (SIGTRAP | PTRACE_EVENT_VFORK << 8)))
+	{
+		pid_t pid;
+
+		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
+			_dprintf("%i: process status change: fork() or vfork() "
+			    "detected but PID cannot be determined: ignoring.\n",
+				pid);
+		else {
+			_dprintf("%i: process status change: fork() or vfork() "
+			    "detected, discarding breakpoints...\n", pid);
+
+			bkpt_flush(P, pid, FALSE);
+			wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0);
+		}
+		wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
 		return(0);
 	}
 
@@ -1097,7 +1125,8 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		return 0;
 	}
 
-	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, PTRACE_O_TRACEEXEC) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, PTRACE_O_TRACEEXEC |
+		PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK) < 0) {
 		if (!Pgrabbing)
 			goto err;
 		else
@@ -1515,42 +1544,15 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 
 	/*
 	 * If we are not singlestepping past this breakpoint now, we have to
-	 * poke the old content back in.  Otherwise, we just have to adjust our
-	 * instruction pointer and resume (and the resumption is done
-	 * automatically for us when we Puntrace() in any case).
+	 * poke the old content back in (and we delegate to Punbkpt_child_poke()
+	 * to do that).  Otherwise, we just have to adjust our instruction
+	 * pointer and resume (and the resumption is done automatically for us
+	 * when we Puntrace() in any case).
 	 */
-	if (P->tracing_bkpt != bkpt->bkpt_addr) {
-		uintptr_t insn;
-		/*
-		 * Only overwrite the breakpoint insn if it is still a
-		 * breakpoint.  If it has changed (perhaps due to a new text
-		 * section being mapped in), do nothing.
-		 */
-		errno = 0;
-		insn = wrapped_ptrace(P, PTRACE_PEEKTEXT, P->pid,
-		    bkpt->bkpt_addr, 0);
 
-		if (errno == 0 && insn == mask_bkpt(insn) &&
-		    wrapped_ptrace(P, PTRACE_POKETEXT, P->pid,
-			bkpt->bkpt_addr, bkpt->orig_insn) < 0)
-			switch (errno) {
-			case ESRCH:
-				_dprintf("%i: -ESRCH, process is dead.\n",
-				    P->pid);
-				P->state = PS_DEAD;
-				return;
-			case EIO:
-			case EFAULT:
-				/* The address in the child has disappeared. */
-				_dprintf("%i: Instruction pokeback into %lx "
-				    "failed: %s\n", P->pid, bkpt->bkpt_addr,
-				    strerror(errno));
-			case 0: break;
-			default:
-				_dprintf("%i: Unknown error removing breakpoint:"
-				    "%s\n", P->pid, strerror(errno));
-			}
-	} else {
+	if (P->tracing_bkpt != bkpt->bkpt_addr)
+		Punbkpt_child_poke(P, 0, bkpt);
+	else {
 		_dprintf("%i: Breakpoint at %lx already poked back, changing "
 		    "instruction pointer\n", P->pid, bkpt->bkpt_addr);
 		if (Preset_bkpt_ip(P, P->tracing_bkpt) < 0)
@@ -1572,7 +1574,7 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		P->bkpt_halted = 0;
 
 		/*
-		 * If we were stopped by the breakpoint rather than by a nested
+		 * If we were stopped by this breakpoint rather than by a nested
 		 * Ptrace(), set ourselves running again on Puntrace().
 		 */
 		if (!orig_ptrace_halted)
@@ -1587,23 +1589,74 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 }
 
 /*
+ * Poke back the pre-breakpoint text into the given breakpoint, in the process
+ * tracked by prochandle P, or (if pid is nonzero) into that process instead.
+ * (In the latter case, no process state changes happen on error, either.)
+ */
+static void
+Punbkpt_child_poke(struct ps_prochandle *P, pid_t pid, bkpt_t *bkpt)
+{
+	uintptr_t insn;
+	pid_t child_pid = pid;
+
+	if (child_pid == 0)
+		child_pid = P->pid;
+
+	/*
+	 * Only overwrite the breakpoint insn if it is still a breakpoint.  If
+	 * it has changed (perhaps due to a new text section being mapped in),
+	 * do nothing.
+	 */
+	errno = 0;
+	insn = wrapped_ptrace(P, PTRACE_PEEKTEXT, child_pid,
+	    bkpt->bkpt_addr, 0);
+
+	if (errno == 0 && insn == mask_bkpt(insn) &&
+	    wrapped_ptrace(P, PTRACE_POKETEXT, child_pid,
+		bkpt->bkpt_addr, bkpt->orig_insn) < 0)
+		switch (errno) {
+		case ESRCH:
+			_dprintf("%i: -ESRCH, process is dead.\n", child_pid);
+			if (!pid)
+				P->state = PS_DEAD;
+			return;
+		case EIO:
+		case EFAULT:
+			/* The address in the child has disappeared. */
+			_dprintf("%i: Instruction pokeback into %lx failed: "
+			    "%s\n", child_pid, bkpt->bkpt_addr,
+			    strerror(errno));
+		case 0: break;
+		default:
+			_dprintf("%i: Unknown error removing breakpoint:"
+			    "%s\n", child_pid, strerror(errno));
+		}
+}
+
+/*
  * Discard breakpoint state.
  *
  * Done when the child process is dead or being released or its address space
- * has vanished due to an exec().
+ * has vanished due to an exec(), or when the child has (v)fork()ed.
  *
  * Rendered more complicated by the need to do local breakpoint cleanup even if
- * the process is gone.  (We cannot use Punbkpt() because the process might have
- * exec()ed, and we do not want to continue it, nor modify the address of
- * breakpoints that can no longer exist within it: we also need to cancel out
- * the 'in local handler' flag which otherwise stops breakpoints being removed
- * immediately, since if this function is called any active handlers will never
- * be re-entered: either the ps_prochandle is about to disappear, or the process
+ * the process is gone, and by the fact that in fork() or clone() situations we
+ * want to clean up remote breakpoints but not the local ones.  (We cannot use
+ * Punbkpt() in the former situation because the process might have exec()ed,
+ * and we do not want to continue it, nor modify the address of breakpoints that
+ * can no longer exist within it: we also need to cancel out the 'in local
+ * handler' flag which otherwise stops breakpoints being removed immediately,
+ * since if this function is called any active handlers will never be
+ * re-entered: either the ps_prochandle is about to disappear, or the process
  * has just exec()ed, thus is running, thus we cannot be inside a breakpoint
  * handler, since that implies the process is stopped.)
+ *
+ * If the pid is nonzero, the local breakpoint state is not cleaned up: if
+ * 'gone' is nonzero, the child's breakpoints are not cleaned up.  (If both are
+ * nonzero, we do not define what happens, but it's not useful.)
  */
 static void
-bkpt_flush(struct ps_prochandle *P, int gone) {
+bkpt_flush(struct ps_prochandle *P, pid_t pid, int gone) {
 	size_t i;
 
 	_dprintf("Flushing breakpoints.\n");
@@ -1611,7 +1664,8 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 	/*
 	 * Consume all SIGTRAPs from here until flush completion.
 	 */
-	P->bkpt_consume = 1;
+	if (!pid)
+		P->bkpt_consume = 1;
 
 	for (i = 0; i < BKPT_HASH_BUCKETS; i++) {
 		bkpt_t *bkpt;
@@ -1621,17 +1675,22 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 		     old_bkpt = bkpt, bkpt = bkpt->bkpt_next) {
 			if (old_bkpt != NULL) {
 				old_bkpt->in_handler = FALSE;
-				if (!gone)
+				if (pid)
+					Punbkpt_child_poke(P, pid, old_bkpt);
+				else if (!gone)
 					Punbkpt(P, old_bkpt->bkpt_addr);
 				else {
-					bkpt_t *bkpt = bkpt_by_addr(P, old_bkpt->bkpt_addr, TRUE);
+					bkpt_t *bkpt = bkpt_by_addr(P,
+					    old_bkpt->bkpt_addr, TRUE);
 					delete_bkpt_handler(bkpt);
 				}
 			}
 		}
 
 		if (old_bkpt != NULL) {
-			if (!gone) {
+			if (pid)
+				Punbkpt_child_poke(P, pid, old_bkpt);
+			else if (!gone) {
 				old_bkpt->in_handler = FALSE;
 				Punbkpt(P, old_bkpt->bkpt_addr);
 			} else {
@@ -1642,16 +1701,22 @@ bkpt_flush(struct ps_prochandle *P, int gone) {
 	}
 
 	/*
-	 * One last Pwait() to consume a potential trap on the last now-dead
-	 * breakpoint.
+	 * Only do this state-varying stuff if we're not chewing over an alien
+	 * PID.
 	 */
-	if (!gone)
-		Pwait(P, 0);
+	if (!pid) {
+		/*
+		 * One last Pwait() to consume a potential trap on the last now-dead
+		 * breakpoint.
+		 */
+		if (!gone)
+			Pwait(P, 0);
 
-	P->bkpt_consume = 0;
-	P->tracing_bkpt = 0;
-	P->bkpt_halted = 0;
-	P->num_bkpts = 0;
+		P->bkpt_consume = 0;
+		P->tracing_bkpt = 0;
+		P->bkpt_halted = 0;
+		P->num_bkpts = 0;
+	}
 }
 
 /*
