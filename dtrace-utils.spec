@@ -1,15 +1,16 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014, 2015 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
 # something like 'kernel-uek-dtrace'.
 %define variant %{?build_variant:%{build_variant}}%{!?build_variant:-uek}
 
-# The version below need not be accurate: the latest version that dtrace-modules
-# has been built against at the time this release was made will do.
-%define kver38 3.8.13-44.1.3.el6uek
+# A list of kernels that you want dtrace to be runnable against. The
+# resulting dtrace will work on any kernel with the same major.minor
+# version.
+%{lua: dtrace_kernels = {"3.8.13-44.1.3.el6uek", "4.0.0-1.el6uek"}}
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -17,7 +18,7 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers kernel%{variant}-devel = %{kver38}
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-headers
 Summary:      DTrace user interface.
 Version:      0.4.5
 Release:      1%{?dist}
@@ -30,6 +31,17 @@ ExclusiveArch:    x86_64 sparc64
 %ifnarch sparc64
 BuildRequires: glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %endif
+
+# Substitute in kernel-versin-specific requirements.
+
+%{lua:
+  local srcdirexp = ""
+  for i, k in ipairs(dtrace_kernels)  do
+      string.format("%q", "BuildRequires: kernel%{variant}-devel = " .. k .. "\n")
+      srcdirexp = srcdirexp .. " " .. k .. "*"
+  end
+  rpm.define("srcdirexp " .. srcdirexp)
+}
 
 %description
 DTrace user interface and dtrace(1) command.
@@ -55,11 +67,11 @@ replacements for dtrace(1) itself.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS=$( ( cd /usr/src/kernels; for ver in %{kver38}*; do echo $ver; break; done) )
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" verbose=yes
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS=$( ( cd /usr/src/kernels; for ver in %{kver38}*; do echo $ver; break; done) ) install
+make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" install
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)
