@@ -61,7 +61,7 @@ PREPROCESS = $(CC) -E
 KERNELS=$(shell uname -r)
 KERNELDIRPREFIX=/lib/modules/
 KERNELDIRSUFFIX=/build
-KERNELARCH := x86
+KERNELARCH := $(subst sparc64,sparc,$(subst x86_64,x86,$(shell uname -m)))
 
 # If libdtrace-ctf is initialized, we want to get headers from it.
 
