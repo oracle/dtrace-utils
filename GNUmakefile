@@ -59,7 +59,7 @@ PREPROCESS = $(CC) -E
 # version (so it can build include paths).
 
 KERNELS=$(shell uname -r)
-KERNELDIRPREFIX=/lib/modules/
+KERNELDIRPREFIX=/lib/modules
 KERNELDIRSUFFIX=/build
 KERNELARCH := $(subst sparc64,sparc,$(subst x86_64,x86,$(shell uname -m)))
 
