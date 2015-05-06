@@ -25,8 +25,6 @@
 # Use is subject to license terms.
 #
 
-# @@skip: no dtrace -c support (sparc64)
-
 ##
 #
 # ASSERTION:

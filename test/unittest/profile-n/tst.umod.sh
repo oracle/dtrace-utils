@@ -20,8 +20,6 @@
 # CDDL HEADER END
 #
 
-# @@skip: no userspace tracing yet (sparc64)
-
 #
 # Copyright 2007 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.

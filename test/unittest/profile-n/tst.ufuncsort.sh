@@ -21,7 +21,6 @@
 #
 
 # @@xfail: needs userspace probes
-# @@skip: no userspace tracing yet (sparc64)
 
 #
 # Copyright 2007 Oracle, Inc.  All rights reserved.
