@@ -67,7 +67,7 @@ replacements for dtrace(1) itself.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" verbose=yes
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )"
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
