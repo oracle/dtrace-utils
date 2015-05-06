@@ -71,12 +71,18 @@ endif
 
 prefix = /usr
 export objdir := $(abspath build)
-LIBDIR := $(DESTDIR)$(prefix)/lib$(BITNESS)
-BINDIR := $(DESTDIR)$(prefix)/bin
-INCLUDEDIR := $(DESTDIR)$(prefix)/include
-SBINDIR := $(DESTDIR)$(prefix)/sbin
-DOCDIR := $(DESTDIR)$(prefix)/share/doc/dtrace-$(VERSION)
+LIBDIR := $(prefix)/lib$(BITNESS)
+INSTLIBDIR := $(DESTDIR)$(LIBDIR)
+BINDIR := $(prefix)/bin
+INSTBINDIR := $(DESTDIR)$(BINDIR)
+INCLUDEDIR := $(prefix)/include
+INSTINCLUDEDIR := $(DESTDIR)$(INCLUDEDIR)
+SBINDIR := $(prefix)/sbin
+INSTSBINDIR := $(DESTDIR)$(SBINDIR)
+DOCDIR := $(prefix)/share/doc/dtrace-$(VERSION)
+INSTDOCDIR := $(DESTDIR)$(DOCDIR)
 MANDIR := $(DESTDIR)$(prefix)/share/man/man1
+INSTMANDIR := $(DESTDIR)$(prefix)/share/man/man1
 TARGETS =
 
 DTRACE ?= $(objdir)/dtrace

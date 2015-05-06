@@ -56,12 +56,12 @@ $(objdir)/dlibs/load_dtrace_modules: $(dtrace_DIR)/load_dtrace_modules $(objdir)
 	cp $(dtrace_DIR)/load_dtrace_modules $(objdir)/dlibs
 
 install::
-	mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR) $(LIBDIR)/dtrace
-	$(call describe-install-target,$(SBINDIR),dtrace)
-	install -m 755 $(objdir)/dtrace $(SBINDIR)
-	$(call describe-install-target,$(BINDIR),ctf_module_dump)
-	install -m 755 $(objdir)/ctf_module_dump $(BINDIR)
-	$(call describe-install-target,$(MANDIR),dtrace.1)
-	install -m 644 $(dtrace_DIR)/dtrace.1 $(MANDIR)
-	$(call describe-install-target,$(LIBDIR)/dtrace,modules)
-	install -m 755 $(dtrace_DIR)/load_dtrace_modules $(LIBDIR)/dtrace
+	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) $(INSTLIBDIR)/dtrace
+	$(call describe-install-target,$(INSTSBINDIR),dtrace)
+	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
+	$(call describe-install-target,$(INSTBINDIR),ctf_module_dump)
+	install -m 755 $(objdir)/ctf_module_dump $(INSTBINDIR)
+	$(call describe-install-target,$(INSTMANDIR),dtrace.1)
+	install -m 644 $(dtrace_DIR)/dtrace.1 $(INSTMANDIR)
+	$(call describe-install-target,$(INSTLIBDIR)/dtrace,modules)
+	install -m 755 $(dtrace_DIR)/load_dtrace_modules $(INSTLIBDIR)/dtrace

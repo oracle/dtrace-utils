@@ -196,23 +196,23 @@ clean::
 	rm -f $(addprefix $(libdtrace-build_DIR),$(BUILD_DLIBS))
 
 install::
-	mkdir -p $(LIBDIR)/dtrace $(INCLUDEDIR)
-	$(call describe-install-target,$(INCLUDEDIR),dtrace.h)
-	install -m 644 $(libdtrace-build_DIR)dtrace.h $(INCLUDEDIR)
-	$(call describe-install-target,$(LIBDIR),$(libdtrace_TARGET).so.$(libdtrace_VERSION))
-	install -m 755 $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(LIBDIR)
-	$(call describe-install-target,$(LIBDIR),$(libdtrace_SONAME))
-	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_SONAME)
-	$(call describe-install-target,$(LIBDIR),$(libdtrace_TARGET).so)
-	ln -sf libdtrace.so.$(libdtrace_VERSION) $(LIBDIR)/$(libdtrace_TARGET).so
-	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI_OBJ))
-	install -m 644 $(DRTI_OBJ) $(LIBDIR)/dtrace
-	$(call describe-install-target,$(LIBDIR)/dtrace,$(DRTI32_OBJ))
-	install -m 644 $(DRTI32_OBJ) $(LIBDIR)/dtrace
-	$(call describe-install-target,$(LIBDIR)/dtrace,drti-vers)
-	install -m 644 $(objdir)/dlibs/drti-vers $(LIBDIR)/dtrace
+	mkdir -p $(INSTLIBDIR)/dtrace $(INSTINCLUDEDIR)
+	$(call describe-install-target,$(INSTINCLUDEDIR),dtrace.h)
+	install -m 644 $(libdtrace-build_DIR)dtrace.h $(INSTINCLUDEDIR)
+	$(call describe-install-target,$(INSTLIBDIR),$(libdtrace_TARGET).so.$(libdtrace_VERSION))
+	install -m 755 $(objdir)/$(libdtrace_TARGET).so.$(libdtrace_VERSION) $(INSTLIBDIR)
+	$(call describe-install-target,$(INSTLIBDIR),$(libdtrace_SONAME))
+	ln -sf libdtrace.so.$(libdtrace_VERSION) $(INSTLIBDIR)/$(libdtrace_SONAME)
+	$(call describe-install-target,$(INSTLIBDIR),$(libdtrace_TARGET).so)
+	ln -sf libdtrace.so.$(libdtrace_VERSION) $(INSTLIBDIR)/$(libdtrace_TARGET).so
+	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI_OBJ))
+	install -m 644 $(DRTI_OBJ) $(INSTLIBDIR)/dtrace
+	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI32_OBJ))
+	install -m 644 $(DRTI32_OBJ) $(INSTLIBDIR)/dtrace
+	$(call describe-install-target,$(INSTLIBDIR)/dtrace,drti-vers)
+	install -m 644 $(objdir)/dlibs/drti-vers $(INSTLIBDIR)/dtrace
 	for kernel in $(SHORTKERNELS); do \
-		$(call describe-expanded-install-target,$(LIBDIR)/dtrace/$$kernel,$(WORKING_DLIBS)) \
-		mkdir -p $(LIBDIR)/dtrace/$$kernel && \
-		cd $(objdir)/dlibs/$$kernel && install -m 644 $(WORKING_DLIBS) $(LIBDIR)/dtrace/$$kernel; \
+		$(call describe-expanded-install-target,$(INSTLIBDIR)/dtrace/$$kernel,$(WORKING_DLIBS)) \
+		mkdir -p $(INSTLIBDIR)/dtrace/$$kernel && \
+		cd $(objdir)/dlibs/$$kernel && install -m 644 $(WORKING_DLIBS) $(INSTLIBDIR)/dtrace/$$kernel; \
 	done

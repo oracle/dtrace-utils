@@ -51,10 +51,10 @@ $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))
 showUSDT_DEPS =
 showUSDT_LIBS = -lelf
 
-# Install the showUSDT utility in $)DOCDIR)... do not count on this utility to
-# always be present - it is only included there to assist in early debugging of
-# the 9semi-new) USDT feature.
+# Install the showUSDT utility in $(DOCDIR); do not count on this utility to
+# always be present --- it is only included there to assist in early debugging of
+# the (semi-new) USDT feature.
 install::
-	mkdir -p $(DOCDIR)
-	$(call describe-install-target,$(DOCDIR),showUSDT)
-	install -m 755 test/utils/showUSDT $(DOCDIR)
+	mkdir -p $(INSTDOCDIR)
+	$(call describe-install-target,$(INSTDOCDIR),showUSDT)
+	install -m 755 test/utils/showUSDT $(INSTDOCDIR)
