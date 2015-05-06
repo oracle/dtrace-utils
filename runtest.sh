@@ -41,6 +41,8 @@ export LC_COLLATE="C"
 
 TIMEOUTSIG=KILL
 
+arch="$(uname -m)"
+
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
 load_modules()
@@ -217,12 +219,15 @@ exist_options()
     local file=$2
 
     while [[ $retval -ne 0 ]]; do
-        if [[ -f $file ]]; then
+        if [[ -e "$file" ]]; then
             grep -Eq "@@"$1 $file
             retval=$?
         fi
         path="$(dirname $path)"
         file="$path/test.options"
+        if [[ -e "$path/test.$arch.options" ]]; then
+            file="$path/test.$arch.options"
+        fi
         # Halt at top level.
         if [[ -e $path/Makefunctions ]]; then
             break
@@ -535,8 +540,6 @@ postprocess()
     return $retval
 }
 
-arch=$(uname -m)
-
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
@@ -729,7 +732,8 @@ for dt in $dtrace; do
         # comments.  In addition, any options listed in a file test.options in 
         # any directory from test/ on down will automatically be imposed on
         # any tests in that directory tree which do not themselves impose a
-        # value for that option.
+        # value for that option.  If a file named test.$arch.options exists at
+        # a given level, it is consulted instead of test.options at that level.
         #
         # @@runtest-opts: A set of options to be added to the default set
         #                 (normally -S -e -s, where the -S and -e may not
@@ -832,6 +836,9 @@ for dt in $dtrace; do
         #     whether they can safely run at all.  See '@@xfail' and '@@skip'.
         #     If both .x and @@xfail exist, only the .x is respected.
         #
+        #     Files suffixed $(uname -m).x allow programmatic xfails or skips
+        #     for a particular architecture.
+        #
         # .t: If executable, serves the same purpose as the '@@trigger'
         #     option above.  If both .t and @@trigger exist, only the .t is
         #     respected.
@@ -864,15 +871,17 @@ for dt in $dtrace; do
         # Note if this is expected to fail.
         xfail=
         xfailmsg=
-        if [[ -x $base.x ]]; then
+	xfile=$base.$arch.x
+	[[ -e $xfile ]] || xfile=$base.x
+        if [[ -x $xfile ]]; then
             # xfail program.  Run, and capture its output.
-            xfailmsg="$($base.x)"
+            xfailmsg="$($xfile)"
             case $? in
                0) ;;         # no failure expected
                1) xfail=t;;  # failure expected
                2) sum "$_test: SKIP${xfailmsg:+: $xfailmsg}.\n" # skip
                   continue;;
-               *) echo "$base.x: Unexpected return value $?." >&2;;
+               *) echo "$xfile: Unexpected return value $?." >&2;;
             esac
         elif exist_options xfail $_test && ! exist_options no-xfail $_test; then
             xfail=t
