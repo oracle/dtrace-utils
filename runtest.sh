@@ -809,6 +809,9 @@ for dt in $dtrace; do
         #     only "-- @@stderr --".  Expected-result comparison can also
         #     be suppressed with the --no-expected command-line parameter.
         #
+        #     Files suffixed $(uname -m).r serve to override the results for a
+        #     particular architecture.
+        #
         # .r.p: Expected-results postprocessor: a filter run before various
         #       hardwired pointer-value-replacement preprocessors which
         #       transform all 0x[a-f]* strings into the string {ptr} and edit
