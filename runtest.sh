@@ -821,13 +821,13 @@ for dt in $dtrace; do
         #
         # .x: If executable, a program which when executed indicates whether
         #     the test is expected to succeed or not in this environment.
-        #     0 indicates expected success, 1 expected failure (in which case
+        #     0 indicates expected success, 1 expected failure, or 2 that the
+        #     test is unreliable and should be skipped; in the latter two cases
         #     it can emit to standard output a one-line message describing the
-        #     reason for failure), 2 that the test is unreliable and should be
-        #     skipped.  This permits tests to inspect their environment and
-        #     determine whether failure is expected, or whether they can safely
-        #     run at all.  See '@@xfail'.  If both .x and @@xfail exist, only
-        #     the .x is respected.
+        #     reason for failure or skipping.  This permits tests to inspect
+        #     their environment and determine whether failure is expected, or
+        #     whether they can safely run at all.  See '@@xfail' and '@@skip'.
+        #     If both .x and @@xfail exist, only the .x is respected.
         #
         # .t: If executable, serves the same purpose as the '@@trigger'
         #     option above.  If both .t and @@trigger exist, only the .t is
@@ -867,7 +867,8 @@ for dt in $dtrace; do
             case $? in
                0) ;;         # no failure expected
                1) xfail=t;;  # failure expected
-               2) continue;; # skip
+               2) sum "$_test: SKIP${xfailmsg:+: $xfailmsg}.\n" # skip
+                  continue;;
                *) echo "$base.x: Unexpected return value $?." >&2;;
             esac
         elif exist_options xfail $_test && ! exist_options no-xfail $_test; then
