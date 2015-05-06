@@ -1179,6 +1179,23 @@ if [[ -n $regression ]]; then
             force_out "Regression test comparison failed."
         fi
     done
+else
+    # Test summary.
+
+    awk -f - $SUMFILE <<'EOF' | tee -a $LOGFILE $SUMFILE
+/: X?(FAIL|PASS|SKIP)/ {
+	match($0, /: X?(FAIL|PASS|SKIP)/);
+	rc = substr($0, RSTART + 2, RLENGTH - 2);
+	count[rc]++;
+	total++;
+ }
+ END {
+	printf("%d cases (%d PASS, %d FAIL, %d XPASS, %d XFAIL, %d SKIP)\n",
+		total, count["PASS"], count["FAIL"], count["XPASS"],
+		       count["XFAIL"], count["SKIP"]);
+}
+EOF
+
 fi
 
 # Now unload modules before acquiring coverage info.
