@@ -68,11 +68,10 @@ main(void)
 	 * ioctl() calls until DTrace hits us with a SIGUSR1 to start the test.
 	 */
 	if (sigsetjmp(env, 1) == 0) {
-		for (;;)
-{
+		for (;;) {
 			(void) ioctl(-1, -1, NULL);
-usleep(100);
-}
+                        usleep(100);
+                }
 	}
 
 	/*
