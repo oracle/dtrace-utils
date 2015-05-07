@@ -54,6 +54,7 @@ Kris van Hees <kris.van.hees@oracle.com>
 %package devel
 Summary:      DTrace development headers.
 Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-headers
+Requires:     %{name}%{?_isa} = %{version}-%{release}
 Group:	      Development/System
 
 %description devel
