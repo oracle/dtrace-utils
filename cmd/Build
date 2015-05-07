@@ -55,6 +55,8 @@ fi\n"
 $(objdir)/dlibs/load_dtrace_modules: $(dtrace_DIR)/load_dtrace_modules $(objdir)/dlibs/.dir.stamp
 	cp $(dtrace_DIR)/load_dtrace_modules $(objdir)/dlibs
 
+TARGETS += $(objdir)/dlibs/load_dtrace_modules
+
 install::
 	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) $(INSTLIBDIR)/dtrace
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
