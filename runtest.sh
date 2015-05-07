@@ -49,16 +49,26 @@ load_modules()
 {
     # If running as root, pull in appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        DTRACE_MODULES_CONF="$(pwd)/test/modules" $dtrace -qn 'BEGIN { exit(0); }' >/dev/null
+        # Use a loop to pick up the first dtrace instance if regtesting
+        for dt in $dtrace; do
+            # Look for our shared libraries in the right place.
+            if [[ "x$test_libdir" != "xinstalled" ]]; then
+                export LD_LIBRARY_PATH="$(dirname $dt)"
+            fi
 
-        comm -13 \
-             <(lsmod | awk '{print $1}' | sort -u) \
-             <(cat test/modules | grep -v '^#' | grep -qv '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
-        if test -s $tmpdir/failed-modules; then
-            echo -e "Error: cannot load all modules:" >&2
-            cat $tmpdir/failed-modules >&2
-            exit 1
-        fi
+            DTRACE_MODULES_CONF="$(pwd)/test/modules" $dt -qn 'BEGIN { exit(0); }' >/dev/null
+            unset LD_LIBRARY_PATH
+
+            comm -13 \
+                 <(lsmod | awk '{print $1}' | sort -u) \
+                 <(cat test/modules | grep -v '^#' | grep -qv '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
+            if test -s $tmpdir/failed-modules; then
+                echo -e "Error: cannot load all modules:" >&2
+                cat $tmpdir/failed-modules >&2
+                exit 1
+            fi
+            break
+        done
     else
         echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
     fi
@@ -1163,12 +1173,12 @@ for dt in $dtrace; do
             # temporary file. We always ban execution during regtesting:
             # our real interest is whether intermediate results have changed.
 
-            dtest_dir="$tmpdir/regtest/$(basename $base)"
+            dtest_dir="$tmpdir/regtest/$(basename $(dirname $dt))"
             reglog="$dtest_dir/$(echo $_test | sed 's,/,-,g').log"
             mkdir -p $dtest_dir
             echo "$dt_flags -e" > $reglog
             echo >> $reglog
-            $dt "-S $dt_flags -e" 2>&1 > $tmpdir/regtest.out
+            $dt -S $dt_flags -e > $tmpdir/regtest.out 2>&1 
             postprocess $base.r.p $tmpdir/regtest.out $tmpdir/regtest.out
             cat $tmpdir/regtest.out >> $reglog
 
