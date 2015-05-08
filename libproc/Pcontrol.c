@@ -1784,7 +1784,8 @@ Pbkpt_continue(struct ps_prochandle *P)
 	 */
 	if (P->tracing_bkpt == 0 || !bkpt) {
 		if (wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0) < 0) {
-			if (errno == ESRCH) {
+			int err = errno;
+			if (err == ESRCH) {
 				if ((kill(P->pid, 0) < 0) && errno == ESRCH)
 					P->state = PS_DEAD;
 			}
@@ -1794,9 +1795,9 @@ Pbkpt_continue(struct ps_prochandle *P)
 			 * stopped: it cannot mean that we aren't allowed to
 			 * ptrace() it.
 			 */
-			if (errno != EPERM) {
+			if (err != EPERM) {
 				_dprintf("%i: Unexpected error resuming: %s\n",
-				    P->pid, strerror(errno));
+				    P->pid, strerror(err));
 				return;
 			}
 		}
