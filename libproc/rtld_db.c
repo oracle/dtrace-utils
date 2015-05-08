@@ -91,6 +91,7 @@ static struct link_map *rd_get_link_map(rd_agent_t *rd, struct link_map *buf,
  */
 static int rd_ldso_consistent_begin(rd_agent_t *rd);
 static void rd_ldso_consistent_end(rd_agent_t *rd);
+static void rd_ldso_consistent_reset(rd_agent_t *rd);
 
 /* Internal functions. */
 
@@ -521,8 +522,22 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 	uintptr_t searchlist;
 	size_t i;
 
-	if (rd_ldso_consistent_begin(rd) != 0)
+	jmp_buf * volatile old_exec_jmp;
+	jmp_buf **jmp_pad, this_exec_jmp;
+
+	/*
+	 * Trap exec()s at any point within this code.
+	 */
+	jmp_pad = libproc_unwinder_pad(rd->P);
+	old_exec_jmp = *jmp_pad;
+	if (setjmp(this_exec_jmp))
+		goto spotted_exec;
+	*jmp_pad = &this_exec_jmp;
+
+	if (rd_ldso_consistent_begin(rd) != 0) {
+		*jmp_pad = old_exec_jmp;
 		return NULL;
+	}
 
 	if (!rd->l_searchlist_offset)
 		if (find_l_searchlist(rd) < 0)
@@ -578,10 +593,22 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 			goto fail;
 	}
 
+	*jmp_pad = old_exec_jmp;
 	rd_ldso_consistent_end(rd);
 	return buf;
 fail:
+	*jmp_pad = old_exec_jmp;
 	rd_ldso_consistent_end(rd);
+	return NULL;
+
+spotted_exec:
+	_dprintf("%i: spotted exec() in rd_get_loadobj_link_map()\n", rd->P->pid);
+	rd_ldso_consistent_reset(rd);
+	if (old_exec_jmp)
+		longjmp(*old_exec_jmp, 1);
+
+	jmp_pad = libproc_unwinder_pad(rd->P);
+	*jmp_pad = old_exec_jmp;
 	return NULL;
 }
 
@@ -1072,6 +1099,22 @@ static void rd_ldso_nonzero_lmid_consistent_end(rd_agent_t *rd)
 	else if (rd->lmid_bkpted)
 		Pbkpt_continue(rd->P);
 
+	rd->stop_on_consistent = 0;
+	rd->lmid_halted = 0;
+	rd->lmid_bkpted = 0;
+}
+
+/*
+ * Reset the state of the rd_ldso_*_consistent_begin()/end() machinery without
+ * affecting the traced child.  Used when an exec() has been detected, and
+ * prevents the shortly-to-follow rd_delete() from resuming the process
+ * prematurely.
+ */
+static void
+rd_ldso_consistent_reset(rd_agent_t *rd)
+{
+	rd->no_inconsistent = 0;
+	rd->rd_monitoring = FALSE;
 	rd->stop_on_consistent = 0;
 	rd->lmid_halted = 0;
 	rd->lmid_bkpted = 0;
@@ -1637,16 +1680,15 @@ err:
 		rd_ldso_nonzero_lmid_consistent_end(rd);
 	rd_ldso_consistent_end(rd);
 
-	/*
-	 * It is possible we have just died or exec()ed in the middle of
-	 * iteration.  Pwait() to pick that up.
-	 */
-
 	free(primary_scope);
 	free(obj.rl_scope);
 	primary_scope = NULL;
 	obj.rl_scope = NULL;
 
+	/*
+	 * It is possible we have just died or exec()ed in the middle of
+	 * iteration.  Pwait() to pick that up.
+	 */
 	old_r_brk = r_brk(rd);
 	Pwait(rd->P, FALSE);
 
@@ -1665,6 +1707,7 @@ err:
 
  spotted_exec:
 	_dprintf("%i: spotted exec() in rd_loadobj_iter()\n", rd->P->pid);
+	rd_ldso_consistent_reset(rd);
 	free(primary_scope);
 	free(obj.rl_scope);
 	if (old_exec_jmp)
