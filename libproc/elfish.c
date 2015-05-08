@@ -66,10 +66,10 @@ Pread_isa_info(struct ps_prochandle *P, const char *procname)
 		close(fd);
 		return -1;
 	}
+	close(fd);
 
 	if (memcmp(&hdr, ELFMAG, SELFMAG) != 0) {
 		_dprintf("%s is not an ELF file\n", procname);
-		close(fd);
 		return -1;
 	}
 
