@@ -1061,7 +1061,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 
 		if ((P->state != PS_TRACESTOP) &&
 		    (P->state != PS_STOP)) {
-			err = ECHILD;
+			err = -ECHILD;
 			goto err2;
 		}
 	}
@@ -1075,10 +1075,10 @@ err2:
 	if (P->ptrace_count == 0 && ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
 
-	if (err != ECHILD)
+	if (err != -ECHILD)
 		return err;
 	else
-		return ESRCH; /* for a clearer message */
+		return -ESRCH; /* for a clearer message */
 }
 
 /*
