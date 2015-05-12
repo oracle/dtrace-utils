@@ -1160,6 +1160,7 @@ Puntrace(struct ps_prochandle *P, int state)
 		    (errno == ESRCH))
 			P->state = PS_DEAD;
 		P->ptrace_halted = FALSE;
+		P->info_valid = 0;
 	}
 
 	if (P->ptrace_count == 0 && ptrace_lock_hook)
