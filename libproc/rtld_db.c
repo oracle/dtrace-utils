@@ -167,7 +167,7 @@ rtld_global(rd_agent_t *rd)
 	 * to this point without an rd, but rd_loadobj_iter() can be called if a
 	 * mapping update just happened for some reason.  This is still safe
 	 * against recursive calls into rtld_global(), because rtld_global() is
-	 * only consulted when non-default lmids are looked up, PR_OBJ_LDSO is
+	 * only consulted when non-default lmids are looked up; PR_OBJ_LDSO is
 	 * always looked up in LM_ID_BASE.
 	*/
 	if (Pxlookup_by_name(rd->P, 0, PR_OBJ_LDSO,
@@ -306,7 +306,7 @@ static int
 find_l_searchlist(rd_agent_t *rd)
 {
 	/*
-	 * We search in the primary link mpa, because we know this must exist if
+	 * We search in the primary link map, because we know this must exist if
 	 * any do, and that all the link maps will use the same offset for
 	 * l_seachlist.
 	 *
@@ -390,10 +390,11 @@ find_l_searchlist(rd_agent_t *rd)
 	 * As for the size of the hop to make: we know the address of the
 	 * pointer to the link map, since this is an array, but have no explicit
 	 * reference to its size.  However, we have other things which we know
-	 * must always be pointers to link maps, like L_NEXT.  (It also happens
-	 * that POSIX implicitly requires pointers to void and to functions to
-	 * be interconvertible, but that seems like a bad thing to rely on when
-	 * we don't have to, even here.)
+	 * must always be pointers to link maps, like L_NEXT.  We can assume
+	 * they must be appropriately aligned.  (It also happens that POSIX
+	 * implicitly requires pointers to void and to functions to be
+	 * interconvertible, but that seems like a bad thing to rely on when we
+	 * don't have to, even here.)
 	 */
 
 	uintptr_t scan;
@@ -690,7 +691,8 @@ load_lock(rd_agent_t *rd)
  * _rtld_global._dl_load_lock     F
  * released
  * .
- * . dlopen()/dlclose() returns
+ # .
+ * dlopen()/dlclose() returns
  *
  * The main link map (identified by _r_debug.r_map) is consistent at all points
  * except between C and D.  So we can enforce consistency by dropping a
@@ -919,9 +921,9 @@ rd_ldso_consistent_end(rd_agent_t *rd)
  * glibc does not guarantee that the link map for lmids > 0 are consistent:
  * r_brk guards only the link map for lmid 0.  If nonzero lmids are being
  * traversed, these functions can be used to ensure that their link maps are
- * consistent.  They are relatively inefficient (they can stop the process), so
- * use only when necessary.  They must be used within
- * rd_ldso_consistent_begin()/end().
+ * consistent.  They are relatively inefficient (they can stop the process), and
+ * slow (they can busy-wait) so use only when necessary.  They must be used
+ * within rd_ldso_consistent_begin()/end().
  */
 static int
 rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
@@ -1247,7 +1249,6 @@ rd_start_trap(uintptr_t addr, void *rd_data)
 	 * attempts to track dynamic linker state: we will pick things up again
 	 * when another exec() happens.
 	 */
-
 	if (r_debug_addr == -1) {
 		_dprintf("Cannot initialize rd_agent for PID %i: no r_debug.\n",
 		    rd->P->pid);
