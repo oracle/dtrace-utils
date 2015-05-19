@@ -124,7 +124,7 @@ extern	void	Ptrace_set_detached(struct ps_prochandle *, boolean_t);
 
 extern	void	Prelease(struct ps_prochandle *, int);
 extern	void	Pfree(struct ps_prochandle *P);
-extern	void	Puntrace(struct ps_prochandle *, int state);
+extern	void	Puntrace(struct ps_prochandle *, int stay_stopped);
 extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);

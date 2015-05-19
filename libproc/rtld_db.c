@@ -23,7 +23,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2014, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -807,11 +807,9 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 	}
 
 	/*
-	 * Begin ptracing, and record the run state of the process before
-	 * consistency enforcement began.
+	 * Begin ptracing.
 	 */
 	Ptrace(rd->P, 0);
-	rd->prev_state = rd->P->state;
 
 	/*
 	 * Reset the marker that signals that a state transition was detected,
@@ -914,7 +912,7 @@ rd_ldso_consistent_end(rd_agent_t *rd)
 	 */
 	if (Pbkpt_addr(rd->P) != 0)
 		Pbkpt_continue(rd->P);
-	Puntrace(rd->P, rd->prev_state);
+	Puntrace(rd->P, 0);
 }
 
 /*
@@ -994,19 +992,20 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 		Pbkpt_continue(rd->P);
 	} else {
 		unsigned int lock_count;
+		int err;
 
 		/*
 		 * Stop the process while we check the state of the load lock.
 		 * If it dies before this, fail.
 		 */
-		rd->lmid_halt_prev_state = Ptrace(rd->P, 1);
-		if (rd->lmid_halt_prev_state == PS_DEAD)
+		err = Ptrace(rd->P, 1);
+		if ((err < 0) || (err == PS_DEAD))
 			return -1;
 
 		if ((lock_count = load_lock(rd)) < 0) {
 			_dprintf("%i: Cannot read load lock count\n",
 			    rd->P->pid);
-			Puntrace(rd->P, rd->lmid_halt_prev_state);
+			Puntrace(rd->P, 0);
 			return 0;
 		}
 
@@ -1019,7 +1018,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 		}
 
 		rd->ic_transitioned = 0;
-		Puntrace(rd->P, rd->lmid_halt_prev_state);
+		Puntrace(rd->P, 0);
 
 		if (rd->P->state == PS_TRACESTOP)
 			Pbkpt_continue(rd->P);
@@ -1082,7 +1081,10 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 		return -1;
 	else {
 		rd->lmid_halted = 1;
-		rd->lmid_halt_prev_state = Ptrace(rd->P, 1);
+		if (Ptrace(rd->P, 1) < 0)
+			_dprintf("%i: cannot halt the process on entry to "
+			    "lmid-consistent dynamic linker state: %s",
+			    rd->P->pid, strerror(errno));
 	}
 
 	return 0;
@@ -1095,7 +1097,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 static void rd_ldso_nonzero_lmid_consistent_end(rd_agent_t *rd)
 {
 	if (rd->lmid_halted)
-		Puntrace(rd->P, rd->lmid_halt_prev_state);
+		Puntrace(rd->P, 0);
 	else if (rd->lmid_bkpted)
 		Pbkpt_continue(rd->P);
 
@@ -1303,7 +1305,6 @@ rd_new(struct ps_prochandle *P)
 {
 	rd_agent_t *rd;
 	int r_version = 0;
-	int oldstate;
 	uintptr_t r_debug_addr;
 
 	/*
@@ -1341,7 +1342,7 @@ rd_new(struct ps_prochandle *P)
 
 	rd->P = P;
 	P->rap = rd;
-	oldstate = Ptrace(P, 1);
+	Ptrace(P, 1);
 
 	/*
 	 * Check its version.  An _r_debug address or version of zero means that
@@ -1395,12 +1396,12 @@ rd_new(struct ps_prochandle *P)
 			goto err;
 		}
 
-	Puntrace(P, oldstate);
+	Puntrace(P, 0);
 
 	_dprintf("%i: Activated rtld_db agent.\n", rd->P->pid);
 	return (rd);
 err:
-	Puntrace(P, oldstate);
+	Puntrace(P, 0);
 	free(P->rap);
 	P->rap = NULL;
 	return (NULL);

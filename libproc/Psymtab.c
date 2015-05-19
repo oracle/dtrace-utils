@@ -1105,7 +1105,6 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	Elf_Scn *scn;
 	Elf *elf = NULL;
 	size_t nshdrs, shstrndx;
-	int p_state;
 
 	struct {
 		GElf_Shdr c_shdr;
@@ -1165,25 +1164,28 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * same is true of the Puntrace().
 	 */
 	if (!P->noninvasive) {
+		int err;
+
 		fptr->file_init = 0;
-		p_state = Ptrace(P, 1);
+		err = Ptrace(P, 1);
 		if (fptr->file_init == 1) {
-			Puntrace(P, p_state);
+			if (err >= 0)
+				Puntrace(P, 0);
 			return;
 		}
 		fptr->file_init = 1;
 
-		if ((p_state < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
+		if ((err < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
 			    P->mappings[fptr->file_map].map_pmap->pr_vaddr, &fd) < 0)) {
 			_dprintf("cannot acquire file descriptor for mapping at %lx "
 			    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap->pr_vaddr,
 			    fptr->file_pname, strerror(errno));
-			Puntrace(P, p_state);
+			Puntrace(P, 0);
 			goto bad;
 		}
 
 		fptr->file_init = 0;
-		Puntrace(P, p_state);
+		Puntrace(P, 0);
 		if (fptr->file_init == 1) {
 			close(fd);
 			return;

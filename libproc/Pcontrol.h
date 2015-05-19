@@ -209,15 +209,20 @@ struct rd_agent {
 	int	no_inconsistent;
 	int	stop_on_consistent;
 	int	ic_transitioned;
-	int	prev_state;		/* process state before consistency
-					   checking was enabled */
 
 	int	lmid_halted;		/* if nonzero, the process was halted by
 					   rd_ldso_nonzero_lmid_consistent_begin(). */
-	int	lmid_halt_prev_state;	/* process state before said halt */
 	int	lmid_bkpted;		/* halted on bkpt by rlnlcb(). */
 	int	lmid_incompatible_glibc; /* glibc data structure change. */
 };
+
+/*
+ * Previous states of the process.
+ */
+typedef struct prev_states {
+	dt_list_t states_list;	/* linked list (stack, pushpopped at head) */
+	int state;		/* previous state */
+} prev_states_t;
 
 /*
  * A process under management.
@@ -230,6 +235,7 @@ struct ps_prochandle {
 	int	ptraced;	/* true if ptrace-attached */
 	int	noninvasive;	/* true if this is a noninvasive grab */
 	int	ptrace_count;	/* count of Ptrace() calls */
+	dt_list_t ptrace_states; /* states of higher Ptrace() levels */
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
 	int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that
 				   have yet to be consumed */

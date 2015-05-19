@@ -62,6 +62,8 @@ char	procfs_path[PATH_MAX] = "/proc";
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
 static void Pfree_internal(struct ps_prochandle *P);
+static prev_states_t *Ppush_state(struct ps_prochandle *P, int state);
+static int Ppop_state(struct ps_prochandle *P);
 static int Pwait_handle_waitpid(struct ps_prochandle *P, int status);
 static int bkpt_handle(struct ps_prochandle *P, uintptr_t addr);
 static int bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt);
@@ -191,6 +193,11 @@ Pcreate(
 	P->ptrace_halted = TRUE;
 	P->noninvasive = FALSE;
 	P->pid = pid;
+	if (Ppush_state(P, PS_RUN) == NULL) {
+		rc = errno;
+		_dprintf("Pcreate: error pushing state: %s\n", strerror(errno));
+		goto bad;
+	}
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 1);
 
@@ -347,6 +354,8 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 			}
 		} else {
 			P->ptrace_count = 1;
+			if (Ppush_state(P, PS_RUN) == NULL)
+				goto bad;
 			P->ptraced = TRUE;
 			P->ptrace_halted = TRUE;
 		}
@@ -544,6 +553,9 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		return;
 
 	Psym_release(P);
+
+	while (P->ptrace_states.dl_next != NULL)
+		Ppop_state(P);
 
 	if (P->state == PS_DEAD) {
 		_dprintf("Prelease: releasing handle %p of dead pid %d\n",
@@ -842,8 +854,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 * TRACEEXEC trap.  Our breakpoints are gone, our auxv has changed, our
 	 * memfd needs closing for a later reopen, we need to figure out if this
 	 * is a 64-bit process anew, any (internal) exec() handler should be
-	 * called, and we need to seize control again.  We also need to arrange
-	 * to trap the *next* exec(), then resume.
+	 * called, and we need to seize control again.
 	 *
 	 * Note: much of this may be unnecessary if the caller has defined an
 	 * exec() pad to longjmp() to, but there's no guarantee that the caller
@@ -891,7 +902,10 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		if ((P->ptrace_count == 0) && ptrace_lock_hook)
 			ptrace_lock_hook(P, P->wrap_arg, 1);
 
+		while (P->ptrace_states.dl_next != NULL)
+			Ppop_state(P);
 		P->ptrace_count = 1;
+		Ppush_state(P, PS_RUN);
 		P->ptraced = TRUE;
 		P->ptrace_halted = TRUE;
 		P->state = PS_TRACESTOP;
@@ -965,10 +979,61 @@ Ptrace_set_detached(struct ps_prochandle *P, boolean_t detach)
 }
 
 /*
+ * Push a state onto the state stack.  Return that state, in case the caller
+ * wants to mutate it.
+ */
+static prev_states_t *
+Ppush_state(struct ps_prochandle *P, int state)
+{
+	prev_states_t *s;
+
+	s = malloc(sizeof (struct prev_states));
+	if (s == NULL)
+		return NULL;
+
+	s->state = state;
+	dt_list_prepend(&P->ptrace_states, s);
+	_dprintf("Ppush_state(): ptrace_count %i, state %i\n", P->ptrace_count, s->state);
+
+	return s;
+}
+
+/*
+ * Pop a state off the state stack and return it.
+ */
+static int
+Ppop_state(struct ps_prochandle *P)
+{
+	prev_states_t *s;
+	int state;
+
+	s = dt_list_next(&P->ptrace_states);
+	dt_list_delete(&P->ptrace_states, s);
+	_dprintf("Ppop_state(): ptrace_count %i, state %i\n", P->ptrace_count+1, s->state);
+	state = s->state;
+	free(s);
+	return state;
+}
+
+/*
+ * Change the state at the top of the stack.
+ */
+static void
+Pset_orig_state(struct ps_prochandle *P, int state)
+{
+	prev_states_t *s;
+
+	s = dt_list_next(&P->ptrace_states);
+	if (s)
+		s->state = state;
+}
+
+/*
  * Grab a ptrace(), unless one is already grabbed: increment the ptrace count.
- * Regardless, the process will be PS_TRACESTOP on return if 'stopped'.
+ * Regardless, the process will be PS_TRACESTOP on return if 'stopped' (unless
+ * the process is dead or un-ptraceable).
  *
- * Returns the previous stop state, or, if <0, an error code.
+ * Returns zero or a positive number on success, or a negative error code.
  *
  * Failure to trace is considered an error unless called from within Pgrab().
  */
@@ -976,6 +1041,7 @@ int
 Ptrace(struct ps_prochandle *P, int stopped)
 {
 	int err = 0;
+	prev_states_t *state;
 
 	if (P->noninvasive)
 		return -ESRCH;
@@ -984,9 +1050,13 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		ptrace_lock_hook(P, P->wrap_arg, 1);
 
 	P->ptrace_count++;
+	state = Ppush_state(P, P->state);
+	if (state == NULL) {
+		P->ptrace_count--;
+		return -ENOMEM;
+	}
 
 	if (P->ptraced) {
-		int state;
 		int listen_interrupt;
 
 		/*
@@ -1004,14 +1074,14 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		 * for other ptrace requests to succeed.
 		 */
 		Pwait(P, 0);
+		state->state = P->state;
 		if ((!stopped) || (P->state == PS_TRACESTOP))
-			return P->state;
+			return(0);
 
 		if (P->state == PS_DEAD)
-			return P->state;
+			return PS_DEAD;
 
 		listen_interrupt = P->listening;
-		state = P->state;
 		P->ptrace_halted = TRUE;
 
 		wrapped_ptrace(P, PTRACE_INTERRUPT, P->pid, 0);
@@ -1024,7 +1094,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 			Pwait(P, 1);
 		P->awaiting_pending_stops--;
 
-		return state;
+		return 0;
 	}
 
 	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, PTRACE_O_TRACEEXEC) < 0) {
@@ -1082,34 +1152,31 @@ err2:
 }
 
 /*
- * Ungrab a ptrace(). If none are left, set running, or detach if P->detach.
- * If stuck at a breakpoint, resume the process.
+ * Ungrab a ptrace(), setting the process running if the balancing Ptrace() call
+ * stopped it. If none are left, set running, or detach if P->detach.
+ * If stuck at a breakpoint, continue from the breakpoint, poking text back in.
  *
- * If nonzero, 'state' is the previous stop state returned from the matching
- * call to Ptrace().  If a state other than PS_RUN is stipulated, we do not
- * resume, but in fact remain under ptrace().  This is so that
- * Ptrace()/Puntrace() pairs called from within a breakpoint trap function
- * properly and do not affect the state of the system. In effect, Puntrace()
- * should cause a resume only if Ptrace() caused a stop.
+ * If 'leave_stopped' is set, the process is not restarted upon Puntrace(), even
+ * if the balancing Ptrace() stopped it: it is up to the caller to resume.
  *
  * Lots of P->state comparisons are needed here, because a PTRACE_CONT is only
  * valid if the process was stopped beforehand: otherwise, you get -ESRCH,
  * which is helpfully indistinguishable from the error you get when the process
  * is dead.
- *
- * A state <0 is considered a sign that the original Ptrace() call failed, and
- * silently does nothing.
  */
 void
-Puntrace(struct ps_prochandle *P, int state)
+Puntrace(struct ps_prochandle *P, int leave_stopped)
 {
+	int prev_state;
+
 	/*
 	 * Protect against unbalanced Ptrace()/Puntrace().
 	 */
-	if ((!P->ptraced) || (P->ptrace_count == 0) || (state < 0))
+	if ((!P->ptraced) || (P->ptrace_count == 0))
 		return;
 
 	P->ptrace_count--;
+	prev_state = Ppop_state(P);
 
 	/*
 	 * Still under Ptrace(), or a stay in stop state requested, or stuck in
@@ -1117,16 +1184,18 @@ Puntrace(struct ps_prochandle *P, int state)
 	 * needs doing, except possibly a resume, using Pbkpt_continue() so as
 	 * to do the right thing if a breakpoint is outstanding.
 	 */
-	if (P->ptrace_count || P->bkpt_halted ||
-	    ((state != 0) && (state != PS_RUN))) {
-		if ((state == PS_RUN) && (P->state == PS_TRACESTOP)) {
-			P->state = state;
+
+	if (P->ptrace_count || P->bkpt_halted || leave_stopped ||
+	    prev_state != PS_RUN) {
+		if ((prev_state == PS_RUN) && (P->state == PS_TRACESTOP)) {
+			P->state = prev_state;
 			_dprintf("%i: Continuing because previous state was "
 			    "PS_RUN\n", P->pid);
 			Pbkpt_continue(P);
 			P->ptrace_halted = FALSE;
-		} else if ((state == PS_STOP) && (P->state == PS_TRACESTOP)) {
-			P->state = state;
+		} else if ((prev_state == PS_STOP) &&
+		    (P->state == PS_TRACESTOP)) {
+			P->state = prev_state;
 			P->group_stopped = 1;
 			P->listening = 1;
 			_dprintf("%i: LISTENing because previous state was "
@@ -1142,6 +1211,8 @@ Puntrace(struct ps_prochandle *P, int state)
 	}
 
 	/*
+	 * Not in Ptrace(): at top level, not halted at a breakpoint.
+	 *
 	 * Continue the process, or detach it if requested, no breakpoints
 	 * are outstanding, and no rd_agent is active.
 	 */
@@ -1280,7 +1351,6 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
 	uint_t h = addr % BKPT_HASH_BUCKETS;
 	bkpt_handler_t *notifier = NULL;
-	int orig_state;
 	int err;
 
 	/*
@@ -1316,11 +1386,9 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 		}
 	}
 
-	orig_state = Ptrace(P, 1);
-	if (orig_state < 0) {
-		err = orig_state;
+	err = Ptrace(P, 1);
+	if (err < 0)
 		goto err2;
-	}
 
 	/*
 	 * Allocate and poke in a new breakpoint.  This breakpoint may have no
@@ -1348,7 +1416,6 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	if (errno != 0) {
 		free(bkpt);
 		goto err;
-		return errno;
 	}
 	if (wrapped_ptrace(P, PTRACE_POKETEXT, P->pid, addr,
 		mask_bkpt(bkpt->orig_insn)) < 0) {
@@ -1368,14 +1435,14 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	 * topmost such, but never of detaching, no matter what the state of
 	 * P->detach.
 	 */
-	Puntrace(P, orig_state);
+	Puntrace(P, 0);
 	return 0;
 err:
 	err = errno;
 err2:
 	_dprintf("%i: Cannot add breakpoint on %lx: %s\n", P->pid,
 	    addr, strerror(errno));
-	Puntrace(P, orig_state);
+	Puntrace(P, 0);
 	free(notifier);
 	return err;
 }
@@ -1391,7 +1458,7 @@ void
 Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 {
 	bkpt_t *bkpt;
-	int orig_state;
+	int err;
 	int orig_ptrace_halted = P->ptrace_halted;
 
 	/*
@@ -1408,10 +1475,12 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		return;
 	}
 
-	orig_state = Ptrace(P, 1);
-	if (orig_state < 0)
+	err = Ptrace(P, 1);
+	if (err < 0) {
 		_dprintf("%i: Unexpected error %s ptrace()ing to remove "
-		    "breakpoint.", P->pid, strerror(orig_state));
+		    "breakpoint.", P->pid, strerror(err));
+		return;
+	}
 
 	/*
 	 * If we are currently inside a handler for this breakpoint, or inside
@@ -1423,19 +1492,19 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 	if (!bkpt) {
 		_dprintf("%i: Punbkpt() called with %lx, which is not a known "
 		    "breakpoint.\n", P->pid, addr);
-		Puntrace(P, orig_state);
+		Puntrace(P, 0);
 		return;
 	}
 
 	if (bkpt->in_handler) {
 		bkpt->pending_removal = 1;
-		Puntrace(P, orig_state);
+		Puntrace(P, 0);
 		return;
 	}
 
 	if (bkpt->bkpt_singlestep && bkpt->bkpt_singlestep->in_handler) {
 		bkpt->bkpt_singlestep->pending_removal = 1;
-		Puntrace(P, orig_state);
+		Puntrace(P, 0);
 		return;
 	}
 
@@ -1507,12 +1576,12 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		 * Ptrace(), set ourselves running again on Puntrace().
 		 */
 		if (!orig_ptrace_halted)
-			orig_state = PS_RUN;
+			Pset_orig_state(P, PS_RUN);
 	}
 
 	delete_bkpt_handler(bkpt);
 
-	Puntrace(P, orig_state);
+	Puntrace(P, 0);
 
 	_dprintf("%i: Removed breakpoint on %lx\n", P->pid, addr);
 }
