@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -29,7 +29,6 @@
 
 #include <pthread.h>
 #include <mutex.h>
-#include <sys/processor.h>
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/ptrace.h>
@@ -42,7 +41,7 @@ extern int gmatch(const char *s, const char *p);
 
 hrtime_t gethrtime(void);
 
-int p_online (processorid_t cpun, int new_status);
+int p_online(int cpun);
 
 int pthread_cond_reltimedwait_np(pthread_cond_t *cvp, pthread_mutex_t *mp,
     struct timespec *reltime);

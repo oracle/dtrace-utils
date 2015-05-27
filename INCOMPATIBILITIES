@@ -146,6 +146,13 @@ potentially cause DTrace to dump core if one of these structures wound up at the
 end of a page at the end of a malloc() arena.  When this bug is fixed, this
 padding will disappear.
 
+All references to the type 'processor_t' are gone: this was Solaris-specific
+anyway and all the structure fields that were declared of that type actually
+always held CPU numbers.  To further signify this change, and better describe its
+purpose, the dtv_status member of struct dtrace_vector is now named
+dtv_cpu_status: it should return -1 if the requested CPU is not online, and
+zero otherwise.  (This is what the code expected in any case.)
+
 
 There is a new dtrace_debug_set_dump_sig() function, which sets the signal (by
 default SIGUSR1); when DTRACE_DEBUG=signal is set in the environment at startup,

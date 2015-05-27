@@ -588,7 +588,7 @@ extern void dt_set_errmsg(dtrace_hdl_t *, const char *, const char *,
     const char *, int, const char *, va_list);
 
 extern int dt_ioctl(dtrace_hdl_t *, unsigned long int, void *);
-extern int dt_status(dtrace_hdl_t *, processorid_t);
+extern int dt_cpu_status(dtrace_hdl_t *, int);
 extern long dt_sysconf(dtrace_hdl_t *, int);
 extern ssize_t dt_write(dtrace_hdl_t *, int, const void *, size_t);
 _dt_printflike_(3,4)

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010, 2013, 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2010, 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -41,8 +41,6 @@
 #include <limits.h>
 #include <sys/ioctl.h>
 #include <port.h>
-
-#include <sys/processor.h>
 
 #include <dt_impl.h>
 
@@ -473,14 +471,14 @@ dt_ioctl(dtrace_hdl_t *dtp, unsigned long int val, void *arg)
 }
 
 int
-dt_status(dtrace_hdl_t *dtp, processorid_t cpu)
+dt_cpu_status(dtrace_hdl_t *dtp, int cpu)
 {
 	const dtrace_vector_t *v = dtp->dt_vector;
 
 	if (v == NULL)
-		return (p_online(cpu, P_STATUS));
+		return (p_online(cpu));
 
-	return (v->dtv_status(dtp->dt_varg, cpu));
+	return (v->dtv_cpu_status(dtp->dt_varg, cpu));
 }
 
 long

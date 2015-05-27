@@ -33,8 +33,6 @@
 #include <gelf.h>
 #include <sys/ctf_api.h>
 
-#include <sys/processor.h>
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -197,7 +195,7 @@ typedef struct dtrace_probedata {
 	dtrace_hdl_t *dtpda_handle;		/* handle to DTrace library */
 	dtrace_eprobedesc_t *dtpda_edesc;	/* enabled probe description */
 	dtrace_probedesc_t *dtpda_pdesc;	/* probe description */
-	processorid_t dtpda_cpu;		/* CPU for data */
+	unsigned int dtpda_cpu;			/* CPU for data */
 	caddr_t dtpda_data;			/* pointer to raw data */
 	dtrace_flowkind_t dtpda_flow;		/* flow kind */
 	const char *dtpda_prefix;		/* recommended flow prefix */
@@ -274,7 +272,7 @@ typedef struct dtrace_errdata {
 	dtrace_hdl_t *dteda_handle;		/* handle to DTrace library */
 	dtrace_eprobedesc_t *dteda_edesc;	/* enabled probe inducing err */
 	dtrace_probedesc_t *dteda_pdesc;	/* probe inducing error */
-	processorid_t dteda_cpu;		/* CPU of error */
+	unsigned int dteda_cpu;			/* CPU of error */
 	int dteda_action;			/* action inducing error */
 	int dteda_offset;			/* offset in DIFO of error */
 	int dteda_fault;			/* specific fault */
@@ -301,7 +299,7 @@ typedef enum {
 
 typedef struct dtrace_dropdata {
 	dtrace_hdl_t *dtdda_handle;		/* handle to DTrace library */
-	processorid_t dtdda_cpu;		/* CPU, if any */
+	unsigned int dtdda_cpu;			/* CPU, if any */
 	dtrace_dropkind_t dtdda_kind;		/* kind of drop */
 	uint64_t dtdda_drops;			/* number of drops */
 	uint64_t dtdda_total;			/* total drops */
@@ -582,7 +580,7 @@ struct dtrace_vector {
 	int (*dtv_ioctl)(void *varg, int val, void *arg);
 	int (*dtv_lookup_by_addr)(void *varg, GElf_Addr addr, GElf_Sym *symp,
 	    dtrace_syminfo_t *sip);
-	int (*dtv_status)(void *varg, processorid_t cpu);
+	int (*dtv_cpu_status)(void *varg, int cpu);
 	long (*dtv_sysconf)(void *varg, int name);
 };
 

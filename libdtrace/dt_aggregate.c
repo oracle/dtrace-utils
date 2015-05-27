@@ -1060,7 +1060,7 @@ dt_aggregate_go(dtrace_hdl_t *dtp)
 
 	agp->dtat_ncpus = 0;
 	for (i = 0; i < agp->dtat_maxcpu; i++) {
-		if (dt_status(dtp, i) == -1)
+		if (dt_cpu_status(dtp, i) == -1)
 			continue;
 
 		agp->dtat_cpus[agp->dtat_ncpus++] = i;
