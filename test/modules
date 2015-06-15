@@ -6,3 +6,4 @@ systrace
 sdt
 fasttrap
 ext3 # unload-quietly
+isofs # unload-quietly
