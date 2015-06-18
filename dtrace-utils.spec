@@ -10,7 +10,7 @@
 # A list of kernels that you want dtrace to be runnable against. The
 # resulting dtrace will work on any kernel with the same major.minor
 # version.
-%{lua: dtrace_kernels = {"3.8.13-87.el6uek", "4.0.5-16.el6uek"}}
+%{lua: dtrace_kernels = {"3.8.13-85.el6uek", "4.0.5-16.el6uek"}}
 
 BuildRequires: rpm
 Name:         dtrace-utils
