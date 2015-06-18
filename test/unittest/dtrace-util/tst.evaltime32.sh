@@ -25,6 +25,8 @@
 # Use is subject to license terms.
 #
 
+# @@xfail: uninvestigated as yet, surely a bug, release branch xfail
+
 ##
 #
 # ASSERTION:

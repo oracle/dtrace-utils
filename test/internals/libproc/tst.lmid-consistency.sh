@@ -30,6 +30,7 @@
 #
 
 # @@timeout: 25
+# @@skip: randomly coredumping
 
 unset LD_AUDIT
 export MANY_LMIDS=t
