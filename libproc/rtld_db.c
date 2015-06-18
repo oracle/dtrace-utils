@@ -1447,7 +1447,7 @@ rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 	rd->rd_event_fun = fun;
 	rd->rd_event_data = data;
 
-	if (rd->rd_monitoring)
+	if ((rd->rd_monitoring) || (rd->rd_monitor_suppressed))
 		return RD_OK;
 
 	if ((r_brk(rd) == 0) || (!rd->maps_ready))
@@ -1481,6 +1481,30 @@ rd_event_disable(rd_agent_t *rd)
 		Punbkpt(rd->P, rd->r_brk_addr);
 		rd->rd_monitoring = 0;
 	}
+
+	_dprintf("%i: disabled rtld activity monitoring.\n", rd->P->pid);
+}
+
+/*
+ * Disable DLACTIVITY monitoring forever.  (Monitoring will still happen for
+ * dynamic linker consistency enforcement.)
+ */
+void
+rd_event_suppress(rd_agent_t *rd)
+{
+	/*
+	 * Tell the event callback that we are shutting down.
+	 */
+	if (rd->rd_event_fun)
+		rd->rd_event_fun(rd, NULL, rd->rd_event_data);
+
+	rd->rd_event_fun = NULL;
+	rd->rd_event_data = NULL;
+	if (rd->rd_monitoring && rd->no_inconsistent == 0) {
+		Punbkpt(rd->P, rd->r_brk_addr);
+		rd->rd_monitoring = 0;
+	}
+	rd->rd_monitor_suppressed = 1;
 
 	_dprintf("%i: disabled rtld activity monitoring.\n", rd->P->pid);
 }

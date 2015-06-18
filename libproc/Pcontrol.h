@@ -195,6 +195,7 @@ struct rd_agent {
 					   _rtld_global */
 	int	rd_monitoring;		/* 1 whenever rtld_db has a breakpoint
 					   set on the dynamic linker. */
+	int	rd_monitor_suppressed;	/* 1 if rd monitoring is off forever */
 	rd_event_fun rd_event_fun;	/* function to call on rtld event */
 	void	*rd_event_data;		/* state passed to rtld_event_fun */
 

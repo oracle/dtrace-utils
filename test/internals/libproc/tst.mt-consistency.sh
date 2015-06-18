@@ -33,7 +33,6 @@
 #
 
 # @@timeout: 25
-# @@xfail: needs multithread-capable libproc
 
 unset LD_AUDIT
 export NUM_THREADS=4

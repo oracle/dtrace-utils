@@ -85,6 +85,10 @@ static jmp_buf **single_thread_unwinder_pad(struct ps_prochandle *unused);
 static ptrace_lock_hook_fun *ptrace_lock_hook;
 libproc_unwinder_pad_fun *libproc_unwinder_pad = single_thread_unwinder_pad;
 
+#define LIBPROC_PTRACE_OPTIONS PTRACE_O_TRACEEXEC | \
+	PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | \
+	PTRACE_O_TRACECLONE
+
 _dt_printflike_(1,2)
 void
 _dprintf(const char *format, ...)
@@ -213,8 +217,7 @@ Pcreate(
 	 * ptrace() the process with exec and fork tracing active, and unblock
 	 * it.
 	 */
-	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, PTRACE_O_TRACEEXEC |
-		PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, LIBPROC_PTRACE_OPTIONS) < 0) {
 		rc = errno;
 		_dprintf("Pcreate: seize of %s failed: %s\n", file,
 		    strerror(errno));
@@ -953,6 +956,24 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	}
 
 	/*
+	 * TRACECLONE trap.  A new thread (or something near enough to it that
+	 * we can treat it as one).  DTrace is not ready for this everywhere
+	 * yet: stop monitoring shared library activity, if we were.
+	 */
+	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_CLONE << 8))
+	{
+		pid_t pid;
+
+		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
+			bkpt_flush(P, pid, FALSE);
+
+		rd_event_suppress(P->rap);
+
+		wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
+		return(0);
+	}
+
+        /*
 	 * Other ptrace() traps are generally unexpected unless some breakpoints
 	 * are active.  We can only get this far when ptrace()ing, so we know it
 	 * must be valid to call ptrace() ourselves.
@@ -1125,8 +1146,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		return 0;
 	}
 
-	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, PTRACE_O_TRACEEXEC |
-		PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, LIBPROC_PTRACE_OPTIONS) < 0) {
 		if (!Pgrabbing)
 			goto err;
 		else
@@ -1138,8 +1158,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 	if (stopped) {
 		P->ptrace_halted = TRUE;
 
-		if (wrapped_ptrace(P, PTRACE_INTERRUPT, P->pid, 0,
-			PTRACE_O_TRACEEXEC) < 0) {
+		if (wrapped_ptrace(P, PTRACE_INTERRUPT, P->pid, 0, 0) < 0) {
 			wrapped_ptrace(P, PTRACE_DETACH, P->pid, 0, 0);
 			if (!Pgrabbing)
 				goto err;
