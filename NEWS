@@ -1,3 +1,58 @@
+0.4.6
+-----
+
+New features:
+
+ - CPU hotplugging is now supported.
+
+New dependencies:
+
+ - dtrace-utils-devel now always pulls in the corresponding version of
+   dtrace-utils, rather than being satisfied with whatever version is
+   installed.
+   [Introduced in DTrace 0.3.0.]
+
+ - The DTrace kernel header package was renamed dtrace-modules-shared-headers
+   in dtrace-modules 0.4.4; dtrace-utils now follows this renaming.
+
+Bugfixes:
+
+ - Processes that receive SIGTRAP in normal operation now work even when being
+   dtraced for a ustack(), etc.  Previously, the SIGTRAP would be ignored.
+   [Introduced -- intentionally -- in DTrace 0.4.5, though this case would have
+    misbehaved in other ways since 0.4.0.]
+
+ - DTrace no longer loses track of processes that exec() while DTrace is looking
+   at their dynamic linker state.
+
+ - DTrace no longer leaves breakpoints lying around in fork()ed processes, but
+   properly detaches from them and removes its breakpoints.
+
+ - DTrace no longer considers that it knows the state of the symbol table of
+   processes it has since stopped monitoring.
+
+ - DTrace no longer crashes multithreaded processes that do dlopen() /
+   dlclose().
+   [All introduced in DTrace 0.4.0.]
+
+Library interface changes:
+
+ - #including <dtrace.h> used to fail because of the absence of a
+   Solaris-specific header we did not ship.  That header is no longer called
+   for.
+
+Changes to user-visible internals:
+
+ - DTrace now loads D libraries (with translators, etc) from directories with a
+   name that depends upon the running kernel, so can support multiple kernels
+   with the same userspace package.
+
+Known bugs:
+
+ - Multithreaded processes under u{stack,sym,addr,mod}() which do dlopen() in
+   threads other than the first may not have accurate symbol resolution for
+   symbols introduced by such dlopen()s.
+
 0.4.5
 -----
 

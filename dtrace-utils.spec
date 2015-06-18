@@ -10,7 +10,7 @@
 # A list of kernels that you want dtrace to be runnable against. The
 # resulting dtrace will work on any kernel with the same major.minor
 # version.
-%{lua: dtrace_kernels = {"3.8.13-44.1.3.el6uek", "4.0.0-1.el6uek"}}
+%{lua: dtrace_kernels = {"3.8.13-87.el6uek", "4.0.5-16.el6uek"}}
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -139,9 +139,23 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
+- Support multiple kernels with a single userspace tree, loading system
+  D libraries from directories named like /usr/lib64/dtrace/3.8.
+  [Orabug: 21279908]
+- Processes being userspace-traced can now receive SIGTRAP.
+  [Orabug: 21279300]
+- dtrace-utils-devel now depends on the same version of dtrace-utils.
+  [Orabug: 21280259]
+- No longer lose track of processes that exec() while their dynamic linker
+  state is being inspected. [Orabug: 21279300]
+- No longer assume that the symbol table of processes that are no longer
+  being monitored is unchanged since it was last inspected. [Orabug: 21279300]
+- Properly remove breakpoints from fork()ed children. [Orabug: 21279300]
+
 * Mon Feb 16 2015 - <nick.alcock@oracle.com> - 0.4.5-3
 - The dependencies are adjusted to pick up the renamed dtrace headers package.
-[Orabug: 20508087]
+  [Orabug: 20508087]
 
 * Tue Nov 18 2014 - <nick.alcock@oracle.com> - 0.4.5-2
 - A number of crashes when out of memory are fixed. [Orabug: 20014606]
