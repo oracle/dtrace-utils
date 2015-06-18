@@ -998,16 +998,23 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		bkpt = bkpt_by_addr(P, ip, FALSE);
 
 		if ((ip < 0) || !bkpt) {
+			int sig = 0;
 			/*
 			 * This is not a known breakpoint nor a temporary
-			 * singlestepping breakpoint.  Drop it (pro tem).
+			 * singlestepping breakpoint.  Reinject it.
 			 */
 			_dprintf("Pwait: %i: process status change at "
-			    "address %lx: SIGTRAP does not correspond to a "
-			    "known breakpoint, process resumed.\n", P->pid,
-				ip);
-			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
-			    0);
+			    "address %lx: signal %i does not correspond to a "
+			    "known breakpoint.\n", P->pid, ip, WTERMSIG(status));
+
+			if ((WIFSTOPPED(status)) && (WSTOPSIG(status)) == SIGTRAP)
+				P->state = PS_STOP;
+
+			if (((WIFSIGNALED(status)) && (WTERMSIG(status) == SIGTRAP)) ||
+			    ((WIFSTOPPED(status)) && (WSTOPSIG(status)) == SIGTRAP))
+				sig = SIGTRAP;
+
+			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, sig);
 			return(0);
 		}
 	}
