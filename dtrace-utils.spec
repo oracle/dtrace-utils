@@ -18,19 +18,13 @@ License:      Oracle Corporation
 Group:        Development/Tools
 Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
+BuildRequires: glibc-static glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
 Version:      0.4.6
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
-ExclusiveArch:    x86_64 sparc64
-
-# SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
-# disabled.
-%ifnarch sparc64
-BuildRequires: glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
-%endif
+ExclusiveArch:    x86_64
 
 # Substitute in kernel-versin-specific requirements.
 

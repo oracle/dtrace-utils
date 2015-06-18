@@ -1,10 +1,6 @@
 0.4.6
 -----
 
-New features:
-
- - CPU hotplugging is now supported.
-
 New dependencies:
 
  - dtrace-utils-devel now always pulls in the corresponding version of
