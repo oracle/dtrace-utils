@@ -32,12 +32,12 @@ ExclusiveArch:    x86_64 sparc64
 BuildRequires: glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %endif
 
-# Substitute in kernel-versin-specific requirements.
+# Substitute in kernel-version-specific requirements.
 
 %{lua:
   local srcdirexp = ""
   for i, k in ipairs(dtrace_kernels)  do
-      string.format("%q", "BuildRequires: kernel%{variant}-devel = " .. k .. "\n")
+      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k))
       srcdirexp = srcdirexp .. " " .. k .. "*"
   end
   rpm.define("srcdirexp " .. srcdirexp)
