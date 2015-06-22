@@ -21,7 +21,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
 Version:      0.4.6
-Release:      1%{?dist}
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -133,7 +133,12 @@ fi
 %{_includedir}/dtrace.h
 
 %changelog
+* Mon Jun 22 2015 - <nick.alcock@oracle.com> - 0.4.6-2
+- Fix a rare race causing stalls of fork()ed children of traced processes
+  under load, in 0.4.6-1 only [Orabug: 21284447]
+
 * Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
+- Released to QA team only
 - Support multiple kernels with a single userspace tree, loading system
   D libraries from directories named like /usr/lib64/dtrace/3.8.
   [Orabug: 21279908]
