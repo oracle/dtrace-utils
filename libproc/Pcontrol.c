@@ -62,6 +62,9 @@ char	procfs_path[PATH_MAX] = "/proc";
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
 static void Pfree_internal(struct ps_prochandle *P);
+static void ignored_child_wait(struct ps_prochandle *P, pid_t pid,
+    void (*fun)(struct ps_prochandle *P, pid_t pid));
+static void ignored_child_flush(struct ps_prochandle *P, pid_t pid);
 static prev_states_t *Ppush_state(struct ps_prochandle *P, int state);
 static int Ppop_state(struct ps_prochandle *P);
 static int Pwait_handle_waitpid(struct ps_prochandle *P, int status);
@@ -87,7 +90,7 @@ libproc_unwinder_pad_fun *libproc_unwinder_pad = single_thread_unwinder_pad;
 
 #define LIBPROC_PTRACE_OPTIONS PTRACE_O_TRACEEXEC | \
 	PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | \
-	PTRACE_O_TRACECLONE
+	PTRACE_O_TRACEEXIT
 
 _dt_printflike_(1,2)
 void
@@ -214,10 +217,10 @@ Pcreate(
 	}
 
 	/*
-	 * ptrace() the process with exec and fork tracing active, and unblock
-	 * it.
+	 * ptrace() the process with our tracing options active, and unblock it.
 	 */
-	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, LIBPROC_PTRACE_OPTIONS) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, pid, 0, LIBPROC_PTRACE_OPTIONS |
+		    PTRACE_O_TRACECLONE) < 0) {
 		rc = errno;
 		_dprintf("Pcreate: seize of %s failed: %s\n", file,
 		    strerror(errno));
@@ -704,7 +707,24 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	}
 
 	/*
-	 * Exit under ptrace() monitoring.
+	 * Exit under ptrace() monitoring.  We have to detect, and ignore,
+	 * PTRACE_EVENT_EXIT, because we need PTRACE_EVENT_EXIT to reliably
+	 * detect the early vanishing of TRACEFORKed children, for which we must
+	 * have PTRACE_EVENT_EXIT turned on before the fork() happens.	However,
+	 * we cannot mark the process dead at this stage, because the kernel
+	 * will not fire proc::exit until later: if we consider the process dead
+	 * at this stage, and dtrace terminates as a result, it will miss that
+	 * firing.
+	 */
+	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXIT << 8)) {
+		_dprintf("%i: process status change: exit coming.\n", P->pid);
+
+		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, 0);
+		return (0);
+	}
+
+	/*
+	 * Now the real exit detection.
 	 */
 	if (WIFEXITED(status)) {
 		_dprintf("%i: process status change: exited with "
@@ -950,10 +970,17 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 			_dprintf("%i: process status change: fork() or vfork() "
 			    "detected, discarding breakpoints...\n", pid);
 
-			bkpt_flush(P, pid, FALSE);
-			wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0);
+			/*
+			 * Flush breakpoints in the child and detach from it,
+			 * once it has halted.
+			 */
+			ignored_child_wait(P, pid, ignored_child_flush);
 		}
-		wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
+		if (wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0) < 0)
+			_dprintf("%i: cannot continue parent: %s\n", P->pid,
+			    strerror(errno));
+		else
+			_dprintf("%i: continued parent.\n", P->pid);
 		P->state = PS_RUN;
 		return(0);
 	}
@@ -967,11 +994,20 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	{
 		pid_t pid;
 
+		_dprintf("%i: process status change: thread creation detected, "
+			    "suppressing rd events...\n", P->pid);
+
 		P->state = PS_TRACESTOP;
-		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
-			bkpt_flush(P, pid, FALSE);
+		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL,
+			&pid) < 0)
+			ignored_child_wait(P, pid, ignored_child_flush);
 
 		rd_event_suppress(P->rap);
+
+		/*
+		 * Stop tracing thread creation now.
+		 */
+		wrapped_ptrace(P, PTRACE_SETOPTIONS, 0, LIBPROC_PTRACE_OPTIONS);
 
 		P->state = PS_RUN;
 		wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
@@ -1027,6 +1063,105 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	if (!P->bkpt_consume)
 		P->state = bkpt_handle(P, ip);
 	return(0);
+}
+
+/*
+ * Wait for a random traced child that we do not otherwise care about to halt,
+ * then detach from it after calling 'fun'.
+ *
+ * This child is not one we are doing anything in particular to, other than
+ * calling 'fun': we expect only PTRACE_EVENT_STOP / EXEC / CLONE / FORK /
+ * VFORK, termination, or signals.  We pass on all the signals, return on
+ * termination, and detach when a STOP is seen.  When a CLONE or VFORK are seen,
+ * recursively call ourselves to do the same thing to the new child.  If an EXEC
+ * is seen, note that fun() should not be called, since its purpose is to fix up
+ * the new child for future detached operation by doing things like removing
+ * breakpoints, and on exec() all such things are gone.
+ *
+ * Errors are ignored, because there's not much we can do about them.
+ */
+static void
+ignored_child_wait(struct ps_prochandle *P, pid_t pid,
+    void (*fun)(struct ps_prochandle *P, pid_t pid))
+{
+	int status;
+
+	_dprintf("%i: waiting for ignored child %i to halt\n", P->pid, pid);
+
+	while (1) {
+		do {
+			errno = 0;
+			if (waitpid(pid, &status, __WALL | __WNOTHREAD) < 0)
+				if ((errno != -EINTR) && (errno != 0))
+					return;
+		} while (errno == -EINTR);
+
+		/*
+		 * Stop. Call the fun() (if set), detach, and return.
+		 */
+		if ((status >> 16) == PTRACE_EVENT_STOP) {
+			if (fun)
+				fun(P, pid);
+			if (wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0) < 0)
+				_dprintf("Cannot detach from ignored %i\n", pid);
+
+			return;
+		}
+
+		/*
+		 * Process terminated.
+		 */
+		if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXIT << 8)) {
+			if (wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0) < 0)
+				_dprintf("Cannot resume dying ignored %i\n",
+				    pid);
+
+			return;
+		}
+
+		/*
+		 * Signal delivery stops.  Reinject them.
+		 */
+		if (WIFSTOPPED(status)) {
+			wrapped_ptrace(P, PTRACE_CONT, pid, NULL,
+			    WSTOPSIG(status));
+		}
+
+		if (WIFSIGNALED(status)) {
+			wrapped_ptrace(P, PTRACE_CONT, pid, NULL,
+			    WTERMSIG(status));
+		}
+
+		/*
+		 * fork() or vfork() trap.  Just get going again (via a
+		 * recursive call).
+		 */
+		if (((status >> 8) == (SIGTRAP | PTRACE_EVENT_FORK << 8)) ||
+		    ((status >> 8) == (SIGTRAP | PTRACE_EVENT_VFORK << 8))) {
+			pid_t new_pid;
+			if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, pid, NULL,
+				&new_pid) == 0) {
+				_dprintf("%i: recursive ignored fork()/clone().\n",
+				    pid);
+				ignored_child_wait(P, new_pid, fun);
+			}
+		}
+
+		/*
+		 * exec(). We don't want to call the fun() any more.
+		 */
+		if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXEC << 8))
+			fun = NULL;
+	}
+}
+
+/*
+ * Called to dispose of breakpoints in a fork()ed child, once it is traceable.
+ */
+static void
+ignored_child_flush(struct ps_prochandle *P, pid_t pid)
+{
+	bkpt_flush(P, pid, FALSE);
 }
 
 /*
@@ -1158,7 +1293,8 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		return 0;
 	}
 
-	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, LIBPROC_PTRACE_OPTIONS) < 0) {
+	if (wrapped_ptrace(P, PTRACE_SEIZE, P->pid, 0, LIBPROC_PTRACE_OPTIONS |
+		    PTRACE_O_TRACECLONE) < 0) {
 		if (!Pgrabbing)
 			goto err;
 		else
