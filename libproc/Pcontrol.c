@@ -880,6 +880,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		_dprintf("%i: process status change: exec() detected, "
 		    "resetting...\n", P->pid);
 
+		P->state = PS_TRACESTOP;
 		Pclose(P);
 
 		snprintf(procname, sizeof (procname), "%s/%d/exe",
@@ -940,6 +941,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	{
 		pid_t pid;
 
+		P->state = PS_TRACESTOP;
 		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
 			_dprintf("%i: process status change: fork() or vfork() "
 			    "detected but PID cannot be determined: ignoring.\n",
@@ -952,6 +954,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 			wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0);
 		}
 		wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
+		P->state = PS_RUN;
 		return(0);
 	}
 
@@ -964,11 +967,13 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	{
 		pid_t pid;
 
+		P->state = PS_TRACESTOP;
 		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
 			bkpt_flush(P, pid, FALSE);
 
 		rd_event_suppress(P->rap);
 
+		P->state = PS_RUN;
 		wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
 		return(0);
 	}
