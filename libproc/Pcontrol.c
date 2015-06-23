@@ -860,6 +860,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		if (P->ptraced) {
 			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
 			    WSTOPSIG(status));
+			P->state = PS_RUN;
 		}
 		return(0);
 	}
