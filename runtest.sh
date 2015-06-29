@@ -27,7 +27,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #
@@ -700,6 +700,14 @@ for dt in $dtrace; do
     # Look for our shared libraries in the right place.
     if [[ "x$test_libdir" != "xinstalled" ]]; then
         export LD_LIBRARY_PATH="$(dirname $dt)"
+    fi
+
+    # Log the dtrace, libdtrace and testsuite versions.
+    $dt -vV | tee -a $LOGFILE >> $SUMFILE
+    if [[ -f .git-version ]]; then
+	sum "testsuite version-control ID: $(cat .git-version)\n\n"
+    elif [[ -f .git-archive-version ]]; then
+	sum "Testsuite version-control ID: $(cat .git-archive-version)\n\n"
     fi
 
     # If we are running valgrind, invoke dtrace via a wrapper.
