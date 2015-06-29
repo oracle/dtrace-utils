@@ -22,7 +22,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 .DELETE_ON_ERROR:
@@ -69,6 +69,8 @@ ifneq ($(wildcard libdtrace-ctf/Make*),)
 CPPFLAGS += -Ilibdtrace-ctf/include
 endif
 
+# Paths.
+
 prefix = /usr
 export objdir := $(abspath build)
 LIBDIR := $(prefix)/lib$(BITNESS)
@@ -87,6 +89,8 @@ TARGETS =
 
 DTRACE ?= $(objdir)/dtrace
 
+# Include everything.
+
 all::
 
 $(shell mkdir -p $(objdir))
@@ -100,9 +104,20 @@ include Makerules
 include Maketargets
 include Makecheck
 
+# Tarball distribution.
+
+PHONIES += dist
+
 .git-version:
 	$(call describe-target,VERSION,$@)
-	git log --no-walk --pretty=format:%H > .git-version; \
+	if [[ -f .git/index ]]; then \
+		git log --no-walk --pretty=format:%H > .git-version; \
+	else \
+		cp .git-archive-version .git-version; \
+	fi
+
+dist::
+	git archive --prefix=dtrace-utils-$(VERSION)/ HEAD | bzip2 > dtrace-utils-$(VERSION).tar.bz2
 
 clean::
 	rm -f .git-version

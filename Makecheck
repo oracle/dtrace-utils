@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # Core testing targets, running the DTrace testsuite runner runtest.sh.
@@ -54,7 +54,7 @@ help::
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
-check-verbose: all $(objdir)/dlibs/load_dtrace_modules
+check-verbose: all $(objdir)/dlibs/load_dtrace_modules .git-version
 	./runtest.sh $(RUNTESTFLAGS)
 
 check-installed check-installed-stress check-installed-verbose check-installed-verbose-stress:
@@ -63,7 +63,7 @@ check-installed check-installed-stress check-installed-verbose check-installed-v
 check-installed-internal: check-installed-verbose-internal
 check-installed-internal: RUNTESTFLAGS+=--quiet
 
-check-installed-verbose-internal: external-triggers
+check-installed-verbose-internal: external-triggers .git-version
 	./runtest.sh --use-installed --testsuites=unittest,stress,demo $(RUNTESTFLAGS)
 
 check-stress: check
@@ -83,7 +83,7 @@ check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,dem
 check-qa-smoke:
 	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
 
-check-qa-smoke-internal:
+check-qa-smoke-internal: .git-version
 	./runtest.sh --use-installed --testsuites=smoke --quiet
 
 # Load the DTrace modules, and do nothing else.  Useful for testing
