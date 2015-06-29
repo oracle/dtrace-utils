@@ -83,8 +83,8 @@ SBINDIR := $(prefix)/sbin
 INSTSBINDIR := $(DESTDIR)$(SBINDIR)
 DOCDIR := $(prefix)/share/doc/dtrace-$(VERSION)
 INSTDOCDIR := $(DESTDIR)$(DOCDIR)
-MANDIR := $(DESTDIR)$(prefix)/share/man/man1
-INSTMANDIR := $(DESTDIR)$(prefix)/share/man/man1
+MANDIR := $(prefix)/share/man/man1
+INSTMANDIR := $(DESTDIR)$(MANDIR)
 TARGETS =
 
 DTRACE ?= $(objdir)/dtrace
