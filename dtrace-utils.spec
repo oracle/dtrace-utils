@@ -64,15 +64,42 @@ You do not need this package merely to compile providers and probe points into
 applications that will be probed by dtrace, but rather when developing
 replacements for dtrace(1) itself.
 
+# We turn off dependency generation for the testsuite because it contains
+# test shared libraries of its own, which are otherwise picked up as
+# (erroneous) deps to nonexistent packages.
+%package testsuite
+Summary:      DTrace testsuite.
+Requires:     make glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) dtrace-modules-shared-headers
+Requires:     %{name}%{?_isa} = %{version}-%{release}
+Autoreq:      0
+Group:	      Internal/do-not-release
+
+%description testsuite
+The DTrace testsuite.
+
+Installed in /usr/lib64/dtrace/testsuite.
+
+'make check' here is just like 'make check' in the source tree, except that
+it always tests the installed DTrace.
+
 %prep
 %setup -q
 
 %build
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )"
+strip --strip-unneeded build/dtrace build/libdtrace.so*
+
+# Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
+# and the testsuite requires debuginfo for proper operation.
+%global debug_package %{nil}
+%global __debug_package %{nil}
+%global __spec_install_post \
+	%{_rpmconfigdir}/brp-compress \
+	%{nil}
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" install
+make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" install install-test
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)
@@ -82,7 +109,6 @@ mv $RPM_BUILD_ROOT/usr/share/man/man1/dtrace.1 \
 # The same is true of sdt.h.
 mv $RPM_BUILD_ROOT/usr/include/sys/sdt.h \
    $RPM_BUILD_ROOT/usr/include/sys/sdt-dtrace.h
-
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf "$RPM_BUILD_ROOT"
@@ -115,12 +141,10 @@ if [ -h $MANDIR/dtrace.1.gz ]; then
     rm -f $MANDIR/dtrace.1.gz
 fi
 
-
 %files
 %defattr(-,root,root,-)
-%exclude /usr/src/debug
-%exclude /usr/lib/debug
 %{_libdir}/dtrace
+%exclude %{_libdir}/dtrace/testsuite
 %{_libdir}/libdtrace.so.*
 %{_sbindir}/dtrace
 %{_mandir}/man1/orcl-dtrace.1.gz
@@ -132,11 +156,13 @@ fi
 
 %files devel
 %defattr(-,root,root,-)
-%exclude /usr/src/debug
-%exclude /usr/lib/debug
 %{_bindir}/ctf_module_dump
 %{_libdir}/libdtrace.so
 %{_includedir}/dtrace.h
+
+%files testsuite
+%defattr(-,root,root,-)
+%{_libdir}/dtrace/testsuite
 
 %changelog
 * Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
