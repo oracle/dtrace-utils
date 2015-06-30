@@ -69,7 +69,7 @@ replacements for dtrace(1) itself.
 # (erroneous) deps to nonexistent packages.
 %package testsuite
 Summary:      DTrace testsuite.
-Requires:     make glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) dtrace-modules-shared-headers
+Requires:     make glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) dtrace-modules-shared-headers module-init-tools
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
