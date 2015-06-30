@@ -37,6 +37,21 @@
 # DTrace:
 # check-qa-smoke: Runs the smoke testsuite.
 
+ifndef always-installed
+load_dtrace_modules=$(objdir)/dlibs/load_dtrace_modules
+git_version=.git-version
+RUNTEST=./runtest.sh
+RUNTESTFLAGS=
+installed_internals=
+else
+load_dtrace_modules=
+git_version=
+RUNTEST=$(TESTDIR)/runtest.sh
+RUNTESTFLAGS=--use-installed
+DTRACE=/usr/sbin/dtrace
+installed_internals=internals,
+endif
+
 help::
 	@printf "Checking targets (as root):\n\n" >&2
 	@printf "check                          Test the built DTrace.\n" >&2
@@ -54,8 +69,8 @@ help::
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
-check-verbose: all $(objdir)/dlibs/load_dtrace_modules .git-version
-	./runtest.sh $(RUNTESTFLAGS)
+check-verbose: all $(load_dtrace_modules) $(git_version)
+	$(RUNTEST) $(RUNTESTFLAGS)
 
 check-installed check-installed-stress check-installed-verbose check-installed-verbose-stress:
 	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
@@ -63,8 +78,8 @@ check-installed check-installed-stress check-installed-verbose check-installed-v
 check-installed-internal: check-installed-verbose-internal
 check-installed-internal: RUNTESTFLAGS+=--quiet
 
-check-installed-verbose-internal: external-triggers .git-version
-	./runtest.sh --use-installed --testsuites=unittest,stress,demo $(RUNTESTFLAGS)
+check-installed-verbose-internal: external-triggers $(git_version)
+	$(RUNTEST) --use-installed --testsuites=unittest,$(installed_internals)stress,demo $(RUNTESTFLAGS)
 
 check-stress: check
 check-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
@@ -73,18 +88,18 @@ check-verbose-stress: check-verbose
 check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 
 check-installed-stress-internal: check-installed-internal
-check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
 
 check-installed-verbose-stress-internal: check-installed-verbose-internal
-check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,demo --no-comparison
+check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
 
 # QA targets.
 
 check-qa-smoke:
 	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
 
-check-qa-smoke-internal: .git-version
-	./runtest.sh --use-installed --testsuites=smoke --quiet
+check-qa-smoke-internal: $(git_version)
+	$(RUNTEST) $(RUNTESTFLAGS) --use-installed --testsuites=smoke --quiet
 
 # Load the DTrace modules, and do nothing else.  Useful for testing
 # the impact of inactive DTrace.
@@ -103,9 +118,11 @@ check-module-loading:
 # The modules are loaded during this process but are not unloaded afterwards.
 
 check-probe-all-syscalls: all check-module-loading check-probe-all-syscalls-internal
+ifndef always-installed
 check-probe-all-syscalls: DTRACE=$(objdir)/dtrace
 check-probe-all-syscalls: export DTRACE_OPT_SYSLIBDIR=$(objdir)/dtrace/dlibs
 check-probe-all-syscalls: export LD_LIBRARY_PATH=$(objdir)
+endif
 
 # Likewise, using /usr/sbin/dtrace rather than a copy in the build tree.
 

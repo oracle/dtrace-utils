@@ -29,9 +29,17 @@ INTERNAL_64BIT_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libpr
 INTERNAL_32BIT_TRIGGERS := libproc-sleeper-32 libproc-sleeper-pie-32
 INTERNAL_TRIGGERS = $(INTERNAL_64BIT_TRIGGERS) $(if $(NATIVE_BITNESS_ONLY),,$(INTERNAL_32BIT_TRIGGERS))
 
+SCRIPT_TRIGGERS = longsleep execloop
+
 TRIGGERS = $(EXTERNAL_TRIGGERS) $(INTERNAL_TRIGGERS)
 
 TRIGGER_SOLIBS = libproc-dlmlib libproc-lookup-victim-lib
+
+install-test:: triggers
+	$(call describe-install-target,$(INSTTESTDIR)/test/triggers,$(SCRIPT_TRIGGERS))
+	mkdir -p $(INSTTESTDIR)/test/triggers
+	install -m 755 $(addprefix test/triggers/,$(SCRIPT_TRIGGERS)) $(INSTTESTDIR)/test/triggers
+
 define trigger-template
 CMDS += $(1)
 $(1)_DIR := $(current-dir)
@@ -43,6 +51,10 @@ $(1)_NOLDFLAGS := --coverage
 
 clean::
 	rm -f test/triggers/$(1)
+
+install-test::
+	$(call describe-install-target,$(INSTTESTDIR)/test/triggers,$(1))
+	install -m 755 test/triggers/$(1) $(INSTTESTDIR)/test/triggers/$(1)
 endef
 
 define link-trigger
@@ -68,11 +80,16 @@ $(1)_POST := link-trigger-solib
 
 clean::
 	rm -f test/triggers/$(1).so*
+
+install-test::
+	$(call describe-install-target,$(INSTTESTDIR)/test/triggers,$(1).so)
+	cp -a test/triggers/$(1).so* $(INSTTESTDIR)/test/triggers/
+	chown root:root $(INSTTESTDIR)/test/triggers/$(1).so* 2>/dev/null || true
 endef
 
 define link-trigger-solib
 	rm -f test/triggers/$(notdir $(1))
-	ln -s $(1) test/triggers/$(notdir $(1))
+	cp -al $(1) test/triggers/$(notdir $(1))
 	ln -s $(notdir $(1)) test/triggers/`echo $(notdir $(1)) | sed 's,\.[0-9]\+\.[0-9]\+$$$$,,'`
 	ln -s $(notdir $(1)) test/triggers/`echo $(notdir $(1)) | sed 's,\.[0-9]\+\.[0-9]\+\.[0-9]\+$$$$,,'`
 endef

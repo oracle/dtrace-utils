@@ -85,6 +85,8 @@ DOCDIR := $(prefix)/share/doc/dtrace-$(VERSION)
 INSTDOCDIR := $(DESTDIR)$(DOCDIR)
 MANDIR := $(prefix)/share/man/man1
 INSTMANDIR := $(DESTDIR)$(MANDIR)
+TESTDIR := $(prefix)/lib$(BITNESS)/dtrace/testsuite
+INSTTESTDIR := $(DESTDIR)$(TESTDIR)
 TARGETS =
 
 DTRACE ?= $(objdir)/dtrace

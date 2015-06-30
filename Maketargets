@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # The targets in this file used to be in the top-level GNUmakefile, but
@@ -30,6 +30,7 @@ help::
 	@printf "Targets:\n\n" >&2
 	@printf "all                            Compile (default)\n" >&2
 	@printf "install                        Install (DESTDIR supported)\n" >&2
+	@printf "install-test                   Install testsuite (DESTDIR supported)\n" >&2
 	@printf "clean / realclean              Clean up build tree\n" >&2
 	@printf "TAGS / tags / gtags            Make tags files\n" >&2
 	@printf "\n" >&2
@@ -55,4 +56,4 @@ gtags:
 	$(call describe-target,gtags)
 	gtags -i
 
-PHONIES += all clean TAGS tags gtags help
+PHONIES += all install install-test clean realclean TAGS tags gtags help

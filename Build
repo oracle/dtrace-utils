@@ -2,3 +2,11 @@ install::
 	mkdir -p $(INSTDOCDIR)
 	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS)
 	install -m 644 README INCOMPATIBILITIES NEWS $(INSTDOCDIR)
+
+install-test::
+	mkdir -p $(INSTTESTDIR)
+	$(call describe-install-target,$(INSTTESTDIR),GNUmakefile runtest.sh .git-version Makecheck Makeoptions)
+	install -m 755 runtest.sh $(INSTTESTDIR)
+	install -m 644 Makecheck .git-version $(INSTTESTDIR)
+	install -m 644 Makeoptions.installed $(INSTTESTDIR)/Makeoptions
+	sed "s,@INSTALL_SUBST@,TESTDIR=$(TESTDIR)," < Makecheck.installed.in > $(INSTTESTDIR)/GNUmakefile
