@@ -21,7 +21,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
 Version:      0.4.6
-Release:      1%{?dist}
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -165,6 +165,23 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Jun 30 2015 - <nick.alcock@oracle.com> - 0.4.6-4
+- Add DTrace release and SCM version info via dtrace -Vv [Orabug: 21351062]
+- Add source-tree-independent testsuite RPM (not distributed)
+- Fix the testsuite module-loading pre-checks to actually work
+  [Orabug: 21344988]
+- Various build system fixes
+
+* Tue Jun 23 2015 - <nick.alcock@oracle.com> - 0.4.6-3
+- Released to QA team only
+- Fix deadlocks and failures to latch processes for symbol lookup caused
+  by failure to correctly track their state over time, in 0.4.6-1+ only.
+
+* Mon Jun 22 2015 - <nick.alcock@oracle.com> - 0.4.6-2
+- Released to QA team only
+- Fix a rare race causing stalls of fork()ed children of traced processes
+  under load, in 0.4.6-1 only [Orabug: 21284447]
+
 * Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
 - Support multiple kernels with a single userspace tree, loading system
   D libraries from directories named like /usr/lib64/dtrace/3.8.
