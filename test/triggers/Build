@@ -18,7 +18,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args usdt-tst-argmap usdt-tst-args usdt-tst-forker ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-static visible-constructor-static-unstripped
@@ -31,6 +31,7 @@ INTERNAL_TRIGGERS = $(INTERNAL_64BIT_TRIGGERS) $(if $(NATIVE_BITNESS_ONLY),,$(IN
 
 TRIGGERS = $(EXTERNAL_TRIGGERS) $(INTERNAL_TRIGGERS)
 
+TRIGGER_SOLIBS = libproc-dlmlib libproc-lookup-victim-lib
 define trigger-template
 CMDS += $(1)
 $(1)_DIR := $(current-dir)
@@ -49,11 +50,39 @@ define link-trigger
 	ln -s $(1) test/triggers/$(notdir $(1))
 endef
 
+define trigger-solib-template
+
+BUILDLIBS += $(1)-build
+SHLIBS += $(1)
+
+$(1)-build_TARGET := $(1)
+$(1)-build_DIR := $(current-dir)
+$(1)-build_SOURCES := $(1).c
+
+$(1)_DIR := $(current-dir)
+$(1)_TARGET := $(1)
+$(1)_SONAME := $(1).so.0
+$(1)_VERSION := 0.0.0
+$(1)_LIBSOURCES := $(1)-build
+$(1)_POST := link-trigger-solib
+
+clean::
+	rm -f test/triggers/$(1).so*
+endef
+
+define link-trigger-solib
+	rm -f test/triggers/$(notdir $(1))
+	ln -s $(1) test/triggers/$(notdir $(1))
+	ln -s $(notdir $(1)) test/triggers/`echo $(notdir $(1)) | sed 's,\.[0-9]\+\.[0-9]\+$$$$,,'`
+	ln -s $(notdir $(1)) test/triggers/`echo $(notdir $(1)) | sed 's,\.[0-9]\+\.[0-9]\+\.[0-9]\+$$$$,,'`
+endef
+
 # This must go above all the file-specific overrides below, since they can
 # override things it defines.  (If it went below, it would blow all the
 # overrides away.)
 
 $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
+$(foreach trigger-solib,$(TRIGGER_SOLIBS),$(eval $(call trigger-solib-template,$(trigger-solib))))
 
 proc-tst-sigwait_LIBS := -lrt
 
@@ -133,37 +162,6 @@ libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
 libproc-dlmadopen_LIBS := -ldl -lpthread
 libproc-dlmadopen_CFLAGS := -fPIE
 libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath build
-
-# libproc-consistency runs libproc-dlmadopen, which repeatedly opens a
-# shared library in different ld.so namespaces.  This is that library.
-
-BUILDLIBS += libproc-dlmlib-build
-SHLIBS += libproc-dlmlib
-
-libproc-dlmlib-build_TARGET := libproc-dlmlib
-libproc-dlmlib-build_DIR := $(current-dir)
-libproc-dlmlib-build_SOURCES := libproc-dlmlib.c
-
-libproc-dlmlib_DIR := $(current-dir)
-libproc-dlmlib_TARGET := libproc-dlmlib
-libproc-dlmlib_SONAME := libproc-dlmlib.so.0
-libproc-dlmlib_VERSION := libproc-dlmlib.so.0.0.0
-libproc-dlmlib_LIBSOURCES := libproc-dlmlib-build
-
-# libproc-lookup-victim both links against and dlmopens a library.
-
-BUILDLIBS += libproc-lookup-victim-lib-build
-SHLIBS += libproc-lookup-victim-lib
-
-libproc-lookup-victim-lib-build_TARGET := libproc-lookup-victim-lib
-libproc-lookup-victim-lib-build_DIR := $(current-dir)
-libproc-lookup-victim-lib-build_SOURCES := libproc-lookup-victim-lib.c
-
-libproc-lookup-victim-lib_DIR := $(current-dir)
-libproc-lookup-victim-lib_TARGET := libproc-lookup-victim-lib
-libproc-lookup-victim-lib_SONAME := libproc-lookup-victim-lib.so.0
-libproc-lookup-victim-lib_VERSION := libproc-lookup-victim-lib.so.0.0.0
-libproc-lookup-victim-lib_LIBSOURCES := libproc-lookup-victim-lib-build
 
 # usdt-tst-argmap calls USDT probes (defined in argmap.d) using sys/sdt.h
 usdt-tst-argmap_CFLAGS := -Iuts/common
