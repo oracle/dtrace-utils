@@ -37,7 +37,9 @@ libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c \
                           dt_strtab.c dt_subr.c dt_symtab.c dt_work.c \
                           dt_xlator.c $(ARCHINC)/dt_isadep.c
 
-libdtrace-build_SRCDEPS := dt_grammar.h $(objdir)/dt_git_version.h
+libdtrace-build_SRCDEPS := dt_grammar.h
+
+$(call obj-name,libdtrace-build,dt_open.o): $(objdir)/dt_git_version.h
 
 SHLIBS += libdtrace
 
