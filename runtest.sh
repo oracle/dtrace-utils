@@ -702,8 +702,10 @@ for dt in $dtrace; do
         export LD_LIBRARY_PATH="$(dirname $dt)"
     fi
 
-    # Log the dtrace, libdtrace and testsuite versions.
+    # Log versions.
     $dt -vV | tee -a $LOGFILE >> $SUMFILE
+    uname -a | tee -a $LOGFILE >> $SUMFILE
+    modinfo dtrace | grep 'version.*:' | tee -a $LOGFILE >> $SUMFILE
     if [[ -f .git-version ]]; then
 	sum "testsuite version-control ID: $(cat .git-version)\n\n"
     elif [[ -f .git-archive-version ]]; then
