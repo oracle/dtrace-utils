@@ -164,6 +164,10 @@ processes.)
 The ring buffer is 100Mb long, by default: the optional DTRACE_DEBUG_BUF_SIZE
 environment variable gives a new size, in Mb.
 
+There is a new constant string exported, _libdtrace_vcs_version.  This contains
+a string identifying the version of the built copy of libdtrace in the
+development version control system: we do not define its format beyond that.
+
 
 Incompatible behaviour for specific probes
 ------------------------------------------
