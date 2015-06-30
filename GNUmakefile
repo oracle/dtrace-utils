@@ -110,12 +110,21 @@ include Makecheck
 
 PHONIES += dist
 
-.git-version:
-	$(call describe-target,VERSION,$@)
+.git/index:
+
+.git-version.tmp:  .git/index
 	if [[ -f .git/index ]]; then \
-		git log --no-walk --pretty=format:%H > .git-version; \
+		git log --no-walk --pretty=format:%H > .git-version.tmp; \
 	else \
-		cp .git-archive-version .git-version; \
+		cp .git-archive-version .git-version.tmp; \
+	fi
+
+.git-version: .git-version.tmp
+	if test -r "$@" && cmp -s "$@" "$^"; then \
+		rm -f "$^"; \
+	else \
+		printf "VERSION: .git-version\n"; \
+		mv -f "$^" "$@"; \
 	fi
 
 dist::
