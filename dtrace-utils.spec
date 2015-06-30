@@ -21,7 +21,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32) elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
 Version:      0.4.6
-Release:      3%{?dist}
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64
@@ -159,7 +159,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Jun 30 2015 - <nick.alcock@oracle.com> - 0.4.6-4
+- Add DTrace release and SCM version info via dtrace -Vv [Orabug: 21351062]
+- Add source-tree-independent testsuite RPM (not distributed)
+- Fix the testsuite module-loading pre-checks to actually work
+  [Orabug: 21344988]
+- Various build system fixes
+
 * Tue Jun 23 2015 - <nick.alcock@oracle.com> - 0.4.6-3
+- Released to QA team only
 - Fix deadlocks and failures to latch processes for symbol lookup caused
   by failure to correctly track their state over time, in 0.4.6-1+ only.
 
