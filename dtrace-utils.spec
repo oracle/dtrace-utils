@@ -10,7 +10,7 @@
 # A list of kernels that you want dtrace to be runnable against. The
 # resulting dtrace will work on any kernel with the same major.minor
 # version.
-%{lua: dtrace_kernels = {"3.8.13-85.el6uek"}}
+%{lua: dtrace_kernels = {"3.8.13-85"}}
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -31,7 +31,7 @@ ExclusiveArch:    x86_64
 %{lua:
   local srcdirexp = ""
   for i, k in ipairs(dtrace_kernels)  do
-      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k))
+      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "%{?dist}uek"))
       srcdirexp = srcdirexp .. " " .. k .. "*"
   end
   rpm.define("srcdirexp " .. srcdirexp)
