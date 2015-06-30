@@ -239,7 +239,7 @@ exist_options()
             file="$path/test.$arch.options"
         fi
         # Halt at top level.
-        if [[ -e $path/Makefunctions ]]; then
+        if [[ -e $path/Makecheck ]]; then
             break
         fi
     done

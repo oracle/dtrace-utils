@@ -46,10 +46,11 @@ $(foreach cmd,$(CMDS),$(eval $(call cmd-template,$(cmd))))
 
 cmds: $(foreach cmd,$(CMDS),$(objdir)/$($(cmd)_TARGET))
 
-# The trigger-building rules.  These rules are only used by check targets that
-# do not force a complete build first, so they do not appear in TARGETS.
-# They are otherwise identical to the command-building rule, and relies on
-# the rules the command-building rule generates.
+# The trigger-building rules.  These rules are only used by check and
+# testsuite-installation targets that do not force a complete build first, so
+# they do not appear in TARGETS.  They are otherwise identical to the
+# command-building rule, and rely on the rules the command-building rule
+# generates.
 
 PHONIES += triggers external-triggers
 

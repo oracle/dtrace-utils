@@ -1,2 +1,14 @@
+test_DIR := $(current-dir)
+
+install-test::
+	mkdir -p $(INSTTESTDIR)/test
+	set -e; \
+	for name in $(filter-out test/triggers test/Build,$(wildcard $(test_DIR)*)); do \
+		printf "INSTALL: %s\n" "$(INSTTESTDIR)/$$name"; \
+		rm -rf "$(INSTTESTDIR)/test/$$(basename $$name)"; \
+		cp -a $$name "$(INSTTESTDIR)/test/$$(basename $$name)"; \
+		chown -R root:root "$(INSTTESTDIR)/test/$$(basename $$name)" 2>/dev/null || true; \
+	done
+
 include test/triggers/Build
 include test/utils/Build
