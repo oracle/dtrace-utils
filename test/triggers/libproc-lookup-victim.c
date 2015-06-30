@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 		break;
 	case LMID:
 		dlmopen_handle = dlmopen(LM_ID_NEWLM,
-		    "build/libproc-lookup-victim-lib.so", RTLD_NOW);
+		    "test/triggers/libproc-lookup-victim-lib.so", RTLD_NOW);
 		if (!dlmopen_handle) {
 			fprintf(stderr, "Cannot dlmopen(): %s\n", dlerror());
 			exit(1);

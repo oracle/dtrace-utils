@@ -84,11 +84,11 @@ static void *churn(void *unused)
 
 		dlerror();
 		if (many_lmids && loaded[n] == NULL) {
-			loaded[n] = dlmopen(lmids[n], "build/libproc-dlmlib.so.0", RTLD_NOW);
+			loaded[n] = dlmopen(lmids[n], "test/triggers/libproc-dlmlib.so.0", RTLD_NOW);
 			fprintf(stderr, "opened in lmid %i: %p\n", n, loaded[n]);
 		}
 		else
-			non_dlm = dlopen("build/libproc-dlmlib.so.0", RTLD_NOW);
+			non_dlm = dlopen("test/triggers/libproc-dlmlib.so.0", RTLD_NOW);
 		if ((error = dlerror()) != NULL)
 			fprintf(stderr, "Error opening library: %s\n",
 			    error);

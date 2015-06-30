@@ -133,7 +133,7 @@ libproc-consistency_LIBS := $(objdir)/build-libproc.a $(objdir)/build-libdtrace.
 # testing in --use-installed mode, there is no LD_LIBRARY_PATH pointing into
 # build/ by default.
 
-libproc-lookup-victim_LDFLAGS := -Wl,-rpath build
+libproc-lookup-victim_LDFLAGS := -Wl,-rpath test/triggers
 libproc-lookup-victim_DEPS := libproc-lookup-victim-lib.so
 libproc-lookup-victim_LIBS := $(objdir)/libproc-lookup-victim-lib.so -ldl
 
@@ -164,7 +164,7 @@ libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
 # this needs an rpath, too.  It's also threaded (sometimes, anyway).
 libproc-dlmadopen_LIBS := -ldl -lpthread
 libproc-dlmadopen_CFLAGS := -fPIE
-libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath build
+libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath test/triggers
 
 # usdt-tst-argmap calls USDT probes (defined in argmap.d) using sys/sdt.h
 usdt-tst-argmap_CFLAGS := -Iuts/common
