@@ -53,7 +53,7 @@ dtrace=$1
 
 for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
     for stage in exec preinit postinit main; do 
-        $dtrace $dt_flags -q -c build/$trigger -x evaltime=$stage -s /dev/stdin <<EOF
+        $dtrace $dt_flags -q -c test/triggers/$trigger -x evaltime=$stage -s /dev/stdin <<EOF
 syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1;}
 syscall::write*:entry /pid == \$target/ { writes++; }
 END { printf("evaltime is $stage, trigger is %s, %i write()s; dynamic loader syscalls %s.\n",
@@ -63,7 +63,7 @@ EOF
 done
 
 for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
-    $dtrace $dt_flags -q -c build/$trigger -s /dev/stdin <<EOF
+    $dtrace $dt_flags -q -c test/triggers/$trigger -s /dev/stdin <<EOF
 syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1; }
 syscall::write*:entry /pid == \$target/ { writes++; }
 END { printf("evaltime is default, trigger is %s, %i write()s; dynamic loader syscalls %s.\n",
