@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -43,6 +41,8 @@
 #include <signal.h>
 #include <alloca.h>
 #include <port.h>
+
+#include <dt_git_version.h>
 
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
@@ -1263,6 +1263,10 @@ main(int argc, char *argv[])
 				mode++;
 				break;
 
+			case 'v':
+				g_verbose++;
+				break;
+
 			case 'V':
 				g_mode = DMODE_VERS;
 				mode++;
@@ -1284,8 +1288,16 @@ main(int argc, char *argv[])
 		return (E_USAGE);
 	}
 
-	if (g_mode == DMODE_VERS)
-		return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
+	if (g_mode == DMODE_VERS) {
+		if (!g_verbose)
+			return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
+		else {
+			printf("%s: %s\n", g_pname, _dtrace_version);
+			printf("This is DTrace %s\n", _DT_VERSION);
+			printf("dtrace(1) version-control ID: %s\n", DT_GIT_VERSION);
+			return(printf("libdtrace version-control ID: %s\n", _libdtrace_vcs_version) <= 0);
+		}
+	}
 
 	/*
 	 * If we're in linker mode and the data model hasn't been specified,
@@ -1521,10 +1533,6 @@ main(int argc, char *argv[])
 			case 'U':
 				if (dtrace_setopt(g_dtp, "undef", optarg) != 0)
 					dfatal("failed to set -U %s", optarg);
-				break;
-
-			case 'v':
-				g_verbose++;
 				break;
 
 			case 'w':

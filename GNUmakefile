@@ -44,7 +44,7 @@ LDFLAGS ?=
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
 ARCHINC := $(subst sparc64,sparc,$(subst x86_64,i386,$(shell uname -m)))
-INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY)
+INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
 CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
 export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
@@ -99,5 +99,12 @@ include Build $(sort $(wildcard */Build))
 include Makerules
 include Maketargets
 include Makecheck
+
+.git-version:
+	$(call describe-target,VERSION,$@)
+	git log --no-walk --pretty=format:%H > .git-version; \
+
+clean::
+	rm -f .git-version
 
 .PHONY: $(PHONIES)

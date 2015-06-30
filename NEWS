@@ -11,6 +11,12 @@ New dependencies:
  - The DTrace kernel header package was renamed dtrace-modules-shared-headers
    in dtrace-modules 0.4.4; dtrace-utils now follows this renaming.
 
+New options:
+
+ - dtrace -vV now reports information on the released version of dtrace, as well
+   as the internal version-control ID of dtrace(1) and libdtrace(1).  (The last
+   two should always be the same unless the installation is faulty.)
+
 Bugfixes:
 
  - Processes that receive SIGTRAP in normal operation now work even when being

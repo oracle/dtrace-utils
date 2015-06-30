@@ -623,6 +623,7 @@ extern int dtrace_provider_modules(dtrace_hdl_t *dtp, const char **mods,
     int nmods);
 
 extern const char *const _dtrace_version;
+extern const char *const _libdtrace_vcs_version;
 extern int _dtrace_debug;
 
 extern void dtrace_debug_set_dump_sig(int signal);

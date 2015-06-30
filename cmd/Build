@@ -28,6 +28,7 @@ dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
 dtrace_DEPS = libdtrace.so libport.a
+dtrace_SRCDEPS := $(objdir)/dt_git_version.h
 dtrace_LIBS = -ldtrace -ldtrace-ctf -lport -lelf
 
 ctf_module_dump_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE

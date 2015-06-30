@@ -20,7 +20,8 @@
  */
 
 /*
- * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2010 -- 2015 Oracle and/or its affiliates.
+ * All rights reserved.
  */
 
 #include <sys/types.h>
@@ -52,6 +53,8 @@
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
+
+#include <dt_git_version.h>
 
 #include <linux/dtrace/ioctl_debug.h>
 
@@ -666,6 +669,7 @@ size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
+const char *const _libdtrace_vcs_version = DT_GIT_VERSION; /* Build version string */
 
 typedef struct dt_fdlist {
 	int *df_fds;		/* array of provider driver file descriptors */
