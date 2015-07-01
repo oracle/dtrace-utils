@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -28,17 +28,17 @@
 
 /*
  * ASSERTION:
- * An expression cannot evaluate to result of dynamic type.
+ * Redeclaration of a translator is forbidden.
  *
  * SECTION: Errtag/D_CG_DYN
  */
 
 #pragma D option quiet
 
-translator lwpsinfo_t < kthread_t *T >
+translator lwpsinfo_t < struct task_struct *T >
 {
-	pr_flag = T->t_flag;
-	pr_lwpid = T->t_tid;
+	pr_flag = (T->state & __TASK_STOPPED) ? PR_STOPPED : 0;
+	pr_lwpid = T->pid;
 };
 
 BEGIN
