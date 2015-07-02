@@ -101,7 +101,7 @@ inline char PR_MODEL_LP64 = 2;
 #pragma D binding "1.0" PR_MODEL_LP64
 
 m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids
-define_for_kernel([[[[3.18]],[[3.19]],[[4.0]]]],[[ugid]],[[$1.val]],[[$1]])m4_dnl
+define_for_kernel([[[[3.18]],[[3.19]],[[4.0]],[[4.1]]]],[[ugid]],[[$1.val]],[[$1]])m4_dnl
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
