@@ -32,9 +32,9 @@
  */
 BEGIN
 {
-	/* Timeout after 2 seconds */
-	timeout = timestamp + 2000000000;
-	system("vim -c :q tmpfile >/dev/null 2>&1 &");
+	/* Timeout after 3 seconds */
+	timeout = timestamp + 3000000000;
+	system("vi -c :q tmpfile >/dev/null 2>&1 &");
 }
 
 syscall::sigaltstack:entry
