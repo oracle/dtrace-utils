@@ -37,7 +37,7 @@ BuildRequires: glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %{lua:
   local srcdirexp = ""
   for i, k in ipairs(dtrace_kernels)  do
-      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "%{?dist}uek"))
+      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "%{?dist}uek") .. "\n")
       srcdirexp = srcdirexp .. " " .. k .. "*"
   end
   rpm.define("srcdirexp " .. srcdirexp)
