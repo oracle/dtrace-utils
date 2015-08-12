@@ -1,9 +1,16 @@
-0.4.6
+0.5.0
 -----
 
-New features:
+New architectures:
 
- - CPU hotplugging is now supported.
+  - Linux on SPARC64 is supported.  Userspace tracing doesn't work yet.
+
+Changes to user-visible internals:
+
+  - Translator support for the UEK4 4.1 kernel.
+
+0.4.6
+-----
 
 New dependencies:
 

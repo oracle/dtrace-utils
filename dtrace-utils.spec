@@ -10,7 +10,7 @@
 # A list of kernels that you want dtrace to be runnable against. The
 # resulting dtrace will work on any kernel with the same major.minor
 # version.
-%{lua: dtrace_kernels = {"3.8.13-87", "4.0.5-16"}}
+%{lua: dtrace_kernels = {"3.8.13-87", "4.1.5-5"}}
 
 BuildRequires: rpm
 Name:         dtrace-utils
@@ -20,8 +20,8 @@ Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
-Version:      0.4.6
-Release:      4%{?dist}
+Version:      0.5.0
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -165,6 +165,10 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Aug 12 2015 - <nick.alcock@oracle.com> - 0.5.0-1
+- SPARC64 support. [Orabug: 19005071]
+- Translator support for 4.1 kernel.
+
 * Tue Jun 30 2015 - <nick.alcock@oracle.com> - 0.4.6-4
 - Add DTrace release and SCM version info via dtrace -Vv [Orabug: 21351062]
 - Add source-tree-independent testsuite RPM (not distributed)
@@ -183,6 +187,7 @@ fi
   under load, in 0.4.6-1 only [Orabug: 21284447]
 
 * Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
+- Released to QA team only
 - Support multiple kernels with a single userspace tree, loading system
   D libraries from directories named like /usr/lib64/dtrace/3.8.
   [Orabug: 21279908]
