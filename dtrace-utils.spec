@@ -16,7 +16,6 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
-Provides:     dtrace-utils
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
 Summary:      DTrace user interface.
