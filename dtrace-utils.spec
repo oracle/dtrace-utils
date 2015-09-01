@@ -207,7 +207,7 @@ fi
 * Tue Nov 18 2014 - <nick.alcock@oracle.com> - 0.4.5-2
 - A number of crashes when out of memory are fixed. [Orabug: 20014606]
 
-* Fri Oct 23 2014 - <nick.alcock@oracle.com> - 0.4.5-1
+* Thu Oct 23 2014 - <nick.alcock@oracle.com> - 0.4.5-1
 - Automatically load provider modules from /etc/dtrace-modules, if present
   [Orabug: 19821254]
 - Fix intermittent crash on failure of initial grabs or creations of processes
@@ -341,7 +341,7 @@ fi
   section here to move our manpage into position in such a way as
   to keep the rpm database happy. Technically this is a bit evil.
 
-* Tue Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
+* Thu Oct 06 2011 Nick Alcock <nick.alcock@oracle.com> - 0.2
 - Fix copyright.
 
 * Tue Sep 27 2011 Nick Alcock <nick.alcock@oracle.com> - 0.1
