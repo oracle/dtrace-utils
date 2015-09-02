@@ -106,7 +106,7 @@ check-qa-smoke-internal: $(git_version)
 
 check-module-loading:
 	@if [[ "x$$(id -u)" = "x0" ]]; then \
-		for name in $$(grep -v '^##unload-only' ./test/modules | sed 's,##[a-z-]*,,g'); do \
+		for name in $$(grep -v '^##unload-only' ./test/modules | sed 's,#.*$$,,; s, *$$,,'); do \
 		    modprobe $$name; \
 		done; \
 	else \
