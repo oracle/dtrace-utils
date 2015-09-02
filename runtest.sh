@@ -410,18 +410,22 @@ trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -$ZAPTHESE; fi; if [
 
 # Log and failure functions.
 
-FORCE_OUT=
 out()
 {
-    if [[ -z $QUIET ]] || [[ ! -z $FORCE_OUT ]]; then
+    if [[ -z $QUIET ]]; then
         printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf
     fi
     sum "$@"
 }
 
-force_out()
+force_out_only()
 {
     printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf
+}
+
+force_out()
+{
+    force_out_only "$@"
     sum "$@"
 }
 
@@ -447,14 +451,8 @@ fail()
     local xfail="$1"
     local xfailmsg="$2"
 
-    # In quiet mode, we may need to print out the test name too: we will
-    # always want to ensure that it hits the summary file.
-
-    if [[ -n $QUIET ]] && [[ -z $xfail ]]; then
-        force_out "$_test: "
-    elif [[ -n $QUIET ]]; then
-        out "$_test: "
-    fi
+    # In quiet mode, we may need to print out the test name too.
+    [[ -n $QUIET ]] && [[ -z $xfail ]] && force_out_only "$_test: "
 
     shift 2
     local failmsg="$(echo ''"$@" | sed 's,^ *,,; s, $,,;')"
@@ -486,19 +484,16 @@ fail()
 pass()
 {
     local xpass="$1"
+    local xout=out
 
-    # In quiet mode, we may need to print out the test name too: we will
-    # always want to ensure that it hits the summary file.
+    # In quiet mode, we may need to print out the test name, and will
+    # want to print out the PASS message if and only if this was an
+    # XPASS.
 
-    if [[ -n $QUIET ]] && [[ -n $xpass ]] && [[ -n $COMPARISON ]]; then
-        FORCE_OUT=t
-        force_out "$_test: "
-    elif [[ -n $QUIET ]]; then
-        out "$_test: "
-    fi
-
-    if [[ -n "$xpass" ]] && [[ -n $COMPARISON ]]; then
-        out "X"
+    if [[ -n $xpass ]] && [[ -n $COMPARISON ]]; then
+        [[ -n $QUIET ]] && force_out_only "$_test: "
+        force_out "X"
+        xout=force_out
     fi
 
     shift
@@ -509,11 +504,10 @@ pass()
     fi
 
     if [[ $# -gt 0 ]] && [[ -n "$msg" ]]; then
-        out "PASS ($msg).\n"
+        $xout "PASS ($msg).\n"
     else
-        out "PASS.\n"
+        $xout "PASS.\n"
     fi
-    unset FORCE_OUT
 }
 
 # postprocess POSTPROCESSOR OUTPUT FINAL
@@ -993,7 +987,7 @@ for dt in $dtrace; do
         testmsg=
         testout=$tmpdir/test.out.$RANDOM
         testerr=$tmpdir/test.err.$RANDOM
-        [[ -z $QUIET ]] && out "$_test: "
+        out "$_test: "
 
         if [[ -z $trigger ]]; then
             if [[ -z $shellrun ]]; then
