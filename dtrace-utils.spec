@@ -20,24 +20,26 @@
 %endif
 %endif
 
+# SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
+# disabled.
+%ifnarch sparc64
+%define glibc32 glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
+%else
+%define glibc32 %{nil}
+%endif
+
 BuildRequires: rpm
 Name:         dtrace-utils
 License:      Oracle Corporation
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.5.0
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
-
-# SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
-# disabled.
-%ifnarch sparc64
-BuildRequires: glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
-%endif
 
 # Substitute in kernel-version-specific requirements.
 
@@ -76,7 +78,7 @@ replacements for dtrace(1) itself.
 # (erroneous) deps to nonexistent packages.
 %package testsuite
 Summary:      DTrace testsuite.
-Requires:     make glibc-devel(%{__isa_name}-64) glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-64) libgcc(%{__isa_name}-32) dtrace-modules-shared-headers module-init-tools perl gcc
+Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} dtrace-modules-shared-headers module-init-tools perl gcc
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
