@@ -314,6 +314,8 @@ Options:
  --[no-]baddof: Run corrupt-DOF tests.
  --[no-]use-installed: Use an installed dtrace rather than a copy in the
                        source tree.
+ --load-modules-only: Trigger unloading, optional installation and loading
+                      of modules, then immediately exit.
  --quiet: Only show unexpected output (FAILs and XPASSes).
  --verbose: The opposite of --quiet (and the default).
  --help: This message.
@@ -334,6 +336,7 @@ USE_INSTALLED=
 TESTSUITES="unittest internals stress demo"
 VALGRIND=
 COMPARISON=t
+LOAD_MODULES_ONLY=
 
 ONLY_TESTS=
 TESTS=
@@ -344,6 +347,7 @@ ERRORS=
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --load-modules-only) LOAD_MODULES_ONLY=t;;
         --capture-expected) CAPTURE_EXPECTED=t;;
         --no-capture-expected) CAPTURE_EXPECTED=;;
         --execute) NOEXEC=;;
@@ -600,7 +604,13 @@ fi
 
 # Unload all modules before initializing test coverage: then ask dtrace to load
 # them again afterwards, to acquire initialization and shutdown coverage.
+# If we are in load-only mode, load and exit here.)
 unload_modules hide
+
+if [[ -n $LOAD_MODULES_ONLY ]]; then
+    load_modules
+    exit $?
+fi
 
 # Initialize test coverage.
 
