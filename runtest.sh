@@ -45,6 +45,11 @@ arch="$(uname -m)"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
+test_modules=test/modules
+if [[ -f test/modules.$arch ]]; then
+    test_modules=test/modules.$arch
+fi
+
 load_modules()
 {
     # If running as root, pull in appropriate modules
@@ -56,12 +61,12 @@ load_modules()
                 export LD_LIBRARY_PATH="$(dirname $dt)"
             fi
 
-            DTRACE_MODULES_CONF="$(pwd)/test/modules" $dt -qn 'BEGIN { exit(0); }' >/dev/null
+            DTRACE_MODULES_CONF="$(pwd)/$test_modules" $dt -qn 'BEGIN { exit(0); }' >/dev/null
             unset LD_LIBRARY_PATH
 
             comm -13 \
                  <(lsmod | awk '{print $1}' | sort -u) \
-                 <(cat test/modules | grep -v '^#' | grep -v '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
+                 <(cat $test_modules | grep -v '^#' | grep -v '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
             if test -s $tmpdir/failed-modules; then
                 echo -e "Error: cannot load all modules:" >&2
                 cat $tmpdir/failed-modules >&2
@@ -79,7 +84,7 @@ unload_modules()
     HIDE=$1
     # If running as root, unload all appropriate modules
     if [[ "x$(id -u)" = "x0" ]]; then
-        tac ./test/modules | while read -r line; do
+        tac $test_modules | while read -r line; do
             name="$(echo $line | sed 's,##[a-z-]*,,g')"
             [[ -z $name ]] && continue;
             if [[ -z $HIDE ]] && echo "$line" | grep -qv '# unload-quietly'; then
