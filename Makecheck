@@ -62,6 +62,8 @@ help::
 	@printf "check-installed-stress         Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose-stress Report successes too.\n" >&2
 	@printf "check-module-loading           Check that all modules load.\n" >&2
+	@printf "check-installed-module-loading Check that all modules load, using\n">&2
+	@printf "                               the installed DTrace for autoinstallation.\n" >&2
 	@printf "check-probe-all-syscalls       Probe all syscalls, forever.\n" >&2
 	@printf "check-qa-smoke                 Smoke-test the installed DTrace.\n" >&2
 	@printf "\n" >&2
@@ -101,14 +103,20 @@ check-qa-smoke:
 check-qa-smoke-internal: $(git_version)
 	$(RUNTEST) $(RUNTESTFLAGS) --use-installed --testsuites=smoke --quiet
 
-# Load the DTrace modules, and do nothing else.  Useful for testing
-# the impact of inactive DTrace.
+# Load the DTrace modules (installing them if necessary), and do nothing else.
+# Useful for testing the impact of inactive DTrace.
 
 check-module-loading:
 	@if [[ "x$$(id -u)" = "x0" ]]; then \
-		for name in $$(grep -v '^##unload-only' ./test/modules | sed 's,#.*$$,,; s, *$$,,'); do \
-		    modprobe $$name; \
-		done; \
+		$(RUNTEST) $(RUNTESTFLAGS) --load-modules-only; \
+	else \
+	        echo "Error: cannot load modules as non-root." >&2; \
+		false; \
+	fi
+
+check-installed-module-loading:
+	@if [[ "x$$(id -u)" = "x0" ]]; then \
+		$(RUNTEST) $(RUNTESTFLAGS) --use-installed --load-modules-only; \
 	else \
 	        echo "Error: cannot load modules as non-root." >&2; \
 		false; \
@@ -126,7 +134,7 @@ endif
 
 # Likewise, using /usr/sbin/dtrace rather than a copy in the build tree.
 
-check-installed-probe-all-syscalls: check-module-loading check-probe-all-syscalls-internal
+check-installed-probe-all-syscalls: check-installed-module-loading check-probe-all-syscalls-internal
 check-installed-probe-all-syscalls: export DTRACE=/usr/sbin/dtrace
 
 check-probe-all-syscalls-internal:
@@ -136,6 +144,7 @@ check-probe-all-syscalls-internal:
 PHONIES += check check-verbose check-installed check-installed-verbose
 PHONIES += check-stress check-verbose-stress check-installed-stress
 PHONIES += check-installed-verbose-stress check-module-loading
+PHONIES += check-installed-module-loading
 PHONIES += check-probe-all-syscalls check-installed-probe-all-syscalls
 PHONIES += check-probe-all-syscalls-internal
 PHONIES += check-installed-internal check-installed-stress-internal
