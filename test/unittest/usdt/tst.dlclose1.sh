@@ -153,7 +153,7 @@ script() {
 EOF
 }
 
-script 2>&1
+script
 status=$?
 
 exit $status
