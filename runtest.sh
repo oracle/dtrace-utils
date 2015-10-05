@@ -61,7 +61,7 @@ load_modules()
                 export LD_LIBRARY_PATH="$(dirname $dt)"
             fi
 
-            DTRACE_MODULES_CONF="$(pwd)/$test_modules" $dt -qn 'BEGIN { exit(0); }' >/dev/null
+            DTRACE_MODULES_CONF="$(pwd)/$test_modules" DTRACE_DEBUG= $dt -qn 'BEGIN { exit(0); }' >/dev/null
             unset LD_LIBRARY_PATH
 
             comm -13 \
@@ -721,7 +721,7 @@ for dt in $dtrace; do
     fi
 
     # Log versions.
-    $dt -vV | tee -a $LOGFILE >> $SUMFILE
+    DTRACE_DEBUG= $dt -vV | tee -a $LOGFILE >> $SUMFILE
     uname -a | tee -a $LOGFILE >> $SUMFILE
     modinfo dtrace | grep 'version.*:' | tee -a $LOGFILE >> $SUMFILE
     if [[ -f .git-version ]]; then
@@ -1003,7 +1003,8 @@ for dt in $dtrace; do
         # every invocation, so that hanging subprocesses emitting output into
         # these files do not mess up subsequent tests.  This won't strictly fix
         # the problem, but will drive its probability of occurrence way down,
-        # even in the presence of a hanging test.)
+        # even in the presence of a hanging test. stdout and stderr go into
+        # different files, and any debugging output is split into a third.)
 
 	rm -f core
         failed=
@@ -1011,6 +1012,7 @@ for dt in $dtrace; do
         testmsg=
         testout=$tmpdir/test.out.$RANDOM
         testerr=$tmpdir/test.err.$RANDOM
+        testdebug=$tmpdir/test.debug.$RANDOM
         out "$_test: "
 
         if [[ -z $trigger ]]; then
@@ -1077,6 +1079,11 @@ for dt in $dtrace; do
             unset _pid
         fi
 
+        # Split debugging info out of the test output.
+        grep -E '^[a-z]+ DEBUG [0-9]+: ' $testerr > $testdebug
+        grep -vE '^[a-z]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
+        mv $testerr.tmp $testerr
+
         # Note if dtrace mentions running out of memory at any point.
         # If it does, this test quietly becomes an expected failure
         # (without transforming an err.* test into an XPASS).
@@ -1100,6 +1107,7 @@ for dt in $dtrace; do
         if ! postprocess $base.r.p $testout $tmpdir/test.out; then
             testmsg="results postprocessor failed with exitcode $?"
         fi
+
         rm -f $testout $testerr
 
         # Note if we will certainly capture results.
@@ -1188,6 +1196,13 @@ for dt in $dtrace; do
             diff -u $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
         fi
 
+        # Finally, write the debugging output, if any, to the logfile.
+        if [[ -s $testdebug ]]; then
+            echo "-- @@debug --" >> $LOGFILE
+            cat $testdebug >> $LOGFILE
+        fi
+        rm -f $testdebug
+
         # If capturing results is requested, capture them now.
         if [[ -n $capturing ]]; then
             cp -f $tmpdir/test.out $base.r
@@ -1206,7 +1221,7 @@ for dt in $dtrace; do
             mkdir -p $dtest_dir
             echo "$dt_flags -e" > $reglog
             echo >> $reglog
-            $dt -S $dt_flags -e > $tmpdir/regtest.out 2>&1 
+            DTRACE_DEBUG= $dt -S $dt_flags -e > $tmpdir/regtest.out 2>&1 
             postprocess $base.r.p $tmpdir/regtest.out $tmpdir/regtest.out
             cat $tmpdir/regtest.out >> $reglog
 

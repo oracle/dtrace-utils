@@ -55,9 +55,13 @@ _dt_constructor_(_dtrace_debug_init)
 static void
 _dtrace_debug_init(void)
 {
-	_dtrace_debug = getenv("DTRACE_DEBUG") != NULL;
+	char *debug_env;
+	debug_env = getenv("DTRACE_DEBUG");
 
-	if (_dtrace_debug && (strcmp(getenv("DTRACE_DEBUG"), "signal") == 0)) {
+	if ((debug_env != NULL) && (debug_env[0] != '\0'))
+		_dtrace_debug = 1;
+
+	if (_dtrace_debug && (strcmp(debug_env, "signal") == 0)) {
 		char *size_str = getenv("DTRACE_DEBUG_BUF_SIZE");
 		char *err;
 		size_t size_mb = 128;
