@@ -694,6 +694,15 @@ if [[ -n $VALGRIND ]]; then
     TIMEOUT=$((TIMEOUT * 10))
 fi
 
+# Close unexpectedly open FDs.
+for fd in /proc/$$/fd/*; do
+    fd="${fd##*/}"
+    case $fd in
+        0|1|2|255) continue;;
+        *) exec {fd}>&-;;
+    esac
+done
+
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
