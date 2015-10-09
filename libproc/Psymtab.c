@@ -993,27 +993,12 @@ debug_dump_symtab(sym_tbl_t *symtab, const char *description)
 void __attribute__((__used__))
 debug_dump_status(struct ps_prochandle *P)
 {
-	char status[PATH_MAX];
-	FILE *fp;
-	char *line = NULL;
-	size_t len;
+	char *status = Pget_proc_status(P->pid, "State");
 
-	snprintf(status, sizeof(status), "/proc/%i/status",
-	    P->pid);
+	if (status)
+		_dprintf("State:\t%s", status);
 
-	if ((fp = fopen(status, "r")) == NULL) {
-		_dprintf("Process is dead.\n");
-		return;
-	}
-
-	while (getline(&line, &len, fp) >= 0) {
-		if (strncmp(line, "State:", strlen("State:")) == 0) {
-			_dprintf("%s", line);
-			break;
-		}
-	}
-	free(line);
-	fclose(fp);
+	free(status);
 }
 
 static void

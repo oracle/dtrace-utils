@@ -2593,3 +2593,38 @@ Phastty(int pid)
 	free(buf);
 	return (tty != 0);
 }
+
+/*
+ * Get a specific field out of /proc/$pid/status and return the portion after
+ * the colon in a new dynamically allocated string, or NULL if no field matches.
+ */
+char *
+Pget_proc_status(pid_t pid, const char *field)
+{
+	char status[PATH_MAX];
+	FILE *fp;
+	char *line = NULL;
+	size_t len;
+
+	snprintf(status, sizeof(status), "/proc/%i/status", pid);
+
+	if ((fp = fopen(status, "r")) == NULL) {
+		_dprintf("Process is dead.\n");
+		return NULL;
+	}
+
+	while (getline(&line, &len, fp) >= 0) {
+		if ((strncmp(line, field, strlen(field)) == 0) &&
+		    (strncmp(line + strlen(field), ":\t", 2) == 0)) {
+
+			memmove(line, line + strlen(field) + 2,
+			    strlen(line + strlen(field) + 2) + 1);
+			_dprintf("%li: %s: %s", (long) pid, status, line);
+			fclose(fp);
+			return line;
+		}
+	}
+	free(line);
+	fclose(fp);
+	return NULL;
+}
