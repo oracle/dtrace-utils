@@ -2572,6 +2572,7 @@ Phastty(pid_t pid)
 	}
 
 	if (getline(&buf, &n, fp) < 0) {
+		free(buf);
 		fclose(fp);
 		return -1;
 	}
