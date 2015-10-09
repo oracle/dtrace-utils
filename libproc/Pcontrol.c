@@ -61,6 +61,8 @@ char	procfs_path[PATH_MAX] = "/proc";
 
 static	int Pgrabbing = 0; 	/* A Pgrab() is underway. */
 
+static int systemd_system = -1; /* 1 if this is a system running systemd. */
+
 static void Pfree_internal(struct ps_prochandle *P);
 static void ignored_child_wait(struct ps_prochandle *P, pid_t pid,
     void (*fun)(struct ps_prochandle *P, pid_t pid));
@@ -2535,7 +2537,7 @@ Pelf64(struct ps_prochandle *P)
  * how to grab a process, before a ps_prochandle exists.
  */
 int
-Pexists(int pid)
+Pexists(pid_t pid)
 {
 	char procname[PATH_MAX];
 
@@ -2550,8 +2552,8 @@ Pexists(int pid)
  * Note: This takes a pid, not a ps_prochandle, because it is used to decide
  * how to grab a process, before a ps_prochandle exists.
  */
-int
-Phastty(int pid)
+static int
+Phastty(pid_t pid)
 {
 	char procname[PATH_MAX];
 	char *buf = NULL;
@@ -2627,4 +2629,165 @@ Pget_proc_status(pid_t pid, const char *field)
 	free(line);
 	fclose(fp);
 	return NULL;
+}
+
+/*
+ * Return the (real) uid of this process.
+ *
+ * Note: This takes a pid, not a ps_prochandle, because it is used to decide
+ * how to grab a process, before a ps_prochandle exists.
+ */
+static uid_t
+Puid(pid_t pid)
+{
+	char *uids = Pget_proc_status(pid, "Uid");
+	uid_t uid;
+
+	if (!uids) {
+		_dprintf("Cannot get uids for PID %i: assuming zero.\n", pid);
+		return 0;
+	}
+
+	uid = strtol(uids, NULL, 10);
+	_dprintf("%i: uid is %i.\n", pid, uid);
+	free(uids);
+
+	return uid;
+}
+
+/*
+ * Return 1 if this process is a system daemon, 0 if it is not, and -1 on error.
+ *
+ *  A process is considered a system daemon if either of two possibilities hold:
+ *
+ *   - a systemd cgroup exists, and the process is in the sysslice or the root
+ *     slice
+ *
+ *   - if no systemd cgroup exists, the process is in the system UID range (less
+ *     than 'useruid'), it has no controlling terminal and the standard streams
+ *     are not pointing to TTYs or regular files outside /var.  (i.e. standard
+ *     streams pointing to things like /dev/null, pipes, or sockets are not
+ *     determinative: only TTYs and regular files are.)
+ */
+int
+Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
+{
+	FILE *fp;
+	char procname[PATH_MAX];
+	char *buf = NULL;
+	size_t n;
+	int fd;
+
+	/*
+	 * If this is a system running systemd, or we don't know yet, dig out
+	 * the systemd cgroup line from /proc/$pid/cgroup.
+	 */
+	if (systemd_system != 0) {
+		snprintf(procname, sizeof (procname), "%s/%d/cgroup",
+		    procfs_path, pid);
+
+		if ((fp = fopen(procname, "r")) == NULL) {
+			_dprintf("Psystem_daemon: failed to open %s: %s\n",
+			    procname, strerror(errno));
+			return -1;
+		}
+
+		while (getline(&buf, &n, fp) >= 0) {
+			if (strstr(buf, ":name=systemd:") != NULL) {
+				systemd_system = 1;
+				break;
+			}
+		}
+		fclose(fp);
+		if (systemd_system < 0)
+			systemd_system = 0;
+	}
+
+	/*
+	 * We have the systemd cgroup line in buf.  Look at our slice name.
+	 */
+	if (systemd_system) {
+		char *colon = strchr(buf, ':');
+		if (colon)
+			colon = strchr(colon + 1, ':');
+
+		_dprintf("systemd system: sysslice: %s; colon: %s\n", sysslice, colon);
+		if (colon &&
+		    (strncmp(colon, sysslice, strlen(sysslice)) == 0)) {
+			free(buf);
+			_dprintf("%i is a system daemon process.\n", pid);
+			return 1;
+		}
+		free(buf);
+		return 0;
+	}
+	free(buf);
+
+	/*
+	 * This is not a systemd system -- we have to guess by looking at the
+	 * process's UID, controlling terminal, and the TTYness and/or location
+	 * of the files pointed to by its stdin/out/err.  (i.e. we first
+	 * consider whether something may be a system daemon by consulting its
+	 * uid range and controlling TTY, then try to rule it out by looking for
+	 * open fds to TTYs and regular files outside particular subtrees.)  (As
+	 * a consequence of these rules, a process with no standard streams at
+	 * all is considered a system daemon -- this is a cheap way of catching
+	 * kernel threads.)
+	 */
+	if ((Puid(pid) > useruid) || Phastty(pid))
+		return 0;
+
+	for (fd = 0; fd < 3; fd++) {
+		struct stat s;
+		char buf[6];
+
+		snprintf(procname, sizeof (procname), "%s/%d/fd/%d",
+		    procfs_path, pid, fd);
+
+		/*
+		 * Can't be a regular file or a TTY if we can't stat it: on to
+		 * the next fd.
+		 */
+		if (stat(procname, &s) < 0)
+			continue;
+
+		/*
+		 * See if this is a regular file pointing outside /var.
+		 * readlink() truncate the path.
+		 */
+		memset(buf, '\0', sizeof(buf));
+		if (S_ISREG(s.st_mode) &&
+		    (readlink(procname, buf, sizeof(buf)-1) == 0)) {
+			if((buf[0] == '/') && (strcmp(buf, "/var/") != 0))
+				return 0;
+		}
+
+		/*
+		 * See if this fd is a TTY: if it is, this isn't a system daemon.
+		 */
+
+		if (S_ISCHR(s.st_mode)) {
+			int fdf;
+			int tty = 0;
+
+			fdf = open(procname, O_RDONLY | O_CLOEXEC | O_NOCTTY |
+			    O_NOATIME | O_NONBLOCK);
+
+			if (fdf >= 0) {
+				tty = isatty(fdf);
+				close(fdf);
+			}
+
+			if (tty)
+				return 0;
+		}
+	}
+
+	/*
+	 * In system UID range, no controlling TTY, no FDs that refer to TTYs at
+	 * all, no FDs that refer to regular files outside /var.  This is a
+	 * system daemon.
+	 */
+	_dprintf("%i is a system daemon process.\n", pid);
+	return 1;
 }

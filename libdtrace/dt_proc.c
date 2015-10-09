@@ -758,18 +758,19 @@ dt_proc_control(void *arg)
 		int noninvasive = 0;
 
 		/*
-		 * "Noninvasive" means that the monitoring of this process is
-		 * not especially important: that it is one of many processes
-		 * being grabbed by something like a mass u*() action.  It might
-		 * still be worth ptracing it so that we get better symbol
-		 * resolution, but if the process has no controlling terminal,
-		 * avoid ptracing it entirely, to avoid rtld_db dropping
-		 * breakpoints in crucial system daemons.
+		 * "Shortlived" means that the monitoring of this process is not
+		 * especially important: that it is one of many processes being
+		 * grabbed by something like a mass u*() action.  It might still
+		 * be worth ptracing it so that we get better symbol resolution,
+		 * but if the process is a crucial system daemon, avoid ptracing
+		 * it entirely, to avoid rtld_db dropping breakpoints in crucial
+		 * system daemons unless specifically demanded.
 		 */
 		if (datap->dpcd_flags & DTRACE_PROC_SHORTLIVED) {
 			noninvasive = 1;
 
-			if (Phastty(dpr->dpr_pid) <= 0)
+                        if (Psystem_daemon(dpr->dpr_pid, dtp->dt_useruid,
+					   dtp->dt_sysslice) > 0)
 				noninvasive = 2;
 		}
 

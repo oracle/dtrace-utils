@@ -655,6 +655,8 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 static const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
 static const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
 static const char *_dtrace_defproc = "/proc";   /* default /proc path */
+static const char *_dtrace_defsysslice = ":/system.slice/"; /* default systemd
+							       system slice */
 
 static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
 static const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
@@ -670,6 +672,14 @@ int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 const char *const _libdtrace_vcs_version = DT_GIT_VERSION; /* Build version string */
+
+/*
+ * This can happen if UID_MIN is not defined in /etc/login.defs.  This "default
+ * default" comes from the shadow password suite, in libmisc/find_new_uid.c.
+ */
+#ifndef DTRACE_USER_UID
+#define DTRACE_USER_UID 1000
+#endif
 
 typedef struct dt_fdlist {
 	int *df_fds;		/* array of provider driver file descriptors */
@@ -907,6 +917,8 @@ alloc:
 	dtp->dt_ld_path = strdup(_dtrace_defld);
 	Pset_procfs_path(_dtrace_defproc);
 	dtp->dt_provmod = provmod;
+	dtp->dt_sysslice = strdup(_dtrace_defsysslice);
+	dtp->dt_useruid = DTRACE_USER_UID;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;
 	dt_dof_init(dtp);
@@ -931,7 +943,7 @@ alloc:
 	if (dtp->dt_mods == NULL || dtp->dt_kernpaths == NULL || 
 	    dtp->dt_provs == NULL || dtp->dt_procs == NULL ||
 	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
-	    dtp->dt_cpp_argv == NULL)
+	    dtp->dt_cpp_argv == NULL || dtp->dt_sysslice == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
@@ -1375,6 +1387,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_cpp_argv);
 	free(dtp->dt_cpp_path);
 	free(dtp->dt_ld_path);
+	free(dtp->dt_sysslice);
 
 	free(dtp->dt_sprintf_buf);
 

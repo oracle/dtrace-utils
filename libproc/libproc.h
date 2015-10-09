@@ -146,8 +146,8 @@ extern	int	Pelf64(struct ps_prochandle *);
  * Calls that do not take a process structure.  These are used to determine
  * whether it is sensible to grab a pid at all, before the grab takes place.
  */
-extern int Pexists(int pid);
-extern int Phastty(int pid);
+extern int Pexists(pid_t pid);
+extern int Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice);
 
 /*
  * Read the first argument of the function at which the process P is

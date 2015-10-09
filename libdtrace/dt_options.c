@@ -492,6 +492,27 @@ dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
+/*ARGSUSED*/
+static int
+dt_opt_sysslice(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *slice;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	/*
+	 * This string needs decorating suitably for grepping out of
+	 * /proc/$pid/cgroups.
+	 */
+	if (asprintf(&slice, ":/%s/", arg) < 0)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	free(dtp->dt_sysslice);
+	dtp->dt_sysslice = slice;
+
+	return (0);
+}
 
 /*ARGSUSED*/
 static int
@@ -516,6 +537,19 @@ dt_opt_tregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	dtp->dt_conf.dtc_diftupregs = n;
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_useruid(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	uid_t n;
+
+	if (arg == NULL || (n = atoi(arg)) < 0)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	dtp->dt_useruid = n;
 	return (0);
 }
 
@@ -1002,11 +1036,13 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },
 	{ "syslibdir", dt_opt_syslibdir },
+	{ "sysslice", dt_opt_sysslice },
 	{ "tree", dt_opt_tree },
 	{ "tregs", dt_opt_tregs },
 	{ "udefs", dt_opt_invcflags, DTRACE_C_UNODEF },
 	{ "undef", dt_opt_cpp_opts, (uintptr_t)"-U" },
 	{ "unodefs", dt_opt_cflags, DTRACE_C_UNODEF },
+	{ "useruid", dt_opt_useruid },
 	{ "verbose", dt_opt_cflags, DTRACE_C_DIFV },
 	{ "version", dt_opt_version },
 	{ "zdefs", dt_opt_cflags, DTRACE_C_ZDEFS },
