@@ -1503,10 +1503,12 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 		 * monitored process is dead, note as much.
 		 */
 		if (dpr->dpr_done)
-			if (!dpr->dpr_proc)
+			if (!dpr->dpr_proc) {
 				err = ESRCH; /* cause grab() or create() to fail */
+				dt_set_errno(dtp, err);
+			}
 	} else {
-		(void) dt_proc_error(dpr->dpr_hdl, dpr,
+		dt_proc_error(dpr->dpr_hdl, dpr,
 		    "failed to create control thread for pid %d: %s\n",
 		    (int)dpr->dpr_pid, strerror(err));
 	}
@@ -1650,9 +1652,11 @@ dt_ps_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	if (!Pexists(pid)) {
 		dt_dprintf("Pgrab(%d): Process does not exist, cannot grab\n",
 		    pid);
+		errno = ESRCH;
+		dt_set_errno(dtp, errno);
 		return NULL;
 	}
-		
+
 	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
 		return (NULL); /* errno is set for us */
 
