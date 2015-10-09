@@ -50,6 +50,9 @@ export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 
+# The first non-system uid on this system.
+USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
+
 # The substitution process in libdtrace needs kernel build trees for every
 # kernel this userspace will be used with.  It only needs to know about major
 # versions because to a first approximation the kernel-header-file #defines and

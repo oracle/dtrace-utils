@@ -23,7 +23,7 @@
 
 BUILDLIBS += libdtrace-build
 libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/$(ARCHINC) -D_LONGLONG_TYPE \
-                           -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
+                           -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\"" -DDTRACE_USER_UID=$(USER_UID)
 libdtrace-build_TARGET = libdtrace
 libdtrace-build_DIR := $(current-dir)
 libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c \
