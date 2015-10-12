@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2014, 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -39,4 +39,4 @@ fi
 
 dtrace=$1
 
-$dtrace -Z $dt_flags
+$dtrace $dt_flags -n 'BEGIN { exit(0); }'
