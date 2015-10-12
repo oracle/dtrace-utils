@@ -26,6 +26,8 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@timeout: 12
+
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin -x bufpolicy=$1 $1 <<EOF

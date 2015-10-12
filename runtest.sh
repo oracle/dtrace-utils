@@ -303,8 +303,9 @@ Usage: runtest options [TEST ...]
 
 Options:
  --timeout=TIME: Time out test runs after TIME seconds (default 10).
-                 (Timeouts are not considered test failures: timing out
-                 is normal.)
+                 (May cause many test failures if lowered.)
+ --ignore-timeouts: Treat all timeouts as not being failures.  (For use when
+                    testing under load.)
  --testsuites=SUITES: Which testsuites (directories under test/) to run,
                       as a comma-separated list.
  --[no-]execute: Execute probes with associated triggers.
@@ -347,6 +348,7 @@ ONLY_TESTS=
 TESTS=
 QUIET=
 TIMEOUT=11
+IGNORE_TIMEOUTS=
 
 ERRORS=
 
@@ -366,6 +368,7 @@ while [[ $# -gt 0 ]]; do
         --use-installed) USE_INSTALLED=t;;
         --no-use-installed) USE_INSTALLED=;;
         --timeout=*) TIMEOUT="$(printf -- $1 | cut -d= -f2-)";;
+        --ignore-timeouts) IGNORE_TIMEOUTS=t;;
         --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -779,7 +782,7 @@ for dt in $dtrace; do
         #                 expansion.
         #
         # @@timeout: The timeout to use for this test.  Overrides the --timeout
-        #            parameter.
+        #            parameter, iff the @@timeout is less than this.
         #
         # @@skip: If true, the test is skipped.
         #
@@ -790,6 +793,9 @@ for dt in $dtrace; do
         # @@no-xfail: If present, this means that a test is *not* expected to
         #             fail, even though a test.options in a directory above
         #             this test says otherwise.
+        #
+        # @@timeout-success: If present, this means that a timeout is
+        #                    considered a test pass, not a test failure.
         #
         # @@trigger: A single line containing the name of a program in
         #            test/triggers which is executed after dtrace is started.
@@ -900,9 +906,12 @@ for dt in $dtrace; do
         # Per-test timeout.
 
         if exist_options timeout $_test; then
-            timeout="$(extract_options timeout $_test)"
-            if [[ -n $VALGRIND ]]; then
-                timeout=$((timeout * 10))
+            if [[ "$(extract_options timeout $_test)" -gt $timeout ]]; then
+                timeout="$(extract_options timeout $_test)"
+
+                if [[ -n $VALGRIND ]]; then
+                    timeout=$((timeout * 10))
+                fi
             fi
         fi
 
@@ -1152,8 +1161,14 @@ for dt in $dtrace; do
             fail=t
             failmsg="core dumped"
 
+        # Detect a timeout.
+        elif [[ $exitcode -eq 126 ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
+             [[ "x$(extract_options timeout-success $_test)" = "x" ]]; then
+            fail=t
+            failmsg="timed out"
+
         # Exitcodes are not useful if there's been a coredump, but otherwise...
-        elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode != 126 ]]; then
+        elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne 126 ]]; then
 
             # Some sort of exitcode error.  Assume that errors in the
             # range 129 -- 193 (a common value of SIGRTMAX) are signal

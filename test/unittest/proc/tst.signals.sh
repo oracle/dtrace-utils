@@ -29,7 +29,10 @@
 # signals.
 #
 
-# @@timeout: 60
+# It takes quite a while: up to five seconds per test, plus init overhead,
+# times 31 signals, plus signal-determination overhead.
+#
+# @@timeout: 200
 
 dtrace=$1
 
