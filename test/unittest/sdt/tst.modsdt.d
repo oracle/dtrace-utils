@@ -43,7 +43,7 @@ sdt:dt_test::sdt-test
 }
 
 sdt:dt_test::sdt-test
-/i++ == 20/
+/++i == 20/
 {
 	exit(0);
 }
