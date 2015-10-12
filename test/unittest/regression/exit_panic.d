@@ -36,4 +36,5 @@ BEGIN
 
 proc:::exit
 {
+	exit(0);
 }
