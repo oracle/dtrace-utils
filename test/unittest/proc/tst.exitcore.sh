@@ -28,17 +28,21 @@
 
 #
 # This script tests that the proc:::exit probe fires with the correct argument
-# when the process core dumps.  The problematic bit here is making sure that
-# a process _can_ dump core -- if core dumps are disabled on both a global
-# and per-process basis, this test will fail.  Rather than having this test
-# muck with coreadm(1M) settings, it will fail explicitly in this case and
-# provide a hint as to the problem.  In general, machines should never be
-# running with both per-process and global core dumps disabled -- so this
-# should be a non-issue in practice.
+# when the process core dumps.
 #
 # If this fails, the script will run indefinitely; it relies on the harness
 # to time it out.
 #
+
+# Coredump to names that we can distinguish from each other: don't
+# suppress coredumps.
+
+orig_core_pattern="$(cat /proc/sys/kernel/core_pattern)"
+echo core.%e > /proc/sys/kernel/core_pattern
+orig_core_uses_pid="$(cat /proc/sys/kernel/core_uses_pid)"
+echo 0 > /proc/sys/kernel/core_uses_pid
+ulimit -c unlimited
+
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
@@ -53,9 +57,7 @@ script()
 	/curpsinfo->pr_ppid == $child &&
 	    curpsinfo->pr_psargs == "$longsleep" && args[0] != CLD_DUMPED/
 	{
-		printf("Child process could not dump core.  Check coreadm(1M)");
-		printf(" settings; either per-process or global core dumps ");
-		printf("must be enabled for this test to work properly.");
+		printf("Child process could not dump core.");
 		exit(1);
 	}
 EOF
@@ -63,18 +65,13 @@ EOF
 
 sleeper()
 {
-	d=/tmp/exitcore.$$
-	mkdir $d
-	cd $d
-
+	cd $tmpdir
 	ulimit -c 4096
 	while true; do
 		$longsleep &
 		sleep 1
 		kill -SEGV $!
 	done
-
-	rm -rf $d
 }
 
 if [ $# != 1 ]; then
@@ -84,7 +81,6 @@ fi
 
 dtrace=$1
 longsleep="sleep 10000"
-corefile=/tmp/core.$$
 
 sleeper &
 child=$!
@@ -95,5 +91,7 @@ status=$?
 pkill -P $child
 kill $child
 
-rm -f $corefile
+echo $orig_core_pattern > /proc/sys/kernel/core_pattern
+echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid
+
 exit $status
