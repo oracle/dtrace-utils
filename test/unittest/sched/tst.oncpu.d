@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@timeout: 15 */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option switchrate=100hz
