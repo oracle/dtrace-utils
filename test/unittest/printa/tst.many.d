@@ -45,7 +45,7 @@ BEGIN
 
 BEGIN
 {
-/*	freopen("/dev/null"); */
+	freopen("/dev/null");
 }
 
 profile-4000hz
