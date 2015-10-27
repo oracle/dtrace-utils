@@ -35,18 +35,6 @@
 
 #include <sys/dtrace.h>
 
-#ifndef EM_386
-# define EM_386		3
-#endif
-#ifndef EM_AMD64
-# define EM_AMD64	62
-#endif
-#ifndef EM_SPARC
-# define EM_SPARC	2 
-#endif
-#ifndef EM_SPARCV9
-# define EM_SPARCV9	43 
-#endif
 #ifndef SHT_SUNW_dof
 # define SHT_SUNW_dof	0x6ffffff4
 #endif
@@ -332,7 +320,7 @@ static int readObj(const char *fn) {
     }
     switch (ehdr.e_machine) {
 	case EM_386:
-	case EM_AMD64:
+	case EM_X86_64:
 	case EM_SPARC:
 	case EM_SPARCV9:
 	    arch = ehdr.e_machine;

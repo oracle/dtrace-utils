@@ -61,8 +61,6 @@ typedef unsigned long long hrtime_t;
 
 #define	SHT_SUNW_dof		0x6ffffff4
 
-#define	EM_AMD64	62		/* AMDs x86-64 architecture */
-
 #define	STV_ELIMINATE	6
 
 /*

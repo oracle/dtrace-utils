@@ -642,7 +642,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 #if defined(__sparc)
 	elf_file.ehdr.e_machine = EM_SPARCV9;
 #elif defined(__i386) || defined(__amd64)
-	elf_file.ehdr.e_machine = EM_AMD64;
+	elf_file.ehdr.e_machine = EM_X86_64;
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
 	elf_file.ehdr.e_shoff = sizeof (Elf64_Ehdr);
@@ -1100,7 +1100,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 #if defined(__sparc)
 		emachine1 = emachine2 = EM_SPARCV9;
 #elif defined(__i386) || defined(__amd64)
-		emachine1 = emachine2 = EM_AMD64;
+		emachine1 = emachine2 = EM_X86_64;
 #endif
 		symsize = sizeof (Elf64_Sym);
 	}
