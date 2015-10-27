@@ -590,7 +590,6 @@ Pupdate_maps(struct ps_prochandle *P)
 
                 pmptr->pr_vaddr = laddr;
                 pmptr->pr_size = haddr - laddr;
-                pmptr->pr_offset = offset;
 
 		/*
 		 * Both ld.so and the kernel follow the rule that the first
