@@ -23,8 +23,7 @@
 #
 # Copyright 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
-
-# @@xfail: noninvasive symbol resolution is broken
+#
 
 #
 # This script tests that tracing a system daemon noninvasively correctly
@@ -56,10 +55,10 @@ result_eval()
 		printf "%s\n" "$line" >&2
 	    fi
 	else
-	    if [[ "$line" =~ 'libpthread.so.0`start_thread' ]]; then
+	    if [[ "$line" =~ libpthread.*'`'start_thread ]]; then
                 found_start_thread=t
 	    fi
-	    if [[ "$line" =~ 'rsyslogd`genFileName' ]]; then
+	    if [[ "$line" =~ rsyslogd'`'genFileName ]]; then
                 found_gfn=t
 	    fi
 	    printf "%s\n" "$line"
