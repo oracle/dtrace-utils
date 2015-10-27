@@ -59,8 +59,6 @@ typedef longlong_t      offset_t;
 
 typedef unsigned long long hrtime_t;
 
-#define PAGESIZE        (_sysconf(_SC_PAGESIZE))
-
 #define	SHT_SUNW_dof		0x6ffffff4
 
 #define	EM_AMD64	62		/* AMDs x86-64 architecture */
