@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -1148,6 +1148,7 @@ static void
 dt_proc_control_cleanup(void *arg)
 {
 	int proc_existed = 0;
+	int suiciding = 0;
 	dt_proc_t *dpr = arg;
 
 	/*
@@ -1155,6 +1156,14 @@ dt_proc_control_cleanup(void *arg)
 	 * point, we don't want to unwind back into the thread main().
 	 */
 	unwinder_pad = NULL;
+
+	/*
+	 * If the process is noninvasively traced, the control thread will
+	 * suicide: we want to exit without reporting process death or releasing
+	 * the libproc handle (since it is still in active use).
+	 */
+	if (dpr->dpr_proc && !Ptraceable(dpr->dpr_proc))
+		suiciding = 1;
 
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
@@ -1179,7 +1188,12 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_lock_count = 1;
 	}
 
-	if (dpr->dpr_proc) {
+	/*
+	 * Only release this process if it was invasively traced. A
+	 * noninvasively traced process's control thread will suicide while the
+	 * process is still alive.
+	 */
+	if (dpr->dpr_proc && !suiciding) {
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
 		proc_existed = 1;
@@ -1212,8 +1226,9 @@ dt_proc_control_cleanup(void *arg)
 	 * they notice that it's failed.  So we cannot enqueue the dpr in that
 	 * case, and must enqueue a NULL instead.
 	 */
-	dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
-	    proc_existed ? dpr : NULL, NULL);
+	if (!suiciding)
+		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
+		    proc_existed ? dpr : NULL, NULL);
 
 	/*
 	 * A proxy request may have come in since the last time we checked for
@@ -1428,6 +1443,15 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		dpr->dpr_lock_count = lock_count;
 
 		dt_proc_dpr_unlock(dpr);
+	} else {
+		/*
+		 * The process control thread is already dead, but try to clean
+		 * the process up anyway, just in case it survived to this
+		 * point.  This can happen e.g. if the process was noninvasively
+		 * grabbed and its control thread suicided.)
+		 */
+		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
+		    PS_RELEASE_NORMAL);
 	}
 
 	if (!dt_ps_proc_retired(dpr->dpr_proc)) {
