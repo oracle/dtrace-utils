@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2009 -- 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -1081,7 +1081,7 @@ optimize_symtab(sym_tbl_t *symtab)
 static void
 Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 {
-	uint_t i;
+	size_t i;
 
 	GElf_Ehdr ehdr;
 
@@ -1090,6 +1090,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	Elf_Scn *scn;
 	Elf *elf = NULL;
 	size_t nshdrs, shstrndx;
+	int err;
 
 	struct {
 		GElf_Shdr c_shdr;
@@ -1149,8 +1150,6 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	 * same is true of the Puntrace().
 	 */
 	if (!P->noninvasive) {
-		int err;
-
 		fptr->file_init = 0;
 		err = Ptrace(P, 1);
 		if (fptr->file_init == 1) {
@@ -1203,13 +1202,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	    elf_getshdrstrndx(elf, &shstrndx) == -1 ||
 	    (scn = elf_getscn(elf, shstrndx)) == NULL ||
 	    (shdata = elf_getdata(scn, NULL)) == NULL) {
-		int err = elf_errno();
+		err = elf_errno();
 
 		close(fd);
 		_dprintf("failed to process ELF file %s: %s\n",
 		    fptr->file_pname, (err == 0) ? "<null>" : elf_errmsg(err));
 		goto bad;
-
 	}
 	close(fd);
 	if ((cache = malloc(nshdrs * sizeof (*cache))) == NULL) {
@@ -1313,61 +1311,73 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	optimize_symtab(&fptr->file_symtab);
 	optimize_symtab(&fptr->file_dynsym);
 
-	/*
-	 * Only runtime adjustments below, not meaningful when scanning an
-	 * on-disk executable.
-	 */
-	if (P->noninvasive)
-		goto done;
+	free(cache);
 
 	/*
 	 * Fill in the base address of the text mapping and entry point address
 	 * for relocatable objects.
 	 *
-	 * ld.so has a special kludge to work this out, since it relocates
-	 * itself without setting its rl_diff_addr correspondingly.  We look up
-	 * the address of the _r_debug symbol in ld.so, and subtract that from
-	 * the address given in DT_DEBUG.
+	 * If the object is a shared library or other dynamic object, set
+	 * file_dyn_base to the dynamic linker's idea of its load bias, rather
+	 * than engaging in a tiresome search through the object file.  ld.so
+	 * itself never gets this treatment, since it relocates itself without
+	 * setting its rl_diff_addr: we must always compute its base address the
+	 * tiresome way.
 	 */
-	if(fptr->file_map == P->map_ldso) {
-		GElf_Sym r_debug_sym = {0};
-		uintptr_t dt_debug;
-		if ((Pxlookup_by_name_internal(P, LM_ID_BASE, PR_OBJ_LDSO,
-			"_r_debug", FALSE, &r_debug_sym, NULL) == 0) &&
-		    ((dt_debug = r_debug(P)) >= 0)) {
-			fptr->file_dyn_base = dt_debug - r_debug_sym.st_value;
-
-			_dprintf("setting file_dyn_base for ld.so to %lx, "
-			    "from DT_DEBUG addr of %lx and _r_debug value "
-			    "of %lx\n", (long)fptr->file_dyn_base,
-			    dt_debug, r_debug_sym.st_value);
-		} else
-			_dprintf("cannot set file_dyn_base for ld.so!\n");
-	} else if (fptr->file_etype == ET_DYN) {
-		fptr->file_dyn_base =
-		    P->mappings[fptr->file_map].map_pmap->pr_vaddr -
-		    ehdr.e_entry;
-		_dprintf("setting file_dyn_base for %s to %lx, "
-		    "from vaddr of %lx and e_entry of %lx\n",
-		    fptr->file_pname, (long)fptr->file_dyn_base,
-		    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
-			ehdr.e_entry);
-	}
-	if (fptr->file_lo == NULL)
-		goto done; /* Nothing else to do if no load object info */
-
-       /*
-	* If the object is a shared library or other dynamic object, reset
-	* file_dyn_base to the dynamic linker's idea of its load bias.
-	*/
-       if (fptr->file_etype == ET_DYN &&
-	   fptr->file_lo != NULL) {
+	if (fptr->file_etype == ET_DYN &&
+	    fptr->file_lo != NULL &&
+	    fptr->file_map != P->map_ldso) {
 	       fptr->file_dyn_base = fptr->file_lo->rl_diff_addr;
-	       _dprintf("reset file_dyn_base for %s to %lx\n",
+	       _dprintf("%s: ld.so says file_dyn_base is %lx\n",
 		   fptr->file_pname, fptr->file_dyn_base);
-       }
+	       return;
+	}
 
-done:
+	size_t nphdrs;
+	GElf_Addr lowest_vaddr = (GElf_Addr) -1;
+
+	if (elf_getphdrnum(elf, &nphdrs) < 0)
+		goto elf_bad_noaddr;
+
+	for (i = 0; i < nphdrs; i++) {
+		GElf_Phdr hdr;
+		GElf_Phdr *phdr = gelf_getphdr(elf, i, &hdr);
+
+		if (!phdr)
+			goto elf_bad_noaddr;
+
+		if (phdr->p_type == PT_LOAD &&
+		    phdr->p_vaddr < lowest_vaddr)
+			lowest_vaddr = phdr->p_vaddr;
+	}
+
+	if (lowest_vaddr == (GElf_Addr) -1) {
+		_dprintf("%s: no loadable sections.\n", fptr->file_pname);
+		goto elf_bad_noaddr;
+	}
+
+	fptr->file_dyn_base = P->mappings[fptr->file_map].map_pmap->pr_vaddr -
+	    lowest_vaddr;
+
+	_dprintf("setting file_dyn_base for %s to %lx, "
+	    "from vaddr of %lx and lowest_addr of %lx\n",
+	    fptr->file_pname, (long)fptr->file_dyn_base,
+	    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
+	    lowest_vaddr);
+
+	return;
+
+elf_bad_noaddr:
+	/*
+	 * Can't reliably derive the base address.  Symbol lookup is quite
+	 * unlikely to work, but we can still try with a zero base address.
+	 */
+	err = elf_errno();
+
+	_dprintf("failed to get base address for ELF file %s, symbol lookup "
+	    "likely broken: %s\n", fptr->file_pname, (err == 0) ? "<null>" :
+	    elf_errmsg(err));
+	fptr->file_dyn_base = 0;
 	free(cache);
 	return;
 
