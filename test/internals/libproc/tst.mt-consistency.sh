@@ -34,7 +34,7 @@
 
 # @@timeout: 25
 
-# @@xfail almost guaranteed to fail due to loss of latching of process pre-libproc-mt
+# @@xfail: almost guaranteed to fail due to loss of latching of process pre-libproc-mt
 
 unset LD_AUDIT
 export NUM_THREADS=4
