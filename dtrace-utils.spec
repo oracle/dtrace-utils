@@ -36,7 +36,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.5.0
-Release:      1%{?dist}
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -174,7 +174,28 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
+- Improve identification of system daemons that must not be ptraced
+  unless explciitly specified [Orabug: 21914902]
+- Improve symbol resolution in the absence of ptrace() [Orabug: 22106441]
+- Fix dtrace -p with an invalid PID [Orabug: 21974221]
+- Close any inherited fds before running testsuite [Orabug: 21914934]
+
+* Wed Sep 23 2015 - <nick.alcock@oracle.com> - 0.5.0-3
+- Released to QA team only
+- No longer reference UEK3 kernels on SPARC.
+- Do not require 32-bit glibc on SPARC.
+
+* Wed Sep  9 2015 - <nick.alcock@oracle.com> - 0.5.0-2
+- Released to QA team only
+- No longer Provide: an unversioned dtrace-utils [Orabug: 21622263]
+- Add missing testsuite package deps [Orabug: 21663841] [Orabug: 21753123]
+- Fix check-module-loading testsuite target [Orabug: 21759323]
+- Test logfiles should not be affected by the verbosity of the test run
+  [Orabug: 21769905]
+
 * Wed Aug 12 2015 - <nick.alcock@oracle.com> - 0.5.0-1
+- Released to QA team only
 - SPARC64 support. [Orabug: 19005071]
 - Translator support for 4.1 kernel.
 

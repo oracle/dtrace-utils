@@ -5,9 +5,30 @@ New architectures:
 
   - Linux on SPARC64 is supported.  Userspace tracing doesn't work yet.
 
+New options:
+
+  - -xuseruid: On non-systemd systems (such as OL6), specify the user ID of
+    the first non-system user.  (The default will normally be appropriate.)
+    Processes with uids below this, and which appear to truly be daemons, are
+    only ptrace()d if explicitly specified via dtrace -p or -c.
+
+  - -xsysslice: On systemd systems (such as OL7), specify the name of the
+    system slice.  (The default will almost always be appropriate.)
+    Processes in this slice or the root slice are considered crucial system
+    daemons and only ptrace()d if explicitly specified, as above.
+
+    The systemd/non-systemd determination is made dynamically, so you can
+    switch init systems freely and everything should still work.
+
 Changes to user-visible internals:
 
   - Translator support for the UEK4 4.1 kernel.
+
+Bugfixes:
+
+  - Symbol resolution in non-ptraceable processes is improved.
+
+  - dtrace -p with an invalid PID now produces a sensible error message.
 
 0.4.6
 -----
