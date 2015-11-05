@@ -32,6 +32,7 @@
 test/triggers/libproc-sleeper-pie &
 SLEEPER=$!
 disown $SLEEPER
+while [[ $(readlink /proc/$SLEEPER/exe) =~ bash ]]; do :; done
 test/triggers/libproc-pldd $SLEEPER
 EXIT=$?
 kill $SLEEPER
