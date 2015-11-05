@@ -12,12 +12,10 @@
 # version.  This list is used to derive the names of development
 # packages to substitute #define tokens from.
 
-%ifarch x86_64
+%ifnarch sparc64
 %{lua: dtrace_kernels = {"3.8.13-87", "4.1.5-5"}}
 %else
-%ifarch sparc64
 %{lua: dtrace_kernels = {"4.1.6-14"}}
-%endif
 %endif
 
 # SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
