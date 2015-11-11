@@ -174,7 +174,7 @@ fi
 %changelog
 * Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
 - Improve identification of system daemons that must not be ptraced
-  unless explciitly specified [Orabug: 21914902]
+  unless explicitly specified [Orabug: 21914902]
 - Improve symbol resolution in the absence of ptrace() [Orabug: 22106441]
 - Fix dtrace -p with an invalid PID [Orabug: 21974221]
 - Close any inherited fds before running testsuite [Orabug: 21914934]
