@@ -58,7 +58,7 @@ result_eval()
 	    if [[ "$line" =~ libpthread.*'`'start_thread ]]; then
                 found_start_thread=t
 	    fi
-	    if [[ "$line" =~ rsyslogd'`'genFileName ]]; then
+	    if [[ "$line" =~ rsyslogd'`'wtiWorker ]]; then
                 found_gfn=t
 	    fi
 	    printf "%s\n" "$line"
