@@ -141,12 +141,15 @@ dt_debug_printf(const char *subsys, const char *format, va_list alist)
 		return;
 
 	if (!ring) {
+		flockfile(stderr);
 		fprintf(stderr, "%s DEBUG %li: ", subsys, time(NULL));
 		vfprintf(stderr, format, alist);
+		funlockfile(stderr);
 	} else {
 		va_list on_err;
 		size_t new_ring_end;
 
+		flockfile(ring_fd);
 		errno = 0;
 		fprintf(ring_fd, "%s DEBUG: %li: ", subsys, time(NULL));
 		if (errno == ENOSPC) {
@@ -174,6 +177,7 @@ dt_debug_printf(const char *subsys, const char *format, va_list alist)
 			ring_start = ring_end + 2; /* not +1, as that is '\0' */
 
 		ring_end = new_ring_end;
+		funlockfile(ring_fd);
 	}
 }
 
