@@ -578,10 +578,14 @@ if (yypcb->pcb_token != 0) {
 			 *
 			 * We also include special cases for the BEGIN / END /
 			 * ERROR probes, since there is no way to write these
-			 * with a comma and they cannot be type names.
+			 * with a comma and they cannot be type names, and for
+			 * anything with characters in RGX_PSPEC which cannot
+			 * appear in type names: this catches the fairly common
+			 * case of the tick and profile probes in the profile
+			 * provider and a bunch of other possibilities too.
 			 */
 			if (!(yypcb->pcb_cflags & DTRACE_C_PSPEC) &&
-			    strchr(yytext, ':') == NULL &&
+			    strpbrk(yytext, ":-.?!`") == NULL &&
 			    strcmp(yytext, "BEGIN") != 0 &&
 			    strcmp(yytext, "END") != 0 &&
 			    strcmp(yytext, "ERROR") != 0) {
