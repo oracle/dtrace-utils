@@ -26,6 +26,11 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
+# 20 invocations of a script taking at least two seconds each,
+# plus quite a lot of slop for initialization overhead and system load
+#
+# @@timeout: 90
+
 #
 # This script attempts to tease out a race when probes are initially enabled.
 #

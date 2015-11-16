@@ -779,7 +779,7 @@ for dt in $dtrace; do
         #                 expansion.
         #
         # @@timeout: The timeout to use for this test.  Overrides the --timeout
-        #            parameter.
+        #            parameter, iff the @@timeout is less than this.
         #
         # @@skip: If true, the test is skipped.
         #
@@ -900,9 +900,12 @@ for dt in $dtrace; do
         # Per-test timeout.
 
         if exist_options timeout $_test; then
-            timeout="$(extract_options timeout $_test)"
-            if [[ -n $VALGRIND ]]; then
-                timeout=$((timeout * 10))
+            if [[ "$(extract_options timeout $_test)" -gt $timeout ]]; then
+                timeout="$(extract_options timeout $_test)"
+
+                if [[ -n $VALGRIND ]]; then
+                    timeout=$((timeout * 10))
+                fi
             fi
         fi
 

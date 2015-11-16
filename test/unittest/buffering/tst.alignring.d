@@ -36,6 +36,10 @@
  *	Options and Tunables/bufpolicy
  */
 
+/* Incurs swapping, so
+ *  @@timeout: 15
+ */
+
 #pragma D option bufpolicy=ring
 #pragma D option bufsize=4k
 

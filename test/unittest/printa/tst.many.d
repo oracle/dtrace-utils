@@ -24,6 +24,12 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Don't time out until the buffer fills.  That might take some time, so
+ * set the timeout to a high value to, in effect, disable it.
+ * @@timeout: 600
+ */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option bufsize=32m
@@ -39,7 +45,7 @@ BEGIN
 
 BEGIN
 {
-	freopen("/dev/null");
+/*	freopen("/dev/null"); */
 }
 
 profile-4000hz
