@@ -334,21 +334,31 @@ exit 0
 
 # Parameters.
 
-CAPTURE_EXPECTED=
+CAPTURE_EXPECTED=${DTRACE_TEST_CAPTURE_EXPECTED:+t}
 OVERWRITE_RESULTS=
-NOEXEC=
-BADDOF=
-USE_INSTALLED=
-TESTSUITES="unittest internals stress demo"
-VALGRIND=
+NOEXEC=${DTRACE_TEST_NO_EXECUTE:+t}
+NOBADDOF=${DTRACE_TEST_BADDOF:-t}
+USE_INSTALLED=${DTRACE_TEST_USE_INSTALLED:+t}
+VALGRIND=${DTRACE_TEST_VALGRIND:+t}
 COMPARISON=t
 LOAD_MODULES_ONLY=
+
+if [[ -n $DTRACE_TEST_TESTSUITES ]]; then
+    TESTSUITES="${DTRACE_TEST_TESTSUITES}"
+else
+    TESTSUITES="unittest internals stress demo"
+fi
 
 ONLY_TESTS=
 TESTS=
 QUIET=
-TIMEOUT=11
-IGNORE_TIMEOUTS=
+
+if [[ -n $DTRACE_TEST_TIMEOUT ]]; then
+    TIMEOUT="$DTRACE_TEST_TIMEOUT"
+else
+    TIMEOUT=11
+fi
+IGNORE_TIMEOUTS=${DTRACE_TEST_IGNORE_TIMEOUTS:+t}
 
 ERRORS=
 
@@ -363,8 +373,8 @@ while [[ $# -gt 0 ]]; do
         --no-comparison) COMPARISON=;;
         --valgrind) VALGRIND=t;;
         --no-valgrind) VALGRIND=;;
-        --baddof) BADDOF=;;
-        --no-baddof) BADDOF=t;;
+        --baddof) NOBADDOF=;;
+        --no-baddof) NOBADDOF=t;;
         --use-installed) USE_INSTALLED=t;;
         --no-use-installed) USE_INSTALLED=;;
         --timeout=*) TIMEOUT="$(printf -- $1 | cut -d= -f2-)";;
@@ -622,7 +632,7 @@ fi
 
 # Initialize test coverage.
 
-if [[ -z $BADDOF ]]; then
+if [[ -n $NOBADDOF ]]; then
     for name in build*; do
         if [[ -n "$(echo $name/*.gcno)" ]]; then
             rm -rf $logdir/coverage
@@ -645,7 +655,7 @@ fi
 
 load_modules
 
-if [[ -n $BADDOF ]]; then
+if [[ -z $NOBADDOF ]]; then
     # Run DOF-corruption tests instead.
 
     test/utils/badioctl > dev/null 2> $tmpdir/badioctl.err &
