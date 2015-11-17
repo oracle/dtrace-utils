@@ -655,7 +655,7 @@ load_modules
 if [[ -z $NOBADDOF ]]; then
     # Run DOF-corruption tests instead.
 
-    test/utils/badioctl > dev/null 2> $tmpdir/badioctl.err &
+    test/utils/badioctl > /dev/null 2> $tmpdir/badioctl.err &
     declare ioctlpid=$!
 
     ZAPTHESE="$ioctlpid"
