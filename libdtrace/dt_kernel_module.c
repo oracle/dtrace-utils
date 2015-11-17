@@ -19,15 +19,17 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009, 2011, 2012, 2013, 2014 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright 2009, 2011, 2012, 2013, 2014, 2015 Oracle, Inc.
+ * All rights reserved. Use is subject to license terms.
  */
 
 /*
  * Kernel module list management.  We must maintain bindings from
  * name->filesystem path for all the current kernel's modules, since the system
  * maintains no such list and all mechanisms other than find(1)-analogues have
- * been deprecated or removed in kmod.
+ * been deprecated or removed in kmod.  However, we can rely on modules.order
+ * for all in-kernel modules: it's only out-of-tree modules in other paths that
+ * we must do fs walks to find.
  */
 
 #include <assert.h>
@@ -36,16 +38,25 @@
 #include <ftw.h>
 #include <pthread.h>
 #include <string.h>
+#include <alloca.h>
 
 #include <dt_kernel_module.h>
 #include <dt_string.h>
 #include <port.h>
 
-static pthread_mutex_t kern_path_update_lock = PTHREAD_MUTEX_INITIALIZER;
-static dtrace_hdl_t *locked_dtp;
-
+static int dt_kern_path_update_from_mo(dtrace_hdl_t *dtp);
 static int dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
     int typeflag, struct FTW *ftwbuf);
+
+static pthread_mutex_t kern_path_update_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/*
+ * Global variables used for the nftw() communication.
+ */
+
+static dtrace_hdl_t *kern_path_nftw_dtp;
+static int kern_path_nftw_oom;
+static int kern_path_nftw_include_kernel;
 
 /*
  * On successful return, name and path become owned by dt_kern_path_create()
@@ -120,18 +131,99 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 	assert(MUTEX_HELD(&kern_path_update_lock));
 
 	/*
+	 * First, read in modules.order to populate the in-tree modules.  (This
+	 * is optional: if it does not exist, or if there is some other error,
+	 * we just use nftw() instead, at a slight time cost.)
+	 */
+
+	if (dt_kern_path_update_from_mo(dtp) != 0)
+		kern_path_nftw_include_kernel = 1;
+
+	/*
 	 * 10 is a totally arbitrary number way below any likely useful limit on
 	 * the fd count.  Anyone setting ulimits below this deserves what they
 	 * get.
 	 */
 
-	locked_dtp = dtp;
-	return nftw(dtp->dt_module_path, dt_kern_path_update_one_entry,
-	    10, FTW_PHYS);
+	kern_path_nftw_dtp = dtp;
+	nftw(dtp->dt_module_path, dt_kern_path_update_one_entry,
+	    10, FTW_PHYS | FTW_ACTIONRETVAL);
+
+	if (kern_path_nftw_oom)
+		return EDT_NOMEM;
+
+	return 0;
 }
 
 /*
- * The guts of dt_kern_path_update().
+ * The guts of dt_kern_path_update()'s primary modules.order-based module path
+ * reader.
+ */
+static int
+dt_kern_path_update_from_mo(dtrace_hdl_t *dtp)
+{
+	FILE *mo;
+	char *order;
+	char *line = NULL;
+	size_t n;
+	size_t mplen = strlen(dtp->dt_module_path);
+	int err;
+
+	order = alloca(strlen(dtp->dt_module_path) + strlen("/modules.order") + 1);
+	strcpy(order, dtp->dt_module_path);
+	strcat(order, "/modules.order");
+
+	if ((mo = fopen(order, "r")) == NULL)
+		return errno;
+
+	errno = 0;
+	while (getline(&line, &n, mo) >= 0) {
+		char *suffix;
+		char *modname;
+		char *modpath;
+		char *p;
+
+		suffix = strrstr(line, ".ko\n");
+		if ((suffix == NULL) || (suffix[4] != '\0'))
+			continue;
+		suffix[3] = '\0';		/* chop the linefeed */
+
+		modname = strrchr(line, '/');
+		if (!modname)
+			modname = line;
+		else
+			modname++;
+
+		modname = strndup(modname, strlen(modname) - 3);
+		if (errno == ENOMEM)
+			break;
+
+		modpath = malloc(mplen + 1 + strlen(line) + 1);
+		if (!modpath) {
+			free(modname);
+			break; /* OOM */
+		}
+
+		p = stpcpy(modpath, dtp->dt_module_path);
+		p = stpcpy(p, "/");
+		strcpy(p, line);
+
+		if (dt_kern_path_create(dtp, modname, modpath) == NULL)
+			break; /* OOM */
+	}
+	err = errno;
+
+	free(line);
+	fclose(mo);
+
+	if (err)
+		return err;
+
+	return 0;
+}
+
+/*
+ * The guts of dt_kern_path_update()'s fallback nftw()-based walk.
  */
 static int
 dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
@@ -150,8 +242,13 @@ dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
 		return -EPERM;
 	case FTW_F:
 		break;
+	case FTW_D:
+		if (!kern_path_nftw_include_kernel &&
+		    (strcmp(&fpath[ftwbuf->base], "kernel") == 0))
+			return FTW_SKIP_SUBTREE;
+		return 0;
 	/*
-	 * Unstattable, directory, etc.
+	 * Unstattable, etc.
 	 */
 	default:
 		return 0;
@@ -168,15 +265,17 @@ dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
 	if ((modname == NULL) || (modpath == NULL))
 		goto oom;
 
-	if (dt_kern_path_create(locked_dtp, modname, modpath) == NULL)
+	if (dt_kern_path_create(kern_path_nftw_dtp, modname, modpath) == NULL)
 		goto oom;
 
-	return 0;
+	return FTW_CONTINUE;
  oom:
 
 	free(modname);
 	free(modpath);
-	return EDT_NOMEM;
+	kern_path_nftw_oom = 1;
+
+	return FTW_STOP;
 }
 
 dt_kern_path_t *
