@@ -1,3 +1,20 @@
+0.5.1
+-----
+
+Performance improvements:
+
+  - dtrace(1) and libdtrace(1) startup speed is improved, both by avoiding a
+    filesystem walk by using the modules.order file to locate available kernel
+    modules, and by avoiding loading all kernel modules to resolve possible
+    types when unqualified probe names that cannot possibly be C identifiers are
+    seen (like 'tick-1sec').  When the disk cache is cold these changes speed up
+    startup by on the order of 2x.
+
+Changes to user-visible internals:
+
+  - The DTRACE_DEBUG debugging option could intermingle debugging output in
+    limited ways when multiple threads were emitting debugging at once.
+
 0.5.0
 -----
 

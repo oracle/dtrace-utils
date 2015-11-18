@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.5.0
-Release:      4%{?dist}
+Version:      0.5.1
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,6 +172,12 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
+- Improve startup performance when disk cache is cold [Orabug: 22185787]
+[Orabug: 22083436] [Orabug: 22185763] [Orabug: 22083846]
+- Fix various problems in the testsuite and in DTRACE_DEBUG output
+[Orabug: 21431540] [Orabug: 22170799]
+
 * Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
 - Improve identification of system daemons that must not be ptraced
   unless explicitly specified [Orabug: 21914902]
