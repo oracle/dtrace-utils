@@ -26,7 +26,7 @@
 
 /* @@trigger: ustack-tst-bigstack */
 /* @@runtest-opts: $_pid */
-/* @@xfail: userspace stack traces are not implemented yet */
+/* @@timeout: 15 */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
