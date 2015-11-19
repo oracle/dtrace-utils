@@ -38,7 +38,7 @@ script()
 	rsyslogd_pid="$(cat /var/run/syslogd.pid)"
 	DTRACE_DEBUG=t $dtrace $dt_flags -qws /dev/stdin <<EOF
 		BEGIN { system("echo foo | logger") }
-		syscall::write:entry / pid == $rsyslogd_pid / { ustack(); }
+		syscall::write:entry / pid == $rsyslogd_pid / { ustack(50); }
                 tick-1s { i++; }
                 tick-1s / i > 4 / { exit(0); }
 EOF
