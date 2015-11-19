@@ -542,7 +542,7 @@ enum {
 	EDT_ENABLING_ERR,	/* failed to enable probe */
 	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
 	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
-	EDT_OBJIO		/* cannot read object file */
+	EDT_OBJIO		/* cannot read object file or module name mapping */
 };
 
 /*
