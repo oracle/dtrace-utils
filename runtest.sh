@@ -355,7 +355,7 @@ QUIET=
 if [[ -n $DTRACE_TEST_TIMEOUT ]]; then
     TIMEOUT="$DTRACE_TEST_TIMEOUT"
 else
-    TIMEOUT=11
+    TIMEOUT=21
 fi
 
 ERRORS=
