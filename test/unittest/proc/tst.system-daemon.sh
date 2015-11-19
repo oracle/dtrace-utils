@@ -24,6 +24,8 @@
 # Copyright 2015 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# @@skip: erratic, not due to symbol-resolution failures: skip on
+# release branch pro tem
 
 #
 # This script tests that tracing a system daemon noninvasively correctly
