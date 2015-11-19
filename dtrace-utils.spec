@@ -34,7 +34,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.5.1
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,10 +172,17 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Nov 19 2015 - <nick.alcock@oracle.com> - 0.5.1-3
+- Fix buggy performance improvements to correctly detect out-of-tree modules
+  (like dtrace.ko) and speed them up some more [Orabug: 22237449]
+  [Orabug: 22238204]
+
 * Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-2
+- Released to QA team only.
 - Remove typoed non-bug from rpm changelog.
 
 * Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
+- Released to QA team only.
 - Improve startup performance when disk cache is cold [Orabug: 22185787]
 [Orabug: 22185763] [Orabug: 22083846]
 - Fix various problems in the testsuite and in DTRACE_DEBUG output
