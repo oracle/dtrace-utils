@@ -108,7 +108,7 @@ static const struct {
 	{ EDT_CORRUPT_KALLSYMS, "/proc/kallsyms corrupt, perhaps due to "
 	  "concurrent module unload" },
 	{ EDT_ELFCLASS, "Unknown ELF class, neither 32- nor 64-bit" },
-	{ EDT_OBJIO, "Cannot read object file" }
+	{ EDT_OBJIO, "Cannot read object file or modules.dep" }
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);

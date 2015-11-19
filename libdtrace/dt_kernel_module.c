@@ -32,31 +32,21 @@
  * we must do fs walks to find.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
-#include <ftw.h>
 #include <pthread.h>
 #include <string.h>
 #include <alloca.h>
+#include <unistd.h>
 
 #include <dt_kernel_module.h>
 #include <dt_string.h>
 #include <port.h>
 
-static int dt_kern_path_update_from_mo(dtrace_hdl_t *dtp);
-static int dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
-    int typeflag, struct FTW *ftwbuf);
-
 static pthread_mutex_t kern_path_update_lock = PTHREAD_MUTEX_INITIALIZER;
-
-/*
- * Global variables used for the nftw() communication.
- */
-
-static dtrace_hdl_t *kern_path_nftw_dtp;
-static int kern_path_nftw_oom;
-static int kern_path_nftw_include_kernel;
 
 /*
  * On successful return, name and path become owned by dt_kern_path_create()
@@ -121,72 +111,53 @@ dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
 }
 
 /*
- * Construct the mapping of kernel module name -> path for all modules.
+ * Construct the mapping of kernel module name -> path for all modules,
+ * by reading modules.dep.
  *
  * Must be called under the kern_path_update_lock.
  */
 int
 dt_kern_path_update(dtrace_hdl_t *dtp)
 {
-	assert(MUTEX_HELD(&kern_path_update_lock));
-
-	/*
-	 * First, read in modules.order to populate the in-tree modules.  (This
-	 * is optional: if it does not exist, or if there is some other error,
-	 * we just use nftw() instead, at a slight time cost.)
-	 */
-
-	if (dt_kern_path_update_from_mo(dtp) != 0)
-		kern_path_nftw_include_kernel = 1;
-
-	/*
-	 * 10 is a totally arbitrary number way below any likely useful limit on
-	 * the fd count.  Anyone setting ulimits below this deserves what they
-	 * get.
-	 */
-
-	kern_path_nftw_dtp = dtp;
-	nftw(dtp->dt_module_path, dt_kern_path_update_one_entry,
-	    10, FTW_PHYS | FTW_ACTIONRETVAL);
-
-	if (kern_path_nftw_oom)
-		return EDT_NOMEM;
-
-	return 0;
-}
-
-/*
- * The guts of dt_kern_path_update()'s primary modules.order-based module path
- * reader.
- */
-static int
-dt_kern_path_update_from_mo(dtrace_hdl_t *dtp)
-{
-	FILE *mo;
-	char *order;
+	FILE *dep;
+	char *buf;
+	char *depname;
 	char *line = NULL;
 	size_t n;
 	size_t mplen = strlen(dtp->dt_module_path);
 	int err;
+	struct stat s;
 
-	order = alloca(strlen(dtp->dt_module_path) + strlen("/modules.order") + 1);
-	strcpy(order, dtp->dt_module_path);
-	strcat(order, "/modules.order");
+	assert(MUTEX_HELD(&kern_path_update_lock));
 
-	if ((mo = fopen(order, "r")) == NULL)
-		return errno;
+	depname = alloca(strlen(dtp->dt_module_path) + strlen("/modules.dep") + 1);
+	strcpy(depname, dtp->dt_module_path);
+	strcat(depname, "/modules.dep");
+
+	if (stat(depname, &s) < 0)
+		return EDT_OBJIO;
+
+	if ((buf = malloc(s.st_size + 1)) == NULL)
+		return EDT_NOMEM;
+
+	if ((dep = fopen(depname, "r")) == NULL) {
+		free(buf);
+		return EDT_OBJIO;
+	}
+
+	setvbuf(dep, buf, _IOFBF, s.st_size + 1);
 
 	errno = 0;
-	while (getline(&line, &n, mo) >= 0) {
+	while (getline(&line, &n, dep) >= 0) {
 		char *suffix;
 		char *modname;
 		char *modpath;
 		char *p;
 
-		suffix = strrstr(line, ".ko\n");
-		if ((suffix == NULL) || (suffix[4] != '\0'))
+		suffix = strstr(line, ".ko:");
+		if (suffix == NULL)
 			continue;
-		suffix[3] = '\0';		/* chop the linefeed */
+		suffix[3] = '\0';		/* chop the dep components */
 
 		modname = strrchr(line, '/');
 		if (!modname)
@@ -214,68 +185,13 @@ dt_kern_path_update_from_mo(dtrace_hdl_t *dtp)
 	err = errno;
 
 	free(line);
-	fclose(mo);
+	fclose(dep);
+	free(buf);
 
-	if (err)
+	if (err == ENOMEM)
+		return EDT_NOMEM;
+	else
 		return err;
-
-	return 0;
-}
-
-/*
- * The guts of dt_kern_path_update()'s fallback nftw()-based walk.
- */
-static int
-dt_kern_path_update_one_entry(const char *fpath, const struct stat *sb,
-    int typeflag, struct FTW *ftwbuf)
-{
-	char *suffix;
-	char *modname;
-	char *modpath;
-
-	/*
-	 * Fail if whole directories can't be read, since this means we'll miss
-	 * modules.
-	 */
-	switch (typeflag) {
-	case FTW_DNR:
-		return -EPERM;
-	case FTW_F:
-		break;
-	case FTW_D:
-		if (!kern_path_nftw_include_kernel &&
-		    (strcmp(&fpath[ftwbuf->base], "kernel") == 0))
-			return FTW_SKIP_SUBTREE;
-		return 0;
-	/*
-	 * Unstattable, etc.
-	 */
-	default:
-		return 0;
-	}
-
-	suffix = strrstr(&fpath[ftwbuf->base], ".ko");
-	if ((suffix == NULL) || (suffix[3] != '\0'))
-		return 0;
-
-	modpath = strdup(fpath);
-	modname = strndup(&fpath[ftwbuf->base],
-	    strlen(&fpath[ftwbuf->base]) - 3);
-
-	if ((modname == NULL) || (modpath == NULL))
-		goto oom;
-
-	if (dt_kern_path_create(kern_path_nftw_dtp, modname, modpath) == NULL)
-		goto oom;
-
-	return FTW_CONTINUE;
- oom:
-
-	free(modname);
-	free(modpath);
-	kern_path_nftw_oom = 1;
-
-	return FTW_STOP;
 }
 
 dt_kern_path_t *
