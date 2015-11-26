@@ -29,4 +29,7 @@
 # exec()ing works, that the breakpoint is hit, and that the exec() is detected.
 #
 
+# Some machines have very slow exec(), and this exec()s five thousand times.
+# @@timeout: 200
+
 test/triggers/libproc-execing-bkpts breakdance test/triggers/libproc-execing-bkpts-victim

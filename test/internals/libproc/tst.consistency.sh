@@ -30,7 +30,7 @@
 # only one lmid is in use.
 #
 
-# @@timeout: 25
+# @@timeout: 50
 
 unset LD_AUDIT
 

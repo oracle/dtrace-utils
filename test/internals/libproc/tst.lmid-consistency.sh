@@ -29,7 +29,7 @@
 # it is continuously changing, even when lmids != 0 are in use.
 #
 
-# @@timeout: 25
+# @@timeout: 50
 # @@skip: randomly coredumping
 
 unset LD_AUDIT
