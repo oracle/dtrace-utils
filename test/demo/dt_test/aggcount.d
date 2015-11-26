@@ -20,13 +20,22 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@trigger: testprobe */
+/* @@runtest-opts: -p $_pid */
+
+#pragma D option quiet
 
 dt_test:::test
 {
         @counts["number of times fired"] = count();
+}
+
+syscall::exit_group:entry
+/ pid == $target /
+{
+	exit(0);
 }

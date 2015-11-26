@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -40,6 +40,12 @@ profile:::tick-1sec
 {
 	i = i + 1;
 	trace(i);
+}
+
+profile:::tick-1sec
+/i == 11/
+{
+	exit(0);
 }
 
 dtrace:::END

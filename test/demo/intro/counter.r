@@ -10,7 +10,8 @@
                       :tick-1sec         9
                       :tick-1sec        10
                       :tick-1sec        11
+                      :tick-1sec 
                             :END        11
 
 -- @@stderr --
-dtrace: script 'test/demo/intro/counter.d' matched 3 probes
+dtrace: script 'test/demo/intro/counter.d' matched 4 probes

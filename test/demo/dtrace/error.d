@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -34,4 +34,5 @@ BEGIN
 ERROR
 {
 	printf("Hit an error!");
+	exit(0);
 }
