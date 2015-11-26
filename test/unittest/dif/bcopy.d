@@ -1,3 +1,5 @@
+/* @@trigger: open */
+
 syscall::open:entry
 {
 	a = alloca(8);
