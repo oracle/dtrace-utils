@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -43,4 +43,10 @@ syscall::read:return, syscall::write:return
 /(pid == $1) && (active == 1)/
 {
 	printf("\t\t = %d\n", arg1);
+}
+
+syscall::exit_group:entry
+/ pid == $1 /
+{
+	exit(0);
 }

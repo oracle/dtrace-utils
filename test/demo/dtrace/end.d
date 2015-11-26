@@ -21,7 +21,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -32,9 +32,10 @@ BEGIN
 	start = timestamp;
 }
 
-/*
- * ... other tracing actions...
- */
+tick-1s
+{
+	exit(0);
+}
 
 END
 {
