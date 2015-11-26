@@ -32,7 +32,7 @@
 # The number of threads is arbitrary: it only matters that it is >1.
 #
 
-# @@timeout: 25
+# @@timeout: 50
 
 # @@xfail: almost guaranteed to fail due to loss of latching of process pre-libproc-mt
 

@@ -29,7 +29,7 @@
 # it is continuously changing, even when lmids != 0 are in use.
 #
 
-# @@timeout: 25
+# @@timeout: 50
 
 unset LD_AUDIT
 export MANY_LMIDS=t
