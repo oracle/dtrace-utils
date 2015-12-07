@@ -287,6 +287,9 @@ extract_options()
         fi
         path="$(dirname $path)"
         file="$path/test.options"
+        if [[ -e "$path/test.$arch.options" ]]; then
+            file="$path/test.$arch.options"
+        fi
         # Halt at top level.
         if [[ -e $path/Makecheck ]]; then
             return
