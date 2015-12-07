@@ -58,7 +58,7 @@ help::
 	@printf "check-verbose                  Report successes too.\n" >&2
 	@printf "check-installed                Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose        Report successes too.\n" >&2
-	@printf "check-stress                   Run testsuites that stress the system.\n" >&2
+	@printf "check-stress                   Run testsuites while the system is under stress.\n" >&2
 	@printf "check-installed-stress         Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose-stress Report successes too.\n" >&2
 	@printf "check-module-loading           Check that all modules load.\n" >&2
