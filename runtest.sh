@@ -288,7 +288,7 @@ extract_options()
         path="$(dirname $path)"
         file="$path/test.options"
         # Halt at top level.
-        if [[ -e $path/Makefunctions ]]; then
+        if [[ -e $path/Makecheck ]]; then
             return
         fi
     done
