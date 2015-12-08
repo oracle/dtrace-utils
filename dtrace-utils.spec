@@ -172,11 +172,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Tue Dec 12 2015 - <nick.alcock@oracle.com> - 0.5.1-4
-* Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
+* Tue Dec  8 2015 - <nick.alcock@oracle.com> - 0.5.1-4
+- Released to QA team only.
+- Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
 
 * Thu Nov 19 2015 - <nick.alcock@oracle.com> - 0.5.1-3
-- Released to QA team only.
 - Fix buggy performance improvements to correctly detect out-of-tree modules
   (like dtrace.ko) and speed them up some more [Orabug: 22237449]
   [Orabug: 22238204]
