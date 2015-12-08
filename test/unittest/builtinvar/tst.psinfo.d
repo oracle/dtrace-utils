@@ -33,6 +33,8 @@
  * SECTION: Variables/Built-in Variables
  */
 
+/* @@timeout: 40 */
+
 #pragma D option quiet
 
 BEGIN
