@@ -27,6 +27,7 @@
 
 # @@runtest-opts: -p $_pid
 # @@trigger: execloop
+# @@trigger-timing: after
 
 #
 # This script tests that a process execing in a tight loop can still be

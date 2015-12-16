@@ -24,29 +24,23 @@
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: $_pid */
 /* @@trigger: mmap */
-
-syscall::swapoff:entry
-{
-	active = 1;
-}
 
 syscall::read:entry,
 syscall::write:entry
-/(pid == $1) && (active == 1)/
+/ pid == $target /
 {
 	printf("%s(%d, 0x%x, %4d)", probefunc, arg0, arg1, arg2);
 }
 
 syscall::read:return, syscall::write:return
-/(pid == $1) && (active == 1)/
+/ pid == $target /
 {
 	printf("\t\t = %d\n", arg1);
 }
 
 syscall::exit_group:entry
-/ pid == $1 /
+/ pid == $target /
 {
 	exit(0);
 }

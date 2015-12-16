@@ -20,24 +20,23 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@trigger: readwholedir */
-/* @@runtest-opts: $_pid */
 
 #pragma D option quiet
 
 syscall::*lstat:entry
-/pid == $1 && ustacked < 3/
+/pid == $target && ustacked < 3/
 {
 	ustack(95);
         ustacked++;
 }
 
 syscall::exit_group:entry
-/pid == $1/
+/pid == $target/
 {
 	exit(0);
 }

@@ -20,11 +20,10 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/* @@runtest-opts: $_pid */
 /* @@trigger: mmap */
 
 BEGIN
@@ -40,19 +39,19 @@ BEGIN
 }
 
 syscall::write:entry
-/pid == $1/
+/pid == $target/
 {
 	fd = arg0;
 }
 
 syscall::mmap:entry
-/pid == $1 && arg4 == fd/
+/pid == $target && arg4 == fd/
 {
 	printf("mmap with prot = %s", prot[arg2 & 0x7]);
 }
 
 syscall::exit_group:entry
-/pid == $1/
+/pid == $target/
 {
 	exit(0);
 }

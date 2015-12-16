@@ -19,7 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@runtest-opts: $_pid */
 /* @@trigger: longsleep */
 /* @@no-xfail */
 
@@ -39,6 +38,6 @@
  *
  */
 
-pid$1::_exit:100
+pid$target::_exit:100
 {
 }

@@ -27,6 +27,7 @@
 
 # @@runtest-opts: $_pid
 # @@trigger: -p execloop
+# @@trigger-timing: after
 # @@skip: until the pid provider is implemented
 
 #

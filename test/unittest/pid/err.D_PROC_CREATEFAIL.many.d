@@ -19,7 +19,6 @@
  * CDDL HEADER END
  */
 
-/* @@runtest-opts: $_pid */
 /* @@trigger: longsleep */
 /* @@no-xfail */
 
@@ -30,7 +29,7 @@
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
-pid$1:::
+pid$target:::
 {
 }
 

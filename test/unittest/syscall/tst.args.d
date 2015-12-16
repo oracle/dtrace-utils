@@ -25,7 +25,6 @@
  */
 
 /* @@trigger: syscall-tst-args */
-/* @@runtest-opts: $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
@@ -36,7 +35,7 @@
 #pragma D option quiet
 
 syscall::mmap*:entry
-/pid == $1 && arg0 == 0 && arg1 == 1 && arg2 == 2 && arg3 == 3 &&
+/pid == $target && arg0 == 0 && arg1 == 1 && arg2 == 2 && arg3 == 3 &&
  (int)arg4 == -1 && arg5 == 0x12345678/
 {
 	exit(0);

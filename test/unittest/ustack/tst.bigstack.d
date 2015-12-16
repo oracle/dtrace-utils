@@ -25,14 +25,13 @@
  */
 
 /* @@trigger: ustack-tst-bigstack */
-/* @@runtest-opts: $_pid */
 /* @@skip: erratic */
 /* @@timeout: 15 */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 syscall::ioctl:entry
-/pid == $1/
+/pid == $target/
 {
 	@[ustackdepth] = count();
 }

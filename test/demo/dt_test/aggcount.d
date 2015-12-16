@@ -25,7 +25,6 @@
  */
 
 /* @@trigger: testprobe */
-/* @@runtest-opts: -p $_pid */
 
 #pragma D option quiet
 
