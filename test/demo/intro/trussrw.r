@@ -5,4 +5,4 @@
                 exit_group:entry 
 
 -- @@stderr --
-dtrace: script 'test/demo/intro/trussrw.d' matched 6 probes
+dtrace: script 'test/demo/intro/trussrw.d' matched 5 probes

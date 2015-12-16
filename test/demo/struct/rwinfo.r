@@ -3,8 +3,8 @@
                             :END 
         calls  max bytes  elapsed
 ------  -----  ---------  -------
-  read      7       4096  yes
- write      3       2048  yes
+  read      6       4096  yes
+ write      3       2041  yes
 
 
 -- @@stderr --

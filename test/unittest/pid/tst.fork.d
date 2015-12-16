@@ -28,6 +28,7 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-fork */
+/* @@trigger-timing: after */
 
 /*
  * ASSERTION: make sure fork(2) is okay

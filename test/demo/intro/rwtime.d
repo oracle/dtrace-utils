@@ -20,29 +20,28 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@trigger: readwholedir */
-/* @@runtest-opts: $_pid */
 
 syscall::read:entry,
 syscall::write:entry
-/pid == $1/
+/pid == $target/
 {
 	ts[probefunc] = timestamp;
 }
 
 syscall::read:return,
 syscall::write:return
-/pid == $1 && ts[probefunc] != 0/
+/pid == $target && ts[probefunc] != 0/
 {
 	printf("%d nsecs", timestamp - ts[probefunc]);
 }
 
 syscall::exit_group:entry
-/pid == $1/
+/pid == $target/
 {
        exit(0);
 }

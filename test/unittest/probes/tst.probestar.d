@@ -24,6 +24,7 @@
  * Use is subject to license terms.
  */
 /* @@trigger: testprobe */
+/* @@trigger-timing: after */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 

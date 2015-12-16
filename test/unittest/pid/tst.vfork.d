@@ -21,6 +21,7 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-vfork */
+/* @@trigger-timing: after */
 
 /*
  * Copyright 2007 Oracle, Inc.  All rights reserved.

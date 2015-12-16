@@ -823,13 +823,15 @@ for dt in $dtrace; do
         #            currently trapped and it will spoil the screen display.
         #            See '.trigger'.
         #
-        # @@trigger-timing: A single line containing 'before', 'after', or a
-        #                   number.  If 'after' (the default) the trigger will
-        #                   be exec()ed (from a pre-existing PID) after DTrace
-        #                   has started.  If 'before', the trigger will already
-        #                   be running when DTrace starts.  If a number,  it is
-        #                   a count in seconds to delay trigger execution (to
-        #                   wait for DTrace to start).
+        # @@trigger-timing: A single line containing 'before', 'after',
+        #                   synchronous', or a number.  If 'synchronous' (the
+        #                   default), the trigger will be passed to dtrace via
+        #                   -c and left for dtrace to invoke.  If 'after', the
+        #                   trigger will be exec()ed (from a pre-existing PID)
+        #                   after DTrace has started.  If 'before', the trigger
+        #                   will already be running when DTrace starts.  If a
+        #                   number, it is a count in seconds to delay trigger
+        #                   execution (to wait for DTrace to start).
         #
         # Certain filenames of test .d script are treated specially:
         #
@@ -1061,25 +1063,31 @@ for dt in $dtrace; do
             # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
             # and confusing it. (This happens even if disowned.)
 
-            trigger_delay=1
-            if exist_options trigger-timing $_test; then
-                if [[ "x$(extract_options trigger-timing $_test)" = "xbefore" ]]; then
-                    trigger_delay=
-                elif [[ "x$(extract_options trigger-timing $_test)" = "xafter" ]]; then
-                    : # default
-                else
-		    trigger_delay="$(extract_options trigger-timing $_test)"
-                fi
+            trigger_timing=synchro
+            trigger_delay=
+            if exist_options trigger-timing $_test &&
+               [[ "x$(extract_options trigger-timing $_test)" != "xsynchro" ]]; then
+                trigger_timing="$(extract_options trigger-timing $_test)"
+                case $trigger_timing in
+                    after) trigger_delay=1;;
+                    before|synchro) ;;
+                    *) trigger_delay=$trigger_timing;;
+                esac
             fi
 
-            log "Running trigger $trigger\n"
-            ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
-            _pid=$!
-            disown %-
-            ZAPTHESE="$_pid"
+            if [[ "$trigger_timing" == "synchro" ]]; then
+                dt_flags="$dt_flags -c $trigger"
+                _pid=
+            else
+                log "Running trigger $trigger${trigger_delay:+ with delay $trigger_delay}\n"
+                ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
+                _pid=$!
+                disown %-
+                ZAPTHESE="$_pid"
 
-            if [[ $dt_flags =~ \$_pid ]]; then
-                dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
+                if [[ $dt_flags =~ \$_pid ]]; then
+                    dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
+                fi
             fi
 
             if [[ -z $shellrun ]]; then
@@ -1094,7 +1102,7 @@ for dt in $dtrace; do
             # If the trigger is still running, kill it, and wait for it, to
             # quiesce the background-process-kill noise the shell would
             # otherwise emit.
-            if [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
+            if [[ -n $_pid ]] && [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
                 kill $_pid >/dev/null 2>&1
             fi
             ZAPTHESE=

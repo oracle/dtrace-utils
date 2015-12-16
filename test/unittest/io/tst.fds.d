@@ -25,6 +25,7 @@
  */
 
 /* @@trigger: bogus-ioctl */
+/* @@trigger-timing: after */
 /* @@runtest-opts: -C $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"

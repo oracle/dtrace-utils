@@ -21,6 +21,7 @@
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-weak1 */
+/* @@trigger-timing: after */
 
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.

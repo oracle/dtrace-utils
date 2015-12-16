@@ -20,12 +20,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@trigger: readwholedir */
-/* @@runtest-opts: $_pid */
 
 struct callinfo {
 	uint64_t ts;      /* timestamp of last syscall entry */
@@ -37,7 +36,7 @@ struct callinfo {
 struct callinfo i[string];	/* declare i as an associative array */
 
 syscall::read:entry, syscall::write:entry
-/pid == $1/
+/pid == $target/
 {
 	i[probefunc].ts = timestamp;
 	i[probefunc].calls++;
@@ -46,13 +45,13 @@ syscall::read:entry, syscall::write:entry
 }
 
 syscall::read:return, syscall::write:return
-/i[probefunc].ts != 0 && pid == $1/
+/i[probefunc].ts != 0 && pid == $target/
 {
 	i[probefunc].elapsed += timestamp - i[probefunc].ts;
 }
 
 syscall::exit_group:entry
-/pid == $1/
+/pid == $target/
 {
        exit(0);
 }

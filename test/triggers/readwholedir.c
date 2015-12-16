@@ -33,6 +33,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/swap.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <stdlib.h>

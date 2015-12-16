@@ -25,6 +25,7 @@
  */
 
 /* @@trigger: open */
+/* @@trigger-timing: after */
 /* @@runtest-opts: $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"

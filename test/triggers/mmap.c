@@ -18,7 +18,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005, 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2005, 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -31,7 +31,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/swap.h>
 
 #define NUMINTS  (1000)
 #define FILESIZE (NUMINTS * sizeof(int))
@@ -42,10 +41,6 @@ int main(int argc, char *argv[])
 	FILE *foo;
 	int fd;
 	int *map;
-
-	/* First, tell the script to start monitoring. */
-
-	swapoff("/non/existent/path");
 
 	foo = tmpfile();
 	if (foo == NULL) {

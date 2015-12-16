@@ -25,20 +25,19 @@
  */
 
 /* @@trigger: proc-tst-sigwait */
-/* @@runtest-opts: $_pid */
 
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #pragma D option destructive
 
 proc:::signal-send
-/pid == 0 && args[1]->pr_pid == $1 && args[2] == SIGUSR1/
+/pid == 0 && args[1]->pr_pid == $target && args[2] == SIGUSR1/
 {
 	sent = 1;
 }
 
 proc:::signal-clear
-/pid == $1 && args[0] == SIGUSR1 && sent/
+/pid == $target && args[0] == SIGUSR1 && sent/
 {
 	exit(0);
 }

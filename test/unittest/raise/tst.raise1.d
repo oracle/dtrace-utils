@@ -20,6 +20,7 @@
  */
 
 /* @@trigger: raise-tst-raise1 */
+/* @@trigger-timing: after */
 /* @@runtest-opts: $_pid */
 
 /*
