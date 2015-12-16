@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -29,6 +29,7 @@
 #include <inttypes.h>
 #include <asm/ptrace.h>
 #include <elf.h>
+#include <sys/syscall.h>			/* for __NR_* */
 
 /*
  * Must be no larger than an 'unsigned long'.
@@ -44,6 +45,14 @@ const static unsigned char plat_bkpt[] = { 0x91, 0xd0, 0x20, 0x01 };
  * TRUE if this platform requires software singlestepping.
  */
 #define NEED_SOFTWARE_SINGLESTEP 1
+
+/*
+ * Translates waitpid() into a pollable fd.
+ */
+
+#ifndef __NR_waitfd
+#define __NR_waitfd 351
+#endif
 
 #endif
 

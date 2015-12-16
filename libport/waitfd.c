@@ -23,11 +23,7 @@
 
 #ifndef HAVE_WAITFD
 #include <unistd.h>				/* for syscall() */
-#include <sys/syscall.h>			/* for __NR_* */
-
-#ifndef __NR_waitfd
-#define __NR_waitfd 473
-#endif
+#include <platform.h>
 
 int
 waitfd(int which, pid_t upid, int options, int flags)
