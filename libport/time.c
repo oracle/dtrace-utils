@@ -49,17 +49,6 @@ gethrtime(void)
 }
 
 int
-pthread_cond_reltimedwait_np(pthread_cond_t *cvp, pthread_mutex_t *mp,
-        struct timespec *reltime)
-{
-	struct timespec ts;
-
-	ts = *reltime;
-	ts.tv_sec += time(NULL);
-	return pthread_cond_timedwait(cvp, mp, &ts);
-}
-
-int
 mutex_init(mutex_t *m, int flags1, void *ptr)
 {
 	return pthread_mutex_init(m, NULL);

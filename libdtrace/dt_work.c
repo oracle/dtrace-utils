@@ -21,7 +21,7 @@
  */
 
 /*
- * Copyright 2006, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -52,7 +52,6 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	hrtime_t earliest = INT64_MAX;
 	struct timespec tv;
-	hrtime_t now;
 	int i;
 
 	for (i = 0; _dtrace_sleeptab[i].dtslt_option < DTRACEOPT_MAX; i++) {
@@ -75,22 +74,18 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	(void) pthread_mutex_lock(&dph->dph_lock);
 
-	now = gethrtime();
-
-	if (earliest < now) {
-		(void) pthread_mutex_unlock(&dph->dph_lock);
-		return; /* sleep duration has already past */
-	}
-
-	tv.tv_sec = (earliest - now) / NANOSEC;
-	tv.tv_nsec = (earliest - now) % NANOSEC;
+	tv.tv_sec = earliest / NANOSEC;
+	tv.tv_nsec = earliest % NANOSEC;
 
 	/*
-	 * Wait for either 'tv' nanoseconds to pass or to receive notification
-	 * that a process is in an interesting state.  Regardless of why we
-	 * awaken, iterate over any pending notifications and process them.
+	 * Wait until the time specified by "earliest" has arrived, or until we
+	 * receive notification that a process is in an interesting state.
+	 * Regardless of why we awaken, iterate over any pending notifications
+	 * and process them.
 	 */
-	(void) pthread_cond_reltimedwait_np(&dph->dph_cv, &dph->dph_lock, &tv);
+	hrtime_t now = gethrtime();
+	(void) pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
+	dt_dprintf("slept for %g\n", ((double) gethrtime() - now) / NANOSEC);
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {

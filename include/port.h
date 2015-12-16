@@ -43,9 +43,6 @@ hrtime_t gethrtime(void);
 
 int p_online(int cpun);
 
-int pthread_cond_reltimedwait_np(pthread_cond_t *cvp, pthread_mutex_t *mp,
-    struct timespec *reltime);
-
 int mutex_init(mutex_t *m, int flags1, void *ptr);
 
 #ifndef HAVE_ELF_GETSHDRSTRNDX
