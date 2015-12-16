@@ -174,7 +174,7 @@ run_with_timeout()
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -- -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
     sleep $timeout &
     sleepid=$!
     old_ZAPTHESE="$ZAPTHESE"
@@ -428,7 +428,7 @@ export PATH=$tmpdir/bin:$PATH
 
 # At shutdown, delete this directory, kill requested process groups, and restore
 # core_pattern.
-trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -$ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
+trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -- -$ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
@@ -680,7 +680,7 @@ if [[ -z $NOBADDOF ]]; then
     done
 
     if [[ "$(ps -p $ioctlpid -o ppid=)" -eq $BASHPID ]]; then
-        kill -$TIMEOUTSIG $ioctlpid >/dev/null 2>&1
+        kill -$TIMEOUTSIG -- $ioctlpid >/dev/null 2>&1
     fi
     if [[ -s $tmpdir/badioctl.err ]]; then
         sum "badioctl stderr:"
