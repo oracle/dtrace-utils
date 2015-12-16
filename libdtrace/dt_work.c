@@ -85,7 +85,6 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 	 */
 	hrtime_t now = gethrtime();
 	(void) pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
-	dt_dprintf("slept for %g\n", ((double) gethrtime() - now) / NANOSEC);
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
