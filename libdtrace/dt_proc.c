@@ -562,6 +562,12 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 
 	dpr->dpr_proxy_rq = proxy_rq;
 
+	if (dpr->dpr_done) {
+		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe, "
+		    "control thread is dead\n");
+		return(-1);
+	}
+
 	errno = 0;
 	while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
 	if (errno != 0 && errno != EINTR) {
@@ -805,8 +811,21 @@ dt_proc_control(void *arg)
 	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
 	 */
 	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
-		dt_proc_error(dtp, dpr, "failed to get waitfd for pid %li: %s\n",
+		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
 		    (long) dpr->dpr_pid, strerror(err));
+		/*
+		 * Demote this to a mandatorily noninvasive grab: if we
+		 * Pcreate()d it, dpr_created is still set, so it will still get
+		 * killed on dtrace exit.  If even that fails, there's nothing
+		 * we can do but hope.
+		 */
+		Prelease(dpr->dpr_proc, PS_RELEASE_NORMAL);
+		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
+			    dpr, &err)) == NULL) {
+			dt_proc_error(dtp, dpr, "failed to regrab pid %li: %s\n",
+			    (long) dpr->dpr_pid, strerror(err));
+		}
+
 		pthread_exit(NULL);
 	}
 
@@ -1797,9 +1816,11 @@ dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	/*
 	 * Noninvasively-grabbed processes are never stopped by us, so
-	 * continuing them is meaningless.
+	 * continuing them is meaningless.  The same is true of processes with
+	 * dead control threads for whatever reason.
 	 */
-	if (!Ptraceable(P))
+	if ((dpr->dpr_done) || (!dpr->dpr_proc) || (!dpr->dpr_tid) ||
+	    (!Ptraceable(dpr->dpr_proc)))
 		return 0;
 
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
@@ -1845,7 +1866,7 @@ dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		}
 	}
 
-	while (!(dpr->dpr_stop & DT_PROC_STOP_RESUMED))
+	while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_RESUMED))
 		pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 	dt_dprintf("%i: dt_ps_proc_continue()d.\n", dpr->dpr_pid);
