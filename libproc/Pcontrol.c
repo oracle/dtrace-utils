@@ -1036,6 +1036,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 */
 
 	ip = P->tracing_bkpt;
+	P->state = PS_TRACESTOP;
 	if (ip == 0) {
 		bkpt_t *bkpt;
 		ip = Pget_bkpt_ip(P, 0);
