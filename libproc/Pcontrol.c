@@ -2365,12 +2365,10 @@ Pread(struct ps_prochandle *P,
 
 		int state;
 		uintptr_t saddr = (address & ~((uintptr_t) sizeof (long) - 1));
-		size_t i;
+		size_t i, sz;
 		long *rbuf;
 
 		size_t len = nbyte + (address - saddr);
-		_dprintf("Pread(%lx from %lx) -> reading %lx from %lx\n",
-		    nbyte, address, len, saddr);
 
 		rbuf = malloc(len);
 		if (!rbuf)
@@ -2389,17 +2387,15 @@ Pread(struct ps_prochandle *P,
 		}
 
 		errno = 0;
-		for (i = 0; i < len; i += sizeof (long)) {
+		for (i = 0, sz = 0; sz < len; i++, sz += sizeof (long)) {
 			long data = wrapped_ptrace(P, PTRACE_PEEKDATA, P->pid,
-			    address + i, NULL);
+			    address + sz, NULL);
 			if (errno != 0)
 				break;
 			rbuf[i] = data;
 		}
 
-		nbyte = (i > len) ? len : i - (address - saddr);
-		_dprintf("Pread(%lx from %lx) -> copying %lx from offset of %lx\n",
-		    saddr, len, nbyte, address - saddr);
+		nbyte = (sz > len) ? len : sz - (address - saddr);
 
 		memcpy(buf, rbuf + (address - saddr), nbyte);
 		free(rbuf);
