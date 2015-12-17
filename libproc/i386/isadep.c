@@ -23,7 +23,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -98,7 +98,7 @@ Pread_first_arg_x86(struct ps_prochandle *P)
  * helpfully adjust for the fact that the trap address needs adjustment on some
  * platforms before it will correspond to the address of the breakpoint.
  */
-long
+uintptr_t
 Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch)
 {
 	long ip;

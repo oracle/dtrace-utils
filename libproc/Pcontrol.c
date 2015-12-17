@@ -700,7 +700,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 static int
 Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 {
-	long ip;
+	uintptr_t ip;
 
 	if (WIFCONTINUED(status)) {
 		_dprintf("%i: process got SIGCONT.\n", P->pid);
@@ -1042,7 +1042,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		ip = Pget_bkpt_ip(P, 0);
 		bkpt = bkpt_by_addr(P, ip, FALSE);
 
-		if ((ip < 0) || !bkpt) {
+		if (((unsigned long) ip == -1) || !bkpt) {
 			int sig = 0;
 			/*
 			 * This is not a known breakpoint nor a temporary
@@ -2076,7 +2076,7 @@ void
 Pbkpt_continue(struct ps_prochandle *P)
 {
 	bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
-	long ip;
+	uintptr_t ip;
 
 	if (!P->ptraced)
 		return;

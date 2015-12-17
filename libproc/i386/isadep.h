@@ -23,7 +23,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -47,7 +47,7 @@ isa_dispatch_t dispatch[] = {
 
 #ifdef WANT_GET_BKPT_IP
 
-extern	long Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch);
+extern	uintptr_t Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch);
 
 isa_dispatch_t dispatch[] = {
     {B_TRUE, EM_X86_64, (dispatch_fun_t *) Pget_bkpt_ip_x86},
