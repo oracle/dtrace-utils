@@ -49,7 +49,7 @@ getregs_sparc64(struct ps_prochandle *P, struct pt_regs *regs)
 	    Pstate(P) == PS_DEAD)
 		return NULL;
 
-	if (wrapped_ptrace(P, PTRACE_GETREGS64, P->pid, &regs) < 0)
+	if (wrapped_ptrace(P, PTRACE_GETREGS64, P->pid, regs) < 0)
 		return NULL;
 
 	return regs;
@@ -62,7 +62,7 @@ getregs_sparc32(struct ps_prochandle *P, struct pt_regs32 *regs)
 	    Pstate(P) == PS_DEAD)
 		return NULL;
 
-	if (wrapped_ptrace(P, PTRACE_GETREGS, P->pid, &regs) < 0)
+	if (wrapped_ptrace(P, PTRACE_GETREGS, P->pid, regs) < 0)
 		return NULL;
 
 	return regs;
