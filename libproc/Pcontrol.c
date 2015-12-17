@@ -2403,6 +2403,7 @@ Pread(struct ps_prochandle *P,
 
 		memcpy(buf, rbuf + (address - saddr), nbyte);
 		free(rbuf);
+		Puntrace(P, state);
 
 		return nbyte;
 	}
