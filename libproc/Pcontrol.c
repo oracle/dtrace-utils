@@ -2352,7 +2352,60 @@ Pread(struct ps_prochandle *P,
 	size_t nbyte,		/* number of bytes to read */
 	uintptr_t address)	/* address in process */
 {
-	return (pread(Pmemfd(P), buf, nbyte, (off_t)address));
+	if (address < LONG_MAX)
+		return (pread(Pmemfd(P), buf, nbyte, (loff_t)address));
+	else {
+		/*
+		 * High-address copying.
+		 *
+		 * pread() won't work here because the offset is larger than a
+		 * valid file offset, so we have to use PTRACE_PEEKDATA.  This
+		 * is exceptionally painful and inefficient.
+		 */
+
+		int state;
+		uintptr_t saddr = (address & ~((uintptr_t) sizeof (long) - 1));
+		size_t i;
+		long *rbuf;
+
+		size_t len = nbyte + (address - saddr);
+		_dprintf("Pread(%lx from %lx) -> reading %lx from %lx\n",
+		    nbyte, address, len, saddr);
+
+		rbuf = malloc(len);
+		if (!rbuf)
+			return 0;
+
+		/*
+		 * We have to read into an intermediate buffer because alignment
+		 * constraints forbid us from dumping data into the
+		 * buf in unaligned fashion.
+		 */
+
+		state = Ptrace(P, 1);
+		if (state < 0) {
+			free(rbuf);
+			return 0;
+		}
+
+		errno = 0;
+		for (i = 0; i < len; i += sizeof (long)) {
+			long data = wrapped_ptrace(P, PTRACE_PEEKDATA, P->pid,
+			    address + i, NULL);
+			if (errno != 0)
+				break;
+			rbuf[i] = data;
+		}
+
+		nbyte = (i > len) ? len : i - (address - saddr);
+		_dprintf("Pread(%lx from %lx) -> copying %lx from offset of %lx\n",
+		    saddr, len, nbyte, address - saddr);
+
+		memcpy(buf, rbuf + (address - saddr), nbyte);
+		free(rbuf);
+
+		return nbyte;
+	}
 }
 
 ssize_t
