@@ -1084,7 +1084,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	GElf_Ehdr ehdr;
 
-	int fd;
+	long fd;
 	Elf_Data *shdata;
 	Elf_Scn *scn;
 	Elf *elf = NULL;
