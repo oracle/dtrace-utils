@@ -2369,8 +2369,6 @@ Pread(struct ps_prochandle *P,
 		long *rbuf;
 
 		size_t len = nbyte + (address - saddr);
-		_dprintf("Pread(%lx from %lx) -> reading %lx from %lx\n",
-		    nbyte, address, len, saddr);
 
 		rbuf = malloc(len);
 		if (!rbuf)
@@ -2398,8 +2396,6 @@ Pread(struct ps_prochandle *P,
 		}
 
 		nbyte = (sz > len) ? len : sz - (address - saddr);
-		_dprintf("Pread(%lx from %lx) -> copying %lx from offset of %lx\n",
-		    saddr, len, nbyte, address - saddr);
 
 		memcpy(buf, rbuf + (address - saddr), nbyte);
 		free(rbuf);
