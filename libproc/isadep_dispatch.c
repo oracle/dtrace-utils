@@ -23,7 +23,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -120,16 +120,20 @@ Pread_first_arg(struct ps_prochandle *P)
 /*
  * Determine the instruction pointer address at which the process P is stopped.
  * An -ESRCH may be considered "acceptable fallout".
+ *
+ * Returns 0 (no breakpoint), an address, or -1 on error.  (We assume that an
+ * address one from the top of the address space is an unlikely instruction
+ * pointer value.)
  */
-long
+uintptr_t
 Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch)
 {
 #define WANT_GET_BKPT_IP
 #include "isadep.h"
 #undef WANT_GET_BKPT_IP
 
-	ISADEP_TYPES(long, struct ps_prochandle *, int);
-	ISADEP_BODY(long, P, expect_esrch);
+	ISADEP_TYPES(uintptr_t, struct ps_prochandle *, int);
+	ISADEP_BODY(uintptr_t, P, expect_esrch);
 }
 
 /*

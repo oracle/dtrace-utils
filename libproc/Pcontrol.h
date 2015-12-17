@@ -284,7 +284,7 @@ extern	void	Psym_free(struct ps_prochandle *);
 extern	void	Psym_release(struct ps_prochandle *);
 extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
-extern  long	Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);
+extern  uintptr_t Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 extern  long	Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr);
 extern	char *	Pget_proc_status(pid_t pid, const char *field);
 
