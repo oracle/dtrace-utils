@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2013, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -103,7 +103,7 @@ dtrace_dof_init(void)
 	}
 
 #if 0
-	if (dlinfo(RTLD_SELF, RTLD_DI_LINKMAP, &lmp) == -1 || lmp == NULL) {
+	if (dlinfo(RTLD_SELF, RTLD_DI_LINKMAP, &lmp) == -1) {
 		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
                 goto out;
 	}
@@ -124,11 +124,11 @@ dtrace_dof_init(void)
 		uintptr_t	start, end;
 		char		*p = str, *q;
 
-		start = strtol(p, &p, 16);
+		start = strtoul(p, &p, 16);
 		if (*p != '-')
 			continue;
 
-		end = strtol(++p, &p, 16);
+		end = strtoul(++p, &p, 16);
 
 		if (start > (uintptr_t)dtrace_dof_init ||
 		    (uintptr_t)dtrace_dof_init > end)
@@ -147,6 +147,10 @@ dtrace_dof_init(void)
 	}
 	fclose(fp);
 #endif
+	if (_dt_unlikely_(lmp == NULL)) {
+		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
+                goto out;
+	}
 
 	if ((modname = strrchr(lmp->l_name, '/')) == NULL)
 		modname = lmp->l_name;

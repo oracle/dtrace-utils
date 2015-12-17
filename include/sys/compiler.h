@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2011, 2015 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -50,12 +50,14 @@
 #define _dt_printflike_(string_index,first_to_check) __attribute__((__format__(__printf__,(string_index),(first_to_check))))
 #define _dt_unused_ __attribute__((__unused__))
 #define _dt_noreturn_ __attribute__((__noreturn__))
+#define _dt_unlikely_(x) __builtin_expect((x),0)
 
 #elif defined (__SUNPRO_C)
 
 #define _dt_constructor_(x) _Pragma("init(" #x ")")
 #define _dt_destructor_(x) _Pragma("fini(" #x ")")
 #define _dt_noreturn_
+#define _dt_unlikely_(x) (x)
 
 /*
  * These are lint comments with no compiler equivalent.
