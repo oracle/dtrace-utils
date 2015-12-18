@@ -70,11 +70,12 @@ getregs_sparc32(struct ps_prochandle *P, struct pt_regs32 *regs)
 
 /*
  * Read the first argument of the function at which the process P is halted,
- * which must be a pointer (thuogh other integral arguments happen to work for
+ * which must be a pointer (though other integral arguments happen to work for
  * the SPARC and SPARC64 ABI).
  *
- * For SPARC, the first integral argument to a function will always be
- * in %i0.
+ * For SPARC, the first integral argument to a function will always be in %i0.
+ * Horrifically, the value of all the UREG_* constants is off by 1, so we have
+ * to correct for that.
  *
  * On error, -1 cast to a uintptr_t is returned, and errno is set.
  */
@@ -86,7 +87,7 @@ Pread_first_arg_sparc64(struct ps_prochandle *P)
 	if (getregs_sparc64(P, &regs) == NULL)
 		return (uintptr_t) -1;
 
-	return regs.u_regs[UREG_I0];
+	return regs.u_regs[UREG_I0 - 1];
 }
 
 uintptr_t
@@ -97,7 +98,7 @@ Pread_first_arg_sparc32(struct ps_prochandle *P)
 	if (getregs_sparc32(P, &regs) == NULL)
 		return (uintptr_t) -1;
 
-	return regs.u_regs[UREG_I0];
+	return regs.u_regs[UREG_I0 - 1];
 }
 
 /*
