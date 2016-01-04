@@ -388,7 +388,7 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 		/* error already reported */
 		goto bad_untrace;
 
-	_dprintf ("Pcreate: grabbed PID %i.\n", P->pid);
+	_dprintf ("Pgrab: grabbed PID %i.\n", P->pid);
 
 	return P;
 bad_untrace:

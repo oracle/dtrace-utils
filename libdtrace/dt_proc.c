@@ -256,7 +256,7 @@ dt_break_prepare_drop_main(uintptr_t addr, void *dpr_data)
 	dt_proc_t *dpr = dpr_data;
 	int ret = -1;
 
-	dt_dprintf("pid %d: breakpoint on process start()\n",
+	dt_dprintf("pid %d: breakpoint on process start\n",
 	    (int)dpr->dpr_pid);
 
 	Punbkpt(dpr->dpr_proc, addr);
