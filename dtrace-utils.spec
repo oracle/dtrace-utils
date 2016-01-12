@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.5.1
-Release:      4%{?dist}
+Version:      0.5.2
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,6 +172,16 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Jan 12 2016 - <nick.alcock@oracle.com> - 0.5.2-1
+- do not crash USDT probe users when shared libraries are in the upper half of
+  the address space [Orabug: 22384028]
+- do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
+  [Orabug: 22370283] [Orabug: 22335130]
+- Testsuite triggers are synchronized with dtrace by default [Orabug: 22370283]
+- Fix dtrace -c and -p on SPARC and improve error-handling paths
+  [Orabug: 22390414]
+- Fix smoketests on SPARC [Orabug: 22533468]
+
 * Tue Dec  8 2015 - <nick.alcock@oracle.com> - 0.5.1-4
 - Released to QA team only.
 - Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
@@ -188,9 +198,9 @@ fi
 * Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
 - Released to QA team only.
 - Improve startup performance when disk cache is cold [Orabug: 22185787]
-[Orabug: 22185763] [Orabug: 22083846]
+  [Orabug: 22185763] [Orabug: 22083846]
 - Fix various problems in the testsuite and in DTRACE_DEBUG output
-[Orabug: 21431540] [Orabug: 22170799]
+  [Orabug: 21431540] [Orabug: 22170799]
 
 * Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
 - Improve identification of system daemons that must not be ptraced

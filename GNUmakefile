@@ -22,7 +22,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2016 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 .DELETE_ON_ERROR:
@@ -30,7 +30,7 @@
 .SECONDEXPANSION:
 
 PROJECT := dtrace
-VERSION := 0.5.1
+VERSION := 0.5.2
 
 # Verify supported hardware.
 

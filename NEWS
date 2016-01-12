@@ -1,3 +1,24 @@
+0.5.2
+-----
+
+Crash fixes:
+
+  - Programs containing USDT probes can crash at startup or dlopen() time if
+    shared libraries are mapped into the top half of the address space.  This
+    never happens on x86-64 but is common on SPARC64: dtrace -G should be
+    rerun on programs on such platforms that contain USDT probes, to link in
+    the fixed ELF constructor.
+
+Performance improvements:
+
+  - dtrace(1) no longer wastes time in a CPU-heavy busywaiting loop: previously,
+    the sleeping code was mistakenly picking a time in the past to sleep to
+    roughly half the time
+
+Bugfixes:
+
+  - dtrace -c and -p now work on SPARC64.
+
 0.5.1
 -----
 
