@@ -44,7 +44,7 @@ script()
 	}
 
 	proc:::exec-failure
-	/self->exec && args[0] == ENOENT/
+	/self->exec && args[0] == -ENOENT/
 	{
 		exit(0);
 	}
