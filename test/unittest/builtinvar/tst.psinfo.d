@@ -37,12 +37,7 @@
 
 #pragma D option quiet
 
-BEGIN
-{
-}
-
 tick-10ms
-/pid != 0/
 {
 	printf("number of lwps in process = %d\n", curpsinfo->pr_nlwp);
 	printf("unique process id = %d\n", curpsinfo->pr_pid);
@@ -70,4 +65,9 @@ tick-10ms
 	printf("zone id = %d\n", curpsinfo->pr_zoneid);
 	printf("contract = %d\n", curpsinfo->pr_contract);
 	exit (0);
+}
+
+ERROR
+{
+	exit(1);
 }
