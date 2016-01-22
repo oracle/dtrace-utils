@@ -59,7 +59,7 @@ sleeper()
 	while true; do
 		$longsleep &
 		sleep 1
-		kill -USR1 $!
+		/bin/kill -USR1 $!
 	done
 }
 
