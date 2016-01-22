@@ -62,9 +62,9 @@ BEGIN
 {
 	e32 = (struct D`env_vars_32 *)curpsinfo->pr_envp;
 
-	printf("e1 = \"%s\"\n", stringof(e32->e1));
-	printf("e2 = \"%s\"\n", stringof(e32->e2));
-	printf("e3 = \"%s\"\n", stringof(e32->e3));
+	printf("e1 = \"%s\"\n", stringof(copyinstr(e32->e1)));
+	printf("e2 = \"%s\"\n", stringof(copyinstr(e32->e2)));
+	printf("e3 = \"%s\"\n", stringof(copyinstr(e32->e3)));
 
 	exit(0);
 }
@@ -74,9 +74,9 @@ BEGIN
 {
 	e64 = (struct D`env_vars_64 *)curpsinfo->pr_envp;
 
-	printf("e1 = \"%s\"\n", stringof(e64->e1));
-	printf("e2 = \"%s\"\n", stringof(e64->e2));
-	printf("e3 = \"%s\"\n", stringof(e64->e3));
+	printf("e1 = \"%s\"\n", stringof(copyinstr(e64->e1)));
+	printf("e2 = \"%s\"\n", stringof(copyinstr(e64->e2)));
+	printf("e3 = \"%s\"\n", stringof(copyinstr(e64->e3)));
 
 	exit(0);
 }
