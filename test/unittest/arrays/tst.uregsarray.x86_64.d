@@ -20,16 +20,16 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
+
 
 /*
  * ASSERTION:
- *	Positive test to make sure that we can invoke common
+ *	Positive test to make sure that we can invoke x86
  *	ureg[] aliases.
  *
  * SECTION: User Process Tracing/uregs Array
@@ -42,10 +42,22 @@
 
 BEGIN
 {
-	printf("R_PC = 0x%x\n", uregs[R_PC]);
-	printf("R_SP = 0x%x\n", uregs[R_SP]);
-	printf("R_R0 = 0x%x\n", uregs[R_R0]);
-	printf("R_R1 = 0x%x\n", uregs[R_R1]);
+	printf("R_GS = 0x%x\n", uregs[R_GS]);
+	printf("R_ES = 0x%x\n", uregs[R_ES]);
+	printf("R_DS = 0x%x\n", uregs[R_DS]);
+	printf("R_EDI = 0x%x\n", uregs[R_EDI]);
+	printf("R_ESI = 0x%x\n", uregs[R_ESI]);
+	printf("R_EBP = 0x%x\n", uregs[R_EBP]);
+	printf("R_EBX = 0x%x\n", uregs[R_EBX]);
+	printf("R_EDX = 0x%x\n", uregs[R_EDX]);
+	printf("R_ECX = 0x%x\n", uregs[R_ECX]);
+	printf("R_EAX = 0x%x\n", uregs[R_EAX]);
+	printf("R_TRAPNO = 0x%x\n", uregs[R_TRAPNO]);
+	printf("R_ERR = 0x%x\n", uregs[R_ERR]);
+	printf("R_EIP = 0x%x\n", uregs[R_EIP]);
+	printf("R_CS = 0x%x\n", uregs[R_CS]);
+	printf("R_EFL = 0x%x\n", uregs[R_EFL]);
+	printf("R_SS = 0x%x\n", uregs[R_SS]);
 	exit(0);
 }
 

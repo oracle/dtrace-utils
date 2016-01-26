@@ -87,3 +87,8 @@ BEGIN
 	printf("R_SS = 0x%x\n", uregs[R_SS]);
 	exit(0);
 }
+ERROR
+{
+	printf("uregs access failed.\n");
+	exit(1);
+}

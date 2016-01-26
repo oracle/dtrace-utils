@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
 inline int R_TRAPNO = 25;
 #pragma D binding "1.0" R_TRAPNO
 inline int R_GS = 24;
