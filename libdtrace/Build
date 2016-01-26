@@ -83,6 +83,7 @@ M4_DLIBS += \
 BUILD_DLIBS += \
 	$(M4_DLIBS) \
 	errno.d \
+	regs.d \
 	signal.d
 
 WORKING_DLIBS = errno.d \
@@ -187,7 +188,7 @@ $(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
 	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
 	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
 
-$(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)i386/regs.d
+$(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)$(ARCHINC)/regs.d
 	cp $< $@
 
 clean::
