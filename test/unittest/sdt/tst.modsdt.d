@@ -24,10 +24,9 @@
  * Use is subject to license terms.
  */
 
-/* @@trigger: testprobe */
-/* @@trigger-timing: after */
-
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
+
+#pragma D option destructive
 
 /*
  * Ensure that SDT probes in modules are supported.
@@ -35,6 +34,7 @@
 BEGIN
 {
 	i = 0;
+	system("test/triggers/testprobe");
 }
 
 sdt:dt_test::sdt-test
