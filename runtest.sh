@@ -818,7 +818,7 @@ for dt in $dtrace; do
         #            See '.trigger'.
         #
         # @@trigger-timing: A single line containing 'before', 'after',
-        #                   synchronous', or a number.  If 'synchronous' (the
+        #                   'synchro', or a number.  If 'synchro' (the
         #                   default), the trigger will be passed to dtrace via
         #                   -c and left for dtrace to invoke.  If 'after', the
         #                   trigger will be exec()ed (from a pre-existing PID)
