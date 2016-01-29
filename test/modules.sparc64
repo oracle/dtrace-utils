@@ -4,5 +4,5 @@ dt_test
 profile
 systrace
 sdt
-ext3 # unload-quietly
+ext2 # unload-quietly
 isofs # unload-quietly
