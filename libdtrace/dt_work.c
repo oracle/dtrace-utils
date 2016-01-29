@@ -83,7 +83,6 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 	 * Regardless of why we awaken, iterate over any pending notifications
 	 * and process them.
 	 */
-	hrtime_t now = gethrtime();
 	(void) pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
 
 	while ((dprn = dph->dph_notify) != NULL) {
