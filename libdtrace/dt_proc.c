@@ -812,7 +812,7 @@ dt_proc_control(void *arg)
 	 */
 	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
 		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
-		    (long) dpr->dpr_pid, strerror(err));
+		    (long) dpr->dpr_pid, strerror(errno));
 		/*
 		 * Demote this to a mandatorily noninvasive grab: if we
 		 * Pcreate()d it, dpr_created is still set, so it will still get
