@@ -47,14 +47,13 @@ fi
 
 dtrace=$1
 
-# We pick on the prctl() call made by the dynamic loader to initialize TLS.
-# (This is even made by statically linked executables, albeit later,
-# and not visible to preinit.)
+# We pick on the brk() call made by the dynamic loader.  (This is even made by
+# statically linked executables, albeit later, and not visible to preinit.)
 
 for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
     for stage in exec preinit postinit main; do 
         $dtrace $dt_flags -q -c test/triggers/$trigger -x evaltime=$stage -s /dev/stdin <<EOF
-syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1;}
+syscall::brk:entry /pid == \$target/ { loader_seen = 1;}
 syscall::write*:entry /pid == \$target/ { writes++; }
 END { printf("evaltime is $stage, trigger is %s, %i write()s; dynamic loader syscalls %s.\n",
       "$trigger", writes, loader_seen ? "seen" : "not seen"); }
@@ -64,7 +63,7 @@ done
 
 for trigger in visible-constructor visible-constructor-static-unstripped visible-constructor-static; do
     $dtrace $dt_flags -q -c test/triggers/$trigger -s /dev/stdin <<EOF
-syscall::arch_prctl:entry /pid == \$target/ { loader_seen = 1; }
+syscall::brk:entry /pid == \$target/ { loader_seen = 1; }
 syscall::write*:entry /pid == \$target/ { writes++; }
 END { printf("evaltime is default, trigger is %s, %i write()s; dynamic loader syscalls %s.\n",
       "$trigger", writes, loader_seen ? "seen" : "not seen"); }
