@@ -39,7 +39,6 @@
 ##
 
 # @@timeout: 20
-# @@xfail: 32-on-64 systrace provider doesn't work yet
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
