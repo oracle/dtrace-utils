@@ -1,4 +1,4 @@
 #!/bin/bash
-exit 1 # pro tem, release branch xfail
-[[ -e test/triggers/visible-constructor-32 ]] && exit 0
+echo "32-on-64 systrace provider doesn't work yet"
+#[[ -e test/triggers/visible-constructor-32 ]] && exit 0
 exit 1
