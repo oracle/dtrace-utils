@@ -34,7 +34,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.5.2
-Release:      1%{?dist}
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,10 +172,14 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Feb  5 2016 - <nick.alcock@oracle.com> - 0.5.2-2
+- Fix uregs array on SPARC [Orabug: 22602756]
+- Testsuite fixes
+
 * Tue Jan 12 2016 - <nick.alcock@oracle.com> - 0.5.2-1
-- do not crash USDT probe users when shared libraries are in the upper half of
+- Do not crash USDT probe users when shared libraries are in the upper half of
   the address space [Orabug: 22384028]
-- do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
+- Do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
   [Orabug: 22370283] [Orabug: 22335130]
 - Testsuite triggers are synchronized with dtrace by default [Orabug: 22370283]
 - Fix dtrace -c and -p on SPARC and improve error-handling paths
