@@ -35,8 +35,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/usdt-header
-cd $tmpdir/usdt-header
+DIRNAME="$tmpdir/usdt-header.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {

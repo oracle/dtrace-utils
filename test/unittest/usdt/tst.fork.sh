@@ -35,8 +35,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/usdt-fork
-cd $tmpdir/usdt-fork
+DIRNAME="$tmpdir/usdt-fork.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {

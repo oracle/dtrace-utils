@@ -37,8 +37,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/usdt-dlclose2
-cd $tmpdir/usdt-dlclose2
+DIRNAME="$tmpdir/usdt-dlclose2.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > Makefile <<EOF
 all: main livelib.so deadlib.so

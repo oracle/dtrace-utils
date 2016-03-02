@@ -115,7 +115,8 @@ ignsigs="^($(echo $ignsigs | tr ' ' '|'))\$"
 # Now run dtrace over sleep repeatedly, hitting it with each signal in turn and
 # watching its debugging output for the appropriate result.
 
-mkdir $tmpdir/libproc-tst-signals-sh
+DIRNAME="$tmpdir/libproc-tst-signals-sh.$$.$RANDOM"
+mkdir -p $DIRNAME
 
 for signal in $(seq 1 31); do
     test/triggers/longsleep &
@@ -123,7 +124,7 @@ for signal in $(seq 1 31); do
 
     DTRACE_DEBUG=t $dtrace $dt_flags -xquiet -p $! \
                 -n 'tick-5s { exit(0); }' \
-                2> $tmpdir/libproc-tst-signals-sh/dtrace.out &
+                2> $DIRNAME/dtrace.out &
     dt_pid=$!
 
     sleep 1 # long enough for the dtrace startup and the exec of sleep(1)
@@ -132,25 +133,25 @@ for signal in $(seq 1 31); do
     kill -$signal $proc_pid >/dev/null 2>&1
     sleep 1
     if echo $signal | grep -qE $termsigs; then
-        grep -Fq "child got terminating signal $signal." $tmpdir/libproc-tst-signals-sh/dtrace.out ||
+        grep -Fq "child got terminating signal $signal." $DIRNAME/dtrace.out ||
             { echo "Terminating signal $signal not handled as expected." >&2;
-              cat $tmpdir/libproc-tst-signals-sh/dtrace.out >&2; }
+              cat $DIRNAME/dtrace.out >&2; }
     elif echo $signal | grep -qE $stopsigs; then
-        grep -Fq "child got stopping signal $signal." $tmpdir/libproc-tst-signals-sh/dtrace.out ||
+        grep -Fq "child got stopping signal $signal." $DIRNAME/dtrace.out ||
             { echo "Stopping signal $signal not handled as expected." >&2
-              cat $tmpdir/libproc-tst-signals-sh/dtrace.out >&2; }
+              cat $DIRNAME/dtrace.out >&2; }
     elif echo $signal | grep -qE $ignsigs; then
-        grep -vq 'child got .*signal' $tmpdir/libproc-tst-signals-sh/dtrace.out ||
+        grep -vq 'child got .*signal' $DIRNAME/dtrace.out ||
             { echo "Ignored signal $signal not handled as expected." >&2
-              cat $tmpdir/libproc-tst-signals-sh/dtrace.out >&2; }
+              cat $DIRNAME/dtrace.out >&2; }
     elif echo $signal | grep -qE $dumpsigs; then
-        { grep -vq 'child got terminating signal' $tmpdir/libproc-tst-signals-sh/dtrace.out &&
+        { grep -vq 'child got terminating signal' $DIRNAME/dtrace.out &&
             [[ -e core.sleep ]]; } ||
             { echo "Coredump signal $signal not handled as expected or no coredump found." >&2
-              cat $tmpdir/libproc-tst-signals-sh/dtrace.out >&2; }
+              cat $DIRNAME/dtrace.out >&2; }
         rm -f core.sleep
     elif echo $signal | grep -qE $stopsigs; then
-        grep -q "Process got SIGCONT" $tmpdir/libproc-tst-signals-sh/dtrace.out ||
+        grep -q "Process got SIGCONT" $DIRNAME/dtrace.out ||
             echo "SIGCONT not handled as expected." >&2
     fi
     kill -9 $proc_pid $dt_pid >/dev/null 2>&1 # Clean up any wreckage

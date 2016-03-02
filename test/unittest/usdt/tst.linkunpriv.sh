@@ -37,8 +37,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
 
-mkdir $tmpdir/usdt-linkunpriv
-cd $tmpdir/usdt-linkunpriv
+DIRNAME="$tmpdir/usdt-linkunpriv.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 ppriv -s A=basic $$
 

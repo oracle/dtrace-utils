@@ -41,8 +41,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/usdt-enabled2
-cd $tmpdir/usdt-enabled2
+DIRNAME="$tmpdir/usdt-enabled2.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {
