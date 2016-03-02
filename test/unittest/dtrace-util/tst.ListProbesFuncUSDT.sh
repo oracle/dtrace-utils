@@ -44,8 +44,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/list-probes-func-usdt
-cd $tmpdir/list-probes-func-usdt
+DIRNAME="$tmpdir/list-probes-func-usdt.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {

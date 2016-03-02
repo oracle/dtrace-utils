@@ -39,8 +39,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
 
-mkdir $tmpdir/usdt-static2
-cd $tmpdir/usdt-static2
+DIRNAME="$tmpdir/usdt-static2.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > test.c <<EOF
 #include <unistd.h>

@@ -37,8 +37,9 @@ CFLAGS=
 OBJDUMP=/usr/bin/objdump
 READELF=/usr/bin/readelf
 
-mkdir $tmpdir/usdt-execstack
-cd $tmpdir/usdt-execstack
+DIRNAME="$tmpdir/usdt-execstack.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {

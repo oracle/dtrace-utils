@@ -35,8 +35,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
 
-mkdir $tmpdir/usdt-entryreturn
-cd $tmpdir/usdt-entryreturn
+DIRNAME="$tmpdir/usdt-entryreturn.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > test.c <<EOF
 #include <sys/sdt.h>
@@ -93,7 +94,7 @@ script()
 	$dtrace -wqZFs /dev/stdin <<EOF
 	BEGIN
 	{
-		system("$tmpdir/usdt-entryreturn/test");
+		system("$DIRNAME/test");
 		printf("\n");
 	}
 

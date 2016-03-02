@@ -40,8 +40,9 @@ fi
 
 dtrace="$1"
 
-mkdir $tmpdir/usdt-corruptenv
-cd $tmpdir/usdt-corruptenv
+DIRNAME="$tmpdir/usdt-corruptenv.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > Makefile <<EOF
 all: main

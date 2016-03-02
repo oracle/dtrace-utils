@@ -35,8 +35,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-I${PWD}/uts/common"
 
-mkdir $tmpdir/usdt-linkpriv
-cd $tmpdir/usdt-linkpriv
+DIRNAME="$tmpdir/usdt-linkpriv.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > test.c <<EOF
 #include <sys/sdt.h>

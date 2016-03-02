@@ -42,8 +42,9 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-mkdir $tmpdir/usdt-eliminate
-cd $tmpdir/usdt-eliminate
+DIRNAME="$tmpdir/usdt-eliminate.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {
