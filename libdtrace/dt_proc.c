@@ -104,7 +104,7 @@ static long dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P);
 #define assert_self_locked(dpr)			\
 	do { \
 		assert(MUTEX_HELD(&dpr->dpr_lock));		\
-		assert(dpr->dpr_lock_holder == pthread_self()); \
+		assert(pthread_equal(dpr->dpr_lock_holder, pthread_self())); \
 	} while(0)						\
 
 /*
@@ -155,7 +155,8 @@ static void
 dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 {
 	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
+	assert(pthread_equal(dpr->dpr_lock_holder, pthread_self()));
+	assert(pthread_equal(dpr->dpr_tid, pthread_self()));
 	assert(why != DT_PROC_STOP_IDLE);
 
 	if (dpr->dpr_stop & why) {
@@ -202,7 +203,7 @@ static void
 dt_proc_resume(dt_proc_t *dpr)
 {
 	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
+	assert(pthread_equal(dpr->dpr_lock_holder, pthread_self()));
 
 	dt_dprintf("dt_proc_resume(), dpr_stop: 0x%x (%i)\n",
 	    dpr->dpr_stop, dpr->dpr_stop & DT_PROC_STOP_RESUMING);
@@ -597,7 +598,7 @@ proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
 	/*
 	 * If we are already in the right thread, pass the call straight on.
 	 */
-	if (dpr->dpr_tid == pthread_self())
+	if (pthread_equal(dpr->dpr_tid, pthread_self()))
 		return Pwait_internal(P, block);
 
 	dpr->dpr_proxy_args.dpr_pwait.P = P;
@@ -618,7 +619,7 @@ proxy_ptrace(enum __ptrace_request request, void *arg, pid_t pid, void *addr,
 	 * If we are already in the right thread, pass the call
 	 * straight on.
 	 */
-	if (dpr->dpr_tid == pthread_self())
+	if (pthread_equal(dpr->dpr_tid, pthread_self()))
 		return ptrace(request, pid, addr, data);
 
 	dpr->dpr_proxy_args.dpr_ptrace.request = request;
@@ -641,7 +642,7 @@ proxy_reattach(dt_proc_t *dpr)
 	/*
 	 * If we are already in the right thread, pass the call straight on.
 	 */
-	if (dpr->dpr_tid == pthread_self())
+	if (pthread_equal(dpr->dpr_tid, pthread_self()))
 		return dt_proc_reattach(dpr->dpr_hdl, dpr);
 
 	return proxy_call(dpr, proxy_reattach, 0);
@@ -663,7 +664,7 @@ proxy_monitor(dt_proc_t *dpr, int monitor)
 	/*
 	 * If we are already in the right thread, pass the call straight on.
 	 */
-	if (dpr->dpr_tid == pthread_self())
+	if (pthread_equal(dpr->dpr_tid, pthread_self()))
 		return dt_proc_monitor(dpr, monitor);
 
 	dpr->dpr_proxy_args.dpr_monitor.monitor = monitor;
@@ -1294,8 +1295,8 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	 */
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_holder == pthread_self());
-	assert(dpr->dpr_tid == pthread_self());
+	assert(pthread_equal(dpr->dpr_lock_holder, pthread_self()));
+	assert(pthread_equal(dpr->dpr_tid, pthread_self()));
 	pthread_mutex_lock(&dph->dph_lock);
 
 	Prelease(dpr->dpr_proc, PS_RELEASE_NO_DETACH);
@@ -1332,7 +1333,7 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
  */
 static int dt_proc_monitor(dt_proc_t *dpr, int monitor)
 {
-	assert(dpr->dpr_tid == pthread_self());
+	assert(pthread_equal(dpr->dpr_tid, pthread_self()));
 	dpr->dpr_monitoring = monitor;
 	return 0;
 }
@@ -1832,7 +1833,7 @@ dt_ps_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	/*
 	 * Calling dt_ps_proc_continue() from the control thread is banned.
 	 */
-	assert(dpr->dpr_tid != pthread_self());
+	assert(!pthread_equal(dpr->dpr_tid, pthread_self()));
 
 	/*
 	 * A continue has two phases.  First, we send a signal down the proxy
