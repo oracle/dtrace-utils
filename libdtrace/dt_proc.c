@@ -175,8 +175,8 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 		 * may nonetheless be informed of some, notably process death
 		 * and execve(), via other routes inside libproc.)
 		 */
-		lock_count = dpr->dpr_lock_count;
-		dpr->dpr_lock_count = 1;
+		lock_count = dpr->dpr_lock_count_ctrl;
+		dpr->dpr_lock_count_ctrl = 1;
 
 		if (dt_proc_loop(dpr, 1) < 0) {
 			/*
@@ -185,7 +185,7 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 			return;
 		}
 
-		dpr->dpr_lock_count = lock_count;
+		dpr->dpr_lock_count_ctrl = lock_count;
 		dpr->dpr_stop |= DT_PROC_STOP_RESUMING;
 
 		dt_dprintf("%d: dt_proc_stop(), control thread now waiting "
@@ -213,7 +213,7 @@ dt_proc_resume(dt_proc_t *dpr)
 		pthread_cond_broadcast(&dpr->dpr_cv);
 
 		dt_dprintf("dt_proc_resume(), control thread resumed. "
-		    "Lock count: %lu\n", dpr->dpr_lock_count);
+		    "Lock count: %lu\n", dpr->dpr_lock_count_ctrl);
 	}
 }
 
@@ -557,7 +557,6 @@ dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 static long
 proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 {
-	unsigned long lock_count;
 	char junk = '\0'; /* unimportant */
 
 	dpr->dpr_proxy_rq = proxy_rq;
@@ -576,14 +575,10 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 		return (-1);
 	}
 
-	lock_count = dpr->dpr_lock_count;
-	dpr->dpr_lock_count = 0;
-
 	while (dpr->dpr_proxy_rq != NULL)
 		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
 
 	dpr->dpr_lock_holder = pthread_self();
-	dpr->dpr_lock_count = lock_count;
 
 	if (exec_retry && dpr->dpr_proxy_exec_retry && *unwinder_pad)
 		longjmp(*unwinder_pad, dpr->dpr_proxy_exec_retry);
@@ -1201,16 +1196,26 @@ dt_proc_control_cleanup(void *arg)
 	 */
 	dt_dprintf("%i: process control thread going away, relinquished all locks\n",
 	    dpr->dpr_pid);
-	if(dpr->dpr_lock_count == 0 ||
-	    dpr->dpr_lock_holder != pthread_self()) {
+	if(dpr->dpr_lock_count_ctrl == 0 ||
+	    !pthread_equal(dpr->dpr_lock_holder, pthread_self()))
 		dt_proc_dpr_lock(dpr);
-		dpr->dpr_lock_count = 1;
-	}
+
+	/*
+	 * This is the controlling variable for dpr_cv, so we must change it under
+	 * the lock, even though we're not really *done* yet.  (The broadcast which
+	 * sets everyone else going is at function's end.)
+	 */
+	dpr->dpr_done = B_TRUE;
 
 	/*
 	 * Only release this process if it was invasively traced. A
 	 * noninvasively traced process's control thread will suicide while the
 	 * process is still alive.
+	 *
+	 * This may do an unlock to unwind any active Ptrace() locking, so we
+	 * may have to unlock, or may not.  We check the lock count afterwards
+	 * to be sure, and force-unlock by resetting the count to 1 and then
+	 * unlocking if need be.
 	 */
 	if (dpr->dpr_proc && !suiciding) {
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
@@ -1218,7 +1223,15 @@ dt_proc_control_cleanup(void *arg)
 		proc_existed = 1;
 	}
 
-	dpr->dpr_done = B_TRUE;
+	if (dpr->dpr_lock_count_ctrl != 0) {
+		dpr->dpr_lock_count_ctrl = 1;
+		dt_proc_dpr_unlock(dpr);
+	}
+
+	/*
+	 * This must happen after we've decided whether to do a Prelease() or
+	 * not, to avoid racing with the conditional in dt_ps_proc_destroy().
+	 */
 	dpr->dpr_tid = 0;
 
 	/*
@@ -1234,8 +1247,6 @@ dt_proc_control_cleanup(void *arg)
 
 	if (dpr->dpr_proxy_fd[1])
 	    close(dpr->dpr_proxy_fd[1]);
-
-	pthread_cond_broadcast(&dpr->dpr_cv);
 
 	/*
 	 * Death-notification queueing is complicated by the fact that we might
@@ -1259,11 +1270,9 @@ dt_proc_control_cleanup(void *arg)
 	pthread_cond_signal(&dpr->dpr_msg_cv);
 
 	/*
-	 * Completely unlock the lock, no matter what its depth.
+	 * Finally, signal on the cv, waking up any waiters.
 	 */
-
-	dpr->dpr_lock_count = 0;
-	pthread_mutex_unlock(&dpr->dpr_lock);
+	pthread_cond_broadcast(&dpr->dpr_cv);
 }
 
 /*
@@ -1437,8 +1446,6 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	 * If the daemon thread is still alive, clean it up.
 	 */
 	if (dpr->dpr_tid) {
-		unsigned long lock_count;
-
 		/*
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
 		 * the thread has exited.  (This will also terminate the
@@ -1452,15 +1459,10 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		proxy_monitor(dpr, 0);
 		pthread_cancel(dpr->dpr_tid);
 
-		lock_count = dpr->dpr_lock_count;
-		dpr->dpr_lock_count = 0;
-
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		dpr->dpr_lock_holder = pthread_self();
-		dpr->dpr_lock_count = lock_count;
-
 		dt_proc_dpr_unlock(dpr);
 	} else {
 		/*
@@ -1904,8 +1906,15 @@ dt_proc_unlock(dtrace_hdl_t *dtp, struct dtrace_prochandle *P)
 static void
 dt_proc_dpr_lock(dt_proc_t *dpr)
 {
-	if (dpr->dpr_lock_holder != pthread_self() ||
-	    dpr->dpr_lock_count == 0) {
+	unsigned long *lock_count;
+
+	if (pthread_equal(pthread_self(), dpr->dpr_tid))
+		lock_count = &dpr->dpr_lock_count_ctrl;
+	else
+		lock_count = &dpr->dpr_lock_count_main;
+
+	if (!pthread_equal(dpr->dpr_lock_holder, pthread_self()) ||
+	    *lock_count == 0) {
 		dt_dprintf("%i: Taking out lock\n", dpr->dpr_pid);
 		pthread_mutex_lock(&dpr->dpr_lock);
 		dpr->dpr_lock_holder = pthread_self();
@@ -1913,22 +1922,28 @@ dt_proc_dpr_lock(dt_proc_t *dpr)
 	}
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
-	assert(dpr->dpr_lock_count == 0 ||
-	    dpr->dpr_lock_holder == pthread_self());
+	assert(*lock_count == 0 ||
+	    pthread_equal(dpr->dpr_lock_holder, pthread_self()));
 
-	dpr->dpr_lock_count++;
+	(*lock_count)++;
 }
 
 static void
 dt_proc_dpr_unlock(dt_proc_t *dpr)
 {
 	int err;
+	unsigned long *lock_count;
 
-	assert(dpr->dpr_lock_holder == pthread_self() &&
-	    dpr->dpr_lock_count > 0);
-	dpr->dpr_lock_count--;
+	if (pthread_equal(pthread_self(), dpr->dpr_tid))
+		lock_count = &dpr->dpr_lock_count_ctrl;
+	else
+		lock_count = &dpr->dpr_lock_count_main;
 
-	if (dpr->dpr_lock_count == 0) {
+	assert(pthread_equal(dpr->dpr_lock_holder, pthread_self()) &&
+	    *lock_count > 0);
+	(*lock_count)--;
+
+	if (*lock_count == 0) {
 		dt_dprintf("%i: Relinquishing lock\n", dpr->dpr_pid);
 		err = pthread_mutex_unlock(&dpr->dpr_lock);
 		assert(err == 0); /* check for unheld lock */

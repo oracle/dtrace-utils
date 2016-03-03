@@ -47,7 +47,8 @@ typedef struct dt_proc {
 					   and our condition variables */
 	pthread_t dpr_lock_holder;	/* holder of the dpr_lock, if nonzero
 					   lock count */
-	unsigned long dpr_lock_count;	/* lock count of the dpr_lock */
+	unsigned long dpr_lock_count_main; /* main-thread dpr_lock count */
+	unsigned long dpr_lock_count_ctrl; /* ctrl-thread dpr_lock count */
 	pthread_cond_t dpr_cv;		/* cond for startup/stop/quit/done */
 	pthread_cond_t dpr_msg_cv;	/* cond for msgs from main thread */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
