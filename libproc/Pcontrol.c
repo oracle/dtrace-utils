@@ -1252,8 +1252,8 @@ Ptrace(struct ps_prochandle *P, int stopped)
 	P->ptrace_count++;
 	state = Ppush_state(P, P->state);
 	if (state == NULL) {
-		P->ptrace_count--;
-		return -ENOMEM;
+		err = -ENOMEM;
+		goto err2;
 	}
 
 	if (P->ptraced) {
