@@ -881,10 +881,6 @@ for dt in $dtrace; do
         #       out CPU and probe IDs.
         #       Receives one argument, the name of the testcase.
         #
-        # .p: D script preprocessor: a filter run over the D script before
-        #     passing to dtrace.  Unlike dtrace's -D options, this can vary
-        #     based on the name of the test.
-        #
         # .x: If executable, a program which when executed indicates whether
         #     the test is expected to succeed or not in this environment.
         #     0 indicates expected success, 1 expected failure, or 2 that the
@@ -909,13 +905,6 @@ for dt in $dtrace; do
         if exist_options skip $_test; then
             sum "$_test: SKIP: $(extract_options skip $_test)\n"
             continue
-        fi
-
-        # Optionally preprocess the D script.
-
-        if [[ -x $base.p ]]; then
-            preprocess $base.p $_test "$tmpdir/$testonly"
-            _test="$tmpdir/$testonly"
         fi
 
         # Per-test timeout.
