@@ -63,6 +63,9 @@ typedef struct dt_proc {
 					   process, false if we grabbed it */
 	uint8_t dpr_monitoring;		/* true if we should background-monitor
 					   the process right now */
+	uint8_t dpr_ending;		/* true in the middle of process death,
+					   when unlocking should null out the
+					   dpr_tid */
 
 	/*
 	 * Proxying. These structures encode the return type and parameters of
