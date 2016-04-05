@@ -77,8 +77,11 @@ main (void)
 	 * Reduce the testname to a path.
 	 */
 
-	path = getenv("_test");
-	chop = strrchr(path, '/');
+	/*
+	 * We leak 'path' without compunction.
+	 */
+	path = strdup(getenv("_test"));
+ 	chop = strrchr(path, '/');
 	*chop = '\0';
 
 	if ((d = opendir(path)) == NULL) {
@@ -115,7 +118,8 @@ main (void)
 	/*
 	 * Let dtrace catch up, for ustack() tests that need a running process.
 	 */
-	sleep(5);
+	if (strstr(getenv("_test"), "ustack"))
+		sleep(5);
 
 	return 0;
 }
