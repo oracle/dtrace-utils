@@ -1195,8 +1195,7 @@ dt_proc_control_cleanup(void *arg)
 	 * out by ptrace() wrappers above us in the call stack, since the whole
 	 * thread is going away.
 	 */
-	dt_dprintf("%i: process control thread going away, relinquished all locks\n",
-	    dpr->dpr_pid);
+	dt_dprintf("%i: process control thread going away.\n", dpr->dpr_pid);
 	if(dpr->dpr_lock_count_ctrl == 0 ||
 	    !pthread_equal(dpr->dpr_lock_holder, pthread_self()))
 		dt_proc_dpr_lock(dpr);
@@ -1217,7 +1216,12 @@ dt_proc_control_cleanup(void *arg)
 	 * may have to unlock, or may not.  We check the lock count afterwards
 	 * to be sure, and force-unlock by resetting the count to 1 and then
 	 * unlocking if need be.
+	 *
+	 * The unlock checks dpr_tid to figure out which lock count to adjust,
+	 * so tell unlocking (no matter what route it's called by) that we're
+	 * done and should null out the dpr_tid.
 	 */
+        dpr->dpr_ending = 1;
 	if (dpr->dpr_proc && !suiciding) {
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
@@ -1228,12 +1232,8 @@ dt_proc_control_cleanup(void *arg)
 		dpr->dpr_lock_count_ctrl = 1;
 		dt_proc_dpr_unlock(dpr);
 	}
-
-	/*
-	 * This must happen after we've decided whether to do a Prelease() or
-	 * not, to avoid racing with the conditional in dt_ps_proc_destroy().
-	 */
-	dpr->dpr_tid = 0;
+	dpr->dpr_ending = 0;
+	dt_dprintf("Relinquished all locks.\n");
 
 	/*
 	 * fd closing must be done with some care.  The thread may be cancelled
@@ -1445,26 +1445,28 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 
 	/*
 	 * If the daemon thread is still alive, clean it up.
+	 *
+	 * Take out the lock around dpr_tid accesses, to ensure that we don't
+	 * race with the setting of dpr_tid in dt_proc_control_cleanup().
+	 *
+	 * We must turn off background state change monitoring first,
+	 * since cancellation triggers a libproc release, which flushes
+	 * breakpoints and can wait on process state changes.
 	 */
+	dt_proc_dpr_lock(dpr);
+	proxy_monitor(dpr, 0);
 	if (dpr->dpr_tid) {
 		/*
 		 * Cancel the daemon thread, then wait for dpr_done to indicate
 		 * the thread has exited.  (This will also terminate the
 		 * process.)
-		 *
-		 * We must turn off background state change monitoring first,
-		 * since cancellation triggers a libproc release, which flushes
-		 * breakpoints and can wait on process state changes.
 		 */
-		dt_proc_dpr_lock(dpr);
-		proxy_monitor(dpr, 0);
 		pthread_cancel(dpr->dpr_tid);
 
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		dpr->dpr_lock_holder = pthread_self();
-		dt_proc_dpr_unlock(dpr);
 	} else {
 		/*
 		 * The process control thread is already dead, but try to clean
@@ -1475,6 +1477,7 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
 	}
+	dt_proc_dpr_unlock(dpr);
 
 	if (!dt_ps_proc_retired(dpr->dpr_proc)) {
 		assert(dph->dph_lrucnt != 0);
@@ -1944,8 +1947,20 @@ dt_proc_dpr_unlock(dt_proc_t *dpr)
 	    *lock_count > 0);
 	(*lock_count)--;
 
+	/*
+	 * A subtlety.	When a control thread dies at the same instant as dtrace
+	 * shutdown, we set dpr_tid to zero to indicate its death.  This must be
+	 * done under the dpr_lock, to stop dt_ps_proc_destroy() from racing
+	 * with the dpr_tid change -- but we check dpr_tid just above!	So we
+	 * must reset it here, after we've checked it, but before we actually
+	 * unlock the lock.
+	 */
 	if (*lock_count == 0) {
 		dt_dprintf("%i: Relinquishing lock\n", dpr->dpr_pid);
+
+		if (dpr->dpr_ending)
+			dpr->dpr_tid = 0;
+
 		err = pthread_mutex_unlock(&dpr->dpr_lock);
 		assert(err == 0); /* check for unheld lock */
 	} else
