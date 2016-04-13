@@ -77,9 +77,9 @@ child=$!
 script
 status=$?
 
-pstop $child
+kill -STOP $child
 pkill -P $child
 kill $child
-prun $child
+kill -CONT $child
 
 exit $status
