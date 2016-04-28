@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.5.2
-Release:      2%{?dist}
+Version:      0.5.3
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,6 +172,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Apr 28 2016 - <nick.alcock@oracle.com> - 0.5.3-1
+- Prevent intermittent assertion failures crashes and hangs when
+  shutdown races with termination of a grabbed process [Orabug: 22824594]
+  [Orabug: 23028026]
+
 * Fri Feb  5 2016 - <nick.alcock@oracle.com> - 0.5.2-2
 - Fix uregs array on SPARC [Orabug: 22602756]
 - Testsuite fixes
