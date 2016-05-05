@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
+ * Copyright 2011 -- 2016 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -44,6 +44,8 @@ hrtime_t gethrtime(void);
 int p_online(int cpun);
 
 int mutex_init(mutex_t *m, int flags1, void *ptr);
+
+unsigned long linux_version_code(void);
 
 #ifndef HAVE_ELF_GETSHDRSTRNDX
 #define elf_getshdrstrndx elf_getshstrndx
@@ -72,6 +74,5 @@ int waitfd(int which, pid_t upid, int options, int flags);
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP       128
 #endif
-
 
 #endif

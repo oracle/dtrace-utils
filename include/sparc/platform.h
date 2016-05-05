@@ -46,13 +46,5 @@ const static unsigned char plat_bkpt[] = { 0x91, 0xd0, 0x20, 0x01 };
  */
 #define NEED_SOFTWARE_SINGLESTEP 1
 
-/*
- * Translates waitpid() into a pollable fd.
- */
-
-#ifndef __NR_waitfd
-#define __NR_waitfd 351
-#endif
-
 #endif
 
