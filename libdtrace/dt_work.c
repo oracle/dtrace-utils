@@ -79,11 +79,13 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	/*
 	 * Wait until the time specified by "earliest" has arrived, or until we
-	 * receive notification that a process is in an interesting state.
-	 * Regardless of why we awaken, iterate over any pending notifications
-	 * and process them.
+	 * receive notification that a process is in an interesting state; also
+	 * make sure that any synchronous notifications of process exit are
+	 * received.  Regardless of why we awaken, iterate over any pending
+	 * notifications and process them.
 	 */
 	(void) pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
+	(void) dt_proc_enqueue_exits(dtp);
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {

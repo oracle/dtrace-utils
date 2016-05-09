@@ -120,7 +120,7 @@ dt_unwinder_pad(struct ps_prochandle *unused)
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
-    const char *msg)
+    const char *msg, int lock, int broadcast)
 {
 	dt_proc_notify_t *dprn = dt_alloc(dtp, sizeof (dt_proc_notify_t));
 
@@ -135,13 +135,81 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 			(void) strlcpy(dprn->dprn_errmsg, msg,
 			    sizeof (dprn->dprn_errmsg));
 
-		(void) pthread_mutex_lock(&dph->dph_lock);
+		if (lock)
+			(void) pthread_mutex_lock(&dph->dph_lock);
 
 		dprn->dprn_next = dph->dph_notify;
 		dph->dph_notify = dprn;
 
-		(void) pthread_cond_broadcast(&dph->dph_cv);
-		(void) pthread_mutex_unlock(&dph->dph_lock);
+		if (broadcast)
+			(void) pthread_cond_broadcast(&dph->dph_cv);
+		if (lock)
+			(void) pthread_mutex_unlock(&dph->dph_lock);
+	}
+}
+
+/*
+ * Wait for all processes in the dtp's hash table that are marked as dpr_created
+ * but have no controlling thread. (These processes are counted in the dph, so
+ * in the common case that there are none, this function can exit early and do
+ * nothing.)
+ *
+ * Must be called under the dph_lock by the function that scans the notification
+ * table, since no notifications are sent, only enqueued.
+ */
+void
+dt_proc_enqueue_exits(dtrace_hdl_t *dtp)
+{
+	dt_proc_hash_t *dph = dtp->dt_procs;
+	dt_proc_t *dpr;
+
+	if (!dph->dph_noninvasive_created)
+		return;
+
+	assert(MUTEX_HELD(&dph->dph_lock));
+	/*
+	 * We can cheat here and save time by not taking out the
+	 * dt_proc_dpr_lock, because in the case we are interested in there is
+	 * no control thread to lock against, and in the only other case where
+	 * dpr_done can end up set and dpr_tid be NULL, the control thread has
+	 * died and the process has already been waited for.
+	 *
+	 * We also know that the process cannot be ptrace()d in this case, so
+	 * there is no danger of a return indicating a trace stop.
+	 */
+	for (dpr = dt_list_next(&dph->dph_lrulist);
+	     dpr != NULL; dpr = dt_list_next(dpr)) {
+		if (dpr->dpr_tid == 0 && dpr->dpr_done && dpr->dpr_proc) {
+			int exited = 0;
+			siginfo_t info;
+
+			info.si_pid = 0;
+			/*
+			 * We treat -ECHILD like a process exit, and consider
+			 * other errors a real problem.
+			 */
+			if (waitid(P_PID, Pgetpid(dpr->dpr_proc), &info,
+				WNOHANG | WEXITED) < 0) {
+				if (errno != -ECHILD)
+					dt_dprintf("Error waitid()ing for child "
+					    "%i: %s\n", Pgetpid(dpr->dpr_proc),
+					    strerror(errno));
+				else
+					exited = 1;
+			}
+
+			if (info.si_pid != 0)
+				exited = 1;
+
+			if (exited) {
+				dt_proc_notify(dtp, dph, dpr, NULL,
+				    B_FALSE, B_FALSE);
+				Prelease(dpr->dpr_proc,
+				    dpr->dpr_created ? PS_RELEASE_KILL :
+				    PS_RELEASE_NORMAL);
+				dph->dph_noninvasive_created--;
+			}
+		}
 	}
 }
 
@@ -338,7 +406,8 @@ dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	Pupdate_syms(dpr->dpr_proc);
 	if (dt_pid_create_probes_module(dtp, dpr) != 0)
-		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg);
+		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg,
+		    B_TRUE, B_TRUE);
 }
 
 /*
@@ -786,7 +855,9 @@ dt_proc_control(void *arg)
 		/*
 		 * If this was a noninvasive grab, quietly exit without calling
 		 * the cleanup handlers: the process is running, but does not
-		 * need a monitoring thread.
+		 * need a monitoring thread.  Process termination detection is
+		 * handled in the parent process, via the subreaper already set
+		 * up.
 		 */
 		if (noninvasive && !Ptraceable(dpr->dpr_proc)) {
 			dt_dprintf("%i: noninvasive grab, control thread "
@@ -814,6 +885,10 @@ dt_proc_control(void *arg)
 		 * Pcreate()d it, dpr_created is still set, so it will still get
 		 * killed on dtrace exit.  If even that fails, there's nothing
 		 * we can do but hope.
+		 *
+		 * The dt_proc_exit_check() function, called by dtrace_sleep(),
+		 * checks for termination of such processes (since nothing else
+		 * will).
 		 */
 		Prelease(dpr->dpr_proc, PS_RELEASE_NORMAL);
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
@@ -822,6 +897,7 @@ dt_proc_control(void *arg)
 			    (long) dpr->dpr_pid, strerror(err));
 		}
 
+		dtp->dt_procs->dph_noninvasive_created++;
 		pthread_exit(NULL);
 	}
 
@@ -1253,13 +1329,13 @@ dt_proc_control_cleanup(void *arg)
 	 * Death-notification queueing is complicated by the fact that we might
 	 * have died due to failure to create or grab a process in the first
 	 * place, which means both that the dpr will not be queued into the dpr
-	 * hash and that dt_ps_proc_{grab,create}() will Pfree it as soon as
+	 * hash and that dt_ps_proc_{grab,create}() will Pfree() it as soon as
 	 * they notice that it's failed.  So we cannot enqueue the dpr in that
 	 * case, and must enqueue a NULL instead.
 	 */
 	if (!suiciding)
 		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
-		    proc_existed ? dpr : NULL, NULL);
+		    proc_existed ? dpr : NULL, NULL, B_TRUE, B_TRUE);
 
 	/*
 	 * A proxy request may have come in since the last time we checked for
@@ -1467,12 +1543,14 @@ dt_ps_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		dpr->dpr_lock_holder = pthread_self();
-	} else {
+	} else if (dpr->dpr_proc) {
 		/*
 		 * The process control thread is already dead, but try to clean
 		 * the process up anyway, just in case it survived to this
 		 * point.  This can happen e.g. if the process was noninvasively
 		 * grabbed and its control thread suicided.)
+		 *
+		 * It might be cleaned up already by dt_proc_exit_check().
 		 */
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
@@ -1597,7 +1675,7 @@ dt_ps_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	}
 
 	/*
-	 * Newly-created processes must be invasively grabbed.
+	 * Newly-created processes should be invasively grabbed.
 	 */
 	if (flags & DTRACE_PROC_SHORTLIVED)
 		flags &= ~DTRACE_PROC_SHORTLIVED;

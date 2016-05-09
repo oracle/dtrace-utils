@@ -135,6 +135,7 @@ typedef struct dt_proc_hash {
 	uint_t dph_lrulim;		/* limit on number of procs to hold */
 	uint_t dph_lrucnt;		/* count of cached process handles */
 	uint_t dph_hashlen;		/* size of hash chains array */
+	uint_t dph_noninvasive_created;	/* count of noninvasive -c procs */
 	dt_proc_t *dph_hash[1];		/* hash chains array */
 } dt_proc_hash_t;
 
@@ -147,6 +148,7 @@ extern long dt_proc_continue(dtrace_hdl_t *, struct dtrace_prochandle *);
 extern void dt_proc_lock(dtrace_hdl_t *, struct dtrace_prochandle *);
 extern void dt_proc_unlock(dtrace_hdl_t *, struct dtrace_prochandle *);
 extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct dtrace_prochandle *, int);
+extern void dt_proc_enqueue_exits(dtrace_hdl_t *dtp);
 
 /*
  * Proxies for operations in libproc, respecting the execve-retry protocol.
