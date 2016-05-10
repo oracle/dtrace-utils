@@ -2454,6 +2454,8 @@ Pread_scalar_quietly(struct ps_prochandle *P,
     uintptr_t address,		/* address in process */
     int quietly)		/* do not emit error messages */
 {
+	size_t copybytes;
+
 	union
 	{
 		uint8_t b1;
@@ -2497,11 +2499,18 @@ Pread_scalar_quietly(struct ps_prochandle *P,
 		return(-1);
 	}
 
+	memset(buf, 0, nscalar);
+#if __BYTE_ORDER == __BIG_ENDIAN
+	buf = (char *) buf + nscalar - nbyte;
+	copybytes = nbyte;
+#else
+	copybytes = nscalar;
+#endif
 	switch (nscalar) {
-	case sizeof(conv.b1): memcpy(buf, &conv.b1, nscalar); break;
-	case sizeof(conv.b2): memcpy(buf, &conv.b2, nscalar); break;
-	case sizeof(conv.b4): memcpy(buf, &conv.b4, nscalar); break;
-	case sizeof(conv.b8): memcpy(buf, &conv.b8, nscalar); break;
+	case sizeof(conv.b1): memcpy(buf, &conv.b1, copybytes); break;
+	case sizeof(conv.b2): memcpy(buf, &conv.b2, copybytes); break;
+	case sizeof(conv.b4): memcpy(buf, &conv.b4, copybytes); break;
+	case sizeof(conv.b8): memcpy(buf, &conv.b8, copybytes); break;
 	default: _dprintf("Pread_scalar(): Attempt to read into a scalar of "
 	    "%lu bytes is not supported.\n", nscalar);
 		return(-1);
