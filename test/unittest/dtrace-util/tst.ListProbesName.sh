@@ -47,11 +47,11 @@ $dtrace $dt_flags -ln BEGIN
 $dtrace $dt_flags -ln :read:
 $dtrace $dt_flags -ln syscall::read:
 $dtrace $dt_flags -ln ::read:
-$dtrace $dt_flags -ln ::'read*':
+$dtrace $dt_flags -ln syscall:vmlinux:'read*':
 $dtrace $dt_flags -ln profile:::tick-1000
 $dtrace $dt_flags -ln read: -n write:
 $dtrace $dt_flags -ln read: -n fight:
-$dtrace $dt_flags -ln 'read*:' -n fight:
+$dtrace $dt_flags -ln 'syscall::read*:' -n fight:
 $dtrace $dt_flags -ln fight: -n write:
 $dtrace $dt_flags -ln read:'{printf("FOUND");}'
 $dtrace $dt_flags -ln read:entry'{printf("FOUND");}'

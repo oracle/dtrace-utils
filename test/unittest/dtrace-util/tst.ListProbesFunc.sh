@@ -47,7 +47,7 @@ $dtrace $dt_flags -lf ::read
 $dtrace $dt_flags -lf syscall::read
 $dtrace $dt_flags -lf read -f write
 $dtrace $dt_flags -lf read -f fight
-$dtrace $dt_flags -lf 'read*' -f fight
+$dtrace $dt_flags -lf 'syscall::read*' -f fight
 $dtrace $dt_flags -lf fight -f write
 $dtrace $dt_flags -lf read'{printf("FOUND");}'
 $dtrace $dt_flags -lf read'/probename == "entry"/{printf("FOUND");}'

@@ -90,12 +90,12 @@ fi
 
 script()
 {
-	$dtrace -c ./test -ln go
-	$dtrace -c ./test -ln 'g*'
+	$dtrace -c ./test -ln 'test_prov*:::go'
+	$dtrace -c ./test -ln 'test_prov*:::g*'
 	./test &
 	PID=$!
-	$dtrace -p $PID -ln go
-	$dtrace -p $PID -ln 'g*'
+	$dtrace -p $PID -ln 'test_prov*:::go'
+	$dtrace -p $PID -ln 'test_prov*:::g*'
 	kill -9 $PID
 }
 
