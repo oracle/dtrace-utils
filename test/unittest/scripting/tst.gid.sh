@@ -21,11 +21,9 @@
 #
 
 #
-# Copyright 2006 Oracle, Inc.  All rights reserved.
+# Copyright 2006, 2016 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-
-#ident	"%Z%%M%	%I%	%E% SMI"
 
 ############################################################################
 # ASSERTION:
@@ -42,7 +40,7 @@ fi
 
 dtrace=$1
 bname=`basename $0`
-dfilename=/var/tmp/$bname.$$
+dfilename=$tmpdir/$bname.$$
 
 ## Create .d file
 ##########################################################################
@@ -69,13 +67,13 @@ EOF
 
 chmod 555 $dfilename
 
-groupid=`ps -o pid,gid | grep "$$ " | awk '{print $2}' 2>/dev/null`
+groupid=`id -g`
 if [ $? -ne 0 ]; then
-	echo "unable to get uid of the current process with pid = $$" >&2
+	echo "unable to get uid of the current process" >&2
 	exit 1
 fi
 
-$dfilename $groupid >/dev/null 2>&1
+$dfilename $groupid >/dev/null
 
 if [ $? -ne 0 ]; then
 	echo "Error in executing $dfilename" >&2
