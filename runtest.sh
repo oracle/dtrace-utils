@@ -128,6 +128,7 @@ find_next_numeric_dir()
     for ((i=0; ; i++)); do
         if [[ ! -e $1/$i ]]; then
             mkdir -p $1/$i
+            chattr +D $1/$i 2>/dev/null
             rm -f $1/current
             ln -s $i $1/current
             echo $1/$i
@@ -715,6 +716,12 @@ for fd in /proc/$$/fd/*; do
         *) exec {fd}>&-;;
     esac
 done
+
+# Mark the log and sumfiles as fsynced always.
+
+touch $LOGFILE
+touch $SUMFILE
+chattr +S $LOGFILE $SUMFILE 2>/dev/null
 
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
