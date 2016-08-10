@@ -1,8 +1,0 @@
-##unload-only ctf
-##unload-only dtrace
-dt_test
-profile
-systrace
-sdt
-ext2 # unload-quietly
-isofs # unload-quietly
