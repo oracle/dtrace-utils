@@ -962,15 +962,15 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	if (((status >> 8) == (SIGTRAP | PTRACE_EVENT_FORK << 8)) ||
 	    ((status >> 8) == (SIGTRAP | PTRACE_EVENT_VFORK << 8)))
 	{
-		pid_t pid;
+		unsigned long pid;		/* Cannot be pid_t */
 
 		P->state = PS_TRACESTOP;
 		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL, &pid) < 0)
 			_dprintf("%i: process status change: fork() or vfork() "
-			    "detected but PID cannot be determined: ignoring.\n",
-				pid);
+			    "detected but PID cannot be determined: %s; ignoring.\n",
+			    P->pid, strerror(errno));
 		else {
-			_dprintf("%i: process status change: fork() or vfork() "
+			_dprintf("%lu: process status change: fork() or vfork() "
 			    "detected, discarding breakpoints...\n", pid);
 
 			/*
@@ -995,7 +995,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 */
 	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_CLONE << 8))
 	{
-		pid_t pid;
+		unsigned long pid;		/* Cannot be pid_t */
 
 		_dprintf("%i: process status change: thread creation detected, "
 			    "suppressing rd events...\n", P->pid);
@@ -1142,7 +1142,7 @@ ignored_child_wait(struct ps_prochandle *P, pid_t pid,
 		 */
 		if (((status >> 8) == (SIGTRAP | PTRACE_EVENT_FORK << 8)) ||
 		    ((status >> 8) == (SIGTRAP | PTRACE_EVENT_VFORK << 8))) {
-			pid_t new_pid;
+			unsigned long new_pid;	/* Cannot be pid_t */
 			if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, pid, NULL,
 				&new_pid) == 0) {
 				_dprintf("%i: recursive ignored fork()/clone().\n",
