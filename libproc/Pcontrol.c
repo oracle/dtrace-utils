@@ -700,7 +700,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 static int
 Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 {
-	uintptr_t ip;
+	uintptr_t ip = 0;
 
 	if (WIFCONTINUED(status)) {
 		_dprintf("%i: process got SIGCONT.\n", P->pid);
@@ -1024,10 +1024,12 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 *
 	 * Trap, possibly breakpoint trap.
 	 *
-	 * If we are in the midst of processing a breakpoint, we already know
-	 * our breakpoint address.  Otherwise, we must acquire the tracee's IP
-	 * address and verify that it really is a breakpoint and not a random
-	 * third-party SIGTRAP, and pass it on if not.
+	 * If we are in the midst of processing a breakpoint on a machine with
+	 * hardware singlestepping, we already know our breakpoint address.
+	 * Otherwise -- and always, in the case of software singlestepping -- we
+	 * must acquire the tracee's IP address and verify that it really is a
+	 * breakpoint and not a random third-party SIGTRAP, and pass it on if
+	 * not.
 	 *
 	 * If bkpt_consume is turned on, we want to simply consume the trap
 	 * without invoking the breakpoint handler.  (This is used when doing a
@@ -1035,8 +1037,12 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 * may not already have trapped.)
 	 */
 
-	ip = P->tracing_bkpt;
 	P->state = PS_TRACESTOP;
+
+#ifndef NEED_SOFTWARE_SINGLESTEP
+	ip = P->tracing_bkpt;
+#endif
+
 	if (ip == 0) {
 		bkpt_t *bkpt;
 		ip = Pget_bkpt_ip(P, 0);
@@ -1049,8 +1055,9 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 			 * singlestepping breakpoint.  Reinject it.
 			 */
 			_dprintf("Pwait: %i: process status change at "
-			    "address %lx: signal %i does not correspond to a "
-			    "known breakpoint.\n", P->pid, ip, WTERMSIG(status));
+			    "address %lx: signal %i/%i does not correspond to "
+			    "a known breakpoint.\n", P->pid, ip,
+			    WTERMSIG(status), WSTOPSIG(status));
 
 			if ((WIFSTOPPED(status)) && (WSTOPSIG(status)) == SIGTRAP)
 				P->state = PS_STOP;
