@@ -66,6 +66,9 @@ typedef struct dt_proc {
 	uint8_t dpr_ending;		/* true in the middle of process death,
 					   when unlocking should null out the
 					   dpr_tid */
+	uint8_t dpr_awaiting_dlactivity; /* true if a dlopen()/dlclose() has
+					    been seen and the victim ld.so is
+					    not yet in a consistent state */
 
 	/*
 	 * Proxying. These structures encode the return type and parameters of
