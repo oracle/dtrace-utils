@@ -363,15 +363,24 @@ dt_proc_rdevent(rd_agent_t *rd, rd_event_msg_t *msg, void *state)
 	dt_dprintf("pid %d: rtld event, type=%d state %d\n",
 	    (int)dpr->dpr_pid, msg->type, msg->state);
 
-	switch (msg->type) {
-	case RD_DLACTIVITY:
-		if (msg->state != RD_CONSISTENT)
-			break;
-		dt_proc_scan(dtp, dpr);
+	/* cannot happen, but do nothing anyway */
+	if (msg->type == RD_NONE)
+		return;
+
+	/*
+	 * Call dt_proc_scan() on the first consistent report after
+	 * an add or remove.
+	 */
+	switch (msg->state) {
+	case RD_ADD:
+	case RD_DELETE:
+		dpr->dpr_awaiting_dlactivity = 1;
 		break;
-	case RD_NONE:
-		/* cannot happen, but do nothing anyway */
-		break;
+	case RD_CONSISTENT:
+		if (dpr->dpr_awaiting_dlactivity) {
+			dt_proc_scan(dtp, dpr);
+			dpr->dpr_awaiting_dlactivity = 0;
+		}
 	}
 }
 
