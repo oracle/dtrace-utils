@@ -90,7 +90,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
-${REAELF} -Wl test | grep STACK | grep RWE
+${READELF} -Wl test | grep STACK | grep RWE
 if [ $? -eq 0 ]; then
 	echo "EXEC flag on STACK" >& 2
 	exit 1
