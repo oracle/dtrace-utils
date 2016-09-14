@@ -25,6 +25,8 @@
 # Use is subject to license terms.
 #
 
+# @@timeout: 70
+
 ##
 #
 # ASSERTION:
