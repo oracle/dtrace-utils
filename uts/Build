@@ -19,7 +19,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011, 2012, 2013 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2016 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 uts_DIR := $(current-dir)
@@ -31,7 +31,8 @@ uts_DIR := $(current-dir)
 
 SYS_HEADERS_INSTALL := common/sys/dtrace.h \
                        common/sys/dtrace_types.h \
-                       common/sys/sdt.h
+                       common/sys/sdt.h \
+                       common/sys/sdt_internal.h
 
 LINUX_HEADERS_INSTALL := common/linux/dtrace_cpu_defines.h
 

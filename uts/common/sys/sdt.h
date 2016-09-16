@@ -7,10 +7,32 @@
 extern "C" {
 #endif
 
+#if (__STDC_VERSION__ >= 199901L && __GNUC__ && !__STRICT_ANSI__) || defined(__cplusplus)
+
+#define __stringify_1(...)	# __VA_ARGS__
+#define __stringify(...)	__stringify_1(__VA_ARGS__)
+#include <sys/sdt_internal.h>
+
+#define __DTRACE_TYPE_UNSIGNED_LONG_EACH(x) unsigned long
+#define __DTRACE_ULONG_CAST_EACH(x) (unsigned long)x
+
+#define	DTRACE_PROBE(provider, name, ...)	{                       \
+	extern void __dtrace_##provider##___##name(__DTRACE_APPLY_DEFAULT(__DTRACE_TYPE_UNSIGNED_LONG_EACH, void, ## __VA_ARGS__)); \
+	__dtrace_##provider##___##name(__DTRACE_APPLY(__DTRACE_ULONG_CAST_EACH, ## __VA_ARGS__)); \
+}
+
+#else
+
 #define	DTRACE_PROBE(provider, name) {					\
 	extern void __dtrace_##provider##___##name(void);		\
 	__dtrace_##provider##___##name();				\
 }
+
+#endif
+
+/*
+ * For backward compatibility and pre-C99 compilers.
+ */
 
 #define	DTRACE_PROBE1(provider, name, arg1) {				\
 	extern void __dtrace_##provider##___##name(unsigned long);	\

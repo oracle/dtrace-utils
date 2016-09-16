@@ -159,6 +159,7 @@ fi
 %{_includedir}/sys/dtrace_types.h
 %{_includedir}/linux/dtrace_cpu_defines.h
 %{_includedir}/sys/sdt-dtrace.h
+%{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*
 
 %files devel
