@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright 2006 Oracle, Inc.  All rights reserved.
+# Copyright 2006, 2016 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
@@ -33,7 +33,7 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS="-I${PWD}/uts/common"
+CFLAGS="-std=gnu99 -I${PWD}/uts/common"
 
 DIRNAME="$tmpdir/usdt-linkpriv.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -46,11 +46,11 @@ int
 main(int argc, char **argv)
 {
 	DTRACE_PROBE(test_prov, zero);
-	DTRACE_PROBE1(test_prov, one, 1);
-	DTRACE_PROBE2(test_prov, two, 2, 3);
-	DTRACE_PROBE3(test_prov, three, 4, 5, 7);
-	DTRACE_PROBE4(test_prov, four, 7, 8, 9, 10);
-	DTRACE_PROBE5(test_prov, five, 11, 12, 13, 14, 15);
+	DTRACE_PROBE(test_prov, one, 1);
+	DTRACE_PROBE(test_prov, two, 2, 3);
+	DTRACE_PROBE(test_prov, three, 4, 5, 7);
+	DTRACE_PROBE(test_prov, four, 7, 8, 9, 10);
+	DTRACE_PROBE(test_prov, five, 11, 12, 13, 14, 15);
 }
 EOF
 
