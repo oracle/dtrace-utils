@@ -929,7 +929,8 @@ dt_proc_control(void *arg)
 		 * reset it now so that such a rethrow will work.
 		 */
 		unwinder_pad = &exec_jmp;
-		if (dt_proc_reattach(dtp, dpr) != 0) {
+		err = dt_proc_reattach(dtp, dpr);
+		if (err != 0) {
 			dt_proc_error(dtp, dpr,
 			    "failed to regrab pid %li after exec(): %s\n",
 			    (long) dpr->dpr_pid, strerror(err));
@@ -1152,14 +1153,17 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 				 * set it going again.
 				 */
 				} else if (dpr->dpr_proxy_rq == proxy_reattach) {
+					int err;
+
 					dt_dprintf("%d: Handling a proxy_reattach()\n",
 				 	    dpr->dpr_pid);
 					errno = 0;
 					dpr->dpr_proxy_ret = 0;
-					if (dt_proc_reattach(dpr->dpr_hdl, dpr) != 0) {
-						dpr->dpr_proxy_errno = errno;
+					err = dt_proc_reattach(dpr->dpr_hdl, dpr);
+					if (err != 0) {
+						dpr->dpr_proxy_errno = err;
 						dpr->dpr_proxy_rq = NULL;
-						dpr->dpr_proxy_ret = errno;
+						dpr->dpr_proxy_ret = err;
 						pthread_cond_signal(&dpr->dpr_msg_cv);
 						pthread_exit(NULL);
 					}
@@ -1399,7 +1403,7 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		dt_proc_error(dtp, dpr, "failed to regrab pid %li "
 		    "after exec(): %s\n", (long) dpr->dpr_pid,
 		    strerror(err));
-		return(-1);
+		return(err);
 	}
 	Ptrace_set_detached(dpr->dpr_proc, dpr->dpr_created);
 	Puntrace(dpr->dpr_proc, 0);
