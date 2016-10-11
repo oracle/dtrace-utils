@@ -1874,7 +1874,7 @@ main(int argc, char *argv[])
 			g_newline = 0;
 		}
 
-		if (done || g_intr || (g_psc != 0 && g_pslive == 0)) {
+		if (done || g_intr || (g_psc != 0 && g_pslive <= 0)) {
 			done = 1;
 			if (dtrace_stop(g_dtp) == -1)
 				dfatal("couldn't stop tracing");
