@@ -844,13 +844,17 @@ dt_proc_control(void *arg)
 		 * be worth ptracing it so that we get better symbol resolution,
 		 * but if the process is a crucial system daemon, avoid ptracing
 		 * it entirely, to avoid rtld_db dropping breakpoints in crucial
-		 * system daemons unless specifically demanded.
+		 * system daemons unless specifically demanded.  No death
+		 * notification is ever sent.
+		 *
+		 * Also, obviously enough, never drop breakpoints in ourself!
 		 */
 		if (datap->dpcd_flags & DTRACE_PROC_SHORTLIVED) {
 			noninvasive = 1;
-
-                        if (Psystem_daemon(dpr->dpr_pid, dtp->dt_useruid,
-					   dtp->dt_sysslice) > 0)
+			dpr->dpr_notifiable = 0;
+			if ((Psystem_daemon(dpr->dpr_pid, dtp->dt_useruid,
+				    dtp->dt_sysslice) > 0) ||
+			    (dpr->dpr_pid == getpid()))
 				noninvasive = 2;
 		}
 

@@ -307,15 +307,6 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 		return (NULL);
 	}
 
-	/*
-	 * We have to ban self-grabs to avoid infinite recursion.
-	 */
-	if (pid == getpid()) {
-		_dprintf("Self-grabs are not supported.\n");
-		*perr = ESRCH;
-		return (NULL);
-	}
-
 	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
 		*perr = ENOMEM;
 		return (NULL);
