@@ -1341,8 +1341,11 @@ dt_proc_control_cleanup(void *arg)
 	 * hash and that dt_ps_proc_{grab,create}() will Pfree() it as soon as
 	 * they notice that it's failed.  So we cannot enqueue the dpr in that
 	 * case, and must enqueue a NULL instead.
+	 *
+	 * We also never want to emit a death notification for processes created
+	 * via the internal API.
 	 */
-	if (!suiciding)
+	if (!suiciding && dpr->dpr_notifiable)
 		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
 		    proc_existed ? dpr : NULL, NULL, B_TRUE, B_TRUE);
 
@@ -1591,6 +1594,8 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	(void) pthread_mutex_lock(&dpr->dpr_lock);
 	dpr->dpr_stop |= stop; /* set bit for initial rendezvous */
 	dpr->dpr_monitoring = B_TRUE;
+	if (flags & DTRACE_PROC_NOTIFIABLE)
+		dpr->dpr_notifiable = 1;
 
 	(void) pthread_attr_init(&a);
 	(void) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
@@ -2232,7 +2237,8 @@ dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	struct dtrace_prochandle P;
 
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *ps_P = dt_ps_proc_create(dtp, file, argv, flags);
+	struct ps_prochandle *ps_P = dt_ps_proc_create(dtp, file, argv,
+	    flags | DTRACE_PROC_NOTIFIABLE);
 
 	if (ps_P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = Pgetpid(ps_P); /* $target = created pid */
@@ -2247,7 +2253,8 @@ dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	struct dtrace_prochandle P;
 
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
-	struct ps_prochandle *ps_P = dt_ps_proc_grab(dtp, pid, flags);
+	struct ps_prochandle *ps_P = dt_ps_proc_grab(dtp, pid,
+	    flags | DTRACE_PROC_NOTIFIABLE);
 
 	if (ps_P != NULL && idp != NULL && idp->di_id == 0)
 		idp->di_id = pid; /* $target = grabbed pid */

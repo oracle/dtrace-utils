@@ -66,6 +66,8 @@ typedef struct dt_proc {
 	uint8_t dpr_ending;		/* true in the middle of process death,
 					   when unlocking should null out the
 					   dpr_tid */
+	uint8_t dpr_notifiable;		/* true if we should call notifiers
+					   when this process dies */
 	uint8_t dpr_awaiting_dlactivity; /* true if a dlopen()/dlclose() has
 					    been seen and the victim ld.so is
 					    not yet in a consistent state */
@@ -120,6 +122,12 @@ typedef struct dt_proc_notify {
 	char dprn_errmsg[BUFSIZ];	/* error message */
 	struct dt_proc_notify *dprn_next; /* next pointer */
 } dt_proc_notify_t;
+
+/*
+ * This is an internal-only flag in the DTRACE_PROC_* space.  External API
+ * callers cannot turn it off.
+ */
+#define DTRACE_PROC_NOTIFIABLE	0x10    /* true if notifiers must be called */
 
 #define	DT_PROC_STOP_IDLE	0x01	/* idle on owner's stop request */
 #define	DT_PROC_STOP_CREATE	0x02	/* wait on dpr_cv at process exec */
