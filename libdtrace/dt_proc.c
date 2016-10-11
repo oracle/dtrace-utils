@@ -1326,7 +1326,7 @@ dt_proc_control_cleanup(void *arg)
 		dt_proc_dpr_unlock(dpr);
 	}
 	dpr->dpr_ending = 0;
-	dt_dprintf("Relinquished all locks.\n");
+	dt_dprintf("%i: relinquished all locks.\n", dpr->dpr_pid);
 
 	/*
 	 * fd closing must be done with some care.  The thread may be cancelled
