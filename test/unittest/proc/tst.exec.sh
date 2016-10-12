@@ -37,7 +37,7 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::exec
-	/ppid == $child && args[0] == "/bin/sleep"/
+	/ppid == $child && basename(args[0]) == "sleep"/
 	{
 		self->exec = 1;
 	}
