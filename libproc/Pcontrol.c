@@ -486,22 +486,17 @@ Pmemfd(struct ps_prochandle *P)
 	if ((P->memfd != -1) || P->noninvasive)
 		return (P->memfd);
 
-	/*
-	 * Get the path to /proc/$pid.
-	 */
-
 	snprintf(procname, sizeof (procname), "%s/%d/",
 	    procfs_path, (int)P->pid);
 	fname = procname + strlen(procname);
 
 	strcpy(fname, "mem");
-	if ((P->memfd = open(procname, (O_RDONLY|O_EXCL))) < 0) {
+	if ((P->memfd = open(procname, O_RDONLY | O_EXCL | O_CLOEXEC)) < 0) {
 		_dprintf("Pmemfd: failed to open %s: %s\n",
 		    procname, strerror(errno));
 		return (-1);
 	}
 
-	fcntl(P->memfd, F_SETFD, FD_CLOEXEC);
 	return (P->memfd);
 }
 
