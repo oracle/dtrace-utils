@@ -107,7 +107,6 @@ typedef struct file_info {	/* symbol information for a mapped file */
 	dev_t	file_dev;	/* device number of file */
 	ino_t	file_inum;	/* inode number of file */
 	int	file_ref;	/* references from map_info_t structures */
-	int	file_fd;	/* file descriptor for the mapped file */
 	int	file_init;	/* 0: initialization yet to be performed */
 	GElf_Half file_etype;	/* ELF e_type from ehdr */
 	rd_loadobj_t *file_lo;	/* load object structure from rtld_db */
