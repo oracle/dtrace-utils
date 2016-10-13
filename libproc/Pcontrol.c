@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2016 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier
@@ -239,8 +239,10 @@ Pcreate(
 	}
 
 	/*
-	 * Initialize the memfd, now we have exec()ed.
+	 * Initialize the memfd, now we have exec()ed.  Leave the mapfilefd unset
+	 * until needed.
 	 */
+	P->mapfilefd = -1;
 	P->memfd = -1;
 	if (Pmemfd(P) == -1)	{		/* populate ->memfd */
 		/* error already reported */
@@ -326,6 +328,7 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 	Pset_pwait_wrapper(P, NULL);
 
 	P->memfd = -1;
+	P->mapfilefd = -1;
 
 	if (noninvasiveness < 2) {
 
@@ -439,6 +442,10 @@ Pclose(struct ps_prochandle *P)
 		close(P->memfd);
 		P->memfd = -1;
 	}
+	if (P->mapfilefd > -1) {
+		close(P->mapfilefd);
+		P->mapfilefd = -1;
+	}
 }
 
 /*
@@ -498,6 +505,45 @@ Pmemfd(struct ps_prochandle *P)
 	}
 
 	return (P->memfd);
+}
+
+/*
+ * Return an fd to the /proc/<pid>/map_files directory, suitable for openat().
+ *
+ * Returns -1 on any failure at all: the caller must compensate.
+ *
+ * -ENOENT failures are 'sticky' and will cause this function to fail
+ * persistently, throughout the run.
+ */
+int
+Pmapfilefd(struct ps_prochandle *P)
+{
+	char procname[PATH_MAX];
+	char *fname;
+	static int no_map_files;
+
+	if (no_map_files)
+		return (-1);
+
+	if (P->mapfilefd != -1)
+		return (P->mapfilefd);
+
+	snprintf(procname, sizeof (procname), "%s/%d/",
+	    procfs_path, (int)P->pid);
+	fname = procname + strlen(procname);
+
+	strcpy(fname, "map_files");
+	P->mapfilefd = open(procname, O_PATH | O_CLOEXEC | O_DIRECTORY);
+
+	/*
+	 * Nonexistent-file failures are permanent: this is a kernel that does
+	 * not support map_files at all, so repeatedly reopening is a waste of
+	 * time.
+	 */
+	if ((P->mapfilefd < 0) && (errno == ENOENT))
+		no_map_files = 1;
+
+	return (P->mapfilefd);
 }
 
 /*

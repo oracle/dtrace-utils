@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009 -- 2015 Oracle, Inc.  All rights reserved.
+ * Copyright 2009 -- 2016 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -181,6 +181,7 @@ mapping_purge(struct ps_prochandle *P)
 			fptr->file_ref--;
 			fptr->file_map = -1;
 		}
+		free(P->mappings[i].map_pmap->pr_mapaddrname);
 		free(P->mappings[i].map_pmap);
 		P->mappings[i].map_pmap = NULL;
 	}
@@ -471,6 +472,8 @@ Pupdate_maps(struct ps_prochandle *P)
 
 	size_t old_num_mappings = P->num_mappings;
 	size_t i = 0;
+	char *fn = NULL;
+	char *mapaddrname = NULL;
 	char *line = NULL;
 	size_t len;
 
@@ -515,7 +518,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		unsigned int major;
 		unsigned int minor;
 		char	perms[5];
-		char	*fn;
+		const char *first_space;
 		map_info_t *mptr;
 		prmap_file_t *prf;
 		prmap_t *pmptr;
@@ -527,10 +530,13 @@ Pupdate_maps(struct ps_prochandle *P)
 
 		/*
 		 * Skip anonymous mappings, and special mappings like the stack,
-		 * heap, and vdso.
+		 * heap, and vdso; also skip on OOM.
 		 */
-		if ((fn == NULL) || (fn[0] == '[')) {
+		first_space = strchr(line, ' ');
+		mapaddrname = strndup(line, first_space - line);
+		if ((fn == NULL) || (mapaddrname == NULL) || (fn[0] == '[')) {
 			free(fn);
+			free(mapaddrname);
 			continue;
 		}
 
@@ -590,6 +596,7 @@ Pupdate_maps(struct ps_prochandle *P)
 
                 pmptr->pr_vaddr = laddr;
                 pmptr->pr_size = haddr - laddr;
+		pmptr->pr_mapaddrname = mapaddrname;
 
 		/*
 		 * Both ld.so and the kernel follow the rule that the first
@@ -733,6 +740,8 @@ Pupdate_maps(struct ps_prochandle *P)
 
 err:
 	fclose(fp);
+	free(fn);
+	free(mapaddrname);
 	free(line);
 	Preset_maps(P);
 	return;
@@ -1084,11 +1093,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	GElf_Ehdr ehdr;
 
-	long fd;
+	int fd = -1;
 	Elf_Data *shdata;
 	Elf_Scn *scn;
 	Elf *elf = NULL;
 	size_t nshdrs, shstrndx;
+	int mapfilefd;
 	int err;
 
 	struct {
@@ -1133,22 +1143,31 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	}
 
 	/*
-	 * Acquire an fd to this mapping.  This requires ptrace()ing.  Then
-	 * create the elf file and get the elf header and .shstrtab data buffer
-	 * so we can process sections by name.  If we're 'grabbing' without
-	 * ptracing and without a monitor thread, try to open the ELF object
-	 * directly, though this is less reliable and can fail in the presence
-	 * of deleted files and running executables for which we don't have read
-	 * permission.  If we can't even do that, there is no way for us to read
-	 * any kind of symbol table out of this executable.
+	 * Acquire an fd to this mapping.  This may require ptrace()ing, but
+	 * first, try to use the upstream /proc/$pid/map_files interface.
+	 * Then create the elf file and get the elf header and .shstrtab data
+	 * buffer so we can process sections by name.  If we're 'grabbing'
+	 * without ptracing, without a monitor thread, and without map_files
+	 * support, try to open the ELF object directly, though this is less
+	 * reliable and can fail in the presence of deleted files and running
+	 * executables for which we don't have read permission.  If we can't
+	 * even do that, there is no way for us to read any kind of symbol table
+	 * out of this executable.
 	 *
 	 * Note: This Ptrace() call may trigger breakpoint handlers, which can
 	 * look up addresses, which can call this function: so temporarily mark
 	 * this file as not initialized, in case of such a recursive call, and
 	 * drop out immediately afterwards if it is marked as done now.  The
-	 * same is true of the Puntrace().
+	 * same is true of the Puntrace().  There is no danger of infinite
+	 * recursion because once a breakpoint is being processed, the victim is
+	 * no longer running and thus cannot trigger another breakpoint.
 	 */
-	if (!P->noninvasive) {
+	if ((mapfilefd = Pmapfilefd(P)) > -1)
+		fd = openat(mapfilefd,
+		    P->mappings[fptr->file_map].map_pmap->pr_mapaddrname,
+		    O_RDONLY);
+
+	if ((!P->noninvasive) && (fd < 0)) {
 		fptr->file_init = 0;
 		err = Ptrace(P, 1);
 		if (fptr->file_init == 1) {
@@ -1158,14 +1177,10 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		}
 		fptr->file_init = 1;
 
-		if ((err < 0) || (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
-			    P->mappings[fptr->file_map].map_pmap->pr_vaddr, &fd) < 0)) {
-			_dprintf("cannot acquire file descriptor for mapping at %lx "
-			    "named %s: %s\n", P->mappings[fptr->file_map].map_pmap->pr_vaddr,
-			    fptr->file_pname, strerror(errno));
-			Puntrace(P, 0);
-			goto bad;
-		}
+		if (err >= 0)
+			wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
+			    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
+			    &fd);
 
 		fptr->file_init = 0;
 		Puntrace(P, 0);
@@ -1174,7 +1189,9 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			return;
 		}
 		fptr->file_init = 1;
-	} else {
+	}
+
+	if (fd < 0) {
 		struct stat s;
 
 		if ((stat(fptr->file_pname, &s) < 0) ||

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006, 2012 -- 2015 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2012 -- 2016 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -59,6 +59,7 @@ typedef struct prmap_file {
  */
 typedef struct prmap {
 	uintptr_t pr_vaddr;	/* virtual address of mapping */
+	char	*pr_mapaddrname; /* address text from /proc/<pid>/maps */
 	size_t	pr_size;	/* size of mapping in bytes */
 	int	pr_mflags;	/* protection and attribute flags (see below) */
 	dev_t	pr_dev;		/* device number */

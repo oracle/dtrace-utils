@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2008, 2011 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2011 -- 2016 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -248,6 +248,7 @@ struct ps_prochandle {
 	int	detach;		/* whether to detach when !ptraced and !bkpts */
 	int	no_dyn;		/* true if this is probably statically linked */
 	int	memfd;		/* /proc/<pid>/mem filedescriptor */
+	int	mapfilefd;	/* /proc/<pid>/map_files directory fd */
 	int	info_valid;	/* if zero, map and file info need updating */
 	int	lmids_valid;	/* 0 if we haven't yet scanned the link map */
 	int	elf64;		/* if nonzero, this is a 64-bit process */
@@ -286,6 +287,7 @@ extern	void	Preadauxvec(struct ps_prochandle *P);
 extern  uintptr_t Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);
 extern  long	Preset_bkpt_ip(struct ps_prochandle *P, uintptr_t addr);
 extern	char *	Pget_proc_status(pid_t pid, const char *field);
+extern	int	Pmapfilefd(struct ps_prochandle *P);
 
 #ifdef NEED_SOFTWARE_SINGLESTEP
 extern	uintptr_t	Pget_next_ip(struct ps_prochandle *P);
