@@ -57,6 +57,13 @@ int waitfd(int which, pid_t upid, int options, int flags);
 #endif
 
 /*
+ * New open() flags not supported in OL6 glibc.
+ */
+#ifndef O_PATH
+#define O_PATH          010000000
+#endif
+
+/*
  * New ptrace requests not widely supported in glibc headers.
  */
 #ifndef PTRACE_SEIZE
