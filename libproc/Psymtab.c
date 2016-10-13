@@ -2081,11 +2081,11 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 	map_info_t *mptr;
 	file_info_t *fptr;
 	sym_tbl_t *symtab;
-	size_t symn;
+	size_t count;
 	const char *strs;
 	size_t strsz;
 	int rv;
-	uint_t *map, i, count, ndx;
+	uint_t *map, i, ndx;
 
 	if (P->state == PS_DEAD)
 		return (-1);
@@ -2113,7 +2113,6 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 		return (-1);
 	}
 
-	symn = symtab->sym_symn;
 	strs = symtab->sym_strs;
 	strsz = symtab->sym_strsz;
 	map = symtab->sym_byaddr;
