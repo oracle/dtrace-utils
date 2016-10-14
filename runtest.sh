@@ -1106,8 +1106,8 @@ for dt in $dtrace; do
         fi
 
         # Split debugging info out of the test output.
-        grep -E '^[a-z]+ DEBUG [0-9]+: ' $testerr > $testdebug
-        grep -vE '^[a-z]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
+        grep -E '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testdebug
+        grep -vE '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
         mv $testerr.tmp $testerr
 
         # Note if dtrace mentions running out of memory at any point.
