@@ -31,6 +31,7 @@
 #include <unistd.h>				/* for syscall() */
 #include <linux/version.h>                      /* for KERNEL_VERSION() */
 #include <port.h>                               /* for linux_version_code() */
+#include <dt_debug.h>
 
 /*
  * Translates waitpid() into a pollable fd.
@@ -67,8 +68,11 @@ waitfd(int which, pid_t upid, int options, int flags)
                                 break;
                         }
                 }
-		if (!waitfd_nr)
+		if (!waitfd_nr) {
+			dt_dprintf("waitfd() syscall number for this kernel "
+			    "not known.\n");
 			return -ENOSYS;
+		}
         }
 
         return syscall(waitfd_nr, which, upid, options, flags);
