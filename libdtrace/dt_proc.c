@@ -612,10 +612,14 @@ static struct ps_prochandle *
 dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 {
 	va_list ap;
+	va_list tmp;
 
 	va_start(ap, format);
+	va_copy(tmp, ap);
 	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, format, ap);
 	va_end(ap);
+	dt_debug_printf("dt_proc_error", format, tmp);
+	va_end(tmp);
 
 	(void) dt_set_errno(dtp, EDT_COMPILER);
 	return (NULL);
