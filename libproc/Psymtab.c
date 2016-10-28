@@ -467,7 +467,7 @@ void
 Pupdate_maps(struct ps_prochandle *P)
 {
 	char mapfile[PATH_MAX];
-	char exefile[PATH_MAX + 10] = "";       /* strlen(" (deleted)") */
+	char exefile[PATH_MAX + 10] = "";	/* strlen(" (deleted)") */
 	FILE *fp;
 
 	size_t old_num_mappings = P->num_mappings;
@@ -524,7 +524,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		prmap_t *pmptr;
 		struct prmap **new_prf_mappings;
 
-                sscanf(line, "%lx-%lx %s %lx %x:%x %lu %ms",
+		sscanf(line, "%lx-%lx %s %lx %x:%x %lu %ms",
 		    &laddr, &haddr, perms, &offset, &major, &minor, &inode,
 		    &fn);
 
@@ -594,24 +594,24 @@ Pupdate_maps(struct ps_prochandle *P)
 		prf->prf_mappings[prf->prf_num_mappings] = pmptr;
 		prf->prf_num_mappings++;
 
-                pmptr->pr_vaddr = laddr;
-                pmptr->pr_size = haddr - laddr;
+		pmptr->pr_vaddr = laddr;
+		pmptr->pr_size = haddr - laddr;
 		pmptr->pr_mapaddrname = mapaddrname;
 
 		/*
 		 * Both ld.so and the kernel follow the rule that the first
-                 * executable mapping they establish is the primary text
-                 * mapping, and the first writable mapping is the primary data
-                 * mapping.
-                 */
-                if (perms[0] == 'r')
-                        pmptr->pr_mflags |= MA_READ;
-                if (perms[1] == 'w') {
-                        pmptr->pr_mflags |= MA_WRITE;
+		 * executable mapping they establish is the primary text
+		 * mapping, and the first writable mapping is the primary data
+		 * mapping.
+		 */
+		if (perms[0] == 'r')
+			pmptr->pr_mflags |= MA_READ;
+		if (perms[1] == 'w') {
+			pmptr->pr_mflags |= MA_WRITE;
 			if (prf->prf_data_map == NULL)
 				prf->prf_data_map = pmptr;
 		}
-                if (perms[2] == 'x') {
+		if (perms[2] == 'x') {
 			char *basename = strrchr(prf->prf_mapname, '/');
 			char *suffix = strrchr(prf->prf_mapname, '.');
 
@@ -630,7 +630,7 @@ Pupdate_maps(struct ps_prochandle *P)
 			/*
 			 * Heuristic to recognize the dynamic linker.  Works
 			 * for /lib, /lib64, and Debian multiarch as well as
-			 * conventional /lib/ld-2.13.so style systems.  (All
+			 * conventional /lib/ld-2.13.so style systems.	(All
 			 * versions of glibc 2.x name their dynamic linker
 			 * something like ld-*.so.)
 			 *
@@ -666,7 +666,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		 *
 		 * This is quite expensive if we have a lot of mappings, so we
 		 * avoid doing it for those mappings that cannot possibly
-		 * correspond to on-disk files.  (It is still not guaranteed
+		 * correspond to on-disk files.	 (It is still not guaranteed
 		 * that all our file_info_t's correspond to ELF files.)
 		 */
 
@@ -709,7 +709,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		_dprintf("Added mapping for %s: %lx(%lx)\n", prf->prf_mapname,
 		    pmptr->pr_vaddr, pmptr->pr_size);
 		P->num_mappings++;
-        }
+	}
 
 	/*
 	 * Drop file_info_t's corresponding to closed mappings, which will still
