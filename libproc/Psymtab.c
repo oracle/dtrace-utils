@@ -1193,6 +1193,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		    O_RDONLY);
 
 	if ((!P->noninvasive) && (fd < 0)) {
+		long pfd;
+
 		fptr->file_init = 0;
 		err = Ptrace(P, 1);
 		if (fptr->file_init == 1) {
@@ -1206,11 +1208,14 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		 * Even this can fail: fd table overflow, for instance.
 		 * Fall back, if so.
 		 */
-		if (err >= 0)
+		if (err >= 0) {
 			if (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
 				P->mappings[fptr->file_map].map_pmap->pr_vaddr,
-				&fd) < 0)
+				&pfd) < 0)
 				fd = -1;
+			else
+				fd = pfd;
+		}
 
 		fptr->file_init = 0;
 		Puntrace(P, 0);
