@@ -1093,13 +1093,16 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 
 	GElf_Ehdr ehdr;
 
-	int fd = -1;
+	volatile int fd = -1;
 	Elf_Data *shdata;
 	Elf_Scn *scn;
 	Elf *elf = NULL;
+	volatile Elf *velf = NULL;
 	size_t nshdrs, shstrndx;
 	int mapfilefd;
 	int err;
+	jmp_buf * volatile old_exec_jmp;
+	jmp_buf **jmp_pad, this_exec_jmp;
 
 	struct {
 		GElf_Shdr c_shdr;
@@ -1123,6 +1126,28 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		_dprintf("libproc ELF version is more recent than libelf\n");
 		return;
 	}
+
+	/*
+	 * If we spot an exec() in this function, free everything and rethrow.
+	 */
+	jmp_pad = libproc_unwinder_pad(P);
+	old_exec_jmp = *jmp_pad;
+	if (setjmp(this_exec_jmp)) {
+		if (fd > -1)
+			close(fd);
+		if (velf)
+			elf_end((Elf *) velf);
+		fptr->file_dyn_base = 0;
+		free(cache);
+		fptr->file_elf = NULL;
+
+		if (old_exec_jmp)
+			longjmp(*old_exec_jmp, 1);
+		*jmp_pad = old_exec_jmp;
+
+		return;
+	}
+	*jmp_pad = &this_exec_jmp;
 
 	if (P->state == PS_DEAD) {
 		/*
@@ -1173,20 +1198,25 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		if (fptr->file_init == 1) {
 			if (err >= 0)
 				Puntrace(P, 0);
-			return;
+			goto ret;
 		}
 		fptr->file_init = 1;
 
+		/*
+		 * Even this can fail: fd table overflow, for instance.
+		 * Fall back, if so.
+		 */
 		if (err >= 0)
-			wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
-			    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
-			    &fd);
+			if (wrapped_ptrace(P, PTRACE_GETMAPFD, P->pid,
+				P->mappings[fptr->file_map].map_pmap->pr_vaddr,
+				&fd) < 0)
+				fd = -1;
 
 		fptr->file_init = 0;
 		Puntrace(P, 0);
 		if (fptr->file_init == 1) {
 			close(fd);
-			return;
+			goto ret;
 		}
 		fptr->file_init = 1;
 	}
@@ -1198,7 +1228,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		    s.st_dev != fptr->file_dev ||
 		    s.st_ino != fptr->file_inum ||
 		    ((fd = open(fptr->file_pname, O_RDONLY)) < 0)) {
-			_dprintf("%i: cannot open %s in non-ptraced() "
+			_dprintf("%i: cannot open %s in non-ptrace()d "
 			    "process: replaced file or open() error\n",
 			    P->pid, fptr->file_pname);
 			goto bad;
@@ -1225,6 +1255,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		    fptr->file_pname, (err == 0) ? "<null>" : elf_errmsg(err));
 		goto bad;
 	}
+	velf = elf;
 	close(fd);
 	if ((cache = malloc(nshdrs * sizeof (*cache))) == NULL) {
 		_dprintf("failed to malloc section cache for mapping of %s\n",
@@ -1346,7 +1377,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	       fptr->file_dyn_base = fptr->file_lo->rl_diff_addr;
 	       _dprintf("%s: ld.so says file_dyn_base is %lx\n",
 		   fptr->file_pname, fptr->file_dyn_base);
-	       return;
+	       goto ret;
 	}
 
 	size_t nphdrs;
@@ -1381,6 +1412,8 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
 	    lowest_vaddr);
 
+ret:
+	*jmp_pad = old_exec_jmp;
 	return;
 
 elf_bad_noaddr:
@@ -1395,12 +1428,14 @@ elf_bad_noaddr:
 	    elf_errmsg(err));
 	fptr->file_dyn_base = 0;
 	free(cache);
+	*jmp_pad = old_exec_jmp;
 	return;
 
 bad:
 	free(cache);
 	elf_end(elf);
 	fptr->file_elf = NULL;
+	*jmp_pad = old_exec_jmp;
 }
 
 /*
