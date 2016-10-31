@@ -32,4 +32,4 @@
 # Some machines have very slow exec(), and this exec()s five thousand times.
 # @@timeout: 200
 
-test/triggers/libproc-execing-bkpts breakdance test/triggers/libproc-execing-bkpts-victim
+test/triggers/libproc-execing-bkpts breakdance test/triggers/libproc-execing-bkpts-victim 5000

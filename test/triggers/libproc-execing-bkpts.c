@@ -65,8 +65,8 @@ main(int argc, char *argv[])
 	volatile int execs = 0;
 	jmp_buf exec_jmp;
 
-	if (argc < 2) {
-		fprintf(stderr, "Syntax: libproc-execing-bkpts symbol process "
+	if (argc < 3) {
+		fprintf(stderr, "Syntax: libproc-execing-bkpts symbol process count "
 		    "[args ...]\n");
 		exit(1);
 	}
