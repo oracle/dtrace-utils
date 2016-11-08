@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014, 2015 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.5.3
-Release:      2%{?dist}
+Version:      0.5.4
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,6 +172,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Nov  8 2016 - <nick.alcock@oracle.com> - 0.5.4-1
+- Work around elfutils bug causing object file corruption [Orabug: 25059329]
+
 * Wed Jul 20 2016 - <nick.alcock@oracle.com> - 0.5.3-2
 - New tests
 

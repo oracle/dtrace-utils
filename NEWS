@@ -1,3 +1,11 @@
+0.5.4
+-----
+
+Workarounds:
+
+ - Work around a bug in elfutils causing massive corruption of object files when
+   dtrace -G is used.
+
 0.5.3
 -----
 
