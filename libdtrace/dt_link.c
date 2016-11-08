@@ -1064,7 +1064,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		    "failed to open %s: %s", obj, strerror(errno)));
 	}
 
-	if ((elf = elf_begin(fd, ELF_C_RDWR, NULL)) == NULL) {
+	if ((elf = elf_begin(fd, ELF_C_RDWR_MMAP, NULL)) == NULL) {
 		return (dt_link_error(dtp, elf, fd, bufs,
 		    "failed to process %s: %s", obj, elf_errmsg(elf_errno())));
 	}
