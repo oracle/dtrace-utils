@@ -1598,7 +1598,7 @@ static FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 {
 	int argc = dtp->dt_cpp_argc;
-	char **argv = malloc(sizeof (char *) * (argc + 5));
+	char **argv = alloca(sizeof (char *) * (argc + 5));
 	FILE *ofp = tmpfile();
 	int pipe_needed = 0;
 	int catpipe[2];
@@ -1610,7 +1610,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	sigset_t mask, omask;
 
 	int wstat, estat, junk;
-	pid_t catpid;
+	pid_t catpid = 0;	/* suppress spurious compiler warning */
 	pid_t pid;
 	off_t off;
 
@@ -1764,16 +1764,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 		goto err;
 	}
 
-	free(argv);
 	(void) fflush(ofp);
-	(void) fseek(ofp, 0, SEEK_END);
-	(void) fflush(ofp);
-	dt_dprintf("length of cpp output file: %li\n", ftello(ofp));
-
-	{
-		struct stat s;
-		dt_dprintf("length of cpp output file from stat: %li\n", (fstat(fileno(ofp), &s), s.st_size));
-	}
 	(void) fseek(ofp, 0, SEEK_SET);
 	return (ofp);
 
@@ -1782,7 +1773,6 @@ err:
 		close(catpipe[0]);
 		close(catpipe[1]);
 	}
-	free(argv);
 	(void) fclose(ofp);
 	return (NULL);
 }
