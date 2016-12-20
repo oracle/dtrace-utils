@@ -1,3 +1,91 @@
+0.6.0
+-----
+
+New features:
+
+  - dtrace consumers (including dtrace(1)) can now grab themselves via -p,
+    though symbol resolution is degraded when they do so because they
+    cannot stop themselves.  (Previously, such grabs were suppressed but
+    the code to do so was buggy and caused dtrace not to terminate if
+    dtrace was asked to do a self-grab in conjunction with a -c of
+    some other process, even once the other process had terminated.)
+
+  - The DTRACE_PROBEn() macros used for USDT probes have been supplanted by a
+    new DTRACE_PROBE() macro which works exactly the same except that you don't
+    need to count the arguments any more.  The old numbered macros remain
+    available for code that must be compiled with compilers that don't support
+    __VA_ARGS__ comma elision (such as GCC when in c89/strict-ANSI mode).  This
+    involves a new, installed, internal header, /usr/include/sys/sdt_internal.h.
+    (See the dtrace-modules NEWS for a similar change on the modules side.)
+
+Bugfixes:
+
+  - Numerous dtrace -c/-p and USDT fixes on SPARC systems, with symptoms
+    varying from a hanging dtrace and child process to a dtrace that
+    runs out of file descriptors.
+
+  - Fix memory and fd leaks when a process monitored with -c or -p exec()s
+    frequently.
+
+Changes to user-visible internals:
+
+  - DTrace now uses /proc/$pid/map_files, where available.
+
+0.5.4
+-----
+
+Workarounds:
+
+  - Work around a bug in elfutils causing massive corruption of object files when
+    dtrace -G is used.
+
+0.5.3
+-----
+
+Crash fixes:
+
+  - When dtrace(1) exited at the same instant as a process it had grabbed (e.g.
+    for ustack()) terminated, it could deadlock or crash with an assertion
+    failure or a segmentation fault.
+
+0.5.2
+-----
+
+Crash fixes:
+
+  - Programs containing USDT probes can crash at startup or dlopen() time if
+    shared libraries are mapped into the top half of the address space.  This
+    never happens on x86-64 but is common on SPARC64: dtrace -G should be
+    rerun on programs on such platforms that contain USDT probes, to link in
+    the fixed ELF constructor.
+
+Performance improvements:
+
+  - dtrace(1) no longer wastes time in a CPU-heavy busywaiting loop: previously,
+    the sleeping code was mistakenly picking a time in the past to sleep to
+    roughly half the time
+
+Bugfixes:
+
+  - dtrace -c and -p now work on SPARC64.
+
+0.5.1
+-----
+
+Performance improvements:
+
+  - dtrace(1) and libdtrace(1) startup speed is improved, both by avoiding a
+    filesystem walk by using the modules.order file to locate available kernel
+    modules, and by avoiding loading all kernel modules to resolve possible
+    types when unqualified probe names that cannot possibly be C identifiers are
+    seen (like 'tick-1sec').  When the disk cache is cold these changes speed up
+    startup by on the order of 2x.
+
+Changes to user-visible internals:
+
+  - The DTRACE_DEBUG debugging option could intermingle debugging output in
+    limited ways when multiple threads were emitting debugging at once.
+
 0.5.0
 -----
 

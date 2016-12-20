@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014, 2015 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.5.0
-Release:      4%{?dist}
+Version:      0.6.0
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -173,9 +173,61 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Dec 19 2016 - <nick.alcock@oracle.com> - 0.6.0-1
+- Allow self-grabs [Orabug: 24829169]
+- Use /proc/pid/map_files if available [Orabug: 24843582]
+- Fix fd leaks on big-endian systems and during heavy exec() [Orabug: 25040553]
+- Add improved multi-argument DTRACE_PROBE macro [Orabug: 24678905]
+- Fix infloops in SPARC breakpoint handling [Orabug: 24454127]
+
+* Tue Nov  8 2016 - <nick.alcock@oracle.com> - 0.5.4-1
+- Work around elfutils bug causing object file corruption [Orabug: 25059329]
+
+* Wed Jul 20 2016 - <nick.alcock@oracle.com> - 0.5.3-2
+- New tests
+
+* Thu Apr 28 2016 - <nick.alcock@oracle.com> - 0.5.3-1
+- Prevent intermittent assertion failures crashes and hangs when
+  shutdown races with termination of a grabbed process [Orabug: 22824594]
+  [Orabug: 23028026]
+
+* Fri Feb  5 2016 - <nick.alcock@oracle.com> - 0.5.2-2
+- Fix uregs array on SPARC [Orabug: 22602756]
+- Testsuite fixes
+
+* Tue Jan 12 2016 - <nick.alcock@oracle.com> - 0.5.2-1
+- Do not crash USDT probe users when shared libraries are in the upper half of
+  the address space [Orabug: 22384028]
+- Do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
+  [Orabug: 22370283] [Orabug: 22335130]
+- Testsuite triggers are synchronized with dtrace by default [Orabug: 22370283]
+- Fix dtrace -c and -p on SPARC and improve error-handling paths
+  [Orabug: 22390414]
+- Fix smoketests on SPARC [Orabug: 22533468]
+
+* Tue Dec  8 2015 - <nick.alcock@oracle.com> - 0.5.1-4
+- Released to QA team only.
+- Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
+
+* Thu Nov 19 2015 - <nick.alcock@oracle.com> - 0.5.1-3
+- Fix buggy performance improvements to correctly detect out-of-tree modules
+  (like dtrace.ko) and speed them up some more [Orabug: 22237449]
+  [Orabug: 22238204]
+
+* Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-2
+- Released to QA team only.
+- Remove typoed non-bug from rpm changelog.
+
+* Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
+- Released to QA team only.
+- Improve startup performance when disk cache is cold [Orabug: 22185787]
+  [Orabug: 22185763] [Orabug: 22083846]
+- Fix various problems in the testsuite and in DTRACE_DEBUG output
+  [Orabug: 21431540] [Orabug: 22170799]
+
 * Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
 - Improve identification of system daemons that must not be ptraced
-  unless explciitly specified [Orabug: 21914902]
+  unless explicitly specified [Orabug: 21914902]
 - Improve symbol resolution in the absence of ptrace() [Orabug: 22106441]
 - Fix dtrace -p with an invalid PID [Orabug: 21974221]
 - Close any inherited fds before running testsuite [Orabug: 21914934]
