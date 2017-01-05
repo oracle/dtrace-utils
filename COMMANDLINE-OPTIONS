@@ -2,7 +2,9 @@ DTRACE OPTIONS
 ===============
 
 This file lists the dtrace commandline options, and indicates whether
-or not they have been made to work on Linux and roughly when. 
+or not they have been made to work on Linux and roughly when.  All options
+are believed to work equally well on all supported architectures (x86 and
+SPARC).
 
 Notations:
 
@@ -261,6 +263,9 @@ Report the highest D programming interface version supported by
 dtrace. The version information is printed to stdout and the dtrace
 command exits. See Chapter 41, Versioning for more information about
 DTrace versioning features.
+
+In combination with -v, display the version of the DTrace program
+and libraries as well as of D itself.
 
 -w
 Permit destructive actions in D programs specified using the -s, -P,
