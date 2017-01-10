@@ -55,8 +55,7 @@ DTrace user interface and dtrace(1) command.
 
 Maintainers:
 -----------
-Nick Alcock <nick.alcock@oracle.com>
-Kris van Hees <kris.van.hees@oracle.com>
+DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
