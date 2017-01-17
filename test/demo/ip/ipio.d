@@ -50,3 +50,9 @@ ip:::receive
 	    args[2]->ip_plength);
 	last = timestamp;
 }
+
+tick-10s
+{
+	exit(0);
+}
+

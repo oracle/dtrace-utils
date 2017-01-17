@@ -21,10 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv6 ICMP to a local address.  This creates a
@@ -34,7 +33,7 @@
 #
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. Unrelated ICMPv6 on lo0 traced by accident.
+# 2. Unrelated ICMPv6 on lo traced by accident.
 #
 
 if (( $# != 1 )); then
@@ -45,17 +44,7 @@ fi
 dtrace=$1
 local=::1
 
-if ! ifconfig lo0 inet6 > /dev/null 2>&1; then
-	if ! ifconfig lo0 inet6 plumb up; then
-		echo "could not plumb lo0 inet6 for testing" >&2
-		exit 3
-	fi
-	removeinet6=1
-else
-	removeinet6=0
-fi
-
-$dtrace $dt_flags -c "/usr/sbin/ping -A inet6 $local 3" -qs /dev/stdin <<EOF | sort -n
+$dtrace $dt_flags -c "/bin/ping6 $local -c 3" -qs /dev/stdin <<EOF | sort -n
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" &&
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/
@@ -76,7 +65,3 @@ ip:::receive
 	    args[5]->ipv6_ver, args[5]->ipv6_tclass, args[5]->ipv6_plen);
 }
 EOF
-
-if (( removeinet6 )); then
-	ifconfig lo0 inet6 unplumb
-fi

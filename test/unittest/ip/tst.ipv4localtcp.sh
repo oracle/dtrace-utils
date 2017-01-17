@@ -21,12 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-# @@xfail: ip provider not yet implemented
 
 #
 # Test ip:::{send,receive} of IPv4 TCP to a remote host.
@@ -35,7 +32,7 @@
 #
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. The lo0 interface missing or not up.
+# 2. The loopback interface missing or not up.
 # 3. The local ssh service is not online.
 # 4. An unlikely race causes the unlocked global send/receive
 #    variables to be corrupted.
@@ -49,9 +46,6 @@
 # The actual count tested is 5 each way, since we are tracing both
 # source and destination events.
 #
-# For this test to work, we are assuming that the TCP handshake and
-# TCP close will enter the IP code path and not use tcp fusion.
-#
 
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
@@ -61,12 +55,8 @@ fi
 dtrace=$1
 local=127.0.0.1
 tcpport=22
-DIR=/var/tmp/dtest.$$
 
-mkdir $DIR
-cd $DIR
-
-cat > test.pl <<-EOPERL
+cat > $tmpdir/tst.ipv4localtcp.test.pl <<-EOPERL
 	use IO::Socket;
 	my \$s = IO::Socket::INET->new(
 	    Proto => "tcp",
@@ -77,7 +67,7 @@ cat > test.pl <<-EOPERL
 	close \$s;
 EOPERL
 
-$dtrace $dt_flags -c '/usr/bin/perl test.pl' -qs /dev/stdin <<EODTRACE
+$dtrace $dt_flags -c '/usr/bin/perl $tmpdir/tst.ipv4localtcp.test.pl' -qs /dev/stdin <<EODTRACE
 BEGIN
 {
 	send = receive = 0;
@@ -106,8 +96,5 @@ END
 EODTRACE
 
 status=$?
-
-cd /tmp
-rm -rf $DIR
 
 exit $status

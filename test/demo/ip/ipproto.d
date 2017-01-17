@@ -43,3 +43,9 @@ dtrace:::END
 	printf("   %-28s %-28s %6s %8s\n", "SADDR", "DADDR", "PROTO", "COUNT");
 	printa("   %-28s %-28s %6s %@8d\n", @num);
 }
+
+tick-10s
+{
+	exit(0);
+}
+

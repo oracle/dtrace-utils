@@ -21,62 +21,64 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # get.ipv4remote.pl [tcpport]
 #
-# Find an IPv4 reachable remote host using both ifconfig(1M) and ping(1M).
+# Find an IPv4 reachable remote host using both ip(8) and ping(8).
 # If a tcpport is specified, return a host that is also listening on this
 # TCP port.  Print the local address and the remote address, or an
 # error message if no suitable remote host was found.  Exit status is 0 if
-# a host was found.
+# a host was found.  (Note: the only host we check is the gateway.  Nobody
+# responds to broadcast pings these days, and portscanning the local net is
+# unfriendly.)
 #
 
 use strict;
 use IO::Socket;
 
-my $MAXHOSTS = 32;			# max hosts to port scan
-my $TIMEOUT = 3;			# connection timeout
+my $TIMEOUT = 3;
 my $tcpport = @ARGV == 1 ? $ARGV[0] : 0;
 
 #
-# Determine local IP address
+# Determine gateway IP address
 #
+
 my $local = "";
 my $remote = "";
-my %Broadcast;
+my $responsive = "";
 my $up;
-open IFCONFIG, '/usr/sbin/ifconfig -a |' or die "Couldn't run ifconfig: $!\n";
-while (<IFCONFIG>) {
-	next if /^lo/;
+open IP, '/sbin/ip -o -4 route show |' or die "Couldn't run ip route show: $!\n";
+while (<IP>) {
+	next unless /^default /;
 
-	# "UP" is always printed first (see print_flags() in ifconfig.c):
-	$up = 1 if /^[a-z].*<UP,/;
-	$up = 0 if /^[a-z].*<,/;
-
-	# assume output is "inet X ... broadcast Z":
-	if (/inet (\S+) .* broadcast (\S+)/) {
-		my ($addr, $bcast) = ($1, $2);
-		$Broadcast{$addr} = $bcast;
-		$local = $addr if $up and $local eq "";
-		$up = 0;
+	if (/via (\S+)/) {
+		$remote = $1;
 	}
 }
-close IFCONFIG;
+close IP;
+die "Could not determine gateway router IP address" if $remote eq "";
+
+open IP, "/sbin/ip -o route get to $remote |" or die "Couldn't run ip route get: $!\n";
+while (<IP>) {
+	next unless /^$remote /;
+	if (/src (\S+)/) {
+		$local = $1;
+	}
+}
+close IP;
 die "Could not determine local IP address" if $local eq "";
 
 #
-# Find the first remote host that responds to an icmp echo,
-# which isn't a local address.
+# See if the rmote host responds to an icmp echo.
 #
-open PING, "/usr/sbin/ping -ns $Broadcast{$local} 56 $MAXHOSTS |" or
+open PING, "/bin/ping -n -s 56 -w $TIMEOUT $remote |" or
     die "Couldn't run ping: $!\n";
 while (<PING>) {
-	if (/bytes from (.*): / and not defined $Broadcast{$1}) {
+	if (/bytes from (.*): /) {
 		my $addr = $1;
 
 		if ($tcpport != 0) {
@@ -93,12 +95,12 @@ while (<PING>) {
 			close $socket;
 		}
 
-		$remote = $addr;
+		$responsive = $addr;
 		last;
 	}
 }
 close PING;
 die "Can't find a remote host for testing: No suitable response from " .
-    "$Broadcast{$local}\n" if $remote eq "";
+    "$remote\n" if $responsive eq "";
 
-print "$local $remote\n";
+print "$local $responsive\n";
