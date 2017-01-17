@@ -34,6 +34,8 @@
  * SECTION: Variables/Built-in Variables
  */
 
+/* @@skip: known erratic */
+
 #pragma D option quiet
 #pragma D option destructive
 
