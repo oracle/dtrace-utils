@@ -868,7 +868,8 @@ for dt in $dtrace; do
         #      provided, including timeouts.  The script is run as if with
         #      /* @@trigger: none */.  Arguments specified by @@runtest-opts, and
         #      a minimal set without which no tests will work, are passed in
-        #      the environment variable dt_flags.
+        #      the environment variable dt_flags.  An exit code of 67 will cause
+        #      the test to be considered an expected failure.
         #
         # .r: Expected results, after postprocessing.  If not present,
         #     no expected-result comparison is done (the results are
@@ -1183,6 +1184,10 @@ for dt in $dtrace; do
              [[ "x$(extract_options timeout-success $_test)" = "x" ]]; then
             fail=t
             failmsg="timed out"
+
+	# Exitcode of 67 == XFAIL.
+	elif [[ $exitcode -eq 67 ]]; then
+	    xfail=t
 
         # Exitcodes are not useful if there's been a coredump, but otherwise...
         elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne 126 ]]; then
