@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2017 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -172,7 +172,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Dec 19 2016 - <nick.alcock@oracle.com> - 0.6.0-1
+* Tue Jan 17 2017 - <nick.alcock@oracle.com> - 0.6.0-1
 - Allow self-grabs [Orabug: 24829169]
 - Use /proc/pid/map_files if available [Orabug: 24843582]
 - Fix fd leaks on big-endian systems and during heavy exec() [Orabug: 25040553]
