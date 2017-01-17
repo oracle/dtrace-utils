@@ -26,6 +26,8 @@
 
 /* @@trigger: ustack-tst-bigstack */
 
+/* @@skip: fails intermittently, not testing anything useful? */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 syscall::ioctl:entry

@@ -24,6 +24,8 @@
 #
 #ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: unreliable, see bug 22269741
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2

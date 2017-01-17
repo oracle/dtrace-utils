@@ -30,6 +30,7 @@
 #
 
 # @@timeout: 50
+# @@skip: fails intermittently without libproc-mt
 
 unset LD_AUDIT
 export MANY_LMIDS=t
