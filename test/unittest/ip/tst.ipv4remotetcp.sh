@@ -21,10 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv4 TCP to a remote host.
@@ -34,7 +33,7 @@
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
 # 2. No physical network interface is plumbed and up.
-# 3. No other hosts on this subnet are reachable and listening on ssh.
+# 3. The subnet gateway is not reachable and listening on ssh.
 # 4. An unlikely race causes the unlocked global send/receive
 #    variables to be corrupted.
 #
@@ -51,9 +50,9 @@ if (( $# != 1 )); then
 fi
 
 dtrace=$1
-getaddr=./get.ipv4remote.pl
+testdir="$(dirname $_test)"
+getaddr=$testdir/get.ipv4remote.pl
 tcpport=22
-DIR=/var/tmp/dtest.$$
 
 if [[ ! -x $getaddr ]]; then
         echo "could not find or execute sub program: $getaddr" >&2
@@ -61,13 +60,10 @@ if [[ ! -x $getaddr ]]; then
 fi
 $getaddr $tcpport | read source dest
 if (( $? != 0 )); then
-        exit 4
+        exit 67
 fi
 
-mkdir $DIR
-cd $DIR
-
-cat > test.pl <<-EOPERL
+cat > $tmpdir/tst.ipv4remotetcp.test.pl <<-EOPERL
 	use IO::Socket;
 	my \$s = IO::Socket::INET->new(
 	    Proto => "tcp",
@@ -78,7 +74,7 @@ cat > test.pl <<-EOPERL
 	close \$s;
 EOPERL
 
-$dtrace -c '/usr/bin/perl test.pl' -qs /dev/stdin <<EODTRACE
+$dtrace -c '/usr/bin/perl $tmpdir/tst.ipv4remotetcp.test.pl' -qs /dev/stdin <<EODTRACE
 BEGIN
 {
 	send = receive = 0;
@@ -107,8 +103,5 @@ END
 EODTRACE
 
 status=$?
-
-cd /tmp
-rm -rf $DIR
 
 exit $?

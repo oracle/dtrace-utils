@@ -21,10 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv4 UDP to a local address.
@@ -51,9 +50,9 @@ if (( $# != 1 )); then
 fi
 
 dtrace=$1
+testdir="$(dirname $_test)"
 local=127.0.0.1
-
-$dtrace $dt_cflags -c "/usr/sbin/ping -U $local" -qs /dev/stdin <<EOF | grep -v 'is alive'
+$dtrace $dt_cflags -c "$testdir/perlping.pl $local" -qs /dev/stdin <<EOF
 BEGIN
 {
 	send = receive = 0;

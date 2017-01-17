@@ -21,15 +21,14 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # get.ipv6remote.pl
 #
-# Find an IPv6 reachable remote host using both ifconfig(1M) and ping(1M).
+# Find an IPv6 reachable remote host using both ip(8) and ping(8).
 # Print the local address and the remote address, or print nothing if either
 # no IPv6 interfaces or remote hosts were found.  (Remote IPv6 testing is
 # considered optional, and so not finding another IPv6 host is not an error
@@ -39,50 +38,49 @@
 use strict;
 use IO::Socket;
 
-my $MAXHOSTS = 32;			# max hosts to scan
 my $TIMEOUT = 3;			# connection timeout
-my $MULTICAST = "FF02::1";		# IPv6 multicast address
 
 #
 # Determine local IP address
 #
 my $local = "";
 my $remote = "";
-my %Local;
+my $responsive = "";
 my $up;
-open IFCONFIG, '/usr/sbin/ifconfig -a inet6 |'
-    or die "Couldn't run ifconfig: $!\n";
-while (<IFCONFIG>) {
-	next if /^lo/;
+open IP, '/sbin/ip -o -6 route show |' or die "Couldn't run ip route show: $!\n";
+while (<IP>) {
+	next unless /^default /;
 
-	# "UP" is always printed first (see print_flags() in ifconfig.c):
-	$up = 1 if /^[a-z].*<UP,/;
-	$up = 0 if /^[a-z].*<,/;
-
-	# assume output is "inet6 ...":
-	if (m:inet6 (\S+)/:) {
-		my $addr = $1;
-                $Local{$addr} = 1;
-                $local = $addr if $up and $local eq "";
-		$up = 0;
+	if (/via (\S+)/) {
+		$remote = $1;
 	}
 }
-close IFCONFIG;
-exit 1 if $local eq "";
+close IP;
+die "Could not determine gateway router IPv6 address" if $remote eq "";
+
+open IP, "/sbin/ip -o route get to $remote |" or die "Couldn't run ip route get: $!\n";
+while (<IP>) {
+	next unless /^$remote /;
+	if (/src (\S+)/) {
+		$local = $1;
+	}
+}
+close IP;
+die "Could not determine local IPv6 address" if $local eq "";
 
 #
 # Find the first remote host that responds to an icmp echo,
 # which isn't a local address.
 #
-open PING, "/usr/sbin/ping -ns -A inet6 $MULTICAST 56 $MAXHOSTS |" or
+open PING, "/bin/ping6 -n -s 56 -w $TIMEOUT $remote 2>/dev/null |" or
     die "Couldn't run ping: $!\n";
 while (<PING>) {
-	if (/bytes from (.*): / and not defined $Local{$1}) {
-		$remote = $1;
+	if (/bytes from (.*): /) {
+		$responsive = $1;
 		last;
 	}
 }
 close PING;
-exit 2 if $remote eq "";
+exit 2 if $responsive eq "";
 
-print "$local $remote\n";
+print "$local $responsive\n";

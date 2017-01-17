@@ -24,7 +24,6 @@
 # Copyright 2008 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv4 ICMP to a local address.
@@ -33,8 +32,8 @@
 #
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. The lo0 interface missing or not up.
-# 3. Unrelated ICMP on lo0 traced by accident.
+# 2. The loopback interface missing or not up.
+# 3. Unrelated ICMP on loopback traced by accident.
 #
 
 if (( $# != 1 )); then

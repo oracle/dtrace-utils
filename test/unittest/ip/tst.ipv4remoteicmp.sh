@@ -21,10 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv4 ICMP to a remote host.
@@ -34,7 +33,7 @@
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
 # 2. No physical network interface is plumbed and up.
-# 3. No other hosts on this subnet are reachable.
+# 3. The subnet gateway is not reachable.
 # 4. An unrelated ICMP between these hosts was traced by accident.
 #
 
@@ -44,7 +43,8 @@ if (( $# != 1 )); then
 fi
 
 dtrace=$1
-getaddr=./get.ipv4remote.pl
+testdir="$(dirname $_test)"
+getaddr=$testdir/get.ipv4remote.pl
 
 if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
@@ -52,10 +52,10 @@ if [[ ! -x $getaddr ]]; then
 fi
 $getaddr | read source dest
 if (( $? != 0 )); then
-	exit 4
+	exit 67
 fi
 
-$dtrace $dt_flags -c "/usr/sbin/ping -c 3 $dest >/dev/null 2>&1" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "/bin/ping -c 3 $dest >/dev/null 2>&1" -qs /dev/stdin <<EOF | \
 	sort -n
 ip:::send
 /args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$dest" &&

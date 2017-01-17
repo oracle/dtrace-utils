@@ -21,10 +21,9 @@
 #
 
 #
-# Copyright 2008 Oracle, Inc.  All rights reserved.
+# Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #
 # Test ip:::{send,receive} of IPv6 ICMP to a remote host.  This test is
@@ -44,7 +43,8 @@ if (( $# != 1 )); then
 fi
 
 dtrace=$1
-getaddr=./get.ipv6remote.pl
+testdir="$(dirname $_test)"
+getaddr=$testdir/get.ipv6remote.pl
 
 if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
@@ -53,18 +53,16 @@ fi
 $getaddr | read source dest
 if (( $? != 0 )); then
 	echo -n "Could not find a local IPv6 interface and a remote IPv6 " >&2
-	echo -c "host.  Aborting test.\n" >&2
-	echo -n "For this test to continue, a \"ping -ns -A inet6 FF02::1\" " >&2
-	echo "must respond with a\nremote IPv6 host."
-	exit 3
+	echo "host.  Aborting test.\n" >&2
+	exit 67
 fi
 
 #
 # Shake loose any ICMPv6 Neighbor advertisement messages before tracing.
 #
-/usr/sbin/ping $dest 3 > /dev/null 2>&1
+/usr/bin/ping6 -c 3 $dest > /dev/null 2>&1
 
-$dtrace $dt_flags -c "/usr/sbin/ping $dest 3" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "/bin/ping6 -c 3 $dest" -qs /dev/stdin <<EOF | \
     grep -v 'is alive' | sort -n
 ip:::send
 /args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$dest" &&
