@@ -74,7 +74,6 @@ $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-b
 M4_DLIBS += \
 	procfs.d \
 	io.d \
-	ip.d \
 	net.d \
 	sysevent.d \
 	tcp.d \
@@ -88,6 +87,7 @@ BUILD_DLIBS += \
 
 WORKING_DLIBS = errno.d \
                 io.d \
+                ip.d \
                 procfs.d \
                 regs.d \
                 sched.d \
