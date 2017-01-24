@@ -52,7 +52,7 @@ fi
 dtrace=$1
 testdir="$(dirname $_test)"
 local=127.0.0.1
-$dtrace $dt_cflags -c "$testdir/perlping.pl $local" -qs /dev/stdin <<EOF
+$dtrace $dt_cflags -c "$testdir/perlping.pl udp $local" -qs /dev/stdin <<EOF
 BEGIN
 {
 	send = receive = 0;

@@ -44,7 +44,7 @@ fi
 dtrace=$1
 local=::1
 
-$dtrace $dt_flags -c "/bin/ping6 $local -c 3" -qs /dev/stdin <<EOF | sort -n
+$dtrace $dt_flags -c "/bin/ping6 -q $local -c 3" -qs /dev/stdin <<EOF | sort -n
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" &&
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/

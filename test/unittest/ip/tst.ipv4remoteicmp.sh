@@ -50,12 +50,13 @@ if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-$getaddr | read source dest
-if (( $? != 0 )); then
+set -- $($getaddr)
+source="$1"
+dest="$2"
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	exit 67
 fi
-
-$dtrace $dt_flags -c "/bin/ping -c 3 $dest >/dev/null 2>&1" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "$testdir/perlping.pl icmp $dest" -qs /dev/stdin <<EOF | \
 	sort -n
 ip:::send
 /args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$dest" &&

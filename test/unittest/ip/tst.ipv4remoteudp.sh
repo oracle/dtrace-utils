@@ -56,12 +56,14 @@ if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-$getaddr | read source dest
-if (( $? != 0 )); then
+set -- $($getaddr)
+source="$1"
+dest="$2"
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	exit 67
 fi
 
-$dtrace $dt_flags -c "$testdir/perlping.pl $dest" -qs /dev/stdin <<EOF | grep -v 'is alive'
+$dtrace $dt_flags -c "$testdir/perlping.pl udp $dest" -qs /dev/stdin <<EOF | grep -v 'is alive'
 BEGIN
 {
 	send = 0;
