@@ -420,8 +420,8 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 	ulong_t i = 0;
 	char type[DT_TYPE_NAMELEN];
 
-	(void) fprintf(fp, "%-3s %-8s    %s\n",
-	    "OFF", "OPCODE", "INSTRUCTION");
+	(void) fprintf(fp, "%-3s %-4s %-8s    %s\n",
+	    "INS", "OFF", "OPCODE", "INSTRUCTION");
 
 	for (i = 0; i < dp->dtdo_len; i++) {
 		dif_instr_t instr = dp->dtdo_buf[i];
@@ -431,7 +431,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 			opcode = 0; /* force invalid opcode message */
 
 		op = &optab[opcode];
-		(void) fprintf(fp, "%02lu: %08x    ", i, instr);
+		(void) fprintf(fp, "%03lu %03lu: %08x    ", i, i*4, instr);
 		op->op_func(dp, op->op_name, instr, fp);
 		(void) fprintf(fp, "\n");
 	}
