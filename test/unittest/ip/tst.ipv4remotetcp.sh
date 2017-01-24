@@ -58,23 +58,27 @@ if [[ ! -x $getaddr ]]; then
         echo "could not find or execute sub program: $getaddr" >&2
         exit 3
 fi
-$getaddr $tcpport | read source dest
-if (( $? != 0 )); then
+set -- $($getaddr)
+source="$1"
+dest="$2"
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
         exit 67
 fi
 
 cat > $tmpdir/tst.ipv4remotetcp.test.pl <<-EOPERL
 	use IO::Socket;
-	my \$s = IO::Socket::INET->new(
-	    Proto => "tcp",
-	    PeerAddr => "$dest",
-	    PeerPort => $tcpport,
-	    Timeout => 3);
-	die "Could not connect to host $dest port $tcpport" unless \$s;
-	close \$s;
+	for (my \$i = 0; \$i < 3; \$i++) {
+		my \$s = IO::Socket::INET->new(
+		    Proto => "tcp",
+		    PeerAddr => "$dest",
+		    PeerPort => $tcpport,
+		    Timeout => 3);
+		die "Could not connect to host $dest port $tcpport" unless \$s;
+		close \$s;
+	}
 EOPERL
 
-$dtrace -c '/usr/bin/perl $tmpdir/tst.ipv4remotetcp.test.pl' -qs /dev/stdin <<EODTRACE
+$dtrace -c "/usr/bin/perl $tmpdir/tst.ipv4remotetcp.test.pl" -qs /dev/stdin <<EODTRACE
 BEGIN
 {
 	send = receive = 0;
@@ -93,7 +97,6 @@ ip:::receive
 {
 	receive++;
 }
-
 END
 {
 	printf("Minimum TCP events seen\n\n");

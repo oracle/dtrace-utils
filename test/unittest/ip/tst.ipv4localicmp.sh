@@ -42,9 +42,10 @@ if (( $# != 1 )); then
 fi
 
 dtrace=$1
+testdir="$(dirname $_test)"
 local=127.0.0.1
 
-$dtrace $dt_flags -c "ping -c 3 $local >/dev/null 2>&1" -qs /dev/stdin <<EOF | sort -n
+$dtrace $dt_flags -c "$testdir/perlping.pl icmp $local" -qs /dev/stdin <<EOF | sort -n
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" &&
     args[4]->ipv4_protocol == IPPROTO_ICMP/

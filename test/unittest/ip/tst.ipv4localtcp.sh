@@ -67,7 +67,7 @@ cat > $tmpdir/tst.ipv4localtcp.test.pl <<-EOPERL
 	close \$s;
 EOPERL
 
-$dtrace $dt_flags -c '/usr/bin/perl $tmpdir/tst.ipv4localtcp.test.pl' -qs /dev/stdin <<EODTRACE
+$dtrace $dt_flags -c "/usr/bin/perl $tmpdir/tst.ipv4localtcp.test.pl" -qs /dev/stdin <<EODTRACE
 BEGIN
 {
 	send = receive = 0;

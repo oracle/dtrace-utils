@@ -50,10 +50,12 @@ if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-$getaddr | read source dest
-if (( $? != 0 )); then
+set -- $($getaddr)
+source="$1"
+dest="$2"
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	echo -n "Could not find a local IPv6 interface and a remote IPv6 " >&2
-	echo "host.  Aborting test.\n" >&2
+	echo "host.  Aborting test." >&2
 	exit 67
 fi
 
