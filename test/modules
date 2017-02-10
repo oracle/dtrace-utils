@@ -4,6 +4,7 @@ dt_test
 profile
 systrace
 sdt
+fbt
 fasttrap
 ext2 # unload-quietly
 isofs # unload-quietly
