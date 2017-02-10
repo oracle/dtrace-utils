@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 Oracle, Inc.  All rights reserved.
+ * Copyright 2011--2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -57,7 +57,7 @@ typedef union {
 
 typedef longlong_t      offset_t;
 
-typedef unsigned long long hrtime_t;
+typedef long long	hrtime_t;
 
 #define	SHT_SUNW_dof		0x6ffffff4
 
