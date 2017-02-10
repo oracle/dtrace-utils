@@ -16,3 +16,10 @@ m4_define([[define_for_kernel]],[[m4_pushdef([[__found]],nil)m4_dnl
 m4_foreachq([[kernel]],m4_quote($1),[[m4_ifelse(SUBST_KERNEL,kernel,[[m4_define([[__found]], t)]])]])m4_dnl
 m4_ifelse($#,3,[[m4_ifelse(__found,t,[[m4_define(m4_quote($2),m4_quote($3))]])]],[[m4_ifelse(__found,t,[[m4_define(m4_quote($2),m4_quote($3))]],[[m4_define(m4_quote($2),m4_quote($4))]])]])m4_dnl
 m4_popdef([[__found]])]])m4_dnl
+
+/*
+ * if_arch([[arch]], [[string]]) expands to a macro that substitutes in
+ * the [[string]] if the arch is that specified, otherwise nothing.
+ */
+
+m4_define([[if_arch]],[[m4_ifelse(SUBST_ARCH,m4_quote($1),m4_quote($2))]])
