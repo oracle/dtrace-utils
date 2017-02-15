@@ -18,6 +18,8 @@ New features:
     involves a new, installed, internal header, /usr/include/sys/sdt_internal.h.
     (See the dtrace-modules NEWS for a similar change on the modules side.)
 
+  - D translators for the ip provider are now available.
+
 Bugfixes:
 
   - Numerous dtrace -c/-p and USDT fixes on SPARC systems, with symptoms
