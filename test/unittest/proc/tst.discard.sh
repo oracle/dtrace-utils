@@ -63,9 +63,11 @@ longsleep="sleep 10000"
 
 /usr/bin/nohup $longsleep &
 child=$!
+disown %+
 
 killer &
 killer=$!
+disown %+
 script
 status=$?
 

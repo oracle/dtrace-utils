@@ -82,6 +82,7 @@ dtrace=$1
 
 sleeper &
 child=$!
+disown %+
 
 script
 status=$?

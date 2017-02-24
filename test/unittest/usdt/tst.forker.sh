@@ -41,6 +41,7 @@ dtrace=$1
 
 ./test/triggers/usdt-tst-forker &
 id=$!
+disown %+
 
 while kill -0 $id >/dev/null 2>&1; do
 	$dtrace -p $id -s /dev/stdin <<-EOF

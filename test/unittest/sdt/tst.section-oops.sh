@@ -54,6 +54,7 @@ mount -o loop -t ext4 -o defaults,atime,diratime,nosuid,nodev $tmpdir/disk.img $
 
 pound_disk &
 pounder=$!
+disown %+
 
 dtrace=$1
 

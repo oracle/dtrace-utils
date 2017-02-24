@@ -41,6 +41,7 @@ dtrace=$1
 
 sleep 60 &
 pid=$!
+disown %+
 
 $dtrace $dt_flags -n pid$pid:libc::entry -n 'tick-1s{exit(0);}'
 status=$?

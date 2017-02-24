@@ -48,6 +48,7 @@ let i=0
 while [ "$i" -lt 10 ]; do
 	script &
 	child=$!
+	disown %+
 	sleep 1
 	kill -9 $child
 	let i=i+1

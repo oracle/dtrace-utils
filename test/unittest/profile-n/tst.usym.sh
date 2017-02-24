@@ -59,6 +59,7 @@ dtrace=$1
 
 spinny &
 child=$!
+disown %+
 
 #
 # This test is essentially the same as that in the ufunc test; see that

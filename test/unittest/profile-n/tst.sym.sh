@@ -59,6 +59,7 @@ dtrace=$1
 
 spinny &
 child=$!
+disown %+
 
 #
 # This is the same gutsy test as that found in the func() test; see that

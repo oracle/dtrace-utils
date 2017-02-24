@@ -43,6 +43,7 @@ dtrace=$1
 for lib in libc libc.so libc.so.1; do
 	sleep 60 &
 	pid=$!
+	disown %+
 	$dtrace $dt_flags -n "pid$pid:$lib::entry" -n 'tick-2s{exit(0);}'
 	status=$?
 

@@ -59,6 +59,7 @@ dtrace=$1
 
 spinny &
 child=$!
+disown %+
 
 #
 # This is gutsy -- we're assuming that find_vma will show up in the
