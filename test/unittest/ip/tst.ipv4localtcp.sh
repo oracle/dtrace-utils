@@ -58,6 +58,7 @@ tcpport=22
 
 cat > $tmpdir/tst.ipv4localtcp.test.pl <<-EOPERL
 	use IO::Socket;
+	sleep 1;
 	my \$s = IO::Socket::INET->new(
 	    Proto => "tcp",
 	    PeerAddr => "$local",
