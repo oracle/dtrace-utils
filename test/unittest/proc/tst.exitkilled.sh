@@ -49,6 +49,7 @@ sleeper()
 {
 	while true; do
 		$longsleep &
+		disown %+
 		sleep 1
 		kill -9 $!
 	done
@@ -64,6 +65,7 @@ longsleep="sleep 10000"
 
 sleeper &
 child=$!
+disown %+
 
 script
 status=$?

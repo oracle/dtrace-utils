@@ -69,6 +69,7 @@ sleeper()
 	ulimit -c 4096
 	while true; do
 		$longsleep &
+		disown %+
 		sleep 1
 		kill -SEGV $!
 	done
@@ -84,6 +85,7 @@ longsleep="sleep 10000"
 
 sleeper &
 child=$!
+disown %+
 
 script
 status=$?

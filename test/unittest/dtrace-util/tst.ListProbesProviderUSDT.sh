@@ -93,6 +93,7 @@ script()
 	$dtrace -c ./test -lP 'test*'
 	./test &
 	PID=$!
+	disown %+
 	$dtrace -p $PID -lP test_prov$PID
 	$dtrace -p $PID -lP 'test*'
 	kill -9 $PID

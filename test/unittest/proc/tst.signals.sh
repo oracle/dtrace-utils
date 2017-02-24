@@ -56,7 +56,7 @@ ignsigs=
 for signal in $(seq 1 31); do
     test/triggers/longsleep &
     sleeppid=$!
-    disown $!
+    disown %+
     sleep .1 # long enough for the exec of sleep(1)
     kill -$signal $sleeppid 2>/dev/null
     sleep .1 # let it hit
@@ -87,7 +87,7 @@ done
 for signal in $ignsigs; do
     test/triggers/longsleep &
     sleeppid=$!
-    disown $!
+    disown %+
     sleep .1 # long enough for the exec of sleep(1)
     kill -$(echo $stopsigs | tr " " "\n" | head -1) $sleeppid 2>/dev/null
     sleep .1 # let it hit

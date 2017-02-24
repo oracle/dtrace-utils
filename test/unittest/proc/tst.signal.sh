@@ -58,6 +58,7 @@ sleeper()
 {
 	while true; do
 		$longsleep &
+		disown %+
 		sleep 1
 		/bin/kill -USR1 $!
 	done
@@ -73,6 +74,7 @@ longsleep="sleep 10000"
 
 sleeper &
 child=$!
+disown %+
 
 script
 status=$?

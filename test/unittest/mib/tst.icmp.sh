@@ -72,6 +72,7 @@ dtrace=$1
 
 pinger &
 pinger=$!
+disown %+
 script
 status=$?
 

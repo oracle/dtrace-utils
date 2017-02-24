@@ -145,9 +145,11 @@ done
 
 server &
 server_pid=$!
+disown %+
 sleep 2
 client &
 client_pid=$!
+disown %+
 
 wait $dtrace_pid
 status=$?

@@ -78,6 +78,7 @@ chmod +x $badexec
 
 sleeper &
 child=$!
+disown %+
 script
 status=$?
 

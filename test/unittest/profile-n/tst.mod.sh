@@ -59,6 +59,7 @@ dtrace=$1
 
 spinny &
 child=$!
+disown %+
 
 #
 # The only thing we can be sure of is that some module named "vmlinux"

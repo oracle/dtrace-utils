@@ -42,6 +42,7 @@ set -x
 dtrace=$1
 $dtrace $dt_flags -n dt_test:::test &
 dt_pid=$!
+disown %+
 sleep 1
 if rmmod sdt; then
     ret=1

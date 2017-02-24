@@ -51,6 +51,7 @@ tmpfile=/tmp/dtest.$$
 while [ "$i" -lt "$numkids" ]; do
 	sleep 500 &
 	pids[$i]=$!
+        disown %+
 	let i=i+1
 done
 

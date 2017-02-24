@@ -99,6 +99,7 @@ script()
 	for i in $(seq 1 1000); do
 		./test &
 		PID=$!
+		disown %+
 		if ! $dtrace -p $PID -lP test_prov$PID; then
 		    kill -9 $PID
 		    return 1

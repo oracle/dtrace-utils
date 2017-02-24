@@ -68,6 +68,7 @@ dtrace=$1
 
 rupper &
 rupper=$!
+disown %+
 script
 status=$?
 
