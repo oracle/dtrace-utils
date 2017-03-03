@@ -37,6 +37,8 @@
 # 2. An unrelated ICMPv6 between these hosts was traced by accident.
 #
 
+# @@skip: spurious failures due to results postprocessor malfunctions
+
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
 	exit 2
