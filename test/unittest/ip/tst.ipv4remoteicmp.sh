@@ -74,9 +74,7 @@ ip:::receive
     args[4]->ipv4_protocol == IPPROTO_ICMP/
 {
 	printf("2 ip:::receive (");
-	printf("args[2]: %d %d, ", args[2]->ip_ver, args[2]->ip_plength);
-	printf("args[4]: %d %d %d %d %d)\n",
-	    args[4]->ipv4_ver, args[4]->ipv4_length, args[4]->ipv4_flags,
-	    args[4]->ipv4_offset, args[4]->ipv4_ttl);
+	printf("args[2]: %d, ", args[2]->ip_ver);
+	printf("args[4]: %d)\n", args[4]->ipv4_ver);
 }
 EOF

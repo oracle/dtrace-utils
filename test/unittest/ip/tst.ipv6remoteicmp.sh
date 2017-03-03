@@ -81,8 +81,7 @@ ip:::receive
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/
 {
 	printf("2 ip:::receive (");
-	printf("args[2]: %d %d, ", args[2]->ip_ver, args[2]->ip_plength);
-	printf("args[5]: %d %d %d)\n",
-	    args[5]->ipv6_ver, args[5]->ipv6_tclass, args[5]->ipv6_plen);
+	printf("args[2]: %d, ", args[2]->ip_ver);
+	printf("args[5]: %d)\n", args[5]->ipv6_ver);
 }
 EOF
