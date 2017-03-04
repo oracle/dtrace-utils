@@ -1,7 +1,16 @@
+See also /usr/share/doc/dtrace-modules-$(uname -r)/NEWS for changes in
+providers and the kernel module side of DTrace and changes affecting
+probes in the kernel.
+
 0.6.0
 -----
 
 New features:
+
+  - The ip provider is implemented, supporting ip:::send, ip:::receive,
+    ip:::drop-in and ip:::drop-out, with parameters compatible with other
+    implementations and appropriate translators. IPv4 and IPv6 are both
+    supported.
 
   - dtrace consumers (including dtrace(1)) can now grab themselves via -p,
     though symbol resolution is degraded when they do so because they
@@ -32,6 +41,12 @@ Bugfixes:
 Changes to user-visible internals:
 
   - DTrace now uses /proc/$pid/map_files, where available.
+
+  - dtrace -S now dumps the offset of DIF as well as the instruction counter,
+    allowing you to more easily match up DIF disassembly with errors from the
+    kernel.
+
+  - Predicate DIF is disassembled in dtrace -S output.
 
 0.5.4
 -----

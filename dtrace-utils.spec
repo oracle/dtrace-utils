@@ -172,8 +172,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Wed Feb 15 2017 - <nick.alcock@oracle.com> - 0.6.0-2
+* Fri Mar  3 2017 - <nick.alcock@oracle.com> - 0.6.0-2
 - Add translator for ip provider [Orabug: 25557249]
+- Test fixes and new tests.
 
 * Tue Jan 17 2017 - <nick.alcock@oracle.com> - 0.6.0-1
 - Released to QA team only
