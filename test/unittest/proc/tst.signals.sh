@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2014 -- 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 #
@@ -127,8 +127,9 @@ for signal in $(seq 1 31); do
                 2> $DIRNAME/dtrace.out &
     dt_pid=$!
 
-    sleep 1 # long enough for the dtrace startup and the exec of sleep(1)
-            # in the child
+    while ! grep -q ': Handling a dt_proc_continue()' $DIRNAME/dtrace.out; do
+        sleep .25
+    done
 
     kill -$signal $proc_pid >/dev/null 2>&1
     sleep 1
