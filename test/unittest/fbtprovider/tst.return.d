@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: not yet ported */
-
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 
