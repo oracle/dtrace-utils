@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: not yet ported */
+
 fbt:ufs::entry
 /arg1 == EIO/
 {
