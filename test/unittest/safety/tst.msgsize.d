@@ -24,6 +24,8 @@
  * Use is subject to license terms.
  */
 
+/* @@xfail: no msgsize or msgdsize on Linux */
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
