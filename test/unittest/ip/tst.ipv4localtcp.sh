@@ -43,8 +43,7 @@
 # 3 x ip:::send (2 during the TCP handshake, then a FIN)
 # 2 x ip:::receive (1 during the TCP handshake, then the FIN ACK)
 #
-# The actual count tested is 5 each way, since we are tracing both
-# source and destination events.
+# The network stack may elide at least one of these, so check for 4.
 #
 
 if (( $# != 1 )); then
@@ -58,7 +57,6 @@ tcpport=22
 
 cat > $tmpdir/tst.ipv4localtcp.test.pl <<-EOPERL
 	use IO::Socket;
-	sleep 1;
 	my \$s = IO::Socket::INET->new(
 	    Proto => "tcp",
 	    PeerAddr => "$local",
@@ -91,8 +89,8 @@ ip:::receive
 END
 {
 	printf("Minimum TCP events seen\n\n");
-	printf("ip:::send - %s\n", send >= 5 ? "yes" : "no");
-	printf("ip:::receive - %s\n", receive >= 5 ? "yes" : "no");
+	printf("ip:::send - %s\n", send >= 4 ? "yes" : "no");
+	printf("ip:::receive - %s\n", receive >= 4 ? "yes" : "no");
 }
 EODTRACE
 
