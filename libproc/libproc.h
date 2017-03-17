@@ -66,25 +66,6 @@ extern "C" {
 struct ps_prochandle;
 typedef struct ps_prochandle ps_prochandle;
 
-#if defined(__sparc)
-#define	R_RVAL1	R_O0		/* register holding a function return value */
-#define	R_RVAL2	R_O1		/* 32 more bits for a 64-bit return value */
-#endif	/* __sparc */
-
-#if defined(__amd64)
-#define	R_PC	REG_RIP
-#define	R_SP	REG_RSP
-#define	R_RVAL1	REG_RAX		/* register holding a function return value */
-#define	R_RVAL2	REG_RDX		/* 32 more bits for a 64-bit return value */
-#elif defined(__i386)
-#define	R_PC	EIP
-#define	R_SP	UESP
-#define	R_RVAL1	EAX		/* register holding a function return value */
-#define	R_RVAL2	EDX		/* 32 more bits for a 64-bit return value */
-#endif	/* __amd64 || __i386 */
-
-#define	R_RVAL	R_RVAL1		/* simple function return value register */
-
 /* State values returned by Pstate() */
 #define	PS_RUN		1	/* process is running */
 #define	PS_STOP		2	/* process is stopped by SIGSTOP etc */
@@ -95,21 +76,6 @@ typedef struct ps_prochandle ps_prochandle;
 #define PS_RELEASE_NORMAL 0	/* ptrace detach, do not kill */
 #define PS_RELEASE_KILL 1	/* ptrace detach and kill */
 #define PS_RELEASE_NO_DETACH 2	/* no ptrace detach or lock release */
-
-/* values for type */
-#define	AT_BYVAL	1
-#define	AT_BYREF	2
-
-/* values for inout */
-#define	AI_INPUT	1
-#define	AI_OUTPUT	2
-#define	AI_INOUT	3
-
-/* maximum number of syscall arguments */
-#define	MAXARGS		8
-
-/* maximum size in bytes of a BYREF argument */
-#define	MAXARGL		(4*1024)
 
 /*
  * Function prototypes for routines in the process control package.
