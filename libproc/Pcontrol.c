@@ -1427,10 +1427,15 @@ Puntrace(struct ps_prochandle *P, int leave_stopped)
 	if (P->ptrace_count || P->bkpt_halted || leave_stopped ||
 	    prev_state != PS_RUN) {
 		if ((prev_state == PS_RUN) && (P->state == PS_TRACESTOP)) {
-			P->state = prev_state;
 			_dprintf("%i: Continuing because previous state was "
 			    "PS_RUN\n", P->pid);
-			Pbkpt_continue(P);
+			/*
+			 * Pbkpt_continue() will usually reset our previous state,
+			 * but it leaves it unchanged if it finds that we were not
+			 * stopped at a breakpoint.  Do it by hand in that case.
+			 */
+			if (!Pbkpt_continue(P))
+				P->state = prev_state;
 			P->ptrace_halted = FALSE;
 		} else if ((prev_state == PS_STOP) &&
 		    (P->state == PS_TRACESTOP)) {
@@ -1458,7 +1463,8 @@ Puntrace(struct ps_prochandle *P, int leave_stopped)
 	if ((!P->detach) || P->rap || (P->num_bkpts > 0)) {
 		if (P->state == PS_TRACESTOP) {
 			_dprintf("%i: Continuing.\n", P->pid);
-			Pbkpt_continue(P);
+			if (!Pbkpt_continue(P))
+				P->state = PS_RUN;
 			P->ptrace_halted = FALSE;
 			Pwait(P, 0);
 		}
@@ -2110,15 +2116,17 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 
 /*
  * Continue a process, possibly stopped at a breakpoint.
+ *
+ * Return zero if it left the process state unchanged.
  */
-void
+int
 Pbkpt_continue(struct ps_prochandle *P)
 {
 	bkpt_t *bkpt = bkpt_by_addr(P, P->tracing_bkpt, FALSE);
 	uintptr_t ip;
 
 	if (!P->ptraced)
-		return;
+		return 0;
 
 	/*
 	 * We don't know where we are.  We might be stopped at an erased
@@ -2143,11 +2151,11 @@ Pbkpt_continue(struct ps_prochandle *P)
 			if (err != EPERM) {
 				_dprintf("%i: Unexpected error resuming: %s\n",
 				    P->pid, strerror(err));
-				return;
+				return 1;
 			}
 		}
 		P->state = PS_RUN;
-		return;
+		return 1;
 	}
 
 	/*
@@ -2161,12 +2169,13 @@ Pbkpt_continue(struct ps_prochandle *P)
 	 */
 
 	ip = Pget_bkpt_ip(P, 1);
-	if (ip == 0)
+	if (ip == 0) {
 		/*
 		 * Not stopped at all.  Just do a quick Pwait().
 		 */
 		Pwait(P, 0);
-	else if (ip == P->tracing_bkpt)
+		return 0;
+	} else if (ip == P->tracing_bkpt)
 		/*
 		 * Still need to singlestep.
 		 */
@@ -2181,6 +2190,8 @@ Pbkpt_continue(struct ps_prochandle *P)
 		P->bkpt_consume = 0;
 		P->state = Pbkpt_continue_internal(P, bkpt, FALSE);
 	}
+
+	return 1;
 }
 
 /*
