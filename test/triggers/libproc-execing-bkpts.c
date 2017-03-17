@@ -64,6 +64,7 @@ main(int argc, char *argv[])
 	int err;
 	volatile int execs = 0;
 	jmp_buf exec_jmp;
+	int ret = 0;
 
 	if (argc < 3) {
 		fprintf(stderr, "Syntax: libproc-execing-bkpts symbol process count "
@@ -122,7 +123,8 @@ main(int argc, char *argv[])
 		if ((Pxlookup_by_name(P, PR_LMID_EVERY, PR_OBJ_EVERY, symbol, &sym, &sip) != 0) &&
 		    (Pstate(P) != PS_DEAD)) {
 			fprintf(stderr, "Lookup error.\n");
-			exit(1);
+			ret = 1;
+			goto end;
 		}
 
 		if (Pstate(P) == PS_DEAD)
@@ -134,7 +136,8 @@ main(int argc, char *argv[])
 		if ((Pbkpt(P, sym.st_value, 0, hit_it, NULL, NULL) != 0) &&
 		    (Pstate(P) != PS_DEAD)) {
 			fprintf(stderr, "Cannot drop breakpoint.\n");
-			exit(1);
+			ret = 1;
+			goto end;
 		}
 		Puntrace(P, 0); /* untracing, if exec()ed last time */
 	}
@@ -144,9 +147,9 @@ main(int argc, char *argv[])
 		    "hits seen (%i/%i)\n", execs, hits);
 
 	printf("%i exec()s, %i breakpoint hits seen\n", execs, hits);
-
+end:
 	Prelease(P, PS_RELEASE_KILL);
 	Pfree(P);
 
-	return (0);
+	return (ret);
 }
