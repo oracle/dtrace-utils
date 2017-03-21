@@ -34,7 +34,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-heade
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.6.0
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -172,7 +172,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Mar 21 2017 - <nick.alcock@oracle.com> - 0.6.0-3
+- Test fixes
+
 * Fri Mar  3 2017 - <nick.alcock@oracle.com> - 0.6.0-2
+- Released to QA team only
 - Add translator for ip provider [Orabug: 25557249]
 - Test fixes and new tests.
 
