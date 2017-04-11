@@ -18,20 +18,26 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2007, 2012, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-/*
- * This file is an m4 script which is first preprocessed by cpp or cc -E to
- * substitute #define tokens for their values. It is then run over net.d.in
- * to replace those tokens with their values to create the finished net.d.
- */
+#pragma D option quiet
 
-/*#include <sys/socket.h> */
+BEGIN
+{
+	this->buf_eth = (uint64_t *)alloca(sizeof (uint64_t));
 
-#define	DEF_REPLACE(x)	__def_replace(#x,x)
+	/* Ethernet MAC address 00:01:02:03:04:05 */
+	*(this->buf_eth) = htonll(0x000102030405 << 16);
+	printf("%s\n", link_ntop(-1, this->buf_eth));
 
-DEF_REPLACE(AF_INET)
-DEF_REPLACE(AF_INET6)
+	exit(0);
+}
+
+ERROR
+{
+	exit(1);
+}
