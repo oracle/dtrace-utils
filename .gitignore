@@ -2,3 +2,15 @@
 build*/
 *~
 .git-version
+
+#
+# cscope files
+#
+cscope.*
+ncscope.*
+
+#
+# Top-level tag files
+#
+/tags
+/*TAGS
