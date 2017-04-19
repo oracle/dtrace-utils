@@ -121,6 +121,7 @@ $(m4-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d.in), \
 	$(call describe-target,M4,$<)
 	$(PREPROCESS) -x c -Ilibdtrace/$(ARCHINC) -I$(KERNELDIRPREFIX)/$(KERNELVER)$(KERNELDIRSUFFIX)/include \
 		      -I$(KERNELDIRPREFIX)/$(KERNELVER)$(KERNELDIRSUFFIX)/arch/$(KERNELARCH)/include \
+                      -I$(KERNELDIRPREFIX)/$(KERNELVER)$(KERNELDIRSUFFIX)/include/uapi \
                       -I$(KERNELDIRPREFIX)/$(KERNELVER)$(KERNELDIRSUFFIX)/arch/$(KERNELARCH)/include/generated \
 		      -D_KERNEL -D__KERNEL__ $(basename $(basename $<)).m4 2>$@.h.err | tee $@.h | \
 	m4 --prefix-builtins -DSUBST_KERNEL=$(SHORTKERNELVER) $(libdtrace-build_DIR)def-start.m4 \
