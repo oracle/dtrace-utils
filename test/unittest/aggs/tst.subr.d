@@ -20,14 +20,11 @@
  */
 
 /*
- * Copyright 2007, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 /* @@runtest-opts: -C */
-/* @@note: the last few lines of this are waiting for ip.d. */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include <sys/dtrace.h>
 
@@ -57,7 +54,7 @@
 	/*DSTYLED*/			\
 	}
 
-#define NUM_UNIMPLEMENTED 5
+#define NUM_UNIMPLEMENTED 2
 
 INTFUNC(rand())
 INTFUNC(mutex_owned(&dtrace`dtrace_lock))
@@ -101,11 +98,11 @@ INTFUNC(htonll(0x1234567890abcdefL))
 INTFUNC(ntohs(0x1234))
 INTFUNC(ntohl(0x12345678))
 INTFUNC(ntohll(0x1234567890abcdefL))
-/* waiting for ip.d.
-   STRFUNC(inet_ntoa((ipaddr_t *)alloca(sizeof (ipaddr_t))))
-   STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof (in6_addr_t))))
-   STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof (ipaddr_t)))) */
+STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof (ipaddr_t))))
+STRFUNC(inet_ntoa((ipaddr_t *)alloca(sizeof (ipaddr_t))))
+STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof (in6_addr_t))))
 STRFUNC(d_path(&(curthread->fs->root)))
+STRFUNC(link_ntop(ARPHRD_ETHER, (void *)alloca(sizeof (ipaddr_t))))
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1 - NUM_UNIMPLEMENTED/
