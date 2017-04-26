@@ -118,7 +118,7 @@ END
 EOF
 
 script() {
-	$dtrace $dt_cflags -q -s $DIR/main.d -c $DIR/main
+	$dtrace $dt_flags -q -s $DIR/main.d -c $DIR/main
 }
 
 script
