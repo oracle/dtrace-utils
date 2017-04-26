@@ -21,3 +21,10 @@ typedef struct conninfo {
 	 string ci_remote;	/* remote host address */
 	 string ci_protocol;	/* protocol (ipv4, ipv6, etc) */
 } conninfo_t;
+
+/*
+ * We use these values to determine if a probe point is associated
+ * with sending (outbound) or receiving (inbound).
+ */
+inline int NET_PROBE_OUTBOUND =		0x00;
+inline int NET_PROBE_INBOUND =		0x01;
