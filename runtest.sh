@@ -793,8 +793,9 @@ for dt in $dtrace; do
         # comments.  In addition, any options listed in a file test.options in 
         # any directory from test/ on down will automatically be imposed on
         # any tests in that directory tree which do not themselves impose a
-        # value for that option.  If a file named test.$arch.options exists at
-        # a given level, it is consulted instead of test.options at that level.
+        # value for that option.  If a file named test.$(uname -m).options
+        # exists at a given level, it is consulted instead of test.options at
+        # that level.
         #
         # @@runtest-opts: A set of options to be added to the default set
         #                 (normally -S -e -s, where the -S and -e may not
@@ -902,6 +903,12 @@ for dt in $dtrace; do
         #     Files suffixed $(uname -m).x allow programmatic xfails or skips
         #     for a particular architecture.
         #
+        #     As with test.options, executable files named test.x and
+        #     test.$(uname -m).x can exist at any level in the hierarchy:
+        #     the one that is 'most faily' wins (so any SKIP overrides any
+        #     XFAIL, which overrides any PASS, no matter what level of the
+        #     hierarchy it is found at).
+        #
         # .t: If executable, serves the same purpose as the '@@trigger'
         #     option above.  If both .t and @@trigger exist, only the .t is
         #     respected.
@@ -928,24 +935,57 @@ for dt in $dtrace; do
         fi
 
         # Note if this is expected to fail.
-        xfail=
+        xfail=0
+        xfailpath="$_test"
+        xbase=$base
         xfailmsg=
-	xfile=$base.$arch.x
-	[[ -e $xfile ]] || xfile=$base.x
-        if [[ -x $xfile ]]; then
-            # xfail program.  Run, and capture its output.
-            xfailmsg="$($xfile)"
-            case $? in
-               0) ;;         # no failure expected
-               1) xfail=t;;  # failure expected
-               2) sum "$_test: SKIP${xfailmsg:+: $xfailmsg}.\n" # skip
-                  continue;;
-               *) echo "$xfile: Unexpected return value $?." >&2;;
-            esac
-        elif exist_options xfail $_test && ! exist_options no-xfail $_test; then
-            xfail=t
+
+        if exist_options xfail $_test && ! exist_options no-xfail $_test; then
+            xfail=1
             xfailmsg="$(extract_options xfail $_test | sed 's, *$,,')"
         fi
+
+        # Scan for $test.x, $test.$arch.x, then test.x and test.arch.x
+        # all the way up to the top level, much as for test.options.
+        # Whichever .x file returns the highest value is used (SKIP >
+        # XFAIL > PASS).
+        while [[ $xfail -lt 2 ]]; do
+            xfile=$xbase.$arch.x
+            [[ -e $xfile ]] || xfile=$xbase.x
+            if [[ -x $xfile ]]; then
+                # xfail program.  Run, and capture its output, clamping the
+                # exitcode at 2.  (The output of whichever program has the
+                # highest exitcode is used.)
+                xfailmsgthisfile="$($xfile)"
+                xfailthisfile=$?
+                if [[ $xfailthisfile -gt 2 ]]; then
+                   echo "$xfile: Unexpected return value $xfailthisfile." >&2
+                   xfailthisfile=2
+                fi
+                if [[ $xfailthisfile -gt $xfail ]]; then
+                    xfail=$xfailthisfile
+                    xfailmsg="$xfailmsgthisfile"
+                fi
+            fi
+            xfailpath="$(dirname $xfailpath)"
+            xbase="$xfailpath/test"
+            if [[ -e "$xfailpath/test.$arch.x" ]]; then
+                xbase="$xfailpath/test.$arch"
+            fi
+            # Halt at top level.
+            if [[ -e $xfailpath/Makecheck ]]; then
+                break
+            fi
+        done
+
+        case $xfail in
+           0) xfail="";; # no failure expected
+           1) xfail=t;;  # failure expected
+           2) sum "$_test: SKIP${xfailmsg:+: $xfailmsg}.\n" # skip
+              continue;;
+           *) xfail="";
+              echo "$xfile: Unexpected return value $?." >&2;;
+        esac
 
         # Check for a trigger.
 
