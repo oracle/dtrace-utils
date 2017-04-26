@@ -77,6 +77,9 @@ load_modules()
     else
         echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
     fi
+
+    # Write out a list of loaded providers.
+    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
 }
 
 unload_modules()
@@ -95,6 +98,17 @@ unload_modules()
         done
     fi
 }
+
+#
+# Utility function to ensure a given provider is present.
+# Uses the providers list written out at module-load time.
+#
+check_provider()
+{
+    grep -q "^$1\$" $tmpdir/providers
+}
+
+export -f check_provider
 
 # get_dir_name
 #
@@ -589,6 +603,7 @@ else
         exit 1
     fi
 fi
+export dtrace
 
 # Flip a few env vars to tell dtrace to produce reproducible output.
 export _DTRACE_TESTING=t
