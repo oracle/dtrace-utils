@@ -61,16 +61,18 @@ if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	exit 67
 fi
 
-#
-# Shake loose any ICMPv6 Neighbor advertisement messages before tracing.
-#
-/usr/bin/ping6 -c 3 $dest > /dev/null 2>&1
+nolinkdest="$(printf "%s" "$dest" | sed 's,%.*,,')"
 
-$dtrace $dt_flags -c "/bin/ping6 -c 3 $dest" -qs /dev/stdin <<EOF | \
-    grep -v 'is alive' | sort -n
+$dtrace $dt_flags -c "/bin/ping6 -c 6 $dest" -qs /dev/stdin <<EOF | \
+    awk '/ip:::/ { print $0 }' | sort -n
+/* 
+ * We use a size match to include only things that are big enough to
+ * be pings, rather than neighbor solicitations/advertisements.
+ */
+
 ip:::send
-/args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$dest" &&
-    args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/
+/args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$nolinkdest" &&
+    args[5]->ipv6_nexthdr == IPPROTO_ICMPV6 && args[2]->ip_plength > 32/
 {
 	printf("1 ip:::send    (");
 	printf("args[2]: %d %d, ", args[2]->ip_ver, args[2]->ip_plength);
@@ -79,8 +81,8 @@ ip:::send
 }
 
 ip:::receive
-/args[2]->ip_saddr == "$dest" && args[2]->ip_daddr == "$source" &&
-    args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/
+/args[2]->ip_saddr == "$nolinkdest" && args[2]->ip_daddr == "$source" &&
+    args[5]->ipv6_nexthdr == IPPROTO_ICMPV6 && args[2]->ip_plength > 32/
 {
 	printf("2 ip:::receive (");
 	printf("args[2]: %d, ", args[2]->ip_ver);

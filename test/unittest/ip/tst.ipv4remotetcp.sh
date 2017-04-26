@@ -52,17 +52,27 @@ fi
 dtrace=$1
 testdir="$(dirname $_test)"
 getaddr=$testdir/get.ipv4remote.pl
-tcpport=22
+tcpports="22 80"
+tcpport=""
+dest=""
 
 if [[ ! -x $getaddr ]]; then
-        echo "could not find or execute sub program: $getaddr" >&2
-        exit 3
+	echo "could not find or execute sub program: $getaddr" >&2
+	exit 3
 fi
-set -- $($getaddr)
-source="$1"
-dest="$2"
-if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
-        exit 67
+for port in $tcpports ; do
+	res=`$getaddr $port 2>/dev/null`
+	if (( $? == 0 )); then
+		read s d <<< $res
+		tcpport=$port
+		source=$s
+		dest=$d
+		break
+        fi
+done
+
+if [ -z $tcpport ]; then
+	exit 67
 fi
 
 cat > $tmpdir/tst.ipv4remotetcp.test.pl <<-EOPERL

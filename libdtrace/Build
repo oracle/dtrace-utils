@@ -74,9 +74,7 @@ $(libdtrace-build_DIR)dt_lex.c: $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-b
 M4_DLIBS += \
 	procfs.d \
 	io.d \
-	sysevent.d \
-	tcp.d \
-	udp.d
+	sysevent.d
 
 BUILD_DLIBS += \
 	$(M4_DLIBS) \
@@ -92,6 +90,8 @@ WORKING_DLIBS = errno.d \
                 regs.d \
                 sched.d \
                 signal.d \
+                tcp.d \
+                udp.d \
                 unistd.d
 
 # M4-driven substitutions.

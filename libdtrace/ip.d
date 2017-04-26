@@ -3,6 +3,8 @@
  */
 
 #pragma D depends_on module vmlinux
+#pragma D depends_on library net.d
+#pragma D depends_on library procfs.d
 #pragma D depends_on provider ip
 
 inline int IPPROTO_IP		=	0;
@@ -39,6 +41,8 @@ inline int IPPROTO_NONE		=	59;
 inline int IPPROTO_DSTOPTS	=	60;
 inline int IPPROTO_MH		=	135;
 
+inline int TCP_MIN_HEADER_LENGTH =	20;
+
 /*
  * For compatibility with Solaris.  Here the netstackid will be the pointer
  * to the net namespace (nd_net in struct net_device).
@@ -60,7 +64,6 @@ typedef struct pktinfo {
 typedef struct csinfo {
 	uintptr_t cs_addr;
 	uint64_t cs_cid;
-	pid_t cs_pid;
 } csinfo_t;
 
 /*
@@ -131,6 +134,15 @@ typedef struct ipv6info {
  */
 typedef uintptr_t void_ip_t;
 
+/*
+ * __dtrace_tcp_void_ip_t is used by the translator to take either the
+ * non-NULL void_ip_t * passed in or, if it is NULL, uses arg3 (struct tcp *)
+ * from the tcp:::send probe to translate to an ipinfo_t.
+ * This allows us to present the consumer with header data based on the
+ * struct tcp * when IP information is not yet present (for TCP send).
+ */
+typedef void * __dtrace_tcp_void_ip_t;
+
 #pragma D binding "1.5" translator
 translator pktinfo_t < struct sk_buff *s > {
 	pkt_addr = (uintptr_t)s;
@@ -174,6 +186,80 @@ translator ipinfo_t < void_ip_t *I > {
 	    "<unknown>";
 };
 
+/*
+ * In some cases where the ipinfo_t * is NULL we wish to construct IP info
+ * using the struct tcp_sock * (arg3).  In order to map local IP to source
+ * or destination IP address appropriately we need to check if the associated
+ * data is inbound (NET_PROBE_INBOUND in arg7) or outbound (NET_PROBE_OUTBOUND);
+ * the value is stored in arg7.  If inbound, we map the local IP address to
+ * ip_daddr (destination), and if outbound it is mapped to ip_saddr.
+ */
+#pragma D binding "1.5" translator
+translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
+	/*
+	 * General strategy used is to rely on the IP header I if it is
+	 * non-null; otherwise we try to reconstruct IP values from arg3
+	 * (a struct tcp_sock *).
+	 */
+	ip_ver = I != NULL ? *(uint8_t *)I >> 4 :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family == AF_INET ? 4 :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET6 ? 6 : 0;
+	/*
+	 * For ip_plength we fall back to using TCP skb data from the tcp_skb_cb
+	 * to determine payload length.
+	 */
+	ip_plength = I != NULL && *(uint8_t *)I >> 4 == 4 ?
+	    ntohs(((struct iphdr *)I)->tot_len) - ((*(uint8_t *)I & 0xf ) << 2) :
+	    I != NULL && *(uint8_t *)I >> 4 == 6 ?
+	    ntohs(((struct ipv6hdr *)I)->payload_len) :
+	    arg0 != NULL ?
+	    ((struct tcp_skb_cb *)&(((struct sk_buff *)arg0)->cb[0]))->end_seq -
+	    ((struct tcp_skb_cb *)&(((struct sk_buff *)arg0)->cb[0]))->seq :
+	    0;
+	/*
+	 * For source/destination addresses, we again try to use the IP header I
+	 * if available.  If I is NULL, we utilize arg3 (struct tcp_sock *)
+	 * but the problem here is that it stores local and remote IP addresses
+	 * _not_ source and destination.  So we need to know if traffic is
+	 * inbound or outbound. If inbound, IP source address is remote
+	 * socket address (skc_daddr) and destination IP address is local socket
+	 * address (skc_rcv_saddr).  If outbound, IP source address is local
+	 * socket address and IP destination address is remote socket address.
+	 */
+	ip_saddr = I != NULL && *(uint8_t *)I >> 4 == 4 ?
+	    inet_ntoa(&((struct iphdr *)I)->saddr) :
+	    I != NULL && *(uint8_t *)I >> 4 == 6 ?
+	    inet_ntoa6(&((struct ipv6hdr *)I)->saddr) :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET ?
+	    inet_ntoa(arg7 == NET_PROBE_INBOUND ?
+	    &((struct sock *)arg3)->__sk_common.skc_daddr :
+	    &((struct sock *)arg3)->__sk_common.skc_rcv_saddr) :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family == AF_INET6 ?
+	    inet_ntoa6(arg7 == NET_PROBE_INBOUND ?
+	    &((struct sock *)arg3)->__sk_common.skc_v6_daddr :
+	    &((struct sock *)arg3)->__sk_common.skc_v6_rcv_saddr) :
+	    "<unknown>";
+	ip_daddr = I != NULL && *(uint8_t *)I >> 4 == 4 ?
+	    inet_ntoa(&((struct iphdr *)I)->daddr) :
+	    I != NULL && *(uint8_t *)I >> 4 == 6 ?
+	    inet_ntoa6(&((struct ipv6hdr *)I)->daddr) :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET ?
+	    inet_ntoa(arg7 == NET_PROBE_INBOUND ?
+	    &((struct sock *)arg3)->__sk_common.skc_rcv_saddr :
+	    &((struct sock *)arg3)->__sk_common.skc_daddr) :
+	    arg3 != NULL &&
+	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET6 ?
+	    inet_ntoa6(arg7 == NET_PROBE_INBOUND ?
+	    &((struct sock *)arg3)->__sk_common.skc_v6_rcv_saddr :
+	    &((struct sock *)arg3)->__sk_common.skc_v6_daddr) :
+	    "<unknown>";
+};
+
 #pragma D binding "1.5" translator
 translator ifinfo_t < struct net_device *N > {
 	if_name = N != NULL ? stringof(N->name) : "<unknown>";
@@ -186,44 +272,43 @@ translator ifinfo_t < struct net_device *N > {
 #pragma D binding "1.5" translator
 translator ipv4info_t < struct iphdr *I > {
 	ipv4_ver = I != NULL ? 4 : 0;
-	ipv4_ihl = I != NULL ? (*(uint8_t *)I & 0xf) : 0;
+	ipv4_ihl = I != NULL ? ((*(uint8_t *)I & 0xf) << 2) : 0;
 	ipv4_tos = I != NULL ? I->tos : 0;
 	ipv4_length = I != NULL ? ntohs(I->tot_len) : 0;
 	ipv4_ident = I != NULL ? ntohs(I->id) : 0;
 	ipv4_flags = I != NULL ? ntohs(I->frag_off) >> 12 : 0;
 	ipv4_offset = I != NULL ? ntohs(I->frag_off) & 0x0fff : 0;
 	ipv4_ttl = I != NULL ? I->ttl : 0;
-        ipv4_protocol = I != NULL ? I->protocol : 0;
+	ipv4_protocol = I != NULL ? I->protocol : 0;
 	ipv4_protostr = I == NULL ? "<null>" :
-            I->protocol == IPPROTO_TCP     ? "TCP"    :
-            I->protocol == IPPROTO_UDP     ? "UDP"    :
-            I->protocol == IPPROTO_IP      ? "IP"     :
-            I->protocol == IPPROTO_ICMP    ? "ICMP"   :
-            I->protocol == IPPROTO_IGMP    ? "IGMP"   :
-            I->protocol == IPPROTO_EGP     ? "EGP"    :
-            I->protocol == IPPROTO_IPV6    ? "IPv6"   :
-            I->protocol == IPPROTO_ROUTING ? "ROUTE"  :
-            I->protocol == IPPROTO_ESP     ? "ESP"    :
-            I->protocol == IPPROTO_AH      ? "AH"     :
-            I->protocol == IPPROTO_ICMPV6  ? "ICMPv6" :
-            I->protocol == IPPROTO_OSPF    ? "OSPF"   :
-            I->protocol == IPPROTO_SCTP    ? "SCTP"   :
-            I->protocol == IPPROTO_RAW     ? "RAW"    :
-            lltostr((uint64_t)I->protocol);
-        ipv4_checksum = I != NULL ? ntohs(I->check) : 0;
-        ipv4_src = I != NULL ? I->saddr : 0;
-        ipv4_dst = I != NULL ? I->daddr : 0;
-        ipv4_saddr = I != NULL ? inet_ntoa(&I->saddr) : "<null>";
-        ipv4_daddr = I != NULL ? inet_ntoa(&I->daddr) : "<null>";
-        ipv4_hdr = I;
+	    I->protocol == IPPROTO_TCP     ? "TCP"    :
+	    I->protocol == IPPROTO_UDP     ? "UDP"    :
+	    I->protocol == IPPROTO_IP      ? "IP"     :
+	    I->protocol == IPPROTO_ICMP    ? "ICMP"   :
+	    I->protocol == IPPROTO_IGMP    ? "IGMP"   :
+	    I->protocol == IPPROTO_EGP     ? "EGP"    :
+	    I->protocol == IPPROTO_IPV6    ? "IPv6"   :
+	    I->protocol == IPPROTO_ROUTING ? "ROUTE"  :
+	    I->protocol == IPPROTO_ESP     ? "ESP"    :
+	    I->protocol == IPPROTO_AH      ? "AH"     :
+	    I->protocol == IPPROTO_ICMPV6  ? "ICMPv6" :
+	    I->protocol == IPPROTO_OSPF    ? "OSPF"   :
+	    I->protocol == IPPROTO_SCTP    ? "SCTP"   :
+	    I->protocol == IPPROTO_RAW     ? "RAW"    :
+	    lltostr((uint64_t)I->protocol);
+	ipv4_checksum = I != NULL ? ntohs(I->check) : 0;
+	ipv4_src = I != NULL ? I->saddr : 0;
+	ipv4_dst = I != NULL ? I->daddr : 0;
+	ipv4_saddr = I != NULL ? inet_ntoa(&I->saddr) : "<null>";
+	ipv4_daddr = I != NULL ? inet_ntoa(&I->daddr) : "<null>";
+	ipv4_hdr = I;
 };
 
 #pragma D binding "1.5" translator
 translator ipv6info_t < struct ipv6hdr *I > {
-	ipv6_ver = I != NULL ? *(uint8_t *)I >> 4 : 0; /* version */
-	ipv6_tclass = I != NULL ? (*(uint8_t *)I & 0xf) : 0; /* priority */
-	ipv6_flow = I != NULL ? ((I->flow_lbl[0] << 16) |
-	    (I->flow_lbl[1] << 8) | (I->flow_lbl[2])) : 0;
+	ipv6_ver = I != NULL ? ((*(uint8_t *)I) >> 4) : 0;
+	ipv6_tclass = I != NULL ? (((*(uint32_t *)I) & 0x0fffffff) >> 20) : 0;
+	ipv6_flow = I != NULL ? ((*(uint32_t *)I) & 0x000fffff) : 0;
 	ipv6_plen = I != NULL ? ntohs(I->payload_len) : 0;
 	ipv6_nexthdr = I != NULL ? I->nexthdr : 0;
 	ipv6_nextstr = I == NULL ? "<null>" :
