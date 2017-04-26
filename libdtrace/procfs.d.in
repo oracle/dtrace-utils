@@ -249,3 +249,32 @@ inline int CLD_STOPPED = 5;
 #pragma D binding "1.0" CLD_STOPPED
 inline int CLD_CONTINUED = 6;
 #pragma D binding "1.0" CLD_CONTINUED
+
+inline	int PIDTYPE_PID = 0;
+#pragma D binding "1.0" PIDTYPE_PID
+inline	int PIDTYPE_PGID = 1;
+#pragma D binding "1.0" PIDTYPE_PGID
+inline	int PIDTYPE_SID = 2;
+#pragma D binding "1.0" PIDTYPE_SID
+
+/*
+ * Below we provide some inline definitions to simplify converting from
+ * a struct pid * to a pid_t.  structpid2pid is a DTrace-ized version of
+ * pid_vnr().
+ */
+inline	struct pid_namespace *pid_namespace[struct pid *p] = p != NULL ?
+	p->numbers[p->level].ns : NULL;
+
+inline	int pid_namespace_level[struct pid *p] = p != NULL && pid_namespace[p] ?
+	pid_namespace[p]->level : 0;
+
+inline	struct pid *task_pid[struct task_struct *task] =
+	task != NULL ? task->pids[PIDTYPE_PID].pid : NULL;
+
+inline	int current_namespace_level = pid_namespace_level[task_pid[curthread]];
+
+inline	pid_t structpid2pid[struct pid *p] =
+	p != NULL && current_namespace_level <= p->level &&
+	((struct upid *)&(p->numbers[current_namespace_level]))->ns ==
+	pid_namespace[task_pid[curthread]] ?
+	((struct upid *)&(p->numbers[current_namespace_level]))->nr : 0;
