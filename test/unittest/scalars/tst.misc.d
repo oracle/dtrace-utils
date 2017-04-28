@@ -20,18 +20,21 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
+/* @@xfail: until nix/topic/dwarf2ctf is integrated */
 
 #pragma	ident	"%Z%%M%	%I%	%E% SMI" 
 
 /*
  * ASSERTION:
  *  Test the different kinds of integer scalar references.  In particular, we
- *  test accessing a kernel executable scalar, kernel scoped scalar, DTrace
- *  scalar first ref that forces creation (both global and TLS), and DTrace
- *  scalar subsequent reference (both global and TLS).
+ *  test accessing a kernel executable scalar, kernel scoped scalar, module
+ *  scalar, kernel statically-scoped scalar, DTrace scalar first ref that
+ *  forces creation (both global and TLS), and DTrace scalar subsequent
+ *  reference (both global and TLS).
  *
  * SECTION:  Variables/External Variables
  *
@@ -42,6 +45,7 @@ BEGIN
 	printf("\nr_cpu_ids = 0x%x\n", `nr_cpu_ids);
 	printf("ext2`ext2_dir_operations = %p\n", &ext2`ext2_dir_operations);
 	printf("isofs`isofs_dir_operations = %p\n", &isofs`isofs_dir_operations);
+	printf("vmlinux`major_names = %p\n", &vmlinux`major_names);
 	x = 123;
 	printf("x = %u\n", x);
 	self->x = 456;
