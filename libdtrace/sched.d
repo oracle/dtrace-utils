@@ -1,10 +1,9 @@
 /*
- * Copyright 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2012, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #pragma D depends_on module vmlinux
-#pragma D depends_on provider sched
 
 inline processorid_t cpu = curcpu->cpu_id;
 #pragma D attributes Stable/Stable/Common cpu
