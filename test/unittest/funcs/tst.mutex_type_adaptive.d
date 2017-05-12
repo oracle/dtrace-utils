@@ -24,49 +24,38 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: no adaptive-acquire probe in mutex_enter() implemented yet */
-
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
  * ASSERTION:
- *  	mutex_type_adaptive() should return a non-zero value if the
+ *	mutex_type_adaptive() should return a non-zero value if the
  *	mutex is an adaptive one.
  *
  * SECTION: Actions and Subroutines/mutex_type_adaptive()
+ *
+ * On Linux, all mutexes are adaptive.
  */
-
 
 #pragma D option quiet
 
-BEGIN
+fbt::mutex_lock:entry
 {
-	i = 0;
-	ret = -99;
+	this->mutex = arg0;
 }
 
-mutex_enter:adaptive-acquire
+fbt::mutex_lock:return
 {
-	ret = mutex_type_adaptive((kmutex_t *)arg0);
-	i++;
+	this->adaptive = mutex_type_adaptive((struct mutex *)this->mutex);
 }
 
-tick-1
-/ret == 1/
-{
-	exit(0);
-}
-
-tick-1
-/i == 100 && ret == 0/
+fbt::mutex_lock:return
+/!this->adaptive/
 {
 	printf("mutex_type_adaptive returned 0, expected non-zero\n");
 	exit(1);
 }
 
-tick-1
-/i == 100 && ret == -99/
+fbt::mutex_lock:return
 {
-	printf("No adaptive_mutexs called in the time this test was run.\n");
-	exit(1);
+	exit(0);
 }

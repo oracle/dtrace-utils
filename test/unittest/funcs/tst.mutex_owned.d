@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-/* @@xfail: lockstat provider not yet implemented */
-
 #pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
@@ -38,27 +36,32 @@
 
 #pragma D option quiet
 
-lockstat:::adaptive-acquire
+fbt::mutex_lock:entry
 {
-	this->owned = mutex_owned((kmutex_t *)arg0);
-	this->owner = mutex_owner((kmutex_t *)arg0);
+	this->mutex = arg0;
 }
 
-lockstat:::adaptive-acquire
+fbt::mutex_lock:return
+{
+	this->owned = mutex_owned((struct mutex *)this->mutex);
+	this->owner = mutex_owner((struct mutex *)this->mutex);
+}
+
+fbt::mutex_lock:return
 /!this->owned/
 {
 	printf("mutex_owned() returned 0, expected non-zero\n");
 	exit(1);
 }
 
-lockstat:::adaptive-acquire
+fbt::mutex_lock:return
 /this->owner != curthread/
 {
 	printf("current thread is not current owner of owned lock\n");
 	exit(1);
 }
 
-lockstat:::adaptive-acquire
+fbt::mutex_lock:return
 {
 	exit(0);
 }
