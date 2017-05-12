@@ -28,10 +28,12 @@
 
 /*
  * ASSERTION:
- *	mutex_owner() should return a pointer to the kernel thread holding
- *	the mutex.
+ *	mutex_type_spin() should return a non-zero value if the
+ *	mutex is an spin one.
  *
- * SECTION: Actions and Subroutines/mutex_owner()
+ * SECTION: Actions and Subroutines/mutex_type_spin()
+ *
+ * On Linux, all mutexes are adaptive.
  */
 
 #pragma D option quiet
@@ -43,13 +45,13 @@ fbt::mutex_lock:entry
 
 fbt::mutex_lock:return
 {
-	this->owner = mutex_owner((struct mutex *)this->mutex);
+	this->spin = mutex_type_spin((struct mutex *)this->mutex);
 }
 
 fbt::mutex_lock:return
-/this->owner != curthread/
+/this->spin/
 {
-	printf("current thread is not current owner of owned lock\n");
+	printf("mutex_type_spin returned non-zero, expected 0\n");
 	exit(1);
 }
 
