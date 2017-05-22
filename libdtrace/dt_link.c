@@ -792,9 +792,12 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 
 	/*
 	 * We only know about some specific relocation types.
+	 * We also recognize relocation type NONE, since that gets used for
+	 * relocations of USDT probes, and we might be re-processing a file.
 	 */
 	if (GELF_R_TYPE(rela->r_info) != R_SPARC_WDISP30 &&
-	    GELF_R_TYPE(rela->r_info) != R_SPARC_WPLT30)
+	    GELF_R_TYPE(rela->r_info) != R_SPARC_WPLT30 &&
+	    GELF_R_TYPE(rela->r_info) != R_386_NONE)
 		return (-1);
 
 	/*
