@@ -166,6 +166,7 @@ fi
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*
+%config(noreplace) %{_sysconfdir}/dtrace-modules
 
 %files devel
 %defattr(-,root,root,-)

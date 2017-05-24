@@ -59,7 +59,8 @@ $(objdir)/dlibs/load_dtrace_modules: $(dtrace_DIR)/load_dtrace_modules $(objdir)
 TARGETS += $(objdir)/dlibs/load_dtrace_modules
 
 install::
-	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) $(INSTLIBDIR)/dtrace
+	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) \
+	      $(INSTLIBDIR)/dtrace $(INSTETCDIR)
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
 	$(call describe-install-target,$(INSTBINDIR),ctf_module_dump)
@@ -68,3 +69,4 @@ install::
 	install -m 644 $(dtrace_DIR)/dtrace.1 $(INSTMANDIR)
 	$(call describe-install-target,$(INSTLIBDIR)/dtrace,modules)
 	install -m 755 $(dtrace_DIR)/load_dtrace_modules $(INSTLIBDIR)/dtrace
+	install -m 644 $(dtrace_DIR)/dtrace-modules $(INSTETCDIR)
