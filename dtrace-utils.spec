@@ -1,6 +1,6 @@
 # spec file for package dtrace-utils.
 #
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016 Oracle, Inc.  All rights reserved.
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Oracle, Inc.  All rights reserved.
 #
 
 # Redefine 'build_variant' at build time to create a kernel package named
@@ -166,6 +166,7 @@ fi
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*
+%config(noreplace) %{_sysconfdir}/dtrace-modules
 
 %files devel
 %defattr(-,root,root,-)
