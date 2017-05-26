@@ -33,8 +33,8 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers > 0.6.0 %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.6.0
-Release:      3%{?dist}
+Version:      0.6.1
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -179,6 +179,17 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu May 25 2017 - <nick.alcock@oracle.com> - 0.6.1-1
+- Add translators and tests for TCP and UDP (Alan Maguire)
+  [Orabug: 25815242]
+- Add translators for the IO provider (Nicolas Droux) [XXX]
+- Add link_ntop() and tests for it (Girish Moodalbail)
+  [Orabug: 25931511]
+- sched.d no longer depends on the sched provider [Orabug: 26036143]
+- Ship a default /etc/dtrace-modules (Nicolas Droux) [Orabug: 25918164]
+- Repeated dtrace -G no longer corrupts the object file (Kris Van Hees)
+  [Orabug: 22509887]
+
 * Tue Mar 21 2017 - <nick.alcock@oracle.com> - 0.6.0-3
 - Test fixes
 

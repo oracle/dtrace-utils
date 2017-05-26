@@ -2,6 +2,39 @@ See also /usr/share/doc/dtrace-modules-$(uname -r)/NEWS for changes in
 providers and the kernel module side of DTrace and changes affecting
 probes in the kernel.
 
+0.6.1
+-----
+
+New features:
+
+  - A new link_ntop() subroutine is provided, which is like inet_ntop()
+    except it returns a human-readable string describing the link-layer
+    address.  Ethernet and InfiniBand are currently supported.
+
+  - A default set of modules is now provided in /etc/dtrace-modules.  The
+    file was supported since 0.4.5, but no /etc/dtrace-modules was shipped
+    by default.
+
+  - The TCP and UDP providers are implemented, with associated translators.
+
+  - The IO provider has been completely rewritten and is dramatically
+    improved, with support for most local filesystems and explicit
+    support for XFS.
+
+Bugfixes:
+
+  - Do not require sdt.ko to be loaded before allowing the use of the 'cpu'
+    variable.
+
+  - Passing an object file through dtrace -G no longer corrupts it on
+    SPARC64, echoing a similar bugfix made to x86 long ago.
+
+  - Improve tracking of process state on SPARC64 a bit.
+
+  - Bitfields in kernel types are now better-supported, though some
+    bitfields still do not work, notably those crossing machine word
+    boundaries.
+
 0.6.0
 -----
 
