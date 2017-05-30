@@ -27,7 +27,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 #
@@ -587,6 +587,7 @@ postprocess()
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
+    test_ldflags="-L$(pwd)/build"
     test_incflags="-Iuts/common -Ilibdtrace-ctf/include -DARCH_$arch"
 
     if [[ -z $(eval echo $dtrace) ]]; then
@@ -596,6 +597,7 @@ if [[ -z $USE_INSTALLED ]]; then
 else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"
+    test_ldflags=""
     test_incflags="-DARCH_$arch"
 
     if [[ ! -x $dtrace ]]; then
@@ -777,19 +779,23 @@ for dt in $dtrace; do
 	valgrind -q $dt "\$@"
 	EOT
         dt="$tmpdir/bin/$(basename $dt)"
-	chmod a+x $tmpdir/bin/$(basename $dt)
+        vg="valgrind -q "
+        chmod a+x $tmpdir/bin/$(basename $dt)
+    else
+        vg=""
     fi
 
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
                       for name in $TESTSUITES; do
-                          find test/$name \( -name "*.d" -o -name "*.sh" \) | sort -u
+                          find test/$name \( -name "*.d" -o -name "*.sh" -o -name "*.c" \) | sort -u
                       done
                    fi); do
 
         base=${_test%.d}
         base=${base%.sh}
+        base=${base%.c}
         testonly="$(basename $_test)"
         timeout="$TIMEOUT"
 
@@ -856,6 +862,9 @@ for dt in $dtrace; do
         #                   number, it is a count in seconds to delay trigger
         #                   execution (to wait for DTrace to start).
         #
+        # @@link: A library to link .c programs against (see below).  -ldtrace
+        #         by default.
+        #
         # Certain filenames of test .d script are treated specially:
         #
         # tst.*.d: These are assumed to have /* @@trigger: none */ by default.
@@ -886,6 +895,9 @@ for dt in $dtrace; do
         #      a minimal set without which no tests will work, are passed in
         #      the environment variable dt_flags.  An exit code of 67 will cause
         #      the test to be considered an expected failure.
+        #
+        # .c: A C program that is linked against the libraries listed in @@link,
+        #     or -ldtrace by default, then run.
         #
         # .r: Expected results, after postprocessing.  If not present,
         #     no expected-result comparison is done (the results are
@@ -1064,13 +1076,18 @@ for dt in $dtrace; do
 
         # Handle an executable .sh.
 
-        shellrun=
+        progtype=d
+        run=$dt
         if [[ -x $base.sh ]]; then
-            shellrun=$base.sh
+            progtype=shell
+            run="$base.sh $dt"
             if [[ -z $trigger ]]; then
                 trigger=none
             fi
             dt_flags="$raw_dt_flags"
+        elif [[ -e $base.c ]]; then
+            progtype=c
+            run="$vg $tmpdir/$(basename $base)"
         fi
 
         # No trigger.  Erase any pre-existing coredump, then un dtrace, with a
@@ -1083,7 +1100,7 @@ for dt in $dtrace; do
         # different files, and any debugging output is split into a third.)
 
 	rm -f core
-        failed=
+        fail=
         this_noexec=$NOEXEC
         testmsg=
         testout=$tmpdir/test.out.$RANDOM
@@ -1091,20 +1108,36 @@ for dt in $dtrace; do
         testdebug=$tmpdir/test.debug.$RANDOM
         out "$_test: "
 
-        if [[ -z $trigger ]]; then
-            if [[ -z $shellrun ]]; then
-                this_noexec=t
-                run_with_timeout $timeout $dt $dt_flags -e > $testout 2> $testerr
+        if [[ "$progtype" = "c" ]]; then
+            if [[ -z "$(extract_options link $_test)" ]]; then
+                link="-ldtrace"
             else
-                run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
+                link="$(extract_options link $_test)"
             fi
-            exitcode=$?
-        elif [[ "$trigger" = "none" ]]; then
-            if [[ -z $shellrun ]]; then
-                run_with_timeout $timeout $dt $dt_flags > $testout 2> $testerr
-            else
-                run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
+
+            CC="${CC:-gcc}"
+            log "Compiling $CC -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $test_incflags $CFLAGS $test_ldflags $LDFLAGS -o $tmpdir/$base $_test $link\n"
+            if ! $CC $CFLAGS -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $test_incflags $test_ldflags $LDFLAGS -o $tmpdir/$(basename $base) $_test $link >/dev/null 2>$tmpdir/cc.err; then
+                fail=t
+                failmsg="compilation failure"
+                fail "$xfail" "$xfailmsg" "compilation failure"
+                cat $tmpdir/cc.err >> $LOGFILE
+                continue
             fi
+        fi
+
+        if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
+            eflag=
+            if [[ -z $trigger ]]; then
+                eflag=-e
+            fi
+            case $progtype in
+                d) this_noexec=t
+                   run_with_timeout $timeout $run $dt_flags $eflag > $testout 2> $testerr;;
+                shell) run_with_timeout $timeout $run > $testout 2> $testerr;;
+                c) run_with_timeout $timeout $run > $testout 2> $testerr;;
+                *) out "$_test: Internal error: unknown program type $progtype";;
+            esac
             exitcode=$?
         else
             # A trigger.  Run dtrace with timeout, and permit execution.  First,
@@ -1114,6 +1147,10 @@ for dt in $dtrace; do
             # We have to run each of these in separate subprocesses to avoid
             # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
             # and confusing it. (This happens even if disowned.)
+            #
+            # For .c tests, none of this is supported: we just run the trigger
+            # first and kill it afterwards, as if @@trigger-timing: before,
+            # passing the PID to the C program as its lone parameter.
 
             trigger_timing=synchro
             trigger_delay=
@@ -1127,7 +1164,7 @@ for dt in $dtrace; do
                 esac
             fi
 
-            if [[ "$trigger_timing" == "synchro" ]]; then
+            if [[ "$trigger_timing" == "synchro" ]] && [[ $progtype != "c" ]]; then
                 dt_flags="$dt_flags -c $trigger"
                 _pid=
             else
@@ -1142,13 +1179,15 @@ for dt in $dtrace; do
                 fi
             fi
 
-            if [[ -z $shellrun ]]; then
-                ( run_with_timeout $timeout $dt $dt_flags > $testout 2> $testerr
-                  echo $? > $tmpdir/dtrace.exit; )
-            else
-                ( run_with_timeout $timeout $shellrun $dt > $testout 2> $testerr
-                  echo $? > $tmpdir/dtrace.exit; )
-            fi
+            case $progtype in
+                d) ( run_with_timeout $timeout $run $dt_flags > $testout 2> $testerr
+                     echo $? > $tmpdir/dtrace.exit; );;
+                shell) ( run_with_timeout $timeout $run > $testout 2> $testerr
+                         echo $? > $tmpdir/dtrace.exit; );;
+                c) ( run_with_timeout $timeout $run $_pid > $testout 2> $testerr
+                     echo $? > $tmpdir/dtrace.exit; );;
+                *) out "$_test: Internal error: unknown program type $progtype";;
+            esac
             exitcode="$(cat $tmpdir/dtrace.exit)"
 
             # If the trigger is still running, kill it, and wait for it, to
@@ -1208,7 +1247,6 @@ for dt in $dtrace; do
         # diff after the logged output (so it stands out).
         want_expected_diff=
         want_all_output=
-        fail=
         failmsg=
 
         # Compare results, if available, and log the diff.
