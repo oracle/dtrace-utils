@@ -63,7 +63,10 @@ USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
 
 KERNELS=$(shell uname -r)
 KERNELDIRPREFIX=/lib/modules
-KERNELDIRSUFFIX=/build
+KERNELODIR=
+# This allows you to build using a locally installed kernel built with O= by
+# just specifying KERNELODIR=relative/path/to/your/kernel/o/dir.
+KERNELDIRSUFFIX=$(if $(KERNELODIR),/source,/build)
 KERNELARCH := $(subst sparc64,sparc,$(subst x86_64,x86,$(shell uname -m)))
 
 # If libdtrace-ctf is initialized, we want to get headers from it.
