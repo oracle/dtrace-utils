@@ -1190,7 +1190,7 @@ for dt in $dtrace; do
             testmsg="results postprocessor failed with exitcode $?"
         fi
 
-        rm -f $testout $testerr
+        rm -f $testerr
 
         # Note if we will certainly capture results.
 
@@ -1276,8 +1276,10 @@ for dt in $dtrace; do
             fail "$xfail" "$xfailmsg" "$failmsg${capturing:+, $capturing}"
         fi
 
-        # Always log the test output.
-        cat $tmpdir/test.out >> $LOGFILE
+        # Always log the unpostprocessed test output.
+        cat $testout >> $LOGFILE
+
+        rm -f $testout
 
         if [[ -n $want_all_output ]]; then
             cat $tmpdir/test.out >> $SUMFILE
