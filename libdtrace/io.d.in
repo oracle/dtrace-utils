@@ -115,19 +115,20 @@ translator devinfo_t < struct buffer_head *B > {
 
 #pragma D binding "1.6.3" translator
 translator devinfo_t < struct bio *B > {
-	dev_major = B->bi_bdev->bd_dev == NULL ? 0 :
+	dev_major = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ? 0 :
 	    getmajor(B->bi_bdev->bd_dev);
-	dev_minor = B->bi_bdev->bd_dev == NULL ? 0 :
+	dev_minor = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ? 0 :
 	    getminor(B->bi_bdev->bd_dev);
 	dev_instance = 0;
-	dev_name = B->bi_bdev == NULL ? "nfs" :
+	dev_name = B->bi_bdev == NULL || B->bi_bdev->bd_dev  == NULL ? "nfs" :
 	    stringof(`major_names[getmajor(B->bi_bdev->bd_dev) % 255]->name);
-	dev_statname = B->bi_bdev->bd_dev == NULL ? "nfs" :
-	    B->bi_bdev->bd_part->partno == 0 ?
+	dev_statname = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ?
+	    "nfs" : B->bi_bdev->bd_part->partno == 0 ?
 	    stringof(B->bi_bdev->bd_disk->disk_name)
 	    : strjoin(stringof(B->bi_bdev->bd_disk->disk_name),
 	    lltostr(B->bi_bdev->bd_part->partno));
-	dev_pathname = B->bi_bdev->bd_dev == NULL ? "<nfs>" : "<unknown>";
+	dev_pathname = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ?
+	    "<nfs>" : "<unknown>";
 };
 
 typedef struct fileinfo {
