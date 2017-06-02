@@ -62,7 +62,6 @@ load_modules()
             fi
 
             DTRACE_MODULES_CONF="$(pwd)/$test_modules" DTRACE_DEBUG= $dt -qn 'BEGIN { exit(0); }' >/dev/null
-            unset LD_LIBRARY_PATH
 
             comm -13 \
                  <(lsmod | awk '{print $1}' | sort -u) \
@@ -72,14 +71,16 @@ load_modules()
                 cat $tmpdir/failed-modules >&2
                 exit 1
             fi
+
+            # Write out a list of loaded providers.
+            DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
+
+            unset LD_LIBRARY_PATH
             break
         done
     else
         echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
     fi
-
-    # Write out a list of loaded providers.
-    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
 }
 
 unload_modules()
