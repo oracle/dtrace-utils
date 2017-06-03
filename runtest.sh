@@ -1128,12 +1128,12 @@ for dt in $dtrace; do
         fi
 
         if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
-            eflag=
-            if [[ -z $trigger ]]; then
-                eflag=-e
-            fi
             case $progtype in
-                d) this_noexec=t
+                d) eflag=
+                   if [[ -z $trigger ]]; then
+                        eflag=-e
+                        this_noexec=t
+                   fi
                    run_with_timeout $timeout $run $dt_flags $eflag > $testout 2> $testerr;;
                 shell) run_with_timeout $timeout $run > $testout 2> $testerr;;
                 c) run_with_timeout $timeout $run > $testout 2> $testerr;;
