@@ -29,7 +29,6 @@
  * resolve to a symbol.
  */
 
-/* @@xfail: bug 26025761 is unfixed */
 
 #include <stdio.h>
 #include <string.h>
