@@ -1131,6 +1131,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
 	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
 	    (strcmp(sym_name, "__per_cpu_end") == 0) ||
+	    (strcmp(sym_name, "irq_stack_union") == 0) || 
 	    (strstarts(sym_name, "__crc_")) ||
 	    (strstarts(sym_name, "__ksymtab_")) ||
 	    (strstarts(sym_name, "__kcrctab_")) ||
@@ -1169,6 +1170,8 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 		}
 	}
 #undef strstarts
+	if(!dmp)
+		return 0;
 
 	/*
 	 * Add this symbol to the module's kernel symbol table.
