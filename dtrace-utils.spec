@@ -81,7 +81,7 @@ replacements for dtrace(1) itself.
 # (erroneous) deps to nonexistent packages.
 %package testsuite
 Summary:      DTrace testsuite.
-Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} dtrace-modules-shared-headers > 0.6.0 module-init-tools perl gcc java %{perl_io_socket_ip}
+Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} dtrace-modules-shared-headers > 0.6.0 module-init-tools dtrace-utils-devel = %{version}-%{release} perl gcc java %{perl_io_socket_ip}
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
