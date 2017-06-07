@@ -59,7 +59,7 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-shared-headers > 0.6.0
+Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-shared-headers > 0.6.0 elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Group:	      Development/System
 
