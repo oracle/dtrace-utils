@@ -1,6 +1,7 @@
 *
 !Build
 !*.[cdh]
+!*.java
 !longsleep
 !execloop
 !.gitignore
