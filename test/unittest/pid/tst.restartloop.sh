@@ -21,12 +21,12 @@
 #
 
 #
-# Copyright 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2014, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
-# @@runtest-opts: $_pid
-# @@trigger: -p execloop
+# @@runtest-opts: -p $_pid
+# @@trigger: execloop
 # @@trigger-timing: after
 # @@skip: until the pid provider is implemented
 
