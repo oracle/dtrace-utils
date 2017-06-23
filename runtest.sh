@@ -1127,6 +1127,8 @@ for dt in $dtrace; do
             fi
         fi
 
+        tst=$base
+        export tst
         if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
             case $progtype in
                 d) eflag=
