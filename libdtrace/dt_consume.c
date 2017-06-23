@@ -909,7 +909,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	uint64_t *pc = ((uint64_t *)addr) + 1;
 	uint32_t depth = DTRACE_USTACK_NFRAMES(arg);
 	uint32_t strsize = DTRACE_USTACK_STRSIZE(arg);
-	const char *strbase = addr + (depth + 1) * sizeof (uint64_t);
+	const char *strbase = addr + (depth + 2) * sizeof (uint64_t);
 	const char *str = strsize ? strbase : NULL;
 	int err = 0;
 
