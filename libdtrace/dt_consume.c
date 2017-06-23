@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009, 20111--2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2011--2014, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -665,7 +665,7 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 
 		if (i == 0) {
 			(void) snprintf(c, sizeof (c), "< %d",
-			    base / (uint32_t)normal);
+			    base);
 			err = dt_printf(dtp, fp, "%16s ", c);
 		} else if (i == levels + 1) {
 			(void) snprintf(c, sizeof (c), ">= %d",
