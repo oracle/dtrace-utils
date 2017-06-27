@@ -20,14 +20,8 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2006, 2017, Oracle and/or its affiliates. All rights reserved.
  */
-
-/* @@xfail: not yet ported */
-
-#pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
 
 /*
  * ASSERTION: Fbt provider return value verify test.
@@ -38,7 +32,7 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::ioctl:return
+fbt::SyS_ioctl:return
 {
 	printf("The function return value is stored in %u\n", arg1);
 	exit(0);
