@@ -20,14 +20,8 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2006, 2017, Oracle and/or its affiliates. All rights reserved.
  */
-
-/* @@xfail: not yet ported */
-
-#pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
 
 /*
  * ASSERTION: FBT provider function entry and exit test.
@@ -38,12 +32,12 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::ioctl:entry
+fbt::SyS_ioctl:entry
 {
 	printf("Entering the ioctl function\n");
 }
 
-fbt::ioctl:return
+fbt::SyS_ioctl:return
 {
 	printf("Returning from ioctl function\n");
 	exit(0);

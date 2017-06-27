@@ -20,14 +20,8 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2006, 2017, Oracle and/or its affiliates.  All rights reserved.
  */
-
-/* @@xfail: not yet ported */
-
-#pragma	ident	"%Z%%M%	%I%	%E% SMI"
-
 
 /*
  * ASSERTION: simple fbt provider arg0 and probfunc print test.
@@ -38,7 +32,7 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::ioctl:return
+fbt::SyS_ioctl:return
 /arg1 == 0/
 {
 	printf("%s %x returned 0", probefunc, arg0);
