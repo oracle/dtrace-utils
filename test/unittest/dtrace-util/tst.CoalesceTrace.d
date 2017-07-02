@@ -20,11 +20,8 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2006, 2017, Oracle and/or its affiliates. All rights reserved.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
  *
@@ -41,7 +38,6 @@
  */
 
 /* @@runtest-opts: -F */
-/* @@xfail: fbt provider not yet implemented */
 
 BEGIN
 {
@@ -55,7 +51,7 @@ syscall::read:
 	printf("syscall: %d\n", i++);
 }
 
-fbt:genunix:read:
+fbt:vmlinux:SyS_read:
 {
 	printf("fbt: %d\n", j++);
 }
@@ -63,4 +59,10 @@ fbt:genunix:read:
 profile:::tick-10sec
 {
 	printf("profile: %d\n", k++);
+}
+
+profile:::tick-10sec
+/ i > 0 && j > 0 && k > 3 /
+{
+	exit(0);
 }
