@@ -39,7 +39,7 @@ $(if $(subst sparc64,,$(subst x86_64,,$(shell uname -m))), \
 $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
 
-CFLAGS ?= -O2 -g -Wall -pedantic -Wno-unknown-pragmas
+CFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)

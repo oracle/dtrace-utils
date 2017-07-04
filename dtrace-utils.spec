@@ -99,7 +99,6 @@ it always tests the installed DTrace.
 
 %build
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )"
-strip --strip-unneeded build/dtrace build/libdtrace.so*
 
 # Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
 # and the testsuite requires debuginfo for proper operation.
