@@ -2419,6 +2419,8 @@ Pread(struct ps_prochandle *P,
 		long *rbuf;
 
 		size_t len = nbyte + (address - saddr);
+		if (len % sizeof (long) != 0)
+			len += sizeof (long) - (len % sizeof (long));
 
 		rbuf = malloc(len);
 		if (!rbuf)
@@ -2439,13 +2441,13 @@ Pread(struct ps_prochandle *P,
 		errno = 0;
 		for (i = 0, sz = 0; sz < len; i++, sz += sizeof (long)) {
 			long data = wrapped_ptrace(P, PTRACE_PEEKDATA, P->pid,
-			    address + sz, NULL);
+			    saddr + sz, NULL);
 			if (errno != 0)
 				break;
 			rbuf[i] = data;
 		}
 
-		nbyte = (sz > len) ? len : sz - (address - saddr);
+		nbyte = (sz > nbyte) ? nbyte : sz;
 
 		memcpy(buf, rbuf + (address - saddr), nbyte);
 		free(rbuf);
