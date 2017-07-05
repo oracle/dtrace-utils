@@ -654,8 +654,8 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 { DTRACE_STABILITY_UNSTABLE, DTRACE_STABILITY_UNSTABLE, DTRACE_CLASS_COMMON },
 };
 
-static const char *_dtrace_defcpp = "/usr/bin/cpp"; /* default cpp(1) to invoke */
-static const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke */
+static const char *_dtrace_defcpp = "cpp"; /* default cpp(1) to invoke */
+static const char *_dtrace_defld = "ld";   /* default ld(1) to invoke */
 static const char *_dtrace_defproc = "/proc";   /* default /proc path */
 static const char *_dtrace_defsysslice = ":/system.slice/"; /* default systemd
 							       system slice */
