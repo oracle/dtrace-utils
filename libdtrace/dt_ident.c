@@ -51,19 +51,33 @@ dt_idcook_sign(dt_node_t *dnp, dt_ident_t *idp,
     int argc, dt_node_t *args, const char *prefix, const char *suffix)
 {
 	dt_idsig_t *isp = idp->di_data;
-	int i, compat, mismatch, arglimit, iskey;
-
-	char n1[DT_TYPE_NAMELEN];
-	char n2[DT_TYPE_NAMELEN];
+	int i, mismatch, arglimit, iskey, cmp = 0;
 
 	iskey = idp->di_kind == DT_IDENT_ARRAY || idp->di_kind == DT_IDENT_AGG;
 
+	/*
+	 * Check the number of arguments.  If there is a mismatch:
+	 *   - cmp should be set to indicate "", "at least", or "at most"
+	 *   - arglimit should be the expected number of arguments
+	 * Otherwise, arglimit should be the number of arguments to check.
+	 */
 	if (isp->dis_varargs >= 0) {
 		mismatch = argc < isp->dis_varargs;
 		arglimit = isp->dis_varargs;
+		cmp = +1;
 	} else if (isp->dis_optargs >= 0) {
-		mismatch = (argc < isp->dis_optargs || argc > isp->dis_argc);
-		arglimit = argc;
+		if (argc < isp->dis_optargs) {
+			mismatch = 1;
+			cmp = +1;
+			arglimit = isp->dis_optargs;
+		} else if (argc > isp->dis_argc) {
+			mismatch = 1;
+			cmp = -1;
+			arglimit = isp->dis_argc;
+		} else {
+			mismatch = 0;
+			arglimit = argc;
+		}
 	} else {
 		mismatch = argc != isp->dis_argc;
 		arglimit = isp->dis_argc;
@@ -73,24 +87,29 @@ dt_idcook_sign(dt_node_t *dnp, dt_ident_t *idp,
 		xyerror(D_PROTO_LEN, "%s%s%s prototype mismatch: %d %s%s"
 		    "passed, %s%d expected\n", prefix, idp->di_name, suffix,
 		    argc, iskey ? "key" : "arg", argc == 1 ? " " : "s ",
-		    isp->dis_optargs >= 0 ? "at least " : "",
-		    isp->dis_optargs >= 0 ? isp->dis_optargs : arglimit);
+		    cmp > 0 ? "at least " : (cmp < 0 ? "at most " : ""),
+		    arglimit);
 	}
 
+	/*
+	 * Now check the argument types.
+	 */
 	for (i = 0; i < arglimit; i++, args = args->dn_list) {
+		int compat;
 		if (isp->dis_args[i].dn_ctfp != NULL)
 			compat = dt_node_is_argcompat(&isp->dis_args[i], args);
 		else
 			compat = 1; /* "@" matches any type */
 
 		if (!compat) {
+			char n1[DT_TYPE_NAMELEN];
+			char n2[DT_TYPE_NAMELEN];
 			xyerror(D_PROTO_ARG,
 			    "%s%s%s %s #%d is incompatible with "
 			    "prototype:\n\tprototype: %s\n\t%9s: %s\n",
 			    prefix, idp->di_name, suffix,
 			    iskey ? "key" : "argument", i + 1,
-			    dt_node_type_name(&isp->dis_args[i], n1,
-			    sizeof (n1)),
+			    dt_node_type_name(&isp->dis_args[i], n1, sizeof (n1)),
 			    iskey ? "key" : "argument",
 			    dt_node_type_name(args, n2, sizeof (n2)));
 		}
