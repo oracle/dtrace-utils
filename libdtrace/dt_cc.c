@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2008 Oracle, Inc.  All rights reserved.
+ * Copyright 2008, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -686,10 +686,11 @@ dt_action_trace(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 static void
 dt_action_tracemem(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
-	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
+	dtrace_actdesc_t *ap;
 
 	dt_node_t *addr = dnp->dn_args;
 	dt_node_t *size = dnp->dn_args->dn_list;
+	dt_node_t *dsize;
 
 	char n[DT_TYPE_NAMELEN];
 
@@ -706,12 +707,35 @@ dt_action_tracemem(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "be a non-zero positive integral constant expression\n");
 	}
 
+	ap = dt_stmt_action(dtp, sdp);
 	dt_cg(yypcb, addr);
 	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_kind = DTRACEACT_DIFEXPR;
-
+	ap->dtad_kind = DTRACEACT_TRACEMEM;
 	ap->dtad_difo->dtdo_rtype.dtdt_flags |= DIF_TF_BYREF;
 	ap->dtad_difo->dtdo_rtype.dtdt_size = size->dn_value;
+
+	if ((dsize = size->dn_list) != NULL) {
+		ctf_file_t *fp = dsize->dn_ctfp;
+		ctf_id_t type = dsize->dn_type;
+		ctf_encoding_t e;
+
+		ap->dtad_arg = DTRACE_TRACEMEM_DYNAMIC;
+
+		ap = dt_stmt_action(dtp, sdp);
+		dt_cg(yypcb, dsize);
+		ap->dtad_difo = dt_as(yypcb);
+		ap->dtad_kind = DTRACEACT_TRACEMEM;
+
+		if (ctf_type_encoding(fp, ctf_type_resolve(fp, type), &e) == CTF_ERR)
+			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+
+		if (e.cte_format & CTF_INT_SIGNED)
+			ap->dtad_arg = DTRACE_TRACEMEM_SSIZE;
+		else
+			ap->dtad_arg = DTRACE_TRACEMEM_SIZE;
+	} else {
+		ap->dtad_arg = DTRACE_TRACEMEM_STATIC;
+	}
 }
 
 static void

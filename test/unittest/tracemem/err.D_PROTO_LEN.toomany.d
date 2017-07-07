@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2006 Oracle, Inc.  All rights reserved.
+ * Copyright 2006, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -35,5 +35,5 @@
 
 BEGIN
 {
-	tracemem(123, 456, 789);
+	tracemem(1, 2, 3, 4);
 }

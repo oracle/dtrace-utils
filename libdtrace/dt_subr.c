@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010, 2013, 2015 Oracle, Inc.  All rights reserved.
+ * Copyright 2010, 2013, 2015, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -900,4 +900,27 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 	dt_proc_release(dtp, &P);
 
 	return (dt_string2str(c, str, nbytes));
+}
+
+int
+dt_variable_read(caddr_t addr, size_t size, uint64_t *valp)
+{
+	switch (size) {
+	case sizeof (uint8_t):
+		*valp = *((uint8_t *)(uintptr_t)addr);
+		break;
+	case sizeof (uint16_t):
+		*valp = *((uint16_t *)(uintptr_t)addr);
+		break;
+	case sizeof (uint32_t):
+		*valp = *((uint32_t *)(uintptr_t)addr);
+		break;
+	case sizeof (uint64_t):
+		*valp = *((uint64_t *)(uintptr_t)addr);
+		break;
+	default:
+		return (-1);
+	}
+
+	return (0);
 }

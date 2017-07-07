@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2007, 2011 -- 2014 Oracle, Inc.  All rights reserved.
+ * Copyright 2007, 2011 -- 2014, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -216,6 +216,18 @@ extern int dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 #define	DTRACE_STATUS_STOPPED	4	/* tracing already stopped */
 
 extern int dtrace_status(dtrace_hdl_t *dtp);
+
+/*
+ * DTrace returns the results of a single tracemem() invocation in either one or
+ * two consecutive DTRACEACT_TRACEMEM records.  The first contains the buffer
+ * itself;  the second, if present, contains the value of a dynamic size
+ * specified by the user.  The records may be differentiated by their arguments,
+ * which take the following possible values:
+ */
+#define	DTRACE_TRACEMEM_STATIC	1	/* buffer; no dynamic size */
+#define	DTRACE_TRACEMEM_DYNAMIC	2	/* buffer; dynamic size follows */
+#define	DTRACE_TRACEMEM_SIZE	3	/* dynamic size (unsigned) */
+#define	DTRACE_TRACEMEM_SSIZE	4	/* dynamic size (signed) */
 
 /*
  * DTrace Formatted Output Interfaces

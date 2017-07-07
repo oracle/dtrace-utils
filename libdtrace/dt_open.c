@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2003, 2010 -- 2015 Oracle and/or its affiliates.
+ * Copyright (c) 2003, 2010 -- 2015, 2017 Oracle and/or its affiliates.
  * All rights reserved.
  */
 
@@ -389,7 +389,7 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(@)" },
 { "tracemem", DT_IDENT_ACTFUNC, 0, DT_ACT_TRACEMEM,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void(@, size_t)" },
+	&dt_idops_func, "void(@, size_t, [size_t])" },
 { "trunc", DT_IDENT_ACTFUNC, 0, DT_ACT_TRUNC, DT_ATTR_STABCMN,
 	DT_VERS_1_0, &dt_idops_func, "void(...)" },
 { "uaddr", DT_IDENT_ACTFUNC, 0, DT_ACT_UADDR, DT_ATTR_STABCMN,

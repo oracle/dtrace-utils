@@ -708,6 +708,55 @@ dt_print_stddev(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	    (unsigned long long) dt_stddev(data, normal) : 0));
 }
 
+static int
+dt_print_rawbytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, size_t nbytes)
+{
+	int i, j, margin = 5;
+	char *c = (char *)addr;
+
+	if (nbytes == 0)
+		return (0);
+
+	if (dt_printf(dtp, fp, "\n%*s      ", margin, "") < 0)
+		return (-1);
+
+	for (i = 0; i < 16; i++)
+		if (dt_printf(dtp, fp, "  %c", "0123456789abcdef"[i]) < 0)
+			return (-1);
+
+	if (dt_printf(dtp, fp, "  0123456789abcdef\n") < 0)
+		return (-1);
+
+	for (i = 0; i < nbytes; i += 16) {
+		if (dt_printf(dtp, fp, "%*s%5x:", margin, "", i) < 0)
+			return (-1);
+
+		for (j = i; j < i + 16 && j < nbytes; j++) {
+			if (dt_printf(dtp, fp, " %02x", (uchar_t)c[j]) < 0)
+				return (-1);
+		}
+
+		while (j++ % 16) {
+			if (dt_printf(dtp, fp, "   ") < 0)
+				return (-1);
+		}
+
+		if (dt_printf(dtp, fp, "  ") < 0)
+			return (-1);
+
+		for (j = i; j < i + 16 && j < nbytes; j++) {
+			if (dt_printf(dtp, fp, "%c",
+			    c[j] < ' ' || c[j] > '~' ? '.' : c[j]) < 0)
+				return (-1);
+		}
+
+		if (dt_printf(dtp, fp, "\n") < 0)
+			return (-1);
+	}
+
+	return (0);
+}
+
 /*ARGSUSED*/
 int
 dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
@@ -718,14 +767,14 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	 * a terminating byte, we print it out as a string.  Otherwise, we
 	 * assume that it's something else and just print the bytes.
 	 */
-	int i, j, margin = 5;
+	int i, j;
 	char *c = (char *)addr;
 
 	if (nbytes == 0)
 		return (0);
 
 	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
-		goto raw;
+		return (dt_print_rawbytes(dtp, fp, addr, nbytes));
 
 	for (i = 0; i < nbytes; i++) {
 		/*
@@ -780,46 +829,56 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 		return (dt_printf(dtp, fp, "  %-*s", width, s));
 	}
 
-raw:
-	if (dt_printf(dtp, fp, "\n%*s      ", margin, "") < 0)
-		return (-1);
+        /* print the bytes raw */
+        return (dt_print_rawbytes(dtp, fp, addr, nbytes));
+}
 
-	for (i = 0; i < 16; i++)
-		if (dt_printf(dtp, fp, "  %c", "0123456789abcdef"[i]) < 0)
-			return (-1);
+static int
+dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
+    uint_t nrecs, const caddr_t buf)
+{
+	uint64_t arg = rec->dtrd_arg;
+	caddr_t addr = buf + rec->dtrd_offset;
+	size_t size = rec->dtrd_size;
+	unsigned int nconsumed = 1;
 
-	if (dt_printf(dtp, fp, "  0123456789abcdef\n") < 0)
-		return (-1);
+	if (arg == DTRACE_TRACEMEM_DYNAMIC) {
+		const dtrace_recdesc_t *drec;
+		uint64_t darg;
+		caddr_t daddr;
+		uint64_t dsize;
+		int dpositive;
 
+		if (nrecs < 2)
+			return (dt_set_errno(dtp, EDT_TRACEMEM));
 
-	for (i = 0; i < nbytes; i += 16) {
-		if (dt_printf(dtp, fp, "%*s%5x:", margin, "", i) < 0)
-			return (-1);
+		drec = rec + 1;
+		darg = drec->dtrd_arg;
+		daddr = buf + drec->dtrd_offset;
 
-		for (j = i; j < i + 16 && j < nbytes; j++) {
-			if (dt_printf(dtp, fp, " %02x", (uchar_t)c[j]) < 0)
-				return (-1);
-		}
+		if (drec->dtrd_action != DTRACEACT_TRACEMEM ||
+		    (darg != DTRACE_TRACEMEM_SIZE &&
+		    darg != DTRACE_TRACEMEM_SSIZE))
+			return (dt_set_errno(dtp, EDT_TRACEMEM));
 
-		while (j++ % 16) {
-			if (dt_printf(dtp, fp, "   ") < 0)
-				return (-1);
-		}
+		if (dt_variable_read(daddr, drec->dtrd_size, &dsize) < 0)
+			return (dt_set_errno(dtp, EDT_TRACEMEM));
 
-		if (dt_printf(dtp, fp, "  ") < 0)
-			return (-1);
+		dpositive = drec->dtrd_arg == DTRACE_TRACEMEM_SIZE ||
+		    (dsize & (1 << drec->dtrd_size * NBBY - 1)) == 0;
 
-		for (j = i; j < i + 16 && j < nbytes; j++) {
-			if (dt_printf(dtp, fp, "%c",
-			    c[j] < ' ' || c[j] > '~' ? '.' : c[j]) < 0)
-				return (-1);
-		}
+		if (dpositive && dsize < size)
+			size = (size_t)dsize;
 
-		if (dt_printf(dtp, fp, "\n") < 0)
-			return (-1);
+		nconsumed++;
+	} else if (arg != DTRACE_TRACEMEM_STATIC) {
+		return (dt_set_errno(dtp, EDT_TRACEMEM));
 	}
 
-	return (0);
+	if (dt_print_rawbytes(dtp, fp, addr, size) < 0)
+		return (-1);
+
+	return (nconsumed);
 }
 
 int
@@ -1916,6 +1975,18 @@ nofmt:
 				}
 
 				dt_free(dtp, aggvars);
+				goto nextrec;
+			}
+
+			if (act == DTRACEACT_TRACEMEM) {
+				n = dt_print_tracemem(dtp, fp, rec,
+				    epd->dtepd_nrecs - i,
+				    buf->dtbd_data + offs);
+
+				if (n < 0)
+					return (-1); /* errno is set for us */
+
+				i += n - 1;
 				goto nextrec;
 			}
 

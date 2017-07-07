@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009, 2012 Oracle, Inc.  All rights reserved.
+ * Copyright 2009, 2012, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -108,7 +108,8 @@ static const struct {
 	{ EDT_CORRUPT_KALLSYMS, "/proc/kallsyms corrupt, perhaps due to "
 	  "concurrent module unload" },
 	{ EDT_ELFCLASS, "Unknown ELF class, neither 32- nor 64-bit" },
-	{ EDT_OBJIO, "Cannot read object file or modules.dep" }
+	{ EDT_OBJIO, "Cannot read object file or modules.dep" },
+	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" }
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);

@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2010 -- 2013 Oracle, Inc.  All rights reserved.
+ * Copyright 2010 -- 2013, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -542,7 +542,8 @@ enum {
 	EDT_ENABLING_ERR,	/* failed to enable probe */
 	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
 	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
-	EDT_OBJIO		/* cannot read object file or module name mapping */
+	EDT_OBJIO,		/* cannot read object file or module name mapping */
+	EDT_TRACEMEM		/* missing or corrupt tracemem() record */
 };
 
 /*
@@ -656,6 +657,8 @@ extern int dt_handle_setopt(dtrace_hdl_t *, dtrace_setoptdata_t *);
 
 extern int dt_lib_depend_add(dtrace_hdl_t *, dt_list_t *, const char *);
 extern dt_lib_depend_t *dt_lib_depend_lookup(dt_list_t *, const char *);
+
+extern int dt_variable_read(caddr_t, size_t, uint64_t *);
 
 extern dt_pcb_t *yypcb;		/* pointer to current parser control block */
 extern char yyintprefix;	/* int token prefix for macros (+/-) */
