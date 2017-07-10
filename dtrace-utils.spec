@@ -179,8 +179,21 @@ fi
 
 %changelog
 * Fri Jul 17 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
+- Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
+  [Orabug: 26261502]
+- Fix wrong depth in dtrace_print_ustack() leading to garbage output
+  from jstack() (Eugene Loh) [Orabug: 26045010]
 - Do not build DTrace with debug info by default [Orabug: 26389302]
-- Test fixes and new tests.
+- Fix spurious errors and misreading of unaligned data on SPARC,
+  breaking ustack() etc with upgraded glibc (Nick Alcock)
+  [Orabug: 26378141]
+- Search for cpp and ld along the PATH, fixing use of dtrace -C with
+  devtoolset-6 and other non-default GCCs (Nick Alcock) [Orabug: 26396530]
+- Test fixes, test harness extensions (consumer tests) and new tests.
+- dtrace-utils-devel now depends on elfutils-libelf-devel.
+  (Nick Alcock)
+- dtrace-utils-testsuite now depends on dtrace-devel.
+  (Nick Alcock) [Orabug: 26415697]
 
 * Thu May 25 2017 - <nick.alcock@oracle.com> - 0.6.1-1
 - Add translators and tests for TCP and UDP (Alan Maguire)

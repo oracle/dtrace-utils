@@ -35,6 +35,28 @@ Bugfixes:
     bitfields still do not work, notably those crossing machine word
     boundaries.
 
+  - dtrace_print_lquantize() no longer normalizes the name of the lowest
+    bucket, only the bucket contents (as intended).
+
+  - jstack() was fetching data from the wrong offset, leading to garbage
+    output at the start of the stack dump.
+
+  - Reading of unaligned data from high addresses in traced processes
+    was failing.  In practice only SPARC has any data at addresses high
+    enough to cause this, and most of the accesses done are aligned: but
+    the machinery that adjusts to changes in glibc's internal data
+    structures was broken, leading to failures to look up symbols after
+    certain glibc upgrades.
+
+  - dtrace -C and -G now search for cpp and ld along the PATH rather than
+    defaulting to /usr/bin/cpp and /usr/bin/ld, fixing failures with
+    compilers in non-default locations, like the Software Collections
+    devtoolset packages.
+
+  - dtrace-utils-devel now requires elfutils-libelf-devel.  (This
+    dependency was always present in practice but was mistakenly omitted
+    until now.)
+
 0.6.0
 -----
 
