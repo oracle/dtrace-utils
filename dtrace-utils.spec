@@ -178,7 +178,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Fri Jul 17 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
+* Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
 - Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
   [Orabug: 26261502]
 - Fix wrong depth in dtrace_print_ustack() leading to garbage output
