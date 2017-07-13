@@ -187,6 +187,8 @@ fi
 - Fix spurious errors and misreading of unaligned data on SPARC,
   breaking ustack() etc with upgraded glibc (Nick Alcock)
   [Orabug: 26378141]
+  - Translator changes for the IO provider for NFS (Nicolas Droux)
+  [Orabug: 26176938]
 - Search for cpp and ld along the PATH, fixing use of dtrace -C with
   devtoolset-6 and other non-default GCCs (Nick Alcock) [Orabug: 26396530]
 - Test fixes, test harness extensions (consumer tests) and new tests.
@@ -198,7 +200,7 @@ fi
 * Thu May 25 2017 - <nick.alcock@oracle.com> - 0.6.1-1
 - Add translators and tests for TCP and UDP (Alan Maguire)
   [Orabug: 25815242]
-- Add translators for the IO provider (Nicolas Droux) [XXX]
+- Add translators for the IO provider (Nicolas Droux) [Orabug: 25816562]
 - Add link_ntop() and tests for it (Girish Moodalbail)
   [Orabug: 25931511]
 - sched.d no longer depends on the sched provider [Orabug: 26036143]

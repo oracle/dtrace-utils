@@ -19,7 +19,7 @@ New features:
 
   - The IO provider has been completely rewritten and is dramatically
     improved, with support for most local filesystems and explicit
-    support for XFS.
+    support for XFS and NFS.
 
 Bugfixes:
 
