@@ -6,7 +6,8 @@ if (( $? != 0 )); then
         exit 1
 fi
 
-if ! perl -MIO::Socket::IP -e 'exit(0);' 2>/dev/null; then
+if ! perl -MIO::Socket -e 'exit(0);' 2>/dev/null; then
+	echo "No IO::Socket"
 	exit 1
 fi
 exit 0
