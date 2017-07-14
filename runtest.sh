@@ -840,6 +840,10 @@ for dt in $dtrace; do
         # @@timeout-success: If present, this means that a timeout is
         #                    considered a test pass, not a test failure.
         #
+        # @@deadman-success: If present, this means that a deadman timer
+        #                    firing is considered a test pass, not a test
+        #                    failure.
+        #
         # @@trigger: A single line containing the name of a program in
         #            test/triggers which is executed after dtrace is started.
         #            When this program exits, dtrace will be killed.  If the
@@ -1214,6 +1218,16 @@ for dt in $dtrace; do
         if grep -q "Cannot allocate memory" $testout $testerr; then
             xfailmsg="out of memory"
 
+            if [[ $expected_exitcode -eq 0 ]]; then
+                xfail=t
+            fi
+        fi
+
+        # If deadman-success is on, then a deadman timer firing turns
+        # a test into an XFAIL.
+        if grep -q "Abort due to systemic unresponsiveness" $testerr &&
+            [[ "x$(extract_options deadman-success $_test)" != "x" ]]; then
+            testmsg="(expected) systemic unresponsiveness"
             if [[ $expected_exitcode -eq 0 ]]; then
                 xfail=t
             fi

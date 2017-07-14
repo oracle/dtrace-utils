@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 
-/* @@xfail: fbt provider not yet implemented */
+/* @@xfail: not yet ported */
 
 /*
  * Copyright 2006 Oracle, Inc.  All rights reserved.

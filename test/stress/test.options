@@ -1,0 +1,3 @@
+@@timeout: 600
+@@timeout-success: t
+@@deadman-success: t
