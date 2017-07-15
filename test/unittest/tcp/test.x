@@ -6,8 +6,9 @@ if (( $? != 0 )); then
         exit 1
 fi
 
-if ! perl -MIO::Socket -e 'exit(0);' 2>/dev/null; then
-	echo "No IO::Socket"
+if grep -qF ../ip/client.ip.pl $_test &&
+   ! perl -MIO::Socket::IP -e 'exit(0);' 2>/dev/null; then
+	echo "No IO::Socket::IP"
 	exit 1
 fi
 exit 0
