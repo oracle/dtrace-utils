@@ -26,6 +26,8 @@
 #
 # ident	"%Z%%M%	%I%	%E% SMI"
 
+# @@skip: on release branch: erratic
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
