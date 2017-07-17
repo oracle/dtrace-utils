@@ -27,7 +27,7 @@
 #
 
 #
-# Copyright 2013, 2014 Oracle, Inc.  All rights reserved.
+# Copyright 2013, 2014, 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -63,8 +63,7 @@ load_modules && exit 0
 # a while to time out if the network is not up.
 
 echo "Downloading DTrace module..." >&2
-yum install -q -y dtrace-modules-$(uname -r) || \
-    yum install -q -y dtrace-modules-next-$(uname -r)
+yum install -q -y dtrace-modules-$(uname -r)
 
 # One last try to modprobe.
 
