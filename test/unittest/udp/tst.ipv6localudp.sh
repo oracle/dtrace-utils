@@ -21,11 +21,6 @@
 #
 # 1 x ip:::send (UDP sent)
 # 1 x ip:::receive (UDP received)
-#
-# Ensure timeout (which would kill client) does not leave server.udp.pl
-# hanging around; allow plenty of time for test to run.
-#
-# @@timeout: 500
 
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
