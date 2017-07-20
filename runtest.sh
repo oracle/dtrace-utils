@@ -313,6 +313,8 @@ extract_options()
     done
 }
 
+DEFAULT_TIMEOUT=41
+
 usage()
 {
     cat <<EOF
@@ -321,8 +323,11 @@ $0 -- testsuite engine for DTrace
 Usage: runtest options [TEST ...]
 
 Options:
- --timeout=TIME: Time out test runs after TIME seconds (default 10).
-                 (May cause many test failures if lowered.)
+ --timeout=TIME: Time out test runs after TIME seconds (default
+                 $DEFAULT_TIMEOUT). (May cause many test failures if lowered.)
+ --skip-longer[=TIME]: Skip all tests with expected timeouts longer than
+                       TIME (if not specified, $DEFAULT_TIMEOUT or whatever is
+                       specified by --timeout, whichever is longer).
  --ignore-timeouts: Treat all timeouts as not being failures.  (For use when
                     testing under load.)
  --testsuites=SUITES: Which testsuites (directories under test/) to run,
@@ -361,6 +366,7 @@ USE_INSTALLED=${DTRACE_TEST_USE_INSTALLED:+t}
 VALGRIND=${DTRACE_TEST_VALGRIND:+t}
 COMPARISON=t
 LOAD_MODULES_ONLY=
+SKIP_LONGER=
 
 if [[ -n $DTRACE_TEST_TESTSUITES ]]; then
     TESTSUITES="${DTRACE_TEST_TESTSUITES}"
@@ -375,7 +381,7 @@ QUIET=
 if [[ -n $DTRACE_TEST_TIMEOUT ]]; then
     TIMEOUT="$DTRACE_TEST_TIMEOUT"
 else
-    TIMEOUT=41
+    TIMEOUT=$DEFAULT_TIMEOUT
 fi
 IGNORE_TIMEOUTS=${DTRACE_TEST_IGNORE_TIMEOUTS:+t}
 
@@ -398,6 +404,8 @@ while [[ $# -gt 0 ]]; do
         --no-use-installed) USE_INSTALLED=;;
         --timeout=*) TIMEOUT="$(printf -- $1 | cut -d= -f2-)";;
         --ignore-timeouts) IGNORE_TIMEOUTS=t;;
+	--skip-longer) SKIP_LONGER=$TIMEOUT;;
+	--skip-longer=*) SKIP_LONGER="$(printf -- $1 | cut -d= -f2-)";;
         --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -964,6 +972,13 @@ for dt in $dtrace; do
                     timeout=$((timeout * 10))
                 fi
             fi
+        fi
+
+        # Timeout-based skipping.
+
+        if [[ -n $SKIP_LONGER ]] && [[ $timeout -gt $SKIP_LONGER ]]; then
+            sum "$_test: SKIP: would take too long\n"
+            continue
         fi
 
         # Note if this is expected to fail.
