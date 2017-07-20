@@ -20,7 +20,7 @@
 #
 # CDDL HEADER END
 #
-# Copyright 2011 -- 2015 Oracle, Inc.  All rights reserved.
+# Copyright 2011 -- 2017 Oracle, Inc.  All rights reserved.
 # Use is subject to license terms.
 
 # Core testing targets, running the DTrace testsuite runner runtest.sh.
@@ -61,6 +61,10 @@ help::
 	@printf "check-stress                   Run testsuites while the system is under stress.\n" >&2
 	@printf "check-installed-stress         Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose-stress Report successes too.\n" >&2
+	@printf "check-quick                    Run tests that take only a short time.\n" >&2
+	@printf "check-verbose-quick            Report successes too.\n" >&2
+	@printf "check-installed-quick          Quickly check the installed DTrace.\n" >&2
+	@printf "check-installed-verbose-quick  Report successes too.\n" >&2
 	@printf "check-module-loading           Check that all modules load.\n" >&2
 	@printf "check-installed-module-loading Check that all modules load, using\n">&2
 	@printf "                               the installed DTrace for autoinstallation.\n" >&2
@@ -74,7 +78,7 @@ check: RUNTESTFLAGS+=--quiet
 check-verbose: all $(load_dtrace_modules) $(git_version)
 	$(RUNTEST) $(RUNTESTFLAGS)
 
-check-installed check-installed-stress check-installed-verbose check-installed-verbose-stress:
+check-installed check-installed-stress check-installed-quick check-installed-verbose check-installed-verbose-stress check-installed-verbose-quick:
 	$(MAKE) _DTRACE_CHECK_INSTALLED=t DTRACE=/usr/sbin/dtrace $@-internal
 
 check-installed-internal: check-installed-verbose-internal
@@ -89,11 +93,23 @@ check-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 check-verbose-stress: check-verbose
 check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 
+check-quick: check
+check-quick: RUNTESTFLAGS+=--skip-longer
+
+check-verbose-quick: check-verbose
+check-verbose-quick: RUNTESTFLAGS+=--skip-longer
+
 check-installed-stress-internal: check-installed-internal
 check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
 
 check-installed-verbose-stress-internal: check-installed-verbose-internal
 check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
+
+check-installed-quick-internal: check-installed-internal
+check-installed-quick-internal: RUNTESTFLAGS+=--skip-longer
+
+check-installed-verbose-quick-internal: check-installed-verbose-internal
+check-installed-verbose-quick-internal: RUNTESTFLAGS+=--skip-longer
 
 # QA targets.
 
@@ -143,8 +159,9 @@ check-probe-all-syscalls-internal:
 
 PHONIES += check check-verbose check-installed check-installed-verbose
 PHONIES += check-stress check-verbose-stress check-installed-stress
-PHONIES += check-installed-verbose-stress check-module-loading
-PHONIES += check-installed-module-loading
+PHONIES += check-installed-verbose-stress check-quick check-verbose-quick
+PHONIES += check-verbose-quick check-installed-quick check-installed-verbose-quick
+PHONIES += check-module-loading check-installed-module-loading
 PHONIES += check-probe-all-syscalls check-installed-probe-all-syscalls
 PHONIES += check-probe-all-syscalls-internal
 PHONIES += check-installed-internal check-installed-stress-internal
