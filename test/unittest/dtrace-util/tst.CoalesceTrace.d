@@ -38,6 +38,7 @@
  */
 
 /* @@runtest-opts: -F */
+/* @@timeout: 70 */
 
 BEGIN
 {
