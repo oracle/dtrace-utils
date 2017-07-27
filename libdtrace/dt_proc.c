@@ -644,9 +644,12 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 
 	dpr->dpr_proxy_rq = proxy_rq;
 
+	/*
+	 * We may have blocked on lock acquisition while a process termination
+	 * is under way.  Note this.
+	 */
 	if (dpr->dpr_done) {
-		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe, "
-		    "control thread is dead\n");
+		errno = ESRCH;
 		return(-1);
 	}
 
@@ -663,7 +666,8 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 
 	dpr->dpr_lock_holder = pthread_self();
 
-	if (exec_retry && dpr->dpr_proxy_exec_retry && *unwinder_pad)
+	if (!dpr->dpr_done && exec_retry && dpr->dpr_proxy_exec_retry &&
+	    *unwinder_pad)
 		longjmp(*unwinder_pad, dpr->dpr_proxy_exec_retry);
 
 	errno = dpr->dpr_proxy_errno;
@@ -1259,9 +1263,9 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 static void
 dt_proc_control_cleanup(void *arg)
 {
-	int proc_existed = 0;
 	int suiciding = 0;
 	dt_proc_t *dpr = arg;
+	pid_t pid;
 
 	/*
 	 * Blank out the unwinder pad. Even if an exec() is detected at this
@@ -1298,45 +1302,18 @@ dt_proc_control_cleanup(void *arg)
 		dt_proc_dpr_lock(dpr);
 
 	/*
-	 * This is the controlling variable for dpr_cv, so we must change it under
-	 * the lock, even though we're not really *done* yet.  (The broadcast which
-	 * sets everyone else going is at function's end.)
-	 */
-	dpr->dpr_done = B_TRUE;
-
-	/*
-	 * Only release this process if it was invasively traced. A
-	 * noninvasively traced process's control thread will suicide while the
-	 * process is still alive.
+	 * Proxy cleanup.
 	 *
-	 * This may do an unlock to unwind any active Ptrace() locking, so we
-	 * may have to unlock, or may not.  We check the lock count afterwards
-	 * to be sure, and force-unlock by resetting the count to 1 and then
-	 * unlocking if need be.
-	 *
-	 * The unlock checks dpr_tid to figure out which lock count to adjust,
-	 * so tell unlocking (no matter what route it's called by) that we're
-	 * done and should null out the dpr_tid.
-	 */
-        dpr->dpr_ending = 1;
-	if (dpr->dpr_proc && !suiciding) {
-		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
-		    PS_RELEASE_NORMAL);
-		proc_existed = 1;
-	}
-
-	if (dpr->dpr_lock_count_ctrl != 0) {
-		dpr->dpr_lock_count_ctrl = 1;
-		dt_proc_dpr_unlock(dpr);
-	}
-	dpr->dpr_ending = 0;
-	dt_dprintf("%i: relinquished all locks.\n", dpr->dpr_pid);
-
-	/*
 	 * fd closing must be done with some care.  The thread may be cancelled
 	 * before any of these fds have been assigned!
+	 *
+	 * No proxy calls are permitted after this point.  Flip dpr_done to
+	 * ensure that none will be attempted, even if a proxyer is already
+	 * blocked on the dpr_lock.  (However, this thread may still be
+	 * in the midst of a proxy call, which is handled below.)
 	 */
 
+	dpr->dpr_done = B_TRUE;
 	if (dpr->dpr_fd)
 	    close(dpr->dpr_fd);
 
@@ -1345,6 +1322,16 @@ dt_proc_control_cleanup(void *arg)
 
 	if (dpr->dpr_proxy_fd[1])
 	    close(dpr->dpr_proxy_fd[1]);
+
+	/*
+	 * A proxy request may have come in since the last time we checked for
+	 * one, before we took the lock: abort any such request with a notice
+	 * that the process is not there any more (though in fact it is; it will
+	 * be gone by the time the dpr_lock is released.)
+	 */
+	dpr->dpr_proxy_errno = ESRCH;
+	dpr->dpr_proxy_rq = NULL;
+	pthread_cond_signal(&dpr->dpr_msg_cv);
 
 	/*
 	 * Death-notification queueing is complicated by the fact that we might
@@ -1359,21 +1346,52 @@ dt_proc_control_cleanup(void *arg)
 	 */
 	if (!suiciding && dpr->dpr_notifiable)
 		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
-		    proc_existed ? dpr : NULL, NULL, B_TRUE, B_TRUE);
+		    dpr->dpr_proc ? dpr : NULL, NULL, B_TRUE, B_TRUE);
 
 	/*
-	 * A proxy request may have come in since the last time we checked for
-	 * one: abort any such request with a notice that the process is not
-	 * there any more.
-	 */
-	dpr->dpr_proxy_errno = ESRCH;
-	dpr->dpr_proxy_rq = NULL;
-	pthread_cond_signal(&dpr->dpr_msg_cv);
-
-	/*
-	 * Finally, signal on the cv, waking up any waiters.
+	 * Signal on the cv, waking up any waiters once the lock is released.
 	 */
 	pthread_cond_broadcast(&dpr->dpr_cv);
+
+	/*
+	 * Only release this process if it was invasively traced. A
+	 * noninvasively traced process's control thread will suicide while the
+	 * process is still alive.
+	 *
+	 * This may do an unlock to unwind any active Ptrace() locking, so we
+	 * may have to unlock, or may not.  We check the lock count afterwards
+	 * to be sure, and force-unlock by resetting the count to 1 and then
+	 * unlocking if need be.
+	 *
+	 * The unlock checks dpr_tid to figure out which lock count to adjust,
+	 * so tell unlocking (no matter what route it's called by) that we're
+	 * done and should null out the dpr_tid.
+	 *
+	 * The main thread may be blocked attempting to acquire the dpr_lock:
+	 * in this case, proxy_call() detects our dpr_doneness and refuses
+	 * to make further proxy calls.
+	 */
+        dpr->dpr_ending = 1;
+	pid = dpr->dpr_pid;
+	if (dpr->dpr_proc && !suiciding)
+		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
+		    PS_RELEASE_NORMAL);
+
+	if (dpr->dpr_lock_count_ctrl > 0) {
+		dpr->dpr_lock_count_ctrl = 1;
+		dt_proc_dpr_unlock(dpr);
+	}
+
+	/*
+	 * After this point, no further dereferences of dpr from this thread are
+	 * permitted.
+	 *
+	 * However, the control thread cannot be in both a Ptrace() and a
+	 * condvar wait for cleanup simultaneously, so it is fine for the
+	 * control thread to make references to dpr during Ptrace() unwinding,
+	 * etc.
+	 */
+	dt_dprintf("%i: relinquished all locks.\n", pid);
 }
 
 /*
