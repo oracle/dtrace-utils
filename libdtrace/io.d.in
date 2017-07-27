@@ -61,6 +61,8 @@ inline int BIO_USER_MAPPED = 6;
 inline int REQ_WRITE = 0x01;
 inline int REQ_SYNC = 0x10;
 
+define_for_kernel([[[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]]]],[[bi_rw]],[[bi_opf]])
+
 #pragma D binding "1.6.3" translator
 translator bufinfo_t < struct bio *B > {
 	b_flags = ((int)B->bi_rw & REQ_WRITE ? B_WRITE : B_READ) |

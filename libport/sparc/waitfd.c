@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2011 -- 2016 Oracle, Inc.  All rights reserved.
+ * Copyright 2011 -- 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
@@ -46,7 +46,8 @@
 static struct waitfds_tag {
         unsigned long linux_version_code;
         long waitfd;
-} waitfds[] = { { KERNEL_VERSION(4,11,0), 360 },
+} waitfds[] = { { KERNEL_VERSION(4,12,0), 361 },
+		{ KERNEL_VERSION(4,11,0), 361 },
 		{ KERNEL_VERSION(4,10,0), 360 },
 		{ KERNEL_VERSION(4,9,0), 360 },
 		{ KERNEL_VERSION(4,8,0), 360 },
