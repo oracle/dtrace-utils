@@ -587,11 +587,8 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		    (void *)P, (int)P->pid);
 
 		bkpt_flush(P, 0, TRUE);
-		P->released = TRUE;
 
-		dt_debug_dump(0);
-
-		return;
+		goto unlock_exit;
 	}
 
 	bkpt_flush(P, 0, release_mode == PS_RELEASE_NO_DETACH);
@@ -604,6 +601,7 @@ Prelease(struct ps_prochandle *P, int release_mode)
 	else if (P->ptraced && (release_mode != PS_RELEASE_NO_DETACH))
 		wrapped_ptrace(P, PTRACE_DETACH, (int)P->pid, 0, 0);
 
+unlock_exit:
 	if (P->ptrace_count != 0 && ptrace_lock_hook &&
 	    release_mode != PS_RELEASE_NO_DETACH)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
