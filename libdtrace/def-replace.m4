@@ -1,8 +1,8 @@
 /*
+ * Oracle Linux DTrace.
+ * Copyright © 2015, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
- *
- * Copyright © 2015, 2017, Oracle and/or its affiliates. All rights reserved.
  *
  * Run before all other M4 scripts in the replacement path,
  * this script arranges to define macros corresponding to each

@@ -1,11 +1,9 @@
 /*
+ * Oracle Linux DTrace.
+ * Copyright © 2007, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
- *
- * Copyright 2007 Oracle, Inc.  All rights reserved.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 inline int DTRACEFLT_UNKNOWN = 0;	/* Unknown fault */
 #pragma D binding "1.0" DTRACEFLT_UNKNOWN

@@ -1,10 +1,9 @@
 # spec file for package dtrace-utils.
 #
+# Oracle Linux DTrace.
+# Copyright © 2011, 2017, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
-#
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Oracle, Inc.  All rights reserved.
-#
 
 # Redefine 'build_variant' at build time to create a kernel package named
 # something like 'kernel-uek-dtrace'.

@@ -1,10 +1,10 @@
 /*
  * Hide away all the terrible macro magic.
  *
+ * Oracle Linux DTrace.
+ * Copyright © 2016, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
- *
- * Copyright © 2016, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _LINUX_SDT_INTERNAL_H_

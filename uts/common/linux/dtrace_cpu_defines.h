@@ -1,8 +1,8 @@
 /*
+ * Oracle Linux DTrace.
+ * Copyright © 2011, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
- *
- * Copyright © 2011, 2017, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _LINUX_DTRACE_CPU_DEFINES_H_
