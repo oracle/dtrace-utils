@@ -19,8 +19,8 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2009, 2011, 2012, 2013, 2014, 2015 Oracle, Inc.
- * All rights reserved. Use is subject to license terms.
+ * Copyright © 2009, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Use is subject to license terms.
  */
 
 /*

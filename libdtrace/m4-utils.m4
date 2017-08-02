@@ -1,4 +1,4 @@
-/* Copyright (C) 2006, 2010-2012 Free Software Foundation, Inc.
+/* Copyright © 2006, 2012, Oracle and/or its affiliates. All rights reserved.
    This file is free software; the Free Software Foundation
    gives unlimited permission to copy and/or distribute it,
    with or without modifications, as long as this notice is preserved. */

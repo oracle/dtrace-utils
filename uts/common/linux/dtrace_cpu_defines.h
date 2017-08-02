@@ -1,4 +1,9 @@
-/* Copyright (C) 2011, 2012, 2013 Oracle, Inc. */
+/*
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ * http://oss.oracle.com/licenses/upl.
+ *
+ * Copyright © 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+ */
 
 #ifndef _LINUX_DTRACE_CPU_DEFINES_H_
 #define _LINUX_DTRACE_CPU_DEFINES_H_

@@ -23,7 +23,7 @@
 
 
 /*
- * Copyright 2008, 2013 Oracle, Inc.  All rights reserved.
+ * Copyright © 2008, 2013, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  */
 

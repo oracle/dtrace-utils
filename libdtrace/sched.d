@@ -1,4 +1,7 @@
 /*
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ * http://oss.oracle.com/licenses/upl.
+ *
  * Copyright 2012, 2017 Oracle, Inc.  All rights reserved.
  * Use is subject to license terms.
  */

@@ -1,5 +1,8 @@
 # spec file for package dtrace-utils.
 #
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
 # Copyright 2011 -- 2017 Oracle, Inc.  All rights reserved.
 #
 
@@ -28,7 +31,7 @@
 
 BuildRequires: rpm
 Name:         dtrace-utils
-License:      Oracle Corporation
+License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers > 0.6.0 %{glibc32}

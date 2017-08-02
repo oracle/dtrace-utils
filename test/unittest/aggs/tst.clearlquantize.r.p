@@ -1,4 +1,9 @@
 #!/bin/awk -f
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
+# Copyright © 2016, Oracle and/or its affiliates. All rights reserved.
+#
 # Check that all the graphs printed have at least one nonzero element.
 
 BEGIN {
