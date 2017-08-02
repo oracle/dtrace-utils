@@ -26,7 +26,7 @@ trap "rm -f $tempfile; umount $clientpath; rmdir $clientpath; exportfs -u 127.0.
 # setup NFS server
 service nfs start > /dev/null 2>&1
 mkdir $serverpath
-exportfs -i -v -o "rw,sync,no_root_squash,insecure" 127.0.0.1:$serverpath > /dev/null
+exportfs -i -v -o "rw,sync,no_root_squash,insecure,fsid=8434437287" 127.0.0.1:$serverpath > /dev/null
 
 # setup NFS client
 mkdir $clientpath
