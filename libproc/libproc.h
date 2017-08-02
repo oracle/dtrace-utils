@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright 2009, 2012 -- 2017 Oracle, Inc.  All rights reserved.
+ * Copyright © 2009, 2017, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  *
  * Portions Copyright 2007 Chad Mynhier

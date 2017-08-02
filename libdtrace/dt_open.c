@@ -20,8 +20,7 @@
  */
 
 /*
- * Copyright (c) 2003, 2010 -- 2015, 2017 Oracle and/or its affiliates.
- * All rights reserved.
+ * Copyright © 2003, 2017, Oracle and/or its affiliates. All rights reserved.
  */
 
 #include <sys/types.h>

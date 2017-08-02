@@ -1,4 +1,9 @@
 #!/bin/awk -f
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
+# Copyright © 2016, Oracle and/or its affiliates. All rights reserved.
+#
 # Check that the sum of all 'before clear' values is nonzero,
 # the sum of all 'after clear' values is zero, and the sum of
 # all 'final' values are nonzero again.

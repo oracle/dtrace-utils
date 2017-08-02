@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 2010, 2017 Oracle and/or its affiliates.
- * All rights reserved.
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ * http://oss.oracle.com/licenses/upl.
+ *
+ * Copyright © 2010, 2017, Oracle and/or its affiliates. All rights reserved.
  */
 
 #pragma D depends_on module vmlinux
