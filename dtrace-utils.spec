@@ -32,11 +32,11 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers > 0.6.0 %{glibc32}
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf kernel-headers-dtrace yum
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel kernel-headers-dtrace > 0.6.0 %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.6.1
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -61,7 +61,7 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-shared-headers > 0.6.0 elfutils-libelf-devel
+Requires:     libdtrace-ctf-devel > 0.4.0 kernel-headers-dtrace > 0.6.0 elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Group:	      Development/System
 
@@ -83,7 +83,7 @@ replacements for dtrace(1) itself.
 # (erroneous) deps to nonexistent packages.
 %package testsuite
 Summary:      DTrace testsuite.
-Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} dtrace-modules-shared-headers > 0.6.0 module-init-tools dtrace-utils-devel = %{version}-%{release} perl gcc java %{perl_io_socket_ip} xfsprogs
+Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} kernel-headers-dtrace > 0.6.0 module-init-tools dtrace-utils-devel = %{version}-%{release} perl gcc java %{perl_io_socket_ip} xfsprogs
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
@@ -180,7 +180,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Relicense all of userspace, including the testsute, to UPL.
+- Merge NEWS from the modules into NEWS for userspace: there is
+  only one NEWS now.
+- Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
+- make check-quick support, skipping long-running tests
+
 * Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
+- Released to QA team only
 - Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
   [Orabug: 26261502]
 - Fix wrong depth in dtrace_print_ustack() leading to garbage output
