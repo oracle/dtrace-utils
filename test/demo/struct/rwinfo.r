@@ -4,7 +4,7 @@
         calls  max bytes  elapsed
 ------  -----  ---------  -------
   read      6       4096  yes
- write      3       2041  yes
+ write      3       1310  yes
 
 
 -- @@stderr --
