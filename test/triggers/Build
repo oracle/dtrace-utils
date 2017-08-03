@@ -29,7 +29,7 @@ INTERNAL_64BIT_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libpr
 INTERNAL_32BIT_TRIGGERS := libproc-sleeper-32 libproc-sleeper-pie-32
 INTERNAL_TRIGGERS = $(INTERNAL_64BIT_TRIGGERS) $(if $(NATIVE_BITNESS_ONLY),,$(INTERNAL_32BIT_TRIGGERS))
 
-SCRIPT_TRIGGERS = longsleep execloop
+SCRIPT_TRIGGERS = longsleep execloop doio.sh io-mount-local.sh io-mount-nfs.sh
 
 TRIGGERS = $(EXTERNAL_TRIGGERS) $(INTERNAL_TRIGGERS)
 
