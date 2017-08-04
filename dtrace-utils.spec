@@ -36,7 +36,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf kernel-headers-dtrace yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel kernel-headers-dtrace > 0.6.0 %{glibc32}
 Summary:      DTrace user interface.
 Version:      0.6.1
-Release:      3%{?dist}
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -180,8 +180,14 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-4
+- Fix segfault at shutdown time if grabbed processes die at
+  precisely the wrong time [Orabug: 26528776]
+
 * Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
 - Relicense all of userspace, including the testsute, to UPL.
+- Merge NEWS from the modules into NEWS for userspace: there is
+  only one NEWS now.
 - Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
 - make check-quick support, skipping long-running tests
 
