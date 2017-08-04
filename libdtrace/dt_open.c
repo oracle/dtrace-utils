@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -36,8 +36,6 @@
 #include <dt_provider.h>
 
 #include <dt_git_version.h>
-
-#include <linux/dtrace/ioctl_debug.h>
 
 /*
  * Stability and versioning definitions.  These #defines are used in the tables
@@ -948,8 +946,6 @@ alloc:
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-
-	dtrace_ioctl_sizes();
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
