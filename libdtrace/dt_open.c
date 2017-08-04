@@ -37,8 +37,6 @@
 
 #include <dt_git_version.h>
 
-#include <linux/dtrace/ioctl_debug.h>
-
 /*
  * Stability and versioning definitions.  These #defines are used in the tables
  * of identifiers below to fill in the attribute and version fields associated
@@ -948,8 +946,6 @@ alloc:
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-
-	dtrace_ioctl_sizes();
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
