@@ -36,16 +36,6 @@ exec >/dev/null
 # Can't do anything if non-root.
 [[ "$(id -u)" != 0 ]] && exit 1
 
-# First, try to simply modprobe it.
-
-load_modules && exit 0
-
-# Not installed. Ask yum for it: print a message first, since this may take
-# a while to time out if the network is not up.
-
-echo "Downloading DTrace module..." >&2
-yum install -q -y dtrace-modules-$(uname -r)
-
-# One last try to modprobe.
+# Try to modprobe it.
 
 load_modules
