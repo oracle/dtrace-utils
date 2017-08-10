@@ -88,6 +88,12 @@ intrinsic Solaris/Linux differences which will not be fixed.
 
 Currently:
 
+Compilation requires adding $(libdtrace-config --cflags) to your compile line.
+Headers compatible with the running kernel will automatically be used.
+If your build system is running a non-DTrace kernel, you'll have to find an
+appropriate set of headers under /usr/include/linux/dtrace/ yourself, and
+point at it with -I.
+
 dtrace_objinfo.dto_flags has lost the DTRACE_OBJ_F_PRIMARY value: the Linux
 kernel has no concept of 'primary modules'.  As a consequence, the 'primary'
 linkmode option is gone.  dtrace_objinfo.dto_file for a kernel module will
