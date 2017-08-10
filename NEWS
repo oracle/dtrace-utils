@@ -3,64 +3,64 @@
 
 Licensing changes:
 
-  - Userspace is now licensed under the Universal Permissive License (UPL) v1.0.
-    The kernel module is now GPLv2, and is shipped in the same package as other
-    in-tree kernel modules.
+ - Userspace is now licensed under the Universal Permissive License (UPL) v1.0.
+   The kernel module is now GPLv2, and is shipped in the same package as other
+   in-tree kernel modules.
 
-    /usr/lib64/dtrace/load_dtrace_modules no longer tries to yum install
-    anything (but will still modprobe modules listed in /etc/dtrace-modules).
+   /usr/lib64/dtrace/load_dtrace_modules no longer tries to yum install
+   anything (but will still modprobe modules listed in /etc/dtrace-modules).
 
 New features:
 
-  - A new link_ntop() subroutine is provided, which is like inet_ntop()
-    except it returns a human-readable string describing the link-layer
-    address.  Ethernet and InfiniBand are currently supported.
+ - A new link_ntop() subroutine is provided, which is like inet_ntop()
+   except it returns a human-readable string describing the link-layer
+   address.  Ethernet and InfiniBand are currently supported.
 
-  - A default set of modules is now provided in /etc/dtrace-modules.  The
-    file was supported since 0.4.5, but no /etc/dtrace-modules was shipped
-    by default.
+ - A default set of modules is now provided in /etc/dtrace-modules.  The
+   file was supported since 0.4.5, but no /etc/dtrace-modules was shipped
+   by default.
 
-  - The TCP and UDP providers are implemented, with associated translators.
+ - The TCP and UDP providers are implemented, with associated translators.
 
-  - The IO provider has been completely rewritten and is dramatically
-    improved, with support for most local filesystems and explicit
-    support for XFS and NFS.
+ - The IO provider has been completely rewritten and is dramatically
+   improved, with support for most local filesystems and explicit
+   support for XFS and NFS.
 
 Bugfixes:
 
-  - Do not require sdt.ko to be loaded before allowing the use of the 'cpu'
-    variable.
+ - Do not require sdt.ko to be loaded before allowing the use of the 'cpu'
+   variable.
 
-  - Passing an object file through dtrace -G no longer corrupts it on
-    SPARC64, echoing a similar bugfix made to x86 long ago.
+ - Passing an object file through dtrace -G no longer corrupts it on
+   SPARC64, echoing a similar bugfix made to x86 long ago.
 
-  - Improve tracking of process state on SPARC64 a bit.
+ - Improve tracking of process state on SPARC64 a bit.
 
-  - Bitfields in kernel types are now better-supported, though some
-    bitfields still do not work, notably those crossing machine word
-    boundaries.
+ - Bitfields in kernel types are now better-supported, though some
+   bitfields still do not work, notably those crossing machine word
+   boundaries.
 
-  - dtrace_print_lquantize() no longer normalizes the name of the lowest
-    bucket, only the bucket contents (as intended).
+ - dtrace_print_lquantize() no longer normalizes the name of the lowest
+   bucket, only the bucket contents (as intended).
 
-  - jstack() was fetching data from the wrong offset, leading to garbage
-    output at the start of the stack dump.
+ - jstack() was fetching data from the wrong offset, leading to garbage
+   output at the start of the stack dump.
 
-  - Reading of unaligned data from high addresses in traced processes
-    was failing.  In practice only SPARC has any data at addresses high
-    enough to cause this, and most of the accesses done are aligned: but
-    the machinery that adjusts to changes in glibc's internal data
-    structures was broken, leading to failures to look up symbols after
-    certain glibc upgrades.
+ - Reading of unaligned data from high addresses in traced processes
+   was failing.  In practice only SPARC has any data at addresses high
+   enough to cause this, and most of the accesses done are aligned: but
+   the machinery that adjusts to changes in glibc's internal data
+   structures was broken, leading to failures to look up symbols after
+   certain glibc upgrades.
 
-  - dtrace -C and -G now search for cpp and ld along the PATH rather than
-    defaulting to /usr/bin/cpp and /usr/bin/ld, fixing failures with
-    compilers in non-default locations, like the Software Collections
-    devtoolset packages.
+ - dtrace -C and -G now search for cpp and ld along the PATH rather than
+   defaulting to /usr/bin/cpp and /usr/bin/ld, fixing failures with
+   compilers in non-default locations, like the Software Collections
+   devtoolset packages.
 
-  - dtrace-utils-devel now requires elfutils-libelf-devel.  (This
-    dependency was always present in practice but was mistakenly omitted
-    until now.)
+ - dtrace-utils-devel now requires elfutils-libelf-devel.  (This
+   dependency was always present in practice but was mistakenly omitted
+   until now.)
 
 
 0.6.0 (Apr 3rd, 2017)
