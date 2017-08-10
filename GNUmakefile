@@ -35,6 +35,22 @@ PREPROCESS = $(CC) -E
 # The first non-system uid on this system.
 USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
 
+# Finding the DTrace headers requires userspace/kernel UAPI headers in a
+# directory named after some DTrace kernel, by default the running kernel.
+# Set BUILDKERNEL to override this versioning.  (A blank BUILDKERNEL is
+# ignored.)
+# We also support old/manually-installed dtrace kernel headers directly
+# in /usr/include/linux/dtrace.
+ifeq ($(BUILDKERNEL),)
+override BUILDKERNEL := $(shell uname -r)
+endif
+ifeq ($(wildcard /usr/include/linux/$(BUILDKERNEL)/linux/dtrace/*.h),)
+DTRACEINCDIR = $(INCLUDEDIR)
+else
+DTRACEINCDIR = $(INCLUDEDIR)/linux/$(BUILDKERNEL)
+CPPFLAGS += -I$(DTRACEINCDIR)
+endif
+
 # The substitution process in libdtrace needs kernel build trees for every
 # kernel this userspace will be used with.  It only needs to know about major
 # versions because to a first approximation the kernel-header-file #defines and

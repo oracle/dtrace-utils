@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# libdtrace-config -- find DTrace development bits for consumer development.
+#                     (that is to say, programs that link against libdtrace.)
+#
+# Oracle Linux DTrace.
+# Copyright © 2017, Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
+
+includedir="@includedir@"
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --libs) printf -- "-ldtrace\n";;
+        --cflags) if [[ -e ${includedir}/linux/dtrace/dtrace.h ]]; then
+                      : # nothing needed
+                  elif [[ -d ${includedir}/linux/$(uname -r)/linux/dtrace ]]; then
+                      printf "%s\n" "-I${includedir}/linux/$(uname -r)"
+                  else
+                      cat >&2 <<EOF
+libdtrace-config: no kernel-uek-headers-dtrace package found for kernel
+$(uname -r) in ${includedir}/linux/$(uname -r).  Please add an
+appropriate -I line to your compilation flags.
+EOF
+                      exit 1
+                  fi;;
+        *) echo "libdtrace-config: invalid option \"$1\"" >&2
+           exit 1
+    esac
+    shift
+done
+
+exit 0

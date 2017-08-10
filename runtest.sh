@@ -577,7 +577,7 @@ if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
-    test_incflags="-Iuts/common -Ilibdtrace-ctf/include -DARCH_$arch"
+    test_incflags="-Iuts/common -Ilibdtrace-ctf/include $($(pwd)/build/libdtrace-config --cflags) -DARCH_$arch"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -587,7 +587,7 @@ else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"
     test_ldflags=""
-    test_incflags="-DARCH_$arch"
+    test_incflags="-DARCH_$arch $(libdtrace-config --cflags)"
 
     if [[ ! -x $dtrace ]]; then
         echo "$dtrace not available." >&2

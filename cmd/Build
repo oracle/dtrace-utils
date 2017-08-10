@@ -40,11 +40,19 @@ $(objdir)/dlibs/load_dtrace_modules: $(dtrace_DIR)/load_dtrace_modules $(objdir)
 
 TARGETS += $(objdir)/dlibs/load_dtrace_modules
 
+$(objdir)/libdtrace-config: $(dtrace_DIR)/libdtrace-config.in
+	sed 's,@includedir@,$(INCLUDEDIR),g' < $< > $@
+	chmod a+x $@
+
+TARGETS += $(objdir)/libdtrace-config
+
 install::
 	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) \
 	      $(INSTLIBDIR)/dtrace $(INSTETCDIR)
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
+	$(call describe-install-target,$(INSTBINDIR),libdtrace-config)
+	install -m 755 $(objdir)/libdtrace-config $(INSTBINDIR)
 	$(call describe-install-target,$(INSTBINDIR),ctf_module_dump)
 	install -m 755 $(objdir)/ctf_module_dump $(INSTBINDIR)
 	$(call describe-install-target,$(INSTMANDIR),dtrace.1)
