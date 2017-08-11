@@ -32,11 +32,11 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf dtrace-modules-shared-headers yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel dtrace-modules-shared-headers > 0.6.0 %{glibc32}
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf kernel-headers-dtrace yum
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel glibc-headers bison flex zlib-devel kernel-headers-dtrace > 0.6.0 %{glibc32}
 Summary:      DTrace user interface.
-Version:      0.6.0
-Release:      1%{?dist}
+Version:      0.6.1
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -61,7 +61,7 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel > 0.4.0 dtrace-modules-shared-headers > 0.6.0 elfutils-libelf-devel
+Requires:     libdtrace-ctf-devel > 0.4.0 kernel-headers-dtrace > 0.6.0 elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Group:	      Development/System
 
@@ -83,7 +83,7 @@ replacements for dtrace(1) itself.
 # (erroneous) deps to nonexistent packages.
 %package testsuite
 Summary:      DTrace testsuite.
-Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} dtrace-modules-shared-headers > 0.6.0 module-init-tools dtrace-utils-devel = %{version}-%{release} perl gcc java %{perl_io_socket_ip} xfsprogs
+Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64) %{glibc32} kernel-headers-dtrace > 0.6.0 module-init-tools dtrace-utils-devel = %{version}-%{release} perl gcc java java-1.8.0-openjdk-devel %{perl_io_socket_ip} xfsprogs
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
@@ -100,7 +100,7 @@ it always tests the installed DTrace.
 %setup -q
 
 %build
-make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )"
+make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" BUILDKERNEL="$( ( cd /usr/include/linux; find . -mindepth 3 -maxdepth 3 -path '*/linux/dtrace' -type d | cut -d/ -f2 | head -1) )"
 
 # Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
 # and the testsuite requires debuginfo for proper operation.
@@ -112,7 +112,7 @@ make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} KERNELDIRPREFIX=/usr/src
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
-make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )" install install-test
+make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="$( ( cd /usr/src/kernels; for ver in %{srcdirexp}; do printf "%s " $ver; done) )"  BUILDKERNEL="$( ( cd /usr/include/linux; find . -mindepth 3 -maxdepth 3 -path '*/linux/dtrace' -type d | cut -d/ -f2 | head -1) )" install install-test
 # Because systemtap creates a dtrace.1 manpage we have to rename
 # ours and then shift theirs out of the way (since the systemtap
 # dtrace page references a non-existent binary)
@@ -172,6 +172,7 @@ fi
 %files devel
 %defattr(-,root,root,-)
 %{_bindir}/ctf_module_dump
+%{_bindir}/libdtrace-config
 %{_libdir}/libdtrace.so
 %{_includedir}/dtrace.h
 
@@ -180,7 +181,58 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Dec 19 2016 - <nick.alcock@oracle.com> - 0.6.0-1
+* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-4
+- Fix segfault at shutdown time if grabbed processes die at
+  precisely the wrong time [Orabug: 26528776]
+
+* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Relicense all of userspace, including the testsute, to UPL.
+- Merge NEWS from the modules into NEWS for userspace: there is
+  only one NEWS now.
+- Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
+- make check-quick support, skipping long-running tests
+
+* Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
+- Released to QA team only
+- Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
+  [Orabug: 26261502]
+- Fix wrong depth in dtrace_print_ustack() leading to garbage output
+  from jstack() (Eugene Loh) [Orabug: 26045010]
+- Do not build DTrace with debug info by default [Orabug: 26389302]
+- Fix spurious errors and misreading of unaligned data on SPARC,
+  breaking ustack() etc with upgraded glibc (Nick Alcock)
+  [Orabug: 26378141]
+  - Translator changes for the IO provider for NFS (Nicolas Droux)
+  [Orabug: 26176938]
+- Search for cpp and ld along the PATH, fixing use of dtrace -C with
+  devtoolset-6 and other non-default GCCs (Nick Alcock) [Orabug: 26396530]
+- Test fixes, test harness extensions (consumer tests) and new tests.
+- dtrace-utils-devel now depends on elfutils-libelf-devel.
+  (Nick Alcock)
+- dtrace-utils-testsuite now depends on dtrace-devel.
+  (Nick Alcock) [Orabug: 26415697]
+
+* Thu May 25 2017 - <nick.alcock@oracle.com> - 0.6.1-1
+- Add translators and tests for TCP and UDP (Alan Maguire)
+  [Orabug: 25815242]
+- Add translators for the IO provider (Nicolas Droux) [Orabug: 25816562]
+- Add link_ntop() and tests for it (Girish Moodalbail)
+  [Orabug: 25931511]
+- sched.d no longer depends on the sched provider [Orabug: 26036143]
+- Ship a default /etc/dtrace-modules (Nicolas Droux) [Orabug: 25918164]
+- Repeated dtrace -G no longer corrupts the object file (Kris Van Hees)
+  [Orabug: 22509887]
+
+* Tue Mar 21 2017 - <nick.alcock@oracle.com> - 0.6.0-3
+- Test fixes
+
+* Fri Mar  3 2017 - <nick.alcock@oracle.com> - 0.6.0-2
+- Released to QA team only
+- Add translator for ip provider [Orabug: 25557249]
+- Test fixes and new tests.
+
+* Tue Jan 17 2017 - <nick.alcock@oracle.com> - 0.6.0-1
+- Released to QA team only
 - Allow self-grabs [Orabug: 24829169]
 - Use /proc/pid/map_files if available [Orabug: 24843582]
 - Fix fd leaks on big-endian systems and during heavy exec() [Orabug: 25040553]
