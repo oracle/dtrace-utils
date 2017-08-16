@@ -13,11 +13,14 @@
 # resulting dtrace will work on any kernel with the same major.minor
 # version.  This list is used to derive the names of development
 # packages to substitute #define tokens from.
+#
+# In case you override this list from command line be sure to provide full
+# kernel package name not just version numbers.
 
 %ifnarch sparc64
-%{lua: dtrace_kernels = {"3.8.13-87", "4.1.5-5"}}
+%{!?dtrace_kernels: %define dtrace_kernels 3.8.13-87%{?dist}uek 4.1.5-5%{?dist}uek}
 %else
-%{lua: dtrace_kernels = {"4.1.6-14"}}
+%{!?dtrace_kernels: %define dtrace_kernels 4.1.6-14%{?dist}uek}
 %endif
 
 # SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
@@ -45,8 +48,9 @@ ExclusiveArch:    x86_64 sparc64
 
 %{lua:
   local srcdirexp = ""
-  for i, k in ipairs(dtrace_kernels)  do
-      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "%{?dist}uek") .. "\n")
+  dtrace_kernels = rpm.expand("%{dtrace_kernels}")
+  for k in string.gmatch(dtrace_kernels, "[^ ]+")  do
+      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "\n"))
       srcdirexp = srcdirexp .. " " .. k .. "*"
   end
   rpm.define("srcdirexp " .. srcdirexp)
