@@ -81,6 +81,14 @@ TARGETS =
 
 DTRACE ?= $(objdir)/dtrace
 
+# DTrace's header files are expected to be in /usr/include/linux/dtrace. This
+# location can be overriden by providing custom prefix via HDRPREFIX variable.
+ifneq ($(HDRPREFIX),)
+CPPFLAGS += -I$(HDRPREFIX)
+else
+HDRPREFIX = $(INCLUDEDIR)
+endif
+
 # Include everything.
 
 all::
