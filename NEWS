@@ -26,15 +26,6 @@ New features:
    improved, with support for most local filesystems and explicit
    support for XFS and NFS.
 
-Library interface changes:
-
- - Consumer authors should use $(libdtrace-config --cflags) on their
-   compilation lines to pull in extra headers necessary for <dtrace.h> to
-   be properly parsed.  These headers are in a directory whose name depends
-   on the running kernel: if a DTrace kernel is not being run at
-   compilation time, you'll have to find the right directory by hand.  If
-   this is necessary, an error message from libdtrace-config will tell you.
-
 Bugfixes:
 
  - Do not require sdt.ko to be loaded before allowing the use of the 'cpu'
