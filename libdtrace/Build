@@ -41,9 +41,9 @@ SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | awk -F
 $(libdtrace_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
 	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_errtags.c
 
-$(libdtrace-build_DIR)dt_names.c: $(DTRACEINCDIR)/linux/dtrace/dif_defines.h $(libdtrace-build_DIR)/mknames.sh
+$(libdtrace-build_DIR)dt_names.c: /usr/include/linux/dtrace/dif_defines.h $(libdtrace-build_DIR)/mknames.sh
 	$(call describe-target,MKNAMES,$(libdtrace-build_DIR)dt_names.c)
-	sh $(libdtrace-build_DIR)mknames.sh < $(DTRACEINCDIR)/linux/dtrace/dif_defines.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_names.c
+	sh $(libdtrace-build_DIR)mknames.sh < /usr/include/linux/dtrace/dif_defines.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_names.c
 
 $(libdtrace-build_DIR)%.h $(libdtrace-build_DIR)%.c: $(libdtrace-build_DIR)%.y
 	$(call describe-target,YACC,$(libdtrace-build_DIR)$*.c)

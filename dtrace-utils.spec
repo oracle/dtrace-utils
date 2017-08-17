@@ -176,7 +176,6 @@ fi
 %files devel
 %defattr(-,root,root,-)
 %{_bindir}/ctf_module_dump
-%{_bindir}/libdtrace-config
 %{_libdir}/libdtrace.so
 %{_includedir}/dtrace.h
 
