@@ -9,6 +9,7 @@
 #define DTRACE_SYS_TYPES_H
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <sys/ctf_types.h>
 #include <endian.h>
 #include <unistd.h>

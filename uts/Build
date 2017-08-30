@@ -1,27 +1,20 @@
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 uts_DIR := $(current-dir)
 
-# linux/dtrace_cpu_defines.h is #included by the DTrace kernel headers, but is
-# not marked uapi so is not installed.  So we install a stripped-down copy of it
-# into linux/ ourselves.  dtrace.h and dtrace_types.h are unique to this
-# userspace tree.
+# dtrace.h and dtrace_types.h are unique to this userspace tree, and serve to
+# provide the userspace versions of types defined distincty by the kernel.
 
 SYS_HEADERS_INSTALL := common/sys/dtrace.h \
                        common/sys/dtrace_types.h \
                        common/sys/sdt.h \
                        common/sys/sdt_internal.h
 
-LINUX_HEADERS_INSTALL := common/linux/dtrace_cpu_defines.h
-
 install::
 	mkdir -p $(INSTINCLUDEDIR)/sys
 	$(call describe-install-target,$(INSTINCLUDEDIR)/sys,$(notdir $(SYS_HEADERS_INSTALL)))
 	cd $(uts_DIR) && install -m 644 $(SYS_HEADERS_INSTALL) $(INSTINCLUDEDIR)/sys
-	mkdir -p $(INSTINCLUDEDIR)/linux
-	$(call describe-install-target,$(INSTINCLUDEDIR)/linux,$(notdir $(LINUX_HEADERS_INSTALL)))
-	cd $(uts_DIR) && install -m 644 $(LINUX_HEADERS_INSTALL) $(INSTINCLUDEDIR)/linux
