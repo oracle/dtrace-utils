@@ -219,7 +219,6 @@ fi
 %{_mandir}/man1/orcl-dtrace.1.gz
 %{_includedir}/sys/dtrace.h
 %{_includedir}/sys/dtrace_types.h
-%{_includedir}/linux/dtrace_cpu_defines.h
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #define DTRACE_SYS_TYPES_H
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <sys/ctf_types.h>
 #include <endian.h>
 #include <unistd.h>
