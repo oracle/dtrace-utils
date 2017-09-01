@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -35,6 +35,9 @@ int yydebug;
  * S2 - D program outer scope (probe specifiers and declarations)
  * S3 - D control line parsing (i.e. after ^# is seen but before \n)
  * S4 - D control line scan (locate control directives only and invoke S3)
+ * SIDENT - identifiers and comments only (after -> and .).  (We switch to
+ *          SIDENT only from state S0: changing this would require new code
+ *          to track the state to switch back to.)
  */
 %}
 
@@ -43,7 +46,7 @@ int yydebug;
 %n 600		/* maximum states */
 %option yylineno
 
-%s S0 S1 S2 S3 S4
+%s S0 S1 S2 S3 S4 SIDENT
 
 RGX_AGG		"@"[a-zA-Z_][0-9a-zA-Z_]*
 RGX_PSPEC	[-$:a-zA-Z_.?*\\\[\]!][-$:0-9a-zA-Z_.`?*\\\[\]!]*
@@ -183,9 +186,10 @@ if (yypcb->pcb_token != 0) {
 			return (DT_TOK_STRING);
 		}
 
-<S0>"$"[0-9]+	{
+<S0,SIDENT>"$"[0-9]+	{
 			int i = atoi(yytext + 1);
 			char *p, *v = "0";
+			BEGIN(S0);
 
 			/*
 			 * A macro argument reference substitutes the text of
@@ -297,7 +301,7 @@ if (yypcb->pcb_token != 0) {
 			return (DT_TOK_INT);
 		}
 
-<S0>{RGX_IDENT}	{
+<S0,SIDENT>{RGX_IDENT}	{
 			return (id_or_type(yytext));
 		}
 
@@ -401,8 +405,7 @@ if (yypcb->pcb_token != 0) {
 			return (DT_TOK_INT);
 		}
 
-<S0>"/*"	|
-<S2>"/*"	{
+<S0,S2,SIDENT>"/*"	{
 			yypcb->pcb_cstate = (YYSTATE);
 			BEGIN(S1);
 		}
@@ -514,8 +517,8 @@ if (yypcb->pcb_token != 0) {
 <S0>"!"		return (DT_TOK_LNEG);
 <S0>"?"		return (DT_TOK_QUESTION);
 <S0>":"		return (DT_TOK_COLON);
-<S0>"."		yypcb->pcb_sou_deref = 1; return (DT_TOK_DOT);
-<S0>"->"	yypcb->pcb_sou_deref = 1; return (DT_TOK_PTR);
+<S0>"."		yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return (DT_TOK_DOT);
+<S0>"->"	yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return (DT_TOK_PTR);
 <S0>"="		return (DT_TOK_ASGN);
 <S0>"+="	return (DT_TOK_ADD_EQ);
 <S0>"-="	return (DT_TOK_SUB_EQ);
@@ -722,6 +725,15 @@ id_or_type(const char *s)
 
 	if ((s = yylval.l_str = strdup(s)) == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	/*
+	 * If we are in an ident-only condition (ruling out keywords,
+	 * etc) transition back to the original condition, which is
+	 * always S0.  This lets us check for S0-ness below.
+	 */
+	if (YYSTATE == (SIDENT)) {
+		BEGIN(S0);
+	}
 
 	/*
 	 * If we have just seen a struct / union / enum, this must be a
