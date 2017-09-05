@@ -1330,6 +1330,11 @@ dtrace_close(dtrace_hdl_t *dtp)
 	while ((dkpp = dt_list_next(&dtp->dt_kernpathlist)) != NULL)
 		dt_kern_path_destroy(dtp, dkpp);
 
+	if (dtp->dt_shared_ctf != NULL)
+		ctf_close(dtp->dt_shared_ctf);
+	if (dtp->dt_ctfa != NULL)
+		ctf_arc_close(dtp->dt_ctfa);
+
 	while ((pvp = dt_list_next(&dtp->dt_provlist)) != NULL)
 		dt_provider_destroy(dtp, pvp);
 

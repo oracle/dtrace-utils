@@ -78,7 +78,6 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <port.h>
-#include <dt_module.h>
 #include <dt_program.h>
 #include <dt_provider.h>
 #include <dt_printf.h>
