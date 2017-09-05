@@ -39,7 +39,7 @@ static void
 dt_module_shuffle_to_start(dtrace_hdl_t *dtp, const char *name);
 
 static void
-dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp);
+dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp);
 
 /*
  * Symbol table management for userspace modules, via ELF parsing.
@@ -261,6 +261,10 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	return (0);
 }
 
+/*
+ * Only used for linked-in modules.  Archived modules are uncompressed
+ * automatically.
+ */
 static void *dt_ctf_uncompress(dt_module_t *dmp, ctf_sect_t *ctsp)
 {
 	z_stream s;
@@ -354,76 +358,76 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		return (0); /* module is already loaded */
 
 	/*
-	 * First find out where the module is.  If this fails, we don't care:
-	 * the problem will be detected in dt_module_init_elf().
+	 * First find out where the module is, and preliminarily load its CTF.
+	 * If this fails, we don't care: the problem will be detected in
+	 * dt_module_init_elf().
 	 */
-	dt_kern_module_find(dtp, dmp);
+	dt_kern_module_find_ctf(dtp, dmp);
 
 	/*
-	 * There are two possibilities here: a non-kernel module and non-loaded
-	 * kernel module must pull in the symbol and string tables in addition
-	 * to the CTF section, while loaded kernel modules need only the
-	 * appropriately-named CTF section from the dm_file (which will be
-	 * ctf.ko for built-in modules and the kernel proper).  Builtin kernel
-	 * modules have a section name that varies per-module: the shared type
-	 * repository has a unique name of its own: all other modules have a
-	 * constant name.
+	 * Modules not found in the CTF archive, including non-kernel modules,
+	 * must pull in the symbol and string tables (in addition to, perhaps,
+	 * the CTF section.)
 	 */
 
-	if ((dmp->dm_elf == NULL) && (dt_module_init_elf(dtp, dmp) != 0))
-		return -1; /* dt_errno is set for us */
+	if (!(dmp->dm_flags & DT_DM_CTF_ARCHIVED)) {
+		if ((dmp->dm_elf == NULL) && (dt_module_init_elf(dtp, dmp) != 0))
+			return -1; /* dt_errno is set for us */
 
-	if (dmp->dm_flags & DT_DM_SHARED) {
-		dmp->dm_ctdata_name = malloc(strlen(".ctf.shared_ctf") +
-		    strlen(dmp->dm_name) + 1);
+		if (dmp->dm_flags & DT_DM_SHARED) {
+			dmp->dm_ctdata_name = malloc(strlen(".ctf.shared_ctf") +
+			    strlen(dmp->dm_name) + 1);
 
-		if (dmp->dm_ctdata_name == NULL)
-			goto oom;
+			if (dmp->dm_ctdata_name == NULL)
+				goto oom;
 
-		strcpy(dmp->dm_ctdata_name, ".ctf.shared_ctf");
-	} else if (dmp->dm_flags & DT_DM_BUILTIN) {
-		dmp->dm_ctdata_name = malloc(strlen(".ctf.") +
-		    strlen(dmp->dm_name) + 1);
+			strcpy(dmp->dm_ctdata_name, ".ctf.shared_ctf");
+		} else if (dmp->dm_flags & DT_DM_BUILTIN) {
+			dmp->dm_ctdata_name = malloc(strlen(".ctf.") +
+			    strlen(dmp->dm_name) + 1);
 
-		if (dmp->dm_ctdata_name == NULL)
-			goto oom;
+			if (dmp->dm_ctdata_name == NULL)
+				goto oom;
 
-		strcpy(dmp->dm_ctdata_name, ".ctf.");
-		strcat(dmp->dm_ctdata_name, dmp->dm_name);
-		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
-	} else {
-		dmp->dm_ctdata_name = strdup(".ctf");
-		dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
+			strcpy(dmp->dm_ctdata_name, ".ctf.");
+			strcat(dmp->dm_ctdata_name, dmp->dm_name);
+			dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
+		} else {
+			dmp->dm_ctdata_name = strdup(".ctf");
+			dmp->dm_ctdata.cts_name = dmp->dm_ctdata_name;
 
-		if (dmp->dm_ctdata_name == NULL)
-			goto oom;
+			if (dmp->dm_ctdata_name == NULL)
+				goto oom;
+		}
+
+		dmp->dm_ctdata.cts_type = SHT_PROGBITS;
+		dmp->dm_ctdata.cts_flags = 0;
+		dmp->dm_ctdata.cts_data = NULL;
+		dmp->dm_ctdata.cts_size = 0;
+		dmp->dm_ctdata.cts_entsize = 0;
+		dmp->dm_ctdata.cts_offset = 0;
+
+		/*
+		 * Attempt to load and uncompress the module's CTF section.
+		 * Note that modules might not contain CTF data: this will
+		 * result in a successful load_sect but data of size zero (or,
+		 * alas, 1, thanks to a workaround for a bug in objcopy in
+		 * binutils 2.20).  We will then fail if dt_module_getctf() is
+		 * called, as shown below.
+		 */
+
+		if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
+			dt_module_unload(dtp, dmp);
+			return (-1); /* dt_errno is set for us */
+		}
+
+		/*
+		 * The CTF section is often gzip-compressed.  Uncompress it.
+		 */
+		if (dmp->dm_ctdata.cts_size > 1)
+			dmp->dm_ctdata_data = dt_ctf_uncompress(dmp,
+			    &dmp->dm_ctdata);
 	}
-
-	dmp->dm_ctdata.cts_type = SHT_PROGBITS;
-	dmp->dm_ctdata.cts_flags = 0;
-	dmp->dm_ctdata.cts_data = NULL;
-	dmp->dm_ctdata.cts_size = 0;
-	dmp->dm_ctdata.cts_entsize = 0;
-	dmp->dm_ctdata.cts_offset = 0;
-
-	/*
-	 * Attempt to load and uncompress the module's CTF section.  Note that
-	 * modules might not contain CTF data: this will result in a successful
-	 * load_sect but data of size zero (or, alas, 1, thanks to a workaround
-	 * for a bug in objcopy in binutils 2.20).  We will then fail if
-	 * dt_module_getctf() is called, as shown below.
-	 */
-
-	if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
-		dt_module_unload(dtp, dmp);
-		return (-1); /* dt_errno is set for us */
-	}
-
-	/*
-	 * The CTF section is often gzip-compressed.  Uncompress it.
-	 */
-	if (dmp->dm_ctdata.cts_size > 1)
-		dmp->dm_ctdata_data = dt_ctf_uncompress(dmp, &dmp->dm_ctdata);
 
 	/*
 	 * Nothing more to do for loaded kernel modules: we already have their
@@ -508,6 +512,9 @@ oom:
 	return (dt_set_errno(dtp, EDT_NOMEM));
 }
 
+/*
+ * Get the CTF of a kernel module with CTF linked in.
+ */
 ctf_file_t *
 dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
@@ -522,6 +529,8 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	if (dmp->dm_ctfp != NULL)
 		return (dmp->dm_ctfp);
+
+	assert(!(dmp->dm_flags & DT_DM_CTF_ARCHIVED));
 
 	if ((dmp->dm_ops == &dt_modops_64) || (dmp->dm_ops == NULL))
 		model = CTF_MODEL_LP64;
@@ -592,7 +601,8 @@ err:
 static void
 dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
-	ctf_close(dmp->dm_ctfp);
+	if (dmp->dm_ctfp != dtp->dt_shared_ctf)
+		ctf_close(dmp->dm_ctfp);
 	dmp->dm_ctfp = NULL;
 
 	free(dmp->dm_ctdata_name);
@@ -958,78 +968,196 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 }
 
 /*
- * Determine the path to a module.
+ * Determine the location of a kernel module's CTF data.
+ *
+ * If the module is a CTF archive, also load it in.
  */
 static void
-dt_kern_module_find(dtrace_hdl_t *dtp, dt_module_t *dmp)
+dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
-	dt_kern_path_t *dkpp;
+	dt_kern_path_t *dkpp = NULL;
 
 	/*
-	 * Kernel modules that don't exist on the disk are either built-in
-	 * modules or the core kernel itself. The CTF data for all such modules
-	 * comes from the module ctf.ko instead, which is never built-in. This
-	 * module is then instantiated in the dm_ctfp of many modules.  The
-	 * corresponding dt_module for ctf.ko is named 'shared_ctf'.
-	 *
-	 * All such modules share their dm_elf with dtp->dt_ctf_elf, and have
-	 * the DT_DM_BUILTIN flag turned on.
-	 *
-	 * Note: before we call this function we cannot distinguish between a
-	 * non-loaded kernel module and a userspace module.  Neither have
-	 * DT_DM_KERNEL turned on: the only difference is that the latter has no
-	 * entry in the kernpath hash.
-	 */
-	dkpp = dt_kern_path_lookup_by_name(dtp, dmp->dm_name);
-	if (!dkpp) {
-
-		/*
-		 * This may have failed because this is not a kernel module at
-		 * all.  That's quite acceptable: just return.
-		 */
-		if (!(dmp->dm_flags & DT_DM_KERNEL))
-			return;
-
-		dkpp = dt_kern_path_lookup_by_name(dtp, "ctf");
-
-		/*
-		 * With no ctf.ko, we are in real trouble. Likely we have no
-		 * modules at all: CTF lookup cannot work.  At any rate, the
-		 * module path must remain unknown.
-		 */
-		if (!dkpp) {
-			dt_dprintf("No ctf.ko\n");
-			return;
-		}
-
-		dmp->dm_flags |= DT_DM_BUILTIN;
-	}
-
-	/*
-	 * Unloaded kernel module?  Note that.
+	 * Module not already known as a kernel module?  It must be an unloaded
+	 * one, since we do not support userspace modules yet.
          */
 	if (!(dmp->dm_flags & DT_DM_KERNEL)) {
 		dmp->dm_flags |= DT_DM_KERNEL;
 		dmp->dm_flags |= DT_DM_KERN_UNLOADED;
 		dt_kern_module_init(dtp, dmp);
 	}
+
 	/*
-	 * This is definitely a kernel module (though perhaps not a loaded one).
+	 * Kernel modules' CTF can be in one of three places: the CTF archive,
+	 * linked into the module (for out-of-tree modules or modules on older
+	 * kernels), or the ctf.ko module (for built-in modules and the core
+	 * kernel on older kernels).  The ctf.ko module is then instantiated in
+	 * the dm_ctfp of many modules.  The corresponding dt_module for ctf.ko
+	 * is named 'shared_ctf'.
+	 *
+	 * Shared modules share their dm_elf with dtp->dt_ctf_elf, and have
+	 * the DT_DM_BUILTIN flag turned on.
+	 *
+	 * Note: before we call this function we cannot distinguish between a
+	 * non-loaded kernel module and a userspace module.  Neither have
+	 * DT_DM_KERNEL turned on: the only difference is that the latter has no
+	 * entry in the kernpath hash.
+	 *
+	 * Modules in the CTF archive are simpler: they just pull their CTF
+	 * straight out of dt_ctfa, as needed.
+	 *
+	 * Check for a CTF archive containing the specified module.
 	 */
-	if (strcmp(dmp->dm_name, "shared_ctf") == 0)
+	if (dtp->dt_ctfa == NULL) {
+		char *ctfa_name;
+		char *to;
+
+		ctfa_name = malloc(strlen(dtp->dt_module_path) +
+		    strlen("/kernel/vmlinux.ctfa") + 1);
+		to = stpcpy(ctfa_name, dtp->dt_module_path);
+		stpcpy(to, "/kernel/vmlinux.ctfa");
+
+		if ((dtp->dt_ctfa = ctf_arc_open(ctfa_name,
+			    &dtp->dt_ctferr)) == NULL) {
+			dt_dprintf("Cannot open CTF archive %s: %s; looking "
+			    "for in-module CTF instead.\n", ctfa_name,
+			    ctf_errmsg(dtp->dt_ctferr));
+		}
+
+		if (dtp->dt_ctfa != NULL) {
+			/*
+			 * Load in the shared CTF immediately.
+			 */
+			dtp->dt_shared_ctf = ctf_arc_open_by_name(dtp->dt_ctfa,
+			    "shared_ctf", &dtp->dt_ctferr);
+
+			if (dtp->dt_shared_ctf == NULL) {
+				dt_dprintf("Cannot get shared CTF from archive %s: %s.",
+				    ctfa_name, ctf_errmsg(dtp->dt_ctferr));
+				ctf_arc_close(dtp->dt_ctfa);
+				dtp->dt_ctfa = NULL;
+			} else {
+				dt_dprintf("Loaded shared CTF from archive %s.\n",
+				    ctfa_name);
+			}
+		}
+		free(ctfa_name);
+	}
+
+	if (dtp->dt_ctfa != NULL) {
+		dt_dprintf("Loading CTF for module %s from archive.\n",
+		    dmp->dm_name);
+
+		dmp->dm_ctfp = ctf_arc_open_by_name(dtp->dt_ctfa,
+		    dmp->dm_name, &dtp->dt_ctferr);
+
+		if (dmp->dm_ctfp == NULL) {
+			dt_dprintf("Cannot open CTF for module %s in CTF "
+			    "archive: %s; looking for out-of-tree module.\n",
+			    dmp->dm_name, ctf_errmsg(dtp->dt_ctferr));
+		}
+	}
+
+	if (dmp->dm_ctfp != NULL) {
+		const char *parent;
+
 		/*
-		 * ctf.ko itself is a special case: it contains no code or types
-		 * of its own, and is loaded purely to force allocation of a
-		 * dt_module for it into which we can load the shared types.  We
-		 * pretend that it is built-in and transform its name to
-		 * 'shared_ctf', in order to load the CTF data for it from the
-		 * .ctf.shared_ctf section where the shared types are found,
-		 * rather than .ctf, which is empty (as it is for all modules
-		 * that contain no types of their own).
+		 * Initialize other stuff around the CTF.  Much of it
+		 * (e.g. dm_ctdata_*) is not populated, but some stuff still
+		 * needs to be done.
+		 *
+		 * We create a DTrace module for the parent module if it is not
+		 * already loaded and if it is not the shared CTF, which doesn't
+		 * need a module because it's already special-cased and has no
+		 * associated kernel module in any case.
 		 */
-		dmp->dm_flags |= DT_DM_BUILTIN & DT_DM_SHARED;
-	else
-		strlcpy(dmp->dm_file, dkpp->dkp_path, sizeof (dmp->dm_file));
+		dmp->dm_flags |= DT_DM_CTF_ARCHIVED;
+		ctf_setspecific(dmp->dm_ctfp, dmp);
+
+		if ((parent = ctf_parent_name(dmp->dm_ctfp)) != NULL) {
+			if (strcmp(parent, "shared_ctf") == 0)
+				ctf_import(dmp->dm_ctfp, dtp->dt_shared_ctf);
+			else {
+				dt_module_t *pmp;
+				ctf_file_t *pfp;
+
+				if (((pmp = dt_module_create(dtp,
+						parent)) != NULL) &&
+				    ((pfp = dt_module_getctf(dtp,
+					    pmp)) != NULL))
+					ctf_import(dmp->dm_ctfp, pfp);
+			}
+			dt_dprintf("loaded CTF container for %s (%p)\n",
+			    dmp->dm_name, (void *)dmp->dm_ctfp);
+		}
+	}
+
+	/*
+	 * No CTF archive, module not present in it, or module not loaded so
+	 * we'll need its symbol table later on.  Check for a standalone module.
+	 */
+	if ((dmp->dm_ctfp == NULL) || (dmp->dm_flags & DT_DM_KERN_UNLOADED)) {
+		dkpp = dt_kern_path_lookup_by_name(dtp, dmp->dm_name);
+
+		/*
+		 * Not a kernel module at all?  That's quite acceptable: just
+		 * return.
+		 */
+		if (!(dmp->dm_flags & DT_DM_KERNEL))
+			return;
+
+		if (!dkpp) {
+			dkpp = dt_kern_path_lookup_by_name(dtp, "ctf");
+
+			/*
+			 * With no ctf.ko or CTF archive, we are in real
+			 * trouble. Likely we have no modules at all: CTF lookup
+			 * cannot work.  At any rate, the module path must
+			 * remain unknown.
+			 */
+			if (!dkpp) {
+				dt_dprintf("No ctf.ko\n");
+				return;
+			}
+
+			dmp->dm_flags |= DT_DM_BUILTIN;
+		}
+
+		/*
+		 * Now load the CTF from here.
+		 *
+		 * Loaded kernel modules need only the appropriately-named CTF
+		 * section from the dm_file (which will be ctf.ko for built-in
+		 * modules and the kernel proper).  Builtin kernel modules have
+		 * a section name that varies per-module: the shared type
+		 * repository has a unique name of its own: all other modules
+		 * have a constant name.
+		 */
+	}
+
+	/*
+	 * This is definitely a kernel module with a file on disk (though
+	 * perhaps not a loaded one).
+	 */
+
+	if (dkpp != NULL) {
+		if (strcmp(dmp->dm_name, "shared_ctf") == 0)
+			/*
+			 * ctf.ko itself is a special case: it contains no code
+			 * or types of its own, and is loaded purely to force
+			 * allocation of a dt_module for it into which we can
+			 * load the shared types.  We pretend that it is
+			 * built-in and transform its name to 'shared_ctf', in
+			 * order to load the CTF data for it from the
+			 * .ctf.shared_ctf section where the shared types are
+			 * found, rather than .ctf, which is empty (as it is for
+			 * all modules that contain no types of their own).
+			 */
+			dmp->dm_flags |= DT_DM_BUILTIN & DT_DM_SHARED;
+		else
+			strlcpy(dmp->dm_file, dkpp->dkp_path,
+			    sizeof (dmp->dm_file));
+	}
 }
 
 /*
@@ -1071,7 +1199,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	 * Special case: rename the 'ctf' module to 'shared_ctf': the
 	 * parent-name lookup code presumes that names that appear in CTF's
 	 * parent section are the names of modules, but the ctf module's CTF
-	 * section is special-acsed to contain the contents of the shared_ctf
+	 * section is special-cased to contain the contents of the shared_ctf
 	 * repository, not ctf.ko's types.
 	 */
 	if (strcmp(mod_name, "ctf") == 0)

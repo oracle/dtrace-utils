@@ -91,7 +91,8 @@ Currently:
 dtrace_objinfo.dto_flags has lost the DTRACE_OBJ_F_PRIMARY value: the Linux
 kernel has no concept of 'primary modules'.  As a consequence, the 'primary'
 linkmode option is gone.  dtrace_objinfo.dto_file for a kernel module will
-be the null string before that module is loaded.
+be the null string before that module is loaded, and may be the null string
+afterwards if the module's CTF was loaded from the CTF archive.
 
 Because modules in the Linux kernel may have many discontiguous regions of text
 and data interspersed with other modules, dtrace_objinfo no longer has
