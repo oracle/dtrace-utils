@@ -86,7 +86,11 @@ DTRACE ?= $(objdir)/dtrace
 ifneq ($(HDRPREFIX),)
 CPPFLAGS += -I$(HDRPREFIX)
 else
+ifneq ($(wildcard $(INCLUDEDIR)/linux/dtrace/dif_defines.*),)
 HDRPREFIX = $(INCLUDEDIR)
+else
+$(error Please install dtrace-utils-devel or install kernel headers manually.)
+endif
 endif
 
 # Include everything.
