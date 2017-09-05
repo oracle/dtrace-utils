@@ -49,7 +49,7 @@ bigger()
 #pragma D option quiet
 
 proc::create {
-	this->pid = ((struct task_struct *)arg0)->pid;
+	this->pid = args[0]->pid;
 	printf("%s\n", curthread->comm);
 	exit(0);
 }
