@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,9 +9,8 @@
  * Kernel module list management.  We must maintain bindings from
  * name->filesystem path for all the current kernel's modules, since the system
  * maintains no such list and all mechanisms other than find(1)-analogues have
- * been deprecated or removed in kmod.  However, we can rely on modules.order
- * for all in-kernel modules: it's only out-of-tree modules in other paths that
- * we must do fs walks to find.
+ * been deprecated or removed in kmod.  However, we can rely on modules.dep
+ * to contain paths to all modules, in- or out-of-tree.
  */
 
 #include <sys/types.h>
