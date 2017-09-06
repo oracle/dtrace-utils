@@ -67,6 +67,7 @@ BUILD_DLIBS += \
 WORKING_DLIBS = errno.d \
                 io.d \
                 ip.d \
+                lockstat.d \
                 net.d \
                 procfs.d \
                 regs.d \
