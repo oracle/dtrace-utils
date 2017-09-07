@@ -1014,7 +1014,7 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 			return (dt_set_errno(dtp, EDT_TRACEMEM));
 
 		dpositive = drec->dtrd_arg == DTRACE_TRACEMEM_SIZE ||
-		    (dsize & (1 << drec->dtrd_size * NBBY - 1)) == 0;
+		    (dsize & (1 << (drec->dtrd_size * NBBY - 1))) == 0;
 
 		if (dpositive && dsize < size)
 			size = (size_t)dsize;
