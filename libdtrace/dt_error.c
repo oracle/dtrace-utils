@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -90,7 +90,8 @@ static const struct {
 	{ EDT_CORRUPT_KALLSYMS, "/proc/kallsyms corrupt, perhaps due to "
 	  "concurrent module unload" },
 	{ EDT_ELFCLASS, "Unknown ELF class, neither 32- nor 64-bit" },
-	{ EDT_OBJIO, "Cannot read object file or modules.dep" }
+	{ EDT_OBJIO, "Cannot read object file or modules.dep" },
+	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" }
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);
