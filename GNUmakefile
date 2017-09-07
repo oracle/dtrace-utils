@@ -22,7 +22,7 @@ $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
 
 CFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
-LDFLAGS ?=
+LDFLAGS ?= -lm
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
 ARCHINC := $(subst sparc64,sparc,$(subst x86_64,i386,$(shell uname -m)))

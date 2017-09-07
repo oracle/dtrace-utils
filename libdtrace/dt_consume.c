@@ -666,6 +666,173 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	return (0);
 }
 
+int
+dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
+    size_t size, uint64_t normal)
+{
+	const int64_t *data = addr;
+	int factor, lmag, hmag, steps, steps_factor, step, bin0;
+	int first_bin, last_bin, nbins, err, i, mag;
+	int cwidth = 16, pad = 0;
+	char *c;
+	uint64_t scale;
+	uint64_t arg;
+	long double total = 0;
+	char positives = 0, negatives = 0;
+
+	if (size < sizeof (uint64_t))
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	arg = *data++;
+	size -= sizeof (uint64_t);
+
+	factor = DTRACE_LLQUANTIZE_FACTOR(arg);
+	lmag = DTRACE_LLQUANTIZE_LMAG(arg);
+	hmag = DTRACE_LLQUANTIZE_HMAG(arg);
+	steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	steps_factor = steps / factor;
+	bin0 = 1 + (hmag-lmag+1) * (steps-steps/factor);
+
+	/*
+	 * The rest of the buffer contains:
+	 *
+	 *   < 0   overflow bin
+	 *   < 0   (hmag-lmag+1) log ranges, (steps - steps/factor) bins/range
+	 *         underflow bin
+	 *   > 0   (hmag-lmag+1) log ranges, (steps - steps/factor) bins/range
+	 *   > 0   overflow bin
+	 *
+	 * Note we could calculate the total nbins from size,
+	 * but we do it from first principles so that we can sanity-check size.
+	 */
+	nbins = (hmag - lmag + 1) * (steps - steps_factor) * 2 + 2 + 1;
+
+	if (size != sizeof (uint64_t) * nbins)
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	/* look for first and last bins with data */
+	first_bin = 0;
+	last_bin = nbins - 1;
+	while (first_bin <= last_bin && data[first_bin] == 0)
+		first_bin++;
+	if (first_bin > last_bin) {
+		/* report at least one bin so output is not empty */
+		first_bin = bin0 + 1;
+		last_bin = bin0 + 1;
+	} else {
+		while (data[last_bin] == 0)
+			last_bin--;
+	}
+
+	/* see if there are positive or negative counts or both */
+	for (i = first_bin; i <= last_bin; i++) {
+		positives |= (data[i] > 0);
+		negatives |= (data[i] < 0);
+		total += dt_fabsl((long double)data[i]);
+	}
+
+	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
+	    "------------- Distribution -------------", "count") < 0)
+		return (-1);
+
+	/* broaden the range a little bit for reporting purposes */
+	if (first_bin > 0)
+		first_bin--;
+	if (last_bin < nbins - 1)
+		last_bin++;
+	/*
+	 * There is a possible "ghost bin" problem,
+	 * where first_bin or last_bin may end up on a fictitious bin.
+	 * Add some padding for when we figure out the labels.
+	 */
+	if (lmag == 0 && steps > factor) {
+		pad = steps_factor;
+	}
+
+	/* it is easiest first to populate the labels */
+	c = alloca(cwidth * (last_bin-first_bin+1+2*pad));
+	memset(c, 0, cwidth * (last_bin-first_bin+1+2*pad));
+
+#define CPRINT(I,FORMAT,VAL) \
+	if ((I) >= first_bin - pad && (I) <= last_bin + pad) \
+	    snprintf(c + cwidth * ((I) - first_bin + pad), cwidth, FORMAT, VAL)
+
+	scale = (uint64_t) powl(factor, lmag);
+	/*
+	 * bin0 is for "abs(value)<scale".  Note:
+	 *   - "abs() < 1" is better written as "0"
+	 *   - first_bin>=bin0 means this and all negative bins have count 0.
+	 *     Might as well call this bin "<scale" and not mention "abs()".
+	 */
+	if (scale == 1) {
+		CPRINT(bin0, "%d", (int) 0);
+	} else if (first_bin >= bin0) {
+		CPRINT(bin0, "< %llu", (long long unsigned) scale);
+	} else {
+		CPRINT(bin0, "abs() < %llu", (long long unsigned) scale);
+	}
+	CPRINT((bin0-1), "-%llu", (long long unsigned) scale);
+	CPRINT((bin0+1), "%llu", (long long unsigned) scale);
+	mag = lmag;
+	i = 1;
+	if (lmag == 0 && steps > factor) {
+		for (step = 2; step <= factor; step++) {
+			i += steps_factor;
+			CPRINT((bin0-i), "-%d", step);
+			CPRINT((bin0+i), "%d", step);
+		}
+		mag++;
+	}
+	scale = (uint64_t) powl(factor, mag + 1) / steps;
+	for ( ; mag <= hmag; mag++) {
+		for (step = steps_factor + 1; step <= steps; step++) {
+			i++;
+			CPRINT((bin0-i), "-%llu", (long long unsigned) (step * scale));
+			CPRINT((bin0+i), "%llu", (long long unsigned) (step * scale));
+		}
+		scale *= factor;
+	}
+	scale = (uint64_t) powl(factor, hmag + 1);
+	CPRINT(0 , "<= -%llu", (long long unsigned) scale);
+	CPRINT(nbins-1, ">= %llu", (long long unsigned) scale);
+#undef CPRINT
+
+	/* deal with the ghost-bin problem */
+	if ( pad > 0 ) {
+		int j;
+		/* first_bin */
+		j = cwidth * (first_bin - first_bin + pad);
+		if (c[j] == 0) {
+			for (i = 1; i < pad; i++)
+				if (c[j-cwidth*i] != 0)
+					break;
+			if (i < pad) /* should be true */
+				memcpy(c+j, c+j-cwidth*i, cwidth);
+		}
+		/* last_bin */
+		j = cwidth * ( last_bin - first_bin + pad);
+		if (c[j] == 0) {
+			for (i = 1; i < pad; i++)
+				if (c[j+cwidth*i] != 0)
+					break;
+			if (i < pad) /* should be true */
+				memcpy(c+j, c+j+cwidth*i, cwidth);
+		}
+	}
+
+	/* now print */
+	for (i = first_bin; i <= last_bin; i++) {
+		if (c[cwidth*(i-first_bin+pad)] == 0)
+			continue;
+		err = dt_printf(dtp, fp, "%16s ", c + cwidth*(i-first_bin+pad));
+		if (err < 0 || dt_print_quantline(dtp, fp, data[i], normal,
+		    total, positives, negatives) < 0)
+			return (-1);
+	}
+
+	return (0);
+}
+
 /*ARGSUSED*/
 static int
 dt_print_average(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
@@ -1446,6 +1613,9 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 
 	case DTRACEAGG_LQUANTIZE:
 		return (dt_print_lquantize(dtp, fp, addr, size, normal));
+
+	case DTRACEAGG_LLQUANTIZE:
+		return (dt_print_llquantize(dtp, fp, addr, size, normal));
 
 	case DTRACEAGG_AVG:
 		return (dt_print_average(dtp, fp, addr, size, normal));

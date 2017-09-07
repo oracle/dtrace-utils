@@ -17,6 +17,7 @@
 #include <sys/dtrace_types.h>
 #include <sys/utsname.h>
 #include <sys/compiler.h>
+#include <math.h>
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
@@ -628,6 +629,8 @@ extern void dt_format_destroy(dtrace_hdl_t *);
 extern int dt_print_quantize(dtrace_hdl_t *, FILE *,
     const void *, size_t, uint64_t);
 extern int dt_print_lquantize(dtrace_hdl_t *, FILE *,
+    const void *, size_t, uint64_t);
+extern int dt_print_llquantize(dtrace_hdl_t *, FILE *,
     const void *, size_t, uint64_t);
 extern int dt_print_agg(const dtrace_aggdata_t *, void *);
 

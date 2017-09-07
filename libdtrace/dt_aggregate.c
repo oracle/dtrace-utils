@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -177,6 +177,124 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 	 */
 	lzero = dt_aggregate_lquantizedzero(lhs);
 	rzero = dt_aggregate_lquantizedzero(rhs);
+
+	if (lzero < rzero)
+		return (DT_LESSTHAN);
+
+	if (lzero > rzero)
+		return (DT_GREATERTHAN);
+
+	return (0);
+}
+
+static void
+dt_aggregate_llquantize(int64_t *existing, int64_t *new, size_t size)
+{
+	int64_t arg = *existing++;
+	uint16_t factor = DTRACE_LLQUANTIZE_FACTOR(arg);
+	uint16_t lmag = DTRACE_LLQUANTIZE_LMAG(arg);
+	uint16_t hmag = DTRACE_LLQUANTIZE_HMAG(arg);
+	uint16_t steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	int i, limit;
+
+	/*
+	 * The rest of the buffer contains:
+	 *
+	 *   < 0   overflow bin
+	 *   < 0   (hmag-lmag+1) log ranges, (steps - steps/factor) bins/range
+	 *         underflow bin
+	 *   > 0   (hmag-lmag+1) log ranges, (steps - steps/factor) bins/range
+	 *   > 0   overflow bin
+	 */
+	limit = (hmag-lmag+1) * (steps-steps/factor) * 2 + 2 + 1;
+
+	for (i = 0; i < limit; i++)
+		existing[i] = existing[i] + new[i + 1];
+}
+
+/* called by dt_aggregate_llquantizedcmp() */
+static long double
+dt_aggregate_llquantizedsum(int64_t *llquanta)
+{
+	int64_t arg = *llquanta++;
+	int factor = DTRACE_LLQUANTIZE_FACTOR(arg);
+	int lmag = DTRACE_LLQUANTIZE_LMAG(arg);
+	int hmag = DTRACE_LLQUANTIZE_HMAG(arg);
+	int steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	int steps_factor = steps / factor;
+
+	int bin0 = 1 + (hmag-lmag+1) * (steps-steps_factor);
+
+	long double total = powl(factor, lmag) *
+	    (llquanta[bin0+1]-llquanta[bin0-1]);
+	long double scale;
+	int step, mag, i;
+
+	i = 1;
+	if (lmag==0 && steps > factor) {
+		for (step = 2; step <= factor; step++) {
+			i += steps_factor;
+			total += step * (llquanta[bin0+i] - llquanta[bin0-i]);
+		}
+		lmag = 1;
+	}
+	scale = powl(factor, lmag+1) / steps;
+	for (mag = lmag; mag <= hmag; mag++) {
+		for (step = steps_factor + 1; step <= steps; step++) {
+			i++;
+			total += step * scale *
+			    (llquanta[bin0+i] - llquanta[bin0-i]);
+		}
+		scale *= factor;
+	}
+
+	return (total);
+}
+
+/* called by dt_aggregate_llquantizedcmp() */
+static int64_t
+dt_aggregate_llquantizedzero(int64_t *llquanta)
+{
+	int64_t arg = *llquanta++;
+	uint16_t factor = DTRACE_LLQUANTIZE_FACTOR(arg);
+	uint16_t lmag = DTRACE_LLQUANTIZE_LMAG(arg);
+	uint16_t hmag = DTRACE_LLQUANTIZE_HMAG(arg);
+	uint16_t steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	uint16_t underflow_bin = 1 + (hmag-lmag+1) * (steps-steps/factor);
+
+	/*
+	 * We'll define "zero" here as being the underflow bin.
+	 */
+	return (llquanta[underflow_bin]);
+}
+
+/*
+ * For sorting aggregations for printing.
+ * Detailed behavior is not documented,
+ * but merely inherited from Solaris.
+ * Other behavior is also reasonable.
+ */
+static int
+dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs)
+{
+	long double lsum = dt_aggregate_llquantizedsum(lhs);
+	long double rsum = dt_aggregate_llquantizedsum(rhs);
+	int64_t lzero, rzero;
+
+	if (lsum < rsum)
+		return (DT_LESSTHAN);
+
+	if (lsum > rsum)
+		return (DT_GREATERTHAN);
+
+	/*
+	 * If they're both equal, then we will compare based on the weights at
+	 * zero.  If the weights at zero are equal (or if zero is not within
+	 * the range of the linear quantization), then this will be judged a
+	 * tie and will be resolved based on the key comparison.
+	 */
+	lzero = dt_aggregate_llquantizedzero(lhs);
+	rzero = dt_aggregate_llquantizedzero(rhs);
 
 	if (lzero < rzero)
 		return (DT_LESSTHAN);
@@ -574,6 +692,10 @@ hashnext:
 			h->dtahe_aggregate = dt_aggregate_lquantize;
 			break;
 
+		case DTRACEAGG_LLQUANTIZE:
+			h->dtahe_aggregate = dt_aggregate_llquantize;
+			break;
+
 		case DTRACEAGG_COUNT:
 		case DTRACEAGG_SUM:
 		case DTRACEAGG_AVG:
@@ -842,6 +964,10 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 
 	case DTRACEAGG_LQUANTIZE:
 		rval = dt_aggregate_lquantizedcmp(laddr, raddr);
+		break;
+
+	case DTRACEAGG_LLQUANTIZE:
+		rval = dt_aggregate_llquantizedcmp(laddr, raddr);
 		break;
 
 	case DTRACEAGG_COUNT:

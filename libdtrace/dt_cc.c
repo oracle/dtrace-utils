@@ -1300,6 +1300,188 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		argmax = 5;
 	}
 
+	if (fid->di_id == DTRACEAGG_LLQUANTIZE) {
+		/*
+		 * For log linear quantization, we have four
+		 * arguments in addition to the expression:
+		 *
+		 *    arg1 => Factor
+		 *    arg2 => Lower magnitude
+		 *    arg3 => Upper magnitude
+		 *    arg4 => Steps per magnitude
+		 */
+		dt_node_t *arg1 = dnp->dn_aggfun->dn_args->dn_list;
+		dt_node_t *arg2 = arg1->dn_list;
+		dt_node_t *arg3 = arg2->dn_list;
+		dt_node_t *arg4 = arg3->dn_list;
+		dt_idsig_t *isp;
+		uint64_t factor, lmag, hmag, steps, oarg;
+
+		if (arg1->dn_kind != DT_NODE_INT) {
+			dnerror(arg1, D_LLQUANT_FACTORTYPE, "llquantize( ) "
+			    "argument #1 must be an integer constant\n");
+		}
+
+		factor = (uint64_t)arg1->dn_value;
+
+		if (factor > UINT16_MAX || factor < 2) {
+			dnerror(arg1, D_LLQUANT_FACTORVAL, "llquantize( ) "
+			    "argument #1 must be an unsigned 16-bit "
+			    "quantity greater than or equal to 2\n");
+		}
+
+		if (arg2->dn_kind != DT_NODE_INT) {
+			dnerror(arg2, D_LLQUANT_LMAGTYPE, "llquantize( ) "
+			    "argument #2 must be an integer constant\n");
+		}
+
+		lmag = (uint64_t)arg2->dn_value;
+
+		if (lmag > UINT16_MAX) {
+			dnerror(arg2, D_LLQUANT_LMAGVAL, "llquantize( ) "
+			    "argument #2 must be an unsigned 16-bit "
+			    "quantity\n");
+		}
+
+		if (arg3->dn_kind != DT_NODE_INT) {
+			dnerror(arg3, D_LLQUANT_HMAGTYPE, "llquantize( ) "
+			    "argument #3 must be an integer constant\n");
+		}
+
+		hmag = (uint64_t)arg3->dn_value;
+
+		if (hmag > UINT16_MAX) {
+			dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) "
+			    "argument #3 must be an unsigned 16-bit "
+			    "quantity\n");
+		}
+
+		if (hmag < lmag) {
+			dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) "
+			    "argument #3 (high magnitude) must be at least "
+			    "argument #2 (low magnitude)\n");
+		}
+
+		if (powl(factor, hmag + 1) > (long double)UINT64_MAX) {
+			dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) "
+			    "argument #3 (high magnitude) will cause overflow "
+			    "of 64 bits\n");
+		}
+
+		if (arg4->dn_kind != DT_NODE_INT) {
+			dnerror(arg4, D_LLQUANT_STEPTYPE, "llquantize( ) "
+			    "argument #4 must be an integer constant\n");
+		}
+
+		steps = (uint64_t)arg4->dn_value;
+
+		if (steps > UINT16_MAX) {
+			dnerror(arg4, D_LLQUANT_STEPVAL, "llquantize( ) "
+			    "argument #4 must be an unsigned 16-bit "
+			    "quantity\n");
+		}
+
+		if (steps < factor) {
+			if (factor % steps != 0) {
+				dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+				    "argument #4 (steps) must evenly divide "
+				    "argument #1 (factor) when steps<factor\n");
+			}
+		}
+		if (steps > factor) {
+			if (steps % factor != 0) {
+				dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+				    "argument #4 (steps) must be a multiple of "
+				    "argument #1 (factor) when steps>factor\n");
+			}
+			if (lmag == 0) {
+				if ((factor * factor) % steps != 0) {
+					dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+					    "argument #4 (steps) must evenly divide the square of "
+					    "argument #1 (factor) when steps>factor and "
+					    "lmag==0\n");
+				}
+			} else {
+				unsigned long long ii = powl(factor, lmag + 1);
+				if (ii % steps != 0) {
+					dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+					    "argument #4 (steps) must evenly divide pow("
+					    "argument #1 (factor), lmag "
+					    "(argument #2) + 1) "
+					    "when steps>factor and "
+					    "lmag==0\n");
+				}
+			}
+		}
+
+		arg = (steps << DTRACE_LLQUANTIZE_STEPSSHIFT |
+		    hmag << DTRACE_LLQUANTIZE_HMAGSHIFT |
+		    lmag << DTRACE_LLQUANTIZE_LMAGSHIFT |
+		    factor << DTRACE_LLQUANTIZE_FACTORSHIFT);
+
+		assert(arg != 0);
+
+		isp = (dt_idsig_t *)aid->di_data;
+
+		if (isp->dis_auxinfo == 0) {
+			/*
+			 * This is the first time we've seen an llquantize()
+			 * for this aggregation; we'll store our argument
+			 * as the auxiliary signature information.
+			 */
+			isp->dis_auxinfo = arg;
+		} else if ((oarg = isp->dis_auxinfo) != arg) {
+			/*
+			 * If we have seen this llquantize() before and the
+			 * argument doesn't match the original argument, pick
+			 * the original argument apart to concisely report the
+			 * mismatch.
+			 */
+			int ofactor = DTRACE_LLQUANTIZE_FACTOR(oarg);
+			int olmag = DTRACE_LLQUANTIZE_LMAG(oarg);
+			int ohmag = DTRACE_LLQUANTIZE_HMAG(oarg);
+			int osteps = DTRACE_LLQUANTIZE_STEPS(oarg);
+
+			if (ofactor != factor) {
+				dnerror(dnp, D_LLQUANT_MATCHFACTOR,
+				    "llquantize() factor (argument #1) doesn't "
+				    "match previous declaration: expected %d, "
+				    "found %d\n", ofactor, (int)factor);
+			}
+
+			if (olmag != lmag) {
+				dnerror(dnp, D_LLQUANT_MATCHLMAG,
+				    "llquantize() lmag (argument #2) doesn't "
+				    "match previous declaration: expected %d, "
+				    "found %d\n", olmag, (int)lmag);
+			}
+
+			if (ohmag != hmag) {
+				dnerror(dnp, D_LLQUANT_MATCHHMAG,
+				    "llquantize() hmag (argument #3) doesn't "
+				    "match previous declaration: expected %d, "
+				    "found %d\n", ohmag, (int)hmag);
+			}
+
+			if (osteps != steps) {
+				dnerror(dnp, D_LLQUANT_MATCHSTEPS,
+				    "llquantize() steps (argument #4) doesn't "
+				    "match previous declaration: expected %d, "
+				    "found %d\n", osteps, (int)steps);
+			}
+
+			/*
+			 * We shouldn't be able to get here -- one of the
+			 * parameters must be mismatched if the arguments
+			 * didn't match.
+			 */
+			assert(0);
+		}
+
+		incr = arg4 != NULL ? arg4->dn_list : NULL;
+		argmax = 6;
+	}
+
 	if (fid->di_id == DTRACEAGG_QUANTIZE) {
 		incr = dnp->dn_aggfun->dn_args->dn_list;
 		argmax = 2;
