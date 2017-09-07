@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -214,7 +214,19 @@ typedef enum {
 	D_FREOPEN_INVALID,		/* frename() filename is invalid */
 	D_LQUANT_MATCHBASE,		/* lquantize() mismatch on base */
 	D_LQUANT_MATCHLIM,		/* lquantize() mismatch on limit */
-	D_LQUANT_MATCHSTEP		/* lquantize() mismatch on step */
+	D_LQUANT_MATCHSTEP,		/* lquantize() mismatch on step */
+	D_LLQUANT_FACTORTYPE,		/* llquantize() bad factor type */
+	D_LLQUANT_FACTORVAL,		/* llquantize() bad factor value */
+	D_LLQUANT_LMAGTYPE,		/* llquantize() bad lmag type */
+	D_LLQUANT_LMAGVAL,		/* llquantize() bad lmag value */
+	D_LLQUANT_HMAGTYPE,		/* llquantize() bad hmag type */
+	D_LLQUANT_HMAGVAL,		/* llquantize() bad hmag value */
+	D_LLQUANT_STEPTYPE,		/* llquantize() bad step type */
+	D_LLQUANT_STEPVAL,		/* llquantize() bad step value */
+	D_LLQUANT_MATCHFACTOR,		/* llquantize() mismatch on factor */
+	D_LLQUANT_MATCHLMAG,		/* llquantize() mismatch on lmag */
+	D_LLQUANT_MATCHHMAG,		/* llquantize() mismatch on hmag */
+	D_LLQUANT_MATCHSTEPS		/* llquantize() mismatch on steps */
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1233,6 +1233,13 @@ pfprint_lquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 }
 
 static int
+pfprint_llquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+{
+	return (dt_print_llquantize(dtp, fp, addr, size, normal));
+}
+
+static int
 dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
     const dtrace_recdesc_t *recs, uint_t nrecs, const void *buf,
     size_t len, const dtrace_aggdata_t **aggsdata, int naggvars)
@@ -1416,6 +1423,9 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			break;
 		case DTRACEAGG_LQUANTIZE:
 			func = pfprint_lquantize;
+			break;
+		case DTRACEAGG_LLQUANTIZE:
+			func = pfprint_llquantize;
 			break;
 		case DTRACEACT_MOD:
 			func = pfprint_mod;
