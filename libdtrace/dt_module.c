@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -771,62 +771,32 @@ dtrace_addr_range_sort_cmp(const void *lp, const void *rp)
 }
 
 /*
- * Interface to compare a GElf_Addr to an address range member: used when
- * bsearch()ing for the range during population, when an off-the-end address
- * should be considered part of the range.
- */
-static int
-dtrace_addr_range_populating_cmp(const void *addr_, const void *range_)
-{
-	const GElf_Addr *addr = addr_;
-	const dtrace_addr_range_t *range = range_;
-
-	if (range->dar_va > *addr)
-		return -1;
-
-	if (range->dar_va + range->dar_size + 1 < *addr)
-		return 1;
-
-	return 0;
-}
-
-/*
- * A range locator, used when populating ranges only, since it considers
- * off-the-end addresses to be part of a range.
+ * Return the last range if it contains the specified address.
+ * Include the case where the address is right at the end of the range.
  */
 static dtrace_addr_range_t *
-dtrace_addr_range_find_populating(dt_module_t *dmp, GElf_Addr addr, int is_text)
+dtrace_addr_range_get_last(dt_module_t *dmp, GElf_Addr addr, int is_text)
 {
-	dtrace_addr_range_t **range;
-	size_t *size;
+	dtrace_addr_range_t *range;
+	size_t size;
 
 	if (is_text) {
-		range = &dmp->dm_text_addrs;
-		size = &dmp->dm_text_addrs_size;
+		size = dmp->dm_text_addrs_size;
+		if (size == 0)
+			return NULL;
+		range = &dmp->dm_text_addrs[size-1];
 	} else {
-		range = &dmp->dm_data_addrs;
-		size = &dmp->dm_data_addrs_size;
+		size = dmp->dm_data_addrs_size;
+		if (size == 0)
+			return NULL;
+		range = &dmp->dm_data_addrs[size-1];
 	}
 
-	/*
-	 * A new range is absolutely required if there are no ranges.
-	 */
-	if(*size == 0)
-		return NULL;
+	if (addr >= range->dar_va &&
+	    addr <= range->dar_va + range->dar_size)
+		return range;
 
-	/*
-	 * The last range is highly likely to be the right one, so check it by
-	 * hand first.
-	 */
-	if (dtrace_addr_range_populating_cmp(&addr, &(*range)[(*size)-1]) == 0)
-		return &(*range)[(*size)-1];
-
-	/*
-	 * Search for the range.
-	 */
-	return bsearch(&addr, *range, *size, sizeof (struct dtrace_addr_range),
-	    dtrace_addr_range_populating_cmp);
-
+	return NULL;
 }
 
 /*
@@ -887,8 +857,16 @@ dtrace_addr_range_merge(dt_module_t *dmp, int is_text)
 	for (out = 0, in = 1; in < *size; in++) {
 		size_t in_move = out + 1;
 
-		if (range[out].dar_va + range[out].dar_size == range[in].dar_va)
-			range[out].dar_size += range[in].dar_size;
+		if (range[out].dar_va + range[out].dar_size >= range[in].dar_va) {
+			/*
+			 * If the end of "out" extends past the start of "in",
+			 * and if "in" goes past the end of "out",
+			 * extend the end of "out".
+			 */
+			GElf_Xword newsize = range[in].dar_va + range[in].dar_size - range[out].dar_va;
+			if (range[out].dar_size < newsize)
+				range[out].dar_size = newsize;
+		}
 		else {
 			range[in_move].dar_va = range[in].dar_va;
 			range[in_move].dar_size = range[in].dar_size;
@@ -1171,12 +1149,17 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 			return EDT_NOMEM;
 	}
 
-	range = dtrace_addr_range_find_populating(dmp, sym_addr, sym_text);
-	if (range)
-		range->dar_size = sym_addr - range->dar_va + sym_size;
-
-	if (skip)
+	*last_dmp = dmp;
+	if (sym_size == 0)
 		return 0;
+
+	range = dtrace_addr_range_get_last(dmp, sym_addr, sym_text);
+	/*
+	 * If the top end (va+size) of range is less than the top end (addr+size) of sym,
+	 * extend the size of the range to reach the end of sym.
+	 */
+	if (range && range->dar_size < sym_addr - range->dar_va + sym_size)
+		range->dar_size = sym_addr - range->dar_va + sym_size;
 
 	if (!range) {
 		dtrace_addr_range_t *new_range;
@@ -1189,7 +1172,6 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 		new_range->dar_size = sym_size;
 	}
 
-	*last_dmp = dmp;
 	return 0;
 }
 
@@ -1215,7 +1197,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 	if ((fd = fopen("/proc/kallmodsyms", "r")) != NULL) {
 		char *line = NULL;
 		dt_module_t *last_dmp = NULL;
-		size_t line_n;
+		size_t line_n = 0;
 
 		while ((getline(&line, &line_n, fd)) > 0) {
 			int err;
