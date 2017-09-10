@@ -5,8 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@xfail: depends on ip */
-
 #pragma D option quiet
 
 struct in6_addr *ip6a;
@@ -34,35 +32,35 @@ BEGIN
 	ip6f = this->buf6f;
 	ip6g = this->buf6g;
 
-	ip6a->_S6_un._S6_u8[0] = 0xfe;
-	ip6a->_S6_un._S6_u8[1] = 0x80;
-	ip6a->_S6_un._S6_u8[8] = 0x02;
-	ip6a->_S6_un._S6_u8[9] = 0x14;
-	ip6a->_S6_un._S6_u8[10] = 0x4f;
-	ip6a->_S6_un._S6_u8[11] = 0xff;
-	ip6a->_S6_un._S6_u8[12] = 0xfe;
-	ip6a->_S6_un._S6_u8[13] = 0x0b;
-	ip6a->_S6_un._S6_u8[14] = 0x76;
-	ip6a->_S6_un._S6_u8[15] = 0xc8;
-	ip6b->_S6_un._S6_u8[0] = 0x10;
-	ip6b->_S6_un._S6_u8[1] = 0x80;
-	ip6b->_S6_un._S6_u8[10] = 0x08;
-	ip6b->_S6_un._S6_u8[11] = 0x08;
-	ip6b->_S6_un._S6_u8[13] = 0x20;
-	ip6b->_S6_un._S6_u8[13] = 0x0c;
-	ip6b->_S6_un._S6_u8[14] = 0x41;
-	ip6b->_S6_un._S6_u8[15] = 0x7a;
-	ip6c->_S6_un._S6_u8[15] = 0x01;
-	ip6e->_S6_un._S6_u8[12] = 0x7f;
-	ip6e->_S6_un._S6_u8[15] = 0x01;
-	ip6f->_S6_un._S6_u8[10] = 0xff;
-	ip6f->_S6_un._S6_u8[11] = 0xff;
-	ip6f->_S6_un._S6_u8[12] = 0x7f;
-	ip6f->_S6_un._S6_u8[15] = 0x01;
-	ip6g->_S6_un._S6_u8[10] = 0xff;
-	ip6g->_S6_un._S6_u8[11] = 0xfe;
-	ip6g->_S6_un._S6_u8[12] = 0x7f;
-	ip6g->_S6_un._S6_u8[15] = 0x01;
+	ip6a->in6_u.u6_addr8[0] = 0xfe;
+	ip6a->in6_u.u6_addr8[1] = 0x80;
+	ip6a->in6_u.u6_addr8[8] = 0x02;
+	ip6a->in6_u.u6_addr8[9] = 0x14;
+	ip6a->in6_u.u6_addr8[10] = 0x4f;
+	ip6a->in6_u.u6_addr8[11] = 0xff;
+	ip6a->in6_u.u6_addr8[12] = 0xfe;
+	ip6a->in6_u.u6_addr8[13] = 0x0b;
+	ip6a->in6_u.u6_addr8[14] = 0x76;
+	ip6a->in6_u.u6_addr8[15] = 0xc8;
+	ip6b->in6_u.u6_addr8[0] = 0x10;
+	ip6b->in6_u.u6_addr8[1] = 0x80;
+	ip6b->in6_u.u6_addr8[10] = 0x08;
+	ip6b->in6_u.u6_addr8[11] = 0x08;
+	ip6b->in6_u.u6_addr8[13] = 0x20;
+	ip6b->in6_u.u6_addr8[13] = 0x0c;
+	ip6b->in6_u.u6_addr8[14] = 0x41;
+	ip6b->in6_u.u6_addr8[15] = 0x7a;
+	ip6c->in6_u.u6_addr8[15] = 0x01;
+	ip6e->in6_u.u6_addr8[12] = 0x7f;
+	ip6e->in6_u.u6_addr8[15] = 0x01;
+	ip6f->in6_u.u6_addr8[10] = 0xff;
+	ip6f->in6_u.u6_addr8[11] = 0xff;
+	ip6f->in6_u.u6_addr8[12] = 0x7f;
+	ip6f->in6_u.u6_addr8[15] = 0x01;
+	ip6g->in6_u.u6_addr8[10] = 0xff;
+	ip6g->in6_u.u6_addr8[11] = 0xfe;
+	ip6g->in6_u.u6_addr8[12] = 0x7f;
+	ip6g->in6_u.u6_addr8[15] = 0x01;
 
 	printf("%s\n", inet_ntoa6(ip6a));
 	printf("%s\n", inet_ntoa6(ip6b));
