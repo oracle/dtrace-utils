@@ -42,8 +42,8 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel 
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.7.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 %if %{!?local_build:1}0
 BuildRequires: dtrace-kernel-headers = 0.6.1
@@ -82,7 +82,7 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel > 0.4.0
+Requires:     libdtrace-ctf-devel >= 0.7.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Provides:     dtrace-headers = 0.6.1
