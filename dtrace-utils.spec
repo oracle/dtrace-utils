@@ -49,8 +49,8 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
-Version:      0.6.1
-Release:      4%{?dist}
+Version:      0.6.2
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -236,9 +236,19 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-4
+* Wed Sep 12 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
+- Fix wrong wrong-number-of-args error messages. (Eugene Loh)
+  [Orabug: 26402731]
+- Allow referencing of structure and union members named with
+  the same name as D keywords, e.g. 'self' [Orabug: 26518086]
+- Changes for the move of UAPI headers into dtrace-utils-devel.
+  (Tomas Jedlicka, Nick Alcock).
+- Support CTF in /lib/modules/$(uname -r)/kernel/vmlinux.ctfa
+  archive [Orabug: 25815372]
+- Testsuite fixes and new tests for inet_*() and lquantize
+  (Eugene Loh, Alan Maguire, Nick Alcock)
 
 * Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
 - Relicense all of userspace, including the testsute, to UPL.
