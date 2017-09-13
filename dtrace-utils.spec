@@ -85,7 +85,7 @@ Summary:      DTrace development headers.
 Requires:     libdtrace-ctf-devel >= 0.7.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
-Provides:     dtrace-headers = 0.6.1
+Provides:     dtrace-headers = 0.6.2
 Obsoletes:    dtrace-modules-shared-headers
 Group:	      Development/System
 
@@ -236,9 +236,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Wed Sep 12 2017 - <nick.alcock@oracle.com> - 0.6.2-1
+* Mon Sep 18 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
+- New optional third arg for tracemem(): dynamically-variable size
+  limit [Orabug: 26675604] (Eugene Loh)
 - Fix wrong wrong-number-of-args error messages. (Eugene Loh)
   [Orabug: 26402731]
 - Allow referencing of structure and union members named with
@@ -250,8 +252,8 @@ fi
 - Testsuite fixes and new tests for inet_*() and lquantize
   (Eugene Loh, Alan Maguire, Nick Alcock)
 
-* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
-- Relicense all of userspace, including the testsute, to UPL.
+* Wed Sep 13 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
 - Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)

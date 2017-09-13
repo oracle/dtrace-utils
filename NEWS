@@ -15,7 +15,19 @@ Packaging changes:
    types referenced are found in the kernel tree rather than in out-of-tree
    modules.
 
+New features:
+
+ - The tracemem() action has gained a third argument, the number of bytes
+   to trace: unlike the second argument, which must be a constant, the
+   third argument can be an arbitrary D expression, which can be used
+   to limit a larger second argument to a suitable value.  This brings it
+   into parity with tracemem() on Solaris.
+
 Bugfixes:
+
+ - dtrace_sync() is drastically faster: setup and teardown of large numbers of
+   probes without latency problems and watchdog timer firings is now much
+   more practical.
 
  - The error message given when D argument counts were wrong was itself
    often wrong or confusing.
@@ -26,6 +38,15 @@ Bugfixes:
  - Structure and union members in the kernel with the same name as D keywords
    can now be referenced: mostly, this means you can get at members named
    'self'.
+
+ - lquantize() no longer truncates its value to 32 bits.
+
+ - Fix some places where sleeping inside RCU read critical sections or
+   atomic context could happen (module provide, profile/tick providers,
+   and more general probe and state setup/teardown code).
+
+ - After one release without it, the walltimestamp variable reports useful
+   values again.
 
  - One place where failure to allocate memory (for ECBs) could crash the kernel
    has been fixed.
