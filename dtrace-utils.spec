@@ -236,8 +236,8 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
-- Relicense all of userspace, including the testsute, to UPL.
+* Wed Sep 13 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
 - Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
