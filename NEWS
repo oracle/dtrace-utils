@@ -17,6 +17,11 @@ Packaging changes:
 
 New features:
 
+ - A new llquantize() aggregation, providing log/linear results.
+   Syntax:
+     llquantize(expression, log base, lower exponent, upper exponent, step,
+                [increment])
+
  - The tracemem() action has gained a third argument, the number of bytes
    to trace: unlike the second argument, which must be a constant, the
    third argument can be an arbitrary D expression, which can be used

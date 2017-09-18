@@ -239,6 +239,8 @@ fi
 * Mon Sep 18 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
+- New llquantize() aggregation, providing log/linear results
+  [Orabug: 26675201] (Eugene Loh)
 - New optional third arg for tracemem(): dynamically-variable size
   limit [Orabug: 26675604] (Eugene Loh)
 - Fix wrong wrong-number-of-args error messages. (Eugene Loh)
