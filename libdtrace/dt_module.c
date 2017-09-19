@@ -751,10 +751,10 @@ dtrace_addr_range_cmp(const void *addr_, const void *range_)
 	const GElf_Addr *addr = addr_;
 	const dtrace_addr_range_t *range = range_;
 
-	if (range->dar_va > *addr)
+	if (*addr < range->dar_va)
 		return -1;
 
-	if (range->dar_va + range->dar_size < *addr)
+	if (*addr >= range->dar_va + range->dar_size)
 		return 1;
 
 	return 0;
@@ -1350,7 +1350,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 		 */
 
 		for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
-		     dmp = dt_list_next(dmp)) {
+		    dmp = dt_list_next(dmp)) {
 			if (dmp->dm_kernsyms != NULL) {
 				dt_symtab_sort(dmp->dm_kernsyms);
 				dt_symtab_pack(dmp->dm_kernsyms);
@@ -1413,12 +1413,12 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * quickly.  (There are a few of these, mostly Solaris-compatibility
 	 * types such as caddr_t.)
 	 */
-       if (dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
-	       dt_module_shuffle_to_start(dtp, "dtrace");
-	       dt_module_shuffle_to_start(dtp, "vmlinux");
-       }
+	if (dtp->dt_cdefs == NULL && dtp->dt_ddefs == NULL) {
+		dt_module_shuffle_to_start(dtp, "dtrace");
+		dt_module_shuffle_to_start(dtp, "vmlinux");
+	}
 
-       return 0;
+	return 0;
 }
 
 /*

@@ -405,9 +405,8 @@ dt_aggregate_sym(dtrace_hdl_t *dtp, uint64_t *data)
 }
 
 static void
-dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *data)
+dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *addr)
 {
-	uint64_t *pc = data;
 	dt_module_t *dmp;
 
 	if (dtp->dt_vector != NULL) {
@@ -424,13 +423,29 @@ dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *data)
 
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
-		dtrace_addr_range_t *i;
+		/*
+		 * Check text and data ranges for match.  If there is a range
+		 * that covers the given address, normalize it.
+		 */
+		if (dmp->dm_text_addrs != NULL &&
+		    bsearch(addr, dmp->dm_text_addrs, dmp->dm_text_addrs_size,
+			    sizeof (struct dtrace_addr_range),
+			    dtrace_addr_range_cmp) != NULL) {
 
-		i = bsearch(pc, dmp->dm_text_addrs, dmp->dm_text_addrs_size,
-		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+			*addr = dmp->dm_text_addrs[0].dar_va;
+			return;
+		}
 
-		if (i) {
-			*pc = i->dar_va;
+		if (dmp->dm_data_addrs != NULL &&
+		    bsearch(addr, dmp->dm_data_addrs, dmp->dm_data_addrs_size,
+			    sizeof (struct dtrace_addr_range),
+			    dtrace_addr_range_cmp) != NULL) {
+
+			if (dmp->dm_text_addrs != NULL)
+				*addr = dmp->dm_text_addrs[0].dar_va;
+			else
+				*addr = dmp->dm_data_addrs[0].dar_va;
+
 			return;
 		}
 	}
