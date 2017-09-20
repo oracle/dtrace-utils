@@ -23,7 +23,7 @@
 # from local installed headers define local_build on the command line.
 
 %ifnarch sparc64
-%{!?build_kernel: %define build_kernel 4.1.12-94.5.9%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.1.12-103.5.1%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
