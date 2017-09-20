@@ -11,6 +11,7 @@
 # correctly where possible.  (The process chosen has some regular files open
 # under /var, which checks the trickiest code path in Psystem_daemon().)
 #
+# @@skip: for release, too many garbage stack frames for reliable results
 orig_DEBUG="$DTRACE_DEBUG"
 
 script()
