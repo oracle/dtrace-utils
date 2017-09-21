@@ -1045,8 +1045,6 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	}
 
 	if (dtp->dt_ctfa != NULL) {
-		int i = -1;
-
 		dt_dprintf("Loading CTF for module %s from archive.\n",
 		    dmp->dm_name);
 
