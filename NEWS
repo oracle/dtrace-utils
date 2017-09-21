@@ -46,6 +46,8 @@ Bugfixes:
 
  - lquantize() no longer truncates its value to 32 bits.
 
+ - dtrace_update() now merges module address ranges better.
+
  - Fix some places where sleeping inside RCU read critical sections or
    atomic context could happen (module provide, profile/tick providers,
    and more general probe and state setup/teardown code).

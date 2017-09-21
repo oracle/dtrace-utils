@@ -236,7 +236,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Sep 18 2017 - <nick.alcock@oracle.com> - 0.6.2-1
+* Thu Sep 21 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
 - New llquantize() aggregation, providing log/linear results
@@ -245,6 +245,7 @@ fi
   limit [Orabug: 26675604] (Eugene Loh)
 - Fix wrong wrong-number-of-args error messages. (Eugene Loh)
   [Orabug: 26402731]
+- Fix module address range merging (Eugene Loh) [Orabug: 25767469]
 - Allow referencing of structure and union members named with
   the same name as D keywords, e.g. 'self' [Orabug: 26518086]
 - Changes for the move of UAPI headers into dtrace-utils-devel.
