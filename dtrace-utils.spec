@@ -49,7 +49,7 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
-Version:      0.6.2
+Version:      1.0.0
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
