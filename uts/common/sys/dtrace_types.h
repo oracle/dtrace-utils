@@ -39,7 +39,7 @@ typedef union {
 
 typedef longlong_t      offset_t;
 
-typedef long long	hrtime_t;
+typedef unsigned long long hrtime_t;
 
 #define	SHT_SUNW_dof		0x6ffffff4
 
