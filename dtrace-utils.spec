@@ -23,7 +23,7 @@
 # from local installed headers define local_build on the command line.
 
 %ifnarch sparc64
-%{!?build_kernel: %define build_kernel 4.1.12-94.5.9%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.1.12-112%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
@@ -49,8 +49,8 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
-Version:      0.6.1
-Release:      4%{?dist}
+Version:      0.6.2
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -85,7 +85,7 @@ Summary:      DTrace development headers.
 Requires:     libdtrace-ctf-devel >= 0.7.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
-Provides:     dtrace-headers = 0.6.1
+Provides:     dtrace-headers = 0.6.2
 Obsoletes:    dtrace-modules-shared-headers
 Group:	      Development/System
 
@@ -236,12 +236,27 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-4
+* Thu Sep 21 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
+- New llquantize() aggregation, providing log/linear results
+  [Orabug: 26675201] (Eugene Loh)
+- New optional third arg for tracemem(): dynamically-variable size
+  limit [Orabug: 26675604] (Eugene Loh)
+- Fix wrong wrong-number-of-args error messages. (Eugene Loh)
+  [Orabug: 26402731]
+- Fix module address range merging (Eugene Loh) [Orabug: 25767469]
+- Allow referencing of structure and union members named with
+  the same name as D keywords, e.g. 'self' [Orabug: 26518086]
+- Changes for the move of UAPI headers into dtrace-utils-devel.
+  (Tomas Jedlicka, Nick Alcock).
+- Support CTF in /lib/modules/$(uname -r)/kernel/vmlinux.ctfa
+  archive [Orabug: 25815372]
+- Testsuite fixes and new tests for inet_*() and lquantize
+  (Eugene Loh, Alan Maguire, Nick Alcock)
 
-* Mon Aug  7 2017 - <nick.alcock@oracle.com> - 0.6.1-3
-- Relicense all of userspace, including the testsute, to UPL.
+* Wed Sep 13 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
 - Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
