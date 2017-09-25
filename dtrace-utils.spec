@@ -111,7 +111,7 @@ Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64)
 Requires:     %{glibc32} dtrace-headers > 0.6.0 module-init-tools
 Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel %{perl_io_socket_ip} xfsprogs
-Requires:     %{name}%{?_isa} = %{version}-%{release}
+Requires:     exportfs %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
 Group:	      Internal/do-not-release
 
