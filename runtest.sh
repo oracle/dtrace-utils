@@ -1277,10 +1277,12 @@ for dt in $dtrace; do
             want_all_output=t
         fi
 
-        if [[ -f core ]]; then
-            # A coredump. Preserve it in the logdir.
+        if [[ -f core ]] || [[ "$(find $tmpdir -name core -print)" != "" ]]; then
+            # A coredump in the current directory or under the tmpdir.
+            # Preserve it in the logdir.
 
-            mv core $logdir/$(echo $base | tr '/' '-').core
+            mv core $logdir/$(echo $base | tr '/' '-').core 2>/dev/null || true
+            find $tmpdir -name core -type f -print0 | xargs -0r -I'{}' mv --backup=numbered '{}' $logdir/$(echo $base | tr '/' '-').core
             fail=t
             failmsg="core dumped"
 
