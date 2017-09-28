@@ -50,7 +50,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      0.6.1
-Release:      3%{?dist}
+Release:      4%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -237,7 +237,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Sep 28 2017 - <nick.alcock@oracle.com> - 0.6.1-4
+- Fix dependencies [Orabug: 26883486]
+
 * Wed Sep 13 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+- Released to QA team only
 - Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
