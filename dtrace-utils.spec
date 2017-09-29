@@ -264,7 +264,7 @@ fi
 - make check-quick support, skipping long-running tests
 
 * Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
-- Released to QA team only
+- Internal development release
 - Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
   [Orabug: 26261502]
 - Fix wrong depth in dtrace_print_ustack() leading to garbage output
@@ -298,12 +298,12 @@ fi
 - Test fixes
 
 * Fri Mar  3 2017 - <nick.alcock@oracle.com> - 0.6.0-2
-- Released to QA team only
+- Internal development release
 - Add translator for ip provider [Orabug: 25557249]
 - Test fixes and new tests.
 
 * Tue Jan 17 2017 - <nick.alcock@oracle.com> - 0.6.0-1
-- Released to QA team only
+- Internal development release
 - Allow self-grabs [Orabug: 24829169]
 - Use /proc/pid/map_files if available [Orabug: 24843582]
 - Fix fd leaks on big-endian systems and during heavy exec() [Orabug: 25040553]
@@ -336,7 +336,7 @@ fi
 - Fix smoketests on SPARC [Orabug: 22533468]
 
 * Tue Dec  8 2015 - <nick.alcock@oracle.com> - 0.5.1-4
-- Released to QA team only.
+- Internal development release.
 - Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
 
 * Thu Nov 19 2015 - <nick.alcock@oracle.com> - 0.5.1-3
@@ -345,11 +345,11 @@ fi
   [Orabug: 22238204]
 
 * Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-2
-- Released to QA team only.
+- Internal development release.
 - Remove typoed non-bug from rpm changelog.
 
 * Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
-- Released to QA team only.
+- Internal development release.
 - Improve startup performance when disk cache is cold [Orabug: 22185787]
   [Orabug: 22185763] [Orabug: 22083846]
 - Fix various problems in the testsuite and in DTRACE_DEBUG output
@@ -363,12 +363,12 @@ fi
 - Close any inherited fds before running testsuite [Orabug: 21914934]
 
 * Wed Sep 23 2015 - <nick.alcock@oracle.com> - 0.5.0-3
-- Released to QA team only
+- Internal development release
 - No longer reference UEK3 kernels on SPARC.
 - Do not require 32-bit glibc on SPARC.
 
 * Wed Sep  9 2015 - <nick.alcock@oracle.com> - 0.5.0-2
-- Released to QA team only
+- Internal development release
 - No longer Provide: an unversioned dtrace-utils [Orabug: 21622263]
 - Add missing testsuite package deps [Orabug: 21663841] [Orabug: 21753123]
 - Fix check-module-loading testsuite target [Orabug: 21759323]
@@ -376,7 +376,7 @@ fi
   [Orabug: 21769905]
 
 * Wed Aug 12 2015 - <nick.alcock@oracle.com> - 0.5.0-1
-- Released to QA team only
+- Internal development release
 - SPARC64 support. [Orabug: 19005071]
 - Translator support for 4.1 kernel.
 
@@ -388,17 +388,17 @@ fi
 - Various build system fixes
 
 * Tue Jun 23 2015 - <nick.alcock@oracle.com> - 0.4.6-3
-- Released to QA team only
+- Internal development release
 - Fix deadlocks and failures to latch processes for symbol lookup caused
   by failure to correctly track their state over time, in 0.4.6-1+ only.
 
 * Mon Jun 22 2015 - <nick.alcock@oracle.com> - 0.4.6-2
-- Released to QA team only
+- Internal development release
 - Fix a rare race causing stalls of fork()ed children of traced processes
   under load, in 0.4.6-1 only [Orabug: 21284447]
 
 * Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
-- Released to QA team only
+- Internal development release
 - Support multiple kernels with a single userspace tree, loading system
   D libraries from directories named like /usr/lib64/dtrace/3.8.
   [Orabug: 21279908]
