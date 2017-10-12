@@ -329,6 +329,8 @@ Options:
                       of modules, then immediately exit.
  --quiet: Only show unexpected output (FAILs and XPASSes).
  --verbose: The opposite of --quiet (and the default).
+ --[no-]tag=TAG: Run only tests with[out] TAG.
+                 Multiple such options are ANDed together.
  --help: This message.
 
 If one or more TESTs is provided, they must be the name of .d files existing
@@ -359,6 +361,7 @@ fi
 ONLY_TESTS=
 TESTS=
 QUIET=
+USER_TAGS=
 
 if [[ -n $DTRACE_TEST_TIMEOUT ]]; then
     TIMEOUT="$DTRACE_TEST_TIMEOUT"
@@ -392,6 +395,8 @@ while [[ $# -gt 0 ]]; do
         --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
+        --tag=*) USER_TAGS="$USER_TAGS $(printf -- $1 | cut -d= -f2-)";;
+        --no-tag=*) USER_TAGS="$USER_TAGS !$(printf -- $1 | cut -d= -f2-)";;
         --help|--*) usage;;
         *) ONLY_TESTS=t
            OVERWRITE_RESULTS=t
@@ -735,6 +740,23 @@ touch $LOGFILE
 touch $SUMFILE
 chattr +S $LOGFILE $SUMFILE 2>/dev/null
 
+# Form run and skip files from multiple sources of user-specified tags:
+#   - default-tag file (test/tags.default)
+#   - environment variable (TEST_TAGS)
+#   - command-line options (--[no-]tag=)
+
+USER_TAGS="$(cat test/tags.default 2>/dev/null) $TEST_TAGS $USER_TAGS"
+rm -f $tmpdir/run.tags > /dev/null 2>&1
+rm -f $tmpdir/skip.tags > /dev/null 2>&1
+printf "%s\n" $USER_TAGS | grep -v '^!' | sort -u > $tmpdir/run.tags
+printf "%s\n" $USER_TAGS | grep '^!' | sed 's/^!//' | sort -u > $tmpdir/skip.tags
+# Free ourselves of the hassles of empty (but existing) files.
+for name in $tmpdir/run.tags $tmpdir/skip.tags; do
+    if [[ `cat $name | wc -w` -eq 0 ]]; then
+        rm $name
+    fi
+done
+
 # Loop over each test in turn, or the specified subset if test names were passed
 # on the command line.
 
@@ -819,6 +841,8 @@ for dt in $dtrace; do
         #            parameter, iff the @@timeout is less than this.
         #
         # @@skip: If true, the test is skipped.
+        #
+        # @@tags: Tag test case with specified tags, separated by spaces.
         #
         # @@xfail: A single line containing a reason for this test's expected
         #          failure.  (If the test passes unexpectedly, this message is
@@ -943,6 +967,43 @@ for dt in $dtrace; do
         if exist_options skip $_test; then
             sum "$_test: SKIP: $(extract_options skip $_test)\n"
             continue
+        fi
+        
+        # Check if the user specified any tags.
+
+        if [[ -n "$USER_TAGS" ]]; then
+
+            # Extract tags from test.
+            rm -f $tmpdir/test.tags >/dev/null 2>&1
+            test_tags="$(extract_options tags $_test)"
+            if [[ -n "$test_tags" ]]; then
+                printf "%s\n" $test_tags | sort -u > $tmpdir/test.tags
+            elif [[ -e $tmpdir/run.tags ]]; then
+                # User requested tags, but test has none.  So skip test.
+                tagdiff=$(cat $tmpdir/run.tags | xargs)
+                sum "$_test: SKIP: test lacks requested tags: $tagdiff\n"
+                continue
+            fi
+
+            # If user specified run tags, check for them.
+            if [[ -e $tmpdir/run.tags ]]; then
+                if [[ -n "$(comm -23 $tmpdir/run.tags $tmpdir/test.tags)" ]]; then
+                    # Some user-specified run tags are not in test.  Skip test.
+                    tagdiff=$(comm -23 $tmpdir/run.tags $tmpdir/test.tags | xargs)
+                    sum "$_test: SKIP: test lacks requested tags: $tagdiff\n"
+                    continue
+                fi
+            fi
+
+            # If user specified skip tags, check for them.
+            if [[ -e $tmpdir/skip.tags && -n $test_tags ]]; then
+                if [[ -n "$(comm -12 $tmpdir/skip.tags $tmpdir/test.tags)" ]]; then
+                    # Some user-specified skip tags are in test.  Skip test.
+                    tagdiff=$(comm -12 $tmpdir/skip.tags $tmpdir/test.tags | xargs)
+                    sum "$_test: SKIP: test has excluded tags: $tagdiff\n"
+                    continue
+                fi
+            fi
         fi
 
         # Per-test timeout.

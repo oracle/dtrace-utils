@@ -12,6 +12,8 @@
 # under /var, which checks the trickiest code path in Psystem_daemon().)
 #
 # @@skip: for release, too many garbage stack frames for reliable results
+# @@tags: unstable
+
 orig_DEBUG="$DTRACE_DEBUG"
 
 script()

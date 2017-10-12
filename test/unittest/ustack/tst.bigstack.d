@@ -6,6 +6,7 @@
  */
 
 /* @@trigger: ustack-tst-bigstack */
+/* @@tags: unstable */
 
 /* @@skip: fails intermittently, not testing anything useful? */
 

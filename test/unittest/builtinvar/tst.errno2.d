@@ -14,6 +14,7 @@
  */
 
 /* @@skip: known erratic */
+/* @@tags: unstable */
 
 #pragma D option quiet
 #pragma D option destructive

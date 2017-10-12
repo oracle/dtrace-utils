@@ -6,6 +6,8 @@
 # http://oss.oracle.com/licenses/upl.
 # @@skip: unreliable, see bug 22269741
 
+# @@tags: unstable
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
