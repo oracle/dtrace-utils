@@ -17,6 +17,7 @@
 #    which is the reason we are testing.
 # 2. An unrelated ICMPv6 between these hosts was traced by accident.
 #
+# @@tags: unstable
 
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2

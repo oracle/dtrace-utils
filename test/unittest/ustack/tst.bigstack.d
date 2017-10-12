@@ -6,6 +6,7 @@
  */
 
 /* @@trigger: ustack-tst-bigstack */
+/* @@tags: unstable */
 
 syscall::ioctl:entry
 /pid == $target/
