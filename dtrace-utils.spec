@@ -19,8 +19,11 @@
 # macro.  A selected kernel whose headers are used during compilation is in the
 # build_kernel macro.
 #
-# You can override both from the rpmbuild command line if required.  To build RPM
-# from local installed headers define local_build on the command line.
+# You can override both from the rpmbuild command line if required.  To build an
+# RPM from locally-installed headers, define local_build on the command line.
+# To build translators against locally-installed kernel headers in directories
+# under /usr/src/kernels, define local_kernels on the command line (in addition to
+# dtrace_kernels).
 
 %ifnarch sparc64
 %{!?build_kernel: %define build_kernel 4.1.12-112%{?dist}uek}
@@ -60,8 +63,11 @@ ExclusiveArch:    x86_64 sparc64
 %{lua:
   local srcdirexp = ""
   dtrace_kernels = rpm.expand("%{dtrace_kernels}")
-  for k in string.gmatch(dtrace_kernels, "[^ ]+")  do
-      print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "\n"))
+  local_kernels = rpm.expand("%{local_kernels}")
+  for k in string.gmatch(dtrace_kernels, "[^ ]+") do
+      if local_kernels == "" then
+         print(rpm.expand("BuildRequires: kernel%{variant}-devel = " .. k .. "\n"))
+      end
       srcdirexp = srcdirexp .. " " .. k .. "*"
   end
   rpm.define("srcdirexp " .. srcdirexp)
