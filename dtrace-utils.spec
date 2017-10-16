@@ -243,7 +243,14 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
+- Add lockstat provider [Orabug: 26149894] (Alan Maguire)
+- Add missing obsolete of dtrace-modules-provider-headers [Orabug: 26883486]
+(Tomas Jedlicka)
+- Add missing testsuite NFS dependency [Orabug: 26860985] (Tomas Jedlicka)
+
 * Thu Sep 21 2017 - <nick.alcock@oracle.com> - 0.6.2-1
+- Internal development release.
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
 - New llquantize() aggregation, providing log/linear results
