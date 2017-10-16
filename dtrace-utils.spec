@@ -50,7 +50,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      0.6.2
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -237,7 +237,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-3
+- Apply correct version of lockstat patch [Orabug: 26149894]
+
 * Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
+- Internal development release
 - Add lockstat provider [Orabug: 26149894] (Alan Maguire)
 - Add missing obsolete of dtrace-modules-provider-headers [Orabug: 26883486]
 (Tomas Jedlicka)
