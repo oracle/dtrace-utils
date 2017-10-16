@@ -238,6 +238,7 @@ fi
 
 %changelog
 * Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
+- Add lockstat provider [Orabug: 26149894] (Alan Maguire)
 - Add missing obsolete of dtrace-modules-provider-headers [Orabug: 26883486]
 (Tomas Jedlicka)
 - Add missing testsuite NFS dependency [Orabug: 26860985] (Tomas Jedlicka)

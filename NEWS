@@ -28,6 +28,8 @@ New features:
    to limit a larger second argument to a suitable value.  This brings it
    into parity with tracemem() on Solaris.
 
+ - The lockstat provider is implemented.
+
 Bugfixes:
 
  - dtrace_sync() is drastically faster: setup and teardown of large numbers of
