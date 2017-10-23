@@ -835,7 +835,7 @@ for dt in $dtrace; do
         #                 expansion.
         #
         # @@timeout: The timeout to use for this test.  Overrides the --timeout
-        #            parameter, iff the @@timeout is less than this.
+        #            parameter, iff the @@timeout is greater.
         #
         # @@skip: If true, the test is skipped.
         #
@@ -977,7 +977,7 @@ for dt in $dtrace; do
                 printf "%s\n" $test_tags | sort -u > $tmpdir/test.tags
             elif [[ -e $tmpdir/run.tags ]]; then
                 # User requested tags, but test has none.  So skip test.
-                tagdiff=$(cat $tmpdir/run.tags | xargs)
+                tagdiff=$(xargs < $tmpdir/run.tags)
                 sum "$_test: SKIP: test lacks requested tags: $tagdiff\n"
                 continue
             fi

@@ -1170,7 +1170,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
  * probably due to module unloading during read.
  */
 static int
-dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
+dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 {
 	GElf_Addr sym_addr;
 	long long unsigned sym_size;
@@ -1180,7 +1180,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	dtrace_addr_range_t *range;
 	char sym_name[KSYM_NAME_MAX];
 	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
-	int skip;
+	int skip = 0;
 
 	if ((line[0] == '\n') || (line[0] == 0))
 		return 0;
@@ -1239,27 +1239,22 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 	    (strstarts(sym_name, "__setup_")) ||
 	    (strstarts(sym_name, "__pci_fixup_")) ||
 	    ((strstr(sym_name, ".") != NULL) &&
-		(strstr(sym_name, ".clone.") == NULL))) {
-		dmp = *last_dmp;
+		(strstr(sym_name, ".clone.") == NULL)))
 		skip = 1;
-	} else {
-		dmp = dt_module_lookup_by_name(dtp, mod_name);
-		skip = 0;
-		if (dmp == NULL) {
-			int err;
-
-			dmp = dt_module_create(dtp, mod_name);
-			if (dmp == NULL)
-				return EDT_NOMEM;
-
-			err = dt_kern_module_init(dtp, dmp);
-			if (err != 0)
-				return err;
-		}
-	}
 #undef strstarts
-	if(!dmp)
-		return 0;
+
+	dmp = dt_module_lookup_by_name(dtp, mod_name);
+	if (dmp == NULL) {
+		int err;
+
+		dmp = dt_module_create(dtp, mod_name);
+		if (dmp == NULL)
+			return EDT_NOMEM;
+
+		err = dt_kern_module_init(dtp, dmp);
+		if (err != 0)
+			return err;
+	}
 
 	/*
 	 * Add this symbol to the module's kernel symbol table.
@@ -1277,7 +1272,6 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_module_t **last_dmp)
 			return EDT_NOMEM;
 	}
 
-	*last_dmp = dmp;
 	if (sym_size == 0)
 		return 0;
 
@@ -1324,22 +1318,14 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 */
 	if ((fd = fopen("/proc/kallmodsyms", "r")) != NULL) {
 		char *line = NULL;
-		dt_module_t *last_dmp = NULL;
 		size_t line_n = 0;
-
-		while ((getline(&line, &line_n, fd)) > 0) {
-			int err;
-
-			err = dt_modsym_update(dtp, line, &last_dmp);
-
-			if (err != 0) {
+		while ((getline(&line, &line_n, fd)) > 0)
+			if (dt_modsym_update(dtp, line) != 0) {
 				/* TODO: waiting on a warning infrastructure */
 				dt_dprintf("warning: module CTF loading "
 				    "failed on kallmodsyms line %s\n", line);
 				break; /* no hope of (much) CTF */
 			}
-		}
-
 		free(line);
 		fclose(fd);
 
