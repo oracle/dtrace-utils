@@ -27,7 +27,8 @@
 static struct waitfds_tag {
         unsigned long linux_version_code;
         long waitfd;
-} waitfds[] = { { KERNEL_VERSION(4,13,0), 361 },
+} waitfds[] = { { KERNEL_VERSION(4,14,0), 361 },
+		{ KERNEL_VERSION(4,13,0), 361 },
 		{ KERNEL_VERSION(4,12,0), 361 },
 		{ KERNEL_VERSION(4,11,0), 361 },
 		{ KERNEL_VERSION(4,10,0), 360 },
