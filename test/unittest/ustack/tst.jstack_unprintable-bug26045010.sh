@@ -58,9 +58,10 @@ if [ "$status" -ne 0 ]; then
         exit $status
 fi
 
-n=`sed 's/[ 0-9a-zA-Z_\`\+\.]//g' $file | awk '{x += NF} END {print x}'`
-if [ "$n" -gt 0 ]; then
+n=`sed 's/[[:print:]]//g' $file | awk 'BEGIN {x = 0}; NF>0 {x += 1}; END {print x}'`
+if [ $n -gt 0 ]; then
         echo $tst: $n lines have unprintable characters
+        sed 's/[[:print:]]//g' $file | awk 'NF>0'
         echo "==================== file start"
         cat $file
         echo "==================== file end"
