@@ -170,7 +170,7 @@ run_with_timeout()
     shift 2
     log "Running $cmd $@ with timeout $timeout\n"
 
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -- -$TIMEOUTSIG -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill $TIMEOUTSIG -$pid >/dev/null 2>&1; exited=; fi' CHLD
+    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$pid >/dev/null 2>&1; exited=; fi' CHLD
     sleep $timeout &
     sleepid=$!
     old_ZAPTHESE="$ZAPTHESE"
