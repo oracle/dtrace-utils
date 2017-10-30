@@ -64,6 +64,10 @@ inline int REQ_WRITE = 0x01;
 inline int REQ_SYNC = 0x10;
 
 define_for_kernel([[[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]]]],[[bi_rw]],[[bi_opf]])
+define_for_kernel([[[[4.14]]]],[[__disk]],[[bi_disk]],[[bi_bdev->bd_disk]])
+define_for_kernel([[[[4.14]]]],[[__disk_chk]],[[bi_disk]],[[bi_bdev]])
+define_for_kernel([[[[4.14]]]],[[__partno]],[[bi_partno]],[[bi_bdev->bd_part->partno]])
+define_for_kernel([[[[4.14]]]],[[__part_dev]],[[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]],[[bi_bdev->bd_part->__dev.devt]])
 
 #pragma D binding "1.6.3" translator
 translator bufinfo_t < struct bio *B > {
@@ -72,15 +76,13 @@ translator bufinfo_t < struct bio *B > {
 		((int)B->bi_flags & (1 << BIO_USER_MAPPED) ? B_PAGEIO : B_PHYS);
 	b_addr = 0;
 	b_bcount = B->bi_iter.bi_size;
-	b_lblkno = B->bi_bdev ? (B->bi_iter.bi_sector << 9) /
-		B->bi_bdev->bd_block_size : B->bi_iter.bi_sector;
-	b_blkno = B->bi_bdev ? (B->bi_iter.bi_sector << 9) /
-		B->bi_bdev->bd_block_size : B->bi_iter.bi_sector;
+	b_lblkno = B->bi_iter.bi_sector;
+	b_blkno = B->bi_iter.bi_sector;
 	b_resid = 0;
 	b_bufsize = B->bi_iter.bi_size;
 	b_iodone = (caddr_t)B->bi_end_io;
 	b_error = 0;
-	b_edev = B->bi_bdev ? B->bi_bdev->bd_dev : 0;
+	b_edev = B->__disk_chk == NULL ? 0 : B->__part_dev;
 };
 
 typedef struct devinfo {
@@ -119,20 +121,15 @@ translator devinfo_t < struct buffer_head *B > {
 
 #pragma D binding "1.6.3" translator
 translator devinfo_t < struct bio *B > {
-	dev_major = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ? 0 :
-	    getmajor(B->bi_bdev->bd_dev);
-	dev_minor = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ? 0 :
-	    getminor(B->bi_bdev->bd_dev);
+	dev_major = B->__disk_chk == NULL ? 0 : getmajor(B->__part_dev);
+	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__part_dev);
 	dev_instance = 0;
-	dev_name = B->bi_bdev == NULL || B->bi_bdev->bd_dev  == NULL ? "nfs" :
-	    stringof(`major_names[getmajor(B->bi_bdev->bd_dev) % 255]->name);
-	dev_statname = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ?
-	    "nfs" : B->bi_bdev->bd_part->partno == 0 ?
-	    stringof(B->bi_bdev->bd_disk->disk_name)
-	    : strjoin(stringof(B->bi_bdev->bd_disk->disk_name),
-	    lltostr(B->bi_bdev->bd_part->partno));
-	dev_pathname = B->bi_bdev == NULL || B->bi_bdev->bd_dev == NULL ?
-	    "<nfs>" : "<unknown>";
+	dev_name = B->__disk_chk == NULL ? "nfs" : stringof(`major_names[
+	        getmajor(B->__part_dev) % 255]->name);
+	dev_statname = B->__disk_chk == NULL ? "nfs" :
+	    B->__partno == 0 ? stringof(B->__disk->disk_name) :
+	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__partno));
+	dev_pathname = B->__disk_chk == NULL ? "<nfs>" : "<unknown>";
 };
 
 typedef struct fileinfo {
