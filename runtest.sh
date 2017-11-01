@@ -440,7 +440,7 @@ export PATH=$tmpdir/bin:$PATH
 
 # At shutdown, delete this directory, kill requested process groups, and restore
 # core_pattern.
-trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -- -$ZAPTHESE; fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
+trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -- $(for pid in $ZAPTHESE; do printf " -%i" $pid; done); fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
 
 # Log and failure functions.
 
