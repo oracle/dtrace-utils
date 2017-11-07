@@ -61,7 +61,8 @@ inline int BIO_USER_MAPPED = 6;
 
 /* bit mask in bi_rw */
 inline int REQ_WRITE = 0x01;
-inline int REQ_SYNC = 0x10;
+define_for_kernel([[[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]]]],[[REQ_SYNC_VAL]],[[0x800]],[[0x10]])
+inline int REQ_SYNC = REQ_SYNC_VAL;
 
 define_for_kernel([[[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]]]],[[bi_rw]],[[bi_opf]])
 define_for_kernel([[[[4.14]]]],[[__disk]],[[bi_disk]],[[bi_bdev->bd_disk]])
