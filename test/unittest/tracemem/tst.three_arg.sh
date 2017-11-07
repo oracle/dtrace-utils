@@ -27,8 +27,12 @@ DIRNAME="$tmpdir/three_arg_tracemem.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
 
+# find a CPU to use (use first one we have available)
+cpu=`taskset -cp $$ | awk '{print $NF}' | tr ',' ' ' | tr '-' ' '  | awk '{print $1}'`
+
 # trigger: copy bytes from /dev/zero to /dev/null
-CMD="dd iflag=count_bytes count=8GB if=/dev/zero of=/dev/null status=none"
+# bind to a CPU so DTrace output from different CPUs will not be interwoven
+CMD="taskset -c $cpu dd iflag=count_bytes count=8GB if=/dev/zero of=/dev/null status=none"
 
 # DTrace test
 #   - tracemem(2 args) writes 8 bytes (to check the 3-arg data)
@@ -70,7 +74,7 @@ BEGIN {
             state = -1;          # cycle state back around
         }
         if ( NF != n ) {
-            printf "ERROR expected \$d bytes but got %d\n", n, NF;
+            printf "ERROR expected %d bytes but got %d\n", n, NF;
             nerrs += 1;
             exit 1;
         }
