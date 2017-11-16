@@ -308,6 +308,7 @@ Options:
  --skip-longer[=TIME]: Skip all tests with expected timeouts longer than
                        TIME (if not specified, $DEFAULT_TIMEOUT or whatever is
                        specified by --timeout, whichever is longer).
+ --skip-xfail: Skip all tests that are expected to fail.
  --ignore-timeouts: Treat all timeouts as not being failures.  (For use when
                     testing under load.)
  --testsuites=SUITES: Which testsuites (directories under test/) to run,
@@ -347,6 +348,7 @@ VALGRIND=${DTRACE_TEST_VALGRIND:+t}
 COMPARISON=t
 LOAD_MODULES_ONLY=
 SKIP_LONGER=
+SKIP_XFAIL=
 
 if [[ -n $DTRACE_TEST_TESTSUITES ]]; then
     TESTSUITES="${DTRACE_TEST_TESTSUITES}"
@@ -386,6 +388,7 @@ while [[ $# -gt 0 ]]; do
         --ignore-timeouts) IGNORE_TIMEOUTS=t;;
 	--skip-longer) SKIP_LONGER=$TIMEOUT;;
 	--skip-longer=*) SKIP_LONGER="$(printf -- $1 | cut -d= -f2-)";;
+	--skip-xfail) SKIP_XFAIL=t;;
         --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -1013,6 +1016,11 @@ for dt in $dtrace; do
            *) xfail="";
               echo "$xfile: Unexpected return value $?." >&2;;
         esac
+
+        if [[ -n $xfail ]] && [[ -n $SKIP_XFAIL ]]; then
+            sum "$_test: XFAIL: $xfailmsg (skipped)\n"
+            continue
+        fi
 
         # Check for a trigger.
 

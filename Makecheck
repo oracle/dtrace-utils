@@ -76,10 +76,10 @@ check-verbose-stress: check-verbose
 check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
 
 check-quick: check
-check-quick: RUNTESTFLAGS+=--skip-longer
+check-quick: RUNTESTFLAGS+=--skip-longer --skip-xfail
 
 check-verbose-quick: check-verbose
-check-verbose-quick: RUNTESTFLAGS+=--skip-longer
+check-verbose-quick: RUNTESTFLAGS+=--skip-longer --skip-xfail
 
 check-installed-stress-internal: check-installed-internal
 check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
@@ -88,10 +88,10 @@ check-installed-verbose-stress-internal: check-installed-verbose-internal
 check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
 
 check-installed-quick-internal: check-installed-internal
-check-installed-quick-internal: RUNTESTFLAGS+=--skip-longer
+check-installed-quick-internal: RUNTESTFLAGS+=--skip-longer --skip-xfail
 
 check-installed-verbose-quick-internal: check-installed-verbose-internal
-check-installed-verbose-quick-internal: RUNTESTFLAGS+=--skip-longer
+check-installed-verbose-quick-internal: RUNTESTFLAGS+=--skip-longer --skip-xfail
 
 # QA targets.
 
