@@ -310,8 +310,8 @@ translator ipv4info_t < struct iphdr *I > {
 #pragma D binding "1.5" translator
 translator ipv6info_t < struct ipv6hdr *I > {
 	ipv6_ver = I != NULL ? ((*(uint8_t *)I) >> 4) : 0;
-	ipv6_tclass = I != NULL ? (((*(uint32_t *)I) & 0x0fffffff) >> 20) : 0;
-	ipv6_flow = I != NULL ? ((*(uint32_t *)I) & 0x000fffff) : 0;
+	ipv6_tclass = I != NULL ? ((ntohl(*(uint32_t *)I) & 0x0fffffff) >> 20) : 0;
+	ipv6_flow = I != NULL ? (ntohl(*(uint32_t *)I) & 0x000fffff) : 0;
 	ipv6_plen = I != NULL ? ntohs(I->payload_len) : 0;
 	ipv6_nexthdr = I != NULL ? I->nexthdr : 0;
 	ipv6_nextstr = I == NULL ? "<null>" :
