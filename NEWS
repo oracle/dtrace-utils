@@ -1,3 +1,26 @@
+1.0.0 (Fri 17th, 2017)
+----------------------
+
+New features:
+
+ - Translator support for kernels 4.12 -- 4.14.
+
+Bugfixes:
+
+ - Addresses are normalized properly by mod(), so use of mod() in aggregates
+   works better now.
+ - DTrace will no longer consider symbols in built-in modules or the core kernel
+   to be in the wrong module.
+ - Improvements to the testsuite.
+
+Testsuite changes:
+
+ - Tagging added via a new @@tag in test files: testing with specific tags can
+   be requested via via TEST_TAGS='a !b' in the environment and --tag/--no-tag
+   arguments to runtest.sh.  The intersection of all tags is run, so in the
+   example above, only tests tagged with 'a' and not tagged with 'b' would be
+   run.
+
 0.6.2 (Sep 12th, 2017)
 ----------------------
 

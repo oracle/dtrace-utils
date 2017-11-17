@@ -26,8 +26,8 @@
 # dtrace_kernels).
 
 %ifnarch sparc64
-%{!?build_kernel: %define build_kernel 4.1.12-112%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.2-1%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-112%{?dist}uek}
 %else
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
@@ -91,7 +91,7 @@ Summary:      DTrace development headers.
 Requires:     libdtrace-ctf-devel >= 0.7.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
-Provides:     dtrace-headers = 0.6.2
+Provides:     dtrace-headers = 1.0.0
 Obsoletes:    dtrace-modules-shared-headers
 Obsoletes:    dtrace-modules-provider-headers
 Group:	      Development/System
@@ -120,7 +120,7 @@ Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel %{perl_io_socket_ip} xfsprogs
 Requires:     exportfs %{name}%{?_isa} = %{version}-%{release}
 Autoreq:      0
-Group:	      Internal/do-not-release
+Group:	      Development/System
 
 %description testsuite
 The DTrace testsuite.
@@ -243,6 +243,23 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Nov 27 2017 - <nick.alcock@oracle.com> - 1.0.0-1
+- Fix mod() normalization: add test for it [Orabug: 26826564]
+  (Tomas Jedlicka, Eugene Loh)
+- Fix faulty logic in dtrace_modsym_update() adding symbols to wrong modules
+  [Orabug: 26848467] (Tomas Jedlicka, Eugene Loh)
+- Translator changes for kernels 4.12 -- 4.14 (Nicolas Droux,
+  Tomas Jedlicka, Nick Alcock)
+- Add tagging capability to the testsuite [Orabug: 26992620]
+  (Vincent Lim, Eugene Loh)
+- Fix kills of hanging dtraces in the testsuite [Orabug: 27051149]
+  (Eugene Loh, Nick Alcock)
+- New tests for the lockstat provider and fixes to jstack and 3-arg
+  tracemem tests [Orabug: 26149894, 27015838] (Eugene Loh, Alan Maguire)
+
+* Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-3
+- Apply correct version of lockstat patch [Orabug: 26149894]
+
 * Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
 - Add lockstat provider [Orabug: 26149894] (Alan Maguire)
 - Add missing obsolete of dtrace-modules-provider-headers [Orabug: 26883486]
