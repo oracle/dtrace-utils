@@ -331,6 +331,7 @@ Options:
  --verbose: The opposite of --quiet (and the default).
  --[no-]tag=TAG: Run only tests with[out] TAG.
                  Multiple such options are ANDed together.
+ --time: Log the time each test took.
  --help: This message.
 
 If one or more TESTs is provided, they must be the name of .d files existing
@@ -351,6 +352,7 @@ COMPARISON=t
 LOAD_MODULES_ONLY=
 SKIP_LONGER=
 SKIP_XFAIL=
+TIME_TESTS=
 
 if [[ -n $DTRACE_TEST_TESTSUITES ]]; then
     TESTSUITES="${DTRACE_TEST_TESTSUITES}"
@@ -392,6 +394,7 @@ while [[ $# -gt 0 ]]; do
 	--skip-longer) SKIP_LONGER=$TIMEOUT;;
 	--skip-longer=*) SKIP_LONGER="$(printf -- $1 | cut -d= -f2-)";;
 	--skip-xfail) SKIP_XFAIL=t;;
+        --time) TIME_TESTS=t;;
         --testsuites=*) TESTSUITES="$(printf -- $1 | cut -d= -f2- | tr "," " ")";;
         --quiet) QUIET=t;;
         --verbose) QUIET=;;
@@ -1195,6 +1198,10 @@ for dt in $dtrace; do
             fi
         fi
 
+        if [[ -n $TIME_TESTS ]]; then
+            start_time="$(date +%s)"
+        fi
+
         tst=$base
         export tst
         if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
@@ -1424,6 +1431,11 @@ for dt in $dtrace; do
         fi
 
         log "\n"
+
+        if [[ -n $TIME_TESTS ]]; then
+            end_time="$(date +%s)"
+            sum "$_test took $(($end_time - $start_time))\n"
+        fi
 
         if [[ -n $regression ]]; then
             # If regtesting, we run a second time, with intermediate results
