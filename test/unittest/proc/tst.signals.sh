@@ -15,6 +15,7 @@
 # times 31 signals, plus signal-determination overhead.
 #
 # @@timeout: 200
+# @@tags: unstable
 
 dtrace=$1
 
