@@ -12,7 +12,6 @@
 #
 
 dtrace=$1
-testdir="$(dirname $_test)"
 filesize=$((1024*1024))
 minsize=$((filesize / 10 * 9))
 

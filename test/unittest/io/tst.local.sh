@@ -12,7 +12,6 @@
 #
 
 dtrace=$1
-testdir="$(dirname $_test)"
 nblocks=1024
 filesize=$((1024*$nblocks))
 minsize=$((filesize / 10 * 9))
@@ -31,7 +30,7 @@ mkdir $iodir
 test/triggers/io-mount-local.sh $iodir $fstype $fsoptions
 
 # determine the statname
-mount=`df --output=source $iodir | tail -1`
+mount=`df -P $iodir | awk '{print $1}' | tail -1`
 statname=`basename $mount`
 
 $dtrace $dt_flags -c "test/triggers/doio.sh $tempfile $filesize test/triggers/io-mount-local.sh $iodir $fstype $fsoptions" -qs /dev/stdin <<EODTRACE
