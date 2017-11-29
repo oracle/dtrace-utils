@@ -253,6 +253,8 @@ fi
   (Tomas Jedlicka, Eugene Loh)
 - Fix faulty logic in dtrace_modsym_update() adding symbols to wrong modules
   [Orabug: 26848467] (Tomas Jedlicka, Eugene Loh)
+- ip provider ipv6_tclass and ipv6_flow are not set correctly (Nicolas Droux)
+  [Orabug: 27193049]
 - Translator changes for kernels 4.12 -- 4.14 (Nicolas Droux,
   Tomas Jedlicka, Nick Alcock)
 - Add tagging capability to the testsuite [Orabug: 26992620]
