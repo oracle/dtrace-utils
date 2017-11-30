@@ -248,7 +248,8 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Nov 27 2017 - <nick.alcock@oracle.com> - 1.0.0-1
+* Thu Nov 30 2017 - <nick.alcock@oracle.com> - 1.0.0-1
+- Release for smoketesters, not GA
 - Fix mod() normalization: add test for it [Orabug: 26826564]
   (Tomas Jedlicka, Eugene Loh)
 - Fix faulty logic in dtrace_modsym_update() adding symbols to wrong modules
