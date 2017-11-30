@@ -18,8 +18,8 @@ feature transitioned to working state.
 
 [-] -32: nonfunctional, not expected to work
     -64: useless (default)
-[?] -a: Anonymous tracing: probably not implemented, certainly not tested
-[?] -A: Anonymous tracing, see above
+[+] -a: Anonymous tracing: probably not implemented, certainly not tested
+[+] -A: Anonymous tracing, see above
     -b: works (2012-08-01)
     -B: works (2012-07-23)
     -c: works (2012-08-02)
