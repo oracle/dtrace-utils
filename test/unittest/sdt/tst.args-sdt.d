@@ -21,14 +21,14 @@ BEGIN
 	system("ls >/dev/null");
 }
 
-sdt:::test
+sdt::dt_debug_probe:test
 /arg0 == 10 && arg1 == 20 && arg2 == 30 && arg3 == 40 &&
  arg4 == 50 && arg5 == 60 && arg6 == 70 && arg7 == 80/
 {
 	exit(0);
 }
 
-sdt:::test
+sdt::dt_debug_probe:test
 {
 	printf("args are %d, %d, %d, %d, %d, %d, %d, %d\n",
 	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
