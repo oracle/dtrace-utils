@@ -25,7 +25,7 @@
 #include <rtld_db.h>
 #include <sys/ctf_api.h>
 #include <sys/ptrace.h>
-#include <sys/procfs.h>
+#include <sys/sol_procfs.h>
 #include <sys/dtrace_types.h>
 #include <sys/resource.h>
 #include <sys/stat.h>

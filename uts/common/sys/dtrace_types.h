@@ -14,7 +14,6 @@
 #include <endian.h>
 #include <unistd.h>
 
-typedef unsigned long   psaddr_t;
 typedef enum { B_FALSE, B_TRUE} boolean_t;
 
 /*
