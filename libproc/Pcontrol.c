@@ -602,12 +602,17 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		wrapped_ptrace(P, PTRACE_DETACH, (int)P->pid, 0, 0);
 
 unlock_exit:
+	/*
+	 * Flip the released vector *before* we release locks, because
+	 * at any point after this a Pfree() can come in. and it
+	 * asserts that P->released.
+	 */
+	P->state = PS_DEAD;
+	P->released = TRUE;
+
 	if (P->ptrace_count != 0 && ptrace_lock_hook &&
 	    release_mode != PS_RELEASE_NO_DETACH)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
-
-	P->state = PS_DEAD;
-	P->released = TRUE;
 
 	dt_debug_dump(0);
 }
