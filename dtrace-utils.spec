@@ -58,7 +58,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      1%{?dist}
+Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -248,6 +248,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Dec 15 2017 - <nick.alcock@oracle.com> - 1.0.0-2
+- Fix rare assertion failures at exit [Orabug: 26848964]
+
 * Thu Nov 30 2017 - <nick.alcock@oracle.com> - 1.0.0-1
 - Release for smoketesters, not GA
 - Fix mod() normalization: add test for it [Orabug: 26826564]
