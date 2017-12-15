@@ -1,4 +1,4 @@
-1.0.0 (Fri 17th, 2017)
+1.0.0 (Dec 15th, 2017)
 ----------------------
 
 New features:
@@ -13,6 +13,7 @@ Bugfixes:
    to be in the wrong module.
  - The ip provider's ipv6_tclass and ipv6_flow fields were wrong on little-
    endian machines.
+ - Fix rare assertion failures at exit.
  - Improvements to the testsuite.
 
 Testsuite changes:
