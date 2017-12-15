@@ -30,7 +30,7 @@
 %{!?build_kernel: %define build_kernel 4.1.12-112%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.2-1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.2-4%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-112%{?dist}uek}
 %endif
 %else
