@@ -58,7 +58,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      2%{?dist}
+Release:      3%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -248,7 +248,12 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Jan  5 2018 - <nick.alcock@oracle.com> - 1.0.0-3
+- New tests and test fixes (Kris Van Hees, Nicolas Droux)
+  [Orabug: 27194352, 27282243]
+
 * Fri Dec 15 2017 - <nick.alcock@oracle.com> - 1.0.0-2
+- Internal development release.
 - Fix rare assertion failures at exit [Orabug: 26848964]
 
 * Thu Nov 30 2017 - <nick.alcock@oracle.com> - 1.0.0-1
