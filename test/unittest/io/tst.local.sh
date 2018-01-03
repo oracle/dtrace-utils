@@ -30,7 +30,7 @@ mkdir $iodir
 test/triggers/io-mount-local.sh $iodir $fstype $fsoptions
 
 # determine the statname
-mount=`df -P $iodir | awk '{print $1}' | tail -1`
+mount=`losetup -j $iodir.img | awk 'BEGIN { FS = ":" } ; {print $1}'`
 statname=`basename $mount`
 
 $dtrace $dt_flags -c "test/triggers/doio.sh $tempfile $filesize test/triggers/io-mount-local.sh $iodir $fstype $fsoptions" -qs /dev/stdin <<EODTRACE
