@@ -12,6 +12,8 @@
 #
 # SECTION: Actions and Subroutines/tracemem()
 #
+# @@timeout: 60
+#
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
