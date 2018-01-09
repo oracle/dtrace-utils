@@ -1219,6 +1219,8 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
 	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
 	    (strcmp(sym_name, "__per_cpu_end") == 0) ||
+	    (strcmp(sym_name, "__per_cpu_user_mapped_start") == 0) ||
+	    (strcmp(sym_name, "__per_cpu_user_mapped_end") == 0) ||
 	    (strcmp(sym_name, "irq_stack_union") == 0) || 
 	    (strstarts(sym_name, "__crc_")) ||
 	    (strstarts(sym_name, "__ksymtab_")) ||
