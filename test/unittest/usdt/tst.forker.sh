@@ -5,6 +5,8 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+#
+# @@timeout: 60
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
