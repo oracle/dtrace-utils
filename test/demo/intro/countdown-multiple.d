@@ -7,6 +7,8 @@
 
 /* @@trigger: none */
 
+/* @@tags: unstable */
+
 dtrace:::BEGIN
 {
 	i = 40;
