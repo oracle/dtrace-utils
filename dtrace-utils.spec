@@ -30,7 +30,7 @@
 %{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.2-4%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.7-3%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-112.14.10%{?dist}uek}
 %endif
 %else
@@ -58,7 +58,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      4%{?dist}
+Release:      5%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64
@@ -248,7 +248,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Jan 18 2018 - <nick.alcock@oracle.com> - 1.0.0-5
+- Bring back translators for 4.14.
+
 * Fri Jan 12 2018 - <nick.alcock@oracle.com> - 1.0.0-4
+- Internal development release.
 - Eliminate new symbol at address 0 on KPTI-enabled kernels
   [Orabug: 27364377]
 - Boost some test timeouts
