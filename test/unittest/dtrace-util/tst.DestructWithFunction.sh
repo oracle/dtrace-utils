@@ -16,7 +16,7 @@
 #
 ##
 
-
+# @@timeout-success: yes
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
