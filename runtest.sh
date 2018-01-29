@@ -850,6 +850,9 @@ for dt in $dtrace; do
         # @@skip: If true, the test is skipped.
         #
         # @@tags: Tag test case with specified tags, separated by spaces.
+        #         Tags named after all subdirectories below 'test' are
+        #         automatically added. (e.g. all tests in test/unittest/proc
+        #         will gain the tags test/unittest/proc and test/unittest.)
         #
         # @@xfail: A single line containing a reason for this test's expected
         #          failure.  (If the test passes unexpectedly, this message is
@@ -980,17 +983,17 @@ for dt in $dtrace; do
 
         if [[ -n "$USER_TAGS" ]]; then
 
-            # Extract tags from test.
+            # Extract tags from test, and add tags derived from the test's containing
+            # directory.
             rm -f $tmpdir/test.tags >/dev/null 2>&1
             test_tags="$(extract_options tags $_test "" t)"
-            if [[ -n "$test_tags" ]]; then
-                printf "%s\n" $test_tags | sort -u > $tmpdir/test.tags
-            elif [[ -e $tmpdir/run.tags ]]; then
-                # User requested tags, but test has none.  So skip test.
-                tagdiff=$(xargs < $tmpdir/run.tags)
-                sum "$_test: SKIP: test lacks requested tags: $tagdiff\n"
-                continue
-            fi
+            test_tags="$test_tags $(shrinktest=$_test
+                                    while :; do
+                                        shrinktest="${shrinktest%/*}"
+                                        [[ "$shrinktest" =~ / ]] || break
+                                        printf "%s " "$shrinktest"
+                                    done)"
+            printf "%s\n" $test_tags | sort -u > $tmpdir/test.tags
 
             # If user specified run tags, check for them.
             if [[ -e $tmpdir/run.tags ]]; then
