@@ -43,7 +43,7 @@ main(int argc, char **argv)
 }
 EOF
 
-$CC $CFLAGS -m64 -c -o test64.o test.c
+$CC $CFLAGS -c -o test64.o test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c 64-bit" >& 2
 	exit 1

@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -152,7 +152,7 @@ TARGETS += objs
 BUILD_DRTI_OBJ = $(objdir)/drti.o
 DRTI_OBJ = $(objdir)/dlibs/drti.o
 BUILD_DRTI32_OBJ = $(objdir)/drti32.o
-DRTI32_OBJ = $(objdir)/dlibs/drti32.o
+DRTI32_OBJ = $(if $(NATIVE_BITNESS_ONLY),,$(objdir)/dlibs/drti32.o)
 
 objs: $(DRTI_OBJ) $(DRTI32_OBJ)
 $(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
@@ -207,7 +207,7 @@ install::
 	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI_OBJ))
 	install -m 644 $(DRTI_OBJ) $(INSTLIBDIR)/dtrace
 	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI32_OBJ))
-	install -m 644 $(DRTI32_OBJ) $(INSTLIBDIR)/dtrace
+	$(if $(NATIVE_BITNESS_ONLY),,install -m 644 $(DRTI32_OBJ) $(INSTLIBDIR)/dtrace)
 	$(call describe-install-target,$(INSTLIBDIR)/dtrace,drti-vers)
 	install -m 644 $(objdir)/dlibs/drti-vers $(INSTLIBDIR)/dtrace
 	for kernel in $(SHORTKERNELS); do \

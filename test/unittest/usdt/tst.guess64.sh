@@ -43,7 +43,7 @@ main(int argc, char **argv)
 }
 EOF
 
-${CC} ${CFLAGS} -m64 -c test.c
+${CC} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
@@ -53,7 +53,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -m64 -o test test.o prov.o
+${CC} ${CFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1

@@ -1,7 +1,7 @@
 # spec file for package dtrace-utils.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -61,7 +61,7 @@ Version:      1.0.0
 Release:      2%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
-ExclusiveArch:    x86_64 sparc64
+ExclusiveArch:    x86_64 sparc64 aarch64
 
 # Substitute in kernel-version-specific requirements.
 
