@@ -61,14 +61,14 @@ inline int BIO_USER_MAPPED = 6;
 
 /* bit mask in bi_rw */
 inline int REQ_WRITE = 0x01;
-define_for_kernel([[[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]]]],[[REQ_SYNC_VAL]],[[0x800]],[[0x10]])
+define_for_kernel([[[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]],[[4.15]]]],[[REQ_SYNC_VAL]],[[0x800]],[[0x10]])
 inline int REQ_SYNC = REQ_SYNC_VAL;
 
-define_for_kernel([[[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]]]],[[bi_rw]],[[bi_opf]])
-define_for_kernel([[[[4.14]]]],[[__disk]],[[bi_disk]],[[bi_bdev->bd_disk]])
-define_for_kernel([[[[4.14]]]],[[__disk_chk]],[[bi_disk]],[[bi_bdev]])
-define_for_kernel([[[[4.14]]]],[[__partno]],[[bi_partno]],[[bi_bdev->bd_part->partno]])
-define_for_kernel([[[[4.14]]]],[[__part_dev]],[[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]],[[bi_bdev->bd_part->__dev.devt]])
+define_for_kernel([[[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]],[[4.15]]]],[[bi_rw]],[[bi_opf]])
+define_for_kernel([[[[4.14]],[[4.15]]]],[[__disk]],[[bi_disk]],[[bi_bdev->bd_disk]])
+define_for_kernel([[[[4.14]],[[4.15]]]],[[__disk_chk]],[[bi_disk]],[[bi_bdev]])
+define_for_kernel([[[[4.14]],[[4.15]]]],[[__partno]],[[bi_partno]],[[bi_bdev->bd_part->partno]])
+define_for_kernel([[[[4.14]],[[4.15]]]],[[__part_dev]],[[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]],[[bi_bdev->bd_part->__dev.devt]])
 
 #pragma D binding "1.6.3" translator
 translator bufinfo_t < struct bio *B > {
