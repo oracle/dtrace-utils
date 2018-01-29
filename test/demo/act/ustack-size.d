@@ -7,9 +7,15 @@
 
 /* @@trigger: readwholedir */
 
+/* @@runtest-opts: -C */
+
 #pragma D option quiet
 
+#if defined(__aarch64__)
+syscall::newfstatat:entry
+#else
 syscall::*lstat:entry
+#endif
 /pid == $target && ustacked < 3/
 {
 	ustack(95);
