@@ -23,8 +23,6 @@ BEGIN
 {
 	printf("R_PC = 0x%x\n", uregs[R_PC]);
 	printf("R_SP = 0x%x\n", uregs[R_SP]);
-	printf("R_R0 = 0x%x\n", uregs[R_R0]);
-	printf("R_R1 = 0x%x\n", uregs[R_R1]);
 	exit(0);
 }
 
