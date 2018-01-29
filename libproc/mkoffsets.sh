@@ -7,7 +7,7 @@
 #
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -19,6 +19,8 @@ NATIVE_BITNESS=
 if [[ -n $NATIVE_BITNESS_ONLY ]]; then
     NATIVE_BITNESS=64
 fi
+
+NATIVE_BITNESS_OPTION_SUPPORTED="$(echo 'int main (void) { }' | gcc -x c -o /dev/null -m64 - 2>/dev/null && echo t)"
 
 set -e
 
@@ -34,8 +36,13 @@ echo '#define _'$(basename $HEADER | tr '[a-z.]' '[A-Z_]')'_' >> $HEADER
 echo >>$HEADER
 
 for BITNESS in 32 64; do
+    BITNESS_ARG="-m${NATIVE_BITNESS:-$BITNESS}"
+    if [[ "$BITNESS_ARG" = "-m$NATIVE_BITNESS" ]] &&
+       [[ -z $NATIVE_BITNESS_OPTION_SUPPORTED ]]; then
+        BITNESS_ARG=
+    fi
     sed "s,@BITNESS@,$BITNESS,g" <<'EOF' | \
-    $CC -std=gnu99 -o $objdir/mkoffsets $CPPFLAGS -m${NATIVE_BITNESS:-$BITNESS} -DBITNESS=$BITNESS \
+    $CC -std=gnu99 -o $objdir/mkoffsets $CPPFLAGS $BITNESS_ARG -DBITNESS=$BITNESS \
 	${NATIVE_BITNESS:+-DNATIVE_BITNESS=$NATIVE_BITNESS} -DCOMPILE_TIME -D_GNU_SOURCE -x c - >/dev/null
 /* Compute the offsets and sizes of various structure fields in the dynamic
    linker needed for debugging.

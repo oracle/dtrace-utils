@@ -3,7 +3,7 @@
 # Build files in subdirectories are included by this file.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -16,8 +16,8 @@ VERSION := 1.0.0
 
 # Verify supported hardware.
 
-$(if $(subst sparc64,,$(subst x86_64,,$(shell uname -m))), \
-    $(error "Error: DTrace for Linux only supports x86_64 and sparc64"),)
+$(if $(subst sparc64,,$(subst aarch64,,$(subst x86_64,,$(shell uname -m)))), \
+    $(error "Error: DTrace for Linux only supports x86_64, ARM64 and sparc64"),)
 $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
 
@@ -25,7 +25,7 @@ CFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
-ARCHINC := $(subst sparc64,sparc,$(subst x86_64,i386,$(shell uname -m)))
+ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(shell uname -m))))
 INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
 CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
 export CC = gcc
@@ -49,7 +49,7 @@ KERNELODIR=
 # This allows you to build using a locally installed kernel built with O= by
 # just specifying KERNELODIR=relative/path/to/your/kernel/o/dir.
 KERNELDIRSUFFIX=$(if $(KERNELODIR),/source,/build)
-KERNELARCH := $(subst sparc64,sparc,$(subst x86_64,x86,$(shell uname -m)))
+KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(shell uname -m))))
 
 # If libdtrace-ctf is initialized, we want to get headers from it.
 
