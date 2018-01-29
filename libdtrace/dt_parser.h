@@ -223,8 +223,8 @@ struct dtrace_typeinfo;	/* see <dtrace.h> */
 struct dt_pcb;		/* see <dt_impl.h> */
 
 #define	IS_CHAR(e) \
-	(((e).cte_format & (CTF_INT_CHAR | CTF_INT_SIGNED)) == \
-	(CTF_INT_CHAR | CTF_INT_SIGNED) && (e).cte_bits == NBBY)
+	((((e).cte_format & CTF_CHAR) == CTF_CHAR) &&	\
+	(e).cte_bits == NBBY)
 
 #define	IS_VOID(e) \
 	((e).cte_offset == 0 && (e).cte_bits == 0)

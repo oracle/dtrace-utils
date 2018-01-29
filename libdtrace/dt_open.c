@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -412,7 +412,7 @@ static const dt_intrinsic_t _dtrace_intrinsics_32[] = {
 { "void", { CTF_INT_SIGNED, 0, 0 }, CTF_K_INTEGER },
 { "signed", { CTF_INT_SIGNED, 0, 32 }, CTF_K_INTEGER },
 { "unsigned", { 0, 0, 32 }, CTF_K_INTEGER },
-{ "char", { CTF_INT_SIGNED | CTF_INT_CHAR, 0, 8 }, CTF_K_INTEGER },
+{ "char", { CTF_CHAR, 0, 8 }, CTF_K_INTEGER },
 { "short", { CTF_INT_SIGNED, 0, 16 }, CTF_K_INTEGER },
 { "int", { CTF_INT_SIGNED, 0, 32 }, CTF_K_INTEGER },
 { "long", { CTF_INT_SIGNED, 0, 32 }, CTF_K_INTEGER },
@@ -448,7 +448,7 @@ static const dt_intrinsic_t _dtrace_intrinsics_64[] = {
 { "void", { CTF_INT_SIGNED, 0, 0 }, CTF_K_INTEGER },
 { "signed", { CTF_INT_SIGNED, 0, 32 }, CTF_K_INTEGER },
 { "unsigned", { 0, 0, 32 }, CTF_K_INTEGER },
-{ "char", { CTF_INT_SIGNED | CTF_INT_CHAR, 0, 8 }, CTF_K_INTEGER },
+{ "char", { CTF_CHAR, 0, 8 }, CTF_K_INTEGER },
 { "short", { CTF_INT_SIGNED, 0, 16 }, CTF_K_INTEGER },
 { "int", { CTF_INT_SIGNED, 0, 32 }, CTF_K_INTEGER },
 { "long", { CTF_INT_SIGNED, 0, 64 }, CTF_K_INTEGER },
