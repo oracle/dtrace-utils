@@ -957,8 +957,8 @@ for dt in $dtrace; do
         #     whether they can safely run at all.  See '@@xfail' and '@@skip'.
         #     If both .x and @@xfail exist, only the .x is respected.
         #
-        #     Files suffixed $(uname -m).x allow programmatic xfails or skips
-        #     for a particular architecture.
+        #     Files suffixed $(uname -m).x allow xfails or skips for a
+        #     particular architecture.
         #
         #     As with test.options, executable files named test.x and
         #     test.$(uname -m).x can exist at any level in the hierarchy:
@@ -1067,6 +1067,8 @@ for dt in $dtrace; do
                     xfail=$xfailthisfile
                     xfailmsg="$xfailmsgthisfile"
                 fi
+            elif [[ -e $xfile ]] && [[ $xfail -eq 0 ]]; then
+                xfail=1
             fi
             xfailpath="$(dirname $xfailpath)"
             xbase="$xfailpath/test"
