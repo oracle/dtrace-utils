@@ -18,6 +18,6 @@
 
 BEGIN
 {
-	t = hysdn`cardmax;
+	t = gfs2`gfs2_control_wq;
 	exit(0);
 }
