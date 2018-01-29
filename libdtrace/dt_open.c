@@ -876,7 +876,14 @@ alloc:
 
 	bzero(dtp, sizeof (dtrace_hdl_t));
 	dtp->dt_oflags = flags;
+#if defined(__aarch64__)
+	/*
+	 * Modes other than CREATE not working yet.
+	 */
+	dtp->dt_prcmode = DT_PROC_STOP_CREATE;
+#else
 	dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
+#endif
 	dtp->dt_linkmode = DT_LINK_KERNEL;
 	dtp->dt_linktype = DT_LTYP_ELF;
 	dtp->dt_xlatemode = DT_XL_STATIC;
