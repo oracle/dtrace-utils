@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -739,10 +739,11 @@ chattr +S $LOGFILE $SUMFILE 2>/dev/null
 
 # Form run and skip files from multiple sources of user-specified tags:
 #   - default-tag file (test/tags.default)
+#   - per-arch default-tag file (test/tags.$arch.default
 #   - environment variable (TEST_TAGS)
 #   - command-line options (--[no-]tag=)
 
-USER_TAGS="$(cat test/tags.default 2>/dev/null) $TEST_TAGS $USER_TAGS"
+USER_TAGS="$(cat test/tags.default test/tags.$arch.default 2>/dev/null) $TEST_TAGS $USER_TAGS"
 rm -f $tmpdir/run.tags > /dev/null 2>&1
 rm -f $tmpdir/skip.tags > /dev/null 2>&1
 printf "%s\n" $USER_TAGS | grep -v '^!' | sort -u > $tmpdir/run.tags
