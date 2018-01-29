@@ -248,25 +248,41 @@ exist_options()
     return $retval
 }
 
-# extract_options NAME FILE EXPAND
+# extract_options NAME FILE EXPAND ACCUMULATE
 #
 # Extract the options named NAME from FILE, or in the test.options file in its
 # directory or any parent up to test/, and return them on stdout.
 #
 # If EXPAND is set, do a round of shell evaluation on them first.
+#
+# If ACCUMULATE is set, return the concatenated values of all options named
+# NAME up to test/.
 
 extract_options()
 {
     local retval=1
     local path=$2
     local file=$2
+    local expand=$3
+    local accumulate=$4
+    local val=
 
     while :; do
         # This horrible sequence of patterns catches @@foo, @@foo: bar, and @@foo */,
         # while not catching @@foo-bar or @@foo-bar: baz. */
         if [[ -f $file ]] && grep -Eq -e "@@"$1' *:' -e "@@"$1" " -e "@@"$1'$' $file; then
-            local val="$(grep -E -e "@@"$1' *:' -e "@@"$1" " -e "@@"$1'$' $file | sed 's,.*@@'$1' *: ,,; s,\*/$,,; s,  *$,,')"
-
+            local val="$val$(grep -E -e "@@"$1' *:' -e "@@"$1" " -e "@@"$1'$' $file | sed 's,.*@@'$1' *: ,,; s,\*/$,,; s,  *$,,')"
+            if [[ -n $accumulate ]]; then
+                val="$val "
+            fi
+        fi
+        path="$(dirname $path)"
+        file="$path/test.options"
+        if [[ -e "$path/test.$arch.options" ]]; then
+            file="$path/test.$arch.options"
+        fi
+        # Halt when we have any tags if not accumulating, or at top level anyway.
+        if { [[ -z $accumulate ]] && [[ -n $val ]]; } || [[ -e $path/Makecheck ]]; then
             # Force the $_pid to expand to itself.
 
             _pid='$_pid'
@@ -274,20 +290,13 @@ extract_options()
             # This trick is because printf squashes out spaces, echo -e -e foo
             # prints 'foo', and echo -e -- "foo" prints "-- foo".
 
-            if [[ -n $3 ]]; then
-                eval echo ''"$val"
-            else
-                echo ''"$val"
+            if [[ -n $val ]]; then
+                if [[ -n $expand ]]; then
+                    eval echo ''"$val"
+                else
+                    echo ''"$val"
+                fi
             fi
-            return
-        fi
-        path="$(dirname $path)"
-        file="$path/test.options"
-        if [[ -e "$path/test.$arch.options" ]]; then
-            file="$path/test.$arch.options"
-        fi
-        # Halt at top level.
-        if [[ -e $path/Makecheck ]]; then
             return
         fi
     done
@@ -973,7 +982,7 @@ for dt in $dtrace; do
 
             # Extract tags from test.
             rm -f $tmpdir/test.tags >/dev/null 2>&1
-            test_tags="$(extract_options tags $_test)"
+            test_tags="$(extract_options tags $_test "" t)"
             if [[ -n "$test_tags" ]]; then
                 printf "%s\n" $test_tags | sort -u > $tmpdir/test.tags
             elif [[ -e $tmpdir/run.tags ]]; then
