@@ -241,7 +241,7 @@ main(int argc, char *argv[])
 	char modpath[PATH_MAX];
 	char *revno = NULL;
 	struct utsname uts;
-	char opt;
+	int opt;
 	dt_kern_path_t *dkpp;
 
 	elf_version(EV_CURRENT);

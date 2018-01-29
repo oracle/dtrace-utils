@@ -1153,8 +1153,8 @@ main(int argc, char *argv[])
 	dtrace_cmd_t *dcp;
 
 	int done = 0, mode = 0, tried_loading = 0;
-	int err, i;
-	char c, *p, **v;
+	int err, i, c;
+	char *p, **v;
 	struct dtrace_prochandle P;
 	pid_t pid;
 

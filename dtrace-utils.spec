@@ -51,7 +51,7 @@ Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.7.0
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 %if %{!?local_build:1}0
 BuildRequires: dtrace-kernel-headers = 0.6.1
