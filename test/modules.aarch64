@@ -1,5 +1,5 @@
 ##unload-only dtrace
 profile
 systrace
-ext2 # unload-quietly
+ext4 # unload-quietly
 isofs # unload-quietly

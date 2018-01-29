@@ -5,5 +5,5 @@ systrace
 sdt
 fbt
 fasttrap
-ext2 # unload-quietly
+ext4 # unload-quietly
 isofs # unload-quietly
