@@ -1,5 +1,9 @@
-1.0.0 (Dec 15th, 2017)
+1.0.0 (Jan 30th, 2018)
 ----------------------
+
+New architectures:
+
+ - ARM64 support.
 
 New features:
 

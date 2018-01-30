@@ -25,22 +25,27 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition to
 # dtrace_kernels).
 
-%ifnarch sparc64
+%ifarch x86_64
 %if 0%{?oraclelinux} == 6
 %{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.7-3%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.14-2%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-112.14.10%{?dist}uek}
 %endif
 %else
+%ifarch aarch64
+%{!?build_kernel: %define build_kernel 4.14.14-4.2.v1%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
+%else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %endif
+%endif
 
-# SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
+# SPARC64 and ARM64 don't yet have a 32-bit glibc, so all support for 32-on-64 must be
 # disabled.
-%ifnarch sparc64
+%ifnarch sparc64 aarch64
 %define glibc32 glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %else
 %define glibc32 %{nil}
@@ -58,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      5%{?dist}
+Release:      6%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -248,6 +253,10 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Jan 30 2018 - <nick.alcock@oracle.com> - 1.0.0-6
+- ARM64 support [Orabug: 27438960, 27438993, 27438977]
+- Include correct procfs.h [Orabug: 27266725] (Tomas Jedlicka)
+
 * Thu Jan 18 2018 - <nick.alcock@oracle.com> - 1.0.0-5
 - Bring back translators for 4.14.
 
