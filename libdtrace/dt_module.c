@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -761,55 +761,6 @@ dtrace_addr_range_cmp(const void *addr_, const void *range_)
 }
 
 /*
- * Sort the ranges in a dtrace_addr_range array into order.
- */
-static int
-dtrace_addr_range_sort_cmp(const void *lp, const void *rp)
-{
-	const dtrace_addr_range_t *lhs = lp;
-	const dtrace_addr_range_t *rhs = rp;
-
-	if (lhs->dar_va < rhs->dar_va)
-		return -1;
-	if (lhs->dar_va > rhs->dar_va)
-		return 1;
-	if (lhs->dar_size < rhs->dar_size)
-		return -1;
-	if (lhs->dar_size > rhs->dar_size)
-		return 1;
-	return 0;
-}
-
-/*
- * Return the last range if it contains the specified address.
- * Include the case where the address is right at the end of the range.
- */
-static dtrace_addr_range_t *
-dtrace_addr_range_get_last(dt_module_t *dmp, GElf_Addr addr, int is_text)
-{
-	dtrace_addr_range_t *range;
-	size_t size;
-
-	if (is_text) {
-		size = dmp->dm_text_addrs_size;
-		if (size == 0)
-			return NULL;
-		range = &dmp->dm_text_addrs[size-1];
-	} else {
-		size = dmp->dm_data_addrs_size;
-		if (size == 0)
-			return NULL;
-		range = &dmp->dm_data_addrs[size-1];
-	}
-
-	if (addr >= range->dar_va &&
-	    addr <= range->dar_va + range->dar_size)
-		return range;
-
-	return NULL;
-}
-
-/*
  * Expand an address range and return the new entry.
  */
 static dtrace_addr_range_t *
@@ -841,68 +792,6 @@ dtrace_addr_range_grow(dt_module_t *dmp, int is_text)
 	(*size)++;
 
 	return final_range;
-}
-
-/*
- * Merge adjacent entries in a sorted dtrace_addr_range.
- */
-static void
-dtrace_addr_range_merge(dt_module_t *dmp, int is_text)
-{
-	dtrace_addr_range_t *range;
-	size_t out;
-	size_t in;
-	size_t *size;
-
-	if (is_text) {
-		range = dmp->dm_text_addrs;
-		size = &dmp->dm_text_addrs_size;
-	} else {
-		range = dmp->dm_data_addrs;
-		size = &dmp->dm_data_addrs_size;
-	}
-	if (*size < 2)
-		return;
-
-	for (out = 0, in = 1; in < *size; in++) {
-		size_t in_move = out + 1;
-
-		if (range[out].dar_va + range[out].dar_size >= range[in].dar_va) {
-			/*
-			 * If the end of "out" extends past the start of "in",
-			 * and if "in" goes past the end of "out",
-			 * extend the end of "out".
-			 */
-			GElf_Xword newsize = range[in].dar_va + range[in].dar_size - range[out].dar_va;
-			if (range[out].dar_size < newsize)
-				range[out].dar_size = newsize;
-		}
-		else {
-			range[in_move].dar_va = range[in].dar_va;
-			range[in_move].dar_size = range[in].dar_size;
-			out++;
-		}
-	}
-
-	/*
-	 * If we merged any ranges, reallocate and shrink accordingly.
-	 *
-	 * If OOM on shrinking a range, just don't assign back: we can just give
-	 * up on shrinking and waste a bit of memory.
-	 */
-
-	if (out != (*size - 1)) {
-		*size = out + 1;
-		range = realloc (range, sizeof (struct dtrace_addr_range) *
-		    *size);
-
-		if (range != NULL) {
-			if (is_text)
-				dmp->dm_text_addrs = range;
-			else
-				dmp->dm_data_addrs = range;
-		}
-	}
 }
 
 /*
@@ -1166,34 +1055,54 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
  * ranges as needed, and add the symbol in this line to the module's kernel
  * symbol table.
  *
- * If we return NULL, we have strong evidence of a changing /proc/kallmodsyms,
- * probably due to module unloading during read.
+ * If we return non-NULL, we might have a changing /proc/kallmodsyms,
+ * probably due to module unloading during read.  Perhaps this case should
+ * trigger a retry.
  */
 static int
 dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 {
+	static unsigned long long kernel_upper_bound = (unsigned long long) (-1);
+	static dt_module_t *last_dmp = NULL;
+	static int last_sym_text = -1;
+
 	GElf_Addr sym_addr;
 	long long unsigned sym_size;
 	char sym_type;
 	int sym_text;
 	dt_module_t *dmp;
-	dtrace_addr_range_t *range;
+	dtrace_addr_range_t *range = NULL;
 	char sym_name[KSYM_NAME_MAX];
 	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
 	int skip = 0;
+
+	/*
+	 * Read symbol.
+	 */
 
 	if ((line[0] == '\n') || (line[0] == 0))
 		return 0;
 
 	if (sscanf(line, "%llx %llx %c %s [%s", (long long unsigned *)&sym_addr,
 		(long long unsigned *)&sym_size, &sym_type,
-		sym_name, mod_name) < 3) {
+		sym_name, mod_name) < 4) {
 		dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
 		return EDT_CORRUPT_KALLSYMS;
 	}
 
 	sym_text = ((sym_type == 't') || (sym_type == 'T'));
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+
+	/*
+	 * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
+	 * The last kernel address is expected to have the name "_end".
+	 * (There might also be a symbol "__brk_limit" with that address.)
+	 * Thereafter, symbols in /proc/kallmodsyms will belong to loadable
+	 * modules.
+	 */
+
+	if (strcmp(sym_name, "_end") == 0)
+		kernel_upper_bound = sym_addr;
 
 	/*
 	 * Special case: rename the 'ctf' module to 'shared_ctf': the
@@ -1206,15 +1115,31 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 		strcpy(mod_name, "shared_ctf");
 
 	/*
+	 * Get module.
+	 */
+
+	dmp = dt_module_lookup_by_name(dtp, mod_name);
+	if (dmp == NULL) {
+		int err;
+
+		dmp = dt_module_create(dtp, mod_name);
+		if (dmp == NULL)
+			return EDT_NOMEM;
+
+		err = dt_kern_module_init(dtp, dmp);
+		if (err != 0)
+			return err;
+	}
+
+	/*
+	 * Add the symbol to the module's kernel symbol table.
+	 *
 	 * Some very voluminous and unuseful symbols are silently skipped, being
-	 * used to update ranges but not added to the kernel symbol table.  They
-	 * are always considered to be in the same module (if any) as the last
-	 * symbol we encountered.  It doesn't matter much if this net is cast
-	 * too wide, since we only care if a symbol is present if control flow
-	 * or data lookups might pass through it while a probe fires, and that
-	 * won't happen to any of these symbols.  (Hence the exclusion from this
-	 * filter of symbols corresponding to cloned functions, since these
-	 * could very possibly be in the call stack while a probe fires.)
+	 * used to update ranges but not added to the kernel symbol table.
+	 * It doesn't matter much if this net is cast too wide, since we only
+	 * care if a symbol is present if control flow or data lookups might
+	 * pass through it while a probe fires, and that won't happen to any
+	 * of these symbols.
 	 */
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
 	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
@@ -1245,23 +1170,6 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 		skip = 1;
 #undef strstarts
 
-	dmp = dt_module_lookup_by_name(dtp, mod_name);
-	if (dmp == NULL) {
-		int err;
-
-		dmp = dt_module_create(dtp, mod_name);
-		if (dmp == NULL)
-			return EDT_NOMEM;
-
-		err = dt_kern_module_init(dtp, dmp);
-		if (err != 0)
-			return err;
-	}
-
-	/*
-	 * Add this symbol to the module's kernel symbol table.
-	 */
-
 	if (!skip) {
 		if (dmp->dm_kernsyms == NULL)
 			dmp->dm_kernsyms = dt_symtab_create();
@@ -1274,26 +1182,64 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 			return EDT_NOMEM;
 	}
 
+	/*
+	 * Expand the appropriate address range for this module.
+	 * Picking the right range is easy, but done differently
+	 * for loadable modules versus built-in modules (and kernel).
+	 */
+
 	if (sym_size == 0)
 		return 0;
 
-	range = dtrace_addr_range_get_last(dmp, sym_addr, sym_text);
+	if (sym_addr <= kernel_upper_bound) {
+		/*
+		 * The kernel and built-in modules are in address order
+		 * in /proc/kallmodsyms.
+		 */
+		if (dmp == last_dmp && sym_text == last_sym_text) {
+			if (sym_text)
+				range = &dmp->dm_text_addrs
+				    [dmp->dm_text_addrs_size - 1];
+			else
+				range = &dmp->dm_data_addrs
+				    [dmp->dm_data_addrs_size - 1];
+			range->dar_size = sym_addr + sym_size - range->dar_va;
+		} else {
+			last_dmp = dmp;
+			last_sym_text = sym_text;
+		}
+	} else {
+		/*
+		 * Each loadable module has only one text and one data range.
+		 */
+
+		if (sym_text)
+			range = dmp->dm_text_addrs;
+		else
+			range = dmp->dm_data_addrs;
+
+		if (range) {
+			GElf_Addr end;
+			end = range->dar_va + range->dar_size;
+			if (range->dar_va > sym_addr)
+				range->dar_va = sym_addr;
+			if (end < sym_addr + sym_size)
+				end = sym_addr + sym_size;
+			range->dar_size = end - range->dar_va;
+		}
+
+	}
+
 	/*
-	 * If the top end (va+size) of range is less than the top end (addr+size) of sym,
-	 * extend the size of the range to reach the end of sym.
+	 * If there is no range to expand, create a new one.
 	 */
-	if (range && range->dar_size < sym_addr - range->dar_va + sym_size)
-		range->dar_size = sym_addr - range->dar_va + sym_size;
 
-	if (!range) {
-		dtrace_addr_range_t *new_range;
-
-		new_range = dtrace_addr_range_grow(dmp, sym_text);
-		if (new_range == NULL)
+	if (range == NULL) {
+		range = dtrace_addr_range_grow(dmp, sym_text);
+		if (range == NULL)
 			return EDT_NOMEM;
-
-		new_range->dar_va = sym_addr;
-		new_range->dar_size = sym_size;
+		range->dar_va = sym_addr;
+		range->dar_size = sym_size;
 	}
 
 	return 0;
@@ -1332,9 +1278,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 		fclose(fd);
 
 		/*
-		 * Now work over all modules, and sort and pack their kernel
-		 * symbol tables and address ranges now they are fully
-		 * populated.
+		 * Work over all modules, now they are fully populated.
 		 */
 
 		for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
@@ -1342,24 +1286,6 @@ dtrace_update(dtrace_hdl_t *dtp)
 			if (dmp->dm_kernsyms != NULL) {
 				dt_symtab_sort(dmp->dm_kernsyms);
 				dt_symtab_pack(dmp->dm_kernsyms);
-			}
-
-			if (dmp->dm_text_addrs) {
-				qsort(dmp->dm_text_addrs,
-				    dmp->dm_text_addrs_size,
-				    sizeof (struct dtrace_addr_range),
-				    dtrace_addr_range_sort_cmp);
-
-				dtrace_addr_range_merge(dmp, 1);
-			}
-
-			if (dmp->dm_data_addrs) {
-				qsort(dmp->dm_data_addrs,
-				    dmp->dm_data_addrs_size,
-				    sizeof (struct dtrace_addr_range),
-				    dtrace_addr_range_sort_cmp);
-
-				dtrace_addr_range_merge(dmp, 0);
 			}
 		}
 	} else {
