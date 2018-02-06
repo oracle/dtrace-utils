@@ -10,7 +10,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -195,9 +195,6 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	if (symtab->dtst_flags & DT_ST_PACKED)
 		return NULL;
 
-	if ((dtsp = dt_symbol_by_name(symtab, name)) != NULL)
-		return dtsp;
-
 	if ((dtsp = malloc(sizeof (dt_symbol_t))) == NULL)
 		return NULL;
 
@@ -309,6 +306,64 @@ dt_symtab_sort(dt_symtab_t *symtab)
 	    sizeof (dt_symbol_t *), dt_symbol_sort_cmp);
 
 	symtab->dtst_flags |= DT_ST_SORTED;
+}
+
+/*
+ * Get next item on the linked list, keeping or eliminating the current item.
+ */
+static
+dt_symbol_t **
+next_symp(dt_symbol_t **p, int *nelim, int keep) {
+	if (keep)
+		return &((*p)->dts_next);
+	else {
+		dt_symbol_t *tmp = (*p)->dts_next;
+		(*p)->dts_next = NULL;
+		*p = tmp;
+		*nelim += 1;
+		return p;
+	}
+}
+
+/*
+ * Purge symbols from name-to-address hash buckets if they have duplicates.
+ *
+ * (Duplicates occur when symbols have the same name and are in the same module;
+ * they just come from different translation units.  For example, they might have
+ * file scope and come from different files.)
+ */
+void
+dt_symtab_purge(dt_symtab_t *symtab)
+{
+	uint_t i;
+
+	/* loop over buckets */
+	for (i = 0; i < symtab->dtst_symbuckets; i++) {
+
+		/* walk the bucket's linked list */
+		dt_symbol_t **p1;
+		for (p1 = &symtab->dtst_syms_by_name[i]; *p1; ) {
+			int nelim = 0;
+			char *myname = (*p1)->dts_name.str;
+			dt_symbol_t **p2;
+
+			/*
+			 * Walk from the next item to the end of the list,
+			 * keeping only symbols whose names differ from myname.
+			 * (Compare symbol names by looking at dts_name.str,
+			 * since symtab is not packed yet.)
+			 */
+			for (p2 = &((*p1)->dts_next); *p2; )
+				p2 = next_symp(p2, &nelim,
+				    strcmp((*p2)->dts_name.str, myname));
+
+			/*
+			 * Advance p1, keeping the current item only if no
+			 * other symbols were eliminated (duplicated p1).
+			 */
+			p1 = next_symp(p1, &nelim, nelim == 0);
+		}
+	}
 }
 
 void

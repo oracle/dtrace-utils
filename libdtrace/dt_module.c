@@ -1287,6 +1287,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 		    dmp = dt_list_next(dmp)) {
 			if (dmp->dm_kernsyms != NULL) {
 				dt_symtab_sort(dmp->dm_kernsyms);
+				dt_symtab_purge(dmp->dm_kernsyms);
 				dt_symtab_pack(dmp->dm_kernsyms);
 			}
 		}
