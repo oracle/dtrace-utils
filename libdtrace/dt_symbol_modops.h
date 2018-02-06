@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -47,9 +47,7 @@ BITIZE(dt_module_syminit)(dt_module_t *dmp)
 }
 
 /*
- * Sort comparison function for N-bit symbol address-to-name lookups.  We sort
- * symbols by value.  If values are equal, we prefer the symbol that is
- * non-zero sized, typed, not weak, or lexically first, in that order.
+ * Sort comparison function for N-bit symbol address-to-name lookups.
  */
 static int
 BITIZE(dt_module_symcomp)(const void *lp, const void *rp, void *strtabp)
@@ -58,20 +56,29 @@ BITIZE(dt_module_symcomp)(const void *lp, const void *rp, void *strtabp)
 	ElfIZE(Sym) *rhs = *((ElfIZE(Sym) **)rp);
 	const char *strtab = strtabp;
 
-	if (lhs->st_value != rhs->st_value)
-		return (lhs->st_value > rhs->st_value ? 1 : -1);
+	/* first sort by value */
+	if (lhs->st_value < rhs->st_value)
+		return -1;
+	if (lhs->st_value > rhs->st_value)
+		return 1;
 
-	if ((lhs->st_size == 0) != (rhs->st_size == 0))
-		return (lhs->st_size == 0 ? 1 : -1);
+	/* zero-size markers come before nonzero-size symbols */
+	if ((lhs->st_size == 0) && (rhs->st_size != 0))
+		return -1;
+	if ((lhs->st_size != 0) && (rhs->st_size == 0))
+		return +1;
 
+	/* sort by type */
 	if ((ELFIZE(ST_TYPE)(lhs->st_info) == STT_NOTYPE) !=
 	    (ELFIZE(ST_TYPE)(rhs->st_info) == STT_NOTYPE))
 		return (ELFIZE(ST_TYPE)(lhs->st_info) == STT_NOTYPE ? 1 : -1);
 
+	/* not weak */
 	if ((ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK) !=
 	    (ELFIZE(ST_BIND)(rhs->st_info) == STB_WEAK))
 		return (ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK ? 1 : -1);
 
+	/* lexical order */
 	return (strcmp(strtab + lhs->st_name,
 	    strtab + rhs->st_name));
 }
