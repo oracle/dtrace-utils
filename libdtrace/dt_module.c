@@ -1090,8 +1090,17 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 		return EDT_CORRUPT_KALLSYMS;
 	}
 
-	sym_text = ((sym_type == 't') || (sym_type == 'T'));
+	sym_text = (sym_type == 't') || (sym_type == 'T')
+	     || (sym_type == 'w') || (sym_type == 'W');
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+
+	/*
+	 * Symbols of "absolute" type are typically defined per CPU.  Their
+	 * "addresses" in /proc/kallmodsyms are very low and are actually offsets.
+	 * Drop these symbols.
+	 */
+	if ((sym_type == 'a') || (sym_type == 'A'))
+		return 0;
 
 	/*
 	 * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
@@ -1142,12 +1151,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	 * of these symbols.
 	 */
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
-	if ((strcmp(sym_name, "__per_cpu_start") == 0) ||
-	    (strcmp(sym_name, "__per_cpu_end") == 0) ||
-	    (strcmp(sym_name, "__per_cpu_user_mapped_start") == 0) ||
-	    (strcmp(sym_name, "__per_cpu_user_mapped_end") == 0) ||
-	    (strcmp(sym_name, "irq_stack_union") == 0) || 
-	    (strstarts(sym_name, "__crc_")) ||
+	if ((strstarts(sym_name, "__crc_")) ||
 	    (strstarts(sym_name, "__ksymtab_")) ||
 	    (strstarts(sym_name, "__kcrctab_")) ||
 	    (strstarts(sym_name, "__kstrtab_")) ||
@@ -1164,9 +1168,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	    (strstarts(sym_name, "__tpstrtab__")) ||
 	    (strstarts(sym_name, "__initcall_")) ||
 	    (strstarts(sym_name, "__setup_")) ||
-	    (strstarts(sym_name, "__pci_fixup_")) ||
-	    ((strstr(sym_name, ".") != NULL) &&
-		(strstr(sym_name, ".clone.") == NULL)))
+	    (strstarts(sym_name, "__pci_fixup_")))
 		skip = 1;
 #undef strstarts
 
