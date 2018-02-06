@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -40,6 +40,7 @@ extern dt_symbol_t *dt_symbol_by_name(dt_symtab_t *symtab, const char *name);
 extern dt_symbol_t *dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr);
 
 extern void dt_symtab_sort(dt_symtab_t *symtab);
+extern void dt_symtab_purge(dt_symtab_t *symtab);
 extern void dt_symtab_pack(dt_symtab_t *symtab);
 
 extern const char *dt_symbol_name(dt_symtab_t *symtab, dt_symbol_t *symbol);
