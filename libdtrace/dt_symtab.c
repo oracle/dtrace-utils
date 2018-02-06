@@ -38,65 +38,75 @@ struct dt_symbol {
 	struct dt_symbol *dts_next;	/* hash chain pointer */
 };
 
+/*
+ * Symbol address ranges might overlap.  E.g., one symbol might have a broad
+ * range, while another spans a subset of that range.  The address-to-symbol
+ * mapping should return the narrowest symbol.  So the narrower symbol will
+ * be returned for middle addresses and the broader symbol for lower and
+ * higher addresses.
+ *
+ * Here we define symbol address ranges for the address-to-symbol translation.
+ * Note that a symbol might end up with more than one range.
+ */
+typedef struct dt_symrange {
+	GElf_Addr dtsr_lo;
+	GElf_Addr dtsr_hi;
+	dt_symbol_t *dtsr_sym;
+} dt_symrange_t;
+
 struct dt_symtab {
 	dt_list_t dtst_symlist;		/* symbol list */
 	dt_symbol_t **dtst_syms_by_name;/* symbol name->addr hash buckets */
 	uint_t dtst_symbuckets;		/* number of buckets */
-	uint_t dtst_nsyms;		/* number of symbols */
 	char *dtst_strtab;		/* string table of symbol names */
-	dt_symbol_t **dtst_addrs;	/* sorted address->symbol mapping */
-	uint_t dtst_alloc_addrs;	/* number of allocated addrs */
+	dt_symrange_t *dtst_ranges;	/* range->symbol mapping */
+	uint_t dtst_num_range;		/*   - number of ranges */
+	uint_t dtst_num_range_alloc;	/*   - number of ranges allocated */
 	int dtst_flags;			/* symbol table flags */
 };
 
 /*
- * Grow the address->symbol mapping, zeroing out the new elements.
+ * Grow the range->symbol mapping.
  */
-static dt_symbol_t **
-dt_symtab_grow_addrs(dt_symtab_t *symtab)
+static dt_symrange_t *
+dt_symtab_grow_ranges(dt_symtab_t *symtab)
 {
-	uint_t alloc_addrs = symtab->dtst_alloc_addrs;
-	dt_symbol_t **new_addrs;
-
-	alloc_addrs = (alloc_addrs + 1) * 2;
-	new_addrs = realloc(symtab->dtst_addrs,
-	    sizeof (struct dt_symbol *) * alloc_addrs);
-
-	if (new_addrs == NULL)
+	uint_t num_alloc = (symtab->dtst_num_range_alloc + 1) * 2;
+	dt_symrange_t *new_ranges = realloc(symtab->dtst_ranges,
+	    sizeof (dt_symrange_t) * num_alloc);
+	if (new_ranges == NULL)
 		return NULL;
 
-	bzero(new_addrs + symtab->dtst_alloc_addrs,
-	    (alloc_addrs - symtab->dtst_alloc_addrs) *
-	    sizeof (struct dt_symbol *));
-	symtab->dtst_alloc_addrs = alloc_addrs;
-	symtab->dtst_addrs = new_addrs;
+	symtab->dtst_num_range_alloc = num_alloc;
+	symtab->dtst_ranges = new_ranges;
 
-	return new_addrs;
+	return new_ranges;
 }
 
 /*
- * Sort symbols in dtst_addrs into order.
+ * Sort dtst_ranges.
  *
- * As with dt_module_symcomp(), we order identically-addressed symbols first if
- * they are non-zero-sized, typed, non-weak, or lexically first, in that order.
- * (It is theoretically possible to have two identical symbols with identical
- * addresses coming from different modules, but since this code does not track
- * modules it doesn't need to care.)
- *
- * We do not bother to handle the pathological case of symbols with distinct
- * addresses which nonetheless overlap: the assumption is that if N symbols span
- * an address, they all have the same starting address and size.
+ * Somewhat mimics dt_module_symcomp(), but note:
+ * - here there should be no zero-size symbols
+ * - we do sort by size to help identify aliases
+ *     (different names but same addr and size)
+ * - we demote the name "cleanup_module"
  */
 static int
-dt_symbol_sort_cmp(const void *lp, const void *rp)
+dt_symrange_sort_cmp(const void *lp, const void *rp)
 {
-	const dt_symbol_t * const *lhsp =  lp;
-	const dt_symbol_t * const *rhsp = rp;
-	const dt_symbol_t *lhs = *lhsp;
-	const dt_symbol_t *rhs = *rhsp;
+	dt_symbol_t *lhs = ((dt_symrange_t *) lp)->dtsr_sym;
+	dt_symbol_t *rhs = ((dt_symrange_t *) rp)->dtsr_sym;
 
-	if (lhs->dts_addr != rhs->dts_addr)
-		return lhs->dts_addr > rhs->dts_addr;
+	if (lhs->dts_addr < rhs->dts_addr)
+		return -1;
+	if (lhs->dts_addr > rhs->dts_addr)
+		return +1;
+
+	if (lhs->dts_size > rhs->dts_size)
+		return -1;
+	if (lhs->dts_size < rhs->dts_size)
+		return +1;
 
 	if ((GELF_ST_TYPE(lhs->dts_info) == STT_NOTYPE) !=
 	    (GELF_ST_TYPE(rhs->dts_info) == STT_NOTYPE))
@@ -107,30 +117,31 @@ dt_symbol_sort_cmp(const void *lp, const void *rp)
 		return GELF_ST_BIND(lhs->dts_info) == STB_WEAK ? 1 : -1;
 
 	/*
-	 * Note: packed strtabs must already be sorted and cannot be changed nor
-	 * resorted.
+	 * Note: packed strtabs must already be sorted and can be
+	 * neither changed nor resorted.
 	 */
+	if (strcmp(lhs->dts_name.str, "cleanup_module") &&
+	    strcmp(rhs->dts_name.str, "cleanup_module") == 0)
+		return -1;
+	if (strcmp(rhs->dts_name.str, "cleanup_module") &&
+	    strcmp(lhs->dts_name.str, "cleanup_module") == 0)
+		return +1;
 	return (strcmp(lhs->dts_name.str, rhs->dts_name.str));
 }
 
 /*
- * Find some symbol in dtst_addrs spanning the desired address.
- *
- * If several symbols span that address, return an arbitrary one.
+ * Find some symbol in dtst_ranges spanning the desired address.
  */
 static int dt_symbol_search_cmp(const void *lp, const void *rp)
 {
-	const GElf_Addr *lhsp = lp;
-	dt_symbol_t * const *rhsp = rp;
-	const GElf_Addr lhs = *lhsp;
-	const dt_symbol_t *rhs = *rhsp;
+	const GElf_Addr lhs = *((GElf_Addr *) lp);
+	dt_symrange_t *rhs = (dt_symrange_t *) rp;
 
-	if ((lhs >= rhs->dts_addr) && (lhs < rhs->dts_addr + rhs->dts_size))
-		return 0;
-	else if (lhs < rhs->dts_addr)
+	if (lhs < rhs->dtsr_lo)
 		return -1;
-	else
+	if (lhs >= rhs->dtsr_hi)
 		return 1;
+	return 0;
 }
 
 dt_symtab_t *
@@ -165,7 +176,7 @@ dt_symtab_destroy(dt_symtab_t *symtab)
 	if (!symtab)
 		return;
 
-	free(symtab->dtst_addrs);
+	free(symtab->dtst_ranges);
 	free(symtab->dtst_syms_by_name);
 	free(symtab->dtst_strtab);
 
@@ -186,7 +197,6 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
     GElf_Addr addr, GElf_Xword size, unsigned char info)
 {
 	uint_t h;
-	dt_symbol_t **symaddr;
 	dt_symbol_t *dtsp;
 
 	/*
@@ -198,8 +208,8 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	if ((dtsp = malloc(sizeof (dt_symbol_t))) == NULL)
 		return NULL;
 
-	if (symtab->dtst_nsyms >= symtab->dtst_alloc_addrs)
-		if (dt_symtab_grow_addrs(symtab) == NULL) {
+	if (symtab->dtst_num_range >= symtab->dtst_num_range_alloc)
+		if (dt_symtab_grow_ranges(symtab) == NULL) {
 			free(dtsp);
 			return NULL;
 		}
@@ -217,18 +227,24 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	}
 
 	/*
-	 * Address->symbol mapping.
+	 * Address->symbol mapping.  Zero-size symbols do not
+	 * include any addresses and therefore are not added.
+	 * It is not yet necessary to set the range's addr and size.
 	 */
 
-	symaddr = &symtab->dtst_addrs[symtab->dtst_nsyms];
-	*symaddr = dtsp;
+	if (size > 0) {
+		symtab->dtst_ranges[symtab->dtst_num_range].dtsr_sym = dtsp;
+		symtab->dtst_num_range++;
+	}
 
 	/*
-	 * Finalize; chain into the list and hash table, increase symbol count.
+	 * Append to the doubly linked list.
 	 */
 	dt_list_append(&symtab->dtst_symlist, dtsp);
-	symtab->dtst_nsyms++;
 
+	/*
+	 * Add to lookup-by-name hash table.
+	 */
 	h = dt_strtab_hash(name, NULL) % symtab->dtst_symbuckets;
 	dtsp->dts_next = symtab->dtst_syms_by_name[h];
 	symtab->dtst_syms_by_name[h] = dtsp;
@@ -263,47 +279,176 @@ dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
 dt_symbol_t *
 dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr)
 {
-	dt_symbol_t **sympp, *lastsymp;
+	dt_symrange_t *sympp;
 
-	if (symtab->dtst_addrs == NULL)
+	if (symtab->dtst_ranges == NULL)
 		return NULL;
 
 	if (!(symtab->dtst_flags & DT_ST_SORTED))
 		return NULL;
 
-	/*
-	 * After finding a symbol spanning the desired address, hunt backwards
-	 * for the first such symbol: it is the most desirable one.
-	 */
-
-	sympp = bsearch(&dts_addr, symtab->dtst_addrs, symtab->dtst_nsyms,
-	    sizeof (struct dt_symbol *), dt_symbol_search_cmp);
+	sympp = bsearch(&dts_addr, symtab->dtst_ranges, symtab->dtst_num_range,
+	    sizeof (dt_symrange_t), dt_symbol_search_cmp);
 
 	if (sympp == NULL)
 		return NULL;
 
-	for (lastsymp = *sympp;
-	     (sympp > symtab->dtst_addrs) &&
-		 ((*sympp)->dts_addr <= dts_addr) &&
-		 ((*sympp)->dts_addr + (*sympp)->dts_size > dts_addr);
-	     lastsymp = *sympp, sympp--)
-		;
-
-	if ((lastsymp->dts_addr <= dts_addr) &&
-	    (lastsymp->dts_addr + lastsymp->dts_size > dts_addr))
-		return lastsymp;
-
-	return NULL;
+	return sympp->dtsr_sym;
 }
 
+static int
+dt_symtab_form_ranges(dt_symtab_t *symtab)
+{
+	/*
+	 * At this point, the addresses are sorted, but the ranges they
+	 * represent could possibly overlap.  We want to form new ranges,
+	 * so that each range maps to only one symbol.  Consequently, a
+	 * symbol might be represented by zero, one, or many ranges.
+	 *
+	 * The algorithm for forming these ranges is intricate, but consider
+	 * three symbols with these address ranges, with address increasing
+	 * from left to right:
+	 *
+	 *              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+	 *                           BBBBBBBBBBBBBBBB
+	 *                           CCCCCCCCCCCCCCCC
+	 *                                  DDDD
+	 *
+	 * Some addresses are spanned by as many as all four symbols A, B, C,
+	 * and D.  We want to produce the following ranges:
+	 *
+	 *              AAAAAAAAAAAAA
+	 *                           BBBBBBB
+	 *                                  DDDD
+	 *                                      BBBBB
+	 *                                           AAAAAA
+	 *
+	 * Each range now maps to only one symbol.  The number of ranges may
+	 * be different from the number of symbols.  Some symbols (like A and B)
+	 * may be represented by multiple ranges and some (like C, which is an
+	 * alias of B) not at all.
+	 */
+	dt_symrange_t *old_ranges = symtab->dtst_ranges;
+	dt_symrange_t *new_ranges;
+	uint_t num_alloc = symtab->dtst_num_range_alloc;
+	uint_t num_range = 0;
+	int i;
+	GElf_Addr lo, hi = 0;
+
+	if (symtab->dtst_num_range == 0)
+		return 0;
+
+	new_ranges = malloc(sizeof (dt_symrange_t) * num_alloc);
+
+	if (new_ranges == NULL)
+		return -1;
+
+	/* now start forming address-to-symbol mapping, one symbol per range */
+
+	hi = 0;
+	i = 0;
+	while (i < symtab->dtst_num_range) {
+		int j;
+
+		/* guess that the next range will be the next symbol */
+
+		dt_symbol_t *sym = old_ranges[i].dtsr_sym;
+
+		/*
+		 * Set the low and high for this range.
+		 * Check the previous high to decide whether:
+		 *   - to crop the low end
+		 *   - to move beyond this symbol altogether
+		 */
+
+		lo = sym->dts_addr;
+		if (lo < hi) {
+			lo = hi;
+			if (sym->dts_addr + sym->dts_size <= hi) {
+				i++;
+				continue;
+			}
+		}
+		hi = sym->dts_addr + sym->dts_size;
+
+		/* check for other candidate symbols for this range */
+
+		for (j = i + 1; j < symtab->dtst_num_range; j++) {
+			dt_symbol_t *sym2 = old_ranges[j].dtsr_sym;
+			GElf_Addr hi2;
+
+			/* if sym2 is too high, all others will be as well */
+			if (sym2->dts_addr >= hi)
+				break;
+
+			/* break range down if necessary */
+			if (sym2->dts_addr > lo) {
+				hi = sym2->dts_addr;
+				break;
+			}
+			hi2 = sym2->dts_addr + sym2->dts_size;
+			if (hi2 <= lo)
+				continue;
+			if (hi2 < hi)
+				hi = hi2;
+
+			/* decide whether sym2 should win over sym */
+			if ((sym2->dts_addr > sym->dts_addr) ||
+			    ((sym2->dts_addr == sym->dts_addr) &&
+			    (sym2->dts_size < sym->dts_size)))
+				sym = sym2;
+		}
+
+		/* check if we can coalese the new range to the last one */
+
+		if (num_range > 0 &&
+		    new_ranges[num_range-1].dtsr_hi == lo &&
+		    new_ranges[num_range-1].dtsr_sym == sym)
+			new_ranges[num_range-1].dtsr_hi = hi;
+		else {
+
+			/* ensure enough room (should not need much) */
+			if (num_range >= num_alloc) {
+				uint_t n = num_alloc + 1024;
+				dt_symrange_t *r = realloc(new_ranges,
+				    sizeof (dt_symrange_t) * n);
+				if (r == NULL)
+					return -1;
+
+				num_alloc = n;
+				new_ranges = r;
+			}
+
+			/* add the new range */
+
+			new_ranges[num_range].dtsr_lo = lo;
+			new_ranges[num_range].dtsr_hi = hi;
+			new_ranges[num_range].dtsr_sym = sym;
+			num_range++;
+		}
+	}
+
+	free(symtab->dtst_ranges);
+	symtab->dtst_num_range = num_range;
+	symtab->dtst_num_range_alloc = num_alloc;
+	symtab->dtst_ranges = new_ranges;
+	return 0;
+}
+
+/*
+ * Sort the address-to-name list.
+ */
 void
 dt_symtab_sort(dt_symtab_t *symtab)
 {
 	if (symtab->dtst_flags & DT_ST_SORTED)
 		return;
 
-	qsort(symtab->dtst_addrs, symtab->dtst_nsyms,
-	    sizeof (dt_symbol_t *), dt_symbol_sort_cmp);
+	qsort(symtab->dtst_ranges, symtab->dtst_num_range,
+	    sizeof (dt_symrange_t), dt_symrange_sort_cmp);
+
+	if (dt_symtab_form_ranges(symtab))
+		return;
 
 	symtab->dtst_flags |= DT_ST_SORTED;
 }
