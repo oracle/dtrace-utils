@@ -5,6 +5,7 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@trigger: readwholedir */
 /* @@runtest-opts: -C */
 
 #pragma D option quiet
