@@ -28,7 +28,9 @@ Testsuite changes:
    be requested via TEST_TAGS='a !b' in the environment and --tag/--no-tag
    arguments to runtest.sh.  The intersection of all tags is run, so in the
    example above, only tests tagged with 'a' and not tagged with 'b' would be
-   run.
+   run.  You can specify tags that apply by default in the test/tags.default
+   file, and tags that apply on only one architecture in
+   test/tags.$arch.default.
 
 0.6.2 (Sep 12th, 2017)
 ----------------------
