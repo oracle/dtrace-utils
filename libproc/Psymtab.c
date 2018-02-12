@@ -310,7 +310,18 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 
 	*fptr->file_lo = *lop;
 
-	if (Pread_string(P, buf, sizeof (buf), lop->rl_nameaddr) > 0) {
+	if (num == 0) {
+		/*
+		 * The load object name is populated as an empty string by
+		 * the C library, so we use the file name from the mapping.
+		 */
+		if (fptr->file_lname == NULL) {
+			fptr->file_lbase = NULL;
+			if ((fptr->file_lname =
+			     strdup(fptr->file_pname)) != NULL)
+				fptr->file_lbase = basename(fptr->file_lname);
+		}
+	} else if (Pread_string(P, buf, sizeof (buf), lop->rl_nameaddr) >= 0) {
 		if ((fptr->file_lname == NULL) ||
 		    (strcmp(fptr->file_lname, buf) != 0) ||
 		    (buf[0] != '\0')) {
