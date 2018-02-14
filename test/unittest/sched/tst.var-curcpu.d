@@ -11,14 +11,20 @@
 
 cpuinfo_t	*cpuinfo;
 
-sched:::tick
+profile-10ms
 {
 	cpuinfo = curcpu;
+	trace(cpuinfo->cpu_id);
 	n++;
 }
 
-sched:::tick
+profile-10ms
 /n > 2/
 {
 	exit(0);
+}
+
+tick-1s
+{
+	exit(1);
 }
