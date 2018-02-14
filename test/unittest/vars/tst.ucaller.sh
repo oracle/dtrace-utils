@@ -1,17 +1,15 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# This test is a bit naughty; it's assuming that ld.so.1 has an implementation
-# of calloc(3C), and that it's implemented in terms of the ld.so.1
-# implementation of malloc(3C).  If you're reading this comment because
+# This test is a bit naughty; it's assuming that libc.so has an implementation
+# of strup(3), and that it's implemented in terms of the libc.so
+# implementation of malloc(3).  If you're reading this comment because
 # those assumptions have become false, please accept my apologies...
 #
-
-# @@xfail: pid provider not yet implemented, needs porting
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -20,27 +18,23 @@ fi
 
 dtrace=$1
 
-$dtrace $dt_flags -qs /dev/stdin -c "/bin/echo" <<EOF
-pid\$target:ld.so.1:calloc:entry
+$dtrace $dt_flags -qs /dev/stdin -c "/bin/wc -l /dev/zero" <<EOF
+pid\$target::strdup:entry
 {
-	self->calloc = 1;
+	self->strdup = 1;
 }
 
-pid\$target:ld.so.1:malloc:entry
-/self->calloc/
+pid\$target:libc.so:malloc:entry
+/self->strdup/
 {
-	@[umod(ucaller), ufunc(ucaller)] = count();
+	ufunc(ucaller);
+	exit(0);
 }
 
-pid\$target:ld.so.1:calloc:return
-/self->calloc/
+pid\$target::strdup:return
+/self->strdup/
 {
-	self->calloc = 0;
-}
-
-END
-{
-	printa("%A %A\n", @);
+	self->strdup = 0;
 }
 EOF
 

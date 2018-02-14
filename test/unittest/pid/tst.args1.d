@@ -1,12 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-args1 */
-/* @@trigger-timing: after */
+/* @@trigger-timing: before */
 
 /*
  * ASSERTION: test that all 10 arguments are what we expect them to be.
@@ -24,7 +24,7 @@ BEGIN
 	timeout = timestamp + 1000000000;
 }
 
-syscall::getpid:return
+syscall::ioctl:return
 /pid == $1/
 {
 	i = 0;
@@ -33,6 +33,11 @@ syscall::getpid:return
 	 * Wait half a second after raising the signal.
 	 */
 	timeout = timestamp + 500000000;
+}
+pid$1:a.out:go:entry
+{
+	printf("? args: %d %d %d %d %d %d %d %d %d %d", arg0, arg1, arg2,
+	    arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 
 pid$1:a.out:go:entry

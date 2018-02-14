@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -18,7 +18,7 @@ dtrace=$1
 # we also set a breakpoint on the same spot in libdtrace.
 #
 
-$dtrace $dt_flags -c date -s /dev/stdin <<EOF
+$dtrace $dt_flags -c 'awk' -s /dev/stdin <<EOF
 	BEGIN
 	{
 		status = 1;

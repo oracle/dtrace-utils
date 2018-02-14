@@ -5,11 +5,15 @@
 
 if [[ -z $LOOP ]]; then
     export LOOP=0
+    export END=`date +'%s' -d '+10 secs'`
 fi
 
-if [[ $LOOP -eq 10000000 ]]; then
+if [[ `date +'%s'` -ge $END ]]; then
     exit 0
 fi
+#if [[ $LOOP -eq 10000000 ]]; then
+#    exit 0
+#fi
 
 LOOP=$(($LOOP+1))
 

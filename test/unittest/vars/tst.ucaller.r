@@ -1,3 +1,1 @@
-
-ld.so.1 ld.so.1`calloc
-
+  libc.so.6`strdup                                  

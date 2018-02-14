@@ -1,12 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-ret1 */
-/* @@trigger-timing: after */
+/* @@trigger-timing: before */
 
 /*
  * ASSERTION: test that we get the right return value from non-leaf returns
@@ -19,12 +19,12 @@
 BEGIN
 {
 	/*
-	 * Wait no more than a second for the first call to getpid(2).
+	 * Wait no more than a second for the first call to ioctl(2).
 	 */
 	timeout = timestamp + 1000000000;
 }
 
-syscall::getpid:return
+syscall::ioctl:return
 /pid == $1/
 {
 	i = 0;
