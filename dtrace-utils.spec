@@ -63,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      6%{?dist}
+Release:      7%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,6 +253,11 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Feb 14 2018 - <nick.alcock@oracle.com> - 1.0.0-7
+- Several latent porting bugs fixed (Kris Van Hees)
+- Make tests used in smoke testsuite rely on sdt less
+  (Kris Van Hees)
+
 * Tue Jan 30 2018 - <nick.alcock@oracle.com> - 1.0.0-6
 - ARM64 support [Orabug: 27438960, 27438993, 27438977]
 - Include correct procfs.h [Orabug: 27266725] (Tomas Jedlicka)
