@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1484,7 +1484,16 @@ Paddr2mptr(struct ps_prochandle *P, uintptr_t addr)
 
 /*
  * Given a shared object name, return the map_info_t for it.  If no matching
- * object is found, return NULL.
+ * object is found, return NULL.  Normally, the link maps contain the full
+ * object pathname, e.g. /usr/lib/libc.so.1.  We allow the object name to
+ * take one of the following forms:
+ *
+ * 1. An exact match (i.e. a full pathname): "/usr/lib/libc.so.1"
+ * 2. An exact basename match: "libc.so.1"
+ * 3. An initial basename match up to a '.' suffix: "libc.so" or "libc"
+ * 4. The literal string "a.out" is an alias for the executable mapping
+ *
+ * The third case is a convenience for callers and may not be necessary.
  *
  * As the exact same object name may be loaded on different link maps (see
  * dlmopen(3DL)), we also allow the caller to resolve the object name by
@@ -1496,6 +1505,7 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 {
 	map_info_t *mp;
 	file_info_t *fp;
+	size_t objlen;
 	uint_t i;
 
 	/*
@@ -1506,8 +1516,8 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 		lmid = PR_LMID_EVERY;
 
 	/*
-	 * Look for exact matches of the entire pathname, or matches
-	 * of the name used by the dynamic linker.
+	 * First pass: look for exact matches of the entire pathname, or
+	 * basename (cases 1 and 2 above):
 	 */
 	for (i = 0, mp = P->mappings; i < P->num_mappings; i++, mp++) {
 
@@ -1528,6 +1538,32 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 		    (fp->file_lname && strcmp(fp->file_lname, objname) == 0))
 			return (fp->file_map != -1 ? &P->mappings[fp->file_map] : mp);
 	}
+
+	objlen = strlen(objname);
+
+	/*
+	 * Second pass: look for partial matches (case 3 above):
+	 */
+	for (i = 0, mp = P->mappings; i < P->num_mappings; i++, mp++) {
+
+		if (mp->map_pmap->pr_file->prf_mapname[0] != '/' ||
+		    (fp = mp->map_file) == NULL)
+			continue;
+
+		if (lmid != PR_LMID_EVERY &&
+		    (fp->file_lo == NULL || lmid != fp->file_lo->rl_lmident))
+			continue;
+
+		/*
+		 * If we match, return the primary text mapping, if there is
+		 * one; if none (unlikely), just return the mapping we matched.
+		 */
+		if (fp->file_lbase &&
+		    (strncmp(fp->file_lbase, objname, objlen) == 0) &&
+		    (fp->file_lbase[objlen] == '.'))
+			return (fp->file_map != -1 ? &P->mappings[fp->file_map] : mp);
+	}
+
 
 	/*
 	 * We allow "a.out" to always alias the executable, assuming this name

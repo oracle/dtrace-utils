@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -42,7 +42,8 @@ altlib.o: altlib.c prov.h
 	cc -c altlib.c
 
 provalt.o: prov.d altlib.o
-	$dtrace -G -fPIC -o provalt.o -s prov.d altlib.o
+	$dtrace -G -o provalt.o -s prov.d altlib.o
+#	$dtrace -G -fPIC -o provalt.o -s prov.d altlib.o
 EOF
 
 cat > $DIR/prov.d <<EOF
@@ -119,7 +120,7 @@ END
 EOF
 
 script() {
-	$dtrace $dt_flags -q -s ./main.d -c ./main
+	$dtrace $dt_flags -q -s $DIR/main.d -c $DIR/main
 }
 
 script

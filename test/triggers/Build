@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2015, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -170,6 +170,14 @@ libproc-sleeper-pie-32_LDFLAGS := -fPIE -pie
 libproc-dlmadopen_LIBS := -ldl -lpthread
 libproc-dlmadopen_CFLAGS := -fPIE
 libproc-dlmadopen_LDFLAGS := -fPIE -pie -Wl,-rpath test/triggers
+
+# Various pid-tst-* triggers need to be compiled without optimization
+pid-tst-args1_CFLAGS := -O0
+pid-tst-fork_CFLAGS := -O0
+pid-tst-ret1_CFLAGS := -O0
+pid-tst-ret2_CFLAGS := -O0
+pid-tst-weak1_CFLAGS := -O0
+pid-tst-weak2_CFLAGS := -O0
 
 # usdt-tst-argmap calls USDT probes (defined in argmap.d) using sys/sdt.h
 usdt-tst-argmap_CFLAGS := -Iuts/common

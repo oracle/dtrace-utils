@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -8,62 +8,14 @@
 #ifndef	_SYS_FASTTRAP_H
 #define	_SYS_FASTTRAP_H
 
-#include <sys/fasttrap_isa.h>
-#include <sys/dtrace.h>
-#include <sys/types.h>
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#define	FASTTRAPIOC		(('m' << 24) | ('r' << 16) | ('f' << 8))
-#define	FASTTRAPIOC_MAKEPROBE	(FASTTRAPIOC | 1)
-#define	FASTTRAPIOC_GETINSTR	(FASTTRAPIOC | 2)
-
-typedef enum fasttrap_probe_type {
-	DTFTP_NONE = 0,
-	DTFTP_ENTRY,
-	DTFTP_RETURN,
-	DTFTP_OFFSETS,
-	DTFTP_POST_OFFSETS,
-	DTFTP_IS_ENABLED
-} fasttrap_probe_type_t;
-
-typedef struct fasttrap_probe_spec {
-	pid_t			ftps_pid;
-	fasttrap_probe_type_t	ftps_type;
-
-	char			ftps_func[DTRACE_FUNCNAMELEN];
-	char			ftps_mod[DTRACE_MODNAMELEN];
-
-	uint64_t		ftps_pc;
-	uint64_t		ftps_size;
-	uint64_t		ftps_noffs;
-	uint64_t		ftps_offs[1];
-} fasttrap_probe_spec_t;
-
-typedef struct fasttrap_instr_query {
-	uint64_t		ftiq_pc;
-	pid_t			ftiq_pid;
-	fasttrap_instr_t	ftiq_instr;
-} fasttrap_instr_query_t;
-
-/*
- * To support the fasttrap provider from very early in a process's life,
- * the run-time linker, ld.so.1, has a program header of type PT_SUNWDTRACE
- * which points to a data object which must be PT_SUNWDTRACE_SIZE bytes.
- * This structure mimics the fasttrap provider section of the ulwp_t structure.
- * When the fasttrap provider is changed to require new or different
- * instructions, the data object in ld.so.1 and the thread initializers in libc
- * (libc_init() and _thrp_create()) need to be updated to include the new
- * instructions, and PT_SUNWDTRACE needs to be changed to a new unique number
- * (while the old value gets assigned something like PT_SUNWDTRACE_1). Since the
- * linker must be backward compatible with old Solaris releases, it must have
- * program headers for each of the PT_SUNWDTRACE versions. The kernel's
- * elfexec() function only has to look for the latest version of the
- * PT_SUNWDTRACE program header.
- */
-#define	PT_SUNWDTRACE_SIZE	FASTTRAP_SUNWDTRACE_SIZE
+#include <sys/fasttrap_isa.h>
+#include <sys/dtrace.h>
+#include <sys/types.h>
+#include <linux/dtrace/fasttrap.h>
 
 #ifdef	__cplusplus
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -389,11 +389,9 @@ static void
 dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	Pupdate_syms(dpr->dpr_proc);
-#if 0
 	if (dt_pid_create_probes_module(dtp, dpr) != 0)
 		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg,
 		    B_TRUE, B_TRUE);
-#endif
 }
 
 /*
