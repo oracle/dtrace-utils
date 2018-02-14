@@ -9,14 +9,19 @@
  * @@trigger: none
  */
 
-sched:::tick
+profile-10ms
 {
 	trace(cpu);
 	n++;
 }
 
-sched:::tick
+profile-10ms
 /n > 2/
 {
 	exit(0);
+}
+
+tick-1s
+{
+	exit(1);
 }
