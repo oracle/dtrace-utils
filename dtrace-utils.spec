@@ -253,7 +253,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Wed Feb 14 2018 - <nick.alcock@oracle.com> - 1.0.0-7
+* Fri Feb 16 2018 - <nick.alcock@oracle.com> - 1.0.0-7
 - Several latent porting bugs fixed (Kris Van Hees)
 - Make tests used in smoke testsuite rely on sdt less
   (Kris Van Hees)
