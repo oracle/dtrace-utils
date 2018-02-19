@@ -442,10 +442,6 @@ export tmpdir="$(get_dir_name)"
 mkdir $tmpdir/bin
 export PATH=$tmpdir/bin:$PATH
 
-# At shutdown, delete this directory, kill requested process groups, and restore
-# core_pattern.
-trap 'rm -rf ${tmpdir}; if [[ -n $ZAPTHESE ]]; then kill -9 -- $(for pid in $ZAPTHESE; do printf " -%i" $pid; done); fi; if [[ -z $orig_core_pattern ]]; then echo $orig_core_pattern > /proc/sys/kernel/core_pattern; echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid; fi; exit' INT QUIT TERM SEGV EXIT
-
 # Log and failure functions.
 
 out()
@@ -477,6 +473,24 @@ log()
 {
     printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf >> $LOGFILE
 }
+
+# At shutdown, delete this directory, kill requested process groups, and restore
+# core_pattern.  When this is specifically an interruption, report as much in
+# the log.
+closedown()
+{
+    for pid in $ZAPTHESE; do
+        kill -9 -- $(printf " -%i" $pid)
+    done
+    ZAPTHESE=
+    if [[ -z $orig_core_pattern ]]; then
+        echo $orig_core_pattern > /proc/sys/kernel/core_pattern
+        echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid
+    fi
+}
+
+trap 'rm -rf ${tmpdir}; closedown; exit' EXIT
+trap 'force_out "Test interrupted.\n"; closedown' INT HUP QUIT TERM
 
 # fail XFAIL XFAILMSG FAILMSG
 #
