@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -627,7 +627,12 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	}
 
 	dt_dis_pred(predp, d->fp);
-	dt_dis_action(ap, d->fp, fmt);
+
+	while (ap != NULL) {
+		dt_dis_action(ap, d->fp, fmt);
+		ap = ap->dtad_next;
+	}
+
 	return 0;
 }
 
