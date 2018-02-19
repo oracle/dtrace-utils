@@ -203,11 +203,6 @@ run_with_timeout()
     # out to disk.
     [[ $exitcode -ne 0 ]] && sleep 1
 
-    if dmesg | grep -q 'Bad page'; then
-        echo 'Bad page state!' >&2
-        exit 1
-    fi
-
     if [[ -n $exited ]]; then
         return $exitcode
     else
