@@ -81,6 +81,7 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 	return (1);
 }
 
+#if 0
 static int
 dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 {
@@ -380,6 +381,7 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 
 	return (0);
 }
+#endif
 
 static const prmap_t *
 dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
@@ -426,7 +428,7 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	return (pmp);
 }
 
-
+#if 0
 static int
 dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
     dt_pcb_t *pcb, dt_proc_t *dpr)
@@ -505,6 +507,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	return (ret);
 }
+
+#endif
 
 static int
 dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
@@ -655,6 +659,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
 
+#if 0
 	if (gmatch(provname, pdp->dtpd_provider) != 0) {
 		P = dt_proc_grab(dtp, pid, DTRACE_PROC_WAITING);
 		if (P.P == NULL) {
@@ -678,6 +683,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		dt_proc_unlock(dtp, &P);
 		dt_proc_release(dtp, &P);
 	}
+#endif
 
 	/*
 	 * If it's not strictly a pid provider, we might match a USDT provider.
@@ -706,6 +712,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	return (err ? -1 : 0);
 }
 
+#if 0
 int
 dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
@@ -758,3 +765,4 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 
 	return (ret);
 }
+#endif

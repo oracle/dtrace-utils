@@ -386,9 +386,11 @@ static void
 dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	Pupdate_syms(dpr->dpr_proc);
+#if 0
 	if (dt_pid_create_probes_module(dtp, dpr) != 0)
 		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg,
 		    B_TRUE, B_TRUE);
+#endif
 }
 
 /*
