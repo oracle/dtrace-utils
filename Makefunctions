@@ -57,7 +57,7 @@ cc-dependencies = -MP -MMD -MF $(obj-name).deps -MT $(obj-name)
 define cc-template
 $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(foreach prov,$($(1)_PROV),$(call hdr-name,$(1),$(prov))) $(CONFIG_H)
 	$(call describe-target,CC,$(src-name))
-	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
+	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS) $($(2)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $($(2)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
 
 # Rule to build a DTrace USDT header file.
