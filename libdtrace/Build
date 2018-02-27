@@ -34,6 +34,9 @@ libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
 libdtrace_SECONDARY := libproc libport
 
+# Disable C99 variadic macro warnings for this file
+dt_proc.c_CFLAGS := -Wno-pedantic
+
 SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | awk -F. '{ print $$1 "." $$2; }'))
 
 -include libdtrace/$(ARCHINC)/Build

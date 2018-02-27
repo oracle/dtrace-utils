@@ -69,25 +69,30 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
-			struct dtrace_prochandle P;
 			char *err = dprn->dprn_errmsg;
+			pid_t pid = -1;
+			int state;
 
 			/*
 			 * The dprn_dpr may be NULL if attachment or process
 			 * creation has failed.
 			 */
-			if (dprn->dprn_dpr != NULL)
-				P.P = dprn->dprn_dpr->dpr_proc;
-			else
-				P.P = NULL;
+			if (dprn->dprn_dpr != NULL) {
+				pid = dprn->dprn_dpr->dpr_pid;
+				dt_proc_lock(dprn->dprn_dpr);
+			}
 
 			if (*err == '\0')
 				err = NULL;
 
-			if (Pstate(P.P) == PS_DEAD)
-				P.P = NULL;
+			state = dt_Pstate(dtp, pid);
+			if (state < 0 || state == PS_DEAD)
+				pid = -1;
 
-			dtp->dt_prochdlr(&P, err, dtp->dt_procarg);
+			if (dprn->dprn_dpr != NULL)
+				dt_proc_unlock(dprn->dprn_dpr);
+
+			dtp->dt_prochdlr(pid, err, dtp->dt_procarg);
 		}
 
 		dph->dph_notify = dprn->dprn_next;

@@ -134,12 +134,16 @@ dtrace_proc_create() has grown a flags parameter.  Allowable values:
    traced for long.  DTrace may respond by avoiding creation of a monitor
    thread, by aggressively aging the process out of any caches, etc.
 
-The dtrace_proc_*() functions now take a dtrace_prochandle *, not a
-ps_prochandle *, to emphasise that this argument should not be passed directly
-to libproc functions without going through a dtrace_proc_*() wrapper. The
-creation functions return the structure itself, not a wrapper: failure is
-indicated by its sole member being NULL. (This member may change whenever a
-dtrace_proc_*() function is called.)
+The handle taken by the dtrace_proc_*() functions is now an opaque
+dtrace_proc_handle structure, not a ps_prochandle_t.  There is a new function to
+get the PID from this structure.  The structure is owned by the caller and must
+be freed via a call to dtrace_proc_release() before dtrace_close() to avoid a
+memory leak.
+
+The creation functions have been renamed to gain a _pid() on the end of their
+name, to ensure that previous users are rebuilt.  The creation functions return
+the PID: failure is indicated by a negative return, following the usual
+convention.
 
 'struct dtrace_stmtdesc' has a new padding word, to work around GCC bug 36043,
 which otherwise causes spurious reads off the end of this structure, which could
