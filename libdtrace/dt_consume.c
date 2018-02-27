@@ -1122,10 +1122,9 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	int err = 0;
 
 	char name[PATH_MAX], objname[PATH_MAX], c[PATH_MAX * 2];
-	struct dtrace_prochandle P;
 	GElf_Sym sym;
 	int i, indent;
-	pid_t tgid;
+	pid_t pid = -1, tgid;
 
 	if (depth == 0)
 		return (0);
@@ -1149,13 +1148,8 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	 * this is a vector open, we just print the raw address or string.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
-				 DTRACE_PROC_SHORTLIVED);
-	else
-		P.P = NULL;
-
-	if (P.P != NULL)
-		dt_proc_lock(dtp, &P); /* lock handle while we perform lookups */
+		pid = dt_proc_grab_lock(dtp, tgid, DTRACE_PROC_WAITING |
+		    DTRACE_PROC_SHORTLIVED);
 
 	for (i = 0; i < depth && pc[i] != 0; i++) {
 		const prmap_t *map;
@@ -1163,9 +1157,9 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
 			break;
 
-		if (P.P != NULL && dt_Plookup_by_addr(dtp, &P, pc[i],
+		if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
 		    name, sizeof (name), &sym) == 0) {
-			(void) dt_Pobjname(dtp, &P, pc[i], objname, sizeof (objname));
+			(void) dt_Pobjname(dtp, pid, pc[i], objname, sizeof (objname));
 
 			if (pc[i] > sym.st_value) {
 				(void) snprintf(c, sizeof (c),
@@ -1176,8 +1170,8 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 				    "%s`%s", dt_basename(objname), name);
 			}
 		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
-		    (P.P != NULL &&
-			((map = dt_Paddr_to_map(dtp, &P, pc[i])) == NULL ||
+		    (pid >= 0 &&
+			((map = dt_Paddr_to_map(dtp, pid, pc[i])) == NULL ||
 			    (map->pr_mflags & MA_WRITE)))) {
 			/*
 			 * If the current string pointer in the string table
@@ -1194,7 +1188,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 */
 			(void) snprintf(c, sizeof (c), "%s", str);
 		} else {
-			if (P.P != NULL && dt_Pobjname(dtp, &P, pc[i], objname,
+			if (pid >= 0 && dt_Pobjname(dtp, pid, pc[i], objname,
 			    sizeof (objname)) != NULL) {
 				(void) snprintf(c, sizeof (c), "%s`0x%llx",
 				    dt_basename(objname), (u_longlong_t)pc[i]);
@@ -1236,10 +1230,8 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		}
 	}
 
-	if (P.P != NULL) {
-		dt_proc_unlock(dtp, &P);
-		dt_proc_release(dtp, &P);
-	}
+	if (pid >= 0)
+		dt_proc_release_unlock(dtp, pid);
 
 	return (err);
 }
@@ -1256,20 +1248,17 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 	int n, len = 256;
 
 	if (act == DTRACEACT_USYM && dtp->dt_vector == NULL) {
-		struct dtrace_prochandle P;
+		pid_t pid;
 
-		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
+		pid = dt_proc_grab_lock(dtp, tgid, DTRACE_PROC_WAITING |
 		    DTRACE_PROC_SHORTLIVED);
-		if (P.P != NULL) {
+		if (pid >= 0) {
 			GElf_Sym sym;
 
-			dt_proc_lock(dtp, &P);
-
-			if (dt_Plookup_by_addr(dtp, &P, pc, NULL, 0, &sym) == 0)
+			if (dt_Plookup_by_addr(dtp, pid, pc, NULL, 0, &sym) == 0)
 				pc = sym.st_value;
 
-			dt_proc_unlock(dtp, &P);
-			dt_proc_release(dtp, &P);
+			dt_proc_release_unlock(dtp, pid);
 		}
 	}
 
@@ -1291,7 +1280,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	int err = 0;
 
 	char objname[PATH_MAX], c[PATH_MAX * 2];
-	struct dtrace_prochandle P;
+	pid_t pid = -1;
 
 	if (format == NULL)
 		format = "  %-50s";
@@ -1301,15 +1290,10 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	 * printing raw addresses in the vectored case.
 	 */
 	if (dtp->dt_vector == NULL)
-		P = dt_proc_grab(dtp, tgid, DTRACE_PROC_WAITING |
+		pid = dt_proc_grab_lock(dtp, tgid, DTRACE_PROC_WAITING |
 				 DTRACE_PROC_SHORTLIVED);
-	else
-		P.P = NULL;
 
-	if (P.P != NULL)
-		dt_proc_lock(dtp, &P); /* lock handle while we perform lookups */
-
-	if (P.P != NULL && dt_Pobjname(dtp, &P, pc, objname,
+	if (pid >= 0 && dt_Pobjname(dtp, pid, pc, objname,
 		sizeof (objname)) != NULL) {
 		(void) snprintf(c, sizeof (c), "%s", dt_basename(objname));
 	} else {
@@ -1318,10 +1302,8 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 
 	err = dt_printf(dtp, fp, format, c);
 
-	if (P.P != NULL) {
-		dt_proc_unlock(dtp, &P);
-		dt_proc_release(dtp, &P);
-	}
+	if (pid >= 0)
+		dt_proc_release_unlock(dtp, pid);
 
 	return (err);
 }

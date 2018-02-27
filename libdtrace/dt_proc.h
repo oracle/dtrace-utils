@@ -105,6 +105,13 @@ typedef struct dt_proc_notify {
 } dt_proc_notify_t;
 
 /*
+ * An opaque handle to a process, for the external API.
+ */
+typedef struct dtrace_proc {
+	pid_t pid;
+} dtrace_proc_t;
+
+/*
  * This is an internal-only flag in the DTRACE_PROC_* space.  External API
  * callers cannot turn it off.
  */
@@ -131,40 +138,32 @@ typedef struct dt_proc_hash {
 	dt_proc_t *dph_hash[1];		/* hash chains array */
 } dt_proc_hash_t;
 
-extern struct dtrace_prochandle dt_proc_create(dtrace_hdl_t *,
-    const char *, char *const *, int flags);
-
-extern struct dtrace_prochandle dt_proc_grab(dtrace_hdl_t *, pid_t, int flags);
-extern void dt_proc_release(dtrace_hdl_t *, struct dtrace_prochandle *);
-extern long dt_proc_continue(dtrace_hdl_t *, struct dtrace_prochandle *);
-extern void dt_proc_lock(dtrace_hdl_t *, struct dtrace_prochandle *);
-extern void dt_proc_unlock(dtrace_hdl_t *, struct dtrace_prochandle *);
-extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct dtrace_prochandle *, int);
+extern pid_t dt_proc_grab_lock(dtrace_hdl_t *dtp, pid_t pid, int flags);
+extern void dt_proc_release_unlock(dtrace_hdl_t *, pid_t);
+extern void dt_proc_lock(dt_proc_t *dpr);
+extern void dt_proc_unlock(dt_proc_t *dpr);
+extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, pid_t);
 extern void dt_proc_enqueue_exits(dtrace_hdl_t *dtp);
 
 /*
  * Proxies for operations in libproc, respecting the execve-retry protocol.
  */
-extern int dt_Plookup_by_addr(dtrace_hdl_t *, struct dtrace_prochandle *,
-    uintptr_t, char *, size_t, GElf_Sym *);
-extern const prmap_t *dt_Paddr_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
-    uintptr_t);
-extern const prmap_t *dt_Plmid_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
-    Lmid_t, const char *);
-extern const prmap_t *dt_Pname_to_map(dtrace_hdl_t *, struct dtrace_prochandle *,
+extern int dt_Plookup_by_addr(dtrace_hdl_t *, pid_t, uintptr_t, char *, size_t,
+    GElf_Sym *);
+extern const prmap_t *dt_Paddr_to_map(dtrace_hdl_t *, pid_t, uintptr_t);
+extern const prmap_t *dt_Plmid_to_map(dtrace_hdl_t *, pid_t, Lmid_t,
     const char *);
-extern char *dt_Pobjname(dtrace_hdl_t *, struct dtrace_prochandle *,
-    uintptr_t, char *, size_t);
-extern int dt_Plmid(dtrace_hdl_t *, struct dtrace_prochandle *, uintptr_t,
-    Lmid_t *);
-extern int dt_Pxlookup_by_name(dtrace_hdl_t *, struct dtrace_prochandle *,
-    Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
-extern int dt_Pwritable_mapping(dtrace_hdl_t *, struct dtrace_prochandle *,
-    uintptr_t);
-extern int dt_Psymbol_iter_by_addr(dtrace_hdl_t *, struct dtrace_prochandle *,
-    const char *, int, int, proc_sym_f *, void *);
-extern int dt_Pobject_iter(dtrace_hdl_t *, struct dtrace_prochandle *,
-    proc_map_f *, void *);
+extern const prmap_t *dt_Pname_to_map(dtrace_hdl_t *, pid_t, const char *);
+extern char *dt_Pobjname(dtrace_hdl_t *, pid_t, uintptr_t, char *, size_t);
+extern int dt_Plmid(dtrace_hdl_t *, pid_t, uintptr_t, Lmid_t *);
+extern int dt_Pstate(dtrace_hdl_t *, pid_t);
+extern int dt_Pxlookup_by_name(dtrace_hdl_t *, pid_t, Lmid_t, const char *,
+    const char *, GElf_Sym *, prsyminfo_t *);
+extern int dt_Pwritable_mapping(dtrace_hdl_t *, pid_t, uintptr_t);
+extern int dt_Psymbol_iter_by_addr(dtrace_hdl_t *, pid_t, const char *, int,
+    int, proc_sym_f *, void *);
+extern int dt_Pobject_iter(dtrace_hdl_t *, pid_t, proc_map_f *, void *);
+extern ssize_t dt_Pread(dtrace_hdl_t *, pid_t, void *, size_t, uintptr_t);
 
 extern void dt_proc_hash_create(dtrace_hdl_t *);
 extern void dt_proc_hash_destroy(dtrace_hdl_t *);

@@ -303,18 +303,7 @@ typedef int dtrace_handle_drop_f(const dtrace_dropdata_t *drop, void *arg);
 extern int dtrace_handle_drop(dtrace_hdl_t *dtp, dtrace_handle_drop_f *hdlr,
     void *arg);
 
-/*
- * An opaque wrapper for a ps_prochandle, allowing reseating of the
- * ps_prochandle via an exec-retry wrapper.
- */
-struct ps_prochandle;
-struct dtrace_prochandle {
-	struct ps_prochandle *P;
-};
-
-
-typedef void dtrace_handle_proc_f(struct dtrace_prochandle *proc, const char *err,
-    void *arg);
+typedef void dtrace_handle_proc_f(pid_t pid, const char *err, void *arg);
 extern int dtrace_handle_proc(dtrace_hdl_t *dtp, dtrace_handle_proc_f *hdlr,
     void *arg);
 
@@ -453,13 +442,22 @@ extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *dtp,
  */
 #define DTRACE_PROC_SHORTLIVED 0x02
 
-extern struct dtrace_prochandle dtrace_proc_create(dtrace_hdl_t *dtp,
+/*
+ * Handle to a process.
+ */
+struct dtrace_proc;
+
+extern struct dtrace_proc *dtrace_proc_create_pid(dtrace_hdl_t *dtp,
     const char *file, char *const *argv, int flags);
 
-extern struct dtrace_prochandle dtrace_proc_grab(dtrace_hdl_t *dtp, pid_t pid,
-    int flags);
-extern void dtrace_proc_release(dtrace_hdl_t *dtp, struct dtrace_prochandle *P);
-extern void dtrace_proc_continue(dtrace_hdl_t *dtp, struct dtrace_prochandle *P);
+extern struct dtrace_proc *dtrace_proc_grab_pid(dtrace_hdl_t *dtp,
+    pid_t pid, int flags);
+extern void dtrace_proc_release(dtrace_hdl_t *dtp,
+    struct dtrace_proc *proc);
+extern void dtrace_proc_continue(dtrace_hdl_t *dtp,
+    struct dtrace_proc *proc);
+extern pid_t dtrace_proc_getpid(dtrace_hdl_t *dtp,
+    struct dtrace_proc *proc);
 
 /*
  * DTrace Object, Symbol, and Type Interfaces

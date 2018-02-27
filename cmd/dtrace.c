@@ -55,7 +55,7 @@ static char **g_objv;
 static int g_objc;
 static dtrace_cmd_t *g_cmdv;
 static int g_cmdc;
-static struct dtrace_prochandle *g_psv;
+static struct dtrace_proc **g_psv;
 static int g_psc;
 static int g_pslive;
 static char *g_pname;
@@ -731,14 +731,14 @@ compile_str(dtrace_cmd_t *dcp)
 }
 
 static void
-prochandler(struct dtrace_prochandle *P, const char *msg, void *arg)
+prochandler(pid_t pid, const char *msg, void *arg)
 {
 	/*
 	 * These days, this is only called on process death.  We can easily
 	 * prove this by checking P's nullity state.
 	 */
 
-	if (P->P == NULL) {
+	if (pid < 0) {
 		g_pslive--;
 		return;
 	}
@@ -1155,8 +1155,8 @@ main(int argc, char *argv[])
 	int done = 0, mode = 0, tried_loading = 0;
 	int err, i, c;
 	char *p, **v;
-	struct dtrace_prochandle P;
 	pid_t pid;
+	struct dtrace_proc *proc;
 
 	g_ofp = stdout;
 
@@ -1167,7 +1167,7 @@ main(int argc, char *argv[])
 
 	if ((g_argv = malloc(sizeof (char *) * argc)) == NULL ||
 	    (g_cmdv = malloc(sizeof (dtrace_cmd_t) * argc)) == NULL ||
-	    (g_psv = malloc(sizeof (struct dtrace_prochandle) * argc)) == NULL)
+	    (g_psv = malloc(sizeof (struct dtrace_proc *) * argc)) == NULL)
 		fatal("failed to allocate memory for arguments");
 
 	g_argv[g_argc++] = argv[0];	/* propagate argv[0] to D as $0/$$0 */
@@ -1581,13 +1581,13 @@ main(int argc, char *argv[])
 				if ((v = make_argv(optarg)) == NULL)
 					fatal("failed to allocate memory");
 
-				P = dtrace_proc_create(g_dtp, v[0], v, 0);
-				if (P.P == NULL) {
+				proc = dtrace_proc_create_pid(g_dtp, v[0], v, 0);
+				if (proc == NULL) {
 					free(v);
 					dfatal(NULL); /* dtrace_errmsg() only */
 				}
 
-				g_psv[g_psc++] = P;
+				g_psv[g_psc++] = proc;
 				free(v);
 				break;
 
@@ -1598,11 +1598,11 @@ main(int argc, char *argv[])
 				if (errno != 0 || p == optarg || p[0] != '\0')
 					fatal("invalid pid: %s\n", optarg);
 
-				P = dtrace_proc_grab(g_dtp, pid, 0);
-				if (P.P == NULL)
+				proc = dtrace_proc_grab_pid(g_dtp, pid, 0);
+				if (proc == NULL)
 					dfatal(NULL); /* dtrace_errmsg() only */
 
-				g_psv[g_psc++] = P;
+				g_psv[g_psc++] = proc;
 				break;
 			}
 		}
@@ -1835,7 +1835,7 @@ main(int argc, char *argv[])
 	 * using the /proc control mechanism inside of libdtrace.
 	 */
 	for (i = 0; i < g_psc; i++)
-		dtrace_proc_continue(g_dtp, &g_psv[i]);
+		dtrace_proc_continue(g_dtp, g_psv[i]);
 
 	g_pslive = g_psc; /* count for prochandler() */
 
@@ -1883,6 +1883,9 @@ main(int argc, char *argv[])
 		    dtrace_errno(g_dtp) != EINTR)
 			dfatal("failed to print aggregations");
 	}
+
+	for (i = 0; i < g_psc; i++)
+		dtrace_proc_release(g_dtp, g_psv[i]);
 
 	dtrace_close(g_dtp);
 	return (g_status);
