@@ -60,6 +60,7 @@ typedef enum {
 	D_AGG_MDIM,			/* aggregation used as multi-dim arr */
 	D_ARR_BADREF,			/* access non-array using tuple */
 	D_ARR_LOCAL,			/* cannot define local assc array */
+	D_ARR_BOUNDS,			/* access beyond array bounds */
 	D_DIV_ZERO,			/* division by zero detected */
 	D_DEREF_NONPTR,			/* dereference non-pointer type */
 	D_DEREF_VOID,			/* dereference void pointer */

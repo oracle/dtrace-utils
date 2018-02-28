@@ -3265,6 +3265,10 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 */
 		int lp_is_ptr, lp_is_int, rp_is_ptr, rp_is_int;
 
+		ctf_arinfo_t r;
+		ctf_id_t artype;
+		int arkind;
+
 		lp = dnp->dn_left = dt_node_cook(lp, DT_IDFLG_REF);
 		rp = dnp->dn_right = dt_node_cook(rp, DT_IDFLG_REF);
 
@@ -3297,6 +3301,27 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 			    "types: \"%s\" %s \"%s\"\n",
 			    dt_node_type_name(lp, n1, sizeof (n1)), opstr(op),
 			    dt_node_type_name(rp, n2, sizeof (n2)));
+		}
+
+		/*
+		 * Array bounds-checking.  (Non-associative arrays only.)
+		 */
+
+		artype = ctf_type_resolve(lp->dn_ctfp, lp->dn_type);
+		arkind = ctf_type_kind(lp->dn_ctfp, artype);
+
+		if (arkind == CTF_K_ARRAY &&
+		    !(lp->dn_kind == DT_NODE_VAR &&
+			lp->dn_ident->di_kind == DT_IDENT_ARRAY)) {
+			ctf_array_info(lp->dn_ctfp, artype, &r);
+
+			if (rp->dn_kind == DT_NODE_INT &&
+			    ctf_array_info(lp->dn_ctfp, type, &r) == 0 &&
+			    rp->dn_value >= r.ctr_nelems)
+				xyerror(D_ARR_BOUNDS, "index outside "
+				    "array bounds: %llu, max is %i\n",
+				    (long long unsigned) rp->dn_value,
+				    r.ctr_nelems);
 		}
 
 		dt_node_type_assign(dnp, ctfp, type);

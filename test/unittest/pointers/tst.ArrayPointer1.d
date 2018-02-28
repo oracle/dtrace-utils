@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2018 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -19,55 +19,55 @@
 
 #pragma D option quiet
 
-char char_array[5];
-short short_array[5];
-int int_array[5];
-long long_array[5];
-long long long_long_array[5];
-int8_t int8_array[5];
-int16_t int16_array[5];
-int32_t int32_array[5];
-int64_t int64_array[5];
-intptr_t intptr_array[5];
-uint8_t uint8_array[5];
-uint16_t uint16_array[5];
-uint32_t uint32_array[5];
-uint64_t uint64_array[5];
-uintptr_t uintptr_array[5];
+char char_array[6];
+short short_array[6];
+int int_array[6];
+long long_array[6];
+long long long_long_array[6];
+int8_t int8_array[6];
+int16_t int16_array[6];
+int32_t int32_array[6];
+int64_t int64_array[6];
+intptr_t intptr_array[6];
+uint8_t uint8_array[6];
+uint16_t uint16_array[6];
+uint32_t uint32_array[6];
+uint64_t uint64_array[6];
+uintptr_t uintptr_array[6];
 
 /*
-float float_array[5];
-double double_array[5];
-long double long_double_array[5];
+float float_array[6];
+double double_array[6];
+long double long_double_array[6];
 
-string string_array[5];
+string string_array[6];
 */
 
 struct record {
 	char ch;
 	int in;
-} struct_array[5];
+} struct_array[6];
 
 struct {
 	char ch;
 	int in;
-} anon_struct_array[5];
+} anon_struct_array[6];
 
 union record {
 	char ch;
 	int in;
-} union_array[5];
+} union_array[6];
 
 union {
 	char ch;
 	int in;
-} anon_union_array[5];
+} anon_union_array[6];
 
 enum colors {
 	RED,
 	GREEN,
 	BLUE
-} enum_array[5];
+} enum_array[6];
 
 BEGIN
 {
