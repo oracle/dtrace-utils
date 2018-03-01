@@ -21,7 +21,7 @@
  * provided to route all communication with libproc through the control thread.
  *
  * NOTE: MT-Safety is NOT provided for libdtrace itself, or for use of the
- * dtrace_proc_grab_pid/dtrace_proc_create_pid mechanisms.  Like all exported
+ * dtrace_proc_grab_pid/dtrace_proc_create mechanisms.  Like all exported
  * libdtrace calls, these are assumed to be MT-Unsafe.  MT-Safety is ONLY
  * provided for calls via the libproc marshalling layer.  All calls from the
  * rest of DTrace must go via the dt_P*() functions, which in addition to
@@ -2210,7 +2210,7 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 }
 
 struct dtrace_proc *
-dtrace_proc_create_pid(dtrace_hdl_t *dtp, const char *file, char *const *argv,
+dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	int flags)
 {
 	struct dtrace_proc *hdl;

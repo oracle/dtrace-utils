@@ -447,7 +447,7 @@ extern int dtrace_aggregate_walk_valvarrevsorted(dtrace_hdl_t *dtp,
  */
 struct dtrace_proc;
 
-extern struct dtrace_proc *dtrace_proc_create_pid(dtrace_hdl_t *dtp,
+extern struct dtrace_proc *dtrace_proc_create(dtrace_hdl_t *dtp,
     const char *file, char *const *argv, int flags);
 
 extern struct dtrace_proc *dtrace_proc_grab_pid(dtrace_hdl_t *dtp,

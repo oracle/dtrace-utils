@@ -120,6 +120,9 @@ st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
 
+dtrace_proc_grab() has been renamed to dtrace_proc_grab_pid() to leave room
+for future grabbing functions that may grab entities not identifiable by PID.
+
 dtrace_proc_create() has grown a flags parameter.  Allowable values:
 
  - DTRACE_PROC_WAITING, indicating that a dtrace_proc_continue() should
@@ -134,11 +137,10 @@ dtrace_proc_create() has grown a flags parameter.  Allowable values:
    traced for long.  DTrace may respond by avoiding creation of a monitor
    thread, by aggressively aging the process out of any caches, etc.
 
-The handle taken by the dtrace_proc_*() functions is now an opaque
-dtrace_proc_handle structure, not a ps_prochandle_t.  There is a new function to
-get the PID from this structure.  The structure is owned by the caller and must
-be freed via a call to dtrace_proc_release() before dtrace_close() to avoid a
-memory leak.
+The handle taken by the dtrace_proc_*() functions is now an opaque dtrace_proc
+structure, not a ps_prochandle_t.  There is a new function to get the PID from
+this structure.  The structure is owned by the caller and must be freed via a
+call to dtrace_proc_release() before dtrace_close() to avoid a memory leak.
 
 The creation functions have been renamed to gain a _pid() on the end of their
 name, to ensure that previous users are rebuilt.  The creation functions return

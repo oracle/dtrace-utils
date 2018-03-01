@@ -56,7 +56,10 @@ LIBDTRACE_1.0 {
 	dtrace_printf_format;
 	dtrace_probe_info;
 	dtrace_probe_iter;
+	dtrace_proc_create;
 	dtrace_proc_continue;
+	dtrace_proc_grab_pid;
+	dtrace_proc_getpid;
 	dtrace_proc_release;
 	dtrace_program_exec;
 	dtrace_program_fcompile;
@@ -92,13 +95,6 @@ LIBDTRACE_1.0 {
     local:
 	*;
 };
-
-LIBDTRACE_1.1 {
-    global:
-	dtrace_proc_create_pid;
-	dtrace_proc_grab_pid;
-	dtrace_proc_getpid;
-} LIBDTRACE_1.0;
 
 # These are used by the CTF dumper, and are not part of the public interface.
 LIBDTRACE_PRIVATE
