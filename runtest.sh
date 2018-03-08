@@ -596,6 +596,37 @@ postprocess()
     return $retval
 }
 
+# Log results. (Purely to reduce duplication further down.)
+# The single argument indicates whether to write to the sumfile:
+# writes to the logfile due to reinvocations should not go to the sumfile,
+# since that is just noise and throws off results counting.
+resultslog()
+{
+    want_sum=$1
+    # Always log the unpostprocessed test output.
+    cat $testout >> $LOGFILE
+
+    rm -f $testout
+
+    if [[ -n $want_sum ]]; then
+        if [[ -n $want_all_output ]]; then
+            cat $tmpdir/test.out >> $SUMFILE
+
+        elif [[ -n $want_expected_diff ]]; then
+            log "Diff against expected:\n"
+
+            diff -u $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
+        fi
+    fi
+
+    # Finally, write the debugging output, if any, to the logfile.
+    if [[ -s $testdebug ]]; then
+        echo "-- @@debug --" >> $LOGFILE
+        cat $testdebug >> $LOGFILE
+    fi
+    rm -f $testdebug
+}
+
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
@@ -878,6 +909,11 @@ for dt in $dtrace; do
         #                    firing is considered a test pass, not a test
         #                    failure.
         #
+        # @@reinvoke-failure: If present, this is an integer indicating the
+        #                     number of times to reinvoke failed tests: only
+        #                     if they fail every time will they be considered
+        #                     a FAIL rather than a PASS.
+        #
         # @@trigger: A single line containing the name of a program in
         #            test/triggers which is executed after dtrace is started.
         #            When this program exits, dtrace will be killed.  If the
@@ -1099,6 +1135,13 @@ for dt in $dtrace; do
               echo "$xfile: Unexpected return value $?." >&2;;
         esac
 
+        # Failure reinvocation.
+        reinvoke_failure=0
+        reinvoked=0
+        if exist_options reinvoke-failure $_test; then
+            reinvoke_failure="$(extract_options reinvoke-failure $_test)"
+        fi
+
         # Check for a trigger.
 
         trigger=
@@ -1211,190 +1254,204 @@ for dt in $dtrace; do
             fi
         fi
 
-        tst=$base
-        export tst
-        if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
-            case $progtype in
-                d) eflag=
-                   if [[ -z $trigger ]]; then
-                        eflag=-e
-                        this_noexec=t
-                   fi
-                   run_with_timeout $timeout $run $dt_flags $eflag > $testout 2> $testerr;;
-                shell) run_with_timeout $timeout $run > $testout 2> $testerr;;
-                c) run_with_timeout $timeout $run > $testout 2> $testerr;;
-                *) out "$_test: Internal error: unknown program type $progtype";;
-            esac
-            exitcode=$?
-        else
-            # A trigger.  Run dtrace with timeout, and permit execution.  First,
-            # run the trigger with a 1s delay before invocation, record
-            # its PID, and note it in the dt_flags if $_pid is there.
-            #
-            # We have to run each of these in separate subprocesses to avoid
-            # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
-            # and confusing it. (This happens even if disowned.)
-            #
-            # For .c tests, none of this is supported: we just run the trigger
-            # first and kill it afterwards, as if @@trigger-timing: before,
-            # passing the PID to the C program as its lone parameter.
-
-            trigger_timing=synchro
-            trigger_delay=
-            if exist_options trigger-timing $_test &&
-               [[ "x$(extract_options trigger-timing $_test)" != "xsynchro" ]]; then
-                trigger_timing="$(extract_options trigger-timing $_test)"
-                case $trigger_timing in
-                    after) trigger_delay=1;;
-                    before|synchro) ;;
-                    *) trigger_delay=$trigger_timing;;
+        while [[ $reinvoke_failure -ge 0 ]]; do
+            fail=
+            tst=$base
+            export tst
+            if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
+                case $progtype in
+                    d) eflag=
+                       if [[ -z $trigger ]]; then
+                            eflag=-e
+                            this_noexec=t
+                       fi
+                       run_with_timeout $timeout $run $dt_flags $eflag > $testout 2> $testerr;;
+                    shell) run_with_timeout $timeout $run > $testout 2> $testerr;;
+                    c) run_with_timeout $timeout $run > $testout 2> $testerr;;
+                    *) out "$_test: Internal error: unknown program type $progtype";;
                 esac
+                exitcode=$?
+            else
+                # A trigger.  Run dtrace with timeout, and permit execution.  First,
+                # run the trigger with a 1s delay before invocation, record
+                # its PID, and note it in the dt_flags if $_pid is there.
+                #
+                # We have to run each of these in separate subprocesses to avoid
+                # the SIGCHLD from the sleep 1's death leaking into run_with_timeout
+                # and confusing it. (This happens even if disowned.)
+                #
+                # For .c tests, none of this is supported: we just run the trigger
+                # first and kill it afterwards, as if @@trigger-timing: before,
+                # passing the PID to the C program as its lone parameter.
+
+                trigger_timing=synchro
+                trigger_delay=
+                if exist_options trigger-timing $_test &&
+                   [[ "x$(extract_options trigger-timing $_test)" != "xsynchro" ]]; then
+                    trigger_timing="$(extract_options trigger-timing $_test)"
+                    case $trigger_timing in
+                        after) trigger_delay=1;;
+                        before|synchro) ;;
+                        *) trigger_delay=$trigger_timing;;
+                    esac
+                fi
+
+                if [[ "$trigger_timing" == "synchro" ]] && [[ $progtype != "c" ]]; then
+                    dt_flags="$dt_flags -c $trigger"
+                    _pid=
+                else
+                    log "Running trigger $trigger${trigger_delay:+ with delay $trigger_delay}\n"
+                    ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
+                    _pid=$!
+                    disown %-
+                    ZAPTHESE="$_pid"
+
+                    if [[ $dt_flags =~ \$_pid ]]; then
+                        dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
+                    fi
+                fi
+
+                case $progtype in
+                    d) ( run_with_timeout $timeout $run $dt_flags > $testout 2> $testerr
+                         echo $? > $tmpdir/dtrace.exit; );;
+                    shell) ( run_with_timeout $timeout $run > $testout 2> $testerr
+                             echo $? > $tmpdir/dtrace.exit; );;
+                    c) ( run_with_timeout $timeout $run $_pid > $testout 2> $testerr
+                         echo $? > $tmpdir/dtrace.exit; );;
+                    *) out "$_test: Internal error: unknown program type $progtype";;
+                esac
+                exitcode="$(cat $tmpdir/dtrace.exit)"
+
+                # If the trigger is still running, kill it, and wait for it, to
+                # quiesce the background-process-kill noise the shell would
+                # otherwise emit.
+                if [[ -n $_pid ]] && [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
+                    kill $_pid >/dev/null 2>&1
+                fi
+                ZAPTHESE=
+                unset _pid
             fi
 
-            if [[ "$trigger_timing" == "synchro" ]] && [[ $progtype != "c" ]]; then
-                dt_flags="$dt_flags -c $trigger"
-                _pid=
-            else
-                log "Running trigger $trigger${trigger_delay:+ with delay $trigger_delay}\n"
-                ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
-                _pid=$!
-                disown %-
-                ZAPTHESE="$_pid"
+            # Split debugging info out of the test output.
+            grep -E '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testdebug
+            grep -vE '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
+            mv $testerr.tmp $testerr
 
-                if [[ $dt_flags =~ \$_pid ]]; then
-                    dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
+            # Note if dtrace mentions running out of memory at any point.
+            # If it does, this test quietly becomes an expected failure
+            # (without transforming an err.* test into an XPASS).
+            if grep -q "Cannot allocate memory" $testout $testerr; then
+                xfailmsg="out of memory"
+
+                if [[ $expected_exitcode -eq 0 ]]; then
+                    xfail=t
                 fi
             fi
 
-            case $progtype in
-                d) ( run_with_timeout $timeout $run $dt_flags > $testout 2> $testerr
-                     echo $? > $tmpdir/dtrace.exit; );;
-                shell) ( run_with_timeout $timeout $run > $testout 2> $testerr
-                         echo $? > $tmpdir/dtrace.exit; );;
-                c) ( run_with_timeout $timeout $run $_pid > $testout 2> $testerr
-                     echo $? > $tmpdir/dtrace.exit; );;
-                *) out "$_test: Internal error: unknown program type $progtype";;
-            esac
-            exitcode="$(cat $tmpdir/dtrace.exit)"
-
-            # If the trigger is still running, kill it, and wait for it, to
-            # quiesce the background-process-kill noise the shell would
-            # otherwise emit.
-            if [[ -n $_pid ]] && [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
-                kill $_pid >/dev/null 2>&1
+            # If deadman-success is on, then a deadman timer firing turns
+            # a test into an XFAIL.
+            if grep -q "Abort due to systemic unresponsiveness" $testerr &&
+                [[ "x$(extract_options deadman-success $_test)" != "x" ]]; then
+                testmsg="(expected) systemic unresponsiveness"
+                if [[ $expected_exitcode -eq 0 ]]; then
+                    xfail=t
+                fi
             fi
-            ZAPTHESE=
-            unset _pid
-        fi
 
-        # Split debugging info out of the test output.
-        grep -E '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testdebug
-        grep -vE '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
-        mv $testerr.tmp $testerr
+            if [[ -n $this_noexec ]]; then
+                testmsg="no execution"
+            fi
 
-        # Note if dtrace mentions running out of memory at any point.
-        # If it does, this test quietly becomes an expected failure
-        # (without transforming an err.* test into an XPASS).
-        if grep -q "Cannot allocate memory" $testout $testerr; then
-            xfailmsg="out of memory"
+            if [[ -s $testerr ]]; then
+                echo "-- @@stderr --" >> $testout
+                cat $testerr >> $testout
+            fi
 
-            if [[ $expected_exitcode -eq 0 ]]; then
+            if ! postprocess $base.r.p $testout $tmpdir/test.out; then
+                testmsg="results postprocessor failed with exitcode $?"
+            fi
+
+            rm -f $testerr
+
+            # Note if we will certainly capture results.
+
+            capturing=
+            if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $OVERWRITE_RESULTS ]] &&
+               [[ -n $COMPARISON ]]; then
+                capturing="results captured"
+            fi
+
+            # Results processing is complicated by the existence of a
+            # class-of-failure hierarchy (e.g. coredumps should be reported in
+            # preference to comparison failures, but we still want comparison
+            # failures to be logged) and by the need to print a message about each
+            # failure at most once, and by our desire to print any expected-results
+            # diff after the logged output (so it stands out).
+            want_expected_diff=
+            want_all_output=
+            failmsg=
+
+            # Compare results, if available, and log the diff.
+            rfile=$base.$arch.r
+            [[ -e $rfile ]] || rfile=$base.r
+
+            if [[ -e $rfile ]] && [[ -n $COMPARISON ]] &&
+               ! diff -u <(sort $rfile) <(sort $tmpdir/test.out) >/dev/null; then
+
+                fail=t
+                failmsg="expected results differ"
+                want_expected_diff=t
+            elif [[ ! -e $base.r ]]; then
+                # No expected results?  Write all the output to the sumfile.
+                # (It is also always written to the logfile: see below.)
+                want_all_output=t
+            fi
+
+            if [[ -f core ]] || [[ "$(find $tmpdir -name core -print)" != "" ]]; then
+                # A coredump in the current directory or under the tmpdir.
+                # Preserve it in the logdir.
+
+                mv core $logdir/$(echo $base | tr '/' '-').core 2>/dev/null || true
+                find $tmpdir -name core -type f -print0 | xargs -0r -I'{}' mv --backup=numbered '{}' $logdir/$(echo $base | tr '/' '-').core
+                fail=t
+                failmsg="core dumped"
+
+            # Detect a timeout.
+            elif [[ $exitcode -eq 126 ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
+                 [[ "x$(extract_options timeout-success $_test)" = "x" ]]; then
+                fail=t
+                failmsg="timed out"
+
+            # Exitcode of 67 == XFAIL.
+            elif [[ $exitcode -eq 67 ]]; then
                 xfail=t
+
+            # Exitcodes are not useful if there's been a coredump, but otherwise...
+            elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne 126 ]]; then
+
+                # Some sort of exitcode error.  Assume that errors in the
+                # range 129 -- 193 (a common value of SIGRTMAX) are signal
+                # exits.
+
+                fail=t
+                if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
+                    failmsg="erroneous exitcode ($exitcode)"
+                else
+                    failmsg="hit by signal $((exitcode - 128))"
+                fi
             fi
-        fi
 
-        # If deadman-success is on, then a deadman timer firing turns
-        # a test into an XFAIL.
-        if grep -q "Abort due to systemic unresponsiveness" $testerr &&
-            [[ "x$(extract_options deadman-success $_test)" != "x" ]]; then
-            testmsg="(expected) systemic unresponsiveness"
-            if [[ $expected_exitcode -eq 0 ]]; then
-                xfail=t
+            reinvoke_failure=$((reinvoke_failure-1))
+            if [[ -z $fail ]]; then
+                # No reinvocation if we didn't fail.
+                reinvoke_failure=-1
+            elif [[ -n $fail ]] && [[ $reinvoke_failure -ge 0 ]]; then
+                reinvoked=$((reinvoked+1))
+                testmsg="after $reinvoked reinvocations"
+
+                resultslog
             fi
-        fi
-
-        if [[ -n $this_noexec ]]; then
-            testmsg="no execution"
-        fi
-
-        if [[ -s $testerr ]]; then
-            echo "-- @@stderr --" >> $testout
-            cat $testerr >> $testout
-        fi
-
-        if ! postprocess $base.r.p $testout $tmpdir/test.out; then
-            testmsg="results postprocessor failed with exitcode $?"
-        fi
-
-        rm -f $testerr
-
-        # Note if we will certainly capture results.
-
-        capturing=
-        if [[ -n $CAPTURE_EXPECTED ]] && [[ -n $OVERWRITE_RESULTS ]] &&
-           [[ -n $COMPARISON ]]; then
-            capturing="results captured"
-        fi
-
-        # Results processing is complicated by the existence of a
-        # class-of-failure hierarchy (e.g. coredumps should be reported in
-        # preference to comparison failures, but we still want comparison
-        # failures to be logged) and by the need to print a message about each
-        # failure at most once, and by our desire to print any expected-results
-        # diff after the logged output (so it stands out).
-        want_expected_diff=
-        want_all_output=
-        failmsg=
-
-        # Compare results, if available, and log the diff.
-	rfile=$base.$arch.r
-	[[ -e $rfile ]] || rfile=$base.r
-
-        if [[ -e $rfile ]] && [[ -n $COMPARISON ]] &&
-           ! diff -u <(sort $rfile) <(sort $tmpdir/test.out) >/dev/null; then
-
-            fail=t
-            failmsg="expected results differ"
-            want_expected_diff=t
-        elif [[ ! -e $base.r ]]; then
-            # No expected results?  Write all the output to the sumfile.
-            # (It is also always written to the logfile: see below.)
-            want_all_output=t
-        fi
-
-        if [[ -f core ]] || [[ "$(find $tmpdir -name core -print)" != "" ]]; then
-            # A coredump in the current directory or under the tmpdir.
-            # Preserve it in the logdir.
-
-            mv core $logdir/$(echo $base | tr '/' '-').core 2>/dev/null || true
-            find $tmpdir -name core -type f -print0 | xargs -0r -I'{}' mv --backup=numbered '{}' $logdir/$(echo $base | tr '/' '-').core
-            fail=t
-            failmsg="core dumped"
-
-        # Detect a timeout.
-        elif [[ $exitcode -eq 126 ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
-             [[ "x$(extract_options timeout-success $_test)" = "x" ]]; then
-            fail=t
-            failmsg="timed out"
-
-	# Exitcode of 67 == XFAIL.
-	elif [[ $exitcode -eq 67 ]]; then
-	    xfail=t
-
-        # Exitcodes are not useful if there's been a coredump, but otherwise...
-        elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne 126 ]]; then
-
-            # Some sort of exitcode error.  Assume that errors in the
-            # range 129 -- 193 (a common value of SIGRTMAX) are signal
-            # exits.
-
-            fail=t
-            if [[ $exitcode -lt 129 ]] || [[ $exitcode -gt 193 ]]; then
-                failmsg="erroneous exitcode ($exitcode)"
-            else
-                failmsg="hit by signal $((exitcode - 128))"
-            fi
-        fi
+        done
 
         if [[ -z $fail ]]; then
 
@@ -1413,26 +1470,7 @@ for dt in $dtrace; do
             fail "$xfail" "$xfailmsg" "$failmsg${capturing:+, $capturing}"
         fi
 
-        # Always log the unpostprocessed test output.
-        cat $testout >> $LOGFILE
-
-        rm -f $testout
-
-        if [[ -n $want_all_output ]]; then
-            cat $tmpdir/test.out >> $SUMFILE
-
-        elif [[ -n $want_expected_diff ]]; then
-            log "Diff against expected:\n"
-
-            diff -u $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
-        fi
-
-        # Finally, write the debugging output, if any, to the logfile.
-        if [[ -s $testdebug ]]; then
-            echo "-- @@debug --" >> $LOGFILE
-            cat $testdebug >> $LOGFILE
-        fi
-        rm -f $testdebug
+        resultslog t
 
         # If capturing results is requested, capture them now.
         if [[ -n $capturing ]]; then
@@ -1486,10 +1524,20 @@ else
 	count[rc]++;
 	total++;
  }
+/: X?(FAIL|PASS|SKIP).*after ([0-9]*) reinvocations/
+{
+	match($0, /after ([0-9]*) reinvocations/, reinvokes);
+	count["REINVOKES"] += reinvokes[1];
+}
  END {
-	printf("%d cases (%d PASS, %d FAIL, %d XPASS, %d XFAIL, %d SKIP)\n",
-		total, count["PASS"], count["FAIL"], count["XPASS"],
-		       count["XFAIL"], count["SKIP"]);
+        if (count["REINVOKES"] == 0)
+	    printf("%d cases (%d PASS, %d FAIL, %d XPASS, %d XFAIL, %d SKIP)\n",
+		    total, count["PASS"], count["FAIL"], count["XPASS"],
+		           count["XFAIL"], count["SKIP"]);
+	else
+	    printf("%d cases (%d PASS (%d reinvocations), %d FAIL, %d XPASS, %d XFAIL, %d SKIP)\n",
+		    total, count["PASS"], count["REINVOKES"], count["FAIL"],
+		    count["XPASS"], count["XFAIL"], count["SKIP"]);
 }
 EOF
 
