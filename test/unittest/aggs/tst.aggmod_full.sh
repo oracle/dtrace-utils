@@ -31,6 +31,11 @@
 # Run time will increase with the number of errors that need to be isolated.
 # So you may have to increase the timeout value to see all errors.
 #
+# This test takes ages and does not suffer the erraticness problems of
+# other tests in this directory.  Do not run it more than once.
+#
+# @@reinvoke-failure: 0
+#
 # This script will read its own timeout, listed here:
 #
 # @@timeout: 120
