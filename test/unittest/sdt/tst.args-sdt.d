@@ -5,7 +5,7 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@xfail: debug probe not avilable. */
+/* @@xfail: debug probe not available */
 /* @@trigger: usdt-tst-args */
 /* @@trigger-timing: before */
 

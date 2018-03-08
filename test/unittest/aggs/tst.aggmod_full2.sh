@@ -16,6 +16,8 @@
 #
 ##
 
+# @@reinvoke-failure: 0
+
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
