@@ -35,7 +35,7 @@
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.14-4.2.v1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.19-2%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
@@ -63,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 0.6.1
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      7%{?dist}
+Release:      8%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,16 +253,35 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Mar  8 2018 - <nick.alcock@oracle.com> - 1.0.0-8
+- Change dtrace_proc_*() public interfaces to take a struct dtrace_proc,
+  avoiding lifecycle issues that can cause access to freed memory when
+  victims are exec()ing rapidly [Orabug: 27501199]
+- Bump library soname to libdtrace.so.1 [Orabug: 27501199]
+- Improve handling of symbol name->address and address->name lookup
+  [Orabug: 27214992] (Eugene Loh)
+- Check array bounds at compile time [Orabug: 27382268]
+- Fix dtrace -S not printing actions other than the first [Orabug: 27565023]
+  (Tomas Jedlicka)
+- Drop expensive, unnecessary bad page state checking from testsuite
+  [Orabug: 27577555]
+- Handle interruptions in the testsuite runner better [Orabug: 27577593]
+- Consider erratically failing tests in some directories to be passes
+- Test fixes [Orabug: 27583002, 27651838]
+
 * Fri Feb 16 2018 - <nick.alcock@oracle.com> - 1.0.0-7
+- Internal development release.
 - Several latent porting bugs fixed (Kris Van Hees)
 - Make tests used in smoke testsuite rely on sdt less
   (Kris Van Hees)
 
 * Tue Jan 30 2018 - <nick.alcock@oracle.com> - 1.0.0-6
+- Internal development release.
 - ARM64 support [Orabug: 27438960, 27438993, 27438977]
 - Include correct procfs.h [Orabug: 27266725] (Tomas Jedlicka)
 
 * Thu Jan 18 2018 - <nick.alcock@oracle.com> - 1.0.0-5
+- Internal development release.
 - Bring back translators for 4.14.
 
 * Fri Jan 12 2018 - <nick.alcock@oracle.com> - 1.0.0-4
