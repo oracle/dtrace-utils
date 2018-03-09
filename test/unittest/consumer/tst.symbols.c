@@ -247,7 +247,8 @@ int check_lookup_by_addr(dtrace_hdl_t *h) {
 		if (dtrace_lookup_by_addr
 		    (h, (GElf_Addr) symbols[i].addr, &sym, &si)) {
 
-			printf("ERROR: dtrace_lookup_by_addr failed\n");
+			printf("ERROR: dtrace_lookup_by_addr failed: %s\n",
+			    dtrace_errmsg(h, dtrace_errno(h)));
 			printf("  expect:");
 			print_symbol(i);
 			nerrors++;

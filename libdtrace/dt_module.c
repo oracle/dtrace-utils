@@ -1531,8 +1531,10 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 			break;
 	}
 
-	if (dmp == NULL)
+	if (dmp == NULL) {
+		dt_dprintf("No module corresponds to %lx\n", addr);
 		return (dt_set_errno(dtp, EDT_NOSYMADDR));
+	}
 
 	if (dt_module_load(dtp, dmp) == -1)
 		return (-1); /* dt_errno is set for us */
