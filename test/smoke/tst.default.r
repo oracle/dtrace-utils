@@ -1,1 +1,1 @@
-              dtrace`dtrace_state_go+{ptr}
+              dtrace`dtrace_ioctl+{ptr}

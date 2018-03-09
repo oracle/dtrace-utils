@@ -1,7 +1,5 @@
 #!/bin/sed -nf
 
-# Eliminate all lines other than dtrace`dtrace_state_go and unresolved
-# addresses.
+# Eliminate all lines other than dtrace`ioctl.
 
-/dtrace`dtrace_state_go/p
-/[^+]0x[0-9a-f]\+$/p
+/dtrace`dtrace_ioctl/p
