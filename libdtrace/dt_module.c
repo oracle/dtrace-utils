@@ -1110,7 +1110,8 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	 * modules.
 	 */
 
-	if (strcmp(sym_name, "_end") == 0)
+	if ((strcmp(sym_name, "_end") == 0) ||
+	    (strcmp(sym_name, "__brk_limit") == 0))
 		kernel_upper_bound = sym_addr;
 
 	/*
