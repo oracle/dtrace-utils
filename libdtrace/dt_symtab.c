@@ -412,8 +412,10 @@ dt_symtab_form_ranges(dt_symtab_t *symtab)
 				uint_t n = num_alloc + 1024;
 				dt_symrange_t *r = realloc(new_ranges,
 				    sizeof (dt_symrange_t) * n);
-				if (r == NULL)
+				if (r == NULL) {
+					free(new_ranges);
 					return -1;
+				}
 
 				num_alloc = n;
 				new_ranges = r;
