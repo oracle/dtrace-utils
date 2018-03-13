@@ -1,3 +1,0 @@
-[submodule "libdtrace-ctf"]
-	path = libdtrace-ctf
-	url = git://ca-tools4.us.oracle.com/dtrace/libdtrace-ctf.git
