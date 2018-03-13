@@ -51,12 +51,6 @@ KERNELODIR=
 KERNELDIRSUFFIX=$(if $(KERNELODIR),/source,/build)
 KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(shell uname -m))))
 
-# If libdtrace-ctf is initialized, we want to get headers from it.
-
-ifneq ($(wildcard libdtrace-ctf/Make*),)
-CPPFLAGS += -Ilibdtrace-ctf/include
-endif
-
 # Paths.
 
 prefix = /usr
