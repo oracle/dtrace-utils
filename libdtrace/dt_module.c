@@ -1062,7 +1062,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 static int
 dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 {
-	static unsigned long long kernel_upper_bound = (unsigned long long) (-1);
+	static int kernel_flag = 1;
 	static dt_module_t *last_dmp = NULL;
 	static int last_sym_text = -1;
 
@@ -1108,11 +1108,18 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	 * (There might also be a symbol "__brk_limit" with that address.)
 	 * Thereafter, symbols in /proc/kallmodsyms will belong to loadable
 	 * modules.
+	 *
+	 * kernel_flag==+1 means normal kernel (and built-in-module) symbols
+	 * kernel_flag==-1 means loadable-module symbols
+	 * kernel_flag==0 is an odd in-between case for the section markers
+	 *   (they signal the imminent end of the kernel section)
 	 */
 
 	if ((strcmp(sym_name, "_end") == 0) ||
 	    (strcmp(sym_name, "__brk_limit") == 0))
-		kernel_upper_bound = sym_addr;
+		kernel_flag = 0;
+	else if (kernel_flag == 0)
+		kernel_flag = -1;
 
 	/*
 	 * Special case: rename the 'ctf' module to 'shared_ctf': the
@@ -1194,7 +1201,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	if (sym_size == 0)
 		return 0;
 
-	if (sym_addr <= kernel_upper_bound) {
+	if (kernel_flag >= 0) {
 		/*
 		 * The kernel and built-in modules are in address order
 		 * in /proc/kallmodsyms.
