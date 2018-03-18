@@ -901,3 +901,31 @@ dt_variable_read(caddr_t addr, size_t size, uint64_t *valp)
 
 	return (0);
 }
+
+/*
+ * The function converts string representation of kernel version
+ * into the dt_version_t type.
+ */
+int
+dt_str2kver(const char *kverstr, dt_version_t *vp)
+{
+	int		kv1, kv2, kv3;
+	int		rval;
+
+	rval = sscanf(kverstr, "%d.%d.%d", &kv1, &kv2, &kv3);
+
+	switch (rval) {
+	case 2:
+		kv3 = 0;
+		break;
+	case 3:
+		break;
+	default:
+		return -1;
+	}
+
+	if (vp)
+		*vp = DT_VERSION_NUMBER(kv1, kv2, kv3);
+
+	return 0;
+}

@@ -37,7 +37,7 @@ libdtrace_SECONDARY := libproc libport
 # Disable C99 variadic macro warnings for this file
 dt_proc.c_CFLAGS := -Wno-pedantic
 
-SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | awk -F. '{ print $$1 "." $$2; }'))
+SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | sed -e 's/\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/'))
 
 -include libdtrace/$(ARCHINC)/Build
 
@@ -95,8 +95,8 @@ $(objdir)/dlibs/.dir.stamp:
 	ln -sf ../../$(libdtrace-build_DIR)/drti-vers $(objdir)/dlibs
 
 define dlib-kernel-ver-template
-$(objdir)/dlibs/$(shell printf %s $(1) | awk -F. '{ print $$1 "." $$2; }')/%.d: override SHORTKERNELVER := $(shell printf %s $(1) | awk -F. '{ print $$1 "." $$2; }')
-$(objdir)/dlibs/$(shell printf %s $(1) | awk -F. '{ print $$1 "." $$2; }')/%.d: override KERNELVER := $(1)
+$(objdir)/dlibs/$(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/')/%.d: override SHORTKERNELVER := $(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/' | awk -F. '{ print $$1 * 1000 * 1000 + $$2 * 1000 + $$3 }')
+$(objdir)/dlibs/$(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/')/%.d: override KERNELVER := $(1)
 endef
 
 $(foreach kernel,$(KERNELS),$(eval $(call dlib-kernel-ver-template,$(kernel))))

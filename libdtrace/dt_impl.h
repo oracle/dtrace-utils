@@ -268,7 +268,7 @@ struct dtrace_hdl {
 	char *dt_ld_path;	/* pathname of ld(1) to invoke if needed */
 	dt_list_t dt_lib_path;	/* linked-list forming library search path */
 	char *dt_module_path;	/* pathname of kernel module root */
-	char *dt_minor_kernver;	/* major kernel version, used in the libpath */
+	dt_version_t dt_kernver;/* kernel version, used in the libpath */
 	uid_t dt_useruid;	/* lowest non-system uid: set via -xuseruid */
 	char *dt_sysslice;	/* the systemd system slice: set via -xsysslice */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
@@ -564,6 +564,8 @@ extern int dt_attr_cmp(dtrace_attribute_t, dtrace_attribute_t);
 extern char *dt_version_num2str(dt_version_t, char *, size_t);
 extern int dt_version_str2num(const char *, dt_version_t *);
 extern int dt_version_defined(dt_version_t);
+
+extern int dt_str2kver(const char *, dt_version_t *);
 
 /*
  * Miscellaneous internal libdtrace interfaces.  The definitions below are for

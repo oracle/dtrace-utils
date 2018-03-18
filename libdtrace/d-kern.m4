@@ -11,20 +11,39 @@
  */
 
 /*
- * define_for_kernel([[version]]..., [[string]], [[result]], ([[otherwise]]))
- * expands to a macro that replaces [[string]] with [[result]], but only on
- * kernels in the quoted list [[version]]; if [[otherwise]] is provided,
- * other kernels get this expansion instead.
- */
-
-m4_define([[define_for_kernel]],[[m4_pushdef([[__found]],nil)m4_dnl
-m4_foreachq([[kernel]],m4_quote($1),[[m4_ifelse(SUBST_KERNEL,kernel,[[m4_define([[__found]], t)]])]])m4_dnl
-m4_ifelse($#,3,[[m4_ifelse(__found,t,[[m4_define(m4_quote($2),m4_quote($3))]])]],[[m4_ifelse(__found,t,[[m4_define(m4_quote($2),m4_quote($3))]],[[m4_define(m4_quote($2),m4_quote($4))]])]])m4_dnl
-m4_popdef([[__found]])]])m4_dnl
-
-/*
  * if_arch([[arch]], [[string]]) expands to a macro that substitutes in
  * the [[string]] if the arch is that specified, otherwise nothing.
  */
 
 m4_define([[if_arch]],[[m4_ifelse(SUBST_ARCH,m4_quote($1),m4_quote($2))]])
+
+/*
+ * define_for_kernel([[macro name]], [[(kver, value), (kver, value), ...]], [[default]])
+ *
+ * The macro takes a list of values for each kernel sorted from lowest to the
+ * highest kernel version.  Given the target kernel version it tries to find
+ * value for most recent kernel with lower version.  If no such kernel exist
+ * the default value is used instead.
+ *
+ * The kver is produced by the m4_kver macro.
+ *
+ * If the value contains a macro argument variable like $1, then extra quoting
+ * that prevents premature expansion is required.  See the m4_argq for more
+ * details.
+ */
+m4_define([[__process_element]], m4_dnl
+	[[m4_ifelse(m4_eval(SUBST_KERNEL[[ >= $1]]), 1, m4_dnl
+		[[m4_define([[__found]], [[$2]])]])]]) m4_dnl
+
+m4_define([[__cat]], [[$1$2]])
+
+m4_define([[define_for_kernel]], [[ m4_dnl
+	m4_pushdef([[__found]], nil) m4_dnl
+	m4_foreachq(kernel, m4_quote($2), [[ m4_dnl
+		__cat([[__process_element]], kernel) m4_dnl
+	]]) m4_dnl
+	m4_ifelse(__found, nil, m4_dnl
+		[[m4_define(m4_quote($1), [[$3]])]], m4_dnl
+		[[m4_define(m4_quote($1), __found)]]) m4_dnl
+	m4_popdef([[__found]]) m4_dnl
+]]) m4_dnl
