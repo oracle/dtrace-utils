@@ -103,8 +103,11 @@ inline char PR_MODEL_ILP32 = 1;
 inline char PR_MODEL_LP64 = 2;
 #pragma D binding "1.0" PR_MODEL_LP64
 
-m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids
-define_for_kernel([[[[3.18]],[[3.19]],[[4.0]],[[4.1]],[[4.3]],[[4.4]],[[4.5]],[[4.6]],[[4.7]],[[4.8]],[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]],[[4.15]]]],[[ugid]],[[$1.val]],[[$1]])m4_dnl
+define_for_kernel([[ugid]], [[ m4_dnl
+	m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids
+	(m4_kver(3, 18, 0), [[m4_argq(1).val]])]], m4_dnl
+	[[$1]]) m4_dnl
+
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
@@ -222,10 +225,10 @@ translator lwpsinfo_t < struct task_struct *T > {
 
 	pr_pri = T->prio;
 	pr_name = T->comm;
-define_for_kernel([[[[4.9]],[[4.10]],[[4.11]],[[4.12]],[[4.13]],[[4.14]],[[4.15]]]],[[on_cpu]],
+define_for_kernel([[on_cpu]], [[(m4_kver(4,9,0),
 [[if_arch([[x86]],[[T->cpu]])]] m4_dnl
 [[if_arch([[arm64]],[[T->cpu]])]] m4_dnl
-[[if_arch([[sparc]],[[((struct thread_info *)T->stack)->cpu]])]],
+[[if_arch([[sparc]],[[((struct thread_info *)T->stack)->cpu]])]])]],
 [[((struct thread_info *)T->stack)->cpu]])m4_dnl
 	pr_onpro = on_cpu;
 };

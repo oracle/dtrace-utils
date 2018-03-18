@@ -763,7 +763,6 @@ dt_vopen(int version, int flags, int *errp,
 	int i, err;
 	char modpath[PATH_MAX];
 	struct rlimit rl;
-	const char *kernver_dot;
 
 	const dt_intrinsic_t *dinp;
 	const dt_typedef_t *dtyp;
@@ -926,12 +925,9 @@ alloc:
 	strcat(modpath, dtp->dt_uts.release);
 	dtp->dt_module_path = strdup(modpath);
 
-	kernver_dot = strchr(dtp->dt_uts.release, '.');
-	if (kernver_dot++)
-		kernver_dot = strchr(kernver_dot, '.');
-	if (kernver_dot)
-		dtp->dt_minor_kernver = strndup(dtp->dt_uts.release,
-		    kernver_dot - dtp->dt_uts.release);
+	/* Obtain current kernel version. */
+	if (dt_str2kver(dtp->dt_uts.release, &dtp->dt_kernver) < 0)
+		return (set_open_errno(dtp, errp, EDT_VERSINVAL));
 
 	if (dtp->dt_mods == NULL || dtp->dt_kernpaths == NULL || 
 	    dtp->dt_provs == NULL || dtp->dt_procs == NULL ||
@@ -1389,7 +1385,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	elf_end(dtp->dt_ctf_elf);
 	free(dtp->dt_mods);
-	free(dtp->dt_minor_kernver);
 	free(dtp->dt_module_path);
 	free(dtp->dt_kernpaths);
 	free(dtp->dt_provs);

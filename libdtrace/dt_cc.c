@@ -2275,6 +2275,55 @@ err:
 }
 
 /*
+ * Given a library path entry tries to find a per-kernel directory
+ * that should be used if present.
+ */
+static char *
+dt_find_kernpath(dtrace_hdl_t *dtp, const char *path)
+{
+	char		*kern_path = NULL;
+	dt_version_t	kver = DT_VERSION_NUMBER(0, 0, 0);
+	struct dirent	*dp, *ep;
+	DIR		*dirp;
+
+	if ((dirp = opendir(path)) == NULL)
+		goto out;
+
+	while ((dp = readdir(dirp)) != NULL) {
+		dt_version_t cur_kver;
+
+		/* Skip ., .. and hidden dirs. */
+		if (dp->d_name[0] == '.')
+			continue;
+
+		/* Try to match kernel version for given file. */
+		if (dt_str2kver(dp->d_name, &cur_kver) < 0)
+			continue;
+
+		/* Skip newer kernels than ours. */
+		if (cur_kver > dtp->dt_kernver)
+			continue;
+
+		/* A more recent kernel has been found already. */
+		if (cur_kver < kver)
+			continue;
+
+		/* Update the iterator state. */
+		kver = cur_kver;
+		free(kern_path);
+		kern_path = malloc(strlen(path) + strlen(dp->d_name) + 2);
+		if (kern_path == NULL)
+			goto out;
+
+		if (asprintf(&kern_path, "%s/%s", path, dp->d_name) < 0)
+			kern_path = NULL;
+	}
+
+out:
+	return kern_path;
+}
+
+/*
  * Load the contents of any appropriate DTrace .d library files.  These files
  * contain inlines and translators that will be cached by the compiler.  We
  * defer this activity until the first compile to permit libdtrace clients to
@@ -2292,26 +2341,19 @@ dt_load_libs(dtrace_hdl_t *dtp)
 
 	for (dirp = dt_list_next(&dtp->dt_lib_path);
 	    dirp != NULL; dirp = dt_list_next(dirp)) {
+		char *kdir_path;
 
-		if (dtp->dt_minor_kernver) {
-			char *kernvered_libpath;
-
-			kernvered_libpath = malloc(strlen(dirp->dir_path) + 1 +
-			    strlen(dtp->dt_minor_kernver) + 1);
-			if (!kernvered_libpath)
-				return(dt_set_errno(dtp, EDT_NOMEM));
-			strcpy(kernvered_libpath, dirp->dir_path);
-			strcat(kernvered_libpath, "/");
-			strcat(kernvered_libpath, dtp->dt_minor_kernver);
-
-			if (dt_load_libs_dir(dtp, kernvered_libpath) != 0) {
+		/* Load libs from per-kernel path if available. */
+		if ((kdir_path = dt_find_kernpath(dtp, dirp->dir_path)) != NULL) {
+			if (dt_load_libs_dir(dtp, kdir_path) != 0) {
 				dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
-				free(kernvered_libpath);
-				return (-1); /* errno is set for us */
+				free(kdir_path);
+				return (-1);
 			}
-			free(kernvered_libpath);
+			free(kdir_path);
 		}
 
+		/* Load libs from original path in the list. */
 		if (dt_load_libs_dir(dtp, dirp->dir_path) != 0) {
 			dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
 			return (-1); /* errno is set for us */
