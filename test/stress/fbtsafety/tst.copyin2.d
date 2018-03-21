@@ -33,7 +33,7 @@ syscall:::
 syscall:::
 /pid == $pid/
 {
-	tracemem(copyin((uintptr_t)curthread->dtrace_psinfo->envp, size), 10);
+	tracemem(copyin(curpsinfo->pr_envp, size), 10);
 }
 
 syscall:::

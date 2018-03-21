@@ -106,7 +106,22 @@ inline char PR_MODEL_LP64 = 2;
 define_for_kernel([[ugid]], [[ m4_dnl
 	m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids
 	(m4_kver(3, 18, 0), [[m4_argq(1).val]])]], m4_dnl
-	[[$1]]) m4_dnl
+[[$1]]) m4_dnl
+
+define_for_kernel([[get_task]], [[ m4_dnl
+	m4_dnl 4.14.21 reworked per-task data structures.
+	(m4_kver(4, 14, 21), [[m4_argq(1)->dt_task]])]], m4_dnl
+[[$1]]) m4_dnl
+
+define_for_kernel([[get_psinfo]], [[ m4_dnl
+	m4_dnl 4.14.21 reworked psinfo structure member names.
+	(m4_kver(4, 14, 21), [[get_task(m4_argq(1, [[[[]]]]))->dt_psinfo]])]], m4_dnl
+[[get_task($1)->dtrace_psinfo]]) m4_dnl
+
+define_for_kernel([[__psinfo]], [[ m4_dnl
+	m4_dnl 4.14.21 renamed psinfo members.
+	(m4_kver(4, 14, 21), [[dtps_[[]]m4_argq(1)]])]], m4_dnl
+[[$1]]) m4_dnl
 
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
@@ -125,11 +140,11 @@ translator psinfo_t < struct task_struct *T > {
 				   : (struct tty_struct *)-1;
 
 	pr_fname = T->comm;
-	pr_psargs = stringof(T->dtrace_psinfo->psargs);
+	pr_psargs = stringof(get_psinfo(T)->__psinfo(psargs));
 	pr_wstat = 0;
-	pr_argc = T->dtrace_psinfo->argc;
-	pr_argv = (uintptr_t)T->dtrace_psinfo->argv;
-	pr_envp = (uintptr_t)T->dtrace_psinfo->envp;
+	pr_argc = get_psinfo(T)->__psinfo(argc);
+	pr_argv = (uintptr_t)get_psinfo(T)->__psinfo(argv);
+	pr_envp = (uintptr_t)get_psinfo(T)->__psinfo(envp);
 
 	pr_dmodel = PR_MODEL_LP64;
 
