@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@xfail: debug probe not avilable. */
+
 /*
  * ASSERTION: FBT provider entry probe args beyond 5th
  *
