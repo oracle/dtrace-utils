@@ -59,11 +59,11 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 %if %{!?local_build:1}0
-BuildRequires: dtrace-kernel-headers = 0.6.1
+BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      8%{?dist}
+Release:      9%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,6 +253,14 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Mar 27 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-9
+- Updated translators to match new kernel redesign of per-task and
+  per-process data. [Orabug: 27731759]
+- Enhanced build system to support multiple kernels [Orabug: 27731756]
+- Added pid provider support [Orabug: 27609459] (Kris Van Hees)
+- Adjusted the interpretation of /proc/kallmodsyms for aarch64
+  [Orabug: 27214992] (Eugene Loh)
+
 * Thu Mar  8 2018 - <nick.alcock@oracle.com> - 1.0.0-8
 - Change dtrace_proc_*() public interfaces to take a struct dtrace_proc,
   avoiding lifecycle issues that can cause access to freed memory when

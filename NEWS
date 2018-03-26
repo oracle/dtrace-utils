@@ -1,4 +1,4 @@
-1.0.0 (Mar 8th, 2018)
+1.0.0 (Mar 27th, 2018)
 ----------------------
 
 New architectures:
@@ -11,6 +11,11 @@ New features:
    declared bound is now a compile-time error.  To dereference an array
    regardless, use casts, e.g. ((char *)curlwpsinfo->pr_name)[32].
  - Translator support for kernels 4.12 -- 4.14.
+ - Added initial pid provider support for userspace tracing.
+ - Redesigned build system now allows change in translators in 4.14.y versions
+   of kernels.  When porting to the new kernel, it is no longer required to add
+   the new kernel version to the list of define_for_kernel macros (unless a
+   change is truly required).
 
 Bugfixes:
 
