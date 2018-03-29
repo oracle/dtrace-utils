@@ -253,6 +253,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
+- Enabled tst.default.d in smoketests.
+
 * Tue Mar 27 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-9
 - Updated translators to match new kernel redesign of per-task and
   per-process data. [Orabug: 27731759]
