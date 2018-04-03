@@ -1,20 +1,55 @@
-1.0.0 (Dec 15th, 2017)
+1.0.0 (Mar 27th, 2018)
 ----------------------
+
+New architectures:
+
+ - ARM64 support.
 
 New features:
 
+ - Compile-time array bounds checking.  Dereferencing arrays beyond their
+   declared bound is now a compile-time error.  To dereference an array
+   regardless, use casts, e.g. ((char *)curlwpsinfo->pr_name)[32].
  - Translator support for kernels 4.12 -- 4.14.
+ - Added initial pid provider support for userspace tracing.
+ - Redesigned build system now allows change in translators in 4.14.y versions
+   of kernels.  When porting to the new kernel, it is no longer required to add
+   the new kernel version to the list of define_for_kernel macros (unless a
+   change is truly required).
 
 Bugfixes:
 
  - Addresses are normalized properly by mod(), so use of mod() in aggregates
    works better now.
  - DTrace will no longer consider symbols in built-in modules or the core kernel
-   to be in the wrong module.
+   to be in the wrong module: its idea of symbol addresses, sizes, and their
+   mapping to names is better in general, paticularly with respect to symbols
+   that overlap, symbols whose names are duplicates, and weak symbols.
+ - An interface problem has been fixed that can cause DTrace consumers to
+   dereference freed memory when victim processes grabbed via ustack(),
+   umod(), usym() or dtrace -c or -p exec().  This requires changes to
+   certain users of libdtrace, and relinking: see "Library interface changes"
+   below.
  - The ip provider's ipv6_tclass and ipv6_flow fields were wrong on little-
    endian machines.
  - Fix rare assertion failures at exit.
- - Improvements to the testsuite.
+ - dtrace -S now disassembles all actions in statements containing more than
+   one, rather than disassembling only the first.
+ - A new symbol at address zero introduced by the KPTI changes is eliminated
+   from symbol resolution.
+ - Improvements to the testsuite and testsuite runner.
+
+Library interface changes:
+
+ - The dtrace_proc_*() functions have changed the type they take to an opaque
+   handle, struct dtrace_proc.  There is a new function dtrace_proc_getpid() to
+   get the PID from this opaque handle.  dtrace_proc_grab() has been renamed
+   to dtrace_proc_grab_pid().  See INCOMPATIBILITIES.
+
+   The library soname has been bumped to libdtrace.so.1 correspondingly.
+   All consumers must relink, but consumers not using the dtrace_proc_*() APIs
+   need no code changes.  All places where code changes are needed elicit a
+   compile-time error, so it should be easy to see what needs changing.
 
 Testsuite changes:
 
@@ -22,7 +57,9 @@ Testsuite changes:
    be requested via TEST_TAGS='a !b' in the environment and --tag/--no-tag
    arguments to runtest.sh.  The intersection of all tags is run, so in the
    example above, only tests tagged with 'a' and not tagged with 'b' would be
-   run.
+   run.  You can specify tags that apply by default in the test/tags.default
+   file, and tags that apply on only one architecture in
+   test/tags.$arch.default.
 
 0.6.2 (Sep 12th, 2017)
 ----------------------

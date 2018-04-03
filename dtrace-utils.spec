@@ -25,22 +25,27 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition to
 # dtrace_kernels).
 
-%ifnarch sparc64
+%ifarch x86_64
 %if 0%{?oraclelinux} == 6
-%{!?build_kernel: %define build_kernel 4.1.12-112%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.2-1%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-112%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.32-1%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels 4.14.28-1%{?dist}uek 4.1.12-124.9.1%{?dist}uek}
 %endif
 %else
+%ifarch aarch64
+%{!?build_kernel: %define build_kernel 4.14.30-1.dtrace%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels 4.14.28-1%{?dist}uek}
+%else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %endif
+%endif
 
-# SPARC64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
+# SPARC64 and ARM64 don't yet have a 32-bit glibc, so all support for 32-on-64 must be
 # disabled.
-%ifnarch sparc64
+%ifnarch sparc64 aarch64
 %define glibc32 glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %else
 %define glibc32 %{nil}
@@ -54,11 +59,11 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 %if %{!?local_build:1}0
-BuildRequires: dtrace-kernel-headers = 0.6.1
+BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      2%{?dist}
+Release:      10%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -248,45 +253,99 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
+- Enabled tst.default.d in smoketests.
+
+* Tue Mar 27 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-9
+- Updated translators to match new kernel redesign of per-task and
+  per-process data. [Orabug: 27731759]
+- Enhanced build system to support multiple kernels [Orabug: 27731756]
+- Added pid provider support (Kris Van Hees) [Orabug: 27609459]
+- Adjusted the interpretation of /proc/kallmodsyms for aarch64
+  (Eugene Loh) [Orabug: 27214992]
+
+* Thu Mar  8 2018 - <nick.alcock@oracle.com> - 1.0.0-8
+- Change dtrace_proc_*() public interfaces to take a struct dtrace_proc,
+  avoiding lifecycle issues that can cause access to freed memory when
+  victims are exec()ing rapidly [Orabug: 27501199]
+- Bump library soname to libdtrace.so.1 [Orabug: 27501199]
+- Improve handling of symbol name->address and address->name lookup
+  (Eugene Loh) [Orabug: 27214992]
+- Check array bounds at compile time [Orabug: 27382268]
+- Fix dtrace -S not printing actions other than the first (Tomas Jedlicka)
+  [Orabug: 27565023]
+- Drop expensive, unnecessary bad page state checking from testsuite
+  [Orabug: 27577555]
+- Handle interruptions in the testsuite runner better [Orabug: 27577593]
+- Consider erratically failing tests in some directories to be passes
+- Test fixes [Orabug: 27583002, 27651838]
+
+* Fri Feb 16 2018 - <nick.alcock@oracle.com> - 1.0.0-7
+- Internal development release.
+- Several latent porting bugs fixed (Kris Van Hees)
+- Make tests used in smoke testsuite rely on sdt less
+  (Kris Van Hees)
+
+* Tue Jan 30 2018 - <nick.alcock@oracle.com> - 1.0.0-6
+- Internal development release.
+- ARM64 support [Orabug: 27438960, 27438993, 27438977]
+- Include correct procfs.h (Tomas Jedlicka) [Orabug: 27266725]
+
+* Thu Jan 18 2018 - <nick.alcock@oracle.com> - 1.0.0-5
+- Internal development release.
+- Bring back translators for 4.14.
+
+* Fri Jan 12 2018 - <nick.alcock@oracle.com> - 1.0.0-4
+- Internal development release.
+- Eliminate new symbol at address 0 on KPTI-enabled kernels
+  [Orabug: 27364377]
+- Boost some test timeouts
+
+* Fri Jan  5 2018 - <nick.alcock@oracle.com> - 1.0.0-3
+- Internal development release.
+- New tests and test fixes (Kris Van Hees, Nicolas Droux)
+  [Orabug: 27194352, 27282243]
+
 * Fri Dec 15 2017 - <nick.alcock@oracle.com> - 1.0.0-2
+- Internal development release.
 - Fix rare assertion failures at exit [Orabug: 26848964]
 
 * Thu Nov 30 2017 - <nick.alcock@oracle.com> - 1.0.0-1
 - Release for smoketesters, not GA
-- Fix mod() normalization: add test for it [Orabug: 26826564]
-  (Tomas Jedlicka, Eugene Loh)
+- Fix mod() normalization: add test for it (Tomas Jedlicka, Eugene Loh)
+  [Orabug: 26826564]
 - Fix faulty logic in dtrace_modsym_update() adding symbols to wrong modules
-  [Orabug: 26848467] (Tomas Jedlicka, Eugene Loh)
+  (Tomas Jedlicka, Eugene Loh) [Orabug: 26848467]
 - ip provider ipv6_tclass and ipv6_flow are not set correctly (Nicolas Droux)
   [Orabug: 27193049]
 - Translator changes for kernels 4.12 -- 4.14 (Nicolas Droux,
   Tomas Jedlicka, Nick Alcock)
-- Add tagging capability to the testsuite [Orabug: 26992620]
-  (Vincent Lim, Eugene Loh)
-- Fix kills of hanging dtraces in the testsuite [Orabug: 27051149]
-  (Eugene Loh, Nick Alcock)
+- Add tagging capability to the testsuite (Vincent Lim, Eugene Loh)
+  [Orabug: 26992620]
+- Fix kills of hanging dtraces in the testsuite (Eugene Loh, Nick Alcock)
+  [Orabug: 27051149]
 - New tests for the lockstat provider and fixes to jstack and 3-arg
-  tracemem tests [Orabug: 26149894, 27015838] (Eugene Loh, Alan Maguire)
+  tracemem tests (Eugene Loh, Alan Maguire) [Orabug: 26149894, 27015838]
 
 * Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-3
 - Apply correct version of lockstat patch [Orabug: 26149894]
 
 * Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
 - Add lockstat provider [Orabug: 26149894] (Alan Maguire)
-- Add missing obsolete of dtrace-modules-provider-headers [Orabug: 26883486]
-(Tomas Jedlicka)
-- Add missing testsuite NFS dependency [Orabug: 26860985] (Tomas Jedlicka)
+- Add missing obsolete of dtrace-modules-provider-headers (Tomas Jedlicka)
+  [Orabug: 26883486]
+- Add missing testsuite NFS dependency (Tomas Jedlicka) [Orabug: 26860985]
 
 * Thu Sep 21 2017 - <nick.alcock@oracle.com> - 0.6.2-1
 - Internal development release.
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
 - New llquantize() aggregation, providing log/linear results
-  [Orabug: 26675201] (Eugene Loh)
+  (Eugene Loh) [Orabug: 26675201]
 - New optional third arg for tracemem(): dynamically-variable size
-  limit [Orabug: 26675604] (Eugene Loh)
-- Fix wrong wrong-number-of-args error messages. (Eugene Loh)
-  [Orabug: 26402731]
+  limit (Eugene Loh) [Orabug: 26675604]
+- Fix wrong wrong-number-of-args error messages [Orabug: 26402731]
+  (Eugene Loh)
 - Fix module address range merging (Eugene Loh) [Orabug: 25767469]
 - Allow referencing of structure and union members named with
   the same name as D keywords, e.g. 'self' [Orabug: 26518086]
@@ -301,7 +360,7 @@ fi
 - Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
-- Test fixes [Orabug: 26522961] (Tomas Jedlicka, Nick Alcock)
+- Test fixes (Tomas Jedlicka, Nick Alcock) [Orabug: 26522961]
 - make check-quick support, skipping long-running tests
 
 * Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
@@ -328,8 +387,7 @@ fi
 - Add translators and tests for TCP and UDP (Alan Maguire)
   [Orabug: 25815242]
 - Add translators for the IO provider (Nicolas Droux) [Orabug: 25816562]
-- Add link_ntop() and tests for it (Girish Moodalbail)
-  [Orabug: 25931511]
+- Add link_ntop() and tests for it (Girish Moodalbail) [Orabug: 25931511]
 - sched.d no longer depends on the sched provider [Orabug: 26036143]
 - Ship a default /etc/dtrace-modules (Nicolas Droux) [Orabug: 25918164]
 - Repeated dtrace -G no longer corrupts the object file (Kris Van Hees)
