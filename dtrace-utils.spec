@@ -253,7 +253,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Tue Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
+* Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
 - Enabled tst.default.d in smoketests.
 
 * Tue Mar 27 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-9
