@@ -63,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      9%{?dist}
+Release:      10%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
