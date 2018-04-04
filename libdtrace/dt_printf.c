@@ -1246,11 +1246,11 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 {
 	dt_pfargd_t *pfd = pfv->pfv_argv;
 	const dtrace_recdesc_t *recp = recs;
-	const dtrace_aggdata_t *aggdata;
+	const dtrace_aggdata_t *aggdata = NULL; /* gcc -Wmaybe-uninitialized */
 	dtrace_aggdesc_t *agg;
 	caddr_t lim = (caddr_t)buf + len, limit;
 	char format[64] = "%";
-	int i, aggrec, curagg = -1;
+	int i, aggrec = 0, curagg = -1;
 	uint64_t normal;
 
 	/*
@@ -1286,7 +1286,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		dt_pfprint_f *func;
 		caddr_t addr;
 		size_t size;
-		uint32_t flags;
+		uint32_t flags = 0;
 
 		if (pfd->pfd_preflen != 0) {
 			char *tmp = alloca(pfd->pfd_preflen + 1);

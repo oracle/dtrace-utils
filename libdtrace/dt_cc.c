@@ -2283,7 +2283,7 @@ dt_find_kernpath(dtrace_hdl_t *dtp, const char *path)
 {
 	char		*kern_path = NULL;
 	dt_version_t	kver = DT_VERSION_NUMBER(0, 0, 0);
-	struct dirent	*dp, *ep;
+	struct dirent	*dp;
 	DIR		*dirp;
 
 	if ((dirp = opendir(path)) == NULL)

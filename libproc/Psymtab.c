@@ -516,9 +516,16 @@ Pupdate_maps(struct ps_prochandle *P)
 		prmap_t *pmptr;
 		struct prmap **new_prf_mappings;
 
+		/*
+		 * gcc complains:
+		 *   warning: ISO C does not support the 'm' scanf flag
+		 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
 		sscanf(line, "%lx-%lx %s %lx %x:%x %lu %ms",
 		    &laddr, &haddr, perms, &offset, &major, &minor, &inode,
 		    &fn);
+#pragma GCC diagnostic pop
 
 		/*
 		 * Skip anonymous mappings, and special mappings like the stack,

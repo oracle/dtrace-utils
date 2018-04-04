@@ -688,17 +688,14 @@ dt_provmod_open(dt_provmod_t **provmod, dt_fdlist_t *dfp)
 {
 	dt_provmod_t *prov;
 	char path[PATH_MAX];
-	struct dirent *dp, *ep;
+	struct dirent *dp;
 	DIR *dirp;
 	int fd;
 
 	if ((dirp = opendir(_dtrace_provdir)) == NULL)
 		return; /* failed to open directory; just skip it */
 
-	ep = alloca(sizeof (struct dirent) + PATH_MAX + 1);
-	bzero(ep, sizeof (struct dirent) + PATH_MAX + 1);
-
-	while (readdir_r(dirp, ep, &dp) == 0 && dp != NULL) {
+	while ((dp = readdir(dirp)) != NULL) {
 		if (dp->d_name[0] == '.')
 			continue; /* skip "." and ".." */
 

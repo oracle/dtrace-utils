@@ -2029,6 +2029,11 @@ again:
 				case DTRACEACT_FREOPEN:
 					func = dtrace_freopen;
 					break;
+				default:
+					dt_dprintf("dt_consume_cpu(): "
+					    "unknown is-printf-like action %d\n",
+					    (int) act);
+					return (-1);
 				}
 
 				n = (*func)(dtp, fp, fmtdata, &data,

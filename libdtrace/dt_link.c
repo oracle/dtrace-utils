@@ -456,6 +456,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	int ret = 0;
 	uint_t nshdr;
 
+	de.de_sym = NULL; /* gcc -Wmaybe-uninitialized */
 	if (prepare_elf32(dtp, dof, &de) != 0)
 		return (-1); /* errno is set for us */
 
@@ -601,6 +602,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	int ret = 0;
 	uint_t nshdr;
 
+	de.de_sym = NULL; /* gcc -Wmaybe-uninitialized */
 	if (prepare_elf64(dtp, dof, &de) != 0)
 		return (-1); /* errno is set for us */
 

@@ -26,6 +26,12 @@
  * introduce, which have names of the pattern __attribute_blah__.
  */
 
+/*
+ * We need a very low priority number to ensure that the constructor
+ * for USDT DOF loading is executed as early as possible.  Meanwhile,
+ * constructor priorities from 0 to 100 are reserved for the implementation.
+ * So the constructor priority may trigger a gcc compiler warning.
+ */
 #define _dt_constructor_(x) __attribute__((__constructor__(0)))
 #define _dt_destructor_(x) __attribute__((__destructor__))
 #define _dt_printflike_(string_index,first_to_check) __attribute__((__format__(__printf__,(string_index),(first_to_check))))

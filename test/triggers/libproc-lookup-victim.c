@@ -60,7 +60,11 @@ main(int argc, char *argv[])
 			fprintf(stderr, "Cannot dlmopen(): %s\n", dlerror());
 			exit(1);
 		}
+		/* turn off GCC compiler warnings triggered by dlsym() */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 		func = dlsym(dlmopen_handle, "lib_func");
+#pragma GCC diagnostic pop
 		break;
 	default:
 		fprintf(stderr, "Invalid argument %s\n", argv[1]);

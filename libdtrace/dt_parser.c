@@ -985,7 +985,8 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 	ctf_id_t lref = CTF_ERR, rref = CTF_ERR;
 
 	int lp_is_void, rp_is_void, lp_is_int, rp_is_int, compat;
-	uint_t lkind, rkind;
+	uint_t lkind = NULL, rkind = NULL;    /* gcc -Wmaybe-uninitialized */
+
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
 

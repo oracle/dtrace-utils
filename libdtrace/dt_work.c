@@ -265,7 +265,7 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 		rval = DTRACE_WORKSTATUS_OKAY;
 		break;
 
-	case -1:
+	default:
 		return (DTRACE_WORKSTATUS_ERROR);
 	}
 

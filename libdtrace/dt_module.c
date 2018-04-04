@@ -1367,17 +1367,13 @@ dt_module_from_object(dtrace_hdl_t *dtp, const char *object)
 	int err = EDT_NOMOD;
 	dt_module_t *dmp;
 
-	switch ((uintptr_t)object) {
-	case (uintptr_t)DTRACE_OBJ_EXEC:
+	if (object == DTRACE_OBJ_EXEC)
 		dmp = dtp->dt_exec;
-		break;
-	case (uintptr_t)DTRACE_OBJ_CDEFS:
+	else if (object == DTRACE_OBJ_CDEFS)
 		dmp = dtp->dt_cdefs;
-		break;
-	case (uintptr_t)DTRACE_OBJ_DDEFS:
+	else if (object == DTRACE_OBJ_DDEFS)
 		dmp = dtp->dt_ddefs;
-		break;
-	default:
+	else {
 		dmp = dt_module_create(dtp, object);
 		err = EDT_NOMEM;
 	}
