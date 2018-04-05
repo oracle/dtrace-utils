@@ -218,7 +218,10 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 			rel->r_info = ELF32_R_INFO(count + dep->de_global,
 			    R_SPARC_32);
 #elif defined(__aarch64__)
-/* TODO: add r_offset and r_info  */
+			rel->r_offset = s->dofs_offset +
+			    dofr[j].dofr_offset;
+			rel->r_info = ELF32_R_INFO(count + dep->de_global,
+			    R_ARM_ABS32);
 #else
 #error unknown ISA
 #endif
@@ -392,7 +395,10 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 			rel->r_info = ELF64_R_INFO(count + dep->de_global,
 			    R_SPARC_64);
 #elif defined(__aarch64__)
-/* TODO: add arm64 */
+			rel->r_offset = s->dofs_offset +
+			    dofr[j].dofr_offset;
+			rel->r_info = ELF64_R_INFO(count + dep->de_global,
+			    R_AARCH64_ABS64);
 #else
 #error unknown ISA
 #endif
@@ -630,6 +636,8 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	elf_file.ehdr.e_machine = EM_SPARCV9;
 #elif defined(__i386) || defined(__amd64)
 	elf_file.ehdr.e_machine = EM_X86_64;
+#elif defined(__aarch64__)
+	elf_file.ehdr.e_machine = EM_AARCH64;
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
 	elf_file.ehdr.e_shoff = sizeof (Elf64_Ehdr);
@@ -992,12 +1000,67 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 }
 
 #elif defined(__aarch64__)
+
+#define	DT_OP_NOP		0xd503201f
+#define	DT_OP_RET		0xd65f03c0
+#define	DT_OP_CALL26		0x94000000
+#define	DT_OP_JUMP26		0x14000000
+
 static int
 dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
     uint32_t *off)
 {
-	/* TODO */
-	return (1);
+	uint32_t *ip;
+
+	/*
+	 * Ensure that the offset is aligned on an instruction boundary.
+	 */
+	if ((rela->r_offset & (sizeof (uint32_t) - 1)) != 0)
+		return (-1);
+
+	/*
+	 * We only know about some specific relocation types.
+	 * We also recognize relocation type NONE, since that gets used for
+	 * relocations of USDT probes, and we might be re-processing a file.
+	 */
+	if (GELF_R_TYPE(rela->r_info) != R_AARCH64_CALL26 &&
+	    GELF_R_TYPE(rela->r_info) != R_AARCH64_JUMP26 &&
+	    GELF_R_TYPE(rela->r_info) != R_AARCH64_NONE)
+		return (-1);
+
+	ip = (uint32_t *)(p + rela->r_offset);
+
+	/*
+	 * We may have already processed this object file in an earlier linker
+	 * invocation. Check to see if the present instruction sequence matches
+	 * the one we would install below.
+	 */
+	if (ip[0] == DT_OP_NOP || ip[0] == DT_OP_RET)
+		return (0);
+
+	/*
+	 * We only expect call instructions with a displacement of 0, or a jump
+	 * instruction acting as a tail call.
+	 */
+	if (ip[0] != DT_OP_CALL26 && ip[0] != DT_OP_JUMP26) {
+		dt_dprintf("found %x instead of a call or jmp instruction at "
+		    "%llx\n", ip[0], (u_longlong_t)rela->r_offset);
+		return (-1);
+	}
+
+	/*
+	 * On arm64, we do not have to differentiate between regular probes and
+	 * is-enabled probes.  Both cases are encoded as a regular branch for
+	 * non-tail call locations, and a jump for tail call locations.  Calls
+	 * are to be converted into a no-op whereas jumps should become a
+	 * return.
+	 */
+	if (ip[0] == DT_OP_CALL26)
+		ip[0] = DT_OP_NOP;
+	else
+		ip[0] = DT_OP_RET;
+
+	return (0);
 }
 #else
 #error unknown ISA
@@ -1099,6 +1162,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		emachine1 = emachine2 = EM_SPARCV9;
 #elif defined(__i386) || defined(__amd64)
 		emachine1 = emachine2 = EM_X86_64;
+#elif defined(__aarch64__)
+		emachine1 = emachine2 = EM_AARCH64;
 #endif
 		symsize = sizeof (Elf64_Sym);
 	}

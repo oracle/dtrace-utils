@@ -23,17 +23,19 @@
 static int	arch;
 
 static void printComments(dof_sec_t *sec, void *data) {
-    printf("    Comment = %s\n", (char *)data + sec->dofs_offset);
+    printf("    Comment:\n" \
+	   "      %s\n", (char *)data + sec->dofs_offset);
 }
 
 static void printUTSName(dof_sec_t *sec, void *data) {
     struct utsname	*uts = (struct utsname *)((char *)data + sec->dofs_offset);
 
-    printf("    UTS.sysname  = %s\n" \
-	   "    UTS.nodename = %s\n" \
-	   "    UTS.release  = %s\n" \
-	   "    UTS.version  = %s\n" \
-	   "    UTS.machine  = %s\n",
+    printf("    UTS Name:\n" \
+	   "      sysname  = %s\n" \
+	   "      nodename = %s\n" \
+	   "      release  = %s\n" \
+	   "      version  = %s\n" \
+	   "      machine  = %s\n",
 	   uts->sysname, uts->nodename, uts->release, uts->version,
 	   uts->machine);
 }
@@ -188,6 +190,68 @@ static void processUSDT(dof_hdr_t *dof, int size) {
 			 enotab, argtab);
 	}
     }
+
+    /*
+     * Output any relocations...
+     */
+    sec = (dof_sec_t *)&((char *)dof)[dof->dofh_secoff];
+    for (i = 0; i < dof->dofh_secnum; i++, sec++) {
+	int		j, nrels;
+	dof_relohdr_t	*dofr;
+	dof_sec_t	*strsec, *relsec, *tgtsec;
+	char		*strtab;
+	dof_relodesc_t	*reltab;
+
+	if (sec->dofs_type != DOF_SECT_URELHDR)
+	    continue;
+
+	dofr = (dof_relohdr_t *)&((char *)dof)[sec->dofs_offset];
+	strsec = (dof_sec_t *)&((char *)dof)[dof->dofh_secoff +
+					     dofr->dofr_strtab *
+						dof->dofh_secsize];
+	relsec = (dof_sec_t *)&((char *)dof)[dof->dofh_secoff +
+					     dofr->dofr_relsec *
+						dof->dofh_secsize];
+	tgtsec = (dof_sec_t *)&((char *)dof)[dof->dofh_secoff +
+					     dofr->dofr_tgtsec *
+						dof->dofh_secsize];
+	strtab = &((char *)dof)[strsec->dofs_offset];
+	reltab = (dof_relodesc_t *)&((char *)dof)[relsec->dofs_offset];
+
+	nrels = relsec->dofs_size / relsec->dofs_entsize;
+
+	printf("    Relocations: %d entries:\n", nrels);
+
+	for (j = 0; j < nrels; j++) {
+	    dof_relodesc_t	*r = &reltab[j];
+
+	    printf("      Relo %d: '%s', type %s, offset %lx\n",
+		   j, strtab + r->dofr_name,
+		   r->dofr_type == DOF_RELO_NONE ? "NONE" :
+			r->dofr_type == DOF_RELO_SETX ? "SETX" : "Unknown",
+		   (uint64_t)r->dofr_offset);
+	    printf("        (0x%lx + base)\n",
+		   *(uint64_t *)&((char *)dof)[tgtsec->dofs_offset +
+					       r->dofr_offset]);
+	}
+    }
+
+    /*
+     * Output remaining interesting sections (if they exist)...
+     */
+    sec = (dof_sec_t *)&((char *)dof)[dof->dofh_secoff];
+    for (i = 0; i < dof->dofh_secnum; i++, sec++) {
+	switch (sec->dofs_type) {
+	    case DOF_SECT_COMMENTS:
+		printComments(sec, dof);
+		break;
+	    case DOF_SECT_UTSNAME:
+		printUTSName(sec, dof);
+		break;
+	    default:
+		continue;
+	}
+    }
 }
 
 /*
@@ -304,6 +368,7 @@ static int readObj(const char *fn) {
 	case EM_X86_64:
 	case EM_SPARC:
 	case EM_SPARCV9:
+	case EM_AARCH64:
 	    arch = ehdr.e_machine;
 	    break;
 	default:

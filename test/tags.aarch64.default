@@ -3,7 +3,6 @@
 !test/unittest/proc
 !test/unittest/sched
 !test/unittest/sdt
-!test/unittest/usdt
 !test/stress
 !test/internals/libproc
 !test/demo/dt_test
