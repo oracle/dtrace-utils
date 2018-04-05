@@ -43,7 +43,6 @@ altlib.o: altlib.c prov.h
 
 provalt.o: prov.d altlib.o
 	$dtrace -G -o provalt.o -s prov.d altlib.o
-#	$dtrace -G -fPIC -o provalt.o -s prov.d altlib.o
 EOF
 
 cat > $DIR/prov.d <<EOF

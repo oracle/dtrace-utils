@@ -12,9 +12,9 @@
 #include <sys/syscall.h>			/* for __NR_* */
 
 /*
- * An integer in the range 0-255 (8-bit value).
+ * Must be no larger than an 'unsigned long'.
  */
-const static unsigned char plat_bkpt[] = { 0x88 };
+const static unsigned char plat_bkpt[] = { 0x00, 0x00, 0x20, 0xd4 };
 
 /*
  * Number of processor-specific dynamic tags on this platform.
