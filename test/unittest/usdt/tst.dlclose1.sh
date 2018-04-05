@@ -19,11 +19,6 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
-SYSCALL=pause
-
-if [[ "$(uname -m)" = "sparc64" ]]; then
-    SYSCALL='rt_sig*'
-fi
 
 DIRNAME="$tmpdir/usdt-dlclose1.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -119,8 +114,9 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -w -x bufsize=1k -c ./main -qs /dev/stdin <<EOF
-	syscall::$SYSCALL:entry
+	$dtrace -Zw -x bufsize=1k -c ./main -qs /dev/stdin <<EOF
+	syscall::pause:entry,
+	syscall::rt_sig*:entry
 	/pid == \$target/
 	{
 		system("$dtrace -l -P test_prov*");
