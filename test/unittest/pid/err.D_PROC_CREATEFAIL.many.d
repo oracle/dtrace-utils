@@ -7,7 +7,7 @@
 /* @@trigger: longsleep */
 /* @@timeout: 600 */
 /* @@no-xfail */
-/* --skip: might cause a crash */
+/* @@skip: causes following tests to be unreliable */
 
 pid$target:::
 {
