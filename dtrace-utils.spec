@@ -63,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.0.0
-Release:      10%{?dist}
+Release:      11%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,6 +253,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Apr 10 2018 - <nick.alcock@oracle.com> - 1.0.0-11
+- Disable pid provider tests on UEK4.
+
 * Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
 - Enabled tst.default.d in smoketests.
 
