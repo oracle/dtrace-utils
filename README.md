@@ -244,7 +244,9 @@ After setting up the rpm build environment, the build itself is simple:
 cd dtrace-utils
 
 # archive sources based on branch/tag
-git archive -o ~/rpmbuild/SOURCE/dtrace-utils-1.0.0.tar.bz2 --prefix=dtrace-utils-1.0.0/ 1.0-branch
+git archive -o ~/rpmbuild/SOURCES/dtrace-utils-1.0.0.tar.bz2 --prefix=dtrace-utils-1.0.0/ 1.0-branch
+# or
+make dist && mv dtrace-utils-*.tar.bz2 ~/rpmbuild/SOURCES
 
 # do the RPM build
 rpmbuild -ba dtrace-utils.spec
