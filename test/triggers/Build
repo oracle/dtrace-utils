@@ -5,7 +5,7 @@
 
 EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-static visible-constructor-static-unstripped
 
-EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args usdt-tst-forker
+EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args usdt-tst-forker usdt-tst-special
 ifneq ($(KERNELARCH), arm64)
 EXTERNAL_64BIT_TRIGGERS += $(EXTERNAL_64BIT_SDT_TRIGGERS)
 endif
@@ -189,6 +189,10 @@ usdt-tst-args_PROV := usdt-tst-args-prov.d
 
 # usdt-tst-forker calls USDT probes (defined in args.d) based on dtrace -h
 usdt-tst-forker_PROV := usdt-tst-forker-prov.d
+
+# usdt-tst-special calls USDT probes (defined in prov.d) based on dtrace -h
+usdt-tst-special_CFLAGS := -fno-inline -O2
+usdt-tst-special_PROV := usdt-tst-special-prov.d
 
 # ustack-tst-mtspin uses threads, and neither ustack-tst-spin nor
 # ustack-tst-mtspin want optimization.
