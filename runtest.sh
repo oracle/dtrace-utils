@@ -168,7 +168,7 @@ run_with_timeout()
     # Note: because log, sum, out and force_out invoke subprocesses, you cannot
     # call either of them while the CHLD trap is in force.
     shift 2
-    log "Running $cmd $@ with timeout $timeout\n"
+    log "Running $cmd $@${explicit_arg:+ "$explicit_arg"} with timeout $timeout\n"
 
     trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$pid >/dev/null 2>&1; exited=; fi' CHLD
     sleep $timeout &
@@ -176,7 +176,7 @@ run_with_timeout()
     old_ZAPTHESE="$ZAPTHESE"
     ZAPTHESE="$ZAPTHESE $sleepid"
 
-    $cmd "$@" &
+    $cmd "$@" ${explicit_arg:+"$explicit_arg"} &
     pid=$!
     dtpid=$pid
     ZAPTHESE="$ZAPTHESE $pid"
@@ -1254,6 +1254,7 @@ for dt in $dtrace; do
             fi
         fi
 
+        orig_dt_flags="$dt_flags"
         while [[ $reinvoke_failure -ge 0 ]]; do
             fail=
             tst=$base
@@ -1296,8 +1297,12 @@ for dt in $dtrace; do
                     esac
                 fi
 
+                explicit_arg=
                 if [[ "$trigger_timing" == "synchro" ]] && [[ $progtype != "c" ]]; then
-                    dt_flags="$dt_flags -c $trigger"
+                    # This is an unbearably ugly hack to try to kludge around
+                    # shell quoting difficulties.
+                    dt_flags="$dt_flags -c "
+                    explicit_arg="$trigger"
                     _pid=
                 else
                     log "Running trigger $trigger${trigger_delay:+ with delay $trigger_delay}\n"
@@ -1321,6 +1326,7 @@ for dt in $dtrace; do
                     *) out "$_test: Internal error: unknown program type $progtype";;
                 esac
                 exitcode="$(cat $tmpdir/dtrace.exit)"
+                explicit_arg=
 
                 # If the trigger is still running, kill it, and wait for it, to
                 # quiesce the background-process-kill noise the shell would
@@ -1451,6 +1457,7 @@ for dt in $dtrace; do
 
                 resultslog
             fi
+            dt_flags="$orig_dt_flags"
         done
 
         if [[ -z $fail ]]; then
