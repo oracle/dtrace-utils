@@ -1160,10 +1160,10 @@ for dt in $dtrace; do
         # Non-'none' @@triggers must exist in test/triggers.
         if [[ "x$trigger" = "xnone" ]] || [[ -z $trigger ]]; then
             :
-        elif [[ ! -x test/triggers/$trigger ]]; then
+        elif [[ ! -x test/triggers/$(printf '%s' "$trigger" | cut -d\  -f1) ]]; then
             trigger=
         else
-            trigger=test/triggers/$trigger
+            trigger="test/triggers/$trigger"
         fi
 
         # Finally, look for a .t file.
