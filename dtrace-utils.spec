@@ -254,7 +254,10 @@ fi
 
 %changelog
 * Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
+- ARM64 USDT and pid probe support (Kris Van Hees) [Orabug: 27847969]
+- Fix -c option on ARM64 (Kris Van Hees) [Orabug: 27847946]
 - Disable pid provider tests on UEK4.
+- Testsuite fixes [Orabug: 27921244, 27919918]
 
 * Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
 - Enabled tst.default.d in smoketests.

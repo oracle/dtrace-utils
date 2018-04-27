@@ -1,7 +1,14 @@
 1.0.1 (Apr 28th, 2018)
 ----------------------
 
-Minor release, testsuite bugfixes for UEK4 kernels only.
+New features:
+
+ - Both USDT and pid providers are supported on ARM64.
+
+Bugfixes:
+
+ - The -c option works on ARM64 now, as does the -x evaltime option.
+ - Improvements to the testsuite and testsuite runner.
 
 1.0.0 (Mar 27th, 2018)
 ----------------------
