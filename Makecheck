@@ -67,13 +67,13 @@ check-installed-internal: check-installed-verbose-internal
 check-installed-internal: RUNTESTFLAGS+=--quiet
 
 check-installed-verbose-internal: external-triggers $(git_version)
-	$(RUNTEST) --use-installed --testsuites=unittest,$(installed_internals)stress,demo $(RUNTESTFLAGS)
+	$(RUNTEST) --use-installed --testsuites=unittest,$(installed_internals)stress,demo,smoke $(RUNTESTFLAGS)
 
 check-stress: check
-check-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
+check-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo,smoke --no-comparison
 
 check-verbose-stress: check-verbose
-check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo --no-comparison
+check-verbose-stress: RUNTESTFLAGS+=--testsuites=unittest,internals,demo,smoke --no-comparison
 
 check-quick: check
 check-quick: RUNTESTFLAGS+=--skip-longer
@@ -82,10 +82,10 @@ check-verbose-quick: check-verbose
 check-verbose-quick: RUNTESTFLAGS+=--skip-longer
 
 check-installed-stress-internal: check-installed-internal
-check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
+check-installed-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo,smoke --no-comparison
 
 check-installed-verbose-stress-internal: check-installed-verbose-internal
-check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo --no-comparison
+check-installed-verbose-stress-internal: RUNTESTFLAGS+=--testsuites=unittest,$(installed_internals)demo,smoke --no-comparison
 
 check-installed-quick-internal: check-installed-internal
 check-installed-quick-internal: RUNTESTFLAGS+=--skip-longer
