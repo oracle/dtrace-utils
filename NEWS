@@ -1,3 +1,10 @@
+1.0.2 (May 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - Mark an erroneously-failing test on ARM as passing.
+
 1.0.1 (Apr 28th, 2018)
 ----------------------
 

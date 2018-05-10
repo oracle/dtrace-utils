@@ -62,7 +62,7 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.0.1
+Version:      1.0.2
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -253,6 +253,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
+- Testsuite fixes [Orabug: 27995907]
+
 * Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
 - ARM64 USDT and pid probe support (Kris Van Hees) [Orabug: 27847969]
 - Fix -c option on ARM64 (Kris Van Hees) [Orabug: 27847946]
