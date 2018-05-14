@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -72,6 +72,95 @@ extern "C" {
 	__dtrace_##provider##___##name((unsigned long)arg1,		\
 	    (unsigned long)arg2, (unsigned long)arg3,			\
 	    (unsigned long)arg4, (unsigned long)arg5);			\
+}
+
+#define	DTRACE_PROBE6(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6) {								\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long);						\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2, (unsigned long)arg3,			\
+	    (unsigned long)arg4, (unsigned long)arg5,			\
+	    (unsigned long)arg6);					\
+}
+
+#define	DTRACE_PROBE7(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7) {							\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long);				\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2, (unsigned long)arg3,			\
+	    (unsigned long)arg4, (unsigned long)arg5,			\
+	    (unsigned long)arg6, (unsigned long)arg7);			\
+}
+
+#define	DTRACE_PROBE8(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7, arg8) {						\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long);		\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2, (unsigned long)arg3,			\
+	    (unsigned long)arg4, (unsigned long)arg5,			\
+	    (unsigned long)arg6, (unsigned long)arg7,			\
+	    (unsigned long)arg8);					\
+}
+
+#define	DTRACE_PROBE9(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7, arg8, arg9) {					\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long);\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2, (unsigned long)arg3,			\
+	    (unsigned long)arg4, (unsigned long)arg5,			\
+	    (unsigned long)arg6, (unsigned long)arg7,			\
+	    (unsigned long)arg8, (unsigned long)arg9);			\
+}
+
+#define	DTRACE_PROBE10(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7, arg8, arg9, arg10) {				\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long);						\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2, (unsigned long)arg3,			\
+	    (unsigned long)arg4, (unsigned long)arg5,			\
+	    (unsigned long)arg6, (unsigned long)arg7,			\
+	    (unsigned long)arg8, (unsigned long)arg9,			\
+	    (unsigned long)arg10);					\
+}
+
+#define	DTRACE_PROBE11(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7, arg8, arg9, arg10, arg11) {				\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long);				\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2,  (unsigned long)arg3,			\
+	    (unsigned long)arg4,  (unsigned long)arg5,			\
+	    (unsigned long)arg6,  (unsigned long)arg7,			\
+	    (unsigned long)arg8,  (unsigned long)arg9,			\
+	    (unsigned long)arg10, (unsigned long)arg11);		\
+}
+
+#define	DTRACE_PROBE12(provider, name, arg1, arg2, arg3, arg4, arg5,	\
+	arg6, arg7, arg8, arg9, arg10, arg11, arg12) {			\
+	extern void __dtrace_##provider##___##name(unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long, unsigned long,	\
+	    unsigned long, unsigned long, unsigned long);		\
+	__dtrace_##provider##___##name((unsigned long)arg1,		\
+	    (unsigned long)arg2,  (unsigned long)arg3,			\
+	    (unsigned long)arg4,  (unsigned long)arg5,			\
+	    (unsigned long)arg6,  (unsigned long)arg7,			\
+	    (unsigned long)arg8,  (unsigned long)arg9,			\
+	    (unsigned long)arg10, (unsigned long)arg11,			\
+	    (unsigned long)arg12);					\
 }
 
 #ifdef	__cplusplus
