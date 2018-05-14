@@ -1577,7 +1577,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	char drti[PATH_MAX], symvers[PATH_MAX];
 	dof_hdr_t *dof;
 	int fd, status, i, cur;
-	char *cmd, tmp;
+	char *cmd;
 	size_t len;
 	int eprobes = 0, ret = 0;
 
@@ -1589,7 +1589,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	if (pgp == NULL) {
 		const char *fmt = "%s -o %s -r";
 
-		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, file) + 1;
+		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, file) + 1;
 
 		for (i = 0; i < objc; i++)
 			len += strlen(objv[i]) + 1;
@@ -1716,7 +1716,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		}
 		snprintf(symvers, sizeof (symvers), "%s/drti-vers", libdir->dir_path);
 
-		len = snprintf(&tmp, 1, fmt, dtp->dt_ld_path, emu, file,
+		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file,
 			       symvers, fd, drti) + 1;
 
 		cmd = alloca(len);

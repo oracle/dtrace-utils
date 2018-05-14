@@ -75,14 +75,6 @@ search_dispatch(struct ps_prochandle *P, isa_dispatch_t *dispatch)
 }
 
 /*
- * Quash object-pointer conversion warnings.
- *
- * TODO: When we can rely on a GCC version supporting #pragma diagnostic
- * push/pop, use them.
- */
-#pragma GCC diagnostic ignored "-pedantic"
-
-/*
  * Read the first argument of the function at which the process P is
  * halted, which must be a pointer.
  *
