@@ -46,6 +46,29 @@
  * occurs, the dt_proc_t itself is enqueued on a notification list and the
  * control thread broadcasts to dph_cv.  dtrace_sleep() will wake up using this
  * condition and will then call the client handler as necessary.
+ *
+ * The locking in this file is crucial, to stop the process-control threads
+ * from running before dtrace is ready for them, to coordinate proxy calls
+ * between the main thread and process-control thread, and to ensure that the
+ * state is not torn down while the process-control threads are still using it.
+ * Two locks are used:
+ *  - the dph_lock is a simple mutex protecting mutations of the dph notify list,
+ *    and serving as the lock around the dph_cv; the dph hash itself is not
+ *    protected, and may only be modified from the main thread.  This lock
+ *    nests inside the dpr_lock if both are taken at once.
+ *  - the dpr_lock is a counted semaphore constructed from a mutex, a
+ *    currently-holding thread ID, and two counters tracking a lock count for
+ *    each of its two possible holders (it could equally well be constructed
+ *    with one counter that counts up for one holder and down for the other).
+ *    It is taken around all dpr operations and dropped around proxy calls,
+ *    ensuring that the process-control thread and main thread do not race
+ *    with each other. It is also used as the lock around the dpr_cv (the
+ *    condvar for explicit waiting operations involving dt_proc_stop()/
+ *    dt_proc_resume()), and around the dpr_msg_cv (the condvar for proxy
+ *    operations).  Using one mutex for two cvs might seem troublesome, but we
+ *    are saved by the fact that the main thread can only ever be doing one of
+ *    these at once, and that the proxy cv is used in very stereotyped ways
+ *    (proxy_call()->dt_proc_loop(), wwith a special case for cleanup).
  */
 
 #include <sys/wait.h>
@@ -1243,6 +1266,13 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 
 /*
  * Cleanup handler, called when a process control thread exits or is cancelled.
+ *
+ * Note that if it has quit on its own (perhaps due to process termination),
+ * the main DTrace thread may be deep in libproc operations, and we must not
+ * free or clean up things it might be using.  (Those operations will fail
+ * with PS_DEAD and everything will unwind, but this does mean that we cannot
+ * do Pfree() from this thread, even though it was this thread that did the
+ * Pcreate()/Pgrab() in the first place.)
  */
 static void
 dt_proc_control_cleanup(void *arg)
@@ -1325,8 +1355,8 @@ dt_proc_control_cleanup(void *arg)
 	 * they notice that it's failed.  So we cannot enqueue the dpr in that
 	 * case, and must enqueue a NULL instead.
 	 *
-	 * We also never want to emit a death notification for processes created
-	 * via the internal API.
+	 * We also never want to emit a death notification for noninvasively-
+	 * traced processes.
 	 */
 	if (!suiciding && dpr->dpr_notifiable)
 		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
@@ -1506,6 +1536,18 @@ dt_proc_retired(struct ps_prochandle *P)
 	return (!Phasfds(P));
 }
 
+/*
+ * Destroy a dpr.  This is quite arcane due to avoiding races with the
+ * process-control thread, which may be doing literally anything at the time
+ * this is called, possibly many layers deep in self-proxy calls and breakpoint
+ * insertion, most of which rely on the presence of the dpr in the dph, and all
+ * of which rely on the dpr, ps_prochandle and associated machinery not having
+ * been freed out from under it.  It also must be allowed to clean up neatly or
+ * the victim will be left with outstanding (lethal) breakpoints.
+ *
+ * So the order of operations in this function, and dt_proc_control_cleanup(),
+ * is crucial.
+ */
 static void
 dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
