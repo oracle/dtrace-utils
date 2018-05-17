@@ -1570,21 +1570,6 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	dt_dprintf("%s pid %d\n", dpr->dpr_created ? "killing" : "releasing",
 		dpr->dpr_pid);
 
-	pthread_mutex_lock(&dph->dph_lock);
-	dt_proc_lookup_remove(dtp, dpr->dpr_pid, 1);
-	npp = &dph->dph_notify;
-
-	while ((npr = *npp) != NULL) {
-		if (npr->dprn_dpr == dpr) {
-			*npp = npr->dprn_next;
-			dt_free(dtp, npr);
-		} else {
-			npp = &npr->dprn_next;
-		}
-	}
-
-	pthread_mutex_unlock(&dph->dph_lock);
-
 	/*
 	 * If the daemon thread is still alive, clean it up.
 	 *
@@ -1594,6 +1579,12 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	 * We must turn off background state change monitoring first,
 	 * since cancellation triggers a libproc release, which flushes
 	 * breakpoints and can wait on process state changes.
+	 *
+	 * We must do this before dt_proc_lookup_remove(), because the
+	 * process-control threads may be issuing self-proxy operations, which
+	 * though not going through a proxy_call(), still issue a
+	 * dt_proc_lookup() to reacquire the dpr, and so require it to be in the
+	 * dph hash.
 	 */
 	dt_proc_lock(dpr);
 	proxy_monitor(dpr, 0);
@@ -1622,6 +1613,25 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		    PS_RELEASE_NORMAL);
 	}
 	dt_proc_unlock(dpr);
+
+	/*
+	 * Process-control thread gone: we can clean it off data structures
+	 * and free it without fear of racing.
+	 */
+	pthread_mutex_lock(&dph->dph_lock);
+	dt_proc_lookup_remove(dtp, dpr->dpr_pid, 1);
+	npp = &dph->dph_notify;
+
+	while ((npr = *npp) != NULL) {
+		if (npr->dprn_dpr == dpr) {
+			*npp = npr->dprn_next;
+			dt_free(dtp, npr);
+		} else {
+			npp = &npr->dprn_next;
+		}
+	}
+
+	pthread_mutex_unlock(&dph->dph_lock);
 
 	if (!dt_proc_retired(dpr->dpr_proc)) {
 		assert(dph->dph_lrucnt != 0);
@@ -1922,7 +1932,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	return dpr;
 }
 
-void
+static void
 dt_proc_release(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
