@@ -67,7 +67,7 @@ progress_goal=0
 # - Temporary files like "D.d" and "D.out" come and go.
 # The directory will end up empty when all files have been processed.
 
-DIRNAME="$tmpdir/tst.aggmod_full.$$.$RANDOM"
+DIRNAME="$tmpdir/aggs-aggmod_full.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
 
@@ -223,7 +223,7 @@ fi
 # if the timeout will soon be reached, just report how many we checked.
 # But do insist that some minimum number have been checked.
 
-progress_done_min=5000
+progress_done_min=3000
 if [[ $progress_done -lt $progress_done_min ]]; then
 	echo "ERROR: only $progress_done symbols checked"
 	echo "ERROR:   expect minimum of $progress_done_min"
