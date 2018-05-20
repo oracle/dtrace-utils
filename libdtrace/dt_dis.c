@@ -628,10 +628,9 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 
 	dt_dis_pred(predp, d->fp);
 
-	while (ap != NULL) {
+	do {
 		dt_dis_action(ap, d->fp, fmt);
-		ap = ap->dtad_next;
-	}
+	} while (ap != sdp->dtsd_action_last && (ap = ap->dtad_next) != NULL);
 
 	return 0;
 }
