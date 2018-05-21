@@ -765,6 +765,37 @@ proxy_monitor(dt_proc_t *dpr, int monitor)
 	return proxy_call(dpr, proxy_monitor, 0);
 }
 
+/*
+ * This proxy request requests that the controlling thread resume the process
+ * and terminate.  It's also used by other proxy requests' error-handling loops,
+ * where a proxy response and immediate thread termination is called for.
+ *
+ * This request cannot trigger an exec-retry, as it does not monitor process
+ * state changes.
+ */
+static long
+proxy_quit(dt_proc_t *dpr, int err)
+{
+	assert_self_locked(dpr);
+
+	/*
+	 * If we are already in the right thread, respond to the proxy message
+	 * and terminate the thread.  We do not unlock at all: the unlock
+	 * happens late in the cleanup handler, by which point the thread has
+	 * finished tidying up after itself.
+	 */
+	if (pthread_equal(dpr->dpr_tid, pthread_self())) {
+		dpr->dpr_proxy_errno = err;
+		dpr->dpr_proxy_rq = NULL;
+		dpr->dpr_proxy_ret = err;
+		pthread_cond_signal(&dpr->dpr_msg_cv);
+		pthread_exit(NULL);
+	}
+
+	dpr->dpr_proxy_args.dpr_quit.err = err;
+	return proxy_call(dpr, proxy_quit, 0);
+}
+
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* process to control */
@@ -1163,9 +1194,11 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 					}
 					dpr->dpr_proxy_ret = 0;
 				/*
-				 * execve() detecte: the other thread requests
+				 * execve() detected: the other thread requests
 				 * that we reattach to the traced process, and
-				 * set it going again.
+				 * set it going again.  On error, we terminate
+				 * the process-control thread, because we no
+				 * longer have anything to monitor.
 				 */
 				} else if (dpr->dpr_proxy_rq == proxy_reattach) {
 					int err;
@@ -1175,13 +1208,8 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 					errno = 0;
 					dpr->dpr_proxy_ret = 0;
 					err = dt_proc_reattach(dpr->dpr_hdl, dpr);
-					if (err != 0) {
-						dpr->dpr_proxy_errno = err;
-						dpr->dpr_proxy_rq = NULL;
-						dpr->dpr_proxy_ret = err;
-						pthread_cond_signal(&dpr->dpr_msg_cv);
-						pthread_exit(NULL);
-					}
+					if (err != 0)
+						proxy_quit(dpr, err);
 				/*
 				 * Request to cease background process
 				 * monitoring.
@@ -1192,6 +1220,11 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 					errno = 0;
 					dpr->dpr_proxy_ret = proxy_monitor(dpr,
 					    dpr->dpr_proxy_args.dpr_monitor.monitor);
+				} else if (dpr->dpr_proxy_rq == proxy_quit) {
+					dt_dprintf("%d: handling a proxy_quit()\n",
+					    dpr->dpr_pid);
+					proxy_quit(dpr,
+					    dpr->dpr_proxy_args.dpr_quit.err);
 				} else
 					dt_dprintf("%d: unknown libproc request\n",
 					    dpr->dpr_pid);
@@ -1273,6 +1306,10 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
  * with PS_DEAD and everything will unwind, but this does mean that we cannot
  * do Pfree() from this thread, even though it was this thread that did the
  * Pcreate()/Pgrab() in the first place.)
+ *
+ * We can assume that the process-control thread itself is at the
+ * process-control loop or slightly before, though it may or may not hold the
+ * dpr_lock.
  */
 static void
 dt_proc_control_cleanup(void *arg)
@@ -1321,9 +1358,9 @@ dt_proc_control_cleanup(void *arg)
 	 * fd closing must be done with some care.  The thread may be cancelled
 	 * before any of these fds have been assigned!
 	 *
-	 * No proxy calls are permitted after this point.  Flip dpr_done to
-	 * ensure that none will be attempted, even if a proxyer is already
-	 * blocked on the dpr_lock.  (However, this thread may still be
+	 * No new incoming proxy calls are permitted after this point.  Flip
+	 * dpr_done to ensure that none will be attempted, even if a proxyer is
+	 * already blocked on the dpr_lock.  (However, this thread may still be
 	 * in the midst of a proxy call, which is handled below.)
 	 */
 
@@ -1339,9 +1376,10 @@ dt_proc_control_cleanup(void *arg)
 
 	/*
 	 * A proxy request may have come in since the last time we checked for
-	 * one, before we took the lock: abort any such request with a notice
-	 * that the process is not there any more (though in fact it is; it will
-	 * be gone by the time the dpr_lock is released.)
+	 * one, before we took the lock, or we may be handling a proxy call such
+	 * as dpr_quit(): abort any such request with a notice that the process
+	 * is not there any more (though in fact it is; it will be gone by the
+	 * time the dpr_lock is released.)
 	 */
 	dpr->dpr_proxy_errno = ESRCH;
 	dpr->dpr_proxy_rq = NULL;
@@ -1594,11 +1632,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		 * the thread has exited.  (This will also terminate the
 		 * process.)
 		 */
-		pthread_cancel(dpr->dpr_tid);
-
-		while (!dpr->dpr_done)
-			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
-
+		proxy_quit(dpr, 0);
 		dpr->dpr_lock_holder = pthread_self();
 	} else if (dpr->dpr_proc) {
 		/*
