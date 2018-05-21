@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,7 +73,7 @@ typedef struct dt_proc {
 	 * In addition, communication between the main thread and
 	 * process-control thread also uses this mechanism but does not
 	 * participate in the exec-detection mechanism.  This uses requests
-	 * proxy_reattach() and proxy_monitor().
+	 * proxy_reattach(), proxy_monitor(), and proxy_quit().
 	 */
 	long (*dpr_proxy_rq)();
 	long dpr_proxy_ret;
@@ -95,6 +95,10 @@ typedef struct dt_proc {
 		struct {
 			boolean_t monitor;
 		} dpr_monitor;
+
+		struct {
+			int err;
+		} dpr_quit;
 	} dpr_proxy_args;
 } dt_proc_t;
 
