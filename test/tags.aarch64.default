@@ -1,15 +1,5 @@
 !test/unittest/fbtprovider
-!test/unittest/io
 !test/unittest/pcap
-!test/unittest/proc
-!test/unittest/sched
-!test/unittest/sdt
 !test/stress
 !test/internals/libproc
-!test/demo/dt_test
 !test/demo/fbt
-!test/demo/io
-!test/demo/ip
-!test/demo/lockstat
-!test/demo/proc
-!test/demo/sched

@@ -15,10 +15,8 @@
 syscall::ioctl:entry
 #if defined(ARCH_x86_64)
 /pid == $1 && arg0 == -1u/
-#elif defined(ARCH_sparc64)
-/pid == $1 && arg0 == -1/
 #else
-# error Unsupported architecture
+/pid == $1 && arg0 == -1/
 #endif
 {
 	raise(SIGUSR1);
@@ -27,10 +25,8 @@ syscall::ioctl:entry
 syscall::ioctl:entry
 #if defined(ARCH_x86_64)
 /pid == $1 && arg0 != -1u && arg1 == -1 && arg2 == NULL/
-#elif defined(ARCH_sparc64)
-/pid == $1 && arg0 != -1 && arg1 == -1 && arg2 == NULL/
 #else
-# error Unsupported architecture
+/pid == $1 && arg0 != -1 && arg1 == -1 && arg2 == NULL/
 #endif
 {
 	printf("fds[%d] fi_name = %s\n", arg0, fds[arg0].fi_name);
