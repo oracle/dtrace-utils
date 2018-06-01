@@ -154,6 +154,8 @@ fi
 
 $dtrace $dt_flags -c ./a.out -o output.txt -s /dev/stdin << EOF \
     2> errors.txt | sort | uniq -c | awk '{print $1, $2}' > modules.txt
+#pragma D option aggrate=50hz
+
 test_prov\$target:::
 {
 	@[mod(arg0), copyinstr(arg1)] = count();
