@@ -1521,10 +1521,10 @@ dt_proc_lookup_remove(dtrace_hdl_t *dtp, pid_t pid, int remove)
 			dpp = &dpr->dpr_hash;
 	}
 
-	assert(dpr != NULL);
-
-	if (remove)
+	if (remove) {
+		assert(dpr != NULL);
 		*dpp = dpr->dpr_hash; /* remove from pid hash chain */
+	}
 
 	return (dpr);
 }
@@ -1533,24 +1533,6 @@ dt_proc_t *
 dt_proc_lookup(dtrace_hdl_t *dtp, pid_t pid)
 {
 	return dt_proc_lookup_remove(dtp, pid, 0);
-}
-
-static void
-dt_proc_remove(dtrace_hdl_t *dtp, pid_t pid)
-{
-	dt_proc_hash_t *dph = dtp->dt_procs;
-	dt_proc_t *dpr, **dpp = &dph->dph_hash[pid & (dph->dph_hashlen - 1)];
-
-	for (dpr = *dpp; dpr != NULL; dpr = dpr->dpr_hash) {
-		if (dpr->dpr_pid == pid)
-			break;
-		else
-			dpp = &dpr->dpr_hash;
-	}
-	if (dpr == NULL)
-		return;
-
-	*dpp = dpr->dpr_hash;
 }
 
 /*
@@ -1672,7 +1654,6 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		dph->dph_lrucnt--;
 	}
 	dt_list_delete(&dph->dph_lrulist, dpr);
-	dt_proc_remove(dtp, dpr->dpr_pid);
 	Pfree(dpr->dpr_proc);
 
 	pthread_cond_destroy(&dpr->dpr_cv);
@@ -2345,6 +2326,7 @@ dtrace_proc_grab_pid(dtrace_hdl_t *dtp, pid_t pid, int flags)
 pid_t
 dtrace_proc_getpid(dtrace_hdl_t *dtp, struct dtrace_proc *proc)
 {
+	assert(proc != NULL);
 	return proc->pid;
 }
 
@@ -2366,8 +2348,11 @@ void
 dt_proc_release_unlock(dtrace_hdl_t *dtp, pid_t pid)
 {
 	dt_proc_t *dpr = dt_proc_lookup(dtp, pid);
-	if (dpr != NULL)
-		dt_proc_unlock(dpr);
+
+	if (dpr == NULL)
+		return;
+
+	dt_proc_unlock(dpr);
 	dt_proc_release(dtp, dpr);
 }
 
@@ -2378,7 +2363,13 @@ dt_proc_release_unlock(dtrace_hdl_t *dtp, pid_t pid)
 void
 dtrace_proc_release(dtrace_hdl_t *dtp, struct dtrace_proc *proc)
 {
-	dt_proc_release(dtp, dt_proc_lookup(dtp, proc->pid));
+	dt_proc_t *dpr;
+
+	assert(proc != NULL);
+	dpr = dt_proc_lookup(dtp, proc->pid);
+
+	if (dpr != NULL)
+		dt_proc_release(dtp, dpr);
 	free(proc);
 }
 
@@ -2392,5 +2383,11 @@ dtrace_proc_release(dtrace_hdl_t *dtp, struct dtrace_proc *proc)
 void
 dtrace_proc_continue(dtrace_hdl_t *dtp, struct dtrace_proc *proc)
 {
-	dt_proc_continue(dtp, dt_proc_lookup(dtp, proc->pid));
+	dt_proc_t *dpr;
+
+	assert(proc != NULL);
+	dpr = dt_proc_lookup(dtp, proc->pid);
+
+	if (dpr != NULL)
+		dt_proc_continue(dtp, dpr);
 }
