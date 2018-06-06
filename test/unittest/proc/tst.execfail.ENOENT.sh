@@ -42,7 +42,7 @@ if [ $# != 1 ]; then
 	exit 2
 fi
 
-badexec=/tmp/execfail.ENOENT.ksh.$$
+badexec=$tmpdir/execfail.ENOENT.ksh.$$
 dtrace=$1
 
 cat > $badexec <<EOF

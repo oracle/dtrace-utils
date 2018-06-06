@@ -11,7 +11,7 @@ if [ $# != 1 ]; then
 	exit 2
 fi
 
-file=/tmp/out.$$
+file=$tmpdir/out.$$
 dtrace=$1
 
 rm -f $file

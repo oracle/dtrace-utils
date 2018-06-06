@@ -33,7 +33,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-tmpfile=/tmp/tst.ftruncate.$$
+tmpfile=$tmpdir/tst.ftruncate.$$
 
 script
 status=$?

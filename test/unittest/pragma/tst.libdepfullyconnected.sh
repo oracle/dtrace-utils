@@ -17,8 +17,8 @@ if [ $# != 1 ]; then
 	exit 2
 fi
 
-tmpfile=/tmp/libdeporder.$$
-libdir=${TMPDIR:-/tmp}/libdep.$$
+tmpfile=$tmpdir/libdeporder.$$
+libdir=$tmpdir/libdep.$$
 dtrace=$1
 
 setup_libs()

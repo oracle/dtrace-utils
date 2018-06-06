@@ -23,8 +23,7 @@ dtrace=$1
 
 bname=`basename $0`
 
-dfilename=/var/tmp/$bname.$$
-
+dfilename=$tmpdir/$bname.$$.d
 
 ## Create .d file
 ##########################################################################

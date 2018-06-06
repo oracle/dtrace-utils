@@ -16,13 +16,16 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
+DIR="$tmpdir/misc-include.$$.$RANDOM"
+mkdir $DIR
+
 doit()
 {
 	file=$1
 	ofile=$2
 	errfile=$3
-	cfile=${TMPDIR:-/tmp}/inc.$$.$file.c
-	cofile=${TMPDIR:-/tmp}/inc.$$.$file
+	cfile=$DIR/inc.$$.$file.c
+	cofile=$DIR/inc.$$.$file
 	cat > $cfile <<EOF
 #include <sys/$file>
 void
@@ -81,8 +84,8 @@ for inc in $files; do
 		fi
 	done
 
-	ofile=${TMPDIR:-/tmp}/inc.$file.$$.out
-	errfile=${TMPDIR:-/tmp}/inc.$file.$$.err
+	ofile=$DIR/inc.$$.$file.out
+	errfile=$DIR/inc.$$.$file.err
 	doit $file $ofile $errfile &
 	let i=i+1
 
@@ -99,11 +102,11 @@ done
 
 wait
 
-bigofile=${TMPDIR:-/tmp}/inc.$$.out
+bigofile=$DIR/inc.$$.out
 
 for inc in $files; do
 	file=`basename $inc`
-	ofile=${TMPDIR:-/tmp}/inc.$file.$$.out
+	ofile=$DIR/inc.$$.$file.out
 
 	if [ -f $ofile ]; then
 		cat $ofile >> $bigofile

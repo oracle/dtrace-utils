@@ -18,7 +18,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-dtraceout=/tmp/dtrace.out.$$
+dtraceout=$tmpdir/dtrace.out.$$
 timeout=5
 port=2000
 

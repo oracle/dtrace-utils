@@ -52,8 +52,8 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-tmpfile=/tmp/tst.badfreopen.$$
-errfile=/tmp/tst.badfreopen.$$.stderr
+tmpfile=$tmpdir/tst.badfreopen.$$
+errfile=$tmpdir/tst.badfreopen.$$.stderr
 
 script
 status=$?

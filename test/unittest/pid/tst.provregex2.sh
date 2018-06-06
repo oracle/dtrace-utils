@@ -15,7 +15,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-DIR=${TMPDIR:-/tmp}/provregex2.$$
+DIR=$tmpdir/provregex2.$$
 
 mkdir $DIR
 

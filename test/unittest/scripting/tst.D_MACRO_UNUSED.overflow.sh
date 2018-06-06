@@ -21,7 +21,8 @@ fi
 
 dtrace=$1
 bname=`/bin/basename $0`
-dfilename=/var/tmp/$bname.$$.d
+dfilename=$tmpdir/$bname.$$.d
+errorfile=$tmpdir/$bname.$$.err
 
 ## Create .d file
 ##########################################################################
@@ -39,21 +40,21 @@ EOF
 #Call dtrace -C -s <.d>
 
 $dtrace $dt_flags -x errtags -s $dfilename "this is a test" 1>/dev/null \
-    2>/var/tmp/err.$$.txt
+    2>$errorfile
 
 if [ $? -ne 1 ]; then
 	echo "Error in executing $dfilename" >&2
 	exit 1
 fi
 
-grep "D_MACRO_UNUSED" /var/tmp/err.$$.txt >/dev/null 2>&1
+grep "D_MACRO_UNUSED" $errorfile >/dev/null 2>&1
 if [ $? -ne 0 ]; then
 	echo "Expected error D_MACRO_UNUSED not returned" >&2
-	rm -f /var/tmp/err.$$.txt
+	rm -f $errorfile
 	exit 1
 fi
 
 rm -f $dfilename
-rm -f /var/tmp/err.$$.txt
+rm -f $errorfile
 
 exit 0

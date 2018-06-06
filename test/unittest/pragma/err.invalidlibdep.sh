@@ -10,7 +10,7 @@ if [ $# != 1 ]; then
 	exit 2
 fi
 
-libdir=${TMPDIR:-/tmp}/libdep.$$
+libdir=$tmpdir/libdep.$$
 dtrace=$1
 
 setup_libs()

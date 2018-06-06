@@ -51,7 +51,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-tmpfile=/tmp/tst.freopen.$$
+tmpfile=$tmpdir/tst.freopen.$$
 iter=20
 
 script

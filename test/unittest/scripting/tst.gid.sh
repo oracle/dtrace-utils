@@ -21,7 +21,7 @@ fi
 
 dtrace=$1
 bname=`basename $0`
-dfilename=$tmpdir/$bname.$$
+dfilename=$tmpdir/$bname.$$.d
 
 ## Create .d file
 ##########################################################################

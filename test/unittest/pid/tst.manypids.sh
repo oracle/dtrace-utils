@@ -25,7 +25,7 @@ export LD_PRELOAD=$preload
 let numkids=100
 let i=0
 
-tmpfile=/tmp/dtest.$$
+tmpfile=$tmpdir/dtest.$$
 
 while [ "$i" -lt "$numkids" ]; do
 	sleep 500 &
