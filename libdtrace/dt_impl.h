@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -227,6 +227,7 @@ struct dtrace_hdl {
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
 	uint_t dt_ctf_elf_ref;  /* Number of references to this handle */
+	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
 	const dt_modops_t *dt_ctf_ops; /* data model's ops vector for CTF module */
 	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
 	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */

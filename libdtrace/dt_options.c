@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -296,6 +296,26 @@ dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	free(dtp->dt_ld_path);
 	dtp->dt_ld_path = ld;
+
+	return (0);
+}
+
+static int
+dt_opt_ctfa_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *ctfa;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if ((ctfa = strdup(arg)) == NULL)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	free(dtp->dt_ctfa_path);
+	dtp->dt_ctfa_path = ctfa;
 
 	return (0);
 }
@@ -989,6 +1009,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "cpphdrs", dt_opt_cpp_hdrs },
 	{ "cpppath", dt_opt_cpp_path },
 	{ "ctypes", dt_opt_ctypes },
+	{ "ctfpath", dt_opt_ctfa_path },
 	{ "defaultargs", dt_opt_cflags, DTRACE_C_DEFARG },
 	{ "dtypes", dt_opt_dtypes },
 	{ "debug", dt_opt_debug },

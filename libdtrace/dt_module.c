@@ -901,10 +901,15 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		char *ctfa_name;
 		char *to;
 
-		ctfa_name = malloc(strlen(dtp->dt_module_path) +
-		    strlen("/kernel/vmlinux.ctfa") + 1);
-		to = stpcpy(ctfa_name, dtp->dt_module_path);
-		stpcpy(to, "/kernel/vmlinux.ctfa");
+		/* use user provided CTF archive. */
+		if (dtp->dt_ctfa_path == NULL) {
+			ctfa_name = malloc(strlen(dtp->dt_module_path) +
+			    strlen("/kernel/vmlinux.ctfa") + 1);
+			to = stpcpy(ctfa_name, dtp->dt_module_path);
+			stpcpy(to, "/kernel/vmlinux.ctfa");
+		} else {
+			ctfa_name = dtp->dt_ctfa_path;
+		}
 
 		if ((dtp->dt_ctfa = ctf_arc_open(ctfa_name,
 			    &dtp->dt_ctferr)) == NULL) {
@@ -930,7 +935,9 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 				    ctfa_name);
 			}
 		}
-		free(ctfa_name);
+
+		if (dtp->dt_ctfa_path == NULL)
+			free(ctfa_name);
 	}
 
 	if (dtp->dt_ctfa != NULL) {
