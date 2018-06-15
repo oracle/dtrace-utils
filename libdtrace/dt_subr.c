@@ -854,7 +854,26 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 		return (dt_string2str(c, str, nbytes));
 	}
 
-	if (dt_Plookup_by_addr(dtp, pid, addr, name, sizeof (name), &sym) == 0) {
+	if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET
+	    && pid >= 0) {
+		if (dt_Pobjname(dtp, pid, addr, objname,
+		   sizeof(objname)) != NULL) {
+			const prmap_t *pmap = NULL;
+			uint64_t offset = addr;
+
+			pmap = dt_Paddr_to_map(dtp, pid, addr);
+
+			if (pmap)
+				offset = addr - pmap->pr_vaddr;
+
+			(void) snprintf(c, sizeof(c), "%s:0x%llx",
+			    dt_basename(objname), (unsigned long long) offset);
+		} else
+			(void) snprintf(c, sizeof(c), "0x%llx",
+			    (unsigned long long) addr);
+
+	} else if (dt_Plookup_by_addr(dtp, pid, addr, name, sizeof(name),
+	    &sym) == 0) {
 		(void) dt_Pobjname(dtp, pid, addr, objname, sizeof (objname));
 
 		obj = dt_basename(objname);

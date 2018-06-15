@@ -1156,8 +1156,26 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 		if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
 			break;
+		if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET
+		    && pid >= 0) {
+			if (dt_Pobjname(dtp, pid, pc[i], objname,
+			    sizeof(objname)) != NULL) {
+				const prmap_t *pmap = NULL;
+				uint64_t offset = pc[i];
 
-		if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
+				pmap = dt_Paddr_to_map(dtp, pid, pc[i]);
+
+				if (pmap)
+					offset = pc[i] - pmap->pr_vaddr;
+
+				(void) snprintf(c, sizeof(c), "%s:0x%llx",
+				    dt_basename(objname), (u_longlong_t)offset);
+
+			} else
+				(void) snprintf(c, sizeof(c), "0x%llx",
+				    (u_longlong_t)pc[i]);
+
+		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
 		    name, sizeof (name), &sym) == 0) {
 			(void) dt_Pobjname(dtp, pid, pc[i], objname, sizeof (objname));
 
