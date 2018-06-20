@@ -3,7 +3,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-static visible-constructor-static-unstripped
+EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait proc-tst-omp proc-tst-pthread-exec profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args ustack-tst-bigstack ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-static visible-constructor-static-unstripped
 
 EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args usdt-tst-forker usdt-tst-special
 EXTERNAL_64BIT_TRIGGERS += $(EXTERNAL_64BIT_SDT_TRIGGERS)
@@ -88,6 +88,10 @@ $(foreach trigger,$(TRIGGERS),$(eval $(call trigger-template,$(trigger))))
 $(foreach trigger-solib,$(TRIGGER_SOLIBS),$(eval $(call trigger-solib-template,$(trigger-solib))))
 
 proc-tst-sigwait_LIBS := -lrt
+proc-tst-omp_CFLAGS := -fopenmp
+proc-tst-omp_LDFLAGS := -fopenmp
+proc-tst-pthread-exec_CFLAGS := -pthread
+proc-tst-pthread-exec_LIBS := -pthread
 
 # readwholedir is used for ustack() tests, so needs a symbol table and needs
 # all its functions in it, even if they would be sibcalled out of existence.
