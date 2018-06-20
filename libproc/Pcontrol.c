@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1008,29 +1008,39 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	/*
 	 * TRACECLONE trap.  A new thread (or something near enough to it that
 	 * we can treat it as one).  DTrace is not ready for this everywhere
-	 * yet: stop monitoring shared library activity, if we were.
+	 * yet: stop monitoring shared library activity, if we were.  (We should
+	 * ideally remove all breakpoints too, but this is only a kludge, so for
+	 * now we can safely rely on the assumption that the only outstanding
+	 * breakpoints are on DT_DEBUG, removed by rd_event_suppress(), and on
+	 * main(), etc, which can only be hit by the main thread, which we are
+	 * monitoring.)
 	 */
 	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_CLONE << 8))
 	{
 		unsigned long pid;		/* Cannot be pid_t */
 
-		_dprintf("%i: process status change: thread creation detected, "
-			    "suppressing rd events...\n", P->pid);
-
 		P->state = PS_TRACESTOP;
-		if (wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL,
-			&pid) < 0)
-			ignored_child_wait(P, pid, ignored_child_flush);
+
+		wrapped_ptrace(P, PTRACE_GETEVENTMSG, P->pid, NULL,
+		    &pid);
+
+		_dprintf("%i: process status change: thread creation detected, "
+		    "suppressing rd events in new pid %li...\n", P->pid,
+		    pid);
 
 		rd_event_suppress(P->rap);
 
 		/*
-		 * Stop tracing thread creation now.
+		 * Stop tracing thread creation now, and detach from the
+		 * newly-created child thread so we are not bothered by its
+		 * signals and it runs undisturbed.  We can detach just as if
+		 * this were a forked child, except that we do not want to
+		 * remove breakpoints (a suboptimal kludge: see above).
 		 */
 		wrapped_ptrace(P, PTRACE_SETOPTIONS, 0, LIBPROC_PTRACE_OPTIONS);
-
+		ignored_child_wait(P, pid, NULL);
+		wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
 		P->state = PS_RUN;
-		wrapped_ptrace(P, PTRACE_CONT, pid, 0, 0);
 		return(0);
 	}
 
@@ -1130,8 +1140,9 @@ ignored_child_wait(struct ps_prochandle *P, pid_t pid,
 		if ((status >> 16) == PTRACE_EVENT_STOP) {
 			if (fun)
 				fun(P, pid);
-			if (wrapped_ptrace(P, PTRACE_DETACH, pid, 0, 0) < 0)
-				_dprintf("Cannot detach from ignored %i\n", pid);
+			if (wrapped_ptrace(P, PTRACE_DETACH, pid, 0, SIGCONT) < 0)
+				_dprintf("Cannot detach from ignored %i: %s\n",
+				    pid, strerror(errno));
 
 			return;
 		}
