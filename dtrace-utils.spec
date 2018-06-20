@@ -35,8 +35,8 @@
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.32-1%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
+%{!?build_kernel: %define build_kernel 4.14.35-1%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.14.28-1%{?dist}uek}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
@@ -62,8 +62,8 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.0.0
-Release:      10%{?dist}
+Version:      1.1.0
+Release:      0.1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,6 +253,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
+- Testsuite fixes [Orabug: 27995907]
+
+* Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
+- ARM64 USDT and pid probe support (Kris Van Hees) [Orabug: 27847969]
+- Fix -c option on ARM64 (Kris Van Hees) [Orabug: 27847946]
+- Disable pid provider tests on UEK4.
+- Testsuite fixes [Orabug: 27921244, 27919918]
+
 * Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
 - Enabled tst.default.d in smoketests.
 
