@@ -1,7 +1,7 @@
 # Functions used by the individual Build files.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -94,7 +94,7 @@ $(objdir)/build-$($(1)_TARGET).a: $(foreach source,$($(1)_SOURCES),$(call obj-na
                                   $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
                                   $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
 	$(call describe-target,BUILD-AR,$($(1)_TARGET).a)
-	ar rc $(objdir)/build-$($(1)_TARGET).a $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
+	$(AR) rc $(objdir)/build-$($(1)_TARGET).a $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/build-$($(1)_TARGET).a))
 
 $(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call cc-template,$(1),$(file),-fPIC)))
@@ -106,7 +106,7 @@ endef
 define lib-template
 $(objdir)/$($(1)_TARGET).a: $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
 	$(call describe-target,AR,$($(1)_TARGET).a)
-	ar rc $(objdir)/$($(1)_TARGET).a $(foreach build-lib,$($(1)_LIBSOURCES),$(foreach source,$($(build-lib)_SOURCES),$(call obj-name,$(build-lib),$(source))))
+	$(AR) rc $(objdir)/$($(1)_TARGET).a $(foreach build-lib,$($(1)_LIBSOURCES),$(foreach source,$($(build-lib)_SOURCES),$(call obj-name,$(build-lib),$(source))))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET).a))
 endef
 
