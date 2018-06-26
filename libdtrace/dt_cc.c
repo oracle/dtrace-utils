@@ -2290,7 +2290,7 @@ dt_find_kernpath(dtrace_hdl_t *dtp, const char *path)
 	DIR		*dirp;
 
 	if ((dirp = opendir(path)) == NULL)
-		goto out;
+		return NULL;
 
 	while ((dp = readdir(dirp)) != NULL) {
 		dt_version_t cur_kver;
@@ -2314,15 +2314,13 @@ dt_find_kernpath(dtrace_hdl_t *dtp, const char *path)
 		/* Update the iterator state. */
 		kver = cur_kver;
 		free(kern_path);
-		kern_path = malloc(strlen(path) + strlen(dp->d_name) + 2);
-		if (kern_path == NULL)
-			goto out;
-
-		if (asprintf(&kern_path, "%s/%s", path, dp->d_name) < 0)
+		if (asprintf(&kern_path, "%s/%s", path, dp->d_name) < 0) {
 			kern_path = NULL;
+			break;
+		}
 	}
 
-out:
+	(void) closedir(dirp);
 	return kern_path;
 }
 
