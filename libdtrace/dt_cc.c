@@ -2210,7 +2210,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 
 		dtp->dt_filetag = fname;
 		if (dt_lib_depend_add(dtp, &dtp->dt_lib_dep, fname) != 0)
-			goto err;
+			goto err_close;
 
 		rv = dt_compile(dtp, DT_CTX_DPROG,
 		    DTRACE_PROBESPEC_NAME, NULL,
@@ -2219,7 +2219,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		if (rv != NULL && dtp->dt_errno &&
 		    (dtp->dt_errno != EDT_COMPILER ||
 		    dtp->dt_errtag != dt_errtag(D_PRAGMA_DEPEND)))
-			goto err;
+			goto err_close;
 
 		if (dtp->dt_errno)
 			dt_dprintf("error parsing library %s: %s\n",
@@ -2269,6 +2269,9 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 	dt_lib_depend_free(dtp);
 	return (0);
 
+err_close:
+	(void) fclose(fp);
+	(void) closedir(dirp);
 err:
 	dt_lib_depend_free(dtp);
 	return (-1); /* preserve dt_errno */
