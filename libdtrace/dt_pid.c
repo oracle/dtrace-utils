@@ -148,7 +148,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 	sz = sizeof (fasttrap_probe_spec_t) + strlen(pp->dpp_name);
 
-	if ((ftp = dt_alloc(dtp, sz)) == NULL) {
+	if ((ftp = dt_zalloc(dtp, sz)) == NULL) {
 		dt_dprintf("proc_per_sym: dt_alloc(%lu) failed\n", sz);
 		return (1); /* errno is set for us */
 	}
