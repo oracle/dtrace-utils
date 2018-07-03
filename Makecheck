@@ -1,7 +1,7 @@
 # Testing targets.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -41,6 +41,7 @@ help::
 	@printf "check-installed                Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose        Report successes too.\n" >&2
 	@printf "check-stress                   Run testsuites while the system is under stress.\n" >&2
+	@printf "check-verbose-stress           Report successes too.\n" >&2
 	@printf "check-installed-stress         Check the installed DTrace.\n" >&2
 	@printf "check-installed-verbose-stress Report successes too.\n" >&2
 	@printf "check-quick                    Run tests that take only a short time.\n" >&2
