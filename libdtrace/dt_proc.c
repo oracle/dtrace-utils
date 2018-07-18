@@ -475,8 +475,9 @@ dt_proc_rdagent(dt_proc_t *dpr)
 	 * All of these calls are basically free if the agent already exists
 	 * and monitoring is already active.
 	 */
-        if (Prd_agent(dpr->dpr_proc) != NULL)
-		rd_event_enable(Prd_agent(dpr->dpr_proc), dt_proc_rdevent, dpr);
+	rd_agent_t *agent = Prd_agent(dpr->dpr_proc);
+	if (agent != NULL)
+		rd_event_enable(agent, dt_proc_rdevent, dpr);
 }
 
 /*

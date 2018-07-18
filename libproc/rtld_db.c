@@ -1432,7 +1432,8 @@ rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 	if ((rd->rd_monitoring) || (rd->rd_monitor_suppressed))
 		return RD_OK;
 
-	if ((r_brk(rd) == 0) || (!rd->maps_ready))
+	if (rd->P->state == PS_DEAD || (r_brk(rd) == 0) ||
+	    (!rd->maps_ready))
 		return RD_NOMAPS;
 
 	if (Pbkpt(rd->P, rd->r_brk_addr, FALSE, rd_brk_trap, NULL, rd) != 0)
@@ -1453,7 +1454,6 @@ rd_event_disable(rd_agent_t *rd)
 	/*
 	 * Tell the event callback that we are shutting down.
 	 */
-
 	if (rd->rd_event_fun)
 		rd->rd_event_fun(rd, NULL, rd->rd_event_data);
 
@@ -1738,6 +1738,9 @@ rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf, const rd_loadobj_t *obj,
     unsigned int scope)
 {
 	struct link_map map;
+
+	if (rd->P->state == PS_DEAD)
+		return NULL;
 
 	if (scope > obj->rl_nscopes)
 		return NULL;

@@ -217,19 +217,8 @@ Psym_init(struct ps_prochandle *P)
 void
 Psym_free(struct ps_prochandle *P)
 {
-	Preset_maps(P);
 	free(P->map_files);
 	P->map_files = NULL;
-}
-
-/*
- * Do those things that must be done on a Prelease().
- */
-void
-Psym_release(struct ps_prochandle *P)
-{
-	rd_delete(P->rap);
-	P->rap = NULL;
 }
 
 /*
@@ -801,19 +790,19 @@ Pupdate_syms(struct ps_prochandle *P)
  * The handle will become invalid at the next successful exec() and the
  * client (caller of proc_rd_agent()) must not use it beyond that point.
  * If the process is already dead or noninvasively grabbed, there's
- * nothing we can do.
+ * nothing we can do: just return the rd_agent if already available.
  */
 rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
 	if (P->state == PS_DEAD)
-		return (NULL);
+		return (P->rap);
 
 	if (P->rap == NULL && !P->noninvasive) {
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
 	}
-       return (P->rap);
+	return (P->rap);
 }
 
 /*

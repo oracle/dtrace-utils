@@ -384,6 +384,8 @@ bad:
 static void
 Pfree_internal(struct ps_prochandle *P)
 {
+	rd_delete(P->rap);
+	P->rap = NULL;
 	Pclose(P);
 	Psym_free(P);
 
@@ -576,8 +578,6 @@ Prelease(struct ps_prochandle *P, int release_mode)
 
 	if (P->released)
 		return;
-
-	Psym_release(P);
 
 	while (P->ptrace_states.dl_next != NULL)
 		Ppop_state(P);
