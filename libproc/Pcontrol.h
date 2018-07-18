@@ -263,7 +263,6 @@ struct ps_prochandle {
  */
 extern	int	Psym_init(struct ps_prochandle *);
 extern	void	Psym_free(struct ps_prochandle *);
-extern	void	Psym_release(struct ps_prochandle *);
 extern	int	Pread_isa_info(struct ps_prochandle *P, const char *procname);
 extern	void	Preadauxvec(struct ps_prochandle *P);
 extern  uintptr_t Pget_bkpt_ip(struct ps_prochandle *P, int expect_esrch);

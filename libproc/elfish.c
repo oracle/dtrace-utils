@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -144,6 +144,9 @@ Pgetauxval(struct ps_prochandle *P, int type)
 {
 	auxv_t *auxv;
 
+	if (Pstate(P) == PS_DEAD)
+		return (-1);
+
 	if (P->auxv == NULL)
 		Preadauxvec(P);
 
@@ -161,6 +164,9 @@ Pgetauxval(struct ps_prochandle *P, int type)
 uintptr_t
 r_debug(struct ps_prochandle *P)
 {
+	if (Pstate(P) == PS_DEAD)
+		return (0);
+
 	if (P->r_debug_addr)
 		return P->r_debug_addr;
 
