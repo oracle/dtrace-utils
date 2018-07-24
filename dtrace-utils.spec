@@ -35,8 +35,8 @@
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.35-1%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.14.28-1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1818%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
