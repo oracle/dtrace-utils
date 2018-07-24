@@ -259,7 +259,8 @@ fi
  (Nick Alcock, Tomas Jedlicka) [Orabug: 27961105, 28133496]
 - Fix deadlock on creation of new threads in -c/-p processes
   [Orabug: 28210986]
-- Speed up aggmod tests (Eugene Loh) [Orabug: 28007146]
+- Speed up aggmod tests (Eugene Loh, Tomas Jedlicka)
+  [Orabug: 28007146, 28119700]
 
 * Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
 - Testsuite fixes [Orabug: 27995907]
