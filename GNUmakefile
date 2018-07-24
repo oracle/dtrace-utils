@@ -12,7 +12,7 @@
 .SECONDEXPANSION:
 
 PROJECT := dtrace
-VERSION := 1.0.2
+VERSION := 1.0.3
 
 # Verify supported hardware.
 

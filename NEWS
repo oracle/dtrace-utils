@@ -1,3 +1,13 @@
+1.0.3 (Jul 24th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash or deadlock when -c/-p processes terminate
+   at the wrong time.
+ - No longer deadlock when -c/-p processes create new threads.
+ - Stop the disassembler coredumping.
+
 1.0.2 (May 10th, 2018)
 ----------------------
 
