@@ -19,7 +19,7 @@
  *
  */
 
-/* @@runtest-opts: -F */
+/* @@runtest-opts: -FZ */
 /* @@timeout: 70 */
 
 BEGIN
@@ -34,7 +34,8 @@ syscall::read:
 	printf("syscall: %d\n", i++);
 }
 
-fbt:vmlinux:SyS_read:
+fbt:vmlinux:SyS_read:,
+fbt:vmlinux:__x64_sys_read:
 {
 	printf("fbt: %d\n", j++);
 }

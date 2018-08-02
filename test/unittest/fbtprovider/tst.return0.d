@@ -11,10 +11,13 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
+/* @@runtest-opts: -Z */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 /arg1 == 0/
 {
 	printf("%s %x returned 0", probefunc, arg0);

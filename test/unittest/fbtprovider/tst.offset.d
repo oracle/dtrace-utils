@@ -11,6 +11,8 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
+/* @@runtest-opts: -Z */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
@@ -19,12 +21,14 @@ BEGIN
 	self->traceme = 1;
 }
 
-fbt::SyS_ioctl:entry
+fbt::SyS_ioctl:entry,
+fbt::__x64_sys_ioctl:entry
 {
 	printf("Entering the function\n");
 }
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 {
 	printf("The offset = %u\n", arg0);
 	exit(0);
