@@ -11,15 +11,19 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
+/* @@runtest-opts: -Z */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::SyS_ioctl:entry
+fbt::SyS_ioctl:entry,
+fbt::__x64_sys_ioctl:entry
 {
 	printf("Entering the ioctl function\n");
 }
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 {
 	printf("Returning from ioctl function\n");
 	exit(0);

@@ -11,6 +11,8 @@
  * SECTION: FBT Provider/Probes
  */
 
+/* @@runtest-opts: -Z */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
@@ -29,17 +31,20 @@ syscall::ioctl:entry
 	self->token = pid;
 }
 
-fbt::SyS_ioctl:entry
+fbt::SyS_ioctl:entry,
+fbt::__x64_sys_ioctl:entry
 /me == pid && num_entry > 0/
 {
 }
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 /me == pid && num_entry > 0/
 {
 }
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 /me == pid && num_entry > 0 && self->token != pid/
 {
 	fails++;

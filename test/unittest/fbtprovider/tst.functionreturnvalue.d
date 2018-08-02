@@ -11,10 +11,13 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
+/* @@runtest-opts: -Z */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::SyS_ioctl:return
+fbt::SyS_ioctl:return,
+fbt::__x64_sys_ioctl:return
 {
 	printf("The function return value is stored in %u\n", arg1);
 	exit(0);
