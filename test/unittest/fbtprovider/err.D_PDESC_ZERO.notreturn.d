@@ -5,8 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@skip: until the fbt provider is implemented */
-
 /*
  * ASSERTION: Call fbt provider over non existent function and make
  * sure it results in compilation error.
