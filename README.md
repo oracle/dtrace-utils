@@ -11,8 +11,8 @@ the Linux community.
 Oracle Linux UEK kernel RPMs include DTrace kernel modules for  building and running of the DTrace utilities. 
 We also provide pre-built DTrace userspace (utilities) packages for Oracle Linux 6 and Oracle 7. 
 The latest packages can be obtained from the following [Oracle Linux yum server](https://yum.oracle.com) repositories: 
-- Oracle Linux 7 (x86_64) UEK Release 5 (Development Preview) (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/developer_UEKR5/x86_64
-- Oracle Linux 7 (aarch64) Latest (Development Preview) (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/latest/aarch64
+- Oracle Linux 7 (x86_64) UEK Release 5 (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR5/x86_64
+- Oracle Linux 7 (aarch64) Latest (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/latest/aarch64
 - Oracle Linux 7 (x86_64) UEK Release 4 (kernel version 4.1.12): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR4/x86_64
 - Oracle Linux 6 (x86_64) UEK Release 4 (kernel version 4.1.12): https://yum.oracle.com/repo/OracleLinux/OL6/UEKR4/x86_64
 
@@ -48,8 +48,7 @@ Please read this section carefully before moving over to the build documentation
 to ensure your environment is properly configured.
 
 Prebuilt packages can be obtained from the yum repositories listed above.
-We will focus here on the repositories with the UEK Release 5 developer preview 
-(4.14 based kernel).
+We will focus here on the repositories with UEK Release 5 (4.14 based kernel).
 The latest yum configuration is available on [Oracle Linux yum server](https://yum.oracle.com).
 To enable the **ol7_UEK5** repository ensure that the `enabled=1` is in the `yum`
 repository configuration.
