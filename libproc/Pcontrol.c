@@ -1870,14 +1870,16 @@ Punbkpt_child_poke(struct ps_prochandle *P, pid_t pid, bkpt_t *bkpt)
 static void
 bkpt_flush(struct ps_prochandle *P, pid_t pid, int gone) {
 	size_t i;
+	int state;
 
 	_dprintf("Flushing breakpoints.\n");
 
 	/*
-	 * Consume all SIGTRAPs from here until flush completion.
+	 * Ptrace-halt to prevent breakpoint handlers firing while we are
+	 * tearing them down.
 	 */
 	if (!pid)
-		P->bkpt_consume = 1;
+		state = Ptrace(P, 1);
 
 	for (i = 0; i < BKPT_HASH_BUCKETS; i++) {
 		bkpt_t *bkpt;
@@ -1918,9 +1920,11 @@ bkpt_flush(struct ps_prochandle *P, pid_t pid, int gone) {
 	 */
 	if (!pid) {
 		/*
-		 * One last Pwait() to consume a potential trap on the last now-dead
-		 * breakpoint.
+		 * Resume, and do one last Pwait() to consume a potential trap
+		 * on the last now-dead breakpoint.
 		 */
+		Puntrace(P, state);
+
 		if (!gone)
 			Pwait(P, 0);
 
