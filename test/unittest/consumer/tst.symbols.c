@@ -9,6 +9,8 @@
  * Check mappings between symbol names and addresses using /proc/kallmodsyms.
  */
 
+/* @@timeout: 60 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
