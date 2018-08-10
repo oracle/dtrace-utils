@@ -1394,7 +1394,7 @@ err:
  * Shut down a rd_agent.
  */
 void
-rd_delete(rd_agent_t *rd)
+rd_release(rd_agent_t *rd)
 {
 	/*
 	 * Protect against NULL calls, and multiple calls.
@@ -1417,6 +1417,20 @@ rd_delete(rd_agent_t *rd)
 	rd->P->rap = NULL;
 
 	_dprintf("%i: Deactivated rtld_db agent.\n", rd->P->pid);
+}
+
+/*
+ * Free the storage allocated to a rd_agent.
+ */
+void
+rd_free(rd_agent_t *rd)
+{
+	if (!rd)
+		return;
+
+	if (rd->P->rap != NULL)
+		rd_release(rd);
+
 	free(rd);
 }
 
@@ -1426,6 +1440,9 @@ rd_delete(rd_agent_t *rd)
 rd_err_e
 rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 {
+	if (rd->P->rap != rd)
+		return;
+
 	rd->rd_event_fun = fun;
 	rd->rd_event_data = data;
 
@@ -1451,6 +1468,9 @@ rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 void
 rd_event_disable(rd_agent_t *rd)
 {
+	if (rd->P->rap != rd)
+		return;
+
 	/*
 	 * Tell the event callback that we are shutting down.
 	 */
@@ -1474,6 +1494,9 @@ rd_event_disable(rd_agent_t *rd)
 void
 rd_event_suppress(rd_agent_t *rd)
 {
+	if (rd->P->rap != rd)
+		return;
+
 	/*
 	 * Tell the event callback that we are shutting down.
 	 */
@@ -1511,6 +1534,9 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	rd_loadobj_t obj = {0};
 	uintptr_t *primary_scope = NULL;
 	uintptr_t primary_nscopes = 0; /* quash a warning */
+
+	if (rd->P->rap != rd)
+		return;
 
 	/*
 	 * Trap exec()s at any point within this code.
@@ -1738,6 +1764,9 @@ rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf, const rd_loadobj_t *obj,
     unsigned int scope)
 {
 	struct link_map map;
+
+	if (rd->P->rap != rd)
+		return;
 
 	if (rd->P->state == PS_DEAD)
 		return NULL;
