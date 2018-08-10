@@ -1,3 +1,12 @@
+1.0.4 (Aug 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash when attempting to trace ourself.
+ - More fixes for crashes of both DTrace and the traced
+   process when DTrace terminates at the wrong instant.
+
 1.0.3 (Jul 24th, 2018)
 ----------------------
 

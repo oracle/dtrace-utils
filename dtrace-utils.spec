@@ -62,7 +62,7 @@ BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 BuildRequires: dtrace-kernel-headers = 1.0.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.0.3
+Version:      1.0.4
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -253,6 +253,13 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.0.4-1
+- Properly handle breakpoints tripped while DTrace is exiting
+  [Orabug: 28473826]
+- Do not crash on self-grabs and on races with dtrace termination
+  [Orabug: 28361373]
+- Test fixes (boost timeouts, kernel 4.17 compatibility,
+  unskip a forgotten test).
 * Tue Jul 24 2018 - <nick.alcock@oracle.com> - 1.0.3-1
 - Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
 - Fix process-termination-related crash and deadlock bugs
