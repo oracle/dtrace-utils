@@ -158,7 +158,7 @@ main(int argc, char *argv[])
 	 * on its own if it needs to.
 	 */
 
-	rd_delete(rd);
+	rd_free(rd);
 	rd = rd_new(P);
 	if (!rd) {
 		fprintf(stderr, "rd reinitialization failed.\n");

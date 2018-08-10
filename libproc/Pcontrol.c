@@ -384,7 +384,7 @@ bad:
 static void
 Pfree_internal(struct ps_prochandle *P)
 {
-	rd_delete(P->rap);
+	rd_free(P->rap);
 	P->rap = NULL;
 	Pclose(P);
 	Psym_free(P);
@@ -591,6 +591,7 @@ Prelease(struct ps_prochandle *P, int release_mode)
 		goto unlock_exit;
 	}
 
+	rd_release(P->rap);
 	bkpt_flush(P, 0, release_mode == PS_RELEASE_NO_DETACH);
 
 	_dprintf("Prelease: releasing handle %p pid %d\n",

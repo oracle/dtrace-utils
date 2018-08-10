@@ -77,7 +77,8 @@ typedef struct rd_loadobj {
 
 typedef int rl_iter_f(const rd_loadobj_t *, size_t, void *);
 
-extern void		rd_delete(rd_agent_t *);
+extern void		rd_release(rd_agent_t *);
+extern void		rd_free(rd_agent_t *);
 extern rd_err_e		rd_event_enable(rd_agent_t *, rd_event_fun fun, void *data);
 extern void		rd_event_disable(rd_agent_t *rd);
 extern void		rd_event_suppress(rd_agent_t *rd);
