@@ -30,12 +30,12 @@
 %{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.32-1%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.14.28-1%{?dist}uek 4.1.12-124.9.1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-124.9.1%{?dist}uek}
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.35-1818%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
@@ -59,7 +59,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
 %if %{!?local_build:1}0
-BuildRequires: dtrace-kernel-headers = 1.0.0
+BuildRequires: dtrace-kernel-headers = 1.1.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.1.0
