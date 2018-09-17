@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -75,6 +75,29 @@ dt_regset_alloc(dt_regset_t *drp)
 	}
 
 	return (-1); /* no available registers */
+}
+
+int
+dt_regset_iter(dt_regset_t *drp, int first, int last,
+    void *data, int (*fn) (int reg, void *data))
+{
+	ulong_t reg;
+	int ret;
+
+	if (last < first) {
+		int tmp;
+		tmp = last;
+		last = first;
+		first = tmp;
+	}
+
+	for (reg = first; reg <= last; wx++) {
+		if (BT_TEST(drp->dr_bitmap, reg) != 0)
+			if ((ret = fun(reg, data)) < 0)
+				return ret;
+	}
+
+	return 0;
 }
 
 void

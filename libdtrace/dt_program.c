@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -29,11 +29,12 @@ dt_program_create(dtrace_hdl_t *dtp)
 		(void) dt_set_errno(dtp, EDT_NOMEM);
 
 	/*
-	 * By default, programs start with DOF version 1 so that output files
-	 * containing DOF are backward compatible. If a program requires new
-	 * DOF features, the version is increased as needed.
+	 * By default, programs start with DOF version 3 so that output files
+	 * containing DOF are backward compatible (1 and 2 are DIF-based and not
+	 * supported). If a program requires new DOF features, the version is
+	 * increased as needed.
 	 */
-	pgp->dp_dofversion = DOF_VERSION_1;
+	pgp->dp_dofversion = DOF_VERSION_3;
 
 	return (pgp);
 }

@@ -191,6 +191,19 @@ dt_opt_cpp_opts(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_cregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	int n;
+
+	if (arg == NULL || (n = atoi(arg)) <= 0)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	dtp->dt_conf.dtc_bpfclobregs = n;
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_ctypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	int fd;
@@ -266,7 +279,7 @@ dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (arg == NULL || (n = atoi(arg)) <= 0)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	dtp->dt_conf.dtc_difintregs = n;
+	dtp->dt_conf.dtc_bpfnregs = n;
 	return (0);
 }
 
@@ -525,19 +538,6 @@ dt_opt_tree(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	dtp->dt_treedump = m;
-	return (0);
-}
-
-/*ARGSUSED*/
-static int
-dt_opt_tregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
-{
-	int n;
-
-	if (arg == NULL || (n = atoi(arg)) <= 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
-
-	dtp->dt_conf.dtc_diftupregs = n;
 	return (0);
 }
 
@@ -1008,6 +1008,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "cppargs", dt_opt_cpp_args },
 	{ "cpphdrs", dt_opt_cpp_hdrs },
 	{ "cpppath", dt_opt_cpp_path },
+	{ "cregs", dt_opt_cregs },
 	{ "ctypes", dt_opt_ctypes },
 	{ "ctfpath", dt_opt_ctfa_path },
 	{ "defaultargs", dt_opt_cflags, DTRACE_C_DEFARG },
@@ -1040,7 +1041,6 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "syslibdir", dt_opt_syslibdir },
 	{ "sysslice", dt_opt_sysslice },
 	{ "tree", dt_opt_tree },
-	{ "tregs", dt_opt_tregs },
 	{ "udefs", dt_opt_invcflags, DTRACE_C_UNODEF },
 	{ "undef", dt_opt_cpp_opts, (uintptr_t)"-U" },
 	{ "unodefs", dt_opt_cflags, DTRACE_C_UNODEF },

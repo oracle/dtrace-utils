@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -25,6 +25,8 @@ extern void dt_regset_destroy(dt_regset_t *);
 extern void dt_regset_reset(dt_regset_t *);
 extern int dt_regset_alloc(dt_regset_t *);
 extern void dt_regset_free(dt_regset_t *, int);
+extern int dt_regset_iter(dt_regset_t *drp, int first, int last,
+    void *data, int (*fn) (int reg, void *data));
 
 #ifdef	__cplusplus
 }

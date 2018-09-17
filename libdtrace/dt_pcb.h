@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -45,6 +45,7 @@ typedef struct dt_pcb {
 	dt_inttab_t *pcb_inttab; /* integer table for constant references */
 	dt_strtab_t *pcb_strtab; /* string table for string references */
 	dt_regset_t *pcb_regs;	/* register set for code generation */
+	int pcb_stackdepth;	/* stack depth in uint64 for code generation */
 	dt_irlist_t pcb_ir;	/* list of unrelocated IR instructions */
 	uint_t pcb_asvidx;	/* assembler vartab index (see dt_as.c) */
 	ulong_t **pcb_asxrefs;	/* assembler imported xlators (see dt_as.c) */

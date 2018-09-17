@@ -594,9 +594,9 @@ inline long NULL = 0; \n\
  * when generating our DIF.  The user can override the choice using oflags.
  */
 static const dtrace_conf_t _dtrace_conf = {
-	DIF_VERSION,		/* dtc_difversion */
-	DIF_DIR_NREGS,		/* dtc_difintregs */
-	DIF_DTR_NREGS,		/* dtc_diftupregs */
+	DBPF_VERSION,		/* dtc_bpfversion */
+	__MAX_BPF_REG,		/* dtc_bpfnregs */
+	DBPF_CLOBREGS,		/* dtc_bpfclobregs */
 	CTF_MODEL_NATIVE	/* dtc_ctfmodel */
 };
 

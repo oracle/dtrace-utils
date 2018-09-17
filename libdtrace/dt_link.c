@@ -1632,13 +1632,6 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 			return (-1); /* errno is set for us */
 	}
 
-	/*
-	 * If there are is-enabled probes then we need to force use of DOF
-	 * version 2.
-	 */
-	if (eprobes && pgp->dp_dofversion < DOF_VERSION_2)
-		pgp->dp_dofversion = DOF_VERSION_2;
-
 	if ((dof = dtrace_dof_create(dtp, pgp, dflags)) == NULL)
 		return (-1); /* errno is set for us */
 

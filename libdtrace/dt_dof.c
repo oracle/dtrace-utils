@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -565,10 +565,13 @@ dof_hdr(dtrace_hdl_t *dtp, uint8_t dofversion, dof_hdr_t *hp)
 	 * If our config values cannot fit in a uint8_t, we can't generate a
 	 * DOF header since the values won't fit.  This can only happen if the
 	 * user forcibly compiles a program with an artificial configuration.
+	 *
+	 * (We could track stack space used as well, but the BPF verifier will
+	 * handle that for us, and reject programs that use too much.)
 	 */
-	if (dtp->dt_conf.dtc_difversion > UINT8_MAX ||
-	    dtp->dt_conf.dtc_difintregs > UINT8_MAX ||
-	    dtp->dt_conf.dtc_diftupregs > UINT8_MAX)
+	if (dtp->dt_conf.dtc_bpfversion > UINT8_MAX ||
+	    dtp->dt_conf.dtc_bpfnregs > UINT8_MAX ||
+	    dtp->dt_conf.dtc_bpfclobregs > UINT8_MAX)
 		return (dt_set_errno(dtp, EOVERFLOW));
 
 	bzero(hp, sizeof (dof_hdr_t));
@@ -585,9 +588,9 @@ dof_hdr(dtrace_hdl_t *dtp, uint8_t dofversion, dof_hdr_t *hp)
 
 	hp->dofh_ident[DOF_ID_ENCODING] = DOF_ENCODE_NATIVE;
 	hp->dofh_ident[DOF_ID_VERSION] = dofversion;
-	hp->dofh_ident[DOF_ID_DIFVERS] = dtp->dt_conf.dtc_difversion;
-	hp->dofh_ident[DOF_ID_DIFIREG] = dtp->dt_conf.dtc_difintregs;
-	hp->dofh_ident[DOF_ID_DIFTREG] = dtp->dt_conf.dtc_diftupregs;
+	hp->dofh_ident[DOF_ID_BPFVERS] = dtp->dt_conf.dtc_bpfversion;
+	hp->dofh_ident[DOF_ID_BPFNREG] = dtp->dt_conf.dtc_bpfnregs;
+	hp->dofh_ident[DOF_ID_BPFCLOBREG] = dtp->dt_conf.dtc_bpfclobregs;
 
 	hp->dofh_hdrsize = sizeof (dof_hdr_t);
 	hp->dofh_secsize = sizeof (dof_sec_t);

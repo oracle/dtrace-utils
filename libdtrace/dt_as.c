@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -441,19 +441,6 @@ dt_as(dt_pcb_t *pcb)
 		(void) dt_strtab_write(pcb->pcb_strtab,
 		    (dt_strtab_write_f *)dt_copystr, pcb);
 		dp->dtdo_strlen = (uint32_t)n;
-	}
-
-	/*
-	 * Allocate memory for the compiled integer table and then copy the
-	 * integer constants from the table into the final integer buffer.
-	 */
-	if ((n = dt_inttab_size(pcb->pcb_inttab)) != 0) {
-		if ((dp->dtdo_inttab = dt_alloc(dtp,
-		    n * sizeof (uint64_t))) == NULL)
-			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
-
-		dt_inttab_write(pcb->pcb_inttab, dp->dtdo_inttab);
-		dp->dtdo_intlen = (uint32_t)n;
 	}
 
 	/*

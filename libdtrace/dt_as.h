@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -17,7 +17,7 @@ extern "C" {
 
 typedef struct dt_irnode {
 	uint_t di_label;		/* label number or DT_LBL_NONE */
-	dif_instr_t di_instr;		/* instruction opcode */
+	struct bpf_insn di_instr;	/* instruction opcode */
 	void *di_extern;		/* opcode-specific external reference */
 	struct dt_irnode *di_next;	/* next instruction */
 } dt_irnode_t;

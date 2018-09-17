@@ -1,16 +1,19 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 #include <sys/types.h>
-//#include <sys/isa_defs.h>
+#include <sys/dtrace_bpf_opcodes.h>
+
+#include <linux/bpf.h>
 
 #include <strings.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <stdarg.h>
 #include <assert.h>
 #include <errno.h>
 
@@ -22,7 +25,7 @@
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_irnode_t *
-dt_cg_node_alloc(uint_t label, dif_instr_t instr)
+dt_cg_node_alloc_labelled(struct bpf_insn instr, uint_t label)
 {
 	dt_irnode_t *dip = malloc(sizeof (dt_irnode_t));
 
@@ -35,6 +38,12 @@ dt_cg_node_alloc(uint_t label, dif_instr_t instr)
 	dip->di_next = NULL;
 
 	return (dip);
+}
+
+static dt_irnode_t *
+dt_cg_node_alloc(struct bpf_insn instr)
+{
+	return dt_cg_node_labelled(DT_LBL_NONE, instr);
 }
 
 /*
@@ -64,20 +73,90 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 	return (fp);
 }
 
+/*
+ * Spill regs to the stack, and unspill them later.
+ */
+static int
+dt_spill(int reg, void *d)
+{
+	dt_irlist_t *dlp = d;
+
+	dt_irlist_append(dlp, dt_cg_node_alloc(
+		    BPF_STX_MEM(BPF_DW, BPF_REG_FP, reg,
+			yypcb->pcb_stackdepth++)));
+	return 0;
+}
+
+static int
+dt_unspill(int reg, void *d)
+{
+	dt_irlist_t *dlp = d;
+
+	dt_irlist_append(dlp, dt_cg_node_alloc(
+		    BPF_LDX_MEM(BPF_DW, reg, BPF_REG_FP,
+			--yypcb->pcb_stackdepth)));
+	return 0;
+}
+
+/*
+ * A helper function call.  This happens a *lot*.  Even variable allocation/
+ * lookup is a helper call.
+ *
+ * The args are up to five ints denoting a BPF register number.
+ *
+ * Used regs below the BPF_NCLOBBERED bound will be spilled to the stack and
+ * restored on function return.  r0 is clobbered with the function return value:
+ * an error will be returned if it is in use on function entry.
+ */
+static int
+dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
+    uint_t nargs, ...)
+{
+	va_list ap;
+	struct dt_regset_spill s;
+	uint_t reg = 1;
+
+	if (BT_TEST(drp->dr_bitmap, 0) != 0)
+		longjmp(yypcb->pcb_jmpbuf, EDT_RESERVEDREG);
+
+	dt_regset_iter(drp, 1, BPF_NCLOBBERED, dt_spill, &dlp);
+
+	va = va_start(ap, nargs);
+	for (reg; reg <= nargs; reg++) {
+		uint32_t arg = va_arg(ap, int);
+
+		dt_irlist_append(dlp, dt_cg_node_alloc(
+			    BPF_ALU64_REG(BPF_MOV, reg, arg, 0)));
+	}
+	va_end(ap);
+
+	dt_irlist_append(dlp, dt_cg_node_alloc(
+		    BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, helper)));
+
+	dt_regset_iter(drp, BPF_NCLOBBERED, 1, dt_unspill, &dlp);
+
+	/*
+	 * Return is always in r0: BPF ABI.
+	 */
+	return 0;
+}
+
 static void
 dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 {
-	int flag = idp != NULL ? DT_INT_PRIVATE : DT_INT_SHARED;
-	int intoff = dt_inttab_insert(yypcb->pcb_inttab, x, flag);
-	dif_instr_t instr = DIF_INSTR_SETX((uint_t)intoff, reg);
+	struct bpf_insn instr[2];
 
 	if (intoff == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-	if (intoff > DIF_INTOFF_MAX)
-		longjmp(yypcb->pcb_jmpbuf, EDT_INT2BIG);
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr));
+	if (x < (unsigned int) -1) {
+		instr[0] = BPF_MOV32_IMM(reg, x);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[0]));
+	} else {
+		instr = BPF_LD_IMM64(reg, x);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[0]));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr[1]));
+	}
 
 	if (idp != NULL)
 		dlp->dl_last->di_extern = idp;
@@ -111,23 +190,25 @@ clp2(size_t x)
 /*
  * Lookup the correct load opcode to use for the specified node and CTF type.
  * We determine the size and convert it to a 3-bit index.  Our lookup table
- * is constructed to use a 5-bit index, consisting of the 3-bit size 0-7, a
+ * is constructed to use a 6-bit index, consisting of the 4-bit size 0-15, a
  * bit for the sign, and a bit for userland address.  For example, a 4-byte
  * signed load from userland would be at the following table index:
- * user=1 sign=1 size=4 => binary index 11011 = decimal index 27
+ * user=1 sign=1 size=4 => binary index 110011 = decimal index 51
  */
 static uint_t
 dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 {
+	/* XXX signs; userland; prob drop the table */
+
 	static const uint_t ops[] = {
-		DIF_OP_LDUB,	DIF_OP_LDUH,	0,	DIF_OP_LDUW,
-		0,		0,		0,	DIF_OP_LDX,
-		DIF_OP_LDSB,	DIF_OP_LDSH,	0,	DIF_OP_LDSW,
-		0,		0,		0,	DIF_OP_LDX,
-		DIF_OP_ULDUB,	DIF_OP_ULDUH,	0,	DIF_OP_ULDUW,
+		BPF_B,	BPF_H,	0,	BPF_W,	BPF_DW,
+		BPF_B,	BPF_H,	0,	BPF_W,	BPF_DW,
+		BPF_B,	BPF_H,	0,	BPF_W,  BPF_DW,
+		BPF_B,	BPF_H,	0,	BPF_W,	BPF_DW,
+/*		DIF_OP_ULDUB,	DIF_OP_ULDUH,	0,	DIF_OP_ULDUW,
 		0,		0,		0,	DIF_OP_ULDX,
 		DIF_OP_ULDSB,	DIF_OP_ULDSH,	0,	DIF_OP_ULDSW,
-		0,		0,		0,	DIF_OP_ULDX,
+		0,		0,		0,	DIF_OP_ULDX, */
 	};
 
 	ctf_encoding_t e;
@@ -144,17 +225,18 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 	else
 		size = ctf_type_size(ctfp, type);
 
-	if (size < 1 || size > 8 || (size & (size - 1)) != 0) {
+	if (size < 1 || size > 16 || (size & (size - 1)) != 0) {
 		xyerror(D_UNKNOWN, "internal error -- cg cannot load "
 		    "size %ld when passed by value\n", (long)size);
 	}
 
-	size--; /* convert size to 3-bit index */
+	size--; /* convert size to 4-bit index */
 
-	if (dnp->dn_flags & DT_NF_SIGNED)
-		size |= 0x08;
-	if (dnp->dn_flags & DT_NF_USERLAND)
-		size |= 0x10;
+/*	if (dnp->dn_flags & DT_NF_SIGNED)
+		size |= 0x10; */
+	if (dnp->dn_flags & DT_NF_USERLAND) {
+		xyerror(D_UNKNOWN, "internal error -- no userland loads in bpf yet\n");
+	}
 
 	return (ops[size]);
 }
@@ -165,7 +247,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_arinfo_t r;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	ctf_id_t type;
 	uint_t kind;
 	ssize_t size;
@@ -191,7 +273,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		return; /* multiply or divide by one can be omitted */
 
 	dt_cg_setx(dlp, sreg, size);
-	instr = DIF_INSTR_FMT(op, dreg, sreg, dreg);
+	instr = BPF_ALU64_REG(op, dreg, sreg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_regset_free(drp, sreg);
 }
@@ -202,6 +284,8 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
  * the diagrams below the "ld??" is the load instruction that is generated to
  * load the containing word that is generating prior to calling this function.
  *
+ * XXX rewrite comment!!
+ * 
  * Epilogue for unsigned fields:	Epilogue for signed fields:
  *
  * ldu?	[r1], r1			lds? [r1], r1
@@ -218,9 +302,13 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
     ctf_file_t *fp, const ctf_membinfo_t *mp)
 {
 	ctf_encoding_t e;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	uint64_t shift;
 	int r1, r2;
+
+	/*
+	 * XXX determination of bitfields is wrong: fix trivial.
+	 */
 
 	if (ctf_type_encoding(fp, mp->ctm_type, &e) != 0 || e.cte_bits > 64) {
 		xyerror(D_UNKNOWN, "cg: bad field: off %lu type <%ld> "
@@ -244,6 +332,7 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	 * nearest power of two to this value (see clp2(), above).  These
 	 * properties are used to compute shift as USHIFT or SSHIFT, below.
 	 */
+	/* XXX check signs: SLL/SRL versus LSH? prob ARSH, used that */
 	if (dnp->dn_flags & DT_NF_SIGNED) {
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
@@ -252,11 +341,11 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		shift = mp->ctm_offset % NBBY + e.cte_bits;
 #endif
 		dt_cg_setx(dlp, r2, 64 - shift);
-		instr = DIF_INSTR_FMT(DIF_OP_SLL, r1, r2, r1);
+		instr = BPF_ALU64_REG(BPF_LSH, r2, r1);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		dt_cg_setx(dlp, r2, 64 - e.cte_bits);
-		instr = DIF_INSTR_FMT(DIF_OP_SRA, r1, r2, r1);
+		instr = BPF_ALU64_REG(BPF_ARSH, r1, r2);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else {
 #ifdef _BIG_ENDIAN
@@ -266,11 +355,11 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		shift = mp->ctm_offset % NBBY;
 #endif
 		dt_cg_setx(dlp, r2, shift);
-		instr = DIF_INSTR_FMT(DIF_OP_SRL, r1, r2, r1);
+		instr = BPF_ALU64_REG(BPF_LSH, r2, r1);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		dt_cg_setx(dlp, r2, (1ULL << e.cte_bits) - 1);
-		instr = DIF_INSTR_FMT(DIF_OP_AND, r1, r2, r1);
+		instr = BPF_ALU64_REG(BPF_AND, r2, r1);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
@@ -284,6 +373,8 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
  * In the diagram below the "st?" is the store instruction that is generated to
  * store the containing word that is generating after calling this function.
  *
+ * XXX rewrite comment
+ * 
  * ld	[dst->dn_reg], r1
  * setx	~(((1 << cte_bits) - 1) << (ctm_offset % NBBY)), r2
  * and	r1, r2, r1
@@ -304,7 +395,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
     dt_regset_t *drp, dt_node_t *dst)
 {
 	uint64_t cmask, fmask, shift;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	int r1, r2, r3;
 
 	ctf_membinfo_t m;
@@ -356,23 +447,23 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	fmask = (1ULL << e.cte_bits) - 1;
 	cmask = ~(fmask << shift);
 
-	instr = DIF_INSTR_LOAD(
-	    dt_cg_load(dst, fp, m.ctm_type), dst->dn_reg, r1);
+	instr = BPF_ALU64_REG(BPF_MOV, dst->dn_reg, r1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_cg_setx(dlp, r2, cmask);
-	instr = DIF_INSTR_FMT(DIF_OP_AND, r1, r2, r1);
+	/* XXX check dest? */
+	instr = BPF_ALU64_REG(BPF_AND, r1, r2);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_cg_setx(dlp, r2, fmask);
-	instr = DIF_INSTR_FMT(DIF_OP_AND, src->dn_reg, r2, r2);
+	instr = BPF_ALU64_REG(BPF_AND, r2, src->dn_reg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_cg_setx(dlp, r3, shift);
-	instr = DIF_INSTR_FMT(DIF_OP_SLL, r2, r3, r2);
+	instr = BPF_ALU64_REG(BPF_LSH, r3, r2);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_FMT(DIF_OP_OR, r1, r2, r1);
+	instr = BPF_ALU64_REG(BPF_OR, r1, r2);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_regset_free(drp, r3);
@@ -385,9 +476,8 @@ static void
 dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 {
 	ctf_encoding_t e;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	size_t size;
-	int reg;
 
 	/*
 	 * If we're loading a bit-field, the size of our store is found by
@@ -401,13 +491,12 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 		size = dt_node_type_size(src);
 
 	if (src->dn_flags & DT_NF_REF) {
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		dt_cg_setx(dlp, reg, size);
-		instr = DIF_INSTR_COPYS(src->dn_reg, reg, dst->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, reg);
+		/* XXX turn into inlined loop */
+		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys, 3, dst->dn_reg,
+		    src->dn_reg, size);
 	} else {
+		/* XXX this is ugly. Find a trick in Warren instead. :) */
+		int reg;
 		if (dst->dn_flags & DT_NF_BITFIELD)
 			reg = dt_cg_field_set(src, dlp, drp, dst);
 		else
@@ -415,21 +504,23 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 		switch (size) {
 		case 1:
-			instr = DIF_INSTR_STORE(DIF_OP_STB, reg, dst->dn_reg);
+			size = BPF_B;
 			break;
 		case 2:
-			instr = DIF_INSTR_STORE(DIF_OP_STH, reg, dst->dn_reg);
+			size = BPF_H;
 			break;
 		case 4:
-			instr = DIF_INSTR_STORE(DIF_OP_STW, reg, dst->dn_reg);
+			size = BPF_W;
 			break;
 		case 8:
-			instr = DIF_INSTR_STORE(DIF_OP_STX, reg, dst->dn_reg);
+			size = BPF_DW;
 			break;
 		default:
 			xyerror(D_UNKNOWN, "internal error -- cg cannot store "
 			    "size %lu when passed by value\n", (ulong_t)size);
 		}
+		/* XXX can probably use the off more for array derefs */
+		instr = BPF_LDX_MEM(size, dst->dn_reg, reg, 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		if (dst->dn_flags & DT_NF_BITFIELD)
@@ -451,34 +542,30 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	size_t srcsize = dt_node_type_size(src);
 	size_t dstsize = dt_node_type_size(dst);
 
-	dif_instr_t instr;
-	int reg, n;
+	struct bpf_insn instr;
 
 	if (dt_node_is_scalar(dst) && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		int n;
 
 		if (dstsize < srcsize)
 			n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
 		else
 			n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
 
-		dt_cg_setx(dlp, reg, n);
-
-		instr = DIF_INSTR_FMT(DIF_OP_SLL,
-		    src->dn_reg, reg, dst->dn_reg);
+		instr = BPF_ALU64_REG(BPF_LSH, dst->dn_reg, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-		instr = DIF_INSTR_FMT((dst->dn_flags & DT_NF_SIGNED) ?
-		    DIF_OP_SRA : DIF_OP_SRL, dst->dn_reg, reg, dst->dn_reg);
+		instr = BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ?
+		    BPF_ARSH : BPF_RSH, dst->dn_reg, n);
 
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, reg);
 	}
 }
 
 /*
+ * XXX rejig underway...
+ * 
  * Generate code to push the specified argument list on to the tuple stack.
  * We use this routine for handling subroutine calls and associative arrays.
  * We must first generate code for all subexpressions before loading the stack
@@ -550,7 +637,7 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	int lp_is_ptr = dt_node_is_pointer(dnp->dn_left);
 	int rp_is_ptr = dt_node_is_pointer(dnp->dn_right);
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 
 	if (lp_is_ptr && rp_is_ptr) {
 		assert(dnp->dn_op == DT_TOK_SUB);
@@ -559,29 +646,31 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp,
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
 	if (is_ptr_op && rp_is_ptr)
-		dt_cg_ptrsize(dnp, dlp, drp, DIF_OP_MUL, dnp->dn_left->dn_reg);
+		dt_cg_ptrsize(dnp, dlp, drp, BPF_MUL, dnp->dn_left->dn_reg);
 
 	dt_cg_node(dnp->dn_right, dlp, drp);
 	if (is_ptr_op && lp_is_ptr)
-		dt_cg_ptrsize(dnp, dlp, drp, DIF_OP_MUL, dnp->dn_right->dn_reg);
+		dt_cg_ptrsize(dnp, dlp, drp, BPF_MUL, dnp->dn_right->dn_reg);
 
-	instr = DIF_INSTR_FMT(op, dnp->dn_left->dn_reg,
-	    dnp->dn_right->dn_reg, dnp->dn_left->dn_reg);
+	instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
+	    dnp->dn_right->dn_reg);
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
 
 	if (lp_is_ptr && rp_is_ptr)
-		dt_cg_ptrsize(dnp->dn_right,
-		    dlp, drp, DIF_OP_UDIV, dnp->dn_reg);
+		dt_cg_ptrsize(dnp->dn_right, dlp, drp, BP_DIV, dnp->dn_reg);
 }
 
 static uint_t
 dt_cg_stvar(const dt_ident_t *idp)
 {
-	static const uint_t aops[] = { DIF_OP_STGAA, DIF_OP_STTAA, DIF_OP_NOP };
-	static const uint_t sops[] = { DIF_OP_STGS, DIF_OP_STTS, DIF_OP_STLS };
+	static const uint_t aops[] = { BPF_FUNC_dtrace_set_global_assoc,
+				       BPF_FUNC_dtrace_set_thread_assoc, 0 };
+	static const uint_t sops[] = { BPF_FUNC_dtrace_set_global,
+				       BPF_FUNC_dtrace_set_thread,
+				       BPF_FUNC_dtrace_set_local };
 
 	uint_t i = (((idp->di_flags & DT_IDFLG_LOCAL) != 0) << 1) |
 	    ((idp->di_flags & DT_IDFLG_TLS) != 0);
@@ -593,7 +682,7 @@ static void
 dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	ctf_id_t type;
 	ssize_t size = 1;
 	int reg;
@@ -612,7 +701,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 
 	dt_cg_setx(dlp, reg, size);
 
-	instr = DIF_INSTR_FMT(op, dnp->dn_reg, reg, dnp->dn_reg);
+	instr = BPF_ALU64_REG(op, dnp->dn_reg, reg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_regset_free(drp, reg);
 
@@ -627,9 +716,8 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		instr = DIF_INSTR_STV(dt_cg_stvar(idp),
-		    idp->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		/* XXX needs a new call variant: idp->di_id is not a register! */
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id, dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 
@@ -652,7 +740,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
     dt_regset_t *drp, uint_t op)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	ctf_id_t type;
 	ssize_t size = 1;
 	int nreg;
@@ -670,7 +758,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 	dt_cg_setx(dlp, nreg, size);
-	instr = DIF_INSTR_FMT(op, dnp->dn_reg, nreg, nreg);
+	instr = BPF_ALU64_REG(op, nreg, dnp->dn_reg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
@@ -684,7 +772,8 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		instr = DIF_INSTR_STV(dt_cg_stvar(idp), idp->di_id, nreg);
+		/* XXX new call variant */
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id, nreg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
@@ -718,6 +807,8 @@ dt_cg_compare_signed(dt_node_t *dnp)
 {
 	dt_node_t dn;
 
+	/* XXX signedness: need to do the usual conversions by hand */
+
 	if (dt_node_is_string(dnp->dn_left) ||
 	    dt_node_is_string(dnp->dn_right))
 		return (1); /* strings always compare signed */
@@ -736,33 +827,34 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	uint_t lbl_true = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	dif_instr_t instr;
-	uint_t opc;
+	struct bpf_insn instr;
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
 	dt_cg_node(dnp->dn_right, dlp, drp);
 
-	if (dt_node_is_string(dnp->dn_left) || dt_node_is_string(dnp->dn_right))
-		opc = DIF_OP_SCMP;
-	else
-		opc = DIF_OP_CMP;
-
-	instr = DIF_INSTR_CMP(opc, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	if (dt_node_is_string(dnp->dn_left) || dt_node_is_string(dnp->dn_right)) {
+		int reg;
+		/* XXX turn into inlined loop. */
+		reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_strcmp, 2,
+		    dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
+	} else {
+		instr = BPF_ALU64_REG(BPF_SUB, dnp->dn_left->dn_reg,
+		    dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
 
-	instr = DIF_INSTR_BRANCH(op, lbl_true);
+	instr = BPF_JMP_IMM(op, dnp->dn_reg, 0, lbl_true);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_MOV(DIF_REG_R0, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_setx(dlp, dnp->dn_reg, 0);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BA, lbl_post);
+	instr = BPF_JMP_IMM(BPF_JA, 0, 0, lbl_post);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_cg_xsetx(dlp, NULL, lbl_true, dnp->dn_reg, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, DIF_INSTR_NOP));
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP));
 }
 
 /*
@@ -774,6 +866,10 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
  * save the pointer to this instruction node.  We then generate code for
  * dn_right and use its register as our output.  Finally, we reach back and
  * patch the instruction for dn_left to move its output into this register.
+ *
+ * XXX dump all this complexity now we have spills?
+ *
+ * XXX underway
  */
 static void
 dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
@@ -820,33 +916,25 @@ dt_cg_logical_and(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_false = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_left->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_left->dn_reg, 0, lbl_false);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
 	dt_cg_node(dnp->dn_right, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_right->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_right->dn_reg, 0, lbl_false);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
 	dt_cg_setx(dlp, dnp->dn_reg, 1);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BA, lbl_post);
+	instr = BPF_JMP_IMM(BPF_JA, 0, 0, lbl_post);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_MOV(DIF_REG_R0, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_false, instr));
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, DIF_INSTR_NOP));
+	dt_cg_xsetx(dlp, NULL, lbl_false, dnp->dn_reg, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP));
 }
 
 static void
@@ -855,28 +943,23 @@ dt_cg_logical_xor(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_next = dt_irlist_label(dlp);
 	uint_t lbl_tail = dt_irlist_label(dlp);
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_left->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_next);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_left->dn_reg, 0, lbl_next);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_cg_setx(dlp, dnp->dn_left->dn_reg, 1);
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_next, DIF_INSTR_NOP));
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_next, BPF_NOP));
 	dt_cg_node(dnp->dn_right, dlp, drp);
 
-	instr = DIF_INSTR_TST(dnp->dn_right->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_tail);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_right->dn_reg, 0, lbl_tail);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_cg_setx(dlp, dnp->dn_right->dn_reg, 1);
 
-	instr = DIF_INSTR_FMT(DIF_OP_XOR, dnp->dn_left->dn_reg,
-	    dnp->dn_right->dn_reg, dnp->dn_left->dn_reg);
+	instr = BPF_ALU64_REG(BPF_XOR, dnp->dn_left->dn_reg,
+	    dnp->dn_right->dn_reg);
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_tail, instr));
 
@@ -891,33 +974,26 @@ dt_cg_logical_or(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_false = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_left->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JNE, dnp->dn_left->dn_reg, 0, lbl_true);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BNE, lbl_true);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
 	dt_cg_node(dnp->dn_right, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_right->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_right->dn_reg, 0, lbl_false);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
 	dt_cg_xsetx(dlp, NULL, lbl_true, dnp->dn_reg, 1);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BA, lbl_post);
+	instr = BPF_JMP_IMM(BPF_JA, 0, 0, lbl_post);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_MOV(DIF_REG_R0, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_false, instr));
+	dt_cg_xsetx(dlp, NULL, lbl_false, dnp->dn_reg, 0);
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, DIF_INSTR_NOP));
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP));
 }
 
 static void
@@ -926,37 +1002,33 @@ dt_cg_logical_neg(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_zero = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 
 	dt_cg_node(dnp->dn_child, dlp, drp);
 	dnp->dn_reg = dnp->dn_child->dn_reg;
 
-	instr = DIF_INSTR_TST(dnp->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_zero);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_zero);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_setx(dlp, dnp->dn_reg, 0);
 
-	instr = DIF_INSTR_MOV(DIF_REG_R0, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = DIF_INSTR_BRANCH(DIF_OP_BA, lbl_post);
+	instr = BPF_JMP_IMM(BPF_JA, 0, 0, lbl_post);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	dt_cg_xsetx(dlp, NULL, lbl_zero, dnp->dn_reg, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, DIF_INSTR_NOP));
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP));
 }
 
 static void
 dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	dt_ident_t *idp;
 
 	/*
 	 * If we are performing a structure assignment of a translated type,
 	 * we must instantiate all members and create a snapshot of the object
-	 * in scratch space.  We allocs a chunk of memory, generate code for
+	 * in scratch space.  We alloc a chunk of memory, generate code for
 	 * each member, and then set dnp->dn_reg to the scratch object address.
 	 */
 	if ((idp = dt_node_resolve(dnp->dn_right, DT_IDENT_XLSOU)) != NULL) {
@@ -992,8 +1064,11 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_setx(dlp, r1,
 		    ctf_type_size(dxp->dx_dst_ctfp, dxp->dx_dst_base));
 
-		instr = DIF_INSTR_ALLOCS(r1, r1);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		/*
+		 * XXX what about failure? Guess it can't fail without ERROR.
+		 * (The DIF_OP_ALLOCS code suggests otherwise!)
+		 */
+		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, r1);
 
 		/*
 		 * When dt_cg_asgn_op() is called, we have already generated
@@ -1040,9 +1115,11 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				 * nearest byte.  If the offset was not aligned
 				 * on a byte boundary, this member is a bit-
 				 * field and dt_cg_store() will handle masking.
+				 *
+				 * XXX this is simply wrong.  Check the size too!
 				 */
 				dt_cg_setx(dlp, r2, ctm.ctm_offset / NBBY);
-				instr = DIF_INSTR_FMT(DIF_OP_ADD, r1, r2, r2);
+				instr = BPF_ALU64_REG(BPF_ADD, r2, r1);
 				dt_irlist_append(dlp,
 				    dt_cg_node_alloc(DT_LBL_NONE, instr));
 
@@ -1088,9 +1165,9 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		instr = DIF_INSTR_STV(dt_cg_stvar(idp),
-		    idp->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		/* XXX new call variant */
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id,
+		    dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -1111,7 +1188,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	uint_t op;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
@@ -1124,13 +1201,13 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 	if (dnp->dn_ident->di_flags & DT_IDFLG_TLS)
-		op = DIF_OP_LDTAA;
+		op = BPF_FUNC_dtrace_get_thread_assoc;
 	else
-		op = DIF_OP_LDGAA;
+		op = BPF_FUNC_dtrace_get_global_assoc;
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	instr = DIF_INSTR_LDV(op, dnp->dn_ident->di_id, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	/* XXX new call variant */
+	dt_cg_call(dlp, drp, op, 2, idp->di_id, dnp->dn_reg);
 
 	/*
 	 * If the associative array is a pass-by-reference type, then we are
@@ -1138,6 +1215,8 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * The array element in question may not have been faulted in yet, in
 	 * which case DIF_OP_LD*AA will return zero.  We append an epilogue
 	 * of instructions similar to the following:
+	 *
+	 *XXX revise comment
 	 *
 	 *	  ld?aa	 id, %r1	! base ld?aa instruction above
 	 *	  tst	 %r1		! start of epilogue
@@ -1158,27 +1237,26 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * by adding a new DIF opcode to fault in associative array elements.
 	 */
 	if (dnp->dn_flags & DT_NF_REF) {
-		uint_t stvop = op == DIF_OP_LDTAA ? DIF_OP_STTAA : DIF_OP_STGAA;
+		uint_t stvop = op == BPF_FUNC_dtrace_get_thread_assoc ?
+		    BPF_FUNC_dtrace_set_thread_assoc :
+		    BPF_FUNC_dtrace_set_global_assoc;
 		uint_t label = dt_irlist_label(dlp);
 
-		instr = DIF_INSTR_TST(dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		instr = DIF_INSTR_BRANCH(DIF_OP_BNE, label);
+		instr = BPF_JMP_IMM(BPF_JE, dnp->dn_reg, 0, label);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
-		instr = DIF_INSTR_ALLOCS(dnp->dn_reg, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, dnp->dn_reg);
 
 		dnp->dn_ident->di_flags |= DT_IDFLG_DIFW;
-		instr = DIF_INSTR_STV(stvop, dnp->dn_ident->di_id, dnp->dn_reg);
+		/* XXX new call variant */
+		dt_cg_call(dlp, drp, stvop, 2, dnp->dn_ident->di_id, dnp->dn_reg);
+
+		/* XXX new call variant */
+		dt_cg_call(dlp, drp, op, 2, idp->dn_ident->di_id, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-		instr = DIF_INSTR_LDV(op, dnp->dn_ident->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		dt_irlist_append(dlp, dt_cg_node_alloc(label, DIF_INSTR_NOP));
+		dt_irlist_append(dlp, dt_cg_node_alloc(label, BPF_NOP));
 	}
 }
 
@@ -1189,7 +1267,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uintmax_t saved = dnp->dn_args->dn_value;
 	dt_ident_t *idp = dnp->dn_ident;
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	uint_t op;
 	size_t size;
 	int reg, n;
@@ -1206,6 +1284,8 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * unless the argument reference is provided by a dynamic translator.
 	 * If we're using a dynamic translator for args[], then just set dn_reg
 	 * to an invalid reg and return: DIF_OP_XLARG will fetch the arg later.
+	 *
+	 * XXX check this is still true once translators are fixed up
 	 */
 	if (idp->di_id == DIF_VAR_ARGS) {
 		if ((idp->di_kind == DT_IDENT_XLPTR ||
@@ -1223,21 +1303,19 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dnp->dn_reg = dnp->dn_args->dn_reg;
 
 	if (idp->di_flags & DT_IDFLG_TLS)
-		op = DIF_OP_LDTA;
+		op = BPF_FUNC_dtrace_get_thread_array; /* not implemented! */
 	else
-		op = DIF_OP_LDGA;
+		op = BPF_FUNC_dtrace_get_global_array;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	instr = DIF_INSTR_LDA(op, idp->di_id,
-	    dnp->dn_args->dn_reg, dnp->dn_reg);
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dnp->dn_reg = dt_cg_call(dlp, drp, op, 2, idp->di_id,
+	    dnp->dn_args->dn_reg);
 
 	/*
 	 * If this is a reference to the args[] array, we need to take the
 	 * additional step of explicitly eliminating any bits larger than the
-	 * type size: the DIF interpreter in the kernel will always give us
+	 * type size: the BPF interpreter in the kernel will always give us
 	 * the raw (64-bit) argument value, and any bits larger than the type
 	 * size may be junk.  As a practical matter, this arises only on 64-bit
 	 * architectures and only when the argument index is larger than the
@@ -1251,22 +1329,16 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if ((size = dt_node_type_size(dnp)) == sizeof (uint64_t))
 		return;
 
-	if ((reg = dt_regset_alloc(drp)) == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
 	assert(size < sizeof (uint64_t));
 	n = sizeof (uint64_t) * NBBY - size * NBBY;
 
-	dt_cg_setx(dlp, reg, n);
-
-	instr = DIF_INSTR_FMT(DIF_OP_SLL, dnp->dn_reg, reg, dnp->dn_reg);
+	instr = BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	instr = DIF_INSTR_FMT((dnp->dn_flags & DT_NF_SIGNED) ?
-	    DIF_OP_SRA : DIF_OP_SRL, dnp->dn_reg, reg, dnp->dn_reg);
+	instr = BPF_ALU64_IMM((dnp->dn_flags & DT_NF_SIGNED) ?
+	    BPF_ARSH : BPF_RSH, dnp->dn_reg, n);
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dt_regset_free(drp, reg);
 }
 
 /*
@@ -1324,7 +1396,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	ctf_membinfo_t m;
 	ctf_id_t type;
 
-	dif_instr_t instr;
+	struct bpf_insn instr;
 	dt_ident_t *idp;
 	ssize_t stroff;
 	uint_t op;
@@ -1345,55 +1417,57 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_ADD_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_ADD);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_ADD);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_SUB_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_SUB);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_SUB);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_MUL_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_MUL);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_MUL);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_DIV_EQ:
+		/* XXX signedness */
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SDIV : DIF_OP_UDIV);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_DIV : BPF_DIV);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_MOD_EQ:
+		/* XXX signedness */
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SREM : DIF_OP_UREM);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_MOD : BPF_MOD);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_AND_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_AND);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_AND);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_XOR_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_XOR);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_XOR);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_OR_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_OR);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_OR);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_LSH_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_SLL);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_LSH);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_RSH_EQ:
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SRA : DIF_OP_SRL);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
@@ -1414,74 +1488,76 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_BOR:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_OR);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_OR);
 		break;
 
 	case DT_TOK_XOR:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_XOR);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_XOR);
 		break;
 
 	case DT_TOK_BAND:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_AND);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_AND);
 		break;
 
 	case DT_TOK_EQU:
-		dt_cg_compare_op(dnp, dlp, drp, DIF_OP_BE);
+		dt_cg_compare_op(dnp, dlp, drp, BPF_JEQ);
 		break;
 
 	case DT_TOK_NEQ:
-		dt_cg_compare_op(dnp, dlp, drp, DIF_OP_BNE);
+		dt_cg_compare_op(dnp, dlp, drp, BPF_JNE);
 		break;
 
 	case DT_TOK_LT:
 		dt_cg_compare_op(dnp, dlp, drp,
-		    dt_cg_compare_signed(dnp) ? DIF_OP_BL : DIF_OP_BLU);
+		    dt_cg_compare_signed(dnp) ? BPF_OP_JSLT : BPF_OP_JLT);
 		break;
 
 	case DT_TOK_LE:
 		dt_cg_compare_op(dnp, dlp, drp,
-		    dt_cg_compare_signed(dnp) ? DIF_OP_BLE : DIF_OP_BLEU);
+		    dt_cg_compare_signed(dnp) ? BPF_OP_JSLE : BPF_OP_JLE);
 		break;
 
 	case DT_TOK_GT:
 		dt_cg_compare_op(dnp, dlp, drp,
-		    dt_cg_compare_signed(dnp) ? DIF_OP_BG : DIF_OP_BGU);
+		    dt_cg_compare_signed(dnp) ? BPF_OP_JSGT : BPF_OP_JGT);
 		break;
 
 	case DT_TOK_GE:
 		dt_cg_compare_op(dnp, dlp, drp,
-		    dt_cg_compare_signed(dnp) ? DIF_OP_BGE : DIF_OP_BGEU);
+		    dt_cg_compare_signed(dnp) ? BPF_OP_JSGE : BPF_OP_JGE);
 		break;
 
 	case DT_TOK_LSH:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_SLL);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_OP_LSH);
 		break;
 
 	case DT_TOK_RSH:
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SRA : DIF_OP_SRL);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH);
 		break;
 
 	case DT_TOK_ADD:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_ADD);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_ADD);
 		break;
 
 	case DT_TOK_SUB:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_SUB);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_SUB);
 		break;
 
 	case DT_TOK_MUL:
-		dt_cg_arithmetic_op(dnp, dlp, drp, DIF_OP_MUL);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_MUL);
 		break;
 
 	case DT_TOK_DIV:
+		/* XXX signedness */
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SDIV : DIF_OP_UDIV);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_DIV : BPF_DIV);
 		break;
 
 	case DT_TOK_MOD:
+		/* XXX signedness */
 		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SREM : DIF_OP_UREM);
+		    (dnp->dn_flags & DT_NF_SIGNED) ? BPF_MOD : BPF_MOD);
 		break;
 
 	case DT_TOK_LNEG:
@@ -1491,24 +1567,24 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	case DT_TOK_BNEG:
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
-		instr = DIF_INSTR_NOT(dnp->dn_reg, dnp->dn_reg);
+		instr = BPF_ALU64_REG(BPF_NEG, dnp->dn_reg, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		break;
 
 	case DT_TOK_PREINC:
-		dt_cg_prearith_op(dnp, dlp, drp, DIF_OP_ADD);
+		dt_cg_prearith_op(dnp, dlp, drp, BPF_ADD);
 		break;
 
 	case DT_TOK_POSTINC:
-		dt_cg_postarith_op(dnp, dlp, drp, DIF_OP_ADD);
+		dt_cg_postarith_op(dnp, dlp, drp, BPF_ADD);
 		break;
 
 	case DT_TOK_PREDEC:
-		dt_cg_prearith_op(dnp, dlp, drp, DIF_OP_SUB);
+		dt_cg_prearith_op(dnp, dlp, drp, BPF_SUB);
 		break;
 
 	case DT_TOK_POSTDEC:
-		dt_cg_postarith_op(dnp, dlp, drp, DIF_OP_SUB);
+		dt_cg_postarith_op(dnp, dlp, drp, BPF_SUB);
 		break;
 
 	case DT_TOK_IPOS:
@@ -1516,16 +1592,27 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 		break;
 
-	case DT_TOK_INEG:
+	case DT_TOK_INEG: {
+		int r1;
+
+		if ((r1 = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
-		instr = DIF_INSTR_FMT(DIF_OP_SUB, DIF_REG_R0,
-		    dnp->dn_reg, dnp->dn_reg);
-
+		instr = BPF_ALU64_REG(BPF_MOV, r1, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		break;
 
+		dt_cg_setx(dlp, dnp->dn_reg, 0);
+
+		instr = BPF_ALU64_REG(BPF_SUB, dnp->dn_reg, r1);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		dt_regset_free(drp, r1);
+
+		break;
+	}
 	case DT_TOK_DEREF:
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
@@ -1537,12 +1624,14 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
 			 * we need the sign bit from dnp and the user bit from
 			 * dnp->dn_child in order to get the proper opcode.
+			 *
+			 * XXX signedness
 			 */
 			dnp->dn_flags |=
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
-			instr = DIF_INSTR_LOAD(dt_cg_load(dnp, ctfp,
-			    dnp->dn_type), dnp->dn_reg, dnp->dn_reg);
+			instr = BPF_LDX_MEM(dt_cg_load(dnp, ctfp,
+				dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0);
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
@@ -1587,6 +1676,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * use of the xlate operator in the user's program.  For the
 		 * dynamic case, generate an xlate opcode with a reference to
 		 * the corresponding member, pre-computed for us in dn_members.
+		 *
+		 * XXX underway
 		 */
 		if (dnp->dn_kind == DT_NODE_XLATOR) {
 			dt_xlator_t *dxp = dnp->dn_xlator;
@@ -1636,6 +1727,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * case, we look up the parse tree corresponding to the member
 		 * that is being accessed and run the code generator over it.
 		 * We then cast the result as if by the assignment operator.
+		 *
+		 * XXX underway
 		 */
 		if ((idp = dt_node_resolve(
 		    dnp->dn_left, DT_IDENT_XLSOU)) != NULL ||
@@ -1737,7 +1830,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (stroff > DIF_STROFF_MAX)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
-		instr = DIF_INSTR_SETS((ulong_t)stroff, dnp->dn_reg);
+		/* XXX turn into inlined loop; needs new call form */
+		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, 2, (ulong_t) stroff,
+		    dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		break;
 
@@ -1752,10 +1847,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		    (dnp->dn_ident->di_flags & DT_IDFLG_CGREG)) {
 			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			instr = DIF_INSTR_MOV(dnp->dn_ident->di_id,
-			    dnp->dn_reg);
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			dt_cg_setx(dlp, dnp->dn_reg, dnp->dn_ident->di_id);
 			break;
 		}
 
@@ -1772,6 +1864,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		switch (dnp->dn_kind) {
 		case DT_NODE_FUNC:
+			/* XXX TODO, may need bpf->bpf calls */
 			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
 				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
 				    "called from a D expression (D program "
@@ -1816,19 +1909,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			if (dnp->dn_ident->di_flags & DT_IDFLG_LOCAL)
-				op = DIF_OP_LDLS;
+				op = BPF_FUNC_dtrace_get_local;
 			else if (dnp->dn_ident->di_flags & DT_IDFLG_TLS)
-				op = DIF_OP_LDTS;
+				op = BPF_FUNC_dtrace_get_thread;
 			else
-				op = DIF_OP_LDGS;
+				op = BPF_FUNC_dtrace_get_global;
 
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
-			instr = DIF_INSTR_LDV(op,
-			    dnp->dn_ident->di_id, dnp->dn_reg);
-
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			/* XXX new call variant */
+			dt_cg_call(dlp, drp, op, 2, idp->di_id, dnp->dn_reg);
 			break;
 
 		case DT_NODE_SYM: {
@@ -1850,8 +1940,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			    DT_LBL_NONE, dnp->dn_reg, sym.st_value);
 
 			if (!(dnp->dn_flags & DT_NF_REF)) {
-				instr = DIF_INSTR_LOAD(dt_cg_load(dnp, ctfp,
-				    dnp->dn_type), dnp->dn_reg, dnp->dn_reg);
+				instr = BPF_LDX_MEM(dt_cg_load(dnp, ctfp,
+					dnp->dn_type), dnp->dn_reg, dnp->dn_reg,
+					0);
 				dt_irlist_append(dlp,
 				    dt_cg_node_alloc(DT_LBL_NONE, instr));
 			}
@@ -1880,21 +1971,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 void
 dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 {
-	dif_instr_t instr;
 	dt_xlator_t *dxp = NULL;
 
 	if (pcb->pcb_regs == NULL && (pcb->pcb_regs =
-	    dt_regset_create(pcb->pcb_hdl->dt_conf.dtc_difintregs)) == NULL)
+	    dt_regset_create(pcb->pcb_hdl->dt_conf.dtc_difnregs)) == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dt_regset_reset(pcb->pcb_regs);
-	(void) dt_regset_alloc(pcb->pcb_regs); /* allocate %r0 */
-
-	if (pcb->pcb_inttab != NULL)
-		dt_inttab_destroy(pcb->pcb_inttab);
-
-	if ((pcb->pcb_inttab = dt_inttab_create(yypcb->pcb_hdl)) == NULL)
-		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	if (pcb->pcb_strtab != NULL)
 		dt_strtab_destroy(pcb->pcb_strtab);
@@ -1926,9 +2009,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	}
 
 	dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
-	instr = DIF_INSTR_RET(dnp->dn_reg);
 	dt_regset_free(pcb->pcb_regs, dnp->dn_reg);
-	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE,
+		    BPF_EXIT_INSN));
 
 	if (dnp->dn_kind == DT_NODE_MEMBER) {
 		dt_regset_free(pcb->pcb_regs, dxp->dx_ident->di_id);

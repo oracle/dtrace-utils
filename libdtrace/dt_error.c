@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -19,9 +19,9 @@ static const struct {
 	{ EDT_CTF,	"Unexpected libctf error" },
 	{ EDT_COMPILER, "Error in D program compilation" },
 	{ EDT_NOREG,	"Insufficient registers to generate code" },
-	{ EDT_NOTUPREG,	"Insufficient tuple registers to generate code" },
+	{ EDT_NOTUPREG,	"Error no longer generated" },
 	{ EDT_NOMEM,	"Memory allocation failure" },
-	{ EDT_INT2BIG,	"Integer constant table limit exceeded" },
+	{ EDT_INT2BIG,	"Error no longer generated" },
 	{ EDT_STR2BIG,	"String constant table limit exceeded" },
 	{ EDT_NOMOD,	"Unknown module name" },
 	{ EDT_NOPROV,	"Unknown provider name" },
@@ -91,7 +91,8 @@ static const struct {
 	  "concurrent module unload" },
 	{ EDT_ELFCLASS, "Unknown ELF class, neither 32- nor 64-bit" },
 	{ EDT_OBJIO, "Cannot read object file or modules.dep" },
-	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" }
+	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" },
+	{ EDT_RESERVEDREG, "Reserved register in use on function call" },
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);
