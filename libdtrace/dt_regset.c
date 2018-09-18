@@ -65,6 +65,7 @@ dt_regset_alloc(dt_regset_t *drp)
 		ulong_t bit, bx;
 		int reg;
 
+		/* %r0, as the function return register, is never reserved. */
 		for (bit = 1, bx = 0; bx <= maxb; bx++, bit <<= 1) {
 			if ((word & bit) == 0) {
 				reg = (int)((wx << BT_ULSHIFT) | bx);

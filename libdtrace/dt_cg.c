@@ -74,6 +74,19 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 }
 
 /*
+ * Register-to-register moves between two allocated registers.
+ */
+static void
+dt_cg_mov(dt_irlist_t *dlp, int to, int from)
+{
+	struct bpf_insn instr;
+
+	BPF_MOV64_REG(to, from);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+
+/*
  * Spill regs to the stack, and unspill them later.
  */
 static int
@@ -107,6 +120,9 @@ dt_unspill(int reg, void *d)
  * Used regs below the BPF_NCLOBBERED bound will be spilled to the stack and
  * restored on function return.  r0 is clobbered with the function return value:
  * an error will be returned if it is in use on function entry.
+ *
+ * Note: the return register is not preserved in the regset, and must be
+ * explicitly moved away if needed across more than one instruction.
  */
 static int
 dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
@@ -125,8 +141,7 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
 	for (reg; reg <= nargs; reg++) {
 		uint32_t arg = va_arg(ap, int);
 
-		dt_irlist_append(dlp, dt_cg_node_alloc(
-			    BPF_ALU64_REG(BPF_MOV, reg, arg, 0)));
+		dt_cg_mov(dlp, reg, arg);
 	}
 	va_end(ap);
 
@@ -447,8 +462,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	fmask = (1ULL << e.cte_bits) - 1;
 	cmask = ~(fmask << shift);
 
-	instr = BPF_ALU64_REG(BPF_MOV, dst->dn_reg, r1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_mov(dlp, r1, dst->dn_reg);
 
 	dt_cg_setx(dlp, r2, cmask);
 	/* XXX check dest? */
@@ -492,7 +506,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 	if (src->dn_flags & DT_NF_REF) {
 		/* XXX turn into inlined loop */
-		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys, 3, dst->dn_reg,
+		dst->dn_reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys, 2,
 		    src->dn_reg, size);
 	} else {
 		/* XXX this is ugly. Find a trick in Warren instead. :) */
@@ -834,9 +848,12 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 
 	if (dt_node_is_string(dnp->dn_left) || dt_node_is_string(dnp->dn_right)) {
 		int reg;
+
 		/* XXX turn into inlined loop. */
 		reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_strcmp, 2,
 		    dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
+		dt_cg_mov(dlp, dst->dn_left->dn_reg, reg);
+
 	} else {
 		instr = BPF_ALU64_REG(BPF_SUB, dnp->dn_left->dn_reg,
 		    dnp->dn_right->dn_reg);
@@ -1035,7 +1052,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		ctf_membinfo_t ctm;
 		dt_xlator_t *dxp = idp->di_data;
 		dt_node_t *mnp, dn, mn;
-		int r1, r2;
+		int r1, r2, ret;
 
 		/*
 		 * Create two fake dt_node_t's representing operator "." and a
@@ -1068,7 +1085,8 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * XXX what about failure? Guess it can't fail without ERROR.
 		 * (The DIF_OP_ALLOCS code suggests otherwise!)
 		 */
-		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, r1);
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, r1);
+		dt_cg_mov(dlp, r1, ret);
 
 		/*
 		 * When dt_cg_asgn_op() is called, we have already generated
@@ -1190,6 +1208,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	struct bpf_insn instr;
 	uint_t op;
+	int ret;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
@@ -1207,7 +1226,8 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 	/* XXX new call variant */
-	dt_cg_call(dlp, drp, op, 2, idp->di_id, dnp->dn_reg);
+	ret = dt_cg_call(dlp, drp, op, 1, idp->di_id);
+	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
 	 * If the associative array is a pass-by-reference type, then we are
@@ -1241,20 +1261,23 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		    BPF_FUNC_dtrace_set_thread_assoc :
 		    BPF_FUNC_dtrace_set_global_assoc;
 		uint_t label = dt_irlist_label(dlp);
+		int ret;
 
 		instr = BPF_JMP_IMM(BPF_JE, dnp->dn_reg, 0, label);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
-		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, dnp->dn_reg);
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1,
+		    dnp->dn_reg);
+		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dnp->dn_ident->di_flags |= DT_IDFLG_DIFW;
 		/* XXX new call variant */
 		dt_cg_call(dlp, drp, stvop, 2, dnp->dn_ident->di_id, dnp->dn_reg);
 
 		/* XXX new call variant */
-		dt_cg_call(dlp, drp, op, 2, idp->dn_ident->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		ret = dt_cg_call(dlp, drp, op, 1, idp->dn_ident->di_id);
+		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dt_irlist_append(dlp, dt_cg_node_alloc(label, BPF_NOP));
 	}
@@ -1270,7 +1293,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	struct bpf_insn instr;
 	uint_t op;
 	size_t size;
-	int reg, n;
+	int reg, n, ret;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(idp->di_flags & DT_IDFLG_LOCAL));
@@ -1309,8 +1332,9 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	dnp->dn_reg = dt_cg_call(dlp, drp, op, 2, idp->di_id,
+	ret = dt_cg_call(dlp, drp, op, 2, idp->di_id,
 	    dnp->dn_args->dn_reg);
+	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
 	 * If this is a reference to the args[] array, we need to take the
@@ -1601,9 +1625,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
-		instr = BPF_ALU64_REG(BPF_MOV, r1, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
+		dt_cg_mov(dlp, r1, dnp->dn_reg);
 		dt_cg_setx(dlp, dnp->dn_reg, 0);
 
 		instr = BPF_ALU64_REG(BPF_SUB, dnp->dn_reg, r1);
@@ -1818,7 +1840,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_reg = dnp->dn_left->dn_reg;
 		break;
 
-	case DT_TOK_STRING:
+	case DT_TOK_STRING: {
+		int ret;
+
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -1831,11 +1855,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
 		/* XXX turn into inlined loop; needs new call form */
-		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, 2, (ulong_t) stroff,
-		    dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, 1, (uint64_t) stroff);
+		dt_cg_mov(dlp, dnp->dn_reg, ret);
 		break;
-
+	}
 	case DT_TOK_IDENT:
 		/*
 		 * If the specified identifier is a variable on which we have
@@ -1918,7 +1941,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
 			/* XXX new call variant */
-			dt_cg_call(dlp, drp, op, 2, idp->di_id, dnp->dn_reg);
+			ret = dt_cg_call(dlp, drp, op, 1, idp->di_id);
+			dt_cg_call(dlp, dnp->dn_reg, ret);
 			break;
 
 		case DT_NODE_SYM: {
