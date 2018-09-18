@@ -6,7 +6,7 @@
  */
 
 #include <sys/types.h>
-#include <sys/dtrace_bpf_opcodes.h>
+#include <sys/dtrace_bpf.h>
 
 #include <linux/bpf.h>
 
@@ -21,6 +21,25 @@
 #include <dt_grammar.h>
 #include <dt_parser.h>
 #include <dt_provider.h>
+
+const char *bpf_protos[] = {
+	"ri",					/* dtrace_copys */
+	"i",					/* dtrace_sets */
+	"ir",					/* dtrace_set_global */
+	"ir",					/* dtrace_set_thread */
+	"ir",					/* dtrace_set_local */
+	"ir",					/* dtrace_set_global_assoc */
+	"ir",					/* dtrace_set_thread_assoc */
+	"i",					/* dtrace_get_global */
+	"i",					/* dtrace_get_thread */
+	"i",					/* dtrace_get_local */
+	"i",					/* dtrace_get_global_assoc */
+	"i",					/* dtrace_get_thread_assoc */
+	"ir",					/* dtrace_get_global_array */
+	"ir",					/* dtrace_get_thread_array */
+	"rr",					/* dtrace_strcmp */
+	"r"					/* dtrace_alloc_scratch */
+}
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
@@ -115,7 +134,10 @@ dt_unspill(int reg, void *d)
  * A helper function call.  This happens a *lot*.  Even variable allocation/
  * lookup is a helper call.
  *
- * The args are up to five ints denoting a BPF register number.
+ * The args are up to five ints denoting a BPF register number or an immediate
+ * value (according to the corresponding letter in bpf_protos[] for this
+ * helper).  There is no validation (yet) that the right number of args are
+ * used in the call.
  *
  * Used regs below the BPF_NCLOBBERED bound will be spilled to the stack and
  * restored on function return.  r0 is clobbered with the function return value:
@@ -126,22 +148,31 @@ dt_unspill(int reg, void *d)
  */
 static int
 dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
-    uint_t nargs, ...)
+    ...)
 {
 	va_list ap;
 	struct dt_regset_spill s;
 	uint_t reg = 1;
+	char *argstr;
 
 	if (BT_TEST(drp->dr_bitmap, 0) != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_RESERVEDREG);
+	if (helper < FIRST_BPF_HELPER ||
+	    helper - FIRST_BPF_HELPER > sizeof(bpf_protos))
+		longjmp(yypcb->pcb_jmpbuf, EDT_INVALIDBPFHELPER);
 
 	dt_regset_iter(drp, 1, BPF_NCLOBBERED, dt_spill, &dlp);
 
-	va = va_start(ap, nargs);
-	for (reg; reg <= nargs; reg++) {
+	va = va_start(ap, helper);
+	for (argstr = bpf_protos[helper - FIRST_BPF_HELPER];
+	     argstr != '\0'; argstr++, reg++) {
 		uint32_t arg = va_arg(ap, int);
 
-		dt_cg_mov(dlp, reg, arg);
+		switch (*argstr) {
+		case 'r': dt_cg_mov(dlp, reg, arg); break;
+		case 'i': dt_cg_setx(dlp, reg, arg); break;
+		default: longjmp(yypcb->pcb_jmpbuf, EDT_INVALIDBPFHELPER);
+		}
 	}
 	va_end(ap);
 
@@ -506,7 +537,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 	if (src->dn_flags & DT_NF_REF) {
 		/* XXX turn into inlined loop */
-		dst->dn_reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys, 2,
+		dst->dn_reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys,
 		    src->dn_reg, size);
 	} else {
 		/* XXX this is ugly. Find a trick in Warren instead. :) */
@@ -730,8 +761,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		/* XXX needs a new call variant: idp->di_id is not a register! */
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id, dnp->dn_reg);
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id, dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 
@@ -786,9 +816,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		/* XXX new call variant */
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id, nreg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id, nreg);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 		int oreg = dnp->dn_reg;
@@ -850,7 +878,7 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		int reg;
 
 		/* XXX turn into inlined loop. */
-		reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_strcmp, 2,
+		reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_strcmp,
 		    dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
 		dt_cg_mov(dlp, dst->dn_left->dn_reg, reg);
 
@@ -1085,7 +1113,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * XXX what about failure? Guess it can't fail without ERROR.
 		 * (The DIF_OP_ALLOCS code suggests otherwise!)
 		 */
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1, r1);
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, r1);
 		dt_cg_mov(dlp, r1, ret);
 
 		/*
@@ -1183,8 +1211,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		/* XXX new call variant */
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), 2, idp->di_id,
+		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
 		    dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
@@ -1225,8 +1252,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		op = BPF_FUNC_dtrace_get_global_assoc;
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	/* XXX new call variant */
-	ret = dt_cg_call(dlp, drp, op, 1, idp->di_id);
+	ret = dt_cg_call(dlp, drp, op, idp->di_id);
 	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
@@ -1267,16 +1293,14 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, 1,
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch,
 		    dnp->dn_reg);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dnp->dn_ident->di_flags |= DT_IDFLG_DIFW;
-		/* XXX new call variant */
-		dt_cg_call(dlp, drp, stvop, 2, dnp->dn_ident->di_id, dnp->dn_reg);
+		dt_cg_call(dlp, drp, stvop, dnp->dn_ident->di_id, dnp->dn_reg);
 
-		/* XXX new call variant */
-		ret = dt_cg_call(dlp, drp, op, 1, idp->dn_ident->di_id);
+		ret = dt_cg_call(dlp, drp, op, idp->dn_ident->di_id);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dt_irlist_append(dlp, dt_cg_node_alloc(label, BPF_NOP));
@@ -1332,8 +1356,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	ret = dt_cg_call(dlp, drp, op, 2, idp->di_id,
-	    dnp->dn_args->dn_reg);
+	ret = dt_cg_call(dlp, drp, op, idp->di_id, dnp->dn_args->dn_reg);
 	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
@@ -1854,8 +1877,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (stroff > DIF_STROFF_MAX)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
-		/* XXX turn into inlined loop; needs new call form */
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, 1, (uint64_t) stroff);
+		/* XXX turn into inlined loop */
+		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, (uint64_t) stroff);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 		break;
 	}
@@ -1940,9 +1963,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
-			/* XXX new call variant */
-			ret = dt_cg_call(dlp, drp, op, 1, idp->di_id);
-			dt_cg_call(dlp, dnp->dn_reg, ret);
+			ret = dt_cg_call(dlp, drp, op, idp->di_id);
+			dt_cg_mov(dlp, dnp->dn_reg, ret);
 			break;
 
 		case DT_NODE_SYM: {

@@ -93,6 +93,7 @@ static const struct {
 	{ EDT_OBJIO, "Cannot read object file or modules.dep" },
 	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" },
 	{ EDT_RESERVEDREG, "Reserved register in use on function call" },
+	{ EDT_INVALIDBPFHELPER, "Invalid BPF helper function call" },
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);

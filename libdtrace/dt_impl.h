@@ -459,9 +459,9 @@ enum {
 	EDT_CTF,		/* libctf called failed (dt_ctferr has more) */
 	EDT_COMPILER,		/* error in D program compilation */
 	EDT_NOREG,		/* register allocation failure */
-	EDT_NOTUPREG,		/* tuple register allocation failure */
+	EDT_NOTUPREG,		/* error no longer generated */
 	EDT_NOMEM,		/* memory allocation failure */
-	EDT_INT2BIG,		/* integer limit exceeded */
+	EDT_INT2BIG,		/* error no longer generated */
 	EDT_STR2BIG,		/* string limit exceeded */
 	EDT_NOMOD,		/* unknown module name */
 	EDT_NOPROV,		/* unknown provider name */
@@ -530,7 +530,9 @@ enum {
 	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
 	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
 	EDT_OBJIO,		/* cannot read object file or module name mapping */
-	EDT_TRACEMEM		/* missing or corrupt tracemem() record */
+	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
+	EDT_RESERVEDREG,	/* reserved register in use on function call */
+	EDT_INVALIDBPFHELPER	/* invalid BPF helper function call */
 };
 
 /*
