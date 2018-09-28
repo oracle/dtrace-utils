@@ -103,6 +103,24 @@ inline char PR_MODEL_ILP32 = 1;
 inline char PR_MODEL_LP64 = 2;
 #pragma D binding "1.0" PR_MODEL_LP64
 
+define_for_kernel([[__pidtype_pgid]], [[ m4_dnl
+	m4_dnl 4.19 and above introduce PIDTYPE_TGID, throwing later values off.
+	(m4_kver(4, 19, 0), 2)]], 1)
+
+define_for_kernel([[__pidtype_sid]], [[ m4_dnl
+	m4_dnl 4.19 and above introduce PIDTYPE_TGID, throwing later values off.
+	(m4_kver(4, 19, 0), 3)]], 2)
+
+inline	int PIDTYPE_PID = 0;
+#pragma D binding "1.0" PIDTYPE_PID
+/* 4.19 and above only. */
+inline	int PIDTYPE_TGID = 1;
+#pragma D binding "1.0" PIDTYPE_TGID
+inline	int PIDTYPE_PGID = __pidtype_pgid;
+#pragma D binding "1.0" PIDTYPE_PGID
+inline	int PIDTYPE_SID = __pidtype_sid;
+#pragma D binding "1.0" PIDTYPE_SID
+
 define_for_kernel([[ugid]], [[ m4_dnl
 	m4_dnl 3.18 and above use kuid_t and kgid_t for uids and gids
 	(m4_kver(3, 18, 0), [[m4_argq(1).val]])]], m4_dnl
@@ -123,13 +141,23 @@ define_for_kernel([[__psinfo]], [[ m4_dnl
 	(m4_kver(4, 14, 21), [[dtps_[[]]m4_argq(1)]])]], m4_dnl
 [[$1]]) m4_dnl
 
+define_for_kernel([[__task_pgid]], [[ m4_dnl
+	m4_dnl 4.19 and above moved this into the signal_struct.
+	(m4_kver(4, 19, 0), [[T->signal->pids[PIDTYPE_PGID]->numbers[0].nr]])]], m4_dnl
+	[[T->group_leader->pids[1].pid->numbers[0].nr]]) m4_dnl
+
+define_for_kernel([[__task_sid]], [[ m4_dnl
+	m4_dnl 4.19 and above moved this into the signal_struct.
+	(m4_kver(4, 19, 0), [[T->signal->pids[PIDTYPE_SID]->numbers[0].nr]])]], m4_dnl
+	[[T->group_leader->pids[2].pid->numbers[0].nr]]) m4_dnl
+
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
 	pr_pid = T->tgid;
 	pr_ppid = T->real_parent->tgid;
-	pr_pgid = T->group_leader->pids[1].pid->numbers[0].nr;
-	pr_sid = T->group_leader->pids[2].pid->numbers[0].nr;
+	pr_pgid = __task_pgid;
+	pr_sid = __task_sid;
 	pr_uid = T->cred->ugid(uid);
 	pr_euid = T->cred->ugid(euid);
 	pr_gid = T->cred->ugid(gid);
@@ -277,13 +305,6 @@ inline int CLD_STOPPED = 5;
 inline int CLD_CONTINUED = 6;
 #pragma D binding "1.0" CLD_CONTINUED
 
-inline	int PIDTYPE_PID = 0;
-#pragma D binding "1.0" PIDTYPE_PID
-inline	int PIDTYPE_PGID = 1;
-#pragma D binding "1.0" PIDTYPE_PGID
-inline	int PIDTYPE_SID = 2;
-#pragma D binding "1.0" PIDTYPE_SID
-
 /*
  * Below we provide some inline definitions to simplify converting from
  * a struct pid * to a pid_t.  structpid2pid is a DTrace-ized version of
@@ -295,8 +316,13 @@ inline	struct pid_namespace *pid_namespace[struct pid *p] = p != NULL ?
 inline	int pid_namespace_level[struct pid *p] = p != NULL && pid_namespace[p] ?
 	pid_namespace[p]->level : 0;
 
+define_for_kernel([[__task_pid]], [[ m4_dnl
+	m4_dnl 4.19 and above use thread_pid for this.
+	(m4_kver(4, 19, 0), [[task->thread_pid]])]], m4_dnl
+	[[task->pids[PIDTYPE_PID].pid]]) m4_dnl
+
 inline	struct pid *task_pid[struct task_struct *task] =
-	task != NULL ? task->pids[PIDTYPE_PID].pid : NULL;
+	task != NULL ? __task_pid : NULL;
 
 inline	int current_namespace_level = pid_namespace_level[task_pid[curthread]];
 
