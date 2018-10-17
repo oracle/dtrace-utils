@@ -11,6 +11,7 @@
 #include <linux/bpf.h>
 #include <samples/bpf/libbpf.h>
 
+#define BPF_NCLOBBERED	6
 #define BPF_REG_FP	BPF_REG_10
 
 #define BPF_NOP \

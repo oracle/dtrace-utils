@@ -23,22 +23,24 @@
 #include <dt_provider.h>
 
 const char *bpf_protos[] = {
-	"ri",					/* dtrace_copys */
+	"rri",					/* dtrace_copys */
 	"i",					/* dtrace_sets */
+	"rr",					/* dtrace_strlen */
 	"ir",					/* dtrace_set_global */
 	"ir",					/* dtrace_set_thread */
 	"ir",					/* dtrace_set_local */
-	"ir",					/* dtrace_set_global_assoc */
-	"ir",					/* dtrace_set_thread_assoc */
+	"irdi",					/* dtrace_set_global_assoc */
+	"irdi",					/* dtrace_set_thread_assoc */
 	"i",					/* dtrace_get_global */
 	"i",					/* dtrace_get_thread */
 	"i",					/* dtrace_get_local */
-	"i",					/* dtrace_get_global_assoc */
-	"i",					/* dtrace_get_thread_assoc */
+	"idi",					/* dtrace_get_global_assoc */
+	"idi",					/* dtrace_get_thread_assoc */
 	"ir",					/* dtrace_get_global_array */
 	"ir",					/* dtrace_get_thread_array */
 	"rr",					/* dtrace_strcmp */
-	"r"					/* dtrace_alloc_scratch */
+	"r",					/* dtrace_alloc_scratch */
+	"idi",					/* dtrace_subr */
 }
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
@@ -112,10 +114,11 @@ static int
 dt_spill(int reg, void *d)
 {
 	dt_irlist_t *dlp = d;
+	yypcb->stackdepth += 8;
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(
-		    BPF_STX_MEM(BPF_DW, BPF_REG_FP, reg,
-			yypcb->pcb_stackdepth++)));
+		    BPF_STX_MEM(BPF_DW, BPF_REG_FP,
+			reg, -yypcb->stackkdepth)));
 	return 0;
 }
 
@@ -126,7 +129,8 @@ dt_unspill(int reg, void *d)
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(
 		    BPF_LDX_MEM(BPF_DW, reg, BPF_REG_FP,
-			--yypcb->pcb_stackdepth)));
+			-yypcb->stackdepth)));
+	yypcb->stackdepth -= 8;
 	return 0;
 }
 
@@ -134,10 +138,17 @@ dt_unspill(int reg, void *d)
  * A helper function call.  This happens a *lot*.  Even variable allocation/
  * lookup is a helper call.
  *
- * The args are up to five ints denoting a BPF register number or an immediate
- * value (according to the corresponding letter in bpf_protos[] for this
- * helper).  There is no validation (yet) that the right number of args are
- * used in the call.
+ * The args are up to five ints denoting a BPF register number, an immediate
+ * value, or a stackdepth indicator (according to the corresponding letter in
+ * bpf_protos[] for this helper).  There is no validation (yet) that the right
+ * number of args are used in the call.
+ *
+ * 'd', for the stackdepth indicator, is substituted with the address of the
+ * stack pointer adjusted by the pcb_stackdepth, to indicate how far back to
+ * look to see the stack of an arglist.  This will fail if nested arglists are
+ * possible such that the stackdepth can contain more than just a single arglist
+ * and a bunch of spills: we'll need to individually track stackdepths for each
+ * arglist in this case.
  *
  * Used regs below the BPF_NCLOBBERED bound will be spilled to the stack and
  * restored on function return.  r0 is clobbered with the function return value:
@@ -151,15 +162,30 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
     ...)
 {
 	va_list ap;
-	struct dt_regset_spill s;
 	uint_t reg = 1;
 	char *argstr;
+	int needs_stackdepth = 0;
 
 	if (BT_TEST(drp->dr_bitmap, 0) != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_RESERVEDREG);
 	if (helper < FIRST_BPF_HELPER ||
 	    helper - FIRST_BPF_HELPER > sizeof(bpf_protos))
 		longjmp(yypcb->pcb_jmpbuf, EDT_INVALIDBPFHELPER);
+
+	/*
+	 * Compute the stack depth, if needed.  Keep it stuffed in r0, which we
+	 * know is clobbered regardless.
+	 */
+	for (argstr = bpf_protos[helper - FIRST_BPF_HELPER];
+	     argstr != '\0'; argstr++, reg++)
+		if (*argstr == 'd')
+			needs_stackdepth = 1;
+
+	if (needs_stackdepth) {
+		dt_cg_mov(dlp, BPF_REG_0, BPF_REG_FP);
+		dt_irlist_append(dlp, dt_cg_node_alloc(
+			    BPF_ALU64_REG(BPF_SUB, BPF_REG_0, yypcb->pcb_stackdepth)));
+	}
 
 	dt_regset_iter(drp, 1, BPF_NCLOBBERED, dt_spill, &dlp);
 
@@ -171,6 +197,8 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
 		switch (*argstr) {
 		case 'r': dt_cg_mov(dlp, reg, arg); break;
 		case 'i': dt_cg_setx(dlp, reg, arg); break;
+		/* dt_cg_call() arg not used at all for 'd' (and skipped). */
+		case 'd': dt_cg_mov(dlp, reg, BPF_REG_0); break;
 		default: longjmp(yypcb->pcb_jmpbuf, EDT_INVALIDBPFHELPER);
 		}
 	}
@@ -184,7 +212,7 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
 	/*
 	 * Return is always in r0: BPF ABI.
 	 */
-	return 0;
+	return BPF_REG_0;
 }
 
 static void
@@ -244,7 +272,7 @@ clp2(size_t x)
 static uint_t
 dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 {
-	/* XXX signs; userland; prob drop the table */
+	/* XXX signs; userland */
 
 	static const uint_t ops[] = {
 		BPF_B,	BPF_H,	0,	BPF_W,	BPF_DW,
@@ -537,8 +565,8 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 	if (src->dn_flags & DT_NF_REF) {
 		/* XXX turn into inlined loop */
-		dst->dn_reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys,
-		    src->dn_reg, size);
+		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys,
+		    src->dn_reg, dst->dn_reg, size);
 	} else {
 		/* XXX this is ugly. Find a trick in Warren instead. :) */
 		int reg;
@@ -609,38 +637,35 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 }
 
 /*
- * XXX rejig underway...
- * 
- * Generate code to push the specified argument list on to the tuple stack.
- * We use this routine for handling subroutine calls and associative arrays.
- * We must first generate code for all subexpressions before loading the stack
- * because any subexpression could itself require the use of the tuple stack.
- * This holds a number of registers equal to the number of arguments, but this
- * is not a huge problem because the number of arguments can't exceed the
- * number of tuple register stack elements anyway.  At most one extra register
- * is required (either by dt_cg_typecast() or for dtdt_size, below).  This
- * implies that a DIF implementation should offer a number of general purpose
- * registers at least one greater than the number of tuple registers.
+ * Generate code to push the specified argument list onto the stack.  We use
+ * this routine for handling subroutine calls and associative arrays.  We must
+ * first generate code for all subexpressions before loading the stack because
+ * any subexpression could itself require the use of the stack.  (Caveat: in
+ * future, it may be more efficient to spill to the callable registers first:
+ * but this is probably very marginal.)
+ *
+ * Returns the number of args pushed.
  */
-static void
+static int
 dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
     dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	const dt_idsig_t *isp = idp->di_data;
 	dt_node_t *dnp;
 	int i = 0;
+	int argcount = 0;
+	int curarg = yypcb->pcb_stackdepth;
 
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, argcount++)
 		dt_cg_node(dnp, dlp, drp);
 
-	dt_irlist_append(dlp,
-	    dt_cg_node_alloc(DT_LBL_NONE, DIF_INSTR_FLUSHTS));
+	yypcb->pcb_stackdepth += (argcount * 2) * 8;
 
 	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
 		dtrace_diftype_t t;
 		dif_instr_t instr;
 		uint_t op;
-		int reg;
+		int size_reg;
 
 		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
 
@@ -648,28 +673,35 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
 		isp->dis_args[i].dn_reg = -1;
 
-		if (t.dtdt_flags & DIF_TF_BYREF)
-			op = DIF_OP_PUSHTR;
-		else
-			op = DIF_OP_PUSHTV;
+		if (t.dtdt_flags & DIF_TF_BYREF) {
+			if (t.dtdt_kind == DIF_TYPE_STRING)
+				size_reg = dt_cg_call(dlp, drp,
+				    BPF_FUNC_dtrace_strlen, dnp->dn_reg,
+				    t.dtdt_size);
+			else {
+				dt_cg_setx(dlp, BPF_REG_R0, t.dtdt_size);
+				size_reg = BPF_REG_R0;
+			}
+		}
+		/* value */
+		dt_irlist_append(dlp, dt_cg_node_alloc(
+			    BPF_STX_MEM(BPF_DW, BPF_REG_FP, dnp->dn_reg,
+				-curarg)));
+		curarg += 8;
 
-		if (t.dtdt_size != 0) {
-			if ((reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			dt_cg_setx(dlp, reg, t.dtdt_size);
-		} else
-			reg = DIF_REG_R0;
-
-		instr = DIF_INSTR_PUSHTS(op, t.dtdt_kind, reg, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, dnp->dn_reg);
-
-		if (reg != DIF_REG_R0)
-			dt_regset_free(drp, reg);
+		/* size, 0 for non-byref */
+		if (t.dtdt_flags & DIF_TF_BYREF) {
+			dt_irlist_append(dlp, dt_cg_node_alloc(
+				    BPF_ST_MEM(BPF_DW, BPF_REG_FP, -curarg, 0)));
+		} else {
+			dt_irlist_append(dlp, dt_cg_node_alloc(
+				    BPF_STX_MEM(BPF_DW, BPF_REG_FP, size_reg,
+					-curarg)));
+		}
+		curarg += 8;
 	}
 
-	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
+	return argcount;
 }
 
 static void
@@ -1205,14 +1237,24 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * In both paths, we assume dnp->dn_reg already has the new value.
 	 */
 	if (dnp->dn_left->dn_kind == DT_NODE_VAR) {
+		int is_thread = (idp->di_flags & DT_IDFLG_TLS);
+
 		idp = dt_ident_resolve(dnp->dn_left->dn_ident);
-
-		if (idp->di_kind == DT_IDENT_ARRAY)
-			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
-
 		idp->di_flags |= DT_IDFLG_DIFW;
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
-		    dnp->dn_reg);
+
+		if (idp->di_kind == DT_IDENT_ARRAY) {
+			int prev_depth = yypcb->pcb_stackdepth;
+			int argcount;
+
+			argcount = dt_cg_arglist(idp, dnp->dn_left->dn_args,
+			    dlp, drp);
+
+			dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
+			    dnp->dn_reg, 0, argcount);
+			yypcb->pcb_stackdepth = prev_depth;
+		} else /* non-associative */
+			dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
+			    dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -1234,14 +1276,16 @@ static void
 dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	struct bpf_insn instr;
+	int prev_depth = yypcb->pcb_stackdepth;
 	uint_t op;
 	int ret;
+	int argcount;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
 	assert(dnp->dn_args != NULL);
 
-	dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
+	argcount = dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
 
 	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -1252,7 +1296,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		op = BPF_FUNC_dtrace_get_global_assoc;
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	ret = dt_cg_call(dlp, drp, op, idp->di_id);
+	ret = dt_cg_call(dlp, drp, op, idp->di_id, 0, argcount);
 	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
@@ -1305,6 +1349,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		dt_irlist_append(dlp, dt_cg_node_alloc(label, BPF_NOP));
 	}
+	yypcb->pcb_stackdepth = prev_depth;
 }
 
 static void
@@ -1909,8 +1954,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		switch (dnp->dn_kind) {
-		case DT_NODE_FUNC:
-			/* XXX TODO, may need bpf->bpf calls */
+		case DT_NODE_FUNC: {
+			int prev_depth = yypcb->pcb_stackdepth;
+			int argcount;
+
 			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
 				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
 				    "called from a D expression (D program "
@@ -1918,19 +1965,14 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				    dt_idkind_name(idp->di_kind), idp->di_name);
 			}
 
-			dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
+			argcount = dt_cg_arglist(dnp->dn_ident, dnp->dn_args,
+			    dlp, drp);
 
-			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-			instr = DIF_INSTR_CALL(
-			    dnp->dn_ident->di_id, dnp->dn_reg);
-
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
-
+			reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_subr,
+			    dnp->dn_ident->di_id, 0, argcount);
+			yypcb->pcb_stackdepth = prev_depth;
 			break;
-
+		}
 		case DT_NODE_VAR:
 			if (dnp->dn_ident->di_kind == DT_IDENT_XLSOU ||
 			    dnp->dn_ident->di_kind == DT_IDENT_XLPTR) {

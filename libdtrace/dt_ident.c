@@ -241,16 +241,16 @@ dt_idcook_func(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		 * we look up the corresponding type and store its CTF data in
 		 * the corresponding location in dis_args[].  We also recognize
 		 * the special type string "@" to indicate that the specified
-		 * parameter may be a D expression of *any* type (represented
-		 * as a dis_args[] element with ctfp = NULL, type == CTF_ERR).
-		 * If a varargs "..." is present, we record the argument index
-		 * in dis_varargs for the benefit of dt_idcook_sign(), above.
-		 * If the type of an argument is enclosed in square brackets
-		 * (e.g. "[int]"), the argument is considered optional:  the
+		 * parameter may be a D expression of *any* type (represented as
+		 * a dis_args[] element with ctfp = NULL, type == CTF_ERR).  If
+		 * a varargs "..." is present, we record the argument index in
+		 * dis_varargs for the benefit of dt_idcook_sign(), above.  If
+		 * the type of an argument is enclosed in square brackets
+		 * (e.g. "[int]"), the argument is considered optional: the
 		 * argument may be absent, but if it is present, it must be of
-		 * the specified type.  Note that varargs may not optional,
-		 * optional arguments may not follow varargs, and non-optional
-		 * arguments may not follow optional arguments.
+		 * the specified type.  Note that varargs may not follow
+		 * optional, optional arguments may not follow varargs, and
+		 * non-optional arguments may not follow optional arguments.
 		 */
 		for (i = 0; i < isp->dis_argc; i++, p1 = p2) {
 			while (isspace(*p1))
