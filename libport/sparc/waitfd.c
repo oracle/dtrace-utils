@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -27,7 +27,8 @@
 static struct waitfds_tag {
         unsigned long linux_version_code;
         long waitfd;
-} waitfds[] = { { KERNEL_VERSION(4,14,0), 361 },
+} waitfds[] = { { KERNEL_VERSION(4,19,0), 362 },
+		{ KERNEL_VERSION(4,14,0), 361 },
 		{ KERNEL_VERSION(4,13,0), 361 },
 		{ KERNEL_VERSION(4,12,0), 361 },
 		{ KERNEL_VERSION(4,11,0), 361 },
