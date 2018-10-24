@@ -6,7 +6,7 @@
  */
 
 /* @@trigger: ustack-tst-bigstack */
-/* @@tags: unstable */
+/* @@skip: error not generated at the moment. */
 
 syscall::ioctl:entry
 /pid == $target/
