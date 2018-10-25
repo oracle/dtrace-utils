@@ -63,7 +63,7 @@ BuildRequires: dtrace-kernel-headers = 1.1.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.1.0
-Release:      0.1%{?dist}
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -253,7 +253,7 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-0.1
+* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-1
 - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap
   compatibility, and test them (Tomas Jedlicka) [Orabug: 27721525]
 - Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
