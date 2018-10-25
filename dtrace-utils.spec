@@ -253,18 +253,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Oct 25 2018 - <nick.alcock@oracle.com> - 1.1.1-1
+- Skip unstable tests, as this is a release branch
+- Boost timeouts on a few tests for VMs on which fork() is slow
+- Mark a few more tests unstable
+- Do not run noresolve tests on UEK4 (Vincent Lim)
+
 * Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-1
 - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap
   compatibility, and test them (Tomas Jedlicka) [Orabug: 27721525]
-- Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
-- Fix process-termination-related crash and deadlock bugs
- (Nick Alcock, Tomas Jedlicka) [Orabug: 27961105, 28133496]
-- Fix deadlock on creation of new threads in -c/-p processes
-  [Orabug: 28210986]
-- Properly handle breakpoints tripped while DTrace is exiting
-  [Orabug: 28473826]
-- Do not crash on self-grabs and on races with dtrace termination
-  [Orabug: 28361373]
 - New ctfpath option, allowing explicit specification of ctf archives
   to use for the running kernel (Tomas Jedlicka) [Orabug: 28178265]
 - Fix memory leaks and minor uninitialized-data bugs [Orabug: 28247636]
@@ -272,13 +269,27 @@ fi
   (Kris Van Hees) [Orabug: 25949088]
 - Remove preallocation from the buffering testsuite (Tomas Jedlicka)
   [Orabug: 27998779]
-- Speed up aggmod tests (Eugene Loh) [Orabug: 28007146, 28119700]
 - Include the smoketests in make check [Orabug: 28128338]
-- Test fixes (boost timeouts, kernel 4.17 compatibility,
-  unskip a forgotten test).
 - Improve testsuite temporary file creation (Eugene Loh)
   [Orabug: 28142056]
 - Clean up compiler warnings (Eugene Loh) [Orabug: 27934422, 27998779]
+
+* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.0.4-1
+- Properly handle breakpoints tripped while DTrace is exiting
+  [Orabug: 28473826]
+- Do not crash on self-grabs and on races with dtrace termination
+  [Orabug: 28361373]
+- Test fixes (boost timeouts, kernel 4.17 compatibility,
+  unskip a forgotten test).
+
+* Tue Jul 24 2018 - <nick.alcock@oracle.com> - 1.0.3-1
+- Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
+- Fix process-termination-related crash and deadlock bugs
+ (Nick Alcock, Tomas Jedlicka) [Orabug: 27961105, 28133496]
+- Fix deadlock on creation of new threads in -c/-p processes
+  [Orabug: 28210986]
+- Speed up aggmod tests (Eugene Loh, Tomas Jedlicka)
+  [Orabug: 28007146, 28119700]
 
 Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
 - Testsuite fixes [Orabug: 27995907]
