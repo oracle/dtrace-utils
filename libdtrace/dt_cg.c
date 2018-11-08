@@ -175,8 +175,10 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
 	 */
 	for (argstr = bpf_protos[helper - FIRST_BPF_HELPER];
 	     argstr != '\0'; argstr++, reg++)
-		if (*argstr == 'd')
+		if (*argstr == 'd') {
 			needs_stackdepth = 1;
+			break;
+		}
 
 	if (needs_stackdepth) {
 		dt_cg_mov(dlp, BPF_REG_0, BPF_REG_FP);
