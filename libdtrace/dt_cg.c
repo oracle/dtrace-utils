@@ -145,10 +145,7 @@ dt_unspill(int reg, void *d)
  *
  * 'd', for the stackdepth indicator, is substituted with the address of the
  * stack pointer adjusted by the pcb_stackdepth, to indicate how far back to
- * look to see the stack of an arglist.  This will fail if nested arglists are
- * possible such that the stackdepth can contain more than just a single arglist
- * and a bunch of spills: we'll need to individually track stackdepths for each
- * arglist in this case.
+ * look to see the stack of an arglist.
  *
  * Used regs below the BPF_NCLOBBERED bound will be spilled to the stack and
  * restored on function return.  r0 is clobbered with the function return value:
