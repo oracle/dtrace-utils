@@ -32,6 +32,8 @@ export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 
+$(error This branch is still being worked on, and will not compile.)
+
 # The first non-system uid on this system.
 USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
 
