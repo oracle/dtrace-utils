@@ -942,10 +942,6 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
  * save the pointer to this instruction node.  We then generate code for
  * dn_right and use its register as our output.  Finally, we reach back and
  * patch the instruction for dn_left to move its output into this register.
- *
- * XXX dump all this complexity now we have spills?
- *
- * XXX underway
  */
 static void
 dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
@@ -957,23 +953,20 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_irnode_t *dip;
 
 	dt_cg_node(dnp->dn_expr, dlp, drp);
-	instr = DIF_INSTR_TST(dnp->dn_expr->dn_reg);
+	instr = BPF_JMP_IMM(BPF_JE, dnp->dn_expr->dn_reg, 0, lbl_false);
 	dt_irlist_append(dlp, dt_cg_node_alloc(instr));
 	dt_regset_free(drp, dnp->dn_expr->dn_reg);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BE, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(instr));
-
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = DIF_INSTR_MOV(dnp->dn_left->dn_reg, DIF_REG_R0);
+	instr = BPF_MOV64_REG(dnp->dn_left->dn_reg, DIF_REG_R0);
 	dip = dt_cg_node_alloc(instr); /* save dip for below */
 	dt_irlist_append(dlp, dip);
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
 
-	instr = DIF_INSTR_BRANCH(DIF_OP_BA, lbl_post);
+	instr = BPF_JMP_IMM(BPF_JA, 0, 0, lbl_post);
 	dt_irlist_append(dlp, dt_cg_node_alloc(instr));
 
-	dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl_false, DIF_INSTR_NOP));
+	dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl_false, BPF_NOP));
 	dt_cg_node(dnp->dn_right, dlp, drp);
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
@@ -982,8 +975,8 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * instruction into the tail of dn_left.  We know dn_reg was unused
 	 * at that point because otherwise dn_right couldn't have allocated it.
 	 */
-	dip->di_instr = DIF_INSTR_MOV(dnp->dn_left->dn_reg, dnp->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl_post, DIF_INSTR_NOP));
+	dip->di_instr = BPF_MOV64_REG(dnp->dn_left->dn_reg, dnp->dn_reg);
+	dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl_post, BPF_NOP));
 }
 
 static void
