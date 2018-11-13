@@ -1951,7 +1951,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			    dlp, drp);
 
 			reg = dt_cg_call(dlp, drp, dnp,
-			    BPF_FUNC_dtrace_subr->dn_ident->di_id, 0, argcount);
+			    BPF_FUNC_dtrace_subr, dnp->dn_ident->di_id, 0,
+			    argcount);
 			yypcb->pcb_stackdepth = prev_depth;
 			break;
 		}
