@@ -18,7 +18,9 @@ extern "C" {
 typedef struct dt_irnode {
 	uint_t di_label;		/* label number or DT_LBL_NONE */
 	struct bpf_insn di_instr;	/* instruction opcode */
-	void *di_extern;		/* opcode-specific external reference */
+	void *di_extern;		/* external reference */
+	uint64_t di_extern_int;		/* relocated integer, if di_extern is set */
+	int di_subr_op;			/* subr op, if any */
 	struct dt_irnode *di_next;	/* next instruction */
 } dt_irnode_t;
 

@@ -396,7 +396,9 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 
 		if (dnp->dn_ident == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-
+		/*
+		 * XXX dynamic translators: implement or remove
+		 */
 		if (dt_xlator_dynamic(dxp))
 			dxp->dx_arg = (int)ap->dn_value;
 

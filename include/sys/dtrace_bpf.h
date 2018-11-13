@@ -19,4 +19,12 @@
 
 #define FIRST_BPF_HELPER BPF_FUNC_dtrace_copys
 
+static struct bpf_insn bpf_nop = BPF_NOP;
+
+#define bpf_is_nop(insn) ((insn).code == bpf_nop.code &&	\
+	    (insn).dst_reg == bpf_nop.dst_reg &&		\
+	    (insn).src_reg == bpf_nop.src_reg &&		\
+	    (insn).off == bpf_nop.off &&			\
+	    (insn).imm == bpf_nop.imm)				\
+
 #endif /* _DTRACE_BPF_OPCODES_H */

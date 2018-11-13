@@ -532,7 +532,8 @@ enum {
 	EDT_OBJIO,		/* cannot read object file or module name mapping */
 	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
 	EDT_RESERVEDREG,	/* reserved register in use on function call */
-	EDT_INVALIDBPFHELPER	/* invalid BPF helper function call */
+	EDT_INVALIDBPFHELPER,	/* invalid BPF helper function call */
+	EDT_MALFORMEDBPF	/* internal error: malformed BPF */
 };
 
 /*

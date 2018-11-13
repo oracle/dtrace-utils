@@ -94,6 +94,7 @@ static const struct {
 	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" },
 	{ EDT_RESERVEDREG, "Reserved register in use on function call" },
 	{ EDT_INVALIDBPFHELPER, "Invalid BPF helper function call" },
+	{ EDT_MALFORMEDBPF, "Internal error: malformed BPF" },
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);

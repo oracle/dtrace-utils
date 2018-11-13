@@ -55,7 +55,9 @@ dt_cg_node_alloc_labelled(struct bpf_insn instr, uint_t label)
 
 	dip->di_label = label;
 	dip->di_instr = instr;
+	dip->di_subr_op = -1;
 	dip->di_extern = NULL;
+	dip->di_extern_int = -1;
 	dip->di_next = NULL;
 
 	return (dip);
@@ -151,17 +153,21 @@ dt_unspill(int reg, void *d)
  * restored on function return.  r0 is clobbered with the function return value:
  * an error will be returned if it is in use on function entry.
  *
+ * If 'dipp' is set, the call instruction itself is returned in it, for later
+ * annotation.
+ *
  * Note: the return register is not preserved in the regset, and must be
  * explicitly moved away if needed across more than one instruction.
  */
 static int
-dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
-    ...)
+dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, dt_irnode_t **dipp,
+    uint32_t helper, ...)
 {
 	va_list ap;
 	uint_t reg = 1;
 	char *argstr;
 	int needs_stackdepth = 0;
+	dt_irnode_t *dip;
 
 	if (BT_TEST(drp->dr_bitmap, 0) != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_RESERVEDREG);
@@ -203,9 +209,11 @@ dt_cg_call(dt_irlist_t *dlp, dt_regset_t *drp, uint32_t helper,
 	}
 	va_end(ap);
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(
-		    BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, helper)));
-
+	dip = dt_cg_node_alloc(BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+		helper));
+	if (dipp)
+		*dipp = dip;
+	dt_irlist_append(dlp, dip);
 	dt_regset_iter(drp, BPF_NCLOBBERED, 1, dt_unspill, &dlp);
 
 	/*
@@ -225,14 +233,21 @@ dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 	if (x < (unsigned int) -1) {
 		instr[0] = BPF_MOV32_IMM(reg, x);
 		dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl, instr[0]));
+		if (idp != NULL) {
+			dlp->dl_last->di_extern = idp;
+			dlp->dl_last->di_extern_int = x;
+		}
 	} else {
 		instr = BPF_LD_IMM64(reg, x);
 		dt_irlist_append(dlp, dt_cg_node_alloc_labelled(lbl, instr[0]));
+
+		if (idp != NULL) {
+			dlp->dl_last->di_extern = idp;
+			dlp->dl_last->di_extern_int = x;
+		}
+
 		dt_irlist_append(dlp, dt_cg_node_alloc(instr[1]));
 	}
-
-	if (idp != NULL)
-		dlp->dl_last->di_extern = idp;
 }
 
 static void
@@ -564,7 +579,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 	if (src->dn_flags & DT_NF_REF) {
 		/* XXX turn into inlined loop */
-		dt_cg_call(dlp, drp, BPF_FUNC_dtrace_copys,
+		dt_cg_call(dlp, drp, NULL, BPF_FUNC_dtrace_copys,
 		    src->dn_reg, dst->dn_reg, size);
 	} else {
 		/* XXX this is ugly. Find a trick in Warren instead. :) */
@@ -674,7 +689,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 
 		if (t.dtdt_flags & DIF_TF_BYREF) {
 			if (t.dtdt_kind == DIF_TYPE_STRING)
-				size_reg = dt_cg_call(dlp, drp,
+				size_reg = dt_cg_call(dlp, drp, NULL,
 				    BPF_FUNC_dtrace_strlen, dnp->dn_reg,
 				    t.dtdt_size);
 			else {
@@ -792,7 +807,8 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id, dnp->dn_reg);
+		dt_cg_call(dlp, drp, NULL, dt_cg_stvar(idp), idp->di_id,
+		    dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 
@@ -847,7 +863,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
 		idp->di_flags |= DT_IDFLG_DIFW;
-		dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id, nreg);
+		dt_cg_call(dlp, drp, NULL, dt_cg_stvar(idp), idp->di_id, nreg);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 		int oreg = dnp->dn_reg;
@@ -909,7 +925,7 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		int reg;
 
 		/* XXX turn into inlined loop. */
-		reg = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_strcmp,
+		reg = dt_cg_call(dlp, drp, NULL, BPF_FUNC_dtrace_strcmp,
 		    dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
 		dt_cg_mov(dlp, dst->dn_left->dn_reg, reg);
 
@@ -921,7 +937,7 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
 
-	instr = BPF_JMP_IMM(op, dnp->dn_reg, 0, lbl_true);
+7	instr = BPF_JMP_IMM(op, dnp->dn_reg, 0, lbl_true);
 	dt_irlist_append(dlp, dt_cg_node_alloc(instr));
 
 	dt_cg_setx(dlp, dnp->dn_reg, 0);
@@ -1137,7 +1153,8 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * XXX what about failure? Guess it can't fail without ERROR.
 		 * (The DIF_OP_ALLOCS code suggests otherwise!)
 		 */
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch, r1);
+		ret = dt_cg_call(dlp, drp, NULL, BPF_FUNC_dtrace_alloc_scratch,
+		    r1);
 		dt_cg_mov(dlp, r1, ret);
 
 		/*
@@ -1223,11 +1240,11 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			argcount = dt_cg_arglist(idp, dnp->dn_left->dn_args,
 			    dlp, drp);
 
-			dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
+			dt_cg_call(dlp, drp, NULL, dt_cg_stvar(idp), idp->di_id,
 			    dnp->dn_reg, 0, argcount);
 			yypcb->pcb_stackdepth = prev_depth;
 		} else /* non-associative */
-			dt_cg_call(dlp, drp, dt_cg_stvar(idp), idp->di_id,
+			dt_cg_call(dlp, drp, NULL, dt_cg_stvar(idp), idp->di_id,
 			    dnp->dn_reg);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
@@ -1270,7 +1287,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		op = BPF_FUNC_dtrace_get_global_assoc;
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	ret = dt_cg_call(dlp, drp, op, idp->di_id, 0, argcount);
+	ret = dt_cg_call(dlp, drp, NULL, op, idp->di_id, 0, argcount);
 	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
@@ -1311,14 +1328,15 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_irlist_append(dlp, dt_cg_node_alloc(instr));
 
 		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_alloc_scratch,
+		ret = dt_cg_call(dlp, drp, NULL, BPF_FUNC_dtrace_alloc_scratch,
 		    dnp->dn_reg);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dnp->dn_ident->di_flags |= DT_IDFLG_DIFW;
-		dt_cg_call(dlp, drp, stvop, dnp->dn_ident->di_id, dnp->dn_reg);
+		dt_cg_call(dlp, drp, NULL, stvop, dnp->dn_ident->di_id,
+		    dnp->dn_reg);
 
-		ret = dt_cg_call(dlp, drp, op, idp->dn_ident->di_id);
+		ret = dt_cg_call(dlp, drp, NULL, op, idp->dn_ident->di_id);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 		dt_irlist_append(dlp, dt_cg_node_alloc_labelled(label, BPF_NOP));
@@ -1375,7 +1393,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	ret = dt_cg_call(dlp, drp, op, idp->di_id, dnp->dn_args->dn_reg);
+	ret = dt_cg_call(dlp, drp, NULL, op, idp->di_id, dnp->dn_args->dn_reg);
 	dt_cg_mov(dlp, dnp->dn_reg, ret);
 
 	/*
@@ -1784,8 +1802,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * case, we look up the parse tree corresponding to the member
 		 * that is being accessed and run the code generator over it.
 		 * We then cast the result as if by the assignment operator.
-		 *
-		 * XXX underway
 		 */
 		if ((idp = dt_node_resolve(
 		    dnp->dn_left, DT_IDENT_XLSOU)) != NULL ||
@@ -1883,7 +1899,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
 		/* XXX turn into inlined loop */
-		ret = dt_cg_call(dlp, drp, BPF_FUNC_dtrace_sets, (uint64_t) stroff);
+		ret = dt_cg_call(dlp, drp, NULL, BPF_FUNC_dtrace_sets,
+		    (uint64_t) stroff);
 		dt_cg_mov(dlp, dnp->dn_reg, ret);
 		break;
 	}
@@ -1917,6 +1934,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		case DT_NODE_FUNC: {
 			int prev_depth = yypcb->pcb_stackdepth;
 			int argcount;
+			dt_instr_t *dip;
 
 			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
 				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
@@ -1928,9 +1946,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			argcount = dt_cg_arglist(dnp->dn_ident, dnp->dn_args,
 			    dlp, drp);
 
-			reg = dt_cg_call(dlp, drp, dnp,
+			/*
+			 * Ignore the reg: it is r0, which is where bpf expects
+			 * a return value anyway.  Remember the subr, so we
+			 * don't have to mess about digging it out of the
+			 * instruction stream.
+			 */
+			dt_cg_call(dlp, drp, &dip,
 			    BPF_FUNC_dtrace_subr, dnp->dn_ident->di_id, 0,
 			    argcount);
+			dip->di_subr_op = dnp->dn_ident->di_id;
 			yypcb->pcb_stackdepth = prev_depth;
 			break;
 		}
@@ -1966,7 +1991,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
-			ret = dt_cg_call(dlp, drp, op, idp->di_id);
+			ret = dt_cg_call(dlp, drp, NULL, op, idp->di_id);
 			dt_cg_mov(dlp, dnp->dn_reg, ret);
 			break;
 

@@ -10,6 +10,9 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/dtrace_bpf.h>
+
+#include <linux/bpf.h>
 
 #include <dt_impl.h>
 #include <dt_parser.h>
@@ -43,7 +46,7 @@ dt_irlist_append(dt_irlist_t *dlp, dt_irnode_t *dip)
 
 	dlp->dl_last = dip;
 
-	if (dip->di_label == DT_LBL_NONE || dip->di_instr != DIF_INSTR_NOP)
+	if (dip->di_label == DT_LBL_NONE || !bpf_is_nop(dip->di_instr))
 		dlp->dl_len++; /* don't count forward refs in instr count */
 }
 
@@ -240,7 +243,7 @@ dt_as(dt_pcb_t *pcb)
 	if ((dp = pcb->pcb_difo) == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-	dp->dtdo_buf = dt_alloc(dtp, sizeof (dif_instr_t) * dlp->dl_len);
+	dp->dtdo_buf = dt_alloc(dtp, sizeof (struct bpf_insn) * dlp->dl_len);
 
 	if (dp->dtdo_buf == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
@@ -250,7 +253,8 @@ dt_as(dt_pcb_t *pcb)
 
 	/*
 	 * Make an initial pass through the instruction list, filling in the
-	 * instruction buffer with valid instructions and skipping labeled nops.
+	 * instruction buffer with valid instructions, skipping labeled nops,
+	 * and determining whether each instruction is destructive.
 	 * While doing this, we also fill in our labels[] translation table
 	 * and we count up the number of relocation table entries we will need.
 	 */
@@ -259,28 +263,26 @@ dt_as(dt_pcb_t *pcb)
 			labels[dip->di_label] = i;
 
 		if (dip->di_label == DT_LBL_NONE ||
-		    dip->di_instr != DIF_INSTR_NOP)
+		    !bpf_is_nop(dip->di_instr))
 			dp->dtdo_buf[i++] = dip->di_instr;
+
+		if ((dip->di_subr_op == DIF_SUBR_COPYOUT) ||
+		    (dop->di_subr_op == DIF_SUBR_COPYOUTSTR))
+			dp->dtdo_destructive = 1;
 
 		if (dip->di_extern == NULL)
 			continue; /* no external references needed */
 
-		switch (DIF_INSTR_OP(dip->di_instr)) {
-		case DIF_OP_SETX:
-			idp = dip->di_extern;
-			if ((idp->di_flags & kmask) == kbits)
-				krel++;
-			else if ((idp->di_flags & umask) == ubits)
-				urel++;
-			break;
-		case DIF_OP_XLATE:
-		case DIF_OP_XLARG:
-			xlrefs++;
-			break;
-		default:
-			xyerror(D_UNKNOWN, "unexpected assembler relocation "
-			    "for opcode 0x%x\n", DIF_INSTR_OP(dip->di_instr));
-		}
+		/*
+		 * The only external references now present are from SETX.
+		 * If more are needed, add a proper flags word rather than
+		 * bizarre conditionalization on the opcode.
+		 */
+		idp = dip->di_extern;
+		if ((idp->di_flags & kmask) == kbits)
+			krel++;
+		else if ((idp->di_flags & umask) == ubits)
+			urel++;
 	}
 
 	assert(i == dlp->dl_len);
@@ -290,22 +292,22 @@ dt_as(dt_pcb_t *pcb)
 	 * Make a second pass through the instructions, relocating each branch
 	 * label to the index of the final instruction in the buffer and noting
 	 * any other instruction-specific DIFO flags such as dtdo_destructive.
+	 *
+	 * All BPF jumps are relative, and backjumps are prohibited.
 	 */
 	for (i = 0; i < dp->dtdo_len; i++) {
-		dif_instr_t instr = dp->dtdo_buf[i];
-		uint_t op = DIF_INSTR_OP(instr);
+		struct bpf_insn instr = dp->dtdo_buf[i];
 
-		if (op == DIF_OP_CALL) {
-			if (DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUT ||
-			    DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUTSTR)
-				dp->dtdo_destructive = 1;
-			continue;
-		}
-
-		if (op >= DIF_OP_BA && op <= DIF_OP_BLEU) {
-			assert(DIF_INSTR_LABEL(instr) < dlp->dl_label);
-			dp->dtdo_buf[i] = DIF_INSTR_BRANCH(op,
-			    labels[DIF_INSTR_LABEL(instr)]);
+		if (BPF_CLASS(instr.code) == ALU_JMP &&
+		    BPF_SRC(instr.code) == BPF_K) {
+			assert(instr.imm < dlp->dl_label);
+			if (labels[instr.imm] < i) {
+				dt_dprintf("Backjump found from BPF insn %x -> "
+				    "%x\n", i, labels[instr.imm]);
+				longjmp(pcb->pcb_jmpbuf, EDT_MALFORMEDBPF);
+			}
+			instr.imm = labels[instr.imm] - i;
+			dp->dtdo_buf[i] = instr;
 		}
 	}
 
@@ -382,19 +384,11 @@ dt_as(dt_pcb_t *pcb)
 			ssize_t soff;
 			uint_t nodef;
 
-			if (dip->di_label != DT_LBL_NONE &&
-			    dip->di_instr == DIF_INSTR_NOP)
+			if (dip->di_label == DT_LBL_NONE ||
+			    !bpf_is_nop(dip->di_instr))
 				continue; /* skip label declarations */
 
 			i++; /* advance dtdo_buf[] index */
-
-			if (DIF_INSTR_OP(dip->di_instr) == DIF_OP_XLATE ||
-			    DIF_INSTR_OP(dip->di_instr) == DIF_OP_XLARG) {
-				assert(dp->dtdo_buf[i - 1] == dip->di_instr);
-				dt_as_xlate(pcb, dp, i - 1, (uint_t)
-				    (xlp++ - dp->dtdo_xlmtab), dip->di_extern);
-				continue;
-			}
 
 			if ((idp = dip->di_extern) == NULL)
 				continue; /* no relocation entry needed */
@@ -411,7 +405,8 @@ dt_as(dt_pcb_t *pcb)
 			if (!nodef)
 				dt_as_undef(idp, i);
 
-			assert(DIF_INSTR_OP(dip->di_instr) == DIF_OP_SETX);
+			assert((dip->di_instr.code == (BPF_ALU | BPF_MOV | BPF_K)) ||
+			    (dip->di_instr.code == (BPF_LD | BPF_DW | BPF_IMM)));
 			soff = dt_strtab_insert(pcb->pcb_strtab, idp->di_name);
 
 			if (soff == -1L)
@@ -420,9 +415,11 @@ dt_as(dt_pcb_t *pcb)
 				longjmp(pcb->pcb_jmpbuf, EDT_STR2BIG);
 
 			rp->dofr_name = (dof_stridx_t)soff;
-			rp->dofr_type = DOF_RELO_SETX;
-			rp->dofr_offset = DIF_INSTR_INTEGER(dip->di_instr) *
-			    sizeof (uint64_t);
+			if (dip->di_instr.code == (BPF_ALU | BPF_MOV | BPF_K))
+				rp->dofr_type = DOF_RELO_SETX;
+			else
+				rp->dofr_type = DOF_RELO_SETX64;
+			rp->dofr_offset = dip->di_extern_int;
 			rp->dofr_data = 0;
 		}
 
