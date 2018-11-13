@@ -592,7 +592,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 			    "size %lu when passed by value\n", (ulong_t)size);
 		}
 		/* XXX can probably use the off more for array derefs */
-		instr = BPF_LDX_MEM(size, dst->dn_reg, reg, 0);
+		instr = BPF_STX_MEM(size, dst->dn_reg, reg, 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(instr));
 
 		if (dst->dn_flags & DT_NF_BITFIELD)
