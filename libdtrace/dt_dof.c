@@ -87,6 +87,9 @@ dt_dof_reset(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
 	ddo->ddo_xlimport = dt_alloc(dtp, sizeof (dof_secidx_t) * nx);
 	ddo->ddo_xlexport = dt_alloc(dtp, sizeof (dof_secidx_t) * nx);
 
+	/*
+	 * TODO dynamic translators: implement or remove
+	 */
 	if (nx != 0 && (ddo->ddo_xlimport == NULL || ddo->ddo_xlexport == NULL))
 		return (-1); /* errno is set for us */
 
@@ -237,6 +240,8 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 		 * The XLMEMBERS entries are in order by their dn_membid, so
 		 * the member section offset is the population count of bits
 		 * in ddo_pgp->dp_xlrefs[] up to and not including dn_membid.
+		 *
+		 * TODO dynamic translators: implement or remove
 		 */
 		for (xlp = xlt; xlp < xlt + dp->dtdo_xlmlen; xlp++) {
 			dt_node_t *dnp = *pnp++;
@@ -309,6 +314,9 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	return (hdrsec);
 }
 
+/*
+ * TODO dynamic translators: implement or remove
+ */
 static void
 dof_add_translator(dt_dof_t *ddo, const dt_xlator_t *dxp, uint_t type)
 {
@@ -484,6 +492,8 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 	/*
 	 * For each translator referenced by the provider (pv_xrefs), emit an
 	 * exported translator section for it if one hasn't been created yet.
+	 *
+	 * TODO dynamic translators: implement or remove
 	 */
 	for (i = 0; i < pvp->pv_xrmax; i++) {
 		if (BT_TEST(pvp->pv_xrefs, i) &&
@@ -670,6 +680,8 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	/*
 	 * If there are references to dynamic translators in the program, add
 	 * an imported translator table entry for each referenced translator.
+	 *
+	 * TODO dynamic translators: implement or remove
 	 */
 	if (pgp->dp_xrefslen != 0) {
 		for (dxp = dt_list_next(&dtp->dt_xlators);

@@ -561,10 +561,12 @@ dt_opt_xlate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
+	dt_dprintf("xlate: option not implemented: ignored.\n");
+
 	if (strcmp(arg, "dynamic") == 0)
-		dtp->dt_xlatemode = DT_XL_DYNAMIC;
+		;
 	else if (strcmp(arg, "static") == 0)
-		dtp->dt_xlatemode = DT_XL_STATIC;
+		;
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 

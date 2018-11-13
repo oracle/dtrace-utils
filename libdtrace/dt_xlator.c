@@ -19,6 +19,8 @@
  * translator.  We set the member's dn_membexpr to a DT_NODE_XLATOR node that
  * has dn_op set to DT_TOK_XLATE and refers back to the translator itself.  The
  * code generator will then use this as the indicator for dynamic translation.
+ *
+ * TODO dynamic translators, either implement or remove
  */
 /*ARGSUSED*/
 static int
@@ -177,6 +179,8 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	 * If no input parameter is given, we're making a dynamic translator:
 	 * create member nodes for every member of the output type.  Otherwise
 	 * retain the member and allocation node lists presented by the parser.
+	 *
+	 * TODO dynamic translators, either implement or remove
 	 */
 	if (name == NULL) {
 		if (ctf_member_iter(dxp->dx_dst_ctfp, dxp->dx_dst_base,
@@ -355,6 +359,9 @@ dt_xlator_member(dt_xlator_t *dxp, const char *name)
 	return (NULL);
 }
 
+/*
+ * TODO dynamic translators, either implement or remove
+ */
 int
 dt_xlator_dynamic(const dt_xlator_t *dxp)
 {

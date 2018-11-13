@@ -1368,7 +1368,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * If we're using a dynamic translator for args[], then just set dn_reg
 	 * to an invalid reg and return: DIF_OP_XLARG will fetch the arg later.
 	 *
-	 * XXX check this is still true once translators are fixed up
+	 * TODO dynamic translators, either implement or remove.
 	 */
 	if (idp->di_id == DIF_VAR_ARGS) {
 		if ((idp->di_kind == DT_IDENT_XLPTR ||
@@ -1757,9 +1757,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * dynamic case, generate an xlate opcode with a reference to
 		 * the corresponding member, pre-computed for us in dn_members.
 		 *
-		 * XXX underway
+		 * TODO dynamic translators, either implement or remove.
 		 */
 		if (dnp->dn_kind == DT_NODE_XLATOR) {
+			/* NOT IMPLEMENTED. */
 			dt_xlator_t *dxp = dnp->dn_xlator;
 
 			assert(dxp->dx_ident->di_flags & DT_IDFLG_CGREG);
@@ -1769,17 +1770,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			if (dxp->dx_arg == -1) {
-				instr = DIF_INSTR_MOV(
-				    dxp->dx_ident->di_id, dnp->dn_reg);
-				dt_irlist_append(dlp, dt_cg_node_alloc(instr));
-				op = DIF_OP_XLATE;
-			} else
-				op = DIF_OP_XLARG;
-
-			instr = DIF_INSTR_XLATE(op, 0, dnp->dn_reg);
-			dt_irlist_append(dlp, dt_cg_node_alloc(instr));
-
-			dlp->dl_last->di_extern = dnp->dn_xmember;
+				dt_irlist_append(dlp, dt_cg_node_alloc(BPF_NOP));
+				/*
+				 * Significant code removal here: if reviving
+				 * dynamic xlators, see the pre-BPF codebase.
+				 **/
+			}
 			break;
 		}
 

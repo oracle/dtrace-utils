@@ -125,6 +125,8 @@ dt_copystr(const char *s, size_t n, size_t off, dt_pcb_t *pcb)
  * We track the cumulative references to translators and members in the pcb's
  * pcb_asxrefs[] array, a two-dimensional array of bitmaps indexed by the
  * global translator id and then by the corresponding translator member id.
+ *
+ * TODO: dynamic translators, either implement or remove.
  */
 static void
 dt_as_xlate(dt_pcb_t *pcb, dtrace_difo_t *dp,

@@ -124,6 +124,9 @@ dt_provider_destroy(dtrace_hdl_t *dtp, dt_provider_t *pvp)
 	dt_free(dtp, pvp);
 }
 
+/*
+ * TODO dynamic translators: implement or remove
+ */
 int
 dt_provider_xref(dtrace_hdl_t *dtp, dt_provider_t *pvp, id_t id)
 {
