@@ -1104,7 +1104,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		ctf_membinfo_t ctm;
 		dt_xlator_t *dxp = idp->di_data;
 		dt_node_t *mnp, dn, mn;
-		int r1, r2, ret;
+		int r1, ret;
 
 		/*
 		 * Create two fake dt_node_t's representing operator "." and a
@@ -1171,42 +1171,25 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			}
 
 			/*
-			 * If the destination member is at offset 0, store the
-			 * result directly to r1 (the scratch buffer address).
-			 * Otherwise allocate another temporary for the offset
-			 * and add r1 to it before storing the result.
+			 * Store the result to r1, possibly taking the offset
+			 * into account (optimize by not even generating code to
+			 * add the offset if it is zero).
+			 *
+			 * Round the offset down to the nearest byte.  If the
+			 * offset was not aligned on a byte boundary, this
+			 * member is a bit-field and dt_cg_store() will handle
+			 * masking.
 			 */
 			if (ctm.ctm_offset != 0) {
-				if ((r2 = dt_regset_alloc(drp)) == -1)
-					longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-				/*
-				 * Add the member offset rounded down to the
-				 * nearest byte.  If the offset was not aligned
-				 * on a byte boundary, this member is a bit-
-				 * field and dt_cg_store() will handle masking.
-				 *
-				 * XXX this is simply wrong.  Check the size too!
-				 */
-				dt_cg_setx(dlp, r2, ctm.ctm_offset / NBBY);
-				instr = BPF_ALU64_REG(BPF_ADD, r2, r1);
+				instr = BPF_ALU64_IMM(BPF_ADD, r1,
+				    ctm.ctm_offset / NBBY);
 				dt_irlist_append(dlp, dt_cg_node_alloc(instr));
-
-				dt_node_type_propagate(mnp, &dn);
-				dn.dn_right->dn_string = mnp->dn_membname;
-				dn.dn_reg = r2;
-
-				dt_cg_store(mnp, dlp, drp, &dn);
-				dt_regset_free(drp, r2);
-
-			} else {
-				dt_node_type_propagate(mnp, &dn);
-				dn.dn_right->dn_string = mnp->dn_membname;
-				dn.dn_reg = r1;
-
-				dt_cg_store(mnp, dlp, drp, &dn);
 			}
+			dt_node_type_propagate(mnp, &dn);
+			dn.dn_right->dn_string = mnp->dn_membname;
+			dn.dn_reg = r1;
 
+			dt_cg_store(mnp, dlp, drp, &dn);
 			dt_regset_free(drp, mnp->dn_reg);
 		}
 
@@ -1845,22 +1828,15 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 		}
 
-		if (m.ctm_offset != 0) {
-			if ((reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-			/*
-			 * If the offset is not aligned on a byte boundary, it
-			 * is a bit-field member and we will extract the value
-			 * bits below after we generate the appropriate load.
-			 */
-			dt_cg_setx(dlp, reg, m.ctm_offset / NBBY);
-
-			instr = DIF_INSTR_FMT(DIF_OP_ADD,
-			    dnp->dn_left->dn_reg, reg, dnp->dn_left->dn_reg);
-
+		/*
+		 * If the offset is not aligned on a byte boundary, it is a
+		 * bit-field member and we will extract the value bits below
+		 * after we generate the appropriate load.
+		 */
+		if (ctm.ctm_offset != 0) {
+			instr = BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg,
+			    ctm.ctm_offset / NBBY);
 			dt_irlist_append(dlp, dt_cg_node_alloc(instr));
-			dt_regset_free(drp, reg);
 		}
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
@@ -1869,14 +1845,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
 			 * we need the sign bit from dnp and the user bit from
-			 * dnp->dn_left in order to get the proper opcode.
+			 * dnp->dn_left in order to get the proper opcode.  (Or,
+			 * in the BPF world, to fail hard, since userland
+			 * BPF support is not yet designed in DTrace.)
 			 */
 			dnp->dn_flags |=
 			    (dnp->dn_left->dn_flags & DT_NF_USERLAND);
 
-			instr = DIF_INSTR_LOAD(dt_cg_load(dnp,
-			    ctfp, m.ctm_type), dnp->dn_left->dn_reg,
-			    dnp->dn_left->dn_reg);
+			instr = BPF_LDX_MEM(dt_cg_load(dnp, ctfp,
+				m.ctm_type), dnp->dn_left->dn_reg,
+			    dnp->dn_left->dn_reg, 0);
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
