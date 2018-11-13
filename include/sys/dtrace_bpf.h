@@ -9,7 +9,7 @@
 #define	_DTRACE_BPF_OPCODES_H
 
 #include <linux/bpf.h>
-#include <samples/bpf/libbpf.h>
+#include <samples/bpf/bpf_insn.h>
 
 #define BPF_NCLOBBERED	6
 #define BPF_REG_FP	BPF_REG_10
