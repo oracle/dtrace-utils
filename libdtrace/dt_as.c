@@ -161,10 +161,11 @@ dt_as_xlate(dt_pcb_t *pcb, dtrace_difo_t *dp,
 		if (pcb->pcb_asxrefs[dxp->dx_id] == NULL)
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 	}
-
+/*
 	dp->dtdo_buf[i] = DIF_INSTR_XLATE(
 	    DIF_INSTR_OP(dp->dtdo_buf[i]), xi, DIF_INSTR_RD(dp->dtdo_buf[i]));
-
+*/
+	dp->dtdo_buf[i] = {0};
 	BT_SET(pcb->pcb_asxrefs[dxp->dx_id], dnp->dn_membid);
 	dp->dtdo_xlmtab[xi] = dnp;
 }

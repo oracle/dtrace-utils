@@ -1347,7 +1347,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * which case DIF_OP_LD*AA will return zero.  We append an epilogue
 	 * of instructions similar to the following:
 	 *
-	 *XXX revise comment
+	 *XXX revise comment: is any of this actually necessary any more?
 	 *
 	 *	  ld?aa	 id, %r1	! base ld?aa instruction above
 	 *	  tst	 %r1		! start of epilogue
