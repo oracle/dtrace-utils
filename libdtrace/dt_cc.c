@@ -267,7 +267,7 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 
 /*
  * For the first element of an aggregation tuple or for printa(), we create a
- * simple DIF program that simply returns the immediate value that is the ID
+ * simple BPF program that simply returns the immediate value that is the ID
  * of the aggregation itself.  This could be optimized in the future by
  * creating a new in-kernel dtad_kind that just returns an integer.
  */
@@ -280,19 +280,16 @@ dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 	if (dp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-	dp->dtdo_buf = dt_alloc(dtp, sizeof (dif_instr_t) * 2);
-	dp->dtdo_inttab = dt_alloc(dtp, sizeof (uint64_t));
+	dp->dtdo_buf = dt_alloc(dtp, sizeof (struct bpf_insn) * 2);
 
-	if (dp->dtdo_buf == NULL || dp->dtdo_inttab == NULL) {
+	if (dp->dtdo_buf == NULL) {
 		dt_difo_free(dtp, dp);
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 	}
 
-	dp->dtdo_buf[0] = DIF_INSTR_SETX(0, 1); /* setx	DIF_INTEGER[0], %r1 */
-	dp->dtdo_buf[1] = DIF_INSTR_RET(1);	/* ret	%r1 */
+	dp->dtdo_buf[0] = BPF_MOV32_IMM(BPF_REG_R0, id);
+	dp->dtdo_buf[1] = BPF_EXIT_INSN();
 	dp->dtdo_len = 2;
-	dp->dtdo_inttab[0] = id;
-	dp->dtdo_intlen = 1;
 	dp->dtdo_rtype = dt_int_rtype;
 
 	ap->dtad_difo = dp;
@@ -612,19 +609,17 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 	    dnp->dn_ident, 1, DTRACEACT_AGGREGATION, arg1);
 
 	if (arg1 == NULL) {
-		dif_instr_t *dbuf;
 		dtrace_difo_t *dp;
 
-		if ((dbuf = dt_alloc(dtp, sizeof (dif_instr_t))) == NULL ||
-		    (dp = dt_zalloc(dtp, sizeof (dtrace_difo_t))) == NULL) {
-			dt_free(dtp, dbuf);
+		if ((dp = dt_zalloc(dtp, sizeof (dtrace_difo_t))) == NULL ||
+		    (dp->dtdo_buf = dt_alloc(dtp, sizeof (struct bpf_insn) * 2)) == NULL) {
+			dt_free(dtp, dp);
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 		}
 
-		dbuf[0] = DIF_INSTR_RET(DIF_REG_R0); /* ret %r0 */
-
-		dp->dtdo_buf = dbuf;
-		dp->dtdo_len = 1;
+		dp->dtdo_buf[0] = BPF_MOV32_IMM(BPF_REG_R0, 0);
+		dp->dtdo_buf[1] = BPF_EXIT_INSN();
+		dp->dtdo_len = 2;
 		dp->dtdo_rtype = dt_int_rtype;
 
 		ap = dt_stmt_action(dtp, sdp);
