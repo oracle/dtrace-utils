@@ -41,12 +41,12 @@ SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | sed -e
 
 -include libdtrace/$(ARCHINC)/Build
 
-$(libdtrace_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
-	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_errtags.c
+$(libdtrace-build_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
+	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $@
 
 $(libdtrace-build_DIR)dt_names.c: $(HDRPREFIX)/linux/dtrace/dif_defines.h $(libdtrace-build_DIR)/mknames.sh
 	$(call describe-target,MKNAMES,$(libdtrace-build_DIR)dt_names.c)
-	sh $(libdtrace-build_DIR)mknames.sh < $(HDRPREFIX)/linux/dtrace/dif_defines.h | sed -e 's/\\n/\n/g' > $(libdtrace-build_DIR)dt_names.c
+	sh $(libdtrace-build_DIR)mknames.sh < $(HDRPREFIX)/linux/dtrace/dif_defines.h | sed -e 's/\\n/\n/g' > $@
 
 $(libdtrace-build_DIR)%.h $(libdtrace-build_DIR)%.c: $(libdtrace-build_DIR)%.y
 	$(call describe-target,YACC,$(libdtrace-build_DIR)$*.c)
@@ -171,20 +171,17 @@ $(DRTI32_OBJ): $(BUILD_DRTI32_OBJ) $(objdir)/dlibs/.dir.stamp
 
 # Custom substitutions.
 
-$(libdtrace-build_DIR)errno.d: /usr/include/linux/errno.h
+# Though we use errno.h, the sensitive dependency is linux/errno.h,
+# which is deeper in the include chain and supplied by a different package.
+$(libdtrace-build_DIR)errno.d: /usr/include/linux/errno.h $(libdtrace-build_DIR)mkerrno.sh
 	$(call describe-target,AWK,$(libdtrace-build_DIR)errno.d)
 	echo '#include <errno.h>' | $(CC) -x c -E -dD - \
 	| grep '^#define E' | $(libdtrace-build_DIR)mkerrno.sh > $@
 
-$(libdtrace-build_DIR)signal.d: /usr/include/bits/signum.h
-	$(call describe-target,SED,$(libdtrace-build_DIR)signal.d)
-	$(libdtrace-build_DIR)mksignal.sh < /usr/include/bits/signum.h \
-	| sed -e 's/\\n/\n/g' \
-	| sed -e '/inline int SIGCLD/{h;d}' -e '/"1.0" SIGCHLD/{G;}' \
-	| sed -e '/"1.0" SIGCLD/{h;d}' -e '/ = SIGCHLD;/{G;}' \
-	| sed -e '/inline int SIGPOLL/{h;d}' -e '/"1.0" SIGIO/{G;}' \
-	| sed -e '/"1.0" SIGPOLL/{h;d}' -e '/ = SIGIO/{G;}' \
-	| sed -e '/SIGRTMIN/d' -e '/SIGRTMAX/d' > $@
+$(libdtrace-build_DIR)signal.d: /usr/include/signal.h $(libdtrace-build_DIR)mksignal.sh
+	$(call describe-target,AWK,$(libdtrace-build_DIR)signal.d)
+	echo '#include <signal.h>' | $(CC) -x c -E -dD - \
+	| grep '^#define SIG' | $(libdtrace-build_DIR)mksignal.sh > $@
 
 $(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)$(ARCHINC)/regs.d
 	cp $< $@
