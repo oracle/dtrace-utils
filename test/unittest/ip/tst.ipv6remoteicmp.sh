@@ -19,6 +19,9 @@
 #
 # @@tags: unstable
 
+# possible paths for ping6
+export PATH=/bin:/usr/bin:/sbin:/usr/sbin:$PATH
+
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
 	exit 2
@@ -43,7 +46,7 @@ fi
 
 nolinkdest="$(printf "%s" "$dest" | sed 's,%.*,,')"
 
-$dtrace $dt_flags -c "/bin/ping6 -c 6 $dest" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "ping6 -c 6 $dest" -qs /dev/stdin <<EOF | \
     awk '/ip:::/ { print $0 }' | sort -n
 /* 
  * We use a size match to include only things that are big enough to

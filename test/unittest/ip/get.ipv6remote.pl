@@ -21,6 +21,9 @@ use IO::Socket;
 
 my $TIMEOUT = 3;			# connection timeout
 
+# possible paths for ping6
+$ENV{'PATH'} = "/bin:/usr/bin:/sbin:/usr/sbin:$ENV{'PATH'}";
+
 #
 # Determine local IP address
 #
@@ -53,7 +56,7 @@ die "Could not determine local IPv6 address" if $local eq "";
 # Find the first remote host that responds to an icmp echo,
 # which isn't a local address.
 #
-open PING, "/bin/ping6 -n -s 56 -w $TIMEOUT $remote 2>/dev/null |" or
+open PING, "ping6 -n -s 56 -w $TIMEOUT $remote 2>/dev/null |" or
     die "Couldn't run ping: $!\n";
 while (<PING>) {
 	if (/bytes from (.*): /) {

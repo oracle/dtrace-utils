@@ -17,6 +17,9 @@
 # 2. Unrelated ICMPv6 on lo traced by accident.
 #
 
+# possible paths for ping6
+export PATH=/bin:/usr/bin:/sbin:/usr/sbin:$PATH
+
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
 	exit 2
@@ -25,7 +28,7 @@ fi
 dtrace=$1
 local=::1
 
-$dtrace $dt_flags -c "/bin/ping6 -q $local -c 3" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "ping6 -q $local -c 3" -qs /dev/stdin <<EOF | \
     awk '/ip::/ { print $0 }' | sort -n
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" &&
