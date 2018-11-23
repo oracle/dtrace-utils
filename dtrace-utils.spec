@@ -55,14 +55,14 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum libpcap
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
-BuildRequires: glibc-headers bison flex zlib-devel %{glibc32}
+BuildRequires: glibc-headers bison flex zlib-devel %{glibc32} libpcap-devel
 %if %{!?local_build:1}0
-BuildRequires: dtrace-kernel-headers = 1.1.0
+BuildRequires: dtrace-kernel-headers = 1.2.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.1.0
+Version:      1.2.0
 Release:      0.1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -129,6 +129,7 @@ Requires:     %{glibc32} dtrace-headers > 0.6.0 module-init-tools
 Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel %{perl_io_socket_ip} xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
+Requires:     wireshark
 Autoreq:      0
 Group:	      Development/System
 

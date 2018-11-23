@@ -38,6 +38,7 @@ extern "C" {
 #include <dt_decl.h>
 #include <dt_as.h>
 #include <dt_proc.h>
+#include <dt_pcap.h>
 #include <dt_dof.h>
 #include <dt_pcb.h>
 #include <dt_debug.h>
@@ -325,6 +326,8 @@ struct dtrace_hdl {
 	struct utsname dt_uts;	/* uname(2) information for system */
 	dt_list_t dt_lib_dep;	/* scratch linked-list of lib dependencies */
 	dt_list_t dt_lib_dep_sorted;	/* dependency sorted library list */
+	dt_global_pcap_t dt_pcap; /* global tshark/pcap state */
+	char *dt_freopen_filename; /* filename for freopen() action */
 };
 
 /*
@@ -443,6 +446,7 @@ struct dtrace_hdl {
 #define	DT_ACT_UMOD		DT_ACT(26)	/* umod() action */
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
+#define	DT_ACT_PCAP		DT_ACT(29)	/* pcap() action */
 
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not
@@ -532,7 +536,8 @@ enum {
 	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
 	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
 	EDT_OBJIO,		/* cannot read object file or module name mapping */
-	EDT_TRACEMEM		/* missing or corrupt tracemem() record */
+	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
+	EDT_PCAP		/* missing or corrupt pcap() record */
 };
 
 /*

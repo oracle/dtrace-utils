@@ -111,6 +111,7 @@ Runtime:
 - elfutils
 - zlib
 - cpp
+- libpcap
 
 Build:
 
@@ -122,6 +123,7 @@ Build:
 - glibc-headers
 - glibc-devel (x86-32) (x86 only)
 - zlib-devel
+- libpcap-devel
 
 Package names may vary across various Linux distributions.
 For Oracle Linux / UEK, please check [dtrace-utils.spec](dtrace-utils.spec).

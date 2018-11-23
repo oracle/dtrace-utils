@@ -79,6 +79,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <port.h>
+#include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_provider.h>
 #include <dt_printf.h>
@@ -914,6 +915,54 @@ dt_action_panic(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 }
 
 static void
+dt_action_pcap(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
+{
+	dtrace_actdesc_t *ap;
+	dt_node_t *addr = dnp->dn_args;
+	dt_node_t *anp, *proto;
+	char n[DT_TYPE_NAMELEN];
+	int argc = 0;
+
+	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
+		argc++;
+
+	if (argc != 2) {
+		dnerror(dnp, D_PCAP_PROTO,
+			"%s( ) prototype mismatch: %d args passed, 2 expected\n",
+			dnp->dn_ident->di_name, argc);
+	}
+
+	if (dt_node_is_integer(addr) == 0 && dt_node_is_pointer(addr) == 0) {
+		dnerror(addr, D_PCAP_ADDR,
+			"pcap( ) argument #1 is incompatible with "
+			"prototype:\n\tprototype: pointer or integer\n"
+			"\t argument: %s\n",
+			dt_node_type_name(addr, n, sizeof (n)));
+	}
+
+	proto = addr->dn_list;
+
+	ap = dt_stmt_action(dtp, sdp);
+	dt_cg(yypcb, addr);
+	ap->dtad_difo = dt_as(yypcb);
+	ap->dtad_kind = DTRACEACT_PCAP;
+	ap->dtad_difo->dtdo_rtype.dtdt_flags |= DIF_TF_BYREF;
+
+	/*
+	 * Enough space for 64-bit timestamp, len and pkt data.
+	 */
+
+	ap->dtad_difo->dtdo_rtype.dtdt_size = (2 * sizeof (uint64_t)) +
+	    DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
+	ap->dtad_arg = 0;
+
+	ap = dt_stmt_action(dtp, sdp);
+	dt_cg(yypcb, proto);
+	ap->dtad_difo = dt_as(yypcb);
+	ap->dtad_kind = DTRACEACT_PCAP;
+}
+
+static void
 dt_action_chill(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
@@ -1013,6 +1062,9 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		break;
 	case DT_ACT_PANIC:
 		dt_action_panic(dtp, dnp->dn_expr, sdp);
+		break;
+	case DT_ACT_PCAP:
+		dt_action_pcap(dtp, dnp->dn_expr, sdp);
 		break;
 	case DT_ACT_PRINTA:
 		dt_action_printa(dtp, dnp->dn_expr, sdp);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1548,7 +1548,7 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
     uint_t nrecs, const void *buf, size_t len)
 {
-	char selfbuf[40], restorebuf[40], *filename;
+	char selfbuf[40], restorebuf[40];
 	FILE *nfp;
 	int rval, errval;
 	dt_pfargv_t *pfv = fmtdata;
@@ -1581,9 +1581,12 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 
 		(void) snprintf(restorebuf, sizeof (restorebuf),
 		    "/dev/fd/%d", dtp->dt_stdout_fd);
-		filename = restorebuf;
+		free(dtp->dt_freopen_filename);
+		dtp->dt_freopen_filename = strndup(restorebuf,
+						   sizeof(restorebuf));
 	} else {
-		filename = dtp->dt_sprintf_buf;
+		free(dtp->dt_freopen_filename);
+		dtp->dt_freopen_filename = strdup(dtp->dt_sprintf_buf);
 	}
 
 	/*
@@ -1602,18 +1605,16 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	 * file descriptor for the fopen()'d file.  This way, if the fopen()
 	 * fails, we can fail the operation without destroying stdout.
 	 */
-	if ((nfp = fopen(filename, "aF")) == NULL) {
-		char *msg = strerror(errno), *faultstr;
-		int len = 80;
+	if ((nfp = fopen(dtp->dt_freopen_filename, "ace")) == NULL) {
+		char *faultstr;
 
-		len += strlen(msg) + strlen(filename);
-		faultstr = alloca(len);
-
-		(void) snprintf(faultstr, len, "couldn't freopen() \"%s\": %s",
-		    filename, strerror(errno));
+		(void) asprintf(&faultstr, "couldn't freopen() \"%s\": %s",
+				dtp->dt_freopen_filename, strerror(errno));
 
 		if ((errval = dt_handle_liberr(dtp, data, faultstr)) == 0)
 			return (rval);
+
+		free(faultstr);
 
 		return (errval);
 	}

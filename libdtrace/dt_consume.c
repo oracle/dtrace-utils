@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <alloca.h>
 #include <dt_impl.h>
+#include <dt_pcap.h>
 #include <libproc.h>
 #include <port.h>
 
@@ -1385,6 +1386,55 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	return (0);
 }
 
+int
+dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
+	      const caddr_t buf)
+{
+	caddr_t	paddr, addr;
+	const dtrace_recdesc_t *prec;
+	uint64_t time, proto, pktlen, maxlen;
+	char *filename;
+
+	addr = (caddr_t)buf + rec->dtrd_offset;
+
+	if (dt_variable_read(addr, sizeof (uint64_t), &time) < 0 ||
+	    dt_variable_read(addr + sizeof (uint64_t), sizeof (uint64_t),
+	    &pktlen) < 0)
+		return (dt_set_errno(dtp, EDT_PCAP));
+
+	if (pktlen == 0) {
+		/*
+		 * skb must have been NULL, skip without capturing.
+		 */
+		return (0);
+	}
+	maxlen = DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
+
+	prec = rec + 1;
+
+	paddr = (caddr_t)buf + prec->dtrd_offset;
+
+	if (dt_variable_read(paddr, prec->dtrd_size, &proto) < 0)
+		return (dt_set_errno(dtp, EDT_PCAP));
+
+	/*
+	 * Dump pcap data to dump file if handler command/output file is
+	 * specified or if we have been able to connect a pipe to tshark,
+	 * otherwise print tracemem-like output.
+	 */
+	filename = dt_pcap_filename(dtp, fp);
+	if (filename != NULL) {
+		dt_pcap_dump(dtp, filename, proto, time,
+			     addr + (2 * sizeof (uint64_t)), (uint32_t)pktlen,
+			     (uint32_t)maxlen);
+	} else {
+		if (dt_print_rawbytes(dtp, fp, addr + (2 * sizeof(uint64_t)),
+		    pktlen > maxlen ? maxlen : pktlen) < 0)
+			return (-1);
+	}
+	return (0);
+}
+
 typedef struct dt_normal {
 	dtrace_aggvarid_t dtnd_id;
 	uint64_t dtnd_normal;
@@ -2144,6 +2194,17 @@ nofmt:
 					return (-1); /* errno is set for us */
 
 				i += n - 1;
+				goto nextrec;
+			}
+
+			if (act == DTRACEACT_PCAP) {
+				n = dt_print_pcap(dtp, fp, rec,
+						  buf->dtbd_data + offs);
+
+				if (n < 0)
+					return (-1); /* errno is set for us */
+
+				i += n + 1;
 				goto nextrec;
 			}
 

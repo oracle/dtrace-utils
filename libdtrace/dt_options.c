@@ -20,6 +20,7 @@
 #include <ctype.h>
 
 #include <dt_impl.h>
+#include <dt_pcap.h>
 #include <dt_string.h>
 #include <libproc.h>
 
@@ -737,6 +738,26 @@ dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 static int
+dt_opt_pcapsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t val = DT_PCAP_DEF_PKTSIZE;
+	int rval;
+
+	if (arg != NULL) {
+		if ((rval = dt_opt_size(dtp, arg, option)) != 0)
+			return (rval);
+
+		val = dtp->dt_options[option];
+
+		if (val <= 0 || val > 65535)
+			val = DT_PCAP_DEF_PKTSIZE;
+	}
+	dtp->dt_options[option] = P2ROUNDUP(val, 8);
+
+	return (0);
+}
+
+static int
 dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	char *end;
@@ -1067,6 +1088,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "jstackframes", dt_opt_runtime, DTRACEOPT_JSTACKFRAMES },
 	{ "jstackstrsize", dt_opt_size, DTRACEOPT_JSTACKSTRSIZE },
 	{ "nspec", dt_opt_runtime, DTRACEOPT_NSPEC },
+	{ "pcapsize", dt_opt_pcapsize, DTRACEOPT_PCAPSIZE },
 	{ "specsize", dt_opt_size, DTRACEOPT_SPECSIZE },
 	{ "stackframes", dt_opt_runtime, DTRACEOPT_STACKFRAMES },
 	{ "statusrate", dt_opt_rate, DTRACEOPT_STATUSRATE },

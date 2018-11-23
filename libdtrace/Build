@@ -14,10 +14,10 @@ libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_buf.c dt_cc.c \
                           dt_handle.c dt_ident.c dt_inttab.c dt_link.c \
                           dt_kernel_module.c dt_list.c dt_map.c dt_module.c \
                           dt_names.c dt_open.c dt_options.c dt_parser.c \
-                          dt_pcb.c dt_pid.c dt_pragma.c dt_printf.c dt_proc.c \
-                          dt_program.c dt_provider.c dt_regset.c dt_string.c \
-                          dt_strtab.c dt_subr.c dt_symtab.c dt_work.c \
-                          dt_xlator.c
+                          dt_pcap.c dt_pcb.c dt_pid.c dt_pragma.c dt_printf.c \
+                          dt_proc.c dt_program.c dt_provider.c dt_regset.c \
+                          dt_string.c dt_strtab.c dt_subr.c dt_symtab.c \
+                          dt_work.c dt_xlator.c
 
 libdtrace-build_SRCDEPS := dt_grammar.h
 
@@ -27,7 +27,7 @@ SHLIBS += libdtrace
 
 libdtrace_DIR := $(current-dir)
 libdtrace_TARGET = libdtrace
-libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpthread -ldl -lm
+libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm
 libdtrace_VERSION := 1.0.0
 libdtrace_SONAME := libdtrace.so.1
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
@@ -72,6 +72,7 @@ WORKING_DLIBS = errno.d \
                 ip.d \
                 lockstat.d \
                 net.d \
+                pcap.d \
                 procfs.d \
                 regs.d \
                 sched.d \

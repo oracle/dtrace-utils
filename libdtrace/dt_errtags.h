@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -227,7 +227,10 @@ typedef enum {
 	D_LLQUANT_MATCHFACTOR,		/* llquantize() mismatch on factor */
 	D_LLQUANT_MATCHLMAG,		/* llquantize() mismatch on lmag */
 	D_LLQUANT_MATCHHMAG,		/* llquantize() mismatch on hmag */
-	D_LLQUANT_MATCHSTEPS		/* llquantize() mismatch on steps */
+	D_LLQUANT_MATCHSTEPS,		/* llquantize() mismatch on steps */
+	D_PCAP_ADDR,			/* pcap() address bad type */
+	D_PCAP_PROTO,			/* pcap() prototype mismatch */
+	D_PCAP_SIZE			/* pcap() bad size */
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

@@ -28,6 +28,7 @@
 #include <libproc.h>
 
 #include <dt_impl.h>
+#include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_module.h>
 #include <dt_kernel_module.h>
@@ -286,6 +287,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_VERS_1_0, &dt_idops_func, "void(...)" },
 { "panic", DT_IDENT_ACTFUNC, 0, DT_ACT_PANIC, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
+{ "pcap", DT_IDENT_ACTFUNC, 0, DT_ACT_PCAP, DT_ATTR_STABCMN, DT_VERS_1_6_4,
+	&dt_idops_func, "void(void *, int)" },
 { "pid", DT_IDENT_SCALAR, 0, DIF_VAR_PID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
 { "ppid", DT_IDENT_SCALAR, 0, DIF_VAR_PPID, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -1337,6 +1340,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	while ((pvp = dt_list_next(&dtp->dt_provlist)) != NULL)
 		dt_provider_destroy(dtp, pvp);
 
+	dt_pcap_destroy(dtp);
+
 	if (dtp->dt_fd != -1)
 		(void) close(dtp->dt_fd);
 	if (dtp->dt_ftfd != -1)
@@ -1372,6 +1377,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_ld_path);
 	free(dtp->dt_sysslice);
 
+	free(dtp->dt_freopen_filename);
 	free(dtp->dt_sprintf_buf);
 	pthread_mutex_destroy(&dtp->dt_sprintf_lock);
 
