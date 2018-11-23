@@ -113,9 +113,9 @@ define_for_kernel([[__pidtype_sid]], [[ m4_dnl
 
 inline	int PIDTYPE_PID = 0;
 #pragma D binding "1.0" PIDTYPE_PID
-/* 4.19 and above only. */
+expand_for_kernel([[ (m4_kver(4,19,0), [[ m4_dnl
 inline	int PIDTYPE_TGID = 1;
-#pragma D binding "1.0" PIDTYPE_TGID
+#pragma D binding "1.0" PIDTYPE_TGID]])]])
 inline	int PIDTYPE_PGID = __pidtype_pgid;
 #pragma D binding "1.0" PIDTYPE_PGID
 inline	int PIDTYPE_SID = __pidtype_sid;

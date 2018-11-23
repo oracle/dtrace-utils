@@ -49,3 +49,11 @@ m4_define([[__define_for_kernel]], [[ m4_dnl
 ]]) m4_dnl
 
 m4_define([[define_for_kernel]], [[m4_divert(-1) __define_for_kernel($@) m4_divert(0)]])m4_dnl
+
+/*
+ * expand_for_kernel([[(kver, value), (kver, value), ...]], [[default]])
+ *
+ * As define_for_kernel, but simply substitutes the result into the output
+ * rather than defining a macro.
+ */
+m4_define([[expand_for_kernel]], [[define_for_kernel(__foo, $@)__foo]])m4_dnl
