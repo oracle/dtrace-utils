@@ -35,9 +35,9 @@ m4_define([[__process_element]], m4_dnl
 	[[m4_ifelse(m4_eval(SUBST_KERNEL[[ >= $1]]), 1, m4_dnl
 		[[m4_define([[__found]], [[$2]])]])]]) m4_dnl
 
-m4_define([[__cat]], [[$1$2]])
+m4_define([[__cat]], [[$1$2]]) m4_dnl
 
-m4_define([[define_for_kernel]], [[ m4_dnl
+m4_define([[__define_for_kernel]], [[ m4_dnl
 	m4_pushdef([[__found]], nil) m4_dnl
 	m4_foreachq(kernel, m4_quote($2), [[ m4_dnl
 		__cat([[__process_element]], kernel) m4_dnl
@@ -47,3 +47,5 @@ m4_define([[define_for_kernel]], [[ m4_dnl
 		[[m4_define(m4_quote($1), __found)]]) m4_dnl
 	m4_popdef([[__found]]) m4_dnl
 ]]) m4_dnl
+
+m4_define([[define_for_kernel]], [[m4_divert(-1) __define_for_kernel($@) m4_divert(0)]])m4_dnl

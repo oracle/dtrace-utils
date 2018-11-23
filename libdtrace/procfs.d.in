@@ -105,11 +105,11 @@ inline char PR_MODEL_LP64 = 2;
 
 m4_dnl 4.19 and above introduce PIDTYPE_TGID, throwing later values off.
 define_for_kernel([[__pidtype_pgid]], [[ m4_dnl
-	(m4_kver(4, 19, 0), 2)]], 1)
+	(m4_kver(4, 19, 0), 2)]], 1) m4_dnl
 
 m4_dnl 4.19 and above introduce PIDTYPE_TGID, throwing later values off.
 define_for_kernel([[__pidtype_sid]], [[ m4_dnl
-	(m4_kver(4, 19, 0), 3)]], 2)
+	(m4_kver(4, 19, 0), 3)]], 2) m4_dnl
 
 inline	int PIDTYPE_PID = 0;
 #pragma D binding "1.0" PIDTYPE_PID
