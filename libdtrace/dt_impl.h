@@ -12,6 +12,7 @@
 #include <setjmp.h>
 #include <sys/ctf_api.h>
 #include <dtrace.h>
+#include <pthread.h>
 
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
@@ -313,6 +314,7 @@ struct dtrace_hdl {
 	hrtime_t dt_lastagg;	/* last snapshot of aggregation data */
 	char *dt_sprintf_buf;	/* buffer for dtrace_sprintf() */
 	int dt_sprintf_buflen;	/* length of dtrace_sprintf() buffer */
+	pthread_mutex_t dt_sprintf_lock; /* lock for dtrace_sprintf() buffer */
 	const char *dt_filetag;	/* default filetag for dt_set_errmsg() */
 	char *dt_buffered_buf;	/* buffer for buffered output */
 	size_t dt_buffered_offs; /* current offset into buffered buffer */

@@ -531,6 +531,7 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 
 		assert(dtp->dt_sprintf_buf != NULL);
 
+		pthread_mutex_lock(&dtp->dt_sprintf_lock);
 		buf = &dtp->dt_sprintf_buf[len = strlen(dtp->dt_sprintf_buf)];
 		len = dtp->dt_sprintf_buflen - len;
 		assert(len >= 0);
@@ -539,12 +540,13 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		if ((n = vsnprintf(buf, len, format, ap)) < 0)
 			n = dt_set_errno(dtp, errno);
 		va_end(ap);
+		pthread_mutex_unlock(&dtp->dt_sprintf_lock);
 
 		return (n);
 	}
 
 	if (fp == NULL) {
-		int needed, rval;
+		int needed, rval = 0;
 		size_t avail;
 
 		/*
@@ -554,13 +556,17 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		if (dtp->dt_bufhdlr == NULL)
 			return (dt_set_errno(dtp, EDT_NOBUFFERED));
 
+		pthread_mutex_lock(&dtp->dt_sprintf_lock);
+
 		if (dtp->dt_buffered_buf == NULL) {
 			assert(dtp->dt_buffered_size == 0);
 			dtp->dt_buffered_size = 1;
 			dtp->dt_buffered_buf = malloc(dtp->dt_buffered_size);
 
-			if (dtp->dt_buffered_buf == NULL)
-				return (dt_set_errno(dtp, EDT_NOMEM));
+			if (dtp->dt_buffered_buf == NULL) {
+				rval = dt_set_errno(dtp, EDT_NOMEM);
+				goto unlock_out;
+			}
 
 			dtp->dt_buffered_offs = 0;
 			dtp->dt_buffered_buf[0] = '\0';
@@ -570,12 +576,12 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		if ((needed = vsnprintf(NULL, 0, format, ap)) < 0) {
 			rval = dt_set_errno(dtp, errno);
 			va_end(ap);
-			return (rval);
+			goto unlock_out;
 		}
 
 		va_end(ap);
 		if (needed == 0)
-			return (0);
+			goto unlock_out;
 
 		for (;;) {
 			char *newbuf;
@@ -589,7 +595,8 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 			if ((newbuf = realloc(dtp->dt_buffered_buf,
 			    dtp->dt_buffered_size << 1)) == NULL) {
 				va_end(ap);
-				return (dt_set_errno(dtp, EDT_NOMEM));
+				rval = dt_set_errno(dtp, EDT_NOMEM);
+				goto unlock_out;
 			}
 
 			dtp->dt_buffered_buf = newbuf;
@@ -601,14 +608,16 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		    avail, format, ap) < 0) {
 			rval = dt_set_errno(dtp, errno);
 			va_end(ap);
-			return (rval);
+			goto unlock_out;
 		}
 		va_end(ap);
 
 		dtp->dt_buffered_offs += needed;
 		assert(dtp->dt_buffered_buf[dtp->dt_buffered_offs] == '\0');
 
-		return (0);
+	unlock_out:
+		pthread_mutex_unlock(&dtp->dt_sprintf_lock);
+		return (rval);
 	}
 
 	va_start(ap, format);
@@ -639,11 +648,14 @@ dt_buffered_flush(dtrace_hdl_t *dtp, dtrace_probedata_t *pdata,
 	data.dtbda_aggdata = agg;
 	data.dtbda_flags = flags;
 
+	pthread_mutex_lock(&dtp->dt_sprintf_lock);
+
 	if ((*dtp->dt_bufhdlr)(&data, dtp->dt_bufarg) == DTRACE_HANDLE_ABORT)
 		return (dt_set_errno(dtp, EDT_DIRABORT));
 
 	dtp->dt_buffered_offs = 0;
 	dtp->dt_buffered_buf[0] = '\0';
+	pthread_mutex_unlock(&dtp->dt_sprintf_lock);
 
 	return (0);
 }

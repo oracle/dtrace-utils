@@ -903,6 +903,7 @@ alloc:
 	dtp->dt_useruid = DTRACE_USER_UID;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;
+	(void) pthread_mutex_init(&dtp->dt_sprintf_lock, NULL);
 	dt_dof_init(dtp);
 	(void) uname(&dtp->dt_uts);
 
@@ -1372,6 +1373,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_sysslice);
 
 	free(dtp->dt_sprintf_buf);
+	pthread_mutex_destroy(&dtp->dt_sprintf_lock);
 
 	elf_end(dtp->dt_ctf_elf);
 	free(dtp->dt_mods);
