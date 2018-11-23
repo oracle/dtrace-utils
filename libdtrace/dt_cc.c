@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -72,6 +72,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 #include <errno.h>
 #include <ucontext.h>
 #include <limits.h>
@@ -1864,7 +1865,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	 */
 	(void) sigemptyset(&mask);
 	(void) sigaddset(&mask, SIGCHLD);
-	(void) sigprocmask(SIG_BLOCK, &mask, &omask);
+	(void) pthread_sigmask(SIG_BLOCK, &mask, &omask);
 
 	bzero(&act, sizeof (act));
 	act.sa_handler = SIG_DFL;
@@ -1873,7 +1874,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	if (pipe_needed) {
 		if ((catpid = fork()) == -1) {
 			(void) sigaction(SIGCHLD, &oact, NULL);
-			(void) sigprocmask(SIG_SETMASK, &omask, NULL);
+			(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
 			(void) dt_set_errno(dtp, EDT_CPPFORK);
 			goto err;
 		}
@@ -1898,7 +1899,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 
 	if ((pid = fork()) == -1) {
 		(void) sigaction(SIGCHLD, &oact, NULL);
-		(void) sigprocmask(SIG_SETMASK, &omask, NULL);
+		(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
 		(void) dt_set_errno(dtp, EDT_CPPFORK);
 		goto err;
 	}
@@ -1929,7 +1930,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 
 	(void) sigaction(SIGCHLD, &oact, NULL);
-	(void) sigprocmask(SIG_SETMASK, &omask, NULL);
+	(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
 
 	dt_dprintf("%s returned exit status %i\n", dtp->dt_cpp_path, wstat);
 	estat = WIFEXITED(wstat) ? WEXITSTATUS(wstat) : -1;
