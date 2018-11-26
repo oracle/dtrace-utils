@@ -7,7 +7,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <pcap.h>
+#include <poll.h>
 #include <port.h>
 #include <pthread.h>
 #include <signal.h>
@@ -122,6 +124,7 @@ dt_pcap_print(void *d)
 	}
 	free(line);
 	fclose(inpipe);
+	dtp->dt_pcap.dt_pcap_pid = -1;
 	return (NULL);
 }
 
@@ -145,6 +148,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	pid_t	pid;
 	int	pipe_in[2];
 	int	pipe_out[2];
+	int	pipe_err[2];
 
 	if (dtp->dt_freopen_filename != NULL &&
 	    strcmp(dtp->dt_freopen_filename, DT_FREOPEN_RESTORE) != 0)
@@ -180,11 +184,11 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	if (pipe(pipe_in) < 0)
 		return (NULL);
 
-	if (pipe(pipe_out) < 0) {
-		close(pipe_in[0]);
-		close(pipe_in[1]);
-		return (NULL);
-	}
+	if (pipe(pipe_out) < 0)
+		goto fail_pipe_in;
+
+	if (pipe(pipe_err) < 0)
+		goto fail_pipe_out;
 
 	/*
 	 * Finally we invoke tshark to use the pipe as input; the "-i -"
@@ -196,15 +200,32 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	 * probably die much later.  Applications intercepting SIGCHLD will
 	 * simply have to live with SIGCHLDs from tshark.  (Anyone intercepting
 	 * SIGCHLD is probably used to SIGCHLDs from all sorts of things.)
+	 *
+	 * Sanitize the environment: we are forced to point HOME somewhere
+	 * readable so that wireshark can look for various config files which it
+	 * won't find, so point it at /run/initramfs, which will always be
+	 * present and almost certainly does not contain any files that may be
+	 * confused with startup files.
+	 *
+	 * Forcibly switch uid to (uid_t) -3 to try to get out from all
+	 * privilege, since tshark is a nest of security vulnerabilities.  (We
+	 * use -3 because -1 is nobody, which can have files "owned" by it on
+	 * NFS clients, and avoid -2 because other people have thought of this
+	 * as well (indeed, on some systems nobody has uid -2).  (TODO: unshare
+	 * network namespaces too: figure out something to do in user
+	 * namespaces, where setgid() and setuid() to random uids and gids will
+	 * fail.  Switch gid to "wireshark" if possible, since otherwise it may
+	 * not be able to run dumpcap: TODO this needs customization for other
+	 * distros.
+	 *
+	 * We synchronize with tshark by waiting for something to emerge on
+	 * stderr (since tshark emits at least one line on stderr even when it
+	 * starts normally), then waitpid()ing for it: if it died, we know we
+	 * should fall back to tracemem().
 	 */
 	pid = fork();
 	switch (pid) {
-	case 0:
-		/*
-		 * No need for stderr from tshark.
-		 */
-		close(2);
-
+	case 0: {
 		/*
 		 * Set up our pipes.
 		 */
@@ -222,49 +243,131 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			close(pipe_out[1]);
 		}
 
+		/*
+		 * No need for a stderr pipe from tshark, but we need it before
+		 * tshark starts, or if it fails to start, for synchronization.
+		 */
+		close(pipe_err[0]);
+		if (pipe_err[1] != STDERR_FILENO) {
+			if(dup2(pipe_err[1], STDERR_FILENO) < 0)
+				exit(1);
+			close(pipe_err[1]);
+		}
+		fcntl(STDERR_FILENO, F_SETFD, FD_CLOEXEC);
+
+		/*
+		 * Remove privilege, if needed.
+		 */
+		if (getuid() == 0) {
+			struct group wsg;
+			struct group *dummy;
+			char groups[1024];
+			gid_t wireshark_group = (gid_t) -3;
+
+			if (getgrnam_r("wireshark", &wsg, groups, 1024, &dummy) >= 0) {
+				wireshark_group = wsg.gr_gid;
+			}
+
+			if (chdir("/") < 0)
+				goto nopriv_die;
+			if (setgid((gid_t) -3) < 0)
+				goto nopriv_die;
+			if (setgroups(1, &wireshark_group) < 0)
+				goto nopriv_die;
+			if (setuid((uid_t) -3) < 0)
+				goto nopriv_die;
+		}
+
+		/*
+		 * Sanitize the environment.
+		 */
+		clearenv();
+		putenv("PATH=/usr/sbin:/usr/bin:/sbin:/bin");
+		putenv("HOME=/run/initramfs");
+		putenv("SHELL=/bin/sh");
+		putenv("USER=nobody");
+
+
 		execlp("tshark", "tshark", "-l", "-i", "-", NULL);
+	nopriv_die:
+		fprintf(stderr, "Cannot drop privileges or exec tshark: %s\n",
+		    strerror(errno));
 		exit(1);
+	}
 	case -1:
 		/* fork failed; clean up. */
-		close(pipe_in[0]);
-		close(pipe_in[1]);
-		close(pipe_out[0]);
-		close(pipe_out[1]);
-		break;
+		goto fail_pipe_err;
 	default: {
+		struct pollfd err;
 		/*
-		 * In parent; record pid and the appropriate ends of the pipe
-		 * fds, and return an empty string to signify that a pipe is in
-		 * use.  Kick off a pthread to printf() the output from the
-		 * tshark.
+		 * In parent.  Synchronize with the stderr pipe to ensure the
+		 * process has started or died (and waitpid for it and give up
+		 * if it died), then record pid and the appropriate ends
+		 * of the pipe fds, kick off a pthread to printf() the output
+		 * from the tshark, and return an empty string to signify that a
+		 * pipe is in use.
 		 */
 		close(pipe_in[0]);
 		close(pipe_out[1]);
+		close(pipe_err[1]);
+
+		dt_dprintf("Waiting for tshark startup.\n");
+		err.fd = pipe_err[0];
+		err.events = POLLIN;
+		err.revents = 0;
+
+		while (errno = EINTR,
+		    poll(&err, 1, -1) <= 0 && errno == EINTR)
+			continue;
+
+		/*
+		 * Output on the stderr pipe means failure.
+		 */
+		if (err.revents & POLLIN) {
+			char err[1024];
+
+			read(pipe_err[0], err, 1023);
+			dt_dprintf("%s", err);
+			close(pipe_err[0]);
+
+			goto fail_pipe_close_wait;
+		}
+		close(pipe_err[0]);
+
 		dtp->dt_pcap.dt_pcap_pipe[0] = pipe_out[0];
 		dtp->dt_pcap.dt_pcap_pipe[1] = pipe_in[1];
 		dtp->dt_pcap.dt_pcap_pid = pid;
 		dtp->dt_pcap.dt_pcap_out_fp = fp;
 
 		if (pthread_create(&dtp->dt_pcap.dt_pcap_output, NULL,
-			dt_pcap_print, dtp) < 0) {
-			/*
-			 * No printing thread creatable.  Close the pipes and
-			 * give up.  (tshark will terminate immediately.)
-			 */
-			close(pipe_in[0]);
-			close(pipe_in[1]);
-			close(pipe_out[0]);
-			close(pipe_out[1]);
-
-			waitpid(dtp->dt_pcap.dt_pcap_pid, NULL, 0);
-			dtp->dt_pcap.dt_pcap_pid = 0;
-			return (NULL);
-		}
+			dt_pcap_print, dtp) < 0)
+			goto fail_pipe_close_wait;
 
 		return ("");
+
+		fail_pipe_close_wait:
+			/*
+			 * tshark failed to start or we can't create its
+			 * printing thread.  Close the pipes and give up.
+			 * (tshark will terminate immediately.)
+			 */
+			close(pipe_in[1]);
+			close(pipe_out[0]);
+			waitpid(pid, NULL, 0);
+			dtp->dt_pcap.dt_pcap_pid = -1;
+			return (NULL);
 	}
 	}
 
+fail_pipe_err:
+	close(pipe_err[0]);
+	close(pipe_err[1]);
+fail_pipe_out:
+	close(pipe_out[0]);
+	close(pipe_out[1]);
+fail_pipe_in:
+	close(pipe_in[0]);
+	close(pipe_in[1]);
 	return (NULL);
 }
 
