@@ -58,6 +58,7 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum libpcap
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32} libpcap-devel
+BuildRequires: wireshark
 %if %{!?local_build:1}0
 BuildRequires: dtrace-kernel-headers = 1.2.0
 %endif

@@ -262,19 +262,19 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			struct group wsg;
 			struct group *dummy;
 			char groups[1024];
-			gid_t wireshark_group = (gid_t) -3;
+			gid_t wireshark_group = (gid_t) UNPRIV_UID;
 
-			if (getgrnam_r("wireshark", &wsg, groups, 1024, &dummy) >= 0) {
+			if (getgrnam_r(DUMPCAP_GROUP, &wsg, groups, 1024, &dummy) >= 0) {
 				wireshark_group = wsg.gr_gid;
 			}
 
 			if (chdir("/") < 0)
 				goto nopriv_die;
-			if (setgid((gid_t) -3) < 0)
+			if (setgid(wireshark_group) < 0)
 				goto nopriv_die;
 			if (setgroups(1, &wireshark_group) < 0)
 				goto nopriv_die;
-			if (setuid((uid_t) -3) < 0)
+			if (setuid((uid_t) UNPRIV_UID) < 0)
 				goto nopriv_die;
 		}
 
@@ -283,7 +283,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 		 */
 		clearenv();
 		putenv("PATH=/usr/sbin:/usr/bin:/sbin:/bin");
-		putenv("HOME=/run/initramfs");
+		putenv("HOME=" UNPRIV_HOME);
 		putenv("SHELL=/bin/sh");
 		putenv("USER=nobody");
 

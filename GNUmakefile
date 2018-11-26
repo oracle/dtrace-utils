@@ -35,6 +35,18 @@ PREPROCESS = $(CC) -E
 # The first non-system uid on this system.
 USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
 
+# A uid suitable for unprivileged execution.
+UNPRIV_UID ?= -3
+
+# The group one must run as to invoke dumpcap: by default the group of
+# the dumpcap binary.  If dumpcap is owned by root, use the same gid as
+# the UNPRIV_UID unless otherwise overridden.
+DUMPCAP_GROUP ?= $(filter-out root,$(shell stat -c %G /usr/sbin/dumpcap /usr/bin/dumpcap 2>/dev/null | head -1))
+
+# Unwritable but readable directory suitable for overriding as the $HOME of
+# unprivileged processes.
+UNPRIV_HOME ?= /run/initramfs
+
 # The substitution process in libdtrace needs kernel build trees for every
 # kernel this userspace will be used with.  It only needs to know about major
 # versions because to a first approximation the kernel-header-file #defines and
