@@ -227,6 +227,19 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	switch (pid) {
 	case 0: {
 		/*
+		 * Mask SIGINT.  DTrace will close the pipes to tshark when it is
+		 * interrupted.  (We must do this to avoid a race at termination
+		 * time: if tshark dies first, then any more data flowing
+		 * into the pcap action will be printed as tracemem output,
+		 * which users will not expect.)
+		 */
+		sigset_t mask;
+
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGINT);
+		pthread_sigmask(SIG_BLOCK, &mask, NULL);
+
+		/*
 		 * Set up our pipes.
 		 */
 		close(pipe_in[1]);
@@ -286,7 +299,6 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 		putenv("HOME=" UNPRIV_HOME);
 		putenv("SHELL=/bin/sh");
 		putenv("USER=nobody");
-
 
 		execlp("tshark", "tshark", "-l", "-i", "-", NULL);
 	nopriv_die:
