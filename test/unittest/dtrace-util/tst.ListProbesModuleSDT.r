@@ -10,6 +10,16 @@
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg6
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg7
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg8
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg9
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arga
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argb
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argc
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argd
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arge
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argf
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argg
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argh
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argi
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-is-enabled
  XX    dt_test           dt_test                                   test
    ID   PROVIDER            MODULE                          FUNCTION NAME
@@ -24,5 +34,15 @@
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg6
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg7
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg8
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg9
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arga
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argb
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argc
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argd
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-arge
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argf
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argg
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argh
+ XX        sdt           dt_test                     dt_test_ioctl sdt-test-argi
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-is-enabled
  XX    dt_test           dt_test                                   test
