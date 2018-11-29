@@ -1441,7 +1441,7 @@ rd_err_e
 rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 {
 	if (rd->P->rap != rd)
-		return;
+		return RD_ERR;
 
 	rd->rd_event_fun = fun;
 	rd->rd_event_data = data;
@@ -1536,7 +1536,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	uintptr_t primary_nscopes = 0; /* quash a warning */
 
 	if (rd->P->rap != rd)
-		return;
+		return RD_ERR;
 
 	/*
 	 * Trap exec()s at any point within this code.
@@ -1766,7 +1766,7 @@ rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf, const rd_loadobj_t *obj,
 	struct link_map map;
 
 	if (rd->P->rap != rd)
-		return;
+		return NULL;
 
 	if (rd->P->state == PS_DEAD)
 		return NULL;
