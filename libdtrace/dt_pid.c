@@ -474,6 +474,14 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	pp.dpp_nmatches = 0;
 
 	/*
+	 * Prohibit self-grabs.  (This is banned anyway by libproc, but this way
+	 * we get a nicer error message.)
+	 */
+	if (pid == getpid())
+		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+		    "process %s is dtrace itself", &pdp->dtpd_provider[3]));
+
+	/*
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
