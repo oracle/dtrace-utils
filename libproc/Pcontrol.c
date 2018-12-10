@@ -1288,7 +1288,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 	state = Ppush_state(P, P->state);
 	if (state == NULL) {
 		err = -ENOMEM;
-		goto err2;
+		goto err_nostate;
 	}
 
 	if (P->ptraced) {
@@ -1375,7 +1375,15 @@ Ptrace(struct ps_prochandle *P, int stopped)
 err:
 	err = errno;
 err2:
-	P->ptrace_count--;
+	/*
+	 * Note a subtlety here: the Ptrace_count may have been reduced, and the state
+	 * popped to match, by an exec() or other operation within the Pwait().
+	 */
+	if (P->ptrace_count)
+		Ppop_state(P);
+err_nostate:
+	if (P->ptrace_count)
+		P->ptrace_count--;
 
 	if (P->ptrace_count == 0 && ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
