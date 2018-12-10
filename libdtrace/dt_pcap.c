@@ -141,7 +141,7 @@ dt_pcap_print(void *d)
  * string.  (This is disgusting, but it's simpler than most alternatives, and
  * means that the relevant knowledge can be localized to this file.)
  */
-char *
+const char *
 dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 {
 	int	status;
@@ -152,7 +152,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 
 	if (dtp->dt_freopen_filename != NULL &&
 	    strcmp(dtp->dt_freopen_filename, DT_FREOPEN_RESTORE) != 0)
-		return (strdup(dtp->dt_freopen_filename));
+		return (dtp->dt_freopen_filename);
 
 	if (dtp->dt_pcap.dt_pcap_pid < 0) {
 		/*
@@ -384,7 +384,7 @@ fail_pipe_in:
 }
 
 void
-dt_pcap_dump(dtrace_hdl_t *dtp, char *filename, uint64_t linktype,
+dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 	     uint64_t time, void *data, uint32_t datalen, uint32_t maxlen)
 {
 	struct		pcap_pkthdr hdr;

@@ -32,9 +32,9 @@ typedef struct dt_global_pcap {
 } dt_global_pcap_t;
 
 void dt_pcap_destroy(struct dtrace_hdl *);
-char * dt_pcap_filename(struct dtrace_hdl *, FILE *);
-void dt_pcap_dump(struct dtrace_hdl *, char *, uint64_t, uint64_t, void *, uint32_t,
-		  uint32_t);
+const char *dt_pcap_filename(struct dtrace_hdl *, FILE *);
+void dt_pcap_dump(struct dtrace_hdl *, const char *, uint64_t, uint64_t,
+		  void *, uint32_t, uint32_t);
 
 #ifdef	__cplusplus
 }

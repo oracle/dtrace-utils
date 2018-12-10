@@ -1393,7 +1393,7 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	caddr_t	paddr, addr;
 	const dtrace_recdesc_t *prec;
 	uint64_t time, proto, pktlen, maxlen;
-	char *filename;
+	const char *filename;
 
 	addr = (caddr_t)buf + rec->dtrd_offset;
 
