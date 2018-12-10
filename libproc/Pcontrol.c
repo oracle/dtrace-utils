@@ -385,7 +385,6 @@ static void
 Pfree_internal(struct ps_prochandle *P)
 {
 	rd_free(P->rap);
-	P->rap = NULL;
 	Pclose(P);
 	Psym_free(P);
 

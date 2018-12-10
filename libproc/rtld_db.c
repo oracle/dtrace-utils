@@ -1171,6 +1171,9 @@ r_brk(rd_agent_t *rd)
 	uintptr_t r_debug_addr;
 	int r_version;
 
+	if (rd->released)
+		return 0;
+
 	if (rd->r_brk_addr)
 		return rd->r_brk_addr;
 
@@ -1294,7 +1297,7 @@ rd_new(struct ps_prochandle *P)
 	 * Give up right away if the process is dead.
 	 */
 	if (P->state == PS_DEAD) {
-		_dprintf ("%i: Cannot initialize rd_agent: "
+		_dprintf("%i: Cannot initialize rd_agent: "
 		    "process is dead.\n", P->pid);
 		return (NULL);
 	}
@@ -1391,7 +1394,7 @@ err:
 }
 
 /*
- * Shut down a rd_agent.
+ * Shut down a rd_agent (but do not free it yet).
  */
 void
 rd_release(rd_agent_t *rd)
@@ -1402,19 +1405,24 @@ rd_release(rd_agent_t *rd)
 	if (!rd)
 		return;
 
-	if (rd->P->rap != rd)
+	if (rd->released)
 		return;
 
 	while (rd->no_inconsistent)
 		rd_ldso_consistent_end(rd);
 
-	rd_event_disable(rd);
+	/*
+	 * If maps_ready is unset, it is possible that this breakpoint has
+	 * already been removed (if there was an error initializing the maps
+	 * when r_start_trap tried): * but in that case, removing it again is
+	 * harmless.
+	 */
+	if (!rd->maps_ready)
+		Punbkpt(rd->P, Pgetauxval(rd->P, AT_ENTRY));
+	else
+		rd_event_disable(rd);
 
-	if (rd->rd_monitoring) {
-		Punbkpt(rd->P, rd->r_brk_addr);
-		Punbkpt(rd->P, Pgetauxval(rd->P, AT_ENTRY)); /* just in case */
-	}
-	rd->P->rap = NULL;
+	rd->released = 1;
 
 	_dprintf("%i: Deactivated rtld_db agent.\n", rd->P->pid);
 }
@@ -1428,8 +1436,11 @@ rd_free(rd_agent_t *rd)
 	if (!rd)
 		return;
 
-	if (rd->P->rap != NULL)
+	if (!rd->released)
 		rd_release(rd);
+
+	if (rd == rd->P->rap)
+		rd->P->rap = NULL;
 
 	free(rd);
 }
@@ -1440,7 +1451,7 @@ rd_free(rd_agent_t *rd)
 rd_err_e
 rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 {
-	if (rd->P->rap != rd)
+	if (rd->released)
 		return RD_ERR;
 
 	rd->rd_event_fun = fun;
@@ -1468,7 +1479,7 @@ rd_event_enable(rd_agent_t *rd, rd_event_fun fun, void *data)
 void
 rd_event_disable(rd_agent_t *rd)
 {
-	if (rd->P->rap != rd)
+	if (rd->released)
 		return;
 
 	/*
@@ -1494,9 +1505,6 @@ rd_event_disable(rd_agent_t *rd)
 void
 rd_event_suppress(rd_agent_t *rd)
 {
-	if (rd->P->rap != rd)
-		return;
-
 	/*
 	 * Tell the event callback that we are shutting down.
 	 */
@@ -1535,7 +1543,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 	uintptr_t *primary_scope = NULL;
 	uintptr_t primary_nscopes = 0; /* quash a warning */
 
-	if (rd->P->rap != rd)
+	if (rd->released)
 		return RD_ERR;
 
 	/*
@@ -1765,7 +1773,7 @@ rd_get_scope(rd_agent_t *rd, rd_loadobj_t *buf, const rd_loadobj_t *obj,
 {
 	struct link_map map;
 
-	if (rd->P->rap != rd)
+	if (!rd->r_brk_addr || rd->released)
 		return NULL;
 
 	if (rd->P->state == PS_DEAD)
