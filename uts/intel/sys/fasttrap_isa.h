@@ -20,8 +20,6 @@ extern "C" {
 
 #define	FASTTRAP_SUNWDTRACE_SIZE	64
 
-typedef	uint8_t		fasttrap_instr_t;
-
 typedef struct fasttrap_machtp {
 	uint8_t		ftmt_instr[FASTTRAP_MAX_INSTR_SIZE]; /* orig. instr. */
 	uint8_t		ftmt_size;	/* instruction size */
