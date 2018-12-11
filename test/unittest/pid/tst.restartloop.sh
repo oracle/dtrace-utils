@@ -9,7 +9,6 @@
 # @@runtest-opts: -p $_pid
 # @@trigger: execloop
 # @@trigger-timing: after
-# @@reinvoke-failure: 2
 
 #
 # This script tests that a process execing in a tight loop can still be
