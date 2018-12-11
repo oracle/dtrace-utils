@@ -1,3 +1,91 @@
+1.2.0 (Dec 13th, 2018)
+---------------------
+
+New features:
+
+ - New action pcap(struct sk_buff *, proto) where proto is one of the PCAP_*
+   constants from /usr/lib64/dtrace/*/pcap.d.  If tshark is installed,
+   this produces formatted packet traces; if it is not, raw memory dumps
+   are produced, as with tracemem().  If freopen() is used to redirect
+   DTrace output to a file, the raw packets are written there.
+
+ - Translator changes for the 4.19 kernel (also works with 4.20pre up to -6).
+
+Bugfixes:
+
+ - Fix a variety of small memory leaks.
+
+ - Improvements to the testsuite.
+
+Build-time:
+
+ - Improve the generation of signal.d: work better with newer glibc versions.
+
+1.1.1 (Oct 25th, 2018)
+----------------------
+
+Only testsuite changes.
+
+1.1.0 (Aug 10th, 2018)
+----------------------
+
+New features:
+
+ - Translator changes for the 4.15 kernel. (Kernels up to 4.18 work too.)
+
+New options:
+
+ - -xctfpath: Specify the name of a CTF archive to use with the running
+   kernel, for when it cannot be found in the usual place under
+   $(-xmodpath)/kernel/vmlinux.ctfa.
+
+Bugfixes:
+
+ - Fix a variety of small memory leaks and use-of-uninitialized-data bugs.
+ - Clean up compiler warnings.
+
+Library interface changes:
+
+ - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap compatibility.
+
+1.0.4 (Aug 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash when attempting to trace ourself.
+ - More fixes for crashes of both DTrace and the traced
+   process when DTrace terminates at the wrong instant.
+
+1.0.3 (Jul 24th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash or deadlock when -c/-p processes terminate
+   at the wrong time.
+ - No longer deadlock when -c/-p processes create new threads.
+ - Stop the disassembler coredumping.
+
+1.0.2 (May 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - Mark an erroneously-failing test on ARM as passing.
+
+1.0.1 (Apr 28th, 2018)
+----------------------
+
+New features:
+
+ - Both USDT and pid providers are supported on ARM64.
+
+Bugfixes:
+
+ - The -c option works on ARM64 now, as does the -x evaltime option.
+ - Improvements to the testsuite and testsuite runner.
+
 1.0.0 (Mar 27th, 2018)
 ----------------------
 

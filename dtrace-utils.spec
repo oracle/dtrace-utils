@@ -30,12 +30,12 @@
 %{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1844.1.1%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-124.9.1%{?dist}uek}
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1844.1.1%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
@@ -55,8 +55,8 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum libpcap
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.0.0 yum libpcap
+BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 1.0.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32} libpcap-devel
 BuildRequires: wireshark
 %if %{!?local_build:1}0
@@ -64,7 +64,7 @@ BuildRequires: dtrace-kernel-headers = 1.2.0
 %endif
 Summary:      DTrace user interface.
 Version:      1.2.0
-Release:      0.1%{?dist}
+Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 sparc64 aarch64
@@ -99,7 +99,7 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel >= 0.7.0
+Requires:     libdtrace-ctf-devel >= 1.0.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Provides:     dtrace-headers = 1.0.0
@@ -255,18 +255,28 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-0.1
+* Thu Dec 13 2018 - <nick.alcock@oracle.com> - 1.2.0-1
+- Add pcap(skb, proto) action to support libpcap-based packet capture, with
+  formatted output when tshark is installed (Alan Maguire, Nick Alcock)
+  [Orabug: 28953618]
+- Fix memory leaks [Orabug: 29036502] [Orabug: 28990529]
+- Translator changes for kernel 4.19 and 4.20-pre compatibility
+- Improve resilience of signal.d generation in later glibc releases
+  (Eugene Loh) [Orabug: 28951289]
+- Testsuite: handle systems on which ping6 is in /usr/bin (Eugene Loh)
+  [Orabug: 28958357]
+- Testsuite: allow for increased SDT arg count (Kris Van Hees)
+  [Orabug: 28217266]
+
+* Thu Oct 25 2018 - <nick.alcock@oracle.com> - 1.1.1-1
+- Skip unstable tests, as this is a release branch
+- Boost timeouts on a few tests for VMs on which fork() is slow
+- Mark a few more tests unstable
+- Do not run noresolve tests on UEK4 (Vincent Lim)
+
+* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-1
 - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap
   compatibility, and test them (Tomas Jedlicka) [Orabug: 27721525]
-- Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
-- Fix process-termination-related crash and deadlock bugs
- (Nick Alcock, Tomas Jedlicka) [Orabug: 27961105, 28133496]
-- Fix deadlock on creation of new threads in -c/-p processes
-  [Orabug: 28210986]
-- Properly handle breakpoints tripped while DTrace is exiting
-  [Orabug: 28473826]
-- Do not crash on self-grabs and on races with dtrace termination
-  [Orabug: 28361373]
 - New ctfpath option, allowing explicit specification of ctf archives
   to use for the running kernel (Tomas Jedlicka) [Orabug: 28178265]
 - Fix memory leaks and minor uninitialized-data bugs [Orabug: 28247636]
@@ -274,15 +284,29 @@ fi
   (Kris Van Hees) [Orabug: 25949088]
 - Remove preallocation from the buffering testsuite (Tomas Jedlicka)
   [Orabug: 27998779]
-- Speed up aggmod tests (Eugene Loh) [Orabug: 28007146, 28119700]
 - Include the smoketests in make check [Orabug: 28128338]
-- Test fixes (boost timeouts, kernel 4.17 compatibility,
-  unskip a forgotten test).
 - Improve testsuite temporary file creation (Eugene Loh)
   [Orabug: 28142056]
 - Clean up compiler warnings (Eugene Loh) [Orabug: 27934422, 27998779]
 
-Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
+* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.0.4-1
+- Properly handle breakpoints tripped while DTrace is exiting
+  [Orabug: 28473826]
+- Do not crash on self-grabs and on races with dtrace termination
+  [Orabug: 28361373]
+- Test fixes (boost timeouts, kernel 4.17 compatibility,
+  unskip a forgotten test).
+
+* Tue Jul 24 2018 - <nick.alcock@oracle.com> - 1.0.3-1
+- Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
+- Fix process-termination-related crash and deadlock bugs
+ (Nick Alcock, Tomas Jedlicka) [Orabug: 27961105, 28133496]
+- Fix deadlock on creation of new threads in -c/-p processes
+  [Orabug: 28210986]
+- Speed up aggmod tests (Eugene Loh, Tomas Jedlicka)
+  [Orabug: 28007146, 28119700]
+
+* Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
 - Testsuite fixes [Orabug: 27995907]
 
 * Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
