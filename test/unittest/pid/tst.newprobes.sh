@@ -15,6 +15,10 @@ fi
 
 dtrace=$1
 
+# Note that awk is stripped and new versions (gawk 4.2.1 and higher) probably
+# are not built --export-dynamic.  So pid probes might not work well with awk.
+# Replace awk with a different trigger.
+
 $dtrace $dt_flags -wZq -x switchrate=100ms -s /dev/stdin <<EOF
 pid*:awk::
 {

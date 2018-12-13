@@ -18,7 +18,7 @@ dtrace=$1
 # we also set a breakpoint on the same spot in libdtrace.
 #
 
-$dtrace $dt_flags -c 'awk' -s /dev/stdin <<EOF
+$dtrace $dt_flags -c test/triggers/delaydie -s /dev/stdin <<EOF
 	BEGIN
 	{
 		status = 1;
