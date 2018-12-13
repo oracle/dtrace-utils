@@ -30,12 +30,12 @@
 %{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
 %else
-%{!?build_kernel: %define build_kernel 4.14.35-1844.1.1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1844.1.0%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-124.9.1%{?dist}uek}
 %endif
 %else
 %ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.35-1844.1.1%{?dist}uek}
+%{!?build_kernel: %define build_kernel 4.14.35-1844.1.0%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 %else # sparc64
 %{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
