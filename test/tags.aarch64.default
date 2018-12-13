@@ -1,5 +1,6 @@
 !test/unittest/fbtprovider
 !test/unittest/io
+!test/unittest/pcap
 !test/unittest/proc
 !test/unittest/sched
 !test/unittest/sdt
