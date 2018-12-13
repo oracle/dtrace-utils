@@ -6,6 +6,7 @@
  */
 /* @@runtest-opts: $_pid */
 /* @@trigger-timing: before */
+/* @@trigger: pid-tst-float */
 
 /*
  * ASSERTION: the stack() action should be empty for all pid probes
