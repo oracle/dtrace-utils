@@ -114,12 +114,6 @@ You do not need this package merely to compile providers and probe points into
 applications that will be probed by dtrace, but rather when developing
 replacements for dtrace(1) itself.
 
-%if 0%{?fedora} || 0%{?rhel} > 7
-%define perl_io_socket_ip perl-IO-Socket-IP
-%else
-%define perl_io_socket_ip %{nil}
-%endif
-
 # We turn off dependency generation for the testsuite because it contains
 # test shared libraries of its own, which are otherwise picked up as
 # (erroneous) deps to nonexistent packages.
@@ -128,7 +122,7 @@ Summary:      DTrace testsuite.
 Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64)
 Requires:     %{glibc32} dtrace-headers > 0.6.0 module-init-tools
 Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
-Requires:     java-1.8.0-openjdk-devel %{perl_io_socket_ip} xfsprogs
+Requires:     java-1.8.0-openjdk-devel perl-IO-Socket-IP xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     wireshark
 Autoreq:      0
