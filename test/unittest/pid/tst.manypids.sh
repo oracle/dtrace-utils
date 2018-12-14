@@ -5,7 +5,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# xfail: needs porting
+# @@xfail: needs porting
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
