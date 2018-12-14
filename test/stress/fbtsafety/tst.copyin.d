@@ -7,6 +7,8 @@
 
 /* @@no-xfail */
 
+/* @@tags: unstable */
+
 /*
  * ASSERTION:
  *   We set our buffer size absurdly low to prevent a flood of errors that we
