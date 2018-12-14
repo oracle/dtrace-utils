@@ -1,5 +1,4 @@
    ID   PROVIDER            MODULE                          FUNCTION NAME
- XX        sdt           dt_test                               foo sdt-test2
  XX        sdt           dt_test                     dt_test_ioctl sdt-test
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-ioctl-file
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg1
@@ -21,9 +20,9 @@
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-argh
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-argi
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-is-enabled
+ XX        sdt           dt_test                               foo sdt-test2
  XX    dt_test           dt_test                                   test
    ID   PROVIDER            MODULE                          FUNCTION NAME
- XX        sdt           dt_test                               foo sdt-test2
  XX        sdt           dt_test                     dt_test_ioctl sdt-test
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-ioctl-file
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-arg1
@@ -45,4 +44,5 @@
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-argh
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-argi
  XX        sdt           dt_test                     dt_test_ioctl sdt-test-is-enabled
+ XX        sdt           dt_test                               foo sdt-test2
  XX    dt_test           dt_test                                   test

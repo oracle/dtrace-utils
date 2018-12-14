@@ -1,5 +1,0 @@
-!test/unittest/fbtprovider
-!test/unittest/pcap
-!test/stress
-!test/internals/libproc
-!test/demo/fbt
