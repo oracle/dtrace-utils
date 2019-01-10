@@ -22,6 +22,7 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/ptrace.h>
 #include <port.h>
 #include <setjmp.h>
