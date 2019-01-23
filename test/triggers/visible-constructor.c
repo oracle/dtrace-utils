@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
 
 /* A trigger with a constructor that all can see running. */
 
@@ -22,5 +23,6 @@ main (void)
 {
 	printf("main() run.\n");
 	fflush(stdout);
+	sleep(1);	/* allow ustack to be written */
 	return 0;
 }

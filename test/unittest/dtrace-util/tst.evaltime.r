@@ -1,60 +1,84 @@
+visible-constructor -x evaltime=exec
 Constructor run.
 main() run.
-evaltime is exec, trigger is visible-constructor, 2 write()s; dynamic loader syscalls seen.
-
+Saw dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor -x evaltime=preinit
 Constructor run.
 main() run.
-evaltime is preinit, trigger is visible-constructor, 2 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor -x evaltime=postinit
 Constructor run.
 main() run.
-evaltime is postinit, trigger is visible-constructor, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor -x evaltime=main
 Constructor run.
 main() run.
-evaltime is main, trigger is visible-constructor, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor
 Constructor run.
 main() run.
-evaltime is exec, trigger is visible-constructor-static-unstripped, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor-static-unstripped -x evaltime=exec
 Constructor run.
 main() run.
-evaltime is preinit, trigger is visible-constructor-static-unstripped, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static-unstripped -x evaltime=preinit
 Constructor run.
 main() run.
-evaltime is postinit, trigger is visible-constructor-static-unstripped, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static-unstripped -x evaltime=postinit
 Constructor run.
 main() run.
-evaltime is main, trigger is visible-constructor-static-unstripped, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor-static-unstripped -x evaltime=main
 Constructor run.
 main() run.
-evaltime is exec, trigger is visible-constructor-static, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor-static-unstripped
 Constructor run.
 main() run.
-evaltime is preinit, trigger is visible-constructor-static, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 12
+visible-constructor-static -x evaltime=exec
 Constructor run.
 main() run.
-evaltime is postinit, trigger is visible-constructor-static, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static -x evaltime=preinit
 Constructor run.
 main() run.
-evaltime is main, trigger is visible-constructor-static, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static -x evaltime=postinit
 Constructor run.
 main() run.
-evaltime is default, trigger is visible-constructor, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static -x evaltime=main
 Constructor run.
 main() run.
-evaltime is default, trigger is visible-constructor-static-unstripped, 1 write()s; dynamic loader syscalls not seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
+visible-constructor-static
 Constructor run.
 main() run.
-evaltime is default, trigger is visible-constructor-static, 2 write()s; dynamic loader syscalls seen.
-
+Did not see dynamic linker.
+write probe fired; numbytes = 17
+write probe fired; numbytes = 12
