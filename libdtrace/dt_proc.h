@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -104,6 +104,7 @@ typedef struct dt_proc {
 
 typedef struct dt_proc_notify {
 	dt_proc_t *dprn_dpr;		/* process associated with the event */
+	pid_t dprn_pid;			/* pid associated with dprn_dpr */
 	char dprn_errmsg[BUFSIZ];	/* error message */
 	struct dt_proc_notify *dprn_next; /* next pointer */
 } dt_proc_notify_t;

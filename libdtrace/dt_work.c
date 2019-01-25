@@ -70,12 +70,13 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
 			char *err = dprn->dprn_errmsg;
-			pid_t pid = -1;
-			int state;
+			pid_t pid = dprn->dprn_pid;
+			int state = PS_DEAD;
 
 			/*
 			 * The dprn_dpr may be NULL if attachment or process
-			 * creation has failed.
+			 * creation has failed, or once the process dies.  Only
+			 * get the state of a dprn that is not NULL.
 			 */
 			if (dprn->dprn_dpr != NULL) {
 				pid = dprn->dprn_dpr->dpr_pid;
@@ -85,9 +86,11 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 			if (*err == '\0')
 				err = NULL;
 
-			state = dt_Pstate(dtp, pid);
+			if (dprn->dprn_dpr != NULL)
+				state = dt_Pstate(dtp, pid);
+
 			if (state < 0 || state == PS_DEAD)
-				pid = -1;
+				pid *= -1;
 
 			if (dprn->dprn_dpr != NULL)
 				dt_proc_unlock(dprn->dprn_dpr);

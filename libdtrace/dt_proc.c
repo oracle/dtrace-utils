@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -127,7 +127,7 @@ dt_unwinder_pad(struct ps_prochandle *unused)
 
 static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
-    const char *msg, int lock, int broadcast)
+	       pid_t pid, const char *msg, int lock, int broadcast)
 {
 	dt_proc_notify_t *dprn = dt_alloc(dtp, sizeof (dt_proc_notify_t));
 
@@ -146,6 +146,7 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 			(void) pthread_mutex_lock(&dph->dph_lock);
 
 		dprn->dprn_next = dph->dph_notify;
+		dprn->dprn_pid = pid;
 		dph->dph_notify = dprn;
 
 		if (broadcast)
@@ -188,6 +189,7 @@ dt_proc_enqueue_exits(dtrace_hdl_t *dtp)
 	     dpr != NULL; dpr = dt_list_next(dpr)) {
 		if (dpr->dpr_tid == 0 && dpr->dpr_done && dpr->dpr_proc) {
 			int exited = 0;
+			pid_t pid = Pgetpid(dpr->dpr_proc);
 			siginfo_t info;
 
 			info.si_pid = 0;
@@ -195,8 +197,7 @@ dt_proc_enqueue_exits(dtrace_hdl_t *dtp)
 			 * We treat -ECHILD like a process exit, and consider
 			 * other errors a real problem.
 			 */
-			if (waitid(P_PID, Pgetpid(dpr->dpr_proc), &info,
-				WNOHANG | WEXITED) < 0) {
+			if (waitid(P_PID, pid, &info, WNOHANG | WEXITED) < 0) {
 				if (errno != -ECHILD)
 					dt_dprintf("Error waitid()ing for child "
 					    "%i: %s\n", Pgetpid(dpr->dpr_proc),
@@ -209,7 +210,7 @@ dt_proc_enqueue_exits(dtrace_hdl_t *dtp)
 				exited = 1;
 
 			if (exited) {
-				dt_proc_notify(dtp, dph, dpr, NULL,
+				dt_proc_notify(dtp, dph, dpr, pid, NULL,
 				    B_FALSE, B_FALSE);
 				Prelease(dpr->dpr_proc,
 				    dpr->dpr_created ? PS_RELEASE_KILL :
@@ -413,8 +414,8 @@ dt_proc_scan(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	Pupdate_syms(dpr->dpr_proc);
 	if (dt_pid_create_probes_module(dtp, dpr) != 0)
-		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_errmsg,
-		    B_TRUE, B_TRUE);
+		dt_proc_notify(dtp, dtp->dt_procs, dpr, dpr->dpr_pid,
+			       dpr->dpr_errmsg, B_TRUE, B_TRUE);
 }
 
 /*
@@ -1399,7 +1400,8 @@ dt_proc_control_cleanup(void *arg)
 	 */
 	if (!suiciding && dpr->dpr_notifiable)
 		dt_proc_notify(dpr->dpr_hdl, dpr->dpr_hdl->dt_procs,
-		    dpr->dpr_proc ? dpr : NULL, NULL, B_TRUE, B_TRUE);
+		    dpr->dpr_proc ? dpr : NULL, dpr->dpr_pid, NULL,
+		    B_TRUE, B_TRUE);
 
 	/*
 	 * Signal on the cv, waking up any waiters once the lock is released.
@@ -1456,13 +1458,14 @@ static int
 dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	int noninvasive = !Ptraceable(dpr->dpr_proc);
-	dt_proc_notify_t *npr, **npp;
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	int err;
 
 	/*
 	 * Take out the dph_lock around this entire operation, to ensure that
 	 * notifications cannot be called with a stale dprn_dpr->dpr_proc.
+	 * (But after we are done, the dprn_dpr->dpr_proc is no longer stale, so
+	 * we don't need to adjust outstanding notifications at all.
 	 */
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
@@ -1483,15 +1486,6 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	Ptrace_set_detached(dpr->dpr_proc, dpr->dpr_created);
 	Puntrace(dpr->dpr_proc, 0);
 
-	npp = &dph->dph_notify;
-	while ((npr = *npp) != NULL) {
-		if (npr->dprn_dpr == dpr) {
-			*npp = npr->dprn_next;
-			dt_free(dtp, npr);
-		} else {
-			npp = &npr->dprn_next;
-		}
-	}
 	pthread_mutex_unlock(&dph->dph_lock);
 
 	return(0);
@@ -1574,7 +1568,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	ps_prochandle *P = dpr->dpr_proc;
 	dt_proc_hash_t *dph = dtp->dt_procs;
-	dt_proc_notify_t *npr, **npp;
+	dt_proc_notify_t *npr;
 
 	/*
 	 * Remove this dt_proc_t from the lookup hash, and then walk the
@@ -1637,15 +1631,12 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	 */
 	pthread_mutex_lock(&dph->dph_lock);
 	dt_proc_lookup_remove(dtp, dpr->dpr_pid, 1);
-	npp = &dph->dph_notify;
+	npr = dph->dph_notify;
 
-	while ((npr = *npp) != NULL) {
-		if (npr->dprn_dpr == dpr) {
-			*npp = npr->dprn_next;
-			dt_free(dtp, npr);
-		} else {
-			npp = &npr->dprn_next;
-		}
+	while (npr != NULL) {
+		if (npr->dprn_dpr == dpr)
+			npr->dprn_dpr = NULL;
+		npr = npr->dprn_next;
 	}
 
 	pthread_mutex_unlock(&dph->dph_lock);
@@ -2260,9 +2251,8 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 	dt_free(dtp, old_dpr);
 
 	/*
-	 * Some notification enqueues may have been missed by
-	 * dt_proc_destroy(), notably those with a NULL dpr that result from
-	 * notifications that process attachment failed.
+	 * Wipe out the notification enqueues, since we will never need them
+	 * again now DTrace is closing down.
 	 */
 	npp = &dph->dph_notify;
 	while ((npr = *npp) != NULL) {
