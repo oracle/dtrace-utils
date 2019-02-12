@@ -1,3 +1,18 @@
+1.2.1 (Feb 12th, 2019)
+----------------------
+
+Bugfixes:
+
+ - Fix a bug causing DTrace to fail to terminate if a process was grabbed
+   using -c, then died while traced with ustack(), usym() or umod() or by
+   the pid or usdt providers.
+
+Compilation fixes:
+
+ - Compile on glibc 2.28, which moves makedev() out of <sys/types.h>.
+
+ - Improvements to the testsuite in the presence of recent versions of GNU Awk.
+
 1.2.0 (Dec 13th, 2018)
 ---------------------
 

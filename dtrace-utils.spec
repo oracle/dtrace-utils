@@ -1,7 +1,7 @@
 # spec file for package dtrace-utils.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -63,7 +63,7 @@ BuildRequires: wireshark
 BuildRequires: dtrace-kernel-headers = 1.2.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.2.0
+Version:      1.2.1
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -249,6 +249,14 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Feb 12 2019 - <nick.alcock@oracle.com> - 1.2.1-1
+- Fix bug causing DTrace to fail to terminate if a subprocess grabbed with -c
+  dies when the pid or usdt providers, ustack() or similar actions are in use
+  [Orabug: 29195206]
+- Fix compilation failure with glibc 2.28+ due to makedev() [Orabug: 29196221]
+- Fix testsuite to work with GNU Awk 4.2+'s new plugin system (Eugene Loh)
+  [Orabug: 29056323]
+
 * Thu Dec 13 2018 - <nick.alcock@oracle.com> - 1.2.0-1
 - Add pcap(skb, proto) action to support libpcap-based packet capture, with
   formatted output when tshark is installed (Alan Maguire, Nick Alcock)

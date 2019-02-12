@@ -3,7 +3,7 @@
 # Build files in subdirectories are included by this file.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -12,7 +12,7 @@
 .SECONDEXPANSION:
 
 PROJECT := dtrace
-VERSION := 1.2.0
+VERSION := 1.2.1
 
 # Verify supported hardware.
 
