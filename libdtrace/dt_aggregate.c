@@ -6,7 +6,6 @@
  */
 
 #include <stdlib.h>
-#include <strings.h>
 #include <errno.h>
 #include <unistd.h>
 #include <dt_impl.h>
@@ -517,7 +516,7 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 		if ((hash->dtah_hash = malloc(size)) == NULL)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 
-		bzero(hash->dtah_hash, size);
+		memset(hash->dtah_hash, 0, size);
 	}
 
 	for (offs = 0; offs < buf->dtbd_size; ) {
@@ -633,7 +632,7 @@ hashnext:
 		 */
 		if ((h = malloc(sizeof (dt_ahashent_t))) == NULL)
 			return (dt_set_errno(dtp, EDT_NOMEM));
-		bzero(h, sizeof (dt_ahashent_t));
+		memset(h, 0, sizeof (dt_ahashent_t));
 		aggdata = &h->dtahe_data;
 
 		if ((aggdata->dtada_data = malloc(size)) == NULL) {
@@ -641,7 +640,7 @@ hashnext:
 			return (dt_set_errno(dtp, EDT_NOMEM));
 		}
 
-		bcopy(addr, aggdata->dtada_data, size);
+		memcpy(aggdata->dtada_data, addr, size);
 		aggdata->dtada_size = size;
 		aggdata->dtada_desc = agg;
 		aggdata->dtada_handle = dtp;
@@ -678,10 +677,11 @@ hashnext:
 				}
 
 				if (j == cpu) {
-					bcopy(&addr[rec->dtrd_offset],
-					    percpu[j], rec->dtrd_size);
+					memcpy(percpu[j],
+					    &addr[rec->dtrd_offset],
+					    rec->dtrd_size);
 				} else {
-					bzero(percpu[j], rec->dtrd_size);
+					memset(percpu[j], 0, rec->dtrd_size);
 				}
 			}
 
@@ -1211,13 +1211,13 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 			size -= sizeof (uint64_t);
 		}
 
-		bzero(&data->dtada_data[rec->dtrd_offset] + offs, size);
+		memset(&data->dtada_data[rec->dtrd_offset] + offs, 0, size);
 
 		if (data->dtada_percpu == NULL)
 			break;
 
 		for (i = 0; i < dtp->dt_aggregate.dtat_maxcpu; i++)
-			bzero(data->dtada_percpu[i] + offs, size);
+			memset(data->dtada_percpu[i] + offs, 0, size);
 		break;
 	}
 
@@ -1950,13 +1950,13 @@ dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 		rec = &aggdesc->dtagd_rec[aggdesc->dtagd_nrecs - 1];
 		data = &h->dtahe_data;
 
-		bzero(&data->dtada_data[rec->dtrd_offset], rec->dtrd_size);
+		memset(&data->dtada_data[rec->dtrd_offset], 0, rec->dtrd_size);
 
 		if (data->dtada_percpu == NULL)
 			continue;
 
 		for (i = 0; i < max_cpus; i++)
-			bzero(data->dtada_percpu[i], rec->dtrd_size);
+			memset(data->dtada_percpu[i], 0, rec->dtrd_size);
 	}
 }
 

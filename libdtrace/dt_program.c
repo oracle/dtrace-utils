@@ -70,7 +70,7 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	if (pip == NULL)
 		return;
 
-	bzero(pip, sizeof (dtrace_proginfo_t));
+	memset(pip, 0, sizeof (dtrace_proginfo_t));
 
 	if (dt_list_next(&pgp->dp_stmts) != NULL) {
 		pip->dpi_descattr = _dtrace_maxattr;
@@ -245,7 +245,7 @@ dtrace_stmt_action(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 	}
 
 	sdp->dtsd_action_last = new;
-	bzero(new, sizeof (dtrace_actdesc_t));
+	memset(new, 0, sizeof (dtrace_actdesc_t));
 	new->dtad_uarg = (uintptr_t)sdp;
 
 	return (new);

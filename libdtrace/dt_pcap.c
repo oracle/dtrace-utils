@@ -457,7 +457,7 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 	 * Reset SIGPIPE here, to avoid SIGPIPEs if tshark dies before we do.
 	 */
 
-	bzero(&act, sizeof (act));
+	memset(&act, 0, sizeof (act));
 	act.sa_handler = SIG_IGN;
 	(void) sigaction(SIGPIPE, &act, &oact);
 

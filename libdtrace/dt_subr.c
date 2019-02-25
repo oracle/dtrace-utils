@@ -47,7 +47,7 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 	if (spec < DTRACE_PROBESPEC_NONE || spec > DTRACE_PROBESPEC_NAME)
 		return (dt_set_errno(dtp, EINVAL));
 
-	bzero(pdp, sizeof (dtrace_probedesc_t));
+	memset(pdp, 0, sizeof (dtrace_probedesc_t));
 	p = s + strlen(s) - 1;
 
 	do {
@@ -123,9 +123,9 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 			return (dt_set_errno(dtp, ENAMETOOLONG));
 
 		off = dtrace_probespecs[spec--].dtps_offset;
-		bcopy(q, (char *)pdp + off, len);
-		bcopy(v, (char *)pdp + off + len, vlen);
-		bcopy(w, (char *)pdp + off + len + vlen, wlen);
+		memcpy((char *)pdp + off, q, len);
+		memcpy((char *)pdp + off + len, v, vlen);
+		memcpy((char *)pdp + off + len + vlen, w, wlen);
 	} while (--p >= s);
 
 	pdp->dtpd_id = DTRACE_IDNONE;
@@ -142,7 +142,7 @@ dtrace_str2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 int
 dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
 {
-	bzero(pdp, sizeof (dtrace_probedesc_t));
+	memset(pdp, 0, sizeof (dtrace_probedesc_t));
 	pdp->dtpd_id = id;
 
 	if (dt_ioctl(dtp, DTRACEIOC_PROBES, pdp) == -1 ||
@@ -409,7 +409,7 @@ dt_cpp_add_arg(dtrace_hdl_t *dtp, const char *str)
 		if (argv == NULL)
 			return (NULL);
 
-		bzero(&argv[olds], sizeof (char *) * olds);
+		memset(&argv[olds], 0, sizeof (char *) * olds);
 		dtp->dt_cpp_argv = argv;
 		dtp->dt_cpp_args = news;
 	}
@@ -677,7 +677,7 @@ dt_zalloc(dtrace_hdl_t *dtp, size_t size)
 	if ((data = malloc(size)) == NULL)
 		(void) dt_set_errno(dtp, EDT_NOMEM);
 	else
-		bzero(data, size);
+		memset(data, 0, size);
 
 	return (data);
 }

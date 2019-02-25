@@ -399,8 +399,8 @@ if (yypcb->pcb_token != 0) {
 			for (q = s; nbytes != 0; nbytes--)
 				*p-- = *q++;
 #else
-			bcopy(s, ((char *)&yylval.l_int) +
-			    sizeof (yylval.l_int) - nbytes, nbytes);
+			memcpy(((char *)&yylval.l_int) +
+			    sizeof (yylval.l_int) - nbytes, s, nbytes);
 #endif
 			return (DT_TOK_INT);
 		}

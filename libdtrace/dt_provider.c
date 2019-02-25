@@ -51,7 +51,7 @@ dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 		return (NULL);
 	}
 
-	bzero(&desc, sizeof (desc));
+	memset(&desc, 0, sizeof (desc));
 	(void) strlcpy(desc.dtvd_name, name, DTRACE_PROVNAMELEN);
 
 	if (dt_ioctl(dtp, DTRACEIOC_PROVIDER, &desc) == -1) {
@@ -62,7 +62,7 @@ dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 	if ((pvp = dt_provider_create(dtp, name)) == NULL)
 		return (NULL); /* dt_errno is set for us */
 
-	bcopy(&desc, &pvp->pv_desc, sizeof (desc));
+	memcpy(&pvp->pv_desc, &desc, sizeof (desc));
 	pvp->pv_flags |= DT_PROVIDER_IMPL;
 	return (pvp);
 }
@@ -138,7 +138,7 @@ dt_provider_xref(dtrace_hdl_t *dtp, dt_provider_t *pvp, id_t id)
 		if (xrefs == NULL)
 			return (-1);
 
-		bcopy(pvp->pv_xrefs, xrefs, oldsize);
+		memcpy(xrefs, pvp->pv_xrefs, oldsize);
 		dt_free(dtp, pvp->pv_xrefs);
 
 		pvp->pv_xrefs = xrefs;
@@ -230,7 +230,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	    pvp->pv_desc.dtvd_name, name, pdp->dtpd_id);
 
 	for (nc = -1, i = 0; i < adc; i++, adp++) {
-		bzero(adp, sizeof (dtrace_argdesc_t));
+		memset(adp, 0, sizeof (dtrace_argdesc_t));
 		adp->dtargd_ndx = i;
 		adp->dtargd_id = pdp->dtpd_id;
 
@@ -559,7 +559,7 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp,
 		if (new_offs == NULL)
 			return (-1);
 
-		bcopy(*offs, new_offs, sizeof (uint32_t) * *maxoffs);
+		memcpy(new_offs, *offs, sizeof (uint32_t) * *maxoffs);
 
 		dt_free(dtp, *offs);
 		*maxoffs = new_max;
@@ -611,7 +611,7 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 		}
 	}
 
-	bzero(dnp, sizeof (dt_node_t));
+	memset(dnp, 0, sizeof (dt_node_t));
 	dnp->dn_kind = DT_NODE_TYPE;
 
 	dt_node_type_assign(dnp, dtt.dtt_ctfp, dtt.dtt_type);
@@ -625,7 +625,7 @@ static int
 dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 {
 	if (((dtrace_probedesc_t *)arg)->dtpd_id == DTRACE_IDNONE) {
-		bcopy(pdp, arg, sizeof (dtrace_probedesc_t));
+		memcpy(arg, pdp, sizeof (dtrace_probedesc_t));
 		return (0);
 	}
 
@@ -670,7 +670,7 @@ dt_probe_info(dtrace_hdl_t *dtp,
 		dtrace_probedesc_t pd;
 		int m;
 
-		bzero(&pd, sizeof (pd));
+		memset(&pd, 0, sizeof (pd));
 		pd.dtpd_id = DTRACE_IDNONE;
 
 		/*
@@ -805,8 +805,8 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 	int rv;
 	unsigned long int cmd;
 
-	bzero(&pit, sizeof (pit));
-	bzero(&pd, sizeof (pd));
+	memset(&pit, 0, sizeof (pit));
+	memset(&pd, 0, sizeof (pd));
 	pit.pit_hdl = dtp;
 	pit.pit_func = func;
 	pit.pit_arg = arg;
@@ -836,7 +836,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 
 	for (;;) {
 		if (pdp != NULL)
-			bcopy(pdp, &pd, sizeof (pd));
+			memcpy(&pd, pdp, sizeof (pd));
 
 		pd.dtpd_id = id;
 

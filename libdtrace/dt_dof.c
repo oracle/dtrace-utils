@@ -259,8 +259,8 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	 */
 	assert(nsecs <= sizeof (dsecs) / sizeof (dsecs[0]));
 	dofd = alloca(sizeof (dtrace_diftype_t) + sizeof (dsecs));
-	bcopy(&dp->dtdo_rtype, &dofd->dofd_rtype, sizeof (dtrace_diftype_t));
-	bcopy(dsecs, &dofd->dofd_links, sizeof (dof_secidx_t) * nsecs);
+	memcpy(&dofd->dofd_rtype, &dp->dtdo_rtype, sizeof (dtrace_diftype_t));
+	memcpy(&dofd->dofd_links, dsecs, sizeof (dof_secidx_t) * nsecs);
 
 	hdrsec = dof_add_lsect(ddo, dofd, DOF_SECT_DIFOHDR,
 	    sizeof (dof_secidx_t), 0, 0,
@@ -571,7 +571,7 @@ dof_hdr(dtrace_hdl_t *dtp, uint8_t dofversion, dof_hdr_t *hp)
 	    dtp->dt_conf.dtc_diftupregs > UINT8_MAX)
 		return (dt_set_errno(dtp, EOVERFLOW));
 
-	bzero(hp, sizeof (dof_hdr_t));
+	memset(hp, 0, sizeof (dof_hdr_t));
 
 	hp->dofh_ident[DOF_ID_MAG0] = DOF_MAG_MAG0;
 	hp->dofh_ident[DOF_ID_MAG1] = DOF_MAG_MAG1;

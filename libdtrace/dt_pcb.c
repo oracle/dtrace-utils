@@ -23,7 +23,6 @@
  * in the future by adding locks to libdtrace or switching to Flex and Bison.
  */
 
-#include <strings.h>
 #include <stdlib.h>
 #include <assert.h>
 
@@ -53,7 +52,7 @@ dt_pcb_push(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		assert(yypcb->pcb_yystate == YYS_DONE);
 	}
 
-	bzero(pcb, sizeof (dt_pcb_t));
+	memset(pcb, 0, sizeof (dt_pcb_t));
 
 	dt_scope_create(&pcb->pcb_dstack);
 	dt_idstack_push(&pcb->pcb_globals, dtp->dt_globals);
@@ -161,6 +160,6 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 	free(pcb->pcb_sflagv);
 
 	dtp->dt_pcb = pcb->pcb_prev;
-	bzero(pcb, sizeof (dt_pcb_t));
+	memset(pcb, 0, sizeof (dt_pcb_t));
 	yyinit(dtp->dt_pcb);
 }

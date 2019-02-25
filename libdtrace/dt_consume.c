@@ -6,7 +6,6 @@
  */
 
 #include <stdlib.h>
-#include <strings.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -974,7 +973,7 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 		 * print it as such.
 		 */
 		char *s = alloca(nbytes + 1);
-		bcopy(c, s, nbytes);
+		memcpy(s, c, nbytes);
 		s[nbytes] = '\0';
 		return (dt_printf(dtp, fp, "  %-*s", width, s));
 	}
@@ -1815,7 +1814,7 @@ dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	const char *errstr;
 	dtrace_setoptdata_t optdata;
 
-	bzero(&optdata, sizeof (optdata));
+	memset(&optdata, 0, sizeof (optdata));
 	(void) dtrace_getopt(dtp, option, &optdata.dtsda_oldval);
 
 	if (dtrace_setopt(dtp, option, value) == 0) {
@@ -1857,7 +1856,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
 	uint64_t drops;
 	caddr_t addr;
 
-	bzero(&data, sizeof (data));
+	memset(&data, 0, sizeof (data));
 	data.dtpda_handle = dtp;
 	data.dtpda_cpu = cpu;
 
@@ -2157,7 +2156,7 @@ nofmt:
 				}
 
 				i = j - 1;
-				bzero(&pd, sizeof (pd));
+				memset(&pd, 0, sizeof (pd));
 				pd.dtpa_dtp = dtp;
 				pd.dtpa_fp = fp;
 
@@ -2414,7 +2413,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	 * Now allocate a new buffer.  We'll use this to deal with every other
 	 * CPU.
 	 */
-	bzero(&nbuf, sizeof (dtrace_bufdesc_t));
+	memset(&nbuf, 0, sizeof (dtrace_bufdesc_t));
 	(void) dtrace_getopt(dtp, "bufsize", &size);
 	if ((nbuf.dtbd_data = malloc(size)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));

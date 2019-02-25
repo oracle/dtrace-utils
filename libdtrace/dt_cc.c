@@ -66,7 +66,6 @@
 #include <sys/wait.h>
 
 #include <assert.h>
-#include <strings.h>
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
@@ -1704,7 +1703,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	if ((prp = dt_probe_info(dtp, pdp, &yypcb->pcb_pinfo)) == NULL) {
 		pap = &_dtrace_prvdesc;
 		err = dtrace_errno(dtp);
-		bzero(&yypcb->pcb_pinfo, sizeof (dtrace_probeinfo_t));
+		memset(&yypcb->pcb_pinfo, 0, sizeof (dtrace_probeinfo_t));
 		yypcb->pcb_pinfo.dtp_attr = pap->dtpa_provider;
 		yypcb->pcb_pinfo.dtp_arga = pap->dtpa_args;
 	} else {
@@ -1888,7 +1887,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 	(void) snprintf(opath, sizeof (opath), "/dev/fd/%d", fileno(ofp));
 
-	bcopy(dtp->dt_cpp_argv, argv, sizeof (char *) * argc);
+	memcpy(argv, dtp->dt_cpp_argv, sizeof (char *) * argc);
 
 	(void) snprintf(verdef, sizeof (verdef),
 	    "-D__SUNW_D_VERSION=0x%08x", dtp->dt_vmax);
@@ -1919,7 +1918,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	(void) sigaddset(&mask, SIGCHLD);
 	(void) pthread_sigmask(SIG_BLOCK, &mask, &omask);
 
-	bzero(&act, sizeof (act));
+	memset(&act, 0, sizeof (act));
 	act.sa_handler = SIG_DFL;
 	(void) sigaction(SIGCHLD, &act, &oact);
 

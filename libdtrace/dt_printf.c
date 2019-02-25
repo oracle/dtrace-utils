@@ -478,7 +478,7 @@ pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 {
 	char *s = alloca(size + 1);
 
-	bcopy(addr, s, size);
+	memcpy(s, addr, size);
 	s[size] = '\0';
 	return (dt_printf(dtp, fp, format, s));
 }
@@ -490,7 +490,7 @@ pfprint_wstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 {
 	wchar_t *ws = alloca(size + sizeof (wchar_t));
 
-	bcopy(addr, ws, size);
+	memcpy(ws, addr, size);
 	ws[size / sizeof (wchar_t)] = L'\0';
 	return (dt_printf(dtp, fp, format, ws));
 }
@@ -625,7 +625,7 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 	}
 
 	dtp->dt_pfdict = pdi;
-	bzero(pdi->pdi_buckets, sizeof (dt_pfconv_t *) * n);
+	memset(pdi->pdi_buckets, 0, sizeof (dt_pfconv_t *) * n);
 	pdi->pdi_nbuckets = n;
 
 	for (pfd = _dtrace_conversions; pfd->pfc_name != NULL; pfd++) {
@@ -638,7 +638,7 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 		}
 
-		bcopy(pfd, pfc, sizeof (dt_pfconv_t));
+		memcpy(pfc, pfd, sizeof (dt_pfconv_t));
 		h = dt_strtab_hash(pfc->pfc_name, NULL) % n;
 		pfc->pfc_next = pdi->pdi_buckets[h];
 		pdi->pdi_buckets[h] = pfc;
@@ -772,7 +772,7 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 		else
 			pfv->pfv_argv = pfd;
 
-		bzero(pfd, sizeof (dt_pfargd_t));
+		memset(pfd, 0, sizeof (dt_pfargd_t));
 		pfv->pfv_argc++;
 		nfd = pfd;
 
@@ -920,7 +920,7 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 		else
 			pfv->pfv_argv = pfd;
 
-		bzero(pfd, sizeof (dt_pfargd_t));
+		memset(pfd, 0, sizeof (dt_pfargd_t));
 		pfv->pfv_argc++;
 
 		pfd->pfd_prefix = q;
@@ -977,7 +977,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 	if (dt_type_lookup(aggtype, &dtt) != 0)
 		xyerror(D_TYPE_ERR, "failed to lookup agg type %s\n", aggtype);
 
-	bzero(&aggnode, sizeof (aggnode));
+	memset(&aggnode, 0, sizeof (aggnode));
 	dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type);
 
 	for (i = 0, j = 0; i < pfv->pfv_argc; i++, pfd = pfd->pfd_next) {
@@ -1291,7 +1291,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		if (pfd->pfd_preflen != 0) {
 			char *tmp = alloca(pfd->pfd_preflen + 1);
 
-			bcopy(pfd->pfd_prefix, tmp, pfd->pfd_preflen);
+			memcpy(tmp, pfd->pfd_prefix, pfd->pfd_preflen);
 			tmp[pfd->pfd_preflen] = '\0';
 
 			if ((rval = dt_printf(dtp, fp, tmp)) < 0)
@@ -1507,7 +1507,7 @@ dtrace_sprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	if ((dtp->dt_sprintf_buf = malloc(size)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
-	bzero(dtp->dt_sprintf_buf, size);
+	memset(dtp->dt_sprintf_buf, 0, size);
 	dtp->dt_sprintf_buflen = size;
 	rval = dt_printf_format(dtp, fp, fmtdata, recp, nrecs, buf, len,
 	    NULL, 0);

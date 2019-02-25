@@ -30,7 +30,7 @@ dt_regset_create(ulong_t size)
 		return (NULL);
 	}
 
-	bzero(drp->dr_bitmap, sizeof (ulong_t) * n);
+	memset(drp->dr_bitmap, 0, sizeof (ulong_t) * n);
 	return (drp);
 }
 
@@ -44,7 +44,7 @@ dt_regset_destroy(dt_regset_t *drp)
 void
 dt_regset_reset(dt_regset_t *drp)
 {
-	bzero(drp->dr_bitmap, sizeof (ulong_t) * BT_BITOUL(drp->dr_size));
+	memset(drp->dr_bitmap, 0, sizeof (ulong_t) * BT_BITOUL(drp->dr_size));
 }
 
 int

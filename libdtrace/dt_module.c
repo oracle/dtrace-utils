@@ -78,7 +78,7 @@ static GElf_Sym *
 dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 {
 	if (dst != NULL)
-		bcopy(src, dst, sizeof (GElf_Sym));
+		memcpy(dst, src, sizeof (GElf_Sym));
 
 	return (dst);
 }
@@ -108,7 +108,7 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	if ((dmp = malloc(sizeof (dt_module_t))) == NULL)
 		return (NULL); /* caller must handle allocation failure */
 
-	bzero(dmp, sizeof (dt_module_t));
+	memset(dmp, 0, sizeof (dt_module_t));
 	strlcpy(dmp->dm_name, name, sizeof (dmp->dm_name));
 	dt_list_append(&dtp->dt_modlist, dmp);
 	dmp->dm_next = dtp->dt_mods[h];
@@ -484,8 +484,9 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dmp->dm_symbuckets == NULL || dmp->dm_symchains == NULL)
 		goto oom;
 
-	bzero(dmp->dm_symbuckets, sizeof (uint_t) * dmp->dm_nsymbuckets);
-	bzero(dmp->dm_symchains, sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
+	memset(dmp->dm_symbuckets, 0, sizeof (uint_t) * dmp->dm_nsymbuckets);
+	memset(dmp->dm_symchains, 0, sizeof (dt_modsym_t) * dmp->dm_nsymelems
+	    + 1);
 
 	/*
 	 * Iterate over the symbol table data buffer and insert each symbol
@@ -610,9 +611,9 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	free(dmp->dm_ctdata_data);
 	dmp->dm_ctdata_data = NULL;
 
-	bzero(&dmp->dm_ctdata, sizeof (ctf_sect_t));
-	bzero(&dmp->dm_symtab, sizeof (ctf_sect_t));
-	bzero(&dmp->dm_strtab, sizeof (ctf_sect_t));
+	memset(&dmp->dm_ctdata, 0, sizeof (ctf_sect_t));
+	memset(&dmp->dm_symtab, 0, sizeof (ctf_sect_t));
+	memset(&dmp->dm_strtab, 0, sizeof (ctf_sect_t));
 
 	free(dmp->dm_symbuckets);
 	dmp->dm_symbuckets = NULL;

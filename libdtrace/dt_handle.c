@@ -296,7 +296,7 @@ dt_handle_cpudrop(dtrace_hdl_t *dtp, processorid_t cpu,
 
 	assert(what == DTRACEDROP_PRINCIPAL || what == DTRACEDROP_AGGREGATION);
 
-	bzero(&drop, sizeof (drop));
+	memset(&drop, 0, sizeof (drop));
 	drop.dtdda_handle = dtp;
 	drop.dtdda_cpu = cpu;
 	drop.dtdda_kind = what;
@@ -374,7 +374,7 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 	uintptr_t base = (uintptr_t)new, obase = (uintptr_t)old;
 	int i, size;
 
-	bzero(&drop, sizeof (drop));
+	memset(&drop, 0, sizeof (drop));
 	drop.dtdda_handle = dtp;
 	drop.dtdda_cpu = DTRACE_CPUALL;
 	drop.dtdda_msg = str;

@@ -639,7 +639,7 @@ dt_idhash_create(const char *name, const dt_ident_t *tmpl,
 	if ((dhp = malloc(size)) == NULL)
 		return (NULL);
 
-	bzero(dhp, size);
+	memset(dhp, 0, size);
 	dhp->dh_name = name;
 	dhp->dh_tmpl = tmpl;
 	dhp->dh_nextid = min;

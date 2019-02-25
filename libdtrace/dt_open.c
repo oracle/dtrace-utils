@@ -873,7 +873,7 @@ alloc:
 	if ((dtp = malloc(sizeof (dtrace_hdl_t))) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
-	bzero(dtp, sizeof (dtrace_hdl_t));
+	memset(dtp, 0, sizeof (dtrace_hdl_t));
 	dtp->dt_oflags = flags;
 	dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
 	dtp->dt_linkmode = DT_LINK_KERNEL;
@@ -950,7 +950,7 @@ alloc:
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	if (flags & DTRACE_O_NODEV)
-		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
+		memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
 	else if (dt_ioctl(dtp, DTRACEIOC_CONF, &dtp->dt_conf) != 0)
 		return (set_open_errno(dtp, errp, errno));
 
@@ -991,9 +991,9 @@ alloc:
 		return (set_open_errno(dtp, errp, EDT_DIFVERS));
 
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_ILP32)
-		bcopy(_dtrace_ints_32, dtp->dt_ints, sizeof (_dtrace_ints_32));
+		memcpy(dtp->dt_ints, _dtrace_ints_32, sizeof (_dtrace_ints_32));
 	else
-		bcopy(_dtrace_ints_64, dtp->dt_ints, sizeof (_dtrace_ints_64));
+		memcpy(dtp->dt_ints, _dtrace_ints_64, sizeof (_dtrace_ints_64));
 
 	dtp->dt_macros = dt_idhash_create("macro", NULL, 0, UINT_MAX);
 	dtp->dt_aggs = dt_idhash_create("aggregation", NULL,

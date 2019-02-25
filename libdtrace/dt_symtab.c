@@ -152,7 +152,7 @@ dt_symtab_create(void)
 	if (symtab == NULL)
 		return NULL;
 
-	bzero(symtab, sizeof (struct dt_symtab));
+	memset(symtab, 0, sizeof (struct dt_symtab));
 
 	symtab->dtst_symbuckets = _dtrace_strbuckets;
 	symtab->dtst_syms_by_name = calloc(symtab->dtst_symbuckets,
@@ -214,7 +214,7 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 			return NULL;
 		}
 
-	bzero(dtsp, sizeof (dt_symbol_t));
+	memset(dtsp, 0, sizeof (dt_symbol_t));
 	dtsp->dts_name.str = strdup(name);
 	dtsp->dts_addr = addr;
 	dtsp->dts_size = size;

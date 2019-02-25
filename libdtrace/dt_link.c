@@ -175,7 +175,7 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 	/*
 	 * The first symbol table entry must be zeroed and is always ignored.
 	 */
-	bzero(sym, sizeof (Elf32_Sym));
+	memset(sym, 0, sizeof (Elf32_Sym));
 	sym++;
 
 	/*
@@ -191,7 +191,7 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 
 		s = &dofs[dofrh->dofr_strtab];
 		strtab = (char *)dof + s->dofs_offset;
-		bcopy(strtab + 1, dep->de_strtab + strtabsz, s->dofs_size);
+		memcpy(dep->de_strtab + strtabsz, strtab + 1, s->dofs_size);
 		base = strtabsz;
 		strtabsz += s->dofs_size - 1;
 
@@ -252,11 +252,11 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 	sym++;
 
 	if (dtp->dt_lazyload) {
-		bcopy(DOFLAZYSTR, dep->de_strtab + strtabsz,
+		memcpy(dep->de_strtab + strtabsz, DOFLAZYSTR,
 		    sizeof (DOFLAZYSTR));
 		strtabsz += sizeof (DOFLAZYSTR);
 	} else {
-		bcopy(DOFSTR, dep->de_strtab + strtabsz, sizeof (DOFSTR));
+		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof (DOFSTR));
 		strtabsz += sizeof (DOFSTR);
 	}
 
@@ -356,7 +356,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 	/*
 	 * The first symbol table entry must be zeroed and is always ignored.
 	 */
-	bzero(sym, sizeof (Elf64_Sym));
+	memset(sym, 0, sizeof (Elf64_Sym));
 	sym++;
 
 	/*
@@ -372,7 +372,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 
 		s = &dofs[dofrh->dofr_strtab];
 		strtab = (char *)dof + s->dofs_offset;
-		bcopy(strtab + 1, dep->de_strtab + strtabsz, s->dofs_size);
+		memcpy(dep->de_strtab + strtabsz, strtab + 1, s->dofs_size);
 		base = strtabsz;
 		strtabsz += s->dofs_size - 1;
 
@@ -429,11 +429,11 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 	sym++;
 
 	if (dtp->dt_lazyload) {
-		bcopy(DOFLAZYSTR, dep->de_strtab + strtabsz,
+		memcpy(dep->de_strtab + strtabsz, DOFLAZYSTR,
 		    sizeof (DOFLAZYSTR));
 		strtabsz += sizeof (DOFLAZYSTR);
 	} else {
-		bcopy(DOFSTR, dep->de_strtab + strtabsz, sizeof (DOFSTR));
+		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof (DOFSTR));
 		strtabsz += sizeof (DOFSTR);
 	}
 
@@ -472,7 +472,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	 */
 	nshdr = de.de_nrel == 0 ? ESHDR_SYMTAB + 1 : ESHDR_NUM;
 
-	bzero(&elf_file, sizeof (elf_file));
+	memset(&elf_file, 0, sizeof (elf_file));
 
 	elf_file.ehdr.e_ident[EI_MAG0] = ELFMAG0;
 	elf_file.ehdr.e_ident[EI_MAG1] = ELFMAG1;
@@ -618,7 +618,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	 */
 	nshdr = de.de_nrel == 0 ? ESHDR_SYMTAB + 1 : ESHDR_NUM;
 
-	bzero(&elf_file, sizeof (elf_file));
+	memset(&elf_file, 0, sizeof (elf_file));
 
 	elf_file.ehdr.e_ident[EI_MAG0] = ELFMAG0;
 	elf_file.ehdr.e_ident[EI_MAG1] = ELFMAG1;
@@ -1369,7 +1369,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			pair->dlp_next = bufs;
 			bufs = pair;
 
-			bcopy(data_str->d_buf, pair->dlp_str, data_str->d_size);
+			memcpy(pair->dlp_str, data_str->d_buf,
+			    data_str->d_size);
 			data_str->d_buf = pair->dlp_str;
 			data_str->d_size += len;
 			(void) elf_flagdata(data_str, ELF_C_SET, ELF_F_DIRTY);
@@ -1377,7 +1378,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			shdr_str.sh_size += len;
 			(void) gelf_update_shdr(scn_str, &shdr_str);
 
-			bcopy(data_sym->d_buf, pair->dlp_sym, data_sym->d_size);
+			memcpy(pair->dlp_sym, data_sym->d_buf,
+			    data_sym->d_size);
 			data_sym->d_buf = pair->dlp_sym;
 			data_sym->d_size += nsym * symsize;
 			(void) elf_flagdata(data_sym, ELF_C_SET, ELF_F_DIRTY);
@@ -1443,7 +1445,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			    p - s >= sizeof (pname))
 				goto err;
 
-			bcopy(s, pname, p - s);
+			memcpy(pname, s, p - s);
 			pname[p - s] = '\0';
 
 			p = strhyphenate(p + 3); /* strlen("___") */

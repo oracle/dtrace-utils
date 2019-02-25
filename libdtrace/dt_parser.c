@@ -189,7 +189,7 @@ dt_type_lookup(const char *s, dtrace_typeinfo_t *tip)
 			 * Copy from the start of the token (p) to the location
 			 * backquote (q) to extract the nul-terminated object.
 			 */
-			bcopy(p, object, (size_t)(q - p));
+			memcpy(object, p, (size_t)(q - p));
 			object[(size_t)(q - p)] = '\0';
 
 			/*
@@ -197,8 +197,9 @@ dt_type_lookup(const char *s, dtrace_typeinfo_t *tip)
 			 * token (p) into type, and then concatenate everything
 			 * after q.  This is the type name without the object.
 			 */
-			bcopy(s, type, (size_t)(p - s));
-			bcopy(q + 1, type + (size_t)(p - s), strlen(q + 1) + 1);
+			memcpy(type, s, (size_t)(p - s));
+			memcpy(type + (size_t)(p - s), q + 1,
+			    strlen(q + 1) + 1);
 
 			if (strchr(q + 1, '`') != NULL)
 				return (dt_set_errno(dtp, EDT_BADSCOPE));
@@ -488,7 +489,7 @@ dt_node_xalloc(dtrace_hdl_t *dtp, int kind)
 	dnp->dn_attr = _dtrace_defattr;
 	dnp->dn_list = NULL;
 	dnp->dn_link = NULL;
-	bzero(&dnp->dn_u, sizeof (dnp->dn_u));
+	memset(&dnp->dn_u, 0, sizeof (dnp->dn_u));
 
 	return (dnp);
 }
@@ -1547,7 +1548,7 @@ dt_node_decl(void)
 		 * arrays (yet); otherwise we use dt_ident_cook() on the ident
 		 * to ensure it is fully initialized before looking at it.
 		 */
-		bzero(&idn, sizeof (dt_node_t));
+		memset(&idn, 0, sizeof (dt_node_t));
 
 		if (idp != NULL && idp->di_type != CTF_ERR)
 			dt_node_type_assign(&idn, idp->di_ctfp, idp->di_type);
@@ -1759,7 +1760,7 @@ dt_node_offsetof(dt_decl_t *ddp, char *s)
 		    name, ctf_errmsg(ctf_errno(dtt.dtt_ctfp)));
 	}
 
-	bzero(&dn, sizeof (dn));
+	memset(&dn, 0, sizeof (dn));
 	dt_node_type_assign(&dn, dtt.dtt_ctfp, ctm.ctm_type);
 
 	if (dn.dn_flags & DT_NF_BITFIELD) {
@@ -2212,7 +2213,7 @@ dt_node_inline(dt_node_t *expr)
 	if ((inp = malloc(sizeof (dt_idnode_t))) == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-	bzero(inp, sizeof (dt_idnode_t));
+	memset(inp, 0, sizeof (dt_idnode_t));
 
 	idp = dnp->dn_ident = dt_ident_create(dsp->ds_ident,
 	    ddp->dd_kind == CTF_K_ARRAY ? DT_IDENT_ARRAY : DT_IDENT_SCALAR,
@@ -2271,7 +2272,7 @@ dt_node_inline(dt_node_t *expr)
 			}
 
 			inp->din_argv[i] = pidp;
-			bzero(pinp, sizeof (dt_idnode_t));
+			memset(pinp, 0, sizeof (dt_idnode_t));
 			dt_ident_type_assign(pidp, pnp->dn_ctfp, pnp->dn_type);
 		}
 
@@ -2379,10 +2380,10 @@ dt_node_xlator(dt_decl_t *ddp, dt_decl_t *sdp, char *name, dt_node_t *members)
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 	}
 
-	bzero(&sn, sizeof (sn));
+	memset(&sn, 0, sizeof (sn));
 	dt_node_type_assign(&sn, src.dtt_ctfp, src.dtt_type);
 
-	bzero(&dn, sizeof (dn));
+	memset(&dn, 0, sizeof (dn));
 	dt_node_type_assign(&dn, dst.dtt_ctfp, dst.dtt_type);
 
 	if (dt_xlator_lookup(dtp, &sn, &dn, DT_XLATE_EXACT) != NULL) {
@@ -2691,7 +2692,7 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		if ((sip = malloc(sizeof (dtrace_syminfo_t))) == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-		bcopy(&dts, sip, sizeof (dtrace_syminfo_t));
+		memcpy(sip, &dts, sizeof (dtrace_syminfo_t));
 		idp->di_data = sip;
 		idp->di_ctfp = dtt.dtt_ctfp;
 		idp->di_type = dtt.dtt_type;
@@ -3793,7 +3794,7 @@ asgn_common:
 		assert(lp->dn_args == NULL);
 
 		lnp = dnp->dn_link;
-		bcopy(lp, dnp, sizeof (dt_node_t));
+		memcpy(dnp, lp, sizeof (dt_node_t));
 		dnp->dn_link = lnp;
 
 		dnp->dn_args = rp;
@@ -4071,11 +4072,11 @@ dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 	dt_node_attr_assign(dnp, yypcb->pcb_pinfo.dtp_attr);
 	dnp->dn_ctxattr = yypcb->pcb_pinfo.dtp_attr;
 
-	bcopy(yypcb->pcb_jmpbuf, ojb, sizeof (jmp_buf));
+	memcpy(ojb, yypcb->pcb_jmpbuf, sizeof (jmp_buf));
 	tries = 0;
 
 	if (dnp->dn_pred != NULL && (err = setjmp(yypcb->pcb_jmpbuf)) != 0) {
-		bcopy(ojb, yypcb->pcb_jmpbuf, sizeof (jmp_buf));
+		memcpy(yypcb->pcb_jmpbuf, ojb, sizeof (jmp_buf));
 		if (tries++ != 0 || err != EDT_COMPILER || (
 		    yypcb->pcb_hdl->dt_errtag != dt_errtag(D_IDENT_UNDEF) &&
 		    yypcb->pcb_hdl->dt_errtag != dt_errtag(D_VAR_UNDEF)))
@@ -4088,7 +4089,7 @@ dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 		dt_node_attr_assign(dnp,
 		    dt_node_list_cook(&dnp->dn_acts, idflags));
 
-		bcopy(ojb, yypcb->pcb_jmpbuf, sizeof (jmp_buf));
+		memcpy(yypcb->pcb_jmpbuf, ojb, sizeof (jmp_buf));
 		yylabel(NULL);
 	}
 

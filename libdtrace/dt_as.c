@@ -7,7 +7,6 @@
 
 #include <sys/types.h>
 #include <sys/bitmap.h>
-#include <strings.h>
 #include <stdlib.h>
 #include <assert.h>
 
@@ -18,7 +17,7 @@
 void
 dt_irlist_create(dt_irlist_t *dlp)
 {
-	bzero(dlp, sizeof (dt_irlist_t));
+	memset(dlp, 0, sizeof (dt_irlist_t));
 	dlp->dl_label = 1;
 }
 
@@ -104,7 +103,7 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	if (idp->di_flags & DT_IDFLG_DIFW)
 		dvp->dtdv_flags |= DIFV_F_MOD;
 
-	bzero(&dn, sizeof (dn));
+	memset(&dn, 0, sizeof (dn));
 	dt_node_type_assign(&dn, idp->di_ctfp, idp->di_type);
 	dt_node_diftype(pcb->pcb_hdl, &dn, &dvp->dtdv_type);
 
@@ -115,7 +114,7 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 static ssize_t
 dt_copystr(const char *s, size_t n, size_t off, dt_pcb_t *pcb)
 {
-	bcopy(s, pcb->pcb_difo->dtdo_strtab + off, n);
+	memcpy(pcb->pcb_difo->dtdo_strtab + off, s, n);
 	return (n);
 }
 

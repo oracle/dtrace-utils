@@ -283,7 +283,7 @@ strhyphenate(char *s)
 	for (p = s, q = p + strlen(p); p < q; p++) {
 		if (p[0] == '_' && p[1] == '_') {
 			p[0] = '-';
-			bcopy(p + 2, p + 1, (size_t)(q - p) - 1);
+			memcpy(p + 1, p + 2, (size_t)(q - p) - 1);
 		}
 	}
 

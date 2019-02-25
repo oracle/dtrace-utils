@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-#include <strings.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -777,7 +776,7 @@ dt_decl_enumerator(char *s, dt_node_t *dnp)
 	yypcb->pcb_list = dnp->dn_link;
 	dnp->dn_link = NULL;
 
-	bzero(inp, sizeof (dt_idnode_t));
+	memset(inp, 0, sizeof (dt_idnode_t));
 	inp->din_list = dnp;
 	inp->din_root = dnp;
 

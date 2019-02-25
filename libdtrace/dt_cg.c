@@ -6,9 +6,7 @@
  */
 
 #include <sys/types.h>
-//#include <sys/isa_defs.h>
 
-#include <strings.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <assert.h>
@@ -725,7 +723,7 @@ dt_cg_compare_signed(dt_node_t *dnp)
 	    !dt_node_is_arith(dnp->dn_right))
 		return (0); /* non-arithmetic types always compare unsigned */
 
-	bzero(&dn, sizeof (dn));
+	memset(&dn, 0, sizeof (dn));
 	dt_node_promote(dnp->dn_left, dnp->dn_right, &dn);
 	return (dn.dn_flags & DT_NF_SIGNED);
 }
@@ -971,13 +969,13 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * modified according to each instantiated member so that we
 		 * can pass them to dt_cg_store() and effect a member store.
 		 */
-		bzero(&dn, sizeof (dt_node_t));
+		memset(&dn, 0, sizeof (dt_node_t));
 		dn.dn_kind = DT_NODE_OP2;
 		dn.dn_op = DT_TOK_DOT;
 		dn.dn_left = dnp;
 		dn.dn_right = &mn;
 
-		bzero(&mn, sizeof (dt_node_t));
+		memset(&mn, 0, sizeof (dt_node_t));
 		mn.dn_kind = DT_NODE_IDENT;
 		mn.dn_op = DT_TOK_IDENT;
 

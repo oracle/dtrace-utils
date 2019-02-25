@@ -6,7 +6,6 @@
  */
 
 #include <stdlib.h>
-#include <strings.h>
 #include <errno.h>
 #include <unistd.h>
 #include <assert.h>
@@ -34,16 +33,16 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 		}
 
-		bzero(new_pdesc, nsize);
-		bzero(new_edesc, nsize);
+		memset(new_pdesc, 0, nsize);
+		memset(new_edesc, 0, nsize);
 
 		if (dtp->dt_pdesc != NULL) {
 			size_t osize = max * sizeof (void *);
 
-			bcopy(dtp->dt_pdesc, new_pdesc, osize);
+			memcpy(new_pdesc, dtp->dt_pdesc, osize);
 			free(dtp->dt_pdesc);
 
-			bcopy(dtp->dt_edesc, new_edesc, osize);
+			memcpy(new_edesc, dtp->dt_edesc, osize);
 			free(dtp->dt_edesc);
 		}
 
@@ -58,7 +57,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 	if ((enabled = malloc(sizeof (dtrace_eprobedesc_t))) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
-	bzero(enabled, sizeof (dtrace_eprobedesc_t));
+	memset(enabled, 0, sizeof (dtrace_eprobedesc_t));
 	enabled->dtepd_epid = id;
 	enabled->dtepd_nrecs = 1;
 
@@ -75,7 +74,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 		 */
 		if ((nenabled =
 		    malloc(DTRACE_SIZEOF_EPROBEDESC(enabled))) != NULL)
-			bcopy(enabled, nenabled, sizeof (*enabled));
+			memcpy(nenabled, enabled, sizeof (*enabled));
 
 		free(enabled);
 
@@ -117,7 +116,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 		    dtp->dt_formats[rec->dtrd_format - 1] != NULL)
 			continue;
 
-		bzero(&fmt, sizeof (fmt));
+		memset(&fmt, 0, sizeof (fmt));
 		fmt.dtfd_format = rec->dtrd_format;
 		fmt.dtfd_string = NULL;
 		fmt.dtfd_length = 0;
@@ -150,8 +149,8 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 				goto err;
 			}
 
-			bzero(new_formats, nsize);
-			bcopy(dtp->dt_formats, new_formats, osize);
+			memset(new_formats, 0, nsize);
+			memcpy(new_formats, dtp->dt_formats, osize);
 			free(dtp->dt_formats);
 
 			dtp->dt_formats = new_formats;
@@ -280,10 +279,10 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 		if ((new_aggdesc = malloc(nsize)) == NULL)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 
-		bzero(new_aggdesc, nsize);
+		memset(new_aggdesc, 0, nsize);
 
 		if (dtp->dt_aggdesc != NULL) {
-			bcopy(dtp->dt_aggdesc, new_aggdesc,
+			memcpy(new_aggdesc, dtp->dt_aggdesc,
 			    max * sizeof (void *));
 			free(dtp->dt_aggdesc);
 		}
@@ -298,7 +297,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 		if ((agg = malloc(sizeof (dtrace_aggdesc_t))) == NULL)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 
-		bzero(agg, sizeof (dtrace_aggdesc_t));
+		memset(agg, 0, sizeof (dtrace_aggdesc_t));
 		agg->dtagd_id = id;
 		agg->dtagd_nrecs = 1;
 
@@ -314,7 +313,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 			 * appropriate amount of space and try again.
 			 */
 			if ((nagg = malloc(DTRACE_SIZEOF_AGGDESC(agg))) != NULL)
-				bcopy(agg, nagg, sizeof (*agg));
+				memcpy(nagg, agg, sizeof (*agg));
 
 			free(agg);
 

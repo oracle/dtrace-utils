@@ -9,7 +9,6 @@
 #define	_DT_STRING_H
 
 #include <sys/types.h>
-#include <strings.h>
 #include <config.h>
 
 #ifdef	__cplusplus

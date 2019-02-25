@@ -18,8 +18,6 @@
  * to check for errors and then perform a single check before using the buffer.
  */
 
-#include <strings.h>
-
 #include <dt_impl.h>
 #include <dt_buf.h>
 
@@ -86,7 +84,7 @@ dt_buf_write(dtrace_hdl_t *dtp, dt_buf_t *bp,
 			return;
 		}
 
-		bcopy(bp->dbu_buf, new_buf, off);
+		memcpy(new_buf, bp->dbu_buf, off);
 		dt_free(dtp, bp->dbu_buf);
 
 		bp->dbu_buf = new_buf;
@@ -96,7 +94,7 @@ dt_buf_write(dtrace_hdl_t *dtp, dt_buf_t *bp,
 	}
 
 	bp->dbu_ptr += adj;
-	bcopy(buf, bp->dbu_ptr, len);
+	memcpy(bp->dbu_ptr, buf, len);
 	bp->dbu_ptr += len;
 }
 

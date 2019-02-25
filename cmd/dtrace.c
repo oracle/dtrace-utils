@@ -413,7 +413,7 @@ etcsystem_prune(void)
 	}
 
 	end += strlen(g_etcend) + 1;
-	bcopy(end, start, strlen(end) + 1);
+	memcpy(start, end, strlen(end) + 1);
 
 	tmpname = alloca(sz = strlen(fname) + 80);
 	(void) snprintf(tmpname, sz, "%s.dtrace.%d", fname, getpid());
@@ -1173,8 +1173,8 @@ main(int argc, char *argv[])
 	g_argv[g_argc++] = argv[0];	/* propagate argv[0] to D as $0/$$0 */
 	argv[0] = g_pname;		/* rewrite argv[0] for getopt errors */
 
-	bzero(status, sizeof (status));
-	bzero(&buf, sizeof (buf));
+	memset(status, 0, sizeof (status));
+	memset(&buf, 0, sizeof (buf));
 
 	/*
 	 * Make an initial pass through argv[] processing any arguments that

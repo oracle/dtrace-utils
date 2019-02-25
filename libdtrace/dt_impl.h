@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -19,6 +19,7 @@
 #include <sys/utsname.h>
 #include <sys/compiler.h>
 #include <math.h>
+#include <string.h>
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
@@ -687,6 +688,8 @@ extern int _dtrace_argmax;		/* default maximum probe arguments */
 extern int _dtrace_debug_assert;	/* turn on expensive assertions */
 
 extern const char *_dtrace_moddir;	/* default kernel module directory */
+
+#pragma GCC poison bcopy bzero bcmp
 
 #ifdef	__cplusplus
 }

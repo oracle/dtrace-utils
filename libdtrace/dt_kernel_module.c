@@ -55,7 +55,7 @@ dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 
 	dt_dprintf("Adding %s -> %s\n", name, path);
 
-	bzero(dkpp, sizeof (dt_kern_path_t));
+	memset(dkpp, 0, sizeof (dt_kern_path_t));
 	dkpp->dkp_name = name;
 	dkpp->dkp_path = path;			/* strdup()ped by our caller */
 	dt_list_append(&dtp->dt_kernpathlist, dkpp);

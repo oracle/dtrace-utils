@@ -95,7 +95,7 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	}
 
 	dt_list_append(&dtp->dt_xlators, dxp);
-	bcopy(dtp->dt_xlatormap, map, sizeof (void *) * dxp->dx_id);
+	memcpy(map, dtp->dt_xlatormap, sizeof (void *) * dxp->dx_id);
 	dt_free(dtp, dtp->dt_xlatormap);
 	dtp->dt_xlatormap = map;
 	dtp->dt_xlatormap[dxp->dx_id] = dxp;

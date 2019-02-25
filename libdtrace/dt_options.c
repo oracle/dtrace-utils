@@ -940,7 +940,7 @@ dt_options_load(dtrace_hdl_t *dtp)
 	 * To load the option values, we need to ask the kernel to provide its
 	 * DOF, which we'll sift through to look for OPTDESC sections.
 	 */
-	bzero(&hdr, sizeof (dof_hdr_t));
+	memset(&hdr, 0, sizeof (dof_hdr_t));
 	hdr.dofh_loadsz = sizeof (dof_hdr_t);
 
 	if (dt_ioctl(dtp, DTRACEIOC_DOFGET, &hdr) == -1)
@@ -950,7 +950,7 @@ dt_options_load(dtrace_hdl_t *dtp)
 		return (dt_set_errno(dtp, EINVAL));
 
 	dof = alloca(hdr.dofh_loadsz);
-	bzero(dof, sizeof (dof_hdr_t));
+	memset(dof, 0, sizeof (dof_hdr_t));
 	dof->dofh_loadsz = hdr.dofh_loadsz;
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)

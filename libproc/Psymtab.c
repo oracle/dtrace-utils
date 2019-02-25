@@ -13,7 +13,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <string.h>
-#include <strings.h>
 #include <memory.h>
 #include <errno.h>
 #include <dirent.h>

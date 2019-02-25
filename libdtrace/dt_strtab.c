@@ -47,13 +47,13 @@ dt_strtab_create(size_t bufsz)
 	if (sp == NULL)
 		return (NULL);
 
-	bzero(sp, sizeof (dt_strtab_t));
+	memset(sp, 0, sizeof (dt_strtab_t));
 	sp->str_hash = malloc(nbuckets * sizeof (dt_strhash_t *));
 
 	if (sp->str_hash == NULL)
 		goto err;
 
-	bzero(sp->str_hash, nbuckets * sizeof (dt_strhash_t *));
+	memset(sp->str_hash, 0, nbuckets * sizeof (dt_strhash_t *));
 	sp->str_hashsz = nbuckets;
 	sp->str_bufs = NULL;
 	sp->str_ptr = NULL;
@@ -167,7 +167,7 @@ dt_strtab_copyin(dt_strtab_t *sp, const char *str, size_t len)
 
 		resid = sp->str_bufs[b] + sp->str_bufsz - sp->str_ptr;
 		n = MIN(resid, len);
-		bcopy(str, sp->str_ptr, n);
+		memcpy(sp->str_ptr, str, n);
 
 		sp->str_ptr += n;
 		str += n;
