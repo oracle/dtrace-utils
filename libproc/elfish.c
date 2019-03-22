@@ -75,7 +75,7 @@ void
 Preadauxvec(struct ps_prochandle *P)
 {
 	int auxv_size = P->elf64 ? sizeof(Elf64_auxv_t) : sizeof(Elf32_auxv_t);
-	char auxfile[PATH_MAX];
+	char auxfile[PATH_MAX + MAXLEN_PID + strlen("/auxv") + 1];
 	ssize_t i;
 	int fd;
 	char buf[sizeof (Elf64_auxv_t)];

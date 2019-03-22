@@ -41,6 +41,16 @@ extern "C" {
 #endif
 
 /*
+ * Maximum number of digits needed for a pid so we can properly
+ * size strings for /proc/$pid/auxv, /proc/$pid/maps, etc.
+ * E.g., if procname[] will be "$procfs/$pid/exe", we size
+ *     char procname[PATH_MAX + MAXLEN_PID + strlen("/exe") + 1];
+ * The null-terminating char of $procfs is overwritten by a '/',
+ * and then we add space for the new terminating char at the end.
+ */
+#define MAXLEN_PID 9
+
+/*
  * Opaque structure tag reference to a process control structure.
  * Clients of libproc cannot look inside the process control structure.
  * The implementation of struct ps_prochandle can change w/o affecting clients.

@@ -8,6 +8,7 @@
 #ifndef	_DT_STRING_H
 #define	_DT_STRING_H
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <config.h>
 
@@ -24,6 +25,19 @@ extern char *strhyphenate(char *);
 #ifndef HAVE_STRRSTR
 extern char *strrstr(const char *, const char *);
 #endif
+
+/*
+ * To get around issues with strncpy:
+ * - strncpy() use is generally discouraged due to:
+ *   - its failure to write null terminating char if no room
+ *   - padding null bytes (unnecessary in our use)
+ * - compile-time complaints from gcc 8
+ */
+static inline int
+strcpy_safe(char *dst, size_t bufsz, const char *src)
+{
+	return snprintf(dst, bufsz, "%s", src);
+}
 
 #ifdef	__cplusplus
 }

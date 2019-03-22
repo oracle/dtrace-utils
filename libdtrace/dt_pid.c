@@ -154,7 +154,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	}
 
 	ftp->ftps_pid = pid;
-	(void) strncpy(ftp->ftps_func, func, sizeof (ftp->ftps_func));
+	strcpy_safe(ftp->ftps_func, sizeof (ftp->ftps_func), func);
 
 	dt_pid_objname(ftp->ftps_mod, sizeof (ftp->ftps_mod), pp->dpp_lmid,
 	    pp->dpp_obj);

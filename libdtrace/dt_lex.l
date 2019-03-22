@@ -242,8 +242,7 @@ if (yypcb->pcb_token != 0) {
 
 				errno = 0;
 				yylval.l_int = strtoull(v, &p, 0);
-				(void) strncpy(yyintsuffix, p,
-				    sizeof (yyintsuffix));
+				strcpy_safe(yyintsuffix, sizeof (yyintsuffix), p);
 				yyintdecimal = *v != '0';
 
 				if (errno == ERANGE) {
@@ -325,7 +324,7 @@ if (yypcb->pcb_token != 0) {
 			errno = 0;
 			yylval.l_int = strtoull(yytext, &p, 0);
 			yyintprefix = 0;
-			(void) strncpy(yyintsuffix, p, sizeof (yyintsuffix));
+			strcpy_safe(yyintsuffix, sizeof (yyintsuffix), p);
 			yyintdecimal = yytext[0] != '0';
 
 			if (errno == ERANGE) {

@@ -447,7 +447,8 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 void
 Pupdate_maps(struct ps_prochandle *P)
 {
-	char mapfile[PATH_MAX];
+	char mapfile[PATH_MAX + MAXLEN_PID + strlen("/maps") + 1];
+	char exefilesym[PATH_MAX + MAXLEN_PID + strlen("/exe") + 1];
 	char exefile[PATH_MAX + 10] = "";	/* strlen(" (deleted)") */
 	FILE *fp;
 
@@ -488,9 +489,9 @@ Pupdate_maps(struct ps_prochandle *P)
 		return;
 	}
 
-	snprintf(exefile, sizeof (exefile), "%s/%d/exe", procfs_path,
+	snprintf(exefilesym, sizeof (exefilesym), "%s/%d/exe", procfs_path,
 	    (int)P->pid);
-	if ((len = readlink(exefile, exefile, sizeof (exefile))) > 0)
+	if ((len = readlink(exefilesym, exefile, sizeof (exefile))) > 0)
 		exefile[len] = '\0';
 
 	while (getline(&line, &len, fp) >= 0) {

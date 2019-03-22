@@ -114,7 +114,7 @@ Pcreate(
 	int *perr)		/* pointer to error return code */
 {
 	struct ps_prochandle *P;
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/exe") + 1];
 	pid_t pid;
 	int rc;
 	int status;
@@ -282,7 +282,7 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
     int *perr)
 {
 	struct ps_prochandle *P;
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/exe") + 1];
 
 	*perr = 0;
 	if (kill(pid, 0) == ESRCH) {
@@ -469,7 +469,7 @@ Pstate(struct ps_prochandle *P)
 int
 Pmemfd(struct ps_prochandle *P)
 {
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/") + 1];
 	char *fname;
 
 	if ((P->memfd != -1) || P->noninvasive)
@@ -500,7 +500,7 @@ Pmemfd(struct ps_prochandle *P)
 int
 Pmapfilefd(struct ps_prochandle *P)
 {
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/") + 1];
 	char *fname;
 	static int no_map_files;
 
@@ -913,7 +913,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	 */
 	if ((status >> 8) == (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 
-		char procname[PATH_MAX];
+		char procname[PATH_MAX + MAXLEN_PID + strlen("/exe") + 1];
 		jmp_buf *exec_jmp;
 
 		_dprintf("%i: process status change: exec() detected, "
@@ -2658,7 +2658,7 @@ Pelf64(struct ps_prochandle *P)
 int
 Pexists(pid_t pid)
 {
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + 1];
 
 	snprintf(procname, sizeof (procname), "%s/%d",
 	    procfs_path, pid);
@@ -2674,7 +2674,7 @@ Pexists(pid_t pid)
 static int
 Phastty(pid_t pid)
 {
-	char procname[PATH_MAX];
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/stat") + 1];
 	char *buf = NULL;
 	char *s;
 	size_t n;
@@ -2793,7 +2793,12 @@ int
 Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 {
 	FILE *fp;
-	char procname[PATH_MAX];
+	/*
+	 * procname must be big enough for either of these:
+	 * - "$procfs_path/$pid/cgroup\0" (this one is bigger)
+	 * - "$procfs_path/$pid/fd/$fd\0'
+	 */
+	char procname[PATH_MAX + MAXLEN_PID + strlen("/cgroup") + 1];
 	char *buf = NULL;
 	size_t n;
 	int fd;
