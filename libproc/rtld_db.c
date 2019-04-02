@@ -118,6 +118,13 @@ dl_nns(rd_agent_t *rd)
 		return 1;
 	}
 
+	if (buf == 0) {
+		_dprintf("%i: zero namespaces, probably incompatible glibc\n",
+		    rd->P->pid);
+		rd->lmid_incompatible_glibc = 1;
+		return 1;
+	}
+
 	return buf;
 }
 
