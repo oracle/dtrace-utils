@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -33,6 +33,9 @@ dtrace=$1
 testdir="$(dirname $_test)"
 local=::1
 udpport=52462
+
+# Check that we have an IPv6 local configuration to work with, or expect fail
+/sbin/ip -o route get to $local > /dev/null || exit 67
 
 $testdir/server.udp.pl $local $udpport >/dev/null&
 server=$!

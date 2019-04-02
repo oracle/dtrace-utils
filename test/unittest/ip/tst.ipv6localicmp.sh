@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -27,6 +27,9 @@ fi
 
 dtrace=$1
 local=::1
+
+# Check that we have an IPv6 local configuration to work with, or expect fail
+/sbin/ip -o route get to $local > /dev/null || exit 67
 
 $dtrace $dt_flags -c "ping6 -q $local -c 3" -qs /dev/stdin <<EOF | \
     awk '/ip::/ { print $0 }' | sort -n
