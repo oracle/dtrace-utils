@@ -41,6 +41,12 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 	if (buf[0] == '\0' && loadobj->rl_nscopes == 1)
 		return (1);
 
+        /*
+         * Second item, no search path: vDSO (later glibc version).
+         */
+        if ((num == 1) && (loadobj->rl_nscopes == 1))
+		return (1);
+
 	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li: %s (", buf, loadobj->rl_dyn,
 	    loadobj->rl_diff_addr, loadobj->rl_lmident, loadobj->rl_default_scope ?
 	    "inherited symbol search path: ": "symbol search path: ");
@@ -79,6 +85,12 @@ note_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 	 * No name, no search path: vDSO, we don't care about it.
 	 */
 	if (buf[0] == '\0' && loadobj->rl_nscopes == 1)
+		return (1);
+
+        /*
+         * Second item, no search path: vDSO (later glibc version).
+         */
+        if ((num == 1) && (loadobj->rl_nscopes == 1))
 		return (1);
 
 	libs_seen++;
