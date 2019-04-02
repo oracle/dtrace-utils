@@ -265,7 +265,7 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 			return (1);
 		}
 	}
-	else if (num == 1) {
+	else if ((num == 1) && (lop->rl_nscopes == 1)) {
 		_dprintf("map_iter: skipping vdso\n");
 		return (1);
 	} else if (lop->rl_dyn == 0)
