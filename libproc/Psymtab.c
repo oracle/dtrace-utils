@@ -587,11 +587,12 @@ Pupdate_maps(struct ps_prochandle *P)
 		pmptr->pr_mapaddrname = mapaddrname;
 
 		/*
-		 * Both ld.so and the kernel follow the rule that the first
-		 * executable mapping they establish is the primary text
-		 * mapping, and the first writable mapping is the primary data
-		 * mapping.
+		 * Note down the first mapping encountered: this is the base for
+		 * segment/offset calculations.  Also note the mapping that
+		 * likely corresponds to the place code will be executed out of.
 		 */
+                if (prf->first_segment == NULL)
+			prf->first_segment = pmptr;
 		if (perms[0] == 'r')
 			pmptr->pr_mflags |= MA_READ;
 		if (perms[1] == 'w') {
@@ -1371,37 +1372,53 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	       goto ret;
 	}
 
-	size_t nphdrs;
-	GElf_Addr lowest_vaddr = (GElf_Addr) -1;
-
-	if (elf_getphdrnum(elf, &nphdrs) < 0)
-		goto elf_bad_noaddr;
-
-	for (i = 0; i < nphdrs; i++) {
-		GElf_Phdr hdr;
-		GElf_Phdr *phdr = gelf_getphdr(elf, i, &hdr);
-
-		if (!phdr)
-			goto elf_bad_noaddr;
-
-		if (phdr->p_type == PT_LOAD &&
-		    phdr->p_vaddr < lowest_vaddr)
-			lowest_vaddr = phdr->p_vaddr;
+	/*
+	 * ET_EXEC executables have a load bias of zero.
+	 */
+	if (fptr->file_etype == ET_EXEC) {
+		fptr->file_dyn_base = 0;
+		goto ret;
 	}
 
-	if (lowest_vaddr == (GElf_Addr) -1) {
+	size_t nphdrs;
+	GElf_Phdr hdr;
+	GElf_Phdr *phdr = &hdr;
+	prmap_file_t *prf = Pprmap_file_by_name(P, fptr->file_pname);
+
+	if (!prf) {
+		_dprintf("%s: mapping not known (internal error)\n.",
+		    fptr->file_pname);
+		goto elf_bad_noaddr;
+	}
+
+	if (elf_getphdrnum(elf, &nphdrs) < 0) {
+		_dprintf("%s: can't get phdrs.\n", fptr->file_pname);
+		goto elf_bad_noaddr;
+	}
+
+	if (nphdrs == 0) {
 		_dprintf("%s: no loadable sections.\n", fptr->file_pname);
 		goto elf_bad_noaddr;
 	}
 
-	fptr->file_dyn_base = P->mappings[fptr->file_map].map_pmap->pr_vaddr -
-	    lowest_vaddr;
+	for (i = 0; i < nphdrs; i++) {
+		phdr = gelf_getphdr(elf, i, &hdr);
+
+		if (!phdr)
+			goto elf_bad_noaddr;
+
+		if (phdr->p_type == PT_LOAD)
+			break;
+	}
+
+	fptr->file_dyn_base = prf->first_segment->pr_vaddr -
+	    (phdr->p_vaddr & (phdr->p_align - 1));
 
 	_dprintf("setting file_dyn_base for %s to %lx, "
-	    "from vaddr of %lx and lowest_addr of %lx\n",
+	    "from load address of %lx and phdr vaddr of %lx\n",
 	    fptr->file_pname, (long)fptr->file_dyn_base,
-	    P->mappings[fptr->file_map].map_pmap->pr_vaddr,
-	    lowest_vaddr);
+	    prf->first_segment->pr_vaddr,
+	    (phdr->p_vaddr & (phdr->p_align - 1)));
 
 ret:
 	*jmp_pad = old_exec_jmp;

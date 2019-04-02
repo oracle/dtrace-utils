@@ -32,6 +32,7 @@ typedef struct prmap_file {
 	struct prmap **prf_mappings;	/* sorted by address */
 	size_t prf_num_mappings;	/* number of mappings */
 	struct prmap *prf_text_map;	/* primary text mapping, if known */
+	struct prmap *first_segment;	/* mapping of first segment */
 } prmap_file_t;
 
 /*
