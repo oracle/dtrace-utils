@@ -597,8 +597,6 @@ Pupdate_maps(struct ps_prochandle *P)
 			pmptr->pr_mflags |= MA_READ;
 		if (perms[1] == 'w') {
 			pmptr->pr_mflags |= MA_WRITE;
-			if (prf->prf_data_map == NULL)
-				prf->prf_data_map = pmptr;
 		}
 		if (perms[2] == 'x') {
 			char *basename = strrchr(prf->prf_mapname, '/');
