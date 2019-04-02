@@ -118,9 +118,9 @@ dl_nns(rd_agent_t *rd)
 		return 1;
 	}
 
-	if (buf == 0) {
-		_dprintf("%i: zero namespaces, probably incompatible glibc\n",
-		    rd->P->pid);
+	if ((buf == 0) || (buf > DL_NNS)) {
+		_dprintf("%i: %li namespaces is not valid: "
+		    "probably incompatible glibc\n", rd->P->pid, buf);
 		rd->lmid_incompatible_glibc = 1;
 		return 1;
 	}

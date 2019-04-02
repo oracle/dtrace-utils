@@ -68,6 +68,9 @@ for BITNESS in 32 64; do
 int main(void)
 {
 	printf("#define UINT_@BITNESS@_SIZE\t%li\n", sizeof(unsigned int));
+	printf("#ifndef DL_NNS\n");
+	printf("#define DL_NNS\t%li\n", DL_NNS);
+	printf("#endif\n");
 
 	BITNESS_OFFSET(R_VERSION, r_debug, r_version);
 	BITNESS_OFFSET(R_MAP, r_debug, r_map);
