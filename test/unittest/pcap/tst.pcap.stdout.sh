@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -24,14 +24,16 @@ pcapsize=16
 
 file=$tmpdir/pcap.out.$$
 
-# By eliminating /usr/sbin from PATH we ensure we cannot find tshark
-# so fall back to tracemem()-like output.
-PATH=/usr/bin $dtrace $dt_flags -x pcapsize=$pcapsize -w -c "$testdir/../ip/client.ip.pl tcp $local $tcpport" -qs /dev/stdin <<EODTRACE 1> $file
+# Eliminate /usr/sbin and /usr/bin from PATH so that we do not find tshark.
+# We will fall back to tracemem()-like output.
+PATH= $dtrace $dt_flags -x pcapsize=$pcapsize -w -c "$testdir/../ip/client.ip.pl tcp $local $tcpport" -qs /dev/stdin <<EODTRACE 1> $file
 
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" /
 {
+	printf("pcap output:\n");
 	pcap((struct sk_buff *)arg0, PCAP_IP);
+	printf("tracemem output:\n");
 	tracemem(((struct sk_buff *)arg0)->data, $pcapsize);
 }
 EODTRACE
@@ -49,7 +51,12 @@ if [[ -f $file ]]; then
 		else
 			# Finally, compare pcap line to tracemem line.
 			if [[ "$pcapline" != "$line" ]]; then
-				echo "'$pcapline' and '$line' did not match"
+				echo "mismatch:"
+				echo "  pcap    : '$pcapline'"
+				echo "  tracemem: '$line'"
+				echo
+				echo "file:"
+				cat $file
 				exit 1
 			fi
 			pcapline=""
