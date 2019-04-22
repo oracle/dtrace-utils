@@ -124,6 +124,7 @@ Requires:     %{glibc32} dtrace-headers > 0.6.0 module-init-tools
 Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel perl-IO-Socket-IP xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
+Requires:     coreutils
 Requires:     wireshark
 Autoreq:      0
 Group:	      Development/System

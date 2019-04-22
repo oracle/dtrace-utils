@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -18,8 +18,6 @@ shopt -s nullglob extglob
 unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
 export LC_COLLATE="C"
-
-TIMEOUTSIG=KILL
 
 arch="$(uname -m)"
 
@@ -137,77 +135,25 @@ ZAPTHESE=
 # run_with_timeout TIMEOUT CMD [ARGS ...]
 #
 # Run command CMD with argument ARGS, with the specified timeout.
-# Return the exitcode of the command, or 126 if a timeout occurred.
-#
-# Note: this function depends on CHLD traps. If other subprocesses may
-# exit during the invocation of this command, you may need to run it in
-# a subshell.
+# Return the exitcode of the command, or $TIMEOUTRET if a timeout occurred.
+
+TIMEOUTSIG=KILL
+TIMEOUTRET=124
 
 run_with_timeout()
 {
-    local timeout=$1
-    local cmd=$2
-    local pid
-    local dtpid
-    local sleepid
-    local exited
-    local old_ZAPTHESE
+    log "Running timeout --signal=$TIMEOUTSIG $@ ${explicit_arg:+"$explicit_arg"}\n"
+    timeout --signal=$TIMEOUTSIG $@ ${explicit_arg:+"$explicit_arg"}
+    local status=$?
 
-    # We must turn 'monitor' on here to ensure that the CHLD trap fires,
-    # but should leave it off at all other times to prevent annoying screen
-    # output.
-    set -o monitor
+    # short wait to allow any coredump to trickle out to disk.
+    [[ $status -ne 0 ]] && sleep 1
 
-    # We use two background jobs, one sleeping for the timeout interval, one
-    # executing the desired command.  When either of these jobs exit, this trap
-    # kicks in and kills off the other job.  It does a check with ps(1) to guard
-    # against PID recycling causing the wrong process to be killed if the other
-    # job exits at just the wrong instant.  The check for pid being set allows us
-    # to avoid one ps(1) call in the common case of no timeout.
-    #
-    # Note: because log, sum, out and force_out invoke subprocesses, you cannot
-    # call either of them while the CHLD trap is in force.
-    shift 2
-    log "Running $cmd $@${explicit_arg:+ "$explicit_arg"} with timeout $timeout\n"
-
-    trap 'trap - CHLD; set +o monitor; if [[ "$(ps -p $sleepid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$sleepid >/dev/null 2>&1; exited=1; elif [[ -n $pid ]] && [[ "$(ps -p $pid -o ppid=)" -eq $BASHPID ]]; then kill -$TIMEOUTSIG -- -$pid >/dev/null 2>&1; exited=; fi' CHLD
-    sleep $timeout &
-    sleepid=$!
-    old_ZAPTHESE="$ZAPTHESE"
-    ZAPTHESE="$ZAPTHESE $sleepid"
-
-    $cmd "$@" ${explicit_arg:+"$explicit_arg"} &
-    pid=$!
-    dtpid=$pid
-    ZAPTHESE="$ZAPTHESE $pid"
-    wait $pid >/dev/null 2>&1
-    local exitcode=$?
-    pid=
-
-    wait $sleepid >/dev/null 2>&1
-
-    trap - CHLD
-    set +o monitor
-    ZAPTHESE="$old_ZAPTHESE"
-
-    if [[ "$(ps -p $dtpid -o ppid=)" -eq $BASHPID ]]; then
-        force_out "ERROR: hanging dtrace detected. Testing terminated.\n"
-        ps -p $dtpid -o args= | tee -a $LOGFILE >> $SUMFILE
-        # Terminate the test run early: future runs cannot succeed,
-        # and test coverage output is meaningless.
-        unload_modules
-        exit 1
+    # status 128+9 indicates timeout via KILL(=9)
+    if [[ $status -eq 137 ]]; then
+        status=$TIMEOUTRET
     fi
-
-    # Nonzero exitcode?  Wait for a second, to allow any coredump to trickle
-    # out to disk.
-    [[ $exitcode -ne 0 ]] && sleep 1
-
-    if [[ -n $exited ]]; then
-        return $exitcode
-    else
-        return 126
-    fi
+    return $status
 }
 
 # exist_options NAME FILE
@@ -1423,7 +1369,7 @@ for dt in $dtrace; do
                 failmsg="core dumped"
 
             # Detect a timeout.
-            elif [[ $exitcode -eq 126 ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
+            elif [[ $exitcode -eq $TIMEOUTRET ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
                  [[ "x$(extract_options timeout-success $_test)" = "x" ]]; then
                 fail=t
                 failmsg="timed out"
@@ -1433,7 +1379,7 @@ for dt in $dtrace; do
                 xfail=t
 
             # Exitcodes are not useful if there's been a coredump, but otherwise...
-            elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne 126 ]]; then
+            elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne $TIMEOUTRET ]]; then
 
                 # Some sort of exitcode error.  Assume that errors in the
                 # range 129 -- 193 (a common value of SIGRTMAX) are signal
