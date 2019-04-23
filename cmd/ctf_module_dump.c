@@ -171,7 +171,7 @@ find_module_ctf(const char *name)
  * Dump the CTF in the given module.
  */
 static void
-ctf_dump(const char *name)
+ctf_module_dump(const char *name)
 {
 	FILE *parent_fp = find_module_ctf(NULL);
 	FILE *child_fp = NULL;
@@ -301,7 +301,7 @@ main(int argc, char *argv[])
 	}
 
 	while (optind < argc)
-		ctf_dump(argv[optind++]);
+		ctf_module_dump(argv[optind++]);
 
 	while ((dkpp = dt_list_next(&dtp->dt_kernpathlist)) != NULL)
 		dtrace__internal_kern_path_destroy(dtp, dkpp);
