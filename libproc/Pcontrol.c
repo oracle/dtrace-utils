@@ -2836,7 +2836,8 @@ Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 		if (colon)
 			colon = strchr(colon + 1, ':');
 
-		_dprintf("systemd system: sysslice: %s; colon: %s\n", sysslice, colon);
+		_dprintf("systemd system: sysslice: %s; colon: %s\n",
+		    sysslice, colon ? colon : "(not found)");
 		if (colon &&
 		    (strncmp(colon, sysslice, strlen(sysslice)) == 0)) {
 			free(buf);

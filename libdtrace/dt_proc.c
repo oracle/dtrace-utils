@@ -133,7 +133,7 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 
 	if (dprn == NULL) {
 		dt_dprintf("failed to allocate notification for %d %s\n",
-		    (int)dpr->dpr_pid, msg);
+		    (int)dpr->dpr_pid, msg ? msg : "");
 	} else {
 		dprn->dprn_dpr = dpr;
 		if (msg == NULL)
