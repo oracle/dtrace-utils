@@ -87,6 +87,7 @@
 #include <dt_ident.h>
 #include <dt_string.h>
 #include <dt_impl.h>
+#include <bpf_asm.h>
 
 int yylineno;
 
@@ -289,8 +290,8 @@ dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 	}
 
-	dp->dtdo_buf[0] = DIF_INSTR_SETX(0, 1); /* setx	DIF_INTEGER[0], %r1 */
-	dp->dtdo_buf[1] = DIF_INSTR_RET(1);	/* ret	%r1 */
+	dp->dtdo_buf[0] = BPF_MOV_IMM(BPF_REG_0, 0);	/* mov %r0, 0 */
+	dp->dtdo_buf[1] = BPF_RETURN();			/* exit	*/
 	dp->dtdo_len = 2;
 	dp->dtdo_inttab[0] = id;
 	dp->dtdo_intlen = 1;
@@ -613,16 +614,16 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 	    dnp->dn_ident, 1, DTRACEACT_AGGREGATION, arg1);
 
 	if (arg1 == NULL) {
-		dif_instr_t *dbuf;
+		struct bpf_insn *dbuf;
 		dtrace_difo_t *dp;
 
-		if ((dbuf = dt_alloc(dtp, sizeof (dif_instr_t))) == NULL ||
+		if ((dbuf = dt_alloc(dtp, sizeof (struct bpf_insn))) == NULL ||
 		    (dp = dt_zalloc(dtp, sizeof (dtrace_difo_t))) == NULL) {
 			dt_free(dtp, dbuf);
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 		}
 
-		dbuf[0] = DIF_INSTR_RET(DIF_REG_R0); /* ret %r0 */
+		dbuf[0] = BPF_RETURN();		/* ret %r0 */
 
 		dp->dtdo_buf = dbuf;
 		dp->dtdo_len = 1;
@@ -1121,6 +1122,17 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 }
 
 static void
+dt_compile_entire_clause(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
+{
+	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
+
+	dt_cg(yypcb, dnp);
+	ap->dtad_difo = dt_as(yypcb);
+	ap->dtad_difo->dtdo_rtype = dt_void_rtype;
+	ap->dtad_kind = DTRACEACT_DIFEXPR;
+}
+
+static void
 dt_compile_exp(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
@@ -1587,7 +1599,6 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 {
 	dtrace_ecbdesc_t *edp;
 	dtrace_stmtdesc_t *sdp;
-	dt_node_t *dnp;
 
 	yylineno = pnp->dn_line;
 	dt_setcontext(dtp, pnp->dn_desc);
@@ -1612,6 +1623,13 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 		    cnp->dn_ctxattr, _dtrace_defattr), cnp);
 	}
 
+#if 1
+	assert(yypcb->pcb_stmt == NULL);
+	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
+	dt_compile_entire_clause(dtp, cnp, sdp);
+	assert(yypcb->pcb_stmt == sdp);
+	dt_stmt_append(sdp, cnp);
+#else
 	for (dnp = cnp->dn_acts; dnp != NULL; dnp = dnp->dn_list) {
 		assert(yypcb->pcb_stmt == NULL);
 		sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
@@ -1637,6 +1655,7 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 		assert(yypcb->pcb_stmt == sdp);
 		dt_stmt_append(sdp, dnp);
 	}
+#endif
 
 	assert(yypcb->pcb_ecbdesc == edp);
 	dt_ecbdesc_release(dtp, edp);

@@ -16,6 +16,7 @@
 #include <dtrace/universal.h>
 #include <dtrace/dif.h>
 #include <dtrace/dof_defines.h>
+#include <linux/bpf.h>
 
 /*
  * A DIFO is used to store the compiled DIF for a D expression, its return
@@ -31,7 +32,7 @@
  */
 
 typedef struct dtrace_difo {
-	dif_instr_t *dtdo_buf;			/* instruction buffer */
+	struct bpf_insn *dtdo_buf;		/* instruction buffer */
 	uint64_t *dtdo_inttab;			/* integer table (optional) */
 	char *dtdo_strtab;			/* string table (optional) */
 	dtrace_difv_t *dtdo_vartab;		/* variable table (optional) */

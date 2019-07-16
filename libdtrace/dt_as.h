@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <sys/dtrace.h>
+#include <linux/bpf.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -17,7 +18,7 @@ extern "C" {
 
 typedef struct dt_irnode {
 	uint_t di_label;		/* label number or DT_LBL_NONE */
-	dif_instr_t di_instr;		/* instruction opcode */
+	struct bpf_insn di_instr;	/* instruction opcode */
 	void *di_extern;		/* opcode-specific external reference */
 	struct dt_irnode *di_next;	/* next instruction */
 } dt_irnode_t;

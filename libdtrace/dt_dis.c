@@ -11,68 +11,14 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_printf.h>
+#include <bpf_asm.h>
 
-/*ARGSUSED*/
-static void
-dt_dis_log(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+static const char *reg(int r)
 {
-	(void) fprintf(fp, "%-4s %%r%u, %%r%u, %%r%u", name,
-	    DIF_INSTR_R1(in), DIF_INSTR_R2(in), DIF_INSTR_RD(in));
-}
+	static char	*name[] = { "%r0", "%r1", "%r2", "%r3", "%r4",
+				    "%r5", "%r6", "%r7", "%r8", "%r9", "%fp" };
 
-/*ARGSUSED*/
-static void
-dt_dis_branch(const dtrace_difo_t *dp, const char *name,
-	dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s %u", name, DIF_INSTR_LABEL(in));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_load(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s [%%r%u], %%r%u", name,
-	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_store(const dtrace_difo_t *dp, const char *name,
-	dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s %%r%u, [%%r%u]", name,
-	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_str(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%s", name);
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_r1rd(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s %%r%u, %%r%u", name,
-	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_cmp(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s %%r%u, %%r%u", name,
-	    DIF_INSTR_R1(in), DIF_INSTR_R2(in));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_tst(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	(void) fprintf(fp, "%-4s %%r%u", name, DIF_INSTR_R1(in));
+	return name[r];
 }
 
 static const char *
@@ -81,6 +27,7 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 	const dtrace_difv_t *dvp = dp->dtdo_vartab;
 	uint_t i;
 
+	id &= 0x0fff;
 	for (i = 0; i < dp->dtdo_varlen; i++, dvp++) {
 		if (dvp->dtdv_id == id && dvp->dtdv_scope == scope) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
@@ -93,127 +40,130 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 }
 
 static uint_t
-dt_dis_scope(const char *name)
+dt_dis_scope(uint_t id)
 {
-	switch (name[2]) {
-	case 'l': return (DIFV_SCOPE_LOCAL);
-	case 't': return (DIFV_SCOPE_THREAD);
-	case 'g': return (DIFV_SCOPE_GLOBAL);
+	switch (id & 0x7000) {
+	case 0x1000: return (DIFV_SCOPE_LOCAL);
+	case 0x2000: return (DIFV_SCOPE_THREAD);
+	case 0x3000: return (DIFV_SCOPE_GLOBAL);
 	default: return (-1u);
 	}
 }
 
+/*ARGSUSED*/
 static void
-dt_dis_lda(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_str(const dtrace_difo_t *dp, const char *name,
+	   const struct bpf_insn *in, FILE *fp)
 {
-	uint_t var = DIF_INSTR_R1(in);
-	const char *vname;
-
-	(void) fprintf(fp, "%-4s DT_VAR(%u), %%r%u, %%r%u", name,
-	    var, DIF_INSTR_R2(in), DIF_INSTR_RD(in));
-
-	if ((vname = dt_dis_varname(dp, var, dt_dis_scope(name))) != NULL)
-		(void) fprintf(fp, "\t\t! DT_VAR(%u) = \"%s\"", var, vname);
+	fprintf(fp, "%s", name);
 }
 
+/*ARGSUSED*/
 static void
-dt_dis_ldv(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_op1(const dtrace_difo_t *dp, const char *name,
+	   const struct bpf_insn *in, FILE *fp)
 {
-	uint_t var = DIF_INSTR_VAR(in);
-	const char *vname;
-
-	(void) fprintf(fp, "%-4s DT_VAR(%u), %%r%u",
-	    name, var, DIF_INSTR_RD(in));
-
-	if ((vname = dt_dis_varname(dp, var, dt_dis_scope(name))) != NULL)
-		(void) fprintf(fp, "\t\t! DT_VAR(%u) = \"%s\"", var, vname);
+	fprintf(fp, "%-4s %s", name, reg(in->dst_reg));
 }
 
+/*ARGSUSED*/
 static void
-dt_dis_stv(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_op2(const dtrace_difo_t *dp, const char *name,
+	   const struct bpf_insn *in, FILE *fp)
 {
-	uint_t var = DIF_INSTR_VAR(in);
-	const char *vname;
-
-	(void) fprintf(fp, "%-4s %%r%u, DT_VAR(%u)",
-	    name, DIF_INSTR_RS(in), var);
-
-	if ((vname = dt_dis_varname(dp, var, dt_dis_scope(name))) != NULL)
-		(void) fprintf(fp, "\t\t! DT_VAR(%u) = \"%s\"", var, vname);
+	fprintf(fp, "%-4s %s, %s", name, reg(in->dst_reg), reg(in->src_reg));
 }
 
+/*ARGSUSED*/
 static void
-dt_dis_setx(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_op2imm(const dtrace_difo_t *dp, const char *name,
+	      const struct bpf_insn *in, FILE *fp)
 {
-	uint_t intptr = DIF_INSTR_INTEGER(in);
+	fprintf(fp, "%-4s %s, %u", name, reg(in->dst_reg), in->imm);
+}
 
-	(void) fprintf(fp, "%-4s DT_INTEGER[%u], %%r%u", name,
-	    intptr, DIF_INSTR_RD(in));
+/*ARGSUSED*/
+static void
+dt_dis_branch(const dtrace_difo_t *dp, const char *name,
+	      const struct bpf_insn *in, FILE *fp)
+{
+	fprintf(fp, "%-4s %s, %s, %u", name, reg(in->dst_reg),
+		reg(in->src_reg), in->off);
+}
 
-	if (intptr < dp->dtdo_intlen) {
-		(void) fprintf(fp, "\t\t! 0x%llx",
-		    (u_longlong_t)dp->dtdo_inttab[intptr]);
+/*ARGSUSED*/
+static void
+dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name,
+	      const struct bpf_insn *in, FILE *fp)
+{
+	fprintf(fp, "%-4s %s, %u, %u", name, reg(in->dst_reg), in->imm,
+		in->off);
+}
+
+/*ARGSUSED*/
+static void
+dt_dis_load(const dtrace_difo_t *dp, const char *name,
+	      const struct bpf_insn *in, FILE *fp)
+{
+	uint_t var = in->off;
+	const char *vname;
+
+	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
+		reg(in->src_reg), in->off);
+
+	if (in->src_reg == BPF_REG_FP) {
+		if ((vname =
+		     dt_dis_varname(dp, var, dt_dis_scope(var))) != NULL)
+			fprintf(fp, "\t! DT_VAR(%u) = \"%s\"",
+				var & 0x0fff, vname);
 	}
 }
 
+/*ARGSUSED*/
 static void
-dt_dis_sets(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_load_imm(const dtrace_difo_t *dp, const char *name,
+		const struct bpf_insn *in, FILE *fp)
 {
-	uint_t strptr = DIF_INSTR_STRING(in);
-
-	(void) fprintf(fp, "%-4s DT_STRING[%u], %%r%u", name,
-	    strptr, DIF_INSTR_RD(in));
-
-	if (strptr < dp->dtdo_strlen)
-		(void) fprintf(fp, "\t\t! \"%s\"", dp->dtdo_strtab + strptr);
+	fprintf(fp, "%-4s %s, 0x%08x%08x", name, reg(in->dst_reg),
+		in[1].imm, in[0].imm);
 }
 
 /*ARGSUSED*/
 static void
-dt_dis_ret(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+dt_dis_store(const dtrace_difo_t *dp, const char *name,
+	     const struct bpf_insn *in, FILE *fp)
 {
-	(void) fprintf(fp, "%-4s %%r%u", name, DIF_INSTR_RD(in));
-}
+	uint_t var = in->off;
+	const char *vname;
 
-/*ARGSUSED*/
-static void
-dt_dis_call(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
-{
-	uint_t subr = DIF_INSTR_SUBR(in);
+	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
+		reg(in->src_reg));
 
-	(void) fprintf(fp, "%-4s DIF_SUBR(%u), %%r%u\t\t! %s",
-	    name, subr, DIF_INSTR_RD(in), dtrace_subrstr(NULL, subr));
-}
-
-/*ARGSUSED*/
-static void
-dt_dis_pushts(const dtrace_difo_t *dp,
-    const char *name, dif_instr_t in, FILE *fp)
-{
-	static const char *const tnames[] = { "D type", "string" };
-	uint_t type = DIF_INSTR_TYPE(in);
-
-	(void) fprintf(fp, "%-4s DT_TYPE(%u), %%r%u, %%r%u",
-	    name, type, DIF_INSTR_R2(in), DIF_INSTR_RS(in));
-
-	if (type < sizeof (tnames) / sizeof (tnames[0]))
-		(void) fprintf(fp, "\t! DT_TYPE(%u) = %s", type, tnames[type]);
-}
-
-static void
-dt_dis_xlate(const dtrace_difo_t *dp,
-    const char *name, dif_instr_t in, FILE *fp)
-{
-	uint_t xlr = DIF_INSTR_XLREF(in);
-
-	(void) fprintf(fp, "%-4s DT_XLREF[%u], %%r%u",
-	    name, xlr, DIF_INSTR_RD(in));
-
-	if (xlr < dp->dtdo_xlmlen) {
-		(void) fprintf(fp, "\t\t! DT_XLREF[%u] = %u.%s", xlr,
-		    (uint_t)dp->dtdo_xlmtab[xlr]->dn_membexpr->dn_xlator->dx_id,
-		    dp->dtdo_xlmtab[xlr]->dn_membname);
+	if (in->dst_reg == BPF_REG_FP) {
+		if ((vname =
+		     dt_dis_varname(dp, var, dt_dis_scope(var))) != NULL)
+			fprintf(fp, "\t! DT_VAR(%u) = \"%s\"",
+				var & 0x0fff, vname);
 	}
+}
+
+/*ARGSUSED*/
+static void
+dt_dis_call(const dtrace_difo_t *dp, const char *name,
+	    const struct bpf_insn *in, FILE *fp)
+{
+	fprintf(fp, "%-4s %u", name, in->imm);
+}
+
+/*ARGSUSED*/
+static void
+dt_dis_jump(const dtrace_difo_t *dp, const char *name,
+	    const struct bpf_insn *in, FILE *fp)
+{
+	if (in->off == 0)
+		fprintf(fp, "nop");
+	else
+		fprintf(fp, "%-4s %u", name, in->off);
 }
 
 static char *
@@ -223,67 +173,67 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 
 	switch (t->dtdt_kind) {
 	case DIF_TYPE_CTF:
-		(void) strcpy(kind, "D type");
+		strcpy(kind, "D type");
 		break;
 	case DIF_TYPE_STRING:
-		(void) strcpy(kind, "string");
+		strcpy(kind, "string");
 		break;
 	default:
-		(void) snprintf(kind, sizeof (kind), "0x%x", t->dtdt_kind);
+		snprintf(kind, sizeof (kind), "0x%x", t->dtdt_kind);
 	}
 
 	switch (t->dtdt_ckind) {
 	case CTF_K_UNKNOWN:
-		(void) strcpy(ckind, "unknown");
+		strcpy(ckind, "unknown");
 		break;
 	case CTF_K_INTEGER:
-		(void) strcpy(ckind, "integer");
+		strcpy(ckind, "integer");
 		break;
 	case CTF_K_FLOAT:
-		(void) strcpy(ckind, "float");
+		strcpy(ckind, "float");
 		break;
 	case CTF_K_POINTER:
-		(void) strcpy(ckind, "pointer");
+		strcpy(ckind, "pointer");
 		break;
 	case CTF_K_ARRAY:
-		(void) strcpy(ckind, "array");
+		strcpy(ckind, "array");
 		break;
 	case CTF_K_FUNCTION:
-		(void) strcpy(ckind, "function");
+		strcpy(ckind, "function");
 		break;
 	case CTF_K_STRUCT:
-		(void) strcpy(ckind, "struct");
+		strcpy(ckind, "struct");
 		break;
 	case CTF_K_UNION:
-		(void) strcpy(ckind, "union");
+		strcpy(ckind, "union");
 		break;
 	case CTF_K_ENUM:
-		(void) strcpy(ckind, "enum");
+		strcpy(ckind, "enum");
 		break;
 	case CTF_K_FORWARD:
-		(void) strcpy(ckind, "forward");
+		strcpy(ckind, "forward");
 		break;
 	case CTF_K_TYPEDEF:
-		(void) strcpy(ckind, "typedef");
+		strcpy(ckind, "typedef");
 		break;
 	case CTF_K_VOLATILE:
-		(void) strcpy(ckind, "volatile");
+		strcpy(ckind, "volatile");
 		break;
 	case CTF_K_CONST:
-		(void) strcpy(ckind, "const");
+		strcpy(ckind, "const");
 		break;
 	case CTF_K_RESTRICT:
-		(void) strcpy(ckind, "restrict");
+		strcpy(ckind, "restrict");
 		break;
 	default:
-		(void) snprintf(ckind, sizeof (ckind), "0x%x", t->dtdt_ckind);
+		snprintf(ckind, sizeof (ckind), "0x%x", t->dtdt_ckind);
 	}
 
 	if (t->dtdt_flags & DIF_TF_BYREF) {
-		(void) snprintf(buf, len, "%s (%s) by ref (size %lu)",
+		snprintf(buf, len, "%s (%s) by ref (size %lu)",
 		    kind, ckind, (ulong_t)t->dtdt_size);
 	} else {
-		(void) snprintf(buf, len, "%s (%s) (size %lu)",
+		snprintf(buf, len, "%s (%s) (size %lu)",
 		    kind, ckind, (ulong_t)t->dtdt_size);
 	}
 
@@ -294,14 +244,13 @@ static void
 dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
     const dof_relodesc_t *rp, uint32_t len)
 {
-	(void) fprintf(fp, "\n%-4s %-8s %-8s %s\n",
-	    rtag, "OFFSET", "DATA", "NAME");
+	fprintf(fp, "\n%-4s %-8s %-8s %s\n", rtag, "OFFSET", "DATA", "NAME");
 
 	for (; len != 0; len--, rp++) {
-		(void) fprintf(fp, "%-4u %-8llu %-8llu %s\n",
-		    rp->dofr_type, (u_longlong_t)rp->dofr_offset,
-		    (u_longlong_t)rp->dofr_data,
-		    &dp->dtdo_strtab[rp->dofr_name]);
+		fprintf(fp, "%-4u %-8llu %-8llu %s\n", rp->dofr_type,
+			(u_longlong_t)rp->dofr_offset,
+			(u_longlong_t)rp->dofr_data,
+			&dp->dtdo_strtab[rp->dofr_name]);
 	}
 }
 
@@ -311,113 +260,168 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 	static const struct opent {
 		const char *op_name;
 		void (*op_func)(const dtrace_difo_t *, const char *,
-		    dif_instr_t, FILE *);
-	} optab[] = {
-		{ "(illegal opcode)", dt_dis_str },
-		{ "or", dt_dis_log },		/* DIF_OP_OR */
-		{ "xor", dt_dis_log },		/* DIF_OP_XOR */
-		{ "and", dt_dis_log },		/* DIF_OP_AND */
-		{ "sll", dt_dis_log },		/* DIF_OP_SLL */
-		{ "srl", dt_dis_log },		/* DIF_OP_SRL */
-		{ "sub", dt_dis_log },		/* DIF_OP_SUB */
-		{ "add", dt_dis_log },		/* DIF_OP_ADD */
-		{ "mul", dt_dis_log },		/* DIF_OP_MUL */
-		{ "sdiv", dt_dis_log },		/* DIF_OP_SDIV */
-		{ "udiv", dt_dis_log },		/* DIF_OP_UDIV */
-		{ "srem", dt_dis_log },		/* DIF_OP_SREM */
-		{ "urem", dt_dis_log },		/* DIF_OP_UREM */
-		{ "not", dt_dis_r1rd },		/* DIF_OP_NOT */
-		{ "mov", dt_dis_r1rd },		/* DIF_OP_MOV */
-		{ "cmp", dt_dis_cmp },		/* DIF_OP_CMP */
-		{ "tst", dt_dis_tst },		/* DIF_OP_TST */
-		{ "ba", dt_dis_branch },	/* DIF_OP_BA */
-		{ "be", dt_dis_branch },	/* DIF_OP_BE */
-		{ "bne", dt_dis_branch },	/* DIF_OP_BNE */
-		{ "bg", dt_dis_branch },	/* DIF_OP_BG */
-		{ "bgu", dt_dis_branch },	/* DIF_OP_BGU */
-		{ "bge", dt_dis_branch },	/* DIF_OP_BGE */
-		{ "bgeu", dt_dis_branch },	/* DIF_OP_BGEU */
-		{ "bl", dt_dis_branch },	/* DIF_OP_BL */
-		{ "blu", dt_dis_branch },	/* DIF_OP_BLU */
-		{ "ble", dt_dis_branch },	/* DIF_OP_BLE */
-		{ "bleu", dt_dis_branch },	/* DIF_OP_BLEU */
-		{ "ldsb", dt_dis_load },	/* DIF_OP_LDSB */
-		{ "ldsh", dt_dis_load },	/* DIF_OP_LDSH */
-		{ "ldsw", dt_dis_load },	/* DIF_OP_LDSW */
-		{ "ldub", dt_dis_load },	/* DIF_OP_LDUB */
-		{ "lduh", dt_dis_load },	/* DIF_OP_LDUH */
-		{ "lduw", dt_dis_load },	/* DIF_OP_LDUW */
-		{ "ldx", dt_dis_load },		/* DIF_OP_LDX */
-		{ "ret", dt_dis_ret },		/* DIF_OP_RET */
-		{ "nop", dt_dis_str },		/* DIF_OP_NOP */
-		{ "setx", dt_dis_setx },	/* DIF_OP_SETX */
-		{ "sets", dt_dis_sets },	/* DIF_OP_SETS */
-		{ "scmp", dt_dis_cmp },		/* DIF_OP_SCMP */
-		{ "ldga", dt_dis_lda },		/* DIF_OP_LDGA */
-		{ "ldgs", dt_dis_ldv },		/* DIF_OP_LDGS */
-		{ "stgs", dt_dis_stv },		/* DIF_OP_STGS */
-		{ "ldta", dt_dis_lda },		/* DIF_OP_LDTA */
-		{ "ldts", dt_dis_ldv },		/* DIF_OP_LDTS */
-		{ "stts", dt_dis_stv },		/* DIF_OP_STTS */
-		{ "sra", dt_dis_log },		/* DIF_OP_SRA */
-		{ "call", dt_dis_call },	/* DIF_OP_CALL */
-		{ "pushtr", dt_dis_pushts },	/* DIF_OP_PUSHTR */
-		{ "pushtv", dt_dis_pushts },	/* DIF_OP_PUSHTV */
-		{ "popts", dt_dis_str },	/* DIF_OP_POPTS */
-		{ "flushts", dt_dis_str },	/* DIF_OP_FLUSHTS */
-		{ "ldgaa", dt_dis_ldv },	/* DIF_OP_LDGAA */
-		{ "ldtaa", dt_dis_ldv },	/* DIF_OP_LDTAA */
-		{ "stgaa", dt_dis_stv },	/* DIF_OP_STGAA */
-		{ "sttaa", dt_dis_stv },	/* DIF_OP_STTAA */
-		{ "ldls", dt_dis_ldv },		/* DIF_OP_LDLS */
-		{ "stls", dt_dis_stv },		/* DIF_OP_STLS */
-		{ "allocs", dt_dis_r1rd },	/* DIF_OP_ALLOCS */
-		{ "copys", dt_dis_log },	/* DIF_OP_COPYS */
-		{ "stb", dt_dis_store },	/* DIF_OP_STB */
-		{ "sth", dt_dis_store },	/* DIF_OP_STH */
-		{ "stw", dt_dis_store },	/* DIF_OP_STW */
-		{ "stx", dt_dis_store },	/* DIF_OP_STX */
-		{ "uldsb", dt_dis_load },	/* DIF_OP_ULDSB */
-		{ "uldsh", dt_dis_load },	/* DIF_OP_ULDSH */
-		{ "uldsw", dt_dis_load },	/* DIF_OP_ULDSW */
-		{ "uldub", dt_dis_load },	/* DIF_OP_ULDUB */
-		{ "ulduh", dt_dis_load },	/* DIF_OP_ULDUH */
-		{ "ulduw", dt_dis_load },	/* DIF_OP_ULDUW */
-		{ "uldx", dt_dis_load },	/* DIF_OP_ULDX */
-		{ "rldsb", dt_dis_load },	/* DIF_OP_RLDSB */
-		{ "rldsh", dt_dis_load },	/* DIF_OP_RLDSH */
-		{ "rldsw", dt_dis_load },	/* DIF_OP_RLDSW */
-		{ "rldub", dt_dis_load },	/* DIF_OP_RLDUB */
-		{ "rlduh", dt_dis_load },	/* DIF_OP_RLDUH */
-		{ "rlduw", dt_dis_load },	/* DIF_OP_RLDUW */
-		{ "rldx", dt_dis_load },	/* DIF_OP_RLDX */
-		{ "xlate", dt_dis_xlate },	/* DIF_OP_XLATE */
-		{ "xlarg", dt_dis_xlate },	/* DIF_OP_XLARG */
+				const struct bpf_insn *, FILE *);
+	} optab[256] = {
+		[0 ... 255] = { "(illegal opcode)", dt_dis_str },
+#define INSN2(x, y)	[BPF_##x | BPF_##y]
+#define INSN3(x, y, z)	[BPF_##x | BPF_##y | BPF_##z]
+		/* 32-bit ALU ops, op(dst, src) */
+		INSN3(ALU, ADD, X)	= { "add", dt_dis_op2 },
+		INSN3(ALU, SUB, X)	= { "sub", dt_dis_op2 },
+		INSN3(ALU, AND, X)	= { "and", dt_dis_op2 },
+		INSN3(ALU, OR, X)	= { "or", dt_dis_op2 },
+		INSN3(ALU, LSH, X)	= { "lsh", dt_dis_op2 },
+		INSN3(ALU, RSH, X)	= { "rsh", dt_dis_op2 },
+		INSN3(ALU, XOR, X)	= { "xor", dt_dis_op2 },
+		INSN3(ALU, MUL, X)	= { "mul", dt_dis_op2 },
+		INSN3(ALU, MOV, X)	= { "mov", dt_dis_op2 },
+		INSN3(ALU, ARSH, X)	= { "arsh", dt_dis_op2 },
+		INSN3(ALU, DIV, X)	= { "div", dt_dis_op2 },
+		INSN3(ALU, MOD, X)	= { "mod", dt_dis_op2 },
+		INSN2(ALU, NEG)		= { "neg", dt_dis_op1 },
+		INSN3(ALU, END, TO_BE)	= { "tobe", dt_dis_op2 },
+		INSN3(ALU, END, TO_LE)	= { "tole", dt_dis_op2 },
+		/* 32-bit ALU ops, op(dst, imm) */
+		INSN3(ALU, ADD, K)	= { "add", dt_dis_op2imm },
+		INSN3(ALU, SUB, K)	= { "sub", dt_dis_op2imm },
+		INSN3(ALU, AND, K)	= { "and", dt_dis_op2imm },
+		INSN3(ALU, OR, K)	= { "or", dt_dis_op2imm },
+		INSN3(ALU, LSH, K)	= { "lsh", dt_dis_op2imm },
+		INSN3(ALU, RSH, K)	= { "rsh", dt_dis_op2imm },
+		INSN3(ALU, XOR, K)	= { "xor", dt_dis_op2imm },
+		INSN3(ALU, MUL, K)	= { "mul", dt_dis_op2imm },
+		INSN3(ALU, MOV, K)	= { "mov", dt_dis_op2imm },
+		INSN3(ALU, ARSH, K)	= { "arsh", dt_dis_op2imm },
+		INSN3(ALU, DIV, K)	= { "div", dt_dis_op2imm },
+		INSN3(ALU, MOD, K)	= { "mod", dt_dis_op2imm },
+		/* 64-bit ALU ops, op(dst, src) */
+		INSN3(ALU64, ADD, X)	= { "add", dt_dis_op2 },
+		INSN3(ALU64, SUB, X)	= { "sub", dt_dis_op2 },
+		INSN3(ALU64, AND, X)	= { "and", dt_dis_op2 },
+		INSN3(ALU64, OR, X)	= { "or", dt_dis_op2 },
+		INSN3(ALU64, LSH, X)	= { "lsh", dt_dis_op2 },
+		INSN3(ALU64, RSH, X)	= { "rsh", dt_dis_op2 },
+		INSN3(ALU64, XOR, X)	= { "xor", dt_dis_op2 },
+		INSN3(ALU64, MUL, X)	= { "mul", dt_dis_op2 },
+		INSN3(ALU64, MOV, X)	= { "mov", dt_dis_op2 },
+		INSN3(ALU64, ARSH, X)	= { "arsh", dt_dis_op2 },
+		INSN3(ALU64, DIV, X)	= { "div", dt_dis_op2 },
+		INSN3(ALU64, MOD, X)	= { "mod", dt_dis_op2 },
+		INSN2(ALU64, NEG)	= { "neg", dt_dis_op1 },
+		/* 64-bit ALU ops, op(dst, imm) */
+		INSN3(ALU64, ADD, K)	= { "add", dt_dis_op2imm },
+		INSN3(ALU64, SUB, K)	= { "sub", dt_dis_op2imm },
+		INSN3(ALU64, AND, K)	= { "and", dt_dis_op2imm },
+		INSN3(ALU64, OR, K)	= { "or", dt_dis_op2imm },
+		INSN3(ALU64, LSH, K)	= { "lsh", dt_dis_op2imm },
+		INSN3(ALU64, RSH, K)	= { "rsh", dt_dis_op2imm },
+		INSN3(ALU64, XOR, K)	= { "xor", dt_dis_op2imm },
+		INSN3(ALU64, MUL, K)	= { "mul", dt_dis_op2imm },
+		INSN3(ALU64, MOV, K)	= { "mov", dt_dis_op2imm },
+		INSN3(ALU64, ARSH, K)	= { "arsh", dt_dis_op2imm },
+		INSN3(ALU64, DIV, K)	= { "div", dt_dis_op2imm },
+		INSN3(ALU64, MOD, K)	= { "mod", dt_dis_op2imm },
+		/* Call instruction */
+		INSN2(JMP, CALL)	= { "call", dt_dis_call },
+		/* Return instruction */
+		INSN2(JMP, EXIT)	= { "exit", dt_dis_str },
+		/* 32-bit jump ops, op(dst, src) */
+		INSN3(JMP32, JEQ, X)	= { "jeq", dt_dis_branch },
+		INSN3(JMP32, JNE, X)	= { "jne", dt_dis_branch },
+		INSN3(JMP32, JGT, X)	= { "jgt", dt_dis_branch },
+		INSN3(JMP32, JLT, X)	= { "jlt", dt_dis_branch },
+		INSN3(JMP32, JGE, X)	= { "jge", dt_dis_branch },
+		INSN3(JMP32, JLE, X)	= { "jle", dt_dis_branch },
+		INSN3(JMP32, JSGT, X)	= { "jsgt", dt_dis_branch },
+		INSN3(JMP32, JSLT, X)	= { "jslt", dt_dis_branch },
+		INSN3(JMP32, JSGE, X)	= { "jsge", dt_dis_branch },
+		INSN3(JMP32, JSLE, X)	= { "jsle", dt_dis_branch },
+		INSN3(JMP32, JSET, X)	= { "jset", dt_dis_branch },
+		/* 32-bit jump ops, op(dst, imm) */
+		INSN3(JMP32, JEQ, K)	= { "jeq", dt_dis_branch_imm },
+		INSN3(JMP32, JNE, K)	= { "jne", dt_dis_branch_imm },
+		INSN3(JMP32, JGT, K)	= { "jgt", dt_dis_branch_imm },
+		INSN3(JMP32, JLT, K)	= { "jlt", dt_dis_branch_imm },
+		INSN3(JMP32, JGE, K)	= { "jge", dt_dis_branch_imm },
+		INSN3(JMP32, JLE, K)	= { "jle", dt_dis_branch_imm },
+		INSN3(JMP32, JSGT, K)	= { "jsgt", dt_dis_branch_imm },
+		INSN3(JMP32, JSLT, K)	= { "jslt", dt_dis_branch_imm },
+		INSN3(JMP32, JSGE, K)	= { "jsge", dt_dis_branch_imm },
+		INSN3(JMP32, JSLE, K)	= { "jsle", dt_dis_branch_imm },
+		INSN3(JMP32, JSET, K)	= { "jset", dt_dis_branch_imm },
+		/* 64-bit jump ops, op(dst, src) */
+		INSN3(JMP, JEQ, X)	= { "jeq", dt_dis_branch },
+		INSN3(JMP, JNE, X)	= { "jne", dt_dis_branch },
+		INSN3(JMP, JGT, X)	= { "jgt", dt_dis_branch },
+		INSN3(JMP, JLT, X)	= { "jlt", dt_dis_branch },
+		INSN3(JMP, JGE, X)	= { "jge", dt_dis_branch },
+		INSN3(JMP, JLE, X)	= { "jle", dt_dis_branch },
+		INSN3(JMP, JSGT, X)	= { "jsgt", dt_dis_branch },
+		INSN3(JMP, JSLT, X)	= { "jslt", dt_dis_branch },
+		INSN3(JMP, JSGE, X)	= { "jsge", dt_dis_branch },
+		INSN3(JMP, JSLE, X)	= { "jsle", dt_dis_branch },
+		INSN3(JMP, JSET, X)	= { "jset", dt_dis_branch },
+		/* 64-bit jump ops, op(dst, imm) */
+		INSN3(JMP, JEQ, K)	= { "jeq", dt_dis_branch_imm },
+		INSN3(JMP, JNE, K)	= { "jne", dt_dis_branch_imm },
+		INSN3(JMP, JGT, K)	= { "jgt", dt_dis_branch_imm },
+		INSN3(JMP, JLT, K)	= { "jlt", dt_dis_branch_imm },
+		INSN3(JMP, JGE, K)	= { "jge", dt_dis_branch_imm },
+		INSN3(JMP, JLE, K)	= { "jle", dt_dis_branch_imm },
+		INSN3(JMP, JSGT, K)	= { "jsgt", dt_dis_branch_imm },
+		INSN3(JMP, JSLT, K)	= { "jslt", dt_dis_branch_imm },
+		INSN3(JMP, JSGE, K)	= { "jsge", dt_dis_branch_imm },
+		INSN3(JMP, JSLE, K)	= { "jsle", dt_dis_branch_imm },
+		INSN3(JMP, JSET, K)	= { "jset", dt_dis_branch_imm },
+		INSN2(JMP, JA)		= { "ja", dt_dis_jump },
+		/* Store instructions, [dst + off] = src */
+		INSN3(STX, MEM, B)	= { "stb", dt_dis_store },
+		INSN3(STX, MEM, H)	= { "sth", dt_dis_store },
+		INSN3(STX, MEM, W)	= { "stw", dt_dis_store },
+		INSN3(STX, MEM, DW)	= { "stdw", dt_dis_store },
+		INSN3(STX, XADD, W)	= { "xadd", dt_dis_store },
+		INSN3(STX, XADD, DW)	= { "xadd", dt_dis_store },
+		/* Store instructions, [dst + off] = imm */
+		INSN3(ST, MEM, B)	= { "stb", dt_dis_store },
+		INSN3(ST, MEM, H)	= { "sth", dt_dis_store },
+		INSN3(ST, MEM, W)	= { "stw", dt_dis_store },
+		INSN3(ST, MEM, DW)	= { "stdw", dt_dis_store },
+		/* Load instructions, dst = [src + off] */
+		INSN3(LDX, MEM, B)	= { "ldb", dt_dis_load },
+		INSN3(LDX, MEM, H)	= { "ldh", dt_dis_load },
+		INSN3(LDX, MEM, W)	= { "ldw", dt_dis_load },
+		INSN3(LDX, MEM, DW)	= { "lddw", dt_dis_load },
+		/* Load instructions, dst = imm */
+		INSN3(LD, IMM, DW)	= { "lddw", dt_dis_load_imm },
 	};
 
 	const struct opent *op;
 	ulong_t i = 0;
 	char type[DT_TYPE_NAMELEN];
 
-	(void) fprintf(fp, "%-3s %-4s %-8s    %s\n",
+	fprintf(fp, "%-3s %-4s %-20s    %s\n",
 	    "INS", "OFF", "OPCODE", "INSTRUCTION");
 
 	for (i = 0; i < dp->dtdo_len; i++) {
-		dif_instr_t instr = dp->dtdo_buf[i];
-		dif_instr_t opcode = DIF_INSTR_OP(instr);
+		const struct bpf_insn *instr = &dp->dtdo_buf[i];
+		uint8_t opcode = instr->code;
 
 		if (opcode >= sizeof (optab) / sizeof (optab[0]))
 			opcode = 0; /* force invalid opcode message */
 
-		op = &optab[opcode];
-		(void) fprintf(fp, "%03lu %03lu: %08x    ", i, i*4, instr);
-		op->op_func(dp, op->op_name, instr, fp);
-		(void) fprintf(fp, "\n");
+		fprintf(fp, "%03lu %03lu: %02x %01x %01x %04x %08x    ",
+			i, i*8, instr->code, instr->dst_reg, instr->src_reg,
+			instr->off, instr->imm);
+		if (instr->code != 0) {
+			op = &optab[opcode];
+			op->op_func(dp, op->op_name, instr, fp);
+		}
+		fprintf(fp, "\n");
 	}
 
 	if (dp->dtdo_varlen != 0) {
-		(void) fprintf(fp, "\n%-16s %-4s %-3s %-3s %-4s %s\n",
-		    "NAME", "ID", "KND", "SCP", "FLAG", "TYPE");
+		fprintf(fp, "\n%-16s %-4s %-3s %-3s %-4s %s\n",
+			"NAME", "ID", "KND", "SCP", "FLAG", "TYPE");
 	}
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
@@ -426,58 +430,56 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 
 		switch (v->dtdv_kind) {
 		case DIFV_KIND_ARRAY:
-			(void) strcpy(kind, "arr");
+			strcpy(kind, "arr");
 			break;
 		case DIFV_KIND_SCALAR:
-			(void) strcpy(kind, "scl");
+			strcpy(kind, "scl");
 			break;
 		default:
-			(void) snprintf(kind, sizeof (kind),
-			    "%u", v->dtdv_kind);
+			snprintf(kind, sizeof (kind), "%u", v->dtdv_kind);
 		}
 
 		switch (v->dtdv_scope) {
 		case DIFV_SCOPE_GLOBAL:
-			(void) strcpy(scope, "glb");
+			strcpy(scope, "glb");
 			break;
 		case DIFV_SCOPE_THREAD:
-			(void) strcpy(scope, "tls");
+			strcpy(scope, "tls");
 			break;
 		case DIFV_SCOPE_LOCAL:
-			(void) strcpy(scope, "loc");
+			strcpy(scope, "loc");
 			break;
 		default:
-			(void) snprintf(scope, sizeof (scope),
-			    "%u", v->dtdv_scope);
+			snprintf(scope, sizeof (scope), "%u", v->dtdv_scope);
 		}
 
 		if (v->dtdv_flags & ~(DIFV_F_REF | DIFV_F_MOD)) {
-			(void) snprintf(flags, sizeof (flags), "/0x%x",
-			    v->dtdv_flags & ~(DIFV_F_REF | DIFV_F_MOD));
+			snprintf(flags, sizeof (flags), "/0x%x",
+				 v->dtdv_flags & ~(DIFV_F_REF | DIFV_F_MOD));
 		}
 
 		if (v->dtdv_flags & DIFV_F_REF)
-			(void) strcat(flags, "/r");
+			strcat(flags, "/r");
 		if (v->dtdv_flags & DIFV_F_MOD)
-			(void) strcat(flags, "/w");
+			strcat(flags, "/w");
 
-		(void) fprintf(fp, "%-16s %-4x %-3s %-3s %-4s %s\n",
-		    &dp->dtdo_strtab[v->dtdv_name],
-		    v->dtdv_id, kind, scope, flags + 1,
-		    dt_dis_typestr(&v->dtdv_type, type, sizeof (type)));
+		fprintf(fp, "%-16s %-4x %-3s %-3s %-4s %s\n",
+			&dp->dtdo_strtab[v->dtdv_name],
+			v->dtdv_id, kind, scope, flags + 1,
+			dt_dis_typestr(&v->dtdv_type, type, sizeof (type)));
 	}
 
 	if (dp->dtdo_xlmlen != 0) {
-		(void) fprintf(fp, "\n%-4s %-3s %-12s %s\n",
-		    "XLID", "ARG", "MEMBER", "TYPE");
+		fprintf(fp, "\n%-4s %-3s %-12s %s\n",
+			"XLID", "ARG", "MEMBER", "TYPE");
 	}
 
 	for (i = 0; i < dp->dtdo_xlmlen; i++) {
 		dt_node_t *dnp = dp->dtdo_xlmtab[i];
 		dt_xlator_t *dxp = dnp->dn_membexpr->dn_xlator;
-		(void) fprintf(fp, "%-4u %-3d %-12s %s\n",
-		    (uint_t)dxp->dx_id, dxp->dx_arg, dnp->dn_membname,
-		    dt_node_type_name(dnp, type, sizeof (type)));
+		fprintf(fp, "%-4u %-3d %-12s %s\n", (uint_t)dxp->dx_id,
+			dxp->dx_arg, dnp->dn_membname,
+			dt_node_type_name(dnp, type, sizeof (type)));
 	}
 
 	if (dp->dtdo_krelen != 0)

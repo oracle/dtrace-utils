@@ -4535,6 +4535,7 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 	const dtrace_syminfo_t *dts;
 	const dt_idnode_t *inp;
 	dt_node_t *arg;
+	char *s;
 
 	(void) fprintf(fp, "%*s", depth * 2, "");
 	(void) dt_attr_str(dnp->dn_attr, a, sizeof (a));
@@ -4578,7 +4579,9 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 		break;
 
 	case DT_NODE_STRING:
-		(void) fprintf(fp, "STRING \"%s\" (%s)\n", dnp->dn_string, buf);
+		s = strchr2esc(dnp->dn_string, strlen(dnp->dn_string));
+		(void) fprintf(fp, "STRING \"%s\" (%s)\n", s, buf);
+		free(s);
 		break;
 
 	case DT_NODE_IDENT:
@@ -4697,6 +4700,7 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 			(void) fprintf(fp, "%*s/\n", depth * 2, "");
 		}
 
+		(void) fprintf(fp, "%*sACTION\n", depth * 2, "");
 		for (arg = dnp->dn_acts; arg != NULL; arg = arg->dn_list)
 			dt_node_printr(arg, fp, depth + 1);
 		break;

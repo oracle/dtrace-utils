@@ -47,6 +47,7 @@ dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 	if (dtp->dt_options[DTRACEOPT_GRABANON] != DTRACEOPT_UNSET)
 		goto out;
 
+#if 0
 	if ((pgp = dtrace_program_strcompile(dtp, _dt_errprog,
 	    DTRACE_PROBESPEC_NAME, DTRACE_C_ZDEFS, 0, NULL)) == NULL)
 		return (dt_set_errno(dtp, dtrace_errno(dtp)));
@@ -57,6 +58,7 @@ dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 	edp = stp->ds_desc->dtsd_ecbdesc;
 	assert(edp != NULL);
 	edp->dted_uarg = DT_ECB_ERROR;
+#endif
 
 out:
 	dtp->dt_errhdlr = hdlr;

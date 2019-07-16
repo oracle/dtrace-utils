@@ -13,6 +13,7 @@
 #include <dt_impl.h>
 #include <dt_parser.h>
 #include <dt_as.h>
+#include <bpf_asm.h>
 
 void
 dt_irlist_create(dt_irlist_t *dlp)
@@ -42,7 +43,7 @@ dt_irlist_append(dt_irlist_t *dlp, dt_irnode_t *dip)
 
 	dlp->dl_last = dip;
 
-	if (dip->di_label == DT_LBL_NONE || dip->di_instr != DIF_INSTR_NOP)
+	if (dip->di_label == DT_LBL_NONE || !BPF_IS_NOP(dip->di_instr))
 		dlp->dl_len++; /* don't count forward refs in instr count */
 }
 
@@ -156,8 +157,10 @@ dt_as_xlate(dt_pcb_t *pcb, dtrace_difo_t *dp,
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 	}
 
+#ifdef FIXME
 	dp->dtdo_buf[i] = DIF_INSTR_XLATE(
 	    DIF_INSTR_OP(dp->dtdo_buf[i]), xi, DIF_INSTR_RD(dp->dtdo_buf[i]));
+#endif
 
 	BT_SET(pcb->pcb_asxrefs[dxp->dx_id], dnp->dn_membid);
 	dp->dtdo_xlmtab[xi] = dnp;
@@ -237,7 +240,7 @@ dt_as(dt_pcb_t *pcb)
 	if ((dp = pcb->pcb_difo) == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-	dp->dtdo_buf = dt_alloc(dtp, sizeof (dif_instr_t) * dlp->dl_len);
+	dp->dtdo_buf = dt_alloc(dtp, sizeof (struct bpf_insn) * dlp->dl_len);
 
 	if (dp->dtdo_buf == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
@@ -255,13 +258,13 @@ dt_as(dt_pcb_t *pcb)
 		if (dip->di_label != DT_LBL_NONE)
 			labels[dip->di_label] = i;
 
-		if (dip->di_label == DT_LBL_NONE ||
-		    dip->di_instr != DIF_INSTR_NOP)
+		if (dip->di_label == DT_LBL_NONE || !BPF_IS_NOP(dip->di_instr))
 			dp->dtdo_buf[i++] = dip->di_instr;
 
 		if (dip->di_extern == NULL)
 			continue; /* no external references needed */
 
+#ifdef FIXME
 		switch (DIF_INSTR_OP(dip->di_instr)) {
 		case DIF_OP_SETX:
 			idp = dip->di_extern;
@@ -278,6 +281,7 @@ dt_as(dt_pcb_t *pcb)
 			xyerror(D_UNKNOWN, "unexpected assembler relocation "
 			    "for opcode 0x%x\n", DIF_INSTR_OP(dip->di_instr));
 		}
+#endif
 	}
 
 	assert(i == dlp->dl_len);
@@ -289,21 +293,32 @@ dt_as(dt_pcb_t *pcb)
 	 * any other instruction-specific DIFO flags such as dtdo_destructive.
 	 */
 	for (i = 0; i < dp->dtdo_len; i++) {
-		dif_instr_t instr = dp->dtdo_buf[i];
-		uint_t op = DIF_INSTR_OP(instr);
+		struct bpf_insn instr = dp->dtdo_buf[i];
+		uint_t op = BPF_OP(instr.code);
 
+		/* We only care about jump instructions. */
+		if (BPF_CLASS(instr.code) != BPF_JMP)
+			continue;
+
+		/* We ignore function calls and function exits. */
+		if (op == BPF_CALL || op == BPF_EXIT)
+			continue;
+#ifdef FIXME
 		if (op == DIF_OP_CALL) {
 			if (DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUT ||
 			    DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUTSTR)
 				dp->dtdo_destructive = 1;
 			continue;
 		}
+#endif
 
-		if (op >= DIF_OP_BA && op <= DIF_OP_BLEU) {
-			assert(DIF_INSTR_LABEL(instr) < dlp->dl_label);
-			dp->dtdo_buf[i] = DIF_INSTR_BRANCH(op,
-			    labels[DIF_INSTR_LABEL(instr)]);
-		}
+		assert(instr.off < dlp->dl_label);
+		/*
+		 * BPF jump instructions use an offset from the *following*
+		 * instructions, so we need to subtract one extra instruction
+		 * from the delta between the jump and the labelled target.
+		 */
+		dp->dtdo_buf[i].off = labels[instr.off] - i - 1;
 	}
 
 	dt_free(dtp, labels);
@@ -380,18 +395,21 @@ dt_as(dt_pcb_t *pcb)
 			uint_t nodef;
 
 			if (dip->di_label != DT_LBL_NONE &&
-			    dip->di_instr == DIF_INSTR_NOP)
+			    BPF_IS_NOP(dip->di_instr))
 				continue; /* skip label declarations */
 
 			i++; /* advance dtdo_buf[] index */
 
+#ifdef FIXME
 			if (DIF_INSTR_OP(dip->di_instr) == DIF_OP_XLATE ||
 			    DIF_INSTR_OP(dip->di_instr) == DIF_OP_XLARG) {
-				assert(dp->dtdo_buf[i - 1] == dip->di_instr);
+				assert(BPF_EQUAL(dp->dtdo_buf[i - 1],
+						 dip->di_instr));
 				dt_as_xlate(pcb, dp, i - 1, (uint_t)
 				    (xlp++ - dp->dtdo_xlmtab), dip->di_extern);
 				continue;
 			}
+#endif
 
 			if ((idp = dip->di_extern) == NULL)
 				continue; /* no relocation entry needed */
@@ -408,7 +426,9 @@ dt_as(dt_pcb_t *pcb)
 			if (!nodef)
 				dt_as_undef(idp, i);
 
+#ifdef FIXME
 			assert(DIF_INSTR_OP(dip->di_instr) == DIF_OP_SETX);
+#endif
 			soff = dt_strtab_insert(pcb->pcb_strtab, idp->di_name);
 
 			if (soff == -1L)
@@ -418,8 +438,10 @@ dt_as(dt_pcb_t *pcb)
 
 			rp->dofr_name = (dof_stridx_t)soff;
 			rp->dofr_type = DOF_RELO_SETX;
+#ifdef FIXME
 			rp->dofr_offset = DIF_INSTR_INTEGER(dip->di_instr) *
 			    sizeof (uint64_t);
+#endif
 			rp->dofr_data = 0;
 		}
 

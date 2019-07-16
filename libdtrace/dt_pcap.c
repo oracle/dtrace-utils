@@ -5,6 +5,9 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* We define this here to stop pcap from including a conflicting bpf.h. */
+#define _BPF_H_
+
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
