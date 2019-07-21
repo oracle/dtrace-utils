@@ -1865,7 +1865,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		dt_cg_setx(dlp, dnp->dn_reg, dnp->dn_value);
+		if (dnp->dn_value > UINT32_MAX)
+			dt_cg_setx(dlp, dnp->dn_reg, dnp->dn_value);
+		else {
+			instr = BPF_MOV_IMM(dnp->dn_reg, dnp->dn_value);
+			dt_irlist_append(dlp,
+					 dt_cg_node_alloc(DT_LBL_NONE, instr));
+		}
 		break;
 
 	default:
