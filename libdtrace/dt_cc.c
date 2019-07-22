@@ -1624,11 +1624,13 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	}
 
 #if 1
-	assert(yypcb->pcb_stmt == NULL);
-	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
-	dt_compile_entire_clause(dtp, cnp, sdp);
-	assert(yypcb->pcb_stmt == sdp);
-	dt_stmt_append(sdp, cnp);
+	if (cnp->dn_acts != NULL) {
+		assert(yypcb->pcb_stmt == NULL);
+		sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
+		dt_compile_entire_clause(dtp, cnp, sdp);
+		assert(yypcb->pcb_stmt == sdp);
+		dt_stmt_append(sdp, cnp);
+	}
 #else
 	for (dnp = cnp->dn_acts; dnp != NULL; dnp = dnp->dn_list) {
 		assert(yypcb->pcb_stmt == NULL);
