@@ -13,6 +13,14 @@
 #include <dt_printf.h>
 #include <bpf_asm.h>
 
+#define __stringify_(x)		#x
+#define __stringify(x)		__stringify_(x)
+#define BPF_HELPER_FN(x)	[BPF_FUNC_##x] = __stringify(bpf_##x)
+static const char * const helper_fn[] = {
+	__BPF_FUNC_MAPPER(BPF_HELPER_FN)
+};
+#undef BPF_HELPER_FN
+
 static const char *reg(int r)
 {
 	static char	*name[] = { "%r0", "%r1", "%r2", "%r3", "%r4",
@@ -79,7 +87,7 @@ static void
 dt_dis_op2imm(const dtrace_difo_t *dp, const char *name,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u", name, reg(in->dst_reg), in->imm);
+	fprintf(fp, "%-4s %s, %d", name, reg(in->dst_reg), in->imm);
 }
 
 /*ARGSUSED*/
@@ -87,7 +95,7 @@ static void
 dt_dis_branch(const dtrace_difo_t *dp, const char *name,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %s, %u", name, reg(in->dst_reg),
+	fprintf(fp, "%-4s %s, %s, %d", name, reg(in->dst_reg),
 		reg(in->src_reg), in->off);
 }
 
@@ -96,7 +104,7 @@ static void
 dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u, %u", name, reg(in->dst_reg), in->imm,
+	fprintf(fp, "%-4s %s, %u, %d", name, reg(in->dst_reg), in->imm,
 		in->off);
 }
 
@@ -152,7 +160,20 @@ static void
 dt_dis_call(const dtrace_difo_t *dp, const char *name,
 	    const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %u", name, in->imm);
+	const char *fn = NULL;
+
+	if (in->src_reg == BPF_PSEUDO_CALL) {
+		fprintf(fp, "%-4s %d", name, in->imm);
+		return;
+	}
+
+	if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID)
+		fn = helper_fn[in->imm];
+
+	if (fn)
+		fprintf(fp, "%-4s %s", name, fn);
+	else
+		fprintf(fp, "%-4s unknown", name);
 }
 
 /*ARGSUSED*/

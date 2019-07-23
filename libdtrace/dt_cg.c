@@ -1818,11 +1818,20 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
+/* FIXME */
+if (base == 0x3000) {
+	instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg, dnp->dn_ident->di_id);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(1234);	/* u64 dt_get_gvar(id) */
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_REG(BPF_MOV, dnp->dn_reg, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+} else {
 			instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
 					 base + dnp->dn_ident->di_id);
-
 			dt_irlist_append(dlp,
 			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
 			break;
 		}
 
