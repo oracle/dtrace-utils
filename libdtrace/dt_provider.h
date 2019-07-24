@@ -16,6 +16,19 @@
 extern "C" {
 #endif
 
+#define TRACEFS		"/sys/kernel/debug/tracing/"
+#define EVENTSFS	TRACEFS "events/"
+
+typedef struct dt_provmod {
+	char *name;			/* provider generic name */
+	int (*populate)(void);		/* function to add probes */
+} dt_provmod_t;
+
+extern struct dt_provmod dt_dtrace;
+extern struct dt_provmod dt_fbt;
+extern struct dt_provmod dt_sdt;
+extern struct dt_provmod dt_syscall;
+
 typedef struct dt_provider {
 	dt_list_t pv_list;		/* list forward/back pointers */
 	struct dt_provider *pv_next;	/* pointer to next provider in hash */

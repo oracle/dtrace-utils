@@ -116,6 +116,17 @@ const dt_version_t _dtrace_versions[] = {
 };
 
 /*
+ * List of provider modules that register providers and probes.  A single
+ * provider module may create multiple providers.
+ */
+static const dt_provmod_t *dt_provmod[] = {
+	&dt_dtrace,
+	&dt_fbt,
+	&dt_sdt,
+	&dt_syscall,
+};
+
+/*
  * Table of global identifiers.  This is used to populate the global identifier
  * hash when a new dtrace client open occurs.  For more info see dt_ident.h.
  * The global identifiers that represent functions use the dt_idops_func ops
@@ -650,7 +661,6 @@ static const char *_dtrace_defsysslice = ":/system.slice/"; /* default systemd
 							       system slice */
 
 static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
-static const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
 int _dtrace_intbuckets = 256;	/* default number of integer buckets (Pof2) */
@@ -688,71 +698,6 @@ set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
 	return (NULL);
 }
 
-static void
-dt_provmod_open(dt_provmod_t **provmod, dt_fdlist_t *dfp)
-{
-	dt_provmod_t *prov;
-	char path[PATH_MAX];
-	struct dirent *dp;
-	DIR *dirp;
-	int fd;
-
-	if ((dirp = opendir(_dtrace_provdir)) == NULL)
-		return; /* failed to open directory; just skip it */
-
-	while ((dp = readdir(dirp)) != NULL) {
-		if (dp->d_name[0] == '.')
-			continue; /* skip "." and ".." */
-
-		if (dfp->df_ents == dfp->df_size) {
-			uint_t size = dfp->df_size ? dfp->df_size * 2 : 16;
-			int *fds = realloc(dfp->df_fds, size * sizeof (int));
-
-			if (fds == NULL)
-				break; /* skip the rest of this directory */
-
-			dfp->df_fds = fds;
-			dfp->df_size = size;
-		}
-
-		(void) snprintf(path, sizeof (path), "%s/%s",
-		    _dtrace_provdir, dp->d_name);
-
-		if ((fd = open(path, O_RDONLY)) == -1)
-			continue; /* failed to open driver; just skip it */
-
-		if (((prov = malloc(sizeof (dt_provmod_t))) == NULL) ||
-		    (prov->dp_name = malloc(strlen(dp->d_name) + 1)) == NULL) {
-			free(prov);
-			(void) close(fd);
-			break;
-		}
-
-		(void) strcpy(prov->dp_name, dp->d_name);
-		prov->dp_next = *provmod;
-		*provmod = prov;
-
-		dt_dprintf("opened provider %s\n", dp->d_name);
-		dfp->df_fds[dfp->df_ents++] = fd;
-	}
-
-	(void) closedir(dirp);
-}
-
-static void
-dt_provmod_destroy(dt_provmod_t **provmod)
-{
-	dt_provmod_t *next, *current;
-
-	for (current = *provmod; current != NULL; current = next) {
-		next = current->dp_next;
-		free(current->dp_name);
-		free(current);
-	}
-
-	*provmod = NULL;
-}
-
 static dtrace_hdl_t *
 dt_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
@@ -761,7 +706,6 @@ dt_vopen(int version, int flags, int *errp,
 	int dtfd = -1, ftfd = -1, fterr = 0, updateerr = 0;
 	dtrace_prog_t *pgp;
 	dt_module_t *dmp;
-	dt_provmod_t *provmod = NULL;
 	int i, err;
 	char modpath[PATH_MAX];
 	struct rlimit rl;
@@ -773,8 +717,6 @@ dt_vopen(int version, int flags, int *errp,
 	dtrace_typeinfo_t dtt;
 	ctf_funcinfo_t ctc;
 	ctf_arinfo_t ctr;
-
-	dt_fdlist_t df = { NULL, 0, 0 };
 
 	char isadef[32], utsdef[32];
 
@@ -827,14 +769,12 @@ dt_vopen(int version, int flags, int *errp,
 		(void) setrlimit(RLIMIT_NOFILE, &rl);
 	}
 
-	/*
-	 * Get the device path of each of the providers.  We hold them open
-	 * in the df.df_fds list until we open the DTrace driver itself,
-	 * allowing us to see all of the probes provided on this system.  Once
-	 * we have the DTrace driver open, we can safely close all the providers
-	 * now that they have registered with the framework.
-	 */
-	dt_provmod_open(&provmod, &df);
+	for (i = 0; i < ARRAY_SIZE(dt_provmod); i++) {
+		int n;
+
+		n = dt_provmod[i]->populate();
+		dt_dprintf("loaded %d probes for %s\n", n, dt_provmod[i]->name);
+	}
 
 	dtfd = open("/dev/dtrace/dtrace", O_RDWR);
 	err = errno; /* save errno from opening dtfd */
@@ -842,18 +782,12 @@ dt_vopen(int version, int flags, int *errp,
 	ftfd = open("/dev/dtrace/provider/fasttrap", O_RDWR);
 	fterr = ftfd == -1 ? errno : 0; /* save errno from open ftfd */
 
-	while (df.df_ents-- != 0)
-		(void) close(df.df_fds[df.df_ents]);
-
-	free(df.df_fds);
-
 	/*
 	 * If we failed to open the dtrace device, fail dtrace_open().
 	 * We convert some kernel errnos to custom libdtrace errnos to
 	 * improve the resulting message from the usual strerror().
 	 */
 	if (dtfd == -1) {
-		dt_provmod_destroy(&provmod);
 		switch (err) {
 		case ENOENT:
 			err = EDT_NOENT;
@@ -903,7 +837,6 @@ alloc:
 	dtp->dt_cpp_args = 1;
 	dtp->dt_ld_path = strdup(_dtrace_defld);
 	Pset_procfs_path(_dtrace_defproc);
-	dtp->dt_provmod = provmod;
 	dtp->dt_sysslice = strdup(_dtrace_defsysslice);
 	dtp->dt_useruid = DTRACE_USER_UID;
 	dtp->dt_vector = vector;
@@ -1362,7 +1295,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_aggregate_destroy(dtp);
 	free(dtp->dt_buf.dtbd_data);
 	dt_pfdict_destroy(dtp);
-	dt_provmod_destroy(&dtp->dt_provmod);
 	dt_dof_fini(dtp);
 
 	for (i = 1; i < dtp->dt_cpp_argc; i++)
@@ -1391,20 +1323,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp);
 
 	dt_debug_dump(0);
-}
-
-int
-dtrace_provider_modules(dtrace_hdl_t *dtp, const char **mods, int nmods)
-{
-	dt_provmod_t *prov;
-	int i = 0;
-
-	for (prov = dtp->dt_provmod; prov != NULL; prov = prov->dp_next, i++) {
-		if (i < nmods)
-			mods[i] = prov->dp_name;
-	}
-
-	return (i);
 }
 
 int

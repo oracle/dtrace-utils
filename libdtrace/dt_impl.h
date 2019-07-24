@@ -44,6 +44,8 @@ extern "C" {
 #include <dt_pcb.h>
 #include <dt_debug.h>
 
+#define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
+
 struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
@@ -155,11 +157,6 @@ typedef struct dt_kern_path {
 #define DT_DM_CTF_ARCHIVED  0x10 /* module found in a CTF archive */
 #define DT_DM_KERN_UNLOADED 0x20 /* module not loaded into the kernel */
 
-typedef struct dt_provmod {
-	char *dp_name;				/* name of provider module */
-	struct dt_provmod *dp_next;		/* next module */
-} dt_provmod_t;
-
 typedef struct dt_ahashent {
 	struct dt_ahashent *dtahe_prev;		/* prev on hash chain */
 	struct dt_ahashent *dtahe_next;		/* next on hash chain */
@@ -236,7 +233,6 @@ struct dtrace_hdl {
 	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
 	uint_t dt_kernpathbuckets; /* number of kernel module path hash buckets */
 	uint_t dt_nkernpaths;	/* number of kernel module paths in hash and list */
-	dt_provmod_t *dt_provmod; /* linked list of provider modules */
 	dt_module_t *dt_exec;	/* pointer to executable module */
 	dt_module_t *dt_cdefs;	/* pointer to C dynamic type module */
 	dt_module_t *dt_ddefs;	/* pointer to D dynamic type module */
