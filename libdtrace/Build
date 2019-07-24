@@ -128,7 +128,7 @@ $(m4-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d.in), \
 		$(libdtrace-build_DIR)def-replace.m4 - $(libdtrace-build_DIR)/d-subst.m4 \
                 $(libdtrace-build_DIR)m4-utils.m4 $(libdtrace-build_DIR)/d-kern.m4 \
 		$(libdtrace-build_DIR)def-end.m4 $< > $@; \
-        if [[ $$? -ne 0 ]]; then \
+        if test $$? -ne 0; then \
 		cat $@.h.err >&2; \
 		echo "Error: Not all tokens in $< defined in headers." >&2; \
 		rm -f $@.h $@.h.err; \
