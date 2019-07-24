@@ -918,7 +918,7 @@ main(int argc, char *argv[])
 	dtrace_optval_t opt;
 	dtrace_cmd_t *dcp;
 
-	int done = 0, mode = 0, tried_loading = 0;
+	int done = 0, mode = 0;
 	int err, i, c;
 	char *p, **v;
 	pid_t pid;
@@ -1100,26 +1100,6 @@ main(int argc, char *argv[])
 			g_oflags |= DTRACE_O_NODEV;
 			continue;
 		}
-
-                if (!tried_loading) {
-			const char *libdir = DTRACE_LIBDIR;
-			char *script;
-
-			if (getenv("DTRACE_OPT_SYSLIBDIR") != NULL)
-				libdir = getenv("DTRACE_OPT_SYSLIBDIR");
-
-			if (asprintf(&script, "%s/%s", libdir,
-				"load_dtrace_modules") >= 0) {
-				tried_loading = 1;
-
-				if (system(script) == 0) {
-					free(script);
-					continue;
-				}
-				free(script);
-			}
-			g_oflags &= ~DTRACE_O_NODEV;
-                }
 
 		fatal("failed to initialize dtrace: %s\n",
 		    dtrace_errmsg(NULL, err));
