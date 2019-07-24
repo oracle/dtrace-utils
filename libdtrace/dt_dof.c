@@ -198,19 +198,12 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	dof_secidx_t relsec;
 
 	dof_secidx_t strsec = DOF_SECIDX_NONE;
-	dof_secidx_t intsec = DOF_SECIDX_NONE;
 	dof_secidx_t hdrsec = DOF_SECIDX_NONE;
 
 	if (dp->dtdo_buf != NULL) {
 		dsecs[nsecs++] = dof_add_lsect(ddo, dp->dtdo_buf,
 		    DOF_SECT_DIF, sizeof (dif_instr_t), 0,
 		    sizeof (dif_instr_t), sizeof (dif_instr_t) * dp->dtdo_len);
-	}
-
-	if (dp->dtdo_inttab != NULL) {
-		dsecs[nsecs++] = intsec = dof_add_lsect(ddo, dp->dtdo_inttab,
-		    DOF_SECT_INTTAB, sizeof (uint64_t), 0,
-		    sizeof (uint64_t), sizeof (uint64_t) * dp->dtdo_intlen);
 	}
 
 	if (dp->dtdo_strtab != NULL) {
@@ -266,47 +259,7 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	    sizeof (dof_secidx_t), 0, 0,
 	    sizeof (dtrace_diftype_t) + sizeof (dof_secidx_t) * nsecs);
 
-	/*
-	 * Add any other sections related to dtrace_difo_t.  These are not
-	 * referenced in dof_difohdr_t because they are not used by emulation.
-	 */
-	if (dp->dtdo_kreltab != NULL) {
-		relsec = dof_add_lsect(ddo, dp->dtdo_kreltab, DOF_SECT_RELTAB,
-		    sizeof (uint64_t), 0, sizeof (dof_relodesc_t),
-		    sizeof (dof_relodesc_t) * dp->dtdo_krelen);
-
-		/*
-		 * This code assumes the target of all relocations is the
-		 * integer table 'intsec' (DOF_SECT_INTTAB).  If other sections
-		 * need relocation in the future this will need to change.
-		 */
-		dofr.dofr_strtab = strsec;
-		dofr.dofr_relsec = relsec;
-		dofr.dofr_tgtsec = intsec;
-
-		(void) dof_add_lsect(ddo, &dofr, DOF_SECT_KRELHDR,
-		    sizeof (dof_secidx_t), 0, 0, sizeof (dof_relohdr_t));
-	}
-
-	if (dp->dtdo_ureltab != NULL) {
-		relsec = dof_add_lsect(ddo, dp->dtdo_ureltab, DOF_SECT_RELTAB,
-		    sizeof (uint64_t), 0, sizeof (dof_relodesc_t),
-		    sizeof (dof_relodesc_t) * dp->dtdo_urelen);
-
-		/*
-		 * This code assumes the target of all relocations is the
-		 * integer table 'intsec' (DOF_SECT_INTTAB).  If other sections
-		 * need relocation in the future this will need to change.
-		 */
-		dofr.dofr_strtab = strsec;
-		dofr.dofr_relsec = relsec;
-		dofr.dofr_tgtsec = intsec;
-
-		(void) dof_add_lsect(ddo, &dofr, DOF_SECT_URELHDR,
-		    sizeof (dof_secidx_t), 0, 0, sizeof (dof_relohdr_t));
-	}
-
-	return (hdrsec);
+	return hdrsec;
 }
 
 static void

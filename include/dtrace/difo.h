@@ -33,11 +33,9 @@
 
 typedef struct dtrace_difo {
 	struct bpf_insn *dtdo_buf;		/* instruction buffer */
-	uint64_t *dtdo_inttab;			/* integer table (optional) */
 	char *dtdo_strtab;			/* string table (optional) */
 	dtrace_difv_t *dtdo_vartab;		/* variable table (optional) */
 	uint_t dtdo_len;			/* length of instruction buffer */
-	uint_t dtdo_intlen;			/* length of integer table */
 	uint_t dtdo_strlen;			/* length of string table */
 	uint_t dtdo_varlen;			/* length of variable table */
 	dtrace_diftype_t dtdo_rtype;		/* return type */

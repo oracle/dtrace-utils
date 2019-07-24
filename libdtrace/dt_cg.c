@@ -66,15 +66,7 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 static void
 dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 {
-	int flag = idp != NULL ? DT_INT_PRIVATE : DT_INT_SHARED;
-	int intoff = dt_inttab_insert(yypcb->pcb_inttab, x, flag);
 	struct bpf_insn instr[2] = { BPF_LDDW(reg, x) };
-
-	if (intoff == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-
-	if (intoff > DIF_INTOFF_MAX)
-		longjmp(yypcb->pcb_jmpbuf, EDT_INT2BIG);
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[0]));
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[1]));
@@ -1902,12 +1894,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 	dt_regset_reset(pcb->pcb_regs);
 	(void) dt_regset_alloc(pcb->pcb_regs); /* allocate %r0 */
-
-	if (pcb->pcb_inttab != NULL)
-		dt_inttab_destroy(pcb->pcb_inttab);
-
-	if ((pcb->pcb_inttab = dt_inttab_create(yypcb->pcb_hdl)) == NULL)
-		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	if (pcb->pcb_strtab != NULL)
 		dt_strtab_destroy(pcb->pcb_strtab);

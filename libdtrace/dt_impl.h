@@ -31,7 +31,6 @@ extern "C" {
 
 #include <dt_parser.h>
 #include <dt_regset.h>
-#include <dt_inttab.h>
 #include <dt_strtab.h>
 #include <dt_symtab.h>
 #include <dt_ident.h>
@@ -675,7 +674,6 @@ extern const dt_version_t _dtrace_versions[];	 /* array of valid versions */
 extern const char *const _dtrace_version;	 /* current version string */
 
 extern int _dtrace_strbuckets;		/* number of hash buckets for strings */
-extern int _dtrace_intbuckets;		/* number of hash buckets for ints */
 extern uint_t _dtrace_stkindent;	/* default indent for stack/ustack */
 extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */

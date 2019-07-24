@@ -707,7 +707,6 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 		return; /* simplify caller code */
 
 	dt_free(dtp, dp->dtdo_buf);
-	dt_free(dtp, dp->dtdo_inttab);
 	dt_free(dtp, dp->dtdo_strtab);
 	dt_free(dtp, dp->dtdo_vartab);
 	dt_free(dtp, dp->dtdo_kreltab);

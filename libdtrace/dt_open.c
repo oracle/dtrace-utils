@@ -663,7 +663,6 @@ static const char *_dtrace_defsysslice = ":/system.slice/"; /* default systemd
 static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory */
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
-int _dtrace_intbuckets = 256;	/* default number of integer buckets (Pof2) */
 uint_t _dtrace_strsize = 256;	/* default size of string intrinsic type */
 uint_t _dtrace_stkindent = 14;	/* default whitespace indent for stack/ustack */
 uint_t _dtrace_pidbuckets = 64; /* default number of pid hash buckets */

@@ -283,9 +283,8 @@ dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dp->dtdo_buf = dt_alloc(dtp, sizeof (dif_instr_t) * 2);
-	dp->dtdo_inttab = dt_alloc(dtp, sizeof (uint64_t));
 
-	if (dp->dtdo_buf == NULL || dp->dtdo_inttab == NULL) {
+	if (dp->dtdo_buf == NULL) {
 		dt_difo_free(dtp, dp);
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 	}
@@ -293,8 +292,6 @@ dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 	dp->dtdo_buf[0] = BPF_MOV_IMM(BPF_REG_0, 0);	/* mov %r0, 0 */
 	dp->dtdo_buf[1] = BPF_RETURN();			/* exit	*/
 	dp->dtdo_len = 2;
-	dp->dtdo_inttab[0] = id;
-	dp->dtdo_intlen = 1;
 	dp->dtdo_rtype = dt_int_rtype;
 
 	ap->dtad_difo = dp;

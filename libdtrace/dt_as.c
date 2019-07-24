@@ -465,19 +465,6 @@ dt_as(dt_pcb_t *pcb)
 	}
 
 	/*
-	 * Allocate memory for the compiled integer table and then copy the
-	 * integer constants from the table into the final integer buffer.
-	 */
-	if ((n = dt_inttab_size(pcb->pcb_inttab)) != 0) {
-		if ((dp->dtdo_inttab = dt_alloc(dtp,
-		    n * sizeof (uint64_t))) == NULL)
-			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
-
-		dt_inttab_write(pcb->pcb_inttab, dp->dtdo_inttab);
-		dp->dtdo_intlen = (uint32_t)n;
-	}
-
-	/*
 	 * Fill in the DIFO return type from the type associated with the
 	 * node saved in pcb_dret, and then clear pcb_difo and pcb_dret
 	 * now that the assembler has completed successfully.

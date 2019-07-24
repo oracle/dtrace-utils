@@ -143,8 +143,6 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 		dt_idhash_destroy(pcb->pcb_locals);
 	if (pcb->pcb_idents != NULL)
 		dt_idhash_destroy(pcb->pcb_idents);
-	if (pcb->pcb_inttab != NULL)
-		dt_inttab_destroy(pcb->pcb_inttab);
 	if (pcb->pcb_strtab != NULL)
 		dt_strtab_destroy(pcb->pcb_strtab);
 	if (pcb->pcb_regs != NULL)
