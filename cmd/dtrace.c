@@ -36,11 +36,10 @@ typedef struct dtrace_cmd {
 } dtrace_cmd_t;
 
 #define	DMODE_VERS	0	/* display version information and exit (-V) */
-#define	DMODE_EXEC	1	/* compile program for enabling (-a/e/E) */
-#define	DMODE_ANON	2	/* compile program for anonymous tracing (-A) */
-#define	DMODE_LINK	3	/* compile program for linking with ELF (-G) */
-#define	DMODE_LIST	4	/* compile program and list probes (-l) */
-#define	DMODE_HEADER	5	/* compile program for headergen (-h) */
+#define	DMODE_EXEC	1	/* compile program for enabling (e/E) */
+#define	DMODE_LINK	2	/* compile program for linking with ELF (-G) */
+#define	DMODE_LIST	3	/* compile program and list probes (-l) */
+#define	DMODE_HEADER	4	/* compile program for headergen (-h) */
 
 #define	E_SUCCESS	0
 #define	E_ERROR		1
@@ -72,31 +71,16 @@ static int g_verbose;
 static int g_exec = 1;
 static int g_mode = DMODE_EXEC;
 static int g_status = E_SUCCESS;
-static int g_grabanon = 0;
 static const char *g_ofile = NULL;
 static FILE *g_ofp = NULL;
 static dtrace_hdl_t *g_dtp;
-static char *g_etcfile = "/etc/system";
-static const char *g_etcbegin = "* vvvv Added by DTrace";
-static const char *g_etcend = "* ^^^^ Added by DTrace";
-
-static const char *g_etc[] =  {
-"*",
-"* The following forceload directives were added by dtrace(1M) to allow for",
-"* tracing during boot.  If these directives are removed, the system will",
-"* continue to function, but tracing will not occur during boot as desired.",
-"* To remove these directives (and this block comment) automatically, run",
-"* \"dtrace -A\" without additional arguments.  See the \"Anonymous Tracing\"",
-"* chapter of the Solaris Dynamic Tracing Guide for details.",
-"*",
-NULL };
 
 static int
 usage(FILE *fp)
 {
 	static const char predact[] = "[[ predicate ] action ]";
 
-	(void) fprintf(fp, "Usage: %s [-32|-64] [-aACeFGhHlqSvVwZ] "
+	(void) fprintf(fp, "Usage: %s [-32|-64] [-CeFGhHlqSvVwZ] "
 	    "[-b bufsz] [-c cmd] [-D name[=def]]\n\t[-I path] [-L path] "
 	    "[-o output] [-p pid] [-s script] [-U name]\n\t"
 	    "[-x opt[=val]] [-X a|c|s|t]\n\n"
@@ -113,8 +97,6 @@ usage(FILE *fp)
 	(void) fprintf(fp, "\n"
 	    "\t-32 generate 32-bit D programs and ELF files\n"
 	    "\t-64 generate 64-bit D programs and ELF files\n\n"
-	    "\t-a  claim anonymous tracing state\n"
-	    "\t-A  generate driver.conf(4) directives for anonymous tracing\n"
 	    "\t-b  set trace buffer size\n"
 	    "\t-c  run specified command and exit upon its completion\n"
 	    "\t-C  run cpp(1) preprocessor on script files\n"
@@ -285,198 +267,6 @@ make_argv(char *s)
 }
 
 static void
-dof_prune(const char *fname)
-{
-	struct stat sbuf;
-	size_t sz, i, j, mark, len;
-	char *buf;
-	int msg = 0, fd;
-
-	if ((fd = open(fname, O_RDONLY)) == -1) {
-		/*
-		 * This is okay only if the file doesn't exist at all.
-		 */
-		if (errno != ENOENT)
-			fatal("failed to open %s", fname);
-		return;
-	}
-
-	if (fstat(fd, &sbuf) == -1)
-		fatal("failed to fstat %s", fname);
-
-	if ((buf = malloc((sz = sbuf.st_size) + 1)) == NULL)
-		fatal("failed to allocate memory for %s", fname);
-
-	if (read(fd, buf, sz) != sz)
-		fatal("failed to read %s", fname);
-
-	buf[sz] = '\0';
-	(void) close(fd);
-
-	if ((fd = open(fname, O_WRONLY | O_TRUNC)) == -1)
-		fatal("failed to open %s for writing", fname);
-
-	len = strlen("dof-data-");
-
-	for (mark = 0, i = 0; i < sz; i++) {
-		if (strncmp(&buf[i], "dof-data-", len) != 0)
-			continue;
-
-		/*
-		 * This is only a match if it's in the 0th column.
-		 */
-		if (i != 0 && buf[i - 1] != '\n')
-			continue;
-
-		if (msg++ == 0) {
-			error("cleaned up old anonymous "
-			    "enabling in %s\n", fname);
-		}
-
-		/*
-		 * We have a match.  First write out our data up until now.
-		 */
-		if (i != mark) {
-			if (write(fd, &buf[mark], i - mark) != i - mark)
-				fatal("failed to write to %s", fname);
-		}
-
-		/*
-		 * Now scan forward until we scan past a newline.
-		 */
-		for (j = i; j < sz && buf[j] != '\n'; j++)
-			continue;
-
-		/*
-		 * Reset our mark.
-		 */
-		if ((mark = j + 1) >= sz)
-			break;
-
-		i = j;
-	}
-
-	if (mark < sz) {
-		if (write(fd, &buf[mark], sz - mark) != sz - mark)
-			fatal("failed to write to %s", fname);
-	}
-
-	(void) close(fd);
-	free(buf);
-}
-
-static void
-etcsystem_prune(void)
-{
-	struct stat sbuf;
-	size_t sz;
-	char *buf, *start, *end;
-	int fd;
-	char *fname = g_etcfile, *tmpname;
-
-	if ((fd = open(fname, O_RDONLY)) == -1)
-		fatal("failed to open %s", fname);
-
-	if (fstat(fd, &sbuf) == -1)
-		fatal("failed to fstat %s", fname);
-
-	if ((buf = malloc((sz = sbuf.st_size) + 1)) == NULL)
-		fatal("failed to allocate memory for %s", fname);
-
-	if (read(fd, buf, sz) != sz)
-		fatal("failed to read %s", fname);
-
-	buf[sz] = '\0';
-	(void) close(fd);
-
-	if ((start = strstr(buf, g_etcbegin)) == NULL)
-		goto out;
-
-	if (strlen(buf) != sz) {
-		fatal("embedded nul byte in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if (strstr(start + 1, g_etcbegin) != NULL) {
-		fatal("multiple start sentinels in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if ((end = strstr(buf, g_etcend)) == NULL) {
-		fatal("missing end sentinel in %s; manual repair of %s "
-		    "required\n", fname, fname);
-	}
-
-	if (start > end) {
-		fatal("end sentinel preceeds start sentinel in %s; manual "
-		    "repair of %s required\n", fname, fname);
-	}
-
-	end += strlen(g_etcend) + 1;
-	memcpy(start, end, strlen(end) + 1);
-
-	tmpname = alloca(sz = strlen(fname) + 80);
-	(void) snprintf(tmpname, sz, "%s.dtrace.%d", fname, getpid());
-
-	if ((fd = open(tmpname,
-	    O_WRONLY | O_CREAT | O_EXCL, sbuf.st_mode)) == -1)
-		fatal("failed to create %s", tmpname);
-
-	if (write(fd, buf, strlen(buf)) < strlen(buf)) {
-		(void) unlink(tmpname);
-		fatal("failed to write to %s", tmpname);
-	}
-
-	(void) close(fd);
-
-	if (chown(tmpname, sbuf.st_uid, sbuf.st_gid) != 0) {
-		(void) unlink(tmpname);
-		fatal("failed to chown(2) %s to uid %d, gid %d", tmpname,
-		    (int)sbuf.st_uid, (int)sbuf.st_gid);
-	}
-
-	if (rename(tmpname, fname) == -1)
-		fatal("rename of %s to %s failed", tmpname, fname);
-
-	error("cleaned up forceload directives in %s\n", fname);
-out:
-	free(buf);
-}
-
-static void
-etcsystem_add(void)
-{
-	const char *mods[20];
-	int nmods, line;
-
-	if ((g_ofp = fopen(g_ofile = g_etcfile, "a")) == NULL)
-		fatal("failed to open output file '%s'", g_ofile);
-
-	oprintf("%s\n", g_etcbegin);
-
-	for (line = 0; g_etc[line] != NULL; line++)
-		oprintf("%s\n", g_etc[line]);
-
-	nmods = dtrace_provider_modules(g_dtp, mods,
-	    sizeof (mods) / sizeof (char *) - 1);
-
-	if (nmods >= sizeof (mods) / sizeof (char *))
-		fatal("unexpectedly large number of modules!");
-
-	mods[nmods++] = "dtrace";
-
-	for (line = 0; line < nmods; line++)
-		oprintf("forceload: drv/%s\n", mods[line]);
-
-	oprintf("%s\n", g_etcend);
-
-	if (fclose(g_ofp) == EOF)
-		fatal("failed to close output file '%s'", g_ofile);
-
-	error("added forceload directives to %s\n", g_ofile);
-}
-
-static void
 print_probe_info(const dtrace_probeinfo_t *p)
 {
 	char buf[BUFSIZ];
@@ -587,30 +377,6 @@ exec_prog(const dtrace_cmd_t *dcp)
 	}
 
 	g_total += dpi.dpi_matches;
-}
-
-/*
- * Print out the specified DOF buffer as a set of ASCII bytes appropriate for
- * storing in a driver.conf(4) file associated with the dtrace driver.
- */
-static void
-anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n)
-{
-	const uchar_t *p, *q;
-
-	if (dof == NULL)
-		dfatal("failed to create DOF image for '%s'", dcp->dc_name);
-
-	p = (uchar_t *)dof;
-	q = p + dof->dofh_loadsz;
-
-	oprintf("dof-data-%d=0x%x", n, *p++);
-
-	while (p < q)
-		oprintf(",0x%x", *p++);
-
-	oprintf(";\n");
-	dtrace_dof_destroy(g_dtp, dof);
 }
 
 /*
@@ -1207,16 +973,6 @@ main(int argc, char *argv[])
 				g_oflags |= DTRACE_O_LP64;
 				break;
 
-			case 'a':
-				g_grabanon++; /* also checked in pass 2 below */
-				break;
-
-			case 'A':
-				g_mode = DMODE_ANON;
-				g_exec = 0;
-				mode++;
-				break;
-
 			case 'e':
 				g_exec = 0;
 				done = 1;
@@ -1264,7 +1020,7 @@ main(int argc, char *argv[])
 	}
 
 	if (mode > 1) {
-		(void) fprintf(stderr, "%s: only one of the [-AGhlV] options "
+		(void) fprintf(stderr, "%s: only one of the [-GhlV] options "
 		    "can be specified at a time\n", g_pname);
 		return (E_USAGE);
 	}
@@ -1340,7 +1096,7 @@ main(int argc, char *argv[])
 	 * have to hardwire the name of the syslibdir option here.)
 	 */
 	while ((g_dtp = dtrace_open(DTRACE_VERSION, g_oflags, &err)) == NULL) {
-		if (!(g_oflags & DTRACE_O_NODEV) && !g_exec && !g_grabanon) {
+		if (!(g_oflags & DTRACE_O_NODEV) && !g_exec) {
 			g_oflags |= DTRACE_O_NODEV;
 			continue;
 		}
@@ -1382,8 +1138,6 @@ main(int argc, char *argv[])
 	/*
 	 * If -G is specified, enable -xlink=dynamic and -xunodefs to permit
 	 * references to undefined symbols to remain as unresolved relocations.
-	 * If -A is specified, enable -xlink=primary to permit static linking
-	 * only to kernel symbols that are defined in a primary kernel module.
 	 */
 	if (g_mode == DMODE_LINK) {
 		(void) dtrace_setopt(g_dtp, "linkmode", "dynamic");
@@ -1400,8 +1154,7 @@ main(int argc, char *argv[])
 		 * We still use g_argv[0], the name of the executable.
 		 */
 		g_argc = 1;
-	} else if (g_mode == DMODE_ANON)
-		(void) dtrace_setopt(g_dtp, "linkmode", "primary");
+	}
 
 	/*
 	 * Now that we have libdtrace open, make a second pass through argv[]
@@ -1412,11 +1165,6 @@ main(int argc, char *argv[])
 	for (optind = 1; optind < argc; optind++) {
 		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
 			switch (c) {
-			case 'a':
-				if (dtrace_setopt(g_dtp, "grabanon", 0) != 0)
-					dfatal("failed to set -a");
-				break;
-
 			case 'b':
 				if (dtrace_setopt(g_dtp,
 				    "bufsize", optarg) != 0)
@@ -1547,7 +1295,7 @@ main(int argc, char *argv[])
 
 	if (g_ofp == NULL && g_mode != DMODE_EXEC) {
 		(void) fprintf(stderr, "%s: -B not valid in combination"
-		    " with [-AGl] options\n", g_pname);
+		    " with [-Gl] options\n", g_pname);
 		return (E_USAGE);
 	}
 
@@ -1636,9 +1384,6 @@ main(int argc, char *argv[])
 	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
 	g_flowindent = opt != DTRACEOPT_UNSET;
 
-	(void) dtrace_getopt(g_dtp, "grabanon", &opt);
-	g_grabanon = opt != DTRACEOPT_UNSET;
-
 	(void) dtrace_getopt(g_dtp, "quiet", &opt);
 	g_quiet = opt != DTRACEOPT_UNSET;
 
@@ -1657,53 +1402,11 @@ main(int argc, char *argv[])
 		for (i = 0; i < g_cmdc; i++)
 			exec_prog(&g_cmdv[i]);
 
-		if (done && !g_grabanon) {
+		if (done) {
 			dtrace_close(g_dtp);
 			return (g_status);
 		}
 		break;
-
-	case DMODE_ANON:
-		if (g_ofile == NULL)
-			g_ofile = "/kernel/drv/dtrace.conf";
-
-		dof_prune(g_ofile); /* strip out any old DOF directives */
-		etcsystem_prune(); /* string out any forceload directives */
-
-		if (g_cmdc == 0) {
-			dtrace_close(g_dtp);
-			return (g_status);
-		}
-
-		if ((g_ofp = fopen(g_ofile, "a")) == NULL)
-			fatal("failed to open output file '%s'", g_ofile);
-
-		for (i = 0; i < g_cmdc; i++) {
-			anon_prog(&g_cmdv[i],
-			    dtrace_dof_create(g_dtp, g_cmdv[i].dc_prog, 0), i);
-		}
-
-		/*
-		 * Dump out the DOF corresponding to the error handler and the
-		 * current options as the final DOF property in the .conf file.
-		 */
-		anon_prog(NULL, dtrace_geterr_dof(g_dtp), i++);
-		anon_prog(NULL, dtrace_getopt_dof(g_dtp), i++);
-
-		if (fclose(g_ofp) == EOF)
-			fatal("failed to close output file '%s'", g_ofile);
-
-		/*
-		 * These messages would use notice() rather than error(), but
-		 * we don't want them suppressed when -A is run on a D program
-		 * that itself contains a #pragma D option quiet.
-		 */
-		error("saved anonymous enabling in %s\n", g_ofile);
-		etcsystem_add();
-		error("run update_drv(1M) or reboot to enable changes\n");
-
-		dtrace_close(g_dtp);
-		return (g_status);
 
 	case DMODE_LINK:
 		if (g_cmdc == 0) {
@@ -1794,23 +1497,19 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * If -a and -Z were not specified and no probes have been matched, no
-	 * probe criteria was specified on the command line and we abort.
+	 * If -Z was not specified and no probes have been matched, no probe
+	 * criteria was specified on the command line and we abort.
 	 */
-	if (g_total == 0 && !g_grabanon && !(g_cflags & DTRACE_C_ZDEFS))
+	if (g_total == 0 && !(g_cflags & DTRACE_C_ZDEFS))
 		dfatal("no probes %s\n", g_cmdc ? "matched" : "specified");
 
 	/*
-	 * Start tracing.  Once we dtrace_go(), reload any options that affect
-	 * our globals in case consuming anonymous state has changed them.
+	 * Start tracing.
 	 */
 	go();
 
 	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
 	g_flowindent = opt != DTRACEOPT_UNSET;
-
-	(void) dtrace_getopt(g_dtp, "grabanon", &opt);
-	g_grabanon = opt != DTRACEOPT_UNSET;
 
 	(void) dtrace_getopt(g_dtp, "quiet", &opt);
 	g_quiet = opt != DTRACEOPT_UNSET;
