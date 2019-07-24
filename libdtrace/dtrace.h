@@ -36,7 +36,6 @@ typedef struct dtrace_prog dtrace_prog_t;
 typedef struct dtrace_vector dtrace_vector_t;
 typedef struct dtrace_aggdata dtrace_aggdata_t;
 
-#define	DTRACE_O_NODEV		0x01	/* do not open dtrace(7D) device */
 #define	DTRACE_O_LP64		0x02	/* force D compiler to be LP64 */
 #define	DTRACE_O_ILP32		0x04	/* force D compiler to be ILP32 */
 #define	DTRACE_O_MASK		0x07	/* mask of valid flags to dtrace_open */

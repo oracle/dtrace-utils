@@ -602,12 +602,7 @@ inline long NULL = 0; \n\
 ";
 
 /*
- * Default DTrace configuration to use when opening libdtrace DTRACE_O_NODEV.
- * If DTRACE_O_NODEV is not set, we load the configuration from the kernel.
- * The use of CTF_MODEL_NATIVE is more subtle than it might appear: we are
- * relying on the fact that when running dtrace(1M), isaexec will invoke the
- * binary with the same bitness as the kernel, which is what we want by default
- * when generating our DIF.  The user can override the choice using oflags.
+ * Default DTrace configuration.
  */
 static const dtrace_conf_t _dtrace_conf = {
 	DIF_VERSION,		/* dtc_difversion */
@@ -681,12 +676,6 @@ const char *const _libdtrace_vcs_version = DT_GIT_VERSION; /* Build version stri
 #define DTRACE_USER_UID 1000
 #endif
 
-typedef struct dt_fdlist {
-	int *df_fds;		/* array of provider driver file descriptors */
-	uint_t df_ents;		/* number of valid elements in df_fds[] */
-	uint_t df_size;		/* size of df_fds[] */
-} dt_fdlist_t;
-
 static dtrace_hdl_t *
 set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
 {
@@ -702,7 +691,7 @@ dt_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
 {
 	dtrace_hdl_t *dtp = NULL;
-	int dtfd = -1, ftfd = -1, fterr = 0, updateerr = 0;
+	int updateerr = 0;
 	dtrace_prog_t *pgp;
 	dt_module_t *dmp;
 	int i, err;
@@ -752,9 +741,6 @@ dt_vopen(int version, int flags, int *errp,
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		return (set_open_errno(dtp, errp, EDT_ELFVERSION));
 
-	if (vector != NULL || (flags & DTRACE_O_NODEV))
-		goto alloc; /* do not attempt to open dtrace device */
-
 	/*
 	 * Before we get going, crank our limit on file descriptors up to the
 	 * hard limit.  This is to allow for the fact that libproc keeps file
@@ -775,36 +761,6 @@ dt_vopen(int version, int flags, int *errp,
 		dt_dprintf("loaded %d probes for %s\n", n, dt_provmod[i]->name);
 	}
 
-	dtfd = open("/dev/dtrace/dtrace", O_RDWR);
-	err = errno; /* save errno from opening dtfd */
-
-	ftfd = open("/dev/dtrace/provider/fasttrap", O_RDWR);
-	fterr = ftfd == -1 ? errno : 0; /* save errno from open ftfd */
-
-	/*
-	 * If we failed to open the dtrace device, fail dtrace_open().
-	 * We convert some kernel errnos to custom libdtrace errnos to
-	 * improve the resulting message from the usual strerror().
-	 */
-	if (dtfd == -1) {
-		switch (err) {
-		case ENOENT:
-			err = EDT_NOENT;
-			break;
-		case EBUSY:
-			err = EDT_BUSY;
-			break;
-		case EACCES:
-			err = EDT_ACCESS;
-			break;
-		}
-		return (set_open_errno(dtp, errp, err));
-	}
-
-	(void) fcntl(dtfd, F_SETFD, FD_CLOEXEC);
-	(void) fcntl(ftfd, F_SETFD, FD_CLOEXEC);
-
-alloc:
 	if ((dtp = malloc(sizeof (dtrace_hdl_t))) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
@@ -816,9 +772,8 @@ alloc:
 	dtp->dt_xlatemode = DT_XL_STATIC;
 	dtp->dt_stdcmode = DT_STDC_XA;
 	dtp->dt_version = version;
-	dtp->dt_fd = dtfd;
-	dtp->dt_ftfd = ftfd;
-	dtp->dt_fterr = fterr;
+	dtp->dt_fd = -1;		/* FIXME: will be removed later */
+	dtp->dt_ftfd = -1;		/* FIXME: will be removed later */
 	dtp->dt_cdefs_fd = -1;
 	dtp->dt_ddefs_fd = -1;
 	dtp->dt_stdout_fd = -1;
@@ -883,10 +838,7 @@ alloc:
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
-	if (flags & DTRACE_O_NODEV)
-		memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
-	else if (dt_ioctl(dtp, DTRACEIOC_CONF, &dtp->dt_conf) != 0)
-		return (set_open_errno(dtp, errp, errno));
+	memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
 
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
@@ -1166,14 +1118,6 @@ alloc:
 
 	if (dt_pfdict_create(dtp) == -1)
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
-
-	/*
-	 * If we are opening libdtrace DTRACE_O_NODEV enable C_ZDEFS by default
-	 * because without /dev/dtrace open, we will not be able to load the
-	 * names and attributes of any providers or probes from the kernel.
-	 */
-	if (flags & DTRACE_O_NODEV)
-		dtp->dt_cflags |= DTRACE_C_ZDEFS;
 
 	/*
 	 * Load hard-wired inlines into the definition cache by calling the

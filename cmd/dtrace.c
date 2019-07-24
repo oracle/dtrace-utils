@@ -980,7 +980,6 @@ main(int argc, char *argv[])
 
 			case 'h':
 				g_mode = DMODE_HEADER;
-				g_oflags |= DTRACE_O_NODEV;
 				g_cflags |= DTRACE_C_ZDEFS; /* -h implies -Z */
 				g_exec = 0;
 				mode++;
@@ -988,7 +987,6 @@ main(int argc, char *argv[])
 
 			case 'G':
 				g_mode = DMODE_LINK;
-				g_oflags |= DTRACE_O_NODEV;
 				g_cflags |= DTRACE_C_ZDEFS; /* -G implies -Z */
 				g_exec = 0;
 				mode++;
@@ -1087,23 +1085,12 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Open libdtrace. If we are not actually going to be enabling any
-	 * instrumentation attempt to reopen libdtrace using DTRACE_O_NODEV; if
-	 * even that fails, attempt to reopen without DTRACE_O_NODEV, but after
-	 * running a script to load the dtrace module. (The name of this script
-	 * is presently hardwired, but its location is not, though since we
-	 * cannot yet have initialized the DTrace option-parsing machinery we
-	 * have to hardwire the name of the syslibdir option here.)
+	 * Open libdtrace.
 	 */
-	while ((g_dtp = dtrace_open(DTRACE_VERSION, g_oflags, &err)) == NULL) {
-		if (!(g_oflags & DTRACE_O_NODEV) && !g_exec) {
-			g_oflags |= DTRACE_O_NODEV;
-			continue;
-		}
-
+	g_dtp = dtrace_open(DTRACE_VERSION, g_oflags, &err);
+	if (g_dtp == NULL)
 		fatal("failed to initialize dtrace: %s\n",
-		    dtrace_errmsg(NULL, err));
-	}
+		      dtrace_errmsg(NULL, err));
 
 	(void) dtrace_setopt(g_dtp, "bufsize", "4m");
 	(void) dtrace_setopt(g_dtp, "aggsize", "4m");
