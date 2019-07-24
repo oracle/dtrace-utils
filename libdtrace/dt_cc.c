@@ -1601,8 +1601,10 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	dt_setcontext(dtp, pnp->dn_desc);
 	(void) dt_node_cook(cnp, DT_IDFLG_REF);
 
-	if (DT_TREEDUMP_PASS(dtp, 2))
-		dt_node_printr(cnp, stderr, 0);
+	if (DT_TREEDUMP_PASS(dtp, 2)) {
+		fprintf(stderr, "Parse tree (Pass 2):\n");
+		dt_node_printr(cnp, stderr, 1);
+	}
 
 	if ((edp = dt_ecbdesc_create(dtp, pnp->dn_desc)) == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -2511,8 +2513,10 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	if (cflags & DTRACE_C_CTL)
 		goto out;
 
-	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 1))
-		dt_node_printr(yypcb->pcb_root, stderr, 0);
+	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 1)) {
+		fprintf(stderr, "Parse tree (Pass 1):\n");
+		dt_node_printr(yypcb->pcb_root, stderr, 1);
+	}
 
 	if (yypcb->pcb_pragmas != NULL)
 		(void) dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
@@ -2582,8 +2586,10 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 out:
-	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3))
-		dt_node_printr(yypcb->pcb_root, stderr, 0);
+	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3)) {
+		fprintf(stderr, "Parse tree (Pass 3):\n");
+		dt_node_printr(yypcb->pcb_root, stderr, 1);
+	}
 
 	if (dtp->dt_cdefs_fd != -1 && (ftruncate(dtp->dt_cdefs_fd, 0) == -1 ||
 	    lseek(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
