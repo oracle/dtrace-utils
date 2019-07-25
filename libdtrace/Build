@@ -98,7 +98,6 @@ override other-dlib-targets = $(foreach kernel,$(SHORTKERNELS), \
 $(objdir)/dlibs/.dir.stamp:
 	mkdir -p $(objdir)/dlibs $(foreach kernel,$(SHORTKERNELS),$(objdir)/dlibs/$(kernel))
 	@touch $(objdir)/dlibs/.dir.stamp
-	ln -sf ../../$(libdtrace-build_DIR)/drti-vers $(objdir)/dlibs
 
 define dlib-kernel-ver-template
 $(objdir)/dlibs/$(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/')/%.d: override SHORTKERNELVER := $(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/' | awk -F. '{ print $$1 * 1000 * 1000 + $$2 * 1000 + $$3 }')
@@ -156,25 +155,6 @@ PHONIES += dlibs
 TARGETS += dlibs
 dlibs: $(m4-dlib-targets) $(other-dlib-targets)
 
-PHONIES += objs
-TARGETS += objs
-BUILD_DRTI_OBJ = $(objdir)/drti.o
-DRTI_OBJ = $(objdir)/dlibs/drti.o
-BUILD_DRTI32_OBJ = $(objdir)/drti32.o
-DRTI32_OBJ = $(if $(NATIVE_BITNESS_ONLY),,$(objdir)/dlibs/drti32.o)
-
-objs: $(DRTI_OBJ) $(DRTI32_OBJ)
-$(BUILD_DRTI_OBJ): $(libdtrace-build_DIR)drti.c
-	$(call describe-target,CC,$<)
-	$(CC) $(filter-out --coverage,$(CFLAGS)) -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
-$(DRTI_OBJ): $(BUILD_DRTI_OBJ) $(objdir)/dlibs/.dir.stamp
-	ln -sf $(BUILD_DRTI_OBJ) $(DRTI_OBJ)
-$(BUILD_DRTI32_OBJ): $(libdtrace-build_DIR)drti.c
-	$(call describe-target,CC-32,$<)
-	$(CC) $(filter-out --coverage,$(CFLAGS)) -m32 -fPIC $(CPPFLAGS) $(libdtrace-build_CPPFLAGS) -MP -MMD -c -o $@ $<
-$(DRTI32_OBJ): $(BUILD_DRTI32_OBJ) $(objdir)/dlibs/.dir.stamp
-	ln -sf $(BUILD_DRTI32_OBJ) $(DRTI32_OBJ)
-
 # Custom substitutions.
 
 # Though we use errno.h, the sensitive dependency is linux/errno.h,
@@ -210,12 +190,6 @@ install::
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(INSTLIBDIR)/$(libdtrace_SONAME)
 	$(call describe-install-target,$(INSTLIBDIR),$(libdtrace_TARGET).so)
 	ln -sf libdtrace.so.$(libdtrace_VERSION) $(INSTLIBDIR)/$(libdtrace_TARGET).so
-	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI_OBJ))
-	install -m 644 $(DRTI_OBJ) $(INSTLIBDIR)/dtrace
-	$(call describe-install-target,$(INSTLIBDIR)/dtrace,$(DRTI32_OBJ))
-	$(if $(NATIVE_BITNESS_ONLY),,install -m 644 $(DRTI32_OBJ) $(INSTLIBDIR)/dtrace)
-	$(call describe-install-target,$(INSTLIBDIR)/dtrace,drti-vers)
-	install -m 644 $(objdir)/dlibs/drti-vers $(INSTLIBDIR)/dtrace
 	for kernel in $(SHORTKERNELS); do \
 		$(call describe-expanded-install-target,$(INSTLIBDIR)/dtrace/$$kernel,$(WORKING_DLIBS)) \
 		mkdir -p $(INSTLIBDIR)/dtrace/$$kernel && \

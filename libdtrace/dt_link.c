@@ -1576,7 +1576,6 @@ int
 dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
     const char *file, int objc, char *const objv[])
 {
-	char drti[PATH_MAX], symvers[PATH_MAX];
 	dof_hdr_t *dof;
 	int fd, status, i, cur;
 	char *cmd;
@@ -1646,8 +1645,8 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 
 	/*
 	 * Create a temporary file and then unlink it if we're going to
-	 * combine it with drti.o later.  We can still refer to it in child
-	 * processes as /dev/fd/<fd>.
+	 * link later.  We can still refer to it in child processes as
+	 * /dev/fd/<fd>.
 	 */
 	if ((fd = open64(file, O_RDWR | O_CREAT | O_TRUNC, 0666)) == -1) {
 		return (dt_link_error(dtp, NULL, -1, NULL,
@@ -1696,8 +1695,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	}
 
 	if (!dtp->dt_lazyload) {
-		dt_dirpath_t *libdir = dt_list_next(&dtp->dt_lib_path);
-		const char *fmt = "%s%s -o %s -r --version-script=%s /dev/fd/%d %s";
+		const char *fmt = "%s%s -o %s -r /dev/fd/%d";
 		const char *emu; 
 
 		/*
@@ -1706,25 +1704,20 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		 */
 
 		if (dtp->dt_oflags & DTRACE_O_ILP32) {
-			snprintf(drti, sizeof (drti), "%s/drti32.o", libdir->dir_path);
 #if defined(__sparc)
 			emu = " -m elf32_sparc";
 #elif defined(__i386) || defined(__amd64)
 			emu = " -m elf_i386";
 #endif
 		} else {
-			snprintf(drti, sizeof (drti), "%s/drti.o", libdir->dir_path);
 			emu = "";
 		}
-		snprintf(symvers, sizeof (symvers), "%s/drti-vers", libdir->dir_path);
 
-		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file,
-			       symvers, fd, drti) + 1;
-
+		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file, fd) +
+		      1;
 		cmd = alloca(len);
 
-		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, emu, file,
-				symvers, fd, drti);
+		snprintf(cmd, len, fmt, dtp->dt_ld_path, emu, file, fd);
 
 		if ((status = system(cmd)) == -1) {
 			ret = dt_link_error(dtp, NULL, -1, NULL,
