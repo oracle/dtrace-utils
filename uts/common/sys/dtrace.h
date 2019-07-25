@@ -14,8 +14,8 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
-#include <linux/dtrace/dtrace.h>
-#include <linux/dtrace/ioctl.h>
+#include <dtrace/dtrace.h>
+#include <dtrace/ioctl.h>
 
 #ifdef	__cplusplus
 }

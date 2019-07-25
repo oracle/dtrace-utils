@@ -89,19 +89,6 @@ DTRACE ?= $(objdir)/dtrace
 
 all::
 
-# DTrace's header files are expected to be in /usr/include/linux/dtrace. This
-# location can be overriden by providing custom prefix via HDRPREFIX variable.
-ifneq ($(HDRPREFIX),)
-CPPFLAGS += -I$(HDRPREFIX)
-else
-ifneq ($(wildcard $(INCLUDEDIR)/linux/dtrace/dif_defines.*),)
-HDRPREFIX = $(INCLUDEDIR)
-else
-all::
-	$(error Please install dtrace-utils-devel or install kernel headers manually)
-endif
-endif
-
 # Include everything.
 
 $(shell mkdir -p $(objdir))

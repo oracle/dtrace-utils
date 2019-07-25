@@ -15,7 +15,7 @@ extern "C" {
 #include <sys/fasttrap_isa.h>
 #include <sys/dtrace.h>
 #include <sys/types.h>
-#include <linux/dtrace/fasttrap.h>
+#include <dtrace/fasttrap.h>
 
 #ifdef	__cplusplus
 }
