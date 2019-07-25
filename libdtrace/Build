@@ -36,7 +36,7 @@ libdtrace_VERSION := 1.0.0
 libdtrace_SONAME := libdtrace.so.1
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
-libdtrace_SECONDARY := libproc libport
+libdtrace_SECONDARY := libproc libport libbpf
 
 # Disable C99 variadic macro warnings for this file
 dt_proc.c_CFLAGS := -Wno-pedantic

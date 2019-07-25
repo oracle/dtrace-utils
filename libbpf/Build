@@ -1,0 +1,17 @@
+# Oracle Linux DTrace.
+# Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+BUILDLIBS += libbpf
+LIBS += libbpf
+
+libbpf_TARGET = libbpf
+libbpf_DIR := $(current-dir)
+libbpf_SOURCES = libbpf.c bpf.c nlattr.c btf.c libbpf_errno.c str_error.c \
+		 netlink.c bpf_prog_linfo.c libbpf_probes.c hashmap.c \
+		 btf_dump.c
+libbpf_LIBSOURCES := libbpf
+libbpf_CFLAGS := -Wno-pedantic
+libbpf_CPPFLAGS := -Ilibbpf/include
+#libbpf.c_CFLAGS := -Wno-pedantic
