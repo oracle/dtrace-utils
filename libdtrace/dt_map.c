@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -95,7 +95,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 	}
 
-	probe->dtpd_id = enabled->dtepd_probeid;
+	probe->id = enabled->dtepd_probeid;
 
 	if (dt_ioctl(dtp, DTRACEIOC_PROBES, probe) == -1) {
 		rval = dt_set_errno(dtp, errno);

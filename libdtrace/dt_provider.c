@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -190,15 +190,14 @@ dt_probe_alloc_args(dt_provider_t *pvp, int argc)
 static size_t
 dt_probe_keylen(const dtrace_probedesc_t *pdp)
 {
-	return (strlen(pdp->dtpd_mod) + 1 +
-	    strlen(pdp->dtpd_func) + 1 + strlen(pdp->dtpd_name) + 1);
+	return (strlen(pdp->mod) + 1 + strlen(pdp->fun) + 1 +
+		strlen(pdp->prb) + 1);
 }
 
 static char *
 dt_probe_key(const dtrace_probedesc_t *pdp, char *s)
 {
-	(void) snprintf(s, INT_MAX, "%s:%s:%s",
-	    pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
+	snprintf(s, INT_MAX, "%s:%s:%s", pdp->mod, pdp->fun, pdp->prb);
 	return (s);
 }
 
@@ -223,16 +222,16 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	dtrace_argdesc_t *adv = alloca(sizeof (dtrace_argdesc_t) * adc);
 	dtrace_argdesc_t *adp = adv;
 
-	assert(strcmp(pvp->pv_desc.dtvd_name, pdp->dtpd_provider) == 0);
-	assert(pdp->dtpd_id != DTRACE_IDNONE);
+	assert(strcmp(pvp->pv_desc.dtvd_name, pdp->prv) == 0);
+	assert(pdp->id != DTRACE_IDNONE);
 
 	dt_dprintf("discovering probe %s:%s id=%d\n",
-	    pvp->pv_desc.dtvd_name, name, pdp->dtpd_id);
+		   pvp->pv_desc.dtvd_name, name, pdp->id);
 
 	for (nc = -1, i = 0; i < adc; i++, adp++) {
 		memset(adp, 0, sizeof (dtrace_argdesc_t));
 		adp->dtargd_ndx = i;
-		adp->dtargd_id = pdp->dtpd_id;
+		adp->dtargd_id = pdp->id;
 
 		if (dt_ioctl(dtp, DTRACEIOC_PROBEARG, adp) != 0) {
 			(void) dt_set_errno(dtp, errno);
@@ -259,17 +258,17 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	if ((xc != 0 && xargs == NULL) || (nc != 0 && nargs == NULL))
 		return (NULL); /* dt_errno is set for us */
 
-	idp = dt_ident_create(name, DT_IDENT_PROBE,
-	    DT_IDFLG_ORPHAN, pdp->dtpd_id, _dtrace_defattr, 0,
-	    &dt_idops_probe, NULL, dtp->dt_gen);
+	idp = dt_ident_create(name, DT_IDENT_PROBE, DT_IDFLG_ORPHAN, pdp->id,
+			      _dtrace_defattr, 0, &dt_idops_probe, NULL,
+			      dtp->dt_gen);
 
 	if (idp == NULL) {
 		(void) dt_set_errno(dtp, EDT_NOMEM);
 		return (NULL);
 	}
 
-	if ((prp = dt_probe_create(dtp, idp, 2,
-	    nargs, nc, xargs, xc)) == NULL) {
+	prp = dt_probe_create(dtp, idp, 2, nargs, nc, xargs, xc);
+	if (prp == NULL) {
 		dt_ident_destroy(idp);
 		return (NULL);
 	}
@@ -624,7 +623,7 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 static int
 dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 {
-	if (((dtrace_probedesc_t *)arg)->dtpd_id == DTRACE_IDNONE) {
+	if (((dtrace_probedesc_t *)arg)->id == DTRACE_IDNONE) {
 		memcpy(arg, pdp, sizeof (dtrace_probedesc_t));
 		return (0);
 	}
@@ -636,9 +635,9 @@ dt_probe_t *
 dt_probe_info(dtrace_hdl_t *dtp,
     const dtrace_probedesc_t *pdp, dtrace_probeinfo_t *pip)
 {
-	int m_is_glob = pdp->dtpd_mod[0] == '\0' || strisglob(pdp->dtpd_mod);
-	int f_is_glob = pdp->dtpd_func[0] == '\0' || strisglob(pdp->dtpd_func);
-	int n_is_glob = pdp->dtpd_name[0] == '\0' || strisglob(pdp->dtpd_name);
+	int m_is_glob = pdp->mod[0] == '\0' || strisglob(pdp->mod);
+	int f_is_glob = pdp->fun[0] == '\0' || strisglob(pdp->fun);
+	int n_is_glob = pdp->prb[0] == '\0' || strisglob(pdp->prb);
 
 	dt_probe_t *prp = NULL;
 	const dtrace_pattr_t *pap;
@@ -650,13 +649,13 @@ dt_probe_info(dtrace_hdl_t *dtp,
 	 * If none is found and an explicit probe ID was specified, discover
 	 * that specific probe and cache its description and arguments.
 	 */
-	if ((pvp = dt_provider_lookup(dtp, pdp->dtpd_provider)) != NULL) {
+	if ((pvp = dt_provider_lookup(dtp, pdp->prv)) != NULL) {
 		size_t keylen = dt_probe_keylen(pdp);
 		char *key = dt_probe_key(pdp, alloca(keylen));
 
 		if ((idp = dt_idhash_lookup(pvp->pv_probes, key)) != NULL)
 			prp = idp->di_data;
-		else if (pdp->dtpd_id != DTRACE_IDNONE)
+		else if (pdp->id != DTRACE_IDNONE)
 			prp = dt_probe_discover(pvp, pdp);
 	}
 
@@ -671,7 +670,7 @@ dt_probe_info(dtrace_hdl_t *dtp,
 		int m;
 
 		memset(&pd, 0, sizeof (pd));
-		pd.dtpd_id = DTRACE_IDNONE;
+		pd.id = DTRACE_IDNONE;
 
 		/*
 		 * Call dtrace_probe_iter() to find matching probes.  Our
@@ -684,7 +683,7 @@ dt_probe_info(dtrace_hdl_t *dtp,
 		if ((m = dtrace_probe_iter(dtp, pdp, dt_probe_desc, &pd)) < 0)
 			return (NULL); /* dt_errno is set for us */
 
-		if ((pvp = dt_provider_lookup(dtp, pd.dtpd_provider)) == NULL)
+		if ((pvp = dt_provider_lookup(dtp, pd.prv)) == NULL)
 			return (NULL); /* dt_errno is set for us */
 
 		/*
@@ -733,10 +732,10 @@ dt_probe_info(dtrace_hdl_t *dtp,
 		 * If we matched a probe exported by dtrace(7D), then discover
 		 * the real attributes.  Otherwise grab the static declaration.
 		 */
-		if (pd.dtpd_id != DTRACE_IDNONE)
+		if (pd.id != DTRACE_IDNONE)
 			prp = dt_probe_discover(pvp, &pd);
 		else
-			prp = dt_probe_lookup(pvp, pd.dtpd_name);
+			prp = dt_probe_lookup(pvp, pd.prb);
 
 		if (prp == NULL)
 			return (NULL); /* dt_errno is set for us */
@@ -749,7 +748,7 @@ dt_probe_info(dtrace_hdl_t *dtp,
 	 * the attributes of the specified fields.  If no provider is specified
 	 * or a glob pattern is used for the provider, use Unstable attributes.
 	 */
-	if (pdp->dtpd_provider[0] == '\0' || strisglob(pdp->dtpd_provider))
+	if (pdp->prv[0] == '\0' || strisglob(pdp->prv))
 		pap = &_dtrace_prvdesc;
 	else
 		pap = &pvp->pv_desc.dtvd_attr;
@@ -786,8 +785,8 @@ dt_probe_iter(dt_idhash_t *ihp, dt_ident_t *idp, dt_probe_iter_t *pit)
 	if (!dt_gmatch(prp->pr_name, pit->pit_pat))
 		return (0); /* continue on and examine next probe in hash */
 
-	(void) strlcpy(pit->pit_desc.dtpd_name, prp->pr_name, DTRACE_NAMELEN);
-	pit->pit_desc.dtpd_id = idp->di_id;
+	pit->pit_desc.prb = prp->pr_name;
+	pit->pit_desc.id = idp->di_id;
 	pit->pit_matches++;
 
 	return (pit->pit_func(pit->pit_hdl, &pit->pit_desc, pit->pit_arg));
@@ -797,7 +796,7 @@ int
 dtrace_probe_iter(dtrace_hdl_t *dtp,
     const dtrace_probedesc_t *pdp, dtrace_probe_f *func, void *arg)
 {
-	const char *provider = pdp ? pdp->dtpd_provider : NULL;
+	const char *provider = pdp ? pdp->prv : NULL;
 	dtrace_id_t id = DTRACE_IDNONE;
 
 	dtrace_probedesc_t pd;
@@ -810,7 +809,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 	pit.pit_hdl = dtp;
 	pit.pit_func = func;
 	pit.pit_arg = arg;
-	pit.pit_pat = pdp ? pdp->dtpd_name : NULL;
+	pit.pit_pat = pdp ? pdp->prb : NULL;
 
 	for (pit.pit_pvp = dt_list_next(&dtp->dt_provlist);
 	    pit.pit_pvp != NULL; pit.pit_pvp = dt_list_next(pit.pit_pvp)) {
@@ -821,8 +820,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 		if (!dt_gmatch(pit.pit_pvp->pv_desc.dtvd_name, provider))
 			continue;
 
-		(void) strlcpy(pit.pit_desc.dtpd_provider,
-		    pit.pit_pvp->pv_desc.dtvd_name, DTRACE_PROVNAMELEN);
+		pit.pit_desc.prv = pit.pit_pvp->pv_desc.dtvd_name;
 
 		if ((rv = dt_idhash_iter(pit.pit_pvp->pv_probes,
 		    (dt_idhash_f *)dt_probe_iter, &pit)) != 0)
@@ -838,7 +836,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 		if (pdp != NULL)
 			memcpy(&pd, pdp, sizeof (pd));
 
-		pd.dtpd_id = id;
+		pd.id = id;
 
 		if (dt_ioctl(dtp, cmd, &pd) != 0)
 			break;
@@ -846,7 +844,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 			return (rv);
 
 		pit.pit_matches++;
-		id = pd.dtpd_id + 1;
+		id = pd.id + 1;
 	}
 
 	switch (errno) {

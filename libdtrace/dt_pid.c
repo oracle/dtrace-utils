@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -426,14 +426,14 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, pid_t pid)
 	/*
 	 * Pick apart the link map from the library name.
 	 */
-	if (strchr(pdp->dtpd_mod, '`') != NULL) {
+	if (strchr(pdp->mod, '`') != NULL) {
 		char *end;
 
-		if (strncmp(pdp->dtpd_mod, "LM", 2) != 0 ||
-		    !isdigit(pdp->dtpd_mod[2]))
+		if (strlen(pdp->mod) < 3 || strncmp(pdp->mod, "LM", 2) != 0 ||
+		    !isdigit(pdp->mod[2]))
 			return (NULL);
 
-		lmid = strtoul(&pdp->dtpd_mod[2], &end, 16);
+		lmid = strtoul(&pdp->mod[2], &end, 16);
 
 		obj = end + 1;
 
@@ -441,7 +441,7 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, pid_t pid)
 			return (NULL);
 
 	} else {
-		obj = pdp->dtpd_mod;
+		obj = pdp->mod;
 	}
 
 	if ((pmp = dt_Plmid_to_map(dtp, pid, lmid, obj)) == NULL)
@@ -454,7 +454,7 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, pid_t pid)
 		obj++;
 
 	dt_Plmid(dtp, pid, pmp->pr_vaddr, &lmid);
-	dt_pid_objname(pdp->dtpd_mod, sizeof (pdp->dtpd_mod), lmid, obj);
+	dt_pid_objname(pdp->mod, sizeof(pdp->mod), lmid, obj);
 
 	return (pmp);
 }
@@ -478,30 +478,31 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * we get a nicer error message.)
 	 */
 	if (pid == getpid())
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-		    "process %s is dtrace itself", &pdp->dtpd_provider[3]));
+		return dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+				    "process %s is dtrace itself",
+				    &pdp->prv[3]);
 
 	/*
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
 	if (dt_Pname_to_map(dtp, pid, PR_OBJ_LDSO) == NULL) {
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-		    "process %s is not a dynamically-linked executable",
-		    &pdp->dtpd_provider[3]));
+		return dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+			"process %s is not a dynamically-linked executable",
+			&pdp->prv[3]);
 	}
 
-	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
-	pp.dpp_func = pdp->dtpd_func[0] != '\0' ? pdp->dtpd_func : "*";
-	pp.dpp_name = pdp->dtpd_name[0] != '\0' ? pdp->dtpd_name : "*";
+	pp.dpp_mod = pdp->mod[0] != '\0' ? pdp->mod : "*";
+	pp.dpp_func = pdp->fun[0] != '\0' ? pdp->fun : "*";
+	pp.dpp_name = pdp->prb[0] != '\0' ? pdp->prb : "*";
 	pp.dpp_last_taken = 0;
 
 	if (strcmp(pp.dpp_func, "-") == 0) {
 		const prmap_t *aout, *pmp;
 
-		if (pdp->dtpd_mod[0] == '\0') {
-			pp.dpp_mod = pdp->dtpd_mod;
-			(void) strcpy(pdp->dtpd_mod, "a.out");
+		if (pdp->mod[0] == '\0') {
+			pp.dpp_mod = pdp->mod;
+			pdp->mod = "a.out";
 		} else if (strisglob(pp.dpp_mod) ||
 		    (aout = dt_Pname_to_map(dtp, pid, "a.out")) == NULL ||
 		    (pmp = dt_Pname_to_map(dtp, pid, pp.dpp_mod)) == NULL ||
@@ -535,8 +536,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 		 * we'll wait for that module to come along.
 		 */
 		if ((pmp = dt_pid_fix_mod(pdp, dtp, pid)) != NULL) {
-			if ((obj = strchr(pdp->dtpd_mod, '`')) == NULL)
-				obj = pdp->dtpd_mod;
+			if ((obj = strchr(pdp->mod, '`')) == NULL)
+				obj = pdp->mod;
 			else
 				obj++;
 
@@ -643,14 +644,14 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	pid_t pid;
 	char *c, *last = NULL, *end;
 
-	for (c = &pdp->dtpd_provider[0]; *c != '\0'; c++) {
+	for (c = &pdp->prv[0]; *c != '\0'; c++) {
 		if (!isdigit(*c))
 			last = c;
 	}
 
 	if (last == NULL || (*(++last) == '\0')) {
-		(void) dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPROV,
-		    "'%s' is not a valid provider", pdp->dtpd_provider);
+		dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPROV,
+			     "'%s' is not a valid provider", pdp->prv);
 		return (-1);
 	}
 
@@ -658,8 +659,8 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	pid = strtol(last, &end, 10);
 
 	if (errno != 0 || end == last || end[0] != '\0' || pid <= 0) {
-		(void) dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPID,
-		    "'%s' does not contain a valid pid", pdp->dtpd_provider);
+		dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPID,
+			     "'%s' does not contain a valid pid", pdp->prv);
 		return (-1);
 	}
 
@@ -694,7 +695,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
 
-	if (gmatch(provname, pdp->dtpd_provider) != 0) {
+	if (gmatch(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);
 		if (pid < 0) {
 			dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
@@ -719,7 +720,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	/*
 	 * If it's not strictly a pid provider, we might match a USDT provider.
 	 */
-	if (strcmp(provname, pdp->dtpd_provider) != 0) {
+	if (strcmp(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);
 		if (pid < 0) {
 			dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
@@ -769,7 +770,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 
 			pd = *pdp;
 
-			if (gmatch(provname, pdp->dtpd_provider) != 0 &&
+			if (gmatch(provname, pdp->prv) != 0 &&
 			    dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
 				ret = 1;
 
@@ -777,7 +778,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			 * If it's not strictly a pid provider, we might match
 			 * a USDT provider.
 			 */
-			if (strcmp(provname, pdp->dtpd_provider) != 0 &&
+			if (strcmp(provname, pdp->prv) != 0 &&
 			    dt_pid_create_usdt_probes(&pd, dtp, NULL, dpr) != 0)
 				ret = 1;
 		}

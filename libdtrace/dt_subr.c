@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -25,22 +25,13 @@
 
 #include <dt_impl.h>
 
-static const struct {
-	size_t dtps_offset;
-	size_t dtps_len;
-} dtrace_probespecs[] = {
-	{ offsetof(dtrace_probedesc_t, dtpd_provider),	DTRACE_PROVNAMELEN },
-	{ offsetof(dtrace_probedesc_t, dtpd_mod),	DTRACE_MODNAMELEN },
-	{ offsetof(dtrace_probedesc_t, dtpd_func),	DTRACE_FUNCNAMELEN },
-	{ offsetof(dtrace_probedesc_t, dtpd_name),	DTRACE_NAMELEN }
-};
-
 int
-dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
-    const char *s, int argc, char *const argv[], dtrace_probedesc_t *pdp)
+dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec, const char *s,
+		 int argc, char *const argv[], dtrace_probedesc_t *pdp)
 {
-	size_t off, len, vlen, wlen;
+	size_t len, vlen, wlen;
 	const char *p, *q, *v, *w;
+	char *name;
 
 	char buf[32]; /* for id_t as %d (see below) */
 
@@ -119,16 +110,48 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 		if (spec == DTRACE_PROBESPEC_NONE)
 			return (dt_set_errno(dtp, EDT_BADSPEC));
 
-		if (len + vlen >= dtrace_probespecs[spec].dtps_len)
-			return (dt_set_errno(dtp, ENAMETOOLONG));
+		name = calloc(len + vlen + wlen + 1, 1);
+		if (!name)
+			return (dt_set_errno(dtp, ENOMEM));
 
-		off = dtrace_probespecs[spec--].dtps_offset;
-		memcpy((char *)pdp + off, q, len);
-		memcpy((char *)pdp + off + len, v, vlen);
-		memcpy((char *)pdp + off + len + vlen, w, wlen);
+		memcpy(name, q, len);
+		memcpy(name + len, v, vlen);
+		memcpy(name + len + vlen, w, wlen);
+
+		switch (spec) {
+		case DTRACE_PROBESPEC_PROVIDER:
+			pdp->prv = name;
+			break;
+		case DTRACE_PROBESPEC_MOD:
+			pdp->mod = name;
+			break;
+		case DTRACE_PROBESPEC_FUNC:
+			pdp->fun = name;
+			break;
+		case DTRACE_PROBESPEC_NAME:
+			pdp->prb = name;
+		case DTRACE_PROBESPEC_NONE:
+			break;
+		}
+
+		spec--;
 	} while (--p >= s);
 
-	pdp->dtpd_id = DTRACE_IDNONE;
+	pdp->id = DTRACE_IDNONE;
+
+	/*
+	 * Any unspecified elements should be populated with the empty string,
+	 * newly allocated because the caller expects to be able to free the
+	 * elements..
+	 */
+	if (!pdp->prv)
+		pdp->prv = strdup("");
+	if (!pdp->mod)
+		pdp->mod = strdup("");
+	if (!pdp->fun)
+		pdp->fun = strdup("");
+	if (!pdp->prb)
+		pdp->prb = strdup("");
 	return (0);
 }
 
@@ -143,10 +166,9 @@ int
 dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
 {
 	memset(pdp, 0, sizeof (dtrace_probedesc_t));
-	pdp->dtpd_id = id;
+	pdp->id = id;
 
-	if (dt_ioctl(dtp, DTRACEIOC_PROBES, pdp) == -1 ||
-	    pdp->dtpd_id != id)
+	if (dt_ioctl(dtp, DTRACEIOC_PROBES, pdp) == -1 || pdp->id != id)
 		return (dt_set_errno(dtp, EDT_BADID));
 
 	return (0);
@@ -155,11 +177,11 @@ dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
 char *
 dtrace_desc2str(const dtrace_probedesc_t *pdp, char *buf, size_t len)
 {
-	if (pdp->dtpd_id == 0) {
-		(void) snprintf(buf, len, "%s:%s:%s:%s", pdp->dtpd_provider,
-		    pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
-	} else
-		(void) snprintf(buf, len, "%u", pdp->dtpd_id);
+	if (pdp->id == 0)
+		snprintf(buf, len, "%s:%s:%s:%s",
+			 pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+	else
+		snprintf(buf, len, "%u", pdp->id);
 
 	return (buf);
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1708,8 +1708,8 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	 * On an error, dt_pid_create_probes() will set the error message
 	 * and tag -- we just have to longjmp() out of here.
 	 */
-	if (isdigit(pdp->dtpd_provider[strlen(pdp->dtpd_provider) - 1]) &&
-	    ((pvp = dt_provider_lookup(dtp, pdp->dtpd_provider)) == NULL ||
+	if (isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
+	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
 	    pvp->pv_desc.dtvd_priv.dtpp_flags & DTRACE_PRIV_PROC) &&
 	    dt_pid_create_probes(pdp, dtp, yypcb) != 0) {
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
@@ -1733,17 +1733,17 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 
 	if (err == EDT_NOPROBE && !(yypcb->pcb_cflags & DTRACE_C_ZDEFS)) {
 		xyerror(D_PDESC_ZERO, "probe description %s:%s:%s:%s does not "
-		    "match any probes\n", pdp->dtpd_provider, pdp->dtpd_mod,
-		    pdp->dtpd_func, pdp->dtpd_name);
+			"match any probes\n", pdp->prv, pdp->mod, pdp->fun,
+			pdp->prb);
 	}
 
 	if (err != EDT_NOPROBE && err != EDT_UNSTABLE && err != 0)
 		xyerror(D_PDESC_INVAL, "%s\n", dtrace_errmsg(dtp, err));
 
 	dt_dprintf("set context to %s:%s:%s:%s [%u] prp=%p attr=%s argc=%d\n",
-	    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name,
-	    pdp->dtpd_id, (void *)prp, dt_attr_str(yypcb->pcb_pinfo.dtp_attr,
-	    attrstr, sizeof (attrstr)), yypcb->pcb_pinfo.dtp_argc);
+		   pdp->prv, pdp->mod, pdp->fun, pdp->prb, pdp->id,
+		   (void *)prp, dt_attr_str(yypcb->pcb_pinfo.dtp_attr,
+		   attrstr, sizeof(attrstr)), yypcb->pcb_pinfo.dtp_argc);
 
 	/*
 	 * Reset the stability attributes of D global variables that vary

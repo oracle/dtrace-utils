@@ -18,6 +18,8 @@
 #include <dtrace/enabling_defines.h>
 
 /*
+ * FIXME: Needs to be rewritten.
+ *
  * When DTrace is tracking the description of a DTrace enabling entity (probe,
  * predicate, action, ECB, record, etc.), it does so in a description
  * structure.  These structures all end in "desc", and are used at both
@@ -37,11 +39,11 @@
 struct dtrace_predicate;
 
 typedef struct dtrace_probedesc {
-	dtrace_id_t dtpd_id;			/* probe identifier */
-	char dtpd_provider[DTRACE_PROVNAMELEN]; /* probe provider name */
-	char dtpd_mod[DTRACE_MODNAMELEN];	/* probe module name */
-	char dtpd_func[DTRACE_FUNCNAMELEN];	/* probe function name */
-	char dtpd_name[DTRACE_NAMELEN];		/* probe name */
+	dtrace_id_t	id;			/* probe identifier */
+	const char	*prv;			/* probe provider name */
+	const char	*mod;			/* probe module name */
+	const char	*fun;			/* probe function name */
+	const char	*prb;			/* probe name */
 } dtrace_probedesc_t;
 
 typedef struct dtrace_repldesc {

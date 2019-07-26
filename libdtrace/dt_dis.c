@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -640,7 +640,7 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		dtrace_probedesc_t *pdp = &sdp->dtsd_ecbdesc->dted_probe;
 
 		fprintf(d->fp, "\nDisassembly of %s:%s:%s:%s\n",
-		    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
+			pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 		d->last_ecb = sdp->dtsd_ecbdesc;
 	}
 

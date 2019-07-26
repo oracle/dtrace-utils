@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -142,8 +142,8 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 
 	assert(epd->dtepd_uarg == DT_ECB_ERROR);
 
-	if (epd->dtepd_nrecs != 5 || strcmp(pd->dtpd_provider, "dtrace") != 0 ||
-	    strcmp(pd->dtpd_name, "ERROR") != 0)
+	if (epd->dtepd_nrecs != 5 || strcmp(pd->prv, "dtrace") != 0 ||
+	    strcmp(pd->prb, "ERROR") != 0)
 		return (dt_set_errno(dtp, EDT_BADERROR));
 
 	/*
@@ -164,10 +164,9 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	err.dteda_addr = DT_REC(uint64_t, 4);
 
 	faultstr = dtrace_faultstr(dtp, err.dteda_fault);
-	len = sizeof (where) + sizeof (offinfo) + strlen(faultstr) +
-	    strlen(errpd->dtpd_provider) + strlen(errpd->dtpd_mod) +
-	    strlen(errpd->dtpd_name) + strlen(errpd->dtpd_func) +
-	    slop;
+	len = sizeof(where) + sizeof(offinfo) + strlen(faultstr) +
+	      strlen(errpd->prv) + strlen(errpd->mod) + strlen(errpd->fun) +
+	      strlen(errpd->prb) + slop;
 
 	str = (char *)alloca(len);
 
@@ -195,12 +194,11 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 		details[0] = 0;
 	}
 
-	(void) snprintf(str, len, "error on enabled probe ID %u "
-	    "(ID %u: %s:%s:%s:%s): %s%s in %s%s\n",
-	    epid, errpd->dtpd_id, errpd->dtpd_provider,
-	    errpd->dtpd_mod, errpd->dtpd_func,
-	    errpd->dtpd_name, dtrace_faultstr(dtp, err.dteda_fault),
-	    details, where, offinfo);
+	snprintf(str, len, "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): "
+			   "%s%s in %s%s\n",
+		 epid, errpd->id, errpd->prv, errpd->mod, errpd->fun,
+		 errpd->prb, dtrace_faultstr(dtp, err.dteda_fault), details,
+		 where, offinfo);
 
 	err.dteda_msg = str;
 
@@ -231,19 +229,15 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	err.dteda_fault = DTRACEFLT_LIBRARY;
 	err.dteda_addr = 0; /* == NULL */
 
-	len = strlen(faultstr) +
-	    strlen(errpd->dtpd_provider) + strlen(errpd->dtpd_mod) +
-	    strlen(errpd->dtpd_name) + strlen(errpd->dtpd_func) +
-	    slop;
+	len = strlen(faultstr) + strlen(errpd->prv) + strlen(errpd->mod) +
+	      strlen(errpd->fun) + strlen(errpd->prb) + slop;
 
 	str = alloca(len);
 
-	(void) snprintf(str, len, "error on enabled probe ID %u "
-	    "(ID %u: %s:%s:%s:%s): %s\n",
-	    data->dtpda_edesc->dtepd_epid,
-	    errpd->dtpd_id, errpd->dtpd_provider,
-	    errpd->dtpd_mod, errpd->dtpd_func,
-	    errpd->dtpd_name, faultstr);
+	snprintf(str, len, "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): "
+			   "%s\n",
+		 data->dtpda_edesc->dtepd_epid, errpd->id, errpd->prv,
+		 errpd->mod, errpd->fun, errpd->prb, faultstr);
 
 	err.dteda_msg = str;
 

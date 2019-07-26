@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -658,11 +658,11 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		 * and copy the probe description strings into the string table.
 		 */
 		dofp.dofp_strtab = ddo->ddo_strsec;
-		dofp.dofp_provider = dof_add_string(ddo, pdp->dtpd_provider);
-		dofp.dofp_mod = dof_add_string(ddo, pdp->dtpd_mod);
-		dofp.dofp_func = dof_add_string(ddo, pdp->dtpd_func);
-		dofp.dofp_name = dof_add_string(ddo, pdp->dtpd_name);
-		dofp.dofp_id = pdp->dtpd_id;
+		dofp.dofp_provider = dof_add_string(ddo, pdp->prv);
+		dofp.dofp_mod = dof_add_string(ddo, pdp->mod);
+		dofp.dofp_func = dof_add_string(ddo, pdp->fun);
+		dofp.dofp_name = dof_add_string(ddo, pdp->prb);
+		dofp.dofp_id = pdp->id;
 
 		probesec = dof_add_lsect(ddo, &dofp, DOF_SECT_PROBEDESC,
 		    sizeof (dof_secidx_t), 0,

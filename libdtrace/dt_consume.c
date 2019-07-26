@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -363,7 +363,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 {
 	dtrace_probedesc_t *pd = data->dtpda_pdesc, *npd;
 	dtrace_eprobedesc_t *epd = data->dtpda_edesc, *nepd;
-	char *p = pd->dtpd_provider, *n = pd->dtpd_name, *sub;
+	char *p = pd->prv, *n = pd->prb, *sub;
 	dtrace_flowkind_t flow = DTRACEFLOW_NONE;
 	const char *str = NULL;
 	static const char *e_str[2] = { " -> ", " => " };
@@ -405,7 +405,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	 */
 	if (flow == DTRACEFLOW_ENTRY) {
 		if ((last != DTRACE_EPIDNONE && id != last &&
-		    pd->dtpd_id == dtp->dt_pdesc[last]->dtpd_id))
+		    pd->id == dtp->dt_pdesc[last]->id))
 			flow = DTRACEFLOW_NONE;
 	}
 
@@ -439,7 +439,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 		if ((rval = dt_epid_lookup(dtp, next, &nepd, &npd)) != 0)
 			return (rval);
 
-		if (next != id && npd->dtpd_id == pd->dtpd_id)
+		if (next != id && npd->id == pd->id)
 			flow = DTRACEFLOW_NONE;
 	}
 
@@ -2284,8 +2284,8 @@ dt_consume_begin_probe(const dtrace_probedata_t *data, void *arg)
 	dt_begin_t *begin = (dt_begin_t *)arg;
 	dtrace_probedesc_t *pd = data->dtpda_pdesc;
 
-	int r1 = (strcmp(pd->dtpd_provider, "dtrace") == 0);
-	int r2 = (strcmp(pd->dtpd_name, "BEGIN") == 0);
+	int r1 = (strcmp(pd->prv, "dtrace") == 0);
+	int r2 = (strcmp(pd->prb, "BEGIN") == 0);
 
 	if (begin->dtbgn_beginonly) {
 		if (!(r1 && r2))
@@ -2317,8 +2317,8 @@ dt_consume_begin_error(const dtrace_errdata_t *data, void *arg)
 	dt_begin_t *begin = (dt_begin_t *)arg;
 	dtrace_probedesc_t *pd = data->dteda_pdesc;
 
-	int r1 = (strcmp(pd->dtpd_provider, "dtrace") == 0);
-	int r2 = (strcmp(pd->dtpd_name, "BEGIN") == 0);
+	int r1 = (strcmp(pd->prv, "dtrace") == 0);
+	int r2 = (strcmp(pd->prb, "BEGIN") == 0);
 
 	if (begin->dtbgn_beginonly) {
 		if (!(r1 && r2))

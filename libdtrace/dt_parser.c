@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -433,14 +433,13 @@ dt_node_name(const dt_node_t *dnp, char *buf, size_t len)
 		(void) snprintf(buf, len, "%s", "statement");
 		break;
 	case DT_NODE_PDESC:
-		if (dnp->dn_desc->dtpd_id == 0) {
-			(void) snprintf(buf, len,
-			    "probe description %s:%s:%s:%s",
-			    dnp->dn_desc->dtpd_provider, dnp->dn_desc->dtpd_mod,
-			    dnp->dn_desc->dtpd_func, dnp->dn_desc->dtpd_name);
+		if (dnp->dn_desc->id == 0) {
+			snprintf(buf, len, "probe description %s:%s:%s:%s",
+				 dnp->dn_desc->prv, dnp->dn_desc->mod,
+				 dnp->dn_desc->fun, dnp->dn_desc->prb);
 		} else {
-			(void) snprintf(buf, len, "probe description %u",
-			    dnp->dn_desc->dtpd_id);
+			snprintf(buf, len, "probe description %u",
+				 dnp->dn_desc->id);
 		}
 		break;
 	case DT_NODE_CLAUSE:
@@ -4679,10 +4678,9 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 		break;
 
 	case DT_NODE_PDESC:
-		(void) fprintf(fp, "PDESC %s:%s:%s:%s [%u]\n",
-		    dnp->dn_desc->dtpd_provider, dnp->dn_desc->dtpd_mod,
-		    dnp->dn_desc->dtpd_func, dnp->dn_desc->dtpd_name,
-		    dnp->dn_desc->dtpd_id);
+		fprintf(fp, "PDESC %s:%s:%s:%s [%u]\n",
+			dnp->dn_desc->prv, dnp->dn_desc->mod, dnp->dn_desc->fun,
+			dnp->dn_desc->prb, dnp->dn_desc->id);
 		break;
 
 	case DT_NODE_CLAUSE:

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -317,8 +317,7 @@ info_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	if (edp == *last)
 		return (0);
 
-	oprintf("\n%s:%s:%s:%s\n",
-	    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
+	oprintf("\n%s:%s:%s:%s\n", pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 
 	if (dtrace_probe_info(dtp, pdp, &p) == 0)
 		print_probe_info(&p);
@@ -414,8 +413,8 @@ list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 {
 	dtrace_probeinfo_t p;
 
-	oprintf("%5d %10s %17s %33s %s\n", pdp->dtpd_id,
-	    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name);
+	oprintf("%5d %10s %17s %33s %s\n",
+		pdp->id, pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 
 	if (g_verbose && dtrace_probe_info(dtp, pdp, &p) == 0)
 		print_probe_info(&p);
@@ -435,8 +434,8 @@ list_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 	if (dtrace_probe_iter(g_dtp, &edp->dted_probe, list_probe, NULL) != 0) {
 		error("failed to match %s:%s:%s:%s: %s\n",
-		    edp->dted_probe.dtpd_provider, edp->dted_probe.dtpd_mod,
-		    edp->dted_probe.dtpd_func, edp->dted_probe.dtpd_name,
+		    edp->dted_probe.prv, edp->dted_probe.mod,
+		    edp->dted_probe.fun, edp->dted_probe.prb,
 		    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 	}
 
@@ -639,10 +638,10 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 
 	if (pd != NULL) {
 		BUFDUMPHDR("  dtrace_probedesc");
-		BUFDUMPSTR(pd, dtpd_provider);
-		BUFDUMPSTR(pd, dtpd_mod);
-		BUFDUMPSTR(pd, dtpd_func);
-		BUFDUMPSTR(pd, dtpd_name);
+		BUFDUMPSTR(pd, prv);
+		BUFDUMPSTR(pd, mod);
+		BUFDUMPSTR(pd, fun);
+		BUFDUMPSTR(pd, prb);
 		BUFDUMPHDR("");
 	}
 
@@ -757,16 +756,18 @@ chew(const dtrace_probedata_t *data, void *arg)
 
 	if (!g_flowindent) {
 		if (!g_quiet) {
-			char name[DTRACE_FUNCNAMELEN + DTRACE_NAMELEN + 2];
+			size_t len = strlen(pd->fun) + strlen(pd->prb) + 2;
+			char *name = malloc(len);
 
-			(void) snprintf(name, sizeof (name), "%s:%s",
-			    pd->dtpd_func, pd->dtpd_name);
+			if (name == NULL)
+				fatal("failed to allocate memory for name");
 
-			if (!g_testing) {
-				oprintf("%3d %6d %32s ", cpu, pd->dtpd_id, name);
-			} else {
+			snprintf(name, len, "%s:%s", pd->fun, pd->prb);
+
+			if (!g_testing)
+				oprintf("%3d %6d %32s ", cpu, pd->id, name);
+			else
 				oprintf("%32s ", name);
-			}
 		}
 	} else {
 		int indent = data->dtpda_indent;
@@ -774,16 +775,15 @@ chew(const dtrace_probedata_t *data, void *arg)
 		size_t len;
 
 		if (data->dtpda_flow == DTRACEFLOW_NONE) {
-			len = indent + DTRACE_FUNCNAMELEN + DTRACE_NAMELEN + 5;
+			len = indent + strlen(pd->fun) + strlen(pd->prb) + 5;
 			name = alloca(len);
-			(void) snprintf(name, len, "%*s%s%s:%s", indent, "",
-			    data->dtpda_prefix, pd->dtpd_func,
-			    pd->dtpd_name);
+			snprintf(name, len, "%*s%s%s:%s", indent, "",
+				 data->dtpda_prefix, pd->fun, pd->prb);
 		} else {
-			len = indent + DTRACE_FUNCNAMELEN + 5;
+			len = indent + strlen(pd->fun) + 5;
 			name = alloca(len);
-			(void) snprintf(name, len, "%*s%s%s", indent, "",
-			    data->dtpda_prefix, pd->dtpd_func);
+			snprintf(name, len, "%*s%s%s", indent, "",
+				 data->dtpda_prefix, pd->fun);
 		}
 
 		if (!g_testing) {
