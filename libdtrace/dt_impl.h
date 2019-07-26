@@ -538,8 +538,7 @@ enum {
 
 /*
  * Interfaces for parsing and comparing DTrace attribute tuples, which describe
- * stability and architectural binding information.  The dtrace_attribute_t
- * structure and associated constant definitions are found in <sys/dtrace.h>.
+ * stability and architectural binding information.
  */
 extern dtrace_attribute_t dt_attr_min(dtrace_attribute_t, dtrace_attribute_t);
 extern dtrace_attribute_t dt_attr_max(dtrace_attribute_t, dtrace_attribute_t);

@@ -50,7 +50,7 @@ typedef struct dt_ident {
 	char *di_name;		/* identifier name */
 	ushort_t di_kind;	/* identifier kind (see below) */
 	ushort_t di_flags;	/* identifier flags (see below) */
-	uint_t di_id;		/* variable or subr id (see <sys/dtrace.h>) */
+	uint_t di_id;		/* variable or subr id */
 	dtrace_attribute_t di_attr; /* identifier stability attributes */
 	uint_t di_vers;		/* identifier version number (dt_version_t) */
 	const dt_idops_t *di_ops; /* identifier's class-specific ops vector */

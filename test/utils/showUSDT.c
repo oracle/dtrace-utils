@@ -13,7 +13,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/utsname.h>
-
 #include <sys/dtrace.h>
 
 #ifndef SHT_SUNW_dof

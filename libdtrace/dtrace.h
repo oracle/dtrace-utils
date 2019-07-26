@@ -8,7 +8,6 @@
 #ifndef	_DTRACE_H
 #define	_DTRACE_H
 
-#include <sys/dtrace.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <gelf.h>
