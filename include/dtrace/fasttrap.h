@@ -29,7 +29,7 @@ typedef struct fasttrap_probe_spec {
 	pid_t ftps_pid;				/* task PID */
 	fasttrap_probe_type_t ftps_type;	/* probe type */
 	char ftps_func[DTRACE_FUNCNAMELEN];	/* probe function */
-	char ftps_mod[DTRACE_MODNAMELEN];	/* probe module */
+	char *ftps_mod;				/* probe module */
 	uint64_t ftps_pc;			/* probe address */
 	uint64_t ftps_size;			/* function size (in bytes) */
 	uint8_t ftps_glen;			/* glob pattern length */

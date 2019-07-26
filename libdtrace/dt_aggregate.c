@@ -359,7 +359,7 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 	if (pid < 0)
 		return;
 
-	if (dt_Plookup_by_addr(dtp, pid, *pc, NULL, 0, &sym) == 0)
+	if (dt_Plookup_by_addr(dtp, pid, *pc, NULL, &sym) == 0)
 		*pc = sym.st_value;
 
 	dt_proc_release_unlock(dtp, pid);

@@ -153,8 +153,8 @@ extern void dt_proc_enqueue_exits(dtrace_hdl_t *dtp);
 /*
  * Proxies for operations in libproc, respecting the execve-retry protocol.
  */
-extern int dt_Plookup_by_addr(dtrace_hdl_t *, pid_t, uintptr_t, char *, size_t,
-    GElf_Sym *);
+extern int dt_Plookup_by_addr(dtrace_hdl_t *, pid_t, uintptr_t, const char **,
+			      GElf_Sym *);
 extern const prmap_t *dt_Paddr_to_map(dtrace_hdl_t *, pid_t, uintptr_t);
 extern const prmap_t *dt_Plmid_to_map(dtrace_hdl_t *, pid_t, Lmid_t,
     const char *);

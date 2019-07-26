@@ -871,26 +871,27 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 }
 
 int
-dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
-    uint64_t addr, char *str, int nbytes)
+dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
+		 int nbytes)
 {
-	char name[PATH_MAX], objname[PATH_MAX], c[PATH_MAX * 2];
+	const char *name;
+	char objname[PATH_MAX], c[PATH_MAX * 2];
 	GElf_Sym sym;
 	char *obj;
 
 	if (pid != 0)
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
-		    DTRACE_PROC_SHORTLIVED);
+					DTRACE_PROC_SHORTLIVED);
 
 	if (pid < 0) {
-		(void) snprintf(c, sizeof (c), "0x%llx", (unsigned long long) addr);
-		return (dt_string2str(c, str, nbytes));
+		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
+		return dt_string2str(c, str, nbytes);
 	}
 
-	if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET
-	    && pid >= 0) {
-		if (dt_Pobjname(dtp, pid, addr, objname,
-		   sizeof(objname)) != NULL) {
+	if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET &&
+	    pid >= 0) {
+		if (dt_Pobjname(dtp, pid, addr,
+				objname, sizeof(objname)) != NULL) {
 			const prmap_t *pmap = NULL;
 			uint64_t offset = addr;
 
@@ -899,36 +900,35 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 			if (pmap)
 				offset = addr - pmap->pr_vaddr;
 
-			(void) snprintf(c, sizeof(c), "%s:0x%llx",
-			    dt_basename(objname), (unsigned long long) offset);
+			snprintf(c, sizeof(c), "%s:0x%llx",
+			    dt_basename(objname), (u_longlong_t) offset);
 		} else
-			(void) snprintf(c, sizeof(c), "0x%llx",
-			    (unsigned long long) addr);
+			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t) addr);
 
-	} else if (dt_Plookup_by_addr(dtp, pid, addr, name, sizeof(name),
-	    &sym) == 0) {
-		(void) dt_Pobjname(dtp, pid, addr, objname, sizeof (objname));
+	} else if (dt_Plookup_by_addr(dtp, pid, addr, &name, &sym) == 0) {
+		dt_Pobjname(dtp, pid, addr, objname, sizeof(objname));
 
 		obj = dt_basename(objname);
 
-		if (addr > sym.st_value) {
-			(void) snprintf(c, sizeof (c), "%s`%s+0x%llx", obj,
-			    name, (u_longlong_t)(addr - sym.st_value));
-		} else {
-			(void) snprintf(c, sizeof (c), "%s`%s", obj, name);
-		}
-	} else if (dt_Pobjname(dtp, pid, addr, objname,
-		sizeof (objname)) != NULL) {
-		(void) snprintf(c, sizeof (c), "%s`0x%llx",
-		    dt_basename(objname), (unsigned long long) addr);
+		if (addr > sym.st_value)
+			snprintf(c, sizeof(c), "%s`%s+0x%llx", obj, name,
+				 (u_longlong_t)(addr - sym.st_value));
+		else
+			snprintf(c, sizeof(c), "%s`%s", obj, name);
+
+		/* Allocated by Plookup_by_addr. */
+		free((char *)name);
+	} else if (dt_Pobjname(dtp, pid, addr,
+			       objname, sizeof(objname)) != NULL) {
+		snprintf(c, sizeof (c), "%s`0x%llx",
+		    dt_basename(objname), (u_longlong_t) addr);
 	} else {
-		(void) snprintf(c, sizeof (c), "0x%llx",
-		    (unsigned long long) addr);
+		snprintf(c, sizeof (c), "0x%llx", (u_longlong_t) addr);
 	}
 
 	dt_proc_release_unlock(dtp, pid);
 
-	return (dt_string2str(c, str, nbytes));
+	return dt_string2str(c, str, nbytes);
 }
 
 int

@@ -2120,10 +2120,10 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 
 int
 dt_Plookup_by_addr(dtrace_hdl_t *dtp, pid_t pid, uintptr_t addr,
-    char *sym_name_buffer, size_t bufsize, GElf_Sym *symbolp)
+		   const char **sym_name, GElf_Sym *symbolp)
 {
 	int ret;
-	DEFINE_dt_Pfunction(Plookup_by_addr, -1, addr, sym_name_buffer, bufsize, symbolp);
+	DEFINE_dt_Pfunction(Plookup_by_addr, -1, addr, sym_name, symbolp);
 	return ret;
 }
 

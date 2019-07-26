@@ -1840,16 +1840,15 @@ sym_search_next(struct ps_prochandle *P, file_info_t *fptr,
  * Search the process symbol tables looking for a symbol whose
  * value to value+size contain the address specified by addr.
  * Return values are:
- *	sym_name_buffer  buffer containing the symbol name
+ *	sym_name         copy of the symbol name
  *	GElf_Sym         symbol table entry
  * Returns 0 on success, -1 on failure.
  */
 int
-Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
-    size_t bufsize, GElf_Sym *symbolp)
+Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, const char **sym_name,
+		GElf_Sym *symbolp)
 {
 	GElf_Sym	*symp;
-	char		*name;
 	GElf_Sym	sym1, *sym1p = NULL;
 	GElf_Sym	sym2, *sym2p = NULL;
 	char		*name1 = NULL;
@@ -1894,12 +1893,8 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, char *sym_name_buffer,
 	if ((symp = sym_prefer(sym1p, name1, sym2p, name2)) == NULL)
 		return (-1);
 
-	name = (symp == sym1p) ? name1 : name2;
-	if (bufsize > 0) {
-		(void) strncpy(sym_name_buffer, name, bufsize);
-		sym_name_buffer[bufsize - 1] = '\0';
-	}
-
+	if (sym_name)
+		*sym_name = strdup((symp == sym1p) ? name1 : name2);
 	*symbolp = *symp;
 
 	if (GELF_ST_TYPE(symbolp->st_info) != STT_TLS)

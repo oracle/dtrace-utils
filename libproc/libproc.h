@@ -220,8 +220,8 @@ extern 	uintptr_t Pbkpt_addr(struct ps_prochandle *P);
  * an iteration over the process's mapped objects (Pobject_iter),
  * or else it is one of the special PR_OBJ_* values above.
  */
-extern int Plookup_by_addr(struct ps_prochandle *,
-    uintptr_t, char *, size_t, GElf_Sym *);
+extern int Plookup_by_addr(struct ps_prochandle *, uintptr_t, const char **,
+			   GElf_Sym *);
 
 typedef struct prsyminfo {
 	const char	*prs_object;		/* object name */

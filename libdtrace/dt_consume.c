@@ -363,9 +363,11 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 {
 	dtrace_probedesc_t *pd = data->dtpda_pdesc, *npd;
 	dtrace_eprobedesc_t *epd = data->dtpda_edesc, *nepd;
-	char *p = pd->prv, *n = pd->prb, *sub;
 	dtrace_flowkind_t flow = DTRACEFLOW_NONE;
+	const char *p = pd->prv;
+	const char *n = pd->prb;
 	const char *str = NULL;
+	char *sub;
 	static const char *e_str[2] = { " -> ", " => " };
 	static const char *r_str[2] = { " <- ", " <= " };
 	static const char *ent = "entry", *ret = "return";
@@ -1121,7 +1123,8 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	const char *str = strsize ? strbase : NULL;
 	int err = 0;
 
-	char name[PATH_MAX], objname[PATH_MAX], c[PATH_MAX * 2];
+	const char *name;
+	char objname[PATH_MAX], c[PATH_MAX * 2];
 	GElf_Sym sym;
 	int i, indent;
 	pid_t pid = -1, tgid;
@@ -1176,17 +1179,19 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 				    (u_longlong_t)pc[i]);
 
 		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
-		    name, sizeof (name), &sym) == 0) {
-			(void) dt_Pobjname(dtp, pid, pc[i], objname, sizeof (objname));
+							  &name, &sym) == 0) {
+			dt_Pobjname(dtp, pid, pc[i], objname, sizeof (objname));
 
-			if (pc[i] > sym.st_value) {
-				(void) snprintf(c, sizeof (c),
-				    "%s`%s+0x%llx", dt_basename(objname), name,
-				    (u_longlong_t)(pc[i] - sym.st_value));
-			} else {
-				(void) snprintf(c, sizeof (c),
-				    "%s`%s", dt_basename(objname), name);
-			}
+			if (pc[i] > sym.st_value)
+				snprintf(c, sizeof (c), "%s`%s+0x%llx",
+					 dt_basename(objname), name,
+					 (u_longlong_t)(pc[i] - sym.st_value));
+			else
+				snprintf(c, sizeof (c), "%s`%s",
+					 dt_basename(objname), name);
+
+			/* Allocated by Plookup_by_addr. */
+			free((char *)name);
 		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
 		    (pid >= 0 &&
 			((map = dt_Paddr_to_map(dtp, pid, pc[i])) == NULL ||
@@ -1273,7 +1278,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 		if (pid >= 0) {
 			GElf_Sym sym;
 
-			if (dt_Plookup_by_addr(dtp, pid, pc, NULL, 0, &sym) == 0)
+			if (dt_Plookup_by_addr(dtp, pid, pc, NULL, &sym) == 0)
 				pc = sym.st_value;
 
 			dt_proc_release_unlock(dtp, pid);
