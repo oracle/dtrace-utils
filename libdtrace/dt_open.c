@@ -706,7 +706,7 @@ dt_vopen(int version, int flags, int *errp,
 	ctf_funcinfo_t ctc;
 	ctf_arinfo_t ctr;
 
-	char isadef[32], utsdef[32];
+	char isadef[32], utsdef[4 + sizeof(dtp->dt_uts.sysname)];
 
 	if (version <= 0)
 		return (set_open_errno(dtp, errp, EINVAL));
@@ -823,11 +823,10 @@ dt_vopen(int version, int flags, int *errp,
 
 	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
 
-	(void) snprintf(isadef, sizeof (isadef), "-D__SUNW_D_%u",
+	snprintf(isadef, sizeof(isadef), "-D__SUNW_D_%u",
 	    (uint_t)(sizeof (void *) * NBBY));
 
-	(void) snprintf(utsdef, sizeof (utsdef), "-D__%s",
-	    dtp->dt_uts.sysname);
+	snprintf(utsdef, sizeof(utsdef), "-D__%s", dtp->dt_uts.sysname);
 
 	if (dt_cpp_add_arg(dtp, "-D__linux") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__unix") == NULL ||
