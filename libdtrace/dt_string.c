@@ -7,10 +7,39 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <errno.h>
 #include <ctype.h>
 
 #include <dt_string.h>
+
+/*
+ * Calculate a hash value based on a given string and an initial value.  The
+ * initial value is used to calculate compound hash values, e.g.
+ *
+ *     uint32_t hval;
+ *
+ *     hval = str2hval(str1, 0);
+ *     hval = str2hval(str2, hval);
+ */
+uint32_t str2hval(const char *p, uint32_t hval)
+{
+	uint32_t g;
+
+	if (!p)
+		return hval;
+
+	while (*p) {
+		hval = (hval << 4) + *p++;
+		g = hval & 0xf0000000;
+		if (g != 0)
+			hval ^= g >> 24;
+
+		hval &= ~g;
+	}
+
+	return hval;
+}
 
 /*
  * Transform string s inline, converting each embedded C escape sequence string

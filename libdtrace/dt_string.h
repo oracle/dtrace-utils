@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+extern uint32_t str2hval(const char *, uint32_t);
 extern size_t stresc2chr(char *);
 extern char *strchr2esc(const char *, size_t);
 extern const char *strbasename(const char *);
