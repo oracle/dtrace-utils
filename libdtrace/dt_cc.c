@@ -81,6 +81,7 @@
 #include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 #include <dt_printf.h>
 #include <dt_pid.h>
 #include <dt_grammar.h>

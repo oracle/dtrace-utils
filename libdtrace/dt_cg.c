@@ -16,6 +16,7 @@
 #include <dt_grammar.h>
 #include <dt_parser.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 #include <bpf_asm.h>
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);

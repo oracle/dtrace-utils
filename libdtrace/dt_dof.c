@@ -19,6 +19,7 @@
 #include <dt_strtab.h>
 #include <dt_program.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 #include <dt_xlator.h>
 #include <dt_dof.h>
 

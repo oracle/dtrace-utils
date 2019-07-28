@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -17,6 +17,7 @@
 #include <dt_program.h>
 #include <dt_printf.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 
 dtrace_prog_t *
 dt_program_create(dtrace_hdl_t *dtp)

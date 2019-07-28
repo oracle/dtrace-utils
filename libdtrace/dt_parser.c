@@ -90,6 +90,7 @@
 #include <dt_grammar.h>
 #include <dt_module.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 #include <dt_string.h>
 #include <dt_as.h>
 
