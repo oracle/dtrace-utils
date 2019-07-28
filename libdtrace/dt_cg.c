@@ -586,6 +586,7 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_cg_ptrsize(dnp->dn_right, dlp, drp, BPF_DIV, dnp->dn_reg);
 }
 
+#ifdef FIXME
 static uint_t
 dt_cg_stvar(const dt_ident_t *idp)
 {
@@ -597,6 +598,7 @@ dt_cg_stvar(const dt_ident_t *idp)
 
 	return (idp->di_kind == DT_IDENT_ARRAY ? aops[i] : sops[i]);
 }
+#endif
 
 static void
 dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
@@ -1206,7 +1208,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dnp->dn_reg = -1;
 			return;
 		}
-		dnp->dn_args->dn_value = prp->pr_mapping[saved];
+		dnp->dn_args->dn_value = prp->mapping[saved];
 	}
 
 	dt_cg_node(dnp->dn_args, dlp, drp);

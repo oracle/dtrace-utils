@@ -119,6 +119,7 @@ dt_copystr(const char *s, size_t n, size_t off, dt_pcb_t *pcb)
 	return (n);
 }
 
+#ifdef FIXME
 /*
  * Rewrite the xlate/xlarg instruction at dtdo_buf[i] so that the instruction's
  * xltab index reflects the offset 'xi' of the assigned dtdo_xlmtab[] location.
@@ -157,14 +158,13 @@ dt_as_xlate(dt_pcb_t *pcb, dtrace_difo_t *dp,
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 	}
 
-#ifdef FIXME
 	dp->dtdo_buf[i] = DIF_INSTR_XLATE(
 	    DIF_INSTR_OP(dp->dtdo_buf[i]), xi, DIF_INSTR_RD(dp->dtdo_buf[i]));
-#endif
 
 	BT_SET(pcb->pcb_asxrefs[dxp->dx_id], dnp->dn_membid);
 	dp->dtdo_xlmtab[xi] = dnp;
 }
+#endif
 
 static void
 dt_as_undef(const dt_ident_t *idp, uint_t offset)

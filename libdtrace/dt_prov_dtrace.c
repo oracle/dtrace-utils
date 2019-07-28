@@ -8,22 +8,34 @@
  */
 #include <string.h>
 
-#if 0
-#include "dtrace_impl.h"
-#endif
 #include "dt_provider.h"
+#include "dt_probe.h"
 
-static const char	provname[] = "dtrace";
+static const dtrace_pattr_t	pattr = {
+{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
+};
 
-static int dtrace_populate(void)
+static int dtrace_populate(dtrace_hdl_t *dtp)
 {
-#if 0
-	dt_probe_new(&dt_dtrace, provname, NULL, NULL, "BEGIN", 0, 0);
-	dt_probe_new(&dt_dtrace, provname, NULL, NULL, "END", 0, 0);
-	dt_probe_new(&dt_dtrace, provname, NULL, NULL, "ERROR", 0, 0);
-#endif
+	dt_provider_t	*prv;
+	int		n = 0;
 
-	return 3;
+
+	if (!(prv = dt_provider_create(dtp, "dtrace", &dt_dtrace, &pattr)))
+		return 0;
+
+	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "BEGIN"))
+		n++;
+	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "END"))
+		n++;
+	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "ERROR"))
+		n++;
+
+	return n;
 }
 
 #if 0
@@ -64,7 +76,7 @@ static int dtrace_attach(const char *name, int bpf_fd)
 }
 #endif
 
-dt_provmod_t	dt_dtrace = {
+dt_provimpl_t	dt_dtrace = {
 	.name		= "dtrace",
 	.populate	= &dtrace_populate,
 #if 0

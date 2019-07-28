@@ -11,21 +11,12 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_list.h>
+#include <dt_htab.h>
 #include <dt_provider.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-typedef struct dt_probe_iter {
-	dtrace_probedesc_t pit_desc;	/* description storage */
-	dtrace_hdl_t *pit_hdl;		/* libdtrace handle */
-	dt_provider_t *pit_pvp;		/* current provider */
-	const char *pit_pat;		/* caller's name pattern (or NULL) */
-	dtrace_probe_f *pit_func;	/* caller's function */
-	void *pit_arg;			/* caller's argument */
-	uint_t pit_matches;		/* number of matches */
-} dt_probe_iter_t;
 
 typedef struct dt_probe_instance {
 	char pi_fname[DTRACE_FUNCNAMELEN]; /* function name */
@@ -40,33 +31,35 @@ typedef struct dt_probe_instance {
 } dt_probe_instance_t;
 
 typedef struct dt_probe {
-	dt_provider_t *pr_pvp;		/* pointer to containing provider */
+	const dtrace_probedesc_t *desc;	/* probe description (id, name) */
+	dt_provider_t *prov;		/* pointer to containing provider */
+	struct dt_hentry he_prv;	/* provider name htab links */
+	struct dt_hentry he_mod;	/* module name htab links */
+	struct dt_hentry he_fun;	/* function name htab links */
+	struct dt_hentry he_prb;	/* probe name htab link */
+	struct dt_hentry he_fqn;	/* fully qualified name htab link */
+	int event_id;			/* tracing event id */
 	dt_ident_t *pr_ident;		/* pointer to probe identifier */
 	const char *pr_name;		/* pointer to name component */
-	dt_node_t *pr_nargs;		/* native argument list */
-	dt_node_t **pr_nargv;		/* native argument vector */
-	uint_t pr_nargc;		/* native argument count */
-	dt_node_t *pr_xargs;		/* translated argument list */
-	dt_node_t **pr_xargv;		/* translated argument vector */
-	uint_t pr_xargc;		/* translated argument count */
-	uint8_t *pr_mapping;		/* translated argument mapping */
+	dt_node_t *nargs;		/* native argument list */
+	dt_node_t **nargv;		/* native argument vector */
+	uint_t nargc;			/* native argument count */
+	dt_node_t *xargs;		/* translated argument list */
+	dt_node_t **xargv;		/* translated argument vector */
+	uint_t xargc;			/* translated argument count */
+	uint8_t *mapping;		/* translated argument mapping */
+	dtrace_typeinfo_t *argv;	/* output argument types */
+	int argc;			/* output argument count */
 	dt_probe_instance_t *pr_inst;	/* list of functions and offsets */
-	dtrace_typeinfo_t *pr_argv;	/* output argument types */
-	int pr_argc;			/* output argument count */
 } dt_probe_t;
 
-extern dt_provider_t *dt_provider_lookup(dtrace_hdl_t *, const char *);
-extern dt_provider_t *dt_provider_create(dtrace_hdl_t *, const char *);
-extern void dt_provider_destroy(dtrace_hdl_t *, dt_provider_t *);
-extern int dt_provider_xref(dtrace_hdl_t *, dt_provider_t *, id_t);
-
+extern dt_probe_t *dt_probe_lookup2(dt_provider_t *, const char *);
 extern dt_probe_t *dt_probe_create(dtrace_hdl_t *, dt_ident_t *, int,
     dt_node_t *, uint_t, dt_node_t *, uint_t);
 
 extern dt_probe_t *dt_probe_info(dtrace_hdl_t *,
     const dtrace_probedesc_t *, dtrace_probeinfo_t *);
 
-extern dt_probe_t *dt_probe_lookup(dt_provider_t *, const char *);
 extern void dt_probe_declare(dt_provider_t *, dt_probe_t *);
 extern void dt_probe_destroy(dt_probe_t *);
 
@@ -74,6 +67,17 @@ extern int dt_probe_define(dt_provider_t *, dt_probe_t *,
     const char *, const char *, uint32_t, int);
 
 extern dt_node_t *dt_probe_tag(dt_probe_t *, uint_t, dt_node_t *);
+
+extern dt_probe_t *dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
+				     const char *prv, const char *mod,
+				     const char *fun, const char *prb);
+extern dt_probe_t *dt_probe_lookup(dtrace_hdl_t *dtp,
+				   const dtrace_probedesc_t *pdp);
+extern dt_probe_t *dt_probe_lookup_by_name(dtrace_hdl_t *dtp, const char *name);
+extern void dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp);
+
+extern void dt_probe_init(dtrace_hdl_t *dtp);
+extern void dt_probe_stats(dtrace_hdl_t *dtp);
 
 #ifdef	__cplusplus
 }

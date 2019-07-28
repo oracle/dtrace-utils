@@ -16,6 +16,7 @@
 #include <dt_impl.h>
 #include <dt_program.h>
 
+#ifdef FIXME
 static const char _dt_errprog[] =
 "dtrace:::ERROR"
 "{"
@@ -25,13 +26,16 @@ static const char _dt_errprog[] =
 "	trace(arg4);"
 "	trace(arg5);"
 "}";
+#endif
 
 int
 dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 {
 	dtrace_prog_t *pgp = NULL;
+#ifdef FIXME
 	dt_stmt_t *stp;
 	dtrace_ecbdesc_t *edp;
+#endif
 
 	/*
 	 * We don't currently support multiple error handlers.

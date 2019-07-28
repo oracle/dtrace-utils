@@ -397,13 +397,13 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	    infop->dthi_pfname, fname) < 0)
 		return (dt_set_errno(dtp, errno));
 
-	for (dnp = prp->pr_nargs, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
+	for (dnp = prp->nargs, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
 		if (fprintf(infop->dthi_out, "%s",
 		    ctf_type_name(dnp->dn_ctfp, dnp->dn_type,
 		    buf, sizeof (buf))) < 0)
 			return (dt_set_errno(dtp, errno));
 
-		if (i + 1 < prp->pr_nargc &&
+		if (i + 1 < prp->nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
 			return (dt_set_errno(dtp, errno));
 	}
@@ -451,11 +451,11 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	    infop->dthi_pmname, mname) < 0)
 		return (dt_set_errno(dtp, errno));
 
-	for (i = 0; i < prp->pr_nargc; i++) {
+	for (i = 0; i < prp->nargc; i++) {
 		if (fprintf(infop->dthi_out, "arg%d", i) < 0)
 			return (dt_set_errno(dtp, errno));
 
-		if (i + 1 != prp->pr_nargc &&
+		if (i + 1 != prp->nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
 			return (dt_set_errno(dtp, errno));
 	}
@@ -468,11 +468,11 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		    infop->dthi_pfname, fname) < 0)
 			return (dt_set_errno(dtp, errno));
 
-		for (i = 0; i < prp->pr_nargc; i++) {
+		for (i = 0; i < prp->nargc; i++) {
 			if (fprintf(infop->dthi_out, "arg%d", i) < 0)
 				return (dt_set_errno(dtp, errno));
 
-			if (i + 1 != prp->pr_nargc &&
+			if (i + 1 != prp->nargc &&
 			    fprintf(infop->dthi_out, ", ") < 0)
 				return (dt_set_errno(dtp, errno));
 		}
@@ -519,7 +519,7 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	 * Count the instances of the '-' character since we'll need to double
 	 * those up.
 	 */
-	p = pvp->pv_desc.dtvd_name;
+	p = pvp->desc.dtvd_name;
 	for (i = 0; (p = strchr(p, '-')) != NULL; i++)
 		p++;
 
@@ -527,11 +527,11 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	info.dthi_out = out;
 	info.dthi_empty = 0;
 
-	info.dthi_pmname = alloca(strlen(pvp->pv_desc.dtvd_name) + 1);
-	dt_header_fmt_macro(info.dthi_pmname, pvp->pv_desc.dtvd_name);
+	info.dthi_pmname = alloca(strlen(pvp->desc.dtvd_name) + 1);
+	dt_header_fmt_macro(info.dthi_pmname, pvp->desc.dtvd_name);
 
-	info.dthi_pfname = alloca(strlen(pvp->pv_desc.dtvd_name) + 1 + i);
-	dt_header_fmt_func(info.dthi_pfname, pvp->pv_desc.dtvd_name);
+	info.dthi_pfname = alloca(strlen(pvp->desc.dtvd_name) + 1 + i);
+	dt_header_fmt_func(info.dthi_pfname, pvp->desc.dtvd_name);
 
 	if (fprintf(out, "#define _DTRACE_VERSION 1\n\n"
 			 "#if _DTRACE_VERSION\n\n") < 0)

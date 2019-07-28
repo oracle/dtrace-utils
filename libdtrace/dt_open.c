@@ -35,6 +35,7 @@
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_provider.h>
+#include <dt_probe.h>
 
 #include <dt_git_version.h>
 
@@ -119,7 +120,7 @@ const dt_version_t _dtrace_versions[] = {
  * List of provider modules that register providers and probes.  A single
  * provider module may create multiple providers.
  */
-static const dt_provmod_t *dt_provmod[] = {
+static const dt_provimpl_t *dt_providers[] = {
 	&dt_dtrace,
 	&dt_fbt,
 	&dt_sdt,
@@ -754,13 +755,6 @@ dt_vopen(int version, int flags, int *errp,
 		(void) setrlimit(RLIMIT_NOFILE, &rl);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(dt_provmod); i++) {
-		int n;
-
-		n = dt_provmod[i]->populate();
-		dt_dprintf("loaded %d probes for %s\n", n, dt_provmod[i]->name);
-	}
-
 	if ((dtp = malloc(sizeof (dtrace_hdl_t))) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
@@ -798,6 +792,15 @@ dt_vopen(int version, int flags, int *errp,
 	(void) pthread_mutex_init(&dtp->dt_sprintf_lock, NULL);
 	dt_dof_init(dtp);
 	(void) uname(&dtp->dt_uts);
+
+	dt_probe_init(dtp);
+	for (i = 0; i < ARRAY_SIZE(dt_providers); i++) {
+		int n;
+
+		n = dt_providers[i]->populate(dtp);
+		dt_dprintf("loaded %d probes for %s\n", n,
+			   dt_providers[i]->name);
+	}
 
 	/*
 	 * The default module path is derived in part from the utsname release

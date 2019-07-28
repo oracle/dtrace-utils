@@ -82,15 +82,15 @@ dt_pragma_attributes(const char *prname, dt_node_t *dnp)
 
 		if ((pvp = dt_provider_lookup(dtp, name)) != NULL) {
 			if (strcmp(part, "provider") == 0) {
-				a = &pvp->pv_desc.dtvd_attr.dtpa_provider;
+				a = &pvp->desc.dtvd_attr.dtpa_provider;
 			} else if (strcmp(part, "module") == 0) {
-				a = &pvp->pv_desc.dtvd_attr.dtpa_mod;
+				a = &pvp->desc.dtvd_attr.dtpa_mod;
 			} else if (strcmp(part, "function") == 0) {
-				a = &pvp->pv_desc.dtvd_attr.dtpa_func;
+				a = &pvp->desc.dtvd_attr.dtpa_func;
 			} else if (strcmp(part, "name") == 0) {
-				a = &pvp->pv_desc.dtvd_attr.dtpa_name;
+				a = &pvp->desc.dtvd_attr.dtpa_name;
 			} else if (strcmp(part, "args") == 0) {
-				a = &pvp->pv_desc.dtvd_attr.dtpa_args;
+				a = &pvp->desc.dtvd_attr.dtpa_args;
 			} else {
 				xyerror(D_PRAGMA_INVAL, "invalid component "
 				    "\"%s\" in attribute #pragma "

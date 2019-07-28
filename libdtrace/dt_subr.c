@@ -162,18 +162,6 @@ dtrace_str2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 	return (dtrace_xstr2desc(dtp, spec, s, 0, NULL, pdp));
 }
 
-int
-dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
-{
-	memset(pdp, 0, sizeof (dtrace_probedesc_t));
-	pdp->id = id;
-
-	if (dt_ioctl(dtp, DTRACEIOC_PROBES, pdp) == -1 || pdp->id != id)
-		return (dt_set_errno(dtp, EDT_BADID));
-
-	return (0);
-}
-
 char *
 dtrace_desc2str(const dtrace_probedesc_t *pdp, char *buf, size_t len)
 {

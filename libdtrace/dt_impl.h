@@ -34,6 +34,7 @@ extern "C" {
 #include <dt_strtab.h>
 #include <dt_symtab.h>
 #include <dt_ident.h>
+#include <dt_htab.h>
 #include <dt_list.h>
 #include <dt_decl.h>
 #include <dt_as.h>
@@ -49,6 +50,7 @@ struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
 struct dt_provider;		/* see <dt_provider.h> */
+struct dt_probe;		/* see <dt_probe.h> */
 struct dt_xlator;		/* see <dt_xlator.h> */
 
 typedef struct dt_intrinsic {
@@ -235,6 +237,24 @@ struct dtrace_hdl {
 	dt_module_t *dt_exec;	/* pointer to executable module */
 	dt_module_t *dt_cdefs;	/* pointer to C dynamic type module */
 	dt_module_t *dt_ddefs;	/* pointer to D dynamic type module */
+
+	/*
+	 * Hashtables for quick probe lookup based on potentially partly
+	 * specified probe names.
+	 */
+	dt_htab_t *dt_byprv;	/* htab of probes by provider name */
+	dt_htab_t *dt_bymod;	/* htab of probes by module name */
+	dt_htab_t *dt_byfun;	/* htab of probes by function name */
+	dt_htab_t *dt_byprb;	/* htab of probes by probe name */
+	dt_htab_t *dt_byfqn;	/* htab of probes by fully qualified name */
+
+	/*
+	 * Array of all known probes, to facilitate probe lookup by probe id.
+	 */
+	struct dt_probe **dt_probes;	/* array of probes */
+	uint32_t dt_probes_sz;	/* size of array of probes */
+	uint32_t dt_probe_id;	/* next available probe id */
+
 	dt_list_t dt_provlist;	/* linked list of dt_provider_t's */
 	struct dt_provider **dt_provs; /* hash table of dt_provider_t's */
 	uint_t dt_provbuckets;	/* number of provider hash buckets */

@@ -345,7 +345,7 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		    dtrace_desc2str(yypcb->pcb_pdesc, n1, sizeof (n1)));
 	}
 
-	if (ap->dn_value >= prp->pr_argc) {
+	if (ap->dn_value >= prp->argc) {
 		xyerror(D_ARGS_IDX, "index %lld is out of range for %s %s[ ]\n",
 		    (longlong_t)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
 		    n1, sizeof (n1)), idp->di_name);
@@ -358,8 +358,8 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 	 * we have the appropriate node, create a new dt_ident_t for this node,
 	 * assign it the appropriate attributes, and set the type of 'dnp'.
 	 */
-	xnp = prp->pr_xargv[ap->dn_value];
-	nnp = prp->pr_nargv[prp->pr_mapping[ap->dn_value]];
+	xnp = prp->xargv[ap->dn_value];
+	nnp = prp->nargv[prp->mapping[ap->dn_value]];
 
 	if (xnp->dn_type == CTF_ERR) {
 		xyerror(D_ARGS_TYPE, "failed to resolve translated type for "
@@ -381,8 +381,8 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 		dt_node_type_assign(dnp,
-		    prp->pr_argv[ap->dn_value].dtt_ctfp,
-		    prp->pr_argv[ap->dn_value].dtt_type);
+		    prp->argv[ap->dn_value].dtt_ctfp,
+		    prp->argv[ap->dn_value].dtt_type);
 
 	} else if ((dxp = dt_xlator_lookup(dtp,
 	    nnp, xnp, DT_XLATE_FUZZY)) != NULL || (

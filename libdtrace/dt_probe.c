@@ -20,7 +20,125 @@
 #include <dt_probe.h>
 #include <dt_module.h>
 #include <dt_string.h>
+#include <dt_htab.h>
 #include <dt_list.h>
+
+#define DEFINE_HE_FUNCS(id) \
+	static uint32_t id##_hval(const dt_probe_t *probe) \
+	{ \
+		return str2hval(probe->desc->id, 0); \
+	} \
+	\
+	static int id##_cmp(const dt_probe_t *p, \
+			    const dt_probe_t *q) \
+	{ \
+		return strcmp(p->desc->id, q->desc->id); \
+	} \
+	\
+	DEFINE_HE_LINK_FUNCS(id)
+
+#define DEFINE_HE_LINK_FUNCS(id) \
+	static dt_probe_t *id##_add(dt_probe_t *head, dt_probe_t *new) \
+	{ \
+		if (!head) \
+			return new; \
+	\
+		new->he_##id.next = head; \
+		head->he_##id.prev = new; \
+	\
+		return new; \
+	} \
+	\
+	static dt_probe_t *id##_del(dt_probe_t *head, dt_probe_t *probe) \
+	{ \
+		dt_probe_t *prev = probe->he_##id.prev; \
+		dt_probe_t *next = probe->he_##id.next; \
+	\
+		if (head == probe) { \
+			if (!next) \
+				return NULL; \
+	\
+			head = next; \
+			head->he_##id.prev = NULL; \
+			probe->he_##id.next = NULL; \
+	\
+			return head; \
+		} \
+	\
+		if (!next) { \
+			prev->he_##id.next = NULL; \
+			probe->he_##id.prev = NULL; \
+	\
+			return head; \
+	} \
+	\
+		prev->he_##id.next = next; \
+		next->he_##id.prev = prev; \
+		probe->he_##id.prev = probe->he_##id.next = NULL; \
+	\
+		return head; \
+	}
+
+#define DEFINE_HTAB_OPS(id) \
+	static dt_htab_ops_t	id##_htab_ops = { \
+		.hval = (htab_hval_fn)id##_hval, \
+		.cmp = (htab_cmp_fn)id##_cmp, \
+		.add = (htab_add_fn)id##_add, \
+		.del = (htab_del_fn)id##_del, \
+	};
+
+DEFINE_HE_FUNCS(prv)
+DEFINE_HE_FUNCS(mod)
+DEFINE_HE_FUNCS(fun)
+DEFINE_HE_FUNCS(prb)
+
+/*
+ * Calculate the hash value of a probe as the cummulative hash value of the
+ * FQN.
+ */
+static uint32_t fqn_hval(const dt_probe_t *probe)
+{
+	uint32_t	hval = 0;
+
+	hval = str2hval(probe->desc->prv, hval);
+	hval = str2hval(":", hval);
+	hval = str2hval(probe->desc->mod, hval);
+	hval = str2hval(":", hval);
+	hval = str2hval(probe->desc->fun, hval);
+	hval = str2hval(":", hval);
+	hval = str2hval(probe->desc->prb, hval);
+
+	return hval;
+}
+
+/* Compare two probes based on the FQN. */
+static int fqn_cmp(const dt_probe_t *p, const dt_probe_t *q)
+{
+	int	rc;
+
+	rc = strcmp(p->desc->prv, q->desc->prv);
+	if (rc)
+		return rc;
+	rc = strcmp(p->desc->mod, q->desc->mod);
+	if (rc)
+		return rc;
+	rc = strcmp(p->desc->fun, q->desc->fun);
+	if (rc)
+		return rc;
+	rc = strcmp(p->desc->prb, q->desc->prb);
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
+DEFINE_HE_LINK_FUNCS(fqn)
+
+DEFINE_HTAB_OPS(prv)
+DEFINE_HTAB_OPS(mod)
+DEFINE_HTAB_OPS(fun)
+DEFINE_HTAB_OPS(prb)
+DEFINE_HTAB_OPS(fqn)
 
 static uint8_t
 dt_probe_argmap(dt_node_t *xnp, dt_node_t *nnp)
@@ -39,25 +157,55 @@ dt_probe_argmap(dt_node_t *xnp, dt_node_t *nnp)
 }
 
 static dt_node_t *
-dt_probe_alloc_args(dt_provider_t *pvp, int argc)
+alloc_arg_nodes(dtrace_hdl_t *dtp, dt_provider_t *pvp, int argc)
 {
-	dt_node_t *args = NULL, *pnp = NULL, *dnp;
-	int i;
+	dt_node_t	*dnp = NULL;
+	int		i;
 
-	for (i = 0; i < argc; i++, pnp = dnp) {
-		if ((dnp = dt_node_xalloc(pvp->pv_hdl, DT_NODE_TYPE)) == NULL)
-			return (NULL);
+	for (i = 0; i < argc; i++) {
+		if ((dnp = dt_node_xalloc(dtp, DT_NODE_TYPE)) == NULL)
+			return NULL;
 
 		dnp->dn_link = pvp->pv_nodes;
 		pvp->pv_nodes = dnp;
-
-		if (args == NULL)
-			args = dnp;
-		else
-			pnp->dn_list = dnp;
 	}
 
-	return (args);
+	return dnp;
+}
+
+static void
+dt_probe_alloc_args(dt_probe_t *prp, int nargc, int xargc)
+{
+	dt_provider_t	*pvp = prp->prov;
+	dtrace_hdl_t	*dtp = pvp->pv_hdl;
+	dt_node_t	*nargs = NULL, *xargs = NULL;
+	int		i;
+
+	prp->nargs = alloc_arg_nodes(dtp, prp->prov, nargc);
+	prp->nargv = dt_alloc(dtp, sizeof(dt_node_t *) * nargc);
+	prp->nargc = nargc;
+	prp->xargs = alloc_arg_nodes(dtp, prp->prov, xargc);
+	prp->xargv = dt_alloc(dtp, sizeof(dt_node_t *) * xargc);
+	prp->xargc = xargc;
+	prp->mapping = dt_alloc(dtp, sizeof(uint8_t) * xargc);
+	prp->argv = dt_alloc(dtp, sizeof(dtrace_typeinfo_t) * xargc);
+	prp->argc = xargc;
+
+	for (i = 0, xargs = prp->xargs;
+	     i < xargc;
+	     i++, xargs = xargs->dn_link) {
+		prp->mapping[i] = i;
+		prp->xargv[i] = xargs;
+		prp->argv[i].dtt_object = NULL;
+		prp->argv[i].dtt_ctfp = NULL;
+		prp->argv[i].dtt_type = CTF_ERR;
+	}
+
+	for (i = 0, nargs = prp->nargs;
+	     i < nargc;
+	     i++, nargs = nargs->dn_link) {
+		prp->nargv[i] = nargs;
+	}
 }
 
 static size_t
@@ -81,6 +229,7 @@ dt_probe_key(const dtrace_probedesc_t *pdp, char *s)
 static dt_probe_t *
 dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 {
+#ifdef FIXME
 	dtrace_hdl_t *dtp = pvp->pv_hdl;
 	char *name = dt_probe_key(pdp, alloca(dt_probe_keylen(pdp)));
 
@@ -92,29 +241,29 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	int i, nc, xc;
 
 	int adc = _dtrace_argmax;
-	dtrace_argdesc_t *adv = alloca(sizeof (dtrace_argdesc_t) * adc);
-	dtrace_argdesc_t *adp = adv;
+	dt_argdesc_t *adv = alloca(sizeof (dt_argdesc_t) * adc);
+	dt_argdesc_t *adp = adv;
 
-	assert(strcmp(pvp->pv_desc.dtvd_name, pdp->prv) == 0);
+	assert(strcmp(pvp->desc.dtvd_name, pdp->prv) == 0);
 	assert(pdp->id != DTRACE_IDNONE);
 
 	dt_dprintf("discovering probe %s:%s id=%d\n",
-		   pvp->pv_desc.dtvd_name, name, pdp->id);
+		   pvp->desc.dtvd_name, name, pdp->id);
 
 	for (nc = -1, i = 0; i < adc; i++, adp++) {
-		memset(adp, 0, sizeof (dtrace_argdesc_t));
-		adp->dtargd_ndx = i;
-		adp->dtargd_id = pdp->id;
+		memset(adp, 0, sizeof (dt_argdesc_t));
+		adp->ndx = i;
+		adp->id = pdp->id;
 
 		if (dt_ioctl(dtp, DTRACEIOC_PROBEARG, adp) != 0) {
 			(void) dt_set_errno(dtp, errno);
 			return (NULL);
 		}
 
-		if (adp->dtargd_ndx == DTRACE_ARGNONE)
+		if (adp->ndx == DTRACE_ARGNONE)
 			break; /* all argument descs have been retrieved */
 
-		nc = MAX(nc, adp->dtargd_mapping);
+		nc = MAX(nc, adp->mapping);
 	}
 
 	xc = i;
@@ -150,49 +299,52 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 
 	/*
 	 * Once our new dt_probe_t is fully constructed, iterate over the
-	 * cached argument descriptions and assign types to prp->pr_nargv[]
-	 * and prp->pr_xargv[] and assign mappings to prp->pr_mapping[].
+	 * cached argument descriptions and assign types to prp->nargv[]
+	 * and prp->xargv[] and assign mappings to prp->mapping[].
 	 */
 	for (adp = adv, i = 0; i < xc; i++, adp++) {
 		if (dtrace_type_strcompile(dtp,
-		    adp->dtargd_native, &dtt) != 0) {
+		    adp->native, &dtt) != 0) {
 			dt_dprintf("failed to resolve input type %s "
-			    "for %s:%s arg #%d: %s\n", adp->dtargd_native,
-			    pvp->pv_desc.dtvd_name, name, i + 1,
+			    "for %s:%s arg #%d: %s\n", adp->native,
+			    pvp->desc.dtvd_name, name, i + 1,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
 			dtt.dtt_object = NULL;
 			dtt.dtt_ctfp = NULL;
 			dtt.dtt_type = CTF_ERR;
 		} else {
-			dt_node_type_assign(prp->pr_nargv[adp->dtargd_mapping],
+			dt_node_type_assign(prp->nargv[adp->mapping],
 			    dtt.dtt_ctfp, dtt.dtt_type);
 		}
 
-		if (dtt.dtt_type != CTF_ERR && (adp->dtargd_xlate[0] == '\0' ||
-		    strcmp(adp->dtargd_native, adp->dtargd_xlate) == 0)) {
-			dt_node_type_propagate(prp->pr_nargv[
-			    adp->dtargd_mapping], prp->pr_xargv[i]);
+		if (dtt.dtt_type != CTF_ERR && (adp->xlate[0] == '\0' ||
+		    strcmp(adp->native, adp->xlate) == 0)) {
+			dt_node_type_propagate(prp->nargv[
+			    adp->mapping], prp->xargv[i]);
 		} else if (dtrace_type_strcompile(dtp,
-		    adp->dtargd_xlate, &dtt) != 0) {
+		    adp->xlate, &dtt) != 0) {
 			dt_dprintf("failed to resolve output type %s "
-			    "for %s:%s arg #%d: %s\n", adp->dtargd_xlate,
-			    pvp->pv_desc.dtvd_name, name, i + 1,
+			    "for %s:%s arg #%d: %s\n", adp->xlate,
+			    pvp->desc.dtvd_name, name, i + 1,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
 			dtt.dtt_object = NULL;
 			dtt.dtt_ctfp = NULL;
 			dtt.dtt_type = CTF_ERR;
 		} else {
-			dt_node_type_assign(prp->pr_xargv[i],
+			dt_node_type_assign(prp->xargv[i],
 			    dtt.dtt_ctfp, dtt.dtt_type);
 		}
 
-		prp->pr_mapping[i] = adp->dtargd_mapping;
-		prp->pr_argv[i] = dtt;
+		prp->mapping[i] = adp->mapping;
+		prp->argv[i] = dtt;
 	}
 
 	return (prp);
+#else
+	return NULL;
+#endif
 }
 
 /*
@@ -201,7 +353,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
  * ask dtrace(7D) to match the description and then cache any useful results.
  */
 dt_probe_t *
-dt_probe_lookup(dt_provider_t *pvp, const char *s)
+dt_probe_lookup2(dt_provider_t *pvp, const char *s)
 {
 	dtrace_hdl_t *dtp = pvp->pv_hdl;
 	dtrace_probedesc_t pd;
@@ -240,7 +392,7 @@ dt_probe_lookup(dt_provider_t *pvp, const char *s)
 
 dt_probe_t *
 dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
-    dt_node_t *nargs, uint_t nargc, dt_node_t *xargs, uint_t xargc)
+		dt_node_t *nargs, uint_t nargc, dt_node_t *xargs, uint_t xargc)
 {
 	dt_module_t *dmp;
 	dt_probe_t *prp;
@@ -265,52 +417,52 @@ dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
 	if ((prp = dt_alloc(dtp, sizeof (dt_probe_t))) == NULL)
 		return (NULL);
 
-	prp->pr_pvp = NULL;
+	prp->prov = NULL;
 	prp->pr_ident = idp;
 
 	p = strrchr(idp->di_name, ':');
 	assert(p != NULL);
 	prp->pr_name = p + 1;
 
-	prp->pr_nargs = nargs;
-	prp->pr_nargv = dt_alloc(dtp, sizeof (dt_node_t *) * nargc);
-	prp->pr_nargc = nargc;
-	prp->pr_xargs = xargs;
-	prp->pr_xargv = dt_alloc(dtp, sizeof (dt_node_t *) * xargc);
-	prp->pr_xargc = xargc;
-	prp->pr_mapping = dt_alloc(dtp, sizeof (uint8_t) * xargc);
+	prp->nargs = nargs;
+	prp->nargv = dt_alloc(dtp, sizeof (dt_node_t *) * nargc);
+	prp->nargc = nargc;
+	prp->xargs = xargs;
+	prp->xargv = dt_alloc(dtp, sizeof (dt_node_t *) * xargc);
+	prp->xargc = xargc;
+	prp->mapping = dt_alloc(dtp, sizeof (uint8_t) * xargc);
 	prp->pr_inst = NULL;
-	prp->pr_argv = dt_alloc(dtp, sizeof (dtrace_typeinfo_t) * xargc);
-	prp->pr_argc = xargc;
+	prp->argv = dt_alloc(dtp, sizeof (dtrace_typeinfo_t) * xargc);
+	prp->argc = xargc;
 
-	if ((prp->pr_nargc != 0 && prp->pr_nargv == NULL) ||
-	    (prp->pr_xargc != 0 && prp->pr_xargv == NULL) ||
-	    (prp->pr_xargc != 0 && prp->pr_mapping == NULL) ||
-	    (prp->pr_argc != 0 && prp->pr_argv == NULL)) {
+	if ((prp->nargc != 0 && prp->nargv == NULL) ||
+	    (prp->xargc != 0 && prp->xargv == NULL) ||
+	    (prp->xargc != 0 && prp->mapping == NULL) ||
+	    (prp->argc != 0 && prp->argv == NULL)) {
 		dt_probe_destroy(prp);
 		return (NULL);
 	}
 
 	for (i = 0; i < xargc; i++, xargs = xargs->dn_list) {
 		if (xargs->dn_string != NULL)
-			prp->pr_mapping[i] = dt_probe_argmap(xargs, nargs);
+			prp->mapping[i] = dt_probe_argmap(xargs, nargs);
 		else
-			prp->pr_mapping[i] = i;
+			prp->mapping[i] = i;
 
-		prp->pr_xargv[i] = xargs;
+		prp->xargv[i] = xargs;
 
 		if ((dmp = dt_module_lookup_by_ctf(dtp,
 		    xargs->dn_ctfp)) != NULL)
-			prp->pr_argv[i].dtt_object = dmp->dm_name;
+			prp->argv[i].dtt_object = dmp->dm_name;
 		else
-			prp->pr_argv[i].dtt_object = NULL;
+			prp->argv[i].dtt_object = NULL;
 
-		prp->pr_argv[i].dtt_ctfp = xargs->dn_ctfp;
-		prp->pr_argv[i].dtt_type = xargs->dn_type;
+		prp->argv[i].dtt_ctfp = xargs->dn_ctfp;
+		prp->argv[i].dtt_type = xargs->dn_type;
 	}
 
 	for (i = 0; i < nargc; i++, nargs = nargs->dn_list)
-		prp->pr_nargv[i] = nargs;
+		prp->nargv[i] = nargs;
 
 	idp->di_data = prp;
 	return (prp);
@@ -321,12 +473,12 @@ dt_probe_declare(dt_provider_t *pvp, dt_probe_t *prp)
 {
 	assert(prp->pr_ident->di_kind == DT_IDENT_PROBE);
 	assert(prp->pr_ident->di_data == prp);
-	assert(prp->pr_pvp == NULL);
+	assert(prp->prov == NULL);
 
-	if (prp->pr_xargs != prp->pr_nargs)
+	if (prp->xargs != prp->nargs)
 		pvp->pv_flags &= ~DT_PROVIDER_INTF;
 
-	prp->pr_pvp = pvp;
+	prp->prov = pvp;
 	dt_idhash_xinsert(pvp->pv_probes, prp->pr_ident);
 }
 
@@ -336,16 +488,16 @@ dt_probe_destroy(dt_probe_t *prp)
 	dt_probe_instance_t *pip, *pip_next;
 	dtrace_hdl_t *dtp;
 
-	if (prp->pr_pvp != NULL)
-		dtp = prp->pr_pvp->pv_hdl;
+	if (prp->prov != NULL)
+		dtp = prp->prov->pv_hdl;
 	else
 		dtp = yypcb->pcb_hdl;
 
-	dt_node_list_free(&prp->pr_nargs);
-	dt_node_list_free(&prp->pr_xargs);
+	dt_node_list_free(&prp->nargs);
+	dt_node_list_free(&prp->xargs);
 
-	dt_free(dtp, prp->pr_nargv);
-	dt_free(dtp, prp->pr_xargv);
+	dt_free(dtp, prp->nargv);
+	dt_free(dtp, prp->xargv);
 
 	for (pip = prp->pr_inst; pip != NULL; pip = pip_next) {
 		pip_next = pip->pi_next;
@@ -354,14 +506,14 @@ dt_probe_destroy(dt_probe_t *prp)
 		dt_free(dtp, pip);
 	}
 
-	dt_free(dtp, prp->pr_mapping);
-	dt_free(dtp, prp->pr_argv);
+	dt_free(dtp, prp->mapping);
+	dt_free(dtp, prp->argv);
 	dt_free(dtp, prp);
 }
 
 int
-dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp,
-    const char *fname, const char *rname, uint32_t offset, int isenabled)
+dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp, const char *fname,
+		const char *rname, uint32_t offset, int isenabled)
 {
 	dtrace_hdl_t *dtp = pvp->pv_hdl;
 	dt_probe_instance_t *pip;
@@ -440,7 +592,7 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp,
 
 	dt_dprintf("defined probe %s %s:%s %s() +0x%x (%s)\n",
 	    isenabled ? "(is-enabled)" : "",
-	    pvp->pv_desc.dtvd_name, prp->pr_ident->di_name, fname, offset,
+	    pvp->desc.dtvd_name, prp->pr_ident->di_name, fname, offset,
 	    rname != NULL ? rname : fname);
 
 	assert(*noffs < *maxoffs);
@@ -457,18 +609,18 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp,
 dt_node_t *
 dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 {
-	dtrace_hdl_t *dtp = prp->pr_pvp->pv_hdl;
+	dtrace_hdl_t *dtp = prp->prov->pv_hdl;
 	dtrace_typeinfo_t dtt;
 	size_t len;
 	char *tag;
 
 	len = snprintf(NULL, 0, "__dtrace_%s___%s_arg%u",
-	    prp->pr_pvp->pv_desc.dtvd_name, prp->pr_name, argn);
+	    prp->prov->desc.dtvd_name, prp->pr_name, argn);
 
 	tag = alloca(len + 1);
 
 	(void) snprintf(tag, len + 1, "__dtrace_%s___%s_arg%u",
-	    prp->pr_pvp->pv_desc.dtvd_name, prp->pr_name, argn);
+	    prp->prov->desc.dtvd_name, prp->pr_name, argn);
 
 	if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_DDEFS, tag, &dtt) != 0) {
 		dtt.dtt_object = DTRACE_OBJ_DDEFS;
@@ -492,6 +644,265 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 	return (dnp);
 }
 
+dt_probe_t *
+dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
+		const char *mod, const char *fun, const char *prb)
+{
+	dt_probe_t		*prp;
+	dtrace_probedesc_t	*desc;
+
+	if ((desc = dt_alloc(dtp, sizeof(dtrace_probedesc_t))) == NULL)
+		return NULL;
+
+	desc->id = DTRACE_IDNONE;
+	desc->prv = strdup(prv);
+	desc->mod = strdup(mod);
+	desc->fun = strdup(fun);
+	desc->prb = strdup(prb);
+
+	/* If necessary, grow the probes array. */
+	if (dtp->dt_probe_id + 1 > dtp->dt_probes_sz) {
+		dt_probe_t **nprobes;
+		uint32_t nprobes_sz = dtp->dt_probes_sz + 1024;
+
+		if (nprobes_sz < dtp->dt_probes_sz) {	/* overflow */
+			dt_set_errno(dtp, EDT_NOMEM);
+			return NULL;
+		}
+
+		nprobes = dt_zalloc(dtp, nprobes_sz * sizeof(dt_probe_t *));
+		if (nprobes == NULL)
+			return NULL;
+
+		if (dtp->dt_probes)
+			memcpy(nprobes, dtp->dt_probes,
+			       dtp->dt_probes_sz * sizeof(dt_probe_t *));
+
+		free(dtp->dt_probes);
+		dtp->dt_probes = nprobes;
+		dtp->dt_probes_sz = nprobes_sz;
+	}
+
+	/* Allocate the new probe and fill in its basic info. */
+	if ((prp = dt_zalloc(dtp, sizeof(dt_probe_t))) == NULL)
+		return NULL;
+
+	desc->id = dtp->dt_probe_id++;
+	prp->desc = desc;
+	prp->prov = prov;
+
+	dt_htab_insert(dtp->dt_byprv, prp);
+	dt_htab_insert(dtp->dt_bymod, prp);
+	dt_htab_insert(dtp->dt_byfun, prp);
+	dt_htab_insert(dtp->dt_byprb, prp);
+	dt_htab_insert(dtp->dt_byfqn, prp);
+
+	dtp->dt_probes[dtp->dt_probe_id - 1] = prp;
+
+	return prp;
+}
+
+/*
+ * Look for a probe that matches the probe description in 'pdp', and fill in
+ * the probe info referenced by 'pip' (name and argument attributes, argument
+ * types, and argument count).  If no probe is found, this function will return
+ * NULL (dt_errno will be set).
+ *
+ * If a probe id is provided in the probe description, a direct lookup can be
+ * performed in the probe array.
+ *
+ * If a probe description is provided without any glob elements, a lookup can
+ * be performed on the fully qualified probe name (htab lookup in dt_byfqn).
+ *
+ * If a probe description is provided with a mix of exact and glob elements,
+ * a htab lookup is performed on the element that is commonly known to be the
+ * most restrictive (dt_byfun is usually best, then dt_byprb, then dt_bymod,
+ * and finally dt_byprv).  Further matching is then done on just the probes in
+ * that htab bucket.  Elements that must match exactly are compared first.
+ */
+dt_probe_t *
+dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
+{
+	dt_probe_t	*prp;
+	dt_probe_t	tmpl;
+	int		p_is_glob, m_is_glob, f_is_glob, n_is_glob;
+
+	/*
+	 * If a probe id is provided, we can do a direct lookup.
+	 */
+	if (pdp->id != DTRACE_IDNONE) {
+		if (pdp->id >= dtp->dt_probe_id)
+			goto no_probe;
+
+		prp = dtp->dt_probes[pdp->id];
+		if (!prp)
+			goto no_probe;
+
+		return prp;
+	}
+
+	tmpl.desc = pdp;
+
+	p_is_glob = pdp->prv[0] == '\0' || strisglob(pdp->prv);
+	m_is_glob = pdp->mod[0] == '\0' || strisglob(pdp->mod);
+	f_is_glob = pdp->fun[0] == '\0' || strisglob(pdp->fun);
+	n_is_glob = pdp->prb[0] == '\0' || strisglob(pdp->prb);
+
+	/*
+	 * If an exact (fully qualified) probe description is provided, a
+	 * simple htab lookup in dtp->dt_byfqn will suffice.
+	 */
+	if (p_is_glob + m_is_glob + f_is_glob + n_is_glob == 0) {
+		prp = dt_htab_lookup(dtp->dt_byfqn, &tmpl);
+		if (!prp)
+			goto no_probe;
+
+		return prp;
+	}
+
+#ifdef FIXME
+	/*
+	 * If at least one element is specified as a string to match exactly,
+	 * use that to consult itr respective htab.  If all elements are
+	 * specified as glob patterns (or the empty string), we need to loop
+	 * through all probes and look for a match.
+	 */
+	if (!f_is_glob) {
+		prp = dt_htab_lookup(dtp->dt_byfun, &tmpl);
+		if (!prp)
+			goto no_probe;
+	} else if (!n_is_glob) {
+		prp = dt_htab_lookup(dtp->dt_byprb, &tmpl);
+		if (!prp)
+			goto no_probe;
+	} else if (!m_is_glob) {
+		prp = dt_htab_lookup(dtp->dt_bymod, &tmpl);
+		if (!prp)
+			goto no_probe;
+	} else if (!p_is_glob) {
+		prp = dt_htab_lookup(dtp->dt_byprv, &tmpl);
+		if (!prp)
+			goto no_probe;
+	} else {
+	}
+#endif
+
+	return NULL;
+
+no_probe:
+	dt_set_errno(dtp, EDT_NOPROBE);
+	return NULL;
+}
+
+dt_probe_t *
+dt_probe_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
+{
+	return NULL;
+}
+
+void
+dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	dt_htab_delete(dtp->dt_byprv, prp);
+	dt_htab_delete(dtp->dt_bymod, prp);
+	dt_htab_delete(dtp->dt_byfun, prp);
+	dt_htab_delete(dtp->dt_byprb, prp);
+	dt_htab_delete(dtp->dt_byfqn, prp);
+
+	dtp->dt_probes[prp->desc->id] = NULL;
+
+	/* FIXME: Add cleanup code for the dt_probe_t itself. */
+}
+
+static void
+dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	int			id = DTRACE_IDNONE;
+	int			argc = 0;
+	dt_argdesc_t		*argv = NULL;
+	int			i, nc, xc;
+	dtrace_typeinfo_t	dtt;
+
+	/*
+	 * If we already have argument information for this probe, there is no
+	 * need to retrieve it again.
+	 */
+	if (prp->argv)
+		return;
+
+	if (!prp->prov->impl->probe_info)
+		return;
+	if (prp->prov->impl->probe_info(dtp, prp, &id, &argc, &argv) < 0)
+		return;
+
+	if (id > 0)
+		prp->event_id = id;
+	if (!argc || !argv)
+		return;
+
+	nc = 0;
+	for (xc = 0; xc < argc; xc++)
+		nc = MAX(nc, argv[xc].mapping);
+	nc++;				/* Number of nargs = highest arg + 1 */
+
+	/*
+	 * Now that we have discovered the number of native and translated
+	 * arguments from the argument descriptions, allocate nodes for the
+	 * arguments and their types.
+	 */
+	dt_probe_alloc_args(prp, nc, xc);
+
+	if ((xc != 0 && prp->xargs == NULL) || (nc != 0 && prp->nargs == NULL))
+		return;
+
+	/*
+	 * Iterate over the arguments and assign their types to prp->nargv[],
+	 * prp->xargv[], and record mappings in prp->mapping[].
+	 */
+	for (i = 0; i < argc; i++) {
+		if (dtrace_type_strcompile(dtp, argv[i].native, &dtt) != 0) {
+			dt_dprintf("failed to resolve input type %s for "
+				   "%s:%s:%s:%s arg #%d: %s\n", argv[i].native,
+				   prp->desc->prv, prp->desc->mod,
+				   prp->desc->fun, prp->desc->prb, i,
+				   dtrace_errmsg(dtp, dtrace_errno(dtp)));
+
+			dtt.dtt_object = NULL;
+			dtt.dtt_ctfp = NULL;
+			dtt.dtt_type = CTF_ERR;
+		} else {
+			dt_node_type_assign(prp->nargv[argv[i].mapping],
+					    dtt.dtt_ctfp, dtt.dtt_type);
+		}
+
+		if (dtt.dtt_type != CTF_ERR &&
+		    (!argv[i].xlate || strcmp(argv[i].native,
+					      argv[i].xlate) == 0)) {
+			dt_node_type_propagate(prp->nargv[argv[i].mapping],
+					       prp->xargv[i]);
+		} else if (dtrace_type_strcompile(dtp, argv[i].xlate,
+						  &dtt) != 0) {
+			dt_dprintf("failed to resolve output type %s for "
+				   "%s:%s:%s:%s arg #%d: %s\n", argv[i].xlate,
+				   prp->desc->prv, prp->desc->mod,
+				   prp->desc->fun, prp->desc->prb, i,
+				   dtrace_errmsg(dtp, dtrace_errno(dtp)));
+
+			dtt.dtt_object = NULL;
+			dtt.dtt_ctfp = NULL;
+			dtt.dtt_type = CTF_ERR;
+		} else {
+			dt_node_type_assign(prp->xargv[i],
+					    dtt.dtt_ctfp, dtt.dtt_type);
+		}
+
+		prp->mapping[i] = argv[i].mapping;
+		prp->argv[i] = dtt;
+	}
+
+	dt_free(dtp, argv);
+}
+
 /*ARGSUSED*/
 static int
 dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
@@ -505,9 +916,10 @@ dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 }
 
 dt_probe_t *
-dt_probe_info(dtrace_hdl_t *dtp,
-    const dtrace_probedesc_t *pdp, dtrace_probeinfo_t *pip)
+dt_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+	      dtrace_probeinfo_t *pip)
 {
+	int p_is_glob = pdp->prv[0] == '\0' || strisglob(pdp->prv);
 	int m_is_glob = pdp->mod[0] == '\0' || strisglob(pdp->mod);
 	int f_is_glob = pdp->fun[0] == '\0' || strisglob(pdp->fun);
 	int n_is_glob = pdp->prb[0] == '\0' || strisglob(pdp->prb);
@@ -515,116 +927,80 @@ dt_probe_info(dtrace_hdl_t *dtp,
 	dt_probe_t *prp = NULL;
 	const dtrace_pattr_t *pap;
 	dt_provider_t *pvp;
-	dt_ident_t *idp;
+	dtrace_probedesc_t pd;
+	int m;
+
+	memset(&pd, 0, sizeof (pd));
+	pd.id = DTRACE_IDNONE;
 
 	/*
-	 * Attempt to lookup the probe in our existing cache for this provider.
-	 * If none is found and an explicit probe ID was specified, discover
-	 * that specific probe and cache its description and arguments.
+	 * Call dtrace_probe_iter() to find matching probes.  Our
+	 * dt_probe_desc() callback will produce the following results:
+	 *
+	 * m < 0 dtrace_probe_iter() found zero matches (or failed).
+	 * m > 0 dtrace_probe_iter() found more than one match.
+	 * m = 0 dtrace_probe_iter() found exactly one match.
 	 */
-	if ((pvp = dt_provider_lookup(dtp, pdp->prv)) != NULL) {
-		size_t keylen = dt_probe_keylen(pdp);
-		char *key = dt_probe_key(pdp, alloca(keylen));
+	if ((m = dtrace_probe_iter(dtp, pdp, dt_probe_desc, &pd)) < 0)
+		return NULL; /* dt_errno is set for us */
 
-		if ((idp = dt_idhash_lookup(pvp->pv_probes, key)) != NULL)
-			prp = idp->di_data;
-		else if (pdp->id != DTRACE_IDNONE)
-			prp = dt_probe_discover(pvp, pdp);
-	}
+	if ((pvp = dt_provider_lookup(dtp, pd.prv)) == NULL)
+		return NULL; /* dt_errno is set for us */
 
 	/*
-	 * If no probe was found in our cache, convert the caller's partial
-	 * probe description into a fully-formed matching probe description by
-	 * iterating over up to at most two probes that match 'pdp'.  We then
-	 * call dt_probe_discover() on the resulting probe identifier.
+	 * If more than one probe was matched, then do not report probe
+	 * information if either of the following conditions is true:
+	 *
+	 * (a) The Arguments Data stability of the matched provider is
+	 *	less than Evolving.
+	 *
+	 * (b) Any description component that is at least Evolving is
+	 *	empty or is specified using a globbing expression.
+	 *
+	 * These conditions imply that providers that provide Evolving
+	 * or better Arguments Data stability must guarantee that all
+	 * probes with identical field names in a field of Evolving or
+	 * better Name stability have identical argument signatures.
 	 */
-	if (prp == NULL) {
-		dtrace_probedesc_t pd;
-		int m;
-
-		memset(&pd, 0, sizeof (pd));
-		pd.id = DTRACE_IDNONE;
-
-		/*
-		 * Call dtrace_probe_iter() to find matching probes.  Our
-		 * dt_probe_desc() callback will produce the following results:
-		 *
-		 * m < 0 dtrace_probe_iter() found zero matches (or failed).
-		 * m > 0 dtrace_probe_iter() found more than one match.
-		 * m = 0 dtrace_probe_iter() found exactly one match.
-		 */
-		if ((m = dtrace_probe_iter(dtp, pdp, dt_probe_desc, &pd)) < 0)
-			return (NULL); /* dt_errno is set for us */
-
-		if ((pvp = dt_provider_lookup(dtp, pd.prv)) == NULL)
-			return (NULL); /* dt_errno is set for us */
-
-		/*
-		 * If more than one probe was matched, then do not report probe
-		 * information if either of the following conditions is true:
-		 *
-		 * (a) The Arguments Data stability of the matched provider is
-		 *	less than Evolving.
-		 *
-		 * (b) Any description component that is at least Evolving is
-		 *	empty or is specified using a globbing expression.
-		 *
-		 * These conditions imply that providers that provide Evolving
-		 * or better Arguments Data stability must guarantee that all
-		 * probes with identical field names in a field of Evolving or
-		 * better Name stability have identical argument signatures.
-		 */
-		if (m > 0) {
-			if (pvp->pv_desc.dtvd_attr.dtpa_args.dtat_data <
-			    DTRACE_STABILITY_EVOLVING) {
-				(void) dt_set_errno(dtp, EDT_UNSTABLE);
-				return (NULL);
-			}
-
-
-			if (pvp->pv_desc.dtvd_attr.dtpa_mod.dtat_name >=
-			    DTRACE_STABILITY_EVOLVING && m_is_glob) {
-				(void) dt_set_errno(dtp, EDT_UNSTABLE);
-				return (NULL);
-			}
-
-			if (pvp->pv_desc.dtvd_attr.dtpa_func.dtat_name >=
-			    DTRACE_STABILITY_EVOLVING && f_is_glob) {
-				(void) dt_set_errno(dtp, EDT_UNSTABLE);
-				return (NULL);
-			}
-
-			if (pvp->pv_desc.dtvd_attr.dtpa_name.dtat_name >=
-			    DTRACE_STABILITY_EVOLVING && n_is_glob) {
-				(void) dt_set_errno(dtp, EDT_UNSTABLE);
-				return (NULL);
-			}
+	if (m > 0) {
+		if (pvp->desc.dtvd_attr.dtpa_args.dtat_data <
+		    DTRACE_STABILITY_EVOLVING && p_is_glob) {
+			dt_set_errno(dtp, EDT_UNSTABLE);
+			return NULL;
 		}
 
-		/*
-		 * If we matched a probe exported by dtrace(7D), then discover
-		 * the real attributes.  Otherwise grab the static declaration.
-		 */
-		if (pd.id != DTRACE_IDNONE)
-			prp = dt_probe_discover(pvp, &pd);
-		else
-			prp = dt_probe_lookup(pvp, pd.prb);
+		if (pvp->desc.dtvd_attr.dtpa_mod.dtat_name >=
+		    DTRACE_STABILITY_EVOLVING && m_is_glob) {
+			dt_set_errno(dtp, EDT_UNSTABLE);
+			return NULL;
+		}
 
-		if (prp == NULL)
-			return (NULL); /* dt_errno is set for us */
+		if (pvp->desc.dtvd_attr.dtpa_func.dtat_name >=
+		    DTRACE_STABILITY_EVOLVING && f_is_glob) {
+			dt_set_errno(dtp, EDT_UNSTABLE);
+			return NULL;
+		}
+
+		if (pvp->desc.dtvd_attr.dtpa_name.dtat_name >=
+		    DTRACE_STABILITY_EVOLVING && n_is_glob) {
+			dt_set_errno(dtp, EDT_UNSTABLE);
+			return NULL;
+		}
 	}
 
-	assert(pvp != NULL && prp != NULL);
+	prp = dt_probe_lookup(dtp, &pd);
+	if (!prp)
+		return NULL; /* dt_errno is set for us */
 
 	/*
 	 * Compute the probe description attributes by taking the minimum of
 	 * the attributes of the specified fields.  If no provider is specified
 	 * or a glob pattern is used for the provider, use Unstable attributes.
 	 */
-	if (pdp->prv[0] == '\0' || strisglob(pdp->prv))
+	if (p_is_glob)
 		pap = &_dtrace_prvdesc;
 	else
-		pap = &pvp->pv_desc.dtvd_attr;
+		pap = &pvp->desc.dtvd_attr;
 
 	pip->dtp_attr = pap->dtpa_provider;
 
@@ -635,98 +1011,218 @@ dt_probe_info(dtrace_hdl_t *dtp,
 	if (!n_is_glob)
 		pip->dtp_attr = dt_attr_min(pip->dtp_attr, pap->dtpa_name);
 
+	dt_probe_args_info(dtp, prp);
+
 	pip->dtp_arga = pap->dtpa_args;
-	pip->dtp_argv = prp->pr_argv;
-	pip->dtp_argc = prp->pr_argc;
+	pip->dtp_argv = prp->argv;
+	pip->dtp_argc = prp->argc;
 
-	return (prp);
+	return prp;
 }
 
 int
-dtrace_probe_info(dtrace_hdl_t *dtp,
-    const dtrace_probedesc_t *pdp, dtrace_probeinfo_t *pip)
+dtrace_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+		  dtrace_probeinfo_t *pip)
 {
-	return (dt_probe_info(dtp, pdp, pip) != NULL ? 0 : -1);
+	return dt_probe_info(dtp, pdp, pip) != NULL ? 0
+						    : -1;
 }
 
-/*ARGSUSED*/
 static int
-dt_probe_iter(dt_idhash_t *ihp, dt_ident_t *idp, dt_probe_iter_t *pit)
+dt_probe_gmatch(const dt_probe_t *prp, dtrace_probedesc_t *pdp)
 {
-	const dt_probe_t *prp = idp->di_data;
+#define MATCH_ONE(nam, n)						\
+	if (pdp->nam) {							\
+		if (pdp->id & (1 << n)) {				\
+			if (!dt_gmatch(prp->desc->nam, pdp->nam))	\
+				return 0;				\
+		} else if (strcmp(prp->desc->nam, pdp->nam) != 0)	\
+				return 0;				\
+	}
 
-	if (!dt_gmatch(prp->pr_name, pit->pit_pat))
-		return (0); /* continue on and examine next probe in hash */
+	MATCH_ONE(prv, 3)
+	MATCH_ONE(mod, 2)
+	MATCH_ONE(fun, 1)
+	MATCH_ONE(prb, 0)
 
-	pit->pit_desc.prb = prp->pr_name;
-	pit->pit_desc.id = idp->di_id;
-	pit->pit_matches++;
-
-	return (pit->pit_func(pit->pit_hdl, &pit->pit_desc, pit->pit_arg));
+	return 1;
 }
 
 int
-dtrace_probe_iter(dtrace_hdl_t *dtp,
-    const dtrace_probedesc_t *pdp, dtrace_probe_f *func, void *arg)
+dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+		  dtrace_probe_f *func, void *arg)
 {
-	const char *provider = pdp ? pdp->prv : NULL;
-	dtrace_id_t id = DTRACE_IDNONE;
+	dtrace_probedesc_t	desc;
+	dt_probe_t		tmpl;
+	dt_probe_t		*prp;
+	int			i, rv;
+	int			p_is_glob, m_is_glob, f_is_glob, n_is_glob;
+	int			matches = 0;
 
-	dtrace_probedesc_t pd;
-	dt_probe_iter_t pit;
-	int rv;
-	unsigned long int cmd;
+	/*
+	 * Special case: if no probe description is provided, we need to loop
+	 * over all registered probes.
+	 */
+	if (!pdp) {
+		for (i = 0; i < dtp->dt_probe_id; i++) {
+			if (!dtp->dt_probes[i])
+				continue;
+			if ((rv = func(dtp, dtp->dt_probes[i]->desc, arg)) != 0)
+				return rv;
 
-	memset(&pit, 0, sizeof (pit));
-	memset(&pd, 0, sizeof (pd));
-	pit.pit_hdl = dtp;
-	pit.pit_func = func;
-	pit.pit_arg = arg;
-	pit.pit_pat = pdp ? pdp->prb : NULL;
+			matches++;
+		}
 
-	for (pit.pit_pvp = dt_list_next(&dtp->dt_provlist);
-	    pit.pit_pvp != NULL; pit.pit_pvp = dt_list_next(pit.pit_pvp)) {
+		goto done;
+	}
 
-		if (pit.pit_pvp->pv_flags & DT_PROVIDER_IMPL)
-			continue; /* we'll get these later using dt_ioctl() */
+	/*
+	 * Special case: If a probe id is provided, we can do a direct lookup.
+	 */
+	if (pdp->id != DTRACE_IDNONE) {
+		if (pdp->id >= dtp->dt_probe_id)
+			goto done;
 
-		if (!dt_gmatch(pit.pit_pvp->pv_desc.dtvd_name, provider))
+		prp = dtp->dt_probes[pdp->id];
+		if (!prp)
+			goto done;
+
+		if ((rv = func(dtp, prp->desc, arg)) != 0)
+			return rv;
+
+		matches = 1;
+		goto done;
+	}
+
+	p_is_glob = pdp->prv[0] == '\0' || strisglob(pdp->prv);
+	m_is_glob = pdp->mod[0] == '\0' || strisglob(pdp->mod);
+	f_is_glob = pdp->fun[0] == '\0' || strisglob(pdp->fun);
+	n_is_glob = pdp->prb[0] == '\0' || strisglob(pdp->prb);
+
+	tmpl.desc = pdp;
+
+	/*
+	 * Special case: if the probe is fully specified (none of the elements
+	 * are empty of a glob pattern, we can do a direct lookup based on the
+	 * fully qualified probe name.
+	 */
+	if (p_is_glob + m_is_glob + f_is_glob + n_is_glob == 0) {
+		prp = dt_htab_lookup(dtp->dt_byfqn, &tmpl);
+		if (!prp)
+			goto done;
+
+		if ((rv = func(dtp, prp->desc, arg)) != 0)
+			return rv;
+
+		matches = 1;
+		goto done;
+	}
+
+	/*
+	 * If at least one probe name specification element is an exact string
+	 * to match, use the most specific one to perform a htab lookup.  The
+	 * order of preference is:
+	 *	function name (usually best distribution of probes in htab)
+	 *	probe name
+	 *	module name
+	 *	provider name (usually worst distribution of probes in htab)
+	 *
+	 * Further matching of probes will then continue based on other exact
+	 * string elements, and finally glob-pattern elements.
+	 *
+	 * To avoid checking multiple times whether an element in the probe
+	 * specification is a glob pattern, we (ab)use the desc->id value
+	 * (used at this point) to store this information a a bitmap.
+	 */
+	desc = *pdp;
+	desc.id = (p_is_glob << 3) | (m_is_glob << 2) | (f_is_glob << 1) |
+		  n_is_glob;
+
+#define HTAB_GMATCH(c, nam)						\
+	if (!c##_is_glob) {						\
+		prp = dt_htab_lookup(dtp->dt_by##nam, &tmpl);		\
+		if (!prp)						\
+			goto done;					\
+									\
+		desc.nam = NULL;					\
+		do {							\
+			if (!dt_probe_gmatch(prp, &desc))		\
+				continue;				\
+									\
+			if ((rv = func(dtp, prp->desc, arg)) != 0)	\
+				return rv;				\
+									\
+			matches++;					\
+		} while ((prp = prp->he_##nam.next));			\
+									\
+		goto done;						\
+	}
+
+	HTAB_GMATCH(f, fun)
+	HTAB_GMATCH(n, prb)
+	HTAB_GMATCH(m, mod)
+	HTAB_GMATCH(p, prv)
+
+	/*
+	 * If all probe specification elements are glob patterns, we have no
+	 * choice but to run through the entire list of probes, matching them
+	 * to the given probe description, one by one.
+	 */
+	for (i = 0; i < dtp->dt_probe_id; i++) {
+		prp = dtp->dt_probes[i];
+		if (!prp)
+			continue;
+		if (!dt_probe_gmatch(prp, &desc))
 			continue;
 
-		pit.pit_desc.prv = pit.pit_pvp->pv_desc.dtvd_name;
+		if ((rv = func(dtp, prp->desc, arg)) != 0)
+			return rv;
 
-		if ((rv = dt_idhash_iter(pit.pit_pvp->pv_probes,
-		    (dt_idhash_f *)dt_probe_iter, &pit)) != 0)
-			return (rv);
+		matches++;
 	}
 
-	if (pdp != NULL)
-		cmd = DTRACEIOC_PROBEMATCH;
-	else
-		cmd = DTRACEIOC_PROBES;
+done:
+	return matches ? matches
+		       : dt_set_errno(dtp, EDT_NOPROBE);
+}
 
-	for (;;) {
-		if (pdp != NULL)
-			memcpy(&pd, pdp, sizeof (pd));
+void
+dt_probe_init(dtrace_hdl_t *dtp)
+{
+	dtp->dt_byprv = dt_htab_create(&prv_htab_ops);
+	dtp->dt_bymod = dt_htab_create(&mod_htab_ops);
+	dtp->dt_byfun = dt_htab_create(&fun_htab_ops);
+	dtp->dt_byprb = dt_htab_create(&prb_htab_ops);
+	dtp->dt_byfqn = dt_htab_create(&fqn_htab_ops);
 
-		pd.id = id;
+	dtp->dt_probes = NULL;
+	dtp->dt_probes_sz = 0;
+	dtp->dt_probe_id = 1;
+}
 
-		if (dt_ioctl(dtp, cmd, &pd) != 0)
-			break;
-		else if ((rv = func(dtp, &pd, arg)) != 0)
-			return (rv);
+void
+dt_probe_stats(dtrace_hdl_t *dtp)
+{
+	dt_htab_stats("byprv", dtp->dt_byprv);
+	dt_htab_stats("bymod", dtp->dt_bymod);
+	dt_htab_stats("byfun", dtp->dt_byfun);
+	dt_htab_stats("byprb", dtp->dt_byprb);
+	dt_htab_stats("byfqn", dtp->dt_byfqn);
+}
 
-		pit.pit_matches++;
-		id = pd.id + 1;
-	}
+int
+dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
+{
+	dt_probe_t	*prp;
 
-	switch (errno) {
-	case ESRCH:
-	case EBADF:
-		return (pit.pit_matches ? 0 : dt_set_errno(dtp, EDT_NOPROBE));
-	case EINVAL:
-		return (dt_set_errno(dtp, EDT_BADPGLOB));
-	default:
-		return (dt_set_errno(dtp, errno));
-	}
+	if (id >= dtp->dt_probe_id)
+		return dt_set_errno(dtp, EDT_NOPROBE);
+
+	prp = dtp->dt_probes[id];
+	if (!prp)
+		return dt_set_errno(dtp, EDT_NOPROBE);
+
+	memcpy(pdp, prp->desc, sizeof(dtrace_probedesc_t));
+
+        return 0;
 }

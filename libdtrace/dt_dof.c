@@ -195,8 +195,6 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	uint_t nsecs = 0;
 
 	dof_difohdr_t *dofd;
-	dof_relohdr_t dofr;
-	dof_secidx_t relsec;
 
 	dof_secidx_t strsec = DOF_SECIDX_NONE;
 	dof_secidx_t hdrsec = DOF_SECIDX_NONE;
@@ -343,27 +341,27 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	dofpr.dofpr_name = dof_add_string(ddo, prp->pr_name);
 	dofpr.dofpr_nargv = dt_buf_len(&ddo->ddo_strs);
 
-	for (dnp = prp->pr_nargs; dnp != NULL; dnp = dnp->dn_list) {
+	for (dnp = prp->nargs; dnp != NULL; dnp = dnp->dn_list) {
 		(void) dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
 		    dnp->dn_type, buf, sizeof (buf)));
 	}
 
 	dofpr.dofpr_xargv = dt_buf_len(&ddo->ddo_strs);
 
-	for (dnp = prp->pr_xargs; dnp != NULL; dnp = dnp->dn_list) {
+	for (dnp = prp->xargs; dnp != NULL; dnp = dnp->dn_list) {
 		(void) dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
 		    dnp->dn_type, buf, sizeof (buf)));
 	}
 
 	dofpr.dofpr_argidx = dt_buf_len(&ddo->ddo_args) / sizeof (uint8_t);
 
-	for (i = 0; i < prp->pr_xargc; i++) {
-		dt_buf_write(dtp, &ddo->ddo_args, &prp->pr_mapping[i],
+	for (i = 0; i < prp->xargc; i++) {
+		dt_buf_write(dtp, &ddo->ddo_args, &prp->mapping[i],
 		    sizeof (uint8_t), sizeof (uint8_t));
 	}
 
-	dofpr.dofpr_nargc = prp->pr_nargc;
-	dofpr.dofpr_xargc = prp->pr_xargc;
+	dofpr.dofpr_nargc = prp->nargc;
+	dofpr.dofpr_xargc = prp->xargc;
 	dofpr.dofpr_pad1 = 0;
 	dofpr.dofpr_pad2 = 0;
 
@@ -483,13 +481,13 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_enoffs, sizeof (uint_t));
 
 	dofpv.dofpv_strtab = ddo->ddo_strsec;
-	dofpv.dofpv_name = dof_add_string(ddo, pvp->pv_desc.dtvd_name);
+	dofpv.dofpv_name = dof_add_string(ddo, pvp->desc.dtvd_name);
 
-	dofpv.dofpv_provattr = dof_attr(&pvp->pv_desc.dtvd_attr.dtpa_provider);
-	dofpv.dofpv_modattr = dof_attr(&pvp->pv_desc.dtvd_attr.dtpa_mod);
-	dofpv.dofpv_funcattr = dof_attr(&pvp->pv_desc.dtvd_attr.dtpa_func);
-	dofpv.dofpv_nameattr = dof_attr(&pvp->pv_desc.dtvd_attr.dtpa_name);
-	dofpv.dofpv_argsattr = dof_attr(&pvp->pv_desc.dtvd_attr.dtpa_args);
+	dofpv.dofpv_provattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_provider);
+	dofpv.dofpv_modattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_mod);
+	dofpv.dofpv_funcattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_func);
+	dofpv.dofpv_nameattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_name);
+	dofpv.dofpv_argsattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_args);
 
 	dofs[0] = dof_add_lsect(ddo, &dofpv, DOF_SECT_PROVIDER,
 	    sizeof (dof_secidx_t), 0, 0, sizeof (dof_provider_t));

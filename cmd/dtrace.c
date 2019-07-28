@@ -432,7 +432,7 @@ list_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	if (edp == *last)
 		return (0);
 
-	if (dtrace_probe_iter(g_dtp, &edp->dted_probe, list_probe, NULL) != 0) {
+	if (dtrace_probe_iter(g_dtp, &edp->dted_probe, list_probe, NULL) < 0) {
 		error("failed to match %s:%s:%s:%s: %s\n",
 		    edp->dted_probe.prv, edp->dted_probe.mod,
 		    edp->dted_probe.fun, edp->dted_probe.prb,
@@ -1411,7 +1411,7 @@ main(int argc, char *argv[])
 			list_prog(&g_cmdv[i]);
 
 		if (g_cmdc == 0)
-			(void) dtrace_probe_iter(g_dtp, NULL, list_probe, NULL);
+			dtrace_probe_iter(g_dtp, NULL, list_probe, NULL);
 
 		dtrace_close(g_dtp);
 		return (g_status);

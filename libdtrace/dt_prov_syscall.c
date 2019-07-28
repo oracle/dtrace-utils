@@ -21,6 +21,7 @@
  *	tracepoint/syscalls/sys_exit_<name>	syscall:vmlinux:<name>:return
  */
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,52 +31,55 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#if 0
-#include "dtrace_impl.h"
-#endif
 #include "dt_provider.h"
+#include "dt_probe.h"
 
-static const char	provname[] = "syscall";
-static const char	modname[] = "vmlinux";
+static const dtrace_pattr_t	pattr = {
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+};
 
-#define SYSCALLSFS	EVENTSFS "syscalls/"
+static const char		provname[] = "syscall";
+static const char		modname[] = "vmlinux";
 
-#define FIELD_PREFIX	"field:"
+#define SYSCALLSFS		EVENTSFS "syscalls/"
 
-static void get_id_and_argc(const char *name, int *id, int *argc)
+#define FIELD_PREFIX		"field:"
+
+#define SKIP_FIELDS_COUNT	5
+
+static int syscall_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			      int *idp, int *argcp, dt_argdesc_t **argvp)
 {
 	FILE	*f;
-	char    fn[256];
-	char    buf[1024];
+	char   	 fn[256];
+	int	rc;
 
-	*id = -1;
-	*argc = -5;		/* we skip the first five fields */
+	*idp = -1;
 
+	/*
+	 * We know that the probe name is either "entry" or "return", so we can
+	 * just check the first character.
+	 */
 	strcpy(fn, SYSCALLSFS);
-	strcat(fn, name);
+	if (prp->desc->prb[0] == 'e')
+		strcat(fn, "sys_enter_");
+	else
+		strcat(fn, "sys_exit_");
+	strcat(fn, prp->desc->fun);
 	strcat(fn, "/format");
 
 	f = fopen(fn, "r");
 	if (!f)
-		return;
+		return -ENOENT;
 
-	while (fgets(buf, sizeof(buf), f)) {
-		char	*p = buf;
-
-		if (sscanf(buf, "ID: %d\n", id) == 1)
-			continue;
-
-		while (isspace(*p))
-			p++;
-
-		if (!memcmp(p, FIELD_PREFIX, sizeof(FIELD_PREFIX) - 1))
-			(*argc)++;
-	}
-
+	rc = tp_event_info(dtp, f, SKIP_FIELDS_COUNT, idp, argcp, argvp);
 	fclose(f);
 
-	if (*argc < 0)
-		*argc = 0;
+	return rc;
 }
 
 #define PROBE_LIST	TRACEFS "available_events"
@@ -85,11 +89,15 @@ static void get_id_and_argc(const char *name, int *id, int *argc)
 #define EXIT_PREFIX	"sys_exit_"
 
 /* can the PROBE_LIST file and add probes for any syscalls events. */
-static int syscall_populate(void)
+static int syscall_populate(dtrace_hdl_t *dtp)
 {
-	FILE			*f;
-	char			buf[256];
-	int			n = 0;
+	dt_provider_t	*prv;
+	FILE		*f;
+	char		buf[256];
+	int		n = 0;
+
+	if (!(prv = dt_provider_create(dtp, "syscall", &dt_syscall, &pattr)))
+		return 0;
 
 	f = fopen(PROBE_LIST, "r");
 	if (f == NULL)
@@ -97,7 +105,6 @@ static int syscall_populate(void)
 
 	while (fgets(buf, sizeof(buf), f)) {
 		char	*p;
-		int	id, argc;
 
 		/* Here buf is "group:event".  */
 		p = strchr(buf, '\n');
@@ -127,22 +134,15 @@ static int syscall_populate(void)
 		 * events that match "sys_enter_*" or "sys_exit_*".
 		 */
 		if (!memcmp(p, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1)) {
-			get_id_and_argc(p, &id, &argc);
 			p += sizeof(ENTRY_PREFIX) - 1;
-#if 0
-			dt_probe_new(&dt_syscall, provname, modname, p,
-				     "entry", id, argc);
-			n++;
-#endif
-			n++;
+			if (dt_probe_insert(dtp, prv, provname, modname, p,
+					    "entry"))
+				n++;
 		} else if (!memcmp(p, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1)) {
-			get_id_and_argc(p, &id, &argc);
 			p += sizeof(EXIT_PREFIX) - 1;
-#if 0
-			dt_probe_new(&dt_syscall, provname, modname, p,
-				     "return", id, argc);
-#endif
-			n++;
+			if (dt_probe_insert(dtp, prv, provname, modname, p,
+					    "return"))
+				n++;
 		}
 	}
 
@@ -227,9 +227,10 @@ static int syscall_attach(const char *name, int bpf_fd)
 }
 #endif
 
-dt_provmod_t	dt_syscall = {
+dt_provimpl_t	dt_syscall = {
 	.name		= "syscall",
 	.populate	= &syscall_populate,
+	.probe_info	= &syscall_probe_info,
 #if 0
 	.resolve_event	= &systrace_resolve_event,
 	.attach		= &syscall_attach,

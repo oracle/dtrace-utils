@@ -96,9 +96,11 @@ static const dtrace_diftype_t dt_void_rtype = {
 	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, 0
 };
 
+#ifdef FIXME
 static const dtrace_diftype_t dt_int_rtype = {
 	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, sizeof (uint64_t)
 };
+#endif
 
 static void *dt_compile(dtrace_hdl_t *, int, dtrace_probespec_t, void *,
     uint_t, int, char *const[], FILE *, const char *);
@@ -268,6 +270,7 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 		yypcb->pcb_stmt = NULL;
 }
 
+#ifdef FIXME
 /*
  * For the first element of an aggregation tuple or for printa(), we create a
  * simple DIF program that simply returns the immediate value that is the ID
@@ -1118,6 +1121,7 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "not yet supported\n", dnp->dn_expr->dn_ident->di_name);
 	}
 }
+#endif
 
 static void
 dt_compile_entire_clause(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
@@ -1130,6 +1134,7 @@ dt_compile_entire_clause(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *s
 	ap->dtad_kind = DTRACEACT_DIFEXPR;
 }
 
+#ifdef FIXME
 static void
 dt_compile_exp(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
@@ -1591,6 +1596,7 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		ap->dtad_difo = dt_as(yypcb);
 	}
 }
+#endif
 
 static void
 dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
@@ -1711,7 +1717,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	 */
 	if (isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
 	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
-	    pvp->pv_desc.dtvd_priv.dtpp_flags & DTRACE_PRIV_PROC) &&
+	    pvp->desc.dtvd_priv.dtpp_flags & DTRACE_PRIV_PROC) &&
 	    dt_pid_create_probes(pdp, dtp, yypcb) != 0) {
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 	}
@@ -1728,7 +1734,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 		yypcb->pcb_pinfo.dtp_attr = pap->dtpa_provider;
 		yypcb->pcb_pinfo.dtp_arga = pap->dtpa_args;
 	} else {
-		pap = &prp->pr_pvp->pv_desc.dtvd_attr;
+		pap = &prp->prov->desc.dtvd_attr;
 		err = 0;
 	}
 

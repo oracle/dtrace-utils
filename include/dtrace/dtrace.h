@@ -25,7 +25,9 @@
 #include <dtrace/status.h>
 #include <dtrace/conf.h>
 #include <dtrace/faults.h>
-#include <dtrace/arg.h>
+#if 0
+# include <dtrace/arg.h>
+#endif
 #include <dtrace/stability.h>
 #include <dtrace/helpers.h>
 

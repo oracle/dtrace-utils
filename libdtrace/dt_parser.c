@@ -2507,7 +2507,8 @@ dt_node_provider(char *name, dt_node_t *probes)
 	 */
 	if ((dnp->dn_provider = dt_provider_lookup(dtp, name)) != NULL)
 		dnp->dn_provred = B_TRUE;
-	else if ((dnp->dn_provider = dt_provider_create(dtp, name)) == NULL)
+	else if (!(dnp->dn_provider = dt_provider_create(dtp, name, NULL,
+							 &_dtrace_prvdesc)))
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 	else
 		dnp->dn_provider->pv_flags |= DT_PROVIDER_INTF;
@@ -4250,7 +4251,7 @@ dt_node_provider_cmp_argv(dt_provider_t *pvp, dt_node_t *pnp, const char *kind,
 		dnerror(pnp, D_PROV_INCOMPAT,
 		    "probe %s:%s %s prototype mismatch:\n"
 		    "\t current: %u arg%s\n\tprevious: %u arg%s\n",
-		    pvp->pv_desc.dtvd_name, prp->pr_ident->di_name, kind,
+		    pvp->desc.dtvd_name, prp->pr_ident->di_name, kind,
 		    new_argc, new_argc != 1 ? "s" : "",
 		    old_argc, old_argc != 1 ? "s" : "");
 	}
@@ -4264,7 +4265,7 @@ dt_node_provider_cmp_argv(dt_provider_t *pvp, dt_node_t *pnp, const char *kind,
 		dnerror(pnp, D_PROV_INCOMPAT,
 		    "probe %s:%s %s prototype argument #%u mismatch:\n"
 		    "\t current: %s\n\tprevious: %s\n",
-		    pvp->pv_desc.dtvd_name, prp->pr_ident->di_name, kind, i + 1,
+		    pvp->desc.dtvd_name, prp->pr_ident->di_name, kind, i + 1,
 		    dt_node_type_name(new_argv, n1, sizeof (n1)),
 		    dt_node_type_name(old_argv, n2, sizeof (n2)));
 	}
@@ -4281,21 +4282,21 @@ dt_node_provider_cmp(dt_provider_t *pvp, dt_node_t *pnp,
     dt_probe_t *old, dt_probe_t *new)
 {
 	dt_node_provider_cmp_argv(pvp, pnp, "output",
-	    old->pr_xargc, old->pr_xargs, new->pr_xargc, new->pr_xargs);
+	    old->xargc, old->xargs, new->xargc, new->xargs);
 
-	if (old->pr_nargs != old->pr_xargs && new->pr_nargs != new->pr_xargs) {
+	if (old->nargs != old->xargs && new->nargs != new->xargs) {
 		dt_node_provider_cmp_argv(pvp, pnp, "input",
-		    old->pr_nargc, old->pr_nargs, new->pr_nargc, new->pr_nargs);
+		    old->nargc, old->nargs, new->nargc, new->nargs);
 	}
 
-	if (old->pr_nargs == old->pr_xargs && new->pr_nargs != new->pr_xargs) {
+	if (old->nargs == old->xargs && new->nargs != new->xargs) {
 		if (pvp->pv_flags & DT_PROVIDER_IMPL) {
 			dnerror(pnp, D_PROV_INCOMPAT,
 			    "provider interface mismatch: %s\n"
 			    "\t current: probe %s:%s has an output prototype\n"
 			    "\tprevious: probe %s:%s has no output prototype\n",
-			    pvp->pv_desc.dtvd_name, pvp->pv_desc.dtvd_name,
-			    new->pr_ident->di_name, pvp->pv_desc.dtvd_name,
+			    pvp->desc.dtvd_name, pvp->desc.dtvd_name,
+			    new->pr_ident->di_name, pvp->desc.dtvd_name,
 			    old->pr_ident->di_name);
 		}
 
@@ -4319,12 +4320,12 @@ dt_cook_probe(dt_node_t *dnp, dt_provider_t *pvp)
 	char n1[DT_TYPE_NAMELEN];
 	char n2[DT_TYPE_NAMELEN];
 
-	if (prp->pr_nargs == prp->pr_xargs)
+	if (prp->nargs == prp->xargs)
 		return;
 
-	for (i = 0; i < prp->pr_xargc; i++) {
-		dt_node_t *xnp = prp->pr_xargv[i];
-		dt_node_t *nnp = prp->pr_nargv[prp->pr_mapping[i]];
+	for (i = 0; i < prp->xargc; i++) {
+		dt_node_t *xnp = prp->xargv[i];
+		dt_node_t *nnp = prp->nargv[prp->mapping[i]];
 
 		if ((dxp = dt_xlator_lookup(dtp,
 		    nnp, xnp, DT_XLATE_FUZZY)) != NULL) {
@@ -4338,7 +4339,7 @@ dt_cook_probe(dt_node_t *dnp, dt_provider_t *pvp)
 
 		dnerror(dnp, D_PROV_PRXLATOR, "translator for %s:%s output "
 		    "argument #%u from %s to %s is not defined\n",
-		    pvp->pv_desc.dtvd_name, dnp->dn_ident->di_name, i + 1,
+		    pvp->desc.dtvd_name, dnp->dn_ident->di_name, i + 1,
 		    dt_node_type_name(nnp, n1, sizeof (n1)),
 		    dt_node_type_name(xnp, n2, sizeof (n2)));
 	}
@@ -4358,7 +4359,7 @@ dt_cook_provider(dt_node_t *dnp, uint_t idflags)
 	 */
 	for (pnp = dnp->dn_probes; pnp != NULL; pnp = pnp->dn_list) {
 		const char *probename = pnp->dn_ident->di_name;
-		dt_probe_t *prp = dt_probe_lookup(pvp, probename);
+		dt_probe_t *prp = dt_probe_lookup2(pvp, probename);
 
 		assert(pnp->dn_kind == DT_NODE_PROBE);
 

@@ -1500,7 +1500,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				    "no such provider %s", pname));
 			}
 
-			if ((prp = dt_probe_lookup(pvp, p)) == NULL) {
+			if ((prp = dt_probe_lookup2(pvp, p)) == NULL) {
 				return (dt_link_error(dtp, elf, fd, bufs,
 				    "no such probe %s", p));
 			}

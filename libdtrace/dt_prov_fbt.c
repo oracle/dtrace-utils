@@ -37,27 +37,37 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#if 0
-#include "dtrace_impl.h"
-#endif
 #include "dt_provider.h"
+#include "dt_probe.h"
 
-#define KPROBE_EVENTS	TRACEFS "kprobe_events"
-#define PROBE_LIST	TRACEFS "available_filter_functions"
+#define KPROBE_EVENTS		TRACEFS "kprobe_events"
+#define PROBE_LIST		TRACEFS "available_filter_functions"
 
-static const char	provname[] = "fbt";
-static const char	modname[] = "vmlinux";
+static const char		provname[] = "fbt";
+static const char		modname[] = "vmlinux";
+
+static const dtrace_pattr_t	pattr = {
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+};
 
 /*
  * Scan the PROBE_LIST file and add entry and return probes for every function
  * that is listed.
  */
-static int fbt_populate(void)
+static int fbt_populate(dtrace_hdl_t *dtp)
 {
-	FILE			*f;
-	char			buf[256];
-	char			*p;
-	int			n = 0;
+	dt_provider_t	*prv;
+	FILE		*f;
+	char		buf[256];
+	char		*p;
+	int		n = 0;
+
+	if (!(prv = dt_provider_create(dtp, "fbt", &dt_fbt, &pattr)))
+		return 0;
 
 	f = fopen(PROBE_LIST, "r");
 	if (f == NULL)
@@ -97,13 +107,12 @@ static int fbt_populate(void)
 				p++;
 		}
 
-#if 0
-		dt_probe_new(&dt_fbt, provname, p ? p : modname, buf, "entry",
-			     0, 0);
-		dt_probe_new(&dt_fbt, provname, p ? p : modname, buf, "return",
-			     0, 0);
-#endif
-		n += 2;
+		if (dt_probe_insert(dtp, prv, provname, p ? p : modname, buf,
+				    "entry"))
+			n++;
+		if (dt_probe_insert(dtp, prv, provname, p ? p : modname, buf,
+				    "return"))
+			n++;
 	}
 
 	fclose(f);
@@ -209,7 +218,7 @@ static int fbt_attach(const char *name, int bpf_fd)
 }
 #endif
 
-dt_provmod_t	dt_fbt = {
+dt_provimpl_t	dt_fbt = {
 	.name		= "fbt",
 	.populate	= &fbt_populate,
 #if 0

@@ -17,6 +17,7 @@
  *
  *	tracepoint/<group>/<name>		sdt:<group>::<name>
  */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,18 +26,206 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#if 0
-#include "dtrace_impl.h"
-#endif
 #include "dt_provider.h"
+#include "dt_probe.h"
 
-static const char	provname[] = "sdt";
-static const char	modname[] = "vmlinux";
+static const dtrace_pattr_t	pattr = {
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+};
 
-#define PROBE_LIST	TRACEFS "available_events"
+static const char		provname[] = "sdt";
+static const char		modname[] = "vmlinux";
 
-#define KPROBES		"kprobes:"
-#define SYSCALLS	"syscalls:"
+#define PROBE_LIST		TRACEFS "available_events"
+
+#define KPROBES			"kprobes:"
+#define SYSCALLS		"syscalls:"
+
+#define FIELD_PREFIX		"field:"
+
+#define SKIP_FIELDS_COUNT	4
+
+/*
+ * Parse the EVENTSFS/<group>/<event>/format file to determine the event id and
+ * the argument types.
+ *
+ * The event id easy enough to parse out, because it appears on a line in the
+ * following format:
+ *	ID: <num>
+ *
+ * The argument types are a bit more complicated.  The basic format for each
+ * argument is:
+ *	field:<var-decl>; offset:<num> size:<num> signed:(0|1);
+ * The <var-decl> may be prefixed by __data_loc, which is a tag that we can
+ * ignore.  The <var-decl> does contain an identifier name that dtrace cannot
+ * cope with because it expects just the type specification.  Getting rid of
+ * the identifier isn't as easy because it may be suffixed by one or more
+ * array dimension specifiers (and those are part of the type).
+ */
+int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
+		  dt_argdesc_t **argvp)
+{
+	char		buf[1024];
+	int		argc;
+	size_t		argsz = 0;
+	dt_argdesc_t	*argv = NULL;
+	char		*strp;
+
+	*idp = -1;
+
+	/*
+	 * Pass 1:
+	 * Determine the event id and the number of arguments (along with the
+	 * total size of all type strings together).
+	 */
+	argc = -skip;
+	while (fgets(buf, sizeof(buf), f)) {
+		char	*p = buf;
+
+		if (sscanf(buf, "ID: %d\n", idp) == 1)
+			continue;
+
+		if (sscanf(buf, " field:%[^;]", p) <= 0)
+			continue;
+		sscanf(p, "__data_loc %[^;]", p);
+
+		/* We found a field: description - see if we should skip it. */
+		if (argc++ < 0)
+			continue;
+
+		/*
+		 * We over-estimate the space needed (pass 2 will strip off the
+		 * identifier name).
+		 */
+		argsz += strlen(p) + 1;
+	}
+
+	/*
+	 * If we saw less fields than expected, we flag an error.
+	 * If there are no arguments, we are done.
+	 */
+	if (argc < 0)
+		return -EINVAL;
+	if (argc == 0)
+		goto done;
+
+	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t) + argsz);
+	if (!argv)
+		return -ENOMEM;
+	strp = (char *)(argv + argc);
+
+	/*
+	 * Pass 2:
+	 * Fill in the actual argument datatype strings.
+	 */
+	rewind(f);
+	argc = -skip;
+	while (fgets(buf, sizeof(buf), f)) {
+		char	*p = buf;
+		size_t	l;
+
+		if (sscanf(buf, " field:%[^;]", p) <= 0)
+			continue;
+		sscanf(p, "__data_loc %[^;]", p);
+
+		/* We found a field: description - see if we should skip it. */
+		if (argc < 0)
+			goto skip;
+
+		/*
+		 * If the last character is not ']', the last token must be the
+		 * identifier name.  Get rid of it.
+		 */
+		l = strlen(p);
+		if (p[l - 1] != ']') {
+			char	*q;
+
+			if ((q = strrchr(p, ' ')))
+				*q = '\0';
+
+			l = q - p;
+			memcpy(strp, p, l);
+		} else {
+			char	*s, *q;
+			int	n;
+
+			/*
+			 * The identifier is followed by at least one array
+			 * size specification.  Find the beginning of the
+			 * sequence of (one or more) array size specifications.
+			 * We also skip any spaces in front of [ characters.
+			 */
+			s = p + l - 1;
+			for (;;) {
+				while (*(--s) != '[') ;
+				while (*(--s) == ' ') ;
+				if (*s != ']')
+					break;
+			}
+
+			/*
+			 * Insert a \0 byte right before the array size
+			 * specifications.  The \0 byte overwrites the last
+			 * character of the identifier which is fine because we
+			 * know that the identifier is at least one character
+			 * long.
+			 */
+			*(s++) = '\0';
+			if ((q = strrchr(p, ' ')))
+				*q = '\0';
+
+			l = q - p;
+			memcpy(strp, p, l);
+			n = strlen(s);
+			memcpy(strp + l, s, n);
+			l += n;
+		}
+
+		argv[argc].mapping = argc;
+		argv[argc].native = strp;
+		argv[argc].xlate = NULL;
+
+		strp += l + 1;
+
+skip:
+		argc++;
+	}
+
+done:
+	*argcp = argc;
+	*argvp = argv;
+
+	return 0;
+}
+
+static int sdt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			  int *idp, int *argcp, dt_argdesc_t **argvp)
+{
+	FILE	*f;
+	char   	 fn[256];
+	int	rc;
+
+	*idp = -1;
+
+	strcpy(fn, EVENTSFS);
+	strcat(fn, prp->desc->mod);
+	strcat(fn, "/");
+	strcat(fn, prp->desc->prb);
+	strcat(fn, "/format");
+
+	f = fopen(fn, "r");
+	if (!f)
+		return -ENOENT;
+
+	rc = tp_event_info(dtp, f, SKIP_FIELDS_COUNT, idp, argcp, argvp);
+	fclose(f);
+
+	return rc;
+}
 
 /*
  * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.  When
@@ -44,12 +233,16 @@ static const char	modname[] = "vmlinux";
  * kprobes:<name>.  We need to ignore them because DTrace already accounts for
  * them as FBT probes.
  */
-static int sdt_populate(void)
+static int sdt_populate(dtrace_hdl_t *dtp)
 {
-	FILE			*f;
-	char			buf[256];
-	char			*p;
-	int			n = 0;
+	dt_provider_t	*prv;
+	FILE		*f;
+	char		buf[256];
+	char		*p;
+	int		n = 0;
+
+	if (!(prv = dt_provider_create(dtp, "sdt", &dt_sdt, &pattr)))
+		return 0;
 
 	f = fopen(PROBE_LIST, "r");
 	if (f == NULL)
@@ -62,11 +255,9 @@ static int sdt_populate(void)
 
 		p = strchr(buf, ':');
 		if (p == NULL) {
-#if 0
-			dt_probe_new(&dt_sdt, provname, modname, NULL, buf,
-				     0, 0);
-#endif
-			n++;
+			if (dt_probe_insert(dtp, prv, provname, modname, "",
+					    buf))
+				n++;
 		} else if (memcmp(buf, KPROBES, sizeof(KPROBES) - 1) == 0) {
 			continue;
 		} else if (memcmp(buf, SYSCALLS, sizeof(SYSCALLS) - 1) == 0) {
@@ -74,10 +265,8 @@ static int sdt_populate(void)
 		} else {
 			*p++ = '\0';
 
-#if 0
-			dt_probe_new(&dt_sdt, provname, buf, NULL, p, 0, 0);
-#endif
-			n++;
+			if (dt_probe_insert(dtp, prv, provname, buf, "", p))
+				n++;
 		}
 	}
 
@@ -154,9 +343,10 @@ printf("[%s]\n", efn);
 }
 #endif
 
-dt_provmod_t	dt_sdt = {
+dt_provimpl_t	dt_sdt = {
 	.name		= "sdt",
 	.populate	= &sdt_populate,
+	.probe_info	= &sdt_probe_info,
 #if 0
 	.resolve_event	= &sdt_resolve_event,
 	.attach		= &sdt_attach,
