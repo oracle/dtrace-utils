@@ -651,15 +651,6 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	dt_probe_t		*prp;
 	dtrace_probedesc_t	*desc;
 
-	if ((desc = dt_alloc(dtp, sizeof(dtrace_probedesc_t))) == NULL)
-		return NULL;
-
-	desc->id = DTRACE_IDNONE;
-	desc->prv = strdup(prv);
-	desc->mod = strdup(mod);
-	desc->fun = strdup(fun);
-	desc->prb = strdup(prb);
-
 	/* If necessary, grow the probes array. */
 	if (dtp->dt_probe_id + 1 > dtp->dt_probes_sz) {
 		dt_probe_t **nprobes;
@@ -687,7 +678,17 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	if ((prp = dt_zalloc(dtp, sizeof(dt_probe_t))) == NULL)
 		return NULL;
 
+	if ((desc = dt_alloc(dtp, sizeof(dtrace_probedesc_t))) == NULL) {
+		dt_free(dtp, prp);
+		return NULL;
+	}
+
 	desc->id = dtp->dt_probe_id++;
+	desc->prv = strdup(prv);
+	desc->mod = strdup(mod);
+	desc->fun = strdup(fun);
+	desc->prb = strdup(prb);
+
 	prp->desc = desc;
 	prp->prov = prov;
 
