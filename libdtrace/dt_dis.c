@@ -633,7 +633,7 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	dtrace_actdesc_t *ap = sdp->dtsd_action;
 	const char *fmt = NULL;
 
-	if (ap == NULL)
+	if (predp == NULL && ap == NULL)
 		return 0;
 
 	if (d->last_ecb != sdp->dtsd_ecbdesc) {
@@ -651,9 +651,14 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 
 	dt_dis_pred(predp, d->fp);
 
-	do {
+	while (ap) {
 		dt_dis_action(ap, d->fp, fmt);
-	} while (ap != sdp->dtsd_action_last && (ap = ap->dtad_next) != NULL);
+
+		if (ap == sdp->dtsd_action_last)
+			break;
+
+		ap = ap->dtad_next;
+	}
 
 	return 0;
 }
