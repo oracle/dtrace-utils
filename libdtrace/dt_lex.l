@@ -536,7 +536,13 @@ if (yypcb->pcb_token != 0) {
 <S0>";"		return (';');
 <S0>{RGX_WS}	; /* discard */
 <S0>"\\"\n	; /* discard */
-<S0>.		yyerror("syntax error near \"%c\"\n", yytext[0]);
+<S0>.		{
+			if (yytext[0] == '\0')
+				yyerror("syntax error near end-of-input\n");
+			else
+				yyerror("syntax error near \"%c\"\n",
+					yytext[0]);
+		}
 
 <S1>"/*"	yyerror("/* encountered inside a comment\n");
 <S1>"*/"	BEGIN(yypcb->pcb_cstate);
