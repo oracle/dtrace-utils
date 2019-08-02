@@ -2593,7 +2593,8 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 out:
-	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3)) {
+	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3) &&
+	    yypcb->pcb_root) {
 		fprintf(stderr, "Parse tree (Pass 3):\n");
 		dt_node_printr(yypcb->pcb_root, stderr, 1);
 	}
