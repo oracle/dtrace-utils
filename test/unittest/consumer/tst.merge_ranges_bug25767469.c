@@ -59,7 +59,7 @@ int nerrors = 0;
  */
 
 void check_module_ranges
-(size_t n, dtrace_addr_range_t *addrs, char *name, char type)
+(size_t n, dtrace_addr_range_t *addrs, const char *name, char type)
 {
 	int i;
 	/*
