@@ -1129,6 +1129,24 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	else if (kernel_flag == 0)
 		kernel_flag = -1;
 
+#define KERNEL_FLAG_INIT_SCRATCH 0x80
+	/*
+	 * Another odd case is the .init.scratch section introduced by e1bfa87
+	 * ("x86/mm: Create a workarea in the kernel for SME early encryption"),
+	 * which appears in 5.2-rc6.  We ignore this section by setting the
+	 * KERNEL_FLAG_INIT_SCRATCH flag in kernel_flag.
+	 */
+	if (strcmp(sym_name, "__init_scratch_begin") == 0) {
+		kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (strcmp(sym_name, "__init_scratch_end") == 0) {
+		kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
+		return 0;
+	}
+#undef KERNEL_FLAG_INIT_SCRATCH
+
 	/*
 	 * Special case: rename the 'ctf' module to 'shared_ctf': the
 	 * parent-name lookup code presumes that names that appear in CTF's

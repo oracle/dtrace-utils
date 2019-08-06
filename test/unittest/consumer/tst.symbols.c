@@ -52,7 +52,7 @@ int read_symbols() {
 	char *line = NULL;
 	size_t line_n = 0;
 	FILE *fd;
-	int n_skip = 0, n_absolute = 0;
+	int n_skip = 0, n_absolute = 0, kernel_flag = 0;
 
 	printf("read_symbols():\n");
 	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL) return 1;
@@ -90,11 +90,22 @@ int read_symbols() {
 		}
 
 		/*
-		 * Skip absolute symbols.  See dt_module.c, dt_modsym_update().
+		 * See dt_module.c, dt_modsym_update().
 		 */
 		if (symbols[nsymbols].type == 'a' ||
 		    symbols[nsymbols].type == 'A')
 			continue;
+#define KERNEL_FLAG_INIT_SCRATCH 0x80
+		if (strcmp(symname, "__init_scratch_begin") == 0) {
+			kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
+			continue;
+		} else if (strcmp(symname, "__init_scratch_end") == 0) {
+			kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
+			continue;
+		} else if (kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
+			continue;
+		}
+#undef KERNEL_FLAG_INIT_SCRATCH
 
 		/*
 		 * In libdtrace/dt_module.c function dt_modsym_update(),

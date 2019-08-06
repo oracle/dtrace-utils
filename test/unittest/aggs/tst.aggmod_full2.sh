@@ -53,6 +53,8 @@ int main(int argc, char **argv) {
 	char *line = NULL;
 	size_t line_n = 0;
 	FILE *fd;
+	int kernel_flag = 0;
+
 	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL) return 1;
 	while ((getline(&line, &line_n, fd)) > 0) {
 		long long unsigned addr, size;
@@ -72,6 +74,17 @@ int main(int argc, char **argv) {
 		/* see dt_module.c dt_modsym_update() */
 		if (type == 'a' || type == 'A')
 			continue;
+#define KERNEL_FLAG_INIT_SCRATCH 0x80
+		if (strcmp(symname, "__init_scratch_begin") == 0) {
+			kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
+			continue;
+		} else if (strcmp(symname, "__init_scratch_end") == 0) {
+			kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
+			continue;
+		} else if (kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
+			continue;
+		}
+#undef KERNEL_FLAG_INIT_SCRATCH
 
 		/* zero-size symbol might mark the end of a range */
 		if (size == 0)
