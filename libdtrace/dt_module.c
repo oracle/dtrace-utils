@@ -1058,6 +1058,27 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 }
 
 /*
+ * We will use kernel_flag to track which symbols we are reading.
+ *
+ * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
+ *
+ * The last kernel address is expected to have the name "_end",
+ * but there might also be a symbol "__brk_limit" with that address.
+ * Set the KERNEL_FLAG_KERNEL_END flag while these addresses are read.
+ *
+ * Otherwise, symbols in /proc/kallmodsyms will normally belong to
+ * loadable modules.  Set the KERNEL_FLAG_LOADABLE flag once these
+ * symbols are reached.
+ *
+ * Another odd case is the .init.scratch section introduced by e1bfa87
+ * ("x86/mm: Create a workarea in the kernel for SME early encryption"),
+ * which appears in 5.2-rc6.  We ignore this section by setting the
+ * KERNEL_FLAG_INIT_SCRATCH flag.
+ */
+#define KERNEL_FLAG_KERNEL_END 1
+#define KERNEL_FLAG_LOADABLE 2
+#define KERNEL_FLAG_INIT_SCRATCH 4
+/*
  * Update our module cache.  For each line in /proc/kallmodsyms, create or
  * populate the dt_module_t for this module (if necessary), extend its address
  * ranges as needed, and add the symbol in this line to the module's kernel
@@ -1070,7 +1091,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 static int
 dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 {
-	static int kernel_flag = 1;
+	static uint_t kernel_flag = 0;
 	static dt_module_t *last_dmp = NULL;
 	static int last_sym_text = -1;
 
@@ -1111,23 +1132,23 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 		return 0;
 
 	/*
-	 * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
-	 * The last kernel address is expected to have the name "_end".
-	 * (There might also be a symbol "__brk_limit" with that address.)
-	 * Thereafter, symbols in /proc/kallmodsyms will belong to loadable
-	 * modules.
-	 *
-	 * kernel_flag==+1 means normal kernel (and built-in-module) symbols
-	 * kernel_flag==-1 means loadable-module symbols
-	 * kernel_flag==0 is an odd in-between case for the section markers
-	 *   (they signal the imminent end of the kernel section)
+	 * Skip over the .init.scratch section.
 	 */
+	if (strcmp(sym_name, "__init_scratch_begin") == 0) {
+		kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (strcmp(sym_name, "__init_scratch_end") == 0) {
+		kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
+		return 0;
+	}
 
 	if ((strcmp(sym_name, "_end") == 0) ||
 	    (strcmp(sym_name, "__brk_limit") == 0))
-		kernel_flag = 0;
-	else if (kernel_flag == 0)
-		kernel_flag = -1;
+		kernel_flag |= KERNEL_FLAG_KERNEL_END;
+	else if (kernel_flag & KERNEL_FLAG_KERNEL_END)
+		kernel_flag = KERNEL_FLAG_LOADABLE;
 
 	/*
 	 * Special case: rename the 'ctf' module to 'shared_ctf': the
@@ -1209,7 +1230,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	if (sym_size == 0)
 		return 0;
 
-	if (kernel_flag >= 0) {
+	if ((kernel_flag & KERNEL_FLAG_LOADABLE) == 0) {
 		/*
 		 * The kernel and built-in modules are in address order
 		 * in /proc/kallmodsyms.
