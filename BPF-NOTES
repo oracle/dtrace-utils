@@ -1,0 +1,157 @@
+- Perf events are created in enabled (inactive) state when you do not set
+  attr.disabled = 1.  That is convenient because no explicit enabling is
+  needed.  However, we may want to created probe events in disabled state in
+  the future (i.e. avoid them from firing) until we are ready to start the
+  tracing for real (equiv. to the old GO ioctl).  We'd need to run through the
+  list of probes we need (created perf events), enable them, and then flip
+  the master switch.
+
+- A usueful feature (that I think current DTrace cannot even do - need to
+  check) is listing which executable that are currently running on the system
+  have USDT support.
+
+- Probing a running executable using USDT probes that are defined in it is
+  an important use case.  Can we determine the USDT info from the running
+  executable as an alternative to the more clunky DTrace-style constructor
+  that feeds the USDT info to DTrace as DOF through the helper ioctl interface?
+
+- Possible patterns that could be optimized:
+
+	mov %rY, IMM		becomes		add %rX, IMM
+	add %rX, %rY
+
+  Another one (IMM fits in a 32-bit signed value):
+
+	mov %rY, IMM		becomes		stw [%rX+OFF], IMM
+	stw [%rX+OFF], %rY
+
+  Also, if IMM fits in a 32-bit signed value, the following optimization can be
+  performed:
+
+	lddw %rX, ...		becomes		lddw %rX, ...
+	add %rX, IMM				stb [%rX+IMM], %rY
+	stb [%rX+0], %rY
+
+- Local variables can be stored on the stack, although that will limit us to
+  64 local variables (or 32, if we reserve half the stack as scratch space for
+  constructing strings and map keys).  That ought to be enough.  Note that
+  variables that store strings or structures that are larger than 8 bytes are
+  stored by reference, i.e. the slot on the stack stores an offset into a
+  memory block obtained as map value from an array map.
+
+  This means that in its most basic form, local variable i can be loaded from
+  [%fp-(i*8)-8].
+
+- Global variables can be stored in an array map, indexed by the variable id,
+  and with a u64 value.  Variables that store data items that are larger than
+  64-bits will store an offset into a memory block obtained as a map value from
+  an array map.
+
+  Due to the requirement that key and value are to be on the stack for map
+  updates, we need to generate code that does the following:
+
+	- Store global variable id in stack slot
+	- Store value in stack slot
+	- Set up arguments for bpf_map_update_elem helper call
+	- Call bpf_map_update_elem helper
+
+  It might be a good idea to create a set_gvar(id, val) eBPF function that is
+  called from the compiled D code to save some instructions (as opposed to
+  generating the instruction sequence shown above for every global variable
+  store).
+
+- In the new design, there is no need for shiting variable ids up beause of the
+  range of built-in variables because we can generate code to obtain the value
+  of the built-in variables as we compile programs (most likely using a call to
+  a BPF function, passing the id of the built-in variable).
+
+- Constants should be defined for the standard maps that we will be creating
+  eBPF programs.  The program loading step should then resolve the map values
+  we put in instructions (using a reloc table style approach) by putting in the
+  actual fds of the maps that were created.
+
+- The TLS key needs to be carefully calculated because we want to ensure that
+  it uniquely (and correctly) represents task execution context.  The TLS key
+  stores an adjusted pid value in the lower 60 bits, prefixed by a 4 bit value
+  indicating whether a hardirq is active.  We use 4 bits because the kernel
+  supports up to 16 levels of nested IRQ (even though it is quite rare).
+
+  All per-cpu idle threads share the same pid (0), which means that we need to
+  adjust the pid to ensure that the idle threads have their own TLS key.  We
+  do this by replacing the pid value (0) by the active CPU id.  For tasks where
+  the pid is not 0 (all tasks other than the idle threads), we add NR_CPUS.
+  This ensures that the TLS key for idle threads will never conflict with any
+  regular pid value.
+
+  We also add DIF_VARIABLE_MAX to the pid value to assure that the TLS key is
+  never equal to a variable id.  This is necessary to ensure that keys for
+  global associative array elements will not collide with TLS variables.  To
+  completely guarantee that they cannot collide, we also strictly define the
+  order of key elements (placing the variable id and TLS key at the end of the
+  key sequence).
+
+  (The last part is only relevant if we stick to the DTrace approach of having
+   one dynamic variable storage construct.  If we were to give each associative
+   array or TLS variable its own map, there are no collisions possible between
+   arrays and TLS variables.)
+
+- Dynamic variables are allocated (in legacy DTrace) from a per-cpu buffer
+  space if at all possible.  When the space on the current CPU has been
+  exhausted, it will try to allocate space from another CPU.  If we use BPF
+  hashmaps for dynamic variables that is no longer possible and we need to
+  allocate enough entries to accomodate the anticipated usage.  Perhaps we can
+  add a pragma to set the amount of entries per map to allow the user more
+  control over this.  A global hashmap is of course slower than per-cpu storage
+  but per-cpu BPF maps are AFAIK not able to 'borrow' slots from another CPU.
+
+- While it is tempting to actually implement the actions as function calls, or
+  at least in a way where all parts of a clause are compiled into the same eBPF
+  function, this is a bit more complex because DTrace was not designed that
+  way.  It also requires significant changes in the probe data consumption code
+  because instead of a single data item per ECB, we will now need to support
+  a tuple of values.  The userspace component needs to maintain a list of what
+  data items are expected in the tuple associated with the ECB because the data
+  stream does not include any metadata.
+
+  Perhaps it would be best if a first version sticks to the one data item per
+  ECB approach.  We can compile each D expression into an eBPF function and
+  emit a main program that simply calls each eBPF function in turn.  That may
+  give us a sub-optimal version of DTrace based on eBPF, but it allows us to
+  offer something that semi-works sooner.
+
+  However, as it turns out, the legacy code generation associates a strtab with
+  every D expression that is compiled into its own DIF object.  That would
+  require us to create a map to hold the strtab for every DUF object which is a
+  massive overuse of resources.  It may be possible to implement a solution
+  that sits in the middle: construct the strtab as a shared resource, so we
+  only create a single map (with a single element) to hold the strtab, and all
+  generated code portions can access it.  We can still concatenate all the code
+  fragments into a single larger function (but each fragment is generated as if
+  it stands on its own, so it will generate its own output.)  The yet to be
+  solved problem with that approach is that code sharing because a real pain
+  because each fragment will have its own id that is dependent both on the
+  probe and the clause.
+
+- It is not possible to trigger eBPF program execution for the ERROR probe in
+  a true sense because triggering a probe that we hijack to implement the ERROR
+  probe would cause reentrant eBPF program execution which is not possible when
+  handling trace events.
+
+  However, because the DTrace implementation based on eBPF works with an eBPF
+  program as trampoline to set up a context for DTrace and call the actual
+  program as a BPF-to-BPF function call, we can actually implement the ERROR
+  probe handling as an entry function that create the same kind of DTrace
+  context (for the ERROR probe) and then calls the default or user-specified
+  eBPF function that actually implements tha clauses associated with the probe.
+
+  All DTrace generated eBPF code should flag faults and at appropriate points
+  in execution a check should be made to determine whether a fault occured.  At
+  that point, we need to call the entry function into the ERROR probe handling.
+  The ERROR probe clauses will generate probe data indicating the fault, and
+  the probe that caused the fault should bypess generating output because of
+  the fault that occured.  If we ensure that writes to the buffer happen at the
+  clause level, we can guarantee that clauses either generate data or trigger
+  an ERROR (which will generate data).  There is no possibility for partial
+  data to be written to the buffer.  (Even if we decide to write out data per
+  individual action, again, either an action generates data or it will cause an
+  ERROR probe invocation to generate data.)

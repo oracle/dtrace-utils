@@ -1,0 +1,55 @@
+BPF MAPS
+--------
+Local variable storage
+	array map (indexed by variable id)
+
+Global and dynamic variable storage
+	hash map (indexed by variable name)
+
+Session state
+	array map (indexed by state parameter id)
+
+Probe meta data
+	array map (indexed by probe id)
+
+Context map
+	array map (indexed by CPU id)
+
+PROBE NAME HASHING
+------------------
+Legacy DTrace currently reports:
+	   13 distinct providers
+	   84 distinct modules
+	42405 distinct functions
+	  742 distinct probe names
+	88928 distinct probes
+
+Hash by module name, function name, probe name, and mod:func:name.  When doing
+a string constant lookup of any element, use the hashtable for that element.
+When doing a shell wildcard pattern match, iterate over all hash buckets by
+iterating over the hash slots, and for each non-empty hash slot, iterate over
+the buckets linked to that slot, applying the wildcard pattern to the string
+value for which the bucket was created.
+
+OPERATIONS
+----------
+    List probes (-l)
+    ----------------
+	This argument (mutually exclusive with -A, -G, -h, -V) requests a list
+	of probes that match the probe specifications found in the provided
+	script or command line actions.
+
+	The probe specifications are given in the following format:
+
+		[ [ [ <gstr> : ] <gstr> : ] <gstr> : ] <gstr>
+
+	where
+		<gstr> is either a string constant or a shell wildcard pattern
+		       (an empty string is the same as a * pattern)
+
+    Version (-V)
+    ------------
+	This argument (mutually exclusive with -A, -G, -h, -l) is used to
+	display the DTrace API version inforamtion.  When verbose output is
+	requested (-v), information about the DTrace application version and
+	version control identifiers is included as well.
