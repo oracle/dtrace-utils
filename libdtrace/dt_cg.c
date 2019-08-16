@@ -446,6 +446,39 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	}
 }
 
+static void
+dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
+{
+	struct bpf_insn instr;
+
+	idp->di_flags |= DT_IDFLG_DIFW;
+	if (idp->di_flags & DT_IDFLG_LOCAL) {		/* local var */
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, 0x1000 + idp->di_id,
+				  src->dn_reg);
+	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, 0x2000 + idp->di_id,
+				  src->dn_reg);
+	} else {					/* global var */
+		/*
+		 * FIXME: Do we need to reserve %r1 and %r2 because we are
+		 * going to use them?  We may need a more generic piece of code
+		 * to ensure that the necessary argument passing registers are
+		 * available (and if not, save them to stack and restore after
+		 * the call).
+		 *
+		 * Perhaps we need to ensure that registers get allocated from
+		 * %r9 down to %r1.
+		 */
+		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_IMM(BPF_REG_1, 0x3000 + idp->di_id);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_FUNC(-1);
+	}
+
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
 /*
  * Generate code for a typecast or for argument promotion from the type of the
  * actual to the type of the formal.  We need to generate code for casts when
@@ -630,12 +663,16 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
+#if 1
+		dt_cg_store_var(dnp, dlp, idp);
+#else
 		idp->di_flags |= DT_IDFLG_DIFW;
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP,
 				  (idp->di_flags & DT_IDFLG_LOCAL ? 0x1000 :
 				   idp->di_flags & DT_IDFLG_TLS ? 0x2000 :
 				   0x3000) + idp->di_id, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#endif
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 
@@ -688,12 +725,16 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
+#if 1
+		dt_cg_store_var(dnp, dlp, idp);
+#else
 		idp->di_flags |= DT_IDFLG_DIFW;
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP,
 				  (idp->di_flags & DT_IDFLG_LOCAL ? 0x1000 :
 				   idp->di_flags & DT_IDFLG_TLS ? 0x2000 :
 				   0x3000) + idp->di_id, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#endif
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 		int oreg = dnp->dn_reg;
@@ -1076,12 +1117,16 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (idp->di_kind == DT_IDENT_ARRAY)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
+#if 1
+		dt_cg_store_var(dnp, dlp, idp);
+#else
 		idp->di_flags |= DT_IDFLG_DIFW;
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP,
 				  (idp->di_flags & DT_IDFLG_LOCAL ? 0x1000 :
 				   idp->di_flags & DT_IDFLG_TLS ? 0x2000 :
 				   0x3000) + idp->di_id, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#endif
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -1896,7 +1941,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dt_regset_reset(pcb->pcb_regs);
-	(void) dt_regset_alloc(pcb->pcb_regs); /* allocate %r0 */
 
 	if (pcb->pcb_strtab != NULL)
 		dt_strtab_destroy(pcb->pcb_strtab);
@@ -1925,18 +1969,24 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 		dxp->dx_ident->di_flags |= DT_IDFLG_CGREG;
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
+		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
 			pcb->pcb_dret = act->dn_expr;
 			dt_cg_node(act->dn_expr, &pcb->pcb_ir, pcb->pcb_regs);
+			dt_regset_free(pcb->pcb_regs, pcb->pcb_dret->dn_reg);
 		}
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 
-	instr = BPF_MOV_REG(BPF_REG_0, pcb->pcb_dret->dn_reg);
-	dt_regset_free(pcb->pcb_regs, pcb->pcb_dret->dn_reg);
+	/*
+	 * FIXME: Perhaps we ought to use the mandatory return value of the
+	 *	  eBPF program to indicate if an error occured during the
+	 *	  action processing.  We can store the error marker in the
+	 *	  ECB, and pull it out here.
+	 */
+	instr = BPF_MOV_IMM(BPF_REG_0, 0);
 	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
 	instr = BPF_RETURN();
 	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
