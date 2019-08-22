@@ -17,6 +17,7 @@
 #include <dt_parser.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
+#include <dt_bpf_funcs.h>
 #include <bpf_asm.h>
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
@@ -456,8 +457,21 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP, 0x1000 + idp->di_id,
 				  src->dn_reg);
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		instr = BPF_STORE(BPF_DW, BPF_REG_FP, 0x2000 + idp->di_id,
-				  src->dn_reg);
+		/*
+		 * FIXME: Do we need to reserve %r1 and %r2 because we are
+		 * going to use them?  We may need a more generic piece of code
+		 * to ensure that the necessary argument passing registers are
+		 * available (and if not, save them to stack and restore after
+		 * the call).
+		 *
+		 * Perhaps we need to ensure that registers get allocated from
+		 * %r9 down to %r1.
+		 */
+		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_IMM(BPF_REG_1, 0x2000 + idp->di_id);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_FUNC(DT_BPF_SET_TVAR);
 	} else {					/* global var */
 		/*
 		 * FIXME: Do we need to reserve %r1 and %r2 because we are
@@ -473,7 +487,7 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_MOV_IMM(BPF_REG_1, 0x3000 + idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_FUNC(-1);
+		instr = BPF_CALL_FUNC(DT_BPF_SET_GVAR);
 	}
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -1862,7 +1876,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 if (base == 0x3000) {
 	instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg, dnp->dn_ident->di_id);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(1234);	/* u64 dt_get_gvar(id) */
+	instr = BPF_CALL_FUNC(DT_BPF_GET_GVAR);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_REG(BPF_MOV, dnp->dn_reg, BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

@@ -11,6 +11,7 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_printf.h>
+#include <dt_bpf_funcs.h>
 #include <bpf_asm.h>
 
 #define __stringify_(x)		#x
@@ -55,6 +56,21 @@ dt_dis_scope(uint_t id)
 	case 0x2000: return (DIFV_SCOPE_THREAD);
 	case 0x3000: return (DIFV_SCOPE_GLOBAL);
 	default: return (-1u);
+	}
+}
+
+static const char *
+dt_dis_scopename(uint_t scope)
+{
+	switch (scope) {
+	case DIFV_SCOPE_LOCAL:
+		return "this->";
+	case DIFV_SCOPE_THREAD:
+		return "self->";
+	case DIFV_SCOPE_GLOBAL:
+		return "";
+	default:
+		return "?->";
 	}
 }
 
@@ -114,16 +130,17 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name,
 	      const struct bpf_insn *in, FILE *fp)
 {
 	uint_t var = in->off;
-	const char *vname;
 
 	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
 		reg(in->src_reg), in->off);
 
 	if (in->src_reg == BPF_REG_FP) {
-		if ((vname =
-		     dt_dis_varname(dp, var, dt_dis_scope(var))) != NULL)
-			fprintf(fp, "\t! DT_VAR(%u) = \"%s\"",
-				var & 0x0fff, vname);
+		uint_t		scope = dt_dis_scope(var);
+		const char	*vname = dt_dis_varname(dp, var, scope);
+
+		if (vname)
+			fprintf(fp, "\t! %s%s",
+				dt_dis_scopename(scope), vname);
 	}
 }
 
@@ -142,16 +159,49 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name,
 	     const struct bpf_insn *in, FILE *fp)
 {
 	uint_t var = in->off;
-	const char *vname;
 
 	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
 		reg(in->src_reg));
 
 	if (in->dst_reg == BPF_REG_FP) {
-		if ((vname =
-		     dt_dis_varname(dp, var, dt_dis_scope(var))) != NULL)
-			fprintf(fp, "\t! DT_VAR(%u) = \"%s\"",
-				var & 0x0fff, vname);
+		uint_t		scope = dt_dis_scope(var);
+		const char	*vname = dt_dis_varname(dp, var, scope);
+
+		if (vname)
+			fprintf(fp, "\t! %s%s",
+				dt_dis_scopename(scope), vname);
+	}
+}
+
+static char *
+dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
+		char *buf, size_t len)
+{
+	switch (id) {
+	case DT_BPF_GET_GVAR:
+	case DT_BPF_SET_GVAR:
+		/*
+		 * We know that the previous instruction exists and assigns
+		 * the variable id to %r1 (because we wrote the code generator
+		 * to emit these instructions in this exact order.
+		 */
+		in--;
+		snprintf(buf, len, "%s",
+			 dt_dis_varname(dp, in->imm,DIFV_SCOPE_GLOBAL));
+		return buf;
+	case DT_BPF_GET_TVAR:
+	case DT_BPF_SET_TVAR:
+		/*
+		 * We know that the previous instruction exists and assigns
+		 * the variable id to %r1 (because we wrote the code generator
+		 * to emit these instructions in this exact order.
+		 */
+		in--;
+		snprintf(buf, len, "self->%s",
+			 dt_dis_varname(dp, in->imm,DIFV_SCOPE_THREAD));
+		return buf;
+	default:
+		return NULL;
 	}
 }
 
@@ -161,19 +211,26 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name,
 	    const struct bpf_insn *in, FILE *fp)
 {
 	const char *fn = NULL;
+	const char *ann = NULL;
+	char buf[256];
 
+	/*
+	 * Try to determine a name for the function being called.  We also call
+	 * a function-type (built-in BPF vs helper) specific function in case
+	 * there are annotations to be added.
+	 */
 	if (in->src_reg == BPF_PSEUDO_CALL) {
-		fprintf(fp, "%-4s %d", name, in->imm);
-		return;
-	}
-
-	if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID)
+		fn = dt_bpf_fname(in->imm);
+		ann = dt_dis_bpf_args(dp, in->imm, in, buf, sizeof(buf));
+	} else if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID) {
 		fn = helper_fn[in->imm];
+	} else
+		fn = "unknown";
 
-	if (fn)
-		fprintf(fp, "%-4s %s", name, fn);
+	if (ann)
+		fprintf(fp, "%-4s %-17s ! %s", name, fn, ann);
 	else
-		fprintf(fp, "%-4s unknown", name);
+		fprintf(fp, "%-4s %s", name, fn);
 }
 
 /*ARGSUSED*/
