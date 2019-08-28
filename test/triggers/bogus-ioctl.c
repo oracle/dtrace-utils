@@ -63,7 +63,7 @@ main(void)
 
 	fds[n++] = open(file, O_RDWR | O_APPEND | O_CREAT | O_DSYNC |
 	    O_LARGEFILE | O_NOCTTY | O_NONBLOCK | O_NDELAY | O_RSYNC |
-	    O_SYNC | O_TRUNC);
+	    O_SYNC | O_TRUNC, 0);
 
 	fds[n++] = open(file, O_RDWR);
 	(void) lseek(fds[n - 1], 123, SEEK_SET);
