@@ -16,6 +16,7 @@ extern "C" {
 #define DT_BPF_SET_GVAR			-2
 #define DT_BPF_GET_TVAR			-3
 #define DT_BPF_SET_TVAR			-4
+#define DT_BPF_GET_STRING		-5
 
 extern const char *dt_bpf_fname(int id);
 

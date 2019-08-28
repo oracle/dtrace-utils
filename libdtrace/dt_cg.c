@@ -1782,9 +1782,24 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (stroff > DIF_STROFF_MAX)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
+#ifdef FIXME
 		instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
 				 0x4000 + stroff);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#else
+		/*
+		 * The string table will be loaded as value for the 0 element
+		 * in the strtab BPF array map.  We use a function call to get
+		 * the actual string:
+		 *	get_string(stroff);
+		 */
+		instr = BPF_MOV_IMM(BPF_REG_1, stroff);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_FUNC(DT_BPF_GET_STRING);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#endif
 		break;
 
 	case DT_TOK_IDENT:

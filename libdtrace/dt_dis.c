@@ -187,7 +187,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		 */
 		in--;
 		snprintf(buf, len, "%s",
-			 dt_dis_varname(dp, in->imm,DIFV_SCOPE_GLOBAL));
+			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_GLOBAL));
 		return buf;
 	case DT_BPF_GET_TVAR:
 	case DT_BPF_SET_TVAR:
@@ -198,7 +198,19 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		 */
 		in--;
 		snprintf(buf, len, "self->%s",
-			 dt_dis_varname(dp, in->imm,DIFV_SCOPE_THREAD));
+			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_THREAD));
+		return buf;
+	case DT_BPF_GET_STRING:
+		/*
+		 * We know that the previous instruction exists and assigns
+		 * the string offset to %r1 (because we wrote the code
+		 * generator to emit these instructions in this exact order.
+		 */
+		in--;
+		if (in->imm >= dp->dtdo_strlen)
+			return NULL;
+
+		snprintf(buf, len, "\"%s\"", dp->dtdo_strtab + in->imm);
 		return buf;
 	default:
 		return NULL;

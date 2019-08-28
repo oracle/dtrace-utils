@@ -20,6 +20,8 @@ dt_bpf_fname(int id)
 		return "get_tvar";
 	case DT_BPF_SET_TVAR:
 		return "set_tvar";
+	case DT_BPF_GET_STRING:
+		return "get_string";
 #if 1 /* DEBUGGING */
 	case DIF_OP_PUSHTR:
 		return "pushtr";
