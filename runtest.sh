@@ -23,61 +23,6 @@ arch="$(uname -m)"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
 
-test_modules=test/modules
-if [[ -f test/modules.$arch ]]; then
-    test_modules=test/modules.$arch
-fi
-
-load_modules()
-{
-    # If running as root, pull in appropriate modules
-    if [[ "x$(id -u)" = "x0" ]]; then
-        # Use a loop to pick up the first dtrace instance if regtesting
-        for dt in $dtrace; do
-            # Look for our shared libraries in the right place.
-            if [[ "x$test_libdir" != "xinstalled" ]]; then
-                export LD_LIBRARY_PATH="$(dirname $dt)"
-            fi
-
-            DTRACE_MODULES_CONF="$(pwd)/$test_modules" DTRACE_DEBUG= $dt -qn 'BEGIN { exit(0); }' >/dev/null
-
-            comm -13 \
-                 <(lsmod | awk '{print $1}' | sort -u) \
-                 <(cat $test_modules | grep -v '^#' | grep -v '# unload-quietly' | sed 's,#.*$,,; s, *$,,' | sort -u) > $tmpdir/failed-modules
-            if test -s $tmpdir/failed-modules; then
-                echo -e "Error: cannot load all modules:" >&2
-                cat $tmpdir/failed-modules >&2
-                exit 1
-            fi
-
-            # Write out a list of loaded providers.
-            DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
-
-            unset LD_LIBRARY_PATH
-            break
-        done
-    else
-        echo "Warning: testing as non-root may cause a large number of unexpected failures." >&2
-    fi
-}
-
-unload_modules()
-{
-    HIDE=$1
-    # If running as root, unload all appropriate modules
-    if [[ "x$(id -u)" = "x0" ]]; then
-        tac $test_modules | while read -r line; do
-            name="$(echo $line | sed 's,##[a-z-]*,,g')"
-            [[ -z $name ]] && continue;
-            if [[ -z $HIDE ]] && echo "$line" | grep -qv '# unload-quietly'; then
-                rmmod $(echo $name | sed 's,#.*$,,')
-            else
-                rmmod $(echo $name | sed 's,#.*$,,') 2>/dev/null
-            fi
-        done
-    fi
-}
-
 #
 # Utility function to ensure a given provider is present.
 # Uses the providers list written out at module-load time.
@@ -625,19 +570,9 @@ if [[ $(echo $dtrace | wc -w) -gt 1 ]]; then
 fi
 
 # If not testing an installed dtrace, we must look for our system .d files
-# in the right place.  (load_dtrace_modules is also found here.)
+# in the right place.
 if [[ "x$test_libdir" != "xinstalled" ]]; then
     export DTRACE_OPT_SYSLIBDIR="$test_libdir"
-fi
-
-# Unload all modules before initializing test coverage: then ask dtrace to load
-# them again afterwards, to acquire initialization and shutdown coverage.
-# If we are in load-only mode, load and exit here.)
-unload_modules hide
-
-if [[ -n $LOAD_MODULES_ONLY ]]; then
-    load_modules
-    exit $?
 fi
 
 # Initialize test coverage.
@@ -662,8 +597,6 @@ if [[ -n $NOBADDOF ]]; then
                  --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
     fi
 fi
-
-load_modules
 
 if [[ -z $NOBADDOF ]]; then
     # Run DOF-corruption tests instead.
@@ -770,7 +703,6 @@ for dt in $dtrace; do
     # Log versions.
     DTRACE_DEBUG= $dt -vV | tee -a $LOGFILE >> $SUMFILE
     uname -a | tee -a $LOGFILE >> $SUMFILE
-    modinfo dtrace | grep 'version.*:' | tee -a $LOGFILE >> $SUMFILE
     if [[ -f .git-version ]]; then
 	sum "testsuite version-control ID: $(cat .git-version)\n\n"
     elif [[ -f .git-archive-version ]]; then
@@ -1495,9 +1427,6 @@ else
 EOF
 
 fi
-
-# Now unload modules before acquiring coverage info.
-unload_modules
 
 # Test coverage.
 for name in build*; do

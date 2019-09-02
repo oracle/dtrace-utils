@@ -20,13 +20,11 @@
 # check-qa-smoke: Runs the smoke testsuite.
 
 ifndef always-installed
-load_dtrace_modules=$(objdir)/dlibs/load_dtrace_modules
 git_version=.git-version
 RUNTEST=./runtest.sh
 RUNTESTFLAGS=
 installed_internals=
 else
-load_dtrace_modules=
 git_version=
 RUNTEST=$(TESTDIR)/runtest.sh
 RUNTESTFLAGS=--use-installed
@@ -58,7 +56,7 @@ help::
 check: check-verbose
 check: RUNTESTFLAGS+=--quiet
 
-check-verbose: all $(load_dtrace_modules) $(git_version)
+check-verbose: all $(git_version)
 	$(RUNTEST) $(RUNTESTFLAGS)
 
 check-installed check-installed-stress check-installed-quick check-installed-verbose check-installed-verbose-stress check-installed-verbose-quick:
