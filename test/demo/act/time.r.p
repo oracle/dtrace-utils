@@ -1,4 +1,4 @@
-#!/bin/gawk -f
+#!/usr/bin/gawk -f
 #
 # Oracle Linux DTrace.
 # Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
