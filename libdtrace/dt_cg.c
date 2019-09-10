@@ -551,6 +551,7 @@ static void
 dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
     dt_irlist_t *dlp, dt_regset_t *drp)
 {
+	const dt_idsig_t *isp = idp->di_data;
 	dt_node_t *dnp;
 	int i = 0;
 
@@ -558,7 +559,6 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 		dt_cg_node(dnp, dlp, drp);
 
 	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
-#ifdef FIXME
 		dtrace_diftype_t t;
 		struct bpf_insn instr;
 		uint_t op;
@@ -567,6 +567,8 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
 
 		isp->dis_args[i].dn_reg = dnp->dn_reg; /* re-use register */
+/* FIXME */
+if (isp->dis_args[i].dn_ctfp != NULL && isp->dis_args[i].dn_type != CTF_ERR)
 		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
 		isp->dis_args[i].dn_reg = -1;
 
@@ -582,16 +584,16 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 		} else
 			reg = DIF_REG_R0;
 
+#if 0
 		instr = DIF_INSTR_PUSHTS(op, t.dtdt_kind, reg, dnp->dn_reg);
+#else
+		instr = BPF_CALL_FUNC(op);
+#endif
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dt_regset_free(drp, dnp->dn_reg);
 
 		if (reg != DIF_REG_R0)
 			dt_regset_free(drp, reg);
-#else
-		xyerror(D_UNKNOWN, "internal error -- cg cannot store "
-			"arguments yet\n");
-#endif
 	}
 
 	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
@@ -1829,7 +1831,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-			instr = BPF_CALL_HELPER(dnp->dn_ident->di_id);
+/* FIXME */
+			instr = BPF_CALL_HELPER(-dnp->dn_ident->di_id);
 			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
 					 instr));
 			instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);

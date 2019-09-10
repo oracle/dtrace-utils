@@ -224,8 +224,11 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name,
 		ann = dt_dis_bpf_args(dp, in->imm, in, buf, sizeof(buf));
 	} else if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID) {
 		fn = helper_fn[in->imm];
-	} else
-		fn = "unknown";
+	} else {
+		snprintf(buf, sizeof(buf), "helper#%d", in->imm);
+		fn = buf;
+		ann = "unknown helper";
+	}
 
 	if (ann)
 		fprintf(fp, "%-4s %-17s ! %s", name, fn, ann);
