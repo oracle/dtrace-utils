@@ -504,11 +504,17 @@ static void
 dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
     dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	size_t srcsize = dt_node_type_size(src);
-	size_t dstsize = dt_node_type_size(dst);
-
+	size_t srcsize;
+	size_t dstsize;
 	struct bpf_insn instr;
 	int reg, n;
+
+	/* If the destination type is '@' (any type) we need not cast. */
+	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
+		return;
+
+	srcsize = dt_node_type_size(dst);
+	dstsize = dt_node_type_size(dst);
 
 	if (dt_node_is_scalar(dst) && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
@@ -558,7 +564,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
 		dt_cg_node(dnp, dlp, drp);
 
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list) {
 		dtrace_diftype_t t;
 		struct bpf_insn instr;
 		uint_t op;
@@ -567,8 +573,6 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
 
 		isp->dis_args[i].dn_reg = dnp->dn_reg; /* re-use register */
-/* FIXME */
-if (isp->dis_args[i].dn_ctfp != NULL && isp->dis_args[i].dn_type != CTF_ERR)
 		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
 		isp->dis_args[i].dn_reg = -1;
 
@@ -594,6 +598,8 @@ if (isp->dis_args[i].dn_ctfp != NULL && isp->dis_args[i].dn_type != CTF_ERR)
 
 		if (reg != DIF_REG_R0)
 			dt_regset_free(drp, reg);
+		if (i < isp->dis_varargs)
+			i++;
 	}
 
 	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
