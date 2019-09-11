@@ -11,6 +11,7 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_printf.h>
+#include <dt_string.h>
 #include <dt_bpf_funcs.h>
 #include <bpf_asm.h>
 
@@ -177,6 +178,8 @@ static char *
 dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		char *buf, size_t len)
 {
+	char *s;
+
 	switch (id) {
 	case DT_BPF_GET_GVAR:
 	case DT_BPF_SET_GVAR:
@@ -210,7 +213,10 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		if (in->imm >= dp->dtdo_strlen)
 			return NULL;
 
-		snprintf(buf, len, "\"%s\"", dp->dtdo_strtab + in->imm);
+		s = dp->dtdo_strtab + in->imm;
+		s = strchr2esc(s, strlen(s));
+		snprintf(buf, len, "\"%s\"", s ? s : dp->dtdo_strtab + in->imm);
+		free(s);
 		return buf;
 	default:
 		return NULL;
