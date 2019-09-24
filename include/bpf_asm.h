@@ -72,7 +72,7 @@
 
 #define BPF_STORE(sz, dst, ofs, src)					\
 	((struct bpf_insn) {						\
-		.code = BPF_ST | BPF_MEM | sz,				\
+		.code = BPF_STX | BPF_MEM | sz,				\
 		.dst_reg = dst,						\
 		.src_reg = src,						\
 		.off = (ofs),						\
@@ -81,7 +81,7 @@
 
 #define BPF_STORE_IMM(sz, dst, ofs, val)				\
 	((struct bpf_insn) {						\
-		.code = BPF_ST | BPF_IMM | sz,				\
+		.code = BPF_ST | BPF_MEM | sz,				\
 		.dst_reg = dst,						\
 		.src_reg = 0,						\
 		.off = (ofs),						\

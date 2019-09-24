@@ -174,6 +174,15 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name,
 	}
 }
 
+/*ARGSUSED*/
+static void
+dt_dis_store_imm(const dtrace_difo_t *dp, const char *name,
+		 const struct bpf_insn *in, FILE *fp)
+{
+	fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
+		in->imm);
+}
+
 static char *
 dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		char *buf, size_t len)
@@ -481,10 +490,10 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		INSN3(STX, XADD, W)	= { "xadd", dt_dis_store },
 		INSN3(STX, XADD, DW)	= { "xadd", dt_dis_store },
 		/* Store instructions, [dst + off] = imm */
-		INSN3(ST, MEM, B)	= { "stb", dt_dis_store },
-		INSN3(ST, MEM, H)	= { "sth", dt_dis_store },
-		INSN3(ST, MEM, W)	= { "stw", dt_dis_store },
-		INSN3(ST, MEM, DW)	= { "stdw", dt_dis_store },
+		INSN3(ST, MEM, B)	= { "stb", dt_dis_store_imm },
+		INSN3(ST, MEM, H)	= { "sth", dt_dis_store_imm },
+		INSN3(ST, MEM, W)	= { "stw", dt_dis_store_imm },
+		INSN3(ST, MEM, DW)	= { "stdw", dt_dis_store_imm },
 		/* Load instructions, dst = [src + off] */
 		INSN3(LDX, MEM, B)	= { "ldb", dt_dis_load },
 		INSN3(LDX, MEM, H)	= { "ldh", dt_dis_load },
