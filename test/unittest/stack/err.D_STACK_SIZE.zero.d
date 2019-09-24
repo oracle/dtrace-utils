@@ -7,17 +7,13 @@
 
 /*
  * ASSERTION:
- *	ustack() second argument must be a positive integer constant.
+ *   Test stack() with an invalid argument.
  *
- * SECTION: User Process Tracing/ustack();
- *	Actions and Subroutines/ustack()
+ * SECTION: Output Formatting/printf()
  *
  */
 
-
 BEGIN
 {
-	ustack(1, -1);
-	exit(0);
+	stack(0);
 }
-

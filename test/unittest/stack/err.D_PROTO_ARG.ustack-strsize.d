@@ -7,17 +7,13 @@
 
 /*
  * ASSERTION:
- *	ustack() second argument must be a positive integer constant.
+ *   Test ustack() with an invalid strsize argument.
  *
- * SECTION: User Process Tracing/ustack();
- *	Actions and Subroutines/ustack()
+ * SECTION: Output Formatting/printf()
  *
  */
 
-
 BEGIN
 {
-	ustack(1, -1);
-	exit(0);
+	ustack(1, "i'm not an integer constant");
 }
-

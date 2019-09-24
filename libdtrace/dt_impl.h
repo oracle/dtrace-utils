@@ -430,8 +430,9 @@ struct dtrace_hdl {
  * constants and the DIF_SUBR_* constants occupy non-overlapping ranges by
  * starting the DT_ACT_* constants at DIF_SUBR_MAX + 1.
  */
-#define	DT_ACT_BASE		DIF_SUBR_MAX + 1
+#define	DT_ACT_BASE		(DIF_SUBR_MAX + 1)
 #define	DT_ACT(n)		(DT_ACT_BASE + (n))
+#define DT_ACT_IDX(n)		((n) - DT_ACT_BASE)
 
 #define	DT_ACT_PRINTF		DT_ACT(0)	/* printf() action */
 #define	DT_ACT_TRACE		DT_ACT(1)	/* trace() action */
@@ -463,6 +464,8 @@ struct dtrace_hdl {
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
 #define	DT_ACT_PCAP		DT_ACT(29)	/* pcap() action */
+
+#define DT_ACT_MAX		30
 
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not

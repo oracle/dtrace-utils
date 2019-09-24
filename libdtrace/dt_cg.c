@@ -21,6 +21,481 @@
 #include <bpf_asm.h>
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
+static dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
+
+static size_t
+dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_breakpoint(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dnerror(dnp, D_UNKNOWN, "breakpoint() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_chill(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_chill(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+	dnerror(dnp, D_UNKNOWN, "chill() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_node_t *anp;
+	dt_ident_t *aid;
+	char n[DT_TYPE_NAMELEN];
+
+	anp = dnp->dn_args;
+	assert(anp != NULL);
+	if (anp->dn_kind != DT_NODE_AGG) {
+		dnerror(dnp, D_CLEAR_AGGARG,
+			"%s( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: aggregation\n\t argument: %s\n",
+			dnp->dn_ident->di_name,
+			dt_node_type_name(anp, n, sizeof(n)));
+	}
+
+	aid = anp->dn_ident;
+        if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+	    !(aid->di_flags & DT_IDFLG_MOD)) {
+		dnerror(dnp, D_CLEAR_AGGBAD,
+			"undefined aggregation: @%s\n", aid->di_name);
+	}
+
+	/*
+	 * FIXME: Needs implementation
+	 * TODO: Emit code to clear the given aggregation.
+	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
+	 * AGGID = aid->di_id
+	 */
+
+	return 0;
+}
+
+/*
+ * Signal that the speculation with the given id should be committed to the
+ * tracing output.
+ *
+ * Stores:
+ *	integer (4 bytes)		-- speculation ID
+ */
+static size_t
+dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+
+	fprintf(stderr, "DBG: dt_cg_act_commit(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	return sizeof(int);
+}
+
+static size_t
+dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_node_t *anp;
+	dt_ident_t *aid;
+	char n[DT_TYPE_NAMELEN];
+
+	anp = dnp->dn_args;
+	assert(anp != NULL);
+	if (anp->dn_kind != DT_NODE_AGG) {
+		dnerror(dnp, D_NORMALIZE_AGGARG,
+			"%s( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: aggregation\n\t argument: %s\n",
+			dnp->dn_ident->di_name,
+			dt_node_type_name(anp, n, sizeof(n)));
+	}
+
+	aid = anp->dn_ident;
+        if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+	    !(aid->di_flags & DT_IDFLG_MOD)) {
+		dnerror(dnp, D_NORMALIZE_AGGBAD,
+			"undefined aggregation: @%s\n", aid->di_name);
+	}
+
+	/*
+	 * FIXME: Needs implementation
+	 * TODO: Emit code to clear the given aggregation.
+	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
+	 * AGGID = aid->di_id
+	 */
+
+	return 0;
+}
+
+/*
+ * Signal that the speculation with the given id should be discarded from the
+ * tracing output.
+ *
+ * Stores:
+ *	integer (4 bytes)		-- speculation ID
+ */
+static size_t
+dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+
+	fprintf(stderr, "DBG: dt_cg_act_discard(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	return sizeof(int);
+}
+
+/*
+ * Signal that tracing should be terminated with the given return code.
+ *
+ * Stores:
+ *	integer (4 bytes)		-- return code
+ */
+static size_t
+dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+
+	fprintf(stderr, "DBG: dt_cg_act_exit(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	return sizeof(int);
+}
+
+static size_t
+dt_cg_act_freopen(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_freopen(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_ftruncate(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_jstack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_jstack(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_normalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_normalize(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_panic(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_panic(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_pcap(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_printa(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_printf(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_raise(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+	dnerror(dnp, D_UNKNOWN, "raise() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_setopt(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+/*
+ * Signal that subsequent tracing output in the current clause should be kept
+ * back pending a commit() or discard() for the speculation with the given id.
+ *
+ * Stores:
+ *	integer (4 bytes)		-- speculation ID
+ */
+static size_t
+dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+
+	fprintf(stderr, "DBG: dt_cg_act_speculate(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	return sizeof(int);
+}
+
+static size_t
+dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_node_t *arg = dnp->dn_args;
+	uint32_t nframes = 0;
+
+	if (arg != NULL) {
+		if (!dt_node_is_posconst(arg)) {
+			dnerror(arg, D_STACK_SIZE, "stack( ) argument #1 must "
+				"be a non-zero positive integer constant\n");
+		}
+
+		nframes = (uint32_t)arg->dn_value;
+	}
+
+	return 0; /* FIXME */
+}
+
+static size_t
+dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_stop(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+	dnerror(dnp, D_UNKNOWN, "stop() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_symmod(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_symmod(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_system(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_system(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+	char n[DT_TYPE_NAMELEN];
+
+	if (dt_node_is_void(dnp->dn_args)) {
+		dnerror(dnp->dn_args, D_TRACE_VOID,
+			"trace( ) may not be applied to a void expression\n");
+	}
+
+	if (dt_node_is_dynamic(dnp->dn_args)) {
+		dnerror(dnp->dn_args, D_TRACE_DYN,
+			"trace( ) may not be applied to a dynamic "
+			"expression\n");
+	}
+
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	if (dt_node_is_scalar(dnp->dn_args)) {
+		instr = BPF_STORE(BPF_DW, BPF_REG_9, 0, BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		return sizeof(long);
+	} else if (dt_node_is_string(dnp->dn_args)) {
+		size_t sz = dt_node_type_size(dnp->dn_args);
+
+		/*
+		 * Strings are stored as a 64-bit size followed by a character
+		 * array.  Given that all entries in the output buffer are
+		 * aligned at 64-bit boundaries, this guarantees that the
+		 * character array is also aligned at a 64-bit boundary.
+		 * We will pad the string to a multiple of 8 bytes as well
+		 * (with zeros).
+		 *
+		 * We store the size as two 32-bit values.
+		 * FIXME: Consider endianness
+		 */
+		fprintf(stderr, "DBG: dt_cg_act_trace() str (%d bytes)\n", sz);
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0,
+				      sz & ((1UL << 32)-1));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, sz >> 32);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	} else
+		dnerror(dnp->dn_args, D_PROTO_ARG,
+			"trace( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: scalar or string\n\t argument: %s\n",
+			dt_node_type_name(dnp->dn_args, n, sizeof (n)));
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_tracemem(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	fprintf(stderr, "DBG: dt_cg_act_trunc(%p, %p, %d)\n",
+		(void *)pcb, (void *)dnp, kind);
+
+	return 0;
+}
+
+static size_t
+dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_node_t *arg0 = dnp->dn_args;
+	dt_node_t *arg1 = arg0 != NULL ? arg0->dn_list : NULL;
+	uint32_t nframes = 0;
+	uint32_t strsize = 0;
+
+	if (arg0 != NULL) {
+		if (!dt_node_is_posconst(arg0)) {
+			dnerror(arg0, D_USTACK_FRAMES, "ustack( ) argument #1 "
+				"must be a non-zero positive integer "
+				"constant\n");
+		}
+
+		nframes = (uint32_t)arg0->dn_value;
+	}
+
+	if (arg1 != NULL) {
+		if (arg1->dn_kind != DT_NODE_INT ||
+		    ((arg1->dn_flags & DT_NF_SIGNED) &&
+		    (int64_t)arg1->dn_value < 0)) {
+			dnerror(arg1, D_USTACK_STRSIZE, "ustack( ) argument #2 "
+				"must be a positive integer constant\n");
+		}
+
+		strsize = (uint32_t)arg1->dn_value;
+	}
+
+	return 0; /* FIXME */
+}
+
+typedef size_t dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
+
+typedef struct dt_cg_actdesc {
+	dt_cg_action_f *fun;
+	dtrace_actkind_t kind;
+} dt_cg_actdesc_t;
+
+static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
+	[DT_ACT_IDX(DT_ACT_PRINTF)]		= { &dt_cg_act_printf,
+						    DTRACEACT_PRINTF },
+	[DT_ACT_IDX(DT_ACT_TRACE)]		= { &dt_cg_act_trace, },
+	[DT_ACT_IDX(DT_ACT_TRACEMEM)]		= { &dt_cg_act_tracemem, },
+	[DT_ACT_IDX(DT_ACT_STACK)]		= { &dt_cg_act_stack, },
+	[DT_ACT_IDX(DT_ACT_STOP)]		= { &dt_cg_act_stop, },
+	[DT_ACT_IDX(DT_ACT_BREAKPOINT)]		= { &dt_cg_act_breakpoint, },
+	[DT_ACT_IDX(DT_ACT_PANIC)]		= { &dt_cg_act_panic, },
+	[DT_ACT_IDX(DT_ACT_SPECULATE)]		= { &dt_cg_act_speculate, },
+	[DT_ACT_IDX(DT_ACT_COMMIT)]		= { &dt_cg_act_commit, },
+	[DT_ACT_IDX(DT_ACT_DISCARD)]		= { &dt_cg_act_discard, },
+	[DT_ACT_IDX(DT_ACT_CHILL)]		= { &dt_cg_act_chill, },
+	[DT_ACT_IDX(DT_ACT_EXIT)]		= { &dt_cg_act_exit, },
+	[DT_ACT_IDX(DT_ACT_USTACK)]		= { &dt_cg_act_ustack, },
+	[DT_ACT_IDX(DT_ACT_PRINTA)]		= { &dt_cg_act_printa, },
+	[DT_ACT_IDX(DT_ACT_RAISE)]		= { &dt_cg_act_raise, },
+	[DT_ACT_IDX(DT_ACT_CLEAR)]		= { &dt_cg_act_clear, },
+	[DT_ACT_IDX(DT_ACT_NORMALIZE)]		= { &dt_cg_act_normalize, },
+	[DT_ACT_IDX(DT_ACT_DENORMALIZE)]	= { &dt_cg_act_denormalize, },
+	[DT_ACT_IDX(DT_ACT_TRUNC)]		= { &dt_cg_act_trunc, },
+	[DT_ACT_IDX(DT_ACT_SYSTEM)]		= { &dt_cg_act_system,
+						    DTRACEACT_SYSTEM },
+	[DT_ACT_IDX(DT_ACT_JSTACK)]		= { &dt_cg_act_jstack, },
+	[DT_ACT_IDX(DT_ACT_FTRUNCATE)]		= { &dt_cg_act_ftruncate, },
+	[DT_ACT_IDX(DT_ACT_FREOPEN)]		= { &dt_cg_act_freopen,
+						    DTRACEACT_FREOPEN },
+	[DT_ACT_IDX(DT_ACT_SYM)]		= { &dt_cg_act_symmod,
+						    DTRACEACT_SYM },
+	[DT_ACT_IDX(DT_ACT_MOD)]		= { &dt_cg_act_symmod,
+						    DTRACEACT_MOD },
+	[DT_ACT_IDX(DT_ACT_USYM)]		= { &dt_cg_act_symmod,
+						    DTRACEACT_USYM },
+	[DT_ACT_IDX(DT_ACT_UMOD)]		= { &dt_cg_act_symmod,
+						    DTRACEACT_UMOD },
+	[DT_ACT_IDX(DT_ACT_UADDR)]		= { &dt_cg_act_symmod,
+						    DTRACEACT_UADDR },
+	[DT_ACT_IDX(DT_ACT_SETOPT)]		= { &dt_cg_act_setopt, },
+	[DT_ACT_IDX(DT_ACT_PCAP)]		= { &dt_cg_act_pcap, },
+};
 
 static dt_irnode_t *
 dt_cg_node_alloc(uint_t label, struct bpf_insn instr)
@@ -1838,6 +2313,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		switch (dnp->dn_kind) {
 		case DT_NODE_FUNC:
+if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
+  fprintf(stderr, "%s() - FUNC %s %s()\n", __func__, dt_idkind_name(idp->di_kind), idp->di_name);
 #if 0
 			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
 				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
@@ -2011,8 +2488,25 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
 			pcb->pcb_dret = act->dn_expr;
-			dt_cg_node(act->dn_expr, &pcb->pcb_ir, pcb->pcb_regs);
-			dt_regset_free(pcb->pcb_regs, pcb->pcb_dret->dn_reg);
+
+			if (act->dn_kind == DT_NODE_DFUNC) {
+				const dt_cg_actdesc_t	*actdp;
+				dt_ident_t		*idp;
+				size_t			sz = 0;
+
+				idp = act->dn_expr->dn_ident;
+				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
+				if (actdp->fun)
+					actdp->fun(pcb, act->dn_expr,
+						   actdp->kind);
+else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp->di_id), idp->di_name);
+fprintf(stderr, "DBG: DFUNC '%s' emits up to %lu bytes.\n", idp->di_name, sz);
+			} else {
+				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
+					   pcb->pcb_regs);
+				dt_regset_free(pcb->pcb_regs,
+					       pcb->pcb_dret->dn_reg);
+			}
 		}
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
