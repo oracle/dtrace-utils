@@ -4654,8 +4654,12 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 		break;
 
 	case DT_NODE_DEXPR:
-	case DT_NODE_DFUNC:
 		(void) fprintf(fp, "D EXPRESSION attr=%s\n", a);
+		dt_node_printr(dnp->dn_expr, fp, depth + 1);
+		break;
+
+	case DT_NODE_DFUNC:
+		(void) fprintf(fp, "D PRODUCER attr=%s\n", a);
 		dt_node_printr(dnp->dn_expr, fp, depth + 1);
 		break;
 
