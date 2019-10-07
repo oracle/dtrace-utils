@@ -92,15 +92,16 @@ dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
+	uint_t off = pcb->pcb_bufoff;
 
 	fprintf(stderr, "DBG: dt_cg_act_commit(%p, %p, %d)\n",
 		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
-	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	return sizeof(int);
+	return sizeof(uint64_t);
 }
 
 static size_t
@@ -149,15 +150,16 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
+	uint_t off = pcb->pcb_bufoff;
 
 	fprintf(stderr, "DBG: dt_cg_act_discard(%p, %p, %d)\n",
 		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
-	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	return sizeof(int);
+	return sizeof(uint64_t);
 }
 
 /*
@@ -171,15 +173,16 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
+	uint_t off = pcb->pcb_bufoff;
 
 	fprintf(stderr, "DBG: dt_cg_act_exit(%p, %p, %d)\n",
 		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
-	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	return sizeof(int);
+	return sizeof(uint64_t);
 }
 
 static size_t
@@ -287,15 +290,16 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
+	uint_t off = pcb->pcb_bufoff;
 
 	fprintf(stderr, "DBG: dt_cg_act_speculate(%p, %p, %d)\n",
 		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
-	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);	/* FIXME */
+	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	return sizeof(int);
+	return sizeof(uint64_t);
 }
 
 static size_t
@@ -351,6 +355,7 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	char n[DT_TYPE_NAMELEN];
+	uint_t off = pcb->pcb_bufoff;
 
 	if (dt_node_is_void(dnp->dn_args)) {
 		dnerror(dnp->dn_args, D_TRACE_VOID,
@@ -366,10 +371,10 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	if (dt_node_is_scalar(dnp->dn_args)) {
-		instr = BPF_STORE(BPF_DW, BPF_REG_9, 0, BPF_REG_0);
+		instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-		return sizeof(long);
+		return sizeof(uint64_t);
 	} else if (dt_node_is_string(dnp->dn_args)) {
 		size_t sz = dt_node_type_size(dnp->dn_args);
 
@@ -378,18 +383,19 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		 * array.  Given that all entries in the output buffer are
 		 * aligned at 64-bit boundaries, this guarantees that the
 		 * character array is also aligned at a 64-bit boundary.
-		 * We will pad the string to a multiple of 8 bytes as well
-		 * (with zeros).
+		 * We will pad the string to a multiple of 8 bytes as well.
 		 *
-		 * We store the size as two 32-bit values.
-		 * FIXME: Consider endianness
+		 * We store the size as two 32-bit values, lower 4 bytes first,
+		 * then the higher 4 bytes.
 		 */
-		fprintf(stderr, "DBG: dt_cg_act_trace() str (%d bytes)\n", sz);
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0,
+		sz = P2ROUNDUP(sz, sizeof(uint64_t));
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off,
 				      sz & ((1UL << 32)-1));
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, sz >> 32);
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		return sz + sizeof(uint64_t);
 	} else
 		dnerror(dnp->dn_args, D_PROTO_ARG,
 			"trace( ) argument #1 is incompatible with prototype:\n"
@@ -2492,15 +2498,18 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 			if (act->dn_kind == DT_NODE_DFUNC) {
 				const dt_cg_actdesc_t	*actdp;
 				dt_ident_t		*idp;
-				size_t			sz = 0;
 
 				idp = act->dn_expr->dn_ident;
 				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
-				if (actdp->fun)
-					actdp->fun(pcb, act->dn_expr,
-						   actdp->kind);
-else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp->di_id), idp->di_name);
+				if (actdp->fun) {
+					size_t	sz = 0;
+
+					sz = actdp->fun(pcb, act->dn_expr,
+							actdp->kind);
+					pcb->pcb_bufoff += sz;
 fprintf(stderr, "DBG: DFUNC '%s' emits up to %lu bytes.\n", idp->di_name, sz);
+				}
+else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp->di_id), idp->di_name);
 			} else {
 				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
 					   pcb->pcb_regs);

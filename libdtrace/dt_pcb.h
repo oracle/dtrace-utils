@@ -43,6 +43,7 @@ typedef struct dt_pcb {
 	dt_idhash_t *pcb_pragmas; /* current hash table of pending pragmas */
 	dt_strtab_t *pcb_strtab; /* string table for string references */
 	dt_regset_t *pcb_regs;	/* register set for code generation */
+	uint_t pcb_bufoff;	/* output buffer offset (for DFUNCs) */
 	dt_irlist_t pcb_ir;	/* list of unrelocated IR instructions */
 	uint_t pcb_asvidx;	/* assembler vartab index (see dt_as.c) */
 	ulong_t **pcb_asxrefs;	/* assembler imported xlators (see dt_as.c) */
