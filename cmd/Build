@@ -3,7 +3,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-CMDS += dtrace ctf_module_dump
+CMDS += dtrace ctf_module_dump bpf_dump
 dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE \
 	-DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 dtrace_TARGET = dtrace
@@ -19,6 +19,13 @@ ctf_module_dump_DIR := $(current-dir)
 ctf_module_dump_SOURCES = ctf_module_dump.c
 ctf_module_dump_DEPS = libdtrace.so libport.a
 ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf -lelf
+
+bpf_dump_CPPFLAGS =
+bpf_dump_TARGET = bpf_dump
+bpf_dump_DIR := $(current-dir)
+bpf_dump_SOURCES = bpf_dump.c
+bpf_dump_DEPS =
+bpf_dump_LIBS = -lelf
 
 $(objdir)/run-dtrace: $(DTRACE)
 	printf > $@ "\
