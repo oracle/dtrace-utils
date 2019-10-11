@@ -635,6 +635,12 @@ extern int dt_options_load(dtrace_hdl_t *);
 extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
+extern int dt_load_libs(dtrace_hdl_t *dtp);
+
+extern void *dt_compile(dtrace_hdl_t *dtp, int context,
+			dtrace_probespec_t pspec, void *arg, uint_t cflags,
+			int argc, char *const argv[], FILE *fp, const char *s);
+
 extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern void dt_cg(dt_pcb_t *, dt_node_t *);
