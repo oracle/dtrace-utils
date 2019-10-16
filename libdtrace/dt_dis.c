@@ -12,11 +12,9 @@
 #include <dt_ident.h>
 #include <dt_printf.h>
 #include <dt_string.h>
-#include <dt_bpf_funcs.h>
+#include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 
-#define __stringify_(x)		#x
-#define __stringify(x)		__stringify_(x)
 #define BPF_HELPER_FN(x)	[BPF_FUNC_##x] = __stringify(bpf_##x)
 static const char * const helper_fn[] = {
 	__BPF_FUNC_MAPPER(BPF_HELPER_FN)
@@ -247,7 +245,7 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name,
 	 * there are annotations to be added.
 	 */
 	if (in->src_reg == BPF_PSEUDO_CALL) {
-		fn = dt_bpf_fname(in->imm);
+		fn = dt_bpf_builtins[in->imm].name;
 		ann = dt_dis_bpf_args(dp, in->imm, in, buf, sizeof(buf));
 	} else if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID) {
 		fn = helper_fn[in->imm];

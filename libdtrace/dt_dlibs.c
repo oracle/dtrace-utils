@@ -5,6 +5,15 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/*
+ * TODO:
+ * - Sort symbols by address (offset)
+ * - FIl in symbol sizes (if needed)
+ * - Sort relocations by address (offset)
+ * - Associate relocations with symbols
+ * - Resolve relocations
+ */
+
 #include <assert.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -14,6 +23,395 @@
 #include <dt_program.h>
 #include <dt_grammar.h>
 #include <dt_impl.h>
+#include <dt_bpf_builtins.h>
+
+#define DT_DLIB_D	0
+#define DT_DLIB_BPF	1
+
+typedef struct dt_bpf_reloc	dt_bpf_reloc_t;
+struct dt_bpf_reloc {
+	int		sym;
+	int		type;
+	uint64_t	offset;
+	dt_bpf_reloc_t	*next;
+};
+
+struct dt_bpf_func {
+	const char	*name;
+	Elf		*elf;
+	int		id;
+	int		scn;
+	uint64_t	offset;
+	size_t		size;
+	dt_bpf_reloc_t	*relocs;
+	dt_bpf_reloc_t	*last_reloc;
+};
+
+static dt_bpf_func_t	*dt_bpf_funcs;
+static int		dt_bpf_funcc;
+static dt_bpf_reloc_t	*dt_bpf_relocs;
+static int		dt_bpf_relocc;
+
+#define DT_BPF_BUILTIN_FN(x, y)	[DT_BPF_##x] = { __stringify(dt_##y), }
+dt_bpf_builtin_t	dt_bpf_builtins[] = {
+        DT_BPF_MAP_BUILTINS(DT_BPF_BUILTIN_FN)
+};
+#undef DT_BPF_BUILTIN_FN
+
+/*
+ * Compare function (used by qsort) to compare two BPF functions based on their
+ * offset in the .text section.  We are sorting in ascending offset order.
+ */
+static int
+symcmp(const void *a, const void *b)
+{
+	const dt_bpf_func_t	*x = a;
+	const dt_bpf_func_t	*y = b;
+
+	return x->offset > y->offset ? 1
+				     : x->offset == y->offset ? 0
+							      : -1;
+}
+
+/*
+ * Compare function (used by qsort) to compare two BPF relocations based on
+ * their offset in the .text section.  We are sorting in ascending offset
+ * order.
+ */
+static int
+relcmp(const void *a, const void *b)
+{
+	const dt_bpf_reloc_t	*x = a;
+	const dt_bpf_reloc_t	*y = b;
+
+	return x->offset > y->offset ? 1
+				     : x->offset == y->offset ? 0
+							      : -1;
+}
+
+/*
+ * Populate dt_bpf_funcs with BPF functions from the .text section of the
+ * given ELF object.  The dt_bpf_funcs array will contain the functions in
+ * the order of their offset into the .text section.
+ *
+ * TEMPORARY:
+ * The gcc BPF compiler generates ELF objects with symbols that have a zero
+ * size, so we need to patch that up.
+ */
+static int
+populate_bpf_funcs(Elf *elf, GElf_Ehdr *ehdr)
+{
+	int		text_idx = -1;
+	int		text_siz = 0;
+	int		stbl_idx = -1;
+	int		strs_idx = -1;
+	int		idx, count;
+	Elf_Scn		*scn;
+	Elf_Data	*data;
+	GElf_Shdr	shdr;
+	dt_bpf_func_t	*bpff;
+
+	/*
+	 * We first collect information about the .text section and the symbol
+	 * table.
+	 */
+	idx = 0;
+	scn = NULL;
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		if (gelf_getshdr(scn, &shdr) == NULL) {
+			fprintf(stderr, "Scn %d: : failed to get name\n",
+				idx);
+			return -1;
+		}
+
+		idx++;
+		if (shdr.sh_type == SHT_SYMTAB) {
+			stbl_idx = idx;
+			strs_idx = shdr.sh_link;
+                } else if (shdr.sh_type == SHT_PROGBITS) {
+			char	*name;
+
+			if (!(shdr.sh_flags & SHF_EXECINSTR))
+				continue;
+			name = elf_strptr(elf, ehdr->e_shstrndx, shdr.sh_name);
+			if (name == NULL) {
+				fprintf(stderr, "Scn %d: failed to get name\n",
+					idx);
+				continue;
+			}
+			if (strcmp(name, ".text") != 0)
+				continue;
+
+			text_idx = idx;
+			text_siz = shdr.sh_size;
+		}
+
+		if (text_idx > 0 && stbl_idx > 0)
+			break;
+	}
+
+	scn = elf_getscn(elf, stbl_idx);
+	if ((data = elf_getdata(scn, NULL)) == NULL) {
+		fprintf(stderr, "Scn %d: Failed to get data\n", stbl_idx);
+		return -1;
+	}
+
+	/*
+	 * Count the nuymber of BPF functions in .text.
+	 */
+again:
+	count = 0;
+	for (idx = 0; idx < data->d_size / sizeof(GElf_Sym); idx++) {
+		GElf_Sym	sym;
+
+		if (!gelf_getsym(data, idx, &sym))
+			continue;
+		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
+			continue;
+		if (sym.st_shndx != text_idx)
+			continue;
+
+		/*
+		 * Second pass: fill in symbol info
+		 */
+		if (dt_bpf_funcs) {
+			char		*sname;
+
+			sname = elf_strptr(elf, strs_idx, sym.st_name);
+			if (sname == NULL)
+				fprintf(stderr, "Sym %d: Failed to get name\n",
+					idx);
+
+			bpff = &dt_bpf_funcs[count];
+			bpff->name = sname ? strdup(sname) : NULL;
+			bpff->elf = elf;
+			bpff->scn = text_idx;
+			bpff->id = idx;
+			bpff->offset = sym.st_value;
+			bpff->size = sym.st_size;
+		}
+
+		count++;
+	}
+
+	/*
+	 * First pass: allocate dt_bpf_funcs
+	 */
+	if (!dt_bpf_funcs) {
+		dt_bpf_funcs = calloc(count, sizeof(dt_bpf_func_t));
+		dt_bpf_funcc = count;
+		goto again;
+	}
+
+	qsort(dt_bpf_funcs, count, sizeof(dt_bpf_func_t), symcmp);
+
+	/*
+	 * Patch up symbols that have a zero size.  This is a workaround for a
+	 * bug in the gcc BPF compiler causing symbols to be emitted with a
+	 * zero size.
+	 */
+	idx = count - 1;
+	if (dt_bpf_funcs[idx].size == 0)
+		dt_bpf_funcs[idx].size = text_siz - dt_bpf_funcs[idx].offset;
+
+	while (--idx >= 0) {
+		if (dt_bpf_funcs[idx].size == 0)
+			dt_bpf_funcs[idx].size = dt_bpf_funcs[idx + 1].offset -
+						 dt_bpf_funcs[idx].offset;
+	}
+
+	return 0;
+}
+
+static int
+collect_bpf_relocs(Elf *elf, GElf_Ehdr *ehdr)
+{
+	int		text_idx = -1;
+	int		relo_idx = -1;
+	int		idx, sid;
+	uint64_t	soff, eoff;
+	Elf_Scn		*scn;
+	Elf_Data	*data;
+	GElf_Shdr	shdr;
+	dt_bpf_reloc_t	*bpfr;
+
+	/*
+	 * If there are no BPF functions, we have nothing to do here.
+	 */
+	if (dt_bpf_funcc == 0)
+		return 0;
+
+	/*
+	 * Obtain the index of the .text section from the first BPF function
+	 * (since all BPF functions we are interested in must reside in .text).
+	 */
+	text_idx = dt_bpf_funcs[0].scn;
+
+	/*
+	 * Look for a relocation section for the .text section.
+	 */
+	idx = 0;
+	scn = NULL;
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		if (gelf_getshdr(scn, &shdr) == NULL) {
+			fprintf(stderr, "Scn %d: : failed to get name\n",
+				idx);
+			return -1;
+		}
+
+		idx++;
+		if (shdr.sh_type == SHT_REL) {
+			if (shdr.sh_info != text_idx)
+				continue;
+
+			relo_idx = idx;
+			break;
+		}
+	}
+
+	if ((data = elf_getdata(scn, NULL)) == NULL) {
+		fprintf(stderr, "Scn %d: Failed to get data\n", relo_idx);
+		return -1;
+	}
+
+	/*
+	 * Read the relocation records and store our version of them.  We will
+	 * sort them (by ascending offset order) before we process them and
+	 * associate them with the functions they belong to.
+	 */
+	dt_bpf_relocc = data->d_size / sizeof(GElf_Rel);
+	dt_bpf_relocs = calloc(dt_bpf_relocc, sizeof(dt_bpf_reloc_t));
+
+	for (idx = 0, bpfr = dt_bpf_relocs; idx < dt_bpf_relocc;
+	     idx++, bpfr++) {
+		GElf_Rel	rel;
+
+		if (!gelf_getrel(data, idx, &rel))
+			continue;
+
+		bpfr->sym = GELF_R_SYM(rel.r_info);
+		bpfr->type = GELF_R_TYPE(rel.r_info);
+		bpfr->offset =rel.r_offset;
+	}
+
+	qsort(dt_bpf_relocs, dt_bpf_relocc, sizeof(dt_bpf_reloc_t), relcmp);
+
+	soff = dt_bpf_funcs[0].offset;
+	eoff = dt_bpf_funcc > 1 ? dt_bpf_funcs[1].offset : 0;
+	sid = 0;
+	for (idx = 0, bpfr = dt_bpf_relocs; idx < dt_bpf_relocc;
+	     idx++, bpfr++) {
+		if (bpfr->offset < soff)
+			continue;
+
+		while (eoff && bpfr->offset >= eoff) {
+			sid++;
+			soff = eoff;
+			eoff = sid < dt_bpf_funcc - 1
+					? dt_bpf_funcs[sid + 1].offset
+					: 0;
+		}
+
+		/*
+		 * We adjust the relocation offset to be relative to the start
+		 * of the function, since the entire function is going to be
+		 * relocated independent of the section.
+		 */
+		bpfr->offset -= soff;
+		if (dt_bpf_funcs[sid].relocs == NULL)
+			dt_bpf_funcs[sid].relocs = bpfr;
+		else
+			dt_bpf_funcs[sid].last_reloc->next = bpfr;
+
+		dt_bpf_funcs[sid].last_reloc = bpfr;
+	}
+
+	return 0;
+}
+
+static int
+readBPFFile(const char *fn)
+{
+	int		fd;
+	int		rc = -1;
+	int		i, j;
+	Elf		*elf = NULL;
+	GElf_Ehdr	ehdr;
+
+	if ((fd = open64(fn, O_RDONLY)) == -1) {
+		fprintf(stderr, "Failed to open %s: %s\n",
+			fn, strerror(errno));
+		return -1;
+	}
+	if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
+		fprintf(stderr, "Failed to open ELF in %s\n", fn);
+		goto err_elf;
+	}
+	if (elf_kind(elf) != ELF_K_ELF) {
+		fprintf(stderr, "Unsupported ELF file type for %s: %d\n",
+			fn, elf_kind(elf));
+		goto out;
+	}
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		fprintf(stderr, "Failed to read EHDR from %s", fn);
+		goto err_elf;
+	}
+	if (ehdr.e_machine != EM_BPF) {
+		fprintf(stderr, "Unsupported ELF machine type %d for %s\n",
+			ehdr.e_machine, fn);
+		goto out;
+	}
+
+	if (populate_bpf_funcs(elf, &ehdr) < 0)
+		goto out;
+	if (collect_bpf_relocs(elf, &ehdr) < 0)
+		goto out;
+
+	for (i = j = 0; i < dt_bpf_funcc && j < DT_BPF_LAST_ID; ) {
+		int	d;
+
+		d = strcmp(dt_bpf_funcs[i].name, dt_bpf_builtins[j].name);
+fprintf(stderr, "DBG: %d '%s' vs %d '%s' -> d %d\n", i, dt_bpf_funcs[i].name, j, dt_bpf_builtins[j].name, d);
+		if (d > 0)
+			j++;
+		else {
+			if (d == 0)
+				dt_bpf_builtins[j].sym = &dt_bpf_funcs[i];
+
+			i++;
+		}
+	}
+
+for (i = 0; i < dt_bpf_funcc; i++) {
+  dt_bpf_reloc_t *bpfr;
+
+  fprintf(stderr, "DBG: bpf[%2d] = { '%s', %d, %lu, %lu }\n",
+	  i, dt_bpf_funcs[i].name, dt_bpf_funcs[i].id, dt_bpf_funcs[i].offset,
+	  dt_bpf_funcs[i].size);
+
+  for (bpfr = dt_bpf_funcs[i].relocs; bpfr; bpfr = bpfr->next)
+    fprintf(stderr, "DBG:   Rel   =   { symbol %d, type %s, offset %lu }\n",
+	    bpfr->sym, bpfr->type == R_BPF_64_64
+				? "INSN_64"
+				: bpfr->type == R_BPF_64_32 ? "INSN_DISP32"
+							    : "R_BPF_NONE",
+	    bpfr->offset);
+}
+
+	rc = 0;
+	goto out;
+
+err_elf:
+	fprintf(stderr, ": %s\n", elf_errmsg(elf_errno()));
+
+out:
+	if (elf)
+		elf_end(elf);
+
+	close(fd);
+
+	return rc;
+}
 
 static void
 dt_lib_depend_error(dtrace_hdl_t *dtp, const char *format, ...)
@@ -236,6 +634,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 	const char *p;
 	DIR *dirp;
 
+	int type;
 	char fname[PATH_MAX];
 	dtrace_prog_t *pgp;
 	FILE *fp;
@@ -249,11 +648,25 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 
 	/* First, parse each file for library dependencies. */
 	while ((dp = readdir(dirp)) != NULL) {
-		if ((p = strrchr(dp->d_name, '.')) == NULL || strcmp(p, ".d"))
-			continue; /* skip any filename not ending in .d */
+		if ((p = strrchr(dp->d_name, '.')) == NULL)
+			continue; /* skip any filename not containing '.' */
+		p++;
+		if (strlen(dp->d_name) - (p - dp->d_name) > 1)
+			continue; /* suffix is more than 1 character */
+		if (*p == 'd')
+			type = DT_DLIB_D;
+		else if (*p == 'o')
+			type = DT_DLIB_BPF;
+		else
+			continue; /* skip any filename not ending in ".d" */
 
 		(void) snprintf(fname, sizeof (fname),
 		    "%s/%s", path, dp->d_name);
+
+		if (type == DT_DLIB_BPF) {
+			readBPFFile(fname);
+			return 0;
+		}
 
 		if ((fp = fopen(fname, "r")) == NULL) {
 			dt_dprintf("skipping library %s: %s\n",

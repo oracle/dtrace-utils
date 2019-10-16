@@ -44,7 +44,14 @@ extern "C" {
 #include <dt_pcb.h>
 #include <dt_debug.h>
 
-#define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
+#ifndef ARRAY_SIZE
+# define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+#ifndef __stringify
+# define __stringify_(x)         #x
+# define __stringify(x)          __stringify_(x)
+#endif
 
 struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */

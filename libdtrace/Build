@@ -10,7 +10,7 @@ libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/$(ARCHI
                            -DUNPRIV_HOME=\"$(UNPRIV_HOME)\"
 libdtrace-build_TARGET = libdtrace
 libdtrace-build_DIR := $(current-dir)
-libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_bpf_funcs.c \
+libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c \
 			  dt_buf.c dt_cc.c dt_cg.c dt_consume.c dt_debug.c \
 			  dt_decl.c dt_dis.c dt_dlibs.c dt_dof.c dt_error.c \
 			  dt_errtags.c dt_grammar.c dt_handle.c dt_htab.c \
