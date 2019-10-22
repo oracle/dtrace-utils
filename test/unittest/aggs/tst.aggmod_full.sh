@@ -78,12 +78,16 @@ cd $DIRNAME
 #   . type (3rd field) is "a"
 #   . type (3rd field) is "A"
 # - can add special cases based on symbol name (4th field)
-awk '{
-if (NF == 4) {$5 = "[vmlinux]"};
-if ($3 == "a") {$2 = 0};
-if ($3 == "A") {$2 = 0};
-if ($2 != 0) { print $1 >> $5 }
-}' /proc/kallmodsyms
+awk '
+NF == 4 && $4 == "__init_scratch_begin" {
+  while ($4 != "__init_scratch_end") getline;
+  next;
+}
+NF == 4 {$5 = "[vmlinux]"};
+$3 == "a" {$2 = 0};
+$3 == "A" {$2 = 0};
+$2 != 0 { print $1 >> $5 }
+' /proc/kallmodsyms
 
 # process the files whose names start with a '['
 
