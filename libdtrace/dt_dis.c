@@ -515,7 +515,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		if (opcode >= sizeof (optab) / sizeof (optab[0]))
 			opcode = 0; /* force invalid opcode message */
 
-		fprintf(fp, "%03lu %03lu: %02x %01x %01x %04x %08x    ",
+		fprintf(fp, "%03lu %03lu: %02hhx %01hhx %01hhx %04hx %08x    ",
 			i, i*8, instr->code, instr->dst_reg, instr->src_reg,
 			instr->off, instr->imm);
 		if (instr->code != 0) {
