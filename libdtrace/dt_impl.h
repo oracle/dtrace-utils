@@ -432,6 +432,22 @@ struct dtrace_hdl {
 #define	DT_USYMADDR_TYPE(dtp)	((dtp)->dt_type_usymaddr)
 
 /*
+ * The stack layout for functions that implement a D clause is encoded with the
+ * following constants.
+ */
+#define DT_STK_CTX		-8
+#define DT_STK_DCTX		-16
+#define DT_STK_CPU		-24
+#define DT_STK_SPILL(n)		((DT_STK_CPU) - 8 * (n))
+#define DT_STK_R1		DT_STK_SPILL(1)
+#define DT_STK_R2		DT_STK_SPILL(2)
+#define DT_STK_R3		DT_STK_SPILL(3)
+#define DT_STK_R4		DT_STK_SPILL(4)
+#define DT_STK_R5		DT_STK_SPILL(5)
+#define DT_STK_R6		DT_STK_SPILL(6)
+#define DT_STK_R7		DT_STK_SPILL(7)
+
+/*
  * Actions and subroutines are both DT_NODE_FUNC nodes; to avoid confusing
  * an action for a subroutine (or vice versa), we assure that the DT_ACT_*
  * constants and the DIF_SUBR_* constants occupy non-overlapping ranges by

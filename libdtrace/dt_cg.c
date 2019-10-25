@@ -12,6 +12,9 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <sys/ptrace.h>
+#include <asm/ptrace.h>
+
 #include <dt_impl.h>
 #include <dt_grammar.h>
 #include <dt_parser.h>
@@ -20,8 +23,149 @@
 #include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 
+/*
+ * The DTrace context.
+ */
+struct dt_bpf_context {
+	uint32_t	epid;
+	uint32_t	probe_id;
+	uint64_t	fault;
+	struct pt_regs	regs;
+	uint64_t	argv[10];
+};
+
+#define DCTX_EPID	offsetof(struct dt_bpf_context, epid)
+#define DCTX_PROBE_ID	offsetof(struct dt_bpf_context, probe_id)
+#define DCTX_FAULT	offsetof(struct dt_bpf_context, fault)
+
+static void dt_cg_setx(dt_irlist_t *, int, uint64_t);
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 static dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
+
+/*
+ * Generate the function prologue:
+ *	1. Store ctx (%r1) in its reserved stack slot
+ *	2. Store dctx (%r2) in its reserved stack slot
+ *	3. Call bpf_get_smp_processor_id() to determine the current CPU id
+ *	4. Store CPU id in its reserved stack slot
+ *	5. Retrieve the output data buffer and store the base pointer in %r9
+ *	6. Store the epid and 4 padding byes at the beginning of the output
+ *	   buffer
+ */
+static void
+dt_cg_prologue(dt_pcb_t *pcb)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+
+	/*
+	 *		stxdw [%fp + DT_STK_CTX], %r1
+	 *		stxdw [%fp + DT_STK_DCTX], %r2
+	 */
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_CTX, BPF_REG_1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_2);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *		call bpf_bpf_get_smp_processor_id
+	 *		lsh %r0, 32
+	 *		arsh %r0, 32
+	 *		stxw [%fp + DT_STK_CPU], %r0
+	 */
+	instr = BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 32);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ARSH, BPF_REG_0, 32);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_CPU, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *		lddw %r1, &mem
+	 *		mov %r2, %fp
+	 *		add %r2, -24
+	 *		call bpf_map_lookup_elem
+	 *		mov %r9, %r0
+	 */
+	dt_cg_setx(dlp, BPF_REG_1, 0);
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_CPU);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_9, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * We read epid from dctx (struct dt_bpf_context) and store it in the
+	 * first 4 bytes of the output buffer.  The next 4 bytes are padded
+	 * with 0s so that the next entry will be at a 8-byte boundary.
+	 */
+	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_2, DCTX_EPID);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	pcb->pcb_bufoff += sizeof(uint64_t);
+}
+
+/*
+ * Generate the function epilogue:
+ *	if (dctx->fault)
+ *		return dctx->fault;
+ *	return bpf_perf_event_output(ctx, &buffers, cpu, buf, bufsize);
+ */
+static void
+dt_cg_epilogue(dt_pcb_t *pcb)
+{
+	struct bpf_insn instr;
+	dt_irlist_t *dlp = &pcb->pcb_ir;
+	uint_t lbl_exit = dt_irlist_label(dlp);
+
+	/*
+	 *		ldxdw %r0, [%fp + DT_STK_DCTX]
+	 *		ldxdw %r0, [%r0 + DCTX_FAULT]
+	 *		jne %r0, 0, lbl_exit
+	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_FAULT);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *		ldxdw %r1, [%fp + DT_STK_CTX]
+	 *		lddw %r2, &buffers
+	 *		ldxw %r3, [%fp + DT_STK_CPU]
+	 *		mov %r4, %r9
+	 *		mov %r5, pcb->pcb_bufoff
+	 *		call bpf_perf_event_output
+	 *		mov %r0, 0
+	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_CTX);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_setx(dlp, BPF_REG_2, 0);
+	instr = BPF_LOAD(BPF_W, BPF_REG_3, BPF_REG_FP, DT_STK_CPU);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_4, BPF_REG_9);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_perf_event_output);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * lbl_exit:	exit
+	 */
+	instr = BPF_RETURN();
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+}
 
 static size_t
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
@@ -2492,6 +2636,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
+		dt_cg_prologue(pcb);
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
 			pcb->pcb_dret = act->dn_expr;
 
@@ -2517,19 +2662,9 @@ else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp
 					       pcb->pcb_dret->dn_reg);
 			}
 		}
+		dt_cg_epilogue(pcb);
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
-
-	/*
-	 * FIXME: Perhaps we ought to use the mandatory return value of the
-	 *	  eBPF program to indicate if an error occured during the
-	 *	  action processing.  We can store the error marker in the
-	 *	  ECB, and pull it out here.
-	 */
-	instr = BPF_MOV_IMM(BPF_REG_0, 0);
-	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_RETURN();
-	dt_irlist_append(&pcb->pcb_ir, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	if (dnp->dn_kind == DT_NODE_MEMBER) {
 		dt_regset_free(pcb->pcb_regs, dxp->dx_ident->di_id);
