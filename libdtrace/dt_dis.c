@@ -49,7 +49,7 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 
 /*ARGSUSED*/
 static void
-dt_dis_str(const dtrace_difo_t *dp, const char *name,
+dt_dis_str(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	   const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%s", name);
@@ -57,7 +57,7 @@ dt_dis_str(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_op1(const dtrace_difo_t *dp, const char *name,
+dt_dis_op1(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	   const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%-4s %s", name, reg(in->dst_reg));
@@ -65,7 +65,7 @@ dt_dis_op1(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_op2(const dtrace_difo_t *dp, const char *name,
+dt_dis_op2(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	   const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%-4s %s, %s", name, reg(in->dst_reg), reg(in->src_reg));
@@ -73,7 +73,7 @@ dt_dis_op2(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_op2imm(const dtrace_difo_t *dp, const char *name,
+dt_dis_op2imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	      const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%-4s %s, %d", name, reg(in->dst_reg), in->imm);
@@ -81,25 +81,25 @@ dt_dis_op2imm(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_branch(const dtrace_difo_t *dp, const char *name,
+dt_dis_branch(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %s, %d", name, reg(in->dst_reg),
-		reg(in->src_reg), in->off);
+	fprintf(fp, "%-4s %s, %s, %d\t! -> %03lu", name, reg(in->dst_reg),
+		reg(in->src_reg), in->off, addr + 1 + in->off);
 }
 
 /*ARGSUSED*/
 static void
-dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name,
+dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u, %d", name, reg(in->dst_reg), in->imm,
-		in->off);
+	fprintf(fp, "%-4s %s, %u, %d\t! -> %03lu", name, reg(in->dst_reg),
+		in->imm, in->off, addr + 1 + in->off);
 }
 
 /*ARGSUSED*/
 static void
-dt_dis_load(const dtrace_difo_t *dp, const char *name,
+dt_dis_load(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	      const struct bpf_insn *in, FILE *fp)
 {
 	int var = in->off;
@@ -121,7 +121,7 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_load_imm(const dtrace_difo_t *dp, const char *name,
+dt_dis_load_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 		const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%-4s %s, 0x%08x%08x", name, reg(in->dst_reg),
@@ -130,7 +130,7 @@ dt_dis_load_imm(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_store(const dtrace_difo_t *dp, const char *name,
+dt_dis_store(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	     const struct bpf_insn *in, FILE *fp)
 {
 	int var = in->off;
@@ -152,7 +152,7 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_store_imm(const dtrace_difo_t *dp, const char *name,
+dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 		 const struct bpf_insn *in, FILE *fp)
 {
 	fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
@@ -210,7 +210,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 
 /*ARGSUSED*/
 static void
-dt_dis_call(const dtrace_difo_t *dp, const char *name,
+dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	    const struct bpf_insn *in, FILE *fp)
 {
 	const char *fn = NULL;
@@ -241,13 +241,14 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name,
 
 /*ARGSUSED*/
 static void
-dt_dis_jump(const dtrace_difo_t *dp, const char *name,
+dt_dis_jump(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	    const struct bpf_insn *in, FILE *fp)
 {
 	if (in->off == 0)
 		fprintf(fp, "nop");
 	else
-		fprintf(fp, "%-4s %u", name, in->off);
+		fprintf(fp, "%-4s %u\t\t\t! -> %03lu", name, in->off,
+			addr + 1 + in->off);
 }
 
 static char *
@@ -343,7 +344,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 {
 	static const struct opent {
 		const char *op_name;
-		void (*op_func)(const dtrace_difo_t *, const char *,
+		void (*op_func)(const dtrace_difo_t *, const char *, ulong_t,
 				const struct bpf_insn *, FILE *);
 	} optab[256] = {
 		[0 ... 255] = { "(illegal opcode)", dt_dis_str },
@@ -498,7 +499,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 			instr->off, instr->imm);
 		if (instr->code != 0) {
 			op = &optab[opcode];
-			op->op_func(dp, op->op_name, instr, fp);
+			op->op_func(dp, op->op_name, i, instr, fp);
 		}
 		fprintf(fp, "\n");
 	}
