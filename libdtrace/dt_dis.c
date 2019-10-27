@@ -47,32 +47,6 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 	return (NULL);
 }
 
-static uint_t
-dt_dis_scope(uint_t id)
-{
-	switch (id & 0x7000) {
-	case 0x1000: return (DIFV_SCOPE_LOCAL);
-	case 0x2000: return (DIFV_SCOPE_THREAD);
-	case 0x3000: return (DIFV_SCOPE_GLOBAL);
-	default: return (-1u);
-	}
-}
-
-static const char *
-dt_dis_scopename(uint_t scope)
-{
-	switch (scope) {
-	case DIFV_SCOPE_LOCAL:
-		return "this->";
-	case DIFV_SCOPE_THREAD:
-		return "self->";
-	case DIFV_SCOPE_GLOBAL:
-		return "";
-	default:
-		return "?->";
-	}
-}
-
 /*ARGSUSED*/
 static void
 dt_dis_str(const dtrace_difo_t *dp, const char *name,
@@ -128,18 +102,20 @@ static void
 dt_dis_load(const dtrace_difo_t *dp, const char *name,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	uint_t var = in->off;
+	int var = in->off;
 
 	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
-		reg(in->src_reg), in->off);
+		reg(in->src_reg), var);
 
 	if (in->src_reg == BPF_REG_FP) {
-		uint_t		scope = dt_dis_scope(var);
-		const char	*vname = dt_dis_varname(dp, var, scope);
+		var = DT_STK_LVAR_ID(var);
+		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
+			const char	*vname;
+			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
 
-		if (vname)
-			fprintf(fp, "\t! %s%s",
-				dt_dis_scopename(scope), vname);
+			if (vname)
+				fprintf(fp, "\t! this->%s", vname);
+		}
 	}
 }
 
@@ -157,18 +133,20 @@ static void
 dt_dis_store(const dtrace_difo_t *dp, const char *name,
 	     const struct bpf_insn *in, FILE *fp)
 {
-	uint_t var = in->off;
+	int var = in->off;
 
-	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
+	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), var,
 		reg(in->src_reg));
 
 	if (in->dst_reg == BPF_REG_FP) {
-		uint_t		scope = dt_dis_scope(var);
-		const char	*vname = dt_dis_varname(dp, var, scope);
+		var = DT_STK_LVAR_ID(var);
+		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
+			const char	*vname;
+			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
 
-		if (vname)
-			fprintf(fp, "\t! %s%s",
-				dt_dis_scopename(scope), vname);
+			if (vname)
+				fprintf(fp, "\t! this->%s", vname);
+		}
 	}
 }
 

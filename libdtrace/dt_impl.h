@@ -446,6 +446,19 @@ struct dtrace_hdl {
 #define DT_STK_R5		DT_STK_SPILL(5)
 #define DT_STK_R6		DT_STK_SPILL(6)
 #define DT_STK_R7		DT_STK_SPILL(7)
+#define DT_STK_LVAR(n)		((DT_STK_R7) - 8 * (n))
+#define DT_STK_LVAR_ID(n)	(-((n) - (DT_STK_R7)) / 8)
+#define DT_STK_SCRATCH		-512
+#define DT_STK_SCRATCH_SIZE	256
+
+/*
+ * Maximum number of local variables stored by value (scalars).  This is bound
+ * by the choice to store them on the stack between the register spill space,
+ * and 256 bytes set aside as string scratch space.  We also use the fact that
+ * the (current) maximum stack space for BPF programs is 512 bytes.
+ */
+#define DT_VAR_LOCAL_MAX	((-(DT_STK_SCRATCH) - (DT_STK_SCRATCH_SIZE) + \
+				  (DT_STK_R7)) / 8)
 
 /*
  * Actions and subroutines are both DT_NODE_FUNC nodes; to avoid confusing
