@@ -37,8 +37,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <bpf_asm.h>
+
+#include "dt_impl.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
+#include "dt_pt_regs.h"
 
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
 #define PROBE_LIST		TRACEFS "available_filter_functions"
@@ -118,6 +122,104 @@ static int fbt_populate(dtrace_hdl_t *dtp)
 	fclose(f);
 
 	return n;
+}
+
+/*
+ * Generate a BPF trampoline for a FBT probe.
+ *
+ * The trampoline function is called when a FBT probe triggers, and it must
+ * satisfy the following prototype:
+ *
+ *	int f(struct pt_regs *regs)
+ *
+ * The trampoline will populate a dt_bpf_context struct and then call the
+ * function that implements tha compiled D clause.  It returns the value that
+ * it gets back from that function.
+ */
+static void fbt_trampoline(dt_irlist_t *dlp, int epid)
+{
+	int		i;
+	struct bpf_insn	instr;
+
+#define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
+
+	/*
+	 * ctx.epid = epid;
+	 * ctx.pad = 0;
+	 * ctx.fault = 0;
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), epid);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * ctx.regs = *regs;
+	 */
+	for (i = 0; i < sizeof(struct pt_regs); i += 8) {
+		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, i);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_REGS) + i,
+				  BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
+	/*
+	 * ctx.argv[0] = PT_REGS_PARAM1(regs);
+	 * ctx.argv[1] = PT_REGS_PARAM2(regs);
+	 * ctx.argv[2] = PT_REGS_PARAM3(regs);
+	 * ctx.argv[3] = PT_REGS_PARAM4(regs);
+	 * ctx.argv[4] = PT_REGS_PARAM5(regs);
+	 * ctx.argv[5] = PT_REGS_PARAM6(regs);
+	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(0)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(1)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG2);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(2)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG3);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(3)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG4);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(4)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG5);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(5)), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	for (i = 5; i < sizeof(((struct dt_bpf_context *)0)->argv) / 8; i++) {
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
+				      0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
+	/*
+	 * rc = bpf_action(ctx, dctx);
+	 */
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * return rc;
+	 */
+	instr = BPF_RETURN();
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 }
 
 #if 0
@@ -221,6 +323,7 @@ static int fbt_attach(const char *name, int bpf_fd)
 dt_provimpl_t	dt_fbt = {
 	.name		= "fbt",
 	.populate	= &fbt_populate,
+	.trampoline	= &fbt_trampoline,
 #if 0
 	.resolve_event	= &fbt_resolve_event,
 	.attach		= &fbt_attach,

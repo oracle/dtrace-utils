@@ -14,6 +14,9 @@
 #include <dtrace.h>
 #include <pthread.h>
 
+#include <sys/ptrace.h>
+#include <asm/ptrace.h>
+
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/utsname.h>
@@ -432,6 +435,24 @@ struct dtrace_hdl {
 #define	DT_USYMADDR_TYPE(dtp)	((dtp)->dt_type_usymaddr)
 
 /*
+ * The DTrace context.
+ */
+struct dt_bpf_context {
+	uint32_t	epid;
+	uint32_t	pad;
+	uint64_t	fault;
+	struct pt_regs	regs;
+	uint64_t	argv[10];
+};
+
+#define DCTX_EPID	offsetof(struct dt_bpf_context, epid)
+#define DCTX_PAD	offsetof(struct dt_bpf_context, pad)
+#define DCTX_FAULT	offsetof(struct dt_bpf_context, fault)
+#define DCTX_REGS	offsetof(struct dt_bpf_context, regs)
+#define DCTX_ARG(n)	offsetof(struct dt_bpf_context, argv[n])
+#define DCTX_SIZE	sizeof(struct dt_bpf_context)
+
+/*
  * The stack layout for functions that implement a D clause is encoded with the
  * following constants.
  */
@@ -680,6 +701,7 @@ extern void *dt_compile(dtrace_hdl_t *dtp, int context,
 extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern void dt_cg(dt_pcb_t *, dt_node_t *);
+extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
 

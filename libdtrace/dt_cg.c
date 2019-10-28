@@ -12,9 +12,6 @@
 #include <assert.h>
 #include <errno.h>
 
-#include <sys/ptrace.h>
-#include <asm/ptrace.h>
-
 #include <dt_impl.h>
 #include <dt_grammar.h>
 #include <dt_parser.h>
@@ -23,24 +20,8 @@
 #include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 
-/*
- * The DTrace context.
- */
-struct dt_bpf_context {
-	uint32_t	epid;
-	uint32_t	probe_id;
-	uint64_t	fault;
-	struct pt_regs	regs;
-	uint64_t	argv[10];
-};
-
-#define DCTX_EPID	offsetof(struct dt_bpf_context, epid)
-#define DCTX_PROBE_ID	offsetof(struct dt_bpf_context, probe_id)
-#define DCTX_FAULT	offsetof(struct dt_bpf_context, fault)
-
 static void dt_cg_setx(dt_irlist_t *, int, uint64_t);
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
-static dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
 
 /*
  * Generate the function prologue:
@@ -647,7 +628,7 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 	[DT_ACT_IDX(DT_ACT_PCAP)]		= { &dt_cg_act_pcap, },
 };
 
-static dt_irnode_t *
+dt_irnode_t *
 dt_cg_node_alloc(uint_t label, struct bpf_insn instr)
 {
 	dt_irnode_t *dip = malloc(sizeof (dt_irnode_t));
