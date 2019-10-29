@@ -56,17 +56,34 @@ OPERATIONS
 
 DTRACE BPF PROGRAM CONVENTIONS
 ------------------------------
-    Reserved registers
-    ------------------
-	%r9	- pointer to the output buffer
-	%r8	- offset of next available position in the output buffer
+    Output scratch buffer
+    ---------------------
+	The output scratch buffer is a block of contiguous memory that is used
+	to construct the output record for a D clause.  The memory must be
+	64-bit aligned.  The ECB id will be stored as a 32-bit value at offset
+	0, followed by a 32-bit padding, and then the actual trace data items.
+	Numeric values are stored as 64-bit integers, and strings are stored as
+	a size (a 64 bit integer) followed by a character array of the given
+	size.
+
+    BPF function implementing a predicate
+    -------------------------------------
+	The BPF function that implements a specific D clause predicate has the
+	following prototype:
+
+		int dt_predicate(void *ctx, struct dt_bpf_context *dctx)
 
     BPF function implementing a D clause
     ------------------------------------
 	The BPF function that implements a specific D clause has the following
 	prototype:
 
-		int bpf_action(void *ctx, struct dt_bpf_context *dctx)
+		int dt_program(void *ctx, struct dt_bpf_context *dctx)
+
+	Reserved registers
+	------------------
+	    %r9		pointer to the output buffer
+	    %r8		offset of next available position in the output buffer
 
 	Stack layout
         ------------
@@ -158,32 +175,31 @@ DTRACE BPF PROGRAM CONVENTIONS
 
 		exit
 
-    Output scratch buffer
-    ---------------------
-	The output scratch buffer is a block of contiguous memory that is used
-	to construct the output record for a D clause.  The memory must be
-	64-bit aligned.  The ECB id will be stored at offset 0, followed by the
-	actual trace data items.  Numeric values are stored as 64-bit integers,
-	and strings are stored as a size (a 8, 16, 32, or 64 bit integer)
-	followed by the character array of the given size.
+    BPF trampoline (probe specific)
+    -------------------------------
+	Function Boundary Tracing (based on kprobe)
+	-------------------------------------------
+	The C equivalent implementation of the FBT trampoline program is:
 
-    Program structure
-    -----------------
-	Prologue:
-		- Construct a struct dt_bpf_context with the ECB id, probe id,
-		  register set content if available), and optional probe
-		  arguments (up to 10).
-		- Retrieve the per-CPU ouptut scratch buffer, ensure it is not
-		  NULL, and assign it to %r9.
+		int dt_fbt(struct pt_regs *regs)
+		{
+			struct dt_bpf_context	dctx;
 
-	Actions:
-		- Each action is either data producing or computational in
-		  nature.  Each action is compiled into its own code fragment,
-		  with the assumption that at the start of the action all
-		  registers are available (except %r9).  Values cannot be
-		  considered retained from one action to the next.
+			memset(&dctx, 0, sizeof(dctx));
+			dctx.epid = EPID;
+			dctx.pad = 0;
+			dctx.fault = 0;
+			dctx.regs = *regs;
+			dctx.argv[0] = PT_REGS_PARAM1(regs);
+			dctx.argv[1] = PT_REGS_PARAM2(regs);
+			dctx.argv[2] = PT_REGS_PARAM3(regs);
+			dctx.argv[3] = PT_REGS_PARAM4(regs);
+			dctx.argv[4] = PT_REGS_PARAM5(regs);
+			dctx.argv[5] = PT_REGS_PARAM6(regs);
 
-	Epilogue:
-		- If a fault occured, end the progran.
-		- Call bpf_perf_event_output() to write the trace data record
-		  into the ring-buffer for the current CPU..
+		#if defined(HAS_PREDICATE)
+			if (!dt_predicate(regs, dctx))
+				return 0;
+		#endif
+			return dt_program(regs, dctx);
+		}

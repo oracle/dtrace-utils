@@ -140,6 +140,7 @@ typedef struct dt_node {
 #define	DT_NODE_PROBE	19	/* probe definition */
 #define	DT_NODE_PROVIDER 20	/* provider definition */
 #define	DT_NODE_PROG	21	/* program translation unit */
+#define	DT_NODE_PREDICATE 22	/* clause predicate */
 
 #define	DT_NF_SIGNED	0x01	/* data is a signed quantity (else unsigned) */
 #define	DT_NF_COOKED	0x02	/* data is a known type (else still cooking) */

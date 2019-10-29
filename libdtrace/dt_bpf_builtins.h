@@ -13,10 +13,12 @@ extern "C" {
 #endif
 
 #define DT_BPF_MAP_BUILTINS(FN) \
-	FN(MEMCPY, memcpy), \
 	FN(GET_GVAR, get_gvar), \
 	FN(GET_STRING, get_string), \
 	FN(GET_TVAR, get_tvar), \
+	FN(MEMCPY, memcpy), \
+	FN(PREDICATE, predicate), \
+	FN(PROGRAM, program), \
 	FN(SET_GVAR, set_gvar), \
 	FN(SET_TVAR, set_tvar), \
 	FN(STRNLEN, strnlen)

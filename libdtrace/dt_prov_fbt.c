@@ -40,6 +40,7 @@
 #include <bpf_asm.h>
 
 #include "dt_impl.h"
+#include "dt_bpf_builtins.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
@@ -130,7 +131,7 @@ static int fbt_populate(dtrace_hdl_t *dtp)
  * The trampoline function is called when a FBT probe triggers, and it must
  * satisfy the following prototype:
  *
- *	int f(struct pt_regs *regs)
+ *	int dt_fbt(struct pt_regs *regs)
  *
  * The trampoline will populate a dt_bpf_context struct and then call the
  * function that implements tha compiled D clause.  It returns the value that
@@ -140,13 +141,20 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 {
 	int		i;
 	struct bpf_insn	instr;
+	uint_t		lbl_exit = dt_irlist_label(dlp);
 
 #define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
 
 	/*
-	 * ctx.epid = epid;
-	 * ctx.pad = 0;
-	 * ctx.fault = 0;
+	 * int dt_fbt(struct pt_regs *regs)
+	 * {
+	 *     struct dt_bpf_context	dctx;
+	 *
+	 *     memset(&dctx, 0, sizeof(dctx));
+	 *
+	 *     dctx.epid = epid;
+	 *     dctx.pad = 0;
+	 *     dctx.fault = 0;
 	 */
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), epid);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -156,7 +164,7 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * ctx.regs = *regs;
+	 *     dctx.regs = *regs;
 	 */
 	for (i = 0; i < sizeof(struct pt_regs); i += 8) {
 		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, i);
@@ -167,12 +175,12 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	}
 
 	/*
-	 * ctx.argv[0] = PT_REGS_PARAM1(regs);
-	 * ctx.argv[1] = PT_REGS_PARAM2(regs);
-	 * ctx.argv[2] = PT_REGS_PARAM3(regs);
-	 * ctx.argv[3] = PT_REGS_PARAM4(regs);
-	 * ctx.argv[4] = PT_REGS_PARAM5(regs);
-	 * ctx.argv[5] = PT_REGS_PARAM6(regs);
+	 *     dctx.argv[0] = PT_REGS_PARAM1(regs);
+	 *     dctx.argv[1] = PT_REGS_PARAM2(regs);
+	 *     dctx.argv[2] = PT_REGS_PARAM3(regs);
+	 *     dctx.argv[3] = PT_REGS_PARAM4(regs);
+	 *     dctx.argv[4] = PT_REGS_PARAM5(regs);
+	 *     dctx.argv[5] = PT_REGS_PARAM6(regs);
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -206,20 +214,39 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	}
 
 	/*
-	 * rc = bpf_action(ctx, dctx);
+	 *     rc = dt_predicate(regs, dctx);
+	 *     if (rc == 0) goto exit;
 	 */
+	instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(1);
+	instr = BPF_CALL_FUNC(DT_BPF_PREDICATE);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * return rc;
+	 *     rc = dt_program(regs, dctx);
+	 */
+	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(DT_BPF_PROGRAM);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * exit:
+	 *     return rc;
+	 * }
 	 */
 	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
 #if 0

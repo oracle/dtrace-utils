@@ -2623,6 +2623,12 @@ else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp
 			}
 		}
 		dt_cg_epilogue(pcb);
+	} else if (dnp->dn_kind == DT_NODE_PREDICATE) {
+		dt_cg_node(dnp->dn_pred, &pcb->pcb_ir, pcb->pcb_regs);
+		instr = BPF_RETURN();
+		dt_irlist_append(&pcb->pcb_ir,
+				 dt_cg_node_alloc(DT_LBL_NONE, instr));
+		pcb->pcb_dret = dnp->dn_pred;
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 

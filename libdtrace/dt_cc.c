@@ -1616,7 +1616,11 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	yypcb->pcb_ecbdesc = edp;
 
 	if (cnp->dn_pred != NULL) {
-		dt_cg(yypcb, cnp->dn_pred);
+		dt_node_t	predn;
+
+		predn.dn_kind = DT_NODE_PREDICATE;
+		predn.dn_pred = cnp->dn_pred;
+		dt_cg(yypcb, &predn);
 		edp->dted_pred.dtpdd_difo = dt_as(yypcb);
 	}
 
