@@ -31,6 +31,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <bpf_asm.h>
+
+#include "dt_impl.h"
+#include "dt_bpf_builtins.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
 
@@ -50,6 +54,14 @@ static const char		modname[] = "vmlinux";
 #define FIELD_PREFIX		"field:"
 
 #define SKIP_FIELDS_COUNT	5
+
+struct syscall_data {
+	struct pt_regs	*regs;
+	long		syscall_nr;
+	long		arg[6];
+};
+
+#define SCD_ARG(n)	offsetof(struct syscall_data, arg[n])
 
 static int syscall_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 			      int *idp, int *argcp, dt_argdesc_t **argvp)
@@ -151,6 +163,111 @@ static int syscall_populate(dtrace_hdl_t *dtp)
 	return n;
 }
 
+/*
+ * Generate a BPF trampoline for a syscall probe.
+ *
+ * The trampoline function is called when a syscall probe triggers, and it must
+ * satisfy the following prototype:
+ *
+ *	int dt_syscall(struct pt_regs *regs)
+ *
+ * The trampoline will populate a dt_bpf_context struct and then call the
+ * function that implements the compiled D clause.  It returns the value that
+ * it gets back from that function.
+ */
+static void syscall_trampoline(dt_pcb_t *pcb, int epid)
+{
+	int		i;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	struct bpf_insn	instr;
+	uint_t		lbl_exit = dt_irlist_label(dlp);
+
+#define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
+
+	/*
+	 * int dt_syscall(struct syscall_data *scd)
+	 * {
+	 *     struct dt_bpf_context	dctx;
+	 *
+	 *     memset(&dctx, 0, sizeof(dctx));
+	 *
+	 *     dctx.epid = epid;
+	 *     (we clear dctx.pad and dctx.fault because of the memset above)
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), epid);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *     (we clear the dctx.regs space because of the memset above)
+	 */
+	for (i = 0; i < sizeof(struct pt_regs); i += 8) {
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP,
+				      DCTX_FP(DCTX_REGS) + i, 0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
+	/*
+	 *     for (i = 0; i < argc; i++)
+	 *	   dctx.argv[i] = scd->arg[i];
+	 */
+	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
+		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, SCD_ARG(i));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(0)),
+				  BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
+	/*
+	 *     (we clear dctx.argv[6] and on because of the memset above)
+	 */
+	for (i = pcb->pcb_pinfo.dtp_argc;
+	     i < sizeof(((struct dt_bpf_context *)0)->argv) / 8; i++) {
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
+				      0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
+	/*
+	 *     rc = dt_predicate(regs, dctx);
+	 *     if (rc == 0) goto exit;
+	 */
+	instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(DT_BPF_PREDICATE);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *     rc = dt_program(regs, dctx);
+	 */
+	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(DT_BPF_PROGRAM);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * exit:
+	 *     return rc;
+	 * }
+	 */
+	instr = BPF_RETURN();
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+}
+
 #if 0
 #define EVENT_PREFIX	"tracepoint/syscalls/"
 
@@ -230,6 +347,7 @@ static int syscall_attach(const char *name, int bpf_fd)
 dt_provimpl_t	dt_syscall = {
 	.name		= "syscall",
 	.populate	= &syscall_populate,
+	.trampoline	= &syscall_trampoline,
 	.probe_info	= &syscall_probe_info,
 #if 0
 	.resolve_event	= &systrace_resolve_event,

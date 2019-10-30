@@ -137,9 +137,10 @@ static int fbt_populate(dtrace_hdl_t *dtp)
  * function that implements tha compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void fbt_trampoline(dt_irlist_t *dlp, int epid)
+static void fbt_trampoline(dt_pcb_t *pcb, int epid)
 {
 	int		i;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 	uint_t		lbl_exit = dt_irlist_label(dlp);
 
@@ -153,8 +154,7 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	 *     memset(&dctx, 0, sizeof(dctx));
 	 *
 	 *     dctx.epid = epid;
-	 *     dctx.pad = 0;
-	 *     dctx.fault = 0;
+	 *     (we clear dctx.pad and dctx.fault because of the memset above)
 	 */
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), epid);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -207,14 +207,17 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(5)), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	for (i = 5; i < sizeof(((struct dt_bpf_context *)0)->argv) / 8; i++) {
+	/*
+	 *     (we clear dctx.argv[6] and on because of the memset above)
+	 */
+	for (i = 6; i < sizeof(((struct dt_bpf_context *)0)->argv) / 8; i++) {
 		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
 				      0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
 	/*
-	 *     rc = dt_predicate(regs, dctx);
+	 *     rc = dt_predicate(scd, dctx);
 	 *     if (rc == 0) goto exit;
 	 */
 	instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
@@ -229,7 +232,7 @@ static void fbt_trampoline(dt_irlist_t *dlp, int epid)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *     rc = dt_program(regs, dctx);
+	 *     rc = dt_program(scd, dctx);
 	 */
 	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

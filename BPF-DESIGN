@@ -187,8 +187,6 @@ DTRACE BPF PROGRAM CONVENTIONS
 
 			memset(&dctx, 0, sizeof(dctx));
 			dctx.epid = EPID;
-			dctx.pad = 0;
-			dctx.fault = 0;
 			dctx.regs = *regs;
 			dctx.argv[0] = PT_REGS_PARAM1(regs);
 			dctx.argv[1] = PT_REGS_PARAM2(regs);
@@ -196,6 +194,51 @@ DTRACE BPF PROGRAM CONVENTIONS
 			dctx.argv[3] = PT_REGS_PARAM4(regs);
 			dctx.argv[4] = PT_REGS_PARAM5(regs);
 			dctx.argv[5] = PT_REGS_PARAM6(regs);
+
+		#if defined(HAS_PREDICATE)
+			if (!dt_predicate(regs, dctx))
+				return 0;
+		#endif
+			return dt_program(regs, dctx);
+		}
+
+	Statically Defined Tracing (based on tracepoints)
+	--------------------------------------------------
+	The C equivalent implementation of the FBT trampoline program is:
+
+		int dt_sdt(void)
+		{
+			struct dt_bpf_context	dctx;
+
+			memset(&dctx, 0, sizeof(dctx));
+			dctx.epid = EPID;
+
+		#if defined(HAS_PREDICATE)
+			if (!dt_predicate(regs, dctx))
+				return 0;
+		#endif
+			return dt_program(regs, dctx);
+		}
+
+	System Call Tracing (based on tracepoints)
+	-------------------------------------------
+	The C equivalent implementation of the FBT trampoline program is:
+
+		struct syscall_data {
+			struct pt_regs *regs;
+			long		syscall_nr;
+			long		arg[6];
+		};
+
+		int dt_syscall(struct syscall_data *scd)
+		{
+			struct dt_bpf_context	dctx;
+			int			i;
+
+			memset(&dctx, 0, sizeof(dctx));
+			dctx.epid = EPID;
+			for (i = 0; i < ARGC; i++)
+				dctx.argv[i] = scd->arg[i];
 
 		#if defined(HAS_PREDICATE)
 			if (!dt_predicate(regs, dctx))

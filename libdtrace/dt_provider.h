@@ -51,7 +51,7 @@ typedef struct dt_provimpl {
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
 			  const struct dt_probe *prb,
 			  int *idp, int *argcp, dt_argdesc_t **argvp);
-	void (*trampoline)(dt_irlist_t *dlp,	/* generate BPF trampoline */
+	void (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
 			   int epid);
 } dt_provimpl_t;
 
