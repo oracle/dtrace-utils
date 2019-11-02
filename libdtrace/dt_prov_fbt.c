@@ -137,7 +137,7 @@ static int fbt_populate(dtrace_hdl_t *dtp)
  * function that implements tha compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void fbt_trampoline(dt_pcb_t *pcb, int epid)
+static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -156,7 +156,7 @@ static void fbt_trampoline(dt_pcb_t *pcb, int epid)
 	 *     dctx.epid = epid;
 	 *     (we clear dctx.pad and dctx.fault because of the memset above)
 	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), epid);
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), -1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -217,19 +217,23 @@ static void fbt_trampoline(dt_pcb_t *pcb, int epid)
 	}
 
 	/*
-	 *     rc = dt_predicate(scd, dctx);
-	 *     if (rc == 0) goto exit;
+	 *     if (haspred) {
+	 *	   rc = dt_predicate(scd, dctx);
+	 *	   if (rc == 0) goto exit;
+	 *     }
 	 */
-	instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(DT_BPF_PREDICATE);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	if (haspred) {
+		instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_FUNC(DT_BPF_PREDICATE);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
 
 	/*
 	 *     rc = dt_program(scd, dctx);

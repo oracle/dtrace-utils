@@ -2596,7 +2596,41 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
-if (pcb->pcb_probe && pcb->pcb_probe->prov->impl->trampoline) pcb->pcb_probe->prov->impl->trampoline(pcb, 3);
+		/*
+		 * If we have a representative probe with a provider that
+		 * implements trampoline generation, we invoke the generator
+		 * for the trampoline, passing the PCB and a flag indicating
+		 * whether this clause has a predicate.
+		 *
+		 * FIXME:
+		 * We should support cases where there is no representative
+		 * probe, or we need to ensure that we never get called without
+		 * a representative probe.  The idea is that we will always
+		 * have one representative probe per provider that has probes
+		 * that match the specification.
+		 */
+		if (pcb->pcb_probe != NULL) {
+			if (pcb->pcb_probe->prov->impl->trampoline == NULL)
+				xyerror(D_PROV_INCOMPAT, "[Future feature] - "
+					"probe description %s:%s:%s:%s has no "
+					"trampoline\n",
+					pcb->pcb_probe->desc->prv,
+					pcb->pcb_probe->desc->mod,
+					pcb->pcb_probe->desc->fun,
+					pcb->pcb_probe->desc->prb);
+
+			pcb->pcb_probe->prov->impl->trampoline(
+							pcb,
+							dnp->dn_pred != NULL);
+		}
+
+		if (dnp->dn_pred != NULL) {
+			dt_cg_node(dnp->dn_pred, &pcb->pcb_ir, pcb->pcb_regs);
+			instr = BPF_RETURN();
+			dt_irlist_append(&pcb->pcb_ir,
+					 dt_cg_node_alloc(DT_LBL_NONE, instr));
+		}
+
 		dt_cg_prologue(pcb);
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
 			pcb->pcb_dret = act->dn_expr;

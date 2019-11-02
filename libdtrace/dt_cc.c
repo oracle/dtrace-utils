@@ -1615,55 +1615,11 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	assert(yypcb->pcb_ecbdesc == NULL);
 	yypcb->pcb_ecbdesc = edp;
 
-	if (cnp->dn_pred != NULL) {
-		dt_node_t	predn;
-
-		predn.dn_kind = DT_NODE_PREDICATE;
-		predn.dn_pred = cnp->dn_pred;
-		dt_cg(yypcb, &predn);
-		edp->dted_pred.dtpdd_difo = dt_as(yypcb);
-	}
-
-	if (cnp->dn_acts == NULL) {
-		dt_stmt_append(dt_stmt_create(dtp, edp,
-		    cnp->dn_ctxattr, _dtrace_defattr), cnp);
-	}
-
-#if 1
-	if (cnp->dn_acts != NULL) {
-		assert(yypcb->pcb_stmt == NULL);
-		sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
-		dt_compile_entire_clause(dtp, cnp, sdp);
-		assert(yypcb->pcb_stmt == sdp);
-		dt_stmt_append(sdp, cnp);
-	}
-#else
-	for (dnp = cnp->dn_acts; dnp != NULL; dnp = dnp->dn_list) {
-		assert(yypcb->pcb_stmt == NULL);
-		sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
-
-		switch (dnp->dn_kind) {
-		case DT_NODE_DEXPR:
-			if (dnp->dn_expr->dn_kind == DT_NODE_AGG)
-				dt_compile_agg(dtp, dnp->dn_expr, sdp);
-			else
-				dt_compile_exp(dtp, dnp, sdp);
-			break;
-		case DT_NODE_DFUNC:
-			dt_compile_fun(dtp, dnp, sdp);
-			break;
-		case DT_NODE_AGG:
-			dt_compile_agg(dtp, dnp, sdp);
-			break;
-		default:
-			dnerror(dnp, D_UNKNOWN, "internal error -- node kind "
-			    "%u is not a valid statement\n", dnp->dn_kind);
-		}
-
-		assert(yypcb->pcb_stmt == sdp);
-		dt_stmt_append(sdp, dnp);
-	}
-#endif
+	assert(yypcb->pcb_stmt == NULL);
+	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
+	dt_compile_entire_clause(dtp, cnp, sdp);
+	assert(yypcb->pcb_stmt == sdp);
+	dt_stmt_append(sdp, cnp);
 
 	assert(yypcb->pcb_ecbdesc == edp);
 	dt_ecbdesc_release(dtp, edp);
@@ -1675,6 +1631,10 @@ static void
 dt_compile_clause(dtrace_hdl_t *dtp, dt_node_t *cnp)
 {
 	dt_node_t *pnp;
+
+	/* Force the clause to return type 'int'. */
+	dt_node_type_assign(cnp, dtp->dt_ints[0].did_ctfp,
+				 dtp->dt_ints[0].did_type);
 
 	for (pnp = cnp->dn_pdescs; pnp != NULL; pnp = pnp->dn_list)
 		dt_compile_one_clause(dtp, cnp, pnp);

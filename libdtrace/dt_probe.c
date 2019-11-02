@@ -1183,7 +1183,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	}
 
 done:
-	return matches ? matches
+	return matches ? 0
 		       : dt_set_errno(dtp, EDT_NOPROBE);
 }
 

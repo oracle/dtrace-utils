@@ -52,7 +52,7 @@ typedef struct dt_provimpl {
 			  const struct dt_probe *prb,
 			  int *idp, int *argcp, dt_argdesc_t **argvp);
 	void (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
-			   int epid);
+			   int haspred);
 } dt_provimpl_t;
 
 extern int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp,
