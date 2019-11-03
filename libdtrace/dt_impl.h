@@ -46,6 +46,7 @@ extern "C" {
 #include <dt_dof.h>
 #include <dt_pcb.h>
 #include <dt_debug.h>
+#include <dt_version.h>
 
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
