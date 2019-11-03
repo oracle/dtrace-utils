@@ -231,6 +231,7 @@ struct dtrace_hdl {
 	dt_idhash_t *dt_aggs;	/* hash table of aggregation identifiers */
 	dt_idhash_t *dt_globals; /* hash table of global identifiers */
 	dt_idhash_t *dt_tls;	/* hash table of thread-local identifiers */
+	dt_idhash_t *dt_bpfsyms;/* hash table of BPF identifiers */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */
@@ -693,6 +694,10 @@ extern int dt_options_load(dtrace_hdl_t *);
 extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
+extern void dt_dlib_init(dtrace_hdl_t *dtp);
+extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
+extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
+extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);
 extern int dt_load_libs(dtrace_hdl_t *dtp);
 
 extern void *dt_compile(dtrace_hdl_t *dtp, int context,

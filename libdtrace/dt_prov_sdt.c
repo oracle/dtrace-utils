@@ -17,6 +17,7 @@
  *
  *	tracepoint/<group>/<name>		sdt:<group>::<name>
  */
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -299,6 +300,7 @@ static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 	uint_t		lbl_exit = dt_irlist_label(dlp);
+	dt_ident_t	*idp = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
 
 #define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
 
@@ -309,11 +311,14 @@ static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
 	 *
 	 *     memset(&dctx, 0, sizeof(dctx));
 	 *
-	 *     dctx.epid = epid;
+	 *     dctx.epid = EPID;
 	 *     (we clear dctx.pad and dctx.fault because of the memset above)
 	 */
+	idp = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
+	assert(idp != NULL);
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), -1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = idp;
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
@@ -350,8 +355,11 @@ static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_FUNC(DT_BPF_PREDICATE);
+		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_predicate");
+		assert(idp != NULL);
+		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dlp->dl_last->di_extern = idp;
 		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
@@ -365,8 +373,11 @@ static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(DT_BPF_PROGRAM);
+	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
+	assert(idp != NULL);
+	instr = BPF_CALL_FUNC(idp->di_id);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = idp;
 
 	/*
 	 * exit:

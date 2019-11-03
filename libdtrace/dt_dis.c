@@ -93,7 +93,7 @@ static void
 dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	      const struct bpf_insn *in, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u, %d\t! -> %03lu", name, reg(in->dst_reg),
+	fprintf(fp, "%-4s %s, %u, %d\t\t! -> %03lu", name, reg(in->dst_reg),
 		in->imm, in->off, addr + 1 + in->off);
 }
 
@@ -160,14 +160,13 @@ dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 }
 
 static char *
-dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
-		char *buf, size_t len)
+dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
+		const struct bpf_insn *in, char *buf, size_t len)
 {
-	char *s;
+	char		*s;
 
-	switch (id) {
-	case DT_BPF_GET_GVAR:
-	case DT_BPF_SET_GVAR:
+	if (strcmp(fn, "dt_get_gvar") == 0 ||
+	    strcmp(fn, "dt_set_gvar") == 0) {
 		/*
 		 * We know that the previous instruction exists and assigns
 		 * the variable id to %r1 (because we wrote the code generator
@@ -177,8 +176,8 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		snprintf(buf, len, "%s",
 			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_GLOBAL));
 		return buf;
-	case DT_BPF_GET_TVAR:
-	case DT_BPF_SET_TVAR:
+	} else if (strcmp(fn, "dt_get_tvar") == 0 ||
+		   strcmp(fn, "dt_set_tvar") == 0 ) {
 		/*
 		 * We know that the previous instruction exists and assigns
 		 * the variable id to %r1 (because we wrote the code generator
@@ -188,7 +187,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		snprintf(buf, len, "self->%s",
 			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_THREAD));
 		return buf;
-	case DT_BPF_GET_STRING:
+	} else if (strcmp(fn, "dt_get_string") == 0) {
 		/*
 		 * We know that the previous instruction exists and assigns
 		 * the string offset to %r1 (because we wrote the code
@@ -203,9 +202,9 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, uint_t id, const struct bpf_insn *in,
 		snprintf(buf, len, "\"%s\"", s ? s : dp->dtdo_strtab + in->imm);
 		free(s);
 		return buf;
-	default:
-		return NULL;
 	}
+
+	return NULL;
 }
 
 /*ARGSUSED*/
@@ -213,9 +212,9 @@ static void
 dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	    const struct bpf_insn *in, FILE *fp)
 {
-	const char *fn = NULL;
-	const char *ann = NULL;
-	char buf[256];
+	const char	*fn = NULL;
+	const char	*ann = NULL;
+	char		buf[256];
 
 	/*
 	 * Try to determine a name for the function being called.  We also call
@@ -223,8 +222,19 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	 * there are annotations to be added.
 	 */
 	if (in->src_reg == BPF_PSEUDO_CALL) {
-		fn = dt_bpf_builtins[in->imm].name;
-		ann = dt_dis_bpf_args(dp, in->imm, in, buf, sizeof(buf));
+		dof_relodesc_t	*rp = dp->dtdo_breltab;
+		int		cnt = dp->dtdo_brelen;
+
+		for (; cnt; cnt--, rp++) {
+			if (rp->dofr_offset == addr * sizeof(uint64_t))
+				fn = &dp->dtdo_strtab[rp->dofr_name];
+		}
+
+		if (fn == NULL) {
+			snprintf(buf, sizeof(buf), "%d", in->imm);
+			fn = buf;
+		} else
+			ann = dt_dis_bpf_args(dp, fn, in, buf, sizeof(buf));
 	} else if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID) {
 		fn = helper_fn[in->imm];
 	} else {
@@ -329,13 +339,32 @@ static void
 dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
     const dof_relodesc_t *rp, uint32_t len)
 {
-	fprintf(fp, "\n%-4s %-8s %-8s %s\n", rtag, "OFFSET", "DATA", "NAME");
+	fprintf(fp, "\n%-17s %-8s %-8s %s\n", rtag, "OFFSET", "VALUE", "NAME");
 
 	for (; len != 0; len--, rp++) {
-		fprintf(fp, "%-4u %-8llu %-8llu %s\n", rp->dofr_type,
-			(u_longlong_t)rp->dofr_offset,
-			(u_longlong_t)rp->dofr_data,
-			&dp->dtdo_strtab[rp->dofr_name]);
+		const char	*tstr;
+
+		switch (rp->dofr_type) {
+		case R_BPF_64_64:
+			tstr = "R_BPF_INSN_64";
+			break;
+		case R_BPF_64_32:
+			tstr = "R_BPF_INSN_DISP32";
+			break;
+		default:
+			tstr = "R_???";
+		}
+
+		if ((u_longlong_t)rp->dofr_data != DT_IDENT_UNDEF)
+			fprintf(fp, "%-17s %-8llu %-8llu %s\n", tstr,
+				(u_longlong_t)rp->dofr_offset,
+				(u_longlong_t)rp->dofr_data,
+				&dp->dtdo_strtab[rp->dofr_name]);
+		else
+			fprintf(fp, "%-17s %-8llu %-8s %s\n", tstr,
+				(u_longlong_t)rp->dofr_offset,
+				"*UND*",
+				&dp->dtdo_strtab[rp->dofr_name]);
 	}
 }
 
@@ -566,6 +595,9 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 			dxp->dx_arg, dnp->dn_membname,
 			dt_node_type_name(dnp, type, sizeof (type)));
 	}
+
+	if (dp->dtdo_brelen != 0)
+		dt_dis_rtab("BPF", dp, fp, dp->dtdo_breltab, dp->dtdo_brelen);
 
 	if (dp->dtdo_krelen != 0)
 		dt_dis_rtab("KREL", dp, fp, dp->dtdo_kreltab, dp->dtdo_krelen);

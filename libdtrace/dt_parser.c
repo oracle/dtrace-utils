@@ -415,8 +415,7 @@ dt_node_name(const dt_node_t *dnp, char *buf, size_t len)
 		break;
 	case DT_NODE_SYM:
 		dts = dnp->dn_ident->di_data;
-		(void) snprintf(buf, len, "symbol %s`%s",
-		    dts->dts_object, dts->dts_name);
+		snprintf(buf, len, "symbol %s`%s", dts->object, dts->name);
 		break;
 	case DT_NODE_TYPE:
 		(void) snprintf(buf, len, "type %s",
@@ -762,8 +761,8 @@ dt_node_sizeof(const dt_node_t *dnp)
 
 	sip = dnp->dn_ident->di_data;
 
-	if (dtrace_lookup_by_name(dtp, sip->dts_object,
-	    sip->dts_name, &sym, NULL) == -1)
+	if (dtrace_lookup_by_name(dtp, sip->object, sip->name,
+				  &sym, NULL) == -1)
 		return (0);
 
 	return (sym.st_size);
@@ -2649,7 +2648,7 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 	} else if (dhp == dtp->dt_globals && scope != DTRACE_OBJ_EXEC &&
 	    dtrace_lookup_by_name(dtp, scope, name, &sym, &dts) == 0) {
 
-		dt_module_t *mp = dt_module_lookup_by_name(dtp, dts.dts_object);
+		dt_module_t *mp = dt_module_lookup_by_name(dtp, dts.object);
 		int umod = (mp->dm_flags & DT_DM_KERNEL) == 0;
 		static const char *const kunames[] = { "kernel", "user" };
 
@@ -2658,8 +2657,9 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 
 		if (uref ^ umod) {
 			xyerror(D_SYM_BADREF, "%s module '%s' symbol '%s' may "
-			    "not be referenced as a %s symbol\n", kunames[umod],
-			    dts.dts_object, dts.dts_name, kunames[uref]);
+				"not be referenced as a %s symbol\n",
+				kunames[umod], dts.object, dts.name,
+				kunames[uref]);
 		}
 
 		if (dtrace_symbol_type(dtp, &sym, &dts, &dtt) != 0) {
@@ -2669,16 +2669,16 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 			 */
 			if (dtp->dt_errno == EDT_DATAMODEL) {
 				xyerror(D_SYM_MODEL, "cannot use %s symbol "
-				    "%s%s%s in a %s D program\n",
-				    dt_module_modelname(mp),
-				    dts.dts_object, mark, dts.dts_name,
-				    dt_module_modelname(dtp->dt_ddefs));
+					"%s%s%s in a %s D program\n",
+					dt_module_modelname(mp), dts.object,
+					mark, dts.name,
+					dt_module_modelname(dtp->dt_ddefs));
 			}
 
-			xyerror(D_SYM_NOTYPES,
-			    "no symbolic type information is available for "
-			    "%s%s%s: %s\n", dts.dts_object, mark, dts.dts_name,
-			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
+			xyerror(D_SYM_NOTYPES, "no symbolic type information "
+				"is available for %s%s%s: %s\n",
+				dts.object, mark, dts.name,
+				dtrace_errmsg(dtp, dtrace_errno(dtp)));
 		}
 
 		idp = dt_ident_create(name, DT_IDENT_SYMBOL, 0, 0,
@@ -4610,8 +4610,7 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 
 	case DT_NODE_SYM:
 		dts = dnp->dn_ident->di_data;
-		(void) fprintf(fp, "SYMBOL %s`%s (%s)\n",
-		    dts->dts_object, dts->dts_name, buf);
+		fprintf(fp, "SYMBOL %s`%s (%s)\n", dts->object, dts->name, buf);
 		break;
 
 	case DT_NODE_TYPE:

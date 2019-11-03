@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <gelf.h>
 #include <sys/ctf_api.h>
+#include <sys/dtrace.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -505,9 +506,9 @@ extern int dtrace_object_info(dtrace_hdl_t *dtp, const char *object,
     dtrace_objinfo_t *dto);
 
 typedef struct dtrace_syminfo {
-	const char *dts_object;			/* object name */
-	const char *dts_name;			/* symbol name */
-	ulong_t dts_id;				/* symbol id */
+	const char *object;			/* object name */
+	const char *name;			/* symbol name */
+	ulong_t id;				/* symbol id */
 } dtrace_syminfo_t;
 
 extern int dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object,

@@ -722,9 +722,9 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 		return (NULL);
 	}
 
-	sip->dts_object = dmp->dm_name;
-	sip->dts_name = idp->di_name;
-	sip->dts_id = idp->di_id;
+	sip->object = dmp->dm_name;
+	sip->name = idp->di_name;
+	sip->id = idp->di_id;
 
 	idp->di_data = sip;
 	idp->di_ctfp = tip->dtt_ctfp;
@@ -1686,14 +1686,14 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 				continue;
 
 			dt_symp = dt_symbol_by_name(dmp->dm_kernsyms, name);
-
 			if (!dt_symp)
 				continue;
 
 			if (sip != NULL) {
-				sip->dts_object = dmp->dm_name;
-				sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
-				sip->dts_id = 0;	/* undefined */
+				sip->object = dmp->dm_name;
+				sip->name = dt_symbol_name(dmp->dm_kernsyms,
+							   dt_symp);
+				sip->id = 0;	/* undefined */
 			}
 			dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
@@ -1703,10 +1703,10 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 
 			if (dmp->dm_ops->do_symname(dmp, name, symp, &id) != NULL) {
 				if (sip != NULL) {
-					sip->dts_object = dmp->dm_name;
-					sip->dts_name = (const char *)
+					sip->object = dmp->dm_name;
+					sip->name = (const char *)
 					    dmp->dm_strtab.cts_data + symp->st_name;
-					sip->dts_id = id;
+					sip->id = id;
 				}
 				return (0);
 			}
@@ -1726,9 +1726,9 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 			}
 
 			if (sip != NULL) {
-				sip->dts_object = dmp->dm_name;
-				sip->dts_name = idp->di_name;
-				sip->dts_id = idp->di_id;
+				sip->object = dmp->dm_name;
+				sip->name = idp->di_name;
+				sip->id = idp->di_id;
 			}
 
 			return (0);
@@ -1799,9 +1799,9 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 			return (dt_set_errno(dtp, EDT_NOSYMADDR));
 
 		if (sip != NULL) {
-		    sip->dts_object = dmp->dm_name;
-		    sip->dts_name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
-		    sip->dts_id = 0;	/* undefined */
+		    sip->object = dmp->dm_name;
+		    sip->name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+		    sip->id = 0;	/* undefined */
 		}
 
 		if (symp != NULL)
@@ -1815,15 +1815,15 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 		}
 
 		if (sip != NULL) {
-			sip->dts_object = dmp->dm_name;
+			sip->object = dmp->dm_name;
 
 			if (symp != NULL) {
-				sip->dts_name = (const char *)
+				sip->name = (const char *)
 				    dmp->dm_strtab.cts_data + symp->st_name;
-				sip->dts_id = id;
+				sip->id = id;
 			} else {
-				sip->dts_name = NULL;
-				sip->dts_id = 0;
+				sip->name = NULL;
+				sip->id = 0;
 			}
 		}
 	}
@@ -1921,7 +1921,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 	tip->dtt_ctfp = NULL;
 	tip->dtt_type = CTF_ERR;
 
-	if ((dmp = dt_module_lookup_by_name(dtp, sip->dts_object)) == NULL)
+	if ((dmp = dt_module_lookup_by_name(dtp, sip->object)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMOD));
 
 	if (dmp->dm_flags & DT_DM_KERNEL)
@@ -1933,8 +1933,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 			return (-1); /* errno is set for us */
 
 		tip->dtt_ctfp = dmp->dm_ctfp;
-		tip->dtt_type = ctf_lookup_variable(dmp->dm_ctfp,
-		    sip->dts_name);
+		tip->dtt_type = ctf_lookup_variable(dmp->dm_ctfp, sip->name);
 
 		if (tip->dtt_type == CTF_ERR) {
 			dtp->dt_ctferr = ctf_errno(tip->dtt_ctfp);
@@ -1953,7 +1952,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 			return (-1); /* errno is set for us */
 
 		tip->dtt_ctfp = dmp->dm_ctfp;
-		tip->dtt_type = ctf_lookup_by_symbol(dmp->dm_ctfp, sip->dts_id);
+		tip->dtt_type = ctf_lookup_by_symbol(dmp->dm_ctfp, sip->id);
 
 		if (tip->dtt_type == CTF_ERR) {
 			dtp->dt_ctferr = ctf_errno(tip->dtt_ctfp);
@@ -1967,7 +1966,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 
 	if (undefined && dmp->dm_extern != NULL) {
 		dt_ident_t *idp =
-		    dt_idhash_lookup(dmp->dm_extern, sip->dts_name);
+		    dt_idhash_lookup(dmp->dm_extern, sip->name);
 
 		if (idp == NULL)
 			return (dt_set_errno(dtp, EDT_NOSYM));

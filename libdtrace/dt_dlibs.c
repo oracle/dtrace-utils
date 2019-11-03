@@ -5,15 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/*
- * TODO:
- * - Sort symbols by address (offset)
- * - FIl in symbol sizes (if needed)
- * - Sort relocations by address (offset)
- * - Associate relocations with symbols
- * - Resolve relocations
- */
-
 #include <assert.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -23,7 +14,6 @@
 #include <dt_program.h>
 #include <dt_grammar.h>
 #include <dt_impl.h>
-#include <dt_bpf_builtins.h>
 
 #define DT_DLIB_D	0
 #define DT_DLIB_BPF	1
@@ -36,6 +26,7 @@ struct dt_bpf_reloc {
 	dt_bpf_reloc_t	*next;
 };
 
+typedef struct dt_bpf_func	dt_bpf_func_t;
 struct dt_bpf_func {
 	const char	*name;
 	Elf		*elf;
@@ -51,12 +42,100 @@ static dt_bpf_func_t	*dt_bpf_funcs;
 static int		dt_bpf_funcc;
 static dt_bpf_reloc_t	*dt_bpf_relocs;
 static int		dt_bpf_relocc;
+static const char	dt_bpf_builtin[] = "BPF built-in";
 
-#define DT_BPF_BUILTIN_FN(x, y)	[DT_BPF_##x] = { __stringify(dt_##y), }
-dt_bpf_builtin_t	dt_bpf_builtins[] = {
-        DT_BPF_MAP_BUILTINS(DT_BPF_BUILTIN_FN)
+#define DT_BPF_SYMBOL(name, type) \
+	{ __stringify(name), type, DT_IDFLG_BPF, DT_IDENT_UNDEF, \
+		DT_ATTR_STABCMN, DT_VERS_2_0, }
+static const dt_ident_t	dt_bpf_symbols[] = {
+	/* BPF functions */
+	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_memcpy, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_predicate, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_set_gvar, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_FUNC),
+	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_FUNC),
+	/* BPF maps */
+	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(ecbs, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
+	/* BPF internal identifiers */
+	DT_BPF_SYMBOL(EPID, DT_IDENT_SCALAR),
+	DT_BPF_SYMBOL(ARGC, DT_IDENT_SCALAR),
+	/* End-of-list marker */
+	{ NULL, }
 };
-#undef DT_BPF_BUILTIN_FN
+#undef DT_BPF_SYMBOL
+
+/*
+ * Perform initialization for the BPF function library handling.
+ */
+void
+dt_dlib_init(dtrace_hdl_t *dtp)
+{
+	dtp->dt_bpfsyms = dt_idhash_create("BPF symbols", dt_bpf_symbols, 0, 0);
+}
+
+/*
+ * Lookup a BPF identifier of a specific kind by name and populate the syminfo
+ * if needed.
+ */
+static dt_ident_t *
+dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
+{
+	dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
+
+	if (idp == NULL)
+		return NULL;
+	if ((idp->di_flags & DT_IDFLG_BPF) == 0)
+		return NULL;
+	if (idp->di_kind != kind)
+		return NULL;
+
+	if (idp->di_data == NULL) {
+		dtrace_syminfo_t	*dts = malloc(sizeof(dtrace_syminfo_t));
+
+		assert(dts != NULL);
+		dts->object = dt_bpf_builtin;
+		dts->name = idp->di_name;
+		dts->id = idp->di_id;
+
+		idp->di_data = dts;
+	}
+
+	return idp;
+}
+
+/*
+ * Lookup a BPF function identifier by name.
+ */
+dt_ident_t *
+dt_dlib_get_func(dtrace_hdl_t *dtp, const char *name)
+{
+	return dt_dlib_get_sym(dtp, name, DT_IDENT_FUNC);
+}
+
+/*
+ * Lookup a BPF map identifier by name.
+ */
+dt_ident_t *
+dt_dlib_get_map(dtrace_hdl_t *dtp, const char *name)
+{
+	return dt_dlib_get_sym(dtp, name, DT_IDENT_PTR);
+}
+
+/*
+ * Lookup a BPF variable identifier by name.
+ */
+dt_ident_t *
+dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
+{
+	return dt_dlib_get_sym(dtp, name, DT_IDENT_SCALAR);
+}
 
 /*
  * Compare function (used by qsort) to compare two BPF functions based on their
@@ -157,7 +236,7 @@ populate_bpf_funcs(Elf *elf, GElf_Ehdr *ehdr)
 	}
 
 	/*
-	 * Count the nuymber of BPF functions in .text.
+	 * Count the number of BPF functions in .text.
 	 */
 again:
 	count = 0;
@@ -330,11 +409,12 @@ collect_bpf_relocs(Elf *elf, GElf_Ehdr *ehdr)
 }
 
 static int
-readBPFFile(const char *fn)
+readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 {
 	int		fd;
 	int		rc = -1;
-	int		i, j;
+	int		i;
+	char		*mname;
 	Elf		*elf = NULL;
 	GElf_Ehdr	ehdr;
 
@@ -367,19 +447,21 @@ readBPFFile(const char *fn)
 	if (collect_bpf_relocs(elf, &ehdr) < 0)
 		goto out;
 
-	for (i = j = 0; i < dt_bpf_funcc && j < DT_BPF_LAST_ID; ) {
-		int	d;
+	mname = strdup(fn);
+	assert(mname);
+	mname = basename(mname);
+	for (i = 0; i < dt_bpf_funcc; i++) {
+		dt_ident_t		*idp;
+		dtrace_syminfo_t	*dts;
 
-		d = strcmp(dt_bpf_funcs[i].name, dt_bpf_builtins[j].name);
-fprintf(stderr, "DBG: %d '%s' vs %d '%s' -> d %d\n", i, dt_bpf_funcs[i].name, j, dt_bpf_builtins[j].name, d);
-		if (d > 0)
-			j++;
-		else {
-			if (d == 0)
-				dt_bpf_builtins[j].sym = &dt_bpf_funcs[i];
+		idp = dt_dlib_get_func(dtp, dt_bpf_funcs[i].name);
+		if (idp == NULL)
+			continue;
 
-			i++;
-		}
+		dts = idp->di_data;
+		idp->di_id = i;
+		dts->object = mname;
+		dts->id = idp->di_id;
 	}
 
 for (i = 0; i < dt_bpf_funcc; i++) {
@@ -432,25 +514,25 @@ dt_lib_depend_add(dtrace_hdl_t *dtp, dt_list_t *dlp, const char *arg)
 	assert(arg != NULL);
 
 	if ((end = strrchr(arg, '/')) == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	if ((dld = dt_zalloc(dtp, sizeof (dt_lib_depend_t))) == NULL)
-		return (-1);
+		return -1;
 
 	if ((dld->dtld_libpath = dt_alloc(dtp, PATH_MAX)) == NULL) {
 		dt_free(dtp, dld);
-		return (-1);
+		return -1;
 	}
 
-	(void) strlcpy(dld->dtld_libpath, arg, end - arg + 2);
+	strlcpy(dld->dtld_libpath, arg, end - arg + 2);
 	if ((dld->dtld_library = strdup(arg)) == NULL) {
 		dt_free(dtp, dld->dtld_libpath);
 		dt_free(dtp, dld);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	dt_list_append(dlp, dld);
-	return (0);
+	return 0;
 }
 
 dt_lib_depend_t *
@@ -459,12 +541,12 @@ dt_lib_depend_lookup(dt_list_t *dld, const char *arg)
 	dt_lib_depend_t *dldn;
 
 	for (dldn = dt_list_next(dld); dldn != NULL;
-	    dldn = dt_list_next(dldn)) {
+	     dldn = dt_list_next(dldn)) {
 		if (strcmp(dldn->dtld_library, arg) == 0)
-			return (dldn);
+			return dldn;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -479,7 +561,7 @@ dt_lib_build_graph(dtrace_hdl_t *dtp)
 	dt_lib_depend_t *dld, *dpld;
 
 	for (dld = dt_list_next(&dtp->dt_lib_dep); dld != NULL;
-	    dld = dt_list_next(dld)) {
+	     dld = dt_list_next(dld)) {
 		char *library = dld->dtld_library;
 
 		for (dpld = dt_list_next(&dld->dtld_dependencies); dpld != NULL;
@@ -492,16 +574,15 @@ dt_lib_build_graph(dtrace_hdl_t *dtp)
 				    "Invalid library dependency in %s: %s\n",
 				    dld->dtld_library, dpld->dtld_library);
 
-				return (dt_set_errno(dtp, EDT_COMPILER));
+				return dt_set_errno(dtp, EDT_COMPILER);
 			}
 
 			if ((dt_lib_depend_add(dtp, &dlda->dtld_dependents,
-			    library)) != 0) {
-				return (-1); /* preserve dt_errno */
-			}
+					        library)) != 0)
+				return -1; /* preserve dt_errno */
 		}
 	}
-	return (0);
+	return 0;
 }
 
 static int
@@ -512,22 +593,22 @@ dt_topo_sort(dtrace_hdl_t *dtp, dt_lib_depend_t *dld, int *count)
 	dld->dtld_start = ++(*count);
 
 	for (dpld = dt_list_next(&dld->dtld_dependents); dpld != NULL;
-	    dpld = dt_list_next(dpld)) {
+	     dpld = dt_list_next(dpld)) {
 		dlda = dt_lib_depend_lookup(&dtp->dt_lib_dep,
-		    dpld->dtld_library);
+					    dpld->dtld_library);
 		assert(dlda != NULL);
 
 		if (dlda->dtld_start == 0 &&
 		    dt_topo_sort(dtp, dlda, count) == -1)
-			return (-1);
+			return -1;
 	}
 
 	if ((new = dt_zalloc(dtp, sizeof (dt_lib_depend_t))) == NULL)
-		return (-1);
+		return -1;
 
 	if ((new->dtld_library = strdup(dld->dtld_library)) == NULL) {
 		dt_free(dtp, new);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	new->dtld_start = dld->dtld_start;
@@ -535,9 +616,9 @@ dt_topo_sort(dtrace_hdl_t *dtp, dt_lib_depend_t *dld, int *count)
 	dt_list_prepend(&dtp->dt_lib_dep_sorted, new);
 
 	dt_dprintf("library %s sorted (%d/%d)\n", new->dtld_library,
-	    new->dtld_start, new->dtld_finish);
+		   new->dtld_start, new->dtld_finish);
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -547,7 +628,7 @@ dt_lib_depend_sort(dtrace_hdl_t *dtp)
 	int count = 0;
 
 	if (dt_lib_build_graph(dtp) == -1)
-		return (-1); /* preserve dt_errno */
+		return -1; /* preserve dt_errno */
 
 	/*
 	 * Perform a topological sort of the graph that hangs off
@@ -555,10 +636,10 @@ dt_lib_depend_sort(dtrace_hdl_t *dtp)
 	 * dependency ordered list located at dtp->dt_lib_dep_sorted.
 	 */
 	for (dld = dt_list_next(&dtp->dt_lib_dep); dld != NULL;
-	    dld = dt_list_next(dld)) {
+	     dld = dt_list_next(dld)) {
 		if (dld->dtld_start == 0 &&
 		    dt_topo_sort(dtp, dld, &count) == -1)
-			return (-1); /* preserve dt_errno */;
+			return -1; /* preserve dt_errno */;
 	}
 
 	/*
@@ -567,11 +648,11 @@ dt_lib_depend_sort(dtrace_hdl_t *dtp)
 	 * exists in the graph and this is a cycle.
 	 */
 	for (dld = dt_list_next(&dtp->dt_lib_dep); dld != NULL;
-	    dld = dt_list_next(dld)) {
+	     dld = dt_list_next(dld)) {
 		for (dpld = dt_list_next(&dld->dtld_dependents); dpld != NULL;
-		    dpld = dt_list_next(dpld)) {
+		     dpld = dt_list_next(dpld)) {
 			dlda = dt_lib_depend_lookup(&dtp->dt_lib_dep_sorted,
-			    dpld->dtld_library);
+						    dpld->dtld_library);
 			assert(dlda != NULL);
 
 			if (dlda->dtld_finish > dld->dtld_finish) {
@@ -579,12 +660,12 @@ dt_lib_depend_sort(dtrace_hdl_t *dtp)
 				    "Cyclic dependency detected: %s => %s\n",
 				    dld->dtld_library, dpld->dtld_library);
 
-				return (dt_set_errno(dtp, EDT_COMPILER));
+				return dt_set_errno(dtp, EDT_COMPILER);
 			}
 		}
 	}
 
-	return (0);
+	return 0;
 }
 
 static void
@@ -643,7 +724,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 
 	if ((dirp = opendir(path)) == NULL) {
 		dt_dprintf("skipping lib dir %s: %s\n", path, strerror(errno));
-		return (0);
+		return 0;
 	}
 
 	/* First, parse each file for library dependencies. */
@@ -660,17 +741,16 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		else
 			continue; /* skip any filename not ending in ".d" */
 
-		(void) snprintf(fname, sizeof (fname),
-		    "%s/%s", path, dp->d_name);
+		snprintf(fname, sizeof (fname), "%s/%s", path, dp->d_name);
 
 		if (type == DT_DLIB_BPF) {
-			readBPFFile(fname);
+			readBPFFile(dtp, fname);
 			return 0;
 		}
 
 		if ((fp = fopen(fname, "r")) == NULL) {
 			dt_dprintf("skipping library %s: %s\n",
-			    fname, strerror(errno));
+				   fname, strerror(errno));
 			continue;
 		}
 
@@ -678,24 +758,25 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		if (dt_lib_depend_add(dtp, &dtp->dt_lib_dep, fname) != 0)
 			goto err_close;
 
-		rv = dt_compile(dtp, DT_CTX_DPROG,
-		    DTRACE_PROBESPEC_NAME, NULL,
-		    DTRACE_C_EMPTY | DTRACE_C_CTL, 0, NULL, fp, NULL);
+		rv = dt_compile(dtp, DT_CTX_DPROG, DTRACE_PROBESPEC_NAME, NULL,
+				DTRACE_C_EMPTY | DTRACE_C_CTL, 0, NULL, fp,
+				NULL);
 
 		if (rv != NULL && dtp->dt_errno &&
-		    (dtp->dt_errno != EDT_COMPILER ||
-		    dtp->dt_errtag != dt_errtag(D_PRAGMA_DEPEND)))
+		     (dtp->dt_errno != EDT_COMPILER ||
+		      dtp->dt_errtag != dt_errtag(D_PRAGMA_DEPEND)))
 			goto err_close;
 
 		if (dtp->dt_errno)
-			dt_dprintf("error parsing library %s: %s\n",
-			    fname, dtrace_errmsg(dtp, dtrace_errno(dtp)));
+			dt_dprintf("error parsing library %s: %s\n", fname,
+				   dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
-		(void) fclose(fp);
+		fclose(fp);
 		dtp->dt_filetag = NULL;
 	}
 
-	(void) closedir(dirp);
+	closedir(dirp);
+
 	/*
 	 * Finish building the graph containing the library dependencies
 	 * and perform a topological sort to generate an ordered list
@@ -705,27 +786,27 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		goto err;
 
 	for (dld = dt_list_next(&dtp->dt_lib_dep_sorted); dld != NULL;
-	    dld = dt_list_next(dld)) {
-
+	     dld = dt_list_next(dld)) {
 		if ((fp = fopen(dld->dtld_library, "r")) == NULL) {
 			dt_dprintf("skipping library %s: %s\n",
-			    dld->dtld_library, strerror(errno));
+				   dld->dtld_library, strerror(errno));
 			continue;
 		}
 
 		dtp->dt_filetag = dld->dtld_library;
 		pgp = dtrace_program_fcompile(dtp, fp, DTRACE_C_EMPTY, 0, NULL);
-		(void) fclose(fp);
+		fclose(fp);
 		dtp->dt_filetag = NULL;
 
-		if (pgp == NULL && (dtp->dt_errno != EDT_COMPILER ||
-		    dtp->dt_errtag != dt_errtag(D_PRAGMA_DEPEND)))
+		if (pgp == NULL &&
+		    (dtp->dt_errno != EDT_COMPILER ||
+		     dtp->dt_errtag != dt_errtag(D_PRAGMA_DEPEND)))
 			goto err;
 
 		if (pgp == NULL) {
 			dt_dprintf("skipping library %s: %s\n",
-			    dld->dtld_library,
-			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
+				   dld->dtld_library,
+				   dtrace_errmsg(dtp, dtrace_errno(dtp)));
 		} else {
 			dld->dtld_loaded = B_TRUE;
 			dt_program_destroy(dtp, pgp);
@@ -733,14 +814,14 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 	}
 
 	dt_lib_depend_free(dtp);
-	return (0);
+	return 0;
 
 err_close:
-	(void) fclose(fp);
-	(void) closedir(dirp);
+	fclose(fp);
+	closedir(dirp);
 err:
 	dt_lib_depend_free(dtp);
-	return (-1); /* preserve dt_errno */
+	return -1; /* preserve dt_errno */
 }
 
 /*
@@ -786,7 +867,7 @@ dt_find_kernpath(dtrace_hdl_t *dtp, const char *path)
 		}
 	}
 
-	(void) closedir(dirp);
+	closedir(dirp);
 	return kern_path;
 }
 
@@ -802,20 +883,21 @@ dt_load_libs(dtrace_hdl_t *dtp)
 	dt_dirpath_t *dirp;
 
 	if (dtp->dt_cflags & DTRACE_C_NOLIBS)
-		return (0); /* libraries already processed */
+		return 0; /* libraries already processed */
 
 	dtp->dt_cflags |= DTRACE_C_NOLIBS;
 
-	for (dirp = dt_list_next(&dtp->dt_lib_path);
-	    dirp != NULL; dirp = dt_list_next(dirp)) {
+	for (dirp = dt_list_next(&dtp->dt_lib_path); dirp != NULL;
+	     dirp = dt_list_next(dirp)) {
 		char *kdir_path;
 
 		/* Load libs from per-kernel path if available. */
-		if ((kdir_path = dt_find_kernpath(dtp, dirp->dir_path)) != NULL) {
+		kdir_path = dt_find_kernpath(dtp, dirp->dir_path);
+		if (kdir_path != NULL) {
 			if (dt_load_libs_dir(dtp, kdir_path) != 0) {
 				dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
 				free(kdir_path);
-				return (-1);
+				return -1;
 			}
 			free(kdir_path);
 		}
@@ -823,9 +905,9 @@ dt_load_libs(dtrace_hdl_t *dtp)
 		/* Load libs from original path in the list. */
 		if (dt_load_libs_dir(dtp, dirp->dir_path) != 0) {
 			dtp->dt_cflags &= ~DTRACE_C_NOLIBS;
-			return (-1); /* errno is set for us */
+			return -1; /* errno is set for us */
 		}
 	}
 
-	return (0);
+	return 0;
 }

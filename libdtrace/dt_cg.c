@@ -20,7 +20,7 @@
 #include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 
-static void dt_cg_setx(dt_irlist_t *, int, uint64_t);
+static void dt_cg_xsetx(dt_irlist_t *, dt_ident_t *, uint_t, int, uint64_t);
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 /*
@@ -38,6 +38,9 @@ dt_cg_prologue(dt_pcb_t *pcb)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
+	dt_ident_t *mem = dt_dlib_get_map(pcb->pcb_hdl, "mem");
+
+	assert(mem != NULL);
 
 	/*
 	 *		stxdw [%fp + DT_STK_CTX], %r1
@@ -70,7 +73,7 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	 *		call bpf_map_lookup_elem
 	 *		mov %r9, %r0
 	 */
-	dt_cg_setx(dlp, BPF_REG_1, 0);
+	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
 	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_CPU);
@@ -107,6 +110,9 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	uint_t lbl_exit = dt_irlist_label(dlp);
+	dt_ident_t *buffers = dt_dlib_get_map(pcb->pcb_hdl, "buffers");
+
+	assert(buffers != NULL);
 
 	/*
 	 *		ldxdw %r0, [%fp + DT_STK_DCTX]
@@ -131,7 +137,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_CTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dt_cg_setx(dlp, BPF_REG_2, 0);
+	dt_cg_xsetx(dlp, buffers, DT_LBL_NONE, BPF_REG_2, buffers->di_id);
 	instr = BPF_LOAD(BPF_W, BPF_REG_3, BPF_REG_FP, DT_STK_CPU);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_REG(BPF_REG_4, BPF_REG_9);
@@ -677,10 +683,9 @@ dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 	struct bpf_insn instr[2] = { BPF_LDDW(reg, x) };
 
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[0]));
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[1]));
-
 	if (idp != NULL)
 		dlp->dl_last->di_extern = idp;
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[1]));
 }
 
 static void
@@ -1056,12 +1061,13 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 static void
 dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 {
-	struct bpf_insn instr;
+	struct bpf_insn	instr;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
 	if (idp->di_flags & DT_IDFLG_LOCAL) {		/* local var */
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_LVAR(idp->di_id),
 				  src->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
 		/*
 		 * FIXME: Do we need to reserve %r1 and %r2 because we are
@@ -1077,7 +1083,11 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_MOV_IMM(BPF_REG_1, 0x2000 + idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_FUNC(DT_BPF_SET_TVAR);
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
+		assert(idp != NULL);
+		instr = BPF_CALL_FUNC(idp->di_id);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dlp->dl_last->di_extern = idp;
 	} else {					/* global var */
 		/*
 		 * FIXME: Do we need to reserve %r1 and %r2 because we are
@@ -1093,10 +1103,12 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_MOV_IMM(BPF_REG_1, 0x3000 + idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_FUNC(DT_BPF_SET_GVAR);
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_gvar");
+		assert(idp != NULL);
+		instr = BPF_CALL_FUNC(idp->di_id);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dlp->dl_last->di_extern = idp;
 	}
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 }
 
 /*
@@ -2380,8 +2392,11 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 */
 		instr = BPF_MOV_IMM(BPF_REG_1, stroff);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_FUNC(DT_BPF_GET_STRING);
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_string");
+		assert(idp != NULL);
+		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dlp->dl_last->di_extern = idp;
 		instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 #endif
@@ -2484,19 +2499,45 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 			dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
 /* FIXME */
-if (base == 0x3000) {
-	instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg, dnp->dn_ident->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(DT_BPF_GET_GVAR);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_REG(BPF_MOV, dnp->dn_reg, BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-} else if (base == 0x2000) {
-			instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
-					 base + dnp->dn_ident->di_id);
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
-}
+			if (base == 0x3000) {
+				instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg,
+						      dnp->dn_ident->di_id);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+				idp = dt_dlib_get_func(yypcb->pcb_hdl,
+						       "dt_get_gvar");
+				assert(idp != NULL);
+				instr = BPF_CALL_FUNC(idp->di_id);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+				dlp->dl_last->di_extern = idp;
+				instr = BPF_ALU64_REG(BPF_MOV, dnp->dn_reg,
+						      BPF_REG_0);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+			} else if (base == 0x2000) {
+				instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg,
+						      dnp->dn_ident->di_id);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+				idp = dt_dlib_get_func(yypcb->pcb_hdl,
+						       "dt_get_tvar");
+				assert(idp != NULL);
+				instr = BPF_CALL_FUNC(idp->di_id);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+				dlp->dl_last->di_extern = idp;
+				instr = BPF_ALU64_REG(BPF_MOV, dnp->dn_reg,
+						      BPF_REG_0);
+				dt_irlist_append(dlp,
+						 dt_cg_node_alloc(DT_LBL_NONE,
+								  instr));
+			}
 			break;
 		}
 
@@ -2505,11 +2546,11 @@ if (base == 0x3000) {
 			dtrace_syminfo_t *sip = dnp->dn_ident->di_data;
 			GElf_Sym sym;
 
-			if (dtrace_lookup_by_name(dtp,
-			    sip->dts_object, sip->dts_name, &sym, NULL) == -1) {
+			if (dtrace_lookup_by_name(dtp, sip->object, sip->name,
+						  &sym, NULL) == -1) {
 				xyerror(D_UNKNOWN, "cg failed for symbol %s`%s:"
-				    " %s\n", sip->dts_object, sip->dts_name,
-				    dtrace_errmsg(dtp, dtrace_errno(dtp)));
+					" %s\n", sip->object, sip->name,
+					dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			}
 
 			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
@@ -2557,9 +2598,9 @@ if (base == 0x3000) {
 void
 dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 {
-	struct bpf_insn instr;
-	dt_xlator_t *dxp = NULL;
-	dt_node_t *act;
+	struct bpf_insn	instr;
+	dt_xlator_t	*dxp = NULL;
+	dt_node_t	*act;
 
 	if (pcb->pcb_regs == NULL && (pcb->pcb_regs =
 	    dt_regset_create(pcb->pcb_hdl->dt_conf.dtc_difintregs)) == NULL)
@@ -2579,10 +2620,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	assert(pcb->pcb_dret == NULL);
 	pcb->pcb_dret = dnp;
 
-	if (dt_node_is_dynamic(dnp)) {
+	if (dt_node_is_dynamic(dnp))
 		dnerror(dnp, D_CG_DYN, "expression cannot evaluate to result "
-		    "of dynamic type\n");
-	}
+			"of dynamic type\n");
 
 	/*
 	 * If we're generating code for a translator body, assign the input
@@ -2596,6 +2636,31 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
+		dt_ident_t	*idp;
+		dt_irlist_t	*dlp = &pcb->pcb_ir;
+		dt_irnode_t	*last_insn;
+		uint_t		lbl_pred, lbl_prog;
+
+		/*
+		 * We have two special BPF function identifiers: dt_predicate
+		 * and dt_program.  They are handled as identifiers (and will
+		 * have relocations generated for them) but they are actually
+		 * generated as part of the instruction list that also holds
+		 * the provider trampoline (which is the main BPF program entry
+		 * point).
+		 *
+		 * We allocate labels for the first instruction in dt_predicate
+		 * and dt_program so that we can track the final instruction
+		 * offset for those two functions when we assemble the final
+		 * program.
+		 */
+		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_predicate");
+		assert(idp != NULL);
+		idp->di_id = lbl_pred = dt_irlist_label(dlp);
+		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
+		assert(idp != NULL);
+		idp->di_id = lbl_prog = dt_irlist_label(dlp);
+
 		/*
 		 * If we have a representative probe with a provider that
 		 * implements trampoline generation, we invoke the generator
@@ -2625,13 +2690,40 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		}
 
 		if (dnp->dn_pred != NULL) {
+			/*
+			 * We keep track of the last instruction added to the
+			 * instruction list so we can place a label on the
+			 * first instruction of the predicate *after* it has
+			 * been generated.  The first instruction of the
+			 * predicate will be the one following the recorded
+			 * instruction.
+			 *
+			 * We know that the generated instructions will not
+			 * place a label on the very first instruction, so this
+			 * is safe.
+			 */
+			last_insn = dlp->dl_last;
+
 			dt_cg_node(dnp->dn_pred, &pcb->pcb_ir, pcb->pcb_regs);
 			instr = BPF_RETURN();
 			dt_irlist_append(&pcb->pcb_ir,
 					 dt_cg_node_alloc(DT_LBL_NONE, instr));
+			last_insn->di_next->di_label = lbl_pred;
 		}
 
+		/*
+		 * We keep track of the last instruction added to the
+		 * instruction list so we can place a label on the first
+		 * instruction of the prologue *after* it has been generated.
+		 * The first instruction of the prologue will be the one
+		 * following the recorded instruction.
+		 *
+		 * We know that the generated instructions will not place a
+		 * label on the very first instruction, so this is safe.
+		 */
+		last_insn = dlp->dl_last;
 		dt_cg_prologue(pcb);
+		last_insn->di_next->di_label = lbl_prog;
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
 			pcb->pcb_dret = act->dn_expr;
 

@@ -1062,6 +1062,11 @@ dt_vopen(int version, int flags, int *errp,
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
 
 	/*
+	 * Initialize the BPF library handling.
+	 */
+	dt_dlib_init(dtp);
+
+	/*
 	 * Load hard-wired inlines into the definition cache by calling the
 	 * compiler on the raw definition string defined above.
 	 */

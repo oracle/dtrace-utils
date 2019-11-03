@@ -43,9 +43,11 @@ typedef struct dtrace_difo {
 	uint_t dtdo_destructive;		/* invokes destructive subroutines */
 #ifndef _KERNEL
 	dtrace_diftype_t orig_dtdo_rtype;	/* orignal return type */
+	struct dof_relodesc *dtdo_breltab;	/* BPF relocations */
 	struct dof_relodesc *dtdo_kreltab;	/* kernel relocations */
 	struct dof_relodesc *dtdo_ureltab;	/* user relocations */
 	struct dt_node **dtdo_xlmtab;		/* translator references */
+	uint_t dtdo_brelen;			/* length of brelo table */
 	uint_t dtdo_krelen;			/* length of krelo table */
 	uint_t dtdo_urelen;			/* length of urelo table */
 	uint_t dtdo_xlmlen;			/* length of translator table */

@@ -90,6 +90,9 @@ typedef struct dt_ident {
 #define	DT_IDFLG_USER	0x0200	/* variable is associated with userland */
 #define	DT_IDFLG_DECL	0x0400	/* variable is associated with explicit decl */
 #define	DT_IDFLG_ORPHAN	0x0800	/* variable is in a dt_node and not dt_idhash */
+#define	DT_IDFLG_BPF	0x1000	/* variable is BPF */
+
+#define DT_IDENT_UNDEF	UINT_MAX /* id for (as yet) undefined identifiers */
 
 typedef struct dt_idhash {
 	dt_list_t dh_list;	/* list prev/next pointers for dt_idstack */

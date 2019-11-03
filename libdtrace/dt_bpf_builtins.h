@@ -8,20 +8,19 @@
 #ifndef _DT_BPF_BUILTINS_H
 #define _DT_BPF_BUILTINS_H
 
+#ifdef FIXME
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 #define DT_BPF_MAP_BUILTINS(FN) \
-	FN(GET_GVAR, get_gvar), \
-	FN(GET_STRING, get_string), \
-	FN(GET_TVAR, get_tvar), \
-	FN(MEMCPY, memcpy), \
-	FN(PREDICATE, predicate), \
-	FN(PROGRAM, program), \
-	FN(SET_GVAR, set_gvar), \
-	FN(SET_TVAR, set_tvar), \
-	FN(STRNLEN, strnlen)
+	FN(get_gvar), \
+	FN(get_string), \
+	FN(get_tvar), \
+	FN(memcpy), \
+	FN(set_gvar), \
+	FN(set_tvar), \
+	FN(strnlen)
 
 #define DT_BPF_ENUM_FN(x, y)	DT_BPF_ ## x
 enum dt_bpf_builtin_ids {
@@ -41,6 +40,7 @@ extern dt_bpf_builtin_t		dt_bpf_builtins[];
 
 #ifdef  __cplusplus
 }
+#endif
 #endif
 
 #endif /* _DT_BPF_FUNCS_H */

@@ -831,28 +831,26 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 	int err;
 
 	if ((err = dtrace_lookup_by_addr(dtp, addr, &sym, &dts)) == 0)
-		n += strlen(dts.dts_object) + strlen(dts.dts_name) + 2; /* +` */
+		n += strlen(dts.object) + strlen(dts.name) + 2; /* +` */
 
 	s = alloca(n);
 
 	if (err == 0 && addr != sym.st_value) {
-		(void) snprintf(s, n, "%s`%s+0x%llx", dts.dts_object,
-		    dts.dts_name, (u_longlong_t)addr - sym.st_value);
+		snprintf(s, n, "%s`%s+0x%llx", dts.object, dts.name,
+			 (u_longlong_t)addr - sym.st_value);
 	} else if (err == 0) {
-		(void) snprintf(s, n, "%s`%s",
-		    dts.dts_object, dts.dts_name);
+		snprintf(s, n, "%s`%s", dts.object, dts.name);
 	} else {
 		/*
 		 * We'll repeat the lookup, but this time we'll specify a NULL
 		 * GElf_Sym -- indicating that we're only interested in the
 		 * containing module.
 		 */
-		if (dtrace_lookup_by_addr(dtp, addr, NULL, &dts) == 0) {
-			(void) snprintf(s, n, "%s`0x%llx", dts.dts_object,
-			    (u_longlong_t)addr);
-		} else {
-			(void) snprintf(s, n, "0x%llx", (u_longlong_t)addr);
-		}
+		if (dtrace_lookup_by_addr(dtp, addr, NULL, &dts) == 0)
+			snprintf(s, n, "%s`0x%llx", dts.object,
+				 (u_longlong_t)addr);
+		else
+			snprintf(s, n, "0x%llx", (u_longlong_t)addr);
 	}
 
 	return (dt_string2str(s, str, nbytes));

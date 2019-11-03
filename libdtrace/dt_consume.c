@@ -1078,14 +1078,13 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			return (-1);
 
 		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
-			if (pc > sym.st_value) {
-				(void) snprintf(c, sizeof (c), "%s`%s+0x%llx",
-				    dts.dts_object, dts.dts_name,
-				    (long long unsigned) pc - sym.st_value);
-			} else {
-				(void) snprintf(c, sizeof (c), "%s`%s",
-				    dts.dts_object, dts.dts_name);
-			}
+			if (pc > sym.st_value)
+				snprintf(c, sizeof (c), "%s`%s+0x%llx",
+					 dts.object, dts.name,
+					 (long long unsigned)pc - sym.st_value);
+			else
+				snprintf(c, sizeof (c), "%s`%s",
+					 dts.object, dts.name);
 		} else {
 			/*
 			 * We'll repeat the lookup, but this time we'll specify
@@ -1093,8 +1092,8 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 * interested in the containing module.
 			 */
 			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
-				(void) snprintf(c, sizeof (c), "%s`0x%llx",
-				    dts.dts_object, (long long unsigned) pc);
+				snprintf(c, sizeof (c), "%s`0x%llx",
+					 dts.object, (long long unsigned)pc);
 			} else {
 				(void) snprintf(c, sizeof (c), "0x%llx",
 				    (long long unsigned) pc);
@@ -1344,21 +1343,18 @@ dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		format = "  %-50s";
 
 	if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
-		(void) snprintf(c, sizeof (c), "%s`%s",
-		    dts.dts_object, dts.dts_name);
+		snprintf(c, sizeof (c), "%s`%s", dts.object, dts.name);
 	} else {
 		/*
 		 * We'll repeat the lookup, but this time we'll specify a
 		 * NULL GElf_Sym -- indicating that we're only interested in
 		 * the containing module.
 		 */
-		if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
-			(void) snprintf(c, sizeof (c), "%s`0x%llx",
-			    dts.dts_object, (u_longlong_t)pc);
-		} else {
-			(void) snprintf(c, sizeof (c), "0x%llx",
-			    (u_longlong_t)pc);
-		}
+		if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
+			snprintf(c, sizeof (c), "%s`0x%llx",
+				 dts.object, (u_longlong_t)pc);
+		else
+			snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
 	}
 
 	if (dt_printf(dtp, fp, format, c) < 0)
@@ -1378,11 +1374,10 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	if (format == NULL)
 		format = "  %-50s";
 
-	if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
-		(void) snprintf(c, sizeof (c), "%s", dts.dts_object);
-	} else {
-		(void) snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
-	}
+	if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
+		snprintf(c, sizeof (c), "%s", dts.object);
+	else
+		snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
 
 	if (dt_printf(dtp, fp, format, c) < 0)
 		return (-1);

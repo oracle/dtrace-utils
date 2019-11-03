@@ -179,8 +179,8 @@ dt_as_undef(const dt_ident_t *idp, uint_t offset)
 
 	yylineno = idp->di_lineno;
 
-	xyerror(D_ASRELO, "relocation remains against %s symbol %s%s%s (offset "
-	    "0x%x)\n", kind, dts->dts_object, mark, dts->dts_name, offset);
+	xyerror(D_ASRELO, "relocation remains against %s symbol %s%s%s "
+		"(offset 0x%x)\n", kind, dts->object, mark, dts->name, offset);
 }
 
 dtrace_difo_t *
@@ -197,7 +197,7 @@ dt_as(dt_pcb_t *pcb)
 	uint_t i;
 
 	uint_t kmask, kbits, umask, ubits;
-	uint_t krel = 0, urel = 0, xlrefs = 0;
+	uint_t brel = 0, krel = 0, urel = 0, xlrefs = 0;
 
 	/*
 	 * Select bitmasks based upon the desired symbol linking policy.  We
@@ -261,8 +261,41 @@ dt_as(dt_pcb_t *pcb)
 		if (dip->di_label == DT_LBL_NONE || !BPF_IS_NOP(dip->di_instr))
 			dp->dtdo_buf[i++] = dip->di_instr;
 
-		if (dip->di_extern == NULL)
+		if ((idp = dip->di_extern) == NULL)
 			continue; /* no external references needed */
+
+		switch (dip->di_instr.code) {
+		case BPF_ST | BPF_MEM | BPF_W:		/* stw */
+		case BPF_ST | BPF_MEM | BPF_DW:		/* stdw */
+		case BPF_ALU64 | BPF_MOV | BPF_K:	/* mov */
+			if (idp->di_flags & DT_IDFLG_BPF)
+				brel++;
+			else
+				goto fail;
+			break;
+		case BPF_LD | BPF_IMM | BPF_DW:	/* lddw */
+			if (idp->di_flags & DT_IDFLG_BPF)
+				brel++;
+			else if ((idp->di_flags & kmask) == kbits)
+				krel++;
+			else if ((idp->di_flags & umask) == ubits)
+				urel++;
+			else
+				goto fail;
+			break;
+		case BPF_JMP | BPF_CALL:	/* call */
+			if (dip->di_instr.src_reg == BPF_PSEUDO_CALL &&
+			    (idp->di_flags & DT_IDFLG_BPF))
+				brel++;
+			else
+				goto fail;
+			break;
+		default:
+fail:
+			xyerror(D_UNKNOWN, "unexpected asm relocation for "
+				"opcode 0x%x @%d, id %s\n",
+				dip->di_instr.code, i - 1, idp->di_name);
+		}
 
 #ifdef FIXME
 		switch (DIF_INSTR_OP(dip->di_instr)) {
@@ -278,8 +311,8 @@ dt_as(dt_pcb_t *pcb)
 			xlrefs++;
 			break;
 		default:
-			xyerror(D_UNKNOWN, "unexpected assembler relocation "
-			    "for opcode 0x%x\n", DIF_INSTR_OP(dip->di_instr));
+			xyerror(D_UNKNOWN, "unexpected asm relocation for "
+			    "opcode 0x%x\n", DIF_INSTR_OP(dip->di_instr));
 		}
 #endif
 	}
@@ -321,7 +354,6 @@ dt_as(dt_pcb_t *pcb)
 		dp->dtdo_buf[i].off = labels[instr.off] - i - 1;
 	}
 
-	dt_free(dtp, labels);
 	pcb->pcb_asvidx = 0;
 
 	/*
@@ -349,9 +381,18 @@ dt_as(dt_pcb_t *pcb)
 	 * Allocate memory for the appropriate number of relocation table
 	 * entries based upon our kernel and user counts from the first pass.
 	 */
+	if (brel != 0) {
+		dp->dtdo_breltab = dt_alloc(dtp,
+					    brel * sizeof (dof_relodesc_t));
+		dp->dtdo_brelen = brel;
+
+		if (dp->dtdo_breltab == NULL)
+			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
+	}
+
 	if (krel != 0) {
 		dp->dtdo_kreltab = dt_alloc(dtp,
-		    krel * sizeof (dof_relodesc_t));
+					    krel * sizeof (dof_relodesc_t));
 		dp->dtdo_krelen = krel;
 
 		if (dp->dtdo_kreltab == NULL)
@@ -360,7 +401,7 @@ dt_as(dt_pcb_t *pcb)
 
 	if (urel != 0) {
 		dp->dtdo_ureltab = dt_alloc(dtp,
-		    urel * sizeof (dof_relodesc_t));
+					    urel * sizeof (dof_relodesc_t));
 		dp->dtdo_urelen = urel;
 
 		if (dp->dtdo_ureltab == NULL)
@@ -379,10 +420,11 @@ dt_as(dt_pcb_t *pcb)
 	 * If any relocations are needed, make another pass through the
 	 * instruction list and fill in the relocation table entries.
 	 */
-	if (krel + urel + xlrefs != 0) {
+	if (brel + krel + urel + xlrefs > 0) {
 		uint_t knodef = pcb->pcb_cflags & DTRACE_C_KNODEF;
 		uint_t unodef = pcb->pcb_cflags & DTRACE_C_UNODEF;
 
+		dof_relodesc_t *brp = dp->dtdo_breltab;
 		dof_relodesc_t *krp = dp->dtdo_kreltab;
 		dof_relodesc_t *urp = dp->dtdo_ureltab;
 		dt_node_t **xlp = dp->dtdo_xlmtab;
@@ -414,7 +456,10 @@ dt_as(dt_pcb_t *pcb)
 			if ((idp = dip->di_extern) == NULL)
 				continue; /* no relocation entry needed */
 
-			if ((idp->di_flags & kmask) == kbits) {
+			if (idp->di_flags & DT_IDFLG_BPF) {
+				nodef = 1;
+				rp = brp++;
+			} else if ((idp->di_flags & kmask) == kbits) {
 				nodef = knodef;
 				rp = krp++;
 			} else if ((idp->di_flags & umask) == ubits) {
@@ -426,9 +471,28 @@ dt_as(dt_pcb_t *pcb)
 			if (!nodef)
 				dt_as_undef(idp, i);
 
-#ifdef FIXME
-			assert(DIF_INSTR_OP(dip->di_instr) == DIF_OP_SETX);
-#endif
+			if (dip->di_instr.code ==
+					(BPF_LD | BPF_IMM | BPF_DW))
+				rp->dofr_type = R_BPF_64_64;
+			else if (dip->di_instr.code ==
+					(BPF_ST | BPF_MEM | BPF_W))
+				rp->dofr_type = R_BPF_64_32;
+			else if (dip->di_instr.code ==
+					(BPF_ST | BPF_MEM | BPF_DW))
+				rp->dofr_type = R_BPF_64_32;
+			else if (dip->di_instr.code ==
+					(BPF_ALU64 | BPF_MOV | BPF_K))
+				rp->dofr_type = R_BPF_64_32;
+			else if (dip->di_instr.code ==
+					(BPF_JMP | BPF_CALL) &&
+				 dip->di_instr.src_reg == BPF_PSEUDO_CALL)
+				rp->dofr_type = R_BPF_64_32;
+			else
+				xyerror(D_UNKNOWN, "unexpected asm relocation "
+					"for opcode 0x%x (@%d, %s)\n",
+					dip->di_instr.code, i - 1,
+					idp->di_name);
+
 			soff = dt_strtab_insert(pcb->pcb_strtab, idp->di_name);
 
 			if (soff == -1L)
@@ -436,20 +500,51 @@ dt_as(dt_pcb_t *pcb)
 			if (soff > DIF_STROFF_MAX)
 				longjmp(pcb->pcb_jmpbuf, EDT_STR2BIG);
 
+			assert(idp->di_data != NULL);
 			rp->dofr_name = (dof_stridx_t)soff;
-			rp->dofr_type = DOF_RELO_SETX;
-#ifdef FIXME
-			rp->dofr_offset = DIF_INSTR_INTEGER(dip->di_instr) *
-			    sizeof (uint64_t);
-#endif
-			rp->dofr_data = 0;
+			rp->dofr_offset = (i - 1) * sizeof (uint64_t);
+			rp->dofr_data = ((dtrace_syminfo_t *)idp->di_data)->id;
+
+			/*
+			 * Crazy magic lies ahead...
+			 *
+			 * Due to the fact that dt_predicate and dt_program are
+			 * generated in the same instruction list as the probe
+			 * trampoline code, we have encoded a reference to the
+			 * start of each of those functions using the label
+			 * system (while other identifiers are real references
+			 * to external symbols).
+			 *
+			 * This means we need to differentiate between the two
+			 * when dealing with relocations.  We make use of the
+			 * fact that regular external symbols store the same id
+			 * in the identifier as they do in the syminfo.  For
+			 * our two special functions (dt_predicate and
+			 * dt_program), the syminfo one will be DT_IDENT_UNDEF
+			 * while the identifier id will be the label id.
+			 *
+			 * So, when we encounter one of our special relocations
+			 * we update the value of the relocation to be the
+			 * instruction offset of the function *and* we patch
+			 * the call instruction with the correct offset delta.
+			 */
+			if (rp->dofr_data == DT_IDENT_UNDEF &&
+			    idp->di_id != DT_IDENT_UNDEF) {
+				assert(idp->di_id < dlp->dl_label);
+				rp->dofr_data = labels[idp->di_id];
+				dp->dtdo_buf[i - 1].imm =
+							labels[idp->di_id] - i;
+			}
 		}
 
+		assert(brp == dp->dtdo_breltab + dp->dtdo_brelen);
 		assert(krp == dp->dtdo_kreltab + dp->dtdo_krelen);
 		assert(urp == dp->dtdo_ureltab + dp->dtdo_urelen);
 		assert(xlp == dp->dtdo_xlmtab + dp->dtdo_xlmlen);
 		assert(i == dp->dtdo_len);
 	}
+
+	dt_free(dtp, labels);		/* Done with labels. */
 
 	/*
 	 * Allocate memory for the compiled string table and then copy the
