@@ -17,6 +17,9 @@ typedef struct timestruc {
 	long tv_nsec;
 } timestruc_t;
 
+typedef id_t processorid_t;
+typedef id_t psetid_t;
+
 typedef struct lwpsinfo {
 	int pr_flag;			/* lwp flags (DEPRECATED) */
 	int pr_lwpid;			/* lwp id */
@@ -168,11 +171,15 @@ translator psinfo_t < struct task_struct *T > {
 				   : (struct tty_struct *)-1;
 
 	pr_fname = T->comm;
+/*
 	pr_psargs = stringof(get_psinfo(T)->__psinfo(psargs));
+ */
 	pr_wstat = 0;
+/*
 	pr_argc = get_psinfo(T)->__psinfo(argc);
 	pr_argv = (uintptr_t)get_psinfo(T)->__psinfo(argv);
 	pr_envp = (uintptr_t)get_psinfo(T)->__psinfo(envp);
+ */
 
 	pr_dmodel = PR_MODEL_LP64;
 

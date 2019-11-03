@@ -7,6 +7,7 @@
 
 #pragma D depends_on module vmlinux
 
+/*
 inline processorid_t cpu = curcpu->cpu_id;
 #pragma D attributes Stable/Stable/Common cpu
 #pragma D binding "1.0" cpu
@@ -22,3 +23,4 @@ inline chipid_t chip = curcpu->cpu_chip;
 inline lgrp_id_t lgrp = curcpu->cpu_lgrp;
 #pragma D attributes Stable/Stable/Common lgrp
 #pragma D binding "1.0" lgrp
+ */
