@@ -546,6 +546,9 @@ inline long NULL = 0; \n\
  * Default DTrace configuration.
  */
 static const dtrace_conf_t _dtrace_conf = {
+	0,			/* numcpus */
+	0,			/* maxcpuid */
+	NULL,			/* cpuids */
 	DIF_VERSION,		/* dtc_difversion */
 	DIF_DIR_NREGS,		/* dtc_difintregs */
 	DIF_DTR_NREGS,		/* dtc_diftupregs */
@@ -781,6 +784,9 @@ dt_vopen(int version, int flags, int *errp,
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
+	dt_conf_init(dtp);
+	dt_dprintf("detected %d CPUs online (highest cpuid %d)\n",
+		  dtp->dt_conf.numcpus, dtp->dt_conf.maxcpuid);
 
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;

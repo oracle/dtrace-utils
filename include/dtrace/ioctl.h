@@ -18,7 +18,6 @@
 #include <dtrace/metadesc.h>
 #include <dtrace/stability.h>
 #include <dtrace/status.h>
-#include <dtrace/cpu_defines.h>
 
 #define DTRACEIOC		0xd4
 #define DTRACEIOC_PROVIDER	_IOR(DTRACEIOC, 1, dtrace_providerdesc_t)

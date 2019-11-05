@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -42,5 +42,10 @@ typedef uint32_t	dtrace_specid_t;	/* speculation identifier */
 typedef uint64_t	dtrace_aggvarid_t;	/* aggregation variable id */
 typedef uint64_t	dtrace_genid_t;		/* generation identifier */
 typedef uint64_t	dtrace_optval_t;	/* option value */
+
+typedef uint32_t	processorid_t;
+typedef uint32_t	psetid_t;
+typedef uint32_t	chipid_t;
+typedef uint32_t	lgrp_id_t;
 
 #endif /* _DTRACE_UNIVERSAL_H_ */
