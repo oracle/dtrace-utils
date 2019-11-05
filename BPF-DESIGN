@@ -1,20 +1,43 @@
 BPF MAPS
 --------
-    mem
-    ---
-	Desc:		Scratch space to construct trace data record
-	Type:		BPF_MAP_TYPE_PERCPU_ARRAY
-	Key:		uint32_t (always 0)
-	Value:		length of trace data record (in bytes)
-	Entries:	1
+    Global
+    ------
+	The following BPF maps are created per tracing session and are as such
+	available to all BPF programs.
 
-    buffers
-    -------
-	Desc:		Pseudo map to represent the perf_event output buffers
-	Type:		BPF_MAP_TYPE_PERF_EVENT_ARRAY
-	Key:		uint32_t (CPU id)
-	Value:		uint32_t
-	Entries:	CONFIG_NR_CPUS
+	buffers
+	-------
+	    Desc:	Pseudo map to represent the perf_event output buffers
+	    Type:	BPF_MAP_TYPE_PERF_EVENT_ARRAY
+	    Key:	CPU id (uint32_t)
+	    Value:	perf event fd (uint32_t)
+	    Entries:	number of enabled CPUs
+
+	mem
+	---
+	    Desc:	Scratch space to construct trace data record
+	    Type:	BPF_MAP_TYPE_PERCPU_ARRAY
+	    Key:	0 (uint32_t
+	    Value:	trace data record (maximum record size of all programs)
+	    Entries:	1
+
+	gvars
+	-----
+	    Desc:	Global variables
+	    Type:	BPF_MAP_TYPE_ARRAY
+	    Key:	variable id (uint32_t)
+	    Value:	64-bit value (uint64_t)
+	    Entries:	number of global variables across all programs
+
+	tvars
+	-----
+	    Desc:	Thread-local variables
+	    Type:	BPF_MAP_TYPE_ARRAY
+	    Key:	unique key computed based on variable id and thread
+			id (uint32_t)
+	    Value:	64-bit value (uint64_t)
+	    Entries:	computed based on number of distinct thread-local
+			variables and anticipated number of threads
 
 Local variable storage
 	array map (indexed by variable id)
