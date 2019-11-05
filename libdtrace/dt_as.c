@@ -568,8 +568,12 @@ fail:
 	pcb->pcb_difo = NULL;
 	pcb->pcb_dret = NULL;
 
-	/* Track the orignal type. */
-	dp->orig_dtdo_rtype = dp->dtdo_rtype;
+	/*
+	 * Fill in the trace data record length.  This is used to determine the
+	 * size of the scratch space where the trace data will be assembler
+	 * before it is written to the output buffer.
+	 */
+	dp->dtdo_reclen = pcb->pcb_bufoff;
 
 	return (dp);
 }

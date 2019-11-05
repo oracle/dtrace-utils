@@ -681,16 +681,19 @@ dt_dis_action(const dtrace_actdesc_t *ap, FILE *fp, const char *fmt)
 				fprintf(fp, "%s\n", act->act_name);
 		}
 		return;
-	}
-	else if (act == NULL)
-	{
-		fprintf(fp, "\nDIFO %p returns %s\n", (void *)dp,
-		    dt_dis_typestr(&dp->orig_dtdo_rtype, type, sizeof (type)));
-	}
-	else
-	{
+	} else if (act == NULL) {
+		if (dp->dtdo_reclen > 0)
+			fprintf(fp, "\nDIFO %p returns %s [record %d bytes]\n",
+				(void *)dp, dt_dis_typestr(&dp->dtdo_rtype,
+							   type, sizeof(type)),
+				dp->dtdo_reclen);
+		else
+			fprintf(fp, "\nDIFO %p returns %s\n", (void *)dp,
+				dt_dis_typestr(&dp->dtdo_rtype,
+					       type, sizeof (type)));
+	} else {
 		fprintf(fp, "\nDIFO %p returning %s for action ", (void *)dp,
-		    dt_dis_typestr(&dp->orig_dtdo_rtype, type, sizeof (type)));
+			dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
 		if (act->act_print != NULL)
 			act->act_print(act->act_name, fmt, fp);
 		else
@@ -709,7 +712,7 @@ dt_dis_pred(const dtrace_preddesc_t *predp, FILE *fp)
 		return;
 
 	fprintf(fp, "\nPredicate DIFO %p returns %s\n", (void *)dp,
-	    dt_dis_typestr(&dp->orig_dtdo_rtype, type, sizeof (type)));
+	    dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
 
 	dt_dis_difo(dp, fp);
 }

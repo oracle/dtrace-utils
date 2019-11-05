@@ -39,10 +39,9 @@ typedef struct dtrace_difo {
 	uint_t dtdo_strlen;			/* length of string table */
 	uint_t dtdo_varlen;			/* length of variable table */
 	dtrace_diftype_t dtdo_rtype;		/* return type */
+	uint_t dtdo_reclen;			/* length of trace record */
 	uint_t dtdo_refcnt;			/* owner reference count */
 	uint_t dtdo_destructive;		/* invokes destructive subroutines */
-#ifndef _KERNEL
-	dtrace_diftype_t orig_dtdo_rtype;	/* orignal return type */
 	struct dof_relodesc *dtdo_breltab;	/* BPF relocations */
 	struct dof_relodesc *dtdo_kreltab;	/* kernel relocations */
 	struct dof_relodesc *dtdo_ureltab;	/* user relocations */
@@ -51,7 +50,6 @@ typedef struct dtrace_difo {
 	uint_t dtdo_krelen;			/* length of krelo table */
 	uint_t dtdo_urelen;			/* length of urelo table */
 	uint_t dtdo_xlmlen;			/* length of translator table */
-#endif
 } dtrace_difo_t;
 
 #endif /* _DTRACE_DIFO_H */

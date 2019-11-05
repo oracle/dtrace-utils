@@ -92,15 +92,15 @@
 
 int yylineno;
 
+#ifdef FIXME
 static const dtrace_diftype_t dt_void_rtype = {
 	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, 0
 };
+#endif
 
-#ifdef FIXME
 static const dtrace_diftype_t dt_int_rtype = {
 	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, sizeof (uint64_t)
 };
-#endif
 
 /*ARGSUSED*/
 static int
@@ -1126,7 +1126,7 @@ dt_compile_entire_clause(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *s
 
 	dt_cg(yypcb, dnp);
 	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_difo->dtdo_rtype = dt_void_rtype;
+	ap->dtad_difo->dtdo_rtype = dt_int_rtype;
 	ap->dtad_kind = DTRACEACT_DIFEXPR;
 }
 
