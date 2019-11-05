@@ -67,16 +67,19 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
+	 *		stdw [%fp+-32], 0
 	 *		lddw %r1, &mem
 	 *		mov %r2, %fp
-	 *		add %r2, -24
+	 *		add %r2, -32
 	 *		call bpf_map_lookup_elem
 	 *		mov %r9, %r0
 	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
 	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_CPU);
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(1));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

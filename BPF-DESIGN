@@ -1,5 +1,21 @@
 BPF MAPS
 --------
+    mem
+    ---
+	Desc:		Scratch space to construct trace data record
+	Type:		BPF_MAP_TYPE_PERCPU_ARRAY
+	Key:		uint32_t (always 0)
+	Value:		length of trace data record (in bytes)
+	Entries:	1
+
+    buffers
+    -------
+	Desc:		Pseudo map to represent the perf_event output buffers
+	Type:		BPF_MAP_TYPE_PERF_EVENT_ARRAY
+	Key:		uint32_t (CPU id)
+	Value:		uint32_t
+	Entries:	CONFIG_NR_CPUS
+
 Local variable storage
 	array map (indexed by variable id)
 
@@ -121,11 +137,15 @@ DTRACE BPF PROGRAM CONVENTIONS
 	stored to the stack so it can be used later in the epilogue as well.
 
 	The prologue retrieves the output data buffer as the value associated
-	with the current CPU id as key in the 'mem' BPF map, and verifies that
-	the buffer exists.  If not, an error condition must be flagged in the
-	global probe state.  We cannot trigger an ERROR probe invocation
+	with key 0 in the 'mem' BPF map (which is a per-cpu BPF map so each CPU
+	gets its own value associated with the singleton key), and verifies
+	that the buffer exists.  If not, an error condition must be flagged in
+	the global probe state.  We cannot trigger an ERROR probe invocation
 	because that would require the output data buffer to be available in
 	order to record the ERROR probe firing.
+
+	Note that we (ab)use the spill slot for %r1 as temporary storage for
+	the map key.
 
 	The prologue records the epid (and 4 bytes of padding) into the output
 	buffer.
@@ -138,9 +158,10 @@ DTRACE BPF PROGRAM CONVENTIONS
 		arsh %r0, 0x20
 		stxw [%fp+-24], %r0		; store CPU id
 
+		stdw [%fp+-32], 0		; key = 0
 		lddw %r1, &mem			; map_lookup_elem(&mem,
 		mov %r2, %fp
-		add %r2, -24			;		  &key)
+		add %r2, -32			;		  &key)
 		call bpf_map_lookup_elem
 		mov %r9, %r0
 
