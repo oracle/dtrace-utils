@@ -924,6 +924,11 @@ main(int argc, char *argv[])
 
 	g_pname = basename(argv[0]);
 
+	/* Temporary banner. */
+	if (getenv("_DTRACE_TESTING") == NULL)
+		printf("DTrace %s [Pre-Release with limited functionality]\n",
+		   _DT_VERSION);
+
 	if (argc == 1)
 		return usage(stderr);
 
