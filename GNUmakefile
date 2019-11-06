@@ -124,7 +124,7 @@ PHONIES += dist
 	fi
 
 dist::
-	git archive --prefix=dtrace-utils-$(VERSION)/ HEAD | bzip2 > dtrace-utils-$(VERSION).tar.bz2
+	git archive --prefix=dtrace-$(VERSION)/ HEAD | bzip2 > dtrace-$(VERSION).tar.bz2
 
 clean::
 	rm -f .git-version

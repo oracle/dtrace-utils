@@ -1,7 +1,7 @@
-# spec file for package dtrace-utils.
+# spec file for package dtrace
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -22,52 +22,35 @@
 # You can override both from the rpmbuild command line if required.  To build an
 # RPM from locally-installed headers, define local_build on the command line.
 # To build translators against locally-installed kernel headers in directories
-# under /usr/src/kernels, define local_kernels on the command line (in addition to
-# dtrace_kernels).
+# under /usr/src/kernels, define local_kernels on the command line (in addition
+# to dtrace_kernels).
 
-%ifarch x86_64
-%if 0%{?oraclelinux} == 6
-%{!?build_kernel: %define build_kernel 4.1.12-112.14.10%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 3.8.13-118.19.4%{?dist}uek}
-%else
-%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 4.1.12-124.9.1%{?dist}uek}
-%endif
-%else
-%ifarch aarch64
-%{!?build_kernel: %define build_kernel 4.14.35-1833%{?dist}uek}
+%{!?build_kernel: %define build_kernel 5.4.0-1948.2%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
-%else # sparc64
-%{!?build_kernel: %define build_kernel 4.1.5-5%{?dist}uek}
-%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
-%endif
-%endif
 
-# SPARC64 and ARM64 don't yet have a 32-bit glibc, so all support for 32-on-64 must be
+# ARM64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
 # disabled.
-%ifnarch sparc64 aarch64
+%ifnarch aarch64
 %define glibc32 glibc-devel(%{__isa_name}-32) libgcc(%{__isa_name}-32)
 %else
 %define glibc32 %{nil}
 %endif
 
 BuildRequires: rpm
-Name:         dtrace-utils
+Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 0.7.0 yum libpcap
-BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 0.8.0
-BuildRequires: glibc-headers bison flex zlib-devel %{glibc32} libpcap-devel
-BuildRequires: wireshark
-%if %{!?local_build:1}0
-BuildRequires: dtrace-kernel-headers = 1.2.0
-%endif
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.1.0 yum libpcap
+BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
+BuildRequires: libdtrace-ctf-devel >= 1.1.0 libpcap-devel
+# BuildRequires: glibc-static %{glibc32} wireshark
+BuildRequires: kernel%{variant}-devel = %{build_kernel}
 Summary:      DTrace user interface.
-Version:      1.2.0
-Release:      0.1%{?dist}
-Source:       dtrace-utils-%{version}.tar.bz2
+Version:      2.0.0
+Release:      0.3%{?dist}
+Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
-ExclusiveArch:    x86_64 sparc64 aarch64
+ExclusiveArch:    x86_64 aarch64
 
 # Substitute in kernel-version-specific requirements.
 
@@ -99,10 +82,10 @@ DTrace external development mailing list <dtrace-devel@oss.oracle.com>
 
 %package devel
 Summary:      DTrace development headers.
-Requires:     libdtrace-ctf-devel >= 0.7.0
+Requires:     libdtrace-ctf-devel >= 1.1.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
-Provides:     dtrace-headers = 1.0.0
+Provides:     dtrace-headers = 2.0.0
 Obsoletes:    dtrace-modules-shared-headers
 Obsoletes:    dtrace-modules-provider-headers
 Group:	      Development/System
@@ -120,8 +103,9 @@ replacements for dtrace(1) itself.
 %package testsuite
 Summary:      DTrace testsuite.
 Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64)
-Requires:     %{glibc32} dtrace-headers > 0.6.0 module-init-tools
-Requires:     dtrace-utils-devel = %{version}-%{release} perl gcc java
+# Requires:     %{glibc32}
+Requires:     dtrace-headers > 0.6.0 module-init-tools
+Requires:     %{name}-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel perl-IO-Socket-IP xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     coreutils
@@ -140,26 +124,10 @@ it always tests the installed DTrace.
 %prep
 %setup -q
 
-#
-# Install DTrace headers to build root.  Use kernel sources if we found suitable
-# kernel-devel package installed.  Failback to /usr/include/linux/dtrace
-# otherwise
-#
-mkdir -p $RPM_BUILD_DIR/%{name}-%{version}/usr/include/linux/dtrace
-
-%if %{?local_build:1}0
-cp -dr --preserve=mode,timestamps /usr/include/linux/dtrace \
-	$RPM_BUILD_DIR/%{name}-%{version}/usr/include/linux/
-%else
-cp -dr --preserve=mode,timestamps /usr/src/kernels/%{bldkerneldir}/include/uapi/linux/dtrace \
-	$RPM_BUILD_DIR/%{name}-%{version}/usr/include/linux/
-%endif
-
 %build
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} \
 	KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= \
-	KERNELS="%{kerneldirs}" \
-	HDRPREFIX="$RPM_BUILD_DIR/%{name}-%{version}/usr/include"
+	KERNELS="%{kerneldirs}"
 
 # Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
 # and the testsuite requires debuginfo for proper operation.
@@ -170,11 +138,6 @@ make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} \
 	%{nil}
 
 %install
-
-# Install DTrace headers to the build root
-mkdir -p $RPM_BUILD_ROOT/usr/include/linux
-cp -dr --preserve=mode,timestamps $RPM_BUILD_DIR/%{name}-%{version}/usr/include/linux/dtrace \
-	$RPM_BUILD_ROOT/usr/include/linux
 
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
 make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} \
@@ -231,25 +194,32 @@ fi
 %{_libdir}/libdtrace.so.*
 %{_sbindir}/dtrace
 %{_mandir}/man1/orcl-dtrace.1.gz
-%{_includedir}/sys/dtrace.h
-%{_includedir}/sys/dtrace_types.h
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*
-%config(noreplace) %{_sysconfdir}/dtrace-modules
 
 %files devel
 %defattr(-,root,root,-)
 %{_bindir}/ctf_module_dump
 %{_libdir}/libdtrace.so
 %{_includedir}/dtrace.h
-/usr/include/linux/dtrace
+%{_includedir}/sys/dtrace.h
+%{_includedir}/sys/dtrace_types.h
 
 %files testsuite
 %defattr(-,root,root,-)
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Nov 26 2019 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.3
+- Change the kernel build version to 5.4.0-1948.2.
+
+* Wed Aug 14 2019 Kris van Hees <kris.van.hees@oracle.com> - 2.0.0-0.2
+- Change the kernel build version to 5.2.8-1933.
+
+* Tue Jul 30 2019 Kris van Hees <kris.van.hees@oracle.com> - 2.0.0-0.1
+- DTrace implementation based on BPF (initial portions).
+
 * Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-0.1
 - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap
   compatibility, and test them (Tomas Jedlicka) [Orabug: 27721525]
@@ -277,7 +247,7 @@ fi
   [Orabug: 28142056]
 - Clean up compiler warnings (Eugene Loh) [Orabug: 27934422, 27998779]
 
-Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
+* Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
 - Testsuite fixes [Orabug: 27995907]
 
 * Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
