@@ -280,8 +280,6 @@ dt_as(dt_pcb_t *pcb)
 				krel++;
 			else if ((idp->di_flags & umask) == ubits)
 				urel++;
-			else
-				goto fail;
 			break;
 		case BPF_JMP | BPF_CALL:	/* call */
 			if (dip->di_instr.src_reg == BPF_PSEUDO_CALL &&
