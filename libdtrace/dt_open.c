@@ -732,18 +732,9 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_useruid = DTRACE_USER_UID;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;
-	(void) pthread_mutex_init(&dtp->dt_sprintf_lock, NULL);
+	pthread_mutex_init(&dtp->dt_sprintf_lock, NULL);
 	dt_dof_init(dtp);
-	(void) uname(&dtp->dt_uts);
-
-	dt_probe_init(dtp);
-	for (i = 0; i < ARRAY_SIZE(dt_providers); i++) {
-		int n;
-
-		n = dt_providers[i]->populate(dtp);
-		dt_dprintf("loaded %d probes for %s\n", n,
-			   dt_providers[i]->name);
-	}
+	uname(&dtp->dt_uts);
 
 	/*
 	 * The default module path is derived in part from the utsname release
@@ -1071,6 +1062,19 @@ dt_vopen(int version, int flags, int *errp,
 	 * Initialize the BPF library handling.
 	 */
 	dt_dlib_init(dtp);
+
+	/*
+	 * Initialize the collection of probes that is made available by the
+	 * known providers.
+	 */
+	dt_probe_init(dtp);
+	for (i = 0; i < ARRAY_SIZE(dt_providers); i++) {
+		int n;
+
+		n = dt_providers[i]->populate(dtp);
+		dt_dprintf("loaded %d probes for %s\n", n,
+			   dt_providers[i]->name);
+	}
 
 	/*
 	 * Load hard-wired inlines into the definition cache by calling the

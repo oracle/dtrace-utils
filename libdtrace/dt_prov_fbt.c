@@ -66,11 +66,14 @@ static const dtrace_pattr_t	pattr = {
  */
 static int fbt_populate(dtrace_hdl_t *dtp)
 {
-	dt_provider_t	*prv;
-	FILE		*f;
-	char		buf[256];
-	char		*p;
-	int		n = 0;
+	dt_provider_t		*prv;
+	FILE			*f;
+	char			buf[256];
+	char			*p;
+	const char		*mod = modname;
+	int			n = 0;
+	dtrace_syminfo_t	sip;
+	dtrace_probedesc_t	pd;
 
 	if (!(prv = dt_provider_create(dtp, "fbt", &dt_fbt, &pattr)))
 		return 0;
@@ -113,11 +116,34 @@ static int fbt_populate(dtrace_hdl_t *dtp)
 				p++;
 		}
 
-		if (dt_probe_insert(dtp, prv, provname, p ? p : modname, buf,
-				    "entry"))
+		/*
+		 * If we did not see a module name, perform a symbol lookup to
+		 * try to determine the module name.
+		 */
+		if (!p) {
+			if (dtrace_lookup_by_name(dtp, DTRACE_OBJ_KMODS, buf,
+						  NULL, &sip) == 0)
+				mod = sip.object;
+		} else
+			mod = p;
+
+		/*
+		 * Due to the lack of module names in
+		 * TRACEFS/available_filter_functions, there are some duplicate
+		 * function names.  We need to make sure that we do not create
+		 * duplicate probes for these.
+		 */
+		pd.id = DTRACE_IDNONE;
+		pd.prv = provname;
+		pd.mod = mod;
+		pd.fun = buf;
+		pd.prb = "entry";
+		if (dt_probe_lookup(dtp, &pd) != NULL)
+			continue;
+
+		if (dt_probe_insert(dtp, prv, provname, mod, buf, "entry"))
 			n++;
-		if (dt_probe_insert(dtp, prv, provname, p ? p : modname, buf,
-				    "return"))
+		if (dt_probe_insert(dtp, prv, provname, mod, buf, "return"))
 			n++;
 	}
 
