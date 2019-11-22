@@ -67,9 +67,9 @@ dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 
 /*ARGSUSED*/
 static int
-dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
+dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 {
-	dt_pcb_t *pcb = data;
+	dt_pcb_t *pcb = dtp->dt_pcb;
 	dtrace_difv_t *dvp;
 	ssize_t stroff;
 	dt_node_t dn;
@@ -78,7 +78,7 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		return (0); /* omit variable from vartab */
 
 	dvp = &pcb->pcb_difo->dtdo_vartab[pcb->pcb_asvidx++];
-	stroff = dt_strtab_insert(pcb->pcb_strtab, idp->di_name);
+	stroff = dt_strtab_insert(dtp->dt_ccstab, idp->di_name);
 
 	if (stroff == -1L)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
@@ -113,10 +113,10 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 }
 
 static ssize_t
-dt_copystr(const char *s, size_t n, size_t off, dt_pcb_t *pcb)
+dt_copystr(const char *s, size_t n, size_t off, dtrace_hdl_t *dtp)
 {
-	memcpy(pcb->pcb_difo->dtdo_strtab + off, s, n);
-	return (n);
+	memcpy(dtp->dt_strtab + off, s, n);
+	return n;
 }
 
 #ifdef FIXME
@@ -359,9 +359,9 @@ fail:
 	 * then fill in each variable record.  As we populate the variable
 	 * table we insert the corresponding variable names into the strtab.
 	 */
-	(void) dt_idhash_iter(dtp->dt_tls, dt_countvar, &n);
-	(void) dt_idhash_iter(dtp->dt_globals, dt_countvar, &n);
-	(void) dt_idhash_iter(pcb->pcb_locals, dt_countvar, &n);
+	dt_idhash_iter(dtp->dt_tls, dt_countvar, &n);
+	dt_idhash_iter(dtp->dt_globals, dt_countvar, &n);
+	dt_idhash_iter(pcb->pcb_locals, dt_countvar, &n);
 
 	if (n != 0) {
 		dp->dtdo_vartab = dt_alloc(dtp, n * sizeof (dtrace_difv_t));
@@ -370,9 +370,9 @@ fail:
 		if (dp->dtdo_vartab == NULL)
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-		(void) dt_idhash_iter(dtp->dt_tls, dt_copyvar, pcb);
-		(void) dt_idhash_iter(dtp->dt_globals, dt_copyvar, pcb);
-		(void) dt_idhash_iter(pcb->pcb_locals, dt_copyvar, pcb);
+		dt_idhash_iter(dtp->dt_tls, (dt_idhash_f *)dt_copyvar, dtp);
+		dt_idhash_iter(dtp->dt_globals, (dt_idhash_f *)dt_copyvar, dtp);
+		dt_idhash_iter(pcb->pcb_locals, (dt_idhash_f *)dt_copyvar, dtp);
 	}
 
 	/*
@@ -491,7 +491,7 @@ fail:
 					dip->di_instr.code, i - 1,
 					idp->di_name);
 
-			soff = dt_strtab_insert(pcb->pcb_strtab, idp->di_name);
+			soff = dt_strtab_insert(dtp->dt_ccstab, idp->di_name);
 
 			if (soff == -1L)
 				longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
@@ -548,13 +548,16 @@ fail:
 	 * Allocate memory for the compiled string table and then copy the
 	 * chunks from the string table into the final string buffer.
 	 */
-	if ((n = dt_strtab_size(pcb->pcb_strtab)) != 0) {
-		if ((dp->dtdo_strtab = dt_alloc(dtp, n)) == NULL)
+	if ((n = dt_strtab_size(dtp->dt_ccstab)) != 0) {
+		if ((dtp->dt_strtab = dt_alloc(dtp, n)) == NULL)
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-		(void) dt_strtab_write(pcb->pcb_strtab,
-		    (dt_strtab_write_f *)dt_copystr, pcb);
-		dp->dtdo_strlen = (uint32_t)n;
+		dt_strtab_write(dtp->dt_ccstab,
+				(dt_strtab_write_f *)dt_copystr, dtp);
+		dtp->dt_strlen = (uint32_t)n;
+
+		dp->dtdo_strtab = dtp->dt_strtab;
+		dp->dtdo_strlen = dtp->dt_strlen;
 	}
 
 	/*

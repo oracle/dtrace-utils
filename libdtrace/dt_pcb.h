@@ -18,7 +18,6 @@ extern "C" {
 
 #include <dt_parser.h>
 #include <dt_regset.h>
-#include <dt_strtab.h>
 #include <dt_decl.h>
 #include <dt_as.h>
 
@@ -41,7 +40,6 @@ typedef struct dt_pcb {
 	dt_idhash_t *pcb_locals; /* current hash table of local identifiers */
 	dt_idhash_t *pcb_idents; /* current hash table of ambiguous idents */
 	dt_idhash_t *pcb_pragmas; /* current hash table of pending pragmas */
-	dt_strtab_t *pcb_strtab; /* string table for string references */
 	dt_regset_t *pcb_regs;	/* register set for code generation */
 	uint_t pcb_bufoff;	/* output buffer offset (for DFUNCs) */
 	dt_irlist_t pcb_ir;	/* list of unrelocated IR instructions */

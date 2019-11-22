@@ -60,6 +60,7 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_FUNC),
 	/* BPF maps */
 	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(gvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(tvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(probes, DT_IDENT_PTR),

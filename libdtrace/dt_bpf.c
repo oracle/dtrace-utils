@@ -57,6 +57,11 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
+ * - strtab:	String table map.  This is a global map with a singleton
+ *		element (key 0) that contains the entire string table as a
+ *		concatenation of all unique strings (each terminated with a
+ *		NUL byte).  The string table size is taken from the DTrace
+ *		consumer handle (dt_strlen).
  * - gvars:	Global variables map, associating a 64-bit value with each
  *		global variable.  The map is indexed by global variable id.
  * - tvars:	Thread-local variables map, associating a 64-bit value with
@@ -80,6 +85,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t gvarc, uint_t tvarc, uint_t probec)
 	return create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			   sizeof(uint32_t), sizeof(uint32_t),
 			   dtp->dt_conf.numcpus) &&
+	       create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
+			   sizeof(uint32_t), dtp->dt_strlen, 1) &&
 	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), sizeof(uint64_t), gvarc) &&
 	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,

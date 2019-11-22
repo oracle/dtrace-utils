@@ -2375,7 +2375,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 		assert(dnp->dn_kind == DT_NODE_STRING);
-		stroff = dt_strtab_insert(yypcb->pcb_strtab, dnp->dn_string);
+		stroff = dt_strtab_insert(yypcb->pcb_hdl->dt_ccstab,
+					  dnp->dn_string);
 
 		if (stroff == -1L)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -2610,12 +2611,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dt_regset_reset(pcb->pcb_regs);
-
-	if (pcb->pcb_strtab != NULL)
-		dt_strtab_destroy(pcb->pcb_strtab);
-
-	if ((pcb->pcb_strtab = dt_strtab_create(BUFSIZ)) == NULL)
-		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dt_irlist_destroy(&pcb->pcb_ir);
 	dt_irlist_create(&pcb->pcb_ir);

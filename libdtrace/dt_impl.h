@@ -232,6 +232,9 @@ struct dtrace_hdl {
 	dt_idhash_t *dt_globals; /* hash table of global identifiers */
 	dt_idhash_t *dt_tls;	/* hash table of thread-local identifiers */
 	dt_idhash_t *dt_bpfsyms;/* hash table of BPF identifiers */
+	dt_strtab_t *dt_ccstab;	/* global string table (during compilation) */
+	char *dt_strtab;	/* global string table (runtime) */
+	uint_t dt_strlen;	/* global string table (runtime) size */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */

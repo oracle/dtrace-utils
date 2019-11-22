@@ -830,8 +830,13 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_tls = dt_idhash_create("thread local", NULL,
 	    DIF_VAR_OTHER_UBASE, DIF_VAR_OTHER_MAX);
 
+	dtp->dt_ccstab = dt_strtab_create(BUFSIZ);
+	dtp->dt_strtab = NULL;
+	dtp->dt_strlen = 0;
+
 	if (dtp->dt_macros == NULL || dtp->dt_aggs == NULL ||
-	    dtp->dt_globals == NULL || dtp->dt_tls == NULL)
+	    dtp->dt_globals == NULL || dtp->dt_tls == NULL ||
+	    dtp->dt_ccstab == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	/*
@@ -1152,6 +1157,10 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_ident_destroy(idp);
 	}
 
+	if (dtp->dt_strtab != NULL)
+		dt_free(dtp, dtp->dt_strtab);
+	if (dtp->dt_ccstab != NULL)
+		dt_strtab_destroy(dtp->dt_ccstab);
 	if (dtp->dt_macros != NULL)
 		dt_idhash_destroy(dtp->dt_macros);
 	if (dtp->dt_aggs != NULL)
