@@ -5,16 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-#if 0
-#include <assert.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <port.h>
-#include <dt_parser.h>
-#include <dt_program.h>
-#include <dt_grammar.h>
-#endif
-
 #include <errno.h>
 #include <string.h>
 #include <dtrace.h>
@@ -31,13 +21,16 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	int		fd;
 	dt_ident_t	*idp;
 
+	dt_dprintf("Creating BPF map '%s' (ksz %u, vsz %u, sz %d)\n",
+		   name, ksz, vsz, size);
 	fd = bpf_create_map_name(type, name, ksz, vsz, size, 0);
 	if (fd < 0) {
 		dt_dprintf("failed to create BPF map '%s': %s\n",
 			   name, strerror(errno));
 		return -1;
 	} else
-		dt_dprintf("BPF map '%s' is FD %d\n", name, fd);
+		dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
+			   name, fd, ksz, vsz, size);
 
 	idp = dt_dlib_get_map(dtp, name);
 	if (idp == NULL) {
@@ -64,16 +57,31 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *		consumer handle (dt_strlen).
  * - gvars:	Global variables map, associating a 64-bit value with each
  *		global variable.  The map is indexed by global variable id.
- * - tvars:	Thread-local variables map, associating a 64-bit value with
- *		each thread-local variable.  The map is indexed by a value
+ *		The amount of global variables is the next-to--be-assigned
+ *		global variable id minus the base id.
+ *
+ * FIXME: TLS variable storage is still being designed further so this is just
+ *	  a temporary placeholder and will most likely be replaced by something
+ *	  else.  If we stick to the legacy DTrace approach, we will need to
+ *	  determine the maximum overall key size for TLS variables *and* the
+ *	  maximum value size.  Based on these values, the legacy code would
+ *	  take the memory size set aside for dynamic variables, and divide it by
+ *	  the storage size needed for the largest dynamic variable (associative
+ *	  array element or TLS variable).
+ *
+ * - tvars:	Thread-local (TLS) variables map, associating a 64-bit value
+ *		with each thread-local variable.  The map is indexed by a value
  *		computed based on the thread-local variable id and execution
  *		thread information to ensure each thread has its own copy of a
- *		given thread-local variable.
+ *		given thread-local variable.  The amount of TLS variable space
+ *		to allocate for these dynamic variables is calculated based on
+ *		the number of uniquely named TLS variables (next-to-be-assigned
+ *		id minus the base id).
  * - probes:	Probe information map, associating a probe info structure with
  *		each probe that is used in the current probing session.
  */
 int
-dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t gvarc, uint_t tvarc, uint_t probec)
+dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 {
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -88,9 +96,13 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t gvarc, uint_t tvarc, uint_t probec)
 	       create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), dtp->dt_strlen, 1) &&
 	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), sizeof(uint64_t), gvarc) &&
-	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), sizeof(uint32_t), tvarc) &&
+			   sizeof(uint32_t), sizeof(uint64_t),
+			   dt_idhash_peekid(dtp->dt_globals) -
+				DIF_VAR_OTHER_UBASE) &&
+	       create_gmap(dtp, "tvars", BPF_MAP_TYPE_ARRAY,
+			   sizeof(uint32_t), sizeof(uint32_t),
+			   dt_idhash_peekid(dtp->dt_tls) -
+				DIF_VAR_OTHER_UBASE) &&
 	       create_gmap(dtp, "probes", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), sizeof(void *), probec);
 	/* FIXME: Need to put in the actual struct ref for probe info. */

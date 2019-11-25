@@ -126,6 +126,7 @@ extern void dt_idhash_destroy(dt_idhash_t *);
 extern void dt_idhash_update(dt_idhash_t *);
 extern dt_ident_t *dt_idhash_lookup(dt_idhash_t *, const char *);
 extern int dt_idhash_nextid(dt_idhash_t *, uint_t *);
+extern uint_t dt_idhash_peekid(dt_idhash_t *);
 extern ulong_t dt_idhash_size(const dt_idhash_t *);
 extern const char *dt_idhash_name(const dt_idhash_t *);
 

@@ -738,6 +738,12 @@ dt_idhash_nextid(dt_idhash_t *dhp, uint_t *p)
 	return (0);
 }
 
+uint_t
+dt_idhash_peekid(dt_idhash_t *dhp)
+{
+	return dhp->dh_nextid;
+}
+
 ulong_t
 dt_idhash_size(const dt_idhash_t *dhp)
 {
