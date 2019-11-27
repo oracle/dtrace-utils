@@ -25,7 +25,7 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition
 # to dtrace_kernels).
 
-%{!?build_kernel: %define build_kernel 5.4.0-1944%{?dist}uek}
+%{!?build_kernel: %define build_kernel 5.4.0-1948.2%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 
 # ARM64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
@@ -44,6 +44,7 @@ Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.1.0 yum libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: libdtrace-ctf-devel >= 1.1.0 libpcap-devel
 # BuildRequires: glibc-static %{glibc32} wireshark
+BuildRequires: kernel%{variant}-devel = %{build_kernel}
 Summary:      DTrace user interface.
 Version:      2.0.0
 Release:      0.3%{?dist}
