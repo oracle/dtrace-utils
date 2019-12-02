@@ -23,6 +23,7 @@
 #include <sys/compiler.h>
 #include <math.h>
 #include <string.h>
+#include <stddef.h>
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024

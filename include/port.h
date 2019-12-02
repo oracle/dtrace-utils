@@ -63,4 +63,20 @@ int waitfd(int which, pid_t upid, int options, int flags);
 #define PTRACE_EVENT_STOP       128
 #endif
 
+/*
+ * Machine and relocation types for BPF (only available in newer glibc headers).
+ */
+#ifndef EM_BPF
+#define EM_BPF			247	/* Linux BPF -- in-kernel virtual machine */
+#endif
+#ifndef R_BPF_NONE
+#define R_BPF_NONE		0	/* No reloc */
+#endif
+#ifndef R_BPF_64_64
+#define R_BPF_64_64		1
+#endif
+#ifndef R_BPF_64_32
+#define R_BPF_64_32		10
+#endif
+
 #endif

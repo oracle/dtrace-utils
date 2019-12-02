@@ -14,6 +14,7 @@
 #include <dt_parser.h>
 #include <dt_as.h>
 #include <bpf_asm.h>
+#include <port.h>
 
 void
 dt_irlist_create(dt_irlist_t *dlp)

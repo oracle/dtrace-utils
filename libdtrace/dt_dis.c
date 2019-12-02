@@ -14,6 +14,7 @@
 #include <dt_string.h>
 #include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
+#include <port.h>
 
 #define BPF_HELPER_FN(x)	[BPF_FUNC_##x] = __stringify(bpf_##x)
 static const char * const helper_fn[] = {

@@ -8,8 +8,8 @@ LIBS += libbpf
 
 libbpf_TARGET = libbpf
 libbpf_DIR := $(current-dir)
-libbpf_SOURCES = libbpf.c bpf.c nlattr.c btf.c libbpf_errno.c str_error.c \
-		 netlink.c bpf_prog_linfo.c libbpf_probes.c hashmap.c \
+libbpf_SOURCES = libbpf.c bpf.c btf.c libbpf_errno.c str_error.c \
+		 bpf_prog_linfo.c libbpf_probes.c hashmap.c \
 		 btf_dump.c
 libbpf_LIBSOURCES := libbpf
 libbpf_CFLAGS := -Wno-pedantic
