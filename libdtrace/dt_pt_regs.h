@@ -16,19 +16,24 @@ extern "C" {
 #endif
 
 #if defined(__amd64)
-# define PT_REGS_ARG0		offsetof(struct pt_regs, rdi)
-# define PT_REGS_ARG1		offsetof(struct pt_regs, rsi)
-# define PT_REGS_ARG2		offsetof(struct pt_regs, rdx)
-# define PT_REGS_ARG3		offsetof(struct pt_regs, rcx)
-# define PT_REGS_ARG4		offsetof(struct pt_regs, r8)
-# define PT_REGS_ARG5		offsetof(struct pt_regs, r9)
+typedef struct pt_regs		dt_pt_regs;
+
+# define PT_REGS_ARG0		offsetof(dt_pt_regs, rdi)
+# define PT_REGS_ARG1		offsetof(dt_pt_regs, rsi)
+# define PT_REGS_ARG2		offsetof(dt_pt_regs, rdx)
+# define PT_REGS_ARG3		offsetof(dt_pt_regs, rcx)
+# define PT_REGS_ARG4		offsetof(dt_pt_regs, r8)
+# define PT_REGS_ARG5		offsetof(dt_pt_regs, r9)
 #elif defined(__aarch64__)
-# define PT_REGS_ARG0		offsetof(struct user_pt_regs, regs[0])
-# define PT_REGS_ARG1		offsetof(struct user_pt_regs, regs[1])
-# define PT_REGS_ARG2		offsetof(struct user_pt_regs, regs[2])
-# define PT_REGS_ARG3		offsetof(struct user_pt_regs, regs[3])
-# define PT_REGS_ARG4		offsetof(struct user_pt_regs, regs[4])
-# define PT_REGS_ARG5		offsetof(struct user_pt_regs, regs[5])
+typedef struct user_pt_regs	dt_pt_regs;
+# define PT_REGS_ARG0		offsetof(dt_pt_regs, regs[0])
+# define PT_REGS_ARG1		offsetof(dt_pt_regs, regs[1])
+# define PT_REGS_ARG2		offsetof(dt_pt_regs, regs[2])
+# define PT_REGS_ARG3		offsetof(dt_pt_regs, regs[3])
+# define PT_REGS_ARG4		offsetof(dt_pt_regs, regs[4])
+# define PT_REGS_ARG5		offsetof(dt_pt_regs, regs[5])
+#else
+# error ISA not supported
 #endif
 
 #ifdef	__cplusplus

@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <asm/ptrace.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"

@@ -38,6 +38,7 @@
 #include "dt_bpf_builtins.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
+#include "dt_pt_regs.h"
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
@@ -57,7 +58,7 @@ static const char		modname[] = "vmlinux";
 #define SKIP_FIELDS_COUNT	5
 
 struct syscall_data {
-	struct pt_regs	*regs;
+	dt_pt_regs	*regs;
 	long		syscall_nr;
 	long		arg[6];
 };
@@ -170,7 +171,7 @@ static int syscall_populate(dtrace_hdl_t *dtp)
  * The trampoline function is called when a syscall probe triggers, and it must
  * satisfy the following prototype:
  *
- *	int dt_syscall(struct pt_regs *regs)
+ *	int dt_syscall(struct syscall_data *scd)
  *
  * The trampoline will populate a dt_bpf_context struct and then call the
  * function that implements the compiled D clause.  It returns the value that
@@ -209,7 +210,7 @@ static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
 	/*
 	 *     (we clear the dctx.regs space because of the memset above)
 	 */
-	for (i = 0; i < sizeof(struct pt_regs); i += 8) {
+	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
 		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP,
 				      DCTX_FP(DCTX_REGS) + i, 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

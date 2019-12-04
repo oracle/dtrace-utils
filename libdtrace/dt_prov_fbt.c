@@ -158,7 +158,7 @@ static int fbt_populate(dtrace_hdl_t *dtp)
  * The trampoline function is called when a FBT probe triggers, and it must
  * satisfy the following prototype:
  *
- *	int dt_fbt(struct pt_regs *regs)
+ *	int dt_fbt(dt_pt_regs *regs)
  *
  * The trampoline will populate a dt_bpf_context struct and then call the
  * function that implements tha compiled D clause.  It returns the value that
@@ -175,7 +175,7 @@ static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
 #define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
 
 	/*
-	 * int dt_fbt(struct pt_regs *regs)
+	 * int dt_fbt(dt_pt_regs *regs)
 	 * {
 	 *     struct dt_bpf_context	dctx;
 	 *
@@ -197,7 +197,7 @@ static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
 	/*
 	 *     dctx.regs = *regs;
 	 */
-	for (i = 0; i < sizeof(struct pt_regs); i += 8) {
+	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
 		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, i);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_REGS) + i,

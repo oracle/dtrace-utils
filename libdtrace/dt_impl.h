@@ -45,6 +45,7 @@ extern "C" {
 #include <dt_pcap.h>
 #include <dt_dof.h>
 #include <dt_pcb.h>
+#include <dt_pt_regs.h>
 #include <dt_debug.h>
 #include <dt_version.h>
 
@@ -446,7 +447,7 @@ struct dt_bpf_context {
 	uint32_t	epid;
 	uint32_t	pad;
 	uint64_t	fault;
-	struct pt_regs	regs;
+	dt_pt_regs	regs;
 	uint64_t	argv[10];
 };
 
