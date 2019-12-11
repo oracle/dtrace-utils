@@ -43,11 +43,12 @@ Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.1.0 yum libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: libdtrace-ctf-devel >= 1.1.0 libpcap-devel
-# BuildRequires: glibc-static %{glibc32} wireshark
+BuildRequires: glibc-static %{glibc32} wireshark
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
+BuildRequires: kernel%{variant}-headers = %{build_kernel}
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      0.3%{?dist}
+Release:      0.6%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -103,7 +104,7 @@ replacements for dtrace(1) itself.
 %package testsuite
 Summary:      DTrace testsuite.
 Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64)
-# Requires:     %{glibc32}
+Requires:     %{glibc32}
 Requires:     dtrace-headers > 0.6.0 module-init-tools
 Requires:     %{name}-devel = %{version}-%{release} perl gcc java
 Requires:     java-1.8.0-openjdk-devel perl-IO-Socket-IP xfsprogs
@@ -211,6 +212,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Dec  5 2019 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.6
+- Update spec file for build requirements.
+
+* Thu Dec  5 2019 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.5
+- Support building on aarch64.
+
+* Wed Dec  4 2019 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.4
+- Support building on systems with older kernels and/or glibc.
+
 * Tue Nov 26 2019 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.3
 - Change the kernel build version to 5.4.0-1948.2.
 
