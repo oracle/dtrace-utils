@@ -239,18 +239,33 @@ static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
 	}
 
 	/*
+	 * We know the BPF context (scd) is in %r1.  Since we will be passing
+	 * the DTrace context (dctx) as 2nd argument to dt_predicate() (if
+	 * there is a predicate) and dt_program, we need it in %r2.
+	 */
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
 	 *     if (haspred) {
-	 *	   rc = dt_predicate(regs, dctx);
+	 *	   rc = dt_predicate(scd, dctx);
 	 *	   if (rc == 0) goto exit;
 	 *     }
 	 */
 	if (haspred) {
+		/*
+		 * Save the BPF context (scd) and DTrace context (dctx) in %r6
+		 * and %r7 respectively because the BPF verifier will mark %r1
+		 * through %r5 unknown after we call dt_predicate (even if we
+		 * do not clobber them).
+		 */
 		instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+		instr = BPF_MOV_REG(BPF_REG_7, BPF_REG_2);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
 		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_predicate");
 		assert(idp != NULL);
 		instr = BPF_CALL_FUNC(idp->di_id);
@@ -258,17 +273,20 @@ static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
 		dlp->dl_last->di_extern = idp;
 		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		/*
+		 * Restore BPF context (scd) and DTrace context (dctx) from
+		 * %r6 and %r7 into %r1 and %r2 respectively.
+		 */
+		instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_7);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
 	/*
-	 *     rc = dt_program(regs, dctx);
+	 *     rc = dt_program(scd, dctx);
 	 */
-	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
 	assert(idp != NULL);
 	instr = BPF_CALL_FUNC(idp->di_id);
