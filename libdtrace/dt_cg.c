@@ -505,8 +505,9 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	if (dt_node_is_scalar(dnp->dn_args)) {
-		instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);
+		instr = BPF_STORE(BPF_DW, BPF_REG_9, off, dnp->dn_args->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
 
 		return sizeof(uint64_t);
 	} else if (dt_node_is_string(dnp->dn_args)) {
@@ -528,6 +529,7 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
 
 		return sz + sizeof(uint64_t);
 	} else
