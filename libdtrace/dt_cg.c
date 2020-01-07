@@ -1064,7 +1064,8 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 }
 
 static void
-dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
+dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
+		dt_ident_t *idp)
 {
 	struct bpf_insn	instr;
 
@@ -1074,45 +1075,37 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_ident_t *idp)
 				  src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		/*
-		 * FIXME: Do we need to reserve %r1 and %r2 because we are
-		 * going to use them?  We may need a more generic piece of code
-		 * to ensure that the necessary argument passing registers are
-		 * available (and if not, save them to stack and restore after
-		 * the call).
-		 *
-		 * Perhaps we need to ensure that registers get allocated from
-		 * %r9 down to %r1.
-		 */
+		dt_regset_xalloc(drp, BPF_REG_2);
 		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_xalloc(drp, BPF_REG_1);
 		instr = BPF_MOV_IMM(BPF_REG_1, 0x2000 + idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
 		assert(idp != NULL);
+		dt_regset_xalloc(drp, BPF_REG_0);
 		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
+		dt_regset_free(drp, BPF_REG_0);
+		dt_regset_free(drp, BPF_REG_1);
+		dt_regset_free(drp, BPF_REG_2);
 	} else {					/* global var */
-		/*
-		 * FIXME: Do we need to reserve %r1 and %r2 because we are
-		 * going to use them?  We may need a more generic piece of code
-		 * to ensure that the necessary argument passing registers are
-		 * available (and if not, save them to stack and restore after
-		 * the call).
-		 *
-		 * Perhaps we need to ensure that registers get allocated from
-		 * %r9 down to %r1.
-		 */
+		dt_regset_xalloc(drp, BPF_REG_2);
 		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_xalloc(drp, BPF_REG_1);
 		instr = BPF_MOV_IMM(BPF_REG_1, 0x3000 + idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_gvar");
 		assert(idp != NULL);
+		dt_regset_xalloc(drp, BPF_REG_0);
 		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
+		dt_regset_free(drp, BPF_REG_0);
+		dt_regset_free(drp, BPF_REG_1);
+		dt_regset_free(drp, BPF_REG_2);
 	}
 }
 
@@ -1308,7 +1301,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
-		dt_cg_store_var(dnp, dlp, idp);
+		dt_cg_store_var(dnp, dlp, drp, idp);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 
@@ -1361,7 +1354,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
-		dt_cg_store_var(dnp, dlp, idp);
+		dt_cg_store_var(dnp, dlp, drp, idp);
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
 		int oreg = dnp->dn_reg;
@@ -1744,7 +1737,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (idp->di_kind == DT_IDENT_ARRAY)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
-		dt_cg_store_var(dnp, dlp, idp);
+		dt_cg_store_var(dnp, dlp, drp, idp);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -2506,7 +2499,8 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 
 /* FIXME */
 			if (base == 0x3000) {
-				instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg,
+				dt_regset_xalloc(drp, BPF_REG_1);
+				instr = BPF_ALU64_IMM(BPF_MOV, BPF_REG_1,
 						      dnp->dn_ident->di_id);
 				dt_irlist_append(dlp,
 						 dt_cg_node_alloc(DT_LBL_NONE,
@@ -2514,6 +2508,7 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 				idp = dt_dlib_get_func(yypcb->pcb_hdl,
 						       "dt_get_gvar");
 				assert(idp != NULL);
+				dt_regset_xalloc(drp, BPF_REG_0);
 				instr = BPF_CALL_FUNC(idp->di_id);
 				dt_irlist_append(dlp,
 						 dt_cg_node_alloc(DT_LBL_NONE,
@@ -2524,6 +2519,8 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 				dt_irlist_append(dlp,
 						 dt_cg_node_alloc(DT_LBL_NONE,
 								  instr));
+				dt_regset_free(drp, BPF_REG_0);
+				dt_regset_free(drp, BPF_REG_1);
 			} else if (base == 0x2000) {
 				instr = BPF_ALU64_IMM(BPF_MOV, dnp->dn_reg,
 						      dnp->dn_ident->di_id);

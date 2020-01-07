@@ -24,6 +24,7 @@ extern dt_regset_t *dt_regset_create(ulong_t);
 extern void dt_regset_destroy(dt_regset_t *);
 extern void dt_regset_reset(dt_regset_t *);
 extern int dt_regset_alloc(dt_regset_t *);
+extern void dt_regset_xalloc(dt_regset_t *, int);
 extern void dt_regset_free(dt_regset_t *, int);
 
 #ifdef	__cplusplus

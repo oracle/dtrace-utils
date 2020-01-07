@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <dt_debug.h>
 #include <dt_regset.h>
 
 dt_regset_t *
@@ -54,18 +55,18 @@ dt_regset_alloc(dt_regset_t *drp)
 	ulong_t maxw = nbits >> BT_ULSHIFT;
 	ulong_t wx;
 
-	for (wx = 0; wx <= maxw; wx++) {
+	for (wx = maxw; wx >= maxw; wx--) {
 		if (drp->dr_bitmap[wx] != ~0UL)
 			break;
 	}
 
-	if (wx <= maxw) {
+	if (wx >= 0) {
 		ulong_t maxb = (wx == maxw) ? nbits & BT_ULMASK : BT_NBIPUL - 1;
 		ulong_t word = drp->dr_bitmap[wx];
 		ulong_t bit, bx;
 		int reg;
 
-		for (bit = 1, bx = 0; bx <= maxb; bx++, bit <<= 1) {
+		for (bit = 1 << maxb, bx = maxb; bx >= 0; bx--, bit >>= 1) {
 			if ((word & bit) == 0) {
 				reg = (int)((wx << BT_ULSHIFT) | bx);
 				BT_SET(drp->dr_bitmap, reg);
@@ -75,6 +76,15 @@ dt_regset_alloc(dt_regset_t *drp)
 	}
 
 	return (-1); /* no available registers */
+}
+
+void
+dt_regset_xalloc(dt_regset_t *drp, int reg)
+{
+	assert(reg >= 0 && reg < drp->dr_size);
+	assert(BT_TEST(drp->dr_bitmap, reg) == 0);
+
+	BT_SET(drp->dr_bitmap, reg);
 }
 
 void
