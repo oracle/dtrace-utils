@@ -499,40 +499,38 @@ fail:
 			if (soff > DIF_STROFF_MAX)
 				longjmp(pcb->pcb_jmpbuf, EDT_STR2BIG);
 
-			assert(idp->di_data != NULL);
-			rp->dofr_name = (dof_stridx_t)soff;
-			rp->dofr_offset = (i - 1) * sizeof (uint64_t);
-			rp->dofr_data = ((dtrace_syminfo_t *)idp->di_data)->id;
+			if ((idp->di_flags & DT_IDFLG_BPF) != 0) {
+				/*
+				 * Relocation for BPF identifier.
+				 */
+				rp->dofr_name = (dof_stridx_t)soff;
+				rp->dofr_offset = (i - 1) * sizeof (uint64_t);
 
-			/*
-			 * Crazy magic lies ahead...
-			 *
-			 * Due to the fact that dt_predicate and dt_program are
-			 * generated in the same instruction list as the probe
-			 * trampoline code, we have encoded a reference to the
-			 * start of each of those functions using the label
-			 * system (while other identifiers are real references
-			 * to external symbols).
-			 *
-			 * This means we need to differentiate between the two
-			 * when dealing with relocations.  We make use of the
-			 * fact that regular external symbols store the same id
-			 * in the identifier as they do in the syminfo.  For
-			 * our two special functions (dt_predicate and
-			 * dt_program), the syminfo one will be DT_IDENT_UNDEF
-			 * while the identifier id will be the label id.
-			 *
-			 * So, when we encounter one of our special relocations
-			 * we update the value of the relocation to be the
-			 * instruction offset of the function *and* we patch
-			 * the call instruction with the correct offset delta.
-			 */
-			if (rp->dofr_data == DT_IDENT_UNDEF &&
-			    idp->di_id != DT_IDENT_UNDEF) {
-				assert(idp->di_id < dlp->dl_label);
-				rp->dofr_data = labels[idp->di_id];
-				dp->dtdo_buf[i - 1].imm =
+				/*
+				 * BPF built-in functions (predicate and
+				 * program) are special because they are part
+				 * of the executable code we are processing
+				 * here.  Set the value in the relocation entry
+				 * to be the instruction offset of the function
+				 * *and* update the call instruction with the
+				 * correct offset delta.
+				 */
+				if (idp->di_kind == DT_IDENT_FUNC) {
+					assert(idp->di_id < dlp->dl_label);
+					rp->dofr_data = labels[idp->di_id];
+					dp->dtdo_buf[i - 1].imm =
 							labels[idp->di_id] - i;
+				} else
+					rp->dofr_data = idp->di_id;
+			} else {
+				/*
+				 * Relocation for a regular external symbol.
+				 */
+				assert(idp->di_data != NULL);
+				rp->dofr_name = (dof_stridx_t)soff;
+				rp->dofr_offset = (i - 1) * sizeof (uint64_t);
+				rp->dofr_data =
+					((dtrace_syminfo_t *)idp->di_data)->id;
 			}
 		}
 

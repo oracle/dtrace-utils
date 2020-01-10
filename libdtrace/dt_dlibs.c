@@ -38,26 +38,27 @@ struct dt_bpf_func {
 	dt_bpf_reloc_t	*last_reloc;
 };
 
-static dt_bpf_func_t	*dt_bpf_funcs;
-static int		dt_bpf_funcc;
-static dt_bpf_reloc_t	*dt_bpf_relocs;
-static int		dt_bpf_relocc;
-static const char	dt_bpf_builtin[] = "BPF built-in";
+static dt_bpf_func_t		*dt_bpf_funcs;
+static int			dt_bpf_funcc;
+static dt_bpf_reloc_t		*dt_bpf_relocs;
+static int			dt_bpf_relocc;
+static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 #define DT_BPF_SYMBOL(name, type) \
 	{ __stringify(name), type, DT_IDFLG_BPF, DT_IDENT_UNDEF, \
 		DT_ATTR_STABCMN, DT_VERS_2_0, }
 static const dt_ident_t	dt_bpf_symbols[] = {
-	/* BPF functions */
-	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_memcpy, DT_IDENT_FUNC),
+	/* BPF built-in functions */
 	DT_BPF_SYMBOL(dt_predicate, DT_IDENT_FUNC),
 	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_set_gvar, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_FUNC),
-	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_FUNC),
+	/* BPF library (external) functions */
+	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_memcpy, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_set_gvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_SYMBOL),
 	/* BPF maps */
 	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
@@ -79,12 +80,12 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 void
 dt_dlib_init(dtrace_hdl_t *dtp)
 {
-	dtp->dt_bpfsyms = dt_idhash_create("BPF symbols", dt_bpf_symbols, 0, 0);
+	dtp->dt_bpfsyms = dt_idhash_create("BPF symbols", dt_bpf_symbols,
+					   1000, UINT_MAX);
 }
 
 /*
- * Lookup a BPF identifier of a specific kind by name and populate the syminfo
- * if needed.
+ * Lookup a BPF identifier of a specific kind by name.
  */
 static dt_ident_t *
 dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
@@ -98,27 +99,49 @@ dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
 	if (idp->di_kind != kind)
 		return NULL;
 
-	if (idp->di_data == NULL) {
-		dtrace_syminfo_t	*dts = malloc(sizeof(dtrace_syminfo_t));
+	return idp;
+}
 
-		assert(dts != NULL);
-		dts->object = dt_bpf_builtin;
-		dts->name = idp->di_name;
-		dts->id = idp->di_id;
+/*
+ * Add a BPF identifier of a given type.
+ */
+dt_ident_t *
+dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind, void *data)
+{
+	dt_idhash_t	*dhp = dtp->dt_bpfsyms;
+	dt_ident_t	*idp;
+	uint_t		id = DT_IDENT_UNDEF;
 
-		idp->di_data = dts;
-	}
+	dt_idhash_nextid(dhp, &id);
+	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, id, dt_bpf_attr,
+			       DT_VERS_2_0, NULL, NULL, 0);
+	dt_ident_set_data(idp, data);
 
 	return idp;
 }
 
 /*
- * Lookup a BPF function identifier by name.
+ * Lookup a BPF function identifier by name.  We first match against built-in
+ * functions, and if not found there, we try external symbols.
  */
 dt_ident_t *
 dt_dlib_get_func(dtrace_hdl_t *dtp, const char *name)
 {
-	return dt_dlib_get_sym(dtp, name, DT_IDENT_FUNC);
+	dt_ident_t	*idp = dt_dlib_get_sym(dtp, name, DT_IDENT_FUNC);
+
+	if (idp)
+		return idp;
+
+	return dt_dlib_get_sym(dtp, name, DT_IDENT_SYMBOL);
+}
+
+/*
+ * Add a BPF function.  Only external functions can be added.
+ */
+dt_ident_t *
+dt_dlib_add_func(dtrace_hdl_t *dtp, const char *name, dt_bpf_func_t *bpff)
+{
+	return dt_dlib_add_sym(dtp, name, DT_IDENT_SYMBOL, bpff);
 }
 
 /*
@@ -128,6 +151,15 @@ dt_ident_t *
 dt_dlib_get_map(dtrace_hdl_t *dtp, const char *name)
 {
 	return dt_dlib_get_sym(dtp, name, DT_IDENT_PTR);
+}
+
+/*
+ * Add a BPF map.
+ */
+dt_ident_t *
+dt_dlib_add_map(dtrace_hdl_t *dtp, const char *name)
+{
+	return dt_dlib_add_sym(dtp, name, DT_IDENT_PTR, NULL);
 }
 
 /*
@@ -171,76 +203,32 @@ relcmp(const void *a, const void *b)
 }
 
 /*
- * Populate dt_bpf_funcs with BPF functions from the .text section of the
- * given ELF object.  The dt_bpf_funcs array will contain the functions in
- * the order of their offset into the .text section.
- *
- * TEMPORARY:
- * The gcc BPF compiler generates ELF objects with symbols that have a zero
- * size, so we need to patch that up.
+ * Process the symbol table, resolving BPF maps and BPF functions against the
+ * known identifiers.  If an identifier is encountered that is not yet known in
+ * the BPF identifier hash, we add it.
  */
 static int
-populate_bpf_funcs(Elf *elf, GElf_Ehdr *ehdr)
+process_symtab(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
+	       int text_idx, int maps_idx)
 {
-	int		text_idx = -1;
-	int		text_siz = 0;
-	int		stbl_idx = -1;
-	int		strs_idx = -1;
 	int		idx, count;
 	Elf_Scn		*scn;
 	Elf_Data	*data;
-	GElf_Shdr	shdr;
-	dt_bpf_func_t	*bpff;
+	dt_ident_t	*idp;
 
 	/*
-	 * We first collect information about the .text section and the symbol
-	 * table.
+	 * Retrieve the actual symbol table from the ELF object.
 	 */
-	idx = 0;
-	scn = NULL;
-	while ((scn = elf_nextscn(elf, scn)) != NULL) {
-		if (gelf_getshdr(scn, &shdr) == NULL) {
-			fprintf(stderr, "Scn %d: : failed to get name\n",
-				idx);
-			return -1;
-		}
-
-		idx++;
-		if (shdr.sh_type == SHT_SYMTAB) {
-			stbl_idx = idx;
-			strs_idx = shdr.sh_link;
-                } else if (shdr.sh_type == SHT_PROGBITS) {
-			char	*name;
-
-			if (!(shdr.sh_flags & SHF_EXECINSTR))
-				continue;
-			name = elf_strptr(elf, ehdr->e_shstrndx, shdr.sh_name);
-			if (name == NULL) {
-				fprintf(stderr, "Scn %d: failed to get name\n",
-					idx);
-				continue;
-			}
-			if (strcmp(name, ".text") != 0)
-				continue;
-
-			text_idx = idx;
-			text_siz = shdr.sh_size;
-		}
-
-		if (text_idx > 0 && stbl_idx > 0)
-			break;
-	}
-
-	scn = elf_getscn(elf, stbl_idx);
+	scn = elf_getscn(elf, syms_idx);
 	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		fprintf(stderr, "Scn %d: Failed to get data\n", stbl_idx);
+		fprintf(stderr, "Scn %d: Failed to get .symtab data\n",
+			syms_idx);
 		return -1;
 	}
 
 	/*
-	 * Count the number of BPF functions in .text.
+	 * Count how many function identifiers there are.
 	 */
-again:
 	count = 0;
 	for (idx = 0; idx < data->d_size / sizeof(GElf_Sym); idx++) {
 		GElf_Sym	sym;
@@ -249,59 +237,100 @@ again:
 			continue;
 		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
 			continue;
-		if (sym.st_shndx != text_idx)
+		if (sym.st_shndx == text_idx)
+			count++;
+	}
+
+	dt_bpf_funcs = calloc(count, sizeof(dt_bpf_func_t));
+	dt_bpf_funcc = count;
+
+	/*
+	 * Process the symbol table.
+	 */
+	count = 0;
+	for (idx = 0; idx < data->d_size / sizeof(GElf_Sym); idx++) {
+		GElf_Sym	sym;
+
+		if (!gelf_getsym(data, idx, &sym))
+			continue;
+		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
 			continue;
 
-		/*
-		 * Second pass: fill in symbol info
-		 */
-		if (dt_bpf_funcs) {
-			char		*sname;
+		if (sym.st_shndx == text_idx) {
+			char		*name;
+			dt_bpf_func_t	*bpff;
 
-			sname = elf_strptr(elf, strs_idx, sym.st_name);
-			if (sname == NULL)
+			name = elf_strptr(elf, strs_idx, sym.st_name);
+			if (name == NULL)
 				fprintf(stderr, "Sym %d: Failed to get name\n",
 					idx);
 
 			bpff = &dt_bpf_funcs[count];
-			bpff->name = sname ? strdup(sname) : NULL;
+			bpff->name = name ? strdup(name) : NULL;
 			bpff->elf = elf;
 			bpff->scn = text_idx;
 			bpff->id = idx;
 			bpff->offset = sym.st_value;
 			bpff->size = sym.st_size;
-		}
 
-		count++;
+			idp = dt_dlib_get_func(dtp, name);
+			if (idp != NULL)
+				dt_ident_set_data(idp, bpff);
+			else {
+				idp = dt_dlib_add_func(dtp, name, bpff);
+				if (idp == NULL)
+					fprintf(stderr,
+						"Sym %d: Failed to add %s()\n",
+						idx, name);
+			}
+
+			count++;
+		} else if (sym.st_shndx == maps_idx) {
+			char		*name;
+
+			name = elf_strptr(elf, strs_idx, sym.st_name);
+			if (name == NULL)
+				fprintf(stderr, "Sym %d: Failed to get name\n",
+					idx);
+
+			idp = dt_dlib_get_map(dtp, name);
+			if (idp == NULL)
+				idp = dt_dlib_add_map(dtp, name);
+			if (idp == NULL)
+				fprintf(stderr, "Sym %d: Failed to add %s[]\n",
+					idx, name);
+		} else
+			continue;
 	}
 
-	/*
-	 * First pass: allocate dt_bpf_funcs
-	 */
-	if (!dt_bpf_funcs) {
-		dt_bpf_funcs = calloc(count, sizeof(dt_bpf_func_t));
-		dt_bpf_funcc = count;
-		goto again;
-	}
+	return 0;
+}
 
-	qsort(dt_bpf_funcs, count, sizeof(dt_bpf_func_t), symcmp);
+/*
+ * Fix up symbol sizes because the gcc BPF compiler is generating ELF objects
+ * with symbols with a zero size.
+ */
+static void
+fixup_bpf_funcs(int text_len)
+{
+	int		idx;
+
+	qsort(dt_bpf_funcs, dt_bpf_funcc, sizeof(dt_bpf_func_t), symcmp);
 
 	/*
 	 * Patch up symbols that have a zero size.  This is a workaround for a
 	 * bug in the gcc BPF compiler causing symbols to be emitted with a
 	 * zero size.
 	 */
-	idx = count - 1;
+	idx = dt_bpf_funcc - 1;
 	if (dt_bpf_funcs[idx].size == 0)
-		dt_bpf_funcs[idx].size = text_siz - dt_bpf_funcs[idx].offset;
+		dt_bpf_funcs[idx].size = text_len - dt_bpf_funcs[idx].offset;
 
 	while (--idx >= 0) {
 		if (dt_bpf_funcs[idx].size == 0)
 			dt_bpf_funcs[idx].size = dt_bpf_funcs[idx + 1].offset -
 						 dt_bpf_funcs[idx].offset;
 	}
-
-	return 0;
 }
 
 static int
@@ -372,7 +401,7 @@ collect_bpf_relocs(Elf *elf, GElf_Ehdr *ehdr)
 
 		bpfr->sym = GELF_R_SYM(rel.r_info);
 		bpfr->type = GELF_R_TYPE(rel.r_info);
-		bpfr->offset =rel.r_offset;
+		bpfr->offset = rel.r_offset;
 	}
 
 	qsort(dt_bpf_relocs, dt_bpf_relocc, sizeof(dt_bpf_reloc_t), relcmp);
@@ -415,11 +444,21 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 {
 	int		fd;
 	int		rc = -1;
-	int		i;
-	char		*mname;
+	int		text_idx = -1;
+	int		text_len = 0;
+	int		relo_idx = -1;
+	int		maps_idx = -1;
+	int		syms_idx = -1;
+	int		strs_idx = -1;
+	int		idx, i;
 	Elf		*elf = NULL;
+	Elf_Scn		*scn;
 	GElf_Ehdr	ehdr;
+	GElf_Shdr	shdr;
 
+	/*
+	 * Open the ELF object file and perform basic validation.
+	 */
 	if ((fd = open64(fn, O_RDONLY)) == -1) {
 		fprintf(stderr, "Failed to open %s: %s\n",
 			fn, strerror(errno));
@@ -444,43 +483,78 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 		goto out;
 	}
 
-	if (populate_bpf_funcs(elf, &ehdr) < 0)
-		goto out;
-	if (collect_bpf_relocs(elf, &ehdr) < 0)
-		goto out;
+	/*
+	 * Collect information about sections that we ae interested in:
+	 *   .text	-- executable code
+	 *   .rel.text	-- relocations for the executable code
+	 *   .maps	-- BPF maps
+	 *   .symtab	-- symbol table
+	 *   .strtab	-- string table
+	 */
+	idx = 0;
+	scn = NULL;
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		idx++;
 
-	mname = strdup(fn);
-	assert(mname);
-	mname = basename(mname);
-	for (i = 0; i < dt_bpf_funcc; i++) {
-		dt_ident_t		*idp;
-		dtrace_syminfo_t	*dts;
+		if (gelf_getshdr(scn, &shdr) == NULL) {
+			fprintf(stderr, "Scn %d: : no section header?\n", idx);
+			return -1;
+		}
 
-		idp = dt_dlib_get_func(dtp, dt_bpf_funcs[i].name);
-		if (idp == NULL)
-			continue;
+		switch (shdr.sh_type) {
+		case SHT_SYMTAB:
+			/*
+			 * The symbol table contains a reference to the string
+			 * table, so we can just pick it up from there.
+			 */
+			syms_idx = idx;
+			strs_idx = shdr.sh_link;
+			break;
+		case SHT_PROGBITS: {
+			char	*name;
 
-		dts = idp->di_data;
-		idp->di_id = i;
-		dts->object = mname;
-		dts->id = idp->di_id;
+			name = elf_strptr(elf, ehdr.e_shstrndx, shdr.sh_name);
+			if (name == NULL) {
+				fprintf(stderr, "Scn %d: failed to get name\n",
+					idx);
+				continue;
+			}
+
+			if (strcmp(name, ".text") == 0) {
+				text_idx = idx;
+				text_len = shdr.sh_size;
+			} else if (strcmp(name, "maps") == 0) {
+				maps_idx = idx;
+			} else
+				continue;
+
+			break;
+		}
+		case SHT_REL:
+			if (shdr.sh_info != text_idx)
+				continue;
+
+			relo_idx = idx;
+			break;
+		}
+
+		/*
+		 * If we have found all the sections we were looking for, we
+		 * can be done.
+		 */
+		if (text_idx > 0 && relo_idx > 0 && maps_idx > 0 &&
+		    syms_idx > 0 && strs_idx > 0)
+			break;
 	}
 
-for (i = 0; i < dt_bpf_funcc; i++) {
-  dt_bpf_reloc_t *bpfr;
+	if (process_symtab(dtp, elf, syms_idx, strs_idx, text_idx,
+			   maps_idx) < 0)
+		goto out;
 
-  fprintf(stderr, "DBG: bpf[%2d] = { '%s', %d, %lu, %lu }\n",
-	  i, dt_bpf_funcs[i].name, dt_bpf_funcs[i].id, dt_bpf_funcs[i].offset,
-	  dt_bpf_funcs[i].size);
+	fixup_bpf_funcs(text_len);
 
-  for (bpfr = dt_bpf_funcs[i].relocs; bpfr; bpfr = bpfr->next)
-    fprintf(stderr, "DBG:   Rel   =   { symbol %d, type %s, offset %lu }\n",
-	    bpfr->sym, bpfr->type == R_BPF_64_64
-				? "INSN_64"
-				: bpfr->type == R_BPF_64_32 ? "INSN_DISP32"
-							    : "R_BPF_NONE",
-	    bpfr->offset);
-}
+	if (collect_bpf_relocs(elf, &ehdr) < 0)
+		goto out;
 
 	rc = 0;
 	goto out;

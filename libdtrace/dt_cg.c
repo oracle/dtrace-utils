@@ -2653,10 +2653,13 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		 */
 		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_predicate");
 		assert(idp != NULL);
-		idp->di_id = lbl_pred = dt_irlist_label(dlp);
+		lbl_pred = dt_irlist_label(dlp);
+		dt_ident_set_id(idp, lbl_pred);
+
 		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
 		assert(idp != NULL);
-		idp->di_id = lbl_prog = dt_irlist_label(dlp);
+		lbl_prog = dt_irlist_label(dlp);
+		dt_ident_set_id(idp, lbl_prog);
 
 		/*
 		 * If we have a representative probe with a provider that

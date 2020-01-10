@@ -151,6 +151,8 @@ extern void dt_ident_morph(dt_ident_t *, ushort_t, const dt_idops_t *, void *);
 extern dtrace_attribute_t dt_ident_cook(struct dt_node *,
     dt_ident_t *, struct dt_node **);
 
+extern void dt_ident_set_id(dt_ident_t *, uint_t);
+extern void dt_ident_set_data(dt_ident_t *, void *);
 extern void dt_ident_type_assign(dt_ident_t *, ctf_file_t *, ctf_id_t);
 extern dt_ident_t *dt_ident_resolve(dt_ident_t *);
 extern size_t dt_ident_size(dt_ident_t *);

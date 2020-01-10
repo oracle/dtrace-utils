@@ -32,6 +32,9 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 		dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
 			   name, fd, ksz, vsz, size);
 
+	/*
+	 * Assign the fd as id for the BPF map identifier.
+	 */
 	idp = dt_dlib_get_map(dtp, name);
 	if (idp == NULL) {
 		dt_dprintf("cannot find BPF map '%s'\n", name);
@@ -39,7 +42,7 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 		return -1;
 	}
 
-	((dtrace_syminfo_t *)idp->di_data)->id = fd;
+	dt_ident_set_id(idp, fd);
 
 	return fd;
 }

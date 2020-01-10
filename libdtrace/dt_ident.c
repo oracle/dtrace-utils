@@ -975,6 +975,18 @@ dt_ident_cook(dt_node_t *dnp, dt_ident_t *idp, dt_node_t **pargp)
 }
 
 void
+dt_ident_set_id(dt_ident_t *idp, uint_t id)
+{
+	idp->di_id = id;
+}
+
+void
+dt_ident_set_data(dt_ident_t *idp, void *data)
+{
+	idp->di_data = data;
+}
+
+void
 dt_ident_type_assign(dt_ident_t *idp, ctf_file_t *fp, ctf_id_t type)
 {
 	idp->di_ctfp = fp;
