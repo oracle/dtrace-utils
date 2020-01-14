@@ -17,9 +17,9 @@
 
 #define BPF_ALU64_REG(op, dst, src)					\
 	((struct bpf_insn) {						\
-		.code = BPF_ALU64 | op | BPF_X,				\
-		.dst_reg = dst,						\
-		.src_reg = src,						\
+		.code = BPF_ALU64 | (op) | BPF_X,			\
+		.dst_reg = (dst),					\
+		.src_reg = (src),					\
 		.off = 0,						\
 		.imm = 0						\
 	})
@@ -27,7 +27,7 @@
 #define BPF_NEG_REG(dst)						\
 	((struct bpf_insn) {						\
 		.code = BPF_ALU64 | BPF_NEG,				\
-		.dst_reg = dst,						\
+		.dst_reg = (dst),					\
 		.src_reg = 0,						\
 		.off = 0,						\
 		.imm = 0						\
@@ -35,8 +35,8 @@
 
 #define BPF_ALU64_IMM(op, dst, val)					\
 	((struct bpf_insn) {						\
-		.code = BPF_ALU64 | op | BPF_K,				\
-		.dst_reg = dst,						\
+		.code = BPF_ALU64 | (op) | BPF_K,			\
+		.dst_reg = (dst),					\
 		.src_reg = 0,						\
 		.off = 0,						\
 		.imm = (val)						\
@@ -47,9 +47,9 @@
 
 #define BPF_LOAD(sz, dst, src, ofs)					\
 	((struct bpf_insn) {						\
-		.code = BPF_LDX | BPF_MEM | sz,				\
-		.dst_reg = dst,						\
-		.src_reg = src,						\
+		.code = BPF_LDX | BPF_MEM | (sz),			\
+		.dst_reg = (dst),					\
+		.src_reg = (src),					\
 		.off = (ofs),						\
 		.imm = 0						\
 	})
@@ -57,7 +57,7 @@
 #define BPF_LDDW(dst, val)						\
 	((struct bpf_insn) {						\
 		.code = BPF_LD | BPF_IMM | BPF_DW,			\
-		.dst_reg = dst,						\
+		.dst_reg = (dst),					\
 		.src_reg = 0,						\
 		.off = 0,						\
 		.imm = (uint32_t)(val)					\
@@ -72,17 +72,17 @@
 
 #define BPF_STORE(sz, dst, ofs, src)					\
 	((struct bpf_insn) {						\
-		.code = BPF_STX | BPF_MEM | sz,				\
-		.dst_reg = dst,						\
-		.src_reg = src,						\
+		.code = BPF_STX | BPF_MEM | (sz),			\
+		.dst_reg = (dst),					\
+		.src_reg = (src),					\
 		.off = (ofs),						\
 		.imm = 0						\
 	})
 
 #define BPF_STORE_IMM(sz, dst, ofs, val)				\
 	((struct bpf_insn) {						\
-		.code = BPF_ST | BPF_MEM | sz,				\
-		.dst_reg = dst,						\
+		.code = BPF_ST | BPF_MEM | (sz),			\
+		.dst_reg = (dst),					\
 		.src_reg = 0,						\
 		.off = (ofs),						\
 		.imm = (val)						\
@@ -117,17 +117,17 @@
 
 #define BPF_BRANCH_REG(op, r1, r2, ofs)					\
 	((struct bpf_insn) {						\
-		.code = BPF_JMP | op | BPF_X,				\
-		.dst_reg = r1,						\
-		.src_reg = r2,						\
+		.code = BPF_JMP | (op) | BPF_X,				\
+		.dst_reg = (r1),					\
+		.src_reg = (r2),					\
 		.off = (ofs),						\
 		.imm = 0						\
 	})
 
 #define BPF_BRANCH_IMM(op, r1, val, ofs)				\
 	((struct bpf_insn) {						\
-		.code = BPF_JMP | op | BPF_K,				\
-		.dst_reg = r1,						\
+		.code = BPF_JMP | (op) | BPF_K,				\
+		.dst_reg = (r1),					\
 		.src_reg = 0,						\
 		.off = (ofs),						\
 		.imm = (val)						\
