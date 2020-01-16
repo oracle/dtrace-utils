@@ -65,7 +65,6 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(tvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(probes, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
-	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
 	/* BPF internal identifiers */
 	DT_BPF_SYMBOL(EPID, DT_IDENT_SCALAR),
 	DT_BPF_SYMBOL(ARGC, DT_IDENT_SCALAR),
