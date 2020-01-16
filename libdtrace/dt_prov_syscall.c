@@ -380,6 +380,7 @@ static int syscall_attach(const char *name, int bpf_fd)
 
 dt_provimpl_t	dt_syscall = {
 	.name		= "syscall",
+	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &syscall_populate,
 	.trampoline	= &syscall_trampoline,
 	.probe_info	= &syscall_probe_info,

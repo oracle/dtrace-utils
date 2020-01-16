@@ -5,14 +5,18 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <dtrace.h>
 #include <dt_impl.h>
+#include <dt_probe.h>
 
 #include <bpf.h>
 
 static bool dt_gmap_done = 0;
+
+#define BPF_CG_LICENSE	"GPL";
 
 static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
@@ -117,4 +121,110 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 	       create_gmap(dtp, "probes", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), sizeof(void *), probec);
 	/* FIXME: Need to put in the actual struct ref for probe info. */
+}
+
+/*
+ * Perform relocation processing on a program.
+ */
+static void
+dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		  const dtrace_difo_t *dp)
+{
+	int			len = dp->dtdo_brelen;
+	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+
+	for (; len != 0; len--, rp++) {
+		char		*name = &dp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
+		struct bpf_insn	*text = dp->dtdo_buf;
+		int		ioff = rp->dofr_offset /
+					sizeof(struct bpf_insn);
+
+		if (rp->dofr_type == R_BPF_64_64) {
+			text[ioff].src_reg = BPF_PSEUDO_MAP_FD;
+			text[ioff].imm = idp->di_id;
+			text[ioff + 1].imm = 0;
+		}
+	}
+}
+
+/*
+ * Load a BPF program into the kernel.
+ *
+ * Note that DTrace generates BPF programs that are licensed under the GPL.
+ */
+int
+dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		 const dtrace_difo_t *dp)
+{
+	struct bpf_load_program_attr	attr;
+	int				logsz = BPF_LOG_BUF_SIZE;
+	char				*log;
+	int				rc;
+
+	/*
+	 * Check whether there are any probe-specific relocations to be
+	 * performed.  If so, we need to modify the executable code.  This can
+	 * be done in-place since program loading is serialized.
+	 *
+	 * Relocations that are probe independent were already done at an
+	 * earlier time so we can ignore those.
+	 */
+	if (dp->dtdo_brelen)
+		dt_bpf_reloc_prog(dtp, prp, dp);
+
+	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
+
+	log = malloc(logsz);
+	assert(log != NULL);
+
+	attr.prog_type = prp->prov->impl->prog_type;
+	attr.name = NULL;
+	attr.insns = dp->dtdo_buf;
+	attr.insns_cnt = dp->dtdo_len;
+	attr.license = BPF_CG_LICENSE;
+	attr.log_level = 7;
+
+	rc = bpf_load_program_xattr(&attr, log, logsz);
+	if (rc < 0)
+		fprintf(stderr, "%s\n", log);
+
+	return rc;
+}
+
+int
+dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
+	    void *data)
+{
+	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
+	dtrace_actdesc_t	*ap = sdp->dtsd_action;
+	dtrace_probeinfo_t	pip;
+	dt_probe_t		*prp;
+
+	fprintf(stderr, "Loading program for %s:%s:%s:%s:\n",
+		pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+
+	memset(&pip, 0, sizeof(pip));
+	prp = dt_probe_info(dtp, pdp, &pip);
+	if (!prp)
+		fprintf(stderr, "  No single probe found.\n");
+
+	while (ap) {
+		dtrace_difo_t	*dp = ap->dtad_difo;
+
+		fprintf(stderr, "  Program %p (%u insns)\n",
+			dp->dtdo_buf, dp->dtdo_len);
+		dt_bpf_load_prog(dtp, prp, dp);
+
+		if (ap == sdp->dtsd_action_last)
+			break;
+
+		ap = ap->dtad_next;
+	}
+}
+
+int
+dt_bpf_prog(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
+{
+	dtrace_stmt_iter(dtp, pgp, dt_bpf_stmt, NULL);
 }

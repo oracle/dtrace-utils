@@ -477,6 +477,7 @@ printf("[%s]\n", efn);
 
 dt_provimpl_t	dt_sdt = {
 	.name		= "sdt",
+	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &sdt_populate,
 	.trampoline	= &sdt_trampoline,
 	.probe_info	= &sdt_probe_info,

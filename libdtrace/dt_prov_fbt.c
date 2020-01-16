@@ -411,6 +411,7 @@ static int fbt_attach(const char *name, int bpf_fd)
 
 dt_provimpl_t	dt_fbt = {
 	.name		= "fbt",
+	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &fbt_populate,
 	.trampoline	= &fbt_trampoline,
 #if 0

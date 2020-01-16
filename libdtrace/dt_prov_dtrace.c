@@ -78,6 +78,7 @@ static int dtrace_attach(const char *name, int bpf_fd)
 
 dt_provimpl_t	dt_dtrace = {
 	.name		= "dtrace",
+	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &dtrace_populate,
 #if 0
 	.resolve_event	= &dtrace_resolve_event,

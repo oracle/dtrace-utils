@@ -145,6 +145,7 @@ dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	 * how many programs there are.
 	 */
 	dt_bpf_gmap_create(dtp, 1);
+	dt_bpf_prog(dtp, pgp);
 
 	if ((dof = dtrace_dof_create(dtp, pgp, DTRACE_D_STRIP)) == NULL)
 		return (-1);
