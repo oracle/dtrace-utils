@@ -29,19 +29,14 @@ struct dt_bpf_reloc {
 typedef struct dt_bpf_func	dt_bpf_func_t;
 struct dt_bpf_func {
 	const char	*name;
-	Elf		*elf;
 	int		id;
-	int		scn;
 	uint64_t	offset;
 	size_t		size;
+	dtrace_difo_t	*difo;
 	dt_bpf_reloc_t	*relocs;
 	dt_bpf_reloc_t	*last_reloc;
 };
 
-static dt_bpf_func_t		*dt_bpf_funcs;
-static int			dt_bpf_funcc;
-static dt_bpf_reloc_t		*dt_bpf_relocs;
-static int			dt_bpf_relocc;
 static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 #define DT_BPF_SYMBOL(name, type) \
@@ -174,12 +169,23 @@ dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
 /*
  * Compare function (used by qsort) to compare two BPF functions based on their
  * offset in the .text section.  We are sorting in ascending offset order.
+ *
+ * Note that we are sorting an array of pointers to BPF functions (incl. fake
+ * functions representing BPF maps), and some of the pointers may be NULL.  We
+ * ensure that NULL pointers and pointers to BPF maps are moved to the front of
+ * the array.
  */
 static int
 symcmp(const void *a, const void *b)
 {
-	const dt_bpf_func_t	*x = a;
-	const dt_bpf_func_t	*y = b;
+	const dt_bpf_func_t	*x = *(dt_bpf_func_t **)a;
+	const dt_bpf_func_t	*y = *(dt_bpf_func_t **)b;
+
+	if (x == NULL || x->id == -1)
+		return y == NULL  || y->id == -1? 0 : -1;
+	else if (y == NULL || y->id == -1)
+		return 1;
+
 
 	return x->offset > y->offset ? 1
 				     : x->offset == y->offset ? 0
@@ -203,223 +209,292 @@ relcmp(const void *a, const void *b)
 }
 
 /*
- * Process the symbol table, resolving BPF maps and BPF functions against the
- * known identifiers.  If an identifier is encountered that is not yet known in
- * the BPF identifier hash, we add it.
+ * Copy strings from the compile-time string table into the final strtab.
  */
-static int
-process_symtab(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
-	       int text_idx, int maps_idx)
+static ssize_t
+copy_stab_str(const char *s, size_t n, size_t off, char *buf)
 {
-	int		idx, count;
+	memcpy(buf + off, s, n);
+	return n;
+}
+
+/*
+ * Process the symbols in the ELF object, resolving BPF maps and functions
+ * against the known identifiers  If an unknown identifier is encountered, we
+ * add it to the BPF identifier hash.
+ *
+ * For functions, we fix up the symbol size (to work around an issue with the
+ * gcc BPF compiler not emitting symbol sizes), and then associated any listed
+ * relocations with each function.
+ */
+static dt_bpf_func_t **
+get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
+	    int text_idx, int text_len, int relo_idx, int maps_idx, int *cnt)
+{
+	int		idx, fid, fun0;
 	Elf_Scn		*scn;
-	Elf_Data	*data;
+	Elf_Data	*symtab, *data, *text;
 	dt_ident_t	*idp;
+	dt_bpf_func_t	**syms = NULL;
+	dt_bpf_func_t	**funcs = NULL;
+	dt_bpf_func_t	*fp;
+	int		symc = 0;
+	dt_bpf_reloc_t	*rels = NULL;
+	dt_bpf_reloc_t	*rp;
+	int		relc;
+	uint64_t	soff, eoff;
+	dt_strtab_t	*stab;
 
 	/*
 	 * Retrieve the actual symbol table from the ELF object.
 	 */
 	scn = elf_getscn(elf, syms_idx);
-	if ((data = elf_getdata(scn, NULL)) == NULL) {
+	if ((symtab = elf_getdata(scn, NULL)) == NULL) {
 		fprintf(stderr, "Scn %d: Failed to get .symtab data\n",
 			syms_idx);
-		return -1;
+		goto out;
 	}
 
 	/*
-	 * Count how many function identifiers there are.
+	 * Allocate the symbol list.
 	 */
-	count = 0;
-	for (idx = 0; idx < data->d_size / sizeof(GElf_Sym); idx++) {
-		GElf_Sym	sym;
-
-		if (!gelf_getsym(data, idx, &sym))
-			continue;
-		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
-			continue;
-		if (sym.st_shndx == text_idx)
-			count++;
+	symc = symtab->d_size / sizeof(GElf_Sym);
+	syms = calloc(symc, sizeof(dt_bpf_func_t *));
+	if (syms == NULL) {
+		fprintf(stderr, "Failed to allocate symbol list\n");
+		symc = 0;
+		goto out;
 	}
-
-	dt_bpf_funcs = calloc(count, sizeof(dt_bpf_func_t));
-	dt_bpf_funcc = count;
 
 	/*
 	 * Process the symbol table.
 	 */
-	count = 0;
-	for (idx = 0; idx < data->d_size / sizeof(GElf_Sym); idx++) {
+	for (idx = 0; idx < symc; idx++) {
 		GElf_Sym	sym;
+		char		*name;
 
-		if (!gelf_getsym(data, idx, &sym))
+		if (!gelf_getsym(symtab, idx, &sym))
 			continue;
 		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
 			continue;
 
+		name = elf_strptr(elf, strs_idx, sym.st_name);
+		if (name == NULL) {
+			fprintf(stderr, "Sym %d: Failed to get name\n",
+				idx);
+			continue;
+		}
+
 		if (sym.st_shndx == text_idx) {
-			char		*name;
-			dt_bpf_func_t	*bpff;
+			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
+			if (fp == NULL) {
+				fprintf(stderr, "Sym %s(): Failed to alloc\n",
+					name);
+				continue;
+			}
 
-			name = elf_strptr(elf, strs_idx, sym.st_name);
-			if (name == NULL)
-				fprintf(stderr, "Sym %d: Failed to get name\n",
-					idx);
-
-			bpff = &dt_bpf_funcs[count];
-			bpff->name = name ? strdup(name) : NULL;
-			bpff->elf = elf;
-			bpff->scn = text_idx;
-			bpff->id = idx;
-			bpff->offset = sym.st_value;
-			bpff->size = sym.st_size;
+			fp->name = name ? strdup(name) : NULL;
+			fp->id = sym.st_shndx == SHN_UNDEF ? -1 : idx;
+			fp->offset = sym.st_value;
+			fp->size = sym.st_size;
+			fp->difo = NULL;
+			fp->relocs = NULL;
+			fp->last_reloc = NULL;
+			syms[idx] = fp;
 
 			idp = dt_dlib_get_func(dtp, name);
 			if (idp != NULL)
-				dt_ident_set_data(idp, bpff);
+				dt_ident_set_data(idp, fp);
 			else {
-				idp = dt_dlib_add_func(dtp, name, bpff);
-				if (idp == NULL)
+				idp = dt_dlib_add_func(dtp, name, fp);
+				if (idp == NULL) {
 					fprintf(stderr,
-						"Sym %d: Failed to add %s()\n",
-						idx, name);
+						"Sym %s(): Failed to add\n",
+						name);
+					continue;
+				}
+			}
+		} else if (sym.st_shndx == maps_idx) {
+			/*
+			 * Yes, we put BPF maps in the symbol list as if they
+			 * are a function.  They are marked with id == -1,
+			 * offset 0, and size 0.
+			 *
+			 * We do this because we need these symbols when we
+			 * process relocations.  Once we are done with that, we
+			 * will get rid of these fake function symbols.
+			 */
+			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
+			if (fp == NULL) {
+				fprintf(stderr, "Sym %s[]: Failed to alloc\n",
+					name);
+				continue;
 			}
 
-			count++;
-		} else if (sym.st_shndx == maps_idx) {
-			char		*name;
-
-			name = elf_strptr(elf, strs_idx, sym.st_name);
-			if (name == NULL)
-				fprintf(stderr, "Sym %d: Failed to get name\n",
-					idx);
+			fp->name = name ? strdup(name) : NULL;
+			fp->id = -1;
+			fp->offset = 0;
+			fp->size = 0;
+			fp->difo = NULL;
+			fp->relocs = NULL;
+			fp->last_reloc = NULL;
+			syms[idx] = fp;
 
 			idp = dt_dlib_get_map(dtp, name);
 			if (idp == NULL)
 				idp = dt_dlib_add_map(dtp, name);
 			if (idp == NULL)
-				fprintf(stderr, "Sym %d: Failed to add %s[]\n",
-					idx, name);
-		} else
-			continue;
+				fprintf(stderr, "Sym %s[]: Failed to add\n",
+					name);
+		}
 	}
 
-	return 0;
-}
+	/*
+	 * Make a copy of the symbol list, and sort it based on symbol offset.
+	 * The sorting also ensures that NULL-elements in the symbol list are
+	 * moved to the very front of the array.
+	 *
+	 * Symbol lists are merely lists of pointers to the actual data items,
+	 * so modifications made through the (sorted) copy will still affect
+	 * the actual data items.
+	 */
+	funcs = dt_alloc(dtp, symc * sizeof(dt_bpf_func_t *));
+	if (funcs == NULL) {
+		fprintf(stderr, "Failed to copy symbol list\n");
+		goto out;
+	}
 
-/*
- * Fix up symbol sizes because the gcc BPF compiler is generating ELF objects
- * with symbols with a zero size.
- */
-static void
-fixup_bpf_funcs(int text_len)
-{
-	int		idx;
-
-	qsort(dt_bpf_funcs, dt_bpf_funcc, sizeof(dt_bpf_func_t), symcmp);
+	memcpy(funcs, syms, symc * sizeof(dt_bpf_func_t *));
+	qsort(funcs, symc, sizeof(dt_bpf_func_t *), symcmp);
 
 	/*
 	 * Patch up symbols that have a zero size.  This is a workaround for a
 	 * bug in the gcc BPF compiler causing symbols to be emitted with a
 	 * zero size.
 	 */
-	idx = dt_bpf_funcc - 1;
-	if (dt_bpf_funcs[idx].size == 0)
-		dt_bpf_funcs[idx].size = text_len - dt_bpf_funcs[idx].offset;
+	idx = symc - 1;
+	if (funcs[idx] == NULL)
+		goto out;
+	if (funcs[idx]->size == 0)
+		funcs[idx]->size = text_len - funcs[idx]->offset;
 
 	while (--idx >= 0) {
-		if (dt_bpf_funcs[idx].size == 0)
-			dt_bpf_funcs[idx].size = dt_bpf_funcs[idx + 1].offset -
-						 dt_bpf_funcs[idx].offset;
-	}
-}
-
-static int
-collect_bpf_relocs(Elf *elf, GElf_Ehdr *ehdr)
-{
-	int		text_idx = -1;
-	int		relo_idx = -1;
-	int		idx, sid;
-	uint64_t	soff, eoff;
-	Elf_Scn		*scn;
-	Elf_Data	*data;
-	GElf_Shdr	shdr;
-	dt_bpf_reloc_t	*bpfr;
-
-	/*
-	 * If there are no BPF functions, we have nothing to do here.
-	 */
-	if (dt_bpf_funcc == 0)
-		return 0;
-
-	/*
-	 * Obtain the index of the .text section from the first BPF function
-	 * (since all BPF functions we are interested in must reside in .text).
-	 */
-	text_idx = dt_bpf_funcs[0].scn;
-
-	/*
-	 * Look for a relocation section for the .text section.
-	 */
-	idx = 0;
-	scn = NULL;
-	while ((scn = elf_nextscn(elf, scn)) != NULL) {
-		if (gelf_getshdr(scn, &shdr) == NULL) {
-			fprintf(stderr, "Scn %d: : failed to get name\n",
-				idx);
-			return -1;
-		}
-
-		idx++;
-		if (shdr.sh_type == SHT_REL) {
-			if (shdr.sh_info != text_idx)
-				continue;
-
-			relo_idx = idx;
+		if (funcs[idx] == NULL || funcs[idx]->id == -1)
 			break;
-		}
+		if (funcs[idx]->size == 0)
+			funcs[idx]->size = funcs[idx + 1]->offset -
+						 funcs[idx]->offset;
 	}
 
+	/*
+	 * Set 'fun0' to be the index of the first function in the funcs list
+	 * (i.e. the function with the lowest offset, usually 0).
+	 *
+	 * Note that the assignment is always valid because if funcs[0] is not
+	 * NULL (and therefore the first function), the loop above will end
+	 * with idx == -1.
+	 */
+	fun0 = idx + 1;
+
+	/*
+	 * Retrieve the executable code (.text) from the ELF object.
+	 */
+	scn = elf_getscn(elf, text_idx);
+	if ((text = elf_getdata(scn, NULL)) == NULL) {
+		fprintf(stderr, "Scn %d: Failed to get .text data\n",
+			text_idx);
+		goto out;
+	}
+
+	for (idx = 0; idx < symc; idx++) {
+		dtrace_difo_t	*dp;
+
+		fp = syms[idx];
+		if (fp == NULL || fp->id == -1)
+			continue;
+
+		dp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
+		if (dp == NULL)
+			goto out;
+
+		/*
+		 * The gcc BPF compiler may add 8 bytes of 0-padding to BPF
+		 * functions that do not end on a 128-bit boundary despite the
+		 * fact that BPF is a 64-bit architecture.  We need to remove
+		 * that padding.
+		 */
+		if (fp->size % sizeof(struct bpf_insn)) {
+			fprintf(stderr, "'%s' seems truncated\n", fp->name);
+			goto out;
+		}
+		if (*(uint64_t *)((char*)text->d_buf + fp->offset + fp->size -
+				  sizeof(struct bpf_insn)) == 0)
+			fp->size -= sizeof(struct bpf_insn);
+
+		dp->dtdo_buf = dt_alloc(dtp, fp->size);
+		dp->dtdo_len = fp->size / sizeof(struct bpf_insn);
+
+		memcpy(dp->dtdo_buf, (char *)text->d_buf + fp->offset,
+		       fp->size);
+		fp->difo = dp;
+	}
+
+	/*
+	 * Retrieve the relocation data from the ELF object.
+	 */
+	scn = elf_getscn(elf, relo_idx);
 	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		fprintf(stderr, "Scn %d: Failed to get data\n", relo_idx);
-		return -1;
+		fprintf(stderr, "Scn %d: Failed to get relocation data\n",
+			relo_idx);
+		goto out;
 	}
 
 	/*
 	 * Read the relocation records and store our version of them.  We will
 	 * sort them (by ascending offset order) before we process them and
-	 * associate them with the functions they belong to.
+	 * associate them with the functions they belong to.  We also compute
+	 * the number of relocations for a given function and store it in the
+	 * DIFO.  This will help us when we construct the actual DIFO relocs.
 	 */
-	dt_bpf_relocc = data->d_size / sizeof(GElf_Rel);
-	dt_bpf_relocs = calloc(dt_bpf_relocc, sizeof(dt_bpf_reloc_t));
+	relc = data->d_size / sizeof(GElf_Rel);
+	rels = calloc(relc, sizeof(dt_bpf_reloc_t));
 
-	for (idx = 0, bpfr = dt_bpf_relocs; idx < dt_bpf_relocc;
-	     idx++, bpfr++) {
+	for (idx = 0, rp = rels; idx < relc; idx++, rp++) {
 		GElf_Rel	rel;
 
 		if (!gelf_getrel(data, idx, &rel))
 			continue;
 
-		bpfr->sym = GELF_R_SYM(rel.r_info);
-		bpfr->type = GELF_R_TYPE(rel.r_info);
-		bpfr->offset = rel.r_offset;
+		rp->sym = GELF_R_SYM(rel.r_info);
+		rp->type = GELF_R_TYPE(rel.r_info);
+		rp->offset = rel.r_offset;
 	}
 
-	qsort(dt_bpf_relocs, dt_bpf_relocc, sizeof(dt_bpf_reloc_t), relcmp);
+	qsort(rels, relc, sizeof(dt_bpf_reloc_t), relcmp);
 
-	soff = dt_bpf_funcs[0].offset;
-	eoff = dt_bpf_funcc > 1 ? dt_bpf_funcs[1].offset : 0;
-	sid = 0;
-	for (idx = 0, bpfr = dt_bpf_relocs; idx < dt_bpf_relocc;
-	     idx++, bpfr++) {
-		if (bpfr->offset < soff)
+	/*
+	 * Initialize 'fid' and 'fp' to be the first function index and a
+	 * pointer to the first function respectively in the funcs list.
+	 *
+	 * We set soff and eoff such that the address range for 'fp' is
+	 * [soff .. eoff[.
+	 */
+	fid = fun0;
+	fp = funcs[fid];
+	soff = fp->offset;
+	eoff = soff + fp->size;
+	for (idx = 0, rp = rels; idx < relc; idx++, rp++) {
+		if (rp->offset < soff)
 			continue;
 
-		while (eoff && bpfr->offset >= eoff) {
-			sid++;
-			soff = eoff;
-			eoff = sid < dt_bpf_funcc - 1
-					? dt_bpf_funcs[sid + 1].offset
-					: 0;
+		while (rp->offset >= eoff) {
+			fid++;
+			if (fid >= symc)
+				goto done;
+
+			fp = funcs[fid];
+			soff = fp->offset;
+			eoff = soff + fp->size;
 		}
 
 		/*
@@ -427,16 +502,74 @@ collect_bpf_relocs(Elf *elf, GElf_Ehdr *ehdr)
 		 * of the function, since the entire function is going to be
 		 * relocated independent of the section.
 		 */
-		bpfr->offset -= soff;
-		if (dt_bpf_funcs[sid].relocs == NULL)
-			dt_bpf_funcs[sid].relocs = bpfr;
+		rp->offset -= soff;
+		if (fp->relocs == NULL)
+			fp->relocs = rp;
 		else
-			dt_bpf_funcs[sid].last_reloc->next = bpfr;
+			fp->last_reloc->next = rp;
 
-		dt_bpf_funcs[sid].last_reloc = bpfr;
+		fp->last_reloc = rp;
+		fp->difo->dtdo_brelen++;
 	}
 
-	return 0;
+done:
+	/*
+	 * We now post-process the function symbols in order to convert their
+	 * relocations into DIFO format.  We again start from the first
+	 * function index.
+	 */
+	for (fid = fun0; fid < symc; fid++) {
+		dtrace_difo_t	*dp;
+		dof_relodesc_t	*brp;
+		size_t		slen;
+
+		fp = funcs[fid];
+		dp = fp->difo;
+		relc = dp->dtdo_brelen;
+		if (relc == 0)
+			continue;
+
+		stab = dt_strtab_create(BUFSIZ);
+		dp->dtdo_breltab = dt_alloc(dtp, relc * sizeof(dof_relodesc_t));
+		if (dp->dtdo_breltab == NULL) {
+			fprintf(stderr, "Failed to alloc BPF reloc table\n");
+			goto out;
+		}
+
+		rp = fp->relocs;
+		brp = dp->dtdo_breltab;
+		while (relc--) {
+			ssize_t	soff = dt_strtab_insert(stab,
+							syms[rp->sym]->name);
+
+			brp->dofr_type = rp->type;
+			brp->dofr_offset = rp->offset;
+			brp->dofr_name = soff;
+			brp->dofr_data = 0;
+			brp++;
+			rp++;
+		}
+
+		slen = dt_strtab_size(stab);
+		dp->dtdo_strtab = dt_alloc(dtp, slen);
+		dp->dtdo_strlen = slen;
+		if (dp->dtdo_strtab == NULL) {
+			fprintf(stderr, "Failed to alloc strtab\n");
+			goto out;
+		}
+
+		dt_strtab_write(stab, (dt_strtab_write_f *)copy_stab_str,
+				dp->dtdo_strtab);
+		dt_strtab_destroy(stab);
+	}
+
+out:
+	dt_free(dtp, rels);
+	dt_free(dtp, funcs);
+
+	*cnt = symc;
+
+	return syms;
 }
 
 static int
@@ -450,11 +583,13 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	int		maps_idx = -1;
 	int		syms_idx = -1;
 	int		strs_idx = -1;
-	int		idx, i;
+	int		idx;
 	Elf		*elf = NULL;
 	Elf_Scn		*scn;
 	GElf_Ehdr	ehdr;
 	GElf_Shdr	shdr;
+	dt_bpf_func_t	**syms;
+	int		symc;
 
 	/*
 	 * Open the ELF object file and perform basic validation.
@@ -547,13 +682,9 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 			break;
 	}
 
-	if (process_symtab(dtp, elf, syms_idx, strs_idx, text_idx,
-			   maps_idx) < 0)
-		goto out;
-
-	fixup_bpf_funcs(text_len);
-
-	if (collect_bpf_relocs(elf, &ehdr) < 0)
+	syms = get_symbols(dtp, elf, syms_idx, strs_idx, text_idx, text_len,
+			   relo_idx, maps_idx, &symc);
+	if (syms == NULL)
 		goto out;
 
 	rc = 0;
