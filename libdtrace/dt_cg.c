@@ -1138,7 +1138,7 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
 		return;
 
-	srcsize = dt_node_type_size(dst);
+	srcsize = dt_node_type_size(src);
 	dstsize = dt_node_type_size(dst);
 
 	if (dt_node_is_scalar(dst) && (dstsize < srcsize ||
