@@ -18,6 +18,7 @@
 #include <dt_printf.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
+#include <dt_bpf.h>
 
 dtrace_prog_t *
 dt_program_create(dtrace_hdl_t *dtp)
@@ -134,7 +135,16 @@ dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	void *dof;
 	int n, err;
 
+	/*
+	 * Determine program attributes.
+	 */
 	dtrace_program_info(dtp, pgp, pip);
+
+	/*
+	 * Create the global BPF maps.  This is done only once regardless of
+	 * how many programs there are.
+	 */
+	dt_bpf_gmap_create(dtp, 1);
 
 	if ((dof = dtrace_dof_create(dtp, pgp, DTRACE_D_STRIP)) == NULL)
 		return (-1);

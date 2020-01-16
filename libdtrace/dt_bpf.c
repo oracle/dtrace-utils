@@ -50,6 +50,12 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
+ * - mem:	Output buffer scratch memory.  Thiss is implemented as a global
+ *		per-CPU map with a singleton element (key 0).  This means that
+ *		every CPU will see its own copy of this singleton element, and
+ *		can use it without interference from other CPUs.  The size of
+ *		the value (a byte array) is the maximum trace buffer record
+ *		size that any of the compiled programs can emit.
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
@@ -93,6 +99,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 	return create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			   sizeof(uint32_t), sizeof(uint32_t),
 			   dtp->dt_conf.numcpus) &&
+	       create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
+			   sizeof(uint32_t), dtp->dt_maxreclen, 1) &&
 	       create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), dtp->dt_strlen, 1) &&
 	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,

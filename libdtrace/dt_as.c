@@ -576,6 +576,8 @@ fail:
 	 * before it is written to the output buffer.
 	 */
 	dp->dtdo_reclen = pcb->pcb_bufoff;
+	if (dp->dtdo_reclen > dtp->dt_maxreclen)
+		dtp->dt_maxreclen = dp->dtdo_reclen;
 
 	return (dp);
 }
