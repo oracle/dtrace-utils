@@ -369,7 +369,7 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 	}
 }
 
-static void
+void
 dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 {
 	static const struct opent {

@@ -718,6 +718,7 @@ extern void dt_cg(dt_pcb_t *, dt_node_t *);
 extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
+extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp);
 
 extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
