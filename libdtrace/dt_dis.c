@@ -258,7 +258,7 @@ dt_dis_jump(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	if (in->off == 0)
 		fprintf(fp, "nop");
 	else
-		fprintf(fp, "%-4s %u\t\t\t! -> %03lu", name, in->off,
+		fprintf(fp, "%-4s %d\t\t\t! -> %03lu", name, in->off,
 			addr + 1 + in->off);
 }
 
