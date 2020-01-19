@@ -22,7 +22,16 @@ static const char * const helper_fn[] = {
 };
 #undef BPF_HELPER_FN
 
-static const char *reg(int r)
+static void
+dt_dis_prefix(uint_t i, const struct bpf_insn *instr, FILE *fp)
+{
+	fprintf(fp, "%03u %03u: %02hhx %01hhx %01hhx %04hx %08x    ",
+		i, i*8, instr->code, instr->dst_reg, instr->src_reg,
+		instr->off, instr->imm);
+}
+
+static const char *
+reg(int r)
 {
 	static char	*name[] = { "%r0", "%r1", "%r2", "%r3", "%r4",
 				    "%r5", "%r6", "%r7", "%r8", "%r9", "%fp" };
@@ -48,116 +57,165 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 	return (NULL);
 }
 
-/*ARGSUSED*/
-static void
-dt_dis_str(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	   const struct bpf_insn *in, FILE *fp)
+static char *
+dt_dis_lvarname(const dtrace_difo_t *dp, int reg, int var, char *buf, int len)
 {
-	fprintf(fp, "%s", name);
+	if (reg == BPF_REG_FP) {
+		var = DT_STK_LVAR_ID(var);
+		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
+			const char	*vname;
+
+			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
+			if (vname) {
+				snprintf(buf, len, "this->%s", vname);
+				return buf;
+			}
+		}
+	}
+
+	return NULL;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_op1(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	   const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_str(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	   const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s", name, reg(in->dst_reg));
+	fprintf(fp, "%s\n", name);
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_op2(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	   const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_op1(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	   const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %s", name, reg(in->dst_reg), reg(in->src_reg));
+	fprintf(fp, "%-4s %s\n", name, reg(in->dst_reg));
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_op2imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	      const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_op2(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	   const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %d", name, reg(in->dst_reg), in->imm);
+	fprintf(fp, "%-4s %s, %s\n", name, reg(in->dst_reg), reg(in->src_reg));
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_branch(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	      const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_op2imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %s, %d\t! -> %03lu", name, reg(in->dst_reg),
+	fprintf(fp, "%-4s %s, %d\n", name, reg(in->dst_reg), in->imm);
+	return 0;
+}
+
+/*ARGSUSED*/
+static uint_t
+dt_dis_branch(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	      const struct bpf_insn *in, const char *rname, FILE *fp)
+{
+	fprintf(fp, "%-4s %s, %s, %d\t! -> %03u\n", name, reg(in->dst_reg),
 		reg(in->src_reg), in->off, addr + 1 + in->off);
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	      const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u, %d\t\t! -> %03lu", name, reg(in->dst_reg),
+	fprintf(fp, "%-4s %s, %u, %d\t\t! -> %03u\n", name, reg(in->dst_reg),
 		in->imm, in->off, addr + 1 + in->off);
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_load(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	      const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	int var = in->off;
+	char		buf[256];
+	const char	*vname;
 
 	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
-		reg(in->src_reg), var);
+		reg(in->src_reg), in->off);
 
-	if (in->src_reg == BPF_REG_FP) {
-		var = DT_STK_LVAR_ID(var);
-		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
-			const char	*vname;
-			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
+	vname = dt_dis_lvarname(dp, in->src_reg, in->off, buf, sizeof(buf));
+	if (vname)
+		fprintf(fp, "\t! %s\n", vname);
+	else
+		fprintf(fp, "\n");
 
-			if (vname)
-				fprintf(fp, "\t! this->%s", vname);
-		}
-	}
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_load_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-		const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_load_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
+		const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, 0x%08x%08x", name, reg(in->dst_reg),
+	/*
+	 * A double word load-immediate instruction takes up two instruction
+	 * slots in BPF code.
+	 */
+	fprintf(fp, "%-4s %s, 0x%08x%08x\n", name, reg(in->dst_reg),
 		in[1].imm, in[0].imm);
+	dt_dis_prefix(addr + 1, &in[1], fp);
+
+	if (rname != NULL)
+		fprintf(fp, "\t\t\t! %s\n", rname);
+	else
+		fprintf(fp, "\n");
+
+	return 1;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_store(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	     const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	     const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	int var = in->off;
+	char		buf[256];
+	const char	*vname;
 
-	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), var,
+	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
 		reg(in->src_reg));
 
-	if (in->dst_reg == BPF_REG_FP) {
-		var = DT_STK_LVAR_ID(var);
-		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
-			const char	*vname;
-			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
+	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, buf, sizeof(buf));
+	if (vname)
+		fprintf(fp, "\t! %s\n", vname);
+	else
+		fprintf(fp, "\n");
 
-			if (vname)
-				fprintf(fp, "\t! this->%s", vname);
-		}
-	}
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-		 const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
+		 const struct bpf_insn *in, const char *rname, FILE *fp)
 {
+	char		buf[256];
+	const char	*vname;
+
 	fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
 		in->imm);
+
+	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, buf, sizeof(buf));
+	if (vname) {
+		if (rname)
+			fprintf(fp, "\t! %s = %s\n", vname, rname);
+		else
+			fprintf(fp, "\t! %s\n", vname);
+	} else if (rname) {
+		fprintf(fp, "\t! = %s\n", rname);
+	} else
+		fprintf(fp, "\n");
+
+	return 0;
 }
 
 static char *
@@ -200,7 +258,8 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 
 		s = dp->dtdo_strtab + in->imm;
 		s = strchr2esc(s, strlen(s));
-		snprintf(buf, len, "\"%s\"", s ? s : dp->dtdo_strtab + in->imm);
+		snprintf(buf, len, "\"%s\"n",
+			 s ? s : dp->dtdo_strtab + in->imm);
 		free(s);
 		return buf;
 	}
@@ -209,9 +268,9 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	    const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_call(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	    const struct bpf_insn *in, const char *rname, FILE *fp)
 {
 	const char	*fn = NULL;
 	const char	*ann = NULL;
@@ -223,14 +282,7 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	 * there are annotations to be added.
 	 */
 	if (in->src_reg == BPF_PSEUDO_CALL) {
-		dof_relodesc_t	*rp = dp->dtdo_breltab;
-		int		cnt = dp->dtdo_brelen;
-
-		for (; cnt; cnt--, rp++) {
-			if (rp->dofr_offset == addr * sizeof(uint64_t))
-				fn = &dp->dtdo_strtab[rp->dofr_name];
-		}
-
+		fn = rname;
 		if (fn == NULL) {
 			snprintf(buf, sizeof(buf), "%d", in->imm);
 			fn = buf;
@@ -245,21 +297,25 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name, ulong_t addr,
 	}
 
 	if (ann)
-		fprintf(fp, "%-4s %-17s ! %s", name, fn, ann);
+		fprintf(fp, "%-4s %-17s ! %s\n", name, fn, ann);
 	else
-		fprintf(fp, "%-4s %s", name, fn);
+		fprintf(fp, "%-4s %s\n", name, fn);
+
+	return 0;
 }
 
 /*ARGSUSED*/
-static void
-dt_dis_jump(const dtrace_difo_t *dp, const char *name, ulong_t addr,
-	    const struct bpf_insn *in, FILE *fp)
+static uint_t
+dt_dis_jump(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	    const struct bpf_insn *in, const char *rname, FILE *fp)
 {
 	if (in->off == 0)
 		fprintf(fp, "nop");
 	else
-		fprintf(fp, "%-4s %d\t\t\t! -> %03lu", name, in->off,
+		fprintf(fp, "%-4s %d\t\t\t! -> %03u\n", name, in->off,
 			addr + 1 + in->off);
+
+	return 0;
 }
 
 static char *
@@ -374,8 +430,9 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 {
 	static const struct opent {
 		const char *op_name;
-		void (*op_func)(const dtrace_difo_t *, const char *, ulong_t,
-				const struct bpf_insn *, FILE *);
+		uint_t (*op_func)(const dtrace_difo_t *, const char *, uint_t,
+				  const struct bpf_insn *, const char *,
+				  FILE *);
 	} optab[256] = {
 		[0 ... 255] = { "(illegal opcode)", dt_dis_str },
 #define INSN2(x, y)	[BPF_##x | BPF_##y]
@@ -510,28 +567,49 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		INSN3(LD, IMM, DW)	= { "lddw", dt_dis_load_imm },
 	};
 
-	const struct opent *op;
-	ulong_t i = 0;
-	char type[DT_TYPE_NAMELEN];
+	uint_t		i = 0;
+	dof_relodesc_t	*rp = dp->dtdo_breltab;
+	int		cnt = dp->dtdo_brelen;
+	char		type[DT_TYPE_NAMELEN];
 
 	fprintf(fp, "%-3s %-4s %-20s    %s\n",
 	    "INS", "OFF", "OPCODE", "INSTRUCTION");
 
 	for (i = 0; i < dp->dtdo_len; i++) {
-		const struct bpf_insn *instr = &dp->dtdo_buf[i];
-		uint8_t opcode = instr->code;
+		const struct bpf_insn	*instr = &dp->dtdo_buf[i];
+		uint8_t			opcode = instr->code;
+		const struct opent	*op;
+		const char		*rname = NULL;
+		uint_t			skip;
 
 		if (opcode >= sizeof (optab) / sizeof (optab[0]))
 			opcode = 0; /* force invalid opcode message */
 
-		fprintf(fp, "%03lu %03lu: %02hhx %01hhx %01hhx %04hx %08x    ",
-			i, i*8, instr->code, instr->dst_reg, instr->src_reg,
-			instr->off, instr->imm);
-		if (instr->code != 0) {
-			op = &optab[opcode];
-			op->op_func(dp, op->op_name, i, instr, fp);
+		dt_dis_prefix(i, instr, fp);
+
+		/*
+		 * If there are remaining relocations, and the next relocation
+		 * applies to the current instruction, pass the associated
+		 * symbol name to the instruction handler.
+		 */
+		for (; cnt; cnt--, rp++) {
+			if (rp->dofr_offset < i * sizeof(uint64_t))
+				continue;
+			if (rp->dofr_offset == i * sizeof(uint64_t))
+				rname = &dp->dtdo_strtab[rp->dofr_name];
+
+			break;
 		}
-		fprintf(fp, "\n");
+
+		op = &optab[opcode];
+		skip = op->op_func(dp, op->op_name, i, instr, rname, fp);
+
+		/*
+		 * If the instruction handler indicated we need to skip some
+		 * additional instruction(s), we better listen...
+		 */
+		if (skip)
+			i += skip;
 	}
 
 	if (dp->dtdo_varlen != 0) {
