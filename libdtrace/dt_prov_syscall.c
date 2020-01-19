@@ -223,7 +223,7 @@ static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
 	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
 		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, SCD_ARG(i));
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(0)),
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
 				  BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
