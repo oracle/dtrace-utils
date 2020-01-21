@@ -2705,6 +2705,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 			last_insn = dlp->dl_last;
 
 			dt_cg_node(dnp->dn_pred, &pcb->pcb_ir, pcb->pcb_regs);
+			instr = BPF_MOV_REG(BPF_REG_0, dnp->dn_pred->dn_reg);
+			dt_irlist_append(&pcb->pcb_ir,
+					 dt_cg_node_alloc(DT_LBL_NONE, instr));
 			instr = BPF_RETURN();
 			dt_irlist_append(&pcb->pcb_ir,
 					 dt_cg_node_alloc(DT_LBL_NONE, instr));
