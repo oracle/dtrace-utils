@@ -57,6 +57,7 @@ dt_pcb_push(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	dt_scope_create(&pcb->pcb_dstack);
 	dt_idstack_push(&pcb->pcb_globals, dtp->dt_globals);
 	dt_irlist_create(&pcb->pcb_ir);
+	pcb->pcb_exitlbl = dt_irlist_label(&pcb->pcb_ir);
 
 	pcb->pcb_hdl = dtp;
 	pcb->pcb_prev = dtp->dt_pcb;

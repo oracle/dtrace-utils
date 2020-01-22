@@ -43,8 +43,8 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	assert(mem != NULL);
 
 	/*
-	 *		stxdw [%fp + DT_STK_CTX], %r1
-	 *		stxdw [%fp + DT_STK_DCTX], %r2
+	 *		stdw [%fp + DT_STK_CTX], %r1
+	 *		stdw [%fp + DT_STK_DCTX], %r2
 	 */
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_CTX, BPF_REG_1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -55,7 +55,7 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	 *		call bpf_bpf_get_smp_processor_id
 	 *		lsh %r0, 32
 	 *		arsh %r0, 32
-	 *		stxw [%fp + DT_STK_CPU], %r0
+	 *		stw [%fp + DT_STK_CPU], %r0
 	 */
 	instr = BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -72,6 +72,7 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	 *		mov %r2, %fp
 	 *		add %r2, -32
 	 *		call bpf_map_lookup_elem
+	 *		je %r0, 0, lbl_exit
 	 *		mov %r9, %r0
 	 */
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), 0);
@@ -82,6 +83,8 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(1));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_REG(BPF_REG_9, BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -112,27 +115,26 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t lbl_exit = dt_irlist_label(dlp);
 	dt_ident_t *buffers = dt_dlib_get_map(pcb->pcb_hdl, "buffers");
 
 	assert(buffers != NULL);
 
 	/*
-	 *		ldxdw %r0, [%fp + DT_STK_DCTX]
-	 *		ldxdw %r0, [%r0 + DCTX_FAULT]
+	 *		lddw %r0, [%fp + DT_STK_DCTX]
+	 *		lddw %r0, [%r0 + DCTX_FAULT]
 	 *		jne %r0, 0, lbl_exit
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_FAULT);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_exit);
+	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, pcb->pcb_exitlbl);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *		ldxdw %r1, [%fp + DT_STK_CTX]
+	 *		lddw %r1, [%fp + DT_STK_CTX]
 	 *		lddw %r2, &buffers
-	 *		ldxw %r3, [%fp + DT_STK_CPU]
+	 *		ldw %r3, [%fp + DT_STK_CPU]
 	 *		mov %r4, %r9
 	 *		mov %r5, pcb->pcb_bufoff
 	 *		call bpf_perf_event_output
@@ -154,7 +156,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 * lbl_exit:	exit
 	 */
 	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+	dt_irlist_append(dlp, dt_cg_node_alloc(pcb->pcb_exitlbl, instr));
 }
 
 static size_t
@@ -2613,6 +2615,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 	dt_irlist_destroy(&pcb->pcb_ir);
 	dt_irlist_create(&pcb->pcb_ir);
+	pcb->pcb_exitlbl = dt_irlist_label(&pcb->pcb_ir);
 
 	assert(pcb->pcb_dret == NULL);
 	pcb->pcb_dret = dnp;
