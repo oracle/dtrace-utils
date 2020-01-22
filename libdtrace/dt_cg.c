@@ -93,7 +93,14 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	 * We read epid from dctx (struct dt_bpf_context) and store it in the
 	 * first 4 bytes of the output buffer.  The next 4 bytes are padded
 	 * with 0s so that the next entry will be at a 8-byte boundary.
+	 *
+	 *		lddw %r0, [%fp + DT_STK_DCTX]
+	 *		ldw %r0, [%r0 + DCTX_EPID]
+	 *		stw [%r9+0], %r0
+	 *		stw [%r9+4], 0
 	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_DCTX);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_2, DCTX_EPID);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);
