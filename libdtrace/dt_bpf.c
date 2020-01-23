@@ -175,7 +175,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
 
-	log = malloc(logsz);
+	log = dt_zalloc(dtp, logsz);
 	assert(log != NULL);
 
 	attr.prog_type = prp->prov->impl->prog_type;
@@ -183,11 +183,32 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	attr.insns = dp->dtdo_buf;
 	attr.insns_cnt = dp->dtdo_len;
 	attr.license = BPF_CG_LICENSE;
-	attr.log_level = 7;
+	attr.log_level = 4 | 2 | 1;
 
 	rc = bpf_load_program_xattr(&attr, log, logsz);
-	if (rc < 0)
-		fprintf(stderr, "%s\n", log);
+	if (rc < 0) {
+		const dtrace_probedesc_t	*pdp = prp->desc;
+		char				*p, *q;
+
+		fprintf(stderr,
+			"BPF program load for '%s:%s:%s:%s' failed: %s\n",
+			pdp->prv, pdp->mod, pdp->fun, pdp->prb, strerror(-rc));
+
+		/*
+		 * If there is BPF verifier output, print it with a "BPF: "
+		 * prefix so it is easier to distinguish.
+		 */
+		for (p = log; p && *p; p = q) {
+			q = strchr(p, '\n');
+
+			if (q)
+				*q++ = '\0';
+
+			fprintf(stderr, "BPF: %s\n", p);
+		}
+	}
+
+	dt_free(dtp, log);
 
 	return rc;
 }
@@ -200,31 +221,29 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	dtrace_actdesc_t	*ap = sdp->dtsd_action;
 	dtrace_probeinfo_t	pip;
 	dt_probe_t		*prp;
-
-	fprintf(stderr, "Loading program for %s:%s:%s:%s:\n",
-		pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+	int			rc = 0;
 
 	memset(&pip, 0, sizeof(pip));
 	prp = dt_probe_info(dtp, pdp, &pip);
 	if (!prp)
-		fprintf(stderr, "  No single probe found.\n");
+		return -1;
 
-	while (ap) {
+	while (ap && !rc) {
 		dtrace_difo_t	*dp = ap->dtad_difo;
 
-		fprintf(stderr, "  Program %p (%u insns)\n",
-			dp->dtdo_buf, dp->dtdo_len);
-		dt_bpf_load_prog(dtp, prp, dp);
+		rc = dt_bpf_load_prog(dtp, prp, dp);
 
 		if (ap == sdp->dtsd_action_last)
 			break;
 
 		ap = ap->dtad_next;
 	}
+
+	return rc;
 }
 
 int
 dt_bpf_prog(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
 {
-	dtrace_stmt_iter(dtp, pgp, dt_bpf_stmt, NULL);
+	return dtrace_stmt_iter(dtp, pgp, dt_bpf_stmt, NULL);
 }
