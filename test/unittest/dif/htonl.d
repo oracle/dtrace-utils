@@ -1,4 +1,5 @@
 /* @@runtest-opts: -C */
+/* @@xfail: dtv2 */
 
 #include <endian.h>
 

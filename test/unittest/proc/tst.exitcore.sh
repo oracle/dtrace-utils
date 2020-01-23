@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -11,6 +11,7 @@
 # If this fails, the script will run indefinitely; it relies on the harness
 # to time it out.
 #
+# @@xfail: dtv2
 
 # Coredump to names that we can distinguish from each other: don't
 # suppress coredumps.

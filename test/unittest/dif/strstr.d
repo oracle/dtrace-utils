@@ -1,3 +1,4 @@
+/* @@xfail: dtv2 */
 BEGIN
 {
 	trace(strstr(probename, "GIN"));

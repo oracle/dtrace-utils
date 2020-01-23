@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -10,6 +10,7 @@
 # Test the io:::start probe for write and read operations by creating
 # a file and reading it back after clearing the caches.
 #
+# @@xfail: dtv2
 
 dtrace=$1
 nblocks=1024

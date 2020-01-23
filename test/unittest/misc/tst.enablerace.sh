@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -9,6 +9,7 @@
 # plus quite a lot of slop for initialization overhead and system load
 #
 # @@timeout: 120
+# @@xfail: dtv2
 
 #
 # This script attempts to tease out a race when probes are initially enabled.

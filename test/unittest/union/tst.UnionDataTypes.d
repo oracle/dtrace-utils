@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -66,6 +66,7 @@ enum {
 	unsigned long *pointer;
 } var;
 
+/* @@xfail: dtv2 */
 /* @@note: is this even supported? */
 
 /* var.pointer = &`max_pfn; */

@@ -1,4 +1,5 @@
 #pragma D option destructive
+/* @@xfail: dtv2 */
 
 BEGIN
 {
