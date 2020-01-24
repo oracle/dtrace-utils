@@ -2627,6 +2627,8 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	assert(pcb->pcb_dret == NULL);
 	pcb->pcb_dret = dnp;
 
+	pcb->pcb_bufoff = 0;
+
 	if (dt_node_is_dynamic(dnp))
 		dnerror(dnp, D_CG_DYN, "expression cannot evaluate to result "
 			"of dynamic type\n");
