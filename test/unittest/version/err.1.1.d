@@ -6,7 +6,7 @@
  */
 /* @@runtest-opts: -Ze */
 
-#pragma D option version=1.0
+#pragma D option version=1.1
 
 /*
  * The following identifiers were added as D built-ins as of version 1.1.
@@ -25,4 +25,3 @@ write:entry
 {
 	exit(0);
 }
-
