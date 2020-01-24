@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -41,9 +41,9 @@ static const struct {
 	{ EDT_DIFVERS,	"Library uses newer DIF version than kernel" },
 	{ EDT_BADAGG,	"Unknown aggregating action" },
 	{ EDT_FIO,	"Error occurred while reading from input stream" },
-	{ EDT_DIFINVAL,	"DIF program content is invalid" },
-	{ EDT_DIFSIZE,	"DIF program exceeds maximum program size" },
-	{ EDT_DIFFAULT,	"DIF program contains invalid pointer" },
+	{ EDT_BPFINVAL,	"BPF program content is invalid" },
+	{ EDT_BPFSIZE,	"BPF program exceeds maximum program size" },
+	{ EDT_BPFFAULT,	"BPF program contains invalid pointer" },
 	{ EDT_BADPROBE,	"Invalid probe specification" },
 	{ EDT_BADPGLOB, "Probe description has too many globbing characters" },
 	{ EDT_NOSCOPE,	"Declaration scope stack underflow" },

@@ -571,9 +571,9 @@ enum {
 	EDT_DIFVERS,		/* library has newer DIF version than driver */
 	EDT_BADAGG,		/* unrecognized aggregating action */
 	EDT_FIO,		/* error occurred while reading from input stream */
-	EDT_DIFINVAL,		/* invalid DIF program */
-	EDT_DIFSIZE,		/* invalid DIF size */
-	EDT_DIFFAULT,		/* failed to copyin DIF program */
+	EDT_BPFINVAL,		/* invalid DIF program */
+	EDT_BPFSIZE,		/* invalid DIF size */
+	EDT_BPFFAULT,		/* failed to copyin DIF program */
 	EDT_BADPROBE,		/* bad probe description */
 	EDT_BADPGLOB,		/* bad probe description globbing pattern */
 	EDT_NOSCOPE,		/* declaration scope stack underflow */

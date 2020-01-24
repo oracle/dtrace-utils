@@ -132,8 +132,8 @@ int
 dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_proginfo_t *pip)
 {
-	void *dof;
-	int n, err;
+	int	n;
+	int	err = 0;
 
 	/*
 	 * Determine program attributes.
@@ -145,39 +145,42 @@ dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	 * how many programs there are.
 	 */
 	dt_bpf_gmap_create(dtp, 1);
-	dt_bpf_prog(dtp, pgp);
+	n = dt_bpf_prog(dtp, pgp);
 
-	if ((dof = dtrace_dof_create(dtp, pgp, DTRACE_D_STRIP)) == NULL)
-		return (-1);
-
-	n = dt_ioctl(dtp, DTRACEIOC_ENABLE, dof);
-	dtrace_dof_destroy(dtp, dof);
-
-	if (n == -1) {
-		switch (errno) {
-		case EINVAL:
-			err = EDT_DIFINVAL;
-			break;
-		case EFAULT:
-			err = EDT_DIFFAULT;
-			break;
-		case E2BIG:
-			err = EDT_DIFSIZE;
-			break;
-		case EBUSY:
-			err = EDT_ENABLING_ERR;
-			break;
-		default:
+	switch (n) {
+	case -EINVAL:
+		err = EDT_BPFINVAL;
+		break;
+	case -EPERM:
+		err = EDT_ACCESS;
+		break;
+	case -ESRCH:
+		err = EDT_NOPROBE;
+		break;
+	case -ENOMEM:
+		err = EDT_NOMEM;
+		break;
+	case -EFAULT:
+		err = EDT_BPFFAULT;
+		break;
+	case -E2BIG:
+		err = EDT_BPFSIZE;
+		break;
+	case -EBUSY:
+		err = EDT_ENABLING_ERR;
+		break;
+	default:
+		if (n < 0)
 			err = errno;
-		}
-
-		return (dt_set_errno(dtp, err));
 	}
+
+	if (err)
+		return dt_set_errno(dtp, err);
 
 	if (pip != NULL)
 		pip->dpi_matches += n;
 
-	return (0);
+	return 0;
 }
 
 static void
