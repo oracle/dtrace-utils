@@ -1,5 +1,5 @@
 *.[oa]
-build*/
+build/
 *~
 .git-version
 
