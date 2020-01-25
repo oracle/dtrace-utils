@@ -1,6 +1,4 @@
-Linux DTrace v1.0 for Oracle Unbreakable Enterprise Kernel 4 and 5.
+Linux DTrace v2.0 for Oracle Unbreakable Enterprise Kernel 6.
 ------------
 
 This is the official Linux port of the advanced tracing tool DTrace.
-It relies on a UPLed userspace component, a kernel module, and a
-few changes in the kernel.

@@ -1,3 +1,134 @@
+2.0.0 (Nov 6th, 2019)
+---------------------
+
+First release of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+Working components:
+
+ - The entire D language, with the exception of aggregations.  Valid D clauses
+   are compiled into equivalent BPF programs.
+
+ - The vast majority of the DTrace core functionality has been implemented,
+   providing a nearly complete compiler implementation (including predicates),
+   provider API, probe management, and Linux tracing integration.
+
+ - Function Boundary Tracing (FBT) probes with functions grouped by module
+   (regardless of whether the module is compiled in or loadable) if the kernel
+   provides this information in /proc/kallsyms (or /proc/kallmodsyms).
+
+ - Syscall entry and return probes (systrace provider), with support for typed
+   probe arguments.
+
+ - Statically Defined Tracing (SDT) probes based on Linux tracepoints, with
+   support for typed probe arguments.
+
+ - Listing of available probes based on globbing-enabled probe specifications.
+
+1.2.1 (Feb 12th, 2019)
+----------------------
+
+Bugfixes:
+
+ - Fix a bug causing DTrace to fail to terminate if a process was grabbed
+   using -c, then died while traced with ustack(), usym() or umod() or by
+   the pid or usdt providers.
+
+Compilation fixes:
+
+ - Compile on glibc 2.28, which moves makedev() out of <sys/types.h>.
+
+ - Improvements to the testsuite in the presence of recent versions of GNU Awk.
+
+1.2.0 (Dec 13th, 2018)
+---------------------
+
+New features:
+
+ - New action pcap(struct sk_buff *, proto) where proto is one of the PCAP_*
+   constants from /usr/lib64/dtrace/*/pcap.d.  If tshark is installed,
+   this produces formatted packet traces; if it is not, raw memory dumps
+   are produced, as with tracemem().  If freopen() is used to redirect
+   DTrace output to a file, the raw packets are written there.
+
+ - Translator changes for the 4.19 kernel (also works with 4.20pre up to -6).
+
+Bugfixes:
+
+ - Fix a variety of small memory leaks.
+
+ - Improvements to the testsuite.
+
+Build-time:
+
+ - Improve the generation of signal.d: work better with newer glibc versions.
+
+1.1.1 (Oct 25th, 2018)
+----------------------
+
+Only testsuite changes.
+
+1.1.0 (Aug 10th, 2018)
+----------------------
+
+New features:
+
+ - Translator changes for the 4.15 kernel. (Kernels up to 4.18 work too.)
+
+New options:
+
+ - -xctfpath: Specify the name of a CTF archive to use with the running
+   kernel, for when it cannot be found in the usual place under
+   $(-xmodpath)/kernel/vmlinux.ctfa.
+
+Bugfixes:
+
+ - Fix a variety of small memory leaks and use-of-uninitialized-data bugs.
+ - Clean up compiler warnings.
+
+Library interface changes:
+
+ - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap compatibility.
+
+1.0.4 (Aug 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash when attempting to trace ourself.
+ - More fixes for crashes of both DTrace and the traced
+   process when DTrace terminates at the wrong instant.
+
+1.0.3 (Jul 24th, 2018)
+----------------------
+
+Bugfixes:
+
+ - No longer crash or deadlock when -c/-p processes terminate
+   at the wrong time.
+ - No longer deadlock when -c/-p processes create new threads.
+ - Stop the disassembler coredumping.
+
+1.0.2 (May 10th, 2018)
+----------------------
+
+Bugfixes:
+
+ - Mark an erroneously-failing test on ARM as passing.
+
+1.0.1 (Apr 28th, 2018)
+----------------------
+
+New features:
+
+ - Both USDT and pid providers are supported on ARM64.
+
+Bugfixes:
+
+ - The -c option works on ARM64 now, as does the -x evaltime option.
+ - Improvements to the testsuite and testsuite runner.
+
 1.0.0 (Mar 27th, 2018)
 ----------------------
 
@@ -1098,7 +1229,6 @@ Internal changes:
 
 0.1.0 (Oct 20th, 2011)
 ----------------------
-Kernel release: 2.6.32-201.0.4.el6uek
 
 First release. Working components:
 

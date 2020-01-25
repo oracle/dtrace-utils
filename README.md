@@ -1,32 +1,30 @@
-# Linux DTrace Utils
+# Linux DTrace
 
-This is the userspace component of the official Linux port of the DTrace tracing tool.  
+This is the official Linux port of the DTrace tracing tool.
 
-The source has been available at [oss.oracle.com](https://oss.oracle.com/git/gitweb.cgi?p=dtrace-utils.git;a=tags),
-as a git repository with full git history.  By posting the source here on github.com,
-we hope to increase the visibility for our work and to make it even easier for people
-to access the source.  We will also use this repository to work with developers in
-the Linux community.
+The source is posted here on github.com in the hope that it increases the
+visibility for our work and to make it even easier for people to access the
+source.  We will also use this repository to work with developers in the Linux
+community.
 
-Oracle Linux UEK kernel RPMs include DTrace kernel modules for  building and running of the DTrace utilities. 
-We also provide pre-built DTrace userspace (utilities) packages for Oracle Linux 6 and Oracle 7. 
+We provide pre-built DTrace userspace packages for Oracle Linux 7 and Oracle
+Linux 8., using the UEK6 kernel.
+
 The latest packages can be obtained from the following [Oracle Linux yum server](https://yum.oracle.com) repositories: 
 - Oracle Linux 7 (x86_64) UEK Release 5 (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR5/x86_64
 - Oracle Linux 7 (aarch64) Latest (kernel version 4.14): https://yum.oracle.com/repo/OracleLinux/OL7/latest/aarch64
-- Oracle Linux 7 (x86_64) UEK Release 4 (kernel version 4.1.12): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR4/x86_64
-- Oracle Linux 6 (x86_64) UEK Release 4 (kernel version 4.1.12): https://yum.oracle.com/repo/OracleLinux/OL6/UEKR4/x86_64
 
 Source code for the UEK kernel is available on github in the [linux-uek repo](https://github.com/oracle/linux-uek).
 
 ## Table of Contents
 
 * [1. License](#1-license)
-* [2. How to Build dtrace-utils](#2-how-to-build-dtrace-utils)
+* [2. How to Build dtrace](#2-how-to-build-dtrace)
   * [2.1. Prerequisites](#21-prerequisites)
      * [2.1.1. Step 1](#211-step-1-install-the-compact-type-format-ctf-libraries)
      * [2.1.2. Step 2](#212-step-2-build-a-dtrace-enabled-kernel)
      * [2.1.3. Step 3](#213-step-3-get-the-other-necessary-packages)
-  * [2.2. Build dtrace-utils](#22-build-dtrace-utils)
+  * [2.2. Build dtrace](#22-build-dtrace)
      * [2.2.1. Supporting multiple kernels](#221-supporting-multiple-kernels)
 * [3. Packaging Information](#3-packaging-information)
 * [4. Testing](#4-testing)
@@ -40,7 +38,7 @@ Source code for the UEK kernel is available on github in the [linux-uek repo](ht
 
 UPL (Universal Permissive License) https://oss.oracle.com/licenses/upl/
 
-## 2. How to Build dtrace-utils
+## 2. How to Build dtrace
 
 ### 2.1. Prerequisites
 
@@ -48,7 +46,7 @@ Please read this section carefully before moving over to the build documentation
 to ensure your environment is properly configured.
 
 Prebuilt packages can be obtained from the yum repositories listed above.
-We will focus here on the repositories with UEK Release 5 (4.14 based kernel).
+We will focus here on the repositories with UEK Release 6 (5.4 based kernel).
 The latest yum configuration is available on [Oracle Linux yum server](https://yum.oracle.com).
 To enable the **ol7_UEK5** repository ensure that the `enabled=1` is in the `yum`
 repository configuration.
@@ -126,15 +124,15 @@ Build:
 - libpcap-devel
 
 Package names may vary across various Linux distributions.
-For Oracle Linux / UEK, please check [dtrace-utils.spec](dtrace-utils.spec).
+For Oracle Linux / UEK, please check [dtrace.spec](dtrace.spec).
 
-### 2.2. Build dtrace-utils
+### 2.2. Build dtrace
 
 The simplest way of building the utils is booting into your DTrace enabled kernel
 and issuing the following commands:
 
 ```
-cd dtrace-utils
+cd dtrace
 make
 sudo make install
 ```
@@ -156,7 +154,7 @@ to use the **HDRPREFIX** variable.  The variable points the build system to an
 alternate location where DTrace uapi headers can be found.
 
 ```
-cd dtrace-utils
+cd dtrace
 cp -r <my_kernel_tree>/include/uapi/linux/dtrace <tmp_location>/linux
 make HDRPREFIX=<tmp_location>
 sudo make install
@@ -207,7 +205,7 @@ $KERNELDIRPREFIX/element from $KERNELS/$KERNELDIRSUFFIX/
 This would build against a group of kernels you installed by hand with
 `make modules_install`:
 ```
-cd dtrace-utils
+cd dtrace
 make KERNELS="4.1.12-140.el7.x86_64 4.14.14-29.el7.x86_64"
 sudo make install
 ```
@@ -215,7 +213,7 @@ sudo make install
 This would build against a group of kernel `devel` packages installed in the OL-standard
 kernel development header directory:
 ```
-cd dtrace-utils
+cd dtrace
 make KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= KERNELS="4.1.12-140.el7.x86_64 4.14.14-29.el7.x86_64"
 sudo make install
 ```
@@ -232,25 +230,25 @@ see [README.build-system](README.build-system).
 Various Linux distributions use different packaging schemes.
 At the moment, the DTrace utilities are shipped in three RPM packages:
 
-- **dtrace-utils** - everything required to run DTrace
-- **dtrace-utils-devel** - everything to build the utils or a custom DTrace consumer
-- **dtrace-utils-testsuite** - the testsuite
+- **dtrace** - everything required to run DTrace
+- **dtrace-devel** - everything to build the utils or a custom DTrace consumer
+- **dtrace-testsuite** - the testsuite
 
-At the moment the provided spec file (`dtrace-utils.spec`) is designed for Oracle
+At the moment the provided spec file (`dtrace.spec`) is designed for Oracle
 Linux.  It should also work for generic distributions.
 
 After setting up the rpm build environment, the build itself is simple:
 
 ```
-cd dtrace-utils
+cd dtrace
 
 # archive sources based on branch/tag
-git archive -o ~/rpmbuild/SOURCES/dtrace-utils-1.0.0.tar.bz2 --prefix=dtrace-utils-1.0.0/ 1.0-branch
+git archive -o ~/rpmbuild/SOURCES/dtrace-2.0.0.tar.bz2 --prefix=dtrace-2.0.0/ 2.0-branch
 # or
-make dist && mv dtrace-utils-*.tar.bz2 ~/rpmbuild/SOURCES
+make dist && mv dtrace-*.tar.bz2 ~/rpmbuild/SOURCES
 
 # do the RPM build
-rpmbuild -ba dtrace-utils.spec
+rpmbuild -ba dtrace.spec
 ```
 
 This will produce RPMs in `~/rpmbuild/RPMS/<arch>/`.  The spec file contains hard
@@ -260,7 +258,7 @@ added.
 
   - `build_kernel` is the version of the kernel that is used to build the binaries.
     The DTrace kernel headers are selected from this kernel and bundled into the
-    dtrace-utils-devel package.
+    dtrace-devel package.
   - `dtrace_kernels` is a list of kernels that are used to generate D translator
     libraries (the list is passed to the **KERNELS** variable explained above).
     The other variables are automatically overridden to get the kernels from
@@ -272,10 +270,10 @@ added.
 Examples of use:
 ```
 # Override build kernel from commandline
-rpmbuild -ba --define 'build_kernel 1.2.3.el7.x86_64' dtrace-utils.spec
+rpmbuild -ba --define 'build_kernel 1.2.3.el7.x86_64' dtrace.spec
 
 # Use whatever is currently installed on the build host
-rpmbuild -ba --define 'local_build 1' dtrace-utils.spec
+rpmbuild -ba --define 'local_build 1' dtrace.spec
 ```
 
 ## 4. Testing
@@ -299,12 +297,12 @@ Logs from test runs are stored in `test/log/<run_number>/`.
 The most recent logs are also available by via the `test/log/current/` symbolic link.
 
 The testsuite itself has more dependencies that need to be installed.
-The full list is available in the [dtrace-utils.spec](dtrace-utils.spec).
+The full list is available in the [dtrace.spec](dtrace.spec).
 A test suite, including its dependencies, can be installed on Oracle Linux using the following command,
 after ensureing that the correct repository is enabled (See [Prerequisites](#prerequisites)):
 
 ```
-yum install dtrace-utils-testsuite
+yum install dtrace-testsuite
 ```
 
 ## 5. How to run DTrace
@@ -313,7 +311,6 @@ The `dtrace` binary is installed in /usr/**sbin**/dtrace.
 Currently, you can only run dtrace with root privileges.
 Be careful not to confuse the utility with **SystemTap's dtrace** script,
 which is installed in /usr/**bin**/dtrace.
-
 
 ## 6. Questions
 
@@ -324,5 +321,5 @@ For questions, please check the
 
 We currently do not accept pull requests via GitHub, please contact us via the mailing list above. 
 
-The source code for dtrace-utils is published here without support. Compiled binaries are provided as part of Oracle Linux, which is [free to download](http://www.oracle.com/technetwork/server-storage/linux/downloads/index.html), distribute and use. 
+The source code for DTrace is published here without support. Compiled binaries are provided as part of Oracle Linux, which is [free to download](http://www.oracle.com/technetwork/server-storage/linux/downloads/index.html), distribute and use.
 Support for DTrace is included in Oracle Linux support subscriptions. Individual packages and updates are available on the [Oracle Linux yum server](https://yum.oracle.com). 
