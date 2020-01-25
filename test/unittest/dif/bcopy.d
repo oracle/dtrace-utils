@@ -1,3 +1,4 @@
+/* @@xfail: dtv2 */
 /* @@trigger: open */
 
 syscall::open:entry
