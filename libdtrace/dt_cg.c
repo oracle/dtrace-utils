@@ -2645,6 +2645,16 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 							pcb,
 							dnp->dn_pred != NULL);
 		}
+		/*
+		 * FIXME: We should be able to handle this somehow or avoid
+		 *	  it altogether.  We need this to aovid a core dump.
+		 */
+		else
+			xyerror(D_PROV_INCOMPAT, "[Future feature] - "
+				"probe description %s:%s:%s:%s has no "
+				"representative probe\n",
+				pcb->pcb_pdesc->prv, pcb->pcb_pdesc->mod,
+				pcb->pcb_pdesc->fun, pcb->pcb_pdesc->prb);
 
 		if (dnp->dn_pred != NULL) {
 			/*
