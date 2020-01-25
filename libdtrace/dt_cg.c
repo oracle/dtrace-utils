@@ -169,8 +169,6 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 static size_t
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_breakpoint(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dnerror(dnp, D_UNKNOWN, "breakpoint() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
 
@@ -180,8 +178,6 @@ dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_chill(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_chill(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 	dnerror(dnp, D_UNKNOWN, "chill() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
@@ -237,8 +233,6 @@ dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	uint_t off = pcb->pcb_bufoff;
 
-	fprintf(stderr, "DBG: dt_cg_act_commit(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
@@ -295,8 +289,6 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	uint_t off = pcb->pcb_bufoff;
 
-	fprintf(stderr, "DBG: dt_cg_act_discard(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
@@ -318,8 +310,6 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	uint_t off = pcb->pcb_bufoff;
 
-	fprintf(stderr, "DBG: dt_cg_act_exit(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
@@ -331,80 +321,54 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_freopen(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_freopen(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_ftruncate(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_jstack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_jstack(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_normalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_normalize(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_panic(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_panic(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_pcap(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_printa(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_printf(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_raise(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 	dnerror(dnp, D_UNKNOWN, "raise() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
@@ -415,9 +379,6 @@ dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_setopt(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
@@ -435,8 +396,6 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t *dlp = &pcb->pcb_ir;
 	uint_t off = pcb->pcb_bufoff;
 
-	fprintf(stderr, "DBG: dt_cg_act_speculate(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
@@ -466,8 +425,6 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_stop(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
 	dnerror(dnp, D_UNKNOWN, "stop() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
 
@@ -477,18 +434,12 @@ dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_symmod(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_symmod(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_system(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_system(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
@@ -553,18 +504,12 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static size_t
 dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_tracemem(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
 static size_t
 dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	fprintf(stderr, "DBG: dt_cg_act_trunc(%p, %p, %d)\n",
-		(void *)pcb, (void *)dnp, kind);
-
 	return 0;
 }
 
@@ -2754,9 +2699,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 					sz = actdp->fun(pcb, act->dn_expr,
 							actdp->kind);
 					pcb->pcb_bufoff += sz;
-fprintf(stderr, "DBG: DFUNC '%s' emits up to %lu bytes.\n", idp->di_name, sz);
 				}
-else fprintf(stderr, "ERROR: Unknown tracing function %d (%s)\n", DT_ACT_IDX(idp->di_id), idp->di_name);
 			} else {
 				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
 					   pcb->pcb_regs);
