@@ -178,10 +178,10 @@ test_prov\$target:::
 	@[mod(arg0), copyinstr(arg1)] = count();
 }
 EOF
-status=$?
-if [[ "$status" -ne 0 ]]; then
+if [[ ! -e output.txt ]]; then
 	echo $tst: dtrace failed
-	exit $status
+	cat errors.txt
+	exit 1
 fi
 if [[ `grep -c "aggregation drops on CPU" errors.txt` -gt 0 ]]; then
 	echo
