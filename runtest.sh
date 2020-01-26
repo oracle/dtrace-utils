@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -465,7 +465,8 @@ postprocess()
     local final=$3
     local retval=0
 
-    cp -f $output $tmpdir/pp.out
+    grep -v "^DTrace [^\[]* \[Pre-Release with limited functionality\]$" $output > $tmpdir/pp.out
+    cp -f $tmpdir/pp.out $output
 
     # Postprocess the output, if need be.
     if [[ -x $postprocessor ]]; then
@@ -583,7 +584,9 @@ for dt in $dtrace; do
     fi
 
     # Write out a list of loaded providers.
-    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
+    DTRACE_DEBUG= $dt -l | \
+	grep -v "^DTrace [^\[]* \[Pre-Release with limited functionality\]$" | \
+	tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
 
     unset LD_LIBRARY_PATH
     break
