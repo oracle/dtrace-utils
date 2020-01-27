@@ -11,6 +11,7 @@
 #include <dtrace.h>
 #include <dt_impl.h>
 #include <dt_probe.h>
+#include <port.h>
 
 #include <bpf.h>
 
