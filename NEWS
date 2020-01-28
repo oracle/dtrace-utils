@@ -1,5 +1,5 @@
-2.0.0 (Nov 6th, 2019)
----------------------
+2.0.0 (Jan 28th, 2020)
+----------------------
 
 First release of the standalone userspace implementation.
 
@@ -14,6 +14,16 @@ Working components:
    providing a nearly complete compiler implementation (including predicates),
    provider API, probe management, and Linux tracing integration.
 
+ - Support for pre-compiled BPF function libraries has been added.  This is
+   used to implement various D language constructs (global and TLS variable
+   access, string manipulation, ...) and D subroutines.
+
+ - Support has been added for reporting BPF verifier output.  When compiled
+   D scripts are loaded as BPF program into the kernel, the BPF verifier
+   performs a static code analysis to ensure safety of the program.  When this
+   analysis fails, output is generated and DTrace will report this output to
+   the user.
+
  - Function Boundary Tracing (FBT) probes with functions grouped by module
    (regardless of whether the module is compiled in or loadable) if the kernel
    provides this information in /proc/kallsyms (or /proc/kallmodsyms).
@@ -25,6 +35,11 @@ Working components:
    support for typed probe arguments.
 
  - Listing of available probes based on globbing-enabled probe specifications.
+
+ - The DTrace testsuite has been updated to reflect what tests are expected to
+   pass with the current state of development for DTrace v2.  Various tests
+   were also improved to be more robust and to be more foxused on what they are
+   meant to be testing.
 
 1.2.1 (Feb 12th, 2019)
 ----------------------
