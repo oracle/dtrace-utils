@@ -9,7 +9,7 @@
 #define	_DT_PRINTF_H
 
 #include <sys/types.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <dtrace.h>
 #include <stdio.h>
 

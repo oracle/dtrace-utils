@@ -8,7 +8,7 @@
 #ifndef	_DT_IDENT_H
 #define	_DT_IDENT_H
 
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <dtrace.h>
 
 #ifdef	__cplusplus

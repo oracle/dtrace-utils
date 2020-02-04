@@ -23,7 +23,7 @@
 #include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <rtld_db.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <sys/ptrace.h>
 #include <sys/sol_procfs.h>
 #include <sys/dtrace_types.h>

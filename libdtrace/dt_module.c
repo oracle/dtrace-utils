@@ -239,10 +239,16 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 		    (s = elf_strptr(dmp->dm_elf, shstrs, sh.sh_name)) == NULL)
 			continue; /* skip any malformed sections */
 
+#ifdef HAVE_LIBCTF
+		if (sh.sh_entsize == ctsp->cts_entsize &&
+		    strcmp(s, ctsp->cts_name) == 0)
+			break; /* section matches specification */
+#else
 		if (sh.sh_type == ctsp->cts_type &&
 		    sh.sh_entsize == ctsp->cts_entsize &&
 		    strcmp(s, ctsp->cts_name) == 0)
 			break; /* section matches specification */
+#endif
 	}
 
 	/*
@@ -400,12 +406,14 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 				goto oom;
 		}
 
+#ifndef HAVE_LIBCTF
 		dmp->dm_ctdata.cts_type = SHT_PROGBITS;
 		dmp->dm_ctdata.cts_flags = 0;
+		dmp->dm_ctdata.cts_offset = 0;
+#endif
 		dmp->dm_ctdata.cts_data = NULL;
 		dmp->dm_ctdata.cts_size = 0;
 		dmp->dm_ctdata.cts_entsize = 0;
-		dmp->dm_ctdata.cts_offset = 0;
 
 		/*
 		 * Attempt to load and uncompress the module's CTF section.
@@ -441,21 +449,25 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	}
 
 	dmp->dm_symtab.cts_name = ".symtab";
+#ifndef HAVE_LIBCTF
 	dmp->dm_symtab.cts_type = SHT_SYMTAB;
 	dmp->dm_symtab.cts_flags = 0;
+	dmp->dm_symtab.cts_offset = 0;
+#endif
 	dmp->dm_symtab.cts_data = NULL;
 	dmp->dm_symtab.cts_size = 0;
 	dmp->dm_symtab.cts_entsize = dmp->dm_ops == &dt_modops_64 ?
 	    sizeof (Elf64_Sym) : sizeof (Elf32_Sym);
-	dmp->dm_symtab.cts_offset = 0;
 
 	dmp->dm_strtab.cts_name = ".strtab";
+#ifndef HAVE_LIBCTF
 	dmp->dm_strtab.cts_type = SHT_STRTAB;
 	dmp->dm_strtab.cts_flags = 0;
+	dmp->dm_strtab.cts_offset = 0;
+#endif
 	dmp->dm_strtab.cts_data = NULL;
 	dmp->dm_strtab.cts_size = 0;
 	dmp->dm_strtab.cts_entsize = 0;
-	dmp->dm_strtab.cts_offset = 0;
 
 	/*
 	 * Now load the module's symbol and string table sections.

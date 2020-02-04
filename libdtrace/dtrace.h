@@ -12,7 +12,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <gelf.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 
 #ifdef	__cplusplus
 extern "C" {
