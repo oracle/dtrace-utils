@@ -8,7 +8,7 @@
 #ifndef	_DT_XLATOR_H
 #define	_DT_XLATOR_H
 
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <dtrace.h>
 #include <dt_ident.h>
 #include <dt_list.h>

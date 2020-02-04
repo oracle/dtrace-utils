@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <gelf.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <sys/dtrace.h>
 
 #ifdef	__cplusplus

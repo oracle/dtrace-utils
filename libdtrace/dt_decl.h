@@ -9,7 +9,7 @@
 #define	_DT_DECL_H
 
 #include <sys/types.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <dtrace.h>
 #include <stdio.h>
 

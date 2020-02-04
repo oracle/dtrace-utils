@@ -10,7 +10,7 @@
 
 #include <sys/param.h>
 #include <setjmp.h>
-#include <sys/ctf_api.h>
+#include <sys/ctf-api.h>
 #include <dtrace.h>
 #include <pthread.h>
 

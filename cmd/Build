@@ -11,14 +11,22 @@ dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c
 dtrace_DEPS = libdtrace.so libport.a
 dtrace_SRCDEPS := $(objdir)/dt_git_version.h
+ifdef HAVE_LIBCTF
+dtrace_LIBS = -ldtrace -lctf -lport -lelf
+else
 dtrace_LIBS = -ldtrace -ldtrace-ctf -lport -lelf
+endif
 
 ctf_module_dump_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
 ctf_module_dump_TARGET = ctf_module_dump
 ctf_module_dump_DIR := $(current-dir)
 ctf_module_dump_SOURCES = ctf_module_dump.c
 ctf_module_dump_DEPS = libdtrace.so libport.a
+ifdef HAVE_LIBCTF
+ctf_module_dump_LIBS = -ldtrace -lctf -lelf
+else
 ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf -lelf
+endif
 
 bpf_dump_CPPFLAGS =
 bpf_dump_TARGET = bpf_dump

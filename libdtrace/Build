@@ -29,7 +29,11 @@ SHLIBS += libdtrace
 
 libdtrace_DIR := $(current-dir)
 libdtrace_TARGET = libdtrace
+ifdef HAVE_LIBCTF
+libdtrace_LIBS := -lctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm
+else
 libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm
+endif
 libdtrace_VERSION := 2.0.0
 libdtrace_SONAME := libdtrace.so.2
 libdtrace_VERSCRIPT := $(libdtrace_DIR)libdtrace.ver
