@@ -29,6 +29,7 @@
  *  modules.)
  */
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,11 +47,13 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
+static const char		provname[] = "fbt";
+static const char		modname[] = "vmlinux";
+
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
 #define PROBE_LIST		TRACEFS "available_filter_functions"
 
-static const char		provname[] = "fbt";
-static const char		modname[] = "vmlinux";
+#define KPROBESFS		EVENTSFS "kprobes/"
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
@@ -59,6 +62,65 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
+
+static int fbt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			  int *idp, int *argcp, dt_argdesc_t **argvp)
+{
+	FILE	*f;
+	char	fn[256];
+	int	rc = 0;
+
+	*idp = -1;
+
+	strcpy(fn, KPROBESFS);
+	strcat(fn, prp->desc->fun);
+	strcat(fn, "/format");
+
+	/*
+	 * We check to see if the kprobe event already exists in the tracing
+	 * sub-system.  If not, we try to register the probe with the tracing
+	 * sub-system, and try accessing it again.
+	 */
+again:
+	f = fopen(fn, "r");
+	if (f == NULL) {
+		int	fd;
+		char	c = 'p';
+
+		if (rc)
+			goto out;
+
+		rc = -ENOENT;
+
+		/*
+		 * The probe name component is either "entry" or "return" for
+		 * FBT probes.
+		 */
+		if (prp->desc->prb[0] == 'r')
+			c = 'r';
+
+		/*
+		 * Register the kprobe with the tracing subsystem.  This will
+		 * create a tracepoint event.
+		 */
+		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+		if (fd == -1)
+			goto out;
+
+		dprintf(fd, "%c:%s %s\n", c, prp->desc->fun, prp->desc->fun);
+		close(fd);
+
+		goto again;
+	}
+
+	*argcp = 0;
+	*argvp = NULL;
+	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
+	fclose(f);
+
+out:
+	return rc;
+}
 
 /*
  * Scan the PROBE_LIST file and add entry and return probes for every function
@@ -414,6 +476,7 @@ dt_provimpl_t	dt_fbt = {
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &fbt_populate,
 	.trampoline	= &fbt_trampoline,
+	.probe_info	= &fbt_probe_info,
 #if 0
 	.resolve_event	= &fbt_resolve_event,
 	.attach		= &fbt_attach,

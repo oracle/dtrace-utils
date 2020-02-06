@@ -40,6 +40,16 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
+static const char		provname[] = "syscall";
+static const char		modname[] = "vmlinux";
+
+#define SYSCALLSFS		EVENTSFS "syscalls/"
+
+/*
+ * We need to skip over an extra field: __syscall_nr.
+ */
+#define SKIP_EXTRA_FIELDS	1
+
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -47,15 +57,6 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
-
-static const char		provname[] = "syscall";
-static const char		modname[] = "vmlinux";
-
-#define SYSCALLSFS		EVENTSFS "syscalls/"
-
-#define FIELD_PREFIX		"field:"
-
-#define SKIP_FIELDS_COUNT	5
 
 struct syscall_data {
 	dt_pt_regs	*regs;
@@ -90,7 +91,7 @@ static int syscall_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = tp_event_info(dtp, f, SKIP_FIELDS_COUNT, idp, argcp, argvp);
+	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, idp, argcp, argvp);
 	fclose(f);
 
 	return rc;

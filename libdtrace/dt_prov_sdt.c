@@ -35,14 +35,6 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
-static const dtrace_pattr_t	pattr = {
-{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
-{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
-{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
-{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
-{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
-};
-
 static const char		provname[] = "sdt";
 static const char		modname[] = "vmlinux";
 
@@ -51,9 +43,22 @@ static const char		modname[] = "vmlinux";
 #define KPROBES			"kprobes:"
 #define SYSCALLS		"syscalls:"
 
+/*
+ * All tracing events (tracepoints) include a number of fields that we need to
+ * skip in the tracepoint format description.  These fields are: common_type,
+ * common_flags, common_preempt_coint, and common_pid.
+ */
+#define SKIP_FIELDS_COUNT	4
+
 #define FIELD_PREFIX		"field:"
 
-#define SKIP_FIELDS_COUNT	4
+static const dtrace_pattr_t	pattr = {
+{ DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+{ DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
+};
 
 /*
  * Parse the EVENTSFS/<group>/<event>/format file to determine the event id and
@@ -71,6 +76,11 @@ static const char		modname[] = "vmlinux";
  * cope with because it expects just the type specification.  Getting rid of
  * the identifier isn't as easy because it may be suffixed by one or more
  * array dimension specifiers (and those are part of the type).
+ *
+ * All events include a number of fields that we are not interested and that
+ * need to be skipped (SKIP_FIELDS_COUNT).  Callers of this function can
+ * specify an additional numbe of fields to skip (using the 'skip' parameter)
+ * before we get to the actual arguments.
  */
 int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
 		  dt_argdesc_t **argvp)
@@ -82,6 +92,11 @@ int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
 	char		*strp;
 
 	*idp = -1;
+
+	/*
+	 * Let skip be the total number of fields to skip.
+	 */
+	skip += SKIP_FIELDS_COUNT;
 
 	/*
 	 * Pass 1:
@@ -112,10 +127,13 @@ int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
 
 	/*
 	 * If we saw less fields than expected, we flag an error.
+	 * If we are not interested in arguments, we are done.
 	 * If there are no arguments, we are done.
 	 */
 	if (argc < 0)
 		return -EINVAL;
+	if (argcp == NULL)
+		return 0;
 	if (argc == 0)
 		goto done;
 
@@ -227,7 +245,7 @@ static int sdt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = tp_event_info(dtp, f, SKIP_FIELDS_COUNT, idp, argcp, argvp);
+	rc = tp_event_info(dtp, f, 0, idp, argcp, argvp);
 	fclose(f);
 
 	return rc;

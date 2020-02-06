@@ -691,6 +691,7 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 
 	prp->desc = desc;
 	prp->prov = prov;
+	prp->event_id = -1;
 
 	dt_htab_insert(dtp->dt_byprv, prp);
 	dt_htab_insert(dtp->dt_bymod, prp);
@@ -825,10 +826,10 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	dtrace_typeinfo_t	dtt;
 
 	/*
-	 * If we already have argument information for this probe, there is no
-	 * need to retrieve it again.
+	 * If we already have an event ID information for this probe, there is
+	 * no need to retrieve it again.
 	 */
-	if (prp->argv)
+	if (prp->event_id != -1)
 		return;
 
 	if (!prp->prov->impl->probe_info)
