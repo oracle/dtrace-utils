@@ -692,6 +692,7 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	prp->desc = desc;
 	prp->prov = prov;
 	prp->event_id = -1;
+	prp->event_fd = -1;
 
 	dt_htab_insert(dtp->dt_byprv, prp);
 	dt_htab_insert(dtp->dt_bymod, prp);

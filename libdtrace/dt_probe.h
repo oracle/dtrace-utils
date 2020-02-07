@@ -39,6 +39,7 @@ typedef struct dt_probe {
 	struct dt_hentry he_prb;	/* probe name htab link */
 	struct dt_hentry he_fqn;	/* fully qualified name htab link */
 	int event_id;			/* tracing event id */
+	int event_fd;			/* perf event file descriptor */
 	dt_ident_t *pr_ident;		/* pointer to probe identifier */
 	const char *pr_name;		/* pointer to name component */
 	dt_node_t *nargs;		/* native argument list */

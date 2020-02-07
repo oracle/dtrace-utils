@@ -8,6 +8,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <linux/perf_event.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <dtrace.h>
 #include <dt_impl.h>
 #include <dt_probe.h>
@@ -18,6 +21,17 @@
 static bool dt_gmap_done = 0;
 
 #define BPF_CG_LICENSE	"GPL";
+
+static inline int perf_event_open(struct perf_event_attr *attr, pid_t pid,
+				  int cpu, int group_fd, unsigned long flags)
+{
+	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
+}
+
+static inline int bpf(enum bpf_cmd cmd, union bpf_attr *attr)
+{
+	return syscall(__NR_bpf, cmd, attr, sizeof(union bpf_attr));
+}
 
 static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
@@ -215,6 +229,39 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	return rc;
 }
 
+/*
+ * Attach a BPF program to a probe.
+ */
+int
+dt_bpf_attach(dtrace_hdl_t *dtp, dt_probe_t *prp, int bpf_fd)
+{
+	/*
+	 * If we have not yet created a perf event for this probe, do that now
+	 * and cache the file descriptor so we only need to do this once.
+	 */
+	if (prp->event_fd == -1) {
+		int			fd;
+		struct perf_event_attr	attr = { 0, };
+
+		attr.type = PERF_TYPE_TRACEPOINT;
+		attr.sample_type = PERF_SAMPLE_RAW;
+		attr.sample_period = 1;
+		attr.wakeup_events = 1;
+		attr.config = prp->event_id;
+
+		fd = perf_event_open(&attr, -1, 0, -1, 0);
+		if (fd < 0)
+			return -errno;
+
+		prp->event_fd = fd;
+	}
+
+	if (ioctl(prp->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
+		return -errno;
+
+	return 0;
+}
+
 int
 dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	    void *data)
@@ -223,7 +270,7 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	dtrace_actdesc_t	*ap = sdp->dtsd_action;
 	dtrace_probeinfo_t	pip;
 	dt_probe_t		*prp;
-	int			rc;
+	int			fd, rc;
 	int			*cnt = data;
 
 	memset(&pip, 0, sizeof(pip));
@@ -238,8 +285,11 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	 * list.
 	 */
 	assert(ap == sdp->dtsd_action_last);
-	rc = dt_bpf_load_prog(dtp, prp, ap->dtad_difo);
+	fd = dt_bpf_load_prog(dtp, prp, ap->dtad_difo);
+	if (fd < 0)
+		return fd;
 
+	rc = dt_bpf_attach(dtp, prp, fd);
 	if (rc < 0)
 		return rc;
 
