@@ -47,6 +47,7 @@ extern "C" {
 #include <dt_dof.h>
 #include <dt_pcb.h>
 #include <dt_pt_regs.h>
+#include <dt_bpf_ctx.h>
 #include <dt_debug.h>
 #include <dt_version.h>
 
@@ -441,24 +442,6 @@ struct dtrace_hdl {
 
 #define	DT_USYMADDR_CTFP(dtp)	((dtp)->dt_ddefs->dm_ctfp)
 #define	DT_USYMADDR_TYPE(dtp)	((dtp)->dt_type_usymaddr)
-
-/*
- * The DTrace context.
- */
-struct dt_bpf_context {
-	uint32_t	epid;
-	uint32_t	pad;
-	uint64_t	fault;
-	dt_pt_regs	regs;
-	uint64_t	argv[10];
-};
-
-#define DCTX_EPID	offsetof(struct dt_bpf_context, epid)
-#define DCTX_PAD	offsetof(struct dt_bpf_context, pad)
-#define DCTX_FAULT	offsetof(struct dt_bpf_context, fault)
-#define DCTX_REGS	offsetof(struct dt_bpf_context, regs)
-#define DCTX_ARG(n)	offsetof(struct dt_bpf_context, argv[n])
-#define DCTX_SIZE	sizeof(struct dt_bpf_context)
 
 /*
  * The stack layout for functions that implement a D clause is encoded with the
