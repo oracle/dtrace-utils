@@ -12,6 +12,7 @@
 # under /var, which checks the trickiest code path in Psystem_daemon().)
 #
 # @@tags: unstable
+# @@xfail: dtv2
 
 orig_DEBUG="$DTRACE_DEBUG"
 
