@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 extern int dt_bpf_gmap_create(dtrace_hdl_t *, uint_t);
+extern int dt_bpf_map_update(int fd, const void *key, const void *val);
 extern int dt_bpf_prog(dtrace_hdl_t *, dtrace_prog_t *);
 
 #ifdef	__cplusplus

@@ -139,6 +139,22 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 }
 
 /*
+ * Store the (key, value) pair in the map referenced by the given fd.
+ */
+int dt_bpf_map_update(int fd, const void *key, const void *val)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_fd = fd;
+	attr.key = (uint64_t)(unsigned long)key;
+	attr.value = (uint64_t)(unsigned long)val;
+	attr.flags = 0;
+
+	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
+}
+
+/*
  * Perform relocation processing on a program.
  */
 static void
