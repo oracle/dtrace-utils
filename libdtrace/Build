@@ -182,7 +182,6 @@ clean::
 	rm -f $(libdtrace-build_DIR)dt_errtags.c $(libdtrace-build_DIR)dt_names.c
 	rm -f $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c
 	rm -f $(libdtrace-build_DIR)dt_lex.c
-	rm -f $(libdtrace-build_DIR)regs.d
 	rm -f $(addprefix $(libdtrace-build_DIR),$(BUILD_DLIBS))
 
 install::
