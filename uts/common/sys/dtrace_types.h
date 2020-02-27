@@ -10,11 +10,18 @@
 
 #include <sys/types.h>
 #include <stdint.h>
-#include <sys/ctf_types.h>
 #include <endian.h>
 #include <unistd.h>
 
 typedef enum { B_FALSE, B_TRUE} boolean_t;
+
+/*
+ * POSIX Extensions
+ */
+typedef unsigned char	uchar_t;
+typedef unsigned short	ushort_t;
+typedef unsigned int	uint_t;
+typedef unsigned long	ulong_t;
 
 /*
  * Strictly conforming ANSI C environments prior to the 1999
@@ -74,6 +81,13 @@ typedef unsigned long long hrtime_t;
 #else
 #warning Unknown endianness
 #endif
+
+/*
+ * return x rounded up to an alignment boundary
+ * eg, P2ROUNDUP(0x1234, 0x100) == 0x1300 (0x13*align)
+ * eg, P2ROUNDUP(0x5600, 0x100) == 0x5600 (0x56*align)
+ */
+#define P2ROUNDUP(x, align)	(-(-(x) & -(align)))
 
 /*
  * This comes from <linux/dtrace_os.h>.
