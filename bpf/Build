@@ -1,0 +1,22 @@
+# Oracle Linux DTrace.
+# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+
+$(objdir)/include/.dir.stamp:
+	mkdir -p $(objdir)/include
+	ln -sf /usr/include/asm $(objdir)/include
+	ln -sf /usr/include/asm-generic $(objdir)/include
+	ln -sf /usr/include/linux $(objdir)/include
+	@touch $(objdir)/include/.dir.stamp
+
+BPFLIBS += bpf_dlib
+bpf_dlib_CPPFLAGS = -Ilibdtrace -I$(objdir)/include
+bpf_dlib_TARGET = dlibs/bpf_dlib
+bpf_dlib_DIR := $(current-dir)
+bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp
+bpf_dlib_SOURCES = \
+	map_gvar.c get_gvar.c set_gvar.c \
+	map_tvar.c get_tvar.c set_tvar.c \
+	memcpy.c strnlen.c
