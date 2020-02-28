@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 #define DT_BPF_MAP_BUILTINS(FN) \
+	FN(get_bvar), \
 	FN(get_gvar), \
 	FN(get_string), \
 	FN(get_tvar), \

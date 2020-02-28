@@ -51,6 +51,7 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_predicate, DT_IDENT_FUNC),
 	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
 	/* BPF library (external) functions */
+	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
