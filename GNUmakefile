@@ -16,7 +16,9 @@ VERSION := 2.0.0
 
 # Verify supported hardware.
 
-$(if $(subst sparc64,,$(subst aarch64,,$(subst x86_64,,$(shell uname -m)))), \
+ARCH := $(shell uname -m)
+
+$(if $(subst sparc64,,$(subst aarch64,,$(subst x86_64,,$(ARCH)))), \
     $(error "Error: DTrace for Linux only supports x86_64, ARM64 and sparc64"),)
 $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
@@ -25,12 +27,18 @@ CFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
-ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(shell uname -m))))
+ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(ARCH))))
 INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
 CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
+
 export CC = gcc
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
+export BPFC = bpf-unknown-none-gcc
+
+BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
+BPFCFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
+export BPFLD = bpf-unknown-none-ld
 
 # The first non-system uid on this system.
 USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
@@ -61,7 +69,7 @@ KERNELODIR=
 # This allows you to build using a locally installed kernel built with O= by
 # just specifying KERNELODIR=relative/path/to/your/kernel/o/dir.
 KERNELDIRSUFFIX=$(if $(KERNELODIR),/source,/build)
-KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(shell uname -m))))
+KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(ARCH))))
 
 # Paths.
 

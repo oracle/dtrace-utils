@@ -7,8 +7,8 @@
 
 # Trigger the library-building rules.
 
-PHONIES += build-libs libs shlibs
-TARGETS += build-libs libs shlibs
+PHONIES += build-libs libs shlibs bpflibs
+TARGETS += build-libs libs shlibs bpflibs
 
 $(foreach lib,$(BUILDLIBS),$(eval $(call build-lib-template,$(lib))))
 build-libs: $(foreach lib,$(BUILDLIBS),$(objdir)/build-$($(lib)_TARGET).a)
@@ -18,6 +18,9 @@ libs: build-libs $(foreach lib,$(LIBS),$(objdir)/$($(lib)_TARGET).a)
 
 $(foreach lib,$(SHLIBS),$(eval $(call shlib-template,$(lib))))
 shlibs: build-libs $(foreach lib,$(SHLIBS),$(objdir)/$($(lib)_TARGET).so)
+
+$(foreach lib,$(BPFLIBS),$(eval $(call bpflib-template,$(lib))))
+bpflibs: $(foreach lib,$(BPFLIBS),$(objdir)/$($(lib)_TARGET).o)
 
 # Trigger the command-building rule.
 

@@ -60,6 +60,15 @@ $(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(de
 	$(CC) $(CPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS) $($(2)_NOCFLAGS),$(CFLAGS) $($(1)_CFLAGS) $($(2)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
 endef
 
+# Rule to build a BPF C source file.
+# Syntax: $(call bpf-template,primary,filename-without-dir,optional flags)
+
+define bpf-template
+$(obj-name): $(src-name) $(foreach dep,$($(1)_SRCDEPS),$(call src-name,$(1),$(dep))) $(CONFIG_H)
+	$(call describe-target,BPF-CC,$(src-name))
+	$(BPFC) $(BPFCPPFLAGS) $($(1)_CPPFLAGS) $(filter-out $($(1)_NOCFLAGS) $($(2)_NOCFLAGS),$(BPFCFLAGS) $($(1)_CFLAGS) $($(2)_CFLAGS) $(3)) $(cc-dependencies) -c -o $(obj-name) $(src-name)
+endef
+
 # Rule to build a DTrace USDT header file.
 # Syntax: $(call hdr-template,primary,filename-without-dir)
 
@@ -126,6 +135,20 @@ $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($
 	$(if $($(1)_VERSION),ln -sf $($(1)_TARGET).so.$($(1)_VERSION) $(objdir)/$($(1)_TARGET).so)
 	$(if $($(1)_SONAME),ln -sf $($(1)_TARGET).so.$($(1)_VERSION) $(objdir)/$($(1)_SONAME))
 	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/$($(1)_TARGET).so$(if $($(1)_VERSION),.$($(1)_VERSION))))
+endef
+
+# Rule to build a BPF library, and all its sources.
+# Syntax: $(call bpflib-template,primary)
+
+define bpflib-template
+$(objdir)/$($(1)_TARGET).o: $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) \
+                                  $(foreach dep,$(filter-out %.o,$($(1)_DEPS)),$(addprefix $(objdir)/,$(dep))) \
+                                  $(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))
+	$(call describe-target,BPF-LD,$($(1)_TARGET).o)
+	$(BPFLD) -o $(objdir)/$($(1)_TARGET).o -r $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source)))
+	$(foreach post,$($(1)_POST),$(call $(post),$(objdir)/build-$($(1)_TARGET).o))
+
+$(foreach file,$(filter-out $($(1)_EXPLICIT),$($(1)_SOURCES)),$(eval $(call bpf-template,$(1),$(file))))
 endef
 
 # Rule to build a binary, and all its sources.
