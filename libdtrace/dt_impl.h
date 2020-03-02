@@ -557,6 +557,7 @@ enum {
 	EDT_BPFINVAL,		/* invalid DIF program */
 	EDT_BPFSIZE,		/* invalid DIF size */
 	EDT_BPFFAULT,		/* failed to copyin DIF program */
+	EDT_BPF,		/* BPF error */
 	EDT_BADPROBE,		/* bad probe description */
 	EDT_BADPGLOB,		/* bad probe description globbing pattern */
 	EDT_NOSCOPE,		/* declaration scope stack underflow */

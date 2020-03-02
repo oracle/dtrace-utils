@@ -37,6 +37,21 @@ bpf(enum bpf_cmd cmd, union bpf_attr *attr)
 }
 
 static int
+dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
+{
+	va_list	ap, apc;
+
+	va_start(ap, fmt);
+	va_copy(apc, ap);
+	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, fmt, ap);
+	va_end(ap);
+	dt_debug_printf("bpf", fmt, apc);
+	va_end(apc);
+
+	return dt_set_errno(dtp, EDT_BPF);
+}
+
+static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	    int ksz, int vsz, int size)
 {
@@ -46,11 +61,10 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	dt_dprintf("Creating BPF map '%s' (ksz %u, vsz %u, sz %d)\n",
 		   name, ksz, vsz, size);
 	fd = bpf_create_map_name(type, name, ksz, vsz, size, 0);
-	if (fd < 0) {
-		dt_dprintf("failed to create BPF map '%s': %s\n",
-			   name, strerror(errno));
-		return -1;
-	} else
+	if (fd < 0)
+		return dt_bpf_error(dtp, "failed to create BPF map '%s': %s\n",
+				    name, strerror(errno));
+	else
 		dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
 			   name, fd, ksz, vsz, size);
 
@@ -59,14 +73,13 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	 */
 	idp = dt_dlib_get_map(dtp, name);
 	if (idp == NULL) {
-		dt_dprintf("cannot find BPF map '%s'\n", name);
 		close(fd);
-		return -1;
+		return dt_bpf_error(dtp, "cannot find BPF map '%s'\n", name);
 	}
 
 	dt_ident_set_id(idp, fd);
 
-	return fd;
+	return 0;
 }
 
 /*
@@ -117,6 +130,8 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 {
+	int	gvarc, tvarc;
+
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
 		return 0;
@@ -124,24 +139,41 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 	/* Mark global maps creation as completed. */
 	dt_gmap_done = 1;
 
-	return create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-			   sizeof(uint32_t), sizeof(uint32_t),
-			   dtp->dt_conf.numcpus) &&
-	       create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			   sizeof(uint32_t), dtp->dt_maxreclen + 4, 1) &&
-	       create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), dtp->dt_strlen, 1) &&
-	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), sizeof(uint64_t),
-			   dt_idhash_peekid(dtp->dt_globals) -
-				DIF_VAR_OTHER_UBASE) &&
-	       create_gmap(dtp, "tvars", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), sizeof(uint32_t),
-			   dt_idhash_peekid(dtp->dt_tls) -
-				DIF_VAR_OTHER_UBASE) &&
-	       create_gmap(dtp, "probes", BPF_MAP_TYPE_ARRAY,
-			   sizeof(uint32_t), sizeof(void *), probec);
+	/* Determine the number of global and TLS variables. */
+	gvarc = dt_idhash_peekid(dtp->dt_globals) - DIF_VAR_OTHER_UBASE;
+	tvarc = dt_idhash_peekid(dtp->dt_tls) - DIF_VAR_OTHER_UBASE;
+
+	/* Create global maps as long as there are no errors. */
+	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+			sizeof(uint32_t), sizeof(uint32_t),
+			dtp->dt_conf.numcpus) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
+			sizeof(uint32_t), dtp->dt_maxreclen + 4, 1) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	if (create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
+			sizeof(uint32_t), dtp->dt_strlen, 1) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	if (gvarc > 0 &&
+	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
+			sizeof(uint32_t), sizeof(uint64_t), gvarc) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	if (tvarc > 0 &&
+	    create_gmap(dtp, "tvars", BPF_MAP_TYPE_ARRAY,
+			sizeof(uint32_t), sizeof(uint64_t), tvarc) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	if (probec > 0 &&
+	    create_gmap(dtp, "probes", BPF_MAP_TYPE_ARRAY,
+			sizeof(uint32_t), sizeof(void *), probec) == -1)
+		return -1;	/* dt_errno is set for us */
 	/* FIXME: Need to put in the actual struct ref for probe info. */
+
+	return 0;
 }
 
 /*
@@ -255,10 +287,10 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		const dtrace_probedesc_t	*pdp = prp->desc;
 		char				*p, *q;
 
-		rc = -errno;
-		fprintf(stderr,
+		rc = dt_bpf_error(dtp,
 			"BPF program load for '%s:%s:%s:%s' failed: %s\n",
-			pdp->prv, pdp->mod, pdp->fun, pdp->prb, strerror(-rc));
+			pdp->prv, pdp->mod, pdp->fun, pdp->prb,
+			strerror(errno));
 
 		/*
 		 * If there is BPF verifier output, print it with a "BPF: "
@@ -301,13 +333,13 @@ dt_bpf_attach(dtrace_hdl_t *dtp, dt_probe_t *prp, int bpf_fd)
 
 		fd = perf_event_open(&attr, -1, 0, -1, 0);
 		if (fd < 0)
-			return -errno;
+			return dt_set_errno(dtp, errno);
 
 		prp->event_fd = fd;
 	}
 
 	if (ioctl(prp->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
-		return -errno;
+		return dt_set_errno(dtp, errno);
 
 	return 0;
 }
@@ -326,7 +358,7 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	memset(&pip, 0, sizeof(pip));
 	prp = dt_probe_info(dtp, pdp, &pip);
 	if (!prp)
-		return -ESRCH;
+		return dt_set_errno(dtp, ESRCH);
 
 	/*
 	 * In the new implementation, every statement has a single action,

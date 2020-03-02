@@ -144,9 +144,11 @@ dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	 * Create the global BPF maps.  This is done only once regardless of
 	 * how many programs there are.
 	 */
-	dt_bpf_gmap_create(dtp, 1);
-	n = dt_bpf_prog(dtp, pgp);
+	err = dt_bpf_gmap_create(dtp, 1);
+	if (err)
+		return err; /* dt_errno is set for us */
 
+	n = dt_bpf_prog(dtp, pgp);
 	switch (n) {
 	case -EINVAL:
 		err = EDT_BPFINVAL;

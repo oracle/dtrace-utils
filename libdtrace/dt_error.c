@@ -44,6 +44,7 @@ static const struct {
 	{ EDT_BPFINVAL,	"BPF program content is invalid" },
 	{ EDT_BPFSIZE,	"BPF program exceeds maximum program size" },
 	{ EDT_BPFFAULT,	"BPF program contains invalid pointer" },
+	{ EDT_BPF,	"BPF error" },
 	{ EDT_BADPROBE,	"Invalid probe specification" },
 	{ EDT_BADPGLOB, "Probe description has too many globbing characters" },
 	{ EDT_NOSCOPE,	"Declaration scope stack underflow" },
@@ -104,6 +105,8 @@ dtrace_errmsg(dtrace_hdl_t *dtp, int error)
 	int i;
 
 	if (error == EDT_COMPILER && dtp != NULL && dtp->dt_errmsg[0] != '\0')
+		str = dtp->dt_errmsg;
+	else if (error == EDT_BPF && dtp != NULL && dtp->dt_errmsg[0] != '\0')
 		str = dtp->dt_errmsg;
 	else if (error == EDT_CTF && dtp != NULL && dtp->dt_ctferr != 0)
 		str = ctf_errmsg(dtp->dt_ctferr);
