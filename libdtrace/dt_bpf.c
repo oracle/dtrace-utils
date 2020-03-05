@@ -23,13 +23,15 @@ static bool dt_gmap_done = 0;
 
 #define BPF_CG_LICENSE	"GPL";
 
-static inline int perf_event_open(struct perf_event_attr *attr, pid_t pid,
-				  int cpu, int group_fd, unsigned long flags)
+int
+perf_event_open(struct perf_event_attr *attr, pid_t pid,
+		    int cpu, int group_fd, unsigned long flags)
 {
 	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
-static inline int bpf(enum bpf_cmd cmd, union bpf_attr *attr)
+int
+bpf(enum bpf_cmd cmd, union bpf_attr *attr)
 {
 	return syscall(__NR_bpf, cmd, attr, sizeof(union bpf_attr));
 }
@@ -79,6 +81,9 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *		can use it without interference from other CPUs.  The size of
  *		the value (a byte array) is the maximum trace buffer record
  *		size that any of the compiled programs can emit.
+ *		We add 4 bytes to the size to account for the 4-byte padding we
+ *		need to add at the beginning of the data to ensure proper
+ *		trace data alignment.
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
@@ -123,7 +128,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 			   sizeof(uint32_t), sizeof(uint32_t),
 			   dtp->dt_conf.numcpus) &&
 	       create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			   sizeof(uint32_t), dtp->dt_maxreclen, 1) &&
+			   sizeof(uint32_t), dtp->dt_maxreclen + 4, 1) &&
 	       create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
 			   sizeof(uint32_t), dtp->dt_strlen, 1) &&
 	       create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,

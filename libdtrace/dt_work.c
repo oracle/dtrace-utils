@@ -6,12 +6,14 @@
  */
 
 #include <dt_impl.h>
+#include <dt_peb.h>
 #include <stddef.h>
 #include <errno.h>
 #include <assert.h>
 #include <time.h>
 #include <libproc.h>
 #include <port.h>
+#include <sys/epoll.h>
 
 static const struct {
 	int dtslt_option;
@@ -160,8 +162,9 @@ dtrace_status(dtrace_hdl_t *dtp)
 int
 dtrace_go(dtrace_hdl_t *dtp)
 {
-	void *dof;
-	int err;
+	void	*dof;
+	size_t	size;
+	int	err;
 
 	if (dtp->dt_active)
 		return (dt_set_errno(dtp, EINVAL));
@@ -178,6 +181,7 @@ dtrace_go(dtrace_hdl_t *dtp)
 	    dtp->dt_errno != ENOTTY || dtp->dt_vector == NULL))
 		return (-1); /* dt_errno has been set for us */
 
+#if 0
 	if ((dof = dtrace_getopt_dof(dtp)) == NULL)
 		return (-1); /* dt_errno has been set for us */
 
@@ -186,7 +190,19 @@ dtrace_go(dtrace_hdl_t *dtp)
 
 	if (err == -1 && (errno != ENOTTY || dtp->dt_vector == NULL))
 		return (dt_set_errno(dtp, errno));
+#endif
 
+	/*
+	 * Set up the event polling file descriptor.
+	 */
+	dtp->dt_poll_fd = epoll_create1(EPOLL_CLOEXEC);
+	if (dtp->dt_poll_fd < 0)
+		return dt_set_errno(dtp, errno);
+
+	dtrace_getopt(dtp, "bufsize", &size);
+	dt_pebs_init(dtp, size);
+
+#if 0
 	if (dt_ioctl(dtp, DTRACEIOC_GO, &dtp->dt_beganon) == -1) {
 		if (errno == EACCES)
 			return (dt_set_errno(dtp, EDT_DESTRUCTIVE));
@@ -205,13 +221,18 @@ dtrace_go(dtrace_hdl_t *dtp)
 
 		return (dt_set_errno(dtp, errno));
 	}
+#endif
 
 	dtp->dt_active = 1;
 
+#if 0
 	if (dt_options_load(dtp) == -1)
 		return (dt_set_errno(dtp, errno));
 
 	return (dt_aggregate_go(dtp));
+#else
+	return 0;
+#endif
 }
 
 int
@@ -240,7 +261,7 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	return (0);
 }
 
-
+#if 0
 dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_consume_probe_f *pfunc, dtrace_consume_rec_f *rfunc, void *arg)
@@ -284,11 +305,28 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 		return (rval);
 	}
 
+#if 0
 	if (dtrace_aggregate_snap(dtp) == -1)
 		return (DTRACE_WORKSTATUS_ERROR);
+#endif
 
 	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) == -1)
 		return (DTRACE_WORKSTATUS_ERROR);
 
 	return (rval);
 }
+#else
+dtrace_workstatus_t
+dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
+	    dtrace_consume_rec_f *rfunc, void *arg)
+{
+	dtrace_workstatus_t	rval;
+
+	rval = DTRACE_WORKSTATUS_OKAY;
+
+	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) == -1)
+		return DTRACE_WORKSTATUS_ERROR;
+
+	return rval;
+}
+#endif

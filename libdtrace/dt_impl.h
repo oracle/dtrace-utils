@@ -65,6 +65,7 @@ struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
 struct dt_provider;		/* see <dt_provider.h> */
 struct dt_probe;		/* see <dt_probe.h> */
+struct dt_pebset;		/* see <dt_peb.h> */
 struct dt_xlator;		/* see <dt_xlator.h> */
 
 typedef struct dt_intrinsic {
@@ -296,7 +297,7 @@ struct dtrace_hdl {
 	int dt_maxformat;	/* max format ID */
 	void **dt_formats;	/* pointer to format array */
 	dt_aggregate_t dt_aggregate; /* aggregate */
-	dtrace_bufdesc_t dt_buf; /* staging buffer */
+	struct dt_pebset *dt_pebset; /* perf event buffers set */
 	struct dt_pfdict *dt_pfdict; /* dictionary of printf conversions */
 	dt_version_t dt_vmax;	/* optional ceiling on program API binding */
 	dtrace_attribute_t dt_amin; /* optional floor on program attributes */
@@ -335,6 +336,7 @@ struct dtrace_hdl {
 	int dt_cdefs_fd;	/* file descriptor for C CTF debugging cache */
 	int dt_ddefs_fd;	/* file descriptor for D CTF debugging cache */
 	int dt_stdout_fd;	/* file descriptor for saved stdout */
+	int dt_poll_fd;		/* file descriptor for event polling */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */
 	dtrace_prog_t *dt_errprog; /* error handler program, if any */

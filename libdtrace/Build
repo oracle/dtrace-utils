@@ -20,7 +20,7 @@ libdtrace-build_SOURCES = dt_lex.c dt_aggregate.c dt_as.c dt_bpf.c \
 			  dt_pid.c dt_pragma.c dt_printf.c dt_probe.c \
 			  dt_proc.c dt_program.c dt_provider.c dt_regset.c \
 			  dt_string.c dt_strtab.c dt_subr.c dt_symtab.c \
-			  dt_work.c dt_xlator.c dt_prov_dtrace.c \
+			  dt_work.c dt_xlator.c dt_peb.c dt_prov_dtrace.c \
 			  dt_prov_fbt.c dt_prov_sdt.c dt_prov_syscall.c
 
 libdtrace-build_SRCDEPS := dt_grammar.h $(objdir)/dt_git_version.h
@@ -41,8 +41,9 @@ libdtrace_LIBSOURCES := libdtrace-build libproc libport
 libdtrace_SECONDARY := libproc libport libbpf
 
 # Disable C99 variadic macro warnings for this file
-dt_proc.c_CFLAGS := -Wno-pedantic
+dt_consume.c_CFLAGS := -Wno-pedantic
 dt_dis.c_CFLAGS := -Wno-pedantic
+dt_proc.c_CFLAGS := -Wno-pedantic
 
 # Extra include path for this file
 dt_bpf.c_CFLAGS := -Ilibbpf

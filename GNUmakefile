@@ -37,7 +37,7 @@ PREPROCESS = $(CC) -E
 export BPFC = bpf-unknown-none-gcc
 
 BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
-BPFCFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
+BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas
 export BPFLD = bpf-unknown-none-ld
 
 # The first non-system uid on this system.

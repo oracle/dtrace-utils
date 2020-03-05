@@ -1506,9 +1506,6 @@ main(int argc, char *argv[])
 	g_pslive = g_psc; /* count for prochandler() */
 
 	do {
-		if (!g_intr && !done)
-			dtrace_sleep(g_dtp);
-
 		if ((g_newline) && (!g_testing)) {
 			/*
 			 * Output a newline just to make the output look

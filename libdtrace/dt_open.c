@@ -36,6 +36,7 @@
 #include <dt_string.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
+#include <dt_peb.h>
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -714,6 +715,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_cdefs_fd = -1;
 	dtp->dt_ddefs_fd = -1;
 	dtp->dt_stdout_fd = -1;
+	dtp->dt_poll_fd = -1;
 	dtp->dt_modbuckets = _dtrace_strbuckets;
 	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof (dt_module_t *));
 	dtp->dt_kernpathbuckets = _dtrace_strbuckets;
@@ -1189,22 +1191,24 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_pcap_destroy(dtp);
 
 	if (dtp->dt_fd != -1)
-		(void) close(dtp->dt_fd);
+		close(dtp->dt_fd);
 	if (dtp->dt_ftfd != -1)
-		(void) close(dtp->dt_ftfd);
+		close(dtp->dt_ftfd);
 	if (dtp->dt_cdefs_fd != -1)
-		(void) close(dtp->dt_cdefs_fd);
+		close(dtp->dt_cdefs_fd);
 	if (dtp->dt_ddefs_fd != -1)
-		(void) close(dtp->dt_ddefs_fd);
+		close(dtp->dt_ddefs_fd);
 	if (dtp->dt_stdout_fd != -1)
-		(void) close(dtp->dt_stdout_fd);
+		close(dtp->dt_stdout_fd);
+	if (dtp->dt_poll_fd != -1)
+		close(dtp->dt_poll_fd);
 
 	dt_epid_destroy(dtp);
 	dt_aggid_destroy(dtp);
 	dt_format_destroy(dtp);
 	dt_buffered_destroy(dtp);
 	dt_aggregate_destroy(dtp);
-	free(dtp->dt_buf.dtbd_data);
+	dt_pebs_exit(dtp);
 	dt_pfdict_destroy(dtp);
 	dt_dof_fini(dtp);
 

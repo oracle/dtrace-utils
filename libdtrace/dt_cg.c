@@ -32,6 +32,18 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *	5. Retrieve the output data buffer and store the base pointer in %r9
  *	6. Store the epid and 4 padding byes at the beginning of the output
  *	   buffer
+ *
+ * Due to the fact that raw perf samples are stored as a header (multiple of 8
+ * bytes) followed by a 4-byte size, we need to ensure that our trace data is
+ * preceded by a 4-byte padding.  That will place the EPID (4 bytes) at a
+ * 64-bit boundary, and given that it is followed by a 4-byte tag, all further
+ * trace data will also start at a 64-bit boundary.
+ *
+ * To accomplish all this, we store a 4-byte value at the beginning of our
+ * output data buffer, and then store the next address location in %r9.
+ *
+ * In the epilogue, we then need to submit (%r9 - 4) as source address of our
+ * data buffer.
  */
 static void
 dt_cg_prologue(dt_pcb_t *pcb)
@@ -67,13 +79,15 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *		stdw [%fp+-32], 0
+	 *		stdw [%fp+DT_STK_SPILL(1)], 0
 	 *		lddw %r1, &mem
 	 *		mov %r2, %fp
-	 *		add %r2, -32
+	 *		add %r2, DT_STK_SPILL(1)
 	 *		call bpf_map_lookup_elem
 	 *		je %r0, 0, lbl_exit
 	 *		mov %r9, %r0
+	 *		stw [%r9+0], 0
+	 *		add %r9, 4
 	 */
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -87,6 +101,10 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_REG(BPF_REG_9, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_9, 4);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
@@ -143,6 +161,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 *		lddw %r2, &buffers
 	 *		ldw %r3, [%fp + DT_STK_CPU]
 	 *		mov %r4, %r9
+	 *		add %r4, -4
 	 *		mov %r5, pcb->pcb_bufoff
 	 *		call bpf_perf_event_output
 	 *		mov %r0, 0
@@ -153,6 +172,8 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	instr = BPF_LOAD(BPF_W, BPF_REG_3, BPF_REG_FP, DT_STK_CPU);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_REG(BPF_REG_4, BPF_REG_9);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -4);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

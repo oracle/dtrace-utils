@@ -15,8 +15,12 @@
 #include <alloca.h>
 #include <dt_impl.h>
 #include <dt_pcap.h>
+#include <dt_peb.h>
 #include <libproc.h>
 #include <port.h>
+#include <sys/epoll.h>
+#include <linux/perf_event.h>
+#include <linux/ring_buffer.h>
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
@@ -1842,7 +1846,8 @@ dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	return (rval);
 }
 
-static int
+#if 0
+int
 dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
     dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
 {
@@ -2268,6 +2273,152 @@ nextepid:
 
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
+#else
+int
+dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
+	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
+	       void *arg)
+{
+	char				*data = buf;
+	struct perf_event_header	*hdr;
+	int				rval;
+
+	hdr = (struct perf_event_header *)data;
+	data += sizeof(struct perf_event_header);
+
+	if (hdr->type == PERF_RECORD_SAMPLE) {
+		char			*ptr = data;
+		uint32_t		size, epid, tag;
+		dtrace_probedata_t	pdat;
+
+		/*
+		 * struct {
+		 *	struct perf_event_header	header;
+		 *	uint32_t			size;
+		 *	uint32_t			pad;
+		 *	uint32_t			epid;
+		 *	uint32_t			tag;
+		 *	uint64_t			data[n];
+		 * }
+		 * and data points to the 'size' member at this point.
+		 * (Note that 'n' may be 0.)
+		 */
+		if (ptr > buf + hdr->size)
+			return -1;
+
+		size = *(uint32_t *)data;
+		data += sizeof(size);
+		ptr += sizeof(size) + size;
+		if (ptr != buf + hdr->size)
+			return -1;
+
+		data += sizeof(uint32_t);		/* skip padding */
+		size -= sizeof(uint32_t);
+
+		epid = *(uint32_t *)data;
+		data += sizeof(uint32_t);
+		size -= sizeof(uint32_t);
+
+		tag = *(uint32_t *)data;
+		data += sizeof(uint32_t);
+		size -= sizeof(uint32_t);
+
+		memset(&pdat, 0, sizeof(pdat));
+		pdat.dtpda_handle = dtp;
+		pdat.dtpda_cpu = cpu;
+		rval = dt_epid_lookup(dtp, epid, &pdat.dtpda_edesc,
+						 &pdat.dtpda_pdesc);
+		if (rval != 0)
+			return (rval);
+
+		rval = (*efunc)(&pdat, arg);
+
+		/*
+		 * Call the record callback with a NULL record to indicate
+		 * that we're done processing this EPID.
+		 */
+		rval = (*rfunc)(&pdat, NULL, arg);
+	} else if (hdr->type == PERF_RECORD_LOST) {
+		uint64_t	lost;
+
+		/*
+		 * struct {
+		 *	struct perf_event_header	header;
+		 *	uint64_t			id;
+		 *	uint64_t			lost;
+		 * }
+		 * and data points to the 'id' member at this point.
+		 */
+		lost = *(uint64_t *)(data + sizeof(uint64_t));
+
+	} else
+		return -1;
+}
+
+int
+dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
+	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
+	       void *arg)
+{
+	struct perf_event_mmap_page	*rb_page = (void *)peb->base;
+	struct perf_event_header	*hdr;
+	char				*base;
+	char				*event;
+	uint32_t			len;
+	uint64_t			head, tail;
+	dt_pebset_t			*pebset = dtp->dt_pebset;
+	uint64_t			data_size = pebset->data_size;
+
+	/*
+	 * Set base to be the start of the buffer data, i.e. we skip the first
+	 * page (it contains buffer management data).
+	 */
+	base = peb->base + pebset->page_size;
+
+	for (;;) {
+		head = ring_buffer_read_head(rb_page);
+		tail = rb_page->data_tail;
+
+		if (head == tail)
+			break;
+
+		do {
+			event = base + tail % data_size;
+			hdr = (struct perf_event_header *)event;
+			len = hdr->size;
+
+			/*
+			 * If the perf event data wraps around the boundary of
+			 * the buffer, we make a copy in contiguous memory.
+			 */
+			if (event + len > peb->endp) {
+				char		*dst;
+				uint32_t	num;
+
+				/* Increase the buffer as needed. */
+				if (pebset->tmp_len < len) {
+					pebset->tmp = realloc(pebset->tmp, len);
+					pebset->tmp_len = len;
+				}
+
+				dst = pebset->tmp;
+				num = peb->endp - event + 1;
+				memcpy(dst, event, num);
+				memcpy(dst + num, base, len - num);
+
+				event = dst;
+			}
+
+			dt_consume_one(dtp, fp, cpu, event, efunc, rfunc, arg);
+			tail += hdr->size;
+		} while (tail != head);
+
+		ring_buffer_write_tail(rb_page, tail);
+	}
+
+	return 0;
+}
+#endif
 
 typedef struct dt_begin {
 	dtrace_consume_probe_f *dtbgn_probefunc;
@@ -2477,6 +2628,7 @@ int
 dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
 {
+#if 0
 	dtrace_bufdesc_t *buf = &dtp->dt_buf;
 	dtrace_optval_t size;
 	static int max_ncpus;
@@ -2572,4 +2724,35 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	}
 
 	return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
+#else
+	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
+	struct epoll_event	events[dtp->dt_conf.numcpus];
+	int			i, cnt;
+
+	/*
+	 * The epoll_wait() function expects the timeout to be expressed in
+	 * milliseconds whereas the switch rate is expressed in nanoseconds.
+	 * We therefore need to convert the value.
+	 */
+	timeout /= NANOSEC / MILLISEC;
+	cnt = epoll_wait(dtp->dt_poll_fd, events, dtp->dt_conf.numcpus,
+			 timeout);
+	if (cnt < 0)
+		return dt_set_errno(dtp, errno);
+
+	/*
+	 * Loop over the buffers that have data available, and process them one
+	 * by one.
+	 */
+	for (i = 0; i < cnt; i++) {
+		dt_peb_t	*peb = events[i].data.ptr;
+		int		rval;
+
+		rval = dt_consume_cpu(dtp, fp, peb->cpu, peb, pf, rf, arg);
+		if (rval != 0)
+			return rval;
+	}
+
+	return 0;
+#endif
 }
