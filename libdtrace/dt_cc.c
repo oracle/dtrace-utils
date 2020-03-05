@@ -282,8 +282,7 @@ dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 	if (dp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-	dp->dtdo_buf = dt_alloc(dtp, sizeof (dif_instr_t) * 2);
-
+	dp->dtdo_buf = dt_calloc(dtp, 2, sizeof(dif_instr_t));
 	if (dp->dtdo_buf == NULL) {
 		dt_difo_free(dtp, dp);
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);

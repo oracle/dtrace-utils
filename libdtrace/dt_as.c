@@ -146,8 +146,8 @@ dt_as_xlate(dt_pcb_t *pcb, dtrace_difo_t *dp,
 
 	if (pcb->pcb_asxrefs == NULL) {
 		pcb->pcb_asxreflen = dtp->dt_xlatorid;
-		pcb->pcb_asxrefs =
-		    dt_zalloc(dtp, sizeof (ulong_t *) * pcb->pcb_asxreflen);
+		pcb->pcb_asxrefs = dt_calloc(dtp, pcb->pcb_asxreflen,
+						  sizeof(ulong_t *));
 		if (pcb->pcb_asxrefs == NULL)
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 	}
@@ -241,12 +241,12 @@ dt_as(dt_pcb_t *pcb)
 	if ((dp = pcb->pcb_difo) == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-	dp->dtdo_buf = dt_alloc(dtp, sizeof (struct bpf_insn) * dlp->dl_len);
-
+	dp->dtdo_buf = dt_calloc(dtp, dlp->dl_len, sizeof(struct bpf_insn));
 	if (dp->dtdo_buf == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
-	if ((labels = dt_alloc(dtp, sizeof (uint_t) * dlp->dl_label)) == NULL)
+	labels = dt_calloc(dtp, dlp->dl_label, sizeof(uint_t));
+	if (labels == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 	/*
@@ -365,7 +365,7 @@ fail:
 	dt_idhash_iter(pcb->pcb_locals, dt_countvar, &n);
 
 	if (n != 0) {
-		dp->dtdo_vartab = dt_alloc(dtp, n * sizeof (dtrace_difv_t));
+		dp->dtdo_vartab = dt_calloc(dtp, n, sizeof(dtrace_difv_t));
 		dp->dtdo_varlen = (uint32_t)n;
 
 		if (dp->dtdo_vartab == NULL)
@@ -381,8 +381,7 @@ fail:
 	 * entries based upon our kernel and user counts from the first pass.
 	 */
 	if (brel != 0) {
-		dp->dtdo_breltab = dt_alloc(dtp,
-					    brel * sizeof (dof_relodesc_t));
+		dp->dtdo_breltab = dt_calloc(dtp, brel, sizeof(dof_relodesc_t));
 		dp->dtdo_brelen = brel;
 
 		if (dp->dtdo_breltab == NULL)
@@ -390,8 +389,7 @@ fail:
 	}
 
 	if (krel != 0) {
-		dp->dtdo_kreltab = dt_alloc(dtp,
-					    krel * sizeof (dof_relodesc_t));
+		dp->dtdo_kreltab = dt_calloc(dtp, krel, sizeof(dof_relodesc_t));
 		dp->dtdo_krelen = krel;
 
 		if (dp->dtdo_kreltab == NULL)
@@ -399,8 +397,7 @@ fail:
 	}
 
 	if (urel != 0) {
-		dp->dtdo_ureltab = dt_alloc(dtp,
-					    urel * sizeof (dof_relodesc_t));
+		dp->dtdo_ureltab = dt_calloc(dtp, urel, sizeof(dof_relodesc_t));
 		dp->dtdo_urelen = urel;
 
 		if (dp->dtdo_ureltab == NULL)
@@ -408,7 +405,7 @@ fail:
 	}
 
 	if (xlrefs != 0) {
-		dp->dtdo_xlmtab = dt_zalloc(dtp, sizeof (dt_node_t *) * xlrefs);
+		dp->dtdo_xlmtab = dt_calloc(dtp, xlrefs, sizeof(dt_node_t *));
 		dp->dtdo_xlmlen = xlrefs;
 
 		if (dp->dtdo_xlmtab == NULL)

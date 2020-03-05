@@ -85,8 +85,8 @@ dt_dof_reset(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
 	dt_free(dtp, ddo->ddo_xlimport);
 	dt_free(dtp, ddo->ddo_xlexport);
 
-	ddo->ddo_xlimport = dt_alloc(dtp, sizeof (dof_secidx_t) * nx);
-	ddo->ddo_xlexport = dt_alloc(dtp, sizeof (dof_secidx_t) * nx);
+	ddo->ddo_xlimport = dt_calloc(dtp, nx, sizeof(dof_secidx_t));
+	ddo->ddo_xlexport = dt_calloc(dtp, nx, sizeof(dof_secidx_t));
 
 	if (nx != 0 && (ddo->ddo_xlimport == NULL || ddo->ddo_xlexport == NULL))
 		return (-1); /* errno is set for us */

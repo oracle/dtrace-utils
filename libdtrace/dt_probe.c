@@ -182,13 +182,13 @@ dt_probe_alloc_args(dt_probe_t *prp, int nargc, int xargc)
 	int		i;
 
 	prp->nargs = alloc_arg_nodes(dtp, prp->prov, nargc);
-	prp->nargv = dt_alloc(dtp, sizeof(dt_node_t *) * nargc);
+	prp->nargv = dt_calloc(dtp, nargc, sizeof(dt_node_t *));
 	prp->nargc = nargc;
 	prp->xargs = alloc_arg_nodes(dtp, prp->prov, xargc);
-	prp->xargv = dt_alloc(dtp, sizeof(dt_node_t *) * xargc);
+	prp->xargv = dt_calloc(dtp, xargc, sizeof(dt_node_t *));
 	prp->xargc = xargc;
-	prp->mapping = dt_alloc(dtp, sizeof(uint8_t) * xargc);
-	prp->argv = dt_alloc(dtp, sizeof(dtrace_typeinfo_t) * xargc);
+	prp->mapping = dt_calloc(dtp, xargc, sizeof(uint8_t));
+	prp->argv = dt_calloc(dtp, xargc, sizeof(dtrace_typeinfo_t));
 	prp->argc = xargc;
 
 	for (i = 0, xargs = prp->xargs;
@@ -425,14 +425,14 @@ dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
 	prp->pr_name = p + 1;
 
 	prp->nargs = nargs;
-	prp->nargv = dt_alloc(dtp, sizeof (dt_node_t *) * nargc);
+	prp->nargv = dt_calloc(dtp, nargc, sizeof(dt_node_t *));
 	prp->nargc = nargc;
 	prp->xargs = xargs;
-	prp->xargv = dt_alloc(dtp, sizeof (dt_node_t *) * xargc);
+	prp->xargv = dt_calloc(dtp, xargc, sizeof(dt_node_t *));
 	prp->xargc = xargc;
-	prp->mapping = dt_alloc(dtp, sizeof (uint8_t) * xargc);
+	prp->mapping = dt_calloc(dtp, xargc, sizeof(uint8_t));
 	prp->pr_inst = NULL;
-	prp->argv = dt_alloc(dtp, sizeof (dtrace_typeinfo_t) * xargc);
+	prp->argv = dt_calloc(dtp, xargc, sizeof(dtrace_typeinfo_t));
 	prp->argc = xargc;
 
 	if ((prp->nargc != 0 && prp->nargv == NULL) ||
@@ -578,7 +578,7 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp, const char *fname,
 
 	if (*noffs == *maxoffs) {
 		uint_t new_max = *maxoffs * 2;
-		uint32_t *new_offs = dt_alloc(dtp, sizeof (uint32_t) * new_max);
+		uint32_t *new_offs = dt_calloc(dtp, new_max, sizeof(uint32_t));
 
 		if (new_offs == NULL)
 			return (-1);
@@ -661,7 +661,7 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 			return NULL;
 		}
 
-		nprobes = dt_zalloc(dtp, nprobes_sz * sizeof(dt_probe_t *));
+		nprobes = dt_calloc(dtp, nprobes_sz, sizeof(dt_probe_t *));
 		if (nprobes == NULL)
 			return NULL;
 

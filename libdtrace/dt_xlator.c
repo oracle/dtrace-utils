@@ -89,7 +89,8 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	dxp->dx_gen = dtp->dt_gen;
 	dxp->dx_arg = -1;
 
-	if ((map = dt_alloc(dtp, sizeof (void *) * (dxp->dx_id + 1))) == NULL) {
+	map = dt_calloc(dtp, dxp->dx_id + 1, sizeof(void *));
+	if (map == NULL) {
 		dt_free(dtp, dxp);
 		return (NULL);
 	}
@@ -196,9 +197,8 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 		dnp->dn_membid = dxp->dx_nmembers++;
 	}
 
-	dxp->dx_membdif = dt_zalloc(dtp,
-	    sizeof (dtrace_difo_t *) * dxp->dx_nmembers);
-
+	dxp->dx_membdif = dt_calloc(dtp, dxp->dx_nmembers,
+					 sizeof(dtrace_difo_t *));
 	if (dxp->dx_membdif == NULL) {
 		dxp->dx_nmembers = 0;
 		goto err;

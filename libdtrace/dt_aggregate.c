@@ -1364,8 +1364,7 @@ dt_aggregate_walk_sorted(dtrace_hdl_t *dtp,
 	for (h = hash->dtah_all; h != NULL; h = h->dtahe_nextall)
 		nentries++;
 
-	sorted = dt_alloc(dtp, nentries * sizeof (dt_ahashent_t *));
-
+	sorted = dt_calloc(dtp, nentries, sizeof(dt_ahashent_t *));
 	if (sorted == NULL)
 		return (-1);
 
@@ -1507,10 +1506,11 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 			max = aggvars[i];
 	}
 
-	if ((map = dt_zalloc(dtp, (max + 1) * sizeof (int))) == NULL)
+	map = dt_calloc(dtp, max + 1, sizeof(int));
+	if (map == NULL)
 		return (-1);
 
-	zaggdata = dt_zalloc(dtp, naggvars * sizeof (dt_ahashent_t));
+	zaggdata = dt_calloc(dtp, naggvars, sizeof(dt_ahashent_t));
 
 	if (zaggdata == NULL)
 		goto out;
@@ -1536,7 +1536,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 			 * map from one position to another.)
 			 */
 			if (remap == NULL) {
-				remap = dt_zalloc(dtp, naggvars * sizeof (int));
+				remap = dt_calloc(dtp, naggvars, sizeof(int));
 
 				if (remap == NULL)
 					goto out;
@@ -1759,8 +1759,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 	 * allocate our sorted array, and take another pass over the data to
 	 * fill it.
 	 */
-	sorted = dt_alloc(dtp, nentries * sizeof (dt_ahashent_t *));
-
+	sorted = dt_calloc(dtp, nentries, sizeof(dt_ahashent_t *));
 	if (sorted == NULL)
 		goto out;
 

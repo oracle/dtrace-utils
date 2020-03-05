@@ -358,7 +358,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 * so modifications made through the (sorted) copy will still affect
 	 * the actual data items.
 	 */
-	funcs = dt_alloc(dtp, symc * sizeof(dt_bpf_func_t *));
+	funcs = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
 	if (funcs == NULL) {
 		fprintf(stderr, "Failed to copy symbol list\n");
 		goto out;
@@ -530,7 +530,7 @@ done:
 			continue;
 
 		stab = dt_strtab_create(BUFSIZ);
-		dp->dtdo_breltab = dt_alloc(dtp, relc * sizeof(dof_relodesc_t));
+		dp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
 		if (dp->dtdo_breltab == NULL) {
 			fprintf(stderr, "Failed to alloc BPF reloc table\n");
 			goto out;

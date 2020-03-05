@@ -660,6 +660,7 @@ _dt_printflike_(3,4)
 extern int dt_printf(dtrace_hdl_t *, FILE *, const char *, ...);
 
 extern void *dt_zalloc(dtrace_hdl_t *, size_t);
+extern void *dt_calloc(dtrace_hdl_t *, size_t, size_t);
 extern void *dt_alloc(dtrace_hdl_t *, size_t);
 extern void dt_free(dtrace_hdl_t *, void *);
 extern void dt_difo_free(dtrace_hdl_t *, dtrace_difo_t *);

@@ -694,6 +694,17 @@ dt_zalloc(dtrace_hdl_t *dtp, size_t size)
 }
 
 void *
+dt_calloc(dtrace_hdl_t *dtp, size_t cnt, size_t size)
+{
+	void *data;
+
+	if (cnt == 0 || size == 0)
+		return NULL;
+
+	return dt_zalloc(dtp, cnt * size);
+}
+
+void *
 dt_alloc(dtrace_hdl_t *dtp, size_t size)
 {
 	void *data;
