@@ -11,8 +11,10 @@
 #include <assert.h>
 
 #include <dt_impl.h>
+#include <dt_probe.h>
 #include <dt_printf.h>
 
+#if 0
 static int
 dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 {
@@ -186,6 +188,71 @@ err:
 	free(probe);
 	return (rval);
 }
+#else
+dtrace_epid_t
+dt_epid_add(dtrace_hdl_t *dtp, dtrace_id_t prid, int nrecs)
+{
+	dtrace_id_t		max;
+	dtrace_epid_t		epid;
+	dtrace_eprobedesc_t	*eprobe;
+
+	epid = dtp->dt_nextepid++;
+	max = dtp->dt_maxprobe;
+	if (epid >= max || dtp->dt_edesc == NULL) {
+		dtrace_id_t		nmax = max ? (max << 1) : 2;
+		dtrace_eprobedesc_t	**nedesc;
+		dtrace_probedesc_t	**npdesc;
+
+		nedesc = dt_calloc(dtp, nmax, sizeof(void *));
+		npdesc = dt_calloc(dtp, nmax, sizeof(void *));
+		if (nedesc == NULL || npdesc == NULL) {
+			dt_free(dtp, nedesc);
+			dt_free(dtp, npdesc);
+			return dt_set_errno(dtp, EDT_NOMEM);
+		}
+
+		if (dtp->dt_edesc != NULL) {
+			size_t	osize = max * sizeof(void *);
+
+			memcpy(nedesc, dtp->dt_edesc, osize);
+			dt_free(dtp, dtp->dt_edesc);
+			memcpy(npdesc, dtp->dt_pdesc, osize);
+			dt_free(dtp, dtp->dt_pdesc);
+		}
+
+		dtp->dt_edesc = nedesc;
+		dtp->dt_pdesc = npdesc;
+		dtp->dt_maxprobe = nmax;
+	}
+
+	if (dtp->dt_edesc[epid] != NULL)
+		return epid;
+
+	/*
+	 * This is a bit odd, but we want to make sure that nrecs is not a
+	 * negative value while also taking into consideration that there is
+	 * always rooms for one record in dtrace_eprobedesc_t, so for our
+	 * allocation purposes we account for that default record slot.
+	 */
+	assert(nrecs >= 0);
+	if (nrecs == 0)
+		nrecs = 1;
+
+	eprobe = dt_zalloc(dtp, sizeof(dtrace_eprobedesc_t) +
+				(nrecs - 1) * sizeof(dtrace_recdesc_t));
+	if (eprobe == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	eprobe->dtepd_epid = epid;
+	eprobe->dtepd_probeid = prid;
+	eprobe->dtepd_nrecs = nrecs;
+
+	dtp->dt_edesc[epid] = eprobe;
+	dtp->dt_pdesc[epid] = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
+
+	return epid;
+}
+#endif
 
 int
 dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid,
@@ -193,10 +260,12 @@ dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid,
 {
 	int rval;
 
+#if 0
 	if (epid >= dtp->dt_maxprobe || dtp->dt_pdesc[epid] == NULL) {
 		if ((rval = dt_epid_add(dtp, epid)) != 0)
 			return (rval);
 	}
+#endif
 
 	assert(epid < dtp->dt_maxprobe);
 	assert(dtp->dt_edesc[epid] != NULL);
@@ -235,6 +304,7 @@ dt_epid_destroy(dtrace_hdl_t *dtp)
 
 	free(dtp->dt_edesc);
 	dtp->dt_edesc = NULL;
+	dtp->dt_nextepid = 0;
 	dtp->dt_maxprobe = 0;
 }
 
@@ -351,6 +421,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 			agg->dtagd_varid = DTRACE_AGGVARIDNONE;
 		}
 
+#if 0
 		if ((epid = agg->dtagd_epid) >= dtp->dt_maxprobe ||
 		    dtp->dt_pdesc[epid] == NULL) {
 			if ((rval = dt_epid_add(dtp, epid)) != 0) {
@@ -358,6 +429,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 				return (rval);
 			}
 		}
+#endif
 
 		dtp->dt_aggdesc[id] = agg;
 	}

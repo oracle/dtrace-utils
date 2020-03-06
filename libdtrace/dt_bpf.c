@@ -14,6 +14,7 @@
 #include <dtrace.h>
 #include <dt_impl.h>
 #include <dt_probe.h>
+#include <dt_bpf.h>
 #include <port.h>
 
 #include <bpf.h>
@@ -159,7 +160,7 @@ int dt_bpf_map_update(int fd, const void *key, const void *val)
  */
 static void
 dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		  const dtrace_difo_t *dp)
+		  const dtrace_difo_t *dp, dtrace_epid_t epid)
 {
 	int			len = dp->dtdo_brelen;
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
@@ -170,12 +171,37 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		struct bpf_insn	*text = dp->dtdo_buf;
 		int		ioff = rp->dofr_offset /
 					sizeof(struct bpf_insn);
+		uint32_t	val = 0;
+
+		switch (idp->di_kind) {
+		case DT_IDENT_FUNC:
+			continue;
+		case DT_IDENT_PTR:
+			if (rp->dofr_type == R_BPF_64_64)
+				text[ioff].src_reg = BPF_PSEUDO_MAP_FD;
+
+			val = idp->di_id;
+			break;
+		case DT_IDENT_SCALAR:
+			switch (idp->di_id) {
+			case DT_CONST_EPID:
+				val = epid;
+				break;
+			case DT_CONST_ARGC:
+				val = 0;	/* FIXME */
+				break;
+			}
+
+			break;
+		case DT_IDENT_SYMBOL:
+			continue;
+		}
 
 		if (rp->dofr_type == R_BPF_64_64) {
-			text[ioff].src_reg = BPF_PSEUDO_MAP_FD;
-			text[ioff].imm = idp->di_id;
+			text[ioff].imm = val;
 			text[ioff + 1].imm = 0;
-		}
+		} else if (rp->dofr_type == R_BPF_64_32)
+			text[ioff].imm = val;
 	}
 }
 
@@ -189,9 +215,12 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		 const dtrace_difo_t *dp)
 {
 	struct bpf_load_program_attr	attr;
+	dtrace_epid_t			epid;
 	int				logsz = BPF_LOG_BUF_SIZE;
 	char				*log;
 	int				rc;
+
+	epid = dt_epid_add(dtp, prp->desc->id, 0);
 
 	/*
 	 * Check whether there are any probe-specific relocations to be
@@ -202,7 +231,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	 * earlier time so we can ignore those.
 	 */
 	if (dp->dtdo_brelen)
-		dt_bpf_reloc_prog(dtp, prp, dp);
+		dt_bpf_reloc_prog(dtp, prp, dp, epid);
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
 

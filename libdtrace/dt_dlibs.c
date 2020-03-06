@@ -14,6 +14,7 @@
 #include <dt_program.h>
 #include <dt_grammar.h>
 #include <dt_impl.h>
+#include <dt_bpf.h>
 
 #define DT_DLIB_D	0
 #define DT_DLIB_BPF	1
@@ -40,7 +41,10 @@ struct dt_bpf_func {
 static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 #define DT_BPF_SYMBOL(name, type) \
-	{ __stringify(name), type, DT_IDFLG_BPF, DT_IDENT_UNDEF, \
+	{ __stringify(name), (type), DT_IDFLG_BPF, DT_IDENT_UNDEF, \
+		DT_ATTR_STABCMN, DT_VERS_2_0, }
+#define DT_BPF_SYMBOL_ID(name, type, id) \
+	{ __stringify(name), (type), DT_IDFLG_BPF, (id), \
 		DT_ATTR_STABCMN, DT_VERS_2_0, }
 static const dt_ident_t	dt_bpf_symbols[] = {
 	/* BPF built-in functions */
@@ -62,12 +66,13 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(probes, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
 	/* BPF internal identifiers */
-	DT_BPF_SYMBOL(EPID, DT_IDENT_SCALAR),
-	DT_BPF_SYMBOL(ARGC, DT_IDENT_SCALAR),
+	DT_BPF_SYMBOL_ID(EPID, DT_IDENT_SCALAR, DT_CONST_EPID),
+	DT_BPF_SYMBOL_ID(ARGC, DT_IDENT_SCALAR, DT_CONST_ARGC),
 	/* End-of-list marker */
 	{ NULL, }
 };
 #undef DT_BPF_SYMBOL
+#undef DT_BPF_SYMBOL_ID
 
 /*
  * Perform initialization for the BPF function library handling.

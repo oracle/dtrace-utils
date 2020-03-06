@@ -287,6 +287,7 @@ struct dtrace_hdl {
 	ctf_id_t dt_type_stack;	/* cached CTF identifier for stack type */
 	ctf_id_t dt_type_symaddr; /* cached CTF identifier for _symaddr type */
 	ctf_id_t dt_type_usymaddr; /* cached CTF ident. for _usymaddr type */
+	dtrace_epid_t dt_nextepid; /* next enabled probe ID to assign */
 	size_t dt_maxprobe;	/* max enabled probe ID */
 	dtrace_eprobedesc_t **dt_edesc; /* enabled probe descriptions */
 	dtrace_probedesc_t **dt_pdesc; /* probe descriptions for enabled prbs */
@@ -708,6 +709,7 @@ extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);
 
+extern dtrace_epid_t dt_epid_add(dtrace_hdl_t *, dtrace_id_t, int);
 extern int dt_epid_lookup(dtrace_hdl_t *, dtrace_epid_t,
     dtrace_eprobedesc_t **, dtrace_probedesc_t **);
 extern void dt_epid_destroy(dtrace_hdl_t *);
