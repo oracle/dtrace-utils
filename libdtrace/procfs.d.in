@@ -314,6 +314,7 @@ inline int CLD_CONTINUED = 6;
  * a struct pid * to a pid_t.  structpid2pid is a DTrace-ized version of
  * pid_vnr().
  */
+ /*
 inline	struct pid_namespace *pid_namespace[struct pid *p] = p != NULL ?
 	p->numbers[p->level].ns : NULL;
 
@@ -335,3 +336,4 @@ inline	pid_t structpid2pid[struct pid *p] =
 	((struct upid *)&(p->numbers[current_namespace_level]))->ns ==
 	pid_namespace[task_pid[curthread]] ?
 	((struct upid *)&(p->numbers[current_namespace_level]))->nr : 0;
+*/
