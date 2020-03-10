@@ -2282,6 +2282,10 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	char				*data = buf;
 	struct perf_event_header	*hdr;
 	int				rval;
+	int				flow, quiet;
+
+	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
+	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
 
 	hdr = (struct perf_event_header *)data;
 	data += sizeof(struct perf_event_header);
@@ -2289,6 +2293,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	if (hdr->type == PERF_RECORD_SAMPLE) {
 		char			*ptr = data;
 		uint32_t		size, epid, tag;
+		int			i, nrecs;
 		dtrace_probedata_t	pdat;
 
 		/*
@@ -2331,7 +2336,44 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		if (rval != 0)
 			return (rval);
 
+#if 0
+		if (flow)
+			dt_flowindent(dtp, &pdat, last, data, 0); /* FIXME */
+#endif
+
 		rval = (*efunc)(&pdat, arg);
+
+#if 0
+		if (flow) {
+			if (pdat.dtpda_flow == DTRACEFLOW_ENTRY)
+				pdat.dtpda_indent += 2;
+		}
+#endif
+
+		if (rval == DTRACE_CONSUME_NEXT)
+			return 0;
+
+		if (rval == DTRACE_CONSUME_ABORT)
+			return dt_set_errno(dtp, EDT_DIRABORT);
+
+		if (rval != DTRACE_CONSUME_THIS)
+			return dt_set_errno(dtp, EDT_BADRVAL);
+
+		/*
+		 * FIXME: This code is temporary.
+		 */
+		nrecs = size / sizeof(uint64_t);
+		for (i = 0; i < nrecs; i++) {
+			int	n;
+
+			n = dt_printf(dtp, fp, quiet ? "%lld" : " %16lld",
+				      *(uint64_t *)data);
+			data += sizeof(uint64_t);
+			size -= sizeof(uint64_t);
+
+			if (n < 0)
+				return -1;
+		}
 
 		/*
 		 * Call the record callback with a NULL record to indicate
