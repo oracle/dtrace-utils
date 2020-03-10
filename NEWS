@@ -1,4 +1,4 @@
-2.0.0 (Jan 28th, 2020)
+2.0.0 (Mar 10th, 2020)
 ----------------------
 
 First release of the standalone userspace implementation.
@@ -16,7 +16,10 @@ Working components:
 
  - Support for pre-compiled BPF function libraries has been added.  This is
    used to implement various D language constructs (global and TLS variable
-   access, string manipulation, ...) and D subroutines.
+   access, string manipulation, ...) and D subroutines.  This feature makes
+   use of the BPF support in GCC and binutils as cross compilation tools.
+   The BPF functions are compiled at DTrace build time, so there is no
+   runtime dependency on the cross compilation tools.
 
  - Support has been added for reporting BPF verifier output.  When compiled
    D scripts are loaded as BPF program into the kernel, the BPF verifier
@@ -34,7 +37,8 @@ Working components:
  - Statically Defined Tracing (SDT) probes based on Linux tracepoints, with
    support for typed probe arguments.
 
- - Listing of available probes based on globbing-enabled probe specifications.
+ - The trace data buffer management code has been reworked to work with the
+   perf event ring buffers that sre used by BPF to record tracing data.
 
  - The DTrace testsuite has been updated to reflect what tests are expected to
    pass with the current state of development for DTrace v2.  Various tests
