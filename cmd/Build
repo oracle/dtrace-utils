@@ -22,6 +22,7 @@ ctf_module_dump_TARGET = ctf_module_dump
 ctf_module_dump_DIR := $(current-dir)
 ctf_module_dump_SOURCES = ctf_module_dump.c
 ctf_module_dump_DEPS = libdtrace.so libport.a
+ctf_module_dump_SRCDEPS := $(objdir)/dt_git_version.h
 ifdef HAVE_LIBCTF
 ctf_module_dump_LIBS = -ldtrace -lctf -lelf
 else
