@@ -2,6 +2,8 @@
 #ifndef _TOOLS_LINUX_ASM_AARCH64_BARRIER_H
 #define _TOOLS_LINUX_ASM_AARCH64_BARRIER_H
 
+#include <stdint.h>
+
 /*
  * From tools/perf/perf-sys.h, last modified in:
  * f428ebd184c82a7914b2aa7e9f868918aaf7ea78 perf tools: Fix AAAAARGH64 memory barriers
@@ -33,25 +35,25 @@ do {									\
 	case 1:								\
 		asm volatile ("stlrb %w1, %0"				\
 				: "=Q" (*p)				\
-				: "r" (*(__u8_alias_t *)__u.__c)	\
+				: "r" (*(uint8_t *)__u.__c)	\
 				: "memory");				\
 		break;							\
 	case 2:								\
 		asm volatile ("stlrh %w1, %0"				\
 				: "=Q" (*p)				\
-				: "r" (*(__u16_alias_t *)__u.__c)	\
+				: "r" (*(uint16_t *)__u.__c)	\
 				: "memory");				\
 		break;							\
 	case 4:								\
 		asm volatile ("stlr %w1, %0"				\
 				: "=Q" (*p)				\
-				: "r" (*(__u32_alias_t *)__u.__c)	\
+				: "r" (*(uint32_t *)__u.__c)	\
 				: "memory");				\
 		break;							\
 	case 8:								\
 		asm volatile ("stlr %1, %0"				\
 				: "=Q" (*p)				\
-				: "r" (*(__u64_alias_t *)__u.__c)	\
+				: "r" (*(uint64_t *)__u.__c)	\
 				: "memory");				\
 		break;							\
 	default:							\
@@ -69,22 +71,22 @@ do {									\
 	switch (sizeof(*p)) {						\
 	case 1:								\
 		asm volatile ("ldarb %w0, %1"				\
-			: "=r" (*(__u8_alias_t *)__u.__c)		\
+			: "=r" (*(uint8_t *)__u.__c)		\
 			: "Q" (*p) : "memory");				\
 		break;							\
 	case 2:								\
 		asm volatile ("ldarh %w0, %1"				\
-			: "=r" (*(__u16_alias_t *)__u.__c)		\
+			: "=r" (*(uint16_t *)__u.__c)		\
 			: "Q" (*p) : "memory");				\
 		break;							\
 	case 4:								\
 		asm volatile ("ldar %w0, %1"				\
-			: "=r" (*(__u32_alias_t *)__u.__c)		\
+			: "=r" (*(uint32_t *)__u.__c)		\
 			: "Q" (*p) : "memory");				\
 		break;							\
 	case 8:								\
 		asm volatile ("ldar %0, %1"				\
-			: "=r" (*(__u64_alias_t *)__u.__c)		\
+			: "=r" (*(uint64_t *)__u.__c)		\
 			: "Q" (*p) : "memory");				\
 		break;							\
 	default:							\
