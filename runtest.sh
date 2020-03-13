@@ -25,7 +25,7 @@ arch="$(uname -m)"
 
 #
 # Utility function to ensure a given provider is present.
-# Uses the providers list written out at module-load time.
+# Uses the providers list written out at start time.
 #
 check_provider()
 {
@@ -574,6 +574,20 @@ fi
 if [[ "x$test_libdir" != "xinstalled" ]]; then
     export DTRACE_OPT_SYSLIBDIR="$test_libdir"
 fi
+
+# Determine the list of available providers
+for dt in $dtrace; do
+    # Look for our shared libraries in the right place.
+    if [[ "x$test_libdir" != "xinstalled" ]]; then
+        export LD_LIBRARY_PATH="$(dirname $dt)"
+    fi
+
+    # Write out a list of loaded providers.
+    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
+
+    unset LD_LIBRARY_PATH
+    break
+done
 
 # Initialize test coverage.
 
