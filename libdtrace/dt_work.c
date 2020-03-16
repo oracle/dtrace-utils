@@ -243,16 +243,20 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	if (dtp->dt_stopped)
 		return (0);
 
+#if 0
 	if (dt_ioctl(dtp, DTRACEIOC_STOP, &dtp->dt_endedon) == -1)
 		return (dt_set_errno(dtp, errno));
+#endif
 
 	dtp->dt_stopped = 1;
 
+#if 0
 	/*
 	 * Now that we're stopped, we're going to get status one final time.
 	 */
 	if (dt_ioctl(dtp, DTRACEIOC_STATUS, &dtp->dt_status[gen]) == -1)
 		return (dt_set_errno(dtp, errno));
+#endif
 
 	if (dt_handle_status(dtp, &dtp->dt_status[gen ^ 1],
 	    &dtp->dt_status[gen]) == -1)
