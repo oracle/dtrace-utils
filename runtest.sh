@@ -1071,10 +1071,13 @@ for dt in $dtrace; do
 
         raw_dt_flags="$test_incflags"
 
+        expected_tag=
         if [[ $testonly =~ ^err\.D_ ]]; then
             raw_dt_flags="$raw_dt_flags -xerrtags"
+            expected_tag="$(echo ''"$testonly" | sed 's,^err\.,,; s,\..*$,,')"
         elif [[ $testonly =~ ^drp\. ]]; then
             raw_dt_flags="$raw_dt_flags -xdroptags"
+            expected_tag="$(echo ''"$testonly" | sed 's,^drp\.,,; s,\..*$,,')"
         fi
 
         dt_flags="$_exit $raw_dt_flags -s $_test"
@@ -1252,6 +1255,14 @@ for dt in $dtrace; do
                 fi
             fi
 
+            # If we are expecting a specific tag in the error output, make sure
+            # it is present.  If found, we clear expected_tag to signal that
+            # all is fine.
+            if [[ -n $expected_tag ]] &&
+                grep -q "\[$expected_tag\]" $testerr; then
+                expected_tag=
+            fi
+
             if [[ -n $this_noexec ]]; then
                 testmsg="no execution"
             fi
@@ -1309,6 +1320,12 @@ for dt in $dtrace; do
                 find $tmpdir -name core -type f -print0 | xargs -0r -I'{}' mv --backup=numbered '{}' $logdir/$(echo $base | tr '/' '-').core
                 fail=t
                 failmsg="core dumped"
+
+            # Expected tag not found.
+            elif [[ -n $expected_tag ]]; then
+                fail=t
+                failmsg="expected tag $expected_tag"
+                reinvoke_failure=-1
 
             # Detect a timeout.
             elif [[ $exitcode -eq $TIMEOUTRET ]] && [[ -z $IGNORE_TIMEOUTS ]] &&
