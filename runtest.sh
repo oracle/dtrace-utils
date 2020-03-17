@@ -219,8 +219,6 @@ Options:
  --[no-]baddof: Run corrupt-DOF tests.
  --[no-]use-installed: Use an installed dtrace rather than a copy in the
                        source tree.
- --load-modules-only: Trigger unloading, optional installation and loading
-                      of modules, then immediately exit.
  --quiet: Only show unexpected output (FAILs and XPASSes).
  --verbose: The opposite of --quiet (and the default).
  --[no-]tag=TAG: Run only tests with[out] TAG.
@@ -242,7 +240,6 @@ NOBADDOF=${DTRACE_TEST_BADDOF:-t}
 USE_INSTALLED=${DTRACE_TEST_USE_INSTALLED:+t}
 VALGRIND=${DTRACE_TEST_VALGRIND:+t}
 COMPARISON=t
-LOAD_MODULES_ONLY=
 SKIP_LONGER=
 
 if [[ -n $DTRACE_TEST_TESTSUITES ]]; then
@@ -267,7 +264,6 @@ ERRORS=
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --load-modules-only) LOAD_MODULES_ONLY=t;;
         --capture-expected) CAPTURE_EXPECTED=t;;
         --no-capture-expected) CAPTURE_EXPECTED=;;
         --execute) NOEXEC=;;
