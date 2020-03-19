@@ -710,8 +710,6 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_xlatemode = DT_XL_STATIC;
 	dtp->dt_stdcmode = DT_STDC_XA;
 	dtp->dt_version = version;
-	dtp->dt_fd = -1;		/* FIXME: will be removed later */
-	dtp->dt_ftfd = -1;		/* FIXME: will be removed later */
 	dtp->dt_cdefs_fd = -1;
 	dtp->dt_ddefs_fd = -1;
 	dtp->dt_stdout_fd = -1;
@@ -1190,10 +1188,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	dt_pcap_destroy(dtp);
 
-	if (dtp->dt_fd != -1)
-		close(dtp->dt_fd);
-	if (dtp->dt_ftfd != -1)
-		close(dtp->dt_ftfd);
 	if (dtp->dt_cdefs_fd != -1)
 		close(dtp->dt_cdefs_fd);
 	if (dtp->dt_ddefs_fd != -1)
@@ -1240,8 +1234,13 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_debug_dump(0);
 }
 
+/*
+ * DTrace no longer uses an ioctl() interface to communicate with a DTrace
+ * kernel component.  We retain this function because it is part of the
+ * libdtrace API.
+ */
 int
 dtrace_ctlfd(dtrace_hdl_t *dtp)
 {
-	return (dtp->dt_fd);
+	return -1;
 }

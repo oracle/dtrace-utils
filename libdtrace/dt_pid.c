@@ -101,11 +101,7 @@ dt_pid_create_fbt_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ftp->ftps_glen = 0;		/* no glob pattern */
 	ftp->ftps_gstr[0] = '\0';
 
-	if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-		dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
-		    strerror(errno));
-		return (dt_set_errno(dtp, errno));
-	}
+	/* Create a probe using 'ftp'. */
 
 	return (1);
 }
@@ -121,11 +117,7 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 
 	strncpy(ftp->ftps_gstr, pattern, ftp->ftps_glen + 1);
 
-	if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-		dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
-		    strerror(errno));
-		return (dt_set_errno(dtp, errno));
-	}
+	/* Create a probe using 'ftp'. */
 
 	return (1);
 }
@@ -699,20 +691,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	if ((pid = dt_pid_get_pid(pdp, dtp, pcb, NULL)) == -1)
 		return (-1);
 
-	if (dtp->dt_ftfd == -1) {
-		if (dtp->dt_fterr == ENOENT) {
-			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_NODEV,
-			    "pid provider is not installed on this system");
-		} else {
-			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_NODEV,
-			    "pid provider is not available: %s",
-			    strerror(dtp->dt_fterr));
-		}
-
-		return (-1);
-	}
-
-	(void) snprintf(provname, sizeof (provname), "pid%d", (int)pid);
+	snprintf(provname, sizeof (provname), "pid%d", (int)pid);
 
 	if (gmatch(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);

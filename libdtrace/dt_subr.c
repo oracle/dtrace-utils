@@ -447,17 +447,15 @@ dt_cpp_pop_arg(dtrace_hdl_t *dtp)
 	return (arg);
 }
 
+/*
+ * This function will be removed in the near future because we no longer use
+ * the DTrace ioctl() interface.  It is retained for now while other code in
+ * libdtrace is being rewritten.  Any calls to this function will result in an
+ * error.
+ */
 int
 dt_ioctl(dtrace_hdl_t *dtp, unsigned long int val, void *arg)
 {
-	const dtrace_vector_t *v = dtp->dt_vector;
-
-	if (v != NULL)
-		return (v->dtv_ioctl(dtp->dt_varg, val, arg));
-
-	if (dtp->dt_fd >= 0)
-		return (ioctl(dtp->dt_fd, val, arg));
-
 	errno = EBADF;
 	return (-1);
 }
