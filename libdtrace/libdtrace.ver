@@ -96,8 +96,11 @@ LIBDTRACE_1.0 {
 	*;
 };
 
-# These are used by the CTF dumper, and are not part of the public interface.
+# These are exposed for internal purposes, and are not part of the public
+# interface.
 LIBDTRACE_PRIVATE
 {
 	dtrace__internal_*;
+	BEGIN_probe;
+	END_probe;
 };

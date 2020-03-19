@@ -26,6 +26,16 @@ static const struct {
 };
 
 void
+BEGIN_probe(void)
+{
+}
+
+void
+END_probe(void)
+{
+}
+
+void
 dtrace_sleep(dtrace_hdl_t *dtp)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
@@ -202,6 +212,7 @@ dtrace_go(dtrace_hdl_t *dtp)
 	dtrace_getopt(dtp, "bufsize", &size);
 	dt_pebs_init(dtp, size);
 
+	BEGIN_probe();
 #if 0
 	if (dt_ioctl(dtp, DTRACEIOC_GO, &dtp->dt_beganon) == -1) {
 		if (errno == EACCES)
@@ -247,6 +258,8 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	if (dt_ioctl(dtp, DTRACEIOC_STOP, &dtp->dt_endedon) == -1)
 		return (dt_set_errno(dtp, errno));
 #endif
+
+	END_probe();
 
 	dtp->dt_stopped = 1;
 
