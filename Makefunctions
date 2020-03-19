@@ -125,11 +125,12 @@ endef
 comma := ,
 define shlib-template
 $(objdir)/$($(1)_TARGET).so $(if $($(1)_VERSION),$(objdir)/$($(1)_TARGET).so.$($(1)_VERSION)) $(if $($(1)_SONAME),$(objdir)/$($(1)_SONAME)): \
-                $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a)
+                $(foreach build-lib,$($(1)_LIBSOURCES),$(objdir)/build-$($(build-lib)_TARGET).a) \
+		$(call src-name,$(1),$($(1)_VERSCRIPT))
 	$(call describe-target,SHLINK,$($(1)_TARGET).so)
 	$(CC) -o $(objdir)/$($(1)_TARGET).so$(if $($(1)_VERSION),.$($(1)_VERSION)) \
 	      -shared $(filter-out $($(1)_NOLDFLAGS),$(LDFLAGS) $($(1)_LDFLAGS)) $(if $($(1)_SONAME),-Wl$(comma)-soname$(comma)$($(1)_SONAME)) \
-	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$($(1)_VERSCRIPT)) \
+	      $(if $($(1)_VERSCRIPT),-Wl$(comma)--version-script=$(call src-name,$(1), $($(1)_VERSCRIPT))) \
 	      -Wl,--whole-archive $(foreach primary,$(filter-out $($(1)_SECONDARY),$($(1)_LIBSOURCES)),$(objdir)/build-$($(primary)_TARGET).a) -Wl,--no-whole-archive \
 	      $(foreach secondary,$($(1)_SECONDARY),$(objdir)/build-$($(secondary)_TARGET).a) -L$(objdir) $($(1)_LIBS)
 	$(if $($(1)_VERSION),ln -sf $($(1)_TARGET).so.$($(1)_VERSION) $(objdir)/$($(1)_TARGET).so)
