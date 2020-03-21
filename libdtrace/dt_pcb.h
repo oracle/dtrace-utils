@@ -41,7 +41,7 @@ typedef struct dt_pcb {
 	dt_idhash_t *pcb_idents; /* current hash table of ambiguous idents */
 	dt_idhash_t *pcb_pragmas; /* current hash table of pending pragmas */
 	dt_regset_t *pcb_regs;	/* register set for code generation */
-	uint_t pcb_bufoff;	/* output buffer offset (for DFUNCs) */
+	uint32_t pcb_bufoff;	/* output buffer offset (for DFUNCs) */
 	dt_irlist_t pcb_ir;	/* list of unrelocated IR instructions */
 	uint_t pcb_exitlbl;	/* label for exit of program */
 	uint_t pcb_asvidx;	/* assembler vartab index (see dt_as.c) */
@@ -50,6 +50,8 @@ typedef struct dt_pcb {
 	const dtrace_probedesc_t *pcb_pdesc; /* probedesc for current context */
 	struct dt_probe *pcb_probe; /* probe associated with current context */
 	dtrace_probeinfo_t pcb_pinfo; /* info associated with current context */
+	int pcb_nrecs;		/* number of data record descriptions */
+	int pcb_maxrecs;	/* alloc'd number of data record descriptions */
 	dtrace_attribute_t pcb_amin; /* stability minimum for compilation */
 	dt_node_t *pcb_dret;	/* node containing return type for assembler */
 	dtrace_difo_t *pcb_difo; /* intermediate DIF object made by assembler */

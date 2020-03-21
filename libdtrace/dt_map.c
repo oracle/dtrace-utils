@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,8 +11,71 @@
 #include <assert.h>
 
 #include <dt_impl.h>
+#include <dt_pcb.h>
 #include <dt_probe.h>
 #include <dt_printf.h>
+
+static void
+dt_datadesc_hold(dtrace_datadesc_t *ddp)
+{
+	ddp->dtdd_refcnt++;
+}
+
+static void
+dt_datadesc_release(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
+{
+	if (--ddp->dtdd_refcnt > 0)
+		return;
+
+	dt_free(dtp, ddp->dtdd_recs);
+	dt_free(dtp, ddp);
+}
+
+dtrace_datadesc_t *
+dt_datadesc_create(dtrace_hdl_t *dtp)
+{
+	dtrace_datadesc_t	*ddp;
+
+	ddp = dt_zalloc(dtp, sizeof(dtrace_datadesc_t));
+	if (ddp == NULL) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
+	}
+
+	dt_datadesc_hold(ddp);
+
+	return ddp;
+}
+
+int
+dt_datadesc_finalize(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
+{
+	dt_pcb_t	*pcb = dtp->dt_pcb;
+
+	/*
+	 * If the number of allocated data records is greater than the actual
+	 * number needed, we create a copy with the right number of records and
+	 * free the oversized one.
+	 */
+	if (pcb->pcb_nrecs < pcb->pcb_maxrecs) {
+		dtrace_recdesc_t	*nrecs;
+
+		nrecs = dt_calloc(dtp, pcb->pcb_nrecs,
+				  sizeof(dtrace_recdesc_t));
+		if (nrecs == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
+
+		memcpy(nrecs, ddp->dtdd_recs,
+		       pcb->pcb_nrecs * sizeof(dtrace_recdesc_t));
+		dt_free(dtp, ddp->dtdd_recs);
+		ddp->dtdd_recs = nrecs;
+		pcb->pcb_maxrecs = pcb->pcb_nrecs;
+	}
+
+	ddp->dtdd_nrecs = pcb->pcb_nrecs;
+
+	return 0;
+}
 
 #if 0
 static int
@@ -20,23 +83,23 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 {
 	dtrace_id_t max;
 	int rval, i, maxformat;
-	dtrace_eprobedesc_t *enabled, *nenabled;
+	dtrace_datadesc_t *dd, *ndd;
 	dtrace_probedesc_t *probe;
 
 	while (id >= (max = dtp->dt_maxprobe) || dtp->dt_pdesc == NULL) {
 		dtrace_id_t new_max = max ? (max << 1) : 1;
 		size_t nsize = new_max * sizeof (void *);
 		dtrace_probedesc_t **new_pdesc;
-		dtrace_eprobedesc_t **new_edesc;
+		dtrace_datadesc_t **new_ddesc;
 
 		if ((new_pdesc = malloc(nsize)) == NULL ||
-		    (new_edesc = malloc(nsize)) == NULL) {
+		    (new_ddesc = malloc(nsize)) == NULL) {
 			free(new_pdesc);
 			return (dt_set_errno(dtp, EDT_NOMEM));
 		}
 
 		memset(new_pdesc, 0, nsize);
-		memset(new_edesc, 0, nsize);
+		memset(new_ddesc, 0, nsize);
 
 		if (dtp->dt_pdesc != NULL) {
 			size_t osize = max * sizeof (void *);
@@ -44,69 +107,68 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 			memcpy(new_pdesc, dtp->dt_pdesc, osize);
 			free(dtp->dt_pdesc);
 
-			memcpy(new_edesc, dtp->dt_edesc, osize);
-			free(dtp->dt_edesc);
+			memcpy(new_ddesc, dtp->dt_ddesc, osize);
+			free(dtp->dt_ddesc);
 		}
 
 		dtp->dt_pdesc = new_pdesc;
-		dtp->dt_edesc = new_edesc;
+		dtp->dt_ddesc = new_ddesc;
 		dtp->dt_maxprobe = new_max;
 	}
 
 	if (dtp->dt_pdesc[id] != NULL)
 		return (0);
 
-	if ((enabled = malloc(sizeof (dtrace_eprobedesc_t))) == NULL)
+	if ((dd = malloc(sizeof (dtrace_datadesc_t))) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMEM));
 
-	memset(enabled, 0, sizeof (dtrace_eprobedesc_t));
-	enabled->dtepd_epid = id;
-	enabled->dtepd_nrecs = 1;
+	memset(dd, 0, sizeof (dtrace_datadesc_t));
+	dd->dtdd_epid = id;
+	dd->dtdd_nrecs = 1;
 
-	if (dt_ioctl(dtp, DTRACEIOC_EPROBE, enabled) == -1) {
+	if (dt_ioctl(dtp, DTRACEIOC_EPROBE, dd) == -1) {
 		rval = dt_set_errno(dtp, errno);
-		free(enabled);
+		free(dd);
 		return (rval);
 	}
 
-	if (DTRACE_SIZEOF_EPROBEDESC(enabled) != sizeof (*enabled)) {
+	if (DTRACE_SIZEOF_EPROBEDESC(dd) != sizeof (*dd)) {
 		/*
 		 * There must be more than one action.  Allocate the
 		 * appropriate amount of space and try again.
 		 */
-		if ((nenabled =
-		    malloc(DTRACE_SIZEOF_EPROBEDESC(enabled))) != NULL)
-			memcpy(nenabled, enabled, sizeof (*enabled));
+		if ((ndd = malloc(DTRACE_SIZEOF_EPROBEDESC(dd))) != NULL)
+			memcpy(ndd, dd, sizeof (*dd));
 
-		free(enabled);
+		free(dd);
 
-		if ((enabled = nenabled) == NULL)
+		if ((dd = ndd) == NULL)
 			return (dt_set_errno(dtp, EDT_NOMEM));
 
-		rval = dt_ioctl(dtp, DTRACEIOC_EPROBE, enabled);
+		rval = dt_ioctl(dtp, DTRACEIOC_EPROBE, dd);
 
 		if (rval == -1) {
 			rval = dt_set_errno(dtp, errno);
-			free(enabled);
+			free(dd);
 			return (rval);
 		}
 	}
 
 	if ((probe = malloc(sizeof (dtrace_probedesc_t))) == NULL) {
-		free(enabled);
+		free(dd);
 		return (dt_set_errno(dtp, EDT_NOMEM));
 	}
 
-	probe->id = enabled->dtepd_probeid;
+	probe->id = dd->dtdd_probeid;
 
 	if (dt_ioctl(dtp, DTRACEIOC_PROBES, probe) == -1) {
 		rval = dt_set_errno(dtp, errno);
 		goto err;
 	}
 
-	for (i = 0; i < enabled->dtepd_nrecs; i++) {
+	for (i = 0; i < dd->dtdd_nrecs; i++) {
 		dtrace_fmtdesc_t fmt;
-		dtrace_recdesc_t *rec = &enabled->dtepd_rec[i];
+		dtrace_recdesc_t *rec = &dd->dtdd_rec[i];
 
 		if (!DTRACEACT_ISPRINTFLIKE(rec->dtrd_action))
 			continue;
@@ -173,7 +235,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_epid_t id)
 	}
 
 	dtp->dt_pdesc[id] = probe;
-	dtp->dt_edesc[id] = enabled;
+	dtp->dt_ddesc[id] = dd;
 
 	return (0);
 
@@ -184,70 +246,56 @@ err:
 	 * we have already allocated.  This is okay; these formats are
 	 * hanging off of dt_formats and will therefore not be leaked.
 	 */
-	free(enabled);
+	free(dd);
 	free(probe);
 	return (rval);
 }
 #else
+/*
+ * Associate a probe data description and probe description with an enabled
+ * probe ID.  This means that the given ID refers to the program matching the
+ * probe data description being attached to the probe that matches the probe
+ * description.
+ */
 dtrace_epid_t
-dt_epid_add(dtrace_hdl_t *dtp, dtrace_id_t prid, int nrecs)
+dt_epid_add(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp, dtrace_id_t prid)
 {
-	dtrace_id_t		max;
+	dtrace_id_t		max = dtp->dt_maxprobe;
 	dtrace_epid_t		epid;
-	dtrace_eprobedesc_t	*eprobe;
 
 	epid = dtp->dt_nextepid++;
-	max = dtp->dt_maxprobe;
-	if (epid >= max || dtp->dt_edesc == NULL) {
+	if (epid >= max || dtp->dt_ddesc == NULL) {
 		dtrace_id_t		nmax = max ? (max << 1) : 2;
-		dtrace_eprobedesc_t	**nedesc;
+		dtrace_datadesc_t	**nddesc;
 		dtrace_probedesc_t	**npdesc;
 
-		nedesc = dt_calloc(dtp, nmax, sizeof(void *));
+		nddesc = dt_calloc(dtp, nmax, sizeof(void *));
 		npdesc = dt_calloc(dtp, nmax, sizeof(void *));
-		if (nedesc == NULL || npdesc == NULL) {
-			dt_free(dtp, nedesc);
+		if (nddesc == NULL || npdesc == NULL) {
+			dt_free(dtp, nddesc);
 			dt_free(dtp, npdesc);
 			return dt_set_errno(dtp, EDT_NOMEM);
 		}
 
-		if (dtp->dt_edesc != NULL) {
+		if (dtp->dt_ddesc != NULL) {
 			size_t	osize = max * sizeof(void *);
 
-			memcpy(nedesc, dtp->dt_edesc, osize);
-			dt_free(dtp, dtp->dt_edesc);
+			memcpy(nddesc, dtp->dt_ddesc, osize);
+			dt_free(dtp, dtp->dt_ddesc);
 			memcpy(npdesc, dtp->dt_pdesc, osize);
 			dt_free(dtp, dtp->dt_pdesc);
 		}
 
-		dtp->dt_edesc = nedesc;
+		dtp->dt_ddesc = nddesc;
 		dtp->dt_pdesc = npdesc;
 		dtp->dt_maxprobe = nmax;
 	}
 
-	if (dtp->dt_edesc[epid] != NULL)
+	if (dtp->dt_ddesc[epid] != NULL)
 		return epid;
 
-	/*
-	 * This is a bit odd, but we want to make sure that nrecs is not a
-	 * negative value while also taking into consideration that there is
-	 * always rooms for one record in dtrace_eprobedesc_t, so for our
-	 * allocation purposes we account for that default record slot.
-	 */
-	assert(nrecs >= 0);
-	if (nrecs == 0)
-		nrecs = 1;
-
-	eprobe = dt_zalloc(dtp, sizeof(dtrace_eprobedesc_t) +
-				(nrecs - 1) * sizeof(dtrace_recdesc_t));
-	if (eprobe == NULL)
-		return dt_set_errno(dtp, EDT_NOMEM);
-
-	eprobe->dtepd_epid = epid;
-	eprobe->dtepd_probeid = prid;
-	eprobe->dtepd_nrecs = nrecs;
-
-	dtp->dt_edesc[epid] = eprobe;
+	dt_datadesc_hold(ddp);
+	dtp->dt_ddesc[epid] = ddp;
 	dtp->dt_pdesc[epid] = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
 
 	return epid;
@@ -255,22 +303,14 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_id_t prid, int nrecs)
 #endif
 
 int
-dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid,
-    dtrace_eprobedesc_t **epdp, dtrace_probedesc_t **pdp)
+dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid, dtrace_datadesc_t **ddp,
+	       dtrace_probedesc_t **pdp)
 {
-	int rval;
-
-#if 0
-	if (epid >= dtp->dt_maxprobe || dtp->dt_pdesc[epid] == NULL) {
-		if ((rval = dt_epid_add(dtp, epid)) != 0)
-			return (rval);
-	}
-#endif
-
 	assert(epid < dtp->dt_maxprobe);
-	assert(dtp->dt_edesc[epid] != NULL);
+	assert(dtp->dt_ddesc[epid] != NULL);
 	assert(dtp->dt_pdesc[epid] != NULL);
-	*epdp = dtp->dt_edesc[epid];
+
+	*ddp = dtp->dt_ddesc[epid];
 	*pdp = dtp->dt_pdesc[epid];
 
 	return (0);
@@ -281,31 +321,82 @@ dt_epid_destroy(dtrace_hdl_t *dtp)
 {
 	size_t i;
 
-	assert((dtp->dt_pdesc != NULL && dtp->dt_edesc != NULL &&
+	assert((dtp->dt_pdesc != NULL && dtp->dt_ddesc != NULL &&
 	    dtp->dt_maxprobe > 0) || (dtp->dt_pdesc == NULL &&
-	    dtp->dt_edesc == NULL && dtp->dt_maxprobe == 0));
+	    dtp->dt_ddesc == NULL && dtp->dt_maxprobe == 0));
 
 	if (dtp->dt_pdesc == NULL)
 		return;
 
 	for (i = 0; i < dtp->dt_maxprobe; i++) {
-		if (dtp->dt_edesc[i] == NULL) {
+		if (dtp->dt_ddesc[i] == NULL) {
 			assert(dtp->dt_pdesc[i] == NULL);
 			continue;
 		}
 
+		dt_datadesc_release(dtp, dtp->dt_ddesc[i]);
 		assert(dtp->dt_pdesc[i] != NULL);
-		free(dtp->dt_edesc[i]);
-		free(dtp->dt_pdesc[i]);
 	}
 
 	free(dtp->dt_pdesc);
 	dtp->dt_pdesc = NULL;
 
-	free(dtp->dt_edesc);
-	dtp->dt_edesc = NULL;
+	free(dtp->dt_ddesc);
+	dtp->dt_ddesc = NULL;
 	dtp->dt_nextepid = 0;
 	dtp->dt_maxprobe = 0;
+}
+
+uint32_t
+dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
+	   uint32_t size, uint16_t alignment, const char *fmt, uint64_t arg)
+{
+	dt_pcb_t		*pcb = dtp->dt_pcb;
+	uint32_t		off;
+	uint32_t		gap;
+	dtrace_datadesc_t	*ddp = pcb->pcb_stmt->dtsd_ddesc;
+	dtrace_recdesc_t	*rec;
+	int			cnt, max;
+
+	assert(gapf);
+
+	cnt = pcb->pcb_nrecs + 1;
+	max = pcb->pcb_maxrecs;
+	if (cnt >= max) {
+		int			nmax = max ? (max << 1) : cnt;
+		dtrace_recdesc_t	*nrecs;
+
+		nrecs = dt_calloc(dtp, nmax, sizeof(dtrace_recdesc_t));
+		if (nrecs == NULL)
+			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
+
+		if (ddp->dtdd_recs != NULL) {
+			size_t	osize = max * sizeof(dtrace_recdesc_t);
+
+			memcpy(nrecs, ddp->dtdd_recs, osize);
+			dt_free(dtp, ddp->dtdd_recs);
+		}
+
+		ddp->dtdd_recs = nrecs;
+		pcb->pcb_maxrecs = nmax;
+	}
+
+	rec = &ddp->dtdd_recs[pcb->pcb_nrecs++];
+	off = (pcb->pcb_bufoff + (alignment - 1)) & ~(alignment - 1);
+	rec->dtrd_action = kind;
+	rec->dtrd_size = size;
+	rec->dtrd_offset = off;
+	rec->dtrd_alignment = alignment;
+	rec->dtrd_format = 0;	/* FIXME */
+	rec->dtrd_arg = arg;
+
+	gap = off - pcb->pcb_bufoff;
+	if (gap > 0)
+		(*gapf)(pcb, gap);
+
+	pcb->pcb_bufoff = off + size;
+
+	return off;
 }
 
 void *
@@ -338,7 +429,6 @@ static int
 dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 {
 	dtrace_id_t max;
-	dtrace_epid_t epid;
 	int rval;
 
 	while (id >= (max = dtp->dt_maxagg) || dtp->dt_aggdesc == NULL) {
@@ -438,8 +528,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
 }
 
 int
-dt_aggid_lookup(dtrace_hdl_t *dtp, dtrace_aggid_t aggid,
-    dtrace_aggdesc_t **adp)
+dt_aggid_lookup(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, dtrace_aggdesc_t **adp)
 {
 	int rval;
 

@@ -30,16 +30,15 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *	3. Call bpf_get_smp_processor_id() to determine the current CPU id
  *	4. Store CPU id in its reserved stack slot
  *	5. Retrieve the output data buffer and store the base pointer in %r9
- *	6. Store the epid and 4 padding byes at the beginning of the output
- *	   buffer
+ *	6. Store the epid and tag at the beginning of the output buffer
  *
  * Due to the fact that raw perf samples are stored as a header (multiple of 8
- * bytes) followed by a 4-byte size, we need to ensure that our trace data is
- * preceded by a 4-byte padding.  That will place the EPID (4 bytes) at a
- * 64-bit boundary, and given that it is followed by a 4-byte tag, all further
- * trace data will also start at a 64-bit boundary.
+ * bytes) followed by a 32-bit size, we need to ensure that our trace data is
+ * preceded by a 4-byte padding.  That will place the 32-bit EPID at a 64-bit
+ * boundary, and given that it is followed by a 32-bit tag, all further trace
+ * data will also start at a 64-bit boundary.
  *
- * To accomplish all this, we store a 4-byte value at the beginning of our
+ * To accomplish all this, we store a 32-bit 0 value at the beginning of our
  * output data buffer, and then store the next address location in %r9.
  *
  * In the epilogue, we then need to submit (%r9 - 4) as source address of our
@@ -108,9 +107,10 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * We read epid from dctx (struct dt_bpf_context) and store it in the
-	 * first 4 bytes of the output buffer.  The next 4 bytes are padded
-	 * with 0s so that the next entry will be at a 8-byte boundary.
+	 * We read the 32-bit epid from dctx (struct dt_bpf_context) and store
+	 * it at %r9 (base address of the trace data).  Next we store the
+	 * 32-bit tag (hardcoded as 0 for now), which leaves us at an 8-byte
+	 * boundary for actual probe data to be stored.
 	 *
 	 *		lddw %r0, [%fp + DT_STK_DCTX]
 	 *		ldw %r0, [%r0 + DCTX_EPID]
@@ -126,7 +126,10 @@ dt_cg_prologue(dt_pcb_t *pcb)
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-	pcb->pcb_bufoff += sizeof(uint64_t);
+	/*
+	 * Account for 32-bit epid (at offset 0) and tag 32-bit (at offset 4).
+	 */
+	pcb->pcb_bufoff += 2 * sizeof(uint32_t);
 }
 
 /*
@@ -187,26 +190,51 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	dt_irlist_append(dlp, dt_cg_node_alloc(pcb->pcb_exitlbl, instr));
 }
 
-static size_t
+/*
+ * Generate an instruction sequence to fill a gap in the output buffer with 0
+ * values.  This is used to ensure that there are no uninitialized bytes in the
+ * output buffer that could result from alignment requirements for data
+ * records.
+ */
+static void
+dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
+{
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		off = pcb->pcb_bufoff;
+
+	if (gap & 1) {
+		instr = BPF_STORE_IMM(BPF_B, BPF_REG_9, off, 0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		off += 1;
+	}
+	if (gap & 2) {
+		instr = BPF_STORE_IMM(BPF_H, BPF_REG_9, off, 0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		off += 2;
+	}
+	if (gap & 4) {
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off, 0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+}
+
+static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dnerror(dnp, D_UNKNOWN, "breakpoint() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
-
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_chill(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 	dnerror(dnp, D_UNKNOWN, "chill() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
-
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *anp;
@@ -236,8 +264,6 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
 	 * AGGID = aid->di_id
 	 */
-
-	return 0;
 }
 
 /*
@@ -247,22 +273,24 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * Stores:
  *	integer (4 bytes)		-- speculation ID
  */
-static size_t
+static void
 dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	struct bpf_insn instr;
 	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t off = pcb->pcb_bufoff;
+	uint_t off;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
+	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_COMMIT,
+			 sizeof(uint64_t), sizeof(uint64_t), NULL,
+			 DT_ACT_COMMIT);
+
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	return sizeof(uint64_t);
 }
 
-static size_t
+static void
 dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *anp;
@@ -292,8 +320,6 @@ dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
 	 * AGGID = aid->di_id
 	 */
-
-	return 0;
 }
 
 /*
@@ -303,19 +329,21 @@ dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * Stores:
  *	integer (4 bytes)		-- speculation ID
  */
-static size_t
+static void
 dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn instr;
-	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t off = pcb->pcb_bufoff;
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		off;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
+	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_DISCARD,
+			 sizeof(uint64_t), sizeof(uint64_t), NULL,
+			 DT_ACT_DISCARD);
+
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	return sizeof(uint64_t);
 }
 
 /*
@@ -324,83 +352,74 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * Stores:
  *	integer (4 bytes)		-- return code
  */
-static size_t
+static void
 dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn instr;
-	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t off = pcb->pcb_bufoff;
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		off;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
+	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_EXIT,
+			 sizeof(uint64_t), sizeof(uint64_t), NULL,
+			 DT_ACT_EXIT);
+
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	return sizeof(uint64_t);
 }
 
-static size_t
+static void
 dt_cg_act_freopen(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_jstack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_normalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_panic(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 	dnerror(dnp, D_UNKNOWN, "raise() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
-
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
 /*
@@ -410,22 +429,24 @@ dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * Stores:
  *	integer (4 bytes)		-- speculation ID
  */
-static size_t
+static void
 dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn instr;
-	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t off = pcb->pcb_bufoff;
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		off;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
+	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_SPECULATE,
+			 sizeof(uint64_t), sizeof(uint64_t), NULL,
+			 DT_ACT_SPECULATE);
+
 	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	return sizeof(uint64_t);
 }
 
-static size_t
+static void
 dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *arg = dnp->dn_args;
@@ -439,38 +460,32 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 
 		nframes = (uint32_t)arg->dn_value;
 	}
-
-	return 0; /* FIXME */
 }
 
-static size_t
+static void
 dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dnerror(dnp, D_UNKNOWN, "stop() is not implemented (yet)\n");
 	/* FIXME: Needs implementation */
-
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_symmod(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_system(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn instr;
-	dt_irlist_t *dlp = &pcb->pcb_ir;
-	char n[DT_TYPE_NAMELEN];
-	uint_t off = pcb->pcb_bufoff;
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	char		n[DT_TYPE_NAMELEN];
+	uint_t		off;
 
 	if (dt_node_is_void(dnp->dn_args)) {
 		dnerror(dnp->dn_args, D_TRACE_VOID,
@@ -486,11 +501,14 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	if (dt_node_is_scalar(dnp->dn_args)) {
+		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap,
+				 DTRACEACT_DIFEXPR, sizeof(uint64_t),
+				 sizeof(uint64_t), NULL, DT_ACT_TRACE);
+
 		instr = BPF_STORE(BPF_DW, BPF_REG_9, off, dnp->dn_args->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
-
-		return sizeof(uint64_t);
+#if 0
 	} else if (dt_node_is_string(dnp->dn_args)) {
 		size_t sz = dt_node_type_size(dnp->dn_args);
 
@@ -513,28 +531,25 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
 
 		return sz + sizeof(uint64_t);
+#endif
 	} else
 		dnerror(dnp->dn_args, D_PROTO_ARG,
 			"trace( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: scalar or string\n\t argument: %s\n",
 			dt_node_type_name(dnp->dn_args, n, sizeof (n)));
-
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	return 0;
 }
 
-static size_t
+static void
 dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *arg0 = dnp->dn_args;
@@ -562,11 +577,9 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 
 		strsize = (uint32_t)arg1->dn_value;
 	}
-
-	return 0; /* FIXME */
 }
 
-typedef size_t dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
+typedef void dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
 
 typedef struct dt_cg_actdesc {
 	dt_cg_action_f *fun;
@@ -2719,13 +2732,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 				idp = act->dn_expr->dn_ident;
 				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
-				if (actdp->fun) {
-					size_t	sz = 0;
-
-					sz = actdp->fun(pcb, act->dn_expr,
-							actdp->kind);
-					pcb->pcb_bufoff += sz;
-				}
+				if (actdp->fun)
+					actdp->fun(pcb, act->dn_expr,
+						   actdp->kind);
 			} else {
 				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
 					   pcb->pcb_regs);

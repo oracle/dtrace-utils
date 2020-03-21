@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -126,12 +126,12 @@ dtrace_handle_setopt(dtrace_hdl_t *dtp, dtrace_handle_setopt_f *hdlr,
 }
 
 #define	DT_REC(type, ndx) *((type *)((uintptr_t)data->dtpda_data + \
-    epd->dtepd_rec[(ndx)].dtrd_offset))
+    dd->dtdd_recs[(ndx)].dtrd_offset))
 
 static int
 dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 {
-	dtrace_eprobedesc_t *epd = data->dtpda_edesc, *errepd;
+	dtrace_datadesc_t *dd = data->dtpda_ddesc, *errdd;
 	dtrace_probedesc_t *pd = data->dtpda_pdesc, *errpd;
 	dtrace_errdata_t err;
 	dtrace_epid_t epid;
@@ -144,9 +144,9 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	char *str;
 	int len;
 
-	assert(epd->dtepd_uarg == DT_ECB_ERROR);
+	assert(dd->dtdd_uarg == DT_ECB_ERROR);
 
-	if (epd->dtepd_nrecs != 5 || strcmp(pd->prv, "dtrace") != 0 ||
+	if (dd->dtdd_nrecs != 5 || strcmp(pd->prv, "dtrace") != 0 ||
 	    strcmp(pd->prb, "ERROR") != 0)
 		return (dt_set_errno(dtp, EDT_BADERROR));
 
@@ -156,10 +156,10 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	 */
 	epid = (uint32_t)DT_REC(uint64_t, 0);
 
-	if (dt_epid_lookup(dtp, epid, &errepd, &errpd) != 0)
+	if (dt_epid_lookup(dtp, epid, &errdd, &errpd) != 0)
 		return (dt_set_errno(dtp, EDT_BADERROR));
 
-	err.dteda_edesc = errepd;
+	err.dteda_ddesc = errdd;
 	err.dteda_pdesc = errpd;
 	err.dteda_cpu = data->dtpda_cpu;
 	err.dteda_action = (int)DT_REC(uint64_t, 1);
@@ -225,7 +225,7 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	char *str;
 	int len;
 
-	err.dteda_edesc = data->dtpda_edesc;
+	err.dteda_ddesc = data->dtpda_ddesc;
 	err.dteda_pdesc = errpd;
 	err.dteda_cpu = data->dtpda_cpu;
 	err.dteda_action = -1;
@@ -238,10 +238,10 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 
 	str = alloca(len);
 
-	snprintf(str, len, "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): "
-			   "%s\n",
-		 data->dtpda_edesc->dtepd_epid, errpd->id, errpd->prv,
-		 errpd->mod, errpd->fun, errpd->prb, faultstr);
+	snprintf(str, len,
+		 "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): %s\n",
+		 data->dtpda_epid, errpd->id, errpd->prv, errpd->mod,
+		 errpd->fun, errpd->prb, faultstr);
 
 	err.dteda_msg = str;
 
@@ -443,10 +443,10 @@ dt_handle_setopt(dtrace_hdl_t *dtp, dtrace_setoptdata_t *data)
 int
 dt_handle(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 {
-	dtrace_eprobedesc_t *epd = data->dtpda_edesc;
+	dtrace_datadesc_t *dd = data->dtpda_ddesc;
 	int rval;
 
-	switch (epd->dtepd_uarg) {
+	switch (dd->dtdd_uarg) {
 	case DT_ECB_ERROR:
 		rval = dt_handle_err(dtp, data);
 		break;

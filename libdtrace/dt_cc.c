@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -131,6 +131,8 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 
 	assert(yypcb->pcb_stmt == NULL);
 	yypcb->pcb_stmt = sdp;
+	yypcb->pcb_nrecs = 0;
+	yypcb->pcb_maxrecs = 0;
 
 	sdp->dtsd_descattr = descattr;
 	sdp->dtsd_stmtattr = stmtattr;
@@ -258,6 +260,11 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 		if (!speculate)
 			datarec = 1;
 	}
+
+	/*
+	 * Finalize the probe data description for the statement.
+	 */
+	dt_datadesc_finalize(yypcb->pcb_hdl, sdp->dtsd_ddesc);
 
 	if (dtrace_stmt_add(yypcb->pcb_hdl, yypcb->pcb_prog, sdp) != 0)
 		longjmp(yypcb->pcb_jmpbuf, dtrace_errno(yypcb->pcb_hdl));

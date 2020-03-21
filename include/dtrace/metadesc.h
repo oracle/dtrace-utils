@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -21,16 +21,16 @@
  * DTrace separates the trace data stream from the metadata stream.  The only
  * metadata tokens placed in the data stream are enabled probe identifiers
  * (EPIDs) or (in the case of aggregations) aggregation identifiers.  In order
- * to determine the structure of the data, DTrace consumers pass the token to
- * the kernel, and receive in return a corresponding description of the enabled
- * probe (via the dtrace_eprobedesc structure) or the aggregation (via the
- * dtrace_aggdesc structure).  Both of these structures are expressed in terms
- * of record descriptions (via the dtrace_recdesc structure) that describe the
- * exact structure of the data.  Some record descriptions may also contain a
- * format identifier; this additional bit of metadata can be retrieved from the
- * kernel, for which a format description is returned via the dtrace_fmtdesc
- * structure.  Note that all four of these structures must be bitness-neutral
- * to allow for a 32-bit DTrace consumer on a 64-bit kernel.
+ * to determine the structure of the data, DTrace uses the token to perform a
+ * lookup to retrieve the corresponding description of the enabled probe (via
+ * the dtrace_datadesc structure) or the aggregation (via the dtrace_aggdesc
+ * structure).
+ *
+ * Both of these structures are expressed in terms of record descriptions (via
+ * the dtrace_recdesc structure) that describe the exact structure of the data.
+ * Some record descriptions may also contain a format identifier; this
+ * additional bit of metadata refers to a format description described via a
+ * dtrace_fmtdesc structure.
  */
 typedef struct dtrace_recdesc {
 	dtrace_actkind_t dtrd_action;		/* kind of action */
@@ -42,14 +42,13 @@ typedef struct dtrace_recdesc {
 	uint64_t dtrd_uarg;			/* user argument */
 } dtrace_recdesc_t;
 
-typedef struct dtrace_eprobedesc {
-	dtrace_epid_t dtepd_epid;		/* enabled probe ID */
-	dtrace_id_t dtepd_probeid;		/* probe ID */
-	uint64_t dtepd_uarg;			/* library argument */
-	uint32_t dtepd_size;			/* total size */
-	int dtepd_nrecs;			/* number of records */
-	dtrace_recdesc_t dtepd_rec[1];		/* recods themselves */
-} dtrace_eprobedesc_t;
+typedef struct dtrace_datadesc {
+	uint64_t dtdd_uarg;			/* library argument */
+	uint32_t dtdd_size;			/* total size */
+	int dtdd_nrecs;				/* number of records */
+	dtrace_recdesc_t *dtdd_recs;		/* records themselves */
+	int dtdd_refcnt;			/* reference count */
+} dtrace_datadesc_t;
 
 typedef struct dtrace_aggdesc {
 	DTRACE_PTR(char, dtagd_name);		/* not filled in by kernel */
@@ -70,8 +69,8 @@ typedef struct dtrace_fmtdesc {
 } dtrace_fmtdesc_t;
 
 #define DTRACE_SIZEOF_EPROBEDESC(desc)				\
-	(sizeof (dtrace_eprobedesc_t) + ((desc)->dtepd_nrecs ?  \
-	(((desc)->dtepd_nrecs - 1) * sizeof (dtrace_recdesc_t)) : 0))
+	(sizeof (dtrace_eprobedesc_t) + ((desc)->dtdd_nrecs ?  \
+	(((desc)->dtdd_nrecs - 1) * sizeof (dtrace_recdesc_t)) : 0))
 
 #define	DTRACE_SIZEOF_AGGDESC(desc)			       \
 	(sizeof (dtrace_aggdesc_t) + ((desc)->dtagd_nrecs ?     \

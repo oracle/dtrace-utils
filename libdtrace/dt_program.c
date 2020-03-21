@@ -220,17 +220,26 @@ dt_ecbdesc_create(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 dtrace_stmtdesc_t *
 dtrace_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 {
-	dtrace_stmtdesc_t *sdp;
+	dtrace_stmtdesc_t	*sdp;
+	dtrace_datadesc_t	*ddp;
 
-	if ((sdp = dt_zalloc(dtp, sizeof (dtrace_stmtdesc_t))) == NULL)
-		return (NULL);
+	sdp = dt_zalloc(dtp, sizeof(dtrace_stmtdesc_t));
+	if (sdp == NULL)
+		return NULL;
+
+	ddp = dt_datadesc_create(dtp);
+	if (ddp == NULL) {
+		dt_free(dtp, sdp);
+		return NULL;
+	}
 
 	dt_ecbdesc_hold(edp);
 	sdp->dtsd_ecbdesc = edp;
+	sdp->dtsd_ddesc = ddp;
 	sdp->dtsd_descattr = _dtrace_defattr;
 	sdp->dtsd_stmtattr = _dtrace_defattr;
 
-	return (sdp);
+	return sdp;
 }
 
 dtrace_actdesc_t *
@@ -346,6 +355,7 @@ dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 		dt_printf_destroy(sdp->dtsd_fmtdata);
 
 	dt_ecbdesc_release(dtp, sdp->dtsd_ecbdesc);
+	dt_free(dtp, sdp->dtsd_ddesc);
 	dt_free(dtp, sdp);
 }
 

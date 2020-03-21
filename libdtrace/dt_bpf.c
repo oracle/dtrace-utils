@@ -249,15 +249,16 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  */
 int
 dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		 const dtrace_difo_t *dp)
+		 dtrace_stmtdesc_t *sdp)
 {
 	struct bpf_load_program_attr	attr;
 	dtrace_epid_t			epid;
+	const dtrace_difo_t		*dp = sdp->dtsd_action->dtad_difo;
 	int				logsz = BPF_LOG_BUF_SIZE;
 	char				*log;
 	int				rc;
 
-	epid = dt_epid_add(dtp, prp->desc->id, 0);
+	epid = dt_epid_add(dtp, sdp->dtsd_ddesc, prp->desc->id);
 
 	/*
 	 * Check whether there are any probe-specific relocations to be
@@ -360,14 +361,7 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	if (!prp)
 		return dt_set_errno(dtp, ESRCH);
 
-	/*
-	 * In the new implementation, every statement has a single action,
-	 * which is the entire program.  At a future code reworking, we should
-	 * combine the action into the statement and do away with the action
-	 * list.
-	 */
-	assert(ap == sdp->dtsd_action_last);
-	fd = dt_bpf_load_prog(dtp, prp, ap->dtad_difo);
+	fd = dt_bpf_load_prog(dtp, prp, sdp);
 	if (fd < 0)
 		return fd;
 

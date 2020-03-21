@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -366,7 +366,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
     dtrace_bufdesc_t *buf, size_t offs)
 {
 	dtrace_probedesc_t *pd = data->dtpda_pdesc, *npd;
-	dtrace_eprobedesc_t *epd = data->dtpda_edesc, *nepd;
+	dtrace_datadesc_t *dd = data->dtpda_ddesc, *ndd;
 	dtrace_flowkind_t flow = DTRACEFLOW_NONE;
 	const char *p = pd->prv;
 	const char *n = pd->prb;
@@ -376,7 +376,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	static const char *r_str[2] = { " <- ", " <= " };
 	static const char *ent = "entry", *ret = "return";
 	static int entlen = 0, retlen = 0;
-	dtrace_epid_t next, id = epd->dtepd_epid;
+	dtrace_epid_t next, id = data->dtpda_epid;
 	int rval;
 
 	if (entlen == 0) {
@@ -421,7 +421,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	 * _next_ EPID.
 	 */
 	if (flow == DTRACEFLOW_RETURN) {
-		offs += epd->dtepd_size;
+		offs += dd->dtdd_size;
 
 		do {
 			if (offs >= buf->dtbd_size) {
@@ -442,7 +442,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 				offs += sizeof (id);
 		} while (next == DTRACE_EPIDNONE);
 
-		if ((rval = dt_epid_lookup(dtp, next, &nepd, &npd)) != 0)
+		if ((rval = dt_epid_lookup(dtp, next, &ndd, &npd)) != 0)
 			return (rval);
 
 		if (next != id && npd->id == pd->id)
@@ -1867,7 +1867,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
 
 again:
 	for (offs = start; offs < end; ) {
-		dtrace_eprobedesc_t *epd;
+		dtrace_datadesc_t *dd;
 
 		/*
 		 * We're guaranteed to have an ID.
@@ -1883,14 +1883,14 @@ again:
 			continue;
 		}
 
-		if ((rval = dt_epid_lookup(dtp, id, &data.dtpda_edesc,
-		    &data.dtpda_pdesc)) != 0)
+		if ((rval = dt_epid_lookup(dtp, id, &data.dtpda_ddesc,
+					   &data.dtpda_pdesc)) != 0)
 			return (rval);
 
-		epd = data.dtpda_edesc;
+		dd = data.dtpda_ddesc;
 		data.dtpda_data = buf->dtbd_data + offs;
 
-		if (data.dtpda_edesc->dtepd_uarg != DT_ECB_DEFAULT) {
+		if (data.dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
 			rval = dt_handle(dtp, &data);
 
 			if (rval == DTRACE_CONSUME_NEXT)
@@ -1919,8 +1919,8 @@ again:
 		if (rval != DTRACE_CONSUME_THIS)
 			return (dt_set_errno(dtp, EDT_BADRVAL));
 
-		for (i = 0; i < epd->dtepd_nrecs; i++) {
-			dtrace_recdesc_t *rec = &epd->dtepd_rec[i];
+		for (i = 0; i < dd->dtdd_nrecs; i++) {
+			dtrace_recdesc_t *rec = &dd->dtdd_recs[i];
 			dtrace_actkind_t act = rec->dtrd_action;
 
 			data.dtpda_data = buf->dtbd_data + offs +
@@ -1956,7 +1956,7 @@ again:
 					continue;
 
 				case DT_ACT_NORMALIZE:
-					if (i == epd->dtepd_nrecs - 1)
+					if (i == dd->dtdd_nrecs - 1)
 						return (dt_set_errno(dtp,
 						    EDT_BADNORMAL));
 
@@ -1974,12 +1974,12 @@ again:
 					caddr_t val;
 					int rv;
 
-					if (i == epd->dtepd_nrecs - 1) {
+					if (i == dd->dtdd_nrecs - 1) {
 						return (dt_set_errno(dtp,
 						    EDT_BADSETOPT));
 					}
 
-					valrec = &epd->dtepd_rec[++i];
+					valrec = &dd->dtdd_recs[++i];
 					valsize = valrec->dtrd_size;
 
 					if (valrec->dtrd_action != act ||
@@ -2009,7 +2009,7 @@ again:
 				}
 
 				case DT_ACT_TRUNC:
-					if (i == epd->dtepd_nrecs - 1)
+					if (i == dd->dtdd_nrecs - 1)
 						return (dt_set_errno(dtp,
 						    EDT_BADTRUNC));
 
@@ -2109,7 +2109,7 @@ again:
 				}
 
 				n = (*func)(dtp, fp, fmtdata, &data,
-				    rec, epd->dtepd_nrecs - i,
+				    rec, dd->dtdd_nrecs - i,
 				    (uchar_t *)buf->dtbd_data + offs,
 				    buf->dtbd_size - offs);
 
@@ -2126,7 +2126,7 @@ nofmt:
 				dtrace_print_aggdata_t pd;
 				dtrace_aggvarid_t *aggvars;
 				int j, naggvars = 0;
-				size_t size = ((epd->dtepd_nrecs - i) *
+				size_t size = ((dd->dtdd_nrecs - i) *
 				    sizeof (dtrace_aggvarid_t));
 
 				if ((aggvars = dt_alloc(dtp, size)) == NULL)
@@ -2138,11 +2138,11 @@ nofmt:
 				 * forward through the records until we find
 				 * a record from a different statement.
 				 */
-				for (j = i; j < epd->dtepd_nrecs; j++) {
+				for (j = i; j < dd->dtdd_nrecs; j++) {
 					dtrace_recdesc_t *nrec;
 					caddr_t naddr;
 
-					nrec = &epd->dtepd_rec[j];
+					nrec = &dd->dtdd_recs[j];
 
 					if (nrec->dtrd_uarg != rec->dtrd_uarg)
 						break;
@@ -2191,7 +2191,7 @@ nofmt:
 
 			if (act == DTRACEACT_TRACEMEM) {
 				n = dt_print_tracemem(dtp, fp, rec,
-				    epd->dtepd_nrecs - i,
+				    dd->dtdd_nrecs - i,
 				    buf->dtbd_data + offs);
 
 				if (n < 0)
@@ -2253,7 +2253,7 @@ nextrec:
 		 */
 		rval = (*rfunc)(&data, NULL, arg);
 nextepid:
-		offs += epd->dtepd_size;
+		offs += dd->dtdd_size;
 		last = id;
 	}
 
@@ -2293,7 +2293,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	if (hdr->type == PERF_RECORD_SAMPLE) {
 		char			*ptr = data;
 		uint32_t		size, epid, tag;
-		int			i, nrecs;
+		int			i;
 		dtrace_probedata_t	pdat;
 
 		/*
@@ -2311,6 +2311,13 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		if (ptr > buf + hdr->size)
 			return -1;
 
+		/*
+		 * Clear the probe data, and fill in data independent fields.
+		 */
+		memset(&pdat, 0, sizeof(pdat));
+		pdat.dtpda_handle = dtp;
+		pdat.dtpda_cpu = cpu;
+
 		size = *(uint32_t *)data;
 		data += sizeof(size);
 		ptr += sizeof(size) + size;
@@ -2320,21 +2327,20 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		data += sizeof(uint32_t);		/* skip padding */
 		size -= sizeof(uint32_t);
 
-		epid = *(uint32_t *)data;
-		data += sizeof(uint32_t);
-		size -= sizeof(uint32_t);
+		epid = ((uint32_t *)data)[0];
+		tag = ((uint32_t *)data)[1];
 
-		tag = *(uint32_t *)data;
-		data += sizeof(uint32_t);
-		size -= sizeof(uint32_t);
+		/*
+		 * Fill in the epid and address of the epid in the buffer.  We
+		 * need to pass this to the efunc.
+		 */
+		pdat.dtpda_epid = epid;
+		pdat.dtpda_data = data;
 
-		memset(&pdat, 0, sizeof(pdat));
-		pdat.dtpda_handle = dtp;
-		pdat.dtpda_cpu = cpu;
-		rval = dt_epid_lookup(dtp, epid, &pdat.dtpda_edesc,
+		rval = dt_epid_lookup(dtp, epid, &pdat.dtpda_ddesc,
 						 &pdat.dtpda_pdesc);
 		if (rval != 0)
-			return (rval);
+			return rval;
 
 #if 0
 		if (flow)
@@ -2362,14 +2368,26 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		/*
 		 * FIXME: This code is temporary.
 		 */
-		nrecs = size / sizeof(uint64_t);
-		for (i = 0; i < nrecs; i++) {
-			int	n;
+		for (i = 0; i < pdat.dtpda_ddesc->dtdd_nrecs; i++) {
+			int			n;
+			dtrace_recdesc_t	*rec;
+
+			rec = &pdat.dtpda_ddesc->dtdd_recs[i];
+
+			pdat.dtpda_data = data + rec->dtrd_offset;
+			rval = (*rfunc)(&pdat, rec, arg);
+
+			if (rval == DTRACE_CONSUME_NEXT)
+				continue;
+
+			if (rval == DTRACE_CONSUME_ABORT)
+				return dt_set_errno(dtp, EDT_DIRABORT);
+
+			if (rval != DTRACE_CONSUME_THIS)
+				return dt_set_errno(dtp, EDT_BADRVAL);
 
 			n = dt_printf(dtp, fp, quiet ? "%lld" : " %16lld",
-				      *(uint64_t *)data);
-			data += sizeof(uint64_t);
-			size -= sizeof(uint64_t);
+				      *(int64_t *)pdat.dtpda_data);
 
 			if (n < 0)
 				return -1;

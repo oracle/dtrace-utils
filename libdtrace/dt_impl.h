@@ -290,7 +290,7 @@ struct dtrace_hdl {
 	ctf_id_t dt_type_usymaddr; /* cached CTF ident. for _usymaddr type */
 	dtrace_epid_t dt_nextepid; /* next enabled probe ID to assign */
 	size_t dt_maxprobe;	/* max enabled probe ID */
-	dtrace_eprobedesc_t **dt_edesc; /* enabled probe descriptions */
+	dtrace_datadesc_t **dt_ddesc; /* probe data descriptions */
 	dtrace_probedesc_t **dt_pdesc; /* probe descriptions for enabled prbs */
 	size_t dt_maxagg;	/* max aggregation ID */
 	dtrace_aggdesc_t **dt_aggdesc; /* aggregation descriptions */
@@ -709,10 +709,16 @@ extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);
 
-extern dtrace_epid_t dt_epid_add(dtrace_hdl_t *, dtrace_id_t, int);
-extern int dt_epid_lookup(dtrace_hdl_t *, dtrace_epid_t,
-    dtrace_eprobedesc_t **, dtrace_probedesc_t **);
+extern dtrace_datadesc_t *dt_datadesc_create(dtrace_hdl_t *);
+extern int dt_datadesc_finalize(dtrace_hdl_t *, dtrace_datadesc_t *);
+extern dtrace_epid_t dt_epid_add(dtrace_hdl_t *, dtrace_datadesc_t *,
+				 dtrace_id_t);
+extern int dt_epid_lookup(dtrace_hdl_t *, dtrace_epid_t, dtrace_datadesc_t **,
+			  dtrace_probedesc_t **);
 extern void dt_epid_destroy(dtrace_hdl_t *);
+typedef void (*dt_cg_gap_f)(dt_pcb_t *, int);
+extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
+			   uint32_t, uint16_t, const char *, uint64_t);
 extern int dt_aggid_lookup(dtrace_hdl_t *, dtrace_aggid_t, dtrace_aggdesc_t **);
 extern void dt_aggid_destroy(dtrace_hdl_t *);
 

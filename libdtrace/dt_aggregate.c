@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -644,8 +644,8 @@ hashnext:
 		aggdata->dtada_size = size;
 		aggdata->dtada_desc = agg;
 		aggdata->dtada_handle = dtp;
-		(void) dt_epid_lookup(dtp, agg->dtagd_epid,
-		    &aggdata->dtada_edesc, &aggdata->dtada_pdesc);
+		dt_epid_lookup(dtp, agg->dtagd_epid, &aggdata->dtada_ddesc,
+			       &aggdata->dtada_pdesc);
 		aggdata->dtada_normal = 1;
 
 		h->dtahe_hashval = hashval;
@@ -1631,9 +1631,9 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 				aggdata->dtada_size = agg->dtagd_size;
 				aggdata->dtada_desc = agg;
 				aggdata->dtada_handle = dtp;
-				(void) dt_epid_lookup(dtp, agg->dtagd_epid,
-				    &aggdata->dtada_edesc,
-				    &aggdata->dtada_pdesc);
+				dt_epid_lookup(dtp, agg->dtagd_epid,
+					       &aggdata->dtada_ddesc,
+					       &aggdata->dtada_pdesc);
 				aggdata->dtada_normal = 1;
 				zaggdata[i].dtahe_hashval = 0;
 				zaggdata[i].dtahe_size = agg->dtagd_size;

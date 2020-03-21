@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -135,6 +135,7 @@ typedef struct dtrace_stmtdesc {
 	dtrace_ecbdesc_t *dtsd_ecbdesc;		/* ECB description */
 	dtrace_actdesc_t *dtsd_action;		/* action list */
 	dtrace_actdesc_t *dtsd_action_last;	/* last action in action list */
+	dtrace_datadesc_t *dtsd_ddesc;		/* probe data description */
 	void *dtsd_aggdata;			/* aggregation data */
 	void *dtsd_fmtdata;			/* type-specific output data */
 	void (*dtsd_callback)();		/* callback function for EPID */
@@ -173,7 +174,8 @@ typedef enum {
 
 typedef struct dtrace_probedata {
 	dtrace_hdl_t *dtpda_handle;		/* handle to DTrace library */
-	dtrace_eprobedesc_t *dtpda_edesc;	/* enabled probe description */
+	dtrace_epid_t dtpda_epid;		/* enabled probe ID */
+	dtrace_datadesc_t *dtpda_ddesc;		/* probe data description */
 	dtrace_probedesc_t *dtpda_pdesc;	/* probe description */
 	unsigned int dtpda_cpu;			/* CPU for data */
 	caddr_t dtpda_data;			/* pointer to raw data */
@@ -262,7 +264,7 @@ extern dtrace_workstatus_t dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 
 typedef struct dtrace_errdata {
 	dtrace_hdl_t *dteda_handle;		/* handle to DTrace library */
-	dtrace_eprobedesc_t *dteda_edesc;	/* enabled probe inducing err */
+	dtrace_datadesc_t *dteda_ddesc;		/* probe data inducing err */
 	dtrace_probedesc_t *dteda_pdesc;	/* probe inducing error */
 	unsigned int dteda_cpu;			/* CPU of error */
 	int dteda_action;			/* action inducing error */
@@ -355,7 +357,7 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
 struct dtrace_aggdata {
 	dtrace_hdl_t *dtada_handle;		/* handle to DTrace library */
 	dtrace_aggdesc_t *dtada_desc;		/* aggregation description */
-	dtrace_eprobedesc_t *dtada_edesc;	/* enabled probe description */
+	dtrace_datadesc_t *dtada_ddesc;		/* probe data description */
 	dtrace_probedesc_t *dtada_pdesc;	/* probe description */
 	caddr_t dtada_data;			/* pointer to raw data */
 	uint64_t dtada_normal;			/* the normal -- 1 for denorm */
