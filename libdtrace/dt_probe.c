@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -705,11 +705,30 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	return prp;
 }
 
+static int
+dt_probe_gmatch(const dt_probe_t *prp, dtrace_probedesc_t *pdp)
+{
+#define MATCH_ONE(nam, n)						\
+	if (pdp->nam) {							\
+		if (pdp->id & (1 << n)) {				\
+			if (!dt_gmatch(prp->desc->nam, pdp->nam))	\
+				return 0;				\
+		} else if (strcmp(prp->desc->nam, pdp->nam) != 0)	\
+				return 0;				\
+	}
+
+	MATCH_ONE(prv, 3)
+	MATCH_ONE(mod, 2)
+	MATCH_ONE(fun, 1)
+	MATCH_ONE(prb, 0)
+
+	return 1;
+}
+
 /*
- * Look for a probe that matches the probe description in 'pdp', and fill in
- * the probe info referenced by 'pip' (name and argument attributes, argument
- * types, and argument count).  If no probe is found, this function will return
- * NULL (dt_errno will be set).
+ * Look for a probe that matches the probe description in 'pdp'.
+ *
+ * If no probe is found, this function will return NULL (dt_errno will be set).
  *
  * If a probe id is provided in the probe description, a direct lookup can be
  * performed in the probe array.
@@ -722,6 +741,8 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
  * most restrictive (dt_byfun is usually best, then dt_byprb, then dt_bymod,
  * and finally dt_byprv).  Further matching is then done on just the probes in
  * that htab bucket.  Elements that must match exactly are compared first.
+ *
+ * More than one probe might match, but only one probe will be returned.
  */
 dt_probe_t *
 dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
@@ -763,34 +784,45 @@ dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 		return prp;
 	}
 
-#ifdef FIXME
 	/*
 	 * If at least one element is specified as a string to match exactly,
-	 * use that to consult itr respective htab.  If all elements are
+	 * use that to consult its respective htab.  If all elements are
 	 * specified as glob patterns (or the empty string), we need to loop
 	 * through all probes and look for a match.
 	 */
-	if (!f_is_glob) {
+	if (!f_is_glob)
 		prp = dt_htab_lookup(dtp->dt_byfun, &tmpl);
-		if (!prp)
-			goto no_probe;
-	} else if (!n_is_glob) {
+	else if (!n_is_glob)
 		prp = dt_htab_lookup(dtp->dt_byprb, &tmpl);
-		if (!prp)
-			goto no_probe;
-	} else if (!m_is_glob) {
+	else if (!m_is_glob)
 		prp = dt_htab_lookup(dtp->dt_bymod, &tmpl);
-		if (!prp)
-			goto no_probe;
-	} else if (!p_is_glob) {
+	else if (!p_is_glob)
 		prp = dt_htab_lookup(dtp->dt_byprv, &tmpl);
-		if (!prp)
-			goto no_probe;
-	} else {
-	}
-#endif
+	else {
+		int			i;
+		dtrace_probedesc_t	desc;
 
-	return NULL;
+		/*
+		 * To avoid checking multiple times whether an element in the
+		 * probe specification is a glob pattern, we (ab)use the
+		 * desc->id value (unused at this point) to store this
+		 * information a a bitmap.
+		 */
+		desc = *pdp;
+		desc.id = (p_is_glob << 3) | (m_is_glob << 2) |
+			  (f_is_glob << 1) | n_is_glob;
+
+		for (i = 0; i < dtp->dt_probe_id; i++) {
+			prp = dtp->dt_probes[i];
+			if (prp && dt_probe_gmatch(prp, &desc))
+				break;
+		}
+		if (i >= dtp->dt_probe_id)
+			prp = NULL;
+	}
+
+	if (prp)
+		return prp;
 
 no_probe:
 	dt_set_errno(dtp, EDT_NOPROBE);
@@ -1031,26 +1063,6 @@ dtrace_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 						    : -1;
 }
 
-static int
-dt_probe_gmatch(const dt_probe_t *prp, dtrace_probedesc_t *pdp)
-{
-#define MATCH_ONE(nam, n)						\
-	if (pdp->nam) {							\
-		if (pdp->id & (1 << n)) {				\
-			if (!dt_gmatch(prp->desc->nam, pdp->nam))	\
-				return 0;				\
-		} else if (strcmp(prp->desc->nam, pdp->nam) != 0)	\
-				return 0;				\
-	}
-
-	MATCH_ONE(prv, 3)
-	MATCH_ONE(mod, 2)
-	MATCH_ONE(fun, 1)
-	MATCH_ONE(prb, 0)
-
-	return 1;
-}
-
 int
 dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		  dtrace_probe_f *func, void *arg)
@@ -1135,7 +1147,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	 *
 	 * To avoid checking multiple times whether an element in the probe
 	 * specification is a glob pattern, we (ab)use the desc->id value
-	 * (used at this point) to store this information a a bitmap.
+	 * (unused at this point) to store this information a a bitmap.
 	 */
 	desc = *pdp;
 	desc.id = (p_is_glob << 3) | (m_is_glob << 2) | (f_is_glob << 1) |
