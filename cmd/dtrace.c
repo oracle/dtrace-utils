@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1541,11 +1541,13 @@ main(int argc, char *argv[])
 
 	oprintf("\n");
 
+#if 0
 	if (!g_impatient) {
 		if (dtrace_aggregate_print(g_dtp, g_ofp, NULL) == -1 &&
 		    dtrace_errno(g_dtp) != EINTR)
 			dfatal("failed to print aggregations");
 	}
+#endif
 
 	for (i = 0; i < g_psc; i++)
 		dtrace_proc_release(g_dtp, g_psv[i]);
