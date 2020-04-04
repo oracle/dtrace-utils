@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,6 +11,11 @@
  */
 
 #pragma D depends_on module vmlinux
+
+m4_dnl 5.6 and above use time64_t: time_t is obsolescent, so we
+m4_dnl have to define it ourselves.
+expand_for_kernel([[time_t]], [[ (m4_kver(5, 6, 0), [[ m4_dnl
+typedef time64_t time_t;]])]])
 
 typedef struct timestruc {
 	time_t tv_sec;
