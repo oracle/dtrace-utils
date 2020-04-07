@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -709,6 +709,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_linktype = DT_LTYP_ELF;
 	dtp->dt_xlatemode = DT_XL_STATIC;
 	dtp->dt_stdcmode = DT_STDC_XA;
+	dtp->dt_disasm = 1;
 	dtp->dt_version = version;
 	dtp->dt_cdefs_fd = -1;
 	dtp->dt_ddefs_fd = -1;

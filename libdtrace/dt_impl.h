@@ -326,6 +326,7 @@ struct dtrace_hdl {
 	uint_t dt_xlatemode;	/* dtrace translator linking mode (see below) */
 	uint_t dt_stdcmode;	/* dtrace stdc compatibility mode (see below) */
 	uint_t dt_treedump;	/* dtrace tree debug bitmap (see below) */
+	uint_t dt_disasm;	/* dtrace disassembler bitmap (see below) */
 	uint64_t dt_options[DTRACEOPT_MAX]; /* dtrace run-time options */
 	int dt_version;		/* library version requested by client */
 	int dt_ctferr;		/* error resulting from last CTF failure */
@@ -412,6 +413,19 @@ struct dtrace_hdl {
  * the program by printing it to stderr at the end of compiler pass 'p'.
  */
 #define	DT_TREEDUMP_PASS(dtp, p)	((dtp)->dt_treedump & (1 << ((p) - 1)))
+
+/*
+ * Macro to test whether a given disassembler bit is set in the dt_disasm
+ * bit-vector.  If the bit for mode 'm' is set, the D disassembler will be
+ * invoked for that specific mode.  The '-S' option must also be supplied in
+ * order for disassembler output to be generated.
+ *
+ * Supported listings are:
+ *	1	After compilation and assembly of a program.
+ *	2	After linking in precompiled BPF functions (dependencies).
+ *	3	After final relocation processing (final program).
+ */
+#define	DT_DISASM(dtp, m)		((dtp)->dt_disasm & (1 << ((m) - 1)))
 
 /*
  * Macros for accessing the cached CTF container and type ID for the common

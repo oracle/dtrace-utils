@@ -2186,12 +2186,15 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 {
 	dtrace_prog_t *rv;
 
-	if ((rv = dt_compile(dtp, DT_CTX_DPROG,
-		    spec, NULL, cflags, argc, argv, NULL, s)) != NULL) {
-		if (cflags & DTRACE_C_DIFV)
-			dt_dis_program(dtp, rv, stderr);
-	}
-	return (rv);
+	rv = dt_compile(dtp, DT_CTX_DPROG, spec, NULL, cflags,
+			argc, argv, NULL, s);
+	if (rv == NULL)
+		return NULL;
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
+		dt_dis_program(dtp, rv, stderr);
+
+	return rv;
 }
 
 dtrace_prog_t *
@@ -2200,12 +2203,15 @@ dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
 {
 	dtrace_prog_t *rv;
 
-	if ((rv = dt_compile(dtp, DT_CTX_DPROG,
-		    DTRACE_PROBESPEC_NAME, NULL, cflags, argc, argv, fp, NULL)) != NULL) {
-		if (cflags & DTRACE_C_DIFV)
-			dt_dis_program(dtp, rv, stderr);
-	}
-	return (rv);
+	rv = dt_compile(dtp, DT_CTX_DPROG, DTRACE_PROBESPEC_NAME, NULL, cflags,
+			argc, argv, fp, NULL);
+	if (rv == NULL)
+		return NULL;
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
+		dt_dis_program(dtp, rv, stderr);
+
+	return rv;
 }
 
 int

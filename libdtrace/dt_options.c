@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -395,6 +395,19 @@ dt_opt_module_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dtp->dt_module_path = proc;
 
 	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_disasm(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	int m;
+
+	if (arg == NULL || (m = atoi(arg)) < 0)
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+
+	dtp->dt_disasm = m;
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -1032,11 +1045,12 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "ctypes", dt_opt_ctypes },
 	{ "ctfpath", dt_opt_ctfa_path },
 	{ "defaultargs", dt_opt_cflags, DTRACE_C_DEFARG },
-	{ "dtypes", dt_opt_dtypes },
 	{ "debug", dt_opt_debug },
 	{ "debugassert", dt_opt_debug_assert },
 	{ "define", dt_opt_cpp_opts, (uintptr_t)"-D" },
+	{ "disasm", dt_opt_disasm },
 	{ "droptags", dt_opt_droptags },
+	{ "dtypes", dt_opt_dtypes },
 	{ "empty", dt_opt_cflags, DTRACE_C_EMPTY },
 	{ "errtags", dt_opt_cflags, DTRACE_C_ETAGS },
 	{ "evaltime", dt_opt_evaltime },
