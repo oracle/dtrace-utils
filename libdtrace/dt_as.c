@@ -535,20 +535,36 @@ fail:
 
 	/*
 	 * Allocate memory for the compiled string table and then copy the
-	 * chunks from the string table into the final string buffer.
+	 * chunks from the string table into the final string buffer for the
+	 * DIFO we are constructing.
+	 *
+	 * We keep the string table around (dtp->dt_csstab) because further
+	 * compilations may add more strings.  We will load a consolidated
+	 * compiled string table into a strtab BPF map so it can be used ny
+	 * all BPF programs we will be loading.  Since each DIFO will have a
+	 * string table that comprises the strings of all DIFOs before it along
+	 * with any new ones, we simply assign the latest (and most complete)
+	 * string table to dtp->dt_strtab (and the size as dtp->dt_strlen), so
+	 * that when we are ready to load and execute programs, we know we have
+	 * the latest and greatest string table to work with.
+	 *
+	 * Note that this means that we should *not* free dtp->dt_strtab later
+	 * because it will be free'd when the DIFO is destroyed.
 	 */
-	if ((n = dt_strtab_size(dtp->dt_ccstab)) != 0) {
-		if ((dtp->dt_strtab = dt_alloc(dtp, n)) == NULL)
+	dp->dtdo_strlen = dt_strtab_size(dtp->dt_ccstab);
+	if (dp->dtdo_strlen > 0) {
+		dp->dtdo_strtab = dt_zalloc(dtp, dp->dtdo_strlen);
+		if (dp->dtdo_strtab == NULL)
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 		dt_strtab_write(dtp->dt_ccstab,
 				(dt_strtab_write_f *)dt_strtab_copystr,
-				dtp->dt_strtab);
-		dtp->dt_strlen = (uint32_t)n;
+				dp->dtdo_strtab);
 
-		dp->dtdo_strtab = dtp->dt_strtab;
-		dp->dtdo_strlen = dtp->dt_strlen;
-	}
+		dtp->dt_strtab = dp->dtdo_strtab;
+		dtp->dt_strlen = dp->dtdo_strlen;
+	} else
+		dp->dtdo_strtab = NULL;
 
 	/*
 	 * Fill in the DIFO return type from the type associated with the

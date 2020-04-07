@@ -1160,8 +1160,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_ident_destroy(idp);
 	}
 
-	if (dtp->dt_strtab != NULL)
-		dt_free(dtp, dtp->dt_strtab);
 	if (dtp->dt_ccstab != NULL)
 		dt_strtab_destroy(dtp->dt_ccstab);
 	if (dtp->dt_macros != NULL)
