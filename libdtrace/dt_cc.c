@@ -1681,7 +1681,8 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	 * On an error, dt_pid_create_probes() will set the error message
 	 * and tag -- we just have to longjmp() out of here.
 	 */
-	if (isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
+	if (pdp->prv && pdp->prv[0] &&
+	    isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
 	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
 	    pvp->desc.dtvd_priv.dtpp_flags & DTRACE_PRIV_PROC) &&
 	    dt_pid_create_probes(pdp, dtp, yypcb) != 0) {
