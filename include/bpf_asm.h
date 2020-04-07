@@ -144,7 +144,9 @@
 
 #define BPF_NOP()	BPF_JUMP(0)
 
+#define BPF_IS_CALL(x)	((x).code == (BPF_JMP | BPF_CALL))
 #define BPF_IS_NOP(x)	((x).code == (BPF_JMP | BPF_JA) && (x).off == 0)
+
 #define BPF_EQUAL(x, y)	((x).code == (y).code &&			\
 			 (x).dst_reg == (y).dst_reg &&			\
 			 (x).src_reg == (y).src_reg &&			\
