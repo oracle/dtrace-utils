@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -248,6 +248,17 @@ size_t
 dt_strtab_size(const dt_strtab_t *sp)
 {
 	return (sp->str_size);
+}
+
+/*
+ * Copy strings from the compile-time string table into a DIFO-dtyle string
+ * table storage memory block.
+ */
+ssize_t
+dt_strtab_copystr(const char *s, size_t n, size_t off, char *buf)
+{
+	memcpy(buf + off, s, n);
+	return n;
 }
 
 ssize_t

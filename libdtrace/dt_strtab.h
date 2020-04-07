@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -41,6 +41,7 @@ extern void dt_strtab_destroy(dt_strtab_t *);
 extern ssize_t dt_strtab_index(dt_strtab_t *, const char *);
 extern ssize_t dt_strtab_insert(dt_strtab_t *, const char *);
 extern size_t dt_strtab_size(const dt_strtab_t *);
+extern ssize_t dt_strtab_copystr(const char *, size_t, size_t, char *);
 extern ssize_t dt_strtab_write(const dt_strtab_t *,
     dt_strtab_write_f *, void *);
 extern ulong_t dt_strtab_hash(const char *, size_t *);

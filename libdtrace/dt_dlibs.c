@@ -215,22 +215,12 @@ relcmp(const void *a, const void *b)
 }
 
 /*
- * Copy strings from the compile-time string table into the final strtab.
- */
-static ssize_t
-copy_stab_str(const char *s, size_t n, size_t off, char *buf)
-{
-	memcpy(buf + off, s, n);
-	return n;
-}
-
-/*
  * Process the symbols in the ELF object, resolving BPF maps and functions
  * against the known identifiers  If an unknown identifier is encountered, we
  * add it to the BPF identifier hash.
  *
  * For functions, we fix up the symbol size (to work around an issue with the
- * gcc BPF compiler not emitting symbol sizes), and then associated any listed
+ * gcc BPF compiler not emitting symbol sizes), and then associate any listed
  * relocations with each function.
  */
 static dt_bpf_func_t **
@@ -564,7 +554,7 @@ done:
 			goto out;
 		}
 
-		dt_strtab_write(stab, (dt_strtab_write_f *)copy_stab_str,
+		dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
 				dp->dtdo_strtab);
 		dt_strtab_destroy(stab);
 	}

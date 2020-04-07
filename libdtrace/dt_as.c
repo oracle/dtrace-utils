@@ -113,13 +113,6 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 	return (0);
 }
 
-static ssize_t
-dt_copystr(const char *s, size_t n, size_t off, dtrace_hdl_t *dtp)
-{
-	memcpy(dtp->dt_strtab + off, s, n);
-	return n;
-}
-
 #ifdef FIXME
 /*
  * Rewrite the xlate/xlarg instruction at dtdo_buf[i] so that the instruction's
@@ -549,7 +542,8 @@ fail:
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 		dt_strtab_write(dtp->dt_ccstab,
-				(dt_strtab_write_f *)dt_copystr, dtp);
+				(dt_strtab_write_f *)dt_strtab_copystr,
+				dtp->dt_strtab);
 		dtp->dt_strlen = (uint32_t)n;
 
 		dp->dtdo_strtab = dtp->dt_strtab;
