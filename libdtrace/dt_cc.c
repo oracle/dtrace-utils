@@ -2383,11 +2383,15 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	 * Write out the new string table.
 	 */
 	dp->dtdo_strlen = dt_strtab_size(stab);
-	dp->dtdo_strtab = dt_zalloc(dtp, fdp->dtdo_strlen);
-	if (dp->dtdo_strtab == NULL)
-		goto fail;
-	dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
-			dp->dtdo_strtab);
+	if (dp->dtdo_strlen > 0) {
+		dp->dtdo_strtab = dt_zalloc(dtp, dp->dtdo_strlen);
+		if (dp->dtdo_strtab == NULL)
+			goto fail;
+		dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
+				dp->dtdo_strtab);
+	} else
+		dp->dtdo_strtab = NULL;
+
 	dt_strtab_destroy(stab);
 
 	/*

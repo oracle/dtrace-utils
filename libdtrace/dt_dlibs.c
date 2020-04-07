@@ -554,7 +554,6 @@ done:
 	for (fid = fun0; fid < symc; fid++) {
 		dtrace_difo_t	*dp;
 		dof_relodesc_t	*brp;
-		size_t		slen;
 
 		fp = funcs[fid];
 		dp = fp->difo;
@@ -583,16 +582,20 @@ done:
 			rp++;
 		}
 
-		slen = dt_strtab_size(stab);
-		dp->dtdo_strtab = dt_alloc(dtp, slen);
-		dp->dtdo_strlen = slen;
-		if (dp->dtdo_strtab == NULL) {
-			fprintf(stderr, "Failed to alloc strtab\n");
-			goto out;
-		}
+		dp->dtdo_strlen = dt_strtab_size(stab);
+		if (dp->dtdo_strlen > 0) {
+			dp->dtdo_strtab = dt_alloc(dtp, dp->dtdo_strlen);
+			if (dp->dtdo_strtab == NULL) {
+				fprintf(stderr, "Failed to alloc strtab\n");
+				goto out;
+			}
 
-		dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
-				dp->dtdo_strtab);
+			dt_strtab_write(stab,
+					(dt_strtab_write_f *)dt_strtab_copystr,
+					dp->dtdo_strtab);
+		} else
+			dp->dtdo_strtab = NULL;
+
 		dt_strtab_destroy(stab);
 	}
 
