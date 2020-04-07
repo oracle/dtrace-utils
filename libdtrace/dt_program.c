@@ -355,7 +355,7 @@ dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 		dt_printf_destroy(sdp->dtsd_fmtdata);
 
 	dt_ecbdesc_release(dtp, sdp->dtsd_ecbdesc);
-	dt_free(dtp, sdp->dtsd_ddesc);
+	dt_datadesc_release(dtp, sdp->dtsd_ddesc);
 	dt_free(dtp, sdp);
 }
 

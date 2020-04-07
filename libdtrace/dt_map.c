@@ -21,7 +21,7 @@ dt_datadesc_hold(dtrace_datadesc_t *ddp)
 	ddp->dtdd_refcnt++;
 }
 
-static void
+void
 dt_datadesc_release(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
 {
 	if (--ddp->dtdd_refcnt > 0)
