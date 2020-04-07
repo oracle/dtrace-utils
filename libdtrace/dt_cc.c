@@ -2180,6 +2180,238 @@ out:
 	return (err ? NULL : rv);
 }
 
+static uint_t
+dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
+	       uint_t *relc)
+{
+	uint_t			pc = *insc;
+	uint_t			len = dp->dtdo_brelen;
+	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+
+	(*insc) += dp->dtdo_len;
+	(*relc) += len;
+	for (; len != 0; len--, rp++) {
+		char            *name = &dp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
+		dtrace_difo_t   *rdp;
+
+		if (idp == NULL ||			/* not found */
+		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
+		    idp->di_flags & DT_IDFLG_REF)       /* already seen */
+			continue;
+
+		idp->di_flags |= DT_IDFLG_REF;
+
+		rdp = dt_dlib_get_func_difo(idp);
+		idp->di_id = dt_link_layout(dtp, rdp, insc, relc);
+	}
+
+	return pc;
+}
+
+static uint_t
+dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
+		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
+		  uint_t *pcp, uint_t *rcp)
+{
+	uint_t			pc = *pcp;
+	uint_t			rc = *rcp;
+	uint_t			vlen = sdp->dtdo_varlen;
+	dtrace_difv_t		*vp = sdp->dtdo_vartab;
+	uint_t			len = sdp->dtdo_brelen;
+	const dof_relodesc_t	*rp = sdp->dtdo_breltab;
+	dof_relodesc_t		*nrp = &dp->dtdo_breltab[rc];
+
+	/*
+	 * Make sure there is enough room in the destination instruction buffer
+	 * and then copy the executable code for the current function into the
+	 * final instruction buffer at the given program counter (instruction
+	 * index).
+	 */
+	assert(pc + sdp->dtdo_len <= dp->dtdo_len);
+	memcpy(dp->dtdo_buf + pc, sdp->dtdo_buf,
+		sdp->dtdo_len * sizeof(struct bpf_insn));
+	(*pcp) += sdp->dtdo_len;
+
+	/*
+	 * Populate the (new) string table with any variable names for this
+	 * DIFO.
+	 */
+	for (; vlen != 0; vlen--, vp++) {
+		const char	*name = &sdp->dtdo_strtab[vp->dtdv_name];
+
+		vp->dtdv_name = dt_strtab_insert(stab, name);
+	}
+
+	/*
+	 * Next we copy the relocation table.  We do that before we run through
+	 * it to process dependencies because we want relocations to be in
+	 * strict ascending order by offset in the final relocation table.  The
+	 * disassembler depends on that, as does the relocation resolver
+	 * implementation.
+	 */
+	(*rcp) += len;
+	for (; len != 0; len--, rp++, nrp++) {
+		const char	*name = &sdp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t	*idp = dt_dlib_get_func(dtp, name);
+
+		nrp->dofr_name = dt_strtab_insert(stab, name);
+		nrp->dofr_type = rp->dofr_type;
+		nrp->dofr_offset = rp->dofr_offset +
+				   pc * sizeof(struct bpf_insn);
+		nrp->dofr_data = rp->dofr_data;
+
+		if (idp == NULL ||			/* not found */
+		    idp->di_kind != DT_IDENT_SYMBOL)	/* not external sym */
+			continue;
+
+		nrp->dofr_data = idp->di_id;		/* set value */
+	}
+
+	/*
+	 * Now go through the relocations once more, performing the actual
+	 * work of adding executable code (and relocations) for dependencies.
+	 */
+	len = sdp->dtdo_brelen;
+	rp = sdp->dtdo_breltab;
+	nrp = &dp->dtdo_breltab[rc];
+	for (; len != 0; len--, rp++, nrp++) {
+		char            *name = &sdp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
+		dtrace_difo_t   *rdp;
+
+		if (idp == NULL ||			/* not found */
+		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
+		    idp->di_flags & DT_IDFLG_REF)       /* already seen */
+			continue;
+
+		idp->di_flags |= DT_IDFLG_REF;
+
+		rdp = dt_dlib_get_func_difo(idp);
+		idp->di_id = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp);
+		nrp->dofr_data = idp->di_id;		/* set value */
+	}
+
+	return pc;
+}
+
+static uint_t
+dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
+{
+	struct bpf_insn		*buf = dp->dtdo_buf;
+	uint_t			len = dp->dtdo_brelen;
+	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+
+	for (; len != 0; len--, rp++) {
+		uint_t	idx;
+
+		/*
+		 * We are only relocating call instructions, so ignore any
+		 * relocations of a type other than R_BPF_64_32 (cannot refer
+		 * to a call instruction), and also ignore any relocations for
+		 * non-call instructions.
+		 */
+		if (rp->dofr_type != R_BPF_64_32)
+			continue;
+
+		idx = rp->dofr_offset / sizeof(struct bpf_insn);
+		if (!BPF_IS_CALL(buf[idx]))
+			continue;
+
+		buf[idx].imm = rp->dofr_data - idx - 1;
+	}
+}
+
+static int
+dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
+	     void *data)
+{
+	uint_t		insc = 0;
+	uint_t		relc = 0;
+	dtrace_difo_t	*dp = sdp->dtsd_action->dtad_difo;
+	dtrace_difo_t	*fdp;
+	dt_strtab_t	*stab;
+
+	/*
+	 * Determine the layout of the final (linked) DIFO, and calculate the
+	 * total isntruction and relocation record counts..
+	 */
+	dt_link_layout(dtp, dp, &insc, &relc);
+	dt_dlib_reset(dtp, B_TRUE);
+
+	/*
+	 * Allocate memory for constructing the final DIFO.
+	 */
+	fdp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
+	if (fdp == NULL)
+		goto fail;
+	fdp->dtdo_buf = dt_calloc(dtp, insc, sizeof(struct bpf_insn));
+	if (fdp->dtdo_buf == NULL)
+		goto fail;
+	fdp->dtdo_len = insc;
+	fdp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
+	if (fdp->dtdo_breltab == NULL)
+		goto fail;
+	fdp->dtdo_brelen = relc;
+
+	/*
+	 * Construct the final DIFO (instruction buffer, relocation table, and
+	 * string table.
+	 */
+	insc = relc = 0;
+	stab = dt_strtab_create(BUFSIZ);
+	if (stab == NULL)
+		goto fail;
+
+	dt_link_construct(dtp, fdp, dp, stab, &insc, &relc);
+	dt_dlib_reset(dtp, B_FALSE);
+
+	/*
+	 * Replace the program DIFO instruction buffer, BPF relocation table,
+	 * and string table with the new versions.
+	 */
+	dt_free(dtp, dp->dtdo_buf);
+	dp->dtdo_buf = fdp->dtdo_buf;
+	dt_free(dtp, dp->dtdo_strtab);
+	dp->dtdo_len = fdp->dtdo_len;
+	dt_free(dtp, dp->dtdo_breltab);
+	dp->dtdo_breltab = fdp->dtdo_breltab;
+	dp->dtdo_brelen = fdp->dtdo_brelen;
+
+	/*
+	 * Write out the new string table.
+	 */
+	dp->dtdo_strlen = dt_strtab_size(stab);
+	dp->dtdo_strtab = dt_zalloc(dtp, fdp->dtdo_strlen);
+	if (dp->dtdo_strtab == NULL)
+		goto fail;
+	dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
+			dp->dtdo_strtab);
+	dt_strtab_destroy(stab);
+
+	/*
+	 * Resolve the function relocation records.
+	 */
+	dt_link_resolve(dtp, dp);
+
+	dt_free(dtp, fdp);
+
+	return 0;
+
+fail:
+	dt_free(dtp, fdp->dtdo_breltab);
+	dt_free(dtp, fdp->dtdo_buf);
+	dt_free(dtp, fdp);
+
+	return dt_set_errno(dtp, EDT_NOMEM);
+}
+
+static int
+dt_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
+{
+	return dtrace_stmt_iter(dtp, pgp, dt_link_stmt, NULL);
+}
+
 dtrace_prog_t *
 dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
     dtrace_probespec_t spec, uint_t cflags, int argc, char *const argv[])
@@ -2192,6 +2424,14 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 		return NULL;
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
+		dt_dis_program(dtp, rv, stderr);
+
+	if (dt_link(dtp, rv) != 0) {
+		dt_program_destroy(dtp, rv);
+		return NULL;
+	}
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
 		dt_dis_program(dtp, rv, stderr);
 
 	return rv;
@@ -2209,6 +2449,14 @@ dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
 		return NULL;
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
+		dt_dis_program(dtp, rv, stderr);
+
+	if (dt_link(dtp, rv) != 0) {
+		dt_program_destroy(dtp, rv);
+		return NULL;
+	}
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
 		dt_dis_program(dtp, rv, stderr);
 
 	return rv;

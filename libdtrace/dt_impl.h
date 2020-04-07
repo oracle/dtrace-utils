@@ -568,9 +568,9 @@ enum {
 	EDT_DIFVERS,		/* library has newer DIF version than driver */
 	EDT_BADAGG,		/* unrecognized aggregating action */
 	EDT_FIO,		/* error occurred while reading from input stream */
-	EDT_BPFINVAL,		/* invalid DIF program */
-	EDT_BPFSIZE,		/* invalid DIF size */
-	EDT_BPFFAULT,		/* failed to copyin DIF program */
+	EDT_BPFINVAL,		/* invalid BPF program */
+	EDT_BPFSIZE,		/* BPF program too large */
+	EDT_BPFFAULT,		/* BPF program with invalid pointer */
 	EDT_BPF,		/* BPF error */
 	EDT_BADPROBE,		/* bad probe description */
 	EDT_BADPGLOB,		/* bad probe description globbing pattern */
@@ -705,6 +705,8 @@ extern void dt_dlib_init(dtrace_hdl_t *dtp);
 extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);
+extern dtrace_difo_t *dt_dlib_get_func_difo(const dt_ident_t *);
+extern void dt_dlib_reset(dtrace_hdl_t *dtp, boolean_t);
 extern int dt_load_libs(dtrace_hdl_t *dtp);
 
 extern void *dt_compile(dtrace_hdl_t *dtp, int context,

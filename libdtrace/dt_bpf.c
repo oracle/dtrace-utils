@@ -211,15 +211,15 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		uint32_t	val = 0;
 
 		switch (idp->di_kind) {
-		case DT_IDENT_FUNC:
+		case DT_IDENT_FUNC:	/* built-in function */
 			continue;
-		case DT_IDENT_PTR:
+		case DT_IDENT_PTR:	/* BPF map */
 			if (rp->dofr_type == R_BPF_64_64)
 				text[ioff].src_reg = BPF_PSEUDO_MAP_FD;
 
 			val = idp->di_id;
 			break;
-		case DT_IDENT_SCALAR:
+		case DT_IDENT_SCALAR:	/* built-in constant */
 			switch (idp->di_id) {
 			case DT_CONST_EPID:
 				val = epid;
@@ -230,7 +230,7 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 			}
 
 			break;
-		case DT_IDENT_SYMBOL:
+		case DT_IDENT_SYMBOL:	/* BPF function (pre-compiled) */
 			continue;
 		}
 
@@ -289,9 +289,10 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		char				*p, *q;
 
 		rc = dt_bpf_error(dtp,
-			"BPF program load for '%s:%s:%s:%s' failed: %s\n",
-			pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-			strerror(errno));
+				  "BPF program load for '%s:%s:%s:%s' failed: "
+				  "%s\n",
+				  pdp->prv, pdp->mod, pdp->fun, pdp->prb,
+				  strerror(errno));
 
 		/*
 		 * If there is BPF verifier output, print it with a "BPF: "
@@ -350,7 +351,6 @@ dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	    void *data)
 {
 	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
-	dtrace_actdesc_t	*ap = sdp->dtsd_action;
 	dtrace_probeinfo_t	pip;
 	dt_probe_t		*prp;
 	int			fd, rc;

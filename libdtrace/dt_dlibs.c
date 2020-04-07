@@ -111,11 +111,9 @@ dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind, void *data)
 {
 	dt_idhash_t	*dhp = dtp->dt_bpfsyms;
 	dt_ident_t	*idp;
-	uint_t		id = DT_IDENT_UNDEF;
 
-	dt_idhash_nextid(dhp, &id);
-	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, id, dt_bpf_attr,
-			       DT_VERS_2_0, NULL, NULL, 0);
+	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, DT_IDENT_UNDEF,
+			       dt_bpf_attr, DT_VERS_2_0, NULL, NULL, 0);
 	dt_ident_set_data(idp, data);
 
 	return idp;
@@ -170,6 +168,45 @@ dt_ident_t *
 dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
 {
 	return dt_dlib_get_sym(dtp, name, DT_IDENT_SCALAR);
+}
+
+/*
+ * Return the DIFO for an external symbol.
+ */
+dtrace_difo_t *
+dt_dlib_get_func_difo(const dt_ident_t *idp)
+{
+	assert(idp->di_kind == DT_IDENT_SYMBOL);
+	assert(idp->di_data != NULL);
+
+	return ((dt_bpf_func_t *)idp->di_data)->difo;
+}
+
+/*
+ * Reset the reference bit on BPF external symbols.
+ */
+static int
+dt_dlib_idreset(dt_idhash_t *dhp, dt_ident_t *idp, boolean_t *ref_only)
+{
+	if (idp->di_kind == DT_IDENT_SYMBOL) {
+		idp->di_flags &= ~DT_IDFLG_REF;
+
+		if (!*ref_only)
+			idp->di_id = DT_IDENT_UNDEF;
+	}
+	return 0;
+}
+
+/*
+ * Reset all BPF external symbols.  This removes the reference bit from the
+ * identifier flags to indicate that the symbols are not referenced by any
+ * code anymore.
+ */
+void
+dt_dlib_reset(dtrace_hdl_t *dtp, boolean_t ref_only)
+{
+	dt_idhash_iter(dtp->dt_bpfsyms, (dt_idhash_f *)dt_dlib_idreset,
+		       &ref_only);
 }
 
 /*
