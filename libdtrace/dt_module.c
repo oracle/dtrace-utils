@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1315,7 +1315,7 @@ dt_modsym_update_alt(dtrace_hdl_t *dtp, const char *line)
 	int sym_text;
 	dt_module_t *dmp;
 	dtrace_addr_range_t *range = NULL;
-	char sym_name[KSYM_NAME_MAX];
+	char sym_name[KSYM_NAME_MAX] = "";
 	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
 	int skip = 0;
 
