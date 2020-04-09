@@ -363,21 +363,21 @@ dt_stddev(uint64_t *data, uint64_t normal)
 
 static int
 dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
-    dtrace_bufdesc_t *buf, size_t offs)
+	      dtrace_epid_t next)
 {
-	dtrace_probedesc_t *pd = data->dtpda_pdesc, *npd;
-	dtrace_datadesc_t *dd = data->dtpda_ddesc, *ndd;
-	dtrace_flowkind_t flow = DTRACEFLOW_NONE;
-	const char *p = pd->prv;
-	const char *n = pd->prb;
-	const char *str = NULL;
-	char *sub;
-	static const char *e_str[2] = { " -> ", " => " };
-	static const char *r_str[2] = { " <- ", " <= " };
-	static const char *ent = "entry", *ret = "return";
-	static int entlen = 0, retlen = 0;
-	dtrace_epid_t next, id = data->dtpda_epid;
-	int rval;
+	dtrace_probedesc_t	*pd = data->dtpda_pdesc, *npd;
+	dtrace_datadesc_t	*dd = data->dtpda_ddesc, *ndd;
+	dtrace_flowkind_t	flow = DTRACEFLOW_NONE;
+	const char		*p = pd->prv;
+	const char		*n = pd->prb;
+	const char		*str = NULL;
+	char			*sub;
+	static const char	*e_str[2] = { " -> ", " => " };
+	static const char	*r_str[2] = { " <- ", " <= " };
+	static const char	*ent = "entry", *ret = "return";
+	static int		entlen = 0, retlen = 0;
+	dtrace_epid_t		id = data->dtpda_epid;
+	int			rval;
 
 	if (entlen == 0) {
 		assert(retlen == 0);
@@ -398,7 +398,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 		flow = DTRACEFLOW_ENTRY;
 		str = e_str[strcmp(p, "syscall") == 0];
 	} else if ((sub = strstr(n, ret)) != NULL && sub[retlen] == '\0' &&
-	    (sub == n || sub[-1] == '-')) {
+		   (sub == n || sub[-1] == '-')) {
 		flow = DTRACEFLOW_RETURN;
 		str = r_str[strcmp(p, "syscall") == 0];
 	}
@@ -410,8 +410,8 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	 * this scheme -- it's a heuristic.)
 	 */
 	if (flow == DTRACEFLOW_ENTRY) {
-		if ((last != DTRACE_EPIDNONE && id != last &&
-		    pd->id == dtp->dt_pdesc[last]->id))
+		if (last != DTRACE_EPIDNONE && id != last &&
+		    pd->id == dtp->dt_pdesc[last]->id)
 			flow = DTRACEFLOW_NONE;
 	}
 
@@ -420,48 +420,28 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	 * we don't actually want to unindent it -- we need to look at the
 	 * _next_ EPID.
 	 */
-	if (flow == DTRACEFLOW_RETURN) {
-		offs += dd->dtdd_size;
+	if (flow == DTRACEFLOW_RETURN && next != DTRACE_EPIDNONE &&
+	    next != id) {
+		rval = dt_epid_lookup(dtp, next, &ndd, &npd);
+		if (rval != 0)
+			return rval;
 
-		do {
-			if (offs >= buf->dtbd_size) {
-				/*
-				 * We're at the end -- maybe.  If the oldest
-				 * record is non-zero, we need to wrap.
-				 */
-				if (buf->dtbd_oldest != 0) {
-					offs = 0;
-				} else {
-					goto out;
-				}
-			}
-
-			next = *(uint32_t *)((uintptr_t)buf->dtbd_data + offs);
-
-			if (next == DTRACE_EPIDNONE)
-				offs += sizeof (id);
-		} while (next == DTRACE_EPIDNONE);
-
-		if ((rval = dt_epid_lookup(dtp, next, &ndd, &npd)) != 0)
-			return (rval);
-
-		if (next != id && npd->id == pd->id)
+		if (npd->id == pd->id)
 			flow = DTRACEFLOW_NONE;
 	}
 
 out:
-	if (flow == DTRACEFLOW_ENTRY || flow == DTRACEFLOW_RETURN) {
+	if (flow == DTRACEFLOW_ENTRY || flow == DTRACEFLOW_RETURN)
 		data->dtpda_prefix = str;
-	} else {
+	else
 		data->dtpda_prefix = "| ";
-	}
 
 	if (flow == DTRACEFLOW_RETURN && data->dtpda_indent > 0)
 		data->dtpda_indent -= 2;
 
 	data->dtpda_flow = flow;
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -2277,15 +2257,11 @@ nextepid:
 int
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
-	       void *arg)
+	       int flow, int quiet, dtrace_epid_t last, void *arg)
 {
 	char				*data = buf;
 	struct perf_event_header	*hdr;
 	int				rval;
-	int				flow, quiet;
-
-	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
-	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
 
 	hdr = (struct perf_event_header *)data;
 	data += sizeof(struct perf_event_header);
@@ -2305,7 +2281,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 *	uint32_t			tag;
 		 *	uint64_t			data[n];
 		 * }
-		 * and data points to the 'size' member at this point.
+		 * and 'data' points to the 'size' member at this point.
 		 * (Note that 'n' may be 0.)
 		 */
 		if (ptr > buf + hdr->size)
@@ -2342,19 +2318,15 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		if (rval != 0)
 			return rval;
 
-#if 0
 		if (flow)
-			dt_flowindent(dtp, &pdat, last, data, 0); /* FIXME */
-#endif
+			dt_flowindent(dtp, &pdat, last, DTRACE_EPIDNONE);
 
 		rval = (*efunc)(&pdat, arg);
 
-#if 0
 		if (flow) {
 			if (pdat.dtpda_flow == DTRACEFLOW_ENTRY)
 				pdat.dtpda_indent += 2;
 		}
-#endif
 
 		if (rval == DTRACE_CONSUME_NEXT)
 			return 0;
@@ -2398,6 +2370,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 * that we're done processing this EPID.
 		 */
 		rval = (*rfunc)(&pdat, NULL, arg);
+
+		return epid;
 	} else if (hdr->type == PERF_RECORD_LOST) {
 		uint64_t	lost;
 
@@ -2411,6 +2385,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 */
 		lost = *(uint64_t *)(data + sizeof(uint64_t));
 
+		/* FIXME: To be implemented */
+		return -1;
 	} else
 		return -1;
 }
@@ -2422,12 +2398,17 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 {
 	struct perf_event_mmap_page	*rb_page = (void *)peb->base;
 	struct perf_event_header	*hdr;
+	dtrace_epid_t			last = DTRACE_EPIDNONE;
 	char				*base;
 	char				*event;
 	uint32_t			len;
 	uint64_t			head, tail;
 	dt_pebset_t			*pebset = dtp->dt_pebset;
 	uint64_t			data_size = pebset->data_size;
+	int				flow, quiet;
+
+	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
+	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
 
 	/*
 	 * Set base to be the start of the buffer data, i.e. we skip the first
@@ -2469,7 +2450,8 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 				event = dst;
 			}
 
-			dt_consume_one(dtp, fp, cpu, event, efunc, rfunc, arg);
+			last = dt_consume_one(dtp, fp, cpu, event, efunc, rfunc,
+					      flow, quiet, last, arg);
 			tail += hdr->size;
 		} while (tail != head);
 
