@@ -1064,15 +1064,18 @@ dtrace_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 }
 
 int
-dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
-		  dtrace_probe_f *func, void *arg)
+dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+	      dt_probe_f *pfunc, dtrace_probe_f *dfunc, void *arg)
 {
 	dtrace_probedesc_t	desc;
 	dt_probe_t		tmpl;
 	dt_probe_t		*prp;
-	int			i, rv;
+	int			i;
 	int			p_is_glob, m_is_glob, f_is_glob, n_is_glob;
+	int			rv = 0;
 	int			matches = 0;
+
+	assert(dfunc == NULL || pfunc == NULL);
 
 	/*
 	 * Special case: if no probe description is provided, we need to loop
@@ -1082,7 +1085,12 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		for (i = 0; i < dtp->dt_probe_id; i++) {
 			if (!dtp->dt_probes[i])
 				continue;
-			if ((rv = func(dtp, dtp->dt_probes[i]->desc, arg)) != 0)
+			if (dfunc != NULL)
+				rv = dfunc(dtp, dtp->dt_probes[i]->desc, arg);
+			else if (pfunc != NULL)
+				rv = pfunc(dtp, dtp->dt_probes[i], arg);
+
+			if (rv != 0)
 				return rv;
 
 			matches++;
@@ -1102,7 +1110,12 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		if (!prp)
 			goto done;
 
-		if ((rv = func(dtp, prp->desc, arg)) != 0)
+		if (dfunc != NULL)
+			rv = dfunc(dtp, prp->desc, arg);
+		else if (pfunc != NULL)
+			rv = pfunc(dtp, prp, arg);
+
+		if (rv != 0)
 			return rv;
 
 		matches = 1;
@@ -1126,7 +1139,12 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		if (!prp)
 			goto done;
 
-		if ((rv = func(dtp, prp->desc, arg)) != 0)
+		if (dfunc != NULL)
+			rv = dfunc(dtp, prp->desc, arg);
+		else if (pfunc != NULL)
+			rv = pfunc(dtp, prp, arg);
+
+		if (rv != 0)
 			return rv;
 
 		matches = 1;
@@ -1164,7 +1182,12 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 			if (!dt_probe_gmatch(prp, &desc))		\
 				continue;				\
 									\
-			if ((rv = func(dtp, prp->desc, arg)) != 0)	\
+			if (dfunc != NULL)				\
+				rv = dfunc(dtp, prp->desc, arg);	\
+			else if (pfunc != NULL)				\
+				rv = pfunc(dtp, prp, arg);		\
+									\
+			if (rv != 0)					\
 				return rv;				\
 									\
 			matches++;					\
@@ -1190,7 +1213,12 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		if (!dt_probe_gmatch(prp, &desc))
 			continue;
 
-		if ((rv = func(dtp, prp->desc, arg)) != 0)
+		if (dfunc != NULL)
+			rv = dfunc(dtp, prp->desc, arg);
+		else if (pfunc != NULL)
+			rv = pfunc(dtp, prp, arg);
+
+		if (rv != 0)
 			return rv;
 
 		matches++;
@@ -1199,6 +1227,13 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 done:
 	return matches ? 0
 		       : dt_set_errno(dtp, EDT_NOPROBE);
+}
+
+int
+dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+		  dtrace_probe_f *func, void *arg)
+{
+	return dt_probe_iter(dtp, pdp, NULL, func, arg);
 }
 
 void

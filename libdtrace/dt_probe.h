@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -76,6 +76,10 @@ extern dt_probe_t *dt_probe_lookup(dtrace_hdl_t *dtp,
 				   const dtrace_probedesc_t *pdp);
 extern dt_probe_t *dt_probe_lookup_by_name(dtrace_hdl_t *dtp, const char *name);
 extern void dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp);
+
+typedef int dt_probe_f(dtrace_hdl_t *dtp, const dt_probe_t *prp, void *arg);
+extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+			 dt_probe_f *pfunc, dtrace_probe_f *dfunc, void *arg);
 
 extern void dt_probe_init(dtrace_hdl_t *dtp);
 extern void dt_probe_stats(dtrace_hdl_t *dtp);
