@@ -12,10 +12,6 @@
  * Mapping from event name to DTrace probe name:
  *
  *	<group>:<name>				sdt:<group>::<name>
- *
- * Mapping from BPF section name to DTrace probe name:
- *
- *	tracepoint/<group>/<name>		sdt:<group>::<name>
  */
 #include <assert.h>
 #include <errno.h>
@@ -226,38 +222,13 @@ done:
 	return 0;
 }
 
-static int sdt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-			  int *idp, int *argcp, dt_argdesc_t **argvp)
-{
-	FILE	*f;
-	char   	 fn[256];
-	int	rc;
-
-	*idp = -1;
-
-	strcpy(fn, EVENTSFS);
-	strcat(fn, prp->desc->mod);
-	strcat(fn, "/");
-	strcat(fn, prp->desc->prb);
-	strcat(fn, "/format");
-
-	f = fopen(fn, "r");
-	if (!f)
-		return -ENOENT;
-
-	rc = tp_event_info(dtp, f, 0, idp, argcp, argvp);
-	fclose(f);
-
-	return rc;
-}
-
 /*
  * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.  When
  * kprobes are registered on the system, they will appear in this list also as
  * kprobes:<name>.  We need to ignore them because DTrace already accounts for
  * them as FBT probes.
  */
-static int sdt_populate(dtrace_hdl_t *dtp)
+static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
 	FILE		*f;
@@ -313,7 +284,7 @@ static int sdt_populate(dtrace_hdl_t *dtp)
  *
  * FIXME: Currently, access to arguments of the tracepoint is not supported.
  */
-static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
+static void trampoline(dt_pcb_t *pcb, int haspred)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -425,82 +396,35 @@ static void sdt_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
-#if 0
-#define EVENT_PREFIX	"tracepoint/"
-#define EVENT_SYSCALLS	"syscalls/"
-#define EVENT_KPROBES	"kprobes/"
-
-/*
- * Perform a probe lookup based on an event name (usually obtained from a BPF
- * ELF section name).  Exclude syscalls and kprobes tracepoint events because
- * they are handled by their own individual providers.
- */
-static struct dt_probe *sdt_resolve_event(const char *name)
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *idp, int *argcp, dt_argdesc_t **argvp)
 {
-	char		*str, *p;
-	struct dt_probe	tmpl;
-	struct dt_probe	*probe;
+	FILE	*f;
+	char	fn[256];
+	int	rc;
 
-	if (!name)
-		return NULL;
+	*idp = -1;
 
-	/* Exclude anything that is not a tracepoint */
-	if (strncmp(name, EVENT_PREFIX, sizeof(EVENT_PREFIX) - 1) != 0)
-		return NULL;
-	name += sizeof(EVENT_PREFIX) - 1;
+	strcpy(fn, EVENTSFS);
+	strcat(fn, prp->desc->mod);
+	strcat(fn, "/");
+	strcat(fn, prp->desc->prb);
+	strcat(fn, "/format");
 
-	/* Exclude syscall tracepoints */
-	if (strncmp(name, EVENT_SYSCALLS, sizeof(EVENT_SYSCALLS) - 1) == 0)
-		return NULL;
+	f = fopen(fn, "r");
+	if (!f)
+		return -ENOENT;
 
-	/* Exclude kprobes tracepoints */
-	if (strncmp(name, EVENT_KPROBES, sizeof(EVENT_KPROBES) - 1) == 0)
-		return NULL;
+	rc = tp_event_info(dtp, f, 0, idp, argcp, argvp);
+	fclose(f);
 
-	str = strdup(name);
-	if (!str)
-		return NULL;
-
-	p = strchr(str, '/');
-	*p++ = '\0';
-
-	memset(&tmpl, 0, sizeof(tmpl));
-	tmpl.prv_name = provname;
-	tmpl.mod_name = p ? str : modname;
-	tmpl.fun_name = NULL;
-	tmpl.prb_name = p;
-
-	probe = dt_probe_by_name(&tmpl);
-
-	free(str);
-
-	return probe;
+	return rc;
 }
-
-static int sdt_attach(const char *name, int bpf_fd)
-{
-	char	efn[256];
-	int	len = 265 - strlen(EVENTSFS);
-
-	name += 11;				/* skip "tracepoint/" */
-	strcpy(efn, EVENTSFS);
-	strncat(efn, name, len);
-	len -= strlen(name);
-	strncat(efn, "/id", len);
-printf("[%s]\n", efn);
-
-	return 0;
-}
-#endif
 
 dt_provimpl_t	dt_sdt = {
 	.name		= "sdt",
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
-	.populate	= &sdt_populate,
-	.trampoline	= &sdt_trampoline,
-	.probe_info	= &sdt_probe_info,
-#if 0
-	.resolve_event	= &sdt_resolve_event,
-	.attach		= &sdt_attach,
-#endif
+	.populate	= &populate,
+	.trampoline	= &trampoline,
+	.probe_info	= &probe_info,
 };

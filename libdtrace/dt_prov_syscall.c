@@ -14,11 +14,6 @@
  *
  *	syscalls:sys_enter_<name>		syscall:vmlinux:<name>:entry
  *	syscalls:sys_exit_<name>		syscall:vmlinux:<name>:return
- *
- * Mapping from BPF section name to DTrace probe name:
- *
- *	tracepoint/syscalls/sys_enter_<name>	syscall:vmlinux:<name>:entry
- *	tracepoint/syscalls/sys_exit_<name>	syscall:vmlinux:<name>:return
  */
 #include <assert.h>
 #include <ctype.h>
@@ -66,45 +61,14 @@ struct syscall_data {
 
 #define SCD_ARG(n)	offsetof(struct syscall_data, arg[n])
 
-static int syscall_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-			      int *idp, int *argcp, dt_argdesc_t **argvp)
-{
-	FILE	*f;
-	char   	 fn[256];
-	int	rc;
-
-	*idp = -1;
-
-	/*
-	 * We know that the probe name is either "entry" or "return", so we can
-	 * just check the first character.
-	 */
-	strcpy(fn, SYSCALLSFS);
-	if (prp->desc->prb[0] == 'e')
-		strcat(fn, "sys_enter_");
-	else
-		strcat(fn, "sys_exit_");
-	strcat(fn, prp->desc->fun);
-	strcat(fn, "/format");
-
-	f = fopen(fn, "r");
-	if (!f)
-		return -ENOENT;
-
-	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, idp, argcp, argvp);
-	fclose(f);
-
-	return rc;
-}
-
 #define PROBE_LIST	TRACEFS "available_events"
 
 #define PROV_PREFIX	"syscalls:"
 #define ENTRY_PREFIX	"sys_enter_"
 #define EXIT_PREFIX	"sys_exit_"
 
-/* can the PROBE_LIST file and add probes for any syscalls events. */
-static int syscall_populate(dtrace_hdl_t *dtp)
+/* Scan the PROBE_LIST file and add probes for any syscalls events. */
+static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
 	FILE		*f;
@@ -178,7 +142,7 @@ static int syscall_populate(dtrace_hdl_t *dtp)
  * function that implements the compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
+static void trampoline(dt_pcb_t *pcb, int haspred)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -303,90 +267,41 @@ static void syscall_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
-#if 0
-#define EVENT_PREFIX	"tracepoint/syscalls/"
-
-/*
- * Perform a probe lookup based on an event name (BPF ELF section name).
- * Exclude syscalls and kprobes tracepoint events because they are handled by
- * their own individual providers.
- */
-static struct dt_probe *systrace_resolve_event(const char *name)
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *idp, int *argcp, dt_argdesc_t **argvp)
 {
-	const char	*prbname;
-	struct dt_probe	tmpl;
-	struct dt_probe	*probe;
+	FILE	*f;
+	char	fn[256];
+	int	rc;
 
-	if (!name)
-		return NULL;
+	*idp = -1;
 
-	/* Exclude anything that is not a syscalls tracepoint */
-	if (strncmp(name, EVENT_PREFIX, sizeof(EVENT_PREFIX) - 1) != 0)
-		return NULL;
-	name += sizeof(EVENT_PREFIX) - 1;
+	/*
+	 * We know that the probe name is either "entry" or "return", so we can
+	 * just check the first character.
+	 */
+	strcpy(fn, SYSCALLSFS);
+	if (prp->desc->prb[0] == 'e')
+		strcat(fn, "sys_enter_");
+	else
+		strcat(fn, "sys_exit_");
+	strcat(fn, prp->desc->fun);
+	strcat(fn, "/format");
 
-	if (strncmp(name, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1) == 0) {
-		name += sizeof(ENTRY_PREFIX) - 1;
-		prbname = "entry";
-	} else if (strncmp(name, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1) == 0) {
-		name += sizeof(EXIT_PREFIX) - 1;
-		prbname = "return";
-	} else
-		return NULL;
+	f = fopen(fn, "r");
+	if (!f)
+		return -ENOENT;
 
-	memset(&tmpl, 0, sizeof(tmpl));
-	tmpl.prv_name = provname;
-	tmpl.mod_name = modname;
-	tmpl.fun_name = name;
-	tmpl.prb_name = prbname;
+	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, idp, argcp, argvp);
+	fclose(f);
 
-	probe = dt_probe_by_name(&tmpl);
-
-	return probe;
+	return rc;
 }
-
-/*
- * Attach the given BPF program (identified by its file descriptor) to the
- * event identified by the given section name.
- */
-static int syscall_attach(const char *name, int bpf_fd)
-{
-	char    efn[256];
-	char    buf[256];
-	int	event_id, fd, rc;
-
-	name += sizeof(EVENT_PREFIX) - 1;
-	strcpy(efn, SYSCALLSFS);
-	strcat(efn, name);
-	strcat(efn, "/id");
-
-	fd = open(efn, O_RDONLY);
-	if (fd < 0) {
-		perror(efn);
-		return -1;
-	}
-	rc = read(fd, buf, sizeof(buf));
-	if (rc < 0 || rc >= sizeof(buf)) {
-		perror(efn);
-		close(fd);
-		return -1;
-	}
-	close(fd);
-	buf[rc] = '\0';
-	event_id = atoi(buf);
-
-	return dt_bpf_attach(event_id, bpf_fd);
-}
-#endif
 
 dt_provimpl_t	dt_syscall = {
 	.name		= "syscall",
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
-	.populate	= &syscall_populate,
-	.trampoline	= &syscall_trampoline,
-	.probe_info	= &syscall_probe_info,
-#if 0
-	.resolve_event	= &systrace_resolve_event,
-	.attach		= &syscall_attach,
-#endif
+	.populate	= &populate,
+	.trampoline	= &trampoline,
+	.probe_info	= &probe_info,
 };

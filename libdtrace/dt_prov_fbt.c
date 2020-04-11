@@ -17,16 +17,6 @@
  *   or
  *	<name> [<modname>]			fbt:<modname>:<name>:entry
  *						fbt:<modname>:<name>:return
- *
- * Mapping from BPF section name to DTrace probe name:
- *
- *	kprobe/<name>				fbt:vmlinux:<name>:entry
- *	kretprobe/<name>			fbt:vmlinux:<name>:return
- *
- * (Note that the BPF section does not carry information about the module that
- *  the function is found in.  This means that BPF section name cannot be used
- *  to distinguish between functions with the same name occurring in different
- *  modules.)
  */
 #include <assert.h>
 #include <errno.h>
@@ -63,70 +53,11 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
 
-static int fbt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-			  int *idp, int *argcp, dt_argdesc_t **argvp)
-{
-	FILE	*f;
-	char	fn[256];
-	int	rc = 0;
-
-	*idp = -1;
-
-	strcpy(fn, KPROBESFS);
-	strcat(fn, prp->desc->fun);
-	strcat(fn, "/format");
-
-	/*
-	 * We check to see if the kprobe event already exists in the tracing
-	 * sub-system.  If not, we try to register the probe with the tracing
-	 * sub-system, and try accessing it again.
-	 */
-again:
-	f = fopen(fn, "r");
-	if (f == NULL) {
-		int	fd;
-		char	c = 'p';
-
-		if (rc)
-			goto out;
-
-		rc = -ENOENT;
-
-		/*
-		 * The probe name component is either "entry" or "return" for
-		 * FBT probes.
-		 */
-		if (prp->desc->prb[0] == 'r')
-			c = 'r';
-
-		/*
-		 * Register the kprobe with the tracing subsystem.  This will
-		 * create a tracepoint event.
-		 */
-		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
-		if (fd == -1)
-			goto out;
-
-		dprintf(fd, "%c:%s %s\n", c, prp->desc->fun, prp->desc->fun);
-		close(fd);
-
-		goto again;
-	}
-
-	*argcp = 0;
-	*argvp = NULL;
-	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
-	fclose(f);
-
-out:
-	return rc;
-}
-
 /*
  * Scan the PROBE_LIST file and add entry and return probes for every function
  * that is listed.
  */
-static int fbt_populate(dtrace_hdl_t *dtp)
+static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t		*prv;
 	FILE			*f;
@@ -226,7 +157,7 @@ static int fbt_populate(dtrace_hdl_t *dtp)
  * function that implements tha compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
+static void trampoline(dt_pcb_t *pcb, int haspred)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -373,112 +304,69 @@ static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
-#if 0
-#define ENTRY_PREFIX	"kprobe/"
-#define EXIT_PREFIX	"kretprobe/"
-
-/*
- * Perform a probe lookup based on an event name (BPF ELF section name).
- */
-static struct dt_probe *fbt_resolve_event(const char *name)
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *idp, int *argcp, dt_argdesc_t **argvp)
 {
-	const char	*prbname;
-	struct dt_probe	tmpl;
-	struct dt_probe	*probe;
+	FILE	*f;
+	char	fn[256];
+	int	rc = 0;
 
-	if (!name)
-		return NULL;
+	*idp = -1;
 
-	if (strncmp(name, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1) == 0) {
-		name += sizeof(ENTRY_PREFIX) - 1;
-		prbname = "entry";
-	} else if (strncmp(name, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1) == 0) {
-		name += sizeof(EXIT_PREFIX) - 1;
-		prbname = "return";
-	} else
-		return NULL;
-
-	memset(&tmpl, 0, sizeof(tmpl));
-	tmpl.prv_name = provname;
-	tmpl.mod_name = modname;
-	tmpl.fun_name = name;
-	tmpl.prb_name = prbname;
-
-	probe = dt_probe_by_name(&tmpl);
-
-	return probe;
-}
-
-/*
- * Attach the given BPF program (identified by its file descriptor) to the
- * kprobe identified by the given section name.
- *
- * TODO: This should somehow update the probe description with the event ID.
- */
-static int fbt_attach(const char *name, int bpf_fd)
-{
-	char    efn[256];
-	char    buf[256];
-	int	event_id, fd, rc;
-
-	name += 7;				/* skip "kprobe/" */
-	snprintf(buf, sizeof(buf), "p:%s %s\n", name, name);
+	strcpy(fn, KPROBESFS);
+	strcat(fn, prp->desc->fun);
+	strcat(fn, "/format");
 
 	/*
-	 * Register the kprobe with the tracing subsystem.  This will create
-	 * a tracepoint event.
+	 * We check to see if the kprobe event already exists in the tracing
+	 * sub-system.  If not, we try to register the probe with the tracing
+	 * sub-system, and try accessing it again.
 	 */
-	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
-	if (fd < 0) {
-		perror(KPROBE_EVENTS);
-		return -1;
-	}
-	rc = write(fd, buf, strlen(buf));
-	if (rc < 0) {
-		perror(KPROBE_EVENTS);
+again:
+	f = fopen(fn, "r");
+	if (f == NULL) {
+		int	fd;
+		char	c = 'p';
+
+		if (rc)
+			goto out;
+
+		rc = -ENOENT;
+
+		/*
+		 * The probe name component is either "entry" or "return" for
+		 * FBT probes.
+		 */
+		if (prp->desc->prb[0] == 'r')
+			c = 'r';
+
+		/*
+		 * Register the kprobe with the tracing subsystem.  This will
+		 * create a tracepoint event.
+		 */
+		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+		if (fd == -1)
+			goto out;
+
+		dprintf(fd, "%c:%s %s\n", c, prp->desc->fun, prp->desc->fun);
 		close(fd);
-		return -1;
+
+		goto again;
 	}
-	close(fd);
 
-	/* Read the tracepoint event id for the kprobe we just registered. */
-	strcpy(efn, EVENTSFS);
-	strcat(efn, "kprobes/");
-	strcat(efn, name);
-	strcat(efn, "/id");
+	*argcp = 0;
+	*argvp = NULL;
+	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
+	fclose(f);
 
-	fd = open(efn, O_RDONLY);
-	if (fd < 0) {
-		perror(efn);
-		return -1;
-	}
-	rc = read(fd, buf, sizeof(buf));
-	if (rc < 0 || rc >= sizeof(buf)) {
-		perror(efn);
-		close(fd);
-		return -1;
-	}
-	close(fd);
-	buf[rc] = '\0';
-	event_id = atoi(buf);
-
-	/*
-	 * Attaching a BPF program (by file descriptor) to an event (by ID) is
-	 * a generic operation provided by the BPF interface code.
-	 */
-	return dt_bpf_attach(event_id, bpf_fd);
-
+out:
+	return rc;
 }
-#endif
 
 dt_provimpl_t	dt_fbt = {
 	.name		= "fbt",
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
-	.populate	= &fbt_populate,
-	.trampoline	= &fbt_trampoline,
-	.probe_info	= &fbt_probe_info,
-#if 0
-	.resolve_event	= &fbt_resolve_event,
-	.attach		= &fbt_attach,
-#endif
+	.populate	= &populate,
+	.trampoline	= &trampoline,
+	.probe_info	= &probe_info,
 };

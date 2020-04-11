@@ -22,7 +22,7 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
 };
 
-static int dtrace_populate(dtrace_hdl_t *dtp)
+static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
 	int		n = 0;
@@ -53,7 +53,7 @@ static int dtrace_populate(dtrace_hdl_t *dtp)
  * function that implements tha compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void dtrace_trampoline(dt_pcb_t *pcb, int haspred)
+static void trampoline(dt_pcb_t *pcb, int haspred)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -200,51 +200,9 @@ static void dtrace_trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
-#if 0
-#define EVENT_PREFIX	"tracepoint/dtrace/"
-
-/*
- * Perform a probe lookup based on an event name (usually obtained from a BPF
- * ELF section name).  We use an unused event group (dtrace) to be able to
- * fake a section name that libbpf will allow us to use.
- */
-static struct dt_probe *dtrace_resolve_event(const char *name)
-{
-	struct dt_probe	tmpl;
-	struct dt_probe	*probe;
-
-	if (!name)
-		return NULL;
-
-	/* Exclude anything that is not a dtrace core tracepoint */
-	if (strncmp(name, EVENT_PREFIX, sizeof(EVENT_PREFIX) - 1) != 0)
-		return NULL;
-	name += sizeof(EVENT_PREFIX) - 1;
-
-	memset(&tmpl, 0, sizeof(tmpl));
-	tmpl.prv_name = provname;
-	tmpl.mod_name = NULL;
-	tmpl.fun_name = NULL;
-	tmpl.prb_name = name;
-
-	probe = dt_probe_by_name(&tmpl);
-
-	return probe;
-}
-
-static int dtrace_attach(const char *name, int bpf_fd)
-{
-	return -1;
-}
-#endif
-
 dt_provimpl_t	dt_dtrace = {
 	.name		= "dtrace",
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
-	.populate	= &dtrace_populate,
-	.trampoline	= &dtrace_trampoline,
-#if 0
-	.resolve_event	= &dtrace_resolve_event,
-	.attach		= &dtrace_attach,
-#endif
+	.populate	= &populate,
+	.trampoline	= &trampoline,
 };
