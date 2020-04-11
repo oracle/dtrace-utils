@@ -14,6 +14,10 @@
 #include "dt_provider.h"
 #include "dt_probe.h"
 
+static const char		prvname[] = "dtrace";
+static const char		modname[] = "";
+static const char		funname[] = "";
+
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -28,14 +32,15 @@ static int populate(dtrace_hdl_t *dtp)
 	int		n = 0;
 
 
-	if (!(prv = dt_provider_create(dtp, "dtrace", &dt_dtrace, &pattr)))
+	prv = dt_provider_create(dtp, prvname, &dt_dtrace, &pattr);
+	if (prv == NULL)
 		return 0;
 
-	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "BEGIN"))
+	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN"))
 		n++;
-	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "END"))
+	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "END"))
 		n++;
-	if (dt_probe_insert(dtp, prv, "dtrace", "", "", "ERROR"))
+	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "ERROR"))
 		n++;
 
 	return n;
@@ -201,7 +206,7 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 }
 
 dt_provimpl_t	dt_dtrace = {
-	.name		= "dtrace",
+	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.trampoline	= &trampoline,

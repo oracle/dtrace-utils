@@ -37,7 +37,7 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
-static const char		provname[] = "fbt";
+static const char		prvname[] = "fbt";
 static const char		modname[] = "vmlinux";
 
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
@@ -68,7 +68,8 @@ static int populate(dtrace_hdl_t *dtp)
 	dtrace_syminfo_t	sip;
 	dtrace_probedesc_t	pd;
 
-	if (!(prv = dt_provider_create(dtp, "fbt", &dt_fbt, &pattr)))
+	prv = dt_provider_create(dtp, prvname, &dt_fbt, &pattr);
+	if (prv == NULL)
 		return 0;
 
 	f = fopen(PROBE_LIST, "r");
@@ -127,16 +128,16 @@ static int populate(dtrace_hdl_t *dtp)
 		 * duplicate probes for these.
 		 */
 		pd.id = DTRACE_IDNONE;
-		pd.prv = provname;
+		pd.prv = prvname;
 		pd.mod = mod;
 		pd.fun = buf;
 		pd.prb = "entry";
 		if (dt_probe_lookup(dtp, &pd) != NULL)
 			continue;
 
-		if (dt_probe_insert(dtp, prv, provname, mod, buf, "entry"))
+		if (dt_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
 			n++;
-		if (dt_probe_insert(dtp, prv, provname, mod, buf, "return"))
+		if (dt_probe_insert(dtp, prv, prvname, mod, buf, "return"))
 			n++;
 	}
 
@@ -364,7 +365,7 @@ out:
 }
 
 dt_provimpl_t	dt_fbt = {
-	.name		= "fbt",
+	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.trampoline	= &trampoline,

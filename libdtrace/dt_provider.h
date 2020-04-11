@@ -46,7 +46,7 @@ typedef struct dt_argdesc {
 } dt_argdesc_t;
 
 typedef struct dt_provimpl {
-	char *name;				/* provider generic name */
+	const char *name;			/* provider generic name */
 	int prog_type;				/* BPF program type */
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */

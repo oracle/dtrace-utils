@@ -35,7 +35,7 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
-static const char		provname[] = "syscall";
+static const char		prvname[] = "syscall";
 static const char		modname[] = "vmlinux";
 
 #define SYSCALLSFS		EVENTSFS "syscalls/"
@@ -75,7 +75,8 @@ static int populate(dtrace_hdl_t *dtp)
 	char		buf[256];
 	int		n = 0;
 
-	if (!(prv = dt_provider_create(dtp, "syscall", &dt_syscall, &pattr)))
+	prv = dt_provider_create(dtp, prvname, &dt_syscall, &pattr);
+	if (prv == NULL)
 		return 0;
 
 	f = fopen(PROBE_LIST, "r");
@@ -114,12 +115,12 @@ static int populate(dtrace_hdl_t *dtp)
 		 */
 		if (!memcmp(p, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1)) {
 			p += sizeof(ENTRY_PREFIX) - 1;
-			if (dt_probe_insert(dtp, prv, provname, modname, p,
+			if (dt_probe_insert(dtp, prv, prvname, modname, p,
 					    "entry"))
 				n++;
 		} else if (!memcmp(p, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1)) {
 			p += sizeof(EXIT_PREFIX) - 1;
-			if (dt_probe_insert(dtp, prv, provname, modname, p,
+			if (dt_probe_insert(dtp, prv, prvname, modname, p,
 					    "return"))
 				n++;
 		}
@@ -299,7 +300,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 }
 
 dt_provimpl_t	dt_syscall = {
-	.name		= "syscall",
+	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
 	.trampoline	= &trampoline,

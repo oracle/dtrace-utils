@@ -31,7 +31,7 @@
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
-static const char		provname[] = "sdt";
+static const char		prvname[] = "sdt";
 static const char		modname[] = "vmlinux";
 
 #define PROBE_LIST		TRACEFS "available_events"
@@ -236,7 +236,8 @@ static int populate(dtrace_hdl_t *dtp)
 	char		*p;
 	int		n = 0;
 
-	if (!(prv = dt_provider_create(dtp, "sdt", &dt_sdt, &pattr)))
+	prv = dt_provider_create(dtp, prvname, &dt_sdt, &pattr);
+	if (prv == NULL)
 		return 0;
 
 	f = fopen(PROBE_LIST, "r");
@@ -250,7 +251,7 @@ static int populate(dtrace_hdl_t *dtp)
 
 		p = strchr(buf, ':');
 		if (p == NULL) {
-			if (dt_probe_insert(dtp, prv, provname, modname, "",
+			if (dt_probe_insert(dtp, prv, prvname, modname, "",
 					    buf))
 				n++;
 		} else if (memcmp(buf, KPROBES, sizeof(KPROBES) - 1) == 0) {
@@ -260,7 +261,7 @@ static int populate(dtrace_hdl_t *dtp)
 		} else {
 			*p++ = '\0';
 
-			if (dt_probe_insert(dtp, prv, provname, buf, "", p))
+			if (dt_probe_insert(dtp, prv, prvname, buf, "", p))
 				n++;
 		}
 	}
@@ -422,7 +423,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 }
 
 dt_provimpl_t	dt_sdt = {
-	.name		= "sdt",
+	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
