@@ -1182,9 +1182,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp->dt_ctfa != NULL)
 		ctf_arc_close(dtp->dt_ctfa);
 
-	while ((pvp = dt_list_next(&dtp->dt_provlist)) != NULL)
-		dt_provider_destroy(dtp, pvp);
-
 	dt_pcap_destroy(dtp);
 
 	if (dtp->dt_cdefs_fd != -1)
@@ -1204,6 +1201,10 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_pebs_exit(dtp);
 	dt_pfdict_destroy(dtp);
 	dt_dof_fini(dtp);
+	dt_probe_fini(dtp);
+
+	while ((pvp = dt_list_next(&dtp->dt_provlist)) != NULL)
+		dt_provider_destroy(dtp, pvp);
 
 	for (i = 1; i < dtp->dt_cpp_argc; i++)
 		free(dtp->dt_cpp_argv[i]);

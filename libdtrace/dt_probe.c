@@ -414,8 +414,9 @@ dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
 		xargc = nargc;
 	}
 
-	if ((prp = dt_alloc(dtp, sizeof (dt_probe_t))) == NULL)
-		return (NULL);
+	prp = dt_zalloc(dtp, sizeof(dt_probe_t));
+	if (prp == NULL)
+		return NULL;
 
 	prp->prov = NULL;
 	prp->pr_ident = idp;
@@ -440,7 +441,7 @@ dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
 	    (prp->xargc != 0 && prp->mapping == NULL) ||
 	    (prp->argc != 0 && prp->argv == NULL)) {
 		dt_probe_destroy(prp);
-		return (NULL);
+		return NULL;
 	}
 
 	for (i = 0; i < xargc; i++, xargs = xargs->dn_list) {
@@ -465,7 +466,8 @@ dt_probe_create(dtrace_hdl_t *dtp, dt_ident_t *idp, int protoc,
 		prp->nargv[i] = nargs;
 
 	idp->di_data = prp;
-	return (prp);
+
+	return prp;
 }
 
 void
@@ -493,6 +495,17 @@ dt_probe_destroy(dt_probe_t *prp)
 	else
 		dtp = yypcb->pcb_hdl;
 
+	if (prp->desc) {
+		dt_htab_delete(dtp->dt_byprv, prp);
+		dt_htab_delete(dtp->dt_bymod, prp);
+		dt_htab_delete(dtp->dt_byfun, prp);
+		dt_htab_delete(dtp->dt_byprb, prp);
+		dt_htab_delete(dtp->dt_byfqn, prp);
+	}
+
+	if (prp->prov && prp->prov->impl && prp->prov->impl->probe_fini)
+		prp->prov->impl->probe_fini(dtp, prp);
+
 	dt_node_list_free(&prp->nargs);
 	dt_node_list_free(&prp->xargs);
 
@@ -508,6 +521,13 @@ dt_probe_destroy(dt_probe_t *prp)
 
 	dt_free(dtp, prp->mapping);
 	dt_free(dtp, prp->argv);
+	if (prp->desc) {
+		dt_free(dtp, (void *)prp->desc->prv);
+		dt_free(dtp, (void *)prp->desc->mod);
+		dt_free(dtp, (void *)prp->desc->fun);
+		dt_free(dtp, (void *)prp->desc->prb);
+		dt_free(dtp, (void *)prp->desc);
+	}
 	dt_free(dtp, prp);
 }
 
@@ -1248,6 +1268,21 @@ dt_probe_init(dtrace_hdl_t *dtp)
 	dtp->dt_probes = NULL;
 	dtp->dt_probes_sz = 0;
 	dtp->dt_probe_id = 1;
+}
+
+void
+dt_probe_fini(dtrace_hdl_t *dtp)
+{
+	uint32_t	i;
+
+	for (i = 0; i < dtp->dt_probes_sz; i++) {
+		dt_probe_t	*prp = dtp->dt_probes[i];
+
+		if (prp == NULL)
+			continue;
+
+		dt_probe_destroy(prp);
+	}
 }
 
 void

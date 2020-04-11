@@ -82,6 +82,7 @@ extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 			 dt_probe_f *pfunc, dtrace_probe_f *dfunc, void *arg);
 
 extern void dt_probe_init(dtrace_hdl_t *dtp);
+extern void dt_probe_fini(dtrace_hdl_t *dtp);
 extern void dt_probe_stats(dtrace_hdl_t *dtp);
 
 #ifdef	__cplusplus
