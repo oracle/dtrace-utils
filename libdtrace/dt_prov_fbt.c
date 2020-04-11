@@ -356,7 +356,7 @@ static void fbt_trampoline(dt_pcb_t *pcb, int haspred)
 	}
 
 	/*
-	 *     rc = dt_program(scd, dctx);
+	 *     rc = dt_program(regs, dctx);
 	 */
 	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
 	assert(idp != NULL);

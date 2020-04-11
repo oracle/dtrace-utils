@@ -42,7 +42,7 @@ static int dtrace_populate(dtrace_hdl_t *dtp)
 }
 
 /*
-* Generate a BPF trampoline for a dtrace probe (BEGIN, END, or ERROR).
+ * Generate a BPF trampoline for a dtrace probe (BEGIN, END, or ERROR).
  *
  * The trampoline function is called when a dtrace probe triggers, and it must
  * satisfy the following prototype:
@@ -183,7 +183,7 @@ static void dtrace_trampoline(dt_pcb_t *pcb, int haspred)
 	}
 
 	/*
-	 *     rc = dt_program(scd, dctx);
+	 *     rc = dt_program(regs, dctx);
 	 */
 	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
 	assert(idp != NULL);
