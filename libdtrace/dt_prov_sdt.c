@@ -38,6 +38,7 @@ static const char		modname[] = "vmlinux";
 
 #define KPROBES			"kprobes:"
 #define SYSCALLS		"syscalls:"
+#define UPROBES			"uprobes:"
 
 /*
  * All tracing events (tracepoints) include a number of fields that we need to
@@ -245,6 +246,8 @@ static int populate(dtrace_hdl_t *dtp)
 		return 0;
 
 	while (fgets(buf, sizeof(buf), f)) {
+		int	dummy;
+
 		p = strchr(buf, '\n');
 		if (p)
 			*p = '\0';
@@ -254,9 +257,13 @@ static int populate(dtrace_hdl_t *dtp)
 			if (dt_probe_insert(dtp, prv, prvname, modname, "",
 					    buf))
 				n++;
+		} else if (sscanf(buf, DTRACE_PAT ":", &dummy) == 1) {
+			continue;
 		} else if (memcmp(buf, KPROBES, sizeof(KPROBES) - 1) == 0) {
 			continue;
 		} else if (memcmp(buf, SYSCALLS, sizeof(SYSCALLS) - 1) == 0) {
+			continue;
+		} else if (memcmp(buf, UPROBES, sizeof(UPROBES) - 1) == 0) {
 			continue;
 		} else {
 			*p++ = '\0';

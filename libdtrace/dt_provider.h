@@ -19,6 +19,8 @@ extern "C" {
 #define TRACEFS		"/sys/kernel/debug/tracing/"
 #define EVENTSFS	TRACEFS "events/"
 
+#define DTRACE_PAT	"dtrace_%d"
+
 struct dt_probe;
 
 /*

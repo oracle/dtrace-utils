@@ -7,6 +7,7 @@
  * The core probe provider for DTrace for the BEGIN, END, and ERROR probes.
  */
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 
 #include <bpf_asm.h>
@@ -17,6 +18,10 @@
 static const char		prvname[] = "dtrace";
 static const char		modname[] = "";
 static const char		funname[] = "";
+
+#define PROBE_FUNC_SUFFIX	"_probe"
+
+#define UPROBE_EVENTS		TRACEFS "uprobe_events"
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
@@ -205,9 +210,147 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 }
 
+static char *uprobe_spec(dtrace_hdl_t *dtp, const char *prb)
+{
+	struct ps_prochandle	*P;
+	int			perr = 0;
+	char			*fun;
+	GElf_Sym		sym;
+	prsyminfo_t		si;
+	char			*spec = NULL;
+
+	fun = dt_alloc(dtp, strlen(prb) + strlen(PROBE_FUNC_SUFFIX) + 1);
+	if (fun == NULL)
+		return NULL;
+
+	strcpy(fun, prb);
+	strcat(fun, PROBE_FUNC_SUFFIX);
+
+	/* grab our process */
+	P = Pgrab(getpid(), 2, 0, NULL, &perr);
+	if (P == NULL) {
+		dt_free(dtp, fun);
+		return NULL;
+	}
+
+	/* look up function, get the map, and record */
+	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, &si) == 0) {
+		const prmap_t	*mapp;
+		size_t		len;
+
+		mapp = Paddr_to_map(P, sym.st_value);
+		if (mapp == NULL)
+			goto out;
+
+		if (mapp->pr_file->first_segment != mapp)
+			mapp = mapp->pr_file->first_segment;
+
+		len = snprintf(NULL, 0, "%s:0x%lx",
+			       mapp->pr_file->prf_mapname,
+			       sym.st_value - mapp->pr_vaddr) + 1;
+		spec = dt_alloc(dtp, len);
+		if (spec == NULL)
+			goto out;
+
+		snprintf(spec, len, "%s:0x%lx", mapp->pr_file->prf_mapname,
+			 sym.st_value - mapp->pr_vaddr);
+	}
+
+out:
+	dt_free(dtp, fun);
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+
+	return spec;
+}
+
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *idp, int *argcp, dt_argdesc_t **argvp)
+{
+	char	*spec;
+	char	*fn = NULL;
+	int	fd;
+	FILE	*f;
+	int	rc = -ENOENT;
+	size_t	len;
+
+	*idp = -1;
+	*argcp = 0;			/* no arguments */
+	*argvp = NULL;
+
+	/* get a uprobe specification for this probe */
+	spec = uprobe_spec(dtp, prp->desc->prb);
+	if (spec == NULL)
+		return -ENOENT;
+
+	/* add a uprobe */
+	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
+	if (fd == -1)
+		goto out;
+
+	rc = dprintf(fd, "p:" DTRACE_PAT "/%s %s\n",
+		     getpid(), prp->desc->prb, spec);
+	close(fd);
+	if (rc == -1)
+		goto out;
+
+	len = snprintf(NULL, 0, "%s" DTRACE_PAT "/%s/format",
+		       EVENTSFS, getpid(), prp->desc->prb) + 1;
+	fn = dt_alloc(dtp, len);
+	if (fn == NULL)
+		goto out;
+
+	snprintf(fn, len, "%s" DTRACE_PAT "/%s/format",
+		 EVENTSFS, getpid(), prp->desc->prb);
+	f = fopen(fn, "r");
+	if (f == NULL)
+		goto out;
+
+	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
+	fclose(f);
+
+out:
+	dt_free(dtp, spec);
+	dt_free(dtp, fn);
+
+	return rc;
+}
+
+/*
+ * Try to clean up system resources that may have been allocated for this
+ * probe.
+ *
+ * If there is an event FD, we close it.
+ *
+ * We also try to remove any uprobe that may have been created for the probe.
+ * This is harmless for probes that didn't get created.  If the removal fails
+ * for some reason we are out of luck - fortunately it is not harmful to the
+ * system as a whole.
+ */
+static int probe_fini(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	int	fd;
+
+	if (prp->event_fd != -1) {
+		close(prp->event_fd);
+		prp->event_fd = -1;
+	}
+
+	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
+	if (fd == -1)
+		return -1;
+
+	dprintf(fd, "-:" DTRACE_PAT "/%s\n", getpid(), prp->desc->prb);
+	close(fd);
+
+	return 0;
+}
+
 dt_provimpl_t	dt_dtrace = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
+	.probe_info	= &probe_info,
+	.probe_fini	= &probe_fini,
 };

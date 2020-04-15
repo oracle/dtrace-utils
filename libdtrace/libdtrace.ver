@@ -101,6 +101,4 @@ LIBDTRACE_1.0 {
 LIBDTRACE_PRIVATE
 {
 	dtrace__internal_*;
-	BEGIN_probe;
-	END_probe;
 };
