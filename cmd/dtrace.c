@@ -41,6 +41,9 @@ typedef struct dtrace_cmd {
 #define	DMODE_LIST	3	/* compile program and list probes (-l) */
 #define	DMODE_HEADER	4	/* compile program for headergen (-h) */
 
+#define DONE_SAW_END	1	/* If END is not enabled, we pretend */
+#define DONE_SAW_EXIT	2	/* exit() action processed */
+
 #define	E_SUCCESS	0
 #define	E_ERROR		1
 #define	E_USAGE		2
@@ -1518,15 +1521,17 @@ main(int argc, char *argv[])
 			g_newline = 0;
 		}
 
-		if (done || g_intr || (g_psc != 0 && g_pslive <= 0)) {
-			done = 1;
+		if (done == DONE_SAW_EXIT || g_intr ||
+		    (g_psc != 0 && g_pslive <= 0)) {
+			done = DONE_SAW_END;
 			if (dtrace_stop(g_dtp) == -1)
 				dfatal("couldn't stop tracing");
 		}
 
 		switch (dtrace_work(g_dtp, g_ofp, chew, chewrec, NULL)) {
 		case DTRACE_WORKSTATUS_DONE:
-			done = 1;
+			if (done != DONE_SAW_END)
+				done = DONE_SAW_EXIT;
 			break;
 		case DTRACE_WORKSTATUS_OKAY:
 			break;
@@ -1537,7 +1542,7 @@ main(int argc, char *argv[])
 
 		if (g_ofp != NULL && fflush(g_ofp) == EOF)
 			clearerr(g_ofp);
-	} while (!done);
+	} while (done != DONE_SAW_END);
 
 	oprintf("\n");
 
