@@ -1095,8 +1095,12 @@ main(int argc, char *argv[])
 		fatal("failed to initialize dtrace: %s\n",
 		      dtrace_errmsg(NULL, err));
 
-	(void) dtrace_setopt(g_dtp, "bufsize", "4m");
-	(void) dtrace_setopt(g_dtp, "aggsize", "4m");
+	/*
+	 * Set default options.
+	 */
+	dtrace_setopt(g_dtp, "bufsize", "4m");
+	dtrace_setopt(g_dtp, "aggsize", "4m");
+	dtrace_setopt(g_dtp, "switchrate", "1s");
 
 	/*
 	 * The very first thing we do after buffer-size sanitization is run
