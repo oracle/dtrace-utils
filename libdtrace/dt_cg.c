@@ -1347,7 +1347,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * If we are modifying a variable, generate an stv instruction from
+	 * If we are modifying a variable, generate a store instruction for
 	 * the variable specified by the identifier.  If we are storing to a
 	 * memory address, generate code again for the left-hand side using
 	 * DT_NF_REF to get the address, and then generate a store to it.
@@ -1382,7 +1382,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	struct bpf_insn instr;
 	ctf_id_t type;
 	ssize_t size = 1;
-	int nreg;
+	int oreg, nreg;
 
 	if (dt_node_is_pointer(dnp)) {
 		type = ctf_type_resolve(ctfp, dnp->dn_type);
@@ -1392,27 +1392,32 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 
 	dt_cg_node(dnp->dn_child, dlp, drp);
 	dnp->dn_reg = dnp->dn_child->dn_reg;
+	oreg = dnp->dn_reg;
 
-	if ((nreg = dt_regset_alloc(drp)) == -1)
+	nreg = dt_regset_alloc(drp);
+	if (nreg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	instr = BPF_ALU64_IMM(op, dnp->dn_reg, size);
+	instr = BPF_MOV_IMM(nreg, size);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_REG(op, nreg, dnp->dn_reg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * If we are modifying a variable, generate an stv instruction from
+	 * If we are modifying a variable, generate a store instruction for
 	 * the variable specified by the identifier.  If we are storing to a
 	 * memory address, generate code again for the left-hand side using
 	 * DT_NF_REF to get the address, and then generate a store to it.
-	 * In both paths, we store the value from 'nreg' (the new value).
+	 * In both paths, we store the value from %r0 (the new value).
 	 */
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
 		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
+		dnp->dn_reg = nreg;
 		dt_cg_store_var(dnp, dlp, drp, idp);
+		dnp->dn_reg = oreg;
 	} else {
 		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
-		int oreg = dnp->dn_reg;
 
 		assert(dnp->dn_child->dn_flags & DT_NF_WRITABLE);
 		assert(dnp->dn_child->dn_flags & DT_NF_LVALUE);
