@@ -799,8 +799,17 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 	if (idp->di_flags & DT_IDFLG_LOCAL) {		/* local var */
-		instr = BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP,
-				 DT_STK_LVAR(idp->di_id));
+		/*
+		 * If this is the first read for this local variable, we know
+		 * the value is 0.  This avoids storing an initial 0 value in
+		 * the variable's stack location.
+		 */
+		if (!(idp->di_flags & DT_IDFLG_DIFW))
+			instr = BPF_MOV_IMM(dst->dn_reg, 0);
+		else
+			instr = BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP,
+					 DT_STK_LVAR(idp->di_id));
+
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
 		dt_regset_xalloc(drp, BPF_REG_1);
