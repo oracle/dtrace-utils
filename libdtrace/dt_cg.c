@@ -223,6 +223,26 @@ dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 }
 
 static void
+dt_cg_spill_store(int reg)
+{
+	dt_irlist_t	*dlp = &yypcb->pcb_ir;
+	struct bpf_insn	instr;
+
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SPILL(reg), reg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+static void
+dt_cg_spill_load(int reg)
+{
+	dt_irlist_t	*dlp = &yypcb->pcb_ir;
+	struct bpf_insn	instr;
+
+	instr = BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_SPILL(reg));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dnerror(dnp, D_UNKNOWN, "breakpoint() is not implemented (yet)\n");
@@ -799,6 +819,9 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 	if (idp->di_flags & DT_IDFLG_LOCAL) {		/* local var */
+		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 		/*
 		 * If this is the first read for this local variable, we know
 		 * the value is 0.  This avoids storing an initial 0 value in
@@ -812,7 +835,8 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		dt_regset_xalloc(drp, BPF_REG_1);
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		instr = BPF_MOV_IMM(BPF_REG_1,
 				    idp->di_id - DIF_VAR_OTHER_UBASE);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -822,12 +846,17 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
+		dt_regset_free_args(drp);
+
+		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 		instr = BPF_MOV_REG(dst->dn_reg, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free(drp, BPF_REG_1);
 	} else {					/* global var */
-		dt_regset_xalloc(drp, BPF_REG_1);
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
 			instr = BPF_MOV_IMM(BPF_REG_1, idp->di_id);
 			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
@@ -845,10 +874,14 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		instr = BPF_CALL_FUNC(idp->di_id);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
+		dt_regset_free_args(drp);
+
+		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 		instr = BPF_MOV_REG(dst->dn_reg, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free(drp, BPF_REG_1);
 	}
 }
 
@@ -1128,10 +1161,10 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 				  src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		dt_regset_xalloc(drp, BPF_REG_2);
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_xalloc(drp, BPF_REG_1);
 		instr = BPF_MOV_IMM(BPF_REG_1,
 				    idp->di_id - DIF_VAR_OTHER_UBASE);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -1142,13 +1175,12 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
 		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free(drp, BPF_REG_1);
-		dt_regset_free(drp, BPF_REG_2);
+		dt_regset_free_args(drp);
 	} else {					/* global var */
-		dt_regset_xalloc(drp, BPF_REG_2);
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_xalloc(drp, BPF_REG_1);
 		instr = BPF_MOV_IMM(BPF_REG_1,
 				    idp->di_id - DIF_VAR_OTHER_UBASE);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -1159,8 +1191,7 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		dlp->dl_last->di_extern = idp;
 		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free(drp, BPF_REG_1);
-		dt_regset_free(drp, BPF_REG_2);
+		dt_regset_free_args(drp);
 	}
 }
 
@@ -2449,6 +2480,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * the actual string:
 		 *	get_string(stroff);
 		 */
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		instr = BPF_MOV_IMM(BPF_REG_1, stroff);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_string");
@@ -2458,6 +2491,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dlp->dl_last->di_extern = idp;
 		instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free_args(drp);
 #endif
 		break;
 
@@ -2537,9 +2571,6 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 				break;
 			}
 
-			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
 			dt_cg_load_var(dnp, dlp, drp);
 
 			break;
@@ -2606,9 +2637,13 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	dt_xlator_t	*dxp = NULL;
 	dt_node_t	*act;
 
-	if (pcb->pcb_regs == NULL && (pcb->pcb_regs =
-	    dt_regset_create(pcb->pcb_hdl->dt_conf.dtc_difintregs)) == NULL)
-		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
+	if (pcb->pcb_regs == NULL) {
+		pcb->pcb_regs = dt_regset_create(
+					pcb->pcb_hdl->dt_conf.dtc_difintregs,
+					dt_cg_spill_store, dt_cg_spill_load);
+		if (pcb->pcb_regs == NULL)
+			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
+	}
 
 	dt_regset_reset(pcb->pcb_regs);
 
@@ -2756,6 +2791,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 			} else {
 				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
 					   pcb->pcb_regs);
+				assert (pcb->pcb_dret->dn_reg != -1);
 				dt_regset_free(pcb->pcb_regs,
 					       pcb->pcb_dret->dn_reg);
 			}
