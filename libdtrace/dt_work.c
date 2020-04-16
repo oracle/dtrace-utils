@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -337,13 +337,6 @@ dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	    dtrace_consume_rec_f *rfunc, void *arg)
 {
-	dtrace_workstatus_t	rval;
-
-	rval = DTRACE_WORKSTATUS_OKAY;
-
-	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) == -1)
-		return DTRACE_WORKSTATUS_ERROR;
-
-	return rval;
+	return dtrace_consume(dtp, fp, pfunc, rfunc, arg);
 }
 #endif

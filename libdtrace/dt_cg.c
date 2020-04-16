@@ -42,7 +42,7 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  * output data buffer, and then store the next address location in %r9.
  *
  * In the epilogue, we then need to submit (%r9 - 4) as source address of our
- * data buffer.
+ * data buffer and add 4 to the record size..
  */
 static void
 dt_cg_prologue(dt_pcb_t *pcb)
@@ -166,6 +166,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 *		mov %r4, %r9
 	 *		add %r4, -4
 	 *		mov %r5, pcb->pcb_bufoff
+	 *		add %r4, 4
 	 *		call bpf_perf_event_output
 	 *		mov %r0, 0
 	 */
@@ -179,6 +180,8 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -4);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 4);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_CALL_HELPER(BPF_FUNC_perf_event_output);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -362,11 +365,12 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
 	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_EXIT,
-			 sizeof(uint64_t), sizeof(uint64_t), NULL,
+			 sizeof(uint32_t), sizeof(uint32_t), NULL,
 			 DT_ACT_EXIT);
 
-	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
+	instr = BPF_STORE(BPF_W, BPF_REG_9, off, dnp->dn_args->dn_reg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
 }
 
 static void

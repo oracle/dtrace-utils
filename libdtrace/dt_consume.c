@@ -2254,10 +2254,10 @@ nextepid:
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
 #else
-int
+dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
-	       int flow, int quiet, dtrace_epid_t last, void *arg)
+	       int flow, int quiet, dtrace_epid_t *last, void *arg)
 {
 	char				*data = buf;
 	struct perf_event_header	*hdr;
@@ -2270,6 +2270,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		char			*ptr = data;
 		uint32_t		size, epid, tag;
 		int			i;
+		int			done = 0;
 		dtrace_probedata_t	pdat;
 
 		/*
@@ -2319,7 +2320,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 			return rval;
 
 		if (flow)
-			dt_flowindent(dtp, &pdat, last, DTRACE_EPIDNONE);
+			dt_flowindent(dtp, &pdat, *last, DTRACE_EPIDNONE);
 
 		rval = (*efunc)(&pdat, arg);
 
@@ -2345,6 +2346,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 			dtrace_recdesc_t	*rec;
 
 			rec = &pdat.dtpda_ddesc->dtdd_recs[i];
+			if (rec->dtrd_action == DTRACEACT_EXIT)
+				done = 1;
 
 			pdat.dtpda_data = data + rec->dtrd_offset;
 			rval = (*rfunc)(&pdat, rec, arg);
@@ -2371,7 +2374,9 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 */
 		rval = (*rfunc)(&pdat, NULL, arg);
 
-		return epid;
+		*last = epid;
+
+		return done ? DTRACE_WORKSTATUS_DONE : DTRACE_WORKSTATUS_OKAY;
 	} else if (hdr->type == PERF_RECORD_LOST) {
 		uint64_t	lost;
 
@@ -2386,9 +2391,9 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		lost = *(uint64_t *)(data + sizeof(uint64_t));
 
 		/* FIXME: To be implemented */
-		return -1;
+		return DTRACE_WORKSTATUS_ERROR;
 	} else
-		return -1;
+		return DTRACE_WORKSTATUS_ERROR;
 }
 
 int
@@ -2406,6 +2411,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 	dt_pebset_t			*pebset = dtp->dt_pebset;
 	uint64_t			data_size = pebset->data_size;
 	int				flow, quiet;
+	dtrace_workstatus_t		rval = DTRACE_WORKSTATUS_OKAY;
 
 	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
 	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
@@ -2450,15 +2456,18 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 				event = dst;
 			}
 
-			last = dt_consume_one(dtp, fp, cpu, event, efunc, rfunc,
-					      flow, quiet, last, arg);
+			rval = dt_consume_one(dtp, fp, cpu, event, efunc, rfunc,
+					      flow, quiet, &last, arg);
+			if (rval != DTRACE_WORKSTATUS_OKAY)
+				return rval;
+
 			tail += hdr->size;
 		} while (tail != head);
 
 		ring_buffer_write_tail(rb_page, tail);
 	}
 
-	return 0;
+	return DTRACE_WORKSTATUS_OKAY;
 }
 #endif
 
@@ -2666,7 +2675,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	return (rval);
 }
 
-int
+dtrace_workstatus_t
 dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
 {
@@ -2779,8 +2788,10 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	timeout /= NANOSEC / MILLISEC;
 	cnt = epoll_wait(dtp->dt_poll_fd, events, dtp->dt_conf.numcpus,
 			 timeout);
-	if (cnt < 0)
-		return dt_set_errno(dtp, errno);
+	if (cnt < 0) {
+		dt_set_errno(dtp, errno);
+		return DTRACE_WORKSTATUS_ERROR;
+	}
 
 	/*
 	 * Loop over the buffers that have data available, and process them one
@@ -2795,6 +2806,6 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 			return rval;
 	}
 
-	return 0;
+	return DTRACE_WORKSTATUS_OKAY;
 #endif
 }
