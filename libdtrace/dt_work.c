@@ -210,7 +210,8 @@ dtrace_go(dtrace_hdl_t *dtp)
 		return dt_set_errno(dtp, errno);
 
 	dtrace_getopt(dtp, "bufsize", &size);
-	dt_pebs_init(dtp, size);
+	if (dt_pebs_init(dtp, size) == -1)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	BEGIN_probe();
 #if 0

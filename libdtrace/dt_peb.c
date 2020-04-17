@@ -42,9 +42,9 @@ roundup_pow2(uint64_t n)
 static void
 dt_peb_close(dt_peb_t *peb)
 {
-	dt_pebset_t	*pebs = peb->dtp->dt_pebset;
+	dt_pebset_t	*pebs;
 
-	if (peb == NULL || peb->fd < 0)
+	if (peb == NULL || peb->dtp == NULL || peb->fd == -1)
 		return;
 
 	ioctl(peb->fd, PERF_EVENT_IOC_DISABLE, 0);
@@ -90,9 +90,9 @@ dt_peb_open(dt_peb_t *peb)
 	peb->fd = fd;
 	peb->base = mmap(NULL, pebs->page_size + pebs->data_size,
 			 PROT_READ | PROT_WRITE, MAP_SHARED, peb->fd, 0);
-	peb->endp = peb->base + pebs->page_size + pebs->data_size - 1;
-	if (peb->base == NULL)
+	if (peb->base == MAP_FAILED)
 		goto fail;
+	peb->endp = peb->base + pebs->page_size + pebs->data_size - 1;
 
 	if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) < 0)
 		goto fail;
@@ -100,12 +100,13 @@ dt_peb_open(dt_peb_t *peb)
 	return fd;
 
 fail:
-	if (peb->base) {
+	if (peb->base != MAP_FAILED)
 		munmap(peb->base, pebs->page_size + pebs->data_size);
-		peb->base = NULL;
-		peb->endp = NULL;
-	}
-	if (peb->fd) {
+
+	peb->base = NULL;
+	peb->endp = NULL;
+
+	if (peb->fd != -1) {
 		close(peb->fd);
 		peb->fd = -1;
 	}
@@ -129,6 +130,8 @@ dt_pebs_exit(dtrace_hdl_t *dtp)
 
 	dt_free(dtp, dtp->dt_pebset->pebs);
 	dt_free(dtp, dtp->dt_pebset);
+
+	dtp->dt_pebset = NULL;
 }
 
 /*
@@ -182,8 +185,10 @@ int dt_pebs_init(dtrace_hdl_t *dtp, size_t bufsize)
 	 * Allocate the per-CPU perf event buffers.
 	 */
 	pebs = dt_calloc(dtp, dtp->dt_conf.numcpus, sizeof(struct dt_peb));
-	if (pebs == NULL)
+	if (pebs == NULL) {
+		dt_free(dtp, dtp->dt_pebset);
 		return -ENOMEM;
+	}
 
 	dtp->dt_pebset->pebs = pebs;
 
@@ -200,12 +205,13 @@ int dt_pebs_init(dtrace_hdl_t *dtp, size_t bufsize)
 
 		peb->dtp = dtp;
 		peb->cpu = cpu;
+		peb->fd = -1;
 
 		/*
 		 * Try to create the perf event buffer for 'cpu'.
 		 */
 		if (dt_peb_open(peb) == -1)
-			continue;
+			goto fail;
 
 		/*
 		 * Add the perf event buffer to the event polling descriptor.
@@ -229,4 +235,9 @@ int dt_pebs_init(dtrace_hdl_t *dtp, size_t bufsize)
 	}
 
 	return 0;
+
+fail:
+	dt_pebs_exit(dtp);
+
+	return -1;
 }
