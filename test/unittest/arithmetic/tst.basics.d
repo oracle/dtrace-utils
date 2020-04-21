@@ -6,7 +6,6 @@
  */
 
 /* @@note: wild negative numbers, tst.basics.d.out does not exist: validate */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
