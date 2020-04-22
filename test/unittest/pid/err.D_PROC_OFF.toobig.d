@@ -5,7 +5,7 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@trigger: longsleep */
-/* @@no-xfail */
+/* @@xfail: dtv2 */
 
 /*
  * ASSERTION: Can't have an offset that's outside of a function
