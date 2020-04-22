@@ -54,7 +54,7 @@ fi\n"
 
 install::
 	mkdir -p $(INSTBINDIR) $(INSTSBINDIR) $(INSTMANDIR) \
-	      $(INSTLIBDIR)/dtrace $(INSTETCDIR)
+	      $(INSTLIBDIR)/dtrace
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
 	$(call describe-install-target,$(INSTBINDIR),ctf_module_dump)

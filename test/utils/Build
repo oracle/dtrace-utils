@@ -1,9 +1,9 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-TEST_UTILS = baddof badioctl showUSDT
+TEST_UTILS = baddof badioctl showUSDT print-stack-layout
 
 define test-util-template
 CMDS += $(1)
@@ -11,7 +11,7 @@ $(1)_DIR := $(current-dir)
 $(1)_TARGET = $(1)
 $(1)_SOURCES = $(1).c
 $(1)_POST := link-test-util
-$(1)_CFLAGS := -Ilibdtrace
+$(1)_CFLAGS := -Ilibdtrace -Ilibproc
 $(1)_NOCFLAGS := --coverage
 $(1)_NOLDFLAGS := --coverage
 $(1)_DEPS = libdtrace.so
@@ -33,6 +33,9 @@ $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))
 showUSDT_DEPS =
 showUSDT_LIBS = -lelf
 
+# The print-stack-layout utility needs dt_impl.h which needs dt_git_version.h.
+print-stack-layout_SRCDEPS := $(objdir)/dt_git_version.h
+
 # Install the showUSDT utility in $(DOCDIR); do not count on this utility to
 # always be present --- it is only included there to assist in early debugging of
 # the (semi-new) USDT feature.
@@ -40,3 +43,9 @@ install::
 	mkdir -p $(INSTDOCDIR)
 	$(call describe-install-target,$(INSTDOCDIR),showUSDT)
 	install -m 755 test/utils/showUSDT $(INSTDOCDIR)
+
+install-test::
+	$(call describe-install-target,$(INSTTESTDIR)/test/utils,$(TEST_UTILS) include-test.d)
+	mkdir -p $(INSTTESTDIR)/test/utils
+	install -m 755 $(addprefix test/utils/,$(TEST_UTILS)) $(INSTTESTDIR)/test/utils
+	install -m 644 test/utils/include-test.d $(INSTTESTDIR)/test/utils

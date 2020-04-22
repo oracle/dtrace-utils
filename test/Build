@@ -6,7 +6,7 @@ test_DIR := $(current-dir)
 install-test::
 	mkdir -p $(INSTTESTDIR)/test
 	set -e; \
-	for name in $(filter-out test/triggers test/Build,$(wildcard $(test_DIR)*)); do \
+	for name in $(filter-out test/triggers test/utils test/Build,$(wildcard $(test_DIR)*)); do \
 		printf "INSTALL: %s\n" "$(INSTTESTDIR)/$$name"; \
 		rm -rf "$(INSTTESTDIR)/test/$$(basename $$name)"; \
 		cp -a $$name "$(INSTTESTDIR)/test/$$(basename $$name)"; \

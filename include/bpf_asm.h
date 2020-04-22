@@ -15,6 +15,18 @@
 #endif
 #define BPF_REG_FP	BPF_REG_10
 
+/*
+ * The maximum stack size for BPF programs is defined in the kernel headers and
+ * is not generally available outside of the kernel source tree.  We define it
+ * here because we depend on it in the layout of the DTrace BPF program stack.
+ * If the kernel supports a larger stack, we end up not taking advantage of it.
+ * If the kernel supports a smaller stack, we may end up generating programs
+ * that the BPF verifier will reject.
+ */
+#ifndef MAX_BPF_STACK
+# define MAX_BPF_STACK	512
+#endif
+
 #define BPF_ALU64_REG(op, dst, src)					\
 	((struct bpf_insn) {						\
 		.code = BPF_ALU64 | (op) | BPF_X,			\

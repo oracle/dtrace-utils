@@ -61,8 +61,8 @@ static char *
 dt_dis_lvarname(const dtrace_difo_t *dp, int reg, int var, char *buf, int len)
 {
 	if (reg == BPF_REG_FP) {
-		var = DT_STK_LVAR_ID(var);
-		if (var >= 0 && var < DT_VAR_LOCAL_MAX) {
+		var = DT_LVAR_OFF2ID(var);
+		if (var != -1) {
 			const char	*vname;
 
 			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);

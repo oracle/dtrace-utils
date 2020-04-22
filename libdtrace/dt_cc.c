@@ -2065,7 +2065,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 
 	yypcb->pcb_idents = dt_idhash_create("ambiguous", NULL, 0, 0);
 	yypcb->pcb_locals = dt_idhash_create("clause local", NULL,
-					     0, DT_VAR_LOCAL_MAX);
+					     0, DT_LVAR_MAX);
 
 	if (yypcb->pcb_idents == NULL || yypcb->pcb_locals == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
