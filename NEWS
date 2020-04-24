@@ -1,3 +1,78 @@
+2.0.0-1.0 (Apr 24th, 2020)
+-------------------------
+
+First errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - BEGIN and END probes are functional.  They are implemented using uprobes
+   on trigger functions in libdtrace.  The current implementation does not
+   yet satisfy all documented semantics for these special probes.  E.g. It
+   is possible for a probe to be reported prior to the BEGIN probe.
+
+ - The exit(n) action has been implemented.  It terminates probing and will
+   result in dtrace reporting the given return value <n> as its return code.
+
+ - The flow-indent option -F has been implemented.  Some of the heuristics
+   present in DTrace 1.x are not available in this version - further code
+   analysis is ongoing to determine whether they are necessary.
+
+New options:
+
+ - -xdisasm=n: Specify which disassembler listings to generate when the -S
+   option is supplied.  The value for <n> is the sum of any of the following:
+
+       1 = After compilation and assembly of a program.
+       2 = After linking in precompiled BPF functions (dependencies).
+       4 = After final relocation processing (final program).
+
+Bugfixes:
+
+ - Various memory management issues such as memory leak and unsafe memory
+   access operations were fixed.
+
+ - Using local variables in D clauses could cause the compiler to generate
+   instruction sequences where a load instruction for a local variable occurred
+   before a store took place to that variable.  The BPF verifier rejects such
+   sequences.  We now ensure that we do not load from stack locations that
+   were never initialized.
+
+ - The code generated for the post-increment operation resulted in the new
+   value to be used as value of the expression.  The value of the expression
+   is now the old value.
+
+ - Various issues were resolved concerning register use in the compiler.  We
+   are now using proper register spilling techniques to free up a sufficient
+   amount of general purpose registers.
+
+ - FBT return probes were not created correctly if an entry probe also existed
+   for the same function.  Both were getting attached to the same probe (either
+   entry or return, depending on which was created first).
+
+Internal changes:
+
+ - Various helper functions have been implemented in C code that is compiled
+   to BPF code using the GCC BPF cross compiler.  These are available as an
+   ELF object for linking with the dynamically generated code that the DTrace
+   compiler produces.  When D code has been compiled into BPF code, we resolve
+   any references to precompiled BPF functions against this ELF object and
+   add any functions used (and their dependencies) to the compiled program.
+
+ - Various tests in the testsuite make use of the -xerrtags and -xdroptags
+   options in dtrace to include specific error and drop tags in the error
+   output.  The testsuite engine did not enforce validation of these tags.
+   Tests that specify a tag in their name err.<tag>.* and drp.<tag>.*) will
+   now trigger validation that the specified tag is mentioned in the error
+   output that dtrace produces.
+
+ - Dynamically created system level probes (kprobes and uprobes are now grouped
+   under a tracepoint group named dt_<pid>_<prv>[_<prb>] where <pid> is the PID
+   of the dtrace process, <prv> the name of the probe provider, and <prb> the
+   probe name.  The _<prb> optional suffix is used for FBT probes to separate
+   entry probes from return probes.
+
 2.0.0 (Mar 10th, 2020)
 ----------------------
 

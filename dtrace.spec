@@ -1,7 +1,7 @@
 # spec file for package dtrace
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      0.8%{?dist}
+Release:      1.0%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,24 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Apr 30 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.0
+- Implement BEGIN and END probes. (Eugene Loh) [Orabug: 31220513]
+- Implement a probe cleanup mechanism for providers.
+  (Eugene Loh) [Orabug: 31220519]
+- Implement the exit() action. [Orabug: 31220520]
+- Implement the flowindent option. [Orabug: 31220522]
+- Implement the -xdisasm=n option. [Orabug: 31220524]
+- Implement linking of precompiled BPF functions. [Orabug: 31220525]
+- Fix memory leaks and minor uninitialized-data bugs. [Orabug: 31220517]
+- Fix load-before-store BPF verifier errors for local variables.
+  [Orabug: 31220527]
+- Fix post-increment code generation. [Orabug: 31220528]
+- Fix register clobbering and implement register spilling. [Orabug: 31187562]
+- Add error and drop tag verification for tests. [Orabug: 31220521]
+- Various code cleanup and errata release preparation. [Orabug; 31220516]
+- Ensure that bpf_dlib.o is installed.
+- Fix the creation of FBT return probes.
+
 * Tue Mar 10 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.8
 - Sync with latest development code.
 - Implement perf event output buffer management and processing.
