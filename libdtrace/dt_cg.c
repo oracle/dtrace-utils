@@ -895,7 +895,11 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
-			instr = BPF_MOV_IMM(BPF_REG_1, idp->di_id);
+			instr = BPF_LOAD(BPF_DW, BPF_REG_1,
+					 BPF_REG_FP, DT_STK_DCTX);
+			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
+					 instr));
+			instr = BPF_MOV_IMM(BPF_REG_2, idp->di_id);
 			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
 					 instr));
 			idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
