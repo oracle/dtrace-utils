@@ -6,14 +6,13 @@
  */
 
 /*
- * ASSERTION: lquantize() limit must match in every use of a given aggregation.
+ * ASSERTION: lquantize() should not have more than five (!) arguments
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(0, 10, 20, 1);
-	@ = lquantize(0, 10, 2000, 1);
+	@ = lquantize(10, 0, 100, 1, 10, 20);
 	exit(0);
 }

@@ -6,14 +6,13 @@
  */
 
 /*
- * ASSERTION: lquantize() limit must match in every use of a given aggregation.
+ * ASSERTION: Upper bound must be greater than lower bound argument
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(0, 10, 20, 1);
-	@ = lquantize(0, 10, 2000, 1);
+	@ = lquantize(1, 1000, 100);
 	exit(0);
 }

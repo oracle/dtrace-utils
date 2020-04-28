@@ -6,14 +6,13 @@
  */
 
 /*
- * ASSERTION: lquantize() limit must match in every use of a given aggregation.
+ * ASSERTION: lquantize() limit must be a signed 32-bit integer constant
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(0, 10, 20, 1);
-	@ = lquantize(0, 10, 2000, 1);
+	@ = lquantize(1, 100, -2147483657);
 	exit(0);
 }

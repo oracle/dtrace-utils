@@ -6,15 +6,14 @@
  */
 
 /*
- * ASSERTION: llquantize() factor must match in every use of a given
- *	aggregation.
+ * ASSERTION: llquantize() steps must be an integer constant.
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = llquantize(0, 10, 0, 6, 20);
-	@ = llquantize(0, 10, 0, 6, 50);
+	steps = 10;
+	@ = llquantize(1, 10, 0, 6, steps);
 	exit(0);
 }

@@ -44,6 +44,7 @@ libdtrace_SECONDARY := libproc libport libbpf
 # Disable certain warnings for these files
 dt_consume.c_CFLAGS := -Wno-pedantic
 dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor
+dt_cg.c_CFLAGS := -Wno-pedantic
 dt_dis.c_CFLAGS := -Wno-pedantic
 dt_proc.c_CFLAGS := -Wno-pedantic
 

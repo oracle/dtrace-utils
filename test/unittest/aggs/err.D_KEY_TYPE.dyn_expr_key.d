@@ -6,14 +6,14 @@
  */
 
 /*
- * ASSERTION: lquantize() limit must match in every use of a given aggregation.
+ * ASSERTION: A dynamic expression cannot be used as aggregation key.
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(0, 10, 20, 1);
-	@ = lquantize(0, 10, 2000, 1);
+	@a[curpsinfo] = count();
 	exit(0);
 }
+

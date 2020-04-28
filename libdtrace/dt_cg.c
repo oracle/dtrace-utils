@@ -44,9 +44,10 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 uint_t
 dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_ident_t	*mem = dt_dlib_get_map(pcb->pcb_hdl, "mem");
-	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
+	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
 	uint_t		lbl_exit = dt_irlist_label(dlp);
 	struct bpf_insn	instr;
 
@@ -150,6 +151,39 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	if (dt_idhash_nextoff(dtp->dt_aggs, 1, 0) > 0) {
+		dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
+
+		/*
+		 * key = 0;		// stw [%fp + DCTX_FP(DCTX_AGG)], 0
+		 * rc = bpf_map_lookup_elem(&aggs, &key);
+		 *			// lddw %r1, &aggs
+		 *			// mov %r2, %fp
+		 *			// add %r2, DCTX_FP(DCTX_AGG)
+		 *			// call bpf_map_lookup_elem
+		 *			//     (%r1 ... %r5 clobbered)
+		 *			//     (%r0 = 'aggs' BPF map value)
+		 * if (rc == 0)		// jeq %r0, 0, lbl_exit
+		 *	goto exit;
+		 *			//     (%r0 = pointer to agg data)
+		 * dctx.agg = rc;	// stdw [%fp + DCTX_FP(DCTX_AGG)], %r0
+		 */
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_AGG), 0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_cg_xsetx(dlp, aggs, DT_LBL_NONE, BPF_REG_1, aggs->di_id);
+		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_AGG));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_AGG),
+				  BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
 
 	return lbl_exit;
 }
@@ -3171,6 +3205,720 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 	}
 }
 
+/*
+ * We consume twice the required data size because of the odd/even data pair
+ * mechanism to provide lockless, write-wait-free operation.
+ */
+#define DT_CG_AGG_OFFSET(pcb, sz) \
+	dt_idhash_nextoff((pcb)->pcb_hdl->dt_aggs, sizeof(uint64_t), 2 * (sz))
+
+/*
+ * Prepare the aggregation buffer for updating for a specific aggregation, and
+ * return a register that holds a pointer to the aggregation data to be
+ * updated.
+ *
+ * We update the latch seqcount (first value in the aggregation buffer) to
+ * signal that reads should be directed to the alternate copy of the data.  We
+ * then determine the location of data for the given aggregation that can be
+ * updated.  This value is stored in the register returned from this function.
+ */
+static int
+dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
+		      dt_regset_t *drp)
+{
+	int		rx, ry;
+	struct bpf_insn	instr;
+
+	TRACE_REGSET("            Prep: Begin");
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	rx = dt_regset_alloc(drp);
+	ry = dt_regset_alloc(drp);
+	assert(rx != -1 && ry != -1);
+
+	/*
+	 *				//     (%rX = register for agg ptr)
+	 *				//     (%rY = register for agg data)
+	 *	agd = dctx->agg;	// lddw %r0, [%fp + DT_STK_DCTX]
+	 *				// lddw %rX, [%r0 + DCTX_AGG]
+	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, rx, BPF_REG_0, DCTX_AGG);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *	off = (*agd % 2) * size	// lddw %rY, [%rX + 0]
+	 *	      + aid->di_offset	// and %rY, 1
+	 *	      + sizeof(uint64_t);
+	 *				// mul %rY, size
+	 *				// add %rY, aid->di_offset +
+	 *				//		sizeof(uint64_t)
+	 *	(*agd)++;		// mov %r0, 1
+	 *				// xadd [%rX + 0], %r0
+	 *	agd += off;		// add %rX, %rY
+	 */
+	instr = BPF_LOAD(BPF_DW, ry, rx, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_AND, ry, 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_MUL, ry, size);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, ry, aid->di_offset + sizeof(uint64_t));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_IMM(BPF_REG_0, 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_XADD_REG(BPF_DW, rx, 0, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_REG(BPF_ADD, rx, ry);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	dt_regset_free(drp, ry);
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("            Prep: End  ");
+
+	return rx;
+}
+
+#define DT_CG_AGG_IMPL(aid, sz, dlp, drp, f, ...) \
+	do {								\
+		int	dreg;						\
+									\
+		TRACE_REGSET("        Upd: Begin ");			\
+									\
+		/*							\
+		 * Redirect reading to secondary copy.  The register	\
+		 * returned holds the base pointer to the primary copy.	\
+		 */							\
+		dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
+									\
+		/*							\
+		 * Call the update implementation.  Aggregation data is \
+		 * accessed through register 'dreg'.			\
+		 */							\
+		(f)((dlp), (drp), dreg, ## __VA_ARGS__);		\
+		dt_regset_free((drp), dreg);				\
+									\
+		TRACE_REGSET("        Upd: Switch");			\
+									\
+		/*							\
+		 * Redirect reading to primary copy.  The register	\
+		 * returned holds the base pointer to the secondary	\
+		 * copy.						\
+		 */							\
+		dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
+									\
+		/*							\
+		 * Call the update implementation.  Aggregation data is \
+		 * accessed through register 'dreg'.			\
+		 */							\
+		(f)((dlp), (drp), dreg, ## __VA_ARGS__);		\
+		dt_regset_free((drp), dreg);				\
+									\
+		TRACE_REGSET("        Upd: End   ");			\
+	} while (0)
+
+static dt_node_t *
+dt_cg_agg_opt_incr(dt_node_t *dnp, dt_node_t *lastarg, const char *fn,
+		   int argmax)
+{
+	dt_node_t	*incr;
+
+	incr = lastarg != NULL ? lastarg->dn_list : NULL;
+	if (incr == NULL)
+		return NULL;
+
+	if (!dt_node_is_scalar(incr)) {
+		dnerror(dnp, D_PROTO_ARG, "%s( ) increment value (argument "
+					  "#%d) must be of scalar type\n",
+			fn, argmax);
+	}
+
+	if (incr->dn_list != NULL) {
+		int	argc = argmax;
+
+		for (dnp = incr->dn_list; dnp != NULL; dnp = dnp->dn_list)
+			argc++;
+
+		dnerror(incr, D_PROTO_LEN, "%s( ) prototype mismatch: %d args "
+					   "passed, at most %d expected",
+			fn, argc, argmax);
+	}
+
+	return incr;
+}
+
+static void
+dt_cg_agg_avg(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+	      dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 2 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_count_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg)
+{
+	struct bpf_insn	instr;
+
+	TRACE_REGSET("            Impl: Begin");
+
+	/*
+	 *	(*dreg)++;		// mov %r0, 1
+	 *				// xadd [%rX + 0], %r0
+	 */
+	dt_regset_xalloc(drp, BPF_REG_0);
+	instr = BPF_MOV_IMM(BPF_REG_0, 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_XADD_REG(BPF_DW, dreg, 0, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("            Impl: End  ");
+}
+
+static void
+dt_cg_agg_count(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+		dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 1 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+
+	TRACE_REGSET("    AggCnt: Begin");
+
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_count_impl);
+
+	TRACE_REGSET("    AggCnt: End  ");
+}
+
+static void
+dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+		     dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	/*
+	 * For log linear quantization, we have four arguments in addition to
+	 * the expression:
+	 *
+	 *    arg1 => Factor
+	 *    arg2 => Lower magnitude
+	 *    arg3 => Upper magnitude
+	 *    arg4 => Steps per magnitude
+	 */
+	dt_node_t	*arg1 = dnp->dn_aggfun->dn_args->dn_list;
+	dt_node_t	*arg2 = arg1->dn_list;
+	dt_node_t	*arg3 = arg2->dn_list;
+	dt_node_t	*arg4 = arg3->dn_list;
+	dt_node_t	*incr;
+	dt_idsig_t	*isp;
+	uint64_t	factor, lmag, hmag, steps, arg, oarg;
+	int		sz;
+
+	if (arg1->dn_kind != DT_NODE_INT)
+		dnerror(arg1, D_LLQUANT_FACTORTYPE, "llquantize( ) argument #1 "
+			"must be an integer constant\n");
+
+	factor = (uint64_t)arg1->dn_value;
+
+	if (factor > UINT16_MAX || factor < 2)
+		dnerror(arg1, D_LLQUANT_FACTORVAL, "llquantize( ) argument #1 "
+			"must be an unsigned 16-bit quantity greater than or "
+			"equal to 2\n");
+
+	if (arg2->dn_kind != DT_NODE_INT)
+		dnerror(arg2, D_LLQUANT_LMAGTYPE, "llquantize( ) argument #2 "
+			"must be an integer constant\n");
+
+	lmag = (uint64_t)arg2->dn_value;
+
+	if (lmag > UINT16_MAX)
+		dnerror(arg2, D_LLQUANT_LMAGVAL, "llquantize( ) argument #2 "
+			"must be an unsigned 16-bit quantity\n");
+
+	if (arg3->dn_kind != DT_NODE_INT)
+		dnerror(arg3, D_LLQUANT_HMAGTYPE, "llquantize( ) argument #3 "
+			"must be an integer constant\n");
+
+	hmag = (uint64_t)arg3->dn_value;
+
+	if (hmag > UINT16_MAX)
+		dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) argument #3 "
+			"must be an unsigned 16-bit quantity\n");
+
+	if (hmag < lmag)
+		dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) argument #3 "
+			"(high magnitude) must be at least argument #2 (low "
+			"magnitude)\n");
+
+	if (powl(factor, hmag + 1) > (long double)UINT64_MAX)
+		dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) argument #3 "
+			"(high magnitude) will cause overflow of 64 bits\n");
+
+	if (arg4->dn_kind != DT_NODE_INT)
+		dnerror(arg4, D_LLQUANT_STEPTYPE, "llquantize( ) argument #4 "
+			"must be an integer constant\n");
+
+	steps = (uint64_t)arg4->dn_value;
+
+	if (steps > UINT16_MAX)
+		dnerror(arg4, D_LLQUANT_STEPVAL, "llquantize( ) argument #4 "
+			"must be an unsigned 16-bit quantity\n");
+
+	if (steps < factor) {
+		if (factor % steps != 0)
+			dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+				"argument #4 (steps) must evenly divide "
+				"argument #1 (factor) when steps<factor\n");
+	}
+
+	if (steps > factor) {
+		if (steps % factor != 0)
+			dnerror(arg1, D_LLQUANT_STEPVAL, "llquantize() "
+				"argument #4 (steps) must be a multiple of "
+				"argument #1 (factor) when steps>factor\n");
+
+		if (lmag == 0) {
+			if ((factor * factor) % steps != 0)
+				dnerror(arg1, D_LLQUANT_STEPVAL,
+					"llquantize() argument #4 (steps) must "
+					"evenly divide the square of argument "
+					"#1 (factor) when steps>factor and "
+					"lmag==0\n");
+		} else {
+			unsigned long long	ii = powl(factor, lmag + 1);
+
+			if (ii % steps != 0)
+				dnerror(arg1, D_LLQUANT_STEPVAL,
+					"llquantize() argument #4 (steps) must "
+					"evenly divide pow(argument #1 "
+					"(factor), lmag (argument #2) + 1) "
+					"when steps>factor and lmag==0\n");
+		}
+	}
+
+	arg = (steps << DTRACE_LLQUANTIZE_STEPSSHIFT) |
+	      (hmag << DTRACE_LLQUANTIZE_HMAGSHIFT) |
+	      (lmag << DTRACE_LLQUANTIZE_LMAGSHIFT) |
+	      (factor << DTRACE_LLQUANTIZE_FACTORSHIFT);
+
+	assert(arg != 0);
+
+	isp = (dt_idsig_t *)aid->di_data;
+
+	oarg = isp->dis_auxinfo;
+	if (oarg == 0) {
+		/*
+		 * This is the first time we've seen an llquantize() for this
+		 * aggregation; we'll store our argument as the auxiliary
+		 * signature information.
+		 */
+		isp->dis_auxinfo = arg;
+	} else if (oarg != arg) {
+		/*
+		 * If we have seen this llquantize() before and the argument
+		 * doesn't match the original argument, pick the original
+		 * argument apart to concisely report the mismatch.
+		 */
+		int	ofactor = DTRACE_LLQUANTIZE_FACTOR(oarg);
+		int	olmag = DTRACE_LLQUANTIZE_LMAG(oarg);
+		int	ohmag = DTRACE_LLQUANTIZE_HMAG(oarg);
+		int	osteps = DTRACE_LLQUANTIZE_STEPS(oarg);
+
+		if (ofactor != factor)
+			dnerror(dnp, D_LLQUANT_MATCHFACTOR, "llquantize() "
+				"factor (argument #1) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				ofactor, (int)factor);
+
+		if (olmag != lmag)
+			dnerror(dnp, D_LLQUANT_MATCHLMAG, "llquantize() lmag "
+				"(argument #2) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				olmag, (int)lmag);
+
+		if (ohmag != hmag)
+			dnerror(dnp, D_LLQUANT_MATCHHMAG, "llquantize() hmag "
+				"(argument #3) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				ohmag, (int)hmag);
+
+		if (osteps != steps)
+			dnerror(dnp, D_LLQUANT_MATCHSTEPS, "llquantize() steps "
+				"(argument #4) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				osteps, (int)steps);
+
+		/*
+		 * We shouldn't be able to get here -- one of the parameters
+		 * must be mismatched if the arguments didn't match.
+		 */
+		assert(0);
+	}
+
+	incr = dt_cg_agg_opt_incr(dnp, arg4, "llquantize", 6);
+
+	sz = (hmag - lmag + 1) * (steps - steps / factor) * 2 + 4;
+	sz *= sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
+			 int vreg, int ireg, int32_t base, uint16_t levels,
+			 uint16_t step)
+{
+	struct bpf_insn	instr;
+	uint_t		lbl_l1 = dt_irlist_label(dlp);
+	uint_t		lbl_l2 = dt_irlist_label(dlp);
+	uint_t		lbl_add = dt_irlist_label(dlp);
+
+	TRACE_REGSET("            Impl: Begin");
+
+	/*
+	 *				//     (%rd = dreg -- agg data)
+	 *				//     (%rv = val)
+	 *				//     (%ri = incr)
+	 *	if (val >= base)	// jge %rv, base, L1
+	 *		goto L1;	//
+	 *
+	 *	tmp = dreg;		// mov %r0, %rd
+	 *	goto ADD;		// ja ADD
+	 */
+	instr = BPF_BRANCH_IMM(BPF_JSGE, vreg, base, lbl_l1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_0, dreg);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_JUMP(lbl_add);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * L1:	level = (val - base) / step;
+	 *				// L1:
+	 *				// mov %r0, %rv
+	 *				// sub %r0, base
+	 *				// div %r0, step
+	 *	if (level < levels)	// jlt %r0, levels, L2
+	 *		goto L2;
+	 *
+	 *	tmp = dreg + 8 * (levels + 1);
+	 *				// mov %r0, levels + 1
+	 *				// lsh %r0, 3
+	 *				// add %r0, %rd
+	 *	goto ADD;		// ja ADD
+	 */
+	instr = BPF_MOV_REG(BPF_REG_0, vreg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_l1, instr));
+	instr = BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, base);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_DIV, BPF_REG_0, step);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JLT, BPF_REG_0, levels, lbl_l2);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	instr = BPF_MOV_IMM(BPF_REG_0, levels + 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_JUMP(lbl_add);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * L2:	tmp = dreg + 8 * (level + 1);
+	 *				// L2:
+	 *				// add %r0, 1
+	 *				// lsh %r0, 3
+	 *				// add %r0, %rd
+	 */
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_l2, instr));
+	instr = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * ADD:	(*tmp) += incr;		// xadd [%r0 + 0], %ri
+	 */
+	instr = BPF_XADD_REG(BPF_DW, BPF_REG_0, 0, ireg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_add, instr));
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("            Impl: End  ");
+}
+
+static void
+dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+		    dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	/*
+	 * For linear quantization, we have between two and four arguments in
+	 * addition to the expression:
+	 *
+	 *    arg1 => Base value
+	 *    arg2 => Limit value
+	 *    arg3 => Quantization level step size (defaults to 1)
+	 *    arg4 => Quantization increment value (defaults to 1)
+	 */
+	dt_node_t	*arg1 = dnp->dn_aggfun->dn_args->dn_list;
+	dt_node_t	*arg2 = arg1->dn_list;
+	dt_node_t	*arg3 = arg2->dn_list;
+	dt_node_t	*incr;
+	dt_idsig_t	*isp;
+	uint64_t	nlevels, arg, oarg;
+	uint64_t	step = 1;
+	int64_t		baseval, limitval;
+	int		sz, ireg;
+	struct bpf_insn	instr;
+
+	if (arg1->dn_kind != DT_NODE_INT)
+		dnerror(arg1, D_LQUANT_BASETYPE, "lquantize( ) argument #1 "
+			"must be an integer constant\n");
+
+	baseval = (int64_t)arg1->dn_value;
+
+	if (baseval < INT32_MIN || baseval > INT32_MAX)
+		dnerror(arg1, D_LQUANT_BASEVAL, "lquantize( ) argument #1 must "
+			"be a 32-bit quantity\n");
+
+	if (arg2->dn_kind != DT_NODE_INT)
+		dnerror(arg2, D_LQUANT_LIMTYPE, "lquantize( ) argument #2 must "
+			"be an integer constant\n");
+
+	limitval = (int64_t)arg2->dn_value;
+
+	if (limitval < INT32_MIN || limitval > INT32_MAX)
+		dnerror(arg2, D_LQUANT_LIMVAL, "lquantize( ) argument #2 must "
+			"be a 32-bit quantity\n");
+
+	if (limitval < baseval)
+		dnerror(dnp, D_LQUANT_MISMATCH,
+			"lquantize( ) base (argument #1) must be less than "
+			"limit (argument #2)\n");
+
+	if (arg3 != NULL) {
+		if (!dt_node_is_posconst(arg3))
+			dnerror(arg3, D_LQUANT_STEPTYPE, "lquantize( ) "
+				"argument #3 must be a non-zero positive "
+				"integer constant\n");
+
+		step = arg3->dn_value;
+		if (step > UINT16_MAX)
+			dnerror(arg3, D_LQUANT_STEPVAL, "lquantize( ) "
+				"argument #3 must be a 16-bit quantity\n");
+	}
+
+	nlevels = (limitval - baseval) / step;
+
+	if (nlevels == 0)
+		dnerror(dnp, D_LQUANT_STEPLARGE,
+			"lquantize( ) step (argument #3) too large: must have "
+			"at least one quantization level\n");
+
+	if (nlevels > UINT16_MAX)
+		dnerror(dnp, D_LQUANT_STEPSMALL, "lquantize( ) step (argument "
+			"#3) too small: number of quantization levels must be "
+			"a 16-bit quantity\n");
+
+	arg = (step << DTRACE_LQUANTIZE_STEPSHIFT) |
+	      (nlevels << DTRACE_LQUANTIZE_LEVELSHIFT) |
+	      ((baseval << DTRACE_LQUANTIZE_BASESHIFT) &
+	       DTRACE_LQUANTIZE_BASEMASK);
+
+	assert(arg != 0);
+
+	isp = (dt_idsig_t *)aid->di_data;
+
+	oarg = isp->dis_auxinfo;
+	if (oarg == 0) {
+		/*
+		 * This is the first time we've seen an lquantize() for this
+		 * aggregation; we'll store our argument as the auxiliary
+		 * signature information.
+		 */
+		isp->dis_auxinfo = arg;
+	} else if (oarg != arg) {
+		/*
+		 * If we have seen this lquantize() before and the argument
+		 * doesn't match the original argument, pick the original
+		 * argument apart to concisely report the mismatch.
+		 */
+		int	obaseval = DTRACE_LQUANTIZE_BASE(oarg);
+		int	onlevels = DTRACE_LQUANTIZE_LEVELS(oarg);
+		int	ostep = DTRACE_LQUANTIZE_STEP(oarg);
+
+		if (obaseval != baseval)
+			dnerror(dnp, D_LQUANT_MATCHBASE, "lquantize( ) base "
+				"(argument #1) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				obaseval, (int)baseval);
+
+		if (onlevels * ostep != nlevels * step)
+			dnerror(dnp, D_LQUANT_MATCHLIM, "lquantize( ) limit "
+				"(argument #2) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				obaseval + onlevels * ostep,
+				(int)baseval + (int)nlevels * (int)step);
+
+		if (ostep != step)
+			dnerror(dnp, D_LQUANT_MATCHSTEP, "lquantize( ) step "
+				"(argument #3) doesn't match previous "
+				"declaration: expected %d, found %d\n",
+				ostep, (int)step);
+
+		/*
+		 * We shouldn't be able to get here -- one of the parameters
+		 * must be mismatched if the arguments didn't match.
+		 */
+		assert(0);
+	}
+
+	incr = dt_cg_agg_opt_incr(dnp, arg3, "lquantize", 5);
+
+	sz = nlevels + 2;
+	sz *= sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+
+	TRACE_REGSET("    AggLq : Begin");
+
+	dt_cg_node(dnp->dn_aggfun->dn_args, dlp, drp);
+
+	if (incr == NULL) {
+		if ((ireg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		instr = BPF_MOV_IMM(ireg, 1);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	} else {
+		dt_cg_node(incr, dlp, drp);
+		ireg = incr->dn_reg;
+	}
+
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_lquantize_impl,
+		       dnp->dn_aggfun->dn_args->dn_reg, ireg,
+		       baseval, nlevels, step);
+
+	dt_regset_free(drp, dnp->dn_aggfun->dn_args->dn_reg);
+	dt_regset_free(drp, ireg);
+
+	TRACE_REGSET("    AggLq : End  ");
+}
+
+static void
+dt_cg_agg_max(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+	      dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 1 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_min(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+	      dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 1 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_quantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+		   dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*incr;
+	int		sz = DTRACE_QUANTIZE_NBUCKETS * sizeof(uint64_t);
+
+	incr = dt_cg_agg_opt_incr(dnp, dnp->dn_aggfun->dn_args, "quantize", 2);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_stddev(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+		 dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 4 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+static void
+dt_cg_agg_sum(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
+	      dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	sz = 1 * sizeof(uint64_t);
+
+	if (aid->di_offset == -1)
+		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+}
+
+typedef void dt_cg_aggfunc_f(dt_pcb_t *, dt_ident_t *, dt_node_t *,
+			     dt_irlist_t *, dt_regset_t *);
+
+static dt_cg_aggfunc_f *_dt_cg_agg[DT_AGG_NUM] = {
+	[0 ... DT_AGG_NUM - 1]	= NULL,
+	[DT_AGG_AVG]		= &dt_cg_agg_avg,
+	[DT_AGG_COUNT]		= &dt_cg_agg_count,
+	[DT_AGG_LLQUANTIZE]	= &dt_cg_agg_llquantize,
+	[DT_AGG_LQUANTIZE]	= &dt_cg_agg_lquantize,
+	[DT_AGG_MAX]		= &dt_cg_agg_max,
+	[DT_AGG_MIN]		= &dt_cg_agg_min,
+	[DT_AGG_QUANTIZE]	= &dt_cg_agg_quantize,
+	[DT_AGG_STDDEV]		= &dt_cg_agg_stddev,
+	[DT_AGG_SUM]		= &dt_cg_agg_sum,
+};
+
+static void
+dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_ident_t	*aid, *fid;
+	dt_cg_aggfunc_f	*aggfp;
+
+	/*
+	 * If the aggregation has no aggregating function applied to it, then
+	 * this statement has no effect.  Flag this as a programming error.
+	 */
+	if (dnp->dn_aggfun == NULL)
+		dnerror(dnp, D_AGG_NULL, "expression has null effect: @%s\n",
+			dnp->dn_ident->di_name);
+
+	aid = dnp->dn_ident;
+	fid = dnp->dn_aggfun->dn_ident;
+
+	if (dnp->dn_aggfun->dn_args != NULL &&
+	    dt_node_is_scalar(dnp->dn_aggfun->dn_args) == 0)
+		dnerror(dnp->dn_aggfun, D_AGG_SCALAR, "%s( ) argument #1 must "
+			"be of scalar type\n", fid->di_name);
+
+	/* FIXME */
+	if (dnp->dn_aggtup != NULL)
+		dnerror(dnp->dn_aggtup, D_ARR_BADREF, "indexing is not "
+			"supported yet: @%s\n", dnp->dn_ident->di_name);
+
+
+	assert(fid->di_id >= 0 && fid->di_id < DT_AGG_NUM);
+
+	aggfp = _dt_cg_agg[fid->di_id];
+	assert(aggfp != NULL);
+
+	(*aggfp)(pcb, aid, dnp, dlp, drp);
+}
+
 void
 dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 {
@@ -3212,7 +3960,8 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dt_cg_prologue(pcb, dnp->dn_pred);
 
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
-			if (act->dn_kind == DT_NODE_DFUNC) {
+			switch (act->dn_kind) {
+			case DT_NODE_DFUNC: {
 				const dt_cg_actdesc_t	*actdp;
 				dt_ident_t		*idp;
 
@@ -3221,12 +3970,28 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 				if (actdp->fun)
 					actdp->fun(pcb, act->dn_expr,
 						   actdp->kind);
-			} else {
-				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
-					   pcb->pcb_regs);
-				assert(act->dn_expr->dn_reg != -1);
-				dt_regset_free(pcb->pcb_regs,
-					       act->dn_expr->dn_reg);
+				break;
+			}
+			case DT_NODE_AGG:
+				dt_cg_agg(pcb, act, &pcb->pcb_ir,
+					  pcb->pcb_regs);
+				break;
+			case DT_NODE_DEXPR:
+				if (act->dn_expr->dn_kind == DT_NODE_AGG)
+					dt_cg_agg(pcb, act->dn_expr,
+						  &pcb->pcb_ir, pcb->pcb_regs);
+				else
+					dt_cg_node(act->dn_expr, &pcb->pcb_ir,
+						   pcb->pcb_regs);
+
+				if (act->dn_expr->dn_reg != -1)
+					dt_regset_free(pcb->pcb_regs,
+						       act->dn_expr->dn_reg);
+				break;
+			default:
+				dnerror(dnp, D_UNKNOWN, "internal error -- "
+					"node kind %u is not a valid "
+					"statement\n", dnp->dn_kind);
 			}
 		}
 		if (dnp->dn_acts == NULL)

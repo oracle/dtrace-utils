@@ -6,14 +6,13 @@
  */
 
 /*
- * ASSERTION: lquantize() limit must match in every use of a given aggregation.
+ * ASSERTION: lquantize() step should be a 16-bit quantity
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(0, 10, 20, 1);
-	@ = lquantize(0, 10, 2000, 1);
+	@ = lquantize(1, 1, 100000, 100000);
 	exit(0);
 }

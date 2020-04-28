@@ -6,15 +6,13 @@
  */
 
 /*
- * ASSERTION: llquantize() factor must match in every use of a given
- *	aggregation.
+ * ASSERTION: llquantize() steps must be a 16-bit unsigned integer.
  *
  * SECTION: Aggregations/Aggregations
  */
 
 BEGIN
 {
-	@ = llquantize(0, 10, 0, 6, 20);
-	@ = llquantize(0, 10, 0, 6, 50);
+	@ = llquantize(1, 10, 0, 6, 65536);
 	exit(0);
 }

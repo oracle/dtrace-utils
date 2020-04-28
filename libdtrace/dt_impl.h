@@ -502,6 +502,23 @@ struct dtrace_hdl {
 #define DT_ACT_MAX		30
 
 /*
+ * Aggregation functions.
+ */
+typedef enum dt_aggfid {
+	DT_AGG_AVG = 0,
+	DT_AGG_COUNT,
+	DT_AGG_LLQUANTIZE,
+	DT_AGG_LQUANTIZE,
+	DT_AGG_MAX,
+	DT_AGG_MIN,
+	DT_AGG_QUANTIZE,
+	DT_AGG_STDDEV,
+	DT_AGG_SUM,
+
+	DT_AGG_NUM
+} dt_aggfid_t;
+
+/*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not
  * be ever valid for opening for write access via freopen(3C), which of
  * course, "." never is.
