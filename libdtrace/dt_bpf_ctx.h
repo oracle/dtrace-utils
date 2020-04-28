@@ -17,7 +17,9 @@ struct dt_bpf_context {
 	uint32_t	epid;
 	uint32_t	pad;
 	uint64_t	fault;
+#if 0
 	dt_pt_regs	regs;
+#endif
 	uint64_t	argv[10];
 };
 

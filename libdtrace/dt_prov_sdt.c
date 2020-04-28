@@ -322,6 +322,7 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
+#if 0
 	/*
 	 *     (we clear the dctx.regs space because of the memset above)
 	 */
@@ -330,6 +331,7 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 				      DCTX_FP(DCTX_REGS) + i, 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
+#endif
 
 	/*
 	 *     (we clear dctx.argv[0] and on because of the memset above)
