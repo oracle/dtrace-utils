@@ -2254,10 +2254,11 @@ nextepid:
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
 #else
-dtrace_workstatus_t
+static dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
-	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
-	       int flow, int quiet, dtrace_epid_t *last, void *arg)
+	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
+	       dtrace_consume_rec_f *rfunc, int flow, int quiet,
+	       dtrace_epid_t *last, void *arg)
 {
 	char				*data = buf;
 	struct perf_event_header	*hdr;
@@ -2271,7 +2272,6 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		uint32_t		size, epid, tag;
 		int			i;
 		int			done = 0;
-		dtrace_probedata_t	pdat;
 
 		/*
 		 * struct {
@@ -2287,13 +2287,6 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 */
 		if (ptr > buf + hdr->size)
 			return -1;
-
-		/*
-		 * Clear the probe data, and fill in data independent fields.
-		 */
-		memset(&pdat, 0, sizeof(pdat));
-		pdat.dtpda_handle = dtp;
-		pdat.dtpda_cpu = cpu;
 
 		size = *(uint32_t *)data;
 		data += sizeof(size);
@@ -2311,22 +2304,22 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 * Fill in the epid and address of the epid in the buffer.  We
 		 * need to pass this to the efunc.
 		 */
-		pdat.dtpda_epid = epid;
-		pdat.dtpda_data = data;
+		pdat->dtpda_epid = epid;
+		pdat->dtpda_data = data;
 
-		rval = dt_epid_lookup(dtp, epid, &pdat.dtpda_ddesc,
-						 &pdat.dtpda_pdesc);
+		rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
+						 &pdat->dtpda_pdesc);
 		if (rval != 0)
 			return rval;
 
 		if (flow)
-			dt_flowindent(dtp, &pdat, *last, DTRACE_EPIDNONE);
+			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
 
-		rval = (*efunc)(&pdat, arg);
+		rval = (*efunc)(pdat, arg);
 
 		if (flow) {
-			if (pdat.dtpda_flow == DTRACEFLOW_ENTRY)
-				pdat.dtpda_indent += 2;
+			if (pdat->dtpda_flow == DTRACEFLOW_ENTRY)
+				pdat->dtpda_indent += 2;
 		}
 
 		if (rval == DTRACE_CONSUME_NEXT)
@@ -2341,16 +2334,16 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		/*
 		 * FIXME: This code is temporary.
 		 */
-		for (i = 0; i < pdat.dtpda_ddesc->dtdd_nrecs; i++) {
+		for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
 			int			n;
 			dtrace_recdesc_t	*rec;
 
-			rec = &pdat.dtpda_ddesc->dtdd_recs[i];
+			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
 			if (rec->dtrd_action == DTRACEACT_EXIT)
 				done = 1;
 
-			pdat.dtpda_data = data + rec->dtrd_offset;
-			rval = (*rfunc)(&pdat, rec, arg);
+			pdat->dtpda_data = data + rec->dtrd_offset;
+			rval = (*rfunc)(pdat, rec, arg);
 
 			if (rval == DTRACE_CONSUME_NEXT)
 				continue;
@@ -2362,7 +2355,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 				return dt_set_errno(dtp, EDT_BADRVAL);
 
 			n = dt_printf(dtp, fp, quiet ? "%lld" : " %16lld",
-				      *(int64_t *)pdat.dtpda_data);
+				      *(int64_t *)pdat->dtpda_data);
 
 			if (n < 0)
 				return -1;
@@ -2372,7 +2365,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 * Call the record callback with a NULL record to indicate
 		 * that we're done processing this EPID.
 		 */
-		rval = (*rfunc)(&pdat, NULL, arg);
+		rval = (*rfunc)(pdat, NULL, arg);
 
 		*last = epid;
 
@@ -2411,10 +2404,18 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 	dt_pebset_t			*pebset = dtp->dt_pebset;
 	uint64_t			data_size = pebset->data_size;
 	int				flow, quiet;
+	dtrace_probedata_t		pdat;
 	dtrace_workstatus_t		rval = DTRACE_WORKSTATUS_OKAY;
 
 	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
 	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
+
+	/*
+	 * Clear the probe data, and fill in data independent fields.
+	 */
+	memset(&pdat, 0, sizeof(pdat));
+	pdat.dtpda_handle = dtp;
+	pdat.dtpda_cpu = cpu;
 
 	/*
 	 * Set base to be the start of the buffer data, i.e. we skip the first
@@ -2456,8 +2457,9 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 				event = dst;
 			}
 
-			rval = dt_consume_one(dtp, fp, cpu, event, efunc, rfunc,
-					      flow, quiet, &last, arg);
+			rval = dt_consume_one(dtp, fp, cpu, event, &pdat,
+					      efunc, rfunc, flow, quiet, &last,
+					      arg);
 			if (rval != DTRACE_WORKSTATUS_OKAY)
 				return rval;
 
