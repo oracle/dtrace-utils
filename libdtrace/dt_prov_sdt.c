@@ -36,9 +36,9 @@ static const char		modname[] = "vmlinux";
 
 #define PROBE_LIST		TRACEFS "available_events"
 
-#define KPROBES			"kprobes:"
-#define SYSCALLS		"syscalls:"
-#define UPROBES			"uprobes:"
+#define KPROBES			"kprobes"
+#define SYSCALLS		"syscalls"
+#define UPROBES			"uprobes"
 
 /*
  * All tracing events (tracepoints) include a number of fields that we need to
@@ -247,28 +247,36 @@ static int populate(dtrace_hdl_t *dtp)
 
 	while (fgets(buf, sizeof(buf), f)) {
 		int	dummy;
+		char	str[sizeof(buf)];
 
 		p = strchr(buf, '\n');
 		if (p)
 			*p = '\0';
 
 		p = strchr(buf, ':');
-		if (p == NULL) {
-			if (dt_probe_insert(dtp, prv, prvname, modname, "",
-					    buf))
-				n++;
-		} else if (sscanf(buf, DTRACE_PAT ":", &dummy) == 1) {
-			continue;
-		} else if (memcmp(buf, KPROBES, sizeof(KPROBES) - 1) == 0) {
-			continue;
-		} else if (memcmp(buf, SYSCALLS, sizeof(SYSCALLS) - 1) == 0) {
-			continue;
-		} else if (memcmp(buf, UPROBES, sizeof(UPROBES) - 1) == 0) {
-			continue;
-		} else {
+		if (p != NULL) {
+			size_t	len;
+
 			*p++ = '\0';
+			len = strlen(buf);
+
+			if (sscanf(buf, GROUP_FMT, &dummy, str) == 2)
+				continue;
+			else if (len == strlen(KPROBES) &&
+				 strcmp(buf, KPROBES) == 0)
+				continue;
+			else if (len == strlen(SYSCALLS) &&
+				 strcmp(buf, SYSCALLS) == 0)
+				continue;
+			else if (len == strlen(UPROBES) &&
+				 strcmp(buf, UPROBES) == 0)
+				continue;
 
 			if (dt_probe_insert(dtp, prv, prvname, buf, "", p))
+				n++;
+		} else {
+			if (dt_probe_insert(dtp, prv, prvname, modname, "",
+					    buf))
 				n++;
 		}
 	}

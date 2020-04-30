@@ -290,20 +290,20 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (fd == -1)
 		goto out;
 
-	rc = dprintf(fd, "p:" DTRACE_PAT "/%s %s\n",
-		     getpid(), prp->desc->prb, spec);
+	rc = dprintf(fd, "p:" GROUP_FMT "/%s %s\n",
+		     GROUP_DATA, prp->desc->prb, spec);
 	close(fd);
 	if (rc == -1)
 		goto out;
 
-	len = snprintf(NULL, 0, "%s" DTRACE_PAT "/%s/format",
-		       EVENTSFS, getpid(), prp->desc->prb) + 1;
+	len = snprintf(NULL, 0, "%s" GROUP_FMT "/%s/format",
+		       EVENTSFS, GROUP_DATA, prp->desc->prb) + 1;
 	fn = dt_alloc(dtp, len);
 	if (fn == NULL)
 		goto out;
 
-	snprintf(fn, len, "%s" DTRACE_PAT "/%s/format",
-		 EVENTSFS, getpid(), prp->desc->prb);
+	snprintf(fn, len, "%s" GROUP_FMT "/%s/format",
+		 EVENTSFS, GROUP_DATA, prp->desc->prb);
 	f = fopen(fn, "r");
 	if (f == NULL)
 		goto out;
@@ -342,7 +342,7 @@ static int probe_fini(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	if (fd == -1)
 		return -1;
 
-	dprintf(fd, "-:" DTRACE_PAT "/%s\n", getpid(), prp->desc->prb);
+	dprintf(fd, "-:" GROUP_FMT "/%s\n", GROUP_DATA, prp->desc->prb);
 	close(fd);
 
 	return 0;

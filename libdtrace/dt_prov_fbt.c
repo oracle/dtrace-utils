@@ -43,7 +43,8 @@ static const char		modname[] = "vmlinux";
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
 #define PROBE_LIST		TRACEFS "available_filter_functions"
 
-#define KPROBESFS		EVENTSFS "kprobes/"
+#define FBT_GROUP_FMT		GROUP_FMT "_%s"
+#define FBT_GROUP_DATA		GROUP_DATA, prp->desc->prb
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
@@ -310,60 +311,81 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *idp, int *argcp, dt_argdesc_t **argvp)
 {
+	int	fd;
+	char	*fn;
+	size_t	len;
 	FILE	*f;
-	char	fn[256];
-	int	rc = 0;
+	int	rc = -1;
 
 	*idp = -1;
-
-	strcpy(fn, KPROBESFS);
-	strcat(fn, prp->desc->fun);
-	strcat(fn, "/format");
+	*argcp = 0;			/* no arguments by default */
+	*argvp = NULL;
 
 	/*
-	 * We check to see if the kprobe event already exists in the tracing
-	 * sub-system.  If not, we try to register the probe with the tracing
-	 * sub-system, and try accessing it again.
+	 * Register the kprobe with the tracing subsystem.  This will
+	 * create a tracepoint event.
 	 */
-again:
+	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+	if (fd == -1)
+		return -1;
+
+	rc = dprintf(fd, "%c:" FBT_GROUP_FMT "/%s %s\n",
+		     prp->desc->prb[0] == 'e' ? 'p' : 'r', FBT_GROUP_DATA,
+		     prp->desc->fun, prp->desc->fun);
+	close(fd);
+	if (rc == -1)
+		return -1;
+
+	len = snprintf(NULL, 0, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
+		       FBT_GROUP_DATA, prp->desc->fun) + 1;
+	fn = dt_alloc(dtp, len);
+	if (fn == NULL)
+		goto out;
+
+	snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
+		 FBT_GROUP_DATA, prp->desc->fun);
 	f = fopen(fn, "r");
-	if (f == NULL) {
-		int	fd;
-		char	c = 'p';
+	if (f == NULL)
+		goto out;
 
-		if (rc)
-			goto out;
-
-		rc = -ENOENT;
-
-		/*
-		 * The probe name component is either "entry" or "return" for
-		 * FBT probes.
-		 */
-		if (prp->desc->prb[0] == 'r')
-			c = 'r';
-
-		/*
-		 * Register the kprobe with the tracing subsystem.  This will
-		 * create a tracepoint event.
-		 */
-		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
-		if (fd == -1)
-			goto out;
-
-		dprintf(fd, "%c:%s %s\n", c, prp->desc->fun, prp->desc->fun);
-		close(fd);
-
-		goto again;
-	}
-
-	*argcp = 0;
-	*argvp = NULL;
 	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
 	fclose(f);
 
 out:
+	dt_free(dtp, fn);
+
 	return rc;
+}
+
+/*
+ * Try to clean up system resources that may have been allocated for this
+ * probe.
+ *
+ * If there is an event FD, we close it.
+ *
+ * We also try to remove any uprobe that may have been created for the probe.
+ * This is harmless for probes that didn't get created.  If the removal fails
+ * for some reason we are out of luck - fortunately it is not harmful to the
+ * system as a whole.
+ */
+static int probe_fini(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	int	fd;
+
+	if (prp->event_fd != -1) {
+		close(prp->event_fd);
+		prp->event_fd = -1;
+	}
+
+	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+	if (fd == -1)
+		return -1;
+
+	dprintf(fd, "-:" FBT_GROUP_FMT "/%s\n", FBT_GROUP_DATA,
+		prp->desc->fun);
+	close(fd);
+
+	return 0;
 }
 
 dt_provimpl_t	dt_fbt = {
@@ -372,4 +394,5 @@ dt_provimpl_t	dt_fbt = {
 	.populate	= &populate,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
+	.probe_fini	= &probe_fini,
 };

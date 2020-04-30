@@ -19,7 +19,15 @@ extern "C" {
 #define TRACEFS		"/sys/kernel/debug/tracing/"
 #define EVENTSFS	TRACEFS "events/"
 
-#define DTRACE_PAT	"dtrace_%d"
+/*
+ * Tracepoint group naming format for DTrace providers.  Providers may append
+ * to this format string as needed.
+ *
+ * GROUP_DATA provides the necessary data items to populate the format string
+ * (PID of the dtrace process and the provider name).
+ */
+#define GROUP_FMT	"dt_%d_%s"
+#define GROUP_DATA	getpid(), prvname
 
 struct dt_probe;
 
