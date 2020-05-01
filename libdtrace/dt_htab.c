@@ -29,7 +29,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "dt_htab.h"
+#include "dt_impl.h"
 
 typedef struct dt_hbucket	dt_hbucket_t;
 struct dt_hbucket {
@@ -50,9 +50,9 @@ struct dt_htab {
 /*
  * Create a new (empty) hashtable.
  */
-dt_htab_t *dt_htab_create(dt_htab_ops_t *ops)
+dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
 {
-	dt_htab_t	*htab = malloc(sizeof(dt_htab_t));
+	dt_htab_t	*htab = dt_alloc(dtp, sizeof(dt_htab_t));
 
 	if (!htab)
 		return NULL;
@@ -62,9 +62,9 @@ dt_htab_t *dt_htab_create(dt_htab_ops_t *ops)
 	htab->nbuckets = 0;
 	htab->ops = ops;
 
-	htab->tab = calloc(htab->size, sizeof(dt_hbucket_t *));
+	htab->tab = dt_calloc(dtp, htab->size, sizeof(dt_hbucket_t *));
 	if (!htab->tab) {
-		free(htab);
+		dt_free(dtp, htab);
 		return NULL;
 	}
 
@@ -74,13 +74,13 @@ dt_htab_t *dt_htab_create(dt_htab_ops_t *ops)
 /*
  * Destroy a hashtable.
  */
-void dt_htab_destroy(dt_htab_t *htab)
+void dt_htab_destroy(dtrace_hdl_t *dtp, dt_htab_t *htab)
 {
 	if (!htab)
 		return;
 
-	free(htab->tab);
-	free(htab);
+	dt_free(dtp, htab->tab);
+	dt_free(dtp, htab);
 }
 
 /*

@@ -29,7 +29,7 @@ struct dt_bpf_reloc {
 
 typedef struct dt_bpf_func	dt_bpf_func_t;
 struct dt_bpf_func {
-	const char	*name;
+	char		*name;
 	int		id;
 	uint64_t	offset;
 	size_t		size;
@@ -46,7 +46,8 @@ static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 #define DT_BPF_SYMBOL_ID(name, type, id) \
 	{ __stringify(name), (type), DT_IDFLG_BPF, (id), \
 		DT_ATTR_STABCMN, DT_VERS_2_0, }
-static const dt_ident_t	dt_bpf_symbols[] = {
+
+static const dt_ident_t		dt_bpf_symbols[] = {
 	/* BPF built-in functions */
 	DT_BPF_SYMBOL(dt_predicate, DT_IDENT_FUNC),
 	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
@@ -74,6 +75,43 @@ static const dt_ident_t	dt_bpf_symbols[] = {
 };
 #undef DT_BPF_SYMBOL
 #undef DT_BPF_SYMBOL_ID
+
+static void
+dt_idcook_none(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
+{
+}
+
+static void
+dt_iddtor_bpf(dt_ident_t *idp)
+{
+	dt_bpf_func_t	*fp = idp->di_data;
+	dtrace_hdl_t	*dtp = idp->di_iarg;
+
+	if (fp == NULL)
+		return;
+
+	if (fp->name != NULL)
+		free(fp->name);
+	if (fp->difo != NULL)
+		dt_difo_free(dtp, fp->difo);
+
+	dt_free(dtp, fp);
+}
+
+static size_t
+dt_idsize_none(dt_ident_t *idp)
+{
+	return 0;
+}
+
+/*
+ * Identifier operations for entries in the identifier hash.
+ */
+static const dt_idops_t	dt_idops_bpf = {
+	dt_idcook_none,
+	dt_iddtor_bpf,
+	dt_idsize_none
+};
 
 /*
  * Perform initialization for the BPF function library handling.
@@ -113,7 +151,8 @@ dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind, void *data)
 	dt_ident_t	*idp;
 
 	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, DT_IDENT_UNDEF,
-			       dt_bpf_attr, DT_VERS_2_0, NULL, NULL, 0);
+			       dt_bpf_attr, DT_VERS_2_0, &dt_idops_bpf, dtp,
+			       0);
 	dt_ident_set_data(idp, data);
 
 	return idp;
@@ -260,9 +299,9 @@ relcmp(const void *a, const void *b)
  * gcc BPF compiler not emitting symbol sizes), and then associate any listed
  * relocations with each function.
  */
-static dt_bpf_func_t **
+static int
 get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
-	    int text_idx, int text_len, int relo_idx, int maps_idx, int *cnt)
+	    int text_idx, int text_len, int relo_idx, int maps_idx)
 {
 	int		idx, fid, fun0;
 	Elf_Scn		*scn;
@@ -292,7 +331,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 * Allocate the symbol list.
 	 */
 	symc = symtab->d_size / sizeof(GElf_Sym);
-	syms = calloc(symc, sizeof(dt_bpf_func_t *));
+	syms = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
 	if (syms == NULL) {
 		fprintf(stderr, "Failed to allocate symbol list\n");
 		symc = 0;
@@ -336,9 +375,14 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			syms[idx] = fp;
 
 			idp = dt_dlib_get_func(dtp, name);
-			if (idp != NULL)
+			if (idp != NULL) {
+				/*
+				 * Nasty trick to get our idops in place.
+				 */
+				dt_ident_morph(idp, idp->di_kind,
+					       &dt_idops_bpf, dtp);
 				dt_ident_set_data(idp, fp);
-			else {
+			} else {
 				idp = dt_dlib_add_func(dtp, name, fp);
 				if (idp == NULL) {
 					fprintf(stderr,
@@ -458,6 +502,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 		 */
 		if (fp->size % sizeof(struct bpf_insn)) {
 			fprintf(stderr, "'%s' seems truncated\n", fp->name);
+			dt_free(dtp, dp);
 			goto out;
 		}
 		if (*(uint64_t *)((char*)text->d_buf + fp->offset + fp->size -
@@ -490,7 +535,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 * DIFO.  This will help us when we construct the actual DIFO relocs.
 	 */
 	relc = data->d_size / sizeof(GElf_Rel);
-	rels = calloc(relc, sizeof(dt_bpf_reloc_t));
+	rels = dt_calloc(dtp, relc, sizeof(dt_bpf_reloc_t));
 
 	for (idx = 0, rp = rels; idx < relc; idx++, rp++) {
 		GElf_Rel	rel;
@@ -599,13 +644,27 @@ done:
 		dt_strtab_destroy(stab);
 	}
 
+	/*
+	 * Clean up fake function symbols.
+	 */
+	for (idx = 0; idx < symc; idx++) {
+		fp = syms[idx];
+		if (fp == NULL ||
+		    fp->id != -1 || fp->offset > 0 || fp->size > 0)
+			continue;
+
+		if (fp->name)
+			free(fp->name);
+
+		dt_free(dtp, fp);
+	}
+
 out:
+	dt_free(dtp, syms);
 	dt_free(dtp, rels);
 	dt_free(dtp, funcs);
 
-	*cnt = symc;
-
-	return syms;
+	return symc == 0 ? -1 : 0;
 }
 
 static int
@@ -624,8 +683,6 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	Elf_Scn		*scn;
 	GElf_Ehdr	ehdr;
 	GElf_Shdr	shdr;
-	dt_bpf_func_t	**syms;
-	int		symc;
 
 	/*
 	 * Open the ELF object file and perform basic validation.
@@ -718,12 +775,8 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 			break;
 	}
 
-	syms = get_symbols(dtp, elf, syms_idx, strs_idx, text_idx, text_len,
-			   relo_idx, maps_idx, &symc);
-	if (syms == NULL)
-		goto out;
-
-	rc = 0;
+	rc = get_symbols(dtp, elf, syms_idx, strs_idx, text_idx, text_len,
+			 relo_idx, maps_idx);
 	goto out;
 
 err_elf:
@@ -988,7 +1041,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 
 		if (type == DT_DLIB_BPF) {
 			readBPFFile(dtp, fname);
-			return 0;
+			continue;
 		}
 
 		if ((fp = fopen(fname, "r")) == NULL) {

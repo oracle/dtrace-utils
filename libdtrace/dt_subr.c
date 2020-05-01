@@ -739,6 +739,7 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	dt_free(dtp, dp->dtdo_buf);
 	dt_free(dtp, dp->dtdo_strtab);
 	dt_free(dtp, dp->dtdo_vartab);
+	dt_free(dtp, dp->dtdo_breltab);
 	dt_free(dtp, dp->dtdo_kreltab);
 	dt_free(dtp, dp->dtdo_ureltab);
 	dt_free(dtp, dp->dtdo_xlmtab);

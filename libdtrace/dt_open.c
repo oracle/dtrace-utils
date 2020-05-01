@@ -1144,6 +1144,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp == NULL)
 		return;
 
+	dt_free(dtp, dtp->dt_conf.cpuids);
+
 	if (dtp->dt_procs != NULL)
 		dt_proc_hash_destroy(dtp);
 
@@ -1170,6 +1172,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_idhash_destroy(dtp->dt_globals);
 	if (dtp->dt_tls != NULL)
 		dt_idhash_destroy(dtp->dt_tls);
+	if (dtp->dt_bpfsyms != NULL)
+		dt_idhash_destroy(dtp->dt_bpfsyms);
 
 	while ((dmp = dt_list_next(&dtp->dt_modlist)) != NULL)
 		dt_module_destroy(dtp, dmp);

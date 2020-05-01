@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+struct dtrace_hdl;
+
 typedef uint32_t (*htab_hval_fn)(const void *);
 typedef int (*htab_cmp_fn)(const void *, const void *);
 typedef void *(*htab_add_fn)(void *, void *);
@@ -31,8 +33,8 @@ typedef struct dt_hentry {
 
 typedef struct dt_htab	dt_htab_t;
 
-extern dt_htab_t *dt_htab_create(dt_htab_ops_t *ops);
-extern void dt_htab_detroy(dt_htab_t *htab);
+extern dt_htab_t *dt_htab_create(struct dtrace_hdl *dtp, dt_htab_ops_t *ops);
+extern void dt_htab_destroy(struct dtrace_hdl *dtp, dt_htab_t *htab);
 extern int dt_htab_insert(dt_htab_t *htab, void *entry);
 extern void *dt_htab_lookup(const dt_htab_t *htab, const void *entry);
 extern int dt_htab_delete(dt_htab_t *htab, void *entry);

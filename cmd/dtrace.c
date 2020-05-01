@@ -760,7 +760,7 @@ chew(const dtrace_probedata_t *data, void *arg)
 	if (!g_flowindent) {
 		if (!g_quiet) {
 			size_t len = strlen(pd->fun) + strlen(pd->prb) + 2;
-			char *name = malloc(len);
+			char *name = alloca(len);
 
 			if (name == NULL)
 				fatal("failed to allocate memory for name");
@@ -1562,5 +1562,10 @@ main(int argc, char *argv[])
 		dtrace_proc_release(g_dtp, g_psv[i]);
 
 	dtrace_close(g_dtp);
+
+	free(g_argv);
+	free(g_cmdv);
+	free(g_psv);
+
 	return (g_status);
 }

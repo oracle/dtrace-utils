@@ -946,7 +946,8 @@ void
 dt_ident_morph(dt_ident_t *idp, ushort_t kind,
     const dt_idops_t *ops, void *iarg)
 {
-	idp->di_ops->di_dtor(idp);
+	if (idp->di_ops)
+		idp->di_ops->di_dtor(idp);
 	idp->di_kind = kind;
 	idp->di_ops = ops;
 	idp->di_iarg = iarg;
