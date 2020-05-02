@@ -1,1 +1,0 @@
-../unittest/sched/tst.var-chip.d
