@@ -2254,6 +2254,66 @@ nextepid:
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
 }
 #else
+static int
+dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
+	       caddr_t data, int quiet)
+{
+	/*
+	 * String or any other non-numeric data items are printed as a byte
+	 * stream.
+	 */
+	if (rec->dtrd_arg == DT_NF_REF)
+		return dt_print_bytes(dtp, fp, data, rec->dtrd_size, 33,
+				      quiet);
+
+	/*
+	 * Differentiate between signed and unsigned numeric values.
+	 *
+	 * Note:
+	 * This is an enhancement of the functionality present in DTrace v1,
+	 * where values were anything smaller than a 64-bit value was used as a
+	 * 32-bit value.  As such, (int8_t)-1 and (int16_t)-1 would be printed
+	 * as 255 and 65535, but (int32_t)-1 and (int64_t) would be printed as
+	 * -1.
+	 */
+	if (rec->dtrd_arg == DT_NF_SIGNED) {
+		switch (rec->dtrd_size) {
+		case sizeof(int64_t):
+			return dt_printf(dtp, fp, quiet ? "%ld" : " %19ld",
+				      *(int64_t *)data);
+		case sizeof(int32_t):
+			return dt_printf(dtp, fp, quiet ? "%d" : " %10d",
+					 *(int32_t *)data);
+		case sizeof(int16_t):
+			return dt_printf(dtp, fp, quiet ? "%hd" : " %5hd",
+					 *(int16_t *)data);
+		case sizeof(int8_t):
+			return dt_printf(dtp, fp, quiet ? "%hhd" : " %3hhd",
+					 *(int8_t *)data);
+		}
+	} else {
+		switch (rec->dtrd_size) {
+		case sizeof(uint64_t):
+			return dt_printf(dtp, fp, quiet ? "%lu" : " %20lu",
+					 *(uint64_t *)data);
+		case sizeof(uint32_t):
+			return dt_printf(dtp, fp, quiet ? "%u" : " %10u",
+					 *(uint32_t *)data);
+		case sizeof(uint16_t):
+			return dt_printf(dtp, fp, quiet ? "%hu" : " %5hu",
+					 *(uint16_t *)data);
+		case sizeof(uint8_t):
+			return dt_printf(dtp, fp, quiet ? "%hhu" : " %3hhu",
+					 *(uint8_t *)data);
+		}
+	}
+
+	/*
+	 * We should never get here, but if we do... print bytes.
+	 */
+	return dt_print_bytes(dtp, fp, data, rec->dtrd_size, 33, quiet);
+}
+
 static dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
@@ -2354,8 +2414,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 			if (rval != DTRACE_CONSUME_THIS)
 				return dt_set_errno(dtp, EDT_BADRVAL);
 
-			n = dt_printf(dtp, fp, quiet ? "%lld" : " %16lld",
-				      *(int64_t *)pdat->dtpda_data);
+			n = dt_print_trace(dtp, fp, rec, pdat->dtpda_data,
+					   quiet);
 
 			if (n < 0)
 				return -1;

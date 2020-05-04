@@ -242,6 +242,73 @@ dt_cg_spill_load(int reg)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 }
 
+static int
+dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind, int arg)
+{
+	dtrace_diftype_t	vtype;
+	struct bpf_insn		instr;
+	dt_irlist_t		*dlp = &pcb->pcb_ir;
+	uint_t			off;
+
+	dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
+	dt_node_diftype(pcb->pcb_hdl, dnp, &vtype);
+
+	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp)) {
+		int	sz = 8;
+
+		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
+				 vtype.dtdt_size, vtype.dtdt_size, NULL,
+				 arg);
+
+		switch (vtype.dtdt_size) {
+		case sizeof(uint64_t):
+			sz = BPF_DW;
+			break;
+		case sizeof(uint32_t):
+			sz = BPF_W;
+			break;
+		case sizeof(uint16_t):
+			sz = BPF_H;
+			break;
+		case sizeof(uint8_t):
+			sz = BPF_B;
+			break;
+		}
+
+		instr = BPF_STORE(sz, BPF_REG_9, off, dnp->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(pcb->pcb_regs, dnp->dn_reg);
+
+		return 0;
+#if 0
+	} else if (dt_node_is_string(dnp->dn_args)) {
+		size_t sz = dt_node_type_size(dnp->dn_args);
+
+		/*
+		 * Strings are stored as a 64-bit size followed by a character
+		 * array.  Given that all entries in the output buffer are
+		 * aligned at 64-bit boundaries, this guarantees that the
+		 * character array is also aligned at a 64-bit boundary.
+		 * We will pad the string to a multiple of 8 bytes as well.
+		 *
+		 * We store the size as two 32-bit values, lower 4 bytes first,
+		 * then the higher 4 bytes.
+		 */
+		sz = P2ROUNDUP(sz, sizeof(uint64_t));
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off,
+				      sz & ((1UL << 32)-1));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
+
+		return sz + sizeof(uint64_t);
+#endif
+	}
+
+	return -1;
+}
+
 static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
@@ -506,61 +573,31 @@ dt_cg_act_system(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	char		n[DT_TYPE_NAMELEN];
-	uint_t		off;
+	dt_node_t	*arg = dnp->dn_args;
+	int		type = 0;
 
-	if (dt_node_is_void(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_TRACE_VOID,
+	if (dt_node_is_void(arg)) {
+		dnerror(arg, D_TRACE_VOID,
 			"trace( ) may not be applied to a void expression\n");
 	}
 
-	if (dt_node_is_dynamic(dnp->dn_args)) {
-		dnerror(dnp->dn_args, D_TRACE_DYN,
+	if (dt_node_is_dynamic(arg)) {
+		dnerror(arg, D_TRACE_DYN,
 			"trace( ) may not be applied to a dynamic "
 			"expression\n");
 	}
 
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+	if (arg->dn_flags & DT_NF_REF)
+		type = DT_NF_REF;
+	else if (arg->dn_flags & DT_NF_SIGNED)
+		type = DT_NF_SIGNED;
 
-	if (dt_node_is_scalar(dnp->dn_args)) {
-		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap,
-				 DTRACEACT_DIFEXPR, sizeof(uint64_t),
-				 sizeof(uint64_t), NULL, DT_ACT_TRACE);
-
-		instr = BPF_STORE(BPF_DW, BPF_REG_9, off, dnp->dn_args->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
-#if 0
-	} else if (dt_node_is_string(dnp->dn_args)) {
-		size_t sz = dt_node_type_size(dnp->dn_args);
-
-		/*
-		 * Strings are stored as a 64-bit size followed by a character
-		 * array.  Given that all entries in the output buffer are
-		 * aligned at 64-bit boundaries, this guarantees that the
-		 * character array is also aligned at a 64-bit boundary.
-		 * We will pad the string to a multiple of 8 bytes as well.
-		 *
-		 * We store the size as two 32-bit values, lower 4 bytes first,
-		 * then the higher 4 bytes.
-		 */
-		sz = P2ROUNDUP(sz, sizeof(uint64_t));
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off,
-				      sz & ((1UL << 32)-1));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
-
-		return sz + sizeof(uint64_t);
-#endif
-	} else
-		dnerror(dnp->dn_args, D_PROTO_ARG,
+	if (dt_cg_store_val(pcb, arg, DTRACEACT_DIFEXPR, type) == -1)
+		dnerror(arg, D_PROTO_ARG,
 			"trace( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: scalar or string\n\t argument: %s\n",
-			dt_node_type_name(dnp->dn_args, n, sizeof (n)));
+			dt_node_type_name(arg, n, sizeof(n)));
 }
 
 static void
