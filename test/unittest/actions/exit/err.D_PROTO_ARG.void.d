@@ -6,7 +6,7 @@
  */
 
 /*
- * ASSERTION: Calling exit(n) indicates failure if n is not 0.
+ * ASSERTION: The exit() action cannot be passed a void argument.
  *
  * SECTION: Actions and Subroutines/exit()
  */
@@ -15,5 +15,5 @@
 
 BEGIN
 {
-	exit(1);
+	exit(exit(0));
 }

@@ -6,7 +6,8 @@
  */
 
 /*
- * ASSERTION: Calling exit(n) indicates failure if n is not 0.
+ * ASSERTION: Calling exit(n) with an expression that evaluates to 0 indicates
+ *	      success.
  *
  * SECTION: Actions and Subroutines/exit()
  */
@@ -15,5 +16,6 @@
 
 BEGIN
 {
-	exit(1);
+	x = 1;
+	exit(x - 1);
 }
