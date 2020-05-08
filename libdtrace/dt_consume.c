@@ -2414,6 +2414,21 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 			if (rval != DTRACE_CONSUME_THIS)
 				return dt_set_errno(dtp, EDT_BADRVAL);
 
+			if (rec->dtrd_action == DTRACEACT_PRINTF) {
+				int	nrecs;
+
+				nrecs = pdat->dtpda_ddesc->dtdd_nrecs - i;
+				n = dtrace_fprintf(dtp, fp, rec->dtrd_format,
+						   pdat, rec, nrecs, data,
+						   size);
+				if (n < 0)
+					return -1;
+				if (n > 0)
+					i += n - 1;
+
+				continue;
+			}
+
 			n = dt_print_trace(dtp, fp, rec, pdat->dtpda_data,
 					   quiet);
 

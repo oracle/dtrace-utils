@@ -349,7 +349,7 @@ dt_epid_destroy(dtrace_hdl_t *dtp)
 
 uint32_t
 dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
-	   uint32_t size, uint16_t alignment, const char *fmt, uint64_t arg)
+	   uint32_t size, uint16_t alignment, dt_pfargv_t *pfp, uint64_t arg)
 {
 	dt_pcb_t		*pcb = dtp->dt_pcb;
 	uint32_t		off;
@@ -387,7 +387,7 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 	rec->dtrd_size = size;
 	rec->dtrd_offset = off;
 	rec->dtrd_alignment = alignment;
-	rec->dtrd_format = 0;	/* FIXME */
+	rec->dtrd_format = pfp;
 	rec->dtrd_arg = arg;
 
 	gap = off - pcb->pcb_bufoff;

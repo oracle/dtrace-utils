@@ -37,7 +37,7 @@ typedef struct dtrace_recdesc {
 	uint32_t dtrd_size;			/* size of record */
 	uint32_t dtrd_offset;			/* offset in ECB's data */
 	uint16_t dtrd_alignment;		/* required alignment */
-	uint16_t dtrd_format;			/* format, if any */
+	void *dtrd_format;			/* format, if any */
 	uint64_t dtrd_arg;			/* action argument */
 	uint64_t dtrd_uarg;			/* user argument */
 } dtrace_recdesc_t;

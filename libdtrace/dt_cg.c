@@ -15,6 +15,7 @@
 #include <dt_impl.h>
 #include <dt_grammar.h>
 #include <dt_parser.h>
+#include <dt_printf.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
 #include <dt_bpf_builtins.h>
@@ -243,7 +244,8 @@ dt_cg_spill_load(int reg)
 }
 
 static int
-dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind, int arg)
+dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
+		dt_pfargv_t *pfp, int arg)
 {
 	dtrace_diftype_t	vtype;
 	struct bpf_insn		instr;
@@ -257,7 +259,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind, int arg)
 		int	sz = 8;
 
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
-				 vtype.dtdt_size, vtype.dtdt_size, NULL,
+				 vtype.dtdt_size, vtype.dtdt_size, pfp,
 				 arg);
 
 		switch (vtype.dtdt_size) {
@@ -498,6 +500,67 @@ dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_node_t	*arg1, *anp;
+	dt_pfargv_t	*pfp;
+	char		n[DT_TYPE_NAMELEN];
+	char		*str;
+
+	/*
+	 * Ensure that the format string is a string constant.
+	 */
+	if (dnp->dn_args->dn_kind != DT_NODE_STRING) {
+		dnerror(dnp, D_PRINTF_ARG_FMT,
+			"%s( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: string constant\n\t argument: %s\n",
+			dnp->dn_ident->di_name,
+			dt_node_type_name(dnp->dn_args, n, sizeof(n)));
+	}
+
+	arg1 = dnp->dn_args->dn_list;
+	yylineno = dnp->dn_line;
+	str = dnp->dn_args->dn_string;
+
+	/*
+	 * If this is an freopen(), we use an empty string to denote that
+	 * stdout should be restored.  For other printf()-like actions, an
+	 * empty format string is illegal:  an empty format string would
+	 * result in malformed DOF, and the compiler thus flags an empty
+	 * format string as a compile-time error.  To avoid propagating the
+	 * freopen() special case throughout the system, we simply transpose
+	 * an empty string into a sentinel string (DT_FREOPEN_RESTORE) that
+	 * denotes that stdout should be restored.
+	 */
+	if (kind == DTRACEACT_FREOPEN) {
+		if (strcmp(str, DT_FREOPEN_RESTORE) == 0) {
+			/*
+			 * Our sentinel is always an invalid argument to
+			 * freopen(), but if it's been manually specified, we
+			 * must fail now instead of when the freopen() is
+			 * actually evaluated.
+			 */
+			dnerror(dnp, D_FREOPEN_INVALID,
+				"%s( ) argument #1 cannot be \"%s\"\n",
+				dnp->dn_ident->di_name, DT_FREOPEN_RESTORE);
+		}
+
+		if (str[0] == '\0')
+			str = DT_FREOPEN_RESTORE;
+	}
+
+	/*
+	 * Validate the format string and the datatypes of the arguments.
+	 */
+	pfp = dt_printf_create(pcb->pcb_hdl, str);
+	dt_printf_validate(pfp, DT_PRINTF_EXACTLEN, dnp->dn_ident, 1,
+			   DTRACEACT_AGGREGATION, arg1);
+
+	/*
+	 * Generate code to store the arguments.  If no arguments are provided,
+	 * we are printing a string constant, and no data needs to be written
+	 * to the output buffer.
+	 */
+	for (anp = arg1; anp != NULL; anp = anp->dn_list)
+		dt_cg_store_val(pcb, anp, kind, pfp, 0);
 }
 
 static void
@@ -593,7 +656,7 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	else if (arg->dn_flags & DT_NF_SIGNED)
 		type = DT_NF_SIGNED;
 
-	if (dt_cg_store_val(pcb, arg, DTRACEACT_DIFEXPR, type) == -1)
+	if (dt_cg_store_val(pcb, arg, DTRACEACT_DIFEXPR, NULL, type) == -1)
 		dnerror(arg, D_PROTO_ARG,
 			"trace( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: scalar or string\n\t argument: %s\n",
@@ -668,11 +731,11 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 	[DT_ACT_IDX(DT_ACT_NORMALIZE)]		= { &dt_cg_act_normalize, },
 	[DT_ACT_IDX(DT_ACT_DENORMALIZE)]	= { &dt_cg_act_denormalize, },
 	[DT_ACT_IDX(DT_ACT_TRUNC)]		= { &dt_cg_act_trunc, },
-	[DT_ACT_IDX(DT_ACT_SYSTEM)]		= { &dt_cg_act_system,
+	[DT_ACT_IDX(DT_ACT_SYSTEM)]		= { &dt_cg_act_printf,
 						    DTRACEACT_SYSTEM },
 	[DT_ACT_IDX(DT_ACT_JSTACK)]		= { &dt_cg_act_jstack, },
 	[DT_ACT_IDX(DT_ACT_FTRUNCATE)]		= { &dt_cg_act_ftruncate, },
-	[DT_ACT_IDX(DT_ACT_FREOPEN)]		= { &dt_cg_act_freopen,
+	[DT_ACT_IDX(DT_ACT_FREOPEN)]		= { &dt_cg_act_printf,
 						    DTRACEACT_FREOPEN },
 	[DT_ACT_IDX(DT_ACT_SYM)]		= { &dt_cg_act_symmod,
 						    DTRACEACT_SYM },

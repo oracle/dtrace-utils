@@ -812,11 +812,12 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 
 			if (pfd->pfd_flags & n) {
 				yywarn("format conversion #%u has more than "
-				    "one '*' specified for the output %s\n",
-				    pfv->pfv_argc, n ? "precision" : "width");
+				       "one '*' specified for the output %s\n",
+				       pfv->pfv_argc,
+				       dot ? "precision" : "width");
 
 				dt_printf_destroy(pfv);
-				return (dt_printf_error(dtp, EDT_COMPILER));
+				return dt_printf_error(dtp, EDT_COMPILER);
 			}
 
 			pfd->pfd_flags |= n;
@@ -1162,7 +1163,7 @@ dt_printf_getint(dtrace_hdl_t *dtp, const dtrace_recdesc_t *recp,
 
 	addr = (uintptr_t)buf + recp->dtrd_offset;
 
-	if (addr + sizeof (int) > (uintptr_t)buf + len)
+	if (addr + recp->dtrd_size > (uintptr_t)buf + len)
 		return (dt_set_errno(dtp, EDT_DOFFSET));
 
 	if (addr & (recp->dtrd_alignment - 1))

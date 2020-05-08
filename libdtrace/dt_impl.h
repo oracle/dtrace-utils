@@ -48,6 +48,7 @@ extern "C" {
 #include <dt_dof.h>
 #include <dt_pcb.h>
 #include <dt_pt_regs.h>
+#include <dt_printf.h>
 #include <dt_bpf_ctx.h>
 #include <dt_debug.h>
 #include <dt_version.h>
@@ -792,7 +793,7 @@ extern int dt_epid_lookup(dtrace_hdl_t *, dtrace_epid_t, dtrace_datadesc_t **,
 extern void dt_epid_destroy(dtrace_hdl_t *);
 typedef void (*dt_cg_gap_f)(dt_pcb_t *, int);
 extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
-			   uint32_t, uint16_t, const char *, uint64_t);
+			   uint32_t, uint16_t, dt_pfargv_t *, uint64_t);
 extern int dt_aggid_lookup(dtrace_hdl_t *, dtrace_aggid_t, dtrace_aggdesc_t **);
 extern void dt_aggid_destroy(dtrace_hdl_t *);
 
