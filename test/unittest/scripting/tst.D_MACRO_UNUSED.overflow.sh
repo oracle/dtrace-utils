@@ -20,7 +20,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-bname=`/bin/basename $0`
+bname=`/usr/bin/basename $0`
 dfilename=$tmpdir/$bname.$$.d
 errorfile=$tmpdir/$bname.$$.err
 
