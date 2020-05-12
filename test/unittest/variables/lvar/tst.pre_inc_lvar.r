@@ -2,4 +2,4 @@
                           :BEGIN                    1
 
 -- @@stderr --
-dtrace: script 'test/unittest/codegen/tst.pre_inc_lvar_val.d' matched 1 probe
+dtrace: script 'test/unittest/variables/lvar/tst.pre_inc_lvar.d' matched 1 probe

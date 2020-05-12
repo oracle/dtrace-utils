@@ -4,20 +4,18 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
+ * ASSERTION: A clause-local variable declared without a type is implicitly
+ *	      declared as an int.
  *
- *  Simple 'this' declaration.
- *
- * SECTION:  Variables/Scalar Variables
- *
+ * SECTION: Variables/Clause-Local Variables
  */
+
 this x;
 
 BEGIN
 {
-	x = "dummy";
+	x = 1;
 	exit(0);
 }

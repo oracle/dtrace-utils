@@ -4,24 +4,19 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
+ * ASSERTION: A clause-local variable declared without a type is implicitly
+ *	      declared as an int.  Verify that assignment of a string value
+ *	      fails.
  *
- * Clause local variables are not initialized to zero.
- *
- * SECTION: Variables/Associative Arrays
- *
- *
+ * SECTION: Variables/Clause-Local Variables
  */
 
-#pragma D option quiet
-
-this int x;
+this x;
 
 BEGIN
 {
-	printf("the value of x is %d\n", this->x);
+	this->x = execname;
 	exit(0);
 }

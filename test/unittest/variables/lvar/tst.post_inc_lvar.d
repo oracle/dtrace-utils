@@ -6,12 +6,14 @@
  */
 
 /*
- * ASSERTION: Test that pre-increment on an local variable evaluates to the
- *            new value of the local variable.
+ * ASSERTION: Test that post-increment on an local variable evaluates to the
+ *            old value of the local variable.
+ *
+ * SECTION: Variables/Clause-Local Variables
  */
 
 BEGIN
 {
-	trace(++this->x);
+	trace(this->x++);
 	exit(0);
 }
