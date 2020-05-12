@@ -1,4 +1,4 @@
-OPEN FAILED with errno 2 for /non/existant/file
+OPEN FAILED with errno 2
 At exit, errno = 0
 
 -- @@stderr --

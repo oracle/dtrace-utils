@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,8 +13,6 @@
  * SECTION: Variables/Built-in Variables
  */
 
-/* @@tags: unstable */
-
 #pragma D option quiet
 #pragma D option destructive
 
@@ -24,15 +22,24 @@ BEGIN
 	system("cat /non/existant/file");
 }
 
+/*
+ * Use one clause for syscall::openat:entry and one for syscall::open:entry.
+ * Record file name pointer arg1 for the 'openat' function and arg0 for 'open'.
+ */
 syscall::open:entry
 {
-	this->fn = copyinstr(arg0);
+	self->fn = arg0;  /* 'open' arg0 holds a pointer to the file name */
 }
 
-syscall::open:return
-/this->fn == "/non/existant/file" && errno != 0/
+syscall::openat:entry
 {
-	printf("OPEN FAILED with errno %d for %s\n", errno, this->fn);
+	self->fn = arg1;  /* 'openat' arg1 holds a pointer to the file name */
+}
+
+syscall::open*:return
+/copyinstr(self->fn) == "/non/existant/file" && errno != 0/
+{
+	printf("OPEN FAILED with errno %d\n", errno);
 }
 
 proc:::exit
