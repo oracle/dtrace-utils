@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -61,12 +61,11 @@ dtrace_dof_init(void)
 	Lmid_t lmid = -1;
 	int fd;
 	const char *p;
-#if 1
 	char mfn[PATH_MAX];		/* "/proc/<pid>/maps" */
 	char str[4096];			/* read buffer */
+	char *enm = NULL;		/* pointer to target executable name */
 	FILE *fp;
 	struct link_map fmap = { 0x0, };
-#endif
 
 	if (getenv("DTRACE_DOF_INIT_DISABLE") != NULL)
 		return;
@@ -118,15 +117,43 @@ dtrace_dof_init(void)
 
 		if ((p = strrchr(str, ' ')) == NULL)
 			continue;
+		p++;  /* move past the leading space char */
+		if ((q = strchr(p, '\n')) != NULL)
+			*q = '\0';
+		enm = strdup(p); /* Save name of object w/ dtrace_dof_init */
+		break;
+	}
+
+	if (_dt_unlikely_(enm == NULL)) {
+		fclose(fp);
+		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
+		goto out;
+	}
+
+	/* Now start at the beginning & look for 1st segment of the target */
+	rewind(fp);
+	while (fgets(str, sizeof(str), fp) != NULL) {
+		uintptr_t	start;
+		char		*p = str, *q;
+
+		start = strtoul(p, &p, 16);
+		if (*p != '-')
+			continue;
+		if ((p = strrchr(str, ' ')) == NULL)
+			continue;
+		p++;  /* move past the leading space char */
 		if ((q = strchr(p, '\n')) != NULL)
 			*q = '\0';
 
-		fmap.l_addr = start;
-		fmap.l_name = p + 1;
-		lmp = &fmap;
-
-		break;
+		/* If found the 1st segment of the target executable */
+		if (strcmp(enm, p) == 0) {
+			fmap.l_addr = start;  /* record start address */
+			fmap.l_name = p;
+			lmp = &fmap;
+			break;
+		}
 	}
+	free(enm);
 	fclose(fp);
 #endif
 	if (_dt_unlikely_(lmp == NULL)) {
