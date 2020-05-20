@@ -547,9 +547,10 @@ inline long NULL = 0; \n\
  * Default DTrace configuration.
  */
 static const dtrace_conf_t _dtrace_conf = {
-	0,			/* numcpus */
-	0,			/* maxcpuid */
-	NULL,			/* cpuids */
+	0,			/* num_possible_cpus */
+	0,			/* num_online_cpus */
+	0,			/* max_cpuid */
+	NULL,			/* CPU info structs */
 	DIF_VERSION,		/* dtc_difversion */
 	DIF_DIR_NREGS,		/* dtc_difintregs */
 	DIF_DTR_NREGS,		/* dtc_diftupregs */
@@ -779,8 +780,9 @@ dt_vopen(int version, int flags, int *errp,
 
 	memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
 	dt_conf_init(dtp);
-	dt_dprintf("detected %d CPUs online (highest cpuid %d)\n",
-		  dtp->dt_conf.numcpus, dtp->dt_conf.maxcpuid);
+	dt_dprintf("detected %u CPUs online (%u possible, highest cpuid %u)\n",
+		  dtp->dt_conf.num_online_cpus, dtp->dt_conf.num_possible_cpus,
+		  dtp->dt_conf.max_cpuid);
 
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
@@ -1144,7 +1146,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp == NULL)
 		return;
 
-	dt_free(dtp, dtp->dt_conf.cpuids);
+	dt_free(dtp, dtp->dt_conf.cpus);
 
 	if (dtp->dt_procs != NULL)
 		dt_proc_hash_destroy(dtp);

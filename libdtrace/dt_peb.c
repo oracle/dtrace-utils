@@ -125,7 +125,7 @@ dt_pebs_exit(dtrace_hdl_t *dtp)
 	if (dtp->dt_pebset == NULL)
 		return;
 
-	for (i = 0; i < dtp->dt_conf.numcpus; i++)
+	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++)
 		dt_peb_close(&dtp->dt_pebset->pebs[i]);
 
 	dt_free(dtp, dtp->dt_pebset->pebs);
@@ -184,7 +184,8 @@ int dt_pebs_init(dtrace_hdl_t *dtp, size_t bufsize)
 	/*
 	 * Allocate the per-CPU perf event buffers.
 	 */
-	pebs = dt_calloc(dtp, dtp->dt_conf.numcpus, sizeof(struct dt_peb));
+	pebs = dt_calloc(dtp, dtp->dt_conf.num_online_cpus,
+			 sizeof(struct dt_peb));
 	if (pebs == NULL) {
 		dt_free(dtp, dtp->dt_pebset);
 		return -ENOMEM;
@@ -198,8 +199,8 @@ int dt_pebs_init(dtrace_hdl_t *dtp, size_t bufsize)
 	/*
 	 * Initialize a perf event buffer for each online CPU.
 	 */
-	for (i = 0; i < dtp->dt_conf.numcpus; i++) {
-		int			cpu = dtp->dt_conf.cpuids[i];
+	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
+		int			cpu = dtp->dt_conf.cpus[i].cpu_id;
 		struct epoll_event	ev;
 		dt_peb_t		*peb = &dtp->dt_pebset->pebs[i];
 

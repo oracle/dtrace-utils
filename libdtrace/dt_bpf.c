@@ -146,7 +146,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 	/* Create global maps as long as there are no errors. */
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),
-			dtp->dt_conf.numcpus) == -1)
+			dtp->dt_conf.num_online_cpus) == -1)
 		return -1;	/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,

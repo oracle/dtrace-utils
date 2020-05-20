@@ -2854,7 +2854,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
 #else
 	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
-	struct epoll_event	events[dtp->dt_conf.numcpus];
+	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
 	int			i, cnt;
 
 	/*
@@ -2863,7 +2863,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	 * We therefore need to convert the value.
 	 */
 	timeout /= NANOSEC / MILLISEC;
-	cnt = epoll_wait(dtp->dt_poll_fd, events, dtp->dt_conf.numcpus,
+	cnt = epoll_wait(dtp->dt_poll_fd, events, dtp->dt_conf.num_online_cpus,
 			 timeout);
 	if (cnt < 0) {
 		dt_set_errno(dtp, errno);
