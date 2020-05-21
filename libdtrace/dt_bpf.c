@@ -64,9 +64,9 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	if (fd < 0)
 		return dt_bpf_error(dtp, "failed to create BPF map '%s': %s\n",
 				    name, strerror(errno));
-	else
-		dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
-			   name, fd, ksz, vsz, size);
+
+	dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
+		   name, fd, ksz, vsz, size);
 
 	/*
 	 * Assign the fd as id for the BPF map identifier.
@@ -79,7 +79,7 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 
 	dt_ident_set_id(idp, fd);
 
-	return 0;
+	return fd;
 }
 
 /*
@@ -88,6 +88,8 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
+ * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
+ *		each online CPU on the system.
  * - mem:	Output buffer scratch memory.  Thiss is implemented as a global
  *		per-CPU map with a singleton element (key 0).  This means that
  *		every CPU will see its own copy of this singleton element, and
@@ -124,13 +126,13 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *		to allocate for these dynamic variables is calculated based on
  *		the number of uniquely named TLS variables (next-to-be-assigned
  *		id minus the base id).
- * - probes:	Probe information map, associating a probe info structure with
- *		each probe that is used in the current probing session.
  */
 int
-dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
+dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int	gvarc, tvarc;
+	int		gvarc, tvarc;
+	int		ci_mapfd;
+	uint32_t	key = 0;
 
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -147,6 +149,11 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),
 			dtp->dt_conf.num_online_cpus) == -1)
+		return -1;	/* dt_errno is set for us */
+
+	ci_mapfd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
+			       sizeof(uint32_t), sizeof(cpuinfo_t), 1);
+	if (ci_mapfd == -1)
 		return -1;	/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -167,11 +174,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp, uint_t probec)
 			sizeof(uint32_t), sizeof(uint64_t), tvarc) == -1)
 		return -1;	/* dt_errno is set for us */
 
-	if (probec > 0 &&
-	    create_gmap(dtp, "probes", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), sizeof(void *), probec) == -1)
-		return -1;	/* dt_errno is set for us */
-	/* FIXME: Need to put in the actual struct ref for probe info. */
+	/* Populate the 'cpuinfo' map. */
+	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
 
 	return 0;
 }

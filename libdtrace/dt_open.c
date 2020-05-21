@@ -140,7 +140,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "count", DT_IDENT_AGGFUNC, 0, DTRACEAGG_COUNT, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
 { "curcpu", DT_IDENT_SCALAR, 0, DIF_VAR_CURCPU, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_type, "vmlinux`cpuinfo_t *" },
+	&dt_idops_type, "cpuinfo_t *" },
 { "curthread", DT_IDENT_SCALAR, 0, DIF_VAR_CURTHREAD,
 	{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_PRIVATE,
 	DTRACE_CLASS_COMMON }, DT_VERS_1_0,

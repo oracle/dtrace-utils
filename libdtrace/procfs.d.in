@@ -17,9 +17,6 @@ typedef struct timestruc {
 	long tv_nsec;
 } timestruc_t;
 
-typedef id_t processorid_t;
-typedef id_t psetid_t;
-
 typedef struct lwpsinfo {
 	int pr_flag;			/* lwp flags (DEPRECATED) */
 	int pr_lwpid;			/* lwp id */

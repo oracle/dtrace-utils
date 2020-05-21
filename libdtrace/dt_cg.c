@@ -2471,6 +2471,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(dnp->dn_left, dlp, drp);
 
 		/*
+		 * Ensure that the lvalue is not the NULL pointer.
+		 */
+		instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0,
+				       yypcb->pcb_exitlbl);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		/*
 		 * If the left-hand side of PTR or DOT is a dynamic variable,
 		 * we expect it to be the output of a D translator.   In this
 		 * case, we look up the parse tree corresponding to the member
@@ -2481,7 +2488,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		    dnp->dn_left, DT_IDENT_XLSOU)) != NULL ||
 		    (idp = dt_node_resolve(
 		    dnp->dn_left, DT_IDENT_XLPTR)) != NULL) {
-
 			dt_xlator_t *dxp;
 			dt_node_t *mnp;
 
