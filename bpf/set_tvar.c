@@ -10,7 +10,7 @@
 # define noinline	__attribute__((noinline))
 #endif
 
-struct bpf_map_def tvars;
+extern struct bpf_map_def tvars;
 
 noinline void dt_set_tvar(uint32_t id, uint64_t val)
 {

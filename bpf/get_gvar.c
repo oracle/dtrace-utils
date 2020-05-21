@@ -10,7 +10,7 @@
 # define noinline	__attribute__((noinline))
 #endif
 
-struct bpf_map_def gvars;
+extern struct bpf_map_def gvars;
 
 noinline uint64_t dt_get_gvar(uint32_t id)
 {
