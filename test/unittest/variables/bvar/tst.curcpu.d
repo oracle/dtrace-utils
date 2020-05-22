@@ -16,5 +16,5 @@
 
 BEGIN {
 	trace(curcpu);
-	exit(curcpu != -1 ? 0 : 1);
+	exit((int64_t)curcpu != -1 ? 0 : 1);
 }

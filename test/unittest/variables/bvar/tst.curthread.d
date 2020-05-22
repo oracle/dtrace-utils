@@ -16,5 +16,5 @@
 
 BEGIN {
 	trace(curthread);
-	exit(curthread != -1 ? 0 : 1);
+	exit((int64_t)curthread != -1 ? 0 : 1);
 }
