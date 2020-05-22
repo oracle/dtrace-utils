@@ -322,8 +322,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, syms_idx);
 	if ((symtab = elf_getdata(scn, NULL)) == NULL) {
-		fprintf(stderr, "Scn %d: Failed to get .symtab data\n",
-			syms_idx);
+		dt_dprintf("Scn %d: Failed to get .symtab data\n", syms_idx);
 		goto out;
 	}
 
@@ -333,7 +332,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	symc = symtab->d_size / sizeof(GElf_Sym);
 	syms = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
 	if (syms == NULL) {
-		fprintf(stderr, "Failed to allocate symbol list\n");
+		dt_dprintf("Failed to allocate symbol list\n");
 		symc = 0;
 		goto out;
 	}
@@ -352,16 +351,15 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 
 		name = elf_strptr(elf, strs_idx, sym.st_name);
 		if (name == NULL) {
-			fprintf(stderr, "Sym %d: Failed to get name\n",
-				idx);
+			dt_dprintf("Sym %d: Failed to get name\n", idx);
 			continue;
 		}
 
 		if (sym.st_shndx == text_idx) {
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
 			if (fp == NULL) {
-				fprintf(stderr, "Sym %s(): Failed to alloc\n",
-					name);
+				dt_dprintf("Sym %s(): Failed to alloc\n",
+					   name);
 				continue;
 			}
 
@@ -385,9 +383,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			} else {
 				idp = dt_dlib_add_func(dtp, name, fp);
 				if (idp == NULL) {
-					fprintf(stderr,
-						"Sym %s(): Failed to add\n",
-						name);
+					dt_dprintf("Sym %s(): Failed to add\n",
+						   name);
 					continue;
 				}
 			}
@@ -403,8 +400,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			 */
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
 			if (fp == NULL) {
-				fprintf(stderr, "Sym %s[]: Failed to alloc\n",
-					name);
+				dt_dprintf("Sym %s[]: Failed to alloc\n", name);
 				continue;
 			}
 
@@ -421,8 +417,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			if (idp == NULL)
 				idp = dt_dlib_add_map(dtp, name);
 			if (idp == NULL)
-				fprintf(stderr, "Sym %s[]: Failed to add\n",
-					name);
+				dt_dprintf("Sym %s[]: Failed to add\n", name);
 		}
 	}
 
@@ -437,7 +432,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	funcs = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
 	if (funcs == NULL) {
-		fprintf(stderr, "Failed to copy symbol list\n");
+		dt_dprintf("Failed to copy symbol list\n");
 		goto out;
 	}
 
@@ -478,8 +473,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, text_idx);
 	if ((text = elf_getdata(scn, NULL)) == NULL) {
-		fprintf(stderr, "Scn %d: Failed to get .text data\n",
-			text_idx);
+		dt_dprintf("Scn %d: Failed to get .text data\n", text_idx);
 		goto out;
 	}
 
@@ -501,7 +495,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 		 * that padding.
 		 */
 		if (fp->size % sizeof(struct bpf_insn)) {
-			fprintf(stderr, "'%s' seems truncated\n", fp->name);
+			dt_dprintf("'%s' seems truncated\n", fp->name);
 			dt_free(dtp, dp);
 			goto out;
 		}
@@ -522,8 +516,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, relo_idx);
 	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		fprintf(stderr, "Scn %d: Failed to get relocation data\n",
-			relo_idx);
+		dt_dprintf("Scn %d: Failed to get relocation data\n", relo_idx);
 		goto out;
 	}
 
@@ -609,7 +602,7 @@ done:
 		stab = dt_strtab_create(BUFSIZ);
 		dp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
 		if (dp->dtdo_breltab == NULL) {
-			fprintf(stderr, "Failed to alloc BPF reloc table\n");
+			dt_dprintf("Failed to alloc BPF reloc table\n");
 			goto out;
 		}
 
@@ -631,7 +624,7 @@ done:
 		if (dp->dtdo_strlen > 0) {
 			dp->dtdo_strtab = dt_alloc(dtp, dp->dtdo_strlen);
 			if (dp->dtdo_strtab == NULL) {
-				fprintf(stderr, "Failed to alloc strtab\n");
+				dt_dprintf(stderr, "Failed to alloc strtab\n");
 				goto out;
 			}
 
@@ -688,26 +681,25 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	 * Open the ELF object file and perform basic validation.
 	 */
 	if ((fd = open64(fn, O_RDONLY)) == -1) {
-		fprintf(stderr, "Failed to open %s: %s\n",
-			fn, strerror(errno));
+		dt_dprintf("Failed to open %s: %s\n", fn, strerror(errno));
 		return -1;
 	}
 	if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-		fprintf(stderr, "Failed to open ELF in %s\n", fn);
+		dt_dprintf("Failed to open ELF in %s", fn);
 		goto err_elf;
 	}
 	if (elf_kind(elf) != ELF_K_ELF) {
-		fprintf(stderr, "Unsupported ELF file type for %s: %d\n",
-			fn, elf_kind(elf));
+		dt_dprintf("Unsupported ELF file type for %s: %d\n",
+			   fn, elf_kind(elf));
 		goto out;
 	}
 	if (gelf_getehdr(elf, &ehdr) == NULL) {
-		fprintf(stderr, "Failed to read EHDR from %s", fn);
+		dt_dprintf("Failed to read EHDR from %s", fn);
 		goto err_elf;
 	}
 	if (ehdr.e_machine != EM_BPF) {
-		fprintf(stderr, "Unsupported ELF machine type %d for %s\n",
-			ehdr.e_machine, fn);
+		dt_dprintf("Unsupported ELF machine type %d for %s\n",
+			   ehdr.e_machine, fn);
 		goto out;
 	}
 
@@ -725,7 +717,7 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 		idx++;
 
 		if (gelf_getshdr(scn, &shdr) == NULL) {
-			fprintf(stderr, "Scn %d: : no section header?\n", idx);
+			dt_dprintf("Scn %d: : no section header?\n", idx);
 			return -1;
 		}
 
@@ -743,8 +735,7 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 
 			name = elf_strptr(elf, ehdr.e_shstrndx, shdr.sh_name);
 			if (name == NULL) {
-				fprintf(stderr, "Scn %d: failed to get name\n",
-					idx);
+				dt_dprintf("Scn %d: failed to get name\n", idx);
 				continue;
 			}
 
@@ -780,7 +771,7 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	goto out;
 
 err_elf:
-	fprintf(stderr, ": %s\n", elf_errmsg(elf_errno()));
+	dt_dprintf(": %s\n", elf_errmsg(elf_errno()));
 
 out:
 	if (elf)
