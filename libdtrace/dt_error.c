@@ -145,7 +145,8 @@ dt_set_errmsg(dtrace_hdl_t *dtp, const char *errtag, const char *region,
 	s = dtp->dt_errmsg;
 	n = sizeof (dtp->dt_errmsg);
 
-	if (errtag != NULL && (yypcb->pcb_cflags & DTRACE_C_ETAGS))
+	if (errtag != NULL && ((dtp->dt_cflags & DTRACE_C_ETAGS) ||
+			       (yypcb && yypcb->pcb_cflags & DTRACE_C_ETAGS)))
 		(void) snprintf(s, n, "[%s] ", errtag);
 	else
 		s[0] = '\0';
