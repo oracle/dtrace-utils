@@ -77,6 +77,16 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 #undef DT_BPF_SYMBOL_ID
 
 static void
+dt_dlib_error(dtrace_hdl_t *dtp, int eid, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	dt_set_errmsg(dtp, dt_errtag(eid), NULL, NULL, 0, format, ap);
+	va_end(ap);
+}
+
+static void
 dt_idcook_none(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 {
 }
@@ -322,8 +332,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, syms_idx);
 	if ((symtab = elf_getdata(scn, NULL)) == NULL) {
-		dt_dprintf("Scn %d: Failed to get .symtab data\n", syms_idx);
-		goto out;
+		dt_dlib_error(dtp, 0, "BPF ELF: no .symtab data");
+		goto err;
 	}
 
 	/*
@@ -331,11 +341,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	symc = symtab->d_size / sizeof(GElf_Sym);
 	syms = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
-	if (syms == NULL) {
-		dt_dprintf("Failed to allocate symbol list\n");
-		symc = 0;
-		goto out;
-	}
+	if (syms == NULL)
+		goto err;
 
 	/*
 	 * Process the symbol table.
@@ -351,17 +358,17 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 
 		name = elf_strptr(elf, strs_idx, sym.st_name);
 		if (name == NULL) {
-			dt_dprintf("Sym %d: Failed to get name\n", idx);
-			continue;
+			dt_dlib_error(dtp, 0, "BPF ELF: no symbol name");
+			goto err;;
 		}
 
 		if (sym.st_shndx == text_idx) {
+			/*
+			 * BPF function.
+			 */
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
-			if (fp == NULL) {
-				dt_dprintf("Sym %s(): Failed to alloc\n",
-					   name);
-				continue;
-			}
+			if (fp == NULL)
+				goto err;
 
 			fp->name = name ? strdup(name) : NULL;
 			fp->id = sym.st_shndx == SHN_UNDEF ? -1 : idx;
@@ -383,26 +390,31 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			} else {
 				idp = dt_dlib_add_func(dtp, name, fp);
 				if (idp == NULL) {
-					dt_dprintf("Sym %s(): Failed to add\n",
+					dt_dprintf("BPF ELF: cannot add %s\n",
 						   name);
 					continue;
 				}
 			}
-		} else if (sym.st_shndx == maps_idx) {
+		} else if (sym.st_shndx == maps_idx || !sym.st_shndx) {
 			/*
-			 * Yes, we put BPF maps in the symbol list as if they
-			 * are a function.  They are marked with id == -1,
-			 * offset 0, and size 0.
+			 * BPF maps are either declared in the 'maps' section
+			 * or they are undefined symbols (no section).  Either
+			 * way, DTrace must already know the map by name.
+			 *
+			 * FUTURE: We may add support for creating maps based
+			 *         on a map descriptor in the BPF library.
+			 *
+			 * We put BPF maps in the symbol list as if they are a
+			 * function (yes, really).  They are marked with
+			 * id == -1, * offset 0, and size 0.
 			 *
 			 * We do this because we need these symbols when we
 			 * process relocations.  Once we are done with that, we
 			 * will get rid of these fake function symbols.
 			 */
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
-			if (fp == NULL) {
-				dt_dprintf("Sym %s[]: Failed to alloc\n", name);
-				continue;
-			}
+			if (fp == NULL)
+				goto err;
 
 			fp->name = name ? strdup(name) : NULL;
 			fp->id = -1;
@@ -414,10 +426,12 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			syms[idx] = fp;
 
 			idp = dt_dlib_get_map(dtp, name);
-			if (idp == NULL)
-				idp = dt_dlib_add_map(dtp, name);
-			if (idp == NULL)
-				dt_dprintf("Sym %s[]: Failed to add\n", name);
+			if (idp == NULL) {
+				dt_dlib_error(dtp, D_IDENT_UNDEF,
+					      "undefined symbol %s in BPF dlib",
+					      name);
+				goto err;
+			}
 		}
 	}
 
@@ -431,10 +445,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 * the actual data items.
 	 */
 	funcs = dt_calloc(dtp, symc, sizeof(dt_bpf_func_t *));
-	if (funcs == NULL) {
-		dt_dprintf("Failed to copy symbol list\n");
-		goto out;
-	}
+	if (funcs == NULL)
+		goto err;
 
 	memcpy(funcs, syms, symc * sizeof(dt_bpf_func_t *));
 	qsort(funcs, symc, sizeof(dt_bpf_func_t *), symcmp);
@@ -473,7 +485,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, text_idx);
 	if ((text = elf_getdata(scn, NULL)) == NULL) {
-		dt_dprintf("Scn %d: Failed to get .text data\n", text_idx);
+		dt_dlib_error(dtp, 0, "BPF ELF: no .text data\n");
 		goto out;
 	}
 
@@ -486,7 +498,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 
 		dp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
 		if (dp == NULL)
-			goto out;
+			goto err;
 
 		/*
 		 * The gcc BPF compiler may add 8 bytes of 0-padding to BPF
@@ -495,9 +507,10 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 		 * that padding.
 		 */
 		if (fp->size % sizeof(struct bpf_insn)) {
-			dt_dprintf("'%s' seems truncated\n", fp->name);
 			dt_free(dtp, dp);
-			goto out;
+			dt_dlib_error(dtp, 0, "BPF ELF: %s is truncated",
+				      fp->name);
+			goto err;
 		}
 		if (*(uint64_t *)((char*)text->d_buf + fp->offset + fp->size -
 				  sizeof(struct bpf_insn)) == 0)
@@ -505,6 +518,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 
 		dp->dtdo_buf = dt_alloc(dtp, fp->size);
 		dp->dtdo_len = fp->size / sizeof(struct bpf_insn);
+		if (dp->dtdo_buf == NULL)
+			goto err;
 
 		memcpy(dp->dtdo_buf, (char *)text->d_buf + fp->offset,
 		       fp->size);
@@ -516,7 +531,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	scn = elf_getscn(elf, relo_idx);
 	if ((data = elf_getdata(scn, NULL)) == NULL) {
-		dt_dprintf("Scn %d: Failed to get relocation data\n", relo_idx);
+		dt_dlib_error(dtp, 0, "BPF ELF: no relocation data");
 		goto out;
 	}
 
@@ -529,6 +544,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	 */
 	relc = data->d_size / sizeof(GElf_Rel);
 	rels = dt_calloc(dtp, relc, sizeof(dt_bpf_reloc_t));
+	if (rels == NULL)
+		goto err;
 
 	for (idx = 0, rp = rels; idx < relc; idx++, rp++) {
 		GElf_Rel	rel;
@@ -601,10 +618,8 @@ done:
 
 		stab = dt_strtab_create(BUFSIZ);
 		dp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
-		if (dp->dtdo_breltab == NULL) {
-			dt_dprintf("Failed to alloc BPF reloc table\n");
-			goto out;
-		}
+		if (dp->dtdo_breltab == NULL)
+			goto err;
 
 		rp = fp->relocs;
 		brp = dp->dtdo_breltab;
@@ -623,10 +638,8 @@ done:
 		dp->dtdo_strlen = dt_strtab_size(stab);
 		if (dp->dtdo_strlen > 0) {
 			dp->dtdo_strtab = dt_alloc(dtp, dp->dtdo_strlen);
-			if (dp->dtdo_strtab == NULL) {
-				dt_dprintf(stderr, "Failed to alloc strtab\n");
-				goto out;
-			}
+			if (dp->dtdo_strtab == NULL)
+				goto err;
 
 			dt_strtab_write(stab,
 					(dt_strtab_write_f *)dt_strtab_copystr,
@@ -658,6 +671,11 @@ out:
 	dt_free(dtp, funcs);
 
 	return symc == 0 ? -1 : 0;
+
+err:
+	symc = 0;
+
+	goto out;
 }
 
 static int
@@ -681,25 +699,19 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	 * Open the ELF object file and perform basic validation.
 	 */
 	if ((fd = open64(fn, O_RDONLY)) == -1) {
-		dt_dprintf("Failed to open %s: %s\n", fn, strerror(errno));
+		dt_dlib_error(dtp, 0, "%s: %s\n", fn, strerror(errno));
 		return -1;
 	}
-	if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-		dt_dprintf("Failed to open ELF in %s", fn);
+	if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL)
 		goto err_elf;
-	}
 	if (elf_kind(elf) != ELF_K_ELF) {
-		dt_dprintf("Unsupported ELF file type for %s: %d\n",
-			   fn, elf_kind(elf));
+		dt_dlib_error(dtp, 0, "%s: ELF file type not supported", fn);
 		goto out;
 	}
-	if (gelf_getehdr(elf, &ehdr) == NULL) {
-		dt_dprintf("Failed to read EHDR from %s", fn);
+	if (gelf_getehdr(elf, &ehdr) == NULL)
 		goto err_elf;
-	}
 	if (ehdr.e_machine != EM_BPF) {
-		dt_dprintf("Unsupported ELF machine type %d for %s\n",
-			   ehdr.e_machine, fn);
+		dt_dlib_error(dtp, 0, "%s: ELF machine type not supported", fn);
 		goto out;
 	}
 
@@ -716,10 +728,8 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	while ((scn = elf_nextscn(elf, scn)) != NULL) {
 		idx++;
 
-		if (gelf_getshdr(scn, &shdr) == NULL) {
-			dt_dprintf("Scn %d: : no section header?\n", idx);
-			return -1;
-		}
+		if (gelf_getshdr(scn, &shdr) == NULL)
+			goto err_elf;
 
 		switch (shdr.sh_type) {
 		case SHT_SYMTAB:
@@ -734,10 +744,8 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 			char	*name;
 
 			name = elf_strptr(elf, ehdr.e_shstrndx, shdr.sh_name);
-			if (name == NULL) {
-				dt_dprintf("Scn %d: failed to get name\n", idx);
-				continue;
-			}
+			if (name == NULL)
+				goto err_elf;
 
 			if (strcmp(name, ".text") == 0) {
 				text_idx = idx;
@@ -771,7 +779,7 @@ readBPFFile(dtrace_hdl_t *dtp, const char *fn)
 	goto out;
 
 err_elf:
-	dt_dprintf(": %s\n", elf_errmsg(elf_errno()));
+	dt_dlib_error(dtp, 0, "BPF ELF: %s", elf_errmsg(elf_errno()));
 
 out:
 	if (elf)
@@ -1031,7 +1039,8 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		snprintf(fname, sizeof (fname), "%s/%s", path, dp->d_name);
 
 		if (type == DT_DLIB_BPF) {
-			readBPFFile(dtp, fname);
+			if (readBPFFile(dtp, fname) != 0)
+				goto err_closedir;
 			continue;
 		}
 
@@ -1105,6 +1114,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 
 err_close:
 	fclose(fp);
+err_closedir:
 	closedir(dirp);
 err:
 	dt_lib_depend_free(dtp);
