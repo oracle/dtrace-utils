@@ -143,7 +143,7 @@ static int populate(dtrace_hdl_t *dtp)
  * function that implements the compiled D clause.  It returns the value that
  * it gets back from that function.
  */
-static void trampoline(dt_pcb_t *pcb, int haspred)
+static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -215,42 +215,6 @@ static void trampoline(dt_pcb_t *pcb, int haspred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	/*
-	 *     if (haspred) {
-	 *	   rc = dt_predicate(scd, dctx);
-	 *	   if (rc == 0) goto exit;
-	 *     }
-	 */
-	if (haspred) {
-		/*
-		 * Save the BPF context (scd) and DTrace context (dctx) in %r6
-		 * and %r7 respectively because the BPF verifier will mark %r1
-		 * through %r5 unknown after we call dt_predicate (even if we
-		 * do not clobber them).
-		 */
-		instr = BPF_MOV_REG(BPF_REG_6, BPF_REG_1);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_REG(BPF_REG_7, BPF_REG_2);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_predicate");
-		assert(idp != NULL);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
-		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		/*
-		 * Restore BPF context (scd) and DTrace context (dctx) from
-		 * %r6 and %r7 into %r1 and %r2 respectively.
-		 */
-		instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_6);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_7);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
 
 	/*
 	 *     rc = dt_program(scd, dctx);

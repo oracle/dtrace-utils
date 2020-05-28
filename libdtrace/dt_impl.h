@@ -496,19 +496,17 @@ struct dtrace_hdl {
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              LVAR(1) = -112 | LVAR 1         |
+ *              LVAR(1) = -104 | LVAR 1         |
  *                             +----------------+
- *  LVAR_BASE = LVAR(0) = -104 | LVAR 0         |
+ *   LVAR_BASE = LVAR(0) = -96 | LVAR 0         |
  *                             +----------------+
- *              SPILL(n) = -96 | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *              SPILL(n) = -88 | %r8            | (n = DT_STK_NREGS - 1 = 8)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              SPILL(1) = -40 | %r1            |
+ *              SPILL(1) = -32 | %r1            |
  *                             +----------------+
- * SPILL_BASE = SPILL(0) = -32 | %r0            |
- *                             +----------------+
- *                   CPU = -24 | CPU ID         |
+ * SPILL_BASE = SPILL(0) = -24 | %r0            |
  *                             +----------------+
  *                  DCTX = -16 | DTrace Context |
  *                             +----------------+
@@ -520,8 +518,7 @@ struct dtrace_hdl {
 
 #define DT_STK_CTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
 #define DT_STK_DCTX		(DT_STK_CTX - DT_STK_SLOT_SZ)
-#define DT_STK_CPU		(DT_STK_DCTX - DT_STK_SLOT_SZ)
-#define DT_STK_SPILL_BASE	(DT_STK_CPU - DT_STK_SLOT_SZ)
+#define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
 #define DT_STK_LVAR_BASE	(DT_STK_SPILL(DT_STK_NREGS - 1) - \
 				 DT_STK_SLOT_SZ)

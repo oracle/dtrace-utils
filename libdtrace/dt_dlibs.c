@@ -49,7 +49,6 @@ static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 static const dt_ident_t		dt_bpf_symbols[] = {
 	/* BPF built-in functions */
-	DT_BPF_SYMBOL(dt_predicate, DT_IDENT_FUNC),
 	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
 	/* BPF library (external) functions */
 	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
