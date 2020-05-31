@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <asm/ptrace.h>
 
 #include "Pcontrol.h"
 #include "libproc.h"
