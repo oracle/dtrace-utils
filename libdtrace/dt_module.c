@@ -1070,24 +1070,23 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 }
 
 /*
- * Update our module cache.  For each line in /proc/kallmodsyms, create or
+ * Update our module cache.  For each line, create or
  * populate the dt_module_t for this module (if necessary), extend its address
  * ranges as needed, and add the symbol in this line to the module's kernel
  * symbol table.
  *
- * If we return non-NULL, we might have a changing /proc/kallmodsyms,
- * probably due to module unloading during read.  Perhaps this case should
- * trigger a retry.
+ * If we return non-NULL, we might have a changing file, probably due
+ * to module unloading during read.  Perhaps this case should trigger a retry.
  */
 static int
-dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
+dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 {
 	static int kernel_flag = 1;
 	static dt_module_t *last_dmp = NULL;
 	static int last_sym_text = -1;
 
 	GElf_Addr sym_addr;
-	long long unsigned sym_size;
+	long long unsigned sym_size = 0;
 	char sym_type;
 	int sym_text;
 	dt_module_t *dmp;
@@ -1103,11 +1102,21 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	if ((line[0] == '\n') || (line[0] == 0))
 		return 0;
 
-	if (sscanf(line, "%llx %llx %c %s [%s", (long long unsigned *)&sym_addr,
-		(long long unsigned *)&sym_size, &sym_type,
-		sym_name, mod_name) < 4) {
-		dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
-		return EDT_CORRUPT_KALLSYMS;
+	if (flag == 0) {
+		if (sscanf(line, "%llx %llx %c %s [%s",
+		    (long long unsigned *)&sym_addr,
+		    (long long unsigned *)&sym_size,
+		    &sym_type, sym_name, mod_name) < 4) {
+		    dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
+		    return EDT_CORRUPT_KALLSYMS;
+		}
+	} else {
+		if (sscanf(line, "%llx %c %s [%s",
+		    (long long unsigned *)&sym_addr,
+		    &sym_type, sym_name, mod_name) < 3) {
+		    dt_dprintf("malformed /proc/kallsyms line: %s\n", line);
+		    return EDT_CORRUPT_KALLSYMS;
+		}
 	}
 
 	sym_text = (sym_type == 't') || (sym_type == 'T')
@@ -1115,19 +1124,18 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
 
 	/*
-	 * Symbols of "absolute" type are typically defined per CPU.  Their
-	 * "addresses" in /proc/kallmodsyms are very low and are actually offsets.
+	 * Symbols of "absolute" type are typically defined per CPU.
+	 * Their "addresses" here are very low and are actually offsets.
 	 * Drop these symbols.
 	 */
 	if ((sym_type == 'a') || (sym_type == 'A'))
 		return 0;
 
 	/*
-	 * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
+	 * The file starts with kernel (and built-in-module) symbols.
 	 * The last kernel address is expected to have the name "_end".
 	 * (There might also be a symbol "__brk_limit" with that address.)
-	 * Thereafter, symbols in /proc/kallmodsyms will belong to loadable
-	 * modules.
+	 * Thereafter, symbols will belong to loadable modules.
 	 *
 	 * kernel_flag==+1 means normal kernel (and built-in-module) symbols
 	 * kernel_flag==-1 means loadable-module symbols
@@ -1241,212 +1249,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 
 	if (kernel_flag >= 0) {
 		/*
-		 * The kernel and built-in modules are in address order
-		 * in /proc/kallmodsyms.
-		 */
-		if (dmp == last_dmp && sym_text == last_sym_text) {
-			if (sym_text)
-				range = &dmp->dm_text_addrs
-				    [dmp->dm_text_addrs_size - 1];
-			else
-				range = &dmp->dm_data_addrs
-				    [dmp->dm_data_addrs_size - 1];
-			range->dar_size = sym_addr + sym_size - range->dar_va;
-		} else {
-			last_dmp = dmp;
-			last_sym_text = sym_text;
-		}
-	} else {
-		/*
-		 * Each loadable module has only one text and one data range.
-		 */
-
-		if (sym_text)
-			range = dmp->dm_text_addrs;
-		else
-			range = dmp->dm_data_addrs;
-
-		if (range) {
-			GElf_Addr end;
-			end = range->dar_va + range->dar_size;
-			if (range->dar_va > sym_addr)
-				range->dar_va = sym_addr;
-			if (end < sym_addr + sym_size)
-				end = sym_addr + sym_size;
-			range->dar_size = end - range->dar_va;
-		}
-
-	}
-
-	/*
-	 * If there is no range to expand, create a new one.
-	 */
-
-	if (range == NULL) {
-		range = dtrace_addr_range_grow(dmp, sym_text);
-		if (range == NULL)
-			return EDT_NOMEM;
-		range->dar_va = sym_addr;
-		range->dar_size = sym_size;
-	}
-
-	return 0;
-}
-
-/*
- * Update our module cache.  For each line in /proc/kallsyms, create or
- * populate the dt_module_t for this module (if necessary), extend its address
- * ranges as needed, and add the symbol in this line to the module's kernel
- * symbol table.
- *
- * If we return non-NULL, we might have a changing /proc/kallsyms, probably due
- * to module unloading during read.  Perhaps this case should trigger a retry.
- */
-static int
-dt_modsym_update_alt(dtrace_hdl_t *dtp, const char *line)
-{
-	static int kernel_flag = 1;
-	static dt_module_t *last_dmp = NULL;
-	static int last_sym_text = -1;
-
-	GElf_Addr sym_addr;
-	long long unsigned sym_size = 0;
-	char sym_type;
-	int sym_text;
-	dt_module_t *dmp;
-	dtrace_addr_range_t *range = NULL;
-	char sym_name[KSYM_NAME_MAX] = "";
-	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
-	int skip = 0;
-
-	/*
-	 * Read symbol.
-	 */
-
-	if ((line[0] == '\n') || (line[0] == 0))
-		return 0;
-
-	if (sscanf(line, "%llx %c %s [%s", (long long unsigned *)&sym_addr,
-		&sym_type, sym_name, mod_name) < 3) {
-		dt_dprintf("malformed /proc/kallsyms line: %s\n", line);
-		return EDT_CORRUPT_KALLSYMS;
-	}
-
-	sym_text = (sym_type == 't') || (sym_type == 'T')
-	     || (sym_type == 'w') || (sym_type == 'W');
-	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
-
-	/*
-	 * Symbols of "absolute" type are typically defined per CPU.  Their
-	 * "addresses" in /proc/kallsyms are very low and are actually offsets.
-	 * Drop these symbols.
-	 */
-	if ((sym_type == 'a') || (sym_type == 'A'))
-		return 0;
-
-	/*
-	 * /proc/kallsyms starts with kernel (and built-in-module) symbols.
-	 * The last kernel address is expected to have the name "_end".
-	 * (There might also be a symbol "__brk_limit" with that address.)
-	 * Thereafter, symbols in /proc/kallsyms will belong to loadable
-	 * modules.
-	 *
-	 * kernel_flag==+1 means normal kernel (and built-in-module) symbols
-	 * kernel_flag==-1 means loadable-module symbols
-	 * kernel_flag==0 is an odd in-between case for the section markers
-	 *   (they signal the imminent end of the kernel section)
-	 */
-
-	if ((strcmp(sym_name, "_end") == 0) ||
-	    (strcmp(sym_name, "__brk_limit") == 0))
-		kernel_flag = 0;
-	else if (kernel_flag == 0)
-		kernel_flag = -1;
-
-	/*
-	 * Special case: rename the 'ctf' module to 'shared_ctf': the
-	 * parent-name lookup code presumes that names that appear in CTF's
-	 * parent section are the names of modules, but the ctf module's CTF
-	 * section is special-cased to contain the contents of the shared_ctf
-	 * repository, not ctf.ko's types.
-	 */
-	if (strcmp(mod_name, "ctf") == 0)
-		strcpy(mod_name, "shared_ctf");
-
-	/*
-	 * Get module.
-	 */
-
-	dmp = dt_module_lookup_by_name(dtp, mod_name);
-	if (dmp == NULL) {
-		int err;
-
-		dmp = dt_module_create(dtp, mod_name);
-		if (dmp == NULL)
-			return EDT_NOMEM;
-
-		err = dt_kern_module_init(dtp, dmp);
-		if (err != 0)
-			return err;
-	}
-
-	/*
-	 * Add the symbol to the module's kernel symbol table.
-	 *
-	 * Some very voluminous and unuseful symbols are silently skipped, being
-	 * used to update ranges but not added to the kernel symbol table.
-	 * It doesn't matter much if this net is cast too wide, since we only
-	 * care if a symbol is present if control flow or data lookups might
-	 * pass through it while a probe fires, and that won't happen to any
-	 * of these symbols.
-	 */
-#define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
-	if ((strstarts(sym_name, "__crc_")) ||
-	    (strstarts(sym_name, "__ksymtab_")) ||
-	    (strstarts(sym_name, "__kcrctab_")) ||
-	    (strstarts(sym_name, "__kstrtab_")) ||
-	    (strstarts(sym_name, "__param_")) ||
-	    (strstarts(sym_name, "__syscall_meta__")) ||
-	    (strstarts(sym_name, "__p_syscall_meta__")) ||
-	    (strstarts(sym_name, "__event_")) ||
-	    (strstarts(sym_name, "event_")) ||
-	    (strstarts(sym_name, "ftrace_event_")) ||
-	    (strstarts(sym_name, "types__")) ||
-	    (strstarts(sym_name, "args__")) ||
-	    (strstarts(sym_name, "__tracepoint_")) ||
-	    (strstarts(sym_name, "__tpstrtab_")) ||
-	    (strstarts(sym_name, "__tpstrtab__")) ||
-	    (strstarts(sym_name, "__initcall_")) ||
-	    (strstarts(sym_name, "__setup_")) ||
-	    (strstarts(sym_name, "__pci_fixup_")))
-		skip = 1;
-#undef strstarts
-
-	if (!skip) {
-		if (dmp->dm_kernsyms == NULL)
-			dmp->dm_kernsyms = dt_symtab_create();
-
-		if (dmp->dm_kernsyms == NULL)
-			return EDT_NOMEM;
-
-		if (dt_symbol_insert(dmp->dm_kernsyms, sym_name, sym_addr, sym_size,
-			sym_type_to_info(sym_type)) == NULL)
-			return EDT_NOMEM;
-	}
-
-	/*
-	 * Expand the appropriate address range for this module.
-	 * Picking the right range is easy, but done differently
-	 * for loadable modules versus built-in modules (and kernel).
-	 */
-
-	if (sym_size == 0)
-		return 0;
-
-	if (kernel_flag >= 0) {
-		/*
-		 * The kernel and built-in modules are in address order
-		 * in /proc/kallsyms.
+		 * The kernel and built-in modules are in address order.
 		 */
 		if (dmp == last_dmp && sym_text == last_sym_text) {
 			if (sym_text)
@@ -1506,6 +1309,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 {
 	dt_module_t *dmp;
 	FILE *fd;
+	int flag = 0;
 
 	for (dmp = dt_list_next(&dtp->dt_modlist);
 	    dmp != NULL; dmp = dt_list_next(dmp))
@@ -1516,26 +1320,18 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * space and construct modules with appropriate address ranges from
 	 * each.
 	 */
-	if ((fd = fopen("/proc/kallmodsyms", "r")) != NULL) {
+	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL &&
+	    (fd = fopen("/proc/kallsyms", "r")) != NULL)
+			flag = 1;
+	if (fd != NULL) {
 		char *line = NULL;
 		size_t line_n = 0;
 		while ((getline(&line, &line_n, fd)) > 0)
-			if (dt_modsym_update(dtp, line) != 0) {
+			if (dt_modsym_update(dtp, line, flag) != 0) {
 				/* TODO: waiting on a warning infrastructure */
-				dt_dprintf("warning: module CTF loading "
-				    "failed on kallmodsyms line %s\n", line);
-				break; /* no hope of (much) CTF */
-			}
-		free(line);
-		fclose(fd);
-	} else if ((fd = fopen("/proc/kallsyms", "r")) != NULL) {
-		char *line = NULL;
-		size_t line_n = 0;
-		while ((getline(&line, &line_n, fd)) > 0)
-			if (dt_modsym_update_alt(dtp, line) != 0) {
-				/* TODO: waiting on a warning infrastructure */
-				dt_dprintf("warning: module CTF loading "
-				    "failed on kallsyms line %s\n", line);
+				dt_dprintf("warning: module CTF loading failed"
+				    " on %s line %s\n",
+				    flag ? "kallsyms" : "kallmodsyms", line);
 				break; /* no hope of (much) CTF */
 			}
 		free(line);
