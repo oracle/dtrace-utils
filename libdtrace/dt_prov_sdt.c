@@ -224,10 +224,11 @@ done:
 }
 
 /*
- * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.  When
- * kprobes are registered on the system, they will appear in this list also as
- * kprobes:<name>.  We need to ignore them because DTrace already accounts for
- * them as FBT probes.
+ * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.
+ * We need to ignore these groups:
+ *   - GROUP_FMT (created by DTrace processes)
+ *   - kprobes and uprobes
+ *   - syscalls (handled by a different provider)
  */
 static int populate(dtrace_hdl_t *dtp)
 {
