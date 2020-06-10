@@ -1337,7 +1337,11 @@ main(int argc, char *argv[])
 	for (i = 0; i < g_cmdc; i++)
 		g_cmdv[i].dc_func(&g_cmdv[i]);
 
-	if (g_mode != DMODE_LIST) {
+	/*
+	 * We only need to register handler if we are going to execute probe
+	 * clauses.
+	 */
+	if (g_mode == DMODE_EXEC) {
 		if (dtrace_handle_err(g_dtp, &errhandler, NULL) == -1)
 			dfatal("failed to establish error handler");
 
