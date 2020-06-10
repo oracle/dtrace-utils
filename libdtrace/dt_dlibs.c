@@ -222,10 +222,16 @@ dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
  * Return the DIFO for an external symbol.
  */
 dtrace_difo_t *
-dt_dlib_get_func_difo(const dt_ident_t *idp)
+dt_dlib_get_func_difo(dtrace_hdl_t *dtp, const dt_ident_t *idp)
 {
 	assert(idp->di_kind == DT_IDENT_SYMBOL);
-	assert(idp->di_data != NULL);
+
+	if (idp->di_data == NULL) {
+		dt_dlib_error(dtp, D_IDENT_UNDEF, "dlib symbol %s not found",
+			      idp->di_name);
+		dt_set_errno(dtp, EDT_COMPILER);
+		return NULL;
+	}
 
 	return ((dt_bpf_func_t *)idp->di_data)->difo;
 }
@@ -358,7 +364,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 		name = elf_strptr(elf, strs_idx, sym.st_name);
 		if (name == NULL) {
 			dt_dlib_error(dtp, 0, "BPF ELF: no symbol name");
-			goto err;;
+			goto err;
 		}
 
 		if (sym.st_shndx == text_idx) {
@@ -485,7 +491,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	scn = elf_getscn(elf, text_idx);
 	if ((text = elf_getdata(scn, NULL)) == NULL) {
 		dt_dlib_error(dtp, 0, "BPF ELF: no .text data\n");
-		goto out;
+		goto err;
 	}
 
 	for (idx = 0; idx < symc; idx++) {
@@ -531,7 +537,7 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 	scn = elf_getscn(elf, relo_idx);
 	if ((data = elf_getdata(scn, NULL)) == NULL) {
 		dt_dlib_error(dtp, 0, "BPF ELF: no relocation data");
-		goto out;
+		goto err;
 	}
 
 	/*

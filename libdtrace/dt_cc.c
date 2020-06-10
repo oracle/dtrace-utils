@@ -2181,7 +2181,7 @@ out:
 	return (err ? NULL : rv);
 }
 
-static uint_t
+static int
 dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
 	       uint_t *relc)
 {
@@ -2195,6 +2195,7 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
 		char            *name = &dp->dtdo_strtab[rp->dofr_name];
 		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
 		dtrace_difo_t   *rdp;
+		int		ipc;
 
 		if (idp == NULL ||			/* not found */
 		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
@@ -2203,14 +2204,19 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
 
 		idp->di_flags |= DT_IDFLG_REF;
 
-		rdp = dt_dlib_get_func_difo(idp);
-		idp->di_id = dt_link_layout(dtp, rdp, insc, relc);
+		rdp = dt_dlib_get_func_difo(dtp, idp);
+		if (rdp == NULL)
+			return -1;
+		ipc = dt_link_layout(dtp, rdp, insc, relc);
+		if (ipc == -1)
+			return -1;
+		idp->di_id = ipc;
 	}
 
 	return pc;
 }
 
-static uint_t
+static int
 dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
 		  uint_t *pcp, uint_t *rcp)
@@ -2280,6 +2286,7 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 		char            *name = &sdp->dtdo_strtab[rp->dofr_name];
 		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
 		dtrace_difo_t   *rdp;
+		int		ipc;
 
 		if (idp == NULL ||			/* not found */
 		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
@@ -2288,15 +2295,20 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 
 		idp->di_flags |= DT_IDFLG_REF;
 
-		rdp = dt_dlib_get_func_difo(idp);
-		idp->di_id = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp);
+		rdp = dt_dlib_get_func_difo(dtp, idp);
+		if (rdp == NULL)
+			return -1;
+		ipc = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp);
+		if (ipc == -1)
+			return -1;
+		idp->di_id = ipc;
 		nrp->dofr_data = idp->di_id;		/* set value */
 	}
 
 	return pc;
 }
 
-static uint_t
+static void
 dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 {
 	struct bpf_insn		*buf = dp->dtdo_buf;
@@ -2330,29 +2342,32 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	uint_t		insc = 0;
 	uint_t		relc = 0;
 	dtrace_difo_t	*dp = sdp->dtsd_action->dtad_difo;
-	dtrace_difo_t	*fdp;
+	dtrace_difo_t	*fdp = NULL;
 	dt_strtab_t	*stab;
+	int		rc;
 
 	/*
 	 * Determine the layout of the final (linked) DIFO, and calculate the
 	 * total isntruction and relocation record counts..
 	 */
-	dt_link_layout(dtp, dp, &insc, &relc);
+	rc = dt_link_layout(dtp, dp, &insc, &relc);
 	dt_dlib_reset(dtp, B_TRUE);
+	if (rc == -1)
+		goto fail;
 
 	/*
 	 * Allocate memory for constructing the final DIFO.
 	 */
 	fdp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
 	if (fdp == NULL)
-		goto fail;
+		goto nomem;
 	fdp->dtdo_buf = dt_calloc(dtp, insc, sizeof(struct bpf_insn));
 	if (fdp->dtdo_buf == NULL)
-		goto fail;
+		goto nomem;
 	fdp->dtdo_len = insc;
 	fdp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
 	if (fdp->dtdo_breltab == NULL)
-		goto fail;
+		goto nomem;
 	fdp->dtdo_brelen = relc;
 
 	/*
@@ -2362,10 +2377,12 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	insc = relc = 0;
 	stab = dt_strtab_create(BUFSIZ);
 	if (stab == NULL)
-		goto fail;
+		goto nomem;
 
-	dt_link_construct(dtp, fdp, dp, stab, &insc, &relc);
+	rc = dt_link_construct(dtp, fdp, dp, stab, &insc, &relc);
 	dt_dlib_reset(dtp, B_FALSE);
+	if (rc == -1)
+		goto fail;
 
 	/*
 	 * Replace the program DIFO instruction buffer, BPF relocation table,
@@ -2386,7 +2403,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	if (dp->dtdo_strlen > 0) {
 		dp->dtdo_strtab = dt_zalloc(dtp, dp->dtdo_strlen);
 		if (dp->dtdo_strtab == NULL)
-			goto fail;
+			goto nomem;
 		dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
 				dp->dtdo_strtab);
 	} else
@@ -2410,7 +2427,11 @@ fail:
 		dt_free(dtp, fdp);
 	}
 
-	return dt_set_errno(dtp, EDT_NOMEM);
+	return rc;
+
+nomem:
+	rc = dt_set_errno(dtp, EDT_NOMEM);
+	goto fail;
 }
 
 static int
