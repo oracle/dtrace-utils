@@ -2404,9 +2404,11 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	return 0;
 
 fail:
-	dt_free(dtp, fdp->dtdo_breltab);
-	dt_free(dtp, fdp->dtdo_buf);
-	dt_free(dtp, fdp);
+	if (fdp) {
+		dt_free(dtp, fdp->dtdo_breltab);
+		dt_free(dtp, fdp->dtdo_buf);
+		dt_free(dtp, fdp);
+	}
 
 	return dt_set_errno(dtp, EDT_NOMEM);
 }
