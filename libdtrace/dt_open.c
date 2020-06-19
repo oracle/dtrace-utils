@@ -1201,7 +1201,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	dt_epid_destroy(dtp);
 	dt_aggid_destroy(dtp);
-	dt_format_destroy(dtp);
 	dt_buffered_destroy(dtp);
 	dt_aggregate_destroy(dtp);
 	dt_pebs_exit(dtp);

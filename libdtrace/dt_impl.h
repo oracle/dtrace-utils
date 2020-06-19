@@ -297,7 +297,6 @@ struct dtrace_hdl {
 	size_t dt_maxagg;	/* max aggregation ID */
 	dtrace_aggdesc_t **dt_aggdesc; /* aggregation descriptions */
 	int dt_maxformat;	/* max format ID */
-	void **dt_formats;	/* pointer to format array */
 	dt_aggregate_t dt_aggregate; /* aggregate */
 	struct dt_pebset *dt_pebset; /* perf event buffers set */
 	struct dt_pfdict *dt_pfdict; /* dictionary of printf conversions */
@@ -793,9 +792,6 @@ extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
 			   uint32_t, uint16_t, dt_pfargv_t *, uint64_t);
 extern int dt_aggid_lookup(dtrace_hdl_t *, dtrace_aggid_t, dtrace_aggdesc_t **);
 extern void dt_aggid_destroy(dtrace_hdl_t *);
-
-extern void *dt_format_lookup(dtrace_hdl_t *, int);
-extern void dt_format_destroy(dtrace_hdl_t *);
 
 extern int dt_print_quantize(dtrace_hdl_t *, FILE *,
     const void *, size_t, uint64_t);
