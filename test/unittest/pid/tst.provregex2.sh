@@ -24,7 +24,7 @@ cat > $DIR/Makefile <<EOF
 all: main altlib.so
 
 main: main.o
-	cc -o main -ldl main.o
+	cc -o main main.o -ldl
 
 main.o: main.c
 	cc -c main.c
