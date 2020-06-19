@@ -577,12 +577,20 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			   DTRACEACT_AGGREGATION, arg1);
 
 	/*
-	 * Generate code to store the arguments.  If no arguments are provided,
-	 * we are printing a string constant, and no data needs to be written
-	 * to the output buffer.
+	 * If no arguments are provided we will be printing a string constant.
+	 * We do not write any data to the output buffer but we do need to add
+	 * a record descriptor to indicate that at this point in the output
+	 * stream, a string must be printed.
+	 *
+	 * If there are arguments, we need to generate code to store their
+	 * values.
 	 */
-	for (anp = arg1; anp != NULL; anp = anp->dn_list)
-		dt_cg_store_val(pcb, anp, kind, pfp, 0);
+	if (arg1 == NULL)
+		dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, 0, 1, pfp, 0);
+	else {
+		for (anp = arg1; anp != NULL; anp = anp->dn_list)
+			dt_cg_store_val(pcb, anp, kind, pfp, 0);
+	}
 }
 
 static void
