@@ -24,9 +24,16 @@ dt_datadesc_hold(dtrace_datadesc_t *ddp)
 void
 dt_datadesc_release(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
 {
+	int			i;
+	dtrace_recdesc_t	*rec;
+
 	if (--ddp->dtdd_refcnt > 0)
 		return;
 
+	for (i = 0, rec = &ddp->dtdd_recs[0]; i < ddp->dtdd_nrecs; i++, rec++) {
+		if (rec->dtrd_format != NULL)
+			dt_printf_destroy(rec->dtrd_format);
+	}
 	dt_free(dtp, ddp->dtdd_recs);
 	dt_free(dtp, ddp);
 }
