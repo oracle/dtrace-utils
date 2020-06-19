@@ -33,6 +33,7 @@ struct dt_bpf_func {
 	int		id;
 	uint64_t	offset;
 	size_t		size;
+	dt_ident_t	*ident;
 	dtrace_difo_t	*difo;
 	dt_bpf_reloc_t	*relocs;
 	dt_bpf_reloc_t	*last_reloc;
@@ -42,10 +43,10 @@ static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 #define DT_BPF_SYMBOL(name, type) \
 	{ __stringify(name), (type), DT_IDFLG_BPF, DT_IDENT_UNDEF, \
-		DT_ATTR_STABCMN, DT_VERS_2_0, }
+		DT_ATTR_STABCMN, DT_VERS_2_0, NULL, NULL, NULL, }
 #define DT_BPF_SYMBOL_ID(name, type, id) \
 	{ __stringify(name), (type), DT_IDFLG_BPF, (id), \
-		DT_ATTR_STABCMN, DT_VERS_2_0, }
+		DT_ATTR_STABCMN, DT_VERS_2_0, NULL, NULL, NULL, }
 
 static const dt_ident_t		dt_bpf_symbols[] = {
 	/* BPF built-in functions */
@@ -85,43 +86,6 @@ dt_dlib_error(dtrace_hdl_t *dtp, int eid, const char *format, ...)
 	va_end(ap);
 }
 
-static void
-dt_idcook_none(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
-{
-}
-
-static void
-dt_iddtor_bpf(dt_ident_t *idp)
-{
-	dt_bpf_func_t	*fp = idp->di_data;
-	dtrace_hdl_t	*dtp = idp->di_iarg;
-
-	if (fp == NULL)
-		return;
-
-	if (fp->name != NULL)
-		free(fp->name);
-	if (fp->difo != NULL)
-		dt_difo_free(dtp, fp->difo);
-
-	dt_free(dtp, fp);
-}
-
-static size_t
-dt_idsize_none(dt_ident_t *idp)
-{
-	return 0;
-}
-
-/*
- * Identifier operations for entries in the identifier hash.
- */
-static const dt_idops_t	dt_idops_bpf = {
-	dt_idcook_none,
-	dt_iddtor_bpf,
-	dt_idsize_none
-};
-
 /*
  * Perform initialization for the BPF function library handling.
  */
@@ -154,15 +118,13 @@ dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
  * Add a BPF identifier of a given type.
  */
 dt_ident_t *
-dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind, void *data)
+dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind)
 {
 	dt_idhash_t	*dhp = dtp->dt_bpfsyms;
 	dt_ident_t	*idp;
 
 	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, DT_IDENT_UNDEF,
-			       dt_bpf_attr, DT_VERS_2_0, &dt_idops_bpf, dtp,
-			       0);
-	dt_ident_set_data(idp, data);
+			       dt_bpf_attr, DT_VERS_2_0, NULL, dtp, 0);
 
 	return idp;
 }
@@ -186,9 +148,9 @@ dt_dlib_get_func(dtrace_hdl_t *dtp, const char *name)
  * Add a BPF function.  Only external functions can be added.
  */
 dt_ident_t *
-dt_dlib_add_func(dtrace_hdl_t *dtp, const char *name, dt_bpf_func_t *bpff)
+dt_dlib_add_func(dtrace_hdl_t *dtp, const char *name)
 {
-	return dt_dlib_add_sym(dtp, name, DT_IDENT_SYMBOL, bpff);
+	return dt_dlib_add_sym(dtp, name, DT_IDENT_SYMBOL);
 }
 
 /*
@@ -206,7 +168,7 @@ dt_dlib_get_map(dtrace_hdl_t *dtp, const char *name)
 dt_ident_t *
 dt_dlib_add_map(dtrace_hdl_t *dtp, const char *name)
 {
-	return dt_dlib_add_sym(dtp, name, DT_IDENT_PTR, NULL);
+	return dt_dlib_add_sym(dtp, name, DT_IDENT_PTR);
 }
 
 /*
@@ -233,7 +195,7 @@ dt_dlib_get_func_difo(dtrace_hdl_t *dtp, const dt_ident_t *idp)
 		return NULL;
 	}
 
-	return ((dt_bpf_func_t *)idp->di_data)->difo;
+	return idp->di_data;
 }
 
 /*
@@ -371,6 +333,16 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			/*
 			 * BPF function.
 			 */
+			idp = dt_dlib_get_func(dtp, name);
+			if (idp == NULL) {
+				idp = dt_dlib_add_func(dtp, name);
+				if (idp == NULL) {
+					dt_dprintf("BPF ELF: cannot add %s\n",
+						   name);
+					continue;
+				}
+			}
+
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
 			if (fp == NULL)
 				goto err;
@@ -379,27 +351,11 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			fp->id = sym.st_shndx == SHN_UNDEF ? -1 : idx;
 			fp->offset = sym.st_value;
 			fp->size = sym.st_size;
+			fp->ident = idp;
 			fp->difo = NULL;
 			fp->relocs = NULL;
 			fp->last_reloc = NULL;
 			syms[idx] = fp;
-
-			idp = dt_dlib_get_func(dtp, name);
-			if (idp != NULL) {
-				/*
-				 * Nasty trick to get our idops in place.
-				 */
-				dt_ident_morph(idp, idp->di_kind,
-					       &dt_idops_bpf, dtp);
-				dt_ident_set_data(idp, fp);
-			} else {
-				idp = dt_dlib_add_func(dtp, name, fp);
-				if (idp == NULL) {
-					dt_dprintf("BPF ELF: cannot add %s\n",
-						   name);
-					continue;
-				}
-			}
 		} else if (sym.st_shndx == maps_idx || !sym.st_shndx) {
 			/*
 			 * BPF maps are either declared in the 'maps' section
@@ -417,6 +373,14 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			 * process relocations.  Once we are done with that, we
 			 * will get rid of these fake function symbols.
 			 */
+			idp = dt_dlib_get_map(dtp, name);
+			if (idp == NULL) {
+				dt_dlib_error(dtp, D_IDENT_UNDEF,
+					      "undefined symbol %s in BPF dlib",
+					      name);
+				goto err;
+			}
+
 			fp = dt_alloc(dtp, sizeof(dt_bpf_func_t));
 			if (fp == NULL)
 				goto err;
@@ -425,18 +389,11 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			fp->id = -1;
 			fp->offset = 0;
 			fp->size = 0;
+			fp->ident = idp;
 			fp->difo = NULL;
 			fp->relocs = NULL;
 			fp->last_reloc = NULL;
 			syms[idx] = fp;
-
-			idp = dt_dlib_get_map(dtp, name);
-			if (idp == NULL) {
-				dt_dlib_error(dtp, D_IDENT_UNDEF,
-					      "undefined symbol %s in BPF dlib",
-					      name);
-				goto err;
-			}
 		}
 	}
 
@@ -610,6 +567,10 @@ done:
 	 * We now post-process the function symbols in order to convert their
 	 * relocations into DIFO format.  We again start from the first
 	 * function index.
+	 *
+	 * As we complete the DIFO for a function symbol we modify the function
+	 * identifier to store the DIFO as its data (and we ensure that our
+	 * idops get installed).
 	 */
 	for (fid = fun0; fid < symc; fid++) {
 		dtrace_difo_t	*dp;
@@ -653,24 +614,30 @@ done:
 			dp->dtdo_strtab = NULL;
 
 		dt_strtab_destroy(stab);
+
+		idp = fp->ident;
+		dt_ident_morph(idp, idp->di_kind, &dt_idops_difo, dtp);
+		dt_ident_set_data(idp, fp->difo);
+		fp->difo = NULL;
 	}
 
+out:
 	/*
-	 * Clean up fake function symbols.
+	 * Clean up temporary function symbols.
 	 */
 	for (idx = 0; idx < symc; idx++) {
 		fp = syms[idx];
-		if (fp == NULL ||
-		    fp->id != -1 || fp->offset > 0 || fp->size > 0)
+		if (fp == NULL)
 			continue;
 
 		if (fp->name)
 			free(fp->name);
+		if (fp->difo)
+			dt_difo_free(dtp, fp->difo);
 
 		dt_free(dtp, fp);
 	}
 
-out:
 	dt_free(dtp, syms);
 	dt_free(dtp, rels);
 	dt_free(dtp, funcs);

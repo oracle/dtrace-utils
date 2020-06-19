@@ -20,6 +20,11 @@
 #include <dt_strtab.h>
 #include <dt_impl.h>
 
+static void
+dt_idcook_none(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
+{
+}
+
 /*
  * Common code for cooking an identifier that uses a typed signature list (we
  * use this for associative arrays and functions).  If the argument list is
@@ -547,6 +552,18 @@ dt_iddtor_probe(dt_ident_t *idp)
 		dt_probe_destroy(idp->di_data);
 }
 
+static void
+dt_iddtor_difo(dt_ident_t *idp)
+{
+	dtrace_hdl_t	*dtp = idp->di_iarg;
+	dtrace_difo_t	*difo = idp->di_data;
+
+	if (dtp == NULL || difo == NULL)
+		return;
+
+	dt_difo_free(dtp, difo);
+}
+
 static size_t
 dt_idsize_type(dt_ident_t *idp)
 {
@@ -605,6 +622,12 @@ const dt_idops_t dt_idops_inline = {
 const dt_idops_t dt_idops_probe = {
 	dt_idcook_thaw,
 	dt_iddtor_probe,
+	dt_idsize_none,
+};
+
+const dt_idops_t dt_idops_difo = {
+	dt_idcook_none,
+	dt_iddtor_difo,
 	dt_idsize_none,
 };
 
@@ -672,7 +695,8 @@ dt_idhash_destroy(dt_idhash_t *dhp)
 	for (i = 0; i < dhp->dh_hashsz; i++) {
 		for (idp = dhp->dh_hash[i]; idp != NULL; idp = next) {
 			next = idp->di_next;
-			idp->di_ops->di_dtor(idp);
+			if (idp->di_ops)
+				idp->di_ops->di_dtor(idp);
 		}
 	}
 
@@ -937,7 +961,8 @@ dt_ident_create(const char *name, ushort_t kind, ushort_t flags, uint_t id,
 void
 dt_ident_destroy(dt_ident_t *idp)
 {
-	idp->di_ops->di_dtor(idp);
+	if (idp->di_ops)
+		idp->di_ops->di_dtor(idp);
 	free(idp->di_name);
 	free(idp);
 }

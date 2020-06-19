@@ -119,6 +119,7 @@ extern const dt_idops_t dt_idops_type;	/* predefined type name string */
 extern const dt_idops_t dt_idops_thaw;	/* prefrozen type identifier */
 extern const dt_idops_t dt_idops_inline; /* inline variable */
 extern const dt_idops_t dt_idops_probe;	/* probe definition */
+extern const dt_idops_t dt_idops_difo;	/* symbol DIFO */
 
 extern dt_idhash_t *dt_idhash_create(const char *, const dt_ident_t *,
     uint_t, uint_t);
