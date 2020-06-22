@@ -30,17 +30,17 @@ pound_disk() {
 mkdir $tmpdir/ext4
 dd if=/dev/zero of=$tmpdir/disk.img bs=$((1024*1024)) seek=100 count=1
 mkfs.ext4 -F $tmpdir/disk.img
-trap "umount $tmpdir/ext4; rm $tmpdir/disk.img" QUIT EXIT
+trap "umount -l $tmpdir/ext4; rm $tmpdir/disk.img" QUIT EXIT
 mount -o loop -t ext4 -o defaults,atime,diratime,nosuid,nodev $tmpdir/disk.img $tmpdir/ext4
 
 pound_disk &
 pounder=$!
-disown %+
 
 dtrace=$1
 
 $dtrace $dt_flags -qm 'perf:ext4 { @probes[probename] = count(); } ' -n 'tick-1s { i++; }' -n 'tick-1s / i > 50 / { exit(0); }'
 
 kill -9 $pounder
+wait 2>/dev/null
 
 exit 0
