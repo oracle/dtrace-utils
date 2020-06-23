@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -41,6 +41,7 @@ cat > test.c << EOF
 #include <string.h>
 #include <unistd.h>
 #include <linux/limits.h>
+#include <time.h>
 #include "prov.h"
 
 /*
@@ -88,6 +89,9 @@ int main(int argc, char **argv) {
 
 		/* zero-size symbol might mark the end of a range */
 		if (size == 0)
+			continue;
+
+		if (strcmp(modname, "bpf]") == 0)
 			continue;
 
 		/* trim the trailing ']' and print modname to stdout */

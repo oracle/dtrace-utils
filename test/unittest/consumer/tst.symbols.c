@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -107,6 +107,8 @@ int read_symbols() {
 			continue;
 		}
 #undef KERNEL_FLAG_INIT_SCRATCH
+		if (strcmp(modname, "bpf]") == 0)
+			continue;
 
 		/*
 		 * In libdtrace/dt_module.c function dt_modsym_update(),
