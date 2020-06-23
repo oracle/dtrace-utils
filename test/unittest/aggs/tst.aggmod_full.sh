@@ -86,6 +86,7 @@ NF == 4 && $4 == "__init_scratch_begin" {
 NF == 4 {$5 = "[vmlinux]"};
 $3 == "a" {$2 = 0};
 $3 == "A" {$2 = 0};
+$5 == "[bpf]" {$2 = 0};
 $2 != 0 { print $1 >> $5 }
 ' /proc/kallmodsyms
 

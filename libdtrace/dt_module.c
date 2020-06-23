@@ -1123,6 +1123,9 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 	     || (sym_type == 'w') || (sym_type == 'W');
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
 
+	if (strcmp(mod_name, "bpf") == 0)
+		return 0;
+
 	/*
 	 * Symbols of "absolute" type are typically defined per CPU.
 	 * Their "addresses" here are very low and are actually offsets.

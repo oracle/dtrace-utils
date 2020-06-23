@@ -43,6 +43,7 @@ cat > test.c << EOF
 #include <string.h>
 #include <unistd.h>
 #include <linux/limits.h>
+#include <time.h>
 #include "prov.h"
 
 /*
@@ -90,6 +91,9 @@ int main(int argc, char **argv) {
 
 		/* zero-size symbol might mark the end of a range */
 		if (size == 0)
+			continue;
+
+		if (strcmp(modname, "bpf]") == 0)
 			continue;
 
 		/* trim the trailing ']' and print modname to stdout */

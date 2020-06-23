@@ -107,6 +107,8 @@ int read_symbols() {
 			continue;
 		}
 #undef KERNEL_FLAG_INIT_SCRATCH
+		if (strcmp(modname, "bpf]") == 0)
+			continue;
 
 		/*
 		 * In libdtrace/dt_module.c function dt_modsym_update(),
