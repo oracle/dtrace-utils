@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -84,6 +84,7 @@ NF == 4 && $4 == "__init_scratch_begin" {
 NF == 4 {$5 = "[vmlinux]"};
 $3 == "a" {$2 = 0};
 $3 == "A" {$2 = 0};
+$5 == "[bpf]" {$2 = 0};
 $2 != 0 { print $1 >> $5 }
 ' /proc/kallmodsyms
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1121,6 +1121,9 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line)
 	sym_text = (sym_type == 't') || (sym_type == 'T')
 	     || (sym_type == 'w') || (sym_type == 'W');
 	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+
+	if (strcmp(mod_name, "bpf") == 0)
+		return 0;
 
 	/*
 	 * Symbols of "absolute" type are typically defined per CPU.  Their
