@@ -29,6 +29,10 @@ noinline uint64_t dt_get_bvar(struct dt_bpf_context *dctx, uint32_t id)
 	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:
 	case DIF_VAR_ARG9:
 		return dctx->argv[id - DIF_VAR_ARG0];
+	case DIF_VAR_STACKDEPTH: {
+		/* FIXME: no stack() yet */
+		return 0;
+	}
 	case DIF_VAR_PID: {
 		uint64_t	val = bpf_get_current_pid_tgid();
 

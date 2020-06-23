@@ -18,8 +18,8 @@
 BEGIN
 {
 	printf("DEPTH %d\n", stackdepth);
-	printf("TRACE BEGIN");
+	printf("TRACE BEGIN\n");
 	stack();
-	printf("TRACE END");
+	printf("TRACE END\n");
 	exit(0);
 }
