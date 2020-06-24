@@ -59,7 +59,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	assert(mem != NULL);
 
 	/*
-	 * void dt_program(void *ctx, struct dt_bpf_context *dctx)
+	 * void dt_program(void *ctx, dt_dctx_t *dctx)
 	 * {
 	 *	int	rc;		// -- %r0
 	 *	int	key;		// -- [%fp + DT_STK_LVAR_BASE]
@@ -122,10 +122,10 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * We read the 32-bit epid from dctx (struct dt_bpf_context) and store
-	 * it at %r9 (base address of the trace data).  Next we store the
-	 * 32-bit tag (hardcoded as 0 for now), which leaves us at an 8-byte
-	 * boundary for actual probe data to be stored.
+	 * We read the 32-bit epid from dctx (dt_dctx_t) and store it at %r9
+	 * (base address of the trace data).  Next we store the 32-bit tag
+	 * (hardcoded as 0 for now), which leaves us at an 8-byte boundary for
+	 * actual probe data to be stored.
 	 *
 	 *	*((uint32_t *)&buf[0]) = this->dctx->epid;
 	 *				// lddw %r0, [%fp + DT_STK_DCTX]

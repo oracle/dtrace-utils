@@ -7,7 +7,7 @@
 #include <bpf-helpers.h>
 #include <dtrace/conf.h>
 #include <dtrace/dif_defines.h>
-#include <dt_bpf_ctx.h>
+#include <dt_dctx.h>
 
 #ifndef noinline
 # define noinline	__attribute__((noinline))
@@ -15,7 +15,7 @@
 
 extern struct bpf_map_def cpuinfo;
 
-noinline uint64_t dt_get_bvar(struct dt_bpf_context *dctx, uint32_t id)
+noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 {
 	switch (id) {
 	case DIF_VAR_CURTHREAD:

@@ -295,9 +295,9 @@ static int populate(dtrace_hdl_t *dtp)
  *
  *	int dt_sdt(struct syscall_data *scd)
  *
- * The trampoline will populate a dt_bpf_context struct and then call the
- * function that implements the compiled D clause.  It returns the value that
- * it gets back from that function.
+ * The trampoline will populate a dt_dctx_t struct and then call the function
+ * that implements the compiled D clause.  It returns the value that it gets
+ * back from that function.
  *
  * FIXME: Currently, access to arguments of the tracepoint is not supported.
  */
@@ -314,7 +314,7 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 * int dt_sdt(struct syscall_data *scd)
 	 * {
-	 *     struct dt_bpf_context	dctx;
+	 *     dt_dctx_t	dctx;
 	 *
 	 *     memset(&dctx, 0, sizeof(dctx));
 	 *
@@ -345,7 +345,7 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 *     (we clear dctx.argv[0] and on because of the memset above)
 	 */
-	for (i = 0; i < sizeof(((struct dt_bpf_context *)0)->argv) / 8; i++) {
+	for (i = 0; i < ARRAY_SIZE(((dt_dctx_t *)0)->argv); i++) {
 		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
 				      0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
