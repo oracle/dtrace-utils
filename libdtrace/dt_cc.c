@@ -2365,9 +2365,12 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	if (fdp->dtdo_buf == NULL)
 		goto nomem;
 	fdp->dtdo_len = insc;
-	fdp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
-	if (fdp->dtdo_breltab == NULL)
-		goto nomem;
+	if (relc) {
+		fdp->dtdo_breltab = dt_calloc(dtp, relc,
+					      sizeof(dof_relodesc_t));
+		if (fdp->dtdo_breltab == NULL)
+			goto nomem;
+	}
 	fdp->dtdo_brelen = relc;
 
 	/*
