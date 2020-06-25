@@ -90,15 +90,18 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  *		buffer with each CPU.  The map is indexed by CPU id.
  * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
  *		each online CPU on the system.
- * - mem:	Output buffer scratch memory.  Thiss is implemented as a global
- *		per-CPU map with a singleton element (key 0).  This means that
- *		every CPU will see its own copy of this singleton element, and
- *		can use it without interference from other CPUs.  The size of
- *		the value (a byte array) is the maximum trace buffer record
- *		size that any of the compiled programs can emit.
- *		We add 4 bytes to the size to account for the 4-byte padding we
- *		need to add at the beginning of the data to ensure proper
- *		trace data alignment.
+ * - mem:	Scratch memory.  This is implemented as a global per-CPU map
+ *		with a singleton element (key 0).  This means that every CPU
+ *		will see its own copy of this singleton element, and can use it
+ *		without interference from other CPUs.  The scratch memory is
+ *		used to store the DTrace context and the temporary output
+ *		buffer.  The size of the map value (a byte array) is the size
+ *		of the DTrace context, rounded up to a multiple of 8 bytes,
+ *		plus 8 bytes padding, plus the maximum trace buffer record size
+ *		that any of the compiled programs can emit, rounded up to a
+ *		multiple of 8 bytes.
+ *		The 8 bytes padding is used to ensure proper trace data
+ *		alignment.
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
@@ -157,7 +160,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		return -1;	/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), dtp->dt_maxreclen + 4, 1) == -1)
+			sizeof(uint32_t),
+			roundup(sizeof(dt_mstate_t), 8) + 8 +
+				roundup(dtp->dt_maxreclen, 8), 1) == -1)
 		return -1;	/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,

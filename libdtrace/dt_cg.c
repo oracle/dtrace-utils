@@ -25,62 +25,170 @@ static void dt_cg_xsetx(dt_irlist_t *, dt_ident_t *, uint_t, int, uint64_t);
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 /*
- * Generate the function prologue:
- *	1. Store ctx (%r1) in its reserved stack slot
- *	2. Store dctx (%r2) in its reserved stack slot
- *	3. Evaluate the predicate expression and return if false
- *	5. Retrieve the output data buffer and store the base pointer in %r9
- *	6. Store a 4-byte 0 value at [%r9 + 4], and advance %r9 by 4 bytes
- *	6. Store the epid and tag at [%r9 + 0] and [%r9 + 4] respectively
+ * Generate the generic prologue of the trampoline BPF program.
  *
- * Due to the fact that raw perf samples are stored as a header (multiple of 8
- * bytes) followed by a 32-bit size, we need to ensure that our trace data is
- * preceded by a 4-byte padding.  That will place the 32-bit EPID at a 64-bit
- * boundary, and given that it is followed by a 32-bit tag, all further trace
- * data will also start at a 64-bit boundary.
+ * The trampoline BPF program is attached to a kernel probe event and it is
+ * executed when the probe triggers.  The trampoline must satisfy the following
+ * signature:
  *
- * To accomplish all this, we store a 32-bit 0 value at the beginning of our
- * output data buffer, and then store the next address location in %r9.
+ *	int dt_dtrace(const void *ctx)
  *
- * In the epilogue, we then need to submit (%r9 - 4) as source address of our
- * data buffer and add 4 to the record size.
+ * The trampoline prologue will populate the dt_dctx_t structure on the stack.
  *
- * The dt_program() function is declared as returning int because all BPF
- * functions are expected to return some value.  We simply return 0 to satisfy
- * the BPF verifier.
+ * The caller should NOT depend on any register values that exist at the end of
+ * the trampiline prologue.
  */
-static void
-dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
+void
+dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*mem = dt_dlib_get_map(pcb->pcb_hdl, "mem");
+	struct bpf_insn	instr;
 
 	assert(mem != NULL);
 
 	/*
-	 * void dt_program(void *ctx, dt_dctx_t *dctx)
-	 * {
-	 *	int	rc;		// -- %r0
-	 *	int	key;		// -- [%fp + DT_STK_LVAR_BASE]
-	 *	char	*buf;		// -- %r9
+	 * On input, %r1 is the BPF context.
 	 *
-	 *	this->ctx = ctx;	// stdw [%fp + DT_STK_CTX], %r1
-	 *	this->dctx = dctx;	// stdw [%fp + DT_STK_DCTX], %r2
+	 * int dt_dtrace(void *ctx)	//     (%r1 = pointer to BPF context)
+	 * {
+	 *	dt_dctx_t	dctx;
+	 *	uint32_t	key;
+	 *	uintptr_t	rc;
+	 *	char		*buf;
+	 *
+	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r1
 	 */
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_CTX, BPF_REG_1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_2);
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
+	/*
+	 *	key = 0;                // stw [%fp + DCTX_FP(DCTX_MST)], 0
+	 *	rc = bpf_map_lookup_elem(mem, &key);
+	 *				// lddw %r1, &mem
+	 *				// mov %r2, %fp
+	 *				// add %r2, DT_STK_LVA_BASE
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = 'mem' BPF map value)
+	 *	if (rc == 0)            // jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *				//     (%r0 = pointer to dt_mstate_t)
+	 *	dctx.mst = rc;          // stdw [%fp + DCTX_FP(DCTX_MST)], %r0
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *      buf = rc + roundup(sizeof(dt_mstate_t), 8);
+	 *				// add %r0, roundup(
+	 *						sizeof(dt_mstate_t), 8)
+	 *      *((uint64_t *)&buf[0]) = 0;
+	 *				// stdw [%r0 + 0], 0
+	 *      buf += 8;		// add %r0, 8
+	 *				//     (%r0 = pointer to buffer space)
+	 *      dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
+	 */
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0,
+			      roundup(sizeof(dt_mstate_t), 8));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+void
+dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*prog = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
+	struct bpf_insn	instr;
+
+	assert(prog != NULL);
+
+	/*
+	 *	dt_program(dctx);	// mov %r1, %fp
+	 *				// add %fp, DCTX_FP(0)
+	 *				// call dt_program
+	 */
+	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(prog->di_id);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = prog;
+
+	/*
+	 * exit:
+	 *	return 0;		// mov %r0, 0
+	 *				// exit
+	 * }
+	 */
+	instr = BPF_MOV_IMM(BPF_REG_0, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+	instr = BPF_RETURN();
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+/*
+ * Generate the function prologue.
+ *
+ * The function signature will be:
+ *
+ *	int dt_program(dt_dctx_t *dctx)
+ *
+ * The prologue will:
+ *
+ *	1. Evaluate the predicate expression and return if false.
+ *	2. Store the base pointer to the output data buffer in %r9.
+ *	3. Store the epid and tag at [%r9 + 0] and [%r9 + 4] respectively.
+ *
+ * The dt_program() function will always return 0.
+ */
+static void
+dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
+	struct bpf_insn	instr;
+
+	assert(epid != NULL);
+
+	/*
+	 * void dt_program(dt_dctx_t *dctx)
+	 *				//     (%r1 = pointer to dt_dctx_t)
+	 * {
+	 *	int	rc;
+	 *	char	*buf;		//     (%r9 = reserved reg for buf)
+	 *
+	 *				// stdw [%fp + DT_STK_DCTX], %r1
+	 */
+	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 * If there is a predicate:
+	 *
+	 *	rc = predicate;		//     (evaluate predicate into %rX)
+	 *	if (rc == 0)		// jeq %rX, 0, pcb->pcb_exitlbl
+	 *		goto exit;
+	 */
 	if (pred != NULL) {
-		/*
-		 * Generate code for the predicate expression.  The value will
-		 * be in %rX.
-		 *
-		 *	    if (predicate == 0) // jeq %rX, 0, pcb->pcb_exitlbl
-		 *		goto exit;
-		 */
 		dt_cg_node(pred, &pcb->pcb_ir, pcb->pcb_regs);
 		instr = BPF_BRANCH_IMM(BPF_JEQ, pred->dn_reg, 0,
 				       pcb->pcb_exitlbl);
@@ -88,101 +196,86 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	}
 
 	/*
-	 *	key = 0;
-	 *				// stw [%fp + DT_STK_LVAR_BASE], 0
-	 *	rc = bpf_map_lookup_elem(mem, &key);
-	 *				// lddw %r1, &mem
-	 *				// mov %r2, %fp
-	 *				// add %r2, DT_STK_LVA_BASE
-	 *				// call bpf_map_lookup_elem
-	 *	if (rc == 0)
-	 *	    goto exit;		// jeq %r0, 0, pcb->pcb_exitlbl
-	 *
-	 *	buf = rc;		// mov %r9, %r0
-	 *	*((uint32_t *)&buf[0]) = 0;
-	 *				// stw [%r9+0], 0
-	 *	buf += 4;		// add %r9, 4
-	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_LVAR_BASE, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_LVAR_BASE);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_REG(BPF_REG_9, BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_9, 4);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	/*
-	 * We read the 32-bit epid from dctx (dt_dctx_t) and store it at %r9
-	 * (base address of the trace data).  Next we store the 32-bit tag
-	 * (hardcoded as 0 for now), which leaves us at an 8-byte boundary for
-	 * actual probe data to be stored.
-	 *
-	 *	*((uint32_t *)&buf[0]) = this->dctx->epid;
-	 *				// lddw %r0, [%fp + DT_STK_DCTX]
-	 *				// ldw %r0, [%r0 + DCTX_EPID]
-	 *				// stw [%r9+0], %r0
-	 *	*((uint32_t *)&buf[4]) = 0;
-	 *				// stw [%r9+4], 0
+	 *	buf = dctx->buf;	// lddw %r0, [%fp + DT_STK_DCTX]
+	 *				// lddw %r9, [%r0 + DCTX_BUF]
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, DCTX_EPID);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_9, BPF_REG_0, DCTX_BUF);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_W, BPF_REG_9, 0, BPF_REG_0);
+
+	/*
+	 *	dctx->mst->fault = 0;	// lddw %r0, [%r0 + DCTX_MST]
+	 *				// stdw [%r0 + DMST_FAULT], 0
+	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
+	 *	*((uint32_t *)&buf[0]) = EPID;
+	 *				// stw [%r9 + 0], EPID
+	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = epid;
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = epid;
+
+	/*
+	 *	dctx->mst->tag = 0;	// stw [%r0 + DMST_TAG], 0
+	 *	*((uint32_t *)&buf[4]) = 0;
+	 *				// stw [%r9 + 4], 0
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_TAG, 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 * Account for 32-bit epid (at offset 0) and tag 32-bit (at offset 4).
+	 * Account for 32-bit epid (at offset 0) and 32-bit tag (at offset 4).
 	 */
 	pcb->pcb_bufoff += 2 * sizeof(uint32_t);
 }
 
 /*
  * Generate the function epilogue:
- *	7. If a fault was flagged, return 0
- *	8. Submit the buffer to the perf event output buffer for the current
- *	   cpu
- *	9. Return 0
+ *	4. If a fault was flagged, return 0.
+ *	5. Submit the buffer to the perf event output buffer for the current
+ *	   cpu.
+ *	6. Return 0
  * }
  */
 static void
 dt_cg_epilogue(dt_pcb_t *pcb)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*buffers = dt_dlib_get_map(pcb->pcb_hdl, "buffers");
+	struct bpf_insn	instr;
 
 	assert(buffers != NULL);
 
 	/*
-	 *	rc = this->dctx->fault;	// lddw %r0, [%fp + DT_STK_DCTX]
-	 *				// lddw %r0, [%r0 + DCTX_FAULT]
+	 *	rc = dctx->mst->fault;	// lddw %r0, [%fp + DT_STK_DCTX]
+	 *				// lddw %r0, [%r0 + DCTX_MST]
+	 *				// lddw %r0, [%r0 + DMST_FAULT]
 	 *	if (rc != 0)
 	 *	    goto exit;		// jne %r0, 0, pcb->pcb_exitlbl
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_FAULT);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_FAULT);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, pcb->pcb_exitlbl);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *	bpf_perf_event_output(this->ctx, &buffers, BPF_F_CURRENT_CPU,
+	 *	bpf_perf_event_output(dctx->ctx, &buffers, BPF_F_CURRENT_CPU,
 	 *			      buf - 4, bufoff + 4);
-	 *				// lddw %r1, [%fp + DT_STK_CTX]
+	 *				// lddw %r1, [%fp + DT_STK_DCTX]
+	 *				// lddw %r1, [%r1 + DCTX_CTX]
 	 *				// lddw %r2, &buffers
 	 *				// lddw %r3, BPF_F_CURRENT_CPU
 	 *				// mov %r4, %r9
@@ -196,7 +289,9 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 *				// exit
 	 * }
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_CTX);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dt_cg_xsetx(dlp, buffers, DT_LBL_NONE, BPF_REG_2, buffers->di_id);
 	dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_3, BPF_F_CURRENT_CPU);
@@ -990,6 +1085,10 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
 			instr = BPF_LOAD(BPF_DW, BPF_REG_1,
 					 BPF_REG_FP, DT_STK_DCTX);
+			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
+					 instr));
+			instr = BPF_LOAD(BPF_DW, BPF_REG_1,
+					 BPF_REG_1, DCTX_MST);
 			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
 					 instr));
 			instr = BPF_MOV_IMM(BPF_REG_2, idp->di_id);
@@ -2812,7 +2911,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
-		dt_ident_t	*idp;
+		dt_ident_t	*prog;
 		dt_irlist_t	*dlp = &pcb->pcb_ir;
 		dt_irnode_t	*last_insn;
 		uint_t		lbl_prog;
@@ -2828,10 +2927,10 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		 * so that we can track the final instruction offset for this
 		 * functions when we assemble the final program.
 		 */
-		idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
-		assert(idp != NULL);
+		prog = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
+		assert(prog != NULL);
 		lbl_prog = dt_irlist_label(dlp);
-		dt_ident_set_id(idp, lbl_prog);
+		dt_ident_set_id(prog, lbl_prog);
 
 		/*
 		 * If we have a representative probe with a provider that

@@ -11,7 +11,6 @@
 int main(void)
 {
 	printf("Base:       % 4d\n", DT_STK_BASE);
-	printf("ctx:        % 4d\n", DT_STK_CTX);
 	printf("dctx:       % 4d\n", DT_STK_DCTX);
 	printf("%%r0:        % 4d\n", DT_STK_SPILL(0));
 	printf("%%r1:        % 4d\n", DT_STK_SPILL(1));

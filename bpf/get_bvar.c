@@ -15,7 +15,7 @@
 
 extern struct bpf_map_def cpuinfo;
 
-noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
+noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 {
 	switch (id) {
 	case DIF_VAR_CURTHREAD:
@@ -23,12 +23,12 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_TIMESTAMP:
 		return bpf_ktime_get_ns();
 	case DIF_VAR_EPID:
-		return dctx->epid;
+		return mst->epid;
 	case DIF_VAR_ARG0: case DIF_VAR_ARG1: case DIF_VAR_ARG2:
 	case DIF_VAR_ARG3: case DIF_VAR_ARG4: case DIF_VAR_ARG5:
 	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:
 	case DIF_VAR_ARG9:
-		return dctx->argv[id - DIF_VAR_ARG0];
+		return mst->argv[id - DIF_VAR_ARG0];
 	case DIF_VAR_STACKDEPTH: {
 		/* FIXME: no stack() yet */
 		return 0;

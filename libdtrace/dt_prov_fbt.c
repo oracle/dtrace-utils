@@ -156,8 +156,7 @@ static int populate(dtrace_hdl_t *dtp)
  *	int dt_fbt(dt_pt_regs *regs)
  *
  * The trampoline will populate a dt_dctx_t struct and then call the function
- * that implements tha compiled D clause.  It returns the value that it gets
- * back from that function.
+ * that implements tha compiled D clause.  It returns 0 to the caller.
  */
 static void trampoline(dt_pcb_t *pcb)
 {
@@ -165,111 +164,89 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 	uint_t		lbl_exit = dt_irlist_label(dlp);
-	dt_ident_t	*idp;
 
-#define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
+	dt_cg_tramp_prologue(pcb, lbl_exit);
 
 	/*
-	 * int dt_fbt(dt_pt_regs *regs)
-	 * {
-	 *     dt_dctx_t	dctx;
-	 *
-	 *     memset(&dctx, 0, sizeof(dctx));
-	 *
-	 *     dctx.epid = EPID;
-	 *     (we clear dctx.pad and dctx.fault because of the memset above)
+	 * We cannot assume anything about the state of any registers so set up
+	 * the ones we need:
+	 *				//     (%r7 = dctx->mst)
+	 *				// lddw %r7, [%fp + DCTX_FP(DCTX_MST)]
+	 *				//     (%r8 = dctx->ctx)
+	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	idp = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
-	assert(idp != NULL);
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), -1);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = idp;
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 #if 0
 	/*
-	 *     dctx.regs = *regs;
+	 *	dctx->mst->regs = *(dt_pt_regs *)dctx->ctx;
 	 */
 	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, i);
+		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_REGS) + i,
-				  BPF_REG_0);
+		instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_REGS + i, BPF_REG_0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 #endif
 
 	/*
-	 *     dctx.argv[0] = PT_REGS_PARAM1(regs);
-	 *     dctx.argv[1] = PT_REGS_PARAM2(regs);
-	 *     dctx.argv[2] = PT_REGS_PARAM3(regs);
-	 *     dctx.argv[3] = PT_REGS_PARAM4(regs);
-	 *     dctx.argv[4] = PT_REGS_PARAM5(regs);
-	 *     dctx.argv[5] = PT_REGS_PARAM6(regs);
+	 *	dctx->mst->argv[0] = PT_REGS_PARAM1((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG0]
+	 *				// stdw [%r7 + DMST_ARG(0)0], %r0
+	 *	dctx->mst->argv[1] = PT_REGS_PARAM2((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG1]
+	 *				// stdw [%r7 + DMST_ARG(1)8], %r0
+	 *	dctx->mst->argv[2] = PT_REGS_PARAM3((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG2]
+	 *				// stdw [%r7 + DMST_ARG(2)8], %r0
+	 *	dctx->mst->argv[3] = PT_REGS_PARAM4((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG3]
+	 *				// stdw [%r7 + DMST_ARG(3)8], %r0
+	 *	dctx->mst->argv[4] = PT_REGS_PARAM5((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG4]
+	 *				// stdw [%r7 + DMST_ARG(4)], %r0
+	 *	dctx->mst->argv[5] = PT_REGS_PARAM6((dt_pt_regs *)dctx->ctx);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARG5]
+	 *				// stdw [%r7 + DMST_ARG(5)], %r0
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG0);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(0)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG1);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(1)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG2);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG2);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(2)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG3);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG3);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(3)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG4);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG4);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(4)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_1, PT_REGS_ARG5);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG5);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(5)), BPF_REG_0);
+	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *     (we clear dctx.argv[6] and on because of the memset above)
+	 *     (we clear dctx->mst->argv[6] and on)
 	 */
-	for (i = 6; i < ARRAY_SIZE(((dt_dctx_t *)0)->argv); i++) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
+	for (i = 6; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)),
 				      0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
-	/*
-	 * We know the BPF context (regs) is in %r1.  Since we will be passing
-	 * the DTrace context (dctx) as 2nd argument to dt_predicate() (if
-	 * there is a predicate) and dt_program, we need it in %r2.
-	 */
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	/*
-	 *     rc = dt_program(regs, dctx);
-	 */
-	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
-	assert(idp != NULL);
-	instr = BPF_CALL_FUNC(idp->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = idp;
-
-	/*
-	 * exit:
-	 *     return rc;
-	 * }
-	 */
-	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+	dt_cg_tramp_epilogue(pcb, lbl_exit);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,

@@ -307,76 +307,46 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 	uint_t		lbl_exit = dt_irlist_label(dlp);
-	dt_ident_t	*idp = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
 
-#define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
+	dt_cg_tramp_prologue(pcb, lbl_exit);
 
 	/*
-	 * int dt_sdt(struct syscall_data *scd)
-	 * {
-	 *     dt_dctx_t	dctx;
-	 *
-	 *     memset(&dctx, 0, sizeof(dctx));
-	 *
-	 *     dctx.epid = EPID;
-	 *     (we clear dctx.pad and dctx.fault because of the memset above)
+	 * We cannot assume anything about the state of any registers so set up
+	 * the ones we need:
+	 *				//     (%r7 = dctx->mst)
+	 *				// lddw %r7, [%fp + DCTX_FP(DCTX_MST)]
+	 *				//     (%r8 = dctx->ctx)
+	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	idp = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
-	assert(idp != NULL);
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_EPID), -1);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = idp;
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_PAD), 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_FAULT), 0);
+	instr = BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX));
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 #if 0
 	/*
-	 *     (we clear the dctx.regs space because of the memset above)
+	 *	memset(&dctx->mst->regs, 0, sizeof(dt_pt_regs);
+	 *				// stdw [%7 + DMST_REGS + 0], 0
+	 *				// stdw [%7 + DMST_REGS + 8], 0
+	 *				//     (...)
 	 */
 	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP,
-				      DCTX_FP(DCTX_REGS) + i, 0);
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 #endif
 
 	/*
-	 *     (we clear dctx.argv[0] and on because of the memset above)
+	 *	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+	 *		dctx->mst->argv[i] = 0
+	 *				// stdw [%r7 + DCTX_ARG(0), 0
 	 */
-	for (i = 0; i < ARRAY_SIZE(((dt_dctx_t *)0)->argv); i++) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ARG(i)),
-				      0);
+	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
+		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
-	/*
-	 * We know the BPF context (scd) is in %r1.  Since we will be passing
-	 * the DTrace context (dctx) as 2nd argument to dt_predicate() (if
-	 * there is a predicate) and dt_program, we need it in %r2.
-	 */
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	/*
-	 *     rc = dt_program(scd, dctx);
-	 */
-	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
-	assert(idp != NULL);
-	instr = BPF_CALL_FUNC(idp->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = idp;
-
-	/*
-	 * exit:
-	 *     return rc;
-	 * }
-	 */
-	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
+	dt_cg_tramp_epilogue(pcb, lbl_exit);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,

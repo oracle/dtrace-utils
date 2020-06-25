@@ -491,32 +491,29 @@ struct dtrace_hdl {
  *                             +----------------+
  *         SCRATCH_BASE = -512 | Scratch Memory |
  *                             +----------------+
- *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 19)
+ *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 20)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              LVAR(1) = -104 | LVAR 1         |
+ *               LVAR(1) = -96 | LVAR 1         |
  *                             +----------------+
- *   LVAR_BASE = LVAR(0) = -96 | LVAR 0         |
+ *   LVAR_BASE = LVAR(0) = -88 | LVAR 0         |
  *                             +----------------+
- *              SPILL(n) = -88 | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *              SPILL(n) = -80 | %r8            | (n = DT_STK_NREGS - 1 = 8)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              SPILL(1) = -32 | %r1            |
+ *              SPILL(1) = -24 | %r1            |
  *                             +----------------+
- * SPILL_BASE = SPILL(0) = -24 | %r0            |
+ * SPILL_BASE = SPILL(0) = -16 | %r0            |
  *                             +----------------+
- *                  DCTX = -16 | DTrace Context |
- *                             +----------------+
- *                    CTX = -8 | BPF Context    | -1
+ *                   DCTX = -8 | DTrace Context | -1
  *                             +----------------+
  */
 #define DT_STK_BASE		(0)
 #define DT_STK_SLOT_SZ		((int)sizeof(uint64_t))
 
-#define DT_STK_CTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
-#define DT_STK_DCTX		(DT_STK_CTX - DT_STK_SLOT_SZ)
+#define DT_STK_DCTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
 #define DT_STK_LVAR_BASE	(DT_STK_SPILL(DT_STK_NREGS - 1) - \
@@ -771,6 +768,8 @@ extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern void dt_cg(dt_pcb_t *, dt_node_t *);
 extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
+extern void dt_cg_tramp_prologue(dt_pcb_t *dtp, uint_t lbl_exit);
+extern void dt_cg_tramp_epilogue(dt_pcb_t *dtp, uint_t lbl_exit);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
 extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp);
