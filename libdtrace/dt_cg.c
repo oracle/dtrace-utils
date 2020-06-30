@@ -683,8 +683,15 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	if (arg1 == NULL)
 		dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, 0, 1, pfp, 0);
 	else {
-		for (anp = arg1; anp != NULL; anp = anp->dn_list)
+		/*
+		 * We pass the printf format descriptor along with the first
+		 * record, and set it to NULL for subsequent records.  It is
+		 * only used when the first record is encountered.
+		 */
+		for (anp = arg1; anp != NULL; anp = anp->dn_list) {
 			dt_cg_store_val(pcb, anp, kind, pfp, 0);
+			pfp = NULL;
+		}
 	}
 }
 
