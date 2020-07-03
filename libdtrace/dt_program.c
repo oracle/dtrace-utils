@@ -25,10 +25,12 @@ dt_program_create(dtrace_hdl_t *dtp)
 {
 	dtrace_prog_t *pgp = dt_zalloc(dtp, sizeof (dtrace_prog_t));
 
-	if (pgp != NULL)
-		dt_list_append(&dtp->dt_programs, pgp);
-	else
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+	if (pgp == NULL) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
+	}
+
+	dt_list_append(&dtp->dt_programs, pgp);
 
 	/*
 	 * By default, programs start with DOF version 1 so that output files
