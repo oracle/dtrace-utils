@@ -51,16 +51,13 @@ typedef struct dtrace_repldesc {
 
 typedef struct dtrace_actdesc {
 	struct dtrace_difo *dtad_difo;		/* pointer to DIF object */
-	struct dtrace_actdesc *dtad_next;	/* next action */
 	dtrace_actkind_t dtad_kind;		/* kind of action */
 	uint32_t dtad_ntuple;			/* number in tuple */
 	uint64_t dtad_arg;			/* action argument */
 	uint64_t dtad_uarg;			/* user argument */
-	int dtad_refcnt;			/* reference count */
 } dtrace_actdesc_t;
 
 typedef struct dtrace_ecbdesc {
-	dtrace_actdesc_t *dted_action;		/* action description(s) */
 	dtrace_probedesc_t dted_probe;		/* probe description */
 	uint64_t dted_uarg;			/* library argument */
 	int dted_refcnt;			/* reference count */

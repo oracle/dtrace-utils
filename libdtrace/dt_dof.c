@@ -604,8 +604,12 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		if ((edp = sdp->dtsd_ecbdesc) == last)
 			continue; /* same ecb as previous statement */
 
+#ifdef FIXME
 		for (i = 0, ap = edp->dted_action; ap; ap = ap->dtad_next)
 			i++;
+#else
+		i = 0;
+#endif
 
 		maxacts = MAX(maxacts, i);
 	}
@@ -666,6 +670,7 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		    sizeof (dof_secidx_t), 0,
 		    sizeof (dof_probedesc_t), sizeof (dof_probedesc_t));
 
+#ifdef FIXME
 		/*
 		 * Now iterate through the action list generating DIFOs as
 		 * referenced therein and adding action descriptions to 'dofa'.
@@ -709,6 +714,9 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 			dofa[i].dofa_ntuple = ap->dtad_ntuple;
 			dofa[i].dofa_uarg = ap->dtad_uarg;
 		}
+#else
+		i = 0;
+#endif
 
 		if (i > 0) {
 			actsec = dof_add_lsect(ddo, dofa, DOF_SECT_ACTDESC,

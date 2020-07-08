@@ -68,7 +68,6 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_proginfo_t *pip)
 {
 	dt_stmt_t *stp;
-	dtrace_actdesc_t *ap;
 	dtrace_ecbdesc_t *last = NULL;
 
 	if (pip == NULL)
@@ -85,7 +84,8 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	}
 
 	for (stp = dt_list_next(&pgp->dp_stmts); stp; stp = dt_list_next(stp)) {
-		dtrace_ecbdesc_t *edp = stp->ds_desc->dtsd_ecbdesc;
+		dtrace_ecbdesc_t	*edp = stp->ds_desc->dtsd_ecbdesc;
+		dtrace_datadesc_t	*ddp = stp->ds_desc->dtsd_ddesc;
 
 		if (edp == last)
 			continue;
@@ -101,9 +101,12 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 		 * If there aren't any actions, account for the fact that
 		 * recording the epid will generate a record.
 		 */
-		if (edp->dted_action == NULL)
+		if (ddp->dtdd_nrecs == 0)
 			pip->dpi_recgens++;
+		else
+			pip->dpi_recgens += ddp->dtdd_nrecs;
 
+#if 0
 		for (ap = edp->dted_action; ap != NULL; ap = ap->dtad_next) {
 			if (ap->dtad_kind == DTRACEACT_SPECULATE) {
 				pip->dpi_speculations++;
@@ -127,6 +130,7 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 			pip->dpi_recgens++;
 		}
+#endif
 	}
 }
 
@@ -199,7 +203,6 @@ dt_ecbdesc_release(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 	if (--edp->dted_refcnt > 0)
 		return;
 
-	assert(edp->dted_action == NULL);
 	dt_free(dtp, edp);
 }
 
@@ -246,36 +249,17 @@ dtrace_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 dtrace_actdesc_t *
 dtrace_stmt_action(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 {
-	dtrace_actdesc_t *new;
-	dtrace_ecbdesc_t *edp = sdp->dtsd_ecbdesc;
+	dtrace_actdesc_t	*new;
 
-	if ((new = dt_alloc(dtp, sizeof (dtrace_actdesc_t))) == NULL)
-		return (NULL);
+	if ((new = dt_alloc(dtp, sizeof(dtrace_actdesc_t))) == NULL)
+		return NULL;
 
-	if (sdp->dtsd_action_last != NULL) {
-		assert(sdp->dtsd_action != NULL);
-		assert(sdp->dtsd_action_last->dtad_next == NULL);
-		sdp->dtsd_action_last->dtad_next = new;
-	} else {
-		dtrace_actdesc_t *ap = edp->dted_action;
+	sdp->dtsd_action = new;
 
-		assert(sdp->dtsd_action == NULL);
-		sdp->dtsd_action = new;
-
-		while (ap != NULL && ap->dtad_next != NULL)
-			ap = ap->dtad_next;
-
-		if (ap == NULL)
-			edp->dted_action = new;
-		else
-			ap->dtad_next = new;
-	}
-
-	sdp->dtsd_action_last = new;
 	memset(new, 0, sizeof (dtrace_actdesc_t));
 	new->dtad_uarg = (uintptr_t)sdp;
 
-	return (new);
+	return new;
 }
 
 int
@@ -311,45 +295,13 @@ dtrace_stmt_iter(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 void
 dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 {
-	dtrace_ecbdesc_t *edp = sdp->dtsd_ecbdesc;
-
 	/*
 	 * We need to remove any actions that we have on this ECB, and
 	 * remove our hold on the ECB itself.
 	 */
 	if (sdp->dtsd_action != NULL) {
-		dtrace_actdesc_t *last = sdp->dtsd_action_last;
-		dtrace_actdesc_t *ap, *next;
-
-		assert(last != NULL);
-
-		for (ap = edp->dted_action; ap != NULL; ap = ap->dtad_next) {
-			if (ap == sdp->dtsd_action)
-				break;
-
-			if (ap->dtad_next == sdp->dtsd_action)
-				break;
-		}
-
-		assert(ap != NULL);
-
-		if (ap == edp->dted_action)
-			edp->dted_action = last->dtad_next;
-		else
-			ap->dtad_next = last->dtad_next;
-
-		/*
-		 * We have now removed our action list from its ECB; we can
-		 * safely destroy the list.
-		 */
-		last->dtad_next = NULL;
-
-		for (ap = sdp->dtsd_action; ap != NULL; ap = next) {
-			assert(ap->dtad_uarg == (uintptr_t)sdp);
-			dt_difo_free(dtp, ap->dtad_difo);
-			next = ap->dtad_next;
-			dt_free(dtp, ap);
-		}
+		dt_difo_free(dtp, sdp->dtsd_action->dtad_difo);
+		dt_free(dtp, sdp->dtsd_action);
 	}
 
 	if (sdp->dtsd_fmtdata != NULL)

@@ -803,9 +803,9 @@ static int
 dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
     void *data)
 {
-	dt_dis_iter_t *d = data;
-	dtrace_actdesc_t *ap = sdp->dtsd_action;
-	const char *fmt = NULL;
+	dt_dis_iter_t		*d = data;
+	dtrace_actdesc_t	*ap = sdp->dtsd_action;
+	const char		*fmt = NULL;
 
 	if (ap == NULL)
 		return 0;
@@ -823,14 +823,7 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		fmt = pfv->pfv_format;
 	}
 
-	while (ap) {
-		dt_dis_action(ap, d->fp, fmt);
-
-		if (ap == sdp->dtsd_action_last)
-			break;
-
-		ap = ap->dtad_next;
-	}
+	dt_dis_action(ap, d->fp, fmt);
 
 	return 0;
 }

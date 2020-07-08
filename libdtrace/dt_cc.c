@@ -171,6 +171,7 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 	int speculate = 0;
 	int datarec = 0;
 
+#ifdef FIXME
 	/*
 	 * Make sure that the new statement jibes with the rest of the ECB.
 	 */
@@ -260,6 +261,7 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 		if (!speculate)
 			datarec = 1;
 	}
+#endif
 
 	/*
 	 * Finalize the probe data description for the statement.
