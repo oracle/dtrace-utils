@@ -637,7 +637,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	    stp != NULL; stp = dt_list_next(stp), last = edp) {
 
 		dof_secidx_t probesec = DOF_SECIDX_NONE;
-		dof_secidx_t prdsec = DOF_SECIDX_NONE;
 		dof_secidx_t actsec = DOF_SECIDX_NONE;
 
 		const dt_stmt_t *next = stp;
@@ -666,13 +665,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		probesec = dof_add_lsect(ddo, &dofp, DOF_SECT_PROBEDESC,
 		    sizeof (dof_secidx_t), 0,
 		    sizeof (dof_probedesc_t), sizeof (dof_probedesc_t));
-
-		/*
-		 * If there is a predicate DIFO associated with the ecbdesc,
-		 * write out the DIFO sections and save the DIFO section index.
-		 */
-		if (edp->dted_pred.dtpdd_difo != NULL)
-			prdsec = dof_add_difo(ddo, edp->dted_pred.dtpdd_difo);
 
 		/*
 		 * Now iterate through the action list generating DIFOs as
@@ -729,7 +721,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		 * previously created sub-sections.
 		 */
 		dofe.dofe_probes = probesec;
-		dofe.dofe_pred = prdsec;
 		dofe.dofe_actions = actsec;
 		dofe.dofe_pad = 0;
 		dofe.dofe_uarg = edp->dted_uarg;

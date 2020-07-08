@@ -92,7 +92,6 @@ typedef struct dof_sec {
 
 typedef struct dof_ecbdesc {
 	dof_secidx_t dofe_probes;	/* link to DOF_SECT_PROBEDESC */
-	dof_secidx_t dofe_pred;		/* link to DOF_SECT_DIFOHDR */
 	dof_secidx_t dofe_actions;	/* link to DOF_SECT_ACTDESC */
 	uint32_t dofe_pad;		/* reserved for future use */
 	uint64_t dofe_uarg;		/* user-supplied library argument */

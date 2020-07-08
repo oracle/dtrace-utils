@@ -17,7 +17,6 @@
 
 struct dtrace_probedesc;
 struct dtrace_repldesc;
-struct dtrace_preddesc;
 struct dtrace_actdesc;
 struct dtrace_ecbdesc;
 

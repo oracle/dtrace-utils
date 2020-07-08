@@ -36,8 +36,6 @@
  * conduit.
  */
 
-struct dtrace_predicate;
-
 typedef struct dtrace_probedesc {
 	dtrace_id_t	id;			/* probe identifier */
 	const char	*prv;			/* probe provider name */
@@ -51,11 +49,6 @@ typedef struct dtrace_repldesc {
 	dtrace_probedesc_t dtrpd_create;	/* probe descr. to create */
 } dtrace_repldesc_t;
 
-typedef struct dtrace_preddesc {
-	struct dtrace_difo *dtpdd_difo;		/* pointer to DIF object */
-	struct dtrace_predicate *dtpdd_predicate; /* pointer to predicate */
-} dtrace_preddesc_t;
-
 typedef struct dtrace_actdesc {
 	struct dtrace_difo *dtad_difo;		/* pointer to DIF object */
 	struct dtrace_actdesc *dtad_next;	/* next action */
@@ -68,7 +61,6 @@ typedef struct dtrace_actdesc {
 
 typedef struct dtrace_ecbdesc {
 	dtrace_actdesc_t *dted_action;		/* action description(s) */
-	dtrace_preddesc_t dted_pred;		/* predicate description */
 	dtrace_probedesc_t dted_probe;		/* probe description */
 	uint64_t dted_uarg;			/* library argument */
 	int dted_refcnt;			/* reference count */

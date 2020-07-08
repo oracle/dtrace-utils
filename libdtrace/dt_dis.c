@@ -793,21 +793,6 @@ dt_dis_action(const dtrace_actdesc_t *ap, FILE *fp, const char *fmt)
 	dt_dis_difo(dp, fp);
 }
 
-static void
-dt_dis_pred(const dtrace_preddesc_t *predp, FILE *fp)
-{
-	dtrace_difo_t *dp = predp->dtpdd_difo;
-	char type[DT_TYPE_NAMELEN];
-
-	if (dp == NULL)
-		return;
-
-	fprintf(fp, "\nPredicate DIFO %p returns %s\n", (void *)dp,
-	    dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
-
-	dt_dis_difo(dp, fp);
-}
-
 typedef struct dt_dis_iter
 {
 	FILE *fp;
@@ -819,11 +804,10 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
     void *data)
 {
 	dt_dis_iter_t *d = data;
-	dtrace_preddesc_t *predp = &sdp->dtsd_ecbdesc->dted_pred;
 	dtrace_actdesc_t *ap = sdp->dtsd_action;
 	const char *fmt = NULL;
 
-	if (predp == NULL && ap == NULL)
+	if (ap == NULL)
 		return 0;
 
 	if (d->last_ecb != sdp->dtsd_ecbdesc) {
@@ -838,8 +822,6 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		dt_pfargv_t *pfv = sdp->dtsd_fmtdata;
 		fmt = pfv->pfv_format;
 	}
-
-	dt_dis_pred(predp, d->fp);
 
 	while (ap) {
 		dt_dis_action(ap, d->fp, fmt);

@@ -199,7 +199,6 @@ dt_ecbdesc_release(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 	if (--edp->dted_refcnt > 0)
 		return;
 
-	dt_difo_free(dtp, edp->dted_pred.dtpdd_difo);
 	assert(edp->dted_action == NULL);
 	dt_free(dtp, edp);
 }
