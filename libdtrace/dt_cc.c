@@ -1127,17 +1127,6 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 }
 #endif
 
-static void
-dt_compile_entire_clause(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
-{
-	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-
-	dt_cg(yypcb, dnp);
-	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_difo->dtdo_rtype = dt_int_rtype;
-	ap->dtad_kind = DTRACEACT_DIFEXPR;
-}
-
 #ifdef FIXME
 static void
 dt_compile_exp(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
@@ -1605,12 +1594,13 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 static void
 dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 {
-	dtrace_ecbdesc_t *edp;
-	dtrace_stmtdesc_t *sdp;
+	dtrace_ecbdesc_t	*edp;
+	dtrace_stmtdesc_t	*sdp;
+	dtrace_actdesc_t	*ap;
 
 	yylineno = pnp->dn_line;
 	dt_setcontext(dtp, pnp->dn_desc);
-	(void) dt_node_cook(cnp, DT_IDFLG_REF);
+	dt_node_cook(cnp, DT_IDFLG_REF);
 
 	if (DT_TREEDUMP_PASS(dtp, 2)) {
 		fprintf(stderr, "Parse tree (Pass 2):\n");
@@ -1625,7 +1615,13 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 
 	assert(yypcb->pcb_stmt == NULL);
 	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
-	dt_compile_entire_clause(dtp, cnp, sdp);
+	ap = dt_stmt_action(dtp, sdp);
+
+	dt_cg(yypcb, cnp);
+	ap->dtad_difo = dt_as(yypcb);
+	ap->dtad_difo->dtdo_rtype = dt_int_rtype;
+	ap->dtad_kind = DTRACEACT_DIFEXPR;
+
 	assert(yypcb->pcb_stmt == sdp);
 	dt_stmt_append(sdp, cnp);
 
