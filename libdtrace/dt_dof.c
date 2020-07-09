@@ -585,6 +585,7 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	if (dt_dof_reset(dtp, pgp) != 0)
 		return (NULL);
 
+#ifdef FIXME
 	/*
 	 * Iterate through the statement list computing the maximum number of
 	 * actions and the maximum format string for allocating local buffers.
@@ -604,15 +605,13 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		if ((edp = sdp->dtsd_ecbdesc) == last)
 			continue; /* same ecb as previous statement */
 
-#ifdef FIXME
 		for (i = 0, ap = edp->dted_action; ap; ap = ap->dtad_next)
 			i++;
-#else
 		i = 0;
-#endif
 
 		maxacts = MAX(maxacts, i);
 	}
+#endif
 
 	dofa = alloca(sizeof (dof_actdesc_t) * maxacts);
 	fmt = alloca(maxfmt + 1);

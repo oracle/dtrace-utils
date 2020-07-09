@@ -140,17 +140,6 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	return (sdp);
 }
 
-static dtrace_actdesc_t *
-dt_stmt_action(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
-{
-	dtrace_actdesc_t *new;
-
-	if ((new = dtrace_stmt_action(dtp, sdp)) == NULL)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-
-	return (new);
-}
-
 /*
  * Utility function to determine if a given action description is destructive.
  * The dtdo_destructive bit is set for us by the DIF assembler (see dt_as.c).
@@ -1591,12 +1580,35 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 }
 #endif
 
+static dt_ident_t *
+dt_clause_create(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
+{
+	char		*name;
+	int		len;
+	dt_ident_t	*idp;
+
+	len = snprintf(NULL, 0, "dt_clause_%d", dtp->dt_clause_nextid) + 1;
+	name = dt_alloc(dtp, len);
+	if (name == NULL)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	snprintf(name, len, "dt_clause_%d", dtp->dt_clause_nextid++);
+
+	idp = dt_dlib_add_func(dtp, name);
+	dt_free(dtp, name);
+	if (idp == NULL)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	dt_ident_set_data(idp, dp);
+
+	return idp;
+}
+
 static void
 dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 {
 	dtrace_ecbdesc_t	*edp;
 	dtrace_stmtdesc_t	*sdp;
-	dtrace_actdesc_t	*ap;
 
 	yylineno = pnp->dn_line;
 	dt_setcontext(dtp, pnp->dn_desc);
@@ -1615,12 +1627,9 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 
 	assert(yypcb->pcb_stmt == NULL);
 	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
-	ap = dt_stmt_action(dtp, sdp);
 
 	dt_cg(yypcb, cnp);
-	ap->dtad_difo = dt_as(yypcb);
-	ap->dtad_difo->dtdo_rtype = dt_int_rtype;
-	ap->dtad_kind = DTRACEACT_DIFEXPR;
+	sdp->dtsd_clause = dt_clause_create(dtp, dt_as(yypcb));
 
 	assert(yypcb->pcb_stmt == sdp);
 	dt_stmt_append(sdp, cnp);
@@ -2339,7 +2348,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 {
 	uint_t		insc = 0;
 	uint_t		relc = 0;
-	dtrace_difo_t	*dp = sdp->dtsd_action->dtad_difo;
+	dtrace_difo_t	*dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
 	dtrace_difo_t	*fdp = NULL;
 	dt_strtab_t	*stab;
 	int		rc;

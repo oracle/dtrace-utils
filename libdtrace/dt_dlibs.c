@@ -124,7 +124,9 @@ dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind)
 	dt_ident_t	*idp;
 
 	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, DT_IDENT_UNDEF,
-			       dt_bpf_attr, DT_VERS_2_0, NULL, dtp, 0);
+			       dt_bpf_attr, DT_VERS_2_0,
+			       kind == DT_IDENT_SYMBOL ? &dt_idops_difo : NULL,
+			       dtp, 0);
 
 	return idp;
 }
@@ -145,7 +147,7 @@ dt_dlib_get_func(dtrace_hdl_t *dtp, const char *name)
 }
 
 /*
- * Add a BPF function.  Only external functions can be added.
+ * Add a BPF function.
  */
 dt_ident_t *
 dt_dlib_add_func(dtrace_hdl_t *dtp, const char *name)

@@ -246,22 +246,6 @@ dtrace_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 	return sdp;
 }
 
-dtrace_actdesc_t *
-dtrace_stmt_action(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
-{
-	dtrace_actdesc_t	*new;
-
-	if ((new = dt_alloc(dtp, sizeof(dtrace_actdesc_t))) == NULL)
-		return NULL;
-
-	sdp->dtsd_action = new;
-
-	memset(new, 0, sizeof (dtrace_actdesc_t));
-	new->dtad_uarg = (uintptr_t)sdp;
-
-	return new;
-}
-
 int
 dtrace_stmt_add(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp)
 {
@@ -295,15 +279,6 @@ dtrace_stmt_iter(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 void
 dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 {
-	/*
-	 * We need to remove any actions that we have on this ECB, and
-	 * remove our hold on the ECB itself.
-	 */
-	if (sdp->dtsd_action != NULL) {
-		dt_difo_free(dtp, sdp->dtsd_action->dtad_difo);
-		dt_free(dtp, sdp->dtsd_action);
-	}
-
 	if (sdp->dtsd_fmtdata != NULL)
 		dt_printf_destroy(sdp->dtsd_fmtdata);
 

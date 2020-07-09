@@ -697,102 +697,6 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		dt_dis_rtab("UREL", dp, fp, dp->dtdo_ureltab, dp->dtdo_urelen);
 }
 
-static void
-dt_dis_format_print(const char *act_name, const char *fmt, FILE *fp)
-{
-	fprintf(fp, "%s(), format string %s", act_name, fmt);
-	if (fmt[strlen (fmt)-1] != '\n')
-		fprintf(fp,"\n");
-}
-
-static void
-dt_dis_action(const dtrace_actdesc_t *ap, FILE *fp, const char *fmt)
-{
-	static const struct actent {
-		long act;
-		void (*act_print) (const char *act_name,
-		    const char *fmt, FILE *fp);
-		const char *act_name;
-	} actab[] = {
-		{ DTRACEACT_DIFEXPR, NULL, NULL },
-		{ DTRACEACT_EXIT, NULL, "exit()" },
-		{ DTRACEACT_PRINTF, dt_dis_format_print, "printf" },
-		{ DTRACEACT_PRINTA, dt_dis_format_print, "printa" },
-		{ DTRACEACT_LIBACT, NULL, "library-controlled" },
-		{ DTRACEACT_USTACK, NULL, "ustack()" },
-		{ DTRACEACT_JSTACK, NULL, "jstack()" },
-		{ DTRACEACT_USYM, NULL, "usym()" },
-		{ DTRACEACT_UMOD, NULL, "umod()" },
-		{ DTRACEACT_UADDR, NULL, "uaddr()" },
-		{ DTRACEACT_STOP, NULL, "stop()" },
-		{ DTRACEACT_RAISE, NULL, "raise()" },
-		{ DTRACEACT_SYSTEM, NULL, "system()" },
-		{ DTRACEACT_FREOPEN, NULL, "freopen()" },
-		{ DTRACEACT_STACK, NULL, "stack()" },
-		{ DTRACEACT_SYM, NULL, "sym()" },
-		{ DTRACEACT_MOD, NULL, "mod()" },
-		{ DTRACEACT_BREAKPOINT, NULL, "breakpoint()" },
-		{ DTRACEACT_PANIC, NULL, "panic()" },
-		{ DTRACEACT_CHILL, NULL, "chill()" },
-		{ DTRACEACT_SPECULATE, NULL, "speculate()" },
-		{ DTRACEACT_COMMIT, NULL, "commit()" },
-		{ DTRACEACT_DISCARD, NULL, "discard()" },
-		{ 0, NULL }
-	};
-
-	dtrace_difo_t *dp = ap->dtad_difo;
-	const struct actent *act = NULL;
-	char type[DT_TYPE_NAMELEN];
-	ulong_t i = 0;
-
-	/*
-	 * First, find the action (which may be NULL if it should not be
-	 * mentioned in the output).
-	 */
-	for (i = 0; actab[i].act != 0; i++) {
-		if (ap->dtad_kind == actab[i].act) {
-			act = &actab[i];
-			break;
-		}
-	}
-
-	if ((act != NULL) && (act->act_name == NULL))
-		act = NULL;
-
-	/*
-	 * There may be no DIFO at all, in which case just print the action.
-	 * (If there is no DIFO nor action name, just print nothing.)
-	 */
-	if (dp == NULL) {
-		if (act != NULL) {
-			fprintf(fp,"\nAction, without DIFO, ");
-			if (act->act_print != NULL)
-				act->act_print(act->act_name, fmt, fp);
-			else
-				fprintf(fp, "%s\n", act->act_name);
-		}
-		return;
-	} else if (act == NULL) {
-		if (dp->dtdo_reclen > 0)
-			fprintf(fp, "\nDIFO %p returns %s [record %d bytes]\n",
-				(void *)dp, dt_dis_typestr(&dp->dtdo_rtype,
-							   type, sizeof(type)),
-				dp->dtdo_reclen);
-		else
-			fprintf(fp, "\nDIFO %p returns %s\n", (void *)dp,
-				dt_dis_typestr(&dp->dtdo_rtype,
-					       type, sizeof (type)));
-	} else {
-		fprintf(fp, "\nDIFO %p returning %s for action ", (void *)dp,
-			dt_dis_typestr(&dp->dtdo_rtype, type, sizeof (type)));
-		if (act->act_print != NULL)
-			act->act_print(act->act_name, fmt, fp);
-		else
-			fprintf(fp, "%s\n", act->act_name);
-	}
-	dt_dis_difo(dp, fp);
-}
-
 typedef struct dt_dis_iter
 {
 	FILE *fp;
@@ -804,11 +708,6 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
     void *data)
 {
 	dt_dis_iter_t		*d = data;
-	dtrace_actdesc_t	*ap = sdp->dtsd_action;
-	const char		*fmt = NULL;
-
-	if (ap == NULL)
-		return 0;
 
 	if (d->last_ecb != sdp->dtsd_ecbdesc) {
 		dtrace_probedesc_t *pdp = &sdp->dtsd_ecbdesc->dted_probe;
@@ -818,12 +717,7 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		d->last_ecb = sdp->dtsd_ecbdesc;
 	}
 
-	if (sdp->dtsd_fmtdata != NULL) {
-		dt_pfargv_t *pfv = sdp->dtsd_fmtdata;
-		fmt = pfv->pfv_format;
-	}
-
-	dt_dis_action(ap, d->fp, fmt);
+	dt_dis_difo(dt_dlib_get_func_difo(dtp, sdp->dtsd_clause), d->fp);
 
 	return 0;
 }

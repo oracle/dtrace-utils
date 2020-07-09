@@ -133,7 +133,7 @@ extern void *dtrace_geterr_dof(dtrace_hdl_t *dtp);
 
 typedef struct dtrace_stmtdesc {
 	dtrace_ecbdesc_t *dtsd_ecbdesc;		/* ECB description */
-	dtrace_actdesc_t *dtsd_action;		/* action list */
+	struct dt_ident *dtsd_clause;		/* clause identifier */
 	dtrace_datadesc_t *dtsd_ddesc;		/* probe data description */
 	void *dtsd_aggdata;			/* aggregation data */
 	void *dtsd_fmtdata;			/* type-specific output data */
@@ -149,8 +149,6 @@ typedef int dtrace_stmt_f(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 extern dtrace_stmtdesc_t *dtrace_stmt_create(dtrace_hdl_t *dtp,
     dtrace_ecbdesc_t *edp);
-extern dtrace_actdesc_t *dtrace_stmt_action(dtrace_hdl_t *dtp,
-    dtrace_stmtdesc_t *sdp);
 extern int dtrace_stmt_add(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *sdp);
 extern int dtrace_stmt_iter(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,

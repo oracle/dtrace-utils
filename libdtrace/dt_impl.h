@@ -228,6 +228,7 @@ struct dtrace_hdl {
 	const char *dt_errtag;	/* tag used with last call to dt_set_errmsg() */
 	dt_pcb_t *dt_pcb;	/* pointer to current parsing control block */
 	ulong_t dt_gen;		/* compiler generation number */
+	uint_t dt_clause_nextid; /* next ID to use for programs */
 	dt_list_t dt_programs;	/* linked list of dtrace_prog_t's */
 	dt_list_t dt_xlators;	/* linked list of dt_xlator_t's */
 	struct dt_xlator **dt_xlatormap; /* dt_xlator_t's indexed by dx_id */
@@ -273,7 +274,7 @@ struct dtrace_hdl {
 	/*
 	 * Array of all known probes, to facilitate probe lookup by probe id.
 	 */
-	struct dt_probe **dt_probes;	/* array of probes */
+	struct dt_probe **dt_probes; /* array of probes */
 	uint32_t dt_probes_sz;	/* size of array of probes */
 	uint32_t dt_probe_id;	/* next available probe id */
 
@@ -753,6 +754,7 @@ extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
 extern void dt_dlib_init(dtrace_hdl_t *dtp);
+extern dt_ident_t *dt_dlib_add_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);

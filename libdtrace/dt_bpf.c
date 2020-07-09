@@ -262,11 +262,12 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 {
 	struct bpf_load_program_attr	attr;
 	dtrace_epid_t			epid;
-	const dtrace_difo_t		*dp = sdp->dtsd_action->dtad_difo;
+	const dtrace_difo_t		*dp;
 	int				logsz = BPF_LOG_BUF_SIZE;
 	char				*log;
 	int				rc;
 
+	dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
 	epid = dt_epid_add(dtp, sdp->dtsd_ddesc, prp->desc->id);
 
 	/*
