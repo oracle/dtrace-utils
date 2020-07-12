@@ -960,14 +960,14 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 
 /*ARGSUSED*/
 static int
-dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
+dt_probe_first_match(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_probe_t **prpp)
 {
-	if (((dtrace_probedesc_t *)arg)->id == DTRACE_IDNONE) {
-		memcpy(arg, pdp, sizeof (dtrace_probedesc_t));
-		return (0);
+	if (*prpp == NULL) {
+		*prpp = prp;
+		return 0;
 	}
 
-	return (1);
+	return 1;
 }
 
 dt_probe_t *
@@ -982,24 +982,20 @@ dt_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	dt_probe_t *prp = NULL;
 	const dtrace_pattr_t *pap;
 	dt_provider_t *pvp;
-	dtrace_probedesc_t pd;
 	int m;
 
-	memset(&pd, 0, sizeof (pd));
-	pd.id = DTRACE_IDNONE;
-
 	/*
-	 * Call dtrace_probe_iter() to find matching probes.  Our
-	 * dt_probe_desc() callback will produce the following results:
+	 * Call dt_probe_iter() to find matching probes.  Our
+	 * dt_probe_first_match() callback will produce the following results:
 	 *
-	 * m < 0 dtrace_probe_iter() found zero matches (or failed).
-	 * m > 0 dtrace_probe_iter() found more than one match.
-	 * m = 0 dtrace_probe_iter() found exactly one match.
+	 * m < 0 dt_probe_iter() found zero matches (or failed).
+	 * m > 0 dt_probe_iter() found more than one match.
+	 * m = 0 dt_probe_iter() found exactly one match.
 	 */
-	if ((m = dtrace_probe_iter(dtp, pdp, dt_probe_desc, &pd)) < 0)
+	if ((m = dt_probe_iter(dtp, pdp, (dt_probe_f *)dt_probe_first_match, NULL, &prp)) < 0)
 		return NULL; /* dt_errno is set for us */
 
-	if ((pvp = dt_provider_lookup(dtp, pd.prv)) == NULL)
+	if ((pvp = prp->prov) == NULL)
 		return NULL; /* dt_errno is set for us */
 
 	/*
@@ -1042,10 +1038,6 @@ dt_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 			return NULL;
 		}
 	}
-
-	prp = dt_probe_lookup(dtp, &pd);
-	if (!prp)
-		return NULL; /* dt_errno is set for us */
 
 	/*
 	 * Compute the probe description attributes by taking the minimum of
