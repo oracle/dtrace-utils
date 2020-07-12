@@ -1082,6 +1082,7 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	dtrace_probedesc_t	desc;
 	dt_probe_t		tmpl;
 	dt_probe_t		*prp;
+	dt_provider_t		*pvp;
 	int			i;
 	int			p_is_glob, m_is_glob, f_is_glob, n_is_glob;
 	int			rv = 0;
@@ -1140,6 +1141,19 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	n_is_glob = pdp->prb[0] == '\0' || strisglob(pdp->prb);
 
 	tmpl.desc = pdp;
+
+	/*
+	 * Loop over providers, allowing them to provide these probes.
+	 */
+	for (pvp = dt_list_next(&dtp->dt_provlist); pvp != NULL;
+	     pvp = dt_list_next(pvp)) {
+		if (pvp->impl->provide == NULL ||
+		    !dt_gmatch(pvp->desc.dtvd_name, pdp->prv))
+			continue;
+		memcpy(&desc, pdp, sizeof(desc));
+		desc.prv = pvp->desc.dtvd_name;
+		pvp->impl->provide(dtp, &desc);
+	}
 
 	/*
 	 * Special case: if the probe is fully specified (none of the elements

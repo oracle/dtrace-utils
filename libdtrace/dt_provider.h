@@ -59,6 +59,8 @@ typedef struct dt_provimpl {
 	const char *name;			/* provider generic name */
 	int prog_type;				/* BPF program type */
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
+	int (*provide)(dtrace_hdl_t *dtp,	/* provide probes */
+		       const dtrace_probedesc_t *pdp);
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
 			  const struct dt_probe *prp,
 			  int *idp, int *argcp, dt_argdesc_t **argvp);
