@@ -81,14 +81,18 @@ ZAPTHESE=
 #
 # Run command CMD with argument ARGS, with the specified timeout.
 # Return the exitcode of the command, or $TIMEOUTRET if a timeout occurred.
+# Also send a KILL signal if the command is still running TIMEOUTKIL seconds
+# after the initial signal is sent, but start with TIMEOUTSIG so that DTrace
+# can perform an orderly shutdown, if possible.
 
-TIMEOUTSIG=KILL
+TIMEOUTSIG=TERM
 TIMEOUTRET=124
+TIMEOUTKIL=5
 
 run_with_timeout()
 {
     log "Running timeout --signal=$TIMEOUTSIG $@ ${explicit_arg:+"$explicit_arg"}\n"
-    timeout --signal=$TIMEOUTSIG $@ ${explicit_arg:+"$explicit_arg"}
+    timeout --signal=$TIMEOUTSIG --kill-after=$TIMEOUTKIL $@ ${explicit_arg:+"$explicit_arg"}
     local status=$?
 
     # short wait to allow any coredump to trickle out to disk.
