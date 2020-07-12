@@ -17,7 +17,7 @@ dtrace=$1
 UPROBE_EVENTS=/sys/kernel/debug/tracing/uprobe_events
 
 out=/tmp/output.$$
-$dtrace $dt_flags -n BEGIN -n END &>> $out &
+$dtrace $dt_flags -n BEGIN,END &>> $out &
 pid=$!
 
 tail -F $out | awk '/matched [1-9] probe/ { exit; }'
