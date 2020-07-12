@@ -1377,10 +1377,18 @@ main(int argc, char *argv[])
 		if (g_ofile != NULL && (g_ofp = fopen(g_ofile, "a")) == NULL)
 			fatal("failed to open output file '%s'", g_ofile);
 
+		sigemptyset(&act.sa_mask);
+		act.sa_flags = 0;
+		act.sa_handler = intr;
+		if (sigaction(SIGINT, NULL, &oact) == 0 && oact.sa_handler != SIG_IGN)
+			sigaction(SIGINT, &act, NULL);
+		if (sigaction(SIGTERM, NULL, &oact) == 0 && oact.sa_handler != SIG_IGN)
+			sigaction(SIGTERM, &act, NULL);
+
 		for (i = 0; i < g_cmdc; i++)
 			exec_prog(&g_cmdv[i]);
 
-		if (done) {
+		if (done || g_intr) {
 			dtrace_close(g_dtp);
 			return (g_status);
 		}
@@ -1484,6 +1492,8 @@ main(int argc, char *argv[])
 	/*
 	 * Start tracing.
 	 */
+	if (g_intr)
+		goto out;
 	go();
 
 	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
@@ -1496,16 +1506,6 @@ main(int argc, char *argv[])
 	if (opt != DTRACEOPT_UNSET)
 		notice("allowing destructive actions\n");
 
-	(void) sigemptyset(&act.sa_mask);
-	act.sa_flags = 0;
-	act.sa_handler = intr;
-
-	if (sigaction(SIGINT, NULL, &oact) == 0 && oact.sa_handler != SIG_IGN)
-		(void) sigaction(SIGINT, &act, NULL);
-
-	if (sigaction(SIGTERM, NULL, &oact) == 0 && oact.sa_handler != SIG_IGN)
-		(void) sigaction(SIGTERM, &act, NULL);
-
 	/*
 	 * Now that tracing is active and we are ready to consume trace data,
 	 * continue any grabbed or created processes, setting them running
@@ -1513,6 +1513,8 @@ main(int argc, char *argv[])
 	 */
 	for (i = 0; i < g_psc; i++)
 		dtrace_proc_continue(g_dtp, g_psv[i]);
+	if (g_intr)
+		goto release_procs;
 
 	g_pslive = g_psc; /* count for prochandler() */
 
@@ -1562,9 +1564,11 @@ main(int argc, char *argv[])
 	}
 #endif
 
+release_procs:
 	for (i = 0; i < g_psc; i++)
 		dtrace_proc_release(g_dtp, g_psv[i]);
 
+out:
 	dtrace_close(g_dtp);
 
 	free(g_argv);
