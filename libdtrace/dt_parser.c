@@ -458,6 +458,9 @@ dt_node_name(const dt_node_t *dnp, char *buf, size_t len)
 	case DT_NODE_PROG:
 		(void) snprintf(buf, len, "%s", "program");
 		break;
+	case DT_NODE_TRAMPOLINE:
+		(void) snprintf(buf, len, "%s", "trampoline");
+		break;
 	default:
 		(void) snprintf(buf, len, "node <%u>", dnp->dn_kind);
 		break;
@@ -2538,6 +2541,14 @@ dt_node_program(dt_node_t *lnp)
 	return (dnp);
 }
 
+dt_node_t *
+dt_node_trampoline(dt_ident_t *idp)
+{
+	dt_node_t *dnp = dt_node_alloc(DT_NODE_TRAMPOLINE);
+	dnp->dn_ident = idp;
+	return dnp;
+}
+
 /*
  * This function provides the underlying implementation of cooking an
  * identifier given its node, a hash of dynamic identifiers, an identifier
@@ -4414,7 +4425,8 @@ static dt_node_t *(*dt_cook_funcs[])(dt_node_t *, uint_t) = {
 	dt_cook_xlator,		/* DT_NODE_XLATOR */
 	dt_cook_none,		/* DT_NODE_PROBE */
 	dt_cook_provider,	/* DT_NODE_PROVIDER */
-	dt_cook_none		/* DT_NODE_PROG */
+	dt_cook_none,		/* DT_NODE_PROG */
+	dt_cook_none		/* DT_NODE_TRAMPOLINE */
 };
 
 /*
@@ -4754,6 +4766,10 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 		(void) fprintf(fp, "PROGRAM attr=%s\n", a);
 		for (arg = dnp->dn_list; arg != NULL; arg = arg->dn_list)
 			dt_node_printr(arg, fp, depth + 1);
+		break;
+
+	case DT_NODE_TRAMPOLINE:
+		(void) fprintf(fp, "TRAMPOLINE %s\n", dnp->dn_ident->di_name);
 		break;
 
 	default:

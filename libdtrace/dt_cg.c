@@ -112,10 +112,9 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 }
 
 void
-dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
+dt_cg_tramp_epilogue(dt_pcb_t *pcb, const dt_ident_t *prog, uint_t lbl_exit)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_ident_t	*prog = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
 	struct bpf_insn	instr;
 
 	assert(prog != NULL);
@@ -2918,27 +2917,33 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
-		dt_ident_t	*prog;
 		dt_irlist_t	*dlp = &pcb->pcb_ir;
-		dt_irnode_t	*last_insn;
-		uint_t		lbl_prog;
 
-		/*
-		 * We have a special BPF function identifier: dt_program.  It
-		 * is handled as an identifier (and will have relocations
-		 * generated for it) but it is actually generated as part of
-		 * the instruction list that also holds the provider trampoline
-		 * (which is the main BPF program entry point).
-		 *
-		 * We allocate a label for the first instruction in dt_program
-		 * so that we can track the final instruction offset for this
-		 * functions when we assemble the final program.
-		 */
-		prog = dt_dlib_get_func(pcb->pcb_hdl, "dt_program");
-		assert(prog != NULL);
-		lbl_prog = dt_irlist_label(dlp);
-		dt_ident_set_id(prog, lbl_prog);
+		dt_cg_prologue(pcb, dnp->dn_pred);
 
+		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
+			pcb->pcb_dret = act->dn_expr;
+
+			if (act->dn_kind == DT_NODE_DFUNC) {
+				const dt_cg_actdesc_t	*actdp;
+				dt_ident_t		*idp;
+
+				idp = act->dn_expr->dn_ident;
+				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
+				if (actdp->fun)
+					actdp->fun(pcb, act->dn_expr,
+						   actdp->kind);
+			} else {
+				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
+					   pcb->pcb_regs);
+				assert (pcb->pcb_dret->dn_reg != -1);
+				dt_regset_free(pcb->pcb_regs,
+					       pcb->pcb_dret->dn_reg);
+			}
+		}
+
+		dt_cg_epilogue(pcb);
+	} else if (dnp->dn_kind == DT_NODE_TRAMPOLINE) {
 		/*
 		 * If we have a representative probe with a provider that
 		 * implements trampoline generation, we invoke the generator
@@ -2962,7 +2967,8 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 					pcb->pcb_probe->desc->fun,
 					pcb->pcb_probe->desc->prb);
 
-			pcb->pcb_probe->prov->impl->trampoline(pcb);
+			pcb->pcb_probe->prov->impl->trampoline(pcb,
+							       dnp->dn_ident);
 		}
 		/*
 		 * FIXME: We should be able to handle this somehow or avoid
@@ -2974,47 +2980,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 				"representative probe\n",
 				pcb->pcb_pdesc->prv, pcb->pcb_pdesc->mod,
 				pcb->pcb_pdesc->fun, pcb->pcb_pdesc->prb);
-
-		/*
-		 * We keep track of the last instruction added to the
-		 * instruction list so we can place a label on the first
-		 * instruction of the prologue *after* it has been generated.
-		 * The first instruction of the prologue will be the one
-		 * following the recorded instruction.
-		 *
-		 * We know that the generated instructions will not place a
-		 * label on the very first instruction, so this is safe.
-		 */
-		last_insn = dlp->dl_last;
-		dt_cg_prologue(pcb, dnp->dn_pred);
-		last_insn->di_next->di_label = lbl_prog;
-		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
-			pcb->pcb_dret = act->dn_expr;
-
-			if (act->dn_kind == DT_NODE_DFUNC) {
-				const dt_cg_actdesc_t	*actdp;
-				dt_ident_t		*idp;
-
-				idp = act->dn_expr->dn_ident;
-				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
-				if (actdp->fun)
-					actdp->fun(pcb, act->dn_expr,
-						   actdp->kind);
-			} else {
-				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
-					   pcb->pcb_regs);
-				assert (pcb->pcb_dret->dn_reg != -1);
-				dt_regset_free(pcb->pcb_regs,
-					       pcb->pcb_dret->dn_reg);
-			}
-		}
-		dt_cg_epilogue(pcb);
-	} else if (dnp->dn_kind == DT_NODE_PREDICATE) {
-		dt_cg_node(dnp->dn_pred, &pcb->pcb_ir, pcb->pcb_regs);
-		instr = BPF_RETURN();
-		dt_irlist_append(&pcb->pcb_ir,
-				 dt_cg_node_alloc(DT_LBL_NONE, instr));
-		pcb->pcb_dret = dnp->dn_pred;
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 

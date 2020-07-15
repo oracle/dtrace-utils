@@ -1609,6 +1609,8 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 {
 	dtrace_ecbdesc_t	*edp;
 	dtrace_stmtdesc_t	*sdp;
+	dt_ident_t		*idp;
+	dt_node_t		*tnp;
 
 	yylineno = pnp->dn_line;
 	dt_setcontext(dtp, pnp->dn_desc);
@@ -1628,7 +1630,22 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	assert(yypcb->pcb_stmt == NULL);
 	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
 
+	/*
+	 * Compile the clause (predicate and action).
+	 */
 	dt_cg(yypcb, cnp);
+	idp = dt_clause_create(dtp, dt_as(yypcb));
+
+	if (yypcb->pcb_cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
+		dt_dis_difo(dt_dlib_get_func_difo(dtp, idp), stderr);
+
+	/*
+	 * Generate the trampoline program.
+	 */
+	tnp = dt_node_trampoline(idp);
+	dt_node_type_assign(tnp, dtp->dt_ints[0].did_ctfp,
+				 dtp->dt_ints[0].did_type);
+	dt_cg(yypcb, tnp);
 	sdp->dtsd_clause = dt_clause_create(dtp, dt_as(yypcb));
 
 	assert(yypcb->pcb_stmt == sdp);
@@ -2460,9 +2477,6 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 			argc, argv, NULL, s);
 	if (rv == NULL)
 		return NULL;
-
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
-		dt_dis_program(dtp, rv, stderr);
 
 	if (dt_link(dtp, rv) != 0) {
 		dt_program_destroy(dtp, rv);
