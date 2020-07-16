@@ -2206,15 +2206,16 @@ out:
 }
 
 static int
-dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
-	       uint_t *relc)
+dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
+	       uint_t *rcp, uint_t *vcp)
 {
-	uint_t			pc = *insc;
+	uint_t			pc = *pcp;
 	uint_t			len = dp->dtdo_brelen;
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
 
-	(*insc) += dp->dtdo_len;
-	(*relc) += len;
+	(*pcp) += dp->dtdo_len;
+	(*rcp) += len;
+	(*vcp) += dp->dtdo_varlen;
 	for (; len != 0; len--, rp++) {
 		char            *name = &dp->dtdo_strtab[rp->dofr_name];
 		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
@@ -2231,7 +2232,7 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
 		rdp = dt_dlib_get_func_difo(dtp, idp);
 		if (rdp == NULL)
 			return -1;
-		ipc = dt_link_layout(dtp, rdp, insc, relc);
+		ipc = dt_link_layout(dtp, rdp, pcp, rcp, vcp);
 		if (ipc == -1)
 			return -1;
 		idp->di_id = ipc;
@@ -2243,12 +2244,14 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *insc,
 static int
 dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
-		  uint_t *pcp, uint_t *rcp)
+		  uint_t *pcp, uint_t *rcp, uint_t *vcp)
 {
 	uint_t			pc = *pcp;
 	uint_t			rc = *rcp;
+	uint_t			vc = *vcp;
 	uint_t			vlen = sdp->dtdo_varlen;
 	dtrace_difv_t		*vp = sdp->dtdo_vartab;
+	dtrace_difv_t		*nvp = &dp->dtdo_vartab[vc];
 	uint_t			len = sdp->dtdo_brelen;
 	const dof_relodesc_t	*rp = sdp->dtdo_breltab;
 	dof_relodesc_t		*nrp = &dp->dtdo_breltab[rc];
@@ -2260,18 +2263,22 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 	 * index).
 	 */
 	assert(pc + sdp->dtdo_len <= dp->dtdo_len);
+	(*pcp) += sdp->dtdo_len;
 	memcpy(dp->dtdo_buf + pc, sdp->dtdo_buf,
 		sdp->dtdo_len * sizeof(struct bpf_insn));
-	(*pcp) += sdp->dtdo_len;
 
 	/*
 	 * Populate the (new) string table with any variable names for this
 	 * DIFO.
 	 */
-	for (; vlen != 0; vlen--, vp++) {
+	(*vcp) += vlen;
+	for (; vlen != 0; vlen--, vp++, nvp++) {
 		const char	*name = &sdp->dtdo_strtab[vp->dtdv_name];
 
-		vp->dtdv_name = dt_strtab_insert(stab, name);
+		*nvp = *vp;
+		nvp->dtdv_name = dt_strtab_insert(stab, name);
+		nvp->dtdv_insn_from += pc;
+		nvp->dtdv_insn_to += pc;
 	}
 
 	/*
@@ -2322,7 +2329,7 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 		rdp = dt_dlib_get_func_difo(dtp, idp);
 		if (rdp == NULL)
 			return -1;
-		ipc = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp);
+		ipc = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp, vcp);
 		if (ipc == -1)
 			return -1;
 		idp->di_id = ipc;
@@ -2365,6 +2372,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 {
 	uint_t		insc = 0;
 	uint_t		relc = 0;
+	uint_t		varc = 0;
 	dtrace_difo_t	*dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
 	dtrace_difo_t	*fdp = NULL;
 	dt_strtab_t	*stab;
@@ -2372,9 +2380,9 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 
 	/*
 	 * Determine the layout of the final (linked) DIFO, and calculate the
-	 * total isntruction and relocation record counts..
+	 * total instruction, relocation record, and variable table counts.
 	 */
-	rc = dt_link_layout(dtp, dp, &insc, &relc);
+	rc = dt_link_layout(dtp, dp, &insc, &relc, &varc);
 	dt_dlib_reset(dtp, B_TRUE);
 	if (rc == -1)
 		goto fail;
@@ -2396,29 +2404,37 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 			goto nomem;
 	}
 	fdp->dtdo_brelen = relc;
+	if (varc) {
+		fdp->dtdo_vartab = dt_calloc(dtp, varc, sizeof(dtrace_difv_t));
+		if (fdp->dtdo_vartab == NULL)
+			goto nomem;
+	}
+	fdp->dtdo_varlen = varc;
 
 	/*
-	 * Construct the final DIFO (instruction buffer, relocation table, and
-	 * string table.
+	 * Construct the final DIFO (instruction buffer, relocation table,
+	 * string table, and variable table).
 	 */
-	insc = relc = 0;
+	insc = relc = varc = 0;
 	stab = dt_strtab_create(BUFSIZ);
 	if (stab == NULL)
 		goto nomem;
 
-	rc = dt_link_construct(dtp, fdp, dp, stab, &insc, &relc);
+	rc = dt_link_construct(dtp, fdp, dp, stab, &insc, &relc, &varc);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;
 
 	/*
 	 * Replace the program DIFO instruction buffer, BPF relocation table,
-	 * and string table with the new versions.
+	 * and variable table with the new versions.
 	 */
 	dt_free(dtp, dp->dtdo_buf);
 	dp->dtdo_buf = fdp->dtdo_buf;
-	dt_free(dtp, dp->dtdo_strtab);
 	dp->dtdo_len = fdp->dtdo_len;
+	dt_free(dtp, dp->dtdo_vartab);
+	dp->dtdo_vartab = fdp->dtdo_vartab;
+	dp->dtdo_varlen = fdp->dtdo_varlen;
 	dt_free(dtp, dp->dtdo_breltab);
 	dp->dtdo_breltab = fdp->dtdo_breltab;
 	dp->dtdo_brelen = fdp->dtdo_brelen;
@@ -2426,6 +2442,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	/*
 	 * Write out the new string table.
 	 */
+	dt_free(dtp, dp->dtdo_strtab);
 	dp->dtdo_strlen = dt_strtab_size(stab);
 	if (dp->dtdo_strlen > 0) {
 		dp->dtdo_strtab = dt_zalloc(dtp, dp->dtdo_strlen);
@@ -2450,6 +2467,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 fail:
 	if (fdp) {
 		dt_free(dtp, fdp->dtdo_breltab);
+		dt_free(dtp, fdp->dtdo_vartab);
 		dt_free(dtp, fdp->dtdo_buf);
 		dt_free(dtp, fdp);
 	}

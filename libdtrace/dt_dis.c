@@ -40,14 +40,15 @@ reg(int r)
 }
 
 static const char *
-dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
+dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope, uint_t addr)
 {
 	const dtrace_difv_t *dvp = dp->dtdo_vartab;
 	uint_t i;
 
 	id &= 0x0fff;
 	for (i = 0; i < dp->dtdo_varlen; i++, dvp++) {
-		if (dvp->dtdv_id == id && dvp->dtdv_scope == scope) {
+		if (dvp->dtdv_id == id && dvp->dtdv_scope == scope &&
+		    dvp->dtdv_insn_from <= addr && addr <= dvp->dtdv_insn_to) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
 				return (dp->dtdo_strtab + dvp->dtdv_name);
 			break;
@@ -58,14 +59,15 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope)
 }
 
 static char *
-dt_dis_lvarname(const dtrace_difo_t *dp, int reg, int var, char *buf, int len)
+dt_dis_lvarname(const dtrace_difo_t *dp, int reg, int var, uint_t addr,
+		char *buf, int len)
 {
 	if (reg == BPF_REG_FP) {
 		var = DT_LVAR_OFF2ID(var);
 		if (var != -1) {
 			const char	*vname;
 
-			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL);
+			vname = dt_dis_varname(dp, var, DIFV_SCOPE_LOCAL, addr);
 			if (vname) {
 				snprintf(buf, len, "this->%s", vname);
 				return buf;
@@ -143,7 +145,8 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
 		reg(in->src_reg), in->off);
 
-	vname = dt_dis_lvarname(dp, in->src_reg, in->off, buf, sizeof(buf));
+	vname = dt_dis_lvarname(dp, in->src_reg, in->off, addr, buf,
+				sizeof(buf));
 	if (vname)
 		fprintf(fp, "\t! %s\n", vname);
 	else
@@ -184,7 +187,8 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
 		reg(in->src_reg));
 
-	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, buf, sizeof(buf));
+	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, addr, buf,
+				sizeof(buf));
 	if (vname)
 		fprintf(fp, "\t! %s\n", vname);
 	else
@@ -204,7 +208,8 @@ dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
 		in->imm);
 
-	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, buf, sizeof(buf));
+	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, addr, buf,
+				sizeof(buf));
 	if (vname) {
 		if (rname)
 			fprintf(fp, "\t! %s = %s\n", vname, rname);
@@ -220,7 +225,7 @@ dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 
 static char *
 dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
-		const struct bpf_insn *in, char *buf, size_t len)
+		const struct bpf_insn *in, char *buf, size_t len, uint_t addr)
 {
 	char		*s;
 
@@ -232,7 +237,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		 */
 		in--;
 		snprintf(buf, len, "%s",
-			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_GLOBAL));
+			 dt_dis_varname(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
 		return buf;
 	} else if (strcmp(fn, "dt_get_gvar") == 0 ||
 		   strcmp(fn, "dt_set_gvar") == 0) {
@@ -244,7 +249,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		in--;
 		snprintf(buf, len, "%s",
 			 dt_dis_varname(dp, in->imm + DIF_VAR_OTHER_UBASE,
-					DIFV_SCOPE_GLOBAL));
+					DIFV_SCOPE_GLOBAL, addr));
 		return buf;
 	} else if (strcmp(fn, "dt_get_tvar") == 0 ||
 		   strcmp(fn, "dt_set_tvar") == 0 ) {
@@ -256,7 +261,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		in--;
 		snprintf(buf, len, "self->%s",
 			 dt_dis_varname(dp, in->imm + DIF_VAR_OTHER_UBASE,
-					DIFV_SCOPE_THREAD));
+					DIFV_SCOPE_THREAD, addr));
 		return buf;
 	} else if (strcmp(fn, "dt_get_string") == 0) {
 		/*
@@ -299,7 +304,8 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name, uint_t addr,
 			snprintf(buf, sizeof(buf), "%d", in->imm);
 			fn = buf;
 		} else
-			ann = dt_dis_bpf_args(dp, fn, in, buf, sizeof(buf));
+			ann = dt_dis_bpf_args(dp, fn, in, buf, sizeof(buf),
+					      addr);
 	} else if (in->imm >= 0 && in->imm < __BPF_FUNC_MAX_ID) {
 		fn = helper_fn[in->imm];
 	} else {
@@ -594,7 +600,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		const char		*rname = NULL;
 		uint_t			skip;
 
-		if (opcode >= sizeof (optab) / sizeof (optab[0]))
+		if (opcode >= ARRAY_SIZE(optab))
 			opcode = 0; /* force invalid opcode message */
 
 		dt_dis_prefix(i, instr, fp);
@@ -625,13 +631,13 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 	}
 
 	if (dp->dtdo_varlen != 0) {
-		fprintf(fp, "\n%-16s %-4s %-3s %-3s %-4s %s\n",
-			"NAME", "ID", "KND", "SCP", "FLAG", "TYPE");
+		fprintf(fp, "\n%-16s %-4s %-3s %-3s %-11s %-4s %s\n",
+			"NAME", "ID", "KND", "SCP", "RANGE", "FLAG", "TYPE");
 	}
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		dtrace_difv_t *v = &dp->dtdo_vartab[i];
-		char kind[4], scope[4], flags[16] = { 0 };
+		char kind[4], scope[4], range[12], flags[16] = { 0 };
 
 		switch (v->dtdv_kind) {
 		case DIFV_KIND_ARRAY:
@@ -641,7 +647,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 			strcpy(kind, "scl");
 			break;
 		default:
-			snprintf(kind, sizeof (kind), "%u", v->dtdv_kind);
+			snprintf(kind, sizeof(kind), "%u", v->dtdv_kind);
 		}
 
 		switch (v->dtdv_scope) {
@@ -655,11 +661,14 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 			strcpy(scope, "loc");
 			break;
 		default:
-			snprintf(scope, sizeof (scope), "%u", v->dtdv_scope);
+			snprintf(scope, sizeof(scope), "%u", v->dtdv_scope);
 		}
 
+		snprintf(range, sizeof(range), "[%u-%u]",
+			 v->dtdv_insn_from, v->dtdv_insn_to);
+
 		if (v->dtdv_flags & ~(DIFV_F_REF | DIFV_F_MOD)) {
-			snprintf(flags, sizeof (flags), "/0x%x",
+			snprintf(flags, sizeof(flags), "/0x%x",
 				 v->dtdv_flags & ~(DIFV_F_REF | DIFV_F_MOD));
 		}
 
@@ -668,10 +677,10 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		if (v->dtdv_flags & DIFV_F_MOD)
 			strcat(flags, "/w");
 
-		fprintf(fp, "%-16s %-4x %-3s %-3s %-4s %s\n",
-			&dp->dtdo_strtab[v->dtdv_name],
-			v->dtdv_id, kind, scope, flags + 1,
-			dt_dis_typestr(&v->dtdv_type, type, sizeof (type)));
+		fprintf(fp, "%-16s %-4x %-3s %-3s %-11s %-4s %s\n",
+			&dp->dtdo_strtab[v->dtdv_name], v->dtdv_id, kind,
+			scope, range, flags + 1,
+			dt_dis_typestr(&v->dtdv_type, type, sizeof(type)));
 	}
 
 	if (dp->dtdo_xlmlen != 0) {
@@ -684,7 +693,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		dt_xlator_t *dxp = dnp->dn_membexpr->dn_xlator;
 		fprintf(fp, "%-4u %-3d %-12s %s\n", (uint_t)dxp->dx_id,
 			dxp->dx_arg, dnp->dn_membname,
-			dt_node_type_name(dnp, type, sizeof (type)));
+			dt_node_type_name(dnp, type, sizeof(type)));
 	}
 
 	if (dp->dtdo_brelen != 0)

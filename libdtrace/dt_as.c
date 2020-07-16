@@ -70,10 +70,11 @@ dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 static int
 dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 {
-	dt_pcb_t *pcb = dtp->dt_pcb;
-	dtrace_difv_t *dvp;
-	ssize_t stroff;
-	dt_node_t dn;
+	dt_pcb_t	*pcb = dtp->dt_pcb;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dtrace_difv_t	*dvp;
+	ssize_t		stroff;
+	dt_node_t	dn;
 
 	if (!(idp->di_flags & (DT_IDFLG_DIFR | DT_IDFLG_DIFW)))
 		return (0); /* omit variable from vartab */
@@ -99,6 +100,9 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 		dvp->dtdv_scope = DIFV_SCOPE_THREAD;
 	else
 		dvp->dtdv_scope = DIFV_SCOPE_GLOBAL;
+
+	dvp->dtdv_insn_from = 0;
+	dvp->dtdv_insn_to = dlp->dl_len - 1;
 
 	if (idp->di_flags & DT_IDFLG_DIFR)
 		dvp->dtdv_flags |= DIFV_F_REF;
