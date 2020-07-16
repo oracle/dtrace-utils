@@ -2868,7 +2868,7 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		if (dnp->dn_value > UINT32_MAX)
+		if (dnp->dn_value > INT32_MAX)
 			dt_cg_setx(dlp, dnp->dn_reg, dnp->dn_value);
 		else {
 			instr = BPF_MOV_IMM(dnp->dn_reg, dnp->dn_value);
