@@ -710,9 +710,36 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
-	dnerror(dnp, D_UNKNOWN, "raise() is not implemented (yet)\n");
-	/* FIXME: Needs implementation */
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+
+	TRACE_REGSET("raise(): Begin ");
+
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	instr = BPF_MOV_REG(BPF_REG_1, dnp->dn_args->dn_reg);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_regset_free(drp, dnp->dn_args->dn_reg);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	instr = BPF_CALL_HELPER(BPF_FUNC_send_signal);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_regset_free_args(drp);
+
+	/*
+	 * FIXME:
+	 * The raise() action should report an ILLOP fault if the signal is not
+	 * valid (helper returns -EINVAL).  The BPF helper may also return
+	 * -EPERM, -EBUSY, -ESRCH, or -EAGAIN - DTrace silently ignores those.
+	 * Future changes may add support to handle these other failures modes
+	 * of the BPF helper.
+	 */
+
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("raise(): End   ");
 }
 
 static void
