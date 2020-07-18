@@ -177,6 +177,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *
 	 *				// stdw [%fp + DT_STK_DCTX], %r1
 	 */
+	TRACE_REGSET("Prologue: Begin");
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
@@ -188,10 +189,14 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *		goto exit;
 	 */
 	if (pred != NULL) {
+		TRACE_REGSET("    Pred: Begin");
 		dt_cg_node(pred, &pcb->pcb_ir, pcb->pcb_regs);
 		instr = BPF_BRANCH_IMM(BPF_JEQ, pred->dn_reg, 0,
 				       pcb->pcb_exitlbl);
+		TRACE_REGSET("    Pred: Value");
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(pcb->pcb_regs, pred->dn_reg);
+		TRACE_REGSET("    Pred: End  ");
 	}
 
 	/*
@@ -230,6 +235,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	TRACE_REGSET("Prologue: End  ");
 
 	/*
 	 * Account for 32-bit epid (at offset 0) and 32-bit tag (at offset 4).
@@ -261,6 +267,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 *	if (rc != 0)
 	 *	    goto exit;		// jne %r0, 0, pcb->pcb_exitlbl
 	 */
+	TRACE_REGSET("Epilogue: Begin");
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
@@ -308,6 +315,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	dt_irlist_append(dlp, dt_cg_node_alloc(pcb->pcb_exitlbl, instr));
 	instr = BPF_RETURN();
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	TRACE_REGSET("Epilogue: End  ");
 }
 
 /*
