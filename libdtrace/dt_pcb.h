@@ -50,7 +50,7 @@ typedef struct dt_pcb {
 	const dtrace_probedesc_t *pcb_pdesc; /* probedesc for current context */
 	struct dt_probe *pcb_probe; /* probe associated with current context */
 	dtrace_probeinfo_t pcb_pinfo; /* info associated with current context */
-	int pcb_nrecs;		/* number of data record descriptions */
+	dtrace_datadesc_t *pcb_ddesc; /* data record description */
 	int pcb_maxrecs;	/* alloc'd number of data record descriptions */
 	dtrace_attribute_t pcb_amin; /* stability minimum for compilation */
 	dt_node_t *pcb_dret;	/* node containing return type for assembler */

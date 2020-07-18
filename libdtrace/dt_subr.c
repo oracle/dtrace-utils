@@ -744,6 +744,9 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	dt_free(dtp, dp->dtdo_ureltab);
 	dt_free(dtp, dp->dtdo_xlmtab);
 
+	if (dp->dtdo_ddesc)
+		dt_datadesc_release(dtp, dp->dtdo_ddesc);
+
 	dt_free(dtp, dp);
 }
 

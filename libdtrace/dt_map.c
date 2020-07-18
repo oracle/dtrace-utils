@@ -57,29 +57,30 @@ dt_datadesc_create(dtrace_hdl_t *dtp)
 int
 dt_datadesc_finalize(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
 {
-	dt_pcb_t	*pcb = dtp->dt_pcb;
+	dt_pcb_t		*pcb = dtp->dt_pcb;
+	dtrace_datadesc_t	*oddp = pcb->pcb_ddesc;
 
 	/*
 	 * If the number of allocated data records is greater than the actual
 	 * number needed, we create a copy with the right number of records and
 	 * free the oversized one.
 	 */
-	if (pcb->pcb_nrecs < pcb->pcb_maxrecs) {
+	if (oddp->dtdd_nrecs < pcb->pcb_maxrecs) {
 		dtrace_recdesc_t	*nrecs;
 
-		nrecs = dt_calloc(dtp, pcb->pcb_nrecs,
+		nrecs = dt_calloc(dtp, oddp->dtdd_nrecs,
 				  sizeof(dtrace_recdesc_t));
 		if (nrecs == NULL)
 			return dt_set_errno(dtp, EDT_NOMEM);
 
 		memcpy(nrecs, ddp->dtdd_recs,
-		       pcb->pcb_nrecs * sizeof(dtrace_recdesc_t));
+		       oddp->dtdd_nrecs * sizeof(dtrace_recdesc_t));
 		dt_free(dtp, ddp->dtdd_recs);
 		ddp->dtdd_recs = nrecs;
-		pcb->pcb_maxrecs = pcb->pcb_nrecs;
+		pcb->pcb_maxrecs = oddp->dtdd_nrecs;
 	}
 
-	ddp->dtdd_nrecs = pcb->pcb_nrecs;
+	ddp->dtdd_nrecs = oddp->dtdd_nrecs;
 
 	return 0;
 }
@@ -186,13 +187,13 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 	dt_pcb_t		*pcb = dtp->dt_pcb;
 	uint32_t		off;
 	uint32_t		gap;
-	dtrace_datadesc_t	*ddp = pcb->pcb_stmt->dtsd_ddesc;
+	dtrace_datadesc_t	*ddp = pcb->pcb_ddesc;
 	dtrace_recdesc_t	*rec;
 	int			cnt, max;
 
 	assert(gapf);
 
-	cnt = pcb->pcb_nrecs + 1;
+	cnt = ddp->dtdd_nrecs + 1;
 	max = pcb->pcb_maxrecs;
 	if (cnt >= max) {
 		int			nmax = max ? (max << 1) : cnt;
@@ -213,7 +214,7 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 		pcb->pcb_maxrecs = nmax;
 	}
 
-	rec = &ddp->dtdd_recs[pcb->pcb_nrecs++];
+	rec = &ddp->dtdd_recs[ddp->dtdd_nrecs++];
 	off = (pcb->pcb_bufoff + (alignment - 1)) & ~(alignment - 1);
 	rec->dtrd_action = kind;
 	rec->dtrd_size = size;

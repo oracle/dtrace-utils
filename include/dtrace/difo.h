@@ -16,6 +16,7 @@
 #include <dtrace/universal.h>
 #include <dtrace/dif.h>
 #include <dtrace/dof_defines.h>
+#include <dtrace/metadesc.h>
 #include <linux/bpf.h>
 
 /*
@@ -50,6 +51,7 @@ typedef struct dtrace_difo {
 	uint_t dtdo_krelen;			/* length of krelo table */
 	uint_t dtdo_urelen;			/* length of urelo table */
 	uint_t dtdo_xlmlen;			/* length of translator table */
+	dtrace_datadesc_t *dtdo_ddesc;		/* metadata record description */
 } dtrace_difo_t;
 
 #endif /* _DTRACE_DIFO_H */

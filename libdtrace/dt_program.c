@@ -85,7 +85,8 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 	for (stp = dt_list_next(&pgp->dp_stmts); stp; stp = dt_list_next(stp)) {
 		dtrace_ecbdesc_t	*edp = stp->ds_desc->dtsd_ecbdesc;
-		dtrace_datadesc_t	*ddp = stp->ds_desc->dtsd_ddesc;
+		dtrace_difo_t		*dp;
+		dtrace_datadesc_t	*ddp = NULL;
 
 		if (edp == last)
 			continue;
@@ -101,7 +102,10 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 		 * If there aren't any actions, account for the fact that
 		 * recording the epid will generate a record.
 		 */
-		if (ddp->dtdd_nrecs == 0)
+		dp = dt_dlib_get_func_difo(dtp, stp->ds_desc->dtsd_clause);
+		if (dp != NULL)
+			ddp = dp->dtdo_ddesc;
+		if (ddp == NULL || ddp->dtdd_nrecs == 0)
 			pip->dpi_recgens++;
 		else
 			pip->dpi_recgens += ddp->dtdd_nrecs;
@@ -225,21 +229,13 @@ dtrace_stmtdesc_t *
 dtrace_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 {
 	dtrace_stmtdesc_t	*sdp;
-	dtrace_datadesc_t	*ddp;
 
 	sdp = dt_zalloc(dtp, sizeof(dtrace_stmtdesc_t));
 	if (sdp == NULL)
 		return NULL;
 
-	ddp = dt_datadesc_create(dtp);
-	if (ddp == NULL) {
-		dt_free(dtp, sdp);
-		return NULL;
-	}
-
 	dt_ecbdesc_hold(edp);
 	sdp->dtsd_ecbdesc = edp;
-	sdp->dtsd_ddesc = ddp;
 	sdp->dtsd_descattr = _dtrace_defattr;
 	sdp->dtsd_stmtattr = _dtrace_defattr;
 
@@ -283,7 +279,6 @@ dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 		dt_printf_destroy(sdp->dtsd_fmtdata);
 
 	dt_ecbdesc_release(dtp, sdp->dtsd_ecbdesc);
-	dt_datadesc_release(dtp, sdp->dtsd_ddesc);
 	dt_free(dtp, sdp);
 }
 

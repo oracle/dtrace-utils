@@ -131,7 +131,6 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 
 	assert(yypcb->pcb_stmt == NULL);
 	yypcb->pcb_stmt = sdp;
-	yypcb->pcb_nrecs = 0;
 	yypcb->pcb_maxrecs = 0;
 
 	sdp->dtsd_descattr = descattr;
@@ -251,11 +250,6 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 			datarec = 1;
 	}
 #endif
-
-	/*
-	 * Finalize the probe data description for the statement.
-	 */
-	dt_datadesc_finalize(yypcb->pcb_hdl, sdp->dtsd_ddesc);
 
 	if (dtrace_stmt_add(yypcb->pcb_hdl, yypcb->pcb_prog, sdp) != 0)
 		longjmp(yypcb->pcb_jmpbuf, dtrace_errno(yypcb->pcb_hdl));
@@ -1581,12 +1575,22 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 #endif
 
 static dt_ident_t *
-dt_clause_create(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
+dt_clause_create(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 {
 	char		*name;
 	int		len;
 	dt_ident_t	*idp;
 
+	/*
+	 * Finalize the probe data description for the clause.
+	 */
+	dt_datadesc_finalize(yypcb->pcb_hdl, yypcb->pcb_ddesc);
+	dp->dtdo_ddesc = yypcb->pcb_ddesc;
+	yypcb->pcb_ddesc = NULL;
+
+	/*
+	 * Generate a symbol name.
+	 */
 	len = snprintf(NULL, 0, "dt_clause_%d", dtp->dt_clause_nextid) + 1;
 	name = dt_alloc(dtp, len);
 	if (name == NULL)
@@ -1594,6 +1598,10 @@ dt_clause_create(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
 
 	snprintf(name, len, "dt_clause_%d", dtp->dt_clause_nextid++);
 
+	/*
+	 * Add the symbol to the BPF identifier table and associate the DIFO
+	 * with the symbol.
+	 */
 	idp = dt_dlib_add_func(dtp, name);
 	dt_free(dtp, name);
 	if (idp == NULL)
@@ -1608,6 +1616,7 @@ static void
 dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 {
 	dtrace_ecbdesc_t	*edp;
+	dtrace_datadesc_t	*ddp;
 	dtrace_stmtdesc_t	*sdp;
 	dt_ident_t		*idp;
 	dt_node_t		*tnp;
@@ -1621,11 +1630,19 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 		dt_node_printr(cnp, stderr, 1);
 	}
 
-	if ((edp = dt_ecbdesc_create(dtp, pnp->dn_desc)) == NULL)
+	edp = dt_ecbdesc_create(dtp, pnp->dn_desc);
+	if (edp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 	assert(yypcb->pcb_ecbdesc == NULL);
 	yypcb->pcb_ecbdesc = edp;
+
+	ddp = dt_datadesc_create(dtp);
+	if (ddp == NULL)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	assert(yypcb->pcb_ddesc == NULL);
+	yypcb->pcb_ddesc = ddp;
 
 	assert(yypcb->pcb_stmt == NULL);
 	sdp = dt_stmt_create(dtp, edp, cnp->dn_ctxattr, cnp->dn_attr);
@@ -1638,6 +1655,14 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 
 	if (yypcb->pcb_cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
 		dt_dis_difo(dt_dlib_get_func_difo(dtp, idp), stderr);
+
+	/*
+	 * Move the data record description back to the compiler state so it
+	 * will be used for the trampoline program.  The clause no longer needs
+	 * it because when we register the program, it will use the trampoline.
+	 */
+	yypcb->pcb_ddesc = ddp;
+	dt_dlib_get_func_difo(dtp, idp)->dtdo_ddesc = NULL;
 
 	/*
 	 * Generate the trampoline program.

@@ -268,7 +268,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	int				rc;
 
 	dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
-	epid = dt_epid_add(dtp, sdp->dtsd_ddesc, prp->desc->id);
+	epid = dt_epid_add(dtp, dp->dtdo_ddesc, prp->desc->id);
 
 	/*
 	 * Check whether there are any probe-specific relocations to be

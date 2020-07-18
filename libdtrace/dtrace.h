@@ -134,7 +134,6 @@ extern void *dtrace_geterr_dof(dtrace_hdl_t *dtp);
 typedef struct dtrace_stmtdesc {
 	dtrace_ecbdesc_t *dtsd_ecbdesc;		/* ECB description */
 	struct dt_ident *dtsd_clause;		/* clause identifier */
-	dtrace_datadesc_t *dtsd_ddesc;		/* probe data description */
 	void *dtsd_aggdata;			/* aggregation data */
 	void *dtsd_fmtdata;			/* type-specific output data */
 	void (*dtsd_callback)();		/* callback function for EPID */
