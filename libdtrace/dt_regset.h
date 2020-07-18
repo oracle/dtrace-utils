@@ -35,6 +35,15 @@ extern int dt_regset_xalloc(dt_regset_t *, int);
 extern void dt_regset_free(dt_regset_t *, int);
 extern int dt_regset_xalloc_args(dt_regset_t *);
 extern void dt_regset_free_args(dt_regset_t *);
+extern void dt_regset_dump(dt_regset_t *, const char *);
+
+#ifdef DT_DEBUG_REGSET
+# define TRACE_REGSET(id)	do { \
+					dt_regset_dump(yypcb->pcb_regs, (id)); \
+				} while (0)
+#else
+# define TRACE_REGSET(id)
+#endif
 
 #ifdef	__cplusplus
 }

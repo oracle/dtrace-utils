@@ -146,3 +146,20 @@ dt_regset_free_args(dt_regset_t *drp)
 	for (reg = 1; reg <= 5; reg++)
 		dt_regset_free(drp, reg);
 }
+
+/*
+ * Dump the current register allocation.
+ */
+void
+dt_regset_dump(dt_regset_t *drp, const char *pref)
+{
+	int reg;
+
+	fprintf(stderr, "%s: Regset: ", pref);
+	for (reg = 0; reg < drp->dr_size; reg++) {
+		fprintf(stderr, "%c", BT_TEST(drp->dr_active, reg)  ? 'x' :
+				      BT_TEST(drp->dr_spilled, reg) ? 's' :
+				      '.');
+	}
+	fprintf(stderr, "\n");
+}
