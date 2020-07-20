@@ -329,11 +329,13 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 int
 dt_bpf_attach(dtrace_hdl_t *dtp, dt_probe_t *prp, int bpf_fd)
 {
+	tp_probe_t	*datap = prp->prv_data;
+
 	/*
 	 * If we have not yet created a perf event for this probe, do that now
 	 * and cache the file descriptor so we only need to do this once.
 	 */
-	if (prp->event_fd == -1) {
+	if (datap->event_fd == -1) {
 		int			fd;
 		struct perf_event_attr	attr = { 0, };
 
@@ -341,16 +343,16 @@ dt_bpf_attach(dtrace_hdl_t *dtp, dt_probe_t *prp, int bpf_fd)
 		attr.sample_type = PERF_SAMPLE_RAW;
 		attr.sample_period = 1;
 		attr.wakeup_events = 1;
-		attr.config = prp->event_id;
+		attr.config = datap->event_id;
 
 		fd = perf_event_open(&attr, -1, 0, -1, 0);
 		if (fd < 0)
 			return dt_set_errno(dtp, errno);
 
-		prp->event_fd = fd;
+		datap->event_fd = fd;
 	}
 
-	if (ioctl(prp->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
+	if (ioctl(datap->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
 		return dt_set_errno(dtp, errno);
 
 	return 0;

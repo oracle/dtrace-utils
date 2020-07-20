@@ -58,6 +58,28 @@ static const dtrace_pattr_t	pattr = {
 };
 
 /*
+ * Create a tracepoint-based probe.  This function is called from any provider
+ * that handled tracepoint-based probes.  It sets up the provider-specific
+ * data of the probe, and calls dt_probe_insert() to add the probe to the
+ * framework.
+ */
+dt_probe_t *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
+			   const char *prv, const char *mod,
+			   const char *fun, const char *prb)
+{
+	tp_probe_t	*datap;
+
+	datap = dt_zalloc(dtp, sizeof(tp_probe_t));
+	if (datap == NULL)
+		return NULL;
+
+	datap->event_id = -1;
+	datap->event_fd = -1;
+
+	return dt_probe_insert(dtp, prov, prv, mod, fun, prb, datap);
+}
+
+/*
  * Parse the EVENTSFS/<group>/<event>/format file to determine the event id and
  * the argument types.
  *
@@ -79,8 +101,8 @@ static const dtrace_pattr_t	pattr = {
  * specify an additional numbe of fields to skip (using the 'skip' parameter)
  * before we get to the actual arguments.
  */
-int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
-		  dt_argdesc_t **argvp)
+int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *datap,
+		  int *argcp, dt_argdesc_t **argvp)
 {
 	char		buf[1024];
 	int		argc;
@@ -88,7 +110,7 @@ int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
 	dt_argdesc_t	*argv = NULL;
 	char		*strp;
 
-	*idp = -1;
+	datap->event_id = -1;
 
 	/*
 	 * Let skip be the total number of fields to skip.
@@ -104,7 +126,7 @@ int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp, int *argcp,
 	while (fgets(buf, sizeof(buf), f)) {
 		char	*p = buf;
 
-		if (sscanf(buf, "ID: %d\n", idp) == 1)
+		if (sscanf(buf, "ID: %d\n", &datap->event_id) == 1)
 			continue;
 
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
@@ -224,6 +246,34 @@ done:
 }
 
 /*
+ * Clean up the provider-specific data for a probe.  This may be called with
+ * provider-specific data that has not been attached to a probe (e.g. if the
+ * creation of the actual probe failed).
+ */
+void tp_probe_destroy(dtrace_hdl_t *dtp, void *datap)
+{
+	dt_free(dtp, datap);
+}
+
+/*
+ * Perform any provider specific cleanup for a probe that is being removed from
+ * the framework.
+ */
+void tp_probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+{
+	tp_probe_t	*datap = prp->prv_data;
+
+	if (datap->event_fd != -1) {
+		close(datap->event_fd);
+		datap->event_fd = -1;
+	}
+
+	datap->event_id = -1;
+
+	tp_probe_destroy(dtp, datap);
+}
+
+/*
  * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.
  * We need to ignore these groups:
  *   - GROUP_FMT (created by DTrace processes)
@@ -273,10 +323,10 @@ static int populate(dtrace_hdl_t *dtp)
 				 strcmp(buf, UPROBES) == 0)
 				continue;
 
-			if (dt_probe_insert(dtp, prv, prvname, buf, "", p))
+			if (tp_probe_insert(dtp, prv, prvname, buf, "", p))
 				n++;
 		} else {
-			if (dt_probe_insert(dtp, prv, prvname, modname, "",
+			if (tp_probe_insert(dtp, prv, prvname, modname, "",
 					    buf))
 				n++;
 		}
@@ -350,13 +400,16 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *idp, int *argcp, dt_argdesc_t **argvp)
+		      int *argcp, dt_argdesc_t **argvp)
 {
-	FILE	*f;
-	char	fn[256];
-	int	rc;
+	FILE		*f;
+	char		fn[256];
+	int		rc;
+	tp_probe_t	*datap = prp->prv_data;
 
-	*idp = -1;
+	/* if we have an event ID, no need to retrieve it again */
+	if (datap->event_id != -1)
+		return -1;
 
 	strcpy(fn, EVENTSFS);
 	strcat(fn, prp->desc->mod);
@@ -368,7 +421,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = tp_event_info(dtp, f, 0, idp, argcp, argvp);
+	rc = tp_event_info(dtp, f, 0, datap, argcp, argvp);
 	fclose(f);
 
 	return rc;
@@ -380,4 +433,6 @@ dt_provimpl_t	dt_sdt = {
 	.populate	= &populate,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
+	.probe_destroy	= &tp_probe_destroy,
+	.probe_fini	= &tp_probe_fini,
 };

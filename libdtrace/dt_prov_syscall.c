@@ -109,18 +109,19 @@ static int populate(dtrace_hdl_t *dtp)
 			continue;
 
 		p += sizeof(PROV_PREFIX) - 1;
+
 		/*
 		 * Now p will be just "event", and we are only interested in
 		 * events that match "sys_enter_*" or "sys_exit_*".
 		 */
 		if (!memcmp(p, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1)) {
 			p += sizeof(ENTRY_PREFIX) - 1;
-			if (dt_probe_insert(dtp, prv, prvname, modname, p,
+			if (tp_probe_insert(dtp, prv, prvname, modname, p,
 					    "entry"))
 				n++;
 		} else if (!memcmp(p, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1)) {
 			p += sizeof(EXIT_PREFIX) - 1;
-			if (dt_probe_insert(dtp, prv, prvname, modname, p,
+			if (tp_probe_insert(dtp, prv, prvname, modname, p,
 					    "return"))
 				n++;
 		}
@@ -206,13 +207,16 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *idp, int *argcp, dt_argdesc_t **argvp)
+		      int *argcp, dt_argdesc_t **argvp)
 {
-	FILE	*f;
-	char	fn[256];
-	int	rc;
+	FILE		*f;
+	char		fn[256];
+	int		rc;
+	tp_probe_t	*datap = prp->prv_data;
 
-	*idp = -1;
+	/* if we have an event ID, no need to retrieve it again */
+	if (datap->event_id != -1)
+		return -1;
 
 	/*
 	 * We know that the probe name is either "entry" or "return", so we can
@@ -230,7 +234,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, idp, argcp, argvp);
+	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, datap, argcp, argvp);
 	fclose(f);
 
 	return rc;
@@ -242,4 +246,6 @@ dt_provimpl_t	dt_syscall = {
 	.populate	= &populate,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
+	.probe_destroy	= &tp_probe_destroy,
+	.probe_fini	= &tp_probe_fini,
 };

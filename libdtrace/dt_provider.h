@@ -61,17 +61,16 @@ typedef struct dt_provimpl {
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
 	int (*provide)(dtrace_hdl_t *dtp,	/* provide probes */
 		       const dtrace_probedesc_t *pdp);
-	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
-			  const struct dt_probe *prp,
-			  int *idp, int *argcp, dt_argdesc_t **argvp);
 	void (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
 			  const dt_ident_t *prog);
-	int (*probe_fini)(dtrace_hdl_t *dtp,	/* probe cleanup */
-			  struct dt_probe *prb);
+	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
+			  const struct dt_probe *prp,
+			  int *argcp, dt_argdesc_t **argvp);
+	void (*probe_destroy)(dtrace_hdl_t *dtp, /* free provider data */
+			      void *datap);
+	void (*probe_fini)(dtrace_hdl_t *dtp,	/* probe cleanup */
+			   const struct dt_probe *prb);
 } dt_provimpl_t;
-
-extern int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, int *idp,
-			 int *argcp, dt_argdesc_t **argvp);
 
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_fbt;
@@ -91,6 +90,20 @@ typedef struct dt_provider {
 	dtrace_hdl_t *pv_hdl;		/* pointer to containing dtrace_hdl */
 	uint_t pv_flags;		/* flags (see below) */
 } dt_provider_t;
+
+typedef struct tp_probe {
+	int	event_id;		/* tracepoint event id */
+	int	event_fd;		/* tracepoint perf event fd */
+} tp_probe_t;
+
+extern struct dt_probe *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
+					const char *prv, const char *mod,
+					const char *fun, const char *prb);
+extern int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
+			 tp_probe_t *datap, int *argcp, dt_argdesc_t **argvp);
+extern void tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
+extern void tp_probe_fini(dtrace_hdl_t *dtp, const struct dt_probe *prb);
+
 
 #define	DT_PROVIDER_INTF	0x1	/* provider interface declaration */
 #define	DT_PROVIDER_IMPL	0x2	/* provider implementation is loaded */

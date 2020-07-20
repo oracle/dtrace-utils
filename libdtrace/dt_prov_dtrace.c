@@ -40,11 +40,11 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return 0;
 
-	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN"))
+	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN"))
 		n++;
-	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "END"))
+	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "END"))
 		n++;
-	if (dt_probe_insert(dtp, prv, prvname, modname, funname, "ERROR"))
+	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR"))
 		n++;
 
 	return n;
@@ -212,16 +212,20 @@ out:
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *idp, int *argcp, dt_argdesc_t **argvp)
+		      int *argcp, dt_argdesc_t **argvp)
 {
-	char	*spec;
-	char	*fn = NULL;
-	int	fd;
-	FILE	*f;
-	int	rc = -ENOENT;
-	size_t	len;
+	char		*spec;
+	char		*fn = NULL;
+	int		fd;
+	FILE		*f;
+	int		rc = -ENOENT;
+	size_t		len;
+	tp_probe_t	*datap = prp->prv_data;
 
-	*idp = -1;
+	/* if we have an event ID, no need to retrieve it again */
+	if (datap->event_id != -1)
+		return -1;
+
 	*argcp = 0;			/* no arguments */
 	*argvp = NULL;
 
@@ -253,7 +257,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (f == NULL)
 		goto out;
 
-	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
+	rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
 	fclose(f);
 
 out:
@@ -274,23 +278,18 @@ out:
  * for some reason we are out of luck - fortunately it is not harmful to the
  * system as a whole.
  */
-static int probe_fini(dtrace_hdl_t *dtp, dt_probe_t *prp)
+static void probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int	fd;
 
-	if (prp->event_fd != -1) {
-		close(prp->event_fd);
-		prp->event_fd = -1;
-	}
+	tp_probe_fini(dtp, prp);
 
 	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
-		return -1;
+		return;
 
 	dprintf(fd, "-:" GROUP_FMT "/%s\n", GROUP_DATA, prp->desc->prb);
 	close(fd);
-
-	return 0;
 }
 
 dt_provimpl_t	dt_dtrace = {
@@ -299,5 +298,6 @@ dt_provimpl_t	dt_dtrace = {
 	.populate	= &populate,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
+	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &probe_fini,
 };

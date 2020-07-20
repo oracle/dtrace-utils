@@ -38,8 +38,7 @@ typedef struct dt_probe {
 	struct dt_hentry he_fun;	/* function name htab links */
 	struct dt_hentry he_prb;	/* probe name htab link */
 	struct dt_hentry he_fqn;	/* fully qualified name htab link */
-	int event_id;			/* tracing event id */
-	int event_fd;			/* perf event file descriptor */
+	void *prv_data;			/* provider-specific data */
 	dt_ident_t *pr_ident;		/* pointer to probe identifier */
 	const char *pr_name;		/* pointer to name component */
 	dt_node_t *nargs;		/* native argument list */
@@ -71,7 +70,8 @@ extern dt_node_t *dt_probe_tag(dt_probe_t *, uint_t, dt_node_t *);
 
 extern dt_probe_t *dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
 				     const char *prv, const char *mod,
-				     const char *fun, const char *prb);
+				     const char *fun, const char *prb,
+				     void *datap);
 extern dt_probe_t *dt_probe_lookup(dtrace_hdl_t *dtp,
 				   const dtrace_probedesc_t *pdp);
 extern dt_probe_t *dt_probe_lookup_by_name(dtrace_hdl_t *dtp, const char *name);

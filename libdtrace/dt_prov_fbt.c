@@ -136,9 +136,9 @@ static int populate(dtrace_hdl_t *dtp)
 		if (dt_probe_lookup(dtp, &pd) != NULL)
 			continue;
 
-		if (dt_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
+		if (tp_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
 			n++;
-		if (dt_probe_insert(dtp, prv, prvname, mod, buf, "return"))
+		if (tp_probe_insert(dtp, prv, prvname, mod, buf, "return"))
 			n++;
 	}
 
@@ -250,15 +250,19 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *idp, int *argcp, dt_argdesc_t **argvp)
+		      int *argcp, dt_argdesc_t **argvp)
 {
-	int	fd;
-	char	*fn;
-	size_t	len;
-	FILE	*f;
-	int	rc = -1;
+	int		fd;
+	char		*fn;
+	size_t		len;
+	FILE		*f;
+	int		rc = -1;
+	tp_probe_t	*datap = prp->prv_data;
 
-	*idp = -1;
+	/* if we have an event ID, no need to retrieve it again */
+	if (datap->event_id != -1)
+		return -1;
+
 	*argcp = 0;			/* no arguments by default */
 	*argvp = NULL;
 
@@ -289,7 +293,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (f == NULL)
 		goto out;
 
-	rc = tp_event_info(dtp, f, 0, idp, NULL, NULL);
+	rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
 	fclose(f);
 
 out:
@@ -309,24 +313,19 @@ out:
  * for some reason we are out of luck - fortunately it is not harmful to the
  * system as a whole.
  */
-static int probe_fini(dtrace_hdl_t *dtp, dt_probe_t *prp)
+static void probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int	fd;
 
-	if (prp->event_fd != -1) {
-		close(prp->event_fd);
-		prp->event_fd = -1;
-	}
+	tp_probe_fini(dtp, prp);
 
 	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
-		return -1;
+		return;
 
 	dprintf(fd, "-:" FBT_GROUP_FMT "/%s\n", FBT_GROUP_DATA,
 		prp->desc->fun);
 	close(fd);
-
-	return 0;
 }
 
 dt_provimpl_t	dt_fbt = {
@@ -335,5 +334,6 @@ dt_provimpl_t	dt_fbt = {
 	.populate	= &populate,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
+	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &probe_fini,
 };

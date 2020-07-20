@@ -666,7 +666,7 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 
 dt_probe_t *
 dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
-		const char *mod, const char *fun, const char *prb)
+		const char *mod, const char *fun, const char *prb, void *datap)
 {
 	dt_probe_t		*prp;
 	dtrace_probedesc_t	*desc;
@@ -678,12 +678,12 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 
 		if (nprobes_sz < dtp->dt_probes_sz) {	/* overflow */
 			dt_set_errno(dtp, EDT_NOMEM);
-			return NULL;
+			goto err;
 		}
 
 		nprobes = dt_calloc(dtp, nprobes_sz, sizeof(dt_probe_t *));
 		if (nprobes == NULL)
-			return NULL;
+			goto err;
 
 		if (dtp->dt_probes)
 			memcpy(nprobes, dtp->dt_probes,
@@ -696,11 +696,11 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 
 	/* Allocate the new probe and fill in its basic info. */
 	if ((prp = dt_zalloc(dtp, sizeof(dt_probe_t))) == NULL)
-		return NULL;
+		goto err;
 
 	if ((desc = dt_alloc(dtp, sizeof(dtrace_probedesc_t))) == NULL) {
 		dt_free(dtp, prp);
-		return NULL;
+		goto err;
 	}
 
 	desc->id = dtp->dt_probe_id++;
@@ -711,8 +711,7 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 
 	prp->desc = desc;
 	prp->prov = prov;
-	prp->event_id = -1;
-	prp->event_fd = -1;
+	prp->prv_data = datap;
 
 	dt_htab_insert(dtp->dt_byprv, prp);
 	dt_htab_insert(dtp->dt_bymod, prp);
@@ -723,6 +722,12 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	dtp->dt_probes[dtp->dt_probe_id - 1] = prp;
 
 	return prp;
+
+err:
+	if (datap && prov->impl->probe_destroy)
+		prov->impl->probe_destroy(dtp, datap);
+
+	return NULL;
 }
 
 static int
@@ -872,26 +877,16 @@ dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp)
 static void
 dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
-	int			id = DTRACE_IDNONE;
 	int			argc = 0;
 	dt_argdesc_t		*argv = NULL;
 	int			i, nc, xc;
 	dtrace_typeinfo_t	dtt;
 
-	/*
-	 * If we already have an event ID information for this probe, there is
-	 * no need to retrieve it again.
-	 */
-	if (prp->event_id != -1)
-		return;
-
 	if (!prp->prov->impl->probe_info)
 		return;
-	if (prp->prov->impl->probe_info(dtp, prp, &id, &argc, &argv) < 0)
+	if (prp->prov->impl->probe_info(dtp, prp, &argc, &argv) < 0)
 		return;
 
-	if (id > 0)
-		prp->event_id = id;
 	if (!argc || !argv)
 		return;
 
