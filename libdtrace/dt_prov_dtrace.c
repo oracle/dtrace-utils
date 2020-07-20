@@ -36,7 +36,6 @@ static int populate(dtrace_hdl_t *dtp)
 	dt_provider_t	*prv;
 	int		n = 0;
 
-
 	prv = dt_provider_create(dtp, prvname, &dt_dtrace, &pattr);
 	if (prv == NULL)
 		return 0;
