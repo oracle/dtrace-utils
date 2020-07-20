@@ -249,57 +249,66 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 	dt_cg_tramp_epilogue(pcb, prog, lbl_exit);
 }
 
+static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
+{
+	tp_probe_t	*datap = prp->prv_data;
+
+	if (datap->event_id == -1) {
+		char	*fn;
+		FILE	*f;
+		size_t	len;
+		int	fd, rc = -1;
+
+		/*
+		 * Register the kprobe with the tracing subsystem.  This will
+		 * create a tracepoint event.
+		 */
+		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+		if (fd == -1)
+			return -ENOENT;
+
+		rc = dprintf(fd, "%c:" FBT_GROUP_FMT "/%s %s\n",
+			     prp->desc->prb[0] == 'e' ? 'p' : 'r',
+			     FBT_GROUP_DATA, prp->desc->fun, prp->desc->fun);
+		close(fd);
+		if (rc == -1)
+			return -ENOENT;
+
+		/* create format file name */
+		len = snprintf(NULL, 0, "%s" FBT_GROUP_FMT "/%s/format",
+			       EVENTSFS, FBT_GROUP_DATA, prp->desc->fun) + 1;
+		fn = dt_alloc(dtp, len);
+		if (fn == NULL)
+			return -ENOENT;;
+
+		snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
+			 FBT_GROUP_DATA, prp->desc->fun);
+
+		/* open format file */
+		f = fopen(fn, "r");
+		dt_free(dtp, fn);
+		if (f == NULL)
+			return -ENOENT;
+
+		/* read event id from format file */
+		rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
+		fclose(f);
+
+		if (rc < 0)
+			return -ENOENT;
+	}
+
+	/* attach BPF program to the probe */
+	return tp_attach(dtp, prp, bpf_fd);
+}
+
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *argcp, dt_argdesc_t **argvp)
 {
-	int		fd;
-	char		*fn;
-	size_t		len;
-	FILE		*f;
-	int		rc = -1;
-	tp_probe_t	*datap = prp->prv_data;
-
-	/* if we have an event ID, no need to retrieve it again */
-	if (datap->event_id != -1)
-		return -1;
-
 	*argcp = 0;			/* no arguments by default */
 	*argvp = NULL;
 
-	/*
-	 * Register the kprobe with the tracing subsystem.  This will
-	 * create a tracepoint event.
-	 */
-	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
-	if (fd == -1)
-		return -1;
-
-	rc = dprintf(fd, "%c:" FBT_GROUP_FMT "/%s %s\n",
-		     prp->desc->prb[0] == 'e' ? 'p' : 'r', FBT_GROUP_DATA,
-		     prp->desc->fun, prp->desc->fun);
-	close(fd);
-	if (rc == -1)
-		return -1;
-
-	len = snprintf(NULL, 0, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
-		       FBT_GROUP_DATA, prp->desc->fun) + 1;
-	fn = dt_alloc(dtp, len);
-	if (fn == NULL)
-		goto out;
-
-	snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
-		 FBT_GROUP_DATA, prp->desc->fun);
-	f = fopen(fn, "r");
-	if (f == NULL)
-		goto out;
-
-	rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
-	fclose(f);
-
-out:
-	dt_free(dtp, fn);
-
-	return rc;
+	return 0;
 }
 
 /*
@@ -333,7 +342,7 @@ dt_provimpl_t	dt_fbt = {
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
-	.attach		= &tp_attach,
+	.attach		= &attach,
 	.probe_info	= &probe_info,
 	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &probe_fini,
