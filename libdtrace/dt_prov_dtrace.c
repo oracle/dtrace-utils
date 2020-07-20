@@ -297,6 +297,7 @@ dt_provimpl_t	dt_dtrace = {
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
+	.attach		= &tp_attach,
 	.probe_info	= &probe_info,
 	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &probe_fini,

@@ -19,13 +19,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <linux/bpf.h>
+#include <linux/perf_event.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include <bpf_asm.h>
 
 #include "dt_impl.h"
+#include "dt_bpf.h"
 #include "dt_bpf_builtins.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
@@ -56,6 +59,42 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
+
+/*
+ * Attach the given (loaded) BPF program to the given probe.  This function
+ * performs the necessary steps for attaching the BPF program to a tracepoint
+ * based probe by opening a perf event for the probe, and associating the BPF
+ * program with the perf event.
+ */
+int tp_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
+{
+	tp_probe_t	*datap = prp->prv_data;
+
+	if (datap->event_id == -1)
+		return 0;
+
+	if (datap->event_fd == -1) {
+		int			fd;
+		struct perf_event_attr	attr = { 0, };
+
+		attr.type = PERF_TYPE_TRACEPOINT;
+		attr.sample_type = PERF_SAMPLE_RAW;
+		attr.sample_period = 1;
+		attr.wakeup_events = 1;
+		attr.config = datap->event_id;
+
+		fd = perf_event_open(&attr, -1, 0, -1, 0);
+		if (fd < 0)
+			return dt_set_errno(dtp, errno);
+
+		datap->event_fd = fd;
+	}
+
+	if (ioctl(datap->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
+		return dt_set_errno(dtp, errno);
+
+	return 0;
+}
 
 /*
  * Create a tracepoint-based probe.  This function is called from any provider
@@ -432,6 +471,7 @@ dt_provimpl_t	dt_sdt = {
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
+	.attach		= &tp_attach,
 	.probe_info	= &probe_info,
 	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &tp_probe_fini,

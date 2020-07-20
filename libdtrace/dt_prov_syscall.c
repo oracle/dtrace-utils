@@ -245,6 +245,7 @@ dt_provimpl_t	dt_syscall = {
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
+	.attach		= &tp_attach,
 	.probe_info	= &probe_info,
 	.probe_destroy	= &tp_probe_destroy,
 	.probe_fini	= &tp_probe_fini,

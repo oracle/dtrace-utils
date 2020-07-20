@@ -63,6 +63,8 @@ typedef struct dt_provimpl {
 		       const dtrace_probedesc_t *pdp);
 	void (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
 			  const dt_ident_t *prog);
+	int (*attach)(dtrace_hdl_t *dtp,	/* attach BPF prog to probe */
+		      const struct dt_probe *prp, int bpf_fd);
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
 			  const struct dt_probe *prp,
 			  int *argcp, dt_argdesc_t **argvp);
@@ -96,6 +98,7 @@ typedef struct tp_probe {
 	int	event_fd;		/* tracepoint perf event fd */
 } tp_probe_t;
 
+extern int tp_attach(dtrace_hdl_t *dtp, const struct dt_probe *prp, int bpf_fd);
 extern struct dt_probe *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
 					const char *prv, const char *mod,
 					const char *fun, const char *prb);
