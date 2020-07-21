@@ -4,11 +4,10 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- * To print built-in variable 'timestamp'
+ * ASSERTION: The 'timestamp' variable yields the same value for multiple
+ *            invocations within the same clause.
  *
  * SECTION: Variables/Built-in Variables
  */
@@ -17,7 +16,8 @@
 
 BEGIN
 {
-	this->t = timestamp;
-	printf("The difftime = %d\n", timestamp - this->t);
-	exit(0);
+	this->a = timestamp;
+	this->b = timestamp;
+	trace(this->b - this->a);
+	exit(this->a == this->b ? 0 : 1);
 }

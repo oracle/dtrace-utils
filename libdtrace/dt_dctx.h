@@ -11,12 +11,13 @@
 #include <dt_pt_regs.h>
 
 /*
- * The DTrace machien state.
+ * The DTrace machine state.
  */
 typedef struct dt_mstate {
 	uint32_t	epid;		/* Enabled probe ID */
 	uint32_t	tag;		/* Tag (for future use) */
 	uint64_t	fault;		/* DTrace fault flags */
+	uint64_t	tstamp;		/* cached timestamp value */
 #if 0
 	dt_pt_regs	regs;		/* CPU registers */
 #endif
@@ -46,6 +47,7 @@ typedef struct dt_dctx {
 #define DMST_EPID	offsetof(dt_mstate_t, epid)
 #define DMST_TAG	offsetof(dt_mstate_t, tag)
 #define DMST_FAULT	offsetof(dt_mstate_t, fault)
+#define DMST_TSTAMP	offsetof(dt_mstate_t, tstamp)
 #define DMST_REGS	offsetof(dt_mstate_t, regs)
 #define DMST_ARG(n)	offsetof(dt_mstate_t, argv[n])
 

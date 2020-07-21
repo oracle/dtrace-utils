@@ -211,6 +211,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	/*
 	 *	dctx->mst->fault = 0;	// lddw %r0, [%r0 + DCTX_MST]
 	 *				// stdw [%r0 + DMST_FAULT], 0
+	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
 	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
 	 *	*((uint32_t *)&buf[0]) = EPID;
 	 *				// stw [%r9 + 0], EPID
@@ -218,6 +219,8 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

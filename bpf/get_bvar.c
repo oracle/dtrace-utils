@@ -21,7 +21,10 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 	case DIF_VAR_CURTHREAD:
 		return bpf_get_current_task();
 	case DIF_VAR_TIMESTAMP:
-		return bpf_ktime_get_ns();
+		if (mst->tstamp == 0)
+			mst->tstamp = bpf_ktime_get_ns();
+
+		return mst->tstamp;
 	case DIF_VAR_EPID:
 		return mst->epid;
 	case DIF_VAR_ARG0: case DIF_VAR_ARG1: case DIF_VAR_ARG2:
