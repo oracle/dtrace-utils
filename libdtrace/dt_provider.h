@@ -76,6 +76,7 @@ typedef struct dt_provimpl {
 
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_fbt;
+extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_sdt;
 extern dt_provimpl_t dt_syscall;
 

@@ -23,6 +23,7 @@ typedef struct pt_regs		dt_pt_regs;
 # define PT_REGS_ARG3		offsetof(dt_pt_regs, rcx)
 # define PT_REGS_ARG4		offsetof(dt_pt_regs, r8)
 # define PT_REGS_ARG5		offsetof(dt_pt_regs, r9)
+# define PT_REGS_IP		offsetof(dt_pt_regs, rip)
 
 # define PT_REGS_BPF_ARG0(r)	((r)->rdi)
 # define PT_REGS_BPF_ARG1(r)	((r)->rsi)
@@ -30,6 +31,7 @@ typedef struct pt_regs		dt_pt_regs;
 # define PT_REGS_BPF_ARG3(r)	((r)->rcx)
 # define PT_REGS_BPF_ARG4(r)	((r)->r8)
 # define PT_REGS_BPF_ARG5(r)	((r)->r9)
+# define PT_REGS_BPF_IP(r)	((r)->rip)
 #elif defined(__aarch64__)
 typedef struct user_pt_regs	dt_pt_regs;
 # define PT_REGS_ARG0		offsetof(dt_pt_regs, regs[0])
@@ -38,6 +40,7 @@ typedef struct user_pt_regs	dt_pt_regs;
 # define PT_REGS_ARG3		offsetof(dt_pt_regs, regs[3])
 # define PT_REGS_ARG4		offsetof(dt_pt_regs, regs[4])
 # define PT_REGS_ARG5		offsetof(dt_pt_regs, regs[5])
+# define PT_REGS_IP		offsetof(dt_pt_regs, pc)
 
 # define PT_REGS_BPF_ARG0(r)	((r)->regs[0])
 # define PT_REGS_BPF_ARG1(r)	((r)->regs[1])
@@ -45,6 +48,7 @@ typedef struct user_pt_regs	dt_pt_regs;
 # define PT_REGS_BPF_ARG3(r)	((r)->regs[3])
 # define PT_REGS_BPF_ARG4(r)	((r)->regs[4])
 # define PT_REGS_BPF_ARG5(r)	((r)->regs[5])
+# define PT_REGS_BPF_IP(r)	((r)->pc)
 #else
 # error ISA not supported
 #endif
