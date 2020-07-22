@@ -355,6 +355,14 @@ dt_symtab_form_ranges(dt_symtab_t *symtab)
 		dt_symbol_t *sym = old_ranges[i].dtsr_sym;
 
 		/*
+		 * Ignore zero-size symbols.
+		 */
+		if (sym->dts_size == 0) {
+			i++;
+			continue;
+		}
+
+		/*
 		 * Set the low and high for this range.
 		 * Check the previous high to decide whether:
 		 *   - to crop the low end
@@ -441,13 +449,25 @@ dt_symtab_form_ranges(dt_symtab_t *symtab)
  * Sort the address-to-name list.
  */
 void
-dt_symtab_sort(dt_symtab_t *symtab)
+dt_symtab_sort(dt_symtab_t *symtab, int flag)
 {
 	if (symtab->dtst_flags & DT_ST_SORTED)
 		return;
 
 	qsort(symtab->dtst_ranges, symtab->dtst_num_range,
 	    sizeof (dt_symrange_t), dt_symrange_sort_cmp);
+
+	if (flag && symtab->dtst_num_range) {
+		int		i;
+		dt_symbol_t	*sym, *nsym;
+
+		sym = symtab->dtst_ranges[0].dtsr_sym;
+		for (i = 1; i < symtab->dtst_num_range; i++) {
+			nsym = symtab->dtst_ranges[i].dtsr_sym;
+			sym->dts_size = nsym->dts_addr - sym->dts_addr;
+			sym = nsym;
+		}
+	}
 
 	if (dt_symtab_form_ranges(symtab))
 		return;
@@ -530,7 +550,7 @@ dt_symtab_pack(dt_symtab_t *symtab)
 	if (symtab->dtst_flags & DT_ST_PACKED)
 		return;
 
-	dt_symtab_sort(symtab);
+	dt_symtab_sort(symtab, 0);
 
 	/*
 	 * Size and allocate the string table: give up if we can't.

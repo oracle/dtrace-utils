@@ -1086,7 +1086,7 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 	static int last_sym_text = -1;
 
 	GElf_Addr sym_addr;
-	long long unsigned sym_size = 0;
+	long long unsigned sym_size = 1;
 	char sym_type;
 	int sym_text;
 	dt_module_t *dmp;
@@ -1349,7 +1349,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
 		if (dmp->dm_kernsyms != NULL) {
-			dt_symtab_sort(dmp->dm_kernsyms);
+			dt_symtab_sort(dmp->dm_kernsyms, flag);
 			dt_symtab_purge(dmp->dm_kernsyms);
 			dt_symtab_pack(dmp->dm_kernsyms);
 		}

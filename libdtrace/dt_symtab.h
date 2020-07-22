@@ -39,7 +39,7 @@ extern dt_symbol_t *dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 extern dt_symbol_t *dt_symbol_by_name(dt_symtab_t *symtab, const char *name);
 extern dt_symbol_t *dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr);
 
-extern void dt_symtab_sort(dt_symtab_t *symtab);
+extern void dt_symtab_sort(dt_symtab_t *symtab, int flag);
 extern void dt_symtab_purge(dt_symtab_t *symtab);
 extern void dt_symtab_pack(dt_symtab_t *symtab);
 
