@@ -7,6 +7,8 @@
 
 #include <dt_impl.h>
 #include <dt_peb.h>
+#include <dt_probe.h>
+#include <dt_bpf.h>
 #include <stddef.h>
 #include <errno.h>
 #include <assert.h>
@@ -171,7 +173,7 @@ dtrace_status(dtrace_hdl_t *dtp)
 }
 
 int
-dtrace_go(dtrace_hdl_t *dtp)
+dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	void	*dof;
 	size_t	size;
@@ -191,6 +193,18 @@ dtrace_go(dtrace_hdl_t *dtp)
 	    dtrace_program_exec(dtp, dtp->dt_errprog, NULL) == -1 && (
 	    dtp->dt_errno != ENOTTY || dtp->dt_vector == NULL))
 		return (-1); /* dt_errno has been set for us */
+
+	/*
+	 * Create the global BPF maps.  This is done only once regardless of
+	 * how many programs there are.
+	 */
+	err = dt_bpf_gmap_create(dtp);
+	if (err)
+		return err;
+
+	err = dt_bpf_load_progs(dtp, cflags);
+	if (err)
+		return err;
 
 #if 0
 	if ((dof = dtrace_getopt_dof(dtp)) == NULL)

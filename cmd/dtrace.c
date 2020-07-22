@@ -831,7 +831,7 @@ go(void)
 			fatal("couldn't get option %s", rates[i].optname);
 	}
 
-	if (dtrace_go(g_dtp) == -1)
+	if (dtrace_go(g_dtp, g_cflags) == -1)
 		dfatal("could not enable tracing");
 
 	(void) dtrace_getopt(g_dtp, "quietresize", &quiet);

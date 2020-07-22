@@ -23,6 +23,11 @@
 #include <dt_htab.h>
 #include <dt_list.h>
 
+typedef struct dt_probeclause {
+	dt_list_t	list;
+	dt_ident_t	*clause;
+} dt_probeclause_t;
+
 #define DEFINE_HE_FUNCS(id) \
 	static uint32_t id##_hval(const dt_probe_t *probe) \
 	{ \
@@ -487,8 +492,9 @@ dt_probe_declare(dt_provider_t *pvp, dt_probe_t *prp)
 void
 dt_probe_destroy(dt_probe_t *prp)
 {
-	dt_probe_instance_t *pip, *pip_next;
-	dtrace_hdl_t *dtp;
+	dt_probeclause_t	*pcp, *pcp_next;
+	dt_probe_instance_t	*pip, *pip_next;
+	dtrace_hdl_t		*dtp;
 
 	if (prp->prov != NULL)
 		dtp = prp->prov->pv_hdl;
@@ -511,6 +517,11 @@ dt_probe_destroy(dt_probe_t *prp)
 
 	dt_free(dtp, prp->nargv);
 	dt_free(dtp, prp->xargv);
+
+	for (pcp = dt_list_next(&prp->clauses); pcp != NULL; pcp = pcp_next) {
+		pcp_next = dt_list_next(pcp);
+		dt_free(dtp, pcp);
+	}
 
 	for (pip = prp->pr_inst; pip != NULL; pip = pip_next) {
 		pip_next = pip->pi_next;
@@ -1255,6 +1266,43 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		  dtrace_probe_f *func, void *arg)
 {
 	return dt_probe_iter(dtp, pdp, NULL, func, arg);
+}
+
+int
+dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
+{
+	dt_probeclause_t	*pcp;
+
+	pcp = dt_zalloc(dtp, sizeof(dt_probeclause_t));;
+	if (pcp == NULL) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return -1;
+	}
+
+	pcp->clause = idp;
+	dt_list_append(&prp->clauses, pcp);
+
+	return 0;
+}
+
+int
+dt_probe_clause_iter(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_clause_f *func,
+		     void *arg)
+{
+	dt_probeclause_t	*pcp;
+	int			rc;
+
+	assert(func != NULL);
+
+	for (pcp = dt_list_next(&prp->clauses); pcp != NULL;
+	     pcp = dt_list_next(pcp)) {
+		rc = func(dtp, pcp->clause, arg);
+
+		if (rc != 0)
+			return rc;
+	}
+
+	return 0;
 }
 
 void

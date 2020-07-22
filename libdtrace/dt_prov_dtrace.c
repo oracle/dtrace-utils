@@ -61,7 +61,7 @@ static int populate(dtrace_hdl_t *dtp)
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns 0 to the caller.
  */
-static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
+static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -154,7 +154,7 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
-	dt_cg_tramp_epilogue(pcb, prog, lbl_exit);
+	dt_cg_tramp_epilogue(pcb, lbl_exit);
 }
 
 static char *uprobe_spec(dtrace_hdl_t *dtp, const char *prb)

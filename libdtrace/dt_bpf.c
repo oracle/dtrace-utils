@@ -206,7 +206,7 @@ int dt_bpf_map_update(int fd, const void *key, const void *val)
  */
 static void
 dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		  const dtrace_difo_t *dp, dtrace_epid_t epid)
+		  const dtrace_difo_t *dp)
 {
 	int			len = dp->dtdo_brelen;
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
@@ -219,35 +219,21 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 					sizeof(struct bpf_insn);
 		uint32_t	val = 0;
 
-		switch (idp->di_kind) {
-		case DT_IDENT_FUNC:	/* built-in function */
-			continue;
-		case DT_IDENT_PTR:	/* BPF map */
+		/*
+		 * If the relocation is for a BPF map, fill in its fd.
+		 */
+		if (idp->di_kind == DT_IDENT_PTR) {
 			if (rp->dofr_type == R_BPF_64_64)
 				text[ioff].src_reg = BPF_PSEUDO_MAP_FD;
 
 			val = idp->di_id;
-			break;
-		case DT_IDENT_SCALAR:	/* built-in constant */
-			switch (idp->di_id) {
-			case DT_CONST_EPID:
-				val = epid;
-				break;
-			case DT_CONST_ARGC:
-				val = 0;	/* FIXME */
-				break;
-			}
 
-			break;
-		case DT_IDENT_SYMBOL:	/* BPF function (pre-compiled) */
-			continue;
+			if (rp->dofr_type == R_BPF_64_64) {
+				text[ioff].imm = val;
+				text[ioff + 1].imm = 0;
+			} else if (rp->dofr_type == R_BPF_64_32)
+				text[ioff].imm = val;
 		}
-
-		if (rp->dofr_type == R_BPF_64_64) {
-			text[ioff].imm = val;
-			text[ioff + 1].imm = 0;
-		} else if (rp->dofr_type == R_BPF_64_32)
-			text[ioff].imm = val;
 	}
 }
 
@@ -258,17 +244,12 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  */
 int
 dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		 dtrace_stmtdesc_t *sdp)
+		 const dtrace_difo_t *dp)
 {
 	struct bpf_load_program_attr	attr;
-	dtrace_epid_t			epid;
-	const dtrace_difo_t		*dp;
 	int				logsz = BPF_LOG_BUF_SIZE;
 	char				*log;
 	int				rc;
-
-	dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
-	epid = dt_epid_add(dtp, dp->dtdo_ddesc, prp->desc->id);
 
 	/*
 	 * Check whether there are any probe-specific relocations to be
@@ -279,7 +260,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	 * earlier time so we can ignore those.
 	 */
 	if (dp->dtdo_brelen)
-		dt_bpf_reloc_prog(dtp, prp, dp, epid);
+		dt_bpf_reloc_prog(dtp, prp, dp);
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
 
@@ -324,42 +305,31 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 }
 
 int
-dt_bpf_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
-	    void *data)
+dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 {
-	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
-	dtrace_probeinfo_t	pip;
-	dt_probe_t		*prp;
-	int			fd, rc;
-	int			*cnt = data;
+	dt_probe_t	*prp;
 
-	memset(&pip, 0, sizeof(pip));
-	prp = dt_probe_info(dtp, pdp, &pip);
-	if (!prp)
-		return dt_set_errno(dtp, ESRCH);
+	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
+	     prp = dt_list_next(prp)) {
+		dtrace_difo_t	*dp;
+		int		fd, rc;
 
-	fd = dt_bpf_load_prog(dtp, prp, sdp);
-	if (fd < 0)
-		return fd;
+		dp = dt_program_construct(dtp, prp, cflags);
+		if (dp == NULL)
+			return -1;
 
-	if (!prp->prov->impl->attach)
-		return -1;
-	rc = prp->prov->impl->attach(dtp, prp, fd);
-	if (rc < 0)
-		return rc;
+		fd = dt_bpf_load_prog(dtp, prp, dp);
+		if (fd < 0)
+			return fd;
 
-	(*cnt)++;
+		dt_difo_free(dtp, dp);
+
+		if (!prp->prov->impl->attach)
+			return -1;
+		rc = prp->prov->impl->attach(dtp, prp, fd);
+		if (rc < 0)
+			return rc;
+	}
 
 	return 0;
-}
-
-int
-dt_bpf_prog(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
-{
-	int	cnt = 0;
-	int	rc;
-
-	rc = dtrace_stmt_iter(dtp, pgp, dt_bpf_stmt, &cnt);
-
-	return (rc < 0) ? rc : cnt;
 }

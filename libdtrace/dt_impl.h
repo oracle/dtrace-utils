@@ -67,6 +67,7 @@ struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
 struct dt_provider;		/* see <dt_provider.h> */
 struct dt_probe;		/* see <dt_probe.h> */
+struct dt_probe;		/* see <dt_probe.h> */
 struct dt_pebset;		/* see <dt_peb.h> */
 struct dt_xlator;		/* see <dt_xlator.h> */
 
@@ -231,6 +232,7 @@ struct dtrace_hdl {
 	uint_t dt_clause_nextid; /* next ID to use for programs */
 	dt_list_t dt_programs;	/* linked list of dtrace_prog_t's */
 	dt_list_t dt_xlators;	/* linked list of dt_xlator_t's */
+	dt_list_t dt_enablings;	/* list of (to be) enabled probes */
 	struct dt_xlator **dt_xlatormap; /* dt_xlator_t's indexed by dx_id */
 	id_t dt_xlatorid;	/* next dt_xlator_t id to assign */
 	dt_ident_t *dt_externs;	/* linked list of external symbol identifiers */
@@ -758,6 +760,7 @@ extern dt_ident_t *dt_dlib_add_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);
+extern dt_ident_t *dt_dlib_get_sym(dtrace_hdl_t *, const char *);
 extern dtrace_difo_t *dt_dlib_get_func_difo(dtrace_hdl_t *, const dt_ident_t *);
 extern void dt_dlib_reset(dtrace_hdl_t *dtp, boolean_t);
 extern int dt_load_libs(dtrace_hdl_t *dtp);
@@ -765,14 +768,15 @@ extern int dt_load_libs(dtrace_hdl_t *dtp);
 extern void *dt_compile(dtrace_hdl_t *dtp, int context,
 			dtrace_probespec_t pspec, void *arg, uint_t cflags,
 			int argc, char *const argv[], FILE *fp, const char *s);
+extern dtrace_difo_t *dt_program_construct(dtrace_hdl_t *dtp,
+					   struct dt_probe *prp, uint_t cflags);
 
 extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern void dt_cg(dt_pcb_t *, dt_node_t *);
 extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
 extern void dt_cg_tramp_prologue(dt_pcb_t *dtp, uint_t lbl_exit);
-extern void dt_cg_tramp_epilogue(dt_pcb_t *dtp, const dt_ident_t *prog,
-				 uint_t lbl_exit);
+extern void dt_cg_tramp_epilogue(dt_pcb_t *dtp, uint_t lbl_exit);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
 extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp);

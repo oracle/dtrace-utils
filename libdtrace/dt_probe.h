@@ -31,6 +31,8 @@ typedef struct dt_probe_instance {
 } dt_probe_instance_t;
 
 typedef struct dt_probe {
+	dt_list_t list;			/* prev/next in enablings chain */
+	dt_list_t clauses;		/* clauses to attach */
 	const dtrace_probedesc_t *desc;	/* probe description (id, name) */
 	dt_provider_t *prov;		/* pointer to containing provider */
 	struct dt_hentry he_prv;	/* provider name htab links */
@@ -77,9 +79,16 @@ extern dt_probe_t *dt_probe_lookup(dtrace_hdl_t *dtp,
 extern dt_probe_t *dt_probe_lookup_by_name(dtrace_hdl_t *dtp, const char *name);
 extern void dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp);
 
-typedef int dt_probe_f(dtrace_hdl_t *dtp, const dt_probe_t *prp, void *arg);
+typedef int dt_probe_f(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg);
 extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 			 dt_probe_f *pfunc, dtrace_probe_f *dfunc, void *arg);
+
+extern int dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp,
+			       dt_ident_t *idp);
+typedef int dt_clause_f(dtrace_hdl_t *dtp, dt_ident_t *idp, void *arg);
+extern int dt_probe_clause_iter(dtrace_hdl_t *dtp, dt_probe_t *prp,
+				dt_clause_f *func, void *arg);
+
 
 extern void dt_probe_init(dtrace_hdl_t *dtp);
 extern void dt_probe_fini(dtrace_hdl_t *dtp);

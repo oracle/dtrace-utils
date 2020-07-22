@@ -2542,10 +2542,10 @@ dt_node_program(dt_node_t *lnp)
 }
 
 dt_node_t *
-dt_node_trampoline(dt_ident_t *idp)
+dt_node_trampoline(dt_probe_t *prp)
 {
 	dt_node_t *dnp = dt_node_alloc(DT_NODE_TRAMPOLINE);
-	dnp->dn_ident = idp;
+	dnp->dn_probe = prp;
 	return dnp;
 }
 

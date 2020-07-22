@@ -25,6 +25,8 @@ extern "C" {
 #include <dt_xlator.h>
 #include <dt_list.h>
 
+struct dt_probe;
+
 typedef struct dt_node {
 	ctf_file_t *dn_ctfp;	/* CTF type container for node's type */
 	ctf_id_t dn_type;	/* CTF type reference for node's type */
@@ -83,6 +85,10 @@ typedef struct dt_node {
 			struct dt_node *_probes;  /* list of probe nodes */
 			int _redecl;		/* provider redeclared */
 		} _provider;
+
+		struct {
+			struct dt_probe *_prp;	/* probe reference */
+		} _trampoline;
 	} dn_u;
 
 	struct dt_node *dn_list; /* parse tree list link */
@@ -117,6 +123,7 @@ typedef struct dt_node {
 #define	dn_provider	dn_u._provider._pvp	/* DT_NODE_PROVIDER */
 #define	dn_provred	dn_u._provider._redecl	/* DT_NODE_PROVIDER */
 #define	dn_probes	dn_u._provider._probes	/* DT_NODE_PROVIDER */
+#define	dn_probe	dn_u._trampoline._prp	/* DT_NODE_TRAMPOLINE */
 
 #define	DT_NODE_FREE	0	/* unused node (waiting to be freed) */
 #define	DT_NODE_INT	1	/* integer value */
@@ -192,7 +199,7 @@ extern dt_node_t *dt_node_xlator(dt_decl_t *, dt_decl_t *, char *, dt_node_t *);
 extern dt_node_t *dt_node_probe(char *, int, dt_node_t *, dt_node_t *);
 extern dt_node_t *dt_node_provider(char *, dt_node_t *);
 extern dt_node_t *dt_node_program(dt_node_t *);
-extern dt_node_t *dt_node_trampoline(dt_ident_t *);
+extern dt_node_t *dt_node_trampoline(struct dt_probe *);
 
 extern dt_node_t *dt_node_link(dt_node_t *, dt_node_t *);
 extern dt_node_t *dt_node_cook(dt_node_t *, uint_t);

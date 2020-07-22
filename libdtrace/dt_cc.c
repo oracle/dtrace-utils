@@ -88,6 +88,7 @@
 #include <dt_ident.h>
 #include <dt_string.h>
 #include <dt_impl.h>
+#include <dt_bpf.h>
 #include <bpf_asm.h>
 
 int yylineno;
@@ -1618,8 +1619,6 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	dtrace_ecbdesc_t	*edp;
 	dtrace_datadesc_t	*ddp;
 	dtrace_stmtdesc_t	*sdp;
-	dt_ident_t		*idp;
-	dt_node_t		*tnp;
 
 	yylineno = pnp->dn_line;
 	dt_setcontext(dtp, pnp->dn_desc);
@@ -1651,26 +1650,6 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	 * Compile the clause (predicate and action).
 	 */
 	dt_cg(yypcb, cnp);
-	idp = dt_clause_create(dtp, dt_as(yypcb));
-
-	if (yypcb->pcb_cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
-		dt_dis_difo(dt_dlib_get_func_difo(dtp, idp), stderr);
-
-	/*
-	 * Move the data record description back to the compiler state so it
-	 * will be used for the trampoline program.  The clause no longer needs
-	 * it because when we register the program, it will use the trampoline.
-	 */
-	yypcb->pcb_ddesc = ddp;
-	dt_dlib_get_func_difo(dtp, idp)->dtdo_ddesc = NULL;
-
-	/*
-	 * Generate the trampoline program.
-	 */
-	tnp = dt_node_trampoline(idp);
-	dt_node_type_assign(tnp, dtp->dt_ints[0].did_ctfp,
-				 dtp->dt_ints[0].did_type);
-	dt_cg(yypcb, tnp);
 	sdp->dtsd_clause = dt_clause_create(dtp, dt_as(yypcb));
 
 	assert(yypcb->pcb_stmt == sdp);
@@ -2230,6 +2209,87 @@ out:
 	return (err ? NULL : rv);
 }
 
+static dtrace_difo_t *
+dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
+{
+	dt_pcb_t	pcb;
+	dt_node_t	*tnp;
+	dtrace_difo_t	*dp;
+	int		err;
+
+	if ((cflags & ~DTRACE_C_MASK) != 0) {
+		dt_set_errno(dtp, EINVAL);
+		return NULL;
+	}
+
+	if (dt_list_next(&dtp->dt_lib_path) != NULL && dt_load_libs(dtp) != 0)
+		return NULL;
+
+	ctf_discard(dtp->dt_cdefs->dm_ctfp);
+	ctf_discard(dtp->dt_ddefs->dm_ctfp);
+
+	dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
+	dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
+
+	dt_pcb_push(dtp, &pcb);
+
+	pcb.pcb_fileptr = NULL;
+	pcb.pcb_string = NULL;
+	pcb.pcb_strptr = NULL;
+	pcb.pcb_strlen = 0;
+	pcb.pcb_sargc = 0;
+	pcb.pcb_sargv = NULL;
+	pcb.pcb_sflagv = NULL;
+	pcb.pcb_pspec = DTRACE_PROBESPEC_NAME;
+	pcb.pcb_cflags = dtp->dt_cflags | cflags;
+	pcb.pcb_amin = dtp->dt_amin;
+	pcb.pcb_yystate = -1;
+	pcb.pcb_context = DT_CTX_DPROG;
+	pcb.pcb_token = DT_CTX_DPROG;
+	pcb.pcb_probe = prp;
+	pcb.pcb_pdesc = NULL;
+
+	if ((err = setjmp(yypcb->pcb_jmpbuf)) != 0)
+		goto out;
+
+	yypcb->pcb_idents = dt_idhash_create("ambiguous", NULL, 0, 0);
+	yypcb->pcb_locals = dt_idhash_create("clause local", NULL, 0,
+					     DT_LVAR_MAX);
+
+	if (yypcb->pcb_idents == NULL || yypcb->pcb_locals == NULL)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	if (cflags & DTRACE_C_CTL)
+		goto out;
+
+	if (yypcb->pcb_pragmas != NULL)
+		dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
+
+	tnp = dt_node_trampoline(prp);
+	dt_node_type_assign(tnp, dtp->dt_ints[0].did_ctfp,
+				 dtp->dt_ints[0].did_type);
+	dt_cg(yypcb, tnp);
+	dp = dt_as(yypcb);
+
+out:
+	if (dtp->dt_cdefs_fd != -1 &&
+	    (ftruncate(dtp->dt_cdefs_fd, 0) == -1 ||
+	     lseek(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
+	     ctf_write(dtp->dt_cdefs->dm_ctfp, dtp->dt_cdefs_fd) == CTF_ERR))
+		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
+
+	if (dtp->dt_ddefs_fd != -1 &&
+	    (ftruncate(dtp->dt_ddefs_fd, 0) == -1 ||
+	     lseek(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
+	     ctf_write(dtp->dt_ddefs->dm_ctfp, dtp->dt_ddefs_fd) == CTF_ERR))
+		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
+
+	dt_pcb_pop(dtp, err);
+	dt_set_errno(dtp, err);
+
+	return err ? NULL : dp;
+}
+
 static int
 dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 	       uint_t *rcp, uint_t *vcp)
@@ -2267,9 +2327,9 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 }
 
 static int
-dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
+dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
-		  uint_t *pcp, uint_t *rcp, uint_t *vcp)
+		  uint_t *pcp, uint_t *rcp, uint_t *vcp, dtrace_epid_t epid)
 {
 	uint_t			pc = *pcp;
 	uint_t			rc = *rcp;
@@ -2290,7 +2350,7 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 	assert(pc + sdp->dtdo_len <= dp->dtdo_len);
 	(*pcp) += sdp->dtdo_len;
 	memcpy(dp->dtdo_buf + pc, sdp->dtdo_buf,
-		sdp->dtdo_len * sizeof(struct bpf_insn));
+	       sdp->dtdo_len * sizeof(struct bpf_insn));
 
 	/*
 	 * Populate the (new) string table with any variable names for this
@@ -2339,26 +2399,53 @@ dt_link_construct(dtrace_hdl_t *dtp, dtrace_difo_t *dp,
 	rp = sdp->dtdo_breltab;
 	nrp = &dp->dtdo_breltab[rc];
 	for (; len != 0; len--, rp++, nrp++) {
-		char            *name = &sdp->dtdo_strtab[rp->dofr_name];
-		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
-		dtrace_difo_t   *rdp;
+		const char	*name = &sdp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
+		dtrace_difo_t	*rdp;
+		dtrace_epid_t	nepid;
 		int		ipc;
 
-		if (idp == NULL ||			/* not found */
-		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
-		    idp->di_flags & DT_IDFLG_REF)       /* already seen */
+		if (idp == NULL)			/* not found */
 			continue;
 
-		idp->di_flags |= DT_IDFLG_REF;
+		switch (idp->di_kind) {
+		case DT_IDENT_SCALAR:			/* constant */
+			switch (idp->di_id) {
+			case DT_CONST_EPID:
+				nrp->dofr_data = epid;	/* set vakue */
+				break;
+			case DT_CONST_ARGC:
+				nrp->dofr_data = 0;	/* FIXME */
+				break;
+			}
 
-		rdp = dt_dlib_get_func_difo(dtp, idp);
-		if (rdp == NULL)
-			return -1;
-		ipc = dt_link_construct(dtp, dp, rdp, stab, pcp, rcp, vcp);
-		if (ipc == -1)
-			return -1;
-		idp->di_id = ipc;
-		nrp->dofr_data = idp->di_id;		/* set value */
+			break;
+		case DT_IDENT_SYMBOL:			/* BPF function */
+			if (idp->di_flags & DT_IDFLG_REF)
+				continue;
+
+			idp->di_flags |= DT_IDFLG_REF;
+
+			rdp = dt_dlib_get_func_difo(dtp, idp);
+			if (rdp == NULL)
+				return -1;
+			if (rdp->dtdo_ddesc != NULL)
+				nepid = dt_epid_add(dtp, rdp->dtdo_ddesc,
+						    prp->desc->id);
+			else
+				nepid = 0;
+			ipc = dt_link_construct(dtp, prp, dp, rdp, stab,
+						pcp, rcp, vcp, nepid);
+			if (ipc == -1)
+				return -1;
+
+			idp->di_id = ipc;
+			nrp->dofr_data = idp->di_id;	/* set value */
+
+			break;
+		default:
+			continue;
+		}
 	}
 
 	return pc;
@@ -2372,33 +2459,46 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
 
 	for (; len != 0; len--, rp++) {
-		uint_t	idx;
+		const char	*name = &dp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
+		uint_t		ioff = rp->dofr_offset /
+				       sizeof(struct bpf_insn);
+		uint32_t	val;
+
+		if (idp == NULL)			/* not found */
+			continue;
 
 		/*
-		 * We are only relocating call instructions, so ignore any
-		 * relocations of a type other than R_BPF_64_32 (cannot refer
-		 * to a call instruction), and also ignore any relocations for
-		 * non-call instructions.
+		 * We are only relocating constants (EPID and ARGC) and call
+		 * instructions to functions that have been linked in.
 		 */
-		if (rp->dofr_type != R_BPF_64_32)
-			continue;
+		switch (idp->di_kind) {
+		case DT_IDENT_SCALAR:
+			val = rp->dofr_data;
+			break;
+		case DT_IDENT_SYMBOL:
+			assert(BPF_IS_CALL(buf[ioff]));
 
-		idx = rp->dofr_offset / sizeof(struct bpf_insn);
-		if (!BPF_IS_CALL(buf[idx]))
+			val = rp->dofr_data - ioff - 1;
+			break;
+		default:
 			continue;
+		}
 
-		buf[idx].imm = rp->dofr_data - idx - 1;
+		if (rp->dofr_type == R_BPF_64_64) {
+			buf[ioff].imm = val;
+			buf[ioff + 1].imm = 0;
+		} else if (rp->dofr_type == R_BPF_64_32)
+			buf[ioff].imm = val;
 	}
 }
 
 static int
-dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
-	     void *data)
+dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp)
 {
 	uint_t		insc = 0;
 	uint_t		relc = 0;
 	uint_t		varc = 0;
-	dtrace_difo_t	*dp = dt_dlib_get_func_difo(dtp, sdp->dtsd_clause);
 	dtrace_difo_t	*fdp = NULL;
 	dt_strtab_t	*stab;
 	int		rc;
@@ -2445,7 +2545,7 @@ dt_link_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	if (stab == NULL)
 		goto nomem;
 
-	rc = dt_link_construct(dtp, fdp, dp, stab, &insc, &relc, &varc);
+	rc = dt_link_construct(dtp, prp, fdp, dp, stab, &insc, &relc, &varc, 0);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;
@@ -2504,10 +2604,29 @@ nomem:
 	goto fail;
 }
 
-static int
-dt_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
+dtrace_difo_t *
+dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
 {
-	return dtrace_stmt_iter(dtp, pgp, dt_link_stmt, NULL);
+	dtrace_difo_t *dp;
+
+	assert(prp != NULL);
+
+	dp = dt_construct(dtp, prp, cflags);
+	if (dp == NULL)
+		return NULL;
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
+		dt_dis_difo(dp, stderr);
+
+	if (dt_link(dtp, prp, dp) != 0) {
+		dt_difo_free(dtp, dp);
+		return NULL;
+	}
+
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 3))
+		dt_dis_difo(dp, stderr);
+
+	return dp;
 }
 
 dtrace_prog_t *
@@ -2521,12 +2640,7 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 	if (rv == NULL)
 		return NULL;
 
-	if (dt_link(dtp, rv) != 0) {
-		dt_program_destroy(dtp, rv);
-		return NULL;
-	}
-
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
+	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
 		dt_dis_program(dtp, rv, stderr);
 
 	return rv;
@@ -2544,14 +2658,6 @@ dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
 		return NULL;
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
-		dt_dis_program(dtp, rv, stderr);
-
-	if (dt_link(dtp, rv) != 0) {
-		dt_program_destroy(dtp, rv);
-		return NULL;
-	}
-
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
 		dt_dis_program(dtp, rv, stderr);
 
 	return rv;

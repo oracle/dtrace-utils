@@ -138,59 +138,49 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	}
 }
 
+typedef struct pi_state {
+	int		*cnt;
+	dt_ident_t	*idp;
+} pi_state_t;
+
+static int
+dt_stmt_probe(dtrace_hdl_t *dtp, dt_probe_t *prp, pi_state_t *st)
+{
+	if (!dt_in_list(&dtp->dt_enablings, prp))
+		dt_list_append(&dtp->dt_enablings, prp);
+
+	dt_probe_add_clause(dtp, prp, st->idp);
+	(*st->cnt)++;
+
+	return 0;
+}
+
+static int
+dt_prog_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
+	     int *cnt)
+{
+	pi_state_t		st;
+	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
+
+	st.cnt = cnt;
+	st.idp = sdp->dtsd_clause;
+	return dt_probe_iter(dtp, pdp, (dt_probe_f *)dt_stmt_probe, NULL, &st);
+}
+
 int
 dtrace_program_exec(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
-    dtrace_proginfo_t *pip)
+		    dtrace_proginfo_t *pip)
 {
-	int	n;
-	int	err = 0;
+	int	cnt = 0;
+	int	rc = 0;
 
-	/*
-	 * Determine program attributes.
-	 */
 	dtrace_program_info(dtp, pgp, pip);
-
-	/*
-	 * Create the global BPF maps.  This is done only once regardless of
-	 * how many programs there are.
-	 */
-	err = dt_bpf_gmap_create(dtp);
-	if (err)
-		return err; /* dt_errno is set for us */
-
-	n = dt_bpf_prog(dtp, pgp);
-	switch (n) {
-	case -EINVAL:
-		err = EDT_BPFINVAL;
-		break;
-	case -EPERM:
-		err = EDT_ACCESS;
-		break;
-	case -ESRCH:
-		err = EDT_NOPROBE;
-		break;
-	case -ENOMEM:
-		err = EDT_NOMEM;
-		break;
-	case -EFAULT:
-		err = EDT_BPFFAULT;
-		break;
-	case -E2BIG:
-		err = EDT_BPFSIZE;
-		break;
-	case -EBUSY:
-		err = EDT_ENABLING_ERR;
-		break;
-	default:
-		if (n < 0)
-			err = errno;
-	}
-
-	if (err)
-		return dt_set_errno(dtp, err);
+	rc = dtrace_stmt_iter(dtp, pgp, (dtrace_stmt_f *)dt_prog_stmt, &cnt);
+	if (rc < 0)
+		return rc;
 
 	if (pip != NULL)
-		pip->dpi_matches += n;
+		pip->dpi_matches += cnt;
 
 	return 0;
 }

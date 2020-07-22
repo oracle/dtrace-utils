@@ -44,7 +44,7 @@ extern dtrace_hdl_t *dtrace_open(int version, int flags, int *errp);
 extern dtrace_hdl_t *dtrace_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg);
 
-extern int dtrace_go(dtrace_hdl_t *dtp);
+extern int dtrace_go(dtrace_hdl_t *dtp, uint_t cflags);
 extern int dtrace_stop(dtrace_hdl_t *dtp);
 extern void dtrace_sleep(dtrace_hdl_t *dtp);
 extern void dtrace_close(dtrace_hdl_t *dtp);

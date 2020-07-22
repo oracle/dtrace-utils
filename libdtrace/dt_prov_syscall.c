@@ -143,7 +143,7 @@ static int populate(dtrace_hdl_t *dtp)
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns 0 to the caller.
  */
-static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
+static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -185,7 +185,7 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 	 *				// lddw %r0, [%r8 + SCD_ARG(0)]
 	 *				// stdw [%r7 + DCTX_ARG(0), %r0
 	 */
-	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
+	for (i = 0; i < pcb->pcb_probe->argc; i++) {
 		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, SCD_ARG(i));
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0);
@@ -197,13 +197,12 @@ static void trampoline(dt_pcb_t *pcb, const dt_ident_t *prog)
 	 *		dctx->mst->argv[i] = 0;
 	 *				// stdw [%r7 + DCTX_ARG(i), %r0
 	 */
-	for (i = pcb->pcb_pinfo.dtp_argc;
-	     i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
 		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
-	dt_cg_tramp_epilogue(pcb, prog, lbl_exit);
+	dt_cg_tramp_epilogue(pcb, lbl_exit);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,

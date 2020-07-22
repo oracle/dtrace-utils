@@ -25,7 +25,7 @@ static const char * const helper_fn[] = {
 static void
 dt_dis_prefix(uint_t i, const struct bpf_insn *instr, FILE *fp)
 {
-	fprintf(fp, "%03u %03u: %02hhx %01hhx %01hhx %04hx %08x    ",
+	fprintf(fp, "%03u %04u: %02hhx %01hhx %01hhx %04hx %08x    ",
 		i, i*8, instr->code, instr->dst_reg, instr->src_reg,
 		instr->off, instr->imm);
 }
@@ -590,7 +590,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 	int		cnt = dp->dtdo_brelen;
 	char		type[DT_TYPE_NAMELEN];
 
-	fprintf(fp, "%-3s %-4s %-20s    %s\n",
+	fprintf(fp, "%-3s %-5s %-20s    %s\n",
 	    "INS", "OFF", "OPCODE", "INSTRUCTION");
 
 	for (i = 0; i < dp->dtdo_len; i++) {

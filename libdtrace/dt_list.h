@@ -20,6 +20,8 @@ typedef struct dt_list {
 #define	dt_list_prev(elem)	((void *)(((dt_list_t *)(elem))->dl_prev))
 #define	dt_list_next(elem)	((void *)(((dt_list_t *)(elem))->dl_next))
 
+#define dt_in_list(l, e)	((l)->dl_next == (e) || dt_list_prev(e))
+
 extern void dt_list_append(dt_list_t *, void *);
 extern void dt_list_prepend(dt_list_t *, void *);
 extern void dt_list_insert(dt_list_t *, void *, void *);

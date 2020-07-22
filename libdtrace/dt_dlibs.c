@@ -97,10 +97,10 @@ dt_dlib_init(dtrace_hdl_t *dtp)
 }
 
 /*
- * Lookup a BPF identifier of a specific kind by name.
+ * Lookup a BPF identifier by name.
  */
-static dt_ident_t *
-dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
+dt_ident_t *
+dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name)
 {
 	dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
 
@@ -108,7 +108,19 @@ dt_dlib_get_sym(dtrace_hdl_t *dtp, const char *name, int kind)
 		return NULL;
 	if ((idp->di_flags & DT_IDFLG_BPF) == 0)
 		return NULL;
-	if (idp->di_kind != kind)
+
+	return idp;
+}
+
+/*
+ * Lookup a BPF identifier of a specific kind by name.
+ */
+static dt_ident_t *
+dt_dlib_get_xsym(dtrace_hdl_t *dtp, const char *name, int kind)
+{
+	dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
+
+	if (idp == NULL || idp->di_kind != kind)
 		return NULL;
 
 	return idp;
@@ -138,12 +150,12 @@ dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind)
 dt_ident_t *
 dt_dlib_get_func(dtrace_hdl_t *dtp, const char *name)
 {
-	dt_ident_t	*idp = dt_dlib_get_sym(dtp, name, DT_IDENT_FUNC);
+	dt_ident_t	*idp = dt_dlib_get_xsym(dtp, name, DT_IDENT_FUNC);
 
 	if (idp)
 		return idp;
 
-	return dt_dlib_get_sym(dtp, name, DT_IDENT_SYMBOL);
+	return dt_dlib_get_xsym(dtp, name, DT_IDENT_SYMBOL);
 }
 
 /*
@@ -161,7 +173,7 @@ dt_dlib_add_func(dtrace_hdl_t *dtp, const char *name)
 dt_ident_t *
 dt_dlib_get_map(dtrace_hdl_t *dtp, const char *name)
 {
-	return dt_dlib_get_sym(dtp, name, DT_IDENT_PTR);
+	return dt_dlib_get_xsym(dtp, name, DT_IDENT_PTR);
 }
 
 /*
@@ -179,7 +191,7 @@ dt_dlib_add_map(dtrace_hdl_t *dtp, const char *name)
 dt_ident_t *
 dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
 {
-	return dt_dlib_get_sym(dtp, name, DT_IDENT_SCALAR);
+	return dt_dlib_get_xsym(dtp, name, DT_IDENT_SCALAR);
 }
 
 /*

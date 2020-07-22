@@ -111,26 +111,36 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 }
 
+static int
+dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_irlist_t *dlp)
+{
+	struct bpf_insn	instr;
+
+	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_FUNC(idp->di_id);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = idp;
+
+	return 0;
+}
+
 void
-dt_cg_tramp_epilogue(dt_pcb_t *pcb, const dt_ident_t *prog, uint_t lbl_exit)
+dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
-
-	assert(prog != NULL);
 
 	/*
 	 *	dt_program(dctx);	// mov %r1, %fp
 	 *				// add %fp, DCTX_FP(0)
 	 *				// call dt_program
+	 *	(repeated for each clause)
 	 */
-	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(prog->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = prog;
+	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
+			     (dt_clause_f *)dt_cg_call_clause, dlp);
 
 	/*
 	 * exit:
@@ -2984,42 +2994,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 		dt_cg_epilogue(pcb);
 	} else if (dnp->dn_kind == DT_NODE_TRAMPOLINE) {
-		/*
-		 * If we have a representative probe with a provider that
-		 * implements trampoline generation, we invoke the generator
-		 * for the trampoline, passing the PCB and a flag indicating
-		 * whether this clause has a predicate.
-		 *
-		 * FIXME:
-		 * We should support cases where there is no representative
-		 * probe, or we need to ensure that we never get called without
-		 * a representative probe.  The idea is that we will always
-		 * have one representative probe per provider that has probes
-		 * that match the specification.
-		 */
-		if (pcb->pcb_probe != NULL) {
-			if (pcb->pcb_probe->prov->impl->trampoline == NULL)
-				xyerror(D_PROV_INCOMPAT, "[Future feature] - "
-					"probe description %s:%s:%s:%s has no "
-					"trampoline\n",
-					pcb->pcb_probe->desc->prv,
-					pcb->pcb_probe->desc->mod,
-					pcb->pcb_probe->desc->fun,
-					pcb->pcb_probe->desc->prb);
+		assert(pcb->pcb_probe != NULL);
 
-			pcb->pcb_probe->prov->impl->trampoline(pcb,
-							       dnp->dn_ident);
-		}
-		/*
-		 * FIXME: We should be able to handle this somehow or avoid
-		 *	  it altogether.  We need this to aovid a core dump.
-		 */
-		else
-			xyerror(D_PROV_INCOMPAT, "[Future feature] - "
-				"probe description %s:%s:%s:%s has no "
-				"representative probe\n",
-				pcb->pcb_pdesc->prv, pcb->pcb_pdesc->mod,
-				pcb->pcb_pdesc->fun, pcb->pcb_pdesc->prb);
+		pcb->pcb_probe->prov->impl->trampoline(pcb);
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 
