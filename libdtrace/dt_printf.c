@@ -1551,7 +1551,7 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
     uint_t nrecs, const void *buf, size_t len)
 {
-	char selfbuf[40], restorebuf[40];
+	char tmpbuf[40];
 	FILE *nfp;
 	int rval, errval;
 	dt_pfargv_t *pfv = fmtdata;
@@ -1582,11 +1582,10 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 			return (rval);
 		}
 
-		(void) snprintf(restorebuf, sizeof (restorebuf),
+		snprintf(tmpbuf, sizeof (tmpbuf),
 		    "/dev/fd/%d", dtp->dt_stdout_fd);
 		free(dtp->dt_freopen_filename);
-		dtp->dt_freopen_filename = strndup(restorebuf,
-						   sizeof(restorebuf));
+		dtp->dt_freopen_filename = strndup(tmpbuf, sizeof(tmpbuf));
 	} else {
 		free(dtp->dt_freopen_filename);
 		dtp->dt_freopen_filename = strdup(dtp->dt_sprintf_buf);
@@ -1622,7 +1621,7 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 		return (errval);
 	}
 
-	(void) snprintf(selfbuf, sizeof (selfbuf), "/dev/fd/%d", fileno(nfp));
+	snprintf(tmpbuf, sizeof (tmpbuf), "/dev/fd/%d", fileno(nfp));
 
 	if (dtp->dt_stdout_fd == -1) {
 		/*
@@ -1637,7 +1636,7 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 		}
 	}
 
-	if (freopen(selfbuf, "aF", fp) == NULL) {
+	if (freopen(tmpbuf, "aF", fp) == NULL) {
 		(void) fclose(nfp);
 		return (dt_set_errno(dtp, errno));
 	}
