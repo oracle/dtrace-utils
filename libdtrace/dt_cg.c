@@ -602,11 +602,6 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 }
 
 static void
-dt_cg_act_freopen(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
-{
-}
-
-static void
 dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 }
@@ -806,11 +801,6 @@ dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 
 static void
 dt_cg_act_symmod(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
-{
-}
-
-static void
-dt_cg_act_system(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 }
 

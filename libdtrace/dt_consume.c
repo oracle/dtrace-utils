@@ -2397,6 +2397,10 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
 			int			n;
 			dtrace_recdesc_t	*rec;
+			int (*func)(dtrace_hdl_t *, FILE *, void *,
+			    const dtrace_probedata_t *,
+			    const dtrace_recdesc_t *, uint_t,
+			    const void *buf, size_t);
 
 			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
 			if (rec->dtrd_action == DTRACEACT_EXIT)
@@ -2414,13 +2418,32 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 			if (rval != DTRACE_CONSUME_THIS)
 				return dt_set_errno(dtp, EDT_BADRVAL);
 
-			if (rec->dtrd_action == DTRACEACT_PRINTF) {
+			switch (rec->dtrd_action) {
+			case DTRACEACT_PRINTF:
+				func = dtrace_fprintf;
+				break;
+/*
+			case DTRACEACT_PRINTA:
+				func = dtrace_fprinta;
+				break;
+*/
+			case DTRACEACT_SYSTEM:
+				func = dtrace_system;
+				break;
+			case DTRACEACT_FREOPEN:
+				func = dtrace_freopen;
+				break;
+			default:
+				func = NULL;
+				break;
+			}
+
+			if (func) {
 				int	nrecs;
 
 				nrecs = pdat->dtpda_ddesc->dtdd_nrecs - i;
-				n = dtrace_fprintf(dtp, fp, rec->dtrd_format,
-						   pdat, rec, nrecs, data,
-						   size);
+				n = (*func)(dtp, fp, rec->dtrd_format, pdat,
+						   rec, nrecs, data, size);
 				if (n < 0)
 					return -1;
 				if (n > 0)
