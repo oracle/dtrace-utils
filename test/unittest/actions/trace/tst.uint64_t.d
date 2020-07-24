@@ -14,6 +14,6 @@
 
 BEGIN
 {
-	trace((uint64_t)-1);
+	trace(-1ul);
 	exit(0);
 }
