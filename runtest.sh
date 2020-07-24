@@ -1287,7 +1287,9 @@ for dt in $dtrace; do
             # Split debugging info out of the test output.
             grep -E '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testdebug
             grep -vE '^[a-z_]+ DEBUG [0-9]+: ' $testerr > $testerr.tmp
-            mv $testerr.tmp $testerr
+
+            # Account for an error message change in CTF
+            sed -e 's/Invalid member name/Member name not found/' $testerr.tmp > $testerr
 
             # Note if dtrace mentions running out of memory at any point.
             # If it does, this test quietly becomes an expected failure
