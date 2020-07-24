@@ -20,7 +20,7 @@ out=/tmp/output.$$
 $dtrace $dt_flags -n BEGIN,END &>> $out &
 pid=$!
 
-tail -F $out | awk '/matched [1-9] probe/ { exit; }'
+tail -F $out | awk '/:BEGIN/ { exit; }'
 rm -f $out
 
 BEG0=`grep -c p:dt_${pid}_dtrace/BEGIN $UPROBE_EVENTS`
