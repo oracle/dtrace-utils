@@ -1,7 +1,7 @@
 # spec file for package dtrace
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -29,7 +29,7 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition
 # to dtrace_kernels).
 
-%{!?build_kernel: %define build_kernel 5.4.0-1948.2%{?dist}uek}
+%{!?build_kernel: %define build_kernel 5.4.17-2018%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 
 # ARM64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
@@ -48,8 +48,8 @@ Requires:     cpp elfutils-libelf zlib yum libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
-BuildRequires: gcc-bpf-unknown-none >= 8.3.1-1.0.4
-BuildRequires: binutils-bpf-unknown-none >= 2.30-58.0.2
+BuildRequires: gcc-bpf-unknown-none
+BuildRequires: binutils-bpf-unknown-none
 %if %{with_libctf}
 Requires:     binutils >= 2.30-58.0.8
 BuildRequires: binutils-devel >= 2.30-58.0.8
@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      0.8%{?dist}
+Release:      1.1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,35 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Jul 24 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.1
+- Implement profile-n and tick-n probes. (Eugene Loh)
+- Implement the printf() action.
+- Implement the raise() action.
+- Support probe specifications with wildcards.
+- Support multiple clauses for easch probe.
+- Support built-in variables: arg0 through arg9 (for probes that provide
+  arguments), curcpu curthread, epid, gid, pid, tid, uid, and timestamp.
+- Various memory management fixes.
+- Register leak fixes.
+
+* Thu Apr 30 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.0
+- Implement BEGIN and END probes. (Eugene Loh) [Orabug: 31220513]
+- Implement a probe cleanup mechanism for providers.
+  (Eugene Loh) [Orabug: 31220519]
+- Implement the exit() action. [Orabug: 31220520]
+- Implement the flowindent option. [Orabug: 31220522]
+- Implement the -xdisasm=n option. [Orabug: 31220524]
+- Implement linking of precompiled BPF functions. [Orabug: 31220525]
+- Fix memory leaks and minor uninitialized-data bugs. [Orabug: 31220517]
+- Fix load-before-store BPF verifier errors for local variables.
+  [Orabug: 31220527]
+- Fix post-increment code generation. [Orabug: 31220528]
+- Fix register clobbering and implement register spilling. [Orabug: 31187562]
+- Add error and drop tag verification for tests. [Orabug: 31220521]
+- Various code cleanup and errata release preparation. [Orabug; 31220516]
+- Ensure that bpf_dlib.o is installed.
+- Fix the creation of FBT return probes.
+
 * Tue Mar 10 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-0.8
 - Sync with latest development code.
 - Implement perf event output buffer management and processing.
