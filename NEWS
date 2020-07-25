@@ -1,5 +1,85 @@
+2.0.0-1.1 (Jul 24th, 2020)
+--------------------------
+
+Second errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The profile provider has been implemented.  Both profile-n and tick-n
+   probes are supported, for probes with default fire rates and user-specified
+   rates/intervals.
+
+ - The trace() action has been updated to provide more consistent output based
+   on the datatype of its argument (signed vs unsigned, and width).
+
+ - The printf() action has been implemented for numeric values.
+
+ - The raise() action has been implemented.
+
+ - Clauses can now be specified with one or more probe specifications, and each
+   probe specification can contain wildcards.
+
+ - Listing probes based on wildcard probe specifications has been implemented.
+
+ - It is now possible to specify the same probe for multiple clauses.
+
+ - Various built-in variables are available: arg0 through arg9 (for probes
+   that provide arguments), curcpu curthread, epid, gid, pid, tid, uid, and
+   timestamp.
+
+Bugfixes:
+
+ - Various memory management issues such as memory leak and unsafe memory
+   access operations were fixed.
+
+ - A register allocation leak in predicate handling was fixed.
+
+ - The 'timestamp' built-in variable should yield the same value every time it
+   is used within a specific clause.  The cached value should not leak into the
+   next clause execution.
+
+ - Interrupting dtrace using Ctrl-C or sending a signal could leave uprobes
+   and/or kprobes behind.  We now ensure that the interrupt handler is set up
+   early enough to be able to provide proper cleanup.
+
+ - There were cases where integer values between INT32_MAX and UINT32_MAX were
+   not processed correctly.
+
+ - The fallback support for /proc/kallsyms did not handle the lack of symbol
+   sizes correctly, making it impossible to map an address to a kernel symbol.
+
+Internal changes:
+
+ - The optional predicate for a clause is now compiled as an inline conditional
+   at the beginning of the clause execution.
+
+ - The machine state used during clause execution was allocated on the stack in
+   previous releases.  This worked fine when BPF code was executed using the
+   kernel interpreter, but when the JIT BPF engine was used it would result in
+   stack overruns.  Now, the machine state is stores in a BPF map value to free
+   up stack space.
+
+ - The creation of uprobes and kprobes as underlying probing mechanism has been
+   deferred until tracing is actually about to start.  This means that listing
+   probes (-l) no longer results in uprobes and/or kprobes being created on the
+   system without being used.
+
+ - A significant (but largely invisible) change has been implemented in the D
+   compiler and runtime environment.  The compilation of a clause will now
+   merely generate a BPF function.  When probe execution is being set up, all
+   probes that are to be part of the tracing session are collected and for each
+   probe a list of associated clauses is created.  Finally, when tracing is to
+   commence, a trampoline BPF program is assembled for each probe.  Each of the
+   trampoline BPF programs will include calls to the clauses associated with
+   the probe.  When the final program for each probe is linked, references to
+   compiled clauses and precompiled BPF utility functions are resolved.  At
+   this point, the BPF program for each probe is loaded into the kernel and
+   attached to its probe.
+
 2.0.0-1.0 (Apr 24th, 2020)
--------------------------
+--------------------------
 
 First errata of the standalone userspace implementation.
 
