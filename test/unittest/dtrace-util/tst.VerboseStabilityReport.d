@@ -19,7 +19,6 @@
  *
  */
 
-/* @@xfail: dtv2 */
 /* @@runtest-opts: -v */
 
 BEGIN

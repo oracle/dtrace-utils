@@ -7,7 +7,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@xfail: dtv2 */
 /* @@trigger: readwholedir */
 
 syscall::write:entry
