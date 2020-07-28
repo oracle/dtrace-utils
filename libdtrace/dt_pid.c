@@ -65,13 +65,10 @@ dt_pid_objname(Lmid_t lmid, const char *obj)
 
 static int
 dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
-    fasttrap_probe_spec_t *ftp, dt_errtag_t tag, const char *fmt, ...)
+    dt_errtag_t tag, const char *fmt, ...)
 {
 	va_list ap;
 	int len;
-
-	if (ftp != NULL)
-		dt_free(dtp, ftp);
 
 	va_start(ap, fmt);
 	if (pcb == NULL) {
@@ -162,7 +159,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, ftp, symp,
 		    DTFTP_RETURN) < 0) {
 			rc = dt_pid_error(
-				dtp, pcb, dpr, ftp, D_PROC_CREATEFAIL,
+				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create return probe for '%s': %s",
 				func, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			goto out;
@@ -175,7 +172,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, ftp, symp,
 		    DTFTP_ENTRY) < 0) {
 			rc = dt_pid_error(
-				dtp, pcb, dpr, ftp, D_PROC_CREATEFAIL,
+				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create entry probe for '%s': %s",
 				func, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			goto out;
@@ -188,7 +185,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	if (!glob && nmatches == 0) {
 		off = strtoull(pp->dpp_name, &end, 16);
 		if (*end != '\0') {
-			rc = dt_pid_error(dtp, pcb, dpr, ftp, D_PROC_NAME,
+			rc = dt_pid_error(dtp, pcb, dpr, D_PROC_NAME,
 					  "'%s' is an invalid probe name",
 					  pp->dpp_name);
 			goto out;
@@ -196,7 +193,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 		if (off >= symp->st_size) {
 			rc = dt_pid_error(
-				dtp, pcb, dpr, ftp, D_PROC_OFF,
+				dtp, pcb, dpr, D_PROC_OFF,
 				"offset 0x%llx outside of function '%s'",
 				(u_longlong_t)off, func);
 			goto out;
@@ -205,7 +202,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
 					ftp, symp, pp->dpp_name) < 0) {
 			rc = dt_pid_error(
-				dtp, pcb, dpr, ftp, D_PROC_CREATEFAIL,
+				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create probes at '%s+0x%llx': %s",
 				func, (u_longlong_t)off,
 				dtrace_errmsg(dtp, dtrace_errno(dtp)));
@@ -217,7 +214,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
 					ftp, symp, pp->dpp_name) < 0) {
 			rc = dt_pid_error(
-				dtp, pcb, dpr, ftp, D_PROC_CREATEFAIL,
+				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create offset probes in '%s': %s",
 				func, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			goto out;
@@ -231,7 +228,6 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 out:
 	free(ftp->ftps_mod);
 	dt_free(dtp, ftp);
-
 	return rc;
 }
 
@@ -352,7 +348,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 				sym.st_size = Pelf64(pp->dpp_pr) ? -1ULL : -1U;
 			} else if (!strisglob(pp->dpp_mod)) {
 				return dt_pid_error(
-					dtp, pcb, dpr, NULL, D_PROC_FUNC,
+					dtp, pcb, dpr, D_PROC_FUNC,
 					"failed to lookup '%s' in module '%s'",
 					pp->dpp_func, pp->dpp_mod);
 			} else
@@ -494,7 +490,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * we get a nicer error message.)
 	 */
 	if (pid == getpid())
-		return dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+		return dt_pid_error(dtp, pcb, dpr, D_PROC_DYN,
 				    "process %s is dtrace itself",
 				    &pdp->prv[3]);
 
@@ -503,7 +499,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
 	if (dt_Pname_to_map(dtp, pid, PR_OBJ_LDSO) == NULL) {
-		return dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+		return dt_pid_error(dtp, pcb, dpr, D_PROC_DYN,
 			"process %s is not a dynamically-linked executable",
 			&pdp->prv[3]);
 	}
@@ -523,13 +519,13 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 		    (aout = dt_Pname_to_map(dtp, pid, "a.out")) == NULL ||
 		    (pmp = dt_Pname_to_map(dtp, pid, pp.dpp_mod)) == NULL ||
 		    aout->pr_vaddr != pmp->pr_vaddr) {
-			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_LIB,
+			return (dt_pid_error(dtp, pcb, dpr, D_PROC_LIB,
 			    "only the a.out module is valid with the "
 			    "'-' function"));
 		}
 
 		if (strisglob(pp.dpp_name)) {
-			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_NAME,
+			return (dt_pid_error(dtp, pcb, dpr, D_PROC_NAME,
 			    "only individual addresses may be specified "
 			    "with the '-' function"));
 		}
@@ -633,7 +629,7 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	if (dt_Pobject_iter(dtp, dpr->dpr_pid, dt_pid_usdt_mapping, dpr) != 0) {
 		ret = -1;
-		dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_USDT,
+		dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
 		    "failed to instantiate probes for pid %d: %s",
 		    dpr->dpr_pid, strerror(errno));
 	}
@@ -661,7 +657,7 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	}
 
 	if (last == NULL || (*(++last) == '\0')) {
-		dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPROV,
+		dt_pid_error(dtp, pcb, dpr, D_PROC_BADPROV,
 			     "'%s' is not a valid provider", pdp->prv);
 		return -1;
 	}
@@ -670,7 +666,7 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	pid = strtol(last, &end, 10);
 
 	if (errno != 0 || end == last || end[0] != '\0' || pid <= 0) {
-		dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPID,
+		dt_pid_error(dtp, pcb, dpr, D_PROC_BADPID,
 			     "'%s' does not contain a valid pid", pdp->prv);
 		return -1;
 	}
@@ -696,7 +692,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	if (gmatch(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);
 		if (pid < 0) {
-			dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
+			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return (-1);
 		}
@@ -721,7 +717,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	if (strcmp(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);
 		if (pid < 0) {
-			dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
+			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return (-1);
 		}
