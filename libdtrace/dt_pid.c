@@ -55,7 +55,7 @@ dt_pid_objname(Lmid_t lmid, const char *obj)
 	if (lmid == LM_ID_BASE)
 		return strdup(obj);
 
-	len = snprintf(NULL, INT_MAX, "LM%lx`%s", lmid, obj);
+	len = snprintf(NULL, 0, "LM%lx`%s", lmid, obj) + 1;
 	buf = malloc(len);
 	if (buf)
 		snprintf(buf, len, "LM%lx`%s", lmid, obj);
