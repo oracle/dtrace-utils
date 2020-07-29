@@ -701,6 +701,19 @@ dt_vopen(int version, int flags, int *errp,
 		(void) setrlimit(RLIMIT_NOFILE, &rl);
 	}
 
+	/*
+	 * Also, raise the limit on size that can be locked into memory,
+	 * which is needed for BPF operations.
+	 */
+	if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0) {
+		rlim_t lim = 16 * 1024 * 1024;
+
+		if (rl.rlim_cur < lim) {
+			rl.rlim_cur = rl.rlim_max = lim;
+			setrlimit(RLIMIT_MEMLOCK, &rl);
+		}
+	}
+
 	if ((dtp = malloc(sizeof (dtrace_hdl_t))) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
