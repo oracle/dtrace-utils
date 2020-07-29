@@ -232,11 +232,13 @@ fi
 - Implement the printf() action.
 - Implement the raise() action.
 - Support probe specifications with wildcards.
-- Support multiple clauses for easch probe.
+- Support multiple clauses for each probe.
 - Support built-in variables: arg0 through arg9 (for probes that provide
   arguments), curcpu curthread, epid, gid, pid, tid, uid, and timestamp.
+- Ensure a minimum locked-memory limit for BPF.
 - Various memory management fixes.
 - Register leak fixes.
+- int8_t is now always signed, even on platforms where char is unsigned.
 
 * Thu Apr 30 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.0
 - Implement BEGIN and END probes. (Eugene Loh) [Orabug: 31220513]

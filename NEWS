@@ -29,6 +29,12 @@ New features:
    that provide arguments), curcpu curthread, epid, gid, pid, tid, uid, and
    timestamp.
 
+ - Expected test outcomes are continually being updated to reflect increasing
+   functionality.
+
+ - The locked-memory limit is raised automatically if it is too small,
+   since BPF has relied on a higher limit.
+
 Bugfixes:
 
  - Various memory management issues such as memory leak and unsafe memory
@@ -49,6 +55,8 @@ Bugfixes:
 
  - The fallback support for /proc/kallsyms did not handle the lack of symbol
    sizes correctly, making it impossible to map an address to a kernel symbol.
+
+ - int8_t is now always signed, even on platforms where char is unsigned.
 
 Internal changes:
 
