@@ -20,7 +20,17 @@ out=/tmp/output.$$
 $dtrace $dt_flags -n BEGIN,END &>> $out &
 pid=$!
 
-tail -F $out | awk '/:BEGIN/ { exit; }'
+for iter in 1 2 3 4 5 6; do
+    sleep 1
+    if grep -q :BEGIN $out; then
+        iter=0
+        break
+    fi
+done
+if [[ $iter -ne 0 ]]; then
+    echo error starting DTrace job
+    cat $out
+fi
 rm -f $out
 
 BEG0=`grep -c p:dt_${pid}_dtrace/BEGIN $UPROBE_EVENTS`
@@ -32,10 +42,11 @@ wait $pid
 BEG1=`grep -c p:dt_${pid}_dtrace/BEGIN $UPROBE_EVENTS`
 END1=`grep -c p:dt_${pid}_dtrace/END   $UPROBE_EVENTS`
 
-if [[ $BEG0 != 1 || \
-     $END0 != 1 || \
-     $BEG1 != 0 || \
-     $END1 != 0 ]]; then
+if [[ $iter -ne 0 || \
+    $BEG0 != 1 || \
+    $END0 != 1 || \
+    $BEG1 != 0 || \
+    $END1 != 0 ]]; then
 	echo "actual: $BEG0 $END0 $BEG1 $END1"
 	echo "expect: 1 1 0 0"
 	exit 1
