@@ -465,8 +465,7 @@ postprocess()
     local final=$3
     local retval=0
 
-    grep -v "^DTrace [^\[]* \[Pre-Release with limited functionality\]$" $output > $tmpdir/pp.out
-    cp -f $tmpdir/pp.out $output
+    cp -f $output $tmpdir/pp.out
 
     # Postprocess the output, if need be.
     if [[ -x $postprocessor ]]; then
@@ -584,9 +583,7 @@ for dt in $dtrace; do
     fi
 
     # Write out a list of loaded providers.
-    DTRACE_DEBUG= $dt -l | \
-	grep -v "^DTrace [^\[]* \[Pre-Release with limited functionality\]$" | \
-	tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
+    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
 
     unset LD_LIBRARY_PATH
     break
