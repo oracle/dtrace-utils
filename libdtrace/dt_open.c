@@ -440,7 +440,7 @@ static const dt_intrinsic_t _dtrace_intrinsics_64[] = {
  * These aliases ensure that D definitions can use typical <sys/types.h> names.
  */
 static const dt_typedef_t _dtrace_typedefs_32[] = {
-{ "char", "int8_t" },
+{ "signed char", "int8_t" },
 { "short", "int16_t" },
 { "int", "int32_t" },
 { "long long", "int64_t" },
@@ -468,7 +468,7 @@ static const dt_typedef_t _dtrace_typedefs_32[] = {
  * These aliases ensure that D definitions can use typical <sys/types.h> names.
  */
 static const dt_typedef_t _dtrace_typedefs_64[] = {
-{ "char", "int8_t" },
+{ "signed char", "int8_t" },
 { "short", "int16_t" },
 { "int", "int32_t" },
 { "long", "int64_t" },
