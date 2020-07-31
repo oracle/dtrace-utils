@@ -6,6 +6,8 @@
 # http://oss.oracle.com/licenses/upl.
 #
 
+# @@timeout: 80
+
 ##
 #
 # ASSERTION:
