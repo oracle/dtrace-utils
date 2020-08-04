@@ -706,7 +706,7 @@ dt_vopen(int version, int flags, int *errp,
 	 * which is needed for BPF operations.
 	 */
 	if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0) {
-		rlim_t lim = 16 * 1024 * 1024;
+		rlim_t lim = 32 * 1024 * 1024;
 
 		if (rl.rlim_cur < lim) {
 			rl.rlim_cur = rl.rlim_max = lim;
