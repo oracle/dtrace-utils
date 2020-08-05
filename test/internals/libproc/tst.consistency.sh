@@ -13,6 +13,7 @@
 #
 
 # @@timeout: 50
+# @@tags: unstable
 
 unset LD_AUDIT
 
