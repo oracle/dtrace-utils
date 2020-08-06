@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.1%{?dist}
+Release:      1.2%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,10 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Aug  6 2020 Eugene Loh <eugene.loh@oracle.com> - 2.0.0-1.2
+- Ensure a minimum locked-memory limit for BPF.
+- int8_t is now always signed, even on platforms where char is unsigned.
+
 * Fri Jul 24 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.1
 - Implement profile-n and tick-n probes. (Eugene Loh)
 - Implement the printf() action.
@@ -235,10 +239,8 @@ fi
 - Support multiple clauses for each probe.
 - Support built-in variables: arg0 through arg9 (for probes that provide
   arguments), curcpu curthread, epid, gid, pid, tid, uid, and timestamp.
-- Ensure a minimum locked-memory limit for BPF.
 - Various memory management fixes.
 - Register leak fixes.
-- int8_t is now always signed, even on platforms where char is unsigned.
 
 * Thu Apr 30 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.0
 - Implement BEGIN and END probes. (Eugene Loh) [Orabug: 31220513]
