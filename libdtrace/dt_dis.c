@@ -22,6 +22,11 @@ static const char * const helper_fn[] = {
 };
 #undef BPF_HELPER_FN
 
+#define DT_DIS_INSTR_LEN	30
+#define DT_DIS_PAD(n)		((n) > DT_DIS_INSTR_LEN \
+					? 0 \
+					: DT_DIS_INSTR_LEN - (n))
+
 static void
 dt_dis_prefix(uint_t i, const struct bpf_insn *instr, FILE *fp)
 {
@@ -119,8 +124,11 @@ static uint_t
 dt_dis_branch(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %s, %d\t! -> %03u\n", name, reg(in->dst_reg),
-		reg(in->src_reg), in->off, addr + 1 + in->off);
+	int	n;
+
+	n = fprintf(fp, "%-4s %s, %s, %d", name, reg(in->dst_reg),
+		    reg(in->src_reg), in->off);
+	fprintf(fp, "%*s! -> %03u\n", DT_DIS_PAD(n), "", addr + 1 + in->off);
 	return 0;
 }
 
@@ -129,8 +137,11 @@ static uint_t
 dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
-	fprintf(fp, "%-4s %s, %u, %d\t\t! -> %03u\n", name, reg(in->dst_reg),
-		in->imm, in->off, addr + 1 + in->off);
+	int	n;
+
+	n = fprintf(fp, "%-4s %s, %u, %d", name, reg(in->dst_reg), in->imm,
+		    in->off);
+	fprintf(fp, "%*s! -> %03u\n", DT_DIS_PAD(n), "", addr + 1 + in->off);
 	return 0;
 }
 
@@ -141,14 +152,15 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 {
 	char		buf[256];
 	const char	*vname;
+	int		n;
 
-	fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
-		reg(in->src_reg), in->off);
+	n = fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
+		    reg(in->src_reg), in->off);
 
 	vname = dt_dis_lvarname(dp, in->src_reg, in->off, addr, buf,
 				sizeof(buf));
 	if (vname)
-		fprintf(fp, "\t! %s\n", vname);
+		fprintf(fp, "%*s! %s\n", DT_DIS_PAD(n), "", vname);
 	else
 		fprintf(fp, "\n");
 
@@ -169,7 +181,7 @@ dt_dis_load_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	dt_dis_prefix(addr + 1, &in[1], fp);
 
 	if (rname != NULL)
-		fprintf(fp, "\t\t\t! %s\n", rname);
+		fprintf(fp, "%*s! %s\n", DT_DIS_INSTR_LEN, "", rname);
 	else
 		fprintf(fp, "\n");
 
@@ -183,14 +195,15 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
 {
 	char		buf[256];
 	const char	*vname;
+	int		n;
 
-	fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
-		reg(in->src_reg));
+	n = fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
+		    reg(in->src_reg));
 
 	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, addr, buf,
 				sizeof(buf));
 	if (vname)
-		fprintf(fp, "\t! %s\n", vname);
+		fprintf(fp, "%*s! %s\n", DT_DIS_PAD(n), "", vname);
 	else
 		fprintf(fp, "\n");
 
@@ -204,19 +217,21 @@ dt_dis_store_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 {
 	char		buf[256];
 	const char	*vname;
+	int		n;
 
-	fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
-		in->imm);
+	n = fprintf(fp, "%-4s [%s%+d], %d", name, reg(in->dst_reg), in->off,
+		    in->imm);
 
 	vname = dt_dis_lvarname(dp, in->dst_reg, in->off, addr, buf,
 				sizeof(buf));
 	if (vname) {
 		if (rname)
-			fprintf(fp, "\t! %s = %s\n", vname, rname);
+			fprintf(fp, "%*s! %s = %s\n", DT_DIS_PAD(n), "",
+				vname, rname);
 		else
-			fprintf(fp, "\t! %s\n", vname);
+			fprintf(fp, "%*s! %s\n", DT_DIS_PAD(n), "", vname);
 	} else if (rname) {
-		fprintf(fp, "\t! = %s\n", rname);
+		fprintf(fp, "%*s! = %s\n", DT_DIS_PAD(n), "", rname);
 	} else
 		fprintf(fp, "\n");
 
@@ -314,9 +329,12 @@ dt_dis_call(const dtrace_difo_t *dp, const char *name, uint_t addr,
 		ann = "unknown helper";
 	}
 
-	if (ann)
-		fprintf(fp, "%-4s %-17s ! %s\n", name, fn, ann);
-	else
+	if (ann) {
+		int	n;
+
+		n = fprintf(fp, "%-4s %s", name, fn);
+		fprintf(fp, "%*s! %s\n", DT_DIS_PAD(n), "", ann);
+	} else
 		fprintf(fp, "%-4s %s\n", name, fn);
 
 	return 0;
@@ -329,9 +347,13 @@ dt_dis_jump(const dtrace_difo_t *dp, const char *name, uint_t addr,
 {
 	if (in->off == 0)
 		fprintf(fp, "nop");
-	else
-		fprintf(fp, "%-4s %d\t\t\t! -> %03u\n", name, in->off,
+	else {
+		int	n;
+
+		n = fprintf(fp, "%-4s %d", name, in->off);
+		fprintf(fp, "%*s! -> %03u\n", DT_DIS_PAD(n), "",
 			addr + 1 + in->off);
+	}
 
 	return 0;
 }
