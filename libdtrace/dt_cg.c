@@ -64,10 +64,10 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 
 	/*
 	 *	key = 0;                // stw [%fp + DCTX_FP(DCTX_MST)], 0
-	 *	rc = bpf_map_lookup_elem(mem, &key);
+	 *	rc = bpf_map_lookup_elem(&mem, &key);
 	 *				// lddw %r1, &mem
 	 *				// mov %r2, %fp
-	 *				// add %r2, DT_STK_LVA_BASE
+	 *				// add %r2, DCTX_FP(DCTX_MST)
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = 'mem' BPF map value)
@@ -116,6 +116,11 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_irlist_t *dlp)
 {
 	struct bpf_insn	instr;
 
+	/*
+	 *	dt_clause(dctx);	// mov %r1, %fp
+	 *				// add %r1, DCTX_FP(0)
+	 *				// call dt_program
+	 */
 	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
@@ -134,10 +139,7 @@ dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
 	struct bpf_insn	instr;
 
 	/*
-	 *	dt_program(dctx);	// mov %r1, %fp
-	 *				// add %fp, DCTX_FP(0)
-	 *				// call dt_program
-	 *	(repeated for each clause)
+	 *	dt_clause(dctx);	//     (repeated for each clause)
 	 */
 	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
 			     (dt_clause_f *)dt_cg_call_clause, dlp);

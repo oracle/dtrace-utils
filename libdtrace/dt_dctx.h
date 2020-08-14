@@ -37,13 +37,13 @@ typedef struct dt_dctx {
 #define DCTX_CTX	offsetof(dt_dctx_t, ctx)
 #define DCTX_MST	offsetof(dt_dctx_t, mst)
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
-#define DCTX_SIZE	sizeof(dt_dctx_t)
+#define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*
  * Macro to determine the (negative) offset from the frame pointer (%fp) for
  * the given offset in dt_dctx_t.
  */
-#define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
+#define DCTX_FP(off)	(DT_STK_DCTX + (int16_t)(off))
 
 #define DMST_EPID	offsetof(dt_mstate_t, epid)
 #define DMST_PRID	offsetof(dt_mstate_t, prid)

@@ -262,7 +262,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 * For now, we can only provide the first argument:
 	 *     dctx->mst->argv[0] = PT_REGS_IP((dt_pt_regs *)&dctx->ctx->regs);
 	 *                              //  lddw %r0, [%r8 + PT_REGS_IP]
-	 *                              //  stdw [%r7 + DMST_ARG(0)0], %r0
+	 *                              //  stdw [%r7 + DMST_ARG(0)], %r0
 	 */
 	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_IP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));

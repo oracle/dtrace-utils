@@ -428,7 +428,7 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 *	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 	 *		dctx->mst->argv[i] = 0
-	 *				// stdw [%r7 + DCTX_ARG(0), 0
+	 *				// stdw [%r7 + DMST_ARG(i)], 0
 	 */
 	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
 		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0);

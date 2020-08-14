@@ -494,29 +494,29 @@ struct dtrace_hdl {
  *                             +----------------+
  *         SCRATCH_BASE = -512 | Scratch Memory |
  *                             +----------------+
- *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 20)
+ *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 19)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *               LVAR(1) = -96 | LVAR 1         |
+ *              LVAR(1) = -112 | LVAR 1         |
  *                             +----------------+
- *   LVAR_BASE = LVAR(0) = -88 | LVAR 0         |
+ *  LVAR_BASE = LVAR(0) = -104 | LVAR 0         |
  *                             +----------------+
- *              SPILL(n) = -80 | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *              SPILL(n) = -96 | %r8            | (n = DT_STK_NREGS - 1 = 8)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              SPILL(1) = -24 | %r1            |
+ *              SPILL(1) = -40 | %r1            |
  *                             +----------------+
- * SPILL_BASE = SPILL(0) = -16 | %r0            |
+ * SPILL_BASE = SPILL(0) = -32 | %r0            |
  *                             +----------------+
- *                   DCTX = -8 | DTrace Context | -1
+ *                  DCTX = -24 | DTrace Context | -1
  *                             +----------------+
  */
-#define DT_STK_BASE		(0)
-#define DT_STK_SLOT_SZ		((int)sizeof(uint64_t))
+#define DT_STK_BASE		((int16_t)0)
+#define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
 
-#define DT_STK_DCTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
+#define DT_STK_DCTX		(DT_STK_BASE - DCTX_SIZE)
 #define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
 #define DT_STK_LVAR_BASE	(DT_STK_SPILL(DT_STK_NREGS - 1) - \

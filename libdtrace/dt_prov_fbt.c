@@ -195,16 +195,16 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 *	dctx->mst->argv[0] = PT_REGS_PARAM1((dt_pt_regs *)dctx->ctx);
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG0]
-	 *				// stdw [%r7 + DMST_ARG(0)0], %r0
+	 *				// stdw [%r7 + DMST_ARG(0)], %r0
 	 *	dctx->mst->argv[1] = PT_REGS_PARAM2((dt_pt_regs *)dctx->ctx);
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG1]
-	 *				// stdw [%r7 + DMST_ARG(1)8], %r0
+	 *				// stdw [%r7 + DMST_ARG(1)], %r0
 	 *	dctx->mst->argv[2] = PT_REGS_PARAM3((dt_pt_regs *)dctx->ctx);
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG2]
-	 *				// stdw [%r7 + DMST_ARG(2)8], %r0
+	 *				// stdw [%r7 + DMST_ARG(2)], %r0
 	 *	dctx->mst->argv[3] = PT_REGS_PARAM4((dt_pt_regs *)dctx->ctx);
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG3]
-	 *				// stdw [%r7 + DMST_ARG(3)8], %r0
+	 *				// stdw [%r7 + DMST_ARG(3)], %r0
 	 *	dctx->mst->argv[4] = PT_REGS_PARAM5((dt_pt_regs *)dctx->ctx);
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG4]
 	 *				// stdw [%r7 + DMST_ARG(4)], %r0
