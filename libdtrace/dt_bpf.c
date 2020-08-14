@@ -14,6 +14,7 @@
 #include <dtrace.h>
 #include <dt_impl.h>
 #include <dt_probe.h>
+#include <dt_state.h>
 #include <dt_bpf.h>
 #include <port.h>
 
@@ -117,6 +118,9 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
  * Create the global BPF maps that are shared between all BPF programs in a
  * single tracing session:
  *
+ * - state:	DTrace session state, used to communicate state between BPF
+ *		programs and userspace.  The content of the map is defined in
+ *		dt_state.h.
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
  * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
@@ -180,6 +184,13 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	tvarc = dt_idhash_peekid(dtp->dt_tls) - DIF_VAR_OTHER_UBASE;
 
 	/* Create global maps as long as there are no errors. */
+	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
+				       sizeof(DT_STATE_KEY_TYPE),
+				       sizeof(DT_STATE_VAL_TYPE),
+				       DT_STATE_NUM_ELEMS);
+	if (dtp->dt_stmap_fd == -1)
+		return -1;	/* dt_errno is set for us */
+
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),
 			dtp->dt_conf.num_online_cpus) == -1)
