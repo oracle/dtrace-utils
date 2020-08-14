@@ -24,6 +24,7 @@ extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 extern int bpf(enum bpf_cmd cmd, union bpf_attr *attr);
 
 extern int dt_bpf_gmap_create(dtrace_hdl_t *);
+extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);
 extern int dt_bpf_load_progs(dtrace_hdl_t *, uint_t);
 

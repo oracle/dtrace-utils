@@ -51,6 +51,37 @@ dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
 	return dt_set_errno(dtp, EDT_BPF);
 }
 
+/*
+ * Load the value for the given key in the map referenced by the given fd.
+ */
+int dt_bpf_map_lookup(int fd, const void *key, void *val)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_fd = fd;
+	attr.key = (uint64_t)(unsigned long)key;
+	attr.value = (uint64_t)(unsigned long)val;
+
+	return bpf(BPF_MAP_LOOKUP_ELEM, &attr);
+}
+
+/*
+ * Store the (key, value) pair in the map referenced by the given fd.
+ */
+int dt_bpf_map_update(int fd, const void *key, const void *val)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_fd = fd;
+	attr.key = (uint64_t)(unsigned long)key;
+	attr.value = (uint64_t)(unsigned long)val;
+	attr.flags = 0;
+
+	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
+}
+
 static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	    int ksz, int vsz, int size)
@@ -183,22 +214,6 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
 
 	return 0;
-}
-
-/*
- * Store the (key, value) pair in the map referenced by the given fd.
- */
-int dt_bpf_map_update(int fd, const void *key, const void *val)
-{
-	union bpf_attr attr;
-
-	memset(&attr, 0, sizeof(attr));
-	attr.map_fd = fd;
-	attr.key = (uint64_t)(unsigned long)key;
-	attr.value = (uint64_t)(unsigned long)val;
-	attr.flags = 0;
-
-	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
 }
 
 /*
