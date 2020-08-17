@@ -11,6 +11,7 @@
  */
 
 #pragma D depends_on module vmlinux
+#pragma D depends_on library sched.d
 
 m4_dnl 5.6 and above use time64_t: time_t is obsolescent, so we
 m4_dnl have to define it ourselves.
