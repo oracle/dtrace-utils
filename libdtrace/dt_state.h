@@ -24,4 +24,14 @@ typedef enum dt_state_elem {
 	DT_STATE_NUM_ELEMS
 } dt_state_elem_t;
 
+/*
+ * DTrace activity state
+ */
+typedef enum dt_activity {
+	DT_ACTIVITY_INACTIVE = 0,	/* tracing not started */
+	DT_ACTIVITY_ACTIVE,		/* tracing in progress */
+	DT_ACTIVITY_DRAINING,		/* tracing being stopped */
+	DT_ACTIVITY_STOPPED		/* tracing stopped */
+} dt_activity_t;
+
 #endif /* _DT_STATE_H */

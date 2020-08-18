@@ -36,13 +36,14 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  * The trampoline prologue will populate the dt_dctx_t structure on the stack.
  *
  * The caller should NOT depend on any register values that exist at the end of
- * the trampiline prologue.
+ * the trampoline prologue.
  */
 void
-dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
+dt_cg_tramp_prologue_act(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*mem = dt_dlib_get_map(pcb->pcb_hdl, "mem");
+	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
 	struct bpf_insn	instr;
 
 	assert(mem != NULL);
@@ -63,7 +64,39 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *	key = 0;                // stw [%fp + DCTX_FP(DCTX_MST)], 0
+	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_MST)],
+	 *				//		DT_STATE_ACTIVITY
+	 *	rc = bpf_map_lookup_elem(&state, &key);
+	 *				// lddw %r1, &state
+	 *				// mov %r2, %fp
+	 *				// add %r2, DCTX_FP(DCTX_MST)
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = map value)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *	if (*rc == act)		// ldw %r0, [%r0 + 0]
+	 *		goto exit;	// jne %r0, act, lbl_exit
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST),
+			      DT_STATE_ACTIVITY);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, act, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	/*
+	 *	key = 0;		// stw [%fp + DCTX_FP(DCTX_MST)], 0
 	 *	rc = bpf_map_lookup_elem(&mem, &key);
 	 *				// lddw %r1, &mem
 	 *				// mov %r2, %fp
@@ -71,10 +104,10 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = 'mem' BPF map value)
-	 *	if (rc == 0)            // jeq %r0, 0, lbl_exit
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
 	 *		goto exit;
 	 *				//     (%r0 = pointer to dt_mstate_t)
-	 *	dctx.mst = rc;          // stdw [%fp + DCTX_FP(DCTX_MST)], %r0
+	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r0
 	 */
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
@@ -91,14 +124,14 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
-	 *      buf = rc + roundup(sizeof(dt_mstate_t), 8);
+	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
 	 *				// add %r0, roundup(
 	 *						sizeof(dt_mstate_t), 8)
-	 *      *((uint64_t *)&buf[0]) = 0;
+	 *	*((uint64_t *)&buf[0]) = 0;
 	 *				// stdw [%r0 + 0], 0
-	 *      buf += 8;		// add %r0, 8
+	 *	buf += 8;		// add %r0, 8
 	 *				//     (%r0 = pointer to buffer space)
-	 *      dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
+	 *	dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
 	 */
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0,
 			      roundup(sizeof(dt_mstate_t), 8));
@@ -109,6 +142,12 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+void
+dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
+{
+	dt_cg_tramp_prologue_act(pcb, lbl_exit, DT_ACTIVITY_ACTIVE);
 }
 
 static int
@@ -132,17 +171,23 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_irlist_t *dlp)
 	return 0;
 }
 
-void
-dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
+static void
+dt_cg_tramp_call_clauses(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 
 	/*
 	 *	dt_clause(dctx);	//     (repeated for each clause)
 	 */
 	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
 			     (dt_clause_f *)dt_cg_call_clause, dlp);
+}
+
+static void
+dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	struct bpf_insn	instr;
 
 	/*
 	 * exit:
@@ -154,6 +199,57 @@ dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
 	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
 	instr = BPF_RETURN();
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+}
+
+void
+dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
+{
+	dt_cg_tramp_call_clauses(pcb);
+	dt_cg_tramp_return(pcb, lbl_exit);
+}
+
+void
+dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+	struct bpf_insn	instr;
+
+	dt_cg_tramp_call_clauses(pcb);
+
+	/*
+	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_MST)],
+	 *				//		DT_STATE_ACTIVITY
+	 *	rc = bpf_map_lookup_elem(&state, &key);
+	 *				// lddw %r1, &state
+	 *				// mov %r2, %fp
+	 *				// add %r2, DCTX_FP(DCTX_MST)
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = map value)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *	(*rc)++;		// mov %r1, 1
+	 *				// xadd [%r0 + 0], %r1
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST),
+			      DT_STATE_ACTIVITY);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_IMM(BPF_REG_1, 1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	dt_cg_tramp_return(pcb, lbl_exit);
 }
 
 /*
@@ -491,7 +587,7 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	}
 
 	aid = anp->dn_ident;
-        if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
 	    !(aid->di_flags & DT_IDFLG_MOD)) {
 		dnerror(dnp, D_CLEAR_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);
@@ -547,7 +643,7 @@ dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	}
 
 	aid = anp->dn_ident;
-        if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
 	    !(aid->di_flags & DT_IDFLG_MOD)) {
 		dnerror(dnp, D_NORMALIZE_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);

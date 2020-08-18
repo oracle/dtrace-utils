@@ -34,16 +34,23 @@ static const dtrace_pattr_t	pattr = {
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
+	dt_probe_t	*prp;
 	int		n = 0;
 
 	prv = dt_provider_create(dtp, prvname, &dt_dtrace, &pattr);
 	if (prv == NULL)
 		return 0;
 
-	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN"))
+	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
+	if (prp) {
 		n++;
-	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "END"))
+		dt_list_append(&dtp->dt_enablings, prp);
+	}
+	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
+	if (prp) {
 		n++;
+		dt_list_append(&dtp->dt_enablings, prp);
+	}
 	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR"))
 		n++;
 
@@ -67,8 +74,33 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 	uint_t		lbl_exit = dt_irlist_label(dlp);
+	dt_activity_t	act;
+	int		adv_act;
 
-	dt_cg_tramp_prologue(pcb, lbl_exit);
+	/*
+	 * The BEGIN probe should only run when the activity state is INACTIVE.
+	 * At the end of the trampoline (after executing any clauses), the
+	 * state must be advanced to the next state (INACTIVE -> ACTIVE).
+	 *
+	 * The END probe should only run when the activity state is ACTIVE.
+	 * At the end of the trampoline (after executing any clauses), the
+	 * state must be advanced to the next state (ACTIVE -> DRAINING).
+	 *
+	 * Any other probe requires the state to be ACTIVE, and does not change
+	 * the state.
+	 */
+	if (strcmp(pcb->pcb_probe->desc->prb, "BEGIN") == 0) {
+		act = DT_ACTIVITY_INACTIVE;
+		adv_act = 1;
+	} else if (strcmp(pcb->pcb_probe->desc->prb, "END") == 0) {
+		act = DT_ACTIVITY_ACTIVE;
+		adv_act = 1;
+	} else {
+		act = DT_ACTIVITY_ACTIVE;
+		adv_act = 0;
+	}
+
+	dt_cg_tramp_prologue_act(pcb, lbl_exit, act);
 
 	/*
 	 * We cannot assume anything about the state of any registers so set up
@@ -154,7 +186,10 @@ static void trampoline(dt_pcb_t *pcb)
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	}
 
-	dt_cg_tramp_epilogue(pcb, lbl_exit);
+	if (adv_act)
+		dt_cg_tramp_epilogue_advance(pcb, lbl_exit);
+	else
+		dt_cg_tramp_epilogue(pcb, lbl_exit);
 }
 
 static char *uprobe_spec(dtrace_hdl_t *dtp, const char *prb)
