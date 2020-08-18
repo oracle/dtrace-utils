@@ -682,7 +682,9 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 }
 
 /*
- * Signal that tracing should be terminated with the given return code.
+ * Signal that tracing should be terminated with the given return code.  This
+ * action also forces the activity state to be set to DRAINING to signal that
+ * tracing is ending.
  *
  * Stores:
  *	integer (4 bytes)		-- return code
@@ -690,19 +692,51 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	uint_t		off;
+	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+	struct bpf_insn	instr;
 
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+	/* Record the exit code. */
+	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_EXIT, NULL, DT_ACT_EXIT);
 
-	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_EXIT,
-			 sizeof(uint32_t), sizeof(uint32_t), NULL,
-			 DT_ACT_EXIT);
-
-	instr = BPF_STORE(BPF_W, BPF_REG_9, off, dnp->dn_args->dn_reg);
+	/*
+	 * Force the activity state to DRAINING.
+	 *
+	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DT_STK_SPILL(0)],
+	 *				//		DT_STATE_ACTIVITY
+	 *	val = DT_ACTIVITY_DRAINING;
+	 *				// stw [%fp + DT_STK_SPILL(1)],
+	 *				//		DT_ACTIVITY_DRAINING
+	 *	rc = bpf_map_update_elem(&state, &key, &val, BPF_ANY);
+	 *				// lddw %r1, &state
+	 *				// mov %r2, %fp
+	 *				// add %r2, DT_STK_SPILL(0)
+	 *				// mov %r3, %fp
+	 *				// add %r3, DT_STK_SPILL(1)
+	 *				// mov %r4, BPF_ANY
+	 *				// call bpf_map_update_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = return code)
+	 */
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0),
+			      DT_STATE_ACTIVITY);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1),
+			      DT_ACTIVITY_DRAINING);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
+	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_REG(BPF_REG_3, BPF_REG_FP);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_MOV_IMM(BPF_REG_4, BPF_ANY);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_CALL_HELPER(BPF_FUNC_map_update_elem);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 }
 
 static void
