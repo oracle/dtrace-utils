@@ -91,6 +91,15 @@
 		.imm = 0						\
 	})
 
+#define BPF_XADD_REG(sz, dst, ofs, src)					\
+	((struct bpf_insn) {						\
+		.code = BPF_STX | BPF_XADD | (sz),			\
+		.dst_reg = (dst),					\
+		.src_reg = (src),					\
+		.off = (ofs),						\
+		.imm = 0						\
+	})
+
 #define BPF_STORE_IMM(sz, dst, ofs, val)				\
 	((struct bpf_insn) {						\
 		.code = BPF_ST | BPF_MEM | (sz),			\
