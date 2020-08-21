@@ -139,14 +139,14 @@ int
 dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid, dtrace_datadesc_t **ddp,
 	       dtrace_probedesc_t **pdp)
 {
-	assert(epid < dtp->dt_maxprobe);
-	assert(dtp->dt_ddesc[epid] != NULL);
-	assert(dtp->dt_pdesc[epid] != NULL);
+	if (epid >= dtp->dt_maxprobe ||
+	    dtp->dt_ddesc[epid] == NULL || dtp->dt_pdesc[epid] == NULL)
+		return -1;
 
 	*ddp = dtp->dt_ddesc[epid];
 	*pdp = dtp->dt_pdesc[epid];
 
-	return (0);
+	return 0;
 }
 
 void

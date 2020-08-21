@@ -16,6 +16,7 @@
 #include <dt_impl.h>
 #include <dt_pcap.h>
 #include <dt_peb.h>
+#include <dt_state.h>
 #include <libproc.h>
 #include <port.h>
 #include <sys/epoll.h>
@@ -447,13 +448,13 @@ out:
 static int
 dt_nullprobe()
 {
-	return (DTRACE_CONSUME_THIS);
+	return DTRACE_CONSUME_THIS;
 }
 
 static int
 dt_nullrec()
 {
-	return (DTRACE_CONSUME_NEXT);
+	return DTRACE_CONSUME_NEXT;
 }
 
 int
@@ -1826,434 +1827,6 @@ dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	return (rval);
 }
 
-#if 0
-int
-dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dtrace_bufdesc_t *buf,
-    dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
-{
-	dtrace_epid_t id;
-	size_t offs, start = buf->dtbd_oldest, end = buf->dtbd_size;
-	int flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
-	int quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
-	int rval, i, n;
-	dtrace_epid_t last = DTRACE_EPIDNONE;
-	dtrace_probedata_t data;
-	uint64_t drops;
-	caddr_t addr;
-
-	memset(&data, 0, sizeof (data));
-	data.dtpda_handle = dtp;
-	data.dtpda_cpu = cpu;
-
-again:
-	for (offs = start; offs < end; ) {
-		dtrace_datadesc_t *dd;
-
-		/*
-		 * We're guaranteed to have an ID.
-		 */
-		id = *(uint32_t *)((uintptr_t)buf->dtbd_data + offs);
-
-		if (id == DTRACE_EPIDNONE) {
-			/*
-			 * This is filler to assure proper alignment of the
-			 * next record; we simply ignore it.
-			 */
-			offs += sizeof (id);
-			continue;
-		}
-
-		if ((rval = dt_epid_lookup(dtp, id, &data.dtpda_ddesc,
-					   &data.dtpda_pdesc)) != 0)
-			return (rval);
-
-		dd = data.dtpda_ddesc;
-		data.dtpda_data = buf->dtbd_data + offs;
-
-		if (data.dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
-			rval = dt_handle(dtp, &data);
-
-			if (rval == DTRACE_CONSUME_NEXT)
-				goto nextepid;
-
-			if (rval == DTRACE_CONSUME_ERROR)
-				return (-1);
-		}
-
-		if (flow)
-			(void) dt_flowindent(dtp, &data, last, buf, offs);
-
-		rval = (*efunc)(&data, arg);
-
-		if (flow) {
-			if (data.dtpda_flow == DTRACEFLOW_ENTRY)
-				data.dtpda_indent += 2;
-		}
-
-		if (rval == DTRACE_CONSUME_NEXT)
-			goto nextepid;
-
-		if (rval == DTRACE_CONSUME_ABORT)
-			return (dt_set_errno(dtp, EDT_DIRABORT));
-
-		if (rval != DTRACE_CONSUME_THIS)
-			return (dt_set_errno(dtp, EDT_BADRVAL));
-
-		for (i = 0; i < dd->dtdd_nrecs; i++) {
-			dtrace_recdesc_t *rec = &dd->dtdd_recs[i];
-			dtrace_actkind_t act = rec->dtrd_action;
-
-			data.dtpda_data = buf->dtbd_data + offs +
-			    rec->dtrd_offset;
-			addr = data.dtpda_data;
-
-			if (act == DTRACEACT_LIBACT) {
-				uint64_t arg = rec->dtrd_arg;
-				dtrace_aggvarid_t id;
-
-				switch (arg) {
-				case DT_ACT_CLEAR:
-					/* LINTED - alignment */
-					id = *((dtrace_aggvarid_t *)addr);
-					(void) dtrace_aggregate_walk(dtp,
-					    dt_clear_agg, &id);
-					continue;
-
-				case DT_ACT_DENORMALIZE:
-					/* LINTED - alignment */
-					id = *((dtrace_aggvarid_t *)addr);
-					(void) dtrace_aggregate_walk(dtp,
-					    dt_denormalize_agg, &id);
-					continue;
-
-				case DT_ACT_FTRUNCATE:
-					if (fp == NULL)
-						continue;
-
-					(void) fflush(fp);
-					(void) ftruncate(fileno(fp), 0);
-					(void) fseeko(fp, 0, SEEK_SET);
-					continue;
-
-				case DT_ACT_NORMALIZE:
-					if (i == dd->dtdd_nrecs - 1)
-						return (dt_set_errno(dtp,
-						    EDT_BADNORMAL));
-
-					if (dt_normalize(dtp,
-					    buf->dtbd_data + offs, rec) != 0)
-						return (-1);
-
-					i++;
-					continue;
-
-				case DT_ACT_SETOPT: {
-					uint64_t *opts = dtp->dt_options;
-					dtrace_recdesc_t *valrec;
-					uint32_t valsize;
-					caddr_t val;
-					int rv;
-
-					if (i == dd->dtdd_nrecs - 1) {
-						return (dt_set_errno(dtp,
-						    EDT_BADSETOPT));
-					}
-
-					valrec = &dd->dtdd_recs[++i];
-					valsize = valrec->dtrd_size;
-
-					if (valrec->dtrd_action != act ||
-					    valrec->dtrd_arg != arg) {
-						return (dt_set_errno(dtp,
-						    EDT_BADSETOPT));
-					}
-
-					if (valsize > sizeof (uint64_t)) {
-						val = buf->dtbd_data + offs +
-						    valrec->dtrd_offset;
-					} else {
-						val = "1";
-					}
-
-					rv = dt_setopt(dtp, &data, addr, val);
-
-					if (rv != 0)
-						return (-1);
-
-					flow = (opts[DTRACEOPT_FLOWINDENT] !=
-					    DTRACEOPT_UNSET);
-					quiet = (opts[DTRACEOPT_QUIET] !=
-					    DTRACEOPT_UNSET);
-
-					continue;
-				}
-
-				case DT_ACT_TRUNC:
-					if (i == dd->dtdd_nrecs - 1)
-						return (dt_set_errno(dtp,
-						    EDT_BADTRUNC));
-
-					if (dt_trunc(dtp,
-					    buf->dtbd_data + offs, rec) != 0)
-						return (-1);
-
-					i++;
-					continue;
-
-				default:
-					continue;
-				}
-			}
-
-			rval = (*rfunc)(&data, rec, arg);
-
-			if (rval == DTRACE_CONSUME_NEXT)
-				continue;
-
-			if (rval == DTRACE_CONSUME_ABORT)
-				return (dt_set_errno(dtp, EDT_DIRABORT));
-
-			if (rval != DTRACE_CONSUME_THIS)
-				return (dt_set_errno(dtp, EDT_BADRVAL));
-
-			if (act == DTRACEACT_STACK) {
-				int depth = rec->dtrd_arg;
-
-				if (dt_print_stack(dtp, fp, NULL, addr, depth,
-				    rec->dtrd_size / depth) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_USTACK ||
-			    act == DTRACEACT_JSTACK) {
-				if (dt_print_ustack(dtp, fp, NULL,
-				    addr, rec->dtrd_arg) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_SYM) {
-				if (dt_print_sym(dtp, fp, NULL, addr) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_MOD) {
-				if (dt_print_mod(dtp, fp, NULL, addr) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_USYM || act == DTRACEACT_UADDR) {
-				if (dt_print_usym(dtp, fp, addr, act) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_UMOD) {
-				if (dt_print_umod(dtp, fp, NULL, addr) < 0)
-					return (-1);
-				goto nextrec;
-			}
-
-			if (DTRACEACT_ISPRINTFLIKE(act)) {
-				void *fmtdata;
-				int (*func)(dtrace_hdl_t *, FILE *, void *,
-				    const dtrace_probedata_t *,
-				    const dtrace_recdesc_t *, uint_t,
-				    const void *buf, size_t);
-
-				if ((fmtdata = dt_format_lookup(dtp,
-				    rec->dtrd_format)) == NULL)
-					goto nofmt;
-
-				switch (act) {
-				case DTRACEACT_PRINTF:
-					func = dtrace_fprintf;
-					break;
-				case DTRACEACT_PRINTA:
-					func = dtrace_fprinta;
-					break;
-				case DTRACEACT_SYSTEM:
-					func = dtrace_system;
-					break;
-				case DTRACEACT_FREOPEN:
-					func = dtrace_freopen;
-					break;
-				default:
-					dt_dprintf("dt_consume_cpu(): "
-					    "unknown is-printf-like action %d\n",
-					    (int) act);
-					return (-1);
-				}
-
-				n = (*func)(dtp, fp, fmtdata, &data,
-				    rec, dd->dtdd_nrecs - i,
-				    (uchar_t *)buf->dtbd_data + offs,
-				    buf->dtbd_size - offs);
-
-				if (n < 0)
-					return (-1); /* errno is set for us */
-
-				if (n > 0)
-					i += n - 1;
-				goto nextrec;
-			}
-
-nofmt:
-			if (act == DTRACEACT_PRINTA) {
-				dtrace_print_aggdata_t pd;
-				dtrace_aggvarid_t *aggvars;
-				int j, naggvars = 0;
-				size_t size = ((dd->dtdd_nrecs - i) *
-				    sizeof (dtrace_aggvarid_t));
-
-				if ((aggvars = dt_alloc(dtp, size)) == NULL)
-					return (-1);
-
-				/*
-				 * This might be a printa() with multiple
-				 * aggregation variables.  We need to scan
-				 * forward through the records until we find
-				 * a record from a different statement.
-				 */
-				for (j = i; j < dd->dtdd_nrecs; j++) {
-					dtrace_recdesc_t *nrec;
-					caddr_t naddr;
-
-					nrec = &dd->dtdd_recs[j];
-
-					if (nrec->dtrd_uarg != rec->dtrd_uarg)
-						break;
-
-					if (nrec->dtrd_action != act) {
-						return (dt_set_errno(dtp,
-						    EDT_BADAGG));
-					}
-
-					naddr = buf->dtbd_data + offs +
-					    nrec->dtrd_offset;
-
-					aggvars[naggvars++] =
-					    /* LINTED - alignment */
-					    *((dtrace_aggvarid_t *)naddr);
-				}
-
-				i = j - 1;
-				memset(&pd, 0, sizeof (pd));
-				pd.dtpa_dtp = dtp;
-				pd.dtpa_fp = fp;
-
-				assert(naggvars >= 1);
-
-				if (naggvars == 1) {
-					pd.dtpa_id = aggvars[0];
-					dt_free(dtp, aggvars);
-
-					if (dt_printf(dtp, fp, "\n") < 0 ||
-					    dtrace_aggregate_walk_sorted(dtp,
-					    dt_print_agg, &pd) < 0)
-						return (-1);
-					goto nextrec;
-				}
-
-				if (dt_printf(dtp, fp, "\n") < 0 ||
-				    dtrace_aggregate_walk_joined(dtp, aggvars,
-				    naggvars, dt_print_aggs, &pd) < 0) {
-					dt_free(dtp, aggvars);
-					return (-1);
-				}
-
-				dt_free(dtp, aggvars);
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_TRACEMEM) {
-				n = dt_print_tracemem(dtp, fp, rec,
-				    dd->dtdd_nrecs - i,
-				    buf->dtbd_data + offs);
-
-				if (n < 0)
-					return (-1); /* errno is set for us */
-
-				i += n - 1;
-				goto nextrec;
-			}
-
-			if (act == DTRACEACT_PCAP) {
-				n = dt_print_pcap(dtp, fp, rec,
-						  buf->dtbd_data + offs);
-
-				if (n < 0)
-					return (-1); /* errno is set for us */
-
-				i += n + 1;
-				goto nextrec;
-			}
-
-			switch (rec->dtrd_size) {
-			case sizeof (uint64_t):
-				n = dt_printf(dtp, fp,
-				    quiet ? "%lld" : " %16lld",
-				    /* LINTED - alignment */
-				    *((unsigned long long *)addr));
-				break;
-			case sizeof (uint32_t):
-				n = dt_printf(dtp, fp, quiet ? "%d" : " %8d",
-				    /* LINTED - alignment */
-				    *((uint32_t *)addr));
-				break;
-			case sizeof (uint16_t):
-				n = dt_printf(dtp, fp, quiet ? "%d" : " %5d",
-				    /* LINTED - alignment */
-				    *((uint16_t *)addr));
-				break;
-			case sizeof (uint8_t):
-				n = dt_printf(dtp, fp, quiet ? "%d" : " %3d",
-				    *((uint8_t *)addr));
-				break;
-			default:
-				n = dt_print_bytes(dtp, fp, addr,
-				    rec->dtrd_size, 33, quiet);
-				break;
-			}
-
-			if (n < 0)
-				return (-1); /* errno is set for us */
-
-nextrec:
-			if (dt_buffered_flush(dtp, &data, rec, NULL, 0) < 0)
-				return (-1); /* errno is set for us */
-		}
-
-		/*
-		 * Call the record callback with a NULL record to indicate
-		 * that we're done processing this EPID.
-		 */
-		rval = (*rfunc)(&data, NULL, arg);
-nextepid:
-		offs += dd->dtdd_size;
-		last = id;
-	}
-
-	if (buf->dtbd_oldest != 0 && start == buf->dtbd_oldest) {
-		end = buf->dtbd_oldest;
-		start = 0;
-		goto again;
-	}
-
-	if ((drops = buf->dtbd_drops) == 0)
-		return (0);
-
-	/*
-	 * Explicitly zero the drops to prevent us from processing them again.
-	 */
-	buf->dtbd_drops = 0;
-
-	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
-}
-#else
 static int
 dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	       caddr_t data, int quiet)
@@ -2315,7 +1888,7 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 }
 
 static dtrace_workstatus_t
-dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
+dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 	       dtrace_consume_rec_f *rfunc, int flow, int quiet,
 	       dtrace_epid_t *last, void *arg)
@@ -2346,13 +1919,13 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		 * (Note that 'n' may be 0.)
 		 */
 		if (ptr > buf + hdr->size)
-			return -1;
+			return DTRACE_WORKSTATUS_ERROR;
 
 		size = *(uint32_t *)data;
 		data += sizeof(size);
 		ptr += sizeof(size) + size;
 		if (ptr != buf + hdr->size)
-			return -1;
+			return DTRACE_WORKSTATUS_ERROR;
 
 		data += sizeof(uint32_t);		/* skip padding */
 		size -= sizeof(uint32_t);
@@ -2370,7 +1943,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 		rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
 						 &pdat->dtpda_pdesc);
 		if (rval != 0)
-			return rval;
+			return DTRACE_WORKSTATUS_ERROR;
 
 		if (flow)
 			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
@@ -2382,14 +1955,18 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 				pdat->dtpda_indent += 2;
 		}
 
-		if (rval == DTRACE_CONSUME_NEXT)
-			return 0;
-
-		if (rval == DTRACE_CONSUME_ABORT)
+		switch (rval) {
+		case DTRACE_CONSUME_NEXT:
+			return DTRACE_WORKSTATUS_OKAY;
+		case DTRACE_CONSUME_DONE:
+			return DTRACE_WORKSTATUS_DONE;
+		case DTRACE_CONSUME_ABORT:
 			return dt_set_errno(dtp, EDT_DIRABORT);
-
-		if (rval != DTRACE_CONSUME_THIS)
+		case DTRACE_CONSUME_THIS:
+			break;
+		default:
 			return dt_set_errno(dtp, EDT_BADRVAL);
+		}
 
 		/*
 		 * FIXME: This code is temporary.
@@ -2467,7 +2044,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 
 		*last = epid;
 
-		return done ? DTRACE_WORKSTATUS_DONE : DTRACE_WORKSTATUS_OKAY;
+		return DTRACE_WORKSTATUS_OKAY;
 	} else if (hdr->type == PERF_RECORD_LOST) {
 		uint64_t	lost;
 
@@ -2488,7 +2065,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, int cpu, char *buf,
 }
 
 int
-dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
+dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
 	       void *arg)
 {
@@ -2513,7 +2090,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 	 */
 	memset(&pdat, 0, sizeof(pdat));
 	pdat.dtpda_handle = dtp;
-	pdat.dtpda_cpu = cpu;
+	pdat.dtpda_cpu = peb->cpu;
 
 	/*
 	 * Set base to be the start of the buffer data, i.e. we skip the first
@@ -2555,9 +2132,10 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 				event = dst;
 			}
 
-			rval = dt_consume_one(dtp, fp, cpu, event, &pdat,
-					      efunc, rfunc, flow, quiet, &last,
-					      arg);
+			rval = dt_consume_one(dtp, fp, event, &pdat, efunc,
+					      rfunc, flow, quiet, &last, arg);
+			if (rval == DTRACE_WORKSTATUS_DONE)
+				return DTRACE_WORKSTATUS_OKAY;
 			if (rval != DTRACE_WORKSTATUS_OKAY)
 				return rval;
 
@@ -2569,7 +2147,6 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu, dt_peb_t *peb,
 
 	return DTRACE_WORKSTATUS_OKAY;
 }
-#endif
 
 typedef struct dt_begin {
 	dtrace_consume_probe_f *dtbgn_probefunc;
@@ -2583,110 +2160,118 @@ typedef struct dt_begin {
 static int
 dt_consume_begin_probe(const dtrace_probedata_t *data, void *arg)
 {
-	dt_begin_t *begin = (dt_begin_t *)arg;
-	dtrace_probedesc_t *pd = data->dtpda_pdesc;
-
-	int r1 = (strcmp(pd->prv, "dtrace") == 0);
-	int r2 = (strcmp(pd->prb, "BEGIN") == 0);
+	dt_begin_t		*begin = (dt_begin_t *)arg;
+	dtrace_probedesc_t	*pd = data->dtpda_pdesc;
+	int			r1 = (strcmp(pd->prv, "dtrace") == 0);
+	int			r2 = (strcmp(pd->prb, "BEGIN") == 0);
 
 	if (begin->dtbgn_beginonly) {
 		if (!(r1 && r2))
-			return (DTRACE_CONSUME_NEXT);
+			return DTRACE_CONSUME_DONE;
 	} else {
 		if (r1 && r2)
-			return (DTRACE_CONSUME_NEXT);
+			return DTRACE_CONSUME_NEXT;
 	}
 
 	/*
 	 * We have a record that we're interested in.  Now call the underlying
 	 * probe function...
 	 */
-	return (begin->dtbgn_probefunc(data, begin->dtbgn_arg));
+	return begin->dtbgn_probefunc(data, begin->dtbgn_arg);
 }
 
 static int
 dt_consume_begin_record(const dtrace_probedata_t *data,
-    const dtrace_recdesc_t *rec, void *arg)
+			const dtrace_recdesc_t *rec, void *arg)
 {
-	dt_begin_t *begin = (dt_begin_t *)arg;
+	dt_begin_t	*begin = (dt_begin_t *)arg;
 
-	return (begin->dtbgn_recfunc(data, rec, begin->dtbgn_arg));
+	return begin->dtbgn_recfunc(data, rec, begin->dtbgn_arg);
 }
 
 static int
 dt_consume_begin_error(const dtrace_errdata_t *data, void *arg)
 {
-	dt_begin_t *begin = (dt_begin_t *)arg;
-	dtrace_probedesc_t *pd = data->dteda_pdesc;
-
-	int r1 = (strcmp(pd->prv, "dtrace") == 0);
-	int r2 = (strcmp(pd->prb, "BEGIN") == 0);
+	dt_begin_t		*begin = (dt_begin_t *)arg;
+	dtrace_probedesc_t	*pd = data->dteda_pdesc;
+	int			r1 = (strcmp(pd->prv, "dtrace") == 0);
+	int			r2 = (strcmp(pd->prb, "BEGIN") == 0);
 
 	if (begin->dtbgn_beginonly) {
 		if (!(r1 && r2))
-			return (DTRACE_HANDLE_OK);
+			return DTRACE_HANDLE_OK;
 	} else {
 		if (r1 && r2)
-			return (DTRACE_HANDLE_OK);
+			return DTRACE_HANDLE_OK;
 	}
 
-	return (begin->dtbgn_errhdlr(data, begin->dtbgn_errarg));
+	return begin->dtbgn_errhdlr(data, begin->dtbgn_errarg);
 }
 
+/*
+ * There is this idea that the BEGIN probe should be processed before
+ * everything else, and that the END probe should be processed after anything
+ * else.
+ *
+ * In the common case, this is pretty easy to deal with.  However, a situation
+ * may arise where the BEGIN enabling and END enabling are on the same CPU, and
+ * some enabling in the middle occurred on a different CPU.
+ *
+ * To deal with this (blech!) we need to consume the BEGIN buffer up until the
+ * end of the BEGIN probe, and then set it aside.  We will then process every
+ * other CPU, and then we'll return to the BEGIN CPU and process the rest of
+ * the data (which will inevitably include the END probe, if any).
+ *
+ * Making this even more complicated (!) is the library's ERROR enabling.
+ * Because this enabling is processed before we even get into the consume call
+ * back, any ERROR firing would result in the library's ERROR enabling being
+ * processed twice -- once in our first pass (for BEGIN probes), and again in
+ * our second pass (for everything but BEGIN probes).
+ *
+ * To deal with this, we interpose on the ERROR handler to assure that we only
+ * process ERROR enablings induced by BEGIN enablings in the first pass, and
+ * that we only process ERROR enablings _not_ induced by BEGIN enablings in the
+ * second pass.
+ */
 static int
-dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
-    dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
+dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
+		 int cnt, dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf,
+		 void *arg)
 {
-	/*
-	 * There's this idea that the BEGIN probe should be processed before
-	 * everything else, and that the END probe should be processed after
-	 * anything else.  In the common case, this is pretty easy to deal
-	 * with.  However, a situation may arise where the BEGIN enabling and
-	 * END enabling are on the same CPU, and some enabling in the middle
-	 * occurred on a different CPU.  To deal with this (blech!) we need to
-	 * consume the BEGIN buffer up until the end of the BEGIN probe, and
-	 * then set it aside.  We will then process every other CPU, and then
-	 * we'll return to the BEGIN CPU and process the rest of the data
-	 * (which will inevitably include the END probe, if any).  Making this
-	 * even more complicated (!) is the library's ERROR enabling.  Because
-	 * this enabling is processed before we even get into the consume call
-	 * back, any ERROR firing would result in the library's ERROR enabling
-	 * being processed twice -- once in our first pass (for BEGIN probes),
-	 * and again in our second pass (for everything but BEGIN probes).  To
-	 * deal with this, we interpose on the ERROR handler to assure that we
-	 * only process ERROR enablings induced by BEGIN enablings in the
-	 * first pass, and that we only process ERROR enablings _not_ induced
-	 * by BEGIN enablings in the second pass.
-	 */
-	dt_begin_t begin;
-	processorid_t cpu = dtp->dt_beganon;
-	dtrace_bufdesc_t nbuf;
-	int rval, i;
-	static int max_ncpus;
-	dtrace_optval_t size;
+	dt_peb_t	*bpeb = NULL;
+	dt_begin_t	begin;
+	processorid_t	cpu = dtp->dt_beganon;
+	int		rval, i;
 
+	/*
+	 * Ensure we get called only once...
+	 */
 	dtp->dt_beganon = -1;
 
-	if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, buf) == -1) {
-		/*
-		 * We really don't expect this to fail, but it is at least
-		 * technically possible for this to fail with ENOENT.  In this
-		 * case, we just drive on...
-		 */
-		if (errno == ENOENT)
-			return (0);
+	/*
+	 * Find the buffer for the CPU on which the BEGIN probe executed).
+	 */
+	for (i = 0; i < cnt; i++) {
+		bpeb = events[i].data.ptr;
 
-		return (dt_set_errno(dtp, errno));
+		if (bpeb->cpu == cpu)
+			break;
 	}
 
-	if (!dtp->dt_stopped || buf->dtbd_cpu != dtp->dt_endedon) {
-		/*
-		 * This is the simple case.  We're either not stopped, or if
-		 * we are, we actually processed any END probes on another
-		 * CPU.  We can simply consume this buffer and return.
-		 */
-		return (dt_consume_cpu(dtp, fp, cpu, buf, pf, rf, arg));
-	}
+	/*
+	 * If not found, the BEGIN probe does not have data recording clauses
+	 * so we are done here.
+	 */
+	if (bpeb == NULL || bpeb->cpu != cpu)
+		return DTRACE_WORKSTATUS_OKAY;
+
+	/*
+	 * The simple case: we are either not stopped, or we are stopped and
+	 * the END probe executed on another CPU.  Simply consume this buffer
+	 * and return.
+	 */
+	if (!dtp->dt_stopped || cpu != dtp->dt_endedon)
+		return dt_consume_cpu(dtp, fp, bpeb, pf, rf, arg);
 
 	begin.dtbgn_probefunc = pf;
 	begin.dtbgn_recfunc = rf;
@@ -2694,70 +2279,40 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	begin.dtbgn_beginonly = 1;
 
 	/*
-	 * We need to interpose on the ERROR handler to be sure that we
-	 * only process ERRORs induced by BEGIN.
+	 * We need to interpose on the ERROR handler to be sure that we only
+	 * process ERRORs induced by BEGIN.
 	 */
 	begin.dtbgn_errhdlr = dtp->dt_errhdlr;
 	begin.dtbgn_errarg = dtp->dt_errarg;
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 
-	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
-	    dt_consume_begin_record, &begin);
+	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
+			      dt_consume_begin_record, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
 
 	if (rval != 0)
-		return (rval);
+		return rval;
 
-	/*
-	 * Now allocate a new buffer.  We'll use this to deal with every other
-	 * CPU.
-	 */
-	memset(&nbuf, 0, sizeof (dtrace_bufdesc_t));
-	(void) dtrace_getopt(dtp, "bufsize", &size);
-	if ((nbuf.dtbd_data = malloc(size)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+	for (i = 0; i < cnt; i++) {
+		dt_peb_t	*peb = events[i].data.ptr;
 
-	if (max_ncpus == 0)
-		max_ncpus = dtp->dt_conf.dtc_maxbufs;
-
-	for (i = 0; i < max_ncpus; i++) {
-		nbuf.dtbd_cpu = i;
-
-		if (i == cpu)
+		if (peb == bpeb)
 			continue;
 
-		if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, &nbuf) == -1) {
-			/*
-			 * If we failed with ENOENT, it may be because the
-			 * CPU was unconfigured -- this is okay.  Any other
-			 * error, however, is unexpected.
-			 */
-			if (errno == ENOENT)
-				continue;
-
-			free(nbuf.dtbd_data);
-
-			return (dt_set_errno(dtp, errno));
-		}
-
-		if ((rval = dt_consume_cpu(dtp, fp,
-		    i, &nbuf, pf, rf, arg)) != 0) {
-			free(nbuf.dtbd_data);
-			return (rval);
-		}
+		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+		if (rval != 0)
+			return rval;
 	}
 
-	free(nbuf.dtbd_data);
-
 	/*
-	 * Okay -- we're done with the other buffers.  Now we want to
-	 * reconsume the first buffer -- but this time we're looking for
-	 * everything _but_ BEGIN.  And of course, in order to only consume
-	 * those ERRORs _not_ associated with BEGIN, we need to reinstall our
-	 * ERROR interposition function...
+	 * Okay -- we're done with the other buffers.  Now we want to reconsume
+	 * the first buffer -- but this time we're looking for everything _but_
+	 * BEGIN.  And of course, in order to only consume those ERRORs _not_
+	 * associated with BEGIN, we need to reinstall our ERROR interposition
+	 * function...
 	 */
 	begin.dtbgn_beginonly = 0;
 
@@ -2766,119 +2321,41 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 
-	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
-	    dt_consume_begin_record, &begin);
+	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
+			      dt_consume_begin_record, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
 
-	return (rval);
+	return rval;
 }
 
 dtrace_workstatus_t
-dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
-    dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg)
+dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
+	       dtrace_consume_rec_f *rf, void *arg)
 {
-#if 0
-	dtrace_bufdesc_t *buf = &dtp->dt_buf;
-	dtrace_optval_t size;
-	static int max_ncpus;
-	int i, rval;
-	dtrace_optval_t interval = dtp->dt_options[DTRACEOPT_SWITCHRATE];
-	hrtime_t now = gethrtime();
+	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
+	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
+	int			i, cnt;
+	dtrace_workstatus_t	rval;
 
-	if (dtp->dt_lastswitch != 0) {
-		if (now - dtp->dt_lastswitch < interval)
-			return (0);
-
-		dtp->dt_lastswitch += interval;
-	} else {
-		dtp->dt_lastswitch = now;
-	}
-
+	/*
+	 * Don't try to consume trace data when tracing hasn't even been
+	 * started yet.  This usually means that the consumer didn't call
+	 * dtrace_go() yet.
+	 */
 	if (!dtp->dt_active)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
-	if (max_ncpus == 0)
-		max_ncpus = dtp->dt_conf.dtc_maxbufs;
-
+	/*
+	 * Ensure that we have callback functions to use (if none we provided,
+	 * we use the default no-op ones).
+	 */
 	if (pf == NULL)
 		pf = (dtrace_consume_probe_f *)dt_nullprobe;
 
 	if (rf == NULL)
 		rf = (dtrace_consume_rec_f *)dt_nullrec;
-
-	if (buf->dtbd_data == NULL) {
-		(void) dtrace_getopt(dtp, "bufsize", &size);
-		if ((buf->dtbd_data = malloc(size)) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
-
-		buf->dtbd_size = size;
-	}
-
-	/*
-	 * If we have just begun, we want to first process the CPU that
-	 * executed the BEGIN probe (if any).
-	 */
-	if (dtp->dt_active && dtp->dt_beganon != -1) {
-		buf->dtbd_cpu = dtp->dt_beganon;
-		if ((rval = dt_consume_begin(dtp, fp, buf, pf, rf, arg)) != 0)
-			return (rval);
-	}
-
-	for (i = 0; i < max_ncpus; i++) {
-		buf->dtbd_cpu = i;
-
-		/*
-		 * If we have stopped, we want to process the CPU on which the
-		 * END probe was processed only _after_ we have processed
-		 * everything else.
-		 */
-		if (dtp->dt_stopped && (i == dtp->dt_endedon))
-			continue;
-
-		if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, buf) == -1) {
-			/*
-			 * If we failed with ENOENT, it may be because the
-			 * CPU was unconfigured -- this is okay.  Any other
-			 * error, however, is unexpected.
-			 */
-			if (errno == ENOENT)
-				continue;
-
-			return (dt_set_errno(dtp, errno));
-		}
-
-		if ((rval = dt_consume_cpu(dtp, fp, i, buf, pf, rf, arg)) != 0)
-			return (rval);
-	}
-
-	if (!dtp->dt_stopped)
-		return (0);
-
-	buf->dtbd_cpu = dtp->dt_endedon;
-
-	if (dt_ioctl(dtp, DTRACEIOC_BUFSNAP, buf) == -1) {
-		/*
-		 * This _really_ shouldn't fail, but it is strictly speaking
-		 * possible for this to return ENOENT if the CPU that called
-		 * the END enabling somehow managed to become unconfigured.
-		 * It's unclear how the user can possibly expect anything
-		 * rational to happen in this case -- the state has been thrown
-		 * out along with the unconfigured CPU -- so we'll just drive
-		 * on...
-		 */
-		if (errno == ENOENT)
-			return (0);
-
-		return (dt_set_errno(dtp, errno));
-	}
-
-	return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
-#else
-	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
-	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
-	int			i, cnt;
 
 	/*
 	 * The epoll_wait() function expects the timeout to be expressed in
@@ -2894,18 +2371,55 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	}
 
 	/*
-	 * Loop over the buffers that have data available, and process them one
-	 * by one.
+	 * If dtp->dt_beganon is not -1, we did not process the BEGIN probe
+	 * data (if any) yet.  We do know (since dtp->dt_active is TRUE) that
+	 * the BEGIN probe completed processing and that it therefore recorded
+	 * the id of the CPU it executed on in DT_STATE_BEGANON.
 	 */
-	for (i = 0; i < cnt; i++) {
-		dt_peb_t	*peb = events[i].data.ptr;
-		int		rval;
-
-		rval = dt_consume_cpu(dtp, fp, peb->cpu, peb, pf, rf, arg);
+	if (dtp->dt_beganon != -1) {
+		rval = dt_consume_begin(dtp, fp, events, cnt, pf, rf, arg);
 		if (rval != 0)
 			return rval;
 	}
 
+	/*
+	 * Loop over the buffers that have data available, and process them one
+	 * by one.  If tracing has stopped, skip the CPU on which the END probe
+	 * executed because we want to process that one last.
+	 */
+	for (i = 0; i < cnt; i++) {
+		dt_peb_t	*peb = events[i].data.ptr;
+
+		if (dtp->dt_stopped && peb->cpu == dtp->dt_endedon)
+			continue;
+
+		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+		if (rval != 0)
+			return rval;
+	}
+
+	/*
+	 * If tracing has not been stopped, we are done here.
+	 */
+	if (!dtp->dt_stopped)
+		return 0;
+
+	/*
+	 * Tracing has stopped, so we need to process the buffer for the CPU on
+	 * which the END probe executed.
+	 */
+	for (i = 0; i < cnt; i++) {
+		dt_peb_t	*peb = events[i].data.ptr;
+
+		if (peb->cpu != dtp->dt_endedon)
+			continue;
+
+		return dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+	}
+
+	/*
+	 * If we get here, the END probe fired without any data being recorded
+	 * for it.  That's OK.
+	 */
 	return DTRACE_WORKSTATUS_OKAY;
-#endif
 }

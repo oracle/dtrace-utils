@@ -9,6 +9,7 @@
 #include <dt_peb.h>
 #include <dt_probe.h>
 #include <dt_bpf.h>
+#include <dt_state.h>
 #include <stddef.h>
 #include <errno.h>
 #include <assert.h>
@@ -123,61 +124,28 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 int
 dtrace_status(dtrace_hdl_t *dtp)
 {
-	int gen = dtp->dt_statusgen;
-	dtrace_optval_t interval = dtp->dt_options[DTRACEOPT_STATUSRATE];
-	hrtime_t now = gethrtime();
-
 	if (!dtp->dt_active)
-		return (DTRACE_STATUS_NONE);
+		return DTRACE_STATUS_NONE;
 
 	if (dtp->dt_stopped)
-		return (DTRACE_STATUS_STOPPED);
+		return DTRACE_STATUS_STOPPED;
 
-	if (dtp->dt_laststatus != 0) {
-		if (now - dtp->dt_laststatus < interval)
-			return (DTRACE_STATUS_NONE);
-
-		dtp->dt_laststatus += interval;
-	} else {
-		dtp->dt_laststatus = now;
-	}
-
-	if (dt_ioctl(dtp, DTRACEIOC_STATUS, &dtp->dt_status[gen]) == -1)
-		return (dt_set_errno(dtp, errno));
-
-	dtp->dt_statusgen ^= 1;
-
-	if (dt_handle_status(dtp, &dtp->dt_status[dtp->dt_statusgen],
-	    &dtp->dt_status[gen]) == -1)
-		return (-1);
-
-	if (dtp->dt_status[gen].dtst_exiting) {
+	if (dt_state_get_activity(dtp) == DT_ACTIVITY_DRAINING) {
 		if (!dtp->dt_stopped)
-			(void) dtrace_stop(dtp);
+			dtrace_stop(dtp);
 
-		return (DTRACE_STATUS_EXITED);
+		return DTRACE_STATUS_EXITED;
 	}
 
-	if (dtp->dt_status[gen].dtst_filled == 0)
-		return (DTRACE_STATUS_OKAY);
-
-	if (dtp->dt_options[DTRACEOPT_BUFPOLICY] != DTRACEOPT_BUFPOLICY_FILL)
-		return (DTRACE_STATUS_OKAY);
-
-	if (!dtp->dt_stopped) {
-		if (dtrace_stop(dtp) == -1)
-			return (-1);
-	}
-
-	return (DTRACE_STATUS_FILLED);
+	return DTRACE_STATUS_OKAY;
 }
 
 int
 dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
-	void	*dof;
-	size_t	size;
-	int	err;
+	void		*dof;
+	size_t		size;
+	int		err;
 
 	if (dtp->dt_active)
 		return (dt_set_errno(dtp, EINVAL));
@@ -206,17 +174,6 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	if (err)
 		return err;
 
-#if 0
-	if ((dof = dtrace_getopt_dof(dtp)) == NULL)
-		return (-1); /* dt_errno has been set for us */
-
-	err = dt_ioctl(dtp, DTRACEIOC_ENABLE, dof);
-	dtrace_dof_destroy(dtp, dof);
-
-	if (err == -1 && (errno != ENOTTY || dtp->dt_vector == NULL))
-		return (dt_set_errno(dtp, errno));
-#endif
-
 	/*
 	 * Set up the event polling file descriptor.
 	 */
@@ -239,28 +196,17 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	BEGIN_probe();
-#if 0
-	if (dt_ioctl(dtp, DTRACEIOC_GO, &dtp->dt_beganon) == -1) {
-		if (errno == EACCES)
-			return (dt_set_errno(dtp, EDT_DESTRUCTIVE));
-
-		if (errno == EALREADY)
-			return (dt_set_errno(dtp, EDT_ISANON));
-
-		if (errno == ENOENT)
-			return (dt_set_errno(dtp, EDT_NOANON));
-
-		if (errno == E2BIG)
-			return (dt_set_errno(dtp, EDT_ENDTOOBIG));
-
-		if (errno == ENOSPC)
-			return (dt_set_errno(dtp, EDT_BUFTOOSMALL));
-
-		return (dt_set_errno(dtp, errno));
-	}
-#endif
 
 	dtp->dt_active = 1;
+	dtp->dt_beganon = dt_state_get_beganon(dtp);
+
+	/*
+	 * An exit() action during the BEGIN probe processing will cause the
+	 * activity state to become STOPPED once the BEGIN probe is done.  We
+	 * need to move it back to DRAINING in that case.
+	 */
+	if (dt_state_get_activity(dtp) == DT_ACTIVITY_STOPPED)
+		dt_state_set_activity(dtp, DT_ACTIVITY_DRAINING);
 
 #if 0
 	if (dt_options_load(dtp) == -1)
@@ -275,19 +221,15 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 int
 dtrace_stop(dtrace_hdl_t *dtp)
 {
-	int gen = dtp->dt_statusgen;
+	int		gen = dtp->dt_statusgen;
 
 	if (dtp->dt_stopped)
-		return (0);
-
-#if 0
-	if (dt_ioctl(dtp, DTRACEIOC_STOP, &dtp->dt_endedon) == -1)
-		return (dt_set_errno(dtp, errno));
-#endif
+		return 0;
 
 	END_probe();
 
 	dtp->dt_stopped = 1;
+	dtp->dt_endedon = dt_state_get_endedon(dtp);
 
 #if 0
 	/*
@@ -299,9 +241,9 @@ dtrace_stop(dtrace_hdl_t *dtp)
 
 	if (dt_handle_status(dtp, &dtp->dt_status[gen ^ 1],
 	    &dtp->dt_status[gen]) == -1)
-		return (-1);
+		return -1;
 
-	return (0);
+	return 0;
 }
 
 #if 0
@@ -363,6 +305,26 @@ dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	    dtrace_consume_rec_f *rfunc, void *arg)
 {
-	return dtrace_consume(dtp, fp, pfunc, rfunc, arg);
+	int			status = dtrace_status(dtp);
+	dtrace_workstatus_t	rval;
+
+	switch (dtrace_status(dtp)) {
+	case DTRACE_STATUS_EXITED:
+	case DTRACE_STATUS_STOPPED:
+		rval = DTRACE_WORKSTATUS_DONE;
+		break;
+	case DTRACE_STATUS_NONE:
+	case DTRACE_STATUS_OKAY:
+		rval = DTRACE_WORKSTATUS_OKAY;
+		break;
+	default:
+		return DTRACE_WORKSTATUS_ERROR;
+	}
+
+	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) ==
+	    DTRACE_WORKSTATUS_ERROR)
+		return DTRACE_WORKSTATUS_ERROR;
+
+	return rval;
 }
 #endif

@@ -166,7 +166,8 @@ typedef enum {
 #define	DTRACE_CONSUME_ERROR		-1	/* error while processing */
 #define	DTRACE_CONSUME_THIS		0	/* consume this probe/record */
 #define	DTRACE_CONSUME_NEXT		1	/* advance to next probe/rec */
-#define	DTRACE_CONSUME_ABORT		2	/* abort consumption */
+#define	DTRACE_CONSUME_DONE		2	/* advance to next buffer */
+#define	DTRACE_CONSUME_ABORT		3	/* abort consumption */
 
 typedef struct dtrace_probedata {
 	dtrace_hdl_t *dtpda_handle;		/* handle to DTrace library */

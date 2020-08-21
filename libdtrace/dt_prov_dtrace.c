@@ -83,15 +83,16 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 * The BEGIN probe should only run when the activity state is INACTIVE.
 	 * At the end of the trampoline (after executing any clauses), the
-	 * state must be advanced to the next state (INACTIVE -> ACTIVE).
+	 * state must be advanced to the next state (INACTIVE -> ACTIVE, or if
+	 * there was an exit() action in the clause, DRAINING -> STOPPED).
 	 *
 	 * When the BEGIN probe is triggered, we need to record the CPU it runs
 	 * on in state[DT_STATE_BEGANON] to ensure that we know which trace
 	 * data buffer to process first.
 	 *
-	 * The END probe should only run when the activity state is ACTIVE.
+	 * The END probe should only run when the activity state is DRAINING.
 	 * At the end of the trampoline (after executing any clauses), the
-	 * state must be advanced to the next state (ACTIVE -> DRAINING).
+	 * state must be advanced to the next state (DRAINING -> STOPPED).
 	 *
 	 * When the END probe is triggered, we need to record the CPU it runs
 	 * on in state[DT_STATE_ENDEDON] to ensure that we know which trace
@@ -105,7 +106,7 @@ static void trampoline(dt_pcb_t *pcb)
 		adv_act = 1;
 		key = DT_STATE_BEGANON;
 	} else if (strcmp(pcb->pcb_probe->desc->prb, "END") == 0) {
-		act = DT_ACTIVITY_ACTIVE;
+		act = DT_ACTIVITY_DRAINING;
 		adv_act = 1;
 		key = DT_STATE_ENDEDON;
 	} else {
