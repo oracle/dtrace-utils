@@ -1612,9 +1612,66 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	if (is_ptr_op && lp_is_ptr)
 		dt_cg_ptrsize(dnp, dlp, drp, BPF_MUL, dnp->dn_right->dn_reg);
 
-	instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg);
+	if ((op == BPF_MOD || op == BPF_DIV) &&
+	    (dnp->dn_flags & DT_NF_SIGNED)) {
+		/*
+		 * BPF_DIV and BPF_MOD are only for unsigned arguments.
+		 * For signed arguments, use the following algorithm.
+		 * The four right columns indicate the flow of steps.
+		 *
+		 *                   l > 0   l > 0   l < 0   l < 0
+		 *                   r > 0   r < 0   r > 0   r < 0
+		 *     jslt %rl,0,L3   1       1       1       1
+		 *     jslt %rr,0,L1   2       2
+		 *     ja   L4         3
+		 * L1: neg  %rr                3
+		 * L2: <op> %rl,%rr            4       4
+		 *     neg  %rl                5       5
+		 *     ja   L5                 6       6
+		 * L3: neg  %rl                        2       2
+		 *     jsge %rr,0,L2                   3       3
+		 *     neg  %rr                                4
+		 * L4: <op> %rl,%rr    4                       5
+		 * L5: nop
+		 */
+		uint_t	lbl_L1 = dt_irlist_label(dlp);
+		uint_t	lbl_L2 = dt_irlist_label(dlp);
+		uint_t	lbl_L3 = dt_irlist_label(dlp);
+		uint_t	lbl_L4 = dt_irlist_label(dlp);
+		uint_t	lbl_L5 = dt_irlist_label(dlp);
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_left->dn_reg, 0, lbl_L3);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_right->dn_reg, 0, lbl_L1);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_JUMP(lbl_L4);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_NEG_REG(dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L1, instr));
+		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
+		    dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L2, instr));
+		instr = BPF_NEG_REG(dnp->dn_left->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_JUMP(lbl_L5);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_NEG_REG(dnp->dn_left->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L3, instr));
+		instr = BPF_BRANCH_IMM(BPF_JSGE, dnp->dn_right->dn_reg, 0, lbl_L2);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_NEG_REG(dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
+		    dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L4, instr));
+		instr = BPF_NOP();
+		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L5, instr));
+	} else {
+		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
+		    dnp->dn_right->dn_reg);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
+
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
 
@@ -2370,14 +2427,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_DIV_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SDIV : BPF_DIV);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_DIV);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
 	case DT_TOK_MOD_EQ:
-		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SREM : BPF_MOD);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_MOD);
 		dt_cg_asgn_op(dnp, dlp, drp);
 		break;
 
@@ -2485,13 +2540,11 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_DIV:
-		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SDIV : BPF_DIV);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_DIV);
 		break;
 
 	case DT_TOK_MOD:
-		dt_cg_arithmetic_op(dnp, dlp, drp,
-		    (dnp->dn_flags & DT_NF_SIGNED) ? DIF_OP_SREM : BPF_MOD);
+		dt_cg_arithmetic_op(dnp, dlp, drp, BPF_MOD);
 		break;
 
 	case DT_TOK_LNEG:

@@ -5,13 +5,11 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@note: wild negative numbers, tst.basics.d.out does not exist: validate */
-
 /*
  * ASSERTION:
  * 	Simple Arithmetic expressions.
  *	Call simple expressions and make sure test succeeds.
- *	Match expected output in tst.basics.d.out
+ *	Match expected output in tst.basics.r
  *
  * SECTION: Types, Operators, and Expressions/Arithmetic Operators
  *
