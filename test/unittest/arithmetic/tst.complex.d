@@ -14,7 +14,6 @@
  * SECTION: Types, Operators, and Expressions/Arithmetic Operators
  *
  */
-/* @@xfail: dtv2 */
 
 #pragma D option quiet
 

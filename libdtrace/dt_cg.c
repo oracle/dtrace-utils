@@ -1765,9 +1765,9 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	if (nreg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	instr = BPF_MOV_IMM(nreg, size);
+	instr = BPF_MOV_REG(nreg, oreg);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_REG(op, nreg, dnp->dn_reg);
+	instr = BPF_ALU64_IMM(op, nreg, size);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 	/*
