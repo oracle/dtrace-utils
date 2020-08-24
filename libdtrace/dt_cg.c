@@ -1488,7 +1488,7 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	size_t srcsize;
 	size_t dstsize;
 	struct bpf_insn instr;
-	int reg, n;
+	int n;
 
 	/* If the destination type is '@' (any type) we need not cast. */
 	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
@@ -1497,28 +1497,20 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	srcsize = dt_node_type_size(src);
 	dstsize = dt_node_type_size(dst);
 
-	if (dt_node_is_scalar(dst) && (dstsize < srcsize ||
+	if (dstsize < srcsize)
+		n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
+	else
+		n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
+
+	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		if (dstsize < srcsize)
-			n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
-		else
-			n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
-
-		dt_cg_setx(dlp, reg, n);
-
 		instr = BPF_MOV_REG(dst->dn_reg, src->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_REG(BPF_LSH, dst->dn_reg, reg);
+		instr = BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		instr = BPF_ALU64_REG((dst->dn_flags & DT_NF_SIGNED) ?
-		    BPF_ARSH : BPF_RSH, dst->dn_reg, reg);
-
+		instr = BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ?
+		    BPF_ARSH : BPF_RSH, dst->dn_reg, n);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, reg);
 	}
 }
 
