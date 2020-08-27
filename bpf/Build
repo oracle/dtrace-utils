@@ -6,6 +6,12 @@
 
 $(objdir)/include/.dir.stamp:
 	mkdir -p $(objdir)/include
+	for d in /usr/include/${ARCH}-linux-gnu/asm /usr/include/asm; do \
+		if [ -d $$d ]; then \
+			ln -sf $$d $(objdir)/include; \
+			break; \
+		fi; \
+	done
 	ln -sf /usr/include/asm $(objdir)/include
 	ln -sf /usr/include/asm-generic $(objdir)/include
 	ln -sf /usr/include/linux $(objdir)/include
