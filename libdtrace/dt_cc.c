@@ -91,7 +91,7 @@
 #include <dt_bpf.h>
 #include <bpf_asm.h>
 
-int yylineno;
+extern int yylineno;
 
 #ifdef FIXME
 static const dtrace_diftype_t dt_void_rtype = {
