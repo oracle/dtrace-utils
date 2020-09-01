@@ -27,7 +27,7 @@
 
 #include <bpf_asm.h>
 
-#include "dt_impl.h"
+#include "dt_cg.h"
 #include "dt_bpf.h"
 #include "dt_bpf_builtins.h"
 #include "dt_provider.h"

@@ -9,6 +9,7 @@
 #define	_DT_AS_H
 
 #include <sys/types.h>
+#include <sys/dtrace_types.h>
 #include <linux/bpf.h>
 
 #ifdef	__cplusplus

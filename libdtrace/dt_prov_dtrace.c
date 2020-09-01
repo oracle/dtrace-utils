@@ -12,6 +12,7 @@
 
 #include <bpf_asm.h>
 
+#include "dt_cg.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
 

@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include <dt_impl.h>
+#include <dt_cg.h>
 #include <dt_grammar.h>
 #include <dt_parser.h>
 #include <dt_printf.h>

@@ -88,6 +88,7 @@
 #include <dt_ident.h>
 #include <dt_string.h>
 #include <dt_impl.h>
+#include <dt_cg.h>
 #include <dt_bpf.h>
 #include <bpf_asm.h>
 
