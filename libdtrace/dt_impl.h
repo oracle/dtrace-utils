@@ -50,7 +50,6 @@ extern "C" {
 #include <dt_pt_regs.h>
 #include <dt_printf.h>
 #include <dt_dctx.h>
-#include <dt_state.h>
 #include <dt_debug.h>
 #include <dt_version.h>
 
