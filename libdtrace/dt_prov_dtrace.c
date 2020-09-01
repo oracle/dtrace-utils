@@ -76,15 +76,24 @@ static void trampoline(dt_pcb_t *pcb)
 	uint_t		lbl_exit = dt_irlist_label(dlp);
 	dt_activity_t	act;
 	int		adv_act;
+	uint32_t	key = 0;
 
 	/*
 	 * The BEGIN probe should only run when the activity state is INACTIVE.
 	 * At the end of the trampoline (after executing any clauses), the
 	 * state must be advanced to the next state (INACTIVE -> ACTIVE).
 	 *
+	 * When the BEGIN probe is triggered, we need to record the CPU it runs
+	 * on in state[DT_STATE_BEGANON] to ensure that we know which trace
+	 * data buffer to process first.
+	 *
 	 * The END probe should only run when the activity state is ACTIVE.
 	 * At the end of the trampoline (after executing any clauses), the
 	 * state must be advanced to the next state (ACTIVE -> DRAINING).
+	 *
+	 * When the END probe is triggered, we need to record the CPU it runs
+	 * on in state[DT_STATE_ENDEDON] to ensure that we know which trace
+	 * data buffer to process last.
 	 *
 	 * Any other probe requires the state to be ACTIVE, and does not change
 	 * the state.
@@ -92,15 +101,58 @@ static void trampoline(dt_pcb_t *pcb)
 	if (strcmp(pcb->pcb_probe->desc->prb, "BEGIN") == 0) {
 		act = DT_ACTIVITY_INACTIVE;
 		adv_act = 1;
+		key = DT_STATE_BEGANON;
 	} else if (strcmp(pcb->pcb_probe->desc->prb, "END") == 0) {
 		act = DT_ACTIVITY_ACTIVE;
 		adv_act = 1;
+		key = DT_STATE_ENDEDON;
 	} else {
 		act = DT_ACTIVITY_ACTIVE;
 		adv_act = 0;
 	}
 
 	dt_cg_tramp_prologue_act(pcb, lbl_exit, act);
+
+	if (key) {
+		/*
+		 *     key = DT_STATE_(BEGANON|ENDEDON);
+		 *			// stw [%fp + DT_STK_SPILL(0)],
+		 *			//	DT_STATE_(BEGANON|ENDEDON)
+		 *     val = bpf_get_smp_processor_id();
+		 *			// call bpf_get_smp_processor_id
+		 *			// stw [%fp + DT_STK_SPILL(1)], %r0
+		 *     bpf_map_update_elem(state, &key, &val, BPF_ANY);
+		 *			// lddw %r1, &state
+		 *			// mov %r2, %fp
+		 *			// add %r2, DT_STK_SPILL(0)
+		 *			// mov %r3, %fp
+		 *			// add %r3, DT_STK_SPILL(1)
+		 *			// mov %r4, BPF_ANY
+		 *			// call bpf_map_update_elem
+		 */
+		dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+
+		instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), key);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(1),
+				  BPF_REG_0);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
+		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_REG(BPF_REG_3, BPF_REG_FP);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1));
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_MOV_IMM(BPF_REG_4, BPF_ANY);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		instr = BPF_CALL_HELPER(BPF_FUNC_map_update_elem);
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	}
 
 	/*
 	 * We cannot assume anything about the state of any registers so set up

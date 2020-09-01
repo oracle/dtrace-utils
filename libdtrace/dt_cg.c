@@ -21,7 +21,6 @@
 #include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 
-static void dt_cg_xsetx(dt_irlist_t *, dt_ident_t *, uint_t, int, uint64_t);
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 /*
@@ -1103,7 +1102,7 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 	return (fp);
 }
 
-static void
+void
 dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 {
 	struct bpf_insn instr[2] = { BPF_LDDW(reg, x) };
