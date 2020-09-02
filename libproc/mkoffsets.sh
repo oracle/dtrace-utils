@@ -131,8 +131,8 @@ typedef struct rtld_offsets {
 	size_t size[2];
 } rtld_offsets_t;
 
-extern const rtld_offsets_t r_debug_offsets[R_LAST_OFFSET+1];
-extern const rtld_offsets_t link_map_offsets[L_LAST_OFFSET+1];
+extern rtld_offsets_t r_debug_offsets[R_LAST_OFFSET+1];
+extern rtld_offsets_t link_map_offsets[L_LAST_OFFSET+1];
 
 #endif
 EOF
@@ -183,8 +183,8 @@ cat > $INIT <<'EOF'
 #include <string.h>
 #include "rtld_offsets.h"
 
-const rtld_offsets_t r_debug_offsets[R_LAST_OFFSET+1];
-const rtld_offsets_t link_map_offsets[L_LAST_OFFSET+1];
+rtld_offsets_t r_debug_offsets[R_LAST_OFFSET+1];
+rtld_offsets_t link_map_offsets[L_LAST_OFFSET+1];
 static int initialized;
 
 _dt_constructor_(rtld_offsets_init)
