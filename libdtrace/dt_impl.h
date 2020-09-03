@@ -14,9 +14,6 @@
 #include <dtrace.h>
 #include <pthread.h>
 
-#include <sys/ptrace.h>
-#include <asm/ptrace.h>
-
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/utsname.h>
@@ -49,7 +46,6 @@ extern "C" {
 #include <dt_pcb.h>
 #include <dt_pt_regs.h>
 #include <dt_printf.h>
-#include <dt_dctx.h>
 #include <dt_debug.h>
 #include <dt_version.h>
 
@@ -461,85 +457,6 @@ struct dtrace_hdl {
 
 #define	DT_USYMADDR_CTFP(dtp)	((dtp)->dt_ddefs->dm_ctfp)
 #define	DT_USYMADDR_TYPE(dtp)	((dtp)->dt_type_usymaddr)
-
-/*
- * DTrace BPF programs can use all BPF registers except for the the %fp (frame
- * pointer) register and the highest numbered register (currently %r9) that is
- * used to store the base pointer for the trace output record.
- */
-#define DT_STK_NREGS		(MAX_BPF_REG - 2)
-
-/*
- * An area of 256 bytes is set aside on the stack as scratch area for things
- * like string operations.  It extends from the end of the stack towards the
- * local variable storage area.  DT_STK_LVAR_END is therefore the last byte
- * location on the stack that can be used for local variable storage.
- */
-#define DT_STK_SCRATCH_BASE	(-MAX_BPF_STACK)
-#define DT_STK_SCRATCH_SZ	(256)
-#define DT_STK_LVAR_END		(DT_STK_SCRATCH_BASE + DT_STK_SCRATCH_SZ)
-
-/*
- * The stack layout for functions that implement a D clause is encoded with the
- * following constants.
- *
- * Note: The BPF frame pointer points to the address of the first byte past the
- *       end of the stack.  If the stack size is 512 bytes, valid offsets are
- *       -1 through -512 (inclusive),  So, the first 64-bit value on the stack
- *       occupies bytes at offsets -8 through -1.  The second -16 through -9,
- *       and so on...  64-bit values are properly aligned at offsets -n where
- *       n is a multiple of 8 (sizeof(uint64_t)).
- *
- * The following diagram shows the stack layout for a size of 512 bytes.
- *
- *                             +----------------+
- *         SCRATCH_BASE = -512 | Scratch Memory |
- *                             +----------------+
- *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 19)
- *                             +----------------+
- *                             |      ...       |
- *                             +----------------+
- *              LVAR(1) = -112 | LVAR 1         |
- *                             +----------------+
- *  LVAR_BASE = LVAR(0) = -104 | LVAR 0         |
- *                             +----------------+
- *              SPILL(n) = -96 | %r8            | (n = DT_STK_NREGS - 1 = 8)
- *                             +----------------+
- *                             |      ...       |
- *                             +----------------+
- *              SPILL(1) = -40 | %r1            |
- *                             +----------------+
- * SPILL_BASE = SPILL(0) = -32 | %r0            |
- *                             +----------------+
- *                  DCTX = -24 | DTrace Context | -1
- *                             +----------------+
- */
-#define DT_STK_BASE		((int16_t)0)
-#define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
-
-#define DT_STK_DCTX		(DT_STK_BASE - DCTX_SIZE)
-#define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
-#define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
-#define DT_STK_LVAR_BASE	(DT_STK_SPILL(DT_STK_NREGS - 1) - \
-				 DT_STK_SLOT_SZ)
-#define DT_STK_LVAR(n)		(DT_STK_LVAR_BASE - (n) * DT_STK_SLOT_SZ)
-
-/*
- * Calculate a local variable ID based on a given stack offset.  If the stack
- * offset is outside the valid range, this should evaluate as -1.
- */
-#define DT_LVAR_OFF2ID(n)	(((n) > DT_STK_LVAR_BASE || \
-				  (n) < DT_STK_LVAR_END) ? -1 : \
-				 (- ((n) - DT_STK_LVAR_BASE) / DT_STK_SLOT_SZ))
-
-/*
- * Maximum number of local variables stored by value (scalars).  This is bound
- * by the choice to store them on the stack between the register spill space,
- * and 256 bytes set aside as string scratch space.  We also use the fact that
- * the (current) maximum stack space for BPF programs is 512 bytes.
- */
-#define DT_LVAR_MAX		(- (DT_STK_LVAR_END - DT_STK_LVAR_BASE) / \
-				 DT_STK_SLOT_SZ)
 
 /*
  * Actions and subroutines are both DT_NODE_FUNC nodes; to avoid confusing

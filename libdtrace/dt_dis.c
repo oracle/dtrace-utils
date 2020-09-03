@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include <dt_impl.h>
+#include <dt_dctx.h>
 #include <dt_ident.h>
 #include <dt_printf.h>
 #include <dt_string.h>

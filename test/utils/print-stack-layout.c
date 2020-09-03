@@ -6,7 +6,8 @@
  */
 
 #include <stdio.h>
-#include <dt_impl.h>
+#include <stdlib.h>
+#include <dt_dctx.h>
 
 int main(void)
 {

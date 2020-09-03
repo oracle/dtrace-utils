@@ -8,6 +8,9 @@
 #ifndef	_DT_PR_REGS_H
 #define	_DT_PR_REGS_H
 
+#ifndef __BPF__
+# include <sys/ptrace.h>
+#endif
 #include <asm/ptrace.h>
 
 #ifdef	__cplusplus

@@ -8,11 +8,6 @@
 #ifndef _DT_STATE_H
 #define _DT_STATE_H
 
-#include "dt_bpf.h"
-#include "dt_impl.h"
-
-struct dtrace_hdl;
-
 /*
  * DTrace 'state' BPF map.
  *
@@ -39,6 +34,10 @@ typedef enum dt_activity {
 	DT_ACTIVITY_STOPPED		/* tracing stopped */
 } dt_activity_t;
 
+#ifndef __BPF__
+# include "dt_bpf.h"
+# include "dt_impl.h"
+
 static inline uint32_t
 dt_state_get(dtrace_hdl_t *dtp, uint32_t key)
 {
@@ -55,12 +54,13 @@ dt_state_set(dtrace_hdl_t *dtp, uint32_t key, uint32_t val)
 	dt_bpf_map_update(dtp->dt_stmap_fd, &key, &val);
 }
 
-#define dt_state_get_activity(dtp)	((dt_activity_t) \
-					 dt_state_get(dtp, DT_STATE_ACTIVITY))
-#define dt_state_get_beganon(dtp)	dt_state_get(dtp, DT_STATE_BEGANON)
-#define dt_state_get_endedon(dtp)	dt_state_get(dtp, DT_STATE_ENDEDON)
+# define dt_state_get_activity(dtp) \
+		((dt_activity_t)dt_state_get(dtp, DT_STATE_ACTIVITY))
+# define dt_state_set_activity(dtp, act) \
+		dt_state_set(dtp, DT_STATE_ACTIVITY, (uint32_t)(act))
 
-#define dt_state_set_activity(dtp, act)	dt_state_set(dtp, DT_STATE_ACTIVITY, \
-						     (uint32_t)(act))
+# define dt_state_get_beganon(dtp)	dt_state_get(dtp, DT_STATE_BEGANON)
+# define dt_state_get_endedon(dtp)	dt_state_get(dtp, DT_STATE_ENDEDON)
+#endif
 
 #endif /* _DT_STATE_H */
