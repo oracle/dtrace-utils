@@ -14,7 +14,6 @@
 #define _DTRACE_FASTTRAP_H
 
 #include <dtrace/universal.h>
-#include <dtrace/fasttrap_defines.h>
 
 typedef enum fasttrap_probe_type {
 	DTFTP_NONE = 0,

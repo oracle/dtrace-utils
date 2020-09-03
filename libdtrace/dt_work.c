@@ -143,12 +143,11 @@ dtrace_status(dtrace_hdl_t *dtp)
 int
 dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
-	void		*dof;
 	size_t		size;
 	int		err;
 
 	if (dtp->dt_active)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	/*
 	 * If a dtrace:::ERROR program and callback are registered, enable the
@@ -160,7 +159,7 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	if (dtp->dt_errprog != NULL &&
 	    dtrace_program_exec(dtp, dtp->dt_errprog, NULL) == -1 && (
 	    dtp->dt_errno != ENOTTY || dtp->dt_vector == NULL))
-		return (-1); /* dt_errno has been set for us */
+		return -1;		/* dt_errno has been set for us */
 
 	/*
 	 * Create the global BPF maps.  This is done only once regardless of
@@ -210,9 +209,9 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 
 #if 0
 	if (dt_options_load(dtp) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (dt_aggregate_go(dtp));
+	return dt_aggregate_go(dtp);
 #else
 	return 0;
 #endif
@@ -305,7 +304,6 @@ dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	    dtrace_consume_rec_f *rfunc, void *arg)
 {
-	int			status = dtrace_status(dtp);
 	dtrace_workstatus_t	rval;
 
 	switch (dtrace_status(dtp)) {

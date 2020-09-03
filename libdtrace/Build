@@ -41,8 +41,9 @@ libdtrace_VERSCRIPT := libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
 libdtrace_SECONDARY := libproc libport libbpf
 
-# Disable C99 variadic macro warnings for this file
+# Disable certain warnings for these files
 dt_consume.c_CFLAGS := -Wno-pedantic
+dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor
 dt_dis.c_CFLAGS := -Wno-pedantic
 dt_proc.c_CFLAGS := -Wno-pedantic
 

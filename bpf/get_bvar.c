@@ -3,6 +3,7 @@
  * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <bpf-helpers.h>
 #include <dtrace/conf.h>
@@ -60,8 +61,12 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 	}
 	case DIF_VAR_CURCPU: {
 		uint32_t	key = 0;
+		void		*val = bpf_map_lookup_elem(&cpuinfo, &key);
 
-		return bpf_map_lookup_elem(&cpuinfo, &key);
+		if (val == NULL)
+			return (uint64_t)NULL;	/* FIXME */
+
+		return (uint64_t)val;
 	}
 	default:
 		/* Not implemented yet. */

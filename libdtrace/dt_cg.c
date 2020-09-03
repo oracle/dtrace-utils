@@ -919,7 +919,9 @@ static void
 dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *arg = dnp->dn_args;
+#ifdef FIXME
 	uint32_t nframes = 0;
+#endif
 
 	if (arg != NULL) {
 		if (!dt_node_is_posconst(arg)) {
@@ -927,7 +929,9 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 				"be a non-zero positive integer constant\n");
 		}
 
+#ifdef FIXME
 		nframes = (uint32_t)arg->dn_value;
+#endif
 	}
 }
 
@@ -988,8 +992,10 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t *arg0 = dnp->dn_args;
 	dt_node_t *arg1 = arg0 != NULL ? arg0->dn_list : NULL;
+#ifdef FIXME
 	uint32_t nframes = 0;
 	uint32_t strsize = 0;
+#endif
 
 	if (arg0 != NULL) {
 		if (!dt_node_is_posconst(arg0)) {
@@ -998,7 +1004,9 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 				"constant\n");
 		}
 
+#ifdef FIXME
 		nframes = (uint32_t)arg0->dn_value;
+#endif
 	}
 
 	if (arg1 != NULL) {
@@ -1009,7 +1017,9 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 				"must be a positive integer constant\n");
 		}
 
+#ifdef FIXME
 		strsize = (uint32_t)arg1->dn_value;
+#endif
 	}
 }
 
@@ -2153,7 +2163,6 @@ dt_cg_logical_neg(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	struct bpf_insn instr;
 	dt_ident_t *idp;
 
 	/*
@@ -2167,6 +2176,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		ctf_membinfo_t ctm;
 		dt_xlator_t *dxp = idp->di_data;
 		dt_node_t *mnp, dn, mn;
+		struct bpf_insn instr;
 		int r1, r2;
 
 		/*
@@ -3102,7 +3112,6 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 void
 dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 {
-	struct bpf_insn	instr;
 	dt_xlator_t	*dxp = NULL;
 	dt_node_t	*act;
 
@@ -3141,8 +3150,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
-		dt_irlist_t	*dlp = &pcb->pcb_ir;
-
 		dt_cg_prologue(pcb, dnp->dn_pred);
 
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {

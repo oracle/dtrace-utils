@@ -944,6 +944,7 @@ dt_opt_bufresize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 int
 dt_options_load(dtrace_hdl_t *dtp)
 {
+#ifdef FIXME
 	dof_hdr_t hdr, *dof;
 	dof_sec_t *sec = NULL;  /* gcc -Wmaybe-uninitialized */
 	size_t offs;
@@ -996,6 +997,7 @@ dt_options_load(dtrace_hdl_t *dtp)
 
 		dtp->dt_options[opt->dofo_option] = opt->dofo_value;
 	}
+#endif
 
 	return (0);
 }

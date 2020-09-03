@@ -555,11 +555,15 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 
 	const dtrace_ecbdesc_t *edp, *last;
 	const dtrace_probedesc_t *pdp;
+#ifdef FIXME
 	const dtrace_actdesc_t *ap;
+#endif
 	const dt_stmt_t *stp;
 
 	uint_t maxacts = 0;
+#ifdef FIXME
 	uint_t maxfmt = 0;
+#endif
 
 	dt_provider_t *pvp;
 	dt_xlator_t *dxp;
@@ -569,7 +573,9 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	dof_hdr_t h;
 
 	dt_buf_t dof;
+#ifdef FIXME
 	char *fmt;
+#endif
 	uint_t i;
 
 	if (flags & ~DTRACE_D_MASK) {
@@ -614,7 +620,9 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 #endif
 
 	dofa = alloca(sizeof (dof_actdesc_t) * maxacts);
+#ifdef FIXME
 	fmt = alloca(maxfmt + 1);
+#endif
 
 	ddo->ddo_strsec = dof_add_lsect(ddo, NULL, DOF_SECT_STRTAB, 1, 0, 0, 0);
 	(void) dof_add_string(ddo, "");
@@ -642,9 +650,11 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		dof_secidx_t probesec = DOF_SECIDX_NONE;
 		dof_secidx_t actsec = DOF_SECIDX_NONE;
 
+#ifdef FIXME
 		const dt_stmt_t *next = stp;
 		dtrace_stmtdesc_t *sdp = stp->ds_desc;
 		dof_stridx_t strndx = 0;
+#endif
 		dof_probedesc_t dofp;
 		dof_ecbdesc_t dofe;
 		uint_t i;

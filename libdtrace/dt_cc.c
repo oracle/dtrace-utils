@@ -95,16 +95,6 @@
 
 extern int yylineno;
 
-#ifdef FIXME
-static const dtrace_diftype_t dt_void_rtype = {
-	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, 0
-};
-#endif
-
-static const dtrace_diftype_t dt_int_rtype = {
-	DIF_TYPE_CTF, CTF_K_INTEGER, 0, 0, sizeof (uint64_t)
-};
-
 /*ARGSUSED*/
 static int
 dt_idreset(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
@@ -142,6 +132,7 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	return (sdp);
 }
 
+#ifdef FIXME
 /*
  * Utility function to determine if a given action description is destructive.
  * The dtdo_destructive bit is set for us by the DIF assembler (see dt_as.c).
@@ -152,17 +143,18 @@ dt_action_destructive(const dtrace_actdesc_t *ap)
 	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) || (ap->dtad_kind ==
 	    DTRACEACT_DIFEXPR && ap->dtad_difo->dtdo_destructive));
 }
+#endif
 
 static void
 dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 {
+#ifdef FIXME
 	dtrace_ecbdesc_t *edp = sdp->dtsd_ecbdesc;
 	dtrace_actdesc_t *ap, *tap;
 	int commit = 0;
 	int speculate = 0;
 	int datarec = 0;
 
-#ifdef FIXME
 	/*
 	 * Make sure that the new statement jibes with the rest of the ECB.
 	 */

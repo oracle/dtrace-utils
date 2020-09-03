@@ -367,7 +367,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	      dtrace_epid_t next)
 {
 	dtrace_probedesc_t	*pd = data->dtpda_pdesc, *npd;
-	dtrace_datadesc_t	*dd = data->dtpda_ddesc, *ndd;
+	dtrace_datadesc_t	*ndd;
 	dtrace_flowkind_t	flow = DTRACEFLOW_NONE;
 	const char		*p = pd->prv;
 	const char		*n = pd->prb;
@@ -431,7 +431,6 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 			flow = DTRACEFLOW_NONE;
 	}
 
-out:
 	if (flow == DTRACEFLOW_ENTRY || flow == DTRACEFLOW_RETURN)
 		data->dtpda_prefix = str;
 	else
@@ -969,6 +968,7 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
         return (dt_print_rawbytes(dtp, fp, addr, nbytes));
 }
 
+#ifdef FIXME
 static int
 dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
     uint_t nrecs, const caddr_t buf)
@@ -1016,6 +1016,7 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 
 	return (nconsumed);
 }
+#endif
 
 int
 dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
@@ -1419,6 +1420,7 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return (0);
 }
 
+#ifdef FIXME
 typedef struct dt_normal {
 	dtrace_aggvarid_t dtnd_id;
 	uint64_t dtnd_normal;
@@ -1612,6 +1614,7 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 	return (0);
 }
+#endif
 
 static int
 dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
@@ -1901,10 +1904,10 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 	data += sizeof(struct perf_event_header);
 
 	if (hdr->type == PERF_RECORD_SAMPLE) {
-		char			*ptr = data;
-		uint32_t		size, epid, tag;
-		int			i;
-		int			done = 0;
+		char		*ptr = data;
+		dtrace_epid_t	epid;
+		uint32_t	size;
+		int		i;
 
 		/*
 		 * struct {
@@ -1931,7 +1934,9 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		size -= sizeof(uint32_t);
 
 		epid = ((uint32_t *)data)[0];
-		tag = ((uint32_t *)data)[1];
+#ifdef FIXME
+		tag = ((uint32_t *)data)[1];		/* for future use */
+#endif
 
 		/*
 		 * Fill in the epid and address of the epid in the buffer.  We
@@ -1980,9 +1985,6 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 			    const void *buf, size_t);
 
 			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
-			if (rec->dtrd_action == DTRACEACT_EXIT)
-				done = 1;
-
 			pdat->dtpda_data = data + rec->dtrd_offset;
 			rval = (*rfunc)(pdat, rec, arg);
 
@@ -1999,11 +2001,11 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 			case DTRACEACT_PRINTF:
 				func = dtrace_fprintf;
 				break;
-/*
+#ifdef FIXME
 			case DTRACEACT_PRINTA:
 				func = dtrace_fprinta;
 				break;
-*/
+#endif
 			case DTRACEACT_SYSTEM:
 				func = dtrace_system;
 				break;
@@ -2046,6 +2048,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 
 		return DTRACE_WORKSTATUS_OKAY;
 	} else if (hdr->type == PERF_RECORD_LOST) {
+#ifdef FIXME
 		uint64_t	lost;
 
 		/*
@@ -2057,6 +2060,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		 * and data points to the 'id' member at this point.
 		 */
 		lost = *(uint64_t *)(data + sizeof(uint64_t));
+#endif
 
 		/* FIXME: To be implemented */
 		return DTRACE_WORKSTATUS_ERROR;
@@ -2233,7 +2237,7 @@ dt_consume_begin_error(const dtrace_errdata_t *data, void *arg)
  * that we only process ERROR enablings _not_ induced by BEGIN enablings in the
  * second pass.
  */
-static int
+static dtrace_workstatus_t
 dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 		 int cnt, dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf,
 		 void *arg)
