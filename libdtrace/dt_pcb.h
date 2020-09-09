@@ -53,7 +53,6 @@ typedef struct dt_pcb {
 	dtrace_datadesc_t *pcb_ddesc; /* data record description */
 	int pcb_maxrecs;	/* alloc'd number of data record descriptions */
 	dtrace_attribute_t pcb_amin; /* stability minimum for compilation */
-	dt_node_t *pcb_dret;	/* node containing return type for assembler */
 	dtrace_difo_t *pcb_difo; /* intermediate DIF object made by assembler */
 	dtrace_prog_t *pcb_prog; /* intermediate program made by compiler */
 	dtrace_stmtdesc_t *pcb_stmt; /* intermediate stmt made by compiler */

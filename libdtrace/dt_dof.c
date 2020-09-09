@@ -251,7 +251,7 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 	 */
 	assert(nsecs <= sizeof (dsecs) / sizeof (dsecs[0]));
 	dofd = alloca(sizeof (dtrace_diftype_t) + sizeof (dsecs));
-	memcpy(&dofd->dofd_rtype, &dp->dtdo_rtype, sizeof (dtrace_diftype_t));
+	memset(&dofd->dofd_rtype, 0, sizeof(dtrace_diftype_t));
 	memcpy(&dofd->dofd_links, dsecs, sizeof (dof_secidx_t) * nsecs);
 
 	hdrsec = dof_add_lsect(ddo, dofd, DOF_SECT_DIFOHDR,

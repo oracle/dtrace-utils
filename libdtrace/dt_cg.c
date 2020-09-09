@@ -3129,9 +3129,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	dt_irlist_create(&pcb->pcb_ir);
 	pcb->pcb_exitlbl = dt_irlist_label(&pcb->pcb_ir);
 
-	assert(pcb->pcb_dret == NULL);
-	pcb->pcb_dret = dnp;
-
 	pcb->pcb_bufoff = 0;
 
 	if (dt_node_is_dynamic(dnp))
@@ -3153,8 +3150,6 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dt_cg_prologue(pcb, dnp->dn_pred);
 
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
-			pcb->pcb_dret = act->dn_expr;
-
 			if (act->dn_kind == DT_NODE_DFUNC) {
 				const dt_cg_actdesc_t	*actdp;
 				dt_ident_t		*idp;
@@ -3167,9 +3162,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 			} else {
 				dt_cg_node(act->dn_expr, &pcb->pcb_ir,
 					   pcb->pcb_regs);
-				assert (pcb->pcb_dret->dn_reg != -1);
+				assert(act->dn_expr->dn_reg != -1);
 				dt_regset_free(pcb->pcb_regs,
-					       pcb->pcb_dret->dn_reg);
+					       act->dn_expr->dn_reg);
 			}
 		}
 

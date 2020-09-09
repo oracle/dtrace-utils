@@ -39,7 +39,6 @@ typedef struct dtrace_difo {
 	uint_t dtdo_len;			/* length of instruction buffer */
 	uint_t dtdo_strlen;			/* length of string table */
 	uint_t dtdo_varlen;			/* length of variable table */
-	dtrace_diftype_t dtdo_rtype;		/* return type */
 	uint_t dtdo_reclen;			/* length of trace record */
 	uint_t dtdo_refcnt;			/* owner reference count */
 	uint_t dtdo_destructive;		/* invokes destructive subroutines */

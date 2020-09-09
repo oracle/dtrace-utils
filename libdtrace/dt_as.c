@@ -571,13 +571,10 @@ fail:
 		dp->dtdo_strtab = NULL;
 
 	/*
-	 * Fill in the DIFO return type from the type associated with the
-	 * node saved in pcb_dret, and then clear pcb_difo and pcb_dret
-	 * now that the assembler has completed successfully.
+	 *
+	 * Clear pcb_difo * now that the assembler has completed successfully.
 	 */
-	dt_node_diftype(dtp, pcb->pcb_dret, &dp->dtdo_rtype);
 	pcb->pcb_difo = NULL;
-	pcb->pcb_dret = NULL;
 
 	/*
 	 * Fill in the trace data record length.  This is used to determine the
