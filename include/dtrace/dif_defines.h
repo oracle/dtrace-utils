@@ -275,6 +275,7 @@ typedef uint32_t	dif_instr_t;
 
 #define DIFV_KIND_ARRAY		0
 #define DIFV_KIND_SCALAR	1
+#define DIFV_KIND_AGGREGATE	2
 
 #define DIFV_SCOPE_GLOBAL	0
 #define DIFV_SCOPE_THREAD	1

@@ -663,6 +663,9 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 		char kind[4], scope[4], range[12], flags[16] = { 0 };
 
 		switch (v->dtdv_kind) {
+		case DIFV_KIND_AGGREGATE:
+			strcpy(kind, "agg");
+			break;
 		case DIFV_KIND_ARRAY:
 			strcpy(kind, "arr");
 			break;

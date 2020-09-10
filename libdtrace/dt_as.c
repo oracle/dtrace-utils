@@ -61,7 +61,9 @@ dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	size_t *np = data;
 
 	if (idp->di_flags & (DT_IDFLG_DIFR | DT_IDFLG_DIFW))
-		(*np)++; /* include variable in vartab */
+		(*np)++;		/* include variable in vartab */
+	else if (idp->di_kind == DT_IDENT_AGG)
+		(*np)++;		/* include variable in vartab */
 
 	return (0);
 }
@@ -76,8 +78,9 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 	ssize_t		stroff;
 	dt_node_t	dn;
 
-	if (!(idp->di_flags & (DT_IDFLG_DIFR | DT_IDFLG_DIFW)))
-		return (0); /* omit variable from vartab */
+	if (!(idp->di_flags & (DT_IDFLG_DIFR | DT_IDFLG_DIFW)) &&
+	    idp->di_kind != DT_IDENT_AGG)
+		return 0;		/* omit variable from vartab */
 
 	dvp = &pcb->pcb_difo->dtdo_vartab[pcb->pcb_asvidx++];
 	stroff = dt_strtab_insert(dtp->dt_ccstab, idp->di_name);
@@ -91,8 +94,17 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 	dvp->dtdv_id = idp->di_id;
 	dvp->dtdv_flags = 0;
 
-	dvp->dtdv_kind = (idp->di_kind == DT_IDENT_ARRAY) ?
-	    DIFV_KIND_ARRAY : DIFV_KIND_SCALAR;
+	switch (idp->di_kind) {
+	case DT_IDENT_AGG:
+		dvp->dtdv_kind = DIFV_KIND_AGGREGATE;
+		break;
+	case DT_IDENT_ARRAY:
+		dvp->dtdv_kind = DIFV_KIND_ARRAY;
+		break;
+	default:
+		dvp->dtdv_kind = DIFV_KIND_SCALAR;
+	}
+
 
 	if (idp->di_flags & DT_IDFLG_LOCAL)
 		dvp->dtdv_scope = DIFV_SCOPE_LOCAL;
@@ -358,6 +370,7 @@ fail:
 	 * table we insert the corresponding variable names into the strtab.
 	 */
 	dt_idhash_iter(dtp->dt_tls, dt_countvar, &n);
+	dt_idhash_iter(dtp->dt_aggs, dt_countvar, &n);
 	dt_idhash_iter(dtp->dt_globals, dt_countvar, &n);
 	dt_idhash_iter(pcb->pcb_locals, dt_countvar, &n);
 
@@ -369,6 +382,7 @@ fail:
 			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 
 		dt_idhash_iter(dtp->dt_tls, (dt_idhash_f *)dt_copyvar, dtp);
+		dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *)dt_copyvar, dtp);
 		dt_idhash_iter(dtp->dt_globals, (dt_idhash_f *)dt_copyvar, dtp);
 		dt_idhash_iter(pcb->pcb_locals, (dt_idhash_f *)dt_copyvar, dtp);
 	}
