@@ -27,6 +27,8 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 		return mst->tstamp;
 	case DIF_VAR_EPID:
 		return mst->epid;
+	case DIF_VAR_ID:
+		return mst->prid;
 	case DIF_VAR_ARG0: case DIF_VAR_ARG1: case DIF_VAR_ARG2:
 	case DIF_VAR_ARG3: case DIF_VAR_ARG4: case DIF_VAR_ARG5:
 	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:

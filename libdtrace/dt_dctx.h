@@ -15,6 +15,7 @@
  */
 typedef struct dt_mstate {
 	uint32_t	epid;		/* Enabled probe ID */
+	uint32_t	prid;		/* Probe ID */
 	uint32_t	tag;		/* Tag (for future use) */
 	uint64_t	fault;		/* DTrace fault flags */
 	uint64_t	tstamp;		/* cached timestamp value */
@@ -45,6 +46,7 @@ typedef struct dt_dctx {
 #define DCTX_FP(off)	(-(ushort_t)DCTX_SIZE + (ushort_t)(off))
 
 #define DMST_EPID	offsetof(dt_mstate_t, epid)
+#define DMST_PRID	offsetof(dt_mstate_t, prid)
 #define DMST_TAG	offsetof(dt_mstate_t, tag)
 #define DMST_FAULT	offsetof(dt_mstate_t, fault)
 #define DMST_TSTAMP	offsetof(dt_mstate_t, tstamp)

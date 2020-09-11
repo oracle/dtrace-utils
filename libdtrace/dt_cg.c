@@ -175,9 +175,11 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
+	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
 	struct bpf_insn	instr;
 
 	assert(epid != NULL);
+	assert(prid != NULL);
 
 	/*
 	 * void dt_program(dt_dctx_t *dctx)
@@ -206,6 +208,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *				// stdw [%r0 + DMST_FAULT], 0
 	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
 	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
+	 *	dctx->mst->prid = PRID;	// stw [%r0 + DMST_PRID], PRID
 	 *	*((uint32_t *)&buf[0]) = EPID;
 	 *				// stw [%r9 + 0], EPID
 	 */
@@ -218,6 +221,9 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dlp->dl_last->di_extern = epid;
+	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, -1);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	dlp->dl_last->di_extern = prid;
 	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	dlp->dl_last->di_extern = epid;

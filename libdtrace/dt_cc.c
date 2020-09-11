@@ -2412,7 +2412,10 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		case DT_IDENT_SCALAR:			/* constant */
 			switch (idp->di_id) {
 			case DT_CONST_EPID:
-				nrp->dofr_data = epid;	/* set vakue */
+				nrp->dofr_data = epid;
+				break;
+			case DT_CONST_PRID:
+				nrp->dofr_data = prp->desc->id;
 				break;
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */

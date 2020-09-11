@@ -17,6 +17,7 @@ extern "C" {
 
 #define DT_CONST_EPID	1
 #define DT_CONST_ARGC	2
+#define DT_CONST_PRID	3
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);
