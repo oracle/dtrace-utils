@@ -612,9 +612,19 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn instr;
-	dt_irlist_t *dlp = &pcb->pcb_ir;
-	uint_t off;
+	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		off;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_COMM_COMM,
+		    "commit( ) may not follow commit( )\n");
+	if (*cfp & DT_CLSFLAG_DATAREC)
+		dnerror(dnp, D_COMM_DREC,
+		    "commit( ) may not follow data-recording action(s)\n");
+	*cfp |= DT_CLSFLAG_COMMIT;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
@@ -696,6 +706,16 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
 	struct bpf_insn	instr;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_SPECULATE)
+		dnerror(dnp, D_EXIT_SPEC,
+		    "exit( ) may not follow speculate( )\n");
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_DREC_COMM,
+		    "data-recording actions may not follow commit( )\n");
+	*cfp |= DT_CLSFLAG_EXIT | DT_CLSFLAG_DATAREC;
 
 	/* Record the exit code. */
 	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_EXIT, NULL, DT_ACT_EXIT);
@@ -777,6 +797,13 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_pfargv_t	*pfp;
 	char		n[DT_TYPE_NAMELEN];
 	char		*str;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_DREC_COMM,
+		    "data-recording actions may not follow commit( )\n");
+	*cfp |= DT_CLSFLAG_DATAREC;
 
 	/*
 	 * Ensure that the format string is a string constant.
@@ -904,6 +931,19 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_SPECULATE)
+		dnerror(dnp, D_SPEC_SPEC,
+		    "speculate( ) may not follow speculate( )\n");
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_SPEC_COMM,
+		    "speculate( ) may not follow commit( )\n");
+	if (*cfp & DT_CLSFLAG_DATAREC)
+		dnerror(dnp, D_SPEC_DREC,
+		    "speculate( ) may not follow data-recording action(s)\n");
+	*cfp |= DT_CLSFLAG_SPECULATE;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
@@ -953,6 +993,13 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	char		n[DT_TYPE_NAMELEN];
 	dt_node_t	*arg = dnp->dn_args;
 	int		type = 0;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_DREC_COMM,
+		        "data-recording actions may not follow commit( )\n");
+	*cfp |= DT_CLSFLAG_DATAREC;
 
 	if (dt_node_is_void(arg)) {
 		dnerror(arg, D_TRACE_VOID,

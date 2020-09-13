@@ -157,6 +157,7 @@ dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
 
 	/*
 	 * Make sure that the new statement jibes with the rest of the ECB.
+	 * FIXME: Eliminate this code once it's incorporated elsewhere.
 	 */
 	for (ap = edp->dted_action; ap != NULL; ap = ap->dtad_next) {
 		if (ap->dtad_kind == DTRACEACT_COMMIT) {

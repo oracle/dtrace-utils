@@ -193,6 +193,7 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 
 	assert(gapf);
 
+	/* make more space if necessary */
 	cnt = ddp->dtdd_nrecs + 1;
 	max = pcb->pcb_maxrecs;
 	if (cnt >= max) {
@@ -214,6 +215,7 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 		pcb->pcb_maxrecs = nmax;
 	}
 
+	/* add the new record */
 	rec = &ddp->dtdd_recs[ddp->dtdd_nrecs++];
 	off = (pcb->pcb_bufoff + (alignment - 1)) & ~(alignment - 1);
 	rec->dtrd_action = kind;
@@ -223,10 +225,12 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 	rec->dtrd_format = pfp;
 	rec->dtrd_arg = arg;
 
+	/* fill in the gap */
 	gap = off - pcb->pcb_bufoff;
 	if (gap > 0)
 		(*gapf)(pcb, gap);
 
+	/* update offset */
 	pcb->pcb_bufoff = off + size;
 
 	return off;
