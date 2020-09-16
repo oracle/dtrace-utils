@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@xfail: dtv2 */
-
 /*
  * ASSERTION:
  *	progenyof() should accept one argument - a pid

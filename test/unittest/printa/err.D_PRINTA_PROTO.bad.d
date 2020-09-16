@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@xfail: dtv2 */
-
 /*
  * ASSERTION:
  *  Invokes printa() with a bad aggregation argument.

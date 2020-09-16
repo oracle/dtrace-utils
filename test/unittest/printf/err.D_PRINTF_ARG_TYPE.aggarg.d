@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@xfail: dtv2 */
-
 /*
  * ASSERTION:
  *  Test printf() with a bad aggregation arg.

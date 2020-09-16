@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@xfail: dtv2 */
-
 /*
  * ASSERTION:
  *	mutex_owned() should handle too many args passed

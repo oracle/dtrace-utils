@@ -6,7 +6,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@xfail: dtv2 */
-
 /*
  * ASSERTION:
  * Destructive actions may never be speculative.
