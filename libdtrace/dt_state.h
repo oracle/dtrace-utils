@@ -21,6 +21,8 @@ typedef enum dt_state_elem {
 	DT_STATE_ACTIVITY = 0,		/* activity state of the session */
 	DT_STATE_BEGANON,		/* cpu BEGIN probe executed on */
 	DT_STATE_ENDEDON,		/* cpu END probe executed on */
+	DT_STATE_TASK_PARENT_OFF,	/* offsetof(struct task_struct, real_parent) */
+	DT_STATE_TASK_TGID_OFF,		/* offsetof(struct task_struct, tgid) */
 	DT_STATE_NUM_ELEMS
 } dt_state_elem_t;
 
@@ -61,6 +63,9 @@ dt_state_set(dtrace_hdl_t *dtp, uint32_t key, uint32_t val)
 
 # define dt_state_get_beganon(dtp)	dt_state_get(dtp, DT_STATE_BEGANON)
 # define dt_state_get_endedon(dtp)	dt_state_get(dtp, DT_STATE_ENDEDON)
+
+# define dt_state_set_offparent(dtp, x)	dt_state_set(dtp, DT_STATE_TASK_PARENT_OFF, (x))
+# define dt_state_set_offtgid(dtp, x)	dt_state_set(dtp, DT_STATE_TASK_TGID_OFF, (x))
 #endif
 
 #endif /* _DT_STATE_H */

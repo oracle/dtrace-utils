@@ -115,6 +115,28 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	return fd;
 }
 
+static int
+set_task_offsets(dtrace_hdl_t *dtp)
+{
+	ctf_id_t type;
+	ctf_membinfo_t ctm;
+	ctf_file_t *cfp = dtp->dt_shared_ctf;
+
+	type = ctf_lookup_by_name(cfp, "struct task_struct");
+	if (type == CTF_ERR)
+		return -1;
+
+	if (ctf_member_info(cfp, type, "real_parent", &ctm) == CTF_ERR)
+		return -1;
+	dt_state_set_offparent(dtp, ctm.ctm_offset / NBBY);
+
+	if (ctf_member_info(cfp, type, "tgid", &ctm) == CTF_ERR)
+		return -1;
+	dt_state_set_offtgid(dtp, ctm.ctm_offset / NBBY);
+
+	return 0;
+}
+
 /*
  * Create the global BPF maps that are shared between all BPF programs in a
  * single tracing session:
@@ -224,6 +246,10 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
+
+	/* Set some task_struct offsets in state. */
+	if (set_task_offsets(dtp))
+		return dt_set_errno(dtp, EDT_CTF);
 
 	return 0;
 }

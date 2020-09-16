@@ -6,7 +6,7 @@
  */
 
 /*
- * ASSERTION: The 'ppid' variable can be accessed and is not -1.
+ * ASSERTION: The 'ppid' variable matches the scripting variable for BEGIN.
  *
  * SECTION: Variables/Built-in Variables/ppid
  */
@@ -14,6 +14,7 @@
 #pragma D option quiet
 
 BEGIN {
-	trace(ppid);
-	exit(ppid != -1 ? 0 : 1);
+       trace(ppid);
+       trace($ppid);
+       exit(ppid == $ppid ? 0 : 1);
 }

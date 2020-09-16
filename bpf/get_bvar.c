@@ -9,12 +9,14 @@
 #include <dtrace/conf.h>
 #include <dtrace/dif_defines.h>
 #include <dt_dctx.h>
+#include <dt_state.h>
 
 #ifndef noinline
 # define noinline	__attribute__((noinline))
 #endif
 
 extern struct bpf_map_def cpuinfo;
+extern struct bpf_map_def state;
 
 noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 {
@@ -48,6 +50,40 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 		uint64_t	val = bpf_get_current_pid_tgid();
 
 		return val & 0x00000000ffffffffUL;
+	}
+	case DIF_VAR_PPID: {
+		uint64_t	ptr;
+		int32_t		val = -1;
+		uint32_t	key;
+		uint32_t	*parent_off;
+		uint32_t	*tgid_off;
+
+		/*
+		 * In the "state" map, look up the "struct task_struct" offsets
+		 * of real_parent and tgid.
+		 */
+		key = DT_STATE_TASK_PARENT_OFF;
+		parent_off = bpf_map_lookup_elem(&state, &key);
+		if (parent_off == NULL)
+			return -1;
+
+		key = DT_STATE_TASK_TGID_OFF;
+		tgid_off = bpf_map_lookup_elem(&state, &key);
+		if (tgid_off == NULL)
+			return -1;
+
+		/* Chase pointers val = current->real_parent->tgid. */
+		ptr = bpf_get_current_task();
+		if (ptr == 0)
+			return -1;
+		if (bpf_probe_read((void *) &ptr, 8,
+		    (const void *) (ptr + *parent_off)))
+			return -1;
+		if (bpf_probe_read((void *) &val, 4,
+		    (const void *) (ptr + *tgid_off)))
+			return -1;
+
+		return (uint64_t) val;
 	}
 	case DIF_VAR_UID: {
 		uint64_t	val = bpf_get_current_uid_gid();
