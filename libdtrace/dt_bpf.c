@@ -144,6 +144,11 @@ set_task_offsets(dtrace_hdl_t *dtp)
  * - state:	DTrace session state, used to communicate state between BPF
  *		programs and userspace.  The content of the map is defined in
  *		dt_state.h.
+ * - aggs:	Aggregation data buffer map, associated with each CPU.  The
+ *		map is implemented as a global per-CPU map with a singleton
+ *		element (key 0).  Every aggregation is stored with two copies
+ *		of its data to provide a lockless latch-based mechanism for
+ *		atomic reading and writing.
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
  * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
@@ -191,7 +196,7 @@ set_task_offsets(dtrace_hdl_t *dtp)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		gvarc, tvarc;
+	int		gvarc, tvarc, aggsz;
 	int		ci_mapfd;
 	uint32_t	key = 0;
 
@@ -201,6 +206,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/* Mark global maps creation as completed. */
 	dt_gmap_done = 1;
+
+	/* Determine the aggregation buffer size.  */
+	aggsz = dt_idhash_nextoff(dtp->dt_aggs, 1, 0);
 
 	/* Determine the number of global and TLS variables. */
 	gvarc = dt_idhash_peekid(dtp->dt_globals) - DIF_VAR_OTHER_UBASE;
@@ -212,6 +220,16 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 				       sizeof(DT_STATE_VAL_TYPE),
 				       DT_STATE_NUM_ELEMS);
 	if (dtp->dt_stmap_fd == -1)
+		return -1;	/* dt_errno is set for us */
+
+	/*
+	 * If there is aggregation data to be collected, we need to add a
+	 * uint64_t to the map value size to hold a latch sequence number (seq)
+	 * for concurrent access to the data.
+	 */
+	if (aggsz > 0 &&
+	    create_gmap(dtp, "aggs", BPF_MAP_TYPE_PERCPU_ARRAY,
+			sizeof(uint32_t), sizeof(uint64_t) +  aggsz, 1) == -1)
 		return -1;	/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
