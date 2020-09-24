@@ -669,6 +669,7 @@ dt_idhash_create(const char *name, const dt_ident_t *tmpl,
 	dhp->dh_nextid = min;
 	dhp->dh_minid = min;
 	dhp->dh_maxid = max;
+	dhp->dh_nextoff = 0;
 	dhp->dh_hashsz = _dtrace_strbuckets;
 
 	return (dhp);
@@ -766,6 +767,16 @@ uint_t
 dt_idhash_peekid(dt_idhash_t *dhp)
 {
 	return dhp->dh_nextid;
+}
+
+uint_t
+dt_idhash_nextoff(dt_idhash_t *dhp, uint_t alignment, uint_t size)
+{
+	uint_t	off = (dhp->dh_nextoff + (alignment - 1)) & ~(alignment - 1);
+
+	dhp->dh_nextoff = off + size;
+
+	return off;
 }
 
 ulong_t
@@ -947,6 +958,7 @@ dt_ident_create(const char *name, ushort_t kind, ushort_t flags, uint_t id,
 	idp->di_data = NULL;
 	idp->di_ctfp = NULL;
 	idp->di_type = CTF_ERR;
+	idp->di_offset = -1;
 	idp->di_next = NULL;
 	idp->di_gen = gen;
 	idp->di_lineno = yylineno;
