@@ -12,6 +12,7 @@
 #include <linux/bpf.h>
 #include <bpf_asm.h>
 #include <dt_pt_regs.h>
+#include <dt_state.h>
 
 /*
  * The DTrace machine state.
@@ -33,11 +34,13 @@ typedef struct dt_mstate {
  */
 typedef struct dt_dctx {
 	void		*ctx;		/* BPF context */
+	dt_activity_t	*act;		/* pointer to activity state */
 	dt_mstate_t	*mst;		/* DTrace machine state */
 	char		*buf;		/* Output buffer scratch memory */
 } dt_dctx_t;
 
 #define DCTX_CTX	offsetof(dt_dctx_t, ctx)
+#define DCTX_ACT	offsetof(dt_dctx_t, act)
 #define DCTX_MST	offsetof(dt_dctx_t, mst)
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
@@ -89,23 +92,23 @@ typedef struct dt_dctx {
  *                             +----------------+
  *         SCRATCH_BASE = -512 | Scratch Memory |
  *                             +----------------+
- *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_VAR_LOCAL_MAX = 19)
+ *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_LVAR_MAX = 18)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              LVAR(1) = -112 | LVAR 1         |
+ *              LVAR(1) = -120 | LVAR 1         |
  *                             +----------------+
- *  LVAR_BASE = LVAR(0) = -104 | LVAR 0         |
+ *  LVAR_BASE = LVAR(0) = -112 | LVAR 0         |
  *                             +----------------+
- *              SPILL(n) = -96 | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *             SPILL(n) = -104 | %r8            | (n = DT_STK_NREGS - 1 = 8)
  *                             +----------------+
  *                             |      ...       |
  *                             +----------------+
- *              SPILL(1) = -40 | %r1            |
+ *              SPILL(1) = -48 | %r1            |
  *                             +----------------+
- * SPILL_BASE = SPILL(0) = -32 | %r0            |
+ * SPILL_BASE = SPILL(0) = -40 | %r0            |
  *                             +----------------+
- *                  DCTX = -24 | DTrace Context | -1
+ *                  DCTX = -32 | DTrace Context | -1
  *                             +----------------+
  */
 #define DT_STK_BASE		((int16_t)0)
