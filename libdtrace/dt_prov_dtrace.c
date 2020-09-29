@@ -242,7 +242,7 @@ static void trampoline(dt_pcb_t *pcb)
 	}
 
 	if (adv_act)
-		dt_cg_tramp_epilogue_advance(pcb, lbl_exit);
+		dt_cg_tramp_epilogue_advance(pcb, lbl_exit, act);
 	else
 		dt_cg_tramp_epilogue(pcb, lbl_exit);
 }

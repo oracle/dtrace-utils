@@ -22,7 +22,8 @@ extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
 extern uint_t dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act);
 extern uint_t dt_cg_tramp_prologue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit);
-extern void dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit);
+extern void dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit,
+					 dt_activity_t act);
 
 #ifdef	__cplusplus
 }

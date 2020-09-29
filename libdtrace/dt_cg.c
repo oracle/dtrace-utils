@@ -160,16 +160,33 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb)
 	return dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
 }
 
+typedef struct {
+	dt_irlist_t	*dlp;
+	dt_activity_t	act;
+	uint_t		lbl_exit;
+} dt_clause_arg_t;
+
 static int
-dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_irlist_t *dlp)
+dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 {
 	struct bpf_insn	instr;
+	dt_irlist_t	*dlp = arg->dlp;
 
 	/*
+	 *	if (*dctx.act != act)	// ldw %r0, [%fp + DCTX_FP(DCTX_ACT)]
+	 *		goto exit;	// ldw %r0, [%r0 + 0]
+	 *				// jne %r0, act, lbl_exit
 	 *	dt_clause(dctx);	// mov %r1, %fp
 	 *				// add %r1, DCTX_FP(0)
 	 *				// call dt_program
 	 */
+	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT));
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit);
+	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
 	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
@@ -182,15 +199,13 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_irlist_t *dlp)
 }
 
 static void
-dt_cg_tramp_call_clauses(dt_pcb_t *pcb)
+dt_cg_tramp_call_clauses(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_clause_arg_t	arg = { dlp, act, lbl_exit };
 
-	/*
-	 *	dt_clause(dctx);	//     (repeated for each clause)
-	 */
 	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
-			     (dt_clause_f *)dt_cg_call_clause, dlp);
+			     (dt_clause_f *)dt_cg_call_clause, &arg);
 }
 
 static void
@@ -214,17 +229,17 @@ dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
 void
 dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
 {
-	dt_cg_tramp_call_clauses(pcb);
+	dt_cg_tramp_call_clauses(pcb, lbl_exit, DT_ACTIVITY_ACTIVE);
 	dt_cg_tramp_return(pcb, lbl_exit);
 }
 
 void
-dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit)
+dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
 
-	dt_cg_tramp_call_clauses(pcb);
+	dt_cg_tramp_call_clauses(pcb, lbl_exit, act);
 
 	/*
 	 *	(*dctx.act)++;		// lddw %r0, [%fp + DCTX_FP(DCTX_ACT)]
