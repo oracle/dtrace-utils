@@ -75,7 +75,7 @@ static void trampoline(dt_pcb_t *pcb)
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
-	uint_t		lbl_exit = dt_irlist_label(dlp);
+	uint_t		lbl_exit;
 	dt_activity_t	act;
 	int		adv_act;
 	uint32_t	key = 0;
@@ -114,7 +114,7 @@ static void trampoline(dt_pcb_t *pcb)
 		adv_act = 0;
 	}
 
-	dt_cg_tramp_prologue_act(pcb, lbl_exit, act);
+	lbl_exit = dt_cg_tramp_prologue_act(pcb, act);
 
 	if (key) {
 		/*

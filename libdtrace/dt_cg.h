@@ -19,9 +19,8 @@ extern "C" {
 extern void dt_cg(dt_pcb_t *, dt_node_t *);
 extern void dt_cg_xsetx(dt_irlist_t *, dt_ident_t *, uint_t, int, uint64_t);
 extern dt_irnode_t *dt_cg_node_alloc(uint_t, struct bpf_insn);
-extern void dt_cg_tramp_prologue_act(dt_pcb_t *pcb, uint_t lbl_exit,
-				     dt_activity_t act);
-extern void dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit);
+extern uint_t dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act);
+extern uint_t dt_cg_tramp_prologue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit);
 extern void dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit);
 

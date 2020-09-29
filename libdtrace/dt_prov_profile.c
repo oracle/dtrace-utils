@@ -218,9 +218,9 @@ static void trampoline(dt_pcb_t *pcb)
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	struct bpf_insn	instr;
-	uint_t		lbl_exit = dt_irlist_label(dlp);
+	uint_t		lbl_exit;
 
-	dt_cg_tramp_prologue(pcb, lbl_exit);
+	lbl_exit = dt_cg_tramp_prologue(pcb);
 
 	/*
 	 * We cannot assume anything about the state of any registers so set up

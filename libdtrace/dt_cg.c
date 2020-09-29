@@ -38,13 +38,16 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *
  * The caller should NOT depend on any register values that exist at the end of
  * the trampoline prologue.
+ *
+ * This function returns a label id to be passed to dt_cg_tramp_epilogue().
  */
-void
-dt_cg_tramp_prologue_act(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
+uint_t
+dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*mem = dt_dlib_get_map(pcb->pcb_hdl, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+	uint_t		lbl_exit = dt_irlist_label(dlp);
 	struct bpf_insn	instr;
 
 	assert(mem != NULL);
@@ -143,12 +146,14 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0);
 	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+	return lbl_exit;
 }
 
-void
-dt_cg_tramp_prologue(dt_pcb_t *pcb, uint_t lbl_exit)
+uint_t
+dt_cg_tramp_prologue(dt_pcb_t *pcb)
 {
-	dt_cg_tramp_prologue_act(pcb, lbl_exit, DT_ACTIVITY_ACTIVE);
+	return dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
 }
 
 static int
