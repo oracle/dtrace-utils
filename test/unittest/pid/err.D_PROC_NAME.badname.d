@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@trigger: longsleep */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION: Only entry, return and offsets are valid names
