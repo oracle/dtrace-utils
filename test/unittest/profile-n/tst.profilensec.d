@@ -4,7 +4,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
@@ -20,6 +19,5 @@
 
 profile-2000000000nsec
 {
-	printf("This test is a simple profile-nsec provider test");
 	exit(0);
 }
