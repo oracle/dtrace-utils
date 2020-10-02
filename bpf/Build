@@ -3,7 +3,6 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-
 $(objdir)/include/.dir.stamp:
 	mkdir -p $(objdir)/include
 	for d in /usr/include/${ARCH}-linux-gnu/asm /usr/include/asm; do \
@@ -27,6 +26,18 @@ bpf_dlib_SOURCES = \
 	get_gvar.c set_gvar.c \
 	get_tvar.c set_tvar.c \
 	memcpy.c strnlen.c
+
+bpf-check:
+	$(BPFC) $(BPFCPPFLAGS) $(bpf_dlib_CPPFLAGS) $(BPFCFLAGS) -S \
+		-o - bpf/get_bvar.c | \
+		awk '/dt_get_bvar:/ { \
+			 getline; \
+			 if(/stxdw/ && /%r6$$/) { \
+			     print "ERROR: $(BPFC) is too old"; \
+			     exit(1); \
+			 } \
+			 exit(0); \
+		     }'
 
 install::
 	mkdir -p $(INSTLIBDIR)/dtrace

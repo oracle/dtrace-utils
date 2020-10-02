@@ -20,7 +20,7 @@ $(foreach lib,$(SHLIBS),$(eval $(call shlib-template,$(lib))))
 shlibs: build-libs $(foreach lib,$(SHLIBS),$(objdir)/$($(lib)_TARGET).so)
 
 $(foreach lib,$(BPFLIBS),$(eval $(call bpflib-template,$(lib))))
-bpflibs: $(foreach lib,$(BPFLIBS),$(objdir)/$($(lib)_TARGET).o)
+bpflibs: bpf-check $(foreach lib,$(BPFLIBS),$(objdir)/$($(lib)_TARGET).o)
 
 # Trigger the command-building rule.
 
