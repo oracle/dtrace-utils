@@ -29,7 +29,7 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition
 # to dtrace_kernels).
 
-%{!?build_kernel: %define build_kernel 5.4.0-1948.2%{?dist}uek}
+%{!?build_kernel: %define build_kernel 5.4.17-2018%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
 
 # ARM64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
@@ -48,8 +48,8 @@ Requires:     cpp elfutils-libelf zlib yum libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
-BuildRequires: gcc-bpf-unknown-none >= 8.3.1-1.0.4
-BuildRequires: binutils-bpf-unknown-none >= 2.30-58.0.2
+BuildRequires: gcc-bpf-unknown-none
+BuildRequires: binutils-bpf-unknown-none
 %if %{with_libctf}
 Requires:     binutils >= 2.30-58.0.8
 BuildRequires: binutils-devel >= 2.30-58.0.8
@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.2%{?dist}
+Release:      1.3%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,19 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Oct  1 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.3
+- Implement the freopen() action. (Eugene Loh)
+- Implement the system() action. (Eugene Loh)
+- Implement the id built-in variable. (David McLean)
+- Implement the ppid built-in variable. (Eugene Loh)
+- Improve annotations in the disassembler.
+- Implement proper BEGIN and END probe semantics.
+- Correct exit() action semantics.
+- Correct signed divide and modulo operations. (Eugene Loh)
+- Correct code generation for post-decrement expressions. (Eugene Loh)
+- Various compilation fixes.
+- Better support for different distributions and compiler versions.
+
 * Thu Aug  6 2020 Eugene Loh <eugene.loh@oracle.com> - 2.0.0-1.2
 - Ensure a minimum locked-memory limit for BPF.
 - int8_t is now always signed, even on platforms where char is unsigned.
