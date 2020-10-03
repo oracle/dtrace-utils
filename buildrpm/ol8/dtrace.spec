@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.2%{?dist}
+Release:      1.3%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,19 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Oct  1 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.3
+- Implement the freopen() action. (Eugene Loh)
+- Implement the system() action. (Eugene Loh)
+- Implement the id built-in variable. (David McLean)
+- Implement the ppid built-in variable. (Eugene Loh)
+- Improve annotations in the disassembler.
+- Implement proper BEGIN and END probe semantics.
+- Correct exit() action semantics.
+- Correct signed divide and modulo operations. (Eugene Loh)
+- Correct code generation for post-decrement expressions. (Eugene Loh)
+- Various compilation fixes.
+- Better support for different distributions and compiler versions.
+
 * Thu Aug  6 2020 Eugene Loh <eugene.loh@oracle.com> - 2.0.0-1.2
 - Ensure a minimum locked-memory limit for BPF.
 - int8_t is now always signed, even on platforms where char is unsigned.
