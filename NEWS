@@ -43,10 +43,10 @@ Internal changes:
 Compilation fixes:
 
  - The procfs.d D library makes use of datatypes that are defined in the
-   sched.d D library, but it was mossing an explicit dependency on sched.d.
+   sched.d D library, but it was missing an explicit dependency on sched.d.
 
  - The yylineno variable was declared in two places, causing a conflict with
-   newer comilers.  The primary declaration is now in dt_lex.c and dt_cc.c now
+   newer compilers.  The primary declaration is now in dt_lex.c and dt_cc.c now
    has an extern declaration for the variable.
 
  - Distributions place architecture specific include files in different
@@ -184,9 +184,9 @@ New options:
  - -xdisasm=n: Specify which disassembler listings to generate when the -S
    option is supplied.  The value for <n> is the sum of any of the following:
 
-       1 = After compilation and assembly of a program.
-       2 = After linking in precompiled BPF functions (dependencies).
-       4 = After final relocation processing (final program).
+   - 1 = After compilation and assembly of a program.
+   - 2 = After linking in precompiled BPF functions (dependencies).
+   - 4 = After final relocation processing (final program).
 
 Bugfixes:
 
@@ -273,11 +273,11 @@ Working components:
    support for typed probe arguments.
 
  - The trace data buffer management code has been reworked to work with the
-   perf event ring buffers that sre used by BPF to record tracing data.
+   perf event ring buffers that are used by BPF to record tracing data.
 
  - The DTrace testsuite has been updated to reflect what tests are expected to
    pass with the current state of development for DTrace v2.  Various tests
-   were also improved to be more robust and to be more foxused on what they are
+   were also improved to be more robust and to be more focused on what they are
    meant to be testing.
 
 1.2.1 (Feb 12th, 2019)
@@ -350,7 +350,7 @@ Library interface changes:
 
 Bugfixes:
 
- - No longer crash when attempting to trace ourself.
+ - No longer crash when attempting to trace ourselves.
  - More fixes for crashes of both DTrace and the traced
    process when DTrace terminates at the wrong instant.
 
@@ -408,7 +408,7 @@ Bugfixes:
    works better now.
  - DTrace will no longer consider symbols in built-in modules or the core kernel
    to be in the wrong module: its idea of symbol addresses, sizes, and their
-   mapping to names is better in general, paticularly with respect to symbols
+   mapping to names is better in general, particularly with respect to symbols
    that overlap, symbols whose names are duplicates, and weak symbols.
  - An interface problem has been fixed that can cause DTrace consumers to
    dereference freed memory when victim processes grabbed via ustack(),
@@ -590,7 +590,9 @@ Bugfixes:
 
 0.6.0 (Apr 3rd, 2017)
 ---------------------
-Kernel release: 4.1.12-97.el6uek
+Kernel release:
+
+4.1.12-97.el6uek
 
 New features:
 
@@ -657,7 +659,7 @@ Bugfixes:
  - The fast path implementation for obtaining the value of the D 'caller'
    variable for sparc64 has been corrected.
 
- - The implemenation of the D 'stack' action has been made more robust, making
+ - The implementation of the D 'stack' action has been made more robust, making
    sure that memory access faults are not fatal.
 
  - The implementation of the D 'ustack' action has been reworked completely to
@@ -706,9 +708,11 @@ Workarounds:
    dtrace -G is used.
 
 
-0.5.3  (May 25th, 2016)
+0.5.3 (May 25th, 2016)
 -----------------------
-Kernel release: 4.1.12-43.el6uek
+Kernel release:
+
+4.1.12-43.el6uek
 
 New features:
 
@@ -718,7 +722,7 @@ New features:
    new 'perf' SDT provider.
 
    In its current implementation, the perf-events DTrace probes do not offer
-   argument type informtation as is seen with standard DTrace SDT probes.
+   argument type information as is seen with standard DTrace SDT probes.
 
 Bugfixes:
 
@@ -735,7 +739,9 @@ Crash fixes:
 
 0.5.2 (Feb 3rd, 2016)
 ---------------------
-Kernel release: 4.1.12-33.el6uek
+Kernel release:
+
+4.1.12-33.el6uek
 
 Crash fixes:
 
@@ -761,7 +767,7 @@ Bugfixes:
    active.  This could cause race conditions in the state of the system
    call probing.
 
- - Access to the SPARC64 R_L7 register was consistenly failing due to an
+ - Access to the SPARC64 R_L7 register was consistently failing due to an
    off-by-one bug.
 
  - It was possible to read past the beginning of the stack for a user
@@ -770,12 +776,14 @@ Bugfixes:
 
  - While reading the stack of a userspace process, the stack bias was not
    being applied for architectures that need it, causing an abundance of
-   essentially invalid values to polute the result.
+   essentially invalid values to pollute the result.
 
 
 0.5.1 (Nov 17th, 2015)
 ----------------------
-Kernel release: 4.1.12-24.el6uek
+Kernel release:
+
+4.1.12-24.el6uek
 
 Bugfixes:
 
@@ -799,13 +807,15 @@ Performance improvements:
 
 Changes to user-visible internals:
 
-  - The DTRACE_DEBUG debugging option could intermingle debugging output in
-    limited ways when multiple threads were emitting debugging at once.
+ - The DTRACE_DEBUG debugging option could intermingle debugging output in
+   limited ways when multiple threads were emitting debugging at once.
 
 
 0.5.0 (Aug 10th, 2015)
 -----------------------
-Kernel release: 4.1.4-4.el6uek
+Kernel release:
+
+4.1.4-4.el6uek
 
 New architectures:
 
@@ -894,7 +904,7 @@ Bugfixes:
 
 Library interface changes:
 
- - #including <dtrace.h> used to fail because of the absence of a
+ - Including <dtrace.h> used to fail because of the absence of a
    Solaris-specific header we did not ship.  That header is no longer called
    for.
 
@@ -904,16 +914,18 @@ Changes to user-visible internals:
    name that depends upon the running kernel, so can support multiple kernels
    with the same userspace package.
 
-Known bugs:
+Known problems:
 
  - Multithreaded processes under u{stack,sym,addr,mod}() which do dlopen() in
    threads other than the first may not have accurate symbol resolution for
    symbols introduced by such dlopen()s.
 
 
-0.4.5  (Jun 17th, 2015)
+0.4.5 (Jun 17th, 2015)
 -----------------------
-Kernel release: 3.8.13-87.el6uek
+Kernel release:
+
+3.8.13-87.el6uek
 
 New features:
 
@@ -985,7 +997,7 @@ Changes to user-visible internals:
    path struct that corresponds to a file that is known to the current
    task (see bugfixes below).
 
-Known bugs:
+Known problems:
 
  - Processes under u{stack,sym,addr,mod}() cannot receive SIGTRAP.
 
@@ -993,9 +1005,11 @@ Known bugs:
    threads other than the first may crash.
 
 
-0.4.4 (Mar 12, 2015)
---------------------
-Kernel release: 3.8.13-69.el6uek
+0.4.4 (Mar 12th, 2015)
+----------------------
+Kernel release:
+
+3.8.13-69.el6uek
 
 New options:
 
@@ -1014,13 +1028,15 @@ Bugfixes:
 
 0.4.3 (May 1st, 2014)
 ---------------------
-Kernel release: 3.8.13-33.el6uek
+Kernel release:
+
+3.8.13-33.el6uek
 
 New features:
 
  - Timer based profile-* probes (profile provider).  These probes use the
    omni-present cyclic support in the UEK3 kernel (3.8.13-32 and later) to
-   fire probes at a speciic frequency/interval on every active CPU.
+   fire probes at a specific frequency/interval on every active CPU.
 
 Bugfixes:
 
@@ -1037,9 +1053,7 @@ Bugfixes:
    also passing the tgid in the result of ustack, usym, etc...  We pass the
    tgid in the first slot, and the (kernel) pid in the second slot.
 
-Bugfixes:
-
- - Major reworking of the dtracce_getufpstack() implementation to handle
+ - Major reworking of the dtrace_getufpstack() implementation to handle
    locking, stack detection, and potential page fault while accessing the
    stack of a task.
 
@@ -1055,7 +1069,9 @@ Known problems:
 
 0.4.2 (Dec 20th, 2013)
 ----------------------
-Kernel release: 3.8.13-22.el6uek
+Kernel release:
+
+3.8.13-22.el6uek
 
 New features:
 
@@ -1094,7 +1110,9 @@ Bugfixes:
 
 0.4.1 (Nov 6th, 2013)
 ---------------------
-Kernel release: 3.8.13-16.2.1.el6uek
+Kernel release:
+
+3.8.13-16.2.1.el6uek
 
 New features:
 
@@ -1119,7 +1137,7 @@ New features:
 Bugfixes:
 
  - A lexer bug was fixed which caused spurious errors if D scripts contained a
-   #pragma or comment at intervals of 8192 characters, and prevented the use
+   pragma or comment at intervals of 8192 characters, and prevented the use
    of scripts >16KiB entirely.
    [Introduced in the original Linux port]
 
@@ -1159,7 +1177,9 @@ Bugfixes:
 
 0.4.0 (Sep 20th, 2013)
 ----------------------
-Kernel release: 3.8.13-16.el6uek
+Kernel release:
+
+3.8.13-16.el6uek
 
 New features:
 
@@ -1190,15 +1210,15 @@ New features:
 
  - -xevaltime={preinit, postinit, main} now work, with a few caveats:
 
-   - postinit (the default) is equivalent to main.
+    - postinit (the default) is equivalent to main.
 
-   - On statically linked binaries, preinit is equivalent to exec, and may
-     not skip ld.so initialization (which can happen after main() on such
-     binaries).
+    - On statically linked binaries, preinit is equivalent to exec, and may
+      not skip ld.so initialization (which can happen after main() on such
+      binaries).
 
-   - On stripped, statically linked binaries, postinit and main are equivalent
-     to preinit, because we cannot look up the 'main' symbol when there is no
-     symbol table.
+    - On stripped, statically linked binaries, postinit and main are equivalent
+      to preinit, because we cannot look up the 'main' symbol when there is no
+      symbol table.
 
  - DTrace options can now be set from environment variables named DTRACE_OPT_*.
    Example:
@@ -1258,7 +1278,7 @@ Bugfixes:
  - Negative values passed to DTrace options that take only positive integers are
    correctly diagnosed as errors again.
 
-Known bugs and limitations:
+Known problems:
 
  - Presently, kill -9'ing a running dtrace can leave breakpoints outstanding in
    other processes, which may sooner or later kill them.  This will be fixed in
@@ -1267,7 +1287,9 @@ Known bugs and limitations:
 
 0.3.0 (Sep 14th, 2012)
 ----------------------
-Kernel release: 2.6.39-201.0.1.el6uek
+Kernel release:
+
+2.6.39-201.0.1.el6uek
 
 New features:
 
@@ -1349,7 +1371,7 @@ Bugfixes:
 
  - DTrace libraries are installed to /usr/lib64 now, not /usr/lib.
 
- - Users of dtrace -C can now #include <sys/dtrace.h> without incident.
+ - Users of dtrace -C can now include <sys/dtrace.h> without incident.
 
  - Various DIF builtin variables that were providing a hardcoded value based on
    the init task whenever a probe was executing in interrupt context are now
@@ -1381,7 +1403,7 @@ Changes to user-visible internals:
    DTrace.
 
  - The invalid operand trap logic previously provided to support SDT probes has
-   been made more generic to support any probes that wish to utilie this
+   been made more generic to support any probes that wish to utilize this
    facility.
 
  - The DTrace core module now depends on the core kernel CTF data-module, to
@@ -1389,8 +1411,8 @@ Changes to user-visible internals:
    kernel will be available also.
 
 
-0.2.5
------
+0.2.5 (Mar 19th, 2012)
+----------------------
 Userspace release only.
 
 New features:
@@ -1402,7 +1424,9 @@ New features:
 
 0.2.4 (Feb 15th, 2012)
 ----------------------
-Kernel release: 2.6.39-101.0.1.el6uek
+Kernel release:
+
+2.6.39-101.0.1.el6uek
 
 Bugfixes:
 
@@ -1417,7 +1441,9 @@ Bugfixes:
 
 0.2.3 (Feb 10th, 2012)
 ----------------------
-Kernel release: 2.6.39-101.0.1.el6uek
+Kernel release:
+
+2.6.39-101.0.1.el6uek
 
 Internal changes:
 
@@ -1434,7 +1460,9 @@ Bugfixes:
 
 0.2.0 (Jan 25th, 2012)
 ----------------------
-Kernel release: 2.6.39-101.0.1.el6uek
+Kernel release:
+
+2.6.39-101.0.1.el6uek
 
 This release brings DTrace for Linux to the 2.6.39 kernel, as an upgrade from
 the previous release based on 2.6.32.
@@ -1461,7 +1489,7 @@ Bugfixes:
 Internal changes:
 
  - The minimal cyclic implementation has been removed from the DTrace modules
-   because it is now provided by an equivalent GPL impementation in the core
+   because it is now provided by an equivalent GPL implementation in the core
    kernel.
 
  - CPU core information is now maintained at the core kernel level.
@@ -1484,7 +1512,9 @@ Internal changes:
 0.1.0 (Oct 20th, 2011)
 ----------------------
 
-First release. Working components:
+First release.
+
+Working components:
 
  - the entire D language, with the exception of parts that depend on
    symbol lookup or CTF
