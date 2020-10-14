@@ -11,6 +11,8 @@
 .SUFFIXES:
 .SECONDEXPANSION:
 
+SHELL = /bin/bash
+
 PROJECT := dtrace
 VERSION := 2.0.0
 
@@ -116,7 +118,7 @@ PHONIES += dist
 .git/index:
 
 .git-version.tmp:  .git/index
-	if test -f .git/index; then \
+	if [[ -f .git/index ]]; then \
 		git log --no-walk --pretty=format:%H > .git-version.tmp; \
 	else \
 		cp .git-archive-version .git-version.tmp; \
