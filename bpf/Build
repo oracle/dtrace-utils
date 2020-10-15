@@ -27,7 +27,7 @@ bpf_dlib_SOURCES = \
 	get_tvar.c set_tvar.c \
 	memcpy.c strnlen.c
 
-bpf-check:
+bpf-check: $(objdir)/include/.dir.stamp
 	$(BPFC) $(BPFCPPFLAGS) $(bpf_dlib_CPPFLAGS) $(BPFCFLAGS) -S \
 		-o - bpf/get_bvar.c | \
 		awk '/dt_get_bvar:/ { \
