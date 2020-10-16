@@ -225,6 +225,9 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	if (dtp->dt_stopped)
 		return 0;
 
+	if (dt_state_get_activity(dtp) < DT_ACTIVITY_DRAINING)
+		dt_state_set_activity(dtp, DT_ACTIVITY_DRAINING);
+
 	END_probe();
 
 	dtp->dt_stopped = 1;
