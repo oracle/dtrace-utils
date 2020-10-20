@@ -146,8 +146,12 @@ typedef struct pi_state {
 static int
 dt_stmt_probe(dtrace_hdl_t *dtp, dt_probe_t *prp, pi_state_t *st)
 {
-	if (!dt_in_list(&dtp->dt_enablings, prp))
+	if (!dt_in_list(&dtp->dt_enablings, prp)) {
+		dtrace_probeinfo_t p;
+
+		dt_probe_info(dtp, prp->desc, &p);
 		dt_list_append(&dtp->dt_enablings, prp);
+	}
 
 	dt_probe_add_clause(dtp, prp, st->idp);
 	(*st->cnt)++;
