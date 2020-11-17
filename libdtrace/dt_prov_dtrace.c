@@ -74,7 +74,6 @@ static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 	uint_t		lbl_exit;
 	dt_activity_t	act;
 	int		adv_act;
@@ -135,26 +134,16 @@ static void trampoline(dt_pcb_t *pcb)
 		 */
 		dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
 
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), key);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(1),
-				  BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), key));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+		emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), BPF_REG_0));
 		dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_REG(BPF_REG_3, BPF_REG_FP);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_IMM(BPF_REG_4, BPF_ANY);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_HELPER(BPF_FUNC_map_update_elem);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0)));
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1)));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 	}
 
 	/*
@@ -165,10 +154,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST)));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX)));
 
 #if 0
 	/*
@@ -180,10 +167,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (...)
 	 */
 	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_REGS + i, BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_REGS + i, BPF_REG_0));
 	}
 #endif
 
@@ -207,39 +192,24 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				// lddw %r0, [%r8 + PT_REGS_ARG5]
 	 *				// stdw [%r7 + DMST_ARG(5)], %r0
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG2);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG3);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG4);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG5);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG1));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG2));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG3));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG4));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG5));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
 
 	/*
 	 *     (we clear dctx->mst->argv[6] and on)
 	 */
-	for (i = 6; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)),
-				      0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
+	for (i = 6; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)), 0));
 
 	if (adv_act)
 		dt_cg_tramp_epilogue_advance(pcb, lbl_exit, act);

@@ -49,7 +49,6 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
 	uint_t		lbl_exit = dt_irlist_label(dlp);
-	struct bpf_insn	instr;
 
 	assert(mem != NULL);
 
@@ -65,8 +64,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *
 	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r1
 	 */
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_1));
 
 	/*
 	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_MST)],
@@ -85,24 +83,15 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *
 	 *	dctx.act = rc;		// stdw [%fp + DCTX_FP(DCTX_ACT)], %r0
 	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST),
-			      DT_STATE_ACTIVITY);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), DT_STATE_ACTIVITY));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ACT), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp, BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ACT), BPF_REG_0));
 
 	/*
 	 *	key = 0;		// stw [%fp + DCTX_FP(DCTX_MST)], 0
@@ -118,19 +107,13 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r0 = pointer to dt_mstate_t)
 	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r0
 	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_0));
 
 	/*
 	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
@@ -142,15 +125,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r0 = pointer to buffer space)
 	 *	dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
 	 */
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0,
-			      roundup(sizeof(dt_mstate_t), 8));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(sizeof(dt_mstate_t), 8)));
+	emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
 
 	if (dt_idhash_nextoff(dtp->dt_aggs, 1, 0) > 0) {
 		dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
@@ -169,20 +147,13 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 		 *			//     (%r0 = pointer to agg data)
 		 * dctx.agg = rc;	// stdw [%fp + DCTX_FP(DCTX_AGG)], %r0
 		 */
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_AGG), 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_AGG), 0));
 		dt_cg_xsetx(dlp, aggs, DT_LBL_NONE, BPF_REG_1, aggs->di_id);
-		instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_AGG));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_AGG),
-				  BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_AGG)));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_AGG), BPF_REG_0));
 	}
 
 	return lbl_exit;
@@ -203,7 +174,6 @@ typedef struct {
 static int
 dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = arg->dlp;
 
 	/*
@@ -214,20 +184,12 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	 *				// add %r1, DCTX_FP(0)
 	 *				// call dt_program
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_MOV_REG(BPF_REG_1, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_FUNC(idp->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = idp;
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT)));
+	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0)));
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 
 	return 0;
 }
@@ -246,7 +208,6 @@ static void
 dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 
 	/*
 	 * exit:
@@ -254,10 +215,9 @@ dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
 	 *				// exit
 	 * }
 	 */
-	instr = BPF_MOV_IMM(BPF_REG_0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_exit, instr));
-	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_exit,
+		   BPF_MOV_IMM(BPF_REG_0, 0));
+	emit(dlp,  BPF_RETURN());
 }
 
 void
@@ -271,7 +231,6 @@ void
 dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 
 	dt_cg_tramp_call_clauses(pcb, lbl_exit, act);
 
@@ -280,12 +239,9 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 	 *				// mov %r1, 1
 	 *				// xadd [%r0 + 0], %r1
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_IMM(BPF_REG_1, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT)));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
+	emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
 
 	dt_cg_tramp_return(pcb, lbl_exit);
 }
@@ -312,7 +268,6 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
 	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
-	struct bpf_insn	instr;
 
 	assert(epid != NULL);
 	assert(prid != NULL);
@@ -327,17 +282,14 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *				// stdw [%fp + DT_STK_DCTX], %r1
 	 */
 	TRACE_REGSET("Prologue: Begin");
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_1));
 
 	/*
 	 *	buf = dctx->buf;	// lddw %r0, [%fp + DT_STK_DCTX]
 	 *				// lddw %r9, [%r0 + DCTX_BUF]
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_9, BPF_REG_0, DCTX_BUF);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_9, BPF_REG_0, DCTX_BUF));
 
 	/*
 	 *	dctx->mst->fault = 0;	// lddw %r0, [%r0 + DCTX_MST]
@@ -348,31 +300,20 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *	*((uint32_t *)&buf[0]) = EPID;
 	 *				// stw [%r9 + 0], EPID
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = epid;
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, -1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = prid;
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	dlp->dl_last->di_extern = epid;
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0));
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1), epid);
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, -1), prid);
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1), epid);
 
 	/*
 	 *	dctx->mst->tag = 0;	// stw [%r0 + DMST_TAG], 0
 	 *	*((uint32_t *)&buf[4]) = 0;
 	 *				// stw [%r9 + 4], 0
 	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_TAG, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_TAG, 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0));
 
 	/*
 	 * If there is a predicate:
@@ -384,10 +325,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	if (pred != NULL) {
 		TRACE_REGSET("    Pred: Begin");
 		dt_cg_node(pred, &pcb->pcb_ir, pcb->pcb_regs);
-		instr = BPF_BRANCH_IMM(BPF_JEQ, pred->dn_reg, 0,
-				       pcb->pcb_exitlbl);
-		TRACE_REGSET("    Pred: Value");
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, pred->dn_reg, 0, pcb->pcb_exitlbl));
 		dt_regset_free(pcb->pcb_regs, pred->dn_reg);
 		TRACE_REGSET("    Pred: End  ");
 	}
@@ -412,7 +350,6 @@ static void
 dt_cg_epilogue(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 
 	TRACE_REGSET("Epilogue: Begin");
 
@@ -433,14 +370,10 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		 *	if (rc != 0)
 		 *	    goto exit;		// jne %r0, 0, pcb->pcb_exitlbl
 		 */
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_FAULT);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, pcb->pcb_exitlbl);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_FAULT));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, pcb->pcb_exitlbl));
 
 		/*
 		 *	bpf_perf_event_output(dctx->ctx, &buffers, BPF_F_CURRENT_CPU,
@@ -456,22 +389,15 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		 *				// call bpf_perf_event_output
 		 *
 		 */
-		instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX));
 		dt_cg_xsetx(dlp, buffers, DT_LBL_NONE, BPF_REG_2, buffers->di_id);
 		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_3, BPF_F_CURRENT_CPU);
-		instr = BPF_MOV_REG(BPF_REG_4, BPF_REG_9);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -4);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 4);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_CALL_HELPER(BPF_FUNC_perf_event_output);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(BPF_REG_4, BPF_REG_9));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -4));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 4));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_perf_event_output));
 	}
 
 	/*
@@ -480,10 +406,9 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 *				// exit
 	 * }
 	 */
-	instr = BPF_MOV_IMM(BPF_REG_0, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(pcb->pcb_exitlbl, instr));
-	instr = BPF_RETURN();
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, pcb->pcb_exitlbl,
+		   BPF_MOV_IMM(BPF_REG_0, 0));
+	emit(dlp,  BPF_RETURN());
 	TRACE_REGSET("Epilogue: End  ");
 }
 
@@ -496,44 +421,35 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 static void
 dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off = pcb->pcb_bufoff;
 
 	if (gap & 1) {
-		instr = BPF_STORE_IMM(BPF_B, BPF_REG_9, off, 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE_IMM(BPF_B, BPF_REG_9, off, 0));
 		off += 1;
 	}
 	if (gap & 2) {
-		instr = BPF_STORE_IMM(BPF_H, BPF_REG_9, off, 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE_IMM(BPF_H, BPF_REG_9, off, 0));
 		off += 2;
 	}
-	if (gap & 4) {
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off, 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
+	if (gap & 4)
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off, 0));
 }
 
 static void
 dt_cg_spill_store(int reg)
 {
 	dt_irlist_t	*dlp = &yypcb->pcb_ir;
-	struct bpf_insn	instr;
 
-	instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SPILL(reg), reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SPILL(reg), reg));
 }
 
 static void
 dt_cg_spill_load(int reg)
 {
 	dt_irlist_t	*dlp = &yypcb->pcb_ir;
-	struct bpf_insn	instr;
 
-	instr = BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_SPILL(reg));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_SPILL(reg)));
 }
 
 static int
@@ -541,7 +457,6 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
 {
 	dtrace_diftype_t	vtype;
-	struct bpf_insn		instr;
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	uint_t			off;
 
@@ -570,8 +485,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 			break;
 		}
 
-		instr = BPF_STORE(sz, BPF_REG_9, off, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE(sz, BPF_REG_9, off, dnp->dn_reg));
 		dt_regset_free(pcb->pcb_regs, dnp->dn_reg);
 
 		return 0;
@@ -590,11 +504,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		 * then the higher 4 bytes.
 		 */
 		sz = P2ROUNDUP(sz, sizeof(uint64_t));
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off,
-				      sz & ((1UL << 32)-1));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off, sz & ((1UL << 32)-1)));
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32));
 		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
 
 		return sz + sizeof(uint64_t);
@@ -661,7 +572,6 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
@@ -681,8 +591,7 @@ dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			 sizeof(uint64_t), sizeof(uint64_t), NULL,
 			 DT_ACT_COMMIT);
 
-	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
 }
 
 static void
@@ -727,7 +636,6 @@ dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
 
@@ -737,8 +645,7 @@ dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			 sizeof(uint64_t), sizeof(uint64_t), NULL,
 			 DT_ACT_DISCARD);
 
-	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
 }
 
 /*
@@ -754,7 +661,6 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
-	struct bpf_insn	instr;
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
 
 	/* process clause flags */
@@ -788,25 +694,15 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = return code)
 	 */
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0),
-			      DT_STATE_ACTIVITY);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1),
-			      DT_ACTIVITY_DRAINING);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), DT_STATE_ACTIVITY));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), DT_ACTIVITY_DRAINING));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-	instr = BPF_MOV_REG(BPF_REG_2, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_REG(BPF_REG_3, BPF_REG_FP);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_IMM(BPF_REG_4, BPF_ANY);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_CALL_HELPER(BPF_FUNC_map_update_elem);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0)));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1)));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 }
 
 static void
@@ -930,7 +826,6 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
 
@@ -940,12 +835,10 @@ dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-	instr = BPF_MOV_REG(BPF_REG_1, dnp->dn_args->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_args->dn_reg));
 	dt_regset_free(drp, dnp->dn_args->dn_reg);
 	dt_regset_xalloc(drp, BPF_REG_0);
-	instr = BPF_CALL_HELPER(BPF_FUNC_send_signal);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_send_signal));
 	dt_regset_free_args(drp);
 
 	/*
@@ -977,7 +870,6 @@ dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	struct bpf_insn	instr;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
@@ -1000,8 +892,7 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			 sizeof(uint64_t), sizeof(uint64_t), NULL,
 			 DT_ACT_SPECULATE);
 
-	instr = BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0);	/* FIXME */
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
 }
 
 static void
@@ -1215,10 +1106,9 @@ dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 {
 	struct bpf_insn instr[2] = { BPF_LDDW(reg, x) };
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[0]));
-	if (idp != NULL)
-		dlp->dl_last->di_extern = idp;
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl, instr[1]));
+	emitle(dlp, lbl,
+		    instr[0], idp);
+	emit(dlp,   instr[1]);
 }
 
 static void
@@ -1330,7 +1220,6 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 static void
 dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	struct bpf_insn	instr;
 	dt_ident_t	*idp = dt_ident_resolve(dst->dn_ident);
 
 	idp->di_flags |= DT_IDFLG_DIFR;
@@ -1344,67 +1233,45 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * the variable's stack location.
 		 */
 		if (!(idp->di_flags & DT_IDFLG_DIFW))
-			instr = BPF_MOV_IMM(dst->dn_reg, 0);
+			emit(dlp, BPF_MOV_IMM(dst->dn_reg, 0));
 		else
-			instr = BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP,
-					 DT_STK_LVAR(idp->di_id));
-
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+			emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP, DT_STK_LVAR(idp->di_id)));
 	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		instr = BPF_MOV_IMM(BPF_REG_1,
-				    idp->di_id - DIF_VAR_OTHER_UBASE);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
+		dt_regset_xalloc(drp, BPF_REG_0);
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
 		assert(idp != NULL);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 		dt_regset_free_args(drp);
 
 		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		instr = BPF_MOV_REG(dst->dn_reg, BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 	} else {					/* global var */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
-			instr = BPF_LOAD(BPF_DW, BPF_REG_1,
-					 BPF_REG_FP, DT_STK_DCTX);
-			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
-					 instr));
-			instr = BPF_LOAD(BPF_DW, BPF_REG_1,
-					 BPF_REG_1, DCTX_MST);
-			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
-					 instr));
-			instr = BPF_MOV_IMM(BPF_REG_2, idp->di_id);
-			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
-					 instr));
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_MST));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
 			idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
 		} else {
-			instr = BPF_MOV_IMM(BPF_REG_1,
-					    idp->di_id - DIF_VAR_OTHER_UBASE);
-			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
-					 instr));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
 			idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_gvar");
 		}
 		assert(idp != NULL);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 		dt_regset_free_args(drp);
 
 		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		instr = BPF_MOV_REG(dst->dn_reg, BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 	}
 }
@@ -1415,7 +1282,6 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_arinfo_t r;
-	struct bpf_insn instr;
 	ctf_id_t type;
 	uint_t kind;
 	ssize_t size;
@@ -1436,8 +1302,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	if ((size = ctf_type_size(ctfp, type)) == 1)
 		return; /* multiply or divide by one can be omitted */
 
-	instr = BPF_ALU64_IMM(op, dreg, size);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_ALU64_IMM(op, dreg, size));
 }
 
 /*
@@ -1462,7 +1327,6 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
     ctf_file_t *fp, const ctf_membinfo_t *mp)
 {
 	ctf_encoding_t e;
-	struct bpf_insn instr;
 	uint64_t shift;
 	int r1;
 
@@ -1492,11 +1356,8 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 #else
 		shift = mp->ctm_offset % NBBY + e.cte_bits;
 #endif
-		instr = BPF_ALU64_IMM(BPF_LSH, r1, 64 - shift);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		instr = BPF_ALU64_IMM(BPF_ARSH, r1, 64 - e.cte_bits);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r1, 64 - shift));
+		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, r1, 64 - e.cte_bits));
 	} else {
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
@@ -1504,11 +1365,8 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 #else
 		shift = mp->ctm_offset % NBBY;
 #endif
-		instr = BPF_ALU64_IMM(BPF_LSH, r1, shift);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		instr = BPF_ALU64_IMM(BPF_AND, r1, (1ULL << e.cte_bits) - 1);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r1, shift));
+		emit(dlp, BPF_ALU64_IMM(BPF_AND, r1, (1ULL << e.cte_bits) - 1));
 	}
 }
 
@@ -1539,7 +1397,6 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
     dt_regset_t *drp, dt_node_t *dst)
 {
 	uint64_t cmask, fmask, shift;
-	struct bpf_insn instr;
 	int r1, r2;
 
 	ctf_membinfo_t m;
@@ -1591,22 +1448,12 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	cmask = ~(fmask << shift);
 
 	/* FIXME: Does not handled signed or userland */
-	instr = BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type), r1, dst->dn_reg, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_ALU64_IMM(BPF_AND, r1, cmask);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
+	emit(dlp, BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type), r1, dst->dn_reg, 0));
+	emit(dlp, BPF_ALU64_IMM(BPF_AND, r1, cmask));
 	dt_cg_setx(dlp, r2, fmask);
-	instr = BPF_ALU64_REG(BPF_AND, r1, r2);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_ALU64_IMM(BPF_LSH, r2, shift);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_ALU64_REG(BPF_OR, r1, r2);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
+	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
+	emit(dlp, BPF_ALU64_IMM(BPF_LSH, r2, shift));
+	emit(dlp, BPF_ALU64_REG(BPF_OR, r1, r2));
 	dt_regset_free(drp, r2);
 
 	return (r1);
@@ -1616,7 +1463,6 @@ static void
 dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 {
 	ctf_encoding_t e;
-	struct bpf_insn instr;
 	size_t size;
 	int reg;
 
@@ -1644,6 +1490,8 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 			"values passed by ref\n");
 #endif
 	} else {
+		uint8_t	sz;
+
 		if (dst->dn_flags & DT_NF_BITFIELD)
 			reg = dt_cg_field_set(src, dlp, drp, dst);
 		else
@@ -1651,22 +1499,23 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 
 		switch (size) {
 		case 1:
-			instr = BPF_STORE(BPF_B, dst->dn_reg, 0, reg);
+			sz = BPF_B;
 			break;
 		case 2:
-			instr = BPF_STORE(BPF_H, dst->dn_reg, 0, reg);
+			sz = BPF_H;
 			break;
 		case 4:
-			instr = BPF_STORE(BPF_W, dst->dn_reg, 0, reg);
+			sz = BPF_W;
 			break;
 		case 8:
-			instr = BPF_STORE(BPF_DW, dst->dn_reg, 0, reg);
+			sz = BPF_DW;
 			break;
 		default:
 			xyerror(D_UNKNOWN, "internal error -- cg cannot store "
 			    "size %lu when passed by value\n", (ulong_t)size);
 		}
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+		emit(dlp, BPF_STORE(sz, dst->dn_reg, 0, reg));
 
 		if (dst->dn_flags & DT_NF_BITFIELD)
 			dt_regset_free(drp, reg);
@@ -1677,46 +1526,37 @@ static void
 dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_ident_t *idp)
 {
-	struct bpf_insn	instr;
+	uint_t	varid;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
 	if (idp->di_flags & DT_IDFLG_LOCAL) {		/* local var */
-		instr = BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_LVAR(idp->di_id),
-				  src->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_IMM(BPF_REG_1,
-				    idp->di_id - DIF_VAR_OTHER_UBASE);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
-		assert(idp != NULL);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
-		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free_args(drp);
-	} else {					/* global var */
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		instr = BPF_MOV_REG(BPF_REG_2, src->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_MOV_IMM(BPF_REG_1,
-				    idp->di_id - DIF_VAR_OTHER_UBASE);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_gvar");
-		assert(idp != NULL);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
-		dt_regset_free(drp, BPF_REG_0);
-		dt_regset_free_args(drp);
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_LVAR(idp->di_id), src->dn_reg));
+		return;
 	}
+
+	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+
+	if (idp->di_flags & DT_IDFLG_TLS)	/* TLS var */
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
+	else					/* global var */
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_gvar");
+
+	assert(idp != NULL);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/*
+	 * We assign the varid in the instruction preceding the call because
+	 * the disassembler expects this sequence in support for annotating
+	 * the disassembly with variables names.
+	 */
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src->dn_reg));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
 }
 
 /*
@@ -1732,7 +1572,6 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 {
 	size_t srcsize;
 	size_t dstsize;
-	struct bpf_insn instr;
 	int n;
 
 	/* If the destination type is '@' (any type) we need not cast. */
@@ -1749,13 +1588,9 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 
 	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		instr = BPF_MOV_REG(dst->dn_reg, src->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ?
-		    BPF_ARSH : BPF_RSH, dst->dn_reg, n);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
+		emit(dlp, BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
 	}
 }
 
@@ -1784,7 +1619,6 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 
 	for (dnp = args; dnp != NULL; dnp = dnp->dn_list) {
 		dtrace_diftype_t t;
-		struct bpf_insn instr;
 		uint_t op;
 		int reg;
 
@@ -1808,10 +1642,10 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 
 #if 0
 		instr = DIF_INSTR_PUSHTS(op, t.dtdt_kind, reg, dnp->dn_reg);
-#else
-		instr = BPF_CALL_FUNC(op);
-#endif
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+#else
+		emit(dlp, BPF_CALL_FUNC(op));
+#endif
 		dt_regset_free(drp, dnp->dn_reg);
 
 		if (reg != DIF_REG_R0)
@@ -1833,8 +1667,6 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	int lp_is_ptr = dt_node_is_pointer(dnp->dn_left);
 	int rp_is_ptr = dt_node_is_pointer(dnp->dn_right);
-
-	struct bpf_insn instr;
 
 	if (lp_is_ptr && rp_is_ptr) {
 		assert(dnp->dn_op == DT_TOK_SUB);
@@ -1877,37 +1709,30 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		uint_t	lbl_L4 = dt_irlist_label(dlp);
 		uint_t	lbl_L5 = dt_irlist_label(dlp);
 
-		instr = BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_left->dn_reg, 0, lbl_L3);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_right->dn_reg, 0, lbl_L1);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_JUMP(lbl_L4);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_NEG_REG(dnp->dn_right->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L1, instr));
-		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
-		    dnp->dn_right->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L2, instr));
-		instr = BPF_NEG_REG(dnp->dn_left->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_JUMP(lbl_L5);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_NEG_REG(dnp->dn_left->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L3, instr));
-		instr = BPF_BRANCH_IMM(BPF_JSGE, dnp->dn_right->dn_reg, 0, lbl_L2);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_NEG_REG(dnp->dn_right->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
-		    dnp->dn_right->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L4, instr));
-		instr = BPF_NOP();
-		dt_irlist_append(dlp, dt_cg_node_alloc(lbl_L5, instr));
-	} else {
-		instr = BPF_ALU64_REG(op, dnp->dn_left->dn_reg,
-		    dnp->dn_right->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_left->dn_reg, 0, lbl_L3));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_right->dn_reg, 0, lbl_L1));
+		emit(dlp,  BPF_JUMP(lbl_L4));
+
+		emitl(dlp, lbl_L1,
+			   BPF_NEG_REG(dnp->dn_right->dn_reg));
+
+		emitl(dlp, lbl_L2,
+			   BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
+		emit(dlp,  BPF_NEG_REG(dnp->dn_left->dn_reg));
+		emit(dlp,  BPF_JUMP(lbl_L5));
+
+		emitl(dlp, lbl_L3,
+			   BPF_NEG_REG(dnp->dn_left->dn_reg));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, dnp->dn_right->dn_reg, 0, lbl_L2));
+		emit(dlp,  BPF_NEG_REG(dnp->dn_right->dn_reg));
+
+		emitl(dlp, lbl_L4,
+			   BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
+
+		emitl(dlp, lbl_L5,
+			   BPF_NOP());
+	} else
+		emit(dlp,  BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
 
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
@@ -1934,7 +1759,6 @@ static void
 dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	struct bpf_insn instr;
 	ctf_id_t type;
 	ssize_t size = 1;
 
@@ -1947,8 +1771,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	dt_cg_node(dnp->dn_child, dlp, drp);
 	dnp->dn_reg = dnp->dn_child->dn_reg;
 
-	instr = BPF_ALU64_IMM(op, dnp->dn_reg, size);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_ALU64_IMM(op, dnp->dn_reg, size));
 
 	/*
 	 * If we are modifying a variable, generate a store instruction for
@@ -1983,7 +1806,6 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
     dt_regset_t *drp, uint_t op)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	struct bpf_insn instr;
 	ctf_id_t type;
 	ssize_t size = 1;
 	int oreg, nreg;
@@ -2002,10 +1824,8 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	if (nreg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	instr = BPF_MOV_REG(nreg, oreg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(op, nreg, size);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_REG(nreg, oreg));
+	emit(dlp, BPF_ALU64_IMM(op, nreg, size));
 
 	/*
 	 * If we are modifying a variable, generate a store instruction for
@@ -2069,8 +1889,6 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	uint_t lbl_true = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	struct bpf_insn instr;
-
 	dt_cg_node(dnp->dn_left, dlp, drp);
 	dt_cg_node(dnp->dn_right, dlp, drp);
 
@@ -2079,21 +1897,18 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		xyerror(D_UNKNOWN, "internal error -- no support for "
 			"string comparison yet\n");
 
-	instr = BPF_BRANCH_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg,
-			       lbl_true);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg, lbl_true));
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+	emit(dlp,  BPF_JUMP(lbl_post));
 
-	instr = BPF_JUMP(lbl_post);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_true,
+		   BPF_MOV_IMM(dnp->dn_reg, 1));
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_true, instr));
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP()));
+	emitl(dlp, lbl_post,
+		   BPF_NOP());
 }
 
 /*
@@ -2111,25 +1926,22 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	uint_t lbl_false = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
-
-	struct bpf_insn instr;
 	dt_irnode_t *dip;
 
 	dt_cg_node(dnp->dn_expr, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_expr->dn_reg, 0, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_expr->dn_reg, 0, lbl_false));
 	dt_regset_free(drp, dnp->dn_expr->dn_reg);
 
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = BPF_MOV_IMM(dnp->dn_left->dn_reg, 0);
-	dip = dt_cg_node_alloc(DT_LBL_NONE, instr); /* save dip for below */
-	dt_irlist_append(dlp, dip);
+	/* save dip so we can patch it below */
+	dip =
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_left->dn_reg, 0));
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
+	emit(dlp,  BPF_JUMP(lbl_post));
 
-	instr = BPF_JUMP(lbl_post);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_false,
+		   BPF_NOP());
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_false, BPF_NOP()));
 	dt_cg_node(dnp->dn_right, dlp, drp);
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
@@ -2139,7 +1951,9 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * at that point because otherwise dn_right couldn't have allocated it.
 	 */
 	dip->di_instr = BPF_MOV_REG(dnp->dn_reg, dnp->dn_left->dn_reg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP()));
+
+	emitl(dlp, lbl_post,
+		   BPF_NOP());
 }
 
 static void
@@ -2148,27 +1962,22 @@ dt_cg_logical_and(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_false = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	struct bpf_insn instr;
-
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, lbl_false));
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
 
 	dt_cg_node(dnp->dn_right, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_false));
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
 	dt_cg_setx(dlp, dnp->dn_reg, 1);
+	emit(dlp,  BPF_JUMP(lbl_post));
 
-	instr = BPF_JUMP(lbl_post);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_false,
+		   BPF_MOV_IMM(dnp->dn_reg, 0));
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_false, instr));
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP()));
+	emitl(dlp, lbl_post,
+		   BPF_NOP());
 }
 
 static void
@@ -2177,24 +1986,19 @@ dt_cg_logical_xor(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_next = dt_irlist_label(dlp);
 	uint_t lbl_tail = dt_irlist_label(dlp);
 
-	struct bpf_insn instr;
-
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, lbl_next);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, lbl_next));
 	dt_cg_setx(dlp, dnp->dn_left->dn_reg, 1);
 
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_next, BPF_NOP()));
+	emitl(dlp, lbl_next,
+		   BPF_NOP());
 
 	dt_cg_node(dnp->dn_right, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_tail);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_tail));
 	dt_cg_setx(dlp, dnp->dn_right->dn_reg, 1);
 
-	instr = BPF_ALU64_REG(BPF_XOR, dnp->dn_left->dn_reg,
-			      dnp->dn_right->dn_reg);
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_tail, instr));
+	emitl(dlp, lbl_tail,
+		   BPF_ALU64_REG(BPF_XOR, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
 
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
 	dnp->dn_reg = dnp->dn_left->dn_reg;
@@ -2207,28 +2011,23 @@ dt_cg_logical_or(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_false = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	struct bpf_insn instr;
-
 	dt_cg_node(dnp->dn_left, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JNE, dnp->dn_left->dn_reg, 0, lbl_true);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_left->dn_reg, 0, lbl_true));
 	dt_regset_free(drp, dnp->dn_left->dn_reg);
 
 	dt_cg_node(dnp->dn_right, dlp, drp);
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_false);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, lbl_false));
 	dnp->dn_reg = dnp->dn_right->dn_reg;
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_true, instr));
+	emitl(dlp, lbl_true,
+		   BPF_MOV_IMM(dnp->dn_reg, 1));
+	emit(dlp,  BPF_JUMP(lbl_post));
 
-	instr = BPF_JUMP(lbl_post);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_false,
+		   BPF_MOV_IMM(dnp->dn_reg, 0));
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_false, instr));
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP()));
+	emitl(dlp, lbl_post,
+		   BPF_NOP());
 }
 
 static void
@@ -2237,23 +2036,18 @@ dt_cg_logical_neg(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t lbl_zero = dt_irlist_label(dlp);
 	uint_t lbl_post = dt_irlist_label(dlp);
 
-	struct bpf_insn instr;
-
 	dt_cg_node(dnp->dn_child, dlp, drp);
 	dnp->dn_reg = dnp->dn_child->dn_reg;
 
-	instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_zero);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_zero));
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+	emit(dlp,  BPF_JUMP(lbl_post));
 
-	instr = BPF_MOV_IMM(dnp->dn_reg, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_zero,
+		   BPF_MOV_IMM(dnp->dn_reg, 1));
 
-	instr = BPF_JUMP(lbl_post);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_MOV_IMM(dnp->dn_reg, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_zero, instr));
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_post, BPF_NOP()));
+	emitl(dlp, lbl_post,
+		   BPF_NOP());
 }
 
 static void
@@ -2272,7 +2066,6 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		ctf_membinfo_t ctm;
 		dt_xlator_t *dxp = idp->di_data;
 		dt_node_t *mnp, dn, mn;
-		struct bpf_insn instr;
 		int r1, r2;
 
 		/*
@@ -2352,9 +2145,7 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				 * field and dt_cg_store() will handle masking.
 				 */
 				dt_cg_setx(dlp, r2, ctm.ctm_offset / NBBY);
-				instr = BPF_ALU64_REG(BPF_ADD, r2, r1);
-				dt_irlist_append(dlp,
-				    dt_cg_node_alloc(DT_LBL_NONE, instr));
+				emit(dlp, BPF_ALU64_REG(BPF_ADD, r2, r1));
 
 				dt_node_type_propagate(mnp, &dn);
 				dn.dn_right->dn_string = mnp->dn_membname;
@@ -2422,7 +2213,6 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	struct bpf_insn instr;
 	ssize_t base;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
@@ -2440,9 +2230,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		base = 0x3000;
 
 	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
-			 base + dnp->dn_ident->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, base + dnp->dn_ident->di_id));
 
 	/*
 	 * If the associative array is a pass-by-reference type, then we are
@@ -2474,8 +2262,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		uint_t stvop = op == DIF_OP_LDTAA ? DIF_OP_STTAA : DIF_OP_STGAA;
 		uint_t label = dt_irlist_label(dlp);
 
-		instr = BPF_BRANCH_IMM(BPF_JNE, dnp->dn_reg, 0, label);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, dnp->dn_reg, 0, label));
 
 		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
 		instr = DIF_INSTR_ALLOCS(dnp->dn_reg, dnp->dn_reg);
@@ -2488,7 +2275,8 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		instr = DIF_INSTR_LDV(op, dnp->dn_ident->di_id, dnp->dn_reg);
 		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
-		dt_irlist_append(dlp, dt_cg_node_alloc(label, BPF_NOP()));
+		emitl(dlp, label,
+			   BPF_NOP());
 #else
 		xyerror(D_UNKNOWN, "internal error -- no support for "
 			"translated types yet\n");
@@ -2503,7 +2291,6 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uintmax_t saved = dnp->dn_args->dn_value;
 	dt_ident_t *idp = dnp->dn_ident;
 
-	struct bpf_insn instr;
 	ssize_t base;
 	size_t size;
 	int n;
@@ -2542,9 +2329,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		base = 0x3000;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
-	instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
-			 base + dnp->dn_ident->di_id);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, base + dnp->dn_ident->di_id));
 
 	/*
 	 * If this is a reference to the args[] array, we need to take the
@@ -2566,13 +2351,8 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	assert(size < sizeof (uint64_t));
 	n = sizeof (uint64_t) * NBBY - size * NBBY;
 
-	instr = BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ?
-	    BPF_ARSH : BPF_RSH, dnp->dn_reg, n);
-
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
+	emit(dlp, BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));
 }
 
 /*
@@ -2629,8 +2409,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	ctf_file_t *octfp;
 	ctf_membinfo_t m;
 	ctf_id_t type;
-
-	struct bpf_insn instr;
 	dt_ident_t *idp;
 	ssize_t stroff;
 
@@ -2791,8 +2569,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	case DT_TOK_BNEG:
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
-		instr = BPF_ALU64_IMM(BPF_XOR, dnp->dn_reg, 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_ALU64_IMM(BPF_XOR, dnp->dn_reg, 0));
 		break;
 
 	case DT_TOK_PREINC:
@@ -2820,9 +2597,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
-		instr = BPF_NEG_REG(dnp->dn_reg);
-
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_NEG_REG(dnp->dn_reg));
 		break;
 
 	case DT_TOK_DEREF:
@@ -2830,25 +2605,22 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
-			uint_t ubit = dnp->dn_flags & DT_NF_USERLAND;
+			uint_t ubit;
 
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
 			 * we need the sign bit from dnp and the user bit from
 			 * dnp->dn_child in order to get the proper opcode.
 			 */
+			ubit = dnp->dn_flags & DT_NF_USERLAND;
 			dnp->dn_flags |=
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
 			/* FIXME: Does not handled signed or userland */
-			instr = BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type),
-					 dnp->dn_reg, dnp->dn_reg, 0);
+			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
-
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 		}
 		break;
 
@@ -2899,17 +2671,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			if (dxp->dx_arg == -1) {
-				instr = BPF_MOV_REG(dnp->dn_reg,
-						    dxp->dx_ident->di_id);
-				dt_irlist_append(dlp,
-				    dt_cg_node_alloc(DT_LBL_NONE, instr));
+				emit(dlp, BPF_MOV_REG(dnp->dn_reg, dxp->dx_ident->di_id));
 				op = DIF_OP_XLATE;
 			} else
 				op = DIF_OP_XLARG;
 
 			instr = DIF_INSTR_XLATE(op, 0, dnp->dn_reg);
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 			dlp->dl_last->di_extern = dnp->dn_xmember;
 #else
@@ -2938,9 +2706,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		/*
 		 * Ensure that the lvalue is not the NULL pointer.
 		 */
-		instr = BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0,
-				       yypcb->pcb_exitlbl);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, yypcb->pcb_exitlbl));
 
 		/*
 		 * If the left-hand side of PTR or DOT is a dynamic variable,
@@ -2995,34 +2761,26 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			 * is a bit-field member and we will extract the value
 			 * bits below after we generate the appropriate load.
 			 */
-			instr = BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg,
-					      m.ctm_offset / NBBY);
-
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg, m.ctm_offset / NBBY));
 		}
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
-			uint_t ubit = dnp->dn_flags & DT_NF_USERLAND;
+			uint_t ubit;
 
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
 			 * we need the sign bit from dnp and the user bit from
 			 * dnp->dn_left in order to get the proper opcode.
 			 */
+			ubit = dnp->dn_flags & DT_NF_USERLAND;
 			dnp->dn_flags |=
 			    (dnp->dn_left->dn_flags & DT_NF_USERLAND);
 
 			/* FIXME: Does not handle signed and userland */
-			instr = BPF_LOAD(dt_cg_load(dnp, ctfp, m.ctm_type),
-					 dnp->dn_left->dn_reg,
-					 dnp->dn_left->dn_reg, 0);
+			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, m.ctm_type), dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
-
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 			if (dnp->dn_flags & DT_NF_BITFIELD)
 				dt_cg_field_get(dnp, dlp, drp, ctfp, &m);
@@ -3044,11 +2802,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (stroff > DIF_STROFF_MAX)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
-#ifdef FIXME
-		instr = BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP,
-				 0x4000 + stroff);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-#else
 		/*
 		 * The string table will be loaded as value for the 0 element
 		 * in the strtab BPF array map.  We use a function call to get
@@ -3057,17 +2810,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		instr = BPF_MOV_IMM(BPF_REG_1, stroff);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_string");
 		assert(idp != NULL);
-		instr = BPF_CALL_FUNC(idp->di_id);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dlp->dl_last->di_extern = idp;
-		instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, stroff));
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 		dt_regset_free_args(drp);
-#endif
 		break;
 
 	case DT_TOK_IDENT:
@@ -3081,9 +2829,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		    (dnp->dn_ident->di_flags & DT_IDFLG_CGREG)) {
 			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			instr = BPF_MOV_REG(dnp->dn_reg, dnp->dn_ident->di_id);
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			emit(dlp, BPF_MOV_REG(dnp->dn_reg, dnp->dn_ident->di_id));
 			break;
 		}
 
@@ -3117,12 +2863,8 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 /* FIXME */
-			instr = BPF_CALL_HELPER(-dnp->dn_ident->di_id);
-			dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE,
-					 instr));
-			instr = BPF_MOV_REG(dnp->dn_reg, BPF_REG_0);
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			emit(dlp, BPF_CALL_HELPER(-dnp->dn_ident->di_id));
+			emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 
 			break;
 
@@ -3171,11 +2913,7 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 
 			if (!(dnp->dn_flags & DT_NF_REF)) {
 				/* FIXME: NO signed or userland yet */
-				instr = BPF_LOAD(dt_cg_load(dnp, ctfp,
-							    dnp->dn_type),
-						 dnp->dn_reg, dnp->dn_reg, 0);
-				dt_irlist_append(dlp,
-				    dt_cg_node_alloc(DT_LBL_NONE, instr));
+				emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
 			}
 			break;
 		}
@@ -3192,11 +2930,8 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 
 		if (dnp->dn_value > INT32_MAX)
 			dt_cg_setx(dlp, dnp->dn_reg, dnp->dn_value);
-		else {
-			instr = BPF_MOV_IMM(dnp->dn_reg, dnp->dn_value);
-			dt_irlist_append(dlp,
-					 dt_cg_node_alloc(DT_LBL_NONE, instr));
-		}
+		else
+			emit(dlp, BPF_MOV_IMM(dnp->dn_reg, dnp->dn_value));
 		break;
 
 	default:
@@ -3227,7 +2962,6 @@ dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 		      dt_regset_t *drp)
 {
 	int		rx, ry;
-	struct bpf_insn	instr;
 
 	TRACE_REGSET("            Prep: Begin");
 
@@ -3242,10 +2976,8 @@ dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 	 *	agd = dctx->agg;	// lddw %r0, [%fp + DT_STK_DCTX]
 	 *				// lddw %rX, [%r0 + DCTX_AGG]
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, rx, BPF_REG_0, DCTX_AGG);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, rx, BPF_REG_0, DCTX_AGG));
 
 	/*
 	 *	off = (*agd % 2) * size	// lddw %rY, [%rX + 0]
@@ -3258,20 +2990,13 @@ dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 	 *				// xadd [%rX + 0], %r0
 	 *	agd += off;		// add %rX, %rY
 	 */
-	instr = BPF_LOAD(BPF_DW, ry, rx, 0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_AND, ry, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_MUL, ry, size);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_ADD, ry, aid->di_offset + sizeof(uint64_t));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_IMM(BPF_REG_0, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_XADD_REG(BPF_DW, rx, 0, BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_REG(BPF_ADD, rx, ry);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, ry, rx, 0));
+	emit(dlp, BPF_ALU64_IMM(BPF_AND, ry, 1));
+	emit(dlp, BPF_ALU64_IMM(BPF_MUL, ry, size));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, ry, aid->di_offset + sizeof(uint64_t)));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
+	emit(dlp, BPF_XADD_REG(BPF_DW, rx, 0, BPF_REG_0));
+	emit(dlp, BPF_ALU64_REG(BPF_ADD, rx, ry));
 
 	dt_regset_free(drp, ry);
 	dt_regset_free(drp, BPF_REG_0);
@@ -3362,8 +3087,6 @@ dt_cg_agg_avg(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 static void
 dt_cg_agg_count_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg)
 {
-	struct bpf_insn	instr;
-
 	TRACE_REGSET("            Impl: Begin");
 
 	/*
@@ -3371,10 +3094,8 @@ dt_cg_agg_count_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg)
 	 *				// xadd [%rX + 0], %r0
 	 */
 	dt_regset_xalloc(drp, BPF_REG_0);
-	instr = BPF_MOV_IMM(BPF_REG_0, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_XADD_REG(BPF_DW, dreg, 0, BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
+	emit(dlp, BPF_XADD_REG(BPF_DW, dreg, 0, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
 
 	TRACE_REGSET("            Impl: End  ");
@@ -3573,7 +3294,6 @@ dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
 			 int vreg, int ireg, int32_t base, uint16_t levels,
 			 uint16_t step)
 {
-	struct bpf_insn	instr;
 	uint_t		lbl_l1 = dt_irlist_label(dlp);
 	uint_t		lbl_l2 = dt_irlist_label(dlp);
 	uint_t		lbl_add = dt_irlist_label(dlp);
@@ -3590,13 +3310,10 @@ dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
 	 *	tmp = dreg;		// mov %r0, %rd
 	 *	goto ADD;		// ja ADD
 	 */
-	instr = BPF_BRANCH_IMM(BPF_JSGE, vreg, base, lbl_l1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_MOV_REG(BPF_REG_0, dreg);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, vreg, base, lbl_l1));
 	dt_regset_xalloc(drp, BPF_REG_0);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_JUMP(lbl_add);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_0, dreg));
+	emit(dlp,  BPF_JUMP(lbl_add));
 
 	/*
 	 * L1:	level = (val - base) / step;
@@ -3613,23 +3330,15 @@ dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
 	 *				// add %r0, %rd
 	 *	goto ADD;		// ja ADD
 	 */
-	instr = BPF_MOV_REG(BPF_REG_0, vreg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_l1, instr));
-	instr = BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, base);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_DIV, BPF_REG_0, step);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_BRANCH_IMM(BPF_JLT, BPF_REG_0, levels, lbl_l2);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-	instr = BPF_MOV_IMM(BPF_REG_0, levels + 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_JUMP(lbl_add);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_l1,
+		   BPF_MOV_REG(BPF_REG_0, vreg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, base));
+	emit(dlp,  BPF_ALU64_IMM(BPF_DIV, BPF_REG_0, step));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, BPF_REG_0, levels, lbl_l2));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, levels + 1));
+	emit(dlp,  BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg));
+	emit(dlp,  BPF_JUMP(lbl_add));
 
 	/*
 	 * L2:	tmp = dreg + 8 * (level + 1);
@@ -3638,18 +3347,16 @@ dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
 	 *				// lsh %r0, 3
 	 *				// add %r0, %rd
 	 */
-	instr = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_l2, instr));
-	instr = BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emitl(dlp, lbl_l2,
+		   BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1));
+	emit(dlp,  BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg));
 
 	/*
 	 * ADD:	(*tmp) += incr;		// xadd [%r0 + 0], %ri
 	 */
-	instr = BPF_XADD_REG(BPF_DW, BPF_REG_0, 0, ireg);
-	dt_irlist_append(dlp, dt_cg_node_alloc(lbl_add, instr));
+	emitl(dlp, lbl_add,
+		   BPF_XADD_REG(BPF_DW, BPF_REG_0, 0, ireg));
 	dt_regset_free(drp, BPF_REG_0);
 
 	TRACE_REGSET("            Impl: End  ");
@@ -3677,7 +3384,6 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	uint64_t	step = 1;
 	int64_t		baseval, limitval;
 	int		sz, ireg;
-	struct bpf_insn	instr;
 
 	if (arg1->dn_kind != DT_NODE_INT)
 		dnerror(arg1, D_LQUANT_BASETYPE, "lquantize( ) argument #1 "
@@ -3797,8 +3503,7 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		if ((ireg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		instr = BPF_MOV_IMM(ireg, 1);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_MOV_IMM(ireg, 1));
 	} else {
 		dt_cg_node(incr, dlp, drp);
 		ireg = incr->dn_reg;

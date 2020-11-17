@@ -148,7 +148,6 @@ static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	struct bpf_insn	instr;
 	uint_t		lbl_exit;
 
 	lbl_exit = dt_cg_tramp_prologue(pcb);
@@ -161,10 +160,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	instr = BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	instr = BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX));
-	dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST)));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX)));
 
 #if 0
 	/*
@@ -173,10 +170,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				// stdw [%7 + DMST_REGS + 8], 0
 	 *				//     (...)
 	 */
-	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
+	for (i = 0; i < sizeof(dt_pt_regs); i += 8)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0));
 #endif
 
 	/*
@@ -187,10 +182,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				// stdw [%r7 + DMST_ARG(i)], %r0
 	 */
 	for (i = 0; i < pcb->pcb_probe->argc; i++) {
-		instr = BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, SCD_ARG(i));
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		instr = BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, SCD_ARG(i)));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
 	}
 
 	/*
@@ -198,10 +191,8 @@ static void trampoline(dt_pcb_t *pcb)
 	 *		dctx->mst->argv[i] = 0;
 	 *				// stdw [%r7 + DMST_ARG(i)], 0
 	 */
-	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
-		instr = BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-	}
+	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
 	dt_cg_tramp_epilogue(pcb, lbl_exit);
 }

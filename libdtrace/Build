@@ -47,6 +47,11 @@ dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor
 dt_cg.c_CFLAGS := -Wno-pedantic
 dt_dis.c_CFLAGS := -Wno-pedantic
 dt_proc.c_CFLAGS := -Wno-pedantic
+dt_prov_dtrace.c_CFLAGS := -Wno-pedantic
+dt_prov_fbt.c_CFLAGS := -Wno-pedantic
+dt_prov_profile.c_CFLAGS := -Wno-pedantic
+dt_prov_sdt.c_CFLAGS := -Wno-pedantic
+dt_prov_syscall.c_CFLAGS := -Wno-pedantic
 
 # Extra include path for this file
 dt_bpf.c_CFLAGS := -Ilibbpf

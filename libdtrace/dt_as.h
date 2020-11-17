@@ -37,6 +37,19 @@ extern void dt_irlist_destroy(dt_irlist_t *);
 extern void dt_irlist_append(dt_irlist_t *, dt_irnode_t *);
 extern uint_t dt_irlist_label(dt_irlist_t *);
 
+#define emitle(dlp, lbl, instr, idp) \
+		({ \
+			dt_irnode_t *dip = dt_cg_node_alloc((lbl), (instr)); \
+			dt_irlist_append((dlp), dip); \
+			if (idp != NULL) \
+				dip->di_extern = (idp); \
+			dip; \
+		})
+#define emite(dlp, instr, idp)	emitle((dlp), DT_LBL_NONE, (instr), (idp))
+#define emitl(dlp, lbl, instr)	emitle((dlp), (lbl), (instr), NULL)
+#define emit(dlp, instr)	emitle((dlp), DT_LBL_NONE, (instr), NULL)
+
+
 #ifdef	__cplusplus
 }
 #endif
