@@ -13,7 +13,6 @@
 #include <dt_ident.h>
 #include <dt_printf.h>
 #include <dt_string.h>
-#include <dt_bpf_builtins.h>
 #include <bpf_asm.h>
 #include <port.h>
 
