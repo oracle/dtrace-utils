@@ -528,10 +528,10 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	if (size != DTRACE_QUANTIZE_NBUCKETS * sizeof (uint64_t))
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 
-	while (first_bin < DTRACE_QUANTIZE_NBUCKETS - 1 && data[first_bin] == 0)
+	while (first_bin <= last_bin && data[first_bin] == 0)
 		first_bin++;
 
-	if (first_bin == DTRACE_QUANTIZE_NBUCKETS - 1) {
+	if (first_bin > last_bin) {
 		/*
 		 * There isn't any data.  This is possible if (and only if)
 		 * negative increment values have been used.  In this case,
@@ -578,7 +578,7 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 		   uint64_t normal, uint64_t sig)
 {
 	const int64_t *data = addr;
-	int i, first_bin, last_bin, base;
+	int i, first_bin = 0, last_bin, base;
 	long double total = 0;
 	uint16_t step, levels;
 	char positives = 0, negatives = 0;
@@ -590,16 +590,15 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	step = DTRACE_LQUANTIZE_STEP(sig);
 	levels = DTRACE_LQUANTIZE_LEVELS(sig);
 
-	first_bin = 0;
 	last_bin = levels + 1;
 
 	if (size != sizeof(uint64_t) * (levels + 2))
 		return dt_set_errno(dtp, EDT_DMISMATCH);
 
-	while (first_bin <= levels + 1 && data[first_bin] == 0)
+	while (first_bin <= last_bin && data[first_bin] == 0)
 		first_bin++;
 
-	if (first_bin > levels + 1) {
+	if (first_bin > last_bin) {
 		first_bin = 0;
 		last_bin = 2;
 	} else {
@@ -654,7 +653,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 {
 	const int64_t *data = addr;
 	int factor, lmag, hmag, steps, steps_factor, step, bin0;
-	int first_bin, last_bin, nbins, err, i, mag;
+	int first_bin = 0, last_bin, nbins, err, i, mag;
 	int cwidth = 16, pad = 0;
 	char *c;
 	uint64_t scale;
@@ -669,7 +668,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	hmag = DTRACE_LLQUANTIZE_HMAG(sig);
 	steps = DTRACE_LLQUANTIZE_STEPS(sig);
 	steps_factor = steps / factor;
-	bin0 = 1 + (hmag-lmag+1) * (steps-steps/factor);
+	bin0 = 1 + (hmag-lmag+1) * (steps-steps_factor);
 
 	/*
 	 * The rest of the buffer contains:
@@ -689,7 +688,6 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 		return (dt_set_errno(dtp, EDT_DMISMATCH));
 
 	/* look for first and last bins with data */
-	first_bin = 0;
 	last_bin = nbins - 1;
 	while (first_bin <= last_bin && data[first_bin] == 0)
 		first_bin++;
