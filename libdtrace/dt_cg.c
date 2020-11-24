@@ -3174,12 +3174,51 @@ dt_cg_agg_opt_incr(dt_node_t *dnp, dt_node_t *lastarg, const char *fn,
 }
 
 static void
+dt_cg_agg_avg_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int vreg)
+{
+	TRACE_REGSET("            Impl: Begin");
+
+	/*
+	 * uint64_t dst[2], val;
+	 * char *dreg = dst, *vreg = &val;
+	 *				//     (%rd = dreg -- agg data ptr)
+	 *				//     (%rv = vreg -- value)
+	 *	uint64_t *dst = dreg;
+	 *
+	 *	dst[0]++;		// mov %r0, 1
+	 *				// xadd [%rd + 0], %r0
+	 *	dst[1] += vreg;		// xadd [%rd + 8], %rv
+	 */
+
+	/* dst[0]++ */
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
+	emit(dlp, BPF_XADD_REG(BPF_DW, dreg, 0, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	/* dst[1] += val */
+	emit(dlp, BPF_XADD_REG(BPF_DW, dreg, 8, vreg));
+
+	TRACE_REGSET("            Impl: End  ");
+}
+
+static void
 dt_cg_agg_avg(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	      dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	int	sz = 2 * sizeof(uint64_t);
 
 	DT_CG_AGG_SET_STORAGE(aid, sz);
+
+	TRACE_REGSET("    AggAvg: Begin");
+
+	dt_cg_node(dnp->dn_aggfun->dn_args, dlp, drp);
+
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_avg_impl,
+		       dnp->dn_aggfun->dn_args->dn_reg);
+	dt_regset_free(drp, dnp->dn_aggfun->dn_args->dn_reg);
+
+	TRACE_REGSET("    AggAvg: End  ");
 }
 
 static void
