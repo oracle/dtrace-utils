@@ -1,3 +1,18 @@
+1.2.2 (Nov 25th, 2020)
+----------------------
+
+Bugfixes:
+
+ - Fix problems with programs compiled with -z separate-code and with
+   recent glibc versions
+
+ - Fix overruns in printf code
+
+New features:
+
+ - Translator changes for kernels up to 5.6 (covers all released kernels
+   including 5.9.x)
+
 1.2.1 (Feb 12th, 2019)
 ----------------------
 

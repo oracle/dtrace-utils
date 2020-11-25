@@ -63,7 +63,7 @@ BuildRequires: wireshark
 BuildRequires: dtrace-kernel-headers = 1.2.0
 %endif
 Summary:      DTrace user interface.
-Version:      1.2.1
+Version:      1.2.2
 Release:      1%{?dist}
 Source:       dtrace-utils-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -249,6 +249,15 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Nov 25 2020 - <nick.alcock@oracle.com> - 1.2.2-1
+- Fix problems with programs compiled with -z separate-code and with recent
+  glibc versions [Orabug: 29589029]
+- Support recent Linux kernels (adapt to kallsyms changes in kernel 5.2,
+  translator changes for kernels up to 5.6: all later kernels until 5.9 work
+  fine with these changes) (Eugene Loh, Nick Alcock) [Orabug: 30149066] 
+- Correct overruns in printf code (David Mc Lean) [Orabug: 30404549]
+- Do not require yum [Orabug: 32196194]
+
 * Tue Feb 12 2019 - <nick.alcock@oracle.com> - 1.2.1-1
 - Fix bug causing DTrace to fail to terminate if a subprocess grabbed with -c
   dies when the pid or usdt providers, ustack() or similar actions are in use
