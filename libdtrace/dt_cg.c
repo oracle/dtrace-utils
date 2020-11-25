@@ -3304,9 +3304,9 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		dnerror(arg3, D_LLQUANT_HMAGVAL, "llquantize( ) argument #3 "
 			"(high magnitude) will cause overflow of 64 bits\n");
 
-	if (arg4->dn_kind != DT_NODE_INT)
+	if (!dt_node_is_posconst(arg4))
 		dnerror(arg4, D_LLQUANT_STEPTYPE, "llquantize( ) argument #4 "
-			"must be an integer constant\n");
+			"must be a non-zero positive integer constant\n");
 
 	steps = (uint64_t)arg4->dn_value;
 
