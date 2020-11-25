@@ -55,7 +55,7 @@ BuildRequires: rpm
 Name:         dtrace-utils
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.0.0 yum libpcap
+Requires:     cpp elfutils-libelf zlib libdtrace-ctf >= 1.0.0 libpcap
 BuildRequires: glibc-static elfutils-libelf-devel libdtrace-ctf-devel >= 1.0.0
 BuildRequires: glibc-headers bison flex zlib-devel %{glibc32} libpcap-devel
 BuildRequires: wireshark
