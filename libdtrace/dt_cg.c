@@ -3242,6 +3242,187 @@ dt_cg_agg_quantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int vreg, 
 	TRACE_REGSET("            Impl: End  ");
 }
 
+/*
+ * Log-linear quantization is the most complicated of the *quantize()
+ * aggregation functions.  This function quantizes the value held in
+ * valreg to a 0-based bin number using the parameters factor, lmag,
+ * hmag, and steps.
+ *
+ * First, let's illustrate log-linear based on an example.  We will
+ * bin logarithmically for factor=10 -- that is, 0-9, 10-99, 100-999,
+ * and so on.  Within each logarithmic range, we bin linearly.  E.g.,
+ * for the logarithmic range 100-999, the bins are:
+ *
+ *    +-------+----------------+----------------------------------+
+ *    |steps=5|    steps=10    |             steps=20             |
+ *    +-------+----------------+----------------------------------+
+ *    |100-199|         100-199|                  100-149  150-199|
+ *    |200-399|200-299  300-399|200-249  250-299  300-349  350-399|
+ *    |400-599|400-499  500-599|400-449  450-499  500-549  550-599|
+ *    |600-799|600-699  700-799|600-649  650-699  700-749  750-799|
+ *    |800-999|800-899  900-999|800-849  850-899  900-949  950-999|
+ *    +-------+----------------+----------------------------------+
+ *
+ * Nominally, there are "steps" bins per logarithmic range, but values 0-99
+ * do not actually appear here; they are not part of this logarithmic
+ * range.  For steps=5, this makes the lowest bin narrower than the others;
+ * for steps=10, it removes one bin; and for steps=20 two bins.  That is,
+ * the actual number of bins for a logarithmic range is steps-steps/factor.
+ *
+ * For factor=10, the logarithmic range 10-99 is for mag=1, 100-999 for mag=2,
+ * 1000-9999 for mag=3, and so on.  The parameters lmag and hmag indicate the
+ * inclusive bounds for mag.
+ *
+ * So, all logarithmic ranges, put together, have
+ *
+ *     (hmag - lmag + 1) * (steps - steps/factor)
+ *
+ * bins.  We double that number to account for negative values.  We add
+ * another 3 bins for:
+ *
+ *   - negative overflow
+ *
+ *   - underflow (values close to 0, whether negative or positive)
+ *
+ *   - positive overflow
+ *
+ * The bins are arranged in numerical order, starting with negative overflow,
+ * ending with positive overflow, and with underflow exactly in the middle.
+ */
+static void
+dt_cg_agg_llquantize_bin(dt_irlist_t *dlp, dt_regset_t *drp, int valreg,
+			 int32_t factor, int32_t lmag, int32_t hmag,
+			 int32_t steps)
+{
+	/*
+	 * We say there are "steps" bins per logarithmic range,
+	 * but steps/factor of them actually overlap with lower ranges.
+	 */
+	int steps_factor = steps / factor;
+
+	/* the underflow bin is in the middle */
+	int underflow_bin = 1 + (hmag - lmag + 1) * (steps - steps_factor);
+
+	/* initial bucket_max */
+	uint64_t bucket_max0 = powl(factor, lmag);
+
+	/* registers */
+	int indreg, magreg, tmpreg, maxreg;
+
+	/* labels */
+	uint_t		L1 = dt_irlist_label(dlp);
+	uint_t		L2 = dt_irlist_label(dlp);
+	uint_t		L3 = dt_irlist_label(dlp);
+	uint_t		L4 = dt_irlist_label(dlp);
+	uint_t		Lloop = dt_irlist_label(dlp);
+	uint_t		Lbin = dt_irlist_label(dlp);
+	uint_t		Lshift = dt_irlist_label(dlp);
+	uint_t		Lend = dt_irlist_label(dlp);
+
+	TRACE_REGSET("            Bin: Begin");
+
+	if ((indreg = dt_regset_alloc(drp)) == -1 ||
+	    (magreg = dt_regset_alloc(drp)) == -1 ||
+	    (tmpreg = dt_regset_alloc(drp)) == -1 ||
+	    (maxreg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/*
+	 * %tmp = %val
+	 * if (%val >= 0) goto L1
+	 * %tmp *= -1
+	 */
+	emit(dlp,  BPF_MOV_REG(tmpreg, valreg));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, valreg, 0, L1));
+	emit(dlp,  BPF_ALU64_IMM(BPF_MUL, tmpreg, -1));
+
+	/*
+	 * check for "underflow" (smaller than the smallest bin)
+	 * L1:
+	 *     %mag = underflow_bin
+	 *     %max = bucket_max0
+	 *     if (%tmp < %max) goto Lend
+	 */
+	emitl(dlp, L1,
+		   BPF_MOV_IMM(magreg, underflow_bin));
+	dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, maxreg, bucket_max0);
+	emit(dlp,  BPF_BRANCH_REG(BPF_JLT, tmpreg, maxreg, Lend));
+
+	/*
+	 * loop over the logarithmic ranges
+	 *     %mag = lmag                    lowest range
+	 *     %ind = 0                       bin within this range
+	 * Lloop:
+	 *     %max *= factor;                increase max
+	 *     if (%tmp < %max) goto Lbin;    found the right range
+	 *     %mag++;                        otherwise, increase range
+	 *     if (%mag > hmag) goto Lshift;  went beyond last range
+	 *     goto Lloop;
+	 */
+	emit(dlp,  BPF_MOV_IMM(magreg, lmag));
+	emit(dlp,  BPF_MOV_IMM(indreg, 0));
+	emitl(dlp, Lloop,
+		   BPF_ALU64_IMM(BPF_MUL, maxreg, factor));
+	emit(dlp,  BPF_BRANCH_REG(BPF_JLT, tmpreg, maxreg, Lbin));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, magreg, 1));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, magreg, hmag, Lshift));
+	emit(dlp,  BPF_JUMP(Lloop));
+
+	/*
+	 * Found a bin
+	 * Evaluate (%tmp*steps/%max) in a way that it will not overflow
+	 * Lbin:
+	 *     if (%mag != 0) %ind = %tmp / (%max / steps)
+	 *     else           %ind = %tmp * steps / %max
+	 */
+	emitl(dlp, Lbin,
+		   BPF_MOV_REG(indreg, tmpreg));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, magreg, 0, L2));
+	emit(dlp,  BPF_ALU64_IMM(BPF_DIV, maxreg, steps));
+	emit(dlp,  BPF_JUMP(L3));
+	emitl(dlp, L2,
+		   BPF_ALU64_IMM(BPF_MUL, indreg, steps));
+	emitl(dlp, L3,
+		   BPF_ALU64_REG(BPF_DIV, indreg, maxreg));
+
+	/*
+	 * shift for low indices that can never happen
+	 *     %ind -= steps_factor
+	 */
+	emit(dlp,  BPF_ALU64_IMM(BPF_SUB, indreg, steps_factor));
+
+	/*
+	 * shift to center around underflow_bin
+	 * Lshift:
+	 *     %mag = (%mag - lmag) * (steps - steps_factor) + %ind + 1
+	 *     if (%v < 0) %mag *= -1
+	 *     %mag += underflow_bin
+	 */
+	emitl(dlp, Lshift,
+		   BPF_ALU64_IMM(BPF_SUB, magreg, lmag));
+	emit(dlp,  BPF_ALU64_IMM(BPF_MUL, magreg, steps - steps_factor));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, magreg, indreg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, magreg, 1));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, valreg, 0, L4));
+	emit(dlp,  BPF_ALU64_IMM(BPF_MUL, magreg, -1));
+	emitl(dlp, L4,
+		   BPF_ALU64_IMM(BPF_ADD, magreg, underflow_bin));
+
+	/*
+	 * Lend:
+	 *     %val = %mag
+	 */
+	emitl(dlp, Lend,
+		   BPF_MOV_REG(valreg, magreg));
+
+	dt_regset_free(drp, indreg);
+	dt_regset_free(drp, magreg);
+	dt_regset_free(drp, tmpreg);
+	dt_regset_free(drp, maxreg);
+
+	TRACE_REGSET("            Bin: End  ");
+}
+
 static void
 dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		     dt_irlist_t *dlp, dt_regset_t *drp)
@@ -3262,7 +3443,7 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	dt_node_t	*incr;
 	dt_idsig_t	*isp;
 	uint64_t	factor, lmag, hmag, steps, arg, oarg;
-	int		sz;
+	int		sz, ireg;
 
 	if (arg1->dn_kind != DT_NODE_INT)
 		dnerror(arg1, D_LLQUANT_FACTORTYPE, "llquantize( ) argument #1 "
@@ -3342,7 +3523,7 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 					"llquantize() argument #4 (steps) must "
 					"evenly divide pow(argument #1 "
 					"(factor), lmag (argument #2) + 1) "
-					"when steps>factor and lmag==0\n");
+					"when steps>factor and lmag>0\n");
 		}
 	}
 
@@ -3407,10 +3588,34 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 
 	incr = dt_cg_agg_opt_incr(dnp, arg4, "llquantize", 6);
 
-	sz = (hmag - lmag + 1) * (steps - steps / factor) * 2 + 4;
+	sz = (hmag - lmag + 1) * (steps - steps / factor) * 2 + 3;
 	sz *= sizeof(uint64_t);
 
 	DT_CG_AGG_SET_STORAGE(aid, sz);
+
+	TRACE_REGSET("    AggLlq: Begin");
+
+	dt_cg_node(dnp->dn_aggfun->dn_args, dlp, drp);
+	dt_cg_agg_llquantize_bin(dlp, drp, dnp->dn_aggfun->dn_args->dn_reg,
+	    factor, lmag, hmag, steps);
+
+	if (incr == NULL) {
+		if ((ireg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		emit(dlp, BPF_MOV_IMM(ireg, 1));
+	} else {
+		dt_cg_node(incr, dlp, drp);
+		ireg = incr->dn_reg;
+	}
+
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_quantize_impl,
+		       dnp->dn_aggfun->dn_args->dn_reg, ireg,
+		       (hmag - lmag + 1) * (steps - steps / factor) * 2 + 2);
+
+	dt_regset_free(drp, dnp->dn_aggfun->dn_args->dn_reg);
+	dt_regset_free(drp, ireg);
+
+	TRACE_REGSET("    AggLlq: End  ");
 }
 
 static void
