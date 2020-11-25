@@ -21,6 +21,7 @@ This has advantages (the ability to do proper cross-directory dependencies
 and maximum-speed parallel make) and disadvantages (you have to specify
 directory names everywhere).
 
+
 For building C code at least we have routines in Makefunctions and Makerules to
 take the pain out of this (and we could in principle add further routines for
 other sorts of target). You can build and link C code just by defining a few
