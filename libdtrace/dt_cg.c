@@ -3457,7 +3457,7 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		dnerror(arg2, D_LQUANT_LIMVAL, "lquantize( ) argument #2 must "
 			"be a 32-bit quantity\n");
 
-	if (limitval < baseval)
+	if (limitval <= baseval)
 		dnerror(dnp, D_LQUANT_MISMATCH,
 			"lquantize( ) base (argument #1) must be less than "
 			"limit (argument #2)\n");
