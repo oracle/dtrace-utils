@@ -597,7 +597,7 @@ done:
 		dp = fp->difo;
 		relc = dp->dtdo_brelen;
 		if (relc == 0)
-			continue;
+			goto setdata;
 
 		stab = dt_strtab_create(BUFSIZ);
 		dp->dtdo_breltab = dt_calloc(dtp, relc, sizeof(dof_relodesc_t));
@@ -632,6 +632,7 @@ done:
 
 		dt_strtab_destroy(stab);
 
+setdata:
 		idp = fp->ident;
 		dt_ident_morph(idp, idp->di_kind, &dt_idops_difo, dtp);
 		dt_ident_set_data(idp, fp->difo);
