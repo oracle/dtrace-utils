@@ -2938,16 +2938,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		switch (dnp->dn_kind) {
 		case DT_NODE_FUNC:
-if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
-  fprintf(stderr, "%s() - FUNC %s %s()\n", __func__, dt_idkind_name(idp->di_kind), idp->di_name);
-#if 0
 			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
 				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
 				    "called from a D expression (D program "
 				    "context required)\n",
 				    dt_idkind_name(idp->di_kind), idp->di_name);
 			}
-#endif
 
 			dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
 
