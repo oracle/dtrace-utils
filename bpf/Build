@@ -22,7 +22,7 @@ bpf_dlib_TARGET = dlibs/bpf_dlib
 bpf_dlib_DIR := $(current-dir)
 bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp
 bpf_dlib_SOURCES = \
-	agg_qbin.c \
+	agg_lqbin.c agg_qbin.c \
 	get_bvar.c \
 	get_gvar.c set_gvar.c \
 	get_tvar.c set_tvar.c \

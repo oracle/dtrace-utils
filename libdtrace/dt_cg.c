@@ -3414,79 +3414,6 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 }
 
 static void
-dt_cg_agg_lquantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg,
-			 int vreg, int ireg, int32_t base, uint16_t levels,
-			 uint16_t step)
-{
-	uint_t		lbl_l1 = dt_irlist_label(dlp);
-	uint_t		lbl_l2 = dt_irlist_label(dlp);
-	uint_t		lbl_add = dt_irlist_label(dlp);
-
-	TRACE_REGSET("            Impl: Begin");
-
-	/*
-	 *				//     (%rd = dreg -- agg data)
-	 *				//     (%rv = val)
-	 *				//     (%ri = incr)
-	 *	if (val >= base)	// jge %rv, base, L1
-	 *		goto L1;	//
-	 *
-	 *	tmp = dreg;		// mov %r0, %rd
-	 *	goto ADD;		// ja ADD
-	 */
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, vreg, base, lbl_l1));
-	dt_regset_xalloc(drp, BPF_REG_0);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_0, dreg));
-	emit(dlp,  BPF_JUMP(lbl_add));
-
-	/*
-	 * L1:	level = (val - base) / step;
-	 *				// L1:
-	 *				// mov %r0, %rv
-	 *				// sub %r0, base
-	 *				// div %r0, step
-	 *	if (level < levels)	// jlt %r0, levels, L2
-	 *		goto L2;
-	 *
-	 *	tmp = dreg + 8 * (levels + 1);
-	 *				// mov %r0, levels + 1
-	 *				// lsh %r0, 3
-	 *				// add %r0, %rd
-	 *	goto ADD;		// ja ADD
-	 */
-	emitl(dlp, lbl_l1,
-		   BPF_MOV_REG(BPF_REG_0, vreg));
-	emit(dlp,  BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, base));
-	emit(dlp,  BPF_ALU64_IMM(BPF_DIV, BPF_REG_0, step));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, BPF_REG_0, levels, lbl_l2));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, levels + 1));
-	emit(dlp,  BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3));
-	emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg));
-	emit(dlp,  BPF_JUMP(lbl_add));
-
-	/*
-	 * L2:	tmp = dreg + 8 * (level + 1);
-	 *				// L2:
-	 *				// add %r0, 1
-	 *				// lsh %r0, 3
-	 *				// add %r0, %rd
-	 */
-	emitl(dlp, lbl_l2,
-		   BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1));
-	emit(dlp,  BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 3));
-	emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, dreg));
-
-	/*
-	 * ADD:	(*tmp) += incr;		// xadd [%r0 + 0], %ri
-	 */
-	emitl(dlp, lbl_add,
-		   BPF_XADD_REG(BPF_DW, BPF_REG_0, 0, ireg));
-	dt_regset_free(drp, BPF_REG_0);
-
-	TRACE_REGSET("            Impl: End  ");
-}
-
-static void
 dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		    dt_irlist_t *dlp, dt_regset_t *drp)
 {
@@ -3508,6 +3435,7 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	uint64_t	step = 1;
 	int64_t		baseval, limitval;
 	int		sz, ireg;
+	dt_ident_t	*idp;
 
 	if (arg1->dn_kind != DT_NODE_INT)
 		dnerror(arg1, D_LQUANT_BASETYPE, "lquantize( ) argument #1 "
@@ -3622,6 +3550,21 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 
 	dt_cg_node(dnp->dn_aggfun->dn_args, dlp, drp);
 
+	/* quantize the value to a 0-based bin # using dt_agg_lqbin() */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_aggfun->dn_args->dn_reg));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, baseval));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, nlevels));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, step));
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_agg_lqbin");
+	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_aggfun->dn_args->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
 	if (incr == NULL) {
 		if ((ireg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3632,9 +3575,8 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		ireg = incr->dn_reg;
 	}
 
-	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_lquantize_impl,
-		       dnp->dn_aggfun->dn_args->dn_reg, ireg,
-		       baseval, nlevels, step);
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_quantize_impl,
+		       dnp->dn_aggfun->dn_args->dn_reg, ireg, nlevels + 1);
 
 	dt_regset_free(drp, dnp->dn_aggfun->dn_args->dn_reg);
 	dt_regset_free(drp, ireg);
