@@ -2661,7 +2661,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	case DT_TOK_BNEG:
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
-		emit(dlp, BPF_ALU64_IMM(BPF_XOR, dnp->dn_reg, 0));
+		emit(dlp, BPF_ALU64_IMM(BPF_XOR, dnp->dn_reg, -1));
 		break;
 
 	case DT_TOK_PREINC:

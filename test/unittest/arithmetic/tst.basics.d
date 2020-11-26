@@ -41,5 +41,11 @@ BEGIN
 	i = i ^ 5;
 	printf("The value of i is %d\n", i);
 
+	i = 0xdeadbeef; j = ~i; printf("~ %x is %x\n", i, j);
+	i = 0x0000beef; j = ~i; printf("~ %x is %x\n", i, j);
+
+	x = 0xdeadbeefdeadbeefull; y = ~x; printf("~ %x is %x\n", x, y);
+	x = 0x00000000deadbeefull; y = ~x; printf("~ %x is %x\n", x, y);
+
 	exit (0);
 }
