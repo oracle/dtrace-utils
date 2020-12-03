@@ -129,7 +129,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
 
-	if (dt_idhash_nextoff(dtp->dt_aggs, 1, 0) > 0) {
+	if (dt_idhash_datasize(dtp->dt_aggs) > 0) {
 		dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
 
 		/*
@@ -457,12 +457,25 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 {
 	dtrace_diftype_t	vtype;
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
+	dt_regset_t		*drp = pcb->pcb_regs;
 	uint_t			off;
 
-	dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
-	dt_node_diftype(pcb->pcb_hdl, dnp, &vtype);
+	/*
+	 * Special case for aggregations: we store the aggregation id.  We
+	 * cannot just generate code for the dnp node because it has no type.
+	 */
+	if (dnp->dn_kind == DT_NODE_AGG) {
+		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		emit(dlp, BPF_MOV_IMM(dnp->dn_reg, dnp->dn_ident->di_id));
+		vtype.dtdt_size = sizeof(dnp->dn_ident->di_id);
+	} else {
+		dt_cg_node(dnp, &pcb->pcb_ir, drp);
+		dt_node_diftype(pcb->pcb_hdl, dnp, &vtype);
+	}
 
-	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp)) {
+	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
+	    dnp->dn_kind == DT_NODE_AGG) {
 		int	sz = 8;
 
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
@@ -485,7 +498,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		}
 
 		emit(dlp, BPF_STORE(sz, BPF_REG_9, off, dnp->dn_reg));
-		dt_regset_free(pcb->pcb_regs, dnp->dn_reg);
+		dt_regset_free(drp, dnp->dn_reg);
 
 		return 0;
 #if 0
@@ -505,7 +518,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		sz = P2ROUNDUP(sz, sizeof(uint64_t));
 		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off, sz & ((1UL << 32)-1)));
 		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32));
-		dt_regset_free(pcb->pcb_regs, dnp->dn_args->dn_reg);
+		dt_regset_free(drp, dnp->dn_args->dn_reg);
 
 		return sz + sizeof(uint64_t);
 #endif
@@ -732,6 +745,86 @@ dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_node_t	*anp, *proto = NULL;
+	dt_pfargv_t	*pfp = NULL;
+	int		argc = 0, argr;
+	const char	*fmt;
+	char		n[DT_TYPE_NAMELEN];
+	dt_ident_t	*aid, *fid;
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	/* process clause flags */
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_DREC_COMM,
+		    "data-recording actions may not follow commit( )\n");
+	*cfp |= DT_CLSFLAG_DATAREC;
+
+	/* Count the arguments. */
+	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
+		argc++;
+
+	/* Get format string (if any). */
+	if (dnp->dn_args->dn_kind == DT_NODE_STRING) {
+		fmt = dnp->dn_args->dn_string;
+		anp = dnp->dn_args->dn_list;
+		argr = 2;
+	} else {
+		fmt = NULL;
+		anp = dnp->dn_args;
+		argr = 1;
+	}
+
+	if (argc < argr)
+		dnerror(dnp, D_PRINTA_PROTO,
+			"%s( ) prototype mismatch: %d args passed, "
+			"%d expected\n", dnp->dn_ident->di_name, argc, argr);
+
+	assert(anp != NULL);
+
+	while (anp != NULL) {
+		if (anp->dn_kind != DT_NODE_AGG)
+			dnerror(dnp, D_PRINTA_AGGARG,
+				"%s( ) argument #%d is incompatible with "
+				"prototype:\n\tprototype: aggregation\n"
+				"\t argument: %s\n", dnp->dn_ident->di_name,
+				argr, dt_node_type_name(anp, n, sizeof(n)));
+
+		aid = anp->dn_ident;
+		fid = aid->di_iarg;
+
+		if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+		    !(aid->di_flags & DT_IDFLG_MOD))
+			dnerror(dnp, D_PRINTA_AGGBAD,
+				"undefined aggregation: @%s\n", aid->di_name);
+
+		/*
+		 * If multiple aggregations are specified, their signatures
+		 * must match.
+		 */
+		if (proto != NULL)
+			dt_printa_validate(proto, anp);
+		else
+			proto = anp;
+
+		/*
+		 * Validate the format string and the datatypes of the keys, if
+		 * there is a format string specified.
+		 */
+		if (fmt != NULL) {
+			yylineno = dnp->dn_line;
+
+			pfp = dt_printf_create(pcb->pcb_hdl, fmt);
+			dt_printf_validate(pfp, DT_PRINTF_AGGREGATION,
+					   dnp->dn_ident, 1, fid->di_id,
+					   ((dt_idsig_t *)aid->di_data)->dis_args);
+		}
+
+		dt_cg_store_val(pcb, anp, DTRACEACT_PRINTA, pfp, (uint64_t)dnp);
+		pfp = NULL;
+
+		anp = anp->dn_list;
+		argr++;
+	}
 }
 
 static void
@@ -3573,16 +3666,15 @@ typedef void dt_cg_aggfunc_f(dt_pcb_t *, dt_ident_t *, dt_node_t *,
 			     dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_aggfunc_f *_dt_cg_agg[DT_AGG_NUM] = {
-	[0 ... DT_AGG_NUM - 1]	= NULL,
-	[DT_AGG_AVG]		= &dt_cg_agg_avg,
-	[DT_AGG_COUNT]		= &dt_cg_agg_count,
-	[DT_AGG_LLQUANTIZE]	= &dt_cg_agg_llquantize,
-	[DT_AGG_LQUANTIZE]	= &dt_cg_agg_lquantize,
-	[DT_AGG_MAX]		= &dt_cg_agg_max,
-	[DT_AGG_MIN]		= &dt_cg_agg_min,
-	[DT_AGG_QUANTIZE]	= &dt_cg_agg_quantize,
-	[DT_AGG_STDDEV]		= &dt_cg_agg_stddev,
-	[DT_AGG_SUM]		= &dt_cg_agg_sum,
+	[DT_AGG_IDX(DT_AGG_AVG)]	= &dt_cg_agg_avg,
+	[DT_AGG_IDX(DT_AGG_COUNT)]	= &dt_cg_agg_count,
+	[DT_AGG_IDX(DT_AGG_LLQUANTIZE)]	= &dt_cg_agg_llquantize,
+	[DT_AGG_IDX(DT_AGG_LQUANTIZE)]	= &dt_cg_agg_lquantize,
+	[DT_AGG_IDX(DT_AGG_MAX)]	= &dt_cg_agg_max,
+	[DT_AGG_IDX(DT_AGG_MIN)]	= &dt_cg_agg_min,
+	[DT_AGG_IDX(DT_AGG_QUANTIZE)]	= &dt_cg_agg_quantize,
+	[DT_AGG_IDX(DT_AGG_STDDEV)]	= &dt_cg_agg_stddev,
+	[DT_AGG_IDX(DT_AGG_SUM)]	= &dt_cg_agg_sum,
 };
 
 static void
@@ -3613,12 +3705,13 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			"supported yet: @%s\n", dnp->dn_ident->di_name);
 
 
-	assert(fid->di_id >= 0 && fid->di_id < DT_AGG_NUM);
+	assert(fid->di_id >= DT_AGG_BASE && fid->di_id < DT_AGG_HIGHEST);
 
-	aggfp = _dt_cg_agg[fid->di_id];
+	aggfp = _dt_cg_agg[DT_AGG_IDX(fid->di_id)];
 	assert(aggfp != NULL);
 
 	(*aggfp)(pcb, aid, dnp, dlp, drp);
+	dt_aggid_add(pcb->pcb_hdl, aid);
 }
 
 void

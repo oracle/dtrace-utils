@@ -39,7 +39,6 @@ typedef uint32_t	dtrace_epid_t;		/* enabled probe identifier */
 typedef uint32_t	dtrace_optid_t;		/* option identifier */
 typedef uint32_t	dtrace_specid_t;	/* speculation identifier */
 
-typedef uint64_t	dtrace_aggvarid_t;	/* aggregation variable id */
 typedef uint64_t	dtrace_genid_t;		/* generation identifier */
 typedef uint64_t	dtrace_optval_t;	/* option value */
 

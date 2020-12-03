@@ -208,7 +208,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	dt_gmap_done = 1;
 
 	/* Determine the aggregation buffer size.  */
-	aggsz = dt_idhash_nextoff(dtp->dt_aggs, 1, 0);
+	aggsz = dt_idhash_datasize(dtp->dt_aggs);
 
 	/* Determine the number of global and TLS variables. */
 	gvarc = dt_idhash_peekid(dtp->dt_globals) - DIF_VAR_OTHER_UBASE;
@@ -220,47 +220,52 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 				       sizeof(DT_STATE_VAL_TYPE),
 				       DT_STATE_NUM_ELEMS);
 	if (dtp->dt_stmap_fd == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	/*
-	 * If there is aggregation data to be collected, we need to add a
-	 * uint64_t to the map value size to hold a latch sequence number (seq)
-	 * for concurrent access to the data.
+	 * If there is aggregation data to be collected, we need to create the
+	 * 'aggs' BPF map, and account for a uint64_t in the map value size to
+	 * hold a latch sequence number (seq) for concurrent access to the
+	 * data.
 	 */
-	if (aggsz > 0 &&
-	    create_gmap(dtp, "aggs", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), sizeof(uint64_t) +  aggsz, 1) == -1)
-		return -1;	/* dt_errno is set for us */
+	if (aggsz > 0) {
+		dtp->dt_aggmap_fd = create_gmap(dtp, "aggs",
+						BPF_MAP_TYPE_PERCPU_ARRAY,
+						sizeof(uint32_t),
+						sizeof(uint64_t) + aggsz, 1);
+		if (dtp->dt_aggmap_fd == -1)
+			return -1;	/* dt_errno is set for us */
+	}
 
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),
 			dtp->dt_conf.num_online_cpus) == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	ci_mapfd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
 			       sizeof(uint32_t), sizeof(cpuinfo_t), 1);
 	if (ci_mapfd == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t),
 			roundup(sizeof(dt_mstate_t), 8) + 8 +
 				roundup(dtp->dt_maxreclen, 8), 1) == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), dtp->dt_strlen, 1) == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	if (gvarc > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), sizeof(uint64_t), gvarc) == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	if (tvarc > 0 &&
 	    create_gmap(dtp, "tvars", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), sizeof(uint64_t), tvarc) == -1)
-		return -1;	/* dt_errno is set for us */
+		return -1;		/* dt_errno is set for us */
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);

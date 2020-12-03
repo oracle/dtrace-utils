@@ -105,7 +105,7 @@ typedef struct dt_idhash {
 	uint_t dh_nextid;	/* next id to be returned by idhash_nextid() */
 	uint_t dh_minid;	/* min id to be returned by idhash_nextid() */
 	uint_t dh_maxid;	/* max id to be returned by idhash_nextid() */
-	uint_t dh_nextoff;	/* next offset to return at idhash_nextoff() */
+	uint_t dh_nextoff;	/* next offset to use for storage allocation */
 	ulong_t dh_nelems;	/* number of identifiers in hash table */
 	ulong_t dh_hashsz;	/* number of entries in dh_buckets array */
 	dt_ident_t *dh_hash[1];	/* array of hash table bucket pointers */
@@ -132,7 +132,7 @@ extern void dt_idhash_update(dt_idhash_t *);
 extern dt_ident_t *dt_idhash_lookup(dt_idhash_t *, const char *);
 extern int dt_idhash_nextid(dt_idhash_t *, uint_t *);
 extern uint_t dt_idhash_peekid(dt_idhash_t *);
-extern uint_t dt_idhash_nextoff(dt_idhash_t *, uint_t, uint_t);
+extern uint_t dt_idhash_datasize(const dt_idhash_t *);
 extern ulong_t dt_idhash_size(const dt_idhash_t *);
 extern const char *dt_idhash_name(const dt_idhash_t *);
 

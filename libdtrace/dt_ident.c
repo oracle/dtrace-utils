@@ -770,25 +770,21 @@ dt_idhash_peekid(dt_idhash_t *dhp)
 }
 
 uint_t
-dt_idhash_nextoff(dt_idhash_t *dhp, uint_t alignment, uint_t size)
+dt_idhash_datasize(const dt_idhash_t *dhp)
 {
-	uint_t	off = (dhp->dh_nextoff + (alignment - 1)) & ~(alignment - 1);
-
-	dhp->dh_nextoff = off + size;
-
-	return off;
+	return dhp->dh_nextoff;
 }
 
 ulong_t
 dt_idhash_size(const dt_idhash_t *dhp)
 {
-	return (dhp->dh_nelems);
+	return dhp->dh_nelems;
 }
 
 const char *
 dt_idhash_name(const dt_idhash_t *dhp)
 {
-	return (dhp->dh_name);
+	return dhp->dh_name;
 }
 
 dt_ident_t *
@@ -1030,8 +1026,12 @@ dt_ident_set_data(dt_ident_t *idp, void *data)
 void
 dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 {
-	idp->di_offset = dt_idhash_nextoff(idp->di_hash, alignment, size);
+	dt_idhash_t	*dhp = idp->di_hash;
+
+	idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) & ~(alignment - 1);
 	idp->di_size = size;
+
+	dhp->dh_nextoff = idp->di_offset + size;
 }
 
 void

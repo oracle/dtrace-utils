@@ -52,14 +52,13 @@ typedef struct dtrace_datadesc {
 
 typedef struct dtrace_aggdesc {
 	DTRACE_PTR(char, dtagd_name);		/* not filled in by kernel */
-	dtrace_aggvarid_t dtagd_varid;		/* not filled in by kernel */
+	dtrace_aggid_t dtagd_varid;		/* not filled in by kernel */
 	int dtagd_flags;			/* not filled in by kernel */
 	dtrace_aggid_t dtagd_id;		/* aggregation ID */
-	dtrace_epid_t dtagd_epid;		/* enabled probe ID */
+	uint64_t dtagd_sig;			/* aggregation signature */
 	uint32_t dtagd_size;			/* size in bytes */
 	int dtagd_nrecs;			/* number of records */
-	uint32_t dtagd_pad;			/* explicit padding */
-	dtrace_recdesc_t dtagd_rec[1];		/* record descriptions */
+	dtrace_recdesc_t *dtagd_recs;		/* record descriptions */
 } dtrace_aggdesc_t;
 
 typedef struct dtrace_fmtdesc {

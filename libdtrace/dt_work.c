@@ -194,6 +194,14 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	if (dt_pebs_init(dtp, size) == -1)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
+	/*
+	 * We must initialize the aggregation consumer handling before we
+	 * trigger the BEGIN probe.
+	 */
+	err = dt_aggregate_go(dtp);
+	if (err)
+		return err;
+
 	BEGIN_probe();
 
 	dtp->dt_active = 1;
@@ -210,11 +218,9 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 #if 0
 	if (dt_options_load(dtp) == -1)
 		return dt_set_errno(dtp, errno);
-
-	return dt_aggregate_go(dtp);
-#else
-	return 0;
 #endif
+
+	return 0;
 }
 
 int

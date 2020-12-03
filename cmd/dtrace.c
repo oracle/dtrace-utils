@@ -603,13 +603,10 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 	    { NULL }
 	};
 
-	if (bufdata->dtbda_probe != NULL) {
+	if (bufdata->dtbda_probe != NULL)
 		pd = bufdata->dtbda_probe->dtpda_pdesc;
-	} else if (agg != NULL) {
-		pd = agg->dtada_pdesc;
-	} else {
+	else
 		pd = NULL;
-	}
 
 	BUFDUMPHDR(">>> Called buffer handler");
 	BUFDUMPHDR("");
@@ -1556,13 +1553,11 @@ main(int argc, char *argv[])
 
 	oprintf("\n");
 
-#if 0
 	if (!g_impatient) {
 		if (dtrace_aggregate_print(g_dtp, g_ofp, NULL) == -1 &&
 		    dtrace_errno(g_dtp) != EINTR)
 			dfatal("failed to print aggregations");
 	}
-#endif
 
 release_procs:
 	for (i = 0; i < g_psc; i++)

@@ -360,21 +360,17 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
 #define	DTRACE_AGGWALK_REMOVE		5	/* remove this element */
 
 struct dtrace_aggdata {
-	dtrace_hdl_t *dtada_handle;		/* handle to DTrace library */
+	dtrace_hdl_t *dtada_hdl;		/* handle to DTrace library */
 	dtrace_aggdesc_t *dtada_desc;		/* aggregation description */
-	dtrace_datadesc_t *dtada_ddesc;		/* probe data description */
-	dtrace_probedesc_t *dtada_pdesc;	/* probe description */
 	caddr_t dtada_data;			/* pointer to raw data */
 	uint64_t dtada_normal;			/* the normal -- 1 for denorm */
 	size_t dtada_size;			/* total size of the data */
-	caddr_t dtada_delta;			/* delta data, if available */
 	caddr_t *dtada_percpu;			/* per CPU data, if avail */
-	caddr_t *dtada_percpu_delta;		/* per CPU delta, if avail */
 };
 
 typedef struct dtrace_print_aggdata {
 	dtrace_hdl_t *dtpa_dtp;			/* handle to DTrace library */
-	dtrace_aggvarid_t dtpa_id;		/* aggregation variable */
+	dtrace_aggid_t dtpa_id;			/* aggregation variable */
 	FILE *dtpa_fp;				/* file pointer */
 	int dtpa_allunprint;			/* print only unprinted aggs */
 } dtrace_print_aggdata_t;
@@ -394,7 +390,7 @@ extern int dtrace_aggregate_walk(dtrace_hdl_t *dtp, dtrace_aggregate_f *func,
     void *arg);
 
 extern int dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp,
-    dtrace_aggvarid_t *aggvars, int naggvars,
+    dtrace_aggid_t *aggvars, int naggvars,
     dtrace_aggregate_walk_joined_f *func, void *arg);
 
 extern int dtrace_aggregate_walk_sorted(dtrace_hdl_t *dtp,

@@ -24,10 +24,12 @@ struct dt_pfconv;
 struct dt_pfargv;
 struct dt_pfargd;
 
-typedef int dt_pfcheck_f(struct dt_pfargv *,
-    struct dt_pfargd *, struct dt_node *);
+typedef int dt_pfcheck_f(struct dt_pfargv *, struct dt_pfargd *,
+			 struct dt_node *);
+
 typedef int dt_pfprint_f(dtrace_hdl_t *, FILE *, const char *,
-    const struct dt_pfargd *, const void *, size_t, uint64_t);
+			 const struct dt_pfargd *, const void *, size_t,
+			 uint64_t, uint64_t);
 
 typedef struct dt_pfconv {
 	const char *pfc_name;		/* string name of input conversion */

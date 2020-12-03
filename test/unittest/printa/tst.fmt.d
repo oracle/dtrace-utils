@@ -4,11 +4,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *  Test the printa() format string in its simplest form.
+ * ASSERTION: Test the printa() format string in its simplest form.
  *
  * SECTION: Output Formatting/printa()
  */

@@ -5,19 +5,15 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-
 /*
- * ASSERTION: Test the use of many aggregation results in the same format
- *	string.
+ * ASSERTION: Elements in an indexed aggregation must have same definitions.
  *
- * SECTION: Output Formatting/printa()
+ * SECTION: Aggregations/Aggregations
  */
-
-#pragma D option quiet
 
 BEGIN
 {
-	@a = count();
-	printa("%@u %@u %@u %@u %@u %@u %@u\n", @a);
+	@[1] = count();
+	@[2] = sum(5);
 	exit(0);
 }

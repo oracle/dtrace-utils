@@ -177,7 +177,7 @@ typedef struct dt_ahashent {
 	struct dt_ahashent *dtahe_next;		/* next on hash chain */
 	struct dt_ahashent *dtahe_prevall;	/* prev on list of all */
 	struct dt_ahashent *dtahe_nextall;	/* next on list of all */
-	uint64_t dtahe_hashval;			/* hash value */
+	uint64_t dtahe_hval;			/* hash value */
 	size_t dtahe_size;			/* size of data */
 	dtrace_aggdata_t dtahe_data;		/* data */
 	void (*dtahe_aggregate)(int64_t *, int64_t *, size_t); /* function */
@@ -190,12 +190,9 @@ typedef struct dt_ahash {
 } dt_ahash_t;
 
 typedef struct dt_aggregate {
-	dtrace_bufdesc_t dtat_buf; 	/* buf aggregation snapshot */
+	char **dtat_cpu_buf;		/* per-CPU agg snapshot buffers */
+	char *dtat_buf;			/* aggregation snapshot buffer */
 	int dtat_flags;			/* aggregate flags */
-	processorid_t dtat_ncpus;	/* number of CPUs in aggregate */
-	processorid_t *dtat_cpus;	/* CPUs in aggregate */
-	processorid_t dtat_ncpu;	/* size of dtat_cpus array */
-	processorid_t dtat_maxcpu;	/* maximum number of CPUs */
 	dt_ahash_t dtat_hash;		/* aggregate hash table */
 } dt_aggregate_t;
 
@@ -294,7 +291,7 @@ struct dtrace_hdl {
 	dtrace_datadesc_t **dt_ddesc; /* probe data descriptions */
 	dtrace_probedesc_t **dt_pdesc; /* probe descriptions for enabled prbs */
 	size_t dt_maxagg;	/* max aggregation ID */
-	dtrace_aggdesc_t **dt_aggdesc; /* aggregation descriptions */
+	dtrace_aggdesc_t **dt_adesc; /* aggregation descriptions */
 	int dt_maxformat;	/* max format ID */
 	dt_aggregate_t dt_aggregate; /* aggregate */
 	struct dt_pebset *dt_pebset; /* perf event buffers set */
@@ -336,6 +333,7 @@ struct dtrace_hdl {
 	int dt_stdout_fd;	/* file descriptor for saved stdout */
 	int dt_poll_fd;		/* file descriptor for event polling */
 	int dt_stmap_fd;	/* file descriptor for the 'state' BPF map */
+	int dt_aggmap_fd;	/* file descriptor for the 'aggs' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */
 	dtrace_prog_t *dt_errprog; /* error handler program, if any */
@@ -504,8 +502,13 @@ struct dtrace_hdl {
 /*
  * Aggregation functions.
  */
+#define	DT_AGG_BASE		DTRACEACT_AGGREGATION
+#define	DT_AGG(n)		(DT_AGG_BASE + (n))
+#define DT_AGG_IDX(n)		((n) - DT_AGG_BASE)
+#define DT_AGG_NUM		(DT_AGG_IDX(DT_AGG_HIGHEST))
+
 typedef enum dt_aggfid {
-	DT_AGG_AVG = 0,
+	DT_AGG_AVG = DT_AGG_BASE,
 	DT_AGG_COUNT,
 	DT_AGG_LLQUANTIZE,
 	DT_AGG_LQUANTIZE,
@@ -515,7 +518,7 @@ typedef enum dt_aggfid {
 	DT_AGG_STDDEV,
 	DT_AGG_SUM,
 
-	DT_AGG_NUM
+	DT_AGG_HIGHEST
 } dt_aggfid_t;
 
 /*
@@ -727,15 +730,16 @@ extern void dt_epid_destroy(dtrace_hdl_t *);
 typedef void (*dt_cg_gap_f)(dt_pcb_t *, int);
 extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
 			   uint32_t, uint16_t, dt_pfargv_t *, uint64_t);
+extern int dt_aggid_add(dtrace_hdl_t *, const dt_ident_t *);
 extern int dt_aggid_lookup(dtrace_hdl_t *, dtrace_aggid_t, dtrace_aggdesc_t **);
 extern void dt_aggid_destroy(dtrace_hdl_t *);
 
-extern int dt_print_quantize(dtrace_hdl_t *, FILE *,
-    const void *, size_t, uint64_t);
-extern int dt_print_lquantize(dtrace_hdl_t *, FILE *,
-    const void *, size_t, uint64_t);
-extern int dt_print_llquantize(dtrace_hdl_t *, FILE *,
-    const void *, size_t, uint64_t);
+extern int dt_print_quantize(dtrace_hdl_t *, FILE *, const void *, size_t,
+			     uint64_t);
+extern int dt_print_lquantize(dtrace_hdl_t *, FILE *, const void *, size_t,
+			      uint64_t, uint64_t);
+extern int dt_print_llquantize(dtrace_hdl_t *, FILE *, const void *, size_t,
+			       uint64_t, uint64_t);
 extern int dt_print_agg(const dtrace_aggdata_t *, void *);
 
 extern int dt_handle(dtrace_hdl_t *, dtrace_probedata_t *);

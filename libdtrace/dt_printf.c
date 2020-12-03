@@ -205,7 +205,8 @@ pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 /*ARGSUSED*/
 static int
 pfprint_sint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t unormal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t unormal, uint64_t sig)
 {
 	int64_t normal = (int64_t)unormal;
 	int32_t n = (int32_t)normal;
@@ -231,7 +232,8 @@ pfprint_sint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_uint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	uint32_t n = (uint32_t)normal;
 
@@ -255,18 +257,22 @@ pfprint_uint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 static int
 pfprint_dint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	if (pfd->pfd_flags & DT_PFCONV_SIGNED)
-		return (pfprint_sint(dtp, fp, format, pfd, addr, size, normal));
+		return pfprint_sint(dtp, fp, format, pfd, addr, size, normal,
+				    sig);
 	else
-		return (pfprint_uint(dtp, fp, format, pfd, addr, size, normal));
+		return pfprint_uint(dtp, fp, format, pfd, addr, size, normal,
+				    sig);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_fp(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	   const dt_pfargd_t *pfd, const void *addr, size_t size,
+	   uint64_t normal, uint64_t sig)
 {
 	double n = (double)normal;
 	long double ldn = (long double)normal;
@@ -289,7 +295,8 @@ pfprint_fp(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	char *s;
 	int n, len = 256;
@@ -317,23 +324,26 @@ pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	    const dt_pfargd_t *pfd, const void *addr, size_t size,
+	    uint64_t normal, uint64_t sig)
 {
-	return (dt_print_mod(dtp, fp, format, (caddr_t)addr));
+	return dt_print_mod(dtp, fp, format, (caddr_t)addr);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
-	return (dt_print_umod(dtp, fp, format, (caddr_t)addr));
+	return dt_print_umod(dtp, fp, format, (caddr_t)addr);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	      const dt_pfargd_t *pfd, const void *addr, size_t size,
+	      uint64_t normal, uint64_t sig)
 {
 	char *s;
 	int n, len = 256;
@@ -370,7 +380,8 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *vaddr, size_t size, uint64_t normal)
+	      const dt_pfargd_t *pfd, const void *vaddr, size_t size,
+	      uint64_t normal, uint64_t sig)
 {
 	int width;
 	dtrace_optval_t saved = dtp->dt_options[DTRACEOPT_STACKINDENT];
@@ -421,7 +432,8 @@ pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_time(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	char src[32], buf[32], *dst = buf;
 	hrtime_t time = *((uint64_t *)addr);
@@ -459,7 +471,8 @@ pfprint_time(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_time822(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+		const dt_pfargd_t *pfd, const void *addr, size_t size,
+		uint64_t normal, uint64_t sig)
 {
 	hrtime_t time = *((uint64_t *)addr);
 	time_t sec = (time_t)(time / NANOSEC);
@@ -474,7 +487,8 @@ pfprint_time822(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	char *s = alloca(size + 1);
 
@@ -486,7 +500,8 @@ pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_wstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	wchar_t *ws = alloca(size + sizeof (wchar_t));
 
@@ -498,7 +513,8 @@ pfprint_wstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 /*ARGSUSED*/
 static int
 pfprint_estr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	char *s;
 	int n;
@@ -513,7 +529,8 @@ pfprint_estr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 static int
 pfprint_echr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	     const dt_pfargd_t *pfd, const void *addr, size_t size,
+	     uint64_t normal, uint64_t sig)
 {
 	char c;
 
@@ -528,16 +545,17 @@ pfprint_echr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		c = *(int32_t *)addr;
 		break;
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 
-	return (pfprint_estr(dtp, fp, format, pfd, &c, 1, normal));
+	return pfprint_estr(dtp, fp, format, pfd, &c, 1, normal, sig);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_pct(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	    const dt_pfargd_t *pfd, const void *addr, size_t size,
+	    uint64_t normal, uint64_t sig)
 {
 	return (dt_printf(dtp, fp, "%%"));
 }
@@ -1192,52 +1210,56 @@ dt_printf_getint(dtrace_hdl_t *dtp, const dtrace_recdesc_t *recp,
 /*ARGSUSED*/
 static int
 pfprint_average(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+		const dt_pfargd_t *pfd, const void *addr, size_t size,
+		uint64_t normal, uint64_t sig)
 {
 	const uint64_t *data = addr;
 
 	if (size != sizeof (uint64_t) * 2)
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
-	return (dt_printf(dtp, fp, format,
-	    data[0] ? data[1] / normal / data[0] : 0));
+	return dt_printf(dtp, fp, format,
+			 data[0] ? data[1] / normal / data[0] : 0);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_stddev(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+	       const dt_pfargd_t *pfd, const void *addr, size_t size,
+	       uint64_t normal, uint64_t sig)
 {
 	const uint64_t *data = addr;
 
 	if (size != sizeof (uint64_t) * 4)
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
-	return (dt_printf(dtp, fp, format,
-	    dt_stddev((uint64_t *)data, normal)));
+	return dt_printf(dtp, fp, format, dt_stddev((uint64_t *)data, normal));
 }
 
 /*ARGSUSED*/
 static int
 pfprint_quantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+		 const dt_pfargd_t *pfd, const void *addr, size_t size,
+		 uint64_t normal, uint64_t sig)
 {
-	return (dt_print_quantize(dtp, fp, addr, size, normal));
+	return dt_print_quantize(dtp, fp, addr, size, normal);
 }
 
 /*ARGSUSED*/
 static int
 pfprint_lquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+		  const dt_pfargd_t *pfd, const void *addr, size_t size,
+		  uint64_t normal, uint64_t sig)
 {
-	return (dt_print_lquantize(dtp, fp, addr, size, normal));
+	return dt_print_lquantize(dtp, fp, addr, size, normal, sig);
 }
 
 static int
 pfprint_llquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+		   const dt_pfargd_t *pfd, const void *addr, size_t size,
+		   uint64_t normal, uint64_t sig)
 {
-	return (dt_print_llquantize(dtp, fp, addr, size, normal));
+	return dt_print_llquantize(dtp, fp, addr, size, normal, sig);
 }
 
 static int
@@ -1252,7 +1274,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 	caddr_t lim = (caddr_t)buf + len, limit;
 	char format[64] = "%";
 	int i, aggrec = 0, curagg = -1;
-	uint64_t normal;
+	uint64_t normal, sig;
 
 	/*
 	 * If we are formatting an aggregation, set 'aggrec' to the index of
@@ -1326,23 +1348,22 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		 * with no data record and continue; it consumes no record.
 		 */
 		if (pfc->pfc_print == &pfprint_pct) {
-			if (pfc->pfc_print(dtp, fp, NULL, pfd, NULL, 0, 1) >= 0)
+			if (pfc->pfc_print(dtp, fp, NULL, pfd, NULL, 0, 1, 0) >= 0)
 				continue;
-			return (-1); /* errno is set for us */
+			return -1;		/* errno is set for us */
 		}
 
 		if (pfd->pfd_flags & DT_PFCONV_DYNWIDTH) {
 			if (dt_printf_getint(dtp, recp++, nrecs--, buf,
-			    len, &width) == -1)
-				return (-1); /* errno is set for us */
+					     len, &width) == -1)
+				return -1;	/* errno is set for us */
 			pfd->pfd_dynwidth = width;
-		} else {
+		} else
 			pfd->pfd_dynwidth = 0;
-		}
 
-		if ((pfd->pfd_flags & DT_PFCONV_DYNPREC) && dt_printf_getint(
-		    dtp, recp++, nrecs--, buf, len, &prec) == -1)
-			return (-1); /* errno is set for us */
+		if ((pfd->pfd_flags & DT_PFCONV_DYNPREC) &&
+		    dt_printf_getint(dtp, recp++, nrecs--, buf, len, &prec) == -1)
+			return -1;		/* errno is set for us */
 
 		if (pfd->pfd_flags & DT_PFCONV_AGG) {
 			/*
@@ -1368,10 +1389,11 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			if (curagg < naggvars - 1)
 				curagg++;
 
-			rec = &agg->dtagd_rec[aggrec];
+			rec = &agg->dtagd_recs[aggrec];
 			addr = aggdata->dtada_data + rec->dtrd_offset;
 			limit = addr + aggdata->dtada_size;
 			normal = aggdata->dtada_normal;
+			sig = agg->dtagd_sig;
 			flags = DTRACE_BUFDATA_AGGVAL;
 		} else {
 			if (nrecs == 0)
@@ -1395,6 +1417,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			addr = (caddr_t)buf + rec->dtrd_offset;
 			limit = lim;
 			normal = 1;
+			sig = 0;
 		}
 
 		size = rec->dtrd_size;
@@ -1413,19 +1436,19 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		}
 
 		switch (rec->dtrd_action) {
-		case DTRACEAGG_AVG:
+		case DT_AGG_AVG:
 			func = pfprint_average;
 			break;
-		case DTRACEAGG_STDDEV:
+		case DT_AGG_STDDEV:
 			func = pfprint_stddev;
 			break;
-		case DTRACEAGG_QUANTIZE:
+		case DT_AGG_QUANTIZE:
 			func = pfprint_quantize;
 			break;
-		case DTRACEAGG_LQUANTIZE:
+		case DT_AGG_LQUANTIZE:
 			func = pfprint_lquantize;
 			break;
-		case DTRACEAGG_LLQUANTIZE:
+		case DT_AGG_LLQUANTIZE:
 			func = pfprint_llquantize;
 			break;
 		case DTRACEACT_MOD:
@@ -1472,7 +1495,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		(void) strcpy(f, pfd->pfd_fmt);
 		pfd->pfd_rec = rec;
 
-		if (func(dtp, fp, format, pfd, addr, size, normal) < 0)
+		if (func(dtp, fp, format, pfd, addr, size, normal, sig) < 0)
 			return (-1); /* errno is set for us */
 
 		if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {
@@ -1794,19 +1817,17 @@ dtrace_printf_format(dtrace_hdl_t *dtp, void *fmtdata, char *s, size_t len)
 static int
 dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 {
-	const dtrace_aggdesc_t *agg = adp->dtada_desc;
-	const dtrace_recdesc_t *recp = &agg->dtagd_rec[0];
-	uint_t nrecs = agg->dtagd_nrecs;
-	dt_pfwalk_t *pfw = arg;
-	dtrace_hdl_t *dtp = pfw->pfw_argv->pfv_dtp;
-	int id;
+	const dtrace_aggdesc_t	*agg = adp->dtada_desc;
+	const dtrace_recdesc_t	*rec = agg->dtagd_recs;
+	uint_t			nrecs = agg->dtagd_nrecs;
+	dt_pfwalk_t		*pfw = arg;
+	dtrace_hdl_t		*dtp = pfw->pfw_argv->pfv_dtp;
 
-	if (dt_printf_getint(dtp, recp++, nrecs--,
-	    adp->dtada_data, adp->dtada_size, &id) != 0 || pfw->pfw_aid != id)
-		return (0); /* no aggregation id or id does not match */
+	if (pfw->pfw_aid != agg->dtagd_id)
+		return 0;	/* id does not match */
 
-	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv,
-	    recp, nrecs, adp->dtada_data, adp->dtada_size, &adp, 1) == -1)
+	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
+			     adp->dtada_data, adp->dtada_size, &adp, 1) == -1)
 		return (pfw->pfw_err = dtp->dt_errno);
 
 	/*
@@ -1815,23 +1836,23 @@ dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 	 */
 	((dtrace_aggdesc_t *)agg)->dtagd_flags |= DTRACE_AGD_PRINTED;
 
-	return (0);
+	return 0;
 }
 
 static int
 dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 {
-	const dtrace_aggdata_t *aggdata = aggsdata[0];
-	const dtrace_aggdesc_t *agg = aggdata->dtada_desc;
-	const dtrace_recdesc_t *rec = &agg->dtagd_rec[1];
-	uint_t nrecs = agg->dtagd_nrecs - 1;
-	dt_pfwalk_t *pfw = arg;
-	dtrace_hdl_t *dtp = pfw->pfw_argv->pfv_dtp;
-	int i;
+	const dtrace_aggdata_t	*aggdata = aggsdata[0];
+	const dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
+	const dtrace_recdesc_t	*rec = agg->dtagd_recs;
+	uint_t			nrecs = agg->dtagd_nrecs;
+	dt_pfwalk_t		*pfw = arg;
+	dtrace_hdl_t		*dtp = pfw->pfw_argv->pfv_dtp;
+	int			i;
 
-	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv,
-	    rec, nrecs, aggdata->dtada_data, aggdata->dtada_size,
-	    aggsdata, naggvars) == -1)
+	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
+			     aggdata->dtada_data, aggdata->dtada_size,
+			     aggsdata, naggvars) == -1)
 		return (pfw->pfw_err = dtp->dt_errno);
 
 	/*
@@ -1843,41 +1864,41 @@ dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		((dtrace_aggdesc_t *)agg)->dtagd_flags |= DTRACE_AGD_PRINTED;
 	}
 
-	return (0);
+	return 0;
 }
-/*ARGSUSED*/
+
 int
 dtrace_fprinta(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
-    const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
-    uint_t nrecs, const void *buf, size_t len)
+	       const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
+	       uint_t nrecs, const void *buf, size_t len)
 {
-	dt_pfwalk_t pfw;
-	int i, naggvars = 0;
-	dtrace_aggvarid_t *aggvars;
+	dt_pfwalk_t	pfw;
+	int		i, naggvars = 0;
+	dtrace_aggid_t	*aggvars;
 
-	aggvars = alloca(nrecs * sizeof (dtrace_aggvarid_t));
+	aggvars = alloca(nrecs * sizeof(dtrace_aggid_t));
 
 	/*
 	 * This might be a printa() with multiple aggregation variables.  We
-	 * need to scan forward through the records until we find a record from
-	 * a different statement.
+	 * need to scan forward through the records until we find a record that
+	 * does not belong to this printa() statement.
 	 */
 	for (i = 0; i < nrecs; i++) {
 		const dtrace_recdesc_t *nrec = &recs[i];
 
-		if (nrec->dtrd_uarg != recs->dtrd_uarg)
+		if (nrec->dtrd_arg != recs->dtrd_arg)
 			break;
 
 		if (nrec->dtrd_action != recs->dtrd_action)
-			return (dt_set_errno(dtp, EDT_BADAGG));
+			return dt_set_errno(dtp, EDT_BADAGG);
 
 		aggvars[naggvars++] =
 		    /* LINTED - alignment */
-		    *((dtrace_aggvarid_t *)((caddr_t)buf + nrec->dtrd_offset));
+		    *((dtrace_aggid_t *)((caddr_t)buf + nrec->dtrd_offset));
 	}
 
 	if (naggvars == 0)
-		return (dt_set_errno(dtp, EDT_BADAGG));
+		return dt_set_errno(dtp, EDT_BADAGG);
 
 	pfw.pfw_argv = fmtdata;
 	pfw.pfw_fp = fp;
@@ -1886,14 +1907,15 @@ dtrace_fprinta(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	if (naggvars == 1) {
 		pfw.pfw_aid = aggvars[0];
 
-		if (dtrace_aggregate_walk_sorted(dtp,
-		    dt_fprinta, &pfw) == -1 || pfw.pfw_err != 0)
-			return (-1); /* errno is set for us */
+		if (dtrace_aggregate_walk_sorted(dtp, dt_fprinta, &pfw) == -1 ||
+		    pfw.pfw_err != 0)
+			return -1; /* errno is set for us */
 	} else {
 		if (dtrace_aggregate_walk_joined(dtp, aggvars, naggvars,
-		    dt_fprintas, &pfw) == -1 || pfw.pfw_err != 0)
-			return (-1); /* errno is set for us */
+						 dt_fprintas, &pfw) == -1 ||
+		    pfw.pfw_err != 0)
+			return -1; /* errno is set for us */
 	}
 
-	return (i);
+	return i;
 }

@@ -94,8 +94,8 @@ dt_datadesc_finalize(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
 dtrace_epid_t
 dt_epid_add(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp, dtrace_id_t prid)
 {
-	dtrace_id_t		max = dtp->dt_maxprobe;
-	dtrace_epid_t		epid;
+	dtrace_id_t	max = dtp->dt_maxprobe;
+	dtrace_epid_t	epid;
 
 	epid = dtp->dt_nextepid++;
 	if (epid >= max || dtp->dt_ddesc == NULL) {
@@ -236,123 +236,86 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 	return off;
 }
 
-static int
-dt_aggid_add(dtrace_hdl_t *dtp, dtrace_aggid_t id)
+int
+dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 {
-	dtrace_id_t max;
-	int rval;
+	dtrace_id_t		max;
+	dtrace_aggdesc_t	*agg;
+	dtrace_recdesc_t	*recs;
+	dtrace_aggid_t		id = aid->di_id;
+	dt_ident_t		*fid = aid->di_iarg;
+	int			i;
+	uint_t			off = 0;
 
-	while (id >= (max = dtp->dt_maxagg) || dtp->dt_aggdesc == NULL) {
-		dtrace_id_t new_max = max ? (max << 1) : 1;
-		size_t nsize = new_max * sizeof (void *);
-		dtrace_aggdesc_t **new_aggdesc;
+	while (id >= (max = dtp->dt_maxagg) || dtp->dt_adesc == NULL) {
+		dtrace_id_t		nmax = max ? (max << 1) : 1;
+		dtrace_aggdesc_t	**nadesc;
 
-		if ((new_aggdesc = malloc(nsize)) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
+		nadesc = dt_calloc(dtp, nmax, sizeof(void *));
+		if (nadesc == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
 
-		memset(new_aggdesc, 0, nsize);
+		if (dtp->dt_adesc != NULL) {
+			size_t	osize = max * sizeof(void *);
 
-		if (dtp->dt_aggdesc != NULL) {
-			memcpy(new_aggdesc, dtp->dt_aggdesc,
-			    max * sizeof (void *));
-			free(dtp->dt_aggdesc);
+			memcpy(nadesc, dtp->dt_adesc, osize);
+			free(dtp->dt_adesc);
 		}
 
-		dtp->dt_aggdesc = new_aggdesc;
-		dtp->dt_maxagg = new_max;
+		dtp->dt_adesc = nadesc;
+		dtp->dt_maxagg = nmax;
 	}
 
-	if (dtp->dt_aggdesc[id] == NULL) {
-		dtrace_aggdesc_t *agg, *nagg;
+	/* Already added? */
+	if (dtp->dt_adesc[id] != NULL)
+		return 0;
 
-		if ((agg = malloc(sizeof (dtrace_aggdesc_t))) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
+	agg = dt_zalloc(dtp, sizeof(dtrace_aggdesc_t));
+	if (agg == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-		memset(agg, 0, sizeof (dtrace_aggdesc_t));
-		agg->dtagd_id = id;
-		agg->dtagd_nrecs = 1;
+	agg->dtagd_id = id;
+	agg->dtagd_name = aid->di_name;
+	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
+	agg->dtagd_varid = aid->di_id;
+	agg->dtagd_size = aid->di_size / 2;
+	agg->dtagd_nrecs = agg->dtagd_size / sizeof(uint64_t);
 
-		if (dt_ioctl(dtp, DTRACEIOC_AGGDESC, agg) == -1) {
-			rval = dt_set_errno(dtp, errno);
-			free(agg);
-			return (rval);
-		}
-
-		if (DTRACE_SIZEOF_AGGDESC(agg) != sizeof (*agg)) {
-			/*
-			 * There must be more than one action.  Allocate the
-			 * appropriate amount of space and try again.
-			 */
-			if ((nagg = malloc(DTRACE_SIZEOF_AGGDESC(agg))) != NULL)
-				memcpy(nagg, agg, sizeof (*agg));
-
-			free(agg);
-
-			if ((agg = nagg) == NULL)
-				return (dt_set_errno(dtp, EDT_NOMEM));
-
-			rval = dt_ioctl(dtp, DTRACEIOC_AGGDESC, agg);
-
-			if (rval == -1) {
-				rval = dt_set_errno(dtp, errno);
-				free(agg);
-				return (rval);
-			}
-		}
-
-		/*
-		 * If we have a uarg, it's a pointer to the compiler-generated
-		 * statement; we'll use this value to get the name and
-		 * compiler-generated variable ID for the aggregation.  If
-		 * we're grabbing an anonymous enabling, this pointer value
-		 * is obviously meaningless -- and in this case, we can't
-		 * provide the compiler-generated aggregation information.
-		 */
-		if (dtp->dt_options[DTRACEOPT_GRABANON] == DTRACEOPT_UNSET &&
-		    agg->dtagd_rec[0].dtrd_uarg != 0) {
-			dtrace_stmtdesc_t *sdp;
-			dt_ident_t *aid;
-
-			sdp = (dtrace_stmtdesc_t *)(uintptr_t)
-			    agg->dtagd_rec[0].dtrd_uarg;
-			aid = sdp->dtsd_aggdata;
-			agg->dtagd_name = aid->di_name;
-			agg->dtagd_varid = aid->di_id;
-		} else {
-			agg->dtagd_varid = DTRACE_AGGVARIDNONE;
-		}
-
-#if 0
-		if ((epid = agg->dtagd_epid) >= dtp->dt_maxprobe ||
-		    dtp->dt_pdesc[epid] == NULL) {
-			if ((rval = dt_epid_add(dtp, epid)) != 0) {
-				free(agg);
-				return (rval);
-			}
-		}
-#endif
-
-		dtp->dt_aggdesc[id] = agg;
+	recs = dt_calloc(dtp, agg->dtagd_nrecs, sizeof(dtrace_recdesc_t));
+	if (recs == NULL) {
+		dt_free(dtp, agg);
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
-	return (0);
+	agg->dtagd_recs = recs;
+
+	for (i = 0; i < agg->dtagd_nrecs; i++) {
+		dtrace_recdesc_t	*rec = &recs[i];
+
+		rec->dtrd_action = fid->di_id;
+		rec->dtrd_size = sizeof(uint64_t);
+		rec->dtrd_offset = off;
+		rec->dtrd_alignment = sizeof(uint64_t);
+		rec->dtrd_format = NULL;
+		rec->dtrd_arg = 1;
+
+		off += sizeof(uint64_t);
+	}
+
+	dtp->dt_adesc[id] = agg;
+
+	return 0;
 }
 
 int
 dt_aggid_lookup(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, dtrace_aggdesc_t **adp)
 {
-	int rval;
+	if (aggid >= dtp->dt_maxagg || dtp->dt_adesc[aggid] == NULL)
+		return -1;
 
-	if (aggid >= dtp->dt_maxagg || dtp->dt_aggdesc[aggid] == NULL) {
-		if ((rval = dt_aggid_add(dtp, aggid)) != 0)
-			return (rval);
-	}
+	*adp = dtp->dt_adesc[aggid];
 
-	assert(aggid < dtp->dt_maxagg);
-	assert(dtp->dt_aggdesc[aggid] != NULL);
-	*adp = dtp->dt_aggdesc[aggid];
-
-	return (0);
+	return 0;
 }
 
 void
@@ -360,18 +323,20 @@ dt_aggid_destroy(dtrace_hdl_t *dtp)
 {
 	size_t i;
 
-	assert((dtp->dt_aggdesc != NULL && dtp->dt_maxagg != 0) ||
-	    (dtp->dt_aggdesc == NULL && dtp->dt_maxagg == 0));
+	assert((dtp->dt_adesc != NULL && dtp->dt_maxagg != 0) ||
+	       (dtp->dt_adesc == NULL && dtp->dt_maxagg == 0));
 
-	if (dtp->dt_aggdesc == NULL)
+	if (dtp->dt_adesc == NULL)
 		return;
 
 	for (i = 0; i < dtp->dt_maxagg; i++) {
-		if (dtp->dt_aggdesc[i] != NULL)
-			free(dtp->dt_aggdesc[i]);
+		if (dtp->dt_adesc[i] != NULL) {
+			dt_free(dtp, dtp->dt_adesc[i]->dtagd_recs);
+			dt_free(dtp, dtp->dt_adesc[i]);
+		}
 	}
 
-	free(dtp->dt_aggdesc);
-	dtp->dt_aggdesc = NULL;
+	dt_free(dtp, dtp->dt_adesc);
+	dtp->dt_adesc = NULL;
 	dtp->dt_maxagg = 0;
 }

@@ -4,14 +4,11 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *  Postive count() test
+ * ASSERTION: Postive count() test
  *
  * SECTION: Aggregations/Aggregations
- *
  */
 
 #pragma D option quiet

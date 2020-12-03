@@ -5,19 +5,15 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-
 /*
- * ASSERTION: Test the use of many aggregation results in the same format
- *	string.
+ * ASSERTION: printa() requires an aggregation argument when there is no format
+ *	string
  *
  * SECTION: Output Formatting/printa()
  */
 
-#pragma D option quiet
-
 BEGIN
 {
-	@a = count();
-	printa("%@u %@u %@u %@u %@u %@u %@u\n", @a);
+	printa();
 	exit(0);
 }
