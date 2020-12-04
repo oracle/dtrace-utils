@@ -2940,11 +2940,18 @@ if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC)
 }
 
 /*
+ * Macro to set the storage data (offset and size) for the aggregation
+ * identifier (if not set yet).
+ *
  * We consume twice the required data size because of the odd/even data pair
  * mechanism to provide lockless, write-wait-free operation.
  */
-#define DT_CG_AGG_OFFSET(pcb, sz) \
-	dt_idhash_nextoff((pcb)->pcb_hdl->dt_aggs, sizeof(uint64_t), 2 * (sz))
+#define DT_CG_AGG_SET_STORAGE(aid, sz) \
+	do { \
+		if ((aid)->di_offset == -1) \
+			dt_ident_set_storage((aid), sizeof(uint64_t), \
+					     2 * (sz)); \
+	} while (0)
 
 /*
  * Prepare the aggregation buffer for updating for a specific aggregation, and
@@ -3079,8 +3086,7 @@ dt_cg_agg_avg(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 2 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3106,8 +3112,7 @@ dt_cg_agg_count(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 1 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 
 	TRACE_REGSET("    AggCnt: Begin");
 
@@ -3284,8 +3289,7 @@ dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	sz = (hmag - lmag + 1) * (steps - steps / factor) * 2 + 4;
 	sz *= sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3491,8 +3495,7 @@ dt_cg_agg_lquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	sz = nlevels + 2;
 	sz *= sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 
 	TRACE_REGSET("    AggLq : Begin");
 
@@ -3524,8 +3527,7 @@ dt_cg_agg_max(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 1 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3534,8 +3536,7 @@ dt_cg_agg_min(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 1 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3547,8 +3548,7 @@ dt_cg_agg_quantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 
 	incr = dt_cg_agg_opt_incr(dnp, dnp->dn_aggfun->dn_args, "quantize", 2);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3557,8 +3557,7 @@ dt_cg_agg_stddev(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 4 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 static void
@@ -3567,8 +3566,7 @@ dt_cg_agg_sum(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 {
 	int	sz = 1 * sizeof(uint64_t);
 
-	if (aid->di_offset == -1)
-		aid->di_offset = DT_CG_AGG_OFFSET(pcb, sz);
+	DT_CG_AGG_SET_STORAGE(aid, sz);
 }
 
 typedef void dt_cg_aggfunc_f(dt_pcb_t *, dt_ident_t *, dt_node_t *,

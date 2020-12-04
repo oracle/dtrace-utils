@@ -59,9 +59,11 @@ typedef struct dt_ident {
 	ctf_file_t *di_ctfp;	/* CTF container for the variable data type */
 	ctf_id_t di_type;	/* CTF identifier for the variable data type */
 	int di_offset;		/* storage offset */
+	int di_size;		/* storage size */
 	struct dt_ident *di_next; /* pointer to next ident in hash chain */
 	ulong_t di_gen;		/* generation number (pass that created me) */
 	int di_lineno;		/* line number that defined this identifier */
+	struct dt_idhash *di_hash; /* idhash this identifier belongs to */
 } dt_ident_t;
 
 #define	DT_IDENT_ARRAY	0	/* identifier is an array variable */
@@ -157,6 +159,7 @@ extern dtrace_attribute_t dt_ident_cook(struct dt_node *,
 
 extern void dt_ident_set_id(dt_ident_t *, uint_t);
 extern void dt_ident_set_data(dt_ident_t *, void *);
+extern void dt_ident_set_storage(dt_ident_t *, uint_t, uint_t);
 extern void dt_ident_type_assign(dt_ident_t *, ctf_file_t *, ctf_id_t);
 extern dt_ident_t *dt_ident_resolve(dt_ident_t *);
 extern size_t dt_ident_size(dt_ident_t *);

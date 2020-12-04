@@ -802,14 +802,14 @@ dt_idhash_insert(dt_idhash_t *dhp, const char *name, ushort_t kind,
 	if (dhp->dh_tmpl != NULL)
 		dt_idhash_populate(dhp); /* fill hash w/ initial population */
 
-	idp = dt_ident_create(name, kind, flags, id,
-	    attr, vers, ops, iarg, gen);
-
+	idp = dt_ident_create(name, kind, flags, id, attr, vers, ops, iarg,
+			      gen);
 	if (idp == NULL)
 		return (NULL);
 
 	h = dt_strtab_hash(name, NULL) % dhp->dh_hashsz;
 	idp->di_next = dhp->dh_hash[h];
+	idp->di_hash = dhp;
 
 	dhp->dh_hash[h] = idp;
 	dhp->dh_nelems++;
@@ -830,6 +830,7 @@ dt_idhash_xinsert(dt_idhash_t *dhp, dt_ident_t *idp)
 
 	h = dt_strtab_hash(idp->di_name, NULL) % dhp->dh_hashsz;
 	idp->di_next = dhp->dh_hash[h];
+	idp->di_hash = dhp;
 	idp->di_flags &= ~DT_IDFLG_ORPHAN;
 
 	dhp->dh_hash[h] = idp;
@@ -959,11 +960,13 @@ dt_ident_create(const char *name, ushort_t kind, ushort_t flags, uint_t id,
 	idp->di_ctfp = NULL;
 	idp->di_type = CTF_ERR;
 	idp->di_offset = -1;
+	idp->di_size = 0;
 	idp->di_next = NULL;
 	idp->di_gen = gen;
 	idp->di_lineno = yylineno;
+	idp->di_hash = NULL;
 
-	return (idp);
+	return idp;
 }
 
 /*
@@ -1022,6 +1025,13 @@ void
 dt_ident_set_data(dt_ident_t *idp, void *data)
 {
 	idp->di_data = data;
+}
+
+void
+dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
+{
+	idp->di_offset = dt_idhash_nextoff(idp->di_hash, alignment, size);
+	idp->di_size = size;
 }
 
 void
