@@ -954,12 +954,49 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
 	}
 }
 
+/*
+ * Callback for initializing the min() and max() aggregation functions.
+ * The minimum 64 bit value is set for max() and the maximum 64 bit value is
+ * set for min(), so that any other value fed to the functions will register
+ * properly.
+ *
+ * The first value in the buffer is used as a flag to indicate whether an
+ * initial value was stored in the buffer.
+ */
+static int
+init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
+{
+	dt_ident_t *fid = aid->di_iarg;
+	int64_t *ptr;
+	int64_t value;
+
+	assert(aid->di_kind == DT_IDENT_AGG);
+	assert(fid);
+
+	if (fid->di_id == DT_AGG_MIN)
+		value = INT64_MAX;
+	else if (fid->di_id == DT_AGG_MAX)
+		value = INT64_MIN;
+	else
+		return 0;
+
+	/* Indicate that we are setting initial values. */
+	*(int64_t *)buf = 1;
+
+	ptr = (int64_t *)(buf + sizeof(int64_t) + aid->di_offset);
+	ptr[0] = value;
+	ptr[1] = value;
+
+	return 0;
+}
+
 int
 dt_aggregate_go(dtrace_hdl_t *dtp)
 {
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	dt_ahash_t	*agh = &agp->dtat_hash;
 	int		aggsz, i;
+	uint32_t	key = 0;
 
 	/* If there are no aggregations there is nothing to do. */
 	aggsz = dt_idhash_datasize(dtp->dt_aggs);
@@ -1001,6 +1038,25 @@ dt_aggregate_go(dtrace_hdl_t *dtp)
 		dt_free(dtp, agp->dtat_cpu_buf);
 		dt_free(dtp, agp->dtat_buf);
 		return dt_set_errno(dtp, EDT_NOMEM);
+	}
+
+	/* Initialize the starting values for min() and max() aggregations.  */
+	dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *) init_minmax,
+		       agp->dtat_buf);
+	if (*(int64_t *)agp->dtat_buf != 0) {
+		*(int64_t *)agp->dtat_buf = 0;	/* clear the flag */
+
+		for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
+			int	cpu = dtp->dt_conf.cpus[i].cpu_id;
+
+			/* Data for CPU 0 was populated, so skip it. */
+			if (cpu == 0)
+				continue;
+
+			memcpy(agp->dtat_cpu_buf[cpu], agp->dtat_buf, aggsz);
+		}
+
+		dt_bpf_map_update(dtp->dt_aggmap_fd, &key, agp->dtat_buf);
 	}
 
 	return 0;
