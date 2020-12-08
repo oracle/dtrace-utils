@@ -3215,6 +3215,34 @@ dt_cg_agg_count(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 }
 
 static void
+dt_cg_agg_quantize_impl(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int vreg, int ireg, int maxbin)
+{
+	uint_t		L = dt_irlist_label(dlp);
+	int		offreg;
+
+	TRACE_REGSET("            Impl: Begin");
+
+	if ((offreg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* check bounds */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, vreg, maxbin, L));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, vreg, 0, L));
+
+	/* *(dest + 8 * off) += incr */
+	emit(dlp,  BPF_MOV_REG(offreg, vreg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_MUL, offreg, 8));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, offreg, dreg));
+	emit(dlp,  BPF_XADD_REG(BPF_DW, offreg, 0, ireg));
+
+	emitl(dlp, L,
+		   BPF_NOP());
+	dt_regset_free(drp, offreg);
+
+	TRACE_REGSET("            Impl: End  ");
+}
+
+static void
 dt_cg_agg_llquantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		     dt_irlist_t *dlp, dt_regset_t *drp)
 {
@@ -3636,12 +3664,57 @@ static void
 dt_cg_agg_quantize(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 		   dt_irlist_t *dlp, dt_regset_t *drp)
 {
+	dt_ident_t	*idp;
 	dt_node_t	*incr;
-	int		sz = DTRACE_QUANTIZE_NBUCKETS * sizeof(uint64_t);
+	int		ireg, sz = DTRACE_QUANTIZE_NBUCKETS * sizeof(uint64_t);
+
+	/*
+	 * The quantize() implementation is currently hardwired for
+	 *     DTRACE_QUANTIZE_NBUCKETS 127
+	 *     DTRACE_QUANTIZE_ZEROBUCKET 63
+	 * These values are defined in include/dtrace/actions_defines.h
+	 */
+	assert(DTRACE_QUANTIZE_NBUCKETS == 127 &&
+	    DTRACE_QUANTIZE_ZEROBUCKET == 63);
 
 	incr = dt_cg_agg_opt_incr(dnp, dnp->dn_aggfun->dn_args, "quantize", 2);
 
 	DT_CG_AGG_SET_STORAGE(aid, sz);
+
+	TRACE_REGSET("    AggQ  : Begin");
+
+	dt_cg_node(dnp->dn_aggfun->dn_args, dlp, drp);
+
+	/* quantize the value to a 0-based bin # using dt_agg_qbin() */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_aggfun->dn_args->dn_reg));
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_agg_qbin");
+	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_aggfun->dn_args->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	if (incr == NULL) {
+		if ((ireg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp, BPF_MOV_IMM(ireg, 1));
+	} else {
+		dt_cg_node(incr, dlp, drp);
+		ireg = incr->dn_reg;
+	}
+
+	DT_CG_AGG_IMPL(aid, sz, dlp, drp, dt_cg_agg_quantize_impl,
+		       dnp->dn_aggfun->dn_args->dn_reg, ireg,
+		       DTRACE_QUANTIZE_NBUCKETS - 1);
+
+	dt_regset_free(drp, dnp->dn_aggfun->dn_args->dn_reg);
+	dt_regset_free(drp, ireg);
+
+	TRACE_REGSET("    AggQ  : End  ");
 }
 
 static void
