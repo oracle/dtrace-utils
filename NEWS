@@ -1,3 +1,62 @@
+2.0.0-1.4 (Dec  9th, 2020)
+--------------------------
+
+Fourth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - Aggregations have been implemented.  For now, only non-indexed aggregations
+   are supported, e.g. @, @a, @foo, but not @[1], @a["foo"].
+
+ - All aggegation functions have been implemented: avg(), count(),
+   llquantize(), lquantize(), max(), min(), quantize(), stddev(), and sum().
+
+ - Argument checking for aggregation functions has been improved.
+
+ - The printa() action has been implemented for standard aggregations.
+
+Bugfixes:
+
+ - Bitwise negation has been corrected.
+
+ - Reporting for quantize() has been corrected.  No data was being reported
+   when all values mapped to the last bin.
+
+ - END clauses are now executed correctly when the consumer triggers tracing
+   to stop.
+
+Internal changes:
+
+ - Aggregations now accumulate data in per-CPU kernel buffers (in a BPF map)
+   and the consumer retrieves a snapshot of all CPU buffers as needed.  This
+   means that the only aggregation happening at the consumer level constitutes
+   aggregating the values across all CPUs.
+
+ - Macros have been added to support manual generation of BPF code.  Each BPF
+   instruction used to take two C statements:  the instruction was defined and
+   then appended to a list.  Use of the new macros eliminates hundreds of such
+   lines and makes the C code look much more like the BPF it is generating.
+
+ - Restore the error message "%s %s( ) may not be called from a D expression
+   (D program context required)", which had been disabled during development.
+
+ - Remove the obsolete dt_bpf_builtins.h header file.
+
+ - Replace dtrace_aggvarid_t by dtrace_aggid_t and DTRACEAGG_* with DT_AGG_*.
+
+Compilation fixes:
+
+ - Pre-compiled BPF functions are now correctly loaded even if they have no
+   relocations.
+
+Testsuite changes:
+
+ - Comments, typos, and naming have been cleaned up.
+
+ - New tests have been added or XFAIL annotations revised for new features.
+
 2.0.0-1.3 (Oct  2nd, 2020)
 --------------------------
 
