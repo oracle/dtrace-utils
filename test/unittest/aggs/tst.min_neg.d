@@ -4,16 +4,13 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *      Positive min() test using negative values
+ * ASSERTION: Positive min() test using negative values
  *
  * SECTION: Aggregations/Aggregations
  *
  * NOTES: This is verifiable simple positive test of the min() function.
- *
  */
 
 #pragma D option quiet

@@ -4,14 +4,11 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- * 	Data exclusively in the last bin is correctly reported.
+ * ASSERTION: Data exclusively in the last bin is correctly reported.
  *
  * SECTION: Aggregations/Aggregations
- *
  */
 
 #pragma D option quiet

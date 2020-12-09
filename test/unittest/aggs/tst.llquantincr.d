@@ -4,14 +4,11 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *  Optional increment parameter to llquantize() functions correctly.
+ * ASSERTION: Optional increment parameter to llquantize() functions correctly.
  *
  * SECTION: Aggregations/Aggregations
- *
  */
 
 #pragma D option quiet

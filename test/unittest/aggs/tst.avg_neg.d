@@ -4,11 +4,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *	Positive avg() test using negative values
+ * ASSERTION: Positive avg() test using negative values
  *
  * SECTION: Aggregations/Aggregations
  *

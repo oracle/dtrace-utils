@@ -4,15 +4,12 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *   Test multiple aggregations and the default output order
+ * ASSERTION: Test multiple aggregations and the default output order
  *
  * SECTION: Aggregations/Aggregations;
  *	Aggregations/Output
- *
  */
 
 #pragma D option quiet

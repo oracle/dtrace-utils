@@ -9,7 +9,6 @@ if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
 fi
-# @@xfail: dtv2
 
 dtrace=$1
 
