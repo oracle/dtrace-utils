@@ -46,7 +46,7 @@ BuildRequires: rpm
 Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib yum libpcap
+Requires:     cpp elfutils-libelf zlib libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
@@ -63,7 +63,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.3%{?dist}
+Release:      1.4%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -229,6 +229,25 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Dec  9 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.4
+- Implement aggregation support code for both producer and consumer.
+  [Orabug: 32254734]\
+- Implement aggregation functions: count(), lquantize().
+- Implement aggregation functions: avg(), llquantize(), quantize().
+  (Eugene Loh)
+- Implement aggregation functions: max(), min(), stddev(), sum().
+  (David McLean)
+- Implement the printa() action.
+- Rework BPF code generation to use emit*() macros.
+- Fix bitwise negation. (Eugene Loh) [Orabug: 32125018]
+- Fix reporting when all quantize() data is in the last bin. (Eugene Loh)
+  [Orabug: 32148161]
+- Load pre-compiled BPF functions even if they do not have relocations.
+  (Eugene Loh)
+- Testsuite updates.
+- Fix END probe execution when consumer stops the producer.
+- Force use of bash as shell.
+
 * Thu Oct  1 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.3
 - Implement the freopen() action. (Eugene Loh)
 - Implement the system() action. (Eugene Loh)
