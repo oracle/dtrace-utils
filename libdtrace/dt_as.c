@@ -330,8 +330,8 @@ fail:
 
 	/*
 	 * Make a second pass through the instructions, relocating each branch
-	 * label to the index of the final instruction in the buffer and noting
-	 * any other instruction-specific DIFO flags such as dtdo_destructive.
+	 * target (a label ID) to the relative location of the label and noting
+	 * any instruction-specific DIFO flags such as dtdo_destructive.
 	 */
 	for (i = 0; i < dp->dtdo_len; i++) {
 		struct bpf_insn instr = dp->dtdo_buf[i];
@@ -339,6 +339,10 @@ fail:
 
 		/* We only care about jump instructions. */
 		if (BPF_CLASS(instr.code) != BPF_JMP)
+			continue;
+
+		/* We ignore NOP (jmp 0). */
+		if (BPF_IS_NOP(instr))
 			continue;
 
 		/* We ignore function calls and function exits. */

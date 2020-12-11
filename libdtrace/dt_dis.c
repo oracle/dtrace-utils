@@ -346,7 +346,7 @@ dt_dis_jump(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	    const struct bpf_insn *in, const char *rname, FILE *fp)
 {
 	if (in->off == 0)
-		fprintf(fp, "nop");
+		fprintf(fp, "nop\n");
 	else {
 		int	n;
 
