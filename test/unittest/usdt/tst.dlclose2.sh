@@ -94,29 +94,29 @@ main(int argc, char **argv)
 
 	if ((live = dlopen("./livelib.so", RTLD_LAZY | RTLD_LOCAL)) == NULL) {
 		printf("dlopen of livelib.so failed: %s\n", dlerror());
-		return (1);
+		return 1;
 	}
 
-	(void) dlclose(live);
+	dlclose(live);
 
 	if ((dead = dlopen("./deadlib.so", RTLD_LAZY | RTLD_LOCAL)) == NULL) {
 		printf("dlopen of deadlib.so failed: %s\n", dlerror());
-		return (1);
+		return 1;
 	}
 
 	if ((live = dlopen("./livelib.so", RTLD_LAZY | RTLD_LOCAL)) == NULL) {
 		printf("dlopen of livelib.so failed: %s\n", dlerror());
-		return (1);
+		return 1;
 	}
 
 	if ((go = dlsym(live, "go")) == NULL) {
 		printf("failed to lookup 'go' in livelib.so\n");
-		return (1);
+		return 1;
 	}
 
 	((void (*)(void))go)();
 
-	return (0);
+	return 0;
 }
 EOF
 

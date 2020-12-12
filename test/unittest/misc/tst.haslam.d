@@ -32,7 +32,7 @@ syscall:::entry
 
 END
 {
-	printf("%s, %s, %s, %d numtids", "hhh", "jjj", "ggg", numtids );
+	printf("%s, %s, %s, %d numtids", "hhh", "jjj", "ggg", numtids);
 	printa(@sys);
 }
 

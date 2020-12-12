@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -89,7 +89,7 @@ dt_dof_reset(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
 	ddo->ddo_xlexport = dt_calloc(dtp, nx, sizeof(dof_secidx_t));
 
 	if (nx != 0 && (ddo->ddo_xlimport == NULL || ddo->ddo_xlexport == NULL))
-		return (-1); /* errno is set for us */
+		return -1; /* errno is set for us */
 
 	for (i = 0; i < nx; i++) {
 		ddo->ddo_xlimport[i] = DOF_SECIDX_NONE;
@@ -108,7 +108,7 @@ dt_dof_reset(dtrace_hdl_t *dtp, dtrace_prog_t *pgp)
 	dt_buf_reset(dtp, &ddo->ddo_rels);
 
 	dt_buf_reset(dtp, &ddo->ddo_xlms);
-	return (0);
+	return 0;
 }
 
 /*
@@ -130,12 +130,12 @@ dof_add_lsect(dt_dof_t *ddo, const void *data, uint32_t type,
 	s.dofs_offset = dt_buf_offset(&ddo->ddo_ldata, align);
 	s.dofs_size = size;
 
-	dt_buf_write(dtp, &ddo->ddo_secs, &s, sizeof (s), sizeof (uint64_t));
+	dt_buf_write(dtp, &ddo->ddo_secs, &s, sizeof(s), sizeof(uint64_t));
 
 	if (data != NULL)
 		dt_buf_write(dtp, &ddo->ddo_ldata, data, size, align);
 
-	return (ddo->ddo_nsecs++);
+	return ddo->ddo_nsecs++;
 }
 
 /*
@@ -157,12 +157,12 @@ dof_add_usect(dt_dof_t *ddo, const void *data, uint32_t type,
 	s.dofs_offset = dt_buf_offset(&ddo->ddo_udata, align);
 	s.dofs_size = size;
 
-	dt_buf_write(dtp, &ddo->ddo_secs, &s, sizeof (s), sizeof (uint64_t));
+	dt_buf_write(dtp, &ddo->ddo_secs, &s, sizeof(s), sizeof(uint64_t));
 
 	if (data != NULL)
 		dt_buf_write(dtp, &ddo->ddo_udata, data, size, align);
 
-	return (ddo->ddo_nsecs++);
+	return ddo->ddo_nsecs++;
 }
 
 /*
@@ -176,16 +176,16 @@ dof_add_string(dt_dof_t *ddo, const char *s)
 	dof_stridx_t i = dt_buf_len(bp);
 
 	if (i != 0 && (s == NULL || *s == '\0'))
-		return (0); /* string table has \0 at offset 0 */
+		return 0; /* string table has \0 at offset 0 */
 
-	dt_buf_write(ddo->ddo_hdl, bp, s, strlen(s) + 1, sizeof (char));
-	return (i);
+	dt_buf_write(ddo->ddo_hdl, bp, s, strlen(s) + 1, sizeof(char));
+	return i;
 }
 
 static dof_attr_t
 dof_attr(const dtrace_attribute_t *ap)
 {
-	return (DOF_ATTR(ap->dtat_name, ap->dtat_data, ap->dtat_class));
+	return DOF_ATTR(ap->dtat_name, ap->dtat_data, ap->dtat_class);
 }
 
 static dof_secidx_t
@@ -201,26 +201,26 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 
 	if (dp->dtdo_buf != NULL) {
 		dsecs[nsecs++] = dof_add_lsect(ddo, dp->dtdo_buf,
-		    DOF_SECT_DIF, sizeof (dif_instr_t), 0,
-		    sizeof (dif_instr_t), sizeof (dif_instr_t) * dp->dtdo_len);
+		    DOF_SECT_DIF, sizeof(dif_instr_t), 0,
+		    sizeof(dif_instr_t), sizeof(dif_instr_t) * dp->dtdo_len);
 	}
 
 	if (dp->dtdo_strtab != NULL) {
 		dsecs[nsecs++] = strsec = dof_add_lsect(ddo, dp->dtdo_strtab,
-		    DOF_SECT_STRTAB, sizeof (char), 0, 0, dp->dtdo_strlen);
+		    DOF_SECT_STRTAB, sizeof(char), 0, 0, dp->dtdo_strlen);
 	}
 
 	if (dp->dtdo_vartab != NULL) {
 		dsecs[nsecs++] = dof_add_lsect(ddo, dp->dtdo_vartab,
-		    DOF_SECT_VARTAB, sizeof (uint_t), 0, sizeof (dtrace_difv_t),
-		    sizeof (dtrace_difv_t) * dp->dtdo_varlen);
+		    DOF_SECT_VARTAB, sizeof(uint_t), 0, sizeof(dtrace_difv_t),
+		    sizeof(dtrace_difv_t) * dp->dtdo_varlen);
 	}
 
 	if (dp->dtdo_xlmtab != NULL) {
 		dof_xlref_t *xlt, *xlp;
 		dt_node_t **pnp;
 
-		xlt = alloca(sizeof (dof_xlref_t) * dp->dtdo_xlmlen);
+		xlt = alloca(sizeof(dof_xlref_t) * dp->dtdo_xlmlen);
 		pnp = dp->dtdo_xlmtab;
 
 		/*
@@ -241,22 +241,22 @@ dof_add_difo(dt_dof_t *ddo, const dtrace_difo_t *dp)
 		}
 
 		dsecs[nsecs++] = dof_add_lsect(ddo, xlt, DOF_SECT_XLTAB,
-		    sizeof (dof_secidx_t), 0, sizeof (dof_xlref_t),
-		    sizeof (dof_xlref_t) * dp->dtdo_xlmlen);
+		    sizeof(dof_secidx_t), 0, sizeof(dof_xlref_t),
+		    sizeof(dof_xlref_t) * dp->dtdo_xlmlen);
 	}
 
 	/*
 	 * Copy the return type and the array of section indices that form the
 	 * DIFO into a single dof_difohdr_t and then add DOF_SECT_DIFOHDR.
 	 */
-	assert(nsecs <= sizeof (dsecs) / sizeof (dsecs[0]));
-	dofd = alloca(sizeof (dtrace_diftype_t) + sizeof (dsecs));
+	assert(nsecs <= sizeof(dsecs) / sizeof(dsecs[0]));
+	dofd = alloca(sizeof(dtrace_diftype_t) + sizeof(dsecs));
 	memset(&dofd->dofd_rtype, 0, sizeof(dtrace_diftype_t));
-	memcpy(&dofd->dofd_links, dsecs, sizeof (dof_secidx_t) * nsecs);
+	memcpy(&dofd->dofd_links, dsecs, sizeof(dof_secidx_t) * nsecs);
 
 	hdrsec = dof_add_lsect(ddo, dofd, DOF_SECT_DIFOHDR,
-	    sizeof (dof_secidx_t), 0, 0,
-	    sizeof (dtrace_diftype_t) + sizeof (dof_secidx_t) * nsecs);
+	    sizeof(dof_secidx_t), 0, 0,
+	    sizeof(dtrace_diftype_t) + sizeof(dof_secidx_t) * nsecs);
 
 	return hdrsec;
 }
@@ -301,24 +301,24 @@ dof_add_translator(dt_dof_t *ddo, const dt_xlator_t *dxp, uint_t type)
 		dt_node_diftype(dtp, dnp, &dofxm.dofxm_type);
 
 		dt_buf_write(dtp, &ddo->ddo_xlms,
-		    &dofxm, sizeof (dofxm), sizeof (uint32_t));
+		    &dofxm, sizeof(dofxm), sizeof(uint32_t));
 	}
 
 	dofxl.dofxl_members = dof_add_lsect(ddo, NULL, DOF_SECT_XLMEMBERS,
-	    sizeof (uint32_t), 0, sizeof (dofxm), dt_buf_len(&ddo->ddo_xlms));
+	    sizeof(uint32_t), 0, sizeof(dofxm), dt_buf_len(&ddo->ddo_xlms));
 
-	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_xlms, sizeof (uint32_t));
+	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_xlms, sizeof(uint32_t));
 
 	dofxl.dofxl_strtab = ddo->ddo_strsec;
 	dofxl.dofxl_argv = dof_add_string(ddo, ctf_type_name(
-	    dxp->dx_src_ctfp, dxp->dx_src_type, buf, sizeof (buf)));
+	    dxp->dx_src_ctfp, dxp->dx_src_type, buf, sizeof(buf)));
 	dofxl.dofxl_argc = 1;
 	dofxl.dofxl_type = dof_add_string(ddo, ctf_type_name(
-	    dxp->dx_dst_ctfp, dxp->dx_dst_type, buf, sizeof (buf)));
+	    dxp->dx_dst_ctfp, dxp->dx_dst_type, buf, sizeof(buf)));
 	dofxl.dofxl_attr = dof_attr(&dxp->dx_souid.di_attr);
 
 	xst[dxp->dx_id] = dof_add_lsect(ddo, &dofxl, type,
-	    sizeof (uint32_t), 0, 0, sizeof (dofxl));
+	    sizeof(uint32_t), 0, 0, sizeof(dofxl));
 }
 
 /*ARGSUSED*/
@@ -341,24 +341,21 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	dofpr.dofpr_name = dof_add_string(ddo, prp->pr_name);
 	dofpr.dofpr_nargv = dt_buf_len(&ddo->ddo_strs);
 
-	for (dnp = prp->nargs; dnp != NULL; dnp = dnp->dn_list) {
-		(void) dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
-		    dnp->dn_type, buf, sizeof (buf)));
-	}
+	for (dnp = prp->nargs; dnp != NULL; dnp = dnp->dn_list)
+		dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
+		    dnp->dn_type, buf, sizeof(buf)));
 
 	dofpr.dofpr_xargv = dt_buf_len(&ddo->ddo_strs);
 
-	for (dnp = prp->xargs; dnp != NULL; dnp = dnp->dn_list) {
-		(void) dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
-		    dnp->dn_type, buf, sizeof (buf)));
-	}
+	for (dnp = prp->xargs; dnp != NULL; dnp = dnp->dn_list)
+		dof_add_string(ddo, ctf_type_name(dnp->dn_ctfp,
+		    dnp->dn_type, buf, sizeof(buf)));
 
-	dofpr.dofpr_argidx = dt_buf_len(&ddo->ddo_args) / sizeof (uint8_t);
+	dofpr.dofpr_argidx = dt_buf_len(&ddo->ddo_args) / sizeof(uint8_t);
 
-	for (i = 0; i < prp->xargc; i++) {
+	for (i = 0; i < prp->xargc; i++)
 		dt_buf_write(dtp, &ddo->ddo_args, &prp->mapping[i],
-		    sizeof (uint8_t), sizeof (uint8_t));
-	}
+		    sizeof(uint8_t), sizeof(uint8_t));
 
 	dofpr.dofpr_nargc = prp->nargc;
 	dofpr.dofpr_xargc = prp->xargc;
@@ -379,16 +376,16 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		assert(pip->pi_noffs + pip->pi_nenoffs > 0);
 
 		dofpr.dofpr_offidx =
-		    dt_buf_len(&ddo->ddo_offs) / sizeof (uint32_t);
+		    dt_buf_len(&ddo->ddo_offs) / sizeof(uint32_t);
 		dofpr.dofpr_noffs = pip->pi_noffs;
 		dt_buf_write(dtp, &ddo->ddo_offs, pip->pi_offs,
-		    pip->pi_noffs * sizeof (uint32_t), sizeof (uint32_t));
+		    pip->pi_noffs * sizeof(uint32_t), sizeof(uint32_t));
 
 		dofpr.dofpr_enoffidx =
-		    dt_buf_len(&ddo->ddo_enoffs) / sizeof (uint32_t);
+		    dt_buf_len(&ddo->ddo_enoffs) / sizeof(uint32_t);
 		dofpr.dofpr_nenoffs = pip->pi_nenoffs;
 		dt_buf_write(dtp, &ddo->ddo_enoffs, pip->pi_enoffs,
-		    pip->pi_nenoffs * sizeof (uint32_t), sizeof (uint32_t));
+		    pip->pi_nenoffs * sizeof(uint32_t), sizeof(uint32_t));
 
 		/*
 		 * If pi_rname isn't set, the relocation will be against the
@@ -406,13 +403,13 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		dofr.dofr_data = 0;
 
 		dt_buf_write(dtp, &ddo->ddo_rels, &dofr,
-		    sizeof (dofr), sizeof (uint64_t));
+		    sizeof(dofr), sizeof(uint64_t));
 
 		dt_buf_write(dtp, &ddo->ddo_probes, &dofpr,
-		    sizeof (dofpr), sizeof (uint64_t));
+		    sizeof(dofpr), sizeof(uint64_t));
 	}
 
-	return (0);
+	return 0;
 }
 
 static void
@@ -430,7 +427,7 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 		return; /* ignore providers that are exported by dtrace(7D) */
 
 	nxr = dt_popcb(pvp->pv_xrefs, pvp->pv_xrmax);
-	dofs = alloca(sizeof (dof_secidx_t) * (nxr + 1));
+	dofs = alloca(sizeof(dof_secidx_t) * (nxr + 1));
 	xr = 1; /* reserve dofs[0] for the provider itself */
 
 	/*
@@ -452,33 +449,32 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 	dt_buf_reset(dtp, &ddo->ddo_enoffs);
 	dt_buf_reset(dtp, &ddo->ddo_rels);
 
-	(void) dt_idhash_iter(pvp->pv_probes, dof_add_probe, ddo);
+	dt_idhash_iter(pvp->pv_probes, dof_add_probe, ddo);
 
 	dofpv.dofpv_probes = dof_add_lsect(ddo, NULL, DOF_SECT_PROBES,
-	    sizeof (uint64_t), 0, sizeof (dof_probe_t),
+	    sizeof(uint64_t), 0, sizeof(dof_probe_t),
 	    dt_buf_len(&ddo->ddo_probes));
 
 	dt_buf_concat(dtp, &ddo->ddo_ldata,
-	    &ddo->ddo_probes, sizeof (uint64_t));
+	    &ddo->ddo_probes, sizeof(uint64_t));
 
 	dofpv.dofpv_prargs = dof_add_lsect(ddo, NULL, DOF_SECT_PRARGS,
-	    sizeof (uint8_t), 0, sizeof (uint8_t), dt_buf_len(&ddo->ddo_args));
+	    sizeof(uint8_t), 0, sizeof(uint8_t), dt_buf_len(&ddo->ddo_args));
 
-	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_args, sizeof (uint8_t));
+	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_args, sizeof(uint8_t));
 
 	dofpv.dofpv_proffs = dof_add_lsect(ddo, NULL, DOF_SECT_PROFFS,
-	    sizeof (uint_t), 0, sizeof (uint_t), dt_buf_len(&ddo->ddo_offs));
+	    sizeof(uint_t), 0, sizeof(uint_t), dt_buf_len(&ddo->ddo_offs));
 
-	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_offs, sizeof (uint_t));
+	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_offs, sizeof(uint_t));
 
-	if ((sz = dt_buf_len(&ddo->ddo_enoffs)) != 0) {
+	if ((sz = dt_buf_len(&ddo->ddo_enoffs)) != 0)
 		dofpv.dofpv_prenoffs = dof_add_lsect(ddo, NULL,
-		    DOF_SECT_PRENOFFS, sizeof (uint_t), 0, sizeof (uint_t), sz);
-	} else {
+		    DOF_SECT_PRENOFFS, sizeof(uint_t), 0, sizeof(uint_t), sz);
+	else
 		dofpv.dofpv_prenoffs = DOF_SECT_NONE;
-	}
 
-	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_enoffs, sizeof (uint_t));
+	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_enoffs, sizeof(uint_t));
 
 	dofpv.dofpv_strtab = ddo->ddo_strsec;
 	dofpv.dofpv_name = dof_add_string(ddo, pvp->desc.dtvd_name);
@@ -490,24 +486,23 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 	dofpv.dofpv_argsattr = dof_attr(&pvp->desc.dtvd_attr.dtpa_args);
 
 	dofs[0] = dof_add_lsect(ddo, &dofpv, DOF_SECT_PROVIDER,
-	    sizeof (dof_secidx_t), 0, 0, sizeof (dof_provider_t));
+	    sizeof(dof_secidx_t), 0, 0, sizeof(dof_provider_t));
 
 	dofr.dofr_strtab = dofpv.dofpv_strtab;
 	dofr.dofr_tgtsec = dofpv.dofpv_probes;
 	dofr.dofr_relsec = dof_add_lsect(ddo, NULL, DOF_SECT_RELTAB,
-	    sizeof (uint64_t), 0, sizeof (dof_relodesc_t),
+	    sizeof(uint64_t), 0, sizeof(dof_relodesc_t),
 	    dt_buf_len(&ddo->ddo_rels));
 
-	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_rels, sizeof (uint64_t));
+	dt_buf_concat(dtp, &ddo->ddo_ldata, &ddo->ddo_rels, sizeof(uint64_t));
 
-	(void) dof_add_lsect(ddo, &dofr, DOF_SECT_URELHDR,
-	    sizeof (dof_secidx_t), 0, 0, sizeof (dof_relohdr_t));
+	dof_add_lsect(ddo, &dofr, DOF_SECT_URELHDR,
+	    sizeof(dof_secidx_t), 0, 0, sizeof(dof_relohdr_t));
 
-	if (nxr != 0 && dtp->dt_xlatemode == DT_XL_DYNAMIC) {
-		(void) dof_add_lsect(ddo, dofs, DOF_SECT_PREXPORT,
-		    sizeof (dof_secidx_t), 0, sizeof (dof_secidx_t),
-		    sizeof (dof_secidx_t) * (nxr + 1));
-	}
+	if (nxr != 0 && dtp->dt_xlatemode == DT_XL_DYNAMIC)
+		dof_add_lsect(ddo, dofs, DOF_SECT_PREXPORT,
+		    sizeof(dof_secidx_t), 0, sizeof(dof_secidx_t),
+		    sizeof(dof_secidx_t) * (nxr + 1));
 }
 
 static int
@@ -521,9 +516,9 @@ dof_hdr(dtrace_hdl_t *dtp, uint8_t dofversion, dof_hdr_t *hp)
 	if (dtp->dt_conf.dtc_difversion > UINT8_MAX ||
 	    dtp->dt_conf.dtc_difintregs > UINT8_MAX ||
 	    dtp->dt_conf.dtc_diftupregs > UINT8_MAX)
-		return (dt_set_errno(dtp, EOVERFLOW));
+		return dt_set_errno(dtp, EOVERFLOW);
 
-	memset(hp, 0, sizeof (dof_hdr_t));
+	memset(hp, 0, sizeof(dof_hdr_t));
 
 	hp->dofh_ident[DOF_ID_MAG0] = DOF_MAG_MAG0;
 	hp->dofh_ident[DOF_ID_MAG1] = DOF_MAG_MAG1;
@@ -541,11 +536,11 @@ dof_hdr(dtrace_hdl_t *dtp, uint8_t dofversion, dof_hdr_t *hp)
 	hp->dofh_ident[DOF_ID_DIFIREG] = dtp->dt_conf.dtc_difintregs;
 	hp->dofh_ident[DOF_ID_DIFTREG] = dtp->dt_conf.dtc_diftupregs;
 
-	hp->dofh_hdrsize = sizeof (dof_hdr_t);
-	hp->dofh_secsize = sizeof (dof_sec_t);
-	hp->dofh_secoff = sizeof (dof_hdr_t);
+	hp->dofh_hdrsize = sizeof(dof_hdr_t);
+	hp->dofh_secsize = sizeof(dof_sec_t);
+	hp->dofh_secoff = sizeof(dof_hdr_t);
 
-	return (0);
+	return 0;
 }
 
 void *
@@ -579,17 +574,17 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	uint_t i;
 
 	if (flags & ~DTRACE_D_MASK) {
-		(void) dt_set_errno(dtp, EINVAL);
-		return (NULL);
+		dt_set_errno(dtp, EINVAL);
+		return NULL;
 	}
 
 	flags |= dtp->dt_dflags;
 
 	if (dof_hdr(dtp, pgp->dp_dofversion, &h) != 0)
-		return (NULL);
+		return NULL;
 
 	if (dt_dof_reset(dtp, pgp) != 0)
-		return (NULL);
+		return NULL;
 
 #ifdef FIXME
 	/*
@@ -619,13 +614,13 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	}
 #endif
 
-	dofa = alloca(sizeof (dof_actdesc_t) * maxacts);
+	dofa = alloca(sizeof(dof_actdesc_t) * maxacts);
 #ifdef FIXME
 	fmt = alloca(maxfmt + 1);
 #endif
 
 	ddo->ddo_strsec = dof_add_lsect(ddo, NULL, DOF_SECT_STRTAB, 1, 0, 0, 0);
-	(void) dof_add_string(ddo, "");
+	dof_add_string(ddo, "");
 
 	/*
 	 * If there are references to dynamic translators in the program, add
@@ -676,8 +671,8 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		dofp.dofp_id = pdp->id;
 
 		probesec = dof_add_lsect(ddo, &dofp, DOF_SECT_PROBEDESC,
-		    sizeof (dof_secidx_t), 0,
-		    sizeof (dof_probedesc_t), sizeof (dof_probedesc_t));
+		    sizeof(dof_secidx_t), 0,
+		    sizeof(dof_probedesc_t), sizeof(dof_probedesc_t));
 
 #ifdef FIXME
 		/*
@@ -699,7 +694,7 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 			 */
 			if (sdp != NULL && ap == sdp->dtsd_action) {
 				if (sdp->dtsd_fmtdata != NULL) {
-					(void) dtrace_printf_format(dtp,
+					dtrace_printf_format(dtp,
 					    sdp->dtsd_fmtdata, fmt, maxfmt + 1);
 					strndx = dof_add_string(ddo, fmt);
 				} else
@@ -729,8 +724,8 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 
 		if (i > 0) {
 			actsec = dof_add_lsect(ddo, dofa, DOF_SECT_ACTDESC,
-			    sizeof (uint64_t), 0, sizeof (dof_actdesc_t),
-			    sizeof (dof_actdesc_t) * i);
+			    sizeof(uint64_t), 0, sizeof(dof_actdesc_t),
+			    sizeof(dof_actdesc_t) * i);
 		}
 
 		/*
@@ -742,8 +737,8 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		dofe.dofe_pad = 0;
 		dofe.dofe_uarg = edp->dted_uarg;
 
-		(void) dof_add_lsect(ddo, &dofe, DOF_SECT_ECBDESC,
-		    sizeof (uint64_t), 0, 0, sizeof (dof_ecbdesc_t));
+		dof_add_lsect(ddo, &dofe, DOF_SECT_ECBDESC,
+		    sizeof(uint64_t), 0, 0, sizeof(dof_ecbdesc_t));
 	}
 
 	/*
@@ -761,10 +756,10 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	 * comments and any other unloadable miscellany.
 	 */
 	if (!(flags & DTRACE_D_STRIP)) {
-		(void) dof_add_usect(ddo, _dtrace_version, DOF_SECT_COMMENTS,
-		    sizeof (char), 0, 0, strlen(_dtrace_version) + 1);
-		(void) dof_add_usect(ddo, &dtp->dt_uts, DOF_SECT_UTSNAME,
-		    sizeof (char), 0, 0, sizeof (struct utsname));
+		dof_add_usect(ddo, _dtrace_version, DOF_SECT_COMMENTS,
+		    sizeof(char), 0, 0, strlen(_dtrace_version) + 1);
+		dof_add_usect(ddo, &dtp->dt_uts, DOF_SECT_UTSNAME,
+		    sizeof(char), 0, 0, sizeof(struct utsname));
 	}
 
 	/*
@@ -772,15 +767,15 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	 * dofh_secnum, dofh_loadsz, and dofh_filez values.
 	 */
 	h.dofh_secnum = ddo->ddo_nsecs;
-	ssize = sizeof (h) + dt_buf_len(&ddo->ddo_secs);
-	assert(ssize == sizeof (h) + sizeof (dof_sec_t) * ddo->ddo_nsecs);
+	ssize = sizeof(h) + dt_buf_len(&ddo->ddo_secs);
+	assert(ssize == sizeof(h) + sizeof(dof_sec_t) * ddo->ddo_nsecs);
 
 	h.dofh_loadsz = ssize +
 	    dt_buf_len(&ddo->ddo_ldata) +
 	    dt_buf_len(&ddo->ddo_strs);
 
 	if (dt_buf_len(&ddo->ddo_udata) != 0) {
-		lsize = roundup(h.dofh_loadsz, sizeof (uint64_t));
+		lsize = roundup(h.dofh_loadsz, sizeof(uint64_t));
 		h.dofh_filesz = lsize + dt_buf_len(&ddo->ddo_udata);
 	} else {
 		lsize = h.dofh_loadsz;
@@ -793,8 +788,8 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	 * iterate over the buffer data directly, we must check for errors.
 	 */
 	if ((i = dt_buf_error(&ddo->ddo_secs)) != 0) {
-		(void) dt_set_errno(dtp, i);
-		return (NULL);
+		dt_set_errno(dtp, i);
+		return NULL;
 	}
 
 	sp = dt_buf_ptr(&ddo->ddo_secs);
@@ -824,13 +819,13 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	 */
 	dt_buf_create(dtp, &dof, "dof", h.dofh_filesz);
 
-	dt_buf_write(dtp, &dof, &h, sizeof (h), sizeof (uint64_t));
-	dt_buf_concat(dtp, &dof, &ddo->ddo_secs, sizeof (uint64_t));
-	dt_buf_concat(dtp, &dof, &ddo->ddo_ldata, sizeof (uint64_t));
-	dt_buf_concat(dtp, &dof, &ddo->ddo_strs, sizeof (char));
-	dt_buf_concat(dtp, &dof, &ddo->ddo_udata, sizeof (uint64_t));
+	dt_buf_write(dtp, &dof, &h, sizeof(h), sizeof(uint64_t));
+	dt_buf_concat(dtp, &dof, &ddo->ddo_secs, sizeof(uint64_t));
+	dt_buf_concat(dtp, &dof, &ddo->ddo_ldata, sizeof(uint64_t));
+	dt_buf_concat(dtp, &dof, &ddo->ddo_strs, sizeof(char));
+	dt_buf_concat(dtp, &dof, &ddo->ddo_udata, sizeof(uint64_t));
 
-	return (dt_buf_claim(dtp, &dof));
+	return dt_buf_claim(dtp, &dof);
 }
 
 void
@@ -845,20 +840,20 @@ dtrace_getopt_dof(dtrace_hdl_t *dtp)
 	dof_hdr_t *dof;
 	dof_sec_t *sec;
 	dof_optdesc_t *dofo;
-	int i, nopts = 0, len = sizeof (dof_hdr_t) +
-	    roundup(sizeof (dof_sec_t), sizeof (uint64_t));
+	int i, nopts = 0, len = sizeof(dof_hdr_t) +
+	    roundup(sizeof(dof_sec_t), sizeof(uint64_t));
 
 	for (i = 0; i < DTRACEOPT_MAX; i++) {
 		if (dtp->dt_options[i] != DTRACEOPT_UNSET)
 			nopts++;
 	}
 
-	len += sizeof (dof_optdesc_t) * nopts;
+	len += sizeof(dof_optdesc_t) * nopts;
 
 	if ((dof = dt_zalloc(dtp, len)) == NULL ||
 	    dof_hdr(dtp, DOF_VERSION, dof) != 0) {
 		dt_free(dtp, dof);
-		return (NULL);
+		return NULL;
 	}
 
 	dof->dofh_secnum = 1;	/* only DOF_SECT_OPTDESC */
@@ -868,17 +863,17 @@ dtrace_getopt_dof(dtrace_hdl_t *dtp)
 	/*
 	 * Fill in the option section header...
 	 */
-	sec = (dof_sec_t *)((uintptr_t)dof + sizeof (dof_hdr_t));
+	sec = (dof_sec_t *)((uintptr_t)dof + sizeof(dof_hdr_t));
 	sec->dofs_type = DOF_SECT_OPTDESC;
-	sec->dofs_align = sizeof (uint64_t);
+	sec->dofs_align = sizeof(uint64_t);
 	sec->dofs_flags = DOF_SECF_LOAD;
-	sec->dofs_entsize = sizeof (dof_optdesc_t);
+	sec->dofs_entsize = sizeof(dof_optdesc_t);
 
 	dofo = (dof_optdesc_t *)((uintptr_t)sec +
-	    roundup(sizeof (dof_sec_t), sizeof (uint64_t)));
+	    roundup(sizeof(dof_sec_t), sizeof(uint64_t)));
 
 	sec->dofs_offset = (uintptr_t)dofo - (uintptr_t)dof;
-	sec->dofs_size = sizeof (dof_optdesc_t) * nopts;
+	sec->dofs_size = sizeof(dof_optdesc_t) * nopts;
 
 	for (i = 0; i < DTRACEOPT_MAX; i++) {
 		if (dtp->dt_options[i] == DTRACEOPT_UNSET)
@@ -890,15 +885,15 @@ dtrace_getopt_dof(dtrace_hdl_t *dtp)
 		dofo++;
 	}
 
-	return (dof);
+	return dof;
 }
 
 void *
 dtrace_geterr_dof(dtrace_hdl_t *dtp)
 {
 	if (dtp->dt_errprog != NULL)
-		return (dtrace_dof_create(dtp, dtp->dt_errprog, 0));
+		return dtrace_dof_create(dtp, dtp->dt_errprog, 0);
 
-	(void) dt_set_errno(dtp, EDT_BADERROR);
-	return (NULL);
+	dt_set_errno(dtp, EDT_BADERROR);
+	return NULL;
 }

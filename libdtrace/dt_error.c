@@ -96,7 +96,7 @@ static const struct {
 	{ EDT_PCAP, "Missing or corrupt pcap() record" }
 };
 
-static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);
+static const int _dt_nerr = sizeof(_dt_errlist) / sizeof(_dt_errlist[0]);
 
 const char *
 dtrace_errmsg(dtrace_hdl_t *dtp, int error)
@@ -113,26 +113,26 @@ dtrace_errmsg(dtrace_hdl_t *dtp, int error)
 	else if (error >= EDT_BASE && (error - EDT_BASE) < _dt_nerr) {
 		for (i = 0; i < _dt_nerr; i++) {
 			if (_dt_errlist[i].err == error)
-				return (_dt_errlist[i].msg);
+				return _dt_errlist[i].msg;
 		}
 		str = NULL;
 	} else
 		str = strerror(error);
 
-	return (str ? str : "Unknown error");
+	return str ? str : "Unknown error";
 }
 
 int
 dtrace_errno(dtrace_hdl_t *dtp)
 {
-	return (dtp->dt_errno);
+	return dtp->dt_errno;
 }
 
 int
 dt_set_errno(dtrace_hdl_t *dtp, int err)
 {
 	dtp->dt_errno = err;
-	return (-1);
+	return -1;
 }
 
 void
@@ -143,32 +143,32 @@ dt_set_errmsg(dtrace_hdl_t *dtp, const char *errtag, const char *region,
 	char *p, *s;
 
 	s = dtp->dt_errmsg;
-	n = sizeof (dtp->dt_errmsg);
+	n = sizeof(dtp->dt_errmsg);
 
 	if (errtag != NULL && ((dtp->dt_cflags & DTRACE_C_ETAGS) ||
 			       (yypcb && yypcb->pcb_cflags & DTRACE_C_ETAGS)))
-		(void) snprintf(s, n, "[%s] ", errtag);
+		snprintf(s, n, "[%s] ", errtag);
 	else
 		s[0] = '\0';
 
 	len = strlen(dtp->dt_errmsg);
 	s = dtp->dt_errmsg + len;
-	n = sizeof (dtp->dt_errmsg) - len;
+	n = sizeof(dtp->dt_errmsg) - len;
 
 	if (filename == NULL)
 		filename = dtp->dt_filetag;
 
 	if (filename != NULL)
-		(void) snprintf(s, n, "\"%s\", line %d: ", filename, lineno);
+		snprintf(s, n, "\"%s\", line %d: ", filename, lineno);
 	else if (lineno != 0)
-		(void) snprintf(s, n, "line %d: ", lineno);
+		snprintf(s, n, "line %d: ", lineno);
 	else if (region != NULL)
-		(void) snprintf(s, n, "in %s: ", region);
+		snprintf(s, n, "in %s: ", region);
 
 	len = strlen(dtp->dt_errmsg);
 	s = dtp->dt_errmsg + len;
-	n = sizeof (dtp->dt_errmsg) - len;
-	(void) vsnprintf(s, n, format, ap);
+	n = sizeof(dtp->dt_errmsg) - len;
+	vsnprintf(s, n, format, ap);
 
 	if ((p = strrchr(dtp->dt_errmsg, '\n')) != NULL)
 		*p = '\0'; /* remove trailing \n from message buffer */
@@ -201,8 +201,8 @@ dtrace_faultstr(dtrace_hdl_t *dtp, int fault)
 
 	for (i = 0; faults[i].str != NULL; i++) {
 		if (faults[i].code == fault)
-			return (faults[i].str);
+			return faults[i].str;
 	}
 
-	return ("unknown fault");
+	return "unknown fault";
 }

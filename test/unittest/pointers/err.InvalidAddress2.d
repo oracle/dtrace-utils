@@ -19,9 +19,9 @@
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
+	x = (int *)alloca(sizeof(int));
 	trace(x);
-	y = (int *) (x - 3300778156056);
+	y = (int *)(x - 3300778156056);
 	*y = 3;
 	trace(*y);
 }

@@ -46,6 +46,6 @@ struct s {
 
 BEGIN
 {
-	tracemem(curthread, sizeof (struct s));
+	tracemem(curthread, sizeof(struct s));
 	exit(0);
 }

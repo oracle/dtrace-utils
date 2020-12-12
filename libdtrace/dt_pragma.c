@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -215,14 +215,13 @@ dt_pragma_depends(const char *prname, dt_node_t *cnp)
 			    dtp->dt_filetag);
 			assert(dld != NULL);
 
-			(void) snprintf(lib, sizeof (lib), "%s%s",
+			snprintf(lib, sizeof(lib), "%s%s",
 			    dld->dtld_libpath, nnp->dn_string);
 			if ((dt_lib_depend_add(dtp, &dld->dtld_dependencies,
-			    lib)) != 0) {
+			    lib)) != 0)
 				xyerror(D_PRAGMA_DEPEND,
 				    "failed to add dependency %s:%s\n", lib,
 				    dtrace_errmsg(dtp, dtrace_errno(dtp)));
-			}
 		} else {
 			/*
 			 * By this point we have already performed a topological
@@ -238,7 +237,7 @@ dt_pragma_depends(const char *prname, dt_node_t *cnp)
 			    dtp->dt_filetag);
 			assert(dld != NULL);
 
-			(void) snprintf(lib, sizeof (lib), "%s%s",
+			snprintf(lib, sizeof(lib), "%s%s",
 			    dld->dtld_libpath, nnp->dn_string);
 			dld = dt_lib_depend_lookup(&dtp->dt_lib_dep_sorted,
 			    lib);
@@ -285,8 +284,8 @@ dt_pragma_error(const char *prname, dt_node_t *dnp)
 	for (enp = dnp; enp != NULL; enp = enp->dn_list) {
 		if (enp->dn_kind == DT_NODE_IDENT ||
 		    enp->dn_kind == DT_NODE_STRING) {
-			(void) strcat(s, enp->dn_string);
-			(void) strcat(s, " ");
+			strcat(s, enp->dn_string);
+			strcat(s, " ");
 		}
 	}
 
@@ -317,7 +316,7 @@ dt_pragma_option(const char *prname, dt_node_t *dnp)
 	}
 
 	opt = alloca(strlen(dnp->dn_string) + 1);
-	(void) strcpy(opt, dnp->dn_string);
+	strcpy(opt, dnp->dn_string);
 
 	if ((val = strchr(opt, '=')) != NULL)
 		*val++ = '\0';

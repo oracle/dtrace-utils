@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -75,7 +75,7 @@ extern "C" {
 #define	BT_BITOUL(nbits) \
 	(((nbits) + BT_NBIPUL - 1l) / BT_NBIPUL)
 #define	BT_SIZEOFMAP(nbits) \
-	(BT_BITOUL(nbits) * sizeof (ulong_t))
+	(BT_BITOUL(nbits) * sizeof(ulong_t))
 #define	BT_TEST(bitmap, bitindex) \
 	((BT_WIM((bitmap), (bitindex)) & BT_BIW(bitindex)) ? 1 : 0)
 #define	BT_SET(bitmap, bitindex) \
@@ -87,7 +87,7 @@ extern "C" {
 #define	BT_BITOUL32(nbits) \
 	(((nbits) + BT_NBIPUL32 - 1l) / BT_NBIPUL32)
 #define	BT_SIZEOFMAP32(nbits) \
-	(BT_BITOUL32(nbits) * sizeof (uint_t))
+	(BT_BITOUL32(nbits) * sizeof(uint_t))
 #define	BT_TEST32(bitmap, bitindex) \
 	((BT_WIM32((bitmap), (bitindex)) & BT_BIW32(bitindex)) ? 1 : 0)
 #define	BT_SET32(bitmap, bitindex) \

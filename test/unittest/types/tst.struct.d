@@ -41,7 +41,7 @@ struct dqstr {
 BEGIN
 {
 	s = (struct D`dqstr *)alloca(sizeof(struct D`dqstr));
-	bcopy(&curthread->fs->root.dentry->d_name, s, sizeof (struct D`dqstr));
+	bcopy(&curthread->fs->root.dentry->d_name, s, sizeof(struct D`dqstr));
 
 	printf("hash = %d\n", s->hash);
 	printf("len = %d\n", s->len);

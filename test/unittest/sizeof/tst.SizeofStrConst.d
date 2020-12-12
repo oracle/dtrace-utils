@@ -16,6 +16,6 @@
 
 BEGIN
 {
-	printf("sizeof \"hi\": %d\n", sizeof ("hi"));
+	printf("sizeof \"hi\": %d\n", sizeof("hi"));
 	exit(0);
 }

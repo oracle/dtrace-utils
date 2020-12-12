@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,7 +23,7 @@ int _go(int a);
 int
 go(int a)
 {
-	return (a + 1);
+	return a + 1;
 }
 
 static void
@@ -39,7 +39,7 @@ main(int argc, char **argv)
 	int		i;
 	struct rlimit	rl;
 
-	(void) signal(SIGUSR1, handle);
+	signal(SIGUSR1, handle);
 
 	getrlimit(RLIMIT_NOFILE, &rl);
 	for (i = 0; i < rl.rlim_max; i++)

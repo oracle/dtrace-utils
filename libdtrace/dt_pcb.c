@@ -52,7 +52,7 @@ dt_pcb_push(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		assert(yypcb->pcb_yystate == YYS_DONE);
 	}
 
-	memset(pcb, 0, sizeof (dt_pcb_t));
+	memset(pcb, 0, sizeof(dt_pcb_t));
 
 	dt_scope_create(&pcb->pcb_dstack);
 	dt_idstack_push(&pcb->pcb_globals, dtp->dt_globals);
@@ -76,7 +76,7 @@ dt_pcb_pop_ident(dt_idhash_t *dhp, dt_ident_t *idp, void *arg)
 	if (idp->di_gen == dtp->dt_gen)
 		dt_idhash_delete(dhp, idp);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -94,7 +94,7 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 	assert(pcb == dtp->dt_pcb);
 
 	while (pcb->pcb_dstack.ds_next != NULL)
-		(void) dt_scope_pop();
+		dt_scope_pop();
 
 	dt_scope_destroy(&pcb->pcb_dstack);
 	dt_irlist_destroy(&pcb->pcb_ir);
@@ -125,17 +125,17 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 				dt_provider_destroy(dtp, pvp);
 		}
 
-		(void) dt_idhash_iter(dtp->dt_aggs, dt_pcb_pop_ident, dtp);
+		dt_idhash_iter(dtp->dt_aggs, dt_pcb_pop_ident, dtp);
 		dt_idhash_update(dtp->dt_aggs);
 
-		(void) dt_idhash_iter(dtp->dt_globals, dt_pcb_pop_ident, dtp);
+		dt_idhash_iter(dtp->dt_globals, dt_pcb_pop_ident, dtp);
 		dt_idhash_update(dtp->dt_globals);
 
-		(void) dt_idhash_iter(dtp->dt_tls, dt_pcb_pop_ident, dtp);
+		dt_idhash_iter(dtp->dt_tls, dt_pcb_pop_ident, dtp);
 		dt_idhash_update(dtp->dt_tls);
 
-		(void) ctf_discard(dtp->dt_cdefs->dm_ctfp);
-		(void) ctf_discard(dtp->dt_ddefs->dm_ctfp);
+		ctf_discard(dtp->dt_cdefs->dm_ctfp);
+		ctf_discard(dtp->dt_ddefs->dm_ctfp);
 	}
 
 	if (pcb->pcb_pragmas != NULL)
@@ -157,6 +157,6 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 	free(pcb->pcb_sflagv);
 
 	dtp->dt_pcb = pcb->pcb_prev;
-	memset(pcb, 0, sizeof (dt_pcb_t));
+	memset(pcb, 0, sizeof(dt_pcb_t));
 	yyinit(dtp->dt_pcb);
 }

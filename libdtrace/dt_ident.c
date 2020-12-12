@@ -94,9 +94,9 @@ dt_idcook_sign(dt_node_t *dnp, dt_ident_t *idp,
 			    "prototype:\n\tprototype: %s\n\t%9s: %s\n",
 			    prefix, idp->di_name, suffix,
 			    iskey ? "key" : "argument", i + 1,
-			    dt_node_type_name(&isp->dis_args[i], n1, sizeof (n1)),
+			    dt_node_type_name(&isp->dis_args[i], n1, sizeof(n1)),
 			    iskey ? "key" : "argument",
-			    dt_node_type_name(args, n2, sizeof (n2)));
+			    dt_node_type_name(args, n2, sizeof(n2)));
 		}
 	}
 
@@ -112,7 +112,7 @@ static void
 dt_idcook_assc(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 {
 	if (idp->di_data == NULL) {
-		dt_idsig_t *isp = idp->di_data = malloc(sizeof (dt_idsig_t));
+		dt_idsig_t *isp = idp->di_data = malloc(sizeof(dt_idsig_t));
 		char n[DT_TYPE_NAMELEN];
 		int i;
 
@@ -126,7 +126,7 @@ dt_idcook_assc(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		isp->dis_auxinfo = 0;
 
 		if (argc != 0 && (isp->dis_args = calloc(argc,
-		    sizeof (dt_node_t))) == NULL) {
+		    sizeof(dt_node_t))) == NULL) {
 			idp->di_data = NULL;
 			free(isp);
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -148,7 +148,7 @@ dt_idcook_assc(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 			if (dt_node_is_dynamic(args) || dt_node_is_void(args)) {
 				xyerror(D_KEY_TYPE, "%s expression may not be "
 				    "used as %s index: key #%d\n",
-				    dt_node_type_name(args, n, sizeof (n)),
+				    dt_node_type_name(args, n, sizeof(n)),
 				    dt_idkind_name(idp->di_kind), i + 1);
 			}
 
@@ -184,7 +184,7 @@ dt_idcook_func(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 
 		assert(idp->di_iarg != NULL);
 		s = alloca(strlen(idp->di_iarg) + 1);
-		(void) strcpy(s, idp->di_iarg);
+		strcpy(s, idp->di_iarg);
 
 		if ((p2 = strrchr(s, ')')) != NULL)
 			*p2 = '\0'; /* mark end of parameter list string */
@@ -192,17 +192,15 @@ dt_idcook_func(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		if ((p1 = strchr(s, '(')) != NULL)
 			*p1++ = '\0'; /* mark end of return type string */
 
-		if (p1 == NULL || p2 == NULL) {
+		if (p1 == NULL || p2 == NULL)
 			xyerror(D_UNKNOWN, "internal error: malformed entry "
 			    "for built-in function %s\n", idp->di_name);
-		}
 
-		for (p2 = p1; *p2 != '\0'; p2++) {
+		for (p2 = p1; *p2 != '\0'; p2++)
 			if (!isspace(*p2)) {
 				i++;
 				break;
 			}
-		}
 
 		for (p2 = strchr(p2, ','); p2++ != NULL; i++)
 			p2 = strchr(p2, ',');
@@ -212,7 +210,7 @@ dt_idcook_func(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		 * appropriate number of argument entries, and then look up
 		 * the return type and store its CTF data in di_ctfp/type.
 		 */
-		if ((isp = idp->di_data = malloc(sizeof (dt_idsig_t))) == NULL)
+		if ((isp = idp->di_data = malloc(sizeof(dt_idsig_t))) == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 		isp->dis_varargs = -1;
@@ -222,17 +220,16 @@ dt_idcook_func(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		isp->dis_auxinfo = 0;
 
 		if (i != 0 && (isp->dis_args = calloc(i,
-		    sizeof (dt_node_t))) == NULL) {
+		    sizeof(dt_node_t))) == NULL) {
 			idp->di_data = NULL;
 			free(isp);
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 		}
 
-		if (dt_type_lookup(s, &dtt) == -1) {
+		if (dt_type_lookup(s, &dtt) == -1)
 			xyerror(D_UNKNOWN, "failed to resolve type of %s (%s):"
 			    " %s\n", idp->di_name, s,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
-		}
 
 		if (idp->di_kind == DT_IDENT_AGGFUNC) {
 			idp->di_ctfp = DT_DYN_CTFP(dtp);
@@ -335,7 +332,7 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		xyerror(D_PROTO_ARG, "%s[ ] argument #1 is incompatible with "
 		    "prototype:\n\tprototype: %s\n\t argument: %s\n",
 		    idp->di_name, "integer constant",
-		    dt_type_name(ap->dn_ctfp, ap->dn_type, n1, sizeof (n1)));
+		    dt_type_name(ap->dn_ctfp, ap->dn_type, n1, sizeof(n1)));
 	}
 
 	if (yypcb->pcb_pdesc == NULL) {
@@ -347,13 +344,13 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		xyerror(D_ARGS_MULTI,
 		    "%s[ ] may not be referenced because probe description %s "
 		    "matches an unstable set of probes\n", idp->di_name,
-		    dtrace_desc2str(yypcb->pcb_pdesc, n1, sizeof (n1)));
+		    dtrace_desc2str(yypcb->pcb_pdesc, n1, sizeof(n1)));
 	}
 
 	if (ap->dn_value >= prp->argc) {
 		xyerror(D_ARGS_IDX, "index %lld is out of range for %s %s[ ]\n",
 		    (longlong_t)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
-		    n1, sizeof (n1)), idp->di_name);
+		    n1, sizeof(n1)), idp->di_name);
 	}
 
 	/*
@@ -420,8 +417,8 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 	} else {
 		xyerror(D_ARGS_XLATOR, "translator for %s[%lld] from %s to %s "
 		    "is not defined\n", idp->di_name, (longlong_t)ap->dn_value,
-		    dt_node_type_name(nnp, n1, sizeof (n1)),
-		    dt_node_type_name(xnp, n2, sizeof (n2)));
+		    dt_node_type_name(nnp, n1, sizeof(n1)),
+		    dt_node_type_name(xnp, n2, sizeof(n2)));
 	}
 
 	assert(dnp->dn_ident->di_flags & DT_IDFLG_ORPHAN);
@@ -445,7 +442,7 @@ dt_idcook_regs(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		xyerror(D_PROTO_ARG, "%s[ ] argument #1 is incompatible with "
 		    "prototype:\n\tprototype: %s\n\t argument: %s\n",
 		    idp->di_name, "integer constant",
-		    dt_type_name(ap->dn_ctfp, ap->dn_type, n, sizeof (n)));
+		    dt_type_name(ap->dn_ctfp, ap->dn_type, n, sizeof(n)));
 	}
 
 	if ((ap->dn_flags & DT_NF_SIGNED) && (int64_t)ap->dn_value < 0) {
@@ -567,14 +564,14 @@ dt_iddtor_difo(dt_ident_t *idp)
 static size_t
 dt_idsize_type(dt_ident_t *idp)
 {
-	return (ctf_type_size(idp->di_ctfp, idp->di_type));
+	return ctf_type_size(idp->di_ctfp, idp->di_type);
 }
 
 /*ARGSUSED*/
 static size_t
 dt_idsize_none(dt_ident_t *idp)
 {
-	return (0);
+	return 0;
 }
 
 const dt_idops_t dt_idops_assc = {
@@ -657,11 +654,11 @@ dt_idhash_create(const char *name, const dt_ident_t *tmpl,
 
 	assert(min <= max);
 
-	size = sizeof (dt_idhash_t) +
-	    sizeof (dt_ident_t *) * (_dtrace_strbuckets - 1);
+	size = sizeof(dt_idhash_t) +
+	    sizeof(dt_ident_t *) * (_dtrace_strbuckets - 1);
 
 	if ((dhp = malloc(size)) == NULL)
-		return (NULL);
+		return NULL;
 
 	memset(dhp, 0, size);
 	dhp->dh_name = name;
@@ -672,7 +669,7 @@ dt_idhash_create(const char *name, const dt_ident_t *tmpl,
 	dhp->dh_nextoff = 0;
 	dhp->dh_hashsz = _dtrace_strbuckets;
 
-	return (dhp);
+	return dhp;
 }
 
 /*
@@ -747,20 +744,20 @@ dt_idhash_lookup(dt_idhash_t *dhp, const char *name)
 
 	for (idp = dhp->dh_hash[h]; idp != NULL; idp = idp->di_next) {
 		if (strcmp(idp->di_name, name) == 0)
-			return (idp);
+			return idp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 int
 dt_idhash_nextid(dt_idhash_t *dhp, uint_t *p)
 {
 	if (dhp->dh_nextid >= dhp->dh_maxid)
-		return (-1); /* no more id's are free to allocate */
+		return -1; /* no more id's are free to allocate */
 
 	*p = dhp->dh_nextid++;
-	return (0);
+	return 0;
 }
 
 uint_t
@@ -801,7 +798,7 @@ dt_idhash_insert(dt_idhash_t *dhp, const char *name, ushort_t kind,
 	idp = dt_ident_create(name, kind, flags, id, attr, vers, ops, iarg,
 			      gen);
 	if (idp == NULL)
-		return (NULL);
+		return NULL;
 
 	h = dt_strtab_hash(name, NULL) % dhp->dh_hashsz;
 	idp->di_next = dhp->dh_hash[h];
@@ -813,7 +810,7 @@ dt_idhash_insert(dt_idhash_t *dhp, const char *name, ushort_t kind,
 	if (dhp->dh_defer != NULL)
 		dhp->dh_defer(dhp, idp);
 
-	return (idp);
+	return idp;
 }
 
 void
@@ -868,9 +865,9 @@ dt_idhash_comp(const void *lp, const void *rp)
 	const dt_ident_t *rhs = *((const dt_ident_t **)rp);
 
 	if (lhs->di_id != rhs->di_id)
-		return ((int)(lhs->di_id - rhs->di_id));
+		return (int)(lhs->di_id - rhs->di_id);
 	else
-		return (strcmp(lhs->di_name, rhs->di_name));
+		return strcmp(lhs->di_name, rhs->di_name);
 }
 
 int
@@ -885,21 +882,21 @@ dt_idhash_iter(dt_idhash_t *dhp, dt_idhash_f *func, void *data)
 		dt_idhash_populate(dhp); /* fill hash w/ initial population */
 
 	n = dhp->dh_nelems;
-	ids = alloca(sizeof (dt_ident_t *) * n);
+	ids = alloca(sizeof(dt_ident_t *) * n);
 
 	for (i = 0, j = 0; i < dhp->dh_hashsz; i++) {
 		for (idp = dhp->dh_hash[i]; idp != NULL; idp = idp->di_next)
 			ids[j++] = idp;
 	}
 
-	qsort(ids, dhp->dh_nelems, sizeof (dt_ident_t *), dt_idhash_comp);
+	qsort(ids, dhp->dh_nelems, sizeof(dt_ident_t *), dt_idhash_comp);
 
 	for (i = 0; i < n; i++) {
 		if ((rv = func(dhp, ids[i], data)) != 0)
-			return (rv);
+			return rv;
 	}
 
-	return (0);
+	return 0;
 }
 
 dt_ident_t *
@@ -911,10 +908,10 @@ dt_idstack_lookup(dt_idstack_t *sp, const char *name)
 	for (dhp = dt_list_prev(&sp->dids_list);
 	    dhp != NULL; dhp = dt_list_prev(dhp)) {
 		if ((idp = dt_idhash_lookup(dhp, name)) != NULL)
-			return (idp);
+			return idp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 void
@@ -939,9 +936,9 @@ dt_ident_create(const char *name, ushort_t kind, ushort_t flags, uint_t id,
 	char *s = NULL;
 
 	if ((name != NULL && (s = strdup(name)) == NULL) ||
-	    (idp = malloc(sizeof (dt_ident_t))) == NULL) {
+	    (idp = malloc(sizeof(dt_ident_t))) == NULL) {
 		free(s);
-		return (NULL);
+		return NULL;
 	}
 
 	idp->di_name = s;
@@ -1008,7 +1005,7 @@ dt_ident_cook(dt_node_t *dnp, dt_ident_t *idp, dt_node_t **pargp)
 	if (idp->di_flags & DT_IDFLG_USER)
 		dnp->dn_flags |= DT_NF_USERLAND;
 
-	return (dt_attr_min(attr, idp->di_attr));
+	return dt_attr_min(attr, idp->di_attr);
 }
 
 void
@@ -1067,41 +1064,41 @@ dt_ident_resolve(dt_ident_t *idp)
 			break;
 	}
 
-	return (idp);
+	return idp;
 }
 
 size_t
 dt_ident_size(dt_ident_t *idp)
 {
 	idp = dt_ident_resolve(idp);
-	return (idp->di_ops->di_size(idp));
+	return idp->di_ops->di_size(idp);
 }
 
 int
 dt_ident_unref(const dt_ident_t *idp)
 {
-	return (idp->di_gen == yypcb->pcb_hdl->dt_gen &&
-	    (idp->di_flags & (DT_IDFLG_REF|DT_IDFLG_MOD|DT_IDFLG_DECL)) == 0);
+	return idp->di_gen == yypcb->pcb_hdl->dt_gen &&
+	    (idp->di_flags & (DT_IDFLG_REF|DT_IDFLG_MOD|DT_IDFLG_DECL)) == 0;
 }
 
 const char *
 dt_idkind_name(uint_t kind)
 {
 	switch (kind) {
-	case DT_IDENT_ARRAY:	return ("associative array");
-	case DT_IDENT_SCALAR:	return ("scalar");
-	case DT_IDENT_PTR:	return ("pointer");
-	case DT_IDENT_FUNC:	return ("function");
-	case DT_IDENT_AGG:	return ("aggregation");
-	case DT_IDENT_AGGFUNC:	return ("aggregating function");
-	case DT_IDENT_ACTFUNC:	return ("tracing function");
-	case DT_IDENT_XLSOU:	return ("translated data");
-	case DT_IDENT_XLPTR:	return ("pointer to translated data");
-	case DT_IDENT_SYMBOL:	return ("external symbol reference");
-	case DT_IDENT_ENUM:	return ("enumerator");
-	case DT_IDENT_PRAGAT:	return ("#pragma attributes");
-	case DT_IDENT_PRAGBN:	return ("#pragma binding");
-	case DT_IDENT_PROBE:	return ("probe definition");
-	default:		return ("<?>");
+	case DT_IDENT_ARRAY:	return "associative array";
+	case DT_IDENT_SCALAR:	return "scalar";
+	case DT_IDENT_PTR:	return "pointer";
+	case DT_IDENT_FUNC:	return "function";
+	case DT_IDENT_AGG:	return "aggregation";
+	case DT_IDENT_AGGFUNC:	return "aggregating function";
+	case DT_IDENT_ACTFUNC:	return "tracing function";
+	case DT_IDENT_XLSOU:	return "translated data";
+	case DT_IDENT_XLPTR:	return "pointer to translated data";
+	case DT_IDENT_SYMBOL:	return "external symbol reference";
+	case DT_IDENT_ENUM:	return "enumerator";
+	case DT_IDENT_PRAGAT:	return "#pragma attributes";
+	case DT_IDENT_PRAGBN:	return "#pragma binding";
+	case DT_IDENT_PROBE:	return "probe definition";
+	default:		return "<?>";
 	}
 }

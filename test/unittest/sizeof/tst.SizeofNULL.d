@@ -16,12 +16,12 @@
 
 BEGIN
 {
-	printf("sizeof (NULL): %d\n", sizeof (NULL));
+	printf("sizeof(NULL): %d\n", sizeof(NULL));
 	exit(0);
 }
 
 END
-/4 != sizeof (NULL)/
+/4 != sizeof(NULL)/
 {
 	exit(1);
 }

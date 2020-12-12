@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -59,12 +59,12 @@ Pread_first_arg_arm64(struct ps_prochandle *P)
 	 */
 
 	if (getregs_arm64(P, &regs) < 0)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	addr = regs.regs[0];
 
 	if ((errno == ESRCH) || (addr < 0))
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	return addr;
 }
@@ -82,16 +82,16 @@ Pget_bkpt_ip_arm64(struct ps_prochandle *P, int expect_esrch)
 	struct user_pt_regs regs;
 
 	if (getregs_arm64(P, &regs) < 0)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 	ip = regs.pc;
 
 	if ((errno == ESRCH) && (expect_esrch))
-	    return(0);
+	    return 0;
 
 	if (errno != 0) {
 		_dprintf("Unexpected ptrace (PTRACE_GETREGSET) error: %s\n",
 		    strerror(errno));
-		return(-1);
+		return -1;
 	}
 
 	return ip;

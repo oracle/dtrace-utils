@@ -43,13 +43,13 @@ main(int argc, char **argv)
 	TEST_PROV_GO();
 	if (fork() == 0) {
 		TEST_PROV_GO();
-		return (0);
+		return 0;
 	}
 
-	(void) wait(NULL);
+	wait(NULL);
 	TEST_PROV_GO();
 
-	return (0);
+	return 0;
 }
 EOF
 

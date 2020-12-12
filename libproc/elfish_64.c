@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -69,13 +69,13 @@ BITIZE(r_debug)(struct ps_prochandle *P)
 		return -1;
 	}
 
-	if (phent != sizeof (phdr)) {
+	if (phent != sizeof(phdr)) {
 		static int warned = 0;
 		if (!warned) {
 			fprintf(stderr, "%i: AT_PHENT is the wrong "
 			    "size: %li bytes versus an expected %li.\n"
 			    "This should never happen.\n", P->pid, phent,
-			    sizeof (phdr));
+			    sizeof(phdr));
 			warned = 1;
 		}
 		return -1;
@@ -84,14 +84,14 @@ BITIZE(r_debug)(struct ps_prochandle *P)
 	/*
 	 * Find the PT_DYNAMIC and PT_PHDR sections.
 	 */
-	for (i = 0; i < phnum && num_found < 2; i++, phaddr += sizeof (phdr)) {
+	for (i = 0; i < phnum && num_found < 2; i++, phaddr += sizeof(phdr)) {
 		ssize_t foo;
 
-		if ((foo = Pread(P, &phdr, sizeof (phdr),
-			    (uintptr_t) phaddr)) != sizeof (phdr)) {
+		if ((foo = Pread(P, &phdr, sizeof(phdr),
+			    (uintptr_t)phaddr)) != sizeof(phdr)) {
 
-			_dprintf("short read: phdr end: read %li, sizeof (phdr) %li\n",
-			    foo, sizeof (phdr));
+			_dprintf("short read: phdr end: read %li, sizeof(phdr) %li\n",
+			    foo, sizeof(phdr));
 			/*
 			 * Short read -> assume end of phdr.
 			 */
@@ -135,9 +135,9 @@ BITIZE(r_debug)(struct ps_prochandle *P)
 	 * Find the DT_DEBUG dynamic tag.
 	 */
 
-	for (i = 0; i < dynsize; i += sizeof (dyn), dynaddr += sizeof (dyn)) {
-		if (Pread(P, &dyn, sizeof (dyn),
-			(uintptr_t) (dynaddr + reloc)) != sizeof (dyn)) {
+	for (i = 0; i < dynsize; i += sizeof(dyn), dynaddr += sizeof(dyn)) {
+		if (Pread(P, &dyn, sizeof(dyn),
+			(uintptr_t)(dynaddr + reloc)) != sizeof(dyn)) {
 			/*
 			 * Short read -> assume end of dynamic section.
 			 */

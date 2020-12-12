@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -34,8 +34,8 @@ main(void)
 	act.sa_handler = interrupt;
 	act.sa_flags = 0;
 
-	(void) sigemptyset(&act.sa_mask);
-	(void) sigaction(SIGUSR1, &act, NULL);
+	sigemptyset(&act.sa_mask);
+	sigaction(SIGUSR1, &act, NULL);
 
 	getrlimit(RLIMIT_NOFILE, &rl);
 	for (i = 0; i < rl.rlim_max; i++)
@@ -46,12 +46,11 @@ main(void)
 	 * With all of our file descriptors closed, wait here spinning in bogus
 	 * ioctl() calls until DTrace hits us with a SIGUSR1 to start the test.
 	 */
-	if (sigsetjmp(env, 1) == 0) {
+	if (sigsetjmp(env, 1) == 0)
 		for (;;) {
-			(void) ioctl(-1, -1, NULL);
+			ioctl(-1, -1, NULL);
                         usleep(100);
                 }
-	}
 
 	/*
 	 * To test the fds[] array, we open /dev/null (a file with reliable
@@ -66,7 +65,7 @@ main(void)
 	    O_SYNC | O_TRUNC, 0);
 
 	fds[n++] = open(file, O_RDWR);
-	(void) lseek(fds[n - 1], 123, SEEK_SET);
+	lseek(fds[n - 1], 123, SEEK_SET);
 
 	/*
 	 * Once we have all the file descriptors in the state we want to test,
@@ -74,8 +73,8 @@ main(void)
 	 * our DTrace script into recording the content of the fds[] array.
 	 */
 	for (i = 0; i < n; i++)
-		(void) ioctl(fds[i], -1, NULL);
+		ioctl(fds[i], -1, NULL);
 
-	assert(n <= sizeof (fds) / sizeof (fds[0]));
+	assert(n <= sizeof(fds) / sizeof(fds[0]));
 	exit(0);
 }

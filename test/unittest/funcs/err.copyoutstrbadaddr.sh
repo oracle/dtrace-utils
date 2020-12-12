@@ -1,29 +1,28 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 dtrace_script()
 {
-	
 	$dtrace $dt_flags -w -s /dev/stdin <<EOF
 
 	/*
- 	* ASSERTION:
- 	*	Verify that copyout() handles bad addresses.
- 	*
- 	* SECTION: Actions and Subroutines/copyout()
- 	* 
- 	*/
+	 * ASSERTION:
+	 *	Verify that copyout() handles bad addresses.
+	 *
+	 * SECTION: Actions and Subroutines/copyout()
+	 *
+	 */
 
-	BEGIN 
+	BEGIN
 	{
-        	ptr = alloca(sizeof (char *));
-        	copyinto(curpsinfo->pr_envp, sizeof (char *), ptr);
-        	copyout(ptr, 0, sizeof (char *));
+		ptr = alloca(sizeof(char *));
+		copyinto(curpsinfo->pr_envp, sizeof(char *), ptr);
+		copyout(ptr, 0, sizeof(char *));
 	}
 
 	ERROR

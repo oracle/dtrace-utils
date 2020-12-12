@@ -55,12 +55,12 @@ dt_dis_varname(const dtrace_difo_t *dp, uint_t id, uint_t scope, uint_t addr)
 		if (dvp->dtdv_id == id && dvp->dtdv_scope == scope &&
 		    dvp->dtdv_insn_from <= addr && addr <= dvp->dtdv_insn_to) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
-				return (dp->dtdo_strtab + dvp->dtdv_name);
+				return dp->dtdo_strtab + dvp->dtdv_name;
 			break;
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 static char *
@@ -267,7 +267,7 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 					DIFV_SCOPE_GLOBAL, addr));
 		return buf;
 	} else if (strcmp(fn, "dt_get_tvar") == 0 ||
-		   strcmp(fn, "dt_set_tvar") == 0 ) {
+		   strcmp(fn, "dt_set_tvar") == 0) {
 		/*
 		 * We know that the previous instruction exists and assigns
 		 * the variable id to %r1 (because we wrote the code generator
@@ -371,7 +371,7 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 		strcpy(kind, "string");
 		break;
 	default:
-		snprintf(kind, sizeof (kind), "0x%x", t->dtdt_kind);
+		snprintf(kind, sizeof(kind), "0x%x", t->dtdt_kind);
 	}
 
 	switch (t->dtdt_ckind) {
@@ -418,7 +418,7 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 		strcpy(ckind, "restrict");
 		break;
 	default:
-		snprintf(ckind, sizeof (ckind), "0x%x", t->dtdt_ckind);
+		snprintf(ckind, sizeof(ckind), "0x%x", t->dtdt_ckind);
 	}
 
 	if (t->dtdt_flags & DIF_TF_BYREF) {
@@ -429,7 +429,7 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 		    kind, ckind, (ulong_t)t->dtdt_size);
 	}
 
-	return (buf);
+	return buf;
 }
 
 static void

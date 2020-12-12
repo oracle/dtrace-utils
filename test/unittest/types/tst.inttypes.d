@@ -14,16 +14,16 @@
 
 BEGIN
 {
-	printf("sizeof (int8_t) = %u\n", sizeof (int8_t));
-	printf("sizeof (int16_t) = %u\n", sizeof (int16_t));
-	printf("sizeof (int32_t) = %u\n", sizeof (int32_t));
-	printf("sizeof (int64_t) = %u\n", sizeof (int64_t));
-	printf("sizeof (intptr_t) = %u\n", sizeof (intptr_t));
-	printf("sizeof (uint8_t) = %u\n", sizeof (uint8_t));
-	printf("sizeof (uint16_t) = %u\n", sizeof (uint16_t));
-	printf("sizeof (uint32_t) = %u\n", sizeof (uint32_t));
-	printf("sizeof (uint64_t) = %u\n", sizeof (uint64_t));
-	printf("sizeof (uintptr_t) = %u\n", sizeof (uintptr_t));
+	printf("sizeof(int8_t) = %u\n", sizeof(int8_t));
+	printf("sizeof(int16_t) = %u\n", sizeof(int16_t));
+	printf("sizeof(int32_t) = %u\n", sizeof(int32_t));
+	printf("sizeof(int64_t) = %u\n", sizeof(int64_t));
+	printf("sizeof(intptr_t) = %u\n", sizeof(intptr_t));
+	printf("sizeof(uint8_t) = %u\n", sizeof(uint8_t));
+	printf("sizeof(uint16_t) = %u\n", sizeof(uint16_t));
+	printf("sizeof(uint32_t) = %u\n", sizeof(uint32_t));
+	printf("sizeof(uint64_t) = %u\n", sizeof(uint64_t));
+	printf("sizeof(uintptr_t) = %u\n", sizeof(uintptr_t));
 
 	exit(0);
 }

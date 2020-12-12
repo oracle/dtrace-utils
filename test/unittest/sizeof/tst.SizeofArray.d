@@ -25,17 +25,17 @@ BEGIN
 	array[1] = 100;
 	array[2] = 210;
 
-	printf("sizeof (array): %d\n", sizeof (array));
-	printf("sizeof (array[0]): %d\n", sizeof (array[0]));
-	printf("sizeof (array[1]): %d\n", sizeof (array[1]));
-	printf("sizeof (array[2]): %d\n", sizeof (array[2]));
+	printf("sizeof(array): %d\n", sizeof(array));
+	printf("sizeof(array[0]): %d\n", sizeof(array[0]));
+	printf("sizeof(array[1]): %d\n", sizeof(array[1]));
+	printf("sizeof(array[2]): %d\n", sizeof(array[2]));
 
 	exit(0);
 }
 
 END
-/(20 != sizeof (array)) || (4 != sizeof (array[0])) || (4 != sizeof (array[1]))
-    || (4 != sizeof (array[2]))/
+/(20 != sizeof(array)) || (4 != sizeof(array[0])) || (4 != sizeof(array[1]))
+    || (4 != sizeof(array[2]))/
 {
 	exit(1);
 }

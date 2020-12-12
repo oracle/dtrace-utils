@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -26,14 +26,14 @@ main(int argc, char **argv)
 	ev.sigev_signo = SIGUSR1;
 
 	if (timer_create(CLOCK_REALTIME, &ev, &tid) == -1) {
-		(void) fprintf(stderr, "%s: cannot create CLOCK_HIGHRES "
+		fprintf(stderr, "%s: cannot create CLOCK_HIGHRES "
 		    "timer: %s\n", cmd, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
-	(void) sigemptyset(&set);
-	(void) sigaddset(&set, SIGUSR1);
-	(void) sigprocmask(SIG_BLOCK, &set, NULL);
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	sigprocmask(SIG_BLOCK, &set, NULL);
 
 	ts.it_value.tv_sec = 5;
 	ts.it_value.tv_nsec = 0;
@@ -41,16 +41,16 @@ main(int argc, char **argv)
 	ts.it_interval.tv_nsec = NANOSEC / 2;
 
 	if (timer_settime(tid, 0, &ts, NULL) == -1) {
-		(void) fprintf(stderr, "%s: timer_settime() failed: %s\n",
+		fprintf(stderr, "%s: timer_settime() failed: %s\n",
 		    cmd, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
 	for (;;) {
 		int sig;
-		(void) sigwait(&set, &sig);
+		sigwait(&set, &sig);
 	}
 
 	/*NOTREACHED*/
-	return (0);
+	return 0;
 }

@@ -9,7 +9,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -33,7 +33,7 @@ interposed_func(void) {
 int
 main(int argc, char *argv[])
 {
-	void (*func) (void);
+	void (*func)(void);
 	void *dlmopen_handle;
 
 	enum { MAIN, LIB, INTERPOSED, LMID } state;

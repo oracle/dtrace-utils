@@ -23,7 +23,7 @@
 dtrace_prog_t *
 dt_program_create(dtrace_hdl_t *dtp)
 {
-	dtrace_prog_t *pgp = dt_zalloc(dtp, sizeof (dtrace_prog_t));
+	dtrace_prog_t *pgp = dt_zalloc(dtp, sizeof(dtrace_prog_t));
 
 	if (pgp == NULL) {
 		dt_set_errno(dtp, EDT_NOMEM);
@@ -39,7 +39,7 @@ dt_program_create(dtrace_hdl_t *dtp)
 	 */
 	pgp->dp_dofversion = DOF_VERSION_1;
 
-	return (pgp);
+	return pgp;
 }
 
 void
@@ -73,7 +73,7 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	if (pip == NULL)
 		return;
 
-	memset(pip, 0, sizeof (dtrace_proginfo_t));
+	memset(pip, 0, sizeof(dtrace_proginfo_t));
 
 	if (dt_list_next(&pgp->dp_stmts) != NULL) {
 		pip->dpi_descattr = _dtrace_maxattr;
@@ -209,14 +209,14 @@ dt_ecbdesc_create(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
 	dtrace_ecbdesc_t *edp;
 
-	if ((edp = dt_zalloc(dtp, sizeof (dtrace_ecbdesc_t))) == NULL) {
-		(void) dt_set_errno(dtp, EDT_NOMEM);
-		return (NULL);
+	if ((edp = dt_zalloc(dtp, sizeof(dtrace_ecbdesc_t))) == NULL) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
 	}
 
 	edp->dted_probe = *pdp;
 	dt_ecbdesc_hold(edp);
-	return (edp);
+	return edp;
 }
 
 dtrace_stmtdesc_t *
@@ -239,15 +239,15 @@ dtrace_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp)
 int
 dtrace_stmt_add(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp)
 {
-	dt_stmt_t *stp = dt_alloc(dtp, sizeof (dt_stmt_t));
+	dt_stmt_t *stp = dt_alloc(dtp, sizeof(dt_stmt_t));
 
 	if (stp == NULL)
-		return (-1); /* errno is set for us */
+		return -1; /* errno is set for us */
 
 	dt_list_append(&pgp->dp_stmts, stp);
 	stp->ds_desc = sdp;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -263,7 +263,7 @@ dtrace_stmt_iter(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 			break;
 	}
 
-	return (status);
+	return status;
 }
 
 void
@@ -338,24 +338,24 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 
 	if (fprintf(infop->dthi_out, "extern void __dtrace_%s___%s(",
 	    infop->dthi_pfname, fname) < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	for (dnp = prp->nargs, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
 		if (fprintf(infop->dthi_out, "%s",
 		    ctf_type_name(dnp->dn_ctfp, dnp->dn_type,
-		    buf, sizeof (buf))) < 0)
-			return (dt_set_errno(dtp, errno));
+		    buf, sizeof(buf))) < 0)
+			return dt_set_errno(dtp, errno);
 
 		if (i + 1 < prp->nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 	}
 
 	if (i == 0 && fprintf(infop->dthi_out, "void") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	if (fprintf(infop->dthi_out, ");\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	if (fprintf(infop->dthi_out,
 	    "#if !defined(__aarch64__) && !defined(__sparc)\n"
@@ -364,9 +364,9 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	    "extern int __dtraceenabled_%s___%s(long);\n"
 	    "#endif\n",
 	    infop->dthi_pfname, fname, infop->dthi_pfname, fname) < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -392,37 +392,37 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 
 	if (fprintf(infop->dthi_out, "#define\t%s_%s(",
 	    infop->dthi_pmname, mname) < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	for (i = 0; i < prp->nargc; i++) {
 		if (fprintf(infop->dthi_out, "arg%d", i) < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 
 		if (i + 1 != prp->nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 	}
 
 	if (!infop->dthi_empty) {
 		if (fprintf(infop->dthi_out, ") \\\n\t") < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 
 		if (fprintf(infop->dthi_out, "__dtrace_%s___%s(",
 		    infop->dthi_pfname, fname) < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 
 		for (i = 0; i < prp->nargc; i++) {
 			if (fprintf(infop->dthi_out, "arg%d", i) < 0)
-				return (dt_set_errno(dtp, errno));
+				return dt_set_errno(dtp, errno);
 
 			if (i + 1 != prp->nargc &&
 			    fprintf(infop->dthi_out, ", ") < 0)
-				return (dt_set_errno(dtp, errno));
+				return dt_set_errno(dtp, errno);
 		}
 	}
 
 	if (fprintf(infop->dthi_out, ")\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	if (!infop->dthi_empty) {
 		if (fprintf(infop->dthi_out,
@@ -437,15 +437,15 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		    infop->dthi_pfname, fname,
 		    infop->dthi_pmname, mname,
 		    infop->dthi_pfname, fname) < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 
 	} else {
 		if (fprintf(infop->dthi_out, "#define\t%s_%s_ENABLED() (0)\n",
 		    infop->dthi_pmname, mname) < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 	}
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -456,7 +456,7 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	int i;
 
 	if (pvp->pv_flags & DT_PROVIDER_IMPL)
-		return (0);
+		return 0;
 
 	/*
 	 * Count the instances of the '-' character since we'll need to double
@@ -478,27 +478,27 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 
 	if (fprintf(out, "#define _DTRACE_VERSION 1\n\n"
 			 "#if _DTRACE_VERSION\n\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_probe, &info) != 0)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 	if (fprintf(out, "\n\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_decl, &info) != 0)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	if (fprintf(out, "\n#else\n\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	info.dthi_empty = 1;
 
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_probe, &info) != 0)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	if (fprintf(out, "\n#endif\n\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (0);
+	return 0;
 }
 
 int
@@ -515,27 +515,27 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 		dt_header_fmt_macro(mfname, fname);
 		if (fprintf(out, "#ifndef\t_%s\n#define\t_%s\n\n",
 		    mfname, mfname) < 0)
-			return (dt_set_errno(dtp, errno));
+			return dt_set_errno(dtp, errno);
 	}
 
 	if (fprintf(out, "#include <unistd.h>\n"
 		"#include <inttypes.h>\n\n") < 0)
-		return (-1);
+		return -1;
 
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)
-		return (-1);
+		return -1;
 
 	for (pvp = dt_list_next(&dtp->dt_provlist);
 	    pvp != NULL; pvp = dt_list_next(pvp)) {
 		if (dt_header_provider(dtp, pvp, out) != 0)
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 	}
 
 	if (fprintf(out, "\n#ifdef\t__cplusplus\n}\n#endif\n") < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	if (fname != NULL && fprintf(out, "\n#endif\t/* _%s */\n", mfname) < 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (0);
+	return 0;
 }

@@ -28,8 +28,8 @@ struct output_struct {
 
 translator struct output_struct < union input_union *ivar >
 {
-	myi = ((union input_union *) ivar)->i;
-	myc = ((union input_union *) ivar)->c;
+	myi = ((union input_union *)ivar)->i;
+	myc = ((union input_union *)ivar)->c;
 
 };
 

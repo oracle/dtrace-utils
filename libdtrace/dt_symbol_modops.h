@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -43,7 +43,7 @@ BITIZE(dt_module_syminit)(dt_module_t *dmp)
 		dt_module_symhash_insert(dmp, name, i);
 	}
 
-	return (asrsv);
+	return asrsv;
 }
 
 /*
@@ -71,16 +71,15 @@ BITIZE(dt_module_symcomp)(const void *lp, const void *rp, void *strtabp)
 	/* sort by type */
 	if ((ELFIZE(ST_TYPE)(lhs->st_info) == STT_NOTYPE) !=
 	    (ELFIZE(ST_TYPE)(rhs->st_info) == STT_NOTYPE))
-		return (ELFIZE(ST_TYPE)(lhs->st_info) == STT_NOTYPE ? 1 : -1);
+		return ELFIZE(ST_TYPE)(lhs->st_info) == STT_NOTYPE ? 1 : -1;
 
 	/* not weak */
 	if ((ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK) !=
 	    (ELFIZE(ST_BIND)(rhs->st_info) == STB_WEAK))
-		return (ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK ? 1 : -1);
+		return ELFIZE(ST_BIND)(lhs->st_info) == STB_WEAK ? 1 : -1;
 
 	/* lexical order */
-	return (strcmp(strtab + lhs->st_name,
-	    strtab + rhs->st_name));
+	return strcmp(strtab + lhs->st_name, strtab + rhs->st_name);
 }
 
 static void
@@ -102,8 +101,8 @@ BITIZE(dt_module_symsort)(dt_module_t *dmp)
 	assert(dmp->dm_aslen <= dmp->dm_asrsv);
 
 	qsort_r(dmp->dm_asmap, dmp->dm_aslen,
-	    sizeof (ElfIZE(Sym) *), BITIZE(dt_module_symcomp),
-	    (void *) dmp->dm_strtab.cts_data);
+	    sizeof(ElfIZE(Sym) *), BITIZE(dt_module_symcomp),
+	    (void *)dmp->dm_strtab.cts_data);
 }
 
 static GElf_Sym *
@@ -118,7 +117,7 @@ BITIZE(dt_module_symname)(dt_module_t *dmp, const char *name,
 	uint_t i, h;
 
 	if (dmp->dm_nsymelems == 0)
-		return (NULL);
+		return NULL;
 
 	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
 
@@ -129,11 +128,11 @@ BITIZE(dt_module_symname)(dt_module_t *dmp, const char *name,
 		if (strcmp(name, strtab + sym->st_name) == 0) {
 			if (idp != NULL)
 				*idp = dmsp->dms_symid;
-			return (BITIZE(dt_module_symgelf)(sym, symp));
+			return BITIZE(dt_module_symgelf)(sym, symp);
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 static GElf_Sym *
@@ -148,7 +147,7 @@ BITIZE(dt_module_symaddr)(dt_module_t *dmp, GElf_Addr addr,
 	ElfIZE(Addr) v;
 
 	if (dmp->dm_aslen == 0)
-		return (NULL);
+		return NULL;
 
 	while (hi - lo > 1) {
 		mid = (lo + hi) / 2;
@@ -172,10 +171,10 @@ BITIZE(dt_module_symaddr)(dt_module_t *dmp, GElf_Addr addr,
 	if (addr - sym->st_value < MAX(sym->st_size, 1)) {
 		if (idp != NULL)
 			*idp = (uint_t)(sym - symtab);
-		return (BITIZE(dt_module_symgelf)(sym, symp));
+		return BITIZE(dt_module_symgelf)(sym, symp);
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 static const dt_modops_t BITIZE(dt_modops_) = {

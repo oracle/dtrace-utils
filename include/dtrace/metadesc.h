@@ -68,11 +68,11 @@ typedef struct dtrace_fmtdesc {
 } dtrace_fmtdesc_t;
 
 #define DTRACE_SIZEOF_EPROBEDESC(desc)				\
-	(sizeof (dtrace_eprobedesc_t) + ((desc)->dtdd_nrecs ?  \
-	(((desc)->dtdd_nrecs - 1) * sizeof (dtrace_recdesc_t)) : 0))
+	(sizeof(dtrace_eprobedesc_t) + ((desc)->dtdd_nrecs ?  \
+	(((desc)->dtdd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
 
 #define	DTRACE_SIZEOF_AGGDESC(desc)			       \
-	(sizeof (dtrace_aggdesc_t) + ((desc)->dtagd_nrecs ?     \
-	(((desc)->dtagd_nrecs - 1) * sizeof (dtrace_recdesc_t)) : 0))
+	(sizeof(dtrace_aggdesc_t) + ((desc)->dtagd_nrecs ?     \
+	(((desc)->dtagd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
 
 #endif /* _DTRACE_METADESC_H */

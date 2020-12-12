@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -67,7 +67,7 @@ string_hash(const char *key)
 		}
 	}
 
-	return (h);
+	return h;
 }
 
 /*
@@ -78,8 +78,8 @@ file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 {
 	file_info_t *fptr;
 
-	if ((fptr = calloc(1, sizeof (file_info_t))) == NULL)
-		return (NULL);
+	if ((fptr = calloc(1, sizeof(file_info_t))) == NULL)
+		return NULL;
 
 	dt_list_append(&P->file_list, fptr);
 	fptr->file_pname = strdup(mptr->map_pmap->pr_file->prf_mapname);
@@ -90,7 +90,7 @@ file_info_new(struct ps_prochandle *P, map_info_t *mptr)
 	fptr->file_ref = 1;
 	P->num_files++;
 
-	return (fptr);
+	return fptr;
 }
 
 /*
@@ -181,7 +181,7 @@ mapping_purge(struct ps_prochandle *P)
 		free(old_prf);
 	}
 
-	memset(P->map_files, 0, sizeof (struct prmap_file *) * MAP_HASH_BUCKETS);
+	memset(P->map_files, 0, sizeof(struct prmap_file *) * MAP_HASH_BUCKETS);
 
 	for (i = 0, fptr = dt_list_next(&P->file_list);
 	     i < P->num_files; i++, fptr = dt_list_next(fptr)) {
@@ -203,7 +203,7 @@ mapping_purge(struct ps_prochandle *P)
 int
 Psym_init(struct ps_prochandle *P)
 {
-	P->map_files = calloc(MAP_HASH_BUCKETS, sizeof (struct prmap_file_t *));
+	P->map_files = calloc(MAP_HASH_BUCKETS, sizeof(struct prmap_file_t *));
 	if (!P->map_files) {
 		_dprintf("Out of memory initializing map_files hash\n");
 		return -ENOMEM;
@@ -233,7 +233,7 @@ static prmap_file_t *Pprmap_file_by_name(struct ps_prochandle *P,
 
 	for (prf = P->map_files[h]; prf != NULL; prf = prf->prf_next)
 		if (strcmp(prf->prf_mapname, name) == 0)
-			return (prf);
+			return prf;
 
 	return NULL;
 }
@@ -262,26 +262,26 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 		else {
 			_dprintf("map_iter: executable mapping, but not found "
 			    "in /proc/%i/maps\n", P->pid);
-			return (1);
+			return 1;
 		}
 	}
 	else if ((num == 1) && (lop->rl_nscopes == 1)) {
 		_dprintf("map_iter: skipping vdso\n");
-		return (1);
+		return 1;
 	} else if (lop->rl_dyn == 0)
 		/*
 		 * No dynamic section: this cannot be anything we are interested
 		 * in.
 		 */
-		return (1);
+		return 1;
 	else if ((mptr = Paddr2mptr(P, lop->rl_dyn)) == NULL) {
 		_dprintf("map_iter: base address of %lu doesn't match any mapping\n", lop->rl_dyn);
-		return (1);
+		return 1;
 	}
 
 	if (mptr->map_file == NULL) {
 		_dprintf("map_iter: no file_info_t for this mapping\n");
-		return (1);
+		return 1;
 	}
 
 	fptr = mptr->map_file;
@@ -292,9 +292,9 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 	 */
 	if (fptr->file_lo != NULL) {
 		free(fptr->file_lo->rl_scope);
-	} else if ((fptr->file_lo = malloc(sizeof (rd_loadobj_t))) == NULL) {
+	} else if ((fptr->file_lo = malloc(sizeof(rd_loadobj_t))) == NULL) {
 		_dprintf("map_iter: failed to allocate rd_loadobj_t\n");
-		return (1);
+		return 1;
 	}
 
 	*fptr->file_lo = *lop;
@@ -310,7 +310,7 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 			     strdup(fptr->file_pname)) != NULL)
 				fptr->file_lbase = basename(fptr->file_lname);
 		}
-	} else if (Pread_string(P, buf, sizeof (buf), lop->rl_nameaddr) >= 0) {
+	} else if (Pread_string(P, buf, sizeof(buf), lop->rl_nameaddr) >= 0) {
 		if ((fptr->file_lname == NULL) ||
 		    (strcmp(fptr->file_lname, buf) != 0) ||
 		    (buf[0] != '\0')) {
@@ -335,13 +335,13 @@ map_iter(const rd_loadobj_t *lop, size_t num, void *prochandle)
 	if (!fptr->file_lo->rl_scope) {
 		_dprintf("map_iter: failed to allocate raw symbol search "
 		    "path\n");
-		return (1);
+		return 1;
 	}
 	memcpy(fptr->file_lo->rl_scope, lop->rl_scope, scopes_size);
 
 	_dprintf("loaded rd object %s lmid %lx\n",
 	    fptr->file_lname ? fptr->file_lname : "<NULL>", lop->rl_lmident);
-	return (1);
+	return 1;
 }
 
 /*
@@ -364,7 +364,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 		return;
 
 	fptr->file_symsearch = calloc(fptr->file_lo->rl_nscopes,
-	    sizeof (struct file_info *));
+	    sizeof(struct file_info *));
 
 	/*
 	 * Failure to allocate here is not as serious as it seems: symbol
@@ -374,7 +374,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	if (!fptr->file_symsearch) {
 		_dprintf("Cannot allocate %li bytes for symbol search "
 		    "path for library with soname %s\n",
-		    fptr->file_lo->rl_nscopes * sizeof (struct file_info *),
+		    fptr->file_lo->rl_nscopes * sizeof(struct file_info *),
 		    fptr->file_lbase);
 		return;
 	}
@@ -404,7 +404,7 @@ Pupdate_symsearch(struct ps_prochandle *P, struct file_info *fptr)
 	for (i = 0; i < fptr->file_lo->rl_nscopes; i++) {
 		map_info_t *mptr;
 
-		if (rd_get_scope(P->rap, (rd_loadobj_t *) &scope_lo, fptr->file_lo,
+		if (rd_get_scope(P->rap, (rd_loadobj_t *)&scope_lo, fptr->file_lo,
 			i) == NULL) {
 			_dprintf("Cannot read scope %lu in symbol search path "
 			    "for library with soname %s\n", i,
@@ -482,16 +482,16 @@ Pupdate_maps(struct ps_prochandle *P)
 	 */
 	mapping_purge(P);
 
-	(void) snprintf(mapfile, sizeof (mapfile), "%s/%d/maps",
+	snprintf(mapfile, sizeof(mapfile), "%s/%d/maps",
 	    procfs_path, (int)P->pid);
 	if ((fp = fopen(mapfile, "r")) == NULL) {
 		Preset_maps(P);
 		return;
 	}
 
-	snprintf(exefilesym, sizeof (exefilesym), "%s/%d/exe", procfs_path,
+	snprintf(exefilesym, sizeof(exefilesym), "%s/%d/exe", procfs_path,
 	    (int)P->pid);
-	if ((len = readlink(exefilesym, exefile, sizeof (exefile))) > 0)
+	if ((len = readlink(exefilesym, exefile, sizeof(exefile))) > 0)
 		exefile[len] = '\0';
 
 	while (getline(&line, &len, fp) >= 0) {
@@ -538,25 +538,25 @@ Pupdate_maps(struct ps_prochandle *P)
 
 		if (P->num_mappings >= old_num_mappings) {
 			map_info_t *mappings = realloc(P->mappings,
-			    sizeof (struct map_info) * (P->num_mappings + 1));
+			    sizeof(struct map_info) * (P->num_mappings + 1));
 			if (!mappings)
 				goto err;
 			P->mappings = mappings;
 		}
 
 		mptr = &P->mappings[P->num_mappings];
-		memset(mptr, 0, sizeof (struct map_info));
+		memset(mptr, 0, sizeof(struct map_info));
 
-		mptr->map_pmap = malloc(sizeof (struct prmap));
+		mptr->map_pmap = malloc(sizeof(struct prmap));
 		if (!mptr->map_pmap)
 			goto err;
 		pmptr = mptr->map_pmap;
-		memset(pmptr, 0, sizeof (struct prmap));
+		memset(pmptr, 0, sizeof(struct prmap));
 
 		if ((prf = Pprmap_file_by_name(P, fn)) == NULL) {
 			uint_t h = string_hash(fn) % MAP_HASH_BUCKETS;
 
-			if ((prf = malloc(sizeof (struct prmap_file))) == NULL) {
+			if ((prf = malloc(sizeof(struct prmap_file))) == NULL) {
 				free(mptr->map_pmap);
 				goto err;
 			}
@@ -572,7 +572,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		}
 
 		new_prf_mappings = realloc(prf->prf_mappings,
-		    (prf->prf_num_mappings + 1) * sizeof (struct prmap_t *));
+		    (prf->prf_num_mappings + 1) * sizeof(struct prmap_t *));
 
 		if (new_prf_mappings == NULL) {
 			free(mptr->map_pmap);
@@ -796,13 +796,13 @@ rd_agent_t *
 Prd_agent(struct ps_prochandle *P)
 {
 	if (P->state == PS_DEAD)
-		return (P->rap);
+		return P->rap;
 
 	if (P->rap == NULL && !P->noninvasive) {
 		Pupdate_maps(P);
 		Pupdate_lmids(P);
 	}
-	return (P->rap);
+	return P->rap;
 }
 
 /*
@@ -815,7 +815,7 @@ Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 	map_info_t *mptr;
 
 	if (P->state == PS_DEAD)
-		return (NULL);
+		return NULL;
 
 	if (!P->info_valid) {
 		Pupdate_maps(P);
@@ -823,9 +823,9 @@ Paddr_to_map(struct ps_prochandle *P, uintptr_t addr)
 	}
 
 	if ((mptr = Paddr2mptr(P, addr)) != NULL)
-		return (mptr->map_pmap);
+		return mptr->map_pmap;
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -838,21 +838,21 @@ Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	map_info_t *mptr;
 
 	if (P->state == PS_DEAD)
-		return (NULL);
+		return NULL;
 
 	if (name == PR_OBJ_EVERY)
-		return (NULL); /* A reasonable mistake */
+		return NULL; /* A reasonable mistake */
 
 	if ((mptr = object_name_to_map(P, lmid, name)) != NULL)
-		return (mptr->map_pmap);
+		return mptr->map_pmap;
 
-	return (NULL);
+	return NULL;
 }
 
 const prmap_t *
 Pname_to_map(struct ps_prochandle *P, const char *name)
 {
-	return (Plmid_to_map(P, PR_LMID_EVERY, name));
+	return Plmid_to_map(P, PR_LMID_EVERY, name);
 }
 
 /*
@@ -866,18 +866,18 @@ static int
 byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 {
 	if (a->st_value < b->st_value)
-		return (-1);
+		return -1;
 	if (a->st_value > b->st_value)
-		return (1);
+		return 1;
 
 	/*
 	 * Prefer the function to the non-function.
 	 */
 	if (GELF_ST_TYPE(a->st_info) != GELF_ST_TYPE(b->st_info)) {
 		if (GELF_ST_TYPE(a->st_info) == STT_FUNC)
-			return (-1);
+			return -1;
 		if (GELF_ST_TYPE(b->st_info) == STT_FUNC)
-			return (1);
+			return 1;
 	}
 
 	/*
@@ -885,9 +885,9 @@ byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 	 */
 	if (GELF_ST_BIND(a->st_info) != GELF_ST_BIND(b->st_info)) {
 		if (GELF_ST_BIND(b->st_info) == STB_LOCAL)
-			return (-1);
+			return -1;
 		if (GELF_ST_BIND(a->st_info) == STB_LOCAL)
-			return (1);
+			return 1;
 	}
 
 	/*
@@ -895,9 +895,9 @@ byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 	 * other symbol generators often use it as a prefix.
 	 */
 	if (*bname == '$')
-		return (-1);
+		return -1;
 	if (*aname == '$')
-		return (1);
+		return 1;
 
 	/*
 	 * Prefer the name with fewer leading underscores.
@@ -908,22 +908,22 @@ byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname)
 	}
 
 	if (*bname == '_')
-		return (-1);
+		return -1;
 	if (*aname == '_')
-		return (1);
+		return 1;
 
 	/*
 	 * Prefer the symbol with the smaller size.
 	 */
 	if (a->st_size < b->st_size)
-		return (-1);
+		return -1;
 	if (a->st_size > b->st_size)
-		return (1);
+		return 1;
 
 	/*
 	 * All other factors being equal, fall back to lexicographic order.
 	 */
-	return (strcmp(aname, bname));
+	return strcmp(aname, bname);
 }
 
 static int
@@ -934,7 +934,7 @@ byaddr_cmp(const void *aa, const void *bb)
 	char *aname = sort_strs + a->st_name;
 	char *bname = sort_strs + b->st_name;
 
-	return (byaddr_cmp_common(a, aname, b, bname));
+	return byaddr_cmp_common(a, aname, b, bname);
 }
 
 static int
@@ -945,7 +945,7 @@ byname_cmp(const void *aa, const void *bb)
 	char *aname = sort_strs + a->st_name;
 	char *bname = sort_strs + b->st_name;
 
-	return (strcmp(aname, bname));
+	return strcmp(aname, bname);
 }
 
 /*
@@ -961,11 +961,11 @@ symtab_getsym(sym_tbl_t *symtab, int ndx, GElf_Sym *dst)
 {
 	/* If index is in range of primary symtab, look it up there */
 	if (ndx >= symtab->sym_symn_aux)
-		return (gelf_getsym(symtab->sym_data_pri,
-		    ndx - symtab->sym_symn_aux, dst));
+		return gelf_getsym(symtab->sym_data_pri,
+		    ndx - symtab->sym_symn_aux, dst);
 
 	/* Not in primary: Look it up in the auxiliary symtab */
-	return (gelf_getsym(symtab->sym_data_aux, ndx, dst));
+	return gelf_getsym(symtab->sym_data_aux, ndx, dst);
 }
 
 void __attribute__((__used__))
@@ -1011,7 +1011,7 @@ optimize_symtab(sym_tbl_t *symtab)
 	symn = symtab->sym_symn;
 	strsz = symtab->sym_strsz;
 
-	symp = syms = malloc(sizeof (GElf_Sym) * symn);
+	symp = syms = malloc(sizeof(GElf_Sym) * symn);
 	if (symp == NULL) {
 		_dprintf("optimize_symtab: failed to malloc symbol array");
 		return;
@@ -1036,8 +1036,8 @@ optimize_symtab(sym_tbl_t *symtab)
 	 * with the same symbols we just counted.
 	 */
 	symtab->sym_count = count;
-	indexa = symtab->sym_byaddr = calloc(sizeof (uint_t), count);
-	indexb = symtab->sym_byname = calloc(sizeof (uint_t), count);
+	indexa = symtab->sym_byaddr = calloc(sizeof(uint_t), count);
+	indexb = symtab->sym_byname = calloc(sizeof(uint_t), count);
 	if (indexa == NULL || indexb == NULL) {
 		_dprintf(
 		    "optimize_symtab: failed to malloc symbol index arrays");
@@ -1057,16 +1057,16 @@ optimize_symtab(sym_tbl_t *symtab)
 	/*
 	 * Sort the two tables according to the appropriate criteria.
 	 */
-	(void) mutex_lock(&sort_mtx);
+	mutex_lock(&sort_mtx);
 	sort_strs = symtab->sym_strs;
 	sort_syms = syms;
 
-	qsort(symtab->sym_byaddr, count, sizeof (uint_t), byaddr_cmp);
-	qsort(symtab->sym_byname, count, sizeof (uint_t), byname_cmp);
+	qsort(symtab->sym_byaddr, count, sizeof(uint_t), byaddr_cmp);
+	qsort(symtab->sym_byname, count, sizeof(uint_t), byname_cmp);
 
 	sort_strs = NULL;
 	sort_syms = NULL;
-	(void) mutex_unlock(&sort_mtx);
+	mutex_unlock(&sort_mtx);
 
 	free(syms);
 }
@@ -1124,7 +1124,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		if (fd > -1)
 			close(fd);
 		if (velf)
-			elf_end((Elf *) velf);
+			elf_end((Elf *)velf);
 		fptr->file_dyn_base = 0;
 		free(cache);
 		fptr->file_elf = NULL;
@@ -1250,7 +1250,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	}
 	velf = elf;
 	close(fd);
-	if ((cache = malloc(nshdrs * sizeof (*cache))) == NULL) {
+	if ((cache = malloc(nshdrs * sizeof(*cache))) == NULL) {
 		_dprintf("failed to malloc section cache for mapping of %s\n",
 		    fptr->file_pname);
 		goto bad;
@@ -1466,7 +1466,7 @@ Paddr2idx(struct ps_prochandle *P, uintptr_t addr)
 
 		/* check that addr is in [vaddr, vaddr + size) */
 		if ((addr - mp->map_pmap->pr_vaddr) < mp->map_pmap->pr_size)
-			return (mid);
+			return mid;
 
 		if (addr < mp->map_pmap->pr_vaddr)
 			hi = mid - 1;
@@ -1489,7 +1489,7 @@ Paddr2mptr(struct ps_prochandle *P, uintptr_t addr)
 	ssize_t mpidx = Paddr2idx(P, addr);
 
 	if (mpidx == -1)
-		return (NULL);
+		return NULL;
 
 	return &P->mappings[mpidx];
 }
@@ -1548,7 +1548,7 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 		if ((fp->file_pname && strcmp(fp->file_pname, objname) == 0) ||
 		    (fp->file_lbase && strcmp(fp->file_lbase, objname) == 0) ||
 		    (fp->file_lname && strcmp(fp->file_lname, objname) == 0))
-			return (fp->file_map != -1 ? &P->mappings[fp->file_map] : mp);
+			return fp->file_map != -1 ? &P->mappings[fp->file_map] : mp;
 	}
 
 	objlen = strlen(objname);
@@ -1573,7 +1573,7 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 		if (fp->file_lbase &&
 		    (strncmp(fp->file_lbase, objname, objlen) == 0) &&
 		    (fp->file_lbase[objlen] == '.'))
-			return (fp->file_map != -1 ? &P->mappings[fp->file_map] : mp);
+			return fp->file_map != -1 ? &P->mappings[fp->file_map] : mp;
 	}
 
 
@@ -1583,9 +1583,9 @@ object_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *objname)
 	 */
 	if ((lmid == PR_LMID_EVERY || lmid == LM_ID_BASE) &&
 	    (strcmp(objname, "a.out") == 0) && (P->map_exec != -1))
-		return (&P->mappings[P->map_exec]);
+		return &P->mappings[P->map_exec];
 
-	return (NULL);
+	return NULL;
 }
 
 static map_info_t *
@@ -1616,7 +1616,7 @@ object_name_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	} else
 		mptr = object_to_map(P, lmid, name);
 
-	return (mptr);
+	return mptr;
 }
 
 /*
@@ -1629,14 +1629,14 @@ sym_prefer(GElf_Sym *sym1, char *name1, GElf_Sym *sym2, char *name2)
 	 * Prefer the non-NULL symbol.
 	 */
 	if (sym1 == NULL)
-		return (sym2);
+		return sym2;
 	if (sym2 == NULL)
-		return (sym1);
+		return sym1;
 
 	/*
 	 * Defer to the sort ordering...
 	 */
-	return (byaddr_cmp_common(sym1, name1, sym2, name2) <= 0 ? sym1 : sym2);
+	return byaddr_cmp_common(sym1, name1, sym2, name2) <= 0 ? sym1 : sym2;
 }
 
 /*
@@ -1654,7 +1654,7 @@ sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 	int min, max, mid, omid = 0, found = 0;
 
 	if (symtab->sym_data_pri == NULL || symtab->sym_count == 0)
-		return (NULL);
+		return NULL;
 
 	min = 0;
 	max = symtab->sym_count - 1;
@@ -1685,7 +1685,7 @@ sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 	}
 
 	if (!found)
-		return (NULL);
+		return NULL;
 
 	/*
 	 * There may be many symbols with identical values so we walk
@@ -1707,7 +1707,7 @@ sym_by_addr(sym_tbl_t *symtab, GElf_Addr addr, GElf_Sym *symp, uint_t *idp)
 	*symp = sym;
 	if (idp != NULL)
 		*idp = i;
-	return (symp);
+	return symp;
 }
 
 /*
@@ -1723,7 +1723,7 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 
 	if (symtab->sym_data_pri == NULL || strs == NULL ||
 	    symtab->sym_count == 0)
-		return (NULL);
+		return NULL;
 
 	min = 0;
 	max = symtab->sym_count - 1;
@@ -1740,7 +1740,7 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 		if ((cmp = strcmp(name, strs + symp->st_name)) == 0) {
 			if (idp != NULL)
 				*idp = i;
-			return (symp);
+			return symp;
 		}
 
 		if (cmp < 0)
@@ -1749,7 +1749,7 @@ sym_by_name(sym_tbl_t *symtab, const char *name, GElf_Sym *symp, uint_t *idp)
 			min = mid + 1;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -1811,7 +1811,7 @@ sym_search_next(struct ps_prochandle *P, file_info_t *fptr,
 	}
 	case SSI_START_LINEAR:
 		state->path_index = 0;
-		state->fptr = (file_info_t *) &P->file_list;
+		state->fptr = (file_info_t *)&P->file_list;
 		state->ssi_state = SSI_LINEAR;
 		/* Fall through */
 
@@ -1859,20 +1859,20 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, const char **sym_name,
 	file_info_t	*fptr;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)	/* no such address */
-		return (-1);
+		return -1;
 
 	fptr = mptr->map_file;
 
 	Pbuild_file_symtab(P, fptr);
 
 	if (fptr->file_elf == NULL)			/* not an ELF file */
-		return (-1);
+		return -1;
 
 	/*
 	 * Adjust the address by the load object base address in case the
@@ -1891,7 +1891,7 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, const char **sym_name,
 		name2 = fptr->file_dynsym.sym_strs + sym2.st_name;
 
 	if ((symp = sym_prefer(sym1p, name1, sym2p, name2)) == NULL)
-		return (-1);
+		return -1;
 
 	if (sym_name)
 		*sym_name = strdup((symp == sym1p) ? name1 : name2);
@@ -1900,7 +1900,7 @@ Plookup_by_addr(struct ps_prochandle *P, uintptr_t addr, const char **sym_name,
 	if (GELF_ST_TYPE(symbolp->st_info) != STT_TLS)
 		symbolp->st_value += fptr->file_dyn_base;
 
-	return (0);
+	return 0;
 }
 /*
  * Search a specific symbol table looking for a symbol whose name matches the
@@ -1930,10 +1930,10 @@ Pxlookup_by_name_internal(
 	uint_t id;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
-	memset(&sym, 0, sizeof (GElf_Sym));
-	memset(&si, 0, sizeof (prsyminfo_t));
+	memset(&sym, 0, sizeof(GElf_Sym));
+	memset(&si, 0, sizeof(prsyminfo_t));
 
 	if (oname == PR_OBJ_EVERY) {
 		/* create all the file_info_t's for all the mappings */
@@ -1941,7 +1941,7 @@ Pxlookup_by_name_internal(
 		Pupdate_lmids(P);
 
 		if (!P->info_valid)
-			return (-1);
+			return -1;
 
 		/*
 		 * Start from the executable mapping, if known.
@@ -1958,7 +1958,7 @@ Pxlookup_by_name_internal(
 
 		just_one = 1;
 		if ((mptr = object_name_to_map(P, lmid, oname)) == NULL)
-			return (-1);
+			return -1;
 
 		fptr = mptr->map_file;
 
@@ -2009,7 +2009,7 @@ Pxlookup_by_name_internal(
 			symp->st_value += fptr->file_dyn_base;
 
 		if (sym.st_shndx != SHN_UNDEF)
-			return (0);
+			return 0;
 
 		if (rv != 0 ||
 		    sym.st_shndx == SHN_UNDEF) {
@@ -2026,7 +2026,7 @@ Pxlookup_by_name_internal(
 		*symp = sym;
 	}
 
-	return (rv);
+	return rv;
 }
 
 /*
@@ -2061,13 +2061,13 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 	int rc = 0;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
 	if (!P->info_valid)
-	    return (-1);
+	    return -1;
 
 	for (cnt = P->num_files, fptr = dt_list_next(&P->file_list);
 	    cnt; cnt--, fptr = dt_list_next(fptr)) {
@@ -2083,14 +2083,14 @@ Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd)
 
 		mptr = &P->mappings[fptr->file_map];
 		if ((rc = func(cd, mptr->map_pmap, lname)) != 0)
-			return (rc);
+			return rc;
 
 		if (!P->info_valid) {
 			Pupdate_maps(P);
 			Pupdate_lmids(P);
 		}
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -2108,25 +2108,25 @@ Pobjname(struct ps_prochandle *P, uintptr_t addr,
 	file_info_t *fptr;
 
 	if (P->state == PS_DEAD)
-		return (NULL);
+		return NULL;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)
-		return (NULL);
+		return NULL;
 
 	if ((fptr = mptr->map_file) == NULL)
-		return (NULL);
+		return NULL;
 
 	if (fptr->file_lname != NULL)
-		(void) strlcpy(buffer, fptr->file_lname, bufsize);
+		strlcpy(buffer, fptr->file_lname, bufsize);
 	else if (fptr->file_pname != NULL)
-		(void) strlcpy(buffer, fptr->file_pname, bufsize);
+		strlcpy(buffer, fptr->file_pname, bufsize);
 	else
-		return (NULL);
+		return NULL;
 
-	return (buffer);
+	return buffer;
 }
 
 /*
@@ -2140,7 +2140,7 @@ Plmid(struct ps_prochandle *P, uintptr_t addr, Lmid_t *lmidp)
 	file_info_t *fptr;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	/* create all the file_info_t's for all the mappings */
 	Pupdate_maps(P);
@@ -2149,10 +2149,10 @@ Plmid(struct ps_prochandle *P, uintptr_t addr, Lmid_t *lmidp)
 	if ((mptr = Paddr2mptr(P, addr)) != NULL &&
 	    (fptr = mptr->map_file) != NULL && fptr->file_lo != NULL) {
 		*lmidp = fptr->file_lo->rl_lmident;
-		return (0);
+		return 0;
 	}
 
-	return (-1);
+	return -1;
 }
 
 /*
@@ -2180,16 +2180,16 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 	uint_t *map, i, ndx;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	if ((mptr = object_name_to_map(P, PR_LMID_EVERY, object_name)) == NULL)
-		return (-1);
+		return -1;
 
 	fptr = mptr->map_file;
 	Pbuild_file_symtab(P, fptr);
 
 	if (fptr->file_elf == NULL)			/* not an ELF file */
-		return (-1);
+		return -1;
 
 	/*
 	 * Search the specified symbol table.
@@ -2202,7 +2202,7 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 		symtab = &fptr->file_dynsym;
 		break;
 	default:
-		return (-1);
+		return -1;
 	}
 
 	strs = symtab->sym_strs;
@@ -2211,7 +2211,7 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 	count = symtab->sym_count;
 
 	if (symtab->sym_data_pri == NULL || strs == NULL || count == 0)
-		return (-1);
+		return -1;
 
 	rv = 0;
 
@@ -2264,7 +2264,7 @@ Psymbol_iter_by_addr(struct ps_prochandle *P,
 		}
 	}
 
-	return (rv);
+	return rv;
 }
 
 /*
@@ -2274,11 +2274,11 @@ int
 Pvalid_mapping(struct ps_prochandle *P, uintptr_t addr)
 {
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
-	return (Paddr2mptr(P, addr) != NULL);
+	return Paddr2mptr(P, addr) != NULL;
 }
 
 /*
@@ -2290,12 +2290,12 @@ Pfile_mapping(struct ps_prochandle *P, uintptr_t addr)
 	map_info_t *mptr;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 	if ((mptr = Paddr2mptr(P, addr)) != NULL)
-		return (mptr->map_file != NULL);
+		return mptr->map_file != NULL;
 	return 0;
 }
 /*
@@ -2307,13 +2307,13 @@ Pwritable_mapping(struct ps_prochandle *P, uintptr_t addr)
 	map_info_t *mptr;
 
 	if (P->state == PS_DEAD)
-		return (-1);
+		return -1;
 
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 	if ((mptr = Paddr2mptr(P, addr)) == NULL)
 		return 0;
-	return ((mptr->map_pmap->pr_mflags & MA_WRITE) != 0);
+	return (mptr->map_pmap->pr_mflags & MA_WRITE) != 0;
 }
 
 /*

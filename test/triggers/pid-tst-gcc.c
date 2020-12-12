@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -29,9 +29,9 @@ go(void)
 	dup2(null, 2);
 	close(null);
 
-	(void) posix_spawn(&pid, "/bin/ls", NULL, NULL, argv, NULL);
+	posix_spawn(&pid, "/bin/ls", NULL, NULL, argv, NULL);
 
-	(void) waitpid(pid, NULL, 0);
+	waitpid(pid, NULL, 0);
 }
 
 void
@@ -48,11 +48,10 @@ main(int argc, char **argv)
 	sigfillset(&sa.sa_mask);
 	sa.sa_flags = 0;
 
-	(void) sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR1, &sa, NULL);
 
-	for (;;) {
+	for (;;)
 		go();
-	}
 
-	return (0);
+	return 0;
 }

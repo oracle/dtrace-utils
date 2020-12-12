@@ -19,11 +19,11 @@
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
-	printf("Address x: %x\n", (int) x);
-	y = (int *) (x - 2);
+	x = (int *)alloca(sizeof(int));
+	printf("Address x: %x\n", (int)x);
+	y = (int *)(x - 2);
 	*y = 3;
-	printf("Address y: %x\tValue: %d\n", (int) y, *y);
+	printf("Address y: %x\tValue: %d\n", (int)y, *y);
 }
 
 ERROR

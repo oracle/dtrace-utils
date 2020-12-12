@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -20,7 +20,7 @@
 extern	uintptr_t Pread_first_arg_arm64(struct ps_prochandle *P);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_AARCH64, (dispatch_fun_t *) Pread_first_arg_arm64},
+    {B_TRUE, EM_AARCH64, (dispatch_fun_t *)Pread_first_arg_arm64},
     {0, 0, NULL}};
 
 #endif
@@ -30,7 +30,7 @@ isa_dispatch_t dispatch[] = {
 extern	uintptr_t Pget_bkpt_ip_arm64(struct ps_prochandle *P, int expect_esrch);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_AARCH64, (dispatch_fun_t *) Pget_bkpt_ip_arm64},
+    {B_TRUE, EM_AARCH64, (dispatch_fun_t *)Pget_bkpt_ip_arm64},
     {0, 0, NULL}};
 
 #endif
@@ -40,7 +40,7 @@ isa_dispatch_t dispatch[] = {
 extern	long Preset_bkpt_ip_arm64(struct ps_prochandle *P, uintptr_t addr);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_AARCH64, (dispatch_fun_t *) Preset_bkpt_ip_arm64},
+    {B_TRUE, EM_AARCH64, (dispatch_fun_t *)Preset_bkpt_ip_arm64},
     {0, 0, NULL}};
 
 #endif

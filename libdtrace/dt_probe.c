@@ -158,7 +158,7 @@ dt_probe_argmap(dt_node_t *xnp, dt_node_t *nnp)
 			nnp = nnp->dn_list;
 	}
 
-	return (i);
+	return i;
 }
 
 static dt_node_t *
@@ -216,15 +216,15 @@ dt_probe_alloc_args(dt_probe_t *prp, int nargc, int xargc)
 static size_t
 dt_probe_keylen(const dtrace_probedesc_t *pdp)
 {
-	return (strlen(pdp->mod) + 1 + strlen(pdp->fun) + 1 +
-		strlen(pdp->prb) + 1);
+	return strlen(pdp->mod) + 1 + strlen(pdp->fun) + 1 +
+		strlen(pdp->prb) + 1;
 }
 
 static char *
 dt_probe_key(const dtrace_probedesc_t *pdp, char *s)
 {
 	snprintf(s, INT_MAX, "%s:%s:%s", pdp->mod, pdp->fun, pdp->prb);
-	return (s);
+	return s;
 }
 
 /*
@@ -246,7 +246,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	int i, nc, xc;
 
 	int adc = _dtrace_argmax;
-	dt_argdesc_t *adv = alloca(sizeof (dt_argdesc_t) * adc);
+	dt_argdesc_t *adv = alloca(sizeof(dt_argdesc_t) * adc);
 	dt_argdesc_t *adp = adv;
 
 	assert(strcmp(pvp->desc.dtvd_name, pdp->prv) == 0);
@@ -256,13 +256,13 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 		   pvp->desc.dtvd_name, name, pdp->id);
 
 	for (nc = -1, i = 0; i < adc; i++, adp++) {
-		memset(adp, 0, sizeof (dt_argdesc_t));
+		memset(adp, 0, sizeof(dt_argdesc_t));
 		adp->ndx = i;
 		adp->id = pdp->id;
 
 		if (dt_ioctl(dtp, DTRACEIOC_PROBEARG, adp) != 0) {
-			(void) dt_set_errno(dtp, errno);
-			return (NULL);
+			dt_set_errno(dtp, errno);
+			return NULL;
 		}
 
 		if (adp->ndx == DTRACE_ARGNONE)
@@ -283,21 +283,21 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	nargs = dt_probe_alloc_args(pvp, nc);
 
 	if ((xc != 0 && xargs == NULL) || (nc != 0 && nargs == NULL))
-		return (NULL); /* dt_errno is set for us */
+		return NULL; /* dt_errno is set for us */
 
 	idp = dt_ident_create(name, DT_IDENT_PROBE, DT_IDFLG_ORPHAN, pdp->id,
 			      _dtrace_defattr, 0, &dt_idops_probe, NULL,
 			      dtp->dt_gen);
 
 	if (idp == NULL) {
-		(void) dt_set_errno(dtp, EDT_NOMEM);
-		return (NULL);
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
 	}
 
 	prp = dt_probe_create(dtp, idp, 2, nargs, nc, xargs, xc);
 	if (prp == NULL) {
 		dt_ident_destroy(idp);
-		return (NULL);
+		return NULL;
 	}
 
 	dt_probe_declare(pvp, prp);
@@ -346,7 +346,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 		prp->argv[i] = dtt;
 	}
 
-	return (prp);
+	return prp;
 #else
 	return NULL;
 #endif
@@ -367,7 +367,7 @@ dt_probe_lookup2(dt_provider_t *pvp, const char *s)
 	char *key;
 
 	if (dtrace_str2desc(dtp, DTRACE_PROBESPEC_NAME, s, &pd) != 0)
-		return (NULL); /* dt_errno is set for us */
+		return NULL; /* dt_errno is set for us */
 
 	keylen = dt_probe_keylen(&pd);
 	key = dt_probe_key(&pd, alloca(keylen));
@@ -378,21 +378,21 @@ dt_probe_lookup2(dt_provider_t *pvp, const char *s)
 	 * or it could have been cached from an earlier call to this function.
 	 */
 	if ((idp = dt_idhash_lookup(pvp->pv_probes, key)) != NULL)
-		return (idp->di_data);
+		return idp->di_data;
 
 	/*
 	 * If the probe isn't known, use the probe description computed above
 	 * to ask dtrace(7D) to find the first matching probe.
 	 */
 	if (dt_ioctl(dtp, DTRACEIOC_PROBEMATCH, &pd) == 0)
-		return (dt_probe_discover(pvp, &pd));
+		return dt_probe_discover(pvp, &pd);
 
 	if (errno == ESRCH || errno == EBADF)
-		(void) dt_set_errno(dtp, EDT_NOPROBE);
+		dt_set_errno(dtp, EDT_NOPROBE);
 	else
-		(void) dt_set_errno(dtp, errno);
+		dt_set_errno(dtp, errno);
 
-	return (NULL);
+	return NULL;
 }
 
 dt_probe_t *
@@ -561,30 +561,30 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp, const char *fname,
 	}
 
 	if (pip == NULL) {
-		if ((pip = dt_zalloc(dtp, sizeof (*pip))) == NULL)
-			return (-1);
+		if ((pip = dt_zalloc(dtp, sizeof(*pip))) == NULL)
+			return -1;
 
 		if ((pip->pi_offs = dt_zalloc(dtp,
-		    sizeof (uint32_t))) == NULL) {
+		    sizeof(uint32_t))) == NULL) {
 			dt_free(dtp, pip);
-			return (-1);
+			return -1;
 		}
 
 		if ((pip->pi_enoffs = dt_zalloc(dtp,
-		    sizeof (uint32_t))) == NULL) {
+		    sizeof(uint32_t))) == NULL) {
 			dt_free(dtp, pip->pi_offs);
 			dt_free(dtp, pip);
-			return (-1);
+			return -1;
 		}
 
-		(void) strlcpy(pip->pi_fname, fname, sizeof (pip->pi_fname));
+		strlcpy(pip->pi_fname, fname, sizeof(pip->pi_fname));
 		if (rname != NULL) {
-			if (strlen(rname) + 1 > sizeof (pip->pi_rname)) {
+			if (strlen(rname) + 1 > sizeof(pip->pi_rname)) {
 				dt_free(dtp, pip->pi_offs);
 				dt_free(dtp, pip);
-				return (dt_set_errno(dtp, EDT_COMPILER));
+				return dt_set_errno(dtp, EDT_COMPILER);
 			}
-			(void) strcpy(pip->pi_rname, rname);
+			strcpy(pip->pi_rname, rname);
 		}
 
 		pip->pi_noffs = 0;
@@ -612,9 +612,9 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp, const char *fname,
 		uint32_t *new_offs = dt_calloc(dtp, new_max, sizeof(uint32_t));
 
 		if (new_offs == NULL)
-			return (-1);
+			return -1;
 
-		memcpy(new_offs, *offs, sizeof (uint32_t) * *maxoffs);
+		memcpy(new_offs, *offs, sizeof(uint32_t) * *maxoffs);
 
 		dt_free(dtp, *offs);
 		*maxoffs = new_max;
@@ -629,7 +629,7 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp, const char *fname,
 	assert(*noffs < *maxoffs);
 	(*offs)[(*noffs)++] = offset;
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -650,7 +650,7 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 
 	tag = alloca(len + 1);
 
-	(void) snprintf(tag, len + 1, "__dtrace_%s___%s_arg%u",
+	snprintf(tag, len + 1, "__dtrace_%s___%s_arg%u",
 	    prp->prov->desc.dtvd_name, prp->pr_name, argn);
 
 	if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_DDEFS, tag, &dtt) != 0) {
@@ -666,13 +666,13 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 		}
 	}
 
-	memset(dnp, 0, sizeof (dt_node_t));
+	memset(dnp, 0, sizeof(dt_node_t));
 	dnp->dn_kind = DT_NODE_TYPE;
 
 	dt_node_type_assign(dnp, dtt.dtt_ctfp, dtt.dtt_type);
 	dt_node_attr_assign(dnp, _dtrace_defattr);
 
-	return (dnp);
+	return dnp;
 }
 
 dt_probe_t *

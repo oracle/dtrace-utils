@@ -19,10 +19,10 @@
 BEGIN
 /curpsinfo->pr_dmodel == PR_MODEL_ILP32/
 {
-	argv = *(uint32_t *)copyin(curpsinfo->pr_argv, sizeof (uint32_t));
+	argv = *(uint32_t *)copyin(curpsinfo->pr_argv, sizeof(uint32_t));
 	printf("argv[0] = \"%s\"", copyinstr(argv));
 
-	envp = *(uint32_t *)copyin(curpsinfo->pr_envp, sizeof (uint32_t));
+	envp = *(uint32_t *)copyin(curpsinfo->pr_envp, sizeof(uint32_t));
 	printf("envp[0] = \"%s\"", copyinstr(envp));
 	exit(0);
 }
@@ -30,10 +30,10 @@ BEGIN
 BEGIN
 /curpsinfo->pr_dmodel == PR_MODEL_LP64/
 {
-	argv = *(uint64_t *)copyin(curpsinfo->pr_argv, sizeof (uint64_t));
+	argv = *(uint64_t *)copyin(curpsinfo->pr_argv, sizeof(uint64_t));
 	printf("envp[0] = \"%s\"", copyinstr(argv));
 
-	envp = *(uint64_t *)copyin(curpsinfo->pr_envp, sizeof (uint64_t));
+	envp = *(uint64_t *)copyin(curpsinfo->pr_envp, sizeof(uint64_t));
 	printf("envp[0] = \"%s\"", copyinstr(envp));
 	exit(0);
 }

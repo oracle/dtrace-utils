@@ -19,6 +19,6 @@
 BEGIN
 {
 	var = "hello";
-	printf("sizeof (var): %d\n", sizeof (var));
+	printf("sizeof(var): %d\n", sizeof(var));
 	exit(0);
 }

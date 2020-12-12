@@ -22,10 +22,10 @@ BEGIN
 	assoc_array["hi"] = "hi";
 	assoc_array["hello"] = "hello, world";
 
-	printf("sizeof (assoc_array[\"hello\"]): %d\n",
-	sizeof (assoc_array["hello"]));
-	printf("sizeof (assoc_array[\"hi\"]): %d\n",
-	sizeof (assoc_array["hi"]));
+	printf("sizeof(assoc_array[\"hello\"]): %d\n",
+	    sizeof(assoc_array["hello"]));
+	printf("sizeof(assoc_array[\"hi\"]): %d\n",
+	    sizeof(assoc_array["hi"]));
 
 	exit(0);
 }

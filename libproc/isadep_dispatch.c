@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -30,17 +30,17 @@
 #define ISADEP_BODY(ret, ...) do {					\
 	dispatch_fun_t *dispatch_fun;					\
 									\
-	dispatch_fun = (dispatch_fun_t *) search_dispatch(P, dispatch);	\
+	dispatch_fun = (dispatch_fun_t *)search_dispatch(P, dispatch);	\
     									\
 	if (dispatch_fun == NULL) {					\
 		_dprintf("%s: no ISA match for %s-bit process for ELF machine " \
 		    "%i\n", __func__, P->elf64?"64":"32", P->elf_machine); \
 		errno = ENOEXEC;					\
-		return (ret) -1;					\
+		return (ret)-1;						\
 	}								\
 									\
 	return dispatch_fun(__VA_ARGS__);				\
-	} while(0);
+	} while (0)
 
 /*
  * General function dispatch table for ISA-specific functions.  A separate

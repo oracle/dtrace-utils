@@ -68,7 +68,7 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 			earliest = *((hrtime_t *)a) + interval;
 	}
 
-	(void) pthread_mutex_lock(&dph->dph_lock);
+	pthread_mutex_lock(&dph->dph_lock);
 
 	tv.tv_sec = earliest / NANOSEC;
 	tv.tv_nsec = earliest % NANOSEC;
@@ -80,8 +80,8 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 	 * received.  Regardless of why we awaken, iterate over any pending
 	 * notifications and process them.
 	 */
-	(void) pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
-	(void) dt_proc_enqueue_exits(dtp);
+	pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
+	dt_proc_enqueue_exits(dtp);
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
@@ -118,7 +118,7 @@ dtrace_sleep(dtrace_hdl_t *dtp)
 		dt_free(dtp, dprn);
 	}
 
-	(void) pthread_mutex_unlock(&dph->dph_lock);
+	pthread_mutex_unlock(&dph->dph_lock);
 }
 
 int
@@ -244,7 +244,7 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	 * Now that we're stopped, we're going to get status one final time.
 	 */
 	if (dt_ioctl(dtp, DTRACEIOC_STATUS, &dtp->dt_status[gen]) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 #endif
 
 	if (dt_handle_status(dtp, &dtp->dt_status[gen ^ 1],
@@ -283,7 +283,7 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 		break;
 
 	default:
-		return (DTRACE_WORKSTATUS_ERROR);
+		return DTRACE_WORKSTATUS_ERROR;
 	}
 
 	if ((status == DTRACE_STATUS_NONE || status == DTRACE_STATUS_OKAY) &&
@@ -295,18 +295,18 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
 		 * return.
 		 */
 		assert(rval == DTRACE_WORKSTATUS_OKAY);
-		return (rval);
+		return rval;
 	}
 
 #if 0
 	if (dtrace_aggregate_snap(dtp) == -1)
-		return (DTRACE_WORKSTATUS_ERROR);
+		return DTRACE_WORKSTATUS_ERROR;
 #endif
 
 	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) == -1)
-		return (DTRACE_WORKSTATUS_ERROR);
+		return DTRACE_WORKSTATUS_ERROR;
 
-	return (rval);
+	return rval;
 }
 #else
 dtrace_workstatus_t

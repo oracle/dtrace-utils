@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -214,7 +214,7 @@ translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
 	 * to determine payload length.
 	 */
 	ip_plength = I != NULL && *(uint8_t *)I >> 4 == 4 ?
-	    ntohs(((struct iphdr *)I)->tot_len) - ((*(uint8_t *)I & 0xf ) << 2) :
+	    ntohs(((struct iphdr *)I)->tot_len) - ((*(uint8_t *)I & 0xf) << 2) :
 	    I != NULL && *(uint8_t *)I >> 4 == 6 ?
 	    ntohs(((struct ipv6hdr *)I)->payload_len) :
 	    arg0 != NULL ?
@@ -266,7 +266,7 @@ translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
 #pragma D binding "1.5" translator
 translator ifinfo_t < struct net_device *N > {
 	if_name = N != NULL ? stringof(N->name) : "<unknown>";
-	if_ipstack = (N != NULL && sizeof (N->nd_net) > 0) ?
+	if_ipstack = (N != NULL && sizeof(N->nd_net) > 0) ?
 	    ((uint64_t)N->nd_net.net) : 0;
 	if_local = (N == NULL);	/* is delivered locally */
 	if_addr = (uintptr_t)N;	/* pointer to raw struct net_device ptr */

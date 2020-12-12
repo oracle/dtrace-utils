@@ -20,8 +20,8 @@
 BEGIN
 /curpsinfo->pr_dmodel == PR_MODEL_ILP32/
 {
-	envp = alloca(sizeof (uint32_t));
-	copyinto(curpsinfo->pr_envp, sizeof (uint32_t), envp);
+	envp = alloca(sizeof(uint32_t));
+	copyinto(curpsinfo->pr_envp, sizeof(uint32_t), envp);
 	printf("envp[0] = \"%s\"", copyinstr(*(uint32_t *)envp));
 	exit(0);
 }
@@ -29,8 +29,8 @@ BEGIN
 BEGIN
 /curpsinfo->pr_dmodel == PR_MODEL_LP64/
 {
-	envp = alloca(sizeof (uint64_t));
-	copyinto(curpsinfo->pr_envp, sizeof (uint64_t), envp);
+	envp = alloca(sizeof(uint64_t));
+	copyinto(curpsinfo->pr_envp, sizeof(uint64_t), envp);
 	printf("envp[0] = \"%s\"", copyinstr(*(uint64_t *)envp));
 	exit(0);
 }

@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -21,8 +21,8 @@ extern	uintptr_t Pread_first_arg_x86_64(struct ps_prochandle *P);
 extern	uintptr_t Pread_first_arg_x86(struct ps_prochandle *P);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_X86_64, (dispatch_fun_t *) Pread_first_arg_x86_64},
-    {B_FALSE, EM_386, (dispatch_fun_t *) Pread_first_arg_x86},
+    {B_TRUE, EM_X86_64, (dispatch_fun_t *)Pread_first_arg_x86_64},
+    {B_FALSE, EM_386, (dispatch_fun_t *)Pread_first_arg_x86},
     {0, 0, NULL}};
 
 #endif
@@ -32,8 +32,8 @@ isa_dispatch_t dispatch[] = {
 extern	uintptr_t Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_X86_64, (dispatch_fun_t *) Pget_bkpt_ip_x86},
-    {B_FALSE, EM_386, (dispatch_fun_t *) Pget_bkpt_ip_x86},
+    {B_TRUE, EM_X86_64, (dispatch_fun_t *)Pget_bkpt_ip_x86},
+    {B_FALSE, EM_386, (dispatch_fun_t *)Pget_bkpt_ip_x86},
     {0, 0, NULL}};
 
 #endif
@@ -43,8 +43,8 @@ isa_dispatch_t dispatch[] = {
 extern	long Preset_bkpt_ip_x86(struct ps_prochandle *P, uintptr_t addr);
 
 isa_dispatch_t dispatch[] = {
-    {B_TRUE, EM_X86_64, (dispatch_fun_t *) Preset_bkpt_ip_x86},
-    {B_FALSE, EM_386, (dispatch_fun_t *) Preset_bkpt_ip_x86},
+    {B_TRUE, EM_X86_64, (dispatch_fun_t *)Preset_bkpt_ip_x86},
+    {B_FALSE, EM_386, (dispatch_fun_t *)Preset_bkpt_ip_x86},
     {0, 0, NULL}};
 
 #endif

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -54,8 +54,8 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 {
 	dt_provider_t *pvp;
 
-	if ((pvp = dt_zalloc(dtp, sizeof (dt_provider_t))) == NULL)
-		return (NULL);
+	if ((pvp = dt_zalloc(dtp, sizeof(dt_provider_t))) == NULL)
+		return NULL;
 
 	strlcpy(pvp->desc.dtvd_name, name, DTRACE_PROVNAMELEN);
 	pvp->impl = impl;
@@ -65,14 +65,14 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 
 	if (pvp->pv_probes == NULL) {
 		dt_free(dtp, pvp);
-		(void) dt_set_errno(dtp, EDT_NOMEM);
-		return (NULL);
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
 	}
 
 	memcpy(&pvp->desc.dtvd_attr, pattr, sizeof(dtrace_pattr_t));
 
-	return (dt_provider_insert(dtp, pvp,
-	    dt_strtab_hash(name, NULL) % dtp->dt_provbuckets));
+	return dt_provider_insert(dtp, pvp,
+	    dt_strtab_hash(name, NULL) % dtp->dt_provbuckets);
 }
 
 void
@@ -115,7 +115,7 @@ dt_provider_xref(dtrace_hdl_t *dtp, dt_provider_t *pvp, id_t id)
 		ulong_t *xrefs = dt_zalloc(dtp, newsize);
 
 		if (xrefs == NULL)
-			return (-1);
+			return -1;
 
 		memcpy(xrefs, pvp->pv_xrefs, oldsize);
 		dt_free(dtp, pvp->pv_xrefs);
@@ -125,5 +125,5 @@ dt_provider_xref(dtrace_hdl_t *dtp, dt_provider_t *pvp, id_t id)
 	}
 
 	BT_SET(pvp->pv_xrefs, id);
-	return (0);
+	return 0;
 }

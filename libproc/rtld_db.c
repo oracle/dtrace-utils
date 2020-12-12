@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -112,7 +112,7 @@ dl_nns(rd_agent_t *rd)
 	 * true anyway).
 	 */
 	if (Pread_scalar(rd->P, &buf, rd->P->elf64 ? G_DL_NNS_64_SIZE :
-		G_DL_NNS_32_SIZE, sizeof (size_t), rtld_global(rd) +
+		G_DL_NNS_32_SIZE, sizeof(size_t), rtld_global(rd) +
 		(rd->P->elf64 ? G_DL_NNS_64_OFFSET : G_DL_NNS_32_OFFSET)) < 0) {
 		_dprintf("%i: Cannot read namespace count\n", rd->P->pid);
 		return 1;
@@ -252,7 +252,7 @@ first_link_map(rd_agent_t *rd, Lmid_t lmid)
 		lmid);
 
 	if (Pread_scalar(rd->P, &link_map_addr, rd->P->elf64 ? G_NS_LOADED_64_SIZE :
-		G_NS_LOADED_32_SIZE, sizeof (struct link_map *), link_map_ptr_addr) < 0) {
+		G_NS_LOADED_32_SIZE, sizeof(struct link_map *), link_map_ptr_addr) < 0) {
 		_dprintf("%i: Cannot read link map pointer\n", rd->P->pid);
 		return 0;
 	}
@@ -312,7 +312,7 @@ find_l_searchlist(rd_agent_t *rd)
 		return -1;
 
 	for (loadobj = first_loadobj; loadobj != 0;
-	     loadobj = (uintptr_t) map.l_next) {
+	     loadobj = (uintptr_t)map.l_next) {
 		nmaps++;
 		if (rd_get_link_map(rd, &map, loadobj) == NULL)
 			break;
@@ -331,7 +331,7 @@ find_l_searchlist(rd_agent_t *rd)
 	uintptr_t *map_addrs;
 	uintptr_t *mapp;
 
-	map_addrs = calloc(nmaps, sizeof (uintptr_t));
+	map_addrs = calloc(nmaps, sizeof(uintptr_t));
 	if (!map_addrs) {
 		_dprintf("Out of memory locating glibc searchlist "
 		    "when allocating room for %li link maps\n", nmaps);
@@ -341,7 +341,7 @@ find_l_searchlist(rd_agent_t *rd)
 	for (mapp = map_addrs,
 		 loadobj = first_link_map(rd, 0);
 	     loadobj != 0;
-	     loadobj = (uintptr_t) map.l_next, mapp++) {
+	     loadobj = (uintptr_t)map.l_next, mapp++) {
 
 		_dprintf("%i: Noted map at %lx\n", rd->P->pid, loadobj);
 
@@ -350,7 +350,7 @@ find_l_searchlist(rd_agent_t *rd)
 			break;
 	}
 
-	qsort(map_addrs, nmaps, sizeof (uintptr_t), ascending_uintptrs);
+	qsort(map_addrs, nmaps, sizeof(uintptr_t), ascending_uintptrs);
 
 	/*
 	 * We now have the primary link maps' addresses in a rapidly searchable
@@ -407,13 +407,13 @@ find_l_searchlist(rd_agent_t *rd)
 
 		if (Pread_scalar_quietly(rd->P, &poss_l_searchlist_r_list,
 			rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE,
-			sizeof (uintptr_t), scan, 1) < 0) {
+			sizeof(uintptr_t), scan, 1) < 0) {
 			break;
 		}
 
 		if (Pread_scalar_quietly(rd->P, &poss_l_searchlist_r_nlist,
 			rd->P->elf64 ? UINT_64_SIZE : UINT_32_SIZE,
-			sizeof (unsigned int), scan_next, 1) < 0) {
+			sizeof(unsigned int), scan_next, 1) < 0) {
 			break;
 		}
 
@@ -443,13 +443,13 @@ find_l_searchlist(rd_agent_t *rd)
 
 			if (Pread_scalar_quietly(rd->P, &poss_map,
 				rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE,
-				sizeof (uintptr_t), scope_array_scan, 1) < 0) {
+				sizeof(uintptr_t), scope_array_scan, 1) < 0) {
 				unmatched = 1;
 				break;
 			}
 
 			if (bsearch(&poss_map, map_addrs, nmaps,
-				sizeof (uintptr_t),
+				sizeof(uintptr_t),
 				ascending_uintptrs) == NULL) {
 				unmatched = 1;
 				break;
@@ -534,8 +534,8 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 			goto fail;
 
 	buf->rl_diff_addr = map->l_addr;
-	buf->rl_nameaddr = (uintptr_t) map->l_name;
-	buf->rl_dyn = (uintptr_t) map->l_ld;
+	buf->rl_nameaddr = (uintptr_t)map->l_name;
+	buf->rl_dyn = (uintptr_t)map->l_ld;
 
 	/*
 	 * Now put together the scopes array.  Avoid calling the allocator too
@@ -549,12 +549,12 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 
 	if (Pread_scalar(rd->P, &searchlist, rd->P->elf64 ?
 		L_NEXT_64_SIZE : L_NEXT_32_SIZE,
-		sizeof (uintptr_t), addr + rd->l_searchlist_offset) < 0)
+		sizeof(uintptr_t), addr + rd->l_searchlist_offset) < 0)
 		goto fail;
 
 	if (Pread_scalar(rd->P, &buf->rl_nscopes, rd->P->elf64 ?
 		UINT_64_SIZE : UINT_32_SIZE,
-		sizeof (unsigned int), addr + rd->l_searchlist_offset +
+		sizeof(unsigned int), addr + rd->l_searchlist_offset +
 		(rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE)) < 0)
 		goto fail;
 
@@ -578,7 +578,7 @@ rd_get_loadobj_link_map(rd_agent_t *rd, rd_loadobj_t *buf,
 		    L_NEXT_32_SIZE;
 
 		if (Pread_scalar(rd->P, &buf->rl_scope[i], link_map_ptr_size,
-			sizeof (uintptr_t), searchlist +
+			sizeof(uintptr_t), searchlist +
 			(i * link_map_ptr_size)) < 0)
 			goto fail;
 	}
@@ -622,7 +622,7 @@ ns_nloaded(rd_agent_t *rd, Lmid_t lmid)
 	 * If the read fails, assume 1 (almost always true anyway).
 	 */
 	if (Pread_scalar(rd->P, &buf, rd->P->elf64 ? G_NLOADED_64_SIZE :
-		G_NLOADED_32_SIZE, sizeof (unsigned int), addr) < 0) {
+		G_NLOADED_32_SIZE, sizeof(unsigned int), addr) < 0) {
 		_dprintf("%i: Cannot read loaded object count\n", rd->P->pid);
 		return 1;
 	}
@@ -648,7 +648,7 @@ load_lock(rd_agent_t *rd)
 
 	if (Pread_scalar(rd->P, &lock_count, rd->P->elf64 ?
 		G_DL_LOAD_LOCK_64_SIZE : G_DL_LOAD_LOCK_32_SIZE,
-		sizeof (unsigned int), rtld_global(rd) +
+		sizeof(unsigned int), rtld_global(rd) +
 		(rd->P->elf64 ? G_DL_LOAD_LOCK_64_OFFSET :
 		    G_DL_LOAD_LOCK_32_OFFSET)) < 0)
 		return -1;
@@ -1306,7 +1306,7 @@ rd_new(struct ps_prochandle *P)
 	if (P->state == PS_DEAD) {
 		_dprintf("%i: Cannot initialize rd_agent: "
 		    "process is dead.\n", P->pid);
-		return (NULL);
+		return NULL;
 	}
 
 	/*
@@ -1317,20 +1317,20 @@ rd_new(struct ps_prochandle *P)
 	if (r_debug_addr == -1) {
                 _dprintf("%i: Cannot initialize rd_agent: no "
                     "r_debug.\n", P->pid);
-		return (NULL);
+		return NULL;
 	}
 
 	Pwait(P, 0);
 
-	rd = calloc(sizeof (struct rd_agent), 1);
+	rd = calloc(sizeof(struct rd_agent), 1);
 	if (rd == NULL)
-		return (NULL);
+		return NULL;
 	/*
 	 * Protect against multiple calls.
 	 */
 	if (P->rap) {
 		free(rd);
-		return (P->rap);
+		return P->rap;
         }
 
 	rd->P = P;
@@ -1392,12 +1392,12 @@ rd_new(struct ps_prochandle *P)
 	Puntrace(P, 0);
 
 	_dprintf("%i: Activated rtld_db agent.\n", rd->P->pid);
-	return (rd);
+	return rd;
 err:
 	Puntrace(P, 0);
 	free(P->rap);
 	P->rap = NULL;
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -1695,7 +1695,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 			num++;
 			n++;
 
-			loadobj = (uintptr_t) map.l_next;
+			loadobj = (uintptr_t)map.l_next;
 		}
 
 		/*

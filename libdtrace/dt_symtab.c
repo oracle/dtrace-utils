@@ -10,7 +10,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,7 +73,7 @@ dt_symtab_grow_ranges(dt_symtab_t *symtab)
 {
 	uint_t num_alloc = (symtab->dtst_num_range_alloc + 1) * 2;
 	dt_symrange_t *new_ranges = realloc(symtab->dtst_ranges,
-	    sizeof (dt_symrange_t) * num_alloc);
+	    sizeof(dt_symrange_t) * num_alloc);
 	if (new_ranges == NULL)
 		return NULL;
 
@@ -95,8 +95,8 @@ dt_symtab_grow_ranges(dt_symtab_t *symtab)
 static int
 dt_symrange_sort_cmp(const void *lp, const void *rp)
 {
-	dt_symbol_t *lhs = ((dt_symrange_t *) lp)->dtsr_sym;
-	dt_symbol_t *rhs = ((dt_symrange_t *) rp)->dtsr_sym;
+	dt_symbol_t *lhs = ((dt_symrange_t *)lp)->dtsr_sym;
+	dt_symbol_t *rhs = ((dt_symrange_t *)rp)->dtsr_sym;
 
 	if (lhs->dts_addr < rhs->dts_addr)
 		return -1;
@@ -126,7 +126,7 @@ dt_symrange_sort_cmp(const void *lp, const void *rp)
 	if (strcmp(rhs->dts_name.str, "cleanup_module") &&
 	    strcmp(lhs->dts_name.str, "cleanup_module") == 0)
 		return +1;
-	return (strcmp(lhs->dts_name.str, rhs->dts_name.str));
+	return strcmp(lhs->dts_name.str, rhs->dts_name.str);
 }
 
 /*
@@ -134,8 +134,8 @@ dt_symrange_sort_cmp(const void *lp, const void *rp)
  */
 static int dt_symbol_search_cmp(const void *lp, const void *rp)
 {
-	const GElf_Addr lhs = *((GElf_Addr *) lp);
-	dt_symrange_t *rhs = (dt_symrange_t *) rp;
+	const GElf_Addr lhs = *((GElf_Addr *)lp);
+	dt_symrange_t *rhs = (dt_symrange_t *)rp;
 
 	if (lhs < rhs->dtsr_lo)
 		return -1;
@@ -147,16 +147,16 @@ static int dt_symbol_search_cmp(const void *lp, const void *rp)
 dt_symtab_t *
 dt_symtab_create(void)
 {
-	dt_symtab_t *symtab = malloc (sizeof (struct dt_symtab));
+	dt_symtab_t *symtab = malloc(sizeof(struct dt_symtab));
 
 	if (symtab == NULL)
 		return NULL;
 
-	memset(symtab, 0, sizeof (struct dt_symtab));
+	memset(symtab, 0, sizeof(struct dt_symtab));
 
 	symtab->dtst_symbuckets = _dtrace_strbuckets;
 	symtab->dtst_syms_by_name = calloc(symtab->dtst_symbuckets,
-	    sizeof (struct dt_symbol *));
+	    sizeof(struct dt_symbol *));
 
 	if (symtab->dtst_syms_by_name == NULL) {
 		free(symtab->dtst_syms_by_name);
@@ -205,7 +205,7 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	if (symtab->dtst_flags & DT_ST_PACKED)
 		return NULL;
 
-	if ((dtsp = malloc(sizeof (dt_symbol_t))) == NULL)
+	if ((dtsp = malloc(sizeof(dt_symbol_t))) == NULL)
 		return NULL;
 
 	if (symtab->dtst_num_range >= symtab->dtst_num_range_alloc)
@@ -214,7 +214,7 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 			return NULL;
 		}
 
-	memset(dtsp, 0, sizeof (dt_symbol_t));
+	memset(dtsp, 0, sizeof(dt_symbol_t));
 	dtsp->dts_name.str = strdup(name);
 	dtsp->dts_addr = addr;
 	dtsp->dts_size = size;
@@ -266,11 +266,11 @@ dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
 		if (packed) {
 			if (strcmp(&symtab->dtst_strtab[dtsp->dts_name.off],
 				name) == 0)
-				return (dtsp);
+				return dtsp;
 		}
 		else
 			if (strcmp(dtsp->dts_name.str, name) == 0)
-				return (dtsp);
+				return dtsp;
 	}
 
 	return NULL;
@@ -288,7 +288,7 @@ dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr)
 		return NULL;
 
 	sympp = bsearch(&dts_addr, symtab->dtst_ranges, symtab->dtst_num_range,
-	    sizeof (dt_symrange_t), dt_symbol_search_cmp);
+	    sizeof(dt_symrange_t), dt_symbol_search_cmp);
 
 	if (sympp == NULL)
 		return NULL;
@@ -338,7 +338,7 @@ dt_symtab_form_ranges(dt_symtab_t *symtab)
 	if (symtab->dtst_num_range == 0)
 		return 0;
 
-	new_ranges = malloc(sizeof (dt_symrange_t) * num_alloc);
+	new_ranges = malloc(sizeof(dt_symrange_t) * num_alloc);
 
 	if (new_ranges == NULL)
 		return -1;
@@ -419,7 +419,7 @@ dt_symtab_form_ranges(dt_symtab_t *symtab)
 			if (num_range >= num_alloc) {
 				uint_t n = num_alloc + 1024;
 				dt_symrange_t *r = realloc(new_ranges,
-				    sizeof (dt_symrange_t) * n);
+				    sizeof(dt_symrange_t) * n);
 				if (r == NULL) {
 					free(new_ranges);
 					return -1;
@@ -455,7 +455,7 @@ dt_symtab_sort(dt_symtab_t *symtab, int flag)
 		return;
 
 	qsort(symtab->dtst_ranges, symtab->dtst_num_range,
-	    sizeof (dt_symrange_t), dt_symrange_sort_cmp);
+	    sizeof(dt_symrange_t), dt_symrange_sort_cmp);
 
 	if (flag && symtab->dtst_num_range) {
 		int		i;
@@ -617,7 +617,7 @@ void
 dt_symbol_to_elfsym(dtrace_hdl_t *dtp, dt_symbol_t *symbol, GElf_Sym *elf_symp)
 {
 	switch (dtp->dt_conf.dtc_ctfmodel) {
-	case CTF_MODEL_LP64: dt_symbol_to_elfsym64(dtp, symbol, (Elf64_Sym *) elf_symp);
+	case CTF_MODEL_LP64: dt_symbol_to_elfsym64(dtp, symbol, (Elf64_Sym *)elf_symp);
 		break;
 	case CTF_MODEL_ILP32: dt_symbol_to_elfsym32(dtp, symbol, (Elf32_Sym *)elf_symp);
 		break;

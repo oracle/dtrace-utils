@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,7 +11,7 @@ ipaddr_t *ip4a;
 
 BEGIN
 {
-	this->buf4a = alloca(sizeof (ipaddr_t));
+	this->buf4a = alloca(sizeof(ipaddr_t));
 	ip4a = this->buf4a;
 	*ip4a = htonl(0xc0a80117);
 

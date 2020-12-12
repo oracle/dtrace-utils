@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -44,7 +44,7 @@ typedef struct dtrace_diftype {
  * A DTrace Intermediate Format variable record is used to describe each of the
  * variables referenced by a given DIF object.  It contains an integer variable
  * identifier along with variable scope and properties, as shown below.  The
- * size of this structure must be sizeof (int) aligned.
+ * size of this structure must be sizeof(int) aligned.
  */
 
 typedef struct dtrace_difv {

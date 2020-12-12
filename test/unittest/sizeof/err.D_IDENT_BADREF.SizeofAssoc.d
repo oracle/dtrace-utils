@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -21,10 +21,10 @@ BEGIN
 	assoc_array[1] = 100;
 	assoc_array[2] = 210;
 
-	printf("sizeof (assoc_array): %d\n", sizeof (assoc_array));
-	printf("sizeof (assoc_array[0]): %d\n", sizeof (assoc_array[0]));
-	printf("sizeof (assoc_array[1]): %d\n", sizeof (assoc_array[1]));
-	printf("sizeof (assoc_array[2]): %d\n", sizeof (assoc_array[2]));
+	printf("sizeof(assoc_array): %d\n", sizeof(assoc_array));
+	printf("sizeof(assoc_array[0]): %d\n", sizeof(assoc_array[0]));
+	printf("sizeof(assoc_array[1]): %d\n", sizeof(assoc_array[1]));
+	printf("sizeof(assoc_array[2]): %d\n", sizeof(assoc_array[2]));
 
 	exit(0);
 }

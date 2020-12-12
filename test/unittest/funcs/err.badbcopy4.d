@@ -20,10 +20,10 @@
 
 BEGIN
 {
-	ptr = alloca(sizeof (int));
+	ptr = alloca(sizeof(int));
 
 	/* Attempt to copy from a NULL address */
-	bcopy((void *)NULL, ptr, sizeof (int));
+	bcopy((void *)NULL, ptr, sizeof(int));
 	exit(0);
 }
 

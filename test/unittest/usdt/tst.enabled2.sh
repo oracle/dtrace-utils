@@ -43,7 +43,7 @@ cat > test.c <<EOF
 int
 foo(void)
 {
-	return (24);
+	return 24;
 }
 
 int
@@ -53,9 +53,9 @@ main(int argc, char **argv)
 	if (TEST_PROV_GO_ENABLED()) {
 		TEST_PROV_GO();
 	}
-	(void) printf("%d %d %d\n", a, a, a);
+	printf("%d %d %d\n", a, a, a);
 
-	return (0);
+	return 0;
 }
 EOF
 

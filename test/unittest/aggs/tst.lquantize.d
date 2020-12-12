@@ -26,7 +26,7 @@ BEGIN
 tick-10ms
 /i < 1000/
 {
-	@a[i] = lquantize(i, -100, 1100, 100 );
+	@a[i] = lquantize(i, -100, 1100, 100);
 	i += 100;
 }
 

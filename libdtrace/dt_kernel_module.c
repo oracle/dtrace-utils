@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -46,16 +46,16 @@ dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 		if (strcmp(dkpp->dkp_name, name) == 0) {
 			free(name);
 			free(path);
-			return (dkpp);
+			return dkpp;
 		}
 	}
 
-	if ((dkpp = malloc(sizeof (dt_kern_path_t))) == NULL)
-		return (NULL); /* caller must handle allocation failure */
+	if ((dkpp = malloc(sizeof(dt_kern_path_t))) == NULL)
+		return NULL; /* caller must handle allocation failure */
 
 	dt_dprintf("Adding %s -> %s\n", name, path);
 
-	memset(dkpp, 0, sizeof (dt_kern_path_t));
+	memset(dkpp, 0, sizeof(dt_kern_path_t));
 	dkpp->dkp_name = name;
 	dkpp->dkp_path = path;			/* strdup()ped by our caller */
 	dt_list_append(&dtp->dt_kernpathlist, dkpp);
@@ -63,7 +63,7 @@ dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 	dtp->dt_kernpaths[h] = dkpp;
 	dtp->dt_nkernpaths++;
 
-	return (dkpp);
+	return dkpp;
 }
 
 void
@@ -191,7 +191,7 @@ dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 		if (dterrno != 0) {
 			dt_dprintf("Error initializing kernel module paths: "
 			    "%s\n", dtrace_errmsg(dtp, dterrno));
-			return (NULL);
+			return NULL;
 		}
 
 		dt_dprintf("Initialized %i kernel module paths\n",
@@ -200,10 +200,10 @@ dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 
 	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
 		if (strcmp(dkpp->dkp_name, name) == 0)
-			return (dkpp);
+			return dkpp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*

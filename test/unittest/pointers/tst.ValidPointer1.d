@@ -19,11 +19,11 @@
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
-	printf("Address x: %x\n", (int) x);
-	y = (int *) (x);
+	x = (int *)alloca(sizeof(int));
+	printf("Address x: %x\n", (int)x);
+	y = (int *)(x);
 	*y = 3;
-	printf("Address y: %x\tValue: %d\n", (int) y, *y);
+	printf("Address y: %x\tValue: %d\n", (int)y, *y);
 
 	exit(0);
 }

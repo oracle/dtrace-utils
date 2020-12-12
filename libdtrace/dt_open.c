@@ -630,7 +630,7 @@ set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
 		dtrace_close(dtp);
 	if (errp != NULL)
 		*errp = err;
-	return (NULL);
+	return NULL;
 }
 
 static dtrace_hdl_t *
@@ -656,10 +656,10 @@ dt_vopen(int version, int flags, int *errp,
 	char isadef[32], utsdef[4 + sizeof(dtp->dt_uts.sysname)];
 
 	if (version <= 0)
-		return (set_open_errno(dtp, errp, EINVAL));
+		return set_open_errno(dtp, errp, EINVAL);
 
 	if (version > DTRACE_VERSION)
-		return (set_open_errno(dtp, errp, EDT_VERSION));
+		return set_open_errno(dtp, errp, EDT_VERSION);
 
 	if (version < DTRACE_VERSION) {
 		/*
@@ -673,20 +673,20 @@ dt_vopen(int version, int flags, int *errp,
 		 * if the specified version number is less than the version
 		 * number at the time of interface commitment.
 		 */
-		return (set_open_errno(dtp, errp, EDT_OVERSION));
+		return set_open_errno(dtp, errp, EDT_OVERSION);
 	}
 
 	if (flags & ~DTRACE_O_MASK)
-		return (set_open_errno(dtp, errp, EINVAL));
+		return set_open_errno(dtp, errp, EINVAL);
 
 	if ((flags & DTRACE_O_LP64) && (flags & DTRACE_O_ILP32))
-		return (set_open_errno(dtp, errp, EINVAL));
+		return set_open_errno(dtp, errp, EINVAL);
 
 	if (vector == NULL && arg != NULL)
-		return (set_open_errno(dtp, errp, EINVAL));
+		return set_open_errno(dtp, errp, EINVAL);
 
 	if (elf_version(EV_CURRENT) == EV_NONE)
-		return (set_open_errno(dtp, errp, EDT_ELFVERSION));
+		return set_open_errno(dtp, errp, EDT_ELFVERSION);
 
 	/*
 	 * Before we get going, crank our limit on file descriptors up to the
@@ -698,7 +698,7 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
 		rl.rlim_cur = rl.rlim_max;
-		(void) setrlimit(RLIMIT_NOFILE, &rl);
+		setrlimit(RLIMIT_NOFILE, &rl);
 	}
 
 	/*
@@ -714,10 +714,10 @@ dt_vopen(int version, int flags, int *errp,
 		}
 	}
 
-	if ((dtp = malloc(sizeof (dtrace_hdl_t))) == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+	if ((dtp = malloc(sizeof(dtrace_hdl_t))) == NULL)
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
-	memset(dtp, 0, sizeof (dtrace_hdl_t));
+	memset(dtp, 0, sizeof(dtrace_hdl_t));
 	dtp->dt_oflags = flags;
 	dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
 	dtp->dt_linkmode = DT_LINK_KERNEL;
@@ -731,17 +731,17 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_stdout_fd = -1;
 	dtp->dt_poll_fd = -1;
 	dtp->dt_modbuckets = _dtrace_strbuckets;
-	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof (dt_module_t *));
+	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof(dt_module_t *));
 	dtp->dt_kernpathbuckets = _dtrace_strbuckets;
-	dtp->dt_kernpaths = calloc(dtp->dt_kernpathbuckets, sizeof (dt_kern_path_t *));
+	dtp->dt_kernpaths = calloc(dtp->dt_kernpathbuckets, sizeof(dt_kern_path_t *));
 	dtp->dt_provbuckets = _dtrace_strbuckets;
-	dtp->dt_provs = calloc(dtp->dt_provbuckets, sizeof (dt_provider_t *));
+	dtp->dt_provs = calloc(dtp->dt_provbuckets, sizeof(dt_provider_t *));
 	dt_proc_hash_create(dtp);
 	dtp->dt_nextepid = 1;
 	dtp->dt_maxprobe = 0;
 	dtp->dt_vmax = DT_VERS_LATEST;
 	dtp->dt_cpp_path = strdup(_dtrace_defcpp);
-	dtp->dt_cpp_argv = malloc(sizeof (char *));
+	dtp->dt_cpp_argv = malloc(sizeof(char *));
 	dtp->dt_cpp_argc = 1;
 	dtp->dt_cpp_args = 1;
 	dtp->dt_ld_path = strdup(_dtrace_defld);
@@ -765,13 +765,13 @@ dt_vopen(int version, int flags, int *errp,
 
 	/* Obtain current kernel version. */
 	if (dt_str2kver(dtp->dt_uts.release, &dtp->dt_kernver) < 0)
-		return (set_open_errno(dtp, errp, EDT_VERSINVAL));
+		return set_open_errno(dtp, errp, EDT_VERSINVAL);
 
 	if (dtp->dt_mods == NULL || dtp->dt_kernpaths == NULL || 
 	    dtp->dt_provs == NULL || dtp->dt_procs == NULL ||
 	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
 	    dtp->dt_cpp_argv == NULL || dtp->dt_sysslice == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
 		dtp->dt_options[i] = DTRACEOPT_UNSET;
@@ -787,7 +787,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
 
 	snprintf(isadef, sizeof(isadef), "-D__SUNW_D_%u",
-	    (uint_t)(sizeof (void *) * NBBY));
+	    (uint_t)(sizeof(void *) * NBBY));
 
 	snprintf(utsdef, sizeof(utsdef), "-D__%s", dtp->dt_uts.sysname);
 
@@ -798,9 +798,9 @@ dt_vopen(int version, int flags, int *errp,
 	    dt_cpp_add_arg(dtp, "-U__GNUC__") == NULL ||
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
-	memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof (_dtrace_conf));
+	memcpy(&dtp->dt_conf, &_dtrace_conf, sizeof(_dtrace_conf));
 	dt_conf_init(dtp);
 	dt_dprintf("detected %u CPUs online (%u possible, highest cpuid %u)\n",
 		  dtp->dt_conf.num_online_cpus, dtp->dt_conf.num_possible_cpus,
@@ -817,11 +817,11 @@ dt_vopen(int version, int flags, int *errp,
 	 * and __sparcv9 is defined if we are doing a 64-bit compile.
 	 */
 	if (dt_cpp_add_arg(dtp, "-D__sparc") == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64 &&
 	    dt_cpp_add_arg(dtp, "-D__sparcv9") == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 #endif
 
 #ifdef __x86
@@ -832,20 +832,20 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64) {
 		if (dt_cpp_add_arg(dtp, "-D__amd64") == NULL)
-			return (set_open_errno(dtp, errp, EDT_NOMEM));
+			return set_open_errno(dtp, errp, EDT_NOMEM);
 	} else {
 		if (dt_cpp_add_arg(dtp, "-D__i386") == NULL)
-			return (set_open_errno(dtp, errp, EDT_NOMEM));
+			return set_open_errno(dtp, errp, EDT_NOMEM);
 	}
 #endif
 
 	if (dtp->dt_conf.dtc_difversion < DIF_VERSION)
-		return (set_open_errno(dtp, errp, EDT_DIFVERS));
+		return set_open_errno(dtp, errp, EDT_DIFVERS);
 
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_ILP32)
-		memcpy(dtp->dt_ints, _dtrace_ints_32, sizeof (_dtrace_ints_32));
+		memcpy(dtp->dt_ints, _dtrace_ints_32, sizeof(_dtrace_ints_32));
 	else
-		memcpy(dtp->dt_ints, _dtrace_ints_64, sizeof (_dtrace_ints_64));
+		memcpy(dtp->dt_ints, _dtrace_ints_64, sizeof(_dtrace_ints_64));
 
 	dtp->dt_macros = dt_idhash_create("macro", NULL, 0, UINT_MAX);
 	dtp->dt_aggs = dt_idhash_create("aggregation", NULL,
@@ -864,7 +864,7 @@ dt_vopen(int version, int flags, int *errp,
 	if (dtp->dt_macros == NULL || dtp->dt_aggs == NULL ||
 	    dtp->dt_globals == NULL || dtp->dt_tls == NULL ||
 	    dtp->dt_ccstab == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	/*
 	 * Populate the dt_macros identifier hash table by hand: we can't use
@@ -876,7 +876,7 @@ dt_vopen(int version, int flags, int *errp,
 		    idp->di_kind, idp->di_flags, idp->di_id, idp->di_attr,
 		    idp->di_vers, idp->di_ops ? idp->di_ops : &dt_idops_thaw,
 		    idp->di_iarg, 0) == NULL)
-			return (set_open_errno(dtp, errp, EDT_NOMEM));
+			return set_open_errno(dtp, errp, EDT_NOMEM);
 	}
 
 	/*
@@ -885,7 +885,7 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	updateerr = dtrace_update(dtp);
 	if (updateerr != 0)
-		return (set_open_errno(dtp, errp, updateerr));
+		return set_open_errno(dtp, errp, updateerr);
 
 	/*
 	 * Select the intrinsics and typedefs we want based on the data model.
@@ -904,15 +904,15 @@ dt_vopen(int version, int flags, int *errp,
 	 * types and types defined in ANSI-C header files that are included.
 	 */
 	if ((dmp = dtp->dt_cdefs = dt_module_create(dtp, "C")) == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	if ((dmp->dm_ctfp = ctf_create(&dtp->dt_ctferr)) == NULL)
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 
 	dt_dprintf("created CTF container for %s (%p)\n",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
-	(void) ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
+	ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	dmp->dm_flags = DT_DM_LOADED; /* fake up loaded bit */
@@ -934,33 +934,33 @@ dt_vopen(int version, int flags, int *errp,
 			dt_dprintf("failed to add %s to C container: %s\n",
 			    dinp->din_name, ctf_errmsg(
 			    ctf_errno(dmp->dm_ctfp)));
-			return (set_open_errno(dtp, errp, EDT_CTF));
+			return set_open_errno(dtp, errp, EDT_CTF);
 		}
 	}
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
 		dt_dprintf("failed to update C container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 	}
 
 	/*
 	 * Add intrinsic pointer types that are needed to initialize printf
 	 * format dictionary types (see table in dt_printf.c).
 	 */
-	(void) ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
+	ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
 	    ctf_lookup_by_name(dmp->dm_ctfp, "void"));
 
-	(void) ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
+	ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
 	    ctf_lookup_by_name(dmp->dm_ctfp, "char"));
 
-	(void) ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
+	ctf_add_pointer(dmp->dm_ctfp, CTF_ADD_ROOT,
 	    ctf_lookup_by_name(dmp->dm_ctfp, "int"));
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
 		dt_dprintf("failed to update C container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 	}
 
 	/*
@@ -969,15 +969,15 @@ dt_vopen(int version, int flags, int *errp,
 	 * The "D" CTF container is a child of the "C" CTF container.
 	 */
 	if ((dmp = dtp->dt_ddefs = dt_module_create(dtp, "D")) == NULL)
-		return (set_open_errno(dtp, errp, EDT_NOMEM));
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	if ((dmp->dm_ctfp = ctf_create(&dtp->dt_ctferr)) == NULL)
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 
 	dt_dprintf("created CTF container for %s (%p)\n",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
-	(void) ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
+	ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
 	ctf_setspecific(dmp->dm_ctfp, dmp);
 
 	dmp->dm_flags = DT_DM_LOADED; /* fake up loaded bit */
@@ -985,7 +985,7 @@ dt_vopen(int version, int flags, int *errp,
 	if (ctf_import(dmp->dm_ctfp, dtp->dt_cdefs->dm_ctfp) == CTF_ERR) {
 		dt_dprintf("failed to import D parent container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 	}
 
 	/*
@@ -1000,7 +1000,7 @@ dt_vopen(int version, int flags, int *errp,
 			dt_dprintf("failed to add typedef %s %s to D "
 			    "container: %s", dtyp->dty_src, dtyp->dty_dst,
 			    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-			return (set_open_errno(dtp, errp, EDT_CTF));
+			return set_open_errno(dtp, errp, EDT_CTF);
 		}
 	}
 
@@ -1050,13 +1050,13 @@ dt_vopen(int version, int flags, int *errp,
 	    dtp->dt_type_usymaddr == CTF_ERR) {
 		dt_dprintf("failed to add intrinsic to D container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 	}
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
 		dt_dprintf("failed update D container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
-		return (set_open_errno(dtp, errp, EDT_CTF));
+		return set_open_errno(dtp, errp, EDT_CTF);
 	}
 
 	/*
@@ -1075,20 +1075,20 @@ dt_vopen(int version, int flags, int *errp,
 	 * constants to the appropriate types.  Refer to the comments above
 	 * dt_node_int() for a complete description of how this table is used.
 	 */
-	for (i = 0; i < sizeof (dtp->dt_ints) / sizeof (dtp->dt_ints[0]); i++) {
+	for (i = 0; i < sizeof(dtp->dt_ints) / sizeof(dtp->dt_ints[0]); i++) {
 		if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY,
 		    dtp->dt_ints[i].did_name, &dtt) != 0) {
 			dt_dprintf("failed to lookup integer type %s: %s\n",
 			    dtp->dt_ints[i].did_name,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
-			return (set_open_errno(dtp, errp, dtp->dt_errno));
+			return set_open_errno(dtp, errp, dtp->dt_errno);
 		}
 		dtp->dt_ints[i].did_ctfp = dtt.dtt_ctfp;
 		dtp->dt_ints[i].did_type = dtt.dtt_type;
 	}
 
 	if (dt_pfdict_create(dtp) == -1)
-		return (set_open_errno(dtp, errp, dtp->dt_errno));
+		return set_open_errno(dtp, errp, dtp->dt_errno);
 
 	/*
 	 * Initialize the BPF library handling.
@@ -1116,7 +1116,7 @@ dt_vopen(int version, int flags, int *errp,
 	    DTRACE_PROBESPEC_NONE, DTRACE_C_EMPTY, 0, NULL)) == NULL) {
 		dt_dprintf("failed to load hard-wired definitions: %s\n",
 		    dtrace_errmsg(dtp, dtrace_errno(dtp)));
-		return (set_open_errno(dtp, errp, EDT_HARDWIRE));
+		return set_open_errno(dtp, errp, EDT_HARDWIRE);
 	}
 
 	dt_program_destroy(dtp, pgp);
@@ -1129,9 +1129,9 @@ dt_vopen(int version, int flags, int *errp,
 	 * reporting of compiler errors requires dtrace_open() to succeed).
 	 */
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
-		return (set_open_errno(dtp, errp, dtp->dt_errno));
+		return set_open_errno(dtp, errp, dtp->dt_errno);
 
-	return (dtp);
+	return dtp;
 }
 
 void
@@ -1143,14 +1143,14 @@ dtrace_size_dbg_print(const char *type, size_t size)
 dtrace_hdl_t *
 dtrace_open(int version, int flags, int *errp)
 {
-	return (dt_vopen(version, flags, errp, NULL, NULL));
+	return dt_vopen(version, flags, errp, NULL, NULL);
 }
 
 dtrace_hdl_t *
 dtrace_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
 {
-	return (dt_vopen(version, flags, errp, vector, arg));
+	return dt_vopen(version, flags, errp, vector, arg);
 }
 
 void

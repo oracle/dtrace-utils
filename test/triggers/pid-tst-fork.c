@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -28,7 +28,7 @@ int go(int a)
 		}
 	}
 
-	return (total);
+	return total;
 }
 
 int main(int argc, char **argv)
@@ -55,8 +55,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	(void) fork();
-	(void) go(i);
+	fork();
+	go(i);
 
-	return (0);
+	return 0;
 }

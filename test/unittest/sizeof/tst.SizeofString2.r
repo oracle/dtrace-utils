@@ -1,2 +1,2 @@
-sizeof (var): 256
+sizeof(var): 256
 

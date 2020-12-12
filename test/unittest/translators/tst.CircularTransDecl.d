@@ -28,14 +28,14 @@ struct output_struct {
 
 translator struct output_struct < struct input_struct ivar >
 {
-	myi = ((struct input_struct ) ivar).i;
-	myc = ((struct input_struct ) ivar).c;
+	myi = ((struct input_struct)ivar).i;
+	myc = ((struct input_struct)ivar).c;
 };
 
 translator struct input_struct < struct output_struct uvar >
 {
-	i = ((struct output_struct ) uvar).myi;
-	c = ((struct output_struct ) uvar).myc;
+	i = ((struct output_struct)uvar).myi;
+	c = ((struct output_struct)uvar).myc;
 };
 
 struct input_struct f1;

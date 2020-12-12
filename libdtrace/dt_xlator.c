@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -29,13 +29,13 @@ dt_xlator_create_member(const char *name, ctf_id_t type, ulong_t off, void *arg)
 	dt_node_t *enp, *mnp;
 
 	if ((enp = dt_node_xalloc(dtp, DT_NODE_XLATOR)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	enp->dn_link = dxp->dx_nodes;
 	dxp->dx_nodes = enp;
 
 	if ((mnp = dt_node_xalloc(dtp, DT_NODE_MEMBER)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	mnp->dn_link = dxp->dx_nodes;
 	dxp->dx_nodes = mnp;
@@ -65,9 +65,9 @@ dt_xlator_create_member(const char *name, ctf_id_t type, ulong_t off, void *arg)
 	dt_node_type_assign(mnp, dxp->dx_dst_ctfp, type);
 
 	if (mnp->dn_membname == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-	return (0);
+	return 0;
 }
 
 dt_xlator_t *
@@ -75,14 +75,14 @@ dt_xlator_create(dtrace_hdl_t *dtp,
     const dtrace_typeinfo_t *src, const dtrace_typeinfo_t *dst,
     const char *name, dt_node_t *members, dt_node_t *nodes)
 {
-	dt_xlator_t *dxp = dt_zalloc(dtp, sizeof (dt_xlator_t));
+	dt_xlator_t *dxp = dt_zalloc(dtp, sizeof(dt_xlator_t));
 	dtrace_typeinfo_t ptr = *dst;
 	dt_xlator_t **map;
 	dt_node_t *dnp;
 	uint_t kind;
 
 	if (dxp == NULL)
-		return (NULL);
+		return NULL;
 
 	dxp->dx_hdl = dtp;
 	dxp->dx_id = dtp->dt_xlatorid++;
@@ -92,11 +92,11 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	map = dt_calloc(dtp, dxp->dx_id + 1, sizeof(void *));
 	if (map == NULL) {
 		dt_free(dtp, dxp);
-		return (NULL);
+		return NULL;
 	}
 
 	dt_list_append(&dtp->dt_xlators, dxp);
-	memcpy(map, dtp->dt_xlatormap, sizeof (void *) * dxp->dx_id);
+	memcpy(map, dtp->dt_xlatormap, sizeof(void *) * dxp->dx_id);
 	dt_free(dtp, dtp->dt_xlatormap);
 	dtp->dt_xlatormap = map;
 	dtp->dt_xlatormap[dxp->dx_id] = dxp;
@@ -204,11 +204,11 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 		goto err;
 	}
 
-	return (dxp);
+	return dxp;
 
 err:
 	dt_xlator_destroy(dtp, dxp);
-	return (NULL);
+	return NULL;
 }
 
 void
@@ -249,7 +249,7 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 	dt_xlator_t *dxp = NULL;
 
 	if (src_base == CTF_ERR || dst_base == CTF_ERR)
-		return (NULL); /* fail if these are unresolvable types */
+		return NULL; /* fail if these are unresolvable types */
 
 	/*
 	 * Translators are always defined using a struct or union type, so if
@@ -263,7 +263,7 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 	}
 
 	if (dst_kind != CTF_K_UNION && dst_kind != CTF_K_STRUCT)
-		return (NULL); /* fail if the output isn't a struct or union */
+		return NULL; /* fail if the output isn't a struct or union */
 
 	/*
 	 * In order to find a matching translator, we iterate over the set of
@@ -305,11 +305,11 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 
 out:
 	if (ptr && dxp != NULL && dxp->dx_ptrid.di_type == CTF_ERR)
-		return (NULL);	/* no translation available to pointer type */
+		return NULL;	/* no translation available to pointer type */
 
 	if (dxp != NULL || !(flags & DT_XLATE_EXTERN) ||
 	    dtp->dt_xlatemode == DT_XL_STATIC)
-		return (dxp);	/* we succeeded or not allowed to extern */
+		return dxp;	/* we succeeded or not allowed to extern */
 
 	/*
 	 * If we get here, then we didn't find an existing translator, but the
@@ -323,23 +323,23 @@ out:
 	dst_dtt.dtt_ctfp = dst_ctfp;
 	dst_dtt.dtt_type = dst_type;
 
-	return (dt_xlator_create(dtp, &src_dtt, &dst_dtt, NULL, NULL, NULL));
+	return dt_xlator_create(dtp, &src_dtt, &dst_dtt, NULL, NULL, NULL);
 }
 
 dt_xlator_t *
 dt_xlator_lookup_id(dtrace_hdl_t *dtp, id_t id)
 {
 	assert(id >= 0 && id < dtp->dt_xlatorid);
-	return (dtp->dt_xlatormap[id]);
+	return dtp->dt_xlatormap[id];
 }
 
 dt_ident_t *
 dt_xlator_ident(dt_xlator_t *dxp, ctf_file_t *ctfp, ctf_id_t type)
 {
 	if (ctf_type_kind(ctfp, ctf_type_resolve(ctfp, type)) == CTF_K_POINTER)
-		return (&dxp->dx_ptrid);
+		return &dxp->dx_ptrid;
 	else
-		return (&dxp->dx_souid);
+		return &dxp->dx_souid;
 }
 
 dt_node_t *
@@ -349,14 +349,14 @@ dt_xlator_member(dt_xlator_t *dxp, const char *name)
 
 	for (dnp = dxp->dx_members; dnp != NULL; dnp = dnp->dn_list) {
 		if (strcmp(dnp->dn_membname, name) == 0)
-			return (dnp);
+			return dnp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 int
 dt_xlator_dynamic(const dt_xlator_t *dxp)
 {
-	return (dxp->dx_locals == NULL);
+	return dxp->dx_locals == NULL;
 }

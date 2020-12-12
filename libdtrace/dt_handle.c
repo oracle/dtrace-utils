@@ -41,7 +41,7 @@ dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 	 * We don't currently support multiple error handlers.
 	 */
 	if (dtp->dt_errhdlr != NULL)
-		return (dt_set_errno(dtp, EALREADY));
+		return dt_set_errno(dtp, EALREADY);
 
 	/*
 	 * If the DTRACEOPT_GRABANON is enabled, the anonymous enabling will
@@ -54,7 +54,7 @@ dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 #if 0
 	if ((pgp = dtrace_program_strcompile(dtp, _dt_errprog,
 	    DTRACE_PROBESPEC_NAME, DTRACE_C_ZDEFS, 0, NULL)) == NULL)
-		return (dt_set_errno(dtp, dtrace_errno(dtp)));
+		return dt_set_errno(dtp, dtrace_errno(dtp));
 
 	stp = dt_list_next(&pgp->dp_stmts);
 	assert(stp != NULL);
@@ -69,31 +69,31 @@ out:
 	dtp->dt_errarg = arg;
 	dtp->dt_errprog = pgp;
 
-	return (0);
+	return 0;
 }
 
 int
 dtrace_handle_drop(dtrace_hdl_t *dtp, dtrace_handle_drop_f *hdlr, void *arg)
 {
 	if (dtp->dt_drophdlr != NULL)
-		return (dt_set_errno(dtp, EALREADY));
+		return dt_set_errno(dtp, EALREADY);
 
 	dtp->dt_drophdlr = hdlr;
 	dtp->dt_droparg = arg;
 
-	return (0);
+	return 0;
 }
 
 int
 dtrace_handle_proc(dtrace_hdl_t *dtp, dtrace_handle_proc_f *hdlr, void *arg)
 {
 	if (dtp->dt_prochdlr != NULL)
-		return (dt_set_errno(dtp, EALREADY));
+		return dt_set_errno(dtp, EALREADY);
 
 	dtp->dt_prochdlr = hdlr;
 	dtp->dt_procarg = arg;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -101,15 +101,15 @@ dtrace_handle_buffered(dtrace_hdl_t *dtp, dtrace_handle_buffered_f *hdlr,
     void *arg)
 {
 	if (dtp->dt_bufhdlr != NULL)
-		return (dt_set_errno(dtp, EALREADY));
+		return dt_set_errno(dtp, EALREADY);
 
 	if (hdlr == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	dtp->dt_bufhdlr = hdlr;
 	dtp->dt_bufarg = arg;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -117,12 +117,12 @@ dtrace_handle_setopt(dtrace_hdl_t *dtp, dtrace_handle_setopt_f *hdlr,
     void *arg)
 {
 	if (hdlr == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	dtp->dt_setopthdlr = hdlr;
 	dtp->dt_setoptarg = arg;
 
-	return (0);
+	return 0;
 }
 
 #define	DT_REC(type, ndx) *((type *)((uintptr_t)data->dtpda_data + \
@@ -148,7 +148,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 
 	if (dd->dtdd_nrecs != 5 || strcmp(pd->prv, "dtrace") != 0 ||
 	    strcmp(pd->prb, "ERROR") != 0)
-		return (dt_set_errno(dtp, EDT_BADERROR));
+		return dt_set_errno(dtp, EDT_BADERROR);
 
 	/*
 	 * This is an error.  We have the following items here:  EPID,
@@ -157,7 +157,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	epid = (uint32_t)DT_REC(uint64_t, 0);
 
 	if (dt_epid_lookup(dtp, epid, &errdd, &errpd) != 0)
-		return (dt_set_errno(dtp, EDT_BADERROR));
+		return dt_set_errno(dtp, EDT_BADERROR);
 
 	err.dteda_ddesc = errdd;
 	err.dteda_pdesc = errpd;
@@ -174,24 +174,21 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 
 	str = (char *)alloca(len);
 
-	if (err.dteda_action == 0) {
-		(void) sprintf(where, "predicate");
-	} else {
-		(void) sprintf(where, "action #%d", err.dteda_action);
-	}
+	if (err.dteda_action == 0)
+		sprintf(where, "predicate");
+	else
+		sprintf(where, "action #%d", err.dteda_action);
 
-	if (err.dteda_offset != -1) {
-		(void) sprintf(offinfo, " at DIF offset %d", err.dteda_offset);
-	} else {
+	if (err.dteda_offset != -1)
+		sprintf(offinfo, " at DIF offset %d", err.dteda_offset);
+	else
 		offinfo[0] = 0;
-	}
 
 	switch (err.dteda_fault) {
 	case DTRACEFLT_BADADDR:
 	case DTRACEFLT_BADALIGN:
 	case DTRACEFLT_BADSTACK:
-		(void) sprintf(details, " (0x%llx)",
-		    (u_longlong_t)err.dteda_addr);
+		sprintf(details, " (0x%llx)", (u_longlong_t)err.dteda_addr);
 		break;
 
 	default:
@@ -207,12 +204,12 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	err.dteda_msg = str;
 
 	if (dtp->dt_errhdlr == NULL)
-		return (dt_set_errno(dtp, EDT_ERRABORT));
+		return dt_set_errno(dtp, EDT_ERRABORT);
 
 	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
-		return (dt_set_errno(dtp, EDT_ERRABORT));
+		return dt_set_errno(dtp, EDT_ERRABORT);
 
-	return (0);
+	return 0;
 }
 
 int
@@ -246,12 +243,12 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	err.dteda_msg = str;
 
 	if (dtp->dt_errhdlr == NULL)
-		return (dt_set_errno(dtp, EDT_ERRABORT));
+		return dt_set_errno(dtp, EDT_ERRABORT);
 
 	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
-		return (dt_set_errno(dtp, EDT_ERRABORT));
+		return dt_set_errno(dtp, EDT_ERRABORT);
 
-	return (0);
+	return 0;
 }
 
 #define	DROPTAG(x)	x, #x
@@ -280,10 +277,10 @@ dt_droptag(dtrace_dropkind_t kind)
 
 	for (i = 0; _dt_droptags[i].dtdrg_tag != NULL; i++) {
 		if (_dt_droptags[i].dtdrg_kind == kind)
-			return (_dt_droptags[i].dtdrg_tag);
+			return _dt_droptags[i].dtdrg_tag;
 	}
 
-	return ("DTRACEDROP_UNKNOWN");
+	return "DTRACEDROP_UNKNOWN";
 }
 
 int
@@ -296,7 +293,7 @@ dt_handle_cpudrop(dtrace_hdl_t *dtp, processorid_t cpu,
 
 	assert(what == DTRACEDROP_PRINCIPAL || what == DTRACEDROP_AGGREGATION);
 
-	memset(&drop, 0, sizeof (drop));
+	memset(&drop, 0, sizeof(drop));
 	drop.dtdda_handle = dtp;
 	drop.dtdda_cpu = cpu;
 	drop.dtdda_kind = what;
@@ -304,25 +301,25 @@ dt_handle_cpudrop(dtrace_hdl_t *dtp, processorid_t cpu,
 	drop.dtdda_msg = str;
 
 	if (dtp->dt_droptags) {
-		(void) snprintf(str, sizeof (str), "[%s] ", dt_droptag(what));
+		snprintf(str, sizeof(str), "[%s] ", dt_droptag(what));
 		s = &str[strlen(str)];
-		size = sizeof (str) - (s - str);
+		size = sizeof(str) - (s - str);
 	} else {
 		s = str;
-		size = sizeof (str);
+		size = sizeof(str);
 	}
 
-	(void) snprintf(s, size, "%llu %sdrop%s on CPU %d\n",
-	    (unsigned long long) howmany, what == DTRACEDROP_PRINCIPAL ? "" : "aggregation ",
+	snprintf(s, size, "%llu %sdrop%s on CPU %d\n",
+	    (unsigned long long)howmany, what == DTRACEDROP_PRINCIPAL ? "" : "aggregation ",
 	    howmany > 1 ? "s" : "", cpu);
 
 	if (dtp->dt_drophdlr == NULL)
-		return (dt_set_errno(dtp, EDT_DROPABORT));
+		return dt_set_errno(dtp, EDT_DROPABORT);
 
 	if ((*dtp->dt_drophdlr)(&drop, dtp->dt_droparg) == DTRACE_HANDLE_ABORT)
-		return (dt_set_errno(dtp, EDT_DROPABORT));
+		return dt_set_errno(dtp, EDT_DROPABORT);
 
-	return (0);
+	return 0;
 }
 
 static const struct {
@@ -374,7 +371,7 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 	uintptr_t base = (uintptr_t)new, obase = (uintptr_t)old;
 	int i, size;
 
-	memset(&drop, 0, sizeof (drop));
+	memset(&drop, 0, sizeof(drop));
 	drop.dtdda_handle = dtp;
 	drop.dtdda_cpu = DTRACE_CPUALL;
 	drop.dtdda_msg = str;
@@ -383,7 +380,7 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 	 * First, check to see if we've been killed -- in which case we abort.
 	 */
 	if (new->dtst_killed && !old->dtst_killed)
-		return (dt_set_errno(dtp, EDT_BRICKED));
+		return dt_set_errno(dtp, EDT_BRICKED);
 
 	for (i = 0; _dt_droptab[i].dtdrt_str != NULL; i++) {
 		uintptr_t naddr = base + _dt_droptab[i].dtdrt_offset;
@@ -396,17 +393,17 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 			continue;
 
 		if (dtp->dt_droptags) {
-			(void) snprintf(str, sizeof (str), "[%s] ",
+			snprintf(str, sizeof(str), "[%s] ",
 			    dt_droptag(_dt_droptab[i].dtdrt_kind));
 			s = &str[strlen(str)];
-			size = sizeof (str) - (s - str);
+			size = sizeof(str) - (s - str);
 		} else {
 			s = str;
-			size = sizeof (str);
+			size = sizeof(str);
 		}
 
-		(void) snprintf(s, size, "%llu %s%s%s\n",
-		    (unsigned long long) nval - oval,
+		snprintf(s, size, "%llu %s%s%s\n",
+		    (unsigned long long)nval - oval,
 		    _dt_droptab[i].dtdrt_str, (nval - oval > 1) ? "s" : "",
 		    _dt_droptab[i].dtdrt_msg != NULL ?
 		    _dt_droptab[i].dtdrt_msg : "");
@@ -416,14 +413,14 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 		drop.dtdda_drops = nval - oval;
 
 		if (dtp->dt_drophdlr == NULL)
-			return (dt_set_errno(dtp, EDT_DROPABORT));
+			return dt_set_errno(dtp, EDT_DROPABORT);
 
 		if ((*dtp->dt_drophdlr)(&drop,
 		    dtp->dt_droparg) == DTRACE_HANDLE_ABORT)
-			return (dt_set_errno(dtp, EDT_DROPABORT));
+			return dt_set_errno(dtp, EDT_DROPABORT);
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -432,12 +429,12 @@ dt_handle_setopt(dtrace_hdl_t *dtp, dtrace_setoptdata_t *data)
 	void *arg = dtp->dt_setoptarg;
 
 	if (dtp->dt_setopthdlr == NULL)
-		return (0);
+		return 0;
 
 	if ((*dtp->dt_setopthdlr)(data, arg) == DTRACE_HANDLE_ABORT)
-		return (dt_set_errno(dtp, EDT_DIRABORT));
+		return dt_set_errno(dtp, EDT_DIRABORT);
 
-	return (0);
+	return 0;
 }
 
 int
@@ -452,11 +449,11 @@ dt_handle(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 		break;
 
 	default:
-		return (DTRACE_CONSUME_THIS);
+		return DTRACE_CONSUME_THIS;
 	}
 
 	if (rval == 0)
-		return (DTRACE_CONSUME_NEXT);
+		return DTRACE_CONSUME_NEXT;
 
-	return (DTRACE_CONSUME_ERROR);
+	return DTRACE_CONSUME_ERROR;
 }

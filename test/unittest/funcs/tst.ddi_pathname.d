@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,13 +11,13 @@
 
 BEGIN
 {
-	this->dev = (struct dev_info *)alloca(sizeof (struct dev_info));
+	this->dev = (struct dev_info *)alloca(sizeof(struct dev_info));
 	this->minor1 =
-	    (struct ddi_minor_data *)alloca(sizeof (struct ddi_minor_data));
+	    (struct ddi_minor_data *)alloca(sizeof(struct ddi_minor_data));
 	this->minor2 =
-	    (struct ddi_minor_data *)alloca(sizeof (struct ddi_minor_data));
+	    (struct ddi_minor_data *)alloca(sizeof(struct ddi_minor_data));
 	this->minor3 =
-	    (struct ddi_minor_data *)alloca(sizeof (struct ddi_minor_data));
+	    (struct ddi_minor_data *)alloca(sizeof(struct ddi_minor_data));
 
 	this->minor1->d_minor.dev = 0;
 	this->minor1->next = this->minor2;

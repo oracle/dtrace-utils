@@ -12,7 +12,7 @@ uint8_t ibaddr[20];
 
 BEGIN
 {
-	this->buf_eth = (uint64_t *)alloca(sizeof (uint64_t));
+	this->buf_eth = (uint64_t *)alloca(sizeof(uint64_t));
 
 	/* Ethernet MAC address 00:01:02:03:04:05 */
 	*(this->buf_eth) = htonll(0x000102030405 << 16);

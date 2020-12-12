@@ -28,8 +28,8 @@ struct output_struct {
 
 translator struct output_struct < input_t *ivar >
 {
-	oi = ((input_t *) ivar)->ii;
-	oc = ((input_t *) ivar)->ic;
+	oi = ((input_t *)ivar)->ii;
+	oc = ((input_t *)ivar)->ic;
 };
 
 BEGIN

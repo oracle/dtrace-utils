@@ -28,8 +28,8 @@ struct output_struct {
 
 translator struct output_struct < int idontcare >
 {
-	myi = ((struct input_struct *) uvar)->i;
-	myi = ((struct input_struct *) uvar)->c;
+	myi = ((struct input_struct *)uvar)->i;
+	myi = ((struct input_struct *)uvar)->c;
 };
 
 BEGIN

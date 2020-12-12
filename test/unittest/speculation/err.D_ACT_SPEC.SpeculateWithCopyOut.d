@@ -23,7 +23,7 @@ size_t nbytes;
 BEGIN
 {
 	self->i = 0;
-	addr = (uintptr_t) &a[0];
+	addr = (uintptr_t)&a[0];
 	nbytes = 10;
 	var = speculation();
 }

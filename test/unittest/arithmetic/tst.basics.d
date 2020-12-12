@@ -35,7 +35,7 @@ BEGIN
 	i = i - (i + (i * 3) + i) * i / i * i;
 	printf("The value of i is %d\n", i);
 
-	i = i * (i - 3 + 5 / i * i ) / i * 6;
+	i = i * (i - 3 + 5 / i * i) / i * 6;
 	printf("The value of i is %d\n", i);
 
 	i = i ^ 5;

@@ -64,17 +64,17 @@ main(int argc, char **argv)
 	if ((alt = dlopen("$DIR/altlib.so", RTLD_LAZY | RTLD_LOCAL)) 
 	    == NULL) {
 		printf("dlopen of altlib.so failed: %s\n", dlerror());
-		return (1);
+		return 1;
 	}
 
 	if ((alt_go = dlsym(alt, "go")) == NULL) {
 		printf("failed to lookup 'go' in altlib.so\n");
-		return (1);
+		return 1;
 	}
 
 	((void (*)(void))alt_go)();
 
-	return (0);
+	return 0;
 }
 EOF
 

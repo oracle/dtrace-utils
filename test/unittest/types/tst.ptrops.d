@@ -30,7 +30,7 @@ tick-1
 {
 	printf("Shouldn't end up here (1)\n");
 	printf("ptr_1 = %x ptr_2 = %x ptr_3 = %x\n",
-		(int) ptr_1, (int) ptr_2, (int) ptr_3);
+		(int)ptr_1, (int)ptr_2, (int)ptr_3);
 	exit(1);
 }
 
@@ -39,7 +39,7 @@ tick-1
 {
 	printf("Shouldn't end up here (2)\n");
 	printf("ptr_1 = %x ptr_2 = %x ptr_3 = %x\n",
-		(int) ptr_1, (int) ptr_2, (int) ptr_3);
+		(int)ptr_1, (int)ptr_2, (int)ptr_3);
 	exit(1);
 }
 

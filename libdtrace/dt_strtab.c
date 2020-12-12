@@ -19,13 +19,13 @@ dt_strtab_grow(dt_strtab_t *sp)
 	char *ptr, **bufs;
 
 	if ((ptr = malloc(sp->str_bufsz)) == NULL)
-		return (-1);
+		return -1;
 
-	bufs = realloc(sp->str_bufs, (sp->str_nbufs + 1) * sizeof (char *));
+	bufs = realloc(sp->str_bufs, (sp->str_nbufs + 1) * sizeof(char *));
 
 	if (bufs == NULL) {
 		free(ptr);
-		return (-1);
+		return -1;
 	}
 
 	sp->str_nbufs++;
@@ -33,27 +33,27 @@ dt_strtab_grow(dt_strtab_t *sp)
 	sp->str_ptr = ptr;
 	sp->str_bufs[sp->str_nbufs - 1] = sp->str_ptr;
 
-	return (0);
+	return 0;
 }
 
 dt_strtab_t *
 dt_strtab_create(size_t bufsz)
 {
-	dt_strtab_t *sp = malloc(sizeof (dt_strtab_t));
+	dt_strtab_t *sp = malloc(sizeof(dt_strtab_t));
 	uint_t nbuckets = _dtrace_strbuckets;
 
 	assert(bufsz != 0);
 
 	if (sp == NULL)
-		return (NULL);
+		return NULL;
 
-	memset(sp, 0, sizeof (dt_strtab_t));
-	sp->str_hash = malloc(nbuckets * sizeof (dt_strhash_t *));
+	memset(sp, 0, sizeof(dt_strtab_t));
+	sp->str_hash = malloc(nbuckets * sizeof(dt_strhash_t *));
 
 	if (sp->str_hash == NULL)
 		goto err;
 
-	memset(sp->str_hash, 0, nbuckets * sizeof (dt_strhash_t *));
+	memset(sp->str_hash, 0, nbuckets * sizeof(dt_strhash_t *));
 	sp->str_hashsz = nbuckets;
 	sp->str_bufs = NULL;
 	sp->str_ptr = NULL;
@@ -66,11 +66,11 @@ dt_strtab_create(size_t bufsz)
 		goto err;
 
 	*sp->str_ptr++ = '\0';
-	return (sp);
+	return sp;
 
 err:
 	dt_strtab_destroy(sp);
-	return (NULL);
+	return NULL;
 }
 
 void
@@ -119,7 +119,7 @@ dt_strtab_hash(const char *key, size_t *len)
 	if (len != NULL)
 		*len = n;
 
-	return (h);
+	return h;
 }
 
 static int
@@ -139,14 +139,14 @@ dt_strtab_compare(dt_strtab_t *sp, dt_strhash_t *hp,
 		n = MIN(resid, len);
 
 		if ((rv = strncmp(buf, str, n)) != 0)
-			return (rv);
+			return rv;
 
 		buf += n;
 		str += n;
 		len -= n;
 	}
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -174,14 +174,14 @@ dt_strtab_copyin(dt_strtab_t *sp, const char *str, size_t len)
 		len -= n;
 	}
 
-	return (0);
+	return 0;
 
 err:
 	while (sp->str_nbufs != old_n)
 		free(sp->str_bufs[--sp->str_nbufs]);
 
 	sp->str_ptr = old_p;
-	return (-1);
+	return -1;
 }
 
 ssize_t
@@ -192,16 +192,16 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 	ulong_t h;
 
 	if (str == NULL || str[0] == '\0')
-		return (0); /* we keep a \0 at offset 0 to simplify things */
+		return 0; /* we keep a \0 at offset 0 to simplify things */
 
 	h = dt_strtab_hash(str, &len) % sp->str_hashsz;
 
 	for (hp = sp->str_hash[h]; hp != NULL; hp = hp->str_next) {
 		if (dt_strtab_compare(sp, hp, str, len + 1) == 0)
-			return (hp->str_off);
+			return hp->str_off;
 	}
 
-	return (-1);
+	return -1;
 }
 
 ssize_t
@@ -213,7 +213,7 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	ulong_t h;
 
 	if ((off = dt_strtab_index(sp, str)) != -1)
-		return (off);
+		return off;
 
 	h = dt_strtab_hash(str, &len) % sp->str_hashsz;
 
@@ -221,8 +221,8 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	 * Create a new hash bucket, initialize it, and insert it at the front
 	 * of the hash chain for the appropriate bucket.
 	 */
-	if ((hp = malloc(sizeof (dt_strhash_t))) == NULL)
-		return (-1L);
+	if ((hp = malloc(sizeof(dt_strhash_t))) == NULL)
+		return -1L;
 
 	hp->str_data = sp->str_ptr;
 	hp->str_buf = sp->str_nbufs - 1;
@@ -235,19 +235,19 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	 * the global counts of strings and bytes.  Return str's byte offset.
 	 */
 	if (dt_strtab_copyin(sp, str, len + 1) == -1)
-		return (-1L);
+		return -1L;
 
 	sp->str_nstrs++;
 	sp->str_size += len + 1;
 	sp->str_hash[h] = hp;
 
-	return (hp->str_off);
+	return hp->str_off;
 }
 
 size_t
 dt_strtab_size(const dt_strtab_t *sp)
 {
-	return (sp->str_size);
+	return sp->str_size;
 }
 
 /*
@@ -279,7 +279,7 @@ dt_strtab_write(const dt_strtab_t *sp, dt_strtab_write_f *func, void *private)
 	}
 
 	if (total == 0 && sp->str_size != 0)
-		return (-1);
+		return -1;
 
-	return (total);
+	return total;
 }

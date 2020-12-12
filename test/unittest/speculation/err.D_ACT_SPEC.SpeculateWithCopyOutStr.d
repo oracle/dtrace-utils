@@ -22,7 +22,7 @@ size_t maxlen;
 BEGIN
 {
 	self->i = 0;
-	addr = (uintptr_t) &a[0];
+	addr = (uintptr_t)&a[0];
 	maxlen = 10;
 	var = speculation();
 }

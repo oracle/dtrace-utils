@@ -1,2 +1,2 @@
-sizeof (NULL): 4
+sizeof(NULL): 4
 

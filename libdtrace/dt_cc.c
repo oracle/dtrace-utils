@@ -101,7 +101,7 @@ dt_idreset(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
 {
 	idp->di_flags &= ~(DT_IDFLG_REF | DT_IDFLG_MOD |
 	    DT_IDFLG_DIFR | DT_IDFLG_DIFW);
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -110,7 +110,7 @@ dt_idpragma(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
 {
 	yylineno = idp->di_lineno;
 	xyerror(D_PRAGMA_UNUSED, "unused #pragma %s\n", (char *)idp->di_iarg);
-	return (0);
+	return 0;
 }
 
 static dtrace_stmtdesc_t *
@@ -129,7 +129,7 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	sdp->dtsd_descattr = descattr;
 	sdp->dtsd_stmtattr = stmtattr;
 
-	return (sdp);
+	return sdp;
 }
 
 #ifdef FIXME
@@ -265,7 +265,7 @@ static void
 dt_action_difconst(dtrace_actdesc_t *ap, uint_t id, dtrace_actkind_t kind)
 {
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
-	dtrace_difo_t *dp = dt_zalloc(dtp, sizeof (dtrace_difo_t));
+	dtrace_difo_t *dp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
 
 	if (dp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -312,7 +312,7 @@ dt_action_clear(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "%s( ) argument #1 is incompatible with prototype:\n"
 		    "\tprototype: aggregation\n\t argument: %s\n",
 		    dnp->dn_ident->di_name,
-		    dt_node_type_name(anp, n, sizeof (n)));
+		    dt_node_type_name(anp, n, sizeof(n)));
 	}
 
 	aid = anp->dn_ident;
@@ -355,7 +355,7 @@ dt_action_normalize(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "%s( ) argument #1 is incompatible with prototype:\n"
 		    "\tprototype: aggregation\n\t argument: %s\n",
 		    dnp->dn_ident->di_name,
-		    dt_node_type_name(anp, n, sizeof (n)));
+		    dt_node_type_name(anp, n, sizeof(n)));
 	}
 
 	if ((normal = anp->dn_list) != NULL && !dt_node_is_scalar(normal)) {
@@ -419,7 +419,7 @@ dt_action_trunc(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "%s( ) argument #1 is incompatible with prototype:\n"
 		    "\tprototype: aggregation\n\t argument: %s\n",
 		    dnp->dn_ident->di_name,
-		    dt_node_type_name(anp, n, sizeof (n)));
+		    dt_node_type_name(anp, n, sizeof(n)));
 	}
 
 	if (argc == 2) {
@@ -501,7 +501,7 @@ dt_action_printa(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 			    "%s( ) argument #%d is incompatible with "
 			    "prototype:\n\tprototype: aggregation\n"
 			    "\t argument: %s\n", dnp->dn_ident->di_name, argr,
-			    dt_node_type_name(anp, n, sizeof (n)));
+			    dt_node_type_name(anp, n, sizeof(n)));
 		}
 
 		aid = anp->dn_ident;
@@ -557,7 +557,7 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 		    "%s( ) argument #1 is incompatible with prototype:\n"
 		    "\tprototype: string constant\n\t argument: %s\n",
 		    dnp->dn_ident->di_name,
-		    dt_node_type_name(dnp->dn_args, n, sizeof (n)));
+		    dt_node_type_name(dnp->dn_args, n, sizeof(n)));
 	}
 
 	arg1 = dnp->dn_args->dn_list;
@@ -601,8 +601,8 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 		struct bpf_insn *dbuf;
 		dtrace_difo_t *dp;
 
-		if ((dbuf = dt_alloc(dtp, sizeof (struct bpf_insn))) == NULL ||
-		    (dp = dt_zalloc(dtp, sizeof (dtrace_difo_t))) == NULL) {
+		if ((dbuf = dt_alloc(dtp, sizeof(struct bpf_insn))) == NULL ||
+		    (dp = dt_zalloc(dtp, sizeof(dtrace_difo_t))) == NULL) {
 			dt_free(dtp, dbuf);
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 		}
@@ -663,7 +663,7 @@ dt_action_tracemem(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		    "tracemem( ) argument #1 is incompatible with "
 		    "prototype:\n\tprototype: pointer or integer\n"
 		    "\t argument: %s\n",
-		    dt_node_type_name(addr, n, sizeof (n)));
+		    dt_node_type_name(addr, n, sizeof(n)));
 	}
 
 	if (dt_node_is_posconst(size) == 0) {
@@ -841,7 +841,7 @@ dt_action_symmod_args(dtrace_hdl_t *dtp, dtrace_actdesc_t *ap,
 	dt_cg(yypcb, dnp);
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = kind;
-	ap->dtad_difo->dtdo_rtype.dtdt_size = sizeof (uint64_t);
+	ap->dtad_difo->dtdo_rtype.dtdt_size = sizeof(uint64_t);
 }
 
 static void
@@ -921,7 +921,7 @@ dt_action_pcap(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 			"pcap( ) argument #1 is incompatible with "
 			"prototype:\n\tprototype: pointer or integer\n"
 			"\t argument: %s\n",
-			dt_node_type_name(addr, n, sizeof (n)));
+			dt_node_type_name(addr, n, sizeof(n)));
 	}
 
 	proto = addr->dn_list;
@@ -936,7 +936,7 @@ dt_action_pcap(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	 * Enough space for 64-bit timestamp, len and pkt data.
 	 */
 
-	ap->dtad_difo->dtdo_rtype.dtdt_size = (2 * sizeof (uint64_t)) +
+	ap->dtad_difo->dtdo_rtype.dtdt_size = (2 * sizeof(uint64_t)) +
 	    DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
 	ap->dtad_arg = 0;
 
@@ -974,7 +974,7 @@ dt_action_exit(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	dt_cg(yypcb, dnp->dn_args);
 	ap->dtad_difo = dt_as(yypcb);
 	ap->dtad_kind = DTRACEACT_EXIT;
-	ap->dtad_difo->dtdo_rtype.dtdt_size = sizeof (int);
+	ap->dtad_difo->dtdo_rtype.dtdt_size = sizeof(int);
 }
 
 static void
@@ -1720,7 +1720,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	if ((prp = dt_probe_info(dtp, pdp, &yypcb->pcb_pinfo)) == NULL) {
 		pap = &_dtrace_prvdesc;
 		err = dtrace_errno(dtp);
-		memset(&yypcb->pcb_pinfo, 0, sizeof (dtrace_probeinfo_t));
+		memset(&yypcb->pcb_pinfo, 0, sizeof(dtrace_probeinfo_t));
 		yypcb->pcb_pinfo.dtp_attr = pap->dtpa_provider;
 		yypcb->pcb_pinfo.dtp_arga = pap->dtpa_args;
 	} else {
@@ -1791,7 +1791,7 @@ dt_reduceid(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 	if (idp->di_vers != 0 && idp->di_vers > dtp->dt_vmax)
 		dt_idhash_delete(dhp, idp);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -1810,12 +1810,12 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
 	dt_xlator_t *dxp, *nxp;
 
 	if (v > dtp->dt_vmax)
-		return (dt_set_errno(dtp, EDT_VERSREDUCED));
+		return dt_set_errno(dtp, EDT_VERSREDUCED);
 	else if (v == dtp->dt_vmax)
-		return (0); /* no reduction necessary */
+		return 0; /* no reduction necessary */
 
 	dt_dprintf("reducing api version to %s\n",
-	    dt_version_num2str(v, s, sizeof (s)));
+	    dt_version_num2str(v, s, sizeof(s)));
 
 	dtp->dt_vmax = v;
 
@@ -1826,12 +1826,12 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
 			dt_list_delete(&dtp->dt_xlators, dxp);
 	}
 
-	(void) dt_idhash_iter(dtp->dt_macros, (dt_idhash_f *)dt_reduceid, dtp);
-	(void) dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *)dt_reduceid, dtp);
-	(void) dt_idhash_iter(dtp->dt_globals, (dt_idhash_f *)dt_reduceid, dtp);
-	(void) dt_idhash_iter(dtp->dt_tls, (dt_idhash_f *)dt_reduceid, dtp);
+	dt_idhash_iter(dtp->dt_macros, (dt_idhash_f *)dt_reduceid, dtp);
+	dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *)dt_reduceid, dtp);
+	dt_idhash_iter(dtp->dt_globals, (dt_idhash_f *)dt_reduceid, dtp);
+	dt_idhash_iter(dtp->dt_tls, (dt_idhash_f *)dt_reduceid, dtp);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -1851,7 +1851,7 @@ static FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 {
 	int argc = dtp->dt_cpp_argc;
-	char **argv = alloca(sizeof (char *) * (argc + 5));
+	char **argv = alloca(sizeof(char *) * (argc + 5));
 	FILE *ofp = tmpfile();
 	int pipe_needed = 0;
 	int catpipe[2];
@@ -1868,7 +1868,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	off_t off;
 
 	if (argv == NULL || ofp == NULL) {
-		(void) dt_set_errno(dtp, errno);
+		dt_set_errno(dtp, errno);
 		goto err;
 	}
 
@@ -1883,30 +1883,29 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 
 		pipe_needed = 1;
 		if ((c = fgetc(ifp)) == '#' && (c = fgetc(ifp)) == '!') {
-			for (off += 2; c != '\n'; off++) {
+			for (off += 2; c != '\n'; off++)
 				if ((c = fgetc(ifp)) == EOF)
 					break;
-			}
 			if (c == '\n')
 				off--; /* start cpp just prior to \n */
 		}
-		(void) fflush(ifp);
+		fflush(ifp);
 		/*
 		 * Do not touch ifp via stdio from this point on, to avoid
 		 * caching or prereading throwing off the file position.
 		 */
-		(void) lseek(fileno(ifp), off, SEEK_SET);
+		lseek(fileno(ifp), off, SEEK_SET);
 
 		if (pipe(catpipe) < 0) {
-			(void) dt_set_errno(dtp, errno);
+			dt_set_errno(dtp, errno);
 			goto err;
 		}
 	}
-	(void) snprintf(opath, sizeof (opath), "/dev/fd/%d", fileno(ofp));
+	snprintf(opath, sizeof(opath), "/dev/fd/%d", fileno(ofp));
 
-	memcpy(argv, dtp->dt_cpp_argv, sizeof (char *) * argc);
+	memcpy(argv, dtp->dt_cpp_argv, sizeof(char *) * argc);
 
-	(void) snprintf(verdef, sizeof (verdef),
+	snprintf(verdef, sizeof(verdef),
 	    "-D__SUNW_D_VERSION=0x%08x", dtp->dt_vmax);
 	argv[argc++] = verdef;
 
@@ -1931,19 +1930,19 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	 * we block SIGCHLD and reset its disposition to SIG_DFL.
 	 * We restore our signal state once we are done.
 	 */
-	(void) sigemptyset(&mask);
-	(void) sigaddset(&mask, SIGCHLD);
-	(void) pthread_sigmask(SIG_BLOCK, &mask, &omask);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	pthread_sigmask(SIG_BLOCK, &mask, &omask);
 
-	memset(&act, 0, sizeof (act));
+	memset(&act, 0, sizeof(act));
 	act.sa_handler = SIG_DFL;
-	(void) sigaction(SIGCHLD, &act, &oact);
+	sigaction(SIGCHLD, &act, &oact);
 
 	if (pipe_needed) {
 		if ((catpid = fork()) == -1) {
-			(void) sigaction(SIGCHLD, &oact, NULL);
-			(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
-			(void) dt_set_errno(dtp, EDT_CPPFORK);
+			sigaction(SIGCHLD, &oact, NULL);
+			pthread_sigmask(SIG_SETMASK, &omask, NULL);
+			dt_set_errno(dtp, EDT_CPPFORK);
 			goto err;
 		}
 
@@ -1966,21 +1965,21 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 
 	if ((pid = fork()) == -1) {
-		(void) sigaction(SIGCHLD, &oact, NULL);
-		(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
-		(void) dt_set_errno(dtp, EDT_CPPFORK);
+		sigaction(SIGCHLD, &oact, NULL);
+		pthread_sigmask(SIG_SETMASK, &omask, NULL);
+		dt_set_errno(dtp, EDT_CPPFORK);
 		goto err;
 	}
 
 	if (pid == 0) {
 		if (!pipe_needed) {
-			(void) dup2(fileno(ifp), 0);
+			dup2(fileno(ifp), 0);
 		} else {
-			(void) dup2(catpipe[0], 0);
-			(void) close(catpipe[0]);
+			dup2(catpipe[0], 0);
+			close(catpipe[0]);
 		}
-		(void) close(fileno(ifp));
-		(void) execvp(dtp->dt_cpp_path, argv);
+		close(fileno(ifp));
+		execvp(dtp->dt_cpp_path, argv);
 		_exit(errno == ENOENT ? 127 : 126);
 	}
 
@@ -1997,8 +1996,8 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 		} while (waitpid(catpid, &junk, 0) == -1 && errno == EINTR);
 	}
 
-	(void) sigaction(SIGCHLD, &oact, NULL);
-	(void) pthread_sigmask(SIG_SETMASK, &omask, NULL);
+	sigaction(SIGCHLD, &oact, NULL);
+	pthread_sigmask(SIG_SETMASK, &omask, NULL);
 
 	dt_dprintf("%s returned exit status %i\n", dtp->dt_cpp_path, wstat);
 	estat = WIFEXITED(wstat) ? WEXITSTATUS(wstat) : -1;
@@ -2006,28 +2005,28 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	if (estat != 0) {
 		switch (estat) {
 		case 126:
-			(void) dt_set_errno(dtp, EDT_CPPEXEC);
+			dt_set_errno(dtp, EDT_CPPEXEC);
 			break;
 		case 127:
-			(void) dt_set_errno(dtp, EDT_CPPENT);
+			dt_set_errno(dtp, EDT_CPPENT);
 			break;
 		default:
-			(void) dt_set_errno(dtp, EDT_CPPERR);
+			dt_set_errno(dtp, EDT_CPPERR);
 		}
 		goto err;
 	}
 
-	(void) fflush(ofp);
-	(void) fseek(ofp, 0, SEEK_SET);
-	return (ofp);
+	fflush(ofp);
+	fseek(ofp, 0, SEEK_SET);
+	return ofp;
 
 err:
 	if (pipe_needed) {
 		close(catpipe[0]);
 		close(catpipe[1]);
 	}
-	(void) fclose(ofp);
-	return (NULL);
+	fclose(ofp);
+	return NULL;
 }
 
 void *
@@ -2041,21 +2040,21 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	int err;
 
 	if ((fp == NULL && s == NULL) || (cflags & ~DTRACE_C_MASK) != 0) {
-		(void) dt_set_errno(dtp, EINVAL);
-		return (NULL);
+		dt_set_errno(dtp, EINVAL);
+		return NULL;
 	}
 
 	if (dt_list_next(&dtp->dt_lib_path) != NULL && dt_load_libs(dtp) != 0)
-		return (NULL); /* errno is set for us */
+		return NULL; /* errno is set for us */
 
-	(void) ctf_discard(dtp->dt_cdefs->dm_ctfp);
-	(void) ctf_discard(dtp->dt_ddefs->dm_ctfp);
+	ctf_discard(dtp->dt_cdefs->dm_ctfp);
+	ctf_discard(dtp->dt_ddefs->dm_ctfp);
 
-	(void) dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
-	(void) dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
+	dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
+	dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
 
 	if (fp && (cflags & DTRACE_C_CPP) && (fp = dt_preproc(dtp, fp)) == NULL)
-		return (NULL); /* errno is set for us */
+		return NULL; /* errno is set for us */
 
 	dt_pcb_push(dtp, &pcb);
 
@@ -2065,7 +2064,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	pcb.pcb_strlen = s ? strlen(s) : 0;
 	pcb.pcb_sargc = argc;
 	pcb.pcb_sargv = argv;
-	pcb.pcb_sflagv = argc ? calloc(argc, sizeof (ushort_t)) : NULL;
+	pcb.pcb_sflagv = argc ? calloc(argc, sizeof(ushort_t)) : NULL;
 	pcb.pcb_pspec = pspec;
 	pcb.pcb_cflags = dtp->dt_cflags | cflags;
 	pcb.pcb_amin = dtp->dt_amin;
@@ -2113,7 +2112,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 	if (yypcb->pcb_pragmas != NULL)
-		(void) dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
+		dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
 
 	if (argc > 1 && !(yypcb->pcb_cflags & DTRACE_C_ARGREF) &&
 	    !(yypcb->pcb_sflagv[argc - 1] & DT_IDFLG_REF)) {
@@ -2148,7 +2147,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 					dt_compile_xlator(dnp);
 				break;
 			case DT_NODE_PROVIDER:
-				(void) dt_node_cook(dnp, DT_IDFLG_REF);
+				dt_node_cook(dnp, DT_IDFLG_REF);
 				break;
 			}
 		}
@@ -2162,7 +2161,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 		break;
 
 	case DT_CTX_DEXPR:
-		(void) dt_node_cook(yypcb->pcb_root, DT_IDFLG_REF);
+		dt_node_cook(yypcb->pcb_root, DT_IDFLG_REF);
 		dt_cg(yypcb, yypcb->pcb_root);
 		rv = dt_as(yypcb);
 		break;
@@ -2197,11 +2196,11 @@ out:
 		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
 
 	if (yypcb->pcb_fileptr && (cflags & DTRACE_C_CPP))
-		(void) fclose(yypcb->pcb_fileptr); /* close dt_preproc() file */
+		fclose(yypcb->pcb_fileptr); /* close dt_preproc() file */
 
 	dt_pcb_pop(dtp, err);
-	(void) dt_set_errno(dtp, err);
-	return (err ? NULL : rv);
+	dt_set_errno(dtp, err);
+	return err ? NULL : rv;
 }
 
 static dtrace_difo_t *
@@ -2664,15 +2663,15 @@ dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
 int
 dtrace_type_strcompile(dtrace_hdl_t *dtp, const char *s, dtrace_typeinfo_t *dtt)
 {
-	(void) dt_compile(dtp, DT_CTX_DTYPE,
+	dt_compile(dtp, DT_CTX_DTYPE,
 	    DTRACE_PROBESPEC_NONE, dtt, 0, 0, NULL, NULL, s);
-	return (dtp->dt_errno ? -1 : 0);
+	return dtp->dt_errno ? -1 : 0;
 }
 
 int
 dtrace_type_fcompile(dtrace_hdl_t *dtp, FILE *fp, dtrace_typeinfo_t *dtt)
 {
-	(void) dt_compile(dtp, DT_CTX_DTYPE,
+	dt_compile(dtp, DT_CTX_DTYPE,
 	    DTRACE_PROBESPEC_NONE, dtt, 0, 0, NULL, fp, NULL);
-	return (dtp->dt_errno ? -1 : 0);
+	return dtp->dt_errno ? -1 : 0;
 }

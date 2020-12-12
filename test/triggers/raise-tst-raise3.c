@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -25,9 +25,8 @@ main(int argc, char **argv)
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
 
-	(void) sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
 
-	for (;;) {
-		(void) ioctl(-1, -1, NULL);
-	}
+	for (;;)
+		ioctl(-1, -1, NULL);
 }

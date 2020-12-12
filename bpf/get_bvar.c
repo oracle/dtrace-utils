@@ -76,14 +76,14 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 		ptr = bpf_get_current_task();
 		if (ptr == 0)
 			return -1;
-		if (bpf_probe_read((void *) &ptr, 8,
-		    (const void *) (ptr + *parent_off)))
+		if (bpf_probe_read((void *)&ptr, 8,
+		    (const void *)(ptr + *parent_off)))
 			return -1;
-		if (bpf_probe_read((void *) &val, 4,
-		    (const void *) (ptr + *tgid_off)))
+		if (bpf_probe_read((void *)&val, 4,
+		    (const void *)(ptr + *tgid_off)))
 			return -1;
 
-		return (uint64_t) val;
+		return (uint64_t)val;
 	}
 	case DIF_VAR_UID: {
 		uint64_t	val = bpf_get_current_uid_gid();

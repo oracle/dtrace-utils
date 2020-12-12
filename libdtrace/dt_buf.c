@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -65,7 +65,7 @@ dt_buf_write(dtrace_hdl_t *dtp, dt_buf_t *bp,
 	size_t adj = roundup(off, align) - off;
 
 	if (bp->dbu_err != 0) {
-		(void) dt_set_errno(dtp, bp->dbu_err);
+		dt_set_errno(dtp, bp->dbu_err);
 		return; /* write silently fails */
 	}
 
@@ -103,7 +103,7 @@ dt_buf_concat(dtrace_hdl_t *dtp, dt_buf_t *dst,
     const dt_buf_t *src, size_t align)
 {
 	if (dst->dbu_err == 0 && src->dbu_err != 0) {
-		(void) dt_set_errno(dtp, src->dbu_err);
+		dt_set_errno(dtp, src->dbu_err);
 		dst->dbu_err = src->dbu_err;
 	} else {
 		dt_buf_write(dtp, dst, src->dbu_buf,
@@ -115,25 +115,25 @@ size_t
 dt_buf_offset(const dt_buf_t *bp, size_t align)
 {
 	size_t off = (size_t)(bp->dbu_ptr - bp->dbu_buf);
-	return (roundup(off, align));
+	return roundup(off, align);
 }
 
 size_t
 dt_buf_len(const dt_buf_t *bp)
 {
-	return (bp->dbu_ptr - bp->dbu_buf);
+	return bp->dbu_ptr - bp->dbu_buf;
 }
 
 int
 dt_buf_error(const dt_buf_t *bp)
 {
-	return (bp->dbu_err);
+	return bp->dbu_err;
 }
 
 void *
 dt_buf_ptr(const dt_buf_t *bp)
 {
-	return (bp->dbu_buf);
+	return bp->dbu_buf;
 }
 
 void *
@@ -149,5 +149,5 @@ dt_buf_claim(dtrace_hdl_t *dtp, dt_buf_t *bp)
 	bp->dbu_buf = bp->dbu_ptr = NULL;
 	bp->dbu_len = 0;
 
-	return (buf);
+	return buf;
 }

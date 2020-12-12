@@ -28,8 +28,8 @@ struct output_struct {
 
 translator struct output_struct < struct callmewhatever *idontcare >
 {
-	myi = ((struct input_struct *) uvar)->i;
-	myc = ((struct input_struct *) uvar)->c;
+	myi = ((struct input_struct *)uvar)->i;
+	myc = ((struct input_struct *)uvar)->c;
 };
 
 BEGIN

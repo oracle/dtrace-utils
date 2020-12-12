@@ -28,8 +28,8 @@ int maxnranges, nranges;
 
 int mycompare(const void *ap, const void *bp)
 {
-	myrange_t *a = (myrange_t *) ap;
-	myrange_t *b = (myrange_t *) bp;
+	myrange_t *a = (myrange_t *)ap;
+	myrange_t *b = (myrange_t *)bp;
 	if (a->addr < b->addr)
 		return -1;
 	if (a->addr > b->addr)
@@ -70,10 +70,9 @@ void check_module_ranges
 	 *   - ranges do not overlap or abut
 	 *         (otherwise they should have been coalesced)
 	 */
-	for (i = 1; i < n; i++) {
-		if ( addrs[i-1].dar_va
-		    + addrs[i-1].dar_size
-		    >= addrs[i].dar_va ) {
+	for (i = 1; i < n; i++)
+		if (addrs[i-1].dar_va + addrs[i-1].dar_size
+		    >= addrs[i].dar_va) {
 			printf("ERROR: %s %c range %lx-%lx"
 			    " overlaps or abuts %lx-%lx\n", name, type,
 			    addrs[i-1].dar_va,
@@ -82,7 +81,6 @@ void check_module_ranges
 			    addrs[i].dar_va + addrs[i].dar_size);
 			nerrors++;
 		}
-	}
 
 	/*
 	 * Record ranges so that we can later check
@@ -91,8 +89,8 @@ void check_module_ranges
 	for (i = 0; i < n; i++) {
 		if (nranges == maxnranges) {
 			maxnranges *= 4;
-			ranges = (myrange_t *) realloc(ranges,
-			    maxnranges * sizeof (myrange_t));
+			ranges = (myrange_t *)realloc(ranges,
+			    maxnranges * sizeof(myrange_t));
 		}
 		ranges[nranges].addr = addrs[i].dar_va;
 		ranges[nranges].size = addrs[i].dar_size;
@@ -113,16 +111,14 @@ int mod_callback(dtrace_hdl_t * h, const dtrace_objinfo_t * d, void * arg) {
 		/* when arg==0; dry run: look up info to force filename to load */
 		GElf_Sym symp;
 		dtrace_syminfo_t sip;
-		if (d->dto_text_addrs_size) {
+		if (d->dto_text_addrs_size)
 			dtrace_lookup_by_addr(h,
 			    d->dto_text_addrs[0].dar_va, &symp, &sip);
-		}
-		if (d->dto_data_addrs_size) {
+		if (d->dto_data_addrs_size)
 			dtrace_lookup_by_addr(h,
 			    d->dto_data_addrs[0].dar_va, &symp, &sip);
-		}
 	}
-	return(0);
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -140,7 +136,7 @@ int main(int argc, char **argv)
 	 */
 	maxnranges = 4096;
 	nranges = 0;
-	ranges = (myrange_t *) malloc(maxnranges * sizeof (myrange_t));
+	ranges = (myrange_t *)malloc(maxnranges * sizeof(myrange_t));
 
 	/*
 	 * Some info is populated lazily.
@@ -158,10 +154,9 @@ int main(int argc, char **argv)
 	/*
 	 * Sort the ranges from among all modules and check for overlaps.
 	 */
-	qsort(ranges, nranges, sizeof (myrange_t), &mycompare);
-	for (i = 1; i < nranges; i++) {
-		if ( ranges[i-1].addr + ranges[i-1].size
-		    > ranges[i].addr ) {
+	qsort(ranges, nranges, sizeof(myrange_t), &mycompare);
+	for (i = 1; i < nranges; i++)
+		if (ranges[i-1].addr + ranges[i-1].size > ranges[i].addr) {
 			printf("ERROR:");
 			print_range(&ranges[i-1]);
 			printf(" overlaps");
@@ -169,9 +164,7 @@ int main(int argc, char **argv)
 			printf("\n");
 			nerrors++;
 		}
-	}
 
 	printf("test tst.merge_ranges_bug25767469.c had %d errors\n", nerrors);
-	return (nerrors != 0);
+	return nerrors != 0;
 }
-

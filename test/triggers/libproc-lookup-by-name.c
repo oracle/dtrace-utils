@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -88,5 +88,5 @@ main(int argc, char *argv[])
 	Prelease(P, PS_RELEASE_KILL);
 	Pfree(P);
 
-	return (0);
+	return 0;
 }

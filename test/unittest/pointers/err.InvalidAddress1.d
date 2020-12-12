@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -20,7 +20,7 @@ BEGIN
 {
 	pfnAddress = &`max_pfn;
 	*pfnAddress = 20;
-	printf("Address of pfnAddress: %d\n", (int) pfnAddress);
+	printf("Address of pfnAddress: %d\n", (int)pfnAddress);
 	printf("Value of pfnAddress: %d\n", `max_pfn);
 	exit(0);
 }

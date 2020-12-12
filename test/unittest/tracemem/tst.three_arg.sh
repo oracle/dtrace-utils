@@ -70,19 +70,19 @@ BEGIN {
     nchks = 0;   # number of lines that are correct
 }
 {
-    if ( and(state, 1) ) {       # state 1 and state 3
+    if (and(state, 1)) {       # state 1 and state 3
         n = 5;                   # number of bytes is 5 for state 1 and 3 for state 3
-        if ( state == 3 ) {
+        if (state == 3) {
             n = 3;
             state = -1;          # cycle state back around
         }
-        if ( NF != n ) {
+        if (NF != n) {
             printf "ERROR expected %d bytes but got %d\n", n, NF;
             nerrs += 1;
             exit 1;
         }
         for (i = 0; i < n; i++) {
-            if ( x[i] != (\$i + 0) ) {    # $i+0 to convert $i to number
+            if (x[i] != (\$i + 0)) {    # $i+0 to convert $i to number
                 printf "ERROR expected byte %x but got %x\n", x[i], \$i;
                 nerrs += 1;
                 exit 1;
@@ -90,7 +90,7 @@ BEGIN {
         }
         nchks += 1;
     } else {                             # state 0 and state 2
-        if ( NF != 8 ) {                 # number of bytes is 8
+        if (NF != 8) {                   # number of bytes is 8
             printf "ERROR expected 8 bytes but got %d\n", NF;
             nerrs += 1;
             exit 1;
@@ -100,12 +100,11 @@ BEGIN {
     state += 1;
 }
 END {
-    if ( nerrs == 0 ) {
-        if ( nchks < 4 ) {
+    if (nerrs == 0) {
+        if (nchks < 4)
             printf "insufficient number (only %d) of checks\n", nchks;
-        } else {
+        else
             print "SUCCESS";
-        }
     }
 }
 EOF

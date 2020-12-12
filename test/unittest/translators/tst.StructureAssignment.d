@@ -30,7 +30,7 @@ struct output_struct {
 
 translator struct output_struct < struct input_struct ivar >
 {
-	oi = ((struct input_struct) ivar).ii;
+	oi = ((struct input_struct)ivar).ii;
 };
 
 struct output_struct out;

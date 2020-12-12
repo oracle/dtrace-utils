@@ -27,8 +27,8 @@ int main(int argc, char **argv)
     }
 
     char s[128];
-    int n = dtrace_addr2str(handle, (uint64_t) 0, s, sizeof(s));
+    int n = dtrace_addr2str(handle, (uint64_t)0, s, sizeof(s));
     printf(" %d chars |%s|\n", n, s);
     dtrace_close(handle);
-    return (strchr(s, '`') != NULL); /* ` is an error */
+    return strchr(s, '`') != NULL; /* ` is an error */
 }

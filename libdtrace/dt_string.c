@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -135,7 +135,7 @@ stresc2chr(char *s)
 	}
 
 	*q = '\0';
-	return ((size_t)(q - s));
+	return (size_t)(q - s);
 }
 
 /*
@@ -173,7 +173,7 @@ strchr2esc(const char *s, size_t n)
 	}
 
 	if ((s2 = malloc(n + addl + 1)) == NULL)
-		return (NULL);
+		return NULL;
 
 	for (p = s, q = s2; p < s + n; p++) {
 		switch (c = *p) {
@@ -235,7 +235,7 @@ strchr2esc(const char *s, size_t n)
 	}
 
 	*q = '\0';
-	return (s2);
+	return s2;
 }
 
 /*
@@ -249,9 +249,9 @@ strbasename(const char *s)
 	const char *p = strrchr(s, '/');
 
 	if (p == NULL)
-		return (s);
+		return s;
 
-	return (++p);
+	return ++p;
 }
 
 /*
@@ -267,20 +267,19 @@ strbadidnum(const char *s)
 	int c;
 
 	if (*s == '\0')
-		return (s);
+		return s;
 
 	errno = 0;
-	(void) strtoull(s, &p, 0);
+	strtoull(s, &p, 0);
 
 	if (errno == 0 && *p == '\0')
-		return (NULL); /* matches RGX_INT */
+		return NULL; /* matches RGX_INT */
 
-	while ((c = *s++) != '\0') {
+	while ((c = *s++) != '\0')
 		if (isalnum(c) == 0 && c != '_' && c != '`')
-			return (s - 1);
-	}
+			return s - 1;
 
-	return (NULL); /* matches RGX_IDENT */
+	return NULL; /* matches RGX_IDENT */
 }
 
 /*
@@ -294,10 +293,10 @@ strisglob(const char *s)
 
 	while ((c = *s++) != '\0') {
 		if (c == '[' || c == '?' || c == '*' || c == '\\')
-			return (1);
+			return 1;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -316,7 +315,7 @@ strhyphenate(char *s)
 		}
 	}
 
-	return (s);
+	return s;
 }
 
 /*

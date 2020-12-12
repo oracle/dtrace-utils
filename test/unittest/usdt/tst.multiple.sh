@@ -43,7 +43,7 @@ main(int argc, char **argv)
 	TEST_PROV_GO();
 	TEST_PROV_GO();
 
-	return (0);
+	return 0;
 }
 EOF
 

@@ -28,12 +28,12 @@ BEGIN
 	x = &a[0];
 	y = &a[2];
 
-	printf("y-x: %x\n", (int) (y-x));
+	printf("y-x: %x\n", (int)(y-x));
 	exit(0);
 }
 
 END
-/(2 != (int) (y-x)) /
+/(2 != (int)(y-x))/
 {
 	printf("Error");
 	exit(1);

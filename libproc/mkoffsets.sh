@@ -7,7 +7,7 @@
 #
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -203,18 +203,18 @@ EOF
 $build_offsets r_debug_offsets R
 
 cat >> $INIT <<'EOF'
-	memcpy((void *) r_debug_offsets, r_debug_offsets_build,
-	    sizeof (r_debug_offsets_build));
+	memcpy((void *)r_debug_offsets, r_debug_offsets_build,
+	    sizeof(r_debug_offsets_build));
 
-	memset((void *) link_map_offsets_build, 0, sizeof(struct rtld_offsets) *
+	memset((void *)link_map_offsets_build, 0, sizeof(struct rtld_offsets) *
 	    (L_LAST_OFFSET+1));
 
 EOF
 $build_offsets link_map_offsets L
 cat >> $INIT <<'EOF'
 
-	memcpy((void *) link_map_offsets, link_map_offsets_build,
-	    sizeof (link_map_offsets_build));
+	memcpy((void *)link_map_offsets, link_map_offsets_build,
+	    sizeof(link_map_offsets_build));
 	initialized = 1;
 }
 EOF

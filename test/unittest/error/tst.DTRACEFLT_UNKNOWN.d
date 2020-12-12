@@ -27,7 +27,7 @@ ERROR
 
 BEGIN
 {
-	x = (int *) 64;
+	x = (int *)64;
 	y = *x;
 	trace(y);
 }

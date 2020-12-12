@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
 	}
 	free(line);
 	fclose(fd);
-	return (0);
+	return 0;
 }
 EOF
 

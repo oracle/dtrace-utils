@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,88 +73,88 @@ RGX_CTL		[\f\t\v ]*#
 if (yypcb->pcb_token != 0) {
 	int tok = yypcb->pcb_token;
 	yypcb->pcb_token = 0;
-	return (tok);
+	return tok;
 }
 
 %}
 
-<S0>auto	return (DT_KEY_AUTO);
-<S0>break	return (DT_KEY_BREAK);
-<S0>case	return (DT_KEY_CASE);
-<S0>char	return (DT_KEY_CHAR);
-<S0>const	return (DT_KEY_CONST);
-<S0>continue	return (DT_KEY_CONTINUE);
-<S0>counter	return (DT_KEY_COUNTER);
-<S0>default	return (DT_KEY_DEFAULT);
-<S0>do		return (DT_KEY_DO);
-<S0>double	return (DT_KEY_DOUBLE);
-<S0>else	return (DT_KEY_ELSE);
-<S0>enum	{ yypcb->pcb_sou_type = 1; return (DT_KEY_ENUM); }
-<S0>extern	return (DT_KEY_EXTERN);
-<S0>float	return (DT_KEY_FLOAT);
-<S0>for		return (DT_KEY_FOR);
-<S0>goto	return (DT_KEY_GOTO);
-<S0>if		return (DT_KEY_IF);
-<S0>import	return (DT_KEY_IMPORT);
-<S0>inline	return (DT_KEY_INLINE);
-<S0>int		return (DT_KEY_INT);
-<S0>long	return (DT_KEY_LONG);
-<S0>offsetof	return (DT_TOK_OFFSETOF);
-<S0>probe	return (DT_KEY_PROBE);
-<S0>provider	return (DT_KEY_PROVIDER);
-<S0>register	return (DT_KEY_REGISTER);
-<S0>restrict	return (DT_KEY_RESTRICT);
-<S0>return	return (DT_KEY_RETURN);
-<S0>self	return (DT_KEY_SELF);
-<S0>short	return (DT_KEY_SHORT);
-<S0>signed	return (DT_KEY_SIGNED);
-<S0>sizeof	return (DT_TOK_SIZEOF);
-<S0>static	return (DT_KEY_STATIC);
-<S0>string	return (DT_KEY_STRING);
-<S0>stringof	return (DT_TOK_STRINGOF);
-<S0>struct	{ yypcb->pcb_sou_type = 1; return (DT_KEY_STRUCT); }
-<S0>switch	return (DT_KEY_SWITCH);
-<S0>this	return (DT_KEY_THIS);
-<S0>translator	return (DT_KEY_XLATOR);
-<S0>typedef	return (DT_KEY_TYPEDEF);
-<S0>union	{ yypcb->pcb_sou_type = 1; return (DT_KEY_UNION); }
-<S0>unsigned	return (DT_KEY_UNSIGNED);
-<S0>void	return (DT_KEY_VOID);
-<S0>volatile	return (DT_KEY_VOLATILE);
-<S0>while	return (DT_KEY_WHILE);
-<S0>xlate	return (DT_TOK_XLATE);
+<S0>auto	return DT_KEY_AUTO;
+<S0>break	return DT_KEY_BREAK;
+<S0>case	return DT_KEY_CASE;
+<S0>char	return DT_KEY_CHAR;
+<S0>const	return DT_KEY_CONST;
+<S0>continue	return DT_KEY_CONTINUE;
+<S0>counter	return DT_KEY_COUNTER;
+<S0>default	return DT_KEY_DEFAULT;
+<S0>do		return DT_KEY_DO;
+<S0>double	return DT_KEY_DOUBLE;
+<S0>else	return DT_KEY_ELSE;
+<S0>enum	{ yypcb->pcb_sou_type = 1; return DT_KEY_ENUM; }
+<S0>extern	return DT_KEY_EXTERN;
+<S0>float	return DT_KEY_FLOAT;
+<S0>for		return DT_KEY_FOR;
+<S0>goto	return DT_KEY_GOTO;
+<S0>if		return DT_KEY_IF;
+<S0>import	return DT_KEY_IMPORT;
+<S0>inline	return DT_KEY_INLINE;
+<S0>int		return DT_KEY_INT;
+<S0>long	return DT_KEY_LONG;
+<S0>offsetof	return DT_TOK_OFFSETOF;
+<S0>probe	return DT_KEY_PROBE;
+<S0>provider	return DT_KEY_PROVIDER;
+<S0>register	return DT_KEY_REGISTER;
+<S0>restrict	return DT_KEY_RESTRICT;
+<S0>return	return DT_KEY_RETURN;
+<S0>self	return DT_KEY_SELF;
+<S0>short	return DT_KEY_SHORT;
+<S0>signed	return DT_KEY_SIGNED;
+<S0>sizeof	return DT_TOK_SIZEOF;
+<S0>static	return DT_KEY_STATIC;
+<S0>string	return DT_KEY_STRING;
+<S0>stringof	return DT_TOK_STRINGOF;
+<S0>struct	{ yypcb->pcb_sou_type = 1; return DT_KEY_STRUCT; }
+<S0>switch	return DT_KEY_SWITCH;
+<S0>this	return DT_KEY_THIS;
+<S0>translator	return DT_KEY_XLATOR;
+<S0>typedef	return DT_KEY_TYPEDEF;
+<S0>union	{ yypcb->pcb_sou_type = 1; return DT_KEY_UNION; }
+<S0>unsigned	return DT_KEY_UNSIGNED;
+<S0>void	return DT_KEY_VOID;
+<S0>volatile	return DT_KEY_VOLATILE;
+<S0>while	return DT_KEY_WHILE;
+<S0>xlate	return DT_TOK_XLATE;
 
-<S2>auto	{ yybegin(YYS_EXPR);	return (DT_KEY_AUTO); }
-<S2>char	{ yybegin(YYS_EXPR);	return (DT_KEY_CHAR); }
-<S2>const	{ yybegin(YYS_EXPR);	return (DT_KEY_CONST); }
-<S2>counter	{ yybegin(YYS_DEFINE);	return (DT_KEY_COUNTER); }
-<S2>double	{ yybegin(YYS_EXPR);	return (DT_KEY_DOUBLE); }
+<S2>auto	{ yybegin(YYS_EXPR);	return DT_KEY_AUTO; }
+<S2>char	{ yybegin(YYS_EXPR);	return DT_KEY_CHAR; }
+<S2>const	{ yybegin(YYS_EXPR);	return DT_KEY_CONST; }
+<S2>counter	{ yybegin(YYS_DEFINE);	return DT_KEY_COUNTER; }
+<S2>double	{ yybegin(YYS_EXPR);	return DT_KEY_DOUBLE; }
 <S2>enum	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
-					return (DT_KEY_ENUM); }
-<S2>extern	{ yybegin(YYS_EXPR);	return (DT_KEY_EXTERN); }
-<S2>float	{ yybegin(YYS_EXPR);	return (DT_KEY_FLOAT); }
-<S2>import	{ yybegin(YYS_EXPR);	return (DT_KEY_IMPORT); }
-<S2>inline	{ yybegin(YYS_DEFINE);	return (DT_KEY_INLINE); }
-<S2>int		{ yybegin(YYS_EXPR);	return (DT_KEY_INT); }
-<S2>long	{ yybegin(YYS_EXPR);	return (DT_KEY_LONG); }
-<S2>provider	{ yybegin(YYS_DEFINE);	return (DT_KEY_PROVIDER); }
-<S2>register	{ yybegin(YYS_EXPR);	return (DT_KEY_REGISTER); }
-<S2>restrict	{ yybegin(YYS_EXPR);	return (DT_KEY_RESTRICT); }
-<S2>self	{ yybegin(YYS_EXPR);	return (DT_KEY_SELF); }
-<S2>short	{ yybegin(YYS_EXPR);	return (DT_KEY_SHORT); }
-<S2>signed	{ yybegin(YYS_EXPR);	return (DT_KEY_SIGNED); }
-<S2>static	{ yybegin(YYS_EXPR);	return (DT_KEY_STATIC); }
-<S2>string	{ yybegin(YYS_EXPR);	return (DT_KEY_STRING); }
+					return DT_KEY_ENUM; }
+<S2>extern	{ yybegin(YYS_EXPR);	return DT_KEY_EXTERN; }
+<S2>float	{ yybegin(YYS_EXPR);	return DT_KEY_FLOAT; }
+<S2>import	{ yybegin(YYS_EXPR);	return DT_KEY_IMPORT; }
+<S2>inline	{ yybegin(YYS_DEFINE);	return DT_KEY_INLINE; }
+<S2>int		{ yybegin(YYS_EXPR);	return DT_KEY_INT; }
+<S2>long	{ yybegin(YYS_EXPR);	return DT_KEY_LONG; }
+<S2>provider	{ yybegin(YYS_DEFINE);	return DT_KEY_PROVIDER; }
+<S2>register	{ yybegin(YYS_EXPR);	return DT_KEY_REGISTER; }
+<S2>restrict	{ yybegin(YYS_EXPR);	return DT_KEY_RESTRICT; }
+<S2>self	{ yybegin(YYS_EXPR);	return DT_KEY_SELF; }
+<S2>short	{ yybegin(YYS_EXPR);	return DT_KEY_SHORT; }
+<S2>signed	{ yybegin(YYS_EXPR);	return DT_KEY_SIGNED; }
+<S2>static	{ yybegin(YYS_EXPR);	return DT_KEY_STATIC; }
+<S2>string	{ yybegin(YYS_EXPR);	return DT_KEY_STRING; }
 <S2>struct	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
-					return (DT_KEY_STRUCT); }
-<S2>this	{ yybegin(YYS_EXPR);	return (DT_KEY_THIS); }
-<S2>translator	{ yybegin(YYS_DEFINE);  return (DT_KEY_XLATOR); }
-<S2>typedef	{ yybegin(YYS_EXPR);	return (DT_KEY_TYPEDEF); }
+					return DT_KEY_STRUCT; }
+<S2>this	{ yybegin(YYS_EXPR);	return DT_KEY_THIS; }
+<S2>translator	{ yybegin(YYS_DEFINE);  return DT_KEY_XLATOR; }
+<S2>typedef	{ yybegin(YYS_EXPR);	return DT_KEY_TYPEDEF; }
 <S2>union	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
-					return (DT_KEY_UNION); }
-<S2>unsigned	{ yybegin(YYS_EXPR);	return (DT_KEY_UNSIGNED); }
-<S2>void	{ yybegin(YYS_EXPR);	return (DT_KEY_VOID); }
-<S2>volatile	{ yybegin(YYS_EXPR);	return (DT_KEY_VOLATILE); }
+					return DT_KEY_UNION; }
+<S2>unsigned	{ yybegin(YYS_EXPR);	return DT_KEY_UNSIGNED; }
+<S2>void	{ yybegin(YYS_EXPR);	return DT_KEY_VOID; }
+<S2>volatile	{ yybegin(YYS_EXPR);	return DT_KEY_VOLATILE; }
 
 <S0>"$$"[0-9]+	{
 			int i = atoi(yytext + 2);
@@ -182,8 +182,8 @@ if (yypcb->pcb_token != 0) {
 			if ((yylval.l_str = strdup(v)) == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-			(void) stresc2chr(yylval.l_str);
-			return (DT_TOK_STRING);
+			stresc2chr(yylval.l_str);
+			return DT_TOK_STRING;
 		}
 
 <S0,SIDENT>"$"[0-9]+	{
@@ -226,8 +226,8 @@ if (yypcb->pcb_token != 0) {
 				if (yylval.l_str == NULL)
 					longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-				(void) stresc2chr(yylval.l_str);
-				return (DT_TOK_STRING);
+				stresc2chr(yylval.l_str);
+				return DT_TOK_STRING;
 			}
 
 			/*
@@ -242,7 +242,7 @@ if (yypcb->pcb_token != 0) {
 
 				errno = 0;
 				yylval.l_int = strtoull(v, &p, 0);
-				strcpy_safe(yyintsuffix, sizeof (yyintsuffix), p);
+				strcpy_safe(yyintsuffix, sizeof(yyintsuffix), p);
 				yyintdecimal = *v != '0';
 
 				if (errno == ERANGE) {
@@ -251,10 +251,10 @@ if (yypcb->pcb_token != 0) {
 					    " overflow\n", yytext, v);
 				}
 
-				return (DT_TOK_INT);
+				return DT_TOK_INT;
 			}
 
-			return (id_or_type(v));
+			return id_or_type(v);
 		}
 
 <S0>"$$"{RGX_IDENT} {
@@ -272,11 +272,11 @@ if (yypcb->pcb_token != 0) {
 			 * For the moment, all current macro variables are of
 			 * type id_t (refer to dtrace_update() for details).
 			 */
-			(void) snprintf(s, sizeof (s), "%u", idp->di_id);
+			snprintf(s, sizeof(s), "%u", idp->di_id);
 			if ((yylval.l_str = strdup(s)) == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-			return (DT_TOK_STRING);
+			return DT_TOK_STRING;
 		}
 
 <S0>"$"{RGX_IDENT} {
@@ -297,23 +297,23 @@ if (yypcb->pcb_token != 0) {
 			yyintsuffix[0] = '\0';
 			yyintdecimal = 1;
 
-			return (DT_TOK_INT);
+			return DT_TOK_INT;
 		}
 
 <S0,SIDENT>{RGX_IDENT}	{
-			return (id_or_type(yytext));
+			return id_or_type(yytext);
 		}
 
 <S0>{RGX_AGG}	{
 			if ((yylval.l_str = strdup(yytext)) == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-			return (DT_TOK_AGG);
+			return DT_TOK_AGG;
 		}
 
 <S0>"@"		{
 			if ((yylval.l_str = strdup("@_")) == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-			return (DT_TOK_AGG);
+			return DT_TOK_AGG;
 		}
 
 <S0>{RGX_INT}	|
@@ -324,7 +324,7 @@ if (yypcb->pcb_token != 0) {
 			errno = 0;
 			yylval.l_int = strtoull(yytext, &p, 0);
 			yyintprefix = 0;
-			strcpy_safe(yyintsuffix, sizeof (yyintsuffix), p);
+			strcpy_safe(yyintsuffix, sizeof(yyintsuffix), p);
 			yyintdecimal = yytext[0] != '0';
 
 			if (errno == ERANGE) {
@@ -338,7 +338,7 @@ if (yypcb->pcb_token != 0) {
 			}
 
 			if ((YYSTATE) != S3)
-				return (DT_TOK_INT);
+				return DT_TOK_INT;
 
 			yypragma = dt_node_link(yypragma,
 			    dt_node_int(yylval.l_int));
@@ -360,9 +360,9 @@ if (yypcb->pcb_token != 0) {
 			if (yylval.l_str == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-			(void) stresc2chr(yylval.l_str);
+			stresc2chr(yylval.l_str);
 			if ((YYSTATE) != S3)
-				return (DT_TOK_STRING);
+				return DT_TOK_STRING;
 
 			yypragma = dt_node_link(yypragma,
 			    dt_node_string(yylval.l_str));
@@ -389,7 +389,7 @@ if (yypcb->pcb_token != 0) {
 			yyintsuffix[0] = '\0';
 			yyintdecimal = 1;
 
-			if (nbytes > sizeof (yylval.l_int)) {
+			if (nbytes > sizeof(yylval.l_int)) {
 				xyerror(D_CHR_OFLOW, "character constant is "
 				    "too long");
 			}
@@ -399,9 +399,9 @@ if (yypcb->pcb_token != 0) {
 				*p-- = *q++;
 #else
 			memcpy(((char *)&yylval.l_int) +
-			    sizeof (yylval.l_int) - nbytes, s, nbytes);
+			    sizeof(yylval.l_int) - nbytes, s, nbytes);
 #endif
-			return (DT_TOK_INT);
+			return DT_TOK_INT;
 		}
 
 <S0,S2,SIDENT>"/*"	{
@@ -454,86 +454,86 @@ if (yypcb->pcb_token != 0) {
 				tok = DT_TOK_DIV;
 
 			unput(c);
-			return (tok);
+			return tok;
 		}
 
 <S0>"("		{
 			yypcb->pcb_parens++;
 			yypcb->pcb_sou_type = 0;
-			return (DT_TOK_LPAR);
+			return DT_TOK_LPAR;
 		}
 
 <S0>")"		{
 			if (--yypcb->pcb_parens < 0)
 				yyerror("extra ) in input stream\n");
 			yypcb->pcb_sou_type = 0;
-			return (DT_TOK_RPAR);
+			return DT_TOK_RPAR;
 		}
 
 <S0>"["		{
 			yypcb->pcb_brackets++;
-			return (DT_TOK_LBRAC);
+			return DT_TOK_LBRAC;
 		}
 
 <S0>"]"		{
 			if (--yypcb->pcb_brackets < 0)
 				yyerror("extra ] in input stream\n");
-			return (DT_TOK_RBRAC);
+			return DT_TOK_RBRAC;
 		}
 
 <S0>"{"		|
 <S2>"{"		{
 			yypcb->pcb_braces++;
 			yypcb->pcb_sou_type = 0;
-			return ('{');
+			return '{';
 		}
 
 <S0>"}"		{
 			if (--yypcb->pcb_braces < 0)
 				yyerror("extra } in input stream\n");
-			return ('}');
+			return '}';
 		}
 
-<S0>"|"		return (DT_TOK_BOR);
-<S0>"^"		return (DT_TOK_XOR);
-<S0>"&"		return (DT_TOK_BAND);
-<S0>"&&"	return (DT_TOK_LAND);
-<S0>"^^"	return (DT_TOK_LXOR);
-<S0>"||"	return (DT_TOK_LOR);
-<S0>"=="	return (DT_TOK_EQU);
-<S0>"!="	return (DT_TOK_NEQ);
-<S0>"<"		yypcb->pcb_sou_type = 0; return (DT_TOK_LT);
-<S0>"<="	return (DT_TOK_LE);
-<S0>">"		yypcb->pcb_sou_type = 0; return (DT_TOK_GT);
-<S0>">="	return (DT_TOK_GE);
-<S0>"<<"	return (DT_TOK_LSH);
-<S0>">>"	return (DT_TOK_RSH);
-<S0>"+"		return (DT_TOK_ADD);
-<S0>"-"		return (DT_TOK_SUB);
-<S0>"*"		return (DT_TOK_MUL);
-<S0>"%"		return (DT_TOK_MOD);
-<S0>"~"		return (DT_TOK_BNEG);
-<S0>"!"		return (DT_TOK_LNEG);
-<S0>"?"		return (DT_TOK_QUESTION);
-<S0>":"		return (DT_TOK_COLON);
-<S0>"."		yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return (DT_TOK_DOT);
-<S0>"->"	yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return (DT_TOK_PTR);
-<S0>"="		return (DT_TOK_ASGN);
-<S0>"+="	return (DT_TOK_ADD_EQ);
-<S0>"-="	return (DT_TOK_SUB_EQ);
-<S0>"*="	return (DT_TOK_MUL_EQ);
-<S0>"/="	return (DT_TOK_DIV_EQ);
-<S0>"%="	return (DT_TOK_MOD_EQ);
-<S0>"&="	return (DT_TOK_AND_EQ);
-<S0>"^="	return (DT_TOK_XOR_EQ);
-<S0>"|="	return (DT_TOK_OR_EQ);
-<S0>"<<="	return (DT_TOK_LSH_EQ);
-<S0>">>="	return (DT_TOK_RSH_EQ);
-<S0>"++"	return (DT_TOK_ADDADD);
-<S0>"--"	return (DT_TOK_SUBSUB);
-<S0>"..."	return (DT_TOK_ELLIPSIS);
-<S0>","		return (DT_TOK_COMMA);
-<S0>";"		return (';');
+<S0>"|"		return DT_TOK_BOR;
+<S0>"^"		return DT_TOK_XOR;
+<S0>"&"		return DT_TOK_BAND;
+<S0>"&&"	return DT_TOK_LAND;
+<S0>"^^"	return DT_TOK_LXOR;
+<S0>"||"	return DT_TOK_LOR;
+<S0>"=="	return DT_TOK_EQU;
+<S0>"!="	return DT_TOK_NEQ;
+<S0>"<"		yypcb->pcb_sou_type = 0; return DT_TOK_LT;
+<S0>"<="	return DT_TOK_LE;
+<S0>">"		yypcb->pcb_sou_type = 0; return DT_TOK_GT;
+<S0>">="	return DT_TOK_GE;
+<S0>"<<"	return DT_TOK_LSH;
+<S0>">>"	return DT_TOK_RSH;
+<S0>"+"		return DT_TOK_ADD;
+<S0>"-"		return DT_TOK_SUB;
+<S0>"*"		return DT_TOK_MUL;
+<S0>"%"		return DT_TOK_MOD;
+<S0>"~"		return DT_TOK_BNEG;
+<S0>"!"		return DT_TOK_LNEG;
+<S0>"?"		return DT_TOK_QUESTION;
+<S0>":"		return DT_TOK_COLON;
+<S0>"."		yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return DT_TOK_DOT;
+<S0>"->"	yypcb->pcb_sou_deref = 1; BEGIN(SIDENT); return DT_TOK_PTR;
+<S0>"="		return DT_TOK_ASGN;
+<S0>"+="	return DT_TOK_ADD_EQ;
+<S0>"-="	return DT_TOK_SUB_EQ;
+<S0>"*="	return DT_TOK_MUL_EQ;
+<S0>"/="	return DT_TOK_DIV_EQ;
+<S0>"%="	return DT_TOK_MOD_EQ;
+<S0>"&="	return DT_TOK_AND_EQ;
+<S0>"^="	return DT_TOK_XOR_EQ;
+<S0>"|="	return DT_TOK_OR_EQ;
+<S0>"<<="	return DT_TOK_LSH_EQ;
+<S0>">>="	return DT_TOK_RSH_EQ;
+<S0>"++"	return DT_TOK_ADDADD;
+<S0>"--"	return DT_TOK_SUBSUB;
+<S0>"..."	return DT_TOK_ELLIPSIS;
+<S0>","		return DT_TOK_COMMA;
+<S0>";"		return ';';
 <S0>{RGX_WS}	; /* discard */
 <S0>"\\"\n	; /* discard */
 <S0>.		{
@@ -604,7 +604,7 @@ if (yypcb->pcb_token != 0) {
 					}
 
 					yybegin(YYS_EXPR);
-					return (DT_TOK_TNAME);
+					return DT_TOK_TNAME;
 				}
 
 				if (p != NULL && p > yytext)
@@ -614,11 +614,11 @@ if (yypcb->pcb_token != 0) {
 			if ((yylval.l_str = strdup(yytext)) == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-			return (DT_TOK_PSPEC);
+			return DT_TOK_PSPEC;
 		}
 
-<S2>"/"		return (DT_TOK_DIV);
-<S2>","		return (DT_TOK_COMMA);
+<S2>"/"		return DT_TOK_DIV;
+<S2>","		return DT_TOK_COMMA;
 
 <S2>{RGX_WS}	; /* discard */
 <S2>.		yyerror("syntax error near \"%c\"\n", yytext[0]);
@@ -746,7 +746,7 @@ id_or_type(const char *s)
 	 */
 	if (yypcb->pcb_sou_type) {
 		yypcb->pcb_sou_type = 0;
-		return (DT_TOK_TNAME);
+		return DT_TOK_TNAME;
 	}
 
 	/*
@@ -754,14 +754,14 @@ id_or_type(const char *s)
 	 */
 	if (yypcb->pcb_sou_deref) {
 		yypcb->pcb_sou_deref = 0;
-		return (DT_TOK_IDENT);
+		return DT_TOK_IDENT;
 	}
 
 	/*
 	 * In type context -> must be a type name.
 	 */
 	if (yypcb->pcb_context == DT_CTX_DTYPE)
-		return (DT_TOK_TNAME);
+		return DT_TOK_TNAME;
 
 	/*
 	 * Inside an array declaration, having already seen a type: this must
@@ -771,7 +771,7 @@ id_or_type(const char *s)
 		idp = dt_idhash_insert(yypcb->pcb_idents, s, DT_IDENT_SCALAR,
 			DT_IDFLG_DECL, 0, _dtrace_defattr, 0, &dt_idops_thaw,
 			NULL, dtp->dt_gen);
-		return (DT_TOK_IDENT);
+		return DT_TOK_IDENT;
 	}
 
 	/*
@@ -780,7 +780,7 @@ id_or_type(const char *s)
 	 */
 	if (dt_idstack_lookup(&yypcb->pcb_globals, s) != NULL ||
 	    dt_idhash_lookup(yypcb->pcb_idents, s) != NULL)
-		return (DT_TOK_IDENT);
+		return DT_TOK_IDENT;
 
 	/*
 	 * If the lexeme is in a program clause, then it could be a type or it
@@ -855,7 +855,7 @@ id_or_type(const char *s)
 		}
 
 		if (ttok == DT_TOK_IDENT)
-			return (DT_TOK_IDENT);
+			return DT_TOK_IDENT;
 	}
 
 	/*
@@ -889,7 +889,7 @@ id_or_type(const char *s)
 		}
 
 		if (ttok == DT_TOK_IDENT)
-			return (DT_TOK_IDENT);
+			return DT_TOK_IDENT;
 	}
 
 	/*
@@ -898,7 +898,7 @@ id_or_type(const char *s)
          * had better not get here for identifiers in trivial D code.
 	 */
 	if (dt_type_lookup(s, NULL) != 0)
-		return (DT_TOK_IDENT);
+		return DT_TOK_IDENT;
 
 	/*
 	 * If we're in the midst of parsing a declaration and a type_specifier
@@ -913,13 +913,13 @@ id_or_type(const char *s)
 	 * redeclarations of the same identifier as part of dt_node_decl().
 	 */
 	if (ddp != NULL && ddp->dd_name != NULL)
-		return (DT_TOK_IDENT);
+		return DT_TOK_IDENT;
 
 	/*
 	 * The lexeme is a type name.  (Ambiguous parses with identifiers in
 	 * program clauses are already ruled out by the code above.)
 	 */
-	return (DT_TOK_TNAME);
+	return DT_TOK_TNAME;
 }
 
 /*

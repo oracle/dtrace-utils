@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -43,10 +43,10 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 	 * that the link map is in fact uncorrupted.)
 	 */
 
-	if (Pread_string(P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
+	if (Pread_string(P, buf, sizeof(buf), loadobj->rl_nameaddr) < 0) {
 		fprintf(stderr, "Failed to read string at %lx\n",
 		    loadobj->rl_nameaddr);
-		return (0);
+		return 0;
 	}
 
 	if ((many_lmids && highest > loadobj->rl_lmident) ||
@@ -63,7 +63,7 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *p)
 	if (!lmids_fell)
 		printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li\n", buf, loadobj->rl_dyn,
 		    loadobj->rl_diff_addr, loadobj->rl_lmident);
-	return (1);
+	return 1;
 }
 
 static int adds_seen;
@@ -116,12 +116,12 @@ int main(int argc, char *argv[])
 	rd = rd_new(P);
 	if (!rd) {
 		fprintf(stderr, "Initialization failed.\n");
-		return (1);
+		return 1;
 	}
 	rd_event_enable(rd, rtld_load_unload, NULL);
  	Ptrace_set_detached(P, 1);
 	Puntrace(P, 0);
-	jmp_pad = (jmp_buf ** volatile) libproc_unwinder_pad(P);
+	jmp_pad = (jmp_buf ** volatile)libproc_unwinder_pad(P);
 
 	if (setjmp(exec_jmp)) {
 		pid_t pid;
@@ -130,8 +130,8 @@ int main(int argc, char *argv[])
 		 * now, in case the rd_new() or other operation within the
 		 * exec-spotted path is interrupted by another exec().
 		 */
-		*jmp_pad = (jmp_buf * volatile) &exec_jmp;
-		P = (struct ps_prochandle *) P_preserved;
+		*jmp_pad = (jmp_buf * volatile)&exec_jmp;
+		P = (struct ps_prochandle *)P_preserved;
 		pid = Pgetpid(P);
 
 		fprintf(stderr, "Spotted exec()\n");
@@ -144,18 +144,18 @@ int main(int argc, char *argv[])
 		P = Pgrab(pid, 0, 1, NULL, &err);
 		if (!P) {
 			perror("Cannot regrab after exec()");
-			return(1);
+			return 1;
 		}
 		rd = rd_new(P);
 		if (!rd) {
 			fprintf(stderr, "Initialization failed.\n");
-			return (1);
+			return 1;
 		}
 		rd_event_enable(rd, rtld_load_unload, NULL);
 		Ptrace_set_detached(P, 1);
 		Puntrace(P, 0);
 	}
-	*jmp_pad = (jmp_buf * volatile) &exec_jmp;
+	*jmp_pad = (jmp_buf * volatile)&exec_jmp;
 	P_preserved = P;
 
 	/*
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
 		gettimeofday(&b, NULL);
  		if (b.tv_sec - 2 > a.tv_sec) {
 			fprintf(stderr, "rd_loadobj_iter took implausibly "
-			    "long: %li seconds.\n", (long) (b.tv_sec - a.tv_sec));
+			    "long: %li seconds.\n", (long)(b.tv_sec - a.tv_sec));
 			err = 1;
 		}
 		Pwait(P, 0);

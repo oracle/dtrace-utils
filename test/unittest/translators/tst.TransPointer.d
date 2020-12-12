@@ -28,8 +28,8 @@ struct myoutput_struct {
 
 translator struct myoutput_struct < struct myinput_struct *ivar >
 {
-	myi = ((struct myinput_struct *) ivar)->i;
-	myc = ((struct myinput_struct *) ivar)->c;
+	myi = ((struct myinput_struct *)ivar)->i;
+	myc = ((struct myinput_struct *)ivar)->c;
 
 };
 

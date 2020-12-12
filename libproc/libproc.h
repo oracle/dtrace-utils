@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -184,12 +184,12 @@ extern	void	Pset_libproc_unwinder_pad(libproc_unwinder_pad_fun *unwinder_pad);
  * signal return.
  */
 extern	int	Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
-    int (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    int (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data);
 extern	int	Pbkpt_notifier(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
-    void (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    void (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data);
 extern	void	Punbkpt(struct ps_prochandle *P, uintptr_t address);
 extern	int	Pbkpt_continue(struct ps_prochandle *P);

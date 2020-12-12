@@ -37,9 +37,9 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec, const char *s,
 	char buf[32]; /* for id_t as %d (see below) */
 
 	if (spec < DTRACE_PROBESPEC_NONE || spec > DTRACE_PROBESPEC_NAME)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
-	memset(pdp, 0, sizeof (dtrace_probedesc_t));
+	memset(pdp, 0, sizeof(dtrace_probedesc_t));
 	p = s + strlen(s) - 1;
 
 	do {
@@ -82,7 +82,7 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec, const char *s,
 				wlen = vlen - (w - v);
 
 				if (i < 0 || i >= argc || errno != 0)
-					return (dt_set_errno(dtp, EDT_BADSPCV));
+					return dt_set_errno(dtp, EDT_BADSPCV);
 
 				v = argv[i];
 				vlen = strlen(v);
@@ -94,26 +94,26 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec, const char *s,
 				char *vstr = alloca(vlen);
 				dt_ident_t *idp;
 
-				(void) strncpy(vstr, v + 1, vlen - 1);
+				strncpy(vstr, v + 1, vlen - 1);
 				vstr[vlen - 1] = '\0';
 				idp = dt_idhash_lookup(dtp->dt_macros, vstr);
 
 				if (idp == NULL)
-					return (dt_set_errno(dtp, EDT_BADSPCV));
+					return dt_set_errno(dtp, EDT_BADSPCV);
 
 				v = buf;
 				vlen = snprintf(buf, 32, "%d", idp->di_id);
 
 			} else
-				return (dt_set_errno(dtp, EDT_BADSPCV));
+				return dt_set_errno(dtp, EDT_BADSPCV);
 		}
 
 		if (spec == DTRACE_PROBESPEC_NONE)
-			return (dt_set_errno(dtp, EDT_BADSPEC));
+			return dt_set_errno(dtp, EDT_BADSPEC);
 
 		name = calloc(len + vlen + wlen + 1, 1);
 		if (!name)
-			return (dt_set_errno(dtp, ENOMEM));
+			return dt_set_errno(dtp, ENOMEM);
 
 		memcpy(name, q, len);
 		memcpy(name + len, v, vlen);
@@ -153,14 +153,14 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec, const char *s,
 		pdp->fun = strdup("");
 	if (!pdp->prb)
 		pdp->prb = strdup("");
-	return (0);
+	return 0;
 }
 
 int
 dtrace_str2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
     const char *s, dtrace_probedesc_t *pdp)
 {
-	return (dtrace_xstr2desc(dtp, spec, s, 0, NULL, pdp));
+	return dtrace_xstr2desc(dtp, spec, s, 0, NULL, pdp);
 }
 
 char *
@@ -172,7 +172,7 @@ dtrace_desc2str(const dtrace_probedesc_t *pdp, char *buf, size_t len)
 	else
 		snprintf(buf, len, "%u", pdp->id);
 
-	return (buf);
+	return buf;
 }
 
 char *
@@ -183,10 +183,10 @@ dtrace_attr2str(dtrace_attribute_t attr, char *buf, size_t len)
 	const char *class = dtrace_class_name(attr.dtat_class);
 
 	if (name == NULL || data == NULL || class == NULL)
-		return (NULL); /* one or more invalid attributes */
+		return NULL; /* one or more invalid attributes */
 
-	(void) snprintf(buf, len, "%s/%s/%s", name, data, class);
-	return (buf);
+	snprintf(buf, len, "%s/%s/%s", name, data, class);
+	return buf;
 }
 
 static char *
@@ -195,7 +195,7 @@ dt_getstrattr(char *p, char **qp)
 	char *q;
 
 	if (*p == '\0')
-		return (NULL);
+		return NULL;
 
 	if ((q = strchr(p, '/')) == NULL)
 		q = p + strlen(p);
@@ -203,7 +203,7 @@ dt_getstrattr(char *p, char **qp)
 		*q++ = '\0';
 
 	*qp = q;
-	return (p);
+	return p;
 }
 
 int
@@ -214,14 +214,14 @@ dtrace_str2attr(const char *str, dtrace_attribute_t *attr)
 	char *p, *q;
 
 	if (str == NULL || attr == NULL)
-		return (-1); /* invalid function arguments */
+		return -1; /* invalid function arguments */
 
 	*attr = _dtrace_maxattr;
 	p = alloca(strlen(str) + 1);
-	(void) strcpy(p, str);
+	strcpy(p, str);
 
 	if ((p = dt_getstrattr(p, &q)) == NULL)
-		return (0);
+		return 0;
 
 	for (s = 0; s <= DTRACE_STABILITY_MAX; s++) {
 		if (strcasecmp(p, dtrace_stability_name(s)) == 0) {
@@ -231,10 +231,10 @@ dtrace_str2attr(const char *str, dtrace_attribute_t *attr)
 	}
 
 	if (s > DTRACE_STABILITY_MAX)
-		return (-1);
+		return -1;
 
 	if ((p = dt_getstrattr(q, &q)) == NULL)
-		return (0);
+		return 0;
 
 	for (s = 0; s <= DTRACE_STABILITY_MAX; s++) {
 		if (strcasecmp(p, dtrace_stability_name(s)) == 0) {
@@ -244,10 +244,10 @@ dtrace_str2attr(const char *str, dtrace_attribute_t *attr)
 	}
 
 	if (s > DTRACE_STABILITY_MAX)
-		return (-1);
+		return -1;
 
 	if ((p = dt_getstrattr(q, &q)) == NULL)
-		return (0);
+		return 0;
 
 	for (c = 0; c <= DTRACE_CLASS_MAX; c++) {
 		if (strcasecmp(p, dtrace_class_name(c)) == 0) {
@@ -257,24 +257,24 @@ dtrace_str2attr(const char *str, dtrace_attribute_t *attr)
 	}
 
 	if (c > DTRACE_CLASS_MAX || (p = dt_getstrattr(q, &q)) != NULL)
-		return (-1);
+		return -1;
 
-	return (0);
+	return 0;
 }
 
 const char *
 dtrace_stability_name(dtrace_stability_t s)
 {
 	switch (s) {
-	case DTRACE_STABILITY_INTERNAL:	return ("Internal");
-	case DTRACE_STABILITY_PRIVATE:	return ("Private");
-	case DTRACE_STABILITY_OBSOLETE:	return ("Obsolete");
-	case DTRACE_STABILITY_EXTERNAL:	return ("External");
-	case DTRACE_STABILITY_UNSTABLE:	return ("Unstable");
-	case DTRACE_STABILITY_EVOLVING:	return ("Evolving");
-	case DTRACE_STABILITY_STABLE:	return ("Stable");
-	case DTRACE_STABILITY_STANDARD:	return ("Standard");
-	default:			return (NULL);
+	case DTRACE_STABILITY_INTERNAL:	return "Internal";
+	case DTRACE_STABILITY_PRIVATE:	return "Private";
+	case DTRACE_STABILITY_OBSOLETE:	return "Obsolete";
+	case DTRACE_STABILITY_EXTERNAL:	return "External";
+	case DTRACE_STABILITY_UNSTABLE:	return "Unstable";
+	case DTRACE_STABILITY_EVOLVING:	return "Evolving";
+	case DTRACE_STABILITY_STABLE:	return "Stable";
+	case DTRACE_STABILITY_STANDARD:	return "Standard";
+	default:			return NULL;
 	}
 }
 
@@ -282,13 +282,13 @@ const char *
 dtrace_class_name(dtrace_class_t c)
 {
 	switch (c) {
-	case DTRACE_CLASS_UNKNOWN:	return ("Unknown");
-	case DTRACE_CLASS_CPU:		return ("CPU");
-	case DTRACE_CLASS_PLATFORM:	return ("Platform");
-	case DTRACE_CLASS_GROUP:	return ("Group");
-	case DTRACE_CLASS_ISA:		return ("ISA");
-	case DTRACE_CLASS_COMMON:	return ("Common");
-	default:			return (NULL);
+	case DTRACE_CLASS_UNKNOWN:	return "Unknown";
+	case DTRACE_CLASS_CPU:		return "CPU";
+	case DTRACE_CLASS_PLATFORM:	return "Platform";
+	case DTRACE_CLASS_GROUP:	return "Group";
+	case DTRACE_CLASS_ISA:		return "ISA";
+	case DTRACE_CLASS_COMMON:	return "Common";
+	default:			return NULL;
 	}
 }
 
@@ -301,7 +301,7 @@ dt_attr_min(dtrace_attribute_t a1, dtrace_attribute_t a2)
 	am.dtat_data = MIN(a1.dtat_data, a2.dtat_data);
 	am.dtat_class = MIN(a1.dtat_class, a2.dtat_class);
 
-	return (am);
+	return am;
 }
 
 dtrace_attribute_t
@@ -313,7 +313,7 @@ dt_attr_max(dtrace_attribute_t a1, dtrace_attribute_t a2)
 	am.dtat_data = MAX(a1.dtat_data, a2.dtat_data);
 	am.dtat_class = MAX(a1.dtat_class, a2.dtat_class);
 
-	return (am);
+	return am;
 }
 
 /*
@@ -332,9 +332,9 @@ dt_attr_max(dtrace_attribute_t a1, dtrace_attribute_t a2)
 int
 dt_attr_cmp(dtrace_attribute_t a1, dtrace_attribute_t a2)
 {
-	return (((int)a1.dtat_name - a2.dtat_name) |
+	return ((int)a1.dtat_name - a2.dtat_name) |
 	    ((int)a1.dtat_data - a2.dtat_data) |
-	    ((int)a1.dtat_class - a2.dtat_class));
+	    ((int)a1.dtat_class - a2.dtat_class);
 }
 
 char *
@@ -343,16 +343,15 @@ dt_attr_str(dtrace_attribute_t a, char *buf, size_t len)
 	static const char stability[] = "ipoxuesS";
 	static const char class[] = "uCpgIc";
 
-	if (a.dtat_name < sizeof (stability) &&
-	    a.dtat_data < sizeof (stability) && a.dtat_class < sizeof (class)) {
-		(void) snprintf(buf, len, "[%c/%c/%c]", stability[a.dtat_name],
+	if (a.dtat_name < sizeof(stability) &&
+	    a.dtat_data < sizeof(stability) && a.dtat_class < sizeof(class))
+		snprintf(buf, len, "[%c/%c/%c]", stability[a.dtat_name],
 		    stability[a.dtat_data], class[a.dtat_class]);
-	} else {
-		(void) snprintf(buf, len, "[%u/%u/%u]",
+	else
+		snprintf(buf, len, "[%u/%u/%u]",
 		    a.dtat_name, a.dtat_data, a.dtat_class);
-	}
 
-	return (buf);
+	return buf;
 }
 
 char *
@@ -363,11 +362,11 @@ dt_version_num2str(dt_version_t v, char *buf, size_t len)
 	uint_t u = DT_VERSION_MICRO(v);
 
 	if (u == 0)
-		(void) snprintf(buf, len, "%u.%u", M, m);
+		snprintf(buf, len, "%u.%u", M, m);
 	else
-		(void) snprintf(buf, len, "%u.%u.%u", M, m, u);
+		snprintf(buf, len, "%u.%u.%u", M, m, u);
 
-	return (buf);
+	return buf;
 }
 
 int
@@ -379,19 +378,19 @@ dt_version_str2num(const char *s, dt_version_t *vp)
 	while ((c = *s++) != '\0') {
 		if (isdigit(c))
 			n[i] = n[i] * 10 + c - '0';
-		else if (c != '.' || i++ >= sizeof (n) / sizeof (n[0]) - 1)
-			return (-1);
+		else if (c != '.' || i++ >= sizeof(n) / sizeof(n[0]) - 1)
+			return -1;
 	}
 
 	if (n[0] > DT_VERSION_MAJMAX ||
 	    n[1] > DT_VERSION_MINMAX ||
 	    n[2] > DT_VERSION_MICMAX)
-		return (-1);
+		return -1;
 
 	if (vp != NULL)
 		*vp = DT_VERSION_NUMBER(n[0], n[1], n[2]);
 
-	return (0);
+	return 0;
 }
 
 int
@@ -401,10 +400,10 @@ dt_version_defined(dt_version_t v)
 
 	for (i = 0; _dtrace_versions[i] != 0; i++) {
 		if (_dtrace_versions[i] == v)
-			return (1);
+			return 1;
 	}
 
-	return (0);
+	return 0;
 }
 
 char *
@@ -415,22 +414,22 @@ dt_cpp_add_arg(dtrace_hdl_t *dtp, const char *str)
 	if (dtp->dt_cpp_argc == dtp->dt_cpp_args) {
 		int olds = dtp->dt_cpp_args;
 		int news = olds * 2;
-		char **argv = realloc(dtp->dt_cpp_argv, sizeof (char *) * news);
+		char **argv = realloc(dtp->dt_cpp_argv, sizeof(char *) * news);
 
 		if (argv == NULL)
-			return (NULL);
+			return NULL;
 
-		memset(&argv[olds], 0, sizeof (char *) * olds);
+		memset(&argv[olds], 0, sizeof(char *) * olds);
 		dtp->dt_cpp_argv = argv;
 		dtp->dt_cpp_args = news;
 	}
 
 	if ((arg = strdup(str)) == NULL)
-		return (NULL);
+		return NULL;
 
 	assert(dtp->dt_cpp_argc < dtp->dt_cpp_args);
 	dtp->dt_cpp_argv[dtp->dt_cpp_argc++] = arg;
-	return (arg);
+	return arg;
 }
 
 char *
@@ -439,12 +438,12 @@ dt_cpp_pop_arg(dtrace_hdl_t *dtp)
 	char *arg;
 
 	if (dtp->dt_cpp_argc <= 1)
-		return (NULL); /* dt_cpp_argv[0] cannot be popped */
+		return NULL; /* dt_cpp_argv[0] cannot be popped */
 
 	arg = dtp->dt_cpp_argv[--dtp->dt_cpp_argc];
 	dtp->dt_cpp_argv[dtp->dt_cpp_argc] = NULL;
 
-	return (arg);
+	return arg;
 }
 
 /*
@@ -457,7 +456,7 @@ int
 dt_ioctl(dtrace_hdl_t *dtp, unsigned long int val, void *arg)
 {
 	errno = EBADF;
-	return (-1);
+	return -1;
 }
 
 int
@@ -466,9 +465,9 @@ dt_cpu_status(dtrace_hdl_t *dtp, int cpu)
 	const dtrace_vector_t *v = dtp->dt_vector;
 
 	if (v == NULL)
-		return (p_online(cpu));
+		return p_online(cpu);
 
-	return (v->dtv_cpu_status(dtp->dt_varg, cpu));
+	return v->dtv_cpu_status(dtp->dt_varg, cpu);
 }
 
 long
@@ -477,9 +476,9 @@ dt_sysconf(dtrace_hdl_t *dtp, int name)
 	const dtrace_vector_t *v = dtp->dt_vector;
 
 	if (v == NULL)
-		return (sysconf(name));
+		return sysconf(name);
 
-	return (v->dtv_sysconf(dtp->dt_varg, name));
+	return v->dtv_sysconf(dtp->dt_varg, name);
 }
 
 /*
@@ -503,9 +502,9 @@ dt_write(dtrace_hdl_t *dtp, int fd, const void *buf, size_t n)
 	}
 
 	if (resid == n && n != 0)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (n - resid);
+	return n - resid;
 }
 
 /*
@@ -551,7 +550,7 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		va_end(ap);
 		pthread_mutex_unlock(&dtp->dt_sprintf_lock);
 
-		return (n);
+		return n;
 	}
 
 	if (fp == NULL) {
@@ -563,7 +562,7 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 		 * handler for buffered output.
 		 */
 		if (dtp->dt_bufhdlr == NULL)
-			return (dt_set_errno(dtp, EDT_NOBUFFERED));
+			return dt_set_errno(dtp, EDT_NOBUFFERED);
 
 		pthread_mutex_lock(&dtp->dt_sprintf_lock);
 
@@ -626,7 +625,7 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 
 	unlock_out:
 		pthread_mutex_unlock(&dtp->dt_sprintf_lock);
-		return (rval);
+		return rval;
 	}
 
 	va_start(ap, format);
@@ -635,10 +634,10 @@ dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 
 	if (n < 0) {
 		clearerr(fp);
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 	}
 
-	return (n);
+	return n;
 }
 
 int
@@ -648,7 +647,7 @@ dt_buffered_flush(dtrace_hdl_t *dtp, dtrace_probedata_t *pdata,
 	dtrace_bufdata_t data;
 
 	if (dtp->dt_buffered_offs == 0)
-		return (0);
+		return 0;
 
 	data.dtbda_handle = dtp;
 	data.dtbda_buffered = dtp->dt_buffered_buf;
@@ -660,13 +659,13 @@ dt_buffered_flush(dtrace_hdl_t *dtp, dtrace_probedata_t *pdata,
 	pthread_mutex_lock(&dtp->dt_sprintf_lock);
 
 	if ((*dtp->dt_bufhdlr)(&data, dtp->dt_bufarg) == DTRACE_HANDLE_ABORT)
-		return (dt_set_errno(dtp, EDT_DIRABORT));
+		return dt_set_errno(dtp, EDT_DIRABORT);
 
 	dtp->dt_buffered_offs = 0;
 	dtp->dt_buffered_buf[0] = '\0';
 	pthread_mutex_unlock(&dtp->dt_sprintf_lock);
 
-	return (0);
+	return 0;
 }
 
 void
@@ -684,11 +683,11 @@ dt_zalloc(dtrace_hdl_t *dtp, size_t size)
 	void *data;
 
 	if ((data = malloc(size)) == NULL)
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+		dt_set_errno(dtp, EDT_NOMEM);
 	else
 		memset(data, 0, size);
 
-	return (data);
+	return data;
 }
 
 void *
@@ -706,9 +705,9 @@ dt_alloc(dtrace_hdl_t *dtp, size_t size)
 	void *data;
 
 	if ((data = malloc(size)) == NULL)
-		(void) dt_set_errno(dtp, EDT_NOMEM);
+		dt_set_errno(dtp, EDT_NOMEM);
 
-	return (data);
+	return data;
 }
 
 void
@@ -755,7 +754,7 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 int
 dt_gmatch(const char *s, const char *p)
 {
-	return (p == NULL || *p == '\0' || gmatch(s, p));
+	return p == NULL || *p == '\0' || gmatch(s, p);
 }
 
 char *
@@ -764,9 +763,9 @@ dt_basename(char *str)
 	char *last = strrchr(str, '/');
 
 	if (last == NULL)
-		return (str);
+		return str;
 
-	return (last + 1);
+	return last + 1;
 }
 
 /*
@@ -782,7 +781,7 @@ dt_popc(ulong_t x)
 	x = (x + (x >> 4)) & 0x0F0F0F0FUL;
 	x = x + (x >> 8);
 	x = x + (x >> 16);
-	return (x & 0x3F);
+	return x & 0x3F;
 #endif
 #ifdef _LP64
 	x = x - ((x >> 1) & 0x5555555555555555ULL);
@@ -791,7 +790,7 @@ dt_popc(ulong_t x)
 	x = x + (x >> 8);
 	x = x + (x >> 16);
 	x = x + (x >> 32);
-	return (x & 0x7F);
+	return x & 0x7F;
 #endif
 }
 
@@ -807,12 +806,12 @@ dt_popcb(const ulong_t *bp, ulong_t n)
 	ulong_t w, popc = 0;
 
 	if (n == 0)
-		return (0);
+		return 0;
 
 	for (w = 0; w < maxw; w++)
 		popc += dt_popc(bp[w]);
 
-	return (popc + dt_popc(bp[maxw] & ((1UL << maxb) - 1)));
+	return popc + dt_popc(bp[maxw] & ((1UL << maxb) - 1));
 }
 
 static int
@@ -825,21 +824,20 @@ dt_string2str(char *s, char *str, int nbytes)
 		 * Like snprintf(3C), we don't check the value of str if the
 		 * number of bytes is 0.
 		 */
-		return (len);
+		return len;
 	}
 
 	if (nbytes <= len) {
-		(void) strncpy(str, s, nbytes - 1);
+		strncpy(str, s, nbytes - 1);
 		/*
 		 * Like snprintf(3C) (and unlike strncpy(3C)), we guarantee
 		 * that the string is null-terminated.
 		 */
 		str[nbytes - 1] = '\0';
-	} else {
-		(void) strcpy(str, s);
-	}
+	} else
+		strcpy(str, s);
 
-	return (len);
+	return len;
 }
 
 int
@@ -875,7 +873,7 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 			snprintf(s, n, "0x%llx", (u_longlong_t)addr);
 	}
 
-	return (dt_string2str(s, str, nbytes));
+	return dt_string2str(s, str, nbytes);
 }
 
 int
@@ -909,9 +907,9 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 				offset = addr - pmap->pr_vaddr;
 
 			snprintf(c, sizeof(c), "%s:0x%llx",
-			    dt_basename(objname), (u_longlong_t) offset);
+			    dt_basename(objname), (u_longlong_t)offset);
 		} else
-			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t) addr);
+			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
 
 	} else if (dt_Plookup_by_addr(dtp, pid, addr, &name, &sym) == 0) {
 		dt_Pobjname(dtp, pid, addr, objname, sizeof(objname));
@@ -928,11 +926,10 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 		free((char *)name);
 	} else if (dt_Pobjname(dtp, pid, addr,
 			       objname, sizeof(objname)) != NULL) {
-		snprintf(c, sizeof (c), "%s`0x%llx",
-		    dt_basename(objname), (u_longlong_t) addr);
-	} else {
-		snprintf(c, sizeof (c), "0x%llx", (u_longlong_t) addr);
-	}
+		snprintf(c, sizeof(c), "%s`0x%llx",
+		    dt_basename(objname), (u_longlong_t)addr);
+	} else
+		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
 
 	dt_proc_release_unlock(dtp, pid);
 
@@ -943,23 +940,23 @@ int
 dt_variable_read(caddr_t addr, size_t size, uint64_t *valp)
 {
 	switch (size) {
-	case sizeof (uint8_t):
+	case sizeof(uint8_t):
 		*valp = *((uint8_t *)(uintptr_t)addr);
 		break;
-	case sizeof (uint16_t):
+	case sizeof(uint16_t):
 		*valp = *((uint16_t *)(uintptr_t)addr);
 		break;
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		*valp = *((uint32_t *)(uintptr_t)addr);
 		break;
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		*valp = *((uint64_t *)(uintptr_t)addr);
 		break;
 	default:
-		return (-1);
+		return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*

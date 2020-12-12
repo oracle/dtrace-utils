@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -43,7 +43,7 @@ Pread_isa_info(struct ps_prochandle *P, const char *procname)
 		return -1;
 	}
 
-	if (read(fd, &hdr, sizeof (hdr)) < 0) {
+	if (read(fd, &hdr, sizeof(hdr)) < 0) {
 		_dprintf("%s is not an ELF file\n", procname);
 		close(fd);
 		return -1;
@@ -78,7 +78,7 @@ Preadauxvec(struct ps_prochandle *P)
 	char auxfile[PATH_MAX + MAXLEN_PID + strlen("/auxv") + 1];
 	ssize_t i;
 	int fd;
-	char buf[sizeof (Elf64_auxv_t)];
+	char buf[sizeof(Elf64_auxv_t)];
 
 	if (P->state == PS_DEAD)
 		return;
@@ -87,7 +87,7 @@ Preadauxvec(struct ps_prochandle *P)
 	P->auxv = NULL;
 	P->nauxv = 0;
 
-	snprintf(auxfile, sizeof (auxfile), "%s/%d/auxv", procfs_path,
+	snprintf(auxfile, sizeof(auxfile), "%s/%d/auxv", procfs_path,
 	    (int)P->pid);
 	if ((fd = open(auxfile, O_RDONLY)) < 0) {
 		_dprintf("Cannot open auxiliary vector file %s: %s\n",
@@ -111,7 +111,7 @@ Preadauxvec(struct ps_prochandle *P)
 	}
 	_dprintf("%i: %u auxv entries.\n", P->pid, P->nauxv);
 
-	if ((P->auxv = malloc(P->nauxv * sizeof (auxv_t))) == NULL) {
+	if ((P->auxv = malloc(P->nauxv * sizeof(auxv_t))) == NULL) {
 		_dprintf("Out of memory allocating aux vector\n");
 		close(fd);
 		return;
@@ -145,27 +145,27 @@ Pgetauxval(struct ps_prochandle *P, int type)
 	auxv_t *auxv;
 
 	if (Pstate(P) == PS_DEAD)
-		return (-1);
+		return -1;
 
 	if (P->auxv == NULL)
 		Preadauxvec(P);
 
 	if (P->auxv == NULL)
-		return (-1);
+		return -1;
 
 	for (auxv = P->auxv; auxv->a_type != AT_NULL; auxv++) {
 		if (auxv->a_type == type)
-			return (auxv->a_un.a_val);
+			return auxv->a_un.a_val;
 	}
 
-	return (-1);
+	return -1;
 }
 
 uintptr_t
 r_debug(struct ps_prochandle *P)
 {
 	if (Pstate(P) == PS_DEAD)
-		return (0);
+		return 0;
 
 	if (P->r_debug_addr)
 		return P->r_debug_addr;

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -21,7 +21,7 @@
 #pragma D option bufpolicy=ring
 
 fbt:::entry
-/(self->done == 0) && (curthread->t_cpu->cpu_intr_actv == 0) /
+/(self->done == 0) && (curthread->t_cpu->cpu_intr_actv == 0)/
 {
 	self->done = 1;
 	printf(" %u 0x%llX %d %d comm:%s csathr:%lld", timestamp,
@@ -31,12 +31,12 @@ fbt:::entry
 }
 
 fbt:::return
-/(self->done == 0) && (curthread->t_cpu->cpu_intr_actv == 0) /
+/(self->done == 0) && (curthread->t_cpu->cpu_intr_actv == 0)/
 {
 	self->done = 1;
 	printf(" %u 0x%llX %d %d comm:%s csathr:%lld", timestamp,
-	    (long long) curthread, pid, tid,
-	    execname, (long long) stackdepth);
+	    (long long)curthread, pid, tid,
+	    execname, (long long)stackdepth);
 	stack(20);
 }
 
@@ -61,7 +61,7 @@ mutex_enter:adaptive-acquire
 mutex_exit:adaptive-release
 {
 	printf(" %u 0x%llX %d %d lock:0x%llX", timestamp,
-	    (long long) curthread, pid, tid, arg0);
+	    (long long)curthread, pid, tid, arg0);
 }
 
 tick-1sec

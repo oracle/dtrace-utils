@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -62,8 +62,8 @@ static bkpt_t *bkpt_by_addr(struct ps_prochandle *P, uintptr_t addr,
     int delete);
 static int add_bkpt(struct ps_prochandle *P, uintptr_t addr,
     int after_singlestep, int notifier,
-    int (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    int (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data);
 static void delete_bkpt_handler(struct bkpt *bkpt);
 static jmp_buf **single_thread_unwinder_pad(struct ps_prochandle *unused);
@@ -120,18 +120,18 @@ Pcreate(
 	int status;
 	int forkblock[2];
 
-	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
+	if ((P = malloc(sizeof(struct ps_prochandle))) == NULL) {
 		*perr = ENOMEM;
-		return (NULL);
+		return NULL;
 	}
 
-	memset(P, 0, sizeof (*P));
-	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
+	memset(P, 0, sizeof(*P));
+	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof(struct bkpt_t *));
 	if (!P->bkpts) {
 		_dprintf("Out of memory initializing breakpoint hash\n");
 		*perr = ENOMEM;
 		free(P);
-		return (NULL);
+		return NULL;
 	}
 
 	P->wrap_arg = wrap_arg;
@@ -141,7 +141,7 @@ Pcreate(
 		*perr = errno;
 		_dprintf("Pcreate: out of fds forking %s\n", file);
 		free(P);
-		return (NULL);
+		return NULL;
         }
 
 	if ((pid = fork()) == -1) {
@@ -149,7 +149,7 @@ Pcreate(
 		close(forkblock[0]);
 		close(forkblock[1]);
 		*perr = EAGAIN;
-		return (NULL);
+		return NULL;
 	}
 
 	if (pid == 0) {			/* child process */
@@ -161,14 +161,14 @@ Pcreate(
 		 * then wait for our parent to ptrace us.
 		 */
 		if ((id = getgid()) != getegid())
-			(void) setgid(id);
+			setgid(id);
 		if ((id = getuid()) != geteuid())
-			(void) setuid(id);
+			setuid(id);
 
 		close(forkblock[1]);
 		read(forkblock[0], &dummy, 1);
 		close(forkblock[0]);
-		(void) execvp(file, argv);  /* execute the program */
+		execvp(file, argv);  /* execute the program */
 		_exit(127);
 	}
 	close(forkblock[0]);
@@ -235,7 +235,7 @@ Pcreate(
 	 * The process is now stopped, waiting in execve() until resumed.
 	 */
 
-	snprintf(procname, sizeof (procname), "%s/%d/exe",
+	snprintf(procname, sizeof(procname), "%s/%d/exe",
 	    procfs_path, P->pid);
 
 	if ((Pread_isa_info(P, procname)) < 0) {
@@ -252,12 +252,12 @@ Pcreate(
 bad_untrace:
 	Puntrace(P, 0);
 bad:
-	(void) kill(pid, SIGKILL);
+	kill(pid, SIGKILL);
 	*perr = rc;
 	if (ptrace_lock_hook)
 		ptrace_lock_hook(P, P->wrap_arg, 0);
 	Pfree_internal(P);
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -287,21 +287,21 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 	*perr = 0;
 	if (kill(pid, 0) == ESRCH) {
 		*perr = errno;
-		return (NULL);
+		return NULL;
 	}
 
-	if ((P = malloc(sizeof (struct ps_prochandle))) == NULL) {
+	if ((P = malloc(sizeof(struct ps_prochandle))) == NULL) {
 		*perr = ENOMEM;
-		return (NULL);
+		return NULL;
         }
-	memset(P, 0, sizeof (*P));
+	memset(P, 0, sizeof(*P));
 	P->state = already_ptraced ? PS_TRACESTOP : PS_RUN;
 	P->pid = pid;
 	P->detach = 1;
 	if (Psym_init(P) < 0)
 		goto bad;
 
-	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof (struct bkpt_t *));
+	P->bkpts = calloc(BKPT_HASH_BUCKETS, sizeof(struct bkpt_t *));
 	if (!P->bkpts)
 		goto bad;
 	P->wrap_arg = wrap_arg;
@@ -356,7 +356,7 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 		P->noninvasive = TRUE;
 	}
 
-	snprintf(procname, sizeof (procname), "%s/%d/exe",
+	snprintf(procname, sizeof(procname), "%s/%d/exe",
 	    procfs_path, P->pid);
 
 	if ((Pread_isa_info(P, procname)) < 0)
@@ -436,7 +436,7 @@ Pclose(struct ps_prochandle *P)
 int
 Phasfds(struct ps_prochandle *P)
 {
-	return (P->memfd > -1);
+	return P->memfd > -1;
 }
 
 /*
@@ -452,7 +452,7 @@ Pstate(struct ps_prochandle *P)
 	if (P == NULL)
 		return PS_DEAD;
 
-	return (P->state);
+	return P->state;
 }
 
 /*
@@ -473,9 +473,9 @@ Pmemfd(struct ps_prochandle *P)
 	char *fname;
 
 	if ((P->memfd != -1) || P->noninvasive)
-		return (P->memfd);
+		return P->memfd;
 
-	snprintf(procname, sizeof (procname), "%s/%d/",
+	snprintf(procname, sizeof(procname), "%s/%d/",
 	    procfs_path, (int)P->pid);
 	fname = procname + strlen(procname);
 
@@ -483,10 +483,10 @@ Pmemfd(struct ps_prochandle *P)
 	if ((P->memfd = open(procname, O_RDONLY | O_EXCL | O_CLOEXEC)) < 0) {
 		_dprintf("Pmemfd: failed to open %s: %s\n",
 		    procname, strerror(errno));
-		return (-1);
+		return -1;
 	}
 
-	return (P->memfd);
+	return P->memfd;
 }
 
 /*
@@ -505,12 +505,12 @@ Pmapfilefd(struct ps_prochandle *P)
 	static int no_map_files;
 
 	if (no_map_files)
-		return (-1);
+		return -1;
 
 	if (P->mapfilefd != -1)
-		return (P->mapfilefd);
+		return P->mapfilefd;
 
-	snprintf(procname, sizeof (procname), "%s/%d/",
+	snprintf(procname, sizeof(procname), "%s/%d/",
 	    procfs_path, (int)P->pid);
 	fname = procname + strlen(procname);
 
@@ -525,7 +525,7 @@ Pmapfilefd(struct ps_prochandle *P)
 	if ((P->mapfilefd < 0) && (errno == ENOENT))
 		no_map_files = 1;
 
-	return (P->mapfilefd);
+	return P->mapfilefd;
 }
 
 /*
@@ -670,7 +670,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	 * process.
 	 */
 	if (P->state == PS_DEAD)
-		return (0);
+		return 0;
 
 	do
 	{
@@ -679,23 +679,23 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 
 		switch (err) {
 		case 0:
-			return(0);
+			return 0;
 		case -1:
 			if (errno == ECHILD) {
 				P->state = PS_DEAD;
-				return (0);
+				return 0;
 			}
 
 			if (errno != EINTR) {
 				_dprintf("Pwait: error waiting: %s\n",
 				    strerror(errno));
-				return (-1);
+				return -1;
 			}
 		}
 	} while (errno == EINTR);
 
 	if (Pwait_handle_waitpid(P, status) < 0)
-		return (-1);
+		return -1;
 
 	/*
 	 * Now repeatedly loop, processing more waits until none remain.
@@ -705,7 +705,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 		num_waits += one_wait;
 	} while (one_wait > 0);
 
-	return (num_waits + 1);
+	return num_waits + 1;
 }
 
 /*
@@ -721,7 +721,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 	if (WIFCONTINUED(status)) {
 		_dprintf("%i: process got SIGCONT.\n", P->pid);
 		P->state = PS_RUN;
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -738,7 +738,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		_dprintf("%i: process status change: exit coming.\n", P->pid);
 
 		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, 0);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -749,7 +749,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		    "exitcode %i\n", P->pid, WEXITSTATUS(status));
 
 		P->state = PS_DEAD;
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -830,7 +830,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 			_dprintf("%i: random PTRACE_EVENT_STOP.\n", P->pid);
 		}
 
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -846,7 +846,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		    WSTOPSIG(status));
 		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL,
 		    WSTOPSIG(status));
-		return(0);
+		return 0;
 	}
 
 	/*
@@ -880,7 +880,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 			    WSTOPSIG(status));
 			P->state = PS_RUN;
 		}
-		return(0);
+		return 0;
 	}
 
 	/*
@@ -892,7 +892,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		    "terminating signal %i.\n", P->pid, WTERMSIG(status));
 
 		wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, WTERMSIG(status));
-		return(0);
+		return 0;
 	}
 
 	/*
@@ -922,7 +922,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		P->state = PS_TRACESTOP;
 		Pclose(P);
 
-		snprintf(procname, sizeof (procname), "%s/%d/exe",
+		snprintf(procname, sizeof(procname), "%s/%d/exe",
 		    procfs_path, P->pid);
 
 		/*
@@ -967,7 +967,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 
 		Puntrace(P, 0);
 
-		return(0);
+		return 0;
 	}
 
 	/*
@@ -1001,7 +1001,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		else
 			_dprintf("%i: continued parent.\n", P->pid);
 		P->state = PS_RUN;
-		return(0);
+		return 0;
 	}
 
 	/*
@@ -1040,7 +1040,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		ignored_child_wait(P, pid, NULL);
 		wrapped_ptrace(P, PTRACE_CONT, P->pid, 0, 0);
 		P->state = PS_RUN;
-		return(0);
+		return 0;
 	}
 
         /*
@@ -1074,7 +1074,7 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 		ip = Pget_bkpt_ip(P, 0);
 		bkpt = bkpt_by_addr(P, ip, FALSE);
 
-		if (((unsigned long) ip == -1) || !bkpt) {
+		if (((unsigned long)ip == -1) || !bkpt) {
 			int sig = 0;
 			/*
 			 * This is not a known breakpoint nor a temporary
@@ -1093,13 +1093,13 @@ Pwait_handle_waitpid(struct ps_prochandle *P, int status)
 				sig = SIGTRAP;
 
 			wrapped_ptrace(P, PTRACE_CONT, P->pid, NULL, sig);
-			return(0);
+			return 0;
 		}
 	}
 
 	if (!P->bkpt_consume)
 		P->state = bkpt_handle(P, ip);
-	return(0);
+	return 0;
 }
 
 /*
@@ -1221,7 +1221,7 @@ Ppush_state(struct ps_prochandle *P, int state)
 {
 	prev_states_t *s;
 
-	s = malloc(sizeof (struct prev_states));
+	s = malloc(sizeof(struct prev_states));
 	if (s == NULL)
 		return NULL;
 
@@ -1310,7 +1310,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		Pwait(P, 0);
 		state->state = P->state;
 		if ((!stopped) || (P->state == PS_TRACESTOP))
-			return(0);
+			return 0;
 
 		if (P->state == PS_DEAD)
 			return PS_DEAD;
@@ -1507,7 +1507,7 @@ static bkpt_t
 					P->bkpts[h] = bkpt->bkpt_next;
 				bkpt->bkpt_next = NULL;
 			}
-			return (bkpt);
+			return bkpt;
 		}
 		last_bkpt = bkpt;
 	}
@@ -1524,11 +1524,11 @@ mask_bkpt(unsigned long word)
 {
 	union {
 		unsigned long insn;
-		char bkpt[sizeof (unsigned long)];
+		char bkpt[sizeof(unsigned long)];
 	} bkpt;
 
 	bkpt.insn = word;
-	memcpy(bkpt.bkpt, (char *) plat_bkpt, sizeof (plat_bkpt));
+	memcpy(bkpt.bkpt, (char *)plat_bkpt, sizeof(plat_bkpt));
 	return bkpt.insn;
 }
 
@@ -1558,8 +1558,8 @@ mask_bkpt(unsigned long word)
  */
 int
 Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
-    int (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    int (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data)
 {
 	if (P->noninvasive)
@@ -1578,22 +1578,22 @@ Pbkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
  */
 int
 Pbkpt_notifier(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
-    void (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    void (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data)
 {
 	if (P->noninvasive)
 		return -ESRCH;
 
 	return add_bkpt(P, addr, after_singlestep, TRUE,
-	    (int (*) (uintptr_t addr, void *data)) bkpt_handler,
+	    (int (*)(uintptr_t addr, void *data))bkpt_handler,
 	    bkpt_cleanup, data);
 }
 
 static int
 add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
-    int is_notifier, int (*bkpt_handler) (uintptr_t addr, void *data),
-    void (*bkpt_cleanup) (void *data),
+    int is_notifier, int (*bkpt_handler)(uintptr_t addr, void *data),
+    void (*bkpt_cleanup)(void *data),
     void *data)
 {
 	bkpt_t *bkpt = bkpt_by_addr(P, addr, FALSE);
@@ -1619,10 +1619,10 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	 * leads to its being called multiple times.
 	 */
 	if (is_notifier) {
-		notifier = malloc(sizeof (struct bkpt_handler));
+		notifier = malloc(sizeof(struct bkpt_handler));
 		if (!notifier)
 			return -ENOMEM;
-		memset(notifier, 0, sizeof (struct bkpt_handler));
+		memset(notifier, 0, sizeof(struct bkpt_handler));
 
 		notifier->bkpt_handler = bkpt_handler;
 		notifier->bkpt_cleanup = bkpt_cleanup;
@@ -1643,11 +1643,11 @@ add_bkpt(struct ps_prochandle *P, uintptr_t addr, int after_singlestep,
 	 * handler, if this is a notifier addition.
 	 */
 
-	bkpt = malloc(sizeof (struct bkpt));
+	bkpt = malloc(sizeof(struct bkpt));
 	if (!bkpt)
 		goto err;
 
-	memset(bkpt, 0, sizeof (struct bkpt));
+	memset(bkpt, 0, sizeof(struct bkpt));
 	if (!is_notifier) {
 		bkpt->bkpt_handler.bkpt_handler = bkpt_handler;
 		bkpt->bkpt_handler.bkpt_cleanup = bkpt_cleanup;
@@ -2077,8 +2077,8 @@ bkpt_handle_start(struct ps_prochandle *P, bkpt_t *bkpt)
 		bkpt->in_handler++;
 		P->bkpt_halted = 1;
 		for (; notifier; notifier = dt_list_next(notifier)) {
-			void (*notify) (uintptr_t, void *) =
-			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
+			void (*notify)(uintptr_t, void *) =
+			    (void (*)(uintptr_t, void *))notifier->bkpt_handler;
 
 			notify(bkpt->bkpt_addr, notifier->bkpt_data);
 		}
@@ -2289,8 +2289,8 @@ bkpt_handle_post_singlestep(struct ps_prochandle *P, bkpt_t *bkpt)
 
 		bkpt->in_handler++;
 		for (; notifier; notifier = dt_list_next(notifier)) {
-			void (*notify) (uintptr_t, void *) =
-			    (void (*) (uintptr_t, void *)) notifier->bkpt_handler;
+			void (*notify)(uintptr_t, void *) =
+			    (void (*)(uintptr_t, void *))notifier->bkpt_handler;
 
 			notify(bkpt->bkpt_addr, notifier->bkpt_data);
 		}
@@ -2410,7 +2410,7 @@ Pread(struct ps_prochandle *P,
 	uintptr_t address)	/* address in process */
 {
 	if (address < LONG_MAX)
-		return (pread(Pmemfd(P), buf, nbyte, (loff_t)address));
+		return pread(Pmemfd(P), buf, nbyte, (loff_t)address);
 	else {
 		/*
 		 * High-address copying.
@@ -2421,13 +2421,13 @@ Pread(struct ps_prochandle *P,
 		 */
 
 		int state;
-		uintptr_t saddr = (address & ~((uintptr_t) sizeof (long) - 1));
+		uintptr_t saddr = (address & ~((uintptr_t)sizeof(long) - 1));
 		size_t i, sz;
 		long *rbuf;
 
 		size_t len = nbyte + (address - saddr);
-		if (len % sizeof (long) != 0)
-			len += sizeof (long) - (len % sizeof (long));
+		if (len % sizeof(long) != 0)
+			len += sizeof(long) - (len % sizeof(long));
 
 		rbuf = malloc(len);
 		if (!rbuf)
@@ -2446,7 +2446,7 @@ Pread(struct ps_prochandle *P,
 		}
 
 		errno = 0;
-		for (i = 0, sz = 0; sz < len; i++, sz += sizeof (long)) {
+		for (i = 0, sz = 0; sz < len; i++, sz += sizeof(long)) {
 			long data = wrapped_ptrace(P, PTRACE_PEEKDATA, P->pid,
 			    saddr + sz, NULL);
 			if (errno != 0)
@@ -2477,7 +2477,7 @@ Pread_string(struct ps_prochandle *P,
 
 	if (size < 2) {
 		errno = EINVAL;
-		return (-1);
+		return -1;
 	}
 
 	size--;			/* ensure trailing null fits in buffer */
@@ -2488,17 +2488,17 @@ Pread_string(struct ps_prochandle *P,
 	for (nbyte = STRSZ; nbyte == STRSZ && leng < size; addr += STRSZ) {
 		if ((nbyte = Pread(P, string, STRSZ, addr)) <= 0) {
 			buf[leng] = '\0';
-			return (leng ? leng : -1);
+			return leng ? leng : -1;
 		}
 		if ((nbyte = strlen(string)) > 0) {
 			if (leng + nbyte > size)
 				nbyte = size - leng;
-			(void) strncpy(buf + leng, string, nbyte);
+			strncpy(buf + leng, string, nbyte);
 			leng += nbyte;
 		}
 	}
 	buf[leng] = '\0';
-	return (leng);
+	return leng;
 }
 
 /*
@@ -2525,18 +2525,18 @@ Pread_scalar_quietly(struct ps_prochandle *P,
 
 	conv.b8 = 0;
 
-	if (nbyte > sizeof (conv.b8)) {
+	if (nbyte > sizeof(conv.b8)) {
 		_dprintf("Pread_scalar(): Attempt to read scalar of size %lu "
 		    "greater than max supported size %lu from PID %i\n",
-		    nbyte, sizeof (conv.b8), P->pid);
-		return (-1);
+		    nbyte, sizeof(conv.b8), P->pid);
+		return -1;
 	}
 
-	if (nscalar > sizeof (conv.b8)) {
+	if (nscalar > sizeof(conv.b8)) {
 		_dprintf("Pread_scalar(): Attempt to read into scalar of size %lu "
 		    "greater than max supported size %lu from PID %i\n",
-		    nscalar, sizeof (conv.b8), P->pid);
-		return (-1);
+		    nscalar, sizeof(conv.b8), P->pid);
+		return -1;
 	}
 
 	/*
@@ -2547,7 +2547,7 @@ Pread_scalar_quietly(struct ps_prochandle *P,
 		_dprintf("Pread_scalar(): Attempt to read scalar of size %lu into "
 		    "scalar of size %lu PID %i: narrowing conversions are not "
 		    "supported\n", nbyte, nscalar, P->pid);
-		return (-1);
+		return -1;
 	}
 
 	if (Pread(P, (void *)&conv.b1, nbyte, address) != nbyte) {
@@ -2555,12 +2555,12 @@ Pread_scalar_quietly(struct ps_prochandle *P,
 			_dprintf("Pread_scalar(): attempt to read %lu bytes from PID %i at "
 			    "address %lx read fewer bytes than expected.\n", nbyte,
 			    P->pid, address);
-		return(-1);
+		return -1;
 	}
 
 	memset(buf, 0, nscalar);
 #if __BYTE_ORDER == __BIG_ENDIAN
-	buf = (char *) buf + nscalar - nbyte;
+	buf = (char *)buf + nscalar - nbyte;
 	copybytes = nbyte;
 #else
 	copybytes = nscalar;
@@ -2572,7 +2572,7 @@ Pread_scalar_quietly(struct ps_prochandle *P,
 	case sizeof(conv.b8): memcpy(buf, &conv.b8, copybytes); break;
 	default: _dprintf("Pread_scalar(): Attempt to read into a scalar of "
 	    "%lu bytes is not supported.\n", nscalar);
-		return(-1);
+		return -1;
 	}
 
 	return nbyte;
@@ -2597,7 +2597,7 @@ Pgetpid(struct ps_prochandle *P)
 {
 	if (P == NULL)
 		return -1;
-	return (P->pid);
+	return P->pid;
 }
 
 /*
@@ -2660,7 +2660,7 @@ Pexists(pid_t pid)
 {
 	char procname[PATH_MAX + MAXLEN_PID + 1];
 
-	snprintf(procname, sizeof (procname), "%s/%d",
+	snprintf(procname, sizeof(procname), "%s/%d",
 	    procfs_path, pid);
 	return access(procname, F_OK) == 0;
 }
@@ -2681,7 +2681,7 @@ Phastty(pid_t pid)
 	FILE *fp;
 	int tty;
 
-	snprintf(procname, sizeof (procname), "%s/%d/stat",
+	snprintf(procname, sizeof(procname), "%s/%d/stat",
 	    procfs_path, pid);
 
 	if ((fp = fopen(procname, "r")) == NULL) {
@@ -2713,7 +2713,7 @@ Phastty(pid_t pid)
 	_dprintf("%i: tty: %i\n", pid, tty);
 
 	free(buf);
-	return (tty != 0);
+	return tty != 0;
 }
 
 /*
@@ -2741,7 +2741,7 @@ Pget_proc_status(pid_t pid, const char *field)
 
 			memmove(line, line + strlen(field) + 2,
 			    strlen(line + strlen(field) + 2) + 1);
-			_dprintf("%li: %s: %s", (long) pid, status, line);
+			_dprintf("%li: %s: %s", (long)pid, status, line);
 			fclose(fp);
 			return line;
 		}
@@ -2808,7 +2808,7 @@ Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 	 * the systemd cgroup line from /proc/$pid/cgroup.
 	 */
 	if (systemd_system != 0) {
-		snprintf(procname, sizeof (procname), "%s/%d/cgroup",
+		snprintf(procname, sizeof(procname), "%s/%d/cgroup",
 		    procfs_path, pid);
 
 		if ((fp = fopen(procname, "r")) == NULL) {
@@ -2867,7 +2867,7 @@ Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 		struct stat s;
 		char buf[6];
 
-		snprintf(procname, sizeof (procname), "%s/%d/fd/%d",
+		snprintf(procname, sizeof(procname), "%s/%d/fd/%d",
 		    procfs_path, pid, fd);
 
 		/*

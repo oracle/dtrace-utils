@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -108,9 +108,9 @@
 #define DTRACEAGG_LLQUANTIZE		(DTRACEACT_AGGREGATION + 9)
 
 #define DTRACE_QUANTIZE_NBUCKETS		\
-		(((sizeof (uint64_t) * NBBY) - 1) * 2 + 1)
+		(((sizeof(uint64_t) * NBBY) - 1) * 2 + 1)
 
-#define DTRACE_QUANTIZE_ZEROBUCKET	((sizeof (uint64_t) * NBBY) - 1)
+#define DTRACE_QUANTIZE_ZEROBUCKET	((sizeof(uint64_t) * NBBY) - 1)
 
 #define DTRACE_QUANTIZE_BUCKETVAL(buck)		\
 	(int64_t)((buck) < DTRACE_QUANTIZE_ZEROBUCKET ? \

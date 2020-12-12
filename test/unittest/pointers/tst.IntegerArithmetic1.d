@@ -30,11 +30,11 @@ BEGIN
 	array[1] = 40;
 	array[2] = 80;
 
-	uptr = (uintptr_t) &array[0];
+	uptr = (uintptr_t)&array[0];
 
-	p = (int *) (uptr);
-	q = (int *) (uptr + 4);
-	r = (int *) (uptr + 8);
+	p = (int *)(uptr);
+	q = (int *)(uptr + 4);
+	r = (int *)(uptr + 8);
 
 	printf("array[0]: %d\t*p: %d\n", array[0], *p);
 	printf("array[1]: %d\t*q: %d\n", array[1], *q);

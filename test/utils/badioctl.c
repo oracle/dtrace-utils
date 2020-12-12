@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -88,7 +88,7 @@ badioctl(pid_t parent)
 			read(random, addr, ps);
 		}
 
-		read(random, &ioc, sizeof (ioc));
+		read(random, &ioc, sizeof(ioc));
 		ioc %= DTRACEIOC_MAX;
 		ioc++;
 		ioctl(fd, DTRACEIOC | ioc, addr);
@@ -125,5 +125,5 @@ main()
 	}
 
 	/* NOTREACHED */
-	return (0);
+	return 0;
 }

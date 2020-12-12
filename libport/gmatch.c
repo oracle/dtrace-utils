@@ -7,5 +7,5 @@
 int
 gmatch(const char *s, const char *p)
 {
-  return (fnmatch (p, s, 0) == 0);
+  return fnmatch (p, s, 0) == 0;
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -22,15 +22,15 @@
 static int
 pfcheck_addr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_pointer(dnp) || dt_node_is_integer(dnp));
+	return dt_node_is_pointer(dnp) || dt_node_is_integer(dnp);
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_kaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_pointer(dnp) || dt_node_is_integer(dnp) ||
-	    dt_node_is_symaddr(dnp));
+	return dt_node_is_pointer(dnp) || dt_node_is_integer(dnp) ||
+	    dt_node_is_symaddr(dnp);
 }
 
 /*ARGSUSED*/
@@ -41,27 +41,27 @@ pfcheck_uaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 
 	if (dt_node_is_usymaddr(dnp))
-		return (1);
+		return 1;
 
 	if (idp == NULL || idp->di_id == 0)
-		return (0);
+		return 0;
 
-	return (dt_node_is_pointer(dnp) || dt_node_is_integer(dnp));
+	return dt_node_is_pointer(dnp) || dt_node_is_integer(dnp);
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_stack(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_stack(dnp));
+	return dt_node_is_stack(dnp);
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_time(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_integer(dnp) &&
-	    dt_node_type_size(dnp) == sizeof (uint64_t));
+	return dt_node_is_integer(dnp) &&
+	    dt_node_type_size(dnp) == sizeof(uint64_t);
 }
 
 /*ARGSUSED*/
@@ -75,15 +75,15 @@ pfcheck_str(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	uint_t kind;
 
 	if (dt_node_is_string(dnp))
-		return (1);
+		return 1;
 
 	ctfp = dnp->dn_ctfp;
 	base = ctf_type_resolve(ctfp, dnp->dn_type);
 	kind = ctf_type_kind(ctfp, base);
 
-	return (kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
+	return kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
 	    (base = ctf_type_resolve(ctfp, r.ctr_contents)) != CTF_ERR &&
-	    ctf_type_encoding(ctfp, base, &e) == 0 && IS_CHAR(e));
+	    ctf_type_encoding(ctfp, base, &e) == 0 && IS_CHAR(e);
 }
 
 /*ARGSUSED*/
@@ -97,32 +97,32 @@ pfcheck_wstr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
 
-	return (kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
+	return kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
 	    (base = ctf_type_resolve(ctfp, r.ctr_contents)) != CTF_ERR &&
 	    ctf_type_kind(ctfp, base) == CTF_K_INTEGER &&
-	    ctf_type_encoding(ctfp, base, &e) == 0 && e.cte_bits == 32);
+	    ctf_type_encoding(ctfp, base, &e) == 0 && e.cte_bits == 32;
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_csi(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_integer(dnp) &&
-	    dt_node_type_size(dnp) <= sizeof (int));
+	return dt_node_is_integer(dnp) &&
+	    dt_node_type_size(dnp) <= sizeof(int);
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_fp(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_float(dnp));
+	return dt_node_is_float(dnp);
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_xint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (dt_node_is_integer(dnp));
+	return dt_node_is_integer(dnp);
 }
 
 /*ARGSUSED*/
@@ -134,7 +134,7 @@ pfcheck_dint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	else
 		pfd->pfd_fmt[strlen(pfd->pfd_fmt) - 1] = 'u';
 
-	return (dt_node_is_integer(dnp));
+	return dt_node_is_integer(dnp);
 }
 
 /*ARGSUSED*/
@@ -145,9 +145,9 @@ pfcheck_xshort(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
 	char n[DT_TYPE_NAMELEN];
 
-	return (ctf_type_name(ctfp, type, n, sizeof (n)) != NULL && (
+	return ctf_type_name(ctfp, type, n, sizeof(n)) != NULL && (
 	    strcmp(n, "short") == 0 || strcmp(n, "signed short") == 0 ||
-	    strcmp(n, "unsigned short") == 0));
+	    strcmp(n, "unsigned short") == 0);
 }
 
 /*ARGSUSED*/
@@ -158,9 +158,9 @@ pfcheck_xlong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
 	char n[DT_TYPE_NAMELEN];
 
-	return (ctf_type_name(ctfp, type, n, sizeof (n)) != NULL && (
+	return ctf_type_name(ctfp, type, n, sizeof(n)) != NULL && (
 	    strcmp(n, "long") == 0 || strcmp(n, "signed long") == 0 ||
-	    strcmp(n, "unsigned long") == 0));
+	    strcmp(n, "unsigned long") == 0);
 }
 
 /*ARGSUSED*/
@@ -172,10 +172,10 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	char n[DT_TYPE_NAMELEN];
 
 	if (ctf_type_name(ctfp, ctf_type_resolve(ctfp, type), n,
-	    sizeof (n)) != NULL && (strcmp(n, "long long") == 0 ||
+	    sizeof(n)) != NULL && (strcmp(n, "long long") == 0 ||
 	    strcmp(n, "signed long long") == 0 ||
 	    strcmp(n, "unsigned long long") == 0))
-		return (1);
+		return 1;
 
 	/*
 	 * If the type used for %llx or %llX is not an [unsigned] long long, we
@@ -184,22 +184,22 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 	 * compilation environment even though they alias to "long" in LP64.
 	 */
 	while (ctf_type_kind(ctfp, type) == CTF_K_TYPEDEF) {
-		if (ctf_type_name(ctfp, type, n, sizeof (n)) != NULL &&
+		if (ctf_type_name(ctfp, type, n, sizeof(n)) != NULL &&
 		    (strcmp(n, "int64_t") == 0 || strcmp(n, "uint64_t") == 0))
-			return (1);
+			return 1;
 
 		type = ctf_type_reference(ctfp, type);
 	}
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
 static int
 pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return (ctf_type_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
-	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
+	return ctf_type_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
+	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype);
 }
 
 /*ARGSUSED*/
@@ -212,20 +212,20 @@ pfprint_sint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	int32_t n = (int32_t)normal;
 
 	switch (size) {
-	case sizeof (int8_t):
-		return (dt_printf(dtp, fp, format,
-		    (int32_t)*((int8_t *)addr) / n));
-	case sizeof (int16_t):
-		return (dt_printf(dtp, fp, format,
-		    (int32_t)*((int16_t *)addr) / n));
-	case sizeof (int32_t):
-		return (dt_printf(dtp, fp, format,
-		    *((int32_t *)addr) / n));
-	case sizeof (int64_t):
-		return (dt_printf(dtp, fp, format,
-		    *((int64_t *)addr) / normal));
+	case sizeof(int8_t):
+		return dt_printf(dtp, fp, format,
+		    (int32_t)*((int8_t *)addr) / n);
+	case sizeof(int16_t):
+		return dt_printf(dtp, fp, format,
+		    (int32_t)*((int16_t *)addr) / n);
+	case sizeof(int32_t):
+		return dt_printf(dtp, fp, format,
+		    *((int32_t *)addr) / n);
+	case sizeof(int64_t):
+		return dt_printf(dtp, fp, format,
+		    *((int64_t *)addr) / normal);
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 }
 
@@ -238,20 +238,18 @@ pfprint_uint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	uint32_t n = (uint32_t)normal;
 
 	switch (size) {
-	case sizeof (uint8_t):
-		return (dt_printf(dtp, fp, format,
-		    (uint32_t)*((uint8_t *)addr) / n));
-	case sizeof (uint16_t):
-		return (dt_printf(dtp, fp, format,
-		    (uint32_t)*((uint16_t *)addr) / n));
-	case sizeof (uint32_t):
-		return (dt_printf(dtp, fp, format,
-		    *((uint32_t *)addr) / n));
-	case sizeof (uint64_t):
-		return (dt_printf(dtp, fp, format,
-		    *((uint64_t *)addr) / normal));
+	case sizeof(uint8_t):
+		return dt_printf(dtp, fp, format,
+		    (uint32_t)*((uint8_t *)addr) / n);
+	case sizeof(uint16_t):
+		return dt_printf(dtp, fp, format,
+		    (uint32_t)*((uint16_t *)addr) / n);
+	case sizeof(uint32_t):
+		return dt_printf(dtp, fp, format, *((uint32_t *)addr) / n);
+	case sizeof(uint64_t):
+		return dt_printf(dtp, fp, format, *((uint64_t *)addr) / normal);
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 }
 
@@ -278,17 +276,14 @@ pfprint_fp(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	long double ldn = (long double)normal;
 
 	switch (size) {
-	case sizeof (float):
-		return (dt_printf(dtp, fp, format,
-		    (double)*((float *)addr) / n));
-	case sizeof (double):
-		return (dt_printf(dtp, fp, format,
-		    *((double *)addr) / n));
-	case sizeof (long double):
-		return (dt_printf(dtp, fp, format,
-		    *((long double *)addr) / ldn));
+	case sizeof(float):
+		return dt_printf(dtp, fp, format, (double)*((float *)addr) / n);
+	case sizeof(double):
+		return dt_printf(dtp, fp, format, *((double *)addr) / n);
+	case sizeof(long double):
+		return dt_printf(dtp, fp, format, *((long double *)addr) / ldn);
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 }
 
@@ -303,14 +298,14 @@ pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	uint64_t val;
 
 	switch (size) {
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		val = *((uint32_t *)addr);
 		break;
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		val = *((uint64_t *)addr);
 		break;
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 
 	do {
@@ -318,7 +313,7 @@ pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		s = alloca(n);
 	} while ((len = dtrace_addr2str(dtp, val, s, n)) > n);
 
-	return (dt_printf(dtp, fp, format, s));
+	return dt_printf(dtp, fp, format, s);
 }
 
 /*ARGSUSED*/
@@ -352,18 +347,18 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 
 	switch (size) {
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		val = (u_longlong_t)*((uint32_t *)addr);
 		break;
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		val = (u_longlong_t)*((uint64_t *)addr);
 		break;
-	case sizeof (uint64_t) * 3:
+	case sizeof(uint64_t) * 3:
 		tgid = ((uint64_t *)(uintptr_t)addr)[1];
 		val = ((uint64_t *)(uintptr_t)addr)[2];
 		break;
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 
 	if (tgid == 0 && dtp->dt_vector == NULL && idp != NULL)
@@ -374,7 +369,7 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		s = alloca(n);
 	} while ((len = dtrace_uaddr2str(dtp, tgid, val, s, n)) > n);
 
-	return (dt_printf(dtp, fp, format, s));
+	return dt_printf(dtp, fp, format, s);
 }
 
 /*ARGSUSED*/
@@ -426,7 +421,7 @@ pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	dtp->dt_options[DTRACEOPT_STACKINDENT] = saved;
 
-	return (err);
+	return err;
 }
 
 /*ARGSUSED*/
@@ -445,7 +440,7 @@ pfprint_time(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	 * Below, we turn this into the canonical adb/mdb /[yY] format,
 	 * "1973 Dec  3 17:20:00".
 	 */
-	(void) ctime_r(&sec, src);
+	ctime_r(&sec, src);
 
 	/*
 	 * Place the 4-digit year at the head of the string...
@@ -460,7 +455,7 @@ pfprint_time(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		*dst++ = src[i];
 
 	*dst = '\0';
-	return (dt_printf(dtp, fp, format, buf));
+	return dt_printf(dtp, fp, format, buf);
 }
 
 /*
@@ -479,9 +474,9 @@ pfprint_time822(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	struct tm tm;
 	char buf[64];
 
-	(void) localtime_r(&sec, &tm);
-	(void) strftime(buf, sizeof (buf), "%a, %d %b %G %T %Z", &tm);
-	return (dt_printf(dtp, fp, format, buf));
+	localtime_r(&sec, &tm);
+	strftime(buf, sizeof(buf), "%a, %d %b %G %T %Z", &tm);
+	return dt_printf(dtp, fp, format, buf);
 }
 
 /*ARGSUSED*/
@@ -494,7 +489,7 @@ pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	memcpy(s, addr, size);
 	s[size] = '\0';
-	return (dt_printf(dtp, fp, format, s));
+	return dt_printf(dtp, fp, format, s);
 }
 
 /*ARGSUSED*/
@@ -503,11 +498,11 @@ pfprint_wstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	     const dt_pfargd_t *pfd, const void *addr, size_t size,
 	     uint64_t normal, uint64_t sig)
 {
-	wchar_t *ws = alloca(size + sizeof (wchar_t));
+	wchar_t *ws = alloca(size + sizeof(wchar_t));
 
 	memcpy(ws, addr, size);
-	ws[size / sizeof (wchar_t)] = L'\0';
-	return (dt_printf(dtp, fp, format, ws));
+	ws[size / sizeof(wchar_t)] = L'\0';
+	return dt_printf(dtp, fp, format, ws);
 }
 
 /*ARGSUSED*/
@@ -520,11 +515,11 @@ pfprint_estr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	int n;
 
 	if ((s = strchr2esc(addr, size)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	n = dt_printf(dtp, fp, format, s);
 	free(s);
-	return (n);
+	return n;
 }
 
 static int
@@ -535,13 +530,13 @@ pfprint_echr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	char c;
 
 	switch (size) {
-	case sizeof (int8_t):
+	case sizeof(int8_t):
 		c = *(int8_t *)addr;
 		break;
-	case sizeof (int16_t):
+	case sizeof(int16_t):
 		c = *(int16_t *)addr;
 		break;
-	case sizeof (int32_t):
+	case sizeof(int32_t):
 		c = *(int32_t *)addr;
 		break;
 	default:
@@ -557,7 +552,7 @@ pfprint_pct(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	    const dt_pfargd_t *pfd, const void *addr, size_t size,
 	    uint64_t normal, uint64_t sig)
 {
-	return (dt_printf(dtp, fp, "%%"));
+	return dt_printf(dtp, fp, "%%");
 }
 
 static const char pfproto_xint[] = "char, short, int, long, or long long";
@@ -636,14 +631,14 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 	const dt_pfconv_t *pfd;
 	dt_pfdict_t *pdi;
 
-	if ((pdi = malloc(sizeof (dt_pfdict_t))) == NULL ||
-	    (pdi->pdi_buckets = malloc(sizeof (dt_pfconv_t *) * n)) == NULL) {
+	if ((pdi = malloc(sizeof(dt_pfdict_t))) == NULL ||
+	    (pdi->pdi_buckets = malloc(sizeof(dt_pfconv_t *) * n)) == NULL) {
 		free(pdi);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	dtp->dt_pfdict = pdi;
-	memset(pdi->pdi_buckets, 0, sizeof (dt_pfconv_t *) * n);
+	memset(pdi->pdi_buckets, 0, sizeof(dt_pfconv_t *) * n);
 	pdi->pdi_nbuckets = n;
 
 	for (pfd = _dtrace_conversions; pfd->pfc_name != NULL; pfd++) {
@@ -651,12 +646,12 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 		dt_pfconv_t *pfc;
 		uint_t h;
 
-		if ((pfc = malloc(sizeof (dt_pfconv_t))) == NULL) {
+		if ((pfc = malloc(sizeof(dt_pfconv_t))) == NULL) {
 			dt_pfdict_destroy(dtp);
-			return (dt_set_errno(dtp, EDT_NOMEM));
+			return dt_set_errno(dtp, EDT_NOMEM);
 		}
 
-		memcpy(pfc, pfd, sizeof (dt_pfconv_t));
+		memcpy(pfc, pfd, sizeof(dt_pfconv_t));
 		h = dt_strtab_hash(pfc->pfc_name, NULL) % n;
 		pfc->pfc_next = pdi->pdi_buckets[h];
 		pdi->pdi_buckets[h] = pfc;
@@ -672,7 +667,7 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 		if (pfc->pfc_check == &pfcheck_type && dtrace_lookup_by_type(
 		    dtp, DTRACE_OBJ_DDEFS, pfc->pfc_tstr, &dtt) != 0) {
 			dt_pfdict_destroy(dtp);
-			return (dt_set_errno(dtp, EDT_NOCONV));
+			return dt_set_errno(dtp, EDT_NOCONV);
 		}
 
 		pfc->pfc_dctfp = dtt.dtt_ctfp;
@@ -695,13 +690,13 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 		if (pfc->pfc_check == NULL || pfc->pfc_print == NULL ||
 		    pfc->pfc_ofmt == NULL || pfc->pfc_tstr == NULL) {
 			dt_pfdict_destroy(dtp);
-			return (dt_set_errno(dtp, EDT_BADCONV));
+			return dt_set_errno(dtp, EDT_BADCONV);
 		}
 
 		dt_dprintf("loaded printf conversion %%%s\n", pfc->pfc_name);
 	}
 
-	return (0);
+	return 0;
 }
 
 void
@@ -738,7 +733,7 @@ dt_pfdict_lookup(dtrace_hdl_t *dtp, const char *name)
 			break;
 	}
 
-	return (pfc);
+	return pfc;
 }
 
 static dt_pfargv_t *
@@ -747,8 +742,8 @@ dt_printf_error(dtrace_hdl_t *dtp, int err)
 	if (yypcb != NULL)
 		longjmp(yypcb->pcb_jmpbuf, err);
 
-	(void) dt_set_errno(dtp, err);
-	return (NULL);
+	dt_set_errno(dtp, err);
+	return NULL;
 }
 
 dt_pfargv_t *
@@ -759,10 +754,10 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 	const char *p, *q;
 	char *format;
 
-	if ((pfv = malloc(sizeof (dt_pfargv_t))) == NULL ||
+	if ((pfv = malloc(sizeof(dt_pfargv_t))) == NULL ||
 	    (format = strdup(s)) == NULL) {
 		free(pfv);
-		return (dt_printf_error(dtp, EDT_NOMEM));
+		return dt_printf_error(dtp, EDT_NOMEM);
 	}
 
 	pfv->pfv_format = format;
@@ -780,9 +775,9 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 		char c;
 		int n;
 
-		if ((pfd = malloc(sizeof (dt_pfargd_t))) == NULL) {
+		if ((pfd = malloc(sizeof(dt_pfargd_t))) == NULL) {
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_NOMEM));
+			return dt_printf_error(dtp, EDT_NOMEM);
 		}
 
 		if (pfv->pfv_argv != NULL)
@@ -790,7 +785,7 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 		else
 			pfv->pfv_argv = pfd;
 
-		memset(pfd, 0, sizeof (dt_pfargd_t));
+		memset(pfd, 0, sizeof(dt_pfargd_t));
 		pfv->pfv_argc++;
 		nfd = pfd;
 
@@ -856,7 +851,7 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 				    "one '.' specified\n", pfv->pfv_argc);
 
 				dt_printf_destroy(pfv);
-				return (dt_printf_error(dtp, EDT_COMPILER));
+				return dt_printf_error(dtp, EDT_COMPILER);
 			}
 			digits = 0;
 			goto fmt_switch;
@@ -885,7 +880,7 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 			    "positional format (%%n$)\n", pfv->pfv_argc);
 
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_COMPILER));
+			return dt_printf_error(dtp, EDT_COMPILER);
 
 		case '%':
 			if (p[-1] == '%')
@@ -895,20 +890,20 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 			    "with other format flags: %%%%\n", pfv->pfv_argc);
 
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_COMPILER));
+			return dt_printf_error(dtp, EDT_COMPILER);
 
 		case '\0':
 			yywarn("format conversion #%u name expected before "
 			    "end of format string\n", pfv->pfv_argc);
 
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_COMPILER));
+			return dt_printf_error(dtp, EDT_COMPILER);
 
 		case 'h':
 		case 'l':
 		case 'L':
 		case 'w':
-			if (namelen < sizeof (name) - 2)
+			if (namelen < sizeof(name) - 2)
 				name[namelen++] = c;
 			goto fmt_switch;
 
@@ -924,14 +919,14 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 			yywarn("format conversion #%u is undefined: %%%s\n",
 			    pfv->pfv_argc, name);
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_COMPILER));
+			return dt_printf_error(dtp, EDT_COMPILER);
 		}
 	}
 
 	if (*q != '\0' || *format == '\0') {
-		if ((pfd = malloc(sizeof (dt_pfargd_t))) == NULL) {
+		if ((pfd = malloc(sizeof(dt_pfargd_t))) == NULL) {
 			dt_printf_destroy(pfv);
-			return (dt_printf_error(dtp, EDT_NOMEM));
+			return dt_printf_error(dtp, EDT_NOMEM);
 		}
 
 		if (pfv->pfv_argv != NULL)
@@ -939,14 +934,14 @@ dt_printf_create(dtrace_hdl_t *dtp, const char *s)
 		else
 			pfv->pfv_argv = pfd;
 
-		memset(pfd, 0, sizeof (dt_pfargd_t));
+		memset(pfd, 0, sizeof(dt_pfargd_t));
 		pfv->pfv_argc++;
 
 		pfd->pfd_prefix = q;
 		pfd->pfd_preflen = strlen(q);
 	}
 
-	return (pfv);
+	return pfv;
 }
 
 void
@@ -996,7 +991,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 	if (dt_type_lookup(aggtype, &dtt) != 0)
 		xyerror(D_TYPE_ERR, "failed to lookup agg type %s\n", aggtype);
 
-	memset(&aggnode, 0, sizeof (aggnode));
+	memset(&aggnode, 0, sizeof(aggnode));
 	dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type);
 
 	for (i = 0, j = 0; i < pfv->pfv_argc; i++, pfd = pfd->pfd_next) {
@@ -1011,7 +1006,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 			continue; /* no checking if argd is just a prefix */
 
 		if (pfc->pfc_print == &pfprint_pct) {
-			(void) strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
+			strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
 			continue;
 		}
 
@@ -1037,7 +1032,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 				    "\t prototype: int\n\t  argument: %s\n",
 				    func, j + foff + 1, i + 1,
 				    dyns[dync - 1], pfc->pfc_name,
-				    dt_node_type_name(dnp, n, sizeof (n)));
+				    dt_node_type_name(dnp, n, sizeof(n)));
 			}
 
 			dnp = dnp->dn_list;
@@ -1051,13 +1046,11 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 		 * the next parse node in the argument list, if there is one.
 		 */
 		if (pfd->pfd_flags & DT_PFCONV_AGG) {
-			if (!(flags & DT_PRINTF_AGGREGATION)) {
+			if (!(flags & DT_PRINTF_AGGREGATION))
 				xyerror(D_PRINTF_AGG_CONV,
 				    "%%@ conversion requires an aggregation"
 				    " and is not for use with %s( )\n", func);
-			}
-			(void) strlcpy(vname, "aggregating action",
-			    sizeof (vname));
+			strlcpy(vname, "aggregating action", sizeof(vname));
 			vnp = &aggnode;
 		} else if (dnp == NULL) {
 			xyerror(D_PRINTF_ARG_PROTO,
@@ -1065,7 +1058,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 			    "%s) is missing a corresponding value argument\n",
 			    func, i + 1, pfc->pfc_name);
 		} else {
-			(void) snprintf(vname, sizeof (vname),
+			snprintf(vname, sizeof(vname),
 			    "argument #%d", j + foff + 1);
 			vnp = dnp;
 			dnp = dnp->dn_list;
@@ -1081,14 +1074,14 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 		if (pfc->pfc_print == &pfprint_sint ||
 		    pfc->pfc_print == &pfprint_uint ||
 		    pfc->pfc_print == &pfprint_dint) {
-			if (dt_node_type_size(vnp) == sizeof (uint64_t))
-				(void) strcpy(pfd->pfd_fmt, "ll");
+			if (dt_node_type_size(vnp) == sizeof(uint64_t))
+				strcpy(pfd->pfd_fmt, "ll");
 		} else if (pfc->pfc_print == &pfprint_fp) {
-			if (dt_node_type_size(vnp) == sizeof (long double))
-				(void) strcpy(pfd->pfd_fmt, "L");
+			if (dt_node_type_size(vnp) == sizeof(long double))
+				strcpy(pfd->pfd_fmt, "L");
 		}
 
-		(void) strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
+		strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
 
 		/*
 		 * Validate the format conversion against the value node type.
@@ -1096,21 +1089,19 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 		 * string by concatenating together any required printf(3C)
 		 * size prefixes with the conversion's native format string.
 		 */
-		if (pfc->pfc_check(pfv, pfd, vnp) == 0) {
+		if (pfc->pfc_check(pfv, pfd, vnp) == 0)
 			xyerror(D_PRINTF_ARG_TYPE,
 			    "%s( ) %s is incompatible with "
 			    "conversion #%d prototype:\n\tconversion: %%%s\n"
 			    "\t prototype: %s\n\t  argument: %s\n", func,
 			    vname, i + 1, pfc->pfc_name, pfc->pfc_tstr,
-			    dt_node_type_name(vnp, n, sizeof (n)));
-		}
+			    dt_node_type_name(vnp, n, sizeof(n)));
 	}
 
-	if ((flags & DT_PRINTF_EXACTLEN) && dnp != NULL) {
+	if ((flags & DT_PRINTF_EXACTLEN) && dnp != NULL)
 		xyerror(D_PRINTF_ARG_EXTRA,
 		    "%s( ) prototype mismatch: only %d arguments "
 		    "required by this format string\n", func, j);
-	}
 }
 
 void
@@ -1165,8 +1156,8 @@ dt_printa_validate(dt_node_t *lhs, dt_node_t *rhs)
 		    "incompatible with @%s:\n%9s key #%d: %s\n"
 		    "%9s key #%d: %s\n",
 		    rid->di_name, argn, lid->di_name, lid->di_name, argn,
-		    dt_node_type_name(lproto, n1, sizeof (n1)), rid->di_name,
-		    argn, dt_node_type_name(rproto, n2, sizeof (n2)));
+		    dt_node_type_name(lproto, n1, sizeof(n1)), rid->di_name,
+		    argn, dt_node_type_name(rproto, n2, sizeof(n2)));
 	}
 }
 
@@ -1177,34 +1168,34 @@ dt_printf_getint(dtrace_hdl_t *dtp, const dtrace_recdesc_t *recp,
 	uintptr_t addr;
 
 	if (nrecs == 0)
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	addr = (uintptr_t)buf + recp->dtrd_offset;
 
 	if (addr + recp->dtrd_size > (uintptr_t)buf + len)
-		return (dt_set_errno(dtp, EDT_DOFFSET));
+		return dt_set_errno(dtp, EDT_DOFFSET);
 
 	if (addr & (recp->dtrd_alignment - 1))
-		return (dt_set_errno(dtp, EDT_DALIGN));
+		return dt_set_errno(dtp, EDT_DALIGN);
 
 	switch (recp->dtrd_size) {
-	case sizeof (int8_t):
+	case sizeof(int8_t):
 		*ip = (int)*((int8_t *)addr);
 		break;
-	case sizeof (int16_t):
+	case sizeof(int16_t):
 		*ip = (int)*((int16_t *)addr);
 		break;
-	case sizeof (int32_t):
+	case sizeof(int32_t):
 		*ip = (int)*((int32_t *)addr);
 		break;
-	case sizeof (int64_t):
+	case sizeof(int64_t):
 		*ip = (int)*((int64_t *)addr);
 		break;
 	default:
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 	}
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -1215,7 +1206,7 @@ pfprint_average(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 {
 	const uint64_t *data = addr;
 
-	if (size != sizeof (uint64_t) * 2)
+	if (size != sizeof(uint64_t) * 2)
 		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	return dt_printf(dtp, fp, format,
@@ -1230,7 +1221,7 @@ pfprint_stddev(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 {
 	const uint64_t *data = addr;
 
-	if (size != sizeof (uint64_t) * 4)
+	if (size != sizeof(uint64_t) * 4)
 		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	return dt_printf(dtp, fp, format, dt_stddev((uint64_t *)data, normal));
@@ -1290,7 +1281,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		assert(naggvars > 0);
 
 		if (nrecs == 0)
-			return (dt_set_errno(dtp, EDT_DMISMATCH));
+			return dt_set_errno(dtp, EDT_DMISMATCH);
 
 		curagg = naggvars > 1 ? 1 : 0;
 		aggdata = aggsdata[0];
@@ -1318,7 +1309,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			tmp[pfd->pfd_preflen] = '\0';
 
 			if ((rval = dt_printf(dtp, fp, tmp)) < 0)
-				return (rval);
+				return rval;
 
 			if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {
 				/*
@@ -1333,13 +1324,13 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 
 				if (dt_buffered_flush(dtp, NULL, NULL,
 				    aggdata, flags) < 0)
-					return (-1);
+					return -1;
 			}
 		}
 
 		if (pfc == NULL) {
 			if (pfv->pfv_argc == 1)
-				return (nrecs != 0);
+				return nrecs != 0;
 			continue;
 		}
 
@@ -1373,7 +1364,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			 * gracefully than blow up...
 			 */
 			if (aggsdata == NULL)
-				return (dt_set_errno(dtp, EDT_DMISMATCH));
+				return dt_set_errno(dtp, EDT_DMISMATCH);
 
 			aggdata = aggsdata[curagg];
 			agg = aggdata->dtada_desc;
@@ -1397,7 +1388,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			flags = DTRACE_BUFDATA_AGGVAL;
 		} else {
 			if (nrecs == 0)
-				return (dt_set_errno(dtp, EDT_DMISMATCH));
+				return dt_set_errno(dtp, EDT_DMISMATCH);
 
 			if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {
 				/*
@@ -1425,14 +1416,14 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		if (addr + size > limit) {
 			dt_dprintf("bad size: addr=%p size=0x%x lim=%p\n",
 			    (void *)addr, rec->dtrd_size, (void *)lim);
-			return (dt_set_errno(dtp, EDT_DOFFSET));
+			return dt_set_errno(dtp, EDT_DOFFSET);
 		}
 
 		if (rec->dtrd_alignment != 0 &&
 		    ((uintptr_t)addr & (rec->dtrd_alignment - 1)) != 0) {
 			dt_dprintf("bad align: addr=%p size=0x%x align=0x%x\n",
 			    (void *)addr, rec->dtrd_size, rec->dtrd_alignment);
-			return (dt_set_errno(dtp, EDT_DALIGN));
+			return dt_set_errno(dtp, EDT_DALIGN);
 		}
 
 		switch (rec->dtrd_action) {
@@ -1485,18 +1476,18 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			width = 0;
 
 		if (width != 0)
-			f += snprintf(f, sizeof (format) - (f - format), "%d",
+			f += snprintf(f, sizeof(format) - (f - format), "%d",
 				      ABS(width));
 
 		if (prec > 0)
-			f += snprintf(f, sizeof (format) - (f - format), ".%d",
+			f += snprintf(f, sizeof(format) - (f - format), ".%d",
 				      prec);
 
-		(void) strcpy(f, pfd->pfd_fmt);
+		strcpy(f, pfd->pfd_fmt);
 		pfd->pfd_rec = rec;
 
 		if (func(dtp, fp, format, pfd, addr, size, normal, sig) < 0)
-			return (-1); /* errno is set for us */
+			return -1; /* errno is set for us */
 
 		if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {
 			/*
@@ -1509,11 +1500,11 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 
 			if (dt_buffered_flush(dtp, NULL,
 			    rec, aggdata, flags) < 0)
-				return (-1);
+				return -1;
 		}
 	}
 
-	return ((int)(recp - recs));
+	return (int)(recp - recs);
 }
 
 int
@@ -1531,7 +1522,7 @@ dtrace_sprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 		free(dtp->dt_sprintf_buf);
 
 	if ((dtp->dt_sprintf_buf = malloc(size)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	memset(dtp->dt_sprintf_buf, 0, size);
 	dtp->dt_sprintf_buflen = size;
@@ -1542,7 +1533,7 @@ dtrace_sprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	if (rval == -1)
 		free(dtp->dt_sprintf_buf);
 
-	return (rval);
+	return rval;
 }
 
 /*ARGSUSED*/
@@ -1554,19 +1545,19 @@ dtrace_system(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	int rval = dtrace_sprintf(dtp, fp, fmtdata, recp, nrecs, buf, len);
 
 	if (rval == -1)
-		return (rval);
+		return rval;
 
 	/*
 	 * Before we execute the specified command, flush fp to assure that
 	 * any prior dt_printf()'s appear before the output of the command
 	 * not after it.
 	 */
-	(void) fflush(fp);
+	fflush(fp);
 
 	if (system(dtp->dt_sprintf_buf) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	return (rval);
+	return rval;
 }
 
 int
@@ -1583,7 +1574,7 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	rval = dtrace_sprintf(dtp, fp, fmtdata, recp, nrecs, buf, len);
 
 	if (rval == -1 || fp == NULL)
-		return (rval);
+		return rval;
 
 	if (pfd->pfd_preflen != 0 &&
 	    strcmp(pfd->pfd_prefix, DT_FREOPEN_RESTORE) == 0) {
@@ -1602,10 +1593,10 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 			 * never before been called should just be a no-op,
 			 * so we just return in this case.
 			 */
-			return (rval);
+			return rval;
 		}
 
-		snprintf(tmpbuf, sizeof (tmpbuf),
+		snprintf(tmpbuf, sizeof(tmpbuf),
 		    "/dev/fd/%d", dtp->dt_stdout_fd);
 		free(dtp->dt_freopen_filename);
 		dtp->dt_freopen_filename = strndup(tmpbuf, sizeof(tmpbuf));
@@ -1633,18 +1624,18 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	if ((nfp = fopen(dtp->dt_freopen_filename, "ace")) == NULL) {
 		char *faultstr;
 
-		(void) asprintf(&faultstr, "couldn't freopen() \"%s\": %s",
+		asprintf(&faultstr, "couldn't freopen() \"%s\": %s",
 				dtp->dt_freopen_filename, strerror(errno));
 
 		if ((errval = dt_handle_liberr(dtp, data, faultstr)) == 0)
-			return (rval);
+			return rval;
 
 		free(faultstr);
 
-		return (errval);
+		return errval;
 	}
 
-	snprintf(tmpbuf, sizeof (tmpbuf), "/dev/fd/%d", fileno(nfp));
+	snprintf(tmpbuf, sizeof(tmpbuf), "/dev/fd/%d", fileno(nfp));
 
 	if (dtp->dt_stdout_fd == -1) {
 		/*
@@ -1654,19 +1645,19 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 		 * return failure.
 		 */
 		if ((dtp->dt_stdout_fd = dup(fileno(fp))) == -1) {
-			(void) fclose(nfp);
-			return (dt_set_errno(dtp, errno));
+			fclose(nfp);
+			return dt_set_errno(dtp, errno);
 		}
 	}
 
 	if (freopen(tmpbuf, "aF", fp) == NULL) {
-		(void) fclose(nfp);
-		return (dt_set_errno(dtp, errno));
+		fclose(nfp);
+		return dt_set_errno(dtp, errno);
 	}
 
-	(void) fclose(nfp);
+	fclose(nfp);
 
-	return (rval);
+	return rval;
 }
 
 /*ARGSUSED*/
@@ -1675,8 +1666,8 @@ dtrace_fprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
     uint_t nrecs, const void *buf, size_t len)
 {
-	return (dt_printf_format(dtp, fp, fmtdata,
-	    recp, nrecs, buf, len, NULL, 0));
+	return dt_printf_format(dtp, fp, fmtdata,
+	    recp, nrecs, buf, len, NULL, 0);
 }
 
 void *
@@ -1687,7 +1678,7 @@ dtrace_printf_create(dtrace_hdl_t *dtp, const char *s)
 	int i;
 
 	if (pfv == NULL)
-		return (NULL);		/* errno has been set for us */
+		return NULL;		/* errno has been set for us */
 
 	pfd = pfv->pfv_argv;
 
@@ -1706,12 +1697,12 @@ dtrace_printf_create(dtrace_hdl_t *dtp, const char *s)
 		 * must set pfd_fmt to be the output format conversion "s".
 		 */
 		if (strcmp(pfc->pfc_ofmt, "s") != 0)
-			(void) strcat(pfd->pfd_fmt, pfc->pfc_name);
+			strcat(pfd->pfd_fmt, pfc->pfc_name);
 		else
-			(void) strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
+			strcat(pfd->pfd_fmt, pfc->pfc_ofmt);
 	}
 
-	return (pfv);
+	return pfv;
 }
 
 void *
@@ -1720,11 +1711,11 @@ dtrace_printa_create(dtrace_hdl_t *dtp, const char *s)
 	dt_pfargv_t *pfv = dtrace_printf_create(dtp, s);
 
 	if (pfv == NULL)
-		return (NULL);		/* errno has been set for us */
+		return NULL;		/* errno has been set for us */
 
 	pfv->pfv_flags |= DT_PRINTF_AGGREGATION;
 
-	return (pfv);
+	return pfv;
 }
 
 /*ARGSUSED*/
@@ -1809,9 +1800,9 @@ dtrace_printf_format(dtrace_hdl_t *dtp, void *fmtdata, char *s, size_t len)
 	*f = '\0'; /* insert nul byte; do not count in return value */
 
 	assert(f < format + formatlen);
-	(void) strncpy(s, format, len);
+	strncpy(s, format, len);
 
-	return ((size_t)(f - format));
+	return (size_t)(f - format);
 }
 
 static int

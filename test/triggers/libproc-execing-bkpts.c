@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
 		 */
 
 		unwinder_pad = &exec_jmp;
-		P = (struct ps_prochandle *) P_preserved;
+		P = (struct ps_prochandle *)P_preserved;
 		execs++;
 		pid = Pgetpid(P);
 		Prelease(P, PS_RELEASE_NO_DETACH);
@@ -132,5 +132,5 @@ end:
 	Prelease(P, PS_RELEASE_KILL);
 	Pfree(P);
 
-	return (ret);
+	return ret;
 }

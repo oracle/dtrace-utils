@@ -95,59 +95,59 @@ BEGIN
 	enum_var0 = &enum_array[0]; enum_var2 = &enum_array[2];
 
 	printf("char_var2 - char_var0: %d\n",
-	(int) char_var2 - (int) char_var0);
+	(int)char_var2 - (int)char_var0);
 	printf("short_var3 - short_var0: %d\n",
-	(int) short_var3 - (int) short_var0);
-	printf("int_var5 - int_var3: %d\n", (int) int_var5 - (int) int_var3);
+	(int)short_var3 - (int)short_var0);
+	printf("int_var5 - int_var3: %d\n", (int)int_var5 - (int)int_var3);
 
 	printf("long_var4 - long_var0: %d\n",
-	(int) long_var4 - (int) long_var0);
+	(int)long_var4 - (int)long_var0);
 	printf("long_long_var2 - long_long_var0: %d\n",
-	(int) long_long_var2 - (int) long_long_var0);
+	(int)long_long_var2 - (int)long_long_var0);
 	printf("int8_var5 - int8_var3: %d\n",
-	(int) int8_var5 - (int) int8_var3);
+	(int)int8_var5 - (int)int8_var3);
 
 	printf("int16_var4 - int16_var0: %d\n",
-	(int) int16_var4 - (int) int16_var0);
+	(int)int16_var4 - (int)int16_var0);
 	printf("int32_var3 - int32_var0: %d\n",
-	(int) int32_var3 - (int) int32_var0);
+	(int)int32_var3 - (int)int32_var0);
 	printf("int64_var1 - int64_var0: %d\n",
-	(int) int64_var1 - (int) int64_var0);
+	(int)int64_var1 - (int)int64_var0);
 
 	printf("uintptr_var2 - uintptr_var0: %d\n",
-	(int) uintptr_var2 - (int) uintptr_var0);
+	(int)uintptr_var2 - (int)uintptr_var0);
 	printf("struct_var2 - struct_var0: %d\n",
-	(int) struct_var2 - (int) struct_var0);
+	(int)struct_var2 - (int)struct_var0);
 	printf("anon_struct_var5 - anon_struct_var3: %d\n",
-	(int) anon_struct_var5 - (int) anon_struct_var3);
+	(int)anon_struct_var5 - (int)anon_struct_var3);
 
 	printf("union_var3 - union_var0: %d\n",
-	(int) union_var3 - (int) union_var0);
+	(int)union_var3 - (int)union_var0);
 	printf("anon_union_var4 - anon_union_var0: %d\n",
-	(int) anon_union_var4 - (int) anon_union_var0);
+	(int)anon_union_var4 - (int)anon_union_var0);
 	printf("enum_var2 - enum_var0: %d\n",
-	(int) enum_var2 - (int) enum_var0);
+	(int)enum_var2 - (int)enum_var0);
 	exit(0);
 }
 
 END
-/(2 != ((int) char_var2 - (int) char_var0)) ||
-    (6 != ((int) short_var3 - (int) short_var0)) ||
-    (8 != ((int) int_var5 - (int) int_var3)) ||
-    ((32 != ((int) long_var4 - (int) long_var0)) &&
-    (16 != ((int) long_var4 - (int) long_var0))) ||
-    (16 != ((int) long_long_var2 - (int) long_long_var0)) ||
-    (2 != ((int) int8_var5 - (int) int8_var3))
-    || (8 != ((int) int16_var4 - (int) int16_var0)) ||
-    (12 != ((int) int32_var3 - (int) int32_var0)) ||
-    (8 != ((int) int64_var1 - (int) int64_var0)) ||
-    ((16 != ((int) uintptr_var2 - (int) uintptr_var0))
-    && (8 != ((int) uintptr_var2 - (int) uintptr_var0))) ||
-    (16 != ((int) struct_var2 - (int) struct_var0)) ||
-    (16 != ((int) anon_struct_var5 - (int) anon_struct_var3))
-    || (12 != ((int) union_var3 - (int) union_var0)) ||
-    (16 != ((int) anon_union_var4 - (int) anon_union_var0)) ||
-    (8 != ((int) enum_var2 - (int) enum_var0))/
+/(2 != ((int)char_var2 - (int)char_var0)) ||
+    (6 != ((int)short_var3 - (int)short_var0)) ||
+    (8 != ((int)int_var5 - (int)int_var3)) ||
+    ((32 != ((int)long_var4 - (int)long_var0)) &&
+    (16 != ((int)long_var4 - (int)long_var0))) ||
+    (16 != ((int)long_long_var2 - (int)long_long_var0)) ||
+    (2 != ((int)int8_var5 - (int)int8_var3))
+    || (8 != ((int)int16_var4 - (int)int16_var0)) ||
+    (12 != ((int)int32_var3 - (int)int32_var0)) ||
+    (8 != ((int)int64_var1 - (int)int64_var0)) ||
+    ((16 != ((int)uintptr_var2 - (int)uintptr_var0))
+    && (8 != ((int)uintptr_var2 - (int)uintptr_var0))) ||
+    (16 != ((int)struct_var2 - (int)struct_var0)) ||
+    (16 != ((int)anon_struct_var5 - (int)anon_struct_var3))
+    || (12 != ((int)union_var3 - (int)union_var0)) ||
+    (16 != ((int)anon_union_var4 - (int)anon_union_var0)) ||
+    (8 != ((int)enum_var2 - (int)enum_var0))/
 {
 	exit(1);
 }

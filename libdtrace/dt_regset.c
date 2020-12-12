@@ -157,7 +157,7 @@ dt_regset_dump(dt_regset_t *drp, const char *pref)
 
 	fprintf(stderr, "%s: Regset: ", pref);
 	for (reg = 0; reg < drp->dr_size; reg++) {
-		fprintf(stderr, "%c", BT_TEST(drp->dr_active, reg)  ? 'x' :
+		fprintf(stderr, "%c", BT_TEST(drp->dr_active, reg) ? 'x' :
 				      BT_TEST(drp->dr_spilled, reg) ? 's' :
 				      '.');
 	}

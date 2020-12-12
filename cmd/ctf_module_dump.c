@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -291,7 +291,7 @@ main(int argc, char *argv[])
 	 * searching code happy.
 	 */
 	dtp->dt_kernpathbuckets = BUCKETS;
-	dtp->dt_kernpaths = calloc(dtp->dt_kernpathbuckets, sizeof (dt_kern_path_t *));
+	dtp->dt_kernpaths = calloc(dtp->dt_kernpathbuckets, sizeof(dt_kern_path_t *));
 	dtp->dt_module_path = strdup(modpath);
 
 	if (dtp->dt_kernpaths == NULL ||

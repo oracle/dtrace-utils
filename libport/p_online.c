@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -14,7 +14,7 @@ p_online (int cpun)
 	char online;
 	FILE *of;
 
-	snprintf(online_file, sizeof (online_file),
+	snprintf(online_file, sizeof(online_file),
 	    "/sys/devices/system/cpu/cpu%i/online", cpun);
 	if ((of = fopen(online_file, "r")) == NULL)
 		return 0; /* Necessarily online */

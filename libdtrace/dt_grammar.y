@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -190,9 +190,9 @@ int yylex (void);
 
 %%
 
-dtrace_program: d_expression DT_TOK_EOF { return (dt_node_root($1)); }
-	|	d_program DT_TOK_EOF { return (dt_node_root($1)); }
-	|	d_type DT_TOK_EOF { return (dt_node_root($1)); }
+dtrace_program: d_expression DT_TOK_EOF { return dt_node_root($1); }
+	|	d_program DT_TOK_EOF { return dt_node_root($1); }
+	|	d_type DT_TOK_EOF { return dt_node_root($1); }
 	;
 
 d_expression:	DT_CTX_DEXPR { $$ = NULL; }

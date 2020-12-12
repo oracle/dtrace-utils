@@ -23,14 +23,14 @@ int *x;
 
 BEGIN
 {
-	printf("x: %x\n", (int) x);
-	printf("x + 1: %x\n", (int) (x+1));
-	printf("x + 2: %x\n", (int) (x+2));
+	printf("x: %x\n", (int)x);
+	printf("x + 1: %x\n", (int)(x+1));
+	printf("x + 2: %x\n", (int)(x+2));
 	exit(0);
 }
 
 END
-/(0 != (int) x) || (4 != (int) (x+1)) || (8 != (int) (x+2))/
+/(0 != (int)x) || (4 != (int)(x+1)) || (8 != (int)(x+2))/
 {
 	printf("Error");
 	exit(1);

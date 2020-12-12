@@ -19,7 +19,7 @@
 void
 dt_irlist_create(dt_irlist_t *dlp)
 {
-	memset(dlp, 0, sizeof (dt_irlist_t));
+	memset(dlp, 0, sizeof(dt_irlist_t));
 	dlp->dl_label = 1;
 }
 
@@ -51,7 +51,7 @@ dt_irlist_append(dt_irlist_t *dlp, dt_irnode_t *dip)
 uint_t
 dt_irlist_label(dt_irlist_t *dlp)
 {
-	return (dlp->dl_label++);
+	return dlp->dl_label++;
 }
 
 /*ARGSUSED*/
@@ -65,7 +65,7 @@ dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	else if (idp->di_kind == DT_IDENT_AGG)
 		(*np)++;		/* include variable in vartab */
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -121,12 +121,12 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 	if (idp->di_flags & DT_IDFLG_DIFW)
 		dvp->dtdv_flags |= DIFV_F_MOD;
 
-	memset(&dn, 0, sizeof (dn));
+	memset(&dn, 0, sizeof(dn));
 	dt_node_type_assign(&dn, idp->di_ctfp, idp->di_type);
 	dt_node_diftype(pcb->pcb_hdl, &dn, &dvp->dtdv_type);
 
 	idp->di_flags &= ~(DT_IDFLG_DIFR | DT_IDFLG_DIFW);
-	return (0);
+	return 0;
 }
 
 #ifdef FIXME
@@ -245,7 +245,7 @@ dt_as(dt_pcb_t *pcb)
 	}
 
 	assert(pcb->pcb_difo == NULL);
-	pcb->pcb_difo = dt_zalloc(dtp, sizeof (dtrace_difo_t));
+	pcb->pcb_difo = dt_zalloc(dtp, sizeof(dtrace_difo_t));
 
 	if ((dp = pcb->pcb_difo) == NULL)
 		longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
@@ -512,7 +512,7 @@ fail:
 				 * Relocation for BPF identifier.
 				 */
 				rp->dofr_name = (dof_stridx_t)soff;
-				rp->dofr_offset = (i - 1) * sizeof (uint64_t);
+				rp->dofr_offset = (i - 1) * sizeof(uint64_t);
 
 				/*
 				 * BPF built-in functions (predicate and
@@ -536,7 +536,7 @@ fail:
 				 */
 				assert(idp->di_data != NULL);
 				rp->dofr_name = (dof_stridx_t)soff;
-				rp->dofr_offset = (i - 1) * sizeof (uint64_t);
+				rp->dofr_offset = (i - 1) * sizeof(uint64_t);
 				rp->dofr_data =
 					((dtrace_syminfo_t *)idp->di_data)->id;
 			}
@@ -599,5 +599,5 @@ fail:
 	if (dp->dtdo_reclen > dtp->dt_maxreclen)
 		dtp->dt_maxreclen = dp->dtdo_reclen;
 
-	return (dp);
+	return dp;
 }

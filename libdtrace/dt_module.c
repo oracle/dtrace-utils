@@ -71,16 +71,16 @@ dt_module_symgelf32(const Elf32_Sym *src, GElf_Sym *dst)
 		dst->st_size = src->st_size;
 	}
 
-	return (dst);
+	return dst;
 }
 
 static GElf_Sym *
 dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 {
 	if (dst != NULL)
-		memcpy(dst, src, sizeof (GElf_Sym));
+		memcpy(dst, src, sizeof(GElf_Sym));
 
-	return (dst);
+	return dst;
 }
 
 #ifdef BITS
@@ -100,16 +100,15 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_modbuckets;
 	dt_module_t *dmp;
 
-	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next) {
+	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next)
 		if (strcmp(dmp->dm_name, name) == 0)
-			return (dmp);
-	}
+			return dmp;
 
-	if ((dmp = malloc(sizeof (dt_module_t))) == NULL)
-		return (NULL); /* caller must handle allocation failure */
+	if ((dmp = malloc(sizeof(dt_module_t))) == NULL)
+		return NULL; /* caller must handle allocation failure */
 
-	memset(dmp, 0, sizeof (dt_module_t));
-	strlcpy(dmp->dm_name, name, sizeof (dmp->dm_name));
+	memset(dmp, 0, sizeof(dt_module_t));
+	strlcpy(dmp->dm_name, name, sizeof(dmp->dm_name));
 	dt_list_append(&dtp->dt_modlist, dmp);
 	dmp->dm_next = dtp->dt_mods[h];
 	dtp->dt_mods[h] = dmp;
@@ -120,7 +119,7 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	else
 		dmp->dm_ops = &dt_modops_32;
 
-	return (dmp);
+	return dmp;
 }
 
 dt_module_t *
@@ -135,19 +134,18 @@ dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 		name = "vmlinux";
 	}
 
-	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next) {
+	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next)
 		if (strcmp(dmp->dm_name, name) == 0)
-			return (dmp);
-	}
+			return dmp;
 
-	return (NULL);
+	return NULL;
 }
 
 /*ARGSUSED*/
 dt_module_t *
 dt_module_lookup_by_ctf(dtrace_hdl_t *dtp, ctf_file_t *ctfp)
 {
-	return (ctfp ? ctf_getspecific(ctfp) : NULL);
+	return ctfp ? ctf_getspecific(ctfp) : NULL;
 }
 
 static int
@@ -167,7 +165,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (!dmp->dm_file) {
 		dt_dprintf("failed to open ELF file for module %s: "
 		    "no file name known\n", dmp->dm_name);
-		return (dt_set_errno(dtp, EDT_NOTLOADED));
+		return dt_set_errno(dtp, EDT_NOTLOADED);
 	}
 
 	if ((fd = open(dmp->dm_file, O_RDONLY)) == -1) {
@@ -232,7 +230,7 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	Elf_Scn *sp;
 
 	if (elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1)
-		return (dt_set_errno(dtp, EDT_NOTLOADED));
+		return dt_set_errno(dtp, EDT_NOTLOADED);
 
 	for (sp = NULL; (sp = elf_nextscn(dmp->dm_elf, sp)) != NULL; ) {
 		if (gelf_getshdr(sp, &sh) == NULL || sh.sh_type == SHT_NULL ||
@@ -256,7 +254,7 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	 * to NULL and cts_size set to zero for our caller.
 	 */
 	if (sp == NULL || (dp = elf_getdata(sp, NULL)) == NULL)
-		return (0);
+		return 0;
 
 	ctsp->cts_data = dp->d_buf;
 	ctsp->cts_size = dp->d_size;
@@ -264,7 +262,7 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	dt_dprintf("loaded %s [%s] (%lu bytes)\n",
 	    dmp->dm_name, ctsp->cts_name, (ulong_t)ctsp->cts_size);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -361,7 +359,7 @@ static int
 dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
 	if (dmp->dm_flags & DT_DM_LOADED)
-		return (0); /* module is already loaded */
+		return 0; /* module is already loaded */
 
 	/*
 	 * First find out where the module is, and preliminarily load its CTF.
@@ -426,7 +424,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 		if (dt_module_load_sect(dtp, dmp, &dmp->dm_ctdata) == -1) {
 			dt_module_unload(dtp, dmp);
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 		}
 
 		/*
@@ -445,7 +443,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if ((dmp->dm_flags & DT_DM_KERNEL) &&
 	    (!(dmp->dm_flags & DT_DM_KERN_UNLOADED))) {
 		dmp->dm_flags |= DT_DM_LOADED;
-		return (0);
+		return 0;
 	}
 
 	dmp->dm_symtab.cts_name = ".symtab";
@@ -457,7 +455,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_symtab.cts_data = NULL;
 	dmp->dm_symtab.cts_size = 0;
 	dmp->dm_symtab.cts_entsize = dmp->dm_ops == &dt_modops_64 ?
-	    sizeof (Elf64_Sym) : sizeof (Elf32_Sym);
+	    sizeof(Elf64_Sym) : sizeof(Elf32_Sym);
 
 	dmp->dm_strtab.cts_name = ".strtab";
 #ifndef HAVE_LIBCTF
@@ -475,7 +473,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	if (dt_module_load_sect(dtp, dmp, &dmp->dm_symtab) == -1 ||
 	    dt_module_load_sect(dtp, dmp, &dmp->dm_strtab) == -1) {
 		dt_module_unload(dtp, dmp);
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 	}
 
 	/*
@@ -490,14 +488,14 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_nsymbuckets = _dtrace_strbuckets;
 	dmp->dm_symfree = 1;		/* first free element is index 1 */
 
-	dmp->dm_symbuckets = malloc(sizeof (uint_t) * dmp->dm_nsymbuckets);
-	dmp->dm_symchains = malloc(sizeof (dt_modsym_t) * dmp->dm_nsymelems + 1);
+	dmp->dm_symbuckets = malloc(sizeof(uint_t) * dmp->dm_nsymbuckets);
+	dmp->dm_symchains = malloc(sizeof(dt_modsym_t) * dmp->dm_nsymelems + 1);
 
 	if (dmp->dm_symbuckets == NULL || dmp->dm_symchains == NULL)
 		goto oom;
 
-	memset(dmp->dm_symbuckets, 0, sizeof (uint_t) * dmp->dm_nsymbuckets);
-	memset(dmp->dm_symchains, 0, sizeof (dt_modsym_t) * dmp->dm_nsymelems
+	memset(dmp->dm_symbuckets, 0, sizeof(uint_t) * dmp->dm_nsymbuckets);
+	memset(dmp->dm_symchains, 0, sizeof(dt_modsym_t) * dmp->dm_nsymelems
 	    + 1);
 
 	/*
@@ -510,7 +508,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dt_dprintf("hashed %s [%s] (%u symbols)\n",
 	    dmp->dm_name, dmp->dm_symtab.cts_name, dmp->dm_symfree - 1);
 
-	if ((dmp->dm_asmap = malloc(sizeof (void *) * dmp->dm_asrsv)) == NULL)
+	if ((dmp->dm_asmap = malloc(sizeof(void *) * dmp->dm_asrsv)) == NULL)
 		goto oom;
 
 	dmp->dm_ops->do_symsort(dmp);
@@ -519,10 +517,10 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	    dmp->dm_name, dmp->dm_symtab.cts_name, dmp->dm_aslen);
 
 	dmp->dm_flags |= DT_DM_LOADED;
-	return (0);
+	return 0;
 oom:
 	dt_module_unload(dtp, dmp);
-	return (dt_set_errno(dtp, EDT_NOMEM));
+	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
 /*
@@ -538,10 +536,10 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	if (!(dmp->dm_flags & DT_DM_LOADED))
 		if (dt_module_load(dtp, dmp) != 0)
-			return (NULL);
+			return NULL;
 
 	if (dmp->dm_ctfp != NULL)
-		return (dmp->dm_ctfp);
+		return dmp->dm_ctfp;
 
 	assert(!(dmp->dm_flags & DT_DM_CTF_ARCHIVED));
 
@@ -558,13 +556,13 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 */
 	if (dtp->dt_conf.dtc_ctfmodel != model) {
 		dt_set_errno(dtp, EDT_DATAMODEL);
-		return (NULL);
+		return NULL;
 	}
 
 	if ((dmp->dm_ctdata.cts_size == 0) ||
 	    (dmp->dm_ctdata.cts_size == 1)) {
 		dt_set_errno(dtp, EDT_NOCTF);
-		return (NULL);
+		return NULL;
 	}
 
 	if (dmp->dm_flags & DT_DM_KERNEL)
@@ -578,7 +576,7 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dt_dprintf("ctf loading for module %s failed: error: %s\n",
 		    dmp->dm_name, ctf_errmsg(dtp->dt_ctferr));
 		dt_set_errno(dtp, EDT_CTF);
-		return (NULL);
+		return NULL;
 	}
 
 	ctf_setmodel(dmp->dm_ctfp, model);
@@ -602,12 +600,12 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dt_dprintf("loaded CTF container for %s (%p)\n",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
-	return (dmp->dm_ctfp);
+	return dmp->dm_ctfp;
 
 err:
 	ctf_close(dmp->dm_ctfp);
 	dmp->dm_ctfp = NULL;
-	return (NULL);
+	return NULL;
 }
 
 /*ARGSUSED*/
@@ -623,9 +621,9 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	free(dmp->dm_ctdata_data);
 	dmp->dm_ctdata_data = NULL;
 
-	memset(&dmp->dm_ctdata, 0, sizeof (ctf_sect_t));
-	memset(&dmp->dm_symtab, 0, sizeof (ctf_sect_t));
-	memset(&dmp->dm_strtab, 0, sizeof (ctf_sect_t));
+	memset(&dmp->dm_ctdata, 0, sizeof(ctf_sect_t));
+	memset(&dmp->dm_symtab, 0, sizeof(ctf_sect_t));
+	memset(&dmp->dm_strtab, 0, sizeof(ctf_sect_t));
 
 	free(dmp->dm_symbuckets);
 	dmp->dm_symbuckets = NULL;
@@ -712,17 +710,17 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 	if (dmp->dm_extern == NULL && (dmp->dm_extern = dt_idhash_create(
 	    "extern", NULL, dmp->dm_nsymelems, UINT_MAX)) == NULL) {
 		dt_set_errno(dtp, EDT_NOMEM);
-		return (NULL);
+		return NULL;
 	}
 
 	if (dt_idhash_nextid(dmp->dm_extern, &id) == -1) {
 		dt_set_errno(dtp, EDT_SYMOFLOW);
-		return (NULL);
+		return NULL;
 	}
 
-	if ((sip = malloc(sizeof (dtrace_syminfo_t))) == NULL) {
+	if ((sip = malloc(sizeof(dtrace_syminfo_t))) == NULL) {
 		dt_set_errno(dtp, EDT_NOMEM);
-		return (NULL);
+		return NULL;
 	}
 
 	idp = dt_idhash_insert(dmp->dm_extern, name, DT_IDENT_SYMBOL, 0, id,
@@ -731,7 +729,7 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 	if (idp == NULL) {
 		dt_set_errno(dtp, EDT_NOMEM);
 		free(sip);
-		return (NULL);
+		return NULL;
 	}
 
 	sip->object = dmp->dm_name;
@@ -742,16 +740,16 @@ dt_module_extern(dtrace_hdl_t *dtp, dt_module_t *dmp,
 	idp->di_ctfp = tip->dtt_ctfp;
 	idp->di_type = tip->dtt_type;
 
-	return (idp);
+	return idp;
 }
 
 const char *
 dt_module_modelname(dt_module_t *dmp)
 {
 	if ((dmp->dm_ops == &dt_modops_64) || (dmp->dm_ops == NULL))
-		return ("64-bit");
+		return "64-bit";
 	else
-		return ("32-bit");
+		return "32-bit";
 }
 
 /*
@@ -792,7 +790,7 @@ dtrace_addr_range_grow(dt_module_t *dmp, int is_text)
 		size = &dmp->dm_data_addrs_size;
 	}
 
-	new_range = realloc(*range, sizeof (struct dtrace_addr_range) *
+	new_range = realloc(*range, sizeof(struct dtrace_addr_range) *
 	    (*size+1));
 	if (new_range == NULL)
 		return NULL;
@@ -1065,7 +1063,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 			dmp->dm_flags |= DT_DM_BUILTIN & DT_DM_SHARED;
 		else
 			strlcpy(dmp->dm_file, dkpp->dkp_path,
-			    sizeof (dmp->dm_file));
+			    sizeof(dmp->dm_file));
 	}
 }
 
@@ -1433,7 +1431,7 @@ dt_module_from_object(dtrace_hdl_t *dtp, const char *object)
 	if (dmp == NULL)
 		dt_set_errno(dtp, err);
 
-	return (dmp);
+	return dmp;
 }
 
 /*
@@ -1463,10 +1461,10 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 	    object != DTRACE_OBJ_KMODS &&
 	    object != DTRACE_OBJ_UMODS) {
 		if ((dmp = dt_module_from_object(dtp, object)) == NULL)
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 
 		if (dt_module_load(dtp, dmp) == -1)
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 		n = 1;
 
 	} else {
@@ -1508,7 +1506,7 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 			}
 			dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
-			return (0);
+			return 0;
 		} else {
 			uint_t id;
 
@@ -1519,7 +1517,7 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 					    dmp->dm_strtab.cts_data + symp->st_name;
 					sip->id = id;
 				}
-				return (0);
+				return 0;
 			}
 		}
 
@@ -1542,11 +1540,11 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 				sip->id = idp->di_id;
 			}
 
-			return (0);
+			return 0;
 		}
 	}
 
-	return (dt_set_errno(dtp, EDT_NOSYM));
+	return dt_set_errno(dtp, EDT_NOSYM);
 }
 
 /*
@@ -1567,20 +1565,20 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 	const dtrace_vector_t *v = dtp->dt_vector;
 
 	if (v != NULL)
-		return (v->dtv_lookup_by_addr(dtp->dt_varg, addr, symp, sip));
+		return v->dtv_lookup_by_addr(dtp->dt_varg, addr, symp, sip);
 
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
 		void *i;
 
 		i = bsearch(&addr, dmp->dm_text_addrs, dmp->dm_text_addrs_size,
-		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+		    sizeof(struct dtrace_addr_range), dtrace_addr_range_cmp);
 
 		if (i)
 			break;
 
 		i = bsearch(&addr, dmp->dm_data_addrs, dmp->dm_data_addrs_size,
-		    sizeof (struct dtrace_addr_range), dtrace_addr_range_cmp);
+		    sizeof(struct dtrace_addr_range), dtrace_addr_range_cmp);
 
 		if (i)
 			break;
@@ -1588,11 +1586,11 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 
 	if (dmp == NULL) {
 		dt_dprintf("No module corresponds to %lx\n", addr);
-		return (dt_set_errno(dtp, EDT_NOSYMADDR));
+		return dt_set_errno(dtp, EDT_NOSYMADDR);
 	}
 
 	if (dt_module_load(dtp, dmp) == -1)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	if (dmp->dm_flags & DT_DM_KERNEL) {
 		dt_symbol_t *dt_symp;
@@ -1602,12 +1600,12 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 		 * anything up by address in this case is hopeless.
 		 */
 		if (!dmp->dm_kernsyms)
-			return (dt_set_errno(dtp, EDT_NOSYMADDR));
+			return dt_set_errno(dtp, EDT_NOSYMADDR);
 
 		dt_symp = dt_symbol_by_addr(dmp->dm_kernsyms, addr);
 
 		if (!dt_symp)
-			return (dt_set_errno(dtp, EDT_NOSYMADDR));
+			return dt_set_errno(dtp, EDT_NOSYMADDR);
 
 		if (sip != NULL) {
 		    sip->object = dmp->dm_name;
@@ -1618,11 +1616,11 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 		if (symp != NULL)
 		    dt_symbol_to_elfsym(dtp, dt_symp, symp);
 
-		return (0);
+		return 0;
 	} else {
 		if (symp != NULL) {
 			if (dmp->dm_ops->do_symaddr(dmp, addr, symp, &id) == NULL)
-				return (dt_set_errno(dtp, EDT_NOSYMADDR));
+				return dt_set_errno(dtp, EDT_NOSYMADDR);
 		}
 
 		if (sip != NULL) {
@@ -1639,7 +1637,7 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 		}
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1660,10 +1658,10 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 	    object != DTRACE_OBJ_KMODS &&
 	    object != DTRACE_OBJ_UMODS) {
 		if ((dmp = dt_module_from_object(dtp, object)) == NULL)
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 
 		if (dt_module_load(dtp, dmp) == -1)
-			return (-1); /* dt_errno is set for us */
+			return -1; /* dt_errno is set for us */
 		n = 1;
 		justone = 1;
 
@@ -1692,7 +1690,7 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 		 */
 		if (dt_module_getctf(dtp, dmp) == NULL) {
 			if (justone)
-				return (-1);
+				return -1;
 			continue;
 		}
 
@@ -1709,16 +1707,16 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 
 			if (ctf_type_kind(dmp->dm_ctfp, ctf_type_resolve(
 			    dmp->dm_ctfp, id)) != CTF_K_FORWARD)
-				return (0);
+				return 0;
 
 			found++;
 		}
 	}
 
 	if (found == 0)
-		return (dt_set_errno(dtp, EDT_NOTYPE));
+		return dt_set_errno(dtp, EDT_NOTYPE);
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1733,15 +1731,14 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 	tip->dtt_type = CTF_ERR;
 
 	if ((dmp = dt_module_lookup_by_name(dtp, sip->object)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMOD));
+		return dt_set_errno(dtp, EDT_NOMOD);
 
-	if (dmp->dm_flags & DT_DM_KERNEL)
-	{
+	if (dmp->dm_flags & DT_DM_KERNEL) {
 		if (dmp->dm_flags & DT_DM_KERN_UNLOADED)
-			return (dt_set_errno(dtp, EDT_NOSYMADDR));
+			return dt_set_errno(dtp, EDT_NOSYMADDR);
 
 		if (dt_module_getctf(dtp, dmp) == NULL)
-			return (-1); /* errno is set for us */
+			return -1; /* errno is set for us */
 
 		tip->dtt_ctfp = dmp->dm_ctfp;
 		tip->dtt_type = ctf_lookup_variable(dmp->dm_ctfp, sip->name);
@@ -1752,7 +1749,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 			if (ctf_errno(tip->dtt_ctfp) == ECTF_NOTYPEDAT)
 				undefined = 1;
 			else
-				return (dt_set_errno(dtp, EDT_CTF));
+				return dt_set_errno(dtp, EDT_CTF);
 		}
 
 	} else if (symp->st_shndx == SHN_UNDEF) {
@@ -1760,14 +1757,14 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 
 	} else if (GELF_ST_TYPE(symp->st_info) != STT_FUNC) {
 		if (dt_module_getctf(dtp, dmp) == NULL)
-			return (-1); /* errno is set for us */
+			return -1; /* errno is set for us */
 
 		tip->dtt_ctfp = dmp->dm_ctfp;
 		tip->dtt_type = ctf_lookup_by_symbol(dmp->dm_ctfp, sip->id);
 
 		if (tip->dtt_type == CTF_ERR) {
 			dtp->dt_ctferr = ctf_errno(tip->dtt_ctfp);
-			return (dt_set_errno(dtp, EDT_CTF));
+			return dt_set_errno(dtp, EDT_CTF);
 		}
 
 	} else {
@@ -1780,14 +1777,14 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 		    dt_idhash_lookup(dmp->dm_extern, sip->name);
 
 		if (idp == NULL)
-			return (dt_set_errno(dtp, EDT_NOSYM));
+			return dt_set_errno(dtp, EDT_NOSYM);
 
 		tip->dtt_ctfp = idp->di_ctfp;
 		tip->dtt_type = idp->di_type;
 	}
 
 	tip->dtt_object = dmp->dm_name;
-	return (0);
+	return 0;
 }
 
 static dtrace_objinfo_t *
@@ -1805,7 +1802,7 @@ dt_module_info(const dt_module_t *dmp, dtrace_objinfo_t *dto)
 	dto->dto_data_addrs = dmp->dm_data_addrs;
 	dto->dto_data_addrs_size = dmp->dm_data_addrs_size;
 
-	return (dto);
+	return dto;
 }
 
 int
@@ -1817,10 +1814,10 @@ dtrace_object_iter(dtrace_hdl_t *dtp, dtrace_obj_f *func, void *data)
 
 	for (; dmp != NULL; dmp = dt_list_next(dmp)) {
 		if ((rv = (*func)(dtp, dt_module_info(dmp, &dto), data)) != 0)
-			return (rv);
+			return rv;
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1830,14 +1827,14 @@ dtrace_object_info(dtrace_hdl_t *dtp, const char *object, dtrace_objinfo_t *dto)
 
 	if (object == DTRACE_OBJ_EVERY || object == DTRACE_OBJ_KMODS ||
 	    object == DTRACE_OBJ_UMODS || dto == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	if ((dmp = dt_module_from_object(dtp, object)) == NULL)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	if (dt_module_load(dtp, dmp) == -1)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	dt_module_info(dmp, dto);
-	return (0);
+	return 0;
 }

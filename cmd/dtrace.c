@@ -83,7 +83,7 @@ usage(FILE *fp)
 {
 	static const char predact[] = "[[ predicate ] action ]";
 
-	(void) fprintf(fp, "Usage: %s [-32|-64] [-CeFGhHlqSvVwZ] "
+	fprintf(fp, "Usage: %s [-32|-64] [-CeFGhHlqSvVwZ] "
 	    "[-b bufsz] [-c cmd] [-D name[=def]]\n\t[-I path] [-L path] "
 	    "[-o output] [-p pid] [-s script] [-U name]\n\t"
 	    "[-x opt[=val]] [-X a|c|s|t]\n\n"
@@ -94,10 +94,10 @@ usage(FILE *fp)
 	    "\t[-i probe-id %s] [ args ... ]\n\n", g_pname,
 	    predact, predact, predact, predact, predact);
 
-	(void) fprintf(fp, "\tpredicate -> '/' D-expression '/'\n");
-	(void) fprintf(fp, "\t   action -> '{' D-statements '}'\n");
+	fprintf(fp, "\tpredicate -> '/' D-expression '/'\n");
+	fprintf(fp, "\t   action -> '{' D-statements '}'\n");
 
-	(void) fprintf(fp, "\n"
+	fprintf(fp, "\n"
 	    "\t-32 generate 32-bit D programs and ELF files\n"
 	    "\t-64 generate 64-bit D programs and ELF files\n\n"
 	    "\t-b  set trace buffer size\n"
@@ -130,7 +130,7 @@ usage(FILE *fp)
 	    "\t-X  specify ISO C conformance settings for preprocessor\n"
 	    "\t-Z  permit probe descriptions that match zero probes\n");
 
-	return (E_USAGE);
+	return E_USAGE;
 }
 
 static void
@@ -138,11 +138,11 @@ verror(const char *fmt, va_list ap)
 {
 	int error = errno;
 
-	(void) fprintf(stderr, "%s: ", g_pname);
-	(void) vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "%s: ", g_pname);
+	vfprintf(stderr, fmt, ap);
 
 	if (fmt[strlen(fmt) - 1] != '\n')
-		(void) fprintf(stderr, ": %s\n", strerror(error));
+		fprintf(stderr, ": %s\n", strerror(error));
 }
 
 /*PRINTFLIKE1*/
@@ -174,19 +174,18 @@ dfatal(const char *fmt, ...)
 
 	va_start(ap, fmt);
 
-	(void) fprintf(stderr, "%s: ", g_pname);
+	fprintf(stderr, "%s: ", g_pname);
 	if (fmt != NULL)
-		(void) vfprintf(stderr, fmt, ap);
+		vfprintf(stderr, fmt, ap);
 
 	va_end(ap);
 
-	if (fmt != NULL && fmt[strlen(fmt) - 1] != '\n') {
-		(void) fprintf(stderr, ": %s\n",
+	if (fmt != NULL && fmt[strlen(fmt) - 1] != '\n')
+		fprintf(stderr, ": %s\n",
 		    dtrace_errmsg(g_dtp, dtrace_errno(g_dtp)));
-	} else if (fmt == NULL) {
-		(void) fprintf(stderr, "%s\n",
+	else if (fmt == NULL)
+		fprintf(stderr, "%s\n",
 		    dtrace_errmsg(g_dtp, dtrace_errno(g_dtp)));
-	}
 
 	/*
 	 * Close the DTrace handle to ensure that any controlled processes are
@@ -252,12 +251,12 @@ static char **
 make_argv(char *s)
 {
 	const char *ws = "\f\n\r\t\v ";
-	char **argv = malloc(sizeof (char *) * (strlen(s) / 2 + 1));
+	char **argv = malloc(sizeof(char *) * (strlen(s) / 2 + 1));
 	int argc = 0;
 	char *p = s;
 
 	if (argv == NULL)
-		return (NULL);
+		return NULL;
 
 	for (p = strtok(s, ws); p != NULL; p = strtok(NULL, ws))
 		argv[argc++] = p;
@@ -266,7 +265,7 @@ make_argv(char *s)
 		argv[argc++] = s;
 
 	argv[argc] = NULL;
-	return (argv);
+	return argv;
 }
 
 static void
@@ -297,8 +296,8 @@ print_probe_info(const dtrace_probeinfo_t *p)
 
 	for (i = 0; i < p->dtp_argc; i++) {
 		if (ctf_type_name(p->dtp_argv[i].dtt_ctfp,
-		    p->dtp_argv[i].dtt_type, buf, sizeof (buf)) == NULL)
-			(void) strlcpy(buf, "(unknown)", sizeof (buf));
+		    p->dtp_argv[i].dtt_type, buf, sizeof(buf)) == NULL)
+			strlcpy(buf, "(unknown)", sizeof(buf));
 		oprintf("\t\targs[%d]: %s\n", i, buf);
 	}
 
@@ -318,7 +317,7 @@ info_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	dtrace_probeinfo_t p;
 
 	if (edp == *last)
-		return (0);
+		return 0;
 
 	oprintf("\n%s:%s:%s:%s\n", pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 
@@ -326,7 +325,7 @@ info_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 		print_probe_info(&p);
 
 	*last = edp;
-	return (0);
+	return 0;
 }
 
 /*
@@ -371,10 +370,10 @@ exec_prog(const dtrace_cmd_t *dcp)
 		oprintf("\t\tDependency Class: %s\n",
 		    dtrace_class_name(dpi.dpi_stmtattr.dtat_class));
 
-		if (!g_exec) {
-			(void) dtrace_stmt_iter(g_dtp, dcp->dc_prog,
+		if (!g_exec)
+			dtrace_stmt_iter(g_dtp, dcp->dc_prog,
 			    (dtrace_stmt_f *)info_stmt, &last);
-		} else
+		else
 			oprintf("\n");
 	}
 
@@ -394,16 +393,15 @@ link_prog(dtrace_cmd_t *dcp)
 	char *p;
 
 	if (g_cmdc == 1 && g_ofile != NULL) {
-		(void) strlcpy(dcp->dc_ofile, g_ofile, sizeof (dcp->dc_ofile));
+		strlcpy(dcp->dc_ofile, g_ofile, sizeof(dcp->dc_ofile));
 	} else if ((p = strrchr(dcp->dc_arg, '.')) != NULL &&
 	    strcmp(p, ".d") == 0) {
 		p[0] = '\0'; /* strip .d suffix */
-		(void) snprintf(dcp->dc_ofile, sizeof (dcp->dc_ofile),
+		snprintf(dcp->dc_ofile, sizeof(dcp->dc_ofile),
 		    "%s.o", basename(dcp->dc_arg));
-	} else {
-		(void) snprintf(dcp->dc_ofile, sizeof (dcp->dc_ofile),
+	} else
+		snprintf(dcp->dc_ofile, sizeof(dcp->dc_ofile),
 		    g_cmdc > 1 ?  "%s.%d" : "%s", "d.out", (int)(dcp - g_cmdv));
-	}
 
 	if (dtrace_program_link(g_dtp, dcp->dc_prog, DTRACE_D_PROBES,
 	    dcp->dc_ofile, g_objc, g_objv) != 0)
@@ -422,7 +420,7 @@ list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 	if (g_verbose && dtrace_probe_info(dtp, pdp, &p) == 0)
 		print_probe_info(&p);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -433,7 +431,7 @@ list_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	dtrace_ecbdesc_t *edp = stp->dtsd_ecbdesc;
 
 	if (edp == *last)
-		return (0);
+		return 0;
 
 	if (dtrace_probe_iter(g_dtp, &edp->dted_probe, list_probe, NULL) < 0) {
 		error("failed to match %s:%s:%s:%s: %s\n",
@@ -443,7 +441,7 @@ list_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 	}
 
 	*last = edp;
-	return (0);
+	return 0;
 }
 
 /*
@@ -455,7 +453,7 @@ list_prog(const dtrace_cmd_t *dcp)
 {
 	dtrace_ecbdesc_t *last = NULL;
 
-	(void) dtrace_stmt_iter(g_dtp, dcp->dc_prog,
+	dtrace_stmt_iter(g_dtp, dcp->dc_prog,
 	    (dtrace_stmt_f *)list_stmt, &last);
 }
 
@@ -476,7 +474,7 @@ compile_file(dtrace_cmd_t *dcp)
 		dfatal("failed to compile script %s", dcp->dc_arg);
 
 	g_argv[0] = arg0;
-	(void) fclose(fp);
+	fclose(fp);
 
 	dcp->dc_desc = "script";
 	dcp->dc_name = dcp->dc_arg;
@@ -524,7 +522,7 @@ static int
 errhandler(const dtrace_errdata_t *data, void *arg)
 {
 	error(data->dteda_msg);
-	return (DTRACE_HANDLE_OK);
+	return DTRACE_HANDLE_OK;
 }
 
 /*ARGSUSED*/
@@ -532,7 +530,7 @@ static int
 drophandler(const dtrace_dropdata_t *data, void *arg)
 {
 	error(data->dtdda_msg);
-	return (DTRACE_HANDLE_OK);
+	return DTRACE_HANDLE_OK;
 }
 
 /*ARGSUSED*/
@@ -545,39 +543,38 @@ setopthandler(const dtrace_setoptdata_t *data, void *arg)
 	if (strcmp(data->dtsda_option, "flowindent") == 0)
 		g_flowindent = data->dtsda_newval != DTRACEOPT_UNSET;
 
-	return (DTRACE_HANDLE_OK);
+	return DTRACE_HANDLE_OK;
 }
 
 #define	BUFDUMPHDR(hdr) \
-	(void) printf("%s: %s%s\n", g_pname, hdr, strlen(hdr) > 0 ? ":" : "");
+	printf("%s: %s%s\n", g_pname, hdr, strlen(hdr) > 0 ? ":" : "");
 
 #define	BUFDUMPSTR(ptr, field) \
-	(void) printf("%s: %20s => ", g_pname, #field);	\
+	printf("%s: %20s => ", g_pname, #field);	\
 	if ((ptr)->field != NULL) {			\
 		const char *c = (ptr)->field;		\
-		(void) printf("\"");			\
+		printf("\"");				\
 		do {					\
 			if (*c == '\n') {		\
-				(void) printf("\\n");	\
+				printf("\\n");		\
 				continue;		\
 			}				\
 							\
-			(void) printf("%c", *c);	\
+			printf("%c", *c);		\
 		} while (*c++ != '\0');			\
-		(void) printf("\"\n");			\
-	} else {					\
-		(void) printf("<NULL>\n");		\
-	}
+		printf("\"\n");				\
+	} else						\
+		printf("<NULL>\n");
 
 #define	BUFDUMPASSTR(ptr, field, str) \
-	(void) printf("%s: %20s => %s\n", g_pname, #field, str);
+	printf("%s: %20s => %s\n", g_pname, #field, str);
 
 #define	BUFDUMP(ptr, field) \
-	(void) printf("%s: %20s => %lld\n", g_pname, #field, \
+	printf("%s: %20s => %lld\n", g_pname, #field, \
 	    (long long)(ptr)->field);
 
 #define	BUFDUMPPTR(ptr, field) \
-	(void) printf("%s: %20s => %s\n", g_pname, #field, \
+	printf("%s: %20s => %s\n", g_pname, #field, \
 	    (ptr)->field != NULL ? "<non-NULL>" : "<NULL>");
 
 /*ARGSUSED*/
@@ -588,7 +585,7 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 	const dtrace_recdesc_t *rec = bufdata->dtbda_recdesc;
 	const dtrace_probedesc_t *pd;
 	uint32_t flags = bufdata->dtbda_flags;
-	char buf[512], *c = buf, *end = c + sizeof (buf);
+	char buf[512], *c = buf, *end = c + sizeof(buf);
 	int i, printed;
 
 	struct {
@@ -617,21 +614,21 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 	BUFDUMPPTR(bufdata, dtbda_aggdata);
 	BUFDUMPPTR(bufdata, dtbda_recdesc);
 
-	(void) snprintf(c, end - c, "0x%x ", bufdata->dtbda_flags);
+	snprintf(c, end - c, "0x%x ", bufdata->dtbda_flags);
 	c += strlen(c);
 
 	for (i = 0, printed = 0; flagnames[i].name != NULL; i++) {
 		if (!(flags & flagnames[i].value))
 			continue;
 
-		(void) snprintf(c, end - c,
+		snprintf(c, end - c,
 		    "%s%s", printed++ ? " | " : "(", flagnames[i].name);
 		c += strlen(c);
 		flags &= ~flagnames[i].value;
 	}
 
 	if (printed)
-		(void) snprintf(c, end - c, ")");
+		snprintf(c, end - c, ")");
 
 	BUFDUMPASSTR(bufdata, dtbda_flags, buf);
 	BUFDUMPHDR("");
@@ -654,21 +651,21 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 			uint8_t *data;
 			int lim = rec->dtrd_size;
 
-			(void) sprintf(buf, "%d (data: ", rec->dtrd_offset);
+			sprintf(buf, "%d (data: ", rec->dtrd_offset);
 			c = buf + strlen(buf);
 
-			if (lim > sizeof (uint64_t))
-				lim = sizeof (uint64_t);
+			if (lim > sizeof(uint64_t))
+				lim = sizeof(uint64_t);
 
 			data = (uint8_t *)agg->dtada_data + rec->dtrd_offset;
 
 			for (i = 0; i < lim; i++) {
-				(void) snprintf(c, end - c, "%s%02x",
+				snprintf(c, end - c, "%s%02x",
 				    i == 0 ? "" : " ", *data++);
 				c += strlen(c);
 			}
 
-			(void) snprintf(c, end - c,
+			snprintf(c, end - c,
 			    "%s)", lim < rec->dtrd_size ? " ..." : "");
 			BUFDUMPASSTR(rec, dtrd_offset, buf);
 		} else {
@@ -689,7 +686,7 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 		BUFDUMPHDR("");
 	}
 
-	return (DTRACE_HANDLE_OK);
+	return DTRACE_HANDLE_OK;
 }
 
 /*ARGSUSED*/
@@ -707,7 +704,7 @@ chewrec(const dtrace_probedata_t *data, const dtrace_recdesc_t *rec, void *arg)
 		if (!g_quiet)
 			oprintf("\n");
 
-		return (DTRACE_CONSUME_NEXT);
+		return DTRACE_CONSUME_NEXT;
 	}
 
 	act = rec->dtrd_action;
@@ -715,10 +712,10 @@ chewrec(const dtrace_probedata_t *data, const dtrace_recdesc_t *rec, void *arg)
 
 	if (act == DTRACEACT_EXIT) {
 		g_status = *((uint32_t *)addr);
-		return (DTRACE_CONSUME_NEXT);
+		return DTRACE_CONSUME_NEXT;
 	}
 
-	return (DTRACE_CONSUME_THIS);
+	return DTRACE_CONSUME_THIS;
 }
 
 /*ARGSUSED*/
@@ -731,7 +728,7 @@ chew(const dtrace_probedata_t *data, void *arg)
 
 	if (g_impatient) {
 		g_newline = 0;
-		return (DTRACE_CONSUME_ABORT);
+		return DTRACE_CONSUME_ABORT;
 	}
 
 	if (heading == 0) {
@@ -793,7 +790,7 @@ chew(const dtrace_probedata_t *data, void *arg)
 		}
 	}
 
-	return (DTRACE_CONSUME_THIS);
+	return DTRACE_CONSUME_THIS;
 }
 
 static void
@@ -831,7 +828,7 @@ go(void)
 	if (dtrace_go(g_dtp, g_cflags) == -1)
 		dfatal("could not enable tracing");
 
-	(void) dtrace_getopt(g_dtp, "quietresize", &quiet);
+	dtrace_getopt(g_dtp, "quietresize", &quiet);
 
 	if (quiet != DTRACEOPT_UNSET)
 		return;
@@ -843,12 +840,12 @@ go(void)
 		if (bufs[i].val == DTRACEOPT_UNSET)
 			continue;
 
-		(void) dtrace_getopt(g_dtp, bufs[i].optname, &nsize);
+		dtrace_getopt(g_dtp, bufs[i].optname, &nsize);
 
 		if (nsize == DTRACEOPT_UNSET || nsize == 0)
 			continue;
 
-		if (nsize >= bufs[i].val - sizeof (uint64_t))
+		if (nsize >= bufs[i].val - sizeof(uint64_t))
 			continue;
 
 		for (; (INT64_C(1) << mul) <= nsize; j++, mul += 10)
@@ -870,7 +867,7 @@ go(void)
 		if (rates[i].val == DTRACEOPT_UNSET)
 			continue;
 
-		(void) dtrace_getopt(g_dtp, rates[i].optname, &nval);
+		dtrace_getopt(g_dtp, rates[i].optname, &nval);
 
 		if (nval == DTRACEOPT_UNSET || nval == 0)
 			continue;
@@ -929,18 +926,18 @@ main(int argc, char *argv[])
 	g_pname = basename(argv[0]);
 
 	if (argc == 1)
-		return (usage(stderr));
+		return usage(stderr);
 
-	if ((g_argv = malloc(sizeof (char *) * argc)) == NULL ||
-	    (g_cmdv = malloc(sizeof (dtrace_cmd_t) * argc)) == NULL ||
-	    (g_psv = malloc(sizeof (struct dtrace_proc *) * argc)) == NULL)
+	if ((g_argv = malloc(sizeof(char *) * argc)) == NULL ||
+	    (g_cmdv = malloc(sizeof(dtrace_cmd_t) * argc)) == NULL ||
+	    (g_psv = malloc(sizeof(struct dtrace_proc *) * argc)) == NULL)
 		fatal("failed to allocate memory for arguments");
 
 	g_argv[g_argc++] = argv[0];	/* propagate argv[0] to D as $0/$$0 */
 	argv[0] = g_pname;		/* rewrite argv[0] for getopt errors */
 
-	memset(status, 0, sizeof (status));
-	memset(&buf, 0, sizeof (buf));
+	memset(status, 0, sizeof(status));
+	memset(&buf, 0, sizeof(buf));
 
 	/*
 	 * Make an initial pass through argv[] processing any arguments that
@@ -953,10 +950,10 @@ main(int argc, char *argv[])
 			switch (c) {
 			case '3':
 				if (strcmp(optarg, "2") != 0) {
-					(void) fprintf(stderr,
+					fprintf(stderr,
 					    "%s: illegal option -- 3%s\n",
 					    argv[0], optarg);
-					return (usage(stderr));
+					return usage(stderr);
 				}
 				g_oflags &= ~DTRACE_O_LP64;
 				g_oflags |= DTRACE_O_ILP32;
@@ -964,10 +961,10 @@ main(int argc, char *argv[])
 
 			case '6':
 				if (strcmp(optarg, "4") != 0) {
-					(void) fprintf(stderr,
+					fprintf(stderr,
 					    "%s: illegal option -- 6%s\n",
 					    argv[0], optarg);
-					return (usage(stderr));
+					return usage(stderr);
 				}
 				g_oflags &= ~DTRACE_O_ILP32;
 				g_oflags |= DTRACE_O_LP64;
@@ -1009,7 +1006,7 @@ main(int argc, char *argv[])
 
 			default:
 				if (strchr(DTRACE_OPTSTR, c) == NULL)
-					return (usage(stderr));
+					return usage(stderr);
 			}
 		}
 
@@ -1018,19 +1015,19 @@ main(int argc, char *argv[])
 	}
 
 	if (mode > 1) {
-		(void) fprintf(stderr, "%s: only one of the [-GhlV] options "
+		fprintf(stderr, "%s: only one of the [-GhlV] options "
 		    "can be specified at a time\n", g_pname);
-		return (E_USAGE);
+		return E_USAGE;
 	}
 
 	if (g_mode == DMODE_VERS) {
 		if (!g_verbose)
-			return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
+			return printf("%s: %s\n", g_pname, _dtrace_version) <= 0;
 		else {
 			printf("%s: %s\n", g_pname, _dtrace_version);
 			printf("This is DTrace %s\n", _DT_VERSION);
 			printf("dtrace(1) version-control ID: %s\n", DT_GIT_VERSION);
-			return(printf("libdtrace version-control ID: %s\n", _libdtrace_vcs_version) <= 0);
+			return printf("libdtrace version-control ID: %s\n", _libdtrace_vcs_version) <= 0;
 		}
 	}
 
@@ -1052,19 +1049,19 @@ main(int argc, char *argv[])
 				break;
 
 			if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
-				(void) close(fd);
+				close(fd);
 				break;
 			}
 
 			if (elf_kind(elf) != ELF_K_ELF ||
 			    gelf_getehdr(elf, &ehdr) == NULL) {
-				(void) close(fd);
-				(void) elf_end(elf);
+				close(fd);
+				elf_end(elf);
 				break;
 			}
 
-			(void) close(fd);
-			(void) elf_end(elf);
+			close(fd);
+			elf_end(elf);
 
 			if (ehdr.e_ident[EI_CLASS] == ELFCLASS64) {
 				if (g_oflags & DTRACE_O_ILP32) {
@@ -1111,8 +1108,8 @@ main(int argc, char *argv[])
 	 * references to undefined symbols to remain as unresolved relocations.
 	 */
 	if (g_mode == DMODE_LINK) {
-		(void) dtrace_setopt(g_dtp, "linkmode", "dynamic");
-		(void) dtrace_setopt(g_dtp, "unodefs", NULL);
+		dtrace_setopt(g_dtp, "linkmode", "dynamic");
+		dtrace_setopt(g_dtp, "unodefs", NULL);
 
 		/*
 		 * Use the remaining arguments as the list of object files
@@ -1259,21 +1256,21 @@ main(int argc, char *argv[])
 
 			default:
 				if (strchr(DTRACE_OPTSTR, c) == NULL)
-					return (usage(stderr));
+					return usage(stderr);
 			}
 		}
 	}
 
 	if (g_ofp == NULL && g_mode != DMODE_EXEC) {
-		(void) fprintf(stderr, "%s: -B not valid in combination"
+		fprintf(stderr, "%s: -B not valid in combination"
 		    " with [-Gl] options\n", g_pname);
-		return (E_USAGE);
+		return E_USAGE;
 	}
 
 	if (g_ofp == NULL && g_ofile != NULL) {
-		(void) fprintf(stderr, "%s: -B not valid in combination"
+		fprintf(stderr, "%s: -B not valid in combination"
 		    " with -o option\n", g_pname);
-		return (E_USAGE);
+		return E_USAGE;
 	}
 
 	/*
@@ -1284,7 +1281,7 @@ main(int argc, char *argv[])
 	if (getenv("_DTRACE_TESTING") != NULL) {
 		g_testing = 1;
 		if (dtrace_setopt(g_dtp, "quietresize", 0) != 0)
-			(void) fprintf(stderr, "%s: cannot set quietresize for "
+			fprintf(stderr, "%s: cannot set quietresize for "
 			    "testing", g_pname);
 	}
 
@@ -1356,10 +1353,10 @@ main(int argc, char *argv[])
 			dfatal("failed to establish buffered handler");
 	}
 
-	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
+	dtrace_getopt(g_dtp, "flowindent", &opt);
 	g_flowindent = opt != DTRACEOPT_UNSET;
 
-	(void) dtrace_getopt(g_dtp, "quiet", &opt);
+	dtrace_getopt(g_dtp, "quiet", &opt);
 	g_quiet = opt != DTRACEOPT_UNSET;
 
 	/*
@@ -1387,23 +1384,23 @@ main(int argc, char *argv[])
 
 		if (done || g_intr) {
 			dtrace_close(g_dtp);
-			return (g_status);
+			return g_status;
 		}
 		break;
 
 	case DMODE_LINK:
 		if (g_cmdc == 0) {
-			(void) fprintf(stderr, "%s: -G requires one or more "
+			fprintf(stderr, "%s: -G requires one or more "
 			    "scripts or enabling options\n", g_pname);
 			dtrace_close(g_dtp);
-			return (E_USAGE);
+			return E_USAGE;
 		}
 
 		for (i = 0; i < g_cmdc; i++)
 			link_prog(&g_cmdv[i]);
 
 		if (g_cmdc > 1 && g_ofile != NULL) {
-			char **objv = alloca(g_cmdc * sizeof (char *));
+			char **objv = alloca(g_cmdc * sizeof(char *));
 
 			for (i = 0; i < g_cmdc; i++)
 				objv[i] = g_cmdv[i].dc_ofile;
@@ -1414,7 +1411,7 @@ main(int argc, char *argv[])
 		}
 
 		dtrace_close(g_dtp);
-		return (g_status);
+		return g_status;
 
 	case DMODE_LIST:
 		if (g_ofile != NULL && (g_ofp = fopen(g_ofile, "a")) == NULL)
@@ -1430,39 +1427,39 @@ main(int argc, char *argv[])
 			dtrace_probe_iter(g_dtp, NULL, list_probe, NULL);
 
 		dtrace_close(g_dtp);
-		return (g_status);
+		return g_status;
 
 	case DMODE_HEADER:
 		if (g_cmdc == 0) {
-			(void) fprintf(stderr, "%s: -h requires one or more "
+			fprintf(stderr, "%s: -h requires one or more "
 			    "scripts or enabling options\n", g_pname);
 			dtrace_close(g_dtp);
-			return (E_USAGE);
+			return E_USAGE;
 		}
 
 		if (g_ofile == NULL) {
 			char *p;
 
 			if (g_cmdc > 1) {
-				(void) fprintf(stderr, "%s: -h requires an "
+				fprintf(stderr, "%s: -h requires an "
 				    "output file if multiple scripts are "
 				    "specified\n", g_pname);
 				dtrace_close(g_dtp);
-				return (E_USAGE);
+				return E_USAGE;
 			}
 
 			if ((p = strrchr(g_cmdv[0].dc_arg, '.')) == NULL ||
 			    strcmp(p, ".d") != 0) {
-				(void) fprintf(stderr, "%s: -h requires an "
+				fprintf(stderr, "%s: -h requires an "
 				    "output file if no scripts are "
 				    "specified\n", g_pname);
 				dtrace_close(g_dtp);
-				return (E_USAGE);
+				return E_USAGE;
 			}
 
 			p[0] = '\0'; /* strip .d suffix */
 			g_ofile = p = g_cmdv[0].dc_ofile;
-			(void) snprintf(p, sizeof (g_cmdv[0].dc_ofile),
+			snprintf(p, sizeof(g_cmdv[0].dc_ofile),
 			    "%s.h", basename(g_cmdv[0].dc_arg));
 		}
 
@@ -1476,7 +1473,7 @@ main(int argc, char *argv[])
 			dfatal("failed to create header file %s", g_ofile);
 
 		dtrace_close(g_dtp);
-		return (g_status);
+		return g_status;
 	}
 
 	/*
@@ -1493,13 +1490,13 @@ main(int argc, char *argv[])
 		goto out;
 	go();
 
-	(void) dtrace_getopt(g_dtp, "flowindent", &opt);
+	dtrace_getopt(g_dtp, "flowindent", &opt);
 	g_flowindent = opt != DTRACEOPT_UNSET;
 
-	(void) dtrace_getopt(g_dtp, "quiet", &opt);
+	dtrace_getopt(g_dtp, "quiet", &opt);
 	g_quiet = opt != DTRACEOPT_UNSET;
 
-	(void) dtrace_getopt(g_dtp, "destructive", &opt);
+	dtrace_getopt(g_dtp, "destructive", &opt);
 	if (opt != DTRACEOPT_UNSET)
 		notice("allowing destructive actions\n");
 
@@ -1570,5 +1567,5 @@ out:
 	free(g_cmdv);
 	free(g_psv);
 
-	return (g_status);
+	return g_status;
 }

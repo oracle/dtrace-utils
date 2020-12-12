@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -28,10 +28,10 @@ strlcat(char *dst, const char *src, size_t dstsize)
 		df++;
 	l1 = df - dst;
 	if (dstsize == l1)
-		return (l1 + l2);
+		return l1 + l2;
 
 	copied = l1 + l2 >= dstsize ? dstsize - l1 - 1 : l2;
-	(void) memcpy(dst + l1, src, copied);
+	memcpy(dst + l1, src, copied);
 	dst[l1+copied] = '\0';
-	return (l1 + l2);
+	return l1 + l2;
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -29,23 +29,23 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 	char buf[PATH_MAX];
 	rd_loadobj_t scope = {0};
 
-	if (Pread_string(rp->P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
+	if (Pread_string(rp->P, buf, sizeof(buf), loadobj->rl_nameaddr) < 0) {
 		fprintf(stderr, "Failed to read string at %lx\n",
 		    loadobj->rl_nameaddr);
-		return (0);
+		return 0;
 	}
 
 	/*
 	 * No name, no search path: vDSO, we don't care about it.
 	 */
 	if (buf[0] == '\0' && loadobj->rl_nscopes == 1)
-		return (1);
+		return 1;
 
         /*
          * Second item, no search path: vDSO (later glibc version).
          */
         if ((num == 1) && (loadobj->rl_nscopes == 1))
-		return (1);
+		return 1;
 
 	printf("%s: dyn 0x%lx, bias 0x%lx, LMID %li: %s (", buf, loadobj->rl_dyn,
 	    loadobj->rl_diff_addr, loadobj->rl_lmident, loadobj->rl_default_scope ?
@@ -55,10 +55,10 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 		if (rd_get_scope(rp->rd, &scope, loadobj, i) == NULL)
 			fprintf(stderr, "Scope %li -> NULL\n", i);
 		else {
-			if (Pread_string(rp->P, buf, sizeof (buf), scope.rl_nameaddr) < 0) {
+			if (Pread_string(rp->P, buf, sizeof(buf), scope.rl_nameaddr) < 0) {
 				fprintf(stderr, "Failed to read string at %lx\n",
 				    scope.rl_nameaddr);
-				return (0);
+				return 0;
 			}
 			printf("%s%s", i > 0 ? ", ": "", buf);
 		}
@@ -66,7 +66,7 @@ print_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 	free(scope.rl_scope);
 	printf(")\n");
 	libs_seen++;
-	return (1);
+	return 1;
 }
 
 static int
@@ -75,32 +75,32 @@ note_ldd(const rd_loadobj_t *loadobj, size_t num, void *state)
 	struct rd_and_p *rp = state;
 	char buf[PATH_MAX];
 
-	if (Pread_string(rp->P, buf, sizeof (buf), loadobj->rl_nameaddr) < 0) {
+	if (Pread_string(rp->P, buf, sizeof(buf), loadobj->rl_nameaddr) < 0) {
 		fprintf(stderr, "Failed to read string at %lx\n",
 		    loadobj->rl_nameaddr);
-		return (0);
+		return 0;
 	}
 
 	/*
 	 * No name, no search path: vDSO, we don't care about it.
 	 */
 	if (buf[0] == '\0' && loadobj->rl_nscopes == 1)
-		return (1);
+		return 1;
 
         /*
          * Second item, no search path: vDSO (later glibc version).
          */
         if ((num == 1) && (loadobj->rl_nscopes == 1))
-		return (1);
+		return 1;
 
 	libs_seen++;
-	return (1);
+	return 1;
 }
 
 static int
 do_nothing(const rd_loadobj_t *loadobj, size_t num, void *state)
 {
-    return (1);
+	return 1;
 }
 
 int
@@ -133,7 +133,7 @@ main(int argc, char *argv[])
 	rd = rd_new(P);
 	if (!rd) {
 		fprintf(stderr, "Initialization failed.\n");
-		return (1);
+		return 1;
 	}
 
 	rp.P = P;
@@ -174,7 +174,7 @@ main(int argc, char *argv[])
 	rd = rd_new(P);
 	if (!rd) {
 		fprintf(stderr, "rd reinitialization failed.\n");
-		return (1);
+		return 1;
 	}
 
 	while (rd_loadobj_iter(rd, note_ldd, &rp) == RD_NOMAPS)
@@ -190,5 +190,5 @@ main(int argc, char *argv[])
 	Prelease(P, (pid == 0) ? PS_RELEASE_KILL : PS_RELEASE_NORMAL);
 	Pfree(P);
 
-	return (0);
+	return 0;
 }

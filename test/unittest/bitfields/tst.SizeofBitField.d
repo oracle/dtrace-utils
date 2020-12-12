@@ -67,22 +67,22 @@ struct bitRecord12 {
 
 BEGIN
 {
-	printf("sizeof (bitRecord1): %d\n", sizeof (var1));
-	printf("sizeof (bitRecord2): %d\n", sizeof (var2));
-	printf("sizeof (bitRecord3): %d\n", sizeof (var3));
-	printf("sizeof (bitRecord4): %d\n", sizeof (var4));
-	printf("sizeof (bitRecord5): %d\n", sizeof (var5));
-	printf("sizeof (bitRecord6): %d\n", sizeof (var6));
-	printf("sizeof (bitRecord7): %d\n", sizeof (var7));
-	printf("sizeof (bitRecord8): %d\n", sizeof (var8));
-	printf("sizeof (bitRecord12): %d\n", sizeof (var12));
+	printf("sizeof(bitRecord1): %d\n", sizeof(var1));
+	printf("sizeof(bitRecord2): %d\n", sizeof(var2));
+	printf("sizeof(bitRecord3): %d\n", sizeof(var3));
+	printf("sizeof(bitRecord4): %d\n", sizeof(var4));
+	printf("sizeof(bitRecord5): %d\n", sizeof(var5));
+	printf("sizeof(bitRecord6): %d\n", sizeof(var6));
+	printf("sizeof(bitRecord7): %d\n", sizeof(var7));
+	printf("sizeof(bitRecord8): %d\n", sizeof(var8));
+	printf("sizeof(bitRecord12): %d\n", sizeof(var12));
 	exit(0);
 }
 
 END
-/(1 != sizeof (var1)) || (2 != sizeof (var2)) || (3 != sizeof (var3)) ||
-    (4 != sizeof (var4)) || (5 != sizeof (var5)) || (6 != sizeof (var6))
-    || (7 != sizeof (var7)) || (8 != sizeof (var8)) || (12 != sizeof (var12))/
+/(1 != sizeof(var1)) || (2 != sizeof(var2)) || (3 != sizeof(var3)) ||
+    (4 != sizeof(var4)) || (5 != sizeof(var5)) || (6 != sizeof(var6))
+    || (7 != sizeof(var7)) || (8 != sizeof(var8)) || (12 != sizeof(var12))/
 {
 	exit(1);
 }

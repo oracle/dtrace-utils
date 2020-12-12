@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -29,8 +29,8 @@ struct myoutput_struct {
 
 translator struct myoutput_struct < struct myinput_struct *ivar >
 {
-	myi = ((struct myinput_struct *) ivar)->i;
-	myc = ((struct myinput_struct *) ivar)->c;
+	myi = ((struct myinput_struct *)ivar)->i;
+	myc = ((struct myinput_struct *)ivar)->c;
 
 };
 

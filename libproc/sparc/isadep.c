@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -67,7 +67,7 @@ Pread_first_arg_sparc64(struct ps_prochandle *P)
 	struct pt_regs regs;
 
 	if (getregs_sparc64(P, &regs) == NULL)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	return regs.u_regs[UREG_I0 - 1];
 }
@@ -78,7 +78,7 @@ Pread_first_arg_sparc32(struct ps_prochandle *P)
 	struct pt_regs32 regs;
 
 	if (getregs_sparc32(P, &regs) == NULL)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	return regs.u_regs[UREG_I0 - 1];
 }
@@ -94,11 +94,11 @@ Pget_bkpt_ip_sparc64(struct ps_prochandle *P, int expect_esrch)
 
 	if (getregs_sparc64(P, &regs) == NULL) {
 		if ((errno == ESRCH) && (expect_esrch))
-			return(0);
+			return 0;
 		else {
 			_dprintf("Unexpected ptrace (PTRACE_GETREGSET) "
 			    "error: %s\n", strerror(errno));
-			return(-1);
+			return -1;
 		}
 	}
 
@@ -126,7 +126,7 @@ extern long Pget_next_ip_sparc64(struct ps_prochandle *P, uintptr_t addr)
 	if (getregs_sparc64(P, &regs) == NULL) {
 		_dprintf("Unexpected ptrace (PTRACE_GETREGSET) "
 		    "error: %s\n", strerror(errno));
-		return(-1);
+		return -1;
 	}
 
 	return regs.tnpc;

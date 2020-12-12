@@ -803,7 +803,7 @@ dt_lib_depend_add(dtrace_hdl_t *dtp, dt_list_t *dlp, const char *arg)
 	if ((end = strrchr(arg, '/')) == NULL)
 		return dt_set_errno(dtp, EINVAL);
 
-	if ((dld = dt_zalloc(dtp, sizeof (dt_lib_depend_t))) == NULL)
+	if ((dld = dt_zalloc(dtp, sizeof(dt_lib_depend_t))) == NULL)
 		return -1;
 
 	if ((dld->dtld_libpath = dt_alloc(dtp, PATH_MAX)) == NULL) {
@@ -890,7 +890,7 @@ dt_topo_sort(dtrace_hdl_t *dtp, dt_lib_depend_t *dld, int *count)
 			return -1;
 	}
 
-	if ((new = dt_zalloc(dtp, sizeof (dt_lib_depend_t))) == NULL)
+	if ((new = dt_zalloc(dtp, sizeof(dt_lib_depend_t))) == NULL)
 		return -1;
 
 	if ((new->dtld_library = strdup(dld->dtld_library)) == NULL) {
@@ -1028,7 +1028,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		else
 			continue; /* skip any filename not ending in ".d" */
 
-		snprintf(fname, sizeof (fname), "%s/%s", path, dp->d_name);
+		snprintf(fname, sizeof(fname), "%s/%s", path, dp->d_name);
 
 		if (type == DT_DLIB_BPF) {
 			if (readBPFFile(dtp, fname) != 0)

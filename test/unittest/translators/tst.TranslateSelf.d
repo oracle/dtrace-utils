@@ -25,8 +25,8 @@ struct output_struct {
 
 translator struct output_struct < struct output_struct uvar >
 {
-	myi = ((struct output_struct ) uvar).myi;
-	myc = ((struct output_struct ) uvar).myc;
+	myi = ((struct output_struct)uvar).myi;
+	myc = ((struct output_struct)uvar).myc;
 };
 
 struct output_struct out;

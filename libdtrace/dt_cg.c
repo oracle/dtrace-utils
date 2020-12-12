@@ -1153,7 +1153,7 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 dt_irnode_t *
 dt_cg_node_alloc(uint_t label, struct bpf_insn instr)
 {
-	dt_irnode_t *dip = malloc(sizeof (dt_irnode_t));
+	dt_irnode_t *dip = malloc(sizeof(dt_irnode_t));
 
 	if (dip == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -1163,7 +1163,7 @@ dt_cg_node_alloc(uint_t label, struct bpf_insn instr)
 	dip->di_extern = NULL;
 	dip->di_next = NULL;
 
-	return (dip);
+	return dip;
 }
 
 /*
@@ -1178,7 +1178,7 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 		char n[DT_TYPE_NAMELEN];
 		dtrace_typeinfo_t dtt;
 
-		if (ctf_type_name(fp, type, n, sizeof (n)) == NULL ||
+		if (ctf_type_name(fp, type, n, sizeof(n)) == NULL ||
 		    dt_type_lookup(n, &dtt) == -1 || (
 		    dtt.dtt_ctfp == fp && dtt.dtt_type == type))
 			break; /* unable to improve our position */
@@ -1188,9 +1188,9 @@ dt_cg_membinfo(ctf_file_t *fp, ctf_id_t type, const char *s, ctf_membinfo_t *mp)
 	}
 
 	if (ctf_member_info(fp, type, s, mp) == CTF_ERR)
-		return (NULL); /* ctf_errno is set for us */
+		return NULL; /* ctf_errno is set for us */
 
-	return (fp);
+	return fp;
 }
 
 void
@@ -1225,7 +1225,7 @@ clp2(size_t x)
 	x |= (x >> 8);
 	x |= (x >> 16);
 
-	return (x + 1);
+	return x + 1;
 }
 
 /*
@@ -1305,7 +1305,7 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 	if (dnp->dn_flags & DT_NF_USERLAND)
 		size |= 0x10;
 
-	return (ops[size]);
+	return ops[size];
 #endif
 }
 
@@ -1548,7 +1548,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	emit(dlp, BPF_ALU64_REG(BPF_OR, r1, r2));
 	dt_regset_free(drp, r2);
 
-	return (r1);
+	return r1;
 }
 
 static void
@@ -1674,9 +1674,9 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	dstsize = dt_node_type_size(dst);
 
 	if (dstsize < srcsize)
-		n = sizeof (uint64_t) * NBBY - dstsize * NBBY;
+		n = sizeof(uint64_t) * NBBY - dstsize * NBBY;
 	else
-		n = sizeof (uint64_t) * NBBY - srcsize * NBBY;
+		n = sizeof(uint64_t) * NBBY - srcsize * NBBY;
 
 	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
@@ -1843,7 +1843,7 @@ dt_cg_stvar(const dt_ident_t *idp)
 	uint_t i = (((idp->di_flags & DT_IDFLG_LOCAL) != 0) << 1) |
 	    ((idp->di_flags & DT_IDFLG_TLS) != 0);
 
-	return (idp->di_kind == DT_IDENT_ARRAY ? aops[i] : sops[i]);
+	return idp->di_kind == DT_IDENT_ARRAY ? aops[i] : sops[i];
 }
 #endif
 
@@ -1965,14 +1965,14 @@ dt_cg_compare_signed(dt_node_t *dnp)
 
 	if (dt_node_is_string(dnp->dn_left) ||
 	    dt_node_is_string(dnp->dn_right))
-		return (1); /* strings always compare signed */
+		return 1; /* strings always compare signed */
 	else if (!dt_node_is_arith(dnp->dn_left) ||
 	    !dt_node_is_arith(dnp->dn_right))
-		return (0); /* non-arithmetic types always compare unsigned */
+		return 0; /* non-arithmetic types always compare unsigned */
 
-	memset(&dn, 0, sizeof (dn));
+	memset(&dn, 0, sizeof(dn));
 	dt_node_promote(dnp->dn_left, dnp->dn_right, &dn);
-	return (dn.dn_flags & DT_NF_SIGNED);
+	return dn.dn_flags & DT_NF_SIGNED;
 }
 
 static void
@@ -2166,13 +2166,13 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		 * modified according to each instantiated member so that we
 		 * can pass them to dt_cg_store() and effect a member store.
 		 */
-		memset(&dn, 0, sizeof (dt_node_t));
+		memset(&dn, 0, sizeof(dt_node_t));
 		dn.dn_kind = DT_NODE_OP2;
 		dn.dn_op = DT_TOK_DOT;
 		dn.dn_left = dnp;
 		dn.dn_right = &mn;
 
-		memset(&mn, 0, sizeof (dt_node_t));
+		memset(&mn, 0, sizeof(dt_node_t));
 		mn.dn_kind = DT_NODE_IDENT;
 		mn.dn_op = DT_TOK_IDENT;
 
@@ -2437,11 +2437,11 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (idp->di_id != DIF_VAR_ARGS || !dt_node_is_scalar(dnp))
 		return;
 
-	if ((size = dt_node_type_size(dnp)) == sizeof (uint64_t))
+	if ((size = dt_node_type_size(dnp)) == sizeof(uint64_t))
 		return;
 
-	assert(size < sizeof (uint64_t));
-	n = sizeof (uint64_t) * NBBY - size * NBBY;
+	assert(size < sizeof(uint64_t));
+	n = sizeof(uint64_t) * NBBY - size * NBBY;
 
 	emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
 	emit(dlp, BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));

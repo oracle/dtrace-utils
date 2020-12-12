@@ -33,9 +33,9 @@ static long double
 dt_fabsl(long double x)
 {
 	if (x < 0)
-		return (-x);
+		return -x;
 
-	return (x);
+	return x;
 }
 
 /*
@@ -45,19 +45,19 @@ dt_fabsl(long double x)
 static int
 dt_gt_128(uint64_t *a, uint64_t *b)
 {
-	return (a[1] > b[1] || (a[1] == b[1] && a[0] > b[0]));
+	return a[1] > b[1] || (a[1] == b[1] && a[0] > b[0]);
 }
 
 static int
 dt_ge_128(uint64_t *a, uint64_t *b)
 {
-	return (a[1] > b[1] || (a[1] == b[1] && a[0] >= b[0]));
+	return a[1] > b[1] || (a[1] == b[1] && a[0] >= b[0]);
 }
 
 static int
 dt_le_128(uint64_t *a, uint64_t *b)
 {
-	return (a[1] < b[1] || (a[1] == b[1] && a[0] <= b[0]));
+	return a[1] < b[1] || (a[1] == b[1] && a[0] <= b[0]);
 }
 
 /*
@@ -113,7 +113,7 @@ dt_nbits_128(uint64_t *a)
 		nbits++;
 	}
 
-	return (nbits);
+	return nbits;
 }
 
 static void
@@ -331,7 +331,7 @@ dt_sqrt_128(uint64_t *square)
 
 	assert(result[1] == 0);
 
-	return (result[0]);
+	return result[0];
 }
 
 uint64_t
@@ -359,7 +359,7 @@ dt_stddev(uint64_t *data, uint64_t normal)
 
 	dt_subtract_128(avg_of_squares, square_of_avg, diff);
 
-	return (dt_sqrt_128(diff));
+	return dt_sqrt_128(diff);
 }
 
 static int
@@ -480,16 +480,16 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 			depth = 0;
 		}
 
-		return (dt_printf(dtp, fp, "|%s%s %-9lld\n", ats + len - depth,
-		    spaces + depth, (long long)val / normal));
+		return dt_printf(dtp, fp, "|%s%s %-9lld\n", ats + len - depth,
+		    spaces + depth, (long long)val / normal);
 	}
 
 	if (!positives) {
 		f = (dt_fabsl((long double)val) * len) / total;
 		depth = (uint_t)(f + 0.5);
 
-		return (dt_printf(dtp, fp, "%s%s| %-9lld\n", spaces + depth,
-		    ats + len - depth, (long long)val / normal));
+		return dt_printf(dtp, fp, "%s%s| %-9lld\n", spaces + depth,
+		    ats + len - depth, (long long)val / normal);
 	}
 
 	/*
@@ -506,14 +506,13 @@ dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
 	f = (dt_fabsl((long double)val) * len) / total;
 	depth = (uint_t)(f + 0.5);
 
-	if (val <= 0) {
-		return (dt_printf(dtp, fp, "%s%s|%*s %-9lld\n", spaces + depth,
-		    ats + len - depth, len, "", (long long)val / normal));
-	} else {
-		return (dt_printf(dtp, fp, "%20s|%s%s %-9lld\n", "",
+	if (val <= 0)
+		return dt_printf(dtp, fp, "%s%s|%*s %-9lld\n", spaces + depth,
+		    ats + len - depth, len, "", (long long)val / normal);
+	else
+		return dt_printf(dtp, fp, "%20s|%s%s %-9lld\n", "",
 		    ats + len - depth, spaces + depth,
-		    (long long)val / normal));
-	}
+		    (long long)val / normal);
 }
 
 int
@@ -525,8 +524,8 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	long double total = 0;
 	char positives = 0, negatives = 0;
 
-	if (size != DTRACE_QUANTIZE_NBUCKETS * sizeof (uint64_t))
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+	if (size != DTRACE_QUANTIZE_NBUCKETS * sizeof(uint64_t))
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	while (first_bin <= last_bin && data[first_bin] == 0)
 		first_bin++;
@@ -558,19 +557,19 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
 	    "------------- Distribution -------------", "count") < 0)
-		return (-1);
+		return -1;
 
 	for (i = first_bin; i <= last_bin; i++) {
 		if (dt_printf(dtp, fp, "%16lld ",
 		    (long long)DTRACE_QUANTIZE_BUCKETVAL(i)) < 0)
-			return (-1);
+			return -1;
 
 		if (dt_print_quantline(dtp, fp, data[i], normal, total,
 		    positives, negatives) < 0)
-			return (-1);
+			return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -620,19 +619,17 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
 	    "------------- Distribution -------------", "count") < 0)
-		return (-1);
+		return -1;
 
 	for (i = first_bin; i <= last_bin; i++) {
 		char c[32];
 		int err;
 
 		if (i == 0) {
-			(void) snprintf(c, sizeof (c), "< %d",
-			    base);
+			snprintf(c, sizeof(c), "< %d", base);
 			err = dt_printf(dtp, fp, "%16s ", c);
 		} else if (i == levels + 1) {
-			(void) snprintf(c, sizeof (c), ">= %d",
-			    base + (levels * step));
+			snprintf(c, sizeof(c), ">= %d", base + (levels * step));
 			err = dt_printf(dtp, fp, "%16s ", c);
 		} else {
 			err = dt_printf(dtp, fp, "%16d ",
@@ -641,10 +638,10 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 
 		if (err < 0 || dt_print_quantline(dtp, fp, data[i], normal,
 		    total, positives, negatives) < 0)
-			return (-1);
+			return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -660,8 +657,8 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	long double total = 0;
 	char positives = 0, negatives = 0;
 
-	if (size < sizeof (uint64_t))
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+	if (size < sizeof(uint64_t))
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	factor = DTRACE_LLQUANTIZE_FACTOR(sig);
 	lmag = DTRACE_LLQUANTIZE_LMAG(sig);
@@ -684,8 +681,8 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	 */
 	nbins = (hmag - lmag + 1) * (steps - steps_factor) * 2 + 2 + 1;
 
-	if (size != sizeof (uint64_t) * nbins)
-		return (dt_set_errno(dtp, EDT_DMISMATCH));
+	if (size != sizeof(uint64_t) * nbins)
+		return dt_set_errno(dtp, EDT_DMISMATCH);
 
 	/* look for first and last bins with data */
 	last_bin = nbins - 1;
@@ -709,7 +706,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 
 	if (dt_printf(dtp, fp, "\n%16s %41s %-9s\n", "value",
 	    "------------- Distribution -------------", "count") < 0)
-		return (-1);
+		return -1;
 
 	/* broaden the range a little bit for reporting purposes */
 	if (first_bin > 0)
@@ -733,7 +730,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	if ((I) >= first_bin - pad && (I) <= last_bin + pad) \
 	    snprintf(c + cwidth * ((I) - first_bin + pad), cwidth, FORMAT, VAL)
 
-	scale = (uint64_t) powl(factor, lmag);
+	scale = (uint64_t)powl(factor, lmag);
 	/*
 	 * bin0 is for "abs(value)<scale".  Note:
 	 *   - "abs() < 1" is better written as "0"
@@ -741,14 +738,14 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 	 *     Might as well call this bin "<scale" and not mention "abs()".
 	 */
 	if (scale == 1) {
-		CPRINT(bin0, "%d", (int) 0);
+		CPRINT(bin0, "%d", (int)0);
 	} else if (first_bin >= bin0) {
-		CPRINT(bin0, "< %llu", (long long unsigned) scale);
+		CPRINT(bin0, "< %llu", (long long unsigned)scale);
 	} else {
-		CPRINT(bin0, "abs() < %llu", (long long unsigned) scale);
+		CPRINT(bin0, "abs() < %llu", (long long unsigned)scale);
 	}
-	CPRINT((bin0-1), "-%llu", (long long unsigned) scale);
-	CPRINT((bin0+1), "%llu", (long long unsigned) scale);
+	CPRINT((bin0-1), "-%llu", (long long unsigned)scale);
+	CPRINT((bin0+1), "%llu", (long long unsigned)scale);
 	mag = lmag;
 	i = 1;
 	if (lmag == 0 && steps > factor) {
@@ -759,22 +756,22 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 		}
 		mag++;
 	}
-	scale = (uint64_t) powl(factor, mag + 1) / steps;
+	scale = (uint64_t)powl(factor, mag + 1) / steps;
 	for ( ; mag <= hmag; mag++) {
 		for (step = steps_factor + 1; step <= steps; step++) {
 			i++;
-			CPRINT((bin0-i), "-%llu", (long long unsigned) (step * scale));
-			CPRINT((bin0+i), "%llu", (long long unsigned) (step * scale));
+			CPRINT((bin0-i), "-%llu", (long long unsigned)(step * scale));
+			CPRINT((bin0+i), "%llu", (long long unsigned)(step * scale));
 		}
 		scale *= factor;
 	}
-	scale = (uint64_t) powl(factor, hmag + 1);
-	CPRINT(0 , "<= -%llu", (long long unsigned) scale);
-	CPRINT(nbins-1, ">= %llu", (long long unsigned) scale);
+	scale = (uint64_t)powl(factor, hmag + 1);
+	CPRINT(0 , "<= -%llu", (long long unsigned)scale);
+	CPRINT(nbins-1, ">= %llu", (long long unsigned)scale);
 #undef CPRINT
 
 	/* deal with the ghost-bin problem */
-	if ( pad > 0 ) {
+	if (pad > 0) {
 		int j;
 		/* first_bin */
 		j = cwidth * (first_bin - first_bin + pad);
@@ -786,7 +783,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 				memcpy(c+j, c+j-cwidth*i, cwidth);
 		}
 		/* last_bin */
-		j = cwidth * ( last_bin - first_bin + pad);
+		j = cwidth * (last_bin - first_bin + pad);
 		if (c[j] == 0) {
 			for (i = 1; i < pad; i++)
 				if (c[j+cwidth*i] != 0)
@@ -803,10 +800,10 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr, size_t size,
 		err = dt_printf(dtp, fp, "%16s ", c + cwidth*(i-first_bin+pad));
 		if (err < 0 || dt_print_quantline(dtp, fp, data[i], normal,
 		    total, positives, negatives) < 0)
-			return (-1);
+			return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -817,8 +814,8 @@ dt_print_average(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	/* LINTED - alignment */
 	int64_t *data = (int64_t *)addr;
 
-	return (dt_printf(dtp, fp, " %16lld", data[0] ?
-	    (long long)(data[1] / (int64_t)normal / data[0]) : 0));
+	return dt_printf(dtp, fp, " %16lld", data[0] ?
+	    (long long)(data[1] / (int64_t)normal / data[0]) : 0);
 }
 
 /*ARGSUSED*/
@@ -829,8 +826,8 @@ dt_print_stddev(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	/* LINTED - alignment */
 	uint64_t *data = (uint64_t *)addr;
 
-	return (dt_printf(dtp, fp, " %16llu", data[0] ?
-	    (unsigned long long) dt_stddev(data, normal) : 0));
+	return dt_printf(dtp, fp, " %16llu", data[0] ?
+	    (unsigned long long)dt_stddev(data, normal) : 0);
 }
 
 static int
@@ -840,46 +837,46 @@ dt_print_rawbytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, size_t nbytes)
 	char *c = (char *)addr;
 
 	if (nbytes == 0)
-		return (0);
+		return 0;
 
 	if (dt_printf(dtp, fp, "\n%*s      ", margin, "") < 0)
-		return (-1);
+		return -1;
 
 	for (i = 0; i < 16; i++)
 		if (dt_printf(dtp, fp, "  %c", "0123456789abcdef"[i]) < 0)
-			return (-1);
+			return -1;
 
 	if (dt_printf(dtp, fp, "  0123456789abcdef\n") < 0)
-		return (-1);
+		return -1;
 
 	for (i = 0; i < nbytes; i += 16) {
 		if (dt_printf(dtp, fp, "%*s%5x:", margin, "", i) < 0)
-			return (-1);
+			return -1;
 
 		for (j = i; j < i + 16 && j < nbytes; j++) {
 			if (dt_printf(dtp, fp, " %02x", (uchar_t)c[j]) < 0)
-				return (-1);
+				return -1;
 		}
 
 		while (j++ % 16) {
 			if (dt_printf(dtp, fp, "   ") < 0)
-				return (-1);
+				return -1;
 		}
 
 		if (dt_printf(dtp, fp, "  ") < 0)
-			return (-1);
+			return -1;
 
 		for (j = i; j < i + 16 && j < nbytes; j++) {
 			if (dt_printf(dtp, fp, "%c",
 			    c[j] < ' ' || c[j] > '~' ? '.' : c[j]) < 0)
-				return (-1);
+				return -1;
 		}
 
 		if (dt_printf(dtp, fp, "\n") < 0)
-			return (-1);
+			return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -896,10 +893,10 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	char *c = (char *)addr;
 
 	if (nbytes == 0)
-		return (0);
+		return 0;
 
 	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
-		return (dt_print_rawbytes(dtp, fp, addr, nbytes));
+		return dt_print_rawbytes(dtp, fp, addr, nbytes);
 
 	for (i = 0; i < nbytes; i++) {
 		/*
@@ -934,9 +931,9 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 				break;
 
 			if (quiet)
-				return (dt_printf(dtp, fp, "%s", c));
+				return dt_printf(dtp, fp, "%s", c);
 			else
-				return (dt_printf(dtp, fp, "  %-*s", width, c));
+				return dt_printf(dtp, fp, "  %-*s", width, c);
 		}
 
 		break;
@@ -951,11 +948,11 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 		char *s = alloca(nbytes + 1);
 		memcpy(s, c, nbytes);
 		s[nbytes] = '\0';
-		return (dt_printf(dtp, fp, "  %-*s", width, s));
+		return dt_printf(dtp, fp, "  %-*s", width, s);
 	}
 
         /* print the bytes raw */
-        return (dt_print_rawbytes(dtp, fp, addr, nbytes));
+        return dt_print_rawbytes(dtp, fp, addr, nbytes);
 }
 
 #ifdef FIXME
@@ -976,7 +973,7 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 		int dpositive;
 
 		if (nrecs < 2)
-			return (dt_set_errno(dtp, EDT_TRACEMEM));
+			return dt_set_errno(dtp, EDT_TRACEMEM);
 
 		drec = rec + 1;
 		darg = drec->dtrd_arg;
@@ -985,10 +982,10 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 		if (drec->dtrd_action != DTRACEACT_TRACEMEM ||
 		    (darg != DTRACE_TRACEMEM_SIZE &&
 		    darg != DTRACE_TRACEMEM_SSIZE))
-			return (dt_set_errno(dtp, EDT_TRACEMEM));
+			return dt_set_errno(dtp, EDT_TRACEMEM);
 
 		if (dt_variable_read(daddr, drec->dtrd_size, &dsize) < 0)
-			return (dt_set_errno(dtp, EDT_TRACEMEM));
+			return dt_set_errno(dtp, EDT_TRACEMEM);
 
 		dpositive = drec->dtrd_arg == DTRACE_TRACEMEM_SIZE ||
 		    (dsize & (1 << (drec->dtrd_size * NBBY - 1))) == 0;
@@ -998,13 +995,13 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 
 		nconsumed++;
 	} else if (arg != DTRACE_TRACEMEM_STATIC) {
-		return (dt_set_errno(dtp, EDT_TRACEMEM));
+		return dt_set_errno(dtp, EDT_TRACEMEM);
 	}
 
 	if (dt_print_rawbytes(dtp, fp, addr, size) < 0)
-		return (-1);
+		return -1;
 
-	return (nconsumed);
+	return nconsumed;
 }
 #endif
 
@@ -1019,7 +1016,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	uint64_t pc;
 
 	if (dt_printf(dtp, fp, "\n") < 0)
-		return (-1);
+		return -1;
 
 	if (format == NULL)
 		format = "%s";
@@ -1031,18 +1028,18 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	for (i = 0; i < depth; i++) {
 		switch (size) {
-		case sizeof (uint32_t):
+		case sizeof(uint32_t):
 			/* LINTED - alignment */
 			pc = *((uint32_t *)addr);
 			break;
 
-		case sizeof (uint64_t):
+		case sizeof(uint64_t):
 			/* LINTED - alignment */
 			pc = *((uint64_t *)addr);
 			break;
 
 		default:
-			return (dt_set_errno(dtp, EDT_BADSTACKPC));
+			return dt_set_errno(dtp, EDT_BADSTACKPC);
 		}
 
 		if (pc == 0)
@@ -1051,15 +1048,15 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		addr += size;
 
 		if (dt_printf(dtp, fp, "%*s", indent, "") < 0)
-			return (-1);
+			return -1;
 
 		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
 			if (pc > sym.st_value)
-				snprintf(c, sizeof (c), "%s`%s+0x%llx",
+				snprintf(c, sizeof(c), "%s`%s+0x%llx",
 					 dts.object, dts.name,
 					 (long long unsigned)pc - sym.st_value);
 			else
-				snprintf(c, sizeof (c), "%s`%s",
+				snprintf(c, sizeof(c), "%s`%s",
 					 dts.object, dts.name);
 		} else {
 			/*
@@ -1067,23 +1064,22 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 * a NULL GElf_Sym -- indicating that we're only
 			 * interested in the containing module.
 			 */
-			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
-				snprintf(c, sizeof (c), "%s`0x%llx",
+			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
+				snprintf(c, sizeof(c), "%s`0x%llx",
 					 dts.object, (long long unsigned)pc);
-			} else {
-				(void) snprintf(c, sizeof (c), "0x%llx",
-				    (long long unsigned) pc);
-			}
+			else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (long long unsigned)pc);
 		}
 
 		if (dt_printf(dtp, fp, format, c) < 0)
-			return (-1);
+			return -1;
 
 		if (dt_printf(dtp, fp, "\n") < 0)
-			return (-1);
+			return -1;
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1094,7 +1090,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	uint64_t *pc = ((uint64_t *)addr) + 1;
 	uint32_t depth = DTRACE_USTACK_NFRAMES(arg);
 	uint32_t strsize = DTRACE_USTACK_STRSIZE(arg);
-	const char *strbase = addr + (depth + 2) * sizeof (uint64_t);
+	const char *strbase = addr + (depth + 2) * sizeof(uint64_t);
 	const char *str = strsize ? strbase : NULL;
 	int err = 0;
 
@@ -1105,12 +1101,12 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	pid_t pid = -1, tgid;
 
 	if (depth == 0)
-		return (0);
+		return 0;
 
 	tgid = (pid_t)*pc++;
 
 	if (dt_printf(dtp, fp, "\n") < 0)
-		return (-1);
+		return -1;
 
 	if (format == NULL)
 		format = "%s";
@@ -1146,23 +1142,23 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 				if (pmap)
 					offset = pc[i] - pmap->pr_vaddr;
 
-				(void) snprintf(c, sizeof(c), "%s:0x%llx",
+				snprintf(c, sizeof(c), "%s:0x%llx",
 				    dt_basename(objname), (u_longlong_t)offset);
 
 			} else
-				(void) snprintf(c, sizeof(c), "0x%llx",
+				snprintf(c, sizeof(c), "0x%llx",
 				    (u_longlong_t)pc[i]);
 
 		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
 							  &name, &sym) == 0) {
-			dt_Pobjname(dtp, pid, pc[i], objname, sizeof (objname));
+			dt_Pobjname(dtp, pid, pc[i], objname, sizeof(objname));
 
 			if (pc[i] > sym.st_value)
-				snprintf(c, sizeof (c), "%s`%s+0x%llx",
+				snprintf(c, sizeof(c), "%s`%s+0x%llx",
 					 dt_basename(objname), name,
 					 (u_longlong_t)(pc[i] - sym.st_value));
 			else
-				snprintf(c, sizeof (c), "%s`%s",
+				snprintf(c, sizeof(c), "%s`%s",
 					 dt_basename(objname), name);
 
 			/* Allocated by Plookup_by_addr. */
@@ -1184,16 +1180,15 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 * writable, we assume that we have fallen into this
 			 * case and we refuse to use the string.
 			 */
-			(void) snprintf(c, sizeof (c), "%s", str);
+			snprintf(c, sizeof(c), "%s", str);
 		} else {
 			if (pid >= 0 && dt_Pobjname(dtp, pid, pc[i], objname,
-			    sizeof (objname)) != NULL) {
-				(void) snprintf(c, sizeof (c), "%s`0x%llx",
+			    sizeof(objname)) != NULL)
+				snprintf(c, sizeof(c), "%s`0x%llx",
 				    dt_basename(objname), (u_longlong_t)pc[i]);
-			} else {
-				(void) snprintf(c, sizeof (c), "0x%llx",
+			else
+				snprintf(c, sizeof(c), "0x%llx",
 				    (u_longlong_t)pc[i]);
-			}
 		}
 
 		if ((err = dt_printf(dtp, fp, format, c)) < 0)
@@ -1212,7 +1207,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
 				break;
 
-			(void) snprintf(c, sizeof (c), "  [ %s ]", &str[1]);
+			snprintf(c, sizeof(c), "  [ %s ]", &str[1]);
 
 			if ((err = dt_printf(dtp, fp, format, c)) < 0)
 				break;
@@ -1231,7 +1226,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	if (pid >= 0)
 		dt_proc_release_unlock(dtp, pid);
 
-	return (err);
+	return err;
 }
 
 static int
@@ -1265,7 +1260,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 		s = alloca(n);
 	} while ((len = dtrace_uaddr2str(dtp, tgid, pc, s, n)) > n);
 
-	return (dt_printf(dtp, fp, format, s));
+	return dt_printf(dtp, fp, format, s);
 }
 
 int
@@ -1292,18 +1287,17 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 				 DTRACE_PROC_SHORTLIVED);
 
 	if (pid >= 0 && dt_Pobjname(dtp, pid, pc, objname,
-		sizeof (objname)) != NULL) {
-		(void) snprintf(c, sizeof (c), "%s", dt_basename(objname));
-	} else {
-		(void) snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
-	}
+		sizeof(objname)) != NULL)
+		snprintf(c, sizeof(c), "%s", dt_basename(objname));
+	else
+		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
 
 	err = dt_printf(dtp, fp, format, c);
 
 	if (pid >= 0)
 		dt_proc_release_unlock(dtp, pid);
 
-	return (err);
+	return err;
 }
 
 static int
@@ -1319,7 +1313,7 @@ dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		format = "  %-50s";
 
 	if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
-		snprintf(c, sizeof (c), "%s`%s", dts.object, dts.name);
+		snprintf(c, sizeof(c), "%s`%s", dts.object, dts.name);
 	} else {
 		/*
 		 * We'll repeat the lookup, but this time we'll specify a
@@ -1327,16 +1321,16 @@ dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		 * the containing module.
 		 */
 		if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
-			snprintf(c, sizeof (c), "%s`0x%llx",
+			snprintf(c, sizeof(c), "%s`0x%llx",
 				 dts.object, (u_longlong_t)pc);
 		else
-			snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
+			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
 	}
 
 	if (dt_printf(dtp, fp, format, c) < 0)
-		return (-1);
+		return -1;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1351,14 +1345,14 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		format = "  %-50s";
 
 	if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
-		snprintf(c, sizeof (c), "%s", dts.object);
+		snprintf(c, sizeof(c), "%s", dts.object);
 	else
-		snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);
+		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
 
 	if (dt_printf(dtp, fp, format, c) < 0)
-		return (-1);
+		return -1;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1372,16 +1366,16 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 
 	addr = (caddr_t)buf + rec->dtrd_offset;
 
-	if (dt_variable_read(addr, sizeof (uint64_t), &time) < 0 ||
-	    dt_variable_read(addr + sizeof (uint64_t), sizeof (uint64_t),
+	if (dt_variable_read(addr, sizeof(uint64_t), &time) < 0 ||
+	    dt_variable_read(addr + sizeof(uint64_t), sizeof(uint64_t),
 	    &pktlen) < 0)
-		return (dt_set_errno(dtp, EDT_PCAP));
+		return dt_set_errno(dtp, EDT_PCAP);
 
 	if (pktlen == 0) {
 		/*
 		 * skb must have been NULL, skip without capturing.
 		 */
-		return (0);
+		return 0;
 	}
 	maxlen = DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
 
@@ -1390,7 +1384,7 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	paddr = (caddr_t)buf + prec->dtrd_offset;
 
 	if (dt_variable_read(paddr, prec->dtrd_size, &proto) < 0)
-		return (dt_set_errno(dtp, EDT_PCAP));
+		return dt_set_errno(dtp, EDT_PCAP);
 
 	/*
 	 * Dump pcap data to dump file if handler command/output file is
@@ -1400,14 +1394,14 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	filename = dt_pcap_filename(dtp, fp);
 	if (filename != NULL) {
 		dt_pcap_dump(dtp, filename, proto, time,
-			     addr + (2 * sizeof (uint64_t)), (uint32_t)pktlen,
+			     addr + (2 * sizeof(uint64_t)), (uint32_t)pktlen,
 			     (uint32_t)maxlen);
 	} else {
 		if (dt_print_rawbytes(dtp, fp, addr + (2 * sizeof(uint64_t)),
 		    pktlen > maxlen ? maxlen : pktlen) < 0)
-			return (-1);
+			return -1;
 	}
-	return (0);
+	return 0;
 }
 
 #ifdef FIXME
@@ -1424,13 +1418,13 @@ dt_normalize_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	dtrace_aggid_t		id = normal->dtnd_id;
 
 	if (agg->dtagd_nrecs == 0)
-		return (DTRACE_AGGWALK_NEXT);
+		return DTRACE_AGGWALK_NEXT;
 
 	if (agg->dtagd_varid != id)
-		return (DTRACE_AGGWALK_NEXT);
+		return DTRACE_AGGWALK_NEXT;
 
 	((dtrace_aggdata_t *)aggdata)->dtada_normal = normal->dtnd_normal;
-	return (DTRACE_AGGWALK_NORMALIZE);
+	return DTRACE_AGGWALK_NORMALIZE;
 }
 
 static int
@@ -1461,19 +1455,19 @@ dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	addr = base + rec->dtrd_offset;
 
 	switch (rec->dtrd_size) {
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		/* LINTED - alignment */
 		normal.dtnd_normal = *((uint64_t *)addr);
 		break;
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		/* LINTED - alignment */
 		normal.dtnd_normal = *((uint32_t *)addr);
 		break;
-	case sizeof (uint16_t):
+	case sizeof(uint16_t):
 		/* LINTED - alignment */
 		normal.dtnd_normal = *((uint16_t *)addr);
 		break;
-	case sizeof (uint8_t):
+	case sizeof(uint8_t):
 		normal.dtnd_normal = *((uint8_t *)addr);
 		break;
 	default:
@@ -1528,16 +1522,16 @@ dt_trunc_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	dtrace_aggid_t		id = trunc->dttd_id;
 
 	if (agg->dtagd_nrecs == 0)
-		return (DTRACE_AGGWALK_NEXT);
+		return DTRACE_AGGWALK_NEXT;
 
 	if (agg->dtagd_varid != id)
-		return (DTRACE_AGGWALK_NEXT);
+		return DTRACE_AGGWALK_NEXT;
 
 	if (trunc->dttd_remaining == 0)
-		return (DTRACE_AGGWALK_REMOVE);
+		return DTRACE_AGGWALK_REMOVE;
 
 	trunc->dttd_remaining--;
-	return (DTRACE_AGGWALK_NEXT);
+	return DTRACE_AGGWALK_NEXT;
 }
 
 static int
@@ -1571,19 +1565,19 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	addr = base + rec->dtrd_offset;
 
 	switch (rec->dtrd_size) {
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		/* LINTED - alignment */
 		remaining = *((int64_t *)addr);
 		break;
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		/* LINTED - alignment */
 		remaining = *((int32_t *)addr);
 		break;
-	case sizeof (uint16_t):
+	case sizeof(uint16_t):
 		/* LINTED - alignment */
 		remaining = *((int16_t *)addr);
 		break;
-	case sizeof (uint8_t):
+	case sizeof(uint8_t):
 		remaining = *((int8_t *)addr);
 		break;
 	default:
@@ -1654,22 +1648,22 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	}
 
 	switch (size) {
-	case sizeof (uint64_t):
+	case sizeof(uint64_t):
 		err = dt_printf(dtp, fp, " %16lld",
 		    /* LINTED - alignment */
 		    (long long)*((uint64_t *)addr) / normal);
 		break;
-	case sizeof (uint32_t):
+	case sizeof(uint32_t):
 		/* LINTED - alignment */
 		err = dt_printf(dtp, fp, " %8d", *((uint32_t *)addr) /
 		    (uint32_t)normal);
 		break;
-	case sizeof (uint16_t):
+	case sizeof(uint16_t):
 		/* LINTED - alignment */
 		err = dt_printf(dtp, fp, " %5d", *((uint16_t *)addr) /
 		    (uint32_t)normal);
 		break;
-	case sizeof (uint8_t):
+	case sizeof(uint8_t):
 		err = dt_printf(dtp, fp, " %3d", *((uint8_t *)addr) /
 		    (uint32_t)normal);
 		break;
@@ -1842,32 +1836,32 @@ dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	const char *errstr;
 	dtrace_setoptdata_t optdata;
 
-	memset(&optdata, 0, sizeof (optdata));
-	(void) dtrace_getopt(dtp, option, &optdata.dtsda_oldval);
+	memset(&optdata, 0, sizeof(optdata));
+	dtrace_getopt(dtp, option, &optdata.dtsda_oldval);
 
 	if (dtrace_setopt(dtp, option, value) == 0) {
-		(void) dtrace_getopt(dtp, option, &optdata.dtsda_newval);
+		dtrace_getopt(dtp, option, &optdata.dtsda_newval);
 		optdata.dtsda_probe = data;
 		optdata.dtsda_option = option;
 		optdata.dtsda_handle = dtp;
 
 		if ((rval = dt_handle_setopt(dtp, &optdata)) != 0)
-			return (rval);
+			return rval;
 
-		return (0);
+		return 0;
 	}
 
 	errstr = dtrace_errmsg(dtp, dtrace_errno(dtp));
 	len = strlen(option) + strlen(value) + strlen(errstr) + 80;
 	msg = alloca(len);
 
-	(void) snprintf(msg, len, "couldn't set option \"%s\" to \"%s\": %s\n",
+	snprintf(msg, len, "couldn't set option \"%s\" to \"%s\": %s\n",
 	    option, value, errstr);
 
 	if ((rval = dt_handle_liberr(dtp, data, msg)) == 0)
-		return (0);
+		return 0;
 
-	return (rval);
+	return rval;
 }
 
 static int

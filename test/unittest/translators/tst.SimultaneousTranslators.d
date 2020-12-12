@@ -35,12 +35,12 @@ struct output_struct {
 
 translator struct output_struct < struct input_struct1 *ivar1 >
 {
-	oi = ((struct input_struct1 *) ivar1)->ii1;
+	oi = ((struct input_struct1 *)ivar1)->ii1;
 };
 
 translator struct output_struct < struct input_struct2 *ivar2 >
 {
-	oc = ((struct input_struct2 *) ivar2)->ic2;
+	oc = ((struct input_struct2 *)ivar2)->ic2;
 };
 
 BEGIN

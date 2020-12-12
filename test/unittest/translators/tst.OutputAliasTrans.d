@@ -31,8 +31,8 @@ typedef struct output_struct output_t;
 
 translator output_t < struct input_struct *ivar >
 {
-	oi = ((struct input_struct *) ivar)->ii;
-	oc = ((struct input_struct *) ivar)->ic;
+	oi = ((struct input_struct *)ivar)->ii;
+	oc = ((struct input_struct *)ivar)->ic;
 };
 
 BEGIN

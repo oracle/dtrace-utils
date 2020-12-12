@@ -18,13 +18,13 @@ struct in6_addr *ip6g;
 
 BEGIN
 {
-	this->buf6a = alloca(sizeof (struct in6_addr));
-	this->buf6b = alloca(sizeof (struct in6_addr));
-	this->buf6c = alloca(sizeof (struct in6_addr));
-	this->buf6d = alloca(sizeof (struct in6_addr));
-	this->buf6e = alloca(sizeof (struct in6_addr));
-	this->buf6f = alloca(sizeof (struct in6_addr));
-	this->buf6g = alloca(sizeof (struct in6_addr));
+	this->buf6a = alloca(sizeof(struct in6_addr));
+	this->buf6b = alloca(sizeof(struct in6_addr));
+	this->buf6c = alloca(sizeof(struct in6_addr));
+	this->buf6d = alloca(sizeof(struct in6_addr));
+	this->buf6e = alloca(sizeof(struct in6_addr));
+	this->buf6f = alloca(sizeof(struct in6_addr));
+	this->buf6g = alloca(sizeof(struct in6_addr));
 	ip6a = this->buf6a;
 	ip6b = this->buf6b;
 	ip6c = this->buf6c;

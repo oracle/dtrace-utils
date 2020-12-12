@@ -15,10 +15,10 @@ ipaddr_t *ip4d;
 
 BEGIN
 {
-	this->buf4a = alloca(sizeof (ipaddr_t));
-	this->buf4b = alloca(sizeof (ipaddr_t));
-	this->buf4c = alloca(sizeof (ipaddr_t));
-	this->buf4d = alloca(sizeof (ipaddr_t));
+	this->buf4a = alloca(sizeof(ipaddr_t));
+	this->buf4b = alloca(sizeof(ipaddr_t));
+	this->buf4c = alloca(sizeof(ipaddr_t));
+	this->buf4d = alloca(sizeof(ipaddr_t));
 	ip4a = this->buf4a;
 	ip4b = this->buf4b;
 	ip4c = this->buf4c;

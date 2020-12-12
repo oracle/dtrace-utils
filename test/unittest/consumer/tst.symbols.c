@@ -19,7 +19,7 @@
 
 int nchecks = 0, nerrors = 0;
 
-typedef struct mysymbol{
+typedef struct mysymbol {
 	long long unsigned addr;
 	long long unsigned size;
 	char *symname;
@@ -32,8 +32,8 @@ int maxnsymbols = 0, nsymbols = 0;
 
 int mycompare(const void *ap, const void *bp)
 {
-	mysymbol_t *a = (mysymbol_t *) ap;
-	mysymbol_t *b = (mysymbol_t *) bp;
+	mysymbol_t *a = (mysymbol_t *)ap;
+	mysymbol_t *b = (mysymbol_t *)bp;
 	if (a->addr < b->addr)
 		return -1;
 	if (a->addr > b->addr)
@@ -68,8 +68,8 @@ int read_symbols() {
 			maxnsymbols *= 2;
 			if (maxnsymbols == 0)
 				maxnsymbols = 128 * 1024;
-			symbols = (mysymbol_t *) realloc(symbols,
-                            maxnsymbols * sizeof (mysymbol_t));
+			symbols = (mysymbol_t *)realloc(symbols,
+                            maxnsymbols * sizeof(mysymbol_t));
 			if (symbols == NULL) {
 				printf("ERROR: could not allocate symbols\n");
 				fclose(fd);
@@ -155,8 +155,8 @@ int read_symbols() {
 
 void print_symbol(int i) {
 	printf(" %16.16llx %8.8llx %32s %20s\n",
-	    (long long) symbols[i].addr,
-	    (long long) symbols[i].size,
+	    (long long)symbols[i].addr,
+	    (long long)symbols[i].size,
 	    symbols[i].symname,
 	    symbols[i].modname);
 }
@@ -175,9 +175,9 @@ int duplicate(int i) {
 			continue;
 		if (strcmp(s, symbols[j].symname) == 0 &&
 		    strcmp(m, symbols[j].modname) == 0)
-			return (j);
+			return j;
 	}
-	return (-1);
+	return -1;
 }
 
 void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
@@ -193,8 +193,8 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 		printf("  expect:");
 		print_symbol(i);
 		printf("  actual: %16.16llx %8.8llx %32s %20s\n",
-		    (long long) symp->st_value,
-		    (long long) symp->st_size,
+		    (long long)symp->st_value,
+		    (long long)symp->st_size,
 		    sip->dts_name,
 		    sip->dts_object);
 	}
@@ -235,8 +235,8 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 		printf("  expect:");
 		print_symbol(i);
 		printf("  actual: %16.16llx %8.8llx %32s %20s\n",
-		    (long long) symp->st_value,
-		    (long long) symp->st_size,
+		    (long long)symp->st_value,
+		    (long long)symp->st_size,
 		    sip->dts_name,
 		    sip->dts_object);
 	}
@@ -261,7 +261,7 @@ int check_lookup_by_addr(dtrace_hdl_t *h) {
 
 		nchecks++;
 		if (dtrace_lookup_by_addr
-		    (h, (GElf_Addr) symbols[i].addr, &sym, &si)) {
+		    (h, (GElf_Addr)symbols[i].addr, &sym, &si)) {
 
 			printf("ERROR: dtrace_lookup_by_addr failed: %s\n",
 			    dtrace_errmsg(h, dtrace_errno(h)));
@@ -312,8 +312,8 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 				printf("  expect:");
 				print_symbol(i);
 				printf("  actual: %16.16llx %8.8llx %32s %20s\n",
-				    (long long) sym.st_value,
-				    (long long) sym.st_size,
+				    (long long)sym.st_value,
+				    (long long)sym.st_size,
 				    si.dts_name,
 				    si.dts_object);
 				nerrors++;
@@ -334,7 +334,7 @@ int main(int argc, char **argv) {
 
 	if (read_symbols() != 0)
 		return 1;
-	qsort(symbols, nsymbols, sizeof (mysymbol_t), &mycompare);
+	qsort(symbols, nsymbols, sizeof(mysymbol_t), &mycompare);
 
 	check_lookup_by_addr(h);
 	check_lookup_by_name(h, 1);
@@ -344,5 +344,5 @@ int main(int argc, char **argv) {
 
 	printf("test tst.symbols.c had %d errors (out of %d)\n",
 	    nerrors, nchecks);
-	return (nerrors != 0);
+	return nerrors != 0;
 }

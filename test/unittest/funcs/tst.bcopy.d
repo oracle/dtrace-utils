@@ -20,8 +20,8 @@
 
 BEGIN
 {
-	ptr = alloca(sizeof (unsigned long));
-	bcopy((void *)&`max_pfn, ptr, sizeof (unsigned long));
+	ptr = alloca(sizeof(unsigned long));
+	bcopy((void *)&`max_pfn, ptr, sizeof(unsigned long));
 	ulongp = (unsigned long *)ptr;
 	ret = (`max_pfn == *ulongp) ? 0 : 1;
 }

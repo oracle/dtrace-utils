@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -136,11 +136,11 @@ typedef struct bkpt_handler {
 	 * Return nonzero if the process should remain stopped at this
 	 * breakpoint, or zero to continue.
 	 */
-	int (*bkpt_handler) (uintptr_t addr, void *data);
+	int (*bkpt_handler)(uintptr_t addr, void *data);
 	/*
 	 * Clean up any breakpoint state on Prelease() or breakpoint delete.
 	 */
-	void (*bkpt_cleanup) (void *data);
+	void (*bkpt_cleanup)(void *data);
 	void *bkpt_data;
 } bkpt_handler_t;
 

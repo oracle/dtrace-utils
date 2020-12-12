@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -143,27 +143,27 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 	dep->de_nsym = count + 1; /* the first symbol is always null */
 
 	if (dtp->dt_lazyload) {
-		dep->de_strlen += sizeof (DOFLAZYSTR);
+		dep->de_strlen += sizeof(DOFLAZYSTR);
 		dep->de_nsym++;
 	} else {
-		dep->de_strlen += sizeof (DOFSTR);
+		dep->de_strlen += sizeof(DOFSTR);
 		dep->de_nsym++;
 	}
 
 	if ((dep->de_rel = calloc(dep->de_nrel,
-	    sizeof (dep->de_rel[0]))) == NULL) {
-		return (dt_set_errno(dtp, EDT_NOMEM));
+	    sizeof(dep->de_rel[0]))) == NULL) {
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
-	if ((dep->de_sym = calloc(dep->de_nsym, sizeof (Elf32_Sym))) == NULL) {
+	if ((dep->de_sym = calloc(dep->de_nsym, sizeof(Elf32_Sym))) == NULL) {
 		free(dep->de_rel);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	if ((dep->de_strtab = calloc(dep->de_strlen, 1)) == NULL) {
 		free(dep->de_rel);
 		free(dep->de_sym);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	count = 0;
@@ -176,7 +176,7 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 	/*
 	 * The first symbol table entry must be zeroed and is always ignored.
 	 */
-	memset(sym, 0, sizeof (Elf32_Sym));
+	memset(sym, 0, sizeof(Elf32_Sym));
 	sym++;
 
 	/*
@@ -254,17 +254,17 @@ prepare_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf32_t *dep)
 
 	if (dtp->dt_lazyload) {
 		memcpy(dep->de_strtab + strtabsz, DOFLAZYSTR,
-		    sizeof (DOFLAZYSTR));
-		strtabsz += sizeof (DOFLAZYSTR);
+		    sizeof(DOFLAZYSTR));
+		strtabsz += sizeof(DOFLAZYSTR);
 	} else {
-		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof (DOFSTR));
-		strtabsz += sizeof (DOFSTR);
+		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof(DOFSTR));
+		strtabsz += sizeof(DOFSTR);
 	}
 
 	assert(count == dep->de_nrel);
 	assert(strtabsz == dep->de_strlen);
 
-	return (0);
+	return 0;
 }
 
 
@@ -324,27 +324,27 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 	dep->de_nsym = count + 1; /* the first symbol is always null */
 
 	if (dtp->dt_lazyload) {
-		dep->de_strlen += sizeof (DOFLAZYSTR);
+		dep->de_strlen += sizeof(DOFLAZYSTR);
 		dep->de_nsym++;
 	} else {
-		dep->de_strlen += sizeof (DOFSTR);
+		dep->de_strlen += sizeof(DOFSTR);
 		dep->de_nsym++;
 	}
 
 	if ((dep->de_rel = calloc(dep->de_nrel,
-	    sizeof (dep->de_rel[0]))) == NULL) {
-		return (dt_set_errno(dtp, EDT_NOMEM));
+	    sizeof(dep->de_rel[0]))) == NULL) {
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
-	if ((dep->de_sym = calloc(dep->de_nsym, sizeof (Elf64_Sym))) == NULL) {
+	if ((dep->de_sym = calloc(dep->de_nsym, sizeof(Elf64_Sym))) == NULL) {
 		free(dep->de_rel);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	if ((dep->de_strtab = calloc(dep->de_strlen, 1)) == NULL) {
 		free(dep->de_rel);
 		free(dep->de_sym);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	count = 0;
@@ -357,7 +357,7 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 	/*
 	 * The first symbol table entry must be zeroed and is always ignored.
 	 */
-	memset(sym, 0, sizeof (Elf64_Sym));
+	memset(sym, 0, sizeof(Elf64_Sym));
 	sym++;
 
 	/*
@@ -431,17 +431,17 @@ prepare_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, dof_elf64_t *dep)
 
 	if (dtp->dt_lazyload) {
 		memcpy(dep->de_strtab + strtabsz, DOFLAZYSTR,
-		    sizeof (DOFLAZYSTR));
-		strtabsz += sizeof (DOFLAZYSTR);
+		    sizeof(DOFLAZYSTR));
+		strtabsz += sizeof(DOFLAZYSTR);
 	} else {
-		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof (DOFSTR));
-		strtabsz += sizeof (DOFSTR);
+		memcpy(dep->de_strtab + strtabsz, DOFSTR, sizeof(DOFSTR));
+		strtabsz += sizeof(DOFSTR);
 	}
 
 	assert(count == dep->de_nrel);
 	assert(strtabsz == dep->de_strlen);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -465,7 +465,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 
 	de.de_sym = NULL; /* gcc -Wmaybe-uninitialized */
 	if (prepare_elf32(dtp, dof, &de) != 0)
-		return (-1); /* errno is set for us */
+		return -1; /* errno is set for us */
 
 	/*
 	 * If there are no relocations, we only need enough sections for
@@ -473,7 +473,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	 */
 	nshdr = de.de_nrel == 0 ? ESHDR_SYMTAB + 1 : ESHDR_NUM;
 
-	memset(&elf_file, 0, sizeof (elf_file));
+	memset(&elf_file, 0, sizeof(elf_file));
 
 	elf_file.ehdr.e_ident[EI_MAG0] = ELFMAG0;
 	elf_file.ehdr.e_ident[EI_MAG1] = ELFMAG1;
@@ -493,20 +493,20 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	elf_file.ehdr.e_machine = EM_386;
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
-	elf_file.ehdr.e_shoff = sizeof (Elf32_Ehdr);
-	elf_file.ehdr.e_ehsize = sizeof (Elf32_Ehdr);
-	elf_file.ehdr.e_phentsize = sizeof (Elf32_Phdr);
-	elf_file.ehdr.e_shentsize = sizeof (Elf32_Shdr);
+	elf_file.ehdr.e_shoff = sizeof(Elf32_Ehdr);
+	elf_file.ehdr.e_ehsize = sizeof(Elf32_Ehdr);
+	elf_file.ehdr.e_phentsize = sizeof(Elf32_Phdr);
+	elf_file.ehdr.e_shentsize = sizeof(Elf32_Shdr);
 	elf_file.ehdr.e_shnum = nshdr;
 	elf_file.ehdr.e_shstrndx = ESHDR_SHSTRTAB;
-	off = sizeof (elf_file) + nshdr * sizeof (Elf32_Shdr);
+	off = sizeof(elf_file) + nshdr * sizeof(Elf32_Shdr);
 
 	shp = &elf_file.shdr[ESHDR_SHSTRTAB];
 	shp->sh_name = NAMEOFF_SHSTRTAB;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
-	shp->sh_size = sizeof (DTRACE_SHSTRTAB32);
-	shp->sh_addralign = sizeof (char);
+	shp->sh_size = sizeof(DTRACE_SHSTRTAB32);
+	shp->sh_addralign = sizeof(char);
 	off = shp->sh_offset + shp->sh_size;
 
 	shp = &elf_file.shdr[ESHDR_STACKNOTE];
@@ -514,7 +514,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	shp->sh_type = SHT_PROGBITS;
 	shp->sh_offset = off;
 	shp->sh_size = 0;
-	shp->sh_addralign = sizeof (char);
+	shp->sh_addralign = sizeof(char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_DOF];
@@ -532,24 +532,24 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_size = de.de_strlen;
-	shp->sh_addralign = sizeof (char);
+	shp->sh_addralign = sizeof(char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 4);
 
 	shp = &elf_file.shdr[ESHDR_SYMTAB];
 	shp->sh_name = NAMEOFF_SYMTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SYMTAB;
-	shp->sh_entsize = sizeof (Elf32_Sym);
+	shp->sh_entsize = sizeof(Elf32_Sym);
 	shp->sh_link = ESHDR_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_info = de.de_global;
-	shp->sh_size = de.de_nsym * sizeof (Elf32_Sym);
+	shp->sh_size = de.de_nsym * sizeof(Elf32_Sym);
 	shp->sh_addralign = 4;
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 4);
 
 	if (de.de_nrel == 0) {
 		if (dt_write(dtp, fd, &elf_file,
-		    sizeof (elf_file)) != sizeof (elf_file) ||
+		    sizeof(elf_file)) != sizeof(elf_file) ||
 		    PWRITE_SCN(ESHDR_SHSTRTAB, DTRACE_SHSTRTAB32) ||
 		    PWRITE_SCN(ESHDR_STRTAB, de.de_strtab) ||
 		    PWRITE_SCN(ESHDR_SYMTAB, de.de_sym) ||
@@ -565,15 +565,15 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 #else
 		shp->sh_type = SHT_REL;
 #endif
-		shp->sh_entsize = sizeof (de.de_rel[0]);
+		shp->sh_entsize = sizeof(de.de_rel[0]);
 		shp->sh_link = ESHDR_SYMTAB;
 		shp->sh_info = ESHDR_DOF;
 		shp->sh_offset = off;
-		shp->sh_size = de.de_nrel * sizeof (de.de_rel[0]);
+		shp->sh_size = de.de_nrel * sizeof(de.de_rel[0]);
 		shp->sh_addralign = 4;
 
 		if (dt_write(dtp, fd, &elf_file,
-		    sizeof (elf_file)) != sizeof (elf_file) ||
+		    sizeof(elf_file)) != sizeof(elf_file) ||
 		    PWRITE_SCN(ESHDR_SHSTRTAB, DTRACE_SHSTRTAB32) ||
 		    PWRITE_SCN(ESHDR_STRTAB, de.de_strtab) ||
 		    PWRITE_SCN(ESHDR_SYMTAB, de.de_sym) ||
@@ -587,7 +587,7 @@ dump_elf32(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	free(de.de_sym);
 	free(de.de_rel);
 
-	return (ret);
+	return ret;
 }
 
 /*
@@ -611,7 +611,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 
 	de.de_sym = NULL; /* gcc -Wmaybe-uninitialized */
 	if (prepare_elf64(dtp, dof, &de) != 0)
-		return (-1); /* errno is set for us */
+		return -1; /* errno is set for us */
 
 	/*
 	 * If there are no relocations, we only need enough sections for
@@ -619,7 +619,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	 */
 	nshdr = de.de_nrel == 0 ? ESHDR_SYMTAB + 1 : ESHDR_NUM;
 
-	memset(&elf_file, 0, sizeof (elf_file));
+	memset(&elf_file, 0, sizeof(elf_file));
 
 	elf_file.ehdr.e_ident[EI_MAG0] = ELFMAG0;
 	elf_file.ehdr.e_ident[EI_MAG1] = ELFMAG1;
@@ -641,20 +641,20 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	elf_file.ehdr.e_machine = EM_AARCH64;
 #endif
 	elf_file.ehdr.e_version = EV_CURRENT;
-	elf_file.ehdr.e_shoff = sizeof (Elf64_Ehdr);
-	elf_file.ehdr.e_ehsize = sizeof (Elf64_Ehdr);
-	elf_file.ehdr.e_phentsize = sizeof (Elf64_Phdr);
-	elf_file.ehdr.e_shentsize = sizeof (Elf64_Shdr);
+	elf_file.ehdr.e_shoff = sizeof(Elf64_Ehdr);
+	elf_file.ehdr.e_ehsize = sizeof(Elf64_Ehdr);
+	elf_file.ehdr.e_phentsize = sizeof(Elf64_Phdr);
+	elf_file.ehdr.e_shentsize = sizeof(Elf64_Shdr);
 	elf_file.ehdr.e_shnum = nshdr;
 	elf_file.ehdr.e_shstrndx = ESHDR_SHSTRTAB;
-	off = sizeof (elf_file) + nshdr * sizeof (Elf64_Shdr);
+	off = sizeof(elf_file) + nshdr * sizeof(Elf64_Shdr);
 
 	shp = &elf_file.shdr[ESHDR_SHSTRTAB];
 	shp->sh_name = NAMEOFF_SHSTRTAB;
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
-	shp->sh_size = sizeof (DTRACE_SHSTRTAB64);
-	shp->sh_addralign = sizeof (char);
+	shp->sh_size = sizeof(DTRACE_SHSTRTAB64);
+	shp->sh_addralign = sizeof(char);
 	off = shp->sh_offset + shp->sh_size;
 
 	shp = &elf_file.shdr[ESHDR_STACKNOTE];
@@ -662,7 +662,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	shp->sh_type = SHT_PROGBITS;
 	shp->sh_offset = off;
 	shp->sh_size = 0;
-	shp->sh_addralign = sizeof (char);
+	shp->sh_addralign = sizeof(char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_DOF];
@@ -680,24 +680,24 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	shp->sh_type = SHT_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_size = de.de_strlen;
-	shp->sh_addralign = sizeof (char);
+	shp->sh_addralign = sizeof(char);
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	shp = &elf_file.shdr[ESHDR_SYMTAB];
 	shp->sh_name = NAMEOFF_SYMTAB;
 	shp->sh_flags = SHF_ALLOC;
 	shp->sh_type = SHT_SYMTAB;
-	shp->sh_entsize = sizeof (Elf64_Sym);
+	shp->sh_entsize = sizeof(Elf64_Sym);
 	shp->sh_link = ESHDR_STRTAB;
 	shp->sh_offset = off;
 	shp->sh_info = de.de_global;
-	shp->sh_size = de.de_nsym * sizeof (Elf64_Sym);
+	shp->sh_size = de.de_nsym * sizeof(Elf64_Sym);
 	shp->sh_addralign = 8;
 	off = P2ROUNDUP(shp->sh_offset + shp->sh_size, 8);
 
 	if (de.de_nrel == 0) {
 		if (dt_write(dtp, fd, &elf_file,
-		    sizeof (elf_file)) != sizeof (elf_file) ||
+		    sizeof(elf_file)) != sizeof(elf_file) ||
 		    PWRITE_SCN(ESHDR_SHSTRTAB, DTRACE_SHSTRTAB64) ||
 		    PWRITE_SCN(ESHDR_STRTAB, de.de_strtab) ||
 		    PWRITE_SCN(ESHDR_SYMTAB, de.de_sym) ||
@@ -709,15 +709,15 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 		shp->sh_name = NAMEOFF_REL;
 		shp->sh_flags = SHF_ALLOC;
 		shp->sh_type = SHT_RELA;
-		shp->sh_entsize = sizeof (de.de_rel[0]);
+		shp->sh_entsize = sizeof(de.de_rel[0]);
 		shp->sh_link = ESHDR_SYMTAB;
 		shp->sh_info = ESHDR_DOF;
 		shp->sh_offset = off;
-		shp->sh_size = de.de_nrel * sizeof (de.de_rel[0]);
+		shp->sh_size = de.de_nrel * sizeof(de.de_rel[0]);
 		shp->sh_addralign = 8;
 
 		if (dt_write(dtp, fd, &elf_file,
-		    sizeof (elf_file)) != sizeof (elf_file) ||
+		    sizeof(elf_file)) != sizeof(elf_file) ||
 		    PWRITE_SCN(ESHDR_SHSTRTAB, DTRACE_SHSTRTAB64) ||
 		    PWRITE_SCN(ESHDR_STRTAB, de.de_strtab) ||
 		    PWRITE_SCN(ESHDR_SYMTAB, de.de_sym) ||
@@ -731,7 +731,7 @@ dump_elf64(dtrace_hdl_t *dtp, const dof_hdr_t *dof, int fd)
 	free(de.de_sym);
 	free(de.de_rel);
 
-	return (ret);
+	return ret;
 }
 
 static int
@@ -747,7 +747,7 @@ dt_elf_symtab_lookup(Elf_Data *data_sym, int nsym, uintptr_t addr, uint_t shn,
 		    sym->st_value <= addr &&
 		    addr < sym->st_value + sym->st_size) {
 			if (GELF_ST_BIND(sym->st_info) == STB_GLOBAL)
-				return (0);
+				return 0;
 
 			ret = 0;
 			s = *sym;
@@ -756,7 +756,7 @@ dt_elf_symtab_lookup(Elf_Data *data_sym, int nsym, uintptr_t addr, uint_t shn,
 
 	if (ret == 0)
 		*sym = s;
-	return (ret);
+	return ret;
 }
 
 #if defined(__sparc)
@@ -780,8 +780,8 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 {
 	uint32_t *ip;
 
-	if ((rela->r_offset & (sizeof (uint32_t) - 1)) != 0)
-		return (-1);
+	if ((rela->r_offset & (sizeof(uint32_t) - 1)) != 0)
+		return -1;
 
 	/*LINTED*/
 	ip = (uint32_t *)(p + rela->r_offset);
@@ -794,7 +794,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (GELF_R_TYPE(rela->r_info) != R_SPARC_WDISP30 &&
 	    GELF_R_TYPE(rela->r_info) != R_SPARC_WPLT30 &&
 	    GELF_R_TYPE(rela->r_info) != R_386_NONE)
-		return (-1);
+		return -1;
 
 	/*
 	 * We may have already processed this object file in an earlier linker
@@ -803,22 +803,22 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 */
 	if (isenabled) {
 		if (ip[0] == DT_OP_NOP) {
-			(*off) += sizeof (ip[0]);
-			return (0);
+			(*off) += sizeof(ip[0]);
+			return 0;
 		}
 	} else {
 		if (DT_IS_RESTORE(ip[1])) {
 			if (ip[0] == DT_OP_RET) {
-				(*off) += sizeof (ip[0]);
-				return (0);
+				(*off) += sizeof(ip[0]);
+				return 0;
 			}
 		} else if (DT_IS_MOV_O7(ip[1])) {
 			if (DT_IS_RETL(ip[0]))
-				return (0);
+				return 0;
 		} else {
 			if (ip[0] == DT_OP_NOP) {
-				(*off) += sizeof (ip[0]);
-				return (0);
+				(*off) += sizeof(ip[0]);
+				return 0;
 			}
 		}
 	}
@@ -829,7 +829,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (ip[0] != DT_OP_CALL) {
 		dt_dprintf("found %x instead of a call instruction at %llx\n",
 		    ip[0], (u_longlong_t)rela->r_offset);
-		return (-1);
+		return -1;
 	}
 
 	if (isenabled) {
@@ -842,7 +842,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		if (DT_IS_RESTORE(ip[1]) || DT_IS_MOV_O7(ip[1])) {
 			dt_dprintf("tail call to is-enabled probe at %llx\n",
 			    (u_longlong_t)rela->r_offset);
-			return (-1);
+			return -1;
 		}
 
 
@@ -855,7 +855,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		 * return register after that instruction has been emulated.
 		 */
 		ip[0] = DT_OP_NOP;
-		(*off) += sizeof (ip[0]);
+		(*off) += sizeof(ip[0]);
 	} else {
 		/*
 		 * If the call is followed by a restore, it's a tail call so
@@ -877,16 +877,16 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		 */
 		if (DT_IS_RESTORE(ip[1])) {
 			ip[0] = DT_OP_RET;
-			(*off) += sizeof (ip[0]);
+			(*off) += sizeof(ip[0]);
 		} else if (DT_IS_MOV_O7(ip[1])) {
 			ip[0] = DT_MAKE_RETL(DT_RS2(ip[1]));
 		} else {
 			ip[0] = DT_OP_NOP;
-			(*off) += sizeof (ip[0]);
+			(*off) += sizeof(ip[0]);
 		}
 	}
 
-	return (0);
+	return 0;
 }
 
 #elif defined(__i386) || defined(__amd64)
@@ -925,7 +925,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (GELF_R_TYPE(rela->r_info) != R_386_PC32 &&
 	    GELF_R_TYPE(rela->r_info) != R_386_PLT32 &&
 	    GELF_R_TYPE(rela->r_info) != R_386_NONE)
-		return (-1);
+		return -1;
 
 	/*
 	 * We may have already processed this object file in an earlier linker
@@ -938,13 +938,13 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		if ((ip[0] == DT_OP_NOP || ip[0] == DT_OP_RET) &&
 		    ip[1] == DT_OP_NOP && ip[2] == DT_OP_NOP &&
 		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP)
-			return (0);
+			return 0;
 	} else if (dtp->dt_oflags & DTRACE_O_ILP32) {
 		if (ip[0] == DT_OP_XOR_EAX_0 && ip[1] == DT_OP_XOR_EAX_1 &&
 		    (ip[2] == DT_OP_NOP || ip[2] == DT_OP_RET) &&
 		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP) {
 			(*off) += 2;
-			return (0);
+			return 0;
 		}
 	} else {
 		if (ip[0] == DT_OP_REX_RAX &&
@@ -952,7 +952,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		    (ip[3] == DT_OP_NOP || ip[3] == DT_OP_RET) &&
 		    ip[4] == DT_OP_NOP) {
 			(*off) += 3;
-			return (0);
+			return 0;
 		}
 	}
 
@@ -963,7 +963,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (ip[0] != DT_OP_CALL && ip[0] != DT_OP_JMP32) {
 		dt_dprintf("found %x instead of a call or jmp instruction at "
 		    "%llx\n", ip[0], (u_longlong_t)rela->r_offset);
-		return (-1);
+		return -1;
 	}
 
 	ret = (ip[0] == DT_OP_JMP32) ? DT_OP_RET : DT_OP_NOP;
@@ -997,7 +997,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		(*off) += 3;
 	}
 
-	return (0);
+	return 0;
 }
 
 #elif defined(__aarch64__)
@@ -1016,8 +1016,8 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	/*
 	 * Ensure that the offset is aligned on an instruction boundary.
 	 */
-	if ((rela->r_offset & (sizeof (uint32_t) - 1)) != 0)
-		return (-1);
+	if ((rela->r_offset & (sizeof(uint32_t) - 1)) != 0)
+		return -1;
 
 	/*
 	 * We only know about some specific relocation types.
@@ -1027,7 +1027,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (GELF_R_TYPE(rela->r_info) != R_AARCH64_CALL26 &&
 	    GELF_R_TYPE(rela->r_info) != R_AARCH64_JUMP26 &&
 	    GELF_R_TYPE(rela->r_info) != R_AARCH64_NONE)
-		return (-1);
+		return -1;
 
 	ip = (uint32_t *)(p + rela->r_offset);
 
@@ -1037,7 +1037,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 * the one we would install below.
 	 */
 	if (ip[0] == DT_OP_NOP || ip[0] == DT_OP_RET)
-		return (0);
+		return 0;
 
 	/*
 	 * We only expect call instructions with a displacement of 0, or a jump
@@ -1046,7 +1046,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	if (ip[0] != DT_OP_CALL26 && ip[0] != DT_OP_JUMP26) {
 		dt_dprintf("found %x instead of a call or jmp instruction at "
 		    "%llx\n", ip[0], (u_longlong_t)rela->r_offset);
-		return (-1);
+		return -1;
 	}
 
 	/*
@@ -1061,7 +1061,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	else
 		ip[0] = DT_OP_RET;
 
-	return (0);
+	return 0;
 }
 #else
 #error unknown ISA
@@ -1081,10 +1081,10 @@ dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_pair_t *bufs,
 	va_end(ap);
 
 	if (elf != NULL)
-		(void) elf_end(elf);
+		elf_end(elf);
 
 	if (fd >= 0)
-		(void) close(fd);
+		close(fd);
 
 	while ((pair = bufs) != NULL) {
 		bufs = pair->dlp_next;
@@ -1093,7 +1093,7 @@ dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_pair_t *bufs,
 		dt_free(dtp, pair);
 	}
 
-	return (dt_set_errno(dtp, EDT_COMPILER));
+	return dt_set_errno(dtp, EDT_COMPILER);
 }
 
 static int
@@ -1122,30 +1122,30 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	dt_strtab_t *strtab;
 
 	if ((fd = open64(obj, O_RDWR)) == -1) {
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "failed to open %s: %s", obj, strerror(errno)));
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "failed to open %s: %s", obj, strerror(errno));
 	}
 
 	if ((elf = elf_begin(fd, ELF_C_RDWR_MMAP, NULL)) == NULL) {
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "failed to process %s: %s", obj, elf_errmsg(elf_errno())));
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "failed to process %s: %s", obj, elf_errmsg(elf_errno()));
 	}
 
 	switch (elf_kind(elf)) {
 	case ELF_K_ELF:
 		break;
 	case ELF_K_AR:
-		return (dt_link_error(dtp, elf, fd, bufs, "archives are not "
+		return dt_link_error(dtp, elf, fd, bufs, "archives are not "
 		    "permitted; use the contents of the archive instead: %s",
-		    obj));
+		    obj);
 	default:
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "invalid file type: %s", obj));
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "invalid file type: %s", obj);
 	}
 
 	if (gelf_getehdr(elf, &ehdr) == NULL) {
-		return (dt_link_error(dtp, elf, fd, bufs, "corrupt file: %s",
-		    obj));
+		return dt_link_error(dtp, elf, fd, bufs, "corrupt file: %s",
+		    obj);
 	}
 
 	if (dtp->dt_oflags & DTRACE_O_ILP32) {
@@ -1156,7 +1156,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 #elif defined(__i386) || defined(__amd64)
 		emachine1 = emachine2 = EM_386;
 #endif
-		symsize = sizeof (Elf32_Sym);
+		symsize = sizeof(Elf32_Sym);
 	} else {
 		eclass = ELFCLASS64;
 #if defined(__sparc)
@@ -1166,28 +1166,25 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 #elif defined(__aarch64__)
 		emachine1 = emachine2 = EM_AARCH64;
 #endif
-		symsize = sizeof (Elf64_Sym);
+		symsize = sizeof(Elf64_Sym);
 	}
 
-	if (ehdr.e_ident[EI_CLASS] != eclass) {
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "incorrect ELF class for object file: %s", obj));
-	}
+	if (ehdr.e_ident[EI_CLASS] != eclass)
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "incorrect ELF class for object file: %s", obj);
 
-	if (ehdr.e_machine != emachine1 && ehdr.e_machine != emachine2) {
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "incorrect ELF machine type for object file: %s", obj));
-	}
+	if (ehdr.e_machine != emachine1 && ehdr.e_machine != emachine2)
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "incorrect ELF machine type for object file: %s", obj);
 
 	/*
 	 * We use this token as a relatively unique handle for this file on the
 	 * system in order to disambiguate potential conflicts between files of
 	 * the same name which contain identially named local symbols.
 	 */
-	if ((objkey = ftok(obj, 0)) == (key_t)-1) {
-		return (dt_link_error(dtp, elf, fd, bufs,
-		    "failed to generate unique key for object file: %s", obj));
-	}
+	if ((objkey = ftok(obj, 0)) == (key_t)-1)
+		return dt_link_error(dtp, elf, fd, bufs,
+		    "failed to generate unique key for object file: %s", obj);
 
 	scn_rel = NULL;
 	while ((scn_rel = elf_nextscn(elf, scn_rel)) != NULL) {
@@ -1285,7 +1282,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			s = (char *)data_str->d_buf + rsym.st_name;
 
-			if (strncmp(s, dt_prefix, sizeof (dt_prefix) - 1) != 0)
+			if (strncmp(s, dt_prefix, sizeof(dt_prefix) - 1) != 0)
 				continue;
 
 			if (dt_elf_symtab_lookup(data_sym, isym, rela.r_offset,
@@ -1310,8 +1307,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 */
 			if (GELF_ST_TYPE(fsym.st_info) != STT_FUNC) {
 				dt_strtab_destroy(strtab);
-				return (dt_link_error(dtp, elf, fd, bufs,
-				    "expected %s to be of type function", s));
+				return dt_link_error(dtp, elf, fd, bufs,
+				    "expected %s to be of type function", s);
 			}
 
 			len = snprintf(NULL, 0, dt_symfmt, dt_symprefix,
@@ -1320,12 +1317,11 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				dt_strtab_destroy(strtab);
 				goto err;
 			}
-			(void) snprintf(p, len, dt_symfmt, dt_symprefix,
-			    objkey, s);
+			snprintf(p, len, dt_symfmt, dt_symprefix, objkey, s);
 
 			if (dt_strtab_index(strtab, p) == -1) {
 				nsym++;
-				(void) dt_strtab_insert(strtab, p);
+				dt_strtab_insert(strtab, p);
 			}
 
 			dt_free(dtp, p);
@@ -1351,7 +1347,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			dt_strtab_destroy(strtab);
 
-			if ((pair = dt_alloc(dtp, sizeof (*pair))) == NULL)
+			if ((pair = dt_alloc(dtp, sizeof(*pair))) == NULL)
 				goto err;
 
 			if ((pair->dlp_str = dt_alloc(dtp, data_str->d_size +
@@ -1374,19 +1370,19 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			    data_str->d_size);
 			data_str->d_buf = pair->dlp_str;
 			data_str->d_size += len;
-			(void) elf_flagdata(data_str, ELF_C_SET, ELF_F_DIRTY);
+			elf_flagdata(data_str, ELF_C_SET, ELF_F_DIRTY);
 
 			shdr_str.sh_size += len;
-			(void) gelf_update_shdr(scn_str, &shdr_str);
+			gelf_update_shdr(scn_str, &shdr_str);
 
 			memcpy(pair->dlp_sym, data_sym->d_buf,
 			    data_sym->d_size);
 			data_sym->d_buf = pair->dlp_sym;
 			data_sym->d_size += nsym * symsize;
-			(void) elf_flagdata(data_sym, ELF_C_SET, ELF_F_DIRTY);
+			elf_flagdata(data_sym, ELF_C_SET, ELF_F_DIRTY);
 
 			shdr_sym.sh_size += nsym * symsize;
-			(void) gelf_update_shdr(scn_sym, &shdr_sym);
+			gelf_update_shdr(scn_sym, &shdr_sym);
 
 			nsym += isym;
 		} else {
@@ -1419,18 +1415,18 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			s = (char *)data_str->d_buf + rsym.st_name;
 
-			if (strncmp(s, dt_prefix, sizeof (dt_prefix) - 1) != 0)
+			if (strncmp(s, dt_prefix, sizeof(dt_prefix) - 1) != 0)
 				continue;
 
-			s += sizeof (dt_prefix) - 1;
+			s += sizeof(dt_prefix) - 1;
 
 			/*
 			 * Check to see if this is an 'is-enabled' check as
 			 * opposed to a normal probe.
 			 */
 			if (strncmp(s, dt_enabled,
-			    sizeof (dt_enabled) - 1) == 0) {
-				s += sizeof (dt_enabled) - 1;
+			    sizeof(dt_enabled) - 1) == 0) {
+				s += sizeof(dt_enabled) - 1;
 				eprobe = 1;
 				*eprobesp = 1;
 				dt_dprintf("is-enabled probe\n");
@@ -1443,7 +1439,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				goto err;
 
 			if ((p = strstr(s, "___")) == NULL ||
-			    p - s >= sizeof (pname))
+			    p - s >= sizeof(pname))
 				goto err;
 
 			memcpy(pname, s, p - s);
@@ -1479,7 +1475,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				    STT_FUNC);
 				dsym.st_other =
 				    ELF64_ST_VISIBILITY(STV_ELIMINATE);
-				(void) gelf_update_sym(data_sym, isym, &dsym);
+				gelf_update_sym(data_sym, isym, &dsym);
 
 				r = (char *)data_str->d_buf + istr;
 				istr += 1 + sprintf(r, dt_symfmt,
@@ -1495,15 +1491,13 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				s++;
 			}
 
-			if ((pvp = dt_provider_lookup(dtp, pname)) == NULL) {
-				return (dt_link_error(dtp, elf, fd, bufs,
-				    "no such provider %s", pname));
-			}
+			if ((pvp = dt_provider_lookup(dtp, pname)) == NULL)
+				return dt_link_error(dtp, elf, fd, bufs,
+				    "no such provider %s", pname);
 
-			if ((prp = dt_probe_lookup2(pvp, p)) == NULL) {
-				return (dt_link_error(dtp, elf, fd, bufs,
-				    "no such probe %s", p));
-			}
+			if ((prp = dt_probe_lookup2(pvp, p)) == NULL)
+				return dt_link_error(dtp, elf, fd, bufs,
+				    "no such probe %s", p);
 
 			assert(fsym.st_value <= rela.r_offset);
 
@@ -1513,13 +1507,12 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				goto err;
 			}
 
-			if (dt_probe_define(pvp, prp, s, r, off, eprobe) != 0) {
-				return (dt_link_error(dtp, elf, fd, bufs,
-				    "failed to allocate space for probe"));
-			}
+			if (dt_probe_define(pvp, prp, s, r, off, eprobe) != 0)
+				return dt_link_error(dtp, elf, fd, bufs,
+				    "failed to allocate space for probe");
 
 			mod = 1;
-			(void) elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
+			elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
 
 			/*
 			 * This symbol may already have been marked to
@@ -1530,7 +1523,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 */
 			if (rsym.st_shndx != SHN_SUNW_IGNORE) {
 				rsym.st_shndx = SHN_SUNW_IGNORE;
-				(void) gelf_update_sym(data_sym, ndx, &rsym);
+				gelf_update_sym(data_sym, ndx, &rsym);
 			}
 
 			/*
@@ -1542,13 +1535,13 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 */
 			if (shdr_rel.sh_type == SHT_RELA) {
 				rela.r_info = GELF_R_INFO(ndx, 0);
-				(void) gelf_update_rela(data_rel, i, &rela);
+				gelf_update_rela(data_rel, i, &rela);
 			} else {
 				GElf_Rel rel;
 
 				rel.r_offset = rela.r_offset;
 				rel.r_info = GELF_R_INFO(ndx, 0);
-				(void) gelf_update_rel(data_rel, i, &rel);
+				gelf_update_rel(data_rel, i, &rel);
 			}
 		}
 	}
@@ -1556,8 +1549,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	if (mod && elf_update(elf, ELF_C_WRITE) == -1)
 		goto err;
 
-	(void) elf_end(elf);
-	(void) close(fd);
+	elf_end(elf);
+	close(fd);
 
 	while ((pair = bufs) != NULL) {
 		bufs = pair->dlp_next;
@@ -1566,11 +1559,11 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		dt_free(dtp, pair);
 	}
 
-	return (0);
+	return 0;
 
 err:
-	return (dt_link_error(dtp, elf, fd, bufs,
-	    "an error was encountered while processing %s", obj));
+	return dt_link_error(dtp, elf, fd, bufs,
+	    "an error was encountered while processing %s", obj);
 }
 
 int
@@ -1603,36 +1596,31 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		for (i = 0; i < objc; i++)
 			cur += snprintf(cmd + cur, len - cur, " %s", objv[i]);
 
-		if ((status = system(cmd)) == -1) {
-			return (dt_link_error(dtp, NULL, -1, NULL,
+		if ((status = system(cmd)) == -1)
+			return dt_link_error(dtp, NULL, -1, NULL,
 			    "failed to run %s: %s", dtp->dt_ld_path,
-			    strerror(errno)));
-		}
+			    strerror(errno));
 
-		if (WIFSIGNALED(status)) {
-			return (dt_link_error(dtp, NULL, -1, NULL,
+		if (WIFSIGNALED(status))
+			return dt_link_error(dtp, NULL, -1, NULL,
 			    "failed to link %s: %s failed due to signal %d",
-			    file, dtp->dt_ld_path, WTERMSIG(status)));
-		}
+			    file, dtp->dt_ld_path, WTERMSIG(status));
 
-		if (WEXITSTATUS(status) != 0) {
-			return (dt_link_error(dtp, NULL, -1, NULL,
+		if (WEXITSTATUS(status) != 0)
+			return dt_link_error(dtp, NULL, -1, NULL,
 			    "failed to link %s: %s exited with status %d\n",
-			    file, dtp->dt_ld_path, WEXITSTATUS(status)));
-		}
+			    file, dtp->dt_ld_path, WEXITSTATUS(status));
 
-		for (i = 0; i < objc; i++) {
+		for (i = 0; i < objc; i++)
 			if (strcmp(objv[i], file) != 0)
-				(void) unlink(objv[i]);
-		}
+				unlink(objv[i]);
 
-		return (0);
+		return 0;
 	}
 
-	for (i = 0; i < objc; i++) {
+	for (i = 0; i < objc; i++)
 		if (process_obj(dtp, objv[i], &eprobes) != 0)
-			return (-1); /* errno is set for us */
-	}
+			return -1; /* errno is set for us */
 
 	/*
 	 * If there are is-enabled probes then we need to force use of DOF
@@ -1642,17 +1630,16 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		pgp->dp_dofversion = DOF_VERSION_2;
 
 	if ((dof = dtrace_dof_create(dtp, pgp, dflags)) == NULL)
-		return (-1); /* errno is set for us */
+		return -1; /* errno is set for us */
 
 	/*
 	 * Create a temporary file and then unlink it if we're going to
 	 * link later.  We can still refer to it in child processes as
 	 * /dev/fd/<fd>.
 	 */
-	if ((fd = open64(file, O_RDWR | O_CREAT | O_TRUNC, 0666)) == -1) {
-		return (dt_link_error(dtp, NULL, -1, NULL,
-		    "failed to open %s: %s", file, strerror(errno)));
-	}
+	if ((fd = open64(file, O_RDWR | O_CREAT | O_TRUNC, 0666)) == -1)
+		return dt_link_error(dtp, NULL, -1, NULL,
+		    "failed to open %s: %s", file, strerror(errno));
 
 	/*
 	 * If -xlinktype=DOF has been selected, just write out the DOF.
@@ -1666,34 +1653,32 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		if (close(fd) != 0 && ret == 0)
 			ret = errno;
 
-		if (ret != 0) {
-			return (dt_link_error(dtp, NULL, -1, NULL,
-			    "failed to write %s: %s", file, strerror(ret)));
-		}
+		if (ret != 0)
+			return dt_link_error(dtp, NULL, -1, NULL,
+			    "failed to write %s: %s", file, strerror(ret));
 
-		return (0);
+		return 0;
 
 	case DT_LTYP_ELF:
 		break; /* fall through to the rest of dtrace_program_link() */
 
 	default:
-		return (dt_link_error(dtp, NULL, -1, NULL,
-		    "invalid link type %u\n", dtp->dt_linktype));
+		return dt_link_error(dtp, NULL, -1, NULL,
+		    "invalid link type %u\n", dtp->dt_linktype);
 	}
 
 
 	if (!dtp->dt_lazyload)
-		(void) unlink(file);
+		unlink(file);
 
 	if (dtp->dt_oflags & DTRACE_O_ILP32)
 		status = dump_elf32(dtp, dof, fd);
 	else
 		status = dump_elf64(dtp, dof, fd);
 
-	if (status != 0 || lseek(fd, 0, SEEK_SET) != 0) {
-		return (dt_link_error(dtp, NULL, -1, NULL,
-		    "failed to write %s: %s", file, strerror(errno)));
-	}
+	if (status != 0 || lseek(fd, 0, SEEK_SET) != 0)
+		return dt_link_error(dtp, NULL, -1, NULL,
+		    "failed to write %s: %s", file, strerror(errno));
 
 	if (!dtp->dt_lazyload) {
 		const char *fmt = "%s%s -o %s -r /dev/fd/%d";
@@ -1710,9 +1695,8 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 #elif defined(__i386) || defined(__amd64)
 			emu = " -m elf_i386";
 #endif
-		} else {
+		} else
 			emu = "";
-		}
 
 		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file, fd) +
 		      1;
@@ -1727,7 +1711,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 			goto done;
 		}
 
-		(void) close(fd);
+		close(fd);
 
 		if (WIFSIGNALED(status)) {
 			ret = dt_link_error(dtp, NULL, -1, NULL,
@@ -1742,11 +1726,10 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 			    file, dtp->dt_ld_path, WEXITSTATUS(status));
 			goto done;
 		}
-	} else {
-		(void) close(fd); /* release temporary file */
-	}
+	} else
+		close(fd); /* release temporary file */
 
 done:
 	dtrace_dof_destroy(dtp, dof);
-	return (ret);
+	return ret;
 }

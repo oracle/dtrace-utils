@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,7 +9,7 @@
 
 BEGIN
 {
-	this->buf_eth = (uint64_t *)alloca(sizeof (uint64_t));
+	this->buf_eth = (uint64_t *)alloca(sizeof(uint64_t));
 
 	/* Ethernet MAC address 00:01:02:03:04:05 */
 	*(this->buf_eth) = htonll(0x000102030405 << 16);

@@ -29,8 +29,8 @@ struct output_struct {
 
 translator struct output_struct < struct input_struct ivar >
 {
-	oi = ((struct input_struct) ivar).ii;
-	oc = ((struct input_struct) ivar).ic;
+	oi = ((struct input_struct)ivar).ii;
+	oc = ((struct input_struct)ivar).ic;
 };
 
 struct output_struct out;

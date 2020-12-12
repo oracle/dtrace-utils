@@ -97,14 +97,14 @@ main(int argc, char **argv)
 
 	if ((live = dlopen("./livelib.so", RTLD_LAZY | RTLD_LOCAL)) == NULL) {
 		printf("dlopen of livelib.so failed: %s\n", dlerror());
-		return (1);
+		return 1;
 	}
 
-	(void) dlclose(live);
+	dlclose(live);
 
 	pause();
 
-	return (0);
+	return 0;
 }
 EOF
 

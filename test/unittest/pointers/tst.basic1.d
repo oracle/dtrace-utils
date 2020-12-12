@@ -21,7 +21,7 @@ BEGIN
 {
 	pfnAddress = &`max_pfn;
 	pfnValue = *pfnAddress;
-	printf("Address of max_pfn: %x\n", (int) pfnAddress);
+	printf("Address of max_pfn: %x\n", (int)pfnAddress);
 	printf("Value of max_pfn: %d\n", pfnValue);
 	exit(0);
 }

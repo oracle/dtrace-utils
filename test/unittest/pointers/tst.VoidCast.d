@@ -26,7 +26,7 @@ BEGIN
 	array[2] = 434;
 
 	p = &array[0];
-	newp = (int *) p;
+	newp = (int *)p;
 
 	printf("array[0]: %d, newp: %d\n", array[0], *newp);
 	exit(0);

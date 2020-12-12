@@ -30,10 +30,10 @@ dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dt_aggregate_t *agp = &dtp->dt_aggregate;
 
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	agp->dtat_flags |= option;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -44,10 +44,10 @@ dt_opt_amin(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dtrace_attribute_t attr;
 
 	if (arg == NULL || dtrace_str2attr(arg, &attr) == -1)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dt_dprintf("set compiler attribute minimum to %s\n",
-	    dtrace_attr2str(attr, str, sizeof (str)));
+	    dtrace_attr2str(attr, str, sizeof(str)));
 
 	if (dtp->dt_pcb != NULL) {
 		dtp->dt_pcb->pcb_cflags |= DTRACE_C_EATTR;
@@ -57,7 +57,7 @@ dt_opt_amin(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		dtp->dt_amin = attr;
 	}
 
-	return (0);
+	return 0;
 }
 
 static void
@@ -68,18 +68,18 @@ dt_coredump(void)
 	struct sigaction act;
 	struct rlimit lim;
 
-	(void) write(STDERR_FILENO, msg, sizeof (msg) - 1);
+	write(STDERR_FILENO, msg, sizeof(msg) - 1);
 
 	act.sa_handler = SIG_DFL;
 	act.sa_flags = 0;
 
-	(void) sigemptyset(&act.sa_mask);
-	(void) sigaction(SIGABRT, &act, NULL);
+	sigemptyset(&act.sa_mask);
+	sigaction(SIGABRT, &act, NULL);
 
 	lim.rlim_cur = RLIM_INFINITY;
 	lim.rlim_max = RLIM_INFINITY;
 
-	(void) setrlimit(RLIMIT_CORE, &lim);
+	setrlimit(RLIMIT_CORE, &lim);
 	abort();
 }
 
@@ -90,12 +90,12 @@ dt_opt_core(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	static int enabled = 0;
 
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (enabled++ || atexit(dt_coredump) == 0)
-		return (0);
+		return 0;
 
-	return (dt_set_errno(dtp, errno));
+	return dt_set_errno(dtp, errno);
 }
 
 static int
@@ -107,24 +107,24 @@ dt_opt_cpp_args(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *save = NULL;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((splitarg = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	for (p = strtok_r(splitarg, ws, &save); p != NULL;
 	     p = strtok_r(NULL, ws, &save))
 		if (dt_cpp_add_arg(dtp, p) == NULL) {
 			free(splitarg);
-			return (dt_set_errno(dtp, EDT_NOMEM));
+			return dt_set_errno(dtp, EDT_NOMEM);
 		}
 
 	free(splitarg);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -132,15 +132,15 @@ static int
 dt_opt_cpp_hdrs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if (dt_cpp_add_arg(dtp, "-H") == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -150,19 +150,19 @@ dt_opt_cpp_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *cpp;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((cpp = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	dtp->dt_cpp_argv[0] = (char *)strbasename(cpp);
 	free(dtp->dt_cpp_path);
 	dtp->dt_cpp_path = cpp;
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -173,21 +173,21 @@ dt_opt_cpp_opts(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	const char *opt = (const char *)option;
 
 	if (opt == NULL || arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	len = strlen(opt) + strlen(arg) + 1;
 	buf = alloca(len);
 
-	(void) strcpy(buf, opt);
-	(void) strcat(buf, arg);
+	strcpy(buf, opt);
+	strcat(buf, arg);
 
 	if (dt_cpp_add_arg(dtp, buf) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -197,14 +197,14 @@ dt_opt_ctypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int fd;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	(void) close(dtp->dt_cdefs_fd);
+	close(dtp->dt_cdefs_fd);
 	dtp->dt_cdefs_fd = fd;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -212,7 +212,7 @@ static int
 dt_opt_droptags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	dtp->dt_droptags = 1;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -222,14 +222,14 @@ dt_opt_dtypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int fd;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	(void) close(dtp->dt_ddefs_fd);
+	close(dtp->dt_ddefs_fd);
 	dtp->dt_ddefs_fd = fd;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -237,10 +237,10 @@ static int
 dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	_dtrace_debug = 1;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -248,14 +248,14 @@ static int
 dt_opt_debug_assert(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (strcmp(arg, "mutexes") == 0)
 		_dtrace_debug_assert |= DT_DEBUG_MUTEXES;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -265,10 +265,10 @@ dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) <= 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_conf.dtc_difintregs = n;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -277,7 +277,7 @@ dt_opt_lazyload(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	dtp->dt_lazyload = 1;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -287,18 +287,18 @@ dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *ld;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((ld = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	free(dtp->dt_ld_path);
 	dtp->dt_ld_path = ld;
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -307,18 +307,18 @@ dt_opt_ctfa_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *ctfa;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((ctfa = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	free(dtp->dt_ctfa_path);
 	dtp->dt_ctfa_path = ctfa;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -328,16 +328,16 @@ dt_opt_libdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dt_dirpath_t *dp;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	if ((dp = malloc(sizeof (dt_dirpath_t))) == NULL ||
+	if ((dp = malloc(sizeof(dt_dirpath_t))) == NULL ||
 	    (dp->dir_path = strdup(arg)) == NULL) {
 		free(dp);
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
 	dt_list_append(&dtp->dt_lib_path, dp);
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -345,7 +345,7 @@ static int
 dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (strcmp(arg, "kernel") == 0)
 		dtp->dt_linkmode = DT_LINK_KERNEL;
@@ -354,9 +354,9 @@ dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	else if (strcmp(arg, "static") == 0)
 		dtp->dt_linkmode = DT_LINK_STATIC;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -364,16 +364,16 @@ static int
 dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (strcasecmp(arg, "elf") == 0)
 		dtp->dt_linktype = DT_LTYP_ELF;
 	else if (strcasecmp(arg, "dof") == 0)
 		dtp->dt_linktype = DT_LTYP_DOF;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -383,18 +383,18 @@ dt_opt_module_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *proc;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((proc = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	free(dtp->dt_module_path);
 	dtp->dt_module_path = proc;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -415,7 +415,7 @@ static int
 dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (strcmp(arg, "exec") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_CREATE;
@@ -426,9 +426,9 @@ dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	else if (strcmp(arg, "main") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_MAIN;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -438,10 +438,10 @@ dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) < 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_procs->dph_lrulim = n;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -451,17 +451,17 @@ dt_opt_procfs_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *proc;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if ((proc = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	Pset_procfs_path(proc);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -469,10 +469,10 @@ static int
 dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
 
 	if (strcmp(arg, "a") == 0)
 		dtp->dt_stdcmode = DT_STDC_XA;
@@ -483,9 +483,9 @@ dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	else if (strcmp(arg, "s") == 0)
 		dtp->dt_stdcmode = DT_STDC_XS;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -496,15 +496,15 @@ dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *path;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if ((path = strdup(arg)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	free(dp->dir_path);
 	dp->dir_path = path;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -514,19 +514,19 @@ dt_opt_sysslice(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	char *slice;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	/*
 	 * This string needs decorating suitably for grepping out of
 	 * /proc/$pid/cgroups.
 	 */
 	if (asprintf(&slice, ":/%s/", arg) < 0)
-		return (dt_set_errno(dtp, EDT_NOMEM));
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	free(dtp->dt_sysslice);
 	dtp->dt_sysslice = slice;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -536,10 +536,10 @@ dt_opt_tree(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int m;
 
 	if (arg == NULL || (m = atoi(arg)) <= 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_treedump = m;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -549,10 +549,10 @@ dt_opt_tregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) <= 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_conf.dtc_diftupregs = n;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -562,10 +562,10 @@ dt_opt_useruid(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	uid_t n;
 
 	if (arg == NULL || (n = atoi(arg)) < 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_useruid = n;
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -573,16 +573,16 @@ static int
 dt_opt_xlate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (strcmp(arg, "dynamic") == 0)
 		dtp->dt_xlatemode = DT_XL_DYNAMIC;
 	else if (strcmp(arg, "static") == 0)
 		dtp->dt_xlatemode = DT_XL_STATIC;
 	else
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -590,38 +590,38 @@ static int
 dt_opt_cflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
 		dtp->dt_pcb->pcb_cflags |= option;
 	else
 		dtp->dt_cflags |= option;
 
-	return (0);
+	return 0;
 }
 
 static int
 dt_opt_dflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_dflags |= option;
-	return (0);
+	return 0;
 }
 
 static int
 dt_opt_invcflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg != NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dtp->dt_pcb != NULL)
 		dtp->dt_pcb->pcb_cflags &= ~option;
 	else
 		dtp->dt_cflags &= ~option;
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -631,15 +631,15 @@ dt_opt_version(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dt_version_t v;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (dt_version_str2num(arg, &v) == -1)
-		return (dt_set_errno(dtp, EDT_VERSINVAL));
+		return dt_set_errno(dtp, EDT_VERSINVAL);
 
 	if (!dt_version_defined(v))
-		return (dt_set_errno(dtp, EDT_VERSUNDEF));
+		return dt_set_errno(dtp, EDT_VERSUNDEF);
 
-	return (dt_reduce(dtp, v));
+	return dt_reduce(dtp, v);
 }
 
 static int
@@ -687,12 +687,12 @@ dt_opt_runtime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		val = strtoull(arg, &end, 0);
 
 		if (*end != '\0' || errno != 0 || val < 0 || negtest < 0)
-			return (dt_set_errno(dtp, EDT_BADOPTVAL));
+			return dt_set_errno(dtp, EDT_BADOPTVAL);
 	}
 
 out:
 	dtp->dt_options[option] = val;
-	return (0);
+	return 0;
 }
 
 static int
@@ -733,9 +733,9 @@ dt_optval_parse(const char *arg, dtrace_optval_t *rval)
 
 	if ((mul > 1 && end != &arg[len - 1]) || (mul == 1 && *end != '\0') ||
 	    *rval < 0 || negtest < 0 || errno != 0)
-		return (-1);
+		return -1;
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -744,10 +744,10 @@ dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dtrace_optval_t val = 0;
 
 	if (arg != NULL && dt_optval_parse(arg, &val) != 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_options[option] = val;
-	return (0);
+	return 0;
 }
 
 static int
@@ -758,7 +758,7 @@ dt_opt_pcapsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	if (arg != NULL) {
 		if ((rval = dt_opt_size(dtp, arg, option)) != 0)
-			return (rval);
+			return rval;
 
 		val = dtp->dt_options[option];
 
@@ -767,7 +767,7 @@ dt_opt_pcapsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	}
 	dtp->dt_options[option] = P2ROUNDUP(val, 8);
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -815,7 +815,7 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 		if ((suffix[i].name == NULL && *end != '\0') || val < 0 ||
 			negtest < 0)
-			return (dt_set_errno(dtp, EDT_BADOPTVAL));
+			return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 		if (mul == 0) {
 			/*
@@ -829,7 +829,7 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	}
 
 	dtp->dt_options[option] = val;
-	return (0);
+	return 0;
 }
 
 /*
@@ -847,17 +847,17 @@ dt_opt_strsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	ctf_arinfo_t r;
 
 	if (dt_opt_size(dtp, arg, option) != 0)
-		return (-1); /* dt_errno is set for us */
+		return -1; /* dt_errno is set for us */
 
 	if (dtp->dt_options[option] > UINT_MAX) {
 		dtp->dt_options[option] = val;
-		return (dt_set_errno(dtp, EOVERFLOW));
+		return dt_set_errno(dtp, EOVERFLOW);
 	}
 
 	if (ctf_array_info(fp, type, &r) == CTF_ERR) {
 		dtp->dt_options[option] = val;
 		dtp->dt_ctferr = ctf_errno(fp);
-		return (dt_set_errno(dtp, EDT_CTF));
+		return dt_set_errno(dtp, EDT_CTF);
 	}
 
 	r.ctr_nelems = (uint_t)dtp->dt_options[option];
@@ -866,10 +866,10 @@ dt_opt_strsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	    ctf_update(fp) == CTF_ERR) {
 		dtp->dt_options[option] = val;
 		dtp->dt_ctferr = ctf_errno(fp);
-		return (dt_set_errno(dtp, EDT_CTF));
+		return dt_set_errno(dtp, EDT_CTF);
 	}
 
-	return (0);
+	return 0;
 }
 
 static const struct {
@@ -890,7 +890,7 @@ dt_opt_bufpolicy(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int i;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	for (i = 0; _dtrace_bufpolicies[i].dtbp_name != NULL; i++) {
 		if (strcmp(_dtrace_bufpolicies[i].dtbp_name, arg) == 0) {
@@ -900,11 +900,11 @@ dt_opt_bufpolicy(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	}
 
 	if (policy == DTRACEOPT_UNSET)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_options[DTRACEOPT_BUFPOLICY] = policy;
 
-	return (0);
+	return 0;
 }
 
 static const struct {
@@ -924,7 +924,7 @@ dt_opt_bufresize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	int i;
 
 	if (arg == NULL)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	for (i = 0; _dtrace_bufresize[i].dtbr_name != NULL; i++) {
 		if (strcmp(_dtrace_bufresize[i].dtbr_name, arg) == 0) {
@@ -934,11 +934,11 @@ dt_opt_bufresize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	}
 
 	if (policy == DTRACEOPT_UNSET)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	dtp->dt_options[DTRACEOPT_BUFRESIZE] = policy;
 
-	return (0);
+	return 0;
 }
 
 int
@@ -954,24 +954,24 @@ dt_options_load(dtrace_hdl_t *dtp)
 	 * To load the option values, we need to ask the kernel to provide its
 	 * DOF, which we'll sift through to look for OPTDESC sections.
 	 */
-	memset(&hdr, 0, sizeof (dof_hdr_t));
-	hdr.dofh_loadsz = sizeof (dof_hdr_t);
+	memset(&hdr, 0, sizeof(dof_hdr_t));
+	hdr.dofh_loadsz = sizeof(dof_hdr_t);
 
 	if (dt_ioctl(dtp, DTRACEIOC_DOFGET, &hdr) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
-	if (hdr.dofh_loadsz < sizeof (dof_hdr_t))
-		return (dt_set_errno(dtp, EINVAL));
+	if (hdr.dofh_loadsz < sizeof(dof_hdr_t))
+		return dt_set_errno(dtp, EINVAL);
 
 	dof = alloca(hdr.dofh_loadsz);
-	memset(dof, 0, sizeof (dof_hdr_t));
+	memset(dof, 0, sizeof(dof_hdr_t));
 	dof->dofh_loadsz = hdr.dofh_loadsz;
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
 		dtp->dt_options[i] = DTRACEOPT_UNSET;
 
 	if (dt_ioctl(dtp, DTRACEIOC_DOFGET, dof) == -1)
-		return (dt_set_errno(dtp, errno));
+		return dt_set_errno(dtp, errno);
 
 	/* FIXME: can we get a zero-section DOF back? */
 
@@ -999,7 +999,7 @@ dt_options_load(dtrace_hdl_t *dtp)
 	}
 #endif
 
-	return (0);
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -1010,7 +1010,7 @@ dt_opt_preallocate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	void *p;
 
 	if (arg == NULL || dt_optval_parse(arg, &size) != 0)
-		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
 	if (size > SIZE_MAX)
 		size = SIZE_MAX;
@@ -1023,7 +1023,7 @@ dt_opt_preallocate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	dt_free(dtp, p);
 
-	return (0);
+	return 0;
 }
 
 typedef struct dt_option {
@@ -1138,7 +1138,7 @@ dtrace_getopt(dtrace_hdl_t *dtp, const char *opt, dtrace_optval_t *val)
 	const dt_option_t *op;
 
 	if (opt == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	/*
 	 * We only need to search the run-time options -- it's not legal
@@ -1147,18 +1147,18 @@ dtrace_getopt(dtrace_hdl_t *dtp, const char *opt, dtrace_optval_t *val)
 	for (op = _dtrace_rtoptions; op->o_name != NULL; op++) {
 		if (strcmp(op->o_name, opt) == 0) {
 			*val = dtp->dt_options[op->o_option];
-			return (0);
+			return 0;
 		}
 	}
 
 	for (op = _dtrace_drtoptions; op->o_name != NULL; op++) {
 		if (strcmp(op->o_name, opt) == 0) {
 			*val = dtp->dt_options[op->o_option];
-			return (0);
+			return 0;
 		}
 	}
 
-	return (dt_set_errno(dtp, EDT_BADOPTNAME));
+	return dt_set_errno(dtp, EDT_BADOPTNAME);
 }
 
 int
@@ -1167,16 +1167,16 @@ dtrace_setopt(dtrace_hdl_t *dtp, const char *opt, const char *val)
 	const dt_option_t *op;
 
 	if (opt == NULL)
-		return (dt_set_errno(dtp, EINVAL));
+		return dt_set_errno(dtp, EINVAL);
 
 	for (op = _dtrace_ctoptions; op->o_name != NULL; op++) {
 		if (strcmp(op->o_name, opt) == 0)
-			return (op->o_func(dtp, val, op->o_option));
+			return op->o_func(dtp, val, op->o_option);
 	}
 
 	for (op = _dtrace_drtoptions; op->o_name != NULL; op++) {
 		if (strcmp(op->o_name, opt) == 0)
-			return (op->o_func(dtp, val, op->o_option));
+			return op->o_func(dtp, val, op->o_option);
 	}
 
 	for (op = _dtrace_rtoptions; op->o_name != NULL; op++) {
@@ -1186,13 +1186,13 @@ dtrace_setopt(dtrace_hdl_t *dtp, const char *opt, const char *val)
 			 * tracing is active.
 			 */
 			if (dtp->dt_active)
-				return (dt_set_errno(dtp, EDT_ACTIVE));
+				return dt_set_errno(dtp, EDT_ACTIVE);
 
-			return (op->o_func(dtp, val, op->o_option));
+			return op->o_func(dtp, val, op->o_option);
 		}
 	}
 
-	return (dt_set_errno(dtp, EDT_BADOPTNAME));
+	return dt_set_errno(dtp, EDT_BADOPTNAME);
 }
 
 static const char *

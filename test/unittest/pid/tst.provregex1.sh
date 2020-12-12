@@ -41,7 +41,7 @@ main(int argc, char **argv)
 {
 	go();
 
-	return (0);
+	return 0;
 }
 EOF
 

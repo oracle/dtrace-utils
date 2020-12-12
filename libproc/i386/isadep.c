@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -33,17 +33,17 @@ Pread_first_arg_x86_64(struct ps_prochandle *P)
 
 	if (Pstate(P) == PS_RUN ||
 	    Pstate(P) == PS_DEAD)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	/*
 	 * For x86-64, the first integral argument to a function will always be
 	 * in %rdi.
 	 */
 
-	addr = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, RDI * sizeof (long));
+	addr = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, RDI * sizeof(long));
 
 	if ((errno == ESRCH) || (addr < 0))
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	return addr;
 }
@@ -56,21 +56,21 @@ Pread_first_arg_x86(struct ps_prochandle *P)
 
 	if (Pstate(P) == PS_RUN ||
 	    Pstate(P) == PS_DEAD)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	/*
 	 * For 32-bit x86, we have to look on the stack.
 	 */
 
 	stackaddr = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid,
-	    RSP * sizeof (long));
+	    RSP * sizeof(long));
 
 	if ((errno == ESRCH) || (stackaddr < 0))
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
-	stackaddr += 4; /* 32-bit Linux x86's sizeof (long), stack grows down */
+	stackaddr += 4; /* 32-bit Linux x86's sizeof(long), stack grows down */
 	if (Pread_scalar(P, &addr, 4, sizeof(addr), stackaddr) < 0)
-		return (uintptr_t) -1;
+		return (uintptr_t)-1;
 
 	return addr;
 }
@@ -85,14 +85,14 @@ Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch)
 {
 	long ip;
 	errno = 0;
-	ip = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, RIP * sizeof (long));
+	ip = wrapped_ptrace(P, PTRACE_PEEKUSER, P->pid, RIP * sizeof(long));
 	if ((errno == ESRCH) && (expect_esrch))
-	    return(0);
+	    return 0;
 
 	if (errno != 0) {
 		_dprintf("Unexpected ptrace (PTRACE_PEEKUSER) error: %s\n",
 		    strerror(errno));
-		return(-1);
+		return -1;
 	}
 	/*
 	 * The x86 increments its instruction pointer before triggering the
@@ -111,6 +111,6 @@ Pget_bkpt_ip_x86(struct ps_prochandle *P, int expect_esrch)
 long
 Preset_bkpt_ip_x86(struct ps_prochandle *P, uintptr_t addr)
 {
-	return wrapped_ptrace(P, PTRACE_POKEUSER, P->pid, RIP * sizeof (long),
+	return wrapped_ptrace(P, PTRACE_POKEUSER, P->pid, RIP * sizeof(long),
 	    addr);
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -27,11 +27,11 @@ BEGIN
 	array[1] = 40;
 	array[2] = 80;
 
-	uptr = (uintptr_t) &array[0];
+	uptr = (uintptr_t)&array[0];
 
-	p = (int *) (uptr);
-	q = (int *) (uptr + 2);
-	r = (int *) (uptr + 3);
+	p = (int *)(uptr);
+	q = (int *)(uptr + 2);
+	r = (int *)(uptr + 3);
 
 	printf("array[0]: %d\t*p: %d\n", array[0], *p);
 	printf("array[1]: %d\t*q: %d\n", array[1], *q);

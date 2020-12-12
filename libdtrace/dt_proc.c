@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -112,7 +112,7 @@ static long dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 	do { \
 		assert(MUTEX_HELD(&dpr->dpr_lock));		\
 		assert(pthread_equal(dpr->dpr_lock_holder, pthread_self())); \
-	} while(0)						\
+	} while (0)
 
 /*
  * Unwinder pad for libproc setjmp() chains.
@@ -129,7 +129,7 @@ static void
 dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 	       pid_t pid, const char *msg, int lock, int broadcast)
 {
-	dt_proc_notify_t *dprn = dt_alloc(dtp, sizeof (dt_proc_notify_t));
+	dt_proc_notify_t *dprn = dt_alloc(dtp, sizeof(dt_proc_notify_t));
 
 	if (dprn == NULL) {
 		dt_dprintf("failed to allocate notification for %d %s\n",
@@ -139,20 +139,20 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 		if (msg == NULL)
 			dprn->dprn_errmsg[0] = '\0';
 		else
-			(void) strlcpy(dprn->dprn_errmsg, msg,
-			    sizeof (dprn->dprn_errmsg));
+			strlcpy(dprn->dprn_errmsg, msg,
+			    sizeof(dprn->dprn_errmsg));
 
 		if (lock)
-			(void) pthread_mutex_lock(&dph->dph_lock);
+			pthread_mutex_lock(&dph->dph_lock);
 
 		dprn->dprn_next = dph->dph_notify;
 		dprn->dprn_pid = pid;
 		dph->dph_notify = dprn;
 
 		if (broadcast)
-			(void) pthread_cond_broadcast(&dph->dph_cv);
+			pthread_cond_broadcast(&dph->dph_cv);
 		if (lock)
-			(void) pthread_mutex_unlock(&dph->dph_lock);
+			pthread_mutex_unlock(&dph->dph_lock);
 	}
 }
 
@@ -266,7 +266,7 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 		dpr->dpr_stop |= DT_PROC_STOP_RESUMING;
 
 		dt_dprintf("%d: dt_proc_stop(), control thread now waiting "
-		    "for resume.\n", (int) dpr->dpr_pid);
+		    "for resume.\n", (int)dpr->dpr_pid);
 	}
 }
 
@@ -496,7 +496,7 @@ dt_proc_attach_break(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 	uintptr_t addr = 0;
 	GElf_Sym sym;
 	dtrace_hdl_t *dtp = dpr->dpr_hdl;
-	int (*handler) (uintptr_t addr, void *data) = dt_break_interesting;
+	int (*handler)(uintptr_t addr, void *data) = dt_break_interesting;
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
@@ -564,7 +564,7 @@ dt_proc_attach_break(dt_proc_t *dpr, enum dt_attach_time_t attach_time)
 		    "__libc_start_main's first arg\n", (int)dpr->dpr_pid);
 
 		addr = Pread_first_arg(dpr->dpr_proc);
-		if (addr == (uintptr_t) -1) {
+		if (addr == (uintptr_t)-1) {
 			dt_dprintf("Cannot look up __libc_start_main()'s "
 			    "first arg: %s\n", strerror(errno));
 			return -1;
@@ -630,8 +630,8 @@ dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
 	dt_debug_printf("dt_proc_error", format, tmp);
 	va_end(tmp);
 
-	(void) dt_set_errno(dtp, EDT_COMPILER);
-	return (NULL);
+	dt_set_errno(dtp, EDT_COMPILER);
+	return NULL;
 }
 
 /*
@@ -659,7 +659,7 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 	 */
 	if (dpr->dpr_done) {
 		errno = ESRCH;
-		return(-1);
+		return -1;
 	}
 
 	errno = 0;
@@ -667,7 +667,7 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 	if (errno != 0 && errno != EINTR) {
 		dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to proxy pipe "
 		    "for Pwait(), deadlock is certain: %s\n", strerror(errno));
-		return (-1);
+		return -1;
 	}
 
 	while (dpr->dpr_proxy_rq != NULL)
@@ -909,7 +909,7 @@ dt_proc_control(void *arg)
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, noninvasive, 0,
 			    dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to grab pid %li: %s\n",
-			    (long) dpr->dpr_pid, strerror(err));
+			    (long)dpr->dpr_pid, strerror(err));
 			pthread_exit(NULL);
 		}
 
@@ -940,7 +940,7 @@ dt_proc_control(void *arg)
 	 */
 	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
 		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
-		    (long) dpr->dpr_pid, strerror(errno));
+		    (long)dpr->dpr_pid, strerror(errno));
 		/*
 		 * Demote this to a mandatorily noninvasive grab: if we
 		 * Pcreate()d it, dpr_created is still set, so it will still get
@@ -955,7 +955,7 @@ dt_proc_control(void *arg)
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
 			    dpr, &err)) == NULL) {
 			dt_proc_error(dtp, dpr, "failed to regrab pid %li: %s\n",
-			    (long) dpr->dpr_pid, strerror(err));
+			    (long)dpr->dpr_pid, strerror(err));
 		}
 
 		dtp->dt_procs->dph_noninvasive_created++;
@@ -981,7 +981,7 @@ dt_proc_control(void *arg)
 		if (err != 0) {
 			dt_proc_error(dtp, dpr,
 			    "failed to regrab pid %li after exec(): %s\n",
-			    (long) dpr->dpr_pid, strerror(err));
+			    (long)dpr->dpr_pid, strerror(err));
 			pthread_exit(NULL);
 		}
 	} else {
@@ -1035,7 +1035,7 @@ dt_proc_control(void *arg)
 	dt_proc_resume(dpr);
 	pthread_cleanup_pop(1);
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -1095,7 +1095,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		}
 
 		while (errno = EINTR,
-		    poll((struct pollfd *) pfd, 2, -1) <= 0 && errno == EINTR)
+		    poll((struct pollfd *)pfd, 2, -1) <= 0 && errno == EINTR)
 			continue;
 
 		/*
@@ -1479,16 +1479,16 @@ dt_proc_reattach(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, noninvasive, 1,
 		    dpr, &err)) == NULL) {
 		dt_proc_error(dtp, dpr, "failed to regrab pid %li "
-		    "after exec(): %s\n", (long) dpr->dpr_pid,
+		    "after exec(): %s\n", (long)dpr->dpr_pid,
 		    strerror(err));
-		return(err);
+		return err;
 	}
 	Ptrace_set_detached(dpr->dpr_proc, dpr->dpr_created);
 	Puntrace(dpr->dpr_proc, 0);
 
 	pthread_mutex_unlock(&dph->dph_lock);
 
-	return(0);
+	return 0;
 }
 
 /*
@@ -1521,7 +1521,7 @@ dt_proc_lookup_remove(dtrace_hdl_t *dtp, pid_t pid, int remove)
 		*dpp = dpr->dpr_hash; /* remove from pid hash chain */
 	}
 
-	return (dpr);
+	return dpr;
 }
 
 dt_proc_t *
@@ -1539,7 +1539,7 @@ dt_proc_lookup(dtrace_hdl_t *dtp, pid_t pid)
 static void
 dt_proc_retire(struct ps_prochandle *P)
 {
-	(void) Pclose(P);
+	Pclose(P);
 }
 
 /*
@@ -1548,7 +1548,7 @@ dt_proc_retire(struct ps_prochandle *P)
 static int
 dt_proc_retired(struct ps_prochandle *P)
 {
-	return (!Phasfds(P));
+	return !Phasfds(P);
 }
 
 /*
@@ -1662,17 +1662,17 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	pthread_attr_t a;
 	int err;
 
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
+	pthread_mutex_lock(&dpr->dpr_lock);
 	dpr->dpr_stop |= stop; /* set bit for initial rendezvous */
 	dpr->dpr_monitoring = B_TRUE;
 	if (flags & DTRACE_PROC_NOTIFIABLE)
 		dpr->dpr_notifiable = 1;
 
-	(void) pthread_attr_init(&a);
-	(void) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
+	pthread_attr_init(&a);
+	pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
 
-	(void) sigfillset(&nset);
-	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
+	sigfillset(&nset);
+	sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
 
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -1682,18 +1682,18 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 
 	if (pipe(data.dpcd_proxy_fd) < 0) {
 		err = errno;
-		(void) dt_proc_error(dpr->dpr_hdl, dpr,
+		dt_proc_error(dpr->dpr_hdl, dpr,
 		    "failed to create communicating pipe for pid %d: %s\n",
 		    (int)dpr->dpr_pid, strerror(err));
 
-		(void) pthread_mutex_unlock(&dpr->dpr_lock);
-		(void) pthread_attr_destroy(&a);
-		return (err);
+		pthread_mutex_unlock(&dpr->dpr_lock);
+		pthread_attr_destroy(&a);
+		return err;
 	}
 
-	(void) pthread_sigmask(SIG_SETMASK, &nset, &oset);
+	pthread_sigmask(SIG_SETMASK, &nset, &oset);
 	err = pthread_create(&dpr->dpr_tid, &a, dt_proc_control, &data);
-	(void) pthread_sigmask(SIG_SETMASK, &oset, NULL);
+	pthread_sigmask(SIG_SETMASK, &oset, NULL);
 
 	/*
 	 * If the control thread was created, then wait on dpr_cv for either
@@ -1706,7 +1706,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 	 */
 	if (err == 0) {
 		while (!dpr->dpr_done && !(dpr->dpr_stop & DT_PROC_STOP_IDLE))
-			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+			pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
 		dpr->dpr_lock_holder = pthread_self();
 
@@ -1726,10 +1726,10 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 		    (int)dpr->dpr_pid, strerror(err));
 	}
 
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
-	(void) pthread_attr_destroy(&a);
+	pthread_mutex_unlock(&dpr->dpr_lock);
+	pthread_attr_destroy(&a);
 
-	return (err);
+	return err;
 }
 
 static dt_proc_t *
@@ -1741,8 +1741,8 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_t *attrp = NULL;
 
-	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
-		return (NULL); /* errno is set for us */
+	if ((dpr = dt_zalloc(dtp, sizeof(dt_proc_t))) == NULL)
+		return NULL; /* errno is set for us */
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
 		attrp = &attr;
@@ -1750,9 +1750,9 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 		pthread_mutexattr_settype(attrp, PTHREAD_MUTEX_ERRORCHECK);
 	}
 
-	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
-	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
-	(void) pthread_cond_init(&dpr->dpr_msg_cv, NULL);
+	pthread_mutex_init(&dpr->dpr_lock, attrp);
+	pthread_cond_init(&dpr->dpr_cv, NULL);
+	pthread_cond_init(&dpr->dpr_msg_cv, NULL);
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
 		pthread_mutexattr_destroy(attrp);
@@ -1776,7 +1776,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 		pthread_mutex_destroy(&dpr->dpr_lock);
 		dt_free(dtp, dpr);
 
-		return (NULL); /* dt_proc_error() has been called for us */
+		return NULL; /* dt_proc_error() has been called for us */
 	}
 
 	dph->dph_lrucnt++;
@@ -1841,7 +1841,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 
 			if (dt_proc_retired(dpr->dpr_proc)) {
 				/* not retired any more */
-				(void) Pmemfd(dpr->dpr_proc);
+				Pmemfd(dpr->dpr_proc);
 				dph->dph_lrucnt++;
 			}
 			return dpr;
@@ -1861,7 +1861,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 		return NULL;
 	}
 
-	if ((dpr = dt_zalloc(dtp, sizeof (dt_proc_t))) == NULL)
+	if ((dpr = dt_zalloc(dtp, sizeof(dt_proc_t))) == NULL)
 		return NULL; /* errno is set for us */
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
@@ -1870,9 +1870,9 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 		pthread_mutexattr_settype(attrp, PTHREAD_MUTEX_ERRORCHECK);
 	}
 
-	(void) pthread_mutex_init(&dpr->dpr_lock, attrp);
-	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
-	(void) pthread_cond_init(&dpr->dpr_msg_cv, NULL);
+	pthread_mutex_init(&dpr->dpr_lock, attrp);
+	pthread_cond_init(&dpr->dpr_cv, NULL);
+	pthread_cond_init(&dpr->dpr_msg_cv, NULL);
 
 	if (_dtrace_debug_assert & DT_DEBUG_MUTEXES) {
 		pthread_mutexattr_destroy(attrp);
@@ -1972,7 +1972,7 @@ dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	    (!Ptraceable(dpr->dpr_proc)))
 		return 0;
 
-	(void) pthread_mutex_lock(&dpr->dpr_lock);
+	pthread_mutex_lock(&dpr->dpr_lock);
 
 	dt_dprintf("%i: doing a dt_proc_continue().\n", dpr->dpr_pid);
 
@@ -2011,7 +2011,7 @@ dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to "
 			    "proxy pipe for dt_proc_continue(), deadlock is "
 			    "certain: %s\n", strerror(errno));
-			return (-1);
+			return -1;
 		}
 	}
 
@@ -2020,7 +2020,7 @@ dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 
 	dt_dprintf("%i: dt_proc_continue()d.\n", dpr->dpr_pid);
 
-	(void) pthread_mutex_unlock(&dpr->dpr_lock);
+	pthread_mutex_unlock(&dpr->dpr_lock);
 
 	return 0;
 }
@@ -2110,7 +2110,7 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 	if (setjmp(this_exec_jmp)) { \
 		unwinder_pad = &this_exec_jmp; \
 		if (!proxy_reattach(dpr)) \
-			return (err_ret); \
+			return err_ret; \
 	} \
 	unwinder_pad = &this_exec_jmp; \
 	proxy_monitor(dpr, 0); \
@@ -2224,11 +2224,11 @@ dt_Pread(dtrace_hdl_t *dtp, pid_t pid, void *buf, size_t nbyte,
 void
 dt_proc_hash_create(dtrace_hdl_t *dtp)
 {
-	if ((dtp->dt_procs = dt_zalloc(dtp, sizeof (dt_proc_hash_t) +
-	    sizeof (dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
+	if ((dtp->dt_procs = dt_zalloc(dtp, sizeof(dt_proc_hash_t) +
+	    sizeof(dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
 
-		(void) pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
-		(void) pthread_cond_init(&dtp->dt_procs->dph_cv, NULL);
+		pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
+		pthread_cond_init(&dtp->dt_procs->dph_cv, NULL);
 
 		dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
 		dtp->dt_procs->dph_lrulim = _dtrace_pidlrulim;
@@ -2273,7 +2273,7 @@ dtrace_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv,
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 	dt_proc_t *dpr;
 
-	hdl = malloc(sizeof (struct dtrace_proc));
+	hdl = malloc(sizeof(struct dtrace_proc));
 	if (!hdl)
 		return NULL;
 
@@ -2297,7 +2297,7 @@ dtrace_proc_grab_pid(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 	dt_proc_t *dpr;
 
-	hdl = malloc(sizeof (struct dtrace_proc));
+	hdl = malloc(sizeof(struct dtrace_proc));
 	if (!hdl)
 		return NULL;
 

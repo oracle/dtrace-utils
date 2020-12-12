@@ -22,10 +22,10 @@ int *badptr;
 
 BEGIN
 {
-	ptr = alloca(sizeof (int));
+	ptr = alloca(sizeof(int));
 
 	/* Attempt to copy from a invalid address */
-	bcopy(badptr, ptr, sizeof (int));
+	bcopy(badptr, ptr, sizeof(int));
 	exit(0);
 }
 

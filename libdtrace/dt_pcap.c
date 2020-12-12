@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2016, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2020, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -46,10 +46,10 @@ dt_pcap_create(dtrace_hdl_t *dtp, const char *filename, uint32_t maxlen)
 	dt_pcap_t	*dpc;
 	struct sysinfo	info;
 
-	dpc = dt_zalloc(dtp, sizeof (dt_pcap_t));
+	dpc = dt_zalloc(dtp, sizeof(dt_pcap_t));
 	if (dpc == NULL) {
-		(void) dt_set_errno(dtp, ENOMEM);
-		return (NULL);
+		dt_set_errno(dtp, ENOMEM);
+		return NULL;
 	}
 
 	dpc->dpc_filename = strdup(filename);
@@ -65,9 +65,9 @@ dt_pcap_create(dtrace_hdl_t *dtp, const char *filename, uint32_t maxlen)
 	 */
 	if (sysinfo(&info) == 0)
 		dpc->dpc_boottime = time(NULL) - info.uptime;
-	(void) pthread_mutex_init(&dpc->dpc_lock, NULL);
+	pthread_mutex_init(&dpc->dpc_lock, NULL);
 	dt_list_append(&dtp->dt_pcap.dt_pcaps, dpc);
-	return (dpc);
+	return dpc;
 }
 
 void
@@ -118,7 +118,7 @@ dt_pcap_print(void *d)
 	if (inpipe == NULL) {
 		fprintf(stderr, "Cannot open tshark output pipe: %s\n",
 		    strerror(errno));
-		return (NULL);
+		return NULL;
 	}
 
 	while (getline(&line, &len, inpipe) >= 0) {
@@ -128,7 +128,7 @@ dt_pcap_print(void *d)
 	free(line);
 	fclose(inpipe);
 	dtp->dt_pcap.dt_pcap_pid = -1;
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -155,7 +155,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 
 	if (dtp->dt_freopen_filename != NULL &&
 	    strcmp(dtp->dt_freopen_filename, DT_FREOPEN_RESTORE) != 0)
-		return (dtp->dt_freopen_filename);
+		return dtp->dt_freopen_filename;
 
 	if (dtp->dt_pcap.dt_pcap_pid < 0) {
 		/*
@@ -164,11 +164,11 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 		 * the caller falling back to using tracemem() output of
 		 * captured data.
 		 */
-		return (NULL);
+		return NULL;
 	} else if (dtp->dt_pcap.dt_pcap_pid > 0) {
 		/* tshark is running, return the magic we-are-using-a-pipe
 		 * value. */
-		return ("");
+		return "";
 	}
 
 	/*
@@ -182,10 +182,10 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	 */
 	status = system("tshark -v >/dev/null 2>&1");
 	if (status < 0 || WEXITSTATUS(status) != 0)
-		return (NULL);
+		return NULL;
 
 	if (pipe(pipe_in) < 0)
-		return (NULL);
+		return NULL;
 
 	if (pipe(pipe_out) < 0)
 		goto fail_pipe_in;
@@ -210,7 +210,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 	 * present and almost certainly does not contain any files that may be
 	 * confused with startup files.
 	 *
-	 * Forcibly switch uid to (uid_t) -3 to try to get out from all
+	 * Forcibly switch uid to (uid_t)-3 to try to get out from all
 	 * privilege, since tshark is a nest of security vulnerabilities.  (We
 	 * use -3 because -1 is nobody, which can have files "owned" by it on
 	 * NFS clients, and avoid -2 because other people have thought of this
@@ -278,7 +278,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			struct group wsg;
 			struct group *dummy;
 			char groups[1024];
-			gid_t wireshark_group = (gid_t) UNPRIV_UID;
+			gid_t wireshark_group = (gid_t)UNPRIV_UID;
 
 			if (getgrnam_r(DUMPCAP_GROUP, &wsg, groups, 1024, &dummy) >= 0) {
 				wireshark_group = wsg.gr_gid;
@@ -290,7 +290,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 				goto nopriv_die;
 			if (setgroups(1, &wireshark_group) < 0)
 				goto nopriv_die;
-			if (setuid((uid_t) UNPRIV_UID) < 0)
+			if (setuid((uid_t)UNPRIV_UID) < 0)
 				goto nopriv_die;
 		}
 
@@ -358,7 +358,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			dt_pcap_print, dtp) < 0)
 			goto fail_pipe_close_wait;
 
-		return ("");
+		return "";
 
 		fail_pipe_close_wait:
 			/*
@@ -370,7 +370,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			close(pipe_out[0]);
 			waitpid(pid, NULL, 0);
 			dtp->dt_pcap.dt_pcap_pid = -1;
-			return (NULL);
+			return NULL;
 	}
 	}
 
@@ -383,7 +383,7 @@ fail_pipe_out:
 fail_pipe_in:
 	close(pipe_in[0]);
 	close(pipe_in[1]);
-	return (NULL);
+	return NULL;
 }
 
 void
@@ -410,7 +410,7 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 		dpc->dpc_pcap = pcap_open_dead((int)linktype,
 					       (int)dpc->dpc_maxlen);
 		if (dpc->dpc_pcap == NULL) {
-			(void) dt_set_errno(dtp, EINVAL);
+			dt_set_errno(dtp, EINVAL);
 			return;
 		}
 
@@ -430,7 +430,7 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 					close(fd);
 				dt_dprintf("Cannot connect pipe: "
 				    "%s\n", strerror(errno));
-				(void) dt_set_errno(dtp, errno);
+				dt_set_errno(dtp, errno);
 				pcap_close(dpc->dpc_pcap);
 				dpc->dpc_pcap = NULL;
 				return;
@@ -444,7 +444,7 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 		/* Handle linktype mismatch here... */
 		dt_dprintf("pcap() expected linktype %lu, got %lu.\n",
 			   dpc->dpc_linktype, linktype);
-		(void) dt_set_errno(dtp, EINVAL);
+		dt_set_errno(dtp, EINVAL);
 		return;
 	}
 
@@ -460,9 +460,9 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 	 * Reset SIGPIPE here, to avoid SIGPIPEs if tshark dies before we do.
 	 */
 
-	memset(&act, 0, sizeof (act));
+	memset(&act, 0, sizeof(act));
 	act.sa_handler = SIG_IGN;
-	(void) sigaction(SIGPIPE, &act, &oact);
+	sigaction(SIGPIPE, &act, &oact);
 
 	pthread_mutex_lock(&dpc->dpc_lock);
 	pcap_dump((uchar_t *)dpc->dpc_pcap_dump, &hdr, data);
@@ -474,5 +474,5 @@ dt_pcap_dump(dtrace_hdl_t *dtp, const char *filename, uint64_t linktype,
 	if (dtp->dt_pcap.dt_pcap_pid > 0)
 		pcap_dump_flush(dpc->dpc_pcap_dump);
 	pthread_mutex_unlock(&dpc->dpc_lock);
-	(void) sigaction(SIGCHLD, &oact, NULL);
+	sigaction(SIGCHLD, &oact, NULL);
 }
