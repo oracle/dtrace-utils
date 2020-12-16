@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1093,6 +1093,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
  */
 static const dt_option_t _dtrace_rtoptions[] = {
 	{ "aggsize", dt_opt_size, DTRACEOPT_AGGSIZE },
+	{ "bpflogsize", dt_opt_size, DTRACEOPT_BPFLOGSIZE },
 	{ "bufsize", dt_opt_size, DTRACEOPT_BUFSIZE },
 	{ "bufpolicy", dt_opt_bufpolicy, DTRACEOPT_BUFPOLICY },
 	{ "bufresize", dt_opt_bufresize, DTRACEOPT_BUFRESIZE },

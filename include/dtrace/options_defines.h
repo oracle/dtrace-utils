@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -57,7 +57,8 @@
 #define	DTRACEOPT_QUIETRESIZE	27      /* quieten buffer-resize messages */
 #define	DTRACEOPT_NORESOLVE	28      /* prevent resolution of symbols */
 #define	DTRACEOPT_PCAPSIZE	29	/* number of bytes to be captured */
-#define	DTRACEOPT_MAX		30      /* number of options */
+#define	DTRACEOPT_BPFLOGSIZE	30	/* BPF verifier log, max # bytes */
+#define	DTRACEOPT_MAX		31      /* number of options */
 
 #define	DTRACEOPT_UNSET		(dtrace_optval_t)-2	/* unset option */
 

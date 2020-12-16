@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -319,9 +319,11 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		 const dtrace_difo_t *dp)
 {
 	struct bpf_load_program_attr	attr;
-	int				logsz = BPF_LOG_BUF_SIZE;
+	size_t				logsz;
 	char				*log;
 	int				rc;
+	const dtrace_probedesc_t	*pdp = prp->desc;
+	char				*p, *q;
 
 	/*
 	 * Check whether there are any probe-specific relocations to be
@@ -336,27 +338,39 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
 
-	log = dt_zalloc(dtp, logsz);
-	assert(log != NULL);
-
 	attr.prog_type = prp->prov->impl->prog_type;
 	attr.name = NULL;
 	attr.insns = dp->dtdo_buf;
 	attr.insns_cnt = dp->dtdo_len;
 	attr.license = BPF_CG_LICENSE;
+
+	rc = bpf_load_program_xattr(&attr, NULL, 0);
+	if (rc >= 0)
+		return rc;
+
+	/* if failure, note error and rerun with logging */
+	dt_bpf_error(dtp, "BPF program load for '%s:%s:%s:%s' failed: %s\n",
+			  pdp->prv, pdp->mod, pdp->fun, pdp->prb,
+			  strerror(errno));
+	if (dtp->dt_options[DTRACEOPT_BPFLOGSIZE] != DTRACEOPT_UNSET)
+		logsz = dtp->dt_options[DTRACEOPT_BPFLOGSIZE];
+	else
+		logsz = BPF_LOG_BUF_SIZE;
 	attr.log_level = 4 | 2 | 1;
-
+	log = dt_zalloc(dtp, logsz);
+	assert(log != NULL);
 	rc = bpf_load_program_xattr(&attr, log, logsz);
-	if (rc < 0) {
-		const dtrace_probedesc_t	*pdp = prp->desc;
-		char				*p, *q;
 
-		rc = dt_bpf_error(dtp,
-				  "BPF program load for '%s:%s:%s:%s' failed: "
-				  "%s\n",
-				  pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-				  strerror(errno));
+	/* since it failed once, it should fail again */
+	assert(rc < 0);
 
+	/* check whether we have an incomplete BPF log */
+	if (errno == ENOSPC) {
+		fprintf(stderr,
+		    "BPF verifier log is incomplete and is not reported.\n"
+		    "Set DTrace option 'bpflogsize' to some greater size for more output.\n"
+		    "(Current size is %ld.)\n", logsz);
+	} else {
 		/*
 		 * If there is BPF verifier output, print it with a "BPF: "
 		 * prefix so it is easier to distinguish.
@@ -373,7 +387,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 	dt_free(dtp, log);
 
-	return rc;
+	return -1;
 }
 
 int
