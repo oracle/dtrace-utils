@@ -274,11 +274,16 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	if (agg == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
+	/*
+	 * Note the relationship between the aggregation storage
+	 * size (di_size) and the aggregation data size (dtagd_size):
+	 *     di_size = dtagd_size * (# agg copies) + (size of latch seq #)
+	 */
 	agg->dtagd_id = id;
 	agg->dtagd_name = aid->di_name;
 	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
 	agg->dtagd_varid = aid->di_id;
-	agg->dtagd_size = aid->di_size / 2;
+	agg->dtagd_size = (aid->di_size - sizeof(uint64_t))/ 2;
 	agg->dtagd_nrecs = agg->dtagd_size / sizeof(uint64_t);
 
 	recs = dt_calloc(dtp, agg->dtagd_nrecs, sizeof(dtrace_recdesc_t));

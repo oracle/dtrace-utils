@@ -3033,13 +3033,14 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
  * identifier (if not set yet).
  *
  * We consume twice the required data size because of the odd/even data pair
- * mechanism to provide lockless, write-wait-free operation.
+ * mechanism to provide lockless, write-wait-free operation.  Additionally,
+ * we make room for a latch sequence number.
  */
 #define DT_CG_AGG_SET_STORAGE(aid, sz) \
 	do { \
 		if ((aid)->di_offset == -1) \
 			dt_ident_set_storage((aid), sizeof(uint64_t), \
-					     2 * (sz)); \
+					     sizeof(uint64_t) + 2 * (sz)); \
 	} while (0)
 
 /*
@@ -3047,7 +3048,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
  * return a register that holds a pointer to the aggregation data to be
  * updated.
  *
- * We update the latch seqcount (first value in the aggregation buffer) to
+ * We update the latch seqcount (first value in the aggregation) to
  * signal that reads should be directed to the alternate copy of the data.  We
  * then determine the location of data for the given aggregation that can be
  * updated.  This value is stored in the register returned from this function.
@@ -3056,49 +3057,47 @@ static int
 dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 		      dt_regset_t *drp)
 {
-	int		rx, ry;
+	int		ragd, roff;
 
 	TRACE_REGSET("            Prep: Begin");
 
 	dt_regset_xalloc(drp, BPF_REG_0);
-	rx = dt_regset_alloc(drp);
-	ry = dt_regset_alloc(drp);
-	assert(rx != -1 && ry != -1);
+	ragd = dt_regset_alloc(drp);
+	roff = dt_regset_alloc(drp);
+	assert(ragd != -1 && roff != -1);
 
 	/*
-	 *				//     (%rX = register for agg ptr)
-	 *				//     (%rY = register for agg data)
 	 *	agd = dctx->agg;	// lddw %r0, [%fp + DT_STK_DCTX]
-	 *				// lddw %rX, [%r0 + DCTX_AGG]
+	 *				// lddw %ragd, [%r0 + DCTX_AGG]
+	 *	agd += aid->di_offset	// %ragd += aid->di_offset
 	 */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
-	emit(dlp, BPF_LOAD(BPF_DW, rx, BPF_REG_0, DCTX_AGG));
+	emit(dlp, BPF_LOAD(BPF_DW, ragd, BPF_REG_0, DCTX_AGG));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, ragd, aid->di_offset));
 
 	/*
-	 *	off = (*agd % 2) * size	// lddw %rY, [%rX + 0]
-	 *	      + aid->di_offset	// and %rY, 1
-	 *	      + sizeof(uint64_t);
-	 *				// mul %rY, size
-	 *				// add %rY, aid->di_offset +
-	 *				//		sizeof(uint64_t)
+	 *	off = (*agd & 1) * size	// lddw %roff, [%ragd + 0]
+	 *	      + sizeof(uint64_t);	// and %roff, 1
+	 *				// mul %roff, size
+	 *				// add %roff, sizeof(uint64_t)
 	 *	(*agd)++;		// mov %r0, 1
-	 *				// xadd [%rX + 0], %r0
-	 *	agd += off;		// add %rX, %rY
+	 *				// xadd [%ragd + 0], %r0
+	 *	agd += off;		// add %ragd, %roff
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, ry, rx, 0));
-	emit(dlp, BPF_ALU64_IMM(BPF_AND, ry, 1));
-	emit(dlp, BPF_ALU64_IMM(BPF_MUL, ry, size));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, ry, aid->di_offset + sizeof(uint64_t)));
+	emit(dlp, BPF_LOAD(BPF_DW, roff, ragd, 0));
+	emit(dlp, BPF_ALU64_IMM(BPF_AND, roff, 1));
+	emit(dlp, BPF_ALU64_IMM(BPF_MUL, roff, size));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, roff, sizeof(uint64_t)));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
-	emit(dlp, BPF_XADD_REG(BPF_DW, rx, 0, BPF_REG_0));
-	emit(dlp, BPF_ALU64_REG(BPF_ADD, rx, ry));
+	emit(dlp, BPF_XADD_REG(BPF_DW, ragd, 0, BPF_REG_0));
+	emit(dlp, BPF_ALU64_REG(BPF_ADD, ragd, roff));
 
-	dt_regset_free(drp, ry);
+	dt_regset_free(drp, roff);
 	dt_regset_free(drp, BPF_REG_0);
 
 	TRACE_REGSET("            Prep: End  ");
 
-	return rx;
+	return ragd;
 }
 
 #define DT_CG_AGG_IMPL(aid, sz, dlp, drp, f, ...) \

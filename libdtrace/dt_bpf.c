@@ -223,16 +223,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		return -1;		/* dt_errno is set for us */
 
 	/*
-	 * If there is aggregation data to be collected, we need to create the
-	 * 'aggs' BPF map, and account for a uint64_t in the map value size to
-	 * hold a latch sequence number (seq) for concurrent access to the
-	 * data.
+	 * Check if there is aggregation data to be collected.
 	 */
 	if (aggsz > 0) {
 		dtp->dt_aggmap_fd = create_gmap(dtp, "aggs",
 						BPF_MAP_TYPE_PERCPU_ARRAY,
-						sizeof(uint32_t),
-						sizeof(uint64_t) + aggsz, 1);
+						sizeof(uint32_t), aggsz, 1);
 		if (dtp->dt_aggmap_fd == -1)
 			return -1;	/* dt_errno is set for us */
 	}

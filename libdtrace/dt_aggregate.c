@@ -422,19 +422,30 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 	size_t			ndx = hval % agh->dtah_size;
 	int			rval;
 	uint_t			i;
+	int64_t			*src;
+	int			realsz;
 
 	rval = dt_aggid_lookup(st->dtp, aid->di_id, &agg);
 	if (rval != 0)
 		return rval;
 
+	/* check latch sequence number to see if there is any data */
+	src = (int64_t *)(st->buf + aid->di_offset);
+	if (*src == 0)
+		return 0;
+	src++;
+
+	/* real size excludes latch sequence number and second data copy */
+	realsz = (aid->di_size - sizeof(uint64_t)) / 2;
+
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
-		int64_t	*src, *dst, *cpu_dst;
+		int64_t	*dst, *cpu_dst;
 		uint_t	cnt;
 
 		if (h->dtahe_hval != hval)
 			continue;
-		if (h->dtahe_size != aid->di_size)
+		if (h->dtahe_size != realsz)
 			continue;
 
 		/* Entry found - process the data. */
@@ -445,7 +456,6 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 				: NULL;
 
 accumulate:
-		src = (int64_t *)(st->buf + aid->di_offset);
 		switch (((dt_ident_t *)aid->di_iarg)->di_id) {
 		case DT_AGG_MAX:
 			if (*src > *dst)
@@ -458,7 +468,7 @@ accumulate:
 
 			break;
 		default:
-			for (i = 0, cnt = aid->di_size / sizeof(int64_t);
+			for (i = 0, cnt = realsz / sizeof(int64_t);
 			     i < cnt; i++, dst++, src++)
 				*dst += *src;
 		}
@@ -480,20 +490,20 @@ accumulate:
 		return dt_set_errno(st->dtp, EDT_NOMEM);
 
 	agd = &h->dtahe_data;
-	agd->dtada_data = dt_alloc(st->dtp, aid->di_size);
+	agd->dtada_data = dt_alloc(st->dtp, realsz);
 	if (agd->dtada_data == NULL) {
 		dt_free(st->dtp, h);
 		return dt_set_errno(st->dtp, EDT_NOMEM);
 	}
 
-	memcpy(agd->dtada_data, st->buf + aid->di_offset, aid->di_size);
-	agd->dtada_size = aid->di_size;
+	memcpy(agd->dtada_data, src, realsz);
+	agd->dtada_size = realsz;
 	agd->dtada_desc = agg;
 	agd->dtada_hdl = st->dtp;
 	agd->dtada_normal = 1;
 
 	h->dtahe_hval = hval;
-	h->dtahe_size = aid->di_size;
+	h->dtahe_size = realsz;
 
 	if (st->agp->dtat_flags & DTRACE_A_PERCPU) {
 		char	**percpu = dt_calloc(st->dtp,
@@ -508,7 +518,7 @@ accumulate:
 		}
 
 		for (i = 0; i <= st->dtp->dt_conf.max_cpuid; i++) {
-			percpu[i] = dt_zalloc(st->dtp, aid->di_size);
+			percpu[i] = dt_zalloc(st->dtp, realsz);
 			if (percpu[i] == NULL) {
 				while (--i >= 0)
 					dt_free(st->dtp, percpu[i]);
@@ -519,7 +529,7 @@ accumulate:
 			}
 		}
 
-		memcpy(percpu[st->cpu], st->buf + aid->di_offset, aid->di_size);
+		memcpy(percpu[st->cpu], src, realsz);
 		agd->dtada_percpu = percpu;
 	}
 
@@ -544,21 +554,11 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 {
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	char		*buf = agp->dtat_cpu_buf[cpu];
-	uint64_t	*seq = (uint64_t *)buf;
 	dt_snapstate_t	st;
 
-	/* Nothing to be done? */
-	if (*seq == 0)
-		return 0;
-
-	/*
-	 * Process all static aggregation identifiers in the CPU buffer.  We
-	 * skip over the latch sequence number because from this point on we
-	 * are simply processing data.
-	 */
 	st.dtp = dtp;
 	st.cpu = cpu;
-	st.buf = buf + sizeof(*seq);
+	st.buf = buf;
 	st.agp = agp;
 
 	return dt_idhash_iter(dtp->dt_aggs,
@@ -960,8 +960,8 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
  * set for min(), so that any other value fed to the functions will register
  * properly.
  *
- * The first value in the buffer is used as a flag to indicate whether an
- * initial value was stored in the buffer.
+ * The latch sequence number of the first aggregation is used as a flag to
+ * indicate whether an initial value was stored for any aggregation.
  */
 static int
 init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
@@ -983,9 +983,10 @@ init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
 	/* Indicate that we are setting initial values. */
 	*(int64_t *)buf = 1;
 
-	ptr = (int64_t *)(buf + sizeof(int64_t) + aid->di_offset);
-	ptr[0] = value;
+	/* skip ptr[0], it is the latch sequence number */
+	ptr = (int64_t *)(buf + aid->di_offset);
 	ptr[1] = value;
+	ptr[2] = value;
 
 	return 0;
 }
@@ -1007,12 +1008,7 @@ dt_aggregate_go(dtrace_hdl_t *dtp)
 	 * Allocate a buffer to hold the aggregation data for all possible
 	 * CPUs, and initialize the per-CPU data pointers for CPUs that are
 	 * currently enabled.
-	 *
-	 * The size of the aggregation data is to be increased by the size of
-	 * the latch sequence number.  That yields the actual size of the data
-	 * allocated per CPU.
 	 */
-	aggsz += sizeof(uint64_t);
 	agp->dtat_buf = dt_zalloc(dtp, dtp->dt_conf.num_possible_cpus * aggsz);
 	if (agp->dtat_buf == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
@@ -1043,21 +1039,19 @@ dt_aggregate_go(dtrace_hdl_t *dtp)
 	/* Initialize the starting values for min() and max() aggregations.  */
 	dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *) init_minmax,
 		       agp->dtat_buf);
-	if (*(int64_t *)agp->dtat_buf != 0) {
-		*(int64_t *)agp->dtat_buf = 0;	/* clear the flag */
+	if (*(int64_t *)agp->dtat_buf == 0)
+		return 0;
+	*(int64_t *)agp->dtat_buf = 0;  /* clear the flag */
+	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
+		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
 
-		for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
-			int	cpu = dtp->dt_conf.cpus[i].cpu_id;
+		/* Data for CPU 0 was populated, so skip it. */
+		if (cpu == 0)
+			continue;
 
-			/* Data for CPU 0 was populated, so skip it. */
-			if (cpu == 0)
-				continue;
-
-			memcpy(agp->dtat_cpu_buf[cpu], agp->dtat_buf, aggsz);
-		}
-
-		dt_bpf_map_update(dtp->dt_aggmap_fd, &key, agp->dtat_buf);
+		memcpy(agp->dtat_cpu_buf[cpu], agp->dtat_buf, aggsz);
 	}
+	dt_bpf_map_update(dtp->dt_aggmap_fd, &key, agp->dtat_buf);
 
 	return 0;
 }
