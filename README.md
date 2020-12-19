@@ -90,7 +90,7 @@ https://github.com/oracle/dtrace-linux-kernel
 
 The customary way to obtain these patches is to clone an appropriate upstream
 kernel version (5.8.1 or later) and to merge our
-[updated tree](https://github.com/oracle/dtrace-linux-kernel/v2/5.8.1) into it.
+[updated tree](https://github.com/oracle/dtrace-linux-kernel/tree/v2/5.8.1) into it.
 The patch set is quite small, but may need some tweaking if it is being merged
 into a newer tree.  We occasionally push a new patched tree to our github repo,
 so do look around to see if there is a better match.
