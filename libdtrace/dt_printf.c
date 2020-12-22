@@ -1381,9 +1381,10 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 				curagg++;
 
 			rec = &agg->dtagd_recs[aggrec];
-			addr = aggdata->dtada_data + rec->dtrd_offset;
+			addr = aggdata->dtada_data;
 			limit = addr + aggdata->dtada_size;
 			normal = aggdata->dtada_normal;
+			size = agg->dtagd_size;
 			sig = agg->dtagd_sig;
 			flags = DTRACE_BUFDATA_AGGVAL;
 		} else {
@@ -1408,10 +1409,9 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			addr = (caddr_t)buf + rec->dtrd_offset;
 			limit = lim;
 			normal = 1;
+			size = rec->dtrd_size;
 			sig = 0;
 		}
-
-		size = rec->dtrd_size;
 
 		if (addr + size > limit) {
 			dt_dprintf("bad size: addr=%p size=0x%x lim=%p\n",
