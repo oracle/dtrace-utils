@@ -17,7 +17,7 @@
 
 BEGIN
 {
-	i = 0;
+	i = 100;
 }
 
 tick-10ms
