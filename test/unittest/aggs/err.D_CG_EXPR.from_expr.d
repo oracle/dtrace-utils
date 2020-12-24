@@ -9,7 +9,7 @@
  * ASSERTION:
  *	Aggregations cannot be called from D expressions.
  *
- * SECTION: Aggregations/Clearing aggregations
+ * SECTION: Aggregations/Aggregations
  *
  *
  */

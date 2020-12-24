@@ -10,7 +10,7 @@
  * ASSERTION:
  *	The first argument to normalize() should be an aggregation.
  *
- * SECTION: Aggregations/Clearing aggregations
+ * SECTION: Aggregations/Aggregations
  *
  *
  */
