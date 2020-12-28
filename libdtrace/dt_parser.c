@@ -286,6 +286,36 @@ dt_type_name(ctf_file_t *ctfp, ctf_id_t type, char *buf, size_t len)
 	return (buf);
 }
 
+/* Peer through slices, cv-quals and typedefs to their base type.  */
+ctf_id_t
+dt_type_basetype(ctf_file_t *fp, ctf_id_t type)
+{
+	ctf_id_t newtype;
+	uint_t kind;
+
+	type = ctf_type_resolve(fp, type);
+	kind = ctf_type_kind(fp, type);
+
+	/*
+	 * Bitfields can be of typedef type, but we don't want to
+	 * elide pointers.
+	 */
+	while ((kind == CTF_K_INTEGER || kind == CTF_K_ENUM ||
+		kind == CTF_K_FLOAT || kind == CTF_K_TYPEDEF)
+	    && (newtype = ctf_type_reference(fp, type)) != CTF_ERR) {
+		type = ctf_type_resolve(fp, newtype);
+		kind = ctf_type_kind (fp, type);
+	}
+
+	return type;
+}
+
+ctf_id_t
+dt_node_basetype(const dt_node_t *dnp)
+{
+	return dt_type_basetype(dnp->dn_ctfp, dnp->dn_type);
+}
+
 /*
  * Perform the "usual arithmetic conversions" to determine which of the two
  * input operand types should be promoted and used as a result type.  The
@@ -296,15 +326,16 @@ dt_type_promote(dt_node_t *lp, dt_node_t *rp, ctf_file_t **ofp, ctf_id_t *otype)
 {
 	ctf_file_t *lfp = lp->dn_ctfp;
 	ctf_id_t ltype = lp->dn_type;
+	ctf_id_t lbasetype = dt_node_basetype(lp);
+	uint_t lkind = ctf_type_kind(lfp, lbasetype);
 
 	ctf_file_t *rfp = rp->dn_ctfp;
 	ctf_id_t rtype = rp->dn_type;
+	ctf_id_t rbasetype = dt_node_basetype(rp);
+	uint_t rkind = ctf_type_kind(rfp, rbasetype);
 
 	ctf_id_t lbase = ctf_type_resolve(lfp, ltype);
-	uint_t lkind = ctf_type_kind(lfp, lbase);
-
 	ctf_id_t rbase = ctf_type_resolve(rfp, rtype);
-	uint_t rkind = ctf_type_kind(rfp, rbase);
 
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	ctf_encoding_t le, re;
@@ -638,7 +669,8 @@ void
 dt_node_type_assign(dt_node_t *dnp, ctf_file_t *fp, ctf_id_t type)
 {
 	ctf_id_t base = ctf_type_resolve(fp, type);
-	uint_t kind = ctf_type_kind(fp, base);
+	ctf_id_t basetype = dt_type_basetype(fp, base);
+	uint_t kind = ctf_type_kind(fp, basetype);
 	ctf_encoding_t e;
 
 	dnp->dn_flags &=
@@ -775,12 +807,14 @@ dt_node_is_integer(const dt_node_t *dnp)
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
 	ctf_id_t type;
+	ctf_id_t basetype;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
-	kind = ctf_type_kind(fp, type);
+	basetype = dt_node_basetype(dnp);
+	kind = ctf_type_kind(fp, basetype);
 
 	if (kind == CTF_K_INTEGER &&
 	    ctf_type_encoding(fp, type, &e) == 0 && IS_VOID(e))
@@ -794,13 +828,14 @@ dt_node_is_float(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
-	ctf_id_t type;
+	ctf_id_t type, basetype;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
-	kind = ctf_type_kind(fp, type);
+	basetype = dt_node_basetype(dnp);
+	kind = ctf_type_kind(fp, basetype);
 
 	return (kind == CTF_K_FLOAT &&
 	    ctf_type_encoding(dnp->dn_ctfp, type, &e) == 0 && (
@@ -813,13 +848,14 @@ dt_node_is_scalar(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
-	ctf_id_t type;
+	ctf_id_t type, basetype;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
-	kind = ctf_type_kind(fp, type);
+	basetype = dt_node_basetype(dnp);
+	kind = ctf_type_kind(fp, basetype);
 
 	if (kind == CTF_K_INTEGER &&
 	    ctf_type_encoding(fp, type, &e) == 0 && IS_VOID(e))
@@ -834,13 +870,14 @@ dt_node_is_arith(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
-	ctf_id_t type;
+	ctf_id_t type, basetype;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
-	kind = ctf_type_kind(fp, type);
+	basetype = dt_node_basetype(dnp);
+	kind = ctf_type_kind(fp, basetype);
 
 	if (kind == CTF_K_INTEGER)
 		return (ctf_type_encoding(fp, type, &e) == 0 && !IS_VOID(e));
@@ -853,7 +890,7 @@ dt_node_is_vfptr(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
-	ctf_id_t type;
+	ctf_id_t type, basetype;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
@@ -863,7 +900,8 @@ dt_node_is_vfptr(const dt_node_t *dnp)
 		return (0); /* type is not a pointer */
 
 	type = ctf_type_resolve(fp, ctf_type_reference(fp, type));
-	kind = ctf_type_kind(fp, type);
+	basetype = dt_type_basetype(fp, type);
+	kind = ctf_type_kind(fp, basetype);
 
 	return (kind == CTF_K_FUNCTION || (kind == CTF_K_INTEGER &&
 	    ctf_type_encoding(fp, type, &e) == 0 && IS_VOID(e)));
@@ -958,7 +996,7 @@ dt_node_is_void(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
 	ctf_encoding_t e;
-	ctf_id_t type;
+	ctf_id_t type, basetype;
 
 	if (dt_node_is_dynamic(dnp))
 		return (0); /* <DYN> is an alias for void but not the same */
@@ -970,8 +1008,9 @@ dt_node_is_void(const dt_node_t *dnp)
 		return (0);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
+	basetype = dt_node_basetype(dnp);
 
-	return (ctf_type_kind(fp, type) == CTF_K_INTEGER &&
+	return (ctf_type_kind(fp, basetype) == CTF_K_INTEGER &&
 	    ctf_type_encoding(fp, type, &e) == 0 && IS_VOID(e));
 }
 
@@ -1617,8 +1656,10 @@ dt_node_decl(void)
 			}
 
 		} else if (idp == NULL) {
+			ctf_id_t basetype;
 			type = ctf_type_resolve(dtt.dtt_ctfp, dtt.dtt_type);
-			kind = ctf_type_kind(dtt.dtt_ctfp, type);
+			basetype = dt_type_basetype (dtt.dtt_ctfp, dtt.dtt_type);
+			kind = ctf_type_kind(dtt.dtt_ctfp, basetype);
 
 			switch (kind) {
 			case CTF_K_INTEGER:
@@ -2831,7 +2872,7 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
-	ctf_id_t type, base;
+	ctf_id_t type, base, basetype;
 	uint_t kind;
 
 	if (dnp->dn_op == DT_TOK_PREINC || dnp->dn_op == DT_TOK_POSTINC ||
@@ -2893,7 +2934,8 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 
 		dt_node_type_assign(dnp, cp->dn_ctfp, type);
 		base = ctf_type_resolve(cp->dn_ctfp, type);
-		kind = ctf_type_kind(cp->dn_ctfp, base);
+		basetype = dt_type_basetype (cp->dn_ctfp, type);
+		kind = ctf_type_kind(cp->dn_ctfp, basetype);
 
 		if (kind == CTF_K_INTEGER && ctf_type_encoding(cp->dn_ctfp,
 		    base, &e) == 0 && IS_VOID(e)) {
