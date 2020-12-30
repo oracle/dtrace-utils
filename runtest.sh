@@ -577,7 +577,7 @@ if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
-    test_incflags="-Iuts/common -DARCH_$arch"
+    test_incflags="-Iuts/common -I$(pwd)/build -DARCH_$arch"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
