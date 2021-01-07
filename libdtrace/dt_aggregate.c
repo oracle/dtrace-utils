@@ -404,12 +404,50 @@ dt_aggregate_aggid(dt_ahashent_t *ent)
 	return agg->dtagd_varid;
 }
 
+typedef void (*agg_cpu_f)(dt_ident_t *aid,
+    int64_t *dst, int64_t *src, uint_t realsz);
+
 typedef struct dt_snapstate {
 	dtrace_hdl_t	*dtp;
 	processorid_t	cpu;
 	char		*buf;
 	dt_aggregate_t	*agp;
+	agg_cpu_f	fun;
 } dt_snapstate_t;
+
+static void
+dt_agg_one_copy(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t realsz)
+{
+	src++;  /* skip latch sequence number */
+	memcpy(dst, src, realsz);
+}
+
+static void
+dt_agg_one_agg(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t realsz)
+{
+	uint_t i, cnt;
+
+	if (*src == 0)
+		return;
+
+	src++;  /* skip latch sequence number */
+	switch (((dt_ident_t *)aid->di_iarg)->di_id) {
+	case DT_AGG_MAX:
+		if (*src > *dst)
+			*dst = *src;
+
+		break;
+	case DT_AGG_MIN:
+		if (*src < *dst)
+			*dst = *src;
+
+		break;
+	default:
+		for (i = 0, cnt = realsz / sizeof(int64_t);
+		     i < cnt; i++, dst++, src++)
+			*dst += *src;
+	}
+}
 
 static int
 dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
@@ -421,70 +459,42 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 	uint64_t		hval = aid->di_id;
 	size_t			ndx = hval % agh->dtah_size;
 	int			rval;
-	uint_t			i;
+	uint_t			i, realsz;
 	int64_t			*src;
-	int			realsz;
 
 	rval = dt_aggid_lookup(st->dtp, aid->di_id, &agg);
 	if (rval != 0)
 		return rval;
 
-	/* check latch sequence number to see if there is any data */
+	/* point to the latch sequence number */
 	src = (int64_t *)(st->buf + aid->di_offset);
-	if (*src == 0)
-		return 0;
-	src++;
 
 	/* real size excludes latch sequence number and second data copy */
 	realsz = (aid->di_size - sizeof(uint64_t)) / 2;
 
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
-		int64_t	*dst, *cpu_dst;
-		uint_t	cnt;
-
-		if (h->dtahe_hval != hval)
-			continue;
-		if (h->dtahe_size != realsz)
+		if (h->dtahe_hval != hval || h->dtahe_size != realsz)
 			continue;
 
 		/* Entry found - process the data. */
 		agd = &h->dtahe_data;
-		dst = (int64_t *)agd->dtada_data;
-		cpu_dst = agd->dtada_percpu != NULL
-				? (int64_t *)agd->dtada_percpu[st->cpu]
-				: NULL;
 
-accumulate:
-		switch (((dt_ident_t *)aid->di_iarg)->di_id) {
-		case DT_AGG_MAX:
-			if (*src > *dst)
-				*dst = *src;
-
-			break;
-		case DT_AGG_MIN:
-			if (*src < *dst)
-				*dst = *src;
-
-			break;
-		default:
-			for (i = 0, cnt = realsz / sizeof(int64_t);
-			     i < cnt; i++, dst++, src++)
-				*dst += *src;
-		}
+		st->fun(aid, (int64_t *)agd->dtada_data, src, realsz);
 
 		/* If we keep per-CPU data - process that as well. */
-		if (cpu_dst != NULL) {
-			dst = cpu_dst;
-			cpu_dst = NULL;
-
-			goto accumulate;
-		}
+		if (agd->dtada_percpu != NULL)
+			st->fun(aid, (int64_t *)agd->dtada_percpu[st->cpu],
+			    src, realsz);
 
 		return 0;
 	}
 
-	/* Not found - add it. */
+	/* not found, so skip it if latch sequence number is 0 */
+	if (*src == 0)
+		return 0;
+
+	/* add it to the hash table */
 	h = dt_zalloc(st->dtp, sizeof(dt_ahashent_t));
 	if (h == NULL)
 		return dt_set_errno(st->dtp, EDT_NOMEM);
@@ -496,6 +506,7 @@ accumulate:
 		return dt_set_errno(st->dtp, EDT_NOMEM);
 	}
 
+	src++;
 	memcpy(agd->dtada_data, src, realsz);
 	agd->dtada_size = realsz;
 	agd->dtada_desc = agg;
@@ -550,7 +561,7 @@ accumulate:
 }
 
 static int
-dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
+dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, agg_cpu_f fun)
 {
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	char		*buf = agp->dtat_cpu_buf[cpu];
@@ -560,6 +571,7 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 	st.cpu = cpu;
 	st.buf = buf;
 	st.agp = agp;
+	st.fun = fun;
 
 	return dt_idhash_iter(dtp->dt_aggs,
 			      (dt_idhash_f *)dt_aggregate_snap_one, &st);
@@ -587,7 +599,8 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		return dt_set_errno(dtp, -rval);
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
-		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id);
+		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id,
+		    i == 0 ? dt_agg_one_copy : dt_agg_one_agg);
 		if (rval != 0)
 			return rval;
 	}
