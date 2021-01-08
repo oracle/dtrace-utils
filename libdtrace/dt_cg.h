@@ -23,6 +23,7 @@ extern void dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act);
 extern void dt_cg_tramp_prologue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_epilogue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act);
+extern void dt_cg_tramp_error(dt_pcb_t *pcb);
 
 #ifdef	__cplusplus
 }

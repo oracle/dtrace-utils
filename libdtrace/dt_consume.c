@@ -1979,6 +1979,15 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		if (rval != 0)
 			return dt_set_errno(dtp, EDT_BADEPID);
 
+		if (pdat->dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
+			rval = dt_handle(dtp, pdat);
+
+			if (rval == DTRACE_CONSUME_NEXT)
+				return DTRACE_WORKSTATUS_OKAY;
+			if (rval == DTRACE_CONSUME_ERROR)
+				return DTRACE_WORKSTATUS_ERROR;
+		}
+
 		if (flow)
 			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
 

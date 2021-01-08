@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -42,5 +42,10 @@ BEGIN
 	printf("pool id = %d\n", curpsinfo->pr_poolid);
 	printf("zone id = %d\n", curpsinfo->pr_zoneid);
 	printf("contract = %d\n", curpsinfo->pr_contract);
-	exit (0);
+	exit(0);
+}
+
+ERROR
+{
+	exit(1);
 }

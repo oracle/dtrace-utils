@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -148,18 +148,6 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 
 	if (dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
-
-	/*
-	 * If a dtrace:::ERROR program and callback are registered, enable the
-	 * program before we start tracing.  If this fails for a vector open
-	 * with ENOTTY, we permit dtrace_go() to succeed so that vector clients
-	 * such as mdb's dtrace module can execute the rest of dtrace_go() even
-	 * though they do not provide support for the DTRACEIOC_ENABLE ioctl.
-	 */
-	if (dtp->dt_errprog != NULL &&
-	    dtrace_program_exec(dtp, dtp->dt_errprog, NULL) == -1 && (
-	    dtp->dt_errno != ENOTTY || dtp->dt_vector == NULL))
-		return -1;		/* dt_errno has been set for us */
 
 	/*
 	 * Create the global BPF maps.  This is done only once regardless of

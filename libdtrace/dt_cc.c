@@ -1586,6 +1586,12 @@ dt_clause_create(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	yypcb->pcb_ddesc = NULL;
 
 	/*
+	 * Special case: ERROR probe default clause.
+	 */
+	if (yypcb->pcb_cflags & DTRACE_C_EPROBE)
+		dp->dtdo_ddesc->dtdd_uarg = DT_ECB_ERROR;
+
+	/*
 	 * Generate a symbol name.
 	 */
 	len = snprintf(NULL, 0, "dt_clause_%d", dtp->dt_clause_nextid) + 1;
@@ -2205,7 +2211,7 @@ out:
 }
 
 static dtrace_difo_t *
-dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
+dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 {
 	dt_pcb_t	pcb;
 	dt_node_t	*tnp;
@@ -2266,6 +2272,12 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
 	dt_cg(yypcb, tnp);
 	dp = dt_as(yypcb);
 
+	/*
+	 * If we were called with an identifier, assign the DIFO to it.
+	 */
+	if (idp != NULL)
+		dt_ident_set_data(idp, dp);
+
 out:
 	if (dtp->dt_cdefs_fd != -1 &&
 	    (ftruncate(dtp->dt_cdefs_fd, 0) == -1 ||
@@ -2287,32 +2299,41 @@ out:
 
 static int
 dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
-	       uint_t *rcp, uint_t *vcp)
+	       uint_t *rcp, uint_t *vcp, dt_ident_t *idp)
 {
 	uint_t			pc = *pcp;
 	uint_t			len = dp->dtdo_brelen;
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+	int			no_deps = 0;
+
+	if (idp != NULL) {
+		idp->di_flags |= DT_IDFLG_REF;
+		if (idp->di_flags & DT_IDFLG_CGREG)
+			no_deps = 1;
+	}
 
 	(*pcp) += dp->dtdo_len;
 	(*rcp) += len;
 	(*vcp) += dp->dtdo_varlen;
+
+	if (no_deps)
+		return pc;
+
 	for (; len != 0; len--, rp++) {
 		char            *name = &dp->dtdo_strtab[rp->dofr_name];
-		dt_ident_t      *idp = dt_dlib_get_func(dtp, name);
 		dtrace_difo_t   *rdp;
 		int		ipc;
 
+		idp = dt_dlib_get_func(dtp, name);
 		if (idp == NULL ||			/* not found */
 		    idp->di_kind != DT_IDENT_SYMBOL ||	/* not external sym */
 		    idp->di_flags & DT_IDFLG_REF)       /* already seen */
 			continue;
 
-		idp->di_flags |= DT_IDFLG_REF;
-
 		rdp = dt_dlib_get_func_difo(dtp, idp);
 		if (rdp == NULL)
 			return -1;
-		ipc = dt_link_layout(dtp, rdp, pcp, rcp, vcp);
+		ipc = dt_link_layout(dtp, rdp, pcp, rcp, vcp, idp);
 		if (ipc == -1)
 			return -1;
 		idp->di_id = ipc;
@@ -2323,7 +2344,7 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 
 static int
 dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
-		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
+		  dt_ident_t *idp, const dtrace_difo_t *sdp, dt_strtab_t *stab,
 		  uint_t *pcp, uint_t *rcp, uint_t *vcp, dtrace_epid_t epid,
 		  uint_t clid)
 {
@@ -2336,6 +2357,13 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	uint_t			len = sdp->dtdo_brelen;
 	const dof_relodesc_t	*rp = sdp->dtdo_breltab;
 	dof_relodesc_t		*nrp = &dp->dtdo_breltab[rc];
+	int			no_deps = 0;
+
+	if (idp != NULL) {
+		idp->di_flags |= DT_IDFLG_REF;
+		if (idp->di_flags & DT_IDFLG_CGREG)
+			no_deps = 1;
+	}
 
 	/*
 	 * Make sure there is enough room in the destination instruction buffer
@@ -2396,37 +2424,45 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	nrp = &dp->dtdo_breltab[rc];
 	for (; len != 0; len--, rp++, nrp++) {
 		const char	*name = &sdp->dtdo_strtab[rp->dofr_name];
-		dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
 		dtrace_difo_t	*rdp;
 		dtrace_epid_t	nepid;
 		int		ipc;
 
+		idp = dt_dlib_get_sym(dtp, name);
 		if (idp == NULL)			/* not found */
 			continue;
 
 		switch (idp->di_kind) {
 		case DT_IDENT_SCALAR:			/* constant */
+			if (no_deps) {
+				nrp->dofr_type = R_BPF_NONE;
+				continue;
+			}
+
 			switch (idp->di_id) {
 			case DT_CONST_EPID:
 				nrp->dofr_data = epid;
-				break;
+				continue;
 			case DT_CONST_PRID:
 				nrp->dofr_data = prp->desc->id;
-				break;
+				continue;
 			case DT_CONST_CLID:
 				nrp->dofr_data = clid;
-				break;
+				continue;
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */
-				break;
+				continue;
 			}
 
-			break;
+			continue;
 		case DT_IDENT_SYMBOL:			/* BPF function */
+			if (no_deps) {
+				nrp->dofr_data = rp->dofr_data + pc;
+				continue;
+			}
+
 			if (idp->di_flags & DT_IDFLG_REF)
 				continue;
-
-			idp->di_flags |= DT_IDFLG_REF;
 
 			rdp = dt_dlib_get_func_difo(dtp, idp);
 			if (rdp == NULL)
@@ -2437,7 +2473,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				clid++;
 			} else
 				nepid = 0;
-			ipc = dt_link_construct(dtp, prp, dp, rdp, stab,
+			ipc = dt_link_construct(dtp, prp, dp, idp, rdp, stab,
 						pcp, rcp, vcp, nepid, clid);
 			if (ipc == -1)
 				return -1;
@@ -2445,7 +2481,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			idp->di_id = ipc;
 			nrp->dofr_data = idp->di_id;	/* set value */
 
-			break;
+			continue;
 		default:
 			continue;
 		}
@@ -2497,7 +2533,8 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 }
 
 static int
-dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp)
+dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
+	dt_ident_t *idp)
 {
 	uint_t		insc = 0;
 	uint_t		relc = 0;
@@ -2510,7 +2547,7 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp)
 	 * Determine the layout of the final (linked) DIFO, and calculate the
 	 * total instruction, relocation record, and variable table counts.
 	 */
-	rc = dt_link_layout(dtp, dp, &insc, &relc, &varc);
+	rc = dt_link_layout(dtp, dp, &insc, &relc, &varc, idp);
 	dt_dlib_reset(dtp, B_TRUE);
 	if (rc == -1)
 		goto fail;
@@ -2548,8 +2585,8 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp)
 	if (stab == NULL)
 		goto nomem;
 
-	rc = dt_link_construct(dtp, prp, fdp, dp, stab, &insc, &relc, &varc,
-			       0, 0);
+	rc = dt_link_construct(dtp, prp, fdp, idp, dp, stab, &insc, &relc,
+			       &varc, 0, 0);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;
@@ -2609,26 +2646,27 @@ nomem:
 }
 
 dtrace_difo_t *
-dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
+dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags,
+		     dt_ident_t *idp)
 {
 	dtrace_difo_t *dp;
 
 	assert(prp != NULL);
 
-	dp = dt_construct(dtp, prp, cflags);
+	dp = dt_construct(dtp, prp, cflags, idp);
 	if (dp == NULL)
 		return NULL;
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
-		dt_dis_difo(dp, stderr, NULL);
+		dt_dis_difo(dp, stderr, idp);
 
-	if (dt_link(dtp, prp, dp) != 0) {
+	if (dt_link(dtp, prp, dp, idp) != 0) {
 		dt_difo_free(dtp, dp);
 		return NULL;
 	}
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 3))
-		dt_dis_difo(dp, stderr, NULL);
+		dt_dis_difo(dp, stderr, idp);
 
 	return dp;
 }

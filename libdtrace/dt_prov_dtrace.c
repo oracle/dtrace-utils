@@ -48,13 +48,19 @@ static int populate(dtrace_hdl_t *dtp)
 		n++;
 		dt_list_append(&dtp->dt_enablings, prp);
 	}
+
 	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
 	if (prp) {
 		n++;
 		dt_list_append(&dtp->dt_enablings, prp);
 	}
-	if (tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR"))
+
+	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR");
+	if (prp) {
 		n++;
+		dt_list_append(&dtp->dt_enablings, prp);
+		dtp->dt_error = prp;
+	}
 
 	return n;
 }
@@ -74,9 +80,18 @@ static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_activity_t	act;
-	int		adv_act;
+	dt_activity_t	act = DT_ACTIVITY_ACTIVE;
 	uint32_t	key = 0;
+
+	/*
+	 * The ERROR probe isn't really a trace event that a BPF program is
+	 * attached to.  Its entire trampoline program is provided by the code
+	 * generator.
+	 */
+	if (strcmp(pcb->pcb_probe->desc->prb, "ERROR") == 0) {
+		dt_cg_tramp_error(pcb);
+		return;
+	}
 
 	/*
 	 * The BEGIN probe should only run when the activity state is INACTIVE.
@@ -95,55 +110,45 @@ static void trampoline(dt_pcb_t *pcb)
 	 * When the END probe is triggered, we need to record the CPU it runs
 	 * on in state[DT_STATE_ENDEDON] to ensure that we know which trace
 	 * data buffer to process last.
-	 *
-	 * Any other probe requires the state to be ACTIVE, and does not change
-	 * the state.
 	 */
 	if (strcmp(pcb->pcb_probe->desc->prb, "BEGIN") == 0) {
 		act = DT_ACTIVITY_INACTIVE;
-		adv_act = 1;
 		key = DT_STATE_BEGANON;
 	} else if (strcmp(pcb->pcb_probe->desc->prb, "END") == 0) {
 		act = DT_ACTIVITY_DRAINING;
-		adv_act = 1;
 		key = DT_STATE_ENDEDON;
-	} else {
-		act = DT_ACTIVITY_ACTIVE;
-		adv_act = 0;
 	}
 
 	dt_cg_tramp_prologue_act(pcb, act);
 
-	if (key) {
-		/*
-		 *     key = DT_STATE_(BEGANON|ENDEDON);
-		 *			// stw [%fp + DT_STK_SPILL(0)],
-		 *			//	DT_STATE_(BEGANON|ENDEDON)
-		 *     val = bpf_get_smp_processor_id();
-		 *			// call bpf_get_smp_processor_id
-		 *			// stw [%fp + DT_STK_SPILL(1)], %r0
-		 *     bpf_map_update_elem(state, &key, &val, BPF_ANY);
-		 *			// lddw %r1, &state
-		 *			// mov %r2, %fp
-		 *			// add %r2, DT_STK_SPILL(0)
-		 *			// mov %r3, %fp
-		 *			// add %r3, DT_STK_SPILL(1)
-		 *			// mov %r4, BPF_ANY
-		 *			// call bpf_map_update_elem
-		 */
-		dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+	/*
+	 *     key = DT_STATE_(BEGANON|ENDEDON);
+	 *				// stw [%fp + DT_STK_SPILL(0)],
+	 *				//	DT_STATE_(BEGANON|ENDEDON)
+	 *     val = bpf_get_smp_processor_id();
+	 *				// call bpf_get_smp_processor_id
+	 *				// stw [%fp + DT_STK_SPILL(1)], %r0
+	 *     bpf_map_update_elem(state, &key, &val, BPF_ANY);
+	 *				// lddw %r1, &state
+	 *				// mov %r2, %fp
+	 *				// add %r2, DT_STK_SPILL(0)
+	 *				// mov %r3, %fp
+	 *				// add %r3, DT_STK_SPILL(1)
+	 *				// mov %r4, BPF_ANY
+	 *				// call bpf_map_update_elem
+	 */
+	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
 
-		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), key));
-		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
-		emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), BPF_REG_0));
-		dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0)));
-		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1)));
-		emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
-		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
-	}
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_STK_SPILL(0), key));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+	emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(1), BPF_REG_0));
+	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_STK_SPILL(0)));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STK_SPILL(1)));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 
 	/*
 	 * We cannot assume anything about the state of any registers so set up
@@ -210,10 +215,7 @@ static void trampoline(dt_pcb_t *pcb)
 	for (i = 6; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)), 0));
 
-	if (adv_act)
-		dt_cg_tramp_epilogue_advance(pcb, act);
-	else
-		dt_cg_tramp_epilogue(pcb);
+	dt_cg_tramp_epilogue_advance(pcb, act);
 }
 
 static char *uprobe_spec(dtrace_hdl_t *dtp, const char *prb)

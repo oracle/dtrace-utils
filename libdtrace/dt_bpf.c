@@ -274,19 +274,18 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 }
 
 /*
- * Perform relocation processing on a program.
+ * Perform relocation processing for BPF maps in a program.
  */
 static void
-dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		  const dtrace_difo_t *dp)
+dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
 {
 	int			len = dp->dtdo_brelen;
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+	struct bpf_insn		*text = dp->dtdo_buf;
 
 	for (; len != 0; len--, rp++) {
 		char		*name = &dp->dtdo_strtab[rp->dofr_name];
 		dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
-		struct bpf_insn	*text = dp->dtdo_buf;
 		int		ioff = rp->dofr_offset /
 					sizeof(struct bpf_insn);
 		uint32_t	val = 0;
@@ -326,15 +325,12 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	char				*p, *q;
 
 	/*
-	 * Check whether there are any probe-specific relocations to be
-	 * performed.  If so, we need to modify the executable code.  This can
-	 * be done in-place since program loading is serialized.
-	 *
-	 * Relocations that are probe independent were already done at an
-	 * earlier time so we can ignore those.
+	 * Check whether there are any BPF specific relocations that may need to
+	 * be performed.  If so, we need to modify the executable code.  This
+	 * can be done in-place since program loading is serialized.
 	 */
 	if (dp->dtdo_brelen)
-		dt_bpf_reloc_prog(dtp, prp, dp);
+		dt_bpf_reloc_prog(dtp, dp);
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
 
@@ -390,17 +386,77 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	return -1;
 }
 
+/*
+ * Perform relocation processing on the ERROR probe program.
+ */
+static void
+dt_bpf_reloc_error_prog(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
+{
+	int			len = dp->dtdo_brelen;
+	const dof_relodesc_t	*rp = dp->dtdo_breltab;
+	dof_relodesc_t		*nrp = dp->dtdo_breltab;
+	struct bpf_insn		*text = dp->dtdo_buf;
+
+	for (; len != 0; len--, rp++) {
+		char		*name = &dp->dtdo_strtab[rp->dofr_name];
+		dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
+		int		ioff = rp->dofr_offset /
+					sizeof(struct bpf_insn);
+
+		/*
+		 * We need to turn "call dt_error" into a NOP.  We also remove
+		 * the relocation record because it is obsolete.
+		 */
+		if (idp != NULL && idp->di_kind == DT_IDENT_SYMBOL &&
+		    strcmp(idp->di_name, "dt_error") == 0) {
+			text[ioff] = BPF_NOP();
+			continue;
+		}
+
+		if (nrp != rp)
+			*nrp = *rp;
+
+		nrp++;
+	}
+
+	dp->dtdo_brelen -= rp - nrp;
+}
+
 int
 dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	dt_probe_t	*prp;
+	dtrace_difo_t	*dp;
+	dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_error");
 
+	assert(idp != NULL);
+
+	/*
+	 * First construct the ERROR probe program (to be included in probe
+	 * programs that may trigger a fault).
+	 *
+	 * After constructing the program, we need to patch up any calls to
+	 * dt_error because DTrace cannot handle faults in ERROR itself.
+	 */
+	dp = dt_program_construct(dtp, dtp->dt_error, cflags, idp);
+	if (dp == NULL)
+		return -1;
+
+	idp->di_flags |= DT_IDFLG_CGREG;	/* mark it as inline-ready */
+	dt_bpf_reloc_error_prog(dtp, dp);
+
+	/*
+	 * Now construct all the other programs.
+	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
-		dtrace_difo_t	*dp;
 		int		fd, rc;
 
-		dp = dt_program_construct(dtp, prp, cflags);
+		/* Already done. */
+		if (prp == dtp->dt_error)
+			continue;
+
+		dp = dt_program_construct(dtp, prp, cflags, NULL);
 		if (dp == NULL)
 			return -1;
 

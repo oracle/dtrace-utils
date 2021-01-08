@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -34,4 +34,9 @@ END
 	exit((vtimestamp == 0)
 		? -1
 		: (vtimestamp - self->vt) <= (timestamp - self->ts) ? 0 : 1);
+}
+
+ERROR
+{
+	exit(1);
 }

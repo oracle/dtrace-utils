@@ -287,6 +287,8 @@ struct dtrace_hdl {
 	uint32_t dt_probes_sz;	/* size of array of probes */
 	uint32_t dt_probe_id;	/* next available probe id */
 
+	struct dt_probe *dt_error; /* ERROR probe */
+
 	dt_list_t dt_provlist;	/* linked list of dt_provider_t's */
 	struct dt_provider **dt_provs; /* hash table of dt_provider_t's */
 	uint_t dt_provbuckets;	/* number of provider hash buckets */
@@ -350,7 +352,6 @@ struct dtrace_hdl {
 	int dt_aggmap_fd;	/* file descriptor for the 'aggs' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */
-	dtrace_prog_t *dt_errprog; /* error handler program, if any */
 	dtrace_handle_drop_f *dt_drophdlr; /* drop handler, if any */
 	void *dt_droparg;	/* drop handler argument */
 	dtrace_handle_proc_f *dt_prochdlr; /* proc handler, if any */
@@ -723,11 +724,13 @@ extern void *dt_compile(dtrace_hdl_t *dtp, int context,
 			dtrace_probespec_t pspec, void *arg, uint_t cflags,
 			int argc, char *const argv[], FILE *fp, const char *s);
 extern dtrace_difo_t *dt_program_construct(dtrace_hdl_t *dtp,
-					   struct dt_probe *prp, uint_t cflags);
+					   struct dt_probe *prp, uint_t cflags,
+					   dt_ident_t *idp);
 
 extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
+extern dtrace_difo_t *dt_difo_copy(dtrace_hdl_t *dtp, const dtrace_difo_t *odp);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
 extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp,
 			const dt_ident_t *idp);
@@ -736,6 +739,7 @@ extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);
 
+extern dtrace_datadesc_t *dt_datadesc_hold(dtrace_datadesc_t *ddp);
 extern void dt_datadesc_release(dtrace_hdl_t *, dtrace_datadesc_t *);
 extern dtrace_datadesc_t *dt_datadesc_create(dtrace_hdl_t *);
 extern int dt_datadesc_finalize(dtrace_hdl_t *, dtrace_datadesc_t *);

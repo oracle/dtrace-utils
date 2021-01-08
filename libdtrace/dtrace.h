@@ -101,7 +101,8 @@ typedef struct dtrace_proginfo {
 #define	DTRACE_C_DEFARG	0x0800	/* Use 0/"" as value for unspecified args */
 #define	DTRACE_C_NOLIBS	0x1000	/* Do not process D system libraries */
 #define	DTRACE_C_CTL	0x2000	/* Only process control directives */
-#define	DTRACE_C_MASK	0x3bff	/* mask of all valid flags to dtrace_*compile */
+#define	DTRACE_C_EPROBE	0x8000	/* Compiling default ERROR probe clause */
+#define	DTRACE_C_MASK	0xbbff	/* mask of all valid flags to dtrace_*compile */
 
 extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
     dtrace_probespec_t spec, uint_t cflags, int argc, char *const argv[]);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -22,6 +22,7 @@
 #include <dt_string.h>
 #include <dt_htab.h>
 #include <dt_list.h>
+#include <dt_bpf.h>
 
 typedef struct dt_probeclause {
 	dt_list_t	list;
@@ -1268,18 +1269,84 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	return dt_probe_iter(dtp, pdp, NULL, func, arg);
 }
 
+/*
+ * Create an ERROR-probe specific copy of a given clause.
+ *
+ * A modified copy of the clause is necessary because the ERROR probe may share
+ * some clauses with other probes, and yet it needs to be handled differently.
+ *
+ * The following modifications are made in the copy of the clause:
+ *
+ *	- it is named dt_error_N where N is taken from the original clause
+ *	  dt_clause_N (which also guarantees uniqueness)
+ */
+dt_ident_t *
+dt_probe_error_clause(dtrace_hdl_t *dtp, dt_ident_t *idp)
+{
+	char		*name;
+	int		len;
+	dtrace_difo_t	*dp = dt_dlib_get_func_difo(dtp, idp);
+	dt_ident_t	*nidp = NULL;
+	dtrace_difo_t	*ndp;
+
+	/*
+	 * Copy the DIFO.
+	 */
+	ndp = dt_difo_copy(dtp, dp);
+	if (ndp == NULL)
+		goto no_mem;
+
+	/*
+	 * Generate a new symbol name from the given identifier.
+	 */
+	len = strlen(idp->di_name);
+	name = dt_alloc(dtp, len);
+	if (name == NULL)
+		goto no_mem;
+
+	snprintf(name, len, "dt_error_%s", idp->di_name + strlen("dt_clause_"));
+
+	/*
+	 * Add the new symbol to the BPF identifier table and associate the
+	 * modified copy of the DIFO with the symbol.
+	 */
+	nidp = dt_dlib_add_func(dtp, name);
+	dt_free(dtp, name);
+	if (nidp == NULL)
+		goto no_mem;
+
+	dt_ident_set_data(nidp, ndp);
+
+	return nidp;
+
+no_mem:
+	if (ndp != NULL)
+		dt_difo_free(dtp, ndp);
+	if (nidp != NULL)
+		dt_ident_destroy(nidp);
+
+	dt_set_errno(dtp, EDT_NOMEM);
+	return NULL;
+}
+
 int
 dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
 {
 	dt_probeclause_t	*pcp;
 
 	pcp = dt_zalloc(dtp, sizeof(dt_probeclause_t));;
-	if (pcp == NULL) {
-		dt_set_errno(dtp, EDT_NOMEM);
-		return -1;
-	}
+	if (pcp == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-	pcp->clause = idp;
+	if (prp == dtp->dt_error) {
+		pcp->clause = dt_probe_error_clause(dtp, idp);
+		if (pcp->clause == NULL) {
+			dt_free(dtp, pcp);
+			return 0;
+		}
+	} else
+		pcp->clause = idp;
+
 	dt_list_append(&prp->clauses, pcp);
 
 	return 0;

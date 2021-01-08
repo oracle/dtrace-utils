@@ -54,6 +54,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	/* BPF library (external) functions */
 	DT_BPF_SYMBOL(dt_agg_lqbin, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_agg_qbin, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_error, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
@@ -394,6 +395,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			 * will get rid of these fake function symbols.
 			 */
 			idp = dt_dlib_get_map(dtp, name);
+			if (idp == NULL)
+				idp = dt_dlib_get_func(dtp, name);
 			if (idp == NULL) {
 				dt_dlib_error(dtp, D_IDENT_UNDEF,
 					      "undefined symbol %s in BPF dlib",

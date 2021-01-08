@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,10 +15,11 @@
 #include <dt_probe.h>
 #include <dt_printf.h>
 
-static void
+dtrace_datadesc_t *
 dt_datadesc_hold(dtrace_datadesc_t *ddp)
 {
 	ddp->dtdd_refcnt++;
+	return ddp;
 }
 
 void
@@ -49,9 +50,7 @@ dt_datadesc_create(dtrace_hdl_t *dtp)
 		return NULL;
 	}
 
-	dt_datadesc_hold(ddp);
-
-	return ddp;
+	return dt_datadesc_hold(ddp);
 }
 
 int
@@ -128,8 +127,7 @@ dt_epid_add(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp, dtrace_id_t prid)
 	if (dtp->dt_ddesc[epid] != NULL)
 		return epid;
 
-	dt_datadesc_hold(ddp);
-	dtp->dt_ddesc[epid] = ddp;
+	dtp->dt_ddesc[epid] = dt_datadesc_hold(ddp);
 	dtp->dt_pdesc[epid] = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
 
 	return epid;

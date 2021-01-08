@@ -172,16 +172,20 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	dt_irlist_t	*dlp = arg->dlp;
 
 	/*
-	 *	if (*dctx.act != act)	// ldw %r0, [%fp + DCTX_FP(DCTX_ACT)]
+	 *	if (*dctx.act != act)	// ldw %r0, [%fp +
+	 *				//	     DCTX_FP(DCTX_ACT)]
 	 *		goto exit;	// ldw %r0, [%r0 + 0]
 	 *				// jne %r0, act, lbl_exit
-	 *	dt_clause(dctx);	// mov %r1, %fp
-	 *				// add %r1, DCTX_FP(0)
-	 *				// call dt_program
 	 */
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT)));
 	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit));
+
+	/*
+	 *	dt_clause(dctx);	// mov %r1, %fp
+	 *				// add %r1, DCTX_FP(0)
+	 *				// call dt_program
+	 */
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0)));
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
@@ -239,6 +243,54 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
 
 	dt_cg_tramp_return(pcb);
+}
+
+static int
+dt_cg_tramp_error_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp,
+			      dt_irlist_t *dlp)
+{
+	/*
+	 *	dt_error_#(dctx);	// mov %r1, %r9
+	 *				// call dt_error_#
+	 */
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+
+	return 0;
+}
+
+/*
+ * Generate the trampoline BPF program for the ERROR probe.
+ *
+ * The trampoline BPF program for the ERROR probe is implemented as a function
+ * that calls the ERROR probe clauses one by one.  It must satisfy the
+ * signature:
+ *
+ *	int dt_error(dt_dctx_t *dctx)
+ */
+void
+dt_cg_tramp_error(dt_pcb_t *pcb)
+{
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+
+	/*
+	 * int dt_error(dt_dctx_t *dctx)
+	 *				//     (%r1 = pointer to dt_dctx_t)
+	 * {
+	 *	int	rc;
+	 *				//     (%r9 = reserved reg for dctx)
+	 *				// mov %r9, %r1
+	 */
+	TRACE_REGSET("Trampoline: Begin");
+	emit(dlp, BPF_MOV_REG(BPF_REG_9, BPF_REG_1));
+
+	dt_probe_clause_iter(dtp, dtp->dt_error,
+			     (dt_clause_f *)dt_cg_tramp_error_call_clause, dlp);
+
+	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 0));
+	emit(dlp, BPF_RETURN());
+	TRACE_REGSET("Trampoline: Begin");
 }
 
 /*
@@ -339,10 +391,9 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 
 /*
  * Generate the function epilogue:
- *	4. If a fault was flagged, return 0.
- *	5. Submit the buffer to the perf event output buffer for the current
- *	   cpu.
- *	6. Return 0
+ *	4. Submit the buffer to the perf event output buffer for the current
+ *	   cpu, if this is a data recording action..
+ *	5. Return 0
  * }
  */
 static void
@@ -363,19 +414,8 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		assert(buffers != NULL);
 
 		/*
-		 *	rc = dctx->mst->fault;	// lddw %r0, [%fp + DT_STK_DCTX]
-		 *				// lddw %r0, [%r0 + DCTX_MST]
-		 *				// lddw %r0, [%r0 + DMST_FAULT]
-		 *	if (rc != 0)
-		 *	    goto exit;		// jne %r0, 0, pcb->pcb_exitlbl
-		 */
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_FAULT));
-		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, pcb->pcb_exitlbl));
-
-		/*
-		 *	bpf_perf_event_output(dctx->ctx, &buffers, BPF_F_CURRENT_CPU,
+		 *	bpf_perf_event_output(dctx->ctx, &buffers,
+		 *			      BPF_F_CURRENT_CPU,
 		 *			      buf - 4, bufoff + 4);
 		 *				// lddw %r1, [%fp + DT_STK_DCTX]
 		 *				// lddw %r1, [%r1 + DCTX_CTX]
@@ -384,7 +424,7 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		 *				// mov %r4, %r9
 		 *				// add %r4, -4
 		 *				// mov %r5, pcb->pcb_bufoff
-		 *				// add %r4, 4
+		 *				// add %r5, 4
 		 *				// call bpf_perf_event_output
 		 *
 		 */
@@ -411,6 +451,66 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	TRACE_REGSET("Epilogue: End  ");
 }
 
+/*
+ * Generate code for a fault condition.  A call is made to dt_probe_error() to
+ * set the fault information.
+ */
+static void
+dt_cg_probe_error(dt_pcb_t *pcb, uint32_t off, uint32_t fault, uint64_t illval)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl,
+						"dt_probe_error");
+
+	assert(idp != NULL);
+
+	/*
+	 *	dt_probe_error(
+	 *		dctx,		// lddw %r1, %fp, DT_STK_DCT
+	 *		off,		// mov %r2, off
+	 *		fault,		// mov %r3, fault
+	 *		illval);	// mov %r4, illval
+	 *				// call dt_probe_error
+	 *	return;			// exit
+	 */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, off));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, fault));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, illval));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+	emit(dlp,  BPF_RETURN());
+}
+
+/*
+ * Check whether mst->fault indicates a fault was triggered.  If so, abort the
+ * current clause by means of a straight jump to the exit labal.
+ */
+static void
+dt_cg_check_fault(dt_pcb_t *pcb)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	int		reg = dt_regset_alloc(drp);
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+
+	if (reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_MST));
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DMST_FAULT));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, reg, 0, lbl_ok));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 0));
+	emit(dlp,  BPF_RETURN());
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+	dt_regset_free(drp, reg);
+}
 /*
  * Generate an instruction sequence to fill a gap in the output buffer with 0
  * values.  This is used to ensure that there are no uninitialized bytes in the
@@ -1348,44 +1448,34 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 			emit(dlp, BPF_MOV_IMM(dst->dn_reg, 0));
 		else
 			emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP, DT_STK_LVAR(idp->di_id)));
-	} else if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
-		dt_regset_xalloc(drp, BPF_REG_0);
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-		assert(idp != NULL);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-		dt_regset_free_args(drp);
-
-		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp, BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
-	} else {					/* global var */
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
-			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
-			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_MST));
-			emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
-			idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
-		} else {
-			emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
-			idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_gvar");
-		}
-		assert(idp != NULL);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-		dt_regset_free_args(drp);
-
-		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp, BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
+		return;
 	}
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
+		emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+	} else if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
+	} else {					/* global var */
+		emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_gvar");
+	}
+	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	dt_cg_check_fault(yypcb);
+
+	if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
 }
 
 static void
@@ -2717,7 +2807,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
-			uint_t ubit;
+			uint_t	ubit;
+			uint_t	lbl_valid = dt_irlist_label(dlp);
 
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
@@ -2727,6 +2818,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			ubit = dnp->dn_flags & DT_NF_USERLAND;
 			dnp->dn_flags |=
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
+
+			/* if NULL pointer, report BADARR */
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_reg, 0,
+						  lbl_valid));
+			dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
+			emitl(dlp, lbl_valid,
+				   BPF_NOP());
 
 			/* FIXME: Does not handled signed or userland */
 			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
@@ -2811,14 +2909,26 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_PTR:
-	case DT_TOK_DOT:
+	case DT_TOK_DOT: {
+		uint_t	lbl_valid = dt_irlist_label(dlp);
+
 		assert(dnp->dn_right->dn_kind == DT_NODE_IDENT);
 		dt_cg_node(dnp->dn_left, dlp, drp);
 
 		/*
-		 * Ensure that the lvalue is not the NULL pointer.
+		 * If the lvalue is the NULL pointer, we must report a BADARR
+		 * fault.
+		 *
+		 *	if (left != 0)		// jne %lreg, 0, valid
+		 *		goto valid;
+		 *				//     (report BADADDR fault)
+		 * valid:
 		 */
-		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, yypcb->pcb_exitlbl));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_left->dn_reg, 0,
+					  lbl_valid));
+		dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
+		emitl(dlp, lbl_valid,
+			   BPF_NOP());
 
 		/*
 		 * If the left-hand side of PTR or DOT is a dynamic variable,
@@ -2900,6 +3010,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		dnp->dn_reg = dnp->dn_left->dn_reg;
 		break;
+	}
 
 	case DT_TOK_STRING:
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stddef.h>
@@ -8,8 +8,11 @@
 #include <bpf-helpers.h>
 #include <dtrace/conf.h>
 #include <dtrace/dif_defines.h>
+#include <dtrace/faults_defines.h>
 #include <dt_dctx.h>
 #include <dt_state.h>
+
+#include "probe_error.h"
 
 #ifndef noinline
 # define noinline	__attribute__((noinline))
@@ -18,8 +21,16 @@
 extern struct bpf_map_def cpuinfo;
 extern struct bpf_map_def state;
 
-noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
+#define error(dctx, fault, illval) \
+	({ \
+		dt_probe_error((dctx), -1, (fault), (illval)); \
+		-1; \
+	})
+
+noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 {
+	dt_mstate_t	*mst = dctx->mst;
+
 	switch (id) {
 	case DIF_VAR_CURTHREAD:
 		return bpf_get_current_task();
@@ -75,13 +86,13 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 		/* Chase pointers val = current->real_parent->tgid. */
 		ptr = bpf_get_current_task();
 		if (ptr == 0)
-			return -1;
+			return error(dctx, DTRACEFLT_BADADDR, ptr);
 		if (bpf_probe_read((void *)&ptr, 8,
 		    (const void *)(ptr + *parent_off)))
-			return -1;
+			return error(dctx, DTRACEFLT_BADADDR, ptr + *parent_off);
 		if (bpf_probe_read((void *)&val, 4,
 		    (const void *)(ptr + *tgid_off)))
-			return -1;
+			return error(dctx, DTRACEFLT_BADADDR, ptr + *tgid_off);
 
 		return (uint64_t)val;
 	}
@@ -106,10 +117,6 @@ noinline uint64_t dt_get_bvar(dt_mstate_t *mst, uint32_t id)
 	}
 	default:
 		/* Not implemented yet. */
-#if 1
-		return (uint64_t)-1;
-#else
-		return (uint64_t)id;
-#endif
+		return error(dctx, DTRACEFLT_ILLOP, 0);
 	}
 }

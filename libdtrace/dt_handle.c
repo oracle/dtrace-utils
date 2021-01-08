@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -16,7 +16,6 @@
 #include <dt_impl.h>
 #include <dt_program.h>
 
-#ifdef FIXME
 static const char _dt_errprog[] =
 "dtrace:::ERROR"
 "{"
@@ -26,7 +25,6 @@ static const char _dt_errprog[] =
 "	trace(arg4);"
 "	trace(arg5);"
 "}";
-#endif
 
 int
 dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
@@ -51,23 +49,18 @@ dtrace_handle_err(dtrace_hdl_t *dtp, dtrace_handle_err_f *hdlr, void *arg)
 	if (dtp->dt_options[DTRACEOPT_GRABANON] != DTRACEOPT_UNSET)
 		goto out;
 
-#if 0
-	if ((pgp = dtrace_program_strcompile(dtp, _dt_errprog,
-	    DTRACE_PROBESPEC_NAME, DTRACE_C_ZDEFS, 0, NULL)) == NULL)
+	pgp = dtrace_program_strcompile(dtp, _dt_errprog, DTRACE_PROBESPEC_NAME,
+					DTRACE_C_ZDEFS | DTRACE_C_EPROBE, 0,
+					NULL);
+	if (pgp == NULL)
 		return dt_set_errno(dtp, dtrace_errno(dtp));
 
-	stp = dt_list_next(&pgp->dp_stmts);
-	assert(stp != NULL);
-
-	edp = stp->ds_desc->dtsd_ecbdesc;
-	assert(edp != NULL);
-	edp->dted_uarg = DT_ECB_ERROR;
-#endif
+	if (dtrace_program_exec(dtp, pgp, NULL) == -1)
+		return -1;		/* errno already set */
 
 out:
 	dtp->dt_errhdlr = hdlr;
 	dtp->dt_errarg = arg;
-	dtp->dt_errprog = pgp;
 
 	return 0;
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -31,5 +31,10 @@ tick-10ms
 	printf("The current lwp has priority %d\n", curlwpsinfo->pr_pri);
 	printf("The current lwp is named %s\n", curlwpsinfo->pr_name);
 	printf("The current lwp is on cpu %d\n", curlwpsinfo->pr_onpro);
-	exit (0);
+	exit(0);
+}
+
+ERROR
+{
+	exit(1);
 }

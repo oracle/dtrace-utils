@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -26,6 +26,7 @@ bpf_dlib_SOURCES = \
 	get_bvar.c \
 	get_gvar.c set_gvar.c \
 	get_tvar.c set_tvar.c \
+	probe_error.c \
 	memcpy.c strnlen.c
 
 bpf-check: $(objdir)/include/.dir.stamp

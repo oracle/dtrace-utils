@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -891,9 +891,6 @@ dtrace_getopt_dof(dtrace_hdl_t *dtp)
 void *
 dtrace_geterr_dof(dtrace_hdl_t *dtp)
 {
-	if (dtp->dt_errprog != NULL)
-		return dtrace_dof_create(dtp, dtp->dt_errprog, 0);
-
 	dt_set_errno(dtp, EDT_BADERROR);
 	return NULL;
 }

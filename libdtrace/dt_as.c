@@ -605,3 +605,51 @@ fail:
 
 	return dp;
 }
+
+dtrace_difo_t *
+dt_difo_copy(dtrace_hdl_t *dtp, const dtrace_difo_t *odp)
+{
+	dtrace_difo_t	*dp;
+
+	dp = dt_zalloc(dtp, sizeof(dtrace_difo_t));
+	if (dp == NULL)
+		goto no_mem;
+
+#define DIFO_COPY_DATA(dtp, odp, dp, len, ptr) \
+	do { \
+		if ((odp)->len > 0) { \
+			size_t	tsiz = sizeof(typeof((dp)->ptr[0])); \
+			\
+			(dp)->len = (odp)->len; \
+			(dp)->ptr = dt_calloc((dtp), (dp)->len, tsiz); \
+			if ((dp)->ptr == NULL) \
+				goto no_mem; \
+			\
+			memcpy((dp)->ptr, (odp)->ptr, (dp)->len * tsiz); \
+		} \
+	} while (0)
+
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_len, dtdo_buf);
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_strlen, dtdo_strtab);
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_varlen, dtdo_vartab);
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_brelen, dtdo_breltab);
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_krelen, dtdo_kreltab);
+	DIFO_COPY_DATA(dtp, odp, dp, dtdo_urelen, dtdo_ureltab);
+
+	dp->dtdo_ddesc = dt_datadesc_hold(odp->dtdo_ddesc);
+	dp->dtdo_flags = odp->dtdo_flags;
+
+	return dp;
+
+no_mem:
+	dt_free(dtp, dp->dtdo_buf);
+	dt_free(dtp, dp->dtdo_strtab);
+	dt_free(dtp, dp->dtdo_vartab);
+	dt_free(dtp, dp->dtdo_breltab);
+	dt_free(dtp, dp->dtdo_kreltab);
+	dt_free(dtp, dp->dtdo_ureltab);
+	dt_free(dtp, dp);
+
+	dt_set_errno(dtp, EDT_NOMEM);
+	return NULL;
+}
