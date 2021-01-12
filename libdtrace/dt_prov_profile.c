@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -217,9 +217,8 @@ static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	uint_t		lbl_exit;
 
-	lbl_exit = dt_cg_tramp_prologue(pcb);
+	dt_cg_tramp_prologue(pcb);
 
 	/*
 	 * We cannot assume anything about the state of any registers so set up
@@ -270,7 +269,7 @@ static void trampoline(dt_pcb_t *pcb)
 	for (i = 1; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)), 0));
 
-	dt_cg_tramp_epilogue(pcb, lbl_exit);
+	dt_cg_tramp_epilogue(pcb);
 }
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)

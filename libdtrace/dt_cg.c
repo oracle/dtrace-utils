@@ -37,17 +37,15 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *
  * The caller should NOT depend on any register values that exist at the end of
  * the trampoline prologue.
- *
- * This function returns a label id to be passed to dt_cg_tramp_epilogue().
  */
-uint_t
+void
 dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
-	uint_t		lbl_exit = dt_irlist_label(dlp);
+	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
 	assert(mem != NULL);
 
@@ -154,14 +152,12 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_AGG), BPF_REG_0));
 	}
-
-	return lbl_exit;
 }
 
-uint_t
+void
 dt_cg_tramp_prologue(dt_pcb_t *pcb)
 {
-	return dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
+	dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
 }
 
 typedef struct {
@@ -194,17 +190,17 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 }
 
 static void
-dt_cg_tramp_call_clauses(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
+dt_cg_tramp_call_clauses(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_clause_arg_t	arg = { dlp, act, lbl_exit };
+	dt_clause_arg_t	arg = { dlp, act, pcb->pcb_exitlbl };
 
 	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
 			     (dt_clause_f *)dt_cg_call_clause, &arg);
 }
 
 static void
-dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
+dt_cg_tramp_return(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 
@@ -214,24 +210,24 @@ dt_cg_tramp_return(dt_pcb_t *pcb, uint_t lbl_exit)
 	 *				// exit
 	 * }
 	 */
-	emitl(dlp, lbl_exit,
+	emitl(dlp, pcb->pcb_exitlbl,
 		   BPF_MOV_IMM(BPF_REG_0, 0));
 	emit(dlp,  BPF_RETURN());
 }
 
 void
-dt_cg_tramp_epilogue(dt_pcb_t *pcb, uint_t lbl_exit)
+dt_cg_tramp_epilogue(dt_pcb_t *pcb)
 {
-	dt_cg_tramp_call_clauses(pcb, lbl_exit, DT_ACTIVITY_ACTIVE);
-	dt_cg_tramp_return(pcb, lbl_exit);
+	dt_cg_tramp_call_clauses(pcb, DT_ACTIVITY_ACTIVE);
+	dt_cg_tramp_return(pcb);
 }
 
 void
-dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
+dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 
-	dt_cg_tramp_call_clauses(pcb, lbl_exit, act);
+	dt_cg_tramp_call_clauses(pcb, act);
 
 	/*
 	 *	(*dctx.act)++;		// lddw %r0, [%fp + DCTX_FP(DCTX_ACT)]
@@ -242,7 +238,7 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, uint_t lbl_exit, dt_activity_t act)
 	emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
 	emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
 
-	dt_cg_tramp_return(pcb, lbl_exit);
+	dt_cg_tramp_return(pcb);
 }
 
 /*
