@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -16,5 +16,10 @@
 #include <dtrace/universal.h>
 
 struct dtrace_difo;
+
+/*
+ * DIFO flags.
+ */
+#define DIFOFLG_DESTRUCTIVE		1	/* Uses destructive ops */
 
 #endif /* _DTRACE_DIFO_DEFINES_H */

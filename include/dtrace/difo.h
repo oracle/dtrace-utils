@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -41,7 +41,7 @@ typedef struct dtrace_difo {
 	uint_t dtdo_varlen;			/* length of variable table */
 	uint_t dtdo_reclen;			/* length of trace record */
 	uint_t dtdo_refcnt;			/* owner reference count */
-	uint_t dtdo_destructive;		/* invokes destructive subroutines */
+	uint_t dtdo_flags;			/* flags (destructive, ...) */
 	struct dof_relodesc *dtdo_breltab;	/* BPF relocations */
 	struct dof_relodesc *dtdo_kreltab;	/* kernel relocations */
 	struct dof_relodesc *dtdo_ureltab;	/* user relocations */

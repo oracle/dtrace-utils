@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -135,13 +135,14 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 #ifdef FIXME
 /*
  * Utility function to determine if a given action description is destructive.
- * The dtdo_destructive bit is set for us by the DIF assembler (see dt_as.c).
+ * The DIFOFLG_DESTRUCTIVE bit is set for us by the DIF assembler (see dt_as.c).
  */
 static int
 dt_action_destructive(const dtrace_actdesc_t *ap)
 {
-	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) || (ap->dtad_kind ==
-	    DTRACEACT_DIFEXPR && ap->dtad_difo->dtdo_destructive));
+	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) ||
+		(ap->dtad_kind == DTRACEACT_DIFEXPR &&
+		 (ap->dtad_difo->dtdo_flags & DIFOFLG_DESTRUCTIVE)));
 }
 #endif
 

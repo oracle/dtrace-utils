@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -331,7 +331,7 @@ fail:
 	/*
 	 * Make a second pass through the instructions, relocating each branch
 	 * target (a label ID) to the relative location of the label and noting
-	 * any instruction-specific DIFO flags such as dtdo_destructive.
+	 * any instruction-specific flags such as DIFOFLG_DESTRUCTIVE.
 	 */
 	for (i = 0; i < dp->dtdo_len; i++) {
 		struct bpf_insn instr = dp->dtdo_buf[i];
@@ -352,7 +352,7 @@ fail:
 		if (op == DIF_OP_CALL) {
 			if (DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUT ||
 			    DIF_INSTR_SUBR(instr) == DIF_SUBR_COPYOUTSTR)
-				dp->dtdo_destructive = 1;
+				dp->dtdo_flags |= DIFOFLG_DESTRUCTIVE;
 			continue;
 		}
 #endif
