@@ -3032,17 +3032,65 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
  * Macro to set the storage data (offset and size) for the aggregation
  * identifier (if not set yet).
  *
- * We consume twice the required data size because of the odd/even data pair
- * mechanism to provide lockless, write-wait-free operation.  Additionally,
- * we make room for a latch sequence number.
+ * We make room for a latch sequence number of sizeof(uint64_t).
+ *
+ * If DT_AGG_NUM_COPIES==2, we consume twice the required data size for
+ * a dual-copy mechanism to provide lockless, write-wait-free operation.
  */
 #define DT_CG_AGG_SET_STORAGE(aid, sz) \
 	do { \
 		if ((aid)->di_offset == -1) \
 			dt_ident_set_storage((aid), sizeof(uint64_t), \
-					     sizeof(uint64_t) + 2 * (sz)); \
+					     sizeof(uint64_t) + \
+					     DT_AGG_NUM_COPIES * (sz)); \
 	} while (0)
 
+#if DT_AGG_NUM_COPIES == 1
+/*
+ * Return a register that holds a pointer to the aggregation data to be
+ * updated.
+ *
+ * We update the latch seqcount (first value in the aggregation) to
+ * signal that the aggregation has data.  The location of data for the
+ * given aggregation is stored in the register returned from this function.
+ */
+static int
+dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
+		      dt_regset_t *drp)
+{
+	int		rptr;
+
+	TRACE_REGSET("            Prep: Begin");
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	rptr = dt_regset_alloc(drp);
+	assert(rptr != -1);
+
+	/*
+	 *	ptr = dctx->agg;	// lddw %rptr, [%fp + DT_STK_DCTX]
+	 *				// lddw %rptr, [%rptr + DCTX_AGG]
+	 *	ptr += aid->di_offset;	// add %rptr, aid->di_offset
+	 */
+	emit(dlp, BPF_LOAD(BPF_DW, rptr, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, rptr, rptr, DCTX_AGG));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, aid->di_offset));
+
+	/*
+	 *	*((uint64_t *)ptr)++;	// mov %r0, 1
+	 *				// xadd [%rptr + 0], %r0
+	 *      ptr += sizeof(uint64_t);// add %rptr, sizeof(uint64_t)
+	 */
+	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
+	emit(dlp, BPF_XADD_REG(BPF_DW, rptr, 0, BPF_REG_0));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, sizeof(uint64_t)));
+
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("            Prep: End  ");
+
+	return rptr;
+}
+#else
 /*
  * Prepare the aggregation buffer for updating for a specific aggregation, and
  * return a register that holds a pointer to the aggregation data to be
@@ -3099,41 +3147,23 @@ dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 
 	return ragd;
 }
+#endif
 
 #define DT_CG_AGG_IMPL(aid, sz, dlp, drp, f, ...) \
 	do {								\
-		int	dreg;						\
+		int	i, dreg;					\
 									\
 		TRACE_REGSET("        Upd: Begin ");			\
 									\
-		/*							\
-		 * Redirect reading to secondary copy.  The register	\
-		 * returned holds the base pointer to the primary copy.	\
-		 */							\
-		dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
+		for (i = 0; i < DT_AGG_NUM_COPIES; i++) {		\
+			if (i == 1)					\
+				TRACE_REGSET("        Upd: Switch");	\
 									\
-		/*							\
-		 * Call the update implementation.  Aggregation data is \
-		 * accessed through register 'dreg'.			\
-		 */							\
-		(f)((dlp), (drp), dreg, ## __VA_ARGS__);		\
-		dt_regset_free((drp), dreg);				\
+			dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
 									\
-		TRACE_REGSET("        Upd: Switch");			\
-									\
-		/*							\
-		 * Redirect reading to primary copy.  The register	\
-		 * returned holds the base pointer to the secondary	\
-		 * copy.						\
-		 */							\
-		dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
-									\
-		/*							\
-		 * Call the update implementation.  Aggregation data is \
-		 * accessed through register 'dreg'.			\
-		 */							\
-		(f)((dlp), (drp), dreg, ## __VA_ARGS__);		\
-		dt_regset_free((drp), dreg);				\
+			(f)((dlp), (drp), dreg, ## __VA_ARGS__);	\
+			dt_regset_free((drp), dreg);			\
+		}							\
 									\
 		TRACE_REGSET("        Upd: End   ");			\
 	} while (0)

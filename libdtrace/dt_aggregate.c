@@ -469,8 +469,8 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 	/* point to the latch sequence number */
 	src = (int64_t *)(st->buf + aid->di_offset);
 
-	/* real size excludes latch sequence number and second data copy */
-	realsz = (aid->di_size - sizeof(uint64_t)) / 2;
+	/* real size excludes latch sequence number and second data copy, if any */
+	realsz = (aid->di_size - sizeof(uint64_t)) / DT_AGG_NUM_COPIES;
 
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
@@ -999,7 +999,9 @@ init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
 	/* skip ptr[0], it is the latch sequence number */
 	ptr = (int64_t *)(buf + aid->di_offset);
 	ptr[1] = value;
+#if DT_AGG_NUM_COPIES == 2
 	ptr[2] = value;
+#endif
 
 	return 0;
 }

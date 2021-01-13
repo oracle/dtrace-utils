@@ -189,6 +189,20 @@ typedef struct dt_ahash {
 	size_t		dtah_size;		/* size of hash table */
 } dt_ahash_t;
 
+/*
+ * To provide a lock-free aggregation write mechanism for the producer,
+ * two copies of each aggregation can be used.  A latch sequence number
+ * on each CPU can be incremented to indicate to the consumer which copy
+ * should be read and whether a copy has changed during reading.
+ *
+ * Until BPF maps can be mmapped, however, we cannot take advantage of
+ * this technique.  Using only a single-copy, of course, saves precious
+ * BPF map space.
+ *
+ * Pick DT_AGG_NUM_COPIES to be either 1 or 2.
+ */
+#define DT_AGG_NUM_COPIES 1
+
 typedef struct dt_aggregate {
 	char **dtat_cpu_buf;		/* per-CPU agg snapshot buffers */
 	char *dtat_buf;			/* aggregation snapshot buffer */
