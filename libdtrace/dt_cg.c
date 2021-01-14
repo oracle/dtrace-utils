@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -609,33 +609,26 @@ dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_node_t *anp;
-	dt_ident_t *aid;
-	char n[DT_TYPE_NAMELEN];
+	dt_node_t	*anp;
+	char		n[DT_TYPE_NAMELEN];
+	dt_ident_t	*aid;
 
 	anp = dnp->dn_args;
 	assert(anp != NULL);
-	if (anp->dn_kind != DT_NODE_AGG) {
+	if (anp->dn_kind != DT_NODE_AGG)
 		dnerror(dnp, D_NORMALIZE_AGGARG,
 			"%s( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: aggregation\n\t argument: %s\n",
 			dnp->dn_ident->di_name,
 			dt_node_type_name(anp, n, sizeof(n)));
-	}
 
 	aid = anp->dn_ident;
 	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
-	    !(aid->di_flags & DT_IDFLG_MOD)) {
+	    !(aid->di_flags & DT_IDFLG_MOD))
 		dnerror(dnp, D_NORMALIZE_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);
-	}
 
-	/*
-	 * FIXME: Needs implementation
-	 * TODO: Emit code to clear the given aggregation.
-	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
-	 * AGGID = aid->di_id
-	 */
+	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_DENORMALIZE);
 }
 
 /*
@@ -730,6 +723,33 @@ dt_cg_act_jstack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_normalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_node_t	*anp, *normal;
+	char		n[DT_TYPE_NAMELEN];
+	dt_ident_t	*aid;
+
+	anp = dnp->dn_args;
+	assert(anp != NULL);
+	if (anp->dn_kind != DT_NODE_AGG)
+		dnerror(dnp, D_NORMALIZE_AGGARG,
+			"%s( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: aggregation\n\t argument: %s\n",
+			dnp->dn_ident->di_name,
+			dt_node_type_name(anp, n, sizeof(n)));
+
+	normal = anp->dn_list;
+	if (!dt_node_is_scalar(normal))
+		dnerror(dnp, D_NORMALIZE_SCALAR,
+			"%s( ) argument #2 must be of scalar type\n",
+			dnp->dn_ident->di_name);
+
+	aid = anp->dn_ident;
+	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
+	    !(aid->di_flags & DT_IDFLG_MOD))
+		dnerror(dnp, D_NORMALIZE_AGGBAD,
+			"undefined aggregation: @%s\n", aid->di_name);
+
+	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_NORMALIZE);
+	dt_cg_store_val(pcb, normal, DTRACEACT_LIBACT, NULL, DT_ACT_NORMALIZE);
 }
 
 static void
@@ -747,8 +767,8 @@ dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_node_t	*anp, *proto = NULL;
 	dt_pfargv_t	*pfp = NULL;
-	int		argc = 0, argr;
 	const char	*fmt;
+	int		argc = 0, argr;
 	char		n[DT_TYPE_NAMELEN];
 	dt_ident_t	*aid, *fid;
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;

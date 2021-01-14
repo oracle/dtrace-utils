@@ -1,12 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /*
- * ASSERTION: Simple denormalization test
+ * ASSERTION: When normalizing multiple times, the last one prevails.
  *
  * SECTION: Aggregations/Data Normalization
  *
@@ -30,7 +30,7 @@ tick-10ms
 tick-10ms
 /i == 20/
 {
+	normalize(@a, 2);
 	normalize(@a, 5);
-	denormalize(@a);
 	exit(0);
 }

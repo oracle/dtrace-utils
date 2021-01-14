@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1404,7 +1404,6 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return 0;
 }
 
-#ifdef FIXME
 typedef struct dt_normal {
 	dtrace_aggid_t	dtnd_id;
 	uint64_t	dtnd_normal;
@@ -1427,11 +1426,16 @@ dt_normalize_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	return DTRACE_AGGWALK_NORMALIZE;
 }
 
+/*
+ * This function is also used to denormalize aggregations, because that is
+ * equivalent to normalizing them using normal = 1.
+ */
 static int
 dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 {
-	dt_normal_t normal;
-	caddr_t addr;
+	int		act = rec->dtrd_arg;
+	dt_normal_t	normal;
+	caddr_t		addr;
 
 	/*
 	 * We (should) have two records:  the aggregation ID followed by the
@@ -1442,58 +1446,49 @@ dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	if (rec->dtrd_size != sizeof(dtrace_aggid_t))
 		return dt_set_errno(dtp, EDT_BADNORMAL);
 
-	/* LINTED - alignment */
 	normal.dtnd_id = *((dtrace_aggid_t *)addr);
-	rec++;
 
-	if (rec->dtrd_action != DTRACEACT_LIBACT)
-		return dt_set_errno(dtp, EDT_BADNORMAL);
+	if (act == DT_ACT_NORMALIZE) {
+		rec++;
 
-	if (rec->dtrd_arg != DT_ACT_NORMALIZE)
-		return dt_set_errno(dtp, EDT_BADNORMAL);
+		if (rec->dtrd_action != DTRACEACT_LIBACT)
+			return dt_set_errno(dtp, EDT_BADNORMAL);
 
-	addr = base + rec->dtrd_offset;
+		if (rec->dtrd_arg != DT_ACT_NORMALIZE)
+			return dt_set_errno(dtp, EDT_BADNORMAL);
 
-	switch (rec->dtrd_size) {
-	case sizeof(uint64_t):
-		/* LINTED - alignment */
-		normal.dtnd_normal = *((uint64_t *)addr);
-		break;
-	case sizeof(uint32_t):
-		/* LINTED - alignment */
-		normal.dtnd_normal = *((uint32_t *)addr);
-		break;
-	case sizeof(uint16_t):
-		/* LINTED - alignment */
-		normal.dtnd_normal = *((uint16_t *)addr);
-		break;
-	case sizeof(uint8_t):
-		normal.dtnd_normal = *((uint8_t *)addr);
-		break;
-	default:
-		return dt_set_errno(dtp, EDT_BADNORMAL);
-	}
+		addr = base + rec->dtrd_offset;
 
+		switch (rec->dtrd_size) {
+		case sizeof(uint64_t):
+			normal.dtnd_normal = *((uint64_t *)addr);
+			break;
+		case sizeof(uint32_t):
+			normal.dtnd_normal = *((uint32_t *)addr);
+			break;
+		case sizeof(uint16_t):
+			normal.dtnd_normal = *((uint16_t *)addr);
+			break;
+		case sizeof(uint8_t):
+			normal.dtnd_normal = *((uint8_t *)addr);
+			break;
+		default:
+			return dt_set_errno(dtp, EDT_BADNORMAL);
+		}
+	} else
+		normal.dtnd_normal = 1;
+
+	/*
+	 * Retrieve a snapshot of the aggregation data, and apply the normal
+	 * to all aggregations that need it.
+	 */
+	dtrace_aggregate_snap(dtp);
 	dtrace_aggregate_walk(dtp, dt_normalize_agg, &normal);
 
 	return 0;
 }
 
-static int
-dt_denormalize_agg(const dtrace_aggdata_t *aggdata, void *arg)
-{
-	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
-	dtrace_aggid_t		id = *((dtrace_aggid_t *)arg);
-
-	if (agg->dtagd_nrecs == 0)
-		return DTRACE_AGGWALK_NEXT;
-
-	if (agg->dtagd_varid != id)
-		return DTRACE_AGGWALK_NEXT;
-
-	return DTRACE_AGGWALK_DENORMALIZE;
-}
-
+#ifdef FIXME
 static int
 dt_clear_agg(const dtrace_aggdata_t *aggdata, void *arg)
 {
@@ -2020,6 +2015,27 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 
 			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
 			pdat->dtpda_data = data + rec->dtrd_offset;
+
+			if (rec->dtrd_action == DTRACEACT_LIBACT) {
+				switch (rec->dtrd_arg) {
+				case DT_ACT_DENORMALIZE:
+					if (dt_normalize(dtp, data, rec) != 0)
+						return -1;
+
+					continue;
+				case DT_ACT_NORMALIZE:
+					if (i == pdat->dtpda_ddesc->dtdd_nrecs - 1)
+						return dt_set_errno(dtp,
+								EDT_BADNORMAL);
+
+					if (dt_normalize(dtp, data, rec) != 0)
+						return -1;
+
+					i++;
+					continue;
+				}
+			}
+
 			rval = (*rfunc)(pdat, rec, arg);
 
 			if (rval == DTRACE_CONSUME_NEXT)

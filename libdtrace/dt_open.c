@@ -240,7 +240,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "ntohs", DT_IDENT_FUNC, 0, DIF_SUBR_NTOHS, DT_ATTR_EVOLCMN, DT_VERS_1_3,
 	&dt_idops_func, "uint16_t(uint16_t)" },
 { "normalize", DT_IDENT_ACTFUNC, 0, DT_ACT_NORMALIZE, DT_ATTR_STABCMN,
-	DT_VERS_1_0, &dt_idops_func, "void(@, [uint64_t])" },
+	DT_VERS_1_0, &dt_idops_func, "void(@, uint64_t)" },
 { "panic", DT_IDENT_ACTFUNC, 0, DT_ACT_PANIC, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
 { "pcap", DT_IDENT_ACTFUNC, 0, DT_ACT_PCAP, DT_ATTR_STABCMN, DT_VERS_1_6_4,

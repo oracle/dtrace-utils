@@ -1118,10 +1118,6 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 	case DTRACE_AGGWALK_ABORT:
 		return dt_set_errno(dtp, EDT_DIRABORT);
 
-	case DTRACE_AGGWALK_DENORMALIZE:
-		h->dtahe_data.dtada_normal = 1;
-		return 0;
-
 	case DTRACE_AGGWALK_NORMALIZE:
 		if (h->dtahe_data.dtada_normal == 0) {
 			h->dtahe_data.dtada_normal = 1;

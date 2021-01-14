@@ -1,40 +1,35 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- *   Positive test for normalization()
+ * ASSERTION: Simple normalization test
  *
- * SECTION: Aggregations/Normalization
+ * SECTION: Aggregations/Data Normalization
  *
  */
 
 #pragma D option quiet
-#pragma D option aggrate=1ms
-#pragma D option switchrate=50ms
 
 BEGIN
 {
 	i = 0;
-	start = timestamp;
 }
 
-tick-100ms
+tick-10ms
 /i < 20/
 {
-	@func[i % 5] = sum(i * 100);
+	@a = sum(i * 100);
+	@b = sum(i * 100);
 	i++;
 }
 
-tick-100ms
+tick-10ms
 /i == 20/
 {
-	printf("normalized data:\n");
-	normalize(@func, 5);
+	normalize(@a, 5);
 	exit(0);
 }
