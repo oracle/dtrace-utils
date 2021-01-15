@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -52,6 +52,8 @@ static const struct {
 	{ EDT_DMISMATCH, "Data record list does not match statement" },
 	{ EDT_DOFFSET,	"Data record offset exceeds buffer boundary" },
 	{ EDT_DALIGN,	"Data record has inappropriate alignment" },
+	{ EDT_DSIZE,	"Data record has incorrect size" },
+	{ EDT_BADEPID,	"Invalid EPID" },
 	{ EDT_BADOPTNAME, "Invalid option name" },
 	{ EDT_BADOPTVAL, "Invalid value for specified option" },
 	{ EDT_BADOPTCTX, "Option cannot be used from within a D program" },

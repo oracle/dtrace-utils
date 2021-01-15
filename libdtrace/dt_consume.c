@@ -1951,13 +1951,13 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		 * (Note that 'n' may be 0.)
 		 */
 		if (ptr > buf + hdr->size)
-			return DTRACE_WORKSTATUS_ERROR;
+			return dt_set_errno(dtp, EDT_DSIZE);
 
 		size = *(uint32_t *)data;
 		data += sizeof(size);
 		ptr += sizeof(size) + size;
 		if (ptr != buf + hdr->size)
-			return DTRACE_WORKSTATUS_ERROR;
+			return dt_set_errno(dtp, EDT_DSIZE);
 
 		data += sizeof(uint32_t);		/* skip padding */
 		size -= sizeof(uint32_t);
@@ -1977,7 +1977,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
 						 &pdat->dtpda_pdesc);
 		if (rval != 0)
-			return DTRACE_WORKSTATUS_ERROR;
+			return dt_set_errno(dtp, EDT_BADEPID);
 
 		if (flow)
 			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
@@ -2020,7 +2020,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 				switch (rec->dtrd_arg) {
 				case DT_ACT_DENORMALIZE:
 					if (dt_normalize(dtp, data, rec) != 0)
-						return -1;
+						return DTRACE_WORKSTATUS_ERROR;
 
 					continue;
 				case DT_ACT_NORMALIZE:
@@ -2029,7 +2029,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 								EDT_BADNORMAL);
 
 					if (dt_normalize(dtp, data, rec) != 0)
-						return -1;
+						return DTRACE_WORKSTATUS_ERROR;
 
 					i++;
 					continue;
@@ -2075,7 +2075,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 				n = (*func)(dtp, fp, rec->dtrd_format, pdat,
 						   rec, nrecs, data, size);
 				if (n < 0)
-					return -1;
+					return DTRACE_WORKSTATUS_ERROR;
 				if (n > 0)
 					i += n - 1;
 
@@ -2084,9 +2084,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 
 			n = dt_print_trace(dtp, fp, rec, pdat->dtpda_data,
 					   quiet);
-
 			if (n < 0)
-				return -1;
+				return DTRACE_WORKSTATUS_ERROR;
 		}
 
 		/*

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -585,6 +585,8 @@ enum {
 	EDT_DMISMATCH,		/* record list does not match statement */
 	EDT_DOFFSET,		/* record data offset error */
 	EDT_DALIGN,		/* record data alignment error */
+	EDT_DSIZE,		/* record data size error */
+	EDT_BADEPID,		/* invalid enabled probe id */
 	EDT_BADOPTNAME,		/* invalid dtrace_setopt option name */
 	EDT_BADOPTVAL,		/* invalid dtrace_setopt option value */
 	EDT_BADOPTCTX,		/* invalid dtrace_setopt option context */
