@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -282,6 +282,7 @@ dt_aggregate_quantizedcmp(int64_t *lhs, int64_t *rhs)
 	return 0;
 }
 
+#ifdef FIXME
 static void
 dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 {
@@ -382,6 +383,7 @@ dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *addr)
 		}
 	}
 }
+#endif
 
 static dtrace_aggid_t
 dt_aggregate_aggid(dt_ahashent_t *ent)
