@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -19,8 +19,9 @@ extern "C" {
 #endif
 
 #define DT_CONST_EPID	1
-#define DT_CONST_ARGC	2
-#define DT_CONST_PRID	3
+#define DT_CONST_PRID	2
+#define DT_CONST_CLID	3
+#define DT_CONST_ARGC	4
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);

@@ -2324,7 +2324,8 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 static int
 dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		  const dtrace_difo_t *sdp, dt_strtab_t *stab,
-		  uint_t *pcp, uint_t *rcp, uint_t *vcp, dtrace_epid_t epid)
+		  uint_t *pcp, uint_t *rcp, uint_t *vcp, dtrace_epid_t epid,
+		  uint_t clid)
 {
 	uint_t			pc = *pcp;
 	uint_t			rc = *rcp;
@@ -2412,6 +2413,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_PRID:
 				nrp->dofr_data = prp->desc->id;
 				break;
+			case DT_CONST_CLID:
+				nrp->dofr_data = clid;
+				break;
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */
 				break;
@@ -2427,13 +2431,14 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			rdp = dt_dlib_get_func_difo(dtp, idp);
 			if (rdp == NULL)
 				return -1;
-			if (rdp->dtdo_ddesc != NULL)
+			if (rdp->dtdo_ddesc != NULL) {
 				nepid = dt_epid_add(dtp, rdp->dtdo_ddesc,
 						    prp->desc->id);
-			else
+				clid++;
+			} else
 				nepid = 0;
 			ipc = dt_link_construct(dtp, prp, dp, rdp, stab,
-						pcp, rcp, vcp, nepid);
+						pcp, rcp, vcp, nepid, clid);
 			if (ipc == -1)
 				return -1;
 
@@ -2543,7 +2548,8 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp)
 	if (stab == NULL)
 		goto nomem;
 
-	rc = dt_link_construct(dtp, prp, fdp, dp, stab, &insc, &relc, &varc, 0);
+	rc = dt_link_construct(dtp, prp, fdp, dp, stab, &insc, &relc, &varc,
+			       0, 0);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;

@@ -263,9 +263,11 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
 	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
+	dt_ident_t	*clid = dt_dlib_get_var(pcb->pcb_hdl, "CLID");
 
 	assert(epid != NULL);
 	assert(prid != NULL);
+	assert(clid != NULL);
 
 	/*
 	 * void dt_program(dt_dctx_t *dctx)
@@ -292,6 +294,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
 	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
 	 *	dctx->mst->prid = PRID;	// stw [%r0 + DMST_PRID], PRID
+	 *	dctx->mst->clid = CLID;	// stw [%r0 + DMST_CLID], CLID
 	 *	*((uint32_t *)&buf[0]) = EPID;
 	 *				// stw [%r9 + 0], EPID
 	 */
@@ -300,6 +303,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1), epid);
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, -1), prid);
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_CLID, -1), clid);
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1), epid);
 
 	/*
