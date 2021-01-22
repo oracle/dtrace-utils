@@ -442,6 +442,9 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 		const char	*tstr;
 
 		switch (rp->dofr_type) {
+		case R_BPF_NONE:
+			tstr = "R_BPF_NONE";
+			break;
 		case R_BPF_64_64:
 			tstr = "R_BPF_INSN_64";
 			break;
