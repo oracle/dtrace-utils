@@ -469,7 +469,7 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 }
 
 void
-dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
+dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp)
 {
 	static const struct opent {
 		const char *op_name;
@@ -618,6 +618,9 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp)
 	fprintf(fp, "%-3s %-5s %-20s    %s\n",
 	    "INS", "OFF", "OPCODE", "INSTRUCTION");
 
+	if (idp != NULL)
+		fprintf(fp, "<%s>:\n", idp->di_name);
+
 	for (i = 0; i < dp->dtdo_len; i++) {
 		const struct bpf_insn	*instr = &dp->dtdo_buf[i];
 		uint8_t			opcode = instr->code;
@@ -754,7 +757,8 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 		d->last_ecb = sdp->dtsd_ecbdesc;
 	}
 
-	dt_dis_difo(dt_dlib_get_func_difo(dtp, sdp->dtsd_clause), d->fp);
+	dt_dis_difo(dt_dlib_get_func_difo(dtp, sdp->dtsd_clause), d->fp,
+		    sdp->dtsd_clause);
 
 	return 0;
 }

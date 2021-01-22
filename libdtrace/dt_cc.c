@@ -2620,7 +2620,7 @@ dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
 		return NULL;
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
-		dt_dis_difo(dp, stderr);
+		dt_dis_difo(dp, stderr, NULL);
 
 	if (dt_link(dtp, prp, dp) != 0) {
 		dt_difo_free(dtp, dp);
@@ -2628,7 +2628,7 @@ dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags)
 	}
 
 	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 3))
-		dt_dis_difo(dp, stderr);
+		dt_dis_difo(dp, stderr, NULL);
 
 	return dp;
 }
