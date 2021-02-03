@@ -38,7 +38,8 @@ Source code for the UEK kernel is available on github in the [linux-uek repo](ht
 
 ## 1. License
 
-UPL (Universal Permissive License) https://oss.oracle.com/licenses/upl/
+DTrace is licensed under the UPL 1.0 (Universal Permissive License).
+A copy is included in this repository as the LICENSE file.
 
 ## 2. How to Build dtrace-utils
 
