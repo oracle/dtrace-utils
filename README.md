@@ -2,12 +2,6 @@
 
 This is the userspace component of the official Linux port of the DTrace tracing tool.  
 
-The source has been available at [oss.oracle.com](https://oss.oracle.com/git/gitweb.cgi?p=dtrace-utils.git;a=tags),
-as a git repository with full git history.  By posting the source here on github.com,
-we hope to increase the visibility for our work and to make it even easier for people
-to access the source.  We will also use this repository to work with developers in
-the Linux community.
-
 Oracle Linux UEK kernel RPMs include DTrace kernel modules for  building and running of the DTrace utilities. 
 We also provide pre-built DTrace userspace (utilities) packages for Oracle Linux 6 and Oracle 7. 
 The latest packages can be obtained from the following [Oracle Linux yum server](https://yum.oracle.com) repositories: 
