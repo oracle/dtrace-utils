@@ -429,19 +429,6 @@ struct dtrace_hdl {
 #define	DT_TREEDUMP_PASS(dtp, p)	((dtp)->dt_treedump & (1 << ((p) - 1)))
 
 /*
- * Macro to test whether a given disassembler bit is set in the dt_disasm
- * bit-vector.  If the bit for mode 'm' is set, the D disassembler will be
- * invoked for that specific mode.  The '-S' option must also be supplied in
- * order for disassembler output to be generated.
- *
- * Supported listings are:
- *	1	After compilation and assembly of a program.
- *	2	After linking in precompiled BPF functions (dependencies).
- *	3	After final relocation processing (final program).
- */
-#define	DT_DISASM(dtp, m)		((dtp)->dt_disasm & (1 << ((m) - 1)))
-
-/*
  * Macros for accessing the cached CTF container and type ID for the common
  * types "int", "string", and <DYN>, which we need to use frequently in the D
  * compiler.  The DT_INT_* macro relies upon "int" being at index 0 in the
@@ -731,9 +718,6 @@ extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
 extern dtrace_difo_t *dt_as(dt_pcb_t *);
 extern dtrace_difo_t *dt_difo_copy(dtrace_hdl_t *dtp, const dtrace_difo_t *odp);
-extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
-extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp,
-			const dt_ident_t *idp);
 
 extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);

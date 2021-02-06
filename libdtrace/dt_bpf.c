@@ -13,6 +13,7 @@
 #include <sys/syscall.h>
 #include <dtrace.h>
 #include <dt_impl.h>
+#include <dt_dis.h>
 #include <dt_dctx.h>
 #include <dt_probe.h>
 #include <dt_state.h>
@@ -313,9 +314,9 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
  *
  * Note that DTrace generates BPF programs that are licensed under the GPL.
  */
-int
+static int
 dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		 const dtrace_difo_t *dp)
+		 const dtrace_difo_t *dp, uint_t cflags)
 {
 	struct bpf_load_program_attr	attr;
 	size_t				logsz;
@@ -333,6 +334,8 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		dt_bpf_reloc_prog(dtp, dp);
 
 	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
+
+	DT_DISASM_PROG_FINAL(dtp, cflags, dp, stderr, NULL, prp->desc);
 
 	attr.prog_type = prp->prov->impl->prog_type;
 	attr.name = NULL;
@@ -460,7 +463,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		if (dp == NULL)
 			return -1;
 
-		fd = dt_bpf_load_prog(dtp, prp, dp);
+		fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
 		if (fd < 0)
 			return fd;
 

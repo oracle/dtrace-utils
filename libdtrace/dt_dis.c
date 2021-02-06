@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -469,7 +469,8 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 }
 
 void
-dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp)
+dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
+	    const dtrace_probedesc_t *pdp, const char *ltype)
 {
 	static const struct opent {
 		const char *op_name;
@@ -615,11 +616,19 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp)
 	int		cnt = dp->dtdo_brelen;
 	char		type[DT_TYPE_NAMELEN];
 
+	if (pdp != NULL && idp != NULL)
+		fprintf(fp, "\nDisassembly of %s %s:%s:%s:%s, <%s>:\n", ltype,
+			pdp->prv, pdp->mod, pdp->fun, pdp->prb, idp->di_name);
+	else if (pdp != NULL)
+		fprintf(fp, "\nDisassembly of %s %s:%s:%s:%s:\n", ltype,
+			pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+	else if (idp != NULL)
+		fprintf(fp, "\nDisassembly of %s <%s>:\n", ltype, idp->di_name);
+	else
+		fprintf(fp, "\nDisassembly of %s:\n", ltype);
+
 	fprintf(fp, "%-3s %-5s %-20s    %s\n",
 	    "INS", "OFF", "OPCODE", "INSTRUCTION");
-
-	if (idp != NULL)
-		fprintf(fp, "<%s>:\n", idp->di_name);
 
 	for (i = 0; i < dp->dtdo_len; i++) {
 		const struct bpf_insn	*instr = &dp->dtdo_buf[i];
@@ -735,6 +744,8 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp)
 
 	if (dp->dtdo_urelen != 0)
 		dt_dis_rtab("UREL", dp, fp, dp->dtdo_ureltab, dp->dtdo_urelen);
+
+	fprintf(fp, "\n");
 }
 
 typedef struct dt_dis_iter
@@ -748,17 +759,15 @@ dt_dis_stmts(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
     void *data)
 {
 	dt_dis_iter_t		*d = data;
+	dtrace_probedesc_t	*pdp = NULL;
 
 	if (d->last_ecb != sdp->dtsd_ecbdesc) {
-		dtrace_probedesc_t *pdp = &sdp->dtsd_ecbdesc->dted_probe;
-
-		fprintf(d->fp, "\nDisassembly of %s:%s:%s:%s\n",
-			pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+		pdp = &sdp->dtsd_ecbdesc->dted_probe;
 		d->last_ecb = sdp->dtsd_ecbdesc;
 	}
 
 	dt_dis_difo(dt_dlib_get_func_difo(dtp, sdp->dtsd_clause), d->fp,
-		    sdp->dtsd_clause);
+		    sdp->dtsd_clause, pdp, "clause");
 
 	return 0;
 }

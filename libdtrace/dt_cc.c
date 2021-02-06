@@ -88,6 +88,7 @@
 #include <dt_ident.h>
 #include <dt_string.h>
 #include <dt_impl.h>
+#include <dt_dis.h>
 #include <dt_cg.h>
 #include <dt_dctx.h>
 #include <dt_bpf.h>
@@ -2657,16 +2658,14 @@ dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags,
 	if (dp == NULL)
 		return NULL;
 
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 2))
-		dt_dis_difo(dp, stderr, idp);
+	DT_DISASM_PROG(dtp, cflags, dp, stderr, idp, prp->desc);
 
 	if (dt_link(dtp, prp, dp, idp) != 0) {
 		dt_difo_free(dtp, dp);
 		return NULL;
 	}
 
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 3))
-		dt_dis_difo(dp, stderr, idp);
+	DT_DISASM_PROG_LINKED(dtp, cflags, dp, stderr, idp, prp->desc);
 
 	return dp;
 }
@@ -2682,8 +2681,7 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 	if (rv == NULL)
 		return NULL;
 
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
-		dt_dis_program(dtp, rv, stderr);
+	DT_DISASM_CLAUSE(dtp, cflags, rv, stderr);
 
 	return rv;
 }
@@ -2699,8 +2697,7 @@ dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
 	if (rv == NULL)
 		return NULL;
 
-	if (cflags & DTRACE_C_DIFV && DT_DISASM(dtp, 1))
-		dt_dis_program(dtp, rv, stderr);
+	DT_DISASM_CLAUSE(dtp, cflags, rv, stderr);
 
 	return rv;
 }
