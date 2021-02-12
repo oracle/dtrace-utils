@@ -750,26 +750,24 @@ dt_cg_act_chill(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_node_t *anp;
-	dt_ident_t *aid;
-	char n[DT_TYPE_NAMELEN];
+	dt_node_t	*anp;
+	dt_ident_t	*aid;
+	char		n[DT_TYPE_NAMELEN];
 
 	anp = dnp->dn_args;
 	assert(anp != NULL);
-	if (anp->dn_kind != DT_NODE_AGG) {
+	if (anp->dn_kind != DT_NODE_AGG)
 		dnerror(dnp, D_CLEAR_AGGARG,
 			"%s( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: aggregation\n\t argument: %s\n",
 			dnp->dn_ident->di_name,
 			dt_node_type_name(anp, n, sizeof(n)));
-	}
 
 	aid = anp->dn_ident;
 	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
-	    !(aid->di_flags & DT_IDFLG_MOD)) {
+	    !(aid->di_flags & DT_IDFLG_MOD))
 		dnerror(dnp, D_CLEAR_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);
-	}
 
 	/*
 	 * FIXME: Needs implementation
@@ -777,6 +775,7 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
 	 * AGGID = aid->di_id
 	 */
+	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_CLEAR);
 }
 
 /*

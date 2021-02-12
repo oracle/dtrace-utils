@@ -295,34 +295,22 @@ dt_action_clear(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	dt_node_t *anp;
 
 	char n[DT_TYPE_NAMELEN];
-	int argc = 0;
-
-	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
-		argc++; /* count up arguments for error messages below */
-
-	if (argc != 1) {
-		dnerror(dnp, D_CLEAR_PROTO,
-		    "%s( ) prototype mismatch: %d args passed, 1 expected\n",
-		    dnp->dn_ident->di_name, argc);
-	}
 
 	anp = dnp->dn_args;
 	assert(anp != NULL);
 
-	if (anp->dn_kind != DT_NODE_AGG) {
+	if (anp->dn_kind != DT_NODE_AGG)
 		dnerror(dnp, D_CLEAR_AGGARG,
 		    "%s( ) argument #1 is incompatible with prototype:\n"
 		    "\tprototype: aggregation\n\t argument: %s\n",
 		    dnp->dn_ident->di_name,
 		    dt_node_type_name(anp, n, sizeof(n)));
-	}
 
 	aid = anp->dn_ident;
 
-	if (aid->di_gen == dtp->dt_gen && !(aid->di_flags & DT_IDFLG_MOD)) {
+	if (aid->di_gen == dtp->dt_gen && !(aid->di_flags & DT_IDFLG_MOD))
 		dnerror(dnp, D_CLEAR_AGGBAD,
 		    "undefined aggregation: @%s\n", aid->di_name);
-	}
 
 	ap = dt_stmt_action(dtp, sdp);
 	dt_action_difconst(ap, anp->dn_ident->di_id, DTRACEACT_LIBACT);

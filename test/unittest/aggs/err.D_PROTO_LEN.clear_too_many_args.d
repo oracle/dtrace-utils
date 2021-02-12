@@ -6,13 +6,14 @@
  */
 
 /*
- * ASSERTION: The denormalize() action requires one argument (agg).
+ * ASSERTION: The clear() action accepts only one argument (agg).
  *
  * SECTION: Aggregations/Data Normalization
  */
 
 BEGIN
 {
-	denormalize();
+	@a = count();
+	clear(@a, 1);
 	exit(0);
 }
