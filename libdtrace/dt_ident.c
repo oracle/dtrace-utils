@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -322,36 +322,31 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 	char n1[DT_TYPE_NAMELEN];
 	char n2[DT_TYPE_NAMELEN];
 
-	if (argc != 1) {
+	if (argc != 1)
 		xyerror(D_PROTO_LEN, "%s[ ] prototype mismatch: %d arg%s"
 		    "passed, 1 expected\n", idp->di_name, argc,
 		    argc == 1 ? " " : "s ");
-	}
 
-	if (ap->dn_kind != DT_NODE_INT) {
+	if (ap->dn_kind != DT_NODE_INT)
 		xyerror(D_PROTO_ARG, "%s[ ] argument #1 is incompatible with "
 		    "prototype:\n\tprototype: %s\n\t argument: %s\n",
 		    idp->di_name, "integer constant",
 		    dt_type_name(ap->dn_ctfp, ap->dn_type, n1, sizeof(n1)));
-	}
 
-	if (yypcb->pcb_pdesc == NULL) {
+	if (yypcb->pcb_pdesc == NULL)
 		xyerror(D_ARGS_NONE, "%s[ ] may not be referenced outside "
 		    "of a probe clause\n", idp->di_name);
-	}
 
-	if (prp == NULL) {
+	if (prp == NULL)
 		xyerror(D_ARGS_MULTI,
 		    "%s[ ] may not be referenced because probe description %s "
 		    "matches an unstable set of probes\n", idp->di_name,
 		    dtrace_desc2str(yypcb->pcb_pdesc, n1, sizeof(n1)));
-	}
 
-	if (ap->dn_value >= prp->argc) {
+	if (ap->dn_value >= prp->argc)
 		xyerror(D_ARGS_IDX, "index %lld is out of range for %s %s[ ]\n",
 		    (longlong_t)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
 		    n1, sizeof(n1)), idp->di_name);
-	}
 
 	/*
 	 * Look up the native and translated argument types for the probe.
@@ -363,15 +358,13 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 	xnp = prp->xargv[ap->dn_value];
 	nnp = prp->nargv[prp->mapping[ap->dn_value]];
 
-	if (xnp->dn_type == CTF_ERR) {
+	if (xnp->dn_type == CTF_ERR)
 		xyerror(D_ARGS_TYPE, "failed to resolve translated type for "
 		    "%s[%lld]\n", idp->di_name, (longlong_t)ap->dn_value);
-	}
 
-	if (nnp->dn_type == CTF_ERR) {
+	if (nnp->dn_type == CTF_ERR)
 		xyerror(D_ARGS_TYPE, "failed to resolve native type for "
 		    "%s[%lld]\n", idp->di_name, (longlong_t)ap->dn_value);
-	}
 
 	if (dtp->dt_xlatemode == DT_XL_STATIC && (
 	    nnp == xnp || dt_node_is_argcompat(nnp, xnp))) {
@@ -432,28 +425,24 @@ dt_idcook_regs(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	char n[DT_TYPE_NAMELEN];
 
-	if (argc != 1) {
+	if (argc != 1)
 		xyerror(D_PROTO_LEN, "%s[ ] prototype mismatch: %d arg%s"
 		    "passed, 1 expected\n", idp->di_name,
 		    argc, argc == 1 ? " " : "s ");
-	}
 
-	if (ap->dn_kind != DT_NODE_INT) {
+	if (ap->dn_kind != DT_NODE_INT)
 		xyerror(D_PROTO_ARG, "%s[ ] argument #1 is incompatible with "
 		    "prototype:\n\tprototype: %s\n\t argument: %s\n",
 		    idp->di_name, "integer constant",
 		    dt_type_name(ap->dn_ctfp, ap->dn_type, n, sizeof(n)));
-	}
 
-	if ((ap->dn_flags & DT_NF_SIGNED) && (int64_t)ap->dn_value < 0) {
+	if ((ap->dn_flags & DT_NF_SIGNED) && (int64_t)ap->dn_value < 0)
 		xyerror(D_REGS_IDX, "index %lld is out of range for array %s\n",
 		    (longlong_t)ap->dn_value, idp->di_name);
-	}
 
-	if (dt_type_lookup("uint64_t", &dtt) == -1) {
+	if (dt_type_lookup("uint64_t", &dtt) == -1)
 		xyerror(D_UNKNOWN, "failed to resolve type of %s: %s\n",
 		    idp->di_name, dtrace_errmsg(dtp, dtrace_errno(dtp)));
-	}
 
 	idp->di_ctfp = dtt.dtt_ctfp;
 	idp->di_type = dtt.dtt_type;
@@ -469,12 +458,11 @@ dt_idcook_type(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 		dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 		dtrace_typeinfo_t dtt;
 
-		if (dt_type_lookup(idp->di_iarg, &dtt) == -1) {
+		if (dt_type_lookup(idp->di_iarg, &dtt) == -1)
 			xyerror(D_UNKNOWN,
 			    "failed to resolve type %s for identifier %s: %s\n",
 			    (const char *)idp->di_iarg, idp->di_name,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
-		}
 
 		idp->di_ctfp = dtt.dtt_ctfp;
 		idp->di_type = dtt.dtt_type;

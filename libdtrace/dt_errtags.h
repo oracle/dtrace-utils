@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -203,8 +203,6 @@ typedef enum {
 	D_NORMALIZE_SCALAR,		/* normalize() value must be scalar */
 	D_NORMALIZE_AGGARG,		/* aggregation arg type mismatch */
 	D_NORMALIZE_AGGBAD,		/* normalize() aggregation not def. */
-	D_TRUNC_PROTO,			/* trunc() prototype mismatch */
-	D_TRUNC_SCALAR,			/* trunc() value must be scalar */
 	D_TRUNC_AGGARG,			/* aggregation arg type mismatch */
 	D_TRUNC_AGGBAD,			/* trunc() aggregation not def. */
 	D_PROV_BADNAME,			/* invalid provider name */

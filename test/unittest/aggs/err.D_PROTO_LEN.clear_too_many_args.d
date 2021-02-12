@@ -8,7 +8,7 @@
 /*
  * ASSERTION: The clear() action accepts only one argument (agg).
  *
- * SECTION: Aggregations/Data Normalization
+ * SECTION: Aggregations/Clearing Aggregations
  */
 
 BEGIN

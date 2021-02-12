@@ -8,7 +8,7 @@
 /*
  * ASSERTION: The second argument to normalize() should be a scalar.
  *
- * SECTION: Aggregations/Data Nonmalization
+ * SECTION: Aggregations/Data Normalization
  */
 
 BEGIN

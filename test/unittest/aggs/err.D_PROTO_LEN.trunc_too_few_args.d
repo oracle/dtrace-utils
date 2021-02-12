@@ -6,16 +6,13 @@
  */
 
 /*
- * ASSERTION: The normalize() action requires 2 arguments (agg and normal).
+ * ASSERTION: The trunc() action requires one argument (agg).
  *
- * SECTION: Aggregations/Data Normalization
+ * SECTION: Aggregations/Truncating Aggregations
  */
-
-#pragma D option quiet
 
 BEGIN
 {
-	@a = count();
-	normalize(@a);
+	trunc();
 	exit(0);
 }

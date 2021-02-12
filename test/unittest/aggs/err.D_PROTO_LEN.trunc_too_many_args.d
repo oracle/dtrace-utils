@@ -6,13 +6,14 @@
  */
 
 /*
- * ASSERTION: lquantize() requires at least 3 arguments
+ * ASSERTION: The trunc() action accepts just 2 arguments.
  *
- * SECTION: Aggregations/Aggregations
+ * SECTION: Aggregations/Truncating Aggregations
  */
 
 BEGIN
 {
-	@ = lquantize(1, 0);
+	@a = count();
+	trunc(@a, 4, 1);
 	exit(0);
 }
