@@ -1258,16 +1258,14 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		        "data-recording actions may not follow commit( )\n");
 	*cfp |= DT_CLSFLAG_DATAREC;
 
-	if (dt_node_is_void(arg)) {
+	if (dt_node_is_void(arg))
 		dnerror(arg, D_TRACE_VOID,
 			"trace( ) may not be applied to a void expression\n");
-	}
 
-	if (dt_node_is_dynamic(arg)) {
+	if (dt_node_is_dynamic(arg))
 		dnerror(arg, D_TRACE_DYN,
 			"trace( ) may not be applied to a dynamic "
 			"expression\n");
-	}
 
 	if (arg->dn_flags & DT_NF_REF)
 		type = DT_NF_REF;
