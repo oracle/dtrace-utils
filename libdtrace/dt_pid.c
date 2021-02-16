@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -89,32 +89,31 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 
 static int
 dt_pid_create_fbt_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
-    fasttrap_probe_spec_t *ftp, const GElf_Sym *symp,
-    fasttrap_probe_type_t type)
+    pid_probespec_t *psp, const GElf_Sym *symp, pid_probetype_t type)
 {
-	ftp->ftps_type = type;
-	ftp->ftps_pc = (uintptr_t)symp->st_value;
-	ftp->ftps_size = (size_t)symp->st_size;
-	ftp->ftps_glen = 0;		/* no glob pattern */
-	ftp->ftps_gstr[0] = '\0';
+	psp->pps_type = type;
+	psp->pps_pc = (uintptr_t)symp->st_value;
+	psp->pps_size = (size_t)symp->st_size;
+	psp->pps_glen = 0;		/* no glob pattern */
+	psp->pps_gstr[0] = '\0';
 
-	/* Create a probe using 'ftp'. */
+	/* Create a probe using 'psp'. */
 
 	return 1;
 }
 
 static int
 dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
-    fasttrap_probe_spec_t *ftp, const GElf_Sym *symp, const char *pattern)
+    pid_probespec_t *psp, const GElf_Sym *symp, const char *pattern)
 {
-	ftp->ftps_type = DTFTP_OFFSETS;
-	ftp->ftps_pc = (uintptr_t)symp->st_value;
-	ftp->ftps_size = (size_t)symp->st_size;
-	ftp->ftps_glen = strlen(pattern);
+	psp->pps_type = DTPPT_OFFSETS;
+	psp->pps_pc = (uintptr_t)symp->st_value;
+	psp->pps_size = (size_t)symp->st_size;
+	psp->pps_glen = strlen(pattern);
 
-	strncpy(ftp->ftps_gstr, pattern, ftp->ftps_glen + 1);
+	strncpy(psp->pps_gstr, pattern, psp->pps_glen + 1);
 
-	/* Create a probe using 'ftp'. */
+	/* Create a probe using 'psp'. */
 
 	return 1;
 }
@@ -125,7 +124,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	dtrace_hdl_t *dtp = pp->dpp_dtp;
 	dt_pcb_t *pcb = pp->dpp_pcb;
 	dt_proc_t *dpr = pp->dpp_dpr;
-	fasttrap_probe_spec_t *ftp;
+	pid_probespec_t *psp;
 	uint64_t off;
 	char *end;
 	uint_t nmatches = 0;
@@ -143,21 +142,20 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	dt_dprintf("creating probe pid%d:%s:%s:%s at %lx\n", (int)pid,
 	    pp->dpp_obj, func, pp->dpp_name, symp->st_value);
 
-	sz = sizeof(fasttrap_probe_spec_t) + strlen(pp->dpp_name);
-
-	if ((ftp = dt_zalloc(dtp, sz)) == NULL) {
+	sz = sizeof(pid_probespec_t) + strlen(pp->dpp_name);
+	psp = dt_zalloc(dtp, sz);
+	if (psp == NULL) {
 		dt_dprintf("proc_per_sym: dt_alloc(%lu) failed\n", sz);
 		return 1; /* errno is set for us */
 	}
 
-	ftp->ftps_pid = pid;
-	strcpy_safe(ftp->ftps_func, sizeof(ftp->ftps_func), func);
-
-	ftp->ftps_mod = dt_pid_objname(pp->dpp_lmid, pp->dpp_obj);
+	psp->pps_pid = pid;
+	psp->pps_mod = dt_pid_objname(pp->dpp_lmid, pp->dpp_obj);
+	strcpy_safe(psp->pps_fun, sizeof(psp->pps_fun), func);
 
 	if (!isdash && gmatch("return", pp->dpp_name)) {
-		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, ftp, symp,
-		    DTFTP_RETURN) < 0) {
+		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, psp, symp,
+		    DTPPT_RETURN) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create return probe for '%s': %s",
@@ -169,8 +167,8 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	}
 
 	if (!isdash && gmatch("entry", pp->dpp_name)) {
-		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, ftp, symp,
-		    DTFTP_ENTRY) < 0) {
+		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, psp, symp,
+		    DTPPT_ENTRY) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create entry probe for '%s': %s",
@@ -200,7 +198,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		}
 
 		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
-					ftp, symp, pp->dpp_name) < 0) {
+					psp, symp, pp->dpp_name) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create probes at '%s+0x%llx': %s",
@@ -212,7 +210,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		nmatches++;
 	} else if (glob && !isdash) {
 		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
-					ftp, symp, pp->dpp_name) < 0) {
+					psp, symp, pp->dpp_name) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create offset probes in '%s': %s",
@@ -226,8 +224,8 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	pp->dpp_nmatches += nmatches;
 
 out:
-	free(ftp->ftps_mod);
-	dt_free(dtp, ftp);
+	free(psp->pps_mod);
+	dt_free(dtp, psp);
 	return rc;
 }
 
