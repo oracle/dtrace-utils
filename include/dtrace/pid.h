@@ -13,6 +13,7 @@
 #ifndef _DTRACE_PID_H
 #define _DTRACE_PID_H
 
+#include <dirent.h>
 #include <dtrace/universal.h>
 
 typedef enum pid_probetype {
@@ -27,9 +28,12 @@ typedef enum pid_probetype {
 typedef struct pid_probespec {
 	pid_t pps_pid;				/* task PID */
 	pid_probetype_t pps_type;		/* probe type */
-	char *pps_mod;				/* probe module */
+	char *pps_mod;				/* probe module (object) */
 	char pps_fun[DTRACE_FUNCNAMELEN];	/* probe function */
+	ino_t pps_ino;				/* object inode */
+	char *pps_fn;				/* object full filename */
 	uint64_t pps_pc;			/* probe address */
+	uint64_t pps_vaddr;			/* object base address */
 	uint64_t pps_size;			/* function size (in bytes) */
 	uint8_t pps_glen;			/* glob pattern length */
 	char pps_gstr[1];			/* glob pattern string */

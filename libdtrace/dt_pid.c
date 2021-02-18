@@ -33,7 +33,10 @@ typedef struct dt_pid_probe {
 	const char *dpp_func;
 	const char *dpp_name;
 	const char *dpp_obj;
+	ino_t dpp_ino;
+	char *dpp_fname;
 	uintptr_t dpp_pc;
+	uintptr_t dpp_vaddr;
 	size_t dpp_size;
 	Lmid_t dpp_lmid;
 	uint_t dpp_nmatches;
@@ -151,6 +154,9 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 	psp->pps_pid = pid;
 	psp->pps_mod = dt_pid_objname(pp->dpp_lmid, pp->dpp_obj);
+	psp->pps_ino = pp->dpp_ino;
+	psp->pps_fn = strdup(pp->dpp_fname);
+	psp->pps_vaddr = pp->dpp_vaddr;
 	strcpy_safe(psp->pps_fun, sizeof(psp->pps_fun), func);
 
 	if (!isdash && gmatch("return", pp->dpp_name)) {
@@ -279,6 +285,9 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 
 	dt_Plmid(pp->dpp_dtp, pid, pmp->pr_vaddr, &pp->dpp_lmid);
 
+	pp->dpp_ino = pmp->pr_inum;
+	pp->dpp_vaddr = pmp->pr_vaddr;
+
 	/*
 	 * Note: if an execve() happens in the victim after this point, the
 	 * following lookups will (unavoidably) fail if the lmid in the previous
@@ -404,6 +413,7 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 	dt_proc_t *dpr = pp->dpp_dpr;
 	int rc;
 
+	pp->dpp_fname = strdup(obj);
 	if ((pp->dpp_obj = strrchr(obj, '/')) == NULL)
 		pp->dpp_obj = obj;
 	else
@@ -426,7 +436,8 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 }
 
 static const prmap_t *
-dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, pid_t pid)
+dt_pid_fix_mod(dt_pid_probe_t *pp, dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+	       pid_t pid)
 {
 	char m[PATH_MAX];
 	Lmid_t lmid = PR_LMID_EVERY;
@@ -457,6 +468,7 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, pid_t pid)
 		return NULL;
 
 	dt_Pobjname(dtp, pid, pmp->pr_vaddr, m, sizeof(m));
+	pp->dpp_fname = strdup(m);
 	if ((obj = strrchr(m, '/')) == NULL)
 		obj = &m[0];
 	else
@@ -481,6 +493,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	pp.dpp_pr = dpr->dpr_proc;
 	pp.dpp_pcb = pcb;
 	pp.dpp_nmatches = 0;
+	pp.dpp_ino = 0;
 
 	/*
 	 * Prohibit self-grabs.  (This is banned anyway by libproc, but this way
@@ -544,7 +557,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 		 * we'll fail the enabling because the probes don't exist or
 		 * we'll wait for that module to come along.
 		 */
-		if ((pmp = dt_pid_fix_mod(pdp, dtp, pid)) != NULL) {
+		pmp = dt_pid_fix_mod(&pp, pdp, dtp, pid);
+		if (pmp != NULL) {
 			if ((obj = strchr(pdp->mod, '`')) == NULL)
 				obj = pdp->mod;
 			else
@@ -553,6 +567,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 			ret = dt_pid_per_mod(&pp, pmp, obj);
 		}
 	}
+
+	free(pp.dpp_fname);
 
 	return ret;
 }
