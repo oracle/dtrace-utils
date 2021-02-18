@@ -21,6 +21,7 @@
 
 #include <dt_impl.h>
 #include <dt_program.h>
+#include <dt_provider.h>
 #include <dt_pid.h>
 #include <dt_string.h>
 
@@ -94,15 +95,29 @@ static int
 dt_pid_create_fbt_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     pid_probespec_t *psp, const GElf_Sym *symp, pid_probetype_t type)
 {
+	const dt_provider_t	*pvp;
+
 	psp->pps_type = type;
 	psp->pps_pc = (uintptr_t)symp->st_value;
 	psp->pps_size = (size_t)symp->st_size;
 	psp->pps_glen = 0;		/* no glob pattern */
 	psp->pps_gstr[0] = '\0';
 
+	/* Make sure we have a PID provider. */
+	pvp = dtp->dt_prov_pid;
+	if (pvp == NULL) {
+		pvp = dt_provider_lookup(dtp, "pid");
+		if (pvp == NULL)
+			return 0;
+
+		dtp->dt_prov_pid = pvp;
+	}
+
+	assert(pvp->impl != NULL && pvp->impl->provide_pid != NULL);
+
 	/* Create a probe using 'psp'. */
 
-	return 1;
+	return pvp->impl->provide_pid(dtp, psp);
 }
 
 static int
@@ -231,6 +246,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 out:
 	free(psp->pps_mod);
+	free(psp->pps_fn);
 	dt_free(dtp, psp);
 	return rc;
 }
@@ -261,6 +277,12 @@ dt_pid_sym_filt(void *arg, const GElf_Sym *symp, const char *func)
 		if (strcmp(func, "_init") == 0 || strcmp(func, "_fini") == 0)
 			return 0;
 
+		/*
+		 * Versioned identifiers are a problem.
+		 */
+		if (strchr(func, '@') != NULL)
+			return 0;
+
 		if ((pp->dpp_last_taken = gmatch(func, pp->dpp_func)) != 0) {
 			pp->dpp_last = *symp;
 			return dt_pid_per_sym(pp, symp, func);
@@ -286,7 +308,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	dt_Plmid(pp->dpp_dtp, pid, pmp->pr_vaddr, &pp->dpp_lmid);
 
 	pp->dpp_ino = pmp->pr_inum;
-	pp->dpp_vaddr = pmp->pr_vaddr;
+	pp->dpp_vaddr = pmp->pr_file->first_segment->pr_vaddr;
 
 	/*
 	 * Note: if an execve() happens in the victim after this point, the
@@ -518,6 +540,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	pp.dpp_func = pdp->fun[0] != '\0' ? pdp->fun : "*";
 	pp.dpp_name = pdp->prb[0] != '\0' ? pdp->prb : "*";
 	pp.dpp_last_taken = 0;
+	pp.dpp_fname = NULL;
 
 	if (strcmp(pp.dpp_func, "-") == 0) {
 		const prmap_t *aout, *pmp;
@@ -566,6 +589,11 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 			ret = dt_pid_per_mod(&pp, pmp, obj);
 		}
+	}
+
+	if (pp.dpp_func != pdp->fun) {
+		free((char *)pdp->fun);
+		pdp->fun = pp.dpp_func;
 	}
 
 	free(pp.dpp_fname);
@@ -700,7 +728,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	if ((pid = dt_pid_get_pid(pdp, dtp, pcb, NULL)) == -1)
 		return -1;
 
-	snprintf(provname, sizeof(provname), "pid%d", (int)pid);
+	snprintf(provname, sizeof(provname), PID_PRVNAME, (int)pid);
 
 	if (gmatch(provname, pdp->prv) != 0) {
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING);

@@ -8,6 +8,7 @@
 #ifndef	_DT_PROVIDER_H
 #define	_DT_PROVIDER_H
 
+#include <dtrace/pid.h>
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_list.h>
@@ -61,6 +62,8 @@ typedef struct dt_provimpl {
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
 	int (*provide)(dtrace_hdl_t *dtp,	/* provide probes */
 		       const dtrace_probedesc_t *pdp);
+	int (*provide_pid)(dtrace_hdl_t *dtp,	/* provide PID probes */
+		       const pid_probespec_t *psp);
 	void (*enable)(dtrace_hdl_t *dtp,	/* enable the given probe */
 		       struct dt_probe *prp);
 	void (*trampoline)(dt_pcb_t *pcb);	/* generate BPF trampoline */
@@ -77,6 +80,7 @@ typedef struct dt_provimpl {
 
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_fbt;
+extern dt_provimpl_t dt_pid;
 extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_sdt;
 extern dt_provimpl_t dt_syscall;
@@ -117,6 +121,7 @@ extern void dt_tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
 
 #define	DT_PROVIDER_INTF	0x1	/* provider interface declaration */
 #define	DT_PROVIDER_IMPL	0x2	/* provider implementation is loaded */
+#define	DT_PROVIDER_PID		0x4	/* provider is a PID provider */
 
 extern dt_provider_t *dt_provider_lookup(dtrace_hdl_t *, const char *);
 extern dt_provider_t *dt_provider_create(dtrace_hdl_t *, const char *,

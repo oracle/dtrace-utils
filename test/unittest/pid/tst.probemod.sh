@@ -1,11 +1,10 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# @@xfail: dtv2
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -22,7 +21,7 @@ dtrace=$1
 # First we need to determine the basename of the linked libc for
 # sleep(1)
 #
-names=`ldd /usr/bin/sleep | \
+names=`ldd /bin/sleep | \
 	awk '/libc.so/ {
 		n = split($1, a, /\./);
 		l = a[1];
@@ -38,7 +37,7 @@ for lib in $names; do
 	sleep 60 &
 	pid=$!
 	disown %+
-	$dtrace $dt_flags -n "pid$pid:$lib::entry" -n 'tick-2s{exit(0);}'
+	$dtrace $dt_flags -n "pid$pid:$lib:malloc*:entry" -n 'tick-2s{exit(0);}'
 	status=$?
 
 	kill $pid

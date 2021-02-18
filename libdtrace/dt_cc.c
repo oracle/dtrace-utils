@@ -1707,7 +1707,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	 * that process if:
 	 *
 	 * (1) The provider doesn't exist, or,
-	 * (2) The provider exists and has DTRACE_PRIV_PROC privilege.
+	 * (2) The provider exists and has DT_PROVIDER_PID flag set.
 	 *
 	 * On an error, dt_pid_create_probes() will set the error message
 	 * and tag -- we just have to longjmp() out of here.
@@ -1715,7 +1715,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	if (pdp->prv && pdp->prv[0] &&
 	    isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
 	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
-	    pvp->desc.dtvd_priv.dtpp_flags & DTRACE_PRIV_PROC) &&
+	     pvp->pv_flags & DT_PROVIDER_PID) &&
 	    dt_pid_create_probes(pdp, dtp, yypcb) != 0) {
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 	}
@@ -2358,6 +2358,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	uint_t			len = sdp->dtdo_brelen;
 	const dof_relodesc_t	*rp = sdp->dtdo_breltab;
 	dof_relodesc_t		*nrp = &dp->dtdo_breltab[rc];
+	dtrace_id_t		prid = prp->desc->id;
 	int			no_deps = 0;
 
 	if (idp != NULL) {
@@ -2453,6 +2454,11 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */
 				continue;
+			default:
+				/* probe name -> value is probe id */
+				if (strchr(idp->di_name, ':') != NULL)
+					prid = rp->dofr_data;
+				continue;
 			}
 
 			continue;
@@ -2469,8 +2475,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			if (rdp == NULL)
 				return -1;
 			if (rdp->dtdo_ddesc != NULL) {
-				nepid = dt_epid_add(dtp, rdp->dtdo_ddesc,
-						    prp->desc->id);
+				nepid = dt_epid_add(dtp, rdp->dtdo_ddesc, prid);
 				clid++;
 			} else
 				nepid = 0;

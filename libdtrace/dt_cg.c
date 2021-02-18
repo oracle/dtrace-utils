@@ -292,7 +292,7 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	/*
 	 *	dt_clause(dctx);	// mov %r1, %fp
 	 *				// add %r1, DCTX_FP(0)
-	 *				// call dt_program
+	 *				// call clause
 	 */
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0)));
