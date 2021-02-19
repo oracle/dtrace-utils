@@ -97,6 +97,24 @@ int tp_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 }
 
 /*
+ * Create tracepoint-specific probe data.
+ */
+tp_probe_t *
+tp_probe_create(dtrace_hdl_t *dtp)
+{
+	tp_probe_t	*datap;
+
+	datap = dt_zalloc(dtp, sizeof(tp_probe_t));
+	if (datap == NULL)
+		return NULL;
+
+	datap->event_fd = -1;
+	datap->event_id = -1;
+
+	return datap;
+}
+
+/*
  * Create a tracepoint-based probe.  This function is called from any provider
  * that handled tracepoint-based probes.  It sets up the provider-specific
  * data of the probe, and calls dt_probe_insert() to add the probe to the
@@ -108,12 +126,9 @@ dt_probe_t *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
 {
 	tp_probe_t	*datap;
 
-	datap = dt_zalloc(dtp, sizeof(tp_probe_t));
+	datap = tp_probe_create(dtp);
 	if (datap == NULL)
 		return NULL;
-
-	datap->event_id = -1;
-	datap->event_fd = -1;
 
 	return dt_probe_insert(dtp, prov, prv, mod, fun, prb, datap);
 }
