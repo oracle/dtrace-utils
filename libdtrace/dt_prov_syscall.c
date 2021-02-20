@@ -116,12 +116,12 @@ static int populate(dtrace_hdl_t *dtp)
 		 */
 		if (!memcmp(p, ENTRY_PREFIX, sizeof(ENTRY_PREFIX) - 1)) {
 			p += sizeof(ENTRY_PREFIX) - 1;
-			if (tp_probe_insert(dtp, prv, prvname, modname, p,
+			if (dt_tp_probe_insert(dtp, prv, prvname, modname, p,
 					    "entry"))
 				n++;
 		} else if (!memcmp(p, EXIT_PREFIX, sizeof(EXIT_PREFIX) - 1)) {
 			p += sizeof(EXIT_PREFIX) - 1;
-			if (tp_probe_insert(dtp, prv, prvname, modname, p,
+			if (dt_tp_probe_insert(dtp, prv, prvname, modname, p,
 					    "return"))
 				n++;
 		}
@@ -201,10 +201,13 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	FILE		*f;
 	char		fn[256];
 	int		rc;
-	tp_probe_t	*datap = prp->prv_data;
+	tp_probe_t	*tpp = prp->prv_data;
 
-	/* if we have an event ID, no need to retrieve it again */
-	if (datap->event_id != -1)
+	/*
+	 * If the tracepoint has already been created and we have its info,
+	 * there is no need to retrive the info again.
+	 */
+	if (dt_tp_is_created(tpp))
 		return -1;
 
 	/*
@@ -223,7 +226,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, datap, argcp, argvp);
+	rc = dt_tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, tpp, argcp, argvp);
 	fclose(f);
 
 	return rc;
@@ -234,8 +237,8 @@ dt_provimpl_t	dt_syscall = {
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
 	.trampoline	= &trampoline,
-	.attach		= &tp_attach,
+	.attach		= &dt_tp_probe_attach,
 	.probe_info	= &probe_info,
-	.detach		= &tp_detach,
-	.probe_destroy	= &tp_probe_destroy,
+	.detach		= &dt_tp_probe_detach,
+	.probe_destroy	= &dt_tp_probe_destroy,
 };

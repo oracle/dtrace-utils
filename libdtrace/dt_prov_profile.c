@@ -44,27 +44,27 @@ static dt_probe_t *profile_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prv,
 				        const char *prb, int kind,
 					uint64_t period)
 {
-	profile_probe_t	*datap;
+	profile_probe_t	*pp;
 	int		i;
 	int		cnt = FDS_CNT(kind);
 
-	datap = dt_zalloc(dtp, sizeof(profile_probe_t));
-	if (datap == NULL)
+	pp = dt_zalloc(dtp, sizeof(profile_probe_t));
+	if (pp == NULL)
 		return NULL;
 
-	datap->kind = kind;
-	datap->period = period;
-	datap->fds = dt_calloc(dtp, cnt, sizeof(int));
-	if (datap->fds == NULL)
+	pp->kind = kind;
+	pp->period = period;
+	pp->fds = dt_calloc(dtp, cnt, sizeof(int));
+	if (pp->fds == NULL)
 		goto err;
 
 	for (i = 0; i < cnt; i++)
-		datap->fds[i] = -1;
+		pp->fds[i] = -1;
 
-	return dt_probe_insert(dtp, prv, prvname, modname, funname, prb, datap);
+	return dt_probe_insert(dtp, prv, prvname, modname, funname, prb, pp);
 
 err:
-	dt_free(dtp, datap);
+	dt_free(dtp, pp);
 	return NULL;
 }
 
@@ -274,10 +274,10 @@ static void trampoline(dt_pcb_t *pcb)
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
-	profile_probe_t		*datap = prp->prv_data;
+	profile_probe_t		*pp = prp->prv_data;
 	struct perf_event_attr	attr;
 	int			i, nattach = 0;;
-	int			cnt = FDS_CNT(datap->kind);
+	int			cnt = FDS_CNT(pp->kind);
 
 	memset(&attr, 0, sizeof(attr));
 	attr.type = PERF_TYPE_SOFTWARE;
@@ -286,7 +286,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	attr.size = sizeof(struct perf_event_attr);
 	attr.wakeup_events = 1;
 	attr.freq = 0;
-	attr.sample_period = datap->period;
+	attr.sample_period = pp->period;
 
 	for (i = 0; i < cnt; i++) {
 		int j = i, fd;
@@ -303,7 +303,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			close(fd);
 			continue;
 		}
-		datap->fds[i] = fd;
+		pp->fds[i] = fd;
 		nattach++;
 	}
 
@@ -322,22 +322,22 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
-	profile_probe_t	*datap = prp->prv_data;
+	profile_probe_t	*pp = prp->prv_data;
 	int		i;
-	int		cnt = FDS_CNT(datap->kind);
+	int		cnt = FDS_CNT(pp->kind);
 
 	for (i = 0; i < cnt; i++) {
-		if (datap->fds[i] != -1)
-			close(datap->fds[i]);
+		if (pp->fds[i] != -1)
+			close(pp->fds[i]);
 	}
 }
 
 static void probe_destroy(dtrace_hdl_t *dtp, void *arg)
 {
-	profile_probe_t	*datap = arg;
+	profile_probe_t	*pp = arg;
 
-	dt_free(dtp, datap->fds);
-	dt_free(dtp, datap);
+	dt_free(dtp, pp->fds);
+	dt_free(dtp, pp);
 }
 
 dt_provimpl_t	dt_profile = {

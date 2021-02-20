@@ -136,9 +136,9 @@ static int populate(dtrace_hdl_t *dtp)
 		if (dt_probe_lookup(dtp, &pd) != NULL)
 			continue;
 
-		if (tp_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
+		if (dt_tp_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
 			n++;
-		if (tp_probe_insert(dtp, prv, prvname, mod, buf, "return"))
+		if (dt_tp_probe_insert(dtp, prv, prvname, mod, buf, "return"))
 			n++;
 	}
 
@@ -230,9 +230,9 @@ static void trampoline(dt_pcb_t *pcb)
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
-	tp_probe_t	*datap = prp->prv_data;
+	tp_probe_t	*tpp = prp->prv_data;
 
-	if (datap->event_id == -1) {
+	if (!dt_tp_is_created(tpp)) {
 		char	*fn;
 		FILE	*f;
 		size_t	len;
@@ -270,7 +270,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		/* read event id from format file */
-		rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
+		rc = dt_tp_event_info(dtp, f, 0, tpp, NULL, NULL);
 		fclose(f);
 
 		if (rc < 0)
@@ -278,7 +278,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	}
 
 	/* attach BPF program to the probe */
-	return tp_attach(dtp, prp, bpf_fd);
+	return dt_tp_attach(dtp, tpp, bpf_fd);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
@@ -305,7 +305,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int	fd;
 
-	tp_detach(dtp, prp);
+	dt_tp_detach(dtp, prp->prv_data);
 
 	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
@@ -324,5 +324,5 @@ dt_provimpl_t	dt_fbt = {
 	.attach		= &attach,
 	.probe_info	= &probe_info,
 	.detach		= &detach,
-	.probe_destroy	= &tp_probe_destroy,
+	.probe_destroy	= &dt_tp_probe_destroy,
 };

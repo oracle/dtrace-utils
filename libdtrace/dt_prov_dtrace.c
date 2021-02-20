@@ -43,19 +43,19 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return 0;
 
-	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
+	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
 	if (prp) {
 		n++;
 		dt_list_append(&dtp->dt_enablings, prp);
 	}
 
-	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
+	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
 	if (prp) {
 		n++;
 		dt_list_append(&dtp->dt_enablings, prp);
 	}
 
-	prp = tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR");
+	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR");
 	if (prp) {
 		n++;
 		dt_list_append(&dtp->dt_enablings, prp);
@@ -274,9 +274,9 @@ out:
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
-	tp_probe_t	*datap = prp->prv_data;
+	tp_probe_t	*tpp = prp->prv_data;
 
-	if (datap->event_id == -1) {
+	if (!dt_tp_is_created(tpp)) {
 		char	*spec;
 		char	*fn;
 		FILE	*f;
@@ -313,12 +313,15 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		if (f == NULL)
 			return -ENOENT;
 
-		rc = tp_event_info(dtp, f, 0, datap, NULL, NULL);
+		rc = dt_tp_event_info(dtp, f, 0, tpp, NULL, NULL);
 		fclose(f);
+
+		if (rc < 0)
+			return -ENOENT;
 	}
 
-	/* attach BPF program to the probe */
-	return tp_attach(dtp, prp, bpf_fd);
+	/* attach BPF program to the tracepoint */
+	return dt_tp_attach(dtp, tpp, bpf_fd);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
@@ -345,7 +348,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int	fd;
 
-	tp_detach(dtp, prp);
+	dt_tp_detach(dtp, prp->prv_data);
 
 	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
@@ -363,5 +366,5 @@ dt_provimpl_t	dt_dtrace = {
 	.attach		= &attach,
 	.probe_info	= &probe_info,
 	.detach		= &detach,
-	.probe_destroy	= &tp_probe_destroy,
+	.probe_destroy	= &dt_tp_probe_destroy,
 };

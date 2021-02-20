@@ -93,21 +93,25 @@ typedef struct dt_provider {
 	uint_t pv_flags;		/* flags (see below) */
 } dt_provider_t;
 
-typedef struct tp_probe {
-	int	event_id;		/* tracepoint event id */
-	int	event_fd;		/* tracepoint perf event fd */
-} tp_probe_t;
+typedef struct tp_probe tp_probe_t;
 
-extern int tp_attach(dtrace_hdl_t *dtp, const struct dt_probe *prp, int bpf_fd);
-extern tp_probe_t *tp_probe_create(dtrace_hdl_t *dtp);
-extern struct dt_probe *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
-					const char *prv, const char *mod,
-					const char *fun, const char *prb);
-extern int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
-			 tp_probe_t *datap, int *argcp, dt_argdesc_t **argvp);
-extern void tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
-extern void tp_detach(dtrace_hdl_t *dtp, const struct dt_probe *prb);
+extern tp_probe_t *dt_tp_alloc(dtrace_hdl_t *dtp);
+extern int dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd);
+extern int dt_tp_is_created(const tp_probe_t *tpp);
+extern int dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
+			    tp_probe_t *tpp, int *argcp,
+			    dt_argdesc_t **argvp);
+extern void dt_tp_detach(dtrace_hdl_t *dtp, tp_probe_t *tpp);
+extern void dt_tp_destroy(dtrace_hdl_t *dtp, tp_probe_t *tpp);
 
+extern struct dt_probe *dt_tp_probe_insert(dtrace_hdl_t *dtp,
+					   dt_provider_t *prov,
+					   const char *prv, const char *mod,
+					   const char *fun, const char *prb);
+extern int dt_tp_probe_attach(dtrace_hdl_t *dtp, const struct dt_probe *prp,
+			      int bpf_fd);
+extern void dt_tp_probe_detach(dtrace_hdl_t *dtp, const struct dt_probe *prp);
+extern void dt_tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
 
 #define	DT_PROVIDER_INTF	0x1	/* provider interface declaration */
 #define	DT_PROVIDER_IMPL	0x2	/* provider implementation is loaded */
