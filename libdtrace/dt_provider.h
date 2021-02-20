@@ -67,10 +67,10 @@ typedef struct dt_provimpl {
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */
 			  const struct dt_probe *prp,
 			  int *argcp, dt_argdesc_t **argvp);
+	void (*detach)(dtrace_hdl_t *dtp,	/* probe cleanup */
+		       const struct dt_probe *prb);
 	void (*probe_destroy)(dtrace_hdl_t *dtp, /* free provider data */
 			      void *datap);
-	void (*probe_fini)(dtrace_hdl_t *dtp,	/* probe cleanup */
-			   const struct dt_probe *prb);
 } dt_provimpl_t;
 
 extern dt_provimpl_t dt_dtrace;
@@ -106,7 +106,7 @@ extern struct dt_probe *tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov,
 extern int tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
 			 tp_probe_t *datap, int *argcp, dt_argdesc_t **argvp);
 extern void tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
-extern void tp_probe_fini(dtrace_hdl_t *dtp, const struct dt_probe *prb);
+extern void tp_detach(dtrace_hdl_t *dtp, const struct dt_probe *prb);
 
 
 #define	DT_PROVIDER_INTF	0x1	/* provider interface declaration */

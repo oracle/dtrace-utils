@@ -341,11 +341,11 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  * for some reason we are out of luck - fortunately it is not harmful to the
  * system as a whole.
  */
-static void probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int	fd;
 
-	tp_probe_fini(dtp, prp);
+	tp_detach(dtp, prp);
 
 	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
@@ -362,6 +362,6 @@ dt_provimpl_t	dt_dtrace = {
 	.trampoline	= &trampoline,
 	.attach		= &attach,
 	.probe_info	= &probe_info,
+	.detach		= &detach,
 	.probe_destroy	= &tp_probe_destroy,
-	.probe_fini	= &probe_fini,
 };

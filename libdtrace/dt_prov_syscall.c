@@ -236,6 +236,6 @@ dt_provimpl_t	dt_syscall = {
 	.trampoline	= &trampoline,
 	.attach		= &tp_attach,
 	.probe_info	= &probe_info,
+	.detach		= &tp_detach,
 	.probe_destroy	= &tp_probe_destroy,
-	.probe_fini	= &tp_probe_fini,
 };

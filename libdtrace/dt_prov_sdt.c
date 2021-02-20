@@ -313,7 +313,7 @@ void tp_probe_destroy(dtrace_hdl_t *dtp, void *datap)
  * Perform any provider specific cleanup for a probe that is being removed from
  * the framework.
  */
-void tp_probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+void tp_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	tp_probe_t	*datap = prp->prv_data;
 
@@ -323,8 +323,6 @@ void tp_probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	}
 
 	datap->event_id = -1;
-
-	tp_probe_destroy(dtp, datap);
 }
 
 /*
@@ -481,6 +479,6 @@ dt_provimpl_t	dt_sdt = {
 	.trampoline	= &trampoline,
 	.attach		= &tp_attach,
 	.probe_info	= &probe_info,
+	.detach		= &tp_detach,
 	.probe_destroy	= &tp_probe_destroy,
-	.probe_fini	= &tp_probe_fini,
 };

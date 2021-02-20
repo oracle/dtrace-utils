@@ -320,15 +320,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	return 0;
 }
 
-static void probe_destroy(dtrace_hdl_t *dtp, void *arg)
-{
-	profile_probe_t	*datap = arg;
-
-	dt_free(dtp, datap->fds);
-	dt_free(dtp, datap);
-}
-
-static void probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	profile_probe_t	*datap = prp->prv_data;
 	int		i;
@@ -338,18 +330,24 @@ static void probe_fini(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 		if (datap->fds[i] != -1)
 			close(datap->fds[i]);
 	}
+}
 
-	probe_destroy(dtp, datap);
+static void probe_destroy(dtrace_hdl_t *dtp, void *arg)
+{
+	profile_probe_t	*datap = arg;
+
+	dt_free(dtp, datap->fds);
+	dt_free(dtp, datap);
 }
 
 dt_provimpl_t	dt_profile = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_PERF_EVENT,
 	.populate	= &populate,
-	.trampoline	= &trampoline,
-	.probe_info	= &probe_info,
 	.provide	= &provide,
+	.trampoline	= &trampoline,
 	.attach		= &attach,
+	.probe_info	= &probe_info,
+	.detach		= &detach,
 	.probe_destroy	= &probe_destroy,
-	.probe_fini	= &probe_fini,
 };

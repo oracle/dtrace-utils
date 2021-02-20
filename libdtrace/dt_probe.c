@@ -510,8 +510,8 @@ dt_probe_destroy(dt_probe_t *prp)
 		dt_htab_delete(dtp->dt_byfqn, prp);
 	}
 
-	if (prp->prov && prp->prov->impl && prp->prov->impl->probe_fini)
-		prp->prov->impl->probe_fini(dtp, prp);
+	if (prp->prov && prp->prov->impl && prp->prov->impl->probe_destroy)
+		prp->prov->impl->probe_destroy(dtp, prp->prv_data);
 
 	dt_node_list_free(&prp->nargs);
 	dt_node_list_free(&prp->xargs);
@@ -1384,6 +1384,22 @@ dt_probe_init(dtrace_hdl_t *dtp)
 	dtp->dt_probes = NULL;
 	dtp->dt_probes_sz = 0;
 	dtp->dt_probe_id = 1;
+}
+
+void
+dt_probe_detach(dtrace_hdl_t *dtp)
+{
+	uint32_t	i;
+
+	for (i = 0; i < dtp->dt_probes_sz; i++) {
+		dt_probe_t	*prp = dtp->dt_probes[i];
+
+		if (prp == NULL)
+			continue;
+
+		if (prp->prov && prp->prov->impl && prp->prov->impl->detach)
+			prp->prov->impl->detach(dtp, prp);
+	}
 }
 
 void
