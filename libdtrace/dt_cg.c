@@ -654,6 +654,26 @@ dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 }
 
 static void
+dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
+{
+	dt_ident_t *idp;
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, size));
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
+	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	/* FIXME: check BPF_REG_0 for error? */
+	dt_regset_free(drp, BPF_REG_0);
+}
+
+static void
 dt_cg_spill_store(int reg)
 {
 	dt_irlist_t	*dlp = &yypcb->pcb_ir;
@@ -1849,19 +1869,9 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	else
 		size = dt_node_type_size(src);
 
-	if (src->dn_flags & DT_NF_REF) {
-#ifdef FIXME
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		dt_cg_setx(dlp, reg, size);
-		instr = DIF_INSTR_COPYS(src->dn_reg, reg, dst->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-		dt_regset_free(drp, reg);
-#else
-		xyerror(D_UNKNOWN, "internal error -- cg cannot store "
-			"values passed by ref\n");
-#endif
-	} else {
+	if (src->dn_flags & DT_NF_REF)
+		dt_cg_memcpy(dlp, drp, dst->dn_reg, src->dn_reg, size);
+	else {
 		uint8_t	sz;
 
 		if (dst->dn_flags & DT_NF_BITFIELD)
@@ -1917,7 +1927,11 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
 		emit(dlp, BPF_LOAD(BPF_DW, reg, reg, DCTX_GVARS));
-		emit(dlp, BPF_STORE(BPF_DW, reg, idp->di_offset, src->dn_reg));
+		if (src->dn_flags & DT_NF_REF) {
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
+			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, idp->di_size);
+		} else
+			emit(dlp, BPF_STORE(BPF_DW, reg, idp->di_offset, src->dn_reg));
 		dt_regset_free(drp, reg);
 		return;
 	}
