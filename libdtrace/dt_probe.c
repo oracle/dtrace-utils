@@ -44,54 +44,7 @@ typedef struct dt_probeclause {
 	DEFINE_HE_LINK_FUNCS(id)
 
 #define DEFINE_HE_LINK_FUNCS(id) \
-	static dt_probe_t *id##_add(dt_probe_t *head, dt_probe_t *new) \
-	{ \
-		if (!head) \
-			return new; \
-	\
-		new->he_##id.next = head; \
-		head->he_##id.prev = new; \
-	\
-		return new; \
-	} \
-	\
-	static dt_probe_t *id##_del(dt_probe_t *head, dt_probe_t *probe) \
-	{ \
-		dt_probe_t *prev = probe->he_##id.prev; \
-		dt_probe_t *next = probe->he_##id.next; \
-	\
-		if (head == probe) { \
-			if (!next) \
-				return NULL; \
-	\
-			head = next; \
-			head->he_##id.prev = NULL; \
-			probe->he_##id.next = NULL; \
-	\
-			return head; \
-		} \
-	\
-		if (!next) { \
-			prev->he_##id.next = NULL; \
-			probe->he_##id.prev = NULL; \
-	\
-			return head; \
-	} \
-	\
-		prev->he_##id.next = next; \
-		next->he_##id.prev = prev; \
-		probe->he_##id.prev = probe->he_##id.next = NULL; \
-	\
-		return head; \
-	}
-
-#define DEFINE_HTAB_OPS(id) \
-	static dt_htab_ops_t	id##_htab_ops = { \
-		.hval = (htab_hval_fn)id##_hval, \
-		.cmp = (htab_cmp_fn)id##_cmp, \
-		.add = (htab_add_fn)id##_add, \
-		.del = (htab_del_fn)id##_del, \
-	};
+	DEFINE_HE_STD_LINK_FUNCS(id, dt_probe_t, he_##id)
 
 DEFINE_HE_FUNCS(prv)
 DEFINE_HE_FUNCS(mod)
@@ -140,11 +93,11 @@ static int fqn_cmp(const dt_probe_t *p, const dt_probe_t *q)
 
 DEFINE_HE_LINK_FUNCS(fqn)
 
-DEFINE_HTAB_OPS(prv)
-DEFINE_HTAB_OPS(mod)
-DEFINE_HTAB_OPS(fun)
-DEFINE_HTAB_OPS(prb)
-DEFINE_HTAB_OPS(fqn)
+DEFINE_HTAB_STD_OPS(prv)
+DEFINE_HTAB_STD_OPS(mod)
+DEFINE_HTAB_STD_OPS(fun)
+DEFINE_HTAB_STD_OPS(prb)
+DEFINE_HTAB_STD_OPS(fqn)
 
 static uint8_t
 dt_probe_argmap(dt_node_t *xnp, dt_node_t *nnp)

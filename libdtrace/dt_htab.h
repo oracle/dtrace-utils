@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -18,6 +18,57 @@ typedef uint32_t (*htab_hval_fn)(const void *);
 typedef int (*htab_cmp_fn)(const void *, const void *);
 typedef void *(*htab_add_fn)(void *, void *);
 typedef void *(*htab_del_fn)(void *, void *);
+
+#define DEFINE_HE_STD_LINK_FUNCS(ID, TYPE, HE) \
+	static TYPE *ID##_add(TYPE *head, TYPE *new) \
+	{ \
+		if (!head) \
+			return new; \
+	\
+		new->HE.next = head; \
+		head->HE.prev = new; \
+	\
+		return new; \
+	} \
+	\
+	static TYPE *ID##_del(TYPE *head, TYPE *ent) \
+	{ \
+		TYPE	*prev = ent->HE.prev; \
+		TYPE	*next = ent->HE.next; \
+	\
+		if (head == ent) { \
+			if (!next) \
+				return NULL; \
+	\
+			head = next; \
+			head->HE.prev = NULL; \
+			ent->HE.next = NULL; \
+	\
+			return head; \
+		} \
+	\
+		if (!next) { \
+			prev->HE.next = NULL; \
+			ent->HE.prev = NULL; \
+	\
+			return head; \
+		} \
+	\
+		prev->HE.next = next; \
+		next->HE.prev = prev; \
+		ent->HE.prev = ent->HE.next = NULL; \
+	\
+		return head; \
+	}
+
+#define DEFINE_HTAB_STD_OPS(ID) \
+	static dt_htab_ops_t ID##_htab_ops = { \
+		.hval = (htab_hval_fn)ID##_hval, \
+		.cmp = (htab_cmp_fn)ID##_cmp, \
+		.add = (htab_add_fn)ID##_add, \
+		.del = (htab_del_fn)ID##_del, \
+	};
+
 
 typedef struct dt_htab_ops {
 	htab_hval_fn	hval;
