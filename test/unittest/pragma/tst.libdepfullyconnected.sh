@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -11,7 +11,6 @@
 # guarantee consistent ordering as no nodes in the dependency graph will
 # be isolated.
 #
-# @@xfail: dtv2
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -44,7 +43,7 @@ EOF
 
 setup_libs
 
-DTRACE_DEBUG=1 $dtrace $dt_flags -L$libdir -e >$tmpfile 2>&1 
+DTRACE_DEBUG=1 $dtrace $dt_flags -L$libdir -e -n 'BEGIN {exit(0)}' >$tmpfile 2>&1
 
 perl /dev/stdin $tmpfile <<EOF
 

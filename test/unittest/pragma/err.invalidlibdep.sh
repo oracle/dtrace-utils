@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -9,7 +9,6 @@ if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
 fi
-# @@xfail: dtv2
 
 libdir=$tmpdir/libdep.$$
 dtrace=$1
@@ -31,7 +30,7 @@ EOF
 
 setup_libs
 
-$dtrace $dt_flags -L$libdir -e
+$dtrace $dt_flags -L$libdir -e -n 'BEGIN {exit(0)}'
 
 status=$?
 rm -rf $libdir
