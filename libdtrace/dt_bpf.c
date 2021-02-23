@@ -171,10 +171,8 @@ set_task_offsets(dtrace_hdl_t *dtp)
  *		concatenation of all unique strings (each terminated with a
  *		NUL byte).  The string table size is taken from the DTrace
  *		consumer handle (dt_strlen).
- * - gvars:	Global variables map, associating a 64-bit value with each
- *		global variable.  The map is indexed by global variable id.
- *		The amount of global variables is the next-to--be-assigned
- *		global variable id minus the base id.
+ * - gvars:	Global variables map.  This is a global map with a singleton
+ *		element (key 0) addressed by variable offset.
  *
  * FIXME: TLS variable storage is still being designed further so this is just
  *	  a temporary placeholder and will most likely be replaced by something
@@ -197,7 +195,7 @@ set_task_offsets(dtrace_hdl_t *dtp)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		gvarc, tvarc, aggsz;
+	int		gvarsz, tvarc, aggsz;
 	int		ci_mapfd;
 	uint32_t	key = 0;
 
@@ -212,7 +210,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	aggsz = dt_idhash_datasize(dtp->dt_aggs);
 
 	/* Determine the number of global and TLS variables. */
-	gvarc = dt_idhash_peekid(dtp->dt_globals) - DIF_VAR_OTHER_UBASE;
+	gvarsz = (dt_idhash_datasize(dtp->dt_globals) + 7) & ~7;
 	tvarc = dt_idhash_peekid(dtp->dt_tls) - DIF_VAR_OTHER_UBASE;
 
 	/* Create global maps as long as there are no errors. */
@@ -254,9 +252,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 			sizeof(uint32_t), dtp->dt_strlen, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
-	if (gvarc > 0 &&
+	if (gvarsz > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), sizeof(uint64_t), gvarc) == -1)
+			sizeof(uint32_t), gvarsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
 	if (tvarc > 0 &&

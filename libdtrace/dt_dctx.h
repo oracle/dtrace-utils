@@ -39,6 +39,7 @@ typedef struct dt_dctx {
 	dt_mstate_t	*mst;		/* DTrace machine state */
 	char		*buf;		/* Output buffer scratch memory */
 	char		*agg;		/* Aggregation data */
+	char		*gvars;		/* Global variables */
 } dt_dctx_t;
 
 #define DCTX_CTX	offsetof(dt_dctx_t, ctx)
@@ -46,6 +47,7 @@ typedef struct dt_dctx {
 #define DCTX_MST	offsetof(dt_dctx_t, mst)
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
+#define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*

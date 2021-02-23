@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1661,6 +1661,9 @@ dt_node_decl(void)
 			if (idp == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
+			dt_ident_set_storage(idp, 8,
+					     ctf_type_size(dtt.dtt_ctfp, type));
+
 			dt_ident_type_assign(idp, dtt.dtt_ctfp, dtt.dtt_type);
 
 			/*
@@ -2750,6 +2753,10 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 
 		if (idp == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+		/* aggregation storage size is set later, in dt_cg.c */
+		if (idkind != DT_IDENT_AGG)
+			dt_ident_set_storage(idp, 8, 8);
 
 		/*
 		 * Arrays and aggregations are not cooked individually. They

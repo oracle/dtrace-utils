@@ -140,31 +140,44 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
 
-	if (dt_idhash_datasize(dtp->dt_aggs) > 0) {
-		dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
+	/*
+	 * Store pointer to BPF map "name" in the DTrace context field "fld" at
+	 * "offset".
+	 *
+	 * key = 0;		// stw [%fp + DCTX_FP(offset)], 0
+	 * rc = bpf_map_lookup_elem(&name, &key);
+	 *			// lddw %r1, &name
+	 *			// mov %r2, %fp
+	 *			// add %r2, DCTX_FP(offset)
+	 *			// call bpf_map_lookup_elem
+	 *			//     (%r1 ... %r5 clobbered)
+	 *			//     (%r0 = name BPF map value)
+	 * if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *	goto exit;
+	 *			//     (%r0 = pointer to map value)
+	 * dctx.fld = rc;	// stdw [%fp + DCTX_FP(offset)], %r0
+	 */
+#define DT_CG_STORE_MAP_PTR(name, offset) \
+	do { \
+		dt_ident_t *idp = dt_dlib_get_map(dtp, name); \
+ \
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(offset), 0)); \
+ \
+		dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id); \
+		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP)); \
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(offset))); \
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem)); \
+ \
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit)); \
+ \
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(offset), BPF_REG_0)); \
+	} while(0)
 
-		/*
-		 * key = 0;		// stw [%fp + DCTX_FP(DCTX_AGG)], 0
-		 * rc = bpf_map_lookup_elem(&aggs, &key);
-		 *			// lddw %r1, &aggs
-		 *			// mov %r2, %fp
-		 *			// add %r2, DCTX_FP(DCTX_AGG)
-		 *			// call bpf_map_lookup_elem
-		 *			//     (%r1 ... %r5 clobbered)
-		 *			//     (%r0 = 'aggs' BPF map value)
-		 * if (rc == 0)		// jeq %r0, 0, lbl_exit
-		 *	goto exit;
-		 *			//     (%r0 = pointer to agg data)
-		 * dctx.agg = rc;	// stdw [%fp + DCTX_FP(DCTX_AGG)], %r0
-		 */
-		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_AGG), 0));
-		dt_cg_xsetx(dlp, aggs, DT_LBL_NONE, BPF_REG_1, aggs->di_id);
-		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_AGG)));
-		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_AGG), BPF_REG_0));
-	}
+	if (dt_idhash_datasize(dtp->dt_aggs) > 0)
+		DT_CG_STORE_MAP_PTR("aggs", DCTX_AGG);
+	if (dt_idhash_datasize(dtp->dt_globals) > 0)
+		DT_CG_STORE_MAP_PTR("gvars", DCTX_GVARS);
+#undef DT_CG_STORE_MAP_PTR
 }
 
 void
@@ -1596,6 +1609,20 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		return;
 	}
 
+	/* FIXME: need cleaner test for global var */
+	if (!(idp->di_flags & DT_IDFLG_TLS) && idp->di_id >= DIF_VAR_OTHER_UBASE) {
+		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, dst->dn_reg, DCTX_GVARS));
+		if (dst->dn_flags & DT_NF_REF)
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dst->dn_reg, idp->di_offset));
+		else
+			emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, dst->dn_reg, idp->di_offset));
+
+		return;
+	}
+
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -1606,10 +1633,8 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
-	} else {					/* global var */
-		emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_gvar");
-	}
+	} else
+		assert(0);
 	assert(idp != NULL);
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
@@ -1885,8 +1910,17 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	if (idp->di_flags & DT_IDFLG_TLS)	/* TLS var */
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
-	else					/* global var */
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_gvar");
+	else {					/* global var */
+		int reg;
+
+		if ((reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_LOAD(BPF_DW, reg, reg, DCTX_GVARS));
+		emit(dlp, BPF_STORE(BPF_DW, reg, idp->di_offset, src->dn_reg));
+		dt_regset_free(drp, reg);
+		return;
+	}
 
 	assert(idp != NULL);
 

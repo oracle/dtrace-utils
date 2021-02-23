@@ -56,11 +56,9 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_agg_qbin, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_error, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_get_gvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_memcpy, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_set_gvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_SYMBOL),
 	/* BPF maps */

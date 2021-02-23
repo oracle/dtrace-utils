@@ -24,7 +24,6 @@ bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp
 bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	get_bvar.c \
-	get_gvar.c set_gvar.c \
 	get_tvar.c set_tvar.c \
 	probe_error.c \
 	memcpy.c strnlen.c

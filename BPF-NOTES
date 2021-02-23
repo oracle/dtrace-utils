@@ -6,7 +6,7 @@
   list of probes we need (created perf events), enable them, and then flip
   the master switch.
 
-- A usueful feature (that I think current DTrace cannot even do - need to
+- A useful feature (that I think current DTrace cannot even do - need to
   check) is listing which executable that are currently running on the system
   have USDT support.
 
@@ -42,23 +42,16 @@
   This means that in its most basic form, local variable i can be loaded from
   [%fp-(i*8)-8].
 
-- Global variables can be stored in an array map, indexed by the variable id,
-  and with a u64 value.  Variables that store data items that are larger than
-  64-bits will store an offset into a memory block obtained as a map value from
-  an array map.
+- Global variables can be stored in a BPF map, which can be a large, single
+  block of memory.  Variables can be accessed with three BPF instructions:
 
-  Due to the requirement that key and value are to be on the stack for map
-  updates, we need to generate code that does the following:
+	- load the DTrace context address (on the stack)
+	- dereference at the right offset for the map value pointer
+	- dereference using the variable's offset
 
-	- Store global variable id in stack slot
-	- Store value in stack slot
-	- Set up arguments for bpf_map_update_elem helper call
-	- Call bpf_map_update_elem helper
-
-  It might be a good idea to create a set_gvar(id, val) eBPF function that is
-  called from the compiled D code to save some instructions (as opposed to
-  generating the instruction sequence shown above for every global variable
-  store).
+  No function calls are needed (whether to our function or a BPF helper
+  function), and so these few instructions can be generated each time a
+  global variable is accessed.
 
 - In the new design, there is no need for shiting variable ids up beause of the
   range of built-in variables because we can generate code to obtain the value
