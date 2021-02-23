@@ -267,7 +267,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 *     (we clear dctx->mst->argv[1] and on)
 	 */
 	for (i = 1; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DCTX_FP(DMST_ARG(i)), 0));
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
 	dt_cg_tramp_epilogue(pcb);
 }
