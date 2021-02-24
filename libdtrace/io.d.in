@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -67,8 +67,8 @@ inline int REQ_SYNC = REQ_SYNC_VAL;
 define_for_kernel([[__bi_rw]], [[(m4_kver(4,8,0), [[bi_opf]])]], [[bi_rw]])
 define_for_kernel([[__disk]], [[(m4_kver(4,14,0), [[bi_disk]])]], [[bi_bdev->bd_disk]])
 define_for_kernel([[__disk_chk]], [[(m4_kver(4,14,0), [[bi_disk]])]], [[bi_bdev]])
-define_for_kernel([[__partno]], [[(m4_kver(4,14,0), [[bi_partno]])]], [[bi_bdev->bd_part->partno]])
-define_for_kernel([[__part_dev]], [[(m4_kver(4,14,0), [[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]])]], [[bi_bdev->bd_part->__dev.devt]])
+define_for_kernel([[__bio_partno]], [[(m4_kver(4,14,0), [[bi_partno]])]], [[bi_bdev->bd_part->partno]])
+define_for_kernel([[__bio_part_dev]], [[(m4_kver(5,11,0), [[bi_disk->part_tbl->part[B->bi_partno]->bd_dev]]), (m4_kver(4,14,0), [[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]])]], [[bi_bdev->bd_part->__dev.devt]])
 
 #pragma D binding "1.6.3" translator
 translator bufinfo_t < struct bio *B > {
@@ -83,7 +83,7 @@ translator bufinfo_t < struct bio *B > {
 	b_bufsize = B->bi_iter.bi_size;
 	b_iodone = (caddr_t)B->bi_end_io;
 	b_error = 0;
-	b_edev = B->__disk_chk == NULL ? 0 : B->__part_dev;
+	b_edev = B->__disk_chk == NULL ? 0 : B->__bio_part_dev;
 };
 
 typedef struct devinfo {
@@ -95,41 +95,43 @@ typedef struct devinfo {
 	string dev_pathname;		/* pathname of device */
 } devinfo_t;
 
+define_for_kernel([[__bh_bdev_dev]], [[(m4_kver(5,11,0), [[b_bdev->bd_disk->part0->bd_device]])]], [[b_bdev->bd_disk->part0.__dev]])
+define_for_kernel([[__bdev_partno]], [[(m4_kver(5,11,0), [[bd_partno]])]], [[bd_part->partno]])
 #pragma D binding "1.0" translator
 translator devinfo_t < struct buffer_head *B > {
 	dev_major = getmajor(B->b_bdev->bd_dev);
 	dev_minor = getminor(B->b_bdev->bd_dev);
 	dev_instance = 0;		/* not used? */
-	dev_name = B->b_bdev->bd_disk->part0.__dev.parent
-	    ? B->b_bdev->bd_disk->part0.__dev.parent->driver->name
-		? stringof(B->b_bdev->bd_disk->part0.__dev.parent->driver->name)
+	dev_name = B->__bh_bdev_dev.parent
+	    ? B->__bh_bdev_dev.parent->driver->name
+		? stringof(B->__bh_bdev_dev.parent->driver->name)
 		: "<none>"
-	    : B->b_bdev->bd_disk->part0.__dev.driver->name
-		? stringof(B->b_bdev->bd_disk->part0.__dev.driver->name)
+	    : B->__bh_bdev_dev.driver->name
+		? stringof(B->__bh_bdev_dev.driver->name)
 		: "<none>";
-	dev_statname = B->b_bdev->bd_part->partno == 0
+	dev_statname = B->b_bdev->__bdev_partno == 0
 			? stringof(B->b_bdev->bd_disk->disk_name)
 			: strjoin(stringof(B->b_bdev->bd_disk->disk_name),
-				  lltostr(B->b_bdev->bd_part->partno));
+				  lltostr(B->b_bdev->__bdev_partno));
 	dev_pathname = strjoin(
 			"/dev/",
-			B->b_bdev->bd_part->partno == 0
+			B->b_bdev->__bdev_partno == 0
 			    ? stringof(B->b_bdev->bd_disk->disk_name)
 			    : strjoin(stringof(B->b_bdev->bd_disk->disk_name),
-				      lltostr(B->b_bdev->bd_part->partno))
+				      lltostr(B->b_bdev->__bdev_partno))
 		       );
 };
 
 #pragma D binding "1.6.3" translator
 translator devinfo_t < struct bio *B > {
-	dev_major = B->__disk_chk == NULL ? 0 : getmajor(B->__part_dev);
-	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__part_dev);
+	dev_major = B->__disk_chk == NULL ? 0 : getmajor(B->__bio_part_dev);
+	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__bio_part_dev);
 	dev_instance = 0;
 	dev_name = B->__disk_chk == NULL ? "nfs" : stringof(`major_names[
-	        getmajor(B->__part_dev) % 255]->name);
+	        getmajor(B->__bio_part_dev) % 255]->name);
 	dev_statname = B->__disk_chk == NULL ? "nfs" :
-	    B->__partno == 0 ? stringof(B->__disk->disk_name) :
-	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__partno));
+	    B->__bio_partno == 0 ? stringof(B->__disk->disk_name) :
+	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__bio_partno));
 	dev_pathname = B->__disk_chk == NULL ? "<nfs>" : "<unknown>";
 };
 
