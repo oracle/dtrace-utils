@@ -61,6 +61,8 @@ typedef struct dt_provimpl {
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
 	int (*provide)(dtrace_hdl_t *dtp,	/* provide probes */
 		       const dtrace_probedesc_t *pdp);
+	void (*enable)(dtrace_hdl_t *dtp,	/* enable the given probe */
+		       struct dt_probe *prp);
 	void (*trampoline)(dt_pcb_t *pcb);	/* generate BPF trampoline */
 	int (*attach)(dtrace_hdl_t *dtp,	/* attach BPF prog to probe */
 		      const struct dt_probe *prp, int bpf_fd);

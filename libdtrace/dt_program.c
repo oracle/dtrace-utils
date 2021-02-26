@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -146,12 +146,16 @@ typedef struct pi_state {
 static int
 dt_stmt_probe(dtrace_hdl_t *dtp, dt_probe_t *prp, pi_state_t *st)
 {
-	if (!dt_in_list(&dtp->dt_enablings, prp)) {
-		dtrace_probeinfo_t p;
+	dtrace_probeinfo_t	p;
 
-		dt_probe_info(dtp, prp->desc, &p);
-		dt_list_append(&dtp->dt_enablings, prp);
-	}
+	dt_probe_info(dtp, prp->desc, &p);
+
+	assert(prp->prov->impl != NULL);
+	if (prp->prov->impl->enable == NULL) {
+		if (!dt_in_list(&dtp->dt_enablings, prp))
+			dt_list_append(&dtp->dt_enablings, prp);
+	} else
+		prp->prov->impl->enable(dtp, prp);
 
 	dt_probe_add_clause(dtp, prp, st->idp);
 	(*st->cnt)++;
