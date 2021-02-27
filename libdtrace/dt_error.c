@@ -118,6 +118,14 @@ dtrace_errmsg(dtrace_hdl_t *dtp, int error)
 				return _dt_errlist[i].msg;
 		}
 		str = NULL;
+	} else if (error == 524) {	/* ENOTSUPP */
+		/*
+		 * This is an error code that is supposedly specific to NFSv3.
+		 * It is not expected to be known to userspace - except that
+		 * uprobe uses it when it cannot place a a uprobe, and thus it
+		 * is exposed to us through perf_event_open().
+		 */
+		str = "Operation not supported";
 	} else
 		str = strerror(error);
 
