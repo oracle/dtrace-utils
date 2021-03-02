@@ -194,7 +194,7 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	return 0;
 }
 
-static void
+void
 dt_cg_tramp_call_clauses(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -204,7 +204,7 @@ dt_cg_tramp_call_clauses(dt_pcb_t *pcb, dt_activity_t act)
 			     (dt_clause_f *)dt_cg_call_clause, &arg);
 }
 
-static void
+void
 dt_cg_tramp_return(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
