@@ -1306,8 +1306,8 @@ dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
 }
 
 int
-dt_probe_clause_iter(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_clause_f *func,
-		     void *arg)
+dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		     dt_clause_f *func, void *arg)
 {
 	dt_probeclause_t	*pcp;
 	int			rc;

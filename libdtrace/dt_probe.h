@@ -86,7 +86,7 @@ extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 extern int dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp,
 			       dt_ident_t *idp);
 typedef int dt_clause_f(dtrace_hdl_t *dtp, dt_ident_t *idp, void *arg);
-extern int dt_probe_clause_iter(dtrace_hdl_t *dtp, dt_probe_t *prp,
+extern int dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 				dt_clause_f *func, void *arg);
 
 
