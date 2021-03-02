@@ -1695,20 +1695,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 /*
  * If the result of a "." or "->" operation is a bit-field, we use this routine
- * to generate an epilogue to the load instruction that extracts the value.  In
- * the diagrams below the "ld??" is the load instruction that is generated to
- * load the containing word that is generating prior to calling this function.
- *
- * Epilogue for unsigned fields:	Epilogue for signed fields:
- *
- * ldu?	[r1], r1			lds? [r1], r1
- * setx	USHIFT, r2			setx 64 - SSHIFT, r2
- * srl	r1, r2, r1			sll  r1, r2, r1
- * setx	(1 << bits) - 1, r2		setx 64 - bits, r2
- * and	r1, r2, r1			sra  r1, r2, r1
- *
- * The *SHIFT constants above changes value depending on the endian-ness of our
- * target architecture.  Refer to the comments below for more details.
+ * to generate an epilogue to the load instruction that extracts the value.
  */
 static void
 dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
@@ -1734,10 +1721,13 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	 * must subtract (ctm_offset % NBBY + cte_bits) from the size in bits
 	 * we used for the load.  The size of our load in turn is found by
 	 * rounding cte_bits up to a byte boundary and then finding the
-	 * nearest power of two to this value (see clp2(), above).  These
-	 * properties are used to compute shift as USHIFT or SSHIFT, below.
+	 * nearest power of two to this value (see clp2(), above).
 	 */
 	if (dnp->dn_flags & DT_NF_SIGNED) {
+		/*
+		 * r1 <<= 64 - shift
+		 * r1 >>= 64 - bits
+		 */
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
 		    mp->ctm_offset % NBBY;
@@ -1747,35 +1737,26 @@ dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r1, 64 - shift));
 		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, r1, 64 - e.cte_bits));
 	} else {
+		/*
+		 * r1 >>= shift
+		 * r1 &= (1 << bits) - 1
+		 */
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
 		    (mp->ctm_offset % NBBY + e.cte_bits);
 #else
 		shift = mp->ctm_offset % NBBY;
 #endif
-		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r1, shift));
+		emit(dlp, BPF_ALU64_IMM(BPF_RSH, r1, shift));
 		emit(dlp, BPF_ALU64_IMM(BPF_AND, r1, (1ULL << e.cte_bits) - 1));
 	}
 }
 
 /*
- * If the destination of a store operation is a bit-field, we use this routine
- * to generate a prologue to the store instruction that loads the surrounding
- * bits, clears the destination field, and ORs in the new value of the field.
- * In the diagram below the "st?" is the store instruction that is generated to
- * store the containing word that is generating after calling this function.
- *
- * ld	[dst->dn_reg], r1
- * setx	~(((1 << cte_bits) - 1) << (ctm_offset % NBBY)), r2
- * and	r1, r2, r1
- *
- * setx	(1 << cte_bits) - 1, r2
- * and	src->dn_reg, r2, r2
- * setx ctm_offset % NBBY, r3
- * sll	r2, r3, r2
- *
- * or	r1, r2, r1
- * st?	r1, [dst->dn_reg]
+ * If the destination of a store operation is a bit-field, we first use this
+ * routine to load the surrounding bits, clear the destination field, and OR
+ * in the new value of the field.  After this routine, we will store the
+ * generated word.
  *
  * This routine allocates a new register to hold the value to be stored and
  * returns it.  The caller is responsible for freeing this register later.
@@ -1835,11 +1816,21 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	fmask = (1ULL << e.cte_bits) - 1;
 	cmask = ~(fmask << shift);
 
-	/* FIXME: Does not handled signed or userland */
+	/*
+	 * r1 = [dst->dn_reg]
+	 * r2 = cmask
+	 * r1 &= r2
+	 * r2 = fmask
+	 * r2 &= src->dn_reg
+	 * r2 <<= shift
+	 * r1 |= r2
+	 */
+	/* FIXME: Does not handle userland */
 	emit(dlp, BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type), r1, dst->dn_reg, 0));
-	emit(dlp, BPF_ALU64_IMM(BPF_AND, r1, cmask));
-	dt_cg_setx(dlp, r2, fmask);
+	dt_cg_setx(dlp, r2, cmask);
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
+	dt_cg_setx(dlp, r2, fmask);
+	emit(dlp, BPF_ALU64_REG(BPF_AND, r2, src->dn_reg));
 	emit(dlp, BPF_ALU64_IMM(BPF_LSH, r2, shift));
 	emit(dlp, BPF_ALU64_REG(BPF_OR, r1, r2));
 	dt_regset_free(drp, r2);
