@@ -158,6 +158,9 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 		ctf_discard(dtp->dt_ddefs->dm_ctfp);
 	}
 
+	if (dtp->dt_maxlvaralloc < pcb->pcb_locals->dh_nextoff)
+		dtp->dt_maxlvaralloc = pcb->pcb_locals->dh_nextoff;
+
 	if (pcb->pcb_pragmas != NULL)
 		dt_idhash_destroy(pcb->pcb_pragmas);
 	if (pcb->pcb_locals != NULL)

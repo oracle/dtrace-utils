@@ -32,16 +32,6 @@
 	add %rX, IMM				stb [%rX+IMM], %rY
 	stb [%rX+0], %rY
 
-- Local variables can be stored on the stack, although that will limit us to
-  64 local variables (or 32, if we reserve half the stack as scratch space for
-  constructing strings and map keys).  That ought to be enough.  Note that
-  variables that store strings or structures that are larger than 8 bytes are
-  stored by reference, i.e. the slot on the stack stores an offset into a
-  memory block obtained as map value from an array map.
-
-  This means that in its most basic form, local variable i can be loaded from
-  [%fp-(i*8)-8].
-
 - Global variables can be stored in a BPF map, which can be a large, single
   block of memory.  Variables can be accessed with three BPF instructions:
 
@@ -53,7 +43,11 @@
   function), and so these few instructions can be generated each time a
   global variable is accessed.
 
-- In the new design, there is no need for shiting variable ids up beause of the
+- Local variables can be stored in a per-CPU BPF map, which can be a large,
+  single block of memory.  Access to local variables can be similar to how
+  we handle global variables.
+
+- In the new design, there is no need for shifting variable ids up because of the
   range of built-in variables because we can generate code to obtain the value
   of the built-in variables as we compile programs (most likely using a call to
   a BPF function, passing the id of the built-in variable).

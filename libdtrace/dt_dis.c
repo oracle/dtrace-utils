@@ -68,7 +68,7 @@ dt_dis_lvarname(const dtrace_difo_t *dp, int reg, int var, uint_t addr,
 		char *buf, int len)
 {
 	if (reg == BPF_REG_FP) {
-		var = DT_LVAR_OFF2ID(var);
+		var = -1; /* FIXME:  need to find variable offset */
 		if (var != -1) {
 			const char	*vname;
 

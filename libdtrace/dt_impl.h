@@ -251,6 +251,7 @@ struct dtrace_hdl {
 	char *dt_strtab;	/* global string table (runtime) */
 	uint_t dt_strlen;	/* global string table (runtime) size */
 	uint_t dt_maxreclen;	/* largest record size across programs */
+	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */

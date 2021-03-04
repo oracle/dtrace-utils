@@ -173,6 +173,8 @@ set_task_offsets(dtrace_hdl_t *dtp)
  *		consumer handle (dt_strlen).
  * - gvars:	Global variables map.  This is a global map with a singleton
  *		element (key 0) addressed by variable offset.
+ * - lvars:	Local variables map.  This is a per-CPU map with a singleton
+ *		element (key 0) addressed by variable offset.
  *
  * FIXME: TLS variable storage is still being designed further so this is just
  *	  a temporary placeholder and will most likely be replaced by something
@@ -195,7 +197,7 @@ set_task_offsets(dtrace_hdl_t *dtp)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		gvarsz, tvarc, aggsz;
+	int		gvarsz, lvarsz, tvarc, aggsz;
 	int		ci_mapfd;
 	uint32_t	key = 0;
 
@@ -209,8 +211,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/* Determine the aggregation buffer size.  */
 	aggsz = dt_idhash_datasize(dtp->dt_aggs);
 
-	/* Determine the number of global and TLS variables. */
-	gvarsz = (dt_idhash_datasize(dtp->dt_globals) + 7) & ~7;
+	/* Determine sizes for global, local, and TLS maps. */
+	gvarsz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
+	lvarsz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
 	tvarc = dt_idhash_peekid(dtp->dt_tls) - DIF_VAR_OTHER_UBASE;
 
 	/* Create global maps as long as there are no errors. */
@@ -255,6 +258,11 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	if (gvarsz > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), gvarsz, 1) == -1)
+		return -1;		/* dt_errno is set for us */
+
+	if (lvarsz > 0 &&
+	    create_gmap(dtp, "lvars", BPF_MAP_TYPE_PERCPU_ARRAY,
+			sizeof(uint32_t), lvarsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
 	if (tvarc > 0 &&

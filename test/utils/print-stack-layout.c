@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -22,19 +22,8 @@ int main(void)
 	printf("%%r6:        % 4d\n", DT_STK_SPILL(6));
 	printf("%%r7:        % 4d\n", DT_STK_SPILL(7));
 	printf("%%r8:        % 4d\n", DT_STK_SPILL(8));
-	printf("lvar[% 3d]:  % 4d (ID % 3d)\n", -1, DT_STK_LVAR(0) + 1,
-	       DT_LVAR_OFF2ID(DT_STK_LVAR(0) + 1));
-	printf("lvar[% 3d]:  % 4d (ID % 3d)\n", 0, DT_STK_LVAR(0),
-	       DT_LVAR_OFF2ID(DT_STK_LVAR(0)));
-	printf("lvar[% 3d]:  % 4d (ID % 3d)\n", 1, DT_STK_LVAR(1),
-	       DT_LVAR_OFF2ID(DT_STK_LVAR(1)));
-	printf("lvar[% 3d]:  % 4d (ID % 3d)\n", DT_LVAR_MAX,
-	       DT_STK_LVAR(DT_LVAR_MAX),
-	       DT_LVAR_OFF2ID(DT_STK_LVAR(DT_LVAR_MAX)));
-	printf("lvar[% 3d]:  % 4d (ID % 3d)\n", -1,
-	       DT_STK_LVAR(DT_LVAR_MAX) - 1,
-	       DT_LVAR_OFF2ID(DT_STK_LVAR(DT_LVAR_MAX) - 1));
-	printf("scratch:    % 4d .. % 4d\n", DT_STK_LVAR_END - 1,
+	printf("scratch:    % 4d .. % 4d\n",
+	       DT_STK_SCRATCH_BASE + DT_STK_SCRATCH_SZ - 1,
 	       DT_STK_SCRATCH_BASE);
 	exit(0);
 }

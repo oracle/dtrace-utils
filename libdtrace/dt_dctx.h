@@ -40,6 +40,7 @@ typedef struct dt_dctx {
 	char		*buf;		/* Output buffer scratch memory */
 	char		*agg;		/* Aggregation data */
 	char		*gvars;		/* Global variables */
+	char		*lvars;		/* Local variables */
 } dt_dctx_t;
 
 #define DCTX_CTX	offsetof(dt_dctx_t, ctx)
@@ -48,6 +49,7 @@ typedef struct dt_dctx {
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
 #define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
+#define DCTX_LVARS	offsetof(dt_dctx_t, lvars)
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*
@@ -73,49 +75,26 @@ typedef struct dt_dctx {
 #define DT_STK_NREGS		(MAX_BPF_REG - 2)
 
 /*
- * An area of 256 bytes is set aside on the stack as scratch area for things
- * like string operations.  It extends from the end of the stack towards the
- * local variable storage area.  DT_STK_LVAR_END is therefore the last byte
- * location on the stack that can be used for local variable storage.
- */
-#define DT_STK_SCRATCH_BASE	(-MAX_BPF_STACK)
-#define DT_STK_SCRATCH_SZ	(256)
-#define DT_STK_LVAR_END		(DT_STK_SCRATCH_BASE + DT_STK_SCRATCH_SZ)
-
-/*
  * The stack layout for functions that implement a D clause is encoded with the
  * following constants.
  *
  * Note: The BPF frame pointer points to the address of the first byte past the
- *       end of the stack.  If the stack size is 512 bytes, valid offsets are
- *       -1 through -512 (inclusive),  So, the first 64-bit value on the stack
- *       occupies bytes at offsets -8 through -1.  The second -16 through -9,
- *       and so on...  64-bit values are properly aligned at offsets -n where
- *       n is a multiple of 8 (sizeof(uint64_t)).
+ *       end of the stack.  8-byte values are properly aligned at offsets -8,
+ *       -16, -24, -32, etc. -- that is, negative multiples of sizeof(uint64_t).
  *
- * The following diagram shows the stack layout for a size of 512 bytes.
- *
- *                             +----------------+
- *         SCRATCH_BASE = -512 | Scratch Memory |
- *                             +----------------+
- *   LVAR_END = LVAR(n) = -256 | LVAR n         | (n = DT_LVAR_MAX = 17)
- *                             +----------------+
- *                             |      ...       |
- *                             +----------------+
- *              LVAR(1) = -128 | LVAR 1         |
- *                             +----------------+
- *  LVAR_BASE = LVAR(0) = -120 | LVAR 0         |
- *                             +----------------+
- *             SPILL(n) = -112 | %r8            | (n = DT_STK_NREGS - 1 = 8)
- *                             +----------------+
- *                             |      ...       |
- *                             +----------------+
- *              SPILL(1) = -56 | %r1            |
- *                             +----------------+
- * SPILL_BASE = SPILL(0) = -48 | %r0            |
- *                             +----------------+
- *                  DCTX = -40 | DTrace Context | -1
- *                             +----------------+
+ *                       +----------------+
+ *          SCRATCH_BASE | Scratch Memory |
+ *                       +----------------+
+ *              SPILL(n) | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *                       +----------------+
+ *                       |      ...       |
+ *                       +----------------+
+ *              SPILL(1) | %r1            |
+ *                       +----------------+
+ * SPILL_BASE = SPILL(0) | %r0            |
+ *                       +----------------+
+ *                  DCTX | DTrace Context |
+ *                       +----------------+
  */
 #define DT_STK_BASE		((int16_t)0)
 #define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
@@ -123,25 +102,8 @@ typedef struct dt_dctx {
 #define DT_STK_DCTX		(DT_STK_BASE - DCTX_SIZE)
 #define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
-#define DT_STK_LVAR_BASE	(DT_STK_SPILL(DT_STK_NREGS - 1) - \
-				 DT_STK_SLOT_SZ)
-#define DT_STK_LVAR(n)		(DT_STK_LVAR_BASE - (n) * DT_STK_SLOT_SZ)
 
-/*
- * Calculate a local variable ID based on a given stack offset.  If the stack
- * offset is outside the valid range, this should evaluate as -1.
- */
-#define DT_LVAR_OFF2ID(n)	(((n) > DT_STK_LVAR_BASE || \
-				  (n) < DT_STK_LVAR_END) ? -1 : \
-				 (-((n) - DT_STK_LVAR_BASE) / DT_STK_SLOT_SZ))
-
-/*
- * Maximum number of local variables stored by value (scalars).  This is bound
- * by the choice to store them on the stack between the register spill space,
- * and 256 bytes set aside as string scratch space.  We also use the fact that
- * the (current) maximum stack space for BPF programs is 512 bytes.
- */
-#define DT_LVAR_MAX		(-(DT_STK_LVAR_END - DT_STK_LVAR_BASE) / \
-				 DT_STK_SLOT_SZ)
+#define DT_STK_SCRATCH_BASE	(-MAX_BPF_STACK)
+#define DT_STK_SCRATCH_SZ	(MAX_BPF_STACK + DT_STK_SPILL(DT_STK_NREGS - 1))
 
 #endif /* _DT_DCTX_H */
