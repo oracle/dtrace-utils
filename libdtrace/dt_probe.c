@@ -456,6 +456,8 @@ dt_probe_destroy(dt_probe_t *prp)
 		dtp = yypcb->pcb_hdl;
 
 	if (prp->desc) {
+		dtp->dt_probes[prp->desc->id] = NULL;
+
 		dt_htab_delete(dtp->dt_byprv, prp);
 		dt_htab_delete(dtp->dt_bymod, prp);
 		dt_htab_delete(dtp->dt_byfun, prp);
@@ -1159,12 +1161,15 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 
 #define HTAB_GMATCH(c, nam)						\
 	if (!c##_is_glob) {						\
+		dt_probe_t	*nxt;					\
+									\
 		prp = dt_htab_lookup(dtp->dt_by##nam, &tmpl);		\
 		if (!prp)						\
 			goto done;					\
 									\
 		desc.nam = NULL;					\
 		do {							\
+			nxt = prp->he_##nam.next;			\
 			if (!dt_probe_gmatch(prp, &desc))		\
 				continue;				\
 									\
@@ -1177,7 +1182,7 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 				return rv;				\
 									\
 			matches++;					\
-		} while ((prp = prp->he_##nam.next));			\
+		} while ((prp = nxt));					\
 									\
 		goto done;						\
 	}
@@ -1374,6 +1379,11 @@ dt_probe_fini(dtrace_hdl_t *dtp)
 	dt_htab_destroy(dtp, dtp->dt_byfun);
 	dt_htab_destroy(dtp, dtp->dt_byprb);
 	dt_htab_destroy(dtp, dtp->dt_byfqn);
+	dtp->dt_byprv = NULL;
+	dtp->dt_bymod = NULL;
+	dtp->dt_byfun = NULL;
+	dtp->dt_byprb = NULL;
+	dtp->dt_byfqn = NULL;
 
 	dt_free(dtp, dtp->dt_probes);
 	dtp->dt_probes = NULL;
