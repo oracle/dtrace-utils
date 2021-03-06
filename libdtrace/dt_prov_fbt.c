@@ -257,9 +257,13 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  */
 static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
-	int	fd;
+	tp_probe_t	*tpp = prp->prv_data;
+	int		fd;
 
-	dt_tp_detach(dtp, prp->prv_data);
+	if (!dt_tp_is_created(tpp))
+		return;
+
+	dt_tp_detach(dtp, tpp);
 
 	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
