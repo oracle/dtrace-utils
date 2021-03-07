@@ -19,16 +19,6 @@
 #include <linux/perf_event.h>
 #include <sys/epoll.h>
 
-static const struct {
-	int dtslt_option;
-	size_t dtslt_offs;
-} _dtrace_sleeptab[] = {
-	{ DTRACEOPT_STATUSRATE, offsetof(dtrace_hdl_t, dt_laststatus) },
-	{ DTRACEOPT_AGGRATE, offsetof(dtrace_hdl_t, dt_lastagg) },
-	{ DTRACEOPT_SWITCHRATE, offsetof(dtrace_hdl_t, dt_lastswitch) },
-	{ DTRACEOPT_MAX, 0 }
-};
-
 void
 BEGIN_probe(void)
 {
@@ -37,88 +27,6 @@ BEGIN_probe(void)
 void
 END_probe(void)
 {
-}
-
-void
-dtrace_sleep(dtrace_hdl_t *dtp)
-{
-	dt_proc_hash_t *dph = dtp->dt_procs;
-	dtrace_optval_t policy = dtp->dt_options[DTRACEOPT_BUFPOLICY];
-	dt_proc_notify_t *dprn;
-
-	hrtime_t earliest = INT64_MAX;
-	struct timespec tv;
-	int i;
-
-	for (i = 0; _dtrace_sleeptab[i].dtslt_option < DTRACEOPT_MAX; i++) {
-		uintptr_t a = (uintptr_t)dtp + _dtrace_sleeptab[i].dtslt_offs;
-		int opt = _dtrace_sleeptab[i].dtslt_option;
-		dtrace_optval_t interval = dtp->dt_options[opt];
-
-		/*
-		 * If the buffering policy is set to anything other than
-		 * "switch", we ignore the aggrate and switchrate -- they're
-		 * meaningless.
-		 */
-		if (policy != DTRACEOPT_BUFPOLICY_SWITCH &&
-		    _dtrace_sleeptab[i].dtslt_option != DTRACEOPT_STATUSRATE)
-			continue;
-
-		if (*((hrtime_t *)a) + interval < earliest)
-			earliest = *((hrtime_t *)a) + interval;
-	}
-
-	pthread_mutex_lock(&dph->dph_lock);
-
-	tv.tv_sec = earliest / NANOSEC;
-	tv.tv_nsec = earliest % NANOSEC;
-
-	/*
-	 * Wait until the time specified by "earliest" has arrived, or until we
-	 * receive notification that a process is in an interesting state; also
-	 * make sure that any synchronous notifications of process exit are
-	 * received.  Regardless of why we awaken, iterate over any pending
-	 * notifications and process them.
-	 */
-	pthread_cond_timedwait(&dph->dph_cv, &dph->dph_lock, &tv);
-	dt_proc_enqueue_exits(dtp);
-
-	while ((dprn = dph->dph_notify) != NULL) {
-		if (dtp->dt_prochdlr != NULL) {
-			char *err = dprn->dprn_errmsg;
-			pid_t pid = dprn->dprn_pid;
-			int state = PS_DEAD;
-
-			/*
-			 * The dprn_dpr may be NULL if attachment or process
-			 * creation has failed, or once the process dies.  Only
-			 * get the state of a dprn that is not NULL.
-			 */
-			if (dprn->dprn_dpr != NULL) {
-				pid = dprn->dprn_dpr->dpr_pid;
-				dt_proc_lock(dprn->dprn_dpr);
-			}
-
-			if (*err == '\0')
-				err = NULL;
-
-			if (dprn->dprn_dpr != NULL)
-				state = dt_Pstate(dtp, pid);
-
-			if (state < 0 || state == PS_DEAD)
-				pid *= -1;
-
-			if (dprn->dprn_dpr != NULL)
-				dt_proc_unlock(dprn->dprn_dpr);
-
-			dtp->dt_prochdlr(pid, err, dtp->dt_procarg);
-		}
-
-		dph->dph_notify = dprn->dprn_next;
-		dt_free(dtp, dprn);
-	}
-
-	pthread_mutex_unlock(&dph->dph_lock);
 }
 
 int
@@ -143,8 +51,9 @@ dtrace_status(dtrace_hdl_t *dtp)
 int
 dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
-	size_t		size;
-	int		err;
+	size_t			size;
+	int			err;
+	struct epoll_event	ev;
 
 	if (dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
@@ -166,6 +75,16 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	 */
 	dtp->dt_poll_fd = epoll_create1(EPOLL_CLOEXEC);
 	if (dtp->dt_poll_fd < 0)
+		return dt_set_errno(dtp, errno);
+
+	/*
+	 * Register the proc eventfd descriptor to receive notifications about
+	 * process exit.
+	 */
+	ev.events = EPOLLIN;
+	ev.data.ptr = dtp->dt_procs;
+	if (epoll_ctl(dtp->dt_poll_fd, EPOLL_CTL_ADD, dtp->dt_proc_fd, &ev) ==
+	    -1)
 		return dt_set_errno(dtp, errno);
 
 	/*

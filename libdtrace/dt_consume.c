@@ -20,6 +20,7 @@
 #include <libproc.h>
 #include <port.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <linux/perf_event.h>
 #include <linux/ring_buffer.h>
 
@@ -2317,6 +2318,8 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	for (i = 0; i < cnt; i++) {
 		bpeb = events[i].data.ptr;
 
+		if (bpeb == NULL)
+			continue;
 		if (bpeb->cpu == cpu)
 			break;
 	}
@@ -2362,7 +2365,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	for (i = 0; i < cnt; i++) {
 		dt_peb_t	*peb = events[i].data.ptr;
 
-		if (peb == bpeb)
+		if (peb == NULL || peb == bpeb)
 			continue;
 
 		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
@@ -2391,6 +2394,58 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	dtp->dt_errarg = begin.dtbgn_errarg;
 
 	return rval;
+}
+
+static void
+dt_consume_proc_exits(dtrace_hdl_t *dtp)
+{
+	dt_proc_hash_t		*dph = dtp->dt_procs;
+	dt_proc_notify_t	*dprn;
+
+	/*
+	 * Make sure that any synchronous notifications of process exit are
+	 * received.  Regardless of why we awaken, iterate over any pending
+	 * notifications and process them.
+	 */
+	pthread_mutex_lock(&dph->dph_lock);
+	dt_proc_enqueue_exits(dtp);
+
+	while ((dprn = dph->dph_notify) != NULL) {
+		if (dtp->dt_prochdlr != NULL) {
+			char	*err = dprn->dprn_errmsg;
+			pid_t	pid = dprn->dprn_pid;
+			int	state = PS_DEAD;
+
+			/*
+			 * The dprn_dpr may be NULL if attachment or process
+			 * creation has failed, or once the process dies.  Only
+			 * get the state of a dprn that is not NULL.
+			 */
+			if (dprn->dprn_dpr != NULL) {
+				pid = dprn->dprn_dpr->dpr_pid;
+				dt_proc_lock(dprn->dprn_dpr);
+			}
+
+			if (*err == '\0')
+				err = NULL;
+
+			if (dprn->dprn_dpr != NULL)
+				state = dt_Pstate(dtp, pid);
+
+			if (state < 0 || state == PS_DEAD)
+				pid *= -1;
+
+			if (dprn->dprn_dpr != NULL)
+				dt_proc_unlock(dprn->dprn_dpr);
+
+			dtp->dt_prochdlr(pid, err, dtp->dt_procarg);
+		}
+
+		dph->dph_notify = dprn->dprn_next;
+		dt_free(dtp, dprn);
+	}
+
+	pthread_mutex_unlock(&dph->dph_lock);
 }
 
 dtrace_workstatus_t
@@ -2434,6 +2489,20 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	}
 
 	/*
+	 * See if there are notifications pending from the proc handling code.
+	 * If there are, we process them first.
+	 */
+	for (i = 0; i < cnt; i++) {
+		if (events[i].data.ptr == dtp->dt_procs) {
+			eventfd_t	dummy;
+
+			eventfd_read(dtp->dt_proc_fd, &dummy);
+			dt_consume_proc_exits(dtp);
+			events[i].data.ptr = NULL;
+		}
+	}
+
+	/*
 	 * If dtp->dt_beganon is not -1, we did not process the BEGIN probe
 	 * data (if any) yet.  We do know (since dtp->dt_active is TRUE) that
 	 * the BEGIN probe completed processing and that it therefore recorded
@@ -2453,6 +2522,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	for (i = 0; i < cnt; i++) {
 		dt_peb_t	*peb = events[i].data.ptr;
 
+		if (peb == NULL)
+			continue;
 		if (dtp->dt_stopped && peb->cpu == dtp->dt_endedon)
 			continue;
 
@@ -2474,6 +2545,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	for (i = 0; i < cnt; i++) {
 		dt_peb_t	*peb = events[i].data.ptr;
 
+		if (peb == NULL)
+			continue;
 		if (peb->cpu != dtp->dt_endedon)
 			continue;
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -44,18 +44,19 @@
  * A simple notification mechanism is provided for libdtrace clients using
  * dtrace_handle_proc() for notification of process death.  When this event
  * occurs, the dt_proc_t itself is enqueued on a notification list and the
- * control thread broadcasts to dph_cv.  dtrace_sleep() will wake up using this
- * condition and will then call the client handler as necessary.
+ * control thread triggers an event using dtp->dt_prov_fd.  The epoll_wait()
+ * in dtrace_consume() will wake up using this condition and the client handler
+ * will be called as necessary.
  *
  * The locking in this file is crucial, to stop the process-control threads
  * from running before dtrace is ready for them, to coordinate proxy calls
  * between the main thread and process-control thread, and to ensure that the
  * state is not torn down while the process-control threads are still using it.
  * Two locks are used:
- *  - the dph_lock is a simple mutex protecting mutations of the dph notify list,
- *    and serving as the lock around the dph_cv; the dph hash itself is not
- *    protected, and may only be modified from the main thread.  This lock
- *    nests inside the dpr_lock if both are taken at once.
+ *  - the dph_lock is a simple mutex protecting mutations of the dph notify
+ *    list; the dph hash itself is not protected, and may only be modified
+ *    from the main thread.  This lock nests inside the dpr_lock if both are
+ *    taken at once.
  *  - the dpr_lock is a counted semaphore constructed from a mutex, a
  *    currently-holding thread ID, and two counters tracking a lock count for
  *    each of its two possible holders (it could equally well be constructed
@@ -72,6 +73,7 @@
  */
 
 #include <sys/wait.h>
+#include <sys/eventfd.h>
 #include <string.h>
 #include <signal.h>
 #include <assert.h>
@@ -150,7 +152,7 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 		dph->dph_notify = dprn;
 
 		if (broadcast)
-			pthread_cond_broadcast(&dph->dph_cv);
+			eventfd_write(dtp->dt_proc_fd, 1);
 		if (lock)
 			pthread_mutex_unlock(&dph->dph_lock);
 	}
@@ -947,9 +949,8 @@ dt_proc_control(void *arg)
 		 * killed on dtrace exit.  If even that fails, there's nothing
 		 * we can do but hope.
 		 *
-		 * The dt_proc_exit_check() function, called by dtrace_sleep(),
-		 * checks for termination of such processes (since nothing else
-		 * will).
+		 * The dt_consume_proc_exits() function, called by
+		 * dtrace_consume(), checks for termination of such processes			 * (since nothing else will).
 		 */
 		Prelease(dpr->dpr_proc, PS_RELEASE_NORMAL);
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
@@ -1336,11 +1337,10 @@ dt_proc_control_cleanup(void *arg)
 
 	/*
 	 * Set dpr_done and clear dpr_tid to indicate that the control thread
-	 * has exited, and notify any waiting thread on the dph_cv or in
-	 * dt_proc_destroy() that we have successfully exited.  Clean up the
-	 * libproc state, unless this is a non-ptraceable process that doesn't
-	 * need a monitor thread. (In that case, the monitor thread is suiciding
-	 * but the libproc state should remain.)
+	 * has exited, and notify any waiting thread that we have successfully
+	 * exited.  Clean up the libproc state, unless this is a non-ptraceable
+	 * process that doesn't need a monitor thread. (In that case, the
+	 * monitor thread is suiciding but the libproc state should remain.)
 	 *
 	 * If we were cancelled while already holding the mutex, don't lock it
 	 * again.
@@ -1618,7 +1618,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		 * point.  This can happen e.g. if the process was noninvasively
 		 * grabbed and its control thread suicided.)
 		 *
-		 * It might be cleaned up already by dt_proc_exit_check().
+		 * It might be cleaned up already by dt_consume_proc_exits().
 		 */
 		Prelease(dpr->dpr_proc, dpr->dpr_created ? PS_RELEASE_KILL :
 		    PS_RELEASE_NORMAL);
@@ -2228,7 +2228,6 @@ dt_proc_hash_create(dtrace_hdl_t *dtp)
 	    sizeof(dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
 
 		pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
-		pthread_cond_init(&dtp->dt_procs->dph_cv, NULL);
 
 		dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
 		dtp->dt_procs->dph_lrulim = _dtrace_pidlrulim;
@@ -2259,7 +2258,6 @@ dt_proc_hash_destroy(dtrace_hdl_t *dtp)
 		*npp = npr->dprn_next;
 		dt_free(dtp, npr);
 	}
-	pthread_cond_destroy(&dph->dph_cv);
 
 	dtp->dt_procs = NULL;
 	dt_free(dtp, dph);

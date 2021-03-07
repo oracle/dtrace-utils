@@ -70,7 +70,6 @@ LIBDTRACE_1.0 {
 	dtrace_provider_modules;
 	dtrace_setopt;
 	dtrace_setoptenv;
-	dtrace_sleep;
 	dtrace_stability_name;
 	dtrace_status;
 	dtrace_stmt_action;

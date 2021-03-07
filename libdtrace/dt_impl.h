@@ -347,6 +347,7 @@ struct dtrace_hdl {
 	int dt_ddefs_fd;	/* file descriptor for D CTF debugging cache */
 	int dt_stdout_fd;	/* file descriptor for saved stdout */
 	int dt_poll_fd;		/* file descriptor for event polling */
+	int dt_proc_fd;		/* file descriptor for proc eventfd */
 	int dt_stmap_fd;	/* file descriptor for the 'state' BPF map */
 	int dt_aggmap_fd;	/* file descriptor for the 'aggs' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */

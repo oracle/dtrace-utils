@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -133,7 +133,6 @@ typedef struct dtrace_proc {
 
 typedef struct dt_proc_hash {
 	pthread_mutex_t dph_lock;	/* lock protecting dph_notify list */
-	pthread_cond_t dph_cv;		/* cond for waiting for dph_notify */
 	dt_proc_notify_t *dph_notify;	/* list of pending proc notifications */
 	dt_list_t dph_lrulist;		/* list of dt_proc_t's in lru order */
 	uint_t dph_lrulim;		/* limit on number of procs to hold */

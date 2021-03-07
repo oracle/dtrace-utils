@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/resource.h>
-
+#include <sys/eventfd.h>
 
 #include <libelf.h>
 #include <string.h>
@@ -737,6 +737,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_provbuckets = _dtrace_strbuckets;
 	dtp->dt_provs = calloc(dtp->dt_provbuckets, sizeof(dt_provider_t *));
 	dt_proc_hash_create(dtp);
+	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	dtp->dt_nextepid = 1;
 	dtp->dt_maxprobe = 0;
 	dtp->dt_vmax = DT_VERS_LATEST;
@@ -1220,6 +1221,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 		close(dtp->dt_ddefs_fd);
 	if (dtp->dt_stdout_fd != -1)
 		close(dtp->dt_stdout_fd);
+	if (dtp->dt_proc_fd != -1)
+		close(dtp->dt_proc_fd);
 	if (dtp->dt_poll_fd != -1)
 		close(dtp->dt_poll_fd);
 
