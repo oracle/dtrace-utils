@@ -50,6 +50,7 @@ typedef struct dtrace_diftype {
 typedef struct dtrace_difv {
 	uint32_t dtdv_name;
 	uint32_t dtdv_id;
+	uint32_t dtdv_offset;
 	uint8_t dtdv_kind;
 	uint8_t dtdv_scope;
 	uint32_t dtdv_insn_from;

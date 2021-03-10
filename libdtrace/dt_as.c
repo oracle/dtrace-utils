@@ -92,6 +92,7 @@ dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, dtrace_hdl_t *dtp)
 
 	dvp->dtdv_name = (uint_t)stroff;
 	dvp->dtdv_id = idp->di_id;
+	dvp->dtdv_offset = idp->di_offset;
 	dvp->dtdv_flags = 0;
 
 	switch (idp->di_kind) {
