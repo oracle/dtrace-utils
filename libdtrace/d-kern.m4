@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2015, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -32,19 +32,22 @@ m4_define([[if_arch]],[[m4_ifelse(SUBST_ARCH,m4_quote($1),m4_quote($2))]])
  * details.
  */
 m4_define([[__process_element]], m4_dnl
-	[[m4_ifelse(m4_eval(SUBST_KERNEL[[ >= $1]]), 1, m4_dnl
-		[[m4_define([[__found]], [[$2]])]])]]) m4_dnl
+	[[m4_ifelse(m4_eval((SUBST_KERNEL[[ >= $1]]) && ($1 >= __found_version)), 1, m4_dnl
+		[[m4_define([[__found]], [[$2]]) m4_dnl
+		  m4_define([[__found_version]], [[$1]])]])]]) m4_dnl
 
 m4_define([[__cat]], [[$1$2]]) m4_dnl
 
 m4_define([[__define_for_kernel]], [[ m4_dnl
 	m4_pushdef([[__found]], nil) m4_dnl
+	m4_pushdef([[__found_version]], 0) m4_dnl
 	m4_foreachq(kernel, m4_quote($2), [[ m4_dnl
 		__cat([[__process_element]], kernel) m4_dnl
 	]]) m4_dnl
 	m4_ifelse(__found, nil, m4_dnl
 		[[m4_define(m4_quote($1), [[$3]])]], m4_dnl
 		[[m4_define(m4_quote($1), __found)]]) m4_dnl
+	m4_popdef([[__found_version]]) m4_dnl
 	m4_popdef([[__found]]) m4_dnl
 ]]) m4_dnl
 
