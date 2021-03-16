@@ -1910,6 +1910,14 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		uint_t	lbl_L3 = dt_irlist_label(dlp);
 		uint_t	lbl_L4 = dt_irlist_label(dlp);
 		uint_t	lbl_L5 = dt_irlist_label(dlp);
+		uint_t	lbl_valid = dt_irlist_label(dlp);
+
+		/* First ensure we do not perform a division by zero. */
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_right->dn_reg, 0,
+					  lbl_valid));
+		dt_cg_probe_error(yypcb, -1, DTRACEFLT_DIVZERO, 0);
+		emitl(dlp, lbl_valid,
+			   BPF_NOP());
 
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_left->dn_reg, 0, lbl_L3));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, dnp->dn_right->dn_reg, 0, lbl_L1));
