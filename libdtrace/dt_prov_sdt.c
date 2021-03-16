@@ -137,15 +137,10 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_prologue(pcb);
 
 	/*
-	 * We cannot assume anything about the state of any registers so set up
-	 * the ones we need:
+	 * After the dt_cg_tramp_prologue() call, we have:
 	 *				//     (%r7 = dctx->mst)
-	 *				// lddw %r7, [%fp + DCTX_FP(DCTX_MST)]
 	 *				//     (%r8 = dctx->ctx)
-	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST)));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX)));
 
 #if 0
 	/*

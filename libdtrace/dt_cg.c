@@ -36,8 +36,11 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *
  * The trampoline prologue will populate the dt_dctx_t structure on the stack.
  *
- * The caller should NOT depend on any register values that exist at the end of
- * the trampoline prologue.
+ * The caller can depend on the following registers being set when this
+ * function returns:
+ *
+ *	%r7 contains a pointer to dctx->mst
+ *	%r8 contains a pointer to dctx->ctx
  */
 void
 dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
@@ -60,17 +63,20 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	uintptr_t	rc;
 	 *	char		*buf;
 	 *
-	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r1
+	 *				//     (%r8 = pointer to BPF context)
+	 *				// mov %r8, %r1
+	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r8
 	 */
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_1));
+	emit(dlp, BPF_MOV_REG(BPF_REG_8, BPF_REG_1));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_8));
 
 	/*
-	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_MST)],
+	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_ACT)],
 	 *				//		DT_STATE_ACTIVITY
 	 *	rc = bpf_map_lookup_elem(&state, &key);
 	 *				// lddw %r1, &state
 	 *				// mov %r2, %fp
-	 *				// add %r2, DCTX_FP(DCTX_MST)
+	 *				// add %r2, DCTX_FP(DCTX_ACT)
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = map value)
@@ -81,10 +87,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *
 	 *	dctx.act = rc;		// stdw [%fp + DCTX_FP(DCTX_ACT)], %r0
 	 */
-	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), DT_STATE_ACTIVITY));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_ACT), DT_STATE_ACTIVITY));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_ACT)));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
 	emit(dlp, BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
@@ -102,8 +108,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r0 = 'mem' BPF map value)
 	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
 	 *		goto exit;
-	 *				//     (%r0 = pointer to dt_mstate_t)
-	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r0
+	 *				//     (%r0 = map value)
+	 *				//     (%r7 = pointer to dt_mstate_t)
+	 *				// mov %r7, %r0
+	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r7
 	 */
 	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
@@ -111,7 +119,8 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_0));
+	emit(dlp, BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_7));
 
 	/*
 	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
@@ -159,6 +168,101 @@ void
 dt_cg_tramp_prologue(dt_pcb_t *pcb)
 {
 	dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
+}
+
+/*
+ * Copy arguments from a dt_pt_regs structure referenced by the 'rp' argument.
+ *
+ * The caller must ensure that %r7 contains the value set by the
+ * dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	/*
+	 *	for (i = 0; i < PT_REGS_ARGC; i++)
+	 *		dctx->mst->argv[i] = PT_REGS_BPF_ARGi((dt_pt_regs *)rp);
+	 *				// lddw %r0, [%rp + PT_REGS_ARGi]
+	 *				// stdw [%r7 + DMST_ARG(i)], %r0
+	 */
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG1));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG2));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG3));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG4));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG5));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
+#ifdef PT_REGS_ARG6
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG6));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(6), BPF_REG_0));
+#endif
+#ifdef PT_REGS_ARG7
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG7));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(7), BPF_REG_0));
+#endif
+
+	/*
+	 * Generate code to read the remainder of the arguments from the stack
+	 * (if possible).  We (ab)use the %r0 spill slot on the stack to read
+	 * values using bpf_probe_read() because we know that it cannot be in
+	 * use at this point.
+	 *
+	 *	for (i = PT_REGS_ARGC;
+	 *	     i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+	 *		uint64_t	val, tmp;
+	 *		int		rc;
+	 *		uint64_t	*sp;
+	 *
+	 *		sp = (uint64_t *)(((dt_pt_regs *)rp)->sp;
+	 *		rc = bpf_probe_read(&tmp, sizeof(tmp),
+	 *				    &sp[i - PT_REGS_ARGC +
+	 *					    PT_REGS_ARGSTKBASE]);
+	 *				// mov %r1, %fp
+	 *				// add %r1, DT_STK_SPILL(0)
+	 *				// mov %r2, sizeof(uint64_t)
+	 *				// lddw %r3, [%rp + PT_REGS_SP]
+	 *				// add %r3, (i - PT_REGS_ARGC +
+	 *						 PT_REGS_ARGSTKBASE) *
+	 *					    sizeof(uint64_t)
+	 *				// call bpf_probe_read
+	 *		val = 0;
+	 *				// mov %r1, 0
+	 *		if (rc != 0)
+	 *			goto store:
+	 *				// jne %r0, 0, lbl_store
+	 *		val = tmp;
+	 *				// lddw %r1, [%rp + DT_STK_SPILL(0)]
+	 *
+	 *	store:
+	 *		dctx->mst->argv[i] = val;
+	 *				// store:
+	 *				// stdw [%r7 + DMST_ARG(i)], %r1
+	 *	}
+	 *
+	 */
+	for (i = PT_REGS_ARGC; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+		uint_t	lbl_store = dt_irlist_label(dlp);
+
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, rp, PT_REGS_SP));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC + PT_REGS_ARGSTKBASE) * sizeof(uint64_t)));
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, 0));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_store));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SPILL(0)));
+		emitl(dlp, lbl_store,
+			   BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_1));
+	}
 }
 
 typedef struct {

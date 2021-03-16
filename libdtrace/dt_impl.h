@@ -44,7 +44,6 @@ extern "C" {
 #include <dt_pcap.h>
 #include <dt_dof.h>
 #include <dt_pcb.h>
-#include <dt_pt_regs.h>
 #include <dt_printf.h>
 #include <dt_debug.h>
 #include <dt_version.h>

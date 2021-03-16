@@ -160,21 +160,13 @@ static int populate(dtrace_hdl_t *dtp)
  */
 static void trampoline(dt_pcb_t *pcb)
 {
-	int		i;
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
-
 	dt_cg_tramp_prologue(pcb);
 
 	/*
-	 * We cannot assume anything about the state of any registers so set up
-	 * the ones we need:
+	 * After the dt_cg_tramp_prologue() call, we have:
 	 *				//     (%r7 = dctx->mst)
-	 *				// lddw %r7, [%fp + DCTX_FP(DCTX_MST)]
 	 *				//     (%r8 = dctx->ctx)
-	 *				// lddw %r8, [%fp + DCTX_FP(DCTX_CTX)]
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_7, BPF_REG_FP, DCTX_FP(DCTX_MST)));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_8, BPF_REG_FP, DCTX_FP(DCTX_CTX)));
 
 #if 0
 	/*
@@ -186,45 +178,7 @@ static void trampoline(dt_pcb_t *pcb)
 	}
 #endif
 
-	/*
-	 *	dctx->mst->argv[0] = PT_REGS_PARAM1((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG0]
-	 *				// stdw [%r7 + DMST_ARG(0)], %r0
-	 *	dctx->mst->argv[1] = PT_REGS_PARAM2((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG1]
-	 *				// stdw [%r7 + DMST_ARG(1)], %r0
-	 *	dctx->mst->argv[2] = PT_REGS_PARAM3((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG2]
-	 *				// stdw [%r7 + DMST_ARG(2)], %r0
-	 *	dctx->mst->argv[3] = PT_REGS_PARAM4((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG3]
-	 *				// stdw [%r7 + DMST_ARG(3)], %r0
-	 *	dctx->mst->argv[4] = PT_REGS_PARAM5((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG4]
-	 *				// stdw [%r7 + DMST_ARG(4)], %r0
-	 *	dctx->mst->argv[5] = PT_REGS_PARAM6((dt_pt_regs *)dctx->ctx);
-	 *				// lddw %r0, [%r8 + PT_REGS_ARG5]
-	 *				// stdw [%r7 + DMST_ARG(5)], %r0
-	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG1));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG2));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG3));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG4));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG5));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
-
-	/*
-	 *     (we clear dctx->mst->argv[6] and on)
-	 */
-	for (i = 6; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
-
+	dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8);
 	dt_cg_tramp_epilogue(pcb);
 }
 
