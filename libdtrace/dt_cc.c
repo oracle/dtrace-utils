@@ -135,129 +135,6 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 
 #ifdef FIXME
 /*
- * Utility function to determine if a given action description is destructive.
- * The DIFOFLG_DESTRUCTIVE bit is set for us by the DIF assembler (see dt_as.c).
- */
-static int
-dt_action_destructive(const dtrace_actdesc_t *ap)
-{
-	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) ||
-		(ap->dtad_kind == DTRACEACT_DIFEXPR &&
-		 (ap->dtad_difo->dtdo_flags & DIFOFLG_DESTRUCTIVE)));
-}
-#endif
-
-static void
-dt_stmt_append(dtrace_stmtdesc_t *sdp, const dt_node_t *dnp)
-{
-#ifdef FIXME
-	dtrace_ecbdesc_t *edp = sdp->dtsd_ecbdesc;
-	dtrace_actdesc_t *ap, *tap;
-	int commit = 0;
-	int speculate = 0;
-	int datarec = 0;
-
-	/*
-	 * Make sure that the new statement jibes with the rest of the ECB.
-	 * FIXME: Eliminate this code once it's incorporated elsewhere.
-	 */
-	for (ap = edp->dted_action; ap != NULL; ap = ap->dtad_next) {
-		if (ap->dtad_kind == DTRACEACT_COMMIT) {
-			if (commit) {
-				dnerror(dnp, D_COMM_COMM, "commit( ) may "
-				    "not follow commit( )\n");
-			}
-
-			if (datarec) {
-				dnerror(dnp, D_COMM_DREC, "commit( ) may "
-				    "not follow data-recording action(s)\n");
-			}
-
-			for (tap = ap; tap != NULL; tap = tap->dtad_next) {
-				if (!DTRACEACT_ISAGG(tap->dtad_kind))
-					continue;
-
-				dnerror(dnp, D_AGG_COMM, "aggregating actions "
-				    "may not follow commit( )\n");
-			}
-
-			commit = 1;
-			continue;
-		}
-
-		if (ap->dtad_kind == DTRACEACT_SPECULATE) {
-			if (speculate) {
-				dnerror(dnp, D_SPEC_SPEC, "speculate( ) may "
-				    "not follow speculate( )\n");
-			}
-
-			if (commit) {
-				dnerror(dnp, D_SPEC_COMM, "speculate( ) may "
-				    "not follow commit( )\n");
-			}
-
-			if (datarec) {
-				dnerror(dnp, D_SPEC_DREC, "speculate( ) may "
-				    "not follow data-recording action(s)\n");
-			}
-
-			speculate = 1;
-			continue;
-		}
-
-		if (DTRACEACT_ISAGG(ap->dtad_kind)) {
-			if (speculate) {
-				dnerror(dnp, D_AGG_SPEC, "aggregating actions "
-				    "may not follow speculate( )\n");
-			}
-
-			datarec = 1;
-			continue;
-		}
-
-		if (speculate) {
-			if (dt_action_destructive(ap)) {
-				dnerror(dnp, D_ACT_SPEC, "destructive actions "
-				    "may not follow speculate( )\n");
-			}
-
-			if (ap->dtad_kind == DTRACEACT_EXIT) {
-				dnerror(dnp, D_EXIT_SPEC, "exit( ) may not "
-				    "follow speculate( )\n");
-			}
-		}
-
-		/*
-		 * Exclude all non data-recording actions.
-		 */
-		if (dt_action_destructive(ap) ||
-		    ap->dtad_kind == DTRACEACT_DISCARD)
-			continue;
-
-		if (ap->dtad_kind == DTRACEACT_DIFEXPR &&
-		    ap->dtad_difo->dtdo_rtype.dtdt_kind == DIF_TYPE_CTF &&
-		    ap->dtad_difo->dtdo_rtype.dtdt_size == 0)
-			continue;
-
-		if (commit) {
-			dnerror(dnp, D_DREC_COMM, "data-recording actions "
-			    "may not follow commit( )\n");
-		}
-
-		if (!speculate)
-			datarec = 1;
-	}
-#endif
-
-	if (dtrace_stmt_add(yypcb->pcb_hdl, yypcb->pcb_prog, sdp) != 0)
-		longjmp(yypcb->pcb_jmpbuf, dtrace_errno(yypcb->pcb_hdl));
-
-	if (yypcb->pcb_stmt == sdp)
-		yypcb->pcb_stmt = NULL;
-}
-
-#ifdef FIXME
-/*
  * For the first element of an aggregation tuple or for printa(), we create a
  * simple DIF program that simply returns the immediate value that is the ID
  * of the aggregation itself.  This could be optimized in the future by
@@ -1644,7 +1521,11 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	sdp->dtsd_clause = dt_clause_create(dtp, dt_as(yypcb));
 
 	assert(yypcb->pcb_stmt == sdp);
-	dt_stmt_append(sdp, cnp);
+	if (dtrace_stmt_add(yypcb->pcb_hdl, yypcb->pcb_prog, sdp) != 0)
+		longjmp(yypcb->pcb_jmpbuf, dtrace_errno(yypcb->pcb_hdl));
+
+	if (yypcb->pcb_stmt == sdp)
+		yypcb->pcb_stmt = NULL;
 
 	assert(yypcb->pcb_ecbdesc == edp);
 	dt_ecbdesc_release(dtp, edp);

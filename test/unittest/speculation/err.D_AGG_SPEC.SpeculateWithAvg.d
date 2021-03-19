@@ -1,16 +1,14 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
+
 /*
- * ASSERTION:
- * Aggregating actions may never be speculative.
+ * ASSERTION: Aggregating functions may never be speculative.
  *
  * SECTION: Speculative Tracing/Using a Speculation
- *
  */
 #pragma D option quiet
 
@@ -25,7 +23,7 @@ profile:::tick-1sec
 	var = speculation();
 	speculate(var);
 	printf("Speculation ID: %d", var);
-	@avrg["speculate"] = avg(i);
+	@avrg = avg(i);
 	i++;
 }
 
@@ -36,11 +34,6 @@ profile:::tick-1sec
 }
 
 ERROR
-{
-	exit(0);
-}
-
-END
 {
 	exit(0);
 }

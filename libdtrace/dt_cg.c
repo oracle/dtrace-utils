@@ -767,6 +767,94 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	return -1;
 }
 
+#ifdef FIXME
+/*
+ * Utility function to determine if a given action description is destructive.
+ * The DIFOFLG_DESTRUCTIVE bit is set for us by the DIF assembler (see dt_as.c).
+ */
+static int
+dt_action_destructive(const dtrace_actdesc_t *ap)
+{
+	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) ||
+		(ap->dtad_kind == DTRACEACT_DIFEXPR &&
+		 (ap->dtad_difo->dtdo_flags & DIFOFLG_DESTRUCTIVE)));
+}
+#endif
+
+static void
+dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
+{
+	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
+
+	if (kind == DTRACEACT_COMMIT) {
+		if (*cfp & DT_CLSFLAG_COMMIT)
+			dnerror(dnp, D_COMM_COMM,
+			    "commit( ) may not follow commit( )\n");
+		if (*cfp & DT_CLSFLAG_DATAREC)
+			dnerror(dnp, D_COMM_DREC, "commit( ) may "
+			    "not follow data-recording action(s)\n");
+
+		*cfp |= DT_CLSFLAG_COMMIT;
+		return;
+	}
+
+	if (kind == DTRACEACT_SPECULATE) {
+		if (*cfp & DT_CLSFLAG_SPECULATE)
+			dnerror(dnp, D_SPEC_SPEC,
+			    "speculate( ) may not follow speculate( )\n");
+
+		if (*cfp & DT_CLSFLAG_COMMIT)
+			dnerror(dnp, D_SPEC_COMM,
+			    "speculate( ) may not follow commit( )\n");
+
+		if (*cfp & DT_CLSFLAG_DATAREC)
+			dnerror(dnp, D_SPEC_DREC, "speculate( ) may "
+			    "not follow data-recording action(s)\n");
+
+		*cfp |= DT_CLSFLAG_SPECULATE;
+		return;
+	}
+
+	if (DTRACEACT_ISAGG(kind)) {
+		if (*cfp & DT_CLSFLAG_COMMIT)
+			dnerror(dnp, D_AGG_COMM,
+			    "aggregating actions may not follow commit( )\n");
+		if (*cfp & DT_CLSFLAG_SPECULATE)
+			dnerror(dnp, D_AGG_SPEC, "aggregating actions "
+			    "may not follow speculate( )\n");
+
+		*cfp |= DT_CLSFLAG_DATAREC;
+		return;
+	}
+
+	if (*cfp & DT_CLSFLAG_SPECULATE) {
+#ifdef FIXME
+		if (dt_action_destructive(ap))
+#else
+		if (DTRACEACT_ISDESTRUCTIVE(kind))
+#endif
+			dnerror(dnp, D_ACT_SPEC, "destructive actions "
+			    "may not follow speculate( )\n");
+		if (kind == DTRACEACT_EXIT)
+			dnerror(dnp, D_EXIT_SPEC,
+			    "exit( ) may not follow speculate( )\n");
+	}
+
+#ifdef FIXME
+	if (kind == DTRACEACT_DIFEXPR &&
+	    ap->dtad_difo->dtdo_rtype.dtdt_kind == DIF_TYPE_CTF &&
+	    ap->dtad_difo->dtdo_rtype.dtdt_size == 0)
+		return;
+#endif
+
+	if (*cfp & DT_CLSFLAG_COMMIT)
+		dnerror(dnp, D_DREC_COMM,
+		    "data-recording actions may not follow commit( )\n");
+
+	if (!(*cfp & DT_CLSFLAG_SPECULATE))
+		*cfp |= DT_CLSFLAG_DATAREC;
+}
+
 static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
@@ -825,16 +913,6 @@ dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_COMM_COMM,
-		    "commit( ) may not follow commit( )\n");
-	if (*cfp & DT_CLSFLAG_DATAREC)
-		dnerror(dnp, D_COMM_DREC,
-		    "commit( ) may not follow data-recording action(s)\n");
-	*cfp |= DT_CLSFLAG_COMMIT;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
@@ -905,16 +983,6 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_SPECULATE)
-		dnerror(dnp, D_EXIT_SPEC,
-		    "exit( ) may not follow speculate( )\n");
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_DREC_COMM,
-		    "data-recording actions may not follow commit( )\n");
-	*cfp |= DT_CLSFLAG_EXIT | DT_CLSFLAG_DATAREC;
 
 	/* Record the exit code. */
 	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_EXIT, NULL, DT_ACT_EXIT);
@@ -1010,13 +1078,6 @@ dt_cg_act_printa(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	int		argc = 0, argr;
 	char		n[DT_TYPE_NAMELEN];
 	dt_ident_t	*aid, *fid;
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_DREC_COMM,
-		    "data-recording actions may not follow commit( )\n");
-	*cfp |= DT_CLSFLAG_DATAREC;
 
 	/* Count the arguments. */
 	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
@@ -1093,13 +1154,6 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_pfargv_t	*pfp;
 	char		n[DT_TYPE_NAMELEN];
 	char		*str;
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_DREC_COMM,
-		    "data-recording actions may not follow commit( )\n");
-	*cfp |= DT_CLSFLAG_DATAREC;
 
 	/*
 	 * Ensure that the format string is a string constant.
@@ -1223,19 +1277,6 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		off;
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_SPECULATE)
-		dnerror(dnp, D_SPEC_SPEC,
-		    "speculate( ) may not follow speculate( )\n");
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_SPEC_COMM,
-		    "speculate( ) may not follow commit( )\n");
-	if (*cfp & DT_CLSFLAG_DATAREC)
-		dnerror(dnp, D_SPEC_DREC,
-		    "speculate( ) may not follow data-recording action(s)\n");
-	*cfp |= DT_CLSFLAG_SPECULATE;
 
 	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
 
@@ -1284,13 +1325,6 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	char		n[DT_TYPE_NAMELEN];
 	dt_node_t	*arg = dnp->dn_args;
 	int		type = 0;
-	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
-
-	/* process clause flags */
-	if (*cfp & DT_CLSFLAG_COMMIT)
-		dnerror(dnp, D_DREC_COMM,
-		        "data-recording actions may not follow commit( )\n");
-	*cfp |= DT_CLSFLAG_DATAREC;
 
 	if (dt_node_is_void(arg))
 		dnerror(arg, D_TRACE_VOID,
@@ -1415,17 +1449,26 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 	[DT_ACT_IDX(DT_ACT_TRACE)]		= { &dt_cg_act_trace, },
 	[DT_ACT_IDX(DT_ACT_TRACEMEM)]		= { &dt_cg_act_tracemem, },
 	[DT_ACT_IDX(DT_ACT_STACK)]		= { &dt_cg_act_stack, },
-	[DT_ACT_IDX(DT_ACT_STOP)]		= { &dt_cg_act_stop, },
-	[DT_ACT_IDX(DT_ACT_BREAKPOINT)]		= { &dt_cg_act_breakpoint, },
-	[DT_ACT_IDX(DT_ACT_PANIC)]		= { &dt_cg_act_panic, },
-	[DT_ACT_IDX(DT_ACT_SPECULATE)]		= { &dt_cg_act_speculate, },
-	[DT_ACT_IDX(DT_ACT_COMMIT)]		= { &dt_cg_act_commit, },
-	[DT_ACT_IDX(DT_ACT_DISCARD)]		= { &dt_cg_act_discard, },
-	[DT_ACT_IDX(DT_ACT_CHILL)]		= { &dt_cg_act_chill, },
-	[DT_ACT_IDX(DT_ACT_EXIT)]		= { &dt_cg_act_exit, },
+	[DT_ACT_IDX(DT_ACT_STOP)]		= { &dt_cg_act_stop,
+						    DTRACEACT_STOP },
+	[DT_ACT_IDX(DT_ACT_BREAKPOINT)]		= { &dt_cg_act_breakpoint,
+						    DTRACEACT_BREAKPOINT },
+	[DT_ACT_IDX(DT_ACT_PANIC)]		= { &dt_cg_act_panic,
+						    DTRACEACT_PANIC },
+	[DT_ACT_IDX(DT_ACT_SPECULATE)]		= { &dt_cg_act_speculate,
+						    DTRACEACT_SPECULATE },
+	[DT_ACT_IDX(DT_ACT_COMMIT)]		= { &dt_cg_act_commit,
+						    DTRACEACT_COMMIT },
+	[DT_ACT_IDX(DT_ACT_DISCARD)]		= { &dt_cg_act_discard,
+						    DTRACEACT_DISCARD },
+	[DT_ACT_IDX(DT_ACT_CHILL)]		= { &dt_cg_act_chill,
+						    DTRACEACT_CHILL },
+	[DT_ACT_IDX(DT_ACT_EXIT)]		= { &dt_cg_act_exit,
+						    DTRACEACT_EXIT },
 	[DT_ACT_IDX(DT_ACT_USTACK)]		= { &dt_cg_act_ustack, },
 	[DT_ACT_IDX(DT_ACT_PRINTA)]		= { &dt_cg_act_printa, },
-	[DT_ACT_IDX(DT_ACT_RAISE)]		= { &dt_cg_act_raise, },
+	[DT_ACT_IDX(DT_ACT_RAISE)]		= { &dt_cg_act_raise,
+						    DTRACEACT_RAISE },
 	[DT_ACT_IDX(DT_ACT_CLEAR)]		= { &dt_cg_act_clear, },
 	[DT_ACT_IDX(DT_ACT_NORMALIZE)]		= { &dt_cg_act_normalize, },
 	[DT_ACT_IDX(DT_ACT_DENORMALIZE)]	= { &dt_cg_act_denormalize, },
@@ -4530,6 +4573,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	assert(fid->di_id >= DT_AGG_BASE && fid->di_id < DT_AGG_HIGHEST);
 
+	dt_cg_clsflags(pcb, DTRACEACT_AGGREGATION, dnp);
 	aggfp = _dt_cg_agg[DT_AGG_IDX(fid->di_id)];
 	assert(aggfp != NULL);
 
@@ -4585,9 +4629,11 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 
 				idp = act->dn_expr->dn_ident;
 				actdp = &_dt_cg_actions[DT_ACT_IDX(idp->di_id)];
-				if (actdp->fun)
+				if (actdp->fun) {
+					dt_cg_clsflags(pcb, actdp->kind, act);
 					actdp->fun(pcb, act->dn_expr,
 						   actdp->kind);
+				}
 				break;
 			}
 			case DT_NODE_AGG:
