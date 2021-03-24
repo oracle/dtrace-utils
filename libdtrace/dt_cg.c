@@ -49,6 +49,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
+	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
 	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
 	assert(mem != NULL);
@@ -67,8 +68,8 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				// mov %r8, %r1
 	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r8
 	 */
-	emit(dlp, BPF_MOV_REG(BPF_REG_8, BPF_REG_1));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_8));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_8, BPF_REG_1));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_8));
 
 	/*
 	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_ACT)],
@@ -87,15 +88,15 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *
 	 *	dctx.act = rc;		// stdw [%fp + DCTX_FP(DCTX_ACT)], %r0
 	 */
-	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_ACT), DT_STATE_ACTIVITY));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_ACT), DT_STATE_ACTIVITY));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_ACT)));
-	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-	emit(dlp, BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
-	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ACT), BPF_REG_0));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_ACT)));
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ACT), BPF_REG_0));
 
 	/*
 	 *	key = 0;		// stw [%fp + DCTX_FP(DCTX_MST)], 0
@@ -112,15 +113,17 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r7 = pointer to dt_mstate_t)
 	 *				// mov %r7, %r0
 	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r7
+	 *	dctx.mst->prid = PRID;	// stw [%r7 + DMST_PRID], PRID
 	 */
-	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
-	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
-	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-	emit(dlp, BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_7));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_7));
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, -1), prid);
 
 	/*
 	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
@@ -132,10 +135,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r0 = pointer to buffer space)
 	 *	dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
 	 */
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(sizeof(dt_mstate_t), 8)));
-	emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(sizeof(dt_mstate_t), 8)));
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
 
 	if (dt_idhash_datasize(dtp->dt_aggs) > 0) {
 		dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
@@ -419,11 +422,9 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
-	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
 	dt_ident_t	*clid = dt_dlib_get_var(pcb->pcb_hdl, "CLID");
 
 	assert(epid != NULL);
-	assert(prid != NULL);
 	assert(clid != NULL);
 
 	/*
@@ -450,7 +451,6 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *				// stdw [%r0 + DMST_FAULT], 0
 	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
 	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
-	 *	dctx->mst->prid = PRID;	// stw [%r0 + DMST_PRID], PRID
 	 *	dctx->mst->clid = CLID;	// stw [%r0 + DMST_CLID], CLID
 	 *	*((uint32_t *)&buf[0]) = EPID;
 	 *				// stw [%r9 + 0], EPID
@@ -459,7 +459,6 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1), epid);
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, -1), prid);
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_CLID, -1), clid);
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1), epid);
 
