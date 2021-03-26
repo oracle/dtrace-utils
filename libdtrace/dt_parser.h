@@ -230,7 +230,7 @@ struct dt_pcb;		/* see <dt_impl.h> */
 	((e).cte_offset == 0 && (e).cte_bits == 0)
 
 extern int dt_type_lookup(const char *, struct dtrace_typeinfo *);
-extern int dt_type_pointer(struct dtrace_typeinfo *);
+extern int dt_type_pointer(struct dtrace_typeinfo *, int);
 extern const char *dt_type_name(ctf_file_t *, ctf_id_t, char *, size_t);
 
 typedef enum {

@@ -549,7 +549,13 @@ dt_iddtor_probe(dt_ident_t *idp)
 static size_t
 dt_idsize_type(dt_ident_t *idp)
 {
-	return (ctf_type_size(idp->di_ctfp, idp->di_type));
+	ctf_file_t *fp = idp->di_ctfp;
+	ctf_id_t type;
+
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, idp->di_type, 0);
+	if (type == CTF_ERR)
+		return type;
+	return (ctf_type_size(fp, type));
 }
 
 /*ARGSUSED*/

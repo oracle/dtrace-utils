@@ -26,8 +26,10 @@ typedef struct dt_xlator {
 	dt_ident_t dx_souid;		/* fake identifier for sou output */
 	dt_ident_t dx_ptrid;		/* fake identifier for ptr output */
 	ctf_file_t *dx_src_ctfp;	/* CTF container for input type */
+	ctf_file_t *dx_src_base_ctfp;	/* CTF container for input base type */
 	ctf_id_t dx_src_type;		/* CTF reference for input type */
 	ctf_id_t dx_src_base;		/* CTF reference for input base */
+	ctf_file_t *dx_dst_base_ctfp;	/* CTF container for output base type */
 	ctf_file_t *dx_dst_ctfp;	/* CTF container for output type */
 	ctf_id_t dx_dst_type;		/* CTF reference for output type */
 	ctf_id_t dx_dst_base;		/* CTF reference for output base */

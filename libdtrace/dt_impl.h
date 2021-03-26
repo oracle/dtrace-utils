@@ -409,6 +409,10 @@ struct dtrace_hdl {
 #define	DT_USYMADDR_CTFP(dtp)	((dtp)->dt_ddefs->dm_ctfp)
 #define	DT_USYMADDR_TYPE(dtp)	((dtp)->dt_type_usymaddr)
 
+#define DT_RESOLVE_CD_FORWARDS_OK 0x0001
+
+ctf_id_t dt_type_resolve(dtrace_hdl_t *, ctf_file_t **, ctf_id_t, int);
+
 /*
  * Actions and subroutines are both DT_NODE_FUNC nodes; to avoid confusing
  * an action for a subroutine (or vice versa), we assure that the DT_ACT_*
@@ -658,6 +662,8 @@ extern int dt_lib_depend_add(dtrace_hdl_t *, dt_list_t *, const char *);
 extern dt_lib_depend_t *dt_lib_depend_lookup(dt_list_t *, const char *);
 
 extern int dt_variable_read(caddr_t, size_t, uint64_t *);
+
+extern ctf_id_t dtrace_type_resolve(dtrace_hdl_t *, ctf_file_t *, ctf_id_t);
 
 extern dt_pcb_t *yypcb;		/* pointer to current parser control block */
 extern char yyintprefix;	/* int token prefix for macros (+/-) */
