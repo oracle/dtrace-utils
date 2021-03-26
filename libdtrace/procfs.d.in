@@ -50,7 +50,7 @@ typedef struct lwpsinfo {
 } lwpsinfo_t;
 
 typedef id_t taskid_t;
-typedef id_t projid_t;
+typedef id_t dprojid_t;
 typedef id_t poolid_t;
 typedef id_t zoneid_t;
 
@@ -95,7 +95,7 @@ typedef struct psinfo {
 	char pr_dmodel;			/* data model */
 	char pr_pad2[3];
 	taskid_t pr_taskid;		/* task id */
-	projid_t pr_projid;		/* project id */
+	dprojid_t pr_projid;		/* project id */
 	int pr_nzomb;			/* number of zombie lwps (Linux: 0) */
 	poolid_t pr_poolid;		/* pool id */
 	zoneid_t pr_zoneid;		/* zone id */
