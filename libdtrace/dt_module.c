@@ -1529,8 +1529,12 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 				symp->st_other = 0;
 				symp->st_shndx = SHN_UNDEF;
 				symp->st_value = 0;
-				symp->st_size =
-				    ctf_type_size(idp->di_ctfp, idp->di_type);
+                                if (ctf_type_size (idp->di_ctfp,
+                                        idp->di_type) >= 0)
+                                        symp->st_size =
+                                            ctf_type_size(idp->di_ctfp, idp->di_type);
+                                else
+                                        symp->st_size = 0;
 			}
 
 			if (sip != NULL) {
@@ -1716,6 +1720,127 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 		return dt_set_errno(dtp, EDT_NOTYPE);
 
 	return 0;
+}
+
+/*
+ * Resolve a type, searching for a corresponding non-forward if a forward is
+ * found in the shared dict, or (unless suppressed via the
+ * DT_RESOLVE_CD_FORWARDS_OK flag) in the C or D dicts, from which it may have
+ * been copied from the shared dict via direct use in a D definition or a
+ * translator.
+ *
+ * This function wraps ctf_type_resolve and is treated just like it by callers,
+ * so it must not affect the DTrace error state except in utterly catastrophic
+ * cases like OOM.
+ */
+ctf_id_t
+dt_type_resolve(dtrace_hdl_t *dtp, ctf_file_t **fp, ctf_id_t type, int flags)
+{
+	dt_module_t *dmp = dt_list_next(&dtp->dt_modlist);
+	ctf_id_t forwarded_type = -1;
+	ssize_t namelen = 255;
+	char *name;
+	int err = 0;
+	int old_errno = dtp->dt_errno;
+	ctf_id_t oldtype = type;
+
+	/*
+	 * Getting a name in a libdtrace-ctf-compatible way is horribly
+	 * inconvenient.  DTrace v2 should use ctf_type_aname.
+	 */
+	if ((name = malloc(namelen)) == 0)
+		return (dt_set_errno(dtp, EDT_NOMEM));
+
+	if ((type = ctf_type_resolve(*fp, type)) == CTF_ERR ||
+	    ctf_type_kind(*fp, type) != CTF_K_FORWARD ||
+	    (*fp != dtp->dt_shared_ctf &&
+		((flags & DT_RESOLVE_CD_FORWARDS_OK) ||
+		    (*fp != dtp->dt_cdefs->dm_ctfp &&
+			*fp != dtp->dt_ddefs->dm_ctfp))))
+	{
+		dt_dprintf("dt_type_resolve: error %s, type kind %i: "
+		    "resolved %lx to %lx\n", (type == CTF_ERR ?
+			ctf_errmsg (ctf_errno (*fp)) : "(no error)"),
+		    ctf_type_kind (*fp, type), oldtype, type);
+		goto ret;
+	}
+
+	namelen = ctf_type_lname(*fp, type, name, namelen) + 1;
+
+	if (namelen > 255) {
+		char *newname;
+		if ((newname = realloc(name, namelen)) == NULL) {
+			free(name);
+			return (dt_set_errno(dtp, EDT_NOMEM));
+		}
+		name = newname;
+		ctf_type_lname(*fp, type, name, namelen);
+	}
+
+	dt_dprintf("dt_type_resolve: %s is a forward in the shared dict, "
+	    "hunting in sub-dictionaries\n", name);
+
+	/*
+	 * Forward in the shared dict or a translator.  Search modules for a
+	 * corresponding concrete type.  Any error terminates the check.
+	 * CTF_NOTYPE is impossible if this type is in the shared dict; if it is
+	 * *not* in the shared dict but was copied into the C or D dict from a
+	 * child dict, this cannot be a dedup-introduced ambiguous forward and
+	 * thus is not something we need to hunt for: so if we get a ECTF_NOTYPE
+	 * at any stage, return the original type unchanged, since the forward
+	 * is really the right thing to return.
+	 */
+	do {
+		if (dt_module_getctf(dtp, dmp) == NULL)
+			continue;
+
+		/*
+		 * We are only interested in searching the modules: i.e., the
+		 * shared dict, and dicts which have the shared dict as a
+		 * parent.
+		 */
+		if (dmp->dm_ctfp != dtp->dt_shared_ctf &&
+		    ctf_parent_file (dmp->dm_ctfp) != dtp->dt_shared_ctf)
+			continue;
+
+		forwarded_type = ctf_lookup_by_name(dmp->dm_ctfp, name);
+		if (forwarded_type == -1)
+			err = ctf_errno (dmp->dm_ctfp);
+
+		/*
+		 * Errors, or a successfully-found non-forward, terminate the
+		 * search.
+		 */
+		if (forwarded_type == -1 ||
+		    ctf_type_kind(dmp->dm_ctfp, forwarded_type) != CTF_K_FORWARD)
+		{
+			dt_dprintf ("Found real type, of kind %i in %s\n",
+			    ctf_type_kind (dmp->dm_ctfp, forwarded_type),
+			    dmp->dm_name);
+			break;
+		}
+	} while ((dmp = dt_list_next (dmp)) != NULL);
+
+	if (forwarded_type != -1 && dmp &&
+	    ctf_type_kind(dmp->dm_ctfp, forwarded_type) != CTF_K_FORWARD)
+	{
+		*fp = dmp->dm_ctfp;
+		type = forwarded_type;
+		goto ret;
+	}
+	/*
+	 * Pass back errors other than ECTF_NOTYPE untouched in the ctfp state;
+	 * otherwise, return the original type.
+	 */
+	if (err != 0 && err != ECTF_NOTYPE)
+	{
+		type = -1;
+		goto ret;
+	}
+
+ret:
+	dtp->dt_errno = old_errno;
+	return type;
 }
 
 int

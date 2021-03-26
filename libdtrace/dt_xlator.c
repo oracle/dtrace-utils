@@ -101,7 +101,7 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	dtp->dt_xlatormap = map;
 	dtp->dt_xlatormap[dxp->dx_id] = dxp;
 
-	if (dt_type_pointer(&ptr) == -1) {
+	if (dt_type_pointer(&ptr, 0) == -1) {
 		ptr.dtt_ctfp = NULL;
 		ptr.dtt_type = CTF_ERR;
 	}
@@ -164,14 +164,18 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	}
 
 	dxp->dx_src_ctfp = src->dtt_ctfp;
+	dxp->dx_src_base_ctfp = src->dtt_ctfp;
 	dxp->dx_src_type = src->dtt_type;
-	dxp->dx_src_base = ctf_type_resolve(src->dtt_ctfp, src->dtt_type);
+	dxp->dx_src_base = dt_type_resolve(dtp, &dxp->dx_src_base_ctfp,
+	    src->dtt_type, 0);
 
 	dxp->dx_dst_ctfp = dst->dtt_ctfp;
+	dxp->dx_dst_base_ctfp = dst->dtt_ctfp;
 	dxp->dx_dst_type = dst->dtt_type;
-	dxp->dx_dst_base = ctf_type_resolve(dst->dtt_ctfp, dst->dtt_type);
+	dxp->dx_dst_base = dt_type_resolve(dtp, &dxp->dx_dst_base_ctfp,
+	    dst->dtt_type, 0);
 
-	kind = ctf_type_kind(dst->dtt_ctfp, dxp->dx_dst_base);
+	kind = ctf_type_kind(dxp->dx_dst_base_ctfp, dxp->dx_dst_base);
 	assert(kind == CTF_K_STRUCT || kind == CTF_K_UNION);
 
 	/*
@@ -180,7 +184,7 @@ dt_xlator_create(dtrace_hdl_t *dtp,
 	 * retain the member and allocation node lists presented by the parser.
 	 */
 	if (name == NULL) {
-		if (ctf_member_iter(dxp->dx_dst_ctfp, dxp->dx_dst_base,
+		if (ctf_member_iter(dxp->dx_dst_base_ctfp, dxp->dx_dst_base,
 		    dt_xlator_create_member, dxp) != 0)
 			goto err;
 	} else {
@@ -240,6 +244,7 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 
 	ctf_file_t *dst_ctfp = dst->dn_ctfp;
 	ctf_id_t dst_type = dst->dn_type;
+	ctf_file_t *dst_base_ctfp = dst->dn_ctfp;
 	ctf_id_t dst_base = ctf_type_resolve(dst_ctfp, dst_type);
 	uint_t dst_kind = ctf_type_kind(dst_ctfp, dst_base);
 
@@ -258,8 +263,8 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 	 */
 	if (ptr) {
 		dst_type = ctf_type_reference(dst_ctfp, dst_type);
-		dst_base = ctf_type_resolve(dst_ctfp, dst_type);
-		dst_kind = ctf_type_kind(dst_ctfp, dst_base);
+		dst_base = dt_type_resolve(dtp, &dst_base_ctfp, dst_type, 0);
+		dst_kind = ctf_type_kind(dst_base_ctfp, dst_base);
 	}
 
 	if (dst_kind != CTF_K_UNION && dst_kind != CTF_K_STRUCT)
@@ -278,8 +283,8 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 	    dxp = dt_list_next(dxp)) {
 		if (ctf_type_compat(dxp->dx_src_ctfp, dxp->dx_src_type,
 		    src_ctfp, src_type) &&
-		    ctf_type_compat(dxp->dx_dst_ctfp, dxp->dx_dst_base,
-		    dst_ctfp, dst_base))
+		    ctf_type_compat(dxp->dx_dst_base_ctfp, dxp->dx_dst_base,
+		    dst_base_ctfp, dst_base))
 			goto out;
 	}
 
@@ -288,9 +293,9 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 
 	for (dxp = dt_list_next(&dtp->dt_xlators); dxp != NULL;
 	    dxp = dt_list_next(dxp)) {
-		if (ctf_type_compat(dxp->dx_src_ctfp, dxp->dx_src_base,
+		if (ctf_type_compat(dxp->dx_src_base_ctfp, dxp->dx_src_base,
 		    src_ctfp, src_type) &&
-		    ctf_type_compat(dxp->dx_dst_ctfp, dxp->dx_dst_base,
+		    ctf_type_compat(dxp->dx_dst_base_ctfp, dxp->dx_dst_base,
 		    dst_ctfp, dst_base))
 			goto out;
 	}
@@ -298,8 +303,8 @@ dt_xlator_lookup(dtrace_hdl_t *dtp, dt_node_t *src, dt_node_t *dst, int flags)
 	for (dxp = dt_list_next(&dtp->dt_xlators); dxp != NULL;
 	    dxp = dt_list_next(dxp)) {
 		dt_node_type_assign(&xn, dxp->dx_src_ctfp, dxp->dx_src_type);
-		if (ctf_type_compat(dxp->dx_dst_ctfp, dxp->dx_dst_base,
-		    dst_ctfp, dst_base) && dt_node_is_argcompat(src, &xn))
+		if (ctf_type_compat(dxp->dx_dst_base_ctfp, dxp->dx_dst_base,
+		    dst_base_ctfp, dst_base) && dt_node_is_argcompat(src, &xn))
 			goto out;
 	}
 

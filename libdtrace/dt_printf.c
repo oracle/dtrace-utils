@@ -79,11 +79,11 @@ pfcheck_str(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 		return 1;
 
 	ctfp = dnp->dn_ctfp;
-	base = ctf_type_resolve(ctfp, dnp->dn_type);
+	base = dt_type_resolve(pfv->pfv_dtp, &ctfp, dnp->dn_type, 0);
 	kind = ctf_type_kind(ctfp, base);
 
 	return kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
-	    (base = ctf_type_resolve(ctfp, r.ctr_contents)) != CTF_ERR &&
+	    (base = dt_type_resolve(pfv->pfv_dtp, &ctfp, r.ctr_contents, 0)) != CTF_ERR &&
 	    ctf_type_encoding(ctfp, base, &e) == 0 && IS_CHAR(e);
 }
 
@@ -92,14 +92,14 @@ static int
 pfcheck_wstr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	ctf_id_t base = ctf_type_resolve(ctfp, dnp->dn_type);
+	ctf_id_t base = dt_type_resolve(pfv->pfv_dtp, &ctfp, dnp->dn_type, 0);
 	uint_t kind = ctf_type_kind(ctfp, base);
 
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
 
 	return kind == CTF_K_ARRAY && ctf_array_info(ctfp, base, &r) == 0 &&
-	    (base = ctf_type_resolve(ctfp, r.ctr_contents)) != CTF_ERR &&
+	    (base = dt_type_resolve(pfv->pfv_dtp, &ctfp, r.ctr_contents, 0)) != CTF_ERR &&
 	    ctf_type_kind(ctfp, base) == CTF_K_INTEGER &&
 	    ctf_type_encoding(ctfp, base, &e) == 0 && e.cte_bits == 32;
 }
@@ -143,7 +143,7 @@ static int
 pfcheck_xshort(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
+	ctf_id_t type = dt_type_resolve(pfv->pfv_dtp, &ctfp, dnp->dn_type, 0);
 	char n[DT_TYPE_NAMELEN];
 
 	return ctf_type_name(ctfp, type, n, sizeof(n)) != NULL && (
@@ -156,7 +156,7 @@ static int
 pfcheck_xlong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
 	ctf_file_t *ctfp = dnp->dn_ctfp;
-	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
+	ctf_id_t type = dt_type_resolve(pfv->pfv_dtp, &ctfp, dnp->dn_type, 0);
 	char n[DT_TYPE_NAMELEN];
 
 	return ctf_type_name(ctfp, type, n, sizeof(n)) != NULL && (
@@ -199,8 +199,11 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return ctf_type_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
-	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype);
+	ctf_file_t *ctfp = dnp->dn_ctfp;
+	ctf_id_t type = dt_type_resolve(pfv->pfv_dtp, &ctfp, dnp->dn_type, 0);
+
+	return ctf_type_compat(ctfp, type, pfd->pfd_conv->pfc_dctfp,
+		pfd->pfd_conv->pfc_dtype);
 }
 
 /*ARGSUSED*/

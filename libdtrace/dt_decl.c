@@ -527,9 +527,10 @@ dt_decl_member(dt_node_t *dnp)
 		    "cannot have dynamic member: %s\n", ident);
 	}
 
-	base = ctf_type_resolve(dtt.dtt_ctfp, dtt.dtt_type);
-	kind = ctf_type_kind(dtt.dtt_ctfp, base);
-	size = ctf_type_size(dtt.dtt_ctfp, base);
+	ctf_file_t *fp = dtt.dtt_ctfp;
+	base = dt_type_resolve(yypcb->pcb_hdl, &fp, dtt.dtt_type, 0);
+	kind = ctf_type_kind(fp, base);
+	size = ctf_type_size(fp, base);
 
 	if (kind == CTF_K_FORWARD || ((kind == CTF_K_STRUCT ||
 	    kind == CTF_K_UNION) && size == 0)) {
@@ -567,8 +568,8 @@ dt_decl_member(dt_node_t *dnp)
 			    "expression expected as bit-field size\n");
 		}
 
-		if (ctf_type_kind(dtt.dtt_ctfp, base) != CTF_K_INTEGER ||
-		    ctf_type_encoding(dtt.dtt_ctfp, base, &cte) == CTF_ERR ||
+		if (ctf_type_kind(fp, base) != CTF_K_INTEGER ||
+		    ctf_type_encoding(fp, base, &cte) == CTF_ERR ||
 		    IS_VOID(cte)) {
 			xyerror(D_DECL_BFTYPE, "invalid type for "
 			    "bit-field: %s\n", idname);
@@ -790,6 +791,10 @@ dt_decl_enumerator(char *s, dt_node_t *dnp)
  * the underlying type names is handled by dt_type_lookup().  We build up the
  * name from the specified string and prefixes and then lookup the type.  If
  * we fail, an errmsg is saved and the caller must abort with EDT_COMPILER.
+ *
+ * Pointers to forwards in the C and D dictionaries are not chased down in the
+ * original dicts, because they will likely have been added by dt_decl_type
+ * itself, and cannot be the result of the link-time deduplicator.
  */
 int
 dt_decl_type(dt_decl_t *ddp, dtrace_typeinfo_t *tip)
@@ -852,7 +857,7 @@ dt_decl_type(dt_decl_t *ddp, dtrace_typeinfo_t *tip)
 		}
 
 		if ((rv = dt_decl_type(ddp->dd_next, tip)) == 0 &&
-		    (rv = dt_type_pointer(tip)) != 0) {
+		    (rv = dt_type_pointer(tip, 1)) != 0) {
 			xywarn(D_UNKNOWN, "cannot find type: %s*: %s\n",
 			    dt_type_name(tip->dtt_ctfp, tip->dtt_type,
 			    n, sizeof(n)), ctf_errmsg(dtp->dt_ctferr));
@@ -1015,6 +1020,7 @@ dt_decl_type(dt_decl_t *ddp, dtrace_typeinfo_t *tip)
 	}
 
 	if (type == CTF_ERR || ctf_update(dmp->dm_ctfp) == CTF_ERR) {
+		dt_dprintf ("can't update dict for module %s\n", dmp->dm_name);
 		xywarn(D_UNKNOWN, "failed to add forward tag for %s: %s\n",
 		    name, ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return -1;

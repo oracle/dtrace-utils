@@ -1872,8 +1872,12 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 	if ((dnp->dn_flags & DT_NF_BITFIELD) &&
 	    ctf_type_encoding(ctfp, type, &e) != CTF_ERR)
 		size = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY);
-	else
+	else {
+		if (ctf_type_kind(ctfp, type) == CTF_K_FORWARD)
+			type = dt_type_resolve(yypcb->pcb_hdl, &ctfp,
+			    type, 0);
 		size = ctf_type_size(ctfp, type);
+	}
 
 	if (size < 1 || size > 8 || (size & (size - 1)) != 0) {
 		xyerror(D_UNKNOWN, "internal error -- cg cannot load "
@@ -1995,7 +1999,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	uint_t kind;
 	ssize_t size;
 
-	type = ctf_type_resolve(ctfp, dnp->dn_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &ctfp, dnp->dn_type, 0);
 	kind = ctf_type_kind(ctfp, type);
 	assert(kind == CTF_K_POINTER || kind == CTF_K_ARRAY);
 
@@ -2098,14 +2102,14 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	assert(dst->dn_right->dn_kind == DT_NODE_IDENT);
 
 	fp = dst->dn_left->dn_ctfp;
-	type = ctf_type_resolve(fp, dst->dn_left->dn_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dst->dn_left->dn_type, 0);
 
 	if (dst->dn_op == DT_TOK_PTR) {
 		type = ctf_type_reference(fp, type);
-		type = ctf_type_resolve(fp, type);
+		type = dt_type_resolve(yypcb->pcb_hdl, &fp, type, 0);
 	}
 
-	if ((fp = dt_cg_membinfo(ofp = fp, type,
+	if ((fp = dt_cg_membinfo(ofp = dst->dn_left->dn_ctfp, type,
 	    dst->dn_right->dn_string, &m)) == NULL) {
 		yypcb->pcb_hdl->dt_ctferr = ctf_errno(ofp);
 		longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
@@ -2485,7 +2489,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	ssize_t size = 1;
 
 	if (dt_node_is_pointer(dnp)) {
-		type = ctf_type_resolve(ctfp, dnp->dn_type);
+		type = dt_type_resolve(yypcb->pcb_hdl, &ctfp, dnp->dn_type, 0);
 		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
 	}
@@ -2533,7 +2537,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	int oreg, nreg;
 
 	if (dt_node_is_pointer(dnp)) {
-		type = ctf_type_resolve(ctfp, dnp->dn_type);
+		type = dt_type_resolve(yypcb->pcb_hdl, &ctfp, dnp->dn_type, 0);
 		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
 	}
@@ -3581,14 +3585,15 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		ctfp = dnp->dn_left->dn_ctfp;
-		type = ctf_type_resolve(ctfp, dnp->dn_left->dn_type);
+		type = dt_type_resolve(yypcb->pcb_hdl, &ctfp,
+		    dnp->dn_left->dn_type, 0);
 
 		if (dnp->dn_op == DT_TOK_PTR) {
 			type = ctf_type_reference(ctfp, type);
-			type = ctf_type_resolve(ctfp, type);
+			type = dt_type_resolve(yypcb->pcb_hdl, &ctfp, type, 0);
 		}
 
-		if ((ctfp = dt_cg_membinfo(octfp = ctfp, type,
+		if ((ctfp = dt_cg_membinfo(octfp = dnp->dn_left->dn_ctfp, type,
 		    dnp->dn_right->dn_string, &m)) == NULL) {
 			yypcb->pcb_hdl->dt_ctferr = ctf_errno(octfp);
 			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);

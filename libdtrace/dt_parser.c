@@ -225,22 +225,37 @@ dt_type_lookup(const char *s, dtrace_typeinfo_t *tip)
  * for the compiler that attempts to compute a pointer to either the given type
  * or its base (that is, we try both "foo_t *" and "struct foo *"), and also
  * to potentially construct the required type on-the-fly.
+ *
+ * If ACCEPT_CDEFS is set, return pointers to forwards in the C and D dicts
+ * rather than hunting for them elsewhere.
+ *
+ * TODO: rewrite in v2, when we can guarantee the pptrtab machinery
+ *       (binutils 2.36+).  Doing ctf_add_type on probably read-only
+ *       containers like this is basically not ever going to work right
+ *       and never did.
  */
 int
-dt_type_pointer(dtrace_typeinfo_t *tip)
+dt_type_pointer(dtrace_typeinfo_t *tip, int accept_cdefs)
 {
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	ctf_file_t *ctfp = tip->dtt_ctfp;
 	ctf_id_t type = tip->dtt_type;
-	ctf_id_t base = ctf_type_resolve(ctfp, type);
+	ctf_file_t *basep = ctfp;
+	ctf_id_t base = dt_type_resolve(dtp, &basep, type,
+	    accept_cdefs ? DT_RESOLVE_CD_FORWARDS_OK : 0);
 
 	dt_module_t *dmp;
 	ctf_id_t ptr;
 
-	if ((ptr = ctf_type_pointer(ctfp, type)) != CTF_ERR ||
-	    (ptr = ctf_type_pointer(ctfp, base)) != CTF_ERR) {
+	if ((ptr = ctf_type_pointer(ctfp, type)) != CTF_ERR) {
 		tip->dtt_type = ptr;
 		return 0;
+	}
+
+	if ((ptr = ctf_type_pointer(basep, base)) != CTF_ERR) {
+		tip->dtt_type = ptr;
+		tip->dtt_ctfp = basep;
+		return (0);
 	}
 
 	if (yypcb->pcb_idepth != 0)
@@ -294,6 +309,12 @@ dt_type_basetype(ctf_file_t *fp, ctf_id_t type)
 	ctf_id_t newtype;
 	uint_t kind;
 
+	/* We don't need to use dt_type_resolve here, and deal with the
+	 * complexities of the fp changing, because dt_type_resolve
+	 * differs from ctf_type_resolve only when peering through forwards,
+	 * and you can't have a forward to any sliceable type (nor are
+	 * sliceable types replaced with forwards when deduplicating).
+	 */
 	type = ctf_type_resolve(fp, type);
 	kind = ctf_type_kind(fp, type);
 
@@ -335,6 +356,9 @@ dt_type_promote(dt_node_t *lp, dt_node_t *rp, ctf_file_t **ofp, ctf_id_t *otype)
 	ctf_id_t rbasetype = dt_node_basetype(rp);
 	uint_t rkind = ctf_type_kind(rfp, rbasetype);
 
+	/*
+	 * Arithmetic types cannot be forwards: no need to use dt_type_resolve.
+	 */
 	ctf_id_t lbase = ctf_type_resolve(lfp, ltype);
 	ctf_id_t rbase = ctf_type_resolve(rfp, rtype);
 
@@ -670,6 +694,10 @@ dt_node_attr_assign(dt_node_t *dnp, dtrace_attribute_t attr)
 void
 dt_node_type_assign(dt_node_t *dnp, ctf_file_t *fp, ctf_id_t type)
 {
+	/*
+	 * No need to use dt_type_resolve here: structs, unions
+	 * and forwards are treated identically.
+	 */
 	ctf_id_t base = ctf_type_resolve(fp, type);
 	ctf_id_t basetype = dt_type_basetype(fp, base);
 	uint_t kind = ctf_type_kind(fp, basetype);
@@ -743,7 +771,17 @@ dt_node_type_size(const dt_node_t *dnp)
 	if (dt_node_is_dynamic(dnp) && dnp->dn_ident != NULL)
 		return dt_ident_size(dnp->dn_ident);
 
-	return ctf_type_size(dnp->dn_ctfp, dnp->dn_type);
+	/*
+	 * libctf may be unhelpful here.  Ambiguous types have no size that we
+	 * can determine (because their size may vary depending on what child
+	 * dict this is viewed through): this is represented as zero, not what
+	 * libctf returns (-1 and an error of ECTF_INCOMPLETE).  (It can also
+	 * return other errors: we treat all of these as unknown size, too.)
+	 */
+	if (ctf_type_size(dnp->dn_ctfp, dnp->dn_type) >= 0)
+		return ctf_type_size(dnp->dn_ctfp, dnp->dn_type);
+	else
+		return 0;
 }
 
 /*
@@ -814,6 +852,10 @@ dt_node_is_integer(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
+	/*
+	 * No need to use dt_type_resolve here: integral types cannot be
+	 * replaced with forwards when deduplicating.
+	 */
 	type = ctf_type_resolve(fp, dnp->dn_type);
 	basetype = dt_node_basetype(dnp);
 	kind = ctf_type_kind(fp, basetype);
@@ -835,6 +877,10 @@ dt_node_is_float(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
+	/*
+	 * No need to use dt_type_resolve here: float types cannot be
+	 * replaced with forwards when deduplicating.
+	 */
 	type = ctf_type_resolve(fp, dnp->dn_type);
 	basetype = dt_node_basetype(dnp);
 	kind = ctf_type_kind(fp, basetype);
@@ -855,7 +901,7 @@ dt_node_is_scalar(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
-	type = ctf_type_resolve(fp, dnp->dn_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
 	basetype = dt_node_basetype(dnp);
 	kind = ctf_type_kind(fp, basetype);
 
@@ -877,7 +923,7 @@ dt_node_is_arith(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
-	type = ctf_type_resolve(fp, dnp->dn_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
 	basetype = dt_node_basetype(dnp);
 	kind = ctf_type_kind(fp, basetype);
 
@@ -897,11 +943,12 @@ dt_node_is_vfptr(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
-	type = ctf_type_resolve(fp, dnp->dn_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
 	if (ctf_type_kind(fp, type) != CTF_K_POINTER)
 		return 0; /* type is not a pointer */
 
-	type = ctf_type_resolve(fp, ctf_type_reference(fp, type));
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp,
+			       ctf_type_reference(fp, type), 0);
 	basetype = dt_type_basetype(fp, type);
 	kind = ctf_type_kind(fp, basetype);
 
@@ -961,17 +1008,18 @@ dt_node_is_strcompat(const dt_node_t *dnp)
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
-	base = ctf_type_resolve(fp, dnp->dn_type);
+	base = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
 	kind = ctf_type_kind(fp, base);
 
 	if (kind == CTF_K_POINTER &&
 	    (base = ctf_type_reference(fp, base)) != CTF_ERR &&
-	    (base = ctf_type_resolve(fp, base)) != CTF_ERR &&
+	    (base = dt_type_resolve(yypcb->pcb_hdl, &fp, base, 0)) != CTF_ERR &&
 	    ctf_type_encoding(fp, base, &e) == 0 && IS_CHAR(e))
 		return 1; /* promote char pointer to string */
 
 	if (kind == CTF_K_ARRAY && ctf_array_info(fp, base, &r) == 0 &&
-	    (base = ctf_type_resolve(fp, r.ctr_contents)) != CTF_ERR &&
+	    (base = dt_type_resolve(yypcb->pcb_hdl, &fp,
+				    r.ctr_contents, 0)) != CTF_ERR &&
 	    ctf_type_encoding(fp, base, &e) == 0 && IS_CHAR(e))
 		return 1; /* promote char array to string */
 
@@ -982,6 +1030,7 @@ int
 dt_node_is_pointer(const dt_node_t *dnp)
 {
 	ctf_file_t *fp = dnp->dn_ctfp;
+	ctf_id_t type;
 	uint_t kind;
 
 	assert(dnp->dn_flags & DT_NF_COOKED);
@@ -989,7 +1038,8 @@ dt_node_is_pointer(const dt_node_t *dnp)
 	if (dt_node_is_string(dnp))
 		return 0; /* string are pass-by-ref but act like structs */
 
-	kind = ctf_type_kind(fp, ctf_type_resolve(fp, dnp->dn_type));
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
+	kind = ctf_type_kind(fp, type);
 	return kind == CTF_K_POINTER || kind == CTF_K_ARRAY;
 }
 
@@ -1009,7 +1059,10 @@ dt_node_is_void(const dt_node_t *dnp)
 	if (dt_node_is_symaddr(dnp) || dt_node_is_usymaddr(dnp))
 		return 0;
 
-	type = ctf_type_resolve(fp, dnp->dn_type);
+	if (dnp->dn_type == CTF_ERR)
+		return (0);
+
+	type = dt_type_resolve(yypcb->pcb_hdl, &fp, dnp->dn_type, 0);
 	basetype = dt_node_basetype(dnp);
 
 	return ctf_type_kind(fp, basetype) == CTF_K_INTEGER &&
@@ -1020,8 +1073,12 @@ int
 dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
     ctf_file_t **fpp, ctf_id_t *tp)
 {
+	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
+
 	ctf_file_t *lfp = lp->dn_ctfp;
 	ctf_file_t *rfp = rp->dn_ctfp;
+	ctf_file_t *lreffp = lp->dn_ctfp;
+	ctf_file_t *rreffp = rp->dn_ctfp;
 
 	ctf_id_t lbase = CTF_ERR, rbase = CTF_ERR;
 	ctf_id_t lref = CTF_ERR, rref = CTF_ERR;
@@ -1060,28 +1117,30 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 	 * is CTF_K_POINTER or CTF_K_ARRAY).  Otherwise [lr]ref = CTF_ERR.
 	 */
 	if (!lp_is_int) {
-		lbase = ctf_type_resolve(lfp, lp->dn_type);
+		lbase = dt_type_resolve(dtp, &lfp, lp->dn_type, 0);
 		lkind = ctf_type_kind(lfp, lbase);
+		lreffp = lfp;
 
 		if (lkind == CTF_K_POINTER) {
-			lref = ctf_type_resolve(lfp,
-			    ctf_type_reference(lfp, lbase));
+			lref = dt_type_resolve(dtp, &lreffp,
+			    ctf_type_reference(lreffp, lbase), 0);
 		} else if (lkind == CTF_K_ARRAY &&
 		    ctf_array_info(lfp, lbase, &r) == 0) {
-			lref = ctf_type_resolve(lfp, r.ctr_contents);
+			lref = dt_type_resolve(dtp, &lreffp, r.ctr_contents, 0);
 		}
 	}
 
 	if (!rp_is_int) {
-		rbase = ctf_type_resolve(rfp, rp->dn_type);
+		rbase = dt_type_resolve(dtp, &rfp, rp->dn_type, 0);
 		rkind = ctf_type_kind(rfp, rbase);
+		rreffp = rfp;
 
 		if (rkind == CTF_K_POINTER) {
-			rref = ctf_type_resolve(rfp,
-			    ctf_type_reference(rfp, rbase));
+			rref = dt_type_resolve(dtp, &rreffp,
+			    ctf_type_reference(rreffp, rbase), 0);
 		} else if (rkind == CTF_K_ARRAY &&
 		    ctf_array_info(rfp, rbase, &r) == 0) {
-			rref = ctf_type_resolve(rfp, r.ctr_contents);
+			rref = dt_type_resolve(dtp, &rreffp, r.ctr_contents, 0);
 		}
 	}
 
@@ -1095,15 +1154,17 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 		lkind = rkind;
 		lref = rref;
 		lfp = rfp;
+		lreffp = rreffp;
 	} else if (rp_is_int) {
 		rbase = lbase;
 		rkind = lkind;
 		rref = lref;
 		rfp = lfp;
+		rreffp = lreffp;
 	}
 
-	lp_is_void = ctf_type_encoding(lfp, lref, &e) == 0 && IS_VOID(e);
-	rp_is_void = ctf_type_encoding(rfp, rref, &e) == 0 && IS_VOID(e);
+	lp_is_void = ctf_type_encoding(lreffp, lref, &e) == 0 && IS_VOID(e);
+	rp_is_void = ctf_type_encoding(rreffp, rref, &e) == 0 && IS_VOID(e);
 
 	/*
 	 * The types are compatible if both are pointers to the same type, or
@@ -1112,7 +1173,7 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 	 */
 	compat = (lkind == CTF_K_POINTER || lkind == CTF_K_ARRAY) &&
 	    (rkind == CTF_K_POINTER || rkind == CTF_K_ARRAY) &&
-	    (lp_is_void || rp_is_void || ctf_type_compat(lfp, lref, rfp, rref));
+	    (lp_is_void || rp_is_void || ctf_type_compat(lreffp, lref, rreffp, rref));
 
 	if (compat) {
 		if (fpp != NULL)
@@ -1153,11 +1214,14 @@ dt_node_is_argcompat(const dt_node_t *lp, const dt_node_t *rp)
 	if (dt_node_is_usymaddr(lp) && dt_node_is_usymaddr(rp))
 		return 1; /* usymaddr types are compatible */
 
-	switch (ctf_type_kind(lfp, ctf_type_resolve(lfp, lp->dn_type))) {
+	ctf_id_t ltype = dt_type_resolve(yypcb->pcb_hdl, &lfp, lp->dn_type, 0);
+	ctf_id_t rtype = dt_type_resolve(yypcb->pcb_hdl, &rfp, rp->dn_type, 0);
+
+	switch (ctf_type_kind(lfp, ltype)) {
 	case CTF_K_FUNCTION:
 	case CTF_K_STRUCT:
 	case CTF_K_UNION:
-		return ctf_type_compat(lfp, lp->dn_type, rfp, rp->dn_type);
+		return ctf_type_compat(lfp, ltype, rfp, rtype);
 	default:
 		return dt_node_is_ptrcompat(lp, rp, NULL, NULL);
 	}
@@ -1411,8 +1475,9 @@ dt_node_decl(void)
 		    ddp->dd_kind != CTF_K_UNION && ddp->dd_kind != CTF_K_ENUM)
 			xyerror(D_DECL_USELESS, "useless declaration\n");
 
-		dt_dprintf("type %s added as id %ld\n", dt_type_name(
-		    ddp->dd_ctfp, ddp->dd_type, n1, sizeof(n1)), ddp->dd_type);
+		dt_dprintf("type %s, kind %i, added as id %ld\n", dt_type_name(
+		    ddp->dd_ctfp, ddp->dd_type, n1, sizeof (n1)),
+		    ddp->dd_kind, ddp->dd_type);
 
 		return NULL;
 	}
@@ -1519,7 +1584,8 @@ dt_node_decl(void)
 			    dsp->ds_ident, ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		}
 
-		dt_dprintf("typedef %s added as id %ld\n", dsp->ds_ident, type);
+		dt_dprintf("typedef %s added to %p as id %lx\n", dsp->ds_ident,
+		    (void *) dmp->dm_ctfp, type);
 		break;
 
 	default: {
@@ -1665,7 +1731,7 @@ dt_node_decl(void)
 			uint_t alignment = 8;
 			uint_t size;
 
-			type = ctf_type_resolve(dtt.dtt_ctfp, dtt.dtt_type);
+			type = dt_type_resolve(dtp, &dtt.dtt_ctfp, dtt.dtt_type, 0);
 			basetype = dt_type_basetype(dtt.dtt_ctfp, dtt.dtt_type);
 			kind = ctf_type_kind(dtt.dtt_ctfp, basetype);
 			size = ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type);
@@ -1697,8 +1763,8 @@ dt_node_decl(void)
 				if (ctf_array_info(dtt.dtt_ctfp, dtt.dtt_type,
 						   &r) != 0)
 					break;
-				etype = ctf_type_resolve(dtt.dtt_ctfp,
-							 r.ctr_contents);
+				etype = dt_type_resolve(dtp, &dtt.dtt_ctfp,
+							r.ctr_contents, 0);
 				if (etype == CTF_ERR)
 					break;
 
@@ -1825,7 +1891,7 @@ dt_node_offsetof(dt_decl_t *ddp, char *s)
 	if (err != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 
-	type = ctf_type_resolve(dtt.dtt_ctfp, dtt.dtt_type);
+	type = dt_type_resolve(yypcb->pcb_hdl, &dtt.dtt_ctfp, dtt.dtt_type, 0);
 	kind = ctf_type_kind(dtt.dtt_ctfp, type);
 
 	if (kind != CTF_K_STRUCT && kind != CTF_K_UNION) {
@@ -2281,8 +2347,11 @@ dt_node_inline(dt_node_t *expr)
 		    "cannot declare void inline: %s\n", dsp->ds_ident);
 	}
 
-	if (ctf_type_kind(dnp->dn_ctfp, ctf_type_resolve(
-	    dnp->dn_ctfp, dnp->dn_type)) == CTF_K_FORWARD) {
+	ctf_id_t resolved = dt_type_resolve(dtp, &dnp->dn_ctfp, dnp->dn_type, 0);
+	if (resolved != CTF_ERR)
+		dnp->dn_type = resolved;
+
+	if (ctf_type_kind(dnp->dn_ctfp, resolved) == CTF_K_FORWARD) {
 		xyerror(D_DECL_INCOMPLETE,
 		    "incomplete struct/union/enum %s: %s\n",
 		    dt_node_type_name(dnp, n, sizeof(n)), dsp->ds_ident);
@@ -2438,6 +2507,7 @@ dt_node_xlator(dt_decl_t *ddp, dt_decl_t *sdp, char *name, dt_node_t *members)
 {
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	dtrace_typeinfo_t src, dst;
+	ctf_id_t resolved;
 	dt_node_t sn, dn;
 	dt_xlator_t *dxp;
 	dt_node_t *dnp;
@@ -2471,8 +2541,11 @@ dt_node_xlator(dt_decl_t *ddp, dt_decl_t *sdp, char *name, dt_node_t *members)
 		    dt_node_type_name(&dn, n2, sizeof(n2)));
 	}
 
-	kind = ctf_type_kind(dst.dtt_ctfp,
-	    ctf_type_resolve(dst.dtt_ctfp, dst.dtt_type));
+
+	resolved = dt_type_resolve(dtp, &dst.dtt_ctfp, dst.dtt_type, 0);
+	if (resolved != CTF_ERR)
+		dst.dtt_type = resolved;
+	kind = ctf_type_kind(dst.dtt_ctfp, dst.dtt_type);
 
 	if (kind == CTF_K_FORWARD) {
 		xyerror(D_XLATE_SOU, "incomplete struct/union/enum %s\n",
@@ -2917,6 +2990,7 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
+	ctf_file_t *basefp;
 	ctf_id_t type, base, basetype;
 	uint_t kind;
 
@@ -2966,7 +3040,7 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			break;
 		}
 
-		type = ctf_type_resolve(cp->dn_ctfp, cp->dn_type);
+		type = dt_type_resolve(dtp, &cp->dn_ctfp, cp->dn_type, 0);
 		kind = ctf_type_kind(cp->dn_ctfp, type);
 
 		if (kind == CTF_K_ARRAY) {
@@ -2983,8 +3057,9 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 		}
 
 		dt_node_type_assign(dnp, cp->dn_ctfp, type);
-		base = ctf_type_resolve(cp->dn_ctfp, type);
-		basetype = dt_type_basetype (cp->dn_ctfp, type);
+		basefp = cp->dn_ctfp;
+		base = dt_type_resolve(dtp, &basefp, type, 0);
+		basetype = dt_type_basetype(basefp, type);
 		kind = ctf_type_kind(cp->dn_ctfp, basetype);
 
 		if (kind == CTF_K_INTEGER && ctf_type_encoding(cp->dn_ctfp,
@@ -3068,7 +3143,7 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 		dtt.dtt_ctfp = cp->dn_ctfp;
 		dtt.dtt_type = cp->dn_type;
 
-		if (dt_type_pointer(&dtt) == -1) {
+		if (dt_type_pointer(&dtt, 0) == -1) {
 			xyerror(D_TYPE_ERR, "cannot find type for \"&\": %s*\n",
 			    dt_node_type_name(cp, n, sizeof(n)));
 		}
@@ -3149,7 +3224,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 	ctf_membinfo_t m;
 	ctf_file_t *ctfp;
-	ctf_id_t type;
+	ctf_id_t type, resolved;
 	int kind, val, uref;
 	dt_ident_t *idp;
 
@@ -3289,8 +3364,11 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 */
 		lp = dnp->dn_left = dt_node_cook(lp, DT_IDFLG_REF);
 
-		kind = ctf_type_kind(lp->dn_ctfp,
-		    ctf_type_resolve(lp->dn_ctfp, lp->dn_type));
+		resolved = dt_type_resolve(dtp, &lp->dn_ctfp, lp->dn_type, 0);
+		if (resolved != CTF_ERR)
+			lp->dn_type = resolved;
+
+		kind = ctf_type_kind(lp->dn_ctfp, lp->dn_type);
 
 		if (kind == CTF_K_ENUM && rp->dn_kind == DT_NODE_IDENT &&
 		    strchr(rp->dn_string, '`') == NULL && ctf_enum_value(
@@ -3360,6 +3438,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		int lp_is_ptr, lp_is_int, rp_is_ptr, rp_is_int;
 
 		ctf_arinfo_t r;
+		ctf_file_t *arfp;
 		ctf_id_t artype;
 		int arkind;
 
@@ -3400,13 +3479,14 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 * Array bounds-checking.  (Non-associative arrays only.)
 		 */
 
-		artype = ctf_type_resolve(lp->dn_ctfp, lp->dn_type);
-		arkind = ctf_type_kind(lp->dn_ctfp, artype);
+		arfp = lp->dn_ctfp;
+		artype = dt_type_resolve(dtp, &arfp, lp->dn_type, 0);
+		arkind = ctf_type_kind(arfp, artype);
 
 		if (arkind == CTF_K_ARRAY &&
 		    !(lp->dn_kind == DT_NODE_VAR &&
 			lp->dn_ident->di_kind == DT_IDENT_ARRAY)) {
-			ctf_array_info(lp->dn_ctfp, artype, &r);
+			ctf_array_info(arfp, artype, &r);
 
 			if (rp->dn_kind == DT_NODE_INT &&
 			    ctf_array_info(lp->dn_ctfp, type, &r) == 0 &&
@@ -3589,8 +3669,11 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 * most of this code with the argument list checking code.
 		 */
 		if (!dt_node_is_string(lp)) {
-			kind = ctf_type_kind(lp->dn_ctfp,
-			    ctf_type_resolve(lp->dn_ctfp, lp->dn_type));
+			ctf_file_t *tmp = lp->dn_ctfp;
+			ctf_id_t resolved;
+
+			resolved = dt_type_resolve(dtp, &tmp, lp->dn_type, 0);
+			kind = ctf_type_kind(tmp, resolved);
 
 			if (kind == CTF_K_ARRAY || kind == CTF_K_FUNCTION) {
 				xyerror(D_OP_ARRFUN, "operator %s may not be "
@@ -3733,11 +3816,11 @@ asgn_common:
 			}
 
 			ctfp = idp->di_ctfp;
-			type = ctf_type_resolve(ctfp, idp->di_type);
+			type = dt_type_resolve(dtp, &ctfp, idp->di_type, 0);
 			uref = idp->di_flags & DT_IDFLG_USER;
 		} else {
 			ctfp = lp->dn_ctfp;
-			type = ctf_type_resolve(ctfp, lp->dn_type);
+			type = dt_type_resolve(dtp, &ctfp, lp->dn_type, 0);
 			uref = lp->dn_flags & DT_NF_USERLAND;
 		}
 
@@ -3749,7 +3832,7 @@ asgn_common:
 				    "applied to a pointer\n", opstr(op));
 			}
 			type = ctf_type_reference(ctfp, type);
-			type = ctf_type_resolve(ctfp, type);
+			type = dt_type_resolve(dtp, &ctfp, type, 0);
 			kind = ctf_type_kind(ctfp, type);
 		}
 
@@ -3764,7 +3847,7 @@ asgn_common:
 			if (tag != NULL && dt_type_lookup(tag, &dtt) == 0 &&
 			    (dtt.dtt_ctfp != ctfp || dtt.dtt_type != type)) {
 				ctfp = dtt.dtt_ctfp;
-				type = ctf_type_resolve(ctfp, dtt.dtt_type);
+				type = dt_type_resolve(dtp, &ctfp, dtt.dtt_type, 0);
 				kind = ctf_type_kind(ctfp, type);
 			} else {
 				xyerror(D_OP_INCOMPLETE,
@@ -3792,8 +3875,9 @@ asgn_common:
 			    "%s is not a member of %s\n", rp->dn_string,
 			    ctf_type_name(ctfp, type, n1, sizeof(n1)));
 
-		type = ctf_type_resolve(ctfp, m.ctm_type);
-		kind = ctf_type_kind(ctfp, type);
+		ctf_file_t *tmp = ctfp;
+		type = dt_type_resolve(dtp, &tmp, m.ctm_type, 0);
+		kind = ctf_type_kind(tmp, type);
 
 		dt_node_type_assign(dnp, ctfp, m.ctm_type);
 		dt_node_attr_assign(dnp, lp->dn_attr);
@@ -3928,17 +4012,20 @@ asgn_common:
 	}
 
 	case DT_TOK_LPAR: {
+		ctf_file_t *lfp, *rfp;
 		ctf_id_t ltype, rtype;
 		uint_t lkind, rkind;
 
 		assert(lp->dn_kind == DT_NODE_TYPE);
 		rp = dnp->dn_right = dt_node_cook(rp, DT_IDFLG_REF);
 
-		ltype = ctf_type_resolve(lp->dn_ctfp, lp->dn_type);
-		lkind = ctf_type_kind(lp->dn_ctfp, ltype);
+		lfp = lp->dn_ctfp;
+		ltype = dt_type_resolve(dtp, &lfp, lp->dn_type, 0);
+		lkind = ctf_type_kind(lfp, ltype);
 
-		rtype = ctf_type_resolve(rp->dn_ctfp, rp->dn_type);
-		rkind = ctf_type_kind(rp->dn_ctfp, rtype);
+		rfp = rp->dn_ctfp;
+		rtype = dt_type_resolve(dtp, &rfp, rp->dn_type, 0);
+		rkind = ctf_type_kind(rfp, rtype);
 
 		/*
 		 * The rules for casting are loosely explained in K&R[A7.5]
@@ -4244,7 +4331,8 @@ dt_cook_inline(dt_node_t *dnp, uint_t idflags)
 	    (rdp = dt_node_resolve(inp->din_root, DT_IDENT_XLPTR)) != NULL) {
 
 		ctf_file_t *lctfp = dnp->dn_ctfp;
-		ctf_id_t ltype = ctf_type_resolve(lctfp, dnp->dn_type);
+		ctf_id_t ltype = dt_type_resolve(yypcb->pcb_hdl,
+		    &lctfp, dnp->dn_type, 0);
 
 		dt_xlator_t *dxp = rdp->di_data;
 		ctf_file_t *rctfp = dxp->dx_dst_ctfp;
@@ -4252,7 +4340,8 @@ dt_cook_inline(dt_node_t *dnp, uint_t idflags)
 
 		if (ctf_type_kind(lctfp, ltype) == CTF_K_POINTER) {
 			ltype = ctf_type_reference(lctfp, ltype);
-			ltype = ctf_type_resolve(lctfp, ltype);
+			ltype = dt_type_resolve(yypcb->pcb_hdl, &lctfp,
+						ltype, 0);
 		}
 
 		if (ctf_type_compat(lctfp, ltype, rctfp, rtype) == 0) {
@@ -4616,19 +4705,26 @@ dt_node_link(dt_node_t *lp, dt_node_t *rp)
 void
 dt_node_diftype(dtrace_hdl_t *dtp, const dt_node_t *dnp, dtrace_diftype_t *tp)
 {
-	if (dnp->dn_ctfp == DT_STR_CTFP(dtp) &&
-	    dnp->dn_type == DT_STR_TYPE(dtp)) {
+	ctf_file_t *fp = dnp->dn_ctfp;
+	ctf_id_t type = dnp->dn_type;
+
+	if (fp == DT_STR_CTFP(dtp) &&
+	    type == DT_STR_TYPE(dtp)) {
 		tp->dtdt_kind = DIF_TYPE_STRING;
 		tp->dtdt_ckind = CTF_K_UNKNOWN;
 	} else {
+		ctf_id_t tmp;
 		tp->dtdt_kind = DIF_TYPE_CTF;
-		tp->dtdt_ckind = ctf_type_kind(dnp->dn_ctfp,
-		    ctf_type_resolve(dnp->dn_ctfp, dnp->dn_type));
+		tmp = dt_type_resolve(dtp, &fp, type, 0);
+		tp->dtdt_ckind = ctf_type_kind(fp, tmp);
 	}
 
 	tp->dtdt_flags = (dnp->dn_flags & DT_NF_REF) ? DIF_TF_BYREF : 0;
 	tp->dtdt_pad = 0;
-	tp->dtdt_size = ctf_type_size(dnp->dn_ctfp, dnp->dn_type);
+	if (ctf_type_kind(fp, type) != CTF_K_FORWARD)
+		tp->dtdt_size = ctf_type_size(fp, type);
+	else
+		tp->dtdt_size = 0;
 }
 
 void
