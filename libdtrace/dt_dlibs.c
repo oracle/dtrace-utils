@@ -134,20 +134,29 @@ dt_dlib_get_xsym(dtrace_hdl_t *dtp, const char *name, int kind)
 }
 
 /*
- * Add a BPF identifier of a given type.
+ * Add a BPF identifier of a given kind with given id.
  */
-dt_ident_t *
-dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind)
+static dt_ident_t *
+dt_dlib_add_sym_id(dtrace_hdl_t *dtp, const char *name, int kind, uint_t id)
 {
 	dt_idhash_t	*dhp = dtp->dt_bpfsyms;
 	dt_ident_t	*idp;
 
-	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, DT_IDENT_UNDEF,
+	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, id,
 			       dt_bpf_attr, DT_VERS_2_0,
 			       kind == DT_IDENT_SYMBOL ? &dt_idops_difo : NULL,
 			       dtp, 0);
 
 	return idp;
+}
+
+/*
+ * Add a BPF identifier of a given kind.
+ */
+static dt_ident_t *
+dt_dlib_add_sym(dtrace_hdl_t *dtp, const char *name, int kind)
+{
+	return dt_dlib_add_sym_id(dtp, name, kind, DT_IDENT_UNDEF);
 }
 
 /*
@@ -199,6 +208,15 @@ dt_ident_t *
 dt_dlib_get_var(dtrace_hdl_t *dtp, const char *name)
 {
 	return dt_dlib_get_xsym(dtp, name, DT_IDENT_SCALAR);
+}
+
+/*
+ * Add a BPF variable.
+ */
+dt_ident_t *
+dt_dlib_add_var(dtrace_hdl_t *dtp, const char *name, uint_t id)
+{
+	return dt_dlib_add_sym_id(dtp, name, DT_IDENT_SCALAR, id);
 }
 
 /*

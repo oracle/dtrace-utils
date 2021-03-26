@@ -698,11 +698,13 @@ extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
 extern void dt_dlib_init(dtrace_hdl_t *dtp);
+extern dt_ident_t *dt_dlib_get_sym(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_add_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
+extern dt_ident_t *dt_dlib_add_var(dtrace_hdl_t *dtp, const char *name,
+				   uint_t id);
 extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);
-extern dt_ident_t *dt_dlib_get_sym(dtrace_hdl_t *, const char *);
 extern dtrace_difo_t *dt_dlib_get_func_difo(dtrace_hdl_t *, const dt_ident_t *);
 extern void dt_dlib_reset(dtrace_hdl_t *dtp, boolean_t);
 extern int dt_load_libs(dtrace_hdl_t *dtp);
