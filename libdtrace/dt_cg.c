@@ -302,12 +302,13 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 }
 
 void
-dt_cg_tramp_call_clauses(dt_pcb_t *pcb, dt_activity_t act)
+dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp,
+			 dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_clause_arg_t	arg = { dlp, act, pcb->pcb_exitlbl };
 
-	dt_probe_clause_iter(pcb->pcb_hdl, pcb->pcb_probe,
+	dt_probe_clause_iter(pcb->pcb_hdl, prp,
 			     (dt_clause_f *)dt_cg_call_clause, &arg);
 }
 
@@ -330,7 +331,7 @@ dt_cg_tramp_return(dt_pcb_t *pcb)
 void
 dt_cg_tramp_epilogue(dt_pcb_t *pcb)
 {
-	dt_cg_tramp_call_clauses(pcb, DT_ACTIVITY_ACTIVE);
+	dt_cg_tramp_call_clauses(pcb, pcb->pcb_probe, DT_ACTIVITY_ACTIVE);
 	dt_cg_tramp_return(pcb);
 }
 
@@ -339,7 +340,7 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 
-	dt_cg_tramp_call_clauses(pcb, act);
+	dt_cg_tramp_call_clauses(pcb, pcb->pcb_probe, act);
 
 	/*
 	 *	(*dctx.act)++;		// lddw %r0, [%fp + DCTX_FP(DCTX_ACT)]
