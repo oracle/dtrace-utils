@@ -1,3 +1,112 @@
+2.0.0-1.5 (Apr  9th, 2021)
+--------------------------
+
+Fifth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The pid provider has been implemented, enabling function boundary tracing
+   at the userspace level (in shared libraries and executables).  Future
+   development will augment the functionality provided here with arbitrary
+   instruction tracing at the userspace level.
+
+ - The ERROR probe (dtrace provider) is implemented.  Some error conditions
+   such as division by zero or NULL pointer dereferencing are explicitly
+   checked in the BPF program because they constitute fatal failures in BPF
+   program execution.
+
+ - Normalization aggregation actions have been implemented: normalize(), and
+   denormalize().
+
+ - Support has been added for global and local variables of size greater than
+   8 bytes and accessing variables by reference, including allowing struct
+   assignment statements, for sizes up to 256 bytes.  Future work will allow
+   larger value sizes.
+
+ - A -xbpflogsize=N option has been added to specify the maximum size of the
+   BPF verifier output log.  This log is generated when a BPF program cannot
+   to be loaded into the kernel.  The option can also be set with a D option
+   pragma.
+
+ - The -xdisasm=N support for the -S option has been improved.  The list of
+   available disassembly listings has been updated.  The value of <N> is the
+   sum of any number of the following available listings:
+
+   - 1 = After compilation and assembly of a clause function.
+   - 2 = After constructing a probe program.
+   - 4 = After linking dependencies into a probe program.
+   - 8 = After all processing, prior to loading a probe program.
+
+Packaging changes:
+
+ - Sample scripts have been added for building DTrace on Ubuntu.
+
+Bugfixes:
+
+ - Various aggregations bug fixes:  resetting aggregations, formatted printa(),
+   not printing aggregations with no data (using per-aggregation latches), etc.
+
+ - Bit-field operations have been fixed in a manner that preserves legacy
+   behavior (aligning each bit field to the size of the next largest integer
+   type).
+
+Internal changes:
+
+ - The implementation of kernel tracepoint based providers has been reworked
+   for greater consistency and to accommodate the needs of the new pid provider
+   implementation.  The pid provider also provides a sample for implementing
+   providers that expose probes that do not map one-to-one to kernel probes.
+
+ - There is now a mechanism to turn off dual-copy aggregation code.  We
+   anticipate using that mechanism when we migrate to newer kernels,
+   but for the time being it is simply using up excessive BPF map space.
+
+ - The eventfd mechanism is used as a replacement for the condition variable
+   that used to signal that one or more processes terminated.  This means that
+   process termination notifications are processed together with trace buffer
+   data notifications.  The dtrace_sleep() function has been deprecated.
+
+ - The source code was refactored for greater stylistic consistency, and a
+   style guide (CODING-STYLE) was added.
+
+ - A standard implementation for *_add and _del htab functions was introduced.
+
+ - Jump-target relocation for generated BPF code was fixed to handle
+   unlabeled BPF_NOP instructions.
+
+ - Handle translators with definitions that vary in more than two kernel
+   releases.
+
+ - The get_gvar() and set_gvar() pre-compiled BPF functions have been
+   removed.
+
+Testsuite changes:
+
+ - New tests have been added or XFAIL annotations revised for new features.
+
+ - A probe to test/unittest/pragma/*libdep* tests has been added to
+   eliminate their reliance on undefined behavior with regards to what
+   library dependencies mean in the absence of any probes.
+
+ - There are improvements in aggregation tests.
+
+ - Some disassembly tests have been added.
+
+Known problems:
+
+ - Some architecture (like aarch64) set aside a hardcoded amount of memory for
+   JIT compiled BPF programs.  Each program or sub-program takes up a whole
+   number of pages in memory.  If the kernel has been configured with a large
+   pagesize (16k or even 64k), the reserved amount of memory may not be
+   sufficient to support a larger amount of probes to be used at the same time.
+
+   Note that the reserved memory is system-wide so concurrent DTrace tracing
+   sessions will consume memory from the same limited pool of pages.
+
+   There is no known workaround for this at the current time.
+
 2.0.0-1.4 (Dec  9th, 2020)
 --------------------------
 
@@ -10,7 +119,7 @@ New features:
  - Aggregations have been implemented.  For now, only non-indexed aggregations
    are supported, e.g. @, @a, @foo, but not @[1], @a["foo"].
 
- - All aggegation functions have been implemented: avg(), count(),
+ - All aggregation functions have been implemented: avg(), count(),
    llquantize(), lquantize(), max(), min(), quantize(), stddev(), and sum().
 
  - Argument checking for aggregation functions has been improved.

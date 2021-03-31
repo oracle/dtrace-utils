@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.4%{?dist}
+Release:      1.5%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,9 +227,32 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Apr  9 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.5
+- Implement the ERROR probe. [Orabug: 32749498]
+- Add checks in BPF programs for division by zero and NULL pointer dereference.
+  [Orabug: 32749498]
+- Implement the pid provider for userspace function boundary tracing.
+  [Orabug: 32749504]
+- Implement the -w option to explicitly allow destructive actions.
+  [Orabug: 31632678]
+- Add support in translators for more than two kernel variants.  (Nick Alcock)
+  [Orabug: 32748968]
+- Switch from condition variable to eventfd for process death notifications.
+  [Orabug: 32125018]
+- Implement normalize() and denormalize() actions.
+- Reworking of kernel tracepoint based providers.  [Orabug: 32125018]
+- Reworking of global and local variable storage to allow for values sizes
+  beyond 8 bytes. (Eugene Loh) [Orabug: 32125018]
+- Implement -xbpflogsize option. (Eugene Loh) [Orabug: 32125018]
+- Improvements to -xdisasm support. (Eugene Loh) [Orabug: 32125018]
+- Fix bitfield operations. (Eugene Loh) [Orabug: 32125018]
+- Sample scripts for building DTrace on Ubuntu. (David McLean)
+- Coding style updates. (Eugene Loh)
+- Testsuite updates.
+
 * Wed Dec  9 2020 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.4
 - Implement aggregation support code for both producer and consumer.
-  [Orabug: 32254734]\
+  [Orabug: 32254734]
 - Implement aggregation functions: count(), lquantize().
 - Implement aggregation functions: avg(), llquantize(), quantize().
   (Eugene Loh)
