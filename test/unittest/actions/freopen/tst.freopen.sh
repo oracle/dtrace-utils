@@ -5,10 +5,10 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# @@xfail: dtv2
+
 script()
 {
-	$dtrace $dt_flags -wq -o $tmpfile -s /dev/stdin $tmpfile <<EOF
+	$dtrace $dt_flags -wq -o $tmpfile -s /dev/stdin <<EOF
 	BEGIN
 	{
 		i = 0;
@@ -16,7 +16,7 @@ script()
 
 	tick-10ms
 	{
-		freopen("%s.%d", \$\$1, i);
+		freopen("$tmpfile.%d", i);
 		printf("%d\n", i)
 	}
 
