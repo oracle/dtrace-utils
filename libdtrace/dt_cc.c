@@ -2287,6 +2287,8 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	/*
 	 * Now go through the relocations once more, performing the actual
 	 * work of adding executable code (and relocations) for dependencies.
+	 * We also set the destructive flag on the DIFO if any of the
+	 * dependencies have the flag set.
 	 */
 	len = sdp->dtdo_brelen;
 	rp = sdp->dtdo_breltab;
@@ -2353,6 +2355,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 
 			idp->di_id = ipc;
 			nrp->dofr_data = idp->di_id;	/* set value */
+
+			if (rdp->dtdo_flags & DIFOFLG_DESTRUCTIVE)
+				dp->dtdo_flags |= DIFOFLG_DESTRUCTIVE;
 
 			continue;
 		default:
@@ -2466,7 +2471,7 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 
 	/*
 	 * Replace the program DIFO instruction buffer, BPF relocation table,
-	 * and variable table with the new versions.
+	 * and variable table with the new versions.  Also copy the DIFO flags.
 	 */
 	dt_free(dtp, dp->dtdo_buf);
 	dp->dtdo_buf = fdp->dtdo_buf;
@@ -2477,6 +2482,7 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	dt_free(dtp, dp->dtdo_breltab);
 	dp->dtdo_breltab = fdp->dtdo_breltab;
 	dp->dtdo_brelen = fdp->dtdo_brelen;
+	dp->dtdo_flags = fdp->dtdo_flags;
 
 	/*
 	 * Write out the new string table.

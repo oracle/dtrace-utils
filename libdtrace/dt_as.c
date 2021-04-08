@@ -366,6 +366,9 @@ fail:
 		 */
 		dp->dtdo_buf[i].off = labels[instr.off] - i - 1;
 	}
+	if (pcb->pcb_stmt != NULL &&
+	    pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_DESTRUCT)
+		dp->dtdo_flags |= DIFOFLG_DESTRUCTIVE;
 
 	pcb->pcb_asvidx = 0;
 

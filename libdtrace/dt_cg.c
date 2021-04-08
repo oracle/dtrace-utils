@@ -786,6 +786,9 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 {
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
 
+	if (DTRACEACT_ISDESTRUCTIVE(kind))
+		*cfp |= DT_CLSFLAG_DESTRUCT;
+
 	if (kind == DTRACEACT_COMMIT) {
 		if (*cfp & DT_CLSFLAG_COMMIT)
 			dnerror(dnp, D_COMM_COMM,

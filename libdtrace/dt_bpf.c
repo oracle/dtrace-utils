@@ -437,6 +437,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	dt_probe_t	*prp;
 	dtrace_difo_t	*dp;
 	dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_error");
+	dtrace_optval_t	dest_ok = DTRACEOPT_UNSET;
 
 	assert(idp != NULL);
 
@@ -455,6 +456,11 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	dt_bpf_reloc_error_prog(dtp, dp);
 
 	/*
+	 * Determine whether we can allow destructive actions.
+	 */
+	dtrace_getopt(dtp, "destructive", &dest_ok);
+
+	/*
 	 * Now construct all the other programs.
 	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
@@ -468,6 +474,9 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		dp = dt_program_construct(dtp, prp, cflags, NULL);
 		if (dp == NULL)
 			return -1;
+		if (dp->dtdo_flags & DIFOFLG_DESTRUCTIVE &&
+		    dest_ok == DTRACEOPT_UNSET)
+			return dt_set_errno(dtp, EDT_DESTRUCTIVE);
 
 		fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
 		if (fd < 0)
