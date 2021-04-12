@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.5%{?dist}
+Release:      1.5.1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Apr 12 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.5.1
+- Memory corruption fix in pid probe discovery.
+
 * Fri Apr  9 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.5
 - Implement the ERROR probe. [Orabug: 32749498]
 - Add checks in BPF programs for division by zero and NULL pointer dereference.
