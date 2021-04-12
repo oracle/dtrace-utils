@@ -784,7 +784,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {
 	dtrace_prog_t *pgp;
 	dt_stmt_t *stp;
-	dtrace_probedesc_t *pdp, pd;
+	dtrace_probedesc_t *pdp;
 	pid_t pid;
 	int ret = 0, found = B_FALSE;
 	char provname[DTRACE_PROVNAMELEN];
@@ -793,9 +793,9 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 
 	for (pgp = dt_list_next(&dtp->dt_programs); pgp != NULL;
 	    pgp = dt_list_next(pgp)) {
-
 		for (stp = dt_list_next(&pgp->dp_stmts); stp != NULL;
 		    stp = dt_list_next(stp)) {
+			dtrace_probedesc_t	pd;
 
 			pdp = &stp->ds_desc->dtsd_ecbdesc->dted_probe;
 			pid = dt_pid_get_pid(pdp, dtp, NULL, dpr);
@@ -805,6 +805,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			found = B_TRUE;
 
 			pd = *pdp;
+			pd.fun = strdup(pd.fun);	/* we may change it */
 
 			if (gmatch(provname, pdp->prv) != 0 &&
 			    dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
@@ -819,6 +820,8 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			    dt_pid_create_usdt_probes(&pd, dtp, NULL, dpr) != 0)
 				ret = 1;
 #endif
+
+			free((char *)pd.fun);
 		}
 	}
 
