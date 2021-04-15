@@ -46,19 +46,19 @@ static int populate(dtrace_hdl_t *dtp)
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
 	if (prp) {
 		n++;
-		dt_list_append(&dtp->dt_enablings, prp);
+		dt_probe_enable(dtp, prp);
 	}
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
 	if (prp) {
 		n++;
-		dt_list_append(&dtp->dt_enablings, prp);
+		dt_probe_enable(dtp, prp);
 	}
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR");
 	if (prp) {
 		n++;
-		dt_list_append(&dtp->dt_enablings, prp);
+		dt_probe_enable(dtp, prp);
 		dtp->dt_error = prp;
 	}
 

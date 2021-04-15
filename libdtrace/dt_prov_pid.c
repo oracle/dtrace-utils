@@ -179,11 +179,8 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	assert(prp->prov->impl == &dt_pid_proc);
 
-	/* We should enable the main (real) probe (if not enabled yet). */
-	prp = prp->prv_data;
-
-	if (!dt_in_list(&dtp->dt_enablings, prp))
-		dt_list_append(&dtp->dt_enablings, prp);
+	/* We need to enable the main (real) probe (if not enabled yet). */
+	dt_probe_enable(dtp, (dt_probe_t *)prp->prv_data);
 }
 
 /*

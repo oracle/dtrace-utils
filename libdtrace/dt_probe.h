@@ -63,6 +63,7 @@ extern dt_probe_t *dt_probe_info(dtrace_hdl_t *,
     const dtrace_probedesc_t *, dtrace_probeinfo_t *);
 
 extern void dt_probe_declare(dt_provider_t *, dt_probe_t *);
+extern void dt_probe_enable(dtrace_hdl_t *dtp, dt_probe_t *prp);
 extern void dt_probe_destroy(dt_probe_t *);
 
 extern int dt_probe_define(dt_provider_t *, dt_probe_t *,

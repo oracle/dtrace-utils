@@ -149,13 +149,7 @@ dt_stmt_probe(dtrace_hdl_t *dtp, dt_probe_t *prp, pi_state_t *st)
 	dtrace_probeinfo_t	p;
 
 	dt_probe_info(dtp, prp->desc, &p);
-
-	assert(prp->prov->impl != NULL);
-	if (prp->prov->impl->enable == NULL) {
-		if (!dt_in_list(&dtp->dt_enablings, prp))
-			dt_list_append(&dtp->dt_enablings, prp);
-	} else
-		prp->prov->impl->enable(dtp, prp);
+	dt_probe_enable(dtp, prp);
 
 	dt_probe_add_clause(dtp, prp, st->idp);
 	(*st->cnt)++;

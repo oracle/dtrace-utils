@@ -444,6 +444,17 @@ dt_probe_declare(dt_provider_t *pvp, dt_probe_t *prp)
 }
 
 void
+dt_probe_enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	assert(prp->prov->impl != NULL);
+	if (prp->prov->impl->enable == NULL) {
+		if (!dt_in_list(&dtp->dt_enablings, prp))
+			dt_list_append(&dtp->dt_enablings, prp);
+	} else
+		prp->prov->impl->enable(dtp, prp);
+}
+
+void
 dt_probe_destroy(dt_probe_t *prp)
 {
 	dt_probeclause_t	*pcp, *pcp_next;
