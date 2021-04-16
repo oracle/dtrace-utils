@@ -567,15 +567,9 @@ fail:
 	 * We keep the string table around (dtp->dt_csstab) because further
 	 * compilations may add more strings.  We will load a consolidated
 	 * compiled string table into a strtab BPF map so it can be used ny
-	 * all BPF programs we will be loading.  Since each DIFO will have a
-	 * string table that comprises the strings of all DIFOs before it along
-	 * with any new ones, we simply assign the latest (and most complete)
-	 * string table to dtp->dt_strtab (and the size as dtp->dt_strlen), so
-	 * that when we are ready to load and execute programs, we know we have
-	 * the latest and greatest string table to work with.
-	 *
-	 * Note that this means that we should *not* free dtp->dt_strtab later
-	 * because it will be free'd when the DIFO is destroyed.
+	 * all BPF programs we will be loading.  Therefore, each DIFO will have
+	 * a string table that comprises the strings of all DIFOs before it
+	 * along with any new ones.
 	 */
 	dp->dtdo_strlen = dt_strtab_size(dtp->dt_ccstab);
 	if (dp->dtdo_strlen > 0) {
@@ -586,9 +580,6 @@ fail:
 		dt_strtab_write(dtp->dt_ccstab,
 				(dt_strtab_write_f *)dt_strtab_copystr,
 				dp->dtdo_strtab);
-
-		dtp->dt_strtab = dp->dtdo_strtab;
-		dtp->dt_strlen = dp->dtdo_strlen;
 	} else
 		dp->dtdo_strtab = NULL;
 

@@ -198,7 +198,7 @@ int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
 	int		gvarsz, lvarsz, tvarc, aggsz;
-	int		ci_mapfd;
+	int		ci_mapfd, st_mapfd;
 	uint32_t	key = 0;
 
 	/* If we already created the global maps, return success. */
@@ -251,8 +251,21 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 				roundup(dtp->dt_maxreclen, 8), 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
-	if (create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), dtp->dt_strlen, 1) == -1)
+	/*
+	 * We may need to create a final copy of the string table because it is
+	 * possible entries were added after the last clause was compiled.
+	 */
+	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
+	dtp->dt_strtab = dt_zalloc(dtp, dtp->dt_strlen);
+	if (dtp->dt_strtab == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	dt_strtab_write(dtp->dt_ccstab, (dt_strtab_write_f *)dt_strtab_copystr,
+			dtp->dt_strtab);
+
+	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
+			       sizeof(uint32_t), dtp->dt_strlen, 1);
+	if (st_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
 	if (gvarsz > 0 &&
@@ -272,6 +285,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
+
+	/* Populate the 'strtab' map. */
+	dt_bpf_map_update(st_mapfd, &key, dtp->dt_strtab);
 
 	/* Set some task_struct offsets in state. */
 	if (set_task_offsets(dtp))
