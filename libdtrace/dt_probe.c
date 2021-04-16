@@ -452,6 +452,11 @@ dt_probe_enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 			dt_list_append(&dtp->dt_enablings, prp);
 	} else
 		prp->prov->impl->enable(dtp, prp);
+
+	dt_strtab_insert(dtp->dt_ccstab, prp->desc->prv);
+	dt_strtab_insert(dtp->dt_ccstab, prp->desc->mod);
+	dt_strtab_insert(dtp->dt_ccstab, prp->desc->fun);
+	dt_strtab_insert(dtp->dt_ccstab, prp->desc->prb);
 }
 
 void
