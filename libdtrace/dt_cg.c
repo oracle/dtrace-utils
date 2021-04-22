@@ -3438,20 +3438,21 @@ dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
 	/*
 	 *	ptr = dctx->agg;	// lddw %rptr, [%fp + DT_STK_DCTX]
 	 *				// lddw %rptr, [%rptr + DCTX_AGG]
-	 *	ptr += aid->di_offset;	// add %rptr, aid->di_offset
 	 */
 	emit(dlp, BPF_LOAD(BPF_DW, rptr, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp, BPF_LOAD(BPF_DW, rptr, rptr, DCTX_AGG));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, aid->di_offset));
 
 	/*
-	 *	*((uint64_t *)ptr)++;	// mov %r0, 1
-	 *				// xadd [%rptr + 0], %r0
-	 *      ptr += sizeof(uint64_t);// add %rptr, sizeof(uint64_t)
+	 *	*((uint64_t *)(ptr + aid->di_offset))++;
+	 *				// mov %r0, 1
+	 *				// xadd [%rptr + aid->di_offset], %r0
+	 *      ptr += aid->di_offset + sizeof(uint64_t);
+	 *				// add %rptr, aid->di_offset +
+	 *				//	      sizeof(uint64_t)
 	 */
 	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
-	emit(dlp, BPF_XADD_REG(BPF_DW, rptr, 0, BPF_REG_0));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, sizeof(uint64_t)));
+	emit(dlp, BPF_XADD_REG(BPF_DW, rptr, aid->di_offset, BPF_REG_0));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, aid->di_offset + sizeof(uint64_t)));
 
 	dt_regset_free(drp, BPF_REG_0);
 
