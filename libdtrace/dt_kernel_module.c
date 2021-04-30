@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -39,7 +39,7 @@ static pthread_mutex_t kern_path_update_lock = PTHREAD_MUTEX_INITIALIZER;
 dt_kern_path_t *
 dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
+	uint_t h = str2hval(name, 0) % dtp->dt_kernpathbuckets;
 	dt_kern_path_t *dkpp;
 
 	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
@@ -69,7 +69,7 @@ dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 void
 dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
 {
-	uint_t h = dt_strtab_hash(dkpp->dkp_name, NULL) % dtp->dt_kernpathbuckets;
+	uint_t h = str2hval(dkpp->dkp_name, 0) % dtp->dt_kernpathbuckets;
 	dt_kern_path_t *scan_dkpp;
 	dt_kern_path_t *prev_dkpp = NULL;
 
@@ -178,7 +178,7 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 dt_kern_path_t *
 dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_kernpathbuckets;
+	uint_t h = str2hval(name, 0) % dtp->dt_kernpathbuckets;
 	dt_kern_path_t *dkpp;
 
 	if (dtp->dt_nkernpaths == 0) {

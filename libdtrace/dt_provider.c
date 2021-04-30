@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -37,7 +37,7 @@ dt_provider_insert(dtrace_hdl_t *dtp, dt_provider_t *pvp, uint_t h)
 dt_provider_t *
 dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_provbuckets;
+	uint_t h = str2hval(name, 0) % dtp->dt_provbuckets;
 	dt_provider_t *pvp;
 
 	for (pvp = dtp->dt_provs[h]; pvp != NULL; pvp = pvp->pv_next) {
@@ -72,7 +72,7 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 	memcpy(&pvp->desc.dtvd_attr, pattr, sizeof(dtrace_pattr_t));
 
 	return dt_provider_insert(dtp, pvp,
-	    dt_strtab_hash(name, NULL) % dtp->dt_provbuckets);
+				  str2hval(name, 0) % dtp->dt_provbuckets);
 }
 
 void
@@ -83,7 +83,7 @@ dt_provider_destroy(dtrace_hdl_t *dtp, dt_provider_t *pvp)
 
 	assert(pvp->pv_hdl == dtp);
 
-	h = dt_strtab_hash(pvp->desc.dtvd_name, NULL) % dtp->dt_provbuckets;
+	h = str2hval(pvp->desc.dtvd_name, 0) % dtp->dt_provbuckets;
 	pp = &dtp->dt_provs[h];
 
 	while (*pp != NULL && *pp != pvp)

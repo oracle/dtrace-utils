@@ -17,7 +17,7 @@
 #include <dt_parser.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
-#include <dt_strtab.h>
+#include <dt_string.h>
 #include <dt_impl.h>
 
 static void
@@ -723,8 +723,7 @@ dt_idhash_update(dt_idhash_t *dhp)
 dt_ident_t *
 dt_idhash_lookup(dt_idhash_t *dhp, const char *name)
 {
-	size_t len;
-	ulong_t h = dt_strtab_hash(name, &len) % dhp->dh_hashsz;
+	uint_t h = str2hval(name, 0) % dhp->dh_hashsz;
 	dt_ident_t *idp;
 
 	if (dhp->dh_tmpl != NULL)
@@ -788,7 +787,7 @@ dt_idhash_insert(dt_idhash_t *dhp, const char *name, ushort_t kind,
 	if (idp == NULL)
 		return NULL;
 
-	h = dt_strtab_hash(name, NULL) % dhp->dh_hashsz;
+	h = str2hval(name, 0) % dhp->dh_hashsz;
 	idp->di_next = dhp->dh_hash[h];
 	idp->di_hash = dhp;
 
@@ -809,7 +808,7 @@ dt_idhash_xinsert(dt_idhash_t *dhp, dt_ident_t *idp)
 	if (dhp->dh_tmpl != NULL)
 		dt_idhash_populate(dhp); /* fill hash w/ initial population */
 
-	h = dt_strtab_hash(idp->di_name, NULL) % dhp->dh_hashsz;
+	h = str2hval(idp->di_name, 0) % dhp->dh_hashsz;
 	idp->di_next = dhp->dh_hash[h];
 	idp->di_hash = dhp;
 	idp->di_flags &= ~DT_IDFLG_ORPHAN;
@@ -824,8 +823,7 @@ dt_idhash_xinsert(dt_idhash_t *dhp, dt_ident_t *idp)
 void
 dt_idhash_delete(dt_idhash_t *dhp, dt_ident_t *key)
 {
-	size_t len;
-	ulong_t h = dt_strtab_hash(key->di_name, &len) % dhp->dh_hashsz;
+	uint_t h = str2hval(key->di_name, 0) % dhp->dh_hashsz;
 	dt_ident_t **pp = &dhp->dh_hash[h];
 	dt_ident_t *idp;
 

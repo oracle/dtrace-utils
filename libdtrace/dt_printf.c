@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -652,7 +652,7 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 		}
 
 		memcpy(pfc, pfd, sizeof(dt_pfconv_t));
-		h = dt_strtab_hash(pfc->pfc_name, NULL) % n;
+		h = str2hval(pfc->pfc_name, 0) % n;
 		pfc->pfc_next = pdi->pdi_buckets[h];
 		pdi->pdi_buckets[h] = pfc;
 
@@ -725,7 +725,7 @@ static const dt_pfconv_t *
 dt_pfdict_lookup(dtrace_hdl_t *dtp, const char *name)
 {
 	dt_pfdict_t *pdi = dtp->dt_pfdict;
-	uint_t h = dt_strtab_hash(name, NULL) % pdi->pdi_nbuckets;
+	uint_t h = str2hval(name, 0) % pdi->pdi_nbuckets;
 	const dt_pfconv_t *pfc;
 
 	for (pfc = pdi->pdi_buckets[h]; pfc != NULL; pfc = pfc->pfc_next) {

@@ -1,4 +1,11 @@
 /*
+ * Oracle Linux DTrace.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ * http://oss.oracle.com/licenses/upl.
+ */
+
+/*
  * Symbol table support for DTrace.
  *
  * We cannot rely on ELF symbol table management at all times: in particular,
@@ -8,18 +15,12 @@
  * TODO: increase efficiency (perhaps Huffman-coding symbol names?)
  */
 
-/*
- * Oracle Linux DTrace.
- * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
- * Licensed under the Universal Permissive License v 1.0 as shown at
- * http://oss.oracle.com/licenses/upl.
- */
-
 #include <stdlib.h>
 #include <string.h>
 #include <dt_symtab.h>
 #include <dt_impl.h>
 #include <dt_list.h>
+#include <dt_string.h>
 #include <unistd.h>
 
 #define DT_ST_SORTED 0x01		/* Sorted, ready for searching. */
@@ -245,7 +246,7 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	/*
 	 * Add to lookup-by-name hash table.
 	 */
-	h = dt_strtab_hash(name, NULL) % symtab->dtst_symbuckets;
+	h = str2hval(name, 0) % symtab->dtst_symbuckets;
 	dtsp->dts_next = symtab->dtst_syms_by_name[h];
 	symtab->dtst_syms_by_name[h] = dtsp;
 
@@ -257,7 +258,7 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 dt_symbol_t *
 dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % symtab->dtst_symbuckets;
+	uint_t h = str2hval(name, 0) % symtab->dtst_symbuckets;
 	dt_symbol_t *dtsp;
 	int packed = symtab->dtst_flags & DT_ST_PACKED;
 

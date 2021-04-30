@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,7 +23,6 @@
 
 #include <zlib.h>
 
-#include <dt_strtab.h>
 #include <dt_kernel_module.h>
 #include <dt_module.h>
 #include <dt_impl.h>
@@ -54,7 +53,7 @@ dt_module_symhash_insert(dt_module_t *dmp, const char *name, uint_t id)
 	assert(dmp->dm_symfree < dmp->dm_nsymelems + 1);
 
 	dsp->dms_symid = id;
-	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
+	h = str2hval(name, 0) % dmp->dm_nsymbuckets;
 	dsp->dms_next = dmp->dm_symbuckets[h];
 	dmp->dm_symbuckets[h] = dmp->dm_symfree++;
 }
@@ -97,7 +96,7 @@ dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 dt_module_t *
 dt_module_create(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_modbuckets;
+	uint_t h = str2hval(name, 0) % dtp->dt_modbuckets;
 	dt_module_t *dmp;
 
 	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next)
@@ -125,7 +124,7 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 dt_module_t *
 dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = dt_strtab_hash(name, NULL) % dtp->dt_modbuckets;
+	uint_t h = str2hval(name, 0) % dtp->dt_modbuckets;
 	dt_module_t *dmp;
 
 	/* 'genunix' is an alias for 'vmlinux'. */
@@ -672,7 +671,7 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 void
 dt_module_destroy(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
-	uint_t h = dt_strtab_hash(dmp->dm_name, NULL) % dtp->dt_modbuckets;
+	uint_t h = str2hval(dmp->dm_name, 0) % dtp->dt_modbuckets;
 	dt_module_t *scan_dmp;
 	dt_module_t *prev_dmp = NULL;
 
