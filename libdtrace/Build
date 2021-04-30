@@ -61,6 +61,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_strtab.c \
 			  dt_subr.c \
 			  dt_symtab.c \
+			  dt_varint.c \
 			  dt_work.c \
 			  dt_xlator.c
 

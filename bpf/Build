@@ -27,7 +27,8 @@ bpf_dlib_SOURCES = \
 	get_tvar.c set_tvar.c \
 	memcpy.c \
 	probe_error.c \
-	strnlen.c
+	strnlen.c \
+	varint.c
 
 bpf-check: $(objdir)/include/.dir.stamp
 	$(BPFC) $(BPFCPPFLAGS) $(bpf_dlib_CPPFLAGS) $(BPFCFLAGS) -S \
