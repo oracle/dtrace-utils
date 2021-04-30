@@ -94,6 +94,7 @@ static const struct {
 	  "concurrent module unload" },
 	{ EDT_ELFCLASS, "Unknown ELF class, neither 32- nor 64-bit" },
 	{ EDT_OBJIO, "Cannot read object file or modules.dep" },
+	{ EDT_READMAXSTACK, "Cannot read kernel param perf_event_max_stack" },
 	{ EDT_TRACEMEM, "Missing or corrupt tracemem() record" },
 	{ EDT_PCAP, "Missing or corrupt pcap() record" }
 };

@@ -616,6 +616,7 @@ enum {
 	EDT_CORRUPT_KALLSYMS,	/* corrupt /proc/kallsyms */
 	EDT_ELFCLASS,		/* unknown ELF class, neither 32- nor 64-bit */
 	EDT_OBJIO,		/* cannot read object file or module name mapping */
+	EDT_READMAXSTACK,	/* cannot read kernel param perf_event_max_stack */
 	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
 	EDT_PCAP		/* missing or corrupt pcap() record */
 };
@@ -792,6 +793,7 @@ extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */
 extern int _dtrace_debug_assert;	/* turn on expensive assertions */
+extern int _dtrace_stackframes;		/* default number of stack frames */
 
 extern const char *_dtrace_moddir;	/* default kernel module directory */
 

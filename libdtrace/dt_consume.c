@@ -2033,15 +2033,18 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
 			int			n;
 			dtrace_recdesc_t	*rec;
+			dtrace_actkind_t	act;
 			int (*func)(dtrace_hdl_t *, FILE *, void *,
 			    const dtrace_probedata_t *,
 			    const dtrace_recdesc_t *, uint_t,
 			    const void *buf, size_t);
+			caddr_t			recdata;
 
 			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
-			pdat->dtpda_data = data + rec->dtrd_offset;
+			act = rec->dtrd_action;
+			pdat->dtpda_data = recdata = data + rec->dtrd_offset;
 
-			if (rec->dtrd_action == DTRACEACT_LIBACT) {
+			if (act == DTRACEACT_LIBACT) {
 				switch (rec->dtrd_arg) {
 				case DT_ACT_DENORMALIZE:
 					if (dt_normalize(dtp, data, rec) != 0)
@@ -2072,7 +2075,15 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 			if (rval != DTRACE_CONSUME_THIS)
 				return dt_set_errno(dtp, EDT_BADRVAL);
 
-			switch (rec->dtrd_action) {
+			switch (act) {
+			case DTRACEACT_STACK: {
+				int depth = rec->dtrd_arg;
+
+				if (dt_print_stack(dtp, fp, NULL, recdata,
+				    depth, rec->dtrd_size / depth) < 0)
+					return -1;
+				continue;
+			}
 			case DTRACEACT_PRINTF:
 				func = dtrace_fprintf;
 				break;
@@ -2107,8 +2118,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 				continue;
 			}
 
-			n = dt_print_trace(dtp, fp, rec, pdat->dtpda_data,
-					   quiet);
+			n = dt_print_trace(dtp, fp, rec, recdata, quiet);
 			if (n < 0)
 				return DTRACE_WORKSTATUS_ERROR;
 		}

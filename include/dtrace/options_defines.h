@@ -58,7 +58,8 @@
 #define	DTRACEOPT_NORESOLVE	28      /* prevent resolution of symbols */
 #define	DTRACEOPT_PCAPSIZE	29	/* number of bytes to be captured */
 #define	DTRACEOPT_BPFLOGSIZE	30	/* BPF verifier log, max # bytes */
-#define	DTRACEOPT_MAX		31      /* number of options */
+#define	DTRACEOPT_MAXFRAMES	31	/* maximum number of stack frames */
+#define	DTRACEOPT_MAX		32      /* number of options */
 
 #define	DTRACEOPT_UNSET		(dtrace_optval_t)-2	/* unset option */
 

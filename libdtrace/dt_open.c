@@ -612,6 +612,7 @@ uint_t _dtrace_pidbuckets = 64; /* default number of pid hash buckets */
 uint_t _dtrace_pidlrulim = 8;	/* default number of pid handles to cache */
 size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
+int _dtrace_stackframes = 20;	/* default number of stack frames */
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 const char *const _libdtrace_vcs_version = DT_GIT_VERSION; /* Build version string */
@@ -645,6 +646,7 @@ dt_vopen(int version, int flags, int *errp,
 	int i, err;
 	char modpath[PATH_MAX];
 	struct rlimit rl;
+	FILE *fd;
 
 	const dt_intrinsic_t *dinp;
 	const dt_typedef_t *dtyp;
@@ -785,6 +787,13 @@ dt_vopen(int version, int flags, int *errp,
 	 * version.  For now, just set it here.
 	 */
 	dtp->dt_options[DTRACEOPT_STRSIZE] = 256;
+
+	/* Set the default value of maxframes. */
+	fd = fopen("/proc/sys/kernel/perf_event_max_stack", "r");
+	assert(fd);
+	if (fscanf(fd, "%lu", &dtp->dt_options[DTRACEOPT_MAXFRAMES]) != 1)
+		return set_open_errno(dtp, errp, EDT_READMAXSTACK);
+	fclose(fd);
 
 	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
 

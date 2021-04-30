@@ -1355,21 +1355,54 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_node_t *arg = dnp->dn_args;
-#ifdef FIXME
-	uint32_t nframes = 0;
-#endif
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_node_t	*arg = dnp->dn_args;
+	int		nframes = dtp->dt_options[DTRACEOPT_STACKFRAMES];
+	int		skip = 0;
+	uint_t		off;
+	uint_t		lbl_valid = dt_irlist_label(dlp);
+
+	if (nframes == DTRACEOPT_UNSET)
+		nframes = _dtrace_stackframes;
 
 	if (arg != NULL) {
-		if (!dt_node_is_posconst(arg)) {
+		if (!dt_node_is_posconst(arg))
 			dnerror(arg, D_STACK_SIZE, "stack( ) argument #1 must "
 				"be a non-zero positive integer constant\n");
-		}
 
-#ifdef FIXME
-		nframes = (uint32_t)arg->dn_value;
-#endif
+		nframes = arg->dn_value;
 	}
+
+	/*
+	 * If more frames are requested than allowed, silently reduce nframes.
+	 */
+	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
+		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
+
+	/* Reserve space in the output buffer. */
+	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_STACK,
+			 sizeof(uint64_t) * nframes, sizeof(uint64_t),
+			 NULL, nframes);
+
+	/* Now call bpf_get_stack(ctx, buf, size, flags). */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, sizeof(uint64_t) * nframes));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, skip & BPF_F_SKIP_FIELD_MASK));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
+	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
+	emitl(dlp, lbl_valid,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
 }
 
 static void
