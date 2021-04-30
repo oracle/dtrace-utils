@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -32,10 +32,10 @@ uint32_t str2hval(const char *p, uint32_t hval)
 	while (*p) {
 		hval = (hval << 4) + *p++;
 		g = hval & 0xf0000000;
-		if (g != 0)
-			hval ^= g >> 24;
-
-		hval &= ~g;
+		if (g != 0) {
+			hval ^= (g >> 24);
+			hval ^= g;
+		}
 	}
 
 	return hval;
