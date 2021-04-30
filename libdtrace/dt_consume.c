@@ -2084,6 +2084,14 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 					return -1;
 				continue;
 			}
+			case DTRACEACT_SYM:
+				if (dt_print_sym(dtp, fp, NULL, recdata) < 0)
+					return -1;
+				continue;
+			case DTRACEACT_MOD:
+				if (dt_print_mod(dtp, fp, NULL, recdata) < 0)
+					return -1;
+				continue;
 			case DTRACEACT_PRINTF:
 				func = dtrace_fprintf;
 				break;

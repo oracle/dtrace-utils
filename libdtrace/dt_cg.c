@@ -1415,6 +1415,10 @@ dt_cg_act_stop(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_symmod(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_node_t	*arg = dnp->dn_args;
+
+	assert(arg != NULL);
+	dt_cg_store_val(pcb, arg, kind, NULL, 0);
 }
 
 static void
