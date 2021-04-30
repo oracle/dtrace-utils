@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -65,6 +65,11 @@ dt_strtab_create(size_t bufsz)
 	if (dt_strtab_grow(sp) == -1)
 		goto err;
 
+	/*
+	 * Pre-populate the string table with the empty string as frist string,
+	 * at offset 0.  We use this guarantee in dt_strtab_insert() and
+	 * dt_strtab_index().
+	 */
 	*sp->str_ptr++ = '\0';
 	return sp;
 
@@ -192,7 +197,7 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 	ulong_t h;
 
 	if (str == NULL || str[0] == '\0')
-		return 0; /* we keep a \0 at offset 0 to simplify things */
+		return 0;	/* The empty string is always at offset 0. */
 
 	h = dt_strtab_hash(str, &len) % sp->str_hashsz;
 
@@ -211,6 +216,9 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	size_t len;
 	ssize_t off;
 	ulong_t h;
+
+	if (str == NULL || str[0] == '\0')
+		return 0;	/* The empty string is always at offset 0. */
 
 	if ((off = dt_strtab_index(sp, str)) != -1)
 		return off;
