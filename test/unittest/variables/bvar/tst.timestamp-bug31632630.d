@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -20,4 +20,8 @@ BEGIN
 	this->b = timestamp;
 	trace(this->b - this->a);
 	exit(this->a == this->b ? 0 : 1);
+}
+
+ERROR {
+	exit(1);
 }
