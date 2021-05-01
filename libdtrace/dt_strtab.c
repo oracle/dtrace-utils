@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include <dt_strtab.h>
+#include <dt_string.h>
 #include <dt_impl.h>
 
 static int
@@ -105,28 +106,6 @@ dt_strtab_destroy(dt_strtab_t *sp)
 	free(sp);
 }
 
-ulong_t
-dt_strtab_hash(const char *key, size_t *len)
-{
-	ulong_t g, h = 0;
-	const char *p;
-	size_t n = 0;
-
-	for (p = key; *p != '\0'; p++, n++) {
-		h = (h << 4) + *p;
-
-		if ((g = (h & 0xf0000000)) != 0) {
-			h ^= (g >> 24);
-			h ^= g;
-		}
-	}
-
-	if (len != NULL)
-		*len = n;
-
-	return h;
-}
-
 static int
 dt_strtab_compare(dt_strtab_t *sp, dt_strhash_t *hp,
     const char *str, size_t len)
@@ -199,7 +178,8 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 	if (str == NULL || str[0] == '\0')
 		return 0;	/* The empty string is always at offset 0. */
 
-	h = dt_strtab_hash(str, &len) % sp->str_hashsz;
+	len = strlen(str);
+	h = str2hval(str, 0) % sp->str_hashsz;
 
 	for (hp = sp->str_hash[h]; hp != NULL; hp = hp->str_next) {
 		if (dt_strtab_compare(sp, hp, str, len + 1) == 0)
@@ -223,7 +203,8 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	if ((off = dt_strtab_index(sp, str)) != -1)
 		return off;
 
-	h = dt_strtab_hash(str, &len) % sp->str_hashsz;
+	len = strlen(str);
+	h = str2hval(str, 0) % sp->str_hashsz;
 
 	/*
 	 * Create a new hash bucket, initialize it, and insert it at the front

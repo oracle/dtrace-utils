@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -119,7 +119,7 @@ BITIZE(dt_module_symname)(dt_module_t *dmp, const char *name,
 	if (dmp->dm_nsymelems == 0)
 		return NULL;
 
-	h = dt_strtab_hash(name, NULL) % dmp->dm_nsymbuckets;
+	h = str2hval(name, 0) % dmp->dm_nsymbuckets;
 
 	for (i = dmp->dm_symbuckets[h]; i != 0; i = dmsp->dms_next) {
 		dmsp = &dmp->dm_symchains[i];
