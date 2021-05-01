@@ -677,6 +677,7 @@ extern void *dt_calloc(dtrace_hdl_t *, size_t, size_t);
 extern void *dt_alloc(dtrace_hdl_t *, size_t);
 extern void dt_free(dtrace_hdl_t *, void *);
 extern void dt_difo_free(dtrace_hdl_t *, dtrace_difo_t *);
+extern const char *dt_difo_getstr(const dtrace_difo_t *, ssize_t);
 
 extern void dt_conf_init(dtrace_hdl_t *);
 

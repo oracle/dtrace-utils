@@ -2188,8 +2188,8 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 		return pc;
 
 	for (; len != 0; len--, rp++) {
-		char            *name = &dp->dtdo_strtab[rp->dofr_name];
-		dtrace_difo_t   *rdp;
+		const char	*name = dt_difo_getstr(dp, rp->dofr_name);
+		dtrace_difo_t	*rdp;
 		int		ipc;
 
 		idp = dt_dlib_get_func(dtp, name);
@@ -2251,7 +2251,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	 */
 	(*vcp) += vlen;
 	for (; vlen != 0; vlen--, vp++, nvp++) {
-		const char	*name = &sdp->dtdo_strtab[vp->dtdv_name];
+		const char	*name = dt_difo_getstr(sdp, vp->dtdv_name);
 
 		*nvp = *vp;
 		nvp->dtdv_name = dt_strtab_insert(stab, name);
@@ -2268,7 +2268,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	 */
 	(*rcp) += len;
 	for (; len != 0; len--, rp++, nrp++) {
-		const char	*name = &sdp->dtdo_strtab[rp->dofr_name];
+		const char	*name = dt_difo_getstr(sdp, rp->dofr_name);
 		dt_ident_t	*idp = dt_dlib_get_func(dtp, name);
 
 		nrp->dofr_name = dt_strtab_insert(stab, name);
@@ -2294,7 +2294,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	rp = sdp->dtdo_breltab;
 	nrp = &dp->dtdo_breltab[rc];
 	for (; len != 0; len--, rp++, nrp++) {
-		const char	*name = &sdp->dtdo_strtab[rp->dofr_name];
+		const char	*name = dt_difo_getstr(sdp, rp->dofr_name);
 		dtrace_difo_t	*rdp;
 		dtrace_epid_t	nepid;
 		int		ipc;
@@ -2376,7 +2376,7 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	const dof_relodesc_t	*rp = dp->dtdo_breltab;
 
 	for (; len != 0; len--, rp++) {
-		const char	*name = &dp->dtdo_strtab[rp->dofr_name];
+		const char	*name = dt_difo_getstr(dp, rp->dofr_name);
 		dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
 		uint_t		ioff = rp->dofr_offset /
 				       sizeof(struct bpf_insn);

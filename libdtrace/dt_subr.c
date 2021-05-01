@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,6 +23,7 @@
 #include <sys/ioctl.h>
 #include <port.h>
 
+#include <dt_varint.h>
 #include <dt_impl.h>
 #include <sys/dtrace.h>
 
@@ -745,6 +746,14 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 		dt_datadesc_release(dtp, dp->dtdo_ddesc);
 
 	dt_free(dtp, dp);
+}
+
+const char *
+dt_difo_getstr(const dtrace_difo_t *dp, ssize_t idx)
+{
+	assert(idx < dp->dtdo_strlen);
+
+	return dt_vint_skip(&dp->dtdo_strtab[idx]);
 }
 
 /*

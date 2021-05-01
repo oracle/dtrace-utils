@@ -307,7 +307,7 @@ dt_bpf_reloc_prog(dtrace_hdl_t *dtp, const dtrace_difo_t *dp)
 	struct bpf_insn		*text = dp->dtdo_buf;
 
 	for (; len != 0; len--, rp++) {
-		char		*name = &dp->dtdo_strtab[rp->dofr_name];
+		const char	*name = dt_difo_getstr(dp, rp->dofr_name);
 		dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
 		int		ioff = rp->dofr_offset /
 					sizeof(struct bpf_insn);
@@ -423,7 +423,7 @@ dt_bpf_reloc_error_prog(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	struct bpf_insn		*text = dp->dtdo_buf;
 
 	for (; len != 0; len--, rp++) {
-		char		*name = &dp->dtdo_strtab[rp->dofr_name];
+		const char	*name = dt_difo_getstr(dp, rp->dofr_name);
 		dt_ident_t	*idp = dt_idhash_lookup(dtp->dt_bpfsyms, name);
 		int		ioff = rp->dofr_offset /
 					sizeof(struct bpf_insn);

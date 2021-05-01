@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1255,7 +1255,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		 * populate our string table and count the number of extra
 		 * symbols we'll require.
 		 */
-		strtab = dt_strtab_create(1);
+		strtab = dt_strtab_create(BUFSIZ);
 		nsym = 0;
 		isym = data_sym->d_size / symsize;
 		istr = data_str->d_size;
@@ -1337,10 +1337,10 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		 */
 		if (nsym > 0) {
 			/*
-			 * The first byte of the string table is reserved for
-			 * the \0 entry.
+			 * The first two bytes of the string table are reserved
+			 * for the \0 entry.
 			 */
-			len = dt_strtab_size(strtab) - 1;
+			len = dt_strtab_size(strtab) - 2;
 
 			assert(len > 0);
 			assert(dt_strtab_index(strtab, "") == 0);

@@ -55,7 +55,7 @@ dt_dis_varname_id(const dtrace_difo_t *dp, uint_t id, uint_t scope, uint_t addr)
 		if (dvp->dtdv_id == id && dvp->dtdv_scope == scope &&
 		    dvp->dtdv_insn_from <= addr && addr <= dvp->dtdv_insn_to) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
-				return dp->dtdo_strtab + dvp->dtdv_name;
+				return dt_difo_getstr(dp, dvp->dtdv_name);
 			break;
 		}
 	}
@@ -73,7 +73,7 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
 		if (dvp->dtdv_offset == off && dvp->dtdv_scope == scope &&
 		    dvp->dtdv_insn_from <= addr && addr <= dvp->dtdv_insn_to) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
-				return dp->dtdo_strtab + dvp->dtdv_name;
+				return dt_difo_getstr(dp, dvp->dtdv_name);
 			break;
 		}
 	}
@@ -296,8 +296,6 @@ static char *
 dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		const struct bpf_insn *in, char *buf, size_t len, uint_t addr)
 {
-	char		*s;
-
 	if (strcmp(fn, "dt_get_bvar") == 0) {
 		/*
 		 * We know that the previous instruction exists and assigns
@@ -321,6 +319,9 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 					DIFV_SCOPE_THREAD, addr));
 		return buf;
 	} else if (strcmp(fn, "dt_get_string") == 0) {
+		const char	*s;
+		char		*se;
+
 		/*
 		 * We know that the previous instruction exists and assigns
 		 * the string offset to %r1 (because we wrote the code
@@ -330,11 +331,10 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		if (in->imm >= dp->dtdo_strlen)
 			return NULL;
 
-		s = dp->dtdo_strtab + in->imm;
-		s = strchr2esc(s, strlen(s));
-		snprintf(buf, len, "\"%s\"n",
-			 s ? s : dp->dtdo_strtab + in->imm);
-		free(s);
+		s = dt_difo_getstr(dp, in->imm);
+		se = strchr2esc(s, strlen(s));
+		snprintf(buf, len, "\"%s\"n", se ? se : s);
+		free(se);
 		return buf;
 	}
 
@@ -501,12 +501,12 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 			fprintf(fp, "%-17s %-8llu %-8llu %s\n", tstr,
 				(u_longlong_t)rp->dofr_offset,
 				(u_longlong_t)rp->dofr_data,
-				&dp->dtdo_strtab[rp->dofr_name]);
+				dt_difo_getstr(dp, rp->dofr_name));
 		else
 			fprintf(fp, "%-17s %-8llu %-8s %s\n", tstr,
 				(u_longlong_t)rp->dofr_offset,
 				"*UND*",
-				&dp->dtdo_strtab[rp->dofr_name]);
+				dt_difo_getstr(dp, rp->dofr_name));
 	}
 }
 
@@ -693,7 +693,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 			if (rp->dofr_offset < i * sizeof(uint64_t))
 				continue;
 			if (rp->dofr_offset == i * sizeof(uint64_t))
-				rname = &dp->dtdo_strtab[rp->dofr_name];
+				rname = dt_difo_getstr(dp, rp->dofr_name);
 
 			break;
 		}
@@ -764,7 +764,7 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 			strcat(flags, "/w");
 
 		fprintf(fp, "%-16s %-4x %-6s %-3s %-3s %-11s %-4s %s\n",
-			&dp->dtdo_strtab[v->dtdv_name], v->dtdv_id,
+			dt_difo_getstr(dp, v->dtdv_name), v->dtdv_id,
 			offset, kind, scope, range, flags + 1,
 			dt_dis_typestr(&v->dtdv_type, type, sizeof(type)));
 	}

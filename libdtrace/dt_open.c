@@ -1262,6 +1262,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_module_path);
 	free(dtp->dt_kernpaths);
 	free(dtp->dt_provs);
+	free(dtp->dt_strtab);
 	free(dtp);
 
 	dt_debug_dump(0);

@@ -12,6 +12,7 @@
 
 #include <dt_strtab.h>
 #include <dt_string.h>
+#include <dt_varint.h>
 #include <dt_impl.h>
 
 static int
@@ -40,8 +41,9 @@ dt_strtab_grow(dt_strtab_t *sp)
 dt_strtab_t *
 dt_strtab_create(size_t bufsz)
 {
-	dt_strtab_t *sp = malloc(sizeof(dt_strtab_t));
-	uint_t nbuckets = _dtrace_strbuckets;
+	dt_strtab_t	*sp = malloc(sizeof(dt_strtab_t));
+	uint_t		nbuckets = _dtrace_strbuckets;
+	int		n;
 
 	assert(bufsz != 0);
 
@@ -71,7 +73,12 @@ dt_strtab_create(size_t bufsz)
 	 * at offset 0.  We use this guarantee in dt_strtab_insert() and
 	 * dt_strtab_index().
 	 */
+	n = dt_int2vint(0, sp->str_ptr);
+	sp->str_ptr += n;
 	*sp->str_ptr++ = '\0';
+	sp->str_size = n + 1;
+	sp->str_nstrs = 1;
+
 	return sp;
 
 err:
@@ -169,17 +176,9 @@ err:
 }
 
 ssize_t
-dt_strtab_index(dt_strtab_t *sp, const char *str)
+dt_strtab_xindex(dt_strtab_t *sp, const char *str, size_t len, ulong_t h)
 {
-	dt_strhash_t *hp;
-	size_t len;
-	ulong_t h;
-
-	if (str == NULL || str[0] == '\0')
-		return 0;	/* The empty string is always at offset 0. */
-
-	len = strlen(str);
-	h = str2hval(str, 0) % sp->str_hashsz;
+	dt_strhash_t	*hp;
 
 	for (hp = sp->str_hash[h]; hp != NULL; hp = hp->str_next) {
 		if (dt_strtab_compare(sp, hp, str, len + 1) == 0)
@@ -190,44 +189,87 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 }
 
 ssize_t
-dt_strtab_insert(dt_strtab_t *sp, const char *str)
+dt_strtab_index(dt_strtab_t *sp, const char *str)
 {
-	dt_strhash_t *hp;
-	size_t len;
-	ssize_t off;
-	ulong_t h;
+	size_t	plen, slen;
+	ssize_t	rc;
+	ulong_t	h;
+	char	*s;
 
 	if (str == NULL || str[0] == '\0')
 		return 0;	/* The empty string is always at offset 0. */
 
-	if ((off = dt_strtab_index(sp, str)) != -1)
-		return off;
+	slen = strlen(str);
+	s = malloc(VARINT_MAX_BYTES + slen + 1);
+	if (s == NULL)
+		return -1L;
 
-	len = strlen(str);
-	h = str2hval(str, 0) % sp->str_hashsz;
+	plen = dt_int2vint(slen, s);
+	memcpy(s + plen, str, slen + 1);
+
+	h = str2hval(str, slen) % sp->str_hashsz;
+	rc = dt_strtab_xindex(sp, s, plen + slen, h);
+	free(s);
+
+	return rc;
+}
+
+ssize_t
+dt_strtab_insert(dt_strtab_t *sp, const char *str)
+{
+	dt_strhash_t	*hp;
+	size_t		slen, plen;
+	ssize_t		off;
+	ulong_t		h;
+	char		*s;
+
+	if (str == NULL || str[0] == '\0')
+		return 0;	/* The empty string is always at offset 0. */
+
+	slen = strlen(str);
+	s = malloc(VARINT_MAX_BYTES + slen + 1);
+	if (s == NULL)
+		return -1L;
+
+	plen = dt_int2vint(slen, s);
+	memcpy(s + plen, str, slen + 1);
+
+	h = str2hval(str, slen) % sp->str_hashsz;
+	slen += plen;
+	off = dt_strtab_xindex(sp, s, slen, h);
+	if (off != -1) {
+		free(s);
+		return off;
+	}
 
 	/*
 	 * Create a new hash bucket, initialize it, and insert it at the front
 	 * of the hash chain for the appropriate bucket.
 	 */
-	if ((hp = malloc(sizeof(dt_strhash_t))) == NULL)
+	if ((hp = malloc(sizeof(dt_strhash_t))) == NULL) {
+		free(s);
 		return -1L;
+	}
 
 	hp->str_data = sp->str_ptr;
 	hp->str_buf = sp->str_nbufs - 1;
 	hp->str_off = sp->str_size;
-	hp->str_len = len;
+	hp->str_len = slen;
 	hp->str_next = sp->str_hash[h];
 
 	/*
 	 * Now copy the string data into our buffer list, and then update
 	 * the global counts of strings and bytes.  Return str's byte offset.
 	 */
-	if (dt_strtab_copyin(sp, str, len + 1) == -1)
+	if (dt_strtab_copyin(sp, s, slen + 1) == -1) {
+		free(s);
+		free(hp);
 		return -1L;
+	}
+	free(s);
 
 	sp->str_nstrs++;
-	sp->str_size += len + 1;
+	sp->str_size += slen + 1;
 	sp->str_hash[h] = hp;
 
 	return hp->str_off;
