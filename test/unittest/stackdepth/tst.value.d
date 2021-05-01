@@ -1,10 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@xfail: dtv2 */
 
+#pragma D option destructive
 #pragma D option quiet
 
 /*
@@ -17,9 +19,19 @@
 
 BEGIN
 {
+	system("echo write something > /dev/null");
+}
+
+fbt::ksys_write:entry
+{
 	printf("DEPTH %d\n", stackdepth);
 	printf("TRACE BEGIN\n");
 	stack();
 	printf("TRACE END\n");
 	exit(0);
+}
+
+ERROR
+{
+	exit(1);
 }
