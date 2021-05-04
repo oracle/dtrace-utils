@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -87,4 +87,16 @@ dt_list_delete(dt_list_t *dlp, void *existing)
 		p->dl_next->dl_prev = p->dl_prev;
 	else
 		dlp->dl_prev = p->dl_prev;
+}
+
+size_t
+dt_list_length(dt_list_t *dlp)
+{
+	dt_list_t	*p;
+	size_t		len = 0;
+
+	for (p = dt_list_next(dlp); p != NULL; p = dt_list_next(p))
+		len++;
+
+	return len;
 }
