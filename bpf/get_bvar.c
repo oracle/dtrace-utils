@@ -9,8 +9,10 @@
 #include <dtrace/conf.h>
 #include <dtrace/dif_defines.h>
 #include <dtrace/faults_defines.h>
+#include <dt_bpf_maps.h>
 #include <dt_dctx.h>
 #include <dt_state.h>
+#include <dt_varint.h>
 
 #include "probe_error.h"
 
@@ -19,7 +21,10 @@
 #endif
 
 extern struct bpf_map_def cpuinfo;
+extern struct bpf_map_def probes;
 extern struct bpf_map_def state;
+
+extern uint64_t STBSZ;
 
 #define error(dctx, fault, illval) \
 	({ \
@@ -51,6 +56,37 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_STACKDEPTH: {
 		/* FIXME: no stack() yet */
 		return 0;
+	}
+	case DIF_VAR_PROBEPROV:
+	case DIF_VAR_PROBEMOD:
+	case DIF_VAR_PROBEFUNC:
+	case DIF_VAR_PROBENAME: {
+		uint32_t	key;
+		dt_bpf_probe_t	*pinfo;
+		uint64_t	off;
+
+		key = mst->prid;
+		pinfo = bpf_map_lookup_elem(&probes, &key);
+		if (pinfo == NULL)
+			return (uint64_t)dctx->strtab;
+
+		switch (id) {
+		case DIF_VAR_PROBEPROV:
+			off = pinfo->prv;
+			break;
+		case DIF_VAR_PROBEMOD:
+			off = pinfo->mod;
+			break;
+		case DIF_VAR_PROBEFUNC:
+			off = pinfo->fun;
+			break;
+		case DIF_VAR_PROBENAME:
+			off = pinfo->prb;
+		}
+		if (off > (uint64_t)&STBSZ)
+			return (uint64_t)dctx->strtab;
+
+		return (uint64_t)(dctx->strtab + off);
 	}
 	case DIF_VAR_PID: {
 		uint64_t	val = bpf_get_current_pid_tgid();

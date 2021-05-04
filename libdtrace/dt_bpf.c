@@ -17,7 +17,9 @@
 #include <dt_dctx.h>
 #include <dt_probe.h>
 #include <dt_state.h>
+#include <dt_strtab.h>
 #include <dt_bpf.h>
+#include <dt_bpf_maps.h>
 #include <port.h>
 
 #include <bpf.h>
@@ -138,6 +140,24 @@ set_task_offsets(dtrace_hdl_t *dtp)
 	return 0;
 }
 
+static void
+populate_probes_map(dtrace_hdl_t *dtp, int fd)
+{
+	dt_probe_t	*prp;
+
+	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
+	     prp = dt_list_next(prp)) {
+		dt_bpf_probe_t	pinfo;
+
+		pinfo.prv = dt_strtab_index(dtp->dt_ccstab, prp->desc->prv);
+		pinfo.mod = dt_strtab_index(dtp->dt_ccstab, prp->desc->mod);
+		pinfo.fun = dt_strtab_index(dtp->dt_ccstab, prp->desc->fun);
+		pinfo.prb = dt_strtab_index(dtp->dt_ccstab, prp->desc->prb);
+
+		dt_bpf_map_update(fd, &prp->desc->id, &pinfo);
+	}
+}
+
 /*
  * Create the global BPF maps that are shared between all BPF programs in a
  * single tracing session:
@@ -173,6 +193,10 @@ set_task_offsets(dtrace_hdl_t *dtp)
  *		consumer handle (dt_strlen), and increased by the maximum
  *		string size to ensure that the BPF verifier can validate all
  *		access requests for dynamic references to string constants.
+ * - probes:	Probe information map.  This is a global map indexed by probe
+ *		ID.  The value is a struct that contains static probe info.
+ *		The map only contains entries for probes that are actually in
+ *		use.
  * - gvars:	Global variables map.  This is a global map with a singleton
  *		element (key 0) addressed by variable offset.
  * - lvars:	Local variables map.  This is a per-CPU map with a singleton
@@ -200,7 +224,7 @@ int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
 	int		stabsz, gvarsz, lvarsz, tvarc, aggsz;
-	int		ci_mapfd, st_mapfd;
+	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint32_t	key = 0;
 
 	/* If we already created the global maps, return success. */
@@ -274,6 +298,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	if (st_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
+	pr_mapfd = create_gmap(dtp, "probes", BPF_MAP_TYPE_HASH,
+			       sizeof(uint32_t), sizeof(dt_bpf_probe_t),
+			       dt_list_length(&dtp->dt_enablings));
+	if (pr_mapfd == -1)
+		return -1;		/* dt_errno is set for us */
+
 	if (gvarsz > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), gvarsz, 1) == -1)
@@ -294,6 +324,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/* Populate the 'strtab' map. */
 	dt_bpf_map_update(st_mapfd, &key, dtp->dt_strtab);
+
+	/* Populate the 'probes' map. */
+	populate_probes_map(dtp, pr_mapfd);
 
 	/* Set some task_struct offsets in state. */
 	if (set_task_offsets(dtp))

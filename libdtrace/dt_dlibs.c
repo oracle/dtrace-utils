@@ -68,6 +68,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(gvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(lvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(probes, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(state, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(tvars, DT_IDENT_PTR),
@@ -76,6 +77,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL_ID(PRID, DT_IDENT_SCALAR, DT_CONST_PRID),
 	DT_BPF_SYMBOL_ID(CLID, DT_IDENT_SCALAR, DT_CONST_CLID),
 	DT_BPF_SYMBOL_ID(ARGC, DT_IDENT_SCALAR, DT_CONST_ARGC),
+	DT_BPF_SYMBOL_ID(STBSZ, DT_IDENT_SCALAR, DT_CONST_STBSZ),
 	/* End-of-list marker */
 	{ NULL, }
 };
@@ -414,6 +416,8 @@ get_symbols(dtrace_hdl_t *dtp, Elf *elf, int syms_idx, int strs_idx,
 			idp = dt_dlib_get_map(dtp, name);
 			if (idp == NULL)
 				idp = dt_dlib_get_func(dtp, name);
+			if (idp == NULL)
+				idp = dt_dlib_get_var(dtp, name);
 			if (idp == NULL) {
 				dt_dlib_error(dtp, D_IDENT_UNDEF,
 					      "undefined symbol %s in BPF dlib",

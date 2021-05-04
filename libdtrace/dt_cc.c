@@ -2323,6 +2323,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */
 				continue;
+			case DT_CONST_STBSZ:
+				nrp->dofr_data = dtp->dt_strlen;
+				continue;
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)
