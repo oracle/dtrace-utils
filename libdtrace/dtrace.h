@@ -150,6 +150,7 @@ typedef struct dtrace_stmtdesc {
 #define DT_CLSFLAG_COMMIT	4	/* commit */
 #define DT_CLSFLAG_EXIT		8	/* exit */
 #define DT_CLSFLAG_DESTRUCT	16	/* destructive */
+#define DT_CLSFLAG_AGGREGATION	32	/* aggregation */
 
 typedef int dtrace_stmt_f(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *sdp, void *data);

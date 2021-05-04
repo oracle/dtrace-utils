@@ -853,7 +853,7 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 		if (*cfp & DT_CLSFLAG_COMMIT)
 			dnerror(dnp, D_COMM_COMM,
 			    "commit( ) may not follow commit( )\n");
-		if (*cfp & DT_CLSFLAG_DATAREC)
+		if (*cfp & (DT_CLSFLAG_DATAREC | DT_CLSFLAG_AGGREGATION))
 			dnerror(dnp, D_COMM_DREC, "commit( ) may "
 			    "not follow data-recording action(s)\n");
 
@@ -870,7 +870,7 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 			dnerror(dnp, D_SPEC_COMM,
 			    "speculate( ) may not follow commit( )\n");
 
-		if (*cfp & DT_CLSFLAG_DATAREC)
+		if (*cfp & (DT_CLSFLAG_DATAREC | DT_CLSFLAG_AGGREGATION))
 			dnerror(dnp, D_SPEC_DREC, "speculate( ) may "
 			    "not follow data-recording action(s)\n");
 
@@ -886,7 +886,7 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 			dnerror(dnp, D_AGG_SPEC, "aggregating actions "
 			    "may not follow speculate( )\n");
 
-		*cfp |= DT_CLSFLAG_DATAREC;
+		*cfp |= DT_CLSFLAG_AGGREGATION;
 		return;
 	}
 
