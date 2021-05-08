@@ -716,7 +716,11 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		dtrace_difv_t *v = &dp->dtdo_vartab[i];
-		char kind[4], scope[4], range[12], flags[16] = { 0 };
+		char offset[11] = { 0 }, flags[16] = { 0 };
+		char kind[4], scope[4], range[12];
+
+		if (v->dtdv_offset != -1)
+			snprintf(offset, sizeof(offset), "%u", v->dtdv_offset);
 
 		switch (v->dtdv_kind) {
 		case DIFV_KIND_AGGREGATE:
@@ -759,9 +763,9 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 		if (v->dtdv_flags & DIFV_F_MOD)
 			strcat(flags, "/w");
 
-		fprintf(fp, "%-16s %-4x %-6x %-3s %-3s %-11s %-4s %s\n",
+		fprintf(fp, "%-16s %-4x %-6s %-3s %-3s %-11s %-4s %s\n",
 			&dp->dtdo_strtab[v->dtdv_name], v->dtdv_id,
-			v->dtdv_offset, kind, scope, range, flags + 1,
+			offset, kind, scope, range, flags + 1,
 			dt_dis_typestr(&v->dtdv_type, type, sizeof(type)));
 	}
 
