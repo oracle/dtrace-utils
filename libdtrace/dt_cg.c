@@ -21,6 +21,7 @@
 #include <dt_printf.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
+#include <dt_varint.h>
 #include <bpf_asm.h>
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
@@ -53,6 +54,8 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
 	assert(mem != NULL);
+	assert(state != NULL);
+	assert(prid != NULL);
 
 	/*
 	 * On input, %r1 is the BPF context.
@@ -160,19 +163,21 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 #define DT_CG_STORE_MAP_PTR(name, offset) \
 	do { \
 		dt_ident_t *idp = dt_dlib_get_map(dtp, name); \
- \
+		\
+		assert(idp != NULL); \
 		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(offset), 0)); \
- \
+		\
 		dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id); \
 		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP)); \
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(offset))); \
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem)); \
- \
+		\
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit)); \
- \
+		\
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(offset), BPF_REG_0)); \
 	} while(0)
 
+	DT_CG_STORE_MAP_PTR("strtab", DCTX_STRTAB);
 	if (dt_idhash_datasize(dtp->dt_aggs) > 0)
 		DT_CG_STORE_MAP_PTR("aggs", DCTX_AGG);
 	if (dt_idhash_datasize(dtp->dt_globals) > 0)
@@ -658,20 +663,36 @@ dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 static void
 dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 {
-	dt_ident_t *idp;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
 
+	assert(idp != NULL);
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, size));
-	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
-	assert(idp != NULL);
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	/* FIXME: check BPF_REG_0 for error? */
+	dt_regset_free(drp, BPF_REG_0);
+}
+
+static void
+dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
+{
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint2int");
+
+	assert(idp != NULL);
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, src));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	emit(dlp, BPF_MOV_REG(dst, BPF_REG_0));
+	dt_regset_free_args(drp);
 	dt_regset_free(drp, BPF_REG_0);
 }
 
@@ -733,27 +754,54 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_regset_free(drp, dnp->dn_reg);
 
 		return 0;
-#if 0
-	} else if (dt_node_is_string(dnp->dn_args)) {
-		size_t sz = dt_node_type_size(dnp->dn_args);
+	} else if (dt_node_is_string(dnp)) {
+		dt_ident_t	*idp;
+		uint_t		vcopy = dt_irlist_label(dlp);
+		int		reg = dt_regset_alloc(drp);
+
+		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
+				 size, 1, pfp, arg);
+
+		/* Retrieve the length of the string.  */
+		dt_cg_strlen(dlp, drp, reg, dnp->dn_reg);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		/* Determine the number of bytes used for the length. */
+		emit(dlp,   BPF_MOV_REG(BPF_REG_1, reg));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint_size");
+		assert(idp != NULL);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+
+		/* Add length of the string (adjusted for terminating byte). */
+		emit(dlp,   BPF_ALU64_IMM(BPF_ADD, reg, 1));
+		emit(dlp,   BPF_ALU64_REG(BPF_ADD, BPF_REG_0, reg));
+		dt_regset_free(drp, reg);
 
 		/*
-		 * Strings are stored as a 64-bit size followed by a character
-		 * array.  Given that all entries in the output buffer are
-		 * aligned at 64-bit boundaries, this guarantees that the
-		 * character array is also aligned at a 64-bit boundary.
-		 * We will pad the string to a multiple of 8 bytes as well.
-		 *
-		 * We store the size as two 32-bit values, lower 4 bytes first,
-		 * then the higher 4 bytes.
+		 * Copy string data (varint length + string content) to the
+		 * output buffer at [%r9 + off].  The amount of bytes copied is
+		 * the lesser of the data size and the maximum string size.
 		 */
-		sz = P2ROUNDUP(sz, sizeof(uint64_t));
-		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off, sz & ((1UL << 32)-1)));
-		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, off + 4, sz >> 32));
-		dt_regset_free(drp, dnp->dn_args->dn_reg);
+		emit(dlp,   BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+		emit(dlp,   BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+		emit(dlp,   BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
+		dt_regset_free(drp, dnp->dn_reg);
+		emit(dlp,   BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+		emit(dlp,   BPF_BRANCH_IMM(BPF_JLT, BPF_REG_3, size, vcopy));
+		emit(dlp,   BPF_MOV_IMM(BPF_REG_3, size));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
+		assert(idp != NULL);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emitle(dlp, vcopy,
+			    BPF_CALL_FUNC(idp->di_id), idp);
+		dt_regset_free_args(drp);
+		dt_regset_free(drp, BPF_REG_0);
 
-		return sz + sizeof(uint64_t);
-#endif
+		return 0;
 	}
 
 	return -1;
@@ -978,6 +1026,8 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
+
+	assert(state != NULL);
 
 	/* Record the exit code. */
 	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_EXIT, NULL, DT_ACT_EXIT);
@@ -1935,8 +1985,27 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		/* store by value or by reference */
 		if (src->dn_flags & DT_NF_REF) {
+			size_t	size;
+
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
-			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, idp->di_size);
+
+			/*
+			 * Determine the amount of data to be copied.  It is
+			 * usually the size of the identifier, except for
+			 * string constants where it is the size of the string
+			 * constant (adjusted for the variable-width length
+			 * prefix).  An assignment of a string constant is a
+			 * store of type 'string' with a RHS of type
+			 * DT_TOK_STRING.
+			 */
+			if (dt_node_is_string(src) &&
+			    src->dn_right->dn_op == DT_TOK_STRING) {
+				size = dt_node_type_size(src->dn_right);
+				size += dt_vint_size(size);
+			} else
+				size = idp->di_size;
+
+			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, size);
 		} else {
 			size_t	size = idp->di_size;
 
@@ -3244,19 +3313,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
 		/*
-		 * The string table will be loaded as value for the 0 element
-		 * in the strtab BPF array map.  We use a function call to get
-		 * the actual string:
-		 *	get_string(stroff);
+		 * Calculate the address of the string data in the 'strtab' BPF
+		 * map.
 		 */
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_string");
-		assert(idp != NULL);
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, stroff));
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-		emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
-		dt_regset_free_args(drp);
+		emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_STRTAB));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, stroff));
 		break;
 
 	case DT_TOK_IDENT:

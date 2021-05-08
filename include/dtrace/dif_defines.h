@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -113,7 +113,7 @@
 #endif
 
 #define	DIF_INTOFF_MAX		0xffff	/* highest integer table offset */
-#define	DIF_STROFF_MAX		0xffff	/* highest string table offset */
+#define	DIF_STROFF_MAX		0x7fff	/* highest string table offset */
 #define	DIF_REGISTER_MAX	0xff	/* highest register number */
 #define	DIF_VARIABLE_MAX	0xffff	/* highest variable identifier */
 #define	DIF_SUBROUTINE_MAX	0xffff	/* highest subroutine code */

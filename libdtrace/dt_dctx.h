@@ -38,6 +38,7 @@ typedef struct dt_dctx {
 	dt_activity_t	*act;		/* pointer to activity state */
 	dt_mstate_t	*mst;		/* DTrace machine state */
 	char		*buf;		/* Output buffer scratch memory */
+	char		*strtab;	/* String constant table */
 	char		*agg;		/* Aggregation data */
 	char		*gvars;		/* Global variables */
 	char		*lvars;		/* Local variables */
@@ -47,6 +48,7 @@ typedef struct dt_dctx {
 #define DCTX_ACT	offsetof(dt_dctx_t, act)
 #define DCTX_MST	offsetof(dt_dctx_t, mst)
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
+#define DCTX_STRTAB	offsetof(dt_dctx_t, strtab)
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
 #define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
 #define DCTX_LVARS	offsetof(dt_dctx_t, lvars)

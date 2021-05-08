@@ -16,6 +16,7 @@
 
 #include <dt_printf.h>
 #include <dt_string.h>
+#include <dt_varint.h>
 #include <dt_impl.h>
 
 /*ARGSUSED*/
@@ -489,6 +490,7 @@ pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	memcpy(s, addr, size);
 	s[size] = '\0';
+	s = (char *)dt_vint_skip(s);
 	return dt_printf(dtp, fp, format, s);
 }
 
