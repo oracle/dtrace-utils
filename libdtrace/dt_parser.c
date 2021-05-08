@@ -1661,10 +1661,10 @@ dt_node_decl(void)
 			if (idp == NULL)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-			dt_ident_set_storage(idp, 8,
-					     ctf_type_size(dtt.dtt_ctfp, type));
-
 			dt_ident_type_assign(idp, dtt.dtt_ctfp, dtt.dtt_type);
+			dt_ident_set_storage(idp, 8,
+					     ctf_type_size(dtt.dtt_ctfp,
+							   dtt.dtt_type));
 
 			/*
 			 * If we are declaring an associative array, use our
@@ -2754,10 +2754,6 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		if (idp == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
-		/* aggregation storage size is set later, in dt_cg.c */
-		if (idkind != DT_IDENT_AGG)
-			dt_ident_set_storage(idp, 8, 8);
-
 		/*
 		 * Arrays and aggregations are not cooked individually. They
 		 * have dynamic types and must be referenced using operator [].
@@ -2871,6 +2867,8 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			xyerror(D_TYPE_ERR, "failed to lookup int64_t\n");
 
 		dt_ident_type_assign(cp->dn_ident, dtt.dtt_ctfp, dtt.dtt_type);
+		dt_ident_set_storage(cp->dn_ident, 8,
+				     ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type));
 		dt_node_type_assign(cp, dtt.dtt_ctfp, dtt.dtt_type);
 	}
 
@@ -3485,6 +3483,8 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		    dt_ident_unref(lp->dn_ident)) {
 			dt_node_type_assign(lp, ctfp, type);
 			dt_ident_type_assign(lp->dn_ident, ctfp, type);
+			dt_ident_set_storage(lp->dn_ident, 8,
+					     ctf_type_size(ctfp, type));
 
 			if (uref) {
 				lp->dn_flags |= DT_NF_USERLAND;
