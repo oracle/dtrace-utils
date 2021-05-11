@@ -1484,12 +1484,11 @@ dt_node_decl(void)
 		break;
 
 	default: {
-		ctf_encoding_t cte;
 		dt_idhash_t *dhp;
 		dt_ident_t *idp;
 		dt_node_t idn;
 		int assc, idkind;
-		uint_t id, kind;
+		uint_t id;
 		ushort_t idflags;
 
 		switch (class) {
@@ -1619,20 +1618,55 @@ dt_node_decl(void)
 			}
 
 		} else if (idp == NULL) {
+			ctf_encoding_t cte;
+			ctf_arinfo_t r;
+			ctf_id_t etype;
+			uint_t kind;
+			uint_t alignment = 8;
+			uint_t size;
+
 			type = ctf_type_resolve(dtt.dtt_ctfp, dtt.dtt_type);
 			kind = ctf_type_kind(dtt.dtt_ctfp, type);
+			size = ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type);
 
 			switch (kind) {
+			case CTF_K_ENUM:
 			case CTF_K_INTEGER:
 				if (ctf_type_encoding(dtt.dtt_ctfp, type,
-				    &cte) == 0 && IS_VOID(cte)) {
-					xyerror(D_DECL_VOIDOBJ, "cannot have "
-					    "void object: %s\n", dsp->ds_ident);
+						      &cte) == 0 &&
+				    IS_VOID(cte))
+					xyerror(D_DECL_VOIDOBJ,
+						"cannot have void object: %s\n",
+						dsp->ds_ident);
+				/*FALLTHRU*/
+			case CTF_K_POINTER:
+				alignment = size;
+				break;
+			case CTF_K_ARRAY:
+				/* Special case: D type 'string' */
+				if (dtt.dtt_ctfp ==
+						DT_STR_CTFP(yypcb->pcb_hdl) &&
+				    dtt.dtt_type ==
+						DT_STR_TYPE(yypcb->pcb_hdl)) {
+					alignment = 1;
+					break;
 				}
+
+				alignment = 8;
+				if (ctf_array_info(dtt.dtt_ctfp, dtt.dtt_type,
+						   &r) != 0)
+					break;
+				etype = ctf_type_resolve(dtt.dtt_ctfp,
+							 r.ctr_contents);
+				if (etype == CTF_ERR)
+					break;
+
+				alignment = ctf_type_size(dtt.dtt_ctfp, etype);
 				break;
 			case CTF_K_STRUCT:
 			case CTF_K_UNION:
-				if (ctf_type_size(dtt.dtt_ctfp, type) != 0)
+				alignment = sizeof(uint64_t);
+				if (size != 0)
 					break; /* proceed to declaring */
 				/*FALLTHRU*/
 			case CTF_K_FORWARD:
@@ -1662,9 +1696,7 @@ dt_node_decl(void)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 			dt_ident_type_assign(idp, dtt.dtt_ctfp, dtt.dtt_type);
-			dt_ident_set_storage(idp, 8,
-					     ctf_type_size(dtt.dtt_ctfp,
-							   dtt.dtt_type));
+			dt_ident_set_storage(idp, alignment, size);
 
 			/*
 			 * If we are declaring an associative array, use our
@@ -2863,12 +2895,15 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 	cp = dnp->dn_child = dt_node_cook(cp, 0); /* don't set idflags yet */
 
 	if (cp->dn_kind == DT_NODE_VAR && dt_ident_unref(cp->dn_ident)) {
+		uint_t	size;
+
 		if (dt_type_lookup("int64_t", &dtt) != 0)
 			xyerror(D_TYPE_ERR, "failed to lookup int64_t\n");
 
+		size = ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type);
+
 		dt_ident_type_assign(cp->dn_ident, dtt.dtt_ctfp, dtt.dtt_type);
-		dt_ident_set_storage(cp->dn_ident, 8,
-				     ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type));
+		dt_ident_set_storage(cp->dn_ident, /* alignment */ size, size);
 		dt_node_type_assign(cp, dtt.dtt_ctfp, dtt.dtt_type);
 	}
 
@@ -3481,10 +3516,21 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 */
 		if (lp->dn_kind == DT_NODE_VAR &&
 		    dt_ident_unref(lp->dn_ident)) {
+			uint_t	alignment;
+			uint_t	size;
+
 			dt_node_type_assign(lp, ctfp, type);
+			size = ctf_type_size(ctfp, type);
+
+			if (dt_node_is_scalar(lp))
+				alignment = size;
+			else if (dt_node_is_string(lp))
+				alignment = 1;
+			else
+				alignment = 8;
+
 			dt_ident_type_assign(lp->dn_ident, ctfp, type);
-			dt_ident_set_storage(lp->dn_ident, 8,
-					     ctf_type_size(ctfp, type));
+			dt_ident_set_storage(lp->dn_ident, alignment, size);
 
 			if (uref) {
 				lp->dn_flags |= DT_NF_USERLAND;

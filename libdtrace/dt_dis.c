@@ -102,7 +102,6 @@ dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 	       int n, FILE *fp)
 {
 	__u8		ldcode = BPF_LDX | BPF_MEM | BPF_DW;
-	__u8		stcode = BPF_STX | BPF_MEM | BPF_DW;
 	__u8		addcode = BPF_ALU64 | BPF_ADD | BPF_K;
 	int		dst, scope, var_offset = -1;
 	const char	*vname;
@@ -135,9 +134,12 @@ dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 	/* check the current instruction and read var_offset */
 	if (in->dst_reg != dst)
 		goto out;
-	if (in->code == ldcode && in->src_reg == dst && in->imm == 0)
+	if (BPF_CLASS(in->code) == BPF_LDX && BPF_MODE(in->code) == BPF_MEM &&
+	    in->src_reg == dst && in->imm == 0)
 		var_offset = in->off;
-	else if (in->code == stcode && in->src_reg != dst && in->imm == 0)
+	else if (BPF_CLASS(in->code) == BPF_STX &&
+		 BPF_MODE(in->code) == BPF_MEM &&
+		 in->src_reg != dst && in->imm == 0)
 		var_offset = in->off;
 	else if (in->code == addcode && in->src_reg == 0 && in->off == 0)
 		var_offset = in->imm;

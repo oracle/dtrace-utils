@@ -691,6 +691,12 @@ dt_cg_spill_load(int reg)
 	emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_SPILL(reg)));
 }
 
+static const uint_t	ldstw[] = {
+					0,
+					BPF_B,	BPF_H,	0, BPF_W,
+					0,	0,	0, BPF_DW,
+				};
+
 static int
 dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
@@ -699,6 +705,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	dt_regset_t		*drp = pcb->pcb_regs;
 	uint_t			off;
+	size_t			size;
 
 	/*
 	 * Special case for aggregations: we store the aggregation id.  We
@@ -708,36 +715,21 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		emit(dlp, BPF_MOV_IMM(dnp->dn_reg, dnp->dn_ident->di_id));
-		vtype.dtdt_size = sizeof(dnp->dn_ident->di_id);
+		size = sizeof(dnp->dn_ident->di_id);
 	} else {
 		dt_cg_node(dnp, &pcb->pcb_ir, drp);
 		dt_node_diftype(pcb->pcb_hdl, dnp, &vtype);
+		size = vtype.dtdt_size;
 	}
 
 	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
 	    dnp->dn_kind == DT_NODE_AGG) {
-		int	sz = 8;
-
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
-				 vtype.dtdt_size, vtype.dtdt_size, pfp,
-				 arg);
+				 size, size, pfp, arg);
 
-		switch (vtype.dtdt_size) {
-		case sizeof(uint64_t):
-			sz = BPF_DW;
-			break;
-		case sizeof(uint32_t):
-			sz = BPF_W;
-			break;
-		case sizeof(uint16_t):
-			sz = BPF_H;
-			break;
-		case sizeof(uint8_t):
-			sz = BPF_B;
-			break;
-		}
+		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
 
-		emit(dlp, BPF_STORE(sz, BPF_REG_9, off, dnp->dn_reg));
+		emit(dlp, BPF_STORE(ldstw[size], BPF_REG_9, off, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 
 		return 0;
@@ -1586,11 +1578,6 @@ static uint_t
 dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 {
 #if 1
-	static const uint_t ops[] = {
-		BPF_B,	BPF_H,	0,	BPF_W,
-		0,	0,	0,	BPF_DW,
-	};
-
 	ctf_encoding_t e;
 	ssize_t size;
 
@@ -1610,9 +1597,7 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 		    "size %ld when passed by value\n", (long)size);
 	}
 
-	size--; /* convert size to 3-bit index */
-
-	return ops[size];
+	return ldstw[size];
 #else
 	static const uint_t ops[] = {
 		DIF_OP_LDUB,	DIF_OP_LDUH,	0,	DIF_OP_LDUW,
@@ -1664,7 +1649,8 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* global and local variables (not thread-local or built-in) */
 	if ((idp->di_flags & DT_IDFLG_LOCAL) ||
-	    (!(idp->di_flags & DT_IDFLG_TLS) && idp->di_id >= DIF_VAR_OTHER_UBASE)) {
+	    (!(idp->di_flags & DT_IDFLG_TLS) &&
+	     idp->di_id >= DIF_VAR_OTHER_UBASE)) {
 		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -1678,8 +1664,14 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		/* load the variable value or address */
 		if (dst->dn_flags & DT_NF_REF)
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dst->dn_reg, idp->di_offset));
-		else
-			emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, dst->dn_reg, idp->di_offset));
+		else {
+			size_t	size = dt_node_type_size(dst);
+
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			emit(dlp, BPF_LOAD(ldstw[size], dst->dn_reg, dst->dn_reg, idp->di_offset));
+		}
 
 		return;
 	}
@@ -1900,37 +1892,19 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	    ctf_type_encoding(dst->dn_ctfp, dst->dn_type, &e) != CTF_ERR)
 		size = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY);
 	else
-		size = dt_node_type_size(src);
+		size = dt_node_type_size(dst);
 
 	if (src->dn_flags & DT_NF_REF)
 		dt_cg_memcpy(dlp, drp, dst->dn_reg, src->dn_reg, size);
 	else {
-		uint8_t	sz;
-
 		if (dst->dn_flags & DT_NF_BITFIELD)
 			reg = dt_cg_field_set(src, dlp, drp, dst);
 		else
 			reg = src->dn_reg;
 
-		switch (size) {
-		case 1:
-			sz = BPF_B;
-			break;
-		case 2:
-			sz = BPF_H;
-			break;
-		case 4:
-			sz = BPF_W;
-			break;
-		case 8:
-			sz = BPF_DW;
-			break;
-		default:
-			xyerror(D_UNKNOWN, "internal error -- cg cannot store "
-			    "size %lu when passed by value\n", (ulong_t)size);
-		}
+		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
 
-		emit(dlp, BPF_STORE(sz, dst->dn_reg, 0, reg));
+		emit(dlp, BPF_STORE(ldstw[size], dst->dn_reg, 0, reg));
 
 		if (dst->dn_flags & DT_NF_BITFIELD)
 			dt_regset_free(drp, reg);
@@ -1963,8 +1937,14 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 		if (src->dn_flags & DT_NF_REF) {
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
 			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, idp->di_size);
-		} else
-			emit(dlp, BPF_STORE(BPF_DW, reg, idp->di_offset, src->dn_reg));
+		} else {
+			size_t	size = idp->di_size;
+
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			emit(dlp, BPF_STORE(ldstw[size], reg, idp->di_offset, src->dn_reg));
+		}
 
 		dt_regset_free(drp, reg);
 		return;
