@@ -77,9 +77,13 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 		 */
 		return stacksize / sizeof(uint64_t);
 	}
-	case DIF_VAR_CALLER: {
+	case DIF_VAR_CALLER:
+	case DIF_VAR_UCALLER: {
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
 		uint64_t buf[2];
+
+		if (id == DIF_VAR_UCALLER)
+			flags |= BPF_F_USER_STACK;
 
 		if (bpf_get_stack(dctx->ctx, buf, sizeof(buf), flags) < 0)
 			return 0;
