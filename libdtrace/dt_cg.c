@@ -1505,37 +1505,74 @@ dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_node_t *arg0 = dnp->dn_args;
-	dt_node_t *arg1 = arg0 != NULL ? arg0->dn_list : NULL;
-#ifdef FIXME
-	uint32_t nframes = 0;
-	uint32_t strsize = 0;
-#endif
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	int		nframes = dtp->dt_options[DTRACEOPT_USTACKFRAMES];
+	int		strsize = 0;
+	int		stacksize;
+	dt_node_t	*arg0 = dnp->dn_args;
+	dt_node_t	*arg1 = arg0 != NULL ? arg0->dn_list : NULL;
+	int		skip = 0;
+	uint_t		off;
+	uint_t		lbl_valid = dt_irlist_label(dlp);
+
+	if (nframes == DTRACEOPT_UNSET)
+		nframes = _dtrace_ustackframes;
 
 	if (arg0 != NULL) {
-		if (!dt_node_is_posconst(arg0)) {
+		if (!dt_node_is_posconst(arg0))
 			dnerror(arg0, D_USTACK_FRAMES, "ustack( ) argument #1 "
 				"must be a non-zero positive integer "
 				"constant\n");
-		}
 
-#ifdef FIXME
-		nframes = (uint32_t)arg0->dn_value;
-#endif
+		nframes = arg0->dn_value;
 	}
 
+	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
+		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
+
+	/* FIXME: for now, accept non-zero strsize, but it does nothing */
 	if (arg1 != NULL) {
 		if (arg1->dn_kind != DT_NODE_INT ||
 		    ((arg1->dn_flags & DT_NF_SIGNED) &&
-		    (int64_t)arg1->dn_value < 0)) {
+		    (int64_t)arg1->dn_value < 0))
 			dnerror(arg1, D_USTACK_STRSIZE, "ustack( ) argument #2 "
 				"must be a positive integer constant\n");
-		}
 
-#ifdef FIXME
-		strsize = (uint32_t)arg1->dn_value;
-#endif
+		strsize = arg1->dn_value;
 	}
+
+	/* Reserve space in the output buffer. */
+	stacksize = nframes * sizeof(uint64_t);
+	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_USTACK,
+			 8 + stacksize, 8, NULL,
+			 DTRACE_USTACK_ARG(nframes, strsize));
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+
+	/* Write the tgid. */
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+	emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
+
+	/* Now call bpf_get_stack(ctx, buf, size, flags). */
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + 8));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, (skip & BPF_F_SKIP_FIELD_MASK)
+					  | BPF_F_USER_STACK));
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
+	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
+	emitl(dlp, lbl_valid,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
 }
 
 typedef void dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);

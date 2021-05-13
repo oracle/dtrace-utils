@@ -1089,10 +1089,10 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     caddr_t addr, uint64_t arg)
 {
 	/* LINTED - alignment */
-	uint64_t *pc = ((uint64_t *)addr) + 1;
+	uint64_t *pc = ((uint64_t *)addr);
 	uint32_t depth = DTRACE_USTACK_NFRAMES(arg);
 	uint32_t strsize = DTRACE_USTACK_STRSIZE(arg);
-	const char *strbase = addr + (depth + 2) * sizeof(uint64_t);
+	const char *strbase = addr + (depth + 1) * sizeof(uint64_t);
 	const char *str = strsize ? strbase : NULL;
 	int err = 0;
 
@@ -2090,6 +2090,11 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 				continue;
 			case DTRACEACT_MOD:
 				if (dt_print_mod(dtp, fp, NULL, recdata) < 0)
+					return -1;
+				continue;
+			case DTRACEACT_USTACK:
+				if (dt_print_ustack(dtp, fp, NULL,
+				    recdata, rec->dtrd_arg) < 0)
 					return -1;
 				continue;
 			case DTRACEACT_PRINTF:

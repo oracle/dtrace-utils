@@ -613,6 +613,7 @@ uint_t _dtrace_pidlrulim = 8;	/* default number of pid handles to cache */
 size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 int _dtrace_stackframes = 20;	/* default number of stack frames */
+int _dtrace_ustackframes = 100; /* default number of user stack frames */
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 const char *const _libdtrace_vcs_version = DT_GIT_VERSION; /* Build version string */

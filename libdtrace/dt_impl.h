@@ -794,6 +794,7 @@ extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */
 extern int _dtrace_debug_assert;	/* turn on expensive assertions */
 extern int _dtrace_stackframes;		/* default number of stack frames */
+extern int _dtrace_ustackframes;	/* default number of user stack frames */
 
 extern const char *_dtrace_moddir;	/* default kernel module directory */
 
