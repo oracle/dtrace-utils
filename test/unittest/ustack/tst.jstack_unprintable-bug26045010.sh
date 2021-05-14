@@ -1,10 +1,11 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+# @@xfail: dtv2
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -44,20 +45,50 @@ EOF
 
 file=out.txt
 rm -f $file
-$dtrace -q $dt_flags -n 'profile-9 /execname == "java" && arg1/ { jstack(4); }' -o $file &
-sleep 1
+$dtrace -q $dt_flags -n '
+BEGIN
+{
+	printf("hello world\n");
+}
+profile-9
+/execname == "java" && arg1/
+{
+	jstack(4);
+}' -o $file &
+pid=$!
+
+# confirm that the DTrace job is running successfully
+nsecs=0
+while true; do
+	sleep 1
+	nsecs=$(($nsecs + 1))
+	if grep -q "hello world" $file; then
+		break
+	fi
+	if ! ps -p $pid >& /dev/null; then
+		echo DTrace died
+		cat $file
+		rm -f $file
+		exit 1
+	fi
+	if [ $nsecs -ge 10 ] ; then
+		echo error starting DTrace job
+		kill %1
+		cat $file
+		rm -f $file
+		exit 1
+	fi
+done
+
+# run the Java job
 /usr/bin/java bug26045010
+
+# kill the DTrace job
 sleep 1
 kill %1
-sleep 1
+wait
 
-status=$?
-if [ "$status" -ne 0 ]; then
-        echo $tst: dtrace failed
-        rm -f $file
-        exit $status
-fi
-
+# check results
 n=`sed 's/[[:print:]]//g' $file | awk 'BEGIN {x = 0}; NF>0 {x += 1}; END {print x}'`
 if [ $n -gt 0 ]; then
         echo $tst: $n lines have unprintable characters
@@ -65,10 +96,9 @@ if [ $n -gt 0 ]; then
         echo "==================== file start"
         cat $file
         echo "==================== file end"
-        status=1
+        n=1
 fi
 
 rm -f $file
 
-exit $status
-
+exit $n
