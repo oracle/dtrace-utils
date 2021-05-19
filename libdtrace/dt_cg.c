@@ -683,16 +683,21 @@ static void
 dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
 {
 	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint2int");
+	size_t		size = yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
+	uint_t		lbl_ok = dt_irlist_label(dlp);
 
 	assert(idp != NULL);
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp, BPF_MOV_REG(BPF_REG_1, src));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, src));
 	dt_regset_xalloc(drp, BPF_REG_0);
-	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
-	emit(dlp, BPF_MOV_REG(dst, BPF_REG_0));
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, BPF_REG_0, size, lbl_ok));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, size));
+	emitl(dlp, lbl_ok,
+		   BPF_MOV_REG(dst, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
 }
 
@@ -2844,6 +2849,97 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp, BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));
 }
 
+static void
+dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	TRACE_REGSET("    subr-speculation:Begin");
+	dnp->dn_reg = dt_regset_alloc(drp);
+	emit(dlp, BPF_MOV_IMM(dnp->dn_reg, 0));
+	TRACE_REGSET("    subr-speculation:End  ");
+}
+
+static void
+dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	TRACE_REGSET("    subr-strlen:Begin");
+	dt_cg_node(dnp->dn_args, dlp, drp);
+	dnp->dn_reg = dnp->dn_args->dn_reg;
+	dt_cg_strlen(dlp, drp, dnp->dn_reg, dnp->dn_args->dn_reg);
+	TRACE_REGSET("    subr-strlen:End  ");
+}
+
+typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
+
+static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
+	[DIF_SUBR_RAND]			= NULL,
+	[DIF_SUBR_MUTEX_OWNED]		= NULL,
+	[DIF_SUBR_MUTEX_OWNER]		= NULL,
+	[DIF_SUBR_MUTEX_TYPE_ADAPTIVE]	= NULL,
+	[DIF_SUBR_MUTEX_TYPE_SPIN]	= NULL,
+	[DIF_SUBR_RW_READ_HELD]		= NULL,
+	[DIF_SUBR_RW_WRITE_HELD]	= NULL,
+	[DIF_SUBR_RW_ISWRITER]		= NULL,
+	[DIF_SUBR_COPYIN]		= NULL,
+	[DIF_SUBR_COPYINSTR]		= NULL,
+	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,
+	[DIF_SUBR_PROGENYOF]		= NULL,
+	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
+	[DIF_SUBR_COPYOUT]		= NULL,
+	[DIF_SUBR_COPYOUTSTR]		= NULL,
+	[DIF_SUBR_ALLOCA]		= NULL,
+	[DIF_SUBR_BCOPY]		= NULL,
+	[DIF_SUBR_COPYINTO]		= NULL,
+	[DIF_SUBR_MSGDSIZE]		= NULL,
+	[DIF_SUBR_MSGSIZE]		= NULL,
+	[DIF_SUBR_GETMAJOR]		= NULL,
+	[DIF_SUBR_GETMINOR]		= NULL,
+	[DIF_SUBR_DDI_PATHNAME]		= NULL,
+	[DIF_SUBR_STRJOIN]		= NULL,
+	[DIF_SUBR_LLTOSTR]		= NULL,
+	[DIF_SUBR_BASENAME]		= NULL,
+	[DIF_SUBR_DIRNAME]		= NULL,
+	[DIF_SUBR_CLEANPATH]		= NULL,
+	[DIF_SUBR_STRCHR]		= NULL,
+	[DIF_SUBR_STRRCHR]		= NULL,
+	[DIF_SUBR_STRSTR]		= NULL,
+	[DIF_SUBR_STRTOK]		= NULL,
+	[DIF_SUBR_SUBSTR]		= NULL,
+	[DIF_SUBR_INDEX]		= NULL,
+	[DIF_SUBR_RINDEX]		= NULL,
+	[DIF_SUBR_HTONS]		= NULL,
+	[DIF_SUBR_HTONL]		= NULL,
+	[DIF_SUBR_HTONLL]		= NULL,
+	[DIF_SUBR_NTOHS]		= NULL,
+	[DIF_SUBR_NTOHL]		= NULL,
+	[DIF_SUBR_NTOHLL]		= NULL,
+	[DIF_SUBR_INET_NTOP]		= NULL,
+	[DIF_SUBR_INET_NTOA]		= NULL,
+	[DIF_SUBR_INET_NTOA6]		= NULL,
+	[DIF_SUBR_D_PATH]		= NULL,
+	[DIF_SUBR_LINK_NTOP]		= NULL,
+};
+
+static void
+dt_cg_call_subr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_ident_t	*idp = dnp->dn_ident;
+	dt_cg_subr_f	*fun;
+
+	if (idp->di_kind != DT_IDENT_FUNC)
+		dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be called from a D "
+					"expression (D program context "
+					"required)\n",
+			dt_idkind_name(idp->di_kind), idp->di_name);
+
+	assert(idp->di_id > 0 && idp->di_id <= DIF_SUBR_MAX);
+
+	fun = _dt_cg_subr[idp->di_id];
+	if (fun == NULL)
+		dnerror(dnp, D_FUNC_UNDEF, "unimplemented subroutine: %s\n",
+			idp->di_name);
+	fun(dnp, dlp, drp);
+}
+
 /*
  * Generate code for an inlined variable reference.  Inlines can be used to
  * define either scalar or associative array substitutions.  For scalars, we
@@ -3349,22 +3445,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		switch (dnp->dn_kind) {
 		case DT_NODE_FUNC:
-			if ((idp = dnp->dn_ident)->di_kind != DT_IDENT_FUNC) {
-				dnerror(dnp, D_CG_EXPR, "%s %s( ) may not be "
-				    "called from a D expression (D program "
-				    "context required)\n",
-				    dt_idkind_name(idp->di_kind), idp->di_name);
-			}
-
-			dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
-
-			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-/* FIXME */
-			emit(dlp, BPF_CALL_HELPER(-dnp->dn_ident->di_id));
-			emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
-
+			dt_cg_call_subr(dnp, dlp, drp);
 			break;
 
 		case DT_NODE_VAR: {
