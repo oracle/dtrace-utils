@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  */
 #include <stddef.h>
 #include <stdint.h>
@@ -9,16 +9,17 @@
 # define noinline	__attribute__((noinline))
 #endif
 
-noinline int dt_memcpy_int(void *dst, void *src, size_t n)
+noinline int dt_memcpy_int(void *dst, const void *src, size_t n)
 {
 	uint64_t	*d = dst;
-	uint64_t	*s = src;
-	size_t		r, i;
+	const uint64_t	*s = src;
+	size_t		q;
 
 	if (n > 128)
 		return -1;
 
-	switch (n / 8) {
+	q = n / 8;
+	switch (q) {
 	case 16:
 		d[15] = s[15];
 	case 15:
@@ -53,21 +54,24 @@ noinline int dt_memcpy_int(void *dst, void *src, size_t n)
 		d[0] = s[0];
 	}
 
-	r = n % 8;
-	if (r >= 4) {
-		i = (n / 4) - 1;
-		((uint32_t *)dst)[i] = ((uint32_t *)src)[i];
-		r -= 4;
+	if ((n % 8) == 0)
+		return 0;
+
+	dst = &d[q];
+	src = &s[q];
+
+	if (n & 4) {
+		*(uint32_t *)dst = *(uint32_t *)src;
+		dst += 4;
+		src += 4;
 	}
-	if (r >= 2) {
-		i = (n / 2) - 1;
-		((uint16_t *)dst)[i] = ((uint16_t *)src)[i];
-		r -= 2;
+	if (n & 2) {
+		*(uint16_t *)dst = *(uint16_t *)src;
+		dst += 2;
+		src += 2;
 	}
-	if (r) {
-		i = n - 1;
-		((uint8_t *)dst)[i] = ((uint8_t *)src)[i];
-	}
+	if (n & 1)
+		*(uint8_t *)dst = *(uint8_t *)src;
 
 	return 0;
 }
@@ -79,17 +83,20 @@ noinline int dt_memcpy_int(void *dst, void *src, size_t n)
  *
  * The size (n) must be no more than 256.
  */
-noinline int dt_memcpy(void *dst, void *src, size_t n)
+noinline int dt_memcpy(void *dst, const void *src, size_t n)
 {
 	uint64_t	*d = dst;
-	uint64_t	*s = src;
+	const uint64_t	*s = src;
+
+	if (n == 0)
+		return 0;
+	if (n > 256)
+		n = 256;
 
 	if (n > 128) {
 		if (dt_memcpy_int(d, s, 128))
 			return -1;
 		n -= 128;
-		if (n == 0)
-			return 0;
 
 		d += 16;
 		s += 16;
