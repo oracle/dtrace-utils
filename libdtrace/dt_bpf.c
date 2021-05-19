@@ -170,7 +170,9 @@ set_task_offsets(dtrace_hdl_t *dtp)
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
  *		NUL byte).  The string table size is taken from the DTrace
- *		consumer handle (dt_strlen).
+ *		consumer handle (dt_strlen), and increased by the maximum
+ *		string size to ensure that the BPF verifier can validate all
+ *		access requests for dynamic references to string constants.
  * - gvars:	Global variables map.  This is a global map with a singleton
  *		element (key 0) addressed by variable offset.
  * - lvars:	Local variables map.  This is a per-CPU map with a singleton
@@ -197,7 +199,7 @@ set_task_offsets(dtrace_hdl_t *dtp)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		gvarsz, lvarsz, tvarc, aggsz;
+	int		stabsz, gvarsz, lvarsz, tvarc, aggsz;
 	int		ci_mapfd, st_mapfd;
 	uint32_t	key = 0;
 
@@ -252,11 +254,15 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		return -1;		/* dt_errno is set for us */
 
 	/*
-	 * We may need to create a final copy of the string table because it is
-	 * possible entries were added after the last clause was compiled.
+	 * We need to create the global (consolidated) string table.  We store
+	 * the actual length (for in-code BPF validation purposes) but augment
+	 * it by the maximum string size to determine the size of the BPF map
+	 * value that is used to store the strtab.
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	dtp->dt_strtab = dt_zalloc(dtp, dtp->dt_strlen);
+	stabsz = dtp->dt_strlen +
+		 ctf_type_size(DT_STR_CTFP(dtp), DT_STR_TYPE(dtp));
+	dtp->dt_strtab = dt_zalloc(dtp, stabsz);
 	if (dtp->dt_strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
@@ -264,7 +270,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 			dtp->dt_strtab);
 
 	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
-			       sizeof(uint32_t), dtp->dt_strlen, 1);
+			       sizeof(uint32_t), stabsz, 1);
 	if (st_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
