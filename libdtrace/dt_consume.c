@@ -1235,9 +1235,9 @@ static int
 dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 {
 	/* LINTED - alignment */
-	uint64_t tgid = ((uint64_t *)addr)[1];
+	uint64_t tgid = ((uint64_t *)addr)[0];
 	/* LINTED - alignment */
-	uint64_t pc = ((uint64_t *)addr)[2];
+	uint64_t pc = ((uint64_t *)addr)[1];
 	const char *format = "  %-50s";
 	char *s;
 	int n, len = 256;
@@ -1269,9 +1269,9 @@ int
 dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 {
 	/* LINTED - alignment */
-	uint64_t tgid = ((uint64_t *)addr)[1];
+	uint64_t tgid = ((uint64_t *)addr)[0];
 	/* LINTED - alignment */
-	uint64_t pc = ((uint64_t *)addr)[2];
+	uint64_t pc = ((uint64_t *)addr)[1];
 	int err = 0;
 
 	char objname[PATH_MAX], c[PATH_MAX * 2];
@@ -2095,6 +2095,15 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 			case DTRACEACT_USTACK:
 				if (dt_print_ustack(dtp, fp, NULL,
 				    recdata, rec->dtrd_arg) < 0)
+					return -1;
+				continue;
+			case DTRACEACT_USYM:
+			case DTRACEACT_UADDR:
+				if (dt_print_usym(dtp, fp, recdata, act) < 0)
+					return -1;
+				continue;
+			case DTRACEACT_UMOD:
+				if (dt_print_umod(dtp, fp, NULL, recdata) < 0)
 					return -1;
 				continue;
 			case DTRACEACT_PRINTF:

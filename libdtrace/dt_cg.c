@@ -743,6 +743,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
 {
 	dtrace_diftype_t	vtype;
+	dtrace_hdl_t		*dtp = pcb->pcb_hdl;
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	dt_regset_t		*drp = pcb->pcb_regs;
 	uint_t			off;
@@ -759,13 +760,35 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		size = sizeof(dnp->dn_ident->di_id);
 	} else {
 		dt_cg_node(dnp, &pcb->pcb_ir, drp);
-		dt_node_diftype(pcb->pcb_hdl, dnp, &vtype);
+		dt_node_diftype(dtp, dnp, &vtype);
 		size = vtype.dtdt_size;
+	}
+
+	if (kind == DTRACEACT_USYM ||
+	    kind == DTRACEACT_UMOD ||
+	    kind == DTRACEACT_UADDR) {
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, 16, 8, NULL, arg);
+
+		/* preface the value with the user process tgid */
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+		dt_regset_free_args(drp);
+		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+
+		/* then store the value */
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off + 8, dnp->dn_reg));
+		dt_regset_free(drp, dnp->dn_reg);
+
+		return 0;
 	}
 
 	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
 	    dnp->dn_kind == DT_NODE_AGG) {
-		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind,
 				 size, size, pfp, arg);
 
 		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
