@@ -4,11 +4,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- * print 'caller' and make sure it succeeds.
+ * ASSERTION: print 'caller' and make sure it succeeds.
  *
  * SECTION: Variables/Built-in Variables
  */

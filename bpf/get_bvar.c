@@ -57,6 +57,14 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 		/* FIXME: no stack() yet */
 		return 0;
 	}
+	case DIF_VAR_CALLER: {
+		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
+		uint64_t buf[2];
+
+		if (bpf_get_stack(dctx->ctx, buf, sizeof(buf), flags) < 0)
+			return 0;
+		return buf[1];
+	}
 	case DIF_VAR_PROBEPROV:
 	case DIF_VAR_PROBEMOD:
 	case DIF_VAR_PROBEFUNC:
