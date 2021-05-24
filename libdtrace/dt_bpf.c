@@ -273,8 +273,10 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t),
-			roundup(sizeof(dt_mstate_t), 8) + 8 +
-				roundup(dtp->dt_maxreclen, 8), 1) == -1)
+			roundup(sizeof(dt_mstate_t), 8) + 8
+			  + roundup(dtp->dt_maxreclen, 8)
+			  + 8 * dtp->dt_options[DTRACEOPT_MAXFRAMES],
+			1) == -1)
 		return -1;		/* dt_errno is set for us */
 
 	/*

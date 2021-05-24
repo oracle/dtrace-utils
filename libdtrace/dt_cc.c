@@ -2331,6 +2331,13 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_STBSZ:
 				nrp->dofr_data = dtp->dt_strlen;
 				continue;
+			case DT_CONST_STKOFF:
+				nrp->dofr_data = roundup(dtp->dt_maxreclen, 8);
+				continue;
+			case DT_CONST_STKSIZ:
+				nrp->dofr_data = sizeof(uint64_t)
+				    * dtp->dt_options[DTRACEOPT_MAXFRAMES];
+				continue;
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)

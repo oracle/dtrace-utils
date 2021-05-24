@@ -25,6 +25,8 @@ extern struct bpf_map_def probes;
 extern struct bpf_map_def state;
 
 extern uint64_t STBSZ;
+extern uint64_t STKOFF;
+extern uint64_t STKSIZ;
 
 #define error(dctx, fault, illval) \
 	({ \
@@ -54,8 +56,26 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_ARG9:
 		return mst->argv[id - DIF_VAR_ARG0];
 	case DIF_VAR_STACKDEPTH: {
-		/* FIXME: no stack() yet */
-		return 0;
+		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
+		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
+		char *buf = ((char *) dctx->buf) + ((uint64_t) &STKOFF);
+		uint64_t stacksize;
+
+		stacksize = bpf_get_stack(dctx->ctx, buf, bufsiz, flags);
+		if (stacksize < 0)
+			return error(dctx, DTRACEFLT_BADSTACK, 0 /* FIXME */);
+
+		/*
+		 * While linux/bpf.h does not describe the meaning of
+		 * bpf_get_stack()'s return value outside of its sign,
+		 * it is presumably the length of the copied stack.
+		 *
+		 * If stacksize==bufsiz, presumably the stack is larger than
+		 * what we can retrieve.  But it's also possible that the
+		 * buffer was exactly large enough.  So, leave it to the user
+		 * to interpret the result.
+		 */
+		return stacksize / sizeof(uint64_t);
 	}
 	case DIF_VAR_CALLER: {
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
