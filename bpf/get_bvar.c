@@ -55,11 +55,15 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:
 	case DIF_VAR_ARG9:
 		return mst->argv[id - DIF_VAR_ARG0];
-	case DIF_VAR_STACKDEPTH: {
+	case DIF_VAR_STACKDEPTH:
+	case DIF_VAR_USTACKDEPTH: {
 		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
 		char *buf = ((char *) dctx->buf) + ((uint64_t) &STKOFF);
 		uint64_t stacksize;
+
+		if (id == DIF_VAR_USTACKDEPTH)
+			flags |= BPF_F_USER_STACK;
 
 		stacksize = bpf_get_stack(dctx->ctx, buf, bufsiz, flags);
 		if (stacksize < 0)
