@@ -1,11 +1,11 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
-/* @@trigger: raise-tst-raise3 */
+
+/* @@trigger: raise-tst-raise2 */
 /* @@trigger-timing: after */
 /* @@runtest-opts: $_pid */
 
@@ -26,10 +26,9 @@ BEGIN
 	timeout = timestamp + 5000000000;
 }
 
-syscall::ioctl:entry
+syscall::ioctl:return
 /pid == $1/
 {
-	trace("raised");
 	raise(SIGINT);
 	/*
 	 * Wait no more than three seconds for the process to die.
@@ -46,6 +45,5 @@ syscall::exit_group:entry
 profile:::tick-4
 /timestamp > timeout/
 {
-	trace("timed out");
-	exit(1);
+	exit(124);
 }
