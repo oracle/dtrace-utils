@@ -2141,10 +2141,15 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 	dp = dt_as(yypcb);
 
 	/*
-	 * If we were called with an identifier, assign the DIFO to it.
+	 * If we were called with an identifier, assign the DIFO to it.  We
+	 * also must ensure that the identifier is of the correct kind (and
+	 * has the proper configuration) - we do this by morphing it into
+	 * itself.
 	 */
-	if (idp != NULL)
+	if (idp != NULL) {
+		dt_ident_morph(idp, idp->di_kind, &dt_idops_difo, dtp);
 		dt_ident_set_data(idp, dp);
+	}
 
 out:
 	if (dtp->dt_cdefs_fd != -1 &&
