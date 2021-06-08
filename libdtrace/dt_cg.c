@@ -3181,6 +3181,63 @@ dt_cg_subr_strjoin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strjoin:End  ");
 }
 
+static void
+dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*str = dnp->dn_args;
+	dt_node_t	*idx = str->dn_list;
+	dt_node_t	*cnt = idx->dn_list;
+	dt_ident_t	*idp;
+
+	TRACE_REGSET("    subr-substr:Begin");
+
+	dt_cg_node(str, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_node(idx, dlp, drp);
+	if (cnt != NULL)
+		dt_cg_node(cnt, dlp, drp);
+
+	/*
+	 * Allocate the result register and associate it with a temporary
+	 * string slot.
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+
+        emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+        emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+        emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, str->dn_reg));
+	dt_regset_free(drp, str->dn_reg);
+	if (str->dn_tstring)
+		dt_cg_tstring_free(yypcb, str);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, idx->dn_reg));
+	dt_regset_free(drp, idx->dn_reg);
+	if (cnt != NULL) {
+		emit(dlp, BPF_MOV_REG(BPF_REG_4, cnt->dn_reg));
+		dt_regset_free(drp, cnt->dn_reg);
+		emit(dlp, BPF_MOV_IMM(BPF_REG_5, 3));
+	} else {
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, 0));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_5, 2));
+	}
+	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_substr");
+	assert(idp != NULL);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-substr:End  ");
+}
+
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
@@ -3216,7 +3273,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_STRRCHR]		= NULL,
 	[DIF_SUBR_STRSTR]		= NULL,
 	[DIF_SUBR_STRTOK]		= NULL,
-	[DIF_SUBR_SUBSTR]		= NULL,
+	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,
 	[DIF_SUBR_INDEX]		= NULL,
 	[DIF_SUBR_RINDEX]		= NULL,
 	[DIF_SUBR_HTONS]		= NULL,

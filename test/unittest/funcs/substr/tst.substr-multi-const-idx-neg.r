@@ -1,0 +1,11 @@
+
+-10   3 ghi
+ -9   3 hij
+ -8   3 ijk
+ -7   3 jkl
+ -6   3 klm
+ -5   3 lmn
+ -4   3 mno
+ -3   3 nop
+ -2   3 op
+ -1   3 p

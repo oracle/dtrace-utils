@@ -299,8 +299,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 * value that is used to store the strtab.
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	stabsz = dtp->dt_strlen +
-		 ctf_type_size(DT_STR_CTFP(dtp), DT_STR_TYPE(dtp));
+	stabsz = dtp->dt_strlen + dtp->dt_options[DTRACEOPT_STRSIZE];
 	dtp->dt_strtab = dt_zalloc(dtp, stabsz);
 	if (dtp->dt_strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
