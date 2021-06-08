@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -32,7 +32,7 @@ tick-1
 	trace(x++);		/* DT_TYPE_INT (derived) */
 	trace(timestamp);	/* DT_TYPE_INT (variable) */
 	trace(`max_pfn);	/* CTF type (by value) */
-	trace(*`sdt_prefix);	/* CTF type (by ref) */
+	trace(*`linux_banner);	/* CTF type (by ref) */
 	i++;
 }
 

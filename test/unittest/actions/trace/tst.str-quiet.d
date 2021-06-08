@@ -6,11 +6,12 @@
  */
 
 /*
- * ASSERTION: The trace() action prints a string value correctly in non-quiet
- *            mode.
+ * ASSERTION: The trace() action prints a string value correctly in quiet mode.
  *
  * SECTION: Actions and Subroutines/trace()
  */
+
+#pragma D option quiet
 
 BEGIN
 {

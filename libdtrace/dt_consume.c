@@ -17,6 +17,7 @@
 #include <dt_pcap.h>
 #include <dt_peb.h>
 #include <dt_state.h>
+#include <dt_varint.h>
 #include <libproc.h>
 #include <port.h>
 #include <sys/epoll.h>
@@ -1864,13 +1865,27 @@ static int
 dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	       caddr_t data, int quiet)
 {
+	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
+		return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
+
 	/*
-	 * String or any other non-numeric data items are printed as a byte
-	 * stream.
+	 * String data can be recognized as a non-scalar data item with
+	 * alignment == 1.
+	 * Any other non-scalar data items are printed as a byte stream.
 	 */
-	if (rec->dtrd_arg == DT_NF_REF)
-		return dt_print_bytes(dtp, fp, data, rec->dtrd_size, 33,
-				      quiet);
+	if (rec->dtrd_arg == DT_NF_REF) {
+		char	*s = (char *)data;
+
+		if (rec->dtrd_alignment > 1)
+			return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
+
+		/* We have a string.  Skip the length prefix and print it. */
+		s = (char *)dt_vint_skip(s);
+		if (quiet)
+			return dt_printf(dtp, fp, "%s", s);
+		else
+			return dt_printf(dtp, fp, "  %-33s", s);
+	}
 
 	/*
 	 * Differentiate between signed and unsigned numeric values.
@@ -1915,9 +1930,9 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	}
 
 	/*
-	 * We should never get here, but if we do... print bytes.
+	 * We should never get here, but if we do... print raw bytes.
 	 */
-	return dt_print_bytes(dtp, fp, data, rec->dtrd_size, 33, quiet);
+	return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 }
 
 static dtrace_workstatus_t
