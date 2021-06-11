@@ -37,6 +37,14 @@ unsigned long linux_version_code(void);
 int waitfd(int which, pid_t upid, int options, int flags);
 #endif
 
+#ifndef __NR_pidfd_open
+#define __NR_pidfd_open 434
+#endif
+
+#ifndef HAVE_PIDFD_OPEN
+int pidfd_open(pid_t pid, unsigned int flags);
+#endif
+
 /*
  * New open() flags not supported in OL6 glibc.
  */

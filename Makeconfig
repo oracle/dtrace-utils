@@ -40,3 +40,4 @@ $(CONFIG_H):
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
 $(eval $(call check-symbol-rule,WAITFD,waitfd,c))
+$(eval $(call check-symbol-rule,PIDFD_OPEN,pidfd_open,c))

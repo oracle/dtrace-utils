@@ -935,10 +935,9 @@ dt_proc_control(void *arg)
 	Pset_ptrace_wrapper(dpr->dpr_proc, proxy_ptrace);
 
 	/*
-	 * Make a waitfd to this process, and set up polling structures
-	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
+	 * Make a pidfd to this process.
 	 */
-	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
+	if ((dpr->dpr_fd = pidfd_open(dpr->dpr_pid, 0)) < 0) {
 		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
 		    (long) dpr->dpr_pid, strerror(errno));
 		/*
