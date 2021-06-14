@@ -27,6 +27,7 @@ extern struct bpf_map_def state;
 extern uint64_t STBSZ;
 extern uint64_t STKOFF;
 extern uint64_t STKSIZ;
+extern uint64_t BOOTTM;
 
 #define error(dctx, fault, illval) \
 	({ \
@@ -134,6 +135,8 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 
 		return val & 0x00000000ffffffffUL;
 	}
+	case DIF_VAR_WALLTIMESTAMP:
+		return bpf_ktime_get_ns() + ((uint64_t)&BOOTTM);
 	case DIF_VAR_PPID: {
 		uint64_t	ptr;
 		int32_t		val = -1;

@@ -2215,6 +2215,20 @@ dt_link_layout(dtrace_hdl_t *dtp, const dtrace_difo_t *dp, uint_t *pcp,
 	return pc;
 }
 
+static uint64_t boottime = 0;
+static int get_boottime() {
+	struct timespec t_real, t_boot;
+
+	if (clock_gettime(CLOCK_REALTIME, &t_real))
+		return -1;
+	if (clock_gettime(CLOCK_MONOTONIC, &t_boot))
+		return -1;
+	boottime = t_real.tv_sec - t_boot.tv_sec;
+	boottime *= 1000000000;
+	boottime += t_real.tv_nsec - t_boot.tv_nsec;
+	return 0;
+}
+
 static int
 dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		  dt_ident_t *idp, const dtrace_difo_t *sdp, dt_strtab_t *stab,
@@ -2337,6 +2351,11 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_STKSIZ:
 				nrp->dofr_data = sizeof(uint64_t)
 				    * dtp->dt_options[DTRACEOPT_MAXFRAMES];
+				continue;
+			case DT_CONST_BOOTTM:
+				if (boottime == 0 && get_boottime())
+					return -1;
+				nrp->dofr_data = boottime;
 				continue;
 			default:
 				/* probe name -> value is probe id */
