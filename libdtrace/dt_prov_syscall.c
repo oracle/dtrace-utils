@@ -187,6 +187,23 @@ static void trampoline(dt_pcb_t *pcb)
 	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
+	/*
+	 * For return probes, store the errno.  That is, examine arg0.
+	 * If it is >=0 or <=-2048, ignore it.  Otherwise, store -arg0
+	 * in dctx->mst->syscall_errno.
+	 */
+	if (strcmp(pcb->pcb_probe->desc->prb, "return") == 0) {
+		uint_t lbl_errno_done = dt_irlist_label(dlp);
+
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(0)));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_errno_done));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLE, BPF_REG_0, -2048, lbl_errno_done));
+		emit(dlp,  BPF_NEG_REG(BPF_REG_0));
+		emit(dlp,  BPF_STORE(BPF_W, BPF_REG_7, DMST_ERRNO, BPF_REG_0));
+		emitl(dlp, lbl_errno_done,
+			   BPF_NOP());
+	}
+
 	dt_cg_tramp_epilogue(pcb);
 }
 

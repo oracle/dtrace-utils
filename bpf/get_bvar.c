@@ -178,6 +178,8 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 
 		return val >> 32;
 	}
+	case DIF_VAR_ERRNO:
+		return mst->syscall_errno;
 	case DIF_VAR_CURCPU: {
 		uint32_t	key = 0;
 		void		*val = bpf_map_lookup_elem(&cpuinfo, &key);

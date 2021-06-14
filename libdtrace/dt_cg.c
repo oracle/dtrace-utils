@@ -117,6 +117,8 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				// mov %r7, %r0
 	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r7
 	 *	dctx.mst->prid = PRID;	// stw [%r7 + DMST_PRID], PRID
+	 *	dctx.mst->syscall_errno = 0;
+	 *				// stw [%r7 + DMST_ERRNO], 0
 	 */
 	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
@@ -127,6 +129,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp,  BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_7));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, -1), prid);
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_ERRNO, 0));
 
 	/*
 	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
