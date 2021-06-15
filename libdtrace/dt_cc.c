@@ -2388,7 +2388,7 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 		dt_ident_t	*idp = dt_dlib_get_sym(dtp, name);
 		uint_t		ioff = rp->dofr_offset /
 				       sizeof(struct bpf_insn);
-		uint32_t	val;
+		uint64_t	val;
 
 		if (idp == NULL)			/* not found */
 			continue;
@@ -2411,10 +2411,10 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 		}
 
 		if (rp->dofr_type == R_BPF_64_64) {
-			buf[ioff].imm = val;
-			buf[ioff + 1].imm = 0;
+			buf[ioff].imm = val & 0xffffffff;
+			buf[ioff + 1].imm = val >> 32;
 		} else if (rp->dofr_type == R_BPF_64_32)
-			buf[ioff].imm = val;
+			buf[ioff].imm = (uint32_t)val;
 	}
 }
 
