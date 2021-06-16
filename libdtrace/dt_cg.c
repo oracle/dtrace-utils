@@ -613,6 +613,21 @@ dt_cg_probe_error(dt_pcb_t *pcb, uint32_t off, uint32_t fault, uint64_t illval)
 }
 
 /*
+ * Generate code to validate that the value in the given register 'reg' is not
+ * the NULL pointer.
+ */
+static void
+dt_cg_check_notnull(dt_irlist_t *dlp, dt_regset_t *drp, int reg)
+{
+	uint_t	lbl_notnull = dt_irlist_label(dlp);
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, reg, 0, lbl_notnull));
+	dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
+	emitl(dlp, lbl_notnull,
+		   BPF_NOP());
+}
+
+/*
  * Check whether mst->fault indicates a fault was triggered.  If so, abort the
  * current clause by means of a straight jump to the exit labal.
  */
@@ -3191,7 +3206,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
 			uint_t	ubit;
-			uint_t	lbl_valid = dt_irlist_label(dlp);
 
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
@@ -3202,12 +3216,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dnp->dn_flags |=
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
-			/* if NULL pointer, report BADARR */
-			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_reg, 0,
-						  lbl_valid));
-			dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
-			emitl(dlp, lbl_valid,
-				   BPF_NOP());
+			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 
 			/* FIXME: Does not handled signed or userland */
 			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
@@ -3293,25 +3302,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	case DT_TOK_PTR:
 	case DT_TOK_DOT: {
-		uint_t	lbl_valid = dt_irlist_label(dlp);
 
 		assert(dnp->dn_right->dn_kind == DT_NODE_IDENT);
 		dt_cg_node(dnp->dn_left, dlp, drp);
-
-		/*
-		 * If the lvalue is the NULL pointer, we must report a BADARR
-		 * fault.
-		 *
-		 *	if (left != 0)		// jne %lreg, 0, valid
-		 *		goto valid;
-		 *				//     (report BADADDR fault)
-		 * valid:
-		 */
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_left->dn_reg, 0,
-					  lbl_valid));
-		dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
-		emitl(dlp, lbl_valid,
-			   BPF_NOP());
+		dt_cg_check_notnull(dlp, drp, dnp->dn_left->dn_reg);
 
 		/*
 		 * If the left-hand side of PTR or DOT is a dynamic variable,
