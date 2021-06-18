@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -10,7 +10,7 @@ dtrace=$1
 out=$tmpdir/output.$$
 
 watch_output_for() {
-    for iter in 1 2 3 4 5 6; do
+    for iter in `seq 10`; do
         sleep 1
         if grep -q $1 $out; then
             iter=0
