@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,6 +13,7 @@
 
 /* @@xfail: dtv2 */
 /* @@runtest-opts: -Z */
+/* @@trigger: pid-tst-args1 */
 
 #pragma D option quiet
 #pragma D option statusrate=10ms
@@ -33,18 +34,21 @@ syscall::ioctl:entry
 }
 
 fbt::SyS_ioctl:entry,
+fbt::__arm64_sys_ioctl:entry,
 fbt::__x64_sys_ioctl:entry
 /me == pid && num_entry > 0/
 {
 }
 
 fbt::SyS_ioctl:return,
+fbt::__arm64_sys_ioctl:return,
 fbt::__x64_sys_ioctl:return
 /me == pid && num_entry > 0/
 {
 }
 
 fbt::SyS_ioctl:return,
+fbt::__arm64_sys_ioctl:return,
 fbt::__x64_sys_ioctl:return
 /me == pid && num_entry > 0 && self->token != pid/
 {

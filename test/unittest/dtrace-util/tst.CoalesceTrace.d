@@ -1,10 +1,9 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  *
@@ -22,6 +21,7 @@
 
 /* @@runtest-opts: -FZ */
 /* @@timeout: 70 */
+/* @@trigger: readwholedir */
 
 BEGIN
 {
@@ -36,6 +36,7 @@ syscall::read:
 }
 
 fbt:vmlinux:SyS_read:,
+fbt:vmlinux:__arm64_sys_read:,
 fbt:vmlinux:__x64_sys_read:
 {
 	printf("fbt: %d\n", j++);

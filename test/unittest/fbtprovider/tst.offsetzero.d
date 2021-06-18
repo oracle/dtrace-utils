@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,13 +11,14 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
-/* @@xfail: dtv2 */
 /* @@runtest-opts: -Z */
+/* @@trigger: pid-tst-args1 */
 
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
 fbt::SyS_ioctl:entry,
+fbt::__arm64_sys_ioctl:entry,
 fbt::__x64_sys_ioctl:entry
 {
 	printf("Entering the ioctl function\n");
@@ -26,6 +27,7 @@ fbt::__x64_sys_ioctl:entry
 }
 
 fbt::SyS_ioctl:return,
+fbt::__arm64_sys_ioctl:return,
 fbt::__x64_sys_ioctl:return
 {
 	printf("Returning from ioctl function\n");

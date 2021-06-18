@@ -163,10 +163,22 @@ dt_prog_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 {
 	pi_state_t		st;
 	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
+	int			rc;
 
 	st.cnt = cnt;
 	st.idp = sdp->dtsd_clause;
-	return dt_probe_iter(dtp, pdp, (dt_probe_f *)dt_stmt_probe, NULL, &st);
+	rc = dt_probe_iter(dtp, pdp, (dt_probe_f *)dt_stmt_probe, NULL, &st);
+
+	/*
+	 * At this point, dtp->dt_cflags has no information about
+	 * DTRACE_C_ZDEFS.  Do not worry about it.  If the probe
+	 * definition matches no probes and DTRACE_C_ZDEFS had not
+	 * been set, the problem would have been reported earlier,
+	 * in dt_setcontext().
+	 */
+	if (rc && dtrace_errno(dtp) == EDT_NOPROBE)
+		return 0;
+	return rc;
 }
 
 int
