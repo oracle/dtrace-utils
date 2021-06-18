@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.5.1%{?dist}
+Release:      1.6%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,27 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Jun 18 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.6
+- Implement built-in variables: probeprov, probemod, probefunc, probename.
+- Implement built-in variables: caller, stackdepth, ucaller, ustackdepth,
+  errno, walltimestamp.  (Eugene Loh)
+- Implement actions: stack(), ustack(). (Eugene Loh)
+- Implement subroutine: strlen().
+- Implement option: -Z (partial). (Eugene Loh)
+- Added support for string constants and string values.
+- Added support for strings to trace().
+- Fixed storage size determination for global and local variables.
+- Improved storage layout for global and local variables.
+- Mark aggregation actions as non-data recording actions.  (Eugene Loh)
+- Load string constant table into the 'strtab' BPF map.
+- Load probe description data into the 'probes' BPF map.
+- Consolidate all string hash functions into a single hash function.
+- Implement variable length integer support.
+- Store the length of each string as a variable length integer inline with its
+  character stream.
+- Improve memcpy() internal BPF function.
+- Testsuite improvements.  (Eugene Loh)
+
 * Mon Apr 12 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.5.1
 - Memory corruption fix in pid probe discovery.
 

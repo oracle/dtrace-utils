@@ -1,3 +1,95 @@
+2.0.0-1.6 (Jun 18th, 2021)
+--------------------------
+
+Sixth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - Instruction offsets are printed as 4 digit values to accommodate the larger
+   size of BPF programs used to implement probe programs.
+
+ - String constants can be used as values in D clauses, and variables can hold
+   string values.  Built-in variables that hold string data can be assigned to
+   variables and they can be used as values in expressions and as action
+   arguments.
+
+ - The trace() action supports strings.
+
+ - The strlen() subroutine has been implemented.
+
+ - The following built-in variables are now supported: probeprov, probemod,
+   probefunc, probename, caller, stackdepth, ucaller, ustackdepth, errno, and
+   walltimestamp.
+
+ - The following actions have been implemented: stack(), ustack(), umod(),
+   usym(), and uaddr().
+
+Bugfixes:
+
+ - The storage size was not always set correctly for global and local variables
+   causing data corruption.  When variables are not declared explicitly, their
+   datatype may not be known until their first use.  The storage size is now
+   always set based on the explicit or discovered datatype of the variable.
+
+ - Built-in variables are implemented as global variables within a specific
+   variable ID range.  Their value is not stored in the global variable storage
+   area and they therefore do not have a storage offset.  The variable listing
+   in the disassembly output was printing -1 as offset.  The offset will no
+   longer be printed for built-in variables.
+
+ - A memory leak related to the ERROR probe has been fixed.
+
+ - Relocations of 64-bit data items were being truncated to the lower 32 bits.
+   This has been fixed.
+
+ - Storing data in an aggregation was considered a data recording action.  This
+   resulted in probe firings being reported by the consumer for clauses that
+   do not actually store data in the probe output buffer.  This behaviour was
+   not intended.  Aggregation data generation is no longer a data recording
+   action.
+
+Internal changes:
+
+ - Global and local variables are now stored more efficiently by taking into
+   account their size and alignment requirements.
+
+ - Probe descriptions (id, provider name, module name, function name, and probe
+   name) are now stored in the 'probes' BPF map.  The values are offsets into
+   the string constant table.
+
+ - The string constant table is loaded into the 'strtab' BPF map as the value
+   of the singleton element with key 0.
+
+ - String hash value calculations have been unified into a single function that
+   is called from all code that needs it.
+
+ - Variable length integer support has been added.  It will primarily be used
+   to store the length of strings inline with the character stream.
+
+ - The memory copy function (implemented as pre-compiled C code, compiled to
+   BPF) has been optimized and has been made more robust.
+
+Testsuite changes:
+
+ - Various tests have been moved from XFAIL to to PASS status in response to
+   the implementation of new features and in view of some bug fixes.
+
+ - Various tests were improved.
+
+Known problems:
+
+ - The assignment of values of a datatype that is larger than 256 bytes does
+   not currently work due to limitations in the memory copy implementation.
+
+ - While the DTrace option to set a specific maximum string size is accepted
+   by the command line tool, settings beyond 256 bytes do not work correctly.
+
+ - The -Z option (allowing clauses that do not match any available probe) does
+   not allow for registering a clause to be enabled at a later time when the
+   probe becomes available.
+
 2.0.0-1.5.1 (Apr 12th, 2021)
 ----------------------------
 
