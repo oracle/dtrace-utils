@@ -1,5 +1,3 @@
-/* @@link: -Ilibdtrace */
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +7,7 @@ void
 check(uint64_t val, int exp)
 {
 	char		s[VARINT_MAX_BYTES];
-	char		*p;
+	const char	*p;
 	int		rc, len;
 	uint64_t	dval;
 
@@ -28,7 +26,7 @@ check(uint64_t val, int exp)
 		printf("Skip wrong for %lu: %d vs %d\n", val, 0, exp);
 		exit(1);
 	} else if ((p - s) != exp) {
-		printf("Skip wrong for %lu: %d vs %d\n", val, p - s, exp);
+		printf("Skip wrong for %lu: %ld vs %d\n", val, p - s, exp);
 		exit(1);
 	}
 	dval = dt_vint2int(s);
