@@ -569,149 +569,164 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 	}
 }
 
+static const struct opent {
+	const char *op_name;
+	uint_t (*op_func)(const dtrace_difo_t *, const char *, uint_t,
+			  const struct bpf_insn *, const char *,
+			  FILE *);
+} optab[256] = {
+	[0 ... 255] = { "(illegal opcode)", dt_dis_str },
+#define INSN2(x, y)	[BPF_##x | BPF_##y]
+#define INSN3(x, y, z)	[BPF_##x | BPF_##y | BPF_##z]
+	/* 32-bit ALU ops, op(dst, src) */
+	INSN3(ALU, ADD, X)	= { "add", dt_dis_op2 },
+	INSN3(ALU, SUB, X)	= { "sub", dt_dis_op2 },
+	INSN3(ALU, AND, X)	= { "and", dt_dis_op2 },
+	INSN3(ALU, OR, X)	= { "or", dt_dis_op2 },
+	INSN3(ALU, LSH, X)	= { "lsh", dt_dis_op2 },
+	INSN3(ALU, RSH, X)	= { "rsh", dt_dis_op2 },
+	INSN3(ALU, XOR, X)	= { "xor", dt_dis_op2 },
+	INSN3(ALU, MUL, X)	= { "mul", dt_dis_op2 },
+	INSN3(ALU, MOV, X)	= { "mov", dt_dis_op2 },
+	INSN3(ALU, ARSH, X)	= { "arsh", dt_dis_op2 },
+	INSN3(ALU, DIV, X)	= { "div", dt_dis_op2 },
+	INSN3(ALU, MOD, X)	= { "mod", dt_dis_op2 },
+	INSN2(ALU, NEG)		= { "neg", dt_dis_op1 },
+	INSN3(ALU, END, TO_BE)	= { "tobe", dt_dis_op2 },
+	INSN3(ALU, END, TO_LE)	= { "tole", dt_dis_op2 },
+	/* 32-bit ALU ops, op(dst, imm) */
+	INSN3(ALU, ADD, K)	= { "add", dt_dis_op2imm },
+	INSN3(ALU, SUB, K)	= { "sub", dt_dis_op2imm },
+	INSN3(ALU, AND, K)	= { "and", dt_dis_op2imm },
+	INSN3(ALU, OR, K)	= { "or", dt_dis_op2imm },
+	INSN3(ALU, LSH, K)	= { "lsh", dt_dis_op2imm },
+	INSN3(ALU, RSH, K)	= { "rsh", dt_dis_op2imm },
+	INSN3(ALU, XOR, K)	= { "xor", dt_dis_op2imm },
+	INSN3(ALU, MUL, K)	= { "mul", dt_dis_op2imm },
+	INSN3(ALU, MOV, K)	= { "mov", dt_dis_op2imm },
+	INSN3(ALU, ARSH, K)	= { "arsh", dt_dis_op2imm },
+	INSN3(ALU, DIV, K)	= { "div", dt_dis_op2imm },
+	INSN3(ALU, MOD, K)	= { "mod", dt_dis_op2imm },
+	/* 64-bit ALU ops, op(dst, src) */
+	INSN3(ALU64, ADD, X)	= { "add", dt_dis_op2 },
+	INSN3(ALU64, SUB, X)	= { "sub", dt_dis_op2 },
+	INSN3(ALU64, AND, X)	= { "and", dt_dis_op2 },
+	INSN3(ALU64, OR, X)	= { "or", dt_dis_op2 },
+	INSN3(ALU64, LSH, X)	= { "lsh", dt_dis_op2 },
+	INSN3(ALU64, RSH, X)	= { "rsh", dt_dis_op2 },
+	INSN3(ALU64, XOR, X)	= { "xor", dt_dis_op2 },
+	INSN3(ALU64, MUL, X)	= { "mul", dt_dis_op2 },
+	INSN3(ALU64, MOV, X)	= { "mov", dt_dis_op2 },
+	INSN3(ALU64, ARSH, X)	= { "arsh", dt_dis_op2 },
+	INSN3(ALU64, DIV, X)	= { "div", dt_dis_op2 },
+	INSN3(ALU64, MOD, X)	= { "mod", dt_dis_op2 },
+	INSN2(ALU64, NEG)	= { "neg", dt_dis_op1 },
+	/* 64-bit ALU ops, op(dst, imm) */
+	INSN3(ALU64, ADD, K)	= { "add", dt_dis_op2imm },
+	INSN3(ALU64, SUB, K)	= { "sub", dt_dis_op2imm },
+	INSN3(ALU64, AND, K)	= { "and", dt_dis_op2imm },
+	INSN3(ALU64, OR, K)	= { "or", dt_dis_op2imm },
+	INSN3(ALU64, LSH, K)	= { "lsh", dt_dis_op2imm },
+	INSN3(ALU64, RSH, K)	= { "rsh", dt_dis_op2imm },
+	INSN3(ALU64, XOR, K)	= { "xor", dt_dis_op2imm },
+	INSN3(ALU64, MUL, K)	= { "mul", dt_dis_op2imm },
+	INSN3(ALU64, MOV, K)	= { "mov", dt_dis_op2imm },
+	INSN3(ALU64, ARSH, K)	= { "arsh", dt_dis_op2imm },
+	INSN3(ALU64, DIV, K)	= { "div", dt_dis_op2imm },
+	INSN3(ALU64, MOD, K)	= { "mod", dt_dis_op2imm },
+	/* Call instruction */
+	INSN2(JMP, CALL)	= { "call", dt_dis_call },
+	/* Return instruction */
+	INSN2(JMP, EXIT)	= { "exit", dt_dis_str },
+	/* 32-bit jump ops, op(dst, src) */
+	INSN3(JMP32, JEQ, X)	= { "jeq", dt_dis_branch },
+	INSN3(JMP32, JNE, X)	= { "jne", dt_dis_branch },
+	INSN3(JMP32, JGT, X)	= { "jgt", dt_dis_branch },
+	INSN3(JMP32, JLT, X)	= { "jlt", dt_dis_branch },
+	INSN3(JMP32, JGE, X)	= { "jge", dt_dis_branch },
+	INSN3(JMP32, JLE, X)	= { "jle", dt_dis_branch },
+	INSN3(JMP32, JSGT, X)	= { "jsgt", dt_dis_branch },
+	INSN3(JMP32, JSLT, X)	= { "jslt", dt_dis_branch },
+	INSN3(JMP32, JSGE, X)	= { "jsge", dt_dis_branch },
+	INSN3(JMP32, JSLE, X)	= { "jsle", dt_dis_branch },
+	INSN3(JMP32, JSET, X)	= { "jset", dt_dis_branch },
+	/* 32-bit jump ops, op(dst, imm) */
+	INSN3(JMP32, JEQ, K)	= { "jeq", dt_dis_branch_imm },
+	INSN3(JMP32, JNE, K)	= { "jne", dt_dis_branch_imm },
+	INSN3(JMP32, JGT, K)	= { "jgt", dt_dis_branch_imm },
+	INSN3(JMP32, JLT, K)	= { "jlt", dt_dis_branch_imm },
+	INSN3(JMP32, JGE, K)	= { "jge", dt_dis_branch_imm },
+	INSN3(JMP32, JLE, K)	= { "jle", dt_dis_branch_imm },
+	INSN3(JMP32, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
+	INSN3(JMP32, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
+	INSN3(JMP32, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
+	INSN3(JMP32, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
+	INSN3(JMP32, JSET, K)	= { "jset", dt_dis_branch_imm },
+	/* 64-bit jump ops, op(dst, src) */
+	INSN3(JMP, JEQ, X)	= { "jeq", dt_dis_branch },
+	INSN3(JMP, JNE, X)	= { "jne", dt_dis_branch },
+	INSN3(JMP, JGT, X)	= { "jgt", dt_dis_branch },
+	INSN3(JMP, JLT, X)	= { "jlt", dt_dis_branch },
+	INSN3(JMP, JGE, X)	= { "jge", dt_dis_branch },
+	INSN3(JMP, JLE, X)	= { "jle", dt_dis_branch },
+	INSN3(JMP, JSGT, X)	= { "jsgt", dt_dis_branch },
+	INSN3(JMP, JSLT, X)	= { "jslt", dt_dis_branch },
+	INSN3(JMP, JSGE, X)	= { "jsge", dt_dis_branch },
+	INSN3(JMP, JSLE, X)	= { "jsle", dt_dis_branch },
+	INSN3(JMP, JSET, X)	= { "jset", dt_dis_branch },
+	/* 64-bit jump ops, op(dst, imm) */
+	INSN3(JMP, JEQ, K)	= { "jeq", dt_dis_branch_imm },
+	INSN3(JMP, JNE, K)	= { "jne", dt_dis_branch_imm },
+	INSN3(JMP, JGT, K)	= { "jgt", dt_dis_branch_imm },
+	INSN3(JMP, JLT, K)	= { "jlt", dt_dis_branch_imm },
+	INSN3(JMP, JGE, K)	= { "jge", dt_dis_branch_imm },
+	INSN3(JMP, JLE, K)	= { "jle", dt_dis_branch_imm },
+	INSN3(JMP, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
+	INSN3(JMP, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
+	INSN3(JMP, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
+	INSN3(JMP, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
+	INSN3(JMP, JSET, K)	= { "jset", dt_dis_branch_imm },
+	INSN2(JMP, JA)		= { "ja", dt_dis_jump },
+	/* Store instructions, [dst + off] = src */
+	INSN3(STX, MEM, B)	= { "stb", dt_dis_store },
+	INSN3(STX, MEM, H)	= { "sth", dt_dis_store },
+	INSN3(STX, MEM, W)	= { "stw", dt_dis_store },
+	INSN3(STX, MEM, DW)	= { "stdw", dt_dis_store },
+	INSN3(STX, XADD, W)	= { "xadd", dt_dis_store },
+	INSN3(STX, XADD, DW)	= { "xadd", dt_dis_store },
+	/* Store instructions, [dst + off] = imm */
+	INSN3(ST, MEM, B)	= { "stb", dt_dis_store_imm },
+	INSN3(ST, MEM, H)	= { "sth", dt_dis_store_imm },
+	INSN3(ST, MEM, W)	= { "stw", dt_dis_store_imm },
+	INSN3(ST, MEM, DW)	= { "stdw", dt_dis_store_imm },
+	/* Load instructions, dst = [src + off] */
+	INSN3(LDX, MEM, B)	= { "ldb", dt_dis_load },
+	INSN3(LDX, MEM, H)	= { "ldh", dt_dis_load },
+	INSN3(LDX, MEM, W)	= { "ldw", dt_dis_load },
+	INSN3(LDX, MEM, DW)	= { "lddw", dt_dis_load },
+	/* Load instructions, dst = imm */
+	INSN3(LD, IMM, DW)	= { "lddw", dt_dis_load_imm },
+};
+
+void
+dt_dis_insn(uint_t i, const struct bpf_insn *instr, FILE *fp)
+{
+	uint8_t			opcode = instr->code;
+	const struct opent	*op;
+
+	if (opcode >= ARRAY_SIZE(optab))
+		opcode = 0;	/* force invalid opcode message */
+
+	dt_dis_prefix(i, instr, fp);
+
+	op = &optab[opcode];
+	op->op_func(NULL, op->op_name, i, instr, NULL, fp);
+}
+
 void
 dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 	    const dtrace_probedesc_t *pdp, const char *ltype)
 {
-	static const struct opent {
-		const char *op_name;
-		uint_t (*op_func)(const dtrace_difo_t *, const char *, uint_t,
-				  const struct bpf_insn *, const char *,
-				  FILE *);
-	} optab[256] = {
-		[0 ... 255] = { "(illegal opcode)", dt_dis_str },
-#define INSN2(x, y)	[BPF_##x | BPF_##y]
-#define INSN3(x, y, z)	[BPF_##x | BPF_##y | BPF_##z]
-		/* 32-bit ALU ops, op(dst, src) */
-		INSN3(ALU, ADD, X)	= { "add", dt_dis_op2 },
-		INSN3(ALU, SUB, X)	= { "sub", dt_dis_op2 },
-		INSN3(ALU, AND, X)	= { "and", dt_dis_op2 },
-		INSN3(ALU, OR, X)	= { "or", dt_dis_op2 },
-		INSN3(ALU, LSH, X)	= { "lsh", dt_dis_op2 },
-		INSN3(ALU, RSH, X)	= { "rsh", dt_dis_op2 },
-		INSN3(ALU, XOR, X)	= { "xor", dt_dis_op2 },
-		INSN3(ALU, MUL, X)	= { "mul", dt_dis_op2 },
-		INSN3(ALU, MOV, X)	= { "mov", dt_dis_op2 },
-		INSN3(ALU, ARSH, X)	= { "arsh", dt_dis_op2 },
-		INSN3(ALU, DIV, X)	= { "div", dt_dis_op2 },
-		INSN3(ALU, MOD, X)	= { "mod", dt_dis_op2 },
-		INSN2(ALU, NEG)		= { "neg", dt_dis_op1 },
-		INSN3(ALU, END, TO_BE)	= { "tobe", dt_dis_op2 },
-		INSN3(ALU, END, TO_LE)	= { "tole", dt_dis_op2 },
-		/* 32-bit ALU ops, op(dst, imm) */
-		INSN3(ALU, ADD, K)	= { "add", dt_dis_op2imm },
-		INSN3(ALU, SUB, K)	= { "sub", dt_dis_op2imm },
-		INSN3(ALU, AND, K)	= { "and", dt_dis_op2imm },
-		INSN3(ALU, OR, K)	= { "or", dt_dis_op2imm },
-		INSN3(ALU, LSH, K)	= { "lsh", dt_dis_op2imm },
-		INSN3(ALU, RSH, K)	= { "rsh", dt_dis_op2imm },
-		INSN3(ALU, XOR, K)	= { "xor", dt_dis_op2imm },
-		INSN3(ALU, MUL, K)	= { "mul", dt_dis_op2imm },
-		INSN3(ALU, MOV, K)	= { "mov", dt_dis_op2imm },
-		INSN3(ALU, ARSH, K)	= { "arsh", dt_dis_op2imm },
-		INSN3(ALU, DIV, K)	= { "div", dt_dis_op2imm },
-		INSN3(ALU, MOD, K)	= { "mod", dt_dis_op2imm },
-		/* 64-bit ALU ops, op(dst, src) */
-		INSN3(ALU64, ADD, X)	= { "add", dt_dis_op2 },
-		INSN3(ALU64, SUB, X)	= { "sub", dt_dis_op2 },
-		INSN3(ALU64, AND, X)	= { "and", dt_dis_op2 },
-		INSN3(ALU64, OR, X)	= { "or", dt_dis_op2 },
-		INSN3(ALU64, LSH, X)	= { "lsh", dt_dis_op2 },
-		INSN3(ALU64, RSH, X)	= { "rsh", dt_dis_op2 },
-		INSN3(ALU64, XOR, X)	= { "xor", dt_dis_op2 },
-		INSN3(ALU64, MUL, X)	= { "mul", dt_dis_op2 },
-		INSN3(ALU64, MOV, X)	= { "mov", dt_dis_op2 },
-		INSN3(ALU64, ARSH, X)	= { "arsh", dt_dis_op2 },
-		INSN3(ALU64, DIV, X)	= { "div", dt_dis_op2 },
-		INSN3(ALU64, MOD, X)	= { "mod", dt_dis_op2 },
-		INSN2(ALU64, NEG)	= { "neg", dt_dis_op1 },
-		/* 64-bit ALU ops, op(dst, imm) */
-		INSN3(ALU64, ADD, K)	= { "add", dt_dis_op2imm },
-		INSN3(ALU64, SUB, K)	= { "sub", dt_dis_op2imm },
-		INSN3(ALU64, AND, K)	= { "and", dt_dis_op2imm },
-		INSN3(ALU64, OR, K)	= { "or", dt_dis_op2imm },
-		INSN3(ALU64, LSH, K)	= { "lsh", dt_dis_op2imm },
-		INSN3(ALU64, RSH, K)	= { "rsh", dt_dis_op2imm },
-		INSN3(ALU64, XOR, K)	= { "xor", dt_dis_op2imm },
-		INSN3(ALU64, MUL, K)	= { "mul", dt_dis_op2imm },
-		INSN3(ALU64, MOV, K)	= { "mov", dt_dis_op2imm },
-		INSN3(ALU64, ARSH, K)	= { "arsh", dt_dis_op2imm },
-		INSN3(ALU64, DIV, K)	= { "div", dt_dis_op2imm },
-		INSN3(ALU64, MOD, K)	= { "mod", dt_dis_op2imm },
-		/* Call instruction */
-		INSN2(JMP, CALL)	= { "call", dt_dis_call },
-		/* Return instruction */
-		INSN2(JMP, EXIT)	= { "exit", dt_dis_str },
-		/* 32-bit jump ops, op(dst, src) */
-		INSN3(JMP32, JEQ, X)	= { "jeq", dt_dis_branch },
-		INSN3(JMP32, JNE, X)	= { "jne", dt_dis_branch },
-		INSN3(JMP32, JGT, X)	= { "jgt", dt_dis_branch },
-		INSN3(JMP32, JLT, X)	= { "jlt", dt_dis_branch },
-		INSN3(JMP32, JGE, X)	= { "jge", dt_dis_branch },
-		INSN3(JMP32, JLE, X)	= { "jle", dt_dis_branch },
-		INSN3(JMP32, JSGT, X)	= { "jsgt", dt_dis_branch },
-		INSN3(JMP32, JSLT, X)	= { "jslt", dt_dis_branch },
-		INSN3(JMP32, JSGE, X)	= { "jsge", dt_dis_branch },
-		INSN3(JMP32, JSLE, X)	= { "jsle", dt_dis_branch },
-		INSN3(JMP32, JSET, X)	= { "jset", dt_dis_branch },
-		/* 32-bit jump ops, op(dst, imm) */
-		INSN3(JMP32, JEQ, K)	= { "jeq", dt_dis_branch_imm },
-		INSN3(JMP32, JNE, K)	= { "jne", dt_dis_branch_imm },
-		INSN3(JMP32, JGT, K)	= { "jgt", dt_dis_branch_imm },
-		INSN3(JMP32, JLT, K)	= { "jlt", dt_dis_branch_imm },
-		INSN3(JMP32, JGE, K)	= { "jge", dt_dis_branch_imm },
-		INSN3(JMP32, JLE, K)	= { "jle", dt_dis_branch_imm },
-		INSN3(JMP32, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
-		INSN3(JMP32, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
-		INSN3(JMP32, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
-		INSN3(JMP32, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
-		INSN3(JMP32, JSET, K)	= { "jset", dt_dis_branch_imm },
-		/* 64-bit jump ops, op(dst, src) */
-		INSN3(JMP, JEQ, X)	= { "jeq", dt_dis_branch },
-		INSN3(JMP, JNE, X)	= { "jne", dt_dis_branch },
-		INSN3(JMP, JGT, X)	= { "jgt", dt_dis_branch },
-		INSN3(JMP, JLT, X)	= { "jlt", dt_dis_branch },
-		INSN3(JMP, JGE, X)	= { "jge", dt_dis_branch },
-		INSN3(JMP, JLE, X)	= { "jle", dt_dis_branch },
-		INSN3(JMP, JSGT, X)	= { "jsgt", dt_dis_branch },
-		INSN3(JMP, JSLT, X)	= { "jslt", dt_dis_branch },
-		INSN3(JMP, JSGE, X)	= { "jsge", dt_dis_branch },
-		INSN3(JMP, JSLE, X)	= { "jsle", dt_dis_branch },
-		INSN3(JMP, JSET, X)	= { "jset", dt_dis_branch },
-		/* 64-bit jump ops, op(dst, imm) */
-		INSN3(JMP, JEQ, K)	= { "jeq", dt_dis_branch_imm },
-		INSN3(JMP, JNE, K)	= { "jne", dt_dis_branch_imm },
-		INSN3(JMP, JGT, K)	= { "jgt", dt_dis_branch_imm },
-		INSN3(JMP, JLT, K)	= { "jlt", dt_dis_branch_imm },
-		INSN3(JMP, JGE, K)	= { "jge", dt_dis_branch_imm },
-		INSN3(JMP, JLE, K)	= { "jle", dt_dis_branch_imm },
-		INSN3(JMP, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
-		INSN3(JMP, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
-		INSN3(JMP, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
-		INSN3(JMP, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
-		INSN3(JMP, JSET, K)	= { "jset", dt_dis_branch_imm },
-		INSN2(JMP, JA)		= { "ja", dt_dis_jump },
-		/* Store instructions, [dst + off] = src */
-		INSN3(STX, MEM, B)	= { "stb", dt_dis_store },
-		INSN3(STX, MEM, H)	= { "sth", dt_dis_store },
-		INSN3(STX, MEM, W)	= { "stw", dt_dis_store },
-		INSN3(STX, MEM, DW)	= { "stdw", dt_dis_store },
-		INSN3(STX, XADD, W)	= { "xadd", dt_dis_store },
-		INSN3(STX, XADD, DW)	= { "xadd", dt_dis_store },
-		/* Store instructions, [dst + off] = imm */
-		INSN3(ST, MEM, B)	= { "stb", dt_dis_store_imm },
-		INSN3(ST, MEM, H)	= { "sth", dt_dis_store_imm },
-		INSN3(ST, MEM, W)	= { "stw", dt_dis_store_imm },
-		INSN3(ST, MEM, DW)	= { "stdw", dt_dis_store_imm },
-		/* Load instructions, dst = [src + off] */
-		INSN3(LDX, MEM, B)	= { "ldb", dt_dis_load },
-		INSN3(LDX, MEM, H)	= { "ldh", dt_dis_load },
-		INSN3(LDX, MEM, W)	= { "ldw", dt_dis_load },
-		INSN3(LDX, MEM, DW)	= { "lddw", dt_dis_load },
-		/* Load instructions, dst = imm */
-		INSN3(LD, IMM, DW)	= { "lddw", dt_dis_load_imm },
-	};
-
 	uint_t		i = 0;
 	dof_relodesc_t	*rp = dp->dtdo_breltab;
 	int		cnt = dp->dtdo_brelen;

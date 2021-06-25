@@ -60,6 +60,7 @@ extern "C" {
 				    "final program"); \
 	} while(0)
 
+extern void dt_dis_insn(uint_t i, const struct bpf_insn *instr, FILE *fp);
 extern void dt_dis_program(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, FILE *fp);
 extern void dt_dis_difo(const dtrace_difo_t *dp, FILE *fp,
 			const dt_ident_t *idp, const dtrace_probedesc_t *pdp,
