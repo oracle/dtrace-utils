@@ -23,10 +23,12 @@ extern "C" {
  * The values can be combined to select multiple listings.  The '-S' option
  * must also be supplied in order for disassembler output to be generated.
  */
-#define DT_DISASM_OPT_CLAUSE		1	/* default */
+#define DT_DISASM_OPT_CLAUSE		1
 #define DT_DISASM_OPT_PROG		2
 #define DT_DISASM_OPT_PROG_LINKED	4
 #define DT_DISASM_OPT_PROG_FINAL	8
+
+#define DT_DISASM_OPT_DEFAULT		DT_DISASM_OPT_CLAUSE
 
 /*
  * Macros to make a call to the disassembler for specific disassembler listings.
