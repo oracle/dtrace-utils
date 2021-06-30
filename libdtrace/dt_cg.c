@@ -3238,6 +3238,30 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-substr:End  ");
 }
 
+static void
+dt_cg_subr_htons(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_node(dnp->dn_args, dlp, drp);
+	dnp->dn_reg = dnp->dn_args->dn_reg;
+	emit(dlp, BPF_END_REG(BPF_H, dnp->dn_reg, BPF_TO_BE));
+}
+
+static void
+dt_cg_subr_htonl(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_node(dnp->dn_args, dlp, drp);
+	dnp->dn_reg = dnp->dn_args->dn_reg;
+	emit(dlp, BPF_END_REG(BPF_W, dnp->dn_reg, BPF_TO_BE));
+}
+
+static void
+dt_cg_subr_htonll(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_node(dnp->dn_args, dlp, drp);
+	dnp->dn_reg = dnp->dn_args->dn_reg;
+	emit(dlp, BPF_END_REG(BPF_DW, dnp->dn_reg, BPF_TO_BE));
+}
+
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
@@ -3276,12 +3300,12 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,
 	[DIF_SUBR_INDEX]		= NULL,
 	[DIF_SUBR_RINDEX]		= NULL,
-	[DIF_SUBR_HTONS]		= NULL,
-	[DIF_SUBR_HTONL]		= NULL,
-	[DIF_SUBR_HTONLL]		= NULL,
-	[DIF_SUBR_NTOHS]		= NULL,
-	[DIF_SUBR_NTOHL]		= NULL,
-	[DIF_SUBR_NTOHLL]		= NULL,
+	[DIF_SUBR_HTONS]		= &dt_cg_subr_htons,
+	[DIF_SUBR_HTONL]		= &dt_cg_subr_htonl,
+	[DIF_SUBR_HTONLL]		= &dt_cg_subr_htonll,
+	[DIF_SUBR_NTOHS]		= &dt_cg_subr_htons,
+	[DIF_SUBR_NTOHL]		= &dt_cg_subr_htonl,
+	[DIF_SUBR_NTOHLL]		= &dt_cg_subr_htonll,
 	[DIF_SUBR_INET_NTOP]		= NULL,
 	[DIF_SUBR_INET_NTOA]		= NULL,
 	[DIF_SUBR_INET_NTOA6]		= NULL,
