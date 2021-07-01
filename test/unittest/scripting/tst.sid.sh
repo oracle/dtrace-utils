@@ -32,12 +32,14 @@ cat > $dfilename <<-EOF
 BEGIN
 /\$sid != \$1/
 {
+        printf("actual: %d mismatches expected: %d\n", \$sid, \$1);
 	exit(1);
 }
 
 BEGIN
 /\$sid == \$1/
 {
+        printf("actual: %d matches expected: %d\n", \$sid, \$1);
 	exit(0);
 }
 EOF
@@ -54,10 +56,12 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-$dfilename $sessionid >/dev/null 2>&1
+$dfilename $sessionid 2>&1
 
 if [ $? -ne 0 ]; then
 	echo "Error in executing $dfilename" >&2
+	ps -p $$ -o sid
+	echo expect $sessionid for pid $$
 	exit 1
 fi
 
