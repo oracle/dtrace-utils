@@ -698,7 +698,7 @@ extern uint64_t dt_stddev(uint64_t *, uint64_t);
 
 extern int dt_options_load(dtrace_hdl_t *);
 
-extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
+extern void dt_setcontext(dtrace_hdl_t *, const dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
 
 extern void dt_dlib_init(dtrace_hdl_t *dtp);

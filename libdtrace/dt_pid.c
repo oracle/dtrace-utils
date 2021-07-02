@@ -504,7 +504,7 @@ dt_pid_fix_mod(dt_pid_probe_t *pp, dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 static int
 dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
-    dt_pcb_t *pcb, dt_proc_t *dpr)
+			 dt_pcb_t *pcb, dt_proc_t *dpr)
 {
 	dt_pid_probe_t pp;
 	int ret = 0;
@@ -685,8 +685,8 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 #endif
 
 static pid_t
-dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
-    dt_proc_t *dpr)
+dt_pid_get_pid(const dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
+	       dt_proc_t *dpr)
 {
 	pid_t pid;
 	char *end;
@@ -741,7 +741,8 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		dpr = dt_proc_lookup(dtp, pid);
 		assert(dpr != NULL);
 
-		if ((err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr)) == 0) {
+		err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr);
+		if (err == 0) {
 			/*
 			 * Alert other retained enablings which may match
 			 * against the newly created probes.

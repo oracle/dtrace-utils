@@ -1560,7 +1560,7 @@ dt_compile_xlator(dt_node_t *dnp)
 }
 
 void
-dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
+dt_setcontext(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
 	const dtrace_pattr_t *pap;
 	dt_probe_t *prp;
@@ -1585,7 +1585,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	    isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
 	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
 	     pvp->pv_flags & DT_PROVIDER_PID) &&
-	    dt_pid_create_probes(pdp, dtp, yypcb) != 0) {
+	    dt_pid_create_probes((dtrace_probedesc_t *)pdp, dtp, yypcb) != 0) {
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 	}
 
@@ -2117,7 +2117,7 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 	pcb.pcb_context = DT_CTX_DPROG;
 	pcb.pcb_token = DT_CTX_DPROG;
 	pcb.pcb_probe = prp;
-	pcb.pcb_pdesc = NULL;
+	pcb.pcb_pdesc = prp->desc;
 
 	if ((err = setjmp(yypcb->pcb_jmpbuf)) != 0)
 		goto out;
@@ -2134,6 +2134,7 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 	if (yypcb->pcb_pragmas != NULL)
 		dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
 
+	dt_setcontext(dtp, yypcb->pcb_pdesc);
 	tnp = dt_node_trampoline(prp);
 	dt_node_type_assign(tnp, dtp->dt_ints[0].did_ctfp,
 				 dtp->dt_ints[0].did_type);
@@ -2163,6 +2164,8 @@ out:
 	     lseek(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
 	     ctf_write(dtp->dt_ddefs->dm_ctfp, dtp->dt_ddefs_fd) == CTF_ERR))
 		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
+
+	dt_endcontext(dtp);
 
 	dt_pcb_pop(dtp, err);
 	dt_set_errno(dtp, err);
