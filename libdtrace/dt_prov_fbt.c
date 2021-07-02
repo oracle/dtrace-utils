@@ -168,16 +168,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 */
 
-#if 0
-	/*
-	 *	dctx->mst->regs = *(dt_pt_regs *)dctx->ctx;
-	 */
-	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_REGS + i, BPF_REG_0));
-	}
-#endif
-
+	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
 	dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8);
 	dt_cg_tramp_epilogue(pcb);
 }

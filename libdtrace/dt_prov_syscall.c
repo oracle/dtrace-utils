@@ -156,16 +156,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 */
 
-#if 0
-	/*
-	 *	memset(&dctx->mst->regs, 0, sizeof(dt_pt_regs);
-	 *				// stdw [%7 + DMST_REGS + 0], 0
-	 *				// stdw [%7 + DMST_REGS + 8], 0
-	 *				//     (...)
-	 */
-	for (i = 0; i < sizeof(dt_pt_regs); i += 8)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0));
-#endif
+	dt_cg_tramp_clear_regs(pcb);
 
 	/*
 	 *	for (i = 0; i < argc; i++)

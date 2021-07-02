@@ -121,7 +121,7 @@ static int populate(dtrace_hdl_t *dtp)
  * The trampoline function is called when a SDT probe triggers, and it must
  * satisfy the following prototype:
  *
- *	int dt_sdt(struct syscall_data *scd)
+ *	int dt_sdt(void *data)
  *
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns the value that it gets
@@ -142,17 +142,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 */
 
-#if 0
-	/*
-	 *	memset(&dctx->mst->regs, 0, sizeof(dt_pt_regs);
-	 *				// stdw [%7 + DMST_REGS + 0], 0
-	 *				// stdw [%7 + DMST_REGS + 8], 0
-	 *				//     (...)
-	 */
-	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0));
-	}
-#endif
+	dt_cg_tramp_clear_regs(pcb);
 
 	/*
 	 *	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
@@ -175,7 +165,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 	/*
 	 * If the tracepoint has already been created and we have its info,
-	 * there is no need to retrive the info again.
+	 * there is no need to retrieve the info again.
 	 */
 	if (dt_tp_is_created(tpp))
 		return -1;

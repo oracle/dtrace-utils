@@ -197,6 +197,50 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb)
 }
 
 /*
+ * Clear the content of the 'regs' member of the machine state.
+ *
+ * The caller must ensure that %r7 contains the value set by the
+ * dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_clear_regs(dt_pcb_t *pcb)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	/*
+	 *	memset(&dctx->mst->regs, 0, sizeof(dt_pt_regs);
+	 *				// stdw [%7 + DMST_REGS + 0 * 8], 0
+	 *				// stdw [%7 + DMST_REGS + 1 * 8], 0
+	 *				//     (...)
+	 */
+	for (i = 0; i < sizeof(dt_pt_regs); i += 8)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_REGS + i, 0));
+}
+
+/*
+ * Copy the content of a dt_pt_regs structure referenced by the 'rp' argument
+ * into the 'regs' member of the machine state.
+ *
+ * The caller must ensure that %r7 contains the value set by the
+ * dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_copy_regs(dt_pcb_t *pcb, int rp)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	/*
+	 *	dctx->mst->regs = *(dt_pt_regs *)rp;
+	 */
+	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_REGS + i, BPF_REG_0));
+	}
+}
+
+/*
  * Copy arguments from a dt_pt_regs structure referenced by the 'rp' argument.
  *
  * The caller must ensure that %r7 contains the value set by the

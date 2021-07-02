@@ -25,9 +25,7 @@ typedef struct dt_mstate {
 	int32_t		syscall_errno;	/* syscall errno */
 	uint64_t	fault;		/* DTrace fault flags */
 	uint64_t	tstamp;		/* cached timestamp value */
-#if 0
 	dt_pt_regs	regs;		/* CPU registers */
-#endif
 	uint64_t	argv[10];	/* Probe arguments */
 } dt_mstate_t;
 
