@@ -126,8 +126,6 @@ static int populate(dtrace_hdl_t *dtp)
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns the value that it gets
  * back from that function.
- *
- * FIXME: Currently, access to arguments of the tracepoint is not supported.
  */
 static void trampoline(dt_pcb_t *pcb)
 {
@@ -145,12 +143,16 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_clear_regs(pcb);
 
 	/*
-	 *	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-	 *		dctx->mst->argv[i] = 0
+	 *	for (i = 0; i < argc; i++)
+	 *		dctx->mst->argv[i] = ((uint64_t *)ctx)[i + 1];
+	 *				//     (first value is private)
+	 *				// lddw %r0, [%r8 + (i + 1) * 8]
 	 *				// stdw [%r7 + DMST_ARG(i)], 0
 	 */
-	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
+	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, (i + 1) * 8));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+	}
 
 	dt_cg_tramp_epilogue(pcb);
 }
