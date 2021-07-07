@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -34,6 +34,17 @@
 		.src_reg = (src),					\
 		.off = 0,						\
 		.imm = 0						\
+	})
+
+#define BPF_END_REG(sz, dst, dir)					\
+	((struct bpf_insn) {						\
+		.code = BPF_ALU | BPF_END | (dir),			\
+		.dst_reg = (dst),					\
+		.src_reg = 0,						\
+		.off = 0,						\
+		.imm = (sz) == BPF_DW ? 64 :				\
+		       (sz) == BPF_W ? 32 :				\
+		       (sz) == BPF_H ? 16 : 0				\
 	})
 
 #define BPF_NEG_REG(dst)						\
