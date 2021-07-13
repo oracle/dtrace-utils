@@ -1093,6 +1093,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
  */
 static const dt_option_t _dtrace_rtoptions[] = {
 	{ "aggsize", dt_opt_size, DTRACEOPT_AGGSIZE },
+	{ "bpflog", dt_opt_runtime, DTRACEOPT_BPFLOG},
 	{ "bpflogsize", dt_opt_size, DTRACEOPT_BPFLOGSIZE },
 	{ "bufsize", dt_opt_size, DTRACEOPT_BUFSIZE },
 	{ "bufpolicy", dt_opt_bufpolicy, DTRACEOPT_BUFPOLICY },

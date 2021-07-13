@@ -384,7 +384,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	struct bpf_load_program_attr	attr;
 	size_t				logsz;
 	char				*log;
-	int				rc;
+	int				rc, origerrno = 0;
 	const dtrace_probedesc_t	*pdp = prp->desc;
 	char				*p, *q;
 
@@ -406,14 +406,14 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	attr.insns_cnt = dp->dtdo_len;
 	attr.license = BPF_CG_LICENSE;
 
-	rc = bpf_load_program_xattr(&attr, NULL, 0);
-	if (rc >= 0)
-		return rc;
+	if (dtp->dt_options[DTRACEOPT_BPFLOG] == DTRACEOPT_UNSET) {
+		rc = bpf_load_program_xattr(&attr, NULL, 0);
+		if (rc >= 0)
+			return rc;
 
-	/* if failure, note error and rerun with logging */
-	dt_bpf_error(dtp, "BPF program load for '%s:%s:%s:%s' failed: %s\n",
-			  pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-			  strerror(errno));
+		origerrno = errno;
+	}
+
 	if (dtp->dt_options[DTRACEOPT_BPFLOGSIZE] != DTRACEOPT_UNSET)
 		logsz = dtp->dt_options[DTRACEOPT_BPFLOGSIZE];
 	else
@@ -422,34 +422,40 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	log = dt_zalloc(dtp, logsz);
 	assert(log != NULL);
 	rc = bpf_load_program_xattr(&attr, log, logsz);
+	if (rc < 0) {
+		dt_bpf_error(dtp,
+			     "BPF program load for '%s:%s:%s:%s' failed: %s\n",
+			     pdp->prv, pdp->mod, pdp->fun, pdp->prb,
+			     strerror(origerrno ? origerrno : errno));
 
-	/* since it failed once, it should fail again */
-	assert(rc < 0);
-
-	/* check whether we have an incomplete BPF log */
-	if (errno == ENOSPC) {
-		fprintf(stderr,
-		    "BPF verifier log is incomplete and is not reported.\n"
-		    "Set DTrace option 'bpflogsize' to some greater size for more output.\n"
-		    "(Current size is %ld.)\n", logsz);
-	} else {
-		/*
-		 * If there is BPF verifier output, print it with a "BPF: "
-		 * prefix so it is easier to distinguish.
-		 */
-		for (p = log; p && *p; p = q) {
-			q = strchr(p, '\n');
-
-			if (q)
-				*q++ = '\0';
-
-			fprintf(stderr, "BPF: %s\n", p);
+		/* check whether we have an incomplete BPF log */
+		if (errno == ENOSPC) {
+			fprintf(stderr,
+				"BPF verifier log is incomplete and is not reported.\n"
+				"Set DTrace option 'bpflogsize' to some greater size for more output.\n"
+				"(Current size is %ld.)\n", logsz);
+			goto out;
 		}
+	} else if (dtp->dt_options[DTRACEOPT_BPFLOG] == DTRACEOPT_UNSET)
+		goto out;
+
+	/*
+	 * If there is BPF verifier output, print it with a "BPF: "
+	 * prefix so it is easier to distinguish.
+	 */
+	for (p = log; p && *p; p = q) {
+		q = strchr(p, '\n');
+
+		if (q)
+			*q++ = '\0';
+
+		fprintf(stderr, "BPF: %s\n", p);
 	}
 
+out:
 	dt_free(dtp, log);
 
-	return -1;
+	return rc >= 0 ? rc : -1;
 }
 
 /*
