@@ -1936,6 +1936,194 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 }
 
 static dtrace_workstatus_t
+dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
+		     dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
+		     dtrace_consume_rec_f *rfunc, int flow, int quiet,
+		     dtrace_epid_t *last, void *arg)
+{
+	dtrace_epid_t		epid;
+	int			i;
+	int			rval;
+
+
+	epid = ((uint32_t *)data)[0];
+#ifdef FIXME
+	tag = ((uint32_t *)data)[1];		/* for future use */
+#endif
+
+	/*
+	 * Fill in the epid and address of the epid in the buffer.  We need to
+	 * pass this to the efunc.
+	 */
+	pdat->dtpda_epid = epid;
+	pdat->dtpda_data = data;
+
+	rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
+			      &pdat->dtpda_pdesc);
+	if (rval != 0)
+		return dt_set_errno(dtp, EDT_BADEPID);
+
+	if (pdat->dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
+		rval = dt_handle(dtp, pdat);
+
+		if (rval == DTRACE_CONSUME_NEXT)
+			return DTRACE_WORKSTATUS_OKAY;
+		if (rval == DTRACE_CONSUME_ERROR)
+			return DTRACE_WORKSTATUS_ERROR;
+	}
+
+	if (flow)
+		dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
+
+	rval = (*efunc)(pdat, arg);
+
+	if (flow) {
+		if (pdat->dtpda_flow == DTRACEFLOW_ENTRY)
+			pdat->dtpda_indent += 2;
+	}
+
+	switch (rval) {
+	case DTRACE_CONSUME_NEXT:
+		return DTRACE_WORKSTATUS_OKAY;
+	case DTRACE_CONSUME_DONE:
+		return DTRACE_WORKSTATUS_DONE;
+	case DTRACE_CONSUME_ABORT:
+		return dt_set_errno(dtp, EDT_DIRABORT);
+	case DTRACE_CONSUME_THIS:
+		break;
+	default:
+		return dt_set_errno(dtp, EDT_BADRVAL);
+	}
+
+	/*
+	 * FIXME: This code is temporary.
+	 */
+	for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
+		int			n;
+		dtrace_recdesc_t	*rec;
+		dtrace_actkind_t	act;
+		int (*func)(dtrace_hdl_t *, FILE *, void *,
+			    const dtrace_probedata_t *,
+			    const dtrace_recdesc_t *, uint_t,
+			    const void *buf, size_t) = NULL;
+		caddr_t			recdata;
+
+		rec = &pdat->dtpda_ddesc->dtdd_recs[i];
+		act = rec->dtrd_action;
+		pdat->dtpda_data = recdata = data + rec->dtrd_offset;
+
+		if (act == DTRACEACT_LIBACT) {
+			switch (rec->dtrd_arg) {
+			case DT_ACT_DENORMALIZE:
+				if (dt_normalize(dtp, data, rec) != 0)
+					return DTRACE_WORKSTATUS_ERROR;
+
+				continue;
+			case DT_ACT_NORMALIZE:
+				if (i == pdat->dtpda_ddesc->dtdd_nrecs - 1)
+					return dt_set_errno(dtp, EDT_BADNORMAL);
+
+				if (dt_normalize(dtp, data, rec) != 0)
+					return DTRACE_WORKSTATUS_ERROR;
+
+				i++;
+				continue;
+			}
+		}
+
+		rval = (*rfunc)(pdat, rec, arg);
+
+		if (rval == DTRACE_CONSUME_NEXT)
+			continue;
+
+		if (rval == DTRACE_CONSUME_ABORT)
+			return dt_set_errno(dtp, EDT_DIRABORT);
+
+		if (rval != DTRACE_CONSUME_THIS)
+			return dt_set_errno(dtp, EDT_BADRVAL);
+
+		switch (act) {
+		case DTRACEACT_STACK: {
+			int depth = rec->dtrd_arg;
+
+			if (dt_print_stack(dtp, fp, NULL, recdata,
+					   depth, rec->dtrd_size / depth) < 0)
+				return -1;
+			continue;
+		}
+		case DTRACEACT_SYM:
+			if (dt_print_sym(dtp, fp, NULL, recdata) < 0)
+				return -1;
+			continue;
+		case DTRACEACT_MOD:
+			if (dt_print_mod(dtp, fp, NULL, recdata) < 0)
+				return -1;
+			continue;
+		case DTRACEACT_USTACK:
+			if (dt_print_ustack(dtp, fp, NULL,
+					    recdata, rec->dtrd_arg) < 0)
+				return -1;
+			continue;
+		case DTRACEACT_USYM:
+		case DTRACEACT_UADDR:
+			if (dt_print_usym(dtp, fp, recdata, act) < 0)
+				return -1;
+			continue;
+		case DTRACEACT_UMOD:
+			if (dt_print_umod(dtp, fp, NULL, recdata) < 0)
+				return -1;
+			continue;
+		case DTRACEACT_PRINTF:
+			func = dtrace_fprintf;
+			break;
+		case DTRACEACT_PRINTA:
+			if (rec->dtrd_format != NULL)
+				func = dtrace_fprinta;
+			else
+				func = dt_printa;
+			break;
+		case DTRACEACT_SYSTEM:
+			func = dtrace_system;
+			break;
+		case DTRACEACT_FREOPEN:
+			func = dtrace_freopen;
+			break;
+		default:
+			break;
+		}
+
+		if (func) {
+			int	nrecs;
+
+			nrecs = pdat->dtpda_ddesc->dtdd_nrecs - i;
+			n = (*func)(dtp, fp, rec->dtrd_format, pdat,
+				    rec, nrecs, data, size);
+			if (n < 0)
+				return DTRACE_WORKSTATUS_ERROR;
+			if (n > 0)
+				i += n - 1;
+
+			continue;
+		}
+
+		n = dt_print_trace(dtp, fp, rec, recdata, quiet);
+		if (n < 0)
+			return DTRACE_WORKSTATUS_ERROR;
+	}
+
+	/*
+	 * Call the record callback with a NULL record to indicate
+	 * that we're done processing this EPID.  The return value is ignored in
+	 * this case. XXX should we respect at least DTRACE_CONSUME_ABORT?
+	 */
+	(*rfunc)(pdat, NULL, arg);
+
+	*last = epid;
+
+	return DTRACE_WORKSTATUS_OKAY;
+}
+
+static dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 	       dtrace_consume_rec_f *rfunc, int flow, int quiet,
@@ -1943,16 +2131,13 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 {
 	char				*data = buf;
 	struct perf_event_header	*hdr;
-	int				rval;
 
 	hdr = (struct perf_event_header *)data;
 	data += sizeof(struct perf_event_header);
 
 	if (hdr->type == PERF_RECORD_SAMPLE) {
 		char		*ptr = data;
-		dtrace_epid_t	epid;
 		uint32_t	size;
-		int		i;
 
 		/*
 		 * struct {
@@ -1978,182 +2163,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		data += sizeof(uint32_t);		/* skip padding */
 		size -= sizeof(uint32_t);
 
-		epid = ((uint32_t *)data)[0];
-#ifdef FIXME
-		tag = ((uint32_t *)data)[1];		/* for future use */
-#endif
-
-		/*
-		 * Fill in the epid and address of the epid in the buffer.  We
-		 * need to pass this to the efunc.
-		 */
-		pdat->dtpda_epid = epid;
-		pdat->dtpda_data = data;
-
-		rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
-						 &pdat->dtpda_pdesc);
-		if (rval != 0)
-			return dt_set_errno(dtp, EDT_BADEPID);
-
-		if (pdat->dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
-			rval = dt_handle(dtp, pdat);
-
-			if (rval == DTRACE_CONSUME_NEXT)
-				return DTRACE_WORKSTATUS_OKAY;
-			if (rval == DTRACE_CONSUME_ERROR)
-				return DTRACE_WORKSTATUS_ERROR;
-		}
-
-		if (flow)
-			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
-
-		rval = (*efunc)(pdat, arg);
-
-		if (flow) {
-			if (pdat->dtpda_flow == DTRACEFLOW_ENTRY)
-				pdat->dtpda_indent += 2;
-		}
-
-		switch (rval) {
-		case DTRACE_CONSUME_NEXT:
-			return DTRACE_WORKSTATUS_OKAY;
-		case DTRACE_CONSUME_DONE:
-			return DTRACE_WORKSTATUS_DONE;
-		case DTRACE_CONSUME_ABORT:
-			return dt_set_errno(dtp, EDT_DIRABORT);
-		case DTRACE_CONSUME_THIS:
-			break;
-		default:
-			return dt_set_errno(dtp, EDT_BADRVAL);
-		}
-
-		/*
-		 * FIXME: This code is temporary.
-		 */
-		for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
-			int			n;
-			dtrace_recdesc_t	*rec;
-			dtrace_actkind_t	act;
-			int (*func)(dtrace_hdl_t *, FILE *, void *,
-			    const dtrace_probedata_t *,
-			    const dtrace_recdesc_t *, uint_t,
-			    const void *buf, size_t);
-			caddr_t			recdata;
-
-			rec = &pdat->dtpda_ddesc->dtdd_recs[i];
-			act = rec->dtrd_action;
-			pdat->dtpda_data = recdata = data + rec->dtrd_offset;
-
-			if (act == DTRACEACT_LIBACT) {
-				switch (rec->dtrd_arg) {
-				case DT_ACT_DENORMALIZE:
-					if (dt_normalize(dtp, data, rec) != 0)
-						return DTRACE_WORKSTATUS_ERROR;
-
-					continue;
-				case DT_ACT_NORMALIZE:
-					if (i == pdat->dtpda_ddesc->dtdd_nrecs - 1)
-						return dt_set_errno(dtp,
-								EDT_BADNORMAL);
-
-					if (dt_normalize(dtp, data, rec) != 0)
-						return DTRACE_WORKSTATUS_ERROR;
-
-					i++;
-					continue;
-				}
-			}
-
-			rval = (*rfunc)(pdat, rec, arg);
-
-			if (rval == DTRACE_CONSUME_NEXT)
-				continue;
-
-			if (rval == DTRACE_CONSUME_ABORT)
-				return dt_set_errno(dtp, EDT_DIRABORT);
-
-			if (rval != DTRACE_CONSUME_THIS)
-				return dt_set_errno(dtp, EDT_BADRVAL);
-
-			switch (act) {
-			case DTRACEACT_STACK: {
-				int depth = rec->dtrd_arg;
-
-				if (dt_print_stack(dtp, fp, NULL, recdata,
-				    depth, rec->dtrd_size / depth) < 0)
-					return -1;
-				continue;
-			}
-			case DTRACEACT_SYM:
-				if (dt_print_sym(dtp, fp, NULL, recdata) < 0)
-					return -1;
-				continue;
-			case DTRACEACT_MOD:
-				if (dt_print_mod(dtp, fp, NULL, recdata) < 0)
-					return -1;
-				continue;
-			case DTRACEACT_USTACK:
-				if (dt_print_ustack(dtp, fp, NULL,
-				    recdata, rec->dtrd_arg) < 0)
-					return -1;
-				continue;
-			case DTRACEACT_USYM:
-			case DTRACEACT_UADDR:
-				if (dt_print_usym(dtp, fp, recdata, act) < 0)
-					return -1;
-				continue;
-			case DTRACEACT_UMOD:
-				if (dt_print_umod(dtp, fp, NULL, recdata) < 0)
-					return -1;
-				continue;
-			case DTRACEACT_PRINTF:
-				func = dtrace_fprintf;
-				break;
-			case DTRACEACT_PRINTA:
-				if (rec->dtrd_format != NULL)
-					func = dtrace_fprinta;
-				else
-					func = dt_printa;
-				break;
-			case DTRACEACT_SYSTEM:
-				func = dtrace_system;
-				break;
-			case DTRACEACT_FREOPEN:
-				func = dtrace_freopen;
-				break;
-			default:
-				func = NULL;
-				break;
-			}
-
-			if (func) {
-				int	nrecs;
-
-				nrecs = pdat->dtpda_ddesc->dtdd_nrecs - i;
-				n = (*func)(dtp, fp, rec->dtrd_format, pdat,
-						   rec, nrecs, data, size);
-				if (n < 0)
-					return DTRACE_WORKSTATUS_ERROR;
-				if (n > 0)
-					i += n - 1;
-
-				continue;
-			}
-
-			n = dt_print_trace(dtp, fp, rec, recdata, quiet);
-			if (n < 0)
-				return DTRACE_WORKSTATUS_ERROR;
-		}
-
-		/*
-		 * Call the record callback with a NULL record to indicate
-		 * that we're done processing this EPID.
-		 */
-		rval = (*rfunc)(pdat, NULL, arg);
-
-		*last = epid;
-
-		return DTRACE_WORKSTATUS_OKAY;
+		return dt_consume_one_probe(dtp, fp, data, size, pdat, efunc,
+					    rfunc, flow, quiet, last, arg);
 	} else if (hdr->type == PERF_RECORD_LOST) {
 #ifdef FIXME
 		uint64_t	lost;
@@ -2191,7 +2202,6 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	uint64_t			data_size = pebset->data_size;
 	int				flow, quiet;
 	dtrace_probedata_t		pdat;
-	dtrace_workstatus_t		rval = DTRACE_WORKSTATUS_OKAY;
 
 	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
 	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
@@ -2217,6 +2227,8 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 			break;
 
 		do {
+			dtrace_workstatus_t rval = DTRACE_WORKSTATUS_OKAY;
+
 			event = base + tail % data_size;
 			hdr = (struct perf_event_header *)event;
 			len = hdr->size;
@@ -2380,9 +2392,9 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 		return DTRACE_WORKSTATUS_OKAY;
 
 	/*
-	 * The simple case: we are either not stopped, or we are stopped and
-	 * the END probe executed on another CPU.  Simply consume this buffer
-	 * and return.
+	 * The simple case: we are either not stopped, or we are stopped and the
+	 * END probe executed on another CPU.  Simply consume this buffer and
+	 * return.
 	 */
 	if (!dtp->dt_stopped || cpu != dtp->dt_endedon)
 		return dt_consume_cpu(dtp, fp, bpeb, pf, rf, 0, arg);
