@@ -1630,7 +1630,6 @@ dt_node_decl(void)
 			size = ctf_type_size(dtt.dtt_ctfp, dtt.dtt_type);
 
 			switch (kind) {
-			case CTF_K_ENUM:
 			case CTF_K_INTEGER:
 				if (ctf_type_encoding(dtt.dtt_ctfp, type,
 						      &cte) == 0 &&
@@ -1639,6 +1638,7 @@ dt_node_decl(void)
 						"cannot have void object: %s\n",
 						dsp->ds_ident);
 				/*FALLTHRU*/
+			case CTF_K_ENUM:
 			case CTF_K_POINTER:
 				alignment = size;
 				break;
