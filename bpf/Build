@@ -25,7 +25,6 @@ bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	get_bvar.c \
 	get_tvar.c set_tvar.c \
-	memcpy.c \
 	probe_error.c \
 	strnlen.c \
 	varint.c

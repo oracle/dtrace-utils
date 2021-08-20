@@ -725,17 +725,14 @@ dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 static void
 dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 {
-	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
-
-	assert(idp != NULL);
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst));
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, size));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dst));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, src));
 	dt_regset_xalloc(drp, BPF_REG_0);
-	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
 	dt_regset_free_args(drp);
 	/* FIXME: check BPF_REG_0 for error? */
 	dt_regset_free(drp, BPF_REG_0);
@@ -820,9 +817,9 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
 		dt_regset_free_args(drp);
-		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
+		emit(dlp, BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 
@@ -846,7 +843,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		return 0;
 	} else if (dt_node_is_string(dnp)) {
 		dt_ident_t	*idp;
-		uint_t		vcopy = dt_irlist_label(dlp);
+		uint_t		size_ok = dt_irlist_label(dlp);
 		int		reg = dt_regset_alloc(drp);
 
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
@@ -859,15 +856,15 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 		/* Determine the number of bytes used for the length. */
-		emit(dlp,   BPF_MOV_REG(BPF_REG_1, reg));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, reg));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint_size");
 		assert(idp != NULL);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 
 		/* Add length of the string (adjusted for terminating byte). */
-		emit(dlp,   BPF_ALU64_IMM(BPF_ADD, reg, 1));
-		emit(dlp,   BPF_ALU64_REG(BPF_ADD, BPF_REG_0, reg));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, 1));
+		emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, reg));
 		dt_regset_free(drp, reg);
 
 		/*
@@ -875,19 +872,17 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		 * output buffer at [%r9 + off].  The amount of bytes copied is
 		 * the lesser of the data size and the maximum string size.
 		 */
-		emit(dlp,   BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
-		emit(dlp,   BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
-		emit(dlp,   BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
-		dt_regset_free(drp, dnp->dn_reg);
-		emit(dlp,   BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
-		emit(dlp,   BPF_BRANCH_IMM(BPF_JLT, BPF_REG_3, size, vcopy));
-		emit(dlp,   BPF_MOV_IMM(BPF_REG_3, size));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_memcpy");
-		assert(idp != NULL);
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, BPF_REG_2, size, size_ok));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size));
+		emitl(dlp, size_ok,
+			   BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		dt_regset_free(drp, dnp->dn_reg);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emitle(dlp, vcopy,
-			    BPF_CALL_FUNC(idp->di_id), idp);
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
 		dt_regset_free_args(drp);
 		dt_regset_free(drp, BPF_REG_0);
 
