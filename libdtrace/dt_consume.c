@@ -2178,7 +2178,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 int
 dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
-	       void *arg)
+	       int peek_only, void *arg)
 {
 	struct perf_event_mmap_page	*rb_page = (void *)peb->base;
 	struct perf_event_header	*hdr;
@@ -2209,7 +2209,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	 */
 	base = peb->base + pebset->page_size;
 
-	for (;;) {
+	do {
 		head = ring_buffer_read_head(rb_page);
 		tail = rb_page->data_tail;
 
@@ -2253,8 +2253,9 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 			tail += hdr->size;
 		} while (tail != head);
 
-		ring_buffer_write_tail(rb_page, tail);
-	}
+		if (!peek_only)
+			ring_buffer_write_tail(rb_page, tail);
+	} while (!peek_only);
 
 	return DTRACE_WORKSTATUS_OKAY;
 }
@@ -2278,7 +2279,7 @@ dt_consume_begin_probe(const dtrace_probedata_t *data, void *arg)
 
 	if (begin->dtbgn_beginonly) {
 		if (!(r1 && r2))
-			return DTRACE_CONSUME_DONE;
+			return DTRACE_CONSUME_NEXT;
 	} else {
 		if (r1 && r2)
 			return DTRACE_CONSUME_NEXT;
@@ -2384,7 +2385,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	 * and return.
 	 */
 	if (!dtp->dt_stopped || cpu != dtp->dt_endedon)
-		return dt_consume_cpu(dtp, fp, bpeb, pf, rf, arg);
+		return dt_consume_cpu(dtp, fp, bpeb, pf, rf, 0, arg);
 
 	begin.dtbgn_probefunc = pf;
 	begin.dtbgn_recfunc = rf;
@@ -2401,7 +2402,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	dtp->dt_errarg = &begin;
 
 	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
-			      dt_consume_begin_record, &begin);
+			      dt_consume_begin_record, 1, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
@@ -2415,7 +2416,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 		if (peb == NULL || peb == bpeb)
 			continue;
 
-		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, 0, arg);
 		if (rval != 0)
 			return rval;
 	}
@@ -2435,7 +2436,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	dtp->dt_errarg = &begin;
 
 	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
-			      dt_consume_begin_record, &begin);
+			      dt_consume_begin_record, 0, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
@@ -2574,7 +2575,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		if (dtp->dt_stopped && peb->cpu == dtp->dt_endedon)
 			continue;
 
-		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, 0, arg);
 		if (rval != 0)
 			return rval;
 	}
@@ -2597,7 +2598,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		if (peb->cpu != dtp->dt_endedon)
 			continue;
 
-		return dt_consume_cpu(dtp, fp, peb, pf, rf, arg);
+		return dt_consume_cpu(dtp, fp, peb, pf, rf, 0, arg);
 	}
 
 	/*
