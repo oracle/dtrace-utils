@@ -1,7 +1,7 @@
 # Functions used by the individual Build files.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -14,7 +14,7 @@ current-dir = $(dir $(lastword $(MAKEFILE_LIST)))
 # given primary.  If called with an absolute pathname, return it unchanged.
 # Syntax: $(call *-name,primary,filename)
 
-obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(2:.c=.o)))
+obj-name = $(addprefix $(objdir)/$(subst /,-,$($(1)_DIR))-,$(subst /,-,$(patsubst %.S,%.o,$(2:.c=.o))))
 src-name = $(if $(filter-out $(abspath $(2)),$(2)),$(addprefix $($(1)_DIR),$(2)),$(2))
 
 # Functions to generate the name of a header file and DOF object file for a
