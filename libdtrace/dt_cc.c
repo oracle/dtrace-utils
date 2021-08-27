@@ -2352,9 +2352,6 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data =
 					dtp->dt_options[DTRACEOPT_STRSIZE];
 				continue;
-			case DT_CONST_STKOFF:
-				nrp->dofr_data = roundup(dtp->dt_maxreclen, 8);
-				continue;
 			case DT_CONST_STKSIZ:
 				nrp->dofr_data = sizeof(uint64_t)
 				    * dtp->dt_options[DTRACEOPT_MAXFRAMES];

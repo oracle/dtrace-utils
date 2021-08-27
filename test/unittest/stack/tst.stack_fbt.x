@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 read MAJOR MINOR <<< `uname -r | awk -F. '{print $1, $2}'`
 
