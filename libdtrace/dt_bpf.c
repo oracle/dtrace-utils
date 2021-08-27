@@ -178,14 +178,17 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		with a singleton element (key 0).  This means that every CPU
  *		will see its own copy of this singleton element, and can use it
  *		without interference from other CPUs.  The scratch memory is
- *		used to store the DTrace context and the temporary output
- *		buffer.  The size of the map value (a byte array) is the size
- *		of the DTrace context, rounded up to a multiple of 8 bytes,
- *		plus 8 bytes padding, plus the maximum trace buffer record size
- *		that any of the compiled programs can emit, rounded up to a
- *		multiple of 8 bytes.
- *		The 8 bytes padding is used to ensure proper trace data
- *		alignment.
+ *		used to store the DTrace context, the temporary output buffer,
+ *		and temporary storage for stack traces, string manipulation,
+ *		etc.
+ *		The size of the map value (a byte array) is the sum of:
+ *			- size of the DTrace context, rounded up to the nearest
+ *			  multiple of 8
+ *			- 8 bytes padding for trace buffer alignment purposes
+ *			- maximum trace buffer record size, rounded up to the
+ *			  multiple of 8
+ *			- the greater of the maximum stack trace size and three
+ *			  times the maximum string size
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
@@ -223,7 +226,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		stabsz, gvarsz, lvarsz, tvarc, aggsz;
+	int		stabsz, gvarsz, lvarsz, tvarc, aggsz, memsz;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint32_t	key = 0;
 
@@ -271,12 +274,24 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	if (ci_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
+	/*
+	 * The size of the map value (a byte array) is the sum of:
+	 *	- size of the DTrace context, rounded up to the nearest
+	 *	  multiple of 8
+	 *	- 8 bytes padding for trace buffer alignment purposes
+	 *	- maximum trace buffer record size, rounded up to the
+	 *	  multiple of 8
+	 *	- the greater of:
+	 *		+ the maximum stack trace size
+	 *		+ three times the maximum string size
+	 */
+	memsz = roundup(sizeof(dt_mstate_t), 8) +
+		8 +
+		roundup(dtp->dt_maxreclen, 8) +
+		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
+		    3 * dtp->dt_options[DTRACEOPT_STRSIZE]);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t),
-			roundup(sizeof(dt_mstate_t), 8) + 8
-			  + roundup(dtp->dt_maxreclen, 8)
-			  + 8 * dtp->dt_options[DTRACEOPT_MAXFRAMES],
-			1) == -1)
+			sizeof(uint32_t), memsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
 	/*

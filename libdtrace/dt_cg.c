@@ -65,7 +65,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	dt_dctx_t	dctx;
 	 *	uint32_t	key;
 	 *	uintptr_t	rc;
-	 *	char		*buf;
+	 *	char		*buf, *mem;
 	 *
 	 *				//     (%r8 = pointer to BPF context)
 	 *				// mov %r8, %r1
@@ -147,21 +147,29 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
 
 	/*
+	 *	mem = buf + roundup(dtp->dt_maxreclen, 8);
+	 *				// add %r0, roundup(dtp->dt_maxreclen,
+	 *	dctx.mem = mem;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
+	 */
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(dtp->dt_maxreclen, 8)));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MEM), BPF_REG_0));
+
+	/*
 	 * Store pointer to BPF map "name" in the DTrace context field "fld" at
 	 * "offset".
 	 *
-	 * key = 0;		// stw [%fp + DCTX_FP(offset)], 0
-	 * rc = bpf_map_lookup_elem(&name, &key);
-	 *			// lddw %r1, &name
-	 *			// mov %r2, %fp
-	 *			// add %r2, DCTX_FP(offset)
-	 *			// call bpf_map_lookup_elem
-	 *			//     (%r1 ... %r5 clobbered)
-	 *			//     (%r0 = name BPF map value)
-	 * if (rc == 0)		// jeq %r0, 0, lbl_exit
-	 *	goto exit;
-	 *			//     (%r0 = pointer to map value)
-	 * dctx.fld = rc;	// stdw [%fp + DCTX_FP(offset)], %r0
+	 *	key = 0;		// stw [%fp + DCTX_FP(offset)], 0
+	 *	rc = bpf_map_lookup_elem(&name, &key);
+	 *				// lddw %r1, &name
+	 *				// mov %r2, %fp
+	 *				// add %r2, DCTX_FP(offset)
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = name BPF map value)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *				//     (%r0 = pointer to map value)
+	 *	dctx.fld = rc;		// stdw [%fp + DCTX_FP(offset)], %r0
 	 */
 #define DT_CG_STORE_MAP_PTR(name, offset) \
 	do { \
