@@ -25,7 +25,6 @@ extern struct bpf_map_def probes;
 extern struct bpf_map_def state;
 
 extern uint64_t STBSZ;
-extern uint64_t STKOFF;
 extern uint64_t STKSIZ;
 extern uint64_t BOOTTM;
 
@@ -60,7 +59,7 @@ noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_USTACKDEPTH: {
 		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
-		char *buf = ((char *) dctx->buf) + ((uint64_t) &STKOFF);
+		char *buf = dctx->mem;
 		uint64_t stacksize;
 
 		if (id == DIF_VAR_USTACKDEPTH)
