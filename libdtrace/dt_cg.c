@@ -753,20 +753,30 @@ dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
 	size_t		size = yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
 	uint_t		lbl_ok = dt_irlist_label(dlp);
 
+	TRACE_REGSET("        strlen:Begin");
+
 	assert(idp != NULL);
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp,  BPF_MOV_REG(BPF_REG_1, src));
-	dt_regset_xalloc(drp, BPF_REG_0);
+	if (src != BPF_REG_1)
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, src));
+	if (dst != BPF_REG_0)
+		dt_regset_xalloc(drp, BPF_REG_0);
 
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, BPF_REG_0, size, lbl_ok));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, size));
 	emitl(dlp, lbl_ok,
-		   BPF_MOV_REG(dst, BPF_REG_0));
-	dt_regset_free(drp, BPF_REG_0);
+		   BPF_NOP());
+
+	if (dst != BPF_REG_0) {
+		emit(dlp, BPF_MOV_REG(dst, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+	}
+
+	TRACE_REGSET("        strlen:End  ");
 }
 
 static void
@@ -3123,6 +3133,54 @@ dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strlen:End  ");
 }
 
+static void
+dt_cg_subr_strjoin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*s1 = dnp->dn_args;
+	dt_node_t	*s2 = s1->dn_list;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strjoin");
+
+	assert(idp != NULL);
+
+	TRACE_REGSET("    subr-strjoin:Begin");
+
+	dt_cg_node(s1, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, s1->dn_reg);
+	dt_cg_node(s2, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, s2->dn_reg);
+
+	/*
+	 * The result needs be be a temporary string, so we request one.
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, s1->dn_reg));
+	dt_regset_free(drp, s1->dn_reg);
+	if (s1->dn_tstring)
+		dt_cg_tstring_free(yypcb, s1);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, s2->dn_reg));
+	dt_regset_free(drp, s2->dn_reg);
+	if (s2->dn_tstring)
+		dt_cg_tstring_free(yypcb, s2);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-strjoin:End  ");
+}
+
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
@@ -3149,7 +3207,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_GETMAJOR]		= NULL,
 	[DIF_SUBR_GETMINOR]		= NULL,
 	[DIF_SUBR_DDI_PATHNAME]		= NULL,
-	[DIF_SUBR_STRJOIN]		= NULL,
+	[DIF_SUBR_STRJOIN]		= dt_cg_subr_strjoin,
 	[DIF_SUBR_LLTOSTR]		= NULL,
 	[DIF_SUBR_BASENAME]		= NULL,
 	[DIF_SUBR_DIRNAME]		= NULL,

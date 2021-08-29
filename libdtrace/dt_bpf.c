@@ -286,7 +286,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
 		    DT_TSTRING_SLOTS *
 			(DT_STRLEN_BYTES + dtp->dt_options[DTRACEOPT_STRSIZE]) +
-		    dtp->dt_options[DTRACEOPT_STRSIZE]
+		    dtp->dt_options[DTRACEOPT_STRSIZE] + 1
 		);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t), memsz, 1) == -1)
