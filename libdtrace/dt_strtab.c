@@ -12,7 +12,6 @@
 
 #include <dt_strtab.h>
 #include <dt_string.h>
-#include <dt_varint.h>
 #include <dt_impl.h>
 
 static int
@@ -43,7 +42,6 @@ dt_strtab_create(size_t bufsz)
 {
 	dt_strtab_t	*sp = malloc(sizeof(dt_strtab_t));
 	uint_t		nbuckets = _dtrace_strbuckets;
-	int		n;
 
 	assert(bufsz != 0);
 
@@ -73,10 +71,10 @@ dt_strtab_create(size_t bufsz)
 	 * at offset 0.  We use this guarantee in dt_strtab_insert() and
 	 * dt_strtab_index().
 	 */
-	n = dt_int2vint(0, sp->str_ptr);
-	sp->str_ptr += n;
+	dt_strlen_store(0, sp->str_ptr);
+	sp->str_ptr += DT_STRLEN_BYTES;
 	*sp->str_ptr++ = '\0';
-	sp->str_size = n + 1;
+	sp->str_size = DT_STRLEN_BYTES + 1;
 	sp->str_nstrs = 1;
 
 	return sp;
@@ -129,7 +127,11 @@ dt_strtab_compare(dt_strtab_t *sp, dt_strhash_t *hp,
 		resid = sp->str_bufs[b] + sp->str_bufsz - buf;
 		n = MIN(resid, len);
 
-		if ((rv = strncmp(buf, str, n)) != 0)
+		if ((rv = buf[0] - str[0]) != 0)
+			return rv;
+		if ((rv = buf[1] - str[1]) != 0)
+			return rv;
+		if ((rv = strncmp(buf + 2, str + 2, n)) != 0)
 			return rv;
 
 		buf += n;
@@ -191,7 +193,7 @@ dt_strtab_xindex(dt_strtab_t *sp, const char *str, size_t len, ulong_t h)
 ssize_t
 dt_strtab_index(dt_strtab_t *sp, const char *str)
 {
-	size_t	plen, slen;
+	size_t	slen;
 	ssize_t	rc;
 	ulong_t	h;
 	char	*s;
@@ -200,15 +202,15 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(VARINT_MAX_BYTES + slen + 1);
+	s = malloc(DT_STRLEN_BYTES + slen + 1);
 	if (s == NULL)
 		return -1L;
 
-	plen = dt_int2vint(slen, s);
-	memcpy(s + plen, str, slen + 1);
+	dt_strlen_store(slen, s);
+	memcpy(s + DT_STRLEN_BYTES, str, slen + 1);
 
 	h = str2hval(str, slen) % sp->str_hashsz;
-	rc = dt_strtab_xindex(sp, s, plen + slen, h);
+	rc = dt_strtab_xindex(sp, s, DT_STRLEN_BYTES + slen, h);
 	free(s);
 
 	return rc;
@@ -218,7 +220,7 @@ ssize_t
 dt_strtab_insert(dt_strtab_t *sp, const char *str)
 {
 	dt_strhash_t	*hp;
-	size_t		slen, plen;
+	size_t		slen;
 	ssize_t		off;
 	ulong_t		h;
 	char		*s;
@@ -227,15 +229,15 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(VARINT_MAX_BYTES + slen + 1);
+	s = malloc(DT_STRLEN_BYTES + slen + 1);
 	if (s == NULL)
 		return -1L;
 
-	plen = dt_int2vint(slen, s);
-	memcpy(s + plen, str, slen + 1);
+	dt_strlen_store(slen, s);
+	memcpy(s + DT_STRLEN_BYTES, str, slen + 1);
 
 	h = str2hval(str, slen) % sp->str_hashsz;
-	slen += plen;
+	slen += DT_STRLEN_BYTES;
 	off = dt_strtab_xindex(sp, s, slen, h);
 	if (off != -1) {
 		free(s);

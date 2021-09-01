@@ -17,7 +17,7 @@
 #include <dt_pcap.h>
 #include <dt_peb.h>
 #include <dt_state.h>
-#include <dt_varint.h>
+#include <dt_string.h>
 #include <libproc.h>
 #include <port.h>
 #include <sys/epoll.h>
@@ -1880,7 +1880,7 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 			return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 
 		/* We have a string.  Skip the length prefix and print it. */
-		s = (char *)dt_vint_skip(s);
+		s += DT_STRLEN_BYTES;
 		if (quiet)
 			return dt_printf(dtp, fp, "%s", s);
 		else

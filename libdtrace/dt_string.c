@@ -331,3 +331,20 @@ char *strrstr(const char *haystack, const char *needle)
 
 	return (char *)prev_s;
 }
+
+void
+dt_strlen_store(uint64_t val, char *str)
+{
+	uint8_t	*buf = (uint8_t *)str;
+
+	buf[0] = (uint8_t)(val >> 8);
+	buf[1] = (uint8_t)(val & 0xff);
+}
+
+uint64_t
+dt_strlen(const char *str)
+{
+	const uint8_t	*buf = (const uint8_t *)str;
+
+	return ((uint64_t)buf[0] << 8) + (uint64_t)buf[1];
+}

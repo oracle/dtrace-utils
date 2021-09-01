@@ -3,7 +3,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-TEST_UTILS = baddof badioctl showUSDT print-stack-layout tst.varint
+TEST_UTILS = baddof badioctl showUSDT print-stack-layout
 
 define test-util-template
 CMDS += $(1)

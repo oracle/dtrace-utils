@@ -23,8 +23,8 @@
 #include <sys/ioctl.h>
 #include <port.h>
 
-#include <dt_varint.h>
 #include <dt_impl.h>
+#include <dt_string.h>
 #include <sys/dtrace.h>
 
 int
@@ -753,7 +753,7 @@ dt_difo_getstr(const dtrace_difo_t *dp, ssize_t idx)
 {
 	assert(idx < dp->dtdo_strlen);
 
-	return dt_vint_skip(&dp->dtdo_strtab[idx]);
+	return &dp->dtdo_strtab[idx] + DT_STRLEN_BYTES;
 }
 
 /*

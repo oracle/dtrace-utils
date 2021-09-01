@@ -21,7 +21,7 @@
 #include <dt_printf.h>
 #include <dt_provider.h>
 #include <dt_probe.h>
-#include <dt_varint.h>
+#include <dt_string.h>
 #include <bpf_asm.h>
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
@@ -749,7 +749,7 @@ dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 static void
 dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
 {
-	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint2int");
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strlen");
 	size_t		size = yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
 	uint_t		lbl_ok = dt_irlist_label(dlp);
 
@@ -850,44 +850,36 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 		return 0;
 	} else if (dt_node_is_string(dnp)) {
-		dt_ident_t	*idp;
 		uint_t		size_ok = dt_irlist_label(dlp);
 		int		reg = dt_regset_alloc(drp);
 
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
 				 size, 1, pfp, arg);
 
-		/* Retrieve the length of the string.  */
+		/*
+		 * Retrieve the length of the string, limit it to the maximum
+		 * string size, and adjust for the terminating NUL byte and the
+		 * length prefix.
+		 */
 		dt_cg_strlen(dlp, drp, reg, dnp->dn_reg);
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, reg, size, size_ok));
+		emit(dlp,  BPF_MOV_IMM(reg, size));
+		emitl(dlp, size_ok,
+			   BPF_ALU64_IMM(BPF_ADD, reg, 1 + DT_STRLEN_BYTES));
 
+		/*
+		 * Copy string data to the output buffer at [%r9 + off].  The
+		 * amount of bytes copied is the lesser of the data size and
+		 * the maximum string size.
+		 */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		/* Determine the number of bytes used for the length. */
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, reg));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_vint_size");
-		assert(idp != NULL);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-
-		/* Add length of the string (adjusted for terminating byte). */
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, 1));
-		emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, reg));
-		dt_regset_free(drp, reg);
-
-		/*
-		 * Copy string data (varint length + string content) to the
-		 * output buffer at [%r9 + off].  The amount of bytes copied is
-		 * the lesser of the data size and the maximum string size.
-		 */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, BPF_REG_2, size, size_ok));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size));
-		emitl(dlp, size_ok,
-			   BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
+		dt_regset_free(drp, reg);
+		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
@@ -2166,10 +2158,10 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 			 * DT_TOK_STRING.
 			 */
 			if (dt_node_is_string(src) &&
-			    src->dn_right->dn_op == DT_TOK_STRING) {
-				size = dt_node_type_size(src->dn_right);
-				size += dt_vint_size(size);
-			} else
+			    src->dn_right->dn_op == DT_TOK_STRING)
+				size = dt_node_type_size(src->dn_right) +
+				       DT_STRLEN_BYTES;
+			else
 				size = idp->di_size;
 
 			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, size);

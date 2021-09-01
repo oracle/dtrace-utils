@@ -12,7 +12,6 @@
 #include <dt_bpf_maps.h>
 #include <dt_dctx.h>
 #include <dt_state.h>
-#include <dt_varint.h>
 
 #include "probe_error.h"
 
