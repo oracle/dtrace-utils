@@ -2582,6 +2582,18 @@ dt_node_trampoline(dt_probe_t *prp)
 	return dnp;
 }
 
+dt_node_t *
+dt_node_tstring(dt_node_t *fnp, uintmax_t val)
+{
+	dt_node_t *dnp = dt_node_alloc(DT_NODE_TSTRING);
+
+	dnp->dn_value = val;
+	dnp->dn_reg = fnp->dn_reg;
+	fnp->dn_tstring = dnp;
+
+	return dnp;
+}
+
 /*
  * This function provides the underlying implementation of cooking an
  * identifier given its node, a hash of dynamic identifiers, an identifier

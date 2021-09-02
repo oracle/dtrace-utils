@@ -759,6 +759,7 @@ dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, src));
 	dt_regset_xalloc(drp, BPF_REG_0);
+
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, BPF_REG_0, size, lbl_ok));
@@ -782,6 +783,90 @@ dt_cg_spill_load(int reg)
 	dt_irlist_t	*dlp = &yypcb->pcb_ir;
 
 	emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_SPILL(reg)));
+}
+
+/*
+ * Initialize the temporary string offsets and mark all not in use.
+ */
+static void
+dt_cg_tstring_reset(dtrace_hdl_t *dtp)
+{
+	int		i;
+	dt_tstring_t	*ts;
+
+	if (dtp->dt_tstrings == NULL) {
+		dtp->dt_tstrings = dt_calloc(dtp, DT_TSTRING_SLOTS,
+					    sizeof(dt_tstring_t));
+		if (dtp->dt_tstrings == NULL)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+		ts = dtp->dt_tstrings;
+		for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
+			ts->offset = i * (DT_STRLEN_BYTES +
+					  dtp->dt_options[DTRACEOPT_STRSIZE]);
+	}
+
+	ts = dtp->dt_tstrings;
+	for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
+		ts->in_use = 0;
+}
+
+/*
+ * Allocate a temporary string from the pool.  This function returns the offset
+ * of the allocated temporary string within scratch memory (base: dctx->mem).
+ */
+static uint64_t
+dt_cg_tstring_xalloc(dt_pcb_t *pcb)
+{
+	int		i;
+	dt_tstring_t	*ts = pcb->pcb_hdl->dt_tstrings;
+
+	for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++) {
+		if (!ts->in_use)
+			break;
+	}
+
+	assert(i < DT_TSTRING_SLOTS);
+	ts->in_use = 1;
+
+	return ts->offset;
+}
+
+/*
+ * Associate a temporary string with the given node.
+ */
+static void
+dt_cg_tstring_alloc(dt_pcb_t *pcb, dt_node_t *dnp)
+{
+	dt_node_tstring(dnp, dt_cg_tstring_xalloc(pcb));
+}
+
+/*
+ * Release the temporary string associated with the given offset.
+ */
+static void
+dt_cg_tstring_xfree(dt_pcb_t *pcb, uint64_t offset)
+{
+	int		i;
+	dt_tstring_t	*ts = pcb->pcb_hdl->dt_tstrings;
+
+	for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++) {
+		if (ts->offset == offset)
+			break;
+	}
+
+	assert(i < DT_TSTRING_SLOTS);
+
+	ts->in_use = 0;
+}
+
+/*
+ * Release the temporary string associated with the given node.
+ */
+static void
+dt_cg_tstring_free(dt_pcb_t *pcb, dt_node_t *dnp)
+{
+	dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
 }
 
 static const uint_t	ldstw[] = {
@@ -881,6 +966,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_regset_free(drp, reg);
 		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
+		if (dnp->dn_tstring)
+			dt_cg_tstring_free(pcb, dnp);
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
 		dt_regset_free_args(drp);
@@ -2175,6 +2262,8 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 		}
 
 		dt_regset_free(drp, reg);
+		if (src->dn_kind == DT_NODE_FUNC && src->dn_tstring)
+			dt_cg_tstring_free(yypcb, src);
 		return;
 	}
 
@@ -2841,6 +2930,9 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
 		dt_cg_store_var(dnp, dlp, drp, idp);
+		if (dnp->dn_right->dn_kind == DT_NODE_FUNC &&
+		    dnp->dn_right->dn_tstring)
+			dt_cg_tstring_free(yypcb, dnp->dn_right);
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -4856,6 +4948,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	}
 
 	dt_regset_reset(pcb->pcb_regs);
+	dt_cg_tstring_reset(pcb->pcb_hdl);
 
 	dt_irlist_destroy(&pcb->pcb_ir);
 	dt_irlist_create(&pcb->pcb_ir);
@@ -4900,18 +4993,25 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 				dt_cg_agg(pcb, act, &pcb->pcb_ir,
 					  pcb->pcb_regs);
 				break;
-			case DT_NODE_DEXPR:
-				if (act->dn_expr->dn_kind == DT_NODE_AGG)
-					dt_cg_agg(pcb, act->dn_expr,
-						  &pcb->pcb_ir, pcb->pcb_regs);
+			case DT_NODE_DEXPR: {
+				dt_node_t	*enp = act->dn_expr;
+
+				if (enp->dn_kind == DT_NODE_AGG)
+					dt_cg_agg(pcb, enp, &pcb->pcb_ir,
+						  pcb->pcb_regs);
 				else
-					dt_cg_node(act->dn_expr, &pcb->pcb_ir,
+					dt_cg_node(enp, &pcb->pcb_ir,
 						   pcb->pcb_regs);
 
-				if (act->dn_expr->dn_reg != -1)
+				if (enp->dn_reg != -1) {
 					dt_regset_free(pcb->pcb_regs,
-						       act->dn_expr->dn_reg);
+						       enp->dn_reg);
+					if (enp->dn_kind == DT_NODE_FUNC &&
+					    enp->dn_tstring)
+						dt_cg_tstring_free(pcb, enp);
+				}
 				break;
+			}
 			default:
 				dnerror(dnp, D_UNKNOWN, "internal error -- "
 					"node kind %u is not a valid "

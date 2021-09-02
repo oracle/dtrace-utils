@@ -189,6 +189,23 @@ typedef struct dt_ahash {
 } dt_ahash_t;
 
 /*
+ * Why do we need (only) 4 slots?  The maximum amount of string arguments to
+ * any function is 2, and if the result is a string as well, that means we may
+ * need 3 temporary strings during code generation for that function.
+ *
+ * Since string functions can be nested, we can (at most) end up with 1 tstring
+ * (from a nested function for which we already generated code) along with a
+ * nested function being processed which needs 3 temporary strings as mentioned
+ * above.  That brings us to a total of 4.
+ */
+#define DT_TSTRING_SLOTS	4
+
+typedef struct dt_tstring {
+	uint64_t	offset;			/* Offset from dctx->mem */
+	int		in_use;			/* In use (1) or not (0) */
+} dt_tstring_t;
+
+/*
  * To provide a lock-free aggregation write mechanism for the producer,
  * two copies of each aggregation can be used.  A latch sequence number
  * on each CPU can be incremented to indicate to the consumer which copy
@@ -252,6 +269,7 @@ struct dtrace_hdl {
 	uint_t dt_strlen;	/* global string table (runtime) size */
 	uint_t dt_maxreclen;	/* largest record size across programs */
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
+	dt_tstring_t *dt_tstrings; /* temporary string slots */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */

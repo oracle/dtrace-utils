@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -99,6 +99,7 @@ typedef struct dt_node {
 #define	dn_string	dn_u._const._string	/* STRING, IDENT, TYPE */
 #define	dn_ident	dn_u._nodes._ident	/* VAR,SYM,FUN,AGG,INL,PROBE */
 #define	dn_args		dn_u._nodes._links[0]	/* DT_NODE_VAR, FUNC */
+#define	dn_tstring	dn_u._nodes._links[1]	/* DT_NODE_FUNC */
 #define	dn_child	dn_u._nodes._links[0]	/* DT_NODE_OP1 */
 #define	dn_left		dn_u._nodes._links[0]	/* DT_NODE_OP2, OP3 */
 #define	dn_right	dn_u._nodes._links[1]	/* DT_NODE_OP2, OP3 */
@@ -148,6 +149,7 @@ typedef struct dt_node {
 #define	DT_NODE_PROVIDER 20	/* provider definition */
 #define	DT_NODE_PROG	21	/* program translation unit */
 #define	DT_NODE_TRAMPOLINE 22	/* probe trampoline */
+#define DT_NODE_TSTRING	23	/* temnporary string slot */
 
 #define	DT_NF_SIGNED	0x01	/* data is a signed quantity (else unsigned) */
 #define	DT_NF_COOKED	0x02	/* data is a known type (else still cooking) */
@@ -200,6 +202,7 @@ extern dt_node_t *dt_node_probe(char *, int, dt_node_t *, dt_node_t *);
 extern dt_node_t *dt_node_provider(char *, dt_node_t *);
 extern dt_node_t *dt_node_program(dt_node_t *);
 extern dt_node_t *dt_node_trampoline(struct dt_probe *);
+extern dt_node_t *dt_node_tstring(dt_node_t *, uintmax_t);
 
 extern dt_node_t *dt_node_link(dt_node_t *, dt_node_t *);
 extern dt_node_t *dt_node_cook(dt_node_t *, uint_t);

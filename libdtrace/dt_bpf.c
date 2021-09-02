@@ -17,6 +17,7 @@
 #include <dt_dctx.h>
 #include <dt_probe.h>
 #include <dt_state.h>
+#include <dt_string.h>
 #include <dt_strtab.h>
 #include <dt_bpf.h>
 #include <dt_bpf_maps.h>
@@ -178,17 +179,9 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		with a singleton element (key 0).  This means that every CPU
  *		will see its own copy of this singleton element, and can use it
  *		without interference from other CPUs.  The scratch memory is
- *		used to store the DTrace context, the temporary output buffer,
- *		and temporary storage for stack traces, string manipulation,
- *		etc.
- *		The size of the map value (a byte array) is the sum of:
- *			- size of the DTrace context, rounded up to the nearest
- *			  multiple of 8
- *			- 8 bytes padding for trace buffer alignment purposes
- *			- maximum trace buffer record size, rounded up to the
- *			  multiple of 8
- *			- the greater of the maximum stack trace size and three
- *			  times the maximum string size
+ *		used to store the DTrace machine state, the temporary output
+ *		buffer, and temporary storage for stack traces, string
+ *		manipulation, etc.
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
@@ -276,20 +269,25 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/*
 	 * The size of the map value (a byte array) is the sum of:
-	 *	- size of the DTrace context, rounded up to the nearest
+	 *	- size of the DTrace machine state, rounded up to the nearest
 	 *	  multiple of 8
 	 *	- 8 bytes padding for trace buffer alignment purposes
 	 *	- maximum trace buffer record size, rounded up to the
 	 *	  multiple of 8
 	 *	- the greater of:
 	 *		+ the maximum stack trace size
-	 *		+ three times the maximum string size
+	 *		+ four times the maximum string size (incl. length)
+	 *		  plus the maximum string size (to accomodate the BPF
+	 *		  verifier)
 	 */
 	memsz = roundup(sizeof(dt_mstate_t), 8) +
 		8 +
 		roundup(dtp->dt_maxreclen, 8) +
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
-		    3 * dtp->dt_options[DTRACEOPT_STRSIZE]);
+		    DT_TSTRING_SLOTS *
+			(DT_STRLEN_BYTES + dtp->dt_options[DTRACEOPT_STRSIZE]) +
+		    dtp->dt_options[DTRACEOPT_STRSIZE]
+		);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t), memsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
