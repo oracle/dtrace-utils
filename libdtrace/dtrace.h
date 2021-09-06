@@ -145,12 +145,13 @@ typedef struct dtrace_stmtdesc {
 } dtrace_stmtdesc_t;
 
 /* dtsd clause flags */
-#define DT_CLSFLAG_DATAREC	1	/* data-recording */
-#define DT_CLSFLAG_SPECULATE	2	/* speculate */
-#define DT_CLSFLAG_COMMIT	4	/* commit */
-#define DT_CLSFLAG_EXIT		8	/* exit */
-#define DT_CLSFLAG_DESTRUCT	16	/* destructive */
-#define DT_CLSFLAG_AGGREGATION	32	/* aggregation */
+#define DT_CLSFLAG_DATAREC		1	/* data-recording */
+#define DT_CLSFLAG_SPECULATE		2	/* speculate */
+#define DT_CLSFLAG_COMMIT		4	/* commit */
+#define DT_CLSFLAG_COMMIT_DISCARD	8	/* commit/discard */
+#define DT_CLSFLAG_EXIT			16	/* exit */
+#define DT_CLSFLAG_DESTRUCT		32	/* destructive */
+#define DT_CLSFLAG_AGGREGATION		64	/* aggregation */
 
 typedef int dtrace_stmt_f(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *sdp, void *data);

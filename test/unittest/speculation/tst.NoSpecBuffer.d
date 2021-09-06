@@ -5,18 +5,18 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@xfail: dtv2 */
 /* @@trigger: none */
 
 /*
  * ASSERTION:
- * The number of speculative buffers defaults to one. If no speculative buffer
- * is available when speculation is called, an ID of zero is returned.
+ * If no speculative buffer is available when speculation is called,
+ * an ID of zero is returned.
  *
  * SECTION: Speculative Tracing/Creating a Speculation
  *
  */
 #pragma D option quiet
+#pragma D option nspec=1
 
 BEGIN
 {

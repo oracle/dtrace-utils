@@ -790,7 +790,16 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	dtp->dt_options[DTRACEOPT_STRSIZE] = 256;
 
-	/* Set the default value of maxframes. */
+	/*
+	 * Set the default speculation size and number of simultaneously active
+	 * speculations.
+	 */
+	dtp->dt_options[DTRACEOPT_SPECSIZE] = 1024 * 1024 * 4;
+	dtp->dt_options[DTRACEOPT_NSPEC] = 1;
+
+	/*
+	 * Set the default value of maxframes.
+	 */
 	fd = fopen("/proc/sys/kernel/perf_event_max_stack", "r");
 	assert(fd);
 	if (fscanf(fd, "%lu", &dtp->dt_options[DTRACEOPT_MAXFRAMES]) != 1)
@@ -1109,6 +1118,12 @@ dt_vopen(int version, int flags, int *errp,
 	dt_dlib_init(dtp);
 
 	/*
+	 * Initialize consume handling, e.g. storage of uncommitted speculations.
+	 */
+	if (dt_consume_init(dtp) < 0)
+		return set_open_errno(dtp, errp, dtp->dt_errno);
+
+	/*
 	 * Initialize the collection of probes that is made available by the
 	 * known providers.
 	 */
@@ -1195,6 +1210,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_xlator_destroy(dtp, dxp);
 
 	dt_free(dtp, dtp->dt_xlatormap);
+
+	dt_consume_fini(dtp);
 
 	for (idp = dtp->dt_externs; idp != NULL; idp = ndp) {
 		ndp = idp->di_next;

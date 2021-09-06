@@ -26,6 +26,7 @@ typedef struct dt_peb {
 	int		fd;		/* fd of perf output buffer */
 	char		*base;		/* address of buffer */
 	char		*endp;		/* address of end of buffer */
+	uint64_t	last_head;	/* last known head, for peeking */
 } dt_peb_t;
 
 /*

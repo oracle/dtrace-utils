@@ -364,6 +364,37 @@ dt_stddev(uint64_t *data, uint64_t normal)
 	return dt_sqrt_128(diff);
 }
 
+static uint32_t
+dt_spec_bufs_hval(const dt_spec_bufs_head_t *head)
+{
+	uint32_t g = 0, hval = 0;
+	uint32_t *p = (uint32_t *) &head->dtsh_id;
+
+	while ((uintptr_t) p < (((uintptr_t) &head->dtsh_id) +
+				sizeof(head->dtsh_id))) {
+		hval = (hval << 4) + *p++;
+		g = hval & 0xf0000000;
+		if (g != 0) {
+			hval ^= (g >> 24);
+			hval ^= g;
+		}
+	}
+
+	return hval;
+}
+
+static int
+dt_spec_bufs_cmp(const dt_spec_bufs_head_t *p,
+		 const dt_spec_bufs_head_t *q)
+{
+	if (p->dtsh_id == q->dtsh_id)
+		return 0;
+	return 1;
+}
+
+DEFINE_HE_STD_LINK_FUNCS(dt_spec_bufs, dt_spec_bufs_head_t, dtsh_he);
+DEFINE_HTAB_STD_OPS(dt_spec_bufs);
+
 static int
 dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	      dtrace_epid_t next)
@@ -1935,31 +1966,217 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 }
 
-static dtrace_workstatus_t
-dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
-		      dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
-		      dtrace_consume_rec_f *rfunc, int flow, int quiet,
-		      dtrace_epid_t *last, void *arg);
+/*
+ * The lifecycle of speculation buffers is as follows:
+ *
+ *  - They are created upon speculation() as entries in the specs map mapping
+ *    from the speculation ID to a dt_bpf_specs_t entry with read, written,
+ *    and draining values all zero.
+ *
+ *  - speculate() verifies the existence of the requested speculation entry in
+ *    the specs map, and that draining has not been set in it, and atomically
+ *    bumps the written value.
+ *
+ *  - Speculations drain from the perf ring buffer into dt_spec_bufs, one
+ *    dt_spec_buf per ring-buffer of data fetched from the kernel with a nonzero
+ *    specid (one speculated clause); these are chained into dt_spec_buf_heads,
+ *    one per speculation ID, and these are chained into dtp->dt_spec_bufs
+ *    instead of being consumed.
+ *
+ *  - commit / discard set the specs map entry's drained value to 1, which
+ *    indicates that it is drainable by userspace and prevents further
+ *    speculate()s, and  record a single entry in the output buffer with the
+ *    committed/discarded ID attached
+ *
+ *  - Non-speculated buffers (with a zero specid) are scanned by
+ *    dt_consume_one_buffer for commit / discard; the first found for a given
+ *    live speculation triggers draining, chaining the spec buf head into
+ *    dtp->dt_spec_bufs_draining.  dt_spec_bufs_draining contains a counter of
+ *    the number of buffers drained ("read", mirroring "written" in the specs
+ *    map).
+ *
+ *  - dt_spec_bufs_draining is traversed on every buffer consume and any
+ *    speculations that are committing have their speculation buffers processed
+ *    as if they had just been received (but keeping their original CPU number);
+ *    both entries that are committing and those that are discarding are then
+ *    removed, leaving the buffer head behind to be filled out by future
+ *    ring-buffer fetches, and the number removed recorded by incrementing
+ *    dtsh_draining_t.read.  Buffers for which read >= written are removed from
+ *    dt_spec_bufs_draining and have their buffer heads removed from
+ *    dt_spec_bufs and their ID removed from the specs map, freeing them for
+ *    recycling by future calls to speculation().
+ */
+
+/*
+ * Member of the dtsh_draining_list.
+ */
+typedef struct dtsh_draining {
+	dt_list_t dtsd_list;
+	dt_spec_bufs_head_t *dtsd_dtsh;
+	uint64_t dtsd_read;
+} dtsh_draining_t;
+
+static dt_spec_bufs_head_t *
+dt_create_spec_buf_head(dtrace_hdl_t *dtp, int32_t spec)
+{
+	dt_spec_bufs_head_t *dtsh;
+
+	dtsh = dt_zalloc(dtp, sizeof(struct dt_spec_bufs_head));
+	if (!dtsh)
+		goto oom;
+	dtsh->dtsh_id = spec;
+
+	if (dt_htab_insert(dtp->dt_specs_byid, dtsh) < 0)
+		goto oom;
+	dt_list_append(&dtp->dt_spec_bufs, dtsh);
+	return dtsh;
+oom:
+	dt_free(dtp, dtsh);
+	dt_set_errno(dtp, EDT_NOMEM);
+	return NULL;
+}
+
+static dt_spec_bufs_t *
+dt_create_spec_buf(dtrace_hdl_t *dtp, dt_spec_bufs_head_t *dtsh,
+		   dtrace_epid_t epid, unsigned int cpu,
+		   dtrace_datadesc_t *datadesc, char *data,
+		   uint32_t size)
+{
+	dt_spec_bufs_t *dtsb;
+
+	dtsb = dt_zalloc(dtp, sizeof(struct dt_spec_bufs));
+	if (!dtsb)
+		goto oom;
+
+	dtsb->dtsb_cpu = cpu;
+	dtsb->dtsb_size = size;
+	dtsb->dtsb_data = dt_alloc(dtp, size);
+	if (!dtsb->dtsb_data)
+		goto oom;
+
+	dtsh->dtsh_size += size;
+	memcpy(dtsb->dtsb_data, data, size);
+
+	dt_list_append(&dtsh->dtsh_dtsb_list, dtsb);
+	return dtsb;
+
+oom:
+	dt_free(dtp, dtsb);
+	dt_set_errno(dtp, EDT_NOMEM);
+	return NULL;
+}
+
+/*
+ * Remove a speculation's buffers and possibly the speculation head and
+ * the record of it in the BPF specs map (which frees the ID for reuse).
+ *
+ * Note: if the speculation is being committed, it will also be interned on the
+ * dtp->dt_spec_bufs_draining list.  Such speculations must be removed via
+ * dt_gc_speculations, which ultimately calls this function.
+ */
+static void
+dt_destroy_spec_bufs(dtrace_hdl_t *dtp, dt_spec_bufs_head_t *dtsh,
+	int remove_specid)
+{
+	dt_spec_bufs_t	*dtsb;
+
+	while ((dtsb = dt_list_next(&dtsh->dtsh_dtsb_list)) != NULL) {
+
+		dt_list_delete(&dtsh->dtsh_dtsb_list, dtsb);
+		dt_free(dtp, dtsb->dtsb_data);
+		dt_free(dtp, dtsb);
+	}
+
+	dtsh->dtsh_size = 0;
+
+	if (remove_specid) {
+		dt_ident_t *idp = dt_dlib_get_map(dtp, "specs");
+
+		if (idp)
+			dt_bpf_map_delete(idp->di_id, &dtsh->dtsh_id);
+		dt_list_delete(&dtp->dt_spec_bufs, dtsh);
+		dt_free(dtp, dtsh);
+	}
+}
+
+/*
+ * Peeking flags (values for the peekflag parameter for functions that have
+ * one).
+ *
+ * These let you process a single buffer more than once.  The first call
+ * should pass CONSUME_PEEK_START: this suppresses deletion of consumed records.
+ * Subsequent calls should pass CONSUME_PEEK; this does as CONSUME_PEEK_START
+ * does, but also suppresses hiving off of speculative buffers (because they
+ * have already been hived off under CONSUME_PEEK_START).  The final call should
+ * pass CONSUME_PEEK_FINISH; this does a normal buffer consumption (with
+ * deletion) except that speculative hiving-off is again suppressd.
+ *
+ * These are not bit-flags: pass only one.
+ */
+#define CONSUME_PEEK_START 0x1
+#define CONSUME_PEEK 0x2
+#define CONSUME_PEEK_FINISH 0x3
 
 static dtrace_workstatus_t
 dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		      dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 		      dtrace_consume_rec_f *rfunc, int flow, int quiet,
-		      dtrace_epid_t *last, void *arg)
+		      int peekflags, dtrace_epid_t *last, int committing,
+		      void *arg);
+
+/*
+ * Commit one speculation.
+ */
+static dtrace_workstatus_t
+dt_commit_one_spec(dtrace_hdl_t *dtp, FILE *fp, dt_spec_bufs_head_t *dtsh,
+		   dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
+		   dtrace_consume_rec_f *rfunc, int flow, int quiet,
+		   int peekflags, dtrace_epid_t *last, void *arg)
+{
+	dt_spec_bufs_t 	*dtsb;
+
+	for (dtsb = dt_list_next(&dtsh->dtsh_dtsb_list);
+	     dtsb != NULL; dtsb = dt_list_next(dtsb)) {
+		dtrace_workstatus_t ret;
+		dtrace_probedata_t specpdat;
+
+		memcpy(&specpdat, pdat, sizeof(dtrace_probedata_t));
+		specpdat.dtpda_cpu = dtsb->dtsb_cpu;
+		ret = dt_consume_one_buffer(dtp, fp, dtsb->dtsb_data,
+					    dtsb->dtsb_size, &specpdat,
+					    efunc, rfunc, flow, quiet,
+					    peekflags, last, 1, arg);
+		if (ret != DTRACE_WORKSTATUS_OKAY)
+			return ret;
+	}
+
+	return DTRACE_WORKSTATUS_OKAY;
+}
+
+static dtrace_workstatus_t
+dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
+		      dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
+		      dtrace_consume_rec_f *rfunc, int flow, int quiet,
+		      int peekflags, dtrace_epid_t *last, int committing,
+		      void *arg)
 {
 	dtrace_epid_t		epid;
+	dt_spec_bufs_head_t	tmpl;
+	dt_spec_bufs_head_t	*dtsh;
+	int			specid;
 	int			i;
 	int			rval;
+	dtrace_workstatus_t	ret;
+	int			commit_discard_seen, only_commit_discards;
+	int			data_recording = 1;
 
 
 	epid = ((uint32_t *)data)[0];
-#ifdef FIXME
-	tag = ((uint32_t *)data)[1];		/* for future use */
-#endif
+	specid = ((uint32_t *)data)[1];
 
 	/*
 	 * Fill in the epid and address of the epid in the buffer.  We need to
-	 * pass this to the efunc.
+	 * pass this to the efunc and possibly to create speculations.
 	 */
 	pdat->dtpda_epid = epid;
 	pdat->dtpda_data = data;
@@ -1978,30 +2195,115 @@ dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			return DTRACE_WORKSTATUS_ERROR;
 	}
 
-	if (flow)
-		dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
+	/*
+	 * If speculating (and not peeking), hive this buffer off into a
+	 * suitable spec buf, creating the spec buf head if need be.  No need to
+	 * do anything else with this buffer until a commit or discard is seen
+	 * for it (in some other, non-speculated buffer).
+	 */
 
-	rval = (*efunc)(pdat, arg);
+	if (!committing && specid != 0) {
+		size_t cursz = 0;
 
-	if (flow) {
-		if (pdat->dtpda_flow == DTRACEFLOW_ENTRY)
-			pdat->dtpda_indent += 2;
-	}
+		/*
+		 * If peeking, we dealt with this buffer earlier: don't
+		 * re-speculate it again.
+		 */
+		if (peekflags == CONSUME_PEEK ||
+		    peekflags == CONSUME_PEEK_FINISH)
+			return DTRACE_WORKSTATUS_OKAY;
 
-	switch (rval) {
-	case DTRACE_CONSUME_NEXT:
+		tmpl.dtsh_id = specid;
+		dtsh = dt_htab_lookup(dtp->dt_specs_byid, &tmpl);
+
+		/*
+		 * Discard when over the specsize.
+		 *
+		 * TODO: add a drop when OOM or > specsize -- and also on OOM in
+		 * any of the consuming functions.
+		 */
+
+		if (dtsh)
+			cursz = dtsh->dtsh_size;
+
+		if (cursz + size > dtp->dt_options[DTRACEOPT_SPECSIZE])
+			return DTRACE_WORKSTATUS_OKAY;
+
+		if (!dtsh) {
+			if ((dtsh = dt_create_spec_buf_head(dtp, specid)) == NULL)
+				return -1;
+		}
+
+		if (dt_create_spec_buf(dtp, dtsh, epid, pdat->dtpda_cpu,
+				       pdat->dtpda_ddesc, data, size) == NULL)
+			return -1;
+
 		return DTRACE_WORKSTATUS_OKAY;
-	case DTRACE_CONSUME_DONE:
-		return DTRACE_WORKSTATUS_DONE;
-	case DTRACE_CONSUME_ABORT:
-		return dt_set_errno(dtp, EDT_DIRABORT);
-	case DTRACE_CONSUME_THIS:
-		break;
-	default:
-		return dt_set_errno(dtp, EDT_BADRVAL);
 	}
 
 	/*
+	 * First, scan for commit/discard.  Track whether we have seen discards,
+	 * and whether we have seen anything else, to determine whether this
+	 * clause should be considered data-recording from the user's
+	 * perspective.  (A clause with only a discard is not data-recording.
+	 * Commits cannot share a clause with data-recording actions at all: see
+	 * dt_cg_clsflags.)
+	 *
+	 * Do nothing of this if committing speculated buffers, since speculated
+	 * buffers cannot contain commits or discards.
+	 */
+	commit_discard_seen = 0;
+	only_commit_discards = 1;
+	for (i = 0; !committing && i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
+		dtrace_recdesc_t	*rec;
+		dtrace_actkind_t	act;
+
+		rec = &pdat->dtpda_ddesc->dtdd_recs[i];
+		act = rec->dtrd_action;
+
+		if (act == DTRACEACT_COMMIT || act == DTRACEACT_DISCARD) {
+			commit_discard_seen = 1;
+		} else
+			only_commit_discards = 0;
+	}
+
+	/*
+	 * If this clause is a commit or discard, and no other actions have been
+	 * seen, this is not a data-recording clause, and we should not call the
+	 * efunc or rfunc at all.
+	 */
+
+	if (commit_discard_seen && only_commit_discards)
+		data_recording = 0;
+
+	if (data_recording) {
+		if (flow)
+			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
+
+		rval = (*efunc)(pdat, arg);
+
+		if (flow) {
+			if (pdat->dtpda_flow == DTRACEFLOW_ENTRY)
+				pdat->dtpda_indent += 2;
+		}
+
+		switch (rval) {
+		case DTRACE_CONSUME_NEXT:
+			return DTRACE_WORKSTATUS_OKAY;
+		case DTRACE_CONSUME_DONE:
+			return DTRACE_WORKSTATUS_DONE;
+		case DTRACE_CONSUME_ABORT:
+			return dt_set_errno(dtp, EDT_DIRABORT);
+		case DTRACE_CONSUME_THIS:
+			break;
+		default:
+			return dt_set_errno(dtp, EDT_BADRVAL);
+		}
+	}
+
+	/*
+	 * Now scan for data-recording actions.
+	 *
 	 * FIXME: This code is temporary.
 	 */
 	for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
@@ -2036,6 +2338,49 @@ dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				continue;
 			}
 		}
+
+		if (act == DTRACEACT_COMMIT || act == DTRACEACT_DISCARD) {
+			/*
+			 * Committing or discarding.  If this is the first
+			 * commit/discard we've seen for this speculation,
+			 * arrange to drain it until enough CPUs have passed by
+			 * that all must have been drained.  Out-of-range IDs
+			 * are automatically ignored by the code below, since
+			 * they will have no dtsh entries.
+			 */
+
+			assert(specid == 0);
+
+			tmpl.dtsh_id = *(uint32_t *)recdata;
+			dtsh = dt_htab_lookup(dtp->dt_specs_byid, &tmpl);
+
+			/*
+			 * Speculation exists and is not already being drained.
+			 */
+			if (dtsh && !dtsh->dtsh_spec.draining) {
+				dtsh_draining_t *dtsd;
+				dt_bpf_specs_t spec;
+				dt_ident_t *idp = dt_dlib_get_map(dtp, "specs");
+				int rval;
+
+				rval = dt_bpf_map_lookup(idp->di_id, &tmpl.dtsh_id, &spec);
+				if (rval != 0)
+					return dt_set_errno(dtp, -rval);
+
+				assert(spec.draining);
+				dtsd = dt_zalloc(dtp, sizeof(dtsh_draining_t));
+				if (!dtsd)
+					return dt_set_errno(dtp, EDT_NOMEM);
+				dtsd->dtsd_dtsh = dtsh;
+				dtsh->dtsh_committing = (act == DTRACEACT_COMMIT);
+				memcpy(&dtsh->dtsh_spec, &spec,
+				    sizeof(dt_bpf_specs_t));
+				dt_list_append(&dtp->dt_spec_bufs_draining, dtsd);
+			}
+			continue;
+		}
+
+		assert(data_recording);
 
 		rval = (*rfunc)(pdat, rec, arg);
 
@@ -2122,9 +2467,49 @@ dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	 * that we're done processing this EPID.  The return value is ignored in
 	 * this case. XXX should we respect at least DTRACE_CONSUME_ABORT?
 	 */
-	(*rfunc)(pdat, NULL, arg);
+	if (data_recording) {
+		(*rfunc)(pdat, NULL, arg);
 
-	*last = epid;
+		*last = epid;
+	}
+
+	/*
+	 * If we're not committing a speculative buffer already, commit any spec
+	 * buffers that are marked as committing and draining and have any
+	 * content to drain.
+	 */
+	if (!committing) {
+		dtsh_draining_t *dtsd, *next;
+
+		for (dtsd = dt_list_next(&dtp->dt_spec_bufs_draining);
+		     dtsd != NULL; dtsd = next) {
+
+			dtsh = dtsd->dtsd_dtsh;
+			dtsd->dtsd_read += dt_list_length(&dtsd->dtsd_dtsh->dtsh_dtsb_list);
+
+			if (dtsh->dtsh_committing) {
+				if ((ret = dt_commit_one_spec(dtp, fp, dtsh,
+							      pdat, efunc, rfunc,
+							      flow, quiet, peekflags,
+							      last, arg)) !=
+				    DTRACE_WORKSTATUS_OKAY) {
+					dt_destroy_spec_bufs(dtp, dtsh, 0);
+					return ret;
+				}
+			}
+
+			next = dt_list_next(dtsd);
+
+			if (dtsd->dtsd_read < dtsd->dtsd_dtsh->dtsh_spec.written)
+				dt_destroy_spec_bufs(dtp, dtsh, 0);
+			else {
+				dt_destroy_spec_bufs(dtp, dtsh, 1);
+				dt_htab_delete(dtp->dt_specs_byid, dtsd->dtsd_dtsh);
+				dt_list_delete(&dtp->dt_spec_bufs_draining, dtsd);
+				dt_free(dtp, dtsd);
+			}
+		}
+	}
 
 	return DTRACE_WORKSTATUS_OKAY;
 }
@@ -2132,7 +2517,7 @@ dt_consume_one_buffer(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 static dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
-	       dtrace_consume_rec_f *rfunc, int flow, int quiet,
+	       dtrace_consume_rec_f *rfunc, int flow, int quiet, int peekflags,
 	       dtrace_epid_t *last, void *arg)
 {
 	char				*data = buf;
@@ -2151,7 +2536,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		 *	uint32_t			size;
 		 *	uint32_t			pad;
 		 *	uint32_t			epid;
-		 *	uint32_t			tag;
+		 *	uint32_t			specid;
 		 *	uint64_t			data[n];
 		 * }
 		 * and 'data' points to the 'size' member at this point.
@@ -2170,7 +2555,8 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		size -= sizeof(uint32_t);
 
 		return dt_consume_one_buffer(dtp, fp, data, size, pdat, efunc,
-					     rfunc, flow, quiet, last, arg);
+					     rfunc, flow, quiet, peekflags,
+					     last, 0, arg);
 	} else if (hdr->type == PERF_RECORD_LOST) {
 #ifdef FIXME
 		uint64_t	lost;
@@ -2195,7 +2581,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 int
 dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	       dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc,
-	       int peek_only, void *arg)
+	       int peekflags, void *arg)
 {
 	struct perf_event_mmap_page	*rb_page = (void *)peb->base;
 	struct perf_event_header	*hdr;
@@ -2214,6 +2600,11 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 
 	/*
 	 * Clear the probe data, and fill in data independent fields.
+	 *
+	 * Initializing more fields here (or anywhere above
+	 * dt_consume_one_buffer) may require the addition of new fields to
+	 * dt_spec_bufs, if you want the original value to be preserved acorss
+	 * speculate/commit.
 	 */
 	memset(&pdat, 0, sizeof(pdat));
 	pdat.dtpda_handle = dtp;
@@ -2226,7 +2617,12 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	base = peb->base + pebset->page_size;
 
 	do {
-		head = ring_buffer_read_head(rb_page);
+		if (peekflags == CONSUME_PEEK || peekflags == CONSUME_PEEK_FINISH)
+			head = peb->last_head;
+		else {
+			head = ring_buffer_read_head(rb_page);
+			peb->last_head = head;
+		}
 		tail = rb_page->data_tail;
 
 		if (head == tail)
@@ -2262,7 +2658,8 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 			}
 
 			rval = dt_consume_one(dtp, fp, event, &pdat, efunc,
-					      rfunc, flow, quiet, &last, arg);
+					      rfunc, flow, quiet, peekflags,
+					      &last, arg);
 			if (rval == DTRACE_WORKSTATUS_DONE)
 				return DTRACE_WORKSTATUS_OKAY;
 			if (rval != DTRACE_WORKSTATUS_OKAY)
@@ -2271,9 +2668,9 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 			tail += hdr->size;
 		} while (tail != head);
 
-		if (!peek_only)
+		if (peekflags == 0 || peekflags == CONSUME_PEEK_FINISH)
 			ring_buffer_write_tail(rb_page, tail);
-	} while (!peek_only);
+	} while (peekflags == 0);
 
 	return DTRACE_WORKSTATUS_OKAY;
 }
@@ -2420,7 +2817,8 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	dtp->dt_errarg = &begin;
 
 	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
-			      dt_consume_begin_record, 1, &begin);
+			      dt_consume_begin_record, CONSUME_PEEK_START,
+			      &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
@@ -2454,7 +2852,8 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, struct epoll_event *events,
 	dtp->dt_errarg = &begin;
 
 	rval = dt_consume_cpu(dtp, fp, bpeb, dt_consume_begin_probe,
-			      dt_consume_begin_record, 0, &begin);
+			      dt_consume_begin_record, CONSUME_PEEK_FINISH,
+			      &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
 	dtp->dt_errarg = begin.dtbgn_errarg;
@@ -2514,12 +2913,41 @@ dt_consume_proc_exits(dtrace_hdl_t *dtp)
 	pthread_mutex_unlock(&dph->dph_lock);
 }
 
+
+int
+dt_consume_init(dtrace_hdl_t *dtp)
+{
+	dtp->dt_specs_byid = dt_htab_create(dtp, &dt_spec_bufs_htab_ops);
+
+	if (!dtp->dt_specs_byid)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	return 0;
+}
+
+void
+dt_consume_fini(dtrace_hdl_t *dtp)
+{
+	dt_spec_bufs_head_t *dtsh;
+	dtsh_draining_t *dtsd;
+
+	while ((dtsd = dt_list_next(&dtp->dt_spec_bufs_draining)) != NULL) {
+		dt_list_delete(&dtp->dt_spec_bufs_draining, dtsd);
+		dt_free(dtp, dtsd);
+	}
+
+	while ((dtsh = dt_list_next(&dtp->dt_spec_bufs)) != NULL)
+		dt_destroy_spec_bufs(dtp, dtsh, 1);
+
+	dt_htab_destroy(dtp, dtp->dt_specs_byid);
+}
+
 dtrace_workstatus_t
 dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	       dtrace_consume_rec_f *rf, void *arg)
 {
 	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
 	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
+	int			drained = 0;
 	int			i, cnt;
 	dtrace_workstatus_t	rval;
 
@@ -2585,6 +3013,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	 * by one.  If tracing has stopped, skip the CPU on which the END probe
 	 * executed because we want to process that one last.
 	 */
+drain:
 	for (i = 0; i < cnt; i++) {
 		dt_peb_t	*peb = events[i].data.ptr;
 
@@ -2596,6 +3025,20 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		rval = dt_consume_cpu(dtp, fp, peb, pf, rf, 0, arg);
 		if (rval != 0)
 			return rval;
+	}
+
+	/*
+	 * If a commit or discard has come in, loop twice, because if it was a
+	 * commit the commit probably wasn't the first in the CPU list, and it is
+	 * quite likely that an earlier CPU contains some of the speculative
+	 * content we want to commit.  Circle round and process it once more to
+	 * pick this up.  This means users don't find themselves with committed
+	 * speculative content routinely split between one consume loop and the
+	 * next.
+	 */
+	if (!drained && dt_list_next(&dtp->dt_spec_bufs_draining) != NULL) {
+		drained = 1;
+		goto drain;
 	}
 
 	/*

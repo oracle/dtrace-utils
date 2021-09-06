@@ -59,6 +59,9 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_speculation, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_speculation_speculate, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_speculation_set_drainable, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_SYMBOL),
 	/* BPF maps */
 	DT_BPF_SYMBOL(aggs, DT_IDENT_PTR),
@@ -68,6 +71,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(lvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(probes, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(specs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(state, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(tvars, DT_IDENT_PTR),
@@ -80,6 +84,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL_ID(STRSZ, DT_IDENT_SCALAR, DT_CONST_STRSZ),
 	DT_BPF_SYMBOL_ID(STKSIZ, DT_IDENT_SCALAR, DT_CONST_STKSIZ),
 	DT_BPF_SYMBOL_ID(BOOTTM, DT_IDENT_SCALAR, DT_CONST_BOOTTM),
+	DT_BPF_SYMBOL_ID(NSPEC, DT_IDENT_SCALAR, DT_CONST_NSPEC),
 	/* End-of-list marker */
 	{ NULL, }
 };

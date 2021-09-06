@@ -4,11 +4,10 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
- * Discard may not follow data recording actions.
+ * Discard may follow data recording actions.
  *
  * SECTION: Speculative Tracing/Discarding a Speculation
  *

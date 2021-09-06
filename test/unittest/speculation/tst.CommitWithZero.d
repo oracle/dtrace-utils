@@ -4,30 +4,23 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION: An Id of zero though invalid may be passed to speculate(),
  * commit() and discard() without any ill effects.
  *
- * SECTION: Speculative Tracing/Creating a Speculation;
- *	Options and Tunables/cleanrate
+ * SECTION: Speculative Tracing/Creating a Speculation
  */
 #pragma D option quiet
-#pragma D option cleanrate=4000hz
 
 BEGIN
 {
 	self->commitFlag = 0;
-	self->var1 = speculation();
-	printf("Speculative buffer ID: %d\n", self->var1);
-	self->spec = speculation();
-	printf("Speculative buffer ID: %d\n", self->spec);
 }
 
 BEGIN
 {
-	commit(self->spec);
+	commit(0);
 	self->commitFlag++;
 }
 

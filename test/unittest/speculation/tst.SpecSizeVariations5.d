@@ -4,7 +4,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
@@ -18,8 +17,11 @@
 #pragma D option quiet
 #pragma D option specsize=40
 
+long long x;
+
 BEGIN
 {
+	x = 123456789;
 	self->speculateFlag = 0;
 	self->commitFlag = 0;
 	self->spec = speculation();
@@ -29,10 +31,10 @@ BEGIN
 BEGIN
 {
 	speculate(self->spec);
-	printf("Lots of data\n");
-	printf("Has to be crammed into this buffer\n");
-	printf("Until it overflows\n");
-	printf("And causes flops\n");
+	printf("%lld: Lots of data\n", x);
+	printf("%lld: Has to be crammed into this buffer\n", x);
+	printf("%lld: Until it overflows\n", x);
+	printf("%lld: And causes flops\n", x);
 	self->speculateFlag++;
 
 }

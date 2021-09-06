@@ -4,7 +4,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
@@ -19,14 +18,11 @@
 BEGIN
 {
 	self->speculateFlag = 0;
-	self->spec = speculation();
-	self->spec = speculation();
-	printf("Speculative buffer ID: %d\n", self->spec);
 }
 
 BEGIN
 {
-	speculate(self->spec);
+	speculate(0);
 	self->speculateFlag++;
 }
 
