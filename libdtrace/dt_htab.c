@@ -1,13 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /*
- * This file provides a generic hashtable implementation for structures that
- * are hashed based on a string.
+ * This file provides a generic hashtable implementation.
  *
  * Code that uses this must provide a dt_htab_ops_t struct with helper
  * functions to be used for manipulating the hashtable.  The following
