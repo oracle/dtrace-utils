@@ -6,8 +6,7 @@
  */
 
 /*
- * This file provides a generic hashtable implementation for structures that
- * are hashed based on a string.
+ * This file provides a generic hashtable implementation.
  *
  * Code that uses this must provide a dt_htab_ops_t struct with helper
  * functions to be used for manipulating the hashtable.  The following
