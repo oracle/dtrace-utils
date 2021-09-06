@@ -1,3 +1,3 @@
 Speculative buffer ID: 1
-Statement wasn't executed
+Statement was executed
 

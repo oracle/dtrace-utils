@@ -1,21 +1,18 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION: Test the normal behavior of speculate() and commit().
  *
  * SECTION: Speculative Tracing/Committing a Speculation;
- *	Actions and Subroutines/speculation();
- *	Options and Tunables/cleanrate
+ *	Actions and Subroutines/speculation()
  *
  */
 #pragma D option quiet
-#pragma D option cleanrate=2000hz
 
 BEGIN
 {

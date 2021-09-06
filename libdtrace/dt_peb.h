@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -26,6 +26,7 @@ typedef struct dt_peb {
 	int		fd;		/* fd of perf output buffer */
 	char		*base;		/* address of buffer */
 	char		*endp;		/* address of end of buffer */
+	uint64_t	last_head;	/* last known head, for peeking */
 } dt_peb_t;
 
 /*

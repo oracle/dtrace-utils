@@ -73,6 +73,20 @@ int dt_bpf_map_lookup(int fd, const void *key, void *val)
 }
 
 /*
+ * Delete the given key from the map referenced by the given fd.
+ */
+int dt_bpf_map_delete(int fd, const void *key)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_fd = fd;
+	attr.key = (uint64_t)(unsigned long)key;
+
+	return bpf(BPF_MAP_DELETE_ELEM, &attr);
+}
+
+/*
  * Store the (key, value) pair in the map referenced by the given fd.
  */
 int dt_bpf_map_update(int fd, const void *key, const void *val)
@@ -171,6 +185,9 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		element (key 0).  Every aggregation is stored with two copies
  *		of its data to provide a lockless latch-based mechanism for
  *		atomic reading and writing.
+ * - specs:     Map associating speculation IDs with a dt_bpf_specs_t struct
+ *		giving the number of buffers speculated into for this
+ *		speculation, and the number drained by userspace.
  * - buffers:	Perf event output buffer map, associating a perf event output
  *		buffer with each CPU.  The map is indexed by CPU id.
  * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
@@ -256,6 +273,11 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		if (dtp->dt_aggmap_fd == -1)
 			return -1;	/* dt_errno is set for us */
 	}
+
+	if (create_gmap(dtp, "specs", BPF_MAP_TYPE_HASH,
+		sizeof(uint32_t), sizeof(dt_bpf_specs_t),
+		dtp->dt_options[DTRACEOPT_NSPEC]) == -1)
+		return -1;		/* dt_errno is set for us */
 
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),

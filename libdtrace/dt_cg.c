@@ -488,8 +488,9 @@ dt_cg_tramp_error(dt_pcb_t *pcb)
  *
  *	1. Store the base pointer to the output data buffer in %r9.
  *	2. Initialize the machine state (dctx->mst).
- *	3. Store the epid and tag at [%r9 + 0] and [%r9 + 4] respectively.
- *	4. Evaluate the predicate expression and return if false.
+ *	3. Store the epid at [%r9 + 0].
+ *	4. Store 0 to indicate no active speculation at [%r9 + 4].
+ *	5. Evaluate the predicate expression and return if false.
  *
  * The dt_program() function will always return 0.
  */
@@ -539,11 +540,11 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1), epid);
 
 	/*
-	 *	dctx->mst->tag = 0;	// stw [%r0 + DMST_TAG], 0
+	 *	Set the speculation ID field to zero to indicate no active
+	 *	speculation.
 	 *	*((uint32_t *)&buf[4]) = 0;
 	 *				// stw [%r9 + 4], 0
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_TAG, 0));
 	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0));
 
 	/*
@@ -587,8 +588,10 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 * Output the buffer if:
 	 *   - data-recording action, or
 	 *   - default action (no clause specified)
+	 *   - committing or discarding a speculation
 	 */
-	if (pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_DATAREC) {
+	if (pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_DATAREC ||
+	    pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_COMMIT_DISCARD) {
 		dt_ident_t *buffers = dt_dlib_get_map(pcb->pcb_hdl, "buffers");
 
 		assert(buffers != NULL);
@@ -1026,14 +1029,16 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 		*cfp |= DT_CLSFLAG_DESTRUCT;
 
 	if (kind == DTRACEACT_COMMIT) {
-		if (*cfp & DT_CLSFLAG_COMMIT)
-			dnerror(dnp, D_COMM_COMM,
-			    "commit( ) may not follow commit( )\n");
 		if (*cfp & (DT_CLSFLAG_DATAREC | DT_CLSFLAG_AGGREGATION))
 			dnerror(dnp, D_COMM_DREC, "commit( ) may "
 			    "not follow data-recording action(s)\n");
 
-		*cfp |= DT_CLSFLAG_COMMIT;
+		*cfp |= DT_CLSFLAG_COMMIT | DT_CLSFLAG_COMMIT_DISCARD;
+		return;
+	}
+
+	if (kind == DTRACEACT_DISCARD) {
+		*cfp |= DT_CLSFLAG_COMMIT_DISCARD;
 		return;
 	}
 
@@ -1090,8 +1095,7 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 		dnerror(dnp, D_DREC_COMM,
 		    "data-recording actions may not follow commit( )\n");
 
-	if (!(*cfp & DT_CLSFLAG_SPECULATE))
-		*cfp |= DT_CLSFLAG_DATAREC;
+	*cfp |= DT_CLSFLAG_DATAREC;
 }
 
 static void
@@ -1141,6 +1145,50 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 }
 
 /*
+ * Mark a speculation as committed/discarded and ready for draining.
+ *
+ * The speculation ID must be in IDREG (true for both commit and discard).
+ *
+ * If the speculation does not exist, nothing will be done: the consumer has to
+ * detect this itself if the speculation is inactive (out-of-range values
+ * fault and do not write a commit/discard record).
+ */
+static void
+dt_cg_spec_set_drainable(dt_pcb_t *pcb, dt_node_t *dnp, int idreg)
+{
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*idp;
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_speculation_set_drainable");
+	assert(idp != NULL);
+
+	/*
+	 *	spec = dt_speculation_set_drainable(ctx, id);
+	 *				// call dt_speculation_commit_discard
+	 *				//     (%r1 ... %r5 clobbered)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_ok
+	 *		goto ok;
+	 *	return rc;		// mov %dn_reg, %r0
+	 * ok:
+	 */
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, idreg));
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	emit(dlp,  BPF_RETURN());
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
+}
+
+/*
  * Signal that the speculation with the given id should be committed to the
  * tracing output.
  *
@@ -1150,16 +1198,12 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_commit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	uint_t		off;
+	dt_regset_t	*drp = pcb->pcb_regs;
 
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
-
-	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_COMMIT,
-			 sizeof(uint64_t), sizeof(uint64_t), NULL,
-			 DT_ACT_COMMIT);
-
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, drp);
+	dt_cg_spec_set_drainable(pcb, dnp, dnp->dn_args->dn_reg);
+	dt_regset_free(drp, dnp->dn_args->dn_reg);
+	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_COMMIT, NULL, DT_ACT_COMMIT);
 }
 
 static void
@@ -1197,16 +1241,12 @@ dt_cg_act_denormalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_discard(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	uint_t		off;
+	dt_regset_t	*drp = pcb->pcb_regs;
 
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
-
-	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_DISCARD,
-			 sizeof(uint64_t), sizeof(uint64_t), NULL,
-			 DT_ACT_DISCARD);
-
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, drp);
+	dt_cg_spec_set_drainable(pcb, dnp, dnp->dn_args->dn_reg);
+	dt_regset_free(drp, dnp->dn_args->dn_reg);
+	dt_cg_store_val(pcb, dnp->dn_args, DTRACEACT_DISCARD, NULL, DT_ACT_DISCARD);
 }
 
 /*
@@ -1510,22 +1550,48 @@ dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * Signal that subsequent tracing output in the current clause should be kept
  * back pending a commit() or discard() for the speculation with the given id.
  *
- * Stores:
- *	integer (4 bytes)		-- speculation ID
+ * Updates the specid in the output buffer header, rather than emitting a new
+ * record into it.
  */
 static void
 dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	uint_t		off;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_ident_t	*idp;
+	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
-	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_speculation_speculate");
+	assert(idp != NULL);
 
-	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_SPECULATE,
-			 sizeof(uint64_t), sizeof(uint64_t), NULL,
-			 DT_ACT_SPECULATE);
+	dt_cg_node(dnp->dn_args, dlp, drp);
+	dnp->dn_reg = dnp->dn_args->dn_reg;
 
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0)); /* FIXME */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/*
+	 *	rc = dt_speculation_speculate(spec);
+	 *				// lddw %r1, %dn_reg
+	 *				// call dt_speculation_speculate
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = error return)
+	 *	if (rc != 0)		// jne %r0, 0, lbl_exit
+	 *		goto exit;
+	 *	*((uint32_t *)&buf[4]) = spec;	// mov [%r9 + 4], %dn_reg
+	 *	exit:			// nop
+	 */
+
+	emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_STK_SPILL(0),
+		dnp->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_exit));
+	emit(dlp, BPF_STORE(BPF_W, BPF_REG_9, 4, dnp->dn_reg));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free(drp, dnp->dn_reg);
 }
 
 static void
@@ -3114,12 +3180,39 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp, BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));
 }
 
+/*
+ * Get and return a new speculation ID.  These are unallocated entries in the
+ * specs map, obtained by calling dt_speculation().  Return zero if none is
+ * available.  TODO: add a drop in this case?
+ */
 static void
 dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
+	dt_ident_t	*idp;
+
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_speculation");
+	assert(idp != NULL);
+
 	TRACE_REGSET("    subr-speculation:Begin");
-	dnp->dn_reg = dt_regset_alloc(drp);
-	emit(dlp, BPF_MOV_IMM(dnp->dn_reg, 0));
+	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+
+	/*
+	 *	spec = dt_speculation();
+	 *				// call dt_speculation
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = speculation ID, or 0)
+	 *	return rc;		// mov %dn_reg, %r0
+	 */
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
 	TRACE_REGSET("    subr-speculation:End  ");
 }
 
@@ -5120,6 +5213,9 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		dxp->dx_ident->di_id = dt_regset_alloc(pcb->pcb_regs);
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 	} else if (dnp->dn_kind == DT_NODE_CLAUSE) {
+		int nonspec_acts = 0;
+		int speculative = 0;
+
 		dt_cg_prologue(pcb, dnp->dn_pred);
 
 		for (act = dnp->dn_acts; act != NULL; act = act->dn_list) {
@@ -5135,6 +5231,11 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 					actdp->fun(pcb, act->dn_expr,
 						   actdp->kind);
 				}
+
+				if (actdp->kind == DTRACEACT_SPECULATE)
+					speculative = 1;
+				else
+					nonspec_acts++;
 				break;
 			}
 			case DT_NODE_AGG:
@@ -5166,7 +5267,8 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 					"statement\n", dnp->dn_kind);
 			}
 		}
-		if (dnp->dn_acts == NULL)
+		if (dnp->dn_acts == NULL ||
+		    (speculative && nonspec_acts == 0))
 			pcb->pcb_stmt->dtsd_clauseflags |= DT_CLSFLAG_DATAREC;
 
 		dt_cg_epilogue(pcb);

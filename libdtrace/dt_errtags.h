@@ -148,7 +148,7 @@ typedef enum {
 	D_DECL_PROTO_VOID,		/* void must be sole parameter */
 	D_DECL_PROTO_NAME,		/* void parameter may not have a name */
 	D_DECL_PROTO_FORM,		/* parameter name has no formal */
-	D_COMM_COMM,			/* commit() after commit() */
+	D_OBSOLETE1,			/* (was commit() after commit()) */
 	D_COMM_DREC,			/* commit() after data action */
 	D_SPEC_SPEC,			/* speculate() after speculate() */
 	D_SPEC_COMM,			/* speculate() after commit() */

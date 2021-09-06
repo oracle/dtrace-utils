@@ -1,15 +1,14 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
- * Increasing the value of nspec to two should will increase the number of
- * speculative buffers to two.
+ * Increasing the value of nspec to two should set the number of
+ * speculative buffers to two: getting a third should fail.
  *
  * SECTION: Speculative Tracing/Options and Tuning;
  *		Options and Tunables/nspec
@@ -17,7 +16,6 @@
  */
 
 #pragma D option quiet
-#pragma D option cleanrate=3000hz
 #pragma D option nspec=2
 
 BEGIN
@@ -40,7 +38,7 @@ BEGIN
 BEGIN
 /var1 && var2 && (!var3)/
 {
-	printf("Succesfully got two speculative buffers");
+	printf("Successfully got two speculative buffers");
 	exit(0);
 }
 

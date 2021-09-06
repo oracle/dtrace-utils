@@ -12,12 +12,21 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+
 typedef struct dt_bpf_probe	dt_bpf_probe_t;
 struct dt_bpf_probe {
 	size_t		prv;		/* probeprov string offset in strtab */
 	size_t		mod;		/* probemod string offset in strtab */
 	size_t		fun;		/* probefunc string offset in strtab */
 	size_t		prb;		/* probename string offset in strtab */
+};
+
+typedef struct dt_bpf_specs	dt_bpf_specs_t;
+struct dt_bpf_specs {
+	uint64_t	written;	/* number of spec buffers written */
+	uint32_t	draining;	/* 1 if userspace has been asked to
+					 * drain this buffer */
 };
 
 #ifdef  __cplusplus

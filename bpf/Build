@@ -26,9 +26,10 @@ bpf_dlib_SOURCES = \
 	get_bvar.c \
 	get_tvar.c set_tvar.c \
 	probe_error.c \
+	speculation.c \
 	strjoin.S \
-	substr.S \
-	strlen.c
+	strlen.c \
+	substr.S
 
 bpf-check: $(objdir)/include/.dir.stamp
 	$(BPFC) $(BPFCPPFLAGS) $(bpf_dlib_CPPFLAGS) $(BPFCFLAGS) -S \

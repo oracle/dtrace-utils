@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#include <dt_bpf_maps.h>
 #include <dt_parser.h>
 #include <dt_regset.h>
 #include <dt_strtab.h>
@@ -242,6 +243,31 @@ typedef struct dt_lib_depend {
 	dt_list_t dtld_dependents;	/* linked-list of lib dependents */
 } dt_lib_depend_t;
 
+typedef struct dt_spec_buf_data {
+	dt_list_t dsbd_list;		/* linked-list forward/back pointers */
+	unsigned int dsbd_cpu;		/* cpu for data */
+	char *dsbd_data;		/* data for later processing */
+	uint32_t dsbd_size;		/* size of data */
+} dt_spec_buf_data_t;
+
+typedef struct dt_spec_buf {
+	dt_list_t dtsb_list;		/* list of dt_spec_buf */
+	int32_t dtsb_id;		/* speculation ID */
+	size_t dtsb_size;		/* size of all buffers in this spec */
+	int dtsb_committing;		/* when draining, nonzero if commit */
+	dt_bpf_specs_t dtsb_spec;	/* bpf-side specs record for this spec
+					   (buffer read/write counts).  */
+	dt_list_t dtsb_dsbd_list;	/* list of dt_spec_bufs */
+	struct dt_hentry dtsb_he;	/* htab links */
+} dt_spec_buf_t;
+
+/*
+ * This will be raised much higher in future: right now it is nailed low
+ * because the search-for-free-speculation code is unrolled rather than being a
+ * proper loop, due to limitations in the BPF verifier.
+ */
+#define DT_MAX_NSPECS 16		/* sanity upper bound on speculations */
+
 typedef uint32_t dt_version_t;		/* encoded version (see below) */
 
 struct dtrace_hdl {
@@ -383,6 +409,9 @@ struct dtrace_hdl {
 	hrtime_t dt_laststatus;	/* last status */
 	hrtime_t dt_lastswitch;	/* last switch of buffer data */
 	hrtime_t dt_lastagg;	/* last snapshot of aggregation data */
+	dt_list_t dt_spec_bufs; /* List of spec bufs */
+	dt_list_t dt_spec_bufs_draining; /* List of spec bufs being drained */
+	dt_htab_t *dt_specs_byid;/* spec ID -> list of dt_spec_bufs_head_t */
 	char *dt_sprintf_buf;	/* buffer for dtrace_sprintf() */
 	int dt_sprintf_buflen;	/* length of dtrace_sprintf() buffer */
 	pthread_mutex_t dt_sprintf_lock; /* lock for dtrace_sprintf() buffer */
@@ -746,6 +775,9 @@ extern dtrace_difo_t *dt_difo_copy(dtrace_hdl_t *dtp, const dtrace_difo_t *odp);
 extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);
+
+extern int dt_consume_init(dtrace_hdl_t *);
+extern void dt_consume_fini(dtrace_hdl_t *);
 
 extern dtrace_datadesc_t *dt_datadesc_hold(dtrace_datadesc_t *ddp);
 extern void dt_datadesc_release(dtrace_hdl_t *, dtrace_datadesc_t *);

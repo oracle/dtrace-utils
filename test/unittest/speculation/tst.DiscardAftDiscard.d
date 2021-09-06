@@ -1,21 +1,18 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
  * Can call discard on an already discarded buffer.
  *
- * SECTION: Speculative Tracing/Discarding a Speculation;
- *	Options and Tunables/cleanrate
+ * SECTION: Speculative Tracing/Discarding a Speculation
  *
  */
 #pragma D option quiet
-#pragma D option cleanrate=3000hz
 
 BEGIN
 {
@@ -55,7 +52,7 @@ BEGIN
 BEGIN
 /(!self->discard2) || (!self->discard1)/
 {
-	printf("Couldnt discard a discarded buffer\n");
+	printf("Couldn't discard a discarded buffer\n");
 	exit(1);
 }
 
