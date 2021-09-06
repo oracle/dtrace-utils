@@ -1,4 +1,3 @@
-/* @@xfail: dtv2 */
 BEGIN
 {
 	rc = probename == "BEGIN" ? 0 : 1;

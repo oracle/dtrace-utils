@@ -299,7 +299,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 *	  multiple of 8
 	 *	- the greater of:
 	 *		+ the maximum stack trace size
-	 *		+ four times the maximum string size (incl. length)
+	 *		+ four times the maximum string size (incl. length
+	 *		  and allowing round up to multiple of 8)
 	 *		  plus the maximum string size (to accomodate the BPF
 	 *		  verifier)
 	 */
@@ -308,7 +309,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		roundup(dtp->dt_maxreclen, 8) +
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
 		    DT_TSTRING_SLOTS *
-			(DT_STRLEN_BYTES + dtp->dt_options[DTRACEOPT_STRSIZE]) +
+			roundup(DT_STRLEN_BYTES +
+				dtp->dt_options[DTRACEOPT_STRSIZE], 8) +
 		    dtp->dt_options[DTRACEOPT_STRSIZE] + 1
 		);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,

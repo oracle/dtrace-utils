@@ -815,8 +815,9 @@ dt_cg_tstring_reset(dtrace_hdl_t *dtp)
 
 		ts = dtp->dt_tstrings;
 		for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
-			ts->offset = i * (DT_STRLEN_BYTES +
-					  dtp->dt_options[DTRACEOPT_STRSIZE]);
+			ts->offset = i *
+				roundup(DT_STRLEN_BYTES +
+					dtp->dt_options[DTRACEOPT_STRSIZE], 8);
 	}
 
 	ts = dtp->dt_tstrings;
@@ -2700,7 +2701,11 @@ dt_cg_compare_signed(dt_node_t *dnp)
 
 	if (dt_node_is_string(dnp->dn_left) ||
 	    dt_node_is_string(dnp->dn_right))
-		return 1; /* strings always compare signed */
+		/*
+		 * String comparison looks at unsigned bytes, and
+		 * "string op NULL" comparisons examine unsigned pointers.
+		 */
+		return 0;
 	else if (!dt_node_is_arith(dnp->dn_left) ||
 	    !dt_node_is_arith(dnp->dn_right))
 		return 0; /* non-arithmetic types always compare unsigned */
@@ -2719,10 +2724,57 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	dt_cg_node(dnp->dn_left, dlp, drp);
 	dt_cg_node(dnp->dn_right, dlp, drp);
 
-	/* FIXME: No support for string comparison yet */
-	if (dt_node_is_string(dnp->dn_left) || dt_node_is_string(dnp->dn_right))
-		xyerror(D_UNKNOWN, "internal error -- no support for "
-			"string comparison yet\n");
+	/* by now, we have checked and both args are strings or neither is */
+	if (dt_node_is_string(dnp->dn_left) ||
+	    dt_node_is_string(dnp->dn_right)) {
+		dt_ident_t *idp;
+		uint_t Lcomp = dt_irlist_label(dlp);
+		uint64_t off1, off2;
+
+		/* if either pointer is NULL, just compare pointers */
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_left->dn_reg, 0, Lcomp));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, Lcomp));
+
+		/*
+		 * Otherwise, replace pointers with relative string values.
+		 * Specifically, replace left with strcmp(left,right)+1 and
+		 * right with 1, so we can use unsigned comparisons.
+		 */
+
+		off1 = dt_cg_tstring_xalloc(yypcb);
+		off2 = dt_cg_tstring_xalloc(yypcb);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_left->dn_reg));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_right->dn_reg));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_3, DCTX_MEM));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_4, BPF_REG_3));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off1));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off2));
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strcmp");
+		assert(idp != NULL);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		dt_regset_free_args(drp);
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1));
+		emit(dlp,  BPF_MOV_REG(dnp->dn_left->dn_reg, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+		emit(dlp,  BPF_MOV_IMM(dnp->dn_right->dn_reg, 1));
+
+		dt_cg_tstring_xfree(yypcb, off1);
+		dt_cg_tstring_xfree(yypcb, off2);
+
+		if (dnp->dn_left->dn_tstring)
+			dt_cg_tstring_free(yypcb, dnp->dn_left);
+		if (dnp->dn_right->dn_tstring)
+			dt_cg_tstring_free(yypcb, dnp->dn_right);
+
+		/* proceed with the comparison */
+		emitl(dlp, Lcomp,
+			   BPF_NOP());
+	}
 
 	emit(dlp,  BPF_BRANCH_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg, lbl_true));
 	dt_regset_free(drp, dnp->dn_right->dn_reg);
