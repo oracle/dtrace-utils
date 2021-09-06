@@ -781,7 +781,8 @@ dt_vopen(int version, int flags, int *errp,
 	for (i = 0; i < DTRACEOPT_MAX; i++)
 		dtp->dt_options[i] = DTRACEOPT_UNSET;
 
-	/* FIXME: the default value of strsize must be set.
+	/*
+	 * FIXME: the default value of strsize must be set.
 	 * In legacy DTrace, the value was read from the kernel
 	 * in dt_options_load().  When string handling is done,
 	 * we will introduce a real solution suitable for this
