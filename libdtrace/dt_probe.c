@@ -1423,11 +1423,11 @@ dtrace_id2desc(dtrace_hdl_t *dtp, dtrace_id_t id, dtrace_probedesc_t *pdp)
 	dt_probe_t	*prp;
 
 	if (id >= dtp->dt_probe_id)
-		return dt_set_errno(dtp, EDT_NOPROBE);
+		return dt_set_errno(dtp, EDT_BADID);
 
 	prp = dtp->dt_probes[id];
 	if (!prp)
-		return dt_set_errno(dtp, EDT_NOPROBE);
+		return dt_set_errno(dtp, EDT_BADID);
 
 	memcpy(pdp, prp->desc, sizeof(dtrace_probedesc_t));
 
