@@ -10,7 +10,7 @@
  * set the timeout to a high value to, in effect, disable it.
  */
 /* @@xfail: dtv2 */
-/* @@timeout: 600 */
+/* @@timeout: 60 */
 
 #pragma D option bufsize=32m
 #pragma D option bufpolicy=fill
