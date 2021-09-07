@@ -3186,7 +3186,7 @@ dt_cg_call_subr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 					"required)\n",
 			dt_idkind_name(idp->di_kind), idp->di_name);
 
-	assert(idp->di_id > 0 && idp->di_id <= DIF_SUBR_MAX);
+	assert(idp->di_id <= DIF_SUBR_MAX);
 
 	fun = _dt_cg_subr[idp->di_id];
 	if (fun == NULL)
