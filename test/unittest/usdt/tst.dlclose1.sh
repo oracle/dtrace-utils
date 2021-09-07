@@ -1,14 +1,12 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 # This test verifies that USDT providers are removed when its associated
 # load object is closed via dlclose(3dl).
-#
-# @@xfail: dtv2
 
 PATH=/usr/bin:/usr/sbin:$PATH
 
@@ -115,7 +113,7 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -Zw -x bufsize=1k -c ./main -qs /dev/stdin <<EOF
+	$dtrace -Zw -x bufsize=64k -c ./main -qs /dev/stdin <<EOF
 	syscall::pause:entry,
 	syscall::rt_sig*:entry
 	/pid == \$target/
