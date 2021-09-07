@@ -938,40 +938,54 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		uint_t		size_ok = dt_irlist_label(dlp);
 		int		reg = dt_regset_alloc(drp);
 
+		TRACE_REGSET("store_val(): Begin ");
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
-				 size, 1, pfp, arg);
+				 size + DT_STRLEN_BYTES + 1, 1, pfp, arg);
 
 		/*
 		 * Retrieve the length of the string, limit it to the maximum
-		 * string size, and adjust for the terminating NUL byte and the
-		 * length prefix.
+		 * string size, and store it in the buffer at [%r9 + off].
 		 */
 		dt_cg_strlen(dlp, drp, reg, dnp->dn_reg);
+		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, reg, size, size_ok));
 		emit(dlp,  BPF_MOV_IMM(reg, size));
 		emitl(dlp, size_ok,
-			   BPF_ALU64_IMM(BPF_ADD, reg, 1 + DT_STRLEN_BYTES));
+			   BPF_MOV_REG(BPF_REG_0, reg));
+		emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 8));
+		emit(dlp,  BPF_STORE(BPF_B, BPF_REG_9, off, BPF_REG_0));
+		emit(dlp,  BPF_STORE(BPF_B, BPF_REG_9, off + 1, reg));
+		dt_regset_free(drp, BPF_REG_0);
 
 		/*
-		 * Copy string data to the output buffer at [%r9 + off].  The
-		 * amount of bytes copied is the lesser of the data size and
-		 * the maximum string size.
+		 * Copy the string to the output buffer at
+		 * [%r9 + off + DT_STRLEN_BYTES] because we need to skip the
+		 * length prefix.
 		 */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off + DT_STRLEN_BYTES));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
 		dt_regset_free(drp, reg);
 		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 		if (dnp->dn_tstring)
 			dt_cg_tstring_free(pcb, dnp);
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
 		dt_regset_free_args(drp);
+
+		/*
+		 * Write the NUL terminating byte.
+		 */
+		emit(dlp,  BPF_MOV_REG(BPF_REG_0, BPF_REG_9));
+		emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_0, reg));
+		emit(dlp,  BPF_STORE_IMM(BPF_B, BPF_REG_0, off + DT_STRLEN_BYTES, 0));
 		dt_regset_free(drp, BPF_REG_0);
+		TRACE_REGSET("store_val(): End   ");
 
 		return 0;
 	}
