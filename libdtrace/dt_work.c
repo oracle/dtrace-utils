@@ -18,6 +18,7 @@
 #include <port.h>
 #include <linux/perf_event.h>
 #include <sys/epoll.h>
+#include <valgrind/valgrind.h>
 
 void
 BEGIN_probe(void)
@@ -109,7 +110,10 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	if (err)
 		return err;
 
-	BEGIN_probe();
+	if (RUNNING_ON_VALGRIND)
+		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
+	else
+		BEGIN_probe();
 
 	dtp->dt_active = 1;
 	dtp->dt_beganon = dt_state_get_beganon(dtp);
@@ -141,7 +145,10 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	if (dt_state_get_activity(dtp) < DT_ACTIVITY_DRAINING)
 		dt_state_set_activity(dtp, DT_ACTIVITY_DRAINING);
 
-	END_probe();
+	if (RUNNING_ON_VALGRIND)
+		VALGRIND_NON_SIMD_CALL0(END_probe);
+	else
+		END_probe();
 
 	dtp->dt_stopped = 1;
 	dtp->dt_endedon = dt_state_get_endedon(dtp);

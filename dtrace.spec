@@ -46,7 +46,7 @@ License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
-BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel
+BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
 BuildRequires: gcc-bpf-unknown-none
 BuildRequires: binutils-bpf-unknown-none
