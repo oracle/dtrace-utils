@@ -7,8 +7,6 @@
 #
 # This test verifies that USDT providers are removed when its associated
 # load object is closed via dlclose(3dl).
-#
-# @@xfail: dtv2
 
 PATH=/usr/bin:/usr/sbin:$PATH
 
@@ -115,7 +113,7 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -Zw -x bufsize=1k -c ./main -qs /dev/stdin <<EOF
+	$dtrace -Zw -x bufsize=64k -c ./main -qs /dev/stdin <<EOF
 	syscall::pause:entry,
 	syscall::rt_sig*:entry
 	/pid == \$target/
