@@ -3332,6 +3332,57 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_ident_t	*idp;
+	dt_node_t	*str = dnp->dn_args;
+	dt_node_t	*chr = str->dn_list;
+	uint_t		Lfound = dt_irlist_label(dlp);
+
+	TRACE_REGSET("    subr-strrchr:Begin");
+	dt_cg_node(str, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_node(chr, dlp, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, str->dn_reg));
+	dt_regset_free(drp, str->dn_reg);
+	if (str->dn_tstring)
+		dt_cg_tstring_free(yypcb, str);
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, chr->dn_reg));
+	dt_regset_free(drp, chr->dn_reg);
+
+	/*
+	 * The result needs be be a temporary string, so we request one.
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strrchr");
+	assert(idp != NULL);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	emit (dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lfound));
+	emit (dlp, BPF_MOV_IMM(dnp->dn_reg, 0));
+	emitl(dlp, Lfound,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-strrchr:End  ");
+}
+
+static void
 dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	TRACE_REGSET("    subr-strlen:Begin");
@@ -3502,7 +3553,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_DIRNAME]		= NULL,
 	[DIF_SUBR_CLEANPATH]		= NULL,
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
-	[DIF_SUBR_STRRCHR]		= NULL,
+	[DIF_SUBR_STRRCHR]		= &dt_cg_subr_strrchr,
 	[DIF_SUBR_STRSTR]		= NULL,
 	[DIF_SUBR_STRTOK]		= NULL,
 	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,

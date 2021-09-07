@@ -31,6 +31,7 @@ bpf_dlib_SOURCES = \
 	strcmp.S \
 	strjoin.S \
 	strlen.c \
+	strrchr.S \
 	substr.S
 
 bpf-check: $(objdir)/include/.dir.stamp
