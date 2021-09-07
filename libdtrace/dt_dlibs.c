@@ -59,6 +59,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_SYMBOL),
+	DT_BPF_SYMBOL(dt_strchr, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_strcmp, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_strjoin, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_substr, DT_IDENT_SYMBOL),
