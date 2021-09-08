@@ -2231,7 +2231,8 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	/* global and local variables (that is, not thread-local) */
 	if (!(idp->di_flags & DT_IDFLG_TLS)) {
-		int reg;
+		int	reg;
+		size_t	size;
 
 		if ((reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -2245,29 +2246,23 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		/* store by value or by reference */
 		if (src->dn_flags & DT_NF_REF) {
-			size_t	size;
+			size_t		srcsz;
 
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
 
 			/*
 			 * Determine the amount of data to be copied.  It is
-			 * usually the size of the identifier, except for
-			 * string constants where it is the size of the string
-			 * constant (adjusted for the variable-width length
-			 * prefix).  An assignment of a string constant is a
-			 * store of type 'string' with a RHS of type
-			 * DT_TOK_STRING.
+			 * the lesser of the size of the identifier and the
+			 * size of the data being copied in.
 			 */
-			if (dt_node_is_string(src) &&
-			    src->dn_right->dn_op == DT_TOK_STRING)
-				size = dt_node_type_size(src->dn_right) +
-				       DT_STRLEN_BYTES;
-			else
-				size = idp->di_size;
+			srcsz = dt_node_type_size(src->dn_right);
+			if (dt_node_is_string(src))
+				srcsz += DT_STRLEN_BYTES;
+			size = MIN(srcsz, idp->di_size);
 
 			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, size);
 		} else {
-			size_t	size = idp->di_size;
+			size = idp->di_size;
 
 			assert(size > 0 && size <= 8 &&
 			       (size & (size - 1)) == 0);

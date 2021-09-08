@@ -1009,7 +1009,12 @@ dt_ident_set_data(dt_ident_t *idp, void *data)
 void
 dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 {
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
 	dt_idhash_t	*dhp = idp->di_hash;
+
+	if (idp->di_ctfp == DT_STR_CTFP(dtp) &&
+	    idp->di_type == DT_STR_TYPE(dtp))
+		size += DT_STRLEN_BYTES;
 
 	idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) & ~(alignment - 1);
 	idp->di_size = size;
