@@ -240,6 +240,7 @@ fi
 - Add support for substr() subroutine.
 
 * Fri Jun 18 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.6
+- Consolidated developent of newly ported features. [Orabug: 33037106]
 - Implement built-in variables: probeprov, probemod, probefunc, probename.
 - Implement built-in variables: caller, stackdepth, ucaller, ustackdepth,
   errno, walltimestamp.  (Eugene Loh)
