@@ -3243,6 +3243,67 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
  * available.  TODO: add a drop in this case?
  */
 static void
+dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*s = dnp->dn_args;
+	dt_node_t	*t = s->dn_list;
+	dt_node_t	*start = t->dn_list;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_index");
+	uint64_t	off1, off2;
+
+	assert(idp != NULL);
+
+	TRACE_REGSET("    subr-index:Begin");
+
+	dt_cg_node(s, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, s->dn_reg);
+	dt_cg_node(t, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, t->dn_reg);
+	if (start != NULL)
+		dt_cg_node(start, dlp, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, s->dn_reg));
+	dt_regset_free(drp, s->dn_reg);
+	if (s->dn_tstring)
+		dt_cg_tstring_free(yypcb, s);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, t->dn_reg));
+	dt_regset_free(drp, t->dn_reg);
+	if (t->dn_tstring)
+		dt_cg_tstring_free(yypcb, t);
+	if (start) {
+		emit(dlp,  BPF_MOV_REG(BPF_REG_3, start->dn_reg));
+		dt_regset_free(drp, start->dn_reg);
+	} else
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+
+	off1 = dt_cg_tstring_xalloc(yypcb);
+	off2 = dt_cg_tstring_xalloc(yypcb);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_4, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_4, BPF_REG_4, DCTX_MEM));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_5, BPF_REG_4));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off1));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, off2));
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	dt_cg_tstring_xfree(yypcb, off1);
+	dt_cg_tstring_xfree(yypcb, off2);
+
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-index:End  ");
+}
+
+static void
 dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -3557,7 +3618,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_STRSTR]		= NULL,
 	[DIF_SUBR_STRTOK]		= NULL,
 	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,
-	[DIF_SUBR_INDEX]		= NULL,
+	[DIF_SUBR_INDEX]		= &dt_cg_subr_index,
 	[DIF_SUBR_RINDEX]		= NULL,
 	[DIF_SUBR_HTONS]		= &dt_cg_subr_htons,
 	[DIF_SUBR_HTONL]		= &dt_cg_subr_htonl,
