@@ -230,7 +230,8 @@ fi
 
 %changelog
 * Thu Sep  9 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.7
-- Implement argument retrieval for SDT probes.
+- Consolidated developent of newly ported features. [Orabug: 33334517]
+- Implement argument retrieval for SDT probes. [Orabug: 33072438]
 - Introduce 'bpflog' runtime option to request BPF verifier log.
 - Implementation improvements for memry copy operations.
 - Fix type alignment handling for enums.
