@@ -1,3 +1,76 @@
+2.0.0-1.7 (Sep 9th, 2021)
+-------------------------
+
+Seventh errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - Argumsnts passed for SDT probes can now be retrieved using the arg0 through
+   arg9 builtin variables.
+
+ - A -xbpflog option has been added to request the BPF verifier log to be
+   generated and displayed regardles sf the outcome of trying to load BPF
+   programs.  The option can also be set with a D option pragma.
+
+ - The strjoin() subroutine has been implemented.
+
+ - The substr() subroutine has been implemented.
+
+Bugfixes:
+
+ - Trampoline generation has been corrected to ensure that the correct probe
+   context is set during code generation.
+
+ - The type alignment handling code used to determine the alilgnment size for a
+   given datatype was treating enums as integers, which is incorrect.  Proper
+   alignment determination is now done, avoiding libctf-related failures.
+
+ - The handling of ERROR probe invocations within the BEGIN probe execution has
+   been fixed.
+
+ - The size of string data in the trace output buffer has been corrected to
+   acocunt for the 2-byte length prefix and the terminating NUL byte.
+
+ - The data size for value copy operations has been corrected.  It was
+   determined solely on the data size of the source data, even if the
+   destination was smaller.  It now uses the lesser of the two sizes.
+
+Internal changes:
+
+ - Provider implemenations now use standard functions to clear oe copy the CPU
+   register state at the time a probe fires.
+
+ - New macros set_upper_bound() and set_lower_bound() are available for use in
+   C-to-BPF source code.  They are used to provide hints about value and range
+   boundaries for the BPF verifier.
+
+ - Precopiled BPF code can now use the STRSZ BPF symbol to represent the
+   maximum string size.
+
+ - The precompiled dt_memcpy() function has been replaced with a call to the
+   bpf_probe_read() BPF helper function.
+
+ - Support has been added for the compilation of BPF assembler source files
+   (.S) into object files (.o).  This feature makes uses of the GCC BPF cross
+   compiler.
+
+ - The generic scratch memory area is now accessible through a pointer to its
+   base address.  This pointer can be found in dctx->mem.  The stack trace
+   implementation has been updated to make use of this area.  This scratch
+   memory area is also used to provide temporary string space to be used in
+   string manipulation functions.
+
+ - The length prefix for strings has been changed from a variable-length
+   integer to a 2-byte fixed width integer.  This was made necessay due to
+   BPF verifier limitations.  This is an interim solution while a more
+   permanent reworking of the string handling code is dveloped.
+
+Testsuite changes:
+
+Known problems:
+
 2.0.0-1.6 (Jun 18th, 2021)
 --------------------------
 
