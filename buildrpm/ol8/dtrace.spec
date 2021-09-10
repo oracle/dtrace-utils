@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.6%{?dist}
+Release:      1.7%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,18 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Thu Sep  9 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.7
+- Implement argument retrieval for SDT probes.
+- Introduce 'bpflog' runtime option to request BPF verifier log.
+- Implementation improvements for memry copy operations.
+- Fix type alignment handling for enums.
+- Fix ERROR-in-BEGIN probe handling.
+- Transition from variable-length string size to 2-byte string size.
+- Fix size of string data in the trace output buffer.
+- Fix data size for value copy.
+- Add support for strjoin() subroutine.
+- Add support for substr() subroutine.
+
 * Fri Jun 18 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.6
 - Consolidated developent of newly ported features. [Orabug: 33037106]
 - Implement built-in variables: probeprov, probemod, probefunc, probename.
