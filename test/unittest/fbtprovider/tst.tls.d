@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,7 +11,6 @@
  * SECTION: FBT Provider/Probes
  */
 
-/* @@xfail: dtv2 */
 /* @@runtest-opts: -Z */
 /* @@trigger: pid-tst-args1 */
 
@@ -20,7 +19,6 @@
 
 BEGIN
 {
-	me = pid;
 	num_entry = 0;
 	num_return = 0;
 	fails = 0;
@@ -29,7 +27,7 @@ BEGIN
 fbt::SyS_ioctl:entry,
 fbt::__arm64_sys_ioctl:entry,
 fbt::__x64_sys_ioctl:entry
-/me == pid/
+/pid == $target/
 {
 	num_entry++;
 	self->token = pid;
@@ -38,7 +36,7 @@ fbt::__x64_sys_ioctl:entry
 fbt::SyS_ioctl:return,
 fbt::__arm64_sys_ioctl:return,
 fbt::__x64_sys_ioctl:return
-/me == pid && num_entry > 0/
+/pid == $target && num_entry > 0/
 {
 	num_return++;
 }
@@ -46,7 +44,7 @@ fbt::__x64_sys_ioctl:return
 fbt::SyS_ioctl:return,
 fbt::__arm64_sys_ioctl:return,
 fbt::__x64_sys_ioctl:return
-/me == pid && num_entry > 0 && self->token != pid/
+/pid == $target && num_entry > 0 && self->token != pid/
 {
 	fails++;
 }

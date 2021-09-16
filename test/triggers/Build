@@ -1,9 +1,16 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 proc-tst-sigwait proc-tst-omp proc-tst-pthread-exec profile-tst-ufuncsort raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args ustack-tst-basic ustack-tst-bigstack ustack-tst-bigstack-spin ustack-tst-spin ustack-tst-mtspin visible-constructor visible-constructor-static visible-constructor-static-unstripped
+EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie futex \
+    pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc \
+    pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 \
+    proc-tst-sigwait proc-tst-omp proc-tst-pthread-exec profile-tst-ufuncsort \
+    raise-tst-raise1 raise-tst-raise2 raise-tst-raise3 syscall-tst-args \
+    ustack-tst-basic ustack-tst-bigstack ustack-tst-bigstack-spin \
+    ustack-tst-spin ustack-tst-mtspin \
+    visible-constructor visible-constructor-static visible-constructor-static-unstripped
 
 EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args usdt-tst-forker usdt-tst-special
 EXTERNAL_64BIT_TRIGGERS += $(EXTERNAL_64BIT_SDT_TRIGGERS)
@@ -11,7 +18,9 @@ EXTERNAL_64BIT_TRIGGERS += $(EXTERNAL_64BIT_SDT_TRIGGERS)
 EXTERNAL_32BIT_TRIGGERS := visible-constructor-32
 EXTERNAL_TRIGGERS = $(EXTERNAL_64BIT_TRIGGERS) $(if $(NATIVE_BITNESS_ONLY),,$(EXTERNAL_32BIT_TRIGGERS))
 
-INTERNAL_64BIT_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper libproc-sleeper-pie libproc-dlmadopen libproc-lookup-by-name libproc-lookup-victim libproc-execing-bkpts libproc-execing-bkpts-victim
+INTERNAL_64BIT_TRIGGERS = libproc-pldd libproc-consistency libproc-sleeper \
+    libproc-sleeper-pie libproc-dlmadopen libproc-lookup-by-name \
+    libproc-lookup-victim libproc-execing-bkpts libproc-execing-bkpts-victim
 INTERNAL_32BIT_TRIGGERS := libproc-sleeper-32 libproc-sleeper-pie-32
 INTERNAL_TRIGGERS = $(INTERNAL_64BIT_TRIGGERS) $(if $(NATIVE_BITNESS_ONLY),,$(INTERNAL_32BIT_TRIGGERS))
 

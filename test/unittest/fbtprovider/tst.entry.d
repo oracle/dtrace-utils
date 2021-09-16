@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,32 +13,32 @@
  * SECTION: FBT Provider/Probes
  */
 
-/* @@xfail: dtv2 */
 /* @@runtest-opts: -Z */
+/* @@trigger: futex */
 
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
 BEGIN
 {
-	me = pid;
 	num_entry = 0;
 }
 
 syscall::futex:entry
-/me == pid/
+/pid == $target/
 {
 	num_entry++;
 }
 
 fbt::SyS_futex:entry,
-fbt::__x64_sys_futex:entry
-/me == pid && num_entry > 0/
+fbt::__x64_sys_futex:entry,
+fbt::__arm64_sys_futex:entry
+/pid == $target && num_entry > 0/
 {
 }
 
 syscall::futex:return
-/me == pid && num_entry > 0/
+/pid == $target && num_entry > 0/
 {
 	exit(0);
 }
