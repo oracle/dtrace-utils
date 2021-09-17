@@ -1,12 +1,13 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
+/* limit the string size to relieve pressure on the BPF verifier */
 #pragma D option quiet
+#pragma D option strsize=184
 
 BEGIN
 {

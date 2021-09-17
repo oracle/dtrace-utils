@@ -3587,6 +3587,95 @@ dt_cg_subr_strjoin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_strstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*s = dnp->dn_args;
+	dt_node_t	*t = s->dn_list;
+	dt_ident_t	*idp;
+	uint64_t	off1, off2;
+	uint_t		Ldone = dt_irlist_label(dlp);
+
+	TRACE_REGSET("    subr-strstr:Begin");
+
+	/* get args */
+	dt_cg_node(s, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, s->dn_reg);
+	dt_cg_node(t, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, t->dn_reg);
+
+	/* call dt_index() call */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, s->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, t->dn_reg));
+	dt_regset_free(drp, t->dn_reg);
+	if (t->dn_tstring)
+		dt_cg_tstring_free(yypcb, t);
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+
+	off1 = dt_cg_tstring_xalloc(yypcb);
+	off2 = dt_cg_tstring_xalloc(yypcb);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_4, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_4, BPF_REG_4, DCTX_MEM));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_5, BPF_REG_4));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off1));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, off2));
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_index");
+	assert(idp != NULL);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	dt_cg_tstring_xfree(yypcb, off1);
+	dt_cg_tstring_xfree(yypcb, off2);
+
+	/*
+	 * Allocate the result register and associate it with a temporary
+	 * string slot.
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+
+	/* account for not finding the substring */
+
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, BPF_REG_0, 0, Ldone));
+
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	/* call dt_substr() using the index we already found */
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, s->dn_reg));
+	dt_regset_free(drp, s->dn_reg);
+	if (s->dn_tstring)
+		dt_cg_tstring_free(yypcb, s);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_5, 2));
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_substr");
+	assert(idp != NULL);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	emitl(dlp, Ldone,
+		   BPF_NOP());
+
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-strstr:End  ");
+}
+
+static void
 dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*str = dnp->dn_args;
@@ -3700,7 +3789,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_CLEANPATH]		= NULL,
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
 	[DIF_SUBR_STRRCHR]		= &dt_cg_subr_strrchr,
-	[DIF_SUBR_STRSTR]		= NULL,
+	[DIF_SUBR_STRSTR]		= &dt_cg_subr_strstr,
 	[DIF_SUBR_STRTOK]		= NULL,
 	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,
 	[DIF_SUBR_INDEX]		= &dt_cg_subr_index,
