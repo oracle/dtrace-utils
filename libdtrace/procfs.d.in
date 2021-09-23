@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -157,6 +157,11 @@ define_for_kernel([[__task_sid]], [[ m4_dnl
 	(m4_kver(4, 19, 0), [[T->signal->pids[PIDTYPE_SID]->numbers[0].nr]])]], m4_dnl
 	[[T->group_leader->pids[2].pid->numbers[0].nr]]) m4_dnl
 
+m4_dnl 5.14 and above renamed state to be __state.
+define_for_kernel([[__task_state]], [[ m4_dnl
+	(m4_kver(5, 14, 0), [[T->__state]])]], m4_dnl
+	[[T->state]]) m4_dnl
+
 #pragma D binding "1.0" translator
 translator psinfo_t < struct task_struct *T > {
 	pr_nlwp = 1;
@@ -228,7 +233,7 @@ inline char SWAIT = 7;
 m4_dnl 4.9 and above moved on_cpu into the task_struct
 #pragma D binding "1.0" translator
 translator lwpsinfo_t < struct task_struct *T > {
-	pr_flag = (T->state & __TASK_STOPPED) ? PR_STOPPED : 0;
+	pr_flag = (__task_state & __TASK_STOPPED) ? PR_STOPPED : 0;
 /*
 	pr_flag = ((T->t_state == TS_STOPPED) ? (PR_STOPPED |
 	    ((!(T->t_schedflag & TS_PSTART)) ? PR_ISTOP : 0)) :
@@ -257,24 +262,24 @@ translator lwpsinfo_t < struct task_struct *T > {
 	pr_wchan = NULL;
 	pr_stype = 0;
 
-	pr_state = (T->state & TASK_INTERRUPTIBLE) ? SSLEEP :
-		   (T->state & TASK_UNINTERRUPTIBLE) ? SSLEEP :
-		   (T->state & __TASK_STOPPED) ? SSTOP :
-		   (T->state & __TASK_TRACED) ? SSTOP :
-		   (T->state & EXIT_ZOMBIE) ? SZOMB :
-		   (T->state & EXIT_DEAD) ? SZOMB :
-		   (T->state & TASK_DEAD) ? SZOMB :
-		   (T->state & TASK_WAKEKILL) ? SWAIT :
-		   (T->state & TASK_WAKING) ? SWAIT : SRUN;
-	pr_sname = (T->state & TASK_INTERRUPTIBLE) ? 'S' :
-		   (T->state & TASK_UNINTERRUPTIBLE) ? 'S' :
-		   (T->state & __TASK_STOPPED) ? 'T' :
-		   (T->state & __TASK_TRACED) ? 'T' :
-		   (T->state & EXIT_ZOMBIE) ? 'Z' :
-		   (T->state & EXIT_DEAD) ? 'Z' :
-		   (T->state & TASK_DEAD) ? 'Z' :
-		   (T->state & TASK_WAKEKILL) ? 'W' :
-		   (T->state & TASK_WAKING) ? 'W' : 'R';
+	pr_state = (__task_state & TASK_INTERRUPTIBLE) ? SSLEEP :
+		   (__task_state & TASK_UNINTERRUPTIBLE) ? SSLEEP :
+		   (__task_state & __TASK_STOPPED) ? SSTOP :
+		   (__task_state & __TASK_TRACED) ? SSTOP :
+		   (__task_state & EXIT_ZOMBIE) ? SZOMB :
+		   (__task_state & EXIT_DEAD) ? SZOMB :
+		   (__task_state & TASK_DEAD) ? SZOMB :
+		   (__task_state & TASK_WAKEKILL) ? SWAIT :
+		   (__task_state & TASK_WAKING) ? SWAIT : SRUN;
+	pr_sname = (__task_state & TASK_INTERRUPTIBLE) ? 'S' :
+		   (__task_state & TASK_UNINTERRUPTIBLE) ? 'S' :
+		   (__task_state & __TASK_STOPPED) ? 'T' :
+		   (__task_state & __TASK_TRACED) ? 'T' :
+		   (__task_state & EXIT_ZOMBIE) ? 'Z' :
+		   (__task_state & EXIT_DEAD) ? 'Z' :
+		   (__task_state & TASK_DEAD) ? 'Z' :
+		   (__task_state & TASK_WAKEKILL) ? 'W' :
+		   (__task_state & TASK_WAKING) ? 'W' : 'R';
 
 	pr_pri = T->prio;
 	pr_name = T->comm;
