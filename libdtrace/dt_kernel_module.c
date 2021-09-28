@@ -29,66 +29,78 @@
 
 static pthread_mutex_t kern_path_update_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static uint32_t
+kernpath_hval(const dt_kern_path_t *dkp)
+{
+	return str2hval(dkp->dkp_name, 0);
+}
+
+static int
+kernpath_cmp(const dt_kern_path_t *p,
+	     const dt_kern_path_t *q)
+{
+	return strcmp(p->dkp_name, q->dkp_name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(kernpath, dt_kern_path_t, dkp_he)
+
+static void *
+kernpath_del_path(dt_kern_path_t *head, dt_kern_path_t *dkpp)
+{
+	head = kernpath_del(head, dkpp);
+	free(dkpp->dkp_name);
+	free(dkpp->dkp_path);
+	free(dkpp);
+	return head;
+}
+
+static dt_htab_ops_t kernpath_htab_ops = {
+	.hval = (htab_hval_fn)kernpath_hval,
+	.cmp = (htab_cmp_fn)kernpath_cmp,
+	.add = (htab_add_fn)kernpath_add,
+	.del = (htab_del_fn)kernpath_del_path
+};
+
 /*
  * On successful return, name and path become owned by dt_kern_path_create()
- * (and may be freed immediately).
- *
- * Note: this code is used by ctf_module_dump as well.
+ * (and may be freed immediately).  The returned entry is owned by the
+ * dt_kernpaths hash into which it is interned.
  */
 
 dt_kern_path_t *
 dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 {
-	uint_t h = str2hval(name, 0) % dtp->dt_kernpathbuckets;
 	dt_kern_path_t *dkpp;
+	dt_kern_path_t tmpl;
 
-	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
-		if (strcmp(dkpp->dkp_name, name) == 0) {
-			free(name);
-			free(path);
-			return dkpp;
-		}
+	if (!dtp->dt_kernpaths) {
+		dtp->dt_kernpaths = dt_htab_create(dtp, &kernpath_htab_ops);
+
+		if (!dtp->dt_kernpaths)
+			return NULL; /* caller must handle allocation failure */
+	}
+
+	tmpl.dkp_name = name;
+	if ((dkpp = dt_htab_lookup(dtp->dt_kernpaths, &tmpl)) != NULL) {
+		free(name);
+		free(path);
+		return dkpp;
 	}
 
 	if ((dkpp = malloc(sizeof(dt_kern_path_t))) == NULL)
-		return NULL; /* caller must handle allocation failure */
+		return NULL;
 
 	dt_dprintf("Adding %s -> %s\n", name, path);
 
 	memset(dkpp, 0, sizeof(dt_kern_path_t));
 	dkpp->dkp_name = name;
 	dkpp->dkp_path = path;			/* strdup()ped by our caller */
-	dt_list_append(&dtp->dt_kernpathlist, dkpp);
-	dkpp->dkp_next = dtp->dt_kernpaths[h];
-	dtp->dt_kernpaths[h] = dkpp;
-	dtp->dt_nkernpaths++;
+	if (dt_htab_insert(dtp->dt_kernpaths, dkpp) < 0) {
+		free(dkpp);
+		return NULL;
+	}
 
 	return dkpp;
-}
-
-void
-dt_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
-{
-	uint_t h = str2hval(dkpp->dkp_name, 0) % dtp->dt_kernpathbuckets;
-	dt_kern_path_t *scan_dkpp;
-	dt_kern_path_t *prev_dkpp = NULL;
-
-	dt_list_delete(&dtp->dt_kernpathlist, dkpp);
-	assert(dtp->dt_nkernpaths != 0);
-	dtp->dt_nkernpaths--;
-
-	for (scan_dkpp = dtp->dt_kernpaths[h]; (scan_dkpp != NULL) &&
-		 (scan_dkpp != dkpp); scan_dkpp = scan_dkpp->dkp_next) {
-		prev_dkpp = scan_dkpp;
-	}
-	if (prev_dkpp == NULL)
-		dtp->dt_kernpaths[h] = dkpp->dkp_next;
-	else
-		prev_dkpp->dkp_next = dkpp->dkp_next;
-
-	free(dkpp->dkp_name);
-	free(dkpp->dkp_path);
-	free(dkpp);
 }
 
 /*
@@ -185,10 +197,9 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 dt_kern_path_t *
 dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = str2hval(name, 0) % dtp->dt_kernpathbuckets;
-	dt_kern_path_t *dkpp;
+	dt_kern_path_t tmpl;
 
-	if (dtp->dt_nkernpaths == 0) {
+	if (!dtp->dt_kernpaths) {
 		int dterrno;
 
 		pthread_mutex_lock(&kern_path_update_lock);
@@ -201,14 +212,10 @@ dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 			return NULL;
 		}
 
-		dt_dprintf("Initialized %i kernel module paths\n",
-		    dtp->dt_nkernpaths);
+		dt_dprintf("Initialized %zi kernel module paths\n",
+		    dt_htab_entries(dtp->dt_kernpaths));
 	}
 
-	for (dkpp = dtp->dt_kernpaths[h]; dkpp != NULL; dkpp = dkpp->dkp_next) {
-		if (strcmp(dkpp->dkp_name, name) == 0)
-			return dkpp;
-	}
-
-	return NULL;
+	tmpl.dkp_name = (char *) name;
+	return dt_htab_lookup(dtp->dt_kernpaths, &tmpl);
 }

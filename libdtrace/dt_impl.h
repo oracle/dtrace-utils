@@ -159,7 +159,7 @@ typedef struct dt_module {
  */
 typedef struct dt_kern_path {
 	dt_list_t dkp_list;	       /* list forward/back pointers */
-	struct dt_kern_path *dkp_next; /* hash chain next pointer */
+	struct dt_hentry dkp_he;       /* htab links */
 	char *dkp_name;		       /* name of this kernel module */
 	char *dkp_path;		       /* full name including path */
 } dt_kern_path_t;
@@ -299,10 +299,7 @@ struct dtrace_hdl {
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
-	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
-	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
-	uint_t dt_kernpathbuckets; /* number of kernel module path hash buckets */
-	uint_t dt_nkernpaths;	/* number of kernel module paths in hash and list */
+	dt_htab_t *dt_kernpaths; /* hash table of dt_kern_path_t's */
 	dt_module_t *dt_exec;	/* pointer to executable module */
 	dt_module_t *dt_cdefs;	/* pointer to C dynamic type module */
 	dt_module_t *dt_ddefs;	/* pointer to D dynamic type module */
