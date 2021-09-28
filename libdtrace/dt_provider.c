@@ -22,14 +22,57 @@
 #include <dt_string.h>
 #include <dt_list.h>
 
-static dt_provider_t *
-dt_provider_insert(dtrace_hdl_t *dtp, dt_provider_t *pvp, uint_t h)
+static uint32_t
+dt_provider_hval(const dt_provider_t *pvp)
 {
-	dt_list_append(&dtp->dt_provlist, pvp);
+	return str2hval(pvp->desc.dtvd_name, 0);
+}
 
-	pvp->pv_next = dtp->dt_provs[h];
-	dtp->dt_provs[h] = pvp;
-	dtp->dt_nprovs++;
+static int
+dt_provider_cmp(const dt_provider_t *p,
+		const dt_provider_t *q)
+{
+	return strcmp(p->desc.dtvd_name, q->desc.dtvd_name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(dt_provider, dt_provider_t, he)
+
+static void *
+dt_provider_del_prov(dt_provider_t *head, dt_provider_t *pvp)
+{
+	head = dt_provider_del(head, pvp);
+
+	if (pvp->pv_probes != NULL)
+		dt_idhash_destroy(pvp->pv_probes);
+
+	dt_node_link_free(&pvp->pv_nodes);
+	free(pvp->pv_xrefs);
+	free(pvp);
+
+	return head;
+}
+
+static dt_htab_ops_t dt_provider_htab_ops = {
+	.hval = (htab_hval_fn)dt_provider_hval,
+	.cmp = (htab_cmp_fn)dt_provider_cmp,
+	.add = (htab_add_fn)dt_provider_add,
+	.del = (htab_del_fn)dt_provider_del_prov,
+	.next = (htab_next_fn)dt_provider_next
+};
+
+static dt_provider_t *
+dt_provider_insert(dtrace_hdl_t *dtp, dt_provider_t *pvp)
+{
+	if (!dtp->dt_provs) {
+		dtp->dt_provs = dt_htab_create(dtp, &dt_provider_htab_ops);
+		if (dtp->dt_provs == NULL)
+			return NULL;
+	}
+
+	if (dt_htab_insert(dtp->dt_provs, pvp) < 0) {
+		free(pvp);
+		return NULL;
+	}
 
 	return pvp;
 }
@@ -37,15 +80,13 @@ dt_provider_insert(dtrace_hdl_t *dtp, dt_provider_t *pvp, uint_t h)
 dt_provider_t *
 dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = str2hval(name, 0) % dtp->dt_provbuckets;
-	dt_provider_t *pvp;
+	dt_provider_t tmpl;
 
-	for (pvp = dtp->dt_provs[h]; pvp != NULL; pvp = pvp->pv_next) {
-		if (strcmp(pvp->desc.dtvd_name, name) == 0)
-			return pvp;
-	}
+	if ((strlen(name) + 1) > sizeof(tmpl.desc.dtvd_name))
+		return NULL;
 
-	return NULL;
+	strcpy(tmpl.desc.dtvd_name, name);
+	return dt_htab_lookup(dtp->dt_provs, &tmpl);
 }
 
 dt_provider_t *
@@ -62,6 +103,7 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 	pvp->pv_probes = dt_idhash_create(pvp->desc.dtvd_name, NULL, 0, 0);
 	pvp->pv_gen = dtp->dt_gen;
 	pvp->pv_hdl = dtp;
+	dt_dprintf("creating provider %s\n", name);
 
 	if (pvp->pv_probes == NULL) {
 		dt_free(dtp, pvp);
@@ -71,36 +113,7 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 
 	memcpy(&pvp->desc.dtvd_attr, pattr, sizeof(dtrace_pattr_t));
 
-	return dt_provider_insert(dtp, pvp,
-				  str2hval(name, 0) % dtp->dt_provbuckets);
-}
-
-void
-dt_provider_destroy(dtrace_hdl_t *dtp, dt_provider_t *pvp)
-{
-	dt_provider_t **pp;
-	uint_t h;
-
-	assert(pvp->pv_hdl == dtp);
-
-	h = str2hval(pvp->desc.dtvd_name, 0) % dtp->dt_provbuckets;
-	pp = &dtp->dt_provs[h];
-
-	while (*pp != NULL && *pp != pvp)
-		pp = &(*pp)->pv_next;
-
-	assert(*pp != NULL && *pp == pvp);
-	*pp = pvp->pv_next;
-
-	dt_list_delete(&dtp->dt_provlist, pvp);
-	dtp->dt_nprovs--;
-
-	if (pvp->pv_probes != NULL)
-		dt_idhash_destroy(pvp->pv_probes);
-
-	dt_node_link_free(&pvp->pv_nodes);
-	dt_free(dtp, pvp->pv_xrefs);
-	dt_free(dtp, pvp);
+	return dt_provider_insert(dtp, pvp);
 }
 
 int

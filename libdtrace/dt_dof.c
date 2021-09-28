@@ -746,8 +746,9 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	 * to the providers and the probes and arguments that they define.
 	 */
 	if (flags & DTRACE_D_PROBES) {
-		for (pvp = dt_list_next(&dtp->dt_provlist);
-		    pvp != NULL; pvp = dt_list_next(pvp))
+		dt_htab_next_t *it = NULL;
+
+		while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL)
 			dof_add_provider(ddo, pvp);
 	}
 

@@ -112,7 +112,8 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 
 	if (err != 0) {
 		dt_xlator_t *dxp, *nxp;
-		dt_provider_t *pvp, *nvp;
+		dt_provider_t *pvp;
+		dt_htab_next_t *it = NULL;
 
 		if (pcb->pcb_prog != NULL)
 			dt_program_destroy(dtp, pcb->pcb_prog);
@@ -127,8 +128,7 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 				dt_xlator_destroy(dtp, dxp);
 		}
 
-		for (pvp = dt_list_next(&dtp->dt_provlist); pvp; pvp = nvp) {
-			nvp = dt_list_next(pvp);
+		while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
 			if (pvp->pv_gen == dtp->dt_gen) {
 				dtrace_probedesc_t	pdp;
 
@@ -141,7 +141,7 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 				dt_probe_iter(dtp, &pdp, dt_pcb_destroy_probe,
 					      NULL, NULL);
 
-				dt_provider_destroy(dtp, pvp);
+				dt_htab_delete(dtp->dt_provs, pvp);
 			}
 		}
 

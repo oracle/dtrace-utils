@@ -515,6 +515,7 @@ int
 dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 {
 	dt_provider_t *pvp;
+	dt_htab_next_t *it = NULL;
 	char *mfname = NULL, *p;
 
 	if (fname != NULL) {
@@ -535,10 +536,11 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)
 		return -1;
 
-	for (pvp = dt_list_next(&dtp->dt_provlist);
-	    pvp != NULL; pvp = dt_list_next(pvp)) {
-		if (dt_header_provider(dtp, pvp, out) != 0)
+	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
+		if (dt_header_provider(dtp, pvp, out) != 0) {
+			dt_htab_next_destroy(it);
 			return -1; /* dt_errno is set for us */
+		}
 	}
 
 	if (fprintf(out, "\n#ifdef\t__cplusplus\n}\n#endif\n") < 0)

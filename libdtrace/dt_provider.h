@@ -87,7 +87,7 @@ extern dt_provimpl_t dt_syscall;
 
 typedef struct dt_provider {
 	dt_list_t pv_list;		/* list forward/back pointers */
-	struct dt_provider *pv_next;	/* pointer to next provider in hash */
+	struct dt_hentry he;		/* htab links */
 	dtrace_providerdesc_t desc;	/* provider name and attributes */
 	const dt_provimpl_t *impl;	/* provider implementation */
 	dt_idhash_t *pv_probes;		/* probe defs (if user-declared) */
@@ -127,7 +127,6 @@ extern dt_provider_t *dt_provider_lookup(dtrace_hdl_t *, const char *);
 extern dt_provider_t *dt_provider_create(dtrace_hdl_t *, const char *,
 					 const dt_provimpl_t *,
 					 const dtrace_pattr_t *);
-extern void dt_provider_destroy(dtrace_hdl_t *, dt_provider_t *);
 extern int dt_provider_xref(dtrace_hdl_t *, dt_provider_t *, id_t);
 
 #ifdef	__cplusplus

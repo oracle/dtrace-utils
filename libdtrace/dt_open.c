@@ -736,8 +736,6 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_poll_fd = -1;
 	dtp->dt_modbuckets = _dtrace_strbuckets;
 	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof(dt_module_t *));
-	dtp->dt_provbuckets = _dtrace_strbuckets;
-	dtp->dt_provs = calloc(dtp->dt_provbuckets, sizeof(dt_provider_t *));
 	dt_proc_hash_create(dtp);
 	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	dtp->dt_nextepid = 1;
@@ -770,10 +768,9 @@ dt_vopen(int version, int flags, int *errp,
 	if (dt_str2kver(dtp->dt_uts.release, &dtp->dt_kernver) < 0)
 		return set_open_errno(dtp, errp, EDT_VERSINVAL);
 
-	if (dtp->dt_mods == NULL || dtp->dt_provs == NULL ||
-	    dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
-	    dtp->dt_cpp_path == NULL || dtp->dt_cpp_argv == NULL ||
-	    dtp->dt_sysslice == NULL)
+	if (dtp->dt_mods == NULL || dtp->dt_procs == NULL ||
+	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
+	    dtp->dt_cpp_argv == NULL || dtp->dt_sysslice == NULL)
 		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
@@ -1182,7 +1179,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 {
 	dt_ident_t *idp, *ndp;
 	dt_module_t *dmp;
-	dt_provider_t *pvp;
 	dtrace_prog_t *pgp;
 	dt_xlator_t *dxp;
 	dt_dirpath_t *dirp;
@@ -1258,8 +1254,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_dof_fini(dtp);
 	dt_probe_fini(dtp);
 
-	while ((pvp = dt_list_next(&dtp->dt_provlist)) != NULL)
-		dt_provider_destroy(dtp, pvp);
+	dt_htab_destroy(dtp, dtp->dt_provs);
 
 	for (i = 1; i < dtp->dt_cpp_argc; i++)
 		free(dtp->dt_cpp_argv[i]);
@@ -1281,7 +1276,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	free(dtp->dt_mods);
 	free(dtp->dt_module_path);
-	free(dtp->dt_provs);
 	free(dtp);
 
 	dt_debug_dump(0);

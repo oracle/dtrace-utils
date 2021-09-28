@@ -323,10 +323,7 @@ struct dtrace_hdl {
 
 	struct dt_probe *dt_error; /* ERROR probe */
 
-	dt_list_t dt_provlist;	/* linked list of dt_provider_t's */
-	struct dt_provider **dt_provs; /* hash table of dt_provider_t's */
-	uint_t dt_provbuckets;	/* number of provider hash buckets */
-	uint_t dt_nprovs;	/* number of providers in hash and list */
+	dt_htab_t *dt_provs;	/* hash table of dt_provider_t's */
 	const struct dt_provider *dt_prov_pid; /* PID provider */
 	dt_proc_hash_t *dt_procs; /* hash table of grabbed process handles */
 	dt_intdesc_t dt_ints[6]; /* cached integer type descriptions */

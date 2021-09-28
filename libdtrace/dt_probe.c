@@ -1061,6 +1061,7 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	dt_probe_t		tmpl;
 	dt_probe_t		*prp;
 	dt_provider_t		*pvp;
+	dt_htab_next_t		*it = NULL;
 	int			i;
 	int			p_is_glob, m_is_glob, f_is_glob, n_is_glob;
 	int			rv = 0;
@@ -1123,8 +1124,7 @@ dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	/*
 	 * Loop over providers, allowing them to provide these probes.
 	 */
-	for (pvp = dt_list_next(&dtp->dt_provlist); pvp != NULL;
-	     pvp = dt_list_next(pvp)) {
+	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
 		if (pvp->impl->provide == NULL ||
 		    !dt_gmatch(pvp->desc.dtvd_name, pdp->prv))
 			continue;
