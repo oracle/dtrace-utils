@@ -29,14 +29,13 @@
 
 struct dt_symbol {
 	dt_list_t dts_list;		/* list forward/back pointers */
-	union {
-		char *str;		/* symbol name */
-		size_t off;		/* symbol offset in strtab */
-	} dts_name;
+	char *dts_name;			/* symbol name */
 	GElf_Addr dts_addr;		/* symbol address */
 	GElf_Xword dts_size;		/* symbol size */
 	unsigned char dts_info;		/* ELF symbol information */
-	struct dt_symbol *dts_next;	/* hash chain pointer */
+	uint32_t dts_hval;		/* cached hash value (for speed) */
+	dt_module_t *dts_dmp;		/* module this symbol is contained within */
+	struct dt_hentry dts_he;	/* htab links */
 };
 
 /*
@@ -57,8 +56,6 @@ typedef struct dt_symrange {
 
 struct dt_symtab {
 	dt_list_t dtst_symlist;		/* symbol list */
-	dt_symbol_t **dtst_syms_by_name;/* symbol name->addr hash buckets */
-	uint_t dtst_symbuckets;		/* number of buckets */
 	char *dtst_strtab;		/* string table of symbol names */
 	dt_symrange_t *dtst_ranges;	/* range->symbol mapping */
 	uint_t dtst_num_range;		/*   - number of ranges */
@@ -121,13 +118,13 @@ dt_symrange_sort_cmp(const void *lp, const void *rp)
 	 * Note: packed strtabs must already be sorted and can be
 	 * neither changed nor resorted.
 	 */
-	if (strcmp(lhs->dts_name.str, "cleanup_module") &&
-	    strcmp(rhs->dts_name.str, "cleanup_module") == 0)
+	if (strcmp(lhs->dts_name, "cleanup_module") &&
+	    strcmp(rhs->dts_name, "cleanup_module") == 0)
 		return -1;
-	if (strcmp(rhs->dts_name.str, "cleanup_module") &&
-	    strcmp(lhs->dts_name.str, "cleanup_module") == 0)
+	if (strcmp(rhs->dts_name, "cleanup_module") &&
+	    strcmp(lhs->dts_name, "cleanup_module") == 0)
 		return +1;
-	return strcmp(lhs->dts_name.str, rhs->dts_name.str);
+	return strcmp(lhs->dts_name, rhs->dts_name);
 }
 
 /*
@@ -145,31 +142,45 @@ static int dt_symbol_search_cmp(const void *lp, const void *rp)
 	return 0;
 }
 
-dt_symtab_t *
-dt_symtab_create(void)
+static uint32_t
+dt_symtab_hval(const dt_symbol_t *sym, void *arg)
 {
-	dt_symtab_t *symtab = malloc(sizeof(struct dt_symtab));
+	return sym->dts_hval ? sym->dts_hval : str2hval(sym->dts_name, 0);
+}
+
+static int
+dt_symtab_cmp(const dt_symbol_t *p,
+	      const dt_symbol_t *q)
+{
+	return strcmp(p->dts_name, q->dts_name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(dt_symtab, dt_symbol_t, dts_he)
+DEFINE_HTAB_STD_OPS(dt_symtab)
+
+dt_symtab_t *
+dt_symtab_create(dtrace_hdl_t *dtp)
+{
+	dt_symtab_t *symtab;
+
+	if (!dtp->dt_kernsyms) {
+		dtp->dt_kernsyms = dt_htab_create(dtp, &dt_symtab_htab_ops);
+
+		if (!dtp->dt_kernsyms)
+			return NULL;
+	}
+
+	symtab = malloc(sizeof(struct dt_symtab));
 
 	if (symtab == NULL)
 		return NULL;
 
 	memset(symtab, 0, sizeof(struct dt_symtab));
-
-	symtab->dtst_symbuckets = _dtrace_strbuckets;
-	symtab->dtst_syms_by_name = calloc(symtab->dtst_symbuckets,
-	    sizeof(struct dt_symbol *));
-
-	if (symtab->dtst_syms_by_name == NULL) {
-		free(symtab->dtst_syms_by_name);
-		free(symtab);
-		return NULL;
-	}
-
 	return symtab;
 }
 
 void
-dt_symtab_destroy(dt_symtab_t *symtab)
+dt_symtab_destroy(dtrace_hdl_t *dtp, dt_symtab_t *symtab)
 {
 	dt_symbol_t *dtsp;
 	dt_symbol_t *last_dtsp = NULL;
@@ -178,26 +189,25 @@ dt_symtab_destroy(dt_symtab_t *symtab)
 		return;
 
 	free(symtab->dtst_ranges);
-	free(symtab->dtst_syms_by_name);
 	free(symtab->dtst_strtab);
 
 	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
 	     dtsp = dt_list_next(dtsp)) {
 		if (!(symtab->dtst_flags & DT_ST_PACKED))
-			free(dtsp->dts_name.str);
+			free(dtsp->dts_name);
+		if (dtp->dt_kernsyms)
+			dt_htab_delete(dtp->dt_kernsyms, dtsp);
 		free(last_dtsp);
 		last_dtsp = dtsp;
 	}
 	free(last_dtsp);
-
 	free(symtab);
 }
 
 dt_symbol_t *
-dt_symbol_insert(dt_symtab_t *symtab, const char *name,
-    GElf_Addr addr, GElf_Xword size, unsigned char info)
+dt_symbol_insert(dtrace_hdl_t *dtp, dt_symtab_t *symtab, dt_module_t *dmp,
+    const char *name, GElf_Addr addr, GElf_Xword size, unsigned char info)
 {
-	uint_t h;
 	dt_symbol_t *dtsp;
 
 	/*
@@ -216,27 +226,21 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 		}
 
 	memset(dtsp, 0, sizeof(dt_symbol_t));
-	dtsp->dts_name.str = strdup(name);
+	dtsp->dts_name = strdup(name);
+	dtsp->dts_hval = str2hval(name, 0);
 	dtsp->dts_addr = addr;
 	dtsp->dts_size = size;
 	dtsp->dts_info = info;
+	dtsp->dts_dmp = dmp;
 
-	if (dtsp->dts_name.str == NULL) {
-		free(dtsp->dts_name.str);
-		free(dtsp);
-		return NULL;
-	}
+	if (dtsp->dts_name == NULL)
+		goto oom;
 
 	/*
-	 * Address->symbol mapping.  Zero-size symbols do not
-	 * include any addresses and therefore are not added.
-	 * It is not yet necessary to set the range's addr and size.
+	 * Add to lookup-by-name hash table, after all current names.
 	 */
-
-	if (size > 0) {
-		symtab->dtst_ranges[symtab->dtst_num_range].dtsr_sym = dtsp;
-		symtab->dtst_num_range++;
-	}
+	if (dt_htab_insert(dtp->dt_kernsyms, dtsp) < 0)
+		goto oom;
 
 	/*
 	 * Append to the doubly linked list.
@@ -244,36 +248,46 @@ dt_symbol_insert(dt_symtab_t *symtab, const char *name,
 	dt_list_append(&symtab->dtst_symlist, dtsp);
 
 	/*
-	 * Add to lookup-by-name hash table.
+	 * Address->symbol mapping.  Zero-size symbols do not
+	 * include any addresses and therefore are not added.
+	 * It is not yet necessary to set the range's addr and size.
 	 */
-	h = str2hval(name, 0) % symtab->dtst_symbuckets;
-	dtsp->dts_next = symtab->dtst_syms_by_name[h];
-	symtab->dtst_syms_by_name[h] = dtsp;
+
+	if (size > 0)
+		symtab->dtst_ranges[symtab->dtst_num_range++].dtsr_sym = dtsp;
 
 	symtab->dtst_flags &= ~DT_ST_SORTED;
 
 	return dtsp;
+oom:
+	if (dtsp)
+		free(dtsp->dts_name);
+	free(dtsp);
+	return NULL;
 }
 
 dt_symbol_t *
-dt_symbol_by_name(dt_symtab_t *symtab, const char *name)
+dt_symbol_by_name(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = str2hval(name, 0) % symtab->dtst_symbuckets;
-	dt_symbol_t *dtsp;
-	int packed = symtab->dtst_flags & DT_ST_PACKED;
+	dt_symbol_t tmpl = {0};
+	tmpl.dts_name = (char *) name;
 
-	for (dtsp = symtab->dtst_syms_by_name[h]; dtsp != NULL;
-	     dtsp = dtsp->dts_next) {
-		if (packed) {
-			if (strcmp(&symtab->dtst_strtab[dtsp->dts_name.off],
-				name) == 0)
-				return dtsp;
-		}
-		else
-			if (strcmp(dtsp->dts_name.str, name) == 0)
-				return dtsp;
+	return dt_htab_lookup(dtp->dt_kernsyms, &tmpl);
+}
+
+/* Find a symbol in a given module.  */
+dt_symbol_t *
+dt_module_symbol_by_name(dtrace_hdl_t *dtp, dt_module_t *dmp, const char *name)
+{
+	dt_symbol_t *symbol;
+
+	symbol = dt_symbol_by_name(dtp, name);
+	while (symbol)
+	{
+		if (symbol->dts_dmp == dmp)
+			return symbol;
+		symbol = (dt_symbol_t *) symbol->dts_he.next;
 	}
-
 	return NULL;
 }
 
@@ -476,64 +490,6 @@ dt_symtab_sort(dt_symtab_t *symtab, int flag)
 	symtab->dtst_flags |= DT_ST_SORTED;
 }
 
-/*
- * Get next item on the linked list, keeping or eliminating the current item.
- */
-static
-dt_symbol_t **
-next_symp(dt_symbol_t **p, int *nelim, int keep) {
-	if (keep)
-		return &((*p)->dts_next);
-	else {
-		dt_symbol_t *tmp = (*p)->dts_next;
-		(*p)->dts_next = NULL;
-		*p = tmp;
-		*nelim += 1;
-		return p;
-	}
-}
-
-/*
- * Purge symbols from name-to-address hash buckets if they have duplicates.
- *
- * (Duplicates occur when symbols have the same name and are in the same module;
- * they just come from different translation units.  For example, they might have
- * file scope and come from different files.)
- */
-void
-dt_symtab_purge(dt_symtab_t *symtab)
-{
-	uint_t i;
-
-	/* loop over buckets */
-	for (i = 0; i < symtab->dtst_symbuckets; i++) {
-
-		/* walk the bucket's linked list */
-		dt_symbol_t **p1;
-		for (p1 = &symtab->dtst_syms_by_name[i]; *p1; ) {
-			int nelim = 0;
-			char *myname = (*p1)->dts_name.str;
-			dt_symbol_t **p2;
-
-			/*
-			 * Walk from the next item to the end of the list,
-			 * keeping only symbols whose names differ from myname.
-			 * (Compare symbol names by looking at dts_name.str,
-			 * since symtab is not packed yet.)
-			 */
-			for (p2 = &((*p1)->dts_next); *p2; )
-				p2 = next_symp(p2, &nelim,
-				    strcmp((*p2)->dts_name.str, myname));
-
-			/*
-			 * Advance p1, keeping the current item only if no
-			 * other symbols were eliminated (duplicated p1).
-			 */
-			p1 = next_symp(p1, &nelim, nelim == 0);
-		}
-	}
-}
-
 void
 dt_symtab_pack(dt_symtab_t *symtab)
 {
@@ -558,7 +514,7 @@ dt_symtab_pack(dt_symtab_t *symtab)
 	 */
 	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
 	     dtsp = dt_list_next(dtsp))
-		strsz += strlen(dtsp->dts_name.str) + 1;
+		strsz += strlen(dtsp->dts_name) + 1;
 
 	symtab->dtst_strtab = malloc(strsz);
 	if (symtab->dtst_strtab == NULL)
@@ -569,11 +525,11 @@ dt_symtab_pack(dt_symtab_t *symtab)
 	 */
 	for (dtsp = dt_list_next(&symtab->dtst_symlist); dtsp != NULL;
 	     dtsp = dt_list_next(dtsp)) {
-		size_t len = strlen(dtsp->dts_name.str) + 1;
+		size_t len = strlen(dtsp->dts_name) + 1;
 
-		memcpy(&symtab->dtst_strtab[offset], dtsp->dts_name.str, len);
-		free(dtsp->dts_name.str);
-		dtsp->dts_name.off = offset;
+		memcpy(&symtab->dtst_strtab[offset], dtsp->dts_name, len);
+		free(dtsp->dts_name);
+		dtsp->dts_name = &symtab->dtst_strtab[offset];
 		offset += len;
 	}
 
@@ -581,19 +537,12 @@ dt_symtab_pack(dt_symtab_t *symtab)
 }
 
 /*
- * Return the name of a symbol.  Currently redundant, this will become useful
- * when dt_symtab_pack() starts compressing symbol names.  TODO: we must retain
- * ownership of the expanded string, even in this case: it is part of the
- * libdtrace API.  This is distinctly tricky: it may be simpler to change the
- * API to require caller-frees semantics.
+ * Return the name of a symbol.
  */
 const char *
-dt_symbol_name(dt_symtab_t *symtab _dt_unused_, dt_symbol_t *symbol)
+dt_symbol_name(const dt_symbol_t *symbol)
 {
-	if (symtab->dtst_flags & DT_ST_PACKED)
-		return &symtab->dtst_strtab[symbol->dts_name.off];
-	else
-		return symbol->dts_name.str;
+	return symbol->dts_name;
 }
 
 void
@@ -625,4 +574,10 @@ dt_symbol_to_elfsym(dtrace_hdl_t *dtp, dt_symbol_t *symbol, GElf_Sym *elf_symp)
 	default:;
 		/* unknown model, fall out with nothing changed */
 	}
+}
+
+dt_module_t *
+dt_symbol_module(dt_symbol_t *symbol)
+{
+	return symbol->dts_dmp;
 }

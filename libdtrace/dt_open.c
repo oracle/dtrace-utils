@@ -1219,6 +1219,9 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp->dt_bpfsyms != NULL)
 		dt_idhash_destroy(dtp->dt_bpfsyms);
 
+
+	dt_htab_destroy(dtp, dtp->dt_kernsyms);
+	dtp->dt_kernsyms = NULL;
 	dt_htab_destroy(dtp, dtp->dt_mods);
 	dt_htab_destroy(dtp, dtp->dt_kernpaths);
 

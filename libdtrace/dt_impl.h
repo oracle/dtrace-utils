@@ -296,6 +296,7 @@ struct dtrace_hdl {
 	dt_tstring_t *dt_tstrings; /* temporary string slots */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_htab_t *dt_mods;	/* hash table of dt_module_t's */
+	dt_htab_t *dt_kernsyms; /* htab of kernel symbol names */
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */

@@ -626,7 +626,7 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	free(dmp->dm_asmap);
 	dmp->dm_asmap = NULL;
 
-	dt_symtab_destroy(dmp->dm_kernsyms);
+	dt_symtab_destroy(dtp, dmp->dm_kernsyms);
 	dmp->dm_kernsyms = NULL;
 
 	dmp->dm_symfree = 0;
@@ -1137,13 +1137,13 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 
 	if (!skip) {
 		if (dmp->dm_kernsyms == NULL)
-			dmp->dm_kernsyms = dt_symtab_create();
+			dmp->dm_kernsyms = dt_symtab_create(dtp);
 
 		if (dmp->dm_kernsyms == NULL)
 			return EDT_NOMEM;
 
-		if (dt_symbol_insert(dmp->dm_kernsyms, sym_name, sym_addr, sym_size,
-			sym_type_to_info(sym_type)) == NULL)
+		if (dt_symbol_insert(dtp, dmp->dm_kernsyms, dmp, sym_name,
+			sym_addr, sym_size, sym_type_to_info(sym_type)) == NULL)
 			return EDT_NOMEM;
 	}
 
@@ -1262,7 +1262,6 @@ dtrace_update(dtrace_hdl_t *dtp)
 	    dmp = dt_list_next(dmp)) {
 		if (dmp->dm_kernsyms != NULL) {
 			dt_symtab_sort(dmp->dm_kernsyms, flag);
-			dt_symtab_purge(dmp->dm_kernsyms);
 			dt_symtab_pack(dmp->dm_kernsyms);
 		}
 	}
@@ -1352,9 +1351,6 @@ dt_module_from_object(dtrace_hdl_t *dtp, const char *object)
  * Only the st_info, st_value, and st_size fields of the GElf_Sym are guaranteed
  * to be populated: the st_shndx is populated but its only meaningful value is
  * SHN_UNDEF versus !SHN_UNDEF.
- *
- * XXX profile this: possibly introduce a symbol->name mapping for
- * first-matching-symbol across all modules.
  */
 int
 dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
@@ -1391,6 +1387,36 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 	if (symp == NULL)
 		symp = &sym;
 
+	/*
+	 * Search loaded kernel symbols first, iff searching all kernel symbols
+	 * is requested.  This is only an optimization: there are (obscure)
+	 * cases in which loaded kernel symbols might not end up in this hash
+	 * (e.g. if a kernel symbol is duplicated in multiple modules, then one
+	 * of them is unloaded).
+	 */
+	if ((object == DTRACE_OBJ_EVERY || object == DTRACE_OBJ_KMODS) &&
+	    dtp->dt_kernsyms) {
+		dt_symbol_t *dt_symp;
+
+		if ((dt_symp = dt_symbol_by_name(dtp, name)) != NULL) {
+			if (sip != NULL) {
+				dt_module_t *tmp;
+
+				tmp = dt_symbol_module(dt_symp);
+				sip->object = tmp->dm_name;
+				sip->name = dt_symbol_name(dt_symp);
+				sip->id = 0;	/* undefined */
+			}
+
+			dt_symbol_to_elfsym(dtp, dt_symp, symp);
+			return 0;
+		}
+	}
+
+	/*
+	 * Not found: search all modules, including non-kernel modules, loading
+	 * them as needed.
+	 */
 	for (; n > 0; n--, dmp = dt_list_next(dmp)) {
 		if ((dmp->dm_flags & mask) != bits)
 			continue; /* failed to match required attributes */
@@ -1398,6 +1424,10 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 		if (dt_module_load(dtp, dmp) == -1)
 			continue; /* failed to load symbol table */
 
+		/*
+		 * If this is a kernel symbol, see if it's appeared.  If it has,
+		 * it must belong to this module.
+		 */
 		if ((dmp->dm_flags & DT_DM_KERNEL) &&
 		    (!(dmp->dm_flags & DT_DM_KERN_UNLOADED))) {
 			dt_symbol_t *dt_symp;
@@ -1405,14 +1435,14 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 			if (!dmp->dm_kernsyms)
 				continue;
 
-			dt_symp = dt_symbol_by_name(dmp->dm_kernsyms, name);
+			dt_symp = dt_module_symbol_by_name(dtp, dmp, name);
 			if (!dt_symp)
 				continue;
+			assert(dt_symbol_module(dt_symp) == dmp);
 
 			if (sip != NULL) {
 				sip->object = dmp->dm_name;
-				sip->name = dt_symbol_name(dmp->dm_kernsyms,
-							   dt_symp);
+				sip->name = dt_symbol_name(dt_symp);
 				sip->id = 0;	/* undefined */
 			}
 			dt_symbol_to_elfsym(dtp, dt_symp, symp);
@@ -1520,7 +1550,7 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 
 		if (sip != NULL) {
 		    sip->object = dmp->dm_name;
-		    sip->name = dt_symbol_name(dmp->dm_kernsyms, dt_symp);
+		    sip->name = dt_symbol_name(dt_symp);
 		    sip->id = 0;	/* undefined */
 		}
 
