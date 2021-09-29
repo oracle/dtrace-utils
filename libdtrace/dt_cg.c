@@ -949,7 +949,9 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		return 0;
 	} else if (dt_node_is_string(dnp)) {
 		uint_t		size_ok = dt_irlist_label(dlp);
-		int		reg = dt_regset_alloc(drp);
+		int		reg;
+
+		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 
 		TRACE_REGSET("store_val(): Begin ");
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
@@ -959,6 +961,9 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		 * Retrieve the length of the string, limit it to the maximum
 		 * string size, and store it in the buffer at [%r9 + off].
 		 */
+		reg = dt_regset_alloc(drp);
+		if (reg == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		dt_cg_strlen(dlp, drp, reg, dnp->dn_reg);
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, reg, size, size_ok));
