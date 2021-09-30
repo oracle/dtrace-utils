@@ -734,8 +734,6 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_ddefs_fd = -1;
 	dtp->dt_stdout_fd = -1;
 	dtp->dt_poll_fd = -1;
-	dtp->dt_modbuckets = _dtrace_strbuckets;
-	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof(dt_module_t *));
 	dt_proc_hash_create(dtp);
 	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	dtp->dt_nextepid = 1;
@@ -768,9 +766,9 @@ dt_vopen(int version, int flags, int *errp,
 	if (dt_str2kver(dtp->dt_uts.release, &dtp->dt_kernver) < 0)
 		return set_open_errno(dtp, errp, EDT_VERSINVAL);
 
-	if (dtp->dt_mods == NULL || dtp->dt_procs == NULL ||
-	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
-	    dtp->dt_cpp_argv == NULL || dtp->dt_sysslice == NULL)
+	if (dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
+	    dtp->dt_cpp_path == NULL || dtp->dt_cpp_argv == NULL ||
+	    dtp->dt_sysslice == NULL)
 		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
@@ -1178,7 +1176,6 @@ void
 dtrace_close(dtrace_hdl_t *dtp)
 {
 	dt_ident_t *idp, *ndp;
-	dt_module_t *dmp;
 	dtrace_prog_t *pgp;
 	dt_xlator_t *dxp;
 	dt_dirpath_t *dirp;
@@ -1222,9 +1219,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp->dt_bpfsyms != NULL)
 		dt_idhash_destroy(dtp->dt_bpfsyms);
 
-	while ((dmp = dt_list_next(&dtp->dt_modlist)) != NULL)
-		dt_module_destroy(dtp, dmp);
-
+	dt_htab_destroy(dtp, dtp->dt_mods);
 	dt_htab_destroy(dtp, dtp->dt_kernpaths);
 
 	if (dtp->dt_shared_ctf != NULL)
@@ -1274,7 +1269,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_sprintf_buf);
 	pthread_mutex_destroy(&dtp->dt_sprintf_lock);
 
-	free(dtp->dt_mods);
 	free(dtp->dt_module_path);
 	free(dtp);
 

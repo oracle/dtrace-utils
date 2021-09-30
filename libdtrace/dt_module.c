@@ -40,6 +40,40 @@ dt_module_shuffle_to_start(dtrace_hdl_t *dtp, const char *name);
 static void
 dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp);
 
+static uint32_t
+dt_module_hval(const dt_module_t *mod)
+{
+	return str2hval(mod->dm_name, 0);
+}
+
+static int
+dt_module_cmp(const dt_module_t *p, const dt_module_t *q)
+{
+	return strcmp(p->dm_name, q->dm_name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(dt_module, dt_module_t, dm_he)
+
+static void *
+dt_module_del_mod(dt_module_t *head, dt_module_t *dmp)
+{
+	head = dt_module_del(head, dmp);
+	dt_list_delete(&dmp->dm_dtp->dt_modlist, dmp);
+
+	dt_module_unload(dmp->dm_dtp, dmp);
+	free(dmp);
+
+	return head;
+}
+
+static dt_htab_ops_t dt_module_htab_ops = {
+	.hval = (htab_hval_fn)dt_module_hval,
+	.cmp = (htab_cmp_fn)dt_module_cmp,
+	.add = (htab_add_fn)dt_module_add,
+	.del = (htab_del_fn)dt_module_del_mod,
+	.next = (htab_next_fn)dt_module_next
+};
+
 /*
  * Symbol table management for userspace modules, via ELF parsing.
  */
@@ -96,27 +130,33 @@ dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 dt_module_t *
 dt_module_create(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = str2hval(name, 0) % dtp->dt_modbuckets;
 	dt_module_t *dmp;
 
-	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next)
-		if (strcmp(dmp->dm_name, name) == 0)
-			return dmp;
+	if (!dtp->dt_mods) {
+		dtp->dt_mods = dt_htab_create(dtp, &dt_module_htab_ops);
+		if (!dtp->dt_mods)
+			return NULL;
+	}
+
+	if ((dmp = dt_module_lookup_by_name(dtp, name)) != NULL)
+		return dmp;
 
 	if ((dmp = malloc(sizeof(dt_module_t))) == NULL)
 		return NULL; /* caller must handle allocation failure */
 
 	memset(dmp, 0, sizeof(dt_module_t));
 	strlcpy(dmp->dm_name, name, sizeof(dmp->dm_name));
+	if (dt_htab_insert(dtp->dt_mods, dmp) < 0) {
+		free(dmp);
+		return NULL;
+	}
 	dt_list_append(&dtp->dt_modlist, dmp);
-	dmp->dm_next = dtp->dt_mods[h];
-	dtp->dt_mods[h] = dmp;
-	dtp->dt_nmods++;
 
 	if (dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
 		dmp->dm_ops = &dt_modops_64;
 	else
 		dmp->dm_ops = &dt_modops_32;
+	dmp->dm_dtp = dtp;
 
 	return dmp;
 }
@@ -124,8 +164,13 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 dt_module_t *
 dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 {
-	uint_t h = str2hval(name, 0) % dtp->dt_modbuckets;
-	dt_module_t *dmp;
+	dt_module_t tmpl;
+
+	if (strlen(name) > (DTRACE_MODNAMELEN - 1))
+		return NULL;
+
+	if (!dtp->dt_mods)
+		return NULL;			/* no modules yet */
 
 	/* 'genunix' is an alias for 'vmlinux'. */
 
@@ -133,11 +178,8 @@ dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 		name = "vmlinux";
 	}
 
-	for (dmp = dtp->dt_mods[h]; dmp != NULL; dmp = dmp->dm_next)
-		if (strcmp(dmp->dm_name, name) == 0)
-			return dmp;
-
-	return NULL;
+	strcpy(tmpl.dm_name, name);
+	return dt_htab_lookup(dtp->dt_mods, &tmpl);
 }
 
 /*ARGSUSED*/
@@ -179,7 +221,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1) {
 		dt_dprintf("failed to load %s: %s\n", dmp->dm_file,
 		    elf_errmsg(elf_errno()));
-		dt_module_destroy(dtp, dmp);
+		dt_htab_delete(dtp->dt_mods, dmp);
 		return dt_set_errno(dtp, EDT_OBJIO);
 	}
 
@@ -195,7 +237,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	default:
 		dt_dprintf("failed to load %s: unknown ELF class\n",
 		    dmp->dm_file);
-		dt_module_destroy(dtp, dmp);
+		dt_htab_delete(dtp->dt_mods, dmp);
 		return dt_set_errno(dtp, EDT_ELFCLASS);
 	}
 
@@ -607,30 +649,6 @@ dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	dmp->dm_elf = NULL;
 
 	dmp->dm_flags &= ~DT_DM_LOADED;
-}
-
-void
-dt_module_destroy(dtrace_hdl_t *dtp, dt_module_t *dmp)
-{
-	uint_t h = str2hval(dmp->dm_name, 0) % dtp->dt_modbuckets;
-	dt_module_t *scan_dmp;
-	dt_module_t *prev_dmp = NULL;
-
-	dt_list_delete(&dtp->dt_modlist, dmp);
-	assert(dtp->dt_nmods != 0);
-	dtp->dt_nmods--;
-
-	for (scan_dmp = dtp->dt_mods[h]; (scan_dmp != NULL) && (scan_dmp != dmp);
-	     scan_dmp = scan_dmp->dm_next) {
-		prev_dmp = scan_dmp;
-	}
-	if (prev_dmp == NULL)
-		dtp->dt_mods[h] = dmp->dm_next;
-	else
-		prev_dmp->dm_next = dmp->dm_next;
-
-	dt_module_unload(dtp, dmp);
-	free(dmp);
 }
 
 /*
@@ -1367,7 +1385,7 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
 			mask = DT_DM_KERNEL;
 
 		dmp = dt_list_next(&dtp->dt_modlist);
-		n = dtp->dt_nmods;
+		n = dt_htab_entries(dtp->dt_mods);
 	}
 
 	if (symp == NULL)
@@ -1565,7 +1583,7 @@ dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,
 			mask = DT_DM_KERNEL;
 
 		dmp = dt_list_next(&dtp->dt_modlist);
-		n = dtp->dt_nmods;
+		n = dt_htab_entries(dtp->dt_mods);
 		justone = 0;
 	}
 

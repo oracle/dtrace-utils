@@ -113,7 +113,9 @@ typedef struct dt_module {
 	char dm_name[DTRACE_MODNAMELEN]; /* string name of module */
 	char dm_file[PATH_MAX]; /* file path of module */
 	uint_t dm_flags;	/* module flags (see below) */
-	struct dt_module *dm_next; /* pointer to next module in hash chain */
+	struct dt_hentry dm_he;	/* htab links */
+	dtrace_hdl_t *dm_dtp;	/* backpointer to the dtrace instance */
+
 
 	dtrace_addr_range_t *dm_text_addrs; /* text addresses, sorted */
 	size_t dm_text_addrs_size;	 /* number of entries */
@@ -293,9 +295,7 @@ struct dtrace_hdl {
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
 	dt_tstring_t *dt_tstrings; /* temporary string slots */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
-	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
-	uint_t dt_modbuckets;	/* number of module hash buckets */
-	uint_t dt_nmods;	/* number of modules in hash and list */
+	dt_htab_t *dt_mods;	/* hash table of dt_module_t's */
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
