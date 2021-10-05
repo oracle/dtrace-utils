@@ -137,7 +137,14 @@ dt_kern_path_update(dtrace_hdl_t *dtp)
 
 		suffix = strstr(line, ".ko:");
 		if (suffix == NULL)
+			suffix = strstr(line, ".ko.gz:");
+
+		if (suffix == NULL)
+			suffix = strstr(line, ".ko.xz:");
+
+		if (suffix == NULL)
 			continue;
+
 		suffix[3] = '\0';		/* chop the dep components */
 
 		modname = strrchr(line, '/');
