@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 	char *line = NULL;
 	size_t line_n = 0;
 	FILE *fd;
-	int kernel_flag = 0;
+	unsigned int kernel_flag = 0;
 
 	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL) return 1;
 	while ((getline(&line, &line_n, fd)) > 0) {
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
 		/* see dt_module.c dt_modsym_update() */
 		if (type == 'a' || type == 'A')
 			continue;
-#define KERNEL_FLAG_INIT_SCRATCH 0x80
+#define KERNEL_FLAG_INIT_SCRATCH 4
 		if (strcmp(symname, "__init_scratch_begin") == 0) {
 			kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
 			continue;

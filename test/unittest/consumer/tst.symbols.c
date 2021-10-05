@@ -4,7 +4,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * Check mappings between symbol names and addresses using /proc/kallmodsyms.
@@ -53,7 +52,8 @@ int read_symbols() {
 	char *line = NULL;
 	size_t line_n = 0;
 	FILE *fd;
-	int n_skip = 0, n_absolute = 0, kernel_flag = 0;
+	int n_skip = 0, n_absolute = 0;
+	unsigned int kernel_flag = 0;
 
 	printf("read_symbols():\n");
 	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL) return 1;
@@ -96,7 +96,7 @@ int read_symbols() {
 		if (symbols[nsymbols].type == 'a' ||
 		    symbols[nsymbols].type == 'A')
 			continue;
-#define KERNEL_FLAG_INIT_SCRATCH 0x80
+#define KERNEL_FLAG_INIT_SCRATCH 4
 		if (strcmp(symname, "__init_scratch_begin") == 0) {
 			kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
 			continue;
