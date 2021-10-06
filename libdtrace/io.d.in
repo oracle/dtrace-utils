@@ -65,10 +65,19 @@ define_for_kernel([[REQ_SYNC_VAL]], [[(m4_kver(4,10,0), [[0x800]])]], [[0x10]])
 inline int REQ_SYNC = REQ_SYNC_VAL;
 
 define_for_kernel([[__bi_rw]], [[(m4_kver(4,8,0), [[bi_opf]])]], [[bi_rw]])
-define_for_kernel([[__disk]], [[(m4_kver(4,14,0), [[bi_disk]])]], [[bi_bdev->bd_disk]])
-define_for_kernel([[__disk_chk]], [[(m4_kver(4,14,0), [[bi_disk]])]], [[bi_bdev]])
-define_for_kernel([[__bio_partno]], [[(m4_kver(4,14,0), [[bi_partno]])]], [[bi_bdev->bd_part->partno]])
-define_for_kernel([[__bio_part_dev]], [[(m4_kver(5,11,0), [[bi_disk->part_tbl->part[B->bi_partno]->bd_dev]]), (m4_kver(4,14,0), [[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]])]], [[bi_bdev->bd_part->__dev.devt]])
+define_for_kernel([[__disk]], [[(m4_kver(5,12,0), [[bi_bdev->bd_disk]]),
+			        (m4_kver(4,14,0), [[bi_disk]])]],
+				[[bi_bdev->bd_disk]])
+define_for_kernel([[__disk_chk]], [[(m4_kver(5,12,0), [[bi_bdev]]),dnl
+			            (m4_kver(4,14,0), [[bi_disk]])]],dnl
+				  [[bi_bdev]])
+define_for_kernel([[__bio_partno]], [[(m4_kver(5,12,0), [[bi_bdev->bd_partno]]),dnl
+				      (m4_kver(4,14,0), [[bi_partno]])]],dnl
+				    [[bi_bdev->bd_part->partno]])
+define_for_kernel([[__bio_part_dev]], [[(m4_kver(5,12,0), [[bi_bdev->bd_dev]]),dnl
+				        (m4_kver(5,11,0), [[bi_disk->part_tbl->part[B->bi_partno]->bd_dev]]),dnl
+					(m4_kver(4,14,0), [[bi_disk->part_tbl->part[B->bi_partno]->__dev.devt]])]],dnl
+				      [[bi_bdev->bd_part->__dev.devt]])
 
 #pragma D binding "1.6.3" translator
 translator bufinfo_t < struct bio *B > {
