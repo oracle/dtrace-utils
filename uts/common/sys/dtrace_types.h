@@ -93,6 +93,8 @@ typedef unsigned long long hrtime_t;
  * This comes from <linux/dtrace_os.h>.
  */
 
+#ifndef _DTRACE_ID_T_DEFINED
 typedef uint32_t dtrace_id_t;
+#endif
 
 #endif
