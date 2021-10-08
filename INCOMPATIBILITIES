@@ -105,9 +105,9 @@ bsearch()ing of these arrays.  (We no longer distinguish between initialized
 data and bss sections.)
 
 The dtrace_syminfo_t type populated by dtrace_lookup_by_name() and
-dtrace_lookup_by_addr() no longer guarantees population of its dts_id member:
+dtrace_lookup_by_addr() no longer guarantees population of its id member:
 for kernel symbols, it will always be zero.  In future a further API change may
-require the caller to free the dts_name member: this will be signalled by its no
+require the caller to free the name member: this will be signalled by its no
 longer being declared const.
 
 The GElf_Sym parameter populated by dtrace_lookup_by_name() and
@@ -115,7 +115,7 @@ dtrace_lookup_by_addr() no longer guarantees population of its st_name or
 st_other fields, and the only thing guaranteed about st_shndx is SHN_UNDEF
 versus !SHN_UNDEF (there is no guarantee that it will correspond to an actual
 ELF section).  If you want the symbol name, you should use the
-dtrace_syminfo.dts_name instead.  There is no guaranteed replacement for
+dtrace_syminfo.name instead.  There is no guaranteed replacement for
 st_other.
 
 dtrace_update() now returns an error value, like dtrace_go() and dtrace_stop().
