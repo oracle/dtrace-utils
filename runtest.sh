@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -522,7 +522,7 @@ if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
-    test_incflags="-Iuts/common -DARCH_$arch"
+    test_incflags="-Iinclude -Iuts/common -Ibuild -Ilibdtrace -DARCH_$arch"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -1139,8 +1139,11 @@ for dt in $dtrace; do
             fi
 
             CC="${CC:-gcc}"
-            log "Compiling $CC -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $test_incflags $CFLAGS $test_ldflags $LDFLAGS -o $tmpdir/$base $_test $link\n"
-            if ! $CC $CFLAGS -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $test_incflags $test_ldflags $LDFLAGS -o $tmpdir/$(basename $base) $_test $link >/dev/null 2>$tmpdir/cc.err; then
+            CCline="$CC -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
+            CCline="$CCline $test_incflags $CFLAGS $test_ldflags $LDFLAGS"
+            CCline="$CCline -o $tmpdir/$(basename $base) $_test $link"
+            log "Compiling $CCline\n"
+            if ! $CCline >/dev/null 2>$tmpdir/cc.err; then
                 fail=t
                 failmsg="compilation failure"
                 fail "$xfail" "$xfailmsg" "compilation failure"

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -195,8 +195,8 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 		printf("  actual: %16.16llx %8.8llx %32s %20s\n",
 		    (long long)symp->st_value,
 		    (long long)symp->st_size,
-		    sip->dts_name,
-		    sip->dts_object);
+		    sip->name,
+		    sip->object);
 	}
 
 	/*
@@ -205,19 +205,19 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 	 * some known symbol at this address.
 	 */
 
-	if (strcmp(symbols[i].symname, sip->dts_name) == 0)
+	if (strcmp(symbols[i].symname, sip->name) == 0)
 		match = i;
 
 	j = i - 1;
 	while (match < 0 && j >= 0 && symbols[j].addr == symbols[i].addr) {
-		if (strcmp(symbols[j].symname, sip->dts_name) == 0)
+		if (strcmp(symbols[j].symname, sip->name) == 0)
 			match = j;
 		j--;
 	}
 
 	j = i + 1;
 	while (match < 0 && j < nsymbols && symbols[j].addr == symbols[i].addr) {
-		if (strcmp(symbols[j].symname, sip->dts_name) == 0)
+		if (strcmp(symbols[j].symname, sip->name) == 0)
 			match = j;
 		j++;
 	}
@@ -229,7 +229,7 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 
 	if (match < 0 ||
 	    symbols[match].size != symp->st_size ||
-	    strcmp(symbols[match].modname, sip->dts_object)) {
+	    strcmp(symbols[match].modname, sip->object)) {
 		nerrors++;
 		printf("ERROR: no such reported symbol\n");
 		printf("  expect:");
@@ -237,8 +237,8 @@ void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
 		printf("  actual: %16.16llx %8.8llx %32s %20s\n",
 		    (long long)symp->st_value,
 		    (long long)symp->st_size,
-		    sip->dts_name,
-		    sip->dts_object);
+		    sip->name,
+		    sip->object);
 	}
 }
 
@@ -305,8 +305,8 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 
 			if (symbols[i].addr != sym.st_value ||
 			    symbols[i].size != sym.st_size ||
-			    strcmp(symbols[i].symname, si.dts_name) ||
-			    strcmp(symbols[i].modname, si.dts_object)) {
+			    strcmp(symbols[i].symname, si.name) ||
+			    strcmp(symbols[i].modname, si.object)) {
 
 				printf("ERROR: mismatch\n");
 				printf("  expect:");
@@ -314,8 +314,8 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 				printf("  actual: %16.16llx %8.8llx %32s %20s\n",
 				    (long long)sym.st_value,
 				    (long long)sym.st_size,
-				    si.dts_name,
-				    si.dts_object);
+				    si.name,
+				    si.object);
 				nerrors++;
 			}
 		}
