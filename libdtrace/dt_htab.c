@@ -43,6 +43,7 @@ struct dt_htab {
 	int		size;
 	int		mask;
 	int		nbuckets;
+	size_t		nentries;
 	dt_htab_ops_t	*ops;
 };
 
@@ -59,6 +60,7 @@ dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
 	htab->size = 1;
 	htab->mask = htab->size - 1;
 	htab->nbuckets = 0;
+	htab->nentries = 0;
 	htab->ops = ops;
 
 	htab->tab = dt_calloc(dtp, htab->size, sizeof(dt_hbucket_t *));
@@ -158,6 +160,7 @@ retry:
 add:
 	bucket->head = htab->ops->add(bucket->head, entry);
 	bucket->nentries++;
+	htab->nentries++;
 
 	return 0;
 }
@@ -199,6 +202,8 @@ int dt_htab_delete(dt_htab_t *htab, void *entry)
 		return -ENOENT;
 
 	head = htab->ops->del(bucket->head, entry);
+	bucket->nentries--;
+	htab->nentries--;
 	if (!head) {
 		dt_hbucket_t	*b = htab->tab[idx];
 
@@ -220,6 +225,14 @@ int dt_htab_delete(dt_htab_t *htab, void *entry)
 }
 
 /*
+ * Return the number of entries in the hashtable.
+ */
+size_t dt_htab_entries(const dt_htab_t *htab)
+{
+	return htab->nentries;
+}
+
+/*
  * Report statistics on the given hashtable.
  */
 void dt_htab_stats(const char *name, const dt_htab_t *htab)
@@ -227,7 +240,6 @@ void dt_htab_stats(const char *name, const dt_htab_t *htab)
 	int	i;
 	int	slotc = 0;
 	int	bckc = 0;
-	int	entc = 0;
 	int	maxbckinslot = 0;
 	int	maxentinbck = 0;
 	int	maxentinslot = 0;
@@ -262,7 +274,6 @@ void dt_htab_stats(const char *name, const dt_htab_t *htab)
 		entinslot += entryc;
 		entinbck += entryc;
 		bckc += bucketc;
-		entc += entryc;
 	}
 
 	if (!slotc) {

@@ -88,6 +88,7 @@ extern dt_htab_t *dt_htab_create(struct dtrace_hdl *dtp, dt_htab_ops_t *ops);
 extern void dt_htab_destroy(struct dtrace_hdl *dtp, dt_htab_t *htab);
 extern int dt_htab_insert(dt_htab_t *htab, void *entry);
 extern void *dt_htab_lookup(const dt_htab_t *htab, const void *entry);
+extern size_t dt_htab_entries(const dt_htab_t *htab);
 extern int dt_htab_delete(dt_htab_t *htab, void *entry);
 extern void dt_htab_stats(const char *name, const dt_htab_t *htab);
 
