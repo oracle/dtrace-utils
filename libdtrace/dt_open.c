@@ -1283,7 +1283,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_sprintf_buf);
 	pthread_mutex_destroy(&dtp->dt_sprintf_lock);
 
-	elf_end(dtp->dt_ctf_elf);
 	free(dtp->dt_mods);
 	free(dtp->dt_module_path);
 	free(dtp->dt_kernpaths);

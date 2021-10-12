@@ -129,7 +129,6 @@ typedef struct dt_module {
 	const dt_modops_t *dm_ops; /* pointer to data model's ops vector */
 	Elf *dm_elf;		/* libelf handle for module object */
 	ctf_file_t *dm_ctfp;	/* CTF container handle */
-	char *dm_ctdata_name;	/* CTF section name (dynamically allocated) */
 	void *dm_ctdata_data;	/* CTF section data (dynamically allocated) */
 	ctf_sect_t dm_ctdata;	/* CTF data for module */
 	ctf_sect_t dm_symtab;	/* symbol table */
@@ -165,12 +164,10 @@ typedef struct dt_kern_path {
 	char *dkp_path;		       /* full name including path */
 } dt_kern_path_t;
 
-#define DT_DM_LOADED	0x1	/* module symbol and type data is loaded */
-#define DT_DM_KERNEL	0x2	/* module is associated with a kernel object */
-#define DT_DM_BUILTIN	0x4	/* module is linked into the core kernel */
-#define DT_DM_SHARED	0x8	/* module is linked into shared_ctf.ko */
-#define DT_DM_CTF_ARCHIVED  0x10 /* module found in a CTF archive */
-#define DT_DM_KERN_UNLOADED 0x20 /* module not loaded into the kernel */
+#define DT_DM_LOADED		0x1	/* module symbol and type data is loaded */
+#define DT_DM_KERNEL		0x2	/* module is associated with a kernel object */
+#define DT_DM_CTF_ARCHIVED	0x4	/* module found in a CTF archive */
+#define DT_DM_KERN_UNLOADED	0x8	/* module not loaded into the kernel */
 
 typedef struct dt_ahashent {
 	struct dt_ahashent *dtahe_prev;		/* prev on hash chain */
@@ -299,12 +296,9 @@ struct dtrace_hdl {
 	dt_module_t **dt_mods;	/* hash table of dt_module_t's */
 	uint_t dt_modbuckets;	/* number of module hash buckets */
 	uint_t dt_nmods;	/* number of modules in hash and list */
-	Elf *dt_ctf_elf;	/* ELF handle to the special 'ctf' module */
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
-	uint_t dt_ctf_elf_ref;  /* Number of references to this handle */
 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
-	const dt_modops_t *dt_ctf_ops; /* data model's ops vector for CTF module */
 	dt_list_t dt_kernpathlist; /* linked list of dt_kern_path_t's */
 	dt_kern_path_t **dt_kernpaths; /* hash table of dt_kern_path_t's */
 	uint_t dt_kernpathbuckets; /* number of kernel module path hash buckets */
