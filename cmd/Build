@@ -1,9 +1,9 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-CMDS += dtrace ctf_module_dump bpf_dump
+CMDS += dtrace bpf_dump
 dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE \
 	-DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 dtrace_TARGET = dtrace
@@ -15,18 +15,6 @@ ifdef HAVE_LIBCTF
 dtrace_LIBS = -ldtrace -lctf -lport -lelf
 else
 dtrace_LIBS = -ldtrace -ldtrace-ctf -lport -lelf
-endif
-
-ctf_module_dump_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE
-ctf_module_dump_TARGET = ctf_module_dump
-ctf_module_dump_DIR := $(current-dir)
-ctf_module_dump_SOURCES = ctf_module_dump.c
-ctf_module_dump_DEPS = libdtrace.so libport.a
-ctf_module_dump_SRCDEPS := $(objdir)/dt_git_version.h
-ifdef HAVE_LIBCTF
-ctf_module_dump_LIBS = -ldtrace -lctf -lelf
-else
-ctf_module_dump_LIBS = -ldtrace -ldtrace-ctf -lelf
 endif
 
 bpf_dump_CPPFLAGS =
@@ -57,7 +45,5 @@ install::
 	      $(INSTLIBDIR)/dtrace
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
-	$(call describe-install-target,$(INSTBINDIR),ctf_module_dump)
-	install -m 755 $(objdir)/ctf_module_dump $(INSTBINDIR)
 	$(call describe-install-target,$(INSTMANDIR),dtrace.1)
 	install -m 644 $(dtrace_DIR)/dtrace.1 $(INSTMANDIR)
