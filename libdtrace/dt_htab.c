@@ -73,12 +73,28 @@ dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
 }
 
 /*
- * Destroy a hashtable.
+ * Destroy a hashtable, deleting all its entries first.
  */
 void dt_htab_destroy(dtrace_hdl_t *dtp, dt_htab_t *htab)
 {
+	size_t		i;
+
 	if (!htab)
 		return;
+
+	for (i = 0; i < htab->size; i++) {
+		dt_hbucket_t	*bucket = htab->tab[i];
+
+		while (bucket) {
+			dt_hbucket_t *obucket = bucket;
+
+			while (bucket->head)
+				bucket->head = htab->ops->del(bucket->head,
+				    bucket->head);
+			bucket = bucket->next;
+			free(obucket);
+		};
+	}
 
 	dt_free(dtp, htab->tab);
 	dt_free(dtp, htab);
@@ -193,6 +209,10 @@ int dt_htab_delete(dt_htab_t *htab, void *entry)
 	dt_hbucket_t	*bucket;
 	void		*head;
 
+	/*
+	 * Find the right bucket in cases of hash collision.
+	 */
+
 	for (bucket = htab->tab[idx]; bucket; bucket = bucket->next) {
 		if (htab->ops->cmp(bucket->head, entry) == 0)
 			break;
@@ -201,9 +221,16 @@ int dt_htab_delete(dt_htab_t *htab, void *entry)
 	if (bucket == NULL)
 		return -ENOENT;
 
+	/*
+	 * Delete the specified entry, now known to be in this bucket.
+	 */
 	head = htab->ops->del(bucket->head, entry);
 	bucket->nentries--;
 	htab->nentries--;
+
+	/*
+	 * Deal with a now-empty bucket.
+	 */
 	if (!head) {
 		dt_hbucket_t	*b = htab->tab[idx];
 
