@@ -393,7 +393,24 @@ dt_spec_buf_cmp(const dt_spec_buf_t *p,
 }
 
 DEFINE_HE_STD_LINK_FUNCS(dt_spec_buf, dt_spec_buf_t, dtsb_he);
-DEFINE_HTAB_STD_OPS(dt_spec_buf);
+
+static void
+dt_spec_buf_destroy(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb);
+
+static void *
+dt_spec_buf_del_buf(dt_spec_buf_t *head, dt_spec_buf_t *ent)
+{
+	head = dt_spec_buf_del(head, ent);
+	dt_spec_buf_destroy(ent->dtsb_dtp, ent);
+	return head;
+}
+
+static dt_htab_ops_t dt_spec_buf_htab_ops = {
+	.hval = (htab_hval_fn)dt_spec_buf_hval,
+	.cmp = (htab_cmp_fn)dt_spec_buf_cmp,
+	.add = (htab_add_fn)dt_spec_buf_add,
+	.del = (htab_del_fn)dt_spec_buf_del_buf
+};
 
 static int
 dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
@@ -1977,11 +1994,11 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
  *    the specs map, and that draining has not been set in it, and atomically
  *    bumps the written value.
  *
- *  - Speculations drain from the perf ring buffer into dt_spec_buf_datas, one
- *    dt_spec_buf_data per ring-buffer of data fetched from the kernel with a
- *    nonzero specid (one speculated clause); these are chained into
- *    dt_spec_bufs, one per speculation ID, and these are chained into
- *    dtp->dt_spec_bufs instead of being consumed.
+ *  - Speculations drain from the perf ring buffer into possibly many
+ *    dt_spec_buf_data instances, one dt_spec_buf_data per ring-buffer of data
+ *    fetched from the kernel with a nonzero specid (one speculated clause);
+ *    these are chained into dt_spec_bufs, one per speculation ID, and these are
+ *    put into dtp->dt_spec_bufs instead of being consumed.
  *
  *  - commit / discard set the specs map entry's drained value to 1, which
  *    indicates that it is drainable by userspace and prevents further
@@ -2026,9 +2043,11 @@ dt_spec_buf_create(dtrace_hdl_t *dtp, int32_t spec)
 		goto oom;
 	dtsb->dtsb_id = spec;
 
-	if (dt_htab_insert(dtp->dt_specs_byid, dtsb) < 0)
+	/* Needed for the htab destructor */
+	dtsb->dtsb_dtp = dtp;
+
+	if (dt_htab_insert(dtp->dt_spec_bufs, dtsb) < 0)
 		goto oom;
-	dt_list_append(&dtp->dt_spec_bufs, dtsb);
 	return dtsb;
 oom:
 	dt_free(dtp, dtsb);
@@ -2067,12 +2086,10 @@ oom:
 }
 
 /*
- * Remove a speculation's data and possibly the speculation buffer itself and
- * the record of it in the BPF specs map (which frees the ID for reuse).
+ * Remove a speculation buffer's data.  The buffer is left alone.
  */
 static void
-dt_spec_buf_destroy(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb,
-		    int remove_specid)
+dt_spec_buf_data_destroy(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb)
 {
 	dt_spec_buf_data_t	*dsbd;
 
@@ -2084,15 +2101,25 @@ dt_spec_buf_destroy(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb,
 	}
 
 	dtsb->dtsb_size = 0;
+}
 
-	if (remove_specid) {
-		dt_ident_t *idp = dt_dlib_get_map(dtp, "specs");
+/*
+ * Remove a speculation's buffers, the speculation itself, and the record of it
+ * in the BPF specs map (which frees the ID for reuse).
+ *
+ * Note: if the speculation is being committed, it will also be interned on the
+ * dtp->dt_spec_bufs_draining list.  Such entries must be removed first.
+ */
+static void
+dt_spec_buf_destroy(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb)
+{
+	dt_ident_t *idp = dt_dlib_get_map(dtp, "specs");
 
-		if (idp)
-			dt_bpf_map_delete(idp->di_id, &dtsb->dtsb_id);
-		dt_list_delete(&dtp->dt_spec_bufs, dtsb);
-		dt_free(dtp, dtsb);
-	}
+	dt_spec_buf_data_destroy(dtp, dtsb);
+
+	if (idp)
+		dt_bpf_map_delete(idp->di_id, &dtsb->dtsb_id);
+	dt_free(dtp, dtsb);
 }
 
 /*
@@ -2209,7 +2236,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			return DTRACE_WORKSTATUS_OKAY;
 
 		tmpl.dtsb_id = specid;
-		dtsb = dt_htab_lookup(dtp->dt_specs_byid, &tmpl);
+		dtsb = dt_htab_lookup(dtp->dt_spec_bufs, &tmpl);
 
 		/*
 		 * Discard when over the specsize.
@@ -2356,7 +2383,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			assert(specid == 0);
 
 			tmpl.dtsb_id = *(uint32_t *)recdata;
-			dtsb = dt_htab_lookup(dtp->dt_specs_byid, &tmpl);
+			dtsb = dt_htab_lookup(dtp->dt_spec_bufs, &tmpl);
 
 			/*
 			 * Speculation exists and is not already being drained.
@@ -2489,7 +2516,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		     dtsd != NULL; dtsd = next) {
 
 			dtsb = dtsd->dtsd_dtsb;
-			dtsd->dtsd_read += dt_list_length(&dtsd->dtsd_dtsb->dtsb_dsbd_list);
+			dtsd->dtsd_read += dt_list_length(&dtsb->dtsb_dsbd_list);
 
 			if (dtsb->dtsb_committing) {
 				if ((ret = dt_commit_one_spec(dtp, fp, dtsb,
@@ -2497,19 +2524,18 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 							      flow, quiet, peekflags,
 							      last, arg)) !=
 				    DTRACE_WORKSTATUS_OKAY) {
-					dt_spec_buf_destroy(dtp, dtsb, 0);
+					dt_spec_buf_data_destroy(dtp, dtsb);
 					return ret;
 				}
 			}
 
 			next = dt_list_next(dtsd);
 
-			if (dtsd->dtsd_read < dtsd->dtsd_dtsb->dtsb_spec.written)
-				dt_spec_buf_destroy(dtp, dtsb, 0);
+			if (dtsd->dtsd_read < dtsb->dtsb_spec.written)
+				dt_spec_buf_data_destroy(dtp, dtsb);
 			else {
-				dt_spec_buf_destroy(dtp, dtsb, 1);
-				dt_htab_delete(dtp->dt_specs_byid, dtsd->dtsd_dtsb);
 				dt_list_delete(&dtp->dt_spec_bufs_draining, dtsd);
+				dt_htab_delete(dtp->dt_spec_bufs, dtsb);
 				dt_free(dtp, dtsd);
 			}
 		}
@@ -2917,13 +2943,12 @@ dt_consume_proc_exits(dtrace_hdl_t *dtp)
 	pthread_mutex_unlock(&dph->dph_lock);
 }
 
-
 int
 dt_consume_init(dtrace_hdl_t *dtp)
 {
-	dtp->dt_specs_byid = dt_htab_create(dtp, &dt_spec_buf_htab_ops);
+	dtp->dt_spec_bufs = dt_htab_create(dtp, &dt_spec_buf_htab_ops);
 
-	if (!dtp->dt_specs_byid)
+	if (!dtp->dt_spec_bufs)
 		return dt_set_errno(dtp, EDT_NOMEM);
 	return 0;
 }
@@ -2931,7 +2956,6 @@ dt_consume_init(dtrace_hdl_t *dtp)
 void
 dt_consume_fini(dtrace_hdl_t *dtp)
 {
-	dt_spec_buf_t *dtsb;
 	dtsb_draining_t *dtsd;
 
 	while ((dtsd = dt_list_next(&dtp->dt_spec_bufs_draining)) != NULL) {
@@ -2939,10 +2963,7 @@ dt_consume_fini(dtrace_hdl_t *dtp)
 		dt_free(dtp, dtsd);
 	}
 
-	while ((dtsb = dt_list_next(&dtp->dt_spec_bufs)) != NULL)
-		dt_spec_buf_destroy(dtp, dtsb, 1);
-
-	dt_htab_destroy(dtp, dtp->dt_specs_byid);
+	dt_htab_destroy(dtp, dtp->dt_spec_bufs);
 }
 
 dtrace_workstatus_t

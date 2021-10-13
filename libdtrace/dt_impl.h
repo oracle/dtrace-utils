@@ -248,7 +248,7 @@ typedef struct dt_spec_buf_data {
 } dt_spec_buf_data_t;
 
 typedef struct dt_spec_buf {
-	dt_list_t dtsb_list;		/* list of dt_spec_buf */
+	dtrace_hdl_t *dtsb_dtp;		/* backpointer to the dtrace instance */
 	int32_t dtsb_id;		/* speculation ID */
 	size_t dtsb_size;		/* size of all buffers in this spec */
 	int dtsb_committing;		/* when draining, nonzero if commit */
@@ -402,9 +402,8 @@ struct dtrace_hdl {
 	hrtime_t dt_laststatus;	/* last status */
 	hrtime_t dt_lastswitch;	/* last switch of buffer data */
 	hrtime_t dt_lastagg;	/* last snapshot of aggregation data */
-	dt_list_t dt_spec_bufs; /* List of spec bufs */
 	dt_list_t dt_spec_bufs_draining; /* List of spec bufs being drained */
-	dt_htab_t *dt_specs_byid;/* spec ID -> list of dt_spec_bufs_head_t */
+	dt_htab_t *dt_spec_bufs;/* spec ID -> list of dt_spec_bufs_head_t */
 	char *dt_sprintf_buf;	/* buffer for dtrace_sprintf() */
 	int dt_sprintf_buflen;	/* length of dtrace_sprintf() buffer */
 	pthread_mutex_t dt_sprintf_lock; /* lock for dtrace_sprintf() buffer */
