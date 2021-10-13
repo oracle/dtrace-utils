@@ -212,22 +212,3 @@ dt_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 
 	return NULL;
 }
-
-/*
- * Public API wrappers.
- */
-dt_kern_path_t *
-dtrace__internal_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
-    __attribute__((alias("dt_kern_path_create")));
-
-void
-dtrace__internal_kern_path_destroy(dtrace_hdl_t *dtp, dt_kern_path_t *dkpp)
-    __attribute__((alias("dt_kern_path_destroy")));
-
-int
-dtrace__internal_kern_path_update(dtrace_hdl_t *dtp)
-    __attribute__((alias("dt_kern_path_update")));
-
-dt_kern_path_t *
-dtrace__internal_kern_path_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
-    __attribute__((alias("dt_kern_path_lookup_by_name")));

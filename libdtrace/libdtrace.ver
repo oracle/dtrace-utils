@@ -1,6 +1,6 @@
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2009, 2015, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -93,11 +93,4 @@ LIBDTRACE_1.0 {
 	_libdtrace_vcs_version;
     local:
 	*;
-};
-
-# These are exposed for internal purposes, and are not part of the public
-# interface.
-LIBDTRACE_PRIVATE
-{
-	dtrace__internal_*;
 };
