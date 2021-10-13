@@ -15,6 +15,7 @@
  *	cmp(void *e1, void *e2)	- compare two entries
  *	add(void *h, void *e)	- add an entry to a list (h is head)
  *	del(void *h, void *e)	- delete an entry from a list (h is head)
+ *	next(void *e)		- return the next entry after e
  *
  * Entries are hashed into a hashtable slot based on the return value of
  * hval(e).  Each hashtable slot holds a list of buckets, with each bucket
@@ -45,6 +46,21 @@ struct dt_htab {
 	int		nbuckets;
 	size_t		nentries;
 	dt_htab_ops_t	*ops;
+};
+
+/*
+ *  The dt_htab_next iteration state is somewhat unusual. It points not to the
+ *  element most recently returned by the iterator, but to the element which
+ *  will be returned on the *next* iteration cycle (so it spends the last
+ *  iteration cycle "off-the-end", all-NULL).  This allows the user to
+ *  delete the current element returned by dt_htab_next().
+ */
+struct dt_htab_next {
+	const dt_htab_t	*htab;
+	int		idx;
+	dt_hbucket_t	*bucket;
+	void		*ent;
+	int		exhausted;
 };
 
 /*
@@ -249,6 +265,83 @@ int dt_htab_delete(dt_htab_t *htab, void *entry)
 		bucket->head = head;
 
 	return 0;
+}
+
+/*
+ * Iterate over a hashtable, returning each element in turn (as a pointer to
+ * void).  NULL is returned at end-of-iteration (and OOM).
+ */
+void *
+dt_htab_next(const dt_htab_t *htab, dt_htab_next_t **it)
+{
+	dt_htab_next_t *i = *it;
+	void *ret;
+
+	/*
+	 * Start of iteration.
+	 */
+	if (!i) {
+		if ((i = calloc(1, sizeof(dt_htab_next_t))) == NULL)
+			return NULL;
+		i->htab = htab;
+		*it = i;
+
+		/*
+		 * Tick through one iteration.  Ignore the return value,
+		 * since it is meaningless at this stage.
+		 */
+		(void) dt_htab_next(htab, it);
+	}
+
+	/*
+	 * Handle end-of-iteration, then capture the value we will return after
+	 * advancing the iterator.
+	 */
+
+	if (i->exhausted) {
+		free(i);
+		*it = NULL;
+		return NULL;
+	}
+	ret = i->ent;
+
+	/*
+	 * One iteration cycle.  Exhaust the current idx: moving on to the next
+	 * restarts the bucket and ent subloops.
+	 */
+	for (; i->idx < i->htab->size; i->idx++, i->bucket = NULL, i->ent = NULL) {
+
+		if (i->htab->tab[i->idx] == NULL)
+			continue;
+		if (i->bucket == NULL)
+			i->bucket = i->htab->tab[i->idx];
+
+		/*
+		 * Check the current bucket: moving on to the next restarts the
+		 * ent subloop.
+		 */
+		for (; i->bucket; i->bucket = i->bucket->next, i->ent = NULL) {
+
+			if (i->ent == NULL)
+				i->ent = i->bucket->head;
+			else
+				i->ent = i->htab->ops->next(i->ent);
+			if (i->ent)
+				return ret;
+		}
+	}
+
+	/*
+	 * End of advancement, but that doesn't mean we can't return.
+	 */
+	i->exhausted = 1;
+	return ret;
+}
+
+void
+dt_htab_next_destroy(dt_htab_next_t *i)
+{
+	free(i);
 }
 
 /*

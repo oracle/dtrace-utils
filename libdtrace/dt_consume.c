@@ -409,7 +409,8 @@ static dt_htab_ops_t dt_spec_buf_htab_ops = {
 	.hval = (htab_hval_fn)dt_spec_buf_hval,
 	.cmp = (htab_cmp_fn)dt_spec_buf_cmp,
 	.add = (htab_add_fn)dt_spec_buf_add,
-	.del = (htab_del_fn)dt_spec_buf_del_buf
+	.del = (htab_del_fn)dt_spec_buf_del_buf,
+	.next = (htab_next_fn)dt_spec_buf_next
 };
 
 static int

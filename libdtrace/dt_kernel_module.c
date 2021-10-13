@@ -58,7 +58,8 @@ static dt_htab_ops_t kernpath_htab_ops = {
 	.hval = (htab_hval_fn)kernpath_hval,
 	.cmp = (htab_cmp_fn)kernpath_cmp,
 	.add = (htab_add_fn)kernpath_add,
-	.del = (htab_del_fn)kernpath_del_path
+	.del = (htab_del_fn)kernpath_del_path,
+	.next = (htab_next_fn)kernpath_next
 };
 
 /*
