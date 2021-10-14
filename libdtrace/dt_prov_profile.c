@@ -266,8 +266,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	memset(&attr, 0, sizeof(attr));
 	attr.type = PERF_TYPE_SOFTWARE;
 	attr.config = PERF_COUNT_SW_CPU_CLOCK;
-	attr.sample_type = PERF_SAMPLE_RAW;
-	attr.size = sizeof(struct perf_event_attr);
+	attr.size = sizeof(attr);
 	attr.wakeup_events = 1;
 	attr.freq = 0;
 	attr.sample_period = pp->period;

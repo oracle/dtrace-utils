@@ -67,7 +67,7 @@ dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd)
 		struct perf_event_attr	attr = { 0, };
 
 		attr.type = PERF_TYPE_TRACEPOINT;
-		attr.sample_type = PERF_SAMPLE_RAW;
+		attr.size = sizeof(attr);
 		attr.sample_period = 1;
 		attr.wakeup_events = 1;
 		attr.config = tpp->event_id;

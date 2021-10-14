@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -75,10 +75,11 @@ dt_peb_open(dt_peb_t *peb)
 	memset(&attr, 0, sizeof(attr));
 	attr.config = PERF_COUNT_SW_BPF_OUTPUT;
 	attr.type = PERF_TYPE_SOFTWARE;
+	attr.size = sizeof(attr);
 	attr.sample_type = PERF_SAMPLE_RAW;
 	attr.sample_period = 1;
 	attr.wakeup_events = 1;
-	fd = perf_event_open(&attr, -1, peb->cpu, -1, PERF_FLAG_FD_CLOEXEC);
+	fd = perf_event_open(&attr, -1, peb->cpu, -1, 0);
 	if (fd < 0)
 		goto fail;
 
