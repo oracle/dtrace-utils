@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.7%{?dist}
+Release:      1.8%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -227,6 +227,17 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Oct 15 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.8
+- Support running dtrace under valgrind. (Nick Alcock) [Orabug: 32760574]
+- Implementation of speculative tracing. (Nick Alcock)
+- Add support for string comparison. (Eugene Loh)
+- Add support for strchr(), strrchr(), index(), rindex(), strstr(), lltostr().
+  (Eugene Loh)
+- Add support for symbols in compressed kernel modules. (Nick Alcock)
+- Add support for htonl, htonll, htons, ntohl, ntohll, ntohs. (Eugene Loh)
+- Various testsuite fixes and improvements. [Orabug: 33474154]
+- Various code improvements. [Orabug: 33474154]
+
 * Thu Sep  9 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.7
 - Implement argument retrieval for SDT probes.
 - Introduce 'bpflog' runtime option to request BPF verifier log.

@@ -1,3 +1,44 @@
+2.0.0-1.8 (Oct 15th, 2021)
+--------------------------
+
+Eighth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The htonl(), htonll(), htons(), ntohl(), ntohll(), and ntohs() subroutines
+   have been implemented.
+
+ - String comparison has been implemented.
+
+ - The strchr(), strrchr(), index(), rindex(), strstr(), and lltostr()
+   subroutines have been implemented.
+
+ - Support has been added to be able to resolve symbols in compressed kernel
+   modules.
+
+ - Speculative tracing has been implemented.  Full support for the speculate(),
+   commit(), and discard() actions is available, as is support for the
+   speculaton() subroutine.
+
+ - It is now possible to run dtrace under valgrind.
+
+Bugfixes:
+
+ - Symbol resolution for loadable modules was broken.  This has been corrected.
+
+Internal changes:
+
+ - Support has been added for the endianness conversion BPF instruction.
+
+ - All uses of perf_event_open() now specify the PERF_FLAG_FD_CLOEXEC flag.
+
+Known problems:
+
+ - String sizes greater than 128 characters may pose problems with some string
+   operations due to BPF verifier limitations.
+
 2.0.0-1.7 (Sep 9th, 2021)
 -------------------------
 
@@ -66,10 +107,6 @@ Internal changes:
    integer to a 2-byte fixed width integer.  This was made necessay due to
    BPF verifier limitations.  This is an interim solution while a more
    permanent reworking of the string handling code is dveloped.
-
-Testsuite changes:
-
-Known problems:
 
 2.0.0-1.6 (Jun 18th, 2021)
 --------------------------
