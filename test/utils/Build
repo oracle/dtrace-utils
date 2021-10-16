@@ -45,7 +45,8 @@ install::
 	install -m 755 test/utils/showUSDT $(INSTDOCDIR)
 
 install-test::
-	$(call describe-install-target,$(INSTTESTDIR)/test/utils,$(TEST_UTILS) include-test.d)
+	$(call describe-install-target,$(INSTTESTDIR)/test/utils,$(TEST_UTILS) include-test.d libctf.r.p)
 	mkdir -p $(INSTTESTDIR)/test/utils
 	install -m 755 $(addprefix test/utils/,$(TEST_UTILS)) $(INSTTESTDIR)/test/utils
 	install -m 644 test/utils/include-test.d $(INSTTESTDIR)/test/utils
+	install -m 755 test/utils/libctf.r.p $(INSTTESTDIR)/test/utils

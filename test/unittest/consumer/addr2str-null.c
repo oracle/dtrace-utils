@@ -4,6 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@skip: needs work */
 
 /*
  * Verify that a dtrace_addr2str() of the null pointer does not
