@@ -50,7 +50,7 @@ typedef struct dt_node {
 
 		struct {
 			dt_ident_t *_ident;	/* identifier reference */
-			struct dt_node *_links[3]; /* child node pointers */
+			struct dt_node *_links[4]; /* child node pointers */
 		} _nodes;
 
 		struct {
@@ -99,13 +99,13 @@ typedef struct dt_node {
 #define	dn_string	dn_u._const._string	/* STRING, IDENT, TYPE */
 #define	dn_ident	dn_u._nodes._ident	/* VAR,SYM,FUN,AGG,INL,PROBE */
 #define	dn_args		dn_u._nodes._links[0]	/* DT_NODE_VAR, FUNC */
-#define	dn_tstring	dn_u._nodes._links[1]	/* DT_NODE_FUNC */
 #define	dn_child	dn_u._nodes._links[0]	/* DT_NODE_OP1 */
 #define	dn_left		dn_u._nodes._links[0]	/* DT_NODE_OP2, OP3 */
 #define	dn_right	dn_u._nodes._links[1]	/* DT_NODE_OP2, OP3 */
 #define	dn_expr		dn_u._nodes._links[2]	/* DT_NODE_OP3, DEXPR */
 #define	dn_aggfun	dn_u._nodes._links[0]	/* DT_NODE_AGG */
 #define	dn_aggtup	dn_u._nodes._links[1]	/* DT_NODE_AGG */
+#define	dn_tstring	dn_u._nodes._links[3]	/* FUNC, OP1, OP2, OP3, DEXPR */
 #define	dn_pdescs	dn_u._clause._descs	/* DT_NODE_CLAUSE */
 #define	dn_pred		dn_u._clause._pred	/* DT_NODE_CLAUSE */
 #define	dn_acts		dn_u._clause._acts	/* DT_NODE_CLAUSE */

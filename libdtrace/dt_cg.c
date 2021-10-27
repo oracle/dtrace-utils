@@ -880,8 +880,15 @@ dt_cg_tstring_xfree(dt_pcb_t *pcb, uint64_t offset)
 static void
 dt_cg_tstring_free(dt_pcb_t *pcb, dt_node_t *dnp)
 {
-	if (dnp->dn_kind == DT_NODE_FUNC && dnp->dn_tstring)
-		dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
+	switch (dnp->dn_kind) {
+	case DT_NODE_FUNC:
+	case DT_NODE_OP1:
+	case DT_NODE_OP2:
+	case DT_NODE_OP3:
+	case DT_NODE_DEXPR:
+		if (dnp->dn_tstring)
+			dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
+	}
 }
 
 static const uint_t	ldstw[] = {
@@ -2303,8 +2310,13 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	}
 }
 
+/*
+ * dnp = node of the assignment
+ *   dn_left = identifier node for the destination (idp = identifier)
+ *   dn_right = value to store
+ */
 static void
-dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
+dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_ident_t *idp)
 {
 	uint_t	varid;
@@ -2327,7 +2339,7 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 			emit(dlp, BPF_LOAD(BPF_DW, reg, reg, DCTX_GVARS));
 
 		/* store by value or by reference */
-		if (src->dn_flags & DT_NF_REF) {
+		if (dnp->dn_flags & DT_NF_REF) {
 			size_t		srcsz;
 
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
@@ -2337,23 +2349,22 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 			 * the lesser of the size of the identifier and the
 			 * size of the data being copied in.
 			 */
-			srcsz = dt_node_type_size(src->dn_right);
-			if (dt_node_is_string(src))
+			srcsz = dt_node_type_size(dnp->dn_right);
+			if (dt_node_is_string(dnp))
 				srcsz += DT_STRLEN_BYTES;
 			size = MIN(srcsz, idp->di_size);
 
-			dt_cg_memcpy(dlp, drp, reg, src->dn_reg, size);
+			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
 		} else {
 			size = idp->di_size;
 
 			assert(size > 0 && size <= 8 &&
 			       (size & (size - 1)) == 0);
 
-			emit(dlp, BPF_STORE(ldstw[size], reg, idp->di_offset, src->dn_reg));
+			emit(dlp, BPF_STORE(ldstw[size], reg, idp->di_offset, dnp->dn_reg));
 		}
 
 		dt_regset_free(drp, reg);
-		dt_cg_tstring_free(yypcb, src);
 		return;
 	}
 
@@ -2370,7 +2381,7 @@ dt_cg_store_var(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp,
 	 * the disassembler expects this sequence in support for annotating
 	 * the disassembly with variables names.
 	 */
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
@@ -2800,9 +2811,9 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 static void
 dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	uint_t lbl_false = dt_irlist_label(dlp);
-	uint_t lbl_post = dt_irlist_label(dlp);
-	dt_irnode_t *dip;
+	uint_t		lbl_false = dt_irlist_label(dlp);
+	uint_t		lbl_post = dt_irlist_label(dlp);
+	dt_irnode_t	*dip;
 
 	dt_cg_node(dnp->dn_expr, dlp, drp);
 	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_expr->dn_reg, 0, lbl_false));
@@ -2830,6 +2841,35 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emitl(dlp, lbl_post,
 		   BPF_NOP());
+
+	/*
+	 * Strings complicate things a bit because dn_left and dn_right might
+	 * actually be temporary strings (tstring) *and* in different slots.
+	 * We need to allocate a new tstring to hold the result, and copy the
+	 * value into the new tstring (and free any tstrings in dn_left and
+	 * dn_right).
+	 */
+	if (dt_node_is_string(dnp)) {
+		/*
+		 * At this point, dnp->dn_reg holds a pointer to the string we
+		 * need to copy.  But we want to copy it into a tstring which
+		 * location is to be stored in dnp->dn_reg.  So, we need to
+		 * shuffle things a bit.
+		 */
+		emit(dlp,  BPF_MOV_REG(BPF_REG_0, dnp->dn_reg));
+		dt_cg_tstring_alloc(yypcb, dnp);
+
+		emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+		dt_cg_memcpy(dlp, drp, dnp->dn_reg, BPF_REG_0,
+			     DT_STRLEN_BYTES +
+			     yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE]);
+
+		dt_cg_tstring_free(yypcb, dnp->dn_left);
+		dt_cg_tstring_free(yypcb, dnp->dn_right);
+	}
 }
 
 static void
@@ -3069,7 +3109,12 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
 		dt_cg_store_var(dnp, dlp, drp, idp);
-		dt_cg_tstring_free(yypcb, dnp->dn_right);
+
+		/*
+		 * Move the (possibly) tstring from dn_right to the op node.
+		 */
+		dnp->dn_tstring = dnp->dn_right->dn_tstring;
+		dnp->dn_right->dn_tstring = NULL;
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
