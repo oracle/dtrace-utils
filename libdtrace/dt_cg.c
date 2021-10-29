@@ -3356,6 +3356,26 @@ dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_rand(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	TRACE_REGSET("    subr-rand:Begin");
+
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_prandom_u32));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+	emit(dlp,  BPF_ALU64_IMM(BPF_AND, dnp->dn_reg, 0xffffffff));
+
+	TRACE_REGSET("    subr-rand:End  ");
+}
+
+static void
 dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*s = dnp->dn_args;
@@ -3802,7 +3822,7 @@ dt_cg_subr_htonll(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
-	[DIF_SUBR_RAND]			= NULL,
+	[DIF_SUBR_RAND]			= &dt_cg_subr_rand,
 	[DIF_SUBR_MUTEX_OWNED]		= NULL,
 	[DIF_SUBR_MUTEX_OWNER]		= NULL,
 	[DIF_SUBR_MUTEX_TYPE_ADAPTIVE]	= NULL,
