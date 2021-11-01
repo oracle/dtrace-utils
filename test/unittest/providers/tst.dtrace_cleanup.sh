@@ -20,7 +20,7 @@ out=/tmp/output.$$
 $dtrace $dt_flags -n BEGIN,END &>> $out &
 pid=$!
 
-for iter in `seq 10`; do
+for iter in $(seq 1 $((timeout/2))); do
     sleep 1
     if grep -q :BEGIN $out; then
         iter=0

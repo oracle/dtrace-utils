@@ -751,7 +751,7 @@ for dt in $dtrace; do
         base=${base%.sh}
         base=${base%.c}
         testonly="$(basename $_test)"
-        timeout="$TIMEOUT"
+        export timeout="$TIMEOUT"
 
         # Hidden files and editor backup files are not tests.
 
