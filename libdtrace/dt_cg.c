@@ -1293,6 +1293,8 @@ dt_cg_act_exit(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_LIBACT, 0, 1, NULL,
+		   DT_ACT_FTRUNCATE);
 }
 
 static void

@@ -2331,6 +2331,15 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 
 				i++;
 				continue;
+			case DT_ACT_FTRUNCATE:
+				if (fp == NULL)
+					continue;
+
+				fflush(fp);
+				ftruncate(fileno(fp), 0);
+				fseeko(fp, 0, SEEK_SET);
+
+				continue;
 			}
 		}
 
