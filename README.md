@@ -17,7 +17,7 @@ Source code for the UEK kernel is available on github in the [linux-uek repo](ht
 * [1. License](#1-license)
 * [2. How to Build dtrace-utils](#2-how-to-build-dtrace-utils)
   * [2.1. Prerequisites](#21-prerequisites)
-     * [2.1.1. Step 1](#211-step-1-install-the-compact-type-format-ctf-libraries)
+     * [2.1.1. Step 1](#211-step-1-install-new-GCC-and-binutils-or-the-compact-type-format-ctf-libraries)
      * [2.1.2. Step 2](#212-step-2-build-a-dtrace-enabled-kernel)
      * [2.1.3. Step 3](#213-step-3-get-the-other-necessary-packages)
   * [2.2. Build dtrace-utils](#22-build-dtrace-utils)
@@ -48,17 +48,22 @@ The latest yum configuration is available on [Oracle Linux yum server](https://y
 To enable the **ol7_UEK5** repository ensure that the `enabled=1` is in the `yum`
 repository configuration.
 
-#### 2.1.1. Step 1: Install the Compact Type Format (CTF) libraries
+#### 2.1.1. Step 1: Install a new GCC and Binutils, or the Compact Type Format (CTF) libraries
 
 CTF type support requires installation of supporting libraries and development
-headers. CTF library development is handled as a separate project.
-For more information about how to build and install the libraries from source code,
-please visit [libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).
+headers. There are two options here. The best available option is to install a
+trunk GCC, or (when released) GCC 12+, and make sure your binutils is at least
+version 2.36 and you have libctf.so somewhere on your library path: this may
+require installing binutils development RPMs.
 
-Use the following command to install all required packages on Oracle Linux.
-```
-yum install libdtrace-ctf-devel
-```
+But because installing new toolchains on older systems can be a bit
+hair-raising, there is still an older approach, using a separate libdtrace-ctf
+project.  For more information about how to build and install this from source
+code, please visit [libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).
+
+This approach is deprecated and will eventually stop working: even now, if you
+build the kernel with the binutils/GCC approach, a DTrace built using
+libdtrace-ctf won't work with it.
 
 #### 2.1.2. Step 2: Build a DTrace Enabled Kernel
 
