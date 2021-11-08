@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -195,7 +195,7 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	int fd, err, bits;
 	size_t shstrs;
 
-	if (!dmp->dm_file) {
+	if (!dmp->dm_file[0] == '\0') {
 		dt_dprintf("failed to open ELF file for module %s: "
 		    "no file name known\n", dmp->dm_name);
 		return dt_set_errno(dtp, EDT_NOTLOADED);
