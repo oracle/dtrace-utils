@@ -20,15 +20,16 @@ fi
 NAM=$MOD'`'$NAM
 
 # run DTrace to test mod() and sym()
-read MYMOD MYNAM <<< `$dtrace -qn 'BEGIN {mod(0x'$ADD'); sym(0x'$ADD'); exit(0) }'`
+# also test func(), but it is simply an alias for sym()
+read MYMOD MYNAM MYFUN <<< `$dtrace -qn 'BEGIN {mod(0x'$ADD'); sym(0x'$ADD'); func(0x'$ADD'); exit(0) }'`
 if [ $? -ne 0 ]; then
 	exit 1
 fi
 
 # reporting
 echo test $ADD $MOD   $NAM
-echo expect    $MOD   $NAM
-echo actual  $MYMOD $MYNAM
+echo expect    $MOD   $NAM   $NAM
+echo actual  $MYMOD $MYNAM $MYFUN
 
 if [ $MOD != $MYMOD ]; then
 	echo fail: $MOD does not match $MYMOD
@@ -36,6 +37,10 @@ if [ $MOD != $MYMOD ]; then
 fi
 if [ $NAM != $MYNAM ]; then
 	echo fail: $NAM does not match $MYNAM
+	exit 1
+fi
+if [ $NAM != $MYFUN ]; then
+	echo fail: $NAM does not match $MYFUN
 	exit 1
 fi
 
