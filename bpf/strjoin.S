@@ -19,39 +19,46 @@ dt_strjoin:
 	mov	%r7, %r2		/* %r7 = s1 */
 	mov	%r8, %r3		/* %r8 = s2 */
 
-	mov	%r1, %r7
-	call	dt_strlen
-	mov	%r6, %r0		/* len = dt_strlen(s1) */
-	add	%r7, DT_STRLEN_BYTES	/* s1 += 2 */
-
-	mov	%r1, %r8
-	call	dt_strlen
-	add	%r6, %r0		/* len += dt_strlen(s2) */
-	add	%r8, DT_STRLEN_BYTES	/* s2 += 2 */
-
-	mov	%r1, %r6
-	mov	%r2, %r9
-	call	dt_strlen_store		/* dt_strlen_store(len, dst) */
-	add	%r9, DT_STRLEN_BYTES	/* dst += 2 */
-
 	lddw	%r6, STRSZ
-	add	%r6, 1
-	and	%r6, 0xffffffff		/* len = (STRSZ + 1) & 0xffffffff */
+	add	%r6, 1			/* cnt = STRSZ + 1 */
 
-	mov	%r1, %r9
+	add	%r1, DT_STRLEN_BYTES	/* dst is in %r1 already */
 	mov	%r2, %r6
 	mov	%r3, %r7
-	call	BPF_FUNC_probe_read_str	/* cnt = bpf_probe_read_str(dst, len s1) */
-	jslt	%r0, 0, .L1		/* if (cnt < 0) goto .L1 */
-	jslt	%r0, 1, .L2		/* if (cnt < 1) goto .L2 */
-	sub	%r0, 1			/* cnt-- */
-	add	%r9, %r0		/* dst += cnt */
-	sub	%r6, %r0		/* len -= cnt */
-.L2:
+	add	%r3, DT_STRLEN_BYTES
+	call	BPF_FUNC_probe_read_str	/*
+					 * rc = probe_read_str(
+					 *	  &dst[DT_STRLEN_BYTES],
+					 *	  cnt,
+					 *	  &s1[DT_STRLEN_BYTES]);
+					 */
+	jsle	%r0, 0, .Lexit		/* if (rc s<= 0) goto .Lexit; */
+	mov	%r7, %r0		/* len = rc */
+	jeq	%r7, %r6, .Lset_len	/* if (len == cnt) goto .Lset_len; */
+	sub	%r7, 1			/* len-- */
+
 	mov	%r1, %r9
+	add	%r1, DT_STRLEN_BYTES
+	add	%r1, %r7
 	mov	%r2, %r6
+	sub	%r2, %r7
 	mov	%r3, %r8
-	call	BPF_FUNC_probe_read_str	/* bpf_probe_read_str(dst, len, s2 */
-.L1:
+	add	%r3, DT_STRLEN_BYTES
+	call	BPF_FUNC_probe_read_str	/*
+					 * rc = probe_read_str(
+					 *	  &dst[DT_STRLEN_BYTES + len],
+					 *	  cnt - len,
+					 *	  &s2[DT_STRLEN_BYTES]);
+					 */
+	jsle	%r0, 0, .Lexit		/* if (rc s<= 0) goto .Lset_len; */
+	add	%r7, %r0		/* len += rc */
+
+.Lset_len:
+	sub	%r7, 1			/* len-- */
+	mov	%r1, %r7
+	mov	%r2, %r9
+	call	dt_strlen_store		/* dt_strlen_store(len - 1, dst) */
+
+.Lexit:
 	exit
 	.size	dt_strjoin, .-dt_strjoin
