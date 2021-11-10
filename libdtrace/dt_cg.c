@@ -806,18 +806,19 @@ dt_cg_tstring_reset(dtrace_hdl_t *dtp)
 {
 	int		i;
 	dt_tstring_t	*ts;
+	uint64_t	size = roundup(DT_STRLEN_BYTES +
+				       dtp->dt_options[DTRACEOPT_STRSIZE] + 1,
+				       8);
 
 	if (dtp->dt_tstrings == NULL) {
 		dtp->dt_tstrings = dt_calloc(dtp, DT_TSTRING_SLOTS,
-					    sizeof(dt_tstring_t));
+					     sizeof(dt_tstring_t));
 		if (dtp->dt_tstrings == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 		ts = dtp->dt_tstrings;
 		for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
-			ts->offset = i *
-				roundup(DT_STRLEN_BYTES +
-					dtp->dt_options[DTRACEOPT_STRSIZE], 8);
+			ts->offset = i * size;
 	}
 
 	ts = dtp->dt_tstrings;

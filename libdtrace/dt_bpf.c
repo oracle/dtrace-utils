@@ -295,14 +295,15 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 *	- size of the DTrace machine state, rounded up to the nearest
 	 *	  multiple of 8
 	 *	- 8 bytes padding for trace buffer alignment purposes
-	 *	- maximum trace buffer record size, rounded up to the
+	 *	- maximum trace buffer record size, rounded up to the nearest
 	 *	  multiple of 8
 	 *	- the greater of:
 	 *		+ the maximum stack trace size
-	 *		+ four times the maximum string size (incl. length
-	 *		  and allowing round up to multiple of 8)
-	 *		  plus the maximum string size (to accomodate the BPF
-	 *		  verifier)
+	 *		+ DT_TSTRING_SLOTS times the maximum string size (plus
+	 *		  space for length and terminating '\0') rounded up to
+	 *		  the nearest multiple of 8),
+	 *		  plus the maximum string size plus space for '\0' (to
+	 *		  accomodate the BPF verifier)
 	 */
 	memsz = roundup(sizeof(dt_mstate_t), 8) +
 		8 +
@@ -310,7 +311,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
 		    DT_TSTRING_SLOTS *
 			roundup(DT_STRLEN_BYTES +
-				dtp->dt_options[DTRACEOPT_STRSIZE], 8) +
+				dtp->dt_options[DTRACEOPT_STRSIZE] + 1, 8) +
 		    dtp->dt_options[DTRACEOPT_STRSIZE] + 1
 		);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
