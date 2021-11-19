@@ -3259,6 +3259,59 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 /*
+ * This function is a helper function for subroutines that take a path
+ * argument and return the tstring resulting from applying a given BPF
+ * function (passed by name) on it.
+ */
+static void
+dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+		       const char *fname)
+{
+	dt_ident_t	*idp;
+	dt_node_t	*str = dnp->dn_args;
+
+	TRACE_REGSET("    subr-path_helper:Begin");
+	dt_cg_node(str, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+
+	/*
+	 * The result needs be be a temporary string, so we request one.
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	/* function call */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, str->dn_reg));
+	dt_regset_free(drp, str->dn_reg);
+	dt_cg_tstring_free(yypcb, str);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
+	assert(idp != NULL);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-path_helper:End  ");
+}
+
+static void
+dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_basename");
+}
+
+/*
  * Get and return a new speculation ID.  These are unallocated entries in the
  * specs map, obtained by calling dt_speculation().  Return zero if none is
  * available.  TODO: add a drop in this case?
@@ -3849,7 +3902,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_DDI_PATHNAME]		= NULL,
 	[DIF_SUBR_STRJOIN]		= dt_cg_subr_strjoin,
 	[DIF_SUBR_LLTOSTR]		= &dt_cg_subr_lltostr,
-	[DIF_SUBR_BASENAME]		= NULL,
+	[DIF_SUBR_BASENAME]		= &dt_cg_subr_basename,
 	[DIF_SUBR_DIRNAME]		= NULL,
 	[DIF_SUBR_CLEANPATH]		= NULL,
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
