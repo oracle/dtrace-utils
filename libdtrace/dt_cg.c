@@ -3311,6 +3311,12 @@ dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_basename");
 }
 
+static void
+dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_dirname");
+}
+
 /*
  * Get and return a new speculation ID.  These are unallocated entries in the
  * specs map, obtained by calling dt_speculation().  Return zero if none is
@@ -3903,7 +3909,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_STRJOIN]		= dt_cg_subr_strjoin,
 	[DIF_SUBR_LLTOSTR]		= &dt_cg_subr_lltostr,
 	[DIF_SUBR_BASENAME]		= &dt_cg_subr_basename,
-	[DIF_SUBR_DIRNAME]		= NULL,
+	[DIF_SUBR_DIRNAME]		= &dt_cg_subr_dirname,
 	[DIF_SUBR_CLEANPATH]		= NULL,
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
 	[DIF_SUBR_STRRCHR]		= &dt_cg_subr_strrchr,
