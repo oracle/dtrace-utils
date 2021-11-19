@@ -1016,10 +1016,17 @@ dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 	    idp->di_type == DT_STR_TYPE(dtp))
 		size += DT_STRLEN_BYTES;
 
-	idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) & ~(alignment - 1);
-	idp->di_size = size;
+	if (!(idp->di_flags & DT_IDFLG_TLS)) {
+		idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) &
+				 ~(alignment - 1);
+		dhp->dh_nextoff = idp->di_offset + size;
+	} else {
+		idp->di_offset = 0;
+		if (size > dtp->dt_maxtlslen)
+			dtp->dt_maxtlslen = size;
+	}
 
-	dhp->dh_nextoff = idp->di_offset + size;
+	idp->di_size = size;
 }
 
 void

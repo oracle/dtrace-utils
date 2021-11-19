@@ -58,9 +58,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(dt_dirname, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_error, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_get_string, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_set_tvar, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_index, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_lltostr, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_rindex, DT_IDENT_SYMBOL),
@@ -77,6 +75,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(aggs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(cpuinfo, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(dvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(gvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(lvars, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(mem, DT_IDENT_PTR),
@@ -84,7 +83,6 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(specs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(state, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
-	DT_BPF_SYMBOL(tvars, DT_IDENT_PTR),
 	/* BPF internal identifiers */
 	DT_BPF_SYMBOL_ID(EPID, DT_IDENT_SCALAR, DT_CONST_EPID),
 	DT_BPF_SYMBOL_ID(PRID, DT_IDENT_SCALAR, DT_CONST_PRID),
@@ -95,6 +93,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL_ID(STKSIZ, DT_IDENT_SCALAR, DT_CONST_STKSIZ),
 	DT_BPF_SYMBOL_ID(BOOTTM, DT_IDENT_SCALAR, DT_CONST_BOOTTM),
 	DT_BPF_SYMBOL_ID(NSPEC, DT_IDENT_SCALAR, DT_CONST_NSPEC),
+	DT_BPF_SYMBOL_ID(NCPUS, DT_IDENT_SCALAR, DT_CONST_NCPUS),
 	/* End-of-list marker */
 	{ NULL, }
 };

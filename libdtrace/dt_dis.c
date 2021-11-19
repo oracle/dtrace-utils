@@ -306,35 +306,16 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		snprintf(buf, len, "%s",
 			 dt_dis_varname_id(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
 		return buf;
-	} else if (strcmp(fn, "dt_get_tvar") == 0 ||
-		   strcmp(fn, "dt_set_tvar") == 0) {
+	} else if (strcmp(fn, "dt_get_tvar") == 0) {
 		/*
-		 * We know that the previous instruction exists and assigns
+		 * We know that the previous two instruction exist and assigns
 		 * the variable id to %r1 (because we wrote the code generator
 		 * to emit these instructions in this exact order.)
 		 */
-		in--;
+		in -= 2;
 		snprintf(buf, len, "self->%s",
 			 dt_dis_varname_id(dp, in->imm + DIF_VAR_OTHER_UBASE,
 					DIFV_SCOPE_THREAD, addr));
-		return buf;
-	} else if (strcmp(fn, "dt_get_string") == 0) {
-		const char	*s;
-		char		*se;
-
-		/*
-		 * We know that the previous instruction exists and assigns
-		 * the string offset to %r1 (because we wrote the code
-		 * generator to emit these instructions in this exact order.
-		 */
-		in--;
-		if (in->imm >= dp->dtdo_strlen)
-			return NULL;
-
-		s = dt_difo_getstr(dp, in->imm);
-		se = strchr2esc(s, strlen(s));
-		snprintf(buf, len, "\"%s\"n", se ? se : s);
-		free(se);
 		return buf;
 	}
 

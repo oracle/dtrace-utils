@@ -2355,6 +2355,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_NSPEC:
 				nrp->dofr_data = dtp->dt_options[DTRACEOPT_NSPEC];
 				continue;
+			case DT_CONST_NCPUS:
+				nrp->dofr_data = dtp->dt_conf.max_cpuid + 1;
+				continue;
 			case DT_CONST_STKSIZ:
 				nrp->dofr_data = sizeof(uint64_t)
 				    * dtp->dt_options[DTRACEOPT_MAXFRAMES];

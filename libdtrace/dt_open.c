@@ -782,6 +782,9 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	dtp->dt_options[DTRACEOPT_STRSIZE] = 256;
 
+	/* Set the default dynamic variable space size. */
+	dtp->dt_options[DTRACEOPT_DYNVARSIZE] = 1024 * 1024 * 1;
+
 	/*
 	 * Set the default speculation size and number of simultaneously active
 	 * speculations.

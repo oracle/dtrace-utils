@@ -2027,7 +2027,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	/* global and local variables (not thread-local or built-in) */
+	/* global and local variables */
 	if ((idp->di_flags & DT_IDFLG_LOCAL) ||
 	    (!(idp->di_flags & DT_IDFLG_TLS) &&
 	     idp->di_id >= DIF_VAR_OTHER_UBASE)) {
@@ -2056,21 +2056,61 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		return;
 	}
 
-	/* otherwise, handle thread-local and built-in variables */
+	/* thread-local variables */
+	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
+		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+		uint_t	lbl_notnull = dt_irlist_label(dlp);
+		uint_t	lbl_done = dt_irlist_label(dlp);
+
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+		assert(idp != NULL);
+
+		if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 0));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		dt_regset_free_args(drp);
+
+		if (dst->dn_flags & DT_NF_REF) {
+			emit(dlp,  BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
+			dt_cg_check_notnull(dlp, drp, dst->dn_reg);
+		} else {
+			size_t	size = dt_node_type_size(dst);
+
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
+			emit(dlp,  BPF_MOV_IMM(dst->dn_reg, 0));
+			emit(dlp,  BPF_JUMP(lbl_done));
+			emitl(dlp, lbl_notnull,
+				   BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
+			dt_regset_free(drp, BPF_REG_0);
+
+			emit(dlp, BPF_LOAD(ldstw[size], dst->dn_reg, dst->dn_reg, 0));
+
+			emitl(dlp, lbl_done,
+				   BPF_NOP());
+		}
+
+		return;
+	}
+
+	/* built-in variables */
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
-		emit(dlp, BPF_MOV_IMM(BPF_REG_1, idp->di_id - DIF_VAR_OTHER_UBASE));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-	} else if (idp->di_id < DIF_VAR_OTHER_UBASE) {	/* built-in var */
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
-		emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
-	} else
-		assert(0);
-	assert(idp != NULL);
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
 	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
+	assert(idp != NULL);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 
@@ -2078,6 +2118,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	if ((dst->dn_reg = dt_regset_alloc(drp)) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 	emit(dlp,  BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
 }
@@ -2300,15 +2341,14 @@ static void
 dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_ident_t *idp)
 {
-	uint_t	varid;
+	uint_t	varid, lbl_done;
+	int	reg;
+	size_t	size;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
 
 	/* global and local variables (that is, not thread-local) */
 	if (!(idp->di_flags & DT_IDFLG_TLS)) {
-		int	reg;
-		size_t	size;
-
 		if ((reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -2351,23 +2391,55 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	/* TLS var */
 	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_set_tvar");
+	size = idp->di_size;
+
+	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
 	assert(idp != NULL);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	/*
-	 * We assign the varid in the instruction preceding the call because
-	 * the disassembler expects this sequence in support for annotating
-	 * the disassembly with variables names.
-	 */
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-	dt_regset_free(drp, BPF_REG_0);
 	dt_regset_free_args(drp);
+	lbl_done = dt_irlist_label(dlp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
+
+	if ((reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	dt_cg_check_notnull(dlp, drp, reg);
+
+	if (dnp->dn_flags & DT_NF_REF) {
+		size_t		srcsz;
+
+		/*
+		 * Determine the amount of data to be copied.  It is
+		 * the lesser of the size of the identifier and the
+		 * size of the data being copied in.
+		 */
+		srcsz = dt_node_type_size(dnp->dn_right);
+		if (dt_node_is_string(dnp))
+			srcsz += DT_STRLEN_BYTES;
+		size = MIN(srcsz, size);
+
+		dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
+	} else {
+		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
+
+		emit(dlp, BPF_STORE(ldstw[size], reg, 0, dnp->dn_reg));
+	}
+
+	dt_regset_free(drp, reg);
+
+	emitl(dlp, lbl_done,
+		   BPF_NOP());
 }
 
 /*

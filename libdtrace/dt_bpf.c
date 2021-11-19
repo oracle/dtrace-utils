@@ -98,7 +98,7 @@ int dt_bpf_map_update(int fd, const void *key, const void *val)
 	attr.map_fd = fd;
 	attr.key = (uint64_t)(unsigned long)key;
 	attr.value = (uint64_t)(unsigned long)val;
-	attr.flags = 0;
+	attr.flags = BPF_ANY;
 
 	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
 }
@@ -213,36 +213,25 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		use.
  * - gvars:	Global variables map.  This is a global map with a singleton
  *		element (key 0) addressed by variable offset.
+ * - dvars:	Dynamic variables map.  This is a global hash map indexed with
+ *		a unique numeric identifier for each variable per thread.  The
+ *		value of each element is sized to accomodate the largest thread
+ *		local ariable type found across all programsn the tracing
+ *		session..
  * - lvars:	Local variables map.  This is a per-CPU map with a singleton
  *		element (key 0) addressed by variable offset.
- *
- * FIXME: TLS variable storage is still being designed further so this is just
- *	  a temporary placeholder and will most likely be replaced by something
- *	  else.  If we stick to the legacy DTrace approach, we will need to
- *	  determine the maximum overall key size for TLS variables *and* the
- *	  maximum value size.  Based on these values, the legacy code would
- *	  take the memory size set aside for dynamic variables, and divide it by
- *	  the storage size needed for the largest dynamic variable (associative
- *	  array element or TLS variable).
- *
- * - tvars:	Thread-local (TLS) variables map, associating a 64-bit value
- *		with each thread-local variable.  The map is indexed by a value
- *		computed based on the thread-local variable id and execution
- *		thread information to ensure each thread has its own copy of a
- *		given thread-local variable.  The amount of TLS variable space
- *		to allocate for these dynamic variables is calculated based on
- *		the number of uniquely named TLS variables (next-to-be-assigned
- *		id minus the base id).
  */
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		stabsz, gvarsz, lvarsz, tvarc, aggsz, memsz;
+	int		stabsz, gvarsz, lvarsz, aggsz, memsz;
+	int		dvarc = 0;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint32_t	key = 0;
 	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 	uint8_t		*buf, *end;
 	char		*strtab;
+	size_t		strdatasz = P2ROUNDUP(DT_STRLEN_BYTES + strsize + 1, 8);
 
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -257,7 +246,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/* Determine sizes for global, local, and TLS maps. */
 	gvarsz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
 	lvarsz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
-	tvarc = dt_idhash_peekid(dtp->dt_tls) - DIF_VAR_OTHER_UBASE;
+	if (dtp->dt_maxtlslen)
+		dvarc = (dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
+			 dtp->dt_maxtlslen) + 1;
 
 	/* Create global maps as long as there are no errors. */
 	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
@@ -312,9 +303,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		8 +
 		roundup(dtp->dt_maxreclen, 8) +
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
-		    DT_TSTRING_SLOTS *
-			roundup(DT_STRLEN_BYTES +
-				dtp->dt_options[DTRACEOPT_STRSIZE] + 1, 8) +
+		    DT_TSTRING_SLOTS * strdatasz +
 		    dtp->dt_options[DTRACEOPT_STRSIZE] + 1
 		);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -371,10 +360,19 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 			sizeof(uint32_t), lvarsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
-	if (tvarc > 0 &&
-	    create_gmap(dtp, "tvars", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), sizeof(uint64_t), tvarc) == -1)
-		return -1;		/* dt_errno is set for us */
+	if (dvarc > 0) {
+		int	fd;
+		char	dflt[dtp->dt_maxtlslen];
+
+		fd = create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
+				 sizeof(uint64_t), dtp->dt_maxtlslen, dvarc);
+		if (fd == -1)
+			return -1;	/* dt_errno is set for us */
+
+		/* Initialize the default value (key = 0). */
+		memset(dflt, 0, dtp->dt_maxtlslen);
+		dt_bpf_map_update(fd, &key, &dflt);
+	}
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
