@@ -879,7 +879,6 @@ dt_vopen(int version, int flags, int *errp,
 	    DIF_VAR_OTHER_UBASE, DIF_VAR_OTHER_MAX);
 
 	dtp->dt_ccstab = dt_strtab_create(BUFSIZ);
-	dtp->dt_strtab = NULL;
 	dtp->dt_strlen = 0;
 
 	if (dtp->dt_macros == NULL || dtp->dt_aggs == NULL ||
@@ -1289,7 +1288,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_module_path);
 	free(dtp->dt_kernpaths);
 	free(dtp->dt_provs);
-	free(dtp->dt_strtab);
 	free(dtp);
 
 	dt_debug_dump(0);

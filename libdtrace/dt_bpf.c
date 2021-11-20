@@ -240,6 +240,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	int		stabsz, gvarsz, lvarsz, tvarc, aggsz, memsz;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint32_t	key = 0;
+	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
+	uint8_t		*buf, *end;
+	char		*strtab;
 
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -325,13 +328,27 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 * value that is used to store the strtab.
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	stabsz = dtp->dt_strlen + dtp->dt_options[DTRACEOPT_STRSIZE];
-	dtp->dt_strtab = dt_zalloc(dtp, stabsz);
-	if (dtp->dt_strtab == NULL)
+	stabsz = dtp->dt_strlen + strsize;
+	strtab = dt_zalloc(dtp, stabsz);
+	if (strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	dt_strtab_write(dtp->dt_ccstab, (dt_strtab_write_f *)dt_strtab_copystr,
-			dtp->dt_strtab);
+			strtab);
+
+	/* Loop over the string table and truncate strings that are too long. */
+	buf = (uint8_t *)strtab;
+	end = buf + dtp->dt_strlen;
+	while (buf < end) {
+		uint_t	len = (buf[0] << 8) | buf[1];
+
+		if (len > strsize) {
+			buf[0] = strsize >> 8;
+			buf[1] = strsize & 0xff;
+			buf[2 + strsize] = '\0';
+		}
+		buf += 2 + len + 1;
+	}
 
 	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
 			       sizeof(uint32_t), stabsz, 1);
@@ -363,7 +380,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
 
 	/* Populate the 'strtab' map. */
-	dt_bpf_map_update(st_mapfd, &key, dtp->dt_strtab);
+	dt_bpf_map_update(st_mapfd, &key, strtab);
 
 	/* Populate the 'probes' map. */
 	populate_probes_map(dtp, pr_mapfd);

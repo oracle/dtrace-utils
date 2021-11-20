@@ -291,7 +291,6 @@ struct dtrace_hdl {
 	dt_idhash_t *dt_tls;	/* hash table of thread-local identifiers */
 	dt_idhash_t *dt_bpfsyms;/* hash table of BPF identifiers */
 	dt_strtab_t *dt_ccstab;	/* global string table (during compilation) */
-	char *dt_strtab;	/* global string table (runtime) */
 	uint_t dt_strlen;	/* global string table (runtime) size */
 	uint_t dt_maxreclen;	/* largest record size across programs */
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */

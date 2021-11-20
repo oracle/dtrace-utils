@@ -724,16 +724,6 @@ dt_difo_free(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	if (dp == NULL)
 		return; /* simplify caller code */
 
-	/*
-	 * If we are destroying the DIFO that holds the final consolidated
-	 * string table, clear the dt_strtab and dt_strlen members in the
-	 * consumer handle.
-	 */
-	if (dtp->dt_strtab == dp->dtdo_strtab) {
-		dtp->dt_strtab = NULL;
-		dtp->dt_strlen = 0;
-	}
-
 	dt_free(dtp, dp->dtdo_buf);
 	dt_free(dtp, dp->dtdo_strtab);
 	dt_free(dtp, dp->dtdo_vartab);
