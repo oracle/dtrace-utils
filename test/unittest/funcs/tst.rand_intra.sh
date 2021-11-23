@@ -8,12 +8,14 @@
 dtrace=$1
 tmpfile=$tmpdir/tst.rand_intra.$$
 
+niter=25000
+
 # Sanity test of rand().  Do intra-word correlation checks.  That
 # is, use lquantize to look at the distribution of 4-bit blocks.
 
-$dtrace $dt_flags -q -o $tmpfile -n '
+$dtrace $dt_flags -q -o $tmpfile -c test/triggers/bogus-ioctl -n '
 BEGIN { nuperr = n = 0 }
-tick-200us
+syscall::ioctl:entry
 {
 	x = rand();
 
@@ -29,7 +31,8 @@ tick-200us
 	nuperr += (x & 0xffffffff00000000) ? 1 : 0;
 	n++;
 }
-tick-5sec
+syscall::ioctl:entry
+/n >= '$niter'/
 {
 	printf("# of upper-bit errors: %d out of %d\n", nuperr, n);
 	exit(0);
@@ -56,9 +59,8 @@ awk '
             exit 1;
         }
         n = int($8);
-        if (n < 400) {
-            # tick-* can underfire, but require some minimum data
-            print "ERROR: insufficient data";
+        if (n != '$niter') {
+            print "ERROR: unexpected amount of data";
             exit 1;
         }
         avg = n / nbins;     # how many to expect per bin

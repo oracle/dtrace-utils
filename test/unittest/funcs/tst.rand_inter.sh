@@ -8,17 +8,19 @@
 dtrace=$1
 tmpfile=$tmpdir/tst.rand_inter.$$
 
+niter=25000
+
 # Sanity test of rand().  Do inter-word correlation checks.  That
 # is, use lquantize to look at the distribution of 4-bit blocks,
 # 2 bits from two consecutive words at arbitrary locations.
 
-$dtrace $dt_flags -q -o $tmpfile -n '
+$dtrace $dt_flags -q -o $tmpfile -c test/triggers/bogus-ioctl -n '
 BEGIN
 {
 	n = 0;
 	x = rand();
 }
-tick-200us
+syscall::ioctl:entry
 {
 	y = rand();
 
@@ -47,7 +49,8 @@ tick-200us
 	x = y;
 	n++;
 }
-tick-5sec
+syscall::ioctl:entry
+/n >= '$niter'/
 {
 	printf("number of iterations: %d\n", n);
 	exit(0);
@@ -70,9 +73,8 @@ awk '
     # process line: "number of iterations: ..."
     /number of iterations:/ {
         n = int($4);
-        if (n < 400) {
-            # tick-* can underfire, but require some minimum data
-            print "ERROR: insufficient data";
+        if (n != '$niter') {
+            print "ERROR: unexpected amount of data";
             exit 1;
         }
         avg = n / nbins;     # how many to expect per bin
