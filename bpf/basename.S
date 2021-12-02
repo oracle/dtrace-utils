@@ -107,7 +107,7 @@ dt_basename :
 	 */
 	mov	LEN, 1
 	stb	[DST+DT_STRLEN_BYTES], '.'
-	stb	[DST+(DT_STRLEN_BYTES+1)], '\0'
+	stb	[DST+(DT_STRLEN_BYTES+1)], 0
 	ja	.Lcoda
 
 .Lslash:
@@ -116,7 +116,7 @@ dt_basename :
 	 */
 	mov	LEN, 1
 	stb	[DST+DT_STRLEN_BYTES], '/'
-	stb	[DST+(DT_STRLEN_BYTES+1)], '\0'
+	stb	[DST+(DT_STRLEN_BYTES+1)], 0
 	ja	.Lcoda
 #undef SRC
 #undef DST

@@ -123,7 +123,7 @@ dt_dirname :
 	 */
 	mov	LEN, 1
 	stb	[DST+DT_STRLEN_BYTES], '.'
-	stb	[DST+(DT_STRLEN_BYTES+1)], '\0'
+	stb	[DST+(DT_STRLEN_BYTES+1)], 0
 	ja	.Lcoda
 
 .Lslash:
@@ -132,7 +132,7 @@ dt_dirname :
 	 */
 	mov	LEN, 1
 	stb	[DST+DT_STRLEN_BYTES], '/'
-	stb	[DST+(DT_STRLEN_BYTES+1)], '\0'
+	stb	[DST+(DT_STRLEN_BYTES+1)], 0
 	ja	.Lcoda
 #undef SRC
 #undef DST
