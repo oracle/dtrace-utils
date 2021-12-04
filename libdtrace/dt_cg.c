@@ -1642,10 +1642,10 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
+	dt_regset_free(drp, BPF_REG_0);
 	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
-	dt_regset_free(drp, BPF_REG_0);
 }
 
 static void
@@ -1812,10 +1812,10 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
+	dt_regset_free(drp, BPF_REG_0);
 	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
-	dt_regset_free(drp, BPF_REG_0);
 }
 
 typedef void dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
