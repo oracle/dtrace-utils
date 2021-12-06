@@ -155,6 +155,12 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MEM), BPF_REG_0));
 
 	/*
+	 * Store -1 to the strtok internal-state offset to indicate
+	 * that strtok internal state is not yet initialized.
+	 */
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMEM_STRTOK, -1));
+
+	/*
 	 * Store pointer to BPF map "name" in the DTrace context field "fld" at
 	 * "offset".
 	 *
@@ -3873,6 +3879,105 @@ dt_cg_subr_strstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_node_t	*str = dnp->dn_args;
+	dt_node_t	*del = str->dn_list;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strtok");
+	uint64_t	off;
+	int		reg;
+
+	assert(idp != NULL);
+
+	TRACE_REGSET("    subr-strtok:Begin");
+
+	reg = dt_regset_alloc(drp);
+	if (reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_MEM));
+
+	/*
+	 * Start with a static check for a NULL string.
+	 * That is, strtok(NULL, foo) has a special meaning:
+	 * continue parsing the previous string.  In contrast,
+	 * strtok(str, foo) (even if str==NULL) means to parse str.
+	 */
+	if (str->dn_op != DT_TOK_INT || str->dn_value != 0) {
+		/* string is present:  copy it to internal state */
+		dt_cg_node(str, dlp, drp);
+		dt_cg_check_notnull(dlp, drp, str->dn_reg);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		/* the 8-byte prefix is the offset, which we initialize to 0 */
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, reg));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMEM_STRTOK));
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_1, 0, 0));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, dtp->dt_options[DTRACEOPT_STRSIZE] + 1));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_3, str->dn_reg));
+		dt_regset_free(drp, str->dn_reg);
+		if (str->dn_tstring)
+			dt_cg_tstring_free(yypcb, str);
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
+		dt_regset_free(drp, BPF_REG_0);
+		dt_regset_free_args(drp);
+	} else {
+		/* NULL string:  error if internal state is uninitialized */
+		emit(dlp,  BPF_MOV_REG(BPF_REG_0, reg));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMEM_STRTOK));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1));
+		dt_cg_check_notnull(dlp, drp, BPF_REG_0);
+	}
+
+	/* get delimiters */
+	dt_cg_node(del, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, del->dn_reg);
+
+	/* allocate temporary string for result */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	/* allocate temporary string for internal purposes */
+	off = dt_cg_tstring_xalloc(yypcb);
+
+	/* function call */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DMEM_STRTOK));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, del->dn_reg));
+	dt_regset_free(drp, del->dn_reg);
+	if (del->dn_tstring)
+		dt_cg_tstring_free(yypcb, del);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_4, reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off));
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_cg_tstring_xfree(yypcb, off);
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	dt_regset_free(drp, reg);
+
+	TRACE_REGSET("    subr-strtok:End  ");
+}
+
+static void
 dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*str = dnp->dn_args;
@@ -3986,7 +4091,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
 	[DIF_SUBR_STRRCHR]		= &dt_cg_subr_strrchr,
 	[DIF_SUBR_STRSTR]		= &dt_cg_subr_strstr,
-	[DIF_SUBR_STRTOK]		= NULL,
+	[DIF_SUBR_STRTOK]		= &dt_cg_subr_strtok,
 	[DIF_SUBR_SUBSTR]		= &dt_cg_subr_substr,
 	[DIF_SUBR_INDEX]		= &dt_cg_subr_index,
 	[DIF_SUBR_RINDEX]		= &dt_cg_subr_rindex,

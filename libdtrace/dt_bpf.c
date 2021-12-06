@@ -292,20 +292,20 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 *	- maximum trace buffer record size, rounded up to the nearest
 	 *	  multiple of 8
 	 *	- the greater of:
-	 *		+ the maximum stack trace size
-	 *		+ DT_TSTRING_SLOTS times the maximum string size (plus
-	 *		  space for length and terminating '\0') rounded up to
-	 *		  the nearest multiple of 8),
-	 *		  plus the maximum string size plus space for '\0' (to
-	 *		  accomodate the BPF verifier)
+	 *		- the maximum stack trace size
+	 *		- DT_TSTRING_SLOTS times the maximum space needed to
+	 *		  store a string
+	 *	- size of the internal strtok() state
+	 *		- 8 bytes for the offset index
+	 *		- the maximum string size
+	 *		- a byte for the terminating NULL char
 	 */
 	memsz = roundup(sizeof(dt_mstate_t), 8) +
 		8 +
 		roundup(dtp->dt_maxreclen, 8) +
 		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
-		    DT_TSTRING_SLOTS * strdatasz +
-		    dtp->dt_options[DTRACEOPT_STRSIZE] + 1
-		);
+		    DT_TSTRING_SLOTS * strdatasz) +
+		sizeof(uint64_t) + dtp->dt_options[DTRACEOPT_STRSIZE] + 1;
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t), memsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */

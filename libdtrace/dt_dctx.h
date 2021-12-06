@@ -56,6 +56,12 @@ typedef struct dt_dctx {
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*
+ * Macro to determine the offset from mem to the strtok internal state.
+ */
+#define DMEM_STRTOK	MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES], \
+    DT_TSTRING_SLOTS * roundup(DT_STRLEN_BYTES + dtp->dt_options[DTRACEOPT_STRSIZE] + 1, 8))
+
+/*
  * Macro to determine the (negative) offset from the frame pointer (%fp) for
  * the given offset in dt_dctx_t.
  */
