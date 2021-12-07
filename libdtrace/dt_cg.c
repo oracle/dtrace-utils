@@ -877,6 +877,7 @@ dt_cg_tstring_xfree(dt_pcb_t *pcb, uint64_t offset)
 	}
 
 	assert(i < DT_TSTRING_SLOTS);
+	assert(ts->in_use != 0);
 
 	ts->in_use = 0;
 }
