@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -283,10 +283,12 @@ translator lwpsinfo_t < struct task_struct *T > {
 
 	pr_pri = T->prio;
 	pr_name = T->comm;
-define_for_kernel([[on_cpu]], [[(m4_kver(4,9,0),
-[[if_arch([[x86]],[[T->cpu]])]] m4_dnl
-[[if_arch([[arm64]],[[T->cpu]])]] m4_dnl
-[[if_arch([[sparc]],[[((struct thread_info *)T->stack)->cpu]])]])]],
+define_for_kernel([[on_cpu]], [[(m4_kver(5,16,0), m4_dnl
+  [[((struct thread_info *)T->stack)->cpu]]), m4_dnl
+(m4_kver(4,9,0), m4_dnl
+  [[if_arch([[x86]],[[T->cpu]])]] m4_dnl
+  [[if_arch([[arm64]],[[T->cpu]])]] m4_dnl
+  [[if_arch([[sparc]],[[((struct thread_info *)T->stack)->cpu]])]])]], m4_dnl
 [[((struct thread_info *)T->stack)->cpu]])m4_dnl
 	pr_onpro = on_cpu;
 };
