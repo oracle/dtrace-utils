@@ -19,8 +19,7 @@ BEGIN
     nerr = 0;
 EOF
 
-# before glibc 2.26, there was no signum-generic.h, but that's okay
-cat /usr/include/bits/signum-generic.h /usr/include/bits/signum.h \
+cat /usr/include/signal.h \
 | awk '
     /SIGRTMIN/ || /SIGRTMAX/ || /SIGSTKSZ/ { next }
     /^#define[[:blank:]]*SIG[[:alnum:]]/ { signum[$2] = $3 }
