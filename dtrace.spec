@@ -61,7 +61,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.8%{?dist}
+Release:      1.9%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -226,6 +226,21 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Dec 08 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.9
+- Add support for strtok(). (Eugene Loh)
+- Implement TLS (thread-local storage) variables.
+- Add support for basename(), dirname(). (Eugene Loh)
+- Generic hash table improvements and consistent use of htabs. (Nick Alcock)
+- CTF improvements in view of better kernel support. (Nick Alcock)
+- Add support for ftruncate(). (Eugene Loh)
+- Add support for rand(). (Eugene Loh)
+- Fix string constant handling for strings longer than strsize.
+- Optimization of substr(), strjoin(), and storing strings in the trace buffer.
+- Various string handling fixes and improvements. (Eugene Loh, Kris Van Hees)
+  [Orabug: 33651682]
+- Various testsuite fixes and improvements. [Orabug: 33651682]
+- Various code improvements. [Orabug: 33651682]
+
 * Fri Oct 15 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.8
 - Support running dtrace under valgrind. (Nick Alcock) [Orabug: 32760574]
 - Implementation of speculative tracing. (Nick Alcock)

@@ -1,3 +1,58 @@
+2.0.0-1.9 (Dec 8th, 2021)
+-------------------------
+
+Ninth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The rand() subroutine has been implemented.
+
+ - The ftruncate() subroutine has been implemented.
+
+ - The basename() and dirname() subroutines have been implemented.
+
+ - Thread-local storage (TLS) variables have been implemented.  For now, only
+   non-indexed variables are supported.
+
+ - The strtok() subroutine has been implemented.
+
+Obsolete features:
+
+  - The ctf_module_dump tool has been removed.  It is no longer needed.
+
+Bugfixes:
+
+ - The substr() and strjoin() subroutines now correctly store the result string
+   length in the string length prefix.
+
+Internal changes:
+
+ - The temporary string (tstring) support in the code generator has been
+   improved to provide better development level diagnostics.
+
+ - The lifecycle handling of temporary strings has been updated to handle
+   assignments and ternary expressions correctly.
+
+ - The substr() and strjoin() subroutines have been reworked to provide a much
+   more optimized implementation.
+
+ - More efficient code is new generated for storing a string value in the trace
+   output buffer.
+
+ - Improvements were made to the generic hashtable (htab) in libdtrace,
+
+Testsuite changes:
+
+ - A results post-processor was added to various tests to work around CTF error
+   message differences between libdtrace-ctf and libctf.
+
+Known problems:
+
+ - Complex nested expressions may cause the code generator to run our of usable
+   registers.  This is a known problem with the register lifecycle tracking.
+
 2.0.0-1.8 (Oct 15th, 2021)
 --------------------------
 
