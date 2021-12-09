@@ -227,7 +227,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	int		stabsz, gvarsz, lvarsz, aggsz, memsz;
 	int		dvarc = 0;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
-	uint32_t	key = 0;
+	uint64_t	key = 0;
 	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 	uint8_t		*buf, *end;
 	char		*strtab;
