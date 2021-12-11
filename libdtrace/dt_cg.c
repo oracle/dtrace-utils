@@ -2086,6 +2086,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		if (dst->dn_flags & DT_NF_REF) {
 			emit(dlp,  BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
+			dt_regset_free(drp, BPF_REG_0);
 			dt_cg_check_notnull(dlp, drp, dst->dn_reg);
 		} else {
 			size_t	size = dt_node_type_size(dst);
