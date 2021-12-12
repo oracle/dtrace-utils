@@ -2066,8 +2066,6 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 	/* thread-local variables */
 	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
 		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-		uint_t	lbl_notnull = dt_irlist_label(dlp);
-		uint_t	lbl_done = dt_irlist_label(dlp);
 
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
 		assert(idp != NULL);
@@ -2087,9 +2085,10 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		if (dst->dn_flags & DT_NF_REF) {
 			emit(dlp,  BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
-			dt_cg_check_notnull(dlp, drp, dst->dn_reg);
 		} else {
 			size_t	size = dt_node_type_size(dst);
+			uint_t	lbl_notnull = dt_irlist_label(dlp);
+			uint_t	lbl_done = dt_irlist_label(dlp);
 
 			assert(size > 0 && size <= 8 &&
 			       (size & (size - 1)) == 0);
@@ -2098,10 +2097,8 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 			emit(dlp,  BPF_MOV_IMM(dst->dn_reg, 0));
 			emit(dlp,  BPF_JUMP(lbl_done));
 			emitl(dlp, lbl_notnull,
-				   BPF_MOV_REG(dst->dn_reg, BPF_REG_0));
+				   BPF_LOAD(ldstw[size], dst->dn_reg, BPF_REG_0, 0));
 			dt_regset_free(drp, BPF_REG_0);
-
-			emit(dlp, BPF_LOAD(ldstw[size], dst->dn_reg, dst->dn_reg, 0));
 
 			emitl(dlp, lbl_done,
 				   BPF_NOP());
