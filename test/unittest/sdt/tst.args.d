@@ -50,12 +50,7 @@ this char v;
 this bool done;
 
 sdt:task::task_rename
-/(int)arg0 != pid/
-{
-	exit(1);
-}
-
-sdt:task::task_rename
+/(int)arg0 == pid/
 {
 #define putchar(c)	this->v = (c); \
 			this->v = this->done ? 0 : this->v; \
