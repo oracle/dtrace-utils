@@ -1,6 +1,6 @@
 #!/bin/bash
 
-read MAJOR MINOR <<< `uname -r | awk -F. '{print $1, $2}'`
+read MAJOR MINOR <<< `uname -r | grep -Eo '^[0-9]+\.[0-9]+'
 
 if [ $MAJOR -eq 5 -a $MINOR -lt 8 ]; then
 	exit 0

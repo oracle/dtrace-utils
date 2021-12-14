@@ -4,5 +4,5 @@
 #
 
 # UEK4 will not ever have the pid provider.
-[[ $(uname -r | cut -d. -f 1-2) = 4.1 ]] && exit 1
+[[ $(uname -r | grep -Eo '^[0-9]+\.[0-9]+') = 4.1 ]] && exit 1
 exit 0
