@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -298,9 +298,9 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 {
 	if (strcmp(fn, "dt_get_bvar") == 0) {
 		/*
-		 * We know that the previous instruction exists and assigns
-		 * the variable id to %r1 (because we wrote the code generator
-		 * to emit these instructions in this exact order.)
+		 * We know that the previous instruction exists and moves
+		 * the variable id to a register (because we wrote the code
+		 * generator to emit the instructions in this exact order.)
 		 */
 		in--;
 		snprintf(buf, len, "%s",
@@ -308,11 +308,12 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		return buf;
 	} else if (strcmp(fn, "dt_get_tvar") == 0) {
 		/*
-		 * We know that the previous two instruction exist and assigns
-		 * the variable id to %r1 (because we wrote the code generator
-		 * to emit these instructions in this exact order.)
+		 * We know that the previous three instructions exist and
+		 * move the variable id to a register in the first instruction
+		 * of that seqeuence (because we wrote the code generator to
+		 * emit the instructions in this exact order.)
 		 */
-		in -= 2;
+		in -= 3;
 		snprintf(buf, len, "self->%s",
 			 dt_dis_varname_id(dp, in->imm + DIF_VAR_OTHER_UBASE,
 					DIFV_SCOPE_THREAD, addr));
