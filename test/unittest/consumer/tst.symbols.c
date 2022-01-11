@@ -110,6 +110,9 @@ int read_symbols() {
 		if (strcmp(modname, "bpf]") == 0)
 			continue;
 
+		if (strcmp(modname, "__builtin__ftrace]") == 0)
+			continue;
+
 		/*
 		 * In libdtrace/dt_module.c function dt_modsym_update(),
 		 * we skip a number of symbols.  Do not test them.  The
@@ -284,19 +287,10 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 	    specify_module ? " and module" : "");
 	for (i = 0; i < nsymbols; i++) {
 		nchecks++;
+
 		if (dtrace_lookup_by_name(h,
 		    specify_module ? symbols[i].modname : DTRACE_OBJ_KMODS,
 		    symbols[i].symname, &sym, &si)) {
-
-			/*
-			 * If the module has another symbol with this name,
-			 * it is okay that the lookup failed.
-			 */
-			if (duplicate(i) >= 0) {
-				n_dupl++;
-				continue;
-			}
-
 			printf("ERROR: dtrace_lookup_by_name failed\n");
 			printf("  expect:");
 			print_symbol(i);
@@ -307,6 +301,11 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 			    symbols[i].size != sym.st_size ||
 			    strcmp(symbols[i].symname, si.name) ||
 			    strcmp(symbols[i].modname, si.object)) {
+
+				if (duplicate(i) >= 0) {
+					n_dupl++;
+					continue;
+				}
 
 				printf("ERROR: mismatch\n");
 				printf("  expect:");
