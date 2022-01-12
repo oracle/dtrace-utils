@@ -62,4 +62,4 @@
               ustack-tst-basic`myfunc_1+{ptr}
               ustack-tst-basic`myfunc_0+{ptr}
               ustack-tst-basic`main+{ptr}
-              libc.so.6`__libc_start_main+{ptr}
+              libc.so.6`XXXSTART_MAINXXX+{ptr}
