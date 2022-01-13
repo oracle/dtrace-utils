@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2014, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,15 +11,16 @@
  *
  * SECTION: Aggregations/Aggregations
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
-tick-1ms
+syscall::ioctl:entry
 {
 	@ = llquantize(i++, 3, 3, 5, 27);
 }
 
-tick-1ms
+syscall::ioctl:entry
 /i == 1500/
 {
 	exit(0);
