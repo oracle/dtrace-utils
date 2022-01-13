@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -905,6 +905,25 @@ static const uint_t	ldstw[] = {
 					0,	0,	0, BPF_DW,
 				};
 
+/*
+ * When loading bit-fields, we want to convert a byte count in the range
+ * 1-8 to the closest power of 2 (e.g. 3->4, 5->8, etc).  The clp2() function
+ * is a clever implementation from "Hacker's Delight" by Henry Warren, Jr.
+ */
+static size_t
+clp2(size_t x)
+{
+	x--;
+
+	x |= (x >> 1);
+	x |= (x >> 2);
+	x |= (x >> 4);
+	x |= (x >> 8);
+	x |= (x >> 16);
+
+	return x + 1;
+}
+
 static int
 dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
@@ -996,6 +1015,31 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
 		dt_regset_free_args(drp);
+		dt_regset_free(drp, BPF_REG_0);
+		TRACE_REGSET("store_val(): End   ");
+
+		return 0;
+	}
+
+	/* Handle tracing of by-ref values (arrays, struct, union). */
+	if (kind == DTRACEACT_DIFEXPR && (arg & DT_NF_REF)) {
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, 2, pfp, arg);
+
+		TRACE_REGSET("store_val(): Begin ");
+		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		dt_regset_free(drp, dnp->dn_reg);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+		dt_regset_free_args(drp);
+
 		dt_regset_free(drp, BPF_REG_0);
 		TRACE_REGSET("store_val(): End   ");
 
@@ -1669,7 +1713,7 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	char		n[DT_TYPE_NAMELEN];
 	dt_node_t	*arg = dnp->dn_args;
-	int		type = 0;
+	int		flags = 0;
 
 	if (dt_node_is_void(arg))
 		dnerror(arg, D_TRACE_VOID,
@@ -1681,11 +1725,11 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			"expression\n");
 
 	if (arg->dn_flags & DT_NF_REF)
-		type = DT_NF_REF;
+		flags = DT_NF_REF;
 	else if (arg->dn_flags & DT_NF_SIGNED)
-		type = DT_NF_SIGNED;
+		flags = DT_NF_SIGNED;
 
-	if (dt_cg_store_val(pcb, arg, DTRACEACT_DIFEXPR, NULL, type) == -1)
+	if (dt_cg_store_val(pcb, arg, DTRACEACT_DIFEXPR, NULL, flags) == -1)
 		dnerror(arg, D_PROTO_ARG,
 			"trace( ) argument #1 is incompatible with prototype:\n"
 			"\tprototype: scalar or string\n\t argument: %s\n",
@@ -1932,25 +1976,6 @@ static void
 dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
 {
 	dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, reg, x);
-}
-
-/*
- * When loading bit-fields, we want to convert a byte count in the range
- * 1-8 to the closest power of 2 (e.g. 3->4, 5->8, etc).  The clp2() function
- * is a clever implementation from "Hacker's Delight" by Henry Warren, Jr.
- */
-static size_t
-clp2(size_t x)
-{
-	x--;
-
-	x |= (x >> 1);
-	x |= (x >> 2);
-	x |= (x >> 4);
-	x |= (x >> 8);
-	x |= (x >> 16);
-
-	return x + 1;
 }
 
 /*
