@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
@@ -11,7 +11,7 @@
 # define noinline	__attribute__((noinline))
 #endif
 
-extern int64_t dt_error(dt_dctx_t *dctx);
+extern int64_t dt_error(const dt_dctx_t *dctx);
 
 /*
  * DTrace ERROR probes provide 6 arguments:
@@ -22,7 +22,7 @@ extern int64_t dt_error(dt_dctx_t *dctx);
  *	arg4 = fault type
  *	arg5 = fault-specific value (usually address being accessed or 0)
  */
-noinline void dt_probe_error(dt_dctx_t *dctx, uint64_t pc, uint64_t fault,
+noinline void dt_probe_error(const dt_dctx_t *dctx, uint64_t pc, uint64_t fault,
 			     uint64_t illval)
 {
 	dt_mstate_t	*mst = dctx->mst;

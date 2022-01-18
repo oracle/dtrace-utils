@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stddef.h>
@@ -33,7 +33,7 @@ extern uint64_t BOOTTM;
 		-1; \
 	})
 
-noinline uint64_t dt_get_bvar(dt_dctx_t *dctx, uint32_t id)
+noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id)
 {
 	dt_mstate_t	*mst = dctx->mst;
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
@@ -111,7 +111,7 @@ dt_speculation_speculate(uint32_t id)
  */
 
 noinline int32_t
-dt_speculation_set_drainable(dt_dctx_t *dctx, uint32_t id)
+dt_speculation_set_drainable(const dt_dctx_t *dctx, uint32_t id)
 {
 	dt_bpf_specs_t *spec;
 
