@@ -756,39 +756,6 @@ dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 }
 
 static void
-dt_cg_strlen(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src)
-{
-	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strlen");
-	size_t		size = yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
-	uint_t		lbl_ok = dt_irlist_label(dlp);
-
-	TRACE_REGSET("        strlen:Begin");
-
-	assert(idp != NULL);
-	if (dt_regset_xalloc_args(drp) == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-	if (src != BPF_REG_1)
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, src));
-	if (dst != BPF_REG_0)
-		dt_regset_xalloc(drp, BPF_REG_0);
-
-	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-	dt_regset_free_args(drp);
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, BPF_REG_0, size, lbl_ok));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, size));
-	emitl(dlp, lbl_ok,
-		   BPF_NOP());
-
-	if (dst != BPF_REG_0) {
-		emit(dlp, BPF_MOV_REG(dst, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
-	}
-
-	TRACE_REGSET("        strlen:End  ");
-}
-
-static void
 dt_cg_spill_store(int reg)
 {
 	dt_irlist_t	*dlp = &yypcb->pcb_ir;
@@ -3762,10 +3729,34 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strlen");
+	dt_node_t	*str = dnp->dn_args;
+
+	assert(idp != NULL);
+
 	TRACE_REGSET("    subr-strlen:Begin");
-	dt_cg_node(dnp->dn_args, dlp, drp);
-	dnp->dn_reg = dnp->dn_args->dn_reg;
-	dt_cg_strlen(dlp, drp, dnp->dn_reg, dnp->dn_args->dn_reg);
+
+	dt_cg_node(str, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dnp->dn_reg = str->dn_reg;		/* re-use register */
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, str->dn_reg));
+	dt_regset_free(drp, str->dn_reg);
+	dt_cg_tstring_free(yypcb, str);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp,BPF_CALL_FUNC(idp->di_id), idp);
+
+	dt_regset_free_args(drp);
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
 	TRACE_REGSET("    subr-strlen:End  ");
 }
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 #define DT_STRLEN_BYTES		2
@@ -43,17 +43,26 @@ dt_substr :
 
 	/*
 	 * Get the source string length and validate it.
+	 * If the return value of probe_read_str) is less than 0, an error
+	 * occured, and the result will be the empty string.
 	 * If the length is 0, the result is the empty string.
 	 * If the length is less than the maximum string length (STRSZ), use
 	 * the length we got.  (The length is initialized in %r8 as the default
 	 * string length.)
 	 */
-	ldxdw	%r1, [%fp+-8]
-	call	dt_strlen		/* len = dt_strlen(src) */
-	jeq	%r0, 0, .Lempty		/* if (len == 0) goto Lempty; */
-	jge	%r0, %r8, .Llen_set	/* if (len >= STRSZ) goto Llen_set; */
+	mov	%r3, %r2
+	add	%r3, DT_STRLEN_BYTES
+	mov	%r2, %r8
+	add	%r2, 1
+	call	BPF_FUNC_probe_read_str	/*
+					 * len = probe_read_str(
+					 *	   dst, STRSZ + 1,
+					 *	   &src[DT_STRLEN_BYTES]);
+					 */
+	jslt	%r0, 1, .Lempty		/* if (len < 1) goto Lempty; */
+	sub	%r0, 1			/* len--; */
+	mov	%r4, %r8		/* %r4 = STRSZ (previously in %r8) */
 	mov	%r8, %r0		/* %r8 = len */
-.Llen_set:
 
 	jsge	%r6, 0, .Lcheck_idx	/* if (idx s>= 0) goto Lcheck_idx; */
 
@@ -110,9 +119,8 @@ dt_substr :
 	mov	%r1, %r9
 	add	%r1, DT_STRLEN_BYTES
 	mov	%r2, %r7
-	lddw	%r0, STRSZ
-	jle	%r2, %r0, .Lcnt_ok	/* if (cnt <= STRSZ) goto Lcnt_ok; */
-	mov	%r2, %r0		/* cnt = STRSZ */
+	jle	%r2, %r4, .Lcnt_ok	/* if (cnt <= STRSZ) goto Lcnt_ok; */
+	mov	%r2, %r4		/* cnt = STRSZ */
 .Lcnt_ok:
 	add	%r2, 1
 	ldxdw	%r3, [%fp+-8]

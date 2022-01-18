@@ -1,25 +1,25 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /*
- * ASSERTION:
- *   Test the strlen() subroutine.
+ * ASSERTION: Passing NULL (0) as argument to strlen() triggers an error.
  *
  * SECTION: Actions and Subroutines/strlen()
- *
  */
 
-BEGIN
-/strlen("I like DTrace") == 13/
-{
-	correct = 1;
-}
+#pragma D option quiet
 
 BEGIN
 {
-	exit(correct ? 0 : 1);
+	strlen(0);
+	exit(1);
+}
+
+ERROR
+{
+	exit(0);
 }

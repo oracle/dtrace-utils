@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,7 +9,7 @@
 #define BPF_LIB_H
 
 /*
- * Explicit inline assembler to implement an upper bound check:
+ * Explicit inline assembler to implement a dynamic upper bound check:
  *
  *	if (var > bnd)
  *		var = bnd;
@@ -28,7 +28,7 @@
 	);
 
 /*
- * Explicit inline assembler to implement a lower bound check:
+ * Explicit inline assembler to implement a dynamic lower bound check:
  *
  *	if (var < bnd)
  *		var = bnd;
@@ -45,5 +45,21 @@
 		: "r" (bnd) \
 		: /* no clobbers */ \
 	);
+
+/*
+ * Explicit inline assembler to implement a non-negative bound check:
+ *
+ *	if (var < 0)
+ *		var = 0;
+ */
+#define set_not_neg_bound(var) \
+	asm ("jsge %0, 0, 1f\n\t" \
+             "mov %0, 0\n\t" \
+             "1:" \
+                : "+r" (var) \
+                : /* no inputs */ \
+                : /* no clobbers */ \
+        );
+
 
 #endif /* BPF_LIB_H */

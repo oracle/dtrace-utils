@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -313,11 +313,11 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/*
 	 * We need to create the global (consolidated) string table.  We store
 	 * the actual length (for in-code BPF validation purposes) but augment
-	 * it by the maximum string size to determine the size of the BPF map
-	 * value that is used to store the strtab.
+	 * it by the maximum string storage size to determine the size of the
+	 * BPF map value that is used to store the strtab.
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	stabsz = dtp->dt_strlen + strsize;
+	stabsz = dtp->dt_strlen + strsize + 1;
 	strtab = dt_zalloc(dtp, stabsz);
 	if (strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
