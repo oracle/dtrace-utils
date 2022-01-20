@@ -941,8 +941,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
 	    dnp->dn_kind == DT_NODE_AGG) {
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind,
-				 size, size, pfp, arg);
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, size, pfp,
+				 arg);
 
 		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
 
@@ -951,34 +951,29 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 		return 0;
 	} else if (dt_node_is_string(dnp)) {
+		size_t	strsize = pcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
+
 		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 
 		TRACE_REGSET("store_val(): Begin ");
-		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind,
-				 size + DT_STRLEN_BYTES + 1, 1, pfp, arg);
-
-		/*
-		 * Copy the length of the string from the source string as a
-		 * half-word (2 bytes) into the buffer at [%r9 + off].
-		 */
-		emit(dlp, BPF_LOAD(BPF_H, BPF_REG_0, dnp->dn_reg, 0));
-		emit(dlp, BPF_STORE(BPF_H, BPF_REG_9, off, BPF_REG_0));
+		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, size + 1,
+				 1, pfp, arg);
 
 		/*
 		 * Copy the string data (no more than STRSIZE + 1 bytes) to the
-		 * buffer at [%r9 + off + DT_STRLEN_BYTES].  We (ab)use the
-		 * fact that probe_read_str) stops at the terminating NUL byte.
+		 * buffer at (%r9 + off).  We depend on the fact that
+		 * probe_read_str() stops at the terminating NUL byte.
 		 */
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off + DT_STRLEN_BYTES));
-		emit(dlp, BPF_MOV_IMM(BPF_REG_2, size + 1));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, strsize + 1));
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
 		dt_regset_free(drp, dnp->dn_reg);
 		dt_cg_tstring_free(pcb, dnp);
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
 		dt_regset_free_args(drp);

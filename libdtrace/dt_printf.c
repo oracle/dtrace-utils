@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -489,7 +489,6 @@ pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	memcpy(s, addr, size);
 	s[size] = '\0';
-	s += DT_STRLEN_BYTES;
 	return dt_printf(dtp, fp, format, s);
 }
 

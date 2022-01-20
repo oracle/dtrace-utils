@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1928,8 +1928,7 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 		if (rec->dtrd_alignment > 1)
 			return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 
-		/* We have a string.  Skip the length prefix and print it. */
-		s += DT_STRLEN_BYTES;
+		/* We have a string.  Print it. */
 		if (quiet)
 			return dt_printf(dtp, fp, "%s", s);
 		else
