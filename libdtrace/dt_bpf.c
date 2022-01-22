@@ -329,14 +329,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	buf = (uint8_t *)strtab;
 	end = buf + dtp->dt_strlen;
 	while (buf < end) {
-		uint_t	len = (buf[0] << 8) | buf[1];
+		uint_t	len = strlen((char *)buf + DT_STRLEN_BYTES);
 
-		if (len > strsize) {
-			buf[0] = strsize >> 8;
-			buf[1] = strsize & 0xff;
-			buf[2 + strsize] = '\0';
-		}
-		buf += 2 + len + 1;
+		if (len > strsize)
+			buf[DT_STRLEN_BYTES + strsize] = '\0';
+
+		buf += DT_STRLEN_BYTES + len + 1;
 	}
 
 	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
