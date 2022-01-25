@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -743,7 +743,7 @@ dt_difo_getstr(const dtrace_difo_t *dp, ssize_t idx)
 {
 	assert(idx < dp->dtdo_strlen);
 
-	return &dp->dtdo_strtab[idx] + DT_STRLEN_BYTES;
+	return &dp->dtdo_strtab[idx];
 }
 
 /*

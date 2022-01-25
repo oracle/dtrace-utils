@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -71,10 +71,8 @@ dt_strtab_create(size_t bufsz)
 	 * at offset 0.  We use this guarantee in dt_strtab_insert() and
 	 * dt_strtab_index().
 	 */
-	dt_strlen_store(0, sp->str_ptr);
-	sp->str_ptr += DT_STRLEN_BYTES;
 	*sp->str_ptr++ = '\0';
-	sp->str_size = DT_STRLEN_BYTES + 1;
+	sp->str_size = 1;
 	sp->str_nstrs = 1;
 
 	return sp;
@@ -202,15 +200,14 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(DT_STRLEN_BYTES + slen + 1);
+	s = malloc(slen + 1);
 	if (s == NULL)
 		return -1L;
 
-	dt_strlen_store(slen, s);
-	memcpy(s + DT_STRLEN_BYTES, str, slen + 1);
+	memcpy(s, str, slen + 1);
 
 	h = str2hval(str, slen) % sp->str_hashsz;
-	rc = dt_strtab_xindex(sp, s, DT_STRLEN_BYTES + slen, h);
+	rc = dt_strtab_xindex(sp, s, slen, h);
 	free(s);
 
 	return rc;
@@ -229,15 +226,13 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(DT_STRLEN_BYTES + slen + 1);
+	s = malloc(slen + 1);
 	if (s == NULL)
 		return -1L;
 
-	dt_strlen_store(slen, s);
-	memcpy(s + DT_STRLEN_BYTES, str, slen + 1);
+	memcpy(s, str, slen + 1);
 
 	h = str2hval(str, slen) % sp->str_hashsz;
-	slen += DT_STRLEN_BYTES;
 	off = dt_strtab_xindex(sp, s, slen, h);
 	if (off != -1) {
 		free(s);

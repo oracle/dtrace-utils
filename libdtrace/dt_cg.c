@@ -779,8 +779,7 @@ dt_cg_tstring_reset(dtrace_hdl_t *dtp)
 {
 	int		i;
 	dt_tstring_t	*ts;
-	uint64_t	size = roundup(DT_STRLEN_BYTES +
-				       dtp->dt_options[DTRACEOPT_STRSIZE] + 1,
+	uint64_t	size = roundup(dtp->dt_options[DTRACEOPT_STRSIZE] + 1,
 				       8);
 
 	if (dtp->dt_tstrings == NULL) {
@@ -971,7 +970,6 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, strsize + 1));
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
 		dt_regset_free(drp, dnp->dn_reg);
 		dt_cg_tstring_free(pcb, dnp);
 		dt_regset_xalloc(drp, BPF_REG_0);
@@ -2363,8 +2361,6 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			 * size of the data being copied in.
 			 */
 			srcsz = dt_node_type_size(dnp->dn_right);
-			if (dt_node_is_string(dnp))
-				srcsz += DT_STRLEN_BYTES;
 			size = MIN(srcsz, idp->di_size);
 
 			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
@@ -2417,8 +2413,6 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		 * size of the data being copied in.
 		 */
 		srcsz = dt_node_type_size(dnp->dn_right);
-		if (dt_node_is_string(dnp))
-			srcsz += DT_STRLEN_BYTES;
 		size = MIN(srcsz, size);
 
 		dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
@@ -2909,7 +2903,6 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
 
 		dt_cg_memcpy(dlp, drp, dnp->dn_reg, BPF_REG_0,
-			     DT_STRLEN_BYTES +
 			     yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE]);
 
 		dt_cg_tstring_free(yypcb, dnp->dn_left);
@@ -3932,7 +3925,6 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_regset_free(drp, str->dn_reg);
 		if (str->dn_tstring)
 			dt_cg_tstring_free(yypcb, str);
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_STRLEN_BYTES));
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
 		dt_regset_free(drp, BPF_REG_0);

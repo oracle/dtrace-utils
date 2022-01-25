@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -17,8 +17,6 @@
  *   - In the call to rindex.S, start<0 means to use the default.
  */
 
-#define DT_STRLEN_BYTES		2
-
 #define BPF_FUNC_probe_read	4
 #define BPF_FUNC_probe_read_str	45
 
@@ -28,10 +26,6 @@
  * {
  *     uint64_t r0, tlen;
  *     uint64_t buflen;
- *
- *     // ignore length prefix
- *     s += DT_STRLEN_BYTES;
- *     t += DT_STRLEN_BYTES;
  *
  *     // round buflen for dt_index_match()
  *     buflen = STRSZ rounded up to multiple of 8;
@@ -82,9 +76,6 @@
 	.global	dt_rindex
 	.type	dt_rindex, @function
 dt_rindex:
-	add	%r1, DT_STRLEN_BYTES		/* s += DT_STRLEN_BYTES */
-	add	%r2, DT_STRLEN_BYTES		/* t += DT_STRLEN_BYTES */
-
 	lddw	%r6, STRSZ
 	add	%r6, 7
 	and	%r6, -8

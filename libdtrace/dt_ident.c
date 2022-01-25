@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1011,10 +1011,6 @@ dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 {
 	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
 	dt_idhash_t	*dhp = idp->di_hash;
-
-	if (idp->di_ctfp == DT_STR_CTFP(dtp) &&
-	    idp->di_type == DT_STR_TYPE(dtp))
-		size += DT_STRLEN_BYTES;
 
 	if (!(idp->di_flags & DT_IDFLG_TLS)) {
 		idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) &

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read_str	45
 
@@ -22,9 +20,6 @@ dt_dirname :
 	/* store copies of input arguments */
 	mov	SRC, %r1
 	mov	DST, %r2
-
-	/* ignore the string-length prefix */
-	add	SRC, DT_STRLEN_BYTES
 
 	/* r0 = bpf_probe_read_str(dst, STRSZ + 1, src) */
 	mov	%r1, DST
@@ -100,19 +95,12 @@ dt_dirname :
 	 * The output string is up to the end of the dirname.
 	 */
 
-	/* bpf_probe_read_str(dst + DT_STRLEN_BYTES, len + 1, src) */
+	/* bpf_probe_read_str(dst, len + 1, src) */
 	mov	%r1, DST
-	add	%r1, DT_STRLEN_BYTES
 	mov	%r2, LEN
 	add	%r2, 1
 	mov	%r3, SRC
 	call	BPF_FUNC_probe_read_str
-
-.Lcoda:
-	/* dt_strlen_store(len, dst) */
-	mov	%r1, LEN
-	mov	%r2, DST
-	call	dt_strlen_store
 
 	/* return */
 	exit
@@ -122,18 +110,18 @@ dt_dirname :
 	 * The output string is simply ".".
 	 */
 	mov	LEN, 1
-	stb	[DST+DT_STRLEN_BYTES], '.'
-	stb	[DST+(DT_STRLEN_BYTES+1)], 0
-	ja	.Lcoda
+	stb	[DST+0], '.'
+	stb	[DST+1], 0
+	exit
 
 .Lslash:
 	/*
 	 * The output string is simply "/".
 	 */
 	mov	LEN, 1
-	stb	[DST+DT_STRLEN_BYTES], '/'
-	stb	[DST+(DT_STRLEN_BYTES+1)], 0
-	ja	.Lcoda
+	stb	[DST+0], '/'
+	stb	[DST+1], 0
+	exit
 #undef SRC
 #undef DST
 #undef LEN

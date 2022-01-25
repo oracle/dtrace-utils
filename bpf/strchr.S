@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read	4
 #define BPF_FUNC_probe_read_str	45
@@ -24,7 +22,7 @@
  *     [%fp-32]=tmp
  *
  *     // make temporary copy of string and get string length
- *     r6 = bpf_probe_read_str(dst, STRSZ, src + DT_STRLEN_BYTES);
+ *     r6 = bpf_probe_read_str(dst, STRSZ, src);
  *     r6--;
  *
  *     // xor the char with every byte;  a match results in NULL byte
@@ -40,12 +38,9 @@
  *     // determine length of output string
  *     r6 -= r8;
  *     if (r6 <= 0) return -1;
- *     dt_strlen_store(r6, dst);
  *
  *     // write output string
- *     r8 += DT_STRLEN_BYTES;
- *     bpf_probe_read(dst + DT_STRLEN_BYTES, r6, src + r8);
- *     r6 += DT_STRLEN_BYTES;
+ *     bpf_probe_read(dst, r6, src + r8);
  *     dst[r6] = '\0';
  *
  *     return 0;
@@ -75,8 +70,7 @@ dt_strchr :
 	ldxdw	%r1, [%fp+-24]
 	lddw	%r2, STRSZ
 	ldxdw	%r3, [%fp+-8]
-	add	%r3, DT_STRLEN_BYTES
-	call	BPF_FUNC_probe_read_str	/* r6 = bpf_probe_read_str(dst, STRSZ, src + DT_STRLEN_BYTES) */
+	call	BPF_FUNC_probe_read_str	/* r6 = bpf_probe_read_str(dst, STRSZ, src) */
 	mov	%r6, %r0
 
 	jsle	%r6, 0, .Lerror
@@ -119,20 +113,11 @@ dt_strchr :
 
 	jsle	%r6, 0, .Lerror		/* if (r6 <= 0) return -1 */
 
-	mov	%r1, %r6
-	ldxdw	%r2, [%fp+-24]
-	call	dt_strlen_store		/* dt_strlen_store(r6, dst) */
-
-	add	%r8, DT_STRLEN_BYTES	/* r8 += DT_STRLEN_BYTES */
-
 	ldxdw	%r1, [%fp+-24]
-	add	%r1, DT_STRLEN_BYTES
 	mov	%r2, %r6
 	ldxdw	%r3, [%fp+-8]
 	add	%r3, %r8
-	call	BPF_FUNC_probe_read	/* bpf_probe_read(dst + DT_STRLEN_BYTES, r6, src + r8) */
-
-	add	%r6, DT_STRLEN_BYTES	/* r6 += DT_STRLEN_BYTES */
+	call	BPF_FUNC_probe_read	/* bpf_probe_read(dst, r6, src + r8) */
 
 	ldxdw	%r1, [%fp+-24]
 	add	%r1, %r6		/* dst[r6] = '\0' */

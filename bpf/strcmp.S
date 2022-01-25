@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read	4
 #define BPF_FUNC_probe_read_str	45
@@ -70,8 +68,8 @@ dt_strcmp_not :
  *     r8 = STRSZ
  *
  *     // make temporary copies of strings
- *     r6 = bpf_probe_read_str(tmp1, STRSZ, s + DT_STRLEN_BYTES);
- *     r7 = bpf_probe_read_str(tmp2, STRSZ, t + DT_STRLEN_BYTES);
+ *     r6 = bpf_probe_read_str(tmp1, STRSZ, s);
+ *     r7 = bpf_probe_read_str(tmp2, STRSZ, t);
  *     tmp1[r6] = '\0';
  *     tmp2[r7] = '\0';
  *
@@ -88,7 +86,6 @@ dt_strcmp_not :
  *     // based on this location, judge if the strings are >, <, or ==
  *     if (r0 > r6) goto Lsame;
  *     if (r0 > r7) goto Lsame;
- *     r0 += DT_STRLEN_BYTES;
  *     if (s[r0] > t[r0]) return +1;
  *     if (s[r0] < t[r0]) return +1;
  *
@@ -114,8 +111,7 @@ dt_strcmp :
 	ldxdw	%r1, [%fp+-24]
 	mov	%r2, %r8
 	ldxdw	%r3, [%fp+-8]
-	add	%r3, DT_STRLEN_BYTES
-	call	BPF_FUNC_probe_read_str	/* r6 = bpf_probe_read_str(tmp1, STRSZ, s + DT_STRLEN_BYTES) */
+	call	BPF_FUNC_probe_read_str	/* r6 = bpf_probe_read_str(tmp1, STRSZ, s) */
 	mov	%r6, %r0
 	jle	%r6, %r8, 1
 	mov	%r6, %r8
@@ -123,8 +119,7 @@ dt_strcmp :
 	ldxdw	%r1, [%fp+-32]
 	mov	%r2, %r8
 	ldxdw	%r3, [%fp+-16]
-	add	%r3, DT_STRLEN_BYTES
-	call	BPF_FUNC_probe_read_str	/* r7 = bpf_probe_read_str(tmp2, STRSZ, t + DT_STRLEN_BYTES) */
+	call	BPF_FUNC_probe_read_str	/* r7 = bpf_probe_read_str(tmp2, STRSZ, t) */
 	mov	%r7, %r0
 	jle	%r7, %r8, 1
 	mov	%r7, %r8
@@ -155,7 +150,6 @@ dt_strcmp :
 
 	jsle	%r0, 0, .L0		/* help the BPF verifier */
 	lddw	%r8, STRSZ
-	sub	%r8, DT_STRLEN_BYTES
 	jlt	%r0, %r8, 1
 	mov	%r0, %r8
 
@@ -163,8 +157,6 @@ dt_strcmp :
 
 	jgt	%r0, %r6, .Lsame	/* if (r0 > r6) goto Lsame */
 	jgt	%r0, %r8, .Lsame	/* if (r0 > r8) goto Lsame */
-
-	add	%r0, DT_STRLEN_BYTES	/* r0 += DT_STRLEN_BYTES */
 
 	ldxdw	%r4, [%fp+-8]
 	add	%r4, %r0

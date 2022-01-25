@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read	4
 #define BPF_FUNC_probe_read_str	45
@@ -84,10 +82,6 @@ dt_index_match:
  *     uint64_t r0, tlen;
  *     uint64_t buflen;
  *
- *     // ignore length prefix
- *     s += DT_STRLEN_BYTES;
- *     t += DT_STRLEN_BYTES;
- *
  *     // determine actual start index
  *     if (start < 0) start = 0;
  *
@@ -135,9 +129,6 @@ dt_index_match:
 	.global	dt_index
 	.type	dt_index, @function
 dt_index:
-	add	%r1, DT_STRLEN_BYTES		/* s += DT_STRLEN_BYTES */
-	add	%r2, DT_STRLEN_BYTES		/* t += DT_STRLEN_BYTES */
-
 	jsge	%r3, 0, 1
 	mov	%r3, 0				/* if (start < 0) start = 0 */
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -330,21 +330,4 @@ char *strrstr(const char *haystack, const char *needle)
 		prev_s = s;
 
 	return (char *)prev_s;
-}
-
-void
-dt_strlen_store(uint64_t val, char *str)
-{
-	uint8_t	*buf = (uint8_t *)str;
-
-	buf[0] = (uint8_t)(val >> 8);
-	buf[1] = (uint8_t)(val & 0xff);
-}
-
-uint64_t
-dt_strlen(const char *str)
-{
-	const uint8_t	*buf = (const uint8_t *)str;
-
-	return ((uint64_t)buf[0] << 8) + (uint64_t)buf[1];
 }

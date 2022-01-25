@@ -231,7 +231,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 	uint8_t		*buf, *end;
 	char		*strtab;
-	size_t		strdatasz = P2ROUNDUP(DT_STRLEN_BYTES + strsize + 1, 8);
+	size_t		strdatasz = P2ROUNDUP(strsize + 1, 8);
 
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -329,12 +329,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	buf = (uint8_t *)strtab;
 	end = buf + dtp->dt_strlen;
 	while (buf < end) {
-		uint_t	len = strlen((char *)buf + DT_STRLEN_BYTES);
+		uint_t	len = strlen((char *)buf);
 
 		if (len > strsize)
-			buf[DT_STRLEN_BYTES + strsize] = '\0';
+			buf[strsize] = '\0';
 
-		buf += DT_STRLEN_BYTES + len + 1;
+		buf += len + 1;
 	}
 
 	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,

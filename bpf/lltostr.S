@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
-#define DT_STRLEN_BYTES		2
 #define BPF_FUNC_probe_read	4
 #define MAXCHARS		19
 
@@ -45,9 +44,6 @@
  *     IDX += SGN
  *
  *     LEN = min(IDX, STRSZ)
- *
- *     dt_strlen_store(LEN, STR)
- *     STR += DT_STRLEN_BYTES
  *
  *     // copy to output string
  *     bpf_probe_read(STR, LEN, %fp + -IDX)
@@ -139,12 +135,6 @@ dt_lltostr:
 	mov	LEN, IDX
 	jle	LEN, %r1, 1
 	mov	LEN, %r1			/* LEN = min(IDX, STRSZ) */
-
-	mov	%r1, LEN
-	mov	%r2, STR
-	call	dt_strlen_store			/* dt_strlen_store(LEN, STR) */
-
-	add	STR, DT_STRLEN_BYTES		/* STR += DT_STRLEN_BYTES */
 
 	mov	%r1, STR
 	mov	%r2, LEN

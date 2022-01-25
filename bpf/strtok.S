@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read	4
 #define BPF_FUNC_probe_read_str	45
@@ -291,8 +289,6 @@ dt_strtok_flip:
  * void dt_strtok(char *dst, char *str, const char *del, char *tmp)
  * {
  *     // discard delimiter length prefix; we look for the NULL terminator anyhow
- *     del += DT_STRLEN_BYTES
- *
  *     // len = roundup(STRSZ + 1, 8)
  *     len = ((STRSZ + 1) + 7) & -8
  *
@@ -336,9 +332,8 @@ dt_strtok_flip:
  *     bgn += *((uint64_t*)str)
  *
  *     // copy str + bgn to destination
- *     dt_strlen_store(len, dst)
- *     bpf_probe_read(dst + DT_STRLEN_BYTES, len, str + 8 + bgn)
- *     dst[DT_STRLEN_BYTES + len] = '\0'
+ *     bpf_probe_read(dst, len, str + 8 + bgn)
+ *     dst[len] = '\0'
  *
  *     // update the 8-byte prefix (strtok offset)
  *     bgn += len
@@ -370,9 +365,6 @@ dt_strtok:
 	mov	STR, %r2
 	mov	DEL, %r3
 	mov	TMP, %r4
-
-	/* discard delimiter length prefix; we look for the NULL terminator anyhow */
-	add	DEL, DT_STRLEN_BYTES	/* del += DT_STRLEN_BYTES */
 
 	/* len = roundup(STRSZ + 1, 8) */
 	lddw	LEN, STRSZ
@@ -459,23 +451,18 @@ dt_strtok:
 	mov	BGN, 0
 
 	/* copy str + bgn to destination */
-	mov	%r1, LEN
-	ldxdw	%r2, DST_X
-	call	dt_strlen_store		/* dt_strlen_store(len, dst) */
-
 	ldxdw	%r1, DST_X
-	add	%r1, DT_STRLEN_BYTES
 	mov	%r2, LEN
 	mov	%r3, STR
 	add	%r3, 8
 	add	%r3, BGN
-	call	BPF_FUNC_probe_read	/* bpf_probe_read(dst + DT_STRLEN_BYTES, len, str + 8 + bgn) */
+	call	BPF_FUNC_probe_read	/* bpf_probe_read(dst, len, str + 8 + bgn) */
 
 	mov	%r1, 0
 	ldxdw	%r2, DST_X
 	add	%r2, LEN
-	stxb	[%r2+DT_STRLEN_BYTES], %r1
-					/* dst[DT_STRLEN_BYTES + len] = '\0' */
+	stxb	[%r2+0], %r1
+					/* dst[len] = '\0' */
 
 	/* update the 8-byte prefix (strtok offset) */
 	add	BGN, LEN		/* bgn += len */

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2004, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -26,11 +26,6 @@ extern char *strhyphenate(char *);
 #ifndef HAVE_STRRSTR
 extern char *strrstr(const char *, const char *);
 #endif
-
-#define DT_STRLEN_BYTES	2
-
-extern void dt_strlen_store(uint64_t val, char *str);
-extern uint64_t dt_strlen(const char *str);
 
 /*
  * To get around issues with strncpy:

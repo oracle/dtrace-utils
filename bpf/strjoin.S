@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
-
-#define DT_STRLEN_BYTES		2
 
 #define BPF_FUNC_probe_read_str	45
 
@@ -22,42 +20,25 @@ dt_strjoin:
 	lddw	%r6, STRSZ
 	add	%r6, 1			/* cnt = STRSZ + 1 */
 
-	add	%r1, DT_STRLEN_BYTES	/* dst is in %r1 already */
 	mov	%r2, %r6
 	mov	%r3, %r7
-	add	%r3, DT_STRLEN_BYTES
-	call	BPF_FUNC_probe_read_str	/*
-					 * rc = probe_read_str(
-					 *	  &dst[DT_STRLEN_BYTES],
-					 *	  cnt,
-					 *	  &s1[DT_STRLEN_BYTES]);
-					 */
+	call	BPF_FUNC_probe_read_str	/* rc = probe_read_str(dst, cnt, s1); */
 	jsle	%r0, 0, .Lexit		/* if (rc s<= 0) goto .Lexit; */
 	mov	%r7, %r0		/* len = rc */
-	jeq	%r7, %r6, .Lset_len	/* if (len == cnt) goto .Lset_len; */
+	jeq	%r7, %r6, .Lexit	/* if (len == cnt) goto .Lexit; */
 	sub	%r7, 1			/* len-- */
 
 	mov	%r1, %r9
-	add	%r1, DT_STRLEN_BYTES
 	add	%r1, %r7
 	mov	%r2, %r6
 	sub	%r2, %r7
 	mov	%r3, %r8
-	add	%r3, DT_STRLEN_BYTES
 	call	BPF_FUNC_probe_read_str	/*
-					 * rc = probe_read_str(
-					 *	  &dst[DT_STRLEN_BYTES + len],
-					 *	  cnt - len,
-					 *	  &s2[DT_STRLEN_BYTES]);
+					 * rc = probe_read_str(dst, cnt - len,
+					 *		       s2);
 					 */
-	jsle	%r0, 0, .Lexit		/* if (rc s<= 0) goto .Lset_len; */
+	jsle	%r0, 0, .Lexit		/* if (rc s<= 0) goto .Lexit */
 	add	%r7, %r0		/* len += rc */
-
-.Lset_len:
-	sub	%r7, 1			/* len-- */
-	mov	%r1, %r7
-	mov	%r2, %r9
-	call	dt_strlen_store		/* dt_strlen_store(len - 1, dst) */
 
 .Lexit:
 	exit

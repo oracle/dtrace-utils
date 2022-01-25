@@ -3,8 +3,6 @@
  * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
-#define DT_STRLEN_BYTES		2
-
 #define BPF_FUNC_probe_read_str	45
 
 /*
@@ -51,13 +49,11 @@ dt_substr :
 	 * string length.)
 	 */
 	mov	%r3, %r2
-	add	%r3, DT_STRLEN_BYTES
 	mov	%r2, %r8
 	add	%r2, 1
 	call	BPF_FUNC_probe_read_str	/*
-					 * len = probe_read_str(
-					 *	   dst, STRSZ + 1,
-					 *	   &src[DT_STRLEN_BYTES]);
+					 * len = probe_read_str(dst, STRSZ + 1,
+					 *			src);
 					 */
 	jslt	%r0, 1, .Lempty		/* if (len < 1) goto Lempty; */
 	sub	%r0, 1			/* len--; */
@@ -113,38 +109,25 @@ dt_substr :
 .Lcopy:
 	/*
 	 * Use the probe_read_str() BPF helper to copy (cnt + 1) bytes from
-	 * &src[DT_STRLEN_BYTES + idx] to &dst[DT_STRLEN_BYTES].  We ensure
-	 * that cnt is capped at STRSZ.
+	 * &src[idx] to dst.  We ensure that cnt is capped at STRSZ.
 	 */
 	mov	%r1, %r9
-	add	%r1, DT_STRLEN_BYTES
 	mov	%r2, %r7
 	jle	%r2, %r4, .Lcnt_ok	/* if (cnt <= STRSZ) goto Lcnt_ok; */
 	mov	%r2, %r4		/* cnt = STRSZ */
 .Lcnt_ok:
 	add	%r2, 1
 	ldxdw	%r3, [%fp+-8]
-	add	%r3, DT_STRLEN_BYTES
 	add	%r3, %r6
 	call	BPF_FUNC_probe_read_str	/*
-					 * rc = probe_read_str(
-					 *	&dst[DT_STRLEN_BYTES],
-					 *	cnt + 1,
-					 *	&src[DT_STRLEN_BYTES + idx]);
+					 * rc = probe_read_str(dst, cnt + 1,
+					 *		       &src[idx]);
 					 */
-
-	/* Store the result string length (rc - 1) at dst. */
-	mov	%r1, %r0
-	sub	%r1, 1
-	mov	%r2, %r9
-	call	dt_strlen_store		/* dt_strlen_store(rc - 1, dst) */
 
 	exit
 
 .Lempty:
 	/* Store the empty string in the destination. */
 	stb	[%r9+0], 0
-	stb	[%r9+1], 0
-	stb	[%r9+2], 0
 	exit
 	.size	dt_substr, .-dt_substr
