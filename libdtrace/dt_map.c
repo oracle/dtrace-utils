@@ -190,6 +190,8 @@ dt_rec_add(dtrace_hdl_t *dtp, dt_cg_gap_f gapf, dtrace_actkind_t kind,
 	int			cnt, max;
 
 	assert(gapf);
+	assert(alignment > 0 && alignment <= 8 &&
+	       (alignment & (alignment - 1)) == 0);
 
 	/* make more space if necessary */
 	cnt = ddp->dtdd_nrecs + 1;
