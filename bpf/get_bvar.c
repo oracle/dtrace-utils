@@ -133,6 +133,27 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id)
 
 		return val & 0x00000000ffffffffUL;
 	}
+	case DIF_VAR_EXECNAME: {
+		uint64_t	ptr;
+		uint32_t	key;
+		uint32_t	*comm_off;
+
+		/*
+		 * In the "state" map, look up the "struct task_struct" offset
+		 * of "comm".
+		 */
+		key = DT_STATE_TASK_COMM_OFF;
+		comm_off = bpf_map_lookup_elem(&state, &key);
+		if (comm_off == NULL)
+			return error(dctx, DTRACEFLT_ILLOP, 0);
+
+		/* &(current->comm) */
+		ptr = bpf_get_current_task();
+		if (ptr == 0)
+			return error(dctx, DTRACEFLT_BADADDR, ptr);
+
+		return (uint64_t)ptr + *comm_off;
+	}
 	case DIF_VAR_WALLTIMESTAMP:
 		return bpf_ktime_get_ns() + ((uint64_t)&BOOTTM);
 	case DIF_VAR_PPID: {

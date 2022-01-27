@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _DT_STATE_H
@@ -23,6 +23,7 @@ typedef enum dt_state_elem {
 	DT_STATE_ENDEDON,		/* cpu END probe executed on */
 	DT_STATE_TASK_PARENT_OFF,	/* offsetof(struct task_struct, real_parent) */
 	DT_STATE_TASK_TGID_OFF,		/* offsetof(struct task_struct, tgid) */
+	DT_STATE_TASK_COMM_OFF,		/* offsetof(struct task_struct, comm) */
 	DT_STATE_NUM_ELEMS
 } dt_state_elem_t;
 
@@ -66,6 +67,7 @@ dt_state_set(dtrace_hdl_t *dtp, uint32_t key, uint32_t val)
 
 # define dt_state_set_offparent(dtp, x)	dt_state_set(dtp, DT_STATE_TASK_PARENT_OFF, (x))
 # define dt_state_set_offtgid(dtp, x)	dt_state_set(dtp, DT_STATE_TASK_TGID_OFF, (x))
+# define dt_state_set_offcomm(dtp, x)	dt_state_set(dtp, DT_STATE_TASK_COMM_OFF, (x))
 #endif
 
 #endif /* _DT_STATE_H */

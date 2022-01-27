@@ -153,6 +153,10 @@ set_task_offsets(dtrace_hdl_t *dtp)
 		return -1;
 	dt_state_set_offtgid(dtp, ctm.ctm_offset / NBBY);
 
+	if (ctf_member_info(cfp, type, "comm", &ctm) == CTF_ERR)
+		return -1;
+	dt_state_set_offcomm(dtp, ctm.ctm_offset / NBBY);
+
 	return 0;
 }
 
