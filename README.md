@@ -7,8 +7,10 @@ visibility for our work and to make it even easier for people to access the
 source.  We also use this repository to work with developers in the Linux
 community.
 
-The main development branch is
-[2.0-branch-dev](https://github.com/oracle/dtrace-utils/tree/2.0-branch-dev).
+The main development branch is [dev](https://github.com/oracle/dtrace-utils/tree/dev).
+
+A small number of kernel patches are needed, which are [here](https://github.com/oracle/dtrace-linux-kernel).
+Branches named starting v2/* are suitable (see 2.1.3 below for more details).
 
 We provide prebuilt DTrace userspace packages for Oracle Linux 7 and Oracle
 Linux 8, using the UEK6 kernel.  These packages are based on the Oracle Linux
@@ -30,9 +32,9 @@ Source code for the UEK kernel is available on github in the
 * [1. License](#1-license)
 * [2. How to Build DTrace](#2-how-to-build-dtrace)
   * [2.1. Prerequisites](#21-prerequisites)
-     * [2.1.1. Step 1: Install the Compact Type Format (CTF) libraries](#211-step-1-install-the-compact-type-format-ctf-libraries)
-     * [2.1.2. Step 2: Install kernel build prerequisites](#212-step-2-install-kernel-build-prerequisites)
-     * [2.1.3. Step 3: Build a Kernel with add-on features that DTrace uses](#213-step-3-build-a-dtrace-enabled-kernel)
+     * [2.1.1. Step 1: Either install a recent-enough binutils and GCC...](#211-step-1-either-install-a-recent-enough-binutils-and-gcc)
+     * [2.1.2. Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)](#212-step-2-or-install-the-compact-type-format-ctf-libraries-deprecated)
+     * [2.1.3. Step 3: Build a Kernel with add-on features that DTrace uses](#213-step-3-build-a-kernel-with-add-on-features-that-dtrace-uses)
      * [2.1.4. Step 4: Get the Other Necessary Packages](#214-step-4-get-the-other-necessary-packages)
   * [2.2. Build DTrace](#22-build-dtrace)
 * [3. Testing](#3-testing)
@@ -48,7 +50,7 @@ A copy is included in this repository as the LICENSE file.
 ## 2. How to Build DTrace
 
 The build instructions focus on building DTrace for the upstream Linux kernel.
-We will use the 5.8.1 release, but the instructions apply to most recent Linux
+We will use the 5.14.9 release, but the instructions apply to most recent Linux
 kernel versions.
 
 ### 2.1. Prerequisites
@@ -56,19 +58,34 @@ kernel versions.
 Please read this section carefully before moving over to the build
 documentation to ensure your environment is properly configured.
 
-#### 2.1.1. Step 1: Install the Compact Type Format (CTF) libraries
+#### 2.1.1. Step 1: Either install a recent-enough binutils and GCC...
 
-CTF type support requires installation of supporting libraries and development
-headers. CTF library development is handled as a separate project.
+DTrace uses a type introspection system called CTF.  This is supported by
+upstream GCC and GNU Binutils.  Make sure you have binutils 2.36 or later
+installed, and trunk GCC or GCC 12 (which can be configured with a --prefix
+specific to itself to avoid disturbing the system compiler: just point
+HOSTCC and CC at that GCC when compiling the kernel and DTrace).
 
-For more information about how to build and install the libraries from source
-code, please visit [libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).
+If your distro provides a binutils development package, you need to install
+that too (we need to link against libctf.so).
 
-#### 2.1.2. Step 2: Install kernel build prerequisites
+#### 2.1.2. Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)
 
-The kernel build depends on the following packages that may not be installed on
-the system yet.  The table below gives the package names for Debian and Oracle
-Linux as examples.
+If you can't update your toolchain, you can alternatively install
+[libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).  However, this library
+is deprecated and cannot always read CTF produced by the GCC/binutils combination
+above.
+
+If you're building a kernel newer than 5.16, you must use the toolchain combination,
+as the old libdtrace-ctf-using CTF converter in the kernel tree has been removed
+in favour of something much smaller using Binutils's libctf.  Equally, if you're
+compiling the kernel using GCC 11 or higher, you must use the toolchain approach
+(which means installing GCC master or GCC 12), since the old converter cannot
+handle the DWARF emitted by GCC 11.
+
+If you're using libdtrace-ctf, the kernel build additionally depends on the
+following packages that may not be installed on the system yet.  The table below
+gives the package names for Debian and Oracle Linux as examples.
 
 | Prerequisite | Debian           | Oracle Linux          |
 |:-------------|:-----------------|:----------------------|
@@ -76,7 +93,7 @@ Linux as examples.
 | libdw        | libdw-dev        | elfutils-devel        |
 | libelf       | libelf-dev       | elfutils-libelf-devel |
 
-#### 2.1.3. Step 3: Build a Kernel with add-on features that DTrace uses
+#### 2.1.3. Step 3: Build a kernel with add-on features that DTrace uses
 
 DTrace currently depends on a few extra kernel features that are not available
 in the upstream kernel:
@@ -85,8 +102,8 @@ in the upstream kernel:
 - /proc/kallmodsyms
 - New system call: waitfd()
 
-Patches that implement these features are available from the v2/* branches in
-our Linux kernel repository for features that DTrace uses:
+As noted above, patches that implement these features are available from the
+v2/* branches in our Linux kernel repository for features that DTrace uses:
 https://github.com/oracle/dtrace-linux-kernel
 
 The customary way to obtain these patches is to clone an appropriate upstream
@@ -96,22 +113,7 @@ The patch set is quite small, but may need some tweaking if it is being merged
 into a newer tree.  We occasionally push a new patched tree to our github repo,
 so do look around to see if there is a better match.
 
-Typical steps to patch a kernel with the add-on features are:
-
-```
-# Start with a clone from the upstream kernel repository.
-git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
-
-# Add the repository with the add-on features as a remote.
-git remote add addons https://github.com/oracle/dtrace-linux-kernel
-git remote update addons
-
-# Check out the latest 5.8.* kernel.
-git checkout -b 5.8-addons origin/linux-5.8.y
-
-# Merge the add-on features into the upstream kernel tree.
-git merge --no-edit addons/v2/5.8.1
-```
+The latest kernel currently supported is 5.17-rc2.
 
 Oracle Linux's [UEK6](https://github.com/oracle/linux-uek/tree/uek6/master)
 provides a simple alternative if you don't want to patch your own kernel.
@@ -128,7 +130,9 @@ make olddefconfig
 make
 
 # This step will produce vmlinux.ctfa, which holds all CTF data for the kernel
-# and its modules.
+# and its modules.  If it doesn't work, you don't have a suitable toolchain
+# and/or are missing dependencies needed for the older libdtrace-ctf-based
+# tools.
 make ctf
 
 # Install with root privileges.
@@ -136,17 +140,19 @@ sudo make INSTALL_MOD_STRIP=1 modules_install
 sudo make install
 ```
 
-It is preferred (but not required) to reboot into your new kernel before trying to build DTrace.
+It is preferred (but not required) to reboot into your new kernel before
+trying to build DTrace.  (If you don't reboot into it, you need to specify
+some extra options when running make.)
 
-#### 2.1.3. Step 3: Get the Other Necessary Packages
+#### 2.1.4. Step 4: Get the Other Necessary Packages
 
 A few remaining packages are required either for building or at runtime.  They
 should be part of most Linux distributions today and can be installed via the
 package manager of your distro.  The table below gives package names for Debian
 and Oracle Linux.
 
-We assume that the packages needed to build libdtrace-ctf and the kernel remain
-installed so they are not repeated here.
+We assume that the packages needed to build the kernel remain installed so they
+are not repeated here.
 
 For building:
 
@@ -192,6 +198,17 @@ In this scenario the build system expects that kernel sources can be found at
 userspace build is compatible with the utils (the exported userspace headers in
 the `include/uapi/linux/dtrace` are compatible with the utils version being
 built).
+
+You can point at a different kernel version with the KERNELS variable, e.g.
+make KERNELS="5.16.8"
+as long as the source tree that kernel was built with remains where it was
+when that kernel was installed.
+
+See the GNUmakefile for more options (building translators against multiple
+different kernels at once, building against kernel sources found in
+different places, building against a kernel built with O=, etc.)
+
+'make help' might also be of interest.
 
 ## 3. Testing
 
