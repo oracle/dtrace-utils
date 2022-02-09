@@ -218,10 +218,10 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  * - gvars:	Global variables map.  This is a global map with a singleton
  *		element (key 0) addressed by variable offset.
  * - dvars:	Dynamic variables map.  This is a global hash map indexed with
- *		a unique numeric identifier for each variable per thread.  The
- *		value of each element is sized to accomodate the largest thread
- *		local ariable type found across all programsn the tracing
- *		session..
+ *		a unique numeric identifier for each dynamic variable (thread
+ *		local variable or associative array element).  The value size
+ *		is the largest dynamic variable size across all programs in the
+ *		tracing session.
  * - lvars:	Local variables map.  This is a per-CPU map with a singleton
  *		element (key 0) addressed by variable offset.
  */
@@ -249,9 +249,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/* Determine sizes for global, local, and TLS maps. */
 	gvarsz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
 	lvarsz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
-	if (dtp->dt_maxtlslen)
+	if (dtp->dt_maxdvarsize)
 		dvarc = (dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
-			 dtp->dt_maxtlslen) + 1;
+			 dtp->dt_maxdvarsize) + 1;
 
 	/* Create global maps as long as there are no errors. */
 	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
@@ -354,15 +354,15 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	if (dvarc > 0) {
 		int	fd;
-		char	dflt[dtp->dt_maxtlslen];
+		char	dflt[dtp->dt_maxdvarsize];
 
 		fd = create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
-				 sizeof(uint64_t), dtp->dt_maxtlslen, dvarc);
+				 sizeof(uint64_t), dtp->dt_maxdvarsize, dvarc);
 		if (fd == -1)
 			return -1;	/* dt_errno is set for us */
 
 		/* Initialize the default value (key = 0). */
-		memset(dflt, 0, dtp->dt_maxtlslen);
+		memset(dflt, 0, dtp->dt_maxdvarsize);
 		dt_bpf_map_update(fd, &key, &dflt);
 	}
 

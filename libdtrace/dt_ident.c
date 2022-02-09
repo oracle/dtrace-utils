@@ -1018,8 +1018,8 @@ dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 		dhp->dh_nextoff = idp->di_offset + size;
 	} else {
 		idp->di_offset = 0;
-		if (size > dtp->dt_maxtlslen)
-			dtp->dt_maxtlslen = size;
+		if (size > dtp->dt_maxdvarsize)
+			dtp->dt_maxdvarsize = size;
 	}
 
 	idp->di_size = size;
