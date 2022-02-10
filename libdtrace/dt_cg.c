@@ -2483,7 +2483,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
 		dt_cg_node(dnp, dlp, drp);
 
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list) {
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
 		dtrace_diftype_t t;
 		uint_t op;
 		int reg;
@@ -2516,8 +2516,6 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 
 		if (reg != DIF_REG_R0)
 			dt_regset_free(drp, reg);
-		if (i < isp->dis_varargs)
-			i++;
 	}
 
 	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
@@ -3236,7 +3234,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			   BPF_NOP());
 #else
 		xyerror(D_UNKNOWN, "internal error -- no support for "
-			"translated types yet\n");
+			"associative arrays yet\n");
 #endif
 	}
 }
