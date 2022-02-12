@@ -235,7 +235,6 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 	uint8_t		*buf, *end;
 	char		*strtab;
-	size_t		strdatasz = P2ROUNDUP(strsize + 1, 8);
 
 	/* If we already created the global maps, return success. */
 	if (dt_gmap_done)
@@ -295,21 +294,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 *	- 8 bytes padding for trace buffer alignment purposes
 	 *	- maximum trace buffer record size, rounded up to the nearest
 	 *	  multiple of 8
-	 *	- the greater of:
-	 *		- the maximum stack trace size
-	 *		- DT_TSTRING_SLOTS times the maximum space needed to
-	 *		  store a string
-	 *	- size of the internal strtok() state
-	 *		- 8 bytes for the offset index
-	 *		- the maximum string size
-	 *		- a byte for the terminating NULL char
+	 *	- size of dctx->mem (see dt_dctx.h)
 	 */
 	memsz = roundup(sizeof(dt_mstate_t), 8) +
 		8 +
 		roundup(dtp->dt_maxreclen, 8) +
-		MAX(sizeof(uint64_t) * dtp->dt_options[DTRACEOPT_MAXFRAMES],
-		    DT_TSTRING_SLOTS * strdatasz) +
-		sizeof(uint64_t) + dtp->dt_options[DTRACEOPT_STRSIZE] + 1;
+		DMEM_SIZE(dtp);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
 			sizeof(uint32_t), memsz, 1) == -1)
 		return -1;		/* dt_errno is set for us */

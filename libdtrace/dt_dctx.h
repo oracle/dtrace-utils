@@ -56,12 +56,38 @@ typedef struct dt_dctx {
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*
+ * The dctx->mem pointer references a block of memory that contains:
+ *
+ *                       +----------------+----------------+
+ *                  0 -> | Stack          :     tstring    | \
+ *                       |   trace     (shared)   storage  |  |
+ *                       |     storage    :                |   > DMEM_SIZE
+ *                       +----------------+----------------+  |
+ *        DMEM_STRTOK -> |     strtok() internal state     | /
+ *                       +---------------------------------+
+ */
+
+/*
+ * Macros for the sizes of the components of dctx->mem.
+ */
+#define DMEM_STACK_SZ(dtp) \
+		(sizeof(uint64_t) * (dtp)->dt_options[DTRACEOPT_MAXFRAMES])
+#define DMEM_TSTR_SZ(dtp) \
+		(DT_TSTRING_SLOTS * \
+		 P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 1, 8))
+#define DMEM_STRTOK_SZ(dtp) \
+		(sizeof(uint64_t) + (dtp)->dt_options[DTRACEOPT_STRSIZE] + 1)
+
+/*
  * Macro to determine the offset from mem to the strtok internal state.
  */
-#define DMEM_STRTOK	MAX(sizeof(uint64_t) * \
-			    dtp->dt_options[DTRACEOPT_MAXFRAMES], \
-			    DT_TSTRING_SLOTS * \
-			    roundup(dtp->dt_options[DTRACEOPT_STRSIZE] + 1, 8))
+#define DMEM_STRTOK(dtp) \
+		MAX(DMEM_STACK_SZ(dtp), DMEM_TSTR_SZ(dtp))
+
+/*
+ * Macro to determine the total size of the mem area.
+ */
+#define DMEM_SIZE(dtp)	(DMEM_STRTOK(dtp) + DMEM_STRTOK_SZ(dtp))
 
 /*
  * Macro to determine the (negative) offset from the frame pointer (%fp) for

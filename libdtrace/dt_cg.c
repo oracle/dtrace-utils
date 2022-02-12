@@ -158,7 +158,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 * Store -1 to the strtok internal-state offset to indicate
 	 * that strtok internal state is not yet initialized.
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMEM_STRTOK, -1));
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMEM_STRTOK(dtp), -1));
 
 	/*
 	 * Store pointer to BPF map "name" in the DTrace context field "fld" at
@@ -3917,7 +3917,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		/* the 8-byte prefix is the offset, which we initialize to 0 */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, reg));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMEM_STRTOK));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMEM_STRTOK(dtp)));
 		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_1, 0, 0));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, dtp->dt_options[DTRACEOPT_STRSIZE] + 1));
@@ -3932,7 +3932,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	} else {
 		/* NULL string:  error if internal state is uninitialized */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_0, reg));
-		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMEM_STRTOK));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMEM_STRTOK(dtp)));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 1));
 		dt_cg_check_notnull(dlp, drp, BPF_REG_0);
 	}
@@ -3958,7 +3958,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DMEM_STRTOK));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DMEM_STRTOK(dtp)));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_3, del->dn_reg));
 	dt_regset_free(drp, del->dn_reg);
 	if (del->dn_tstring)
