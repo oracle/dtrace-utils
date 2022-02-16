@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
@@ -13,11 +13,9 @@
 extern struct bpf_map_def dvars;
 extern uint64_t NCPUS;
 
-noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval)
+noinline uint64_t dt_tlskey(uint32_t id)
 {
 	uint64_t	key;
-	uint64_t	dflt_key = 0;
-	void		*val;
 
 	key = bpf_get_current_pid_tgid();
 	key &= 0x00000000ffffffffUL;
@@ -28,6 +26,14 @@ noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval)
 
 	key++;
 	key = (key << 32) | id;
+
+	return key;
+}
+
+noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval)
+{
+	uint64_t	dflt_key = 0;
+	void		*val;
 
 	/*
 	 * If we are going to store a zero-value, it is a request to delete the
@@ -69,4 +75,9 @@ noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval)
 		return val;
 
 	return 0;
+}
+
+noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval)
+{
+	return dt_get_dvar(dt_tlskey(id), store, nval);
 }
