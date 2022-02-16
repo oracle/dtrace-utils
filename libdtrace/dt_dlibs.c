@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -50,28 +50,11 @@ static dtrace_attribute_t	dt_bpf_attr = DT_ATTR_STABCMN;
 
 static const dt_ident_t		dt_bpf_symbols[] = {
 	/* BPF built-in functions */
-	DT_BPF_SYMBOL(dt_program, DT_IDENT_FUNC),
-	/* BPF library (external) functions */
-	DT_BPF_SYMBOL(dt_agg_lqbin, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_agg_qbin, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_basename, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_dirname, DT_IDENT_SYMBOL),
 	DT_BPF_SYMBOL(dt_error, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_get_bvar, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_get_tvar, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_index, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_lltostr, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_rindex, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strchr, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strcmp, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strjoin, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strrchr, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strtok, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_substr, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_speculation, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_speculation_speculate, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_speculation_set_drainable, DT_IDENT_SYMBOL),
-	DT_BPF_SYMBOL(dt_strnlen, DT_IDENT_SYMBOL),
+
+	/* BPF library (external) functions */
+	/* not pre-populated  (identifier type DT_IDENT_SYMBOL) */
+
 	/* BPF maps */
 	DT_BPF_SYMBOL(aggs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
@@ -84,6 +67,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(specs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(state, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
+
 	/* BPF internal identifiers */
 	DT_BPF_SYMBOL_ID(EPID, DT_IDENT_SCALAR, DT_CONST_EPID),
 	DT_BPF_SYMBOL_ID(PRID, DT_IDENT_SCALAR, DT_CONST_PRID),
@@ -95,6 +79,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL_ID(BOOTTM, DT_IDENT_SCALAR, DT_CONST_BOOTTM),
 	DT_BPF_SYMBOL_ID(NSPEC, DT_IDENT_SCALAR, DT_CONST_NSPEC),
 	DT_BPF_SYMBOL_ID(NCPUS, DT_IDENT_SCALAR, DT_CONST_NCPUS),
+
 	/* End-of-list marker */
 	{ NULL, }
 };

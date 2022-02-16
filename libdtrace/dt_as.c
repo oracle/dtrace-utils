@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -521,23 +521,7 @@ fail:
 				 */
 				rp->dofr_name = (dof_stridx_t)soff;
 				rp->dofr_offset = (i - 1) * sizeof(uint64_t);
-
-				/*
-				 * BPF built-in functions (predicate and
-				 * program) are special because they are part
-				 * of the executable code we are processing
-				 * here.  Set the value in the relocation entry
-				 * to be the instruction offset of the function
-				 * *and* update the call instruction with the
-				 * correct offset delta.
-				 */
-				if (idp->di_kind == DT_IDENT_FUNC) {
-					assert(idp->di_id < dlp->dl_label);
-					rp->dofr_data = labels[idp->di_id];
-					dp->dtdo_buf[i - 1].imm =
-							labels[idp->di_id] - i;
-				} else
-					rp->dofr_data = idp->di_id;
+				rp->dofr_data = idp->di_id;
 			} else {
 				/*
 				 * Relocation for a regular external symbol.
