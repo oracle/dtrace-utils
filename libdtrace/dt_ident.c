@@ -1016,13 +1016,14 @@ dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 		idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) &
 				 ~(alignment - 1);
 		dhp->dh_nextoff = idp->di_offset + size;
-	} else {
+	} else
 		idp->di_offset = 0;
-		if (size > dtp->dt_maxdvarsize)
-			dtp->dt_maxdvarsize = size;
-	}
 
 	idp->di_size = size;
+
+	if ((idp->di_kind == DT_IDENT_ARRAY ||
+	     (idp->di_flags & DT_IDFLG_TLS)) && (size > dtp->dt_maxdvarsize))
+		dtp->dt_maxdvarsize = size;
 }
 
 void

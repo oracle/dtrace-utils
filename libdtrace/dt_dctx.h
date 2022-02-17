@@ -1,8 +1,8 @@
 /*
+   Oracle Linux DTrace.
+ * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
- *
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _DT_DCTX_H
@@ -72,14 +72,22 @@ typedef struct dt_dctx {
  *                       +----------------+----------------+
  *                  0 -> | Stack          :     tstring    | \
  *                       |   trace     (shared)   storage  |  |
- *                       |     storage    :                |   > DMEM_SIZE
+ *                       |     storage    :                |  |
  *                       +----------------+----------------+  |
- *        DMEM_STRTOK -> |     strtok() internal state     | /
+ *        DMEM_STRTOK -> |     strtok() internal state     |   > DMEM_SIZE
+ *                       +---------------------------------+  |
+ *        DMEM_TUPLE  -> |       tuple assembly area       |  |
+ *                       +---------------------------------+  |
+ *   DMEM_TUPLE_DFLT  -> |       default empty tuple       | /
  *                       +---------------------------------+
  */
 
 /*
  * Macros for the sizes of the components of dctx->mem.
+ *
+ * CAUTION: DMEM_TUPLE_SZ(dtp) depends on data collected during code generation
+ *	    and therefore cannot be used until all code generation has
+ *	    completed.
  */
 #define DMEM_STACK_SZ(dtp) \
 		(sizeof(uint64_t) * (dtp)->dt_options[DTRACEOPT_MAXFRAMES])
@@ -88,17 +96,31 @@ typedef struct dt_dctx {
 		 P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 1, 8))
 #define DMEM_STRTOK_SZ(dtp) \
 		(sizeof(uint64_t) + (dtp)->dt_options[DTRACEOPT_STRSIZE] + 1)
+#define DMEM_TUPLE_SZ(dtp) \
+		((dtp)->dt_maxtuplesize)
 
 /*
- * Macro to determine the offset from mem to the strtok internal state.
+ * Macros to determine the offset of the components of dctx->mem.
+ *
+ * CAUTION: DMEM_TUPLE(dtp) and DMEM_TUPLE_DFLT(dtp) depend on data collected
+ *	    during code generation and therefore cannot be used until all code
+ *	    generation has completed.
  */
 #define DMEM_STRTOK(dtp) \
 		MAX(DMEM_STACK_SZ(dtp), DMEM_TSTR_SZ(dtp))
+#define DMEM_TUPLE(dtp) \
+		(DMEM_STRTOK(dtp) + DMEM_STRTOK_SZ(dtp))
+#define DMEM_TUPLE_DFLT(dtp) \
+		(DMEM_TUPLE(dtp) + DMEM_TUPLE_SZ(dtp))
 
 /*
  * Macro to determine the total size of the mem area.
+ *
+ * CAUTION: DMEM_SIZE(dtp) depends on data collected during code generation
+ *	    and therefore cannot be used until all code generation has
+ *	    completed.
  */
-#define DMEM_SIZE(dtp)	(DMEM_STRTOK(dtp) + DMEM_STRTOK_SZ(dtp))
+#define DMEM_SIZE(dtp)	(DMEM_TUPLE_DFLT(dtp) + DMEM_TUPLE_SZ(dtp))
 
 /*
  * The stack layout for BPF programs that are generated as trampolines for

@@ -224,6 +224,11 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		tracing session.
  * - lvars:	Local variables map.  This is a per-CPU map with a singleton
  *		element (key 0) addressed by variable offset.
+ * - tuples:	Tuple-to-id map.  This is a global hash map indexed with a
+ *		tuple.  The value associated with the tuple key is an id that
+ *		is used to index the dvars map.  The key size is determined as
+ *		the largest tuple used across all programs in the tracing
+ *		session.
  */
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
@@ -249,9 +254,10 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/* Determine sizes for global, local, and TLS maps. */
 	gvarsz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
 	lvarsz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
+
 	if (dtp->dt_maxdvarsize)
-		dvarc = (dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
-			 dtp->dt_maxdvarsize) + 1;
+		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
+			dtp->dt_maxdvarsize;
 
 	/* Create global maps as long as there are no errors. */
 	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
@@ -356,8 +362,10 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		int	fd;
 		char	dflt[dtp->dt_maxdvarsize];
 
+		/* Allocate one extra element for the default value. */
 		fd = create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
-				 sizeof(uint64_t), dtp->dt_maxdvarsize, dvarc);
+				 sizeof(uint64_t), dtp->dt_maxdvarsize,
+				 dvarc + 1);
 		if (fd == -1)
 			return -1;	/* dt_errno is set for us */
 
@@ -365,6 +373,11 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		memset(dflt, 0, dtp->dt_maxdvarsize);
 		dt_bpf_map_update(fd, &key, &dflt);
 	}
+
+	if (dtp->dt_maxtuplesize > 0 &&
+	    create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,
+			dtp->dt_maxtuplesize, sizeof(uint64_t), dvarc) == -1)
+		return -1;		/* dt_errno is set for us */
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);

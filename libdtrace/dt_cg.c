@@ -2328,9 +2328,251 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 }
 
 /*
+ * Generate code for a typecast or for argument promotion from the type of the
+ * actual to the type of the formal.  We need to generate code for casts when
+ * a scalar type is being narrowed or changing signed-ness.  We first shift the
+ * desired bits high (losing excess bits if narrowing) and then shift them down
+ * using logical shift (unsigned result) or arithmetic shift (signed result).
+ */
+static void
+dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
+    dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	size_t srcsize;
+	size_t dstsize;
+	int n;
+
+	/* If the destination type is '@' (any type) we need not cast. */
+	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
+		return;
+
+	srcsize = dt_node_type_size(src);
+	dstsize = dt_node_type_size(dst);
+
+	if (dstsize < srcsize)
+		n = sizeof(uint64_t) * NBBY - dstsize * NBBY;
+	else
+		n = sizeof(uint64_t) * NBBY - srcsize * NBBY;
+
+	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
+	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
+		emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
+		emit(dlp, BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
+	}
+}
+
+/*
+ * Generate code to push the specified argument list on to the tuple stack.
+ * We use this routine for handling the index tuple for associative arrays.
+ * We must first generate code for all subexpressions because any subexpression
+ * could itself require the use of the tuple assembly area and we only provide
+ * one.
+ *
+ * Since the number of tuple components is unknown, we do not want to waste
+ * registers on storing the subexpression values.  So, instead, we store the
+ * subexpression values on the stack.
+ *
+ * Once code for all subexpressions has been generated, we assemble the tuple.
+ *
+ * Note that we leave space at the beginning of the tuple for a uint32_t value,
+ * and at the end space for a uint64_t value.
+ */
+static void
+dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
+	      dt_regset_t *drp)
+{
+	dtrace_hdl_t		*dtp = yypcb->pcb_hdl;
+	const dt_idsig_t	*isp = idp->di_data;
+	dt_node_t		*dnp;
+	dt_ident_t		*maxtupsz = dt_dlib_get_var(dtp, "TUPSZ");
+	int			i;
+	int			treg, areg;
+	uint_t			tuplesize;
+
+	TRACE_REGSET("      arglist: Begin");
+
+	for (dnp = args, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
+		/* Bail early if we run out of tuple slots. */
+		if (i > dtp->dt_conf.dtc_diftupregs)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
+
+		dt_cg_node(dnp, dlp, drp);
+
+		/* Push the component (pointer or value) onto the stack. */
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_SP));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_0, 0, dnp->dn_reg));
+		dt_regset_free(drp, dnp->dn_reg);
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, -DT_STK_SLOT_SZ));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+	}
+
+	TRACE_REGSET("      arglist: Stack");
+
+	/*
+	 * Get a pointer to the tuple assembly area.
+	 */
+	if ((treg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, treg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, treg, treg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, DMEM_TUPLE(dtp)));
+
+	/*
+	 * We need to clear the tuple assembly area in case the previous tuple
+	 * was larger than the one we will construct, because otherwise we end
+	 * up with trailing garbage.
+	 */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
+	emite(dlp, BPF_MOV_IMM(BPF_REG_2, -1), maxtupsz);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_1));
+	emite(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -1), maxtupsz);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	/* Reserve space for a uint32_t value at the beginning of the tuple. */
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, treg, sizeof(uint32_t)));
+	tuplesize = sizeof(uint32_t);
+
+	if ((areg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* Determine first stack slot to read components from. */
+	emit(dlp, BPF_LOAD(BPF_DW, areg, BPF_REG_FP, DT_STK_SP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, areg, i * DT_STK_SLOT_SZ));
+
+	/* Append each value to the tuple in the tuple assembly area. */
+	for (dnp = args, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
+		dtrace_diftype_t	t;
+		size_t			size;
+
+		dt_node_diftype(dtp, dnp, &t);
+		size = t.dtdt_size;
+		if (size == 0)
+			continue;
+
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, areg, -i * DT_STK_SLOT_SZ));
+
+		dnp->dn_reg = isp->dis_args[i].dn_reg = BPF_REG_0;
+		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
+		isp->dis_args[i].dn_reg = -1;
+
+		if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp)) {
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			emit(dlp,  BPF_STORE(ldstw[size], treg, 0, BPF_REG_0));
+			dt_regset_free(drp, BPF_REG_0);
+
+			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, size));
+			tuplesize += size;
+		} else if (dt_node_is_string(dnp)) {
+			size_t	strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
+			uint_t	lbl_valid = dt_irlist_label(dlp);
+
+			if (dt_regset_xalloc_args(drp) == -1)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+			emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
+			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, strsize + 1));
+			emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+			dt_cg_tstring_free(yypcb, dnp);
+			dt_regset_free(drp, BPF_REG_0);
+			dt_regset_xalloc(drp, BPF_REG_0);
+			emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
+			dt_regset_free_args(drp);
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
+			dt_regset_free(drp, BPF_REG_0);
+			dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, 128 + i);
+			dt_regset_xalloc(drp, BPF_REG_0);
+
+			emitl(dlp, lbl_valid,
+				   BPF_ALU64_REG(BPF_ADD, treg, BPF_REG_0));
+			tuplesize += size + 1;
+
+			dt_regset_free(drp, BPF_REG_0);
+		} else if (t.dtdt_flags & DIF_TF_BYREF) {
+			uint_t	lbl_valid = dt_irlist_label(dlp);
+
+			if (dt_regset_xalloc_args(drp) == -1)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+			emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
+			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size));
+			emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+			dt_regset_free(drp, BPF_REG_0);
+			dt_regset_xalloc(drp, BPF_REG_0);
+			emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
+			dt_regset_free_args(drp);
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_valid));
+			dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, 0);
+
+			emitl(dlp, lbl_valid,
+				   BPF_ALU64_IMM(BPF_ADD, treg, size));
+			tuplesize += size;
+
+			dt_regset_free(drp, BPF_REG_0);
+		} else
+			assert(0);	/* We shouldn't be able to get here. */
+	}
+
+	/* Pop all components at once. */
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, areg));
+
+	dt_regset_free(drp, areg);
+
+	TRACE_REGSET("      arglist: Tuple");
+
+	if (idp->di_flags & DT_IDFLG_TLS) {
+		dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_tlskey");
+		uint_t		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+
+		assert(idp != NULL);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		dt_regset_free_args(drp);
+		emit(dlp,  BPF_STORE(BPF_DW, treg, 0, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+	} else
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, treg, 0, 0));
+
+	/* Account for the optional TLS key (or 0). */
+	tuplesize += sizeof(uint64_t);
+
+	if (tuplesize > dtp->dt_maxtuplesize)
+		dtp->dt_maxtuplesize = tuplesize;
+
+	/* Prepare the result as a pointer to the tuple assembly area. */
+	emit(dlp, BPF_LOAD(BPF_DW, treg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, treg, treg, DCTX_MEM));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, treg, DMEM_TUPLE(dtp)));
+
+	args->dn_reg = treg;
+
+	TRACE_REGSET("      arglist: End  ");
+}
+
+/*
  * dnp = node of the assignment
  *   dn_left = identifier node for the destination (idp = identifier)
  *   dn_right = value to store
+ *
+ * When dt_cg_store_var() is called, code generation for dnp->dn_right has
+ * already been done and the result is in register dnp->dn_reg.
  */
 static void
 dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
@@ -2341,6 +2583,68 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	size_t	size;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
+
+	TRACE_REGSET("    store_var: Begin");
+
+	/* Associative (global or TLS) array */
+	if (idp->di_kind == DT_IDENT_ARRAY) {
+		dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
+
+		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+		size = idp->di_size;
+		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+		assert(idp != NULL);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_left->dn_args->dn_reg));
+		dt_regset_free(drp, dnp->dn_left->dn_args->dn_reg);
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 1));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		dt_regset_free_args(drp);
+		lbl_done = dt_irlist_label(dlp);
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
+
+		if ((reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_REG(reg, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+
+		dt_cg_check_notnull(dlp, drp, reg);
+
+		if (dnp->dn_flags & DT_NF_REF) {
+			size_t	srcsz;
+
+			/*
+			 * Determine the amount of data to be copied.  It is
+			 * the lesser of the size of the identifier and the
+			 * size of the data being copied in.
+			 */
+			srcsz = dt_node_type_size(dnp->dn_right);
+			size = MIN(srcsz, size);
+
+			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
+		} else {
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			emit(dlp, BPF_STORE(ldstw[size], reg, 0, dnp->dn_reg));
+		}
+
+		dt_regset_free(drp, reg);
+
+		emitl(dlp, lbl_done,
+			   BPF_NOP());
+
+		TRACE_REGSET("    store_var: End  ");
+
+		return;
+	}
 
 	/* global and local variables (that is, not thread-local) */
 	if (!(idp->di_flags & DT_IDFLG_TLS)) {
@@ -2379,6 +2683,9 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		}
 
 		dt_regset_free(drp, reg);
+
+		TRACE_REGSET("    store_var: End  ");
+
 		return;
 	}
 
@@ -2431,103 +2738,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	emitl(dlp, lbl_done,
 		   BPF_NOP());
-}
 
-/*
- * Generate code for a typecast or for argument promotion from the type of the
- * actual to the type of the formal.  We need to generate code for casts when
- * a scalar type is being narrowed or changing signed-ness.  We first shift the
- * desired bits high (losing excess bits if narrowing) and then shift them down
- * using logical shift (unsigned result) or arithmetic shift (signed result).
- */
-static void
-dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
-    dt_irlist_t *dlp, dt_regset_t *drp)
-{
-	size_t srcsize;
-	size_t dstsize;
-	int n;
-
-	/* If the destination type is '@' (any type) we need not cast. */
-	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
-		return;
-
-	srcsize = dt_node_type_size(src);
-	dstsize = dt_node_type_size(dst);
-
-	if (dstsize < srcsize)
-		n = sizeof(uint64_t) * NBBY - dstsize * NBBY;
-	else
-		n = sizeof(uint64_t) * NBBY - srcsize * NBBY;
-
-	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
-	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
-		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
-		emit(dlp, BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
-	}
-}
-
-/*
- * Generate code to push the specified argument list on to the tuple stack.
- * We use this routine for handling subroutine calls and associative arrays.
- * We must first generate code for all subexpressions before loading the stack
- * because any subexpression could itself require the use of the tuple stack.
- * This holds a number of registers equal to the number of arguments, but this
- * is not a huge problem because the number of arguments can't exceed the
- * number of tuple register stack elements anyway.  At most one extra register
- * is required (either by dt_cg_typecast() or for dtdt_size, below).  This
- * implies that a DIF implementation should offer a number of general purpose
- * registers at least one greater than the number of tuple registers.
- */
-static void
-dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
-    dt_irlist_t *dlp, dt_regset_t *drp)
-{
-	const dt_idsig_t *isp = idp->di_data;
-	dt_node_t *dnp;
-	int i = 0;
-
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
-		dt_cg_node(dnp, dlp, drp);
-
-	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
-		dtrace_diftype_t t;
-		uint_t op;
-		int reg;
-
-		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
-
-		isp->dis_args[i].dn_reg = dnp->dn_reg; /* re-use register */
-		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
-		isp->dis_args[i].dn_reg = -1;
-
-		if (t.dtdt_flags & DIF_TF_BYREF)
-			op = DIF_OP_PUSHTR;
-		else
-			op = DIF_OP_PUSHTV;
-
-		if (t.dtdt_size != 0) {
-			if ((reg = dt_regset_alloc(drp)) == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			dt_cg_setx(dlp, reg, t.dtdt_size);
-		} else
-			reg = DIF_REG_R0;
-
-#if 0
-		instr = DIF_INSTR_PUSHTS(op, t.dtdt_kind, reg, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-#else
-		emit(dlp, BPF_CALL_FUNC(op));
-#endif
-		dt_regset_free(drp, dnp->dn_reg);
-
-		if (reg != DIF_REG_R0)
-			dt_regset_free(drp, reg);
-	}
-
-	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
+	TRACE_REGSET("    store_var: End  ");
 }
 
 static void
@@ -3007,6 +3219,10 @@ dt_cg_logical_neg(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		   BPF_NOP());
 }
 
+/*
+ * When dt_cg_asgn_op() is called, code generation for dnp->dn_right has
+ * already been done and the result is in register dnp->dn_reg.
+ */
 static void
 dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
@@ -3146,9 +3362,6 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (dnp->dn_left->dn_kind == DT_NODE_VAR) {
 		idp = dt_ident_resolve(dnp->dn_left->dn_ident);
 
-		if (idp->di_kind == DT_IDENT_ARRAY)
-			dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
-
 		dt_cg_store_var(dnp, dlp, drp, idp);
 
 		/*
@@ -3176,75 +3389,59 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	ssize_t base;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+	uint_t		varid;
 
+	TRACE_REGSET("    assoc_op: Begin");
+
+	assert(idp != NULL);
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
 	assert(dnp->dn_args != NULL);
 
+	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
+
+	/* Get the tuple. */
 	dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
 
 	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	if (dnp->dn_ident->di_flags & DT_IDFLG_TLS)
-		base = 0x2000;
-	else
-		base = 0x3000;
+	varid = dnp->dn_ident->di_id - DIF_VAR_OTHER_UBASE;
 
-	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
-	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, base + dnp->dn_ident->di_id));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_args->dn_reg));
+	dt_regset_free(drp, dnp->dn_args->dn_reg);
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
 
-	/*
-	 * If the associative array is a pass-by-reference type, then we are
-	 * loading its value as a pointer to either load or store through it.
-	 * The array element in question may not have been faulted in yet, in
-	 * which case DIF_OP_LD*AA will return zero.  We append an epilogue
-	 * of instructions similar to the following:
-	 *
-	 *	  ld?aa	 id, %r1	! base ld?aa instruction above
-	 *	  tst	 %r1		! start of epilogue
-	 *   +--- bne	 label
-	 *   |    setx	 size, %r1
-	 *   |    allocs %r1, %r1
-	 *   |    st?aa	 id, %r1
-	 *   |    ld?aa	 id, %r1
-	 *   v
-	 * label: < rest of code >
-	 *
-	 * The idea is that we allocs a zero-filled chunk of scratch space and
-	 * do a DIF_OP_ST*AA to fault in and initialize the array element, and
-	 * then reload it to get the faulted-in address of the new variable
-	 * storage.  This isn't cheap, but pass-by-ref associative array values
-	 * are (thus far) uncommon and the allocs cost only occurs once.  If
-	 * this path becomes important to DTrace users, we can improve things
-	 * by adding a new DIF opcode to fault in associative array elements.
-	 */
 	if (dnp->dn_flags & DT_NF_REF) {
-#ifdef FIXME
-		uint_t stvop = op == DIF_OP_LDTAA ? DIF_OP_STTAA : DIF_OP_STGAA;
-		uint_t label = dt_irlist_label(dlp);
+		emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	} else {
+		size_t	size = dt_node_type_size(dnp);
+		uint_t	lbl_notnull = dt_irlist_label(dlp);
+		uint_t	lbl_done = dt_irlist_label(dlp);
 
-		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, dnp->dn_reg, 0, label));
+		assert(size > 0 && size <= 8 &&
+		       (size & (size - 1)) == 0);
 
-		dt_cg_setx(dlp, dnp->dn_reg, dt_node_type_size(dnp));
-		instr = DIF_INSTR_ALLOCS(dnp->dn_reg, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		dnp->dn_ident->di_flags |= DT_IDFLG_DIFW;
-		instr = DIF_INSTR_STV(stvop, dnp->dn_ident->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		instr = DIF_INSTR_LDV(op, dnp->dn_ident->di_id, dnp->dn_reg);
-		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
-
-		emitl(dlp, label,
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
+		emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+		emit(dlp,  BPF_JUMP(lbl_done));
+		emitl(dlp, lbl_notnull,
+			   BPF_LOAD(ldstw[size], dnp->dn_reg, BPF_REG_0, 0));
+		emitl(dlp, lbl_done,
 			   BPF_NOP());
-#else
-		xyerror(D_UNKNOWN, "internal error -- no support for "
-			"associative arrays yet\n");
-#endif
 	}
+
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    assoc_op: End  ");
 }
 
 static void

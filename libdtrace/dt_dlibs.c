@@ -67,6 +67,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL(specs, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(state, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(strtab, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(tuples, DT_IDENT_PTR),
 
 	/* BPF internal identifiers */
 	DT_BPF_SYMBOL_ID(EPID, DT_IDENT_SCALAR, DT_CONST_EPID),
@@ -80,6 +81,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 	DT_BPF_SYMBOL_ID(NSPEC, DT_IDENT_SCALAR, DT_CONST_NSPEC),
 	DT_BPF_SYMBOL_ID(NCPUS, DT_IDENT_SCALAR, DT_CONST_NCPUS),
 	DT_BPF_SYMBOL_ID(PC, DT_IDENT_SCALAR, DT_CONST_PC),
+	DT_BPF_SYMBOL_ID(TUPSZ, DT_IDENT_SCALAR, DT_CONST_TUPSZ),
 
 	/* End-of-list marker */
 	{ NULL, }
