@@ -30,8 +30,10 @@ extern "C" {
 #define DT_CONST_NCPUS	10
 #define DT_CONST_PC	11
 #define DT_CONST_TUPSZ	12
-#define DT_CONST_TASK_REAL_PARENT	13
-#define DT_CONST_TASK_PID	14
+#define DT_CONST_TASK_PID	13
+#define DT_CONST_TASK_TGID	14
+#define DT_CONST_TASK_REAL_PARENT	15
+#define DT_CONST_TASK_COMM	16
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);

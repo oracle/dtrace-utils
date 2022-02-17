@@ -134,32 +134,6 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	return fd;
 }
 
-static int
-set_task_offsets(dtrace_hdl_t *dtp)
-{
-	ctf_id_t type;
-	ctf_membinfo_t ctm;
-	ctf_file_t *cfp = dtp->dt_shared_ctf;
-
-	type = ctf_lookup_by_name(cfp, "struct task_struct");
-	if (type == CTF_ERR)
-		return -1;
-
-	if (ctf_member_info(cfp, type, "real_parent", &ctm) == CTF_ERR)
-		return -1;
-	dt_state_set_offparent(dtp, ctm.ctm_offset / NBBY);
-
-	if (ctf_member_info(cfp, type, "tgid", &ctm) == CTF_ERR)
-		return -1;
-	dt_state_set_offtgid(dtp, ctm.ctm_offset / NBBY);
-
-	if (ctf_member_info(cfp, type, "comm", &ctm) == CTF_ERR)
-		return -1;
-	dt_state_set_offcomm(dtp, ctm.ctm_offset / NBBY);
-
-	return 0;
-}
-
 static void
 populate_probes_map(dtrace_hdl_t *dtp, int fd)
 {
@@ -400,10 +374,6 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/* Populate the 'probes' map. */
 	populate_probes_map(dtp, pr_mapfd);
-
-	/* Set some task_struct offsets in state. */
-	if (set_task_offsets(dtp))
-		return dt_set_errno(dtp, EDT_CTF);
 
 	return 0;
 }

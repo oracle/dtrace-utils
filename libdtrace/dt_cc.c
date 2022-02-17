@@ -2373,28 +2373,33 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = nrp->dofr_offset /
 						 sizeof(struct bpf_insn);
 				continue;
-			case DT_CONST_TASK_REAL_PARENT: {
+			case DT_CONST_TASK_PID:
+			case DT_CONST_TASK_TGID:
+			case DT_CONST_TASK_REAL_PARENT:
+			case DT_CONST_TASK_COMM: {
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
 				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
 				ctf_membinfo_t ctm;
+				int rc;
 
 				if (type == CTF_ERR)
 					return -1;
 
-				if (ctf_member_info(cfp, type, "real_parent", &ctm) == CTF_ERR)
-					return -1;
-				nrp->dofr_data = ctm.ctm_offset / NBBY;
-				continue;
-			}
-			case DT_CONST_TASK_PID: {
-				ctf_file_t *cfp = dtp->dt_shared_ctf;
-				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
-				ctf_membinfo_t ctm;
-
-				if (type == CTF_ERR)
-					return -1;
-
-				if (ctf_member_info(cfp, type, "pid", &ctm) == CTF_ERR)
+				switch (idp->di_id) {
+				case DT_CONST_TASK_PID:
+					rc = ctf_member_info(cfp, type, "pid", &ctm);
+					break;
+				case DT_CONST_TASK_TGID:
+					rc = ctf_member_info(cfp, type, "tgid", &ctm);
+					break;
+				case DT_CONST_TASK_REAL_PARENT:
+					rc = ctf_member_info(cfp, type, "real_parent", &ctm);
+					break;
+				case DT_CONST_TASK_COMM:
+					rc = ctf_member_info(cfp, type, "comm", &ctm);
+					break;
+				}
+				if (rc == CTF_ERR)
 					return -1;
 				nrp->dofr_data = ctm.ctm_offset / NBBY;
 				continue;

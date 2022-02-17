@@ -135,58 +135,33 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id)
 	}
 	case DIF_VAR_EXECNAME: {
 		uint64_t	ptr;
-		uint32_t	key;
-		uint32_t	*comm_off;
-
-		/*
-		 * In the "state" map, look up the "struct task_struct" offset
-		 * of "comm".
-		 */
-		key = DT_STATE_TASK_COMM_OFF;
-		comm_off = bpf_map_lookup_elem(&state, &key);
-		if (comm_off == NULL)
-			return error(dctx, DTRACEFLT_ILLOP, 0);
+		extern uint64_t	TASK_COMM;
 
 		/* &(current->comm) */
 		ptr = bpf_get_current_task();
 		if (ptr == 0)
 			return error(dctx, DTRACEFLT_BADADDR, ptr);
 
-		return (uint64_t)ptr + *comm_off;
+		return (uint64_t)ptr + (uint64_t)&TASK_COMM;
 	}
 	case DIF_VAR_WALLTIMESTAMP:
 		return bpf_ktime_get_ns() + ((uint64_t)&BOOTTM);
 	case DIF_VAR_PPID: {
 		uint64_t	ptr;
 		int32_t		val = -1;
-		uint32_t	key;
-		uint32_t	*parent_off;
-		uint32_t	*tgid_off;
-
-		/*
-		 * In the "state" map, look up the "struct task_struct" offsets
-		 * of real_parent and tgid.
-		 */
-		key = DT_STATE_TASK_PARENT_OFF;
-		parent_off = bpf_map_lookup_elem(&state, &key);
-		if (parent_off == NULL)
-			return -1;
-
-		key = DT_STATE_TASK_TGID_OFF;
-		tgid_off = bpf_map_lookup_elem(&state, &key);
-		if (tgid_off == NULL)
-			return -1;
+		extern uint64_t	TASK_REAL_PARENT;
+		extern uint64_t	TASK_TGID;
 
 		/* Chase pointers val = current->real_parent->tgid. */
 		ptr = bpf_get_current_task();
 		if (ptr == 0)
 			return error(dctx, DTRACEFLT_BADADDR, ptr);
 		if (bpf_probe_read((void *)&ptr, 8,
-		    (const void *)(ptr + *parent_off)))
-			return error(dctx, DTRACEFLT_BADADDR, ptr + *parent_off);
+		    (const void *)(ptr + (uint64_t)&TASK_REAL_PARENT)))
+			return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_REAL_PARENT);
 		if (bpf_probe_read((void *)&val, 4,
-		    (const void *)(ptr + *tgid_off)))
-			return error(dctx, DTRACEFLT_BADADDR, ptr + *tgid_off);
+		    (const void *)(ptr + (uint64_t)&TASK_TGID)))
+			return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_TGID);
 
 		return (uint64_t)val;
 	}
