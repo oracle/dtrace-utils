@@ -3847,6 +3847,34 @@ dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_progenyof(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_progenyof");
+	dt_node_t	*arg = dnp->dn_args;
+
+	assert(idp != NULL);
+
+	TRACE_REGSET("    subr-progenyof:Begin");
+	dt_cg_node(arg, dlp, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, arg->dn_reg));
+	dt_regset_free(drp, arg->dn_reg);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-progenyof:End  ");
+}
+
+static void
 dt_cg_subr_rand(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	TRACE_REGSET("    subr-rand:Begin");
@@ -4611,7 +4639,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_COPYIN]		= NULL,
 	[DIF_SUBR_COPYINSTR]		= NULL,
 	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,
-	[DIF_SUBR_PROGENYOF]		= NULL,
+	[DIF_SUBR_PROGENYOF]		= &dt_cg_subr_progenyof,
 	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
 	[DIF_SUBR_COPYOUT]		= NULL,
 	[DIF_SUBR_COPYOUTSTR]		= NULL,

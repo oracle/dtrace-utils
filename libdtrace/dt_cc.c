@@ -2373,6 +2373,32 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = nrp->dofr_offset /
 						 sizeof(struct bpf_insn);
 				continue;
+			case DT_CONST_TASK_REAL_PARENT: {
+				ctf_file_t *cfp = dtp->dt_shared_ctf;
+				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
+				ctf_membinfo_t ctm;
+
+				if (type == CTF_ERR)
+					return -1;
+
+				if (ctf_member_info(cfp, type, "real_parent", &ctm) == CTF_ERR)
+					return -1;
+				nrp->dofr_data = ctm.ctm_offset / NBBY;
+				continue;
+			}
+			case DT_CONST_TASK_PID: {
+				ctf_file_t *cfp = dtp->dt_shared_ctf;
+				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
+				ctf_membinfo_t ctm;
+
+				if (type == CTF_ERR)
+					return -1;
+
+				if (ctf_member_info(cfp, type, "pid", &ctm) == CTF_ERR)
+					return -1;
+				nrp->dofr_data = ctm.ctm_offset / NBBY;
+				continue;
+			}
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)

@@ -29,6 +29,7 @@ bpf_dlib_SOURCES = \
 	get_dvar.c \
 	index.S \
 	lltostr.S \
+	progenyof.S \
 	probe_error.c \
 	rindex.S \
 	speculation.c \
