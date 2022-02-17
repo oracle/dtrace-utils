@@ -3950,6 +3950,32 @@ dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 /*
+ * For getmajor and getminor, use MAJOR(dev) and MINOR(dev)
+ * as defined in kernel header include/linux/kdev_t.h, not
+ * as defined in user header /usr/include/linux/kdev_t.h.
+ */
+static void
+dt_cg_subr_getmajor(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*arg = dnp->dn_args;
+
+	dt_cg_node(arg, dlp, drp);
+	dnp->dn_reg = arg->dn_reg;
+	emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, 32));
+	emit(dlp, BPF_ALU64_IMM(BPF_RSH, dnp->dn_reg, 32 + 20));
+}
+
+static void
+dt_cg_subr_getminor(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*arg = dnp->dn_args;
+
+	dt_cg_node(arg, dlp, drp);
+	dnp->dn_reg = arg->dn_reg;
+	emit(dlp, BPF_ALU64_IMM(BPF_AND, dnp->dn_reg, 0xfffff));
+}
+
+/*
  * Get and return a new speculation ID.  These are unallocated entries in the
  * specs map, obtained by calling dt_speculation().  Return zero if none is
  * available.  TODO: add a drop in this case?
@@ -4594,8 +4620,8 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_COPYINTO]		= NULL,
 	[DIF_SUBR_MSGDSIZE]		= NULL,
 	[DIF_SUBR_MSGSIZE]		= NULL,
-	[DIF_SUBR_GETMAJOR]		= NULL,
-	[DIF_SUBR_GETMINOR]		= NULL,
+	[DIF_SUBR_GETMAJOR]		= &dt_cg_subr_getmajor,
+	[DIF_SUBR_GETMINOR]		= &dt_cg_subr_getminor,
 	[DIF_SUBR_DDI_PATHNAME]		= NULL,
 	[DIF_SUBR_STRJOIN]		= dt_cg_subr_strjoin,
 	[DIF_SUBR_LLTOSTR]		= &dt_cg_subr_lltostr,
