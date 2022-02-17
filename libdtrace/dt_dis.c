@@ -353,6 +353,35 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 			 dt_dis_varname_id(dp, in->imm + DIF_VAR_OTHER_UBASE,
 					DIFV_SCOPE_THREAD, addr));
 		return buf;
+	} else if (strcmp(fn, "dt_get_assoc") == 0) {
+		uint_t		varid;
+
+		/*
+		 * We know that the previous four instructions exist and
+		 * move the variable id to a register in the first instruction
+		 * of that seqeuence (because we wrote the code generator to
+		 * emit the instructions in this exact order.)
+		 */
+		in -= 4;
+		varid = in->imm + DIF_VAR_OTHER_UBASE;
+
+		/*
+		 * Four instructions prior to this there will be a STORE (TLS
+		 * associative array) or a STORE_IMM (global associative array).
+		 */
+		in -= 4;
+		if (in->code == (BPF_STX | BPF_MEM | BPF_DW))
+			snprintf(buf, len, "self->%s[]",
+				 dt_dis_varname_id(dp, varid, DIFV_SCOPE_THREAD,
+						   addr));
+		else if (in->code == (BPF_ST | BPF_MEM | BPF_DW))
+			snprintf(buf, len, "%s[]",
+				 dt_dis_varname_id(dp, varid, DIFV_SCOPE_GLOBAL,
+						   addr));
+		else
+			snprintf(buf, len, "???[]");
+
+		return buf;
 	}
 
 	return NULL;
