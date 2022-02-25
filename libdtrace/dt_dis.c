@@ -82,9 +82,12 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
 }
 
 /*
- * Check if we are loading either the gvar or lvar BPF map.  If so,
- * we want to report the name of the variable it is looking up.
- * The sequence of instructions we are looking for is:
+ * Check if we are loading from the gvar, lvar, or strtab BPF map.
+ *
+ * If we are loading a gvar or lvar, we want to report the variable name.
+ * If we are loading a string constant, we want to report its value.
+ *
+ * For variables, the sequence of instructions we are looking for is:
  *         insn   code  dst  src    offset        imm
  *          -2:    ld   dst  %fp  DT_STK_DCTX  00000000
  *          -1:    ld   dst  dst  DCTX_*VARS   00000000
@@ -96,15 +99,22 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
  *   - load by value
  *   - store by value
  *   - access by reference
+ *
+ * For string constants, the sequence of instructions we are looking for is:
+ *         insn   code  dst  src    offset        imm
+ *          -2:    ld   dst  %fp  DT_STK_DCTX  00000000
+ *          -1:    ld   dst  dst  DCTX_STRTAB  00000000
+ *           0:    add  dst    0     0         var_offset
+ * where instruction 0 is the current instruction.
  */
 static void
-dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
+dt_dis_refname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 	       int n, FILE *fp)
 {
 	__u8		ldcode = BPF_LDX | BPF_MEM | BPF_DW;
 	__u8		addcode = BPF_ALU64 | BPF_ADD | BPF_K;
-	int		dst, scope, var_offset = -1;
-	const char	*vname;
+	int		dst, scope = -1, var_offset = -1;
+	const char	*str;
 
 	/* make sure in[-2] and in[-1] exist */
 	if (addr < 2)
@@ -117,7 +127,7 @@ dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 		scope = DIFV_SCOPE_GLOBAL;
 	else if (in[-1].off == DCTX_LVARS)
 		scope = DIFV_SCOPE_LOCAL;
-	else
+	else if (in[-1].off != DCTX_STRTAB)
 		goto out;
 
 	/* check preceding instructions */
@@ -134,8 +144,18 @@ dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 	/* check the current instruction and read var_offset */
 	if (in->dst_reg != dst)
 		goto out;
-	if (BPF_CLASS(in->code) == BPF_LDX && BPF_MODE(in->code) == BPF_MEM &&
-	    in->src_reg == dst && in->imm == 0)
+	if (in[-1].off == DCTX_STRTAB) {
+		if (in->code == addcode && in->src_reg == 0 && in->off == 0) {
+			str = dt_difo_getstr(dp, in->imm);
+			if (str != NULL)
+				fprintf(fp, "%*s! \"%s\"", DT_DIS_PAD(n), "",
+					str);
+		}
+
+		goto out;
+	} else if (BPF_CLASS(in->code) == BPF_LDX &&
+		   BPF_MODE(in->code) == BPF_MEM &&
+		   in->src_reg == dst && in->imm == 0)
 		var_offset = in->off;
 	else if (BPF_CLASS(in->code) == BPF_STX &&
 		 BPF_MODE(in->code) == BPF_MEM &&
@@ -147,11 +167,10 @@ dt_dis_varname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 		goto out;
 
 	/* print name */
-	vname = dt_dis_varname_off(dp, var_offset, scope, addr);
-	if (vname == NULL)
-		goto out;
-	fprintf(fp, "%*s! %s%s", DT_DIS_PAD(n), "",
-		scope == DIFV_SCOPE_LOCAL ? "this->" : "", vname);
+	str = dt_dis_varname_off(dp, var_offset, scope, addr);
+	if (str != NULL)
+		fprintf(fp, "%*s! %s%s", DT_DIS_PAD(n), "",
+			scope == DIFV_SCOPE_LOCAL ? "this->" : "", str);
 
 out:
 	fprintf(fp, "\n");
@@ -192,7 +211,7 @@ dt_dis_op2imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	int		n;
 
 	n = fprintf(fp, "%-4s %s, %d", name, reg(in->dst_reg), in->imm);
-	dt_dis_varname(dp, in, addr, n, fp);
+	dt_dis_refname(dp, in, addr, n, fp);
 
 	return 0;
 }
@@ -233,7 +252,7 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	n = fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
 		    reg(in->src_reg), in->off);
 
-	dt_dis_varname(dp, in, addr, n, fp);
+	dt_dis_refname(dp, in, addr, n, fp);
 
 	return 0;
 }
@@ -269,7 +288,7 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	n = fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
 		    reg(in->src_reg));
 
-	dt_dis_varname(dp, in, addr, n, fp);
+	dt_dis_refname(dp, in, addr, n, fp);
 
 	return 0;
 }
