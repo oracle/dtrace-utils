@@ -41,9 +41,9 @@ dt_substr :
 
 	/*
 	 * Get the source string length and validate it.
-	 * If the return value of probe_read_str) is less than 0, an error
-	 * occured, and the result will be the empty string.
-	 * If the length is 0, the result is the empty string.
+	 * If the return value of probe_read_str() is less than 0, an error
+	 * occurred, and the result will be the empty string.
+	 * If the length is 1, the result is the empty string.
 	 * If the length is less than the maximum string length (STRSZ), use
 	 * the length we got.  (The length is initialized in %r8 as the default
 	 * string length.)
@@ -55,7 +55,7 @@ dt_substr :
 					 * len = probe_read_str(dst, STRSZ + 1,
 					 *			src);
 					 */
-	jslt	%r0, 1, .Lempty		/* if (len < 1) goto Lempty; */
+	jsle	%r0, 1, .Lempty		/* if (len <= 1) goto Lempty; */
 	sub	%r0, 1			/* len--; */
 	mov	%r4, %r8		/* %r4 = STRSZ (previously in %r8) */
 	mov	%r8, %r0		/* %r8 = len */

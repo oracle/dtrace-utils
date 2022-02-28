@@ -4289,7 +4289,6 @@ dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	dt_cg_node(str, dlp, drp);
 	dt_cg_check_ptr_arg(dlp, drp, str);
-	dnp->dn_reg = str->dn_reg;		/* re-use register */
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
