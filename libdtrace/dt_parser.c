@@ -643,6 +643,12 @@ dt_node_type_assign(dt_node_t *dnp, ctf_file_t *fp, ctf_id_t type)
 	uint_t kind = ctf_type_kind(fp, base);
 	ctf_encoding_t e;
 
+	/*
+	 * We do not blank out DT_NF_NONASSIGN or DT_NF_ALLOCA because
+	 * there is no way for repeated reevaluation of the same node to
+	 * cause a previously-alloc'ed or nonassigned node to become
+	 * non-allocated or non-nonassigned.
+	 */
 	dnp->dn_flags &=
 	    ~(DT_NF_SIGNED | DT_NF_REF | DT_NF_BITFIELD | DT_NF_USERLAND);
 
@@ -678,6 +684,23 @@ void
 dt_node_type_propagate(const dt_node_t *src, dt_node_t *dst)
 {
 	assert(src->dn_flags & DT_NF_COOKED);
+
+	if ((src->dn_flags & DT_NF_ALLOCA) && !(dst->dn_flags & DT_NF_ALLOCA))
+		yypcb->pcb_alloca_taints++;
+
+	/*
+	 * A previously-nonassignable node may become assignable if allocaness
+	 * later propagates to it.  Once this happens, it cannot become
+	 * nonassignable again (becaue allocaness cannot be turned off once
+	 * enabled).  This bumps the alloca taint counter, because it is quite
+	 * possible that both src and dst have allocaness at this point (in
+	 * fact, dst must already have it), but we still want to force
+	 * rescanning in order to propagate nonassignment further.
+	 */
+	if (!(src->dn_flags & DT_NF_NONASSIGN) &&
+	    (dst->dn_flags & DT_NF_NONASSIGN))
+		yypcb->pcb_alloca_taints++;
+
 	dst->dn_flags = src->dn_flags & ~DT_NF_LVALUE;
 	dst->dn_ctfp = src->dn_ctfp;
 	dst->dn_type = src->dn_type;
@@ -712,6 +735,29 @@ dt_node_type_size(const dt_node_t *dnp)
 		return dt_ident_size(dnp->dn_ident);
 
 	return ctf_type_size(dnp->dn_ctfp, dnp->dn_type);
+}
+
+void
+dt_node_prop_alloca(dt_node_t *dst, const dt_node_t *lp, const dt_node_t *rp)
+{
+	if (dst->dn_flags & DT_NF_ALLOCA)
+		return;
+
+	if (lp->dn_flags & DT_NF_ALLOCA) {
+		dt_cook_taint_alloca(dst, NULL, NULL);
+		if (lp->dn_flags & DT_NF_NONASSIGN) {
+			dst->dn_flags |= DT_NF_NONASSIGN;
+			yypcb->pcb_alloca_taints++;
+		}
+	}
+
+	if (rp && rp->dn_flags & DT_NF_ALLOCA) {
+		dt_cook_taint_alloca(dst, NULL, NULL);
+		if (rp->dn_flags & DT_NF_NONASSIGN) {
+			dst->dn_flags |= DT_NF_NONASSIGN;
+			yypcb->pcb_alloca_taints++;
+		}
+	}
 }
 
 /*
@@ -1826,6 +1872,10 @@ dt_node_op1(int op, dt_node_t *cp)
 				cp->dn_value &= ~0ULL >>
 				    (64 - dt_node_type_size(cp) * NBBY);
 			}
+			if (cp->dn_flags & DT_NF_ALLOCA) {
+				xyerror(D_UNKNOWN,
+					"cannot negate alloca()ed pointers");
+			}
 			/*FALLTHRU*/
 		case DT_TOK_IPOS:
 			return cp;
@@ -2594,6 +2644,42 @@ dt_node_tstring(dt_node_t *fnp, uintmax_t val)
 }
 
 /*
+ * Flip on the alloca flag for a node and/or identifier, if not already set, and
+ * bump the alloca taint counter in the pcb.  The SRC, if present, is used as
+ * a propagation source for the nonassignment flag.
+ *
+ * Only a limited variety of identifiers are tainted: roughly, those that can
+ * plausibly store alloca pointers.  Parse tree nodes corresponding to
+ * nontainted identifers are not tainted either.
+ */
+void
+dt_cook_taint_alloca(dt_node_t *dnp, dt_ident_t *idp, dt_node_t *src)
+{
+	if (idp && !(idp->di_flags & DT_IDFLG_ALLOCA)) {
+		if (idp->di_kind == DT_IDENT_ARRAY ||
+		    idp->di_kind == DT_IDENT_SCALAR ||
+		    idp->di_kind == DT_IDENT_AGG ||
+		    idp->di_kind == DT_IDENT_XLSOU ||
+		    idp->di_kind == DT_IDENT_XLPTR) {
+			idp->di_flags |= DT_IDFLG_ALLOCA;
+			yypcb->pcb_alloca_taints++;
+		} else
+			/*
+			 * Not the sort of thing we should taint.
+			 */
+			return;
+	}
+
+	if (dnp && !(dnp->dn_flags & DT_NF_ALLOCA)) {
+		dnp->dn_flags |= DT_NF_ALLOCA;
+		yypcb->pcb_alloca_taints++;
+		if (src && (src->dn_flags & DT_NF_NONASSIGN)) {
+			dnp->dn_flags |= DT_NF_NONASSIGN;
+		}
+	}
+}
+
+/*
  * This function provides the underlying implementation of cooking an
  * identifier given its node, a hash of dynamic identifiers, an identifier
  * kind, and a boolean flag indicating whether we are allowed to instantiate
@@ -2697,6 +2783,10 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 
 		if (idp->di_flags & DT_IDFLG_WRITE)
 			dnp->dn_flags |= DT_NF_WRITABLE;
+
+		if ((idp->di_flags & DT_IDFLG_ALLOCA) ||
+		    (dnp->dn_flags & DT_NF_ALLOCA))
+			dt_cook_taint_alloca(dnp, idp, NULL);
 
 		dt_node_attr_assign(dnp, attr);
 
@@ -2816,6 +2906,16 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		dnp->dn_kind = dnkind;
 		dnp->dn_ident = idp;
 		dnp->dn_flags |= DT_NF_LVALUE | DT_NF_WRITABLE;
+
+		/*
+		 * Still a good idea, but not relevant for assignments: see
+		 * dt_cook_ident:DT_TOK_ASGN for more.  In particular, this is
+		 * not a kind of assignment, so we should not turn on NONALLOCA
+		 * here.
+		 */
+		if ((idp->di_flags & DT_IDFLG_ALLOCA) ||
+		    (dnp->dn_flags & DT_NF_ALLOCA))
+			dt_cook_taint_alloca(dnp, idp, NULL);
 
 		dt_node_attr_assign(dnp, attr);
 
@@ -2987,6 +3087,10 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			dnp->dn_flags |= DT_NF_USERLAND;
 		break;
 
+		/* Dereferenced pointers cannot be alloca pointers any more.  */
+		dnp->dn_flags &= ~(DT_NF_ALLOCA | DT_NF_NONASSIGN);
+		break;
+
 	case DT_TOK_IPOS:
 	case DT_TOK_INEG:
 		if (!dt_node_is_arith(cp)) {
@@ -3046,6 +3150,9 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 
 		if (cp->dn_flags & DT_NF_USERLAND)
 			dnp->dn_flags |= DT_NF_USERLAND;
+
+		if (cp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(dnp, NULL, cp);
 		break;
 
 	case DT_TOK_SIZEOF:
@@ -3071,6 +3178,8 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			    dt_node_type_name(cp, n, sizeof(n)));
 		}
 		dt_node_type_assign(dnp, DT_STR_CTFP(dtp), DT_STR_TYPE(dtp));
+		if (cp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(dnp, NULL, cp);
 		break;
 
 	case DT_TOK_PREINC:
@@ -3098,6 +3207,9 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 		}
 
 		dt_node_type_propagate(cp, dnp); /* see K&R[A7.4.1] */
+
+		if (cp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(dnp, NULL, cp);
 		break;
 
 	default:
@@ -3186,6 +3298,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		}
 
 		dt_node_promote(lp, rp, dnp); /* see K&R[A7.11-13] */
+		dt_node_prop_alloca(dnp, lp, rp);
 		break;
 
 	case DT_TOK_LSH:
@@ -3212,6 +3325,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		}
 
 		dt_node_promote(lp, rp, dnp); /* see K&R[A7.6] */
+		dt_node_prop_alloca(dnp, lp, rp);
 		break;
 
 	case DT_TOK_MUL:
@@ -3225,6 +3339,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		}
 
 		dt_node_promote(lp, rp, dnp); /* see K&R[A7.6] */
+		dt_node_prop_alloca(dnp, lp, rp);
 		break;
 
 	case DT_TOK_LAND:
@@ -3240,6 +3355,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 		dt_node_type_assign(dnp, DT_INT_CTFP(dtp), DT_INT_TYPE(dtp));
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
+		dt_node_prop_alloca(dnp, lp, rp);
 		break;
 
 	case DT_TOK_LT:
@@ -3366,6 +3482,21 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 			    dt_node_type_name(rp, n2, sizeof(n2)));
 
 		/*
+		 * alloca()ed pointers and non-alloca()ed pointers must be to
+		 * distinct objects, and the address of the alloca()ed range is
+		 * an implementation detail, so pre-emptively block attempts to
+		 * add or subtract alloca()ed pointers and non-alloca()ed
+		 * pointers to/from each other.
+		 */
+		if (lp_is_ptr && rp_is_ptr && ((lp->dn_flags & DT_NF_ALLOCA) !=
+					       (rp->dn_flags & DT_NF_ALLOCA)))
+			xyerror(D_OP_INCOMPAT, "adding or subtracting pointers "
+				"to alloca and non-alloca space is meaningless: "
+				"\"%s\" %s \"%s\"\n",
+				dt_node_type_name(lp, n1, sizeof(n1)), opstr(op),
+				dt_node_type_name(rp, n2, sizeof(n2)));
+
+		/*
 		 * Array bounds-checking.  (Non-associative arrays only.)
 		 */
 
@@ -3388,6 +3519,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 		dt_node_type_assign(dnp, ctfp, type);
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
+		dt_node_prop_alloca(dnp, lp, rp);
 
 		if (uref)
 			dnp->dn_flags |= DT_NF_USERLAND;
@@ -3634,6 +3766,23 @@ asgn_common:
 			    "to a writable variable\n", opstr(op));
 		}
 
+		if ((lp->dn_kind == DT_NODE_VAR) &&
+		    (rp->dn_flags & DT_NF_NONASSIGN)) {
+			xyerror(D_ALLOCA_INCOMPAT, "ternary conditional with "
+			    "alloca and non-alloca branches cannot be "
+			    "assigned to a variable\n");
+		}
+
+		dt_ident_t *lp_idp = NULL;
+
+		if (lp->dn_kind == DT_NODE_VAR)
+			lp_idp = lp->dn_ident;
+
+		if (rp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(lp, lp_idp, rp);
+		else if (lp_idp)
+			lp_idp->di_flags |= DT_IDFLG_NONALLOCA;
+
 		dt_node_type_propagate(lp, dnp); /* see K&R[A7.17] */
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
 		break;
@@ -3871,6 +4020,11 @@ asgn_common:
 		dnp->dn_args = rp;
 		dnp->dn_list = NULL;
 
+		if (dnp->dn_args->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(dnp, idp, dnp->dn_args);
+		else
+			idp->di_flags |= DT_IDFLG_NONALLOCA;
+
 		dt_node_free(lp);
 		return dt_node_cook(dnp, idflags);
 	}
@@ -3890,6 +4044,7 @@ asgn_common:
 		}
 
 		dnp->dn_ident = dt_xlator_ident(dxp, lp->dn_ctfp, lp->dn_type);
+		dt_node_prop_alloca(dnp, lp, rp);
 		dt_node_type_assign(dnp, DT_DYN_CTFP(dtp), DT_DYN_TYPE(dtp));
 		dt_node_attr_assign(dnp,
 		    dt_attr_min(rp->dn_attr, dnp->dn_ident->di_attr));
@@ -3936,6 +4091,17 @@ asgn_common:
 			    dt_node_type_name(lp, n2, sizeof(n2)));
 		}
 
+		/*
+		 * You cannot cast away allocaness.  (You also can't cast it
+		 * into existence where it was not before, but since there is no
+		 * syntactic way to specify allocaness, we don't need to cover
+		 * that case.  This maintains the invariant that alloca flags
+		 * can only ever transition from off to on, preventing the
+		 * dt_cook_clause loop from inflooping.)
+		 */
+		if (rp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(lp, NULL, rp);
+
 		dt_node_type_propagate(lp, dnp); /* see K&R[A7.5] */
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
 		break;
@@ -3957,6 +4123,7 @@ asgn_common:
 
 		dt_node_type_propagate(rp, dnp); /* see K&R[A7.18] */
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
+		dt_node_prop_alloca(dnp, rp, NULL);
 		break;
 
 	default:
@@ -3972,6 +4139,7 @@ asgn_common:
 	 */
 	if (dnp->dn_op == DT_TOK_LBRAC && op == DT_TOK_ADD) {
 		dt_node_t *pnp;
+		dt_node_t *ret;
 
 		if (rp->dn_list != NULL) {
 			xyerror(D_ARR_BADREF,
@@ -3994,7 +4162,12 @@ asgn_common:
 		pnp->dn_link = dnp->dn_link;
 		dnp->dn_link = pnp;
 
-		return dt_node_cook(pnp, DT_IDFLG_REF);
+		ret = dt_node_cook(pnp, DT_IDFLG_REF);
+
+		/*
+		 * This is a dereference: do not propagate alloca taint.
+		 */
+		return ret;
 	}
 
 	return dnp;
@@ -4047,9 +4220,26 @@ dt_cook_op3(dt_node_t *dnp, uint_t idflags)
 		    "used in a conditional context\n");
 	}
 
+	/*
+	 * An extra condition not expressed in the type system: if one side is
+	 * an alloca-derived pointer, and the other side is not, the resulting
+	 * value cannot be assigned to a global.  This flag is propagated
+	 * just like DT_NF_ALLOCA, except that (obviously) it cannot
+	 * propagate into an identifier.
+	 */
+	if ((lp->dn_flags & DT_NF_ALLOCA) != (rp->dn_flags & DT_NF_ALLOCA))
+		dnp->dn_flags |= DT_NF_NONASSIGN;
+
+	if ((lp->dn_flags & DT_NF_NONASSIGN) ||
+	    (rp->dn_flags & DT_NF_NONASSIGN))
+		dnp->dn_flags |= DT_NF_NONASSIGN;
+
 	dt_node_type_assign(dnp, ctfp, type);
 	dt_node_attr_assign(dnp, dt_attr_min(dnp->dn_expr->dn_attr,
 	    dt_attr_min(lp->dn_attr, rp->dn_attr)));
+
+	if (lp->dn_flags & DT_NF_ALLOCA)
+		dt_cook_taint_alloca(dnp, NULL, NULL);
 
 	return dnp;
 }
@@ -4129,12 +4319,21 @@ dt_cook_aggregation(dt_node_t *dnp, uint_t idflags)
  *
  * but it doesn't seem worth the complexity to handle such rare cases.  The
  * user can simply use the D variable declaration syntax to work around them.
+ *
+ * In addition, we count the total number of cases where we needed to set the
+ * relevant alloca flag, or set or reset the nonassign flag, on an identifier or
+ * node, and as long as it keeps rising, we reinvoke.  (This will always
+ * terminate, and soon, so there is no danger of inflooping from this
+ * either. Proof: the alloca flag can only be enabled, never disabled, and the
+ * nonassign flag is only ever caused to flip in either direction by an earlier
+ * change to at least one alloca flag).
  */
 static dt_node_t *
 dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 {
 	volatile int err, tries;
 	jmp_buf ojb;
+	int last_alloca_taints;
 
 	/*
 	 * Before assigning dn_ctxattr, temporarily assign the probe attribute
@@ -4153,6 +4352,9 @@ dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 		    yypcb->pcb_hdl->dt_errtag != dt_errtag(D_VAR_UNDEF)))
 			longjmp(yypcb->pcb_jmpbuf, err);
 	}
+
+taint_retry:
+	last_alloca_taints = yypcb->pcb_alloca_taints;
 
 	if (tries == 0) {
 		yylabel("action list");
@@ -4188,6 +4390,8 @@ dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 		yylabel(NULL);
 	}
 
+	if (yypcb->pcb_alloca_taints > last_alloca_taints)
+		goto taint_retry;
 	return dnp;
 }
 
@@ -4635,6 +4839,10 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 			strcat(n, ",BITF");
 		if (dnp->dn_flags & DT_NF_USERLAND)
 			strcat(n, ",USER");
+		if (dnp->dn_flags & DT_NF_ALLOCA)
+			strcat(n, ",ALLOCA");
+		if (dnp->dn_flags & DT_NF_NONASSIGN)
+			strcat(n, ",NONASSIGN");
 		strcat(buf, n + 1);
 	} else
 		strcat(buf, "0");
@@ -4660,7 +4868,9 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 		break;
 
 	case DT_NODE_VAR:
-		fprintf(fp, "VARIABLE %s%s (%s)\n",
+		fprintf(fp, "VARIABLE %s%s%s (%s)\n",
+		    (dnp->dn_ident->di_flags & DT_IDFLG_ALLOCA) ? "(alloca-assigned) " :
+		    (dnp->dn_ident->di_flags & DT_IDFLG_NONALLOCA) ? "(normally-assigned) " : "",
 		    (dnp->dn_ident->di_flags & DT_IDFLG_LOCAL) ? "this->" :
 		    (dnp->dn_ident->di_flags & DT_IDFLG_TLS) ? "self->" : "",
 		    dnp->dn_ident->di_name, buf);

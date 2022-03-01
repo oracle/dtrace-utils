@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,6 +73,7 @@ typedef struct dt_pcb {
 	int pcb_sou_deref;	/* lexer in struct/union dereference */
 	int pcb_xlator_input;	/* in translator input type */
 	int pcb_array_dimens;	/* in array dimensions */
+	int pcb_alloca_taints;	/* number of alloca taint changes */
 } dt_pcb_t;
 
 extern void dt_pcb_push(dtrace_hdl_t *, dt_pcb_t *);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -174,6 +174,8 @@ typedef enum {
 	D_USTACK_FRAMES,		/* ustack() frames arg bad type */
 	D_USTACK_STRSIZE,		/* ustack() strsize arg bad type */
 	D_USTACK_PROTO,			/* ustack() prototype mismatch */
+	D_ALLOCA_SIZE,			/* allocation too large */
+	D_ALLOCA_INCOMPAT,		/* pointer reused for alloca and non-alloca */
 	D_LQUANT_BASETYPE,		/* lquantize() bad base type */
 	D_LQUANT_BASEVAL,		/* lquantize() bad base value */
 	D_LQUANT_LIMTYPE,		/* lquantize() bad limit type */

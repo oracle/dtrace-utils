@@ -979,17 +979,33 @@ dt_ident_cook(dt_node_t *dnp, dt_ident_t *idp, dt_node_t **pargp)
 	dtrace_attribute_t attr;
 	dt_node_t *args, *argp;
 	int argc = 0;
+	int alloca_args = 0;
 
 	attr = dt_node_list_cook(pargp, DT_IDFLG_REF);
 	args = pargp ? *pargp : NULL;
 
-	for (argp = args; argp != NULL; argp = argp->dn_list)
+	for (argp = args; argp != NULL; argp = argp->dn_list) {
 		argc++;
+		if (argp->dn_flags & DT_NF_ALLOCA)
+			alloca_args = 1;
+	}
 
 	idp->di_ops->di_cook(dnp, idp, argc, args);
 
 	if (idp->di_flags & DT_IDFLG_USER)
 		dnp->dn_flags |= DT_NF_USERLAND;
+
+	/*
+	 * Propagate alloca flags in both directions.  No need to propagate it
+	 * down into the arglist, but if the alloca flag is on in the arglist it
+	 * should also be on in both the identifer and the node.  (If this is
+	 * a node of the sort we propagate alloca taint into at all.)
+	 */
+
+	if (idp->di_flags & DT_IDFLG_ALLOCA ||
+	    dnp->dn_flags & DT_NF_ALLOCA ||
+	    alloca_args)
+		dt_cook_taint_alloca(dnp, idp, NULL);
 
 	return dt_attr_min(attr, idp->di_attr);
 }

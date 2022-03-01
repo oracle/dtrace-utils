@@ -85,8 +85,8 @@ static const dt_provimpl_t *dt_providers[] = {
  * argument.
  */
 static const dt_ident_t _dtrace_globals[] = {
-{ "alloca", DT_IDENT_FUNC, 0, DIF_SUBR_ALLOCA, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "void *(size_t)" },
+{ "alloca", DT_IDENT_FUNC, DT_IDFLG_ALLOCA, DIF_SUBR_ALLOCA, DT_ATTR_STABCMN,
+	DT_VERS_1_0, &dt_idops_func, "void *(size_t)" },
 { "arg0", DT_IDENT_SCALAR, 0, DIF_VAR_ARG0, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "int64_t" },
 { "arg1", DT_IDENT_SCALAR, 0, DIF_VAR_ARG1, DT_ATTR_STABCMN, DT_VERS_1_0,

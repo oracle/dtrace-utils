@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -94,6 +94,8 @@ typedef struct dt_ident {
 #define	DT_IDFLG_DECL	0x0400	/* variable is associated with explicit decl */
 #define	DT_IDFLG_ORPHAN	0x0800	/* variable is in a dt_node and not dt_idhash */
 #define	DT_IDFLG_BPF	0x1000	/* variable is BPF */
+#define	DT_IDFLG_ALLOCA	0x2000	/* variable holds an alloca()ed pointer */
+#define	DT_IDFLG_NONALLOCA 0x4000 /* variable known not to hold an alloca()ed pointer */
 
 #define DT_IDENT_UNDEF	UINT_MAX /* id for (as yet) undefined identifiers */
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -31,7 +31,7 @@ typedef struct dt_node {
 	ctf_file_t *dn_ctfp;	/* CTF type container for node's type */
 	ctf_id_t dn_type;	/* CTF type reference for node's type */
 	uchar_t dn_kind;	/* node kind (DT_NODE_*, defined below) */
-	uchar_t dn_flags;	/* node flags (DT_NF_*, defined below) */
+	ushort_t dn_flags;	/* node flags (DT_NF_*, defined below) */
 	ushort_t dn_op;		/* operator (DT_TOK_*, defined by lex) */
 	int dn_line;		/* line number for error messages */
 	int dn_reg;		/* register allocated by cg */
@@ -158,6 +158,8 @@ typedef struct dt_node {
 #define	DT_NF_WRITABLE	0x10	/* node is writable (can be modified) */
 #define	DT_NF_BITFIELD	0x20	/* node is an integer bitfield */
 #define	DT_NF_USERLAND	0x40	/* data is a userland address */
+#define	DT_NF_ALLOCA	0x80	/* pointer derived from alloca() */
+#define	DT_NF_NONASSIGN	0x100	/* node is not assignable */
 
 #define	DT_TYPE_NAMELEN	128	/* reasonable size for ctf_type_name() */
 
@@ -206,6 +208,7 @@ extern dt_node_t *dt_node_tstring(dt_node_t *, uintmax_t);
 
 extern dt_node_t *dt_node_link(dt_node_t *, dt_node_t *);
 extern dt_node_t *dt_node_cook(dt_node_t *, uint_t);
+extern void dt_cook_taint_alloca(dt_node_t *, dt_ident_t *, dt_node_t *);
 
 extern dt_node_t *dt_node_xalloc(dtrace_hdl_t *, int);
 extern void dt_node_free(dt_node_t *);
