@@ -204,6 +204,8 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	} while(0)
 
 	DT_CG_STORE_MAP_PTR("strtab", DCTX_STRTAB);
+	if (dtp->dt_options[DTRACEOPT_SCRATCHSIZE] > 0)
+		DT_CG_STORE_MAP_PTR("scratchmem", DCTX_SCRATCHMEM);
 	if (dt_idhash_datasize(dtp->dt_aggs) > 0)
 		DT_CG_STORE_MAP_PTR("aggs", DCTX_AGG);
 	if (dt_idhash_datasize(dtp->dt_globals) > 0)
@@ -371,6 +373,12 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_9, DCTX_ACT));
 	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit));
+
+	/*
+	 *	dctx.mst->scratch_top = 8;
+	 *				// stw [%r7 + DMST_SCRATCH_TOP], 8
+	 */
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_SCRATCH_TOP, 8));
 
 	/*
 	 *	dt_clause(dctx);	// mov %r1, %r9
@@ -3805,6 +3813,71 @@ dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*size = dnp->dn_args;
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+	uint_t		lbl_err = dt_irlist_label(dlp);
+	int		opt_scratchsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
+	int		mst, scratchbot, next;
+
+	TRACE_REGSET("    subr-alloca:Begin");
+
+	dt_cg_node(size, dlp, drp);
+
+	/*
+	 * Compile-error out if the size is too large even absent other
+	 * allocations.  (This prevents us generating code for which the
+	 * verifier will fail due to one branch of the conditional below being
+	 * determined to be unreachable.)
+	 *
+	 * We need to adjust the scratchsize to account for the first 8 bytes
+	 * that are used to represent the NULL pointer.
+	 */
+	if (size->dn_kind == DT_NODE_INT &&
+	    size->dn_value > opt_scratchsize - 8)
+		dnerror(dnp, D_ALLOCA_SIZE,
+			"alloca(%lu) size larger than scratchsize %lu\n",
+			(unsigned long) size->dn_value,
+			(unsigned long) opt_scratchsize - 8);
+
+	if (((dnp->dn_reg = dt_regset_alloc(drp)) == -1) ||
+	    ((mst = dt_regset_alloc(drp)) == -1) ||
+	    ((scratchbot = dt_regset_alloc(drp)) == -1) ||
+	    ((next = dt_regset_alloc(drp)) == -1))
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* Loading.  */
+
+	emit(dlp,  BPF_LOAD(BPF_DW, mst, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, mst, mst, DCTX_MST));
+	emit(dlp,  BPF_LOAD(BPF_W, next, mst, DMST_SCRATCH_TOP));
+
+	/* Size testing and alignment.  */
+
+	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, next));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, next, size->dn_reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, next, 7));
+	emit(dlp,  BPF_ALU64_IMM(BPF_AND, next, (int) -8));
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, next, opt_scratchsize + 8, lbl_err));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, dnp->dn_reg, opt_scratchsize + 8,
+				  lbl_ok));
+	emitl(dlp, lbl_err,
+		   BPF_NOP());
+	dt_cg_probe_error(yypcb, DTRACEFLT_NOSCRATCH, DT_ISIMM, 0);
+	emitl(dlp, lbl_ok,
+		   BPF_STORE(BPF_W, mst, DMST_SCRATCH_TOP, next));
+
+	dt_regset_free(drp, mst);
+	dt_regset_free(drp, scratchbot);
+	dt_regset_free(drp, next);
+	dt_regset_free(drp, size->dn_reg);
+
+	TRACE_REGSET("    subr-alloca:End  ");
+}
+
+static void
 dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -4277,7 +4350,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
 	[DIF_SUBR_COPYOUT]		= NULL,
 	[DIF_SUBR_COPYOUTSTR]		= NULL,
-	[DIF_SUBR_ALLOCA]		= NULL,
+	[DIF_SUBR_ALLOCA]		= &dt_cg_subr_alloca,
 	[DIF_SUBR_BCOPY]		= NULL,
 	[DIF_SUBR_COPYINTO]		= NULL,
 	[DIF_SUBR_MSGDSIZE]		= NULL,

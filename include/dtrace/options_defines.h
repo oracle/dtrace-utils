@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -60,7 +60,8 @@
 #define	DTRACEOPT_BPFLOGSIZE	30	/* BPF verifier log, max # bytes */
 #define	DTRACEOPT_MAXFRAMES	31	/* maximum number of stack frames */
 #define	DTRACEOPT_BPFLOG	32	/* always output BPF verifier log */
-#define	DTRACEOPT_MAX		33	/* number of options */
+#define	DTRACEOPT_SCRATCHSIZE	33	/* max scratch size permitted */
+#define	DTRACEOPT_MAX		34	/* number of options */
 
 #define	DTRACEOPT_UNSET		(dtrace_optval_t)-2	/* unset option */
 

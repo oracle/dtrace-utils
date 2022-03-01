@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -751,6 +751,21 @@ dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 static int
+dt_opt_scratchsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t val = 0;
+
+	if (arg != NULL && dt_optval_parse(arg, &val) != 0)
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+
+	if (val > 0)
+		val = P2ROUNDUP(val + sizeof(uint64_t), sizeof(uint64_t));
+
+	dtp->dt_options[option] = val;
+	return 0;
+}
+
+static int
 dt_opt_pcapsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	dtrace_optval_t val = DT_PCAP_DEF_PKTSIZE;
@@ -1108,6 +1123,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "maxframes", dt_opt_runtime, DTRACEOPT_MAXFRAMES },
 	{ "nspec", dt_opt_runtime, DTRACEOPT_NSPEC },
 	{ "pcapsize", dt_opt_pcapsize, DTRACEOPT_PCAPSIZE },
+	{ "scratchsize", dt_opt_scratchsize, DTRACEOPT_SCRATCHSIZE },
 	{ "specsize", dt_opt_size, DTRACEOPT_SPECSIZE },
 	{ "stackframes", dt_opt_runtime, DTRACEOPT_STACKFRAMES },
 	{ "statusrate", dt_opt_rate, DTRACEOPT_STATUSRATE },

@@ -608,6 +608,7 @@ static const char *_dtrace_libdir = DTRACE_LIBDIR;  /* default library directory
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
 uint_t _dtrace_strsize = 256;	/* default size of string intrinsic type */
+uint_t _dtrace_scratchsize = 256;	/* default size of scratch space */
 uint_t _dtrace_stkindent = 14;	/* default whitespace indent for stack/ustack */
 uint_t _dtrace_pidbuckets = 64; /* default number of pid hash buckets */
 uint_t _dtrace_pidlrulim = 8;	/* default number of pid handles to cache */
@@ -792,6 +793,11 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	dtp->dt_options[DTRACEOPT_SPECSIZE] = 1024 * 1024 * 4;
 	dtp->dt_options[DTRACEOPT_NSPEC] = 1;
+
+	/*
+	 * Set the maximum scratch space permitted.
+	 */
+	dtp->dt_options[DTRACEOPT_SCRATCHSIZE] = sizeof(uint64_t) + _dtrace_scratchsize;
 
 	/*
 	 * Set the default value of maxframes.

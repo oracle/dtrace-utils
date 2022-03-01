@@ -22,6 +22,7 @@ typedef struct dt_mstate {
 	uint32_t	prid;		/* Probe ID */
 	uint32_t	clid;		/* Clause ID (unique per probe) */
 	uint32_t	tag;		/* Tag (for future use) */
+	uint32_t	scratch_top;	/* Current top of scratch space */
 	int32_t		syscall_errno;	/* syscall errno */
 	uint64_t	fault;		/* DTrace fault flags */
 	uint64_t	tstamp;		/* cached timestamp value */
@@ -29,15 +30,16 @@ typedef struct dt_mstate {
 	uint64_t	argv[10];	/* Probe arguments */
 } dt_mstate_t;
 
-#define DMST_EPID	offsetof(dt_mstate_t, epid)
-#define DMST_PRID	offsetof(dt_mstate_t, prid)
-#define DMST_CLID	offsetof(dt_mstate_t, clid)
-#define DMST_TAG	offsetof(dt_mstate_t, tag)
-#define DMST_ERRNO	offsetof(dt_mstate_t, syscall_errno)
-#define DMST_FAULT	offsetof(dt_mstate_t, fault)
-#define DMST_TSTAMP	offsetof(dt_mstate_t, tstamp)
-#define DMST_REGS	offsetof(dt_mstate_t, regs)
-#define DMST_ARG(n)	offsetof(dt_mstate_t, argv[n])
+#define DMST_EPID		offsetof(dt_mstate_t, epid)
+#define DMST_PRID		offsetof(dt_mstate_t, prid)
+#define DMST_CLID		offsetof(dt_mstate_t, clid)
+#define DMST_TAG		offsetof(dt_mstate_t, tag)
+#define DMST_SCRATCH_TOP	offsetof(dt_mstate_t, scratch_top)
+#define DMST_ERRNO		offsetof(dt_mstate_t, syscall_errno)
+#define DMST_FAULT		offsetof(dt_mstate_t, fault)
+#define DMST_TSTAMP		offsetof(dt_mstate_t, tstamp)
+#define DMST_REGS		offsetof(dt_mstate_t, regs)
+#define DMST_ARG(n)		offsetof(dt_mstate_t, argv[n])
 
 /*
  * The DTrace context.
@@ -48,6 +50,7 @@ typedef struct dt_dctx {
 	dt_mstate_t	*mst;		/* DTrace machine state */
 	char		*buf;		/* Output buffer scratch memory */
 	char		*mem;		/* General scratch memory */
+	char		*scratchmem;	/* Scratch space for alloca, etc */
 	char		*strtab;	/* String constant table */
 	char		*agg;		/* Aggregation data */
 	char		*gvars;		/* Global variables */
@@ -59,6 +62,7 @@ typedef struct dt_dctx {
 #define DCTX_MST	offsetof(dt_dctx_t, mst)
 #define DCTX_BUF	offsetof(dt_dctx_t, buf)
 #define DCTX_MEM	offsetof(dt_dctx_t, mem)
+#define DCTX_SCRATCHMEM	offsetof(dt_dctx_t, scratchmem)
 #define DCTX_STRTAB	offsetof(dt_dctx_t, strtab)
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
 #define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
