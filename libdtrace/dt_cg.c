@@ -789,6 +789,8 @@ dt_cg_fill_gap(dt_pcb_t *pcb, int gap)
 static void
 dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 {
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -798,7 +800,12 @@ dt_cg_memcpy(dt_irlist_t *dlp, dt_regset_t *drp, int dst, int src, size_t size)
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
 	dt_regset_free_args(drp);
-	/* FIXME: check BPF_REG_0 for error? */
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src);
+	emitl(dlp, lbl_ok,
+	      BPF_NOP());
+
 	dt_regset_free(drp, BPF_REG_0);
 }
 
