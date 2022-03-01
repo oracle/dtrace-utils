@@ -740,7 +740,7 @@ dt_cg_check_notnull(dt_irlist_t *dlp, dt_regset_t *drp, int reg)
 
 /*
  * Check whether mst->fault indicates a fault was triggered.  If so, abort the
- * current clause by means of a straight jump to the exit labal.
+ * current clause by means of a straight jump to the exit label.
  */
 static void
 dt_cg_check_fault(dt_pcb_t *pcb)
