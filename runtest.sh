@@ -507,7 +507,7 @@ resultslog()
         elif [[ -n $want_expected_diff ]]; then
             log "Diff against expected:\n"
 
-            diff -u $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
+            diff -au $rfile $tmpdir/test.out | tee -a $LOGFILE >> $SUMFILE
         fi
     fi
 
