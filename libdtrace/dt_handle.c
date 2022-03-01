@@ -183,6 +183,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 			goto no_addr;
 	case DTRACEFLT_BADALIGN:
 	case DTRACEFLT_BADSTACK:
+	case DTRACEFLT_BADSIZE:
 		sprintf(details, " (0x%llx)", (u_longlong_t)err.dteda_addr);
 		break;
 

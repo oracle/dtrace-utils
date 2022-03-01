@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -206,6 +206,7 @@ dtrace_faultstr(dtrace_hdl_t *dtp, int fault)
 		{ DTRACEFLT_UPRIV,	"invalid user access" },
 		{ DTRACEFLT_TUPOFLOW,	"tuple stack overflow" },
 		{ DTRACEFLT_BADSTACK,	"bad stack" },
+		{ DTRACEFLT_BADSIZE,	"invalid size" },
 		{ DTRACEFLT_LIBRARY,	"library-level fault" },
 		{ 0,			NULL }
 	};
