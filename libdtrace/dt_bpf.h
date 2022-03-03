@@ -34,6 +34,8 @@ extern "C" {
 #define DT_CONST_TASK_TGID	14
 #define DT_CONST_TASK_REAL_PARENT	15
 #define DT_CONST_TASK_COMM	16
+#define DT_CONST_MUTEX_OWNER	17
+#define DT_CONST_RWLOCK_CNTS	18
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);

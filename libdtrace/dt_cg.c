@@ -3894,6 +3894,106 @@ dt_cg_subr_rand(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-rand:End  ");
 }
 
+/*
+ * This function is a helper function for subroutines that take some
+ * (8-byte) temporary space and a lock argument, returning the value
+ * from a given BPF function (passed by name).
+ */
+static void
+dt_cg_subr_lock_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+		       const char *fname)
+{
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
+	dt_node_t	*lock = dnp->dn_args;
+	uint64_t	off = dt_cg_tstring_xalloc(yypcb);
+
+	assert(idp != NULL);
+
+	TRACE_REGSET("    subr-lock_helper:Begin");
+
+	dt_cg_node(lock, dlp, drp);
+	dt_cg_check_notnull(dlp, drp, lock->dn_reg);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_MEM));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, lock->dn_reg));
+	dt_regset_free(drp, lock->dn_reg);
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+	dt_cg_tstring_xfree(yypcb, off);
+
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("    subr-lock_helper:End  ");
+}
+
+static void
+dt_cg_subr_mutex_owned(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_lock_helper(dnp, dlp, drp, "dt_mutex_owned");
+}
+
+static void
+dt_cg_subr_mutex_owner(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_lock_helper(dnp, dlp, drp, "dt_mutex_owner");
+}
+
+static void
+dt_cg_subr_rw_read_held(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_lock_helper(dnp, dlp, drp, "dt_rw_read_held");
+}
+
+static void
+dt_cg_subr_rw_write_held(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_lock_helper(dnp, dlp, drp, "dt_rw_write_held");
+}
+
+static void
+dt_cg_subr_rw_iswriter(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_lock_helper(dnp, dlp, drp, "dt_rw_iswriter");
+}
+
+/* On Linux, all mutexes are adaptive. */
+
+static void
+dt_cg_subr_mutex_type_adaptive(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*arg = dnp->dn_args;
+
+	TRACE_REGSET("    subr-mutex_type_adaptive:Begin");
+	dt_cg_node(arg, dlp, drp);
+	dnp->dn_reg = arg->dn_reg;
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 1));
+	TRACE_REGSET("    subr-mutex_type_adaptive:End  ");
+}
+
+static void
+dt_cg_subr_mutex_type_spin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*arg = dnp->dn_args;
+
+	TRACE_REGSET("    subr-mutex_type_spin:Begin");
+	dt_cg_node(arg, dlp, drp);
+	dnp->dn_reg = arg->dn_reg;
+	emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+	TRACE_REGSET("    subr-mutex_type_spin:End  ");
+}
+
 static void
 dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
@@ -4628,13 +4728,13 @@ typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_RAND]			= &dt_cg_subr_rand,
-	[DIF_SUBR_MUTEX_OWNED]		= NULL,
-	[DIF_SUBR_MUTEX_OWNER]		= NULL,
-	[DIF_SUBR_MUTEX_TYPE_ADAPTIVE]	= NULL,
-	[DIF_SUBR_MUTEX_TYPE_SPIN]	= NULL,
-	[DIF_SUBR_RW_READ_HELD]		= NULL,
-	[DIF_SUBR_RW_WRITE_HELD]	= NULL,
-	[DIF_SUBR_RW_ISWRITER]		= NULL,
+	[DIF_SUBR_MUTEX_OWNED]		= &dt_cg_subr_mutex_owned,
+	[DIF_SUBR_MUTEX_OWNER]		= &dt_cg_subr_mutex_owner,
+	[DIF_SUBR_MUTEX_TYPE_ADAPTIVE]	= &dt_cg_subr_mutex_type_adaptive,
+	[DIF_SUBR_MUTEX_TYPE_SPIN]	= &dt_cg_subr_mutex_type_spin,
+	[DIF_SUBR_RW_READ_HELD]		= &dt_cg_subr_rw_read_held,
+	[DIF_SUBR_RW_WRITE_HELD]	= &dt_cg_subr_rw_write_held,
+	[DIF_SUBR_RW_ISWRITER]		= &dt_cg_subr_rw_iswriter,
 	[DIF_SUBR_COPYIN]		= NULL,
 	[DIF_SUBR_COPYINSTR]		= NULL,
 	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,

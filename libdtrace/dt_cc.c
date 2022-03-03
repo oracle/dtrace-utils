@@ -2404,6 +2404,56 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = ctm.ctm_offset / NBBY;
 				continue;
 			}
+			case DT_CONST_MUTEX_OWNER: {
+				ctf_file_t *cfp = dtp->dt_shared_ctf;
+				ctf_id_t type = ctf_lookup_by_name(cfp, "struct mutex");
+				ctf_membinfo_t ctm;
+				ctf_id_t rc = CTF_ERR;
+
+				if (type == CTF_ERR)
+					return -1;
+
+				rc = ctf_member_info(cfp, type, "owner", &ctm);
+				if (rc == CTF_ERR)
+					return -1;
+				nrp->dofr_data = ctm.ctm_offset / NBBY;
+				continue;
+			}
+			case DT_CONST_RWLOCK_CNTS: {
+				/*
+				 * For !CONFIG_PREEMPT_RT, in type rwlock_t, we
+				 * want the offset to member raw_lock, and then
+				 * (in type arch_rwlock_t == struct qrwlock) we
+				 * add the offset to member cnts.  (It turns
+				 * out the total offset is 0.)
+				 *
+				 * FIXME: what about CONFIG_PREEMPT_RT?
+				 */
+				ctf_file_t *cfp = dtp->dt_shared_ctf;
+				ctf_id_t type;
+				ctf_membinfo_t ctm;
+				ctf_id_t rc = CTF_ERR;
+				uint64_t total_offset;
+
+				type = ctf_lookup_by_name(cfp, "rwlock_t");
+				if (type == CTF_ERR)
+					return -1;
+				rc = ctf_member_info(cfp, type, "raw_lock", &ctm);
+				if (rc == CTF_ERR)
+					return -1;
+				total_offset = ctm.ctm_offset / NBBY;
+
+				type = ctf_lookup_by_name(cfp, "arch_rwlock_t");
+				if (type == CTF_ERR)
+					return -1;
+				rc = ctf_member_info(cfp, type, "cnts", &ctm);
+				if (rc == CTF_ERR)
+					return -1;
+				total_offset += ctm.ctm_offset / NBBY;
+
+				nrp->dofr_data = total_offset;
+				continue;
+			}
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)

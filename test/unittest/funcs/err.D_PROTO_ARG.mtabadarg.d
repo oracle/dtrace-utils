@@ -16,6 +16,6 @@
 
 BEGIN
 {
-	mutex_type_adaptive(trace());
+	mutex_type_adaptive(trace("badarg"));
 	exit(1);
 }

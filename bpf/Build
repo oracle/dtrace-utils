@@ -29,9 +29,14 @@ bpf_dlib_SOURCES = \
 	get_dvar.c \
 	index.S \
 	lltostr.S \
+	mutex_owned.S \
+	mutex_owner.S \
 	progenyof.S \
 	probe_error.c \
 	rindex.S \
+	rw_iswriter.S \
+	rw_read_held.S \
+	rw_write_held.S \
 	speculation.c \
 	strchr.S \
 	strcmp.S \
