@@ -29,6 +29,16 @@ typedef struct dt_mstate {
 	uint64_t	argv[10];	/* Probe arguments */
 } dt_mstate_t;
 
+#define DMST_EPID	offsetof(dt_mstate_t, epid)
+#define DMST_PRID	offsetof(dt_mstate_t, prid)
+#define DMST_CLID	offsetof(dt_mstate_t, clid)
+#define DMST_TAG	offsetof(dt_mstate_t, tag)
+#define DMST_ERRNO	offsetof(dt_mstate_t, syscall_errno)
+#define DMST_FAULT	offsetof(dt_mstate_t, fault)
+#define DMST_TSTAMP	offsetof(dt_mstate_t, tstamp)
+#define DMST_REGS	offsetof(dt_mstate_t, regs)
+#define DMST_ARG(n)	offsetof(dt_mstate_t, argv[n])
+
 /*
  * The DTrace context.
  */
@@ -53,6 +63,7 @@ typedef struct dt_dctx {
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
 #define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
 #define DCTX_LVARS	offsetof(dt_dctx_t, lvars)
+
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
 
 /*
@@ -90,23 +101,33 @@ typedef struct dt_dctx {
 #define DMEM_SIZE(dtp)	(DMEM_STRTOK(dtp) + DMEM_STRTOK_SZ(dtp))
 
 /*
- * Macro to determine the (negative) offset from the frame pointer (%fp) for
- * the given offset in dt_dctx_t.
+ * The stack layout for BPF programs that are generated as trampolines for
+ * D clauses.
+ *
+ * Note: The BPF frame pointer points to the address of the first byte past the
+ *       end of the stack.  8-byte values are properly aligned at offsets -8,
+ *       -16, -24, -32, etc. -- that is, negative multiples of sizeof(uint64_t).
+ *
+ *                       +----------------+
+ *                 SP(n) |                |
+ *                       +----------------+
+ *                       |      ...       |
+ *                       +----------------+
+ *                 SP(1) |                |
+ *                       +----------------+
+ *       SP_BASE = SP(0) |                |
+ *                       +----------------+
+ *                  DCTX | DTrace Context |
+ *                       +----------------+
  */
-#define DCTX_FP(off)	(DT_STK_DCTX + (int16_t)(off))
+#define DT_STK_BASE		((int16_t)0)
+#define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
 
-#define DMST_EPID	offsetof(dt_mstate_t, epid)
-#define DMST_PRID	offsetof(dt_mstate_t, prid)
-#define DMST_CLID	offsetof(dt_mstate_t, clid)
-#define DMST_TAG	offsetof(dt_mstate_t, tag)
-#define DMST_ERRNO	offsetof(dt_mstate_t, syscall_errno)
-#define DMST_FAULT	offsetof(dt_mstate_t, fault)
-#define DMST_TSTAMP	offsetof(dt_mstate_t, tstamp)
-#define DMST_REGS	offsetof(dt_mstate_t, regs)
-#define DMST_ARG(n)	offsetof(dt_mstate_t, argv[n])
+#define DT_TRAMP_SP_BASE	(DT_STK_BASE - DCTX_SIZE - DT_STK_SLOT_SZ)
+#define DT_TRAMP_SP(n)		(DT_TRAMP_SP_BASE - (n) * DT_STK_SLOT_SZ)
 
 /*
- * DTrace BPF programs can use all BPF registers except for the the %fp (frame
+ * DTrace clause functions can use all BPF registers except for the %fp (frame
  * pointer) register and the highest numbered register (currently %r9) that is
  * used to store the base pointer for the trace output record.
  */
@@ -131,13 +152,10 @@ typedef struct dt_dctx {
  *                       +----------------+
  * SPILL_BASE = SPILL(0) | %r0            |
  *                       +----------------+
- *                  DCTX | DTrace Context |
+ *                  DCTX | Ptr to dctx    |
  *                       +----------------+
  */
-#define DT_STK_BASE		((int16_t)0)
-#define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
-
-#define DT_STK_DCTX		(DT_STK_BASE - DCTX_SIZE)
+#define DT_STK_DCTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
 

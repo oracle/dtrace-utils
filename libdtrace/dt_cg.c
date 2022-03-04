@@ -42,6 +42,7 @@ static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
  *
  *	%r7 contains a pointer to dctx->mst
  *	%r8 contains a pointer to dctx->ctx
+ *	%r9 contains a pointer to dctx
  */
 void
 dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
@@ -67,20 +68,25 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	uintptr_t	rc;
 	 *	char		*buf, *mem;
 	 *
-	 *				//     (%r8 = pointer to BPF context)
+	 *				// mov %r9, %fp
+	 *				// add %r9, -DCTX_SIZE
+	 *				//     (%r9 = pointer to DTrace context)
 	 *				// mov %r8, %r1
-	 *	dctx.ctx = ctx;		// stdw [%fp + DCTX_FP(DCTX_CTX)], %r8
+	 *				//     (%r8 = pointer to BPF context)
+	 *	dctx.ctx = ctx;		// stdw [%r9 + DCTX_CTX], %r8
 	 */
+	emit(dlp,  BPF_MOV_REG(BPF_REG_9, BPF_REG_FP));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_9, -DCTX_SIZE));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_8, BPF_REG_1));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_CTX), BPF_REG_8));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_CTX, BPF_REG_8));
 
 	/*
-	 *	key = DT_STATE_ACTIVITY;// stw [%fp + DCTX_FP(DCTX_ACT)],
+	 *	key = DT_STATE_ACTIVITY;// stw [%r9 + DCTX_ACT],
 	 *				//		DT_STATE_ACTIVITY
 	 *	rc = bpf_map_lookup_elem(&state, &key);
 	 *				// lddw %r1, &state
-	 *				// mov %r2, %fp
-	 *				// add %r2, DCTX_FP(DCTX_ACT)
+	 *				// mov %r2, %r9
+	 *				// add %r2, DCTX_ACT
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = map value)
@@ -89,24 +95,24 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	if (*rc != act)		// ldw %r1, [%r0 + 0]
 	 *		goto exit;	// jne %r1, act, lbl_exit
 	 *
-	 *	dctx.act = rc;		// stdw [%fp + DCTX_FP(DCTX_ACT)], %r0
+	 *	dctx.act = rc;		// stdw [%r9 + DCTX_ACT], %r0
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_ACT), DT_STATE_ACTIVITY));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DCTX_ACT, DT_STATE_ACTIVITY));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_ACT)));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_ACT));
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
 	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_ACT), BPF_REG_0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_ACT, BPF_REG_0));
 
 	/*
-	 *	key = 0;		// stw [%fp + DCTX_FP(DCTX_MST)], 0
+	 *	key = 0;		// stw [%r9 + DCTX_MST], 0
 	 *	rc = bpf_map_lookup_elem(&mem, &key);
 	 *				// lddw %r1, &mem
-	 *				// mov %r2, %fp
-	 *				// add %r2, DCTX_FP(DCTX_MST)
+	 *				// mov %r2, %r9
+	 *				// add %r2, DCTX_MST
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = 'mem' BPF map value)
@@ -115,19 +121,19 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				//     (%r0 = map value)
 	 *				//     (%r7 = pointer to dt_mstate_t)
 	 *				// mov %r7, %r0
-	 *	dctx.mst = rc;		// stdw [%fp + DCTX_FP(DCTX_MST)], %r7
+	 *	dctx.mst = rc;		// stdw [%r9 + DCTX_MST], %r7
 	 *	dctx.mst->prid = PRID;	// stw [%r7 + DMST_PRID], PRID
 	 *	dctx.mst->syscall_errno = 0;
 	 *				// stw [%r7 + DMST_ERRNO], 0
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(DCTX_MST), 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DCTX_MST, 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(DCTX_MST)));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_MST));
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MST), BPF_REG_7));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_MST, BPF_REG_7));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, -1), prid);
 	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_ERRNO, 0));
 
@@ -139,20 +145,20 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				// stdw [%r0 + 0], 0
 	 *	buf += 8;		// add %r0, 8
 	 *				//     (%r0 = pointer to buffer space)
-	 *	dctx.buf = buf;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
+	 *	dctx.buf = buf;		// stdw [%r9 + DCTX_BUF], %r0
 	 */
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(sizeof(dt_mstate_t), 8)));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_BUF), BPF_REG_0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_BUF, BPF_REG_0));
 
 	/*
 	 *	mem = buf + roundup(dtp->dt_maxreclen, 8);
 	 *				// add %r0, roundup(dtp->dt_maxreclen,
-	 *	dctx.mem = mem;		// stdw [%fp + DCTX_FP(DCTX_BUF)], %r0
+	 *	dctx.mem = mem;		// stdw [%r9 + DCTX_MEM], %r0
 	 */
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(dtp->dt_maxreclen, 8)));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(DCTX_MEM), BPF_REG_0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_MEM, BPF_REG_0));
 
 	/*
 	 * Store -1 to the strtok internal-state offset to indicate
@@ -164,34 +170,34 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 * Store pointer to BPF map "name" in the DTrace context field "fld" at
 	 * "offset".
 	 *
-	 *	key = 0;		// stw [%fp + DCTX_FP(offset)], 0
+	 *	key = 0;		// stw [%r9 + offset], 0
 	 *	rc = bpf_map_lookup_elem(&name, &key);
 	 *				// lddw %r1, &name
-	 *				// mov %r2, %fp
-	 *				// add %r2, DCTX_FP(offset)
+	 *				// mov %r2, %r9
+	 *				// add %r2, offset
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = name BPF map value)
 	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
 	 *		goto exit;
 	 *				//     (%r0 = pointer to map value)
-	 *	dctx.fld = rc;		// stdw [%fp + DCTX_FP(offset)], %r0
+	 *	dctx.fld = rc;		// stdw [%r9 + offset], %r0
 	 */
 #define DT_CG_STORE_MAP_PTR(name, offset) \
 	do { \
 		dt_ident_t *idp = dt_dlib_get_map(dtp, name); \
 		\
 		assert(idp != NULL); \
-		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DCTX_FP(offset), 0)); \
+		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, (offset), 0)); \
 		\
 		dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id); \
-		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP)); \
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_FP(offset))); \
+		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_9)); \
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, (offset))); \
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem)); \
 		\
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit)); \
 		\
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DCTX_FP(offset), BPF_REG_0)); \
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, (offset), BPF_REG_0)); \
 	} while(0)
 
 	DT_CG_STORE_MAP_PTR("strtab", DCTX_STRTAB);
@@ -301,51 +307,45 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 	 *
 	 *	for (i = PT_REGS_ARGC;
 	 *	     i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
-	 *		uint64_t	val, tmp;
 	 *		int		rc;
 	 *		uint64_t	*sp;
 	 *
 	 *		sp = (uint64_t *)(((dt_pt_regs *)rp)->sp;
-	 *		rc = bpf_probe_read(&tmp, sizeof(tmp),
+	 *		rc = bpf_probe_read(dctx->mst->argv[i],
+	 *				    sizeof(uint64_t),
 	 *				    &sp[i - PT_REGS_ARGC +
 	 *					    PT_REGS_ARGSTKBASE]);
-	 *				// mov %r1, %fp
-	 *				// add %r1, DT_STK_SPILL(0)
+	 *				// mov %r1, %r7
+	 *				// add %r1, DMST_ARG(i)
 	 *				// mov %r2, sizeof(uint64_t)
 	 *				// lddw %r3, [%rp + PT_REGS_SP]
 	 *				// add %r3, (i - PT_REGS_ARGC +
 	 *						 PT_REGS_ARGSTKBASE) *
 	 *					    sizeof(uint64_t)
 	 *				// call bpf_probe_read
-	 *		val = 0;
-	 *				// mov %r1, 0
 	 *		if (rc != 0)
-	 *			goto store:
-	 *				// jne %r0, 0, lbl_store
-	 *		val = tmp;
-	 *				// lddw %r1, [%rp + DT_STK_SPILL(0)]
+	 *			goto lbl_ok:
+	 *				// jeq %r0, 0, lbl_ok
+	 *		dctx->mst->argv[i] = 0;
+	 *				// stdw [%r7 + DMST_ARG(i)], 0
 	 *
-	 *	store:
-	 *		dctx->mst->argv[i] = val;
-	 *				// store:
-	 *				// stdw [%r7 + DMST_ARG(i)], %r1
+	 *	lbl_ok:			// lbl_ok:
 	 *	}
 	 *
 	 */
 	for (i = PT_REGS_ARGC; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
-		uint_t	lbl_store = dt_irlist_label(dlp);
+		uint_t	lbl_ok = dt_irlist_label(dlp);
 
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_7));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMST_ARG(i)));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
 		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, rp, PT_REGS_SP));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC + PT_REGS_ARGSTKBASE) * sizeof(uint64_t)));
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, 0));
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_store));
-		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SPILL(0)));
-		emitl(dlp, lbl_store,
-			   BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_1));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
+		emitl(dlp, lbl_ok,
+			   BPF_NOP());
 	}
 }
 
@@ -361,22 +361,19 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 	dt_irlist_t	*dlp = arg->dlp;
 
 	/*
-	 *	if (*dctx.act != act)	// ldw %r0, [%fp +
-	 *				//	     DCTX_FP(DCTX_ACT)]
+	 *	if (*dctx.act != act)	// ldw %r0, [%r9 + DCTX_ACT]
 	 *		goto exit;	// ldw %r0, [%r0 + 0]
 	 *				// jne %r0, act, lbl_exit
 	 */
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT)));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_9, DCTX_ACT));
 	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, arg->act, arg->lbl_exit));
 
 	/*
-	 *	dt_clause(dctx);	// mov %r1, %fp
-	 *				// add %r1, DCTX_FP(0)
+	 *	dt_clause(dctx);	// mov %r1, %r9
 	 *				// call clause
 	 */
-	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DCTX_FP(0)));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 
 	return 0;
@@ -424,11 +421,11 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act)
 	dt_cg_tramp_call_clauses(pcb, pcb->pcb_probe, act);
 
 	/*
-	 *	(*dctx.act)++;		// lddw %r0, [%fp + DCTX_FP(DCTX_ACT)]
+	 *	(*dctx.act)++;		// lddw %r0, [%r9 + DCTX_ACT)]
 	 *				// mov %r1, 1
 	 *				// xadd [%r0 + 0], %r1
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DCTX_FP(DCTX_ACT)));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_9, DCTX_ACT));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
 	emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
 
