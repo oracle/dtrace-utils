@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,6 +13,7 @@ int main(void)
 {
 	printf("Base:       % 4d\n", DT_STK_BASE);
 	printf("dctx:       % 4d\n", DT_STK_DCTX);
+	printf("sp:         % 4d\n", DT_STK_SP);
 	printf("%%r0:        % 4d\n", DT_STK_SPILL(0));
 	printf("%%r1:        % 4d\n", DT_STK_SPILL(1));
 	printf("%%r2:        % 4d\n", DT_STK_SPILL(2));
@@ -22,8 +23,6 @@ int main(void)
 	printf("%%r6:        % 4d\n", DT_STK_SPILL(6));
 	printf("%%r7:        % 4d\n", DT_STK_SPILL(7));
 	printf("%%r8:        % 4d\n", DT_STK_SPILL(8));
-	printf("scratch:    % 4d .. % 4d\n",
-	       DT_STK_SCRATCH_BASE + DT_STK_SCRATCH_SZ - 1,
-	       DT_STK_SCRATCH_BASE);
+	printf("sp-base:    % 4d\n", DT_STK_SP_SLOT(0));
 	exit(0);
 }

@@ -109,13 +109,13 @@ typedef struct dt_dctx {
  *       -16, -24, -32, etc. -- that is, negative multiples of sizeof(uint64_t).
  *
  *                       +----------------+
- *                 SP(n) |                |
+ *            SP_SLOT(n) |                |
  *                       +----------------+
  *                       |      ...       |
  *                       +----------------+
- *                 SP(1) |                |
+ *            SP_SLOT(1) |                |
  *                       +----------------+
- *       SP_BASE = SP(0) |                |
+ *  SP_BASE = SP_SLOT(0) |                |
  *                       +----------------+
  *                  DCTX | DTrace Context |
  *                       +----------------+
@@ -124,7 +124,7 @@ typedef struct dt_dctx {
 #define DT_STK_SLOT_SZ		((int16_t)sizeof(uint64_t))
 
 #define DT_TRAMP_SP_BASE	(DT_STK_BASE - DCTX_SIZE - DT_STK_SLOT_SZ)
-#define DT_TRAMP_SP(n)		(DT_TRAMP_SP_BASE - (n) * DT_STK_SLOT_SZ)
+#define DT_TRAMP_SP_SLOT(n)	(DT_TRAMP_SP_BASE - (n) * DT_STK_SLOT_SZ)
 
 /*
  * DTrace clause functions can use all BPF registers except for the %fp (frame
@@ -142,24 +142,29 @@ typedef struct dt_dctx {
  *       -16, -24, -32, etc. -- that is, negative multiples of sizeof(uint64_t).
  *
  *                       +----------------+
- *          SCRATCH_BASE | Scratch Memory |
- *                       +----------------+
- *              SPILL(n) | %r8            | (n = DT_STK_NREGS - 1 = 8)
- *                       +----------------+
  *                       |      ...       |
  *                       +----------------+
- *              SPILL(1) | %r1            |
- *                       +----------------+
- * SPILL_BASE = SPILL(0) | %r0            |
+ *  SP_BASE = SP_SLOT(0) |                |<--+
+ *                       +----------------+   |
+ *              SPILL(n) | %r8            | (n = DT_STK_NREGS - 1 = 8)
+ *                       +----------------+   |
+ *                       |      ...       |   |
+ *                       +----------------+   |
+ *              SPILL(1) | %r1            |   |
+ *                       +----------------+   |
+ * SPILL_BASE = SPILL(0) | %r0            |   |
+ *                       +----------------+   |
+ *                    SP |       o------------+ (initial value)
  *                       +----------------+
  *                  DCTX | Ptr to dctx    |
  *                       +----------------+
  */
 #define DT_STK_DCTX		(DT_STK_BASE - DT_STK_SLOT_SZ)
-#define DT_STK_SPILL_BASE	(DT_STK_DCTX - DT_STK_SLOT_SZ)
+#define DT_STK_SP		(DT_STK_DCTX - DT_STK_SLOT_SZ)
+#define DT_STK_SPILL_BASE	(DT_STK_SP - DT_STK_SLOT_SZ)
 #define DT_STK_SPILL(n)		(DT_STK_SPILL_BASE - (n) * DT_STK_SLOT_SZ)
 
-#define DT_STK_SCRATCH_BASE	(-MAX_BPF_STACK)
-#define DT_STK_SCRATCH_SZ	(MAX_BPF_STACK + DT_STK_SPILL(DT_STK_NREGS - 1))
+#define DT_STK_SP_BASE		DT_STK_SPILL(DT_STK_NREGS)
+#define DT_STK_SP_SLOT(n)	(DT_STK_SP_BASE - (n) * DT_STK_SLOT_SZ)
 
 #endif /* _DT_DCTX_H */

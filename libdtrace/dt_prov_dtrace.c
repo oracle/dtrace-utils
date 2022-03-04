@@ -128,30 +128,30 @@ static void trampoline(dt_pcb_t *pcb)
 
 	/*
 	 *     key = DT_STATE_(BEGANON|ENDEDON);
-	 *				// stw [%fp + DT_TRAMP_SP(0)],
+	 *				// stw [%fp + DT_TRAMP_SP_SLOT(0)],
 	 *				//	DT_STATE_(BEGANON|ENDEDON)
 	 *     val = bpf_get_smp_processor_id();
 	 *				// call bpf_get_smp_processor_id
-	 *				// stw [%fp + DT_TRAMP_SP(1)], %r0
+	 *				// stw [%fp + DT_TRAMP_SP_SLOT(1)], %r0
 	 *     bpf_map_update_elem(state, &key, &val, BPF_ANY);
 	 *				// lddw %r1, &state
 	 *				// mov %r2, %fp
-	 *				// add %r2, DT_TRAMP_SP(0)
+	 *				// add %r2, DT_TRAMP_SP_SLOT(0)
 	 *				// mov %r3, %fp
-	 *				// add %r3, DT_TRAMP_SP(1)
+	 *				// add %r3, DT_TRAMP_SP_SLOT(1)
 	 *				// mov %r4, BPF_ANY
 	 *				// call bpf_map_update_elem
 	 */
 	dt_ident_t	*state = dt_dlib_get_map(pcb->pcb_hdl, "state");
 
-	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP(0), key));
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0), key));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
-	emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_TRAMP_SP(1), BPF_REG_0));
+	emit(dlp, BPF_STORE(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(1), BPF_REG_0));
 	dt_cg_xsetx(dlp, state, DT_LBL_NONE, BPF_REG_1, state->di_id);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP(0)));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
 	emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_TRAMP_SP(1)));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, DT_TRAMP_SP_SLOT(1)));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 

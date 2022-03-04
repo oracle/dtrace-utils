@@ -515,9 +515,15 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *	char	*buf;		//     (%r9 = reserved reg for buf)
 	 *
 	 *				// stdw [%fp + DT_STK_DCTX], %r1
+	 *				// mov %r0, %fp
+	 *				// add %r0, DT_STK_SP_BASE
+	 *				// stdw [%fp + DT_STK_SP], %r0
 	 */
 	TRACE_REGSET("Prologue: Begin");
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_DCTX, BPF_REG_1));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_0, BPF_REG_FP));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, DT_STK_SP_BASE));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, BPF_REG_0));
 
 	/*
 	 *	buf = dctx->buf;	// lddw %r0, [%fp + DT_STK_DCTX]
