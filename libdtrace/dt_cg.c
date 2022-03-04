@@ -2468,6 +2468,8 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
  * a scalar type is being narrowed or changing signed-ness.  We first shift the
  * desired bits high (losing excess bits if narrowing) and then shift them down
  * using logical shift (unsigned result) or arithmetic shift (signed result).
+ *
+ * We also need to scalarize pointers if we are casting them to an integral type.
  */
 static void
 dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
@@ -2489,11 +2491,27 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 	else
 		n = sizeof(uint64_t) * NBBY - srcsize * NBBY;
 
-	if (dt_node_is_scalar(dst) && n != 0 && (dstsize < srcsize ||
+	if (!dt_node_is_scalar(dst))
+		return;
+
+	if (n != 0 && (dstsize < srcsize ||
 	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
 		emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
 		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
 		emit(dlp, BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
+	} else if (dt_node_is_arith(dst) && dt_node_is_pointer(src) &&
+		   (src->dn_flags & DT_NF_ALLOCA)) {
+		int mst;
+
+		if ((mst = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_LOAD(BPF_DW, mst, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, mst, mst, DCTX_MST));
+		emit(dlp,  BPF_STORE(BPF_DW, mst, DMST_SCALARIZER, src->dn_reg));
+		emit(dlp,  BPF_LOAD(BPF_DW, dst->dn_reg, mst, DMST_SCALARIZER));
+
+		dt_regset_free(drp, mst);
 	}
 }
 
