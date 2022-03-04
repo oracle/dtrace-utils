@@ -2380,10 +2380,10 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
 				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
 				ctf_membinfo_t ctm;
-				int rc;
+				int rc = 0;
 
 				if (type == CTF_ERR)
-					return -1;
+					goto err_ctf;
 
 				switch (idp->di_id) {
 				case DT_CONST_TASK_PID:
@@ -2400,7 +2400,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 					break;
 				}
 				if (rc == CTF_ERR)
-					return -1;
+					goto err_ctf;
 				nrp->dofr_data = ctm.ctm_offset / NBBY;
 				continue;
 			}
@@ -2411,11 +2411,12 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				ctf_id_t rc = CTF_ERR;
 
 				if (type == CTF_ERR)
-					return -1;
+					goto err_ctf;
 
 				rc = ctf_member_info(cfp, type, "owner", &ctm);
 				if (rc == CTF_ERR)
-					return -1;
+					goto err_ctf;
+
 				nrp->dofr_data = ctm.ctm_offset / NBBY;
 				continue;
 			}
@@ -2437,18 +2438,18 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 
 				type = ctf_lookup_by_name(cfp, "rwlock_t");
 				if (type == CTF_ERR)
-					return -1;
+					goto err_ctf;
 				rc = ctf_member_info(cfp, type, "raw_lock", &ctm);
 				if (rc == CTF_ERR)
-					return -1;
+					goto err_ctf;
 				total_offset = ctm.ctm_offset / NBBY;
 
 				type = ctf_lookup_by_name(cfp, "arch_rwlock_t");
 				if (type == CTF_ERR)
-					return -1;
+					goto err_ctf;
 				rc = ctf_member_info(cfp, type, "cnts", &ctm);
 				if (rc == CTF_ERR)
-					return -1;
+					goto err_ctf;
 				total_offset += ctm.ctm_offset / NBBY;
 
 				nrp->dofr_data = total_offset;
@@ -2497,6 +2498,10 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	}
 
 	return pc;
+
+ err_ctf:
+	dtp->dt_ctferr = ctf_errno(dtp->dt_shared_ctf);
+	return -1;
 }
 
 static void
