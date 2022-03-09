@@ -125,11 +125,7 @@ dt_strtab_compare(dt_strtab_t *sp, dt_strhash_t *hp,
 		resid = sp->str_bufs[b] + sp->str_bufsz - buf;
 		n = MIN(resid, len);
 
-		if ((rv = buf[0] - str[0]) != 0)
-			return rv;
-		if ((rv = buf[1] - str[1]) != 0)
-			return rv;
-		if ((rv = strncmp(buf + 2, str + 2, n)) != 0)
+		if ((rv = strncmp(buf, str, n)) != 0)
 			return rv;
 
 		buf += n;
@@ -194,21 +190,13 @@ dt_strtab_index(dt_strtab_t *sp, const char *str)
 	size_t	slen;
 	ssize_t	rc;
 	ulong_t	h;
-	char	*s;
 
 	if (str == NULL || str[0] == '\0')
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(slen + 1);
-	if (s == NULL)
-		return -1L;
-
-	memcpy(s, str, slen + 1);
-
 	h = str2hval(str, slen) % sp->str_hashsz;
-	rc = dt_strtab_xindex(sp, s, slen, h);
-	free(s);
+	rc = dt_strtab_xindex(sp, str, slen, h);
 
 	return rc;
 }
@@ -220,33 +208,22 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	size_t		slen;
 	ssize_t		off;
 	ulong_t		h;
-	char		*s;
 
 	if (str == NULL || str[0] == '\0')
 		return 0;	/* The empty string is always at offset 0. */
 
 	slen = strlen(str);
-	s = malloc(slen + 1);
-	if (s == NULL)
-		return -1L;
-
-	memcpy(s, str, slen + 1);
-
 	h = str2hval(str, slen) % sp->str_hashsz;
-	off = dt_strtab_xindex(sp, s, slen, h);
-	if (off != -1) {
-		free(s);
+	off = dt_strtab_xindex(sp, str, slen, h);
+	if (off != -1)
 		return off;
-	}
 
 	/*
 	 * Create a new hash bucket, initialize it, and insert it at the front
 	 * of the hash chain for the appropriate bucket.
 	 */
-	if ((hp = malloc(sizeof(dt_strhash_t))) == NULL) {
-		free(s);
+	if ((hp = malloc(sizeof(dt_strhash_t))) == NULL)
 		return -1L;
-	}
 
 	hp->str_data = sp->str_ptr;
 	hp->str_buf = sp->str_nbufs - 1;
@@ -258,12 +235,10 @@ dt_strtab_insert(dt_strtab_t *sp, const char *str)
 	 * Now copy the string data into our buffer list, and then update
 	 * the global counts of strings and bytes.  Return str's byte offset.
 	 */
-	if (dt_strtab_copyin(sp, s, slen + 1) == -1) {
-		free(s);
+	if (dt_strtab_copyin(sp, str, slen + 1) == -1) {
 		free(hp);
 		return -1L;
 	}
-	free(s);
 
 	sp->str_nstrs++;
 	sp->str_size += slen + 1;
