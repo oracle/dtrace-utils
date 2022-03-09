@@ -279,6 +279,7 @@ dt_as(dt_pcb_t *pcb)
 		case BPF_ST | BPF_MEM | BPF_W:		/* stw */
 		case BPF_ST | BPF_MEM | BPF_DW:		/* stdw */
 		case BPF_ALU64 | BPF_MOV | BPF_K:	/* mov */
+		case BPF_ALU64 | BPF_ADD | BPF_K:	/* add */
 			if (idp->di_flags & DT_IDFLG_BPF)
 				brel++;
 			else
@@ -486,27 +487,29 @@ fail:
 			if (!nodef)
 				dt_as_undef(idp, i);
 
-			if (dip->di_instr.code ==
-					(BPF_LD | BPF_IMM | BPF_DW))
+			switch (dip->di_instr.code) {
+			case BPF_ST | BPF_MEM | BPF_W:		/* stw */
+			case BPF_ST | BPF_MEM | BPF_DW:		/* stdw */
+			case BPF_ALU64 | BPF_MOV | BPF_K:	/* mov */
+			case BPF_ALU64 | BPF_ADD | BPF_K:	/* add */
+				rp->dofr_type = R_BPF_64_32;
+				break;
+			case BPF_LD | BPF_IMM | BPF_DW:		/* lddw */
 				rp->dofr_type = R_BPF_64_64;
-			else if (dip->di_instr.code ==
-					(BPF_ST | BPF_MEM | BPF_W))
-				rp->dofr_type = R_BPF_64_32;
-			else if (dip->di_instr.code ==
-					(BPF_ST | BPF_MEM | BPF_DW))
-				rp->dofr_type = R_BPF_64_32;
-			else if (dip->di_instr.code ==
-					(BPF_ALU64 | BPF_MOV | BPF_K))
-				rp->dofr_type = R_BPF_64_32;
-			else if (dip->di_instr.code ==
-					(BPF_JMP | BPF_CALL) &&
-				 dip->di_instr.src_reg == BPF_PSEUDO_CALL)
-				rp->dofr_type = R_BPF_64_32;
-			else
+				break;
+			case BPF_JMP | BPF_CALL:	/* call */
+				if (dip->di_instr.src_reg == BPF_PSEUDO_CALL) {
+					rp->dofr_type = R_BPF_64_32;
+					break;
+				}
+
+				/* fall-through */
+			default:
 				xyerror(D_UNKNOWN, "unexpected asm relocation "
 					"for opcode 0x%x (@%d, %s)\n",
 					dip->di_instr.code, i - 1,
 					idp->di_name);
+			}
 
 			soff = dt_strtab_insert(dtp->dt_ccstab, idp->di_name);
 
