@@ -2234,9 +2234,8 @@ static int get_boottime() {
 
 static int
 dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
-		  dt_ident_t *idp, const dtrace_difo_t *sdp, dt_strtab_t *stab,
-		  uint_t *pcp, uint_t *rcp, uint_t *vcp, dtrace_epid_t epid,
-		  uint_t clid)
+		  dt_ident_t *idp, const dtrace_difo_t *sdp, uint_t *pcp,
+		  uint_t *rcp, uint_t *vcp, dtrace_epid_t epid, uint_t clid)
 {
 	uint_t			pc = *pcp;
 	uint_t			rc = *rcp;
@@ -2276,7 +2275,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		const char	*name = dt_difo_getstr(sdp, vp->dtdv_name);
 
 		*nvp = *vp;
-		nvp->dtdv_name = dt_strtab_insert(stab, name);
+		nvp->dtdv_name = dt_strtab_insert(dtp->dt_ccstab, name);
 		nvp->dtdv_insn_from += pc;
 		nvp->dtdv_insn_to += pc;
 	}
@@ -2293,7 +2292,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		const char	*name = dt_difo_getstr(sdp, rp->dofr_name);
 		dt_ident_t	*idp = dt_dlib_get_func(dtp, name);
 
-		nrp->dofr_name = dt_strtab_insert(stab, name);
+		nrp->dofr_name = dt_strtab_insert(dtp->dt_ccstab, name);
 		nrp->dofr_type = rp->dofr_type;
 		nrp->dofr_offset = rp->dofr_offset +
 				   pc * sizeof(struct bpf_insn);
@@ -2392,8 +2391,8 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				clid++;
 			} else
 				nepid = 0;
-			ipc = dt_link_construct(dtp, prp, dp, idp, rdp, stab,
-						pcp, rcp, vcp, nepid, clid);
+			ipc = dt_link_construct(dtp, prp, dp, idp, rdp, pcp,
+						rcp, vcp, nepid, clid);
 			if (ipc == -1)
 				return -1;
 
@@ -2462,7 +2461,6 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	uint_t		relc = 0;
 	uint_t		varc = 0;
 	dtrace_difo_t	*fdp = NULL;
-	dt_strtab_t	*stab;
 	int		rc;
 
 	/*
@@ -2503,12 +2501,9 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	 * string table, and variable table).
 	 */
 	insc = relc = varc = 0;
-	stab = dt_strtab_create(BUFSIZ);
-	if (stab == NULL)
-		goto nomem;
 
-	rc = dt_link_construct(dtp, prp, fdp, idp, dp, stab, &insc, &relc,
-			       &varc, 0, 0);
+	rc = dt_link_construct(dtp, prp, fdp, idp, dp, &insc, &relc, &varc, 0,
+			       0);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;
@@ -2532,17 +2527,16 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	 * Write out the new string table.
 	 */
 	dt_free(dtp, dp->dtdo_strtab);
-	dp->dtdo_strlen = dt_strtab_size(stab);
+	dp->dtdo_strlen = dt_strtab_size(dtp->dt_ccstab);
 	if (dp->dtdo_strlen > 0) {
 		dp->dtdo_strtab = dt_zalloc(dtp, dp->dtdo_strlen);
 		if (dp->dtdo_strtab == NULL)
 			goto nomem;
-		dt_strtab_write(stab, (dt_strtab_write_f *)dt_strtab_copystr,
+		dt_strtab_write(dtp->dt_ccstab,
+				(dt_strtab_write_f *)dt_strtab_copystr,
 				dp->dtdo_strtab);
 	} else
 		dp->dtdo_strtab = NULL;
-
-	dt_strtab_destroy(stab);
 
 	/*
 	 * Resolve the function relocation records.
