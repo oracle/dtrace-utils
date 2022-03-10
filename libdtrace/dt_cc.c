@@ -2366,6 +2366,10 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 					return -1;
 				nrp->dofr_data = boottime;
 				continue;
+			case DT_CONST_PC:
+				nrp->dofr_data = nrp->dofr_offset /
+						 sizeof(struct bpf_insn);
+				continue;
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)

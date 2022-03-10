@@ -43,3 +43,8 @@ tick-10ms
 	printf("The value of x is %d\n", this->x);
 	exit(0);
 }
+
+ERROR
+{
+	exit(1);
+}

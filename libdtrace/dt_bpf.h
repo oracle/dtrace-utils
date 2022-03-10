@@ -28,6 +28,7 @@ extern "C" {
 #define DT_CONST_BOOTTM	8
 #define DT_CONST_NSPEC	9
 #define DT_CONST_NCPUS	10
+#define DT_CONST_PC	11
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);

@@ -648,31 +648,33 @@ dt_cg_epilogue(dt_pcb_t *pcb)
  * set the fault information.
  */
 static void
-dt_cg_probe_error(dt_pcb_t *pcb, uint32_t off, uint32_t fault, uint64_t illval)
+dt_cg_probe_error(dt_pcb_t *pcb, uint32_t fault, uint64_t illval)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
-	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl,
-						"dt_probe_error");
-
-	assert(idp != NULL);
+	dt_ident_t	*idp;
 
 	/*
 	 *	dt_probe_error(
 	 *		dctx,		// lddw %r1, %fp, DT_STK_DCT
-	 *		off,		// mov %r2, off
+	 *		PC,		// mov %r2, PC
 	 *		fault,		// mov %r3, fault
 	 *		illval);	// mov %r4, illval
 	 *				// call dt_probe_error
 	 *	return;			// exit
 	 */
 	if (dt_regset_xalloc_args(drp) == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		longjmp(pcb->pcb_jmpbuf, EDT_NOREG);
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, off));
+	idp = dt_dlib_get_var(pcb->pcb_hdl, "PC");
+	assert(idp != NULL);
+	emite(dlp, BPF_MOV_IMM(BPF_REG_2, -1), idp);
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 4));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, fault));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, illval));
 	dt_regset_xalloc(drp, BPF_REG_0);
+	idp = dt_dlib_get_func(pcb->pcb_hdl, "dt_probe_error");
+	assert(idp != NULL);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	dt_regset_free(drp, BPF_REG_0);
@@ -689,7 +691,7 @@ dt_cg_check_notnull(dt_irlist_t *dlp, dt_regset_t *drp, int reg)
 	uint_t	lbl_notnull = dt_irlist_label(dlp);
 
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, reg, 0, lbl_notnull));
-	dt_cg_probe_error(yypcb, -1, DTRACEFLT_BADADDR, 0);
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, 0);
 	emitl(dlp, lbl_notnull,
 		   BPF_NOP());
 }
@@ -1650,7 +1652,7 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
 	dt_regset_free(drp, BPF_REG_0);
-	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
+	dt_cg_probe_error(pcb, DTRACEFLT_BADSTACK, 0);
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
 }
@@ -1820,7 +1822,7 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
 	dt_regset_free(drp, BPF_REG_0);
-	dt_cg_probe_error(pcb, -1, DTRACEFLT_BADSTACK, 0);
+	dt_cg_probe_error(pcb, DTRACEFLT_BADSTACK, 0);
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
 }
@@ -2583,7 +2585,7 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		/* First ensure we do not perform a division by zero. */
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_right->dn_reg, 0,
 					  lbl_valid));
-		dt_cg_probe_error(yypcb, -1, DTRACEFLT_DIVZERO, 0);
+		dt_cg_probe_error(yypcb, DTRACEFLT_DIVZERO, 0);
 		emitl(dlp, lbl_valid,
 			   BPF_NOP());
 

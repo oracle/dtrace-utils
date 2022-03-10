@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -145,7 +145,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 
 	/*
 	 * This is an error.  We have the following items here:  EPID,
-	 * faulting action, DIF offset, fault code and faulting address.
+	 * faulting action, BPF pc, fault code and faulting address.
 	 */
 	epid = (uint32_t)DT_REC(uint64_t, 0);
 
@@ -173,7 +173,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 		sprintf(where, "action #%d", err.dteda_action);
 
 	if (err.dteda_offset != -1)
-		sprintf(offinfo, " at DIF offset %d", err.dteda_offset);
+		sprintf(offinfo, " at BPF pc %d", err.dteda_offset);
 	else
 		offinfo[0] = 0;
 
