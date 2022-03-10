@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2588,7 +2588,6 @@ dt_node_tstring(dt_node_t *fnp, uintmax_t val)
 	dt_node_t *dnp = dt_node_alloc(DT_NODE_TSTRING);
 
 	dnp->dn_value = val;
-	dnp->dn_reg = fnp->dn_reg;
 	fnp->dn_tstring = dnp;
 
 	return dnp;
