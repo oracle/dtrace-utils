@@ -2833,124 +2833,107 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_cg_ptrsize(dnp->dn_right, dlp, drp, BPF_DIV, dnp->dn_reg);
 }
 
-#ifdef FIXME
-static uint_t
-dt_cg_stvar(const dt_ident_t *idp)
-{
-	static const uint_t aops[] = { DIF_OP_STGAA, DIF_OP_STTAA, DIF_OP_NOP };
-	static const uint_t sops[] = { DIF_OP_STGS, DIF_OP_STTS, DIF_OP_STLS };
-
-	uint_t i = (((idp->di_flags & DT_IDFLG_LOCAL) != 0) << 1) |
-	    ((idp->di_flags & DT_IDFLG_TLS) != 0);
-
-	return idp->di_kind == DT_IDENT_ARRAY ? aops[i] : sops[i];
-}
-#endif
-
 static void
-dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
+dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
+		int post)
 {
-	ctf_file_t *ctfp = dnp->dn_ctfp;
-	ctf_id_t type;
-	ssize_t size = 1;
+	size_t		size = dt_node_type_size(dnp->dn_child);
+	ssize_t		adj = 1;
+	int		is_dvar = 0;
+	uint_t		rbit = dnp->dn_child->dn_flags & DT_NF_REF;
+	uint_t		lbl_dflt, lbl_done;
+	dt_ident_t	*idp = NULL;
+
+	TRACE_REGSET("    incdec: Begin");
+
+	assert(size > 0 && size <= 8 &&
+	       (size & (size - 1)) == 0);
 
 	if (dt_node_is_pointer(dnp)) {
+		ctf_file_t	*ctfp = dnp->dn_ctfp;
+		ctf_id_t	type;
+
 		type = ctf_type_resolve(ctfp, dnp->dn_type);
 		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
-		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
+		adj = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
 	}
 
-	dt_cg_node(dnp->dn_child, dlp, drp);
-	dnp->dn_reg = dnp->dn_child->dn_reg;
+	assert(dnp->dn_child->dn_flags & DT_NF_WRITABLE);
+	assert(dnp->dn_child->dn_flags & DT_NF_LVALUE);
 
-	emit(dlp, BPF_ALU64_IMM(op, dnp->dn_reg, size));
-
-	/*
-	 * If we are modifying a variable, generate a store instruction for
-	 * the variable specified by the identifier.  If we are storing to a
-	 * memory address, generate code again for the left-hand side using
-	 * DT_NF_REF to get the address, and then generate a store to it.
-	 * In both paths, we store the value in dnp->dn_reg (the new value).
-	 */
-	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
-		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
-
-		dt_cg_store_var(dnp, dlp, drp, idp);
-	} else {
-		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
-
-		assert(dnp->dn_child->dn_flags & DT_NF_WRITABLE);
-		assert(dnp->dn_child->dn_flags & DT_NF_LVALUE);
-
-		dnp->dn_child->dn_flags |= DT_NF_REF; /* force pass-by-ref */
-		dt_cg_node(dnp->dn_child, dlp, drp);
-
-		dt_cg_store(dnp, dlp, drp, dnp->dn_child);
-		dt_regset_free(drp, dnp->dn_child->dn_reg);
-
-		dnp->dn_left->dn_flags &= ~DT_NF_REF;
-		dnp->dn_left->dn_flags |= rbit;
-	}
-}
-
-static void
-dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
-    dt_regset_t *drp, uint_t op)
-{
-	ctf_file_t *ctfp = dnp->dn_ctfp;
-	ctf_id_t type;
-	ssize_t size = 1;
-	int oreg, nreg;
-
-	if (dt_node_is_pointer(dnp)) {
-		type = ctf_type_resolve(ctfp, dnp->dn_type);
-		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
-		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
-	}
-
-	dt_cg_node(dnp->dn_child, dlp, drp);
-	dnp->dn_reg = dnp->dn_child->dn_reg;
-	oreg = dnp->dn_reg;
-
-	nreg = dt_regset_alloc(drp);
-	if (nreg == -1)
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp, BPF_MOV_REG(nreg, oreg));
-	emit(dlp, BPF_ALU64_IMM(op, nreg, size));
+	dnp->dn_child->dn_flags |= DT_NF_REF; /* force pass-by-ref */
+	dt_cg_node(dnp->dn_child, dlp, drp);
 
 	/*
-	 * If we are modifying a variable, generate a store instruction for
-	 * the variable specified by the identifier.  If we are storing to a
-	 * memory address, generate code again for the left-hand side using
-	 * DT_NF_REF to get the address, and then generate a store to it.
-	 * In both paths, we store the value from %r0 (the new value).
+	 * If the lvalue is a variable, we need to determine whether it is a
+	 * dynamic variable (TLS or associative array element).  IF so, it may
+	 * not have been created yet.  The lvalue pointer will be NULL in that
+	 * case, and we need special handling for it.
+	 *
+	 * If the lvalue is not a variable, we need to perform a NULL check.
 	 */
 	if (dnp->dn_child->dn_kind == DT_NODE_VAR) {
-		dt_ident_t *idp = dt_ident_resolve(dnp->dn_child->dn_ident);
+		idp = dt_ident_resolve(dnp->dn_child->dn_ident);
 
-		dnp->dn_reg = nreg;
+		is_dvar = (idp->di_flags & DT_IDFLG_TLS ||
+			   (idp->di_kind == DT_IDENT_ARRAY &&
+			    idp->di_id > DIF_VAR_ARRAY_MAX));
+	} else
+		dt_cg_check_notnull(dlp, drp, dnp->dn_child->dn_reg);
+
+	if (is_dvar) {
+		dt_node_t	val;
+
+		/*
+		 * The dt_cg_store_var() function expects a dnp->dn_right child
+		 * so we fake one here.
+		 */
+		val.dn_op = DT_TOK_INT;
+		val.dn_value = op == BPF_ADD ? adj : -adj;
+
+		lbl_dflt = dt_irlist_label(dlp);
+		lbl_done = dt_irlist_label(dlp);
+
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, dnp->dn_child->dn_reg, 0, lbl_dflt));
+		emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, val.dn_value));
+
+		dnp->dn_right = &val;
 		dt_cg_store_var(dnp, dlp, drp, idp);
-		dnp->dn_reg = oreg;
-	} else {
-		uint_t rbit = dnp->dn_child->dn_flags & DT_NF_REF;
+		dnp->dn_right = NULL;
+		if (post)
+			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+		emit(dlp,  BPF_JUMP(lbl_done));
 
-		assert(dnp->dn_child->dn_flags & DT_NF_WRITABLE);
-		assert(dnp->dn_child->dn_flags & DT_NF_LVALUE);
-
-		dnp->dn_child->dn_flags |= DT_NF_REF; /* force pass-by-ref */
-		dt_cg_node(dnp->dn_child, dlp, drp);
-
-		dnp->dn_reg = nreg;
-		dt_cg_store(dnp, dlp, drp, dnp->dn_child);
-		dnp->dn_reg = oreg;
-
-		dt_regset_free(drp, dnp->dn_child->dn_reg);
-		dnp->dn_left->dn_flags &= ~DT_NF_REF;
-		dnp->dn_left->dn_flags |= rbit;
+		emitl(dlp, lbl_dflt,
+			   BPF_NOP());
 	}
 
-	dt_regset_free(drp, nreg);
+	emit(dlp,  BPF_LOAD(ldstw[size], dnp->dn_reg, dnp->dn_child->dn_reg, 0));
+	if (post) {
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_MOV_REG(BPF_REG_0, dnp->dn_reg));
+		emit(dlp,  BPF_ALU64_IMM(op, BPF_REG_0, adj));
+		emit(dlp,  BPF_STORE(ldstw[size], dnp->dn_child->dn_reg, 0, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+	} else {
+		emit(dlp,  BPF_ALU64_IMM(op, dnp->dn_reg, adj));
+		emit(dlp,  BPF_STORE(ldstw[size], dnp->dn_child->dn_reg, 0, dnp->dn_reg));
+	}
+
+	dt_regset_free(drp, dnp->dn_child->dn_reg);
+
+	if (is_dvar)
+		emitl(dlp, lbl_done,
+			   BPF_NOP());
+
+	dnp->dn_child->dn_flags &= ~DT_NF_REF;
+	dnp->dn_child->dn_flags |= rbit;
+
+	TRACE_REGSET("    incdec: End  ");
 }
 
 /*
@@ -4552,19 +4535,19 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		break;
 
 	case DT_TOK_PREINC:
-		dt_cg_prearith_op(dnp, dlp, drp, BPF_ADD);
+		dt_cg_incdec_op(dnp, dlp, drp, BPF_ADD, 0);
 		break;
 
 	case DT_TOK_POSTINC:
-		dt_cg_postarith_op(dnp, dlp, drp, BPF_ADD);
+		dt_cg_incdec_op(dnp, dlp, drp, BPF_ADD, 1);
 		break;
 
 	case DT_TOK_PREDEC:
-		dt_cg_prearith_op(dnp, dlp, drp, BPF_SUB);
+		dt_cg_incdec_op(dnp, dlp, drp, BPF_SUB, 0);
 		break;
 
 	case DT_TOK_POSTDEC:
-		dt_cg_postarith_op(dnp, dlp, drp, BPF_SUB);
+		dt_cg_incdec_op(dnp, dlp, drp, BPF_SUB, 1);
 		break;
 
 	case DT_TOK_IPOS:
