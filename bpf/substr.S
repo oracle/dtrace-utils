@@ -6,7 +6,7 @@
 #define BPF_FUNC_probe_read_str	45
 
 /*
- * void dt_substr(char *dst, const char *src, int32_t idx, int32_t cnt,
+ * char *dt_substr(char *dst, const char *src, int32_t idx, int32_t cnt,
  *		  uint64_t argc)
  *
  * %r1 = dst, %r2 = src, %r3 = idx, %r4 = cnt, %r5 = argc
@@ -124,10 +124,12 @@ dt_substr :
 					 *		       &src[idx]);
 					 */
 
+	mov	%r0, %r9
 	exit
 
 .Lempty:
 	/* Store the empty string in the destination. */
 	stb	[%r9+0], 0
+	mov	%r0, %r9
 	exit
 	.size	dt_substr, .-dt_substr

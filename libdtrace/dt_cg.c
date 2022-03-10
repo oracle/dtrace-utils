@@ -3997,26 +3997,20 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(cnt, dlp, drp);
 
 	/*
-	 * Allocate the result register and associate it with a temporary
-	 * string slot.
+	 * Allocate a temporary string slot for the result.
 	 */
-	dnp->dn_reg = dt_regset_alloc(drp);
-	if (dnp->dn_reg == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	dt_cg_tstring_alloc(yypcb, dnp);
-
-        emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
-        emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
-        emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
-	emit(dlp, BPF_MOV_REG(BPF_REG_2, str->dn_reg));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, dnp->dn_tstring->dn_value));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, str->dn_reg));
 	dt_regset_free(drp, str->dn_reg);
 	dt_cg_tstring_free(yypcb, str);
-	emit(dlp, BPF_MOV_REG(BPF_REG_3, idx->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, idx->dn_reg));
 	dt_regset_free(drp, idx->dn_reg);
 	if (cnt != NULL) {
 		emit(dlp, BPF_MOV_REG(BPF_REG_4, cnt->dn_reg));
@@ -4030,8 +4024,17 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_substr");
 	assert(idp != NULL);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
-	dt_regset_free_args(drp);
+
+	/*
+	 * Allocate the result register, and assign the result to it..
+	 */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
 
 	TRACE_REGSET("    subr-substr:End  ");
 }
