@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -62,14 +62,14 @@ dt_regset_alloc(dt_regset_t *drp)
 {
 	int reg;
 
-	for (reg = drp->dr_size - 1; reg >= 0; reg--) {
+	for (reg = drp->dr_size - 1; reg > 0; reg--) {
 		if (BT_TEST(drp->dr_active, reg) == 0) {
 			BT_SET(drp->dr_active, reg);
 			return reg;
 		}
 	}
 
-	for (reg = drp->dr_size - 1; reg >= 0; reg--) {
+	for (reg = drp->dr_size - 1; reg > 0; reg--) {
 		if (BT_TEST(drp->dr_spilled, reg) == 0) {
 			drp->dr_spill_store(reg);
 			BT_SET(drp->dr_spilled, reg);
@@ -147,19 +147,23 @@ dt_regset_free_args(dt_regset_t *drp)
 		dt_regset_free(drp, reg);
 }
 
+#define DT_PAD_MAX	40
+#define DT_PAD(n)	((n) > DT_PAD_MAX ? 0 : DT_PAD_MAX - (n))
+
 /*
  * Dump the current register allocation.
  */
 void
 dt_regset_dump(dt_regset_t *drp, const char *pref)
 {
-	int reg;
+	int reg, n;
 
-	fprintf(stderr, "%s: Regset: ", pref);
+	n = fprintf(stderr, "%s: Regset: ", pref);
+	fprintf(stderr, "%*s", DT_PAD(n), "");
 	for (reg = 0; reg < drp->dr_size; reg++) {
-		fprintf(stderr, "%c", BT_TEST(drp->dr_active, reg) ? 'x' :
-				      BT_TEST(drp->dr_spilled, reg) ? 's' :
-				      '.');
+		fprintf(stderr, " %c%c",
+			BT_TEST(drp->dr_active, reg) ? '0' + reg : '.',
+			BT_TEST(drp->dr_spilled, reg) ? 's' : '.');
 	}
 	fprintf(stderr, "\n");
 }
