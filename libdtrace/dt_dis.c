@@ -252,7 +252,15 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	n = fprintf(fp, "%-4s %s, [%s%+d]", name, reg(in->dst_reg),
 		    reg(in->src_reg), in->off);
 
-	dt_dis_refname(dp, in, addr, n, fp);
+	if (in->code == (BPF_LDX | BPF_MEM | BPF_DW) &&
+	    in->src_reg == BPF_REG_FP &&
+	    in->off <= DT_STK_SPILL(0) &&
+	    in->off >= DT_STK_SPILL(DT_STK_NREGS) &&
+	    in->dst_reg == -(in->off - DT_STK_SPILL_BASE) / DT_STK_SLOT_SZ) {
+		fprintf(fp, "%*s! restore %s\n", DT_DIS_PAD(n), "",
+			reg(in->dst_reg));
+	} else
+		dt_dis_refname(dp, in, addr, n, fp);
 
 	return 0;
 }
@@ -288,7 +296,15 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	n = fprintf(fp, "%-4s [%s%+d], %s", name, reg(in->dst_reg), in->off,
 		    reg(in->src_reg));
 
-	dt_dis_refname(dp, in, addr, n, fp);
+	if (in->code == (BPF_STX | BPF_MEM | BPF_DW) &&
+	    in->dst_reg == BPF_REG_FP &&
+	    in->off <= DT_STK_SPILL(0) &&
+	    in->off >= DT_STK_SPILL(DT_STK_NREGS - 1) &&
+	    in->src_reg == -(in->off - DT_STK_SPILL_BASE) / DT_STK_SLOT_SZ) {
+		fprintf(fp, "%*s! spill %s\n", DT_DIS_PAD(n), "",
+			reg(in->src_reg));
+	} else
+		dt_dis_refname(dp, in, addr, n, fp);
 
 	return 0;
 }
