@@ -8,7 +8,7 @@
 
 	.text
 /*
- * int dt_lltostr(char *STR, uint64_t VAL)
+ * void dt_lltostr(uint64_t VAL, char *STR)
  * {
  *     // start writing at the end (IDX==1 is the last char)
  *     IDX = 1
@@ -74,8 +74,8 @@ dt_lltostr:
 #define IDX %r8
 #define SGN %r9
 
-	mov	STR, %r1
-	mov	VAL, %r2
+	mov	VAL, %r1
+	mov	STR, %r2
 
 	mov	IDX, 1				/* IDX = 1 */
 

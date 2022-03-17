@@ -3818,36 +3818,7 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_lltostr");
-	dt_node_t	*val = dnp->dn_args;
-
-	assert(idp != NULL);
-
-	TRACE_REGSET("    subr-lltostr:Begin");
-	dt_cg_node(val, dlp, drp);
-
-	if (dt_regset_xalloc_args(drp) == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-	dnp->dn_reg = dt_regset_alloc(drp);
-	if (dnp->dn_reg == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-	dt_cg_tstring_alloc(yypcb, dnp);
-
-	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
-	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
-	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
-
-	emit(dlp, BPF_MOV_REG(BPF_REG_2, val->dn_reg));
-	dt_regset_free(drp, val->dn_reg);
-
-	dt_regset_xalloc(drp, BPF_REG_0);
-	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
-	dt_regset_free_args(drp);
-	dt_regset_free(drp, BPF_REG_0);
-
-	TRACE_REGSET("    subr-lltostr:End  ");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr");
 }
 
 static void
