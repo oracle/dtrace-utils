@@ -3694,24 +3694,27 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 /*
- * This function is a helper function for subroutines that take a path
- * argument and return the tstring resulting from applying a given BPF
- * function (passed by name) on it.
+ * Emit code to call a precompiled BPF function (named by fname)
+ * that is of return type void and takes two arguments:
+ *   - one input value
+ *   - a pointer to an output tstring, allocated here
  */
 static void
-dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-		       const char *fname)
+dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+			   const char *fname)
 {
 	dt_ident_t	*idp;
-	dt_node_t	*str = dnp->dn_args;
+	dt_node_t	*arg = dnp->dn_args;
 
-	TRACE_REGSET("    subr-path_helper:Begin");
-	dt_cg_node(str, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, str);
+	TRACE_REGSET("    subr-arg_to_tstring:Begin");
 
-	/*
-	 * The result needs to be a temporary string, so we request one.
-	 */
+	/* handle the one "input value" */
+	/* (its type matters only as to whether we check it is null */
+	dt_cg_node(arg, dlp, drp);
+	if (dt_node_is_pointer(arg) || dt_node_is_string(arg))
+		dt_cg_check_ptr_arg(dlp, drp, arg);
+
+	/* allocate the temporary string */
 	dnp->dn_reg = dt_regset_alloc(drp);
 	if (dnp->dn_reg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3724,9 +3727,10 @@ dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp, BPF_MOV_REG(BPF_REG_1, str->dn_reg));
-	dt_regset_free(drp, str->dn_reg);
-	dt_cg_tstring_free(yypcb, str);
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, arg->dn_reg));
+	dt_regset_free(drp, arg->dn_reg);
+	if (dt_node_is_string(arg))
+		dt_cg_tstring_free(yypcb, arg);
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
 
@@ -3737,19 +3741,19 @@ dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	dt_regset_free_args(drp);
 	dt_regset_free(drp, BPF_REG_0);
 
-	TRACE_REGSET("    subr-path_helper:End  ");
+	TRACE_REGSET("    subr-arg_to_tstring:End  ");
 }
 
 static void
 dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_basename");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename");
 }
 
 static void
 dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_dirname");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname");
 }
 
 static void
