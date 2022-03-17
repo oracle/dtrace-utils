@@ -3374,11 +3374,6 @@ dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_cg_subr_path_helper(dnp, dlp, drp, "dt_dirname");
 }
 
-/*
- * Get and return a new speculation ID.  These are unallocated entries in the
- * specs map, obtained by calling dt_speculation().  Return zero if none is
- * available.  TODO: add a drop in this case?
- */
 static void
 dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
@@ -3576,6 +3571,11 @@ dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-rindex:End  ");
 }
 
+/*
+ * Get and return a new speculation ID.  These are unallocated entries in the
+ * specs map, obtained by calling dt_speculation().  Return zero if none is
+ * available.  TODO: add a drop in this case?
+ */
 static void
 dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
