@@ -192,7 +192,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "index", DT_IDENT_FUNC, 0, DIF_SUBR_INDEX, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "int(const char *, const char *, [int])" },
 { "inet_ntoa", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
-	DT_VERS_1_5, &dt_idops_func, "string(ipaddr_t *)" },
+	DT_VERS_1_5, &dt_idops_func, "string(void *)" }, /* FIXME should be ipaddr_t* */
 { "inet_ntoa6", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(struct in6_addr *)" },
 { "inet_ntop", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOP, DT_ATTR_STABCMN,

@@ -28,6 +28,7 @@ bpf_dlib_SOURCES = \
 	get_bvar.c \
 	get_dvar.c \
 	index.S \
+	inet_ntoa.S \
 	lltostr.S \
 	mutex_owned.S \
 	mutex_owner.S \
