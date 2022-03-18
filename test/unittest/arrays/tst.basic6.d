@@ -15,6 +15,7 @@
 
 
 #pragma D option quiet
+#pragma D option strsize=64
 
 BEGIN
 {
