@@ -957,6 +957,27 @@ dt_cg_alloca_ptr(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int sreg)
 	}
 }
 
+/*
+ * Convert an alloca pointer value into an actual scratchmem pointer.
+ * Generate code to check a pointer argument (specifically for subroutine
+ * arguments) to ensure that it is not NULL.  If the arguent pointer is an
+ * alloca pointer, we also need to perform an access check and convert the
+ * alloca pointer value into a real pointer.
+ */
+static void
+dt_cg_check_ptr_arg(dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dnp)
+{
+	if (dnp->dn_flags & DT_NF_ALLOCA) {
+		dtrace_diftype_t	vtype;
+
+		dt_node_diftype(yypcb->pcb_hdl, dnp, &vtype);
+		dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+					  DT_ISIMM, vtype.dtdt_size);
+		dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+	} else
+		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+}
+
 static const uint_t	ldstw[] = {
 					0,
 					BPF_B,	BPF_H,	0, BPF_W,
@@ -3686,10 +3707,10 @@ dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	TRACE_REGSET("    subr-path_helper:Begin");
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, str);
 
 	/*
-	 * The result needs be be a temporary string, so we request one.
+	 * The result needs to be a temporary string, so we request one.
 	 */
 	dnp->dn_reg = dt_regset_alloc(drp);
 	if (dnp->dn_reg == -1)
@@ -3745,9 +3766,9 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-index:Begin");
 
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, s->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, s);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, t->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, t);
 	if (start != NULL)
 		dt_cg_node(start, dlp, drp);
 
@@ -3861,9 +3882,9 @@ dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* evaluate arguments to D subroutine rindex() */
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, s->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, s);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, t->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, t);
 	if (start != NULL)
 		dt_cg_node(start, dlp, drp);
 
@@ -4106,7 +4127,7 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	TRACE_REGSET("    subr-strchr:Begin");
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, str);
 	dt_cg_node(chr, dlp, drp);
 
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4119,7 +4140,7 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free(drp, chr->dn_reg);
 
 	/*
-	 * The result needs be be a temporary string, so we request one.
+	 * The result needs to be a temporary string, so we request one.
 	 */
 	dnp->dn_reg = dt_regset_alloc(drp);
 	if (dnp->dn_reg == -1)
@@ -4162,7 +4183,7 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	TRACE_REGSET("    subr-strrchr:Begin");
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, str);
 	dt_cg_node(chr, dlp, drp);
 
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4175,7 +4196,7 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free(drp, chr->dn_reg);
 
 	/*
-	 * The result needs be be a temporary string, so we request one.
+	 * The result needs to be a temporary string, so we request one.
 	 */
 	dnp->dn_reg = dt_regset_alloc(drp);
 	if (dnp->dn_reg == -1)
@@ -4213,7 +4234,7 @@ dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strlen:Begin");
 
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, str);
 	dnp->dn_reg = str->dn_reg;		/* re-use register */
 
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4248,12 +4269,12 @@ dt_cg_subr_strjoin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strjoin:Begin");
 
 	dt_cg_node(s1, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, s1->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, s1);
 	dt_cg_node(s2, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, s2->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, s2);
 
 	/*
-	 * The result needs be be a temporary string, so we request one.
+	 * The result needs to be a temporary string, so we request one.
 	 */
 	dnp->dn_reg = dt_regset_alloc(drp);
 	if (dnp->dn_reg == -1)
@@ -4295,9 +4316,9 @@ dt_cg_subr_strstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* get args */
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, s->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, s);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, t->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, t);
 
 	/* call dt_index() call */
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4398,7 +4419,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (str->dn_op != DT_TOK_INT || str->dn_value != 0) {
 		/* string is present:  copy it to internal state */
 		dt_cg_node(str, dlp, drp);
-		dt_cg_check_notnull(dlp, drp, str->dn_reg);
+		dt_cg_check_ptr_arg(dlp, drp, str);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -4427,7 +4448,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* get delimiters */
 	dt_cg_node(del, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, del->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, del);
 
 	/* allocate temporary string for result */
 	dnp->dn_reg = dt_regset_alloc(drp);
@@ -4478,7 +4499,7 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-substr:Begin");
 
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_notnull(dlp, drp, str->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, str);
 	dt_cg_node(idx, dlp, drp);
 	if (cnt != NULL)
 		dt_cg_node(cnt, dlp, drp);
@@ -4933,6 +4954,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	case DT_TOK_STRINGOF:
 		dt_cg_node(dnp->dn_child, dlp, drp);
+		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_child);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 		break;
 
