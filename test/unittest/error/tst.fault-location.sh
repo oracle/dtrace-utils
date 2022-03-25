@@ -6,6 +6,9 @@
 # http://oss.oracle.com/licenses/upl.
 #
 
+# Check that the locus reported for a sample test fault is the same
+# as the call locus to dt_probe_error at which that fault is emitted.
+
 dtrace=$1
 
 $dtrace $dt_flags -xdisasm=8 -Sn '
