@@ -20,8 +20,15 @@ noinline uint64_t dt_strlen(const dt_dctx_t *dctx, const char *str)
 	char	*tmp = dctx->strtab + (uint64_t)&STBSZ;
 	int64_t	len;
 
-	len = bpf_probe_read_str(tmp, (uint64_t)&STRSZ + 1, str);
+	/*
+	 * The bpf_probe_read_str() helper returns either a negative value (for
+	 * error conditions) or a positive value (string length + 1 to account
+	 * for the terminating 0-byte).  It will never return 0, so it is safe
+	 * to speculatively subtract 1.  Any negative value will be converted
+	 * into a 0.
+	 */
+	len = bpf_probe_read_str(tmp, (uint64_t)&STRSZ + 1, str) - 1;
 	set_not_neg_bound(len);
 
-	return len - 1;		/* bpf_probe_read_str() never returns 0 */
+	return len;
 }
