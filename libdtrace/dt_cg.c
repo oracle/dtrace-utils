@@ -1289,9 +1289,9 @@ dt_cg_spec_set_drainable(dt_pcb_t *pcb, dt_node_t *dnp, int idreg)
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, idreg));
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
 	emit(dlp,  BPF_RETURN());
@@ -2215,9 +2215,9 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 
@@ -3709,9 +3709,9 @@ dt_cg_subr_path_helper(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
 
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	dt_regset_free(drp, BPF_REG_0);
@@ -4136,9 +4136,9 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_4, BPF_REG_4, DCTX_MEM));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off));
 
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strchr");
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	dt_cg_tstring_xfree(yypcb, off);
@@ -4187,9 +4187,9 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strrchr");
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 
@@ -4318,9 +4318,9 @@ dt_cg_subr_strstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off1));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, off2));
 
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_index");
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 
@@ -4507,9 +4507,9 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp, BPF_MOV_IMM(BPF_REG_4, 0));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_5, 2));
 	}
-	dt_regset_xalloc(drp, BPF_REG_0);
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_substr");
 	assert(idp != NULL);
+	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 
 	/*
