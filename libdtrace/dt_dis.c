@@ -244,6 +244,19 @@ dt_dis_branch_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 
 /*ARGSUSED*/
 static uint_t
+dt_dis_sbranch_imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
+	      const struct bpf_insn *in, const char *rname, FILE *fp)
+{
+	int	n;
+
+	n = fprintf(fp, "%-4s %s, %d, %d", name, reg(in->dst_reg), in->imm,
+		    in->off);
+	fprintf(fp, "%*s! -> %03u\n", DT_DIS_PAD(n), "", addr + 1 + in->off);
+	return 0;
+}
+
+/*ARGSUSED*/
+static uint_t
 dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	      const struct bpf_insn *in, const char *rname, FILE *fp)
 {
@@ -648,10 +661,10 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 		INSN3(JMP32, JLT, K)	= { "jlt", dt_dis_branch_imm },
 		INSN3(JMP32, JGE, K)	= { "jge", dt_dis_branch_imm },
 		INSN3(JMP32, JLE, K)	= { "jle", dt_dis_branch_imm },
-		INSN3(JMP32, JSGT, K)	= { "jsgt", dt_dis_branch_imm },
-		INSN3(JMP32, JSLT, K)	= { "jslt", dt_dis_branch_imm },
-		INSN3(JMP32, JSGE, K)	= { "jsge", dt_dis_branch_imm },
-		INSN3(JMP32, JSLE, K)	= { "jsle", dt_dis_branch_imm },
+		INSN3(JMP32, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
+		INSN3(JMP32, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
+		INSN3(JMP32, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
+		INSN3(JMP32, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
 		INSN3(JMP32, JSET, K)	= { "jset", dt_dis_branch_imm },
 		/* 64-bit jump ops, op(dst, src) */
 		INSN3(JMP, JEQ, X)	= { "jeq", dt_dis_branch },
@@ -672,10 +685,10 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 		INSN3(JMP, JLT, K)	= { "jlt", dt_dis_branch_imm },
 		INSN3(JMP, JGE, K)	= { "jge", dt_dis_branch_imm },
 		INSN3(JMP, JLE, K)	= { "jle", dt_dis_branch_imm },
-		INSN3(JMP, JSGT, K)	= { "jsgt", dt_dis_branch_imm },
-		INSN3(JMP, JSLT, K)	= { "jslt", dt_dis_branch_imm },
-		INSN3(JMP, JSGE, K)	= { "jsge", dt_dis_branch_imm },
-		INSN3(JMP, JSLE, K)	= { "jsle", dt_dis_branch_imm },
+		INSN3(JMP, JSGT, K)	= { "jsgt", dt_dis_sbranch_imm },
+		INSN3(JMP, JSLT, K)	= { "jslt", dt_dis_sbranch_imm },
+		INSN3(JMP, JSGE, K)	= { "jsge", dt_dis_sbranch_imm },
+		INSN3(JMP, JSLE, K)	= { "jsle", dt_dis_sbranch_imm },
 		INSN3(JMP, JSET, K)	= { "jset", dt_dis_branch_imm },
 		INSN2(JMP, JA)		= { "ja", dt_dis_jump },
 		/* Store instructions, [dst + off] = src */
