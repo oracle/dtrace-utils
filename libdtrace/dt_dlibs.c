@@ -103,6 +103,7 @@ dt_dlib_error(dtrace_hdl_t *dtp, int eid, const char *format, ...)
 
 	va_start(ap, format);
 	dt_set_errmsg(dtp, dt_errtag(eid), NULL, NULL, 0, format, ap);
+	dt_set_errno(dtp, EDT_BPF);
 	va_end(ap);
 }
 
