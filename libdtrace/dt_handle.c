@@ -179,12 +179,15 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 
 	switch (err.dteda_fault) {
 	case DTRACEFLT_BADADDR:
+		if ((int64_t)err.dteda_addr == -1)
+			goto no_addr;
 	case DTRACEFLT_BADALIGN:
 	case DTRACEFLT_BADSTACK:
 		sprintf(details, " (0x%llx)", (u_longlong_t)err.dteda_addr);
 		break;
 
 	default:
+no_addr:
 		details[0] = 0;
 	}
 
