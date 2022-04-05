@@ -1,19 +1,34 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# This test verifies that USDT providers are removed when its associated
+# This test verifies that USDT providers are removed when the associated
 # load object is closed via dlclose(3dl).
-
-PATH=/usr/bin:/usr/sbin:$PATH
-
-if [ $# != 1 ]; then
-	echo expected one argument: '<'dtrace-path'>'
-	exit 2
-fi
+#
+# The expected sequence of events is:
+#
+#     main.c                                 script
+#     ==============================         =================================
+#
+#     load livelib.so
+#     write "started" to myfile.txt
+#                                            see "started" in myfile.txt
+#                                            check USDT provider test_prov$pid
+#                                            signal USR1
+#     get USR1
+#     run dlclose()
+#     write  "dlclosed" to myfile.txt
+#                                            see "dlclosed" in myfile.txt
+#                                            check USDT provider test_prov$pid
+#                                            kill main.c
+#
+# The first USDT provider check should find test_prov$pid.
+# The second should not.
+#
+# @@xfail: dtv2 (USDT probes)
 
 dtrace=$1
 CC=/usr/bin/gcc
@@ -22,6 +37,10 @@ CFLAGS=
 DIRNAME="$tmpdir/usdt-dlclose1.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
+
+#
+# set up Makefile
+#
 
 cat > Makefile <<EOF
 all: main livelib.so deadlib.so
@@ -59,6 +78,10 @@ clobber: clean
 	rm -f main livelib.so deadlib.so
 EOF
 
+#
+# set up some small files
+#
+
 cat > prov.d <<EOF
 provider test_prov {
 	probe go();
@@ -67,7 +90,6 @@ EOF
 
 cat > livelib.c <<EOF
 #include "prov.h"
-
 void
 go(void)
 {
@@ -82,29 +104,65 @@ go(void)
 }
 EOF
 
+#
+# set up main.c
+#
 
 cat > main.c <<EOF
 #include <dlfcn.h>
+#include <signal.h>
 #include <unistd.h>
 #include <stdio.h>
+
+void *live;
+
+static void
+interrupt(int sig)
+{
+	/* close livelib.so to remove USDT probes */
+	dlclose(live);
+
+	/* notification */
+	printf("dlclosed\n");
+	fflush(stdout);
+}
 
 int
 main(int argc, char **argv)
 {
-	void *live;
+	struct sigaction act;
 
+	/* open livelib.so to make USDT probes visible */
 	if ((live = dlopen("./livelib.so", RTLD_LAZY | RTLD_LOCAL)) == NULL) {
 		printf("dlopen of livelib.so failed: %s\n", dlerror());
 		return 1;
 	}
 
-	dlclose(live);
+	/* set the handler to listen for SIGUSR1 */
+	act.sa_handler = interrupt;
+	act.sa_flags = 0;
+	if (sigaction(SIGUSR1, &act, NULL)) {
+		printf("set handler failed\n");
+		return 1;
+	}
 
+	/* notification */
+	printf("started\n");
+	fflush(stdout);
+
+	/* wait for SIGUSR1 to execute handler */
+	pause();
+
+	/* wait for SIGKILL to terminate */
 	pause();
 
 	return 0;
 }
 EOF
+
+#
+# make
+#
 
 make > /dev/null
 if [ $? -ne 0 ]; then
@@ -112,27 +170,46 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-script() {
-	$dtrace -Zw -x bufsize=64k -c ./main -qs /dev/stdin <<EOF
-	syscall::pause:entry,
-	syscall::rt_sig*:entry
-	/pid == \$target/
-	{
-		system("$dtrace -l -P test_prov*");
-		system("kill %d", \$target);
-		exit(0);
-	}
+#
+# set up a wait mechanism
+#
 
-	tick-1s
-	/i++ == 5/
-	{
-		printf("failed\n");
-		exit(1);
-	}
-EOF
+# args:
+#   1: number of seconds to wait
+#   2: string to watch for
+#   3: file to watch
+function mywait() {
+	for iter in `seq $1`; do
+		sleep 1
+		if grep -q "$2" $3; then
+			iter=0
+			break
+		fi
+	done
+	if [[ $iter -ne 0 ]]; then
+		echo did not see message: $2
+		echo "==================== start of messages"
+		cat $3
+		echo "==================== end of messages"
+		kill -s KILL $pid
+		exit 1
+	fi
 }
 
-script
-status=$?
+#
+# run the process in the background and check USDT probes
+#
 
-exit $status
+./main > myfile.txt &
+pid=$!
+echo started pid $pid
+
+mywait 6 "started"  myfile.txt # wait for process to start
+$dtrace -lP test_prov$pid      # check USDT probes
+kill -s USR1 $pid              # signal process
+
+mywait 6 "dlclosed" myfile.txt # wait for process to dlclose
+$dtrace -lP test_prov$pid      # check USDT probes
+kill -s KILL $pid              # kill process
+
+exit 0
