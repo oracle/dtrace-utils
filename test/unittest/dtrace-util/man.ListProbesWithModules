@@ -1,7 +1,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -65,9 +65,4 @@
  * 12)
  * /usr/sbin/dtrace -lm unix '{printf("FOUND");}'
  * RESULT: List of only unix probes.
- *
- * 13) automated in tst.InvalidModule4.d.ksh
- * /usr/sbin/dtrace -lm
- * unix'/probefunc == "preempt"/{printf("FOUND");}'
- * RESULT: not a valid probe description.
  */

@@ -10,29 +10,15 @@
 #
 # ASSERTION:
 # The -lm option can be used to list the probes from their module names.
-# Invalid module names result in error.
+# The presence of a (predicate or) clause is ignored.
 #
 # SECTION: dtrace Utility/-l Option;
 # 	dtrace Utility/-m Option
-#
 ##
-
-if [ $# != 1 ]; then
-	echo expected one argument: '<'dtrace-path'>'
-	exit 2
-fi
 
 dtrace=$1
 
-$dtrace $dt_flags -lm unix'/probefunc == "preempt"/{printf("FOUND");}'
+$dtrace $dt_flags -lm vmlinux'/probefunc == "read"/{printf("FOUND");}' \
+| awk 'NF == 5 && $3 == "vmlinux" { print "success"; exit }'
 
-status=$?
-
-echo $status
-
-if [ "$status" -ne 0 ]; then
-	exit 0
-fi
-
-echo $tst: dtrace failed
-exit $status
+exit 0
