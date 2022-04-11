@@ -4006,6 +4006,72 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_bcopy(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*src = dnp->dn_args;
+	dt_node_t	*dst = src->dn_list;
+	dt_node_t	*size = dst->dn_list;
+	int		maxsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
+	uint_t		lbl_badsize = dt_irlist_label(dlp);
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+
+	TRACE_REGSET("    subr-bcopy:Begin");
+
+	dt_cg_node(src, dlp, drp);
+	if (src->dn_flags & DT_NF_ALLOCA)
+		dnerror(src, D_PROTO_ARG,
+			"bcopy( ) argument #1 is incompatible with prototype:\n"
+			"\tprototype: non-alloca pointer\n"
+			"\t argument: alloca pointer\n");
+	dt_cg_check_notnull(dlp, drp, src->dn_reg);
+
+	dt_cg_node(dst, dlp, drp);
+	if (!(dst->dn_flags & DT_NF_ALLOCA))
+		dnerror(dst, D_PROTO_ARG,
+			"bcopy( ) argument #2 is incompatible with prototype:\n"
+			"\tprototype: alloca pointer\n"
+			"\t argument: non-alloca pointer\n");
+	/* The dst will be NULL-checked in the alloca access check below. */
+
+	dt_cg_node(size, dlp, drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, size->dn_reg, 0, lbl_badsize));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, size->dn_reg, maxsize, lbl_badsize));
+
+	dt_cg_alloca_access_check(dlp, drp, dst->dn_reg,
+				  DT_ISREG, size->dn_reg);
+	dt_cg_alloca_ptr(dlp, drp, dst->dn_reg, dst->dn_reg);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, size->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, src->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
+
+	/*
+	 * At this point the dst is validated, so any problem must be with
+	 * the src address.
+	 */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);
+	emitl(dlp, lbl_badsize,
+		   BPF_NOP());
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, DT_ISREG, size->dn_reg);
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+
+	dt_regset_free(drp, src->dn_reg);
+	dt_regset_free(drp, dst->dn_reg);
+	dt_regset_free(drp, size->dn_reg);
+
+	TRACE_REGSET("    subr-bcopy:End  ");
+}
+
+static void
 dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -4479,7 +4545,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_COPYOUT]		= NULL,
 	[DIF_SUBR_COPYOUTSTR]		= NULL,
 	[DIF_SUBR_ALLOCA]		= &dt_cg_subr_alloca,
-	[DIF_SUBR_BCOPY]		= NULL,
+	[DIF_SUBR_BCOPY]		= &dt_cg_subr_bcopy,
 	[DIF_SUBR_COPYINTO]		= NULL,
 	[DIF_SUBR_MSGDSIZE]		= NULL,
 	[DIF_SUBR_MSGSIZE]		= NULL,
