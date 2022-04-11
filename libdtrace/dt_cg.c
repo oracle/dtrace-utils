@@ -3255,6 +3255,10 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * dn_right).
 	 */
 	if (dt_node_is_string(dnp)) {
+		uint_t lbl_null = dt_irlist_label(dlp);
+
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_null));
+
 		/*
 		 * At this point, dnp->dn_reg holds a pointer to the string we
 		 * need to copy.  But we want to copy it into a tstring which
@@ -3271,6 +3275,8 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_memcpy(dlp, drp, dnp->dn_reg, BPF_REG_0,
 			     yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE]);
 
+		emitl(dlp,  lbl_null,
+			    BPF_NOP());
 		dt_cg_tstring_free(yypcb, dnp->dn_left);
 		dt_cg_tstring_free(yypcb, dnp->dn_right);
 	}
