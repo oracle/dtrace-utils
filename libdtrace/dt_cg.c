@@ -890,6 +890,73 @@ dt_cg_tstring_free(dt_pcb_t *pcb, dt_node_t *dnp)
 	}
 }
 
+/*
+ * Validate sized access from an alloca pointer value.
+ *
+ * pos + size < top <=> pos < top - size
+ */
+static void
+dt_cg_alloca_access_check(dt_irlist_t *dlp, dt_regset_t *drp, int reg,
+			  int isreg, ssize_t size)
+{
+	int	scratchsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
+	uint_t	lbl_illval = dt_irlist_label(dlp);
+	uint_t	lbl_base_ok = dt_irlist_label(dlp);
+	uint_t	lbl_ok = dt_irlist_label(dlp);
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_SCRATCH_TOP));
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, reg, 8, lbl_illval));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, reg, scratchsize, lbl_illval));
+	emit(dlp,  BPF_BRANCH_REG(BPF_JLT, reg, BPF_REG_0, lbl_base_ok));
+	emitl(dlp, lbl_illval,
+		   BPF_NOP());
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, reg);
+
+	emitl(dlp, lbl_base_ok,
+		   BPF_NOP());
+
+	if (isreg)
+		emit(dlp, BPF_ALU64_REG(BPF_SUB, BPF_REG_0, size));
+	else
+		emit(dlp, BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, size));
+
+	emit(dlp,  BPF_BRANCH_REG(BPF_JLE, reg, BPF_REG_0, lbl_ok));
+
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, isreg, size);
+
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
+}
+
+/*
+ * Convert an access-checked alloca pointer value into an actual scratchmem
+ * pointer.
+ */
+static void
+dt_cg_alloca_ptr(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int sreg)
+{
+	int	reg = dreg;
+
+	if (dreg == sreg) {
+		if ((reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	}
+
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_SCRATCHMEM));
+	emit(dlp,  BPF_ALU64_REG(BPF_ADD, reg, sreg));
+
+	if (dreg == sreg) {
+		emit(dlp, BPF_MOV_REG(dreg, reg));
+		dt_regset_free(drp, reg);
+	}
+}
+
 static const uint_t	ldstw[] = {
 					0,
 					BPF_B,	BPF_H,	0, BPF_W,
@@ -925,6 +992,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	dt_regset_t		*drp = pcb->pcb_regs;
 	uint_t			off;
 	size_t			size;
+	int			not_null = 0;
 
 	/*
 	 * Special case for aggregations: we store the aggregation id.  We
@@ -936,9 +1004,24 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		emit(dlp, BPF_MOV_IMM(dnp->dn_reg, dnp->dn_ident->di_id));
 		size = sizeof(dnp->dn_ident->di_id);
 	} else {
-		dt_cg_node(dnp, &pcb->pcb_ir, drp);
+		dt_cg_node(dnp, dlp, drp);
 		dt_node_diftype(dtp, dnp, &vtype);
 		size = vtype.dtdt_size;
+
+		/*
+		 * A DEREF of a REF node does not get resolved in dt_cg_node()
+		 * because the ref node already holds the pointer.  But for
+		 * alloca pointers, that will be the offset into scratchmem so
+		 * we still need to turn it into a real pointer here.
+		 */
+		if (dnp->dn_kind == DT_NODE_OP1 &&
+		    dnp->dn_op == DT_TOK_DEREF && (dnp->dn_flags & DT_NF_REF) &&
+		    (dnp->dn_child->dn_flags & DT_NF_ALLOCA)) {
+			dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+						  DT_ISIMM, size);
+			dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+			not_null = 1;
+		}
 	}
 
 	if (kind == DTRACEACT_USYM ||
@@ -977,7 +1060,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	} else if (dt_node_is_string(dnp)) {
 		size_t	strsize = pcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
 
-		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+		if (!not_null)
+			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 
 		TRACE_REGSET("store_val(): Begin ");
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, size + 1,
@@ -1011,7 +1095,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, 2, pfp, arg);
 
 		TRACE_REGSET("store_val(): Begin ");
-		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+		if (!not_null)
+			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -1972,7 +2057,7 @@ dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
  * user=1 sign=1 size=4 => binary index 11011 = decimal index 27
  */
 static uint_t
-dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
+dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
 {
 #if 1
 	ctf_encoding_t e;
@@ -1993,6 +2078,9 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 		xyerror(D_UNKNOWN, "internal error -- cg cannot load "
 		    "size %ld when passed by value\n", (long)size);
 	}
+
+	if (ret_size)
+		*ret_size = size;
 
 	return ldstw[size];
 #else
@@ -2033,6 +2121,9 @@ dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type)
 	if (dnp->dn_flags & DT_NF_USERLAND)
 		size |= 0x10;
 
+	if (ret_size)
+		*ret_size = size;
+
 	return ops[size];
 #endif
 }
@@ -2059,9 +2150,10 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 			emit(dlp, BPF_LOAD(BPF_DW, dst->dn_reg, dst->dn_reg, DCTX_GVARS));
 
 		/* load the variable value or address */
-		if (dst->dn_flags & DT_NF_REF)
+		if (dst->dn_flags & DT_NF_REF) {
+			assert(!(dst->dn_flags & DT_NF_ALLOCA));
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dst->dn_reg, idp->di_offset));
-		else {
+		} else {
 			size_t	size = dt_node_type_size(dst);
 
 			assert(size > 0 && size <= 8 &&
@@ -2300,7 +2392,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	 * r1 |= r2
 	 */
 	/* FIXME: Does not handle userland */
-	emit(dlp, BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type), r1, dst->dn_reg, 0));
+	emit(dlp, BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type, NULL), r1, dst->dn_reg, 0));
 	dt_cg_setx(dlp, r2, cmask);
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
 	dt_cg_setx(dlp, r2, fmask);
@@ -2315,9 +2407,9 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 static void
 dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 {
-	ctf_encoding_t e;
-	size_t size;
-	int reg;
+	ctf_encoding_t	e;
+	size_t		size;
+	int		dreg = dst->dn_reg;
 
 	/*
 	 * If we're loading a bit-field, the size of our store is found by
@@ -2330,21 +2422,44 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	else
 		size = dt_node_type_size(dst);
 
+	/*
+	 * If we're loading a writable non-alloca lvalue, and it's a
+	 * dereference, and *its* child is an alloca pointer, then this is a
+	 * dereferenced alloca pointer and needs bounds-checking (which could
+	 * not be done at deref time due to not knowing the size of the write).
+	 */
+	if (dst->dn_flags & DT_NF_WRITABLE && dst->dn_flags & DT_NF_LVALUE
+	    && dst->dn_op == DT_TOK_DEREF && dst->dn_child->dn_flags & DT_NF_ALLOCA) {
+		assert(!(dst->dn_flags & DT_NF_BITFIELD));
+
+		if ((dreg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		dt_cg_alloca_access_check(dlp, drp, dst->dn_reg,
+					  DT_ISIMM, size);
+		dt_cg_alloca_ptr(dlp, drp, dreg, dst->dn_reg);
+	}
+
 	if (src->dn_flags & DT_NF_REF)
-		dt_cg_memcpy(dlp, drp, dst->dn_reg, src->dn_reg, size);
+		dt_cg_memcpy(dlp, drp, dreg, src->dn_reg, size);
 	else {
+		int	sreg;
+
 		if (dst->dn_flags & DT_NF_BITFIELD)
-			reg = dt_cg_field_set(src, dlp, drp, dst);
+			sreg = dt_cg_field_set(src, dlp, drp, dst);
 		else
-			reg = src->dn_reg;
+			sreg = src->dn_reg;
 
 		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
 
-		emit(dlp, BPF_STORE(ldstw[size], dst->dn_reg, 0, reg));
+		emit(dlp, BPF_STORE(ldstw[size], dreg, 0, sreg));
 
-		if (dst->dn_flags & DT_NF_BITFIELD)
-			dt_regset_free(drp, reg);
+		if (sreg != src->dn_reg)
+			dt_regset_free(drp, sreg);
 	}
+
+	if (dreg != dst->dn_reg)
+		dt_regset_free(drp, dreg);
 }
 
 /*
@@ -2608,7 +2723,20 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	TRACE_REGSET("    store_var: Begin");
 
-	/* Associative (global or TLS) array */
+	/*
+	 * Stores of DT_NF_NONALLOCA nodes into identifiers with DT_IDFLG_ALLOCA
+	 * set indicate that an identifier has been reused for both alloca and
+	 * non-alloca purposes.  Block this since it prevents us knowing whether
+	 * to apply an offset to pointers loaded from this identifier.
+	 */
+	if (dnp->dn_flags & DT_NF_ALLOCA && idp->di_flags & DT_IDFLG_NONALLOCA) {
+		xyerror(D_ALLOCA_INCOMPAT, "%s: cannot reuse the "
+			"same identifier for both alloca and "
+			"non-alloca allocations\n",
+			idp->di_name);
+	}
+
+	/* Associative (global or TLS) array.  Cannot be in alloca space.  */
 	if (idp->di_kind == DT_IDENT_ARRAY) {
 		dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
@@ -4655,6 +4783,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
 			uint_t	ubit;
+			uint_t	op;
+			ssize_t	size;
 
 			/*
 			 * Save and restore DT_NF_USERLAND across dt_cg_load():
@@ -4666,9 +4796,22 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
 			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+			op = dt_cg_load(dnp, ctfp, dnp->dn_type, &size);
+
+			/*
+			 * If the child is an alloca pointer, bounds-check it
+			 * now.
+			 */
+			if (dnp->dn_child->dn_flags & DT_NF_ALLOCA) {
+				assert(!(dnp->dn_flags & DT_NF_ALLOCA));
+				dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+							  DT_ISIMM, size);
+				dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg,
+						 dnp->dn_reg);
+			}
 
 			/* FIXME: Does not handled signed or userland */
-			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
+			emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
@@ -4825,7 +4968,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			    (dnp->dn_left->dn_flags & DT_NF_USERLAND);
 
 			/* FIXME: Does not handle signed and userland */
-			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, m.ctm_type), dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
+			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, m.ctm_type, NULL),
+					   dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
@@ -4936,7 +5080,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			if (!(dnp->dn_flags & DT_NF_REF)) {
 				/* FIXME: NO signed or userland yet */
-				emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type), dnp->dn_reg, dnp->dn_reg, 0));
+				emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type, NULL),
+						   dnp->dn_reg, dnp->dn_reg, 0));
 			}
 			break;
 		}

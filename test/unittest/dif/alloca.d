@@ -1,6 +1,5 @@
-/* @@xfail: dtv2 */
 BEGIN
 {
-	self->a = alloca(1024);
+	this->a = alloca(256);
 	exit(0);
 }
