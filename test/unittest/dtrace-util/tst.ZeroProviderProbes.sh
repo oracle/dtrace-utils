@@ -24,7 +24,7 @@ fi
 dtrace=$1
 
 $dtrace $dt_flags -qZP wassup'{printf("Iamkool");}' \
--qP profile'{printf("I am done"); exit(0);}'
+-qP profile'{printf("I am done\n"); exit(0);}' | uniq
 
 status=$?
 
