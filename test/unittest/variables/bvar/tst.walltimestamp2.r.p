@@ -1,7 +1,7 @@
 #!/usr/bin/gawk -f
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -18,11 +18,15 @@
         d4 = $1; getline;
         d5 = $1;
 
-        # check that the deltas are all positive
-        if (d2 <= 0 ||
-            d3 <= 0 ||
-            d4 <= 0 ||
-            d5 <= 0) print "ERROR: walltimestamp did not advance.";
+        # check that no delta is negative
+        if (d2 < 0 ||
+            d3 < 0 ||
+            d4 < 0 ||
+            d5 < 0) print "ERROR: walltimestamp went backwards.";
+
+        # check walltimestamp advanced
+        if (d2 + d3 + d4 + d5 <= 0)
+            print "ERROR: walltimestamp did not advance.";
 
         # check that the deltas are all under 0.2 seconds
         if (d2 > 200000000 ||
