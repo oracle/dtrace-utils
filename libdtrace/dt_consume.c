@@ -1194,11 +1194,11 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 					offset = pc[i] - pmap->pr_vaddr;
 
 				snprintf(c, sizeof(c), "%s:0x%llx",
-				    dt_basename(objname), (u_longlong_t)offset);
+				    dt_basename(objname), (unsigned long long)offset);
 
 			} else
 				snprintf(c, sizeof(c), "0x%llx",
-				    (u_longlong_t)pc[i]);
+				    (unsigned long long)pc[i]);
 
 		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
 							  &name, &sym) == 0) {
@@ -1207,7 +1207,7 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			if (pc[i] > sym.st_value)
 				snprintf(c, sizeof(c), "%s`%s+0x%llx",
 					 dt_basename(objname), name,
-					 (u_longlong_t)(pc[i] - sym.st_value));
+					 (unsigned long long)(pc[i] - sym.st_value));
 			else
 				snprintf(c, sizeof(c), "%s`%s",
 					 dt_basename(objname), name);
@@ -1236,10 +1236,10 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			if (pid >= 0 && dt_Pobjname(dtp, pid, pc[i], objname,
 			    sizeof(objname)) != NULL)
 				snprintf(c, sizeof(c), "%s`0x%llx",
-				    dt_basename(objname), (u_longlong_t)pc[i]);
+				    dt_basename(objname), (unsigned long long)pc[i]);
 			else
 				snprintf(c, sizeof(c), "0x%llx",
-				    (u_longlong_t)pc[i]);
+				    (unsigned long long)pc[i]);
 		}
 
 		if ((err = dt_printf(dtp, fp, format, c)) < 0)
@@ -1341,7 +1341,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		sizeof(objname)) != NULL)
 		snprintf(c, sizeof(c), "%s", dt_basename(objname));
 	else
-		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
+		snprintf(c, sizeof(c), "0x%llx", (unsigned long long)pc);
 
 	err = dt_printf(dtp, fp, format, c);
 
@@ -1373,9 +1373,9 @@ dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		 */
 		if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
 			snprintf(c, sizeof(c), "%s`0x%llx",
-				 dts.object, (u_longlong_t)pc);
+				 dts.object, (unsigned long long)pc);
 		else
-			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
+			snprintf(c, sizeof(c), "0x%llx", (unsigned long long)pc);
 	}
 
 	if (dt_printf(dtp, fp, format, c) < 0)
@@ -1398,7 +1398,7 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
 		snprintf(c, sizeof(c), "%s", dts.object);
 	else
-		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)pc);
+		snprintf(c, sizeof(c), "0x%llx", (unsigned long long)pc);
 
 	if (dt_printf(dtp, fp, format, c) < 0)
 		return -1;

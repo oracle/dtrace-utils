@@ -560,14 +560,14 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 			tstr = "R_???";
 		}
 
-		if ((u_longlong_t)rp->dofr_data != DT_IDENT_UNDEF)
+		if ((unsigned long long)rp->dofr_data != DT_IDENT_UNDEF)
 			fprintf(fp, "%-17s %-8llu %-8llu %s\n", tstr,
-				(u_longlong_t)rp->dofr_offset,
-				(u_longlong_t)rp->dofr_data,
+				(unsigned long long)rp->dofr_offset,
+				(unsigned long long)rp->dofr_data,
 				dt_difo_getstr(dp, rp->dofr_name));
 		else
 			fprintf(fp, "%-17s %-8llu %-8s %s\n", tstr,
-				(u_longlong_t)rp->dofr_offset,
+				(unsigned long long)rp->dofr_offset,
 				"*UND*",
 				dt_difo_getstr(dp, rp->dofr_name));
 	}

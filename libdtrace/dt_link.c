@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -828,7 +828,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 */
 	if (ip[0] != DT_OP_CALL) {
 		dt_dprintf("found %x instead of a call instruction at %llx\n",
-		    ip[0], (u_longlong_t)rela->r_offset);
+		    ip[0], (unsigned long long)rela->r_offset);
 		return -1;
 	}
 
@@ -841,7 +841,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		 */
 		if (DT_IS_RESTORE(ip[1]) || DT_IS_MOV_O7(ip[1])) {
 			dt_dprintf("tail call to is-enabled probe at %llx\n",
-			    (u_longlong_t)rela->r_offset);
+			    (unsigned long long)rela->r_offset);
 			return -1;
 		}
 
@@ -962,7 +962,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 */
 	if (ip[0] != DT_OP_CALL && ip[0] != DT_OP_JMP32) {
 		dt_dprintf("found %x instead of a call or jmp instruction at "
-		    "%llx\n", ip[0], (u_longlong_t)rela->r_offset);
+		    "%llx\n", ip[0], (unsigned long long)rela->r_offset);
 		return -1;
 	}
 
@@ -1045,7 +1045,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 */
 	if (ip[0] != DT_OP_CALL26 && ip[0] != DT_OP_JUMP26) {
 		dt_dprintf("found %x instead of a call or jmp instruction at "
-		    "%llx\n", ip[0], (u_longlong_t)rela->r_offset);
+		    "%llx\n", ip[0], (unsigned long long)rela->r_offset);
 		return -1;
 	}
 

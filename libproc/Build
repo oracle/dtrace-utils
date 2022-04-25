@@ -1,10 +1,10 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 BUILDLIBS += libproc
-libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -I$(objdir) -Iuts/intel -Ilibproc/$(ARCHINC) -D_LONGLONG_TYPE
+libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -I$(objdir) -Iuts/intel -Ilibproc/$(ARCHINC)
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
 libproc_SOURCES = Pcontrol.c elfish.c elfish_64.c elfish_32.c Psymtab.c rtld_db.c rtld_offsets.c wrap.c isadep_dispatch.c $(ARCHINC)/isadep.c

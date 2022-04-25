@@ -1,13 +1,12 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 cmds: $(objdir)/run-dtrace
 
 CMDS += dtrace bpf_dump
-dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -D_LONGLONG_TYPE \
-	-DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
+dtrace_CPPFLAGS = -Ilibdtrace -Ilibproc -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\""
 dtrace_TARGET = dtrace
 dtrace_DIR := $(current-dir)
 dtrace_SOURCES = dtrace.c

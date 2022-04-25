@@ -856,7 +856,7 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 
 	if (err == 0 && addr != sym.st_value) {
 		snprintf(s, n, "%s`%s+0x%llx", dts.object, dts.name,
-			 (u_longlong_t)addr - sym.st_value);
+			 (unsigned long long)addr - sym.st_value);
 	} else if (err == 0) {
 		snprintf(s, n, "%s`%s", dts.object, dts.name);
 	} else {
@@ -867,9 +867,9 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 		 */
 		if (dtrace_lookup_by_addr(dtp, addr, NULL, &dts) == 0)
 			snprintf(s, n, "%s`0x%llx", dts.object,
-				 (u_longlong_t)addr);
+				 (unsigned long long)addr);
 		else
-			snprintf(s, n, "0x%llx", (u_longlong_t)addr);
+			snprintf(s, n, "0x%llx", (unsigned long long)addr);
 	}
 
 	return dt_string2str(s, str, nbytes);
@@ -889,7 +889,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 					DTRACE_PROC_SHORTLIVED);
 
 	if (pid < 0) {
-		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
+		snprintf(c, sizeof(c), "0x%llx", (unsigned long long)addr);
 		return dt_string2str(c, str, nbytes);
 	}
 
@@ -906,9 +906,9 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 				offset = addr - pmap->pr_vaddr;
 
 			snprintf(c, sizeof(c), "%s:0x%llx",
-			    dt_basename(objname), (u_longlong_t)offset);
+			    dt_basename(objname), (unsigned long long)offset);
 		} else
-			snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
+			snprintf(c, sizeof(c), "0x%llx", (unsigned long long)addr);
 
 	} else if (dt_Plookup_by_addr(dtp, pid, addr, &name, &sym) == 0) {
 		dt_Pobjname(dtp, pid, addr, objname, sizeof(objname));
@@ -917,7 +917,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 
 		if (addr > sym.st_value)
 			snprintf(c, sizeof(c), "%s`%s+0x%llx", obj, name,
-				 (u_longlong_t)(addr - sym.st_value));
+				 (unsigned long long)(addr - sym.st_value));
 		else
 			snprintf(c, sizeof(c), "%s`%s", obj, name);
 
@@ -926,9 +926,9 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 	} else if (dt_Pobjname(dtp, pid, addr,
 			       objname, sizeof(objname)) != NULL) {
 		snprintf(c, sizeof(c), "%s`0x%llx",
-		    dt_basename(objname), (u_longlong_t)addr);
+		    dt_basename(objname), (unsigned long long)addr);
 	} else
-		snprintf(c, sizeof(c), "0x%llx", (u_longlong_t)addr);
+		snprintf(c, sizeof(c), "0x%llx", (unsigned long long)addr);
 
 	dt_proc_release_unlock(dtp, pid);
 

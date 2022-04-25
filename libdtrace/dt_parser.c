@@ -384,7 +384,7 @@ dt_node_name(const dt_node_t *dnp, char *buf, size_t len)
 	switch (dnp->dn_kind) {
 	case DT_NODE_INT:
 		snprintf(buf, len, "integer constant 0x%llx",
-		    (u_longlong_t)dnp->dn_value);
+		    (unsigned long long)dnp->dn_value);
 		break;
 	case DT_NODE_STRING:
 		s = strchr2esc(dnp->dn_string, strlen(dnp->dn_string));
@@ -1262,7 +1262,7 @@ dt_node_int(uintmax_t value)
 	}
 
 	xyerror(D_INT_OFLOW, "integer constant 0x%llx cannot be represented "
-	    "in any built-in integral type\n", (u_longlong_t)value);
+	    "in any built-in integral type\n", (unsigned long long)value);
 	/*NOTREACHED*/
 	return NULL;		/* keep gcc happy */
 }
@@ -2194,18 +2194,18 @@ dt_node_pdesc_by_id(uintmax_t id)
 
 	if (id > UINT_MAX) {
 		xyerror(D_PDESC_INVAL, "identifier %llu exceeds maximum "
-		    "probe id\n", (u_longlong_t)id);
+		    "probe id\n", (unsigned long long)id);
 	}
 
 	if (yypcb->pcb_pspec != DTRACE_PROBESPEC_NAME) {
 		xyerror(D_PDESC_INVAL, "probe identifier %llu not permitted "
-		    "when specifying %s\n", (u_longlong_t)id,
+		    "when specifying %s\n", (unsigned long long)id,
 		    names[yypcb->pcb_pspec]);
 	}
 
 	if (dtrace_id2desc(dtp, (dtrace_id_t)id, dnp->dn_desc) != 0) {
 		xyerror(D_PDESC_INVAL, "invalid probe identifier %llu: %s\n",
-		    (u_longlong_t)id, dtrace_errmsg(dtp, dtrace_errno(dtp)));
+		    (unsigned long long)id, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 	}
 
 	return dnp;
@@ -4866,7 +4866,7 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 
 	case DT_NODE_INT:
 		fprintf(fp, "INT 0x%llx (%s)\n",
-		    (u_longlong_t)dnp->dn_value, buf);
+		    (unsigned long long)dnp->dn_value, buf);
 		break;
 
 	case DT_NODE_STRING:

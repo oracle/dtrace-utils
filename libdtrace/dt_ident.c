@@ -345,7 +345,7 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 
 	if (ap->dn_value >= prp->argc)
 		xyerror(D_ARGS_IDX, "index %lld is out of range for %s %s[ ]\n",
-		    (longlong_t)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
+		    (long long)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
 		    n1, sizeof(n1)), idp->di_name);
 
 	/*
@@ -360,11 +360,11 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 
 	if (xnp->dn_type == CTF_ERR)
 		xyerror(D_ARGS_TYPE, "failed to resolve translated type for "
-		    "%s[%lld]\n", idp->di_name, (longlong_t)ap->dn_value);
+		    "%s[%lld]\n", idp->di_name, (long long)ap->dn_value);
 
 	if (nnp->dn_type == CTF_ERR)
 		xyerror(D_ARGS_TYPE, "failed to resolve native type for "
-		    "%s[%lld]\n", idp->di_name, (longlong_t)ap->dn_value);
+		    "%s[%lld]\n", idp->di_name, (long long)ap->dn_value);
 
 	if (idp->di_type == CTF_ERR) {
 		idp->di_ctfp = DT_DYN_CTFP(dtp);
@@ -414,7 +414,7 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 
 	} else {
 		xyerror(D_ARGS_XLATOR, "translator for %s[%lld] from %s to %s "
-		    "is not defined\n", idp->di_name, (longlong_t)ap->dn_value,
+		    "is not defined\n", idp->di_name, (long long)ap->dn_value,
 		    dt_node_type_name(nnp, n1, sizeof(n1)),
 		    dt_node_type_name(xnp, n2, sizeof(n2)));
 	}
@@ -443,7 +443,7 @@ dt_idcook_regs(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 
 	if ((ap->dn_flags & DT_NF_SIGNED) && (int64_t)ap->dn_value < 0)
 		xyerror(D_REGS_IDX, "index %lld is out of range for array %s\n",
-		    (longlong_t)ap->dn_value, idp->di_name);
+		    (long long)ap->dn_value, idp->di_name);
 
 	if (dt_type_lookup("uint64_t", &dtt) == -1)
 		xyerror(D_UNKNOWN, "failed to resolve type of %s: %s\n",

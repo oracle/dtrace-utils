@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,27 +23,8 @@ typedef unsigned short	ushort_t;
 typedef unsigned int	uint_t;
 typedef unsigned long	ulong_t;
 
-/*
- * Strictly conforming ANSI C environments prior to the 1999
- * revision of the C Standard (ISO/IEC 9899:1999) do not have
- * the long long data type.
- */
-#if defined(_LONGLONG_TYPE)
-typedef long long               longlong_t;
-typedef unsigned long long      u_longlong_t;
-#else
-/* used to reserve space and generate alignment */
-typedef union {
-        double  _d;
-        int32_t _l[2];
-} longlong_t;
-typedef union {
-        double          _d;
-        uint32_t        _l[2];
-} u_longlong_t;
-#endif  /* defined(_LONGLONG_TYPE) */
 
-typedef longlong_t      offset_t;
+typedef long long      offset_t;
 
 typedef unsigned long long hrtime_t;
 

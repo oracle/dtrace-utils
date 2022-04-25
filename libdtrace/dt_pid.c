@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -214,7 +214,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_OFF,
 				"offset 0x%llx outside of function '%s'",
-				(u_longlong_t)off, func);
+				(unsigned long long)off, func);
 			goto out;
 		}
 
@@ -223,7 +223,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create probes at '%s+0x%llx': %s",
-				func, (u_longlong_t)off,
+				func, (unsigned long long)off,
 				dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			goto out;
 		}
@@ -346,10 +346,10 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 		pp->dpp_stret[3] = 0;
 
 	dt_dprintf("%s stret %llx %llx %llx %llx\n", obj,
-		   (u_longlong_t)pp->dpp_stret[0],
-		   (u_longlong_t)pp->dpp_stret[1],
-		   (u_longlong_t)pp->dpp_stret[2],
-		   (u_longlong_t)pp->dpp_stret[3]);
+		   (unsigned long long)pp->dpp_stret[0],
+		   (unsigned long long)pp->dpp_stret[1],
+		   (unsigned long long)pp->dpp_stret[2],
+		   (unsigned long long)pp->dpp_stret[3]);
 
 	/*
 	 * If pp->dpp_func contains any globbing meta-characters, we need

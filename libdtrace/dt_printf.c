@@ -348,10 +348,10 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 	switch (size) {
 	case sizeof(uint32_t):
-		val = (u_longlong_t)*((uint32_t *)addr);
+		val = (unsigned long long)*((uint32_t *)addr);
 		break;
 	case sizeof(uint64_t):
-		val = (u_longlong_t)*((uint64_t *)addr);
+		val = (unsigned long long)*((uint64_t *)addr);
 		break;
 	case sizeof(uint64_t) * 3:
 		tgid = ((uint64_t *)(uintptr_t)addr)[1];
