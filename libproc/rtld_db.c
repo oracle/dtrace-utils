@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -277,6 +277,77 @@ ascending_uintptrs(const void *onep, const void *twop)
 }
 
 /*
+ * Get all the link map addresses in the child: return them as an array NMAPS
+ * long.  This may not include all link maps: we stop as soon as a fetch fails.
+ * (All users are happy with only some maps and will usually return the right
+ * results with only one.)  The map should not be persisted, because the
+ * addresses of entries can change over time.
+ *
+ * Return the number of maps in NMAPS.
+ *
+ * Return NULL if no link maps can be fetched.
+ */
+static uintptr_t *
+find_link_maps(rd_agent_t *rd, size_t *nmaps)
+{
+	uintptr_t first_map_addr, map_addr;
+	uintptr_t *map_addrs;
+	uintptr_t *addrp;
+	struct link_map map;
+
+	/*
+	 * Iterate through the link maps twice: once to count the number of
+	 * maps, the second time to remember their addresses.
+	 */
+	*nmaps = 0;
+
+	if ((first_map_addr = first_link_map(rd, 0)) == 0)
+		return NULL;
+
+	for (map_addr = first_map_addr; map_addr != 0;
+	     map_addr = (uintptr_t)map.l_next) {
+		(*nmaps)++;
+		if (rd_get_link_map(rd, &map, map_addr) == NULL)
+			break;
+	}
+
+	_dprintf("%i: Counted %zi link maps\n", rd->P->pid, *nmaps);
+	if (*nmaps == 0)
+		return NULL;
+
+	map_addrs = calloc(*nmaps, sizeof(uintptr_t));
+	if (!map_addrs) {
+		_dprintf("Out of memory scanning for glibc structures "
+		    "when allocating room for %li link maps\n", *nmaps);
+		*nmaps = 0;
+		return NULL;
+	}
+
+	for (addrp = map_addrs,
+		 map_addr = first_link_map(rd, 0);
+	     map_addr != 0;
+	     map_addr = (uintptr_t)map.l_next, addrp++) {
+
+		_dprintf("%i: Noted map at %lx\n", rd->P->pid, map_addr);
+
+		*addrp = map_addr;
+		if (rd_get_link_map(rd, &map, map_addr) == NULL)
+			break;
+	}
+
+	if (addrp == map_addrs) {
+		free(map_addrs);
+		*nmaps = 0;
+		return NULL;
+	}
+
+	qsort(map_addrs, *nmaps, sizeof(uintptr_t), ascending_uintptrs);
+
+	return map_addrs;
+
+}
+
+/*
  * Find the offset of the l_searchlist in the link_map structure.
  *
  * Although this offset is relatively constant, it can vary e.g. across glibc
@@ -298,61 +369,24 @@ find_l_searchlist(rd_agent_t *rd)
 	 * We search in the primary link map, because we know this must exist if
 	 * any do, and that all the link maps will use the same offset for
 	 * l_seachlist.
-	 *
-	 * Iterate through the link maps twice: once to count the number of
-	 * maps, the second time to remember their addresses.
 	 */
-	size_t nmaps = 0;
-	uintptr_t first_loadobj, loadobj;
-	struct link_map map;
+	uintptr_t first_map_addr;
+	uintptr_t *map_addrs;
+	size_t nmaps;
 
 	_dprintf("%i: Finding l_searchlist\n", rd->P->pid);
 
-	if ((first_loadobj = first_link_map(rd, 0)) == 0)
+	if ((first_map_addr = first_link_map(rd, 0)) == 0)
 		return -1;
 
-	for (loadobj = first_loadobj; loadobj != 0;
-	     loadobj = (uintptr_t)map.l_next) {
-		nmaps++;
-		if (rd_get_link_map(rd, &map, loadobj) == NULL)
-			break;
-	}
-
-	_dprintf("%i: Counted %zi link maps\n", rd->P->pid, nmaps);
-	if (nmaps == 0)
+	if ((map_addrs = find_link_maps(rd, &nmaps)) == NULL)
 		return -1;
 
 	/*
 	 * After this point, we must not call anything which, even transitively,
 	 * calls Pwait(), since that may longjmp out if an execve() is detected,
 	 * and leak map_addrs.
-	 */
-
-	uintptr_t *map_addrs;
-	uintptr_t *mapp;
-
-	map_addrs = calloc(nmaps, sizeof(uintptr_t));
-	if (!map_addrs) {
-		_dprintf("Out of memory locating glibc searchlist "
-		    "when allocating room for %li link maps\n", nmaps);
-		return -1;
-	}
-
-	for (mapp = map_addrs,
-		 loadobj = first_link_map(rd, 0);
-	     loadobj != 0;
-	     loadobj = (uintptr_t)map.l_next, mapp++) {
-
-		_dprintf("%i: Noted map at %lx\n", rd->P->pid, loadobj);
-
-		*mapp = loadobj;
-		if (rd_get_link_map(rd, &map, loadobj) == NULL)
-			break;
-	}
-
-	qsort(map_addrs, nmaps, sizeof(uintptr_t), ascending_uintptrs);
-
-	/*
+	 *
 	 * We now have the primary link maps' addresses in a rapidly searchable
 	 * form.  Search forward in the first link map from the offset of
 	 * l_searchlist in glibc 2.12 (an optimization, since it is implausible
@@ -389,7 +423,7 @@ find_l_searchlist(rd_agent_t *rd)
 	uintptr_t scan;
 	uintptr_t scan_next;
 
-	scan = first_loadobj;
+	scan = first_map_addr;
 	scan += rd->P->elf64 ? L_SEARCHLIST_64_OFFSET : L_SEARCHLIST_32_OFFSET;
 	scan_next = scan + (rd->P->elf64 ? L_NEXT_64_SIZE : L_NEXT_32_SIZE);
 
@@ -400,9 +434,9 @@ find_l_searchlist(rd_agent_t *rd)
 		unsigned int poss_l_searchlist_r_nlist;
 
 		_dprintf("%i: scanning from link_map offset %lx\n", rd->P->pid,
-		    scan - first_loadobj);
+		    scan - first_map_addr);
 
-		if ((scan - first_loadobj) > 65535)
+		if ((scan - first_map_addr) > 65535)
 			break;
 
 		if (Pread_scalar_quietly(rd->P, &poss_l_searchlist_r_list,
@@ -464,7 +498,7 @@ find_l_searchlist(rd_agent_t *rd)
 
 		if (!unmatched) {
 			free(map_addrs);
-			rd->l_searchlist_offset = scan - first_loadobj;
+			rd->l_searchlist_offset = scan - first_map_addr;
 			_dprintf("%i: found l_searchlist at offset %zi\n",
 			    rd->P->pid, rd->l_searchlist_offset);
 			return 0;
