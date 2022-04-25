@@ -2084,7 +2084,7 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 {
 	dt_pcb_t	pcb;
 	dt_node_t	*tnp;
-	dtrace_difo_t	*dp;
+	dtrace_difo_t	*dp = NULL;
 	int		err;
 
 	if ((cflags & ~DTRACE_C_MASK) != 0) {
