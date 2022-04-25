@@ -7,7 +7,7 @@
 #
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -39,7 +39,7 @@ for BITNESS in 32 64; do
     BITNESS_ARG="-m${NATIVE_BITNESS:-$BITNESS}"
     if [[ "$BITNESS_ARG" = "-m$NATIVE_BITNESS" ]] &&
        [[ -z $NATIVE_BITNESS_OPTION_SUPPORTED ]]; then
-        BITNESS_ARG=
+	BITNESS_ARG=
     fi
     sed "s,@BITNESS@,$BITNESS,g" <<'EOF' | \
     $CC -std=gnu99 -o $objdir/mkoffsets $CPPFLAGS $BITNESS_ARG -DBITNESS=$BITNESS \
@@ -68,9 +68,14 @@ for BITNESS in 32 64; do
 int main(void)
 {
 	printf("#define UINT_@BITNESS@_SIZE\t%li\n", sizeof(unsigned int));
+	printf("#define PTR_@BITNESS@_SIZE\t%li\n", sizeof(void *));
 	printf("#ifndef DL_NNS\n");
 	printf("#define DL_NNS\t%li\n", DL_NNS);
 	printf("#endif\n");
+
+	printf("#define R_DEBUG_@BITNESS@_SIZE\t%li\n", sizeof (struct r_debug));
+	printf("#define LINK_NAMESPACES_@BITNESS@_SIZE\t%li\n",
+	       sizeof (struct link_namespaces));
 
 	BITNESS_OFFSET(R_VERSION, r_debug, r_version);
 	BITNESS_OFFSET(R_MAP, r_debug, r_map);
@@ -86,11 +91,8 @@ int main(void)
 	BITNESS_OFFSET(L_SEARCHLIST, internal_link_map, l_searchlist.r_list);
 
 	BITNESS_OFFSET(G_DEBUG, rtld_global, _dl_ns[0]._ns_debug);
-	BITNESS_OFFSET(G_DEBUG_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_debug);
 	BITNESS_OFFSET(G_NLOADED, rtld_global, _dl_ns[0]._ns_nloaded);
-	BITNESS_OFFSET(G_NLOADED_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_nloaded);
 	BITNESS_OFFSET(G_NS_LOADED, rtld_global, _dl_ns[0]._ns_loaded);
-	BITNESS_OFFSET(G_NS_LOADED_SUBSEQUENT, rtld_global, _dl_ns[1]._ns_loaded);
 	BITNESS_OFFSET(G_DL_NNS, rtld_global, _dl_nns);
 	BITNESS_OFFSET(G_DL_LOAD_LOCK, rtld_global, _dl_load_lock.mutex.__data.__count);
 }
@@ -145,10 +147,10 @@ build_offsets_all()
     # since it assumes that the native offsets are the 64-bit ones.
     # This is almost certainly not worth fixing.
     for name in $(grep '^#define' $HEADER | grep -v 'LAST_OFFSET' | \
-                  grep -o " ${2}"'_.*_64_OFFSET'); do
-        name_32_offset="$(echo $name | sed 's,_64,_32,')"
-        name_64_size="$(echo $name | sed 's,_OFFSET,_SIZE,')"
-        name_32_size="$(echo $name | sed 's,_64_OFFSET,_32_SIZE,')"
+		  grep -o " ${2}"'_.*_64_OFFSET'); do
+	name_32_offset="$(echo $name | sed 's,_64,_32,')"
+	name_64_size="$(echo $name | sed 's,_OFFSET,_SIZE,')"
+	name_32_size="$(echo $name | sed 's,_64_OFFSET,_32_SIZE,')"
     cat >> $INIT <<EOF
 	rtld_offsets_t ${name}_build = {{${name_32_offset}, ${name}}, {${name_32_size},${name_64_size}}};
 	$1_build[${name}] = ${name}_build;
@@ -159,8 +161,8 @@ EOF
 build_offsets_native_only()
 {
     for name in $(grep '^#define' $HEADER | grep -v 'LAST_OFFSET' | \
-                  grep -o " ${2}"'_.*_64_OFFSET'); do
-        name_64_size="$(echo $name | sed 's,_OFFSET,_SIZE,')"
+		  grep -o " ${2}"'_.*_64_OFFSET'); do
+	name_64_size="$(echo $name | sed 's,_OFFSET,_SIZE,')"
     cat >> $INIT <<EOF
 	rtld_offsets_t ${name}_build = {{0, ${name}}, {0, ${name_64_size}}};
 	$1_build[${name}] = ${name}_build;

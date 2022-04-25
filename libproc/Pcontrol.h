@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -172,9 +172,17 @@ struct rd_agent {
 	int released;			/* 1 if released */
 	size_t l_searchlist_offset;	/* Offset of the l_searchlist in the
 					   link map structure. */
+	int r_version;			/* the version of the r_debug interface */
 	uintptr_t r_brk_addr;		/* if nonzero, the address of r_brk */
 	uintptr_t rtld_global_addr;	/* if nonzero, the address of
 					   _rtld_global */
+	size_t	dl_nns_offset;		/* Offset of the dl_nns from rtld_global.  */
+	size_t	dl_load_lock_offset;	/* Offset of the dl_load_lock from
+					 * rtld_global.  */
+	size_t	g_debug_offset;		/* Offset of the g_debug element from
+					 * its expected value, G_DEBUG.  */
+	size_t	link_namespaces_size;	/* Apparent size of "struct link
+					   namespaces" in this glibc. */
 	int	rd_monitoring;		/* 1 whenever rtld_db has a breakpoint
 					   set on the dynamic linker. */
 	int	rd_monitor_suppressed;	/* 1 if rd monitoring is off forever */

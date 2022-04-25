@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <rtld_db.h>
 #include <rtld_offsets.h>
+#include <assert.h>
 
 #include "libproc.h"
 #include "Pcontrol.h"
@@ -88,12 +89,167 @@ sane_nanosleep(long long timeout_nsec)
 }
 
 /*
+ * Find the offset of the dl_nns and the size and offsets of fields preceding it
+ * in the rtld_global structure.
+ *
+ * Returns -1 if nothing resembling a scope searchlist can be found. (May return
+ * -1 spuriously in obscure cases, such as processes with no dynamic linker
+ * initialized yet, as well as if an exec() strikes while scanning.  In such
+ * cases, it will leave the searchlist uninitialized and recheck on every
+ * ustack() et al: potentially slow, but the only safe approach.)
+ *
+ * This structure is part of the guts of glibc and is not ABI-guaranteed, but
+ * changes are limited by the fact that in glibc 2.35+ we will not use this
+ * code at all due to the new r_debug protocol version, and that while distros
+ * may make changes here, they are likely only to be backports from glibc <
+ * 2.35.  We know that all such changes grew the structure, so searches only
+ * need to be done in one direction (forwards), and even those are tightly
+ * bounded.
+ *
+ * Must be called under rd_ldso_consistent_begin() or at least Ptrace(), to
+ * prevent longjmps on exec from causing memory leaks.
+ */
+static int
+find_dl_nns(rd_agent_t *rd)
+{
+	uintptr_t start;
+	uintptr_t scan;
+	uintptr_t scan_next;
+
+	_dprintf("%i: Finding dl_nns\n", rd->P->pid);
+
+	/*
+	 * This process has several stages: finding dl_nns, and then finding
+	 * everything else given what finding dl_nns lets us know.
+	 *
+	 * Finding dl_nns is simple enough: search forward from our previous
+	 * best-guess address and hunt for a pair of pointer-aligned addresses
+	 * the first of which is zero and the second of which is between 0 and
+	 * DL_NNS (exclusive).  We assume that pointers and size_ts are the same
+	 * size and have the same alignment, which is true for all platforms we
+	 * run on.
+	 *
+	 * This works because almost all fields in struct link_namespaces are
+	 * either pointers (almost certain to be either NULL when a namespace is
+	 * uninitializes, i.e. 0 on all platforms we support, or a high value >
+	 * DL_NNS) or integral values which are either zero when the ns is
+	 * uninitialized or nonzero otherwise: so fields we're not interested in
+	 * are either two zeroes or large values (for pointers) and nonzero
+	 * values (for integral values).  The last field in struct
+	 * link_namespaces is the last field of struct r_debug, which is a
+	 * pointer with the same semantics as above in both struct r_debug and
+	 * struct r_debug_extended (used in glibc 2.35+).  We specifically look
+	 * for the zero-pointer uninitialized case because if we find that it
+	 * means that every other integral field in this link_namespace is zero,
+	 * which is not a valid value for dl_nns.  (If initialized, quite a few
+	 * of them might in theory have a value overlapping with the set of
+	 * values valid for dl_nns.)
+	 *
+	 * This heuristic will fail if every single lmid is initialized, because
+	 * the last pointer will be nonzero, but given that until glibc 2.35 the
+	 * TLS allocation of libc itself prevented the use of all 16 lmids and
+	 * even now it is incredibly rare (and even less likely near program
+	 * startup time), we can ignore this possibility.
+	 */
+
+	size_t ptr_size;
+
+	ptr_size = (rd->P->elf64 ? PTR_64_SIZE : PTR_32_SIZE);
+	start = rtld_global(rd) + (rd->P->elf64 ? G_DL_NNS_64_OFFSET
+	    : G_DL_NNS_32_OFFSET);
+	scan_next = start + ptr_size;
+
+	for (scan = start;; scan = scan_next, scan_next += ptr_size) {
+		uintptr_t poss_preceding;
+		uintptr_t poss_l_nns;
+
+		/*
+		 * Give up eventually.
+		 */
+		if (scan > start + 65535)
+			return -1;
+
+		if (Pread_scalar_quietly(rd->P, &poss_preceding, ptr_size,
+			sizeof(uintptr_t), scan, 1) < 0)
+			return -1;
+
+		if (Pread_scalar_quietly(rd->P, &poss_l_nns, ptr_size,
+			sizeof(uintptr_t), scan_next, 1) < 0)
+			return -1;
+
+		/*
+		 * Found it.  We know the struct link_namespace size too, as a
+		 * direct consequence: the distance between the rtld_global
+		 * address and dl_nns address, divided by DL_NNS, rounded to the
+		 * size of a pointer, since the last element is always
+		 * pointer-sized in all known variants.  (This would break if
+		 * DL_NNS changed, but it hasn't as of glibc 2.35, so we are
+		 * probably safe.  If we get it wrong it is hard to know without
+		 * checking against a multi-lmid testcase: there is little we
+		 * can check against otherwise, and at this point we are
+		 * unlikely to have more than one lmid to check.  If this turns
+		 * out to be a problem in practice we can add more validation
+		 * code that kicks in only when find_dl_nns was needed and
+		 * dl_nss > 1.)
+		 *
+		 * Offset dl_load_lock by a corresponding amount (the relative
+		 * positions of dl_nns and dl_load_lock have never changed).
+		 */
+		if (poss_preceding == 0 &&
+		    poss_l_nns > 0 && poss_l_nns <= DL_NNS) {
+
+			rd->dl_nns_offset = scan_next - rtld_global(rd);
+			rd->dl_load_lock_offset = rd->dl_nns_offset +
+			    rd->P->elf64 ? G_DL_LOAD_LOCK_64_OFFSET - G_DL_NNS_64_OFFSET
+			    : G_DL_LOAD_LOCK_32_OFFSET - G_DL_NNS_32_OFFSET;
+
+			rd->link_namespaces_size = (((scan_next - rtld_global(rd)) / DL_NNS)
+			    / ptr_size) * ptr_size;
+			break;
+		}
+	}
+
+	if (rd->link_namespaces_size == 0)
+		return -1;
+
+	/*
+	 * We now know (or hope we know) l_nns's offset and the size of a struct
+	 * link_namespace.  It's time to figure out the offsets of other things
+	 * in srtuct link_namespace, by reference to the first namespace, which
+	 * is always populated.
+	 *
+	 * We consult four fields in rtld_global.  dl_nns we have already found.
+	 * dl_load_lock is right after dl_nns in all glibcs of interest and is
+	 * in any case hard to validate because it is usually zero.  g_ns_loaded
+	 * is at the start of the link map in all supported glibc variants.
+	 * _ns_nloaded is right after it.  But _ns_debug is at a potentially
+	 * varying offset.  We can exploit the fact that it is always at the end
+	 * of struct link_namespace and that it's always the same size when
+	 * r_version is 1.  The r_debug for namespace zero is not found in this
+	 * list at all, so we can't validate any of this in any useful fashion,
+	 * but we can at least compute it.
+	 */
+
+	assert(rd->r_version < 2);
+
+	rd->g_debug_offset = rd->link_namespaces_size -
+	    (rd->P->elf64 ? R_DEBUG_64_SIZE : R_DEBUG_32_SIZE);
+
+	_dprintf("dl_nns_offset is %zi\n", rd->dl_nns_offset);
+	_dprintf("g_debug_offset is %zi\n", rd->g_debug_offset);
+	_dprintf("sizeof (struct link_namespaces) is %zi\n", rd->link_namespaces_size);
+
+	return 0;
+}
+
+/*
  * Determine the number of currently-valid namespaces.
  */
 static size_t
 dl_nns(rd_agent_t *rd)
 {
 	size_t buf;
+	int tried = 0;
 
 	/*
 	 * Non-shared processes always have one and only one namespace, as do
@@ -107,25 +263,53 @@ dl_nns(rd_agent_t *rd)
 		return 1;
 
 	/*
+	 * Set up various offsets.  This is only a compile-time guesstimate and
+	 * may be recomputed by find_dl_nns, below.
+	 */
+	if (rd->P->elf64) {
+		rd->dl_nns_offset = G_DL_NNS_64_OFFSET;
+		rd->dl_load_lock_offset = G_DL_LOAD_LOCK_64_OFFSET;
+		rd->g_debug_offset = G_DEBUG_64_OFFSET;
+		rd->link_namespaces_size = LINK_NAMESPACES_64_SIZE;
+	} else {
+		rd->dl_nns_offset = G_DL_NNS_32_OFFSET;
+		rd->dl_load_lock_offset = G_DL_LOAD_LOCK_32_OFFSET;
+		rd->g_debug_offset = G_DEBUG_32_OFFSET;
+		rd->link_namespaces_size = LINK_NAMESPACES_32_SIZE;
+	}
+
+ retry:
+	/*
 	 * Because this has no corresponding publically-visible header, we must
 	 * use offsets directly.  If the read fails, assume 1 (almost always
 	 * true anyway).
 	 */
 	if (Pread_scalar(rd->P, &buf, rd->P->elf64 ? G_DL_NNS_64_SIZE :
-		G_DL_NNS_32_SIZE, sizeof(size_t), rtld_global(rd) +
-		(rd->P->elf64 ? G_DL_NNS_64_OFFSET : G_DL_NNS_32_OFFSET)) < 0) {
+		G_DL_NNS_32_SIZE, sizeof(size_t),
+		rtld_global(rd) + rd->dl_nns_offset) < 0) {
 		_dprintf("%i: Cannot read namespace count\n", rd->P->pid);
 		return 1;
 	}
 
-	if ((buf == 0) || (buf > DL_NNS)) {
+	if ((buf > 0) && (buf < DL_NNS))
+		return buf;
+
+	/*
+	 * Whatever we're looking at, it can't be dl_nns (or DL_NNS has been
+	 * bumped in this glibc version and a quite implausible number of lmids
+	 * are active).  Search for the dl_nns value.  This will also tell us
+	 * how large each struct link_namespace is.  If we can't find it,
+	 * suppress multiple-lmid support.
+	 */
+
+	if (tried || find_dl_nns(rd) < 0) {
 		_dprintf("%i: %li namespaces is not valid: "
 		    "probably incompatible glibc\n", rd->P->pid, buf);
 		rd->lmid_incompatible_glibc = 1;
 		return 1;
 	}
-
-	return buf;
+	tried = 1;
+	goto retry;
 }
 
 /*
@@ -201,11 +385,7 @@ ns_debug_addr(rd_agent_t *rd, Lmid_t lmid)
 	 * Because this structure is not visible in the systemwide <link.h>, we
 	 * cannot use offsetof tricks, but must resort to raw offset computation.
 	 */
-	return global + (rd->P->elf64 ? G_DEBUG_64_OFFSET : G_DEBUG_32_OFFSET) +
-	    (((rd->P->elf64 ? G_DEBUG_SUBSEQUENT_64_OFFSET :
-		    G_DEBUG_SUBSEQUENT_32_OFFSET) -
-		(rd->P->elf64 ? G_DEBUG_64_OFFSET : G_DEBUG_32_OFFSET)) *
-	    lmid);
+	return global + (rd->link_namespaces_size * lmid) + rd->g_debug_offset;
 }
 
 /*
@@ -244,12 +424,8 @@ first_link_map(rd_agent_t *rd, Lmid_t lmid)
 	 * Fish the link map straight out of _ns_loaded.
 	 */
 
-	link_map_ptr_addr = global + (rd->P->elf64 ? G_NS_LOADED_64_OFFSET :
-	    G_NS_LOADED_32_OFFSET) +
-	    (((rd->P->elf64 ? G_NS_LOADED_SUBSEQUENT_64_OFFSET :
-		    G_NS_LOADED_SUBSEQUENT_32_OFFSET) -
-		(rd->P->elf64 ? G_NS_LOADED_64_OFFSET : G_NS_LOADED_32_OFFSET)) *
-		lmid);
+	link_map_ptr_addr = global + (rd->link_namespaces_size * lmid) +
+	    (rd->P->elf64 ? G_NS_LOADED_64_OFFSET : G_NS_LOADED_32_OFFSET);
 
 	if (Pread_scalar(rd->P, &link_map_addr, rd->P->elf64 ? G_NS_LOADED_64_SIZE :
 		G_NS_LOADED_32_SIZE, sizeof(struct link_map *), link_map_ptr_addr) < 0) {
@@ -645,12 +821,8 @@ ns_nloaded(rd_agent_t *rd, Lmid_t lmid)
 	unsigned int buf;
 	uintptr_t addr;
 
-	addr = rtld_global(rd) +
-	    (rd->P->elf64 ? G_NLOADED_64_OFFSET : G_NLOADED_32_OFFSET) +
-	    (((rd->P->elf64 ? G_NLOADED_SUBSEQUENT_64_OFFSET :
-		    G_NLOADED_SUBSEQUENT_32_OFFSET) -
-		(rd->P->elf64 ? G_NLOADED_64_OFFSET : G_NLOADED_32_OFFSET)) *
-		lmid);
+	addr = rtld_global(rd) + (rd->link_namespaces_size * lmid) +
+	    (rd->P->elf64 ? G_NLOADED_64_OFFSET : G_NLOADED_32_OFFSET);
 
 	/*
 	 * If the read fails, assume 1 (almost always true anyway).
@@ -675,6 +847,8 @@ load_lock(rd_agent_t *rd)
 
 	/*
 	 * This should never happen: if it does, let's not read garbage.
+	 * (Always called after dl_nns is called, so we don't need to worry
+	 * about the dl_load_lock offsets not being set.)
 	 */
 
 	if (rtld_global(rd) == 0)
@@ -682,9 +856,8 @@ load_lock(rd_agent_t *rd)
 
 	if (Pread_scalar(rd->P, &lock_count, rd->P->elf64 ?
 		G_DL_LOAD_LOCK_64_SIZE : G_DL_LOAD_LOCK_32_SIZE,
-		sizeof(unsigned int), rtld_global(rd) +
-		(rd->P->elf64 ? G_DL_LOAD_LOCK_64_OFFSET :
-		    G_DL_LOAD_LOCK_32_OFFSET)) < 0)
+		sizeof(unsigned int),
+		rtld_global(rd) + rd->dl_load_lock_offset) < 0)
 		return -1;
 
 	return lock_count;
@@ -1210,7 +1383,6 @@ r_brk(rd_agent_t *rd)
 {
 	static int warned = 0;
 	uintptr_t r_debug_addr;
-	int r_version;
 
 	if (rd->released)
 		return 0;
@@ -1231,17 +1403,17 @@ r_brk(rd_agent_t *rd)
 	/*
 	 * Check its version.
 	 */
-	if ((read_scalar_child(rd->P, &r_version, r_debug_addr,
+	if ((read_scalar_child(rd->P, &rd->r_version, r_debug_addr,
 		    r_debug_offsets, r_debug, r_version) <= 0) ||
-	    (r_version > 1)) {
+	    (rd->r_version > 1)) {
 		if (!warned)
 			_dprintf("%i: r_version %i unsupported.\n",
-			    rd->P->pid, r_version);
+			    rd->P->pid, rd->r_version);
 		warned = 1;
 		return 0;
 	}
 
-	if (r_version == 0)
+	if (rd->r_version == 0)
 		return 0;
 
 	/*
