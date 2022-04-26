@@ -155,26 +155,6 @@ dt_inet_ntoa:
 	mov	SRC, %r1
 	mov	DST, %r2
 
-#if 1
-#define BPF_FUNC_probe_read	4
-	/*
-	 * FIXME: copy src data over
-	 *
-	 * Currently, the code generator's handling of DT_CG_ALLOCA_NULLPTR
-	 * is such that there are scenarios where the BPF verifier thinks an
-	 * unsuitable value is being passed in as the "src" argument.  Until
-	 * this is fixed, simply use bpf_probe_read() to copy the src data
-	 * onto the BPF stack.  Reset the src argument to point to that
-	 * stack location.
-	 */
-	mov	%r3, %r1
-	mov	%r2, 4
-	mov	SRC, %fp
-	add	SRC, -4
-	mov	%r1, SRC
-	call	BPF_FUNC_probe_read
-#endif
-
 	mov	%r3, 0
 	lddw	LEN, STRSZ
 
