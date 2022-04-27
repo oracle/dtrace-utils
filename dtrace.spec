@@ -29,8 +29,19 @@
 # under /usr/src/kernels, define local_kernels on the command line (in addition
 # to dtrace_kernels).
 
+%if "%{?dist}" == ".el9"
+%{!?build_kernel: %define build_kernel 5.15.0-0.16.2%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
+%endif
+%if "%{?dist}" == ".el8"
+%{!?build_kernel: %define build_kernel 5.4.17-2102.206.1%{?dist}uek}
+%{!?dtrace_kernels: %define dtrace_kernels %{build_kernel} 5.15.0-0.16.2%{?dist}uek}
+%endif
+%if "%{?dist}" == ".el7"
 %{!?build_kernel: %define build_kernel 5.4.17-2018%{?dist}uek}
 %{!?dtrace_kernels: %define dtrace_kernels %{build_kernel}}
+%define with_libctf 0
+%endif
 
 # ARM64 doesn't yet have a 32-bit glibc, so all support for 32-on-64 must be
 # disabled.
@@ -48,6 +59,9 @@ Requires:     cpp elfutils-libelf zlib libpcap
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
+%if "%{?dist}" == ".el8"
+BuildRequires: kernel%{variant}-devel = 5.15.0-0.16.2%{?dist}uek
+%endif
 BuildRequires: gcc-bpf-unknown-none
 BuildRequires: binutils-bpf-unknown-none
 %if %{with_libctf}
@@ -61,7 +75,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.9%{?dist}
+Release:      1.10%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -226,6 +240,22 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Apr 26 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.10
+- Add support for assocaitive arrays.
+- Add support for allcoa() and bcopy(). (Nick Alcock)
+- Add support for inet_ntoa(), progenyof(), getmajor(), getminor(),
+  mutex_owned(), mutex_owner(), mutex_type_adaptive(), mutex_type_spin(),
+  rw_read_held(), rw_write_held(), and rw_iswriter(). (Eugene Loh)
+- Improved fault handling. (Nick Alcock, Kris Van Hees)
+- Various disassembler improvements, esp. annotations.
+- Strings are no longer stored using a length prefix.
+- The trace() action now supports arrays, structs, and unions.
+- Various testsuite fixes and improvements. [Orabug: 34112342]
+- Various code improvements. [Orabug: 34112342]
+
+* Mon Jan 31 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.9.1
+- Add support for UEK7. [Orabug: 33806867]
+
 * Wed Dec 08 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.9
 - Add support for strtok(). (Eugene Loh)
 - Implement TLS (thread-local storage) variables.
@@ -265,6 +295,7 @@ fi
 - Add support for substr() subroutine.
 
 * Fri Jun 18 2021 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.6
+- Consolidated development of newly ported features. [Orabug: 33037106]
 - Implement built-in variables: probeprov, probemod, probefunc, probename.
 - Implement built-in variables: caller, stackdepth, ucaller, ustackdepth,
   errno, walltimestamp.  (Eugene Loh)

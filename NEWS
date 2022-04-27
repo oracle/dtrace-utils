@@ -1,3 +1,84 @@
+2.0.0-1.10 (Apr 26th, 2022)
+---------------------------
+
+Tenth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The trace() action supports array, struct, and union values.
+
+ - The execname built-in variables is now implemented.
+
+ - The inet_ntoa() subroutine has been implemented.
+
+ - The progenyof() subroutine has been implemented.
+
+ - The getmajor() and getminor() subroutines have been implemented.
+
+ - The mutex_owned(), mutex_owner(), mutex_type_adaptive(), mutex_type_spin(),
+   rw_read_held(), rw_write_held(), and rw_iswriter() have been implemented.
+
+ - The alloca() and bcopy() subroutines have been implemented.
+
+ - Associative arrays have been implemented.  They are supported for both
+   global and TLS variables.
+
+ - Disassembler annotations have been added for associative arrays, register
+   spills, and string constants.
+
+ - The translators have been updated to support up to kernel series 5.16.
+
+ - Faults will now report the PC (program counter) where the fault is reported.
+
+Bugfixes:
+
+ - Register allocation leaks were fixed.
+
+ - NULL pointer verification has been optimized to avoid checking the same
+   pointer more than once.
+
+ - NULL pointers handling in ternary conditionals are now supported.
+
+ - Casting of pointers to integers has been fixed.
+
+ - Negative (immediate) values in signed conditionals are now printed
+   correctly.
+
+ - Disassembler annotations for TLS variables have been corrected.
+
+ - The DIFO strtab handling has been reworked to fix multiple bugs.
+
+Internal changes:
+
+ - The strlen() subroutine is now implemented using the bpf_probe_read_str()
+   BPF helper.
+
+ - Strings are no longer stored using a length prefix.
+
+ - BPF functions that are implemented in C or assembly code are no longer
+   statically listed in the DTrace source code.  Their existence is determined
+   at runtime when the dlibs are loaded.
+
+ - All load-time constants are now handled by the relocation mechanism.
+
+ - New function dt_dis_insn() can be used by developers to disassemble a
+   single instruction..
+
+ - The implementation of pre and post arithmetic has been optimized.
+
+ - Relocation support for the 'add immediate' instructions has been added.
+
+ - The substr() subroutine has been optimized to reduce register pressure.
+
+Testsuite changes:
+
+ - Various tests have been moved from XFAIL to PASS status in response to the
+   implementation of new features and in view of some bug fixes.
+
+ - Various tests were improved.
+
 2.0.0-1.9 (Dec 8th, 2021)
 -------------------------
 
