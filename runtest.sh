@@ -177,14 +177,17 @@ extract_options()
 
             _pid='$_pid'
 
-            # This trick is because printf squashes out spaces, echo -e -e foo
-            # prints 'foo', and echo -e -- "foo" prints "-- foo".
+            # This trick is because printf with a straight eval ends up called
+            # with more args than format string items and squashes out spaces,
+            # echo -e -e foo prints 'foo', and bash's builtin echo -e -- "foo"
+            # prints "-- foo".  coreutils echo does the right thing, but is more
+            # expensive than the builtin printf, so use it only when needed.
 
             if [[ -n $val ]]; then
                 if [[ -n $expand ]]; then
-                    eval echo ''"$val"
+                    eval printf "%s" \""$val"\"
                 else
-                    echo ''"$val"
+                    printf "%s" ''"$val"
                 fi
             fi
             return
