@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -167,9 +167,25 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r7 = dctx->mst)
 	 *				//     (%r8 = dctx->ctx)
 	 */
-
 	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
-	dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8);
+	if (strcmp(pcb->pcb_probe->desc->prb, "return") == 0) {
+		dt_irlist_t *dlp = &pcb->pcb_ir;
+
+		dt_cg_tramp_copy_rval_from_regs(pcb, BPF_REG_8);
+
+		/*
+		 * fbt:::return arg0 should be the function offset for
+		 * return instruction.  Since we use kretprobes, however,
+		 * which do not fire until the function has returned to
+		 * its caller, information about the returning instruction
+		 * in the callee has been lost.
+		 *
+		 * Set arg0=-1 to indicate that we do not know the value.
+		 */
+		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_0, -1);
+		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	} else
+		dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8);
 	dt_cg_tramp_epilogue(pcb);
 }
 

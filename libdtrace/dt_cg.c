@@ -279,7 +279,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 
 	/*
 	 *	for (i = 0; i < PT_REGS_ARGC; i++)
-	 *		dctx->mst->argv[i] = PT_REGS_BPF_ARGi((dt_pt_regs *)rp);
+	 *		dctx->mst->argv[i] = PT_REGS_ARGi((dt_pt_regs *)rp);
 	 *				// lddw %r0, [%rp + PT_REGS_ARGi]
 	 *				// stdw [%r7 + DMST_ARG(i)], %r0
 	 */
@@ -352,6 +352,28 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 		emitl(dlp, lbl_ok,
 			   BPF_NOP());
 	}
+}
+
+/*
+ * Copy return value from a dt_pt_regs structure referenced by the 'rp' argument.
+ * to mst->arg[1].  Zero the other args.
+ *
+ * The caller must ensure that %r7 contains the value set by the
+ * dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb, int rp)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(0), 0));
+
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_RET));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
+
+	for (i = 2; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 }
 
 typedef struct {
