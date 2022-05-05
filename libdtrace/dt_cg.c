@@ -3619,22 +3619,26 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    assoc_op: End  ");
 }
 
+/*
+ * Currently, this code is only used for the args[] and uregs[] arrays.
+ */
 static void
 dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_probe_t *prp = yypcb->pcb_probe;
-	uintmax_t saved = dnp->dn_args->dn_value;
-	dt_ident_t *idp = dnp->dn_ident;
-
-	ssize_t base;
-	size_t size;
-	int n;
+	dt_probe_t	*prp = yypcb->pcb_probe;
+	uintmax_t	saved = dnp->dn_args->dn_value;
+	dt_ident_t	*idp = dnp->dn_ident;
+	dt_ident_t	*fidp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
+	size_t		size;
+	int		n;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
-	assert(!(idp->di_flags & DT_IDFLG_LOCAL));
+	assert(!(idp->di_flags & (DT_IDFLG_TLS | DT_IDFLG_LOCAL)));
 
 	assert(dnp->dn_args->dn_kind == DT_NODE_INT);
 	assert(dnp->dn_args->dn_list == NULL);
+
+	assert(fidp != NULL);
 
 	/*
 	 * If this is a reference in the args[] array, temporarily modify the
@@ -3653,18 +3657,39 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_args->dn_value = prp->mapping[saved];
 	}
 
+	/*
+	 * Mark the identifier as referenced by the current DIFO.  If it is an
+	 * orphaned identifier, we also need to mark the primary identifier
+	 * (global identifier with the same name).
+	 *
+	 * We can safely replace idp with the primary identifier at this point
+	 * because they have the same id.
+	 */
+	idp->di_flags |= DT_IDFLG_DIFR;
+	if (idp->di_flags & DT_IDFLG_ORPHAN) {
+		idp = dt_idhash_lookup(yypcb->pcb_hdl->dt_globals, "args");
+		assert(idp != NULL);
+		idp->di_flags |= DT_IDFLG_DIFR;
+	}
+
 	dt_cg_node(dnp->dn_args, dlp, drp);
 	dnp->dn_args->dn_value = saved;
-
 	dnp->dn_reg = dnp->dn_args->dn_reg;
 
-	if (idp->di_flags & DT_IDFLG_TLS)
-		base = 0x2000;
-	else
-		base = 0x3000;
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	idp->di_flags |= DT_IDFLG_DIFR;
-	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, base + dnp->dn_ident->di_id));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(fidp->di_id), fidp);
+	dt_regset_free_args(drp);
+
+	dt_cg_check_fault(yypcb);
+
+	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
 
 	/*
 	 * If this is a reference to the args[] array, we need to take the
@@ -3687,7 +3712,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	n = sizeof(uint64_t) * NBBY - size * NBBY;
 
 	emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
-	emit(dlp, BPF_ALU64_REG((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));
+	emit(dlp, BPF_ALU64_IMM((dnp->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dnp->dn_reg, n));
 }
 
 /*

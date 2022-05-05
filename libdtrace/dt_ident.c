@@ -366,6 +366,11 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		xyerror(D_ARGS_TYPE, "failed to resolve native type for "
 		    "%s[%lld]\n", idp->di_name, (longlong_t)ap->dn_value);
 
+	if (idp->di_type == CTF_ERR) {
+		idp->di_ctfp = DT_DYN_CTFP(dtp);
+		idp->di_type = DT_DYN_TYPE(dtp);
+	}
+
 	if (dtp->dt_xlatemode == DT_XL_STATIC && (
 	    nnp == xnp || dt_node_is_argcompat(nnp, xnp))) {
 		dnp->dn_ident = dt_ident_create(idp->di_name, idp->di_kind,
