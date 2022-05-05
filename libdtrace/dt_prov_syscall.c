@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -159,6 +159,7 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_clear_regs(pcb);
 
 	/*
+	 * Copy in the probe args.
 	 *	for (i = 0; i < argc; i++)
 	 *		dctx->mst->argv[i] =
 	 *			((struct syscall_data *)dctx->ctx)->arg[i];
@@ -171,7 +172,8 @@ static void trampoline(dt_pcb_t *pcb)
 	}
 
 	/*
-	 *	for i = argc; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+	 * Zero the remaining probe args.
+	 *	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 	 *		dctx->mst->argv[i] = 0;
 	 *				// stdw [%r7 + DMST_ARG(i)], 0
 	 */
@@ -181,12 +183,14 @@ static void trampoline(dt_pcb_t *pcb)
 	/*
 	 * For return probes, store the errno.  That is, examine arg0.
 	 * If it is >=0 or <=-2048, ignore it.  Otherwise, store -arg0
-	 * in dctx->mst->syscall_errno.
+	 * in dctx->mst->syscall_errno.  In any case, copy arg0 to arg1
+	 * as required for syscall:::return probe arguments.
 	 */
 	if (strcmp(pcb->pcb_probe->desc->prb, "return") == 0) {
 		uint_t lbl_errno_done = dt_irlist_label(dlp);
 
 		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(0)));
+		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_errno_done));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JSLE, BPF_REG_0, -2048, lbl_errno_done));
 		emit(dlp,  BPF_NEG_REG(BPF_REG_0));
