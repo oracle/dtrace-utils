@@ -472,6 +472,9 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 	case DIF_TYPE_STRING:
 		strcpy(kind, "string");
 		break;
+	case DIF_TYPE_ANY:
+		strcpy(kind, "any");
+		break;
 	default:
 		snprintf(kind, sizeof(kind), "0x%x", t->dtdt_kind);
 	}

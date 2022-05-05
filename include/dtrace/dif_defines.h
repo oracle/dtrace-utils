@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -263,6 +263,7 @@ typedef uint32_t	dif_instr_t;
 
 #define DIF_TYPE_CTF		0
 #define DIF_TYPE_STRING		1
+#define DIF_TYPE_ANY		2
 
 #define DIF_TF_BYREF		0x1
 

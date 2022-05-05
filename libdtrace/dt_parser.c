@@ -4801,6 +4801,10 @@ dt_node_diftype(dtrace_hdl_t *dtp, const dt_node_t *dnp, dtrace_diftype_t *tp)
 	    dnp->dn_type == DT_STR_TYPE(dtp)) {
 		tp->dtdt_kind = DIF_TYPE_STRING;
 		tp->dtdt_ckind = CTF_K_UNKNOWN;
+	} else if (dnp->dn_ctfp == DT_DYN_CTFP(dtp) &&
+		   dnp->dn_type == DT_DYN_TYPE(dtp)) {
+		tp->dtdt_kind = DIF_TYPE_ANY;
+		tp->dtdt_ckind = CTF_K_UNKNOWN;
 	} else {
 		tp->dtdt_kind = DIF_TYPE_CTF;
 		tp->dtdt_ckind = ctf_type_kind(dnp->dn_ctfp,
