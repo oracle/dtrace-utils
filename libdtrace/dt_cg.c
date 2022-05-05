@@ -2232,6 +2232,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_3, 0));
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
 	assert(idp != NULL);
 	dt_regset_xalloc(drp, BPF_REG_0);

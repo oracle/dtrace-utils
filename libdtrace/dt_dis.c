@@ -346,11 +346,12 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 {
 	if (strcmp(fn, "dt_get_bvar") == 0) {
 		/*
-		 * We know that the previous instruction exists and moves
-		 * the variable id to a register (because we wrote the code
-		 * generator to emit the instructions in this exact order.)
+		 * We know that the previous two instructions exist and move
+		 * the variable id to a register in the first instruction of
+		 * that sequence (because we wrote the code generator to emit
+		 * the instructions in this exact order.)
 		 */
-		in--;
+		in -= 2;
 		snprintf(buf, len, "%s",
 			 dt_dis_varname_id(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
 		return buf;

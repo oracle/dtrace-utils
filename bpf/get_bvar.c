@@ -33,7 +33,7 @@ extern uint64_t BOOTTM;
 		-1; \
 	})
 
-noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id)
+noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
 {
 	dt_mstate_t	*mst = dctx->mst;
 
@@ -54,6 +54,11 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id)
 	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:
 	case DIF_VAR_ARG9:
 		return mst->argv[id - DIF_VAR_ARG0];
+	case DIF_VAR_ARGS:
+		if (idx >= sizeof(mst->argv) / sizeof(mst->argv[0]))
+			return error(dctx, DTRACEFLT_ILLOP, 0);
+
+		return mst->argv[idx];
 	case DIF_VAR_STACKDEPTH:
 	case DIF_VAR_USTACKDEPTH: {
 		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
