@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -49,7 +49,7 @@ typedef struct dtrace_cmd {
 #define	E_USAGE		2
 
 static const char DTRACE_OPTSTR[] =
-	"+3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:X:Z";
+	"3:6:aAb:Bc:CD:ef:FGhHi:I:lL:m:n:o:p:P:qs:SU:vVwx:X:Z";
 
 static char **g_argv;
 static int g_argc;
@@ -945,74 +945,74 @@ main(int argc, char *argv[])
 	 * We also accumulate arguments that are not affiliated with getopt
 	 * options into g_argv[], and abort if any invalid options are found.
 	 */
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-			switch (c) {
-			case '3':
-				if (strcmp(optarg, "2") != 0) {
-					fprintf(stderr,
-					    "%s: illegal option -- 3%s\n",
-					    argv[0], optarg);
-					return usage(stderr);
-				}
-				g_oflags &= ~DTRACE_O_LP64;
-				g_oflags |= DTRACE_O_ILP32;
-				break;
+	optind = 1;
 
-			case '6':
-				if (strcmp(optarg, "4") != 0) {
-					fprintf(stderr,
-					    "%s: illegal option -- 6%s\n",
-					    argv[0], optarg);
-					return usage(stderr);
-				}
-				g_oflags &= ~DTRACE_O_ILP32;
-				g_oflags |= DTRACE_O_LP64;
-				break;
-
-			case 'e':
-				g_exec = 0;
-				done = 1;
-				break;
-
-			case 'h':
-				g_mode = DMODE_HEADER;
-				g_cflags |= DTRACE_C_ZDEFS; /* -h implies -Z */
-				g_exec = 0;
-				mode++;
-				break;
-
-			case 'G':
-				g_mode = DMODE_LINK;
-				g_cflags |= DTRACE_C_ZDEFS; /* -G implies -Z */
-				g_exec = 0;
-				mode++;
-				break;
-
-			case 'l':
-				g_mode = DMODE_LIST;
-				g_cflags |= DTRACE_C_ZDEFS; /* -l implies -Z */
-				mode++;
-				break;
-
-			case 'v':
-				g_verbose++;
-				break;
-
-			case 'V':
-				g_mode = DMODE_VERS;
-				mode++;
-				break;
-
-			default:
-				if (strchr(DTRACE_OPTSTR, c) == NULL)
-					return usage(stderr);
+	while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+		switch (c) {
+		case '3':
+			if (strcmp(optarg, "2") != 0) {
+				fprintf(stderr,
+				    "%s: illegal option -- 3%s\n",
+				    argv[0], optarg);
+				return usage(stderr);
 			}
-		}
+			g_oflags &= ~DTRACE_O_LP64;
+			g_oflags |= DTRACE_O_ILP32;
+			break;
 
-		if (optind < argc)
-			g_argv[g_argc++] = argv[optind];
+		case '6':
+			if (strcmp(optarg, "4") != 0) {
+				fprintf(stderr,
+				    "%s: illegal option -- 6%s\n",
+				    argv[0], optarg);
+				return usage(stderr);
+			}
+			g_oflags &= ~DTRACE_O_ILP32;
+			g_oflags |= DTRACE_O_LP64;
+			break;
+
+		case 'e':
+			g_exec = 0;
+			done = 1;
+			break;
+
+		case 'h':
+			g_mode = DMODE_HEADER;
+			g_cflags |= DTRACE_C_ZDEFS; /* -h implies -Z */
+			g_exec = 0;
+			mode++;
+			break;
+
+		case 'G':
+			g_mode = DMODE_LINK;
+			g_cflags |= DTRACE_C_ZDEFS; /* -G implies -Z */
+			g_exec = 0;
+			mode++;
+			break;
+
+		case 'l':
+			g_mode = DMODE_LIST;
+			g_cflags |= DTRACE_C_ZDEFS; /* -l implies -Z */
+			mode++;
+			break;
+
+		case 'v':
+			g_verbose++;
+			break;
+
+		case 'V':
+			g_mode = DMODE_VERS;
+			mode++;
+			break;
+
+		default:
+			if (strchr(DTRACE_OPTSTR, c) == NULL)
+				return usage(stderr);
+		}
 	}
+
+	for (; optind < argc; optind++)
+		g_argv[g_argc++] = argv[optind];
 
 	if (mode > 1) {
 		fprintf(stderr, "%s: only one of the [-GhlV] options "
@@ -1130,134 +1130,133 @@ main(int argc, char *argv[])
 	 * We also accumulate any program specifications into our g_cmdv[] at
 	 * this time; these will compiled as part of the fourth processing pass.
 	 */
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-			switch (c) {
-			case 'b':
-				if (dtrace_setopt(g_dtp,
-				    "bufsize", optarg) != 0)
-					dfatal("failed to set -b %s", optarg);
-				break;
+	optind = 1;
+	while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+		switch (c) {
+		case 'b':
+			if (dtrace_setopt(g_dtp,
+				"bufsize", optarg) != 0)
+				dfatal("failed to set -b %s", optarg);
+			break;
 
-			case 'B':
-				g_ofp = NULL;
-				break;
+		case 'B':
+			g_ofp = NULL;
+			break;
 
-			case 'C':
-				g_cflags |= DTRACE_C_CPP;
-				break;
+		case 'C':
+			g_cflags |= DTRACE_C_CPP;
+			break;
 
-			case 'D':
-				if (dtrace_setopt(g_dtp, "define", optarg) != 0)
-					dfatal("failed to set -D %s", optarg);
-				break;
+		case 'D':
+			if (dtrace_setopt(g_dtp, "define", optarg) != 0)
+				dfatal("failed to set -D %s", optarg);
+			break;
 
-			case 'f':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_str;
-				dcp->dc_spec = DTRACE_PROBESPEC_FUNC;
-				dcp->dc_arg = optarg;
-				break;
+		case 'f':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_str;
+			dcp->dc_spec = DTRACE_PROBESPEC_FUNC;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'F':
-				if (dtrace_setopt(g_dtp, "flowindent", 0) != 0)
-					dfatal("failed to set -F");
-				break;
+		case 'F':
+			if (dtrace_setopt(g_dtp, "flowindent", 0) != 0)
+				dfatal("failed to set -F");
+			break;
 
-			case 'H':
-				if (dtrace_setopt(g_dtp, "cpphdrs", 0) != 0)
-					dfatal("failed to set -H");
-				break;
+		case 'H':
+			if (dtrace_setopt(g_dtp, "cpphdrs", 0) != 0)
+				dfatal("failed to set -H");
+			break;
 
-			case 'i':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_str;
-				dcp->dc_spec = DTRACE_PROBESPEC_NAME;
-				dcp->dc_arg = optarg;
-				break;
+		case 'i':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_str;
+			dcp->dc_spec = DTRACE_PROBESPEC_NAME;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'I':
-				if (dtrace_setopt(g_dtp, "incdir", optarg) != 0)
-					dfatal("failed to set -I %s", optarg);
-				break;
+		case 'I':
+			if (dtrace_setopt(g_dtp, "incdir", optarg) != 0)
+				dfatal("failed to set -I %s", optarg);
+			break;
 
-			case 'L':
-				if (dtrace_setopt(g_dtp, "libdir", optarg) != 0)
-					dfatal("failed to set -L %s", optarg);
-				break;
+		case 'L':
+			if (dtrace_setopt(g_dtp, "libdir", optarg) != 0)
+				dfatal("failed to set -L %s", optarg);
+			break;
 
-			case 'm':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_str;
-				dcp->dc_spec = DTRACE_PROBESPEC_MOD;
-				dcp->dc_arg = optarg;
-				break;
+		case 'm':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_str;
+			dcp->dc_spec = DTRACE_PROBESPEC_MOD;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'n':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_str;
-				dcp->dc_spec = DTRACE_PROBESPEC_NAME;
-				dcp->dc_arg = optarg;
-				break;
+		case 'n':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_str;
+			dcp->dc_spec = DTRACE_PROBESPEC_NAME;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'P':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_str;
-				dcp->dc_spec = DTRACE_PROBESPEC_PROVIDER;
-				dcp->dc_arg = optarg;
-				break;
+		case 'P':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_str;
+			dcp->dc_spec = DTRACE_PROBESPEC_PROVIDER;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'q':
-				if (dtrace_setopt(g_dtp, "quiet", 0) != 0)
-					dfatal("failed to set -q");
-				break;
+		case 'q':
+			if (dtrace_setopt(g_dtp, "quiet", 0) != 0)
+				dfatal("failed to set -q");
+			break;
 
-			case 'o':
-				g_ofile = optarg;
-				break;
+		case 'o':
+			g_ofile = optarg;
+			break;
 
-			case 's':
-				dcp = &g_cmdv[g_cmdc++];
-				dcp->dc_func = compile_file;
-				dcp->dc_spec = DTRACE_PROBESPEC_NONE;
-				dcp->dc_arg = optarg;
-				break;
+		case 's':
+			dcp = &g_cmdv[g_cmdc++];
+			dcp->dc_func = compile_file;
+			dcp->dc_spec = DTRACE_PROBESPEC_NONE;
+			dcp->dc_arg = optarg;
+			break;
 
-			case 'S':
-				g_cflags |= DTRACE_C_DIFV;
-				break;
+		case 'S':
+			g_cflags |= DTRACE_C_DIFV;
+			break;
 
-			case 'U':
-				if (dtrace_setopt(g_dtp, "undef", optarg) != 0)
-					dfatal("failed to set -U %s", optarg);
-				break;
+		case 'U':
+			if (dtrace_setopt(g_dtp, "undef", optarg) != 0)
+				dfatal("failed to set -U %s", optarg);
+			break;
 
-			case 'w':
-				if (dtrace_setopt(g_dtp, "destructive", 0) != 0)
-					dfatal("failed to set -w");
-				break;
+		case 'w':
+			if (dtrace_setopt(g_dtp, "destructive", 0) != 0)
+				dfatal("failed to set -w");
+			break;
 
-			case 'x':
-				if ((p = strchr(optarg, '=')) != NULL)
-					*p++ = '\0';
+		case 'x':
+			if ((p = strchr(optarg, '=')) != NULL)
+				*p++ = '\0';
 
-				if (dtrace_setopt(g_dtp, optarg, p) != 0)
-					dfatal("failed to set -x %s", optarg);
-				break;
+			if (dtrace_setopt(g_dtp, optarg, p) != 0)
+				dfatal("failed to set -x %s", optarg);
+			break;
 
-			case 'X':
-				if (dtrace_setopt(g_dtp, "stdc", optarg) != 0)
-					dfatal("failed to set -X %s", optarg);
-				break;
+		case 'X':
+			if (dtrace_setopt(g_dtp, "stdc", optarg) != 0)
+				dfatal("failed to set -X %s", optarg);
+			break;
 
-			case 'Z':
-				g_cflags |= DTRACE_C_ZDEFS;
-				break;
+		case 'Z':
+			g_cflags |= DTRACE_C_ZDEFS;
+			break;
 
-			default:
-				if (strchr(DTRACE_OPTSTR, c) == NULL)
-					return usage(stderr);
-			}
+		default:
+			if (strchr(DTRACE_OPTSTR, c) == NULL)
+				return usage(stderr);
 		}
 	}
 
@@ -1290,37 +1289,36 @@ main(int argc, char *argv[])
 	 * grabbing or creating victim processes.  The behavior of these calls
 	 * may been affected by any library options set by the second pass.
 	 */
-	for (optind = 1; optind < argc; optind++) {
-		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
-			switch (c) {
-			case 'c':
-				if ((v = make_argv(optarg)) == NULL)
-					fatal("failed to allocate memory");
+	optind = 1;
+	while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+		switch (c) {
+		case 'c':
+			if ((v = make_argv(optarg)) == NULL)
+				fatal("failed to allocate memory");
 
-				proc = dtrace_proc_create(g_dtp, v[0], v, 0);
-				if (proc == NULL) {
-					free(v);
-					dfatal(NULL); /* dtrace_errmsg() only */
-				}
-
-				g_psv[g_psc++] = proc;
+			proc = dtrace_proc_create(g_dtp, v[0], v, 0);
+			if (proc == NULL) {
 				free(v);
-				break;
-
-			case 'p':
-				errno = 0;
-				pid = strtol(optarg, &p, 10);
-
-				if (errno != 0 || p == optarg || p[0] != '\0')
-					fatal("invalid pid: %s\n", optarg);
-
-				proc = dtrace_proc_grab_pid(g_dtp, pid, 0);
-				if (proc == NULL)
-					dfatal(NULL); /* dtrace_errmsg() only */
-
-				g_psv[g_psc++] = proc;
-				break;
+				dfatal(NULL); /* dtrace_errmsg() only */
 			}
+
+			g_psv[g_psc++] = proc;
+			free(v);
+			break;
+
+		case 'p':
+			errno = 0;
+			pid = strtol(optarg, &p, 10);
+
+			if (errno != 0 || p == optarg || p[0] != '\0')
+				fatal("invalid pid: %s\n", optarg);
+
+			proc = dtrace_proc_grab_pid(g_dtp, pid, 0);
+			if (proc == NULL)
+				dfatal(NULL); /* dtrace_errmsg() only */
+
+			g_psv[g_psc++] = proc;
+			break;
 		}
 	}
 
