@@ -4029,15 +4029,9 @@ asgn_common:
 		dnp->dn_args = rp;
 		dnp->dn_list = NULL;
 
-		/*
-		 * Transfer alloca taint.  Stores of non-alloca, non-literal-0
-		 * values turn on DT_IDFLG_NONALLOCA to prevent this identifier
-		 * from being used for alloca storage anywhere in the program.
-		 */
+		/* Transfer alloca taint. */
 		if (dnp->dn_args->dn_flags & DT_NF_ALLOCA)
 			dt_cook_taint_alloca(dnp, idp, dnp->dn_args);
-		else if (dnp->dn_kind != DT_NODE_INT || dnp->dn_value != 0)
-			idp->di_flags |= DT_IDFLG_NONALLOCA;
 
 		dt_node_free(lp);
 		return dt_node_cook(dnp, idflags);
