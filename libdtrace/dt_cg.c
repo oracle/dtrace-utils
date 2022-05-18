@@ -2070,15 +2070,11 @@ dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
 }
 
 /*
- * Lookup the correct load opcode to use for the specified node and CTF type.
- * We determine the size and convert it to a 3-bit index.  Our lookup table
- * is constructed to use a 5-bit index, consisting of the 3-bit size 0-7, a
- * bit for the sign, and a bit for userland address.  For example, a 4-byte
- * signed load from userland would be at the following table index:
- * user=1 sign=1 size=4 => binary index 11011 = decimal index 27
+ * Lookup the correct load size modifier to use for the specified node and CTF
+ * type.
  */
-static uint_t
-dt_cg_load(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
+uint_t
+dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
 {
 #if 1
 	ctf_encoding_t e;
@@ -2413,7 +2409,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	 * r1 |= r2
 	 */
 	/* FIXME: Does not handle userland */
-	emit(dlp, BPF_LOAD(dt_cg_load(dst, fp, m.ctm_type, NULL), r1, dst->dn_reg, 0));
+	emit(dlp, BPF_LOAD(dt_cg_ldsize(dst, fp, m.ctm_type, NULL), r1, dst->dn_reg, 0));
 	dt_cg_setx(dlp, r2, cmask);
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
 	dt_cg_setx(dlp, r2, fmask);
@@ -5032,16 +5028,17 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			ssize_t	size;
 
 			/*
-			 * Save and restore DT_NF_USERLAND across dt_cg_load():
-			 * we need the sign bit from dnp and the user bit from
-			 * dnp->dn_child in order to get the proper opcode.
+			 * Save and restore DT_NF_USERLAND across
+			 * dt_cg_ldsize(): we need the sign bit from dnp and
+			 * the user bit from dnp->dn_child in order to get the
+			 * proper opcode.
 			 */
 			ubit = dnp->dn_flags & DT_NF_USERLAND;
 			dnp->dn_flags |=
 			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
 			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
-			op = dt_cg_load(dnp, ctfp, dnp->dn_type, &size);
+			op = dt_cg_ldsize(dnp, ctfp, dnp->dn_type, &size);
 
 			/*
 			 * If the child is an alloca pointer, bounds-check it
@@ -5205,16 +5202,17 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			uint_t ubit;
 
 			/*
-			 * Save and restore DT_NF_USERLAND across dt_cg_load():
-			 * we need the sign bit from dnp and the user bit from
-			 * dnp->dn_left in order to get the proper opcode.
+			 * Save and restore DT_NF_USERLAND across
+			 * dt_cg_ldsize(): we need the sign bit from dnp and
+			 * the user bit from dnp->dn_left in order to get the
+			 * proper opcode.
 			 */
 			ubit = dnp->dn_flags & DT_NF_USERLAND;
 			dnp->dn_flags |=
 			    (dnp->dn_left->dn_flags & DT_NF_USERLAND);
 
 			/* FIXME: Does not handle signed and userland */
-			emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, m.ctm_type, NULL),
+			emit(dlp, BPF_LOAD(dt_cg_ldsize(dnp, ctfp, m.ctm_type, NULL),
 					   dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
@@ -5326,7 +5324,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			if (!(dnp->dn_flags & DT_NF_REF)) {
 				/* FIXME: NO signed or userland yet */
-				emit(dlp, BPF_LOAD(dt_cg_load(dnp, ctfp, dnp->dn_type, NULL),
+				emit(dlp, BPF_LOAD(dt_cg_ldsize(dnp, ctfp, dnp->dn_type, NULL),
 						   dnp->dn_reg, dnp->dn_reg, 0));
 			}
 			break;
