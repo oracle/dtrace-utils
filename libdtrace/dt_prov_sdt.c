@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -131,6 +131,8 @@ static void trampoline(dt_pcb_t *pcb)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_probe_t	*prp = pcb->pcb_probe;
+	ssize_t		off;
 
 	dt_cg_tramp_prologue(pcb);
 
@@ -143,16 +145,40 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_clear_regs(pcb);
 
 	/*
-	 *	for (i = 0; i < argc; i++)
-	 *		dctx->mst->argv[i] = ((uint64_t *)ctx)[i + 1];
-	 *				//     (first value is private)
-	 *				// lddw %r0, [%r8 + (i + 1) * 8]
-	 *				// stdw [%r7 + DMST_ARG(i)], 0
+	 * Decode the arguments of the underlying tracepoint (from the context)
+	 * and store them in the cached argument list in the mstate.
+	 *
+	 * Skip the first argument (a private pointer that we are not allowed
+	 * to access from BPF).
 	 */
-	for (i = 0; i < pcb->pcb_pinfo.dtp_argc; i++) {
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, (i + 1) * 8));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+	off = sizeof(uint64_t);
+	for (i = 0; i < prp->argc; i++) {
+		dt_node_t	*anp = prp->xargv[i];
+		ssize_t		size = ctf_type_size(anp->dn_ctfp,
+						     anp->dn_type);
+		ssize_t		align = ctf_type_align(anp->dn_ctfp,
+						       anp->dn_type);
+
+		off = P2ROUNDUP(off, align);
+		if (dt_node_is_scalar(anp)) {
+			uint_t	ldsz = dt_cg_ldsize(anp, anp->dn_ctfp,
+						    anp->dn_type, NULL);
+
+			emit(dlp, BPF_LOAD(ldsz, BPF_REG_0, BPF_REG_8, off));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+		} else {
+			emit(dlp, BPF_MOV_REG(BPF_REG_0, BPF_REG_8));
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, off));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+		}
+		off += size;
 	}
+
+	/*
+	 * Clear the remainder of the cached arguments.
+	 */
+	for (; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
 	dt_cg_tramp_epilogue(pcb);
 }
