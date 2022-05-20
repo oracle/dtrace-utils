@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -153,14 +153,6 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	dtp->dt_stopped = 1;
 	dtp->dt_endedon = dt_state_get_endedon(dtp);
 
-#if 0
-	/*
-	 * Now that we're stopped, we're going to get status one final time.
-	 */
-	if (dt_ioctl(dtp, DTRACEIOC_STATUS, &dtp->dt_status[gen]) == -1)
-		return dt_set_errno(dtp, errno);
-#endif
-
 	if (dt_handle_status(dtp, &dtp->dt_status[gen ^ 1],
 	    &dtp->dt_status[gen]) == -1)
 		return -1;
@@ -168,61 +160,6 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	return 0;
 }
 
-#if 0
-dtrace_workstatus_t
-dtrace_work(dtrace_hdl_t *dtp, FILE *fp,
-    dtrace_consume_probe_f *pfunc, dtrace_consume_rec_f *rfunc, void *arg)
-{
-	int status = dtrace_status(dtp);
-	dtrace_optval_t policy = dtp->dt_options[DTRACEOPT_BUFPOLICY];
-	dtrace_workstatus_t rval;
-
-	switch (status) {
-	case DTRACE_STATUS_EXITED:
-	case DTRACE_STATUS_FILLED:
-	case DTRACE_STATUS_STOPPED:
-		/*
-		 * Tracing is stopped.  We now want to force dtrace_consume()
-		 * and dtrace_aggregate_snap() to proceed, regardless of
-		 * switchrate and aggrate.  We do this by clearing the times.
-		 */
-		dtp->dt_lastswitch = 0;
-		dtp->dt_lastagg = 0;
-		rval = DTRACE_WORKSTATUS_DONE;
-		break;
-
-	case DTRACE_STATUS_NONE:
-	case DTRACE_STATUS_OKAY:
-		rval = DTRACE_WORKSTATUS_OKAY;
-		break;
-
-	default:
-		return DTRACE_WORKSTATUS_ERROR;
-	}
-
-	if ((status == DTRACE_STATUS_NONE || status == DTRACE_STATUS_OKAY) &&
-	    policy != DTRACEOPT_BUFPOLICY_SWITCH) {
-		/*
-		 * There either isn't any status or things are fine -- and
-		 * this is a "ring" or "fill" buffer.  We don't want to consume
-		 * any of the trace data or snapshot the aggregations; we just
-		 * return.
-		 */
-		assert(rval == DTRACE_WORKSTATUS_OKAY);
-		return rval;
-	}
-
-#if 0
-	if (dtrace_aggregate_snap(dtp) == -1)
-		return DTRACE_WORKSTATUS_ERROR;
-#endif
-
-	if (dtrace_consume(dtp, fp, pfunc, rfunc, arg) == -1)
-		return DTRACE_WORKSTATUS_ERROR;
-
-	return rval;
-}
-#else
 dtrace_workstatus_t
 dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	    dtrace_consume_rec_f *rfunc, void *arg)
@@ -248,4 +185,3 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 
 	return rval;
 }
-#endif
