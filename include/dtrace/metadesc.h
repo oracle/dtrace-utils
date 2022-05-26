@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -66,13 +66,5 @@ typedef struct dtrace_fmtdesc {
 	int dtfd_length;			/* length of format string */
 	uint16_t dtfd_format;			/* format identifier */
 } dtrace_fmtdesc_t;
-
-#define DTRACE_SIZEOF_EPROBEDESC(desc)				\
-	(sizeof(dtrace_eprobedesc_t) + ((desc)->dtdd_nrecs ?  \
-	(((desc)->dtdd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
-
-#define	DTRACE_SIZEOF_AGGDESC(desc)			       \
-	(sizeof(dtrace_aggdesc_t) + ((desc)->dtagd_nrecs ?     \
-	(((desc)->dtagd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
 
 #endif /* _DTRACE_METADESC_H */
