@@ -160,6 +160,7 @@ typedef struct dt_node {
 #define	DT_NF_USERLAND	0x40	/* data is a userland address */
 #define	DT_NF_ALLOCA	0x80	/* pointer derived from alloca() */
 #define	DT_NF_NONASSIGN	0x100	/* node is not assignable */
+#define	DT_NF_DPTR	0x200	/* node is a ptr to DTrace-managed storage */
 
 #define	DT_TYPE_NAMELEN	128	/* reasonable size for ctf_type_name() */
 

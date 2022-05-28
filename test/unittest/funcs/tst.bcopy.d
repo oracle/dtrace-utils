@@ -22,8 +22,7 @@ BEGIN
 	ptr = alloca(sizeof(unsigned long));
 	bcopy((void *)&`max_pfn, ptr, sizeof(unsigned long));
 	ulongp = (unsigned long *)ptr;
-        /* DTv2: doing this needs deref-implies-copyin, which isn't there yet. */
-/*	ret = (`max_pfn == *ulongp) ? 0 : 1; */
+	ret = (`max_pfn == *ulongp) ? 0 : 1;
 	ret = *ulongp; ret = 0;
 	ulong_deref = *ulongp;
 }
@@ -37,9 +36,8 @@ tick-1
 tick-1
 /ret == 1/
 {
-	/* DTdv2: this error message has the same problem.  */
-/*	printf("memory address contained 0x%x, expected 0x%x\n",
-		ulong_deref, `max_pfn); */
+	printf("memory address contained 0x%x, expected 0x%x\n",
+		ulong_deref, `max_pfn);
 	printf("memory address contained wrong contents\n");
 	exit(1);
 }

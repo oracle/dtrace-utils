@@ -2781,6 +2781,13 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		dnp->dn_ident = idp;
 		dnp->dn_flags |= DT_NF_LVALUE;
 
+		/*
+		 * If the type of the variable is a REF-type, we mark this
+		 * variable node as a pointer to DTrace-managed storage (DPTR).
+		 */
+		if (dnp->dn_flags & DT_NF_REF)
+			dnp->dn_flags |= DT_NF_DPTR;
+
 		if (idp->di_flags & DT_IDFLG_WRITE)
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
@@ -2906,6 +2913,13 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		dnp->dn_kind = dnkind;
 		dnp->dn_ident = idp;
 		dnp->dn_flags |= DT_NF_LVALUE | DT_NF_WRITABLE;
+
+		/*
+		 * If the type of the variable is a REF-type, we mark this
+		 * variable node as a pointer to DTrace-managed storage (DPTR).
+		 */
+		if (dnp->dn_flags & DT_NF_REF)
+			dnp->dn_flags |= DT_NF_DPTR;
 
 		/*
 		 * Still a good idea, but not relevant for assignments: see
@@ -3235,7 +3249,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 	ctf_membinfo_t m;
 	ctf_file_t *ctfp;
 	ctf_id_t type;
-	int kind, val, uref;
+	int kind, val, xflags;
 	dt_ident_t *idp;
 
 	char n1[DT_TYPE_NAMELEN];
@@ -3465,20 +3479,20 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 		if (lp_is_int && rp_is_int) {
 			dt_type_promote(lp, rp, &ctfp, &type);
-			uref = 0;
+			xflags = 0;
 		} else if (lp_is_ptr && rp_is_int) {
 			ctfp = lp->dn_ctfp;
 			type = lp->dn_type;
-			uref = lp->dn_flags & DT_NF_USERLAND;
+			xflags = lp->dn_flags & (DT_NF_USERLAND | DT_NF_DPTR);
 		} else if (lp_is_int && rp_is_ptr && op == DT_TOK_ADD) {
 			ctfp = rp->dn_ctfp;
 			type = rp->dn_type;
-			uref = rp->dn_flags & DT_NF_USERLAND;
+			xflags = rp->dn_flags & (DT_NF_USERLAND | DT_NF_DPTR);
 		} else if (lp_is_ptr && rp_is_ptr && op == DT_TOK_SUB &&
 		    dt_node_is_ptrcompat(lp, rp, NULL, NULL)) {
 			ctfp = dtp->dt_ddefs->dm_ctfp;
 			type = ctf_lookup_by_name(ctfp, "ptrdiff_t");
-			uref = 0;
+			xflags = 0;
 		} else
 			xyerror(D_OP_INCOMPAT, "operands have incompatible "
 			    "types: \"%s\" %s \"%s\"\n",
@@ -3503,7 +3517,6 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		/*
 		 * Array bounds-checking.  (Non-associative arrays only.)
 		 */
-
 		artype = ctf_type_resolve(lp->dn_ctfp, lp->dn_type);
 		arkind = ctf_type_kind(lp->dn_ctfp, artype);
 
@@ -3525,8 +3538,8 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
 		dt_node_prop_alloca(dnp, lp, rp);
 
-		if (uref)
-			dnp->dn_flags |= DT_NF_USERLAND;
+		if (xflags)
+			dnp->dn_flags |= xflags;
 		break;
 	}
 
@@ -3649,11 +3662,11 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		if ((idp = dt_node_resolve(rp, DT_IDENT_XLSOU)) != NULL) {
 			ctfp = idp->di_ctfp;
 			type = idp->di_type;
-			uref = idp->di_flags & DT_IDFLG_USER;
+			xflags = idp->di_flags & DT_IDFLG_USER;
 		} else {
 			ctfp = rp->dn_ctfp;
 			type = rp->dn_type;
-			uref = rp->dn_flags & DT_NF_USERLAND;
+			xflags = rp->dn_flags & DT_NF_USERLAND;
 		}
 
 		/*
@@ -3679,7 +3692,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 			dt_ident_type_assign(lp->dn_ident, ctfp, type);
 			dt_ident_set_storage(lp->dn_ident, alignment, size);
 
-			if (uref) {
+			if (xflags) {
 				lp->dn_flags |= DT_NF_USERLAND;
 				lp->dn_ident->di_flags |= DT_IDFLG_USER;
 			}
@@ -3861,11 +3874,11 @@ asgn_common:
 
 			ctfp = idp->di_ctfp;
 			type = ctf_type_resolve(ctfp, idp->di_type);
-			uref = idp->di_flags & DT_IDFLG_USER;
+			xflags = idp->di_flags & DT_IDFLG_USER;
 		} else {
 			ctfp = lp->dn_ctfp;
 			type = ctf_type_resolve(ctfp, lp->dn_type);
-			uref = lp->dn_flags & DT_NF_USERLAND;
+			xflags = lp->dn_flags & DT_NF_USERLAND;
 		}
 
 		kind = ctf_type_kind(ctfp, type);
@@ -3936,7 +3949,7 @@ asgn_common:
 		if (lp->dn_flags & DT_NF_WRITABLE)
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
-		if (uref && (kind == CTF_K_POINTER ||
+		if (xflags && (kind == CTF_K_POINTER ||
 		    (dnp->dn_flags & DT_NF_REF)))
 			dnp->dn_flags |= DT_NF_USERLAND;
 		break;
@@ -4855,6 +4868,8 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 			strcat(n, ",ALLOCA");
 		if (dnp->dn_flags & DT_NF_NONASSIGN)
 			strcat(n, ",NONASSIGN");
+		if (dnp->dn_flags & DT_NF_DPTR)
+			strcat(n, ",DPTR");
 		strcat(buf, n + 1);
 	} else
 		strcat(buf, "0");

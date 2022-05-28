@@ -2131,6 +2131,30 @@ dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
 }
 
 static void
+dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
+		  dt_regset_t *drp)
+{
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_SP));
+	emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
+
+	if (dnp->dn_flags & DT_NF_SIGNED && size < sizeof(uint64_t)) {
+		int	n = (sizeof(uint64_t) - size) * NBBY;
+
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
+		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, dnp->dn_reg, n));
+	}
+}
+
+static void
 dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp = dt_ident_resolve(dst->dn_ident);
@@ -2394,7 +2418,6 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	 * r2 <<= shift
 	 * r1 |= r2
 	 */
-	/* FIXME: Does not handle userland */
 	emit(dlp, BPF_LOAD(dt_cg_ldsize(dst, fp, m.ctm_type, NULL), r1, dst->dn_reg, 0));
 	dt_cg_setx(dlp, r2, cmask);
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
@@ -5034,19 +5057,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
-			uint_t	ubit;
 			uint_t	op;
 			ssize_t	size;
-
-			/*
-			 * Save and restore DT_NF_USERLAND across
-			 * dt_cg_ldsize(): we need the sign bit from dnp and
-			 * the user bit from dnp->dn_child in order to get the
-			 * proper opcode.
-			 */
-			ubit = dnp->dn_flags & DT_NF_USERLAND;
-			dnp->dn_flags |=
-			    (dnp->dn_child->dn_flags & DT_NF_USERLAND);
 
 			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 			op = dt_cg_ldsize(dnp, ctfp, dnp->dn_type, &size);
@@ -5063,11 +5075,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 						 dnp->dn_reg);
 			}
 
-			/* FIXME: Does not handled signed or userland */
-			emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
-
-			dnp->dn_flags &= ~DT_NF_USERLAND;
-			dnp->dn_flags |= ubit;
+			if (dnp->dn_child->dn_flags & DT_NF_DPTR)
+				emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
+			else
+				dt_cg_load_scalar(dnp, op, size, dlp, drp);
 		}
 		break;
 
@@ -5148,9 +5159,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	case DT_TOK_PTR:
 	case DT_TOK_DOT: {
-
 		assert(dnp->dn_right->dn_kind == DT_NODE_IDENT);
 		dt_cg_node(dnp->dn_left, dlp, drp);
+
 		dt_cg_check_notnull(dlp, drp, dnp->dn_left->dn_reg);
 
 		/*
@@ -5210,24 +5221,15 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
-			uint_t ubit;
+			uint_t	op;
+			ssize_t	size;
 
-			/*
-			 * Save and restore DT_NF_USERLAND across
-			 * dt_cg_ldsize(): we need the sign bit from dnp and
-			 * the user bit from dnp->dn_left in order to get the
-			 * proper opcode.
-			 */
-			ubit = dnp->dn_flags & DT_NF_USERLAND;
-			dnp->dn_flags |=
-			    (dnp->dn_left->dn_flags & DT_NF_USERLAND);
+			op = dt_cg_ldsize(dnp, ctfp, m.ctm_type, &size);
 
-			/* FIXME: Does not handle signed and userland */
-			emit(dlp, BPF_LOAD(dt_cg_ldsize(dnp, ctfp, m.ctm_type, NULL),
-					   dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
-
-			dnp->dn_flags &= ~DT_NF_USERLAND;
-			dnp->dn_flags |= ubit;
+			if (dnp->dn_left->dn_flags & DT_NF_DPTR)
+				emit(dlp, BPF_LOAD(op, dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
+			else
+				dt_cg_load_scalar(dnp->dn_left, op, size, dlp, drp);
 
 			if (dnp->dn_flags & DT_NF_BITFIELD)
 				dt_cg_field_get(dnp, dlp, drp, ctfp, &m);
@@ -5330,13 +5332,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-			dt_cg_xsetx(dlp, dnp->dn_ident,
-			    DT_LBL_NONE, dnp->dn_reg, sym.st_value);
+			dt_cg_xsetx(dlp, dnp->dn_ident, DT_LBL_NONE,
+				    dnp->dn_reg, sym.st_value);
 
 			if (!(dnp->dn_flags & DT_NF_REF)) {
-				/* FIXME: NO signed or userland yet */
-				emit(dlp, BPF_LOAD(dt_cg_ldsize(dnp, ctfp, dnp->dn_type, NULL),
-						   dnp->dn_reg, dnp->dn_reg, 0));
+				uint_t	op;
+				ssize_t	size;
+
+				op = dt_cg_ldsize(dnp, ctfp, dnp->dn_type, &size);
+
+				dt_cg_load_scalar(dnp, op, size, dlp, drp);
 			}
 			break;
 		}
