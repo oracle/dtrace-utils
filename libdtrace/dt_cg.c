@@ -2706,13 +2706,10 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 			dt_regset_free(drp, BPF_REG_0);
 			dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR,
 					  DT_ISIMM, 128 + i);
-			dt_regset_xalloc(drp, BPF_REG_0);
 
 			emitl(dlp, lbl_valid,
-				   BPF_ALU64_REG(BPF_ADD, treg, BPF_REG_0));
+				   BPF_ALU64_IMM(BPF_ADD, treg, size + 1));
 			tuplesize += size + 1;
-
-			dt_regset_free(drp, BPF_REG_0);
 		} else if (t.dtdt_flags & DIF_TF_BYREF) {
 			uint_t	lbl_valid = dt_irlist_label(dlp);
 
