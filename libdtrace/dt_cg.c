@@ -2675,14 +2675,13 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, size));
 			tuplesize += size;
 		} else if (dt_node_is_string(dnp)) {
-			size_t	strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 			uint_t	lbl_valid = dt_irlist_label(dlp);
 
 			if (dt_regset_xalloc_args(drp) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
-			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, strsize + 1));
+			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size + 1));
 			emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 			dt_cg_tstring_free(yypcb, dnp);
 			dt_regset_free(drp, BPF_REG_0);
