@@ -1,6 +1,6 @@
 #!/usr/bin/gawk -f
 # Oracle Linux DTrace.
-# Copyright (c) 2016, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2016, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 # Check that the sum of all 'before clear' values is nonzero,
@@ -26,7 +26,7 @@ function checksums(zerop) {
     }
 }
 
-/after clear:/ {
+/after clear/ {
     checksums(inafter);
     inafter = 1;
     sum = 0;
