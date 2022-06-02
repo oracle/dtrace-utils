@@ -51,9 +51,9 @@ typedef struct dtrace_datadesc {
 } dtrace_datadesc_t;
 
 typedef struct dtrace_aggdesc {
-	DTRACE_PTR(char, dtagd_name);		/* not filled in by kernel */
-	dtrace_aggid_t dtagd_varid;		/* not filled in by kernel */
-	int dtagd_flags;			/* not filled in by kernel */
+	DTRACE_PTR(char, dtagd_name);		/* aggregation name */
+	dtrace_aggid_t dtagd_varid;		/* aggregation varID */
+	int dtagd_flags;			/* aggregation flags */
 	dtrace_aggid_t dtagd_id;		/* aggregation ID */
 	uint64_t dtagd_sig;			/* aggregation signature */
 	uint32_t dtagd_size;			/* size in bytes */
