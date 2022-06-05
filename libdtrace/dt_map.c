@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -318,7 +318,8 @@ dt_aggid_lookup(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, dtrace_aggdesc_t **adp)
 	if (aggid >= dtp->dt_maxagg || dtp->dt_adesc[aggid] == NULL)
 		return -1;
 
-	*adp = dtp->dt_adesc[aggid];
+	if (adp != NULL)
+		*adp = dtp->dt_adesc[aggid];
 
 	return 0;
 }
