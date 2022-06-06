@@ -150,6 +150,6 @@ noinline void *dt_get_assoc(uint32_t id, const char *tuple,
 		if (store && !nval)
 			bpf_map_delete_elem(&tuples, tuple);
 	}
-	
+
 	return dt_get_dvar(val, store, nval);
 }
