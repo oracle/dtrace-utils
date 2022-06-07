@@ -178,7 +178,6 @@ typedef struct dt_ahashent {
 	struct dt_ahashent *dtahe_nextall;	/* next on list of all */
 	uint64_t dtahe_hval;			/* hash value */
 	dtrace_aggdata_t dtahe_data;		/* data */
-	void (*dtahe_aggregate)(int64_t *, int64_t *, size_t); /* function */
 } dt_ahashent_t;
 
 typedef struct dt_ahash {
