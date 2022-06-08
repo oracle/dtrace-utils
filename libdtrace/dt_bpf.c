@@ -337,7 +337,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		stabsz, gvarsz, lvarsz, aggsz, memsz;
+	int		stabsz, sz;
 	int		dvarc = 0;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint64_t	key = 0;
@@ -353,18 +353,9 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/* Mark global maps creation as completed. */
 	dt_gmap_done = 1;
 
-	/* Determine the aggregation buffer size.  */
-	aggsz = dt_idhash_datasize(dtp->dt_aggs);
+	/* Create BPF maps as long as there are no errors. */
 
-	/* Determine sizes for global, local, and TLS maps. */
-	gvarsz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
-	lvarsz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
-
-	if (dtp->dt_maxdvarsize)
-		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
-			dtp->dt_maxdvarsize;
-
-	/* Create global maps as long as there are no errors. */
+	/* state map */
 	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
 				       sizeof(DT_STATE_KEY_TYPE),
 				       sizeof(DT_STATE_VAL_TYPE),
@@ -375,24 +366,28 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	/*
 	 * Check if there is aggregation data to be collected.
 	 */
-	if (aggsz > 0) {
+	sz = dt_idhash_datasize(dtp->dt_aggs);
+	if (sz > 0) {
 		dtp->dt_aggmap_fd = create_gmap(dtp, "aggs",
 						BPF_MAP_TYPE_PERCPU_ARRAY,
-						sizeof(uint32_t), aggsz, 1);
+						sizeof(uint32_t), sz, 1);
 		if (dtp->dt_aggmap_fd == -1)
 			return -1;	/* dt_errno is set for us */
 	}
 
+	/* speculations */
 	if (create_gmap(dtp, "specs", BPF_MAP_TYPE_HASH,
 		sizeof(uint32_t), sizeof(dt_bpf_specs_t),
 		dtp->dt_options[DTRACEOPT_NSPEC]) == -1)
 		return -1;		/* dt_errno is set for us */
 
+	/* output buffers */
 	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			sizeof(uint32_t), sizeof(uint32_t),
 			dtp->dt_conf.num_online_cpus) == -1)
 		return -1;		/* dt_errno is set for us */
 
+	/* cpuinfo */
 	ci_mapfd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
 			       sizeof(uint32_t), sizeof(cpuinfo_t), 1);
 	if (ci_mapfd == -1)
@@ -407,12 +402,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 *	  multiple of 8
 	 *	- size of dctx->mem (see dt_dctx.h)
 	 */
-	memsz = roundup(sizeof(dt_mstate_t), 8) +
-		8 +
-		roundup(dtp->dt_maxreclen, 8) +
-		DMEM_SIZE(dtp);
+	sz = roundup(sizeof(dt_mstate_t), 8) +
+		     8 +
+		     roundup(dtp->dt_maxreclen, 8) +
+		     DMEM_SIZE(dtp);
 	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), memsz, 1) == -1)
+			sizeof(uint32_t), sz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
 	/*
@@ -457,21 +452,30 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	if (st_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
+	/* probe hash table */
 	pr_mapfd = create_gmap(dtp, "probes", BPF_MAP_TYPE_HASH,
 			       sizeof(uint32_t), sizeof(dt_bpf_probe_t),
 			       dt_list_length(&dtp->dt_enablings));
 	if (pr_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
-	if (gvarsz > 0 &&
+	/* global variables */
+	sz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
+	if (sz > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), gvarsz, 1) == -1)
+			sizeof(uint32_t), sz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
 
-	if (lvarsz > 0 &&
-	    create_gmap(dtp, "lvars", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), lvarsz, 1) == -1)
+	/* local variables */
+	sz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
+	if (sz > 0 && create_gmap(dtp, "lvars", BPF_MAP_TYPE_PERCPU_ARRAY,
+				  sizeof(uint32_t), sz, 1) == -1)
 		return -1;		/* dt_errno is set for us */
+
+	/* TLS and dynamic variables */
+	if (dtp->dt_maxdvarsize)
+		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
+			dtp->dt_maxdvarsize;
 
 	if (dvarc > 0) {
 		int	fd;
