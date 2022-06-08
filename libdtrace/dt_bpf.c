@@ -435,6 +435,8 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	dtp->dt_zerosize = strsize + 1;
 	if (dtp->dt_zerosize < dtp->dt_maxdvarsize)
 		dtp->dt_zerosize = dtp->dt_maxdvarsize;
+	if (dtp->dt_zerosize < dtp->dt_maxtuplesize)
+		dtp->dt_zerosize = dtp->dt_maxtuplesize;
 
 	sz = dtp->dt_zerooffset + dtp->dt_zerosize;
 	strtab = dt_zalloc(dtp, sz);

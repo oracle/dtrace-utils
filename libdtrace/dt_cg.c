@@ -2645,8 +2645,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
 	emite(dlp, BPF_MOV_IMM(BPF_REG_2, -1), maxtupsz);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_1));
-	emite(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -1), maxtupsz);
+	dt_cg_zerosptr(BPF_REG_3, dlp, drp);
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
 	dt_regset_free_args(drp);
