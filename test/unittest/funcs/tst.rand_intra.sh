@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -16,6 +16,7 @@ niter=25000
 $dtrace $dt_flags -q -o $tmpfile -c test/triggers/bogus-ioctl -n '
 BEGIN { nuperr = n = 0 }
 syscall::ioctl:entry
+/pid == $target/
 {
 	x = rand();
 
@@ -32,7 +33,7 @@ syscall::ioctl:entry
 	n++;
 }
 syscall::ioctl:entry
-/n >= '$niter'/
+/pid == $target && n >= '$niter'/
 {
 	printf("# of upper-bit errors: %d out of %d\n", nuperr, n);
 	exit(0);

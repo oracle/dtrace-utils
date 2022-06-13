@@ -28,39 +28,39 @@ BEGIN
  */
 
 syscall::ioctl:entry
-/ (n & 3) == 0 /
+/ pid == $target && (n & 3) == 0 /
 {
 	i = speculation();
 }
 
 syscall::ioctl:entry
-/ (n & 3) == 1 /
+/ pid == $target && (n & 3) == 1 /
 {
 	speculate(i);
 	printf("%4d %4d", n, i);
 }
 
 syscall::ioctl:entry
-/ (n & 3) == 2 /
+/ pid == $target && (n & 3) == 2 /
 {
 	speculate(i);
 	printf("%4d hello world\n", n);
 }
 
 syscall::ioctl:entry
-/ (n & 3) == 3 && (n & 63) == 3 /
+/ pid == $target && (n & 3) == 3 && (n & 63) == 3 /
 {
 	commit(i);
 }
 
 syscall::ioctl:entry
-/ (n & 3) == 3 && (n & 63) != 3 /
+/ pid == $target && (n & 3) == 3 && (n & 63) != 3 /
 {
 	discard(i);
 }
 
 syscall::ioctl:entry
-/ n++ >= 1000 /
+/ pid == $target && n++ >= 1000 /
 {
 	exit(0);
 }

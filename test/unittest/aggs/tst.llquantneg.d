@@ -15,19 +15,19 @@
 #pragma D option quiet
 
 syscall::ioctl:entry
-/i % 2 == 0/
+/pid == $target && i % 2 == 0/
 {
 	@ = llquantize(i++, 10, 0, 6, 20);
 }
 
 syscall::ioctl:entry
-/i % 2 != 0/
+/pid == $target && i % 2 != 0/
 {
 	@ = llquantize(i++, 10, 0, 6, 20, -1);
 }
 
 syscall::ioctl:entry
-/i == 1500/
+/pid == $target && i == 1500/
 {
 	exit(0);
 }
