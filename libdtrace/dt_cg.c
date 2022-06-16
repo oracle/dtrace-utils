@@ -2129,6 +2129,22 @@ dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
 	return ldstw[size];
 }
 
+/*
+ * Generate code to promote signed scalars (size < 64 bits) to native register
+ * size (64 bits).
+ */
+static void
+dt_cg_promote(const dt_node_t *dnp, ssize_t size, dt_irlist_t *dlp,
+	      dt_regset_t *drp)
+{
+	if (dnp->dn_flags & DT_NF_SIGNED && size < sizeof(uint64_t)) {
+		int	n = (sizeof(uint64_t) - size) * NBBY;
+
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
+		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, dnp->dn_reg, n));
+	}
+}
+
 static void
 dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 		  dt_regset_t *drp)
@@ -2145,12 +2161,7 @@ dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_SP));
 	emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
 
-	if (dnp->dn_flags & DT_NF_SIGNED && size < sizeof(uint64_t)) {
-		int	n = (sizeof(uint64_t) - size) * NBBY;
-
-		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, n));
-		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, dnp->dn_reg, n));
-	}
+	dt_cg_promote(dnp, size, dlp, drp);
 }
 
 static void
@@ -2185,6 +2196,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 			       (size & (size - 1)) == 0);
 
 			emit(dlp, BPF_LOAD(ldstw[size], dst->dn_reg, dst->dn_reg, idp->di_offset));
+			dt_cg_promote(dst, size, dlp, drp);
 		}
 
 		return;
@@ -2225,6 +2237,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 			emit(dlp,  BPF_JUMP(lbl_done));
 			emitl(dlp, lbl_notnull,
 				   BPF_LOAD(ldstw[size], dst->dn_reg, BPF_REG_0, 0));
+			dt_cg_promote(dst, size, dlp, drp);
 			dt_regset_free(drp, BPF_REG_0);
 
 			emitl(dlp, lbl_done,
