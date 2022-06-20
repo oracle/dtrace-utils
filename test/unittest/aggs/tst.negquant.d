@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -45,48 +45,50 @@ BEGIN
 	@["n-judah"] = quantize(2);
 }
 
+this long long val;
+
 BEGIN
 {
 	this->i = 1;
-	this->val = (1 << 63) - 1;
+	this->val = (((long long) 1) << 63) - 1;
 
 	@["f-market"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["f-market"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["f-market"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["f-market"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 }
 
 BEGIN
 {
 	this->i = 1;
-	this->val = (1 << 63) - 4;
+	this->val = (((long long) 1) << 63) - 4;
 
 	@["s-castro"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["s-castro"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["s-castro"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 
 	@["s-castro"] = quantize(this->i, this->val);
 	this->i <<= 1;
-	this->val >>= 1;
+	this->val >>= ((long long) 1);
 }
 
 BEGIN

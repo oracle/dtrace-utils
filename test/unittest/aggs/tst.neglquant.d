@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -45,38 +45,40 @@ BEGIN
 	@["n-judah"] = lquantize(2, 0, 10, 1);
 }
 
+this long long val;
+
 BEGIN
 {
 	this->i = 1;
-	this->val = (1 << 63) - 1;
+	this->val = (((long long) 1) << 63) - 1;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["f-market"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 }
 
 BEGIN
@@ -93,35 +95,35 @@ BEGIN
 	 * this robustness on new ISAs very much depends on the precision
 	 * of the long double representation.
 	 */
-	this->val = (1 << 63) - 7;
+	this->val = (((long long) 1) << 63) - 7;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 
 	@["s-castro"] = lquantize(this->i, 0, 10, 1, this->val);
 	this->i++;
-	this->val = ((1 << 63) - 1) / this->i;
+	this->val = ((((long long) 1) << 63) - 1) / this->i;
 }
 
 BEGIN
