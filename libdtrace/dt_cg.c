@@ -4151,7 +4151,7 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	uint_t		lbl_ok = dt_irlist_label(dlp);
 	uint_t		lbl_err = dt_irlist_label(dlp);
 	int		opt_scratchsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
-	int		mst, scratchbot, next;
+	int		mst, next;
 
 	TRACE_REGSET("    subr-alloca:Begin");
 
@@ -4175,7 +4175,6 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	if (((dnp->dn_reg = dt_regset_alloc(drp)) == -1) ||
 	    ((mst = dt_regset_alloc(drp)) == -1) ||
-	    ((scratchbot = dt_regset_alloc(drp)) == -1) ||
 	    ((next = dt_regset_alloc(drp)) == -1))
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -4202,7 +4201,6 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		   BPF_STORE(BPF_W, mst, DMST_SCRATCH_TOP, next));
 
 	dt_regset_free(drp, mst);
-	dt_regset_free(drp, scratchbot);
 	dt_regset_free(drp, next);
 	dt_regset_free(drp, size->dn_reg);
 
