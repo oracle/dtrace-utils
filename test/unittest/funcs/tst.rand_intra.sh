@@ -14,7 +14,7 @@ niter=25000
 # is, use lquantize to look at the distribution of 4-bit blocks.
 
 $dtrace $dt_flags -q -o $tmpfile -c test/triggers/bogus-ioctl -n '
-BEGIN { nuperr = n = 0 }
+BEGIN { n = 0 }
 syscall::ioctl:entry
 /pid == $target/
 {
@@ -29,13 +29,12 @@ syscall::ioctl:entry
 	@g = lquantize((x >> 24) & 0xf, 0, 16, 1);
 	@h = lquantize((x >> 28) & 0xf, 0, 16, 1);
 
-	nuperr += (x & 0xffffffff00000000) ? 1 : 0;
 	n++;
 }
 syscall::ioctl:entry
 /pid == $target && n >= '$niter'/
 {
-	printf("# of upper-bit errors: %d out of %d\n", nuperr, n);
+	printf("number of iterations: %d\n", n);
 	exit(0);
 }'
 
@@ -53,13 +52,9 @@ awk '
         nbins = 16;
     }
 
-    # process line: "# of upper-bit errors: 0 out of ..."
-    /upper-bit errors/ {
-        if (int($5) != 0) {
-            print "ERROR: found some upper-bit errors";
-            exit 1;
-        }
-        n = int($8);
+    # process line: "number of iterations: ..."
+    /number of iterations:/ {
+        n = int($4);
         if (n != '$niter') {
             print "ERROR: unexpected amount of data";
             exit 1;

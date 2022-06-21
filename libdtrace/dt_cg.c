@@ -3893,7 +3893,9 @@ dt_cg_subr_rand(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
-	emit(dlp,  BPF_ALU64_IMM(BPF_AND, dnp->dn_reg, 0xffffffff));
+
+	emit(dlp,  BPF_ALU64_IMM(BPF_LSH, dnp->dn_reg, 32));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ARSH, dnp->dn_reg, 32));
 
 	TRACE_REGSET("    subr-rand:End  ");
 }
