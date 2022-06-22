@@ -71,6 +71,7 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
 	for (i = 0; i < dp->dtdo_varlen; i++) {
 		const dtrace_difv_t *dvp = &dp->dtdo_vartab[i];
 		if (dvp->dtdv_offset == off && dvp->dtdv_scope == scope &&
+		    dvp->dtdv_kind != DIFV_KIND_AGGREGATE &&
 		    dvp->dtdv_insn_from <= addr && addr <= dvp->dtdv_insn_to) {
 			if (dvp->dtdv_name < dp->dtdo_strlen)
 				return dt_difo_getstr(dp, dvp->dtdv_name);
