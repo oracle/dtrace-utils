@@ -4191,8 +4191,8 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, next, 7));
 	emit(dlp,  BPF_ALU64_IMM(BPF_AND, next, (int) -8));
 
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, next, opt_scratchsize + 8, lbl_err));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, dnp->dn_reg, opt_scratchsize + 8,
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, next, opt_scratchsize, lbl_err));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, dnp->dn_reg, opt_scratchsize - 8,
 				  lbl_ok));
 	emitl(dlp, lbl_err,
 		   BPF_NOP());
@@ -4213,7 +4213,7 @@ dt_cg_subr_bcopy(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_node_t	*src = dnp->dn_args;
 	dt_node_t	*dst = src->dn_list;
 	dt_node_t	*size = dst->dn_list;
-	int		maxsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
+	int		maxsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE] - 8;
 	uint_t		lbl_badsize = dt_irlist_label(dlp);
 	uint_t		lbl_ok = dt_irlist_label(dlp);
 
