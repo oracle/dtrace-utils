@@ -4145,17 +4145,15 @@ dt_cg_subr_speculation(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
-dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+dt_cg_subr_alloca_impl(dt_node_t *dnp, dt_node_t *size, dt_irlist_t *dlp,
+		       dt_regset_t *drp)
 {
-	dt_node_t	*size = dnp->dn_args;
 	uint_t		lbl_ok = dt_irlist_label(dlp);
 	uint_t		lbl_err = dt_irlist_label(dlp);
 	int		opt_scratchsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_SCRATCHSIZE];
 	int		mst, next;
 
-	TRACE_REGSET("    subr-alloca:Begin");
-
-	dt_cg_node(size, dlp, drp);
+	TRACE_REGSET("      subr-alloca-impl:Begin");
 
 	/*
 	 * Compile-error out if the size is too large even absent other
@@ -4173,8 +4171,7 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			(unsigned long) size->dn_value,
 			(unsigned long) opt_scratchsize - 8);
 
-	if (((dnp->dn_reg = dt_regset_alloc(drp)) == -1) ||
-	    ((mst = dt_regset_alloc(drp)) == -1) ||
+	if (((mst = dt_regset_alloc(drp)) == -1) ||
 	    ((next = dt_regset_alloc(drp)) == -1))
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -4202,6 +4199,24 @@ dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	dt_regset_free(drp, mst);
 	dt_regset_free(drp, next);
+
+	TRACE_REGSET("      subr-alloca-impl:End  ");
+}
+
+static void
+dt_cg_subr_alloca(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*size = dnp->dn_args;
+
+	TRACE_REGSET("    subr-alloca:Begin");
+
+	dt_cg_node(size, dlp, drp);
+
+	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	dt_cg_subr_alloca_impl(dnp, size, dlp, drp);
+
 	dt_regset_free(drp, size->dn_reg);
 
 	TRACE_REGSET("    subr-alloca:End  ");
@@ -4271,6 +4286,57 @@ dt_cg_subr_bcopy(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free(drp, size->dn_reg);
 
 	TRACE_REGSET("    subr-bcopy:End  ");
+}
+
+static void
+dt_cg_subr_copyin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_node_t	*src = dnp->dn_args;
+	dt_node_t	*size = src->dn_list;
+	int		maxsize = dtp->dt_options[DTRACEOPT_SCRATCHSIZE] - 8;
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+	uint_t		lbl_badsize = dt_irlist_label(dlp);
+
+	TRACE_REGSET("    subr-copyin:Begin");
+
+	/* Validate the size for the copy operation. */
+	dt_cg_node(size, dlp, drp);
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, size->dn_reg, 0, lbl_badsize));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, size->dn_reg, maxsize, lbl_badsize));
+
+	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* Allocate scratch space. */
+	dt_cg_subr_alloca_impl(dnp, size, dlp, drp);
+	dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+
+	dt_cg_node(src, dlp, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, size->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, src->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);
+	emitl(dlp, lbl_badsize,
+		   BPF_NOP());
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, DT_ISREG, size->dn_reg);
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
+
+	dt_regset_free(drp, src->dn_reg);
+	dt_regset_free(drp, size->dn_reg);
+
+	TRACE_REGSET("    subr-copyin:End  ");
 }
 
 static void
@@ -4744,7 +4810,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_RW_READ_HELD]		= &dt_cg_subr_rw_read_held,
 	[DIF_SUBR_RW_WRITE_HELD]	= &dt_cg_subr_rw_write_held,
 	[DIF_SUBR_RW_ISWRITER]		= &dt_cg_subr_rw_iswriter,
-	[DIF_SUBR_COPYIN]		= NULL,
+	[DIF_SUBR_COPYIN]		= &dt_cg_subr_copyin,
 	[DIF_SUBR_COPYINSTR]		= NULL,
 	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,
 	[DIF_SUBR_PROGENYOF]		= &dt_cg_subr_progenyof,
