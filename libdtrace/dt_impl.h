@@ -208,8 +208,8 @@ typedef struct dt_tstring {
 /*
  * To provide a lock-free aggregation write mechanism for the producer,
  * two copies of each aggregation can be used.  A latch sequence number
- * on each CPU can be incremented to indicate to the consumer which copy
- * should be read and whether a copy has changed during reading.
+ * for each aggregation can be incremented to indicate to the consumer
+ * which copy should be read and whether a copy has changed during reading.
  *
  * Until BPF maps can be mmapped, however, we cannot take advantage of
  * this technique.  Using only a single-copy, of course, saves precious
