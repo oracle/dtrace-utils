@@ -364,6 +364,26 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		snprintf(buf, len, "%s",
 			 dt_dis_varname_id(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
 		return buf;
+	} else if (strcmp(fn, "dt_get_agg") == 0) {
+		/*
+		 * If the 4th argument to dt_get_agg() is assigned using a
+		 * 64-bit immediate load instruction we go back one instruction
+		 * to streamline instruction counting.
+		 */
+		if (in[-5].code == (BPF_LD | BPF_DW | BPF_IMM) &&
+		    in[-4].code == 0)
+			in--;
+
+		/*
+		 * We know that the previous six instructions exist and
+		 * move the variable id to a register in the first instruction
+		 * of that seqeuence (because we wrote the code generator to
+		 * emit the instructions in this exact order.)
+		 */
+		in -= 6;
+		snprintf(buf, len, "@%s",
+			 dt_dis_varname_id(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
+		return buf;
 	} else if (strcmp(fn, "dt_get_tvar") == 0) {
 		/*
 		 * We know that the previous six instructions exist and
