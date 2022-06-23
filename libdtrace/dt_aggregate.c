@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -803,30 +803,30 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 	raddr = (int64_t *)(uintptr_t)(rdata + rrec->dtrd_offset);
 
 	switch (lrec->dtrd_action) {
-	case DTRACEAGG_AVG:
+	case DT_AGG_AVG:
 		rval = dt_aggregate_averagecmp(laddr, raddr);
 		break;
 
-	case DTRACEAGG_STDDEV:
+	case DT_AGG_STDDEV:
 		rval = dt_aggregate_stddevcmp(laddr, raddr);
 		break;
 
-	case DTRACEAGG_QUANTIZE:
+	case DT_AGG_QUANTIZE:
 		rval = dt_aggregate_quantizedcmp(laddr, raddr);
 		break;
 
-	case DTRACEAGG_LQUANTIZE:
+	case DT_AGG_LQUANTIZE:
 		rval = dt_aggregate_lquantizedcmp(laddr, raddr);
 		break;
 
-	case DTRACEAGG_LLQUANTIZE:
+	case DT_AGG_LLQUANTIZE:
 		rval = dt_aggregate_llquantizedcmp(laddr, raddr);
 		break;
 
-	case DTRACEAGG_COUNT:
-	case DTRACEAGG_SUM:
-	case DTRACEAGG_MIN:
-	case DTRACEAGG_MAX:
+	case DT_AGG_COUNT:
+	case DT_AGG_SUM:
+	case DT_AGG_MIN:
+	case DT_AGG_MAX:
 		rval = dt_aggregate_countcmp(laddr, raddr);
 		break;
 
@@ -1094,7 +1094,7 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 		size = rec->dtrd_size;
 		data = &h->dtahe_data;
 
-		if (rec->dtrd_action == DTRACEAGG_LQUANTIZE) {
+		if (rec->dtrd_action == DT_AGG_LQUANTIZE) {
 			offs = sizeof(uint64_t);
 			size -= sizeof(uint64_t);
 		}

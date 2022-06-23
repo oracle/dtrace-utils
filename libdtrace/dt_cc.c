@@ -1071,7 +1071,7 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		ap->dtad_kind = DTRACEACT_DIFEXPR;
 	}
 
-	if (fid->di_id == DTRACEAGG_LQUANTIZE) {
+	if (fid->di_id == DT_AGG_LQUANTIZE) {
 		/*
 		 * For linear quantization, we have between two and four
 		 * arguments in addition to the expression:
@@ -1206,7 +1206,7 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		argmax = 5;
 	}
 
-	if (fid->di_id == DTRACEAGG_LLQUANTIZE) {
+	if (fid->di_id == DT_AGG_LLQUANTIZE) {
 		/*
 		 * For log linear quantization, we have four
 		 * arguments in addition to the expression:
@@ -1388,7 +1388,7 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		argmax = 6;
 	}
 
-	if (fid->di_id == DTRACEAGG_QUANTIZE) {
+	if (fid->di_id == DT_AGG_QUANTIZE) {
 		incr = dnp->dn_aggfun->dn_args->dn_list;
 		argmax = 2;
 	}

@@ -983,7 +983,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 	 * an aggregation result conversion, which -- for all but count() --
 	 * is a signed quantity.
 	 */
-	if (kind != DTRACEAGG_COUNT)
+	if (kind != DT_AGG_COUNT)
 		aggtype = "int64_t";
 	else
 		aggtype = "uint64_t";

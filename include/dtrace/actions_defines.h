@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -97,15 +97,6 @@
  */
 
 #define DTRACEACT_AGGREGATION		0x0700
-#define DTRACEAGG_COUNT			(DTRACEACT_AGGREGATION + 1)
-#define DTRACEAGG_MIN			(DTRACEACT_AGGREGATION + 2)
-#define DTRACEAGG_MAX			(DTRACEACT_AGGREGATION + 3)
-#define DTRACEAGG_AVG			(DTRACEACT_AGGREGATION + 4)
-#define DTRACEAGG_SUM			(DTRACEACT_AGGREGATION + 5)
-#define DTRACEAGG_STDDEV		(DTRACEACT_AGGREGATION + 6)
-#define DTRACEAGG_QUANTIZE		(DTRACEACT_AGGREGATION + 7)
-#define DTRACEAGG_LQUANTIZE		(DTRACEACT_AGGREGATION + 8)
-#define DTRACEAGG_LLQUANTIZE		(DTRACEACT_AGGREGATION + 9)
 
 #define DTRACE_QUANTIZE_NBUCKETS		\
 		(((sizeof(uint64_t) * NBBY) - 1) * 2 + 1)
