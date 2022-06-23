@@ -1930,6 +1930,13 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
 	dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
 
+	/*
+	 * If the 'cpp' option was passed, treat it as equivalent to '-C',
+	 * unless a D library is being compiled.
+	 */
+	if (!(cflags & DTRACE_C_DLIB))
+		cflags |= dtp->dt_cflags & DTRACE_C_CPP;
+
 	if (fp && (cflags & DTRACE_C_CPP) && (fp = dt_preproc(dtp, fp)) == NULL)
 		return NULL; /* errno is set for us */
 

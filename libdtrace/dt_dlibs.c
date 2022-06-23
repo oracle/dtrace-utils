@@ -1085,8 +1085,8 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 			goto err_close;
 
 		rv = dt_compile(dtp, DT_CTX_DPROG, DTRACE_PROBESPEC_NAME, NULL,
-				DTRACE_C_EMPTY | DTRACE_C_CTL, 0, NULL, fp,
-				NULL);
+				DTRACE_C_DLIB | DTRACE_C_EMPTY | DTRACE_C_CTL,
+				0, NULL, fp, NULL);
 
 		if (rv != NULL && dtp->dt_errno &&
 		     (dtp->dt_errno != EDT_COMPILER ||
@@ -1120,7 +1120,9 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		}
 
 		dtp->dt_filetag = dld->dtld_library;
-		pgp = dtrace_program_fcompile(dtp, fp, DTRACE_C_EMPTY, 0, NULL);
+		pgp = dtrace_program_fcompile(dtp, fp,
+					      DTRACE_C_DLIB | DTRACE_C_EMPTY,
+					      0, NULL);
 		fclose(fp);
 		dtp->dt_filetag = NULL;
 
