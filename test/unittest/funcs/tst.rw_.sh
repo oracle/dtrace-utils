@@ -12,7 +12,10 @@
 # may prove not to be very robust.  It does not identify a workload that
 # is known to exercise the read-write locks well.  So we simply sit on
 # _raw_read_lock and _raw_write_lock FBT probes and hope there is some
-# activity.  The .r file assumes the locks are uncontested.
+# activity;  test runs may time out.  The .r file assumes the locks are
+# uncontested.
+
+# @@tags: unstable
 
 dtrace=$1
 tmpfile=$tmpdir/tst.rw_.$$
