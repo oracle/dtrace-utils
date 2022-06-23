@@ -1382,6 +1382,17 @@ for dt in $dtrace; do
             dt_flags="$orig_dt_flags"
         done
 
+        # If it xpasses but is unstable, just call it xfail.
+        if [[ -z $fail ]] && [[ -n $xfail ]] && [[ "$(extract_options tags $_test)" == *unstable* ]]; then
+            fail=t
+
+            if [[ -z $xfailmsg ]]; then
+                xfailmsg="xpassed but unstable"
+            else
+                xfailmsg="xpassed but unstable; $xfailmsg"
+            fi
+        fi
+
         if [[ -z $fail ]]; then
 
             # Success!
@@ -1396,6 +1407,18 @@ for dt in $dtrace; do
             pass "$xfail" "$xfailmsg" "$capturing"
 
         else
+
+            # If it fails, is not xfail, and is unstable, just call it xfail.
+            if [[ -z $xfail ]] && [[ "$(extract_options tags $_test)" == *unstable* ]]; then
+                xfail=t
+
+                if [[ -z $xfailmsg ]]; then
+                    xfailmsg="unstable"
+                else
+                    xfailmsg="unstable; $xfailmsg"
+                fi
+            fi
+
             fail "$xfail" "$xfailmsg" "$failmsg${capturing:+, $capturing}"
         fi
 
