@@ -1323,6 +1323,13 @@ main(int argc, char *argv[])
 	}
 
 	/*
+	 * Now we are ready to initialize libdtrace based on the chosen
+	 * options.
+	 */
+	if (dtrace_init(g_dtp) < 0)
+		dfatal("failed to initialize libdtrace");
+
+	/*
 	 * In our fourth pass we finish g_cmdv[] by calling dc_func to convert
 	 * each string or file specification into a compiled program structure.
 	 */

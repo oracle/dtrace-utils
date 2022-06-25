@@ -1114,30 +1114,6 @@ dt_vopen(int version, int flags, int *errp,
 		return set_open_errno(dtp, errp, dtp->dt_errno);
 
 	/*
-	 * Initialize the BPF library handling.
-	 */
-	dt_dlib_init(dtp);
-
-	/*
-	 * Initialize consume handling, e.g. storage of uncommitted speculations.
-	 */
-	if (dt_consume_init(dtp) < 0)
-		return set_open_errno(dtp, errp, dtp->dt_errno);
-
-	/*
-	 * Initialize the collection of probes that is made available by the
-	 * known providers.
-	 */
-	dt_probe_init(dtp);
-	for (i = 0; i < ARRAY_SIZE(dt_providers); i++) {
-		int n;
-
-		n = dt_providers[i]->populate(dtp);
-		dt_dprintf("loaded %d probes for %s\n", n,
-			   dt_providers[i]->name);
-	}
-
-	/*
 	 * Load hard-wired inlines into the definition cache by calling the
 	 * compiler on the raw definition string defined above.
 	 */
@@ -1180,6 +1156,38 @@ dtrace_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
 {
 	return dt_vopen(version, flags, errp, vector, arg);
+}
+
+int
+dtrace_init(dtrace_hdl_t *dtp)
+{
+	int	i;
+
+	/*
+	 * Initialize the BPF library handling.
+	 */
+	dt_dlib_init(dtp);
+
+	/*
+	 * Initialize consume handling.
+	 */
+	if (dt_consume_init(dtp) < 0)
+		return -1;			/* errno is already set */
+
+	/*
+	 * Initialize the collection of probes that is made available by the
+	 * known providers.
+	 */
+	dt_probe_init(dtp);
+	for (i = 0; i < ARRAY_SIZE(dt_providers); i++) {
+		int	n;
+
+		n = dt_providers[i]->populate(dtp);
+		dt_dprintf("loaded %d probes for %s\n", n,
+			   dt_providers[i]->name);
+	}
+
+	return 0;
 }
 
 void

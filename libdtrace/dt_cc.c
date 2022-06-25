@@ -2385,10 +2385,14 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_TASK_REAL_PARENT:
 			case DT_CONST_TASK_COMM: {
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
-				ctf_id_t type = ctf_lookup_by_name(cfp, "struct task_struct");
+				ctf_id_t type;
 				ctf_membinfo_t ctm;
 				int rc = 0;
 
+				if (!cfp)
+					return dt_set_errno(dtp, EDT_NOCTF);
+
+				type = ctf_lookup_by_name(cfp, "struct task_struct");
 				if (type == CTF_ERR)
 					goto err_ctf;
 
@@ -2413,10 +2417,14 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			}
 			case DT_CONST_MUTEX_OWNER: {
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
-				ctf_id_t type = ctf_lookup_by_name(cfp, "struct mutex");
+				ctf_id_t type;
 				ctf_membinfo_t ctm;
 				ctf_id_t rc = CTF_ERR;
 
+				if (!cfp)
+					return dt_set_errno(dtp, EDT_NOCTF);
+
+				type = ctf_lookup_by_name(cfp, "struct mutex");
 				if (type == CTF_ERR)
 					goto err_ctf;
 
@@ -2442,6 +2450,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				ctf_membinfo_t ctm;
 				ctf_id_t rc = CTF_ERR;
 				uint64_t total_offset;
+
+				if (!cfp)
+					return dt_set_errno(dtp, EDT_NOCTF);
 
 				type = ctf_lookup_by_name(cfp, "rwlock_t");
 				if (type == CTF_ERR)
@@ -2676,10 +2687,8 @@ dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags,
 
 	DT_DISASM_PROG(dtp, cflags, dp, stderr, idp, prp->desc);
 
-	if (dt_link(dtp, prp, dp, idp) != 0) {
-		dt_difo_free(dtp, dp);
+	if (dt_link(dtp, prp, dp, idp) != 0)
 		return NULL;
-	}
 
 	DT_DISASM_PROG_LINKED(dtp, cflags, dp, stderr, idp, prp->desc);
 

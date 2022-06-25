@@ -43,6 +43,7 @@ typedef struct dtrace_aggdata dtrace_aggdata_t;
 extern dtrace_hdl_t *dtrace_open(int version, int flags, int *errp);
 extern dtrace_hdl_t *dtrace_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg);
+extern int dtrace_init(dtrace_hdl_t *dtp);
 
 extern int dtrace_go(dtrace_hdl_t *dtp, uint_t cflags);
 extern int dtrace_stop(dtrace_hdl_t *dtp);
