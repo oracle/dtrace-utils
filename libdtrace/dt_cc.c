@@ -1930,13 +1930,6 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
 	dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
 
-	/*
-	 * If the 'cpp' option was passed, treat it as equivalent to '-C',
-	 * unless a D library is being compiled.
-	 */
-	if (!(cflags & DTRACE_C_DLIB))
-		cflags |= dtp->dt_cflags & DTRACE_C_CPP;
-
 	if (fp && (cflags & DTRACE_C_CPP) && (fp = dt_preproc(dtp, fp)) == NULL)
 		return NULL; /* errno is set for us */
 
@@ -2695,14 +2688,23 @@ dt_program_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags,
 	return dp;
 }
 
-dtrace_prog_t *
-dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
-    dtrace_probespec_t spec, uint_t cflags, int argc, char *const argv[])
+static dtrace_prog_t *
+dt_program_compile(dtrace_hdl_t *dtp, dtrace_probespec_t spec, uint_t cflags,
+		   int argc, char *const argv[], FILE *fp, const char *s)
 {
-	dtrace_prog_t *rv;
+	dtrace_prog_t	*rv;
 
-	rv = dt_compile(dtp, DT_CTX_DPROG, spec, NULL, cflags,
-			argc, argv, NULL, s);
+	/*
+	 * If the 'cpp' option was passed, treat it as equivalent to '-C',
+	 * unless a D library is being compiled or the default ERROR probe.
+	 * If the 'verbose' option was passed, treat it as equivalent to '-S',
+	 * unless a D library is being compiled or the default ERROR probe.
+	 */
+	if (!(cflags & (DTRACE_C_DLIB | DTRACE_C_EPROBE)))
+		cflags |= dtp->dt_cflags & (DTRACE_C_CPP | DTRACE_C_DIFV);
+
+	rv = dt_compile(dtp, DT_CTX_DPROG, spec, NULL, cflags, argc, argv, fp,
+			s);
 	if (rv == NULL)
 		return NULL;
 
@@ -2712,19 +2714,19 @@ dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
 }
 
 dtrace_prog_t *
-dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp,
-    uint_t cflags, int argc, char *const argv[])
+dtrace_program_strcompile(dtrace_hdl_t *dtp, const char *s,
+			  dtrace_probespec_t spec, uint_t cflags,
+			  int argc, char *const argv[])
 {
-	dtrace_prog_t *rv;
+	return dt_program_compile(dtp, spec, cflags, argc, argv, NULL, s);
+}
 
-	rv = dt_compile(dtp, DT_CTX_DPROG, DTRACE_PROBESPEC_NAME, NULL, cflags,
-			argc, argv, fp, NULL);
-	if (rv == NULL)
-		return NULL;
-
-	DT_DISASM_CLAUSE(dtp, cflags, rv, stderr);
-
-	return rv;
+dtrace_prog_t *
+dtrace_program_fcompile(dtrace_hdl_t *dtp, FILE *fp, uint_t cflags,
+			int argc, char *const argv[])
+{
+	return dt_program_compile(dtp, DTRACE_PROBESPEC_NAME, cflags,
+				  argc, argv, fp, NULL);
 }
 
 int
