@@ -80,12 +80,11 @@ dt_aggregate_stddevcmp(int64_t *lhs, int64_t *rhs)
 }
 
 static long double
-dt_aggregate_lquantizedsum(int64_t *lquanta)
+dt_aggregate_lquantizedsum(int64_t *lquanta, int64_t sig)
 {
-	int64_t arg = *lquanta++;
-	int32_t base = DTRACE_LQUANTIZE_BASE(arg);
-	uint16_t step = DTRACE_LQUANTIZE_STEP(arg);
-	uint16_t levels = DTRACE_LQUANTIZE_LEVELS(arg), i;
+	int32_t base = DTRACE_LQUANTIZE_BASE(sig);
+	uint16_t step = DTRACE_LQUANTIZE_STEP(sig);
+	uint16_t levels = DTRACE_LQUANTIZE_LEVELS(sig), i;
 	long double total = (long double)lquanta[0] * (long double)(base - 1);
 
 	for (i = 0; i < levels; base += step, i++)
@@ -96,12 +95,11 @@ dt_aggregate_lquantizedsum(int64_t *lquanta)
 }
 
 static int64_t
-dt_aggregate_lquantizedzero(int64_t *lquanta)
+dt_aggregate_lquantizedzero(int64_t *lquanta, int64_t sig)
 {
-	int64_t arg = *lquanta++;
-	int32_t base = DTRACE_LQUANTIZE_BASE(arg);
-	uint16_t step = DTRACE_LQUANTIZE_STEP(arg);
-	uint16_t levels = DTRACE_LQUANTIZE_LEVELS(arg), i;
+	int32_t base = DTRACE_LQUANTIZE_BASE(sig);
+	uint16_t step = DTRACE_LQUANTIZE_STEP(sig);
+	uint16_t levels = DTRACE_LQUANTIZE_LEVELS(sig), i;
 
 	if (base - 1 == 0)
 		return lquanta[0];
@@ -120,10 +118,10 @@ dt_aggregate_lquantizedzero(int64_t *lquanta)
 }
 
 static int
-dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
+dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs, int64_t lsig, int64_t rsig)
 {
-	long double lsum = dt_aggregate_lquantizedsum(lhs);
-	long double rsum = dt_aggregate_lquantizedsum(rhs);
+	long double lsum = dt_aggregate_lquantizedsum(lhs, lsig);
+	long double rsum = dt_aggregate_lquantizedsum(rhs, rsig);
 	int64_t lzero, rzero;
 
 	if (lsum < rsum)
@@ -138,8 +136,8 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 	 * the range of the linear quantization), then this will be judged a
 	 * tie and will be resolved based on the key comparison.
 	 */
-	lzero = dt_aggregate_lquantizedzero(lhs);
-	rzero = dt_aggregate_lquantizedzero(rhs);
+	lzero = dt_aggregate_lquantizedzero(lhs, lsig);
+	rzero = dt_aggregate_lquantizedzero(rhs, rsig);
 
 	if (lzero < rzero)
 		return DT_LESSTHAN;
@@ -152,13 +150,12 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 
 /* called by dt_aggregate_llquantizedcmp() */
 static long double
-dt_aggregate_llquantizedsum(int64_t *llquanta)
+dt_aggregate_llquantizedsum(int64_t *llquanta, int64_t sig)
 {
-	int64_t arg = *llquanta++;
-	int factor = DTRACE_LLQUANTIZE_FACTOR(arg);
-	int lmag = DTRACE_LLQUANTIZE_LMAG(arg);
-	int hmag = DTRACE_LLQUANTIZE_HMAG(arg);
-	int steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	int factor = DTRACE_LLQUANTIZE_FACTOR(sig);
+	int lmag = DTRACE_LLQUANTIZE_LMAG(sig);
+	int hmag = DTRACE_LLQUANTIZE_HMAG(sig);
+	int steps = DTRACE_LLQUANTIZE_STEPS(sig);
 	int steps_factor = steps / factor;
 
 	int bin0 = 1 + (hmag-lmag+1) * (steps-steps_factor);
@@ -191,13 +188,12 @@ dt_aggregate_llquantizedsum(int64_t *llquanta)
 
 /* called by dt_aggregate_llquantizedcmp() */
 static int64_t
-dt_aggregate_llquantizedzero(int64_t *llquanta)
+dt_aggregate_llquantizedzero(int64_t *llquanta, int64_t sig)
 {
-	int64_t arg = *llquanta++;
-	uint16_t factor = DTRACE_LLQUANTIZE_FACTOR(arg);
-	uint16_t lmag = DTRACE_LLQUANTIZE_LMAG(arg);
-	uint16_t hmag = DTRACE_LLQUANTIZE_HMAG(arg);
-	uint16_t steps = DTRACE_LLQUANTIZE_STEPS(arg);
+	uint16_t factor = DTRACE_LLQUANTIZE_FACTOR(sig);
+	uint16_t lmag = DTRACE_LLQUANTIZE_LMAG(sig);
+	uint16_t hmag = DTRACE_LLQUANTIZE_HMAG(sig);
+	uint16_t steps = DTRACE_LLQUANTIZE_STEPS(sig);
 	uint16_t underflow_bin = 1 + (hmag-lmag+1) * (steps-steps/factor);
 
 	/*
@@ -213,10 +209,10 @@ dt_aggregate_llquantizedzero(int64_t *llquanta)
  * Other behavior is also reasonable.
  */
 static int
-dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs)
+dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs, int64_t lsig, int64_t rsig)
 {
-	long double lsum = dt_aggregate_llquantizedsum(lhs);
-	long double rsum = dt_aggregate_llquantizedsum(rhs);
+	long double lsum = dt_aggregate_llquantizedsum(lhs, lsig);
+	long double rsum = dt_aggregate_llquantizedsum(rhs, rsig);
 	int64_t lzero, rzero;
 
 	if (lsum < rsum)
@@ -231,8 +227,8 @@ dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs)
 	 * the range of the linear quantization), then this will be judged a
 	 * tie and will be resolved based on the key comparison.
 	 */
-	lzero = dt_aggregate_llquantizedzero(lhs);
-	rzero = dt_aggregate_llquantizedzero(rhs);
+	lzero = dt_aggregate_llquantizedzero(lhs, lsig);
+	rzero = dt_aggregate_llquantizedzero(rhs, rsig);
 
 	if (lzero < rzero)
 		return DT_LESSTHAN;
@@ -763,7 +759,7 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 	caddr_t ldata = lh->dtahe_data.dtada_data;
 	caddr_t rdata = rh->dtahe_data.dtada_data;
 	dtrace_recdesc_t *lrec, *rrec;
-	int64_t *laddr, *raddr;
+	int64_t *laddr, *raddr, lsig, rsig;
 	int rval, i;
 
 	assert(lagg->dtagd_nkrecs != 0 && ragg->dtagd_nkrecs != 0);
@@ -800,6 +796,9 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 	laddr = (int64_t *)(uintptr_t)(ldata + lrec->dtrd_offset);
 	raddr = (int64_t *)(uintptr_t)(rdata + rrec->dtrd_offset);
 
+	lsig = lagg->dtagd_sig;
+	rsig = ragg->dtagd_sig;
+
 	switch (lrec->dtrd_action) {
 	case DT_AGG_AVG:
 		rval = dt_aggregate_averagecmp(laddr, raddr);
@@ -814,11 +813,11 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 		break;
 
 	case DT_AGG_LQUANTIZE:
-		rval = dt_aggregate_lquantizedcmp(laddr, raddr);
+		rval = dt_aggregate_lquantizedcmp(laddr, raddr, lsig, rsig);
 		break;
 
 	case DT_AGG_LLQUANTIZE:
-		rval = dt_aggregate_llquantizedcmp(laddr, raddr);
+		rval = dt_aggregate_llquantizedcmp(laddr, raddr, lsig, rsig);
 		break;
 
 	case DT_AGG_COUNT:
