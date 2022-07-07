@@ -1814,7 +1814,7 @@ dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 	dt_pfwalk_t		*pfw = arg;
 	dtrace_hdl_t		*dtp = pfw->pfw_argv->pfv_dtp;
 
-	if (pfw->pfw_aid != agg->dtagd_id)
+	if (pfw->pfw_aid != agg->dtagd_varid)
 		return 0;	/* id does not match */
 
 	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,

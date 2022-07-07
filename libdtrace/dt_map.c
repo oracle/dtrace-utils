@@ -280,11 +280,10 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	 */
 	nkrecs = 1 + ((dt_idsig_t *)aid->di_data)->dis_argc;
 
-	agg->dtagd_id = id;
+	agg->dtagd_varid = id;
 	agg->dtagd_name = aid->di_name;
 	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
 	agg->dtagd_normal = 1;
-	agg->dtagd_varid = aid->di_id;
 	agg->dtagd_keyidx = 1;
 	agg->dtagd_nkrecs = nkrecs;
 

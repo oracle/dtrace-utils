@@ -54,7 +54,6 @@ typedef struct dtrace_aggdesc {
 	DTRACE_PTR(char, dtagd_name);		/* aggregation name */
 	dtrace_aggid_t dtagd_varid;		/* aggregation varID */
 	int dtagd_flags;			/* aggregation flags */
-	dtrace_aggid_t dtagd_id;		/* aggregation ID */
 	uint64_t dtagd_sig;			/* aggregation signature */
 	uint64_t dtagd_normal;			/* aggregation normalization */
 	uint32_t dtagd_ksize;			/* keys size in bytes */
