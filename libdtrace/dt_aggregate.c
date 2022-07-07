@@ -458,10 +458,10 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 	if (rval != 0)
 		return rval;
 
-	/* point to the latch sequence number */
+	/* point to the data counter */
 	src = (int64_t *)(st->buf + aid->di_offset);
 
-	/* skip it if latch sequence number is 0 */
+	/* skip it if data counter is 0 */
 	if (*src == 0)
 		return 0;
 
@@ -965,7 +965,7 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
  * set for min(), so that any other value fed to the functions will register
  * properly.
  *
- * The latch sequence number of the first aggregation is used as a flag to
+ * The data counter of the first aggregation is used as a flag to
  * indicate whether an initial value was stored for any aggregation.
  */
 static int
@@ -988,12 +988,9 @@ init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
 	/* Indicate that we are setting initial values. */
 	*(int64_t *)buf = 1;
 
-	/* skip ptr[0], it is the latch sequence number */
+	/* skip ptr[0], it is the data counter */
 	ptr = (int64_t *)(buf + aid->di_offset);
 	ptr[1] = value;
-#if DT_AGG_NUM_COPIES == 2
-	ptr[2] = value;
-#endif
 
 	return 0;
 }

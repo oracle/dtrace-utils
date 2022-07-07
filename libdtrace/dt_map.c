@@ -317,8 +317,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	drecs[DT_AGGDATA_COUNTER].dtrd_arg = 1;
 
 	drecs[DT_AGGDATA_RECORD].dtrd_action = ((dt_ident_t *) aid->di_iarg)->di_id;
-	drecs[DT_AGGDATA_RECORD].dtrd_size = (aid->di_size - sizeof(uint64_t)) /
-					     DT_AGG_NUM_COPIES;
+	drecs[DT_AGGDATA_RECORD].dtrd_size = aid->di_size - sizeof(uint64_t);
 	drecs[DT_AGGDATA_RECORD].dtrd_offset = sizeof(uint64_t);
 	drecs[DT_AGGDATA_RECORD].dtrd_alignment = sizeof(uint64_t);
 	drecs[DT_AGGDATA_RECORD].dtrd_format = NULL;

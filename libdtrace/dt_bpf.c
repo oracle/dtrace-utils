@@ -313,9 +313,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		dt_state.h.
  * - aggs:	Aggregation data buffer map, associated with each CPU.  The
  *		map is implemented as a global per-CPU map with a singleton
- *		element (key 0).  Every aggregation is stored with two copies
- *		of its data to provide a lockless latch-based mechanism for
- *		atomic reading and writing.
+ *		element (key 0).
  * - specs:	Map associating speculation IDs with a dt_bpf_specs_t struct
  *		giving the number of buffers speculated into for this
  *		speculation, and the number drained by userspace.
