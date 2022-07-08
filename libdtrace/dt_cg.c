@@ -246,16 +246,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *
 	 *	dctx.aggs = rc;		// stdw [%r9 + DCTX_AGG], %r0
 	 */
-	if (dt_idhash_datasize(dtp->dt_aggs) > 0) {
+	if (dtp->dt_maxaggdsize > 0) {
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
 		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_AGG, BPF_REG_0));
 		dt_cg_xsetx(dlp, aggs, DT_LBL_NONE, BPF_REG_1, aggs->di_id);
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_AGG));
-		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_9, DCTX_AGG, 0));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_0));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_AGG));
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
@@ -2657,7 +2651,9 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 
 /*
  * Generate code to push the specified argument list on to the tuple stack.
- * We use this routine for handling the index tuple for associative arrays.
+ * We use this routine for handling the index tuple for associative arrays
+ * as well as keys for aggregations.
+ *.
  * We must first generate code for all subexpressions because any subexpression
  * could itself require the use of the tuple assembly area and we only provide
  * one.
@@ -2744,6 +2740,7 @@ empty_args:
 	for (dnp = args, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
 		dtrace_diftype_t	t;
 		size_t			size;
+		uint_t			nextoff;
 
 		dt_node_diftype(dtp, dnp, &t);
 		size = t.dtdt_size;
@@ -2761,11 +2758,15 @@ empty_args:
 			assert(size > 0 && size <= 8 &&
 			       (size & (size - 1)) == 0);
 
+			nextoff = (tuplesize + (size - 1)) & ~(size - 1);
+			if (tuplesize < nextoff)
+				emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, nextoff - tuplesize));
+
 			emit(dlp,  BPF_STORE(ldstw[size], treg, 0, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
 
 			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, size));
-			tuplesize += size;
+			tuplesize = nextoff + size;
 		} else if (dt_node_is_string(dnp)) {
 			uint_t	lbl_valid = dt_irlist_label(dlp);
 
@@ -5649,60 +5650,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 					     sizeof(uint64_t) + (sz)); \
 	} while (0)
 
-/*
- * Return a register that holds a pointer to the aggregation data to be
- * updated.
- *
- * We update the data counter (first value in the aggregation) to
- * signal that the aggregation has data.  The location of data for the
- * given aggregation is stored in the register returned from this function.
- */
-static int
-dt_cg_agg_buf_prepare(dt_ident_t *aid, int size, dt_irlist_t *dlp,
-		      dt_regset_t *drp)
-{
-	int		rptr;
-
-	TRACE_REGSET("            Prep: Begin");
-
-	dt_regset_xalloc(drp, BPF_REG_0);
-	rptr = dt_regset_alloc(drp);
-	assert(rptr != -1);
-
-	/*
-	 *	ptr = dctx->agg;	// lddw %rptr, [%fp + DT_STK_DCTX]
-	 *				// lddw %rptr, [%rptr + DCTX_AGG]
-	 */
-	emit(dlp, BPF_LOAD(BPF_DW, rptr, BPF_REG_FP, DT_STK_DCTX));
-	emit(dlp, BPF_LOAD(BPF_DW, rptr, rptr, DCTX_AGG));
-
-	/*
-	 *	*((uint64_t *)(ptr + aid->di_offset))++;
-	 *				// mov %r0, 1
-	 *				// xadd [%rptr + aid->di_offset], %r0
-	 *      ptr += aid->di_offset + sizeof(uint64_t);
-	 *				// add %rptr, aid->di_offset +
-	 *				//	      sizeof(uint64_t)
-	 */
-	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 1));
-	emit(dlp, BPF_XADD_REG(BPF_DW, rptr, aid->di_offset, BPF_REG_0));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, rptr, aid->di_offset + sizeof(uint64_t)));
-
-	dt_regset_free(drp, BPF_REG_0);
-
-	TRACE_REGSET("            Prep: End  ");
-
-	return rptr;
-}
-
 #define DT_CG_AGG_IMPL(aid, sz, dlp, drp, f, ...) \
 	do {								\
 		int	dreg;						\
 									\
 		TRACE_REGSET("        Upd: Begin ");			\
 									\
-		dreg = dt_cg_agg_buf_prepare((aid), (sz), (dlp), (drp));\
+		if ((dreg = dt_regset_alloc(drp)) == -1)		\
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);		\
 									\
+		dt_cg_pop_stack(dreg, (dlp), (drp));			\
 		(f)((dlp), (drp), dreg, ## __VA_ARGS__);		\
 		dt_regset_free((drp), dreg);				\
 									\
@@ -6723,7 +6680,17 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_ident_t	*aid, *fid;
+	dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_agg");
 	dt_cg_aggfunc_f	*aggfp;
+	dt_node_t	noargs = {
+					dnp->dn_ctfp,
+					dtp->dt_type_void,
+				 };
+	uint_t		Lgot_agg = dt_irlist_label(dlp);
+
+	assert(idp != NULL);
+
+	dt_cg_clsflags(pcb, DTRACEACT_AGGREGATION, dnp);
 
 	/*
 	 * If the aggregation has no aggregating function applied to it, then
@@ -6741,17 +6708,53 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnerror(dnp->dn_aggfun, D_AGG_SCALAR, "%s( ) argument #1 must "
 			"be of scalar type\n", fid->di_name);
 
-	/* FIXME */
-	if (dnp->dn_aggtup != NULL)
-		dnerror(dnp->dn_aggtup, D_ARR_BADREF, "indexing is not "
-			"supported yet: @%s\n", dnp->dn_ident->di_name);
+	/* Generate BPF code for the aggregation key (if any). */
+	if (dnp->dn_aggtup == NULL)
+		dnp->dn_aggtup = &noargs;
 
+	dt_cg_arglist(aid, dnp->dn_aggtup, dlp, drp);
+
+	/* Get the aggregation data pointer. */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, aid->di_id));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_aggtup->dn_reg));
+	dt_regset_free(drp, dnp->dn_aggtup->dn_reg);
+	if (dnp->dn_aggtup == &noargs)
+		dnp->dn_aggtup = NULL;
+
+	switch (fid->di_id) {
+	case DT_AGG_MAX:
+		dt_cg_setx(dlp, BPF_REG_4, INT64_MIN);
+		break;
+	case DT_AGG_MIN:
+		dt_cg_setx(dlp, BPF_REG_4, INT64_MAX);
+		break;
+	default:
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, 0));
+	}
+
+	dt_cg_zerosptr(BPF_REG_5, dlp, drp);
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	dt_regset_free_args(drp);
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, Lgot_agg));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_cg_probe_error(yypcb, DTRACEFLT_ILLOP, DT_ISIMM, 0);
+	emitl(dlp, Lgot_agg,
+		   BPF_NOP());
+
+	/* Push the agg data pointer onto the stack. */
+	dt_cg_push_stack(BPF_REG_0, dlp, drp);
+
+	/* Evaluate the aggregation function. */
 	assert(fid->di_id >= DT_AGG_BASE && fid->di_id < DT_AGG_HIGHEST);
-
-	dt_cg_clsflags(pcb, DTRACEACT_AGGREGATION, dnp);
 	aggfp = _dt_cg_agg[DT_AGG_IDX(fid->di_id)];
 	assert(aggfp != NULL);
-
 	(*aggfp)(pcb, aid, dnp, dlp, drp);
 
 	/*

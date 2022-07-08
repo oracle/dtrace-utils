@@ -1716,7 +1716,7 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 	for (i = 1; i < agg->dtagd_nkrecs; i++) {
 		rec = &agg->dtagd_krecs[i];
 
-		if (dt_print_datum(dtp, fp, rec, aggdata->dtada_data, 1, 0) < 0)
+		if (dt_print_datum(dtp, fp, rec, aggdata->dtada_key, 1, 0) < 0)
 			return DTRACE_AGGWALK_ERROR;
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,

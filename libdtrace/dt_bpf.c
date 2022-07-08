@@ -486,19 +486,28 @@ gmap_create_state(dtrace_hdl_t *dtp)
 static int
 gmap_create_aggs(dtrace_hdl_t *dtp)
 {
-	size_t	sz = dt_idhash_datasize(dtp->dt_aggs);
 	size_t	ncpus = dtp->dt_conf.max_cpuid + 1;
+	size_t	nelems = 0;
 	int	i;
 
 	/* Only create the map if it is used. */
-	if (sz == 0)
+	if (dtp->dt_maxaggdsize == 0)
+		return 0;
+
+	assert(dtp->dt_maxtuplesize > 0);
+
+	nelems = dtp->dt_options[DTRACEOPT_AGGSIZE] /
+		 (dtp->dt_maxtuplesize + dtp->dt_maxaggdsize);
+
+	if (nelems == 0)
 		return 0;
 
 	dtp->dt_aggmap_fd = create_gmap_of_maps(dtp, "aggs",
 						BPF_MAP_TYPE_ARRAY_OF_MAPS,
 						sizeof(uint32_t), ncpus,
-						BPF_MAP_TYPE_ARRAY,
-						sizeof(uint32_t), sz, 1);
+						BPF_MAP_TYPE_HASH,
+						dtp->dt_maxtuplesize,
+						dtp->dt_maxaggdsize, nelems);
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
 		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
@@ -506,8 +515,9 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 		int	fd;
 
 		snprintf(name, 16, "aggs_%d", cpu);
-		fd = dt_bpf_map_create(BPF_MAP_TYPE_ARRAY, name,
-				       sizeof(uint32_t), sz, 1, 0);
+		fd = dt_bpf_map_create(BPF_MAP_TYPE_HASH, name,
+				       dtp->dt_maxtuplesize,
+				       dtp->dt_maxaggdsize, nelems, 0);
 		if (fd < 0)
 			return map_create_error(dtp, name, errno);
 
@@ -658,6 +668,8 @@ gmap_create_strtab(dtrace_hdl_t *dtp)
 		dtp->dt_zerosize = dtp->dt_maxdvarsize;
 	if (dtp->dt_zerosize < dtp->dt_maxtuplesize)
 		dtp->dt_zerosize = dtp->dt_maxtuplesize;
+	if (dtp->dt_zerosize < dtp->dt_maxaggdsize)
+		dtp->dt_zerosize = dtp->dt_maxaggdsize;
 
 	sz = dtp->dt_zerooffset + dtp->dt_zerosize;
 	strtab = dt_zalloc(dtp, sz);

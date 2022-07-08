@@ -25,6 +25,7 @@ bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	basename.S \
 	dirname.S \
+	get_agg.c \
 	get_bvar.c \
 	get_dvar.c \
 	index.S \

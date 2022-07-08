@@ -364,8 +364,8 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
 struct dtrace_aggdata {
 	dtrace_hdl_t *dtada_hdl;		/* handle to DTrace library */
 	dtrace_aggdesc_t *dtada_desc;		/* aggregation description */
-	caddr_t dtada_data;			/* pointer to raw data */
-	size_t dtada_size;			/* total size of the data */
+	caddr_t dtada_key;			/* pointer to key */
+	caddr_t dtada_data;			/* pointer to data */
 	caddr_t *dtada_percpu;			/* per CPU data, if avail */
 };
 

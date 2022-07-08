@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@timeout: 500 */
-/* @@xfail: need support for aggregation keys */
 
 /*
  * ASSERTION:

@@ -1342,8 +1342,8 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		}
 
 		if (pfd->pfd_flags & DT_PFCONV_DYNWIDTH) {
-			if (dt_printf_getint(dtp, recp++, nrecs--, buf,
-					     len, &width) == -1)
+			if (dt_printf_getint(dtp, recp++, nrecs--, buf, len,
+					     &width) == -1)
 				return -1;	/* errno is set for us */
 			pfd->pfd_dynwidth = width;
 		} else
@@ -1379,13 +1379,18 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 
 			rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 			addr = aggdata->dtada_data + rec->dtrd_offset;
-			limit = addr + aggdata->dtada_size;
+			limit = addr + rec->dtrd_size;
 			normal = agg->dtagd_normal;
 			sig = agg->dtagd_sig;
 			flags = DTRACE_BUFDATA_AGGVAL;
 		} else {
 			if (nrecs == 0)
 				return dt_set_errno(dtp, EDT_DMISMATCH);
+
+			rec = recp++;
+			nrecs--;
+			normal = 1;
+			sig = 0;
 
 			if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {
 				/*
@@ -1398,21 +1403,19 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 				 */
 				aggdata = aggsdata[0];
 				flags = DTRACE_BUFDATA_AGGKEY;
+				addr = (caddr_t)aggdata->dtada_key + rec->dtrd_offset;
+				limit = addr + rec->dtrd_size;
+			} else {
+				addr = (caddr_t)buf + rec->dtrd_offset;
+				limit = lim;
 			}
-
-			rec = recp++;
-			nrecs--;
-			addr = (caddr_t)buf + rec->dtrd_offset;
-			limit = lim;
-			normal = 1;
-			sig = 0;
 		}
 
 		size = rec->dtrd_size;
 
 		if (addr + size > limit) {
 			dt_dprintf("bad size: addr=%p size=0x%x lim=%p\n",
-			    (void *)addr, rec->dtrd_size, (void *)lim);
+			    (void *)addr, rec->dtrd_size, (void *)limit);
 			return dt_set_errno(dtp, EDT_DOFFSET);
 		}
 
@@ -1815,7 +1818,7 @@ dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 		return 0;	/* id does not match */
 
 	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
-			     adp->dtada_data, adp->dtada_size, &adp, 1) == -1) {
+			     adp->dtada_key, agg->dtagd_dsize, &adp, 1) == -1) {
 		pfw->pfw_err = dtp->dt_errno;
 		return DTRACE_AGGWALK_ERROR;
 	}
@@ -1841,7 +1844,7 @@ dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 	int			i;
 
 	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
-			     aggdata->dtada_data, aggdata->dtada_size,
+			     aggdata->dtada_key, agg->dtagd_dsize,
 			     aggsdata, naggvars) == -1) {
 		pfw->pfw_err = dtp->dt_errno;
 		return DTRACE_AGGWALK_ERROR;

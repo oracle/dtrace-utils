@@ -350,12 +350,11 @@ dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, uint32_t size,
 	assert(agg != NULL);
 
 	assert(agg->dtagd_keyidx > 0 && agg->dtagd_keyidx < agg->dtagd_nkrecs);
+	assert(alignment > 0 && alignment <= 8 &&
+	       (alignment & (alignment - 1)) == 0);
 
 	rec = &agg->dtagd_krecs[agg->dtagd_keyidx++];
 	off = (agg->dtagd_ksize + (alignment - 1)) & ~(alignment - 1);
-
-	assert(alignment > 0 && alignment <= 8 &&
-	       (alignment & (alignment - 1)) == 0);
 
         rec->dtrd_action = DTRACEACT_DIFEXPR;
         rec->dtrd_size = size;

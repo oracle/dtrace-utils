@@ -389,8 +389,8 @@ static dtrace_aggid_t
 dt_aggregate_aggid(dt_ahashent_t *ent)
 {
 	dtrace_aggdesc_t *agg = ent->dtahe_data.dtada_desc;
-	caddr_t data = ent->dtahe_data.dtada_data;
-	dtrace_recdesc_t *rec = agg->dtagd_krecs;
+	caddr_t key = ent->dtahe_data.dtada_key;
+	dtrace_recdesc_t *rec = &agg->dtagd_krecs[0];
 
 	/*
 	 * First, we'll check the variable ID in the aggdesc.  If it's valid,
@@ -401,7 +401,7 @@ dt_aggregate_aggid(dt_ahashent_t *ent)
 		return agg->dtagd_varid;
 
 	agg->dtagd_varid = *((dtrace_aggid_t *)
-					(uintptr_t)(data + rec->dtrd_offset));
+					(uintptr_t)&key[rec->dtrd_offset]);
 
 	return agg->dtagd_varid;
 }
@@ -415,125 +415,121 @@ typedef struct dt_snapstate {
 } dt_snapstate_t;
 
 static void
-dt_agg_one_agg(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t datasz)
+dt_agg_one_agg(dt_ident_t *aid, dtrace_recdesc_t *rec, char *dst,
+	       const char *src)
 {
-	uint_t i, cnt;
+	size_t	i, cnt;
+	int64_t	*dvals, *svals;
+
+	dvals = (int64_t *)&dst[rec->dtrd_offset];
+	svals = (int64_t *)&src[rec->dtrd_offset];
 
 	switch (((dt_ident_t *)aid->di_iarg)->di_id) {
 	case DT_AGG_MAX:
-		*dst++ = *src++;	/* copy latch sequence number */
-		if (*src > *dst)
-			*dst = *src;
+		if (*svals > *dvals)
+			*dvals = *svals;
 
 		break;
 	case DT_AGG_MIN:
-		*dst++ = *src++;	/* copy latch sequence number */
-		if (*src < *dst)
-			*dst = *src;
+		if (*svals < *dvals)
+			*dvals = *svals;
 
 		break;
 	default:
-		for (i = 0, cnt = datasz / sizeof(int64_t);
-		     i < cnt; i++, dst++, src++)
-			*dst += *src;
+		for (i = 0, cnt = rec->dtrd_size / sizeof(int64_t); i < cnt;
+		     i++, dvals++, svals++)
+			*dvals += *svals;
 	}
 }
 
 static int
-dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
+dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
+		      const char *data)
 {
-	dtrace_hdl_t		*dtp = st->dtp;
-	dt_aggregate_t		*agp = &dtp->dt_aggregate;
-	dt_ahash_t		*agh = &agp->dtat_hash;
+	dt_ahash_t		*agh = &dtp->dt_aggregate.dtat_hash;
 	dt_ahashent_t		*h;
 	dtrace_aggdesc_t	*agg;
 	dtrace_aggdata_t	*agd;
-	uint64_t		hval = aid->di_id;
+	dtrace_recdesc_t	*rec;
+	char			*ptr;
+	uint64_t		hval = aggid;
 	size_t			ndx = hval % agh->dtah_size;
-	int			rval;
-	uint_t			i, datasz;
-	int64_t			*src;
+	size_t			off, size;
+	int			i, rval;
 
-	rval = dt_aggid_lookup(dtp, aid->di_id, &agg);
+	/* Skip this aggregation if the data counter is 0. */
+	if (*(int64_t *)data == 0)
+		return 0;
+
+	/* Retrieve the aggregation description. */
+	rval = dt_aggid_lookup(dtp, aggid, &agg);
 	if (rval != 0)
 		return rval;
 
-	/* point to the data counter */
-	src = (int64_t *)(agp->dtat_buf + aid->di_offset);
-
-	/* skip it if data counter is 0 */
-	if (*src == 0)
-		return 0;
-
-	datasz = agg->dtagd_dsize;
-
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
-		if (h->dtahe_hval != hval || h->dtahe_size != datasz)
+		dt_ident_t	*aid;
+
+		/* Hash value needs to match. */
+		if (h->dtahe_hval != hval)
 			continue;
 
-		/* Entry found - process the data. */
 		agd = &h->dtahe_data;
+		/* Aggregation description needs to match. */
+		if (agd->dtada_desc != agg)
+			continue;
 
-		dt_agg_one_agg(aid, (int64_t *)agd->dtada_data, src, datasz);
+		/* Aggregation key needs to match.  */
+		ptr = agd->dtada_key;
+		for (i = 0; i < agg->dtagd_nkrecs; i++) {
+			rec = &agg->dtagd_krecs[i];
+			off = rec->dtrd_offset;
 
-		/* If we keep per-CPU data - process that as well. */
-		if (agd->dtada_percpu != NULL)
-			dt_agg_one_agg(aid,
-				       (int64_t *)agd->dtada_percpu[st->cpu],
-				       src, datasz);
+			if (memcmp(&key[off], &ptr[off], rec->dtrd_size) != 0)
+				goto hashnext;
+		}
+
+		aid = dt_idhash_lookup(dtp->dt_aggs, agg->dtagd_name);
+		assert(aid != NULL);
+		dt_agg_one_agg(aid, &agg->dtagd_drecs[DT_AGGDATA_RECORD],
+			       agd->dtada_data, data);
 
 		return 0;
+
+hashnext:
+		continue;
 	}
 
-	/* add it to the hash table */
+	/* Create a new hashtable entry. */
 	h = dt_zalloc(dtp, sizeof(dt_ahashent_t));
 	if (h == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	agd = &h->dtahe_data;
-	agd->dtada_data = dt_alloc(dtp, datasz);
-	if (agd->dtada_data == NULL) {
-		dt_free(dtp, h);
-		return dt_set_errno(dtp, EDT_NOMEM);
-	}
-
-	memcpy(agd->dtada_data, src, datasz);
-	agd->dtada_size = datasz;
 	agd->dtada_desc = agg;
 	agd->dtada_hdl = dtp;
 
 	h->dtahe_hval = hval;
-	h->dtahe_size = datasz;
 
-	if (agp->dtat_flags & DTRACE_A_PERCPU) {
-		char	**percpu = dt_calloc(dtp, dtp->dt_conf.max_cpuid + 1,
-					     sizeof(char *));
+	/* Copy the key. */
+	size = agg->dtagd_ksize;
+	ptr = dt_alloc(dtp, size);
+	if (ptr == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-		if (percpu == NULL) {
-			dt_free(dtp, agd->dtada_data);
-			dt_free(dtp, h);
+	memcpy(ptr, key, size);
+	agd->dtada_key = ptr;
 
-			dt_set_errno(dtp, EDT_NOMEM);
-		}
+	/* Copy the data. */
+	size = agg->dtagd_dsize;
+	ptr = dt_alloc(dtp, size);
+	if (ptr == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
-		for (i = 0; i <= dtp->dt_conf.max_cpuid; i++) {
-			percpu[i] = dt_zalloc(dtp, datasz);
-			if (percpu[i] == NULL) {
-				while (--i >= 0)
-					dt_free(dtp, percpu[i]);
-				dt_free(dtp, agd->dtada_data);
-				dt_free(dtp, h);
+	memcpy(ptr, data, size);
+	agd->dtada_data = ptr;
 
-				dt_set_errno(dtp, EDT_NOMEM);
-			}
-		}
-
-		memcpy(percpu[st->cpu], src, datasz);
-		agd->dtada_percpu = percpu;
-	}
-
-	/* Add the new entry to the hashtable. */
+	/* Add the new entru to the hashtable. */
 	if (agh->dtah_hash[ndx] != NULL)
 		agh->dtah_hash[ndx]->dtahe_prev = h;
 
@@ -550,20 +546,30 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 }
 
 static int
-dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
+dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, int fd)
 {
-	dt_snapstate_t	st;
-	uint32_t	key = 0;
+	dt_aggregate_t	*agp = &dtp->dt_aggregate;
+	size_t		ksize = dtp->dt_maxtuplesize;
+	char		*key = agp->dtat_key;
+	char		*data = agp->dtat_buf;
+	char		*nxt = agp->dtat_nextkey;
+	uint32_t	*aggidp = (uint32_t *)key;
+	int		rval;
 
-	st.dtp = dtp;
-	st.cpu = cpu;
 
-	if (dt_bpf_map_lookup_inner(dtp->dt_aggmap_fd, &cpu, &key,
-				    dtp->dt_aggregate.dtat_buf) == -1)
-		return 0;
+	*aggidp = DTRACE_AGGIDNONE;
+	while (dt_bpf_map_next_key(fd, key, nxt) == 0) {
+		memcpy(key, nxt, ksize);
 
-	return dt_idhash_iter(dtp->dt_aggs,
-			      (dt_idhash_f *)dt_aggregate_snap_one, &st);
+		if (dt_bpf_map_lookup(fd, key, data) == -1)
+			return -1; /* FIXME: dt_set_errno() */
+
+		rval = dt_aggregate_snap_one(dtp, *aggidp, cpu, key, data);
+		if (rval != 0)
+			return rval;
+	}
+
+	return 0;
 }
 
 /*
@@ -585,7 +591,14 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 	dtrace_aggregate_clear(dtp);
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
-		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id);
+		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
+		int	fd = dt_bpf_map_lookup_fd(dtp->dt_aggmap_fd, &cpu);
+
+		if (fd < 0)
+			return -1;
+
+		rval = dt_aggregate_snap_cpu(dtp, cpu, fd);
+		close(fd);
 		if (rval != 0)
 			return rval;
 	}
@@ -658,8 +671,8 @@ dt_aggregate_keycmp(const void *lhs, const void *rhs)
 		lrec = &lagg->dtagd_krecs[ndx];
 		rrec = &ragg->dtagd_krecs[ndx];
 
-		ldata = lh->dtahe_data.dtada_data + lrec->dtrd_offset;
-		rdata = rh->dtahe_data.dtada_data + rrec->dtrd_offset;
+		ldata = lh->dtahe_data.dtada_key + lrec->dtrd_offset;
+		rdata = rh->dtahe_data.dtada_key + rrec->dtrd_offset;
 
 		if (lrec->dtrd_size < rrec->dtrd_size)
 			return DT_LESSTHAN;
@@ -954,84 +967,42 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
 	}
 }
 
-/*
- * Callback for initializing the min() and max() aggregation functions.
- * The minimum 64 bit value is set for max() and the maximum 64 bit value is
- * set for min(), so that any other value fed to the functions will register
- * properly.
- *
- * The data counter of the first aggregation is used as a flag to
- * indicate whether an initial value was stored for any aggregation.
- */
-static int
-init_minmax(dt_idhash_t *dhp, dt_ident_t *aid, char *buf)
-{
-	dt_ident_t *fid = aid->di_iarg;
-	int64_t *ptr;
-	int64_t value;
-
-	assert(aid->di_kind == DT_IDENT_AGG);
-	assert(fid);
-
-	if (fid->di_id == DT_AGG_MIN)
-		value = INT64_MAX;
-	else if (fid->di_id == DT_AGG_MAX)
-		value = INT64_MIN;
-	else
-		return 0;
-
-	/* Indicate that we are setting initial values. */
-	*(int64_t *)buf = 1;
-
-	/* skip ptr[0], it is the data counter */
-	ptr = (int64_t *)(buf + aid->di_offset);
-	ptr[1] = value;
-
-	return 0;
-}
-
 int
 dt_aggregate_go(dtrace_hdl_t *dtp)
 {
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	dt_ahash_t	*agh = &agp->dtat_hash;
-	int		aggsz, i;
 
 	/* If there are no aggregations there is nothing to do. */
-	aggsz = dt_idhash_datasize(dtp->dt_aggs);
-	if (aggsz <= 0)
+	if (dtp->dt_maxaggdsize == 0)
 		return 0;
 
-	/* Allocate a buffer to hold the aggregation data for a CPU.  */
-	agp->dtat_buf = dt_zalloc(dtp, aggsz);
-	if (agp->dtat_buf == NULL)
-		return dt_set_errno(dtp, EDT_NOMEM);
+	/*
+	 * Allocate a buffer to hold the aggregation data for a CPU.  Also
+	 * allocate space for the current and next aggregation keys - they are
+	 * used during the traversal of each CPU's hash map.
+	 */
+	agp->dtat_buf = dt_alloc(dtp, dtp->dt_maxaggdsize);
+	agp->dtat_key = dt_zalloc(dtp, dtp->dt_maxtuplesize);
+	agp->dtat_nextkey = dt_zalloc(dtp, dtp->dt_maxtuplesize);
+	if (agp->dtat_buf == NULL || agp->dtat_key == NULL ||
+	    agp->dtat_nextkey == NULL)
+		goto no_mem;
 
 	/* Create the aggregation hash. */
 	agh->dtah_size = DTRACE_AHASHSIZE;
 	agh->dtah_hash = dt_zalloc(dtp,
-				   agh->dtah_size * sizeof(dt_ahashent_t *));
-	if (agh->dtah_hash == NULL) {
-		dt_free(dtp, agp->dtat_buf);
-		return dt_set_errno(dtp, EDT_NOMEM);
-	}
-
-	/* Initialize the starting values for min() and max() aggregations.  */
-	dt_idhash_iter(dtp->dt_aggs, (dt_idhash_f *) init_minmax,
-		       agp->dtat_buf);
-	if (*(int64_t *)agp->dtat_buf == 0)
-		return 0;
-	*(int64_t *)agp->dtat_buf = 0;  /* clear the flag */
-	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
-		int		cpu = dtp->dt_conf.cpus[i].cpu_id;
-		uint32_t	key = 0;
-
-		if (dt_bpf_map_update_inner(dtp->dt_aggmap_fd, &cpu, &key,
-					    dtp->dt_aggregate.dtat_buf) == -1)
-			continue;
-	}
+				   agh->dtah_size *sizeof(dt_ahashent_t *));
+	if (agh->dtah_hash == NULL)
+		goto no_mem;
 
 	return 0;
+
+no_mem:
+	dt_free(dtp, agp->dtat_buf);
+	dt_free(dtp, agp->dtat_key);
+	dt_free(dtp, agp->dtat_nextkey);
+	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
 static int
@@ -1123,6 +1094,7 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 			dt_free(dtp, aggdata->dtada_percpu);
 		}
 
+		dt_free(dtp, aggdata->dtada_key);
 		dt_free(dtp, aggdata->dtada_data);
 		dt_free(dtp, h);
 
@@ -1418,10 +1390,8 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 		if ((id = dt_aggregate_aggid(h)) > max || !(ndx = map[id]))
 			continue;
 
-		if (zaggdata[ndx - 1].dtahe_size == 0) {
-			zaggdata[ndx - 1].dtahe_size = h->dtahe_size;
+		if (zaggdata[ndx - 1].dtahe_data.dtada_desc == NULL)
 			zaggdata[ndx - 1].dtahe_data = h->dtahe_data;
-		}
 
 		nentries++;
 	}
@@ -1455,7 +1425,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 	 * aggregation variable that contains any non-zero value.
 	 */
 	for (i = 0; i < naggvars; i++) {
-		if (zaggdata[i].dtahe_size == 0) {
+		if (zaggdata[i].dtahe_data.dtada_desc == NULL) {
 			dtrace_aggid_t	aggvar;
 
 			aggvar = aggvars[(i - sortpos + naggvars) % naggvars];
@@ -1476,15 +1446,13 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 				 * cons up the zaggdata entry for it.
 				 */
 				aggdata = &zaggdata[i].dtahe_data;
-				aggdata->dtada_size = agg->dtagd_dsize;
 				aggdata->dtada_desc = agg;
 				aggdata->dtada_hdl = dtp;
 				zaggdata[i].dtahe_hval = 0;
-				zaggdata[i].dtahe_size = agg->dtagd_dsize;
 				break;
 			}
 
-			if (zaggdata[i].dtahe_size == 0) {
+			if (zaggdata[i].dtahe_data.dtada_desc == NULL) {
 				caddr_t data;
 
 				/*
@@ -1499,7 +1467,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 				 * (or nentries would have been zero).
 				 */
 				for (j = 0; j < naggvars; j++) {
-					if (zaggdata[j].dtahe_size != 0)
+					if (zaggdata[j].dtahe_data.dtada_desc->dtagd_dsize != 0)
 						break;
 				}
 
@@ -1520,7 +1488,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 		dtrace_aggdata_t *aggdata = &zaggdata[i].dtahe_data;
 		caddr_t zdata;
 
-		zsize = zaggdata[i].dtahe_size;
+		zsize = zaggdata[i].dtahe_data.dtada_desc->dtagd_dsize;
 		assert(zsize != 0);
 
 		if ((zdata = dt_zalloc(dtp, zsize)) == NULL) {
@@ -1706,7 +1674,7 @@ dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
 {
 	dtrace_print_aggdata_t pd;
 
-	if (dt_idhash_datasize(dtp->dt_aggs) == 0)
+	if (dtp->dt_maxaggdsize == 0)
 		return 0;
 
 	pd.dtpa_dtp = dtp;
@@ -1725,37 +1693,40 @@ dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
 void
 dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	dt_ahash_t *hash = &agp->dtat_hash;
-	dt_ahashent_t *h;
-	dtrace_aggdata_t *data;
-	dtrace_aggdesc_t *aggdesc;
-	dtrace_recdesc_t *rec;
-	int i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+	dt_aggregate_t		*agp = &dtp->dt_aggregate;
+	dt_ahash_t		*hash = &agp->dtat_hash;
+	dt_ahashent_t		*h;
+	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
 
 	for (h = hash->dtah_all; h != NULL; h = h->dtahe_nextall) {
-		aggdesc = h->dtahe_data.dtada_desc;
-		rec = &aggdesc->dtagd_drecs[DT_AGGDATA_RECORD];
-		data = &h->dtahe_data;
+		dtrace_aggdesc_t	*agg;
+		dtrace_aggdata_t	*agd;
+		dtrace_recdesc_t	*rec;
+		int64_t			*vals;
+
+		agg = h->dtahe_data.dtada_desc;
+		agd = &h->dtahe_data;
+		rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
+		vals = (int64_t *)&agd->dtada_data[rec->dtrd_offset];
 
 		switch (rec->dtrd_action) {
 		case DT_AGG_MIN:
-			*((uint64_t*)(&data->dtada_data[rec->dtrd_offset])) = INT64_MAX;
-			if (data->dtada_percpu)
+			*vals = INT64_MAX;
+			if (agd->dtada_percpu)
 				for (i = 0; i < max_cpus; i++)
-					*((uint64_t*)data->dtada_percpu[i]) = INT64_MAX;
+					*((uint64_t*)agd->dtada_percpu[i]) = INT64_MAX;
 			break;
 		case DT_AGG_MAX:
-			*((uint64_t*)(&data->dtada_data[rec->dtrd_offset])) = INT64_MIN;
-			if (data->dtada_percpu)
+			*vals = INT64_MIN;
+			if (agd->dtada_percpu)
 				for (i = 0; i < max_cpus; i++)
-					*((uint64_t*)data->dtada_percpu[i]) = INT64_MIN;
+					*((uint64_t*)agd->dtada_percpu[i]) = INT64_MIN;
 			break;
 		default:
-			memset(&data->dtada_data[rec->dtrd_offset], 0, rec->dtrd_size);
-			if (data->dtada_percpu)
+			memset(vals, 0, rec->dtrd_size);
+			if (agd->dtada_percpu)
 				for (i = 0; i < max_cpus; i++)
-					memset(data->dtada_percpu[i], 0, rec->dtrd_size);
+					memset(agd->dtada_percpu[i], 0, rec->dtrd_size);
 			break;
 		}
 
@@ -1765,11 +1736,11 @@ dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 void
 dt_aggregate_destroy(dtrace_hdl_t *dtp)
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	dt_ahash_t *hash = &agp->dtat_hash;
-	dt_ahashent_t *h, *next;
-	dtrace_aggdata_t *aggdata;
-	int i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+	dt_aggregate_t		*agp = &dtp->dt_aggregate;
+	dt_ahash_t		*hash = &agp->dtat_hash;
+	dt_ahashent_t		*h, *next;
+	dtrace_aggdata_t	*agd;
+	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
 
 	if (hash->dtah_hash == NULL) {
 		assert(hash->dtah_all == NULL);
@@ -1779,15 +1750,16 @@ dt_aggregate_destroy(dtrace_hdl_t *dtp)
 		for (h = hash->dtah_all; h != NULL; h = next) {
 			next = h->dtahe_nextall;
 
-			aggdata = &h->dtahe_data;
+			agd = &h->dtahe_data;
 
-			if (aggdata->dtada_percpu != NULL) {
+			if (agd->dtada_percpu != NULL) {
 				for (i = 0; i < max_cpus; i++)
-					dt_free(dtp, aggdata->dtada_percpu[i]);
-				dt_free(dtp, aggdata->dtada_percpu);
+					dt_free(dtp, agd->dtada_percpu[i]);
+				dt_free(dtp, agd->dtada_percpu);
 			}
 
-			dt_free(dtp, aggdata->dtada_data);
+			dt_free(dtp, agd->dtada_key);
+			dt_free(dtp, agd->dtada_data);
 			dt_free(dtp, h);
 		}
 
@@ -1796,5 +1768,7 @@ dt_aggregate_destroy(dtrace_hdl_t *dtp)
 		hash->dtah_size = 0;
 	}
 
+	dt_free(dtp, agp->dtat_key);
 	dt_free(dtp, agp->dtat_buf);
+	dt_free(dtp, agp->dtat_nextkey);
 }

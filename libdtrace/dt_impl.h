@@ -177,7 +177,6 @@ typedef struct dt_ahashent {
 	struct dt_ahashent *dtahe_prevall;	/* prev on list of all */
 	struct dt_ahashent *dtahe_nextall;	/* next on list of all */
 	uint64_t dtahe_hval;			/* hash value */
-	size_t dtahe_size;			/* size of data */
 	dtrace_aggdata_t dtahe_data;		/* data */
 	void (*dtahe_aggregate)(int64_t *, int64_t *, size_t); /* function */
 } dt_ahashent_t;
@@ -209,7 +208,9 @@ typedef struct dt_tstring {
 } dt_tstring_t;
 
 typedef struct dt_aggregate {
-	char *dtat_buf;			/* aggregation snapshot buffer */
+	char *dtat_key;			/* aggregation key */
+	char *dtat_buf;			/* aggregation data buffer */
+	char *dtat_nextkey;		/* next aggregation key */
 	int dtat_flags;			/* aggregate flags */
 	dt_ahash_t dtat_hash;		/* aggregate hash table */
 } dt_aggregate_t;

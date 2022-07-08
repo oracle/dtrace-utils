@@ -1033,7 +1033,7 @@ dt_ident_set_storage(dt_ident_t *idp, uint_t alignment, uint_t size)
 	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
 	dt_idhash_t	*dhp = idp->di_hash;
 
-	if (!(idp->di_flags & DT_IDFLG_TLS)) {
+	if (idp->di_kind != DT_IDENT_AGG && !(idp->di_flags & DT_IDFLG_TLS)) {
 		idp->di_offset = (dhp->dh_nextoff + (alignment - 1)) &
 				 ~(alignment - 1);
 		dhp->dh_nextoff = idp->di_offset + size;
