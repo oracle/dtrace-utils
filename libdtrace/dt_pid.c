@@ -41,7 +41,6 @@ typedef struct dt_pid_probe {
 	size_t dpp_size;
 	Lmid_t dpp_lmid;
 	uint_t dpp_nmatches;
-	uint64_t dpp_stret[4];
 	GElf_Sym dpp_last;
 	uint_t dpp_last_taken;
 } dt_pid_probe_t;
@@ -315,43 +314,13 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	/*
 	 * Note: if an execve() happens in the victim after this point, the
 	 * following lookups will (unavoidably) fail if the lmid in the previous
-	 * executable is not valid iun the new one.
+	 * executable is not valid in the new one.
 	 */
 
 	if ((pp->dpp_obj = strrchr(obj, '/')) == NULL)
 		pp->dpp_obj = obj;
 	else
 		pp->dpp_obj++;
-
-	if (dt_Pxlookup_by_name(pp->dpp_dtp, pid, pp->dpp_lmid, obj, ".stret1",
-				&sym, NULL) == 0)
-		pp->dpp_stret[0] = sym.st_value;
-	else
-		pp->dpp_stret[0] = 0;
-
-	if (dt_Pxlookup_by_name(pp->dpp_dtp, pid, pp->dpp_lmid, obj, ".stret2",
-				&sym, NULL) == 0)
-		pp->dpp_stret[1] = sym.st_value;
-	else
-		pp->dpp_stret[1] = 0;
-
-	if (dt_Pxlookup_by_name(pp->dpp_dtp, pid, pp->dpp_lmid, obj, ".stret4",
-					&sym, NULL) == 0)
-		pp->dpp_stret[2] = sym.st_value;
-	else
-		pp->dpp_stret[2] = 0;
-
-	if (dt_Pxlookup_by_name(pp->dpp_dtp, pid, pp->dpp_lmid, obj, ".stret8",
-				&sym, NULL) == 0)
-		pp->dpp_stret[3] = sym.st_value;
-	else
-		pp->dpp_stret[3] = 0;
-
-	dt_dprintf("%s stret %llx %llx %llx %llx\n", obj,
-		   (unsigned long long)pp->dpp_stret[0],
-		   (unsigned long long)pp->dpp_stret[1],
-		   (unsigned long long)pp->dpp_stret[2],
-		   (unsigned long long)pp->dpp_stret[3]);
 
 	/*
 	 * If pp->dpp_func contains any globbing meta-characters, we need
