@@ -37,6 +37,8 @@ extern "C" {
 #define DT_CONST_MUTEX_OWNER	17
 #define DT_CONST_RWLOCK_CNTS	18
 
+#define DT_BPF_LOG_SIZE		(UINT32_MAX >> 8)
+
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);
 extern int bpf(enum bpf_cmd cmd, union bpf_attr *attr);

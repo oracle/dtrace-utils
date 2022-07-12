@@ -23,9 +23,7 @@
 #include <dt_bpf_maps.h>
 #include <port.h>
 
-#include <bpf.h>
-
-static bool dt_gmap_done = 0;
+static boolean_t	dt_gmap_done = 0;
 
 #define BPF_CG_LICENSE	"GPL";
 
@@ -59,11 +57,62 @@ dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
 }
 
 /*
+ * Load a BPF program into the kernel.
+ */
+int dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
+		     uint32_t log_level, char *log_buf, size_t log_buf_sz)
+{
+	union bpf_attr	attr;
+	int		fd;
+	int		i = 0;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.prog_type = prog_type;
+	attr.insn_cnt = dp->dtdo_len;
+	attr.insns = (uint64_t)dp->dtdo_buf;
+	attr.license = (uint64_t)BPF_CG_LICENSE;
+	attr.log_level = log_level;
+
+	if (log_level > 0) {
+		attr.log_buf = (uint64_t)log_buf;
+		attr.log_size = log_buf_sz;
+	}
+
+	/* Syscall could return EAGAIN - try at most 5 times. */
+	do {
+		fd = bpf(BPF_PROG_LOAD, &attr);
+	} while (fd < 0 && errno == EAGAIN && ++i < 5);
+
+	return fd;
+}
+
+/*
+ * Create a named BPF map.
+ */
+int dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
+		      int key_size, int value_size, int max_entries,
+		      uint32_t map_flags)
+{
+	union bpf_attr	attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_type = map_type;
+	attr.key_size = key_size;
+	attr.value_size = value_size;
+	attr.max_entries = max_entries;
+	attr.map_flags = map_flags;
+	memcpy(attr.map_name, name, MIN(strlen(name),
+					sizeof(attr.map_name) - 1));
+
+	return bpf(BPF_MAP_CREATE, &attr);
+}
+
+/*
  * Load the value for the given key in the map referenced by the given fd.
  */
 int dt_bpf_map_lookup(int fd, const void *key, void *val)
 {
-	union bpf_attr attr;
+	union bpf_attr	attr;
 
 	memset(&attr, 0, sizeof(attr));
 	attr.map_fd = fd;
@@ -78,7 +127,7 @@ int dt_bpf_map_lookup(int fd, const void *key, void *val)
  */
 int dt_bpf_map_delete(int fd, const void *key)
 {
-	union bpf_attr attr;
+	union bpf_attr	attr;
 
 	memset(&attr, 0, sizeof(attr));
 	attr.map_fd = fd;
@@ -92,7 +141,7 @@ int dt_bpf_map_delete(int fd, const void *key)
  */
 int dt_bpf_map_update(int fd, const void *key, const void *val)
 {
-	union bpf_attr attr;
+	union bpf_attr	attr;
 
 	memset(&attr, 0, sizeof(attr));
 	attr.map_fd = fd;
@@ -112,7 +161,7 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 
 	dt_dprintf("Creating BPF map '%s' (ksz %u, vsz %u, sz %d)\n",
 		   name, ksz, vsz, size);
-	fd = bpf_create_map_name(type, name, ksz, vsz, size, 0);
+	fd = dt_bpf_map_create(type, name, ksz, vsz, size, 0);
 	if (fd < 0)
 		return dt_bpf_error(dtp, "failed to create BPF map '%s': %s\n",
 				    name, strerror(errno));
@@ -422,7 +471,6 @@ static int
 dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		 const dtrace_difo_t *dp, uint_t cflags)
 {
-	struct bpf_load_program_attr	attr;
 	size_t				logsz;
 	char				*log;
 	int				rc, origerrno = 0;
@@ -437,18 +485,11 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (dp->dtdo_brelen)
 		dt_bpf_reloc_prog(dtp, dp);
 
-	memset(&attr, 0, sizeof(struct bpf_load_program_attr));
-
 	DT_DISASM_PROG_FINAL(dtp, cflags, dp, stderr, NULL, prp->desc);
 
-	attr.prog_type = prp->prov->impl->prog_type;
-	attr.name = NULL;
-	attr.insns = dp->dtdo_buf;
-	attr.insns_cnt = dp->dtdo_len;
-	attr.license = BPF_CG_LICENSE;
-
 	if (dtp->dt_options[DTRACEOPT_BPFLOG] == DTRACEOPT_UNSET) {
-		rc = bpf_load_program_xattr(&attr, NULL, 0);
+		rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 0,
+				      NULL, 0);
 		if (rc >= 0)
 			return rc;
 
@@ -458,11 +499,11 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (dtp->dt_options[DTRACEOPT_BPFLOGSIZE] != DTRACEOPT_UNSET)
 		logsz = dtp->dt_options[DTRACEOPT_BPFLOGSIZE];
 	else
-		logsz = BPF_LOG_BUF_SIZE;
-	attr.log_level = 4 | 2 | 1;
+		logsz = DT_BPF_LOG_SIZE;
 	log = dt_zalloc(dtp, logsz);
 	assert(log != NULL);
-	rc = bpf_load_program_xattr(&attr, log, logsz);
+	rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 4 | 2 | 1,
+			      log, logsz);
 	if (rc < 0) {
 		dt_bpf_error(dtp,
 			     "BPF program load for '%s:%s:%s:%s' failed: %s\n",

@@ -111,6 +111,3 @@ Function calls should not unnecessarily be cast to void.  E.g.,
 The return argument typically needs no parentheses.  E.g.,
 	return 0;                                   /* good */
 	return (0);                                 /*  bad */
-
-Code in libbpf/ need not conform to the guidelines in this document, since
-we expect not to retain that code in the long term.

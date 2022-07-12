@@ -79,7 +79,7 @@ libdtrace_VERSION := 2.0.0
 libdtrace_SONAME := libdtrace.so.2
 libdtrace_VERSCRIPT := libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport
-libdtrace_SECONDARY := libproc libport libbpf
+libdtrace_SECONDARY := libproc libport
 
 # Disable certain warnings for these files
 dt_consume.c_CFLAGS := -Wno-pedantic
@@ -93,9 +93,6 @@ dt_prov_pid.c_CFLAGS := -Wno-pedantic
 dt_prov_profile.c_CFLAGS := -Wno-pedantic
 dt_prov_sdt.c_CFLAGS := -Wno-pedantic
 dt_prov_syscall.c_CFLAGS := -Wno-pedantic
-
-# Extra include path for this file
-dt_bpf.c_CFLAGS := -Ilibbpf
 
 SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | sed -e 's/\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/'))
 
