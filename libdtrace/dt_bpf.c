@@ -153,6 +153,69 @@ int dt_bpf_map_update(int fd, const void *key, const void *val)
 }
 
 static int
+have_helper(uint32_t func_id)
+{
+	char		log[DT_BPF_LOG_SIZE_SMALL] = { 0, };
+	char		*ptr = &log[0];
+	struct bpf_insn	insns[] = {
+				BPF_CALL_HELPER(func_id),
+				BPF_RETURN()
+			};
+	dtrace_difo_t	dp;
+	int		fd;
+
+	dp.dtdo_buf = insns;
+	dp.dtdo_len = ARRAY_SIZE(insns);
+
+	/* If the program loads, we can use the helper. */
+	fd = dt_bpf_prog_load(BPF_PROG_TYPE_KPROBE, &dp,
+			      1, log, DT_BPF_LOG_SIZE_SMALL);
+	if (fd > 0) {
+		close(fd);
+		return 1;
+	}
+
+	/* Permission denied -> helper not available to us */
+	if (errno == EPERM)
+		return 0;
+
+	/* Sentinel to make the loop and string searches safe. */
+	log[DT_BPF_LOG_SIZE_SMALL - 2] = ' ';
+	log[DT_BPF_LOG_SIZE_SMALL - 1] = 0;
+
+	while (*ptr == 0)
+		ptr++;
+
+	/*
+	 * If an 'invalid func' or 'unknown func' failure is reported, we
+	 * cannot use the helper.
+	 */
+	return strstr(ptr, "invalid func") == NULL &&
+	       strstr(ptr, "unknown func") == NULL;
+}
+
+void
+dt_bpf_init_helpers(dtrace_hdl_t *dtp)
+{
+	uint32_t	i;
+
+	/* Assume all helpers are available. */
+	for (i = 0; i < __BPF_FUNC_MAX_ID; i++)
+		dtp->dt_bpfhelper[i] = i;
+
+	/* Verify the existence of some specific helpers. */
+#define BPF_HELPER_MAP(orig, alt)	\
+	if (!have_helper(BPF_FUNC_##orig)) \
+			dtp->dt_bpfhelper[BPF_FUNC_##orig] = BPF_FUNC_##alt;
+
+	BPF_HELPER_MAP(probe_read_user, probe_read);
+	BPF_HELPER_MAP(probe_read_user_str, probe_read_str);
+	BPF_HELPER_MAP(probe_read_kernel, probe_read);
+	BPF_HELPER_MAP(probe_read_kernel_str, probe_read_str);
+#undef BPF_HELPER_MAP
+}
+
+static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	    int ksz, int vsz, int size)
 {
@@ -499,7 +562,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (dtp->dt_options[DTRACEOPT_BPFLOGSIZE] != DTRACEOPT_UNSET)
 		logsz = dtp->dt_options[DTRACEOPT_BPFLOGSIZE];
 	else
-		logsz = DT_BPF_LOG_SIZE;
+		logsz = DT_BPF_LOG_SIZE_DEFAULT;
 	log = dt_zalloc(dtp, logsz);
 	assert(log != NULL);
 	rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 4 | 2 | 1,

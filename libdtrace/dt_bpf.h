@@ -37,7 +37,8 @@ extern "C" {
 #define DT_CONST_MUTEX_OWNER	17
 #define DT_CONST_RWLOCK_CNTS	18
 
-#define DT_BPF_LOG_SIZE		(UINT32_MAX >> 8)
+#define DT_BPF_LOG_SIZE_DEFAULT	(UINT32_MAX >> 8)
+#define DT_BPF_LOG_SIZE_SMALL	4096
 
 extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			   int group_fd, unsigned long flags);
@@ -48,6 +49,7 @@ extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);
 extern int dt_bpf_map_delete(int fd, const void *key);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);
+extern void dt_bpf_init_helpers(struct dtrace_hdl *dtp);
 
 #ifdef	__cplusplus
 }

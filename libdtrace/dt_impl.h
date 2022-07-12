@@ -376,6 +376,7 @@ struct dtrace_hdl {
 	uint_t dt_treedump;	/* dtrace tree debug bitmap (see below) */
 	uint_t dt_disasm;	/* dtrace disassembler bitmap (see below) */
 	uint64_t dt_options[DTRACEOPT_MAX]; /* dtrace run-time options */
+	uint32_t dt_bpfhelper[__BPF_FUNC_MAX_ID]; /* BPF helper mapping */
 	int dt_version;		/* library version requested by client */
 	int dt_ctferr;		/* error resulting from last CTF failure */
 	int dt_errno;		/* error resulting from last failed operation */

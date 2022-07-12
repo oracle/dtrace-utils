@@ -28,6 +28,7 @@
 #include <libproc.h>
 
 #include <dt_impl.h>
+#include <dt_bpf.h>
 #include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_module.h>
@@ -1135,6 +1136,8 @@ dt_vopen(int version, int flags, int *errp,
 	 */
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
 		return set_open_errno(dtp, errp, dtp->dt_errno);
+
+	dt_bpf_init_helpers(dtp);
 
 	return dtp;
 }
