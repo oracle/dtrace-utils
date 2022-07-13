@@ -1,0 +1,2 @@
+dtrace-copyinstr-test
+'dtrace-'

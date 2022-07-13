@@ -4362,6 +4362,62 @@ dt_cg_subr_copyin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_copyinstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_node_t	*src = dnp->dn_args;
+	dt_node_t	*size = src->dn_list;
+	int		maxsize = dtp->dt_options[DTRACEOPT_STRSIZE];
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+	uint_t		lbl_badsize = dt_irlist_label(dlp);
+
+	TRACE_REGSET("    subr-copyinstr:Begin");
+
+	/* Validate the size for the copy operation (if provided). */
+	if (size == NULL) {
+		size = dt_node_int(maxsize);
+		src->dn_list = size;
+	}
+
+	dt_cg_node(size, dlp, drp);
+
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, size->dn_reg, 0, lbl_badsize));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, size->dn_reg, maxsize, lbl_badsize));
+
+	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* Allocate scratch space. */
+	dt_cg_subr_alloca_impl(dnp, size, dlp, drp);
+	dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+
+	dt_cg_node(src, dlp, drp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, size->dn_reg));
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, src->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user_str]));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGT, BPF_REG_0, 0, lbl_ok));
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);
+	emitl(dlp, lbl_badsize,
+		   BPF_NOP());
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, DT_ISREG, size->dn_reg);
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+	dt_regset_free(drp, BPF_REG_0);
+
+	dt_regset_free(drp, src->dn_reg);
+	dt_regset_free(drp, size->dn_reg);
+
+	TRACE_REGSET("    subr-copyinstr:End  ");
+}
+
+static void
 dt_cg_subr_copyinto(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*src = dnp->dn_args;
@@ -4847,7 +4903,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_RW_WRITE_HELD]	= &dt_cg_subr_rw_write_held,
 	[DIF_SUBR_RW_ISWRITER]		= &dt_cg_subr_rw_iswriter,
 	[DIF_SUBR_COPYIN]		= &dt_cg_subr_copyin,
-	[DIF_SUBR_COPYINSTR]		= NULL,
+	[DIF_SUBR_COPYINSTR]		= &dt_cg_subr_copyinstr,
 	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,
 	[DIF_SUBR_PROGENYOF]		= &dt_cg_subr_progenyof,
 	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
