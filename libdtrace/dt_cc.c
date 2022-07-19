@@ -2419,7 +2419,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
 				ctf_id_t type;
 				ctf_membinfo_t ctm;
-				ctf_id_t rc = CTF_ERR;
+				int rc;
 
 				if (!cfp)
 					return dt_set_errno(dtp, EDT_NOCTF);
@@ -2448,7 +2448,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				ctf_file_t *cfp = dtp->dt_shared_ctf;
 				ctf_id_t type;
 				ctf_membinfo_t ctm;
-				ctf_id_t rc = CTF_ERR;
+				int rc;
 				uint64_t total_offset;
 
 				if (!cfp)
