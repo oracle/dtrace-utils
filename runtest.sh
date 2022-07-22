@@ -75,7 +75,7 @@ find_next_numeric_dir()
     done
 }
 
-ZAPTHESE=
+declare -a ZAPTHESE=
 
 # run_with_timeout TIMEOUT CMD [ARGS ...]
 #
@@ -372,19 +372,19 @@ log()
     printf "%s" "$*" | sed 's,%,%%,g' | xargs -0n 1 printf >> $LOGFILE
 }
 
-# At shutdown, delete this directory, kill requested process groups, and restore
+# At shutdown, delete this directory, kill requested processes, and restore
 # core_pattern.  When this is specifically an interruption, report as much in
 # the log.
 closedown()
 {
-    for pid in $ZAPTHESE; do
-        kill -9 -- $(printf " -%i" $pid)
+    for pid in ${ZAPTHESE[@]}; do
+        kill -9 -- $pid
     done
-    ZAPTHESE=
     if [[ -z $orig_core_pattern ]]; then
         echo $orig_core_pattern > /proc/sys/kernel/core_pattern
         echo $orig_core_uses_pid > /proc/sys/kernel/core_uses_pid
     fi
+    declare -ga ZAPTHESE=
 }
 
 trap 'rm -rf ${tmpdir}; closedown; exit' EXIT
@@ -626,7 +626,7 @@ if [[ -z $NOBADDOF ]]; then
     test/utils/badioctl > /dev/null 2> $tmpdir/badioctl.err &
     declare ioctlpid=$!
 
-    ZAPTHESE="$ioctlpid"
+    ZAPTHESE+=($ioctlpid)
     for _test in $(if [[ $ONLY_TESTS ]]; then
                       echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
                    else
@@ -651,7 +651,8 @@ if [[ -z $NOBADDOF ]]; then
         sum "badioctl stderr:"
         tee -a < $tmpdir/badioctl.err $LOGFILE >> $SUMFILE
     fi
-    ZAPTHESE=
+    # equivalent of unset "ZAPTHESE[-1]" on bash < 4.3
+    unset "ZAPTHESE[$((${#ZAPTHESE[@]}-1))]"
     exit 0
 fi
 
@@ -1199,6 +1200,7 @@ for dt in $dtrace; do
 
                 trigger_timing=synchro
                 trigger_delay=
+                needszap=
                 if exist_options trigger-timing $_test &&
                    [[ "x$(extract_options trigger-timing $_test)" != "xsynchro" ]]; then
                     trigger_timing="$(extract_options trigger-timing $_test)"
@@ -1221,7 +1223,8 @@ for dt in $dtrace; do
                     ( [[ -n $trigger_delay ]] && sleep $trigger_delay; exec $trigger; ) &
                     _pid=$!
                     disown %-
-                    ZAPTHESE="$_pid"
+                    needszap=t
+                    ZAPTHESE+=($_pid)
 
                     if [[ $dt_flags =~ \$_pid ]]; then
                         dt_flags="$(echo ''"$dt_flags" | sed 's,\$_pid[^a-zA-Z],'$_pid',g; s,\$_pid$,'$_pid',g')"
@@ -1246,7 +1249,9 @@ for dt in $dtrace; do
                 if [[ -n $_pid ]] && [[ "$(ps -p $_pid -o ppid=)" -eq $BASHPID ]]; then
                     kill $_pid >/dev/null 2>&1
                 fi
-                ZAPTHESE=
+                if [[ -n $needszap ]]; then
+                    unset "ZAPTHESE[$((${#ZAPTHESE[@]}-1))]"
+                fi
                 unset _pid
             fi
 
