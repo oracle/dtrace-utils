@@ -13,6 +13,7 @@
 #ifndef _DTRACE_ACTIONS_DEFINES_H
 #define _DTRACE_ACTIONS_DEFINES_H
 
+#include <sys/dtrace_types.h>
 #include <dtrace/universal.h>
 
 /*

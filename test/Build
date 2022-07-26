@@ -12,6 +12,7 @@ install-test::
 		cp -a $$name "$(INSTTESTDIR)/test/$$(basename $$name)"; \
 		chown -R root:root "$(INSTTESTDIR)/test/$$(basename $$name)" 2>/dev/null || true; \
 	done
+	echo '!uninstalled' >> $(INSTTESTDIR)/test/tags.default
 
 include test/triggers/Build
 include test/utils/Build

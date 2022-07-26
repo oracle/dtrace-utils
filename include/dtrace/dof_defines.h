@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -13,6 +13,7 @@
 #ifndef _DTRACE_DOF_DEFINES_H
 #define _DTRACE_DOF_DEFINES_H
 
+#include <sys/dtrace_types.h>
 #include <dtrace/universal.h>
 
 /*
