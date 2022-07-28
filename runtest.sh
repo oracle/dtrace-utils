@@ -315,6 +315,10 @@ logdir=$(find_next_numeric_dir test/log)
 LOGFILE=$logdir/runtest.log
 SUMFILE=$logdir/runtest.sum
 
+# Set a locked-memory limit that should be big enough for the test suite.
+
+ulimit -l $((256 * 1024 * 1024))
+
 # If running as root, remember and turn off core_pattern, and set the
 # coredumpsize to a biggish value.
 

@@ -55,9 +55,19 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	size_t			size;
 	int			err;
 	struct epoll_event	ev;
+	dtrace_optval_t		lockmem = dtp->dt_options[DTRACEOPT_LOCKMEM];
+	struct rlimit		rl;
 
 	if (dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
+
+	/*
+	 * Set the locked-memory limit if so directed by the user.
+	 */
+        if (lockmem != DTRACEOPT_UNSET) {
+                rl.rlim_cur = rl.rlim_max = lockmem;
+                setrlimit(RLIMIT_MEMLOCK, &rl);
+        }
 
 	/*
 	 * Create the global BPF maps.  This is done only once regardless of

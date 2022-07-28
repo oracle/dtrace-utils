@@ -56,6 +56,16 @@ dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
 	return dt_set_errno(dtp, EDT_BPF);
 }
 
+static int
+dt_bpf_lockmem_error(dtrace_hdl_t *dtp, const char *msg)
+{
+	return dt_bpf_error(dtp, "%s:\n"
+			    "\tThe kernel locked-memory limit is possibly too low.  Set a\n"
+			    "\thigher limit with the DTrace option '-xlockmem=N'.  Or, use\n"
+			    "\t'ulimit -l N' (Kbytes).  Or, make N the string 'unlimited'.\n"
+			    , msg);
+}
+
 /*
  * Load a BPF program into the kernel.
  */
@@ -225,9 +235,15 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	dt_dprintf("Creating BPF map '%s' (ksz %u, vsz %u, sz %d)\n",
 		   name, ksz, vsz, size);
 	fd = dt_bpf_map_create(type, name, ksz, vsz, size, 0);
-	if (fd < 0)
-		return dt_bpf_error(dtp, "failed to create BPF map '%s': %s\n",
-				    name, strerror(errno));
+	if (fd < 0) {
+		char msg[64];
+
+		snprintf(msg, sizeof(msg),
+			 "failed to create BPF map '%s'", name);
+		if (errno == EPERM)
+			return dt_bpf_lockmem_error(dtp, msg);
+		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(errno));
+	}
 
 	dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
 		   name, fd, ksz, vsz, size);
@@ -568,10 +584,15 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 4 | 2 | 1,
 			      log, logsz);
 	if (rc < 0) {
-		dt_bpf_error(dtp,
-			     "BPF program load for '%s:%s:%s:%s' failed: %s\n",
-			     pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-			     strerror(origerrno ? origerrno : errno));
+		char msg[64];
+
+		snprintf(msg, sizeof(msg),
+			 "BPF program load for '%s:%s:%s:%s' failed",
+		         pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+		if (errno == EPERM)
+			return dt_bpf_lockmem_error(dtp, msg);
+		dt_bpf_error(dtp, "%s: %s\n", msg,
+		     strerror(origerrno ? origerrno : errno));
 
 		/* check whether we have an incomplete BPF log */
 		if (errno == ENOSPC) {

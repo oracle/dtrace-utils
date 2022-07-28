@@ -751,6 +751,20 @@ dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 static int
+dt_opt_lockmem(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if (arg == NULL)
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+
+	if (strcmp(arg, "unlimited") == 0)
+		dtp->dt_options[option] = RLIM_INFINITY;
+	else
+		dt_opt_size(dtp, arg, option);
+
+	return 0;
+}
+
+static int
 dt_opt_scratchsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	dtrace_optval_t val = 0;
@@ -1120,6 +1134,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "grabanon", dt_opt_runtime, DTRACEOPT_GRABANON },
 	{ "jstackframes", dt_opt_runtime, DTRACEOPT_JSTACKFRAMES },
 	{ "jstackstrsize", dt_opt_size, DTRACEOPT_JSTACKSTRSIZE },
+	{ "lockmem", dt_opt_lockmem, DTRACEOPT_LOCKMEM },
 	{ "maxframes", dt_opt_runtime, DTRACEOPT_MAXFRAMES },
 	{ "nspec", dt_opt_runtime, DTRACEOPT_NSPEC },
 	{ "pcapsize", dt_opt_pcapsize, DTRACEOPT_PCAPSIZE },

@@ -61,7 +61,8 @@
 #define	DTRACEOPT_MAXFRAMES	31	/* maximum number of stack frames */
 #define	DTRACEOPT_BPFLOG	32	/* always output BPF verifier log */
 #define	DTRACEOPT_SCRATCHSIZE	33	/* max scratch size permitted */
-#define	DTRACEOPT_MAX		34	/* number of options */
+#define	DTRACEOPT_LOCKMEM	34	/* max locked memory */
+#define	DTRACEOPT_MAX		35	/* number of options */
 
 #define	DTRACEOPT_UNSET		(dtrace_optval_t)-2	/* unset option */
 
