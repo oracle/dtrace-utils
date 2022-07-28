@@ -274,6 +274,7 @@ dt_cg_tramp_copy_regs(dt_pcb_t *pcb, int rp)
 void
 dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	int		i;
 
@@ -306,9 +307,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 
 	/*
 	 * Generate code to read the remainder of the arguments from the stack
-	 * (if possible).  We (ab)use the %r0 spill slot on the stack to read
-	 * values using bpf_probe_read() because we know that it cannot be in
-	 * use at this point.
+	 * (if possible).
 	 *
 	 *	for (i = PT_REGS_ARGC;
 	 *	     i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
@@ -316,10 +315,10 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 	 *		uint64_t	*sp;
 	 *
 	 *		sp = (uint64_t *)(((dt_pt_regs *)rp)->sp;
-	 *		rc = bpf_probe_read(dctx->mst->argv[i],
-	 *				    sizeof(uint64_t),
-	 *				    &sp[i - PT_REGS_ARGC +
-	 *					    PT_REGS_ARGSTKBASE]);
+	 *		rc = bpf_probe_read[_user](dctx->mst->argv[i],
+	 *					   sizeof(uint64_t),
+	 *					   &sp[i - PT_REGS_ARGC +
+	 *						   PT_REGS_ARGSTKBASE]);
 	 *				// mov %r1, %r7
 	 *				// add %r1, DMST_ARG(i)
 	 *				// mov %r2, sizeof(uint64_t)
@@ -327,7 +326,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 	 *				// add %r3, (i - PT_REGS_ARGC +
 	 *						 PT_REGS_ARGSTKBASE) *
 	 *					    sizeof(uint64_t)
-	 *				// call bpf_probe_read
+	 *				// call bpf_probe_read[_user]
 	 *		if (rc != 0)
 	 *			goto lbl_ok:
 	 *				// jeq %r0, 0, lbl_ok
@@ -346,7 +345,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
 		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, rp, PT_REGS_SP));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC + PT_REGS_ARGSTKBASE) * sizeof(uint64_t)));
-		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
+		emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
 		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 		emitl(dlp, lbl_ok,
