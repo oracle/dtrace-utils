@@ -2513,33 +2513,16 @@ static void
 dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
     dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	size_t srcsize;
-	size_t dstsize;
-	int n;
-
 	/* If the destination type is '@' (any type) we need not cast. */
 	if (dst->dn_ctfp == NULL && dst->dn_type == CTF_ERR)
 		return;
 
-	srcsize = dt_node_type_size(src);
-	dstsize = dt_node_type_size(dst);
-
-	if (dstsize < srcsize)
-		n = sizeof(uint64_t) * NBBY - dstsize * NBBY;
-	else
-		n = sizeof(uint64_t) * NBBY - srcsize * NBBY;
-
 	if (!dt_node_is_scalar(dst))
 		return;
 
-	if (n != 0 && (dstsize < srcsize ||
-	    (src->dn_flags & DT_NF_SIGNED) ^ (dst->dn_flags & DT_NF_SIGNED))) {
-		emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
-		emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
-		emit(dlp, BPF_ALU64_IMM((dst->dn_flags & DT_NF_SIGNED) ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
-	} else if (dt_node_is_arith(dst) && dt_node_is_pointer(src) &&
-		   (src->dn_flags & DT_NF_ALLOCA)) {
-		int mst;
+	if (dt_node_is_arith(dst) && dt_node_is_pointer(src) &&
+	    (src->dn_flags & DT_NF_ALLOCA)) {
+		int	mst;
 
 		if ((mst = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -2550,6 +2533,31 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 		emit(dlp,  BPF_LOAD(BPF_DW, dst->dn_reg, mst, DMST_SCALARIZER));
 
 		dt_regset_free(drp, mst);
+	} else {
+		int	srcsigned = src->dn_flags & DT_NF_SIGNED;
+		int	dstsigned = dst->dn_flags & DT_NF_SIGNED;
+		size_t	srcsize = dt_node_type_size(src);
+		size_t	dstsize = dt_node_type_size(dst);
+		int	n = (sizeof(uint64_t) - dstsize) * NBBY;
+		int	cast = 1;
+
+		if (dst->dn_reg != src->dn_reg)
+			emit(dlp, BPF_MOV_REG(dst->dn_reg, src->dn_reg));
+
+		if (n == 0) {
+			cast = 0;
+		} else if (dstsize > srcsize) {
+			if (dstsigned || !srcsigned)
+				cast = 0;
+		} else if (dstsize == srcsize) {
+			if (dstsigned == srcsigned)
+				cast = 0;
+		}
+
+		if (cast) {
+			emit(dlp, BPF_ALU64_IMM(BPF_LSH, dst->dn_reg, n));
+			emit(dlp, BPF_ALU64_IMM(dstsigned ? BPF_ARSH : BPF_RSH, dst->dn_reg, n));
+		}
 	}
 }
 

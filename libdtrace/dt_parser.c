@@ -2123,18 +2123,27 @@ dt_node_op2(int op, dt_node_t *lp, dt_node_t *rp)
 	    dt_node_is_integer(lp)) {
 		size_t srcsize = dt_node_type_size(rp);
 		size_t dstsize = dt_node_type_size(lp);
+		int srcsigned = rp->dn_flags & DT_NF_SIGNED;
+		int dstsigned = lp->dn_flags & DT_NF_SIGNED;
+		int n = (sizeof(uint64_t) - dstsize) * NBBY;
+		int cast = 1;
 
-		if ((dstsize < srcsize) || ((lp->dn_flags & DT_NF_SIGNED) ^
-		    (rp->dn_flags & DT_NF_SIGNED))) {
-			int n = dstsize < srcsize ?
-			    (sizeof(uint64_t) * NBBY - dstsize * NBBY) :
-			    (sizeof(uint64_t) * NBBY - srcsize * NBBY);
+		if (n == 0) {
+			cast = 0;
+		} else if (dstsize > srcsize) {
+			if (dstsigned || !srcsigned)
+				cast = 0;
+		} else if (dstsize == srcsize) {
+			if (dstsigned == srcsigned)
+				cast = 0;
+		}
 
+		if (cast) {
 			rp->dn_value <<= n;
-			if (lp->dn_flags & DT_NF_SIGNED)
+			if (dstsigned)
 				rp->dn_value = (intmax_t)rp->dn_value >> n;
 			else
-				rp->dn_value = rp->dn_value >> n;
+				rp->dn_value >>= n;
 		}
 
 		dt_node_type_propagate(lp, rp);
