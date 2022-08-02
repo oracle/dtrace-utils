@@ -23,7 +23,6 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <linux/perf_event.h>
-#include <linux/ring_buffer.h>
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
@@ -2606,6 +2605,23 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		return DTRACE_WORKSTATUS_ERROR;
 	} else
 		return DTRACE_WORKSTATUS_ERROR;
+}
+
+static inline uint64_t
+ring_buffer_read_head(volatile struct perf_event_mmap_page *rb_page)
+{
+	uint64_t	head = rb_page->data_head;
+
+	asm volatile("" : : : "memory");
+	return head;
+}
+
+static inline void
+ring_buffer_write_tail(volatile struct perf_event_mmap_page *rb_page,
+		       uint64_t tail)
+{
+	asm volatile("" : : : "memory");
+	rb_page->data_tail = tail;
 }
 
 int
