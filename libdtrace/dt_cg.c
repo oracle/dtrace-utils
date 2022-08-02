@@ -2521,7 +2521,7 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
 		return;
 
 	if (dt_node_is_arith(dst) && dt_node_is_pointer(src) &&
-	    (src->dn_flags & DT_NF_ALLOCA)) {
+	    (src->dn_flags & (DT_NF_ALLOCA | DT_NF_DPTR))) {
 		int	mst;
 
 		if ((mst = dt_regset_alloc(drp)) == -1)

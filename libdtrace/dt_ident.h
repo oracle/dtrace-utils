@@ -96,6 +96,7 @@ typedef struct dt_ident {
 #define	DT_IDFLG_BPF	0x1000	/* variable is BPF */
 #define	DT_IDFLG_ALLOCA	0x2000	/* variable holds an alloca()ed pointer */
 #define	DT_IDFLG_NONALLOCA 0x4000 /* variable known not to hold an alloca()ed pointer */
+#define	DT_IDFLG_DPTR	0x8000	/* variable is ptr to DTrace-managed storage */
 
 #define DT_IDENT_UNDEF	UINT_MAX /* id for (as yet) undefined identifiers */
 

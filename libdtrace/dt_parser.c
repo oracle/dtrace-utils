@@ -2832,10 +2832,13 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		dnp->dn_flags |= DT_NF_LVALUE;
 
 		/*
-		 * If the type of the variable is a REF-type, we mark this
-		 * variable node as a pointer to DTrace-managed storage (DPTR).
+		 * If the identifier is marked as a pointer to DTrace-managed
+		 * storage (DPTR), or if the type of the variable is a
+		 * REF-type, we mark this variable node as a pointer to
+		 * DTrace-managed storage (DPTR).
 		 */
-		if (dnp->dn_flags & DT_NF_REF)
+		if ((idp->di_flags & DT_IDFLG_DPTR) ||
+		    (dnp->dn_flags & DT_NF_REF))
 			dnp->dn_flags |= DT_NF_DPTR;
 
 		if (idp->di_flags & DT_IDFLG_WRITE)

@@ -186,8 +186,15 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
 		uint32_t	key = 0;
 		void		*val = bpf_map_lookup_elem(&cpuinfo, &key);
 
-		if (val == NULL)
-			return (uint64_t)NULL;	/* FIXME */
+		if (val == NULL) {
+			/*
+			 * Typically, we would use 'return error(...);' but
+			 * that confuses the verifier because it returns -1.
+			 * So, instead, we explicitly return 0.
+			 */
+			error(dctx, DTRACEFLT_ILLOP, 0);
+			return 0;
+		}
 
 		return (uint64_t)val;
 	}
