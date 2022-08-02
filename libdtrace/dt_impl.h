@@ -295,6 +295,8 @@ struct dtrace_hdl {
 	uint_t dt_maxdvarsize;	/* largest dynamic variable across programs */
 	uint_t dt_maxtuplesize;	/* largest tuple across programs */
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
+	uint_t dt_zerosize;	/* zero region, size */
+	uint_t dt_zerooffset;	/* zero region, offset */
 	dt_tstring_t *dt_tstrings; /* temporary string slots */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_htab_t *dt_mods;	/* hash table of dt_module_t's */

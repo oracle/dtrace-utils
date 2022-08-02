@@ -292,7 +292,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		element (key 0).  Every aggregation is stored with two copies
  *		of its data to provide a lockless latch-based mechanism for
  *		atomic reading and writing.
- * - specs:     Map associating speculation IDs with a dt_bpf_specs_t struct
+ * - specs:	Map associating speculation IDs with a dt_bpf_specs_t struct
  *		giving the number of buffers speculated into for this
  *		speculation, and the number drained by userspace.
  * - buffers:	Perf event output buffer map, associating a perf event output
@@ -307,14 +307,16 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
  *		buffer, and temporary storage for stack traces, string
  *		manipulation, etc.
  * - scratchmem: Storage for alloca() and other per-clause scratch space,
- *               implemented just as for mem.
+ *		implemented just as for mem.
  * - strtab:	String table map.  This is a global map with a singleton
  *		element (key 0) that contains the entire string table as a
  *		concatenation of all unique strings (each terminated with a
  *		NUL byte).  The string table size is taken from the DTrace
- *		consumer handle (dt_strlen), and increased by the maximum
- *		string size to ensure that the BPF verifier can validate all
- *		access requests for dynamic references to string constants.
+ *		consumer handle (dt_strlen).  Extra memory is allocated as a
+ *		memory block of zeros for initializing memory regions.  Its
+ *		size is at least the maximum string size to ensure the BPF
+ *		verifier can validate all access requests for dynamic
+ *		references to string constants.
  * - probes:	Probe information map.  This is a global map indexed by probe
  *		ID.  The value is a struct that contains static probe info.
  *		The map only contains entries for probes that are actually in
@@ -337,7 +339,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		stabsz, sz;
+	int		sz;
 	int		dvarc = 0;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint64_t	key = 0;
@@ -422,13 +424,15 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 
 	/*
 	 * We need to create the global (consolidated) string table.  We store
-	 * the actual length (for in-code BPF validation purposes) but augment
-	 * it by the maximum string storage size to determine the size of the
-	 * BPF map value that is used to store the strtab.
+	 * the actual length (for in-code BPF validation purposes).  The size
+	 * of the map value is the string table size plus the greater of:
+	 *	- size of the memory block of zeros
+	 *	- maximum string size (plus 1 for the NUL byte)
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	stabsz = dtp->dt_strlen + strsize + 1;
-	strtab = dt_zalloc(dtp, stabsz);
+	dtp->dt_zerooffset = P2ROUNDUP(dtp->dt_strlen, 8);
+	sz = dtp->dt_zerooffset + MAX(strsize + 1, dtp->dt_zerosize);
+	strtab = dt_zalloc(dtp, sz);
 	if (strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
@@ -448,7 +452,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	}
 
 	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
-			       sizeof(uint32_t), stabsz, 1);
+			       sizeof(uint32_t), sz, 1);
 	if (st_mapfd == -1)
 		return -1;		/* dt_errno is set for us */
 
@@ -460,7 +464,7 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		return -1;		/* dt_errno is set for us */
 
 	/* global variables */
-	sz = P2ROUNDUP(dt_idhash_datasize(dtp->dt_globals), 8);
+	sz = dt_idhash_datasize(dtp->dt_globals);
 	if (sz > 0 &&
 	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
 			sizeof(uint32_t), sz, 1) == -1)

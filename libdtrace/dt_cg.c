@@ -2098,6 +2098,20 @@ dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
 }
 
 /*
+ * Store a pointer to the 'memory block of zeros' in reg.
+ */
+static void
+dt_cg_zerosptr(int reg, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_ident_t	*zero_off = dt_dlib_get_var(dtp, "ZERO_OFF");
+
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_STRTAB));
+	emite(dlp, BPF_ALU64_IMM(BPF_ADD, reg, -1), zero_off);
+}
+
+/*
  * Lookup the correct load size modifier to use for the specified node and CTF
  * type.
  */

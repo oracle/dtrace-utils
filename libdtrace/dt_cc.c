@@ -2466,6 +2466,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = total_offset;
 				continue;
 			}
+			case DT_CONST_ZERO_OFF:
+				nrp->dofr_data = dtp->dt_zerooffset;
+				continue;
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)
