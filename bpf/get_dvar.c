@@ -46,9 +46,9 @@ noinline uint64_t dt_tlskey(uint32_t id)
 	return key;
 }
 
-noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval)
+noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval,
+			   const char *dflt)
 {
-	uint64_t	dflt_key = 0;
 	void		*val;
 
 	/*
@@ -79,11 +79,7 @@ noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval)
 	 * Not found and we are storing a non-zero value: create the variable
 	 * with the default value.
 	 */
-	val = bpf_map_lookup_elem(&dvars, &dflt_key);
-	if (val == 0)
-		return 0;
-
-	if (bpf_map_update_elem(&dvars, &key, val, BPF_ANY) < 0)
+	if (bpf_map_update_elem(&dvars, &key, dflt, BPF_ANY) < 0)
 		return 0;
 
 	val = bpf_map_lookup_elem(&dvars, &key);
@@ -93,13 +89,14 @@ noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval)
 	return 0;
 }
 
-noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval)
+noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval,
+			   const char *dflt)
 {
-	return dt_get_dvar(dt_tlskey(id), store, nval);
+	return dt_get_dvar(dt_tlskey(id), store, nval, dflt);
 }
 
-noinline void *dt_get_assoc(uint32_t id, const char *tuple,
-			    uint64_t store, uint64_t nval)
+noinline void *dt_get_assoc(uint32_t id, const char *tuple, uint64_t store,
+			    uint64_t nval, const char *dflt)
 {
 	uint64_t	*valp;
 	uint64_t	val;
@@ -151,5 +148,5 @@ noinline void *dt_get_assoc(uint32_t id, const char *tuple,
 			bpf_map_delete_elem(&tuples, tuple);
 	}
 
-	return dt_get_dvar(val, store, nval);
+	return dt_get_dvar(val, store, nval, dflt);
 }

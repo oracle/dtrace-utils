@@ -431,7 +431,12 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 	 */
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
 	dtp->dt_zerooffset = P2ROUNDUP(dtp->dt_strlen, 8);
-	sz = dtp->dt_zerooffset + MAX(strsize + 1, dtp->dt_zerosize);
+
+	dtp->dt_zerosize = strsize + 1;
+	if (dtp->dt_zerosize < dtp->dt_maxdvarsize)
+		dtp->dt_zerosize = dtp->dt_maxdvarsize;
+
+	sz = dtp->dt_zerooffset + dtp->dt_zerosize;
 	strtab = dt_zalloc(dtp, sz);
 	if (strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
@@ -481,21 +486,10 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
 			dtp->dt_maxdvarsize;
 
-	if (dvarc > 0) {
-		int	fd;
-		char	dflt[dtp->dt_maxdvarsize];
-
-		/* Allocate one extra element for the default value. */
-		fd = create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
-				 sizeof(uint64_t), dtp->dt_maxdvarsize,
-				 dvarc + 1);
-		if (fd == -1)
+	if (dvarc > 0 &&
+	    create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
+			sizeof(uint64_t), dtp->dt_maxdvarsize, dvarc) == -1)
 			return -1;	/* dt_errno is set for us */
-
-		/* Initialize the default value (key = 0). */
-		memset(dflt, 0, dtp->dt_maxdvarsize);
-		dt_bpf_map_update(fd, &key, &dflt);
-	}
 
 	if (dtp->dt_maxtuplesize > 0 &&
 	    create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,

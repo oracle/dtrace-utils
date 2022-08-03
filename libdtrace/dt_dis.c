@@ -106,15 +106,23 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
  *          -1:    ld   dst  dst  DCTX_STRTAB  00000000
  *           0:    add  dst    0     0         var_offset
  * where instruction 0 is the current instruction.
+ *
+ * In all cases, if a relocation symbol name is provided, report that.
  */
 static void
 dt_dis_refname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
-	       int n, FILE *fp)
+	       const char *rname, int n, FILE *fp)
 {
 	__u8		ldcode = BPF_LDX | BPF_MEM | BPF_DW;
 	__u8		addcode = BPF_ALU64 | BPF_ADD | BPF_K;
 	int		dst, scope = -1, var_offset = -1;
 	const char	*str;
+
+	/* if we have a relocation symbol name, use that */
+	if (rname != NULL) {
+		fprintf(fp, "%*s! %s", DT_DIS_PAD(n), "", rname);
+		goto out;
+	}
 
 	/* make sure in[-2] and in[-1] exist */
 	if (addr < 2)
@@ -211,7 +219,7 @@ dt_dis_op2imm(const dtrace_difo_t *dp, const char *name, uint_t addr,
 	int		n;
 
 	n = fprintf(fp, "%-4s %s, %d", name, reg(in->dst_reg), in->imm);
-	dt_dis_refname(dp, in, addr, n, fp);
+	dt_dis_refname(dp, in, addr, rname, n, fp);
 
 	return 0;
 }
@@ -273,7 +281,7 @@ dt_dis_load(const dtrace_difo_t *dp, const char *name, uint_t addr,
 		fprintf(fp, "%*s! restore %s\n", DT_DIS_PAD(n), "",
 			reg(in->dst_reg));
 	} else
-		dt_dis_refname(dp, in, addr, n, fp);
+		dt_dis_refname(dp, in, addr, rname, n, fp);
 
 	return 0;
 }
@@ -317,7 +325,7 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name, uint_t addr,
 		fprintf(fp, "%*s! spill %s\n", DT_DIS_PAD(n), "",
 			reg(in->src_reg));
 	} else
-		dt_dis_refname(dp, in, addr, n, fp);
+		dt_dis_refname(dp, in, addr, rname, n, fp);
 
 	return 0;
 }
@@ -357,12 +365,12 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		return buf;
 	} else if (strcmp(fn, "dt_get_tvar") == 0) {
 		/*
-		 * We know that the previous three instructions exist and
+		 * We know that the previous six instructions exist and
 		 * move the variable id to a register in the first instruction
 		 * of that seqeuence (because we wrote the code generator to
 		 * emit the instructions in this exact order.)
 		 */
-		in -= 3;
+		in -= 6;
 		snprintf(buf, len, "self->%s",
 			 dt_dis_varname_id(dp, in->imm + DIF_VAR_OTHER_UBASE,
 					DIFV_SCOPE_THREAD, addr));
@@ -371,12 +379,12 @@ dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		uint_t		varid;
 
 		/*
-		 * We know that the previous four instructions exist and
+		 * We know that the previous seven instructions exist and
 		 * move the variable id to a register in the first instruction
 		 * of that seqeuence (because we wrote the code generator to
 		 * emit the instructions in this exact order.)
 		 */
-		in -= 4;
+		in -= 7;
 		varid = in->imm + DIF_VAR_OTHER_UBASE;
 
 		/*

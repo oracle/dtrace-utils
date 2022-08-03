@@ -2231,6 +2231,7 @@ dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 0));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 		dt_regset_free_args(drp);
@@ -2830,6 +2831,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_regset_free(drp, dnp->dn_left->dn_args->dn_reg);
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 1));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
+		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 		dt_regset_free_args(drp);
@@ -2929,6 +2931,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+	dt_cg_zerosptr(BPF_REG_4, dlp, drp);
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
@@ -3632,6 +3635,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free(drp, dnp->dn_args->dn_reg);
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
+	dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
