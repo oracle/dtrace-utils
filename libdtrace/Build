@@ -35,7 +35,6 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_list.c \
 			  dt_map.c \
 			  dt_module.c \
-			  dt_names.c \
 			  dt_open.c \
 			  dt_options.c \
 			  dt_parser.c \
@@ -100,10 +99,6 @@ SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | sed -e
 
 $(libdtrace-build_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
 	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $@
-
-$(libdtrace-build_DIR)dt_names.c: $(libdtrace-build_DIR)/../include/dtrace/dif_defines.h $(libdtrace-build_DIR)/mknames.sh
-	$(call describe-target,MKNAMES,$(libdtrace-build_DIR)dt_names.c)
-	sh $(libdtrace-build_DIR)mknames.sh < $(libdtrace-build_DIR)/../include/dtrace/dif_defines.h | sed -e 's/\\n/\n/g' > $@
 
 $(libdtrace-build_DIR)%.h $(libdtrace-build_DIR)%.c: $(libdtrace-build_DIR)%.y
 	$(call describe-target,YACC,$(libdtrace-build_DIR)$*.c)
@@ -226,7 +221,7 @@ $(libdtrace-build_DIR)regs.d: $(libdtrace-build_DIR)$(ARCHINC)/regs.d
 
 clean::
 	$(call describe-target,CLEAN,libdtrace)
-	rm -f $(libdtrace-build_DIR)dt_errtags.c $(libdtrace-build_DIR)dt_names.c
+	rm -f $(libdtrace-build_DIR)dt_errtags.c
 	rm -f $(libdtrace-build_DIR)dt_grammar.h $(libdtrace-build_DIR)dt_grammar.c
 	rm -f $(libdtrace-build_DIR)dt_lex.c
 	rm -f $(addprefix $(libdtrace-build_DIR),$(BUILD_DLIBS))
