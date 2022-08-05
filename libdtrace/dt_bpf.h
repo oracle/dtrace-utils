@@ -47,6 +47,7 @@ extern int bpf(enum bpf_cmd cmd, union bpf_attr *attr);
 
 extern int dt_bpf_gmap_create(struct dtrace_hdl *);
 extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
+extern int dt_bpf_map_next_key(int fd, const void *key, void *nxt);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);
 extern int dt_bpf_map_delete(int fd, const void *key);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);

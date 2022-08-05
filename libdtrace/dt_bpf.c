@@ -133,6 +133,21 @@ int dt_bpf_map_lookup(int fd, const void *key, void *val)
 }
 
 /*
+ * Find the next key after the given key in the map referenced by the given fd.
+ */
+int dt_bpf_map_next_key(int fd, const void *key, void *nxt)
+{
+	union bpf_attr attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_fd = fd;
+	attr.key = (uint64_t)(unsigned long)key;
+	attr.next_key = (uint64_t)(unsigned long)nxt;
+
+	return bpf(BPF_MAP_GET_NEXT_KEY, &attr);
+}
+
+/*
  * Delete the given key from the map referenced by the given fd.
  */
 int dt_bpf_map_delete(int fd, const void *key)
