@@ -1337,10 +1337,10 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		 */
 		if (nsym > 0) {
 			/*
-			 * The first two bytes of the string table are reserved
+			 * The first byte of the string table is reserved
 			 * for the \0 entry.
 			 */
-			len = dt_strtab_size(strtab) - 2;
+			len = dt_strtab_size(strtab) - 1;
 
 			assert(len > 0);
 			assert(dt_strtab_index(strtab, "") == 0);
