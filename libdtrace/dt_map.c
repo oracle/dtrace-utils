@@ -282,6 +282,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	agg->dtagd_id = id;
 	agg->dtagd_name = aid->di_name;
 	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
+	agg->dtagd_normal = 1;
 	agg->dtagd_varid = aid->di_id;
 	agg->dtagd_size = (aid->di_size - sizeof(uint64_t)) / DT_AGG_NUM_COPIES;
 	agg->dtagd_nrecs = agg->dtagd_size / sizeof(uint64_t);

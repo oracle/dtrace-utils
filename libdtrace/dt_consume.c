@@ -1454,28 +1454,6 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return 0;
 }
 
-typedef struct dt_normal {
-	dtrace_aggid_t	dtnd_id;
-	uint64_t	dtnd_normal;
-} dt_normal_t;
-
-static int
-dt_normalize_agg(const dtrace_aggdata_t *aggdata, void *arg)
-{
-	dt_normal_t		*normal = arg;
-	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
-	dtrace_aggid_t		id = normal->dtnd_id;
-
-	if (agg->dtagd_nrecs == 0)
-		return DTRACE_AGGWALK_NEXT;
-
-	if (agg->dtagd_varid != id)
-		return DTRACE_AGGWALK_NEXT;
-
-	((dtrace_aggdata_t *)aggdata)->dtada_normal = normal->dtnd_normal;
-	return DTRACE_AGGWALK_NORMALIZE;
-}
-
 /*
  * This function is also used to denormalize aggregations, because that is
  * equivalent to normalizing them using normal = 1.
@@ -1484,7 +1462,8 @@ static int
 dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 {
 	int		act = rec->dtrd_arg;
-	dt_normal_t	normal;
+	dtrace_aggid_t	id;
+	uint64_t	normal;
 	caddr_t		addr;
 
 	/*
@@ -1496,7 +1475,7 @@ dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	if (rec->dtrd_size != sizeof(dtrace_aggid_t))
 		return dt_set_errno(dtp, EDT_BADNORMAL);
 
-	normal.dtnd_id = *((dtrace_aggid_t *)addr);
+	id = *((dtrace_aggid_t *)addr);
 
 	if (act == DT_ACT_NORMALIZE) {
 		rec++;
@@ -1511,29 +1490,24 @@ dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 		switch (rec->dtrd_size) {
 		case sizeof(uint64_t):
-			normal.dtnd_normal = *((uint64_t *)addr);
+			normal = *((uint64_t *)addr);
 			break;
 		case sizeof(uint32_t):
-			normal.dtnd_normal = *((uint32_t *)addr);
+			normal = *((uint32_t *)addr);
 			break;
 		case sizeof(uint16_t):
-			normal.dtnd_normal = *((uint16_t *)addr);
+			normal = *((uint16_t *)addr);
 			break;
 		case sizeof(uint8_t):
-			normal.dtnd_normal = *((uint8_t *)addr);
+			normal = *((uint8_t *)addr);
 			break;
 		default:
 			return dt_set_errno(dtp, EDT_BADNORMAL);
 		}
 	} else
-		normal.dtnd_normal = 1;
+		normal = 1;
 
-	/*
-	 * Retrieve a snapshot of the aggregation data, and apply the normal
-	 * to all aggregations that need it.
-	 */
-	dtrace_aggregate_snap(dtp);
-	dtrace_aggregate_walk(dtp, dt_normalize_agg, &normal);
+	dtp->dt_adesc[id]->dtagd_normal = normal;
 
 	return 0;
 }
@@ -1765,7 +1739,7 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		size = agg->dtagd_size;
 
 		assert(DTRACEACT_ISAGG(rec->dtrd_action));
-		normal = aggdata->dtada_normal;
+		normal = aggdata->dtada_desc->dtagd_normal;
 
 		if (dt_print_datum(dtp, fp, rec, addr, size, normal,
 				   agg->dtagd_sig) < 0)

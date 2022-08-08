@@ -513,7 +513,6 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 	agd->dtada_size = realsz;
 	agd->dtada_desc = agg;
 	agd->dtada_hdl = st->dtp;
-	agd->dtada_normal = 1;
 
 	h->dtahe_hval = hval;
 	h->dtahe_size = realsz;
@@ -1118,14 +1117,6 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 	case DTRACE_AGGWALK_ABORT:
 		return dt_set_errno(dtp, EDT_DIRABORT);
 
-	case DTRACE_AGGWALK_NORMALIZE:
-		if (h->dtahe_data.dtada_normal == 0) {
-			h->dtahe_data.dtada_normal = 1;
-			return dt_set_errno(dtp, EDT_BADRVAL);
-		}
-
-		return 0;
-
 	case DTRACE_AGGWALK_REMOVE: {
 		dtrace_aggdata_t *aggdata = &h->dtahe_data;
 		int i, max_cpus = dtp->dt_conf.max_cpuid + 1;
@@ -1526,7 +1517,6 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 				aggdata->dtada_size = agg->dtagd_size;
 				aggdata->dtada_desc = agg;
 				aggdata->dtada_hdl = dtp;
-				aggdata->dtada_normal = 1;
 				zaggdata[i].dtahe_hval = 0;
 				zaggdata[i].dtahe_size = agg->dtagd_size;
 				break;

@@ -1383,7 +1383,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			rec = &agg->dtagd_recs[aggrec];
 			addr = aggdata->dtada_data;
 			limit = addr + aggdata->dtada_size;
-			normal = aggdata->dtada_normal;
+			normal = agg->dtagd_normal;
 			size = agg->dtagd_size;
 			sig = agg->dtagd_sig;
 			flags = DTRACE_BUFDATA_AGGVAL;

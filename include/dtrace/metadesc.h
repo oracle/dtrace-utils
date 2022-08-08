@@ -56,6 +56,7 @@ typedef struct dtrace_aggdesc {
 	int dtagd_flags;			/* aggregation flags */
 	dtrace_aggid_t dtagd_id;		/* aggregation ID */
 	uint64_t dtagd_sig;			/* aggregation signature */
+	uint64_t dtagd_normal;			/* aggregation normalization */
 	uint32_t dtagd_size;			/* size in bytes */
 	int dtagd_nrecs;			/* number of records */
 	dtrace_recdesc_t *dtagd_recs;		/* record descriptions */

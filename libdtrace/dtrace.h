@@ -365,7 +365,6 @@ struct dtrace_aggdata {
 	dtrace_hdl_t *dtada_hdl;		/* handle to DTrace library */
 	dtrace_aggdesc_t *dtada_desc;		/* aggregation description */
 	caddr_t dtada_data;			/* pointer to raw data */
-	uint64_t dtada_normal;			/* the normal -- 1 for denorm */
 	size_t dtada_size;			/* total size of the data */
 	caddr_t *dtada_percpu;			/* per CPU data, if avail */
 };
