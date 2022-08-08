@@ -1,10 +1,11 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 /* @@timeout: 500 */
+/* @@xfail: need support for aggregation keys */
 
 /*
  * ASSERTION:
@@ -14,7 +15,6 @@
  * SECTION: Buffers and Buffering/Buffer Resizing Policy;
  *	Options and Tunables/bufresize;
  *	Options and Tunables/aggsize
- *
  */
 
 #pragma D option quietresize=no
