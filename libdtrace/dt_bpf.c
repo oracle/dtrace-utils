@@ -100,8 +100,8 @@ int dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
  * Create a named BPF map.
  */
 int dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
-		      int key_size, int value_size, int max_entries,
-		      uint32_t map_flags)
+		      uint32_t key_size, uint32_t value_size,
+		      uint32_t max_entries, uint32_t map_flags)
 {
 	union bpf_attr	attr;
 
@@ -242,26 +242,35 @@ dt_bpf_init_helpers(dtrace_hdl_t *dtp)
 
 static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
-	    int ksz, int vsz, int size)
+	    size_t ksz, size_t vsz, size_t size)
 {
-	int		fd;
+	int		fd, err;
 	dt_ident_t	*idp;
 
-	dt_dprintf("Creating BPF map '%s' (ksz %u, vsz %u, sz %d)\n",
+	dt_dprintf("Creating BPF map '%s' (ksz %lu, vsz %lu, sz %lu)\n",
 		   name, ksz, vsz, size);
-	fd = dt_bpf_map_create(type, name, ksz, vsz, size, 0);
+
+	if (ksz > UINT_MAX || vsz > UINT_MAX || size > UINT_MAX) {
+		fd = -1;
+		err = E2BIG;
+	} else {
+		fd = dt_bpf_map_create(type, name, ksz, vsz, size, 0);
+		err = errno;
+	}
+
 	if (fd < 0) {
 		char msg[64];
 
 		snprintf(msg, sizeof(msg),
 			 "failed to create BPF map '%s'", name);
-		if (errno == EPERM)
+		if (err == E2BIG)
+			return dt_bpf_error(dtp, "%s: Too big\n", msg);
+		if (err == EPERM)
 			return dt_bpf_lockmem_error(dtp, msg);
-		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(errno));
+		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(err));
 	}
 
-	dt_dprintf("BPF map '%s' is FD %d (ksz %u, vsz %u, sz %d)\n",
-		   name, fd, ksz, vsz, size);
+	dt_dprintf("BPF map '%s' is FD %d\n", name, fd);
 
 	/*
 	 * Assign the fd as id for the BPF map identifier.
@@ -354,7 +363,7 @@ populate_probes_map(dtrace_hdl_t *dtp, int fd)
 int
 dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 {
-	int		sz;
+	size_t		sz;
 	int		dvarc = 0;
 	int		ci_mapfd, st_mapfd, pr_mapfd;
 	uint64_t	key = 0;
