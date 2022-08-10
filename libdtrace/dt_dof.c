@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -425,6 +425,9 @@ dof_add_provider(dt_dof_t *ddo, const dt_provider_t *pvp)
 
 	if (pvp->pv_flags & DT_PROVIDER_IMPL)
 		return; /* ignore providers that are exported by dtrace(7D) */
+
+	if (dt_idhash_size(pvp->pv_probes) == 0)
+		return;	/* don't emit providers with no probes */
 
 	nxr = dt_popcb(pvp->pv_xrefs, pvp->pv_xrmax);
 	dofs = alloca(sizeof(dof_secidx_t) * (nxr + 1));
