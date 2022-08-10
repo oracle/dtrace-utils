@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -10,6 +10,8 @@
 
 #include <pthread.h>
 #include <mutex.h>
+#include <unistd.h>
+#include <sys/compiler.h>
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/ptrace.h>
@@ -26,6 +28,11 @@ int p_online(int cpun);
 
 int mutex_init(mutex_t *m, int flags1, void *ptr);
 
+int daemonize(int close_fds);
+
+_dt_noreturn_ void daemon_err(int fd, const char *err);
+_dt_noreturn_ void daemon_perr(int fd, const char *err, int err_no);
+
 unsigned long linux_version_code(void);
 
 #ifndef HAVE_ELF_GETSHDRSTRNDX
@@ -35,6 +42,10 @@ unsigned long linux_version_code(void);
 
 #ifndef HAVE_WAITFD
 int waitfd(int which, pid_t upid, int options, int flags);
+#endif
+
+#ifndef HAVE_CLOSE_RANGE
+int close_range(unsigned int first, unsigned int last, unsigned int flags);
 #endif
 
 /*
