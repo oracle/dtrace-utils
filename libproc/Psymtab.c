@@ -1505,7 +1505,6 @@ elf_bad_noaddr:
 	    "likely broken: %s\n", fptr->file_pname, (err == 0) ? "<null>" :
 	    elf_errmsg(err));
 	fptr->file_dyn_base = 0;
-	free(cache);
 	*jmp_pad = old_exec_jmp;
 	return;
 
