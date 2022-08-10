@@ -27,8 +27,6 @@
 #
 # The first USDT provider check should find test_prov$pid.
 # The second should not.
-#
-# @@xfail: dtv2 (USDT probes)
 
 dtrace=$1
 CC=/usr/bin/gcc

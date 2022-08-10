@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -9,7 +9,8 @@ if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
 fi
-# @@xfail: dtv2
+
+# @@xfail: dtv2, no wildcard usdt probes yet
 
 dtrace=$1
 CC=/usr/bin/gcc

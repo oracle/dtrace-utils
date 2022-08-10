@@ -9,7 +9,7 @@
 # USDT probes as well as pid probes (e.g., p*d$target matches both 
 # pid$target and pyramid$target.)
 #
-# @@xfail: dtv2
+# @@xfail: dtv2 (wildcarded usdt probes not yet implemented)
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'

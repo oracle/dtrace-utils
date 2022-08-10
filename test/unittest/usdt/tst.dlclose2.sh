@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+# @@xfail: dtv2, no wildcard usdt probes yet
+#
 PATH=/usr/bin:/usr/sbin:$PATH
-# @@xfail: dtv2
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'

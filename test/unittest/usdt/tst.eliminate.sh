@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
-# @@xfail: Linux ld does not seem to supoprt STV_ELIMINATE
+# @@xfail: Linux ld does not seem to support STV_ELIMINATE
 #
 # Make sure temporary symbols generated due to DTrace probes in static
 # functions are removed in the final link step.

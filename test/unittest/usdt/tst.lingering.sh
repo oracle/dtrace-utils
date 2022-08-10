@@ -4,7 +4,10 @@
 # Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
-
+#
+# Test multiple probes, repeatedly invoked by multiple dtraces
+# on the same running trigger
+#
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -14,13 +17,14 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-DIRNAME="$tmpdir/usdt-guess32.$$.$RANDOM"
+DIRNAME="$tmpdir/usdt-lingering.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {
 	probe go();
+	probe go2();
 };
 EOF
 
@@ -32,18 +36,23 @@ fi
 
 cat > test.c <<EOF
 #include <sys/types.h>
+#include <unistd.h>
 #include "prov.h"
 
 int
 main(int argc, char **argv)
 {
-	if (TEST_PROV_GO_ENABLED()) {
+	for (;;) {
 		TEST_PROV_GO();
+		TEST_PROV_GO2();
+		sleep(1);
 	}
+
+	return 0;
 }
 EOF
 
-${CC} ${CFLAGS} -m32 -c test.c
+${CC} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
@@ -53,23 +62,35 @@ if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -m32 -o test test.o prov.o
+${CC} ${CFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
 
-script()
-{
-	$dtrace -c ./test -qs /dev/stdin <<EOF
-	test_prov\$target:::
+./test &
+TRIGPID=$!
+
+trap 'kill -9 $TRIGPID' ERR EXIT
+
+script() {
+	$dtrace -p $TRIGPID -qs /dev/stdin <<EOF
+	test_prov\$target:::$1
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);
+		exit(0);
+	}
+
+	tick-5s
+	{
+		printf("probe $1 timed out\n");
+		exit(1);
 	}
 EOF
 }
 
-script
-status=$?
-
-exit $status
+set -e
+script go
+script go2
+script go2
+script go
