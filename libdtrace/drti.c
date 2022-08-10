@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -96,7 +96,7 @@ dtrace_dof_init(void)
 #else
 	lmid = 0;			/* We need a way to determine this. */
 
-	snprintf(mfn, sizeof(mfn), "/proc/%d/maps", getpid());
+	snprintf(mfn, sizeof(mfn), "/proc/self/maps");
 	if ((fp = fopen(mfn, "re")) == NULL) {
 		dprintf(2, "DRTI: Failed to open maps file.\n");
                 goto out;
