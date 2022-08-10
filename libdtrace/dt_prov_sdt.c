@@ -42,6 +42,7 @@ static const char		modname[] = "vmlinux";
 #define KPROBES			"kprobes"
 #define SYSCALLS		"syscalls"
 #define UPROBES			"uprobes"
+#define PID			"dt_pid"
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
@@ -57,14 +58,15 @@ static const dtrace_pattr_t	pattr = {
  *   - GROUP_FMT (created by DTrace processes)
  *   - kprobes and uprobes
  *   - syscalls (handled by a different provider)
+ *   - pid and usdt probes (ditto)
  */
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
 	FILE		*f;
-	char		buf[256];
+	char		*buf = NULL;
 	char		*p;
-	int		n = 0;
+	size_t		n;
 
 	prv = dt_provider_create(dtp, prvname, &dt_sdt, &pattr);
 	if (prv == NULL)
@@ -74,31 +76,29 @@ static int populate(dtrace_hdl_t *dtp)
 	if (f == NULL)
 		return 0;
 
-	while (fgets(buf, sizeof(buf), f)) {
-		int	dummy;
-		char	str[sizeof(buf)];
-
+	while (getline(&buf, &n, f) >= 0) {
 		p = strchr(buf, '\n');
 		if (p)
 			*p = '\0';
 
 		p = strchr(buf, ':');
 		if (p != NULL) {
-			size_t	len;
+			int	dummy;
+			char	*str;
 
 			*p++ = '\0';
-			len = strlen(buf);
 
-			if (sscanf(buf, GROUP_FMT, &dummy, str) == 2)
+			if (sscanf(buf, GROUP_SFMT, &dummy, &str) == 2) {
+				free(str);
 				continue;
-			else if (len == strlen(KPROBES) &&
-				 strcmp(buf, KPROBES) == 0)
+			}
+			else if (strcmp(buf, KPROBES) == 0)
 				continue;
-			else if (len == strlen(SYSCALLS) &&
-				 strcmp(buf, SYSCALLS) == 0)
+			else if (strcmp(buf, SYSCALLS) == 0)
 				continue;
-			else if (len == strlen(UPROBES) &&
-				 strcmp(buf, UPROBES) == 0)
+			else if (strcmp(buf, UPROBES) == 0)
+				continue;
+			else if (strcmp(buf, PID) == 0)
 				continue;
 
 			if (dt_tp_probe_insert(dtp, prv, prvname, buf, "", p))
@@ -110,6 +110,7 @@ static int populate(dtrace_hdl_t *dtp)
 		}
 	}
 
+	free(buf);
 	fclose(f);
 
 	return n;

@@ -310,12 +310,15 @@ dt_cg_tramp_copy_regs(dt_pcb_t *pcb, int rp)
 
 /*
  * Copy arguments from a dt_pt_regs structure referenced by the 'rp' argument.
+ * If 'called' is nonzero, the registers are laid out as when inside the
+ * function: if zero, they are laid out as at the call instruction, before the
+ * function is called (as is done for e.g. usdt).
  *
  * The caller must ensure that %r7 contains the value set by the
  * dt_cg_tramp_prologue*() functions.
  */
 void
-dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
+dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -361,13 +364,13 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 	 *		rc = bpf_probe_read[_user](dctx->mst->argv[i],
 	 *					   sizeof(uint64_t),
 	 *					   &sp[i - PT_REGS_ARGC +
-	 *						   PT_REGS_ARGSTKBASE]);
+	 *						   (called ? PT_REGS_ARGSTKBASE : 0)]);
 	 *				// mov %r1, %r7
 	 *				// add %r1, DMST_ARG(i)
 	 *				// mov %r2, sizeof(uint64_t)
 	 *				// lddw %r3, [%rp + PT_REGS_SP]
 	 *				// add %r3, (i - PT_REGS_ARGC +
-	 *						 PT_REGS_ARGSTKBASE) *
+	 *						 (called ? PT_REGS_ARGSTKBASE : 0)) *
 	 *					    sizeof(uint64_t)
 	 *				// call bpf_probe_read[_user]
 	 *		if (rc != 0)
@@ -387,7 +390,8 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp)
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMST_ARG(i)));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
 		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, rp, PT_REGS_SP));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC + PT_REGS_ARGSTKBASE) * sizeof(uint64_t)));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC +
+			    (called ? PT_REGS_ARGSTKBASE : 0)) * sizeof(uint64_t)));
 		emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
 		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));

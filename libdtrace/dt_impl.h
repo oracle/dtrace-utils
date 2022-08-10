@@ -319,6 +319,7 @@ struct dtrace_hdl {
 
 	dt_htab_t *dt_provs;	/* hash table of dt_provider_t's */
 	const struct dt_provider *dt_prov_pid; /* PID provider */
+	const struct dt_provider *dt_prov_usdt; /* USDT provider */
 	dt_proc_hash_t *dt_procs; /* hash table of grabbed process handles */
 	dt_intdesc_t dt_ints[6]; /* cached integer type descriptions */
 	ctf_id_t dt_type_func;	/* cached CTF identifier for function type */

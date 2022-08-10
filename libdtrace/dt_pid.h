@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -16,14 +16,11 @@
 extern "C" {
 #endif
 
-#define	DT_PROC_ERR	(-1)
-#define	DT_PROC_ALIGN	(-2)
-
-#define PID_PRVNAME	"pid%d"
-
 extern int dt_pid_create_probes(dtrace_probedesc_t *, dtrace_hdl_t *,
-				dt_pcb_t *pcb);
+				dt_pcb_t *);
 extern int dt_pid_create_probes_module(dtrace_hdl_t *, dt_proc_t *);
+extern pid_t dt_pid_get_pid(const dtrace_probedesc_t *, dtrace_hdl_t *, dt_pcb_t *,
+			    dt_proc_t *);
 
 #ifdef	__cplusplus
 }

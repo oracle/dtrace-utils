@@ -66,10 +66,10 @@ const dt_version_t _dtrace_versions[] = {
 static const dt_provimpl_t *dt_providers[] = {
 	&dt_dtrace,
 	&dt_fbt,
-	&dt_pid,
 	&dt_profile,
 	&dt_sdt,
 	&dt_syscall,
+	&dt_uprobe,
 };
 
 /*

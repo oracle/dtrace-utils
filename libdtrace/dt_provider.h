@@ -23,9 +23,11 @@ extern "C" {
  * to this format string as needed.
  *
  * GROUP_DATA provides the necessary data items to populate the format string
- * (PID of the dtrace process and the provider name).
+ * (PID of the dtrace process and the provider name).  GROUP_SFMT is like
+ * GROUP_FMT, but for sscanf().
  */
 #define GROUP_FMT	"dt_%d_%s"
+#define GROUP_SFMT	"dt_%d_%ms"
 #define GROUP_DATA	getpid(), prvname
 
 struct dt_probe;
@@ -60,7 +62,7 @@ typedef struct dt_provimpl {
 	int (*populate)(dtrace_hdl_t *dtp);	/* register probes */
 	int (*provide)(dtrace_hdl_t *dtp,	/* provide probes */
 		       const dtrace_probedesc_t *pdp);
-	int (*provide_pid)(dtrace_hdl_t *dtp,	/* provide PID probes */
+	int (*provide_probe)(dtrace_hdl_t *dtp,	/* provide a specific probe */
 		       const pid_probespec_t *psp);
 	void (*enable)(dtrace_hdl_t *dtp,	/* enable the given probe */
 		       struct dt_probe *prp);
@@ -78,10 +80,10 @@ typedef struct dt_provimpl {
 
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_fbt;
-extern dt_provimpl_t dt_pid;
 extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_sdt;
 extern dt_provimpl_t dt_syscall;
+extern dt_provimpl_t dt_uprobe;
 
 typedef struct dt_provider {
 	dt_list_t pv_list;		/* list forward/back pointers */
