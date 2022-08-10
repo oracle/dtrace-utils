@@ -62,10 +62,10 @@ static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t		*prv;
 	FILE			*f;
-	char			buf[256];
+	char			*buf = NULL;
 	char			*p;
 	const char		*mod = modname;
-	int			n = 0;
+	size_t			n;
 	dtrace_syminfo_t	sip;
 	dtrace_probedesc_t	pd;
 
@@ -77,27 +77,16 @@ static int populate(dtrace_hdl_t *dtp)
 	if (f == NULL)
 		return 0;
 
-	while (fgets(buf, sizeof(buf), f)) {
+	while (getline(&buf, &n, f) >= 0) {
 		/*
 		 * Here buf is either "funcname\n" or "funcname [modname]\n".
+		 * The last line may not have a linefeed.
 		 */
 		p = strchr(buf, '\n');
 		if (p) {
 			*p = '\0';
 			if (p > buf && *(--p) == ']')
 				*p = '\0';
-		} else {
-			/*
-			 * If we didn't see a newline, the line was too long.
-			 * Report it, and skip until the end of the line.
-			 */
-			fprintf(stderr, "%s: Line too long: %s\n",
-				PROBE_LIST, buf);
-
-			do
-				fgets(buf, sizeof(buf), f);
-			while (strchr(buf, '\n') == NULL);
-			continue;
 		}
 
 		/*
@@ -142,6 +131,7 @@ static int populate(dtrace_hdl_t *dtp)
 			n++;
 	}
 
+	free(buf);
 	fclose(f);
 
 	return n;

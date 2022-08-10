@@ -72,8 +72,8 @@ static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
 	FILE		*f;
-	char		buf[256];
-	int		n = 0;
+	char		*buf = NULL;
+	size_t		n;
 
 	prv = dt_provider_create(dtp, prvname, &dt_syscall, &pattr);
 	if (prv == NULL)
@@ -83,26 +83,13 @@ static int populate(dtrace_hdl_t *dtp)
 	if (f == NULL)
 		return 0;
 
-	while (fgets(buf, sizeof(buf), f)) {
+	while (getline(&buf, &n, f) >= 0) {
 		char	*p;
 
 		/* Here buf is "group:event".  */
 		p = strchr(buf, '\n');
 		if (p)
 			*p = '\0';
-		else {
-			/*
-			 * If we didn't see a newline, the line was too long.
-			 * Report it, and skip until the end of the line.
-			 */
-			fprintf(stderr, "%s: Line too long: %s\n",
-				PROBE_LIST, buf);
-			do
-				fgets(buf, sizeof(buf), f);
-			while (strchr(buf, '\n') == NULL);
-			continue;
-		}
-
 		/* We need "group:" to match "syscalls:". */
 		p = buf;
 		if (memcmp(p, PROV_PREFIX, sizeof(PROV_PREFIX) - 1) != 0)
@@ -127,6 +114,7 @@ static int populate(dtrace_hdl_t *dtp)
 		}
 	}
 
+	free(buf);
 	fclose(f);
 
 	return n;

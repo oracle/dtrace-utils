@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -120,7 +120,8 @@ int
 dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		 int *argcp, dt_argdesc_t **argvp)
 {
-	char		buf[1024];
+	char		*buf = NULL;
+	size_t		bufsz;
 	int		argc;
 	size_t		argsz = 0;
 	dt_argdesc_t	*argv = NULL;
@@ -139,7 +140,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	 * total size of all type strings together).
 	 */
 	argc = -skip;
-	while (fgets(buf, sizeof(buf), f)) {
+	while (getline(&buf, &bufsz, f) >= 0) {
 		char	*p = buf;
 
 		if (sscanf(buf, "ID: %d\n", &tpp->event_id) == 1)
@@ -159,6 +160,8 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		 */
 		argsz += strlen(p) + 1;
 	}
+	free(buf);
+	buf = NULL;
 
 	/*
 	 * If we saw less fields than expected, we flag an error.
@@ -183,7 +186,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	 */
 	rewind(f);
 	argc = -skip;
-	while (fgets(buf, sizeof(buf), f)) {
+	while (getline(&buf, &bufsz, f) >= 0) {
 		char	*p = buf;
 		size_t	l;
 
@@ -255,6 +258,7 @@ skip:
 	}
 
 done:
+	free(buf);
 	*argcp = argc;
 	*argvp = argv;
 
@@ -263,7 +267,7 @@ done:
 
 /*
  * Detach from a tracepoint for a tracepoint-based probe.  The caller should
- * still call dt_tp_destroy() to free the tracepointe-specific probe data.
+ * still call dt_tp_destroy() to free the tracepoint-specific probe data.
  */
 void
 dt_tp_detach(dtrace_hdl_t *dtp, tp_probe_t *tpp)
