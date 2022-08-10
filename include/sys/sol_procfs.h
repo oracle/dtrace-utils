@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -17,17 +17,17 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/dtrace_types.h>
 #include <sys/procfs_isa.h>
-#include <dt_list.h>
 #include <link.h>
 
 /*
  * The prmap_file points to all mappings corresponding to a single file, sorted
  * by address.  prmap_files are hashed by name (including the terminating \0,
- * so anonymous maps are all hashed together).
+ * so anonymous maps are all hashed together) and by dev/inode number.
  */
 struct prmap;
 typedef struct prmap_file {
-	struct prmap_file *prf_next;	/* next in hash chain */
+	struct prmap_file *prf_name_next; /* next in filename hash chain */
+	struct prmap_file *prf_inum_next; /* next in inode hash chain */
 	char	*prf_mapname;		/* name in /proc/<pid>/maps */
 	struct prmap **prf_mappings;	/* sorted by address */
 	size_t prf_num_mappings;	/* number of mappings */

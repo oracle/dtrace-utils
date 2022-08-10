@@ -247,6 +247,7 @@ struct ps_prochandle {
 	map_info_t *mappings;	/* process mappings, sorted by address */
 	size_t	num_mappings;	/* number of mappings */
 	prmap_file_t **map_files; /* hash of mappings by filename */
+	prmap_file_t **map_inum; /* hash of mappings by (dev, inode) */
 	uint_t  num_files;	/* number of file elements in file_list */
 	dt_list_t file_list;	/* list of mapped files w/ symbol table info */
 	auxv_t	*auxv;		/* the process's aux vector */

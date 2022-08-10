@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/user.h>
 
 #include <sys/compiler.h>
@@ -242,6 +243,8 @@ extern const prmap_t *Paddr_to_map(struct ps_prochandle *, uintptr_t);
 extern const prmap_t *Pname_to_map(struct ps_prochandle *, const char *);
 extern const prmap_t *Plmid_to_map(struct ps_prochandle *,
     Lmid_t, const char *);
+extern const prmap_file_t *Pinode_to_file_map(struct ps_prochandle *,
+    dev_t, ino_t);
 
 extern char *Pobjname(struct ps_prochandle *, uintptr_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, uintptr_t, Lmid_t *);

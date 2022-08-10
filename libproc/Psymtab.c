@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -36,6 +36,8 @@
 static map_info_t *object_to_map(struct ps_prochandle *, Lmid_t, const char *);
 static map_info_t *object_name_to_map(struct ps_prochandle *,
     Lmid_t, const char *);
+static prmap_file_t *Pfilename_to_file_map(struct ps_prochandle *P,
+    const char *name);
 static GElf_Sym *sym_by_name(sym_tbl_t *, const char *, GElf_Sym *, uint_t *);
 static file_info_t *file_info_new(struct ps_prochandle *, map_info_t *);
 static int byaddr_cmp_common(GElf_Sym *a, char *aname, GElf_Sym *b, char *bname);
@@ -68,6 +70,39 @@ string_hash(const char *key)
 	}
 
 	return h;
+}
+
+/*
+ * This is Pelle Evensen's NASAM mixer.  Since we are only mixing in one value
+ * we don't need anything but a mixing step.
+ */
+
+#define ror(x,y) ((x) >> (y) | (x) << (64 - (y)))
+
+static uint64_t
+nasam_mix(uint64_t h)
+{
+
+	h ^= ror(h, 25) ^ ror(h, 47);
+	h *= 0x9E6C63D0676A9A99UL;
+	h ^= h >> 23 ^ h >> 51;
+	h *= 0x9E6D62D06F6A9A9BUL;
+	h ^= h >> 23 ^ h >> 51;
+
+	return h;
+}
+#undef ror
+
+static ino_t
+dev_inum_hash(dev_t dev, ino_t inum)
+{
+	uint64_t h;
+
+	h = nasam_mix(inum);
+	h += dev;
+	h = nasam_mix(h);
+
+	return (ino_t) h;
 }
 
 /*
@@ -173,7 +208,7 @@ mapping_purge(struct ps_prochandle *P)
 		prmap_file_t *old_prf = NULL;
 
 		for (prf = P->map_files[i]; prf != NULL;
-		     old_prf = prf, prf = prf->prf_next) {
+		     old_prf = prf, prf = prf->prf_name_next) {
 			free(old_prf);
 			free(prf->prf_mappings);
 			free(prf->prf_mapname);
@@ -182,6 +217,7 @@ mapping_purge(struct ps_prochandle *P)
 	}
 
 	memset(P->map_files, 0, sizeof(struct prmap_file *) * MAP_HASH_BUCKETS);
+	memset(P->map_inum, 0, sizeof(struct prmap_file *) * MAP_HASH_BUCKETS);
 
 	for (i = 0, fptr = dt_list_next(&P->file_list);
 	     i < P->num_files; i++, fptr = dt_list_next(fptr)) {
@@ -208,6 +244,11 @@ Psym_init(struct ps_prochandle *P)
 		_dprintf("Out of memory initializing map_files hash\n");
 		return -ENOMEM;
 	}
+	P->map_inum = calloc(MAP_HASH_BUCKETS, sizeof(struct prmap_file_t *));
+	if (!P->map_inum) {
+		_dprintf("Out of memory initializing map_inum hash\n");
+		return -ENOMEM;
+	}
 	return 0;
 }
 
@@ -219,23 +260,8 @@ Psym_free(struct ps_prochandle *P)
 {
 	free(P->map_files);
 	P->map_files = NULL;
-}
-
-/*
- * Given a process handle, find a corresponding prmap_file by file name, or NULL
- * if none.
- */
-static prmap_file_t *Pprmap_file_by_name(struct ps_prochandle *P,
-    const char *name)
-{
-	uint_t h = string_hash(name) % MAP_HASH_BUCKETS;
-	prmap_file_t *prf;
-
-	for (prf = P->map_files[h]; prf != NULL; prf = prf->prf_next)
-		if (strcmp(prf->prf_mapname, name) == 0)
-			return prf;
-
-	return NULL;
+	free(P->map_inum);
+	P->map_inum = NULL;
 }
 
 /*
@@ -552,9 +578,13 @@ Pupdate_maps(struct ps_prochandle *P)
 			goto err;
 		pmptr = mptr->map_pmap;
 		memset(pmptr, 0, sizeof(struct prmap));
+		pmptr->pr_dev = makedev(major, minor);
+		pmptr->pr_inum = inode;
 
-		if ((prf = Pprmap_file_by_name(P, fn)) == NULL) {
-			uint_t h = string_hash(fn) % MAP_HASH_BUCKETS;
+		if ((prf = Pfilename_to_file_map(P, fn)) == NULL) {
+			uint_t fn_h = string_hash(fn) % MAP_HASH_BUCKETS;
+			uint_t inum_h = dev_inum_hash(pmptr->pr_dev, pmptr->pr_inum) %
+			    MAP_HASH_BUCKETS;
 
 			if ((prf = malloc(sizeof(struct prmap_file))) == NULL) {
 				free(mptr->map_pmap);
@@ -563,10 +593,11 @@ Pupdate_maps(struct ps_prochandle *P)
 
 			memset(prf, 0, sizeof(struct prmap_file));
 			prf->prf_mapname = fn;
-			prf->prf_next = P->map_files[h];
-			P->map_files[h] = prf;
-		}
-		else {
+			prf->prf_name_next = P->map_files[fn_h];
+			P->map_files[fn_h] = prf;
+			prf->prf_inum_next = P->map_inum[inum_h];
+			P->map_inum[inum_h] = prf;
+		} else {
 			free(fn);
 			fn = NULL;
 		}
@@ -644,8 +675,6 @@ Pupdate_maps(struct ps_prochandle *P)
 			    (strcmp(prf->prf_mapname, exefile) == 0))
 				P->map_exec = P->num_mappings;
 		}
-		pmptr->pr_dev = makedev(major, minor);
-		pmptr->pr_inum = inode;
 		pmptr->pr_file = prf;
 
 		/*
@@ -849,10 +878,50 @@ Plmid_to_map(struct ps_prochandle *P, Lmid_t lmid, const char *name)
 	return NULL;
 }
 
+/*
+ * Given a process handle, find a corresponding mapping by hunting across all lmids.
+ */
 const prmap_t *
 Pname_to_map(struct ps_prochandle *P, const char *name)
 {
 	return Plmid_to_map(P, PR_LMID_EVERY, name);
+}
+
+/*
+ * Given a process handle, find a corresponding prmap_file by file name, or NULL
+ * if none.
+ */
+static prmap_file_t *Pfilename_to_file_map(struct ps_prochandle *P,
+    const char *name)
+{
+	uint_t h = string_hash(name) % MAP_HASH_BUCKETS;
+	prmap_file_t *prf;
+
+	for (prf = P->map_files[h]; prf != NULL; prf = prf->prf_name_next)
+		if (strcmp(prf->prf_mapname, name) == 0)
+			return prf;
+
+	return NULL;
+}
+
+
+/*
+ * Given a process handle, find a corresponding prmap_file by (dev_t, inode
+ * number), or NULL if none.
+ */
+const prmap_file_t *
+Pinode_to_file_map(struct ps_prochandle *P, dev_t dev, ino_t inum)
+{
+	uint_t h = dev_inum_hash(dev, inum) % MAP_HASH_BUCKETS;
+
+	prmap_file_t *prf;
+
+	for (prf = P->map_inum[h]; prf != NULL; prf = prf->prf_inum_next)
+		if (prf->first_segment->pr_inum == inum &&
+		    prf->first_segment->pr_dev == dev)
+			return prf;
+
+	return NULL;
 }
 
 /*
@@ -1384,7 +1453,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	size_t nphdrs;
 	GElf_Phdr hdr;
 	GElf_Phdr *phdr = &hdr;
-	prmap_file_t *prf = Pprmap_file_by_name(P, fptr->file_pname);
+	prmap_file_t *prf = Pfilename_to_file_map(P, fptr->file_pname);
 
 	if (!prf) {
 		_dprintf("%s: mapping not known (internal error)\n.",
