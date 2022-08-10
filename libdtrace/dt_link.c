@@ -1692,17 +1692,17 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		 */
 
 		if (dtp->dt_oflags & DTRACE_O_ILP32) {
-			snprintf(drti, sizeof (drti), "%s/drti32.o", libdir->dir_path);
+			snprintf(drti, sizeof (drti), "%s/drti/drti32.o", libdir->dir_path);
 #if defined(__sparc)
 			emu = " -m elf32_sparc";
 #elif defined(__i386) || defined(__amd64)
 			emu = " -m elf_i386";
 #endif
 		} else {
-			snprintf(drti, sizeof (drti), "%s/drti.o", libdir->dir_path);
+			snprintf(drti, sizeof (drti), "%s/drti/drti.o", libdir->dir_path);
 			emu = "";
 		}
-		snprintf(symvers, sizeof (symvers), "%s/drti-vers", libdir->dir_path);
+		snprintf(symvers, sizeof (symvers), "%s/drti/drti-vers", libdir->dir_path);
 
 		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file,
 			       symvers, fd, drti) + 1;
