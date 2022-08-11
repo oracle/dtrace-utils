@@ -1264,10 +1264,12 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 	dtrace_aggdesc_t *agg;
 	caddr_t lim = (caddr_t)buf + len, limit;
 	char format[64] = "%";
-	int i, aggrec = 0, curagg = -1;
+	int i, curagg = -1;
 	uint64_t normal, sig;
 
 	/*
+	 * FIXME: Comment needs rewrite.
+	 *
 	 * If we are formatting an aggregation, set 'aggrec' to the index of
 	 * the final record description (the aggregation result) so we can use
 	 * this record index with any conversion where DT_PFCONV_AGG is set.
@@ -1280,13 +1282,8 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		assert(aggsdata != NULL);
 		assert(naggvars > 0);
 
-		if (nrecs == 0)
-			return dt_set_errno(dtp, EDT_DMISMATCH);
-
 		curagg = naggvars > 1 ? 1 : 0;
 		aggdata = aggsdata[0];
-		aggrec = aggdata->dtada_desc->dtagd_nrecs - 1;
-		nrecs--;
 	}
 
 	for (i = 0; i < pfv->pfv_argc; i++, pfd = pfd->pfd_next) {
@@ -1380,11 +1377,10 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			if (curagg < naggvars - 1)
 				curagg++;
 
-			rec = &agg->dtagd_recs[aggrec];
-			addr = aggdata->dtada_data;
+			rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
+			addr = aggdata->dtada_data + rec->dtrd_offset;
 			limit = addr + aggdata->dtada_size;
 			normal = agg->dtagd_normal;
-			size = agg->dtagd_size;
 			sig = agg->dtagd_sig;
 			flags = DTRACE_BUFDATA_AGGVAL;
 		} else {
@@ -1409,9 +1405,10 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			addr = (caddr_t)buf + rec->dtrd_offset;
 			limit = lim;
 			normal = 1;
-			size = rec->dtrd_size;
 			sig = 0;
 		}
+
+		size = rec->dtrd_size;
 
 		if (addr + size > limit) {
 			dt_dprintf("bad size: addr=%p size=0x%x lim=%p\n",
@@ -1809,8 +1806,8 @@ static int
 dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 {
 	const dtrace_aggdesc_t	*agg = adp->dtada_desc;
-	const dtrace_recdesc_t	*rec = agg->dtagd_recs;
-	uint_t			nrecs = agg->dtagd_nrecs;
+	const dtrace_recdesc_t	*rec = &agg->dtagd_krecs[1];
+	uint_t			nrecs = agg->dtagd_nkrecs - 1;
 	dt_pfwalk_t		*pfw = arg;
 	dtrace_hdl_t		*dtp = pfw->pfw_argv->pfv_dtp;
 
@@ -1837,8 +1834,8 @@ dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 {
 	const dtrace_aggdata_t	*aggdata = aggsdata[0];
 	const dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
-	const dtrace_recdesc_t	*rec = agg->dtagd_recs;
-	uint_t			nrecs = agg->dtagd_nrecs;
+	const dtrace_recdesc_t	*rec = &agg->dtagd_krecs[1];
+	uint_t			nrecs = agg->dtagd_nkrecs - 1;
 	dt_pfwalk_t		*pfw = arg;
 	dtrace_hdl_t		*dtp = pfw->pfw_argv->pfv_dtp;
 	int			i;

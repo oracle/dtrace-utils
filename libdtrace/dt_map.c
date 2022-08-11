@@ -241,11 +241,9 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 {
 	dtrace_id_t		max;
 	dtrace_aggdesc_t	*agg;
-	dtrace_recdesc_t	*recs;
+	dtrace_recdesc_t	*krecs, *drecs;
 	dtrace_aggid_t		id = aid->di_id;
-	dt_ident_t		*fid = aid->di_iarg;
-	int			i;
-	uint_t			off = 0;
+	uint_t			nkrecs;
 
 	while (id >= (max = dtp->dt_maxagg) || dtp->dt_adesc == NULL) {
 		dtrace_id_t		nmax = max ? (max << 1) : 1;
@@ -275,38 +273,59 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	/*
-	 * Note the relationship between the aggregation storage
-	 * size (di_size) and the aggregation data size (dtagd_size):
-	 *     di_size = dtagd_size * (num copies) + (size of latch seq #)
+	 * The number of key records for an indexed aggregation is one more
+	 * than the number of aggregation keys because we store tha aggregation
+	 * variable id at the beginning of the BPF hashmap key to distinguish
+	 * different aggregations indexed with the same keys.
 	 */
+	nkrecs = 1 + ((dt_idsig_t *)aid->di_data)->dis_argc;
+
 	agg->dtagd_id = id;
 	agg->dtagd_name = aid->di_name;
 	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
 	agg->dtagd_normal = 1;
 	agg->dtagd_varid = aid->di_id;
-	agg->dtagd_size = (aid->di_size - sizeof(uint64_t)) / DT_AGG_NUM_COPIES;
-	agg->dtagd_nrecs = agg->dtagd_size / sizeof(uint64_t);
+	agg->dtagd_nkrecs = nkrecs;
 
-	recs = dt_calloc(dtp, agg->dtagd_nrecs, sizeof(dtrace_recdesc_t));
-	if (recs == NULL) {
+	/* Allocate all records at once (varid and keys, data counter, data). */
+	krecs = dt_calloc(dtp, nkrecs + 2, sizeof(dtrace_recdesc_t));
+	if (krecs == NULL) {
 		dt_free(dtp, agg);
 		return dt_set_errno(dtp, EDT_NOMEM);
 	}
 
-	agg->dtagd_recs = recs;
+	/* Set up the variable ID record (first part of the BPF hashmap key). */
+	krecs[0].dtrd_action = DTRACEACT_DIFEXPR;
+	krecs[0].dtrd_size = sizeof(uint32_t);
+	krecs[0].dtrd_offset = 0;
+	krecs[0].dtrd_alignment = sizeof(uint32_t);
+	krecs[0].dtrd_format = NULL;
+	krecs[0].dtrd_arg = 1;
 
-	for (i = 0; i < agg->dtagd_nrecs; i++) {
-		dtrace_recdesc_t	*rec = &recs[i];
+	agg->dtagd_krecs = krecs;
+	agg->dtagd_ksize = krecs[0].dtrd_size;	/* Updated when adding keys */
 
-		rec->dtrd_action = fid->di_id;
-		rec->dtrd_size = sizeof(uint64_t);
-		rec->dtrd_offset = off;
-		rec->dtrd_alignment = sizeof(uint64_t);
-		rec->dtrd_format = NULL;
-		rec->dtrd_arg = 1;
+	/* Set up the data records. */
+	drecs = &krecs[nkrecs];
 
-		off += sizeof(uint64_t);
-	}
+	drecs[DT_AGGDATA_COUNTER].dtrd_action = ((dt_ident_t *) aid->di_iarg)->di_id;
+	drecs[DT_AGGDATA_COUNTER].dtrd_size = sizeof(uint64_t);
+	drecs[DT_AGGDATA_COUNTER].dtrd_offset = 0;
+	drecs[DT_AGGDATA_COUNTER].dtrd_alignment = sizeof(uint64_t);
+	drecs[DT_AGGDATA_COUNTER].dtrd_format = NULL;
+	drecs[DT_AGGDATA_COUNTER].dtrd_arg = 1;
+
+	drecs[DT_AGGDATA_RECORD].dtrd_action = ((dt_ident_t *) aid->di_iarg)->di_id;
+	drecs[DT_AGGDATA_RECORD].dtrd_size = (aid->di_size - sizeof(uint64_t)) /
+					     DT_AGG_NUM_COPIES;
+	drecs[DT_AGGDATA_RECORD].dtrd_offset = sizeof(uint64_t);
+	drecs[DT_AGGDATA_RECORD].dtrd_alignment = sizeof(uint64_t);
+	drecs[DT_AGGDATA_RECORD].dtrd_format = NULL;
+	drecs[DT_AGGDATA_RECORD].dtrd_arg = 1;
+
+	agg->dtagd_drecs = drecs;
+	agg->dtagd_dsize = drecs[DT_AGGDATA_COUNTER].dtrd_size +
+			   drecs[DT_AGGDATA_RECORD].dtrd_size;
 
 	dtp->dt_adesc[id] = agg;
 
@@ -338,7 +357,8 @@ dt_aggid_destroy(dtrace_hdl_t *dtp)
 
 	for (i = 0; i < dtp->dt_maxagg; i++) {
 		if (dtp->dt_adesc[i] != NULL) {
-			dt_free(dtp, dtp->dt_adesc[i]->dtagd_recs);
+			/* Freeing dtagd_recs also frees dtagd_drecs. */
+			dt_free(dtp, dtp->dt_adesc[i]->dtagd_krecs);
 			dt_free(dtp, dtp->dt_adesc[i]);
 		}
 	}

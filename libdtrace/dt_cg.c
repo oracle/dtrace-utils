@@ -6712,6 +6712,7 @@ static dt_cg_aggfunc_f *_dt_cg_agg[DT_AGG_NUM] = {
 static void
 dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_ident_t	*aid, *fid;
 	dt_cg_aggfunc_f	*aggfp;
 
@@ -6744,7 +6745,13 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	assert(aggfp != NULL);
 
 	(*aggfp)(pcb, aid, dnp, dlp, drp);
-	dt_aggid_add(pcb->pcb_hdl, aid);
+
+	/*
+	 * Add this aggid if we see it for the first time.  We do this after
+	 * the BPF code generation because aggfp() sets aid->di_size.
+	 */
+	if (dt_aggid_lookup(dtp, aid->di_id, NULL) == -1)
+		dt_aggid_add(dtp, aid);
 }
 
 void

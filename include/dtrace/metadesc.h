@@ -57,9 +57,11 @@ typedef struct dtrace_aggdesc {
 	dtrace_aggid_t dtagd_id;		/* aggregation ID */
 	uint64_t dtagd_sig;			/* aggregation signature */
 	uint64_t dtagd_normal;			/* aggregation normalization */
-	uint32_t dtagd_size;			/* size in bytes */
-	int dtagd_nrecs;			/* number of records */
-	dtrace_recdesc_t *dtagd_recs;		/* record descriptions */
+	uint32_t dtagd_ksize;			/* keys size in bytes */
+	uint32_t dtagd_dsize;			/* data size in bytes */
+	uint_t dtagd_nkrecs;			/* number of key records */
+	dtrace_recdesc_t *dtagd_krecs;		/* key record descriptions */
+	dtrace_recdesc_t *dtagd_drecs;		/* data record descriptions */
 } dtrace_aggdesc_t;
 
 typedef struct dtrace_fmtdesc {

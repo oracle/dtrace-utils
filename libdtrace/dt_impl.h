@@ -188,6 +188,9 @@ typedef struct dt_ahash {
 	size_t		dtah_size;		/* size of hash table */
 } dt_ahash_t;
 
+#define DT_AGGDATA_COUNTER	0
+#define DT_AGGDATA_RECORD	1
+
 /*
  * Why do we need (only) 4 slots?  The maximum amount of string arguments to
  * any function is 2, and if the result is a string as well, that means we may

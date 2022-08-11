@@ -682,7 +682,7 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 		BUFDUMPSTR(desc, dtagd_name);
 		BUFDUMP(desc, dtagd_varid);
 		BUFDUMP(desc, dtagd_id);
-		BUFDUMP(desc, dtagd_nrecs);
+		BUFDUMP(desc, dtagd_nkrecs);	/* FIXME: +1 for varid */
 		BUFDUMPHDR("");
 	}
 

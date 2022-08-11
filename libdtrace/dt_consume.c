@@ -1001,8 +1001,8 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 		return dt_printf(dtp, fp, "  %-*s", width, s);
 	}
 
-        /* print the bytes raw */
-        return dt_print_rawbytes(dtp, fp, addr, nbytes);
+	/* print the bytes raw */
+	return dt_print_rawbytes(dtp, fp, addr, nbytes);
 }
 
 #ifdef FIXME
@@ -1519,7 +1519,7 @@ dt_clear_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
 	dtrace_aggid_t		id = *((dtrace_aggid_t *)arg);
 
-	if (agg->dtagd_nrecs == 0)
+	if (agg->dtagd_nkrecs == 0)
 		return DTRACE_AGGWALK_NEXT;
 
 	if (agg->dtagd_varid != id)
@@ -1540,7 +1540,7 @@ dt_trunc_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
 	dtrace_aggid_t		id = trunc->dttd_id;
 
-	if (agg->dtagd_nrecs == 0)
+	if (agg->dtagd_nkrecs == 0)
 		return DTRACE_AGGWALK_NEXT;
 
 	if (agg->dtagd_varid != id)
@@ -1620,10 +1620,14 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 static int
 dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
-	       caddr_t addr, size_t size, uint64_t normal, uint64_t sig)
+	       caddr_t addr, uint64_t normal, uint64_t sig)
 {
 	int			err;
 	dtrace_actkind_t	act = rec->dtrd_action;
+	size_t			size = rec->dtrd_size;
+
+	/* Apply the record offset to the base address. */
+	addr += rec->dtrd_offset;
 
 	switch (act) {
 	case DTRACEACT_STACK:
@@ -1697,31 +1701,22 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 static int
 dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 {
-	int			i, aggact = 0;
+	int			i;
 	dtrace_print_aggdata_t	*pd = arg;
 	const dtrace_aggdata_t	*aggdata = aggsdata[0];
 	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
 	FILE			*fp = pd->dtpa_fp;
 	dtrace_hdl_t		*dtp = pd->dtpa_dtp;
 	dtrace_recdesc_t	*rec;
-	caddr_t			addr;
-	size_t			size;
 
 	/*
 	 * Iterate over each record description in the key, printing the traced
-	 * data.
+	 * data.  The first record is skipped because it holds the variable ID.
 	 */
-	for (i = 0; i < agg->dtagd_nrecs; i++) {
-		rec = &agg->dtagd_recs[i];
-		addr = aggdata->dtada_data + rec->dtrd_offset;
-		size = rec->dtrd_size;
+	for (i = 1; i < agg->dtagd_nkrecs; i++) {
+		rec = &agg->dtagd_krecs[i];
 
-		if (DTRACEACT_ISAGG(rec->dtrd_action)) {
-			aggact = i;
-			break;
-		}
-
-		if (dt_print_datum(dtp, fp, rec, addr, size, 1, 0) < 0)
+		if (dt_print_datum(dtp, fp, rec, aggdata->dtada_data, 1, 0) < 0)
 			return DTRACE_AGGWALK_ERROR;
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
@@ -1734,14 +1729,12 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 
 		aggdata = aggsdata[i];
 		agg = aggdata->dtada_desc;
-		rec = &agg->dtagd_recs[aggact];
-		addr = aggdata->dtada_data + rec->dtrd_offset;
-		size = agg->dtagd_size;
+		rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 
 		assert(DTRACEACT_ISAGG(rec->dtrd_action));
 		normal = aggdata->dtada_desc->dtagd_normal;
 
-		if (dt_print_datum(dtp, fp, rec, addr, size, normal,
+		if (dt_print_datum(dtp, fp, rec, aggdata->dtada_data, normal,
 				   agg->dtagd_sig) < 0)
 			return DTRACE_AGGWALK_ERROR;
 
@@ -1781,7 +1774,7 @@ dt_print_agg(const dtrace_aggdata_t *aggdata, void *arg)
 		 * variable that we should print -- skip any other aggregations
 		 * that we encounter.
 		 */
-		if (agg->dtagd_nrecs == 0)
+		if (agg->dtagd_nkrecs == 0)
 			return DTRACE_AGGWALK_NEXT;
 
 		if (aggvarid != agg->dtagd_varid)
