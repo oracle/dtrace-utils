@@ -1112,7 +1112,7 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 		/*
 		 * We assume that errno is already set in this case.
 		 */
-		return dt_set_errno(dtp, errno);
+		return -1;
 
 	case DTRACE_AGGWALK_ABORT:
 		return dt_set_errno(dtp, EDT_DIRABORT);
@@ -1713,8 +1713,11 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 		assert(bundle[i][j] != NULL);
 		data[0] = &bundle[i][j]->dtahe_data;
 
-		if ((rval = func(data, naggvars + 1, arg)) == -1)
+		if (dt_aggwalk_rval(dtp, bundle[i][j],
+				    func(data, naggvars + 1, arg)) == -1) {
+			rval = -1;
 			goto out;
+		}
 	}
 
 	rval = 0;

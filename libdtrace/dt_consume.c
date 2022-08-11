@@ -1722,11 +1722,11 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		}
 
 		if (dt_print_datum(dtp, fp, rec, addr, size, 1, 0) < 0)
-			return -1;
+			return DTRACE_AGGWALK_ERROR;
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
 				      DTRACE_BUFDATA_AGGKEY) < 0)
-			return -1;
+			return DTRACE_AGGWALK_ERROR;
 	}
 
 	for (i = (naggvars == 1 ? 0 : 1); i < naggvars; i++) {
@@ -1743,25 +1743,25 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 
 		if (dt_print_datum(dtp, fp, rec, addr, size, normal,
 				   agg->dtagd_sig) < 0)
-			return -1;
+			return DTRACE_AGGWALK_ERROR;
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
 				      DTRACE_BUFDATA_AGGVAL) < 0)
-			return -1;
+			return DTRACE_AGGWALK_ERROR;
 
 		if (!pd->dtpa_allunprint)
 			agg->dtagd_flags |= DTRACE_AGD_PRINTED;
 	}
 
 	if (dt_printf(dtp, fp, "\n") < 0)
-		return -1;
+		return DTRACE_AGGWALK_ERROR;
 
 	if (dt_buffered_flush(dtp, NULL, NULL, aggdata,
 			      DTRACE_BUFDATA_AGGFORMAT |
 			      DTRACE_BUFDATA_AGGLAST) < 0)
-		return -1;
+		return DTRACE_AGGWALK_ERROR;
 
-	return 0;
+	return DTRACE_AGGWALK_NEXT;
 }
 
 int
@@ -1773,7 +1773,7 @@ dt_print_agg(const dtrace_aggdata_t *aggdata, void *arg)
 
 	if (pd->dtpa_allunprint) {
 		if (agg->dtagd_flags & DTRACE_AGD_PRINTED)
-			return 0;
+			return DTRACE_AGGWALK_NEXT;
 	} else {
 		/*
 		 * If we're not printing all unprinted aggregations, then the
@@ -1782,10 +1782,10 @@ dt_print_agg(const dtrace_aggdata_t *aggdata, void *arg)
 		 * that we encounter.
 		 */
 		if (agg->dtagd_nrecs == 0)
-			return 0;
+			return DTRACE_AGGWALK_NEXT;
 
 		if (aggvarid != agg->dtagd_varid)
-			return 0;
+			return DTRACE_AGGWALK_NEXT;
 	}
 
 	return dt_print_aggs(&aggdata, 1, arg);

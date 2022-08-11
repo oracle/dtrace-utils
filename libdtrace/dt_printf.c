@@ -1818,8 +1818,10 @@ dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 		return 0;	/* id does not match */
 
 	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
-			     adp->dtada_data, adp->dtada_size, &adp, 1) == -1)
-		return (pfw->pfw_err = dtp->dt_errno);
+			     adp->dtada_data, adp->dtada_size, &adp, 1) == -1) {
+		pfw->pfw_err = dtp->dt_errno;
+		return DTRACE_AGGWALK_ERROR;
+	}
 
 	/*
 	 * Cast away the const to set the bit indicating that this aggregation
@@ -1827,7 +1829,7 @@ dt_fprinta(const dtrace_aggdata_t *adp, void *arg)
 	 */
 	((dtrace_aggdesc_t *)agg)->dtagd_flags |= DTRACE_AGD_PRINTED;
 
-	return 0;
+	return DTRACE_AGGWALK_NEXT;
 }
 
 static int
@@ -1843,8 +1845,10 @@ dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 
 	if (dt_printf_format(dtp, pfw->pfw_fp, pfw->pfw_argv, rec, nrecs,
 			     aggdata->dtada_data, aggdata->dtada_size,
-			     aggsdata, naggvars) == -1)
-		return (pfw->pfw_err = dtp->dt_errno);
+			     aggsdata, naggvars) == -1) {
+		pfw->pfw_err = dtp->dt_errno;
+		return DTRACE_AGGWALK_ERROR;
+	}
 
 	/*
 	 * For each aggregation, indicate that it has been printed, casting
@@ -1855,7 +1859,7 @@ dt_fprintas(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		((dtrace_aggdesc_t *)agg)->dtagd_flags |= DTRACE_AGD_PRINTED;
 	}
 
-	return 0;
+	return DTRACE_AGGWALK_NEXT;
 }
 
 int
