@@ -6750,8 +6750,29 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * Add this aggid if we see it for the first time.  We do this after
 	 * the BPF code generation because aggfp() sets aid->di_size.
 	 */
-	if (dt_aggid_lookup(dtp, aid->di_id, NULL) == -1)
+	if (dt_aggid_lookup(dtp, aid->di_id, NULL) == -1) {
+		dt_node_t	*knp;
+
 		dt_aggid_add(dtp, aid);
+
+		for (knp = dnp->dn_aggtup; knp != NULL; knp = knp->dn_list) {
+			size_t	size;
+			int16_t	alignment;
+
+			if (dt_node_is_string(knp)) {
+				size = dtp->dt_options[DTRACEOPT_STRSIZE] + 1;
+				alignment = 1;
+			} else {
+				dtrace_diftype_t	t;
+
+				dt_node_diftype(dtp, knp, &t);
+				size = t.dtdt_size;
+				alignment = size;
+			}
+
+			dt_aggid_rec_add(dtp, aid->di_id, size, alignment);
+		}
+	}
 }
 
 void

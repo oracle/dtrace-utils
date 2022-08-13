@@ -285,6 +285,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	agg->dtagd_sig = ((dt_idsig_t *)aid->di_data)->dis_auxinfo;
 	agg->dtagd_normal = 1;
 	agg->dtagd_varid = aid->di_id;
+	agg->dtagd_keyidx = 1;
 	agg->dtagd_nkrecs = nkrecs;
 
 	/* Allocate all records at once (varid and keys, data counter, data). */
@@ -330,6 +331,39 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	dtp->dt_adesc[id] = agg;
 
 	return 0;
+}
+
+int
+dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, uint32_t size,
+		 uint16_t alignment)
+{
+	dtrace_aggdesc_t	*agg;
+	dtrace_recdesc_t	*rec;
+	uint32_t		off;
+
+	assert(aggid >= 0 && aggid < dtp->dt_maxagg && dtp->dt_adesc != NULL);
+
+	agg = dtp->dt_adesc[aggid];
+	assert(agg != NULL);
+
+	assert(agg->dtagd_keyidx > 0 && agg->dtagd_keyidx < agg->dtagd_nkrecs);
+
+	rec = &agg->dtagd_krecs[agg->dtagd_keyidx++];
+	off = (agg->dtagd_ksize + (alignment - 1)) & ~(alignment - 1);
+
+	assert(alignment > 0 && alignment <= 8 &&
+	       (alignment & (alignment - 1)) == 0);
+
+        rec->dtrd_action = DTRACEACT_DIFEXPR;
+        rec->dtrd_size = size;
+        rec->dtrd_offset = off;
+        rec->dtrd_alignment = alignment;
+        rec->dtrd_format = NULL;
+        rec->dtrd_arg = 1;
+
+	agg->dtagd_ksize = off + size;
+
+	return off;
 }
 
 int

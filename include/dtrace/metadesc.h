@@ -60,6 +60,7 @@ typedef struct dtrace_aggdesc {
 	uint32_t dtagd_ksize;			/* keys size in bytes */
 	uint32_t dtagd_dsize;			/* data size in bytes */
 	uint_t dtagd_nkrecs;			/* number of key records */
+	uint_t dtagd_keyidx;			/* index of next key record */
 	dtrace_recdesc_t *dtagd_krecs;		/* key record descriptions */
 	dtrace_recdesc_t *dtagd_drecs;		/* data record descriptions */
 } dtrace_aggdesc_t;

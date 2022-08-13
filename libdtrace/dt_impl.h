@@ -784,6 +784,8 @@ typedef void (*dt_cg_gap_f)(dt_pcb_t *, int);
 extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
 			   uint32_t, uint16_t, dt_pfargv_t *, uint64_t);
 extern int dt_aggid_add(dtrace_hdl_t *, const dt_ident_t *);
+extern int dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid,
+			    uint32_t size, uint16_t alignment);
 extern int dt_aggid_lookup(dtrace_hdl_t *, dtrace_aggid_t, dtrace_aggdesc_t **);
 extern void dt_aggid_destroy(dtrace_hdl_t *);
 
