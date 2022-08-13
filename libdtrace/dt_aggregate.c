@@ -418,12 +418,6 @@ typedef struct dt_snapstate {
 } dt_snapstate_t;
 
 static void
-dt_agg_one_copy(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t datasz)
-{
-	memcpy(dst, src, datasz);
-}
-
-static void
 dt_agg_one_agg(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t datasz)
 {
 	uint_t i, cnt;
@@ -470,6 +464,10 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 
 	/* point to the latch sequence number */
 	src = (int64_t *)(st->buf + aid->di_offset);
+
+	/* skip it if latch sequence number is 0 */
+	if (*src == 0)
+		return 0;
 
 	datasz = agg->dtagd_dsize;
 
@@ -593,13 +591,15 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 	if (agp->dtat_cpu_buf == NULL)
 		return 0;
 
+	dtrace_aggregate_clear(dtp);
+
 	rval = dt_bpf_map_lookup(dtp->dt_aggmap_fd, &key, agp->dtat_buf);
 	if (rval != 0)
 		return dt_set_errno(dtp, -rval);
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
 		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id,
-		    i == 0 ? dt_agg_one_copy : dt_agg_one_agg);
+		    dt_agg_one_agg);
 		if (rval != 0)
 			return rval;
 	}
@@ -1776,13 +1776,27 @@ dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 		rec = &aggdesc->dtagd_drecs[DT_AGGDATA_RECORD];
 		data = &h->dtahe_data;
 
-		memset(&data->dtada_data[rec->dtrd_offset], 0, rec->dtrd_size);
+		switch (rec->dtrd_action) {
+		case DT_AGG_MIN:
+			*((uint64_t*)(&data->dtada_data[rec->dtrd_offset])) = INT64_MAX;
+			if (data->dtada_percpu)
+				for (i = 0; i < max_cpus; i++)
+					*((uint64_t*)data->dtada_percpu[i]) = INT64_MAX;
+			break;
+		case DT_AGG_MAX:
+			*((uint64_t*)(&data->dtada_data[rec->dtrd_offset])) = INT64_MIN;
+			if (data->dtada_percpu)
+				for (i = 0; i < max_cpus; i++)
+					*((uint64_t*)data->dtada_percpu[i]) = INT64_MIN;
+			break;
+		default:
+			memset(&data->dtada_data[rec->dtrd_offset], 0, rec->dtrd_size);
+			if (data->dtada_percpu)
+				for (i = 0; i < max_cpus; i++)
+					memset(data->dtada_percpu[i], 0, rec->dtrd_size);
+			break;
+		}
 
-		if (data->dtada_percpu == NULL)
-			continue;
-
-		for (i = 0; i < max_cpus; i++)
-			memset(data->dtada_percpu[i], 0, rec->dtrd_size);
 	}
 }
 
