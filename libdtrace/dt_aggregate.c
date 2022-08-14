@@ -414,7 +414,6 @@ typedef struct dt_snapstate {
 	processorid_t	cpu;
 	char		*buf;
 	dt_aggregate_t	*agp;
-	agg_cpu_f	fun;
 } dt_snapstate_t;
 
 static void
@@ -479,12 +478,13 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 		/* Entry found - process the data. */
 		agd = &h->dtahe_data;
 
-		st->fun(aid, (int64_t *)agd->dtada_data, src, datasz);
+		dt_agg_one_agg(aid, (int64_t *)agd->dtada_data, src, datasz);
 
 		/* If we keep per-CPU data - process that as well. */
 		if (agd->dtada_percpu != NULL)
-			st->fun(aid, (int64_t *)agd->dtada_percpu[st->cpu],
-			    src, datasz);
+			dt_agg_one_agg(aid,
+				       (int64_t *)agd->dtada_percpu[st->cpu],
+				       src, datasz);
 
 		return 0;
 	}
@@ -558,7 +558,7 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 }
 
 static int
-dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, agg_cpu_f fun)
+dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 {
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	char		*buf = agp->dtat_cpu_buf[cpu];
@@ -568,7 +568,6 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, agg_cpu_f fun)
 	st.cpu = cpu;
 	st.buf = buf;
 	st.agp = agp;
-	st.fun = fun;
 
 	return dt_idhash_iter(dtp->dt_aggs,
 			      (dt_idhash_f *)dt_aggregate_snap_one, &st);
@@ -598,8 +597,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		return dt_set_errno(dtp, -rval);
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
-		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id,
-		    dt_agg_one_agg);
+		rval = dt_aggregate_snap_cpu(dtp, dtp->dt_conf.cpus[i].cpu_id);
 		if (rval != 0)
 			return rval;
 	}
