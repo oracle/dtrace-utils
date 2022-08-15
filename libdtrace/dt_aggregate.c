@@ -421,9 +421,6 @@ dt_agg_one_agg(dt_ident_t *aid, int64_t *dst, int64_t *src, uint_t datasz)
 {
 	uint_t i, cnt;
 
-	if (*src == 0)
-		return;
-
 	switch (((dt_ident_t *)aid->di_iarg)->di_id) {
 	case DT_AGG_MAX:
 		*dst++ = *src++;	/* copy latch sequence number */
@@ -488,10 +485,6 @@ dt_aggregate_snap_one(dt_idhash_t *dhp, dt_ident_t *aid, dt_snapstate_t *st)
 
 		return 0;
 	}
-
-	/* not found, so skip it if latch sequence number is 0 */
-	if (*src == 0)
-		return 0;
 
 	/* add it to the hash table */
 	h = dt_zalloc(st->dtp, sizeof(dt_ahashent_t));
