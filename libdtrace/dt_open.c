@@ -1055,10 +1055,12 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_type_usymaddr = ctf_add_typedef(dmp->dm_ctfp, CTF_ADD_ROOT,
 	    "_usymaddr", ctf_lookup_by_name(dmp->dm_ctfp, "void"));
 
+	dtp->dt_type_void = ctf_lookup_by_name(dmp->dm_ctfp, "void");
+
 	if (dtp->dt_type_func == CTF_ERR || dtp->dt_type_fptr == CTF_ERR ||
 	    dtp->dt_type_str == CTF_ERR || dtp->dt_type_dyn == CTF_ERR ||
 	    dtp->dt_type_stack == CTF_ERR || dtp->dt_type_symaddr == CTF_ERR ||
-	    dtp->dt_type_usymaddr == CTF_ERR) {
+	    dtp->dt_type_usymaddr == CTF_ERR || dtp->dt_type_void == CTF_ERR) {
 		dt_dprintf("failed to add intrinsic to D container: %s\n",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return set_open_errno(dtp, errp, EDT_CTF);

@@ -329,6 +329,7 @@ struct dtrace_hdl {
 	ctf_id_t dt_type_stack;	/* cached CTF identifier for stack type */
 	ctf_id_t dt_type_symaddr; /* cached CTF identifier for _symaddr type */
 	ctf_id_t dt_type_usymaddr; /* cached CTF ident. for _usymaddr type */
+	ctf_id_t dt_type_void;	/* cached CTF identifier for void type */
 	dtrace_epid_t dt_nextepid; /* next enabled probe ID to assign */
 	size_t dt_maxprobe;	/* max enabled probe ID */
 	dtrace_datadesc_t **dt_ddesc; /* probe data descriptions */

@@ -2600,13 +2600,17 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 	const dt_idsig_t	*isp = idp->di_data;
 	dt_node_t		*dnp;
 	dt_ident_t		*maxtupsz = dt_dlib_get_var(dtp, "TUPSZ");
-	int			i;
+	int			i = 0;
 	int			treg, areg;
 	uint_t			tuplesize;
 
 	TRACE_REGSET("      arglist: Begin");
 
-	for (dnp = args, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
+	/* A 'void' args node indicates an empty argument list. */
+	if (dt_node_is_void(args))
+		goto empty_args;
+
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
 		/* Bail early if we run out of tuple slots. */
 		if (i > dtp->dt_conf.dtc_diftupregs)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
@@ -2623,6 +2627,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 		dt_regset_free(drp, BPF_REG_0);
 	}
 
+empty_args:
 	TRACE_REGSET("      arglist: Stack");
 
 	/*
@@ -6668,7 +6673,6 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (dnp->dn_aggtup != NULL)
 		dnerror(dnp->dn_aggtup, D_ARR_BADREF, "indexing is not "
 			"supported yet: @%s\n", dnp->dn_ident->di_name);
-
 
 	assert(fid->di_id >= DT_AGG_BASE && fid->di_id < DT_AGG_HIGHEST);
 

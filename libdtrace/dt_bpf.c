@@ -510,15 +510,19 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
 			dtp->dt_maxdvarsize;
 
-	if (dvarc > 0 &&
-	    create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
-			sizeof(uint64_t), dtp->dt_maxdvarsize, dvarc) == -1)
+	if (dvarc > 0) {
+		if (create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
+				sizeof(uint64_t), dtp->dt_maxdvarsize,
+				dvarc) == -1)
 			return -1;	/* dt_errno is set for us */
 
-	if (dtp->dt_maxtuplesize > 0 &&
-	    create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,
-			dtp->dt_maxtuplesize, sizeof(uint64_t), dvarc) == -1)
-		return -1;		/* dt_errno is set for us */
+		assert(dtp->dt_maxtuplesize > 0);
+
+		if (create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,
+			    dtp->dt_maxtuplesize, sizeof(uint64_t),
+			    dvarc) == -1)
+			return -1;	/* dt_errno is set for us */
+	}
 
 	/* Populate the 'cpuinfo' map. */
 	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
