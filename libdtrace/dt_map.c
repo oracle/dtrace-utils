@@ -328,6 +328,10 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 	agg->dtagd_dsize = drecs[DT_AGGDATA_COUNTER].dtrd_size +
 			   drecs[DT_AGGDATA_RECORD].dtrd_size;
 
+	/* update dt_maxaggdsize */
+	if (dtp->dt_maxaggdsize < agg->dtagd_dsize)
+		dtp->dt_maxaggdsize = agg->dtagd_dsize;
+
 	dtp->dt_adesc[id] = agg;
 
 	return 0;

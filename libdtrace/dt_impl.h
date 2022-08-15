@@ -298,6 +298,7 @@ struct dtrace_hdl {
 	uint_t dt_maxdvarsize;	/* largest dynamic variable across programs */
 	uint_t dt_maxtuplesize;	/* largest tuple across programs */
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
+	uint_t dt_maxaggdsize;	/* largest aggregation data sizw */
 	uint_t dt_zerosize;	/* zero region, size */
 	uint_t dt_zerooffset;	/* zero region, offset */
 	dt_tstring_t *dt_tstrings; /* temporary string slots */
