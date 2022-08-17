@@ -286,174 +286,179 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	return fd;
 }
 
-static void
-populate_probes_map(dtrace_hdl_t *dtp, int fd)
-{
-	dt_probe_t	*prp;
-
-	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
-	     prp = dt_list_next(prp)) {
-		dt_bpf_probe_t	pinfo;
-
-		pinfo.prv = dt_strtab_index(dtp->dt_ccstab, prp->desc->prv);
-		pinfo.mod = dt_strtab_index(dtp->dt_ccstab, prp->desc->mod);
-		pinfo.fun = dt_strtab_index(dtp->dt_ccstab, prp->desc->fun);
-		pinfo.prb = dt_strtab_index(dtp->dt_ccstab, prp->desc->prb);
-
-		dt_bpf_map_update(fd, &prp->desc->id, &pinfo);
-	}
-}
-
 /*
- * Create the global BPF maps that are shared between all BPF programs in a
- * single tracing session:
+ * Create the 'state' BPF map.
  *
- * - state:	DTrace session state, used to communicate state between BPF
- *		programs and userspace.  The content of the map is defined in
- *		dt_state.h.
- * - aggs:	Aggregation data buffer map, associated with each CPU.  The
- *		map is implemented as a global per-CPU map with a singleton
- *		element (key 0).
- * - specs:	Map associating speculation IDs with a dt_bpf_specs_t struct
- *		giving the number of buffers speculated into for this
- *		speculation, and the number drained by userspace.
- * - buffers:	Perf event output buffer map, associating a perf event output
- *		buffer with each CPU.  The map is indexed by CPU id.
- * - cpuinfo:	CPU information map, associating a cpuinfo_t structure with
- *		each online CPU on the system.
- * - mem:	Scratch memory.  This is implemented as a global per-CPU map
- *		with a singleton element (key 0).  This means that every CPU
- *		will see its own copy of this singleton element, and can use it
- *		without interference from other CPUs.  The scratch memory is
- *		used to store the DTrace machine state, the temporary output
- *		buffer, and temporary storage for stack traces, string
- *		manipulation, etc.
- * - scratchmem: Storage for alloca() and other per-clause scratch space,
- *		implemented just as for mem.
- * - strtab:	String table map.  This is a global map with a singleton
- *		element (key 0) that contains the entire string table as a
- *		concatenation of all unique strings (each terminated with a
- *		NUL byte).  The string table size is taken from the DTrace
- *		consumer handle (dt_strlen).  Extra memory is allocated as a
- *		memory block of zeros for initializing memory regions.  Its
- *		size is at least the maximum string size to ensure the BPF
- *		verifier can validate all access requests for dynamic
- *		references to string constants.
- * - probes:	Probe information map.  This is a global map indexed by probe
- *		ID.  The value is a struct that contains static probe info.
- *		The map only contains entries for probes that are actually in
- *		use.
- * - gvars:	Global variables map.  This is a global map with a singleton
- *		element (key 0) addressed by variable offset.
- * - dvars:	Dynamic variables map.  This is a global hash map indexed with
- *		a unique numeric identifier for each dynamic variable (thread
- *		local variable or associative array element).  The value size
- *		is the largest dynamic variable size across all programs in the
- *		tracing session.
- * - lvars:	Local variables map.  This is a per-CPU map with a singleton
- *		element (key 0) addressed by variable offset.
- * - tuples:	Tuple-to-id map.  This is a global hash map indexed with a
- *		tuple.  The value associated with the tuple key is an id that
- *		is used to index the dvars map.  The key size is determined as
- *		the largest tuple used across all programs in the tracing
- *		session.
+ * DTrace session state, used to communicate state between BPF programs and
+ * userspace.  The content of the map is defined in dt_state.h.
  */
-int
-dt_bpf_gmap_create(dtrace_hdl_t *dtp)
+static int
+gmap_create_state(dtrace_hdl_t *dtp)
 {
-	size_t		sz;
-	int		dvarc = 0;
-	int		ci_mapfd, st_mapfd, pr_mapfd;
-	uint64_t	key = 0;
-	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
-	size_t		scratchsize = dtp->dt_options[DTRACEOPT_SCRATCHSIZE];
-	uint8_t		*buf, *end;
-	char		*strtab;
-
-	/* If we already created the global maps, return success. */
-	if (dt_gmap_done)
-		return 0;
-
-	/* Mark global maps creation as completed. */
-	dt_gmap_done = 1;
-
-	/* Create BPF maps as long as there are no errors. */
-
-	/* state map */
 	dtp->dt_stmap_fd = create_gmap(dtp, "state", BPF_MAP_TYPE_ARRAY,
 				       sizeof(DT_STATE_KEY_TYPE),
 				       sizeof(DT_STATE_VAL_TYPE),
 				       DT_STATE_NUM_ELEMS);
-	if (dtp->dt_stmap_fd == -1)
-		return -1;		/* dt_errno is set for us */
 
-	/*
-	 * Check if there is aggregation data to be collected.
-	 */
-	sz = dt_idhash_datasize(dtp->dt_aggs);
-	if (sz > 0) {
-		dtp->dt_aggmap_fd = create_gmap(dtp, "aggs",
-						BPF_MAP_TYPE_PERCPU_ARRAY,
-						sizeof(uint32_t), sz, 1);
-		if (dtp->dt_aggmap_fd == -1)
-			return -1;	/* dt_errno is set for us */
-	}
+	return dtp->dt_stmap_fd;
+}
 
-	/* speculations */
-	if (create_gmap(dtp, "specs", BPF_MAP_TYPE_HASH,
-		sizeof(uint32_t), sizeof(dt_bpf_specs_t),
-		dtp->dt_options[DTRACEOPT_NSPEC]) == -1)
-		return -1;		/* dt_errno is set for us */
+/*
+ * Create the 'aggs' BPF map.
+ *
+ * Aggregation data buffer map, associated with each CPU.  The map is
+ * implemented as a global per-CPU map with a singleton element (key 0).
+ */
+static int
+gmap_create_aggs(dtrace_hdl_t *dtp)
+{
+	size_t	sz = dt_idhash_datasize(dtp->dt_aggs);
 
-	/* output buffers */
-	if (create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-			sizeof(uint32_t), sizeof(uint32_t),
-			dtp->dt_conf.num_online_cpus) == -1)
-		return -1;		/* dt_errno is set for us */
+	/* Only create the map if it is used. */
+	if (sz == 0)
+		return 0;
 
-	/* cpuinfo */
-	ci_mapfd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
-			       sizeof(uint32_t), sizeof(cpuinfo_t), 1);
-	if (ci_mapfd == -1)
-		return -1;		/* dt_errno is set for us */
+	dtp->dt_aggmap_fd = create_gmap(dtp, "aggs", BPF_MAP_TYPE_PERCPU_ARRAY,
+					sizeof(uint32_t), sz, 1);
 
-	/*
-	 * The size of the map value (a byte array) is the sum of:
-	 *	- size of the DTrace machine state, rounded up to the nearest
-	 *	  multiple of 8
-	 *	- 8 bytes padding for trace buffer alignment purposes
-	 *	- maximum trace buffer record size, rounded up to the nearest
-	 *	  multiple of 8
-	 *	- size of dctx->mem (see dt_dctx.h)
-	 */
-	sz = roundup(sizeof(dt_mstate_t), 8) +
+	return dtp->dt_aggmap_fd;
+}
+
+/*
+ * Create the 'specs' BPF map.
+ *
+ * Map associating speculation IDs with a dt_bpf_specs_t struct giving the
+ * number of buffers speculated into for this speculation, and the number
+ * drained by userspace.
+ */
+static int
+gmap_create_specs(dtrace_hdl_t *dtp)
+{
+	return create_gmap(dtp, "specs", BPF_MAP_TYPE_HASH, sizeof(uint32_t),
+			   sizeof(dt_bpf_specs_t),
+			   dtp->dt_options[DTRACEOPT_NSPEC]);
+}
+
+/*
+ * Create the 'buffers' BPF map.
+ *
+ * Perf event output buffer map, associating a perf event output buffer with
+ * each CPU.  The map is indexed by CPU id.
+ */
+static int
+gmap_create_buffers(dtrace_hdl_t *dtp)
+{
+	return create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+			   sizeof(uint32_t), sizeof(uint32_t),
+			   dtp->dt_conf.num_online_cpus);
+}
+
+/*
+ * Create the 'cpuinfo' BPF map.
+ *
+ * CPU information map, associating a cpuinfo_t structure with each online CPU
+ * on the system.
+ */
+static int
+gmap_create_cpuinfo(dtrace_hdl_t *dtp)
+{
+	int		fd;
+	uint32_t	key = 0;
+
+	fd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
+			 sizeof(uint32_t), sizeof(cpuinfo_t), 1);
+	if (fd == -1)
+		return -1;
+
+	if (dt_bpf_map_update(fd, &key, dtp->dt_conf.cpus) == -1)
+		return dt_bpf_error(dtp,
+				    "cannot update BPF map 'cpuinfo': %s\n",
+				    strerror(errno));
+
+	return 0;
+}
+
+/*
+ * Create the 'mem' BPF map.
+ *
+ * CPU local storage.  This is implemented as a global per-CPU map with a
+ * singleton element (key 0).  This means that every CPU will see its own copy
+ * of this singleton element, and can use it without interference from other
+ * CPUs.  The local storage is used to store the DTrace machine state, the
+ * temporary output buffer, and temporary storage for stack traces, string
+ * manipulation, etc.
+ *
+ * The size of the memory region is the sum of:
+ *	- size of the DTrace machine state, rounded up to the nearest
+ *	  multiple of 8
+ *	- 8 bytes padding for trace buffer alignment purposes
+ *	- maximum trace buffer record size, rounded up to the nearest
+ *	  multiple of 8
+ *	- size of dctx->mem (see dt_dctx.h)
+ */
+static int
+gmap_create_mem(dtrace_hdl_t *dtp)
+{
+	size_t	sz = roundup(sizeof(dt_mstate_t), 8) +
 		     8 +
 		     roundup(dtp->dt_maxreclen, 8) +
 		     DMEM_SIZE(dtp);
-	if (create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), sz, 1) == -1)
-		return -1;		/* dt_errno is set for us */
 
-	/*
-	 * The size for this is twice what it needs to be, to allow us to bcopy
-	 * things the size of the scratch space to the start of the scratch
-	 * space without tripping verifier failures: see dt_cg_check_bounds.
-	 */
-	if (scratchsize > 0 &&
-	    create_gmap(dtp, "scratchmem", BPF_MAP_TYPE_PERCPU_ARRAY,
-			sizeof(uint32_t), scratchsize * 2, 1) == -1)
-		return -1;		/* dt_errno is set for us */
+	return create_gmap(dtp, "mem", BPF_MAP_TYPE_PERCPU_ARRAY,
+			   sizeof(uint32_t), sz, 1);
+}
 
-	/*
-	 * We need to create the global (consolidated) string table.  We store
-	 * the actual length (for in-code BPF validation purposes).  The size
-	 * of the map value is the string table size plus the greater of:
-	 *	- size of the memory block of zeros
-	 *	- maximum string size (plus 1 for the NUL byte)
-	 */
+/*
+ * Create the 'scratchmem' BPF map.
+ *
+ * Storage for alloca() and other per-clause scratch space, implemented just as
+ * for mem.
+ *
+ * The size for this is twice what it needs to be, to allow us to bcopy things
+ * the size of the scratch space to the start of the scratch space without
+ * tripping verifier failures: see dt_cg_check_bounds.
+ */
+static int
+gmap_create_scratchmem(dtrace_hdl_t *dtp)
+{
+	size_t		sz = dtp->dt_options[DTRACEOPT_SCRATCHSIZE];
+
+	/* Only create the map if it is used. */
+	if (sz == 0)
+		return 0;
+
+	return create_gmap(dtp, "scratchmem", BPF_MAP_TYPE_PERCPU_ARRAY,
+			   sizeof(uint32_t), sz * 2, 1);
+}
+
+/*
+ * Create the 'strtab' BPF map.
+ *
+ * String table map.  This is a global map with a singleton element (key 0)
+ * that contains the entire string table as a concatenation of all unique
+ * strings (each terminated with a NUL byte).  The string table size is taken
+ * from the DTrace consumer handle (dt_strlen).  Extra memory is allocated as a
+ * memory block of zeros for initializing memory regions.  Its size is at least
+ * the maximum string size to ensure the BPF verifier can validate all access
+ * requests for dynamic references to string constants.
+ */
+static int
+gmap_create_strtab(dtrace_hdl_t *dtp)
+{
+	size_t		sz;
+	uint8_t		*buf, *end;
+	char		*strtab;
+	size_t		strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
+	uint32_t	key = 0;
+	int		fd, rc, err;
+
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
 	dtp->dt_zerooffset = P2ROUNDUP(dtp->dt_strlen, 8);
 
+	/*
+	 * Ensure the zero-filled memory at the end of the strtab is large
+	 * enough to accomodate all needs for such a memory block.
+	 */
 	dtp->dt_zerosize = strsize + 1;
 	if (dtp->dt_zerosize < dtp->dt_maxdvarsize)
 		dtp->dt_zerosize = dtp->dt_maxdvarsize;
@@ -480,58 +485,167 @@ dt_bpf_gmap_create(dtrace_hdl_t *dtp)
 		buf += len + 1;
 	}
 
-	st_mapfd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY,
-			       sizeof(uint32_t), sz, 1);
-	if (st_mapfd == -1)
-		return -1;		/* dt_errno is set for us */
+	fd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY, sizeof(uint32_t),
+			 sz, 1);
+	if (fd == -1)
+		return -1;
 
-	/* probe hash table */
-	pr_mapfd = create_gmap(dtp, "probes", BPF_MAP_TYPE_HASH,
-			       sizeof(uint32_t), sizeof(dt_bpf_probe_t),
-			       dt_list_length(&dtp->dt_enablings));
-	if (pr_mapfd == -1)
-		return -1;		/* dt_errno is set for us */
+	rc = dt_bpf_map_update(fd, &key, strtab);
+	err = errno;
+	dt_free(dtp, strtab);
 
-	/* global variables */
-	sz = dt_idhash_datasize(dtp->dt_globals);
-	if (sz > 0 &&
-	    create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY,
-			sizeof(uint32_t), sz, 1) == -1)
-		return -1;		/* dt_errno is set for us */
+	if (rc == -1)
+		return dt_bpf_error(dtp, "cannot update BPF map 'strtab': %s\n",
+				    strerror(err));
 
-	/* local variables */
-	sz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
-	if (sz > 0 && create_gmap(dtp, "lvars", BPF_MAP_TYPE_PERCPU_ARRAY,
-				  sizeof(uint32_t), sz, 1) == -1)
-		return -1;		/* dt_errno is set for us */
+	return 0;
+}
 
-	/* TLS and dynamic variables */
-	if (dtp->dt_maxdvarsize)
-		dvarc = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
-			dtp->dt_maxdvarsize;
+/*
+ * Create the 'probes' BPF map.
+ *
+ * Probe information map.  This is a global map indexed by probe ID.  The value
+ * is a struct that contains static probe info.  The map only contains entries
+ * for probes that are actually in use.
+ */
+static int
+gmap_create_probes(dtrace_hdl_t *dtp)
+{
+	int		fd;
+	dt_probe_t	*prp;
 
-	if (dvarc > 0) {
-		if (create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH,
-				sizeof(uint64_t), dtp->dt_maxdvarsize,
-				dvarc) == -1)
-			return -1;	/* dt_errno is set for us */
+	fd = create_gmap(dtp, "probes", BPF_MAP_TYPE_HASH, sizeof(uint32_t),
+			 sizeof(dt_bpf_probe_t),
+			 dt_list_length(&dtp->dt_enablings));
+	if (fd == -1)
+		return -1;
 
-		assert(dtp->dt_maxtuplesize > 0);
+	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
+	     prp = dt_list_next(prp)) {
+		dt_bpf_probe_t	pinfo;
 
-		if (create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,
-			    dtp->dt_maxtuplesize, sizeof(uint64_t),
-			    dvarc) == -1)
-			return -1;	/* dt_errno is set for us */
+		pinfo.prv = dt_strtab_index(dtp->dt_ccstab, prp->desc->prv);
+		pinfo.mod = dt_strtab_index(dtp->dt_ccstab, prp->desc->mod);
+		pinfo.fun = dt_strtab_index(dtp->dt_ccstab, prp->desc->fun);
+		pinfo.prb = dt_strtab_index(dtp->dt_ccstab, prp->desc->prb);
+
+		if (dt_bpf_map_update(fd, &prp->desc->id, &pinfo) == -1)
+			return dt_bpf_error(
+				dtp, "cannot update BPF map 'probes': %s\n",
+				strerror(errno));
 	}
 
-	/* Populate the 'cpuinfo' map. */
-	dt_bpf_map_update(ci_mapfd, &key, dtp->dt_conf.cpus);
+	return 0;
+}
 
-	/* Populate the 'strtab' map. */
-	dt_bpf_map_update(st_mapfd, &key, strtab);
+/*
+ * Create the 'gvars' BPF map.
+ *
+ * Global variables map.  This is a global map with a singleton element (key 0)
+ * addressed by variable offset.
+ */
+static int
+gmap_create_gvars(dtrace_hdl_t *dtp)
+{
+	size_t	sz = dt_idhash_datasize(dtp->dt_globals);
 
-	/* Populate the 'probes' map. */
-	populate_probes_map(dtp, pr_mapfd);
+	/* Only create the map if it is used. */
+	if (sz == 0)
+		return 0;
+
+	return create_gmap(dtp, "gvars", BPF_MAP_TYPE_ARRAY, sizeof(uint32_t),
+			   sz, 1);
+}
+
+/*
+ * Create the 'lvars' BPF map.
+ *
+ * Local variables map.  This is a per-CPU map with a singleton element (key 0)
+ * addressed by variable offset.
+ */
+static int
+gmap_create_lvars(dtrace_hdl_t *dtp)
+{
+	size_t	sz = P2ROUNDUP(dtp->dt_maxlvaralloc, 8);
+
+	/* Only create the map if it is used. */
+	if (sz == 0)
+		return 0;
+
+	return create_gmap(dtp, "lvars", BPF_MAP_TYPE_PERCPU_ARRAY,
+			   sizeof(uint32_t), sz, 1);
+}
+
+/*
+ * Create the 'dvars' BPF map (and its companion 'tuples' BPF map).
+ *
+ * - dvars:	Dynamic variables map.  This is a global hash map indexed with
+ *		a unique numeric identifier for each dynamic variable (thread
+ *		local variable or associative array element).  The value size
+ *		is the largest dynamic variable size across all programs in the
+ *		tracing session.
+ * - tuples:	Tuple-to-id map.  This is a global hash map indexed with a
+ *		tuple.  The value associated with the tuple key is an id that
+ *		is used to index the dvars map.  The key size is determined as
+ *		the largest tuple used across all programs in the tracing
+ *		session.
+ */
+static int
+gmap_create_dvars(dtrace_hdl_t *dtp)
+{
+	size_t	nelems = 0;
+
+	/* Only create the map if it is used. */
+	if (dtp->dt_maxdvarsize == 0)
+		return 0;
+
+	nelems = dtp->dt_options[DTRACEOPT_DYNVARSIZE] / dtp->dt_maxdvarsize;
+	if (nelems == 0)
+		return 0;
+
+	if (create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH, sizeof(uint64_t),
+			dtp->dt_maxdvarsize, nelems) == -1)
+		return -1;
+
+	/* Only create the map if it is used. */
+	if (dtp->dt_maxtuplesize == 0)
+		return 0;
+
+	return create_gmap(dtp, "tuples", BPF_MAP_TYPE_HASH,
+			   dtp->dt_maxtuplesize, sizeof(uint64_t), nelems);
+}
+
+/*
+ * Create the global BPF maps that are shared between all BPF programs in a
+ * single tracing session.
+ */
+int
+dt_bpf_gmap_create(dtrace_hdl_t *dtp)
+{
+	/* If we already created the global maps, return success. */
+	if (dt_gmap_done)
+		return 0;
+
+	/* Mark global maps creation as completed. */
+	dt_gmap_done = 1;
+
+#define CREATE_MAP(name) \
+	if (gmap_create_##name(dtp) == -1) \
+		return -1;
+
+	CREATE_MAP(state)
+	CREATE_MAP(aggs)
+	CREATE_MAP(specs)
+	CREATE_MAP(buffers)
+	CREATE_MAP(cpuinfo)
+	CREATE_MAP(mem)
+	CREATE_MAP(scratchmem)
+	CREATE_MAP(strtab)
+	CREATE_MAP(probes)
+	CREATE_MAP(gvars)
+	CREATE_MAP(lvars)
+	CREATE_MAP(dvars)
+#undef CREATE_MAP
 
 	return 0;
 }
