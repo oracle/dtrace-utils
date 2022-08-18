@@ -209,7 +209,6 @@ typedef struct dt_tstring {
 } dt_tstring_t;
 
 typedef struct dt_aggregate {
-	char **dtat_cpu_buf;		/* per-CPU agg snapshot buffers */
 	char *dtat_buf;			/* aggregation snapshot buffer */
 	int dtat_flags;			/* aggregate flags */
 	dt_ahash_t dtat_hash;		/* aggregate hash table */

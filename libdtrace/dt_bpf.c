@@ -352,6 +352,22 @@ dt_bpf_init_helpers(dtrace_hdl_t *dtp)
 }
 
 static int
+map_create_error(dtrace_hdl_t *dtp, const char *name, int err)
+{
+	char	msg[64];
+
+	snprintf(msg, sizeof(msg),
+		 "failed to create BPF map '%s'", name);
+
+	if (err == E2BIG)
+		return dt_bpf_error(dtp, "%s: Too big\n", msg);
+	if (err == EPERM)
+		return dt_bpf_lockmem_error(dtp, msg);
+
+	return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(err));
+}
+
+static int
 create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 	    size_t ksz, size_t vsz, size_t size)
 {
@@ -369,17 +385,8 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 		err = errno;
 	}
 
-	if (fd < 0) {
-		char msg[64];
-
-		snprintf(msg, sizeof(msg),
-			 "failed to create BPF map '%s'", name);
-		if (err == E2BIG)
-			return dt_bpf_error(dtp, "%s: Too big\n", msg);
-		if (err == EPERM)
-			return dt_bpf_lockmem_error(dtp, msg);
-		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(err));
-	}
+	if (fd < 0)
+		return map_create_error(dtp, name, err);
 
 	dt_dprintf("BPF map '%s' is FD %d\n", name, fd);
 
@@ -421,17 +428,8 @@ create_gmap_of_maps(dtrace_hdl_t *dtp, const char *name,
 		err = errno;
 	}
 
-	if (fd < 0) {
-		char msg[64];
-
-		snprintf(msg, sizeof(msg),
-			 "failed to create BPF map '%s'", name);
-		if (err == E2BIG)
-			return dt_bpf_error(dtp, "%s: Too big\n", msg);
-		if (err == EPERM)
-			return dt_bpf_lockmem_error(dtp, msg);
-		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(err));
-	}
+	if (fd < 0)
+		return map_create_error(dtp, name, err);
 
 	dt_dprintf("BPF map '%s' is FD %d\n", name, fd);
 
@@ -470,19 +468,40 @@ gmap_create_state(dtrace_hdl_t *dtp)
  * Create the 'aggs' BPF map.
  *
  * Aggregation data buffer map, associated with each CPU.  The map is
- * implemented as a global per-CPU map with a singleton element (key 0).
+ * implemented as a global array-of-maps indexed by CPU id.  The associated
+ * value is a map with a singleton element (key 0).
  */
 static int
 gmap_create_aggs(dtrace_hdl_t *dtp)
 {
 	size_t	sz = dt_idhash_datasize(dtp->dt_aggs);
+	size_t	ncpus = dtp->dt_conf.max_cpuid + 1;
+	int	i;
 
 	/* Only create the map if it is used. */
 	if (sz == 0)
 		return 0;
 
-	dtp->dt_aggmap_fd = create_gmap(dtp, "aggs", BPF_MAP_TYPE_PERCPU_ARRAY,
-					sizeof(uint32_t), sz, 1);
+	dtp->dt_aggmap_fd = create_gmap_of_maps(dtp, "aggs",
+						BPF_MAP_TYPE_ARRAY_OF_MAPS,
+						sizeof(uint32_t), ncpus,
+						BPF_MAP_TYPE_ARRAY,
+						sizeof(uint32_t), sz, 1);
+
+	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
+		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
+		char	name[16];
+		int	fd;
+
+		snprintf(name, 16, "aggs_%d", cpu);
+		fd = dt_bpf_map_create(BPF_MAP_TYPE_ARRAY, name,
+				       sizeof(uint32_t), sz, 1, 0);
+		if (fd < 0)
+			return map_create_error(dtp, name, errno);
+
+		dt_bpf_map_update(dtp->dt_aggmap_fd, &cpu, &fd);
+	}
+
 
 	return dtp->dt_aggmap_fd;
 }

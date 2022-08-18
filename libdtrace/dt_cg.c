@@ -52,11 +52,13 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
 	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
 	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
+	assert(aggs != NULL);
 	assert(mem != NULL);
 	assert(state != NULL);
 	assert(prid != NULL);
@@ -206,13 +208,60 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	DT_CG_STORE_MAP_PTR("strtab", DCTX_STRTAB);
 	if (dtp->dt_options[DTRACEOPT_SCRATCHSIZE] > 0)
 		DT_CG_STORE_MAP_PTR("scratchmem", DCTX_SCRATCHMEM);
-	if (dt_idhash_datasize(dtp->dt_aggs) > 0)
-		DT_CG_STORE_MAP_PTR("aggs", DCTX_AGG);
 	if (dt_idhash_datasize(dtp->dt_globals) > 0)
 		DT_CG_STORE_MAP_PTR("gvars", DCTX_GVARS);
 	if (dtp->dt_maxlvaralloc > 0)
 		DT_CG_STORE_MAP_PTR("lvars", DCTX_LVARS);
 #undef DT_CG_STORE_MAP_PTR
+
+	/*
+	 * Aggregation data is stored in a CPU-specific BPF map.  Populate
+	 * dctx->agg with the map for the current CPU.
+	 *
+	 *	key = bpf_get_smp_processor_id()
+	 *				// call bpf_get_smp_processor_id
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = cpuid)
+	 *				// stdw [%r9 + DCTX_AGG], %r0
+	 *	rc = bpf_map_lookup_elem(&aggs, &key);
+	 *				// lddw %r1, &aggs
+	 *				// mov %r2, %r9
+	 *				// add %r2, DCTX_AGG
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = 'aggs' BPF map value)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *
+	 *	key = 0;		// stdw [%r9 + DCTX_AGG], 0
+	 *	rc = bpf_map_lookup_elem(rc, &key);
+	 *				// mov %r1, %r0
+	 *				// mov %r2, %r9
+	 *				// add %r2, DCTX_AGG
+	 *				// call bpf_map_lookup_elem
+	 *				//     (%r1 ... %r5 clobbered)
+	 *				//     (%r0 = aggs[cpuid] BPF map value)
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
+	 *		goto exit;
+	 *
+	 *	dctx.aggs = rc;		// stdw [%r9 + DCTX_AGG], %r0
+	 */
+	if (dt_idhash_datasize(dtp->dt_aggs) > 0) {
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_AGG, BPF_REG_0));
+		dt_cg_xsetx(dlp, aggs, DT_LBL_NONE, BPF_REG_1, aggs->di_id);
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_AGG));
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_9, DCTX_AGG, 0));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_0));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_AGG));
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_AGG, BPF_REG_0));
+	}
 }
 
 void
