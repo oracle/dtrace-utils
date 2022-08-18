@@ -69,7 +69,8 @@ dt_bpf_lockmem_error(dtrace_hdl_t *dtp, const char *msg)
 /*
  * Load a BPF program into the kernel.
  */
-int dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
+static int
+dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
 		     uint32_t log_level, char *log_buf, size_t log_buf_sz)
 {
 	union bpf_attr	attr;
@@ -99,9 +100,10 @@ int dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
 /*
  * Create a named BPF map.
  */
-int dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
-		      uint32_t key_size, uint32_t value_size,
-		      uint32_t max_entries, uint32_t map_flags)
+static int
+dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
+		  uint32_t key_size, uint32_t value_size, uint32_t max_entries,
+		  uint32_t map_flags)
 {
 	union bpf_attr	attr;
 
@@ -118,9 +120,55 @@ int dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
 }
 
 /*
+ * Create a named BPF meta map (array of maps or hash of maps).
+ */
+static int
+dt_bpf_map_create_meta(enum bpf_map_type otype, const char *name,
+		       uint32_t oksz, uint32_t osize, uint32_t oflags,
+		       enum bpf_map_type itype,
+		       uint32_t iksz, uint32_t ivsz, uint32_t isize,
+		       uint32_t iflags)
+{
+	union bpf_attr	attr;
+	int		ifd, ofd;
+
+	/* Create (temporary) inner map as template. */
+	memset(&attr, 0, sizeof(attr));
+	attr.map_type = itype;
+	attr.key_size = iksz;
+	attr.value_size = ivsz;
+	attr.max_entries = isize;
+	attr.map_flags = iflags;
+
+	ifd =  bpf(BPF_MAP_CREATE, &attr);
+	if (ifd < 0)
+		return -1;
+
+	/* Create the map-of-maps. */
+	memset(&attr, 0, sizeof(attr));
+	attr.map_type = otype;
+	attr.key_size = oksz;
+	attr.value_size = sizeof(uint32_t);
+	attr.inner_map_fd = ifd;
+	attr.max_entries = osize;
+	attr.map_flags = oflags;
+	if (name)
+		memcpy(attr.map_name, name, MIN(strlen(name),
+						sizeof(attr.map_name) - 1));
+
+	ofd = bpf(BPF_MAP_CREATE, &attr);
+
+	/* Done with the template map. */
+	close(ifd);
+
+	return ofd;
+}
+
+/*
  * Load the value for the given key in the map referenced by the given fd.
  */
-int dt_bpf_map_lookup(int fd, const void *key, void *val)
+int
+dt_bpf_map_lookup(int fd, const void *key, void *val)
 {
 	union bpf_attr	attr;
 
@@ -135,7 +183,8 @@ int dt_bpf_map_lookup(int fd, const void *key, void *val)
 /*
  * Find the next key after the given key in the map referenced by the given fd.
  */
-int dt_bpf_map_next_key(int fd, const void *key, void *nxt)
+int
+dt_bpf_map_next_key(int fd, const void *key, void *nxt)
 {
 	union bpf_attr attr;
 
@@ -150,7 +199,8 @@ int dt_bpf_map_next_key(int fd, const void *key, void *nxt)
 /*
  * Delete the given key from the map referenced by the given fd.
  */
-int dt_bpf_map_delete(int fd, const void *key)
+int
+dt_bpf_map_delete(int fd, const void *key)
 {
 	union bpf_attr	attr;
 
@@ -164,7 +214,8 @@ int dt_bpf_map_delete(int fd, const void *key)
 /*
  * Store the (key, value) pair in the map referenced by the given fd.
  */
-int dt_bpf_map_update(int fd, const void *key, const void *val)
+int
+dt_bpf_map_update(int fd, const void *key, const void *val)
 {
 	union bpf_attr	attr;
 
@@ -255,6 +306,58 @@ create_gmap(dtrace_hdl_t *dtp, const char *name, enum bpf_map_type type,
 		err = E2BIG;
 	} else {
 		fd = dt_bpf_map_create(type, name, ksz, vsz, size, 0);
+		err = errno;
+	}
+
+	if (fd < 0) {
+		char msg[64];
+
+		snprintf(msg, sizeof(msg),
+			 "failed to create BPF map '%s'", name);
+		if (err == E2BIG)
+			return dt_bpf_error(dtp, "%s: Too big\n", msg);
+		if (err == EPERM)
+			return dt_bpf_lockmem_error(dtp, msg);
+		return dt_bpf_error(dtp, "%s: %s\n", msg, strerror(err));
+	}
+
+	dt_dprintf("BPF map '%s' is FD %d\n", name, fd);
+
+	/*
+	 * Assign the fd as id for the BPF map identifier.
+	 */
+	idp = dt_dlib_get_map(dtp, name);
+	if (idp == NULL) {
+		close(fd);
+		return dt_bpf_error(dtp, "cannot find BPF map '%s'\n", name);
+	}
+
+	dt_ident_set_id(idp, fd);
+
+	return fd;
+}
+
+static int
+create_gmap_of_maps(dtrace_hdl_t *dtp, const char *name,
+		    enum bpf_map_type otype, size_t oksz, size_t osize,
+		    enum bpf_map_type itype, size_t iksz, size_t ivsz,
+		    size_t isize)
+{
+	int		fd, err;
+	dt_ident_t	*idp;
+
+	dt_dprintf("Creating BPF meta map '%s' (ksz %lu, sz %lu)\n",
+		   name, oksz, osize);
+	dt_dprintf("    storing BPF maps (ksz %lu, vsz %lu, sz %lu)\n",
+		   iksz, ivsz, isize);
+
+	if (oksz > UINT_MAX || osize > UINT_MAX ||
+	    iksz > UINT_MAX || ivsz > UINT_MAX || isize > UINT_MAX) {
+		fd = -1;
+		err = E2BIG;
+	} else {
+		fd = dt_bpf_map_create_meta(otype, name, oksz, osize, 0,
+					    itype, iksz, ivsz, isize, 0);
 		err = errno;
 	}
 
