@@ -166,6 +166,20 @@ dt_bpf_map_create_meta(enum bpf_map_type otype, const char *name,
 }
 
 /*
+ * Get a file descriptor for a BPF map based on its id.
+ */
+int
+dt_bpf_map_get_fd_by_id(uint32_t id)
+{
+	union bpf_attr	attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.map_id = id;
+
+	return bpf(BPF_MAP_GET_FD_BY_ID, &attr);
+}
+
+/*
  * Load the value for the given key in the map referenced by the given fd.
  */
 int
@@ -227,6 +241,51 @@ dt_bpf_map_update(int fd, const void *key, const void *val)
 	attr.flags = BPF_ANY;
 
 	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
+}
+
+/*
+ * Retrieve the value in a map-of-maps, i.e. map[okey][ikey].
+ */
+int
+dt_bpf_map_lookup_inner(int fd, const void *okey, const void *ikey, void *val)
+{
+	uint32_t	id;
+	int		rc;
+
+	if (dt_bpf_map_lookup(fd, okey, &id) < 0)
+		return -1;
+
+	fd = dt_bpf_map_get_fd_by_id(id);
+	if (fd < 0)
+		return -1;
+
+	rc = dt_bpf_map_lookup(fd, ikey, val);
+	close(fd);
+
+	return rc;
+}
+
+/*
+ * Store the value in a map-of-maps, i.e. map[okey][ikey] = value.
+ */
+int
+dt_bpf_map_update_inner(int fd, const void *okey, const void *ikey,
+			const void *val)
+{
+	uint32_t	id;
+	int		rc;
+
+	if (dt_bpf_map_lookup(fd, okey, &id) < 0)
+		return -1;
+
+	fd = dt_bpf_map_get_fd_by_id(id);
+	if (fd < 0)
+		return -1;
+
+	rc = dt_bpf_map_update(fd, ikey, val);
+	close(fd);
+
+	return rc;
 }
 
 static int

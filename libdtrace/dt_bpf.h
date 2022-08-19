@@ -50,6 +50,11 @@ extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
 extern int dt_bpf_map_next_key(int fd, const void *key, void *nxt);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);
 extern int dt_bpf_map_delete(int fd, const void *key);
+extern int dt_bpf_map_get_fd_by_id(uint32_t id);
+extern int dt_bpf_map_lookup_inner(int fd, const void *okey, const void *ikey,
+				   void *val);
+extern int dt_bpf_map_update_inner(int fd, const void *okey, const void *ikey,
+				   const void *val);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);
 extern void dt_bpf_init_helpers(struct dtrace_hdl *dtp);
 
