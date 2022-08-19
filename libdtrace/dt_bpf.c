@@ -113,8 +113,9 @@ dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
 	attr.value_size = value_size;
 	attr.max_entries = max_entries;
 	attr.map_flags = map_flags;
-	memcpy(attr.map_name, name, MIN(strlen(name),
-					sizeof(attr.map_name) - 1));
+	if (name)
+		memcpy(attr.map_name, name, MIN(strlen(name),
+						sizeof(attr.map_name) - 1));
 
 	return bpf(BPF_MAP_CREATE, &attr);
 }
