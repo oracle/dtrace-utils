@@ -2146,6 +2146,36 @@ dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
 	dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, reg, x);
 }
 
+static void
+dt_cg_push_stack(int reg, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	treg;
+
+	if ((treg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_LOAD(BPF_DW, treg, BPF_REG_FP, DT_STK_SP));
+	emit(dlp, BPF_STORE(BPF_DW, treg, 0, reg));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, treg, -DT_STK_SLOT_SZ));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, treg));
+	dt_regset_free(drp, treg);
+}
+
+static void
+dt_cg_pop_stack(int reg, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	int	treg;
+
+	if ((treg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_LOAD(BPF_DW, treg, BPF_REG_FP, DT_STK_SP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, treg, DT_STK_SLOT_SZ));
+	emit(dlp, BPF_LOAD(BPF_DW, reg, treg, 0));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, treg));
+	dt_regset_free(drp, treg);
+}
+
 /*
  * Store a pointer to the 'memory block of zeros' in reg.
  */
@@ -2664,16 +2694,10 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 		if (i > dtp->dt_conf.dtc_diftupregs)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
 
-		dt_cg_node(dnp, dlp, drp);
-
 		/* Push the component (pointer or value) onto the stack. */
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_SP));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_0, 0, dnp->dn_reg));
+		dt_cg_node(dnp, dlp, drp);
+		dt_cg_push_stack(dnp->dn_reg, dlp, drp);
 		dt_regset_free(drp, dnp->dn_reg);
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, -DT_STK_SLOT_SZ));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_FP, DT_STK_SP, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
 	}
 
 empty_args:
