@@ -2778,14 +2778,13 @@ empty_args:
 			emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
 			dt_regset_free_args(drp);
 			emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_valid));
+			dt_regset_free(drp, BPF_REG_0);
 			dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR,
 					  DT_ISIMM, 0);
 
 			emitl(dlp, lbl_valid,
 				   BPF_ALU64_IMM(BPF_ADD, treg, size));
 			tuplesize += size;
-
-			dt_regset_free(drp, BPF_REG_0);
 		} else
 			assert(0);	/* We shouldn't be able to get here. */
 	}
