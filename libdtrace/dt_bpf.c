@@ -244,18 +244,30 @@ dt_bpf_map_update(int fd, const void *key, const void *val)
 }
 
 /*
+ * Retrieve the fd for a map-in-map, i.e. map[okey] which is the fd of a map.
+ *
+ * Note: the caller is responsible for closing the fd.
+ */
+int
+dt_bpf_map_lookup_fd(int fd, const void *okey)
+{
+	uint32_t	id;
+
+	if (dt_bpf_map_lookup(fd, okey, &id) < 0)
+		return -1;
+
+	return dt_bpf_map_get_fd_by_id(id);
+}
+
+/*
  * Retrieve the value in a map-of-maps, i.e. map[okey][ikey].
  */
 int
 dt_bpf_map_lookup_inner(int fd, const void *okey, const void *ikey, void *val)
 {
-	uint32_t	id;
 	int		rc;
 
-	if (dt_bpf_map_lookup(fd, okey, &id) < 0)
-		return -1;
-
-	fd = dt_bpf_map_get_fd_by_id(id);
+	fd = dt_bpf_map_lookup_fd(fd, okey);
 	if (fd < 0)
 		return -1;
 
