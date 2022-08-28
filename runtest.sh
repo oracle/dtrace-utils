@@ -1074,7 +1074,11 @@ for dt in $dtrace; do
         if [[ "x$trigger" = "xnone" ]] || [[ -z $trigger ]]; then
             :
         elif [[ ! -x test/triggers/$(printf '%s' "$trigger" | cut -d\  -f1) ]]; then
-            trigger=
+            out "$_test: "
+            fail=t
+            trigger=$(printf '%s' "$trigger" | cut -d\  -f1)
+            fail "$xfail" "$xfailmsg" "trigger $trigger not found in test/triggers"
+            continue
         else
             trigger="test/triggers/$trigger"
         fi
@@ -1134,7 +1138,7 @@ for dt in $dtrace; do
             run="$vg $tmpdir/$(basename $base)"
         fi
 
-        # No trigger.  Erase any pre-existing coredump, then un dtrace, with a
+        # Erase any pre-existing coredump, then run dtrace, with a
         # timeout, without permitting execution, recording the output and
         # exitcode into temporary files.  (We use a different temporary file on
         # every invocation, so that hanging subprocesses emitting output into
@@ -1166,7 +1170,6 @@ for dt in $dtrace; do
             log "Compiling $CCline\n"
             if ! $CCline >/dev/null 2>$tmpdir/cc.err; then
                 fail=t
-                failmsg="compilation failure"
                 fail "$xfail" "$xfailmsg" "compilation failure"
                 cat $tmpdir/cc.err >> $LOGFILE
                 continue
@@ -1179,6 +1182,7 @@ for dt in $dtrace; do
             tst=$base
             export tst
             if [[ -z $trigger ]] || [[ "$trigger" = "none" ]]; then
+                # No trigger.
                 case $progtype in
                     d) eflag=
                        if [[ -z $trigger ]]; then
