@@ -1,10 +1,9 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * ASSERTION:
@@ -12,11 +11,9 @@
  *
  * SECTION: Aggregations, Printing Aggregations
  *
- * NOTES: DTrace sorts integer keys as unsigned values, yet prints 32-
- * and 64-bit integers as signed values. Since the Java DTrace API is
- * expected to emulate this behavior, this test was added to ensure that
- * the behavior is preserved. Consistency with trace() output is also
- * tested.
+ * NOTES: DTrace sorts integer keys as unsigned values.  Since the Java DTrace
+ * API is expected to emulate this behavior, this test was added to ensure that
+ * the behavior is preserved. Historically, trace() output is also tested.
  */
 
 #pragma D option quiet
@@ -24,15 +21,15 @@
 
 BEGIN
 {
-	trace((char)-2);
+	trace((signed char)-2);
 	trace("\n");
-	trace((char)-1);
+	trace((signed char)-1);
 	trace("\n");
-	trace((char)0);
+	trace((signed char)0);
 	trace("\n");
-	trace((char)1);
+	trace((signed char)1);
 	trace("\n");
-	trace((char)2);
+	trace((signed char)2);
 	trace("\n");
 	trace("\n");
 
