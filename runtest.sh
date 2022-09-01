@@ -840,6 +840,12 @@ for dt in $dtrace; do
         # @@link: A library to link .c programs against (see below).  -ldtrace
         #         by default.
         #
+        # @@nosort: If present, this means do not sort before comparing results
+        #           with a .r file.  Results are sorted by default, since many
+        #           test results do not have a well-defined order -- notably,
+        #           when generated on different CPUs.  Some tests, however,
+        #           care about strict ordering.
+        #
         # Certain filenames of test .d script are treated specially:
         #
         # tst.*.d: These are assumed to have /* @@trigger: none */ by default.
@@ -1313,12 +1319,20 @@ for dt in $dtrace; do
             want_all_output=
             failmsg=
 
+            # By default, sort before comparing since test results often
+            # have indeterminate order (generated on different CPUs, etc.).
+            if exist_options nosort $_test; then
+                sortcmd=cat
+            else
+                sortcmd=sort
+            fi
+
             # Compare results, if available, and log the diff.
             rfile=$base.$arch.r
             [[ -e $rfile ]] || rfile=$base.r
 
             if [[ -e $rfile ]] && [[ -n $COMPARISON ]] &&
-               ! diff -u <(sort $rfile) <(sort $tmpdir/test.out) >/dev/null; then
+               ! diff -u <($sortcmd $rfile) <($sortcmd $tmpdir/test.out) >/dev/null; then
 
                 fail=t
                 failmsg="expected results differ"
