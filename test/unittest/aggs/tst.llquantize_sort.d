@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@nosort */
+
 /*
  * ASSERTION:
  *  llquantize() output is sorted correctly by:

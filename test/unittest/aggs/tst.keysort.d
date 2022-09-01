@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@nosort */
+
 #pragma D option quiet
 
 BEGIN

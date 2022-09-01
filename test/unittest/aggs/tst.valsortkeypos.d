@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@nosort */
+
 /*
  * ASSERTION:
  * 	aggsortkeypos option works when sorting by values, values are

@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@nosort */
+
 /*
  * ASSERTION:
  * 	Signed integer keys print and sort as expected.

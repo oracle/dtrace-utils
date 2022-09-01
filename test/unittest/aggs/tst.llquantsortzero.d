@@ -13,6 +13,8 @@
  *
  */
 
+/* @@nosort */
+
 #pragma D option quiet
 
 BEGIN
