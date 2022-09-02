@@ -1751,6 +1751,17 @@ dt_cg_act_raise(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dt_node_t	*opt = dnp->dn_args;
+	dt_node_t	*val = opt->dn_list;
+
+	TRACE_REGSET("setopt(): Begin ");
+	dt_cg_store_val(pcb, opt, DTRACEACT_LIBACT, NULL, DT_ACT_SETOPT);
+
+	/* If no value is given, we default to NULL. */
+	if (val == NULL)
+		val = dt_node_int(0);
+	dt_cg_store_val(pcb, val, DTRACEACT_LIBACT, NULL, DT_ACT_SETOPT);
+	TRACE_REGSET("setopt(): End   ");
 }
 
 /*

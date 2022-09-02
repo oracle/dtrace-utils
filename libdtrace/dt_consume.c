@@ -2150,6 +2150,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		     void *arg)
 {
 	dtrace_epid_t		epid;
+	dtrace_datadesc_t	*epd;
 	dt_spec_buf_t		tmpl;
 	dt_spec_buf_t		*dtsb;
 	int			specid;
@@ -2170,11 +2171,12 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	pdat->dtpda_data = data;
 
 	rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
-			      &pdat->dtpda_pdesc);
+					 &pdat->dtpda_pdesc);
 	if (rval != 0)
 		return dt_set_errno(dtp, EDT_BADEPID);
 
-	if (pdat->dtpda_ddesc->dtdd_uarg != DT_ECB_DEFAULT) {
+	epd = pdat->dtpda_ddesc;
+	if (epd->dtdd_uarg != DT_ECB_DEFAULT) {
 		rval = dt_handle(dtp, pdat);
 
 		if (rval == DTRACE_CONSUME_NEXT)
@@ -2222,8 +2224,8 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				return -1;
 		}
 
-		if (dt_spec_buf_add_data(dtp, dtsb, epid, pdat->dtpda_cpu,
-					 pdat->dtpda_ddesc, data, size) == NULL)
+		if (dt_spec_buf_add_data(dtp, dtsb, epid, pdat->dtpda_cpu, epd,
+					 data, size) == NULL)
 			return -1;
 
 		return DTRACE_WORKSTATUS_OKAY;
@@ -2242,11 +2244,11 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	 */
 	commit_discard_seen = 0;
 	only_commit_discards = 1;
-	for (i = 0; !committing && i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
+	for (i = 0; !committing && i < epd->dtdd_nrecs; i++) {
 		dtrace_recdesc_t	*rec;
 		dtrace_actkind_t	act;
 
-		rec = &pdat->dtpda_ddesc->dtdd_recs[i];
+		rec = &epd->dtdd_recs[i];
 		act = rec->dtrd_action;
 
 		if (act == DTRACEACT_COMMIT || act == DTRACEACT_DISCARD) {
@@ -2294,7 +2296,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	 *
 	 * FIXME: This code is temporary.
 	 */
-	for (i = 0; i < pdat->dtpda_ddesc->dtdd_nrecs; i++) {
+	for (i = 0; i < epd->dtdd_nrecs; i++) {
 		int			n;
 		dtrace_recdesc_t	*rec;
 		dtrace_actkind_t	act;
@@ -2304,7 +2306,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			    const void *buf, size_t) = NULL;
 		caddr_t			recdata;
 
-		rec = &pdat->dtpda_ddesc->dtdd_recs[i];
+		rec = &epd->dtdd_recs[i];
 		act = rec->dtrd_action;
 		pdat->dtpda_data = recdata = data + rec->dtrd_offset;
 
@@ -2316,7 +2318,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 
 				continue;
 			case DT_ACT_NORMALIZE:
-				if (i == pdat->dtpda_ddesc->dtdd_nrecs - 1)
+				if (i == epd->dtdd_nrecs - 1)
 					return dt_set_errno(dtp, EDT_BADNORMAL);
 
 				if (dt_normalize(dtp, data, rec) != 0)
@@ -2332,6 +2334,37 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				ftruncate(fileno(fp), 0);
 				fseeko(fp, 0, SEEK_SET);
 
+				continue;
+			case DT_ACT_SETOPT: {
+				caddr_t			opt = recdata;
+				caddr_t			val;
+				dtrace_recdesc_t	*vrec;
+
+				if (i == epd->dtdd_nrecs - 1)
+					return dt_set_errno(dtp, EDT_BADSETOPT);
+
+				vrec = &epd->dtdd_recs[++i];
+				if (vrec->dtrd_action != act &&
+				    vrec->dtrd_arg != rec->dtrd_arg)
+					return dt_set_errno(dtp, EDT_BADSETOPT);
+
+				/*
+				 * Two possibilities: either a string was
+				 * passed (alignment 1), or a uint32_t was
+				 * passed (alignment 4).  The latter indicates
+				 * a toggle option (no value).
+				 */
+				if (vrec->dtrd_alignment == 1)
+					val = data + vrec->dtrd_offset;
+				else
+					val = "1";
+
+				if (dt_setopt(dtp, pdat, opt, val) != 0)
+					return DTRACE_WORKSTATUS_ERROR;
+
+				continue;
+			}
+			default:
 				continue;
 			}
 		}
@@ -2443,7 +2476,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		if (func) {
 			int	nrecs;
 
-			nrecs = pdat->dtpda_ddesc->dtdd_nrecs - i;
+			nrecs = epd->dtdd_nrecs - i;
 			n = (*func)(dtp, fp, rec->dtrd_format, pdat,
 				    rec, nrecs, data, size);
 			if (n < 0)
