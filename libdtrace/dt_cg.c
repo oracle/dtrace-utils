@@ -2765,6 +2765,9 @@ empty_args:
 		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
 		isp->dis_args[i].dn_reg = -1;
 
+		/* The typecast may have changed the size. */
+		size = dt_node_sizeof(&isp->dis_args[i]);
+
 		if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp)) {
 			assert(size > 0 && size <= 8 &&
 			       (size & (size - 1)) == 0);
