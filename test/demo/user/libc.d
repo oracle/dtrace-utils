@@ -5,9 +5,10 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@runtest-opts: -c /usr/bin/date */
+/* @@runtest-opts: -c /bin/date */
+/* @@trigger: none */
 
-pid$target:libc.so::entry
+pid$target:libc.so:m*:entry
 {
 	@[probefunc] = count();
 }
