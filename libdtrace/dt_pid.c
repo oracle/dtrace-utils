@@ -272,16 +272,8 @@ dt_pid_sym_filt(void *arg, const GElf_Sym *symp, const char *func)
 	    symp->st_value != pp->dpp_last.st_value ||
 	    symp->st_size != pp->dpp_last.st_size) {
 		/*
-		 * Due to 4524008, _init and _fini may have a bloated st_size.
-		 * While this bug has been fixed for a while, old binaries
-		 * may exist that still exhibit this problem. As a result, we
-		 * don't match _init and _fini though we allow users to
-		 * specify them explicitly.
+		 * Versioned identifiers are a problem.
 		 */
-		if (strcmp(func, "_init") == 0 || strcmp(func, "_fini") == 0)
-			return 0;
-
-		/* Versioned identifiers are a problem. */
 		if (strchr(func, '@') != NULL)
 			return 0;
 
