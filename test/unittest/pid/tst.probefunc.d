@@ -7,7 +7,6 @@
 
 /* @@runtest-opts: -c /bin/date */
 /* @@trigger: none */
-/* @@xfail: dtv2 -- probe* builtin variables do not work for pid probes yet */
 
 pid$target:libc.so:malloc:entry
 {
