@@ -10,7 +10,7 @@ dtrace=$1
 
 ulimit -l 1
 
-for val in 16 1K 16384K 16M unlimited; do
+for val in 16 1K 262144K 256M unlimited; do
 	DTRACE_OPT_LOCKMEM=$val $dtrace -qn 'BEGIN { @ = avg(1234); exit(0); }'
 	echo $?
 done

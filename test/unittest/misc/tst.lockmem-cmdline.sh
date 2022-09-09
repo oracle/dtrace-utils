@@ -8,7 +8,7 @@
 
 dtrace=$1
 
-for val in 1 16384 unlimited; do
+for val in 1 262144 unlimited; do
 	ulimit -l $val
 
 	$dtrace -qn 'BEGIN { @ = avg(1234); exit(0); }'
