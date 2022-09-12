@@ -277,10 +277,12 @@ dt_pid_sym_filt(void *arg, const GElf_Sym *symp, const char *func)
 		if (strcmp(func, "_init") == 0 || strcmp(func, "_fini") == 0)
 			return 0;
 
-		/*
-		 * Versioned identifiers are a problem.
-		 */
+		/* Versioned identifiers are a problem. */
 		if (strchr(func, '@') != NULL)
+			return 0;
+
+		/* Compiler-generated internal identifiers are a problem. */
+		if (strchr(func, '.') != NULL)
 			return 0;
 
 		if ((pp->dpp_last_taken = gmatch(func, pp->dpp_func)) != 0) {
