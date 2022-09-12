@@ -1044,7 +1044,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
-		int		fd, rc;
+		int		fd;
 
 		/* Already done. */
 		if (prp == dtp->dt_error)
@@ -1058,16 +1058,14 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 			return dt_set_errno(dtp, EDT_DESTRUCTIVE);
 
 		fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
-		if (fd < 0)
-			return fd;
+		if (fd == -1)
+			return -1;
 
 		dt_difo_free(dtp, dp);
 
-		if (!prp->prov->impl->attach)
-			return -1;
-		rc = prp->prov->impl->attach(dtp, prp, fd);
-		if (rc < 0)
-			return rc;
+		if (!prp->prov->impl->attach ||
+		    prp->prov->impl->attach(dtp, prp, fd) < 0)
+			return dt_set_errno(dtp, EDT_ENABLING_ERR);
 	}
 
 	return 0;

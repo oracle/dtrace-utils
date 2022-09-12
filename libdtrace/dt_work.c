@@ -53,7 +53,6 @@ int
 dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	size_t			size;
-	int			err;
 	struct epoll_event	ev;
 	dtrace_optval_t		lockmem = dtp->dt_options[DTRACEOPT_LOCKMEM];
 	struct rlimit		rl;
@@ -69,17 +68,13 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
                 setrlimit(RLIMIT_MEMLOCK, &rl);
         }
 
-	/*
-	 * Create the global BPF maps.  This is done only once regardless of
-	 * how many programs there are.
-	 */
-	err = dt_bpf_gmap_create(dtp);
-	if (err)
-		return err;
+	/* Create the global BPF maps. */
+	if (dt_bpf_gmap_create(dtp) == -1)
+		return -1;
 
-	err = dt_bpf_load_progs(dtp, cflags);
-	if (err)
-		return err;
+	/* Load the BPF programs. */
+	if (dt_bpf_load_progs(dtp, cflags) == -1)
+		return -1;
 
 	/*
 	 * Set up the event polling file descriptor.
@@ -116,9 +111,8 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	 * We must initialize the aggregation consumer handling before we
 	 * trigger the BEGIN probe.
 	 */
-	err = dt_aggregate_go(dtp);
-	if (err)
-		return err;
+	if (dt_aggregate_go(dtp) == -1)
+		return -1;
 
 	if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
