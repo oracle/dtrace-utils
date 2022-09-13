@@ -1,4 +1,3 @@
-/* @@xfail: dtv2 */
 /* @@trigger: open */
 
 ::open:entry
