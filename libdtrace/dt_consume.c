@@ -2365,7 +2365,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				continue;
 			}
 			default:
-				continue;
+				return dt_set_errno(dtp, EDT_ERRABORT);
 			}
 		}
 

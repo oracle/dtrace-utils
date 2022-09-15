@@ -1351,6 +1351,7 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 * AGGID = aid->di_id
 	 */
 	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_CLEAR);
+	dnerror(dnp, D_UNKNOWN, "clear() is not implemented (yet)\n");
 }
 
 /*
@@ -1517,6 +1518,8 @@ dt_cg_act_ftruncate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_jstack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dnerror(dnp, D_UNKNOWN, "jstack() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
 }
 
 static void
@@ -1554,11 +1557,15 @@ dt_cg_act_normalize(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_panic(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dnerror(dnp, D_UNKNOWN, "panic() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
 }
 
 static void
 dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dnerror(dnp, D_UNKNOWN, "pcap() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
 }
 
 static void
@@ -1916,6 +1923,8 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
+	dnerror(dnp, D_UNKNOWN, "tracemem() is not implemented (yet)\n");
+	/* FIXME: Needs implementation */
 }
 
 static void
@@ -1964,6 +1973,7 @@ dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 */
 	dt_cg_store_val(pcb, trunc, DTRACEACT_LIBACT, NULL, DT_ACT_TRUNC);
 #endif
+	dnerror(dnp, D_UNKNOWN, "trunc() is not implemented (yet)\n");
 }
 
 static void
