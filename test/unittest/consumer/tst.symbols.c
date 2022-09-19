@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -24,12 +24,24 @@ typedef struct mysymbol {
 	char *symname;
 	char *modname;
 	char type;
+	int is_duplicate;	/* same modname and symname */
 } mysymbol_t;
 
 mysymbol_t *symbols = NULL;
 int maxnsymbols = 0, nsymbols = 0;
 
-int mycompare(const void *ap, const void *bp)
+int mycompare_name(const void *ap, const void *bp)
+{
+	mysymbol_t *a = (mysymbol_t *)ap;
+	mysymbol_t *b = (mysymbol_t *)bp;
+	int c = strcmp(a->modname, b->modname);
+
+	if (c)
+		return c;
+	return strcmp(a->symname, b->symname);
+}
+
+int mycompare_addr_size_type(const void *ap, const void *bp)
 {
 	mysymbol_t *a = (mysymbol_t *)ap;
 	mysymbol_t *b = (mysymbol_t *)bp;
@@ -164,23 +176,33 @@ void print_symbol(int i) {
 	    symbols[i].modname);
 }
 
-/*
- * See if symbol i has a duplicate (same symbol and module names).
- * If so, return its index.
- * If not, return -1.
- */
-int duplicate(int i) {
-	int j;
-	char *s = symbols[i].symname;
-	char *m = symbols[i].modname;
-	for (j = 0; j < nsymbols; j++) {
-		if (j == i)
-			continue;
-		if (strcmp(s, symbols[j].symname) == 0 &&
-		    strcmp(m, symbols[j].modname) == 0)
-			return j;
+void init_is_duplicate() {
+	int i;
+
+	/* this should not happen */
+	if (nsymbols <= 0)
+		return;
+
+	symbols[0].is_duplicate = 0;
+
+	/* this should not happen */
+	if (nsymbols == 1)
+		return;
+
+	/* handle the first symbol specially */
+	if (strcmp(symbols[0].modname, symbols[1].modname) == 0 &&
+	    strcmp(symbols[0].symname, symbols[1].symname) == 0)
+		symbols[0].is_duplicate = 1;
+
+	/* now handle all other comparisons */
+	for (i = 1; i < nsymbols; i++) {
+		if (strcmp(symbols[i - 1].modname, symbols[i].modname) == 0 &&
+		    strcmp(symbols[i - 1].symname, symbols[i].symname) == 0) {
+			symbols[i - 1].is_duplicate = 1;
+			symbols[i].is_duplicate = 1;
+		} else
+			symbols[i].is_duplicate = 0;
 	}
-	return -1;
 }
 
 void match_at_addr(int i, GElf_Sym *symp, dtrace_syminfo_t *sip) {
@@ -302,7 +324,7 @@ int check_lookup_by_name(dtrace_hdl_t *h, int specify_module) {
 			    strcmp(symbols[i].symname, si.name) ||
 			    strcmp(symbols[i].modname, si.object)) {
 
-				if (duplicate(i) >= 0) {
+				if (symbols[i].is_duplicate) {
 					n_dupl++;
 					continue;
 				}
@@ -333,7 +355,13 @@ int main(int argc, char **argv) {
 
 	if (read_symbols() != 0)
 		return 1;
-	qsort(symbols, nsymbols, sizeof(mysymbol_t), &mycompare);
+
+	/* look for duplicates by name */
+	qsort(symbols, nsymbols, sizeof(mysymbol_t), &mycompare_name);
+	init_is_duplicate();
+
+	/* sort to facilitate checking by-address matches */
+	qsort(symbols, nsymbols, sizeof(mysymbol_t), &mycompare_addr_size_type);
 
 	check_lookup_by_addr(h);
 	check_lookup_by_name(h, 1);
