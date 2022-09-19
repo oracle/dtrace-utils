@@ -1050,6 +1050,13 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 		return 0;
 
 	/*
+	 * "__builtin__kprobes" is used as a module name for symbols for pages
+	 * allocated for kprobes' purposes, even though it is not a module.
+	 */
+	if (strcmp(mod_name, "__builtin__kprobes") == 0)
+		return 0;
+
+	/*
 	 * Symbols of "absolute" type are typically defined per CPU.
 	 * Their "addresses" here are very low and are actually offsets.
 	 * Drop these symbols.

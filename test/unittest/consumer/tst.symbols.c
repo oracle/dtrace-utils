@@ -125,6 +125,9 @@ int read_symbols() {
 		if (strcmp(modname, "__builtin__ftrace]") == 0)
 			continue;
 
+		if (strcmp(modname, "__builtin__kprobes]") == 0)
+			continue;
+
 		/*
 		 * In libdtrace/dt_module.c function dt_modsym_update(),
 		 * we skip a number of symbols.  Do not test them.  The
