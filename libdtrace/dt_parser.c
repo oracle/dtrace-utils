@@ -1318,6 +1318,7 @@ dt_node_string(char *string)
 	dnp = dt_node_alloc(DT_NODE_STRING);
 	dnp->dn_op = DT_TOK_STRING;
 	dnp->dn_string = string;
+	dnp->dn_flags |= DT_NF_DPTR;
 	dt_node_type_assign(dnp, DT_STR_CTFP(dtp), DT_STR_TYPE(dtp));
 
 	return dnp;
