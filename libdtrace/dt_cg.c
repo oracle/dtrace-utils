@@ -3298,6 +3298,7 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	    dt_node_is_string(dnp->dn_right)) {
 		dt_ident_t *idp;
 		uint_t Lcomp = dt_irlist_label(dlp);
+		uint32_t flags = 0;
 		uint64_t off1, off2;
 
 		/* if either pointer is NULL, just compare pointers */
@@ -3305,7 +3306,16 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_right->dn_reg, 0, Lcomp));
 
 		/*
-		 * Otherwise, replace pointers with relative string values.
+		 * Set flags to indicate which arguments (if any) are pointers
+		 * to DTrace-managed storage.
+		 */
+		if (dnp->dn_left->dn_flags & DT_NF_DPTR)
+			flags |= 1;
+		if (dnp->dn_right->dn_flags & DT_NF_DPTR)
+			flags |= 2;
+
+		/*
+		 * Replace pointers with relative string values.
 		 * Specifically, replace left with strcmp(left,right)+1 and
 		 * right with 1, so we can use unsigned comparisons.
 		 */
@@ -3322,6 +3332,7 @@ dt_cg_compare_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		emit(dlp,  BPF_MOV_REG(BPF_REG_4, BPF_REG_3));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off1));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, off2));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_5, flags));
 		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_strcmp");
 		assert(idp != NULL);
 		dt_regset_xalloc(drp, BPF_REG_0);

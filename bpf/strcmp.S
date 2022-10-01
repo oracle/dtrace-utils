@@ -58,12 +58,13 @@ dt_strcmp_not :
 	.size	dt_strcmp_not, .-dt_strcmp_not
 
 /*
- * int dt_strcmp(char *s, char *t, char *tmp1, char *tmp2) {
+ * int dt_strcmp(char *s, char *t, char *tmp1, char *tmp2, uint64_t flags) {
  *
  *     [%fp-8]=s
  *     [%fp-16]=t
  *     [%fp-24]=tmp1
  *     [%fp-32]=tmp2
+ *     r9=flags
  *
  *     r8 = STRSZ
  *
@@ -86,8 +87,13 @@ dt_strcmp_not :
  *     // based on this location, judge if the strings are >, <, or ==
  *     if (r0 > r6) goto Lsame;
  *     if (r0 > r7) goto Lsame;
- *     if (s[r0] > t[r0]) return +1;
- *     if (s[r0] < t[r0]) return +1;
+ *
+ *     s += r0;
+ *     t += r0;
+ *
+ *     if (l_is_dptr) { } else { bpf_probe_read(tmp1, 1, s); s = tmp1; }
+ *     if (s[0] > t[0]) return +1;
+ *     return -1;
  *
  *     // if all chars are the same, break tie on string length
  * Lsame:
@@ -105,6 +111,7 @@ dt_strcmp :
 	stxdw	[%fp+-16], %r2		/* Spill t */
 	stxdw	[%fp+-24], %r3		/* Spill tmp1 */
 	stxdw	[%fp+-32], %r4		/* Spill tmp2 */
+	mov	%r9, %r5		/* flags */
 
 	lddw	%r8, STRSZ		/* r8 = STRSZ */
 
@@ -143,10 +150,10 @@ dt_strcmp :
 	mov	%r2, %r8
 	call dt_strcmp_not		/* dt_strcmp_not(tmp1, r8) */
 
-	ldxdw	%r1, [%fp+-32]
+	ldxdw	%r1, [%fp+-24]
 	mov	%r2, %r8
 	ldxdw	%r3, [%fp+-24]
-	call	BPF_FUNC_probe_read_str	/* r0 = bpf_probe_read_str(tmp2, r8, tmp1) */
+	call	BPF_FUNC_probe_read_str	/* r0 = bpf_probe_read_str(tmp1, r8, tmp1) */
 
 	jsle	%r0, 0, .L0		/* help the BPF verifier */
 	lddw	%r8, STRSZ
@@ -156,22 +163,38 @@ dt_strcmp :
 	sub	%r0, 1			/* r0 -= 1 */
 
 	jgt	%r0, %r6, .Lsame	/* if (r0 > r6) goto Lsame */
-	jgt	%r0, %r8, .Lsame	/* if (r0 > r8) goto Lsame */
+	jgt	%r0, %r7, .Lsame	/* if (r0 > r7) goto Lsame */
 
-	ldxdw	%r4, [%fp+-8]
-	add	%r4, %r0
-	ldxb	%r4, [%r4+0]		/* s[r0] */
-	and	%r4, 0xff
+	ldxdw	%r6, [%fp+-8]
+	add	%r6, %r0		/* s += r0 */
+	ldxdw	%r7, [%fp+-16]
+	add	%r7, %r0		/* t += r0 */
 
-	ldxdw	%r5, [%fp+-16]
-	add	%r5, %r0
-	ldxb	%r5, [%r5+0]		/* t[r0] */
-	and	%r5, 0xff
+	jset	%r9, 1, .Ls_is_dptr
+	ldxdw	%r1, [%fp+-24]
+	mov	%r2, 1
+	mov	%r3, %r6
+	mov	%r6, %r1		/* s = tmp1 (after the helper call) */
+	call	BPF_FUNC_probe_read	/* bpf_probe_read(tmp1, 1, s) */
+.Ls_is_dptr:
 
-	jle	%r4, %r5, 2		/* if (s[r0] > t[r0]) return +1 */
+	jset	%r9, 2, .Lt_is_dptr
+	ldxdw	%r1, [%fp+-32]
+	mov	%r2, 1
+	mov	%r3, %r7
+	mov	%r7, %r1		/* t = tmp2 (after the helper call) */
+	call	BPF_FUNC_probe_read	/* bpf_probe_read(tmp2, 1, t) */
+.Lt_is_dptr:
+
+	ldxb	%r6, [%r6+0]		/* s[0] */
+	and	%r6, 0xff
+
+	ldxb	%r7, [%r7+0]		/* t[0] */
+	and	%r7, 0xff
+
+	jle	%r6, %r7, 2		/* if (s[0] > t[0]) return +1 */
 	mov	%r0, 1
 	exit
-	jge	%r4, %r5, 2		/* if (s[r0] < t[r0]) return +1 */
 	mov	%r0, -1
 	exit
 
