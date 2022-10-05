@@ -723,7 +723,8 @@ Pupdate_maps(struct ps_prochandle *P)
 				mptr->map_file->file_map = P->num_mappings;
 		}
 
-		_dprintf("Added mapping for %s: %lx(%lx)\n", prf->prf_mapname,
+		_dprintf("Added mapping for %s: %lx:%lx %lx(%lx)\n",
+		    prf->prf_mapname, pmptr->pr_dev, pmptr->pr_inum,
 		    pmptr->pr_vaddr, pmptr->pr_size);
 		P->num_mappings++;
 	}
