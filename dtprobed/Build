@@ -1,0 +1,41 @@
+# Oracle Linux DTrace.
+# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+CMDS += dtprobed
+
+dtprobed_DIR := $(current-dir)
+dtprobed_TARGET = dtprobed
+dtprobed_CPPFLAGS := -I. -Idtprobed -Ilibproc -Ilibcommon -Ilibport
+dtprobed_CFLAGS := $(shell pkg-config --cflags fuse3)
+dtprobed_LIBS := -lcommon -lproc -lcommon -lport -lelf $(shell pkg-config --libs fuse3)
+dtprobed_DEPS := libproc.a libcommon.a libport.a
+dtprobed_SOURCES := dtprobed.c
+dtprobed_LIBSOURCES := libproc libcommon
+
+ifdef HAVE_LIBSYSTEMD
+dtprobed_CFLAGS += $(shell pkg-config --cflags libsystemd)
+dtprobed_LIBS += $(shell pkg-config --libs libsystemd)
+endif
+
+ifndef HAVE_FUSE_LOG
+dtprobed_SOURCES += rpl_fuse_log.c
+endif
+
+dtprobed.c_CFLAGS := -Wno-pedantic
+
+install::
+	mkdir -p $(INSTSBINDIR)
+	$(call describe-install-target,$(INSTSBINDIR),dtprobed)
+	install -m 755 $(objdir)/dtprobed $(INSTSBINDIR)
+	mkdir -p $(INSTUDEVDIR)
+	$(call describe-install-target,$(INSTUDEVDIR),60-dtprobed.rules)
+	install -m 644 $(dtprobed_DIR)60-dtprobed.rules $(INSTUDEVDIR)
+ifdef HAVE_LIBSYSTEMD
+	mkdir -p $(INSTSYSTEMDUNITDIR)
+	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtprobed.service)
+	install -m 644 $(dtprobed_DIR)dtprobed.service $(INSTSYSTEMDUNITDIR)
+	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtrace-usdt.target)
+	install -m 644 $(dtprobed_DIR)dtrace-usdt.target $(INSTSYSTEMDUNITDIR)
+endif

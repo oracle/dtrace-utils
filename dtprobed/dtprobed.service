@@ -1,0 +1,18 @@
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+
+[Unit]
+Description=DTrace USDT probe creation daemon
+Documentation=man:dtprobed(8)
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/dtprobed -F
+Restart=on-failure
+RestartPreventExitStatus=1
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=false
+PrivateNetwork=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

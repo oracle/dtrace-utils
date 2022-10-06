@@ -531,11 +531,17 @@ if [[ -z $USE_INSTALLED ]]; then
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
     test_incflags="-Iinclude -Iuts/common -Ibuild -Ilibdtrace -DARCH_$arch"
+    helper_device="dtrace/test-$$"
+    dtprobed_flags="-n $helper_device -F"
+    export DTRACE_DOF_INIT_DEVNAME="/dev/$helper_device"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
     	exit 1
     fi
+    build/dtprobed $dtprobed_flags &
+    dtprobed_pid=$!
+    ZAPTHESE+=($dtprobed_pid)
 else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"

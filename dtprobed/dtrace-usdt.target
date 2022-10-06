@@ -1,0 +1,8 @@
+[Unit]
+Description=DTrace USDT operating normally
+Documentation=man:dtprobed(8)
+Requires=dtprobed.service
+BindsTo=dtprobed.service
+After=dtprobed.service
+RefuseManualStart=true
+RefuseManualStop=true

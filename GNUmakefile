@@ -3,7 +3,7 @@
 # Build files in subdirectories are included by this file.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -85,6 +85,10 @@ INCLUDEDIR := $(prefix)/include
 INSTINCLUDEDIR := $(DESTDIR)$(INCLUDEDIR)
 SBINDIR := $(prefix)/sbin
 INSTSBINDIR := $(DESTDIR)$(SBINDIR)
+UDEVDIR := $(prefix)/lib/udev/rules.d
+INSTUDEVDIR := $(DESTDIR)$(UDEVDIR)
+SYSTEMDUNITDIR := $(prefix)/lib/systemd/system
+INSTSYSTEMDUNITDIR := $(DESTDIR)$(SYSTEMDUNITDIR)
 DOCDIR := $(prefix)/share/doc/dtrace-$(VERSION)
 INSTDOCDIR := $(DESTDIR)$(DOCDIR)
 MANDIR := $(prefix)/share/man/man1
