@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -12,13 +12,11 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_list.h>
+#include <tracefs.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-#define TRACEFS		"/sys/kernel/debug/tracing/"
-#define EVENTSFS	TRACEFS "events/"
 
 /*
  * Tracepoint group naming format for DTrace providers.  Providers may append

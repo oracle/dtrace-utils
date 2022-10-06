@@ -9,5 +9,5 @@ LIBS += libcommon
 libcommon_TARGET = libcommon
 libcommon_DIR := $(current-dir)
 libcommon_CPPFLAGS := -Ilibcommon -Ilibproc
-libcommon_SOURCES = dt_list.c
+libcommon_SOURCES = uprobes.c dt_list.c
 libcommon_LIBSOURCES = libcommon

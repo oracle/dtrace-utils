@@ -16,6 +16,7 @@
 #include "dt_cg.h"
 #include "dt_provider.h"
 #include "dt_probe.h"
+#include "uprobes.h"
 
 static const char		prvname[] = "dtrace";
 static const char		modname[] = "";
@@ -164,54 +165,29 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_epilogue_advance(pcb, act);
 }
 
-static char *uprobe_spec(dtrace_hdl_t *dtp, const char *prb)
+static char *uprobe_spec(const char *prb)
 {
 	struct ps_prochandle	*P;
 	int			perr = 0;
 	char			*fun;
-	GElf_Sym		sym;
-	prsyminfo_t		si;
 	char			*spec = NULL;
+	GElf_Sym		sym;
 
-	fun = dt_alloc(dtp, strlen(prb) + strlen(PROBE_FUNC_SUFFIX) + 1);
-	if (fun == NULL)
+	if (asprintf(&fun, "%s%s", prb, PROBE_FUNC_SUFFIX) < 0)
 		return NULL;
-
-	strcpy(fun, prb);
-	strcat(fun, PROBE_FUNC_SUFFIX);
 
 	/* grab our process */
 	P = Pgrab(getpid(), 2, 0, NULL, &perr);
 	if (P == NULL) {
-		dt_free(dtp, fun);
+		free(fun);
 		return NULL;
 	}
 
-	/* look up function, get the map, and record */
-	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, &si) == 0) {
-		const prmap_t	*mapp;
-		size_t		len;
+	/* look up function and thus addr */
+	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, NULL) == 0)
+		spec = uprobe_spec_by_addr(getpid(), P, sym.st_value, NULL);
 
-		mapp = Paddr_to_map(P, sym.st_value);
-		if (mapp == NULL)
-			goto out;
-
-		if (mapp->pr_file->first_segment != mapp)
-			mapp = mapp->pr_file->first_segment;
-
-		len = snprintf(NULL, 0, "%s:0x%lx",
-			       mapp->pr_file->prf_mapname,
-			       sym.st_value - mapp->pr_vaddr) + 1;
-		spec = dt_alloc(dtp, len);
-		if (spec == NULL)
-			goto out;
-
-		snprintf(spec, len, "%s:0x%lx", mapp->pr_file->prf_mapname,
-			 sym.st_value - mapp->pr_vaddr);
-	}
-
-out:
-	dt_free(dtp, fun);
+	free(fun);
 	Prelease(P, PS_RELEASE_NORMAL);
 	Pfree(P);
 
@@ -230,7 +206,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		int	fd, rc = -1;
 
 		/* get a uprobe specification for this probe */
-		spec = uprobe_spec(dtp, prp->desc->prb);
+		spec = uprobe_spec(prp->desc->prb);
 		if (spec == NULL)
 			return -ENOENT;
 
