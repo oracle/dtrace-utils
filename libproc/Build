@@ -4,10 +4,13 @@
 # http://oss.oracle.com/licenses/upl.
 
 BUILDLIBS += libproc
-libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -I$(objdir) -Iuts/intel -Ilibproc/$(ARCHINC)
+LIBS += libproc
+libproc_CPPFLAGS = -Ilibproc -Ilibdtrace -Ilibcommon -I$(objdir) -Iuts/intel -Ilibproc/$(ARCHINC)
 libproc_TARGET = libproc
 libproc_DIR := $(current-dir)
 libproc_SOURCES = Pcontrol.c elfish.c elfish_64.c elfish_32.c Psymtab.c rtld_db.c rtld_offsets.c wrap.c isadep_dispatch.c $(ARCHINC)/isadep.c
+libproc_LIBSOURCES := libproc libcommon
+libproc_SECONDARY := libcommon
 libproc_SRCDEPS := $(objdir)/rtld_offsets.stamp
 
 rtld_offsets.c_CFLAGS := -Wno-prio-ctor-dtor

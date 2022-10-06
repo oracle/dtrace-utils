@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -352,7 +352,7 @@ Pgrab(pid_t pid, int noninvasiveness, int already_ptraced, void *wrap_arg,
 	 * it to definite noninvasiveness.
 	 */
 	if (*perr || noninvasiveness > 1) {
-		dt_dprintf("%i: grabbing noninvasively.\n", P->pid);
+		_dprintf("%i: grabbing noninvasively.\n", P->pid);
 		P->noninvasive = TRUE;
 	}
 

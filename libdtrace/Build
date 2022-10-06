@@ -4,7 +4,7 @@
 # http://oss.oracle.com/licenses/upl.
 
 BUILDLIBS += libdtrace-build
-libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Iuts/intel -Ilibdtrace/$(ARCHINC) \
+libdtrace-build_CPPFLAGS = -Ilibdtrace -Ilibproc -Ilibcommon -Iuts/intel -Ilibdtrace/$(ARCHINC) \
                            -DDTRACE_LIBDIR="\"$(LIBDIR)/dtrace\"" -DDTRACE_USER_UID=$(USER_UID) \
                            -DUNPRIV_UID=$(UNPRIV_UID) -DDUMPCAP_GROUP=\"$(DUMPCAP_GROUP)\" \
                            -DUNPRIV_HOME=\"$(UNPRIV_HOME)\"
@@ -32,7 +32,6 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_lex.c \
 			  dt_link.c \
 			  dt_kernel_module.c \
-			  dt_list.c \
 			  dt_map.c \
 			  dt_module.c \
 			  dt_open.c \
@@ -77,7 +76,7 @@ endif
 libdtrace_VERSION := 2.0.0
 libdtrace_SONAME := libdtrace.so.2
 libdtrace_VERSCRIPT := libdtrace.ver
-libdtrace_LIBSOURCES := libdtrace-build libproc libport
+libdtrace_LIBSOURCES := libdtrace-build libproc libport libcommon
 libdtrace_SECONDARY := libproc libport
 
 # Disable certain warnings for these files
