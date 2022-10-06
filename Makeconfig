@@ -1,7 +1,7 @@
 # Determine properties of the system and write a config.h.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -22,6 +22,29 @@ define check-symbol-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
 	if echo 'void $(2)(); int main(void) { $(2)(); }' | \
 		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
+	else \
+	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
+	fi
+
+$(CONFIG_H): $(objdir)/.config/config.$(1).h
+$(CONFIG_MK): $(objdir)/.config/config.$(1).mk
+endef
+
+# Generate a makefile rule to check for the presence of SYMBOL
+# in HEADER and LIBRARY and emit an appropriate header file
+# fragment into a file under $(objdir)/.config.
+#
+# The first argument must be suitable for a filename fragment,
+# for a makefile rule name and for a #define.
+#
+# Syntax: $(call check-header-symbol-rule,name,symbol,library,header)
+define check-header-symbol-rule
+$(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
+	if printf '#include <%s.h>\nint main(void) { %s; }' "$(4)" "$(2)" | \
+		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
 	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
 	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
 	else \
