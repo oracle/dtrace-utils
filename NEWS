@@ -1,3 +1,109 @@
+2.0.0-1.11 (Oct 28th, 2022)
+---------------------------
+
+Eleventh errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The args[] built-in variable has been implemented.
+
+ - Support loading scalars from kernel space addresses.
+
+ - The copyin(), copyinto(), and copyinstr() subroutines have been implemented.
+
+ - A -xlockmem option has been added to adjust the kernel locked-memory limit.
+   When loading BPF maps or programs fails in a way that might indicate that
+   the locked-memory limit is too low, an error message is printed to suggests
+   using this new option.
+
+ - Support for aggregations indexed by a key (tuple) has been added.
+
+ - Disassembler annotations have been added for aggregation variables.
+
+ - The setopt() action has been implemented.  A limited number of options is
+   currently supported.
+
+ - The pid provider has been changed to ignore compiler-generated internal
+   function names.
+
+ - The USDT provider has been implemented for basic use cases.  Regular,
+   non-is-enabled probes are supported for executables that are referenced
+   explicitly (by pid) in the probe script.  Argument mapping and wildcard
+   probe specifications are not supported yet.
+
+Bugfixes:
+
+ - Arguments of sdt-provider probes are now correctly populated using the
+   tracepoint data.
+
+ - Argument handling for dtrace:::, fbt:::return, pid:::, and syscall:::return
+   probes has been cleaned up.
+
+ - The dtrace utility is now able to handle multiple args after --.
+
+ - The -xcpp, -xctfpath, and -xverbose options have been fixed.
+
+ - Some bugs with typecasting and internal integer storage have been fixed.
+
+ - The libproc search of rtld_global has been improved for glibc changes.
+
+ - In procfs.d, projid_t was renamed to resolve a conflict with the kernel.
+
+ - In the parser, support has been added for slices of typedefs.
+
+ - String comparison involving non-DTrace pointers has been fixed.
+
+ - The value of the execname built-in variable is now correctly recognized as
+   a non-DTrace pointer.
+
+Internal changes:
+
+ - The code generator is able to adapt to BPF-helper-function availability
+   differences between runtime kernels.
+
+ - Read-only blocks of zeros for initializing BPF maps have been consolidated.
+
+ - Tuples are now constructed with their component values at predictable
+   offsets based on their datatype rather than their value..
+
+ - Support for the BPF dt_bpf_map_next_key() helper to iterate over the keys
+   in a BPF map has been added.
+
+ - Support for multiple copies of aggregation data (DT_AGG_NUM_COPIES) is no
+   longer needed and has been removed.
+
+ - Support for creating a map (array or hash) of maps has been added, including
+   functions to perform lookups and updates of inner maps.
+
+ - The storage of aggregation data has been modified to make use of an array of
+   BPF hash maps, indexed by CPU id.  As a result, aggregation data for each
+   CPU is stored in its own BPF hash map and can be modified without affecting
+   the data for other CPUs.
+
+ - Error reporting for BPF program load, map creation, CTF, and dlib load has
+   been cleaned up.
+
+ - Some code has been refactored and some obsolete code removed.
+
+Testsuite changes:
+
+ - Add support for '-e' in test options.
+
+ - Tests that are expected to fail have improved xfail messages.
+
+ - Support has been added for more stringent, @@nosort checking.
+
+ - Problems with "unstable" tests are report as XFAIL.
+
+ - Tests that fire many times (historically using tick-n) are more robust.
+
+ - Various tests have been moved from XFAIL to PASS status to reflect the
+   implementation of new features and in view of some bug fixes.
+
+ - Various tests were improved.
+
 2.0.0-1.10 (Apr 26th, 2022)
 ---------------------------
 

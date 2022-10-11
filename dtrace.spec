@@ -75,7 +75,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.10%{?dist}
+Release:      1.11%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -240,8 +240,29 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Oct 28 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.11
+- Add initial support for USDT. (Nick Alcock, Kris Van Hees)
+- Add support for aggregation keys. (Eugene Loh, Kris Van Hees)
+- Add support for copyin(), copyinto(), and copyinstr().
+- Add support for built-in variable args[] and sdt probe arg types.
+- Fix arg handling for various probes. (Eugene Loh)
+- Add basic support for setopt().
+- Add -xlockmem, with useful error message. (Eugene Loh)
+- Fix -xverbose, -xcpp, and -xctfpath
+- Fix handling of multiple args after --. (Nick Alcock)
+- Have the pid provider ignore compiler-generated internal function names.
+- Fix various bugs with typecasting and internal integer storage. (Eugene Loh)
+- Fix access to scalars in kernel space.
+- Fix libproc search of rtld_global due to glibc changes. (Nick Alcock)
+  [Orabug: 32856318]
+- Truly decouple per-CPU BPF agg maps with a "map of maps."
+- Unused dual aggregation copies (DT_AGG_NUM_COPIES) have been removed.
+  (Eugene Loh)
+- Various testsuite fixes and improvements. [Orabug: 34251899]
+- Various code improvements. [Orabug: 34251899]
+
 * Tue Apr 26 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.10
-- Add support for assocaitive arrays.
+- Add support for associative arrays.
 - Add support for allcoa() and bcopy(). (Nick Alcock)
 - Add support for inet_ntoa(), progenyof(), getmajor(), getminor(),
   mutex_owned(), mutex_owner(), mutex_type_adaptive(), mutex_type_spin(),
