@@ -4,6 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@xfail: No support for NULL strings yet */
 
 /*
  * ASSERTION: String comparisons work.
@@ -41,6 +42,29 @@ BEGIN
 	nerrors += (s3 != s2 ? 0 : 1);
 	nerrors += (s3 >= s2 ? 0 : 1);
 	nerrors += (s3 >  s2 ? 0 : 1);
+
+	s2 = NULL;
+	nerrors += (s3 <= s2 ? 1 : 0);
+	nerrors += (s3 <  s2 ? 1 : 0);
+	nerrors += (s3 == s2 ? 1 : 0);
+	nerrors += (s3 != s2 ? 0 : 1);
+	nerrors += (s3 >= s2 ? 0 : 0);
+	nerrors += (s3 >  s2 ? 0 : 0);
+
+	nerrors += (s2 <= s3 ? 0 : 1);
+	nerrors += (s2 <  s3 ? 0 : 1);
+	nerrors += (s2 == s3 ? 1 : 0);
+	nerrors += (s2 != s3 ? 0 : 1);
+	nerrors += (s2 >= s3 ? 1 : 0);
+	nerrors += (s2 >  s3 ? 1 : 0);
+
+	s3 = NULL;
+	nerrors += (s2 <= s3 ? 0 : 1);
+	nerrors += (s2 <  s3 ? 1 : 0);
+	nerrors += (s2 == s3 ? 0 : 1);
+	nerrors += (s2 != s3 ? 1 : 0);
+	nerrors += (s2 >= s3 ? 0 : 1);
+	nerrors += (s2 >  s3 ? 1 : 0);
 
 	printf("%d errors\n", nerrors);
 	exit(nerrors == 0 ? 0 : 1);
