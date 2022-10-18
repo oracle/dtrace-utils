@@ -15,6 +15,7 @@
 
 extern char *uprobe_spec_by_addr(pid_t pid, ps_prochandle *P, uint64_t addr,
 				 prmap_t *mapp);
+extern char *uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int isret);
 extern char *uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr,
 				 const char *spec, int isret, const char *prv,
 				 const char *mod, const char *fun,
@@ -24,6 +25,7 @@ extern char *uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec
 extern char *uprobe_create_from_addr(pid_t pid, uint64_t addr, const char *prv,
 				     const char *mod, const char *fun,
 				     const char *prb);
+extern int uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int isret);
 extern char *uprobe_encode_name(const char *);
 extern char *uprobe_decode_name(const char *);
 

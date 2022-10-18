@@ -208,8 +208,21 @@ uprobe_decode_name(const char *name)
 	return decoded;
 }
 
+char *
+uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int isret)
+{
+	char	*name;
+
+	if (asprintf(&name, "dt_pid/%c_%llx_%llx_%lx", isret ? 'r' : 'p',
+		     (unsigned long long)dev, (unsigned long long)ino,
+		     (unsigned long)addr) < 0)
+		return NULL;
+
+	return name;
+}
+
 /*
- * Create a uprobe for a given mapping, address, and spec: the uprobe may be a
+ * Create a uprobe for a given device, address, and spec: the uprobe may be a
  * uretprobe.  Return the probe's name as a new dynamically-allocated string, or
  * NULL on error.  If prv/mod/fun/prb are all set, they are passed down as the
  * name of the corresponding DTrace probe.
@@ -219,16 +232,9 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 		    const char *prv, const char *mod, const char *fun,
 		    const char *prb)
 {
-	int fd;
-	int rc;
-	char *name, *args = "";
-
-	if (asprintf(&name, "dt_pid/%c_%llx_%llx_%lx",
-		isret ? 'r' : 'p',
-		(unsigned long long) dev,
-		(unsigned long long) ino,
-		(unsigned long) addr) < 0)
-		return NULL;
+	int	fd = -1;
+	int	rc = -1;
+	char	*name, *args = NULL;
 
 	if (prv && mod && fun && prb) {
 		char *eprv, *emod, *efun, *eprb;
@@ -243,8 +249,7 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 			if (asprintf(&args, "P%s=\\1 M%s=\\2 F%s=\\3 N%s=\\4",
 				     eprv, emod, efun, eprb) < 0)
 				failed = 1;
-		}
-		else
+		} else
 			failed = 1;
 
 		free(eprv);
@@ -256,17 +261,24 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 			return NULL;
 	}
 
+	name = uprobe_name(dev, ino, addr, isret);
+	if (!name)
+		goto out;
+
 	/* Add the uprobe. */
 	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
-	if (fd != -1) {
-		rc = dprintf(fd, "%c:%s %s %s\n", isret ? 'r' : 'p',
-			     name, spec, args);
+	if (fd == -1)
+		goto out;
 
-		/* TODO: error reporting, probably via a callback */
+	rc = dprintf(fd, "%c:%s %s %s\n", isret ? 'r' : 'p', name, spec,
+		     args ? args : "");
+
+out:
+	if (fd == -1)
 		close(fd);
-	}
-
-	if (fd == -1 || rc == -1) {
+	free(args);
+	if (rc < 0) {
+		free(name);
 		return NULL;
 	}
 
@@ -282,8 +294,8 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 char *
 uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret)
 {
-    return uprobe_create_named(dev, ino, addr, spec, isret,
-			       NULL, NULL, NULL, NULL);
+	return uprobe_create_named(dev, ino, addr, spec, isret,
+				   NULL, NULL, NULL, NULL);
 }
 
 /*
@@ -307,4 +319,32 @@ uprobe_create_from_addr(pid_t pid, uint64_t addr, const char *prv,
 				   prv, mod, fun, prb);
 	free(spec);
 	return name;
+}
+
+/*
+ * Destroy a uprobe for a given device, address, and spec.
+ */
+int
+uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int isret)
+{
+	int	fd = -1;
+	int	rc = -1;
+	char	*name;
+
+	name = uprobe_name(dev, ino, addr, isret);
+	if (!name)
+		goto out;
+
+	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
+	if (fd == -1)
+		goto out;
+
+	rc = dprintf(fd, "-:%s\n", name);
+
+out:
+	if (fd != -1)
+		close(fd);
+	free(name);
+
+	return rc < 0 ? -1 : 0;
 }
