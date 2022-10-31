@@ -119,8 +119,6 @@ Requires:     libdtrace-ctf-devel >= 1.1.0
 Requires:     elfutils-libelf-devel
 Requires:     %{name}%{?_isa} = %{version}-%{release}
 Provides:     dtrace-headers = 2.0.0
-Obsoletes:    dtrace-modules-shared-headers
-Obsoletes:    dtrace-modules-provider-headers
 Group:	      Development/System
 
 %description devel
