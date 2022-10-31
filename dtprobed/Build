@@ -38,4 +38,7 @@ ifdef HAVE_LIBSYSTEMD
 	install -m 644 $(dtprobed_DIR)dtprobed.service $(INSTSYSTEMDUNITDIR)
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtrace-usdt.target)
 	install -m 644 $(dtprobed_DIR)dtrace-usdt.target $(INSTSYSTEMDUNITDIR)
+	if [[ -z $RPM_BUILD_ROOT ]]; then \
+		systemctl enable dtprobed.service dtrace-usdt.target; \
+	fi
 endif

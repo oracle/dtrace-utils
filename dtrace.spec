@@ -56,8 +56,9 @@ Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libpcap fuse3 >= 3.2.0
-BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel fuse3-devel >= 3.2.0 systemd-devel
+BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel fuse3-devel >= 3.2.0 systemd systemd-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel
+%{?systemd_requires}
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
 %if "%{?dist}" == ".el8"
 BuildRequires: kernel%{variant}-devel = 5.15.0-0.16.2%{?dist}uek
@@ -192,6 +193,10 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 
 %post
 /sbin/ldconfig
+%udev_rules_update
+%systemd_post dtprobed.service dtrace-usdt.target
+systemctl enable dtprobed.service dtrace-usdt.target
+systemctl start dtprobed.service
 # if systemtap-dtrace.1.gz doesn't exist then we can move the existing dtrace manpage
 MANDIR=/usr/share/man/man1
 if [ -e $MANDIR/dtrace.1.gz -a ! -e $MANDIR/systemtap-dtrace.1.gz ]; then
@@ -210,12 +215,17 @@ elif [ ! -e $SYSINCDIR/sdt.h ]; then
     ln -s $SYSINCDIR/sdt-dtrace.h $SYSINCDIR/sdt.h
 fi
 
+%preun
+%systemd_preun dtprobed.service dtrace-usdt.target
+
 %postun
 /sbin/ldconfig
 MANDIR=/usr/share/man/man1
 if [ -h $MANDIR/dtrace.1.gz ]; then
     rm -f $MANDIR/dtrace.1.gz
 fi
+%udev_rules_update
+%systemd_postun dtprobed.service dtrace-usdt.target
 
 %files
 %defattr(-,root,root,-)
@@ -223,10 +233,14 @@ fi
 %exclude %{_libdir}/dtrace/testsuite
 %{_libdir}/libdtrace.so.*
 %{_sbindir}/dtrace
+%{_sbindir}/dtprobed
 %{_mandir}/man1/orcl-dtrace.1.gz
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*
+%{_unitdir}/dtprobed.service
+%{_unitdir}/dtrace-usdt.target
+%{_udevrulesdir}/60-dtprobed.rules
 
 %files devel
 %defattr(-,root,root,-)

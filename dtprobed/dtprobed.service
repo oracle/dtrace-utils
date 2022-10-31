@@ -4,6 +4,11 @@
 [Unit]
 Description=DTrace USDT probe creation daemon
 Documentation=man:dtprobed(8)
+DefaultDependencies=no
+Requires=sysinit.target
+Wants=sysinit.target sockets.target paths.target
+After=sysinit.target sockets.target paths.target
+Before=basic.target
 
 [Service]
 Type=notify
@@ -15,4 +20,7 @@ ProtectHome=true
 PrivateDevices=false
 PrivateNetwork=true
 ProtectControlGroups=true
-RestrictSUIDSGID=true
+
+[Install]
+WantedBy=basic.target
+Also=dtrace-usdt.target
