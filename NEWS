@@ -33,6 +33,16 @@ New features:
    explicitly (by pid) in the probe script.  Argument mapping and wildcard
    probe specifications are not supported yet.
 
+Upgrading:
+
+ - The USDT implementation depends on an always-running daemon (dtprobed):
+   the corresponding systemd dtprobed.service is automatically started in
+   relatively early boot in non-rescue scenarios, but when DTrace is first
+   installed, or if it is upgraded from a version before the daemon existed
+   (before 2.0.0-1.11), any probes in programs that were already running
+   before that point will not appear in DTrace's list of available probes
+   until such programs are restarted.
+
 Bugfixes:
 
  - Arguments of sdt-provider probes are now correctly populated using the
