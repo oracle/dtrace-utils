@@ -1,0 +1,38 @@
+#!/bin/bash
+
+if [ "$1" = "--help" ]; then
+	echo "Usage: $0 [build_type] [version]"
+	exit 0
+fi
+
+package_name="dtrace"
+tags=()
+
+build_type="$1"
+test -z "${build_type}" && build_type="build-dev"
+ver="$2"
+if [ -z "${ver}" ]; then
+	spec="./buildrpm/ol8/${package_name}.spec"
+	v="$(grep "Version:" "${spec}" | awk '{print $2}')"
+	r="$(grep "Release:" "${spec}" | awk '{print $2}' | sed -e 's/%..dist.//g')"
+	ver="${v}-${r}"
+fi
+
+tag_me() {
+	local dist="$1"
+	local suffix="$2"
+	local tag_name="${dist}/${package_name}-${ver}${suffix}"
+
+	$DBG git tag -d "${tag_name}"
+	$DBG git tag -m "${build_type}" "${tag_name}"
+	tags+=("${tag_name}")
+}
+
+git commit --amend --reset-author --no-edit
+tag_me ol7 '.x86_64'
+tag_me ol7 '.aarch64'
+tag_me ol8 '.x86_64'
+tag_me ol8 '.aarch64'
+tag_me ol9 '.x86_64'
+tag_me ol9 '.aarch64'
+echo git push -f origin "${tags[@]}"
