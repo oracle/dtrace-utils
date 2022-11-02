@@ -8,6 +8,8 @@
 /*
  * Verify that a dtrace_addr2str() of the null pointer does not
  * resolve to a symbol.
+ *
+ * @@tags: uninstalled
  */
 
 

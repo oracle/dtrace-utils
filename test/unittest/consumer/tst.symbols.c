@@ -9,7 +9,10 @@
  * Check mappings between symbol names and addresses using /proc/kallmodsyms.
  */
 
-/* @@timeout: 60 */
+/*
+ * @@timeout: 60
+ * @@tags: uninstalled
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

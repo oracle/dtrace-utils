@@ -8,6 +8,8 @@
 /*
  * 25767469 dtrace_update() does not merge address ranges properly
  * Verify fix.
+ *
+ * @@tags: uninstalled
  */
 
 #include <stdio.h>
