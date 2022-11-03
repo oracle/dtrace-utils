@@ -3,6 +3,8 @@
  * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
  */
 
+#define BPF_FUNC_probe_read	4
+
 	.text
 
 /*
@@ -115,25 +117,27 @@ dt_inet_ntoa_write_uint8:
  * void dt_inet_ntoa(uint8_t *src, char *dst) {
  *     uint64_t off, inp, len;
  *
- *     off = 0
+ *     bpf_probe_read(fp + -4, 4, src);
+ *
+ *     off = 0;
  *     len = STRSZ;
  *
- *     inp = src[0];
+ *     inp = *(fp + -4);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
  *     dst[off++] = ':';
  *
- *     inp = src[1];
+ *     inp = *(fp + -3);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
  *     dst[off++] = ':';
  *
- *     inp = src[2];
+ *     inp = *(fp + -2);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
  *     dst[off++] = ':';
  *
- *     inp = src[3];
+ *     inp = *(fp + -1);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *
  *     done:
@@ -146,19 +150,27 @@ dt_inet_ntoa_write_uint8:
 	.type	dt_inet_ntoa, @function
 dt_inet_ntoa:
 
-/* off cycles between %r3 (input arg to subroutine) and %r0 (its return) */
+/*
+ * the variable "off" is either in:
+ *     %r3 (input arg to subroutine)
+ *     %r0 (its return)
+ */
 #define INP %r1
-#define SRC %r6
 #define DST %r7
 #define LEN %r8
 
-	mov	SRC, %r1
 	mov	DST, %r2
+
+	mov	%r3, %r1
+	mov	%r2, 4
+	mov	%r1, %fp
+	add	%r1, -4
+	call	BPF_FUNC_probe_read
 
 	mov	%r3, 0
 	lddw	LEN, STRSZ
 
-	ldxb	INP, [SRC+0]
+	ldxb	INP, [%fp+-4]
 	mov	%r2, DST
 	call	dt_inet_ntoa_write_uint8
 	jge	%r0, LEN, .Ldone
@@ -167,7 +179,7 @@ dt_inet_ntoa:
 	add	%r0, DST
 	stb	[%r0+0], '.'
 
-	ldxb	INP, [SRC+1]
+	ldxb	INP, [%fp+-3]
 	mov	%r2, DST
 	call	dt_inet_ntoa_write_uint8
 	jge	%r0, LEN, .Ldone
@@ -176,7 +188,7 @@ dt_inet_ntoa:
 	add	%r0, DST
 	stb	[%r0+0], '.'
 
-	ldxb	INP, [SRC+2]
+	ldxb	INP, [%fp+-2]
 	mov	%r2, DST
 	call	dt_inet_ntoa_write_uint8
 	jge	%r0, LEN, .Ldone
@@ -185,7 +197,7 @@ dt_inet_ntoa:
 	add	%r0, DST
 	stb	[%r0+0], '.'
 
-	ldxb	INP, [SRC+3]
+	ldxb	INP, [%fp+-1]
 	mov	%r2, DST
 	call	dt_inet_ntoa_write_uint8
 
