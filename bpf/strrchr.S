@@ -21,7 +21,7 @@
  *     r8 = r6;
  * Lloop:
  *     r8--;
- *     r3 = src[r8];
+ *     r3 = dst[r8];     // use copy in dst[] in case src[] is unsafe memory
  *     r3 <<= 56;
  *     if (r3 == c) goto Lfound;
  *     if (r8 > 0) goto Lloop;
@@ -65,9 +65,9 @@ dt_strrchr :
 .Lloop:
 	sub	%r8, 1			/* r8-- */
 	mov	%r4, %r8
-	ldxdw	%r3, [%fp+-8]
+	ldxdw	%r3, [%fp+-24]
 	add	%r3, %r4
-	ldxb	%r3, [%r3+0]		/* r3 = src[r8] */
+	ldxb	%r3, [%r3+0]		/* r3 = dst[r8] */
 	lsh	%r3, 56			/* r3 <<= 56 */
 	jeq	%r3, %r5, .Lfound	/* if (r3 == c) goto Lfound */
 	jgt	%r8, 0, .Lloop		/* if (r8 > 0) goto Lloop */
