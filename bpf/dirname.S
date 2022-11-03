@@ -21,6 +21,11 @@ dt_dirname :
 	mov	SRC, %r1
 	mov	DST, %r2
 
+	/*
+	 * Copy src to dst for two reasons:
+	 *   - to get the string length
+	 *   - to have a copy that we can access directly
+	 */
 	/* r0 = bpf_probe_read_str(dst, STRSZ + 1, src) */
 	mov	%r1, DST
 	lddw	%r2, STRSZ
@@ -49,8 +54,8 @@ dt_dirname :
 	sub	LEN, 1
 	/* if (len s< 0) goto Lslash */
 	jslt	LEN, 0, .Lslash
-	/* if (src[len] == '/') goto L1 */
-	mov	%r0, SRC
+	/* if (dst[len] == '/') goto L1 */
+	mov	%r0, DST
 	add	%r0, LEN
 	ldxb	%r0, [%r0+0]
 	and	%r0, 0xff
@@ -65,8 +70,8 @@ dt_dirname :
 	sub	LEN, 1
 	/* if (len s< 0) goto Ldot */
 	jslt	LEN, 0, .Ldot
-	/* if (src[len] != '/') goto L2 */
-	mov	%r0, SRC
+	/* if (dst[len] != '/') goto L2 */
+	mov	%r0, DST
 	add	%r0, LEN
 	ldxb	%r0, [%r0+0]
 	and	%r0, 0xff
@@ -81,8 +86,8 @@ dt_dirname :
 	sub	LEN, 1
 	/* if (len s< 0) goto Lslash */
 	jslt	LEN, 0, .Lslash
-	/* if (src[len] == '/') goto L3 */
-	mov	%r0, SRC
+	/* if (dst[len] == '/') goto L3 */
+	mov	%r0, DST
 	add	%r0, LEN
 	ldxb	%r0, [%r0+0]
 	and	%r0, 0xff
