@@ -22,6 +22,11 @@ dt_basename :
 	mov	SRC, %r1
 	mov	DST, %r2
 
+	/*
+	 * Copy src to dst for two reasons:
+	 *   - to get the string length
+	 *   - to have a copy that we can access directly
+	 */
 	/* r0 = bpf_probe_read_str(dst, STRSZ + 1, src) */
 	mov	%r1, DST
 	lddw	%r2, STRSZ
@@ -44,8 +49,8 @@ dt_basename :
 	sub	LEN, 1
 	/* if (len s< 0) goto Lslash */
 	jslt	LEN, 0, .Lslash
-	/* if (src[len] == '/') goto Lend */
-	mov	%r1, SRC
+	/* if (dst[len] == '/') goto Lend */
+	mov	%r1, DST
 	add	%r1, LEN
 	ldxb	%r1, [%r1+0]
 	and	%r1, 0xff
@@ -61,8 +66,8 @@ dt_basename :
 	sub	BGN, 1
 	/* if (bgn s< 0) goto Lcopy */
 	jslt	BGN, 0, .Lcopy
-	/* if (src[bgn] != '/') goto Lbgn */
-	mov	%r1, SRC
+	/* if (dst[bgn] != '/') goto Lbgn */
+	mov	%r1, DST
 	add	%r1, BGN
 	ldxb	%r1, [%r1+0]
 	and	%r1, 0xff
