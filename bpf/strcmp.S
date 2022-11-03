@@ -88,12 +88,10 @@ dt_strcmp_not :
  *     if (r0 > r6) goto Lsame;
  *     if (r0 > r7) goto Lsame;
  *
- *     r6 = &s[r0];
- *     r7 = &tmp2[r0];
+ *     r7 = tmp2[r0];
  *
- *     if (flags & 1) { } else { bpf_probe_read(tmp1, 1, r6); r6 = tmp1; }
- *     r6 = *r6;
- *     r7 = *r7;
+ *     bpf_probe_read(tmp1, 1, &s[r0]);
+ *     r6 = tmp1[0];
  *
  *     // if all chars are the same, break tie on string length
  * Lsame:
@@ -165,24 +163,19 @@ dt_strcmp :
 	jgt	%r0, %r6, .Lsame	/* if (r0 > r6) goto Lsame */
 	jgt	%r0, %r7, .Lsame	/* if (r0 > r7) goto Lsame */
 
-	ldxdw	%r6, [%fp+-8]
-	add	%r6, %r0		/* r6 = &s[r0] */
 	ldxdw	%r7, [%fp+-32]
-	add	%r7, %r0		/* r7 = &tmp2[r0] */
+	add	%r7, %r0
+	ldxb	%r7, [%r7+0]
+	and	%r7, 0xff		/* r7 = tmp2[r0] */
 
-	jset	%r9, 1, .Ls_is_dptr
 	ldxdw	%r1, [%fp+-24]
 	mov	%r2, 1
-	mov	%r3, %r6
-	mov	%r6, %r1		/* r6 = tmp1 (after the helper call) */
-	call	BPF_FUNC_probe_read	/* bpf_probe_read(tmp1, 1, r6) */
-.Ls_is_dptr:
-
-	ldxb	%r6, [%r6+0]		/* r6 = *r6 */
-	and	%r6, 0xff
-
-	ldxb	%r7, [%r7+0]		/* r7 = *r7 */
-	and	%r7, 0xff
+	ldxdw	%r3, [%fp+-8]
+	add	%r3, %r0
+	call	BPF_FUNC_probe_read	/* bpf_probe_read(tmp1, 1, &s[r0]) */
+	ldxdw	%r6, [%fp+-24]
+	ldxb	%r6, [%r6+0]
+	and	%r6, 0xff		/* r6 = tmp1[0] */
 
 .Lsame:
 	jle	%r6, %r7, 2		/* if (r6 > r7) return +1 */
