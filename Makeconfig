@@ -97,5 +97,9 @@ $(eval $(call check-symbol-rule,LIBCTF,ctf_open,ctf))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
 $(eval $(call check-symbol-rule,WAITFD,waitfd,c))
 $(eval $(call check-symbol-rule,LIBSYSTEMD,sd_notify,systemd))
+ifndef WANTS_LIBFUSE2
 $(eval $(call check-symbol-rule,FUSE_LOG,fuse_set_log_func,fuse3))
+$(eval $(call check-symbol-rule,LIBFUSE3,fuse_session_receive_buf,fuse3))
+endif
+$(eval $(call check-header-rule,FUSE_NUMA,fuse_set_numa,fuse/fuse_lowlevel))
 $(eval $(call check-header-symbol-rule,CLOSE_RANGE,close_range(3,~0U,0),c,unistd))

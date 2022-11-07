@@ -21,7 +21,18 @@
 #include <linux/seccomp.h>
 #include <sys/syscall.h>
 
+/*
+ * Compatibility.  With libfuse 3, we use a few newer features that need at
+ * least version 31 (3.2.0): with libfuse 2, the default will suffice.  We also
+ * use the logging infrastructure added in libfuse 3.7, but provide an alternate
+ * implementation if not available.
+ */
+
+#if HAVE_LIBFUSE3
 #define FUSE_USE_VERSION 31
+#else /* libfuse 2 */
+/* Use the default (21).  */
+#endif
 
 #include <cuse_lowlevel.h>
 #include <fuse_lowlevel.h>
@@ -93,6 +104,28 @@ dt_debug_printf(const char *subsys, const char *fmt, va_list ap)
 	}
 }
 
+#if HAVE_LIBFUSE3
+static int
+session_fd(struct fuse_session *cuse_session)
+{
+	return fuse_session_fd(cuse_session);
+}
+#else /* libfuse 2 */
+static struct fuse_chan *cuse_chan;
+
+static void
+init_cuse_chan(struct fuse_session *cuse_session)
+{
+	cuse_chan = fuse_session_next_chan(cuse_session, NULL);
+}
+
+static int
+session_fd(struct fuse_session *cuse_session)
+{
+	return fuse_chan_fd(cuse_chan);
+}
+#endif
+
 /*
  * States for the ioctl processing loop, which gets repeatedly called due to the
  * request/reply nature of unrestricted FUSE ioctls.
@@ -140,6 +173,10 @@ setup_helper_device(int argc, char **argv, char *devname, dtprobed_userdata_t *u
 		perror("allocating helper device");
 		return NULL;
 	}
+
+#ifndef HAVE_LIBFUSE3 /* libfuse 2 */
+	init_cuse_chan(cs);
+#endif
 
 	if (multithreaded) {
 		fprintf(stderr, "CUSE thinks dtprobed is multithreaded!\n");
@@ -202,7 +239,7 @@ dof_parser_start(int sync_fd)
 		 * Sandboxed parser child.  Close unwanted fds and nail into
 		 * seccomp jail.
 		 */
-		close(fuse_session_fd(cuse_session));
+		close(session_fd(cuse_session));
 		close(parser_in_pipe[1]);
 		close(parser_out_pipe[0]);
 		if (!foreground)
@@ -507,6 +544,7 @@ err:
 	return -1;
 }	
 
+#if HAVE_LIBFUSE3
 static int
 loop(void)
 {
@@ -538,6 +576,54 @@ loop(void)
 	fuse_session_reset(cuse_session);
 	return ret < 0 ? -1 : 0;
 }
+#else /* libfuse 2 */
+static int
+loop(void)
+{
+	struct pollfd fds[1];
+	void *buf;
+	size_t bufsize;
+	int ret = 0;
+
+	bufsize = fuse_chan_bufsize(cuse_chan);
+	buf = malloc(bufsize);
+	if (!buf) {
+		fprintf(stderr, "Cannot allocate memory for FUSE buffer\n");
+		return -1;
+	}
+
+	fds[0].fd = fuse_chan_fd(cuse_chan);
+	fds[0].events = POLLIN;
+
+	while (!fuse_session_exited(cuse_session)) {
+		struct fuse_buf fbuf = { .mem = buf, .size = bufsize };
+		struct fuse_chan *tmpch = cuse_chan;
+
+		if ((ret = poll(fds, 1, -1)) < 0)
+			break;
+
+		if (fds[0].revents != 0) {
+			if ((ret = fuse_session_receive_buf(cuse_session,
+							    &fbuf, &tmpch)) <= 0) {
+				if (ret == -EINTR)
+					continue;
+
+				break;
+			}
+
+#ifdef HAVE_FUSE_NUMA
+			fuse_session_process_buf(cuse_session, &fbuf, tmpch, 0);
+#else
+			fuse_session_process_buf(cuse_session, &fbuf, tmpch);
+#endif
+		}
+	}
+
+	free(buf);
+	fuse_session_reset(cuse_session);
+	return ret < 0 ? -1 : 0;
+}
+#endif
 
 static void
 usage(void)

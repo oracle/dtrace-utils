@@ -55,9 +55,18 @@ BuildRequires: rpm
 Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libpcap fuse3 >= 3.2.0
-BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel fuse3-devel >= 3.2.0 systemd systemd-devel
+Requires:     cpp elfutils-libelf zlib libpcap
+BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel systemd systemd-devel
 BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel
+%if "%{?dist}" == ".el7"
+Requires:     fuse
+BuildRequires: fuse-devel
+%define maybe_use_fuse2 libfuse2=yes
+%else
+Requires:     fuse3 >= 3.2.0
+BuildRequires: fuse3-devel >= 3.2.0
+%define maybe_use_fuse2 %{nil}
+%endif
 %{?systemd_requires}
 BuildRequires: kernel%{variant}-devel = %{build_kernel}
 %if "%{?dist}" == ".el8"
@@ -76,7 +85,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.11%{?dist}
+Release:      1.11.1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -156,7 +165,7 @@ it always tests the installed DTrace.
 %build
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} \
 	KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= \
-	KERNELS="%{kerneldirs}"
+	KERNELS="%{kerneldirs}" %{maybe_use_fuse2}
 
 # Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
 # and the testsuite requires debuginfo for proper operation.
@@ -252,6 +261,9 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Nov 08 2022 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.11.1
+- Support both libfuse 2 and libfuse 3.
+
 * Fri Oct 28 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.11
 - Add initial support for USDT. (Nick Alcock, Kris Van Hees)
 - Add support for aggregation keys. (Eugene Loh, Kris Van Hees)

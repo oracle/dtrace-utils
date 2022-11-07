@@ -3,13 +3,28 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
+# Temporarily suppress dtprobed builds before configury is done: we don't know
+# which fuse is safe to even look up with pkg-config without ugly messages.
+ifdef CONFIGURED
 CMDS += dtprobed
+
+# Support FUSE 2 as well as FUSE 3: use if explicitly requested or if
+# FUSE 3 is not found.
+ifdef WANTS_LIBFUSE2
+LIBFUSE := fuse
+else
+ifndef HAVE_LIBFUSE3
+LIBFUSE := fuse
+else
+LIBFUSE := fuse3
+endif
+endif
 
 dtprobed_DIR := $(current-dir)
 dtprobed_TARGET = dtprobed
 dtprobed_CPPFLAGS := -I. -Idtprobed -Ilibproc -Ilibcommon -Ilibport
-dtprobed_CFLAGS := $(shell pkg-config --cflags fuse3)
-dtprobed_LIBS := -lcommon -lproc -lcommon -lport -lelf $(shell pkg-config --libs fuse3)
+dtprobed_CFLAGS := $(shell pkg-config --cflags $(LIBFUSE))
+dtprobed_LIBS := -lcommon -lproc -lcommon -lport -lelf $(shell pkg-config --libs $(LIBFUSE))
 dtprobed_DEPS := libproc.a libcommon.a libport.a
 dtprobed_SOURCES := dtprobed.c
 dtprobed_LIBSOURCES := libproc libcommon
@@ -24,6 +39,7 @@ dtprobed_SOURCES += rpl_fuse_log.c
 endif
 
 dtprobed.c_CFLAGS := -Wno-pedantic
+endif
 
 install::
 	mkdir -p $(INSTSBINDIR)

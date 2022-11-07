@@ -9,13 +9,16 @@ debugging ?= no
 dof_dbg ?= no
 coverage ?= no
 verbose ?= no
+libfuse2 ?= no
 
 help::
 	@printf "Options:\n\n" >&2
 	@printf "make debugging=yes [targets]   Disable optimization to make debugger use easier\n" >&2
 	@printf "make coverage=yes [targets]    Turn on coverage support in the testsuite\n" >&2
 	@printf "make verbose=yes [target]      Enable verbose building\n" >&2
-	@printf "make dof_dbg=yes [targets]     Turn on especially noisy DOF parser debugging\n" >&2
+	@printf "make dof_dbg=yes [targets]     Turn on especially noisy DOF parser debugging\n\n" >&2
+	@printf "Dependencies:\n\n" >&2
+	@printf "make libfuse2=yes [targets]    Build against libfuse 2 even if libfuse 3 is found\n" >&2
 	@printf "\n" >&2
 
 ifneq ($(debugging),no)
@@ -33,4 +36,8 @@ endif
 
 ifeq ($(verbose),no)
 override MAKEFLAGS += --silent
+endif
+
+ifneq ($(libfuse2),no)
+override WANTS_LIBFUSE2 = yes
 endif
