@@ -560,8 +560,8 @@ main(int argc, char *argv[])
 	 * These are "command-line" arguments to FUSE itself: our args are
 	 * different.  The double-NULL allows us to add an arg.
 	 */
-	char *fuse_argv[] = { argv[0], "-f", "-s", "-o", "allow_other", NULL, NULL };
-	int fuse_argc = 5;
+	char *fuse_argv[] = { argv[0], "-f", "-s", NULL, NULL };
+	int fuse_argc = 3;
 
 	while ((opt = getopt(argc, argv, "Fdn:t:")) != -1) {
 		switch (opt) {
