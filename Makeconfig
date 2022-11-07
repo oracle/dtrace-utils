@@ -10,6 +10,29 @@
 CONFIG_H = $(objdir)/config.h
 CONFIG_MK = $(objdir)/config.mk
 
+# Generate a makefile rule to check for the presence of FUNCTION
+# in HEADER and emit an appropriate header file fragment into a
+# file under $(objdir)/.config.
+#
+# The first argument must be suitable for a filename fragment,
+# for a makefile rule name and for a #define.
+#
+# Syntax: $(call check-header-rule,name,function,header)
+define check-header-rule
+$(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
+	if printf '#include <%s.h>\nint main(void) { %s; }' "$(3)" "$(2)" | \
+		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
+	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
+	else \
+	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
+	fi
+
+$(CONFIG_H): $(objdir)/.config/config.$(1).h
+$(CONFIG_MK): $(objdir)/.config/config.$(1).mk
+endef
+
 # Generate a makefile rule to check for the presence of SYMBOL
 # in LIBRARY and emit an appropriate header file fragment into
 # a file under $(objdir)/.config.
