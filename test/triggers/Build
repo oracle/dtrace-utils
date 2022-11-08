@@ -30,7 +30,7 @@ TRIGGERS = $(EXTERNAL_TRIGGERS) $(INTERNAL_TRIGGERS)
 
 TRIGGER_SOLIBS = libproc-dlmlib libproc-lookup-victim-lib
 
-install-test:: triggers
+install-test::
 	$(call describe-install-target,$(INSTTESTDIR)/test/triggers,$(SCRIPT_TRIGGERS))
 	mkdir -p $(INSTTESTDIR)/test/triggers
 	install -m 755 $(addprefix test/triggers/,$(SCRIPT_TRIGGERS)) $(INSTTESTDIR)/test/triggers
