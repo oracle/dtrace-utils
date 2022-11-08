@@ -5,12 +5,13 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+# @@nosort
 
 dtrace=$1
 
 ulimit -l 1
 
-for val in 16 1K 262144K 256M unlimited; do
+for val in 16 1K 268435456K 262144M 256G unlimited; do
 	DTRACE_OPT_LOCKMEM=$val $dtrace -qn 'BEGIN { @ = avg(1234); exit(0); }'
 	echo $?
 done

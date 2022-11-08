@@ -9,6 +9,9 @@
 
              1234
 0
+
+             1234
+0
 -- @@stderr --
 dtrace: could not enable tracing: failed to create BPF map 'state':
 	The kernel locked-memory limit is possibly too low.  Set a

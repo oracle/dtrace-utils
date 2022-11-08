@@ -5,10 +5,11 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+# @@nosort
 
 dtrace=$1
 
-for val in 1 262144 unlimited; do
+for val in 1 268435456 unlimited; do
 	ulimit -l $val
 
 	$dtrace -qn 'BEGIN { @ = avg(1234); exit(0); }'
