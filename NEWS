@@ -1,5 +1,5 @@
-2.0.0-1.11 (Oct 28th, 2022)
----------------------------
+2.0.0-1.11.1 (Nov 9th, 2022)
+----------------------------
 
 Eleventh errata of the standalone userspace implementation.
 
@@ -32,6 +32,13 @@ New features:
    non-is-enabled probes are supported for executables that are referenced
    explicitly (by pid) in the probe script.  Argument mapping and wildcard
    probe specifications are not supported yet.
+
+New dependencies:
+
+ - The USDT provider support depends on the availability of libfuse version
+   2 or 3.  At build time, preference is given to libfuse 3 if available.
+   The build process supports forcing building against libfuse 2 by passing
+   'libfuse2=yes' to the make command.
 
 Upgrading:
 
@@ -113,6 +120,13 @@ Testsuite changes:
    implementation of new features and in view of some bug fixes.
 
  - Various tests were improved.
+
+Known problems:
+
+ - On some aarch64 systems the copyin(), copyinstr(), and copyinto()
+   subroutines may report a fault due to limitations in the BPF implementation
+   at the kernel level.  This problem seems to be related to specific CPU
+   features.
 
 2.0.0-1.10 (Apr 26th, 2022)
 ---------------------------
