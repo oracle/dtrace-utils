@@ -401,6 +401,80 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called)
 }
 
 /*
+ * For some providers, we have
+ *   - arg0 = PC if kernel (0 otherwise)
+ *   - arg1 = PC if user space (0 otherwise)
+ *
+ * So put the PC in both arg0 and arg1, test the PC, and then zero out
+ * either arg0 or arg1, as apropriate.
+ *
+ * The caller must ensure that %r7 and %r8 contain the values set by
+ * the dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
+{
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	uint_t		Luser = dt_irlist_label(dlp);
+	uint_t		Ldone = dt_irlist_label(dlp);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/* place the PC in %r3, arg0, and arg1 */
+        emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_8, PT_REGS_IP));
+        emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_3));
+        emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_3));
+
+	/* check if the PC is kernel or user space */
+	if (dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel] == BPF_FUNC_probe_read_kernel) {
+		/*
+		 * Use probe_read_kernel() if it is really is probe_read_kernel().
+		 * On older kernels, it does not exist and is aliased to something else.
+		 */
+
+		/* test just a single byte */
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
+
+		/* safe to write to FP+DT_STK_SP_BASE, which becomes the clause stack */
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SP_BASE));
+
+		/* bpf_probe_read_kernel(%fp + DT_STK_SP, 1, PC) */
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read_kernel));
+
+		/* if there was a problem, assume it was user space */
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, Luser));
+		dt_regset_free(drp, BPF_REG_0);
+	} else {
+		/*
+		 * If no real probe_read_kernel() exists, just test the highest bit.
+		 * This is not as robust, but probably works just fine for us.
+		 */
+
+		/* if the highest bit is 0, assume it was user space */
+		emit(dlp, BPF_ALU64_IMM(BPF_RSH, BPF_REG_3, 63));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_3, 0, Luser));
+	}
+
+	/* PC is kernel space (zero out arg1) */
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(1), 0));
+	emit(dlp,  BPF_JUMP(Ldone));
+
+	/* PC is user space (zero out arg0) */
+	emitl(dlp, Luser,
+		   BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(0), 0));
+
+	/* done */
+	emitl(dlp, Ldone,
+	      BPF_NOP());
+	dt_regset_free_args(drp);
+}
+
+/*
  * Copy return value from a dt_pt_regs structure referenced by %r8 to
  * mst->arg[1].  Zero the other args.
  *

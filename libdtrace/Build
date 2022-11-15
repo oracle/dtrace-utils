@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -46,6 +46,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_probe.c \
 			  dt_proc.c \
 			  dt_program.c \
+			  dt_prov_cpc.c \
 			  dt_prov_dtrace.c \
 			  dt_prov_fbt.c \
 			  dt_prov_profile.c \
@@ -69,9 +70,9 @@ SHLIBS += libdtrace
 libdtrace_DIR := $(current-dir)
 libdtrace_TARGET = libdtrace
 ifdef HAVE_LIBCTF
-libdtrace_LIBS := -lctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm
+libdtrace_LIBS := -lctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
 else
-libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm
+libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
 endif
 libdtrace_VERSION := 2.0.0
 libdtrace_SONAME := libdtrace.so.2
@@ -86,6 +87,7 @@ dt_cg.c_CFLAGS := -Wno-pedantic
 dt_dis.c_CFLAGS := -Wno-pedantic
 dt_pid.c_CFLAGS := -Wno-pedantic
 dt_proc.c_CFLAGS := -Wno-pedantic
+dt_prov_cpc.c_CFLAGS := -Wno-pedantic
 dt_prov_dtrace.c_CFLAGS := -Wno-pedantic
 dt_prov_fbt.c_CFLAGS := -Wno-pedantic
 dt_prov_profile.c_CFLAGS := -Wno-pedantic

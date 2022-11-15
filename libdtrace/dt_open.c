@@ -64,7 +64,8 @@ const dt_version_t _dtrace_versions[] = {
  * provider module may create multiple providers.
  */
 static const dt_provimpl_t *dt_providers[] = {
-	&dt_dtrace,
+	&dt_dtrace,		/* list dt_dtrace first */
+	&dt_cpc,
 	&dt_fbt,
 	&dt_profile,
 	&dt_sdt,
@@ -1267,6 +1268,11 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_pfdict_destroy(dtp);
 	dt_dof_fini(dtp);
 	dt_probe_fini(dtp);
+	/*
+	 * FIXME:
+	 * add some dt_prov_fini() to iterate over providers and call provider-specific fini()'s
+	 * CPC will call pfm_terminate()
+	 */
 
 	dt_htab_destroy(dtp, dtp->dt_provs);
 

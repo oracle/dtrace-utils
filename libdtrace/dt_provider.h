@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -76,9 +76,12 @@ typedef struct dt_provimpl {
 		       const struct dt_probe *prb);
 	void (*probe_destroy)(dtrace_hdl_t *dtp, /* free provider data */
 			      void *datap);
+	void *prv_data;				/* provider-specific data */
 } dt_provimpl_t;
 
+/* list dt_dtrace first */
 extern dt_provimpl_t dt_dtrace;
+extern dt_provimpl_t dt_cpc;
 extern dt_provimpl_t dt_fbt;
 extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_sdt;

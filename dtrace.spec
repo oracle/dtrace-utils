@@ -1,7 +1,7 @@
 # spec file for package dtrace
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -55,9 +55,9 @@ BuildRequires: rpm
 Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
-Requires:     cpp elfutils-libelf zlib libpcap
+Requires:     cpp elfutils-libelf zlib libpcap libpfm
 BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel systemd systemd-devel
-BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel
+BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel libpfm-devel
 %if "%{?dist}" == ".el7"
 Requires:     fuse
 BuildRequires: fuse-devel
