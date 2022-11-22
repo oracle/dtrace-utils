@@ -12,17 +12,21 @@ The main development branch is [dev](https://github.com/oracle/dtrace-utils/tree
 A small number of kernel patches are needed, which are [here](https://github.com/oracle/dtrace-linux-kernel).
 Branches named starting v2/* are suitable (see 2.1.3 below for more details).
 
-We provide prebuilt DTrace userspace packages for Oracle Linux 7 and Oracle
-Linux 8, using the UEK6 kernel.  These packages are based on the Oracle Linux
-specific release branch
-[2.0-branch](https://github.com/oracle/dtrace-utils/tree/2.0-branch).
+We provide prebuilt x86_64 and aarch64 DTrace userspace packages for Oracle
+Linux 9 (UEK7 kernel), Oracle Linux 8 (UEK7 or UEK6 kernel), and Oracle Linux 7
+(UEK6 kernel).  These packages are based on the Oracle Linux specific release
+branch [2.0-branch](https://github.com/oracle/dtrace-utils/tree/2.0-branch).
 
 The latest packages can be obtained from the following
 [Oracle Linux yum server](https://yum.oracle.com) repositories: 
-- Oracle Linux 7 (x86_64) UEK Release 6 (kernel version 5.4.17): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/x86_64
-- Oracle Linux 7 (aarch64) UEK Release 6 (kernel version 5.4.17): https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/aarch64
-- Oracle Linux 8 (x86_64) UEK Release 6 (kernel version 5.4.17): https://yum.oracle.com/repo/OracleLinux/OL8/UEKR6/x86_64
-- Oracle Linux 8 (aarch64) UEK Release 6 (kernel version 5.4.17): https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/aarch64
+- Oracle Linux 9 (x86_64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL9/UEKR7/x86_64/
+- Oracle Linux 9 (aarch64) BaseOS Latest: https://yum.oracle.com/repo/OracleLinux/OL9/baseos/latest/aarch64/
+- Oracle Linux 8 (x86_64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR7/x86_64/
+- Oracle Linux 8 (aarch64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR7/aarch64/
+- Oracle Linux 8 (x86_64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR6/x86_64/
+- Oracle Linux 8 (aarch64) BaseOS Latest: https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/aarch64/
+- Oracle Linux 7 (x86_64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/x86_64/
+- Oracle Linux 7 (aarch64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/aarch64/
 
 Source code for the UEK kernel is available on github in the
 [linux-uek repo](https://github.com/oracle/linux-uek).
@@ -113,9 +117,7 @@ The patch set is quite small, but may need some tweaking if it is being merged
 into a newer tree.  We occasionally push a new patched tree to our github repo,
 so do look around to see if there is a better match.
 
-The latest kernel currently supported is 5.17-rc2.
-
-Oracle Linux's [UEK6](https://github.com/oracle/linux-uek/tree/uek6/master)
+Oracle Linux's [UEK7](https://github.com/oracle/linux-uek/tree/uek7/ga)
 provides a simple alternative if you don't want to patch your own kernel.
 
 Building of a patched kernel from sources is also straightforward.
@@ -156,22 +158,26 @@ are not repeated here.
 
 For building:
 
-| Prerequisite       | Debian           | Oracle Linux              |
-|:-------------------|:-----------------|:--------------------------|
-| glibc headers      | libc6-dev        | glibc-headers             |
-| glibc (static)     | (in libc6-dev)   | glibc-static              |
-| glibc (32-bit dev) | libc6-dev-i386   | glibc-devel.i686          |
-| bison              | bison            | bison                     |
-| flex               | flex             | flex                      |
-| BPF gcc            | gcc-bpf          | gcc-bpf-unknown-none      |
-| BPF binutils       | binutils-bpf     | binutils-bpf-unknown-none |
-| libpcap dev        | libpcap-dev      | libpcap-devel             |
+| Prerequisite       | Debian                      | Oracle Linux              |
+|:-------------------|:----------------------------|:--------------------------|
+| glibc headers      | libc6-dev                   | glibc-headers             |
+| glibc (static)     | (in libc6-dev)              | glibc-static              |
+| glibc (32-bit dev) | libc6-dev-i386              | glibc-devel.i686          |
+| bison              | bison                       | bison                     |
+| flex               | flex                        | flex                      |
+| BPF gcc            | gcc-bpf                     | gcc-bpf-unknown-none      |
+| BPF binutils       | binutils-bpf                | binutils-bpf-unknown-none |
+| libpcap dev        | libpcap-dev                 | libpcap-devel             |
+| wireshark          | wireshark                   | wireshark                 |
+| valgrind           | valgrind                    | valgrind-devel            |
+| fuse3 or fuse      | libfuse3-dev or libfuse-dev | fuse3-devel or fuse-devel |
 
 At runtime:
 
-| Prerequisite       | Debian           | Oracle Linux              |
-|:-------------------|:-----------------|:--------------------------|
-| wireshark          | wireshark        | wireshark                 |
+| Prerequisite       | Debian                 | Oracle Linux              |
+|:-------------------|:-----------------------|:--------------------------|
+| wireshark          | wireshark              | wireshark                 |
+| fuse3 or fuse      | libfuse3-3 or libfuse2 | fuse3-devel or fuse-devel |
 
 ### 2.2. Build DTrace
 
