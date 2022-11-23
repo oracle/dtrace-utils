@@ -193,7 +193,7 @@ no_addr:
 	}
 
 	snprintf(str, len, "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): "
-			   "%s%s in %s%s\n",
+			   "%s%s in %s%s",
 		 epid, errpd->id, errpd->prv, errpd->mod, errpd->fun,
 		 errpd->prb, dtrace_faultstr(dtp, err.dteda_fault), details,
 		 where, offinfo);
@@ -233,7 +233,7 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	str = alloca(len);
 
 	snprintf(str, len,
-		 "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): %s\n",
+		 "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): %s",
 		 data->dtpda_epid, errpd->id, errpd->prv, errpd->mod,
 		 errpd->fun, errpd->prb, faultstr);
 
@@ -306,9 +306,10 @@ dt_handle_cpudrop(dtrace_hdl_t *dtp, processorid_t cpu,
 		size = sizeof(str);
 	}
 
-	snprintf(s, size, "%llu %sdrop%s on CPU %d\n",
-	    (unsigned long long)howmany, what == DTRACEDROP_PRINCIPAL ? "" : "aggregation ",
-	    howmany > 1 ? "s" : "", cpu);
+	snprintf(s, size, "%llu %sdrop%s on CPU %d",
+		 (unsigned long long)howmany,
+		 what == DTRACEDROP_PRINCIPAL ? "" : "aggregation ",
+		 howmany > 1 ? "s" : "", cpu);
 
 	if (dtp->dt_drophdlr == NULL)
 		return dt_set_errno(dtp, EDT_DROPABORT);
@@ -399,7 +400,7 @@ dt_handle_status(dtrace_hdl_t *dtp, dtrace_status_t *old, dtrace_status_t *new)
 			size = sizeof(str);
 		}
 
-		snprintf(s, size, "%llu %s%s%s\n",
+		snprintf(s, size, "%llu %s%s%s",
 		    (unsigned long long)nval - oval,
 		    _dt_droptab[i].dtdrt_str, (nval - oval > 1) ? "s" : "",
 		    _dt_droptab[i].dtdrt_msg != NULL ?

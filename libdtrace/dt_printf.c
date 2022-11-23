@@ -1305,7 +1305,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			memcpy(tmp, pfd->pfd_prefix, pfd->pfd_preflen);
 			tmp[pfd->pfd_preflen] = '\0';
 
-			if ((rval = dt_printf(dtp, fp, tmp)) < 0)
+			if ((rval = dt_printf(dtp, fp, "%s", tmp)) < 0)
 				return rval;
 
 			if (pfv->pfv_flags & DT_PRINTF_AGGREGATION) {

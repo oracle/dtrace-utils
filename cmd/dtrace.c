@@ -521,7 +521,7 @@ prochandler(pid_t pid, const char *msg, void *arg)
 static int
 errhandler(const dtrace_errdata_t *data, void *arg)
 {
-	error(data->dteda_msg);
+	error("%s\n", data->dteda_msg);
 	return DTRACE_HANDLE_OK;
 }
 
@@ -529,7 +529,7 @@ errhandler(const dtrace_errdata_t *data, void *arg)
 static int
 drophandler(const dtrace_dropdata_t *data, void *arg)
 {
-	error(data->dtdda_msg);
+	error("%s\n", data->dtdda_msg);
 	return DTRACE_HANDLE_OK;
 }
 
