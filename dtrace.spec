@@ -184,13 +184,8 @@ make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} \
      HDRPREFIX="$RPM_BUILD_ROOT/usr/include" \
      install install-test
 
-# Because systemtap creates a dtrace.1 manpage we have to rename
-# ours and then shift theirs out of the way (since the systemtap
-# dtrace page references a non-existent binary)
-mv $RPM_BUILD_ROOT/usr/share/man/man1/dtrace.1 \
-   $RPM_BUILD_ROOT/usr/share/man/man1/orcl-dtrace.1
-
-# The same is true of sdt.h.
+# Because systemtap creates a sdt.h header file we have to rename
+# ours and then shift theirs out of the way.
 mv $RPM_BUILD_ROOT/usr/include/sys/sdt.h \
    $RPM_BUILD_ROOT/usr/include/sys/sdt-dtrace.h
 
@@ -204,16 +199,8 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 %systemd_post dtprobed.service dtrace-usdt.target
 systemctl enable dtprobed.service dtrace-usdt.target
 systemctl start dtprobed.service
-# if systemtap-dtrace.1.gz doesn't exist then we can move the existing dtrace manpage
-MANDIR=/usr/share/man/man1
-if [ -e $MANDIR/dtrace.1.gz -a ! -e $MANDIR/systemtap-dtrace.1.gz ]; then
-    mv $MANDIR/dtrace.1.gz $MANDIR/systemtap-dtrace.1.gz
-    ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
-elif [ ! -e $MANDIR/dtrace.1.gz ]; then
-    ln -s $MANDIR/orcl-dtrace.1.gz $MANDIR/dtrace.1.gz
-fi
 
-# likewise for sdt.h
+# if sdt-systemtap.h doesn't exist then we can move the existing dtrace sdt.h
 SYSINCDIR=/usr/include/sys
 if [ -e $SYSINCDIR/sdt.h -a ! -e $SYSINCDIR/sdt-systemtap.h ]; then
     mv $SYSINCDIR/sdt.h $SYSINCDIR/sdt-systemtap.h
@@ -227,10 +214,6 @@ fi
 
 %postun
 /sbin/ldconfig
-MANDIR=/usr/share/man/man1
-if [ -h $MANDIR/dtrace.1.gz ]; then
-    rm -f $MANDIR/dtrace.1.gz
-fi
 %udev_rules_update
 %systemd_postun dtprobed.service dtrace-usdt.target
 
@@ -241,7 +224,7 @@ fi
 %{_libdir}/libdtrace.so.*
 %{_sbindir}/dtrace
 %{_sbindir}/dtprobed
-%{_mandir}/man1/orcl-dtrace.1.gz
+%{_mandir}/man8/dtrace.8.gz
 %{_includedir}/sys/sdt-dtrace.h
 %{_includedir}/sys/sdt_internal.h
 %doc %{_docdir}/dtrace-%{version}/*

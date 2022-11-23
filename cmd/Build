@@ -46,5 +46,5 @@ install::
 	      $(INSTLIBDIR)/dtrace
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
-	$(call describe-install-target,$(INSTMANDIR),dtrace.1)
-	install -m 644 $(dtrace_DIR)/dtrace.1 $(INSTMANDIR)
+	$(call describe-install-target,$(INSTMANDIR),dtrace.8)
+	install -m 644 $(dtrace_DIR)/dtrace.8 $(INSTMANDIR)
