@@ -331,7 +331,7 @@ systemctl start dtprobed || :
 - Fix dtprobed to support DOF that exceeds 64KiB. (Nick Alcock)
   [Orabug: 35411920]
 - Do not modify input files with dtrace -G if unchanged. (Steven Sistare)
-  [Orbug: 35417184]
+  [Orabug: 35417184]
 - Various testsuite fixes and improvements.
   (Nick Alcock, Eugene Loh, Kris Van Hees) [Orabug: 35435195]
 - Various code improvements.  (Nick Alcock, Eugene Loh, Kris Van Hees)
@@ -582,7 +582,7 @@ systemctl start dtprobed || :
 * Tue Jul 30 2019 Kris van Hees <kris.van.hees@oracle.com> - 2.0.0-0.1
 - DTrace implementation based on BPF (initial portions).
 
-* Fri Aug 10 2018 - <nick.alcock@oracle.com> - 1.1.0-0.1
+* Fri Aug 10 2018 Nick Alcock <nick.alcock@oracle.com> - 1.1.0-0.1
 - Add more DTRACE_PROBE definitions to sdt.h, for SystemTap
   compatibility, and test them (Tomas Jedlicka) [Orabug: 27721525]
 - Fix disassembler coredump (Tomas Jedlicka) [Orabug: 28054399]
@@ -609,19 +609,19 @@ systemctl start dtprobed || :
   [Orabug: 28142056]
 - Clean up compiler warnings (Eugene Loh) [Orabug: 27934422, 27998779]
 
-* Thu May 10 2018 - <nick.alcock@oracle.com> - 1.0.2-1
+* Thu May 10 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.2-1
 - Testsuite fixes [Orabug: 27995907]
 
-* Fri Apr 27 2018 - <nick.alcock@oracle.com> - 1.0.1-1
+* Fri Apr 27 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.1-1
 - ARM64 USDT and pid probe support (Kris Van Hees) [Orabug: 27847969]
 - Fix -c option on ARM64 (Kris Van Hees) [Orabug: 27847946]
 - Disable pid provider tests on UEK4.
 - Testsuite fixes [Orabug: 27921244, 27919918]
 
-* Thu Mar 29 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-10
+* Thu Mar 29 2018 Tomas Jedlicka <tomas.jedlicka@oracle.com> - 1.0.0-10
 - Enabled tst.default.d in smoketests.
 
-* Tue Mar 27 2018 - <tomas.jedlicka@oracle.com> - 1.0.0-9
+* Tue Mar 27 2018 Tomas Jedlicka <tomas.jedlicka@oracle.com> - 1.0.0-9
 - Updated translators to match new kernel redesign of per-task and
   per-process data. [Orabug: 27731759]
 - Enhanced build system to support multiple kernels [Orabug: 27731756]
@@ -629,7 +629,7 @@ systemctl start dtprobed || :
 - Adjusted the interpretation of /proc/kallmodsyms for aarch64
   (Eugene Loh) [Orabug: 27214992]
 
-* Thu Mar  8 2018 - <nick.alcock@oracle.com> - 1.0.0-8
+* Thu Mar  8 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-8
 - Change dtrace_proc_*() public interfaces to take a struct dtrace_proc,
   avoiding lifecycle issues that can cause access to freed memory when
   victims are exec()ing rapidly [Orabug: 27501199]
@@ -645,37 +645,37 @@ systemctl start dtprobed || :
 - Consider erratically failing tests in some directories to be passes
 - Test fixes [Orabug: 27583002, 27651838]
 
-* Fri Feb 16 2018 - <nick.alcock@oracle.com> - 1.0.0-7
+* Fri Feb 16 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-7
 - Internal development release.
 - Several latent porting bugs fixed (Kris Van Hees)
 - Make tests used in smoke testsuite rely on sdt less
   (Kris Van Hees)
 
-* Tue Jan 30 2018 - <nick.alcock@oracle.com> - 1.0.0-6
+* Tue Jan 30 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-6
 - Internal development release.
 - ARM64 support [Orabug: 27438960, 27438993, 27438977]
 - Include correct procfs.h (Tomas Jedlicka) [Orabug: 27266725]
 
-* Thu Jan 18 2018 - <nick.alcock@oracle.com> - 1.0.0-5
+* Thu Jan 18 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-5
 - Internal development release.
 - Bring back translators for 4.14.
 
-* Fri Jan 12 2018 - <nick.alcock@oracle.com> - 1.0.0-4
+* Fri Jan 12 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-4
 - Internal development release.
 - Eliminate new symbol at address 0 on KPTI-enabled kernels
   [Orabug: 27364377]
 - Boost some test timeouts
 
-* Fri Jan  5 2018 - <nick.alcock@oracle.com> - 1.0.0-3
+* Fri Jan  5 2018 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-3
 - Internal development release.
 - New tests and test fixes (Kris Van Hees, Nicolas Droux)
   [Orabug: 27194352, 27282243]
 
-* Fri Dec 15 2017 - <nick.alcock@oracle.com> - 1.0.0-2
+* Fri Dec 15 2017 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-2
 - Internal development release.
 - Fix rare assertion failures at exit [Orabug: 26848964]
 
-* Thu Nov 30 2017 - <nick.alcock@oracle.com> - 1.0.0-1
+* Thu Nov 30 2017 Nick Alcock <nick.alcock@oracle.com> - 1.0.0-1
 - Release for smoketesters, not GA
 - Fix mod() normalization: add test for it (Tomas Jedlicka, Eugene Loh)
   [Orabug: 26826564]
@@ -692,16 +692,16 @@ systemctl start dtprobed || :
 - New tests for the lockstat provider and fixes to jstack and 3-arg
   tracemem tests (Eugene Loh, Alan Maguire) [Orabug: 26149894, 27015838]
 
-* Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-3
+* Mon Oct 16 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.2-3
 - Apply correct version of lockstat patch [Orabug: 26149894]
 
-* Mon Oct 16 2017 - <nick.alcock@oracle.com> - 0.6.2-2
+* Mon Oct 16 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.2-2
 - Add lockstat provider [Orabug: 26149894] (Alan Maguire)
 - Add missing obsolete of dtrace-modules-provider-headers (Tomas Jedlicka)
   [Orabug: 26883486]
 - Add missing testsuite NFS dependency (Tomas Jedlicka) [Orabug: 26860985]
 
-* Thu Sep 21 2017 - <nick.alcock@oracle.com> - 0.6.2-1
+* Thu Sep 21 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.2-1
 - Internal development release.
 - Fix segfault at shutdown time if grabbed processes die at
   precisely the wrong time [Orabug: 26528776]
@@ -721,14 +721,14 @@ systemctl start dtprobed || :
 - Testsuite fixes and new tests for inet_*() and lquantize
   (Eugene Loh, Alan Maguire, Nick Alcock)
 
-* Wed Sep 13 2017 - <nick.alcock@oracle.com> - 0.6.1-3
+* Wed Sep 13 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.1-3
 - Relicense all of userspace, including the testsuite, to UPL.
 - Merge NEWS from the modules into NEWS for userspace: there is
   only one NEWS now.
 - Test fixes (Tomas Jedlicka, Nick Alcock) [Orabug: 26522961]
 - make check-quick support, skipping long-running tests
 
-* Fri Jul 14 2017 - <tomas.jedlicka@oracle.com> - 0.6.1-2
+* Fri Jul 14 2017 Tomas Jedlicka <tomas.jedlicka@oracle.com> - 0.6.1-2
 - Internal development release
 - Fix name of lowest bucket in dtrace_print_lquantize() (Eugene Loh)
   [Orabug: 26261502]
@@ -748,7 +748,7 @@ systemctl start dtprobed || :
 - dtrace-utils-testsuite now depends on dtrace-devel.
   (Nick Alcock) [Orabug: 26415697]
 
-* Thu May 25 2017 - <nick.alcock@oracle.com> - 0.6.1-1
+* Thu May 25 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.1-1
 - Add translators and tests for TCP and UDP (Alan Maguire)
   [Orabug: 25815242]
 - Add translators for the IO provider (Nicolas Droux) [Orabug: 25816562]
@@ -758,15 +758,15 @@ systemctl start dtprobed || :
 - Repeated dtrace -G no longer corrupts the object file (Kris Van Hees)
   [Orabug: 22509887]
 
-* Tue Mar 21 2017 - <nick.alcock@oracle.com> - 0.6.0-3
+* Tue Mar 21 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.0-3
 - Test fixes
 
-* Fri Mar  3 2017 - <nick.alcock@oracle.com> - 0.6.0-2
+* Fri Mar  3 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.0-2
 - Internal development release
 - Add translator for ip provider [Orabug: 25557249]
 - Test fixes and new tests.
 
-* Tue Jan 17 2017 - <nick.alcock@oracle.com> - 0.6.0-1
+* Tue Jan 17 2017 Nick Alcock <nick.alcock@oracle.com> - 0.6.0-1
 - Internal development release
 - Allow self-grabs [Orabug: 24829169]
 - Use /proc/pid/map_files if available [Orabug: 24843582]
@@ -774,22 +774,22 @@ systemctl start dtprobed || :
 - Add improved multi-argument DTRACE_PROBE macro [Orabug: 24678905]
 - Fix infloops in SPARC breakpoint handling [Orabug: 24454127]
 
-* Tue Nov  8 2016 - <nick.alcock@oracle.com> - 0.5.4-1
+* Tue Nov  8 2016 Nick Alcock <nick.alcock@oracle.com> - 0.5.4-1
 - Work around elfutils bug causing object file corruption [Orabug: 25059329]
 
-* Wed Jul 20 2016 - <nick.alcock@oracle.com> - 0.5.3-2
+* Wed Jul 20 2016 Nick Alcock <nick.alcock@oracle.com> - 0.5.3-2
 - New tests
 
-* Thu Apr 28 2016 - <nick.alcock@oracle.com> - 0.5.3-1
+* Thu Apr 28 2016 Nick Alcock <nick.alcock@oracle.com> - 0.5.3-1
 - Prevent intermittent assertion failures crashes and hangs when
   shutdown races with termination of a grabbed process [Orabug: 22824594]
   [Orabug: 23028026]
 
-* Fri Feb  5 2016 - <nick.alcock@oracle.com> - 0.5.2-2
+* Fri Feb  5 2016 Nick Alcock <nick.alcock@oracle.com> - 0.5.2-2
 - Fix uregs array on SPARC [Orabug: 22602756]
 - Testsuite fixes
 
-* Tue Jan 12 2016 - <nick.alcock@oracle.com> - 0.5.2-1
+* Tue Jan 12 2016 Nick Alcock <nick.alcock@oracle.com> - 0.5.2-1
 - Do not crash USDT probe users when shared libraries are in the upper half of
   the address space [Orabug: 22384028]
 - Do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
@@ -799,39 +799,39 @@ systemctl start dtprobed || :
   [Orabug: 22390414]
 - Fix smoketests on SPARC [Orabug: 22533468]
 
-* Tue Dec  8 2015 - <nick.alcock@oracle.com> - 0.5.1-4
+* Tue Dec  8 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.1-4
 - Internal development release.
 - Prevent testsuite hangs when per-arch options are in use [Orabug: 22030161]
 
-* Thu Nov 19 2015 - <nick.alcock@oracle.com> - 0.5.1-3
+* Thu Nov 19 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.1-3
 - Fix buggy performance improvements to correctly detect out-of-tree modules
   (like dtrace.ko) and speed them up some more [Orabug: 22237449]
   [Orabug: 22238204]
 
-* Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-2
+* Wed Nov 18 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.1-2
 - Internal development release.
 - Remove typoed non-bug from rpm changelog.
 
-* Wed Nov 18 2015 - <nick.alcock@oracle.com> - 0.5.1-1
+* Wed Nov 18 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.1-1
 - Internal development release.
 - Improve startup performance when disk cache is cold [Orabug: 22185787]
   [Orabug: 22185763] [Orabug: 22083846]
 - Fix various problems in the testsuite and in DTRACE_DEBUG output
   [Orabug: 21431540] [Orabug: 22170799]
 
-* Wed Nov  4 2015 - <nick.alcock@oracle.com> - 0.5.0-4
+* Wed Nov  4 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.0-4
 - Improve identification of system daemons that must not be ptraced
   unless explicitly specified [Orabug: 21914902]
 - Improve symbol resolution in the absence of ptrace() [Orabug: 22106441]
 - Fix dtrace -p with an invalid PID [Orabug: 21974221]
 - Close any inherited fds before running testsuite [Orabug: 21914934]
 
-* Wed Sep 23 2015 - <nick.alcock@oracle.com> - 0.5.0-3
+* Wed Sep 23 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.0-3
 - Internal development release
 - No longer reference UEK3 kernels on SPARC.
 - Do not require 32-bit glibc on SPARC.
 
-* Wed Sep  9 2015 - <nick.alcock@oracle.com> - 0.5.0-2
+* Wed Sep  9 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.0-2
 - Internal development release
 - No longer Provide: an unversioned dtrace-utils [Orabug: 21622263]
 - Add missing testsuite package deps [Orabug: 21663841] [Orabug: 21753123]
@@ -839,29 +839,29 @@ systemctl start dtprobed || :
 - Test logfiles should not be affected by the verbosity of the test run
   [Orabug: 21769905]
 
-* Wed Aug 12 2015 - <nick.alcock@oracle.com> - 0.5.0-1
+* Wed Aug 12 2015 Nick Alcock <nick.alcock@oracle.com> - 0.5.0-1
 - Internal development release
 - SPARC64 support. [Orabug: 19005071]
 - Translator support for 4.1 kernel.
 
-* Tue Jun 30 2015 - <nick.alcock@oracle.com> - 0.4.6-4
+* Tue Jun 30 2015 Nick Alcock <nick.alcock@oracle.com> - 0.4.6-4
 - Add DTrace release and SCM version info via dtrace -Vv [Orabug: 21351062]
 - Add source-tree-independent testsuite RPM (not distributed)
 - Fix the testsuite module-loading pre-checks to actually work
   [Orabug: 21344988]
 - Various build system fixes
 
-* Tue Jun 23 2015 - <nick.alcock@oracle.com> - 0.4.6-3
+* Tue Jun 23 2015 Nick Alcock <nick.alcock@oracle.com> - 0.4.6-3
 - Internal development release
 - Fix deadlocks and failures to latch processes for symbol lookup caused
   by failure to correctly track their state over time, in 0.4.6-1+ only.
 
-* Mon Jun 22 2015 - <nick.alcock@oracle.com> - 0.4.6-2
+* Mon Jun 22 2015 Nick Alcock <nick.alcock@oracle.com> - 0.4.6-2
 - Internal development release
 - Fix a rare race causing stalls of fork()ed children of traced processes
   under load, in 0.4.6-1 only [Orabug: 21284447]
 
-* Thu Jun 18 2015 - <nick.alcock@oracle.com> - 0.4.6-1
+* Thu Jun 18 2015 Nick Alcock <nick.alcock@oracle.com> - 0.4.6-1
 - Internal development release
 - Support multiple kernels with a single userspace tree, loading system
   D libraries from directories named like /usr/lib64/dtrace/3.8.
@@ -876,14 +876,14 @@ systemctl start dtprobed || :
   being monitored is unchanged since it was last inspected. [Orabug: 21279300]
 - Properly remove breakpoints from fork()ed children. [Orabug: 21279300]
 
-* Mon Feb 16 2015 - <nick.alcock@oracle.com> - 0.4.5-3
+* Mon Feb 16 2015 Nick Alcock <nick.alcock@oracle.com> - 0.4.5-3
 - The dependencies are adjusted to pick up the renamed dtrace headers package.
   [Orabug: 20508087]
 
-* Tue Nov 18 2014 - <nick.alcock@oracle.com> - 0.4.5-2
+* Tue Nov 18 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.5-2
 - A number of crashes when out of memory are fixed. [Orabug: 20014606]
 
-* Thu Oct 23 2014 - <nick.alcock@oracle.com> - 0.4.5-1
+* Thu Oct 23 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.5-1
 - Automatically load provider modules from /etc/dtrace-modules, if present
   [Orabug: 19821254]
 - Fix intermittent crash on failure of initial grabs or creations of processes
@@ -897,15 +897,15 @@ systemctl start dtprobed || :
   [Orabug: 19882050]
 - Fix DIF subr names in dtrace -S output [Orabug: 19881997]
 
-* Tue Jul 22 2014 - <nick.alcock@oracle.com> - 0.4.4-2
+* Tue Jul 22 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.4-2
 - Ensure that the DOF ELF object does not require execstack
   (Kris Van Hees) [Orabug: 19217436]
 
-* Tue Jul  8 2014 - <nick.alcock@oracle.com> - 0.4.4-1
+* Tue Jul  8 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.4-1
 - New -xcppargs option as part of fixes for the testsuite on OL7
   [Orabug: 19054052]
 
-* Tue May 13 2014 - <nick.alcock@oracle.com> - 0.4.3-1
+* Tue May 13 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.3-1
 - Fix array underrun when no textual mapping for the executable can be found
   [Orabug: 18550863]
 - Fix unlikely buffer overrun at process-map-read time [Orabug: 18550863]
@@ -914,13 +914,13 @@ systemctl start dtprobed || :
 - Fix error-path dereference of uninitialized variable in error message
   [Orabug: 18550863]
 
-* Thu May  1 2014 - <nick.alcock@oracle.com> - 0.4.2-2
+* Thu May  1 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.2-2
 - Interrupting dtrace with a SIGINT while monitored processes are dying no
   longer hangs dtrace on a condition variable [Orabug: 18689795]
 - Symbol lookups on processes that died at the same instant now always fail
   and no longer access freed memory [Orabug: 18550863]
 
-* Wed Apr 16 2014 - <nick.alcock@oracle.com> - 0.4.2-1
+* Wed Apr 16 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.2-1
 - killing dtrace while a ustack() is in progress no longer risks killing
   crucial system daemons [Orabug: 18600515]
 - Fix a leak of filehandles to executables [Orabug: 18600594]
@@ -930,7 +930,7 @@ systemctl start dtprobed || :
   [Orabug: 18603463]
 - Fixes for newer versions of make, ld, and bison [Orabug: 18551552]
 
-* Tue Jan  7 2014 - <nick.alcock@oracle.com> - 0.4.1-1
+* Tue Jan  7 2014 Nick Alcock <nick.alcock@oracle.com> - 0.4.1-1
 - Install showUSDT in docdir. (Kris van Hees) [Orabug: 17968414]
 - Install ctf_module_dump. [Orabug: 17968381]
 - A lexer bug was fixed causing spurious errors if D scripts contained a
