@@ -1044,7 +1044,8 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
-		int		fd;
+		int	fd;
+		int	rc = -1;
 
 		/* Already done. */
 		if (prp == dtp->dt_error)
@@ -1070,9 +1071,23 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 
 		dt_difo_free(dtp, dp);
 
-		if (!prp->prov->impl->attach ||
-		    prp->prov->impl->attach(dtp, prp, fd) < 0)
+		if (prp->prov->impl->attach)
+		    rc = prp->prov->impl->attach(dtp, prp, fd);
+
+		if (rc == -ENOTSUPP) {
+			char	*s;
+
+			close(fd);
+			if (asprintf(&s, "Failed to enable %s:%s:%s:%s",
+				     prp->desc->prv, prp->desc->mod,
+				     prp->desc->fun, prp->desc->prb) == -1)
+				return dt_set_errno(dtp, EDT_ENABLING_ERR);
+			dt_handle_rawerr(dtp, s);
+			free(s);
+		} else if (rc < 0) {
+			close(fd);
 			return dt_set_errno(dtp, EDT_ENABLING_ERR);
+		}
 	}
 
 	return 0;

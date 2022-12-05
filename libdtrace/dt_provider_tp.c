@@ -74,13 +74,13 @@ dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd)
 
 		fd = perf_event_open(&attr, -1, 0, -1, 0);
 		if (fd < 0)
-			return dt_set_errno(dtp, errno);
+			return -errno;
 
 		tpp->event_fd = fd;
 	}
 
 	if (ioctl(tpp->event_fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
-		return dt_set_errno(dtp, errno);
+		return -errno;
 
 	return 0;
 }
