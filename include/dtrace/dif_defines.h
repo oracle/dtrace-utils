@@ -113,7 +113,7 @@
 #endif
 
 #define	DIF_INTOFF_MAX		0xffff	/* highest integer table offset */
-#define	DIF_STROFF_MAX		0x7fff	/* highest string table offset */
+#define	DIF_STROFF_MAX		SSIZE_MAX /* highest string table offset */
 #define	DIF_REGISTER_MAX	0xff	/* highest register number */
 #define	DIF_VARIABLE_MAX	0xffff	/* highest variable identifier */
 #define	DIF_SUBROUTINE_MAX	0xffff	/* highest subroutine code */
