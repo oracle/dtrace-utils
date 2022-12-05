@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <dt_impl.h>
+#include <port.h>
 
 static const struct {
 	int err;
@@ -119,7 +120,7 @@ dtrace_errmsg(dtrace_hdl_t *dtp, int error)
 				return _dt_errlist[i].msg;
 		}
 		str = NULL;
-	} else if (error == 524) {	/* ENOTSUPP */
+	} else if (error == ENOTSUPP) {
 		/*
 		 * This is an error code that is supposedly specific to NFSv3.
 		 * It is not expected to be known to userspace - except that

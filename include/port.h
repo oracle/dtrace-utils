@@ -90,4 +90,12 @@ int close_range(unsigned int first, unsigned int last, unsigned int flags);
 #define R_BPF_64_32		10
 #endif
 
+/*
+ * Error code returned by the uprobes kernel facility (only available in kernel
+ * headers that are not part of the UAPI).
+ */
+#ifndef ENOTSUPP
+#define ENOTSUPP		524	/* Operation is not supported */
+#endif
+
 #endif
