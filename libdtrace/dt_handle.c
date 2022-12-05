@@ -210,6 +210,26 @@ no_addr:
 }
 
 int
+dt_handle_rawerr(dtrace_hdl_t *dtp, const char *errmsg)
+{
+	dtrace_errdata_t	err;
+
+	err.dteda_ddesc = NULL;
+	err.dteda_pdesc = NULL;
+	err.dteda_cpu = -1;
+	err.dteda_action = -1;
+	err.dteda_offset = -1;
+	err.dteda_fault = DTRACEFLT_LIBRARY;
+	err.dteda_addr = 0;
+	err.dteda_msg = errmsg;
+
+	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
+		return dt_set_errno(dtp, EDT_ERRABORT);
+
+	return 0;
+}
+
+int
 dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
     const char *faultstr)
 {

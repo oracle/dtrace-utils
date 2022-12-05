@@ -786,6 +786,7 @@ extern int dt_print_llquantize(dtrace_hdl_t *, FILE *, const void *, size_t,
 extern int dt_print_agg(const dtrace_aggdata_t *, void *);
 
 extern int dt_handle(dtrace_hdl_t *, dtrace_probedata_t *);
+extern int dt_handle_rawerr(dtrace_hdl_t *, const char *);
 extern int dt_handle_liberr(dtrace_hdl_t *,
     const dtrace_probedata_t *, const char *);
 extern int dt_handle_cpudrop(dtrace_hdl_t *, processorid_t,
