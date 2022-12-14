@@ -4492,6 +4492,9 @@ dt_cg_subr_copyin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* Allocate scratch space. */
 	dt_cg_subr_alloca_impl(dnp, size, dlp, drp);
+	/* Push the native alloca value to be used as return value. */
+	dt_cg_push_stack(dnp->dn_reg, dlp, drp);
+	/* Turn it into a proper alloca pointer. */
 	dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
 
 	dt_cg_node(src, dlp, drp);
@@ -4506,16 +4509,17 @@ dt_cg_subr_copyin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	dt_regset_free(drp, BPF_REG_0);
 	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);
+	dt_regset_free(drp, src->dn_reg);
 	emitl(dlp, lbl_badsize,
 		   BPF_NOP());
 	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, DT_ISREG, size->dn_reg);
+	dt_regset_free(drp, size->dn_reg);
 	emitl(dlp, lbl_ok,
 		   BPF_NOP());
-	dt_regset_free(drp, BPF_REG_0);
-
-	dt_regset_free(drp, src->dn_reg);
-	dt_regset_free(drp, size->dn_reg);
+	/* Pop the native alloca value as our value. */
+	dt_cg_pop_stack(dnp->dn_reg, dlp, drp);
 
 	TRACE_REGSET("    subr-copyin:End  ");
 }
