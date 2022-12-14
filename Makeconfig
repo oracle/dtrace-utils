@@ -103,3 +103,4 @@ $(eval $(call check-symbol-rule,LIBFUSE3,fuse_session_receive_buf,fuse3))
 endif
 $(eval $(call check-header-rule,FUSE_NUMA,fuse_set_numa,fuse/fuse_lowlevel))
 $(eval $(call check-header-symbol-rule,CLOSE_RANGE,close_range(3,~0U,0),c,unistd))
+$(eval $(call check-header-rule,SYS_PIDFD_H,pidfd_open,sys/pidfd))

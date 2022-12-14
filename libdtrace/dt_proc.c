@@ -72,7 +72,6 @@
  *    (proxy_call()->dt_proc_loop(), wwith a special case for cleanup).
  */
 
-#include <sys/wait.h>
 #include <sys/eventfd.h>
 #include <string.h>
 #include <signal.h>
@@ -937,11 +936,11 @@ dt_proc_control(void *arg)
 	Pset_ptrace_wrapper(dpr->dpr_proc, proxy_ptrace);
 
 	/*
-	 * Make a waitfd to this process, and set up polling structures
-	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
+	 * Make a pidfd or (failing that) a pidfd to this process, and set up
+	 * polling structures appropriately.
 	 */
-	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
-		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
+	if ((dpr->dpr_fd = pid_fd(dpr->dpr_pid)) < 0) {
+		dt_proc_error(dtp, dpr, "failed to get pidfd or waitfd for pid %li: %s\n",
 		    (long)dpr->dpr_pid, strerror(errno));
 		/*
 		 * Demote this to a mandatorily noninvasive grab: if we
@@ -950,7 +949,8 @@ dt_proc_control(void *arg)
 		 * we can do but hope.
 		 *
 		 * The dt_consume_proc_exits() function, called by
-		 * dtrace_consume(), checks for termination of such processes			 * (since nothing else will).
+		 * dtrace_consume(), checks for termination of such processes
+		 * (since nothing else will).
 		 */
 		Prelease(dpr->dpr_proc, PS_RELEASE_NORMAL);
 		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
@@ -1056,7 +1056,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 
 	/*
 	 * We always want to listen on the proxy pipe; we only want to listen on
-	 * the process's waitfd pipe sometimes.
+	 * the process's pidfd pipe sometimes.
 	 */
 
 	pfd[0].events = POLLIN;
@@ -1244,7 +1244,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 
 		/*
 		 * The process needs attention. Pwait() for it (which will make
-		 * the waitfd transition back to empty).
+		 * the pidfd transition back to empty).
 		 */
 		if (pfd[0].revents != 0) {
 			dt_dprintf("%d: Handling a process state change\n",

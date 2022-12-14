@@ -40,6 +40,8 @@ unsigned long linux_version_code(void);
 #define elf_getshdrnum elf_getshnum
 #endif
 
+int pid_fd(pid_t pid);
+
 #ifndef HAVE_WAITFD
 int waitfd(int which, pid_t upid, int options, int flags);
 #endif
