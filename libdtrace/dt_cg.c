@@ -5395,7 +5395,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 						 dnp->dn_reg);
 			}
 
-			if (dnp->dn_child->dn_flags & DT_NF_DPTR)
+			if (dnp->dn_child->dn_flags & (DT_NF_ALLOCA | DT_NF_DPTR))
 				emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
 			else
 				dt_cg_load_scalar(dnp, op, size, dlp, drp);
@@ -5546,7 +5546,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			op = dt_cg_ldsize(dnp, ctfp, m.ctm_type, &size);
 
-			if (dnp->dn_left->dn_flags & DT_NF_DPTR)
+			if (dnp->dn_left->dn_flags & (DT_NF_ALLOCA | DT_NF_DPTR))
 				emit(dlp, BPF_LOAD(op, dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
 			else
 				dt_cg_load_scalar(dnp->dn_left, op, size, dlp, drp);
