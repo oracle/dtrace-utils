@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -229,28 +229,26 @@ static void trampoline(dt_pcb_t *pcb)
 	dt_cg_tramp_copy_regs(pcb);
 
 	/*
-	 * TODO:
-	 * For profile-n probes:
-	 *     dctx->mst->argv[0] = kernel PC
-	 *     dctx->mst->argv[1] = userspace PC
-	 *     dctx->mst->argv[2] = elapsed nsecs
-	 *
-	 * For tick-n probes:
-	 *     dctx->mst->argv[0] = kernel PC
-	 *     dctx->mst->argv[1] = userspace PC
-	 *
-	 * For now, we can only provide the first argument:
-	 *     dctx->mst->argv[0] = PT_REGS_IP((dt_pt_regs *)&dctx->ctx->regs);
-	 *                              //  lddw %r0, [%r8 + PT_REGS_IP]
-	 *                              //  stdw [%r7 + DMST_ARG(0)], %r0
+	 * dctx->mst->argv[0] = kernel PC
+	 * dctx->mst->argv[1] = userspace PC
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_IP));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+        dt_cg_tramp_copy_pc_from_regs(pcb);
 
 	/*
-	 *     (we clear dctx->mst->argv[1] and on)
+	 * TODO: For profile-n probes:
+	 *     dctx->mst->argv[2] = elapsed nsecs
+	 * The documentation does not say elapsed since when?
+	 * From the legacy port to Oracle Linux, in dtrace/profile_dev.c,
+	 * in profile_prof_fn(), it appears that we have a per-CPU variable
+	 * that tracks the expected time of the next profile probe.
+	 * Each time the probe fires, we compute arg2 = time - expected
+	 * and update expected+=interval.
 	 */
-	for (i = 1; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
+
+	/*
+	 *     (we clear dctx->mst->argv[2] and on)
+	 */
+	for (i = 2; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
 	dt_cg_tramp_epilogue(pcb);
