@@ -6,8 +6,8 @@
  */
 
 /*
- * ASSERTION:
- *	bcopy should not copy when the source is scratch space
+ * ASSERTION: bcopy to scratch space is allowed (even though documentation
+ *	      claims that it is not)
  *
  * SECTION: Actions and Subroutines/alloca();
  * 	Actions and Subroutines/bcopy()
@@ -16,14 +16,13 @@
 
 #pragma D option quiet
 
-
 BEGIN
 {
-	ptr = alloca(sizeof(unsigned long));
+	ptr = (unsigned long *)alloca(sizeof(unsigned long));
 	bcopy((void *)&`max_pfn, ptr, sizeof(unsigned long));
-	ptr2 = alloca(sizeof(unsigned long));
+	ptr2 = (unsigned long *)alloca(sizeof(unsigned long));
 	bcopy(ptr, ptr2, sizeof(unsigned long));
-	exit(0);
+	exit(*ptr == *ptr2 ? 0 : 1);
 }
 
 ERROR

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1040,14 +1040,20 @@ dt_cg_alloca_ptr(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int sreg)
  * alloca pointer value into a real pointer.
  */
 static void
-dt_cg_check_ptr_arg(dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dnp)
+dt_cg_check_ptr_arg(dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dnp,
+		    dt_node_t *size)
 {
 	if (dnp->dn_flags & DT_NF_ALLOCA) {
-		dtrace_diftype_t	vtype;
+		if (size == NULL) {
+			dtrace_diftype_t	vtype;
 
-		dt_node_diftype(yypcb->pcb_hdl, dnp, &vtype);
-		dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
-					  DT_ISIMM, vtype.dtdt_size);
+			dt_node_diftype(yypcb->pcb_hdl, dnp, &vtype);
+			dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+						  DT_ISIMM, vtype.dtdt_size);
+		} else
+			dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+						  DT_ISREG, size->dn_reg);
+
 		dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
 	} else
 		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
@@ -3892,7 +3898,7 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	/* (its type matters only as to whether we check it is null */
 	dt_cg_node(arg, dlp, drp);
 	if (dt_node_is_pointer(arg) || dt_node_is_string(arg))
-		dt_cg_check_ptr_arg(dlp, drp, arg);
+		dt_cg_check_ptr_arg(dlp, drp, arg, NULL);
 
 	/* allocate the temporary string */
 	dnp->dn_reg = dt_regset_alloc(drp);
@@ -3950,9 +3956,9 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-index:Begin");
 
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, s);
+	dt_cg_check_ptr_arg(dlp, drp, s, NULL);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, t);
+	dt_cg_check_ptr_arg(dlp, drp, t, NULL);
 	if (start != NULL)
 		dt_cg_node(start, dlp, drp);
 
@@ -4167,9 +4173,9 @@ dt_cg_subr_rindex(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* evaluate arguments to D subroutine rindex() */
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, s);
+	dt_cg_check_ptr_arg(dlp, drp, s, NULL);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, t);
+	dt_cg_check_ptr_arg(dlp, drp, t, NULL);
 	if (start != NULL)
 		dt_cg_node(start, dlp, drp);
 
@@ -4394,13 +4400,7 @@ dt_cg_subr_bcopy_impl(dt_node_t *dnp, dt_node_t *dst, dt_node_t *src,
 
 	/* Validate the source pointer. */
 	dt_cg_node(src, dlp, drp);
-	if (src->dn_flags & DT_NF_ALLOCA)
-		dnerror(src, D_PROTO_ARG,
-			"%s( ) argument #1 is incompatible with prototype:\n"
-			"\tprototype: non-alloca pointer\n"
-			"\t argument: alloca pointer\n",
-			is_bcopy ? "bcopy" : "copyinto");
-	dt_cg_check_notnull(dlp, drp, src->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, src, size);
 
 	/* Validate the destination pointer. */
 	dt_cg_node(dst, dlp, drp);
@@ -4410,11 +4410,7 @@ dt_cg_subr_bcopy_impl(dt_node_t *dnp, dt_node_t *dst, dt_node_t *src,
 			"\tprototype: alloca pointer\n"
 			"\t argument: non-alloca pointer\n",
 			is_bcopy ? "bcopy" : "copyinto", is_bcopy ? 2 : 3);
-	/* The dst will be NULL-checked in the alloca access check below. */
-
-	dt_cg_alloca_access_check(dlp, drp, dst->dn_reg,
-				  DT_ISREG, size->dn_reg);
-	dt_cg_alloca_ptr(dlp, drp, dst->dn_reg, dst->dn_reg);
+	dt_cg_check_ptr_arg(dlp, drp, dst, size);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -4594,7 +4590,7 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	TRACE_REGSET("    subr-strchr:Begin");
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, str);
+	dt_cg_check_ptr_arg(dlp, drp, str, NULL);
 	dt_cg_node(chr, dlp, drp);
 
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4650,7 +4646,7 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	TRACE_REGSET("    subr-strrchr:Begin");
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, str);
+	dt_cg_check_ptr_arg(dlp, drp, str, NULL);
 	dt_cg_node(chr, dlp, drp);
 
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4701,7 +4697,7 @@ dt_cg_subr_strlen(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strlen:Begin");
 
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, str);
+	dt_cg_check_ptr_arg(dlp, drp, str, NULL);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -4735,9 +4731,9 @@ dt_cg_subr_strjoin(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-strjoin:Begin");
 
 	dt_cg_node(s1, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, s1);
+	dt_cg_check_ptr_arg(dlp, drp, s1, NULL);
 	dt_cg_node(s2, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, s2);
+	dt_cg_check_ptr_arg(dlp, drp, s2, NULL);
 
 	/*
 	 * The result needs to be a temporary string, so we request one.
@@ -4782,9 +4778,9 @@ dt_cg_subr_strstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* get args */
 	dt_cg_node(s, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, s);
+	dt_cg_check_ptr_arg(dlp, drp, s, NULL);
 	dt_cg_node(t, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, t);
+	dt_cg_check_ptr_arg(dlp, drp, t, NULL);
 
 	/* call dt_index() call */
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -4885,7 +4881,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (str->dn_op != DT_TOK_INT || str->dn_value != 0) {
 		/* string is present:  copy it to internal state */
 		dt_cg_node(str, dlp, drp);
-		dt_cg_check_ptr_arg(dlp, drp, str);
+		dt_cg_check_ptr_arg(dlp, drp, str, NULL);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -4914,7 +4910,7 @@ dt_cg_subr_strtok(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* get delimiters */
 	dt_cg_node(del, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, del);
+	dt_cg_check_ptr_arg(dlp, drp, del, NULL);
 
 	/* allocate temporary string for result */
 	dnp->dn_reg = dt_regset_alloc(drp);
@@ -4965,7 +4961,7 @@ dt_cg_subr_substr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    subr-substr:Begin");
 
 	dt_cg_node(str, dlp, drp);
-	dt_cg_check_ptr_arg(dlp, drp, str);
+	dt_cg_check_ptr_arg(dlp, drp, str, NULL);
 	dt_cg_node(idx, dlp, drp);
 	if (cnt != NULL)
 		dt_cg_node(cnt, dlp, drp);
@@ -5415,7 +5411,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	case DT_TOK_STRINGOF:
 		dt_cg_node(dnp->dn_child, dlp, drp);
-		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_child);
+		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_child, NULL);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 		break;
 
