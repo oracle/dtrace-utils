@@ -3855,11 +3855,13 @@ asgn_common:
 			lp_idp = lp->dn_ident;
 
 		/*
-		 * Transfer alloca taint.  Stores of non-alloca, non-literal-0
-		 * values turn on DT_IDFLG_NONALLOCA to prevent this identifier
-		 * from being used for alloca storage anywhere in the program.
+		 * Transfer alloca taint unless the value is a string because
+		 * those are assigned by value.
+		 * Stores of non-alloca, non-literal-0 values turn on
+		 * DT_IDFLG_NONALLOCA to prevent this identifier from being
+		 * used for alloca storage anywhere in the program.
 		 */
-		if (rp->dn_flags & DT_NF_ALLOCA)
+		if (rp->dn_flags & DT_NF_ALLOCA && !dt_node_is_string(rp))
 			dt_cook_taint_alloca(lp, lp_idp, rp);
 		else if (lp_idp && !(rp->dn_kind == DT_NODE_INT && rp->dn_value == 0))
 			lp_idp->di_flags |= DT_IDFLG_NONALLOCA;

@@ -1163,7 +1163,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		size_t	strsize = pcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
 
 		if (!not_null)
-			dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+			dt_cg_check_ptr_arg(dlp, drp, dnp, NULL);
 
 		TRACE_REGSET("store_val(): Begin ");
 		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, size + 1,
@@ -3009,7 +3009,19 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			srcsz = dt_node_type_size(dnp->dn_right);
 			size = MIN(srcsz, idp->di_size);
 
+			dt_cg_check_ptr_arg(dlp, drp, dnp->dn_right, NULL);
 			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
+
+			/*
+			 * Since strings are passed by value, we need to force
+			 * the value of the assignment to be the destination
+			 * address.
+			 */
+			if (dt_node_is_string(dnp)) {
+				dt_regset_free(drp, dnp->dn_reg);
+				dnp->dn_reg = reg;
+			} else
+				dt_regset_free(drp, reg);
 		} else {
 			size = idp->di_size;
 
@@ -3017,9 +3029,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			       (size & (size - 1)) == 0);
 
 			emit(dlp, BPF_STORE(ldstw[size], reg, idp->di_offset, dnp->dn_reg));
+			dt_regset_free(drp, reg);
 		}
-
-		dt_regset_free(drp, reg);
 
 		TRACE_REGSET("    store_var: End  ");
 
@@ -5412,7 +5423,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	case DT_TOK_STRINGOF:
 		dt_cg_node(dnp->dn_child, dlp, drp);
-		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_child, NULL);
+		dt_cg_check_notnull(dlp, drp, dnp->dn_child->dn_reg);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
 		break;
 
