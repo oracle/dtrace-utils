@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -10,9 +10,10 @@
  * lower than the default platform limit will fail.
  *
  * This test will fail if:
- *	1) The system under test does not define the 'PAPI_tot_ins' event.
+ *	1) The system under test does not define the 'cpu_clock' event.
  *	2) The 'dcpc-min-overflow' variable in dcpc.conf has been modified.
  */
+/* @@xfail: test was imported from Solaris, but eBPF port does not bound period */
 
 #pragma D option quiet
 
@@ -21,6 +22,6 @@ BEGIN
 	exit(0);
 }
 
-cpc:::PAPI_tot_ins-all-100
+cpc:::cpu_clock-all-100
 {
 }
