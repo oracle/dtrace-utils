@@ -13,6 +13,8 @@
 #       1) The system under test does not define the 'PAPI_tot_ins'
 #       generic event.
 
+# @@skip: no cpustat on Linux, and should switch PAPI_tot_ins to cpu-clock
+
 script()
 {
 	$dtrace -o $dtraceout -s /dev/stdin <<EOF

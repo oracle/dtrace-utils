@@ -11,7 +11,8 @@
 #
 # The script will fail if:
 #	1) The system under test does not define the 'PAPI_tot_ins' event.
-#
+
+# @@skip: no cputrack on Linux, and should switch PAPI_tot_ins to cpu-clock
 
 script()
 {
