@@ -4517,7 +4517,7 @@ dt_cg_subr_copyinstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_node_t	*size = src->dn_list;
 	int		maxsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 	uint_t		lbl_ok = dt_irlist_label(dlp);
-	uint_t		lbl_badsize = dt_irlist_label(dlp);
+	uint_t		lbl_oksize = dt_irlist_label(dlp);
 
 	TRACE_REGSET("    subr-copyinstr:Begin");
 
@@ -4529,15 +4529,19 @@ dt_cg_subr_copyinstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	dt_cg_node(size, dlp, drp);
 
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, size->dn_reg, 0, lbl_badsize));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, size->dn_reg, maxsize, lbl_badsize));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, size->dn_reg, maxsize, lbl_oksize));
+	emit(dlp,  BPF_MOV_IMM(size->dn_reg, maxsize));
+	emitl(dlp, lbl_oksize,
+		   BPF_NOP());
 
-	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+	/* Allocate a temporary string for the destination (return value). */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-	/* Allocate scratch space. */
-	dt_cg_subr_alloca_impl(dnp, size, dlp, drp);
-	dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+	dt_cg_tstring_alloc(yypcb, dnp);
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
 
 	dt_cg_node(src, dlp, drp);
 
@@ -4552,9 +4556,6 @@ dt_cg_subr_copyinstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_free_args(drp);
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGT, BPF_REG_0, 0, lbl_ok));
 	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);
-	emitl(dlp, lbl_badsize,
-		   BPF_NOP());
-	dt_cg_probe_error(yypcb, DTRACEFLT_BADSIZE, DT_ISREG, size->dn_reg);
 	emitl(dlp, lbl_ok,
 		   BPF_NOP());
 	dt_regset_free(drp, BPF_REG_0);

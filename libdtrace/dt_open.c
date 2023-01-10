@@ -131,7 +131,7 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(int)" },
 { "copyin", DT_IDENT_FUNC, 0, DIF_SUBR_COPYIN, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void *(uintptr_t, size_t)" },
-{ "copyinstr", DT_IDENT_FUNC, 0, DIF_SUBR_COPYINSTR,
+{ "copyinstr", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_COPYINSTR,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "string(uintptr_t, [size_t])" },
 { "copyinto", DT_IDENT_FUNC, 0, DIF_SUBR_COPYINTO, DT_ATTR_STABCMN,
