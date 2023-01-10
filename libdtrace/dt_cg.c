@@ -287,20 +287,20 @@ dt_cg_tramp_clear_regs(dt_pcb_t *pcb)
 }
 
 /*
- * Copy the content of a dt_pt_regs structure referenced by the 'rp' argument
- * into the 'regs' member of the machine state.
+ * Copy the content of a dt_pt_regs structure referenced by %r8 into the 'regs'
+ * member of the machine state.
  *
- * The caller must ensure that %r7 contains the value set by the
+ * The caller must ensure that %r7 and %r8 contain the values set by the
  * dt_cg_tramp_prologue*() functions.
  */
 void
-dt_cg_tramp_copy_regs(dt_pcb_t *pcb, int rp)
+dt_cg_tramp_copy_regs(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	int		i;
 
 	/*
-	 *	dctx->mst->regs = *(dt_pt_regs *)rp;
+	 *	dctx->mst->regs = *(dt_pt_regs *)%r8;
 	 */
 	for (i = 0; i < sizeof(dt_pt_regs); i += 8) {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i));
@@ -309,16 +309,16 @@ dt_cg_tramp_copy_regs(dt_pcb_t *pcb, int rp)
 }
 
 /*
- * Copy arguments from a dt_pt_regs structure referenced by the 'rp' argument.
+ * Copy arguments from a dt_pt_regs structure referenced by %r8.
  * If 'called' is nonzero, the registers are laid out as when inside the
  * function: if zero, they are laid out as at the call instruction, before the
  * function is called (as is done for e.g. usdt).
  *
- * The caller must ensure that %r7 contains the value set by the
+ * The caller must ensure that %r7 and %r8 contain the values set by the
  * dt_cg_tramp_prologue*() functions.
  */
 void
-dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
+dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -326,28 +326,28 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 
 	/*
 	 *	for (i = 0; i < PT_REGS_ARGC; i++)
-	 *		dctx->mst->argv[i] = PT_REGS_ARGi((dt_pt_regs *)rp);
-	 *				// lddw %r0, [%rp + PT_REGS_ARGi]
+	 *		dctx->mst->argv[i] = PT_REGS_ARGi((dt_pt_regs *)%r8);
+	 *				// lddw %r0, [%r8 + PT_REGS_ARGi]
 	 *				// stdw [%r7 + DMST_ARG(i)], %r0
 	 */
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG0));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG1));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG1));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG2));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG2));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG3));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG3));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0));
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG4));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG4));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG5));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG5));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
 #ifdef PT_REGS_ARG6
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG6));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG6));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(6), BPF_REG_0));
 #endif
 #ifdef PT_REGS_ARG7
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, rp, PT_REGS_ARG7));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG7));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(7), BPF_REG_0));
 #endif
 
@@ -360,7 +360,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 	 *		int		rc;
 	 *		uint64_t	*sp;
 	 *
-	 *		sp = (uint64_t *)(((dt_pt_regs *)rp)->sp;
+	 *		sp = (uint64_t *)(((dt_pt_regs *)%r8)->sp;
 	 *		rc = bpf_probe_read[_user](dctx->mst->argv[i],
 	 *					   sizeof(uint64_t),
 	 *					   &sp[i - PT_REGS_ARGC +
@@ -368,7 +368,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 	 *				// mov %r1, %r7
 	 *				// add %r1, DMST_ARG(i)
 	 *				// mov %r2, sizeof(uint64_t)
-	 *				// lddw %r3, [%rp + PT_REGS_SP]
+	 *				// lddw %r3, [%r8 + PT_REGS_SP]
 	 *				// add %r3, (i - PT_REGS_ARGC +
 	 *						 (called ? PT_REGS_ARGSTKBASE : 0)) *
 	 *					    sizeof(uint64_t)
@@ -389,7 +389,7 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_7));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMST_ARG(i)));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
-		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, rp, PT_REGS_SP));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_8, PT_REGS_SP));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, (i - PT_REGS_ARGC +
 			    (called ? PT_REGS_ARGSTKBASE : 0)) * sizeof(uint64_t)));
 		emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
@@ -401,14 +401,14 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int rp, int called)
 }
 
 /*
- * Copy return value from a dt_pt_regs structure referenced by the 'rp' argument.
- * to mst->arg[1].  Zero the other args.
+ * Copy return value from a dt_pt_regs structure referenced by %r8 to
+ * mst->arg[1].  Zero the other args.
  *
- * The caller must ensure that %r7 contains the value set by the
+ * The caller must ensure that %r7 and %r8 contain the values set by the
  * dt_cg_tramp_prologue*() functions.
  */
 void
-dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb, int rp)
+dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	int		i;

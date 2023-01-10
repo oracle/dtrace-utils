@@ -360,11 +360,11 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 */
 
-	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
+	dt_cg_tramp_copy_regs(pcb);
 	if (upp->flags & PP_IS_RETURN)
-		dt_cg_tramp_copy_rval_from_regs(pcb, BPF_REG_8);
+		dt_cg_tramp_copy_rval_from_regs(pcb);
 	else
-		dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8,
+		dt_cg_tramp_copy_args_from_regs(pcb,
 						!(upp->flags & PP_IS_FUNCALL));
 
 	/*

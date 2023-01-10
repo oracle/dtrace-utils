@@ -157,11 +157,11 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r7 = dctx->mst)
 	 *				//     (%r8 = dctx->ctx)
 	 */
-	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
+	dt_cg_tramp_copy_regs(pcb);
 	if (strcmp(pcb->pcb_probe->desc->prb, "return") == 0) {
 		dt_irlist_t *dlp = &pcb->pcb_ir;
 
-		dt_cg_tramp_copy_rval_from_regs(pcb, BPF_REG_8);
+		dt_cg_tramp_copy_rval_from_regs(pcb);
 
 		/*
 		 * fbt:::return arg0 should be the function offset for
@@ -175,7 +175,7 @@ static void trampoline(dt_pcb_t *pcb)
 		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_0, -1);
 		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 	} else
-		dt_cg_tramp_copy_args_from_regs(pcb, BPF_REG_8, 1);
+		dt_cg_tramp_copy_args_from_regs(pcb, 1);
 	dt_cg_tramp_epilogue(pcb);
 }
 

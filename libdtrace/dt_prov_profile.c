@@ -226,7 +226,7 @@ static void trampoline(dt_pcb_t *pcb)
 	 *				//     (%r8 = dctx->ctx)
 	 */
 
-	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
+	dt_cg_tramp_copy_regs(pcb);
 
 	/*
 	 * TODO:

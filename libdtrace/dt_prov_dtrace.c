@@ -156,7 +156,7 @@ static void trampoline(dt_pcb_t *pcb)
 	emit(dlp, BPF_MOV_IMM(BPF_REG_4, BPF_ANY));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 
-	dt_cg_tramp_copy_regs(pcb, BPF_REG_8);
+	dt_cg_tramp_copy_regs(pcb);
 
 	/* zero the probe args */
 	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
