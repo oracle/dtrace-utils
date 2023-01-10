@@ -5,83 +5,42 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-#
-# This script verifies that we can fire a probe on each CPU that is in
-# an online state.
-#
-# The script will fail if:
-#       1) The system under test does not define the 'PAPI_tot_ins' event.
-#
+# This script verifies that we can fire a probe on each CPU.
 
-if [ $# != 1 ]; then
-        echo expected one argument: '<'dtrace-path'>'
-        exit 2
-fi
+# Why isn't this more stable?  Some CPUs can take a long time to fire.
+# Allow some reinvokes and let the test run more than a few seconds.
+# @@reinvoke-failure: 1
 
 dtrace=$1
-numproc=`psrinfo | tail -1 | cut -f1`
-cpu=0
-dtraceout=/var/tmp/dtrace.out.$$
-scriptout=/var/tmp/script.out.$$
 
-spin()
+DIRNAME="$tmpdir/cpc-allcpus.$$.$RANDOM"
+mkdir -p $DIRNAME
+cd $DIRNAME
+
+$dtrace $dt_flags -qn '
+cpc:::cpu_clock-all-10000
+/cpus[cpu] != 1/
 {
-	while [ 1 ]; do
-		:
-	done
+	cpus[cpu] = 1;
+	printf("%d\n", cpu);
 }
 
-script()
+tick-18s
 {
-        $dtrace -o $dtraceout -s /dev/stdin <<EOF
-	#pragma D option bufsize=128k
-	#pragma D option quiet
+	exit(0);
+}' | awk 'NF != 0 {print}' | sort > dtrace.out
 
-        cpc:::PAPI_tot_ins-user-10000
-	/cpus[cpu] != 1/
-        {
-		cpus[cpu] = 1;
-		@a[cpu] = count();
-        }
+awk '/^processor/ {print $3}' /proc/cpuinfo | sort > cpuinfo.out
 
-	tick-1s
-	/n++ > 10/
-	{
-		printa(@a);
-		exit(0);
-	}
-EOF
-}
+if ! diff -q dtrace.out cpuinfo.out > /dev/null; then
+	echo dtrace output
+	cat dtrace.out
+	echo cpuinfo list
+	cat cpuinfo.out
+	echo ERROR: difference
+	exit 1
+fi
 
-echo "" > $scriptout
-while [ $cpu -le $numproc ]
-do
-	if [ "`psrinfo -s $cpu 2> /dev/null`" -eq 1 ]; then
-		printf "%9d %16d\n" $cpu 1 >> $scriptout
-		spin &
-		allpids[$cpu]=$!
-		pbind -b $cpu $!
-	fi
-	cpu=$(($cpu+1))
-done
-echo "" >> $scriptout
-
-script
-
-diff $dtraceout $scriptout >/dev/null 2>&1
-status=$?
-
-# kill off the spinner processes
-cpu=0
-while [ $cpu -le $numproc ]
-do
-	if [ "`psrinfo -s $cpu 2> /dev/null`" -eq 1 ]; then
-		kill ${allpids[$cpu]}
-	fi
-	cpu=$(($cpu+1))
-done
-
-rm $dtraceout
-rm $scriptout
-
-exit $status
+echo cpulist `cat dtrace.out`
+echo success
+exit 0
