@@ -12,9 +12,9 @@ dtrace_script()
 
 	/*
 	 * ASSERTION:
-	 *	Verify that copyout() handles bad addresses.
+	 *	Verify that copyoutstr() handles bad addresses.
 	 *
-	 * SECTION: Actions and Subroutines/copyout()
+	 * SECTION: Actions and Subroutines/copyoutstr()
 	 *
 	 */
 
@@ -22,7 +22,7 @@ dtrace_script()
 	{
 		ptr = alloca(sizeof(char *));
 		copyinto(curpsinfo->pr_envp, sizeof(char *), ptr);
-		copyout(ptr, 0, sizeof(char *));
+		copyoutstr(ptr, 0, sizeof(char *));
 	}
 
 	ERROR

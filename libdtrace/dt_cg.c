@@ -1295,20 +1295,6 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	return -1;
 }
 
-#ifdef FIXME
-/*
- * Utility function to determine if a given action description is destructive.
- * The DIFOFLG_DESTRUCTIVE bit is set for us by the DIF assembler (see dt_as.c).
- */
-static int
-dt_action_destructive(const dtrace_actdesc_t *ap)
-{
-	return (DTRACEACT_ISDESTRUCTIVE(ap->dtad_kind) ||
-		(ap->dtad_kind == DTRACEACT_DIFEXPR &&
-		 (ap->dtad_difo->dtdo_flags & DIFOFLG_DESTRUCTIVE)));
-}
-#endif
-
 static void
 dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 {
@@ -1361,11 +1347,7 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 	}
 
 	if (*cfp & DT_CLSFLAG_SPECULATE) {
-#ifdef FIXME
-		if (dt_action_destructive(ap))
-#else
 		if (DTRACEACT_ISDESTRUCTIVE(kind))
-#endif
 			dnerror(dnp, D_ACT_SPEC, "destructive actions "
 			    "may not follow speculate( )\n");
 		if (kind == DTRACEACT_EXIT)
@@ -4734,6 +4716,53 @@ dt_cg_subr_copyinto(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_copyout(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*src = dnp->dn_args;
+	dt_node_t	*dst = src->dn_list;
+	dt_node_t	*size = dst->dn_list;
+	uint_t		lbl_ok = dt_irlist_label(dlp);
+
+	dt_cg_clsflags(yypcb, DTRACEACT_PROC_DESTRUCTIVE, dnp);
+
+	TRACE_REGSET("    subr-copyout:Begin");
+
+	dt_cg_node(src, dlp, drp);
+	dt_cg_node(dst, dlp, drp);
+	dt_cg_node(size, dlp, drp);
+
+	/* Validate the pointers. */
+	dt_cg_check_ptr_arg(dlp, drp, src, size);
+	dt_cg_check_notnull(dlp, drp, dst->dn_reg);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, size->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_write_user));
+	dt_regset_free_args(drp);
+
+	/*
+	 * At this point the src is validated, so any problem must be with
+	 * the dst address.
+	 */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, dst->dn_reg);
+	emitl(dlp, lbl_ok,
+		   BPF_NOP());
+
+	dt_regset_free(drp, src->dn_reg);
+	dt_regset_free(drp, dst->dn_reg);
+	dt_regset_free(drp, size->dn_reg);
+
+	TRACE_REGSET("    subr-copyout:End  ");
+}
+
+static void
 dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -5209,7 +5238,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_SPECULATION]		= &dt_cg_subr_speculation,
 	[DIF_SUBR_PROGENYOF]		= &dt_cg_subr_progenyof,
 	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
-	[DIF_SUBR_COPYOUT]		= NULL,
+	[DIF_SUBR_COPYOUT]		= &dt_cg_subr_copyout,
 	[DIF_SUBR_COPYOUTSTR]		= NULL,
 	[DIF_SUBR_ALLOCA]		= &dt_cg_subr_alloca,
 	[DIF_SUBR_BCOPY]		= &dt_cg_subr_bcopy,

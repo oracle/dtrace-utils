@@ -5,7 +5,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@skip: dtv2, no copyout yet */
+
 /*
  * ASSERTION: Destructive actions may never be speculative.
  *
