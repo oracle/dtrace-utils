@@ -9,10 +9,14 @@
 # Use at least cpu-clock but also try "perf list" for some others.
 
 eventnamelist="cpu-clock"
-for eventname in branches instructions; do
-	if perf list hw | grep -qw $eventname; then
-		eventnamelist="$eventnamelist $eventname"
-	fi
-done
+
+$(dirname $0)/cpc_temp_skip_bug.sh > /dev/null
+if [ $? -eq 0 ]; then
+	for eventname in branches instructions; do
+		if perf list hw | grep -qw $eventname; then
+			eventnamelist="$eventnamelist $eventname"
+		fi
+	done
+fi
 
 echo $eventnamelist

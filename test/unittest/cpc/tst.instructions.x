@@ -10,4 +10,5 @@ if ! perf list hw | grep -qw instructions; then
 	exit 2
 fi
 
-exit 0
+test/utils/cpc_temp_skip_bug.sh
+exit $?
