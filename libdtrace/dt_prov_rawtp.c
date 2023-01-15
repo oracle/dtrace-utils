@@ -131,7 +131,7 @@ static int populate(dtrace_hdl_t *dtp)
  * that implements the compiled D clause.  It returns the value that it gets
  * back from that function.
  */
-static void trampoline(dt_pcb_t *pcb)
+static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;

@@ -213,7 +213,7 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
  *         __u64 addr;
  *     }
  */
-static void trampoline(dt_pcb_t *pcb)
+static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;

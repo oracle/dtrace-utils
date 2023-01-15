@@ -7344,7 +7344,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 		assert(pcb->pcb_probe != NULL);
 
 		if (pcb->pcb_probe->prov->impl->trampoline != NULL)
-			pcb->pcb_probe->prov->impl->trampoline(pcb);
+			pcb->pcb_probe->prov->impl->trampoline(pcb, pcb->pcb_exitlbl);
 	} else
 		dt_cg_node(dnp, &pcb->pcb_ir, pcb->pcb_regs);
 

@@ -344,7 +344,7 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
  * The trampoline will first populate a dt_dctx_t struct.  It will then emulate
  * the firing of all dependent pid* probes and their clauses.
  */
-static void trampoline(dt_pcb_t *pcb)
+static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	const dt_probe_t	*prp = pcb->pcb_probe;
