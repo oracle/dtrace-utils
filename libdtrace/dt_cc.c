@@ -2119,6 +2119,8 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 	pcb.pcb_probe = prp;
 	pcb.pcb_pdesc = prp->desc;
 
+	yybegin(YYS_DONE);
+
 	if ((err = setjmp(yypcb->pcb_jmpbuf)) != 0)
 		goto out;
 

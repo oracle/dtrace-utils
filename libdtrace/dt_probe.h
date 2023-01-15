@@ -33,6 +33,7 @@ typedef struct dt_probe_instance {
 typedef struct dt_probe {
 	dt_list_t list;			/* prev/next in enablings chain */
 	dt_list_t clauses;		/* clauses to attach */
+	dt_list_t dependents;		/* dependenct probes to attach */
 	const dtrace_probedesc_t *desc;	/* probe description (id, name) */
 	dt_provider_t *prov;		/* pointer to containing provider */
 	struct dt_hentry he_prv;	/* provider name htab links */
@@ -89,6 +90,12 @@ extern int dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp,
 typedef int dt_clause_f(dtrace_hdl_t *dtp, dt_ident_t *idp, void *arg);
 extern int dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 				dt_clause_f *func, void *arg);
+
+extern int dt_probe_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp,
+				  dt_probe_t *idprp);
+typedef int dt_dependent_f(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg);
+extern int dt_probe_dependent_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+				   dt_dependent_f *func, void *arg);
 
 
 extern void dt_probe_init(dtrace_hdl_t *dtp);

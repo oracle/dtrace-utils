@@ -573,6 +573,36 @@ dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp,
 			     (dt_clause_f *)dt_cg_call_clause, &arg);
 }
 
+static int
+dt_cg_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg)
+{
+	dt_pcb_t	*pcb = dtp->dt_pcb;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_ident_t	*idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
+	dt_probe_t	*saved_prp = pcb->pcb_probe;
+	uint_t		exitlbl = dt_irlist_label(dlp);
+
+	dt_cg_tramp_save_args(pcb);
+	pcb->pcb_probe = prp;
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id), idp);
+	if (prp->prov->impl->trampoline != NULL)
+		prp->prov->impl->trampoline(pcb, exitlbl);
+	dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
+
+	pcb->pcb_probe = saved_prp;
+	dt_cg_tramp_restore_args(pcb);
+	emitl(dlp, exitlbl,
+		   BPF_NOP());
+
+	return 0;
+}
+
+static void
+dt_cg_tramp_add_dependents(dt_pcb_t *pcb, const dt_probe_t *prp)
+{
+	dt_probe_dependent_iter(pcb->pcb_hdl, prp, dt_cg_add_dependent, NULL);
+}
+
 void
 dt_cg_tramp_return(dt_pcb_t *pcb)
 {
@@ -593,6 +623,22 @@ void
 dt_cg_tramp_epilogue(dt_pcb_t *pcb)
 {
 	dt_cg_tramp_call_clauses(pcb, pcb->pcb_probe, DT_ACTIVITY_ACTIVE);
+	/*
+	 * For each dependent probe (if any):
+	 *	1.1 Call dt_cg_tramp_save_args()
+	 *	1.2 Set PRID to the probe ID of the dependent probe
+	 *	1.3 Call prp->prov->impl->trampoline()
+	 *		[ This will generate the pseudo-trampoline that sets
+	 *		  up the arguments for the dependent probe, possibly
+	 *		  based on the arguments of the underllying probe. ]
+	 *	1.4 Call dt_cg_tramp_call_clauses() for the dependent probe
+	 *	1.1 Call dt_cg_tramp_restore_args()
+	 *
+	 * Possible optimization:
+	 *	Do not call dt_cg_tramp_restore_args() after the last dependent
+	 *	probe.
+	 */
+	dt_cg_tramp_add_dependents(pcb, pcb->pcb_probe);
 	dt_cg_tramp_return(pcb);
 }
 

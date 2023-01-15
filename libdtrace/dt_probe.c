@@ -24,10 +24,15 @@
 #include <dt_list.h>
 #include <dt_bpf.h>
 
-typedef struct dt_probeclause {
+typedef struct dt_probe_clause {
 	dt_list_t	list;
 	dt_ident_t	*clause;
-} dt_probeclause_t;
+} dt_probe_clause_t;
+
+typedef struct dt_probe_dependent {
+	dt_list_t	list;
+	dt_probe_t	*probe;
+} dt_probe_dependent_t;
 
 #define DEFINE_HE_FUNCS(id) \
 	static uint32_t id##_hval(const dt_probe_t *probe) \
@@ -462,7 +467,7 @@ dt_probe_enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 void
 dt_probe_destroy(dt_probe_t *prp)
 {
-	dt_probeclause_t	*pcp, *pcp_next;
+	dt_probe_clause_t	*pcp, *pcp_next;
 	dt_probe_instance_t	*pip, *pip_next;
 	dtrace_hdl_t		*dtp;
 
@@ -1321,9 +1326,9 @@ no_mem:
 int
 dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
 {
-	dt_probeclause_t	*pcp;
+	dt_probe_clause_t	*pcp;
 
-	pcp = dt_zalloc(dtp, sizeof(dt_probeclause_t));;
+	pcp = dt_zalloc(dtp, sizeof(dt_probe_clause_t));;
 	if (pcp == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
@@ -1345,7 +1350,7 @@ int
 dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		     dt_clause_f *func, void *arg)
 {
-	dt_probeclause_t	*pcp;
+	dt_probe_clause_t	*pcp;
 	int			rc;
 
 	assert(func != NULL);
@@ -1353,6 +1358,49 @@ dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	for (pcp = dt_list_next(&prp->clauses); pcp != NULL;
 	     pcp = dt_list_next(pcp)) {
 		rc = func(dtp, pcp->clause, arg);
+
+		if (rc != 0)
+			return rc;
+	}
+
+	return 0;
+}
+
+int
+dt_probe_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_probe_t *dprp)
+{
+	dt_probe_dependent_t	*pdp;
+
+	/* Ignore dependent probes already in the list. */
+	for (pdp = dt_list_next(&prp->dependents); pdp != NULL;
+	     pdp = dt_list_next(pdp)) {
+		if (pdp->probe == dprp)
+			return 0;
+	}
+
+	pdp = dt_zalloc(dtp, sizeof(dt_probe_dependent_t));;
+	if (pdp == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	pdp->probe = dprp;
+
+	dt_list_append(&prp->dependents, pdp);
+
+	return 0;
+}
+
+int
+dt_probe_dependent_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			dt_dependent_f *func, void *arg)
+{
+	dt_probe_dependent_t	*pdp;
+	int			rc;
+
+	assert(func != NULL);
+
+	for (pdp = dt_list_next(&prp->dependents); pdp != NULL;
+	     pdp = dt_list_next(pdp)) {
+		rc = func(dtp, pdp->probe, arg);
 
 		if (rc != 0)
 			return rc;
