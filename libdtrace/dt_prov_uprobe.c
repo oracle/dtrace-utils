@@ -397,17 +397,14 @@ static void trampoline(dt_pcb_t *pcb)
 		const dt_probe_t	*pprp = pop->probe;
 		uint_t			lbl_next = dt_irlist_label(dlp);
 		pid_t			pid;
-		char			pn[DTRACE_FULLNAMELEN + 1];
 		dt_ident_t		*idp;
 
 		pid = dt_pid_get_pid(pprp->desc, pcb->pcb_hdl, pcb, NULL);
 		assert(pid != -1);
 
-		snprintf(pn, DTRACE_FULLNAMELEN, "%s:%s:%s:%s",
-			 pprp->desc->prv, pprp->desc->mod, pprp->desc->fun,
-			 pprp->desc->prb);
-		idp = dt_dlib_add_var(pcb->pcb_hdl, pn, pprp->desc->id);
+		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, pprp);
 		assert(idp != NULL);
+
 		/*
 		 * Check whether this pid-provider probe serves the current
 		 * process, and emit a sequence of clauses for it when it does.

@@ -12,6 +12,7 @@
 #include <port.h>
 #include <dt_parser.h>
 #include <dt_program.h>
+#include <dt_probe.h>
 #include <dt_grammar.h>
 #include <dt_impl.h>
 #include <dt_bpf.h>
@@ -233,6 +234,22 @@ dt_ident_t *
 dt_dlib_add_var(dtrace_hdl_t *dtp, const char *name, uint_t id)
 {
 	return dt_dlib_add_sym_id(dtp, name, DT_IDENT_SCALAR, id);
+}
+
+/*
+ * Add a BPF variable for a probe.
+ * The fully qualified probe name is tha variable name, and the probe ID is the
+ * value of the variable.
+ */
+dt_ident_t *
+dt_dlib_add_probe_var(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+{
+	char	pn[DTRACE_FULLNAMELEN + 1];
+
+	snprintf(pn, DTRACE_FULLNAMELEN, "%s:%s:%s:%s", prp->desc->prv,
+		 prp->desc->mod, prp->desc->fun, prp->desc->prb);
+
+	return dt_dlib_add_var(dtp, pn, prp->desc->id);
 }
 
 /*

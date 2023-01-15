@@ -738,6 +738,8 @@ extern dt_ident_t *dt_dlib_get_func(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_get_map(dtrace_hdl_t *, const char *);
 extern dt_ident_t *dt_dlib_add_var(dtrace_hdl_t *dtp, const char *name,
 				   uint_t id);
+extern dt_ident_t *dt_dlib_add_probe_var(dtrace_hdl_t *dtp,
+					 const struct dt_probe *prp);
 extern dt_ident_t *dt_dlib_get_var(dtrace_hdl_t *, const char *);
 extern dtrace_difo_t *dt_dlib_get_func_difo(dtrace_hdl_t *, const dt_ident_t *);
 extern void dt_dlib_reset(dtrace_hdl_t *dtp, boolean_t);
