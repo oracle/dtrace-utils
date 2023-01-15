@@ -10,6 +10,8 @@
 # specific event.
 #
 
+# @@skip: must port from cpustat and decide what a platform-specific event now means
+
 if [ $# != 1 ]; then
         print -u2 "expected one argument: <dtrace-path>"
         exit 2
