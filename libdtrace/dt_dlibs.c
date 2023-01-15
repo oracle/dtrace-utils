@@ -152,12 +152,17 @@ dt_dlib_get_xsym(dtrace_hdl_t *dtp, const char *name, int kind)
 
 /*
  * Add a BPF identifier of a given kind with given id.
+ * If the identifier already exists (with the proper id, if any), return it.
  */
 static dt_ident_t *
 dt_dlib_add_sym_id(dtrace_hdl_t *dtp, const char *name, int kind, uint_t id)
 {
 	dt_idhash_t	*dhp = dtp->dt_bpfsyms;
 	dt_ident_t	*idp;
+
+	idp = dt_dlib_get_xsym(dtp, name, kind);
+	if (idp != NULL && id != DT_IDENT_UNDEF && idp->di_id == id)
+		return idp;
 
 	idp = dt_idhash_insert(dhp, name, kind, DT_IDFLG_BPF, id,
 			       dt_bpf_attr, DT_VERS_2_0,
