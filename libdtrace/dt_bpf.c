@@ -1094,7 +1094,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		 * Enabled probes with no trampoline act like they exist but
 		 * no code is generated for them.
 		 */
-		if (prp->prov->impl->trampoline == NULL)
+		if (prp->prov->impl->prog_type == BPF_PROG_TYPE_UNSPEC)
 			continue;
 
 		dp = dt_program_construct(dtp, prp, cflags, NULL);

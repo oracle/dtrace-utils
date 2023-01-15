@@ -534,7 +534,7 @@ dt_provimpl_t	dt_uprobe = {
  */
 dt_provimpl_t	dt_pid = {
 	.name		= "pid",
-	.prog_type	= BPF_PROG_TYPE_KPROBE,
+	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_pid_probe,
 	.enable		= &enable,
 	.probe_destroy	= &probe_destroy,
@@ -545,7 +545,7 @@ dt_provimpl_t	dt_pid = {
  */
 dt_provimpl_t	dt_usdt = {
 	.name		= "usdt",
-	.prog_type	= BPF_PROG_TYPE_KPROBE,
+	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_usdt_probe,
 	.enable		= &enable,
 	.probe_destroy	= &probe_destroy,
