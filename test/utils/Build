@@ -1,9 +1,10 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-TEST_UTILS = baddof badioctl showUSDT print-stack-layout
+TEST_UTILS = baddof badioctl workload_user showUSDT print-stack-layout
+TEST_SCRIPTS = check_result.sh workload_analyze_loop.sh workload_get_iterations.sh
 
 define test-util-template
 CMDS += $(1)
@@ -45,8 +46,9 @@ install::
 	install -m 755 test/utils/showUSDT $(INSTDOCDIR)
 
 install-test::
-	$(call describe-install-target,$(INSTTESTDIR)/test/utils,$(TEST_UTILS) include-test.d libctf.r.p)
+	$(call describe-install-target,$(INSTTESTDIR)/test/utils,$(TEST_UTILS) $(TEST_SCRIPTS) include-test.d libctf.r.p)
 	mkdir -p $(INSTTESTDIR)/test/utils
 	install -m 755 $(addprefix test/utils/,$(TEST_UTILS)) $(INSTTESTDIR)/test/utils
+	install -m 755 $(addprefix test/utils/,$(TEST_SCRIPTS)) $(INSTTESTDIR)/test/utils
 	install -m 644 test/utils/include-test.d $(INSTTESTDIR)/test/utils
 	install -m 755 test/utils/libctf.r.p $(INSTTESTDIR)/test/utils

@@ -1,5 +1,6 @@
 # In-place built executables
 baddof
 badioctl
+workload_user
 print-stack-layout
 showUSDT
