@@ -47,13 +47,9 @@ struct dt_probe;
  * to multiple args[X] variables.
  */
 typedef struct dt_argdesc {
-#ifdef FIXME
-	dtrace_id_t id;
-	int ndx;
-#endif
 	int mapping;
-	char *native;
-	char *xlate;
+	const char *native;
+	const char *xlate;
 } dt_argdesc_t;
 
 typedef struct dt_provimpl {
@@ -84,6 +80,7 @@ typedef struct dt_provimpl {
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_cpc;
 extern dt_provimpl_t dt_fbt;
+extern dt_provimpl_t dt_proc;
 extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_rawtp;
 extern dt_provimpl_t dt_sdt;

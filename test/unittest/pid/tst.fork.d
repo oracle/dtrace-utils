@@ -5,7 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@xfail: dtv2 */
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-fork */
 /* @@trigger-timing: before */

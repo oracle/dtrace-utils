@@ -4,7 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
+
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-vfork */
 /* @@trigger-timing: before */

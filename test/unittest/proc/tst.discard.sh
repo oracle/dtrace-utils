@@ -7,20 +7,20 @@
 #
 # This script tests that the proc:::signal-discard probe fires correctly
 # and with the correct arguments.
-#
-# If this fails, the script will run indefinitely; it relies on the harness
-# to time it out.
-#
-# @@xfail: dtv2
 
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	proc:::signal-discard
-	/args[1]->pr_pid == $child &&
-	    args[1]->pr_psargs == "$longsleep" && args[2] == SIGHUP/
+	/args[1]->pr_pid == $child && args[1]->pr_fname == "sleep" &&
+	 args[2] == SIGHUP/
 	{
 		exit(0);
+	}
+
+	tick-5s
+	{
+		exit(124);
 	}
 EOF
 }

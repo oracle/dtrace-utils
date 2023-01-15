@@ -14,8 +14,6 @@
 #
 # If this fails, the script will run indefinitely; it relies on the harness
 # to time it out.
-#
-# @@xfail: dtv2
 
 script()
 {
