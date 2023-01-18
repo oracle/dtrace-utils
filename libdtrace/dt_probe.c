@@ -695,6 +695,7 @@ dt_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	prp->desc = desc;
 	prp->prov = prov;
 	prp->prv_data = datap;
+	prp->argc = -1;
 
 	dt_htab_insert(dtp->dt_byprv, prp);
 	dt_htab_insert(dtp->dt_bymod, prp);
@@ -865,13 +866,18 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	int			i, nc, xc;
 	dtrace_typeinfo_t	dtt;
 
+	/* Only retrieve probe argument information once per probe. */
+	if (prp->argc != -1)
+		return;
 	if (!prp->prov->impl->probe_info)
 		return;
 	if (prp->prov->impl->probe_info(dtp, prp, &argc, &argv) < 0)
 		return;
 
-	if (!argc || !argv)
+	if (!argc || !argv) {
+		prp->argc = 0;
 		return;
+	}
 
 	nc = 0;
 	for (xc = 0; xc < argc; xc++)
