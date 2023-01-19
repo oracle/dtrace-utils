@@ -27,6 +27,8 @@ extern void dt_cg_tramp_copy_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called);
 extern void dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb);
+extern void dt_cg_tramp_save_args(dt_pcb_t *pcb);
+extern void dt_cg_tramp_restore_args(dt_pcb_t *pcb);
 extern void dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp,
 				     dt_activity_t act);
 extern void dt_cg_tramp_return(dt_pcb_t *pcb);

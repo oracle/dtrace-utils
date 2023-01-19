@@ -496,6 +496,36 @@ dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 }
 
+/*
+ * Save the probe arguments.
+ */
+void
+dt_cg_tramp_save_args(dt_pcb_t *pcb)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(i)));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_SAVED_ARG(i), BPF_REG_0));
+	}
+}
+
+/*
+ * Restore the saved probe arguments.
+ */
+void
+dt_cg_tramp_restore_args(dt_pcb_t *pcb)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i;
+
+	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_SAVED_ARG(i)));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+	}
+}
+
 typedef struct {
 	dt_irlist_t	*dlp;
 	dt_activity_t	act;
