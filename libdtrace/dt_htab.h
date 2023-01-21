@@ -97,6 +97,9 @@ extern dt_htab_t *dt_htab_create(struct dtrace_hdl *dtp, dt_htab_ops_t *ops);
 extern void dt_htab_destroy(struct dtrace_hdl *dtp, dt_htab_t *htab);
 extern int dt_htab_insert(dt_htab_t *htab, void *entry);
 extern void *dt_htab_lookup(const dt_htab_t *htab, const void *entry);
+typedef int dt_htab_ecmp_fn(const void *entry, void *arg);
+extern void *dt_htab_find(const dt_htab_t *htab, const void *entry,
+			  dt_htab_ecmp_fn *cmpf, void *arg);
 extern size_t dt_htab_entries(const dt_htab_t *htab);
 extern int dt_htab_delete(dt_htab_t *htab, void *entry);
 extern void *dt_htab_next(const dt_htab_t *htab, dt_htab_next_t **it);

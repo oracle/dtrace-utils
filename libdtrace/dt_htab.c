@@ -215,6 +215,21 @@ void *dt_htab_lookup(const dt_htab_t *htab, const void *entry)
 }
 
 /*
+ * Find an entry in the hashtable, using the provided callback function as a
+ * secondary comparison function to differentiate between entries in a bucket.
+ */
+void *dt_htab_find(const dt_htab_t *htab, const void *entry,
+		   dt_htab_ecmp_fn *cmpf, void *arg)
+{
+	void	*ent = dt_htab_lookup(htab, entry);
+
+	while (ent != NULL && !cmpf(ent, arg))
+		ent = htab->ops->next(ent);
+
+	return ent;
+}
+
+/*
  * Remove an entry from the hashtable.  If we are deleting the last entry in a
  * bucket, get rid of the bucket.
  */
