@@ -756,9 +756,10 @@ dt_probe_gmatch(const dt_probe_t *prp, dtrace_probedesc_t *pdp)
 dt_probe_t *
 dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
-	dt_probe_t	*prp;
-	dt_probe_t	tmpl;
-	int		p_is_glob, m_is_glob, f_is_glob, n_is_glob;
+	dt_probe_t		*prp;
+	dt_probe_t		tmpl;
+	dtrace_probedesc_t	desc;
+	int			p_is_glob, m_is_glob, f_is_glob, n_is_glob;
 
 	/*
 	 * If a probe id is provided, we can do a direct lookup.
@@ -799,14 +800,22 @@ dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 	 * specified as glob patterns (or the empty string), we need to loop
 	 * through all probes and look for a match.
 	 */
+	desc = *pdp;
+	desc.id = (p_is_glob << 3) | (m_is_glob << 2) | (f_is_glob << 1) |
+		  n_is_glob;
+
 	if (!f_is_glob)
-		prp = dt_htab_lookup(dtp->dt_byfun, &tmpl);
+		prp = dt_htab_find(dtp->dt_byfun, &tmpl,
+				   (dt_htab_ecmp_fn *)dt_probe_gmatch, &desc);
 	else if (!n_is_glob)
-		prp = dt_htab_lookup(dtp->dt_byprb, &tmpl);
+		prp = dt_htab_find(dtp->dt_byprb, &tmpl,
+				   (dt_htab_ecmp_fn *)dt_probe_gmatch, &desc);
 	else if (!m_is_glob)
-		prp = dt_htab_lookup(dtp->dt_bymod, &tmpl);
+		prp = dt_htab_find(dtp->dt_bymod, &tmpl,
+				   (dt_htab_ecmp_fn *)dt_probe_gmatch, &desc);
 	else if (!p_is_glob)
-		prp = dt_htab_lookup(dtp->dt_byprv, &tmpl);
+		prp = dt_htab_find(dtp->dt_byprv, &tmpl,
+				   (dt_htab_ecmp_fn *)dt_probe_gmatch, &desc);
 	else {
 		int			i;
 		dtrace_probedesc_t	desc;
