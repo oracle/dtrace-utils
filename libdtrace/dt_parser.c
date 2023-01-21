@@ -2838,11 +2838,12 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		 * REF-type, we mark this variable node as a pointer to
 		 * DTrace-managed storage (DPTR).
 		 *
-		 * We account for one notable exception: execname.
+		 * We account for two notable exception: args and execname.
 		 */
 		if (idp->di_flags & DT_IDFLG_DPTR)
 			dnp->dn_flags |= DT_NF_DPTR;
 		else if ((dnp->dn_flags & DT_NF_REF) &&
+			 idp->di_id != DIF_VAR_ARGS &&
 			 idp->di_id != DIF_VAR_EXECNAME)
 			dnp->dn_flags |= DT_NF_DPTR;
 
