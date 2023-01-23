@@ -1996,8 +1996,49 @@ dt_cg_act_trace(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dnerror(dnp, D_UNKNOWN, "tracemem() is not implemented (yet)\n");
-	/* FIXME: Needs implementation */
+	char		n[DT_TYPE_NAMELEN];
+	dt_node_t	*addr = dnp->dn_args;
+	dt_node_t	*nsiz = addr->dn_list;
+	dt_node_t	*dsiz = nsiz->dn_list;
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	uint_t		off;
+
+	if (dt_node_is_integer(addr) == 0 && dt_node_is_pointer(addr) == 0)
+		dnerror(addr, D_TRACEMEM_ADDR,
+		    "tracemem( ) argument #1 is incompatible with prototype:\n"
+		    "\tprototype: pointer or integer\n"
+		    "\t argument: %s\n", dt_node_type_name(addr, n, sizeof(n)));
+
+	if (dt_node_is_posconst(nsiz) == 0)
+		dnerror(nsiz, D_TRACEMEM_SIZE,
+		    "tracemem( ) argument #2 must be a non-zero positive integral constant expression\n");
+
+	dt_cg_node(addr, dlp, drp);
+	dt_cg_node(nsiz, dlp, drp);
+
+	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_TRACEMEM, nsiz->dn_value, 1, NULL,
+	    dsiz ? DTRACE_TRACEMEM_DYNAMIC : DTRACE_TRACEMEM_STATIC);
+
+	if (dsiz != NULL)
+		dt_cg_store_val(pcb, dsiz, DTRACEACT_TRACEMEM, NULL,
+		    dsiz->dn_flags & DT_NF_SIGNED ? DTRACE_TRACEMEM_SSIZE : DTRACE_TRACEMEM_SIZE);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, nsiz->dn_reg));
+	dt_regset_free(drp, nsiz->dn_reg);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, addr->dn_reg));
+	dt_regset_free(drp, addr->dn_reg);
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
 }
 
 static void

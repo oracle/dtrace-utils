@@ -1005,7 +1005,6 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 	return dt_print_rawbytes(dtp, fp, addr, nbytes);
 }
 
-#ifdef FIXME
 static int
 dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
     uint_t nrecs, const caddr_t buf)
@@ -1053,7 +1052,6 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 
 	return nconsumed;
 }
-#endif
 
 int
 dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
@@ -2471,6 +2469,17 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			if (dt_print_umod(dtp, fp, NULL, recdata) < 0)
 				return -1;
 			continue;
+		case DTRACEACT_TRACEMEM: {
+			int nrecs;
+
+			nrecs = epd->dtdd_nrecs - i;
+			n = dt_print_tracemem(dtp, fp, rec, nrecs, data);
+			if (n < 0)
+				return -1;
+
+			i += n - 1;
+			continue;
+		}
 		case DTRACEACT_PRINTF:
 			func = dtrace_fprintf;
 			break;
