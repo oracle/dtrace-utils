@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -10,6 +10,8 @@
 # Ensure pcap() action directed at stdout matches tracemem output of
 # skb->data.
 #
+
+# @@xfail: need ip provider
 
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
@@ -37,6 +39,11 @@ ip:::send
 	tracemem(((struct sk_buff *)arg0)->data, $pcapsize);
 }
 EODTRACE
+
+if [ $? -ne 0 ]; then
+	echo DTrace failed
+	exit 1
+fi
 
 if [[ -f $file ]]; then
 	pcapline=""
