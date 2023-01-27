@@ -1267,7 +1267,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	}
 
 	/* Handle tracing of by-ref values (arrays, struct, union). */
-	if (kind == DTRACEACT_DIFEXPR && (arg & DT_NF_REF)) {
+	if ((dnp->dn_flags & DT_NF_REF) || (arg & DT_NF_REF)) {
 		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, 2, pfp, arg);
 
 		TRACE_REGSET("store_val(): Begin ");
