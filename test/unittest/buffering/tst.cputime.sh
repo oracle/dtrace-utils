@@ -6,7 +6,6 @@
 # http://oss.oracle.com/licenses/upl.
 #
 # @@timeout: 12
-# @@xfail: dtv2
 
 script()
 {

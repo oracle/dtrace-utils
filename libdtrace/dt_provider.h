@@ -73,6 +73,7 @@ extern dt_provimpl_t dt_fbt;
 extern dt_provimpl_t dt_proc;
 extern dt_provimpl_t dt_profile;
 extern dt_provimpl_t dt_rawtp;
+extern dt_provimpl_t dt_sched;
 extern dt_provimpl_t dt_sdt;
 extern dt_provimpl_t dt_syscall;
 extern dt_provimpl_t dt_uprobe;
