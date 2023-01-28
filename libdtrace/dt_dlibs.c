@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -57,6 +57,7 @@ static const dt_ident_t		dt_bpf_symbols[] = {
 
 	/* BPF maps */
 	DT_BPF_SYMBOL(aggs, DT_IDENT_PTR),
+	DT_BPF_SYMBOL(agggen, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(buffers, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(cpuinfo, DT_IDENT_PTR),
 	DT_BPF_SYMBOL(dvars, DT_IDENT_PTR),

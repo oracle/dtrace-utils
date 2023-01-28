@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -380,6 +380,7 @@ struct dtrace_hdl {
 	int dt_proc_fd;		/* file descriptor for proc eventfd */
 	int dt_stmap_fd;	/* file descriptor for the 'state' BPF map */
 	int dt_aggmap_fd;	/* file descriptor for the 'aggs' BPF map */
+	int dt_genmap_fd;	/* file descriptor for the 'agggen' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */
 	dtrace_handle_drop_f *dt_drophdlr; /* drop handler, if any */

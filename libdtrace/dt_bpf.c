@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -477,18 +477,23 @@ gmap_create_state(dtrace_hdl_t *dtp)
 }
 
 /*
- * Create the 'aggs' BPF map.
+ * Create the 'aggs' BPF map (and its companion 'agggen' BPF map).
  *
- * Aggregation data buffer map, associated with each CPU.  The map is
- * implemented as a global array-of-maps indexed by CPU id.  The associated
- * value is a map with a singleton element (key 0).
+ * - aggs:	Aggregation data buffer map, associated with each CPU.  The map
+ *		is implemented as a global array-of-maps indexed by CPU id.
+ *		The associated value is a map with a singleton element (key 0).
+ * - agggen:	Aggregation generation counters.  The map associates a
+ *		generation counter with each aggregation ID.  The counter is
+ *		used to determine whether the aggregation data is valid.  The
+ *		initial value is 1.
  */
 static int
 gmap_create_aggs(dtrace_hdl_t *dtp)
 {
-	size_t	ncpus = dtp->dt_conf.max_cpuid + 1;
-	size_t	nelems = 0;
-	int	i;
+	size_t		ncpus = dtp->dt_conf.max_cpuid + 1;
+	size_t		nelems = 0;
+	uint32_t	aggc =  dt_idhash_peekid(dtp->dt_aggs);
+	uint32_t	i;
 
 	/* Only create the map if it is used. */
 	if (dtp->dt_maxaggdsize == 0)
@@ -508,6 +513,8 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 						BPF_MAP_TYPE_HASH,
 						dtp->dt_maxtuplesize,
 						dtp->dt_maxaggdsize, nelems);
+	if (dtp->dt_aggmap_fd == -1)
+		return -1;
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
 		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
@@ -524,8 +531,23 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 		dt_bpf_map_update(dtp->dt_aggmap_fd, &cpu, &fd);
 	}
 
+	/* Create the agg generation value array. */
+	dtp->dt_genmap_fd = create_gmap(dtp, "agggen", BPF_MAP_TYPE_ARRAY,
+					sizeof(uint32_t), sizeof(uint64_t),
+					aggc);
+	if (dtp->dt_genmap_fd == -1)
+		 return -1;
 
-	return dtp->dt_aggmap_fd;
+	for (i = 0; i < aggc; i++) {
+		uint64_t	val = 1;
+
+		if (dt_bpf_map_update(dtp->dt_genmap_fd, &i, &val) == -1)
+			return dt_bpf_error(dtp,
+					    "cannot update BPF map 'agggen': %s\n",
+					    strerror(errno));
+	}
+
+	return 0;
 }
 
 /*
