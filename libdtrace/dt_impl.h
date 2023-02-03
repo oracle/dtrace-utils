@@ -756,6 +756,7 @@ extern dtrace_difo_t *dt_difo_copy(dtrace_hdl_t *dtp, const dtrace_difo_t *odp);
 extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);
+extern int dt_aggregate_clear_one(const dtrace_aggdata_t *, void *);
 
 extern int dt_consume_init(dtrace_hdl_t *);
 extern void dt_consume_fini(dtrace_hdl_t *);

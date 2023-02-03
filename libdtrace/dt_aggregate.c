@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -436,6 +436,40 @@ dt_agg_one_agg(dt_ident_t *aid, dtrace_recdesc_t *rec, char *dst,
 		     i++, dvals++, svals++)
 			*dvals += *svals;
 	}
+}
+
+int
+dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
+{
+	dtrace_hdl_t		*dtp = arg;
+	dtrace_aggdesc_t	*agg = agd->dtada_desc;
+	dtrace_recdesc_t	*rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
+	int64_t			*vals = (int64_t *)
+					&agd->dtada_data[rec->dtrd_offset];
+	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+
+	switch (rec->dtrd_action) {
+	case DT_AGG_MIN:
+		*vals = INT64_MAX;
+		if (agd->dtada_percpu)
+			for (i = 0; i < max_cpus; i++)
+				*((uint64_t*)agd->dtada_percpu[i]) = INT64_MAX;
+		break;
+	case DT_AGG_MAX:
+		*vals = INT64_MIN;
+		if (agd->dtada_percpu)
+			for (i = 0; i < max_cpus; i++)
+				*((uint64_t*)agd->dtada_percpu[i]) = INT64_MIN;
+		break;
+	default:
+		memset(vals, 0, rec->dtrd_size);
+		if (agd->dtada_percpu)
+			for (i = 0; i < max_cpus; i++)
+				memset(agd->dtada_percpu[i], 0, rec->dtrd_size);
+		break;
+	}
+
+	return 0;
 }
 
 static int
@@ -1695,41 +1729,9 @@ dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 	dt_aggregate_t		*agp = &dtp->dt_aggregate;
 	dt_ahash_t		*hash = &agp->dtat_hash;
 	dt_ahashent_t		*h;
-	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
 
-	for (h = hash->dtah_all; h != NULL; h = h->dtahe_nextall) {
-		dtrace_aggdesc_t	*agg;
-		dtrace_aggdata_t	*agd;
-		dtrace_recdesc_t	*rec;
-		int64_t			*vals;
-
-		agg = h->dtahe_data.dtada_desc;
-		agd = &h->dtahe_data;
-		rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
-		vals = (int64_t *)&agd->dtada_data[rec->dtrd_offset];
-
-		switch (rec->dtrd_action) {
-		case DT_AGG_MIN:
-			*vals = INT64_MAX;
-			if (agd->dtada_percpu)
-				for (i = 0; i < max_cpus; i++)
-					*((uint64_t*)agd->dtada_percpu[i]) = INT64_MAX;
-			break;
-		case DT_AGG_MAX:
-			*vals = INT64_MIN;
-			if (agd->dtada_percpu)
-				for (i = 0; i < max_cpus; i++)
-					*((uint64_t*)agd->dtada_percpu[i]) = INT64_MIN;
-			break;
-		default:
-			memset(vals, 0, rec->dtrd_size);
-			if (agd->dtada_percpu)
-				for (i = 0; i < max_cpus; i++)
-					memset(agd->dtada_percpu[i], 0, rec->dtrd_size);
-			break;
-		}
-
-	}
+	for (h = hash->dtah_all; h != NULL; h = h->dtahe_nextall)
+		dt_aggregate_clear_one(&h->dtahe_data, dtp);
 }
 
 void
