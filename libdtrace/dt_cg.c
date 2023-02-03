@@ -4523,18 +4523,25 @@ dt_cg_subr_bcopy_impl(dt_node_t *dnp, dt_node_t *dst, dt_node_t *src,
 
 	TRACE_REGSET("      subr-bcopy-impl:Begin");
 
-	/* Validate the size for the copy operation. */
-	dt_cg_node(size, dlp, drp);
+	/* Evaluate the arguments */
+	if (is_bcopy) {
+		dt_cg_node(src, dlp, drp);
+		dt_cg_node(dst, dlp, drp);
+		dt_cg_node(size, dlp, drp);
+	} else {
+		dt_cg_node(src, dlp, drp);
+		dt_cg_node(size, dlp, drp);
+		dt_cg_node(dst, dlp, drp);
+	}
 
+	/* Validate the size for the copy operation. */
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JSLT, size->dn_reg, 0, lbl_badsize));
 	emit(dlp,  BPF_BRANCH_IMM(BPF_JGT, size->dn_reg, maxsize, lbl_badsize));
 
 	/* Validate the source pointer. */
-	dt_cg_node(src, dlp, drp);
 	dt_cg_check_ptr_arg(dlp, drp, src, size);
 
 	/* Validate the destination pointer. */
-	dt_cg_node(dst, dlp, drp);
 	if (!(dst->dn_flags & DT_NF_ALLOCA))
 		dnerror(dst, D_PROTO_ARG,
 			"%s( ) argument #%d is incompatible with prototype:\n"
