@@ -4770,6 +4770,79 @@ dt_cg_subr_copyout(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_copyoutstr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*src = dnp->dn_args;
+	dt_node_t	*dst = src->dn_list;
+	dt_node_t	*size = dst->dn_list;
+	size_t		strsize = yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
+	uint64_t	off;
+	uint_t		L1 = dt_irlist_label(dlp);
+	uint_t		L2 = dt_irlist_label(dlp);
+	uint_t		L3 = dt_irlist_label(dlp);
+
+	dt_cg_clsflags(yypcb, DTRACEACT_PROC_DESTRUCTIVE, dnp);
+
+	TRACE_REGSET("    subr-copyoutstr:Begin");
+
+	dt_cg_node(src, dlp, drp);
+	dt_cg_node(dst, dlp, drp);
+	dt_cg_node(size, dlp, drp);
+
+	/* if (size > strsize) size = strsize */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, size->dn_reg, strsize, L1));
+	emit(dlp,  BPF_MOV_IMM(size->dn_reg, strsize));
+	emitl(dlp, L1,
+		   BPF_NOP());
+
+	/* validate the pointers */
+	dt_cg_check_ptr_arg(dlp, drp, src, size);
+	dt_cg_check_notnull(dlp, drp, dst->dn_reg);
+
+	/* copy into a temporary string to determine the string length */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, size->dn_reg));
+	dt_regset_free(drp, size->dn_reg);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, src->dn_reg));
+	off = dt_cg_tstring_xalloc(yypcb);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_MEM));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read_str));
+	dt_regset_free_args(drp);
+	dt_cg_tstring_xfree(yypcb, off);
+
+	/* check that we could read the string */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGT, BPF_REG_0, 0, L2));
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, src->dn_reg);  // FIXME: is this right?
+	emitl(dlp, L2,
+		   BPF_NOP());
+
+	/* copy with the measured size */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, dst->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, src->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_write_user));
+	dt_regset_free_args(drp);
+
+	/* since src was validated, any problem must be with dst */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, L3));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, dst->dn_reg);
+	emitl(dlp, L3,
+		   BPF_NOP());
+
+	dt_regset_free(drp, src->dn_reg);
+	dt_regset_free(drp, dst->dn_reg);
+
+	TRACE_REGSET("    subr-copyoutstr:End  ");
+}
+
+static void
 dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -5246,7 +5319,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_PROGENYOF]		= &dt_cg_subr_progenyof,
 	[DIF_SUBR_STRLEN]		= &dt_cg_subr_strlen,
 	[DIF_SUBR_COPYOUT]		= &dt_cg_subr_copyout,
-	[DIF_SUBR_COPYOUTSTR]		= NULL,
+	[DIF_SUBR_COPYOUTSTR]		= &dt_cg_subr_copyoutstr,
 	[DIF_SUBR_ALLOCA]		= &dt_cg_subr_alloca,
 	[DIF_SUBR_BCOPY]		= &dt_cg_subr_bcopy,
 	[DIF_SUBR_COPYINTO]		= &dt_cg_subr_copyinto,
