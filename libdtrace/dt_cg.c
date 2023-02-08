@@ -3221,6 +3221,9 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	int lp_is_ptr = dt_node_is_pointer(dnp->dn_left);
 	int rp_is_ptr = dt_node_is_pointer(dnp->dn_right);
 
+	ctf_file_t	*ctfp = dnp->dn_left->dn_ctfp;
+	ctf_id_t	type = ctf_type_resolve(ctfp, dnp->dn_left->dn_type);
+
 	if (lp_is_ptr && rp_is_ptr) {
 		assert(dnp->dn_op == DT_TOK_SUB);
 		is_ptr_op = 0;
@@ -3292,6 +3295,37 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		emitl(dlp, lbl_L5,
 			   BPF_NOP());
+	} else if (op == BPF_ADD
+	    && dnp->dn_right->dn_kind != DT_NODE_INT
+	    && ctf_type_kind(ctfp, type) == CTF_K_ARRAY) {
+		/*
+		 * If the left-hand argument is a CTF_K_ARRAY and we are adding
+		 * an offset -- which is exactly what the parser will try to do
+		 * if an element of a scalar array is being accessed -- then the
+		 * BPF verifier will complain if it knows nothing about the offset.
+		 * Meanwhile, if the offset is an DT_NODE_INT, then we have already
+		 * checked it is in bounds.  So, add a run-time check only when
+		 * the right-hand argument is not DT_NODE_INT.
+		 */
+		ctf_arinfo_t	r;
+		uint_t		L1 = dt_irlist_label(dlp);
+		ssize_t		elem_size;
+
+		if (ctf_array_info(ctfp, type, &r) != 0) {
+			yypcb->pcb_hdl->dt_ctferr = ctf_errno(ctfp);
+			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+		}
+
+		elem_size = ctf_type_size(ctfp, r.ctr_contents);
+
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, dnp->dn_right->dn_reg, r.ctr_nelems * elem_size, L1));
+
+		/* Report out-of-bounds fault on the index. */
+		emit(dlp,  BPF_ALU64_IMM(BPF_DIV, dnp->dn_right->dn_reg, elem_size));
+		dt_cg_probe_error(yypcb, DTRACEFLT_BADINDEX, DT_ISREG, dnp->dn_right->dn_reg);
+
+		emitl(dlp, L1,
+			   BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
 	} else
 		emit(dlp,  BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
 
