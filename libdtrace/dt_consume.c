@@ -1512,22 +1512,34 @@ dt_normalize(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	return 0;
 }
 
-#ifdef FIXME
 static int
-dt_clear_agg(const dtrace_aggdata_t *aggdata, void *arg)
+dt_clear(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 {
-	dtrace_aggdesc_t	*agg = aggdata->dtada_desc;
-	dtrace_aggid_t		id = *((dtrace_aggid_t *)arg);
+	dtrace_aggid_t	aid;
+	uint64_t	gen;
+	caddr_t		addr;
 
-	if (agg->dtagd_nkrecs == 0)
-		return DTRACE_AGGWALK_NEXT;
+	/* We have just one record: the aggregation ID. */
+	addr = base + rec->dtrd_offset;
 
-	if (agg->dtagd_varid != id)
-		return DTRACE_AGGWALK_NEXT;
+	if (rec->dtrd_size != sizeof(dtrace_aggid_t))
+		return dt_set_errno(dtp, EDT_BADNORMAL);
 
-	return DTRACE_AGGWALK_CLEAR;
+	aid = *((dtrace_aggid_t *)addr);
+
+	if (dt_bpf_map_lookup(dtp->dt_genmap_fd, &aid, &gen) < 0)
+		return -1;
+	gen++;
+	if (dt_bpf_map_update(dtp->dt_genmap_fd, &aid, &gen) < 0)
+		return -1;
+
+	/* Also clear our own copy of the data, in case it gets printed. */
+	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, dtp);
+
+	return 0;
 }
 
+#ifdef FIXME
 typedef struct dt_trunc {
 	dtrace_aggid_t	dttd_id;
 	uint64_t	dttd_remaining;
@@ -2325,6 +2337,11 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 					return DTRACE_WORKSTATUS_ERROR;
 
 				i++;
+				continue;
+			case DT_ACT_CLEAR:
+				if (dt_clear(dtp, data, rec) != 0)
+					return DTRACE_WORKSTATUS_ERROR;
+
 				continue;
 			case DT_ACT_FTRUNCATE:
 				if (fp == NULL)

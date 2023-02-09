@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -357,9 +357,8 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
 #define	DTRACE_AGGWALK_ERROR		-1	/* error while processing */
 #define	DTRACE_AGGWALK_NEXT		0	/* proceed to next element */
 #define	DTRACE_AGGWALK_ABORT		1	/* abort aggregation walk */
-#define	DTRACE_AGGWALK_CLEAR		2	/* clear this element */
-#define	DTRACE_AGGWALK_NORMALIZE	3	/* normalize this element */
-#define	DTRACE_AGGWALK_REMOVE		4	/* remove this element */
+#define	DTRACE_AGGWALK_NORMALIZE	2	/* normalize this element */
+#define	DTRACE_AGGWALK_REMOVE		3	/* remove this element */
 
 struct dtrace_aggdata {
 	dtrace_hdl_t *dtada_hdl;		/* handle to DTrace library */

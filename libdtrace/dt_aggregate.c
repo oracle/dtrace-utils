@@ -446,7 +446,16 @@ dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 	dtrace_recdesc_t	*rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 	int64_t			*vals = (int64_t *)
 					&agd->dtada_data[rec->dtrd_offset];
+	uint64_t		agen;
 	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+
+	/*
+	 * We can pass the entire key because we know that the first uint32_t
+	 * in the key is the aggregation ID we need.
+	 */
+	if (dt_bpf_map_lookup(dtp->dt_genmap_fd, agd->dtada_key, &agen) < 0)
+		agen = 0;
+	*(uint64_t *)agd->dtada_data = agen;
 
 	switch (rec->dtrd_action) {
 	case DT_AGG_MIN:
@@ -483,12 +492,14 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 	dtrace_recdesc_t	*rec;
 	char			*ptr;
 	uint64_t		hval = aggid;
+	uint64_t		dgen;
 	size_t			ndx = hval % agh->dtah_size;
 	size_t			off, size;
 	int			i, rval;
 
-	/* Skip this aggregation if the data counter is 0. */
-	if (*(int64_t *)data == 0)
+	/* Data generation: skip if 0 */
+	dgen = *(uint64_t *)data;
+	if (dgen == 0)
 		return 0;
 
 	/* Retrieve the aggregation description. */
@@ -499,6 +510,7 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
 		dt_ident_t	*aid;
+		uint64_t	hgen;
 
 		/* Hash value needs to match. */
 		if (h->dtahe_hval != hval)
@@ -518,6 +530,21 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 			if (memcmp(&key[off], &ptr[off], rec->dtrd_size) != 0)
 				goto hashnext;
 		}
+
+		/*
+		 * Clear hash data (and update its gen) if the data gen is
+		 * newer than the hash gen.
+		 */
+		hgen = *(int64_t *)agd->dtada_data;
+		if (dgen > hgen) {
+			dt_aggregate_clear_one(agd, dtp);
+			hgen = *(int64_t *)agd->dtada_data;
+		}
+
+		/* Skip if data gen is older than hash gen.  */
+		hgen = *(int64_t *)agd->dtada_data;
+		if (dgen < hgen)
+			return 0;
 
 		aid = dt_idhash_lookup(dtp->dt_aggs, agg->dtagd_name);
 		assert(aid != NULL);
@@ -643,7 +670,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		int	fd = dt_bpf_map_lookup_fd(dtp->dt_aggmap_fd, &cpu);
 
 		if (fd < 0)
-			return -1;
+			return DTRACE_WORKSTATUS_ERROR;
 
 		rval = dt_aggregate_snap_cpu(dtp, cpu, fd);
 		close(fd);
@@ -651,7 +678,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 			return rval;
 	}
 
-	return 0;
+	return DTRACE_WORKSTATUS_OKAY;
 }
 
 static int
@@ -1060,37 +1087,10 @@ static int
 dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 {
 	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	dtrace_aggdata_t *data;
-	dtrace_aggdesc_t *aggdesc;
-	dtrace_recdesc_t *rec;
-	int i;
 
 	switch (rval) {
 	case DTRACE_AGGWALK_NEXT:
 		break;
-
-	case DTRACE_AGGWALK_CLEAR: {
-		uint32_t size, offs = 0;
-
-		aggdesc = h->dtahe_data.dtada_desc;
-		rec = &aggdesc->dtagd_drecs[DT_AGGDATA_RECORD];
-		size = rec->dtrd_size;
-		data = &h->dtahe_data;
-
-		if (rec->dtrd_action == DT_AGG_LQUANTIZE) {
-			offs = sizeof(uint64_t);
-			size -= sizeof(uint64_t);
-		}
-
-		memset(&data->dtada_data[rec->dtrd_offset] + offs, 0, size);
-
-		if (data->dtada_percpu == NULL)
-			break;
-
-		for (i = 0; i <= dtp->dt_conf.max_cpuid; i++)
-			memset(data->dtada_percpu[i] + offs, 0, size);
-		break;
-	}
 
 	case DTRACE_AGGWALK_ERROR:
 		/*
@@ -1219,8 +1219,6 @@ dt_aggregate_walk_sorted(dtrace_hdl_t *dtp, dtrace_aggregate_f *func,
 	dt_ahashent_t *h, **sorted;
 	dt_ahash_t *hash = &agp->dtat_hash;
 	size_t i, nentries = 0;
-
-	dtrace_aggregate_snap(dtp);
 
 	/*
 	 * Count how many aggregations have data in the buffers.  If there are
@@ -1423,11 +1421,6 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 
 		map[aggvar] = i + 1;
 	}
-
-	/*
-	 * Retrieve the aggregation data.
-	 */
-	dtrace_aggregate_snap(dtp);
 
 	/*
 	 * We need to take two passes over the data to size our allocation, so

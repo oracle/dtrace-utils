@@ -1350,14 +1350,7 @@ dt_cg_act_clear(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		dnerror(dnp, D_CLEAR_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);
 
-	/*
-	 * FIXME: Needs implementation
-	 * TODO: Emit code to clear the given aggregation.
-	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
-	 * AGGID = aid->di_id
-	 */
 	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_CLEAR);
-	dnerror(dnp, D_UNKNOWN, "clear() is not implemented (yet)\n");
 }
 
 /*
