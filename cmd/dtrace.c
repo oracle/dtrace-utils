@@ -1093,7 +1093,6 @@ main(int argc, char *argv[])
 	 */
 	dtrace_setopt(g_dtp, "bufsize", "4m");
 	dtrace_setopt(g_dtp, "aggsize", "4m");
-	dtrace_setopt(g_dtp, "switchrate", "1s");
 
 	/*
 	 * The very first thing we do after buffer-size sanitization is run

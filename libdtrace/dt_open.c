@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -795,6 +795,11 @@ dt_vopen(int version, int flags, int *errp,
 	if (fscanf(fd, "%lu", &dtp->dt_options[DTRACEOPT_MAXFRAMES]) != 1)
 		return set_open_errno(dtp, errp, EDT_READMAXSTACK);
 	fclose(fd);
+
+	/*
+	 * Set the default data rates.
+	 */
+	dtp->dt_options[DTRACEOPT_SWITCHRATE] = 0;
 
 	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
 

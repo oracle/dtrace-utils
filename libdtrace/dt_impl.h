@@ -391,6 +391,7 @@ struct dtrace_hdl {
 	void *dt_setoptarg;	/* setopt handler argument */
 	dtrace_status_t dt_status[2]; /* status cache */
 	int dt_statusgen;	/* current status generation */
+	hrtime_t dt_lastswitch;	/* last switch of buffer data */
 	dt_list_t dt_spec_bufs_draining; /* List of spec bufs being drained */
 	dt_htab_t *dt_spec_bufs;/* spec ID -> list of dt_spec_bufs_head_t */
 	char *dt_sprintf_buf;	/* buffer for dtrace_sprintf() */

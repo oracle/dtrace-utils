@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2986,19 +2986,27 @@ dtrace_workstatus_t
 dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	       dtrace_consume_rec_f *rf, void *arg)
 {
-	dtrace_optval_t		timeout = dtp->dt_options[DTRACEOPT_SWITCHRATE];
+	dtrace_optval_t		interval = dtp->dt_options[DTRACEOPT_SWITCHRATE];
+	hrtime_t		now = gethrtime();
 	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
 	int			drained = 0;
 	int			i, cnt;
 	dtrace_workstatus_t	rval;
 
-	/*
-	 * Don't try to consume trace data when tracing hasn't even been
-	 * started yet.  This usually means that the consumer didn't call
-	 * dtrace_go() yet.
-	 */
+	/* Has tracing started yet? */
 	if (!dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
+
+	if (interval > 0) {
+		if (dtp->dt_lastswitch != 0) {
+			if (now - dtp->dt_lastswitch < interval)
+				return DTRACE_WORKSTATUS_OKAY;
+
+			dtp->dt_lastswitch += interval;
+		} else
+			dtp->dt_lastswitch = now;
+	} else
+		interval = NANOSEC;			/* 1s */
 
 	/*
 	 * Ensure that we have callback functions to use (if none we provided,
@@ -3011,13 +3019,13 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		rf = (dtrace_consume_rec_f *)dt_nullrec;
 
 	/*
-	 * The epoll_wait() function expects the timeout to be expressed in
+	 * The epoll_wait() function expects the interval to be expressed in
 	 * milliseconds whereas the switch rate is expressed in nanoseconds.
 	 * We therefore need to convert the value.
 	 */
-	timeout /= NANOSEC / MILLISEC;
+	interval /= NANOSEC / MILLISEC;
 	cnt = epoll_wait(dtp->dt_poll_fd, events, dtp->dt_conf.num_online_cpus,
-			 timeout);
+			 interval);
 	if (cnt < 0) {
 		dt_set_errno(dtp, errno);
 		return DTRACE_WORKSTATUS_ERROR;
@@ -3037,6 +3045,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		}
 	}
 
+
 	/*
 	 * If dtp->dt_beganon is not -1, we did not process the BEGIN probe
 	 * data (if any) yet.  We do know (since dtp->dt_active is TRUE) that
@@ -3047,6 +3056,9 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		rval = dt_consume_begin(dtp, fp, events, cnt, pf, rf, arg);
 		if (rval != 0)
 			return rval;
+
+		/* Force data retrieval since BEGIN was processed. */
+		dtp->dt_lastswitch = 0;
 	}
 
 	/*
