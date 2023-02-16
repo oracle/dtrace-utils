@@ -68,6 +68,7 @@ static const dt_provimpl_t *dt_providers[] = {
 	&dt_cpc,
 	&dt_fbt,
 	&dt_profile,
+	&dt_rawtp,
 	&dt_sdt,
 	&dt_syscall,
 	&dt_uprobe,

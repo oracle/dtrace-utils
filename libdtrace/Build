@@ -50,6 +50,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_prov_dtrace.c \
 			  dt_prov_fbt.c \
 			  dt_prov_profile.c \
+			  dt_prov_rawtp.c \
 			  dt_prov_sdt.c \
 			  dt_prov_syscall.c \
 			  dt_prov_uprobe.c \
@@ -91,6 +92,7 @@ dt_prov_cpc.c_CFLAGS := -Wno-pedantic
 dt_prov_dtrace.c_CFLAGS := -Wno-pedantic
 dt_prov_fbt.c_CFLAGS := -Wno-pedantic
 dt_prov_profile.c_CFLAGS := -Wno-pedantic
+dt_prov_rawtp.c_CFLAGS := -Wno-pedantic
 dt_prov_sdt.c_CFLAGS := -Wno-pedantic
 dt_prov_syscall.c_CFLAGS := -Wno-pedantic
 dt_prov_uprobe.c_CFLAGS := -Wno-pedantic
