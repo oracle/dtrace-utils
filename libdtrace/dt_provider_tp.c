@@ -319,6 +319,29 @@ dt_tp_probe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 }
 
 /*
+ * Convenience function for raw tracepoint-based probe attach.
+ */
+int
+dt_tp_probe_attach_raw(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	tpp->event_id = INT_MAX;
+
+	if (tpp->event_fd == -1) {
+		int	fd;
+
+		fd = dt_bpf_raw_tracepoint_open(prp->desc->prb, bpf_fd);
+		if (fd < 0)
+			return -errno;
+
+		tpp->event_fd = fd;
+	}
+
+	return 0;
+}
+
+/*
  * Convenience function for basic tracepoint-based probe detach.
  */
 void

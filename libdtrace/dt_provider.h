@@ -119,6 +119,8 @@ extern struct dt_probe *dt_tp_probe_insert(dtrace_hdl_t *dtp,
 					   const char *fun, const char *prb);
 extern int dt_tp_probe_attach(dtrace_hdl_t *dtp, const struct dt_probe *prp,
 			      int bpf_fd);
+extern int dt_tp_probe_attach_raw(dtrace_hdl_t *dtp, const struct dt_probe *prp,
+				  int bpf_fd);
 extern void dt_tp_probe_detach(dtrace_hdl_t *dtp, const struct dt_probe *prp);
 extern void dt_tp_probe_destroy(dtrace_hdl_t *dtp, void *datap);
 
