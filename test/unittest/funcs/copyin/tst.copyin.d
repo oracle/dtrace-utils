@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,18 +11,14 @@
  * SECTION: Actions and Subroutines/copyin()
  *	    User Process Tracing/copyin() and copyinstr() Subroutines
  */
+/* @@trigger: delaydie */
 
 #pragma D option quiet
-#pragma D option destructive
-
-BEGIN
-{
-	system("echo dtrace-copyin-test");
-}
 
 syscall::write:entry
-/(s = (string)copyin(arg1, 32))[6] == '-'/
+/pid == $target/
 {
+	printf("%s char match\n", (s = (string)copyin(arg1, 32))[4] == 'y' ? "good" : "BAD");
 	printf("'%s'", s);
 	exit(0);
 }
