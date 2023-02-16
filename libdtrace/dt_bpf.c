@@ -300,6 +300,21 @@ dt_bpf_map_update_inner(int fd, const void *okey, const void *ikey,
 	return rc;
 }
 
+/*
+ * Associate a BPF program (by fd) with a raw tracepoint.
+ */
+int
+dt_bpf_raw_tracepoint_open(const void *tp, int fd)
+{
+	union bpf_attr	attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.raw_tracepoint.name = (uint64_t)(unsigned long)tp;
+	attr.raw_tracepoint.prog_fd = fd;
+
+	return bpf(BPF_RAW_TRACEPOINT_OPEN, &attr);
+}
+
 static int
 have_helper(uint32_t func_id)
 {
