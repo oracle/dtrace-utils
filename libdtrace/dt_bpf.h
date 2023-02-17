@@ -11,6 +11,7 @@
 #include <sys/dtrace_types.h>
 #include <linux/bpf.h>
 #include <linux/perf_event.h>
+#include <dtrace/difo.h>
 
 struct dtrace_hdl;
 
@@ -56,6 +57,9 @@ extern int dt_bpf_map_lookup_inner(int fd, const void *okey, const void *ikey,
 				   void *val);
 extern int dt_bpf_map_update_inner(int fd, const void *okey, const void *ikey,
 				   const void *val);
+extern int dt_bpf_prog_load(enum bpf_prog_type prog_type,
+			    const dtrace_difo_t *dp, uint32_t log_level,
+			    char *log_buf, size_t log_buf_sz);
 extern int dt_bpf_raw_tracepoint_open(const void *tp, int fd);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);
 extern void dt_bpf_init_helpers(struct dtrace_hdl *dtp);

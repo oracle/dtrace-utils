@@ -69,7 +69,7 @@ dt_bpf_lockmem_error(dtrace_hdl_t *dtp, const char *msg)
 /*
  * Load a BPF program into the kernel.
  */
-static int
+int
 dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
 		     uint32_t log_level, char *log_buf, size_t log_buf_sz)
 {
