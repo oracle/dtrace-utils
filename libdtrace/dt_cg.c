@@ -2018,12 +2018,42 @@ dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_node(addr, dlp, drp);
 	dt_cg_node(nsiz, dlp, drp);
 
-	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_TRACEMEM, nsiz->dn_value, 1, NULL,
-	    dsiz ? DTRACE_TRACEMEM_DYNAMIC : DTRACE_TRACEMEM_STATIC);
+	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_TRACEMEM,
+			 nsiz->dn_value, 1, NULL,
+			 dsiz ? DTRACE_TRACEMEM_DYNAMIC
+			      : DTRACE_TRACEMEM_STATIC);
 
-	if (dsiz != NULL)
+	if (dsiz != NULL) {
+		uint_t	Lokay = dt_irlist_label(dlp);
+
+		/* The dt_cg_store_val() call evaluates dsiz. */
 		dt_cg_store_val(pcb, dsiz, DTRACEACT_TRACEMEM, NULL,
-		    dsiz->dn_flags & DT_NF_SIGNED ? DTRACE_TRACEMEM_SSIZE : DTRACE_TRACEMEM_SIZE);
+				dsiz->dn_flags & DT_NF_SIGNED
+					? DTRACE_TRACEMEM_SSIZE
+					: DTRACE_TRACEMEM_SIZE);
+
+		/*
+		 * This is quite naughty.  We know dt_cg_store_val() just
+		 * free'd dsiz->dn_reg and no register allocation took place
+		 * after that, so we know we can re-alloc that register.
+		 */
+		dt_regset_xalloc(drp, dsiz->dn_reg);
+
+		/*
+		 * Decide whether to reduce the size of the data that is
+		 * actually being recorded.  We do this only if the dynamic
+		 * size is non-negative and less than the nsiz.  Note that the
+		 * dsiz->dn_reg value has been sign-extended to 64 bits and we
+		 * will never have an nsiz that is 1<<63 or greater.  So, just
+		 * treat dsiz->dn_reg as an unsigned value.
+		 */
+		emit(dlp,  BPF_BRANCH_REG(BPF_JLE, nsiz->dn_reg, dsiz->dn_reg, Lokay));
+		emit(dlp,  BPF_MOV_REG(nsiz->dn_reg, dsiz->dn_reg));
+		emitl(dlp, Lokay,
+			   BPF_NOP());
+
+		dt_regset_free(drp, dsiz->dn_reg);
+	}
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -2037,8 +2067,8 @@ dt_cg_act_tracemem(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
-	dt_regset_free_args(drp);
 	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
 }
 
 static void
