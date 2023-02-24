@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -185,6 +185,9 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	case DTRACEFLT_BADSTACK:
 	case DTRACEFLT_BADSIZE:
 		sprintf(details, " (0x%llx)", (unsigned long long)err.dteda_addr);
+		break;
+	case DTRACEFLT_BADINDEX:
+		sprintf(details, " (%ld)", (int64_t)err.dteda_addr);
 		break;
 
 	default:

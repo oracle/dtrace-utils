@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -33,6 +33,7 @@
 #define DTRACEFLT_TUPOFLOW		8	/* Tuple stack overflow */
 #define DTRACEFLT_BADSTACK		9	/* Bad stack */
 #define DTRACEFLT_BADSIZE		10	/* Bad size */
+#define DTRACEFLT_BADINDEX		11	/* Index out of bounds */
 
 #define DTRACEFLT_LIBRARY		1000	/* Library-level fault */
 
