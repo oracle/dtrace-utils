@@ -174,6 +174,7 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	case DTRACE_STATUS_EXITED:
 	case DTRACE_STATUS_STOPPED:
 		dtp->dt_lastswitch = 0;
+		dtp->dt_lastagg = 0;
 		rval = DTRACE_WORKSTATUS_DONE;
 		break;
 	case DTRACE_STATUS_NONE:

@@ -800,6 +800,7 @@ dt_vopen(int version, int flags, int *errp,
 	 * Set the default data rates.
 	 */
 	dtp->dt_options[DTRACEOPT_SWITCHRATE] = 0;
+	dtp->dt_options[DTRACEOPT_AGGRATE] = 0;
 
 	dtp->dt_cpp_argv[0] = (char *)strbasename(dtp->dt_cpp_path);
 

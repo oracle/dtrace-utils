@@ -469,7 +469,7 @@ dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 		break;
 	}
 
-	return 0;
+	return DTRACE_AGGWALK_NEXT;
 }
 
 static int
@@ -608,15 +608,33 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, int fd)
 int
 dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 {
+	dtrace_optval_t	interval = dtp->dt_options[DTRACEOPT_AGGRATE];
 	dt_aggregate_t	*agp = &dtp->dt_aggregate;
 	int		i, rval;
+
+	/* Has tracing started yet? */
+	if (!dtp->dt_active)
+		return dt_set_errno(dtp, EINVAL);
 
 	/*
 	 * If we do not have a buffer initialized, we will not be processing
 	 * aggregations, so there is nothing to be done here.
 	 */
 	if (agp->dtat_buf == NULL)
-		return 0;
+		return DTRACE_WORKSTATUS_OKAY;
+
+	/* Do not retrieve at a rate faster than 'aggrate'. */
+	if (interval > 0) {
+		hrtime_t	now = gethrtime();
+
+		if (dtp->dt_lastagg != 0) {
+			if (now - dtp->dt_lastagg < interval)
+				return DTRACE_WORKSTATUS_OKAY;
+
+			dtp->dt_lastagg += interval;
+		} else
+			dtp->dt_lastagg = now;
+	}
 
 	dtrace_aggregate_clear(dtp);
 
@@ -1726,12 +1744,7 @@ dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
 void
 dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 {
-	dt_aggregate_t		*agp = &dtp->dt_aggregate;
-	dt_ahash_t		*hash = &agp->dtat_hash;
-	dt_ahashent_t		*h;
-
-	for (h = hash->dtah_all; h != NULL; h = h->dtahe_nextall)
-		dt_aggregate_clear_one(&h->dtahe_data, dtp);
+	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, dtp);
 }
 
 void

@@ -2987,7 +2987,6 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	       dtrace_consume_rec_f *rf, void *arg)
 {
 	dtrace_optval_t		interval = dtp->dt_options[DTRACEOPT_SWITCHRATE];
-	hrtime_t		now = gethrtime();
 	struct epoll_event	events[dtp->dt_conf.num_online_cpus];
 	int			drained = 0;
 	int			i, cnt;
@@ -2998,6 +2997,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		return dt_set_errno(dtp, EINVAL);
 
 	if (interval > 0) {
+		hrtime_t	now = gethrtime();
+
 		if (dtp->dt_lastswitch != 0) {
 			if (now - dtp->dt_lastswitch < interval)
 				return DTRACE_WORKSTATUS_OKAY;
@@ -3045,6 +3046,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		}
 	}
 
+	if (dtrace_aggregate_snap(dtp) == DTRACE_WORKSTATUS_ERROR)
+		return DTRACE_WORKSTATUS_ERROR;
 
 	/*
 	 * If dtp->dt_beganon is not -1, we did not process the BEGIN probe
@@ -3058,6 +3061,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 			return rval;
 
 		/* Force data retrieval since BEGIN was processed. */
+		dtp->dt_lastagg = 0;
 		dtp->dt_lastswitch = 0;
 	}
 
