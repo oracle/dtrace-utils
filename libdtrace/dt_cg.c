@@ -4895,7 +4895,6 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp, BPF_MOV_REG(BPF_REG_1, str->dn_reg));
 	dt_regset_free(drp, str->dn_reg);
-	dt_cg_tstring_free(yypcb, str);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, chr->dn_reg));
 	dt_regset_free(drp, chr->dn_reg);
 
@@ -4923,6 +4922,7 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 	dt_cg_tstring_xfree(yypcb, off);
+	dt_cg_tstring_free(yypcb, str);
 
 	emit (dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lfound));
 	emit (dlp, BPF_MOV_IMM(dnp->dn_reg, 0));
@@ -4951,7 +4951,6 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp, BPF_MOV_REG(BPF_REG_1, str->dn_reg));
 	dt_regset_free(drp, str->dn_reg);
-	dt_cg_tstring_free(yypcb, str);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, chr->dn_reg));
 	dt_regset_free(drp, chr->dn_reg);
 
@@ -4973,6 +4972,7 @@ dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp,  BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
+	dt_cg_tstring_free(yypcb, str);
 
 	emit (dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lfound));
 	emit (dlp, BPF_MOV_IMM(dnp->dn_reg, 0));
