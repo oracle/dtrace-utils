@@ -13,6 +13,8 @@
 /* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
+#pragma D option nspec=16
+#pragma D option switchrate=3ms
 
 BEGIN
 {
@@ -37,7 +39,7 @@ syscall::ioctl:entry
 / pid == $target && (n & 3) == 1 /
 {
 	speculate(i);
-	printf("%4d %4d", n, i);
+	printf("%4d", n);
 }
 
 syscall::ioctl:entry
