@@ -59,25 +59,25 @@ inline int R_R14 = 1;
 inline int R_R15 = 0;
 #pragma D binding "1.0" R_R15
 
-inline int R_EBX = R_GS + 1 + 0;
+inline int R_EBX = R_RBX;
 #pragma D binding "1.0" R_EBX
-inline int R_ECX = R_GS + 1 + 1;
+inline int R_ECX = R_RCX;
 #pragma D binding "1.0" R_ECX
-inline int R_EDX = R_GS + 1 + 2;
+inline int R_EDX = R_RDX;
 #pragma D binding "1.0" R_EDX
-inline int R_ESI = R_GS + 1 + 3;
+inline int R_ESI = R_RSI;
 #pragma D binding "1.0" R_ESI
-inline int R_EDI = R_GS + 1 + 4;
+inline int R_EDI = R_RDI;
 #pragma D binding "1.0" R_EDI
-inline int R_EBP = R_GS + 1 + 5;
+inline int R_EBP = R_RBP;
 #pragma D binding "1.0" R_EBP
-inline int R_EAX = R_GS + 1 + 6;
+inline int R_EAX = R_RAX;
 #pragma D binding "1.0" R_EAX
-inline int R_EIP = R_GS + 1 + 12;
+inline int R_EIP = R_RIP;
 #pragma D binding "1.0" R_EIP
-inline int R_EFL = R_GS + 1 + 14;
+inline int R_EFL = R_RFL;
 #pragma D binding "1.0" R_EFL
-inline int R_ESP = R_GS + 1 + 15;
+inline int R_ESP = R_RSP;
 #pragma D binding "1.0" R_ESP
 
 inline int R_PC = R_EIP;

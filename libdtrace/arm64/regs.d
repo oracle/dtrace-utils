@@ -67,11 +67,11 @@ inline int R_X29 = 29 ;
 inline int R_X30 = 30 ;
 #pragma D binding "1.0" R_X30
 
-inline int R_SP = 32 ;
+inline int R_SP = 31 ;
 #pragma D binding "1.0" R_SP
-inline int R_PC = 33 ;
+inline int R_PC = 32 ;
 #pragma D binding "1.0" R_PC
-inline int R_PSTATE = 34 ;
+inline int R_PSTATE = 33 ;
 #pragma D binding "1.0" R_PSTATE
 
 inline int R_FP = R_X29;

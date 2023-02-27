@@ -3948,6 +3948,93 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	TRACE_REGSET("    assoc_op: End  ");
 }
 
+static void
+dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+
+	/* ensure we can use  the BPF task_pt_regs() helper */
+	if (dtp->dt_bpfhelper[BPF_FUNC_get_current_task_btf] == BPF_FUNC_unspec
+	  || dtp->dt_bpfhelper[BPF_FUNC_task_pt_regs] == BPF_FUNC_unspec)
+		dnerror(dnp, D_UNKNOWN, "uregs[] is not supported on this kernel\n");
+
+	/* check if out-of-bounds */
+	if (idx >= sizeof(dt_pt_regs) / sizeof(uint64_t)) {
+
+#if defined(__amd64)
+		/*
+		 * Even if out-of-bounds, on x86 there are still a few
+		 * indices that are used to access task->thread. members.
+		 */
+		if (idx <= 25) {
+			ctf_file_t *cfp = dtp->dt_shared_ctf;
+			ctf_id_t type;
+			ctf_membinfo_t ctm;
+			int offset, rc;
+
+			/* look up task->thread offset */
+			if (!cfp)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+
+			type = ctf_lookup_by_name(cfp, "struct task_struct");
+			if (type == CTF_ERR)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+			if (ctf_member_info(cfp, type, "thread", &ctm) == CTF_ERR)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+			offset = ctm.ctm_offset / NBBY;
+
+			/* add the thread->member offset */
+			type = ctf_lookup_by_name(cfp, "struct thread_struct");
+			if (type == CTF_ERR)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+			switch (idx) {
+			case 21: rc = ctf_member_info(cfp, type, "ds", &ctm); break;
+			case 22: rc = ctf_member_info(cfp, type, "es", &ctm); break;
+			case 23: rc = ctf_member_info(cfp, type, "fsbase", &ctm); break;
+			case 24: rc = ctf_member_info(cfp, type, "gsbase", &ctm); break;
+			case 25: rc = ctf_member_info(cfp, type, "trap_nr", &ctm); break;
+			}
+			if (rc == -1)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+			offset += ctm.ctm_offset / NBBY;
+
+			/* copy task->thread.member onto the stack */
+			if (dt_regset_xalloc_args(drp) == -1)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+			dt_regset_xalloc(drp, BPF_REG_0);
+			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task));
+			emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, offset));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+			emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+			dt_regset_free_args(drp);
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_SP));
+			emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_0, 0));
+			dt_regset_free(drp, BPF_REG_0);
+
+			return;
+		}
+#endif
+
+		dnerror(dnp, D_UNKNOWN, "uregs[]: index out of bounds (%d)\n", idx);
+
+		return;
+	}
+
+	/* if in-bounds, look up pt_regs[] */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task_btf));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_0));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_task_pt_regs));
+	dt_regset_free_args(drp);
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, idx * sizeof(uint64_t)));
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_0, 0));
+	dt_regset_free(drp, BPF_REG_0);
+}
+
 /*
  * Currently, this code is only used for the args[] and uregs[] arrays.
  */
@@ -4005,9 +4092,18 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dnp->dn_args->dn_value = saved;
 	dnp->dn_reg = dnp->dn_args->dn_reg;
 
+	if (idp->di_id == DIF_VAR_UREGS) {
+		/*
+		 * We can use dnp->dn_args->dn_value, even though it was
+		 * just overwritten by "saved", because we know the index
+		 * is is a constant integer DT_NODE_INT.
+		 */
+		dt_cg_uregs(dnp->dn_args->dn_value, dnp, dlp, drp);
+		return;
+	}
+
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
 	emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));

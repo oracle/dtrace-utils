@@ -1,6 +1,5 @@
 NAME             OFFSET KND SCP FLAG TYPE
 args                    arr glb r    any (unknown) by ref (size 0)
-uregs                   arr glb r    D type (integer) (size 8)
 curthread               scl glb r    D type (pointer) (size 8)
 timestamp               scl glb r    D type (integer) (size 8)
 vtimestamp              scl glb r    D type (integer) (size 8)

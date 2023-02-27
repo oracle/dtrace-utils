@@ -29,7 +29,6 @@
 85 0 1 0000 ffffffff    call dt_get_bvar              ! timestamp
 85 0 1 0000 ffffffff    call dt_get_bvar              ! ucaller
 85 0 1 0000 ffffffff    call dt_get_bvar              ! uid
-85 0 1 0000 ffffffff    call dt_get_bvar              ! uregs
 85 0 1 0000 ffffffff    call dt_get_bvar              ! ustackdepth
 85 0 1 0000 ffffffff    call dt_get_bvar              ! vtimestamp
 85 0 1 0000 ffffffff    call dt_get_bvar              ! walltimestamp

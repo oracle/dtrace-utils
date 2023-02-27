@@ -1,7 +1,5 @@
 #!/bin/bash
 
-[ `uname -m` != "x86_64" ] && exit 2
-
 read MAJOR MINOR <<< `uname -r | grep -Eo '^[0-9]+\.[0-9]+' | tr '.' ' '`
 
 if [ $MAJOR -gt 5 ]; then

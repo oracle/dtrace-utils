@@ -42,7 +42,6 @@ sdt:task::task_rename
 	trace(timestamp);
 	trace(ucaller);
 	trace(uid);
-	trace(uregs[0]);
 	trace(ustackdepth);
 	trace(vtimestamp);
 	trace(walltimestamp);

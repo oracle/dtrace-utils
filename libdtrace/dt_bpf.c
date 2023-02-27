@@ -360,6 +360,8 @@ dt_bpf_init_helpers(dtrace_hdl_t *dtp)
 	BPF_HELPER_MAP(probe_read_user_str, probe_read_str);
 	BPF_HELPER_MAP(probe_read_kernel, probe_read);
 	BPF_HELPER_MAP(probe_read_kernel_str, probe_read_str);
+	BPF_HELPER_MAP(get_current_task_btf, unspec);
+	BPF_HELPER_MAP(task_pt_regs, unspec);
 #undef BPF_HELPER_MAP
 }
 
