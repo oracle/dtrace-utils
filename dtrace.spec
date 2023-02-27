@@ -85,7 +85,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.11.1%{?dist}
+Release:      1.12%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -245,6 +245,27 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Feb 27 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.12
+- Fix evaluation order of bcopy() arguments and lift non-alloca restriction
+  on the source address. (Eugene Loh, Kris Van Hees)
+- Implement actions: clear(), tracemem(). (Kris Van Hees, Eugene Loh)
+- Implement subroutines: copyout(), copyinstr(). (Kris Van Hees, Eugene Loh)
+- Implement options: switchrate, aggrate.
+- Implement provider: cpc. (Eugene Loh)
+- Implement built-in variable: uregs. (Eugene Loh)
+- Increase strtab maximum size.
+- Support using indirect load instructions for pointers to alloca()'d and
+  DTrace managed memory. (Kris Van Hees, Eugene Loh)
+- Fix arg0 and arg1 for profile-* and tick-* probes. (Eugene Loh)
+- Implement runtime bounds checking for scalar array access. (Eugene Loh)
+- Updated manpage and moved to dtrace.8.
+- Support arbitrary address pointers for basename(), dirname(), strchr(),
+  strrchr(), and inet_ntoa(). (Eugene Loh), [Orabug: 34857846]
+- Add runtime bounds checking for scalar array access. (Eugene Loh)
+  [Orabug: 35045463]
+- Various testsuite fixes and improvements. [Orabug: 34829509]
+- Various code improvements. [Orabug: 34829509]
+
 * Tue Nov 08 2022 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.11.1
 - Support both libfuse 2 and libfuse 3.
 

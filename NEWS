@@ -1,3 +1,85 @@
+2.0.0-1.12 (Feb 27th, 2023)
+---------------------------
+
+Twelfth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The bcopy() subroutine no longer enforces that its first argument (source
+   address) cannot be an alloca()'d memory region.  While this restriction is
+   documented, it was never enforced in DTrace.  There is no practicl reason
+   for ahving this restriction.
+
+ - The clear() and tracemem() actions have been implemented.
+
+ - The 'switchrate' and 'aggrate' options has been implemented.
+
+ - The cpc provider has been implemented.
+
+ - The copyout() and copyoutstr() subroutines have been implemented.
+
+ - The uregs[] built-in variable has been implemented.
+
+Bugfixes:
+
+ - The maximum strtab size has been increased to SSIZE_MAX.
+
+ - Probe argument information will only be retrieved once per probe.
+
+ - Handling string values in alloca()'d memory has been fixed.
+
+ - The basename(), dirname(), strchr(), strrchr(), inet_ntoa() subroutines
+   have been updated to fully support using arbitrary address pointers.
+
+ - The return value of copyin() will now be a valid offset into scratchmem
+   (native representation of a pointer to alloca()'d memory).
+
+ - The arg0 and arg1 probe arguments for profile-* and tick-* probes have been
+   corrected.  (The arg2 argument is still unimplemented.)
+
+ - The evaluation order of arguments to bcopy() has been corrected.
+
+ - Runtime bounds checking has been implemented for scalar array access.
+
+Internal changes:
+
+ - Selection of the correct arch-dependent asm include hierarchy for building
+   the precompiled BPF function library has been corrected.
+
+ - A few potentially unsafe calls to printf-style functions have been fixed.
+
+ - The mapage for dtrace has been moved to section 8 (System Management
+   Climit ommands).
+
+ - The error handling mechanism between libdtrace and consumer front-ends has
+   been amended to allow error reporting for non-probing related issues.
+
+ - The copyinstr() subroutine has been updated to make use of the temporary
+   string mechanism.
+
+ - The tracking of pointers to alloca()'d memory and pointer to DTrace managed
+   memory has been improved, and explicit tests for it have been added to the
+   testsuite.
+
+ - The code generator will use indirect load instructions for pointers to
+   alloca()'d and DTrace managed memory for efficiency and to enable the BPF
+   verifier to perform access checks.
+
+Testsuite changes:
+
+ - The copyin*() tests are now more robust with the use of a distinct trigger.
+
+ - Various tests have been moved from XFAIL to PASS status to reflect the
+   implementation of new features and in view of some bug fixes.
+
+ - Various tests were improved.
+
+ - Various new tests were added.
+
+Known problems:
+
 2.0.0-1.11.1 (Nov 9th, 2022)
 ----------------------------
 
