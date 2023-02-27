@@ -252,6 +252,7 @@ fi
 - Implement subroutines: copyout(), copyinstr(). (Kris Van Hees, Eugene Loh)
 - Implement options: switchrate, aggrate.
 - Implement provider: cpc. (Eugene Loh)
+- Implement provider: proc.
 - Implement built-in variable: uregs. (Eugene Loh)
 - Increase strtab maximum size.
 - Support using indirect load instructions for pointers to alloca()'d and

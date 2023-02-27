@@ -9,14 +9,14 @@ New features:
 
  - The bcopy() subroutine no longer enforces that its first argument (source
    address) cannot be an alloca()'d memory region.  While this restriction is
-   documented, it was never enforced in DTrace.  There is no practicl reason
-   for ahving this restriction.
+   documented, it was never enforced in DTrace.  There is no practical reason
+   for having this restriction.
 
  - The clear() and tracemem() actions have been implemented.
 
- - The 'switchrate' and 'aggrate' options has been implemented.
+ - The 'switchrate' and 'aggrate' options have been implemented.
 
- - The cpc provider has been implemented.
+ - The cpc and proc providers have been implemented.
 
  - The copyout() and copyoutstr() subroutines have been implemented.
 
@@ -50,8 +50,8 @@ Internal changes:
 
  - A few potentially unsafe calls to printf-style functions have been fixed.
 
- - The mapage for dtrace has been moved to section 8 (System Management
-   Climit ommands).
+ - The manpage for dtrace has been moved to section 8 (System Management
+   Commands).
 
  - The error handling mechanism between libdtrace and consumer front-ends has
    been amended to allow error reporting for non-probing related issues.
@@ -79,6 +79,8 @@ Testsuite changes:
  - Various new tests were added.
 
 Known problems:
+
+ - The uregs[] built-in variable is not supported on kernels prior to 5.15.
 
 2.0.0-1.11.1 (Nov 9th, 2022)
 ----------------------------
