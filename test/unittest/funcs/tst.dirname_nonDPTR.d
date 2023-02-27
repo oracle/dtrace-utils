@@ -1,24 +1,20 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 #pragma D option quiet
-#pragma D option destructive
+#pragma D option strsize=14
 
 BEGIN
 {
-	/* "/foo/bar///baz/" */
-	system("printf '\x2f\x66\x6f\x6f\x2f\x62\x61\x72\x2f\x2f\x2f\x62\x61\x7a\x2f' > /dev/null 2>&1");
-}
-
-syscall::write:entry
-/ppid == $pid/
-{
-	printf("|%s|\n", dirname((void *)arg1));
+	printf("|%s|\n", dirname(`linux_banner));
 	exit(0);
 }
 
-ERROR { exit(1); }
+ERROR
+{
+	exit(1);
+}

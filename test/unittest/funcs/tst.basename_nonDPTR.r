@@ -1,2 +1,2 @@
-|.|
+|Linux version |
 

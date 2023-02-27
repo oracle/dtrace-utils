@@ -1,2 +1,2 @@
-|abcdefabcdef|
+|Linux version |
 

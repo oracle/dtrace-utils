@@ -1,3 +1,3 @@
-|bcdef|
-|bcde|
+|inux version |
+|inux|
 
