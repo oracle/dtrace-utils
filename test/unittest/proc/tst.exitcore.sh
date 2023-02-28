@@ -20,9 +20,12 @@ ulimit -c unlimited
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
+	uintptr_t	*argv;
+
 	syscall::execve:entry
-	/copyinstr((uintptr_t)args[1][0]) == "sleep" && args[1][1] &&
-	 copyinstr((uintptr_t)args[1][1]) == "10000"/
+	/args[1] && (argv = copyin((uintptr_t)args[1], 2 * sizeof(char *))) &&
+	 copyinstr(argv[0]) == "sleep" && argv[1] &&
+	 copyinstr(argv[1]) == "10000"/
 	{
 		core_pid = pid;
 	}
