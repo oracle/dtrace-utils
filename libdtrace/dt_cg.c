@@ -414,7 +414,6 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called)
 void
 dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
 {
-	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_regset_t	*drp = pcb->pcb_regs;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	uint_t		Luser = dt_irlist_label(dlp);
@@ -429,7 +428,18 @@ dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
         emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_3));
 
 	/* check if the PC is kernel or user space */
-	if (dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel] == BPF_FUNC_probe_read_kernel) {
+#if 0
+	if (pcb->pcb_hdl->dt_bpfhelper[BPF_FUNC_probe_read_kernel]
+	    == BPF_FUNC_probe_read_kernel) {
+#else
+	/*
+	 * We do not seem to be guaranteed for some kernels that
+	 * probe_read_kernel(), even if it exists, will signal an error
+	 * when reading user space addresses.  So, do not use the
+	 * probe_read_kernel() mechanism for now.
+	 */
+	if (0) {
+#endif
 		/*
 		 * Use probe_read_kernel() if it is really is probe_read_kernel().
 		 * On older kernels, it does not exist and is aliased to something else.
@@ -452,7 +462,6 @@ dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
 	} else {
 		/*
 		 * If no real probe_read_kernel() exists, just test the highest bit.
-		 * This is not as robust, but probably works just fine for us.
 		 */
 
 		/* if the highest bit is 0, assume it was user space */
