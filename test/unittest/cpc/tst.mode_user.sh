@@ -9,6 +9,7 @@
 # user-space-intensive workload.
 
 # @@reinvoke-failure: 2
+# @@tags: unstable
 
 utils=`pwd`/test/utils
 

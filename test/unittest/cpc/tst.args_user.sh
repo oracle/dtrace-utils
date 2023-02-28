@@ -6,6 +6,7 @@
 # http://oss.oracle.com/licenses/upl.
 
 # @@reinvoke-failure: 1
+# @@tags: unstable
 
 utils=`pwd`/test/utils
 
