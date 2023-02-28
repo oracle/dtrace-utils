@@ -951,6 +951,7 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 
 		prp->mapping[i] = argv[i].mapping;
 		prp->argv[i] = dtt;
+		prp->xargv[i]->dn_flags |= argv[i].flags;
 	}
 
 	dt_free(dtp, argv);

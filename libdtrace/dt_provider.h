@@ -48,6 +48,7 @@ struct dt_probe;
  */
 typedef struct dt_argdesc {
 	int mapping;
+	int flags;				/* see DT_NF_* */
 	const char *native;
 	const char *xlate;
 } dt_argdesc_t;

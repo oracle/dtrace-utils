@@ -248,6 +248,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		}
 
 		argv[argc].mapping = argc;
+		argv[argc].flags = 0;
 		argv[argc].native = strp;
 		argv[argc].xlate = NULL;
 

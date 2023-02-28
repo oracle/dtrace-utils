@@ -82,32 +82,32 @@ typedef struct probe_arg {
  * that provides no arguments.
  */
 static probe_arg_t probe_args[] = {
-	{ "create", 0, { 0, "struct task_struct *", "psinfo_t *" } },
-	{ "exec", 0, { 0, "string", } },
-	{ "exec-failure", 0, { 0, "int", } },
+	{ "create", 0, { 0, 0, "struct task_struct *", "psinfo_t *" } },
+	{ "exec", 0, { 0, DT_NF_USERLAND, "string", } },
+	{ "exec-failure", 0, { 0, 0, "int", } },
 	{ "exec-success", },
-	{ "exit", 0, { 0, "int", } },
+	{ "exit", 0, { 0, 0, "int", } },
 #if 0
-	{ "fault", 0, { 0, "int", } },
-	{ "fault", 1, { 1, "siginfo_t *", } },
+	{ "fault", 0, { 0, 0, "int", } },
+	{ "fault", 1, { 1, 0, "siginfo_t *", } },
 #endif
-	{ "lwp-create", 0, { 0, "struct task_struct *", "lwpsinfo_t *" } },
-	{ "lwp-create", 1, { 0, "struct task_struct *", "psinfo_t *" } },
+	{ "lwp-create", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
+	{ "lwp-create", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "lwp-exit", },
 	{ "lwp-start", },
 #if 0
-	{ "signal-clear", 0, { 0, "int", } },
-	{ "signal-clear", 1, { 1, "siginfo_t *", } },
+	{ "signal-clear", 0, { 0, 0, "int", } },
+	{ "signal-clear", 1, { 1, 0, "siginfo_t *", } },
 #endif
-	{ "signal-discard", 0, { 0, "struct task_struct *", "lwpsinfo_t *" } },
-	{ "signal-discard", 1, { 0, "struct task_struct *", "psinfo_t *" } },
-	{ "signal-discard", 2, { 1, "int", } },
-	{ "signal-handle", 0, { 0, "int", } },
-	{ "signal-handle", 1, { 1, "siginfo_t *", } },
-	{ "signal-handle", 2, { 2, "void (*)(void)", } },
-	{ "signal-send", 0, { 0, "struct task_struct *", "lwpsinfo_t *" } },
-	{ "signal-send", 1, { 0, "struct task_struct *", "psinfo_t *" } },
-	{ "signal-send", 2, { 1, "int", } },
+	{ "signal-discard", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
+	{ "signal-discard", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
+	{ "signal-discard", 2, { 1, 0, "int", } },
+	{ "signal-handle", 0, { 0, 0, "int", } },
+	{ "signal-handle", 1, { 1, 0, "siginfo_t *", } },
+	{ "signal-handle", 2, { 2, 0, "void (*)(void)", } },
+	{ "signal-send", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
+	{ "signal-send", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
+	{ "signal-send", 2, { 1, 0, "int", } },
 	{ "start", },
 };
 
