@@ -4132,6 +4132,7 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_ident_t	*fidp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
 	size_t		size;
 	int		n;
+	int		ustr = 0;
 
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(idp->di_flags & (DT_IDFLG_TLS | DT_IDFLG_LOCAL)));
@@ -4155,6 +4156,12 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dnp->dn_reg = -1;
 			return;
 		}
+
+		/*
+		 * If the argument node is mark DT_NF_USERLAND, it is a string
+		 * in userspace.  Set a flag to indicate we need to copy it.
+		 */
+		ustr = prp->xargv[saved]->dn_flags & DT_NF_USERLAND;
 		dnp->dn_args->dn_value = prp->mapping[saved];
 	}
 
@@ -4200,6 +4207,28 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
+
+	if (dt_node_is_string(dnp) && ustr) {
+		dtrace_hdl_t    *dtp = yypcb->pcb_hdl;
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, dtp->dt_options[DTRACEOPT_STRSIZE]));
+		dt_cg_tstring_alloc(yypcb, dnp);
+		emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, dnp->dn_reg));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user_str]));
+		dt_regset_free(drp, BPF_REG_0);
+		dt_regset_free_args(drp);
+
+		return;
+	}
 
 	/*
 	 * If this is a reference to the args[] array, we need to take the
