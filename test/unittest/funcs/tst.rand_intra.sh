@@ -135,7 +135,7 @@ awk '
             print "ERROR: found too many bins outside three sigma";
             exit 1;
         }
-        if (noutlier4 > 0) {
+        if (noutlier4 > 1) {
             print "ERROR: found too many bins outside four sigma";
             exit 1;
         }

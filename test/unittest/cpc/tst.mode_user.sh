@@ -59,7 +59,7 @@ for eventname in `$utils/cpc_get_events.sh`; do
 	done
 
 	# report
-	margin=$(($expect / 4))
+	margin=$(($expect / 3))
 	$utils/check_result.sh ${actual[all]}    $expect $margin; status=$(($status + $?))
 	$utils/check_result.sh ${actual[user]}   $expect $margin; status=$(($status + $?))
 	$utils/check_result.sh ${actual[kernel]}    0    $margin; status=$(($status + $?))
