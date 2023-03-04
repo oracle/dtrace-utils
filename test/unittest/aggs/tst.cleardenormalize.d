@@ -1,18 +1,18 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /*
- * ASSERTION:
- *    Denormalized aggregations can be cleared
+ * ASSERTION: Denormalized aggregations can be cleared
  *
  * SECTION: Aggregations/Normalization;
- * 	Aggregations/Clearing aggregations
- *
+ *	Aggregations/Clearing aggregations
  */
+/* @@nosort */
+/* @@trigger: periodic_output */
 
 #pragma D option quiet
 #pragma D option aggrate=1ms
@@ -21,33 +21,44 @@
 BEGIN
 {
 	i = 0;
-	start = timestamp;
-}
-
-tick-100ms
-/i != 10 || i != 20/
-{
-	@func[i%5] = sum(i * 100);
-	i++;
-}
-
-tick-100ms
-/i == 10/
-{
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
 	printf("Denormalized data before clear:\n");
 	denormalize(@func);
 	printa(@func);
-
 	clear(@func);
-
-	printf("Aggregation data after clear:\n");
-	printa(@func);
-	i++
+	n = 0;
 }
 
-tick-100ms
-/i == 20/
+syscall::write:entry
+/pid == $target && n == 2/
 {
+	printf("Aggregation data after clear():\n");
+	printa(@func);
+	i++;
+}
+
+syscall::write:entry
+/pid == $target && n++ == 4/
+{
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+	@func[i % 5] = sum(i * 100); i++;
+
 	printf("Final (denormalized) aggregation data:\n");
 	denormalize(@func);
 	printa(@func);

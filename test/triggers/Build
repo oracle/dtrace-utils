@@ -1,9 +1,10 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie futex \
+    periodic_output \
     pid-tst-args1 pid-tst-float pid-tst-fork pid-tst-gcc \
     pid-tst-ret1 pid-tst-ret2 pid-tst-vfork pid-tst-weak1 pid-tst-weak2 \
     proc-tst-sigwait proc-tst-omp proc-tst-pthread-exec profile-tst-ufuncsort \

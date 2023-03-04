@@ -6,8 +6,7 @@
  */
 
 /*
- * ASSERTION:
- * 	Positive quantize()/lquantize()/clear() test
+ * ASSERTION: Positive quantize()/lquantize()/clear() test
  *
  * SECTION: Aggregations/Aggregations
  *
@@ -17,6 +16,7 @@
  */
 
 /* @@nosort */
+/* @@trigger: periodic_output */
 
 #pragma D option switchrate=20ms
 #pragma D option aggrate=1ms
@@ -24,30 +24,26 @@
 
 BEGIN
 {
-	z = 0;
+	i = 0;
+	n = 0;
 }
 
-tick-500ms
-/(z % 2) == 0/
+syscall::write:entry
+/pid == $target && (n % 2) == 0/
 {
-	x++; @a["linear"] = lquantize(x, 0, 100, 1); @b["exp"] = quantize(x);
-	x++; @a["linear"] = lquantize(x, 0, 100, 1); @b["exp"] = quantize(x);
-	x++; @a["linear"] = lquantize(x, 0, 100, 1); @b["exp"] = quantize(x);
-	x++; @a["linear"] = lquantize(x, 0, 100, 1); @b["exp"] = quantize(x);
-	x++; @a["linear"] = lquantize(x, 0, 100, 1); @b["exp"] = quantize(x);
+	i++; @a["linear"] = lquantize(i, 0, 100, 1); @b["exp"] = quantize(i);
+	i++; @a["linear"] = lquantize(i, 0, 100, 1); @b["exp"] = quantize(i);
+	i++; @a["linear"] = lquantize(i, 0, 100, 1); @b["exp"] = quantize(i);
+	i++; @a["linear"] = lquantize(i, 0, 100, 1); @b["exp"] = quantize(i);
+	i++; @a["linear"] = lquantize(i, 0, 100, 1); @b["exp"] = quantize(i);
 	printa(@a);
 	printa(@b);
-}
-
-tick-500ms
-/(z % 2) == 1/
-{
 	clear(@a);
 	clear(@b);
 }
 
-tick-500ms
-/z++ >= 9/
+syscall::write:entry
+/pid == $target && n++ >= 8/
 {
 	exit(0);
 }
