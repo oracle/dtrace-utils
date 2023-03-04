@@ -203,6 +203,23 @@ extract_options()
     done
 }
 
+# is_interpreter_file FILE
+
+is_interpreter_file()
+{
+    if [[ ! -e $1 ]]; then
+        return 1
+    fi
+    if [[ $(awk '{print $1; exit}' $1) != "#!dtrace" ]]; then
+        return 1
+    fi
+
+    # At this point, perhaps we can also check that the file is executable.
+    # But we will copy it anyhow.  So do not bother.
+
+    return 0
+}
+
 DEFAULT_TIMEOUT=41
 
 usage()
@@ -884,7 +901,7 @@ for dt in $dtrace; do
         #
         # The full list of suffxes is as follows:
         #
-        # .d: The D program itself. Either this, or .sh, are mandatory.
+        # .d: The D program itself.
         #
         # .sh: If executable, a shell script that is run instead of dtrace with
         #      a single argument, the path to dtrace.  All other features are still
@@ -1136,7 +1153,15 @@ for dt in $dtrace; do
 
         progtype=d
         run=$dt
-        if [[ -x $base.sh ]]; then
+        interpreter_file=""
+        if is_interpreter_file $base.d; then
+            interpreter_file=$tmpdir/test.interpreter.$RANDOM.d
+            rm -f $interpreter_file
+            sed 's:^#!dtrace :#!'$dt' :' $base.d > $interpreter_file
+            chmod +x $interpreter_file
+            progtype=shell
+            run="$interpreter_file $raw_dt_flags"
+        elif [[ -x $base.sh ]]; then
             progtype=shell
             run="$base.sh $dt"
             if [[ -z $trigger ]]; then
@@ -1157,7 +1182,7 @@ for dt in $dtrace; do
         # even in the presence of a hanging test. stdout and stderr go into
         # different files, and any debugging output is split into a third.)
 
-	rm -f core
+        rm -f core
         fail=
         this_noexec=$NOEXEC
         testmsg=
@@ -1273,6 +1298,12 @@ for dt in $dtrace; do
                     unset "ZAPTHESE[$((${#ZAPTHESE[@]}-1))]"
                 fi
                 unset _pid
+            fi
+
+            # Translate $interpreter_file back into name of test file.
+            if [[ -n $interpreter_file ]]; then
+                sed -i 's:'$interpreter_file':'$base.d':' $testout
+                sed -i 's:'$interpreter_file':'$base.d':' $testerr
             fi
 
             # Split debugging info out of the test output.
