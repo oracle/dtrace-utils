@@ -1,9 +1,10 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
@@ -12,8 +13,8 @@ BEGIN
 	j = 0;
 }
 
-tick-1ms
-/i < 100/
+syscall::ioctl:entry
+/pid == $target && i < 100/
 {
 	i++;
 	@a[i] = sum(i);
@@ -22,8 +23,8 @@ tick-1ms
 	@d[i] = sum((75 + i) % 100);
 }
 
-tick-1ms
-/i == 100 && j < 10/
+syscall::ioctl:entry
+/pid == $target && i == 100 && j < 10/
 {
 	printf("Sorted at position %d:\n", j);
 	setopt("aggsortpos", lltostr(j));
@@ -32,8 +33,8 @@ tick-1ms
 	j++;
 }
 
-tick-1ms
-/i == 100 && j == 10/
+syscall::ioctl:entry
+/pid == $target && i == 100 && j == 10/
 {
 	exit(0);
 }

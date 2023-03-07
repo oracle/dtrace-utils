@@ -1,9 +1,10 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
@@ -41,8 +42,8 @@ BEGIN
 	printf("#!/bin/bash\n\n");
 }
 
-tick-1ms
-/i < end/
+syscall::ioctl:entry
+/pid == $target && i < end/
 {
 	printf("if [ `basename \"%s\"` != \"%s\" ]; then\n",
 	    dir[i], basename(dir[i]));
@@ -59,8 +60,8 @@ tick-1ms
 	i++;
 }
 
-tick-1ms
-/i == end/
+syscall::ioctl:entry
+/pid == $target && i == end/
 {
 	exit(0);
 }

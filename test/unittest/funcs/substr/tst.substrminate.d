@@ -1,9 +1,10 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 #pragma D option aggsortkey
@@ -13,13 +14,14 @@
  * substr() subroutine.
  */
 
-tick-1ms
-/i++ > 10/
+syscall::ioctl:entry
+/pid == $target && i++ > 10/
 {
 	exit(0);
 }
 
-tick-1ms
+syscall::ioctl:entry
+/pid == $target/
 {
 	@[substr((i & 1) ? "Bryan is smart" : "he's not a dummy", 0,
 	    (i & 1) ? 8 : 18)] = count();

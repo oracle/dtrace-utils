@@ -1,9 +1,10 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
@@ -14,20 +15,21 @@ BEGIN
 	val = (-a * b) + a;
 }
 
-tick-1ms
+syscall::ioctl:entry
+/pid == $target/
 {
 	incr = val % b;
 	val += a;
 }
 
-tick-1ms
-/val == 0/
+syscall::ioctl:entry
+/pid == $target && val == 0/
 {
 	val += a;
 }
 
-tick-1ms
-/incr != 0/
+syscall::ioctl:entry
+/pid == $target && incr != 0/
 {
 	i++;
 	@quanty[i] = quantize(1, incr);
@@ -37,8 +39,8 @@ tick-1ms
 	@minny[i] = min(incr);
 }
 
-tick-1ms
-/incr == 0/
+syscall::ioctl:entry
+/pid == $target && incr == 0/
 {
 	printf("Ordering of quantize() with some negative weights:\n");
 	printa(@quanty);

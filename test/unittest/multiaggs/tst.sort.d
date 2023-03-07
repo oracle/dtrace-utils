@@ -1,13 +1,15 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
-tick-1ms
+syscall::ioctl:entry
+/pid == $target/
 {
 	i++;
 	@a[i] = sum(100 - (i / 2));
@@ -16,8 +18,8 @@ tick-1ms
 	@d[i] = sum(100 - (i / 16));
 }
 
-tick-1ms
-/i == 100/
+syscall::ioctl:entry
+/pid == $target && i == 100/
 {
 	printa("%10d %@10d %@10d %@10d %@10d\n", @a, @b, @c, @d);
 	printa("%10d %@10d %@10d %@10d %@10d\n", @d, @c, @b, @a);
