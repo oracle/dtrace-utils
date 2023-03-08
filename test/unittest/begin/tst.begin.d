@@ -1,18 +1,16 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /*
- * ASSERTION:
- *	Order of provider flow, Begin, tick profile, and END.
+ * ASSERTION: Order of provider flow, Begin, tick profile, and END.
  *
  * SECTION: dtrace Provider
- *
  */
-
+/* @@trigger: bogus-ioctl */
 
 #pragma D option quiet
 
@@ -26,7 +24,8 @@ BEGIN
 	printf("Begin fired first\n");
 }
 
-tick-1ms
+syscall::ioctl:entry
+/pid == $target/
 {
 	printf("tick fired second\n");
 	printf("Call exit\n");
