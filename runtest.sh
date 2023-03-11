@@ -1353,6 +1353,7 @@ for dt in $dtrace; do
 
             if ! postprocess $base.r.p $testout $tmpdir/test.out; then
                 testmsg="results postprocessor failed with exitcode $?"
+                fail=t
             fi
 
             rm -f $testerr
