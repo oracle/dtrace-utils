@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -888,7 +888,7 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 		pid = dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
 					DTRACE_PROC_SHORTLIVED);
 
-	if (pid < 0) {
+	if (pid <= 0) {
 		snprintf(c, sizeof(c), "0x%llx", (unsigned long long)addr);
 		return dt_string2str(c, str, nbytes);
 	}
