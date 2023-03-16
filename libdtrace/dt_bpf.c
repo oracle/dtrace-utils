@@ -520,9 +520,8 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 
 	nelems = dtp->dt_options[DTRACEOPT_AGGSIZE] /
 		 (dtp->dt_maxtuplesize + dtp->dt_maxaggdsize);
-
 	if (nelems == 0)
-		return 0;
+		return dt_set_errno(dtp, EDT_BUFTOOSMALL);
 
 	dtp->dt_aggmap_fd = create_gmap_of_maps(dtp, "aggs",
 						BPF_MAP_TYPE_ARRAY_OF_MAPS,
