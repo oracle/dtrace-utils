@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _DT_STATE_H
@@ -21,6 +21,10 @@ typedef enum dt_state_elem {
 	DT_STATE_ACTIVITY = 0,		/* activity state of the session */
 	DT_STATE_BEGANON,		/* cpu BEGIN probe executed on */
 	DT_STATE_ENDEDON,		/* cpu END probe executed on */
+	DT_STATE_SPEC_DROPS,		/* speculation buffer drops */
+	DT_STATE_SPEC_BUSY,		/* all speculation buffers are busy */
+	DT_STATE_SPEC_UNAVAIL,		/* no available speculation buffer */
+	DT_STATE_DYNVAR_DROPS,		/* dynamic variable drops */
 	DT_STATE_NUM_ELEMS
 } dt_state_elem_t;
 

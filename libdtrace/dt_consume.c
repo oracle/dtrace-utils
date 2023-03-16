@@ -2226,17 +2226,21 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		if (dtsb)
 			cursz = dtsb->dtsb_size;
 
-		if (cursz + size > dtp->dt_options[DTRACEOPT_SPECSIZE])
+		if (cursz + size > dtp->dt_options[DTRACEOPT_SPECSIZE]) {
+			dtp->dt_specdrops++;
 			return DTRACE_WORKSTATUS_OKAY;
+		}
 
 		if (!dtsb) {
-			if ((dtsb = dt_spec_buf_create(dtp, specid)) == NULL)
-				return -1;
+			if ((dtsb = dt_spec_buf_create(dtp, specid)) == NULL) {
+				dtp->dt_specdrops++;
+				return DTRACE_WORKSTATUS_OKAY;
+			}
 		}
 
 		if (dt_spec_buf_add_data(dtp, dtsb, epid, pdat->dtpda_cpu, epd,
 					 data, size) == NULL)
-			return -1;
+			dtp->dt_specdrops++;
 
 		return DTRACE_WORKSTATUS_OKAY;
 	}
@@ -2613,22 +2617,7 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 					    rfunc, flow, quiet, peekflags,
 					    last, 0, arg);
 	} else if (hdr->type == PERF_RECORD_LOST) {
-#ifdef FIXME
-		uint64_t	lost;
-
-		/*
-		 * struct {
-		 *	struct perf_event_header	header;
-		 *	uint64_t			id;
-		 *	uint64_t			lost;
-		 * }
-		 * and data points to the 'id' member at this point.
-		 */
-		lost = *(uint64_t *)(data + sizeof(uint64_t));
-#endif
-
-		/* FIXME: To be implemented */
-		return DTRACE_WORKSTATUS_ERROR;
+		return DTRACE_WORKSTATUS_OKAY;
 	} else
 		return DTRACE_WORKSTATUS_ERROR;
 }
@@ -2669,6 +2658,9 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 
 	flow = (dtp->dt_options[DTRACEOPT_FLOWINDENT] != DTRACEOPT_UNSET);
 	quiet = (dtp->dt_options[DTRACEOPT_QUIET] != DTRACEOPT_UNSET);
+
+	if (dt_check_cpudrops(dtp, peb->cpu, DTRACEDROP_PRINCIPAL) != 0)
+		return DTRACE_WORKSTATUS_ERROR;
 
 	/*
 	 * Clear the probe data, and fill in data independent fields.

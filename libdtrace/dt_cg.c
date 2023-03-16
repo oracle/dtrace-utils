@@ -632,6 +632,7 @@ void
 dt_cg_tramp_epilogue(dt_pcb_t *pcb)
 {
 	dt_cg_tramp_call_clauses(pcb, pcb->pcb_probe, DT_ACTIVITY_ACTIVE);
+
 	/*
 	 * For each dependent probe (if any):
 	 *	1.1 Call dt_cg_tramp_save_args()
@@ -827,6 +828,7 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 static void
 dt_cg_epilogue(dt_pcb_t *pcb)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 
 	TRACE_REGSET("Epilogue: Begin");
@@ -839,14 +841,16 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 	 */
 	if (pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_DATAREC ||
 	    pcb->pcb_stmt->dtsd_clauseflags & DT_CLSFLAG_COMMIT_DISCARD) {
-		dt_ident_t *buffers = dt_dlib_get_map(pcb->pcb_hdl, "buffers");
+		dt_ident_t	*buffers = dt_dlib_get_map(dtp, "buffers");
+		dt_ident_t	*idp;
+		int		cflags = pcb->pcb_stmt->dtsd_clauseflags;
 
 		assert(buffers != NULL);
 
 		/*
-		 *	bpf_perf_event_output(dctx->ctx, &buffers,
-		 *			      BPF_F_CURRENT_CPU,
-		 *			      buf - 4, bufoff + 4);
+		 *	rc = bpf_perf_event_output(dctx->ctx, &buffers,
+		 *				   BPF_F_CURRENT_CPU,
+		 *				   buf - 4, bufoff + 4);
 		 *				// lddw %r1, [%fp + DT_STK_DCTX]
 		 *				// lddw %r1, [%r1 + DCTX_CTX]
 		 *				// lddw %r2, &buffers
@@ -856,7 +860,6 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		 *				// mov %r5, pcb->pcb_bufoff
 		 *				// add %r5, 4
 		 *				// call bpf_perf_event_output
-		 *
 		 */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX));
@@ -867,6 +870,35 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		emit(dlp, BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 4));
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_perf_event_output));
+
+		/*
+		 * If writing the trace data to the output buffer failed,
+		 * increment the drop count for speculation buffers
+		 * (speculate() in the clause) or for the principal buffer
+		 * (no speculate() in the clause).
+		 */
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+		if (cflags & DT_CLSFLAG_SPECULATE) {
+			idp = dt_dlib_get_map(dtp, "state");
+			assert(idp != NULL);
+			dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_SP));
+			emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_2, 0, DT_STATE_SPEC_DROPS));
+			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+			emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
+			emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
+		} else {
+			idp = dt_dlib_get_map(dtp, "cpuinfo");
+			assert(idp != NULL);
+			dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_SP));
+			emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_2, 0, 0));
+			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+			emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
+			emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_0, offsetof(dt_bpf_cpuinfo_t, buf_drops), BPF_REG_1));
+		}
 	}
 
 	/*
@@ -3129,6 +3161,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	/* Associative (global or TLS) array.  Cannot be in alloca space.  */
 	if (idp->di_kind == DT_IDENT_ARRAY) {
+		uint_t	lbl_notnull = dt_irlist_label(dlp);
+
 		dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
 
 		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
@@ -3150,14 +3184,16 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_regset_free_args(drp);
 		lbl_done = dt_irlist_label(dlp);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 0));
+		emit(dlp,  BPF_RETURN());
 
 		if ((reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-		emit(dlp,  BPF_MOV_REG(reg, BPF_REG_0));
+		emitl(dlp, lbl_notnull,
+			   BPF_MOV_REG(reg, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
-
-		dt_cg_check_notnull(dlp, drp, reg);
 
 		if (dnp->dn_flags & DT_NF_REF) {
 			size_t	srcsz;
@@ -7228,7 +7264,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 					dnp->dn_ctfp,
 					dtp->dt_type_void,
 				 };
-	uint_t		Lgot_agg = dt_irlist_label(dlp);
+	uint_t		Lno_agg = dt_irlist_label(dlp);
 
 	assert(idp != NULL);
 
@@ -7284,11 +7320,8 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
 
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, Lgot_agg));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lno_agg));
 	dt_regset_free(drp, BPF_REG_0);
-	dt_cg_probe_error(yypcb, DTRACEFLT_ILLOP, DT_ISIMM, 0);
-	emitl(dlp, Lgot_agg,
-		   BPF_NOP());
 
 	/* Push the agg data pointer onto the stack. */
 	dt_cg_push_stack(BPF_REG_0, dlp, drp);
@@ -7326,6 +7359,9 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_aggid_rec_add(dtp, aid->di_id, size, alignment);
 		}
 	}
+
+	emitl(dlp, Lno_agg,
+		   BPF_NOP());
 }
 
 void

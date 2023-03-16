@@ -19,18 +19,36 @@
 #endif
 
 extern struct bpf_map_def specs;
+extern struct bpf_map_def state;
 extern uint64_t NSPEC;
+
+/*
+ * Register a speculation drop.
+ */
+noinline uint32_t dt_no_spec(uint32_t kind)
+{
+	uint32_t	*valp;
+
+	valp = bpf_map_lookup_elem(&state, &kind);
+	if (valp == 0)
+		return 0;
+
+	atomic_add32(valp, 1);
+	return 0;
+}
 
 /*
  * Assign a speculation ID.
  */
 noinline uint32_t dt_speculation(void)
 {
-	uint32_t id;
-	dt_bpf_specs_t zero;
+	uint32_t	id, busy;
+	dt_bpf_specs_t	zero;
+	dt_bpf_specs_t	*spec;
 
 	__builtin_memset(&zero, 0, sizeof (dt_bpf_specs_t));
 
+	busy = 0;
 #if 1 /* Loops are broken in BPF right now */
 #define SEARCH(n)							\
 	do {								\
@@ -40,6 +58,11 @@ noinline uint32_t dt_speculation(void)
 		if (bpf_map_update_elem(&specs, &id, &zero,		\
 			BPF_NOEXIST) == 0)				\
 			return id;					\
+		spec = bpf_map_lookup_elem(&specs, &id);		\
+		if (spec != 0 && spec->draining > 0) {			\
+			busy++;						\
+			break;						\
+		}							\
 	} while (0);
 
 	SEARCH(1);
@@ -66,10 +89,16 @@ noinline uint32_t dt_speculation(void)
 		if (bpf_map_update_elem(&specs, &id, &zero,
 					BPF_NOEXIST) == 0)
 			return id;
+
+		spec = bpf_map_lookup_elem(&specs, &id);
+		if (spec != 0 && spec->draining > 0)  {
+			busy++;
+			break;
+		}
 	}
 #endif
 
-	return 0;
+	return dt_no_spec(busy ? DT_STATE_SPEC_BUSY : DT_STATE_SPEC_UNAVAIL);
 }
 
 /*

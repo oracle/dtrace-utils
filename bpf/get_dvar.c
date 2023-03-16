@@ -1,18 +1,37 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
 #include <bpf-helpers.h>
+#include <bpf-lib.h>
+#include <dt_dctx.h>
 
 #ifndef noinline
 # define noinline	__attribute__((noinline))
 #endif
 
 extern struct bpf_map_def dvars;
+extern struct bpf_map_def state;
 extern struct bpf_map_def tuples;
 extern uint64_t NCPUS;
+
+/*
+ * Register a adynamic variable drop.
+ */
+noinline void *dt_no_dvar(void)
+{
+	uint32_t	kind = DT_STATE_DYNVAR_DROPS;
+	uint32_t	*valp;
+
+	valp = bpf_map_lookup_elem(&state, &kind);
+	if (valp == 0)
+		return 0;
+
+	atomic_add32(valp, 1);
+	return 0;
+}
 
 /*
  * Dynamic variables are identified using a unique 64-bit key.  Three different
@@ -80,13 +99,13 @@ noinline void *dt_get_dvar(uint64_t key, uint64_t store, uint64_t nval,
 	 * with the default value.
 	 */
 	if (bpf_map_update_elem(&dvars, &key, dflt, BPF_ANY) < 0)
-		return 0;
+		return dt_no_dvar();
 
 	val = bpf_map_lookup_elem(&dvars, &key);
 	if (val != 0)
 		return val;
 
-	return 0;
+	return dt_no_dvar();
 }
 
 noinline void *dt_get_tvar(uint32_t id, uint64_t store, uint64_t nval,
@@ -126,13 +145,13 @@ noinline void *dt_get_assoc(uint32_t id, const char *tuple, uint64_t store,
 		 * actual value.
 		 */
 		if (bpf_map_update_elem(&tuples, tuple, &dflt_val, BPF_ANY) < 0)
-			return 0;
+			return dt_no_dvar();
 		valp = bpf_map_lookup_elem(&tuples, tuple);
 		if (valp == 0)
-			return 0;
+			return dt_no_dvar();
 		*valp = (uint64_t)valp;
 		if (bpf_map_update_elem(&tuples, tuple, valp, BPF_ANY) < 0)
-			return 0;
+			return dt_no_dvar();
 
 		val = *valp;
 	} else {

@@ -605,21 +605,24 @@ hashnext:
 static int
 dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, int fd)
 {
-	dt_aggregate_t	*agp = &dtp->dt_aggregate;
-	size_t		ksize = dtp->dt_maxtuplesize;
-	char		*key = agp->dtat_key;
-	char		*data = agp->dtat_buf;
-	char		*nxt = agp->dtat_nextkey;
-	uint32_t	*aggidp = (uint32_t *)key;
-	int		rval;
-
+	dt_aggregate_t		*agp = &dtp->dt_aggregate;
+	size_t			ksize = dtp->dt_maxtuplesize;
+	char			*key = agp->dtat_key;
+	char			*data = agp->dtat_buf;
+	char			*nxt = agp->dtat_nextkey;
+	uint32_t		*aggidp = (uint32_t *)key;
+	int			rval;
 
 	*aggidp = DTRACE_AGGIDNONE;
 	while (dt_bpf_map_next_key(fd, key, nxt) == 0) {
+		rval = dt_check_cpudrops(dtp, cpu, DTRACEDROP_AGGREGATION);
+		if (rval != 0)
+			return rval;
+
 		memcpy(key, nxt, ksize);
 
 		if (dt_bpf_map_lookup(fd, key, data) == -1)
-			return -1; /* FIXME: dt_set_errno() */
+			return dt_set_errno(dtp, EDT_BPF);
 
 		rval = dt_aggregate_snap_one(dtp, *aggidp, cpu, key, data);
 		if (rval != 0)

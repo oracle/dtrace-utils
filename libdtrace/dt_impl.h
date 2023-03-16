@@ -248,6 +248,11 @@ typedef struct dt_spec_buf {
 	struct dt_hentry dtsb_he;	/* htab links */
 } dt_spec_buf_t;
 
+typedef struct dt_percpu_drops {
+	uint64_t	buf;		/* principal buffer drops */
+	uint64_t	agg;		/* aggregate buffer drops */
+} dt_percpu_drops_t;
+
 /*
  * This will be raised much higher in future: right now it is nailed low
  * because the search-for-free-speculation code is unrolled rather than being a
@@ -388,6 +393,7 @@ struct dtrace_hdl {
 	int dt_stmap_fd;	/* file descriptor for the 'state' BPF map */
 	int dt_aggmap_fd;	/* file descriptor for the 'aggs' BPF map */
 	int dt_genmap_fd;	/* file descriptor for the 'agggen' BPF map */
+	int dt_cpumap_fd;	/* file descriptor for the 'cpuinfo' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */
 	dtrace_handle_drop_f *dt_drophdlr; /* drop handler, if any */
@@ -397,7 +403,10 @@ struct dtrace_hdl {
 	dtrace_handle_setopt_f *dt_setopthdlr; /* setopt handler, if any */
 	void *dt_setoptarg;	/* setopt handler argument */
 	dtrace_status_t dt_status[2]; /* status cache */
+	dt_percpu_drops_t *dt_drops; /* per-CPU drop counters cache */
+	uint64_t dt_specdrops;	/* consumer-side spec drops counter */
 	int dt_statusgen;	/* current status generation */
+	hrtime_t dt_laststatus;	/* last status */
 	hrtime_t dt_lastswitch;	/* last switch of buffer data */
 	hrtime_t dt_lastagg;	/* last snapshot of aggregation data */
 	dt_list_t dt_spec_bufs_draining; /* List of spec bufs being drained */
@@ -703,6 +712,9 @@ extern int dt_set_errno(dtrace_hdl_t *, int);
 extern void dt_set_errmsg(dtrace_hdl_t *, const char *, const char *,
     const char *, int, const char *, va_list);
 
+extern void dt_get_status(dtrace_hdl_t *dtp);
+extern int dt_check_cpudrops(dtrace_hdl_t *dtp, processorid_t cpu,
+			     dtrace_dropkind_t what);
 extern int dt_ioctl(dtrace_hdl_t *, unsigned long int, void *);
 extern int dt_cpu_status(dtrace_hdl_t *, int);
 extern long dt_sysconf(dtrace_hdl_t *, int);

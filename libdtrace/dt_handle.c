@@ -313,6 +313,9 @@ dt_handle_cpudrop(dtrace_hdl_t *dtp, processorid_t cpu,
 
 	assert(what == DTRACEDROP_PRINCIPAL || what == DTRACEDROP_AGGREGATION);
 
+	if (howmany == 0)
+		return 0;
+
 	memset(&drop, 0, sizeof(drop));
 	drop.dtdda_handle = dtp;
 	drop.dtdda_cpu = cpu;

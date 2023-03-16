@@ -803,6 +803,7 @@ dt_vopen(int version, int flags, int *errp,
 	/*
 	 * Set the default data rates.
 	 */
+	dtp->dt_options[DTRACEOPT_STATUSRATE] = NANOSEC;	/* 1s */
 	dtp->dt_options[DTRACEOPT_SWITCHRATE] = 0;
 	dtp->dt_options[DTRACEOPT_AGGRATE] = 0;
 
@@ -827,6 +828,11 @@ dt_vopen(int version, int flags, int *errp,
 	dt_dprintf("detected %u CPUs online (%u possible, highest cpuid %u)\n",
 		  dtp->dt_conf.num_online_cpus, dtp->dt_conf.num_possible_cpus,
 		  dtp->dt_conf.max_cpuid);
+
+	dtp->dt_drops = calloc((dtp->dt_conf.max_cpuid + 1),
+			       sizeof(dt_percpu_drops_t));
+	if (dtp->dt_drops == NULL)
+		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
@@ -1299,6 +1305,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_sprintf_buf);
 	pthread_mutex_destroy(&dtp->dt_sprintf_lock);
 
+	free(dtp->dt_drops);
 	free(dtp->dt_module_path);
 	free(dtp);
 

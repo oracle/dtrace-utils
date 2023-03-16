@@ -199,6 +199,7 @@ typedef int dtrace_consume_rec_f(const dtrace_probedata_t *data,
 extern int dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg);
 
+#define	DTRACE_STATUS_ERROR	-1	/* error occured getting status */
 #define	DTRACE_STATUS_NONE	0	/* no status; not yet time */
 #define	DTRACE_STATUS_OKAY	1	/* status okay */
 #define	DTRACE_STATUS_EXITED	2	/* exit() was called; tracing stopped */
