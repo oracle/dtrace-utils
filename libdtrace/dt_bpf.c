@@ -604,15 +604,28 @@ gmap_create_buffers(dtrace_hdl_t *dtp)
 static int
 gmap_create_cpuinfo(dtrace_hdl_t *dtp)
 {
-	int		fd;
+	int		i, fd, rc;
 	uint32_t	key = 0;
+	dtrace_conf_t	*conf = &dtp->dt_conf;
+	size_t		ncpus = conf->max_cpuid + 1;
+	cpuinfo_t	*data;
+	cpuinfo_t	*ci;
+
+	data = dt_zalloc(dtp, ncpus * sizeof(cpuinfo_t));
+	if (data == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	for (i = 0, ci = &conf->cpus[0]; i < ncpus; i++, ci++)
+		memcpy(&data[ci->cpu_id], ci, sizeof(cpuinfo_t));
 
 	fd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
 			 sizeof(uint32_t), sizeof(cpuinfo_t), 1);
 	if (fd == -1)
 		return -1;
 
-	if (dt_bpf_map_update(fd, &key, dtp->dt_conf.cpus) == -1)
+	rc = dt_bpf_map_update(fd, &key, data);
+	dt_free(dtp, data);
+	if (rc == -1)
 		return dt_bpf_error(dtp,
 				    "cannot update BPF map 'cpuinfo': %s\n",
 				    strerror(errno));
