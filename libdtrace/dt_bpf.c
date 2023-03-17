@@ -604,22 +604,22 @@ gmap_create_buffers(dtrace_hdl_t *dtp)
 static int
 gmap_create_cpuinfo(dtrace_hdl_t *dtp)
 {
-	int		i, fd, rc;
-	uint32_t	key = 0;
-	dtrace_conf_t	*conf = &dtp->dt_conf;
-	size_t		ncpus = conf->max_cpuid + 1;
-	cpuinfo_t	*data;
-	cpuinfo_t	*ci;
+	int			i, fd, rc;
+	uint32_t		key = 0;
+	dtrace_conf_t		*conf = &dtp->dt_conf;
+	size_t			ncpus = conf->max_cpuid + 1;
+	dt_bpf_cpuinfo_t	*data;
+	cpuinfo_t		*ci;
 
-	data = dt_zalloc(dtp, ncpus * sizeof(cpuinfo_t));
+	data = dt_zalloc(dtp, ncpus * sizeof(dt_bpf_cpuinfo_t));
 	if (data == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	for (i = 0, ci = &conf->cpus[0]; i < ncpus; i++, ci++)
-		memcpy(&data[ci->cpu_id], ci, sizeof(cpuinfo_t));
+		memcpy(&data[ci->cpu_id].ci, ci, sizeof(cpuinfo_t));
 
 	fd = create_gmap(dtp, "cpuinfo", BPF_MAP_TYPE_PERCPU_ARRAY,
-			 sizeof(uint32_t), sizeof(cpuinfo_t), 1);
+			 sizeof(uint32_t), sizeof(dt_bpf_cpuinfo_t), 1);
 	if (fd == -1)
 		return -1;
 
