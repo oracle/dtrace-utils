@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -22,6 +22,14 @@ export LC_COLLATE="C"
 arch="$(uname -m)"
 
 [[ -f ./runtest.conf ]] && . ./runtest.conf
+
+load_modules()
+{
+    # If running as root, pull in appropriate modules
+    if [[ "x$(id -u)" = "x0" ]]; then
+	cat test/modules | xargs -rn 1 modprobe 2>/dev/null
+    fi
+}
 
 #
 # Utility function to ensure a given provider is present.
@@ -625,6 +633,8 @@ if [[ -n $NOBADDOF ]]; then
                  --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
     fi
 fi
+
+load_modules
 
 if [[ -z $NOBADDOF ]]; then
     # Run DOF-corruption tests instead.

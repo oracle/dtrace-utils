@@ -1,9 +1,3 @@
-##unload-only dtrace
-dt_test
-profile
-systrace
-sdt
-fbt
-fasttrap
-ext4 # unload-quietly
-isofs # unload-quietly
+ext4
+isofs
+rds
