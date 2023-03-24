@@ -843,9 +843,10 @@ gmap_create_dvars(dtrace_hdl_t *dtp)
 	if (dtp->dt_maxdvarsize == 0)
 		return 0;
 
-	nelems = dtp->dt_options[DTRACEOPT_DYNVARSIZE] / dtp->dt_maxdvarsize;
+	nelems = dtp->dt_options[DTRACEOPT_DYNVARSIZE] /
+		 (dtp->dt_maxtuplesize + dtp->dt_maxdvarsize);
 	if (nelems == 0)
-		return 0;
+		return dt_set_errno(dtp, EDT_BUFTOOSMALL);
 
 	if (create_gmap(dtp, "dvars", BPF_MAP_TYPE_HASH, sizeof(uint64_t),
 			dtp->dt_maxdvarsize, nelems) == -1)

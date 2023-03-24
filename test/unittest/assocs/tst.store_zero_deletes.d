@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -12,8 +12,16 @@
  * SECTION: Variables/Thread-Local Variables
  */
 
+/*
+ * We need enough storage to store 4 dynamic variables.  Each dynamic variable
+ * will require 20 bytes of storage:
+ *	0..3   = Variable ID
+ *	4..7   = Index
+ *	8..15  = 0
+ *	16..19 = Value
+ */
+#pragma D option dynvarsize=80
 #pragma D option quiet
-#pragma D option dynvarsize=15
 
 BEGIN
 {
