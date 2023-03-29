@@ -1,12 +1,13 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
  * Provider support code for tracepoint-based probes.
  */
 #include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <linux/perf_event.h>
@@ -111,7 +112,7 @@ dt_tp_is_created(const tp_probe_t *tpp)
  * the identifier isn't as easy because it may be suffixed by one or more
  * array dimension specifiers (and those are part of the type).
  *
- * All events include a number of fields that we are not interested and that
+ * All events include a number of fields that we are not interested in and that
  * need to be skipped (SKIP_FIELDS_COUNT).  Callers of this function can
  * specify an additional number of fields to skip (using the 'skip' parameter)
  * before we get to the actual arguments.
@@ -187,8 +188,13 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	rewind(f);
 	argc = -skip;
 	while (getline(&buf, &bufsz, f) >= 0) {
-		char	*p = buf;
+		char	*p;
 		size_t	l;
+		size_t	size = 0;
+
+		p = strstr(buf, "size:");
+		if (p != NULL)
+			size = strtol(p + 5, NULL, 10);
 
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
 			continue;
@@ -214,6 +220,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		} else {
 			char	*s, *q;
 			int	n;
+			int	alpha = 0;
 
 			/*
 			 * The identifier is followed by at least one array
@@ -223,7 +230,10 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			 */
 			s = p + l - 1;
 			for (;;) {
-				while (*(--s) != '[') ;
+				while (*(--s) != '[') {
+					if (!isdigit(*s))
+						alpha = 1;
+				}
 				while (*(--s) == ' ') ;
 				if (*s != ']')
 					break;
@@ -240,11 +250,26 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			if ((q = strrchr(p, ' ')))
 				*q = '\0';
 
-			l = q - p;
-			memcpy(strp, p, l);
-			n = strlen(s);
-			memcpy(strp + l, s, n);
-			l += n;
+			if (alpha) {
+				ctf_file_t	*ctfp = dtp->dt_shared_ctf;
+				ctf_id_t	type;
+				size_t		esize = 1;
+
+				type = ctf_lookup_by_name(ctfp, p);
+				if (type != CTF_ERR)
+					esize = ctf_type_size(ctfp, type);
+				if (esize != 0)
+					size /= esize;
+
+				l = snprintf(strp, q - p + strlen(s), "%s[%lu]",
+					     p, size);
+			} else {
+				l = q - p;
+				memcpy(strp, p, l);
+				n = strlen(s);
+				memcpy(strp + l, s, n);
+				l += n;
+			}
 		}
 
 		argv[argc].mapping = argc;
