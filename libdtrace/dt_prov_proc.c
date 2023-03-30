@@ -298,7 +298,7 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
  * that implements the compiled D clause.  It returns the value that it gets
  * back from that function.
  */
-static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -388,6 +388,8 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_1));
 	}
+
+	return 0;
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,

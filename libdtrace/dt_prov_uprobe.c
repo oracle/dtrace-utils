@@ -391,7 +391,7 @@ static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
  * The trampoline will first populate a dt_dctx_t struct.  It will then emulate
  * the firing of all dependent pid* probes and their clauses.
  */
-static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	const dt_probe_t	*prp = pcb->pcb_probe;
@@ -465,6 +465,8 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	dt_cg_tramp_return(pcb);
+
+	return 0;
 }
 
 /*
@@ -503,7 +505,7 @@ copyout_val(dt_pcb_t *pcb, uint_t lbl, uint32_t val, int arg)
  * The trampoline dereferences the passed-in arg and writes 1 into it if this is
  * one of the processes for which the probe is enabled.
  */
-static void trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
+static int trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	const dt_probe_t	*prp = pcb->pcb_probe;
@@ -579,6 +581,8 @@ static void trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
 	copyout_val(pcb, lbl_assign, 1, 0);
 
 	dt_cg_tramp_return(pcb);
+
+	return 0;
 }
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)

@@ -383,7 +383,7 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
  *         __u64 addr;
  *     }
  */
-static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -406,6 +406,8 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 
 	dt_cg_tramp_epilogue(pcb);
+
+	return 0;
 }
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)

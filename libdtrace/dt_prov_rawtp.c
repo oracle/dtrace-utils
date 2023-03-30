@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -131,7 +131,7 @@ static int populate(dtrace_hdl_t *dtp)
  * that implements the compiled D clause.  It returns the value that it gets
  * back from that function.
  */
-static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -153,6 +153,8 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	dt_cg_tramp_epilogue(pcb);
+
+	return 0;
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
