@@ -34,8 +34,12 @@ struct dt_bpf_specs {
 typedef struct dt_bpf_cpuinfo	dt_bpf_cpuinfo_t;
 struct dt_bpf_cpuinfo {
 	cpuinfo_t	ci;
-	uint64_t	buf_drops;
-	uint64_t	agg_drops;
+	uint64_t	buf_drops;	/* CPU principal drop counter */
+	uint64_t	agg_drops;	/* CPU aggregation drop counter */
+	uint64_t	lockstat_lock;	/* lockstat: lock being traced */
+	uint64_t	lockstat_bfrom;	/* lockstat: block time start */
+	uint64_t	lockstat_btime;	/* lockstat: block time */
+	uint64_t	lockstat_stime;	/* lockstat: spin time */
 };
 
 #ifdef  __cplusplus

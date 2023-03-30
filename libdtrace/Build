@@ -49,6 +49,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_prov_cpc.c \
 			  dt_prov_dtrace.c \
 			  dt_prov_fbt.c \
+			  dt_prov_lockstat.c \
 			  dt_prov_proc.c \
 			  dt_prov_profile.c \
 			  dt_prov_rawtp.c \
@@ -95,6 +96,7 @@ dt_prov_cpc.c_CFLAGS := -Wno-pedantic
 dt_prov_dtrace.c_CFLAGS := -Wno-pedantic
 dt_prov_fbt.c_CFLAGS := -Wno-pedantic
 dt_prov_proc.c_CFLAGS := -Wno-pedantic
+dt_prov_lockstat.c_CFLAGS := -Wno-pedantic
 dt_prov_profile.c_CFLAGS := -Wno-pedantic
 dt_prov_rawtp.c_CFLAGS := -Wno-pedantic
 dt_prov_sched.c_CFLAGS := -Wno-pedantic
