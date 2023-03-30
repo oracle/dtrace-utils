@@ -588,11 +588,11 @@ dt_cg_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg)
 	dt_pcb_t	*pcb = dtp->dt_pcb;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_ident_t	*idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
-	dt_probe_t	*saved_prp = pcb->pcb_probe;
 	uint_t		exitlbl = dt_irlist_label(dlp);
 	int		skip = 0;
 
 	dt_cg_tramp_save_args(pcb);
+	pcb->pcb_parent_probe = pcb->pcb_probe;
 	pcb->pcb_probe = prp;
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id), idp);
 	if (prp->prov->impl->trampoline != NULL)
@@ -601,7 +601,8 @@ dt_cg_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg)
 	if (!skip)
 		dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
 
-	pcb->pcb_probe = saved_prp;
+	pcb->pcb_probe = pcb->pcb_parent_probe;
+	pcb->pcb_parent_probe = NULL;
 	dt_cg_tramp_restore_args(pcb);
 	emitl(dlp, exitlbl,
 		   BPF_NOP());

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -48,6 +48,7 @@ typedef struct dt_pcb {
 	ulong_t **pcb_asxrefs;	/* assembler imported xlators (see dt_as.c) */
 	uint_t pcb_asxreflen;	/* assembler xlator map length (see dt_as.c) */
 	const dtrace_probedesc_t *pcb_pdesc; /* probedesc for current context */
+	struct dt_probe *pcb_parent_probe; /* parent of PCB probe */
 	struct dt_probe *pcb_probe; /* probe associated with current context */
 	dtrace_probeinfo_t pcb_pinfo; /* info associated with current context */
 	dtrace_datadesc_t *pcb_ddesc; /* data record description */
