@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -99,6 +99,10 @@ static int populate(dtrace_hdl_t *dtp)
 			if (*p == '[')
 				p++;
 		}
+
+		/* Weed out synthetic symbol names (that are invalid). */
+		if (strchr(buf, '.') != NULL)
+			continue;
 
 		/*
 		 * If we did not see a module name, perform a symbol lookup to
