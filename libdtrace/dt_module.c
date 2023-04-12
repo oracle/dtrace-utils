@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1720,7 +1720,10 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 		tip->dtt_type = DT_FPTR_TYPE(dtp);
 	}
 
-	if (undefined && dmp->dm_extern != NULL) {
+	if (undefined) {
+		if (dmp->dm_extern == NULL)
+			return dt_set_errno(dtp, EDT_NOSYM);
+
 		dt_ident_t *idp =
 		    dt_idhash_lookup(dmp->dm_extern, sip->name);
 
