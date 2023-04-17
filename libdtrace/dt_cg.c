@@ -2585,10 +2585,16 @@ dt_cg_promote(const dt_node_t *dnp, ssize_t size, dt_irlist_t *dlp,
 	}
 }
 
+/*
+ * Load a scalar from an arbitrary address.
+ */
 static void
 dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 		  dt_regset_t *drp)
 {
+	uint_t Lokay = dt_irlist_label(dlp);
+
+	/* Copy the scalar onto the stack. */
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
@@ -2596,11 +2602,18 @@ dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 	emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
-	dt_regset_free(drp, BPF_REG_0);
 	dt_regset_free_args(drp);
+
+	/* Report a fault if the copy failed. */
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lokay));
+	dt_regset_free(drp, BPF_REG_0);
+	dt_cg_probe_error(yypcb, DTRACEFLT_BADADDR, DT_ISREG, dnp->dn_reg);
+	emitl(dlp, Lokay,
+		   BPF_NOP());
+
+	/* Load the scalar from the stack. */
 	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_SP));
 	emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
-
 	dt_cg_promote(dnp, size, dlp, drp);
 }
 
