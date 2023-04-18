@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,14 +23,6 @@
 #include <errno.h>
 
 /*
- * In Solaris 10 GA, the only mechanism for communicating helper information
- * is through the DTrace helper pseudo-device node in /devices; there is
- * no /dev link. Because of this, USDT providers and helper actions don't
- * work inside of non-global zones. This issue was addressed by adding
- * the /dev and having this initialization code use that /dev link. If the
- * /dev link doesn't exist it falls back to looking for the /devices node
- * as this code may be embedded in a binary which runs on Solaris 10 GA.
- *
  * Users may set the following environment variables to affect the way
  * helper initialization takes place:
  *
