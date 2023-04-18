@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -111,7 +111,8 @@
 
 #define DOF_VERSION_1	1
 #define DOF_VERSION_2	2
-#define DOF_VERSION	DOF_VERSION_2
+#define DOF_VERSION_3	3
+#define DOF_VERSION	DOF_VERSION_3
 
 #define DOF_FL_VALID	0	/* mask of all valid dofh_flags bits */
 

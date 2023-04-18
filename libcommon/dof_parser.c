@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF parser.
- * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -403,7 +403,8 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 	}
 
 	if (dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_1 &&
-	    dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_2) {
+	    dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_2 &&
+	    dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_3) {
 		dof_error(out, EINVAL, "DOF version mismatch: %i",
 			  dof->dofh_ident[DOF_ID_VERSION]);
 		return -1;
@@ -990,9 +991,15 @@ emit_provider(int out, dof_helper_t *dhp,
 	enoff = NULL;
 
 	/*
-	 * See validate_probes().
+	 * See validate_probe().  Ignore is-enabled probes for DOF version 2:
+	 * these probes rely on modifying the return value of the is-enabled
+	 * probe, and using the modern approach of writing a 1 to the first
+	 * argument will write to a nonexistent argument and cause, at best, a
+	 * crash, at worst, memory corruption.  Avoiding parsing them ultimately
+	 * avoids creating the system-level probes at all, avoiding the
+	 * corruption at the cost of causing the probes to always return 0.
 	 */
-	if (dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_1 &&
+	if (dof->dofh_ident[DOF_ID_VERSION] >= DOF_VERSION_3 &&
 	    prov->dofpv_prenoffs != DOF_SECT_NONE) {
 		enoff_sec = (dof_sec_t *)(uintptr_t)
 		  (daddr + dof->dofh_secoff +

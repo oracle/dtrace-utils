@@ -1619,16 +1619,29 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		return 0;
 	}
 
-	for (i = 0; i < objc; i++)
+	for (i = 0; i < objc; i++) {
 		if (process_obj(dtp, objv[i], &eprobes) != 0)
 			return -1; /* errno is set for us */
 
+		/*
+		 * If there are is-enabled probes then we need to error out if
+		 * DOF version 2 was used, preventing linkage of pre-existing
+		 * objects that contain return-value-driven is-enabled probes
+		 * with a DTrace that implements argument-driven is-enabled
+		 * probes.  (New objects will at this stage have DOF version 1.)
+		 */
+		if (eprobes && pgp->dp_dofversion == DOF_VERSION_2)
+			return dt_link_error(dtp, NULL, -1, NULL,
+			    "DOF in %s is too old: regenerate with dtrace -G",
+			    objv[i]);
+	}
+
 	/*
 	 * If there are is-enabled probes then we need to force use of DOF
-	 * version 2.
+	 * version 3.
 	 */
-	if (eprobes && pgp->dp_dofversion < DOF_VERSION_2)
-		pgp->dp_dofversion = DOF_VERSION_2;
+	if (eprobes && pgp->dp_dofversion < DOF_VERSION_3)
+		pgp->dp_dofversion = DOF_VERSION_3;
 
 	if ((dof = dtrace_dof_create(dtp, pgp, dflags)) == NULL)
 		return -1; /* errno is set for us */
