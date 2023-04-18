@@ -387,7 +387,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			errmsg = "helper size incorrect";
 			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s: "
 				 "expected at least %zi, not %zi\n", pid,
-				 errmsg, in_bufsz, sizeof(dof_helper_t));
+				 errmsg, sizeof(dof_helper_t), in_bufsz);
 			goto fuse_err;
 		}
 		memcpy(&userdata->dh, in_buf, sizeof(dof_helper_t));
