@@ -53,6 +53,19 @@ static int Pxlookup_by_name_internal(struct ps_prochandle *P, Lmid_t lmid,
 	(1 << STT_COMMON) | (1 << STT_TLS))
 #define	IS_DATA_TYPE(tp)	(((1 << (tp)) & DATA_TYPES) != 0)
 
+static char *
+dezerostr(char *str)
+{
+	size_t i;
+
+	if (str[0] != '0')
+		return str;
+
+	i = strspn(str, "0");
+	memmove(str, str + i, strlen(str) - i + 1);
+
+	return str;
+}
 
 static ulong_t
 string_hash(const char *key)
@@ -527,6 +540,7 @@ Pupdate_maps(struct ps_prochandle *P)
 		unsigned int minor;
 		char	perms[5];
 		const char *first_space;
+		char *dash;
 		map_info_t *mptr;
 		prmap_file_t *prf;
 		prmap_t *pmptr;
@@ -545,10 +559,19 @@ Pupdate_maps(struct ps_prochandle *P)
 
 		/*
 		 * Skip anonymous mappings, and special mappings like the stack,
-		 * heap, and vdso; also skip on OOM.
+		 * heap, and vdso; also skip on OOM.  Drop leading zeroes from
+		 * the addresses as well (map_files entries lack them).
 		 */
 		first_space = strchr(line, ' ');
 		mapaddrname = strndup(line, first_space - line);
+		dezerostr(mapaddrname);
+
+		dash = strchr(mapaddrname, '-');
+		if (dash) {
+			dash++;
+			dezerostr(dash);
+		}
+
 		if ((fn == NULL) || (mapaddrname == NULL) || (fn[0] == '[')) {
 			free(fn);
 			free(mapaddrname);
