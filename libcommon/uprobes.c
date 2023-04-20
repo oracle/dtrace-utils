@@ -27,6 +27,7 @@ uprobe_spec_by_addr(pid_t pid, ps_prochandle *P, uint64_t addr,
 	int			perr = 0;
 	char			*spec = NULL;
 	const prmap_t		*mapp, *first_mapp;
+	char			*mapfile_name = NULL;
 
 	if (!P) {
 		P = Pgrab(pid, 2, 0, NULL, &perr);
@@ -42,16 +43,30 @@ uprobe_spec_by_addr(pid_t pid, ps_prochandle *P, uint64_t addr,
 	first_mapp = mapp->pr_file->first_segment;
 
 	/*
+	 * Use a name in /proc/$pid/map_files: this will work even if the
+	 * destination is in a different filesystem namespace.  Never use the
+	 * absolute path: not only might this not exist, but an *entirely
+	 * different file* might be found there in the namespace in which we
+	 * are running: prf_mapname is derived from /proc/$pid/maps, and the
+	 * names in there are not relative to the namespace of the reader
+	 * at all.
+	 */
+	mapfile_name = Pmap_mapfile_name(P, mapp);
+	if (!mapfile_name)
+		goto out;
+
+	/*
 	 * No need for error-checking here: we do the same on error
 	 * and success.
 	 */
-	asprintf(&spec, "%s:0x%lx", mapp->pr_file->prf_mapname,
-	    addr - first_mapp->pr_vaddr);
+	asprintf(&spec, "%s:0x%lx", mapfile_name, addr - first_mapp->pr_vaddr);
 
 	if (mapp_)
 		memcpy(mapp_, mapp, sizeof(prmap_t));
 
 out:
+	free(mapfile_name);
+
 	if (free_p) {
 		/*
 		 * Some things in the prmap aren't valid once the prochandle is
@@ -323,7 +338,7 @@ uprobe_create_from_addr(pid_t pid, uint64_t addr, int is_enabled, const char *pr
 }
 
 /*
- * Destroy a uprobe for a given device, address, and spec.
+ * Destroy a uprobe for a given device and address.
  */
 int
 uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int isret, int is_enabled)

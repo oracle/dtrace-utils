@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -923,6 +923,31 @@ Pinode_to_file_map(struct ps_prochandle *P, dev_t dev, ino_t inum)
 			return prf;
 
 	return NULL;
+}
+
+
+/*
+ * Return the full path to a given mapping in /proc/$pid/map_files, as a new
+ * dynamically-allocated string, or NULL if none.
+ */
+char *
+Pmap_mapfile_name(struct ps_prochandle *P, const prmap_t *mapp)
+{
+	char *fn;
+
+	if (P->state == PS_DEAD)
+		return NULL;
+
+	Pupdate_maps(P);
+
+	if (mapp->pr_mapaddrname == NULL)
+		return NULL;
+
+	if (asprintf(&fn, "%s/%d/map_files/%s", procfs_path,
+		(int)P->pid, mapp->pr_mapaddrname) < 0)
+		return NULL;
+
+	return fn;
 }
 
 /*
