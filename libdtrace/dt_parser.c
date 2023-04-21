@@ -2839,11 +2839,14 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		 * REF-type, we mark this variable node as a pointer to
 		 * DTrace-managed storage (DPTR).
 		 *
-		 * We account for two notable exception: args and execname.
+		 * We account for a few exceptions:
+		 *   - strings (which could be NULL)
+		 *   - args and execname
 		 */
 		if (idp->di_flags & DT_IDFLG_DPTR)
 			dnp->dn_flags |= DT_NF_DPTR;
 		else if ((dnp->dn_flags & DT_NF_REF) &&
+			 !dt_node_is_string(dnp) &&
 			 idp->di_id != DIF_VAR_ARGS &&
 			 idp->di_id != DIF_VAR_EXECNAME)
 			dnp->dn_flags |= DT_NF_DPTR;
@@ -4108,6 +4111,9 @@ asgn_common:
 		/* Transfer alloca taint. */
 		if (dnp->dn_args->dn_flags & DT_NF_ALLOCA)
 			dt_cook_taint_alloca(dnp, idp, dnp->dn_args);
+
+		/* An associative array cannot return a DPTR. */
+		dnp->dn_flags &= ~DT_NF_DPTR; assert((dnp->dn_flags & DT_NF_DPTR) == 0);
 
 		dt_node_free(lp);
 		return dt_node_cook(dnp, idflags);
