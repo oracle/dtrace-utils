@@ -741,6 +741,8 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 		 * probe: we'll complain later if we use it for anything.
 		 */
 
+		dt_dprintf("providing %s:%s:%s:%s\n", pdp->prv, pdp->mod,
+			   pdp->fun, pdp->prb);
 		if (pvp->impl->provide_probe(dtp, &psp) < 0 && pdp) {
 			dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
 				     "failed to instantiate %sprobe %s for pid %d: %s",
@@ -920,10 +922,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		dpr = dt_proc_lookup(dtp, pid);
 		assert(dpr != NULL);
 
-		if (!dpr->dpr_usdt) {
-			err = dt_pid_create_usdt_probes(dtp, dpr, pdp, pcb);
-			dpr->dpr_usdt = B_TRUE;
-		}
+		err = dt_pid_create_usdt_probes(dtp, dpr, pdp, pcb);
 
 		dt_proc_release_unlock(dtp, pid);
 	}

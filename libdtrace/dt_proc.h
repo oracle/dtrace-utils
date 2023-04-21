@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -39,7 +39,6 @@ typedef struct dt_proc {
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */
-	uint8_t dpr_usdt;		/* usdt flag: usdt initialized */
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
 	uint8_t dpr_monitoring;		/* true if we should background-monitor

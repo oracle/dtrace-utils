@@ -4,8 +4,6 @@
 # Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
-#
-# @@xfail: dtv2
 
 # This test covers all USDT probes fired by the DTRACE_PROBEn macros.
 # Arguments values are checked only for first 10 arguments because
