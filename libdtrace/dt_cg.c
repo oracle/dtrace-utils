@@ -4158,6 +4158,7 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_JUMP(lbl_done));
 		emitl(dlp, lbl_notnull,
 			   BPF_LOAD(ldstw[size], dnp->dn_reg, BPF_REG_0, 0));
+		dt_cg_promote(dnp, size, dlp, drp);
 		emitl(dlp, lbl_done,
 			   BPF_NOP());
 	}
