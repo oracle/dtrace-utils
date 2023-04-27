@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -238,7 +238,7 @@ struct dtrace_typeinfo;	/* see <dtrace.h> */
 struct dt_pcb;		/* see <dt_impl.h> */
 
 #define	IS_CHAR(e) \
-	((((e).cte_format & CTF_CHAR) == CTF_CHAR) &&	\
+	((((e).cte_format & CTF_INT_CHAR) == CTF_INT_CHAR) && \
 	(e).cte_bits == NBBY)
 
 #define	IS_VOID(e) \
