@@ -87,18 +87,11 @@ static probe_arg_t probe_args[] = {
 	{ "exec-failure", 0, { 0, 0, "int", } },
 	{ "exec-success", },
 	{ "exit", 0, { 0, 0, "int", } },
-#if 0
-	{ "fault", 0, { 0, 0, "int", } },
-	{ "fault", 1, { 1, 0, "siginfo_t *", } },
-#endif
 	{ "lwp-create", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
 	{ "lwp-create", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "lwp-exit", },
 	{ "lwp-start", },
-#if 0
 	{ "signal-clear", 0, { 0, 0, "int", } },
-	{ "signal-clear", 1, { 1, 0, "siginfo_t *", } },
-#endif
 	{ "signal-discard", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
 	{ "signal-discard", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "signal-discard", 2, { 1, 0, "int", } },
@@ -215,6 +208,18 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 		pd.mod = "";
 		pd.fun = "taskstats_exit";
 		pd.prb = "entry";
+
+		uprp = dt_probe_lookup(dtp, &pd);
+		assert(uprp != NULL);
+
+		dt_probe_add_dependent(dtp, uprp, prp);
+		dt_probe_enable(dtp, uprp);
+	} else if (strcmp(prp->desc->prb, "signal-clear") == 0) {
+		pd.id = DTRACE_IDNONE;
+		pd.prv = "syscall";
+		pd.mod = "";
+		pd.fun = "rt_sigtimedwait";
+		pd.prb = "return";
 
 		uprp = dt_probe_lookup(dtp, &pd);
 		assert(uprp != NULL);
@@ -363,6 +368,10 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	} else if (strcmp(prp->desc->prb, "lwp-create") == 0) {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	} else if (strcmp(prp->desc->prb, "signal-clear") == 0) {
+		/* Pre-condition: arg0 > 0 */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(0)));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JLE, BPF_REG_0, 0, exitlbl));
 	} else if (strcmp(prp->desc->prb, "signal-discard") == 0) {
 		/* Pre-condition: arg4 == 1 */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(4)));
