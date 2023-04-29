@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -92,7 +92,7 @@ dt_dis_varname_off(const dtrace_difo_t *dp, uint_t off, uint_t scope, uint_t add
  *         insn   code  dst  src    offset        imm
  *          -2:    ld   dst  %fp  DT_STK_DCTX  00000000
  *          -1:    ld   dst  dst  DCTX_*VARS   00000000
- *           0:    ld   dst  dst  var_offset   00000000
+ *           0:    ld   xxx  dst  var_offset   00000000
  *           0:    st   dst  src  var_offset   00000000
  *           0:    add  dst    0     0         var_offset
  * where instruction 0 is the current instruction, which may be one
@@ -151,10 +151,11 @@ dt_dis_refname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 		goto out;
 
 	/* check the current instruction and read var_offset */
-	if (in->dst_reg != dst)
-		goto out;
 	if (in[-1].off == DCTX_STRTAB) {
-		if (in->code == addcode && in->src_reg == 0 && in->off == 0) {
+		if (in->dst_reg == dst &&
+		    in->code == addcode &&
+		    in->src_reg == 0 &&
+		    in->off == 0) {
 			str = dt_difo_getstr(dp, in->imm);
 			if (str != NULL)
 				fprintf(fp, "%*s! \"%s\"", DT_DIS_PAD(n), "",
@@ -168,9 +169,13 @@ dt_dis_refname(const dtrace_difo_t *dp, const struct bpf_insn *in, uint_t addr,
 		var_offset = in->off;
 	else if (BPF_CLASS(in->code) == BPF_STX &&
 		 BPF_MODE(in->code) == BPF_MEM &&
+		 in->dst_reg == dst &&
 		 in->src_reg != dst && in->imm == 0)
 		var_offset = in->off;
-	else if (in->code == addcode && in->src_reg == 0 && in->off == 0)
+	else if (in->code == addcode &&
+		 in->dst_reg == dst &&
+		 in->src_reg == 0 &&
+		 in->off == 0)
 		var_offset = in->imm;
 	else
 		goto out;
