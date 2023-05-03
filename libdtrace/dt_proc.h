@@ -39,6 +39,7 @@ typedef struct dt_proc {
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */
+	uint8_t dpr_usdt;		/* usdt flag: usdt probes created */
 	uint8_t dpr_created;            /* proc flag: true if we created this
 					   process, false if we grabbed it */
 	uint8_t dpr_monitoring;		/* true if we should background-monitor

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -21,6 +21,8 @@ cd $DIRNAME
 cat > prov.d <<EOF
 provider test_prov {
 	probe go();
+	probe stop();
+	probe ignore();
 };
 EOF
 
@@ -32,15 +34,20 @@ fi
 
 cat > test.c <<EOF
 #include <sys/types.h>
+#include <unistd.h>
 #include "prov.h"
 
 int
 main(int argc, char **argv)
 {
+	sleep(5); /* Until proper synchronization is implemented. */
 	TEST_PROV_GO();
 	TEST_PROV_GO();
 	TEST_PROV_GO();
 	TEST_PROV_GO();
+	TEST_PROV_IGNORE();
+	TEST_PROV_STOP();
+	TEST_PROV_STOP();
 
 	return 0;
 }
@@ -63,10 +70,23 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -c ./test -qs /dev/stdin <<EOF
-	test_prov\$target:::
+	# Wait for full startup, passing into main(), to prevent
+	# rtld activity monitoring from triggering repeated
+	# probe scans (checking for problems doing one-off scans of
+	# already-running processes while probing multiple probes).
+	./test & { WAIT=$!; sleep 1; $dtrace -qs /dev/stdin $WAIT <<EOF; }
+	test_prov\$1:::go
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);
+	}
+	test_prov\$1:::stop
+	{
+		printf("%s:%s:%s\n", probemod, probefunc, probename);
+	}
+	test_prov\$1:::stop
+	/ ++i > 1 /
+	{
+		exit(0);
 	}
 EOF
 }

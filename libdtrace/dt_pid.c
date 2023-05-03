@@ -51,8 +51,6 @@ typedef struct dt_pid_probe {
 	uint_t dpp_last_taken;
 } dt_pid_probe_t;
 
-static char *dt_pid_de_pid(char *buf, const char *prv);
-
 /*
  * Compose the lmid and object name into the canonical representation. We
  * omit the lmid for the default link map for convenience.
@@ -761,15 +759,11 @@ out:
  * If dpr is set, just set up probes relating to mappings found in that one
  * process.  (dpr must in this case be locked.)
  *
- * If pdp is set, create overlying USDT probes for the specified probe
- * description.
- *
  * Return 0 on success or -1 on error.  (Failure to create specific underlying
  * probes is not an error.)
  */
 static int
-dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
-			  dtrace_probedesc_t *pdp, dt_pcb_t *pcb)
+dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dt_pcb_t *pcb)
 {
 	const dt_provider_t *pvp;
 	size_t i;
@@ -823,55 +817,23 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 		}
 
 		/*
-		 * Does this match the overlying probe we are meant to be
-		 * creating?  If so, create an overlying probe and let
-		 * provide_probe() create the underlying probe for us.  Among
-		 * other things, this ensures that the PID part of the provider
-		 * name gets stuck into the overlying probe properly.
+		 * Create an underlying probe using psp, if not already present.
 		 *
-		 * TODO: wildcard probes get handled here.
-		 */
-		if (pdp) {
-			char de_pid_prov[DTRACE_PROVNAMELEN + 1];
-
-			if ((pdp->prv[0] != 0 &&
-			     strcmp(dt_pid_de_pid(de_pid_prov, pdp->prv),
-				    psp->pps_prv) != 0) ||
-			    (pdp->mod[0] != 0 && strcmp(pdp->mod, psp->pps_mod) != 0) ||
-			    (pdp->fun[0] != 0 && strcmp(pdp->fun, psp->pps_fun) != 0) ||
-			    (pdp->prb[0] != 0 && strcmp(pdp->prb, psp->pps_prb) != 0)) {
-				dt_dprintf("%s:%s:%s:%s -> %s:%s:%s:%s: match failure\n",
-					   pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-					   psp->pps_prv, psp->pps_mod, psp->pps_fun,
-					   psp->pps_prb);
-				continue;
-			}
-		}
-
-		/*
-		 * Create a probe using psp, if not already present.
-		 *
-		 * If we are creating an overlying probe, complain about it if
-		 * probe creation fails.  Otherwise, this is just an underlying
-		 * probe: we'll complain later if we use it for anything.
+		 * Complain if any probe cannot be created: at this stage we
+		 * cannot reliably tell whether a corresponding overlying probe
+		 * will be created (since dt_setcontext only calls us for the
+		 * first one in any given provider).
 		 */
 
-		dt_dprintf("providing %s:%s:%s:%s\n", pdp->prv, pdp->mod,
-			   pdp->fun, pdp->prb);
-		if (pvp->impl->provide_probe(dtp, psp) < 0 && pdp) {
+		dt_dprintf("providing %s:%s:%s:%s\n", psp->pps_prv, psp->pps_mod,
+			   psp->pps_fun, psp->pps_prb);
+		if (pvp->impl->provide_probe(dtp, psp) < 0) {
 			dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
 				     "failed to instantiate %sprobe %s for pid %d: %s",
 				     psp->pps_type == DTPPT_IS_ENABLED ?
-				     "is-enabled ": "", pdp->prb, dpr->dpr_pid,
+				     "is-enabled ": "", psp->pps_prb, dpr->dpr_pid,
 				     dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			ret = -1;
-		}
-
-		if (pdp && dpr) {
-			/*
-			 * Put the module name in its canonical form.
-			 */
-			dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
 		}
 	}
 
@@ -970,23 +932,6 @@ dt_pid_get_pid(const dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	return pid;
 }
 
-/*
- * Return a USDT provider name with the pid removed.
- */
-static char *
-dt_pid_de_pid(char *buf, const char *prv)
-{
-	const char *c;
-	char *p = buf;
-
-	for (c = prv; *c != '\0'; c++) {
-		if (!isdigit(*c))
-			*p++ = *c;
-	}
-	*p = 0;
-	return buf;
-}
-
 int
 dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 {
@@ -1029,7 +974,15 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		dpr = dt_proc_lookup(dtp, pid);
 		assert(dpr != NULL);
 
-		err = dt_pid_create_usdt_probes(dtp, dpr, pdp, pcb);
+		if (!dpr->dpr_usdt) {
+			err = dt_pid_create_usdt_probes(dtp, dpr, pcb);
+			dpr->dpr_usdt = B_TRUE;
+		}
+
+		/*
+		 * Put the module name in its canonical form.
+		 */
+		dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
 
 		dt_proc_release_unlock(dtp, pid);
 	}
@@ -1073,9 +1026,12 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			 * If it's not strictly a pid provider, we might match
 			 * a USDT provider.
 			 */
-			if (strcmp(provname, pdp->prv) != 0 &&
-			    dt_pid_create_usdt_probes(dtp, dpr, pdp, NULL) < 0)
-				ret = 1;
+			if (strcmp(provname, pdp->prv) != 0) {
+				if (dt_pid_create_usdt_probes(dtp, dpr, NULL) < 0)
+					ret = 1;
+				else
+					dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
+			}
 
 			free((char *)pd.fun);
 		}
