@@ -2625,16 +2625,17 @@ static void
 dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp = dt_ident_resolve(dnp->dn_ident);
+	dt_ident_t	*fnp;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
 	if (dnp->dn_ident->di_kind == DT_IDENT_ARRAY) {
-		dt_ident_t	*idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
 		uint_t		varid;
 
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
 		TRACE_REGSET("    assoc_op: Begin");
 
-		assert(idp != NULL);
+		assert(fnp != NULL);
 		assert(dnp->dn_kind == DT_NODE_VAR);
 		assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
 		assert(dnp->dn_args != NULL);
@@ -2656,7 +2657,7 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
 
 		if (dnp->dn_flags & DT_NF_REF) {
@@ -2690,8 +2691,8 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
 		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-		assert(idp != NULL);
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+		assert(fnp != NULL);
 
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -2703,7 +2704,7 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
 
 		if (dnp->dn_flags & DT_NF_REF) {
@@ -2769,10 +2770,10 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_2, idp->di_id));
 	emit(dlp, BPF_MOV_IMM(BPF_REG_3, 0));
-	idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
-	assert(idp != NULL);
+	fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_bvar");
+	assert(fnp != NULL);
 	dt_regset_xalloc(drp, BPF_REG_0);
-	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+	emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 	dt_regset_free_args(drp);
 
 	dt_cg_check_fault(yypcb);
@@ -3300,6 +3301,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	uint_t	varid, lbl_done;
 	int	reg;
 	size_t	size;
+	dt_ident_t *fnp;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
 
@@ -3326,8 +3328,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 		size = idp->di_size;
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
-		assert(idp != NULL);
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+		assert(fnp != NULL);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3339,7 +3341,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
 		lbl_done = dt_irlist_label(dlp);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
@@ -3388,8 +3390,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 		size = idp->di_size;
 
-		idp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-		assert(idp != NULL);
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+		assert(fnp != NULL);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3399,7 +3401,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
 		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
+		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
 		lbl_done = dt_irlist_label(dlp);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
