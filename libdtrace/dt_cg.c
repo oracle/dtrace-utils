@@ -2618,11 +2618,19 @@ dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 }
 
 static void
+dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp);
+
+static void
 dt_cg_load_var(dt_node_t *dst, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp = dt_ident_resolve(dst->dn_ident);
 
 	idp->di_flags |= DT_IDFLG_DIFR;
+
+	if (dst->dn_ident->di_kind == DT_IDENT_ARRAY) {
+		dt_cg_assoc_op(dst, dlp, drp);
+		return;
+	}
 
 	/* global and local variables */
 	if ((idp->di_flags & DT_IDFLG_LOCAL) ||
@@ -4120,8 +4128,6 @@ dt_cg_assoc_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	assert(dnp->dn_kind == DT_NODE_VAR);
 	assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
 	assert(dnp->dn_args != NULL);
-
-	dnp->dn_ident->di_flags |= DT_IDFLG_DIFR;
 
 	/* Get the tuple. */
 	dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
@@ -6250,11 +6256,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				break;
 			}
 
-			if (dnp->dn_ident->di_kind == DT_IDENT_ARRAY) {
-				if (dnp->dn_ident->di_id > DIF_VAR_ARRAY_MAX)
-					dt_cg_assoc_op(dnp, dlp, drp);
-				else
-					dt_cg_array_op(dnp, dlp, drp);
+			if (dnp->dn_ident->di_kind == DT_IDENT_ARRAY &&
+			    dnp->dn_ident->di_id <= DIF_VAR_ARRAY_MAX) {
+				dt_cg_array_op(dnp, dlp, drp);
 				break;
 			}
 
