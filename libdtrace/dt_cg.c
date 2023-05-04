@@ -2626,16 +2626,16 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp = dt_ident_resolve(dnp->dn_ident);
 	dt_ident_t	*fnp;
+	int		args_are_ready = 0;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
 	if (dnp->dn_ident->di_kind == DT_IDENT_ARRAY) {
-		uint_t		varid;
+		/* associative arrays */
+		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 
 		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
-		TRACE_REGSET("    assoc_op: Begin");
 
-		assert(fnp != NULL);
 		assert(dnp->dn_kind == DT_NODE_VAR);
 		assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
 		assert(dnp->dn_args != NULL);
@@ -2643,12 +2643,8 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		/* Get the tuple. */
 		dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
 
-		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		varid = dnp->dn_ident->di_id - DIF_VAR_OTHER_UBASE;
 
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_args->dn_reg));
@@ -2656,46 +2652,14 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
-		dt_regset_free_args(drp);
 
-		if (dnp->dn_flags & DT_NF_REF) {
-			emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
-		} else {
-			size_t	size = dt_node_type_size(dnp);
-			uint_t	lbl_notnull = dt_irlist_label(dlp);
-			uint_t	lbl_done = dt_irlist_label(dlp);
-
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
-
-			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
-			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
-			emit(dlp,  BPF_JUMP(lbl_done));
-			emitl(dlp, lbl_notnull,
-				   BPF_LOAD(ldstw[size], dnp->dn_reg, BPF_REG_0, 0));
-			dt_cg_promote(dnp, size, dlp, drp);
-			emitl(dlp, lbl_done,
-				   BPF_NOP());
-		}
-
-		dt_regset_free(drp, BPF_REG_0);
-
-		TRACE_REGSET("    assoc_op: End  ");
-
-		return;
-	}
-
-	/* thread-local variables */
-	if (idp->di_flags & DT_IDFLG_TLS) {	/* TLS var */
+		args_are_ready = 1;
+	} else if (idp->di_flags & DT_IDFLG_TLS) {
+		/* thread-local variables */
 		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 
 		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-		assert(fnp != NULL);
 
-		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
@@ -2703,13 +2667,22 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 0));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
+
+		args_are_ready = 1;
+	}
+
+	if (args_are_ready) {
+		assert(fnp != NULL);
+
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
 
+		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
 		if (dnp->dn_flags & DT_NF_REF) {
 			emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
-			dt_regset_free(drp, BPF_REG_0);
 		} else {
 			size_t	size = dt_node_type_size(dnp);
 			uint_t	lbl_notnull = dt_irlist_label(dlp);
@@ -2724,11 +2697,12 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			emitl(dlp, lbl_notnull,
 				   BPF_LOAD(ldstw[size], dnp->dn_reg, BPF_REG_0, 0));
 			dt_cg_promote(dnp, size, dlp, drp);
-			dt_regset_free(drp, BPF_REG_0);
 
 			emitl(dlp, lbl_done,
 				   BPF_NOP());
 		}
+
+		dt_regset_free(drp, BPF_REG_0);
 
 		return;
 	}
@@ -3299,7 +3273,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_ident_t *idp)
 {
 	uint_t	varid, lbl_done;
-	int	reg;
+	int	reg, args_are_ready = 0;
 	size_t	size;
 	dt_ident_t *fnp;
 
@@ -3320,16 +3294,12 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			idp->di_name);
 	}
 
-	/* Associative (global or TLS) array.  Cannot be in alloca space.  */
 	if (idp->di_kind == DT_IDENT_ARRAY) {
-		uint_t	lbl_notnull = dt_irlist_label(dlp);
+		/* Associative (global or TLS) array.  Cannot be in alloca space. */
+		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
 
 		dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
-
-		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-		size = idp->di_size;
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
-		assert(fnp != NULL);
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3340,6 +3310,29 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 1));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
+
+		args_are_ready = 1;
+	} else if (idp->di_flags & DT_IDFLG_TLS) {
+		/* TLS var */
+		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
+
+		args_are_ready = 1;
+	}
+
+	if (args_are_ready) {
+		uint_t	lbl_notnull = dt_irlist_label(dlp);
+
+		assert(fnp != NULL);
+
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
@@ -3356,66 +3349,9 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			   BPF_MOV_REG(reg, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 
+		size = idp->di_size;
 		if (dnp->dn_flags & DT_NF_REF) {
 			size_t	srcsz;
-
-			/*
-			 * Determine the amount of data to be copied.  It is
-			 * the lesser of the size of the identifier and the
-			 * size of the data being copied in.
-			 */
-			srcsz = dt_node_type_size(dnp->dn_right);
-			size = MIN(srcsz, size);
-
-			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
-		} else {
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
-
-			emit(dlp, BPF_STORE(ldstw[size], reg, 0, dnp->dn_reg));
-		}
-
-		dt_regset_free(drp, reg);
-
-		emitl(dlp, lbl_done,
-			   BPF_NOP());
-
-		TRACE_REGSET("    store_var: End  ");
-
-		return;
-	}
-
-	if (idp->di_flags & DT_IDFLG_TLS) {
-		/* TLS var */
-		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-		size = idp->di_size;
-
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-		assert(fnp != NULL);
-
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
-		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
-		dt_regset_free_args(drp);
-		lbl_done = dt_irlist_label(dlp);
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
-
-		if ((reg = dt_regset_alloc(drp)) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_REG(reg, BPF_REG_0));
-		dt_regset_free(drp, BPF_REG_0);
-
-		dt_cg_check_notnull(dlp, drp, reg);
-
-		if (dnp->dn_flags & DT_NF_REF) {
-			size_t		srcsz;
 
 			/*
 			 * Determine the amount of data to be copied.  It is
