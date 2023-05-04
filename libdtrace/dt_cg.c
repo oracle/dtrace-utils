@@ -2747,7 +2747,32 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_GVARS));
 
 		/* load the variable value or address */
-		if (dnp->dn_flags & DT_NF_REF) {
+		if (dt_node_is_string(dnp)) {
+			/*
+			 * Strings are a special case of by-reference.  If we have
+			 * a NULL string, we want to set the pointer to 0.
+			 */
+			size_t	size = sizeof(DT_NULL_STRING);
+			int	reg;
+			uint_t	L1 = dt_irlist_label(dlp);
+			uint_t	L2 = dt_irlist_label(dlp);
+
+			assert(dnp->dn_flags & DT_NF_REF);
+			assert(size > 0 && size <= 8 &&
+			       (size & (size - 1)) == 0);
+
+			if ((reg = dt_regset_alloc(drp)) == -1)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+			emit(dlp,  BPF_LOAD(ldstw[size], reg, dnp->dn_reg, idp->di_offset));
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, reg, DT_NULL_STRING, L1));
+			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+			emit(dlp,  BPF_JUMP(L2));
+			emitl(dlp, L1,
+				   BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, idp->di_offset));
+			emitl(dlp, L2,
+				   BPF_NOP());
+			dt_regset_free(drp, reg);
+		} else if (dnp->dn_flags & DT_NF_REF) {
 			assert(!(dnp->dn_flags & DT_NF_ALLOCA));
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, idp->di_offset));
 		} else {
@@ -3382,8 +3407,100 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	else
 		emit(dlp, BPF_LOAD(BPF_DW, reg, reg, DCTX_GVARS));
 
-	/* store by value or by reference */
-	if (dnp->dn_flags & DT_NF_REF) {
+	/* Store */
+	if (dt_node_is_string(dnp) && dt_node_is_integer(dnp->dn_right)) {
+		/* Store a compile-time NULL pointer (string = NULL) */
+		/*
+		 * The parser has already ensured the rhs is 0.  In
+		 * dt_cook_op2() for DT_TOK_ASGN, it checks dt_node_is_argcompat().
+		 * Since rhs is not string compatible (string or char*), we move on
+		 * to dt_node_is_ptrcompat(lp, rp, NULL, NULL).  There we see a test
+		 * if (rp_is_int && (rp->dn_kind != DT_NODE_INT || rp->dn_value != 0))
+		 * 	return 0; // fail if rp is an integer that is not 0 constant
+		 */
+
+		size = sizeof(DT_NULL_STRING);
+
+		assert(dt_node_is_string(dnp) == dt_node_is_string(dnp->dn_left));
+		assert(idp->di_size == dt_node_type_size(dnp->dn_left));
+		assert(dt_node_is_integer(dnp->dn_right) == (dnp->dn_right->dn_kind == DT_NODE_INT));
+		assert(dnp->dn_right->dn_value == 0);
+		assert(size > 0 && size <= 8 &&
+		       (size & (size - 1)) == 0);
+
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
+		emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, DT_NULL_STRING));
+
+		/*
+		 * Since strings are passed by value, we need to force
+		 * the value of the assignment to be the destination
+		 * address.
+		 */
+		dt_regset_free(drp, dnp->dn_reg);
+		dnp->dn_reg = reg;
+	} else if (dt_node_is_string(dnp)) {
+		/* General store to string */
+		uint_t	Lnull = 0, Ldone = 0;
+		size_t	srcsz;
+
+		assert(dt_node_is_string(dnp) == dt_node_is_string(dnp->dn_left));
+		assert(idp->di_size == dt_node_type_size(dnp->dn_left));
+		assert(dnp->dn_reg == dnp->dn_right->dn_reg);
+
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
+
+		/* Check if we are storing a NULL */
+		if (!(dnp->dn_right->dn_flags & DT_NF_ALLOCA)) {
+			Lnull = dt_irlist_label(dlp);
+			Ldone = dt_irlist_label(dlp);
+
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, Lnull));
+		}
+
+		/* Normal store to string */
+
+		/* Start by zeroing out the first bytes */
+		size = sizeof(DT_NULL_STRING);
+		assert(size > 0 && size <= 8 &&
+		       (size & (size - 1)) == 0);
+
+		emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, 0));
+
+		/*
+		 * Determine the amount of data to be copied.  It is
+		 * the lesser of the size of the identifier and the
+		 * size of the data being copied in.
+		 */
+		srcsz = dt_node_type_size(dnp->dn_right);
+		size = MIN(srcsz, idp->di_size);
+
+		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_right, NULL);
+
+		dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
+
+		if (!(dnp->dn_right->dn_flags & DT_NF_ALLOCA)) {
+			emit(dlp,  BPF_JUMP(Ldone));
+
+			/* Store a null pointer */
+			emitl(dlp, Lnull,
+				   BPF_NOP());
+			size = sizeof(DT_NULL_STRING);
+			assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
+			emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, DT_NULL_STRING));
+			emitl(dlp, Ldone,
+				   BPF_NOP());
+		}
+
+		/*
+		 * Since strings are passed by value, we need to force
+		 * the value of the assignment to be the destination
+		 * address.
+		 */
+
+		dt_regset_free(drp, dnp->dn_reg);
+		dnp->dn_reg = reg;
+	} else if (dnp->dn_flags & DT_NF_REF) {
+		/* Store by reference (copy) */
 		size_t		srcsz;
 
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
@@ -3399,17 +3516,9 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_cg_check_ptr_arg(dlp, drp, dnp->dn_right, NULL);
 		dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
 
-		/*
-		 * Since strings are passed by value, we need to force
-		 * the value of the assignment to be the destination
-		 * address.
-		 */
-		if (dt_node_is_string(dnp)) {
-			dt_regset_free(drp, dnp->dn_reg);
-			dnp->dn_reg = reg;
-		} else
-			dt_regset_free(drp, reg);
+		dt_regset_free(drp, reg);
 	} else {
+		/* Store by value */
 		size = idp->di_size;
 
 		assert(size > 0 && size <= 8 &&

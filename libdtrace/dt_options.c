@@ -878,6 +878,11 @@ dt_opt_strsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	if (dt_opt_size(dtp, arg, option) != 0)
 		return -1; /* dt_errno is set for us */
 
+	if (dtp->dt_options[option] < sizeof(DT_NULL_STRING)) {
+		dtp->dt_options[option] = val;
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+	}
+
 	if (dtp->dt_options[option] > UINT_MAX) {
 		dtp->dt_options[option] = val;
 		return dt_set_errno(dtp, EOVERFLOW);

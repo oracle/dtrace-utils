@@ -58,6 +58,29 @@ extern "C" {
 # define __stringify(x)          __stringify_(x)
 #endif
 
+/*
+ * Note that string = "" is an empty string:  its first byte is 0x00.
+ * To store a NULL string -- basically, (char*)0 --  make the first byte 0x00.
+ * Then, to distinguish between empty and NULL strings, follow the initial
+ * byte either with 0s (empty string) or a special set of nonzero bytes.
+ * That is, to designate a NULL string, make the initial bytes DT_NULL_STRING,
+ * where:
+ *   - the initial byte is 0x00
+ *   - subsequent bytes are nonzero
+ *   - the width is at least 2 bytes
+ *      (that is, there is at least one nonzero byte)
+ *   - the width is at most 4 bytes
+ *      (so that DT_NULL_STRING can be used as an IMM)
+ *   - the highest bit is 0
+ *      (so that if DT_NULL_STRING is an IMM, it won't get sign extended)
+ * Finally, note that strsize must be large enough to hold DT_NULL_STRING.
+ */
+#ifdef _BIG_ENDIAN
+#define DT_NULL_STRING ((uint16_t)0x007f)
+#else
+#define DT_NULL_STRING ((uint16_t)0x7f00)
+#endif
+
 struct dt_module;		/* see below */
 struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */

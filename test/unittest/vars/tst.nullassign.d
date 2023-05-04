@@ -1,25 +1,24 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 #pragma D option quiet
 
 BEGIN
 {
-	die = "Die";
-	tap = ", SystemTap, ";
-	the = "The";
+	lv = "Live";
+	dt = ", DTrace, ";
+	ps = "Prosper";
 }
 
 BEGIN
 {
-	phrase = strjoin(die, tap);
-	phrase = strjoin(phrase, die);
-	expected = "Die, SystemTap, Die";
+	phrase = strjoin(lv, dt);
+	phrase = strjoin(phrase, lv);
+	expected = "Live, DTrace, Live";
 }
 
 BEGIN
@@ -31,13 +30,13 @@ BEGIN
 
 BEGIN
 {
-	this->phrase = strjoin(the, tap);
+	this->phrase = strjoin(ps, dt);
 }
 
 BEGIN
 {
-	this->phrase = strjoin(this->phrase, the);
-	expected = "The, SystemTap, The";
+	this->phrase = strjoin(this->phrase, ps);
+	expected = "Prosper, DTrace, Prosper";
 }
 
 BEGIN
