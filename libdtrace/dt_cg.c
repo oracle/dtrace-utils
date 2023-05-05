@@ -775,25 +775,27 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *	dctx->mst->fault = 0;	// lddw %r0, [%r0 + DCTX_MST]
 	 *				// stdw [%r0 + DMST_FAULT], 0
 	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
+	 *	dctx->mst->specsize = 0;// stdw [%r0 + DMST_SPECSIZE], 0
 	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
 	 *	dctx->mst->clid = CLID;	// stw [%r0 + DMST_CLID], CLID
-	 *	*((uint32_t *)&buf[0]) = EPID;
-	 *				// stw [%r9 + 0], EPID
+	 *	*((uint32_t *)&buf[DBUF_EPID]) = EPID;
+	 *				// stw [%r9 + DBUF_EPID], EPID
 	 */
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_SPECSIZE, 0));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1), epid);
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_CLID, -1), clid);
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, 0, -1), epid);
+	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, DBUF_EPID, -1), epid);
 
 	/*
 	 *	Set the speculation ID field to zero to indicate no active
 	 *	speculation.
-	 *	*((uint32_t *)&buf[4]) = 0;
-	 *				// stw [%r9 + 4], 0
+	 *	*((uint32_t *)&buf[DBUF_SPECID]) = 0;
+	 *				// stw [%r9 + DBUF_SPECID], 0
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, 4, 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DBUF_SPECID, 0));
 
 	/*
 	 * If there is a predicate:
@@ -813,7 +815,8 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	TRACE_REGSET("Prologue: End  ");
 
 	/*
-	 * Account for 32-bit epid (at offset 0) and 32-bit tag (at offset 4).
+	 * Account for 32-bit EPID (at offset 0) and 32-bit speculation ID (at
+	 * offset 4).
 	 */
 	pcb->pcb_bufoff += 2 * sizeof(uint32_t);
 }
@@ -888,6 +891,21 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 			emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
 			emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));
 			emit(dlp, BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
+
+			/*
+			 * Add the size of the trace data to the overall count
+			 * for the current speculation.
+			 */
+			idp = dt_dlib_get_map(dtp, "specs");
+			assert(idp != NULL);
+			dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_SP));
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_9, DBUF_SPECID));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_2, 0, BPF_REG_0));
+			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+			emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+			emit(dlp, BPF_MOV_IMM(BPF_REG_1, pcb->pcb_bufoff));
+			emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_0, offsetof(dt_bpf_specs_t, size), BPF_REG_1));
 		} else {
 			idp = dt_dlib_get_map(dtp, "cpuinfo");
 			assert(idp != NULL);
@@ -1275,6 +1293,8 @@ clp2(size_t x)
 	return x + 1;
 }
 
+static void dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x);
+
 static int
 dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
@@ -1286,6 +1306,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 	uint_t			off;
 	size_t			size;
 	int			not_null = 0;
+	int			cflags = pcb->pcb_stmt->dtsd_clauseflags;
 
 	/*
 	 * Special case for aggregations: we store the aggregation id.  We
@@ -1336,7 +1357,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, off + 8, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 
-		return 0;
+		goto ok;
 	}
 
 	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
@@ -1349,15 +1370,15 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		emit(dlp, BPF_STORE(ldstw[size], BPF_REG_9, off, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 
-		return 0;
+		goto ok;
 	} else if (dt_node_is_string(dnp)) {
-		size_t	strsize = pcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE];
+		size_t	strsize = dtp->dt_options[DTRACEOPT_STRSIZE];
 
 		if (!not_null)
 			dt_cg_check_ptr_arg(dlp, drp, dnp, NULL);
 
 		TRACE_REGSET("store_val(): Begin ");
-		off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, kind, size + 1,
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size + 1,
 				 1, pfp, arg);
 
 		/*
@@ -1380,7 +1401,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_regset_free(drp, BPF_REG_0);
 		TRACE_REGSET("store_val(): End   ");
 
-		return 0;
+		goto ok;
 	}
 
 	/* Handle tracing of by-ref values (arrays, struct, union). */
@@ -1406,10 +1427,67 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_regset_free(drp, BPF_REG_0);
 		TRACE_REGSET("store_val(): End   ");
 
-		return 0;
+		goto ok;
 	}
 
 	return -1;
+
+ok:
+	/*
+	 * If this clause contains a speculate() statement, we need to
+	 * generate code to verify that the amount of data recorded for this
+	 * speculation (incl. what was just added) does not exceed the
+	 * specsize limit.  If it does, further execution of this clause
+	 * should be aborted.
+	 */
+	if (cflags & DT_CLSFLAG_SPECULATE) {
+		dt_ident_t	*idp = dt_dlib_get_map(dtp, "state");
+		uint_t		lbl_ok = dt_irlist_label(dlp);
+		size_t		specsize = dtp->dt_options[DTRACEOPT_SPECSIZE];
+
+		assert(idp);
+
+		/*
+		 * if (*((uint32_t *)&buf[DBUF_SPECID]) != 0) {
+		 *     if (dctx->dmst->specsize + off + size >
+		 *	   dtp->dt_options[DTRACEOPT_SPECSIZE]) {
+		 *	   state[DT_STATE_SPEC_DROPS]++;
+		 *
+		 *	   return;
+		 *     }
+		 * }
+		 */
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_9, DBUF_SPECID));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_ok));
+
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DMST_SPECSIZE));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, off + size));
+		dt_cg_setx(dlp, BPF_REG_1, specsize);
+		emit(dlp,  BPF_BRANCH_REG(BPF_JLE, BPF_REG_0, BPF_REG_1, lbl_ok));
+
+		dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_SP));
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_2, 0, DT_STATE_SPEC_DROPS));
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, 1));
+		emit(dlp,  BPF_XADD_REG(BPF_W, BPF_REG_0, 0, BPF_REG_1));
+		emit(dlp,  BPF_JUMP(pcb->pcb_exitlbl));
+
+		emitl(dlp, lbl_ok,
+			   BPF_NOP());
+
+		dt_regset_free_args(drp);
+		dt_regset_free(drp, BPF_REG_0);
+	}
+
+	return 0;
 }
 
 static void
@@ -1952,7 +2030,8 @@ dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * back pending a commit() or discard() for the speculation with the given id.
  *
  * Updates the specid in the output buffer header, rather than emitting a new
- * record into it.
+ * record into it.  The dctx->dmst->specsize value is initialized with the size
+ * of the data thus far recorded for this speculation.
  */
 static void
 dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
@@ -1972,14 +2051,16 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 	/*
-	 *	rc = dt_speculation_speculate(spec);
+	 *	dt_bpf_specs_t *spec = dt_speculation_speculate(specid);
 	 *				// lddw %r1, %dn_reg
 	 *				// call dt_speculation_speculate
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = error return)
-	 *	if (rc != 0)		// jne %r0, 0, lbl_exit
+	 *	if (spec == 0)		// jne %r0, 0, lbl_exit
 	 *		goto exit;
-	 *	*((uint32_t *)&buf[4]) = spec;	// mov [%r9 + 4], %dn_reg
+	 *	*((uint32_t *)&buf[DBUF_SPECID]) = specid;
+	 *				// mov [%r9 + DBUF_SPECID], %dn_reg
+	 *	dctx->dmst->specsize = spec->size;
 	 *	exit:			// nop
 	 */
 
@@ -1989,8 +2070,13 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 	dt_regset_free_args(drp);
-	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_exit));
-	emit(dlp, BPF_STORE(BPF_W, BPF_REG_9, 4, dnp->dn_reg));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp, BPF_STORE(BPF_W, BPF_REG_9, DBUF_SPECID, dnp->dn_reg));
+	/* We need a register, so we re-use dnp->dn_reg. */
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, offsetof(dt_bpf_specs_t, size)));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp,  BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MST));
+	emit(dlp,  BPF_STORE(BPF_DW, dnp->dn_reg, DMST_SPECSIZE, BPF_REG_0));
 	dt_regset_free(drp, BPF_REG_0);
 	dt_regset_free(drp, dnp->dn_reg);
 }

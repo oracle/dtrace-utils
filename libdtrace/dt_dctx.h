@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -24,6 +24,7 @@ typedef struct dt_mstate {
 	uint32_t	tag;		/* Tag (for future use) */
 	uint32_t	scratch_top;	/* Current top of scratch space */
 	int32_t		syscall_errno;	/* syscall errno */
+	uint64_t	specsize;	/* speculation size */
 	uint64_t	scalarizer;	/* used to scalarize pointers */
 	uint64_t	fault;		/* DTrace fault flags */
 	uint64_t	tstamp;		/* cached timestamp value */
@@ -38,6 +39,7 @@ typedef struct dt_mstate {
 #define DMST_TAG		offsetof(dt_mstate_t, tag)
 #define DMST_SCRATCH_TOP	offsetof(dt_mstate_t, scratch_top)
 #define DMST_ERRNO		offsetof(dt_mstate_t, syscall_errno)
+#define DMST_SPECSIZE		offsetof(dt_mstate_t, specsize)
 #define DMST_SCALARIZER		offsetof(dt_mstate_t, scalarizer)
 #define DMST_FAULT		offsetof(dt_mstate_t, fault)
 #define DMST_TSTAMP		offsetof(dt_mstate_t, tstamp)
@@ -73,6 +75,21 @@ typedef struct dt_dctx {
 #define DCTX_LVARS	offsetof(dt_dctx_t, lvars)
 
 #define DCTX_SIZE	((int16_t)sizeof(dt_dctx_t))
+
+/*
+ * The dctx->buf pointer references a block of memory that contains:
+ *
+ *                       +----------------+
+ *                  0 -> | EPID           |
+ *                       +----------------+
+ *		    4 -> | Speculation ID |
+ *                       +----------------+
+ *                       | Trace Data     |
+ *                       |      ...       |
+ *                       +----------------+
+ */
+#define DBUF_EPID	0
+#define DBUF_SPECID	4
 
 /*
  * The dctx->mem pointer references a block of memory that contains:

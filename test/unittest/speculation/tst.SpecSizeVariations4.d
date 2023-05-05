@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -50,12 +50,17 @@ BEGIN
 /1 <= self->commitFlag/
 {
 	printf("Statement was executed\n");
-	exit(0);
+	exit(1);
 }
 
 BEGIN
 /1 > self->commitFlag/
 {
 	printf("Statement wasn't executed\n");
+	exit(0);
+}
+
+ERROR
+{
 	exit(1);
 }

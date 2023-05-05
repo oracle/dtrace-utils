@@ -26,6 +26,7 @@ struct dt_bpf_probe {
 typedef struct dt_bpf_specs	dt_bpf_specs_t;
 struct dt_bpf_specs {
 	uint64_t	written;	/* number of spec buffers written */
+	uint64_t	size;		/* data size */
 	uint32_t	draining;	/* 1 if userspace has been asked to
 					 * drain this buffer */
 };

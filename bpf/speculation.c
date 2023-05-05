@@ -105,29 +105,32 @@ noinline uint32_t dt_speculation(void)
  * Begin a speculation given an already-assigned ID.
  *
  * We consider a speculation ID usable only if it exists in the speculation map
- * (indicating that speculation() has returned it) with a a zero read value
+ * (indicating that speculation() has returned it) and it is not being drained
  * (indicating that neither commit() nor discard() have been called for it).
  * We bump the written value by one to indicate that another speculative buffer
  * is (or will soon be, once this clause terminates and its epilogue runs)
  * available for draining.
+ *
+ * We return the speculation entry in the map or NULL.
  */
-noinline int32_t
+noinline dt_bpf_specs_t *
 dt_speculation_speculate(uint32_t id)
 {
 	dt_bpf_specs_t *spec;
 
 	if ((spec = bpf_map_lookup_elem(&specs, &id)) == NULL)
-		return -1;
+		return NULL;
 
 	/*
 	 * Spec already being drained: do not continue to emit new
 	 * data into it.
 	 */
 	if (spec->draining)
-		return -1;
+		return NULL;
 
 	atomic_add(&spec->written, 1);
-	return 0;
+
+	return spec;
 }
 
 /*
