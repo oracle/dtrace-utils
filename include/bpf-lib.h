@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -61,5 +61,30 @@
                 : /* no clobbers */ \
         );
 
+/*
+ * Explicit inline assembler to implement atomic add:
+ *
+ *	*ptr += val;
+ */
+#define atomic_add(valp, val) \
+	do { \
+		register uint64_t *ptr asm("%r0") = (valp); \
+		register uint64_t tmp asm("%r1") = (val); \
+		asm (".byte 0xdb, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00" \
+			: /* no outputs */ \
+			: "r" (ptr), "r" (tmp) \
+			: "memory" \
+		); \
+	} while (0)
+#define atomic_add32(valp, val) \
+	do { \
+		register uint32_t *ptr asm("%r0") = (valp); \
+		register uint32_t tmp asm("%r1") = (val); \
+		asm (".byte 0xc3, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00" \
+			: /* no outputs */ \
+			: "r" (ptr), "r" (tmp) \
+			: "memory" \
+		); \
+	} while (0)
 
 #endif /* BPF_LIB_H */

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
 #include <bpf-helpers.h>
+#include <bpf-lib.h>
 #include <dt_bpf_maps.h>
 
 #include <dtrace/faults_defines.h>
@@ -96,11 +97,7 @@ dt_speculation_speculate(uint32_t id)
 	if (spec->draining)
 		return -1;
 
-	spec->written++;
-	/* Use atomics once GCC/binutils can emit them in forms that older
-	 * kernels support:
-	 * __atomic_add_fetch(&spec->written, 1, __ATOMIC_RELAXED);
-	 */
+	atomic_add(&spec->written, 1);
 	return 0;
 }
 
