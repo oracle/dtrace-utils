@@ -20,6 +20,7 @@
 
 extern struct bpf_map_def specs;
 extern struct bpf_map_def state;
+extern uint64_t PC;
 extern uint64_t NSPEC;
 
 /*
@@ -151,7 +152,7 @@ dt_speculation_set_drainable(const dt_dctx_t *dctx, uint32_t id)
 	if ((spec = bpf_map_lookup_elem(&specs, &id)) == NULL) {
 		if (id <= (uint64_t) &NSPEC)
 			return 0;
-		dt_probe_error(dctx, -1, DTRACEFLT_ILLOP, 0);
+		dt_probe_error(dctx, (uint64_t)&PC, DTRACEFLT_ILLOP, 0);
 		return -1;
 	}
 	spec->draining = 1;

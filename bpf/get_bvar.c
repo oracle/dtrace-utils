@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 #include <linux/bpf.h>
 #include <stddef.h>
@@ -23,13 +23,14 @@ extern struct bpf_map_def cpuinfo;
 extern struct bpf_map_def probes;
 extern struct bpf_map_def state;
 
+extern uint64_t PC;
 extern uint64_t STBSZ;
 extern uint64_t STKSIZ;
 extern uint64_t BOOTTM;
 
 #define error(dctx, fault, illval) \
 	({ \
-		dt_probe_error((dctx), -1, (fault), (illval)); \
+		dt_probe_error((dctx), (uint64_t)&PC, (fault), (illval)); \
 		-1; \
 	})
 
