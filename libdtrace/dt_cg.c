@@ -1003,18 +1003,13 @@ dt_cg_check_fault(dt_pcb_t *pcb)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
 	int		reg = dt_regset_alloc(drp);
-	uint_t		lbl_ok = dt_irlist_label(dlp);
 
 	if (reg == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
 	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_MST));
 	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DMST_FAULT));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, reg, 0, lbl_ok));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 0));
-	emit(dlp,  BPF_RETURN());
-	emitl(dlp, lbl_ok,
-		   BPF_NOP());
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, reg, 0, pcb->pcb_exitlbl));
 	dt_regset_free(drp, reg);
 }
 /*
