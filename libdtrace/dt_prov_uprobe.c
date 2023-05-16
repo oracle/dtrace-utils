@@ -16,7 +16,7 @@
 #include "dt_dctx.h"
 #include "dt_cg.h"
 #include "dt_list.h"
-#include "dt_provider.h"
+#include "dt_provider_tp.h"
 #include "dt_probe.h"
 #include "dt_pid.h"
 #include "dt_string.h"
