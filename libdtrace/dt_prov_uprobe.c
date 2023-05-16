@@ -62,11 +62,11 @@ dt_provimpl_t	dt_usdt;
 
 static int populate(dtrace_hdl_t *dtp)
 {
-	dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr);
+	dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr, NULL);
 	dt_provider_create(dtp, dt_uprobe_is_enabled.name,
-			   &dt_uprobe_is_enabled, &pattr);
-	dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr);
-	dt_provider_create(dtp, dt_usdt.name, &dt_usdt, &pattr);
+			   &dt_uprobe_is_enabled, &pattr, NULL);
+	dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr, NULL);
+	dt_provider_create(dtp, dt_usdt.name, &dt_usdt, &pattr, NULL);
 
 	return 0;
 }
@@ -231,7 +231,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	/* Get (or create) the provider for the PID of the probe. */
 	pvp = dt_provider_lookup(dtp, prv);
 	if (pvp == NULL) {
-		pvp = dt_provider_create(dtp, prv, pvops, &pattr);
+		pvp = dt_provider_create(dtp, prv, pvops, &pattr, NULL);
 		if (pvp == NULL)
 			return -1;
 	}

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2644,7 +2644,8 @@ dt_node_provider(char *name, dt_node_t *probes)
 	if ((dnp->dn_provider = dt_provider_lookup(dtp, name)) != NULL)
 		dnp->dn_provred = B_TRUE;
 	else if (!(dnp->dn_provider = dt_provider_create(dtp, name, NULL,
-							 &_dtrace_prvdesc)))
+							 &_dtrace_prvdesc,
+							 NULL)))
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 	else
 		dnp->dn_provider->pv_flags |= DT_PROVIDER_INTF;

@@ -76,7 +76,7 @@ static int populate(dtrace_hdl_t *dtp)
 	int		profile_n[] = { 97, 199, 499, 997, 1999, 4001, 4999 };
 	int		tick_n[] = { 1, 10, 100, 500, 1000, 5000 };
 
-	prv = dt_provider_create(dtp, prvname, &dt_profile, &pattr);
+	prv = dt_provider_create(dtp, prvname, &dt_profile, &pattr, NULL);
 	if (prv == NULL)
 		return 0;
 

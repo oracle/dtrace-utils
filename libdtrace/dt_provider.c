@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -44,6 +44,9 @@ dt_provider_del_prov(dt_provider_t *head, dt_provider_t *pvp)
 
 	if (pvp->pv_probes != NULL)
 		dt_idhash_destroy(pvp->pv_probes);
+
+	if (pvp->impl && pvp->impl->destroy)
+		pvp->impl->destroy(pvp->pv_hdl, pvp->prv_data);
 
 	dt_node_link_free(&pvp->pv_nodes);
 	free(pvp->pv_xrefs);
@@ -91,7 +94,8 @@ dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 
 dt_provider_t *
 dt_provider_create(dtrace_hdl_t *dtp, const char *name,
-		   const dt_provimpl_t *impl, const dtrace_pattr_t *pattr)
+		   const dt_provimpl_t *impl, const dtrace_pattr_t *pattr,
+		   void *datap)
 {
 	dt_provider_t *pvp;
 
@@ -103,6 +107,7 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 	pvp->pv_probes = dt_idhash_create(pvp->desc.dtvd_name, NULL, 0, 0);
 	pvp->pv_gen = dtp->dt_gen;
 	pvp->pv_hdl = dtp;
+	pvp->prv_data = datap;
 	dt_dprintf("creating provider %s\n", name);
 
 	if (pvp->pv_probes == NULL) {

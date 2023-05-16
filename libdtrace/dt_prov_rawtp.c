@@ -71,7 +71,7 @@ static int populate(dtrace_hdl_t *dtp)
 	char		*p;
 	size_t		n;
 
-	prv = dt_provider_create(dtp, prvname, &dt_rawtp, &pattr);
+	prv = dt_provider_create(dtp, prvname, &dt_rawtp, &pattr, NULL);
 	if (prv == NULL)
 		return 0;
 

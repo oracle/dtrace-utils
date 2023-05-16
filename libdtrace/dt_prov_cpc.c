@@ -50,15 +50,11 @@ typedef struct cpc_probe_map {
 	char			*pfmname;
 } cpc_probe_map_t;
 
-static dt_probe_t *cpc_probe_insert(dtrace_hdl_t *dtp, const char *prb)
+static dt_probe_t *cpc_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prv,
+				    const char *prb)
 {
-	dt_provider_t	*prv;
 	cpc_probe_t	*datap;
 	int		i, cnt = dtp->dt_conf.num_online_cpus;
-
-	prv = dt_provider_lookup(dtp, prvname);
-	if (!prv)
-		return 0;
 
 	datap = dt_zalloc(dtp, sizeof(cpc_probe_t));
 	if (datap == NULL)
@@ -82,9 +78,13 @@ err:
 static int populate(dtrace_hdl_t *dtp)
 {
 	int		n = 0;
+	dt_list_t	*listp = dt_zalloc(dtp, sizeof(dt_list_t));
+	dt_provider_t	*prv;
 
-	dt_provider_create(dtp, prvname, &dt_cpc, &pattr);
-	dt_cpc.prv_data = dt_zalloc(dtp, sizeof(dt_list_t));
+	if (listp == NULL)
+		return 0;
+
+	prv = dt_provider_create(dtp, prvname, &dt_cpc, &pattr, listp);
 
 	/* incidentally, pfm_strerror(pfm_initialize()) describes the error */
 	if (pfm_initialize() != PFM_SUCCESS)
@@ -215,7 +215,7 @@ static int populate(dtrace_hdl_t *dtp)
 				continue;
 			for (unsigned char *p = next_probe_map->Dname; *p; p++)
 				*p = (*p == '-') ? '_' : tolower(*p);
-			dt_list_append(dt_cpc.prv_data, next_probe_map);
+			dt_list_append(listp, next_probe_map);
 
 			/*
 			 * Compose a CPC probe name by adding mode "all" and a sample period
@@ -234,7 +234,8 @@ static int populate(dtrace_hdl_t *dtp)
 			pd.mod = modname;
 			pd.fun = funname;
 			pd.prb = s;
-			if (dt_probe_lookup(dtp, &pd) == NULL && cpc_probe_insert(dtp, s))
+			if (dt_probe_lookup(dtp, &pd) == NULL &&
+			    cpc_probe_insert(dtp, prv, s))
 				n++;
 
 			dt_free(dtp, s);
@@ -244,15 +245,17 @@ static int populate(dtrace_hdl_t *dtp)
 	return n;
 }
 
-static int decode_event(struct perf_event_attr *ap, const char *name) {
+static int decode_event(struct perf_event_attr *ap, dt_provider_t *prv,
+			const char *name) {
 	cpc_probe_map_t *probe_map;
 	pfm_perf_encode_arg_t encoding;
 
 	/* find the probe name mapping for this D name */
-	for (probe_map = dt_list_next(dt_cpc.prv_data);
-	    probe_map; probe_map = dt_list_next(probe_map))
+	for (probe_map = dt_list_next(prv->prv_data); probe_map;
+	     probe_map = dt_list_next(probe_map))
 		if (strcmp(name, probe_map->Dname) == 0)
 			break;
+
 	if (probe_map == NULL)
 		return -1;
 
@@ -293,7 +296,8 @@ static int decode_attributes(struct perf_event_attr *ap, const char *name) {
 	return -1;
 }
 
-static int decode_probename(struct perf_event_attr *ap, const char *name) {
+static int decode_probename(struct perf_event_attr *ap, dt_provider_t *prv,
+			    const char *name) {
 	char buf[DTRACE_NAMELEN];
 	char *pend;
 
@@ -307,7 +311,7 @@ static int decode_probename(struct perf_event_attr *ap, const char *name) {
 		return -1;
 	*pend = '\0';
 	pend++;
-	if (decode_event(ap, name) < 0)
+	if (decode_event(ap, prv, name) < 0)
 		return -1;
 
 	/* "mode" substring */
@@ -342,7 +346,12 @@ static int decode_probename(struct perf_event_attr *ap, const char *name) {
 
 static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
+	dt_provider_t *prv;
 	struct perf_event_attr attr;
+
+	prv = dt_provider_lookup(dtp, prvname);
+	if (!prv)
+		return 0;
 
 	/* make sure we have IDNONE and a legal name */
 	if (pdp->id != DTRACE_IDNONE || strcmp(pdp->prv, prvname) ||
@@ -354,11 +363,11 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 		return 0;
 
 	/* check if the probe name can be decoded */
-	if (decode_probename(&attr, pdp->prb) == -1)
+	if (decode_probename(&attr, prv, pdp->prb) == -1)
 		return 0;
 
 	/* try to add this probe */
-	if (cpc_probe_insert(dtp, pdp->prb) == NULL)
+	if (cpc_probe_insert(dtp, prv, pdp->prb) == NULL)
 		return 0;
 
 	return 1;
@@ -419,7 +428,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	char			*name = datap->name;  /* same as prp->desc->prb */
 
 	memset(&attr, 0, sizeof(attr));
-	if (decode_probename(&attr, name) < 0)
+	if (decode_probename(&attr, prp->prov, name) < 0)
 		return -1;
 	attr.wakeup_events = 1;
 

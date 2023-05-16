@@ -60,9 +60,10 @@ typedef struct dt_provimpl {
 			  int *argcp, dt_argdesc_t **argvp);
 	void (*detach)(dtrace_hdl_t *dtp,	/* probe cleanup */
 		       const struct dt_probe *prb);
-	void (*probe_destroy)(dtrace_hdl_t *dtp, /* free provider data */
+	void (*probe_destroy)(dtrace_hdl_t *dtp, /* free probe data */
 			      void *datap);
-	void *prv_data;				/* provider-specific data */
+	void (*destroy)(dtrace_hdl_t *dtp,	/* free provider data */
+			      void *datap);
 } dt_provimpl_t;
 
 /* list dt_dtrace first */
@@ -88,6 +89,7 @@ typedef struct dt_provider {
 	ulong_t pv_gen;			/* generation # that created me */
 	dtrace_hdl_t *pv_hdl;		/* pointer to containing dtrace_hdl */
 	uint_t pv_flags;		/* flags (see below) */
+	void *prv_data;			/* provider-specific data */
 } dt_provider_t;
 
 #define	DT_PROVIDER_INTF	0x1	/* provider interface declaration */
@@ -97,7 +99,7 @@ typedef struct dt_provider {
 extern dt_provider_t *dt_provider_lookup(dtrace_hdl_t *, const char *);
 extern dt_provider_t *dt_provider_create(dtrace_hdl_t *, const char *,
 					 const dt_provimpl_t *,
-					 const dtrace_pattr_t *);
+					 const dtrace_pattr_t *, void *);
 extern int dt_provider_xref(dtrace_hdl_t *, dt_provider_t *, id_t);
 
 #ifdef	__cplusplus

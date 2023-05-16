@@ -69,7 +69,7 @@ static int populate(dtrace_hdl_t *dtp)
 	dtrace_syminfo_t	sip;
 	dtrace_probedesc_t	pd;
 
-	prv = dt_provider_create(dtp, prvname, &dt_fbt, &pattr);
+	prv = dt_provider_create(dtp, prvname, &dt_fbt, &pattr, NULL);
 	if (prv == NULL)
 		return 0;
 
