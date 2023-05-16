@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/bash
 
 read MAJOR MINOR <<< `uname -r | grep -Eo '^[0-9]+\.[0-9]+' | tr '.' ' '`
 
