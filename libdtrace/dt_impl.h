@@ -63,7 +63,7 @@ struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
 struct dt_provider;		/* see <dt_provider.h> */
 struct dt_probe;		/* see <dt_probe.h> */
-struct dt_probe;		/* see <dt_probe.h> */
+struct pid_probespec;		/* see <pid.h> */
 struct dt_pebset;		/* see <dt_peb.h> */
 struct dt_xlator;		/* see <dt_xlator.h> */
 
@@ -312,8 +312,15 @@ struct dtrace_hdl {
 	 * Array of all known probes, to facilitate probe lookup by probe id.
 	 */
 	struct dt_probe **dt_probes; /* array of probes */
-	uint32_t dt_probes_sz;	/* size of array of probes */
+	size_t dt_probes_sz;	/* size of array of probes */
 	uint32_t dt_probe_id;	/* next available probe id */
+
+	/*
+	 * uprobes potentially of interest: some may be instantiated as
+	 * dtrace probes.
+	 */
+	struct pid_probespec *dt_uprobespecs;
+	size_t dt_uprobespecs_sz; /* size of array of uprobes */
 
 	struct dt_probe *dt_error; /* ERROR probe */
 

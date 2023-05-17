@@ -39,6 +39,7 @@
 #include <dt_probe.h>
 #include <dt_dis.h>
 #include <dt_peb.h>
+#include <dt_pid.h>
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -1270,6 +1271,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_pfdict_destroy(dtp);
 	dt_dof_fini(dtp);
 	dt_probe_fini(dtp);
+	dt_pid_free_uprobespecs(dtp);
+
 	/*
 	 * FIXME:
 	 * add some dt_prov_fini() to iterate over providers and call provider-specific fini()'s

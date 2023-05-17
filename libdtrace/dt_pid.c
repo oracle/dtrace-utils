@@ -27,6 +27,9 @@
 #include <dt_pid.h>
 #include <dt_string.h>
 
+/*
+ * Information on a PID or USDT probe.
+ */
 typedef struct dt_pid_probe {
 	dtrace_hdl_t *dpp_dtp;
 	dt_pcb_t *dpp_pcb;
@@ -93,6 +96,25 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 	va_end(ap);
 
 	return 1;
+}
+
+void
+dt_pid_free_uprobespecs(dtrace_hdl_t *dtp)
+{
+	size_t i;
+
+	if (!dtp->dt_uprobespecs)
+		return;
+
+	for (i = 0; i < dtp->dt_uprobespecs_sz; i++) {
+		free(dtp->dt_uprobespecs[i].pps_prv);
+		free(dtp->dt_uprobespecs[i].pps_mod);
+		free(dtp->dt_uprobespecs[i].pps_fun);
+		free(dtp->dt_uprobespecs[i].pps_prb);
+	}
+
+	free(dtp->dt_uprobespecs);
+	dtp->dt_uprobespecs = NULL;
 }
 
 static int
@@ -176,7 +198,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	psp->pps_inum = pp->dpp_inum;
 	psp->pps_fn = strdup(pp->dpp_fname);
 	psp->pps_vaddr = pp->dpp_vaddr;
-	strcpy_safe(psp->pps_fun, sizeof(psp->pps_fun), func);
+	psp->pps_fun = (char *) func;
 
 	if (!isdash && gmatch("return", pp->dpp_name)) {
 		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, psp, symp,
@@ -571,6 +593,169 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 }
 
 /*
+ * Scan the uprobe list and remember its contents.
+ *
+ * This avoids us having to rescan the whole thing every time we create every
+ * single probe in turn.
+ */
+static int
+dt_pid_scan_uprobes(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+{
+	typedef struct uprobe_line
+	{
+		dt_list_t list;
+		char *line;
+		int is_enabled;
+	} uprobe_line_t;
+	dt_list_t lines = {0};
+	uprobe_line_t *linep, *old_linep;
+	size_t i = 0;
+	int ret = 0;
+
+	FILE *f;
+	char *buf = NULL;
+	size_t sz;
+
+	f = fopen(TRACEFS "uprobe_events", "r");
+	if (!f) {
+		dt_dprintf("cannot open " TRACEFS "uprobe_events: %s\n",
+		    strerror(errno));
+		return -1;
+	}
+
+	/*
+	 * We are only interested in pid uprobes, not any other uprobes that may
+	 * exist.  Some of these may be for pid probes, some for usdt: we keep
+	 * track of all of them regardless.
+	 *
+	 * Suck in the list of uprobes in one go, since we need to run over it
+	 * twice (once to count pids and allocate space, once to populate them)
+	 * and it might change between reads.
+	 */
+
+#define UPROBE_PREFIX "p:dt_pid/p_"
+#define UPROBE_IS_ENABLED_PREFIX "p:dt_pid_is_enabled/p_"
+
+	while (getline(&buf, &sz, f) >= 0) {
+		uprobe_line_t *line;
+		int is_enabled;
+
+		if (strncmp(buf, UPROBE_PREFIX,
+			strlen(UPROBE_PREFIX)) == 0)
+			is_enabled = 0;
+		else if (strncmp(buf, UPROBE_IS_ENABLED_PREFIX,
+			strlen(UPROBE_IS_ENABLED_PREFIX)) == 0)
+			is_enabled = 1;
+		else
+			continue;
+
+		line = dt_zalloc(dtp, sizeof (struct uprobe_line));
+		if (!line) {
+			fclose(f);
+			goto err; 		/* errno is set for us. */
+		}
+
+		line->line = buf;
+		line->is_enabled = is_enabled;
+		dt_list_append(&lines, line);
+		sz = 0;
+		dtp->dt_uprobespecs_sz++;
+		buf = NULL;
+	}
+	fclose(f);
+
+	dtp->dt_uprobespecs = dt_calloc(dtp, dtp->dt_uprobespecs_sz,
+	    sizeof(pid_probespec_t));
+	if (!dtp->dt_uprobespecs)
+		goto err;			/* errno is set for us.  */
+
+	/*
+	 * Now we know how many specs exist, parse and create them.
+	 */
+	for (linep = dt_list_next(&lines); linep != NULL;
+	     linep = dt_list_next(linep)) {
+		uint64_t off;
+		const char *fmt;
+		unsigned long long dev, inum;
+		char *spec = NULL;
+		char *eprv = NULL, *emod = NULL, *efun = NULL, *eprb = NULL;
+		char *prv = NULL, *mod = NULL, *fun = NULL, *prb = NULL;
+		pid_probespec_t *psp;
+
+#define UPROBE_PROBE_FMT "%llx_%llx_%lx %ms P%m[^= ]=\\1 M%m[^= ]=\\2 F%m[^= ]=\\3 N%m[^= ]=\\4"
+#define UPROBE_FMT UPROBE_PREFIX UPROBE_PROBE_FMT
+#define UPROBE_IS_ENABLED_FMT UPROBE_IS_ENABLED_PREFIX UPROBE_PROBE_FMT
+
+		if (!linep->is_enabled)
+			fmt = UPROBE_FMT;
+		else
+			fmt = UPROBE_IS_ENABLED_FMT;
+
+		switch (sscanf(linep->line, fmt, &dev, &inum,
+			       &off, &spec, &eprv, &emod, &efun, &eprb)) {
+		case 8: /* Includes dtrace probe names: decode them. */
+			prv = uprobe_decode_name(eprv);
+			mod = uprobe_decode_name(emod);
+			fun = uprobe_decode_name(efun);
+			prb = uprobe_decode_name(eprb);
+			break;
+		case 4: /* No dtrace probe name - not a USDT probe. */
+			goto next;
+		default:
+			if ((strlen(linep->line) > 0) &&
+			    (linep->line[strlen(linep->line)-1] == '\n'))
+				linep->line[strlen(linep->line)-1] = 0;
+			dt_dprintf("Cannot parse %s as a DTrace uprobe name\n",
+			    linep->line);
+			dtp->dt_uprobespecs_sz--;
+			goto next;
+		}
+
+		psp = &dtp->dt_uprobespecs[i++];
+		psp->pps_type = linep->is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
+
+		/*
+		 * These components are only used for creation of an underlying
+		 * probe with no overlying counterpart: usually these are those
+		 * not explicitly listed in the D program, which will never be
+		 * enabled.  In future this may change.
+		 */
+		psp->pps_prv = prv;
+		psp->pps_mod = mod;
+		psp->pps_fun = fun;
+		psp->pps_prb = prb;
+
+		/*
+		 * Always used.
+		 */
+		psp->pps_dev = dev;
+		psp->pps_inum = inum;
+		psp->pps_off = off;
+	next:
+		free(eprv); free(emod); free(efun); free(eprb);
+		free(spec);
+	}
+
+	goto out;
+
+err:
+	ret = -1;
+
+out:
+	old_linep = NULL;
+
+	for (linep = dt_list_next(&lines); linep != NULL;
+	     linep = dt_list_next(linep)) {
+		free(linep->line);
+		free(old_linep);
+		old_linep = linep;
+	}
+	free(old_linep);
+
+	return ret;
+}
+
+/*
  * Rescan the PID uprobe list and create suitable underlying probes.
  *
  * If dpr is set, just set up probes relating to mappings found in that one
@@ -587,26 +772,8 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 			  dtrace_probedesc_t *pdp, dt_pcb_t *pcb)
 {
 	const dt_provider_t *pvp;
-	FILE *f;
-	char *buf = NULL;
-	size_t sz;
+	size_t i;
 	int ret = 0;
-
-	pvp = dtp->dt_prov_usdt;
-	if (!pvp) {
-		pvp = dt_provider_lookup(dtp, "usdt");
-		assert(pvp != NULL);
-		dtp->dt_prov_usdt = pvp;
-	}
-
-	assert(pvp->impl != NULL && pvp->impl->provide_probe != NULL);
-
-	f = fopen(TRACEFS "uprobe_events", "r");
-	if (!f) {
-		dt_dprintf("cannot open " TRACEFS "uprobe_events: %s\n",
-		    strerror(errno));
-		return -1;
-	}
 
 	/*
 	 * Systemwide probing: not yet implemented.
@@ -616,95 +783,43 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 	dt_dprintf("Scanning for usdt probes matching %i\n", dpr->dpr_pid);
 
 	/*
+	 * For now, we only read the list of probes once.  In time we will
+	 * reread it whenever necessary.
+	 */
+	pvp = dtp->dt_prov_usdt;
+	if (!pvp) {
+		pvp = dt_provider_lookup(dtp, "usdt");
+		assert(pvp != NULL);
+		dtp->dt_prov_usdt = pvp;
+		if (dt_pid_scan_uprobes(dtp, pcb) < 0)
+			return -1;		/* errno is set for us.  */
+	}
+
+	assert(pvp->impl != NULL && pvp->impl->provide_probe != NULL);
+
+	/*
 	 * We are only interested in pid uprobes, not any other uprobes that may
 	 * exist.  Some of these may be for pid probes, some for usdt: we create
-	 * underlying probes for all of them, except that we may only be
-	 * interested in probes belonging to mappings in a particular process,
-	 * in which case we create probes for that process only.
+	 * underlying probes for all of them, if we are interested in creating
+	 * mappings for that process at all.
 	 */
-	while (getline(&buf, &sz, f) >= 0) {
-		dev_t dev;
-		ino_t inum;
-		uint64_t off;
-		int is_enabled;
-		const char *fmt;
-		unsigned long long dev_ll, inum_ll;
-		char *inum_str = NULL;
-		char *spec = NULL;
-		char *eprv = NULL, *emod = NULL, *efun = NULL, *eprb = NULL;
-		char *prv = NULL, *mod = NULL, *fun = NULL, *prb = NULL;
-		pid_probespec_t psp;
-
-#define UPROBE_PREFIX "p:dt_pid/p_"
-#define UPROBE_IS_ENABLED_PREFIX "p:dt_pid_is_enabled/p_"
-#define UPROBE_PROBE_FMT "%llx_%llx_%lx %ms P%m[^= ]=\\1 M%m[^= ]=\\2 F%m[^= ]=\\3 N%m[^= ]=\\4"
-#define UPROBE_FMT UPROBE_PREFIX UPROBE_PROBE_FMT
-#define UPROBE_IS_ENABLED_FMT UPROBE_IS_ENABLED_PREFIX UPROBE_PROBE_FMT
-
-		if (strncmp(buf, UPROBE_PREFIX, strlen(UPROBE_PREFIX)) == 0) {
-			is_enabled = 0;
-			fmt = UPROBE_FMT;
-		} else if (strncmp(buf, UPROBE_IS_ENABLED_PREFIX,
-			strlen(UPROBE_IS_ENABLED_PREFIX)) == 0) {
-			is_enabled = 1;
-			fmt = UPROBE_IS_ENABLED_FMT;
-		} else /* Not a DTrace uprobe. */
-			continue;
-
-		switch (sscanf(buf, fmt, &dev_ll, &inum_ll,
-			       &off, &spec, &eprv, &emod, &efun, &eprb)) {
-		case 8: /* Includes dtrace probe names: decode them. */
-			prv = uprobe_decode_name(eprv);
-			mod = uprobe_decode_name(emod);
-			fun = uprobe_decode_name(efun);
-			prb = uprobe_decode_name(eprb);
-			dev = dev_ll;
-			inum = inum_ll;
-			break;
-		case 4: /* No dtrace probe name - not a USDT probe. */
-			goto next;
-		default:
-			if ((strlen(buf) > 0) && (buf[strlen(buf)-1] == '\n'))
-				buf[strlen(buf)-1] = 0;
-			dt_dprintf("Cannot parse %s as a DTrace uprobe name\n", buf);
-			goto next;
-		}
-
-		if (asprintf(&inum_str, "%llx", inum_ll) < 0)
-			goto next;
-
-		/*
-		 * Make the underlying probe, if not already present.
-		 */
-		memset(&psp, 0, sizeof(pid_probespec_t));
-		psp.pps_type = is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
-
-		/*
-		 * These components are only used for creation of an underlying
-		 * probe with no overlying counterpart: usually these are those
-		 * not explicitly listed in the D program, which will never be
-		 * enabled.  In future this may change.
-		 */
-		psp.pps_prv = prv;
-		psp.pps_mod = mod;
-		strcpy_safe(psp.pps_fun, sizeof(psp.pps_fun), fun);
-		psp.pps_prb = prb;
-
-		/*
-		 * Always used.
-		 */
-		psp.pps_dev = dev;
-		psp.pps_inum = inum;
-		psp.pps_off = off;
+	for (i = 0; i < dtp->dt_uprobespecs_sz; i++) {
+		pid_probespec_t *psp = &dtp->dt_uprobespecs[i];
 
 		/*
 		 * Filter out probes not related to the process of interest.
 		 */
 		if (dpr && dpr->dpr_proc) {
 			assert(MUTEX_HELD(&dpr->dpr_lock));
-			if (Pinode_to_file_map(dpr->dpr_proc, dev, inum) == NULL)
-				goto next;
-			psp.pps_pid = Pgetpid(dpr->dpr_proc);
+			if (Pinode_to_file_map(dpr->dpr_proc, psp->pps_dev,
+				psp->pps_inum) == NULL)
+				continue;
+
+			/*
+			 * This is overwritten repeatedly with each relevant PID
+			 * in turn.
+			 */
+			psp->pps_pid = Pgetpid(dpr->dpr_proc);
 		}
 
 		/*
@@ -721,15 +836,15 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 
 			if ((pdp->prv[0] != 0 &&
 			     strcmp(dt_pid_de_pid(de_pid_prov, pdp->prv),
-				    psp.pps_prv) != 0) ||
-			    (pdp->mod[0] != 0 && strcmp(pdp->mod, psp.pps_mod) != 0) ||
-			    (pdp->fun[0] != 0 && strcmp(pdp->fun, psp.pps_fun) != 0) ||
-			    (pdp->prb[0] != 0 && strcmp(pdp->prb, psp.pps_prb) != 0)) {
+				    psp->pps_prv) != 0) ||
+			    (pdp->mod[0] != 0 && strcmp(pdp->mod, psp->pps_mod) != 0) ||
+			    (pdp->fun[0] != 0 && strcmp(pdp->fun, psp->pps_fun) != 0) ||
+			    (pdp->prb[0] != 0 && strcmp(pdp->prb, psp->pps_prb) != 0)) {
 				dt_dprintf("%s:%s:%s:%s -> %s:%s:%s:%s: match failure\n",
 					   pdp->prv, pdp->mod, pdp->fun, pdp->prb,
-					   psp.pps_prv, psp.pps_mod, psp.pps_fun,
-					   psp.pps_prb);
-				goto next;
+					   psp->pps_prv, psp->pps_mod, psp->pps_fun,
+					   psp->pps_prb);
+				continue;
 			}
 		}
 
@@ -743,11 +858,11 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 
 		dt_dprintf("providing %s:%s:%s:%s\n", pdp->prv, pdp->mod,
 			   pdp->fun, pdp->prb);
-		if (pvp->impl->provide_probe(dtp, &psp) < 0 && pdp) {
+		if (pvp->impl->provide_probe(dtp, psp) < 0 && pdp) {
 			dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
 				     "failed to instantiate %sprobe %s for pid %d: %s",
-				     is_enabled ? "is-enabled ": "", pdp->prb,
-				     dpr->dpr_pid,
+				     psp->pps_type == DTPPT_IS_ENABLED ?
+				     "is-enabled ": "", pdp->prb, dpr->dpr_pid,
 				     dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			ret = -1;
 		}
@@ -758,15 +873,7 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 			 */
 			dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
 		}
-
-	next:
-		free(eprv); free(emod); free(efun); free(eprb);
-		free(prv);  free(mod);  free(fun);  free(prb);
-		free(inum_str);
-		free(spec);
-		continue;
 	}
-	free(buf);
 
 	return ret;
 }

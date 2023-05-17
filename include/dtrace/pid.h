@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -28,9 +28,9 @@ typedef enum pid_probetype {
 
 typedef struct pid_probespec {
 	pid_probetype_t pps_type;		/* probe type */
-	const char *pps_prv;			/* provider (without pid) */
+	char *pps_prv;				/* provider (without pid) */
 	char *pps_mod;				/* probe module (object) */
-	char pps_fun[DTRACE_FUNCNAMELEN];	/* probe function */
+	char *pps_fun;				/* probe function */
 	char *pps_prb;				/* probe name (if provided) */
 	dev_t pps_dev;				/* object device node */
 	ino_t pps_inum;				/* object inode */
