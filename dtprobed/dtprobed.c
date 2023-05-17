@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -323,15 +323,13 @@ create_probe(pid_t pid, dof_parsed_t *provider, dof_parsed_t *probe,
 {
 	const char *mod, *fun, *prb;
 
-	if (tp->tracepoint.is_enabled)
-		return;				/* Not yet implemented.  */
-
 	mod = probe->probe.name;
 	fun = mod + strlen(mod) + 1;
 	prb = fun + strlen(fun) + 1;
 
 	free(uprobe_create_from_addr(pid, tp->tracepoint.addr,
-		provider->provider.name, mod, fun, prb));
+		tp->tracepoint.is_enabled, provider->provider.name,
+		mod, fun, prb));
 }
 
 /*

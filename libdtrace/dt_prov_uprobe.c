@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -23,13 +23,15 @@
 #include "uprobes.h"
 
 /* Provider name for the underlying probes. */
-static const char		prvname[] = "uprobe";
+static const char	prvname[] = "uprobe";
+static const char	prvname_is_enabled[] = "uprobe__is_enabled";
 
-#define UPROBE_EVENTS		TRACEFS "uprobe_events"
+#define UPROBE_EVENTS	TRACEFS "uprobe_events"
 
 #define PP_IS_MINE	1
 #define PP_IS_RETURN	2
 #define PP_IS_FUNCALL	4
+#define PP_IS_ENABLED	8
 
 typedef struct dt_uprobe {
 	dev_t		dev;
@@ -54,12 +56,15 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 };
 
+dt_provimpl_t	dt_uprobe_is_enabled;
 dt_provimpl_t	dt_pid;
 dt_provimpl_t	dt_usdt;
 
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr);
+	dt_provider_create(dtp, dt_uprobe_is_enabled.name,
+			   &dt_uprobe_is_enabled, &pattr);
 	dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr);
 	dt_provider_create(dtp, dt_usdt.name, &dt_usdt, &pattr);
 
@@ -115,6 +120,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	dtrace_probedesc_t	pd;
 	dt_probe_t		*prp;
 	dt_uprobe_t		*upp;
+	int			is_enabled = 0;
 
 	/*
 	 * The underlying probes (uprobes) represent the tracepoints that pid
@@ -136,6 +142,9 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	case DTPPT_RETURN:
 		strcpy(prb, "return");
 		break;
+	case DTPPT_IS_ENABLED:
+		is_enabled = 1;
+		/* Fallthrough. */
 	case DTPPT_ENTRY:
 	case DTPPT_OFFSETS:
 		snprintf(prb, sizeof(prb), "%lx", psp->pps_off);
@@ -146,7 +155,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	}
 
 	pd.id = DTRACE_IDNONE;
-	pd.prv = prvname;
+	pd.prv = is_enabled ? prvname_is_enabled : prvname;
 	pd.mod = mod;
 	pd.fun = psp->pps_fun;
 	pd.prb = prb;
@@ -156,7 +165,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		dt_provider_t	*pvp;
 
 		/* Get the provider for underlying probes. */
-		pvp = dt_provider_lookup(dtp, prvname);
+		pvp = dt_provider_lookup(dtp, pd.prv);
 		if (pvp == NULL)
 			return NULL;
 
@@ -181,8 +190,18 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	} else
 		upp = prp->prv_data;
 
-	if (psp->pps_type == DTPPT_RETURN)
-		upp->flags |= PP_IS_RETURN;
+	switch (psp->pps_type) {
+	case DTPPT_RETURN:
+	    upp->flags |= PP_IS_RETURN;
+	    break;
+	case DTPPT_IS_ENABLED:
+	    upp->flags |= PP_IS_ENABLED;
+	    break;
+	default: ;
+	    /*
+	     * No flags needed for other types.
+	     */
+	}
 
 	return prp;
 
@@ -302,7 +321,8 @@ static int provide_pid_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 
 static int provide_usdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 {
-	if (psp->pps_type != DTPPT_OFFSETS) {
+	if (psp->pps_type != DTPPT_OFFSETS &&
+	    psp->pps_type != DTPPT_IS_ENABLED) {
 		dt_dprintf("pid: unknown USDT probe type %i\n", psp->pps_type);
 		return -1;
 	}
@@ -310,7 +330,7 @@ static int provide_usdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 	return provide_probe(dtp, psp, psp->pps_prb, &dt_usdt, PP_IS_FUNCALL);
 }
 
-static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
+static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp, int is_usdt)
 {
 	const list_probe_t	*pup;
 
@@ -318,10 +338,24 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 
 	/*
 	 * We need to enable the underlying probes (if not enabled yet).
+	 *
+	 * If necessary, we need to enable is-enabled probes too (if they
+	 * exist).
 	 */
 	for (pup = prp->prv_data; pup != NULL; pup = dt_list_next(pup)) {
 		dt_probe_t *uprp = pup->probe;
 		dt_probe_enable(dtp, uprp);
+	}
+
+	if (is_usdt) {
+		dtrace_probedesc_t pd;
+		dt_probe_t *iep;
+
+		memcpy(&pd, &prp->desc, sizeof(pd));
+		pd.prv = prvname_is_enabled;
+		iep = dt_probe_lookup(dtp, &pd);
+		if (iep != NULL)
+			dt_probe_enable(dtp, iep);
 	}
 
 	/*
@@ -333,13 +367,26 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 		dt_list_append(&dtp->dt_enablings, prp);
 }
 
+static void enable_pid(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	enable(dtp, prp, 0);
+}
+
 /*
- * Generate a BPF trampoline for a pid probe.
+ * USDT enabling has to enable any is-enabled probes as well.
+ */
+static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	enable(dtp, prp, 1);
+}
+
+/*
+ * Generate a BPF trampoline for a pid or USDT probe.
  *
- * The trampoline function is called when a pid probe triggers, and it must
- * satisfy the following prototype:
+ * The trampoline function is called when one of these probes triggers, and it
+ * must satisfy the following prototype:
  *
- *	int dt_pid(dt_pt_regs *regs)
+ *	int dt_uprobe(dt_pt_regs *regs)
  *
  * The trampoline will first populate a dt_dctx_t struct.  It will then emulate
  * the firing of all dependent pid* probes and their clauses.
@@ -420,6 +467,120 @@ static void trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	dt_cg_tramp_return(pcb);
 }
 
+/*
+ * Copy the given immediate value into the address given by the specified probe
+ * argument.
+ */
+static void
+copyout_val(dt_pcb_t *pcb, uint_t lbl, uint32_t val, int arg)
+{
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+
+	emitl(dlp, lbl, BPF_STORE_IMM(BPF_DW, BPF_REG_FP, DT_TRAMP_SP_SLOT(0),
+		val));
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_7, DMST_ARG(arg)));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_3, sizeof(uint32_t)));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_write_user));
+
+	/* XXX any point error-checking here? What can we possibly do? */
+	dt_regset_free(drp, BPF_REG_0);
+	dt_regset_free_args(drp);
+}
+
+/*
+ * Generate a BPF trampoline for an is-enabled probe.  The is-enabled probe
+ * prototype looks like:
+ *
+ *	int is_enabled(int *arg)
+ *
+ * The trampoline dereferences the passed-in arg and writes 1 into it if this is
+ * one of the processes for which the probe is enabled.
+ */
+static void trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
+{
+	dt_irlist_t		*dlp = &pcb->pcb_ir;
+	const dt_probe_t	*prp = pcb->pcb_probe;
+	const dt_uprobe_t	*upp = prp->prv_data;
+	const list_probe_t	*pop;
+	uint_t			lbl_assign = dt_irlist_label(dlp);
+	uint_t			lbl_exit = pcb->pcb_exitlbl;
+
+	dt_cg_tramp_prologue(pcb);
+
+	/*
+	 * After the dt_cg_tramp_prologue() call, we have:
+	 *				//     (%r7 = dctx->mst)
+	 *				//     (%r8 = dctx->ctx)
+	 */
+
+	dt_cg_tramp_copy_regs(pcb);
+
+	/*
+	 * Copy in the first function argument, a pointer value to which
+	 * the is-enabled state of the probe will be written (necessarily
+	 * 1 if this probe is running at all).
+	 */
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_ARG0));
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+
+	/*
+	 * Retrieve the PID of the process that caused the probe to fire.
+	 */
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+	emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
+
+	/*
+	 * Generate a composite conditional clause, as above, except that rather
+	 * than emitting call_clauses, we emit copyouts instead, using
+	 * copyout_val() above:
+	 *
+	 *	if (pid == PID1) {
+	 *		goto assign;
+	 *	} else if (pid == PID2) {
+	 *		goto assign;
+	 *	} else if (pid == ...) {
+	 *		goto assign;
+	 *	}
+	 *	goto exit;
+	 *	assign:
+	 *	    *arg0 = 1;
+	 *	goto exit;
+	 *
+	 * It is valid and safe to use %r0 to hold the pid value because there
+	 * are no assignments to %r0 possible in between the conditional
+	 * statements.
+	 */
+	for (pop = dt_list_next(&upp->probes); pop != NULL;
+	     pop = dt_list_next(pop)) {
+		const dt_probe_t	*pprp = pop->probe;
+		pid_t			pid;
+		dt_ident_t		*idp;
+
+		pid = dt_pid_get_pid(pprp->desc, pcb->pcb_hdl, pcb, NULL);
+		assert(pid != -1);
+
+		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, pprp);
+		assert(idp != NULL);
+
+		/*
+		 * Check whether this pid-provider probe serves the current
+		 * process, and copy out a 1 into arg 0 if so.
+		 */
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, pid, lbl_assign));
+	}
+	emit(dlp,  BPF_JUMP(lbl_exit));
+	copyout_val(pcb, lbl_assign, 1, 0);
+
+	dt_cg_tramp_return(pcb);
+}
+
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	dt_uprobe_t	*upp = prp->prv_data;
@@ -441,7 +602,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		prb = uprobe_create(upp->dev, upp->inum, upp->off, spec,
-				    upp->flags & PP_IS_RETURN);
+				    upp->flags & PP_IS_RETURN, 0);
 		free(spec);
 
 		/*
@@ -453,7 +614,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 
 	if (prb == NULL)
 		prb = uprobe_name(upp->dev, upp->inum, upp->off,
-				  upp->flags & PP_IS_RETURN);
+				  upp->flags & PP_IS_RETURN,
+				  upp->flags & PP_IS_ENABLED);
 
 	/* open format file */
 	rc = asprintf(&fn, "%s%s/format", EVENTSFS, prb);
@@ -509,8 +671,9 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	if (!(upp->flags & PP_IS_MINE))
 		return;
 
-	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags & PP_IS_RETURN);
-}
+	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags & PP_IS_RETURN,
+		      upp->flags & PP_IS_ENABLED);
+	}
 
 /*
  * Used for underlying probes (uprobes).
@@ -527,13 +690,27 @@ dt_provimpl_t	dt_uprobe = {
 };
 
 /*
+ * Used for underlying is-enabled uprobes.
+ */
+dt_provimpl_t	dt_uprobe_is_enabled = {
+	.name		= prvname_is_enabled,
+	.prog_type	= BPF_PROG_TYPE_KPROBE,
+	.populate	= &populate,
+	.trampoline	= &trampoline_is_enabled,
+	.attach		= &attach,
+	.probe_info	= &probe_info,
+	.detach		= &detach,
+	.probe_destroy	= &probe_destroy_underlying,
+};
+
+/*
  * Used for pid probes.
  */
 dt_provimpl_t	dt_pid = {
 	.name		= "pid",
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_pid_probe,
-	.enable		= &enable,
+	.enable		= &enable_pid,
 	.probe_destroy	= &probe_destroy,
 };
 
@@ -544,6 +721,6 @@ dt_provimpl_t	dt_usdt = {
 	.name		= "usdt",
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_usdt_probe,
-	.enable		= &enable,
+	.enable		= &enable_usdt,
 	.probe_destroy	= &probe_destroy,
 };

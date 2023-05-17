@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -626,6 +626,8 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 		dev_t dev;
 		ino_t inum;
 		uint64_t off;
+		int is_enabled;
+		const char *fmt;
 		unsigned long long dev_ll, inum_ll;
 		char *inum_str = NULL;
 		char *spec = NULL;
@@ -634,11 +636,22 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 		pid_probespec_t psp;
 
 #define UPROBE_PREFIX "p:dt_pid/p_"
-		if (strncmp(buf, UPROBE_PREFIX, strlen(UPROBE_PREFIX)) != 0)
+#define UPROBE_IS_ENABLED_PREFIX "p:dt_pid_is_enabled/p_"
+#define UPROBE_PROBE_FMT "%llx_%llx_%lx %ms P%m[^= ]=\\1 M%m[^= ]=\\2 F%m[^= ]=\\3 N%m[^= ]=\\4"
+#define UPROBE_FMT UPROBE_PREFIX UPROBE_PROBE_FMT
+#define UPROBE_IS_ENABLED_FMT UPROBE_IS_ENABLED_PREFIX UPROBE_PROBE_FMT
+
+		if (strncmp(buf, UPROBE_PREFIX, strlen(UPROBE_PREFIX)) == 0) {
+			is_enabled = 0;
+			fmt = UPROBE_FMT;
+		} else if (strncmp(buf, UPROBE_IS_ENABLED_PREFIX,
+			strlen(UPROBE_IS_ENABLED_PREFIX)) == 0) {
+			is_enabled = 1;
+			fmt = UPROBE_IS_ENABLED_FMT;
+		} else /* Not a DTrace uprobe. */
 			continue;
 
-		switch (sscanf(buf, "p:dt_pid/p_%llx_%llx_%lx %ms "
-			       "P%m[^= ]=\\1 M%m[^= ]=\\2 F%m[^= ]=\\3 N%m[^= ]=\\4", &dev_ll, &inum_ll,
+		switch (sscanf(buf, fmt, &dev_ll, &inum_ll,
 			       &off, &spec, &eprv, &emod, &efun, &eprb)) {
 		case 8: /* Includes dtrace probe names: decode them. */
 			prv = uprobe_decode_name(eprv);
@@ -664,9 +677,7 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 		 * Make the underlying probe, if not already present.
 		 */
 		memset(&psp, 0, sizeof(pid_probespec_t));
-
-		/* FIXME: DTPPT_IS_ENABLED needs to be supported also.  */
-		psp.pps_type = DTPPT_OFFSETS;
+		psp.pps_type = is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
 
 		/*
 		 * These components are only used for creation of an underlying
@@ -732,8 +743,9 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 
 		if (pvp->impl->provide_probe(dtp, &psp) < 0 && pdp) {
 			dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
-				     "failed to instantiate probe %s for pid %d: %s",
-				     pdp->prb, dpr->dpr_pid,
+				     "failed to instantiate %sprobe %s for pid %d: %s",
+				     is_enabled ? "is-enabled ": "", pdp->prb,
+				     dpr->dpr_pid,
 				     dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			ret = -1;
 		}

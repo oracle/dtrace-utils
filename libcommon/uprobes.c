@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -209,13 +209,13 @@ uprobe_decode_name(const char *name)
 }
 
 char *
-uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int isret)
+uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int isret, int is_enabled)
 {
 	char	*name;
 
-	if (asprintf(&name, "dt_pid/%c_%llx_%llx_%lx", isret ? 'r' : 'p',
-		     (unsigned long long)dev, (unsigned long long)ino,
-		     (unsigned long)addr) < 0)
+	if (asprintf(&name, "dt_pid%s/%c_%llx_%llx_%lx", is_enabled?"_is_enabled":"",
+		     isret ? 'r' : 'p', (unsigned long long)dev,
+		     (unsigned long long)ino, (unsigned long)addr) < 0)
 		return NULL;
 
 	return name;
@@ -229,7 +229,7 @@ uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int isret)
  */
 char *
 uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret,
-		    const char *prv, const char *mod, const char *fun,
+		    int is_enabled, const char *prv, const char *mod, const char *fun,
 		    const char *prb)
 {
 	int	fd = -1;
@@ -261,7 +261,7 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 			return NULL;
 	}
 
-	name = uprobe_name(dev, ino, addr, isret);
+	name = uprobe_name(dev, ino, addr, isret, is_enabled);
 	if (!name)
 		goto out;
 
@@ -292,9 +292,10 @@ out:
  * systemwide uprobe list.)
  */
 char *
-uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret)
+uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret,
+	int is_enabled)
 {
-	return uprobe_create_named(dev, ino, addr, spec, isret,
+	return uprobe_create_named(dev, ino, addr, spec, isret, is_enabled,
 				   NULL, NULL, NULL, NULL);
 }
 
@@ -304,7 +305,7 @@ uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret)
  * are set, they are passed down as the name of the corresponding DTrace probe.
  */
 char *
-uprobe_create_from_addr(pid_t pid, uint64_t addr, const char *prv,
+uprobe_create_from_addr(pid_t pid, uint64_t addr, int is_enabled, const char *prv,
 			const char *mod, const char *fun, const char *prb)
 {
 	char *spec;
@@ -316,7 +317,7 @@ uprobe_create_from_addr(pid_t pid, uint64_t addr, const char *prv,
 		return NULL;
 
 	name = uprobe_create_named(mapp.pr_dev, mapp.pr_inum, addr, spec, 0,
-				   prv, mod, fun, prb);
+				   is_enabled, prv, mod, fun, prb);
 	free(spec);
 	return name;
 }
@@ -325,13 +326,13 @@ uprobe_create_from_addr(pid_t pid, uint64_t addr, const char *prv,
  * Destroy a uprobe for a given device, address, and spec.
  */
 int
-uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int isret)
+uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int isret, int is_enabled)
 {
 	int	fd = -1;
 	int	rc = -1;
 	char	*name;
 
-	name = uprobe_name(dev, ino, addr, isret);
+	name = uprobe_name(dev, ino, addr, isret, is_enabled);
 	if (!name)
 		goto out;
 

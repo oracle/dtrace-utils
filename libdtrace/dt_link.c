@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -775,8 +775,7 @@ dt_elf_symtab_lookup(Elf_Data *data_sym, int nsym, uintptr_t addr, uint_t shn,
 
 /*ARGSUSED*/
 static int
-dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
-    uint32_t *off)
+dt_modtext(dtrace_hdl_t *dtp, char *p, GElf_Rela *rela, uint32_t *off)
 {
 	uint32_t *ip;
 
@@ -801,25 +800,18 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 * invocation. Check to see if the present instruction sequence matches
 	 * the one we would install below.
 	 */
-	if (isenabled) {
-		if (ip[0] == DT_OP_NOP) {
+	if (DT_IS_RESTORE(ip[1])) {
+		if (ip[0] == DT_OP_RET) {
 			(*off) += sizeof(ip[0]);
 			return 0;
 		}
+	} else if (DT_IS_MOV_O7(ip[1])) {
+		if (DT_IS_RETL(ip[0]))
+			return 0;
 	} else {
-		if (DT_IS_RESTORE(ip[1])) {
-			if (ip[0] == DT_OP_RET) {
-				(*off) += sizeof(ip[0]);
-				return 0;
-			}
-		} else if (DT_IS_MOV_O7(ip[1])) {
-			if (DT_IS_RETL(ip[0]))
-				return 0;
-		} else {
-			if (ip[0] == DT_OP_NOP) {
-				(*off) += sizeof(ip[0]);
-				return 0;
-			}
+		if (ip[0] == DT_OP_NOP) {
+			(*off) += sizeof(ip[0]);
+			return 0;
 		}
 	}
 
@@ -832,58 +824,32 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 		return -1;
 	}
 
-	if (isenabled) {
-		/*
-		 * It would necessarily indicate incorrect usage if an is-
-		 * enabled probe were tail-called so flag that as an error.
-		 * It's also potentially (very) tricky to handle gracefully,
-		 * but could be done if this were a desired use scenario.
-		 */
-		if (DT_IS_RESTORE(ip[1]) || DT_IS_MOV_O7(ip[1])) {
-			dt_dprintf("tail call to is-enabled probe at %llx\n",
-			    (unsigned long long)rela->r_offset);
-			return -1;
-		}
-
-
-		/*
-		 * On SPARC, we take advantage of the fact that the first
-		 * argument shares the same register as for the return value.
-		 * The macro handles the work of zeroing that register so we
-		 * don't need to do anything special here. We instrument the
-		 * instruction in the delay slot as we'll need to modify the
-		 * return register after that instruction has been emulated.
-		 */
+	/*
+	 * If the call is followed by a restore, it's a tail call so
+	 * change the call to a ret. If the call if followed by a mov
+	 * of a register into %o7, it's a tail call in leaf context
+	 * so change the call to a retl-like instruction that returns
+	 * to that register value + 8 (rather than the typical %o7 +
+	 * 8); the delay slot instruction is left, but should have no
+	 * effect. Otherwise we change the call to be a nop. We
+	 * identify the subsequent instruction as the probe point in
+	 * all but the leaf tail-call case to ensure that arguments to
+	 * the probe are complete and consistent. An astute, though
+	 * largely hypothetical, observer would note that there is the
+	 * possibility of a false-positive probe firing if the function
+	 * contained a branch to the instruction in the delay slot of
+	 * the call. Fixing this would require significant in-kernel
+	 * modifications, and isn't worth doing until we see it in the
+	 * wild.
+	 */
+	if (DT_IS_RESTORE(ip[1])) {
+		ip[0] = DT_OP_RET;
+		(*off) += sizeof(ip[0]);
+	} else if (DT_IS_MOV_O7(ip[1])) {
+		ip[0] = DT_MAKE_RETL(DT_RS2(ip[1]));
+	} else {
 		ip[0] = DT_OP_NOP;
 		(*off) += sizeof(ip[0]);
-	} else {
-		/*
-		 * If the call is followed by a restore, it's a tail call so
-		 * change the call to a ret. If the call if followed by a mov
-		 * of a register into %o7, it's a tail call in leaf context
-		 * so change the call to a retl-like instruction that returns
-		 * to that register value + 8 (rather than the typical %o7 +
-		 * 8); the delay slot instruction is left, but should have no
-		 * effect. Otherwise we change the call to be a nop. We
-		 * identify the subsequent instruction as the probe point in
-		 * all but the leaf tail-call case to ensure that arguments to
-		 * the probe are complete and consistent. An astute, though
-		 * largely hypothetical, observer would note that there is the
-		 * possibility of a false-positive probe firing if the function
-		 * contained a branch to the instruction in the delay slot of
-		 * the call. Fixing this would require significant in-kernel
-		 * modifications, and isn't worth doing until we see it in the
-		 * wild.
-		 */
-		if (DT_IS_RESTORE(ip[1])) {
-			ip[0] = DT_OP_RET;
-			(*off) += sizeof(ip[0]);
-		} else if (DT_IS_MOV_O7(ip[1])) {
-			ip[0] = DT_MAKE_RETL(DT_RS2(ip[1]));
-		} else {
-			ip[0] = DT_OP_NOP;
-			(*off) += sizeof(ip[0]);
-		}
 	}
 
 	return 0;
@@ -895,13 +861,9 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 #define	DT_OP_RET		0xc3
 #define	DT_OP_CALL		0xe8
 #define	DT_OP_JMP32		0xe9
-#define	DT_OP_REX_RAX		0x48
-#define	DT_OP_XOR_EAX_0		0x33
-#define	DT_OP_XOR_EAX_1		0xc0
 
 static int
-dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
-    uint32_t *off)
+dt_modtext(dtrace_hdl_t *dtp, char *p, GElf_Rela *rela, uint32_t *off)
 {
 	uint8_t *ip = (uint8_t *)(p + rela->r_offset - 1);
 	uint8_t ret;
@@ -924,37 +886,20 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	 */
 	if (GELF_R_TYPE(rela->r_info) != R_386_PC32 &&
 	    GELF_R_TYPE(rela->r_info) != R_386_PLT32 &&
-	    GELF_R_TYPE(rela->r_info) != R_386_NONE)
+	    GELF_R_TYPE(rela->r_info) != R_386_NONE) {
+		dt_dprintf("unexpected reloc type %li\n", GELF_R_TYPE(rela->r_info));
 		return -1;
+	}
 
 	/*
 	 * We may have already processed this object file in an earlier linker
 	 * invocation. Check to see if the present instruction sequence matches
-	 * the one we would install. For is-enabled probes, we advance the
-	 * offset to the first nop instruction in the sequence to match the
-	 * text modification code below.
+	 * the one we would install.
 	 */
-	if (!isenabled) {
-		if ((ip[0] == DT_OP_NOP || ip[0] == DT_OP_RET) &&
-		    ip[1] == DT_OP_NOP && ip[2] == DT_OP_NOP &&
-		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP)
-			return 0;
-	} else if (dtp->dt_oflags & DTRACE_O_ILP32) {
-		if (ip[0] == DT_OP_XOR_EAX_0 && ip[1] == DT_OP_XOR_EAX_1 &&
-		    (ip[2] == DT_OP_NOP || ip[2] == DT_OP_RET) &&
-		    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP) {
-			(*off) += 2;
-			return 0;
-		}
-	} else {
-		if (ip[0] == DT_OP_REX_RAX &&
-		    ip[1] == DT_OP_XOR_EAX_0 && ip[2] == DT_OP_XOR_EAX_1 &&
-		    (ip[3] == DT_OP_NOP || ip[3] == DT_OP_RET) &&
-		    ip[4] == DT_OP_NOP) {
-			(*off) += 3;
-			return 0;
-		}
-	}
+	if ((ip[0] == DT_OP_NOP || ip[0] == DT_OP_RET) &&
+	    ip[1] == DT_OP_NOP && ip[2] == DT_OP_NOP &&
+	    ip[3] == DT_OP_NOP && ip[4] == DT_OP_NOP)
+		return 0;
 
 	/*
 	 * We expect either a call instrution with a 32-bit displacement or a
@@ -969,33 +914,13 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	ret = (ip[0] == DT_OP_JMP32) ? DT_OP_RET : DT_OP_NOP;
 
 	/*
-	 * Establish the instruction sequence -- all nops for probes, and an
-	 * instruction to clear the return value register (%eax/%rax) followed
-	 * by nops for is-enabled probes. For is-enabled probes, we advance
-	 * the offset to the first nop. This isn't stricly necessary but makes
-	 * for more readable disassembly when the probe is enabled.
+	 * Establish the instruction sequence: all nops.
 	 */
-	if (!isenabled) {
-		ip[0] = ret;
-		ip[1] = DT_OP_NOP;
-		ip[2] = DT_OP_NOP;
-		ip[3] = DT_OP_NOP;
-		ip[4] = DT_OP_NOP;
-	} else if (dtp->dt_oflags & DTRACE_O_ILP32) {
-		ip[0] = DT_OP_XOR_EAX_0;
-		ip[1] = DT_OP_XOR_EAX_1;
-		ip[2] = ret;
-		ip[3] = DT_OP_NOP;
-		ip[4] = DT_OP_NOP;
-		(*off) += 2;
-	} else {
-		ip[0] = DT_OP_REX_RAX;
-		ip[1] = DT_OP_XOR_EAX_0;
-		ip[2] = DT_OP_XOR_EAX_1;
-		ip[3] = ret;
-		ip[4] = DT_OP_NOP;
-		(*off) += 3;
-	}
+	ip[0] = ret;
+	ip[1] = DT_OP_NOP;
+	ip[2] = DT_OP_NOP;
+	ip[3] = DT_OP_NOP;
+	ip[4] = DT_OP_NOP;
 
 	return 0;
 }
@@ -1008,8 +933,7 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 #define	DT_OP_JUMP26		0x14000000
 
 static int
-dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
-    uint32_t *off)
+dt_modtext(dtrace_hdl_t *dtp, char *p, GElf_Rela *rela, uint32_t *off)
 {
 	uint32_t *ip;
 
@@ -1050,11 +974,9 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, int isenabled, GElf_Rela *rela,
 	}
 
 	/*
-	 * On arm64, we do not have to differentiate between regular probes and
-	 * is-enabled probes.  Both cases are encoded as a regular branch for
-	 * non-tail call locations, and a jump for tail call locations.  Calls
-	 * are to be converted into a no-op whereas jumps should become a
-	 * return.
+	 * On arm64, we encode all probes as a regular branch for non-tail call
+	 * locations, and a jump for tail call locations.  Calls are to be
+	 * converted into a no-op whereas jumps should become a return.
 	 */
 	if (ip[0] == DT_OP_CALL26)
 		ip[0] = DT_OP_NOP;
@@ -1502,10 +1424,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			assert(fsym.st_value <= rela.r_offset);
 
 			off = rela.r_offset - fsym.st_value;
-			if (dt_modtext(dtp, data_tgt->d_buf, eprobe,
-			    &rela, &off) != 0) {
+			if (dt_modtext(dtp, data_tgt->d_buf, &rela, &off) != 0)
 				goto err;
-			}
 
 			if (dt_probe_define(pvp, prp, s, r, off, eprobe) != 0)
 				return dt_link_error(dtp, elf, fd, bufs,

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -368,12 +368,8 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		return dt_set_errno(dtp, errno);
 
 	if (fprintf(infop->dthi_out,
-	    "#if !defined(__aarch64__) && !defined(__sparc)\n"
-	    "extern int __dtraceenabled_%s___%s(void);\n"
-	    "#else\n"
-	    "extern int __dtraceenabled_%s___%s(long);\n"
-	    "#endif\n",
-	    infop->dthi_pfname, fname, infop->dthi_pfname, fname) < 0)
+	    "extern void __dtraceenabled_%s___%s(uint32_t *flag);\n",
+	    infop->dthi_pfname, fname) < 0)
 		return dt_set_errno(dtp, errno);
 
 	return 0;
@@ -436,17 +432,18 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 
 	if (!infop->dthi_empty) {
 		if (fprintf(infop->dthi_out,
-		    "#if !defined(__aarch64__) && !defined(__sparc)\n"
+		    "#ifdef __GNUC__\n"
 		    "#define\t%s_%s_ENABLED() \\\n"
-		    "\t__dtraceenabled_%s___%s()\n"
+		    "\t({ uint32_t enabled = 0; \\\n"
+		    "\t__dtraceenabled_%s___%s(&enabled); \\\n"
+		    "\t   enabled; })\n"
 		    "#else\n"
-		    "#define\t%s_%s_ENABLED() \\\n"
-		    "\t__dtraceenabled_%s___%s(0)\n"
+		    "#define\t%s_%s_ENABLED() (1)\\n"
+		    "#endif\n"
 		    "#endif\n",
 		    infop->dthi_pmname, mname,
 		    infop->dthi_pfname, fname,
-		    infop->dthi_pmname, mname,
-		    infop->dthi_pfname, fname) < 0)
+		    infop->dthi_pmname, mname) < 0)
 			return dt_set_errno(dtp, errno);
 
 	} else {
@@ -534,6 +531,11 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 		return -1;
 
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)
+		return -1;
+
+	if (fprintf(out, "#ifdef\t__GNUC__\n"
+		"#pragma GCC system_header\n"
+		"#endif\n\n") < 0)
 		return -1;
 
 	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
