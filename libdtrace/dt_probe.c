@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -469,6 +469,7 @@ dt_probe_destroy(dt_probe_t *prp)
 {
 	dt_probe_clause_t	*pcp, *pcp_next;
 	dt_probe_instance_t	*pip, *pip_next;
+	dt_probe_dependent_t	*dep, *dep_next;
 	dtrace_hdl_t		*dtp;
 
 	if (prp->prov != NULL)
@@ -498,6 +499,11 @@ dt_probe_destroy(dt_probe_t *prp)
 	for (pcp = dt_list_next(&prp->clauses); pcp != NULL; pcp = pcp_next) {
 		pcp_next = dt_list_next(pcp);
 		dt_free(dtp, pcp);
+	}
+
+	for (dep = dt_list_next(&prp->dependents); dep != NULL; dep = dep_next) {
+		dep_next = dt_list_next(dep);
+		dt_free(dtp, dep);
 	}
 
 	for (pip = prp->pr_inst; pip != NULL; pip = pip_next) {
