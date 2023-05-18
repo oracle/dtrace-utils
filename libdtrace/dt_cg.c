@@ -4293,8 +4293,8 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_0));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_task_pt_regs));
 	dt_regset_free_args(drp);
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, idx * sizeof(uint64_t)));
-	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_0, 0));
+	/* The BPF verifier allows this load since it tracks %r0 as "ptr_pt_regs". */
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_0, idx * sizeof(uint64_t)));
 	dt_regset_free(drp, BPF_REG_0);
 }
 
