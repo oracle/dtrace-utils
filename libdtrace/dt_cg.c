@@ -4248,56 +4248,42 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 	if (idx >= sizeof(dt_pt_regs) / sizeof(uint64_t)) {
 
 #if defined(__amd64)
+		/* Confirm that we can hardwire for 21 pt_regs[]. */
+		assert(sizeof(dt_pt_regs) == 21 * sizeof(uint64_t));
+
 		/*
 		 * Even if out-of-bounds, on x86 there are still a few
 		 * indices that are used to access task->thread. members.
 		 */
 		if (idx <= 25) {
-			ctf_file_t *cfp = dtp->dt_shared_ctf;
-			ctf_id_t type;
-			ctf_membinfo_t ctm;
-			int offset, rc;
+			int offset;
+			ssize_t size;
+			char *memnames[] = { "ds", "es", "fsbase", "gsbase", "trap_nr" };
 
-			/* look up task->thread offset */
-			if (!cfp)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+			/* Look up task->thread offset. */
+			offset = dt_cg_ctf_offsetof("struct task_struct", "thread", NULL);
 
-			type = ctf_lookup_by_name(cfp, "struct task_struct");
-			if (type == CTF_ERR)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-			if (ctf_member_info(cfp, type, "thread", &ctm) == CTF_ERR)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-			offset = ctm.ctm_offset / NBBY;
+			/* Add the thread->member offset. */
+			offset += dt_cg_ctf_offsetof("struct thread_struct",
+						     memnames[idx - 21], &size);
+			if (size < 1 || size > 8 || (size & (size - 1)) != 0)
+				xyerror(D_UNKNOWN, "internal error -- cg cannot load "
+				    "size %ld when passed by value\n", (long)size);
 
-			/* add the thread->member offset */
-			type = ctf_lookup_by_name(cfp, "struct thread_struct");
-			if (type == CTF_ERR)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-			switch (idx) {
-			case 21: rc = ctf_member_info(cfp, type, "ds", &ctm); break;
-			case 22: rc = ctf_member_info(cfp, type, "es", &ctm); break;
-			case 23: rc = ctf_member_info(cfp, type, "fsbase", &ctm); break;
-			case 24: rc = ctf_member_info(cfp, type, "gsbase", &ctm); break;
-			case 25: rc = ctf_member_info(cfp, type, "trap_nr", &ctm); break;
-			}
-			if (rc == -1)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-			offset += ctm.ctm_offset / NBBY;
-
-			/* copy task->thread.member onto the stack */
+			/* Get task. */
 			if (dt_regset_xalloc_args(drp) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 			dt_regset_xalloc(drp, BPF_REG_0);
 			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task));
-			emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
-			emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, offset));
-			emit(dlp, BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
-			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
-			emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
 			dt_regset_free_args(drp);
-			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_SP));
-			emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_0, 0));
+			emit(dlp, BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
+
+			/* Add the offset to the task pointer. */
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, offset));
+
+			/* Dereference it safely (the BPF verifier has no idea what it is). */
+			dt_cg_load_scalar(dnp, ldstw[size], size, dlp, drp);
 
 			return;
 		}
