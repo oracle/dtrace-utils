@@ -4211,6 +4211,29 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	}
 }
 
+/*
+ * Get offsetof(structname, membername) information from CTF.
+ * Optionally, also get member size.
+ */
+static int
+dt_cg_ctf_offsetof(const char *structname, const char *membername, size_t *sizep)
+{
+	ctf_file_t *cfp = yypcb->pcb_hdl->dt_shared_ctf;
+	ctf_id_t type;
+	ctf_membinfo_t ctm;
+
+	if (!cfp)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	type = ctf_lookup_by_name(cfp, structname);
+	if (type == CTF_ERR)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	if (ctf_member_info(cfp, type, membername, &ctm) == CTF_ERR)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	if (sizep)
+		*sizep = ctf_type_size(cfp, ctm.ctm_type);
+	return (ctm.ctm_offset / NBBY);
+}
+
 static void
 dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
