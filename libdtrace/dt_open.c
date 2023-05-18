@@ -1224,6 +1224,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_xlator_destroy(dtp, dxp);
 
 	dt_free(dtp, dtp->dt_xlatormap);
+	dt_free(dtp, dtp->dt_tstrings);
 
 	dt_consume_fini(dtp);
 
