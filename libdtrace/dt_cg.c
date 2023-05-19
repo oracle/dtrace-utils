@@ -4239,11 +4239,6 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 {
 	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
 
-	/* ensure we can use  the BPF task_pt_regs() helper */
-	if (dtp->dt_bpfhelper[BPF_FUNC_get_current_task_btf] == BPF_FUNC_unspec
-	  || dtp->dt_bpfhelper[BPF_FUNC_task_pt_regs] == BPF_FUNC_unspec)
-		dnerror(dnp, D_UNKNOWN, "uregs[] is not supported on this kernel\n");
-
 	/* check if out-of-bounds */
 	if (idx >= sizeof(dt_pt_regs) / sizeof(uint64_t)) {
 
@@ -4294,7 +4289,128 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 		return;
 	}
 
-	/* if in-bounds, look up pt_regs[] */
+	/* If in-bounds, look up pt_regs[]. */
+
+	if (dtp->dt_bpfhelper[BPF_FUNC_get_current_task_btf] == BPF_FUNC_unspec ||
+	    dtp->dt_bpfhelper[BPF_FUNC_task_pt_regs] == BPF_FUNC_unspec) {
+
+		/*
+		 * To get pt_regs[], we try to use two BPF helper functions, but
+		 * they exist only on newer kernels.  Therefore, we check if they
+		 * exist.
+		 *
+		 * If they do not exist, we are forced to emulate them, which is
+		 * tricky since they depend on kernel configuration.
+		 *
+		 * In kernel/trace/bpf_trace.c, we see bpf_task_pt_regs() returns
+		 * task_pt_regs(task).
+		 *
+		 * In turn, task_pt_regs() is defined in files like
+		 *     arch/arm64/include/asm/processor.h
+		 *     arch/x86/include/asm/processor.h
+		 *
+		 * In essence, what we will do for these two architectures is:
+		 *     get task_stack_page(task) (that is, get task->stack)
+		 *     find the offset to add:
+		 *         add THREAD_SIZE
+		 *         subtract sizeof(struct pt_regs)
+		 *         add idx*sizeof(uint64_t) (for pt_regs[idx])
+		 *
+		 * For a wide range of kernels, the configuration parameters will
+		 * be identical to the values below.
+		 */
+
+		size_t offset;
+
+		/* Spill %r0 - %r5 (if necessary). */
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		dt_regset_xalloc(drp, BPF_REG_0);
+
+		/* %r0 = current stack */
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task));
+
+		/* Copy contents at task->stack to %fp+DT_STK_SP (scratch space). */
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3,
+		    dt_cg_ctf_offsetof("struct task_struct", "stack", NULL)));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+		emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+
+		/* Fill %r0 - %r5 (if necessary). */
+		dt_regset_free_args(drp);
+		dt_regset_free(drp, BPF_REG_0);
+
+		/* Get contents from %fp+DT_STK_SP.  Now we have task->stack. */
+		emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_SP));
+		emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, 0));
+
+		/* Start computing the offset to get to pt_regs[idx]. */
+		offset = 0;
+
+#if defined(__amd64)
+
+#define MY_PAGE_SIZE 4096
+
+/* arch/x86/include/asm/page_64_types.h */
+#define MY_KASAN_STACK_ORDER 0                              /* for CONFIG_KASAN not set */
+#define MY_THREAD_SIZE_ORDER (2 + MY_KASAN_STACK_ORDER)
+#define MY_THREAD_SIZE (MY_PAGE_SIZE << MY_THREAD_SIZE_ORDER)
+
+		offset += MY_THREAD_SIZE;
+
+#undef MY_PAGE_SIZE
+#undef MY_KASAN_STACK_ORDER
+#undef MY_THREAD_SIZE_ORDER
+#undef MY_THREAD_SIZE
+
+#elif defined(__aarch64__)
+
+/* arch/arm64/include/asm/memory.h */
+#define MY_KASAN_THREAD_SHIFT 0                             /* for CONFIG_KASAN not set */
+#define MY_MIN_THREAD_SHIFT (14 + MY_KASAN_THREAD_SHIFT)
+#define MY_THREAD_SHIFT MY_MIN_THREAD_SHIFT
+#define MY_THREAD_SIZE (1 << MY_THREAD_SHIFT)
+
+		offset += MY_THREAD_SIZE;
+
+#undef MY_KASAN_THREAD_SHIFT
+#undef MY_MIN_THREAD_SHIFT
+#undef MY_THREAD_SHIFT
+#undef MY_THREAD_SIZE
+
+#else
+# error ISA not supported
+#endif
+
+		/*
+		 * Subtract sizeof(struct pt_regs).  Do not use sizeof(dt_pt_regs)
+		 * since it can be smaller, at least on aarch64.
+		 */
+		{
+			ctf_file_t *cfp = yypcb->pcb_hdl->dt_shared_ctf;
+			ctf_id_t type;
+
+			type = ctf_lookup_by_name(cfp, "struct pt_regs");
+			if (type == CTF_ERR)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+
+			offset -= ctf_type_size(cfp, type);
+		}
+
+		/* Add the offset for our particular pt_regs[] index. */
+		offset += (idx * sizeof(uint64_t));
+
+		/* Add the fully computed offset to the pointer in the register. */
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, offset));
+
+		/* Dereference it safely (the BPF verifier has no idea what it is). */
+		dt_cg_load_scalar(dnp, BPF_DW, sizeof(uint64_t), dlp, drp);
+
+		return;
+	}
+
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	dt_regset_xalloc(drp, BPF_REG_0);
