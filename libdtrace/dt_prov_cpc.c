@@ -199,11 +199,6 @@ static int populate(dtrace_hdl_t *dtp)
 			 *   - silently skip over this probe (causing later more controlled failure)
 			 *   - somehow emit a diagnostic message
 			 * For now, we just choose the middle option.
-			 *
-			 * FIXME: Memory pointed to by next_probe_map, pfmname, and Dname
-			 * should ideally be freed explicitly during some probe_destroy(),
-			 * but this is a low priority since all such memory will be freed
-			 * anyhow when the DTrace session ends.
 			 */
 			next_probe_map = dt_zalloc(dtp, sizeof(cpc_probe_map_t));
 			if (next_probe_map == NULL)
@@ -480,6 +475,21 @@ static void probe_destroy(dtrace_hdl_t *dtp, void *arg)
 	dt_free(dtp, datap);
 }
 
+static void destroy(dtrace_hdl_t *dtp, void *arg)
+{
+	cpc_probe_map_t *probe_map;
+	cpc_probe_map_t *next_probe_map;
+
+	for (probe_map = dt_list_next(arg); probe_map;
+	     probe_map = next_probe_map) {
+		free(probe_map->Dname);
+		free(probe_map->pfmname);
+		next_probe_map = dt_list_next(probe_map);
+		dt_free(dtp, probe_map);
+	}
+	dt_free(dtp, arg);
+}
+
 dt_provimpl_t	dt_cpc = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_PERF_EVENT,
@@ -490,4 +500,5 @@ dt_provimpl_t	dt_cpc = {
 	.probe_info	= &probe_info,
 	.detach		= &detach,
 	.probe_destroy	= &probe_destroy,
+	.destroy	= &destroy,
 };
