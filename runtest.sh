@@ -1540,18 +1540,19 @@ else
     # Test summary.
 
     awk -f - $SUMFILE <<'EOF' | tee -a $LOGFILE $SUMFILE
-/: X?(FAIL|PASS|SKIP)/ {
-	match($0, /: X?(FAIL|PASS|SKIP)/);
+{
+	rc = 0;
+}
+match($0, /: X?(FAIL|PASS|SKIP)/) {
 	rc = substr($0, RSTART + 2, RLENGTH - 2);
 	count[rc]++;
 	total++;
- }
-/: X?(FAIL|PASS|SKIP).*after ([0-9]*) reinvocations/
-{
-	match($0, /after ([0-9]*) reinvocations/, reinvokes);
-	count["REINVOKES"] += reinvokes[1];
 }
- END {
+rc && match($0, /after [0-9]+ reinvocations/) {
+	$0 = substr($0, RSTART);
+	count["REINVOKES"] += int($2);
+}
+END {
         if (count["REINVOKES"] == 0)
 	    printf("%d cases (%d PASS, %d FAIL, %d XPASS, %d XFAIL, %d SKIP)\n",
 		    total, count["PASS"], count["FAIL"], count["XPASS"],
