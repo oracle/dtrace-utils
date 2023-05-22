@@ -289,7 +289,7 @@ uprobe_create_named(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int i
 		     args ? args : "");
 
 out:
-	if (fd == -1)
+	if (fd != -1)
 		close(fd);
 	free(args);
 	if (rc < 0) {
