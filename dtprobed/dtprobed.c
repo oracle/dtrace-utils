@@ -5,6 +5,7 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+#include <sys/param.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -56,6 +57,7 @@
 #include "seccomp-assistance.h"
 
 #define DOF_MAXSZ 512 * 1024 * 1024
+#define DOF_CHUNKSZ 64 * 1024
 
 static struct fuse_session *cuse_session;
 
@@ -137,7 +139,8 @@ typedef enum dtprobed_fuse_state {
 	DTP_IOCTL_START = 0,
 	DTP_IOCTL_HDR = 1,
 	DTP_IOCTL_DOFHDR = 2,
-	DTP_IOCTL_DOF = 3
+	DTP_IOCTL_DOFCHUNK = 3,
+	DTP_IOCTL_DOF = 4
 } dtprobed_fuse_state_t;
 
 /*
@@ -147,6 +150,8 @@ typedef struct dtprobed_userdata {
 	dtprobed_fuse_state_t state;
 	dof_helper_t dh;
 	dof_hdr_t dof_hdr;
+	size_t next_chunk;
+	char *buf;
 } dtprobed_userdata_t;
 
 struct fuse_session *
@@ -356,6 +361,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	struct iovec in;
 	pid_t pid = fuse_req_ctx(req)->pid;
 	const char *errmsg;
+	const void *buf;
 
 	/*
 	 * We can just ignore FUSE_IOCTL_COMPAT: the 32-bit and 64-bit versions
@@ -384,6 +390,13 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		errmsg = "error reading ioctl size";
 		if (fuse_reply_ioctl_retry(req, &in, 1, NULL, 0) < 0)
 			goto fuse_errmsg;
+
+		/*
+		 * userdata->buf should already be freed, but if somehow it is
+		 * non-NULL make absolutely sure it is cleared out.
+		 */
+		userdata->buf = NULL;
+		userdata->next_chunk = 0;
 		userdata->state = DTP_IOCTL_HDR;
 		return;
 	}
@@ -424,13 +437,14 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	}
 
 	/*
-	 * Third call: validate the DOF length and get the DOF itself.
+	 * Third call: validate the DOF length and stash it away.
 	 */
 	if (userdata->state == DTP_IOCTL_DOFHDR) {
 		/*
 		 * Too much data is as bad as too little.
 		 */
-		if (in_bufsz > sizeof(dof_hdr_t)) {
+		if (userdata->state == DTP_IOCTL_DOFHDR &&
+		    (in_bufsz > sizeof(dof_hdr_t))) {
 			errmsg = "DOF header size incorrect";
 			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s: %zi, not %zi\n",
 				 pid, errmsg, in_bufsz, sizeof(dof_hdr_t));
@@ -442,16 +456,80 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: DOF size of %zi longer than is sane\n",
 				 pid, userdata->dof_hdr.dofh_loadsz);
 
+		/* Fall through. */
+	}
+
+	/*
+	 * Third and possibly further calls: get the DOF itself, in chunks if
+	 * it's too big.
+	 */
+	if (userdata->state == DTP_IOCTL_DOFHDR ||
+		userdata->state == DTP_IOCTL_DOFCHUNK) {
+		int by_chunks = 0;
+
 		in.iov_base = (void *) userdata->dh.dofhp_dof;
 		in.iov_len = userdata->dof_hdr.dofh_loadsz;
+
+		/*
+		 * If the data being read in is too large, read by chunks.  We
+		 * cannot determine the chunk size we can use: the first failure
+		 * returns -ENOMEM to the caller of ioctl().
+		 */
+		if (userdata->dof_hdr.dofh_loadsz > DOF_CHUNKSZ) {
+			by_chunks = 1;
+
+			if (userdata->state == DTP_IOCTL_DOFHDR) {
+				userdata->buf = malloc(userdata->dof_hdr.dofh_loadsz);
+				in.iov_len = DOF_CHUNKSZ;
+
+				if (userdata->buf == NULL) {
+					errmsg = "out of memory allocating DOF";
+					goto fuse_errmsg;
+				}
+			} else {
+				ssize_t remaining;
+				size_t to_copy;
+
+				remaining = userdata->dof_hdr.dofh_loadsz -
+					    userdata->next_chunk;
+
+				if (remaining < 0)
+					remaining = 0;
+
+				/*
+				 * We've already read a chunk: preserve it and
+				 * go on to the next, until we are out.
+				 */
+
+				to_copy = MIN(in_bufsz, remaining);
+				memcpy(userdata->buf + userdata->next_chunk, in_buf,
+				       to_copy);
+
+				userdata->next_chunk += to_copy;
+				remaining -= to_copy;
+
+				if (remaining <= 0) {
+					userdata->state = DTP_IOCTL_DOF;
+					goto chunks_done;
+				}
+
+				in.iov_base = (char *) in.iov_base + userdata->next_chunk;
+				in.iov_len = MIN(DOF_CHUNKSZ, remaining);
+			}
+		}
 
 		errmsg = "cannot read DOF";
 		if (fuse_reply_ioctl_retry(req, &in, 1, NULL, 0) < 0)
 			goto fuse_errmsg;
-		userdata->state = DTP_IOCTL_DOF;
+
+		if (by_chunks)
+			userdata->state = DTP_IOCTL_DOFCHUNK;
+		else
+			userdata->state = DTP_IOCTL_DOF;
 		return;
 	}
 
+  chunks_done:
 	if (userdata->state != DTP_IOCTL_DOF) {
 		errmsg = "FUSE internal state incorrect";
 		goto fuse_errmsg;
@@ -462,12 +540,19 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	 * to unblock the ioctl() caller and return to start state.
 	 */
 
+	buf = in_buf;
+	if (userdata->buf)
+		buf = userdata->buf;
+
 	if (process_dof(req, parser_in_pipe[1], parser_out_pipe[0], pid,
-			&userdata->dh, in_buf) < 0)
+			&userdata->dh, buf) < 0)
 		goto process_err;
 
 	if (fuse_reply_ioctl(req, 0, NULL, 0) < 0)
 		goto process_err;
+
+	free(userdata->buf);
+	userdata->buf = NULL;
 
 	userdata->state = DTP_IOCTL_START;
 
@@ -481,6 +566,8 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid,
 			 "cannot send error to ioctl caller: %s",
 			errmsg);
+	free(userdata->buf);
+	userdata->buf = NULL;
 	userdata->state = DTP_IOCTL_START;
 	return;
 
@@ -488,6 +575,8 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	if (fuse_reply_err(req, EINVAL) < 0)
 		fuse_log(FUSE_LOG_ERR, "%i: cannot unblock caller\n",
 			 pid);
+	free(userdata->buf);
+	userdata->buf = NULL;
 	userdata->state = DTP_IOCTL_START;
 	return;
 }
