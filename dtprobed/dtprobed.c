@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <malloc.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -51,6 +52,8 @@
 
 #include "dof_parser.h"
 #include "uprobes.h"
+
+#include "seccomp-assistance.h"
 
 #define DOF_MAXSZ 512 * 1024 * 1024
 
@@ -250,9 +253,17 @@ dof_parser_start(int sync_fd)
 		 * closed all pipes that we might use to report it.  Just exit 1
 		 * and rely on the admin using strace :(
 		 *
-		 * Don't do any of this if debugging (but still run in a child
-		 * process).
+		 * Take additional measures to ensure that we can still do
+		 * sufficiently-large mallocs in the child without needing to
+		 * make any syscalls.
+		 *
+		 * Don't lock the process in jail if debugging (but still run in
+		 * a child process).
 		 */
+		mallopt(M_MMAP_MAX, 0);
+		mallopt(M_TRIM_THRESHOLD, -1);
+		seccomp_fill_memory_really_free(seccomp_fill_memory_really_malloc(DOF_MAXSZ * 2));
+
 		if (!_dtrace_debug)
 			if (syscall(SYS_seccomp, SECCOMP_SET_MODE_STRICT, 0, NULL) < 0)
 				_exit(1);

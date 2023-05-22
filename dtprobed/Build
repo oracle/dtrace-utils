@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -26,7 +26,7 @@ dtprobed_CPPFLAGS := -I. -Idtprobed -Ilibproc -Ilibcommon -Ilibport
 dtprobed_CFLAGS := $(shell pkg-config --cflags $(LIBFUSE))
 dtprobed_LIBS := -lcommon -lproc -lcommon -lport -lelf $(shell pkg-config --libs $(LIBFUSE))
 dtprobed_DEPS := libproc.a libcommon.a libport.a
-dtprobed_SOURCES := dtprobed.c
+dtprobed_SOURCES := dtprobed.c seccomp-assistance.c
 dtprobed_LIBSOURCES := libproc libcommon
 
 ifdef HAVE_LIBSYSTEMD
@@ -39,6 +39,7 @@ dtprobed_SOURCES += rpl_fuse_log.c
 endif
 
 dtprobed.c_CFLAGS := -Wno-pedantic
+seccomp-assistance.c_CFLAGS := -fno-lto
 endif
 
 install::
