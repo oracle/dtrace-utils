@@ -220,8 +220,10 @@ parse_dof(int in, int out)
 		return ok;
 
 	dof = dof_copyin_dof(in, out, &ok);
-	if (!dof)
+	if (!dof) {
+		free(dh);
 		return ok;
+	}
 
 	dof_parse(out, dh, dof);
 
