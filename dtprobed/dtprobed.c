@@ -593,21 +593,33 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 	dof_parsed_t *provider;
 	const char *errmsg;
 	size_t i;
+	size_t tries = 0;
 
-	errmsg = "DOF parser write failed";
-	while ((errno = dof_parser_host_write(out, dh,
-					      (dof_hdr_t *) in_buf)) == EAGAIN);
-	if (errno != 0)
-		goto err;
+	do {
+		errmsg = "DOF parser write failed";
+		while ((errno = dof_parser_host_write(out, dh,
+						      (dof_hdr_t *) in_buf)) == EAGAIN);
+		if (errno != 0)
+			goto err;
 
-	/*
-	 * Wait for parsed reply.
-	 */
+		/*
+		 * Wait for parsed reply.  If it fails, try once more; possibly
+		 * the child was killed due to problems induced by a previous
+		 * probe, and a retry will work.
+		 */
 
-	errmsg = "parsed DOF read failed";
-	provider = dof_read(req, parser_out_pipe[0]);
-	if (!provider || provider->type != DIT_PROVIDER)
-		goto err;
+		errmsg = "parsed DOF read failed";
+		provider = dof_read(req, parser_out_pipe[0]);
+		if (!provider) {
+			if (tries++ > 1)
+				goto err;
+			dof_parser_tidy(1);
+			continue;
+		}
+		if (provider->type != DIT_PROVIDER)
+			goto err;
+		break;
+	} while (!provider);
 
 	for (i = 0; i < provider->provider.nprobes; i++) {
 		dof_parsed_t *probe = dof_read(req, in);
@@ -639,7 +651,6 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 
 err:
 	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: parser error: %s\n", pid, errmsg);
-	kill(parser_pid, SIGKILL);
 	dof_parser_tidy(1);
 	return -1;
 }	
