@@ -1431,9 +1431,6 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 				return dt_link_error(dtp, elf, fd, bufs,
 				    "failed to allocate space for probe");
 
-			mod = 1;
-			elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
-
 			/*
 			 * This symbol may already have been marked to
 			 * be ignored by another relocation referencing
@@ -1442,6 +1439,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 * invocation.
 			 */
 			if (rsym.st_shndx != SHN_SUNW_IGNORE) {
+				mod = 1;
+				elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
 				rsym.st_shndx = SHN_SUNW_IGNORE;
 				gelf_update_sym(data_sym, ndx, &rsym);
 			}
@@ -1453,15 +1452,19 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 * causes the linker to try to fill in an address on
 			 * top of the NOPs we so carefully planted.
 			 */
-			if (shdr_rel.sh_type == SHT_RELA) {
-				rela.r_info = GELF_R_INFO(ndx, 0);
-				gelf_update_rela(data_rel, i, &rela);
-			} else {
-				GElf_Rel rel;
+			if (rela.r_info != GELF_R_INFO(ndx,0)) {
+				mod = 1;
+				elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
+				if (shdr_rel.sh_type == SHT_RELA) {
+					rela.r_info = GELF_R_INFO(ndx, 0);
+					gelf_update_rela(data_rel, i, &rela);
+				} else {
+					GElf_Rel rel;
 
-				rel.r_offset = rela.r_offset;
-				rel.r_info = GELF_R_INFO(ndx, 0);
-				gelf_update_rel(data_rel, i, &rel);
+					rel.r_offset = rela.r_offset;
+					rel.r_info = GELF_R_INFO(ndx, 0);
+					gelf_update_rel(data_rel, i, &rel);
+				}
 			}
 		}
 	}
