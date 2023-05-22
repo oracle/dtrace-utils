@@ -677,7 +677,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 
 	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags & PP_IS_RETURN,
 		      upp->flags & PP_IS_ENABLED);
-	}
+}
 
 /*
  * Used for underlying probes (uprobes).
