@@ -399,6 +399,7 @@ struct dtrace_hdl {
 	uint_t dt_prcmode;	/* dtrace process create mode (see dt_proc.h) */
 	uint_t dt_linkmode;	/* dtrace symbol linking mode (see below) */
 	uint_t dt_linktype;	/* dtrace link output file type (see below) */
+	uint_t dt_link_no_mmap;	/* whether linking should avoid mmap() */
 	uint_t dt_xlatemode;	/* dtrace translator linking mode (see below) */
 	uint_t dt_stdcmode;	/* dtrace stdc compatibility mode (see below) */
 	uint_t dt_treedump;	/* dtrace tree debug bitmap (see below) */

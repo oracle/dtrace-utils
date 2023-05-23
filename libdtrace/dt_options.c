@@ -378,6 +378,15 @@ dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_linknommap(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtp->dt_link_no_mmap = 1;
+
+	return 0;
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_module_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	char *proc;
@@ -1100,6 +1109,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "libdir", dt_opt_libdir },
 	{ "linkmode", dt_opt_linkmode },
 	{ "linktype", dt_opt_linktype },
+	{ "linknommap", dt_opt_linknommap },
 	{ "modpath", dt_opt_module_path },
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "pgmax", dt_opt_pgmax },

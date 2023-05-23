@@ -1042,13 +1042,14 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	key_t objkey;
 	dt_link_pair_t *pair, *bufs = NULL;
 	dt_strtab_t *strtab;
+	int flags = dtp->dt_link_no_mmap ? ELF_C_RDWR : ELF_C_RDWR_MMAP;
 
 	if ((fd = open64(obj, O_RDWR)) == -1) {
 		return dt_link_error(dtp, elf, fd, bufs,
 		    "failed to open %s: %s", obj, strerror(errno));
 	}
 
-	if ((elf = elf_begin(fd, ELF_C_RDWR_MMAP, NULL)) == NULL) {
+	if ((elf = elf_begin(fd, flags, NULL)) == NULL) {
 		return dt_link_error(dtp, elf, fd, bufs,
 		    "failed to process %s: %s", obj, elf_errmsg(elf_errno()));
 	}
