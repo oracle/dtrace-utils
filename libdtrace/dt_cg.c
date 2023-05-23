@@ -2625,12 +2625,14 @@ static void
 dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		     dt_ident_t *idp, int isstore, dt_ident_t **fnpp)
 {
-	uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+	uint_t		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+	const char	*fn;
 
 	if (idp->di_kind == DT_IDENT_ARRAY) {
 		/* Associative (global or TLS) array.  Cannot be in alloca space. */
 		dt_node_t *args = isstore ? dnp->dn_left : dnp;
-		*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+
+		fn = "dt_get_assoc";
 
 		dt_cg_arglist(idp, args->dn_args, dlp, drp);
 
@@ -2648,7 +2650,7 @@ dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 	} else if (idp->di_flags & DT_IDFLG_TLS) {
 		/* thread-local variables */
-		*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+		fn = "dt_get_tvar";
 
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -2663,6 +2665,7 @@ dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	} else
 		assert(0);
 
+	*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, fn);
 	assert(*fnpp);
 }
 
@@ -2686,7 +2689,26 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 		if (dnp->dn_flags & DT_NF_REF) {
-			emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+			/*
+			 * The BPF verifier knows we have a pointer that is
+			 * map_value_or_null.  We will check later for null.
+			 * If we first add an offset, however, the verifier
+			 * objects.
+			 *
+			 * Check the value.  If 0, assign 0.  This allows the
+			 * verifier to branch and handle map_value_or_null as
+			 * two separate cases.
+			 */
+			uint_t	lbl_notnull = dt_irlist_label(dlp);
+			uint_t	lbl_done = dt_irlist_label(dlp);
+
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
+			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
+			emit(dlp,  BPF_JUMP(lbl_done));
+			emitl(dlp, lbl_notnull,
+				   BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+			emitl(dlp, lbl_done,
+				   BPF_NOP());
 		} else {
 			size_t	size = dt_node_type_size(dnp);
 			uint_t	lbl_notnull = dt_irlist_label(dlp);
