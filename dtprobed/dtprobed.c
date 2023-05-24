@@ -51,6 +51,7 @@
 #include <systemd/sd-daemon.h>
 #endif
 
+#include <dt_list.h>
 #include "dof_parser.h"
 #include "uprobes.h"
 
@@ -58,6 +59,8 @@
 
 #define DOF_MAXSZ 512 * 1024 * 1024
 #define DOF_CHUNKSZ 64 * 1024
+
+#define CLEANUP_INTERVAL 128
 
 static struct fuse_session *cuse_session;
 
@@ -69,6 +72,7 @@ static pid_t parser_pid;
 static int parser_in_pipe[2];
 static int parser_out_pipe[2];
 static int timeout = 5000; 			/* In seconds.  */
+static int rq_count = 0;
 
 static void helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			 struct fuse_file_info *fi, unsigned int flags,
@@ -147,6 +151,8 @@ typedef enum dtprobed_fuse_state {
  * State crossing calls to CUSE request functions.
  */
 typedef struct dtprobed_userdata {
+	dt_list_t list;
+	pid_t pid;
 	dtprobed_fuse_state_t state;
 	dof_helper_t dh;
 	dof_hdr_t dof_hdr;
@@ -154,8 +160,10 @@ typedef struct dtprobed_userdata {
 	char *buf;
 } dtprobed_userdata_t;
 
+static dt_list_t all_userdata;
+
 struct fuse_session *
-setup_helper_device(int argc, char **argv, char *devname, dtprobed_userdata_t *userdata)
+setup_helper_device(int argc, char **argv, char *devname)
 {
 	struct cuse_info ci;
 	struct fuse_session *cs;
@@ -175,7 +183,7 @@ setup_helper_device(int argc, char **argv, char *devname, dtprobed_userdata_t *u
 	ci.dev_info_argv = dev_info_argv;
 
 	cs = cuse_lowlevel_setup(argc, argv, &ci, &dtprobed_clop,
-				 &multithreaded, userdata);
+				 &multithreaded, NULL);
 
 	if (cs == NULL) {
 		perror("allocating helper device");
@@ -202,6 +210,73 @@ teardown_device(void)
 {
 	/* This is automatically called on SIGTERM.  */
 	cuse_lowlevel_teardown(cuse_session);
+}
+
+/*
+ * Allocate a userdata for the given PID, or return an existing one
+ * if possible.  Userdatas are insertion-sorted into descending order
+ * to make old stale ones from processes killed at the wrong time a
+ * bit less likely to impose overhead.
+ */
+static dtprobed_userdata_t *
+get_userdata(pid_t pid)
+{
+	dtprobed_userdata_t *userdatap;
+	dtprobed_userdata_t *new;
+	int prepend = 0;
+
+	for (userdatap = dt_list_next(&all_userdata); userdatap != NULL;
+	     userdatap = dt_list_next(userdatap)) {
+		if (userdatap->pid == pid)
+			return userdatap;
+
+		if (userdatap->pid < pid)
+			break;
+	}
+
+	if ((new = calloc(1, sizeof(struct dtprobed_userdata))) == NULL)
+		return NULL;
+
+	/*
+	 * Go back one, to the last list entry with a pid higher than this one,
+	 * since dt_list_insert inserts *after* the entry passed in.
+	 */
+	if (userdatap) {
+		userdatap = dt_list_prev(userdatap);
+		if (userdatap == NULL)
+			prepend = 1;
+	}
+
+	new->pid = pid;
+
+	if (!prepend)
+		dt_list_insert(&all_userdata, userdatap, new);
+	else
+		dt_list_prepend(&all_userdata, new);
+
+	return new;
+}
+
+/*
+ * Clean up userdatas no longer involved in ioctls or no longer corresponding to
+ * live pids.
+ */
+static void
+cleanup_userdata(void)
+{
+	dtprobed_userdata_t *userdatap;
+	dtprobed_userdata_t *last_userdatap = NULL;
+
+	for (userdatap = dt_list_next(&all_userdata); userdatap != NULL;
+	     userdatap = dt_list_next(userdatap)) {
+		if (userdatap->state == DTP_IOCTL_START || kill(userdatap->pid, 0) < 0) {
+			dt_list_delete(&all_userdata, userdatap);
+			free(userdatap->buf);
+			free(last_userdatap);
+			last_userdatap = userdatap;
+		}
+	}
+	free(last_userdatap);
 }
 
 /*
@@ -359,9 +434,9 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	     struct fuse_file_info *fi, unsigned int flags,
 	     const void *in_buf, size_t in_bufsz, size_t out_bufsz)
 {
-	dtprobed_userdata_t *userdata = fuse_req_userdata(req);
 	struct iovec in;
 	pid_t pid = fuse_req_ctx(req)->pid;
+	dtprobed_userdata_t *userdata = get_userdata(pid);
 	const char *errmsg;
 	const void *buf;
 
@@ -555,8 +630,16 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 
 	free(userdata->buf);
 	userdata->buf = NULL;
-
 	userdata->state = DTP_IOCTL_START;
+
+	/*
+	 * Periodically clean up old userdata (applying to pids with no live
+	 * transaction, or pids which no longer exist).
+	 */
+	if (rq_count++ > CLEANUP_INTERVAL) {
+		cleanup_userdata();
+		rq_count = 0;
+	}
 
 	return;
 
@@ -751,7 +834,6 @@ main(int argc, char *argv[])
 	int sync_fd = -1;
 	int ret;
 	struct sigaction sa = {0};
-	dtprobed_userdata_t userdata = {0};
 
 	/*
 	 * These are "command-line" arguments to FUSE itself: our args are
@@ -798,7 +880,7 @@ main(int argc, char *argv[])
 	close_range(3, ~0U, 0);
 
 	if ((cuse_session = setup_helper_device(fuse_argc, fuse_argv,
-						devname, &userdata)) == NULL)
+						devname)) == NULL)
 		exit(1);
 
 	if (!foreground) {
