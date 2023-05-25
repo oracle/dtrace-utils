@@ -2622,57 +2622,61 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 	      dt_regset_t *drp);
 
 static void
+dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+		     dt_ident_t *idp, int isstore, dt_ident_t **fnpp)
+{
+	uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
+
+	if (idp->di_kind == DT_IDENT_ARRAY) {
+		/* Associative (global or TLS) array.  Cannot be in alloca space. */
+		dt_node_t *args = isstore ? dnp->dn_left : dnp;
+		*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+
+		dt_cg_arglist(idp, args->dn_args, dlp, drp);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, args->dn_args->dn_reg));
+		dt_regset_free(drp, args->dn_args->dn_reg);
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, isstore));
+		if (isstore)
+			emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
+		else
+			emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
+		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
+	} else if (idp->di_flags & DT_IDFLG_TLS) {
+		/* thread-local variables */
+		*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, isstore));
+		if (isstore)
+			emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		else
+			emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
+	} else
+		assert(0);
+
+	assert(*fnpp);
+}
+
+static void
 dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp = dt_ident_resolve(dnp->dn_ident);
 	dt_ident_t	*fnp;
-	int		args_are_ready = 0;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
-	if (dnp->dn_ident->di_kind == DT_IDENT_ARRAY) {
-		/* associative arrays */
-		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
-
-		assert(dnp->dn_kind == DT_NODE_VAR);
-		assert(!(dnp->dn_ident->di_flags & DT_IDFLG_LOCAL));
-		assert(dnp->dn_args != NULL);
-
-		/* Get the tuple. */
-		dt_cg_arglist(dnp->dn_ident, dnp->dn_args, dlp, drp);
-
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_args->dn_reg));
-		dt_regset_free(drp, dnp->dn_args->dn_reg);
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
-		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
-
-		args_are_ready = 1;
-	} else if (idp->di_flags & DT_IDFLG_TLS) {
-		/* thread-local variables */
-		uint_t	varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 0));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
-		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
-
-		args_are_ready = 1;
-	}
-
-	if (args_are_ready) {
-		assert(fnp != NULL);
+	/* First handle dvars. */
+	if (idp->di_kind == DT_IDENT_ARRAY || idp->di_flags & DT_IDFLG_TLS) {
+		dt_cg_prep_dvar_args(dnp, dlp, drp, idp, 0, &fnp);
 
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
@@ -3272,8 +3276,7 @@ static void
 dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		dt_ident_t *idp)
 {
-	uint_t	varid, lbl_done;
-	int	reg, args_are_ready = 0;
+	int	reg;
 	size_t	size;
 	dt_ident_t *fnp;
 
@@ -3294,49 +3297,17 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			idp->di_name);
 	}
 
-	if (idp->di_kind == DT_IDENT_ARRAY) {
-		/* Associative (global or TLS) array.  Cannot be in alloca space. */
-		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_assoc");
+	/* First handle dvars. */
+	if (idp->di_kind == DT_IDENT_ARRAY || idp->di_flags & DT_IDFLG_TLS) {
+		uint_t	lbl_done = dt_irlist_label(dlp);
 
-		dt_cg_arglist(idp, dnp->dn_left->dn_args, dlp, drp);
-
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_left->dn_args->dn_reg));
-		dt_regset_free(drp, dnp->dn_left->dn_args->dn_reg);
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 1));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
-		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
-
-		args_are_ready = 1;
-	} else if (idp->di_flags & DT_IDFLG_TLS) {
-		/* TLS var */
-		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
-		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_get_tvar");
-
-		if (dt_regset_xalloc_args(drp) == -1)
-			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
-		emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
-		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
-
-		args_are_ready = 1;
-	}
-
-	if (args_are_ready) {
 		uint_t	lbl_notnull = dt_irlist_label(dlp);
 
-		assert(fnp != NULL);
+		dt_cg_prep_dvar_args(dnp, dlp, drp, idp, 1, &fnp);
 
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
-		lbl_done = dt_irlist_label(dlp);
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 0));
