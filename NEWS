@@ -1,3 +1,129 @@
+2.0.0-1.13 (May 26th, 2023)
+---------------------------
+
+Thirteenth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - Full support for is-enabled USDT probes.
+
+ - An error will be reported when a tracing script requires more space to
+   store aggregation data than is available per the aggsize option value.
+
+ - An error will be reported when a tracing script requires more space to
+   store dynamic variables than is available per the dynvarsize option value.
+
+ - Support for data drop counters for principal buffers, speculation buffers,
+   aggregations, and dynamic variables.
+
+ - The proc:::signal-clear probe has been implemented.
+
+ - The sched provider has been implemented for a limited set of probes (and
+   with some limitations).  Available probes are: dequeue, enqueue, off-cpu,
+   on-cpu (limited trigger locations), surrender, tick, and wakeup.  Note that
+   the cpuinfo argument for dequeue and enqueue (arg1) is NULL due to system
+   limitations.  Future releases will incrementally expand this provider.
+
+ - The lockstat provider has been implemented.  All lockstat probes are
+   implemented, but depending on the runtime kernel configuration, some probe
+   may not trigger in all cases (particularly for lock operations that are
+   forced to be inlined).  Also, kernels prior to 5.10.0 contain a bug that
+   can cause kernel deadlock when a kretprobe is used on spinlock functions.
+   The lockstat provider is not enabled for such kernels for safety.
+
+ - True NULL strings are now supported.
+
+ - The uregs[] built-in variable is now supported on older kernels as well.
+
+ - New option 'linknommap' has been added as a workaround for elfutils bugs
+   related to mmap() usage.
+
+Bugfixes:
+
+ - The error message issued by dtprobed to report incorrect helper data size
+   was reporting the expected and received values backwards.
+
+ - USDT probes in programs that live in different fs namespaces are now fully
+   supported.
+
+ - When multiple USDT probes were specified, only the first one would get
+   provided properly.
+
+ - Properly recognize all forms of the 'char' datatype as equivalent.
+
+ - Do not allow iregs to be increased beyond its default value (the number of
+   BPF registers).
+
+ - The uaddr handling has been fixed to not trigger a segmentation fault for
+   pid 0.
+
+ - Tracepoint argument datatypes that are expressed by the kernel using
+   symbolic array size specifiers are now handled correctly.
+
+ - The established behaviour of DTrace when storing data in a speculation has
+   been to abort clause execution at any statement that would cause a
+   speculation buffer overflow.  Code to perform overflow checks when storing
+   data in a speculation are now generated correctly.
+
+ - Some faults were not reporting the PC of the fault location.
+
+ - FBT probes are no longer provided for compiler-generated internal symbols.
+   Such symbols cannot be probed anyway.
+
+ - Multiple memory leaks were resolved.
+
+ - Integers loaded from an associative array are now promoted to 64 bits.
+
+ - Failure to allocate a dynamic variable now reports a dynamic variable drop
+   warning, and aborts the clause execution.
+
+ - DOF parser crash causes were fixed in dtprobed.
+
+Internal changes:
+
+ - DOF_VERSION_3 has been added for the new-style USDT is0enabled probe
+   mechanism that is not compatible with the previous versions.
+
+ - Userspace probe scanning was reworked to resolve performance issues.
+
+ - The 'cpuinfo' BPF map can now support configurations where CPU ids are not
+   strictly sequential.
+
+ - The GCC BPF support in some gcc/binutils releases did not offer a way to
+   express an atomic add operation.  As a workaround, the DTrace source code
+   provides its own atomic_add() construct.
+
+ - The handling of associative arrays and TLS variables has been consolidated
+   because they are both implemented using dynamic variables.
+
+Testsuite changes:
+
+ - The testsuite can now specify kernel modules that are needed for tests.
+
+ - A test has been added to verify whether libctf bug #30264 is present on the
+   system.  The libctf bug breaks offsetof() for members of unnamed structs and
+   unions at non-zero offsets.
+
+ - A test has been added to test multiple simultaneous dtrace instances tracing
+   multiple processes,
+
+ - Various tests using tick-* probes without actually requiring them have been
+   reworked using non-timer based probes for efficiency and stability.
+
+ - Test have been added for many dtrace options.
+
+ - The testsuite can now support interpreter-style executable .d files using
+   #!dtrace (the actual pathname for dtrace will be substituted during test
+   execution).
+
+Known problems:
+
+ - Programs and shared libraries that make use of is-enabled USDT probes and
+   were built using a previous version of dtrace will need to be rebuilt for
+   is-enabled probes to work.
+
 2.0.0-1.12 (Feb 27th, 2023)
 ---------------------------
 

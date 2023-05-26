@@ -85,7 +85,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.12%{?dist}
+Release:      1.13%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -245,6 +245,27 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri May 26 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13
+- Full support for is-enabled USDT probes. (Nick Alcock)
+- Report error on programs that exceed aggsize or dynvarsize.
+- Support for drop counters for principal, speculation, and aggregation buffers
+  and for dynamic variables.
+- Implement probe: proc:::signal-clear.
+- Implement provider: sched (partial implementation).
+- Implement provider: lockstat (for kernels >= 5.10.0 and UEK6 with fix).
+- Support NULL strings. (Eugene Loh)
+- Support uregs[] on older kernels. (Eugene Loh)
+- New option: lonknommap. (Nick Alcock)
+- Support for USDT probes in programs in different fs namespaces. (Nick Alcock)
+- Fix dtprobed to support DOF that exceeds 64KiB. (Nick Alcock)
+  [Orabug: 35411920]
+- Do not modify input files with dtrace -G if unchanged. (Steven Sistare)
+  [Orbug: 35417184]
+- Various testsuite fixes and improvements.
+  (Nick Alcock, Eugene Loh, Kris Van Hees) [Orabug: 35435195]
+- Various code improvements.  (Nick Alcock, Eugene Loh, Kris Van Hees)
+  [Orabug: 35435195]
+
 * Mon Feb 27 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.12
 - Fix evaluation order of bcopy() arguments and lift non-alloca restriction
   on the source address. (Eugene Loh, Kris Van Hees)
