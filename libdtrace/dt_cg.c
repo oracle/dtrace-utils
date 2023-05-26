@@ -4366,20 +4366,28 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 #undef MY_THREAD_SIZE
 
 #elif defined(__aarch64__)
+		{
+			int tmp = getpagesize(), page_shift = 0;
+			int kasan_thread_shift, min_thread_shift, thread_shift, thread_size;
 
-/* arch/arm64/include/asm/memory.h */
-#define MY_KASAN_THREAD_SHIFT 0                             /* for CONFIG_KASAN not set */
-#define MY_MIN_THREAD_SHIFT (14 + MY_KASAN_THREAD_SHIFT)
-#define MY_THREAD_SHIFT MY_MIN_THREAD_SHIFT
-#define MY_THREAD_SIZE (1 << MY_THREAD_SHIFT)
+			/* Discover PAGE_SHIFT, set in arch/arm64/include/asm/page-def.h */
+			while (tmp > 1) {
+				page_shift++;
+				tmp >>= 1;
+			}
 
-		offset += MY_THREAD_SIZE;
+			/* Work through logic of arch/arm64/include/asm/memory.h */
+			kasan_thread_shift = 0;                     /* for CONFIG_KASAN not set */
+			min_thread_shift = 14 + kasan_thread_shift;
+			if (min_thread_shift < page_shift)          /* for CONFIG_VMAP_STACK */
+				thread_shift = page_shift;
+			else
+				thread_shift = min_thread_shift;
+			thread_size = 1 << thread_shift;
 
-#undef MY_KASAN_THREAD_SHIFT
-#undef MY_MIN_THREAD_SHIFT
-#undef MY_THREAD_SHIFT
-#undef MY_THREAD_SIZE
-
+			/* Now we have the offset. */
+			offset += thread_size;
+		}
 #else
 # error ISA not supported
 #endif
