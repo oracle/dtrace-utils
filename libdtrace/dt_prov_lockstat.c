@@ -100,6 +100,13 @@ static const dtrace_pattr_t	pattr = {
  */
 static int populate(dtrace_hdl_t *dtp)
 {
+	/*
+	 * Linux kernels earlier than 5.10.0 have a bug that can cause a kernel
+	 * deadlock when placing a kretprobe on spinlock functions.
+	 */
+	if (dtp->dt_kernver < DT_VERSION_NUMBER(5, 10, 0))
+		return 0;
+
 	return dt_sdt_populate(dtp, prvname, modname, &dt_lockstat, &pattr,
 			       probe_args, probes);
 }
