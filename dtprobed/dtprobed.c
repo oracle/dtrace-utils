@@ -520,8 +520,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		/*
 		 * Too much data is as bad as too little.
 		 */
-		if (userdata->state == DTP_IOCTL_DOFHDR &&
-		    (in_bufsz > sizeof(dof_hdr_t))) {
+		if (in_bufsz > sizeof(dof_hdr_t)) {
 			errmsg = "DOF header size incorrect";
 			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s: %zi, not %zi\n",
 				 pid, errmsg, in_bufsz, sizeof(dof_hdr_t));
