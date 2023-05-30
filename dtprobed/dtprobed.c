@@ -411,7 +411,7 @@ dof_read(fuse_req_t req, int in)
  * process's dynamic linker.
  */
 static void
-create_probe(pid_t pid, dof_parsed_t *provider, dof_parsed_t *probe,
+create_probe(ps_prochandle *P, dof_parsed_t *provider, dof_parsed_t *probe,
     dof_parsed_t *tp)
 {
 	const char *mod, *fun, *prb;
@@ -420,7 +420,7 @@ create_probe(pid_t pid, dof_parsed_t *provider, dof_parsed_t *probe,
 	fun = mod + strlen(mod) + 1;
 	prb = fun + strlen(fun) + 1;
 
-	free(uprobe_create_from_addr(pid, tp->tracepoint.addr,
+	free(uprobe_create_from_addr(P, tp->tracepoint.addr,
 		tp->tracepoint.is_enabled, provider->provider.name,
 		mod, fun, prb));
 }
@@ -672,10 +672,18 @@ static int
 process_dof(fuse_req_t req, int out, int in, pid_t pid,
 	    dof_helper_t *dh, const void *in_buf)
 {
+	int perr = 0;
+	ps_prochandle *P;
 	dof_parsed_t *provider;
 	const char *errmsg;
 	size_t i;
 	size_t tries = 0;
+
+	if ((P = Pgrab(pid, 2, 0, NULL, &perr)) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: process grab failed: %s\n",
+			 pid, strerror(perr));
+		goto proc_err;
+	}
 
 	do {
 		errmsg = "DOF parser write failed";
@@ -722,17 +730,25 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 			 * Ignore errors here: we want to create as many probes
 			 * as we can, even if creation of some of them fails.
 			 */
-			create_probe(pid, provider, probe, tp);
+			create_probe(P, provider, probe, tp);
 			free(tp);
 		}
 		free(probe);
 	}
 	free(provider);
 
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+
 	return 0;
 
 err:
 	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: parser error: %s\n", pid, errmsg);
+
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+
+proc_err:
 	dof_parser_tidy(1);
 	return -1;
 }	

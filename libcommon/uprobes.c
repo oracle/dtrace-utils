@@ -16,25 +16,14 @@
 #include <tracefs.h>
 
 /*
- * Return a uprobe spec for a given address in a given PID (or
- * process handle, to use an already-grabbed process).
+ * Return a uprobe spec for a given address in a given process handle.
  */
 char *
-uprobe_spec_by_addr(pid_t pid, ps_prochandle *P, uint64_t addr,
-		    prmap_t *mapp_)
+uprobe_spec_by_addr(ps_prochandle *P, uint64_t addr, prmap_t *mapp_)
 {
-	int			free_p = 0;
-	int			perr = 0;
 	char			*spec = NULL;
 	const prmap_t		*mapp, *first_mapp;
 	char			*mapfile_name = NULL;
-
-	if (!P) {
-		P = Pgrab(pid, 2, 0, NULL, &perr);
-		if (P == NULL)
-			return NULL;
-		free_p = 1;
-	}
 
 	mapp = Paddr_to_map(P, addr);
 	if (mapp == NULL)
@@ -66,21 +55,6 @@ uprobe_spec_by_addr(pid_t pid, ps_prochandle *P, uint64_t addr,
 
 out:
 	free(mapfile_name);
-
-	if (free_p) {
-		/*
-		 * Some things in the prmap aren't valid once the prochandle is
-		 * freed.
-		 */
-		if (mapp_) {
-			mapp_->pr_mapaddrname = NULL;
-			mapp_->pr_file = NULL;
-		}
-
-		Prelease(P, PS_RELEASE_NORMAL);
-		Pfree(P);
-	}
-
 	return spec;
 }
 
@@ -315,19 +289,21 @@ uprobe_create(dev_t dev, ino_t ino, uint64_t addr, const char *spec, int isret,
 }
 
 /*
- * Create a uprobe given a particular pid and address.  Return the probe's name
- * as a new dynamically-allocated string, or NULL on error.  If prv/mod/fun/prb
- * are set, they are passed down as the name of the corresponding DTrace probe.
+ * Create a uprobe given a particular process and address.  Return the probe's
+ * name as a new dynamically-allocated string, or NULL on error.  If
+ * prv/mod/fun/prb are set, they are passed down as the name of the
+ * corresponding DTrace probe.
  */
 char *
-uprobe_create_from_addr(pid_t pid, uint64_t addr, int is_enabled, const char *prv,
-			const char *mod, const char *fun, const char *prb)
+uprobe_create_from_addr(ps_prochandle *P, uint64_t addr, int is_enabled,
+			const char *prv, const char *mod, const char *fun,
+			const char *prb)
 {
 	char *spec;
 	char *name;
 	prmap_t mapp;
 
-	spec = uprobe_spec_by_addr(pid, NULL, addr, &mapp);
+	spec = uprobe_spec_by_addr(P, addr, &mapp);
 	if (!spec)
 		return NULL;
 

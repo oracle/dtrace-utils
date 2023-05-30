@@ -187,7 +187,7 @@ static char *uprobe_spec(const char *prb)
 
 	/* look up function and thus addr */
 	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, NULL) == 0)
-		spec = uprobe_spec_by_addr(getpid(), P, sym.st_value, NULL);
+		spec = uprobe_spec_by_addr(P, sym.st_value, NULL);
 
 	free(fun);
 	Prelease(P, PS_RELEASE_NORMAL);
