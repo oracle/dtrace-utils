@@ -54,7 +54,7 @@ noinline uint32_t dt_speculation(void)
 #define SEARCH(n)							\
 	do {								\
 		if (n > (uint64_t) &NSPEC)				\
-			return 0;					\
+			goto no_spec;					\
 		id = (n);						\
 		if (bpf_map_update_elem(&specs, &id, &zero,		\
 			BPF_NOEXIST) == 0)				\
@@ -99,6 +99,7 @@ noinline uint32_t dt_speculation(void)
 	}
 #endif
 
+no_spec:
 	return dt_no_spec(busy ? DT_STATE_SPEC_BUSY : DT_STATE_SPEC_UNAVAIL);
 }
 
