@@ -16,17 +16,17 @@ dtrace=$1
 # very long switchrate.
 
 status=0
-for nexpect in 1 10; do
+for nexpect in 1 16; do
 	# Run the "instantaneous" D script with the prescribed switchrate.
 	# Time it.  Round to the nearest number of seconds with int(t+0.5).
-	# Go ahead and lop off a second just because we expect the script
-	# to take *some* time.
 	nactual=`/usr/bin/time -f "%e" \
 	    $dtrace -xswitchrate=${nexpect}sec -qn 'BEGIN { exit(0) }' \
-	    |& awk 'NF != 0 {print int($1 + 0.5) - 1}'`
+	    |& awk 'NF != 0 {print int($1 + 0.5)}'`
 
 	# Check the actual number of seconds to the expected value.
-	test/utils/check_result.sh $nactual $nexpect 1
+	# Actually, the actual time might be a few seconds longer than expected.
+	# So pad $nexpect.
+	test/utils/check_result.sh $nactual $(($nexpect + 3)) 4
 	status=$(($status + $?))
 done
 
