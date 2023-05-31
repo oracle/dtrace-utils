@@ -103,9 +103,43 @@ static int populate(dtrace_hdl_t *dtp)
 	/*
 	 * Linux kernels earlier than 5.10.0 have a bug that can cause a kernel
 	 * deadlock when placing a kretprobe on spinlock functions.
+	 *
+	 * UEK6 kernels 5.4.17-21 36.319.1.3 and later are safe because they
+	 * contain a backport of the fix.
 	 */
-	if (dtp->dt_kernver < DT_VERSION_NUMBER(5, 10, 0))
-		return 0;
+	if (dtp->dt_kernver < DT_VERSION_NUMBER(5, 10, 0)) {
+		int	cnt, v1, v2, v3, v4;
+
+		cnt = sscanf(dtp->dt_uts.release, "%*d.%*d.%*d-%d.%d.%d.%d",
+			     &v1, &v2, &v3, &v4);
+
+		switch (cnt) {
+		case 1:
+			v2 = 0;
+		case 2:
+			v3 = 0;
+		case 3:
+			v4 = 0;
+		case 4:
+			if (v1 < 2136) {
+				return 0;
+			} else if (v1 == 2136) {
+				if (v2 < 319) {
+					return 0;
+				} else if (v2 == 319) {
+					if (v3 < 1) {
+						return 0;
+					} else if (v3 == 1) {
+						if (v4 < 3)
+							return 0;
+					}
+				}
+			}
+			break;
+		default:
+			return 0;
+		}
+	}
 
 	return dt_sdt_populate(dtp, prvname, modname, &dt_lockstat, &pattr,
 			       probe_args, probes);
