@@ -1,24 +1,12 @@
-#!/bin/bash
-#
-# Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at
-# http://oss.oracle.com/licenses/upl.
-#
+/*
+ * Oracle Linux DTrace.
+ * Copyright (c) 2017, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ * http://oss.oracle.com/licenses/upl.
+ */
 
-#
-# Test lockstat:::*acquire*, *release probes.
-#
-#
+#pragma D option quiet
 
-if (( $# != 1 )); then
-	print -u2 "expected one argument: <dtrace-path>"
-	exit 2
-fi
-
-dtrace=$1
-
-$dtrace $dt_flags -c "sleep 10" -qs /dev/stdin <<EODTRACE
 lockstat:::
 {
 	events[probename]++;
@@ -52,4 +40,3 @@ END
 	printf("lockstat:::spin-release - %s\n",
 	    events["spin-release"] > 0 ? "yes" : "no");
 }
-EODTRACE
