@@ -1,10 +1,10 @@
 #!/bin/sh
 
-if ! $(grep -q '^isofs ' /proc/modules); then
+if ! $(grep -qw isofs /proc/kallmodsyms); then
     exit 1
 fi
 
-if ! $(grep -q '^ext4 ' /proc/modules); then
+if ! $(grep -qw ext4 /proc/kallmodsyms); then
     exit 1
 fi
 
