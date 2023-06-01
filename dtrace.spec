@@ -257,6 +257,7 @@ fi
 - Support uregs[] on older kernels. (Eugene Loh)
 - New option: lonknommap. (Nick Alcock)
 - Support for USDT probes in programs in different fs namespaces. (Nick Alcock)
+- Support for USDT probes in non-PIE executables. (Nick Alcock)
 - Fix dtprobed to support DOF that exceeds 64KiB. (Nick Alcock)
   [Orabug: 35411920]
 - Do not modify input files with dtrace -G if unchanged. (Steven Sistare)

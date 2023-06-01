@@ -3,6 +3,8 @@
 
 Thirteenth errata of the standalone userspace implementation.
 
+XXX
+
 ** This is a pre-release with limited functionality. **
 
 New features:
@@ -81,9 +83,17 @@ Bugfixes:
 
  - DOF parser crash causes were fixed in dtprobed.
 
+ - USDT probes in non-PIE executables are now fully supported.
+
+ - Multiple programs providing their DOF to dtprobed simultaneously could cause
+   some of their probes to not get created.
+
+ - Support for shared libraries and executables with very large numbers of
+   USDT probes (500+) has been improved.
+
 Internal changes:
 
- - DOF_VERSION_3 has been added for the new-style USDT is0enabled probe
+ - DOF_VERSION_3 has been added for the new-style USDT is-enabled probe
    mechanism that is not compatible with the previous versions.
 
  - Userspace probe scanning was reworked to resolve performance issues.
