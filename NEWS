@@ -1,9 +1,24 @@
+2.0.0-1.13.1 (Jun 7th, 2023)
+----------------------------
+
+Thirteenth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+Bugfixes:
+
+ - Upgrading DTrace using RPMs will now correctly restart dtprobed.
+
+Testsuite changes:
+
+ - Some tests can leave orphaned tracing events registered with the kernel
+   if the tests timeout and the dtrace process is killed.  Such probes will
+   now be reported and cleaned up after each test is executed.
+
 2.0.0-1.13 (May 26th, 2023)
 ---------------------------
 
 Thirteenth errata of the standalone userspace implementation.
-
-XXX
 
 ** This is a pre-release with limited functionality. **
 
