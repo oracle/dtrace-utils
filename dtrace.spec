@@ -198,6 +198,10 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 /sbin/ldconfig
 %udev_rules_update
 %systemd_post dtprobed.service dtrace-usdt.target
+# Do this rather than systemd_postun_with_restart because this depends
+# only on the package being installed, rather than relying on the state of
+# the old package.
+systemctl try-restart dtprobed || :
 systemctl enable dtprobed.service dtrace-usdt.target
 systemctl start dtprobed.service
 
@@ -216,7 +220,7 @@ fi
 %postun
 /sbin/ldconfig
 %udev_rules_update
-%systemd_postun dtprobed.service dtrace-usdt.target
+%systemd_postun dtprobed.service
 
 %files
 %defattr(-,root,root,-)
