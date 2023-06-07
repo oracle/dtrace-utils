@@ -1500,6 +1500,8 @@ for dt in $dtrace; do
             cp -f $tmpdir/test.out $base.r
         fi
 
+        test/utils/clean_probes.sh >> $LOGFILE
+
         log "\n"
 
         if [[ -n $regression ]]; then
