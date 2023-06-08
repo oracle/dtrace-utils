@@ -1086,6 +1086,35 @@ no_mem:
 	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
+/*
+ * Remove the given aggregation entry on the producer side.  We use the global
+ * key scratch space because this function cannot be called from a call chain
+ * that already uses that global key scratch.
+ */
+static int
+dt_aggwalk_remove(dtrace_hdl_t *dtp, dt_ahashent_t *h)
+{
+	dtrace_aggdata_t	*agd = &h->dtahe_data;
+	int			i, ncpus = dtp->dt_conf.num_online_cpus;
+	char			*key = dtp->dt_aggregate.dtat_key;
+
+	memset(key, 0, dtp->dt_maxtuplesize);
+	memcpy(key, agd->dtada_key, agd->dtada_desc->dtagd_ksize);
+
+	for (i = 0; i < ncpus; i++) {
+		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
+		int	fd = dt_bpf_map_lookup_fd(dtp->dt_aggmap_fd, &cpu);
+
+		if (fd < 0)
+			return DTRACE_WORKSTATUS_ERROR;
+
+		dt_bpf_map_delete(fd, key);
+		close(fd);
+	}
+
+	return DTRACE_WORKSTATUS_OKAY;
+}
+
 static int
 dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 {
@@ -1147,6 +1176,8 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 				dt_free(dtp, aggdata->dtada_percpu[i]);
 			dt_free(dtp, aggdata->dtada_percpu);
 		}
+
+		dt_aggwalk_remove(dtp, h);
 
 		dt_free(dtp, aggdata->dtada_key);
 		dt_free(dtp, aggdata->dtada_data);

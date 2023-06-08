@@ -1537,7 +1537,6 @@ dt_clear(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	return 0;
 }
 
-#ifdef FIXME
 typedef struct dt_trunc {
 	dtrace_aggid_t	dttd_id;
 	uint64_t	dttd_remaining;
@@ -1594,19 +1593,19 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	addr = base + rec->dtrd_offset;
 
 	switch (rec->dtrd_size) {
-	case sizeof(uint64_t):
+	case sizeof(int64_t):
 		/* LINTED - alignment */
 		remaining = *((int64_t *)addr);
 		break;
-	case sizeof(uint32_t):
+	case sizeof(int32_t):
 		/* LINTED - alignment */
 		remaining = *((int32_t *)addr);
 		break;
-	case sizeof(uint16_t):
+	case sizeof(int16_t):
 		/* LINTED - alignment */
 		remaining = *((int16_t *)addr);
 		break;
-	case sizeof(uint8_t):
+	case sizeof(int8_t):
 		remaining = *((int8_t *)addr);
 		break;
 	default:
@@ -1626,7 +1625,6 @@ dt_trunc(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 
 	return 0;
 }
-#endif
 
 static int
 dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
@@ -2344,6 +2342,15 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				if (dt_clear(dtp, data, rec) != 0)
 					return DTRACE_WORKSTATUS_ERROR;
 
+				continue;
+			case DT_ACT_TRUNC:
+				if (i == epd->dtdd_nrecs - 1)
+					return dt_set_errno(dtp, EDT_BADTRUNC);
+
+				if (dt_trunc(dtp, data, rec) != 0)
+					return DTRACE_WORKSTATUS_ERROR;
+
+				i++;
 				continue;
 			case DT_ACT_FTRUNCATE:
 				if (fp == NULL)

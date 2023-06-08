@@ -2273,11 +2273,6 @@ dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_node_t	*anp, *trunc;
 	dt_ident_t	*aid;
 	char		n[DT_TYPE_NAMELEN];
-	int		argc = 0;
-
-	for (anp = dnp->dn_args; anp != NULL; anp = anp->dn_list)
-		argc++;
-	assert(argc == 1 || argc == 2);
 
 	anp = dnp->dn_args;
 	assert(anp != NULL);
@@ -2288,32 +2283,18 @@ dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			dnp->dn_ident->di_name,
 			dt_node_type_name(anp, n, sizeof(n)));
 
-	trunc = anp->dn_list;
-	if (argc == 2)
-		assert(trunc != NULL && dt_node_is_scalar(trunc));
-
 	aid = anp->dn_ident;
 	if (aid->di_gen == pcb->pcb_hdl->dt_gen &&
 	    !(aid->di_flags & DT_IDFLG_MOD))
 		dnerror(dnp, D_TRUNC_AGGBAD,
 			"undefined aggregation: @%s\n", aid->di_name);
 
-	/*
-	 * FIXME: Needs implementation
-	 * TODO: Emit code to truncate the given aggregation.
-	 * DEPENDS ON: How aggregations are implemented using eBPF (hashmap?).
-	 * AGGID = aid->di_id
-	 */
+	trunc = anp->dn_list;
+	if (trunc == NULL)
+		trunc = dt_node_int(0);
+
 	dt_cg_store_val(pcb, anp, DTRACEACT_LIBACT, NULL, DT_ACT_TRUNC);
-#ifdef FIXME
-	/*
-	 * FIXME: There is an optional trunction value.
-	 * if (argc == 1), the optional value is missing, but "0" may be
-	 * specified.
-	 */
 	dt_cg_store_val(pcb, trunc, DTRACEACT_LIBACT, NULL, DT_ACT_TRUNC);
-#endif
-	dnerror(dnp, D_UNKNOWN, "trunc() is not implemented (yet)\n");
 }
 
 static void
