@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -574,6 +574,9 @@ if (yypcb->pcb_token != 0) {
 			 * case of the tick and profile probes in the profile
 			 * provider and a bunch of other possibilities too.
 			 */
+			if ((yylval.l_str = strdup(yytext)) == NULL)
+				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
 			if (!(yypcb->pcb_cflags & DTRACE_C_PSPEC) &&
 			    strpbrk(yytext, ":-.?!`") == NULL &&
 			    strcmp(yytext, "BEGIN") != 0 &&
@@ -581,26 +584,15 @@ if (yypcb->pcb_token != 0) {
 			    strcmp(yytext, "ERROR") != 0) {
 
 				char *p = strchr(yytext, '*');
-				char *q = yytext + yyleng - 1;
 
 				if (p != NULL && p > yytext)
 					*p = '\0'; /* prune yytext */
 
 				if (dt_type_lookup(yytext, NULL) == 0) {
-					yylval.l_str = strdup(yytext);
 
-					if (yylval.l_str == NULL) {
-						longjmp(yypcb->pcb_jmpbuf,
-						    EDT_NOMEM);
-					}
-
-					if (p != NULL)
-						p = yylval.l_str + (p - yytext);
-					q = yylval.l_str + (q - yytext);
-
-					if (p != NULL && p > yylval.l_str) {
-						for (*p = '*'; q >= p; q--)
-							unput(*q);
+					if (p != NULL && p > yytext) {
+						*p = '*';
+						yyless(p - yytext);
 					}
 
 					yybegin(YYS_EXPR);
@@ -610,9 +602,6 @@ if (yypcb->pcb_token != 0) {
 				if (p != NULL && p > yytext)
 					*p = '*'; /* restore yytext */
 			}
-
-			if ((yylval.l_str = strdup(yytext)) == NULL)
-				longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 			return DT_TOK_PSPEC;
 		}
