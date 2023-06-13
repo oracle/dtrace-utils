@@ -912,23 +912,17 @@ id_or_type(const char *s)
 }
 
 /*
- * Do I/O efficiently, including from the pcb_string.
+ * Do I/O efficiently; handle errors properly.
  */
 static size_t
 dt_input(char *buf, size_t max_size)
 {
         size_t result;
 
-	if (yypcb->pcb_fileptr != NULL) {
-		result = fread(buf, 1, max_size, yypcb->pcb_fileptr);
-		if (result == 0 && ferror(yypcb->pcb_fileptr))
-			longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
-        } else {
-                size_t len_left = (yypcb->pcb_strlen - (yypcb->pcb_strptr - yypcb->pcb_string));
-                result = len_left > max_size ? max_size : len_left;
-                memcpy(buf, yypcb->pcb_strptr, result);
-                yypcb->pcb_strptr += result;
-        }
+	assert(yypcb->pcb_string == NULL && yypcb->pcb_fileptr != NULL);
+	result = fread(buf, 1, max_size, yypcb->pcb_fileptr);
+	if (result == 0 && ferror(yypcb->pcb_fileptr))
+		longjmp(yypcb->pcb_jmpbuf, EDT_FIO);
 
         return result;
 }

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -27,8 +27,6 @@ typedef struct dt_pcb {
 	FILE *pcb_fileptr;	/* pointer to input file (or NULL) */
 	char *pcb_filetag;	/* optional file name string (or NULL) */
 	const char *pcb_string;	/* pointer to input string (or NULL) */
-	const char *pcb_strptr;	/* pointer to input position */
-	size_t pcb_strlen;	/* length of pcb_string */
 	int pcb_sargc;		/* number of script arguments (if any) */
 	char *const *pcb_sargv;	/* script argument strings (if any) */
 	ushort_t *pcb_sflagv;	/* script argument flags (DT_IDFLG_* bits) */

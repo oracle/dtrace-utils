@@ -612,6 +612,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	dt_node_t *dnp;
 	dt_decl_t *ddp;
 	dt_pcb_t pcb;
+	struct yy_buffer_state *strbuf;
 	void *rv = NULL;
 	int err;
 
@@ -636,8 +637,6 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 
 	pcb.pcb_fileptr = fp;
 	pcb.pcb_string = s;
-	pcb.pcb_strptr = s;
-	pcb.pcb_strlen = s ? strlen(s) : 0;
 	pcb.pcb_sargc = argc;
 	pcb.pcb_sargv = argv;
 	pcb.pcb_sflagv = argc ? calloc(argc, sizeof(ushort_t)) : NULL;
@@ -673,10 +672,19 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	 * will longjmp back to pcb_jmpbuf to abort.  If parsing succeeds,
 	 * we optionally display the parse tree if debugging is enabled.
 	 */
-	if (yyparse() != 0 || yypcb->pcb_root == NULL)
+	if (yypcb->pcb_string)
+		strbuf = yy_scan_string(yypcb->pcb_string);
+	if (yyparse() != 0 || yypcb->pcb_root == NULL) {
+		if (yypcb->pcb_string)
+			yy_delete_buffer(strbuf);
+
 		xyerror(D_EMPTY, "empty D program translation unit\n");
+	}
 
 	yybegin(YYS_DONE);
+
+	if (yypcb->pcb_string)
+		yy_delete_buffer(strbuf);
 
 	if (cflags & DTRACE_C_CTL)
 		goto out;
@@ -803,8 +811,6 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 
 	pcb.pcb_fileptr = NULL;
 	pcb.pcb_string = NULL;
-	pcb.pcb_strptr = NULL;
-	pcb.pcb_strlen = 0;
 	pcb.pcb_sargc = 0;
 	pcb.pcb_sargv = NULL;
 	pcb.pcb_sflagv = NULL;

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -277,8 +277,11 @@ extern void yylabel(const char *);
 extern void yybegin(yystate_t);
 extern void yyinit(struct dt_pcb *);
 
+struct yy_buffer_state;
+
+struct yy_buffer_state *yy_scan_string(const char *);
+void yy_delete_buffer(struct yy_buffer_state *);
 extern int yyparse(void);
-extern int yyinput(void);
 
 #ifdef	__cplusplus
 }
