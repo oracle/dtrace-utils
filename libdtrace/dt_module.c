@@ -26,6 +26,7 @@
 #include <dt_kernel_module.h>
 #include <dt_module.h>
 #include <dt_impl.h>
+#include <dt_btf.h>
 #include <dt_string.h>
 
 #define KSYM_NAME_MAX 128		    /* from kernel/scripts/kallsyms.c */
@@ -806,6 +807,7 @@ sym_type_to_info(char info)
 
 	return GELF_ST_INFO(binding, type);
 }
+
 /*
  * Do all necessary post-creation initialization of a module of type
  * DT_DM_KERNEL.
@@ -825,6 +827,28 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	return 0;
 }
 
+static void
+dt_kern_module_ctf_from_btf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+{
+	/*
+	 * The first module for which we need to collect data must be the
+	 * 'vmlinux' module.  It will be used to initialize the shared_ctf
+	 * data.
+	 */
+	if (dtp->dt_btf == NULL)
+		assert(strcmp(dmp->dm_name, "vmlinux") == 0);
+
+	dt_dprintf("Generating CTF for module %s from BTF.\n", dmp->dm_name);
+
+	dmp->dm_ctfp = dt_btf_load_module(dtp, dmp);
+	if (dmp->dm_ctfp == NULL)
+		dt_dprintf("Cannot generate CTF for module %s from BTF: %s; "
+			   "looking for out-of-tree module.\n",
+			   dmp->dm_name, ctf_errmsg(dtp->dt_ctferr));
+	else
+		dmp->dm_flags |= DT_DM_CTF_ARCHIVED;
+}
+
 /*
  * Determine the location of a kernel module's CTF data.
  *
@@ -841,6 +865,16 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_flags |= DT_DM_KERNEL;
 		dmp->dm_flags |= DT_DM_KERN_UNLOADED;
 		dt_kern_module_init(dtp, dmp);
+	}
+
+	/*
+	 * If we already know that our CTF data is derived from BTF data (i.e.
+	 * there is no CTF archive for the runtime kernel), there is no point
+	 * in trying to load CTF data.  Go directly to BTF-based processing.
+	 */
+	if (dtp->dt_btf) {
+		dt_kern_module_ctf_from_btf(dtp, dmp);
+		return;
 	}
 
 	/*
@@ -868,17 +902,10 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 			    strlen("/kernel/vmlinux.ctfa") + 1);
 			to = stpcpy(ctfa_name, dtp->dt_module_path);
 			stpcpy(to, "/kernel/vmlinux.ctfa");
-		} else {
+		} else
 			ctfa_name = dtp->dt_ctfa_path;
-		}
 
-		if ((dtp->dt_ctfa = ctf_arc_open(ctfa_name,
-			    &dtp->dt_ctferr)) == NULL) {
-			dt_dprintf("Cannot open CTF archive %s: %s; looking "
-			    "for in-module CTF instead.\n", ctfa_name,
-			    ctf_errmsg(dtp->dt_ctferr));
-		}
-
+		dtp->dt_ctfa = ctf_arc_open(ctfa_name, &dtp->dt_ctferr);
 		if (dtp->dt_ctfa != NULL) {
 			/*
 			 * Load in the shared CTF immediately.
@@ -895,6 +922,18 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 				dt_dprintf("Loaded shared CTF from archive %s.\n",
 				    ctfa_name);
 			}
+		} else {
+			dt_dprintf("Cannot open CTF archive %s: %s; "
+				   "trying BTF.\n",
+				   ctfa_name, ctf_errmsg(dtp->dt_ctferr));
+
+			/*
+			 * Try to load the vmlinux BTF data to generate the CTF
+			 * data for shared_ctf from.
+			 */
+			dt_kern_module_ctf_from_btf(dtp,
+				dt_module_lookup_by_name(dtp, "vmlinux"));
+			return;
 		}
 
 		if (dtp->dt_ctfa_path == NULL)

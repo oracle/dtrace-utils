@@ -13,6 +13,7 @@ libdtrace-build_DIR := $(current-dir)
 libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_as.c \
 			  dt_bpf.c \
+			  dt_btf.c \
 			  dt_buf.c \
 			  dt_cc.c \
 			  dt_cg.c \
