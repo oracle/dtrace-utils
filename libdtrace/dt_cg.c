@@ -6306,8 +6306,6 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		assert(dnp->dn_right->dn_kind == DT_NODE_IDENT);
 		dt_cg_node(dnp->dn_left, dlp, drp);
 
-		dt_cg_check_notnull(dlp, drp, dnp->dn_left->dn_reg);
-
 		/*
 		 * If the left-hand side of PTR or DOT is a dynamic variable,
 		 * we expect it to be the output of a D translator.   In this
@@ -6340,6 +6338,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				dt_regset_free(drp, dnp->dn_left->dn_reg);
 			break;
 		}
+
+		dt_cg_check_notnull(dlp, drp, dnp->dn_left->dn_reg);
 
 		ctfp = dnp->dn_left->dn_ctfp;
 		type = ctf_type_resolve(ctfp, dnp->dn_left->dn_type);
