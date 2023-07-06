@@ -24,6 +24,7 @@
 #include <dt_string.h>
 #include <bpf_asm.h>
 
+#define DT_IGNOR	-1		/* Ignore the value */
 #define DT_ISIMM	0
 #define DT_ISREG	1
 
@@ -977,7 +978,7 @@ dt_cg_probe_error(dt_pcb_t *pcb, uint32_t fault, int illisreg, uint64_t ill)
 	 * one we are about to blindly reuse.
 	 */
 
-	if (illisreg && ill != 4)
+	if (illisreg == DT_ISREG && ill != 4)
 		emit(dlp, BPF_MOV_REG(BPF_REG_4, ill));
 	else
 		emit(dlp, BPF_MOV_IMM(BPF_REG_4, ill));
@@ -1214,7 +1215,7 @@ dt_cg_alloca_access_check(dt_irlist_t *dlp, dt_regset_t *drp, int reg,
 	emitl(dlp, lbl_base_ok,
 		   BPF_NOP());
 
-	if (isreg)
+	if (isreg == DT_ISREG)
 		emit(dlp, BPF_ALU64_REG(BPF_SUB, BPF_REG_0, size));
 	else
 		emit(dlp, BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, size));
@@ -2564,7 +2565,8 @@ dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
 	 * rounding cte_bits up to a byte boundary and then finding the
 	 * nearest power of two to this value (see clp2(), above).
 	 */
-	if ((dnp->dn_flags & DT_NF_BITFIELD) &&
+	if (dnp &&
+	    (dnp->dn_flags & DT_NF_BITFIELD) &&
 	    ctf_type_encoding(ctfp, type, &e) != CTF_ERR)
 		size = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY);
 	else
@@ -4579,14 +4581,15 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 /*
  * Emit code to call a precompiled BPF function (named by fname)
- * that is of return type void and takes three arguments:
+ * that is of return type void and takes three or four arguments:
  *   - a pointer to the DTrace context (dctx)
  *   - one input value
  *   - a pointer to an output tstring, allocated here
+ *   - an optional uint32_t value
  */
 static void
 dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-			   const char *fname)
+			  const char *fname, int isreg, uint32_t val)
 {
 	dt_ident_t	*idp;
 	dt_node_t	*arg = dnp->dn_args;
@@ -4620,6 +4623,11 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 
+	if (isreg == DT_ISREG)
+		emit(dlp, BPF_MOV_REG(BPF_REG_4, val));
+	else if (isreg == DT_ISIMM)
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, val));
+
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
 	assert(idp != NULL);
 	dt_regset_xalloc(drp, BPF_REG_0);
@@ -4633,13 +4641,13 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 static void
 dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename", DT_IGNOR, 0);
 }
 
 static void
 dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", DT_IGNOR, 0);
 }
 
 static void
@@ -4704,7 +4712,7 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr", DT_IGNOR, 0);
 }
 
 static void
@@ -5868,7 +5876,7 @@ dt_cg_subr_htonll(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_inet_ntoa(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa");
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa", DT_IGNOR, 0);
 }
 
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
