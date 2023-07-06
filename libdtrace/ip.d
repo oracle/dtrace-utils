@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -51,6 +51,8 @@ inline int TCP_MIN_HEADER_LENGTH =	20;
  * to the net namespace (nd_net in struct net_device).
  */
 typedef uint64_t	netstackid_t;
+typedef __be32		ipaddr_t;
+typedef struct in6_addr	in6_addr_t;
 
 /*
  * pktinfo is where packet ID info can be made available for deeper
@@ -159,7 +161,7 @@ translator csinfo_t < struct sock *s > {
 #pragma D binding "1.5" translator
 translator ipinfo_t < struct iphdr *I > {
 	ip_ver = 4;
-        ip_plength = I != NULL ? (ntohs(I->tot_len) - (*(uint8_t *)I & 0xf) << 2) : 0;
+        ip_plength = I != NULL ? (ntohs(I->tot_len) - I->ihl << 2) : 0;
 	ip_saddr = I != NULL ? inet_ntoa(&I->saddr) : "<unknown>";
 	ip_daddr = I != NULL ? inet_ntoa(&I->daddr) : "<unknown>";
 };

@@ -11,7 +11,7 @@
 BEGIN
 {
 	/* "Linu" will be 76.105.110.117 */
-	printf("%s\n", inet_ntoa(`linux_banner));
+	printf("%s\n", inet_ntoa((ipaddr_t *)`linux_banner));
 	exit(0);
 }
 

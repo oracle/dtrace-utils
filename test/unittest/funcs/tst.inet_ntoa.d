@@ -1,13 +1,11 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 #pragma D option quiet
-
-typedef vmlinux`__be32 ipaddr_t;                  /* FIXME: how should this really be handled? */
 
 ipaddr_t *ip4a;
 ipaddr_t *ip4b;
