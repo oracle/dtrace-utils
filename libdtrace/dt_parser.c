@@ -4015,6 +4015,10 @@ asgn_common:
 		if (lp->dn_flags & DT_NF_WRITABLE)
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
+		/* Transfer alloca taint. */
+		if (lp->dn_flags & DT_NF_ALLOCA)
+			dt_cook_taint_alloca(dnp, NULL, lp);
+
 		if (xflags && (kind == CTF_K_POINTER ||
 		    (dnp->dn_flags & DT_NF_REF)))
 			dnp->dn_flags |= DT_NF_USERLAND;
