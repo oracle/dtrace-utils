@@ -60,12 +60,7 @@ fi
 
 script()
 {
-	$dtrace -o D.output -c ./test -qs /dev/stdin <<EOF
-	BEGIN
-	{
-		/* Dump pid for the clean-up hack we use. */
-		printf("pid is %d\n", \$target);
-	}
+	$dtrace -c ./test -qs /dev/stdin <<EOF
 	manyprobes\$target:::test1, manyprobes\$target:::test750, manyprobes\$target:::test1999
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);
@@ -75,18 +70,5 @@ EOF
 
 script
 status=$?
-
-# D.output has the pid we need for the clean-up hack.  Display the output minus
-# that pid information for checking with the .r results file.  Once uprobe cleanup
-# has been automated, the pid info and D.output will not be needed.
-grep -v "pid is " D.output
-
-# Here is the clean-up hack for uprobe_events until dtprobed does clean up.
-# Find the events for the specified pid and eliminate them.
-pid=`awk '/pid is / {print $3}' D.output`
-uprobes=/sys/kernel/debug/tracing/uprobe_events
-for x in `awk '/^p:dt_pid\/.* \/proc\/'$pid'\/map_files\// { sub("^p:", "-:"); print $1 }' $uprobes`; do
-	echo $x >> $uprobes
-done
 
 exit $status
