@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,6 +13,25 @@
 #include <dt_strtab.h>
 #include <dt_string.h>
 #include <dt_impl.h>
+
+typedef struct dt_strhash {
+	const char *str_data;		/* pointer to actual string data */
+	ulong_t str_buf;		/* index of string data buffer */
+	size_t str_off;			/* offset in bytes of this string */
+	size_t str_len;			/* length in bytes of this string */
+	struct dt_strhash *str_next;	/* next string in hash chain */
+} dt_strhash_t;
+
+struct dt_strtab {
+	dt_strhash_t **str_hash;	/* array of hash buckets */
+	ulong_t str_hashsz;		/* size of hash bucket array */
+	char **str_bufs;		/* array of buffer pointers */
+	char *str_ptr;			/* pointer to current buffer location */
+	ulong_t str_nbufs;		/* size of buffer pointer array */
+	size_t str_bufsz;		/* size of individual buffer */
+	ulong_t str_nstrs;		/* total number of strings in strtab */
+	size_t str_size;		/* total size of strings in bytes */
+};
 
 static int
 dt_strtab_grow(dt_strtab_t *sp)
