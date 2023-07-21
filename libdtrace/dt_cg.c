@@ -4567,7 +4567,8 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 /*
  * Emit code to call a precompiled BPF function (named by fname)
- * that is of return type void and takes two arguments:
+ * that is of return type void and takes three arguments:
+ *   - a pointer to the DTrace context (dctx)
  *   - one input value
  *   - a pointer to an output tstring, allocated here
  */
@@ -4599,12 +4600,13 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	emit(dlp, BPF_MOV_REG(BPF_REG_1, arg->dn_reg));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, arg->dn_reg));
 	dt_regset_free(drp, arg->dn_reg);
 	if (dt_node_is_string(arg))
 		dt_cg_tstring_free(yypcb, arg);
 
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, dnp->dn_reg));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
 	assert(idp != NULL);

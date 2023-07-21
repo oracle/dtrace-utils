@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 #define BPF_FUNC_probe_read	4
@@ -114,7 +114,7 @@ dt_inet_ntoa_write_uint8:
 #undef PTR
 
 /*
- * void dt_inet_ntoa(uint8_t *src, char *dst) {
+ * void dt_inet_ntoa(const dt_dctx_t *dctx, uint8_t *src, char *dst) {
  *     uint64_t off, inp, len;
  *
  *     bpf_probe_read(fp + -4, 4, src);
@@ -159,9 +159,9 @@ dt_inet_ntoa:
 #define DST %r7
 #define LEN %r8
 
-	mov	DST, %r2
+	mov	DST, %r3
 
-	mov	%r3, %r1
+	mov	%r3, %r2
 	mov	%r2, 4
 	mov	%r1, %fp
 	add	%r1, -4

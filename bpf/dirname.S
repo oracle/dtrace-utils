@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 #define BPF_FUNC_probe_read_str	45
 
 /*
- * void dt_dirname(char *src, char *dst);
+ * void dt_dirname(const dt_dctx_t *dctx, char *src, char *dst);
  */
 	.text
 	.align	4
@@ -18,8 +18,8 @@ dt_dirname :
 #define LEN %r8
 
 	/* store copies of input arguments */
-	mov	SRC, %r1
-	mov	DST, %r2
+	mov	SRC, %r2
+	mov	DST, %r3
 
 	/*
 	 * Copy src to dst for two reasons:

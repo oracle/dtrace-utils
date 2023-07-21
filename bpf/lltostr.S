@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 #define BPF_FUNC_probe_read	4
@@ -8,7 +8,7 @@
 
 	.text
 /*
- * void dt_lltostr(uint64_t VAL, char *STR)
+ * void dt_lltostr(const dt_dctx_t *dctx, uint64_t VAL, char *STR)
  * {
  *     // start writing at the end (IDX==1 is the last char)
  *     IDX = 1
@@ -74,8 +74,8 @@ dt_lltostr:
 #define IDX %r8
 #define SGN %r9
 
-	mov	VAL, %r1
-	mov	STR, %r2
+	mov	VAL, %r2
+	mov	STR, %r3
 
 	mov	IDX, 1				/* IDX = 1 */
 
