@@ -58,6 +58,7 @@ typedef struct dt_dctx {
 	char		*mem;		/* General scratch memory */
 	char		*scratchmem;	/* Scratch space for alloca, etc */
 	char		*strtab;	/* String constant table */
+	char		*rodata;	/* Read-only data */
 	char		*agg;		/* Aggregation data */
 	char		*gvars;		/* Global variables */
 	char		*lvars;		/* Local variables */
@@ -70,6 +71,7 @@ typedef struct dt_dctx {
 #define DCTX_MEM	offsetof(dt_dctx_t, mem)
 #define DCTX_SCRATCHMEM	offsetof(dt_dctx_t, scratchmem)
 #define DCTX_STRTAB	offsetof(dt_dctx_t, strtab)
+#define DCTX_RODATA	offsetof(dt_dctx_t, rodata)
 #define DCTX_AGG	offsetof(dt_dctx_t, agg)
 #define DCTX_GVARS	offsetof(dt_dctx_t, gvars)
 #define DCTX_LVARS	offsetof(dt_dctx_t, lvars)

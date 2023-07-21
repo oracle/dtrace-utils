@@ -888,11 +888,11 @@ dt_vopen(int version, int flags, int *errp,
 	    DIF_VAR_OTHER_UBASE, DIF_VAR_OTHER_MAX);
 
 	dtp->dt_ccstab = dt_strtab_create(BUFSIZ);
-	dtp->dt_strlen = 0;
+	dtp->dt_rodata = dt_rodata_create(BUFSIZ);
 
 	if (dtp->dt_macros == NULL || dtp->dt_aggs == NULL ||
 	    dtp->dt_globals == NULL || dtp->dt_tls == NULL ||
-	    dtp->dt_ccstab == NULL)
+	    dtp->dt_ccstab == NULL || dtp->dt_rodata == NULL)
 		return set_open_errno(dtp, errp, EDT_NOMEM);
 
 	/*
@@ -1235,6 +1235,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_ident_destroy(idp);
 	}
 
+	if (dtp->dt_rodata != NULL)
+		dt_rodata_destroy(dtp->dt_rodata);
 	if (dtp->dt_ccstab != NULL)
 		dt_strtab_destroy(dtp->dt_ccstab);
 	if (dtp->dt_macros != NULL)

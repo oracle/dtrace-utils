@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2468,6 +2468,12 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = total_offset;
 				continue;
 			}
+			case DT_CONST_RODATA_OFF:
+				nrp->dofr_data = dtp->dt_rooffset;
+				continue;
+			case DT_CONST_RODATA_SIZE:
+				nrp->dofr_data = dtp->dt_rosize;
+				continue;
 			case DT_CONST_ZERO_OFF:
 				nrp->dofr_data = dtp->dt_zerooffset;
 				continue;

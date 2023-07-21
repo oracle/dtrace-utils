@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -19,25 +19,27 @@ struct dtrace_hdl;
 extern "C" {
 #endif
 
-#define DT_CONST_EPID	1
-#define DT_CONST_PRID	2
-#define DT_CONST_CLID	3
-#define DT_CONST_ARGC	4
-#define DT_CONST_STBSZ	5
-#define DT_CONST_STRSZ	6
-#define DT_CONST_STKSIZ	7
-#define DT_CONST_BOOTTM	8
-#define DT_CONST_NSPEC	9
-#define DT_CONST_NCPUS	10
-#define DT_CONST_PC	11
-#define DT_CONST_TUPSZ	12
-#define DT_CONST_TASK_PID	13
-#define DT_CONST_TASK_TGID	14
+#define DT_CONST_EPID			1
+#define DT_CONST_PRID			2
+#define DT_CONST_CLID			3
+#define DT_CONST_ARGC			4
+#define DT_CONST_STBSZ			5
+#define DT_CONST_STRSZ			6
+#define DT_CONST_STKSIZ			7
+#define DT_CONST_BOOTTM			8
+#define DT_CONST_NSPEC			9
+#define DT_CONST_NCPUS			10
+#define DT_CONST_PC			11
+#define DT_CONST_TUPSZ			12
+#define DT_CONST_TASK_PID		13
+#define DT_CONST_TASK_TGID		14
 #define DT_CONST_TASK_REAL_PARENT	15
-#define DT_CONST_TASK_COMM	16
-#define DT_CONST_MUTEX_OWNER	17
-#define DT_CONST_RWLOCK_CNTS	18
-#define DT_CONST_ZERO_OFF	19
+#define DT_CONST_TASK_COMM		16
+#define DT_CONST_MUTEX_OWNER		17
+#define DT_CONST_RWLOCK_CNTS		18
+#define DT_CONST_RODATA_OFF		19
+#define DT_CONST_RODATA_SIZE		20
+#define DT_CONST_ZERO_OFF		21
 
 #define DT_BPF_LOG_SIZE_DEFAULT	(UINT32_MAX >> 8)
 #define DT_BPF_LOG_SIZE_SMALL	4096

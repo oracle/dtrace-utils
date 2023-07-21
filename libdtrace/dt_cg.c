@@ -56,12 +56,14 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
 	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
+	dt_ident_t	*ro_off = dt_dlib_get_var(dtp, "RODATA_OFF");
 	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
 	assert(aggs != NULL);
 	assert(mem != NULL);
 	assert(state != NULL);
 	assert(prid != NULL);
+	assert(ro_off != NULL);
 
 	/*
 	 * On input, %r1 is the BPF context.
@@ -206,6 +208,16 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	} while(0)
 
 	DT_CG_STORE_MAP_PTR("strtab", DCTX_STRTAB);
+
+	/*
+	 * We know that a pointer to the strtab data is in %r0 (because that is
+	 * where the DT_CG_STORE_MAP_PTR() macro left it, and we know that dctx
+	 * is in %r9.  So, we can just add RODATA_OFF to %r0, and store that in
+	 * [%r9 + DCTX_RODATA].
+	 */
+	emite(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, -1), ro_off);
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_RODATA, BPF_REG_0));
+
 	if (dtp->dt_options[DTRACEOPT_SCRATCHSIZE] > 0)
 		DT_CG_STORE_MAP_PTR("scratchmem", DCTX_SCRATCHMEM);
 	if (dt_idhash_datasize(dtp->dt_globals) > 0)

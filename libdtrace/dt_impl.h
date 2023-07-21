@@ -34,6 +34,7 @@ extern "C" {
 #include <dt_bpf_maps.h>
 #include <dt_parser.h>
 #include <dt_regset.h>
+#include <dt_rodata.h>
 #include <dt_strtab.h>
 #include <dt_symtab.h>
 #include <dt_ident.h>
@@ -306,14 +307,17 @@ struct dtrace_hdl {
 	dt_idhash_t *dt_tls;	/* hash table of thread-local identifiers */
 	dt_idhash_t *dt_bpfsyms;/* hash table of BPF identifiers */
 	dt_strtab_t *dt_ccstab;	/* global string table (during compilation) */
+	dt_rodata_t *dt_rodata;	/* global read-only data */
 	uint_t dt_strlen;	/* global string table (runtime) size */
+	uint_t dt_rooffset;	/* read-only data offset */
+	uint_t dt_rosize;	/* read-only data size */
+	uint_t dt_zerooffset;	/* zero region, offset */
+	uint_t dt_zerosize;	/* zero region, size */
 	uint_t dt_maxreclen;	/* largest record size across programs */
 	uint_t dt_maxdvarsize;	/* largest dynamic variable across programs */
 	uint_t dt_maxtuplesize;	/* largest tuple across programs */
 	uint_t dt_maxlvaralloc;	/* largest lvar alloc across pcbs */
 	uint_t dt_maxaggdsize;	/* largest aggregation data sizw */
-	uint_t dt_zerosize;	/* zero region, size */
-	uint_t dt_zerooffset;	/* zero region, offset */
 	dt_tstring_t *dt_tstrings; /* temporary string slots */
 	dt_list_t dt_modlist;	/* linked list of dt_module_t's */
 	dt_htab_t *dt_mods;	/* hash table of dt_module_t's */
@@ -724,6 +728,8 @@ extern int dt_version_str2num(const char *, dt_version_t *);
 extern int dt_version_defined(dt_version_t);
 
 extern int dt_str2kver(const char *, dt_version_t *);
+
+extern uint32_t dt_gen_hval(const char *, uint32_t, size_t);
 
 /*
  * Miscellaneous internal libdtrace interfaces.  The definitions below are for

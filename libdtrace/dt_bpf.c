@@ -695,10 +695,17 @@ gmap_create_scratchmem(dtrace_hdl_t *dtp)
  * String table map.  This is a global map with a singleton element (key 0)
  * that contains the entire string table as a concatenation of all unique
  * strings (each terminated with a NUL byte).  The string table size is taken
- * from the DTrace consumer handle (dt_strlen).  Extra memory is allocated as a
- * memory block of zeros for initializing memory regions.  Its size is at least
- * the maximum string size to ensure the BPF verifier can validate all access
- * requests for dynamic references to string constants.
+ * from the DTrace consumer handle (dt_strlen).
+ *
+ * The read-only data is appended to the string table, as is a memory block of
+ * zeros for initializing memory regions.
+ *
+ * In order to ensure the BPF verifier can validate all access requests for
+ * dynamic references to string constants, the size of the read-only data plus
+ * the size of the block of zeros must at least match the maximum string size.
+ * The size of the block of zeros must at least match the maximum read-only
+ * item size, and be large enough to satisfy all 0-initialization needs in all
+ * BPF programs being loaded for this tracing session.
  */
 static int
 gmap_create_strtab(dtrace_hdl_t *dtp)
@@ -711,13 +718,20 @@ gmap_create_strtab(dtrace_hdl_t *dtp)
 	int		fd, rc, err;
 
 	dtp->dt_strlen = dt_strtab_size(dtp->dt_ccstab);
-	dtp->dt_zerooffset = P2ROUNDUP(dtp->dt_strlen, 8);
+	dtp->dt_rooffset = P2ROUNDUP(dtp->dt_strlen, 8);
+	dtp->dt_rosize = dt_rodata_size(dtp->dt_rodata);
+	dtp->dt_zerooffset = P2ROUNDUP(dtp->dt_rooffset + dtp->dt_rosize, 8);
+	dtp->dt_zerosize = 0;
+	sz = dt_rodata_max_item_size(dtp->dt_rodata);
 
 	/*
 	 * Ensure the zero-filled memory at the end of the strtab is large
-	 * enough to accomodate all needs for such a memory block.
+	 * enough to accommodate all needs for such a memory block.
 	 */
-	dtp->dt_zerosize = strsize + 1;
+	if (dtp->dt_rosize < strsize + 1)
+		dtp->dt_zerosize = strsize + 1 - dtp->dt_rosize;
+	if (dtp->dt_zerosize < sz)
+		dtp->dt_zerosize = sz;
 	if (dtp->dt_zerosize < dtp->dt_maxdvarsize)
 		dtp->dt_zerosize = dtp->dt_maxdvarsize;
 	if (dtp->dt_zerosize < dtp->dt_maxtuplesize)
@@ -730,6 +744,7 @@ gmap_create_strtab(dtrace_hdl_t *dtp)
 	if (strtab == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
+	/* Copy the string table data. */
 	dt_strtab_write(dtp->dt_ccstab, (dt_strtab_write_f *)dt_strtab_copystr,
 			strtab);
 
@@ -744,6 +759,10 @@ gmap_create_strtab(dtrace_hdl_t *dtp)
 
 		buf += len + 1;
 	}
+
+	/* Copy the read-only data. */
+	dt_rodata_write(dtp->dt_rodata, (dt_rodata_copy_f *)dt_rodata_copy,
+			strtab + dtp->dt_rooffset);
 
 	fd = create_gmap(dtp, "strtab", BPF_MAP_TYPE_ARRAY, sizeof(uint32_t),
 			 sz, 1);

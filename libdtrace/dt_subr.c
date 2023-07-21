@@ -985,3 +985,25 @@ dt_str2kver(const char *kverstr, dt_version_t *vp)
 
 	return 0;
 }
+
+/*
+ * Compute a 32-bit hash value for a memory block of given size.
+ */
+uint32_t dt_gen_hval(const char *p, uint32_t hval, size_t len)
+{
+	uint32_t	g;
+
+	if (!p || len == 0)
+		return hval;
+
+	while (len--) {
+		hval = (hval << 4) + *p++;
+		g = hval & 0xf0000000;
+		if (g != 0) {
+			hval ^= (g >> 24);
+			hval ^= g;
+		}
+	}
+
+	return hval;
+}
