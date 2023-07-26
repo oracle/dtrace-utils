@@ -117,8 +117,7 @@ typedef struct dt_dctx {
 #define DMEM_STACK_SZ(dtp) \
 		(sizeof(uint64_t) * (dtp)->dt_options[DTRACEOPT_MAXFRAMES])
 #define DMEM_TSTR_SZ(dtp) \
-		(DT_TSTRING_SLOTS * \
-		 P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 1, 8))
+		(DT_TSTRING_SLOTS * DT_TSTRING_SIZE(dtp))
 #define DMEM_STRTOK_SZ(dtp) \
 		(sizeof(uint64_t) + (dtp)->dt_options[DTRACEOPT_STRSIZE] + 1)
 #define DMEM_TUPLE_SZ(dtp) \

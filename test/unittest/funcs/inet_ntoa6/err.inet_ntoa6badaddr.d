@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,7 +13,7 @@ BEGIN
 {
 	ip6a = 0;
 
-	printf("%s\n", inet_ntop(AF_INET6, ip6a));
+	printf("%s\n", inet_ntoa6(ip6a));
 
 	exit(0);
 }

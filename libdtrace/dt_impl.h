@@ -222,8 +222,14 @@ typedef struct dt_ahash {
  * (from a nested function for which we already generated code) along with a
  * nested function being processed which needs 3 temporary strings as mentioned
  * above.  That brings us to a total of 4.
+ *
+ * Each tstring needs to be large enough to hold the largest possible string
+ * and accomodate the largest known need for tstring space in subroutines.
  */
 #define DT_TSTRING_SLOTS	4
+#define DT_TSTRING_SIZE(dtp)	\
+		MAX(P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 1, 8), \
+		    72)
 
 typedef struct dt_tstring {
 	uint64_t	offset;			/* Offset from dctx->mem */
