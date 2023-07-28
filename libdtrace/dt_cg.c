@@ -2855,61 +2855,122 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 /*
  * If the result of a "." or "->" operation is a bit-field, we use this routine
- * to generate an epilogue to the load instruction that extracts the value.
+ * to generate the load instruction and bit shifts that extracts the value.
  */
 static void
 dt_cg_field_get(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-    ctf_file_t *fp, const ctf_membinfo_t *mp)
+		ctf_file_t *fp, const ctf_membinfo_t *mp)
 {
-	ctf_encoding_t e;
-	uint64_t shift;
-	int r1;
+	ctf_encoding_t	e;
+	uint64_t	shift;
+	ssize_t		size;
+	size_t		offset;
+	uint_t		op;
+	int		reg = dnp->dn_left->dn_reg;
 
 	if (ctf_type_encoding(fp, mp->ctm_type, &e) != 0 || e.cte_bits > 64) {
-		xyerror(D_UNKNOWN, "cg: bad field: off %lu type <%ld> "
-		    "bits %u\n", mp->ctm_offset, mp->ctm_type, e.cte_bits);
+		xyerror(D_UNKNOWN, "cg: bad field: member off %lu type <%ld> "
+		    "oofset %u bits %u\n", mp->ctm_offset, mp->ctm_type,
+		    e.cte_offset, e.cte_bits);
 	}
 
 	assert(dnp->dn_op == DT_TOK_PTR || dnp->dn_op == DT_TOK_DOT);
-	r1 = dnp->dn_left->dn_reg;
 
+	offset = mp->ctm_offset + e.cte_offset;
+
+	/* Advance to the byte where the bitfield starts (if needed). */
+	if (offset >= NBBY) {
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, offset / NBBY));
+		offset %= NBBY;
+	}
+
+	/* If this is a REF, we are done. */
+	if (dnp->dn_flags & DT_NF_REF)
+		return;
+
+	op = dt_cg_ldsize(dnp, fp, mp->ctm_type, &size);
+	if (dnp->dn_left->dn_flags & (DT_NF_ALLOCA | DT_NF_DPTR))
+		emit(dlp, BPF_LOAD(op, reg, reg, 0));
+	else
+		dt_cg_load_scalar(dnp->dn_left, op, size, dlp, drp);
+
+#if 0
 	/*
-	 * On little-endian architectures, ctm_offset counts from the right so
-	 * ctm_offset % NBBY itself is the amount we want to shift right to
-	 * move the value bits to the little end of the register to mask them.
-	 * On big-endian architectures, ctm_offset counts from the left so we
-	 * must subtract (ctm_offset % NBBY + cte_bits) from the size in bits
-	 * we used for the load.  The size of our load in turn is found by
-	 * rounding cte_bits up to a byte boundary and then finding the
-	 * nearest power of two to this value (see clp2(), above).
+	 * On little-endian architectures, offset counts from the right so
+	 * offset itself is the amount we want to shift right to move the value
+	 * bits to the little end of the register to mask them.
+	 * On big-endian architectures, offset counts from the left so we must
+	 * subtract (offset + cte_bits) from the size in bits we used for the
+	 * load.  The size of our load in turn is found by rounding cte_bits up
+	 * to a byte boundary and then finding the nearest power of two to this
+	 * value (see clp2(), above).
+	 *
+	 * For signed values, we first shift left to ensure that the leftmost
+	 * bit set the sign, so that a subsequent sign-extending right shift
+	 * ensure we get the correct signed value.
 	 */
 	if (dnp->dn_flags & DT_NF_SIGNED) {
 		/*
-		 * r1 <<= 64 - shift
-		 * r1 >>= 64 - bits
+		 * reg <<= 64 - shift
+		 * reg >>= 64 - bits
 		 */
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
-		    mp->ctm_offset % NBBY;
+			offset;
 #else
-		shift = mp->ctm_offset % NBBY + e.cte_bits;
+		shift = offset + e.cte_bits;
 #endif
-		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r1, 64 - shift));
-		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, r1, 64 - e.cte_bits));
+		if (shift < 64)
+			emit(dlp, BPF_ALU64_IMM(BPF_LSH, reg, 64 - shift));
+		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, reg, 64 - e.cte_bits));
 	} else {
 		/*
-		 * r1 >>= shift
-		 * r1 &= (1 << bits) - 1
+		 * reg >>= shift
+		 * reg &= (1 << bits) - 1
 		 */
 #ifdef _BIG_ENDIAN
 		shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
-		    (mp->ctm_offset % NBBY + e.cte_bits);
+			(offset + e.cte_bits);
 #else
-		shift = mp->ctm_offset % NBBY;
+		shift = offset;
 #endif
-		emit(dlp, BPF_ALU64_IMM(BPF_RSH, r1, shift));
-		emit(dlp, BPF_ALU64_IMM(BPF_AND, r1, (1ULL << e.cte_bits) - 1));
+		if (shift)
+			emit(dlp, BPF_ALU64_IMM(BPF_RSH, reg, shift));
+		emit(dlp, BPF_ALU64_IMM(BPF_AND, reg, (1ULL << e.cte_bits) - 1));
 	}
+#else
+	/*
+	 * Shift the loaded value left (64 - cte_bits - shift) bits to mask off
+	 * higher order bits, and then shift right (64 - cte_bits) bits (with
+	 * possible sign extending) to move the bitfield value to the low end
+	 * of the register.
+	 *
+	 * On little-endian architectures, offset counts from the right so the
+	 * shift we want is the offset itself.
+	 *
+	 * On big-endian architectures, offset counts from the left so we must
+	 * subtract (offset + cte_bits) from the load size (in bits) to
+	 * calculate the left shift amount.  The size of the load is found by
+	 * rounding cte_bits up to a byte boundary and then determining the
+	 * nearest power of two to this value (see clp2(), above).
+	 */
+#ifdef _BIG_ENDIAN
+	shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
+		(offset + e.cte_bits);
+#else
+	shift = offset;
+#endif
+
+	/*
+	 * reg <<= 64 - bits - shift
+	 * reg >>= 64 - bits			(sign-extending if signed)
+	 */
+	emit(dlp, BPF_ALU64_IMM(BPF_LSH, reg, 64 - e.cte_bits - shift));
+	if (dnp->dn_flags & DT_NF_SIGNED)
+		emit(dlp, BPF_ALU64_IMM(BPF_ARSH, reg, 64 - e.cte_bits));
+	else
+		emit(dlp, BPF_ALU64_IMM(BPF_RSH, reg, 64 - e.cte_bits));
+#endif
 }
 
 /*
@@ -2927,6 +2988,7 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 {
 	uint64_t cmask, fmask, shift;
 	int r1, r2;
+	size_t offset;
 
 	ctf_membinfo_t m;
 	ctf_encoding_t e;
@@ -2951,9 +3013,12 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	}
 
 	if (ctf_type_encoding(fp, m.ctm_type, &e) != 0 || e.cte_bits > 64) {
-		xyerror(D_UNKNOWN, "cg: bad field: off %lu type <%ld> "
-		    "bits %u\n", m.ctm_offset, m.ctm_type, e.cte_bits);
+		xyerror(D_UNKNOWN, "cg: bad field: member off %lu type <%ld> "
+		    "offset %u bits %u\n", m.ctm_offset, m.ctm_type,
+		    e.cte_offset, e.cte_bits);
 	}
+
+	offset = m.ctm_offset + e.cte_offset;
 
 	if ((r1 = dt_regset_alloc(drp)) == -1 ||
 	    (r2 = dt_regset_alloc(drp)) == -1)
@@ -2969,9 +3034,9 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	 */
 #ifdef _BIG_ENDIAN
 	shift = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY) * NBBY -
-	    (m.ctm_offset % NBBY + e.cte_bits);
+		(offset % NBBY + e.cte_bits);
 #else
-	shift = m.ctm_offset % NBBY;
+	shift = offset % NBBY;
 #endif
 	fmask = (1ULL << e.cte_bits) - 1;
 	cmask = ~(fmask << shift);
@@ -2990,7 +3055,8 @@ dt_cg_field_set(dt_node_t *src, dt_irlist_t *dlp,
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r1, r2));
 	dt_cg_setx(dlp, r2, fmask);
 	emit(dlp, BPF_ALU64_REG(BPF_AND, r2, src->dn_reg));
-	emit(dlp, BPF_ALU64_IMM(BPF_LSH, r2, shift));
+	if (shift > 0)
+		emit(dlp, BPF_ALU64_IMM(BPF_LSH, r2, shift));
 	emit(dlp, BPF_ALU64_REG(BPF_OR, r1, r2));
 	dt_regset_free(drp, r2);
 
@@ -6399,6 +6465,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		dt_cg_check_notnull(dlp, drp, dnp->dn_left->dn_reg);
+		dnp->dn_reg = dnp->dn_left->dn_reg;
 
 		ctfp = dnp->dn_left->dn_ctfp;
 		type = ctf_type_resolve(ctfp, dnp->dn_left->dn_type);
@@ -6414,14 +6481,13 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 		}
 
-		if (m.ctm_offset != 0) {
-			/*
-			 * If the offset is not aligned on a byte boundary, it
-			 * is a bit-field member and we will extract the value
-			 * bits below after we generate the appropriate load.
-			 */
-			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg, m.ctm_offset / NBBY));
+		if (dnp->dn_flags & DT_NF_BITFIELD) {
+			dt_cg_field_get(dnp, dlp, drp, ctfp, &m);
+			break;
 		}
+
+		if (m.ctm_offset != 0)
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg, m.ctm_offset / NBBY));
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
 			uint_t	op;
@@ -6433,12 +6499,8 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				emit(dlp, BPF_LOAD(op, dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
 			else
 				dt_cg_load_scalar(dnp->dn_left, op, size, dlp, drp);
-
-			if (dnp->dn_flags & DT_NF_BITFIELD)
-				dt_cg_field_get(dnp, dlp, drp, ctfp, &m);
 		}
 
-		dnp->dn_reg = dnp->dn_left->dn_reg;
 		break;
 	}
 
