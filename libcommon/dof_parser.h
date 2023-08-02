@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF parser interface with the outside world
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,11 +15,10 @@
 #include <dtrace/helpers.h>
 
 /*
- * Result of DOF probe parsing (currently used only for probe creation. We
- * receive a provider info structure, followed by N probe info structures each
- * of which is followed by possibly many tracepoint info structures, all tagged.
- * Things not useful for probe creation (like args, translated types, etc) are
- * not returned.
+ * Result of DOF probe parsing.  We receive a provider info structure, followed
+ * by N probe info structures each of which is followed by possibly many
+ * tracepoint info structures, all tagged.  Things not yet used for probe
+ * creation (like args, translated types, etc) are not returned.
  *
  * On error, a DIT_ERR structure is returned with an error message.
  */
@@ -30,6 +29,15 @@ typedef enum dof_parsed_info {
 	DIT_TRACEPOINT = 2,
 	DIT_ERR = 3
 } dof_parsed_info_t;
+
+/*
+ * Bump this whenever dof_parsed changes.
+ *
+ * Files consisting of arrays of dof_parsed have a single 64-bit word at the
+ * start which is the version of the dof_parseds within it.  The data flowing
+ * over the stream from the seccomped parser has no such prefix.
+ */
+#define DOF_PARSED_VERSION 1
 
 typedef struct dof_parsed {
 	/*
