@@ -16,7 +16,6 @@
 #include "dt_cg.h"
 #include "dt_provider_tp.h"
 #include "dt_probe.h"
-#include "uprobes.h"
 
 static const char		prvname[] = "dtrace";
 static const char		modname[] = "";
@@ -172,8 +171,9 @@ static char *uprobe_spec(pid_t pid, const char *prb)
 	struct ps_prochandle	*P;
 	int			perr = 0;
 	char			*fun;
-	char			*spec = NULL;
 	GElf_Sym		sym;
+	prsyminfo_t		si;
+	char			*spec = NULL;
 
 	if (asprintf(&fun, "%s%s", prb, PROBE_FUNC_SUFFIX) < 0)
 		return NULL;
@@ -185,10 +185,22 @@ static char *uprobe_spec(pid_t pid, const char *prb)
 		return NULL;
 	}
 
-	/* look up function and thus addr */
-	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, NULL) == 0)
-		spec = uprobe_spec_by_addr(P, sym.st_value, NULL);
+	/* look up function, get the map, and record */
+	if (Pxlookup_by_name(P, -1, PR_OBJ_EVERY, fun, &sym, &si) == 0) {
+		const prmap_t	*mapp;
 
+		mapp = Paddr_to_map(P, sym.st_value);
+		if (mapp == NULL)
+			goto out;
+
+		if (mapp->pr_file->first_segment != mapp)
+			mapp = mapp->pr_file->first_segment;
+
+		asprintf(&spec, "%s:0x%lx", mapp->pr_file->prf_mapname,
+			 sym.st_value - mapp->pr_vaddr);
+	}
+
+out:
 	free(fun);
 	Prelease(P, PS_RELEASE_NORMAL);
 	Pfree(P);
@@ -219,7 +231,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 				     GROUP_DATA, prp->desc->prb, spec);
 			close(fd);
 		}
-		dt_free(dtp, spec);
+		free(spec);
 		if (rc == -1)
 			return -ENOENT;
 
