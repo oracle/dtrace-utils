@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -931,16 +931,24 @@ dt_proc_control(void *arg)
 		 * be worth ptracing it so that we get better symbol resolution,
 		 * but if the process is a crucial system daemon, avoid ptracing
 		 * it entirely, to avoid rtld_db dropping breakpoints in crucial
-		 * system daemons unless specifically demanded.  No death
-		 * notification is ever sent.
+		 * system daemons unless specifically demanded.  Also avoid
+		 * ptracing if the process is already being traced by someone
+		 * else (like another DTrace instance).  No death notification
+		 * is ever sent.
 		 *
 		 * Also, obviously enough, never drop breakpoints in ourself!
 		 */
 		if (datap->dpcd_flags & DTRACE_PROC_SHORTLIVED) {
+			pid_t tracer_pid;
+
 			noninvasive = 1;
 			dpr->dpr_notifiable = 0;
+			tracer_pid = Ptracer_pid(dpr->dpr_pid);
+
 			if ((Psystem_daemon(dpr->dpr_pid, dtp->dt_useruid,
 				    dtp->dt_sysslice) > 0) ||
+			    ((tracer_pid != 0) &&
+			     (tracer_pid != getpid())) ||
 			    (dpr->dpr_pid == getpid()))
 				noninvasive = 2;
 		}

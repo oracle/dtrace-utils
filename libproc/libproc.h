@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -101,6 +101,7 @@ extern	void	Pset_procfs_path(const char *);
 extern	int	Pdynamically_linked(struct ps_prochandle *);
 extern	int	Ptraceable(struct ps_prochandle *);
 extern	int	Pelf64(struct ps_prochandle *);
+extern	pid_t	Ptracer_pid(pid_t);
 
 /*
  * Calls that do not take a process structure.  These are used to determine

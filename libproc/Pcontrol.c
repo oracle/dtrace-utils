@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2809,6 +2809,24 @@ Puid(pid_t pid)
 	free(uids);
 
 	return uid;
+}
+
+/*
+ * Determine if this process is already being ptraced, and if so, the pid of the
+ * ptracer.  The caller should eschew invasive tracing in this case.
+ */
+pid_t
+Ptracer_pid(pid_t pid)
+{
+	char *traced;
+	pid_t tracer_pid;
+
+	if ((traced = Pget_proc_status(pid, "TracerPid")) == NULL)
+		return 0;
+
+	tracer_pid = strtol(traced, NULL, 10);
+	free(traced);
+	return tracer_pid;
 }
 
 /*
