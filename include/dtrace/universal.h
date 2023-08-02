@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -12,6 +12,8 @@
 
 #ifndef _DTRACE_UNIVERSAL_H_
 #define _DTRACE_UNIVERSAL_H_
+
+#include <stdint.h>
 
 #define	DTRACE_CPUALL		-1	/* all CPUs */
 #define	DTRACE_IDNONE		0	/* invalid probe identifier */
