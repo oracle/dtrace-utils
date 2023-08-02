@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; FUSE logging reimplementation.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #define	_RPL_FUSE_LOG_H
 
 #include <stdarg.h>
+#include <sys/compiler.h>
 
 /*
  * Reimplementation of fuse_log API in FUSE 3.7.0+.  Not used when FUSE is
@@ -37,7 +38,8 @@ typedef void (*rpl_log_func_t)(enum fuse_log_level level, const char *fmt,
 
 void fuse_set_log_func(rpl_log_func_t func);
 
-void fuse_log(enum fuse_log_level level, const char *fmt, ...);
+void fuse_log(enum fuse_log_level level, const char *fmt, ...)
+	_dt_printflike_(2,3);
 
 #endif
 

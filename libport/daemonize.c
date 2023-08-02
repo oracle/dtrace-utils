@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; become a daemon.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,6 +11,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -19,23 +21,8 @@
 #include <port.h>
 
 /*
- * Write an error return down the synchronization pipe.
- */
-_dt_noreturn_
-void
-daemon_err(int fd, const char *err)
-{
-	/*
-	 * Not a paranoid write, no EINTR protection: all our errors are quite
-	 * short and are unlikely to hit EINTR.  The read side, which might
-	 * block for some time,  can make no such assumptions.
-	 */
-	write(fd, err, strlen(err));
-	_exit(1);
-}
-
-/*
- * Write an error return featuring errno down the synchronization pipe.
+ * Write an error return featuring errno down the synchronization pipe, and
+ * terminate.
  *
  * If fd is < 0, write to stderr instead.
  */
@@ -59,6 +46,45 @@ daemon_perr(int fd, const char *err, int err_no)
 		fprintf(stderr, "%s: %s\n", err, strerror(err_no));
 
 	_exit(1);
+}
+
+/*
+ * Log a message down the synchronization pipe, using a va_list.
+ *
+ * If fd is < 0, write to stderr instead.
+ */
+void
+daemon_vlog(int fd, const char *fmt, va_list ap)
+{
+	char *errstr;
+
+	if (vasprintf(&errstr, fmt, ap) < 0)
+		daemon_perr(fd, "cannot format log string", errno);
+
+	/*
+	 * Not a paranoid write: see above.
+	 */
+	if (fd >= 0)
+		write(fd, errstr, strlen(errstr));
+	else
+		fprintf(stderr, "%s", errstr);
+	free(errstr);
+}
+
+/*
+ * Log a message down the synchronization pipe.
+ *
+ * If fd is < 0, write to stderr instead.
+ */
+_dt_printflike_(2, 3)
+void
+daemon_log(int fd, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	daemon_vlog(fd, fmt, ap);
+	va_end(ap);
 }
 
 /*

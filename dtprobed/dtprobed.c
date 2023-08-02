@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
- * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 #include <config.h>
 
@@ -54,6 +55,7 @@
 #include <dt_list.h>
 #include "dof_parser.h"
 #include "uprobes.h"
+#include "libproc.h"
 
 #include "seccomp-assistance.h"
 
@@ -71,6 +73,7 @@ void dt_debug_dump(int unused) {} 		/* For libproc.  */
 static pid_t parser_pid;
 static int parser_in_pipe[2];
 static int parser_out_pipe[2];
+static int sync_fd = -1;
 static int timeout = 5000; 			/* In seconds.  */
 static int rq_count = 0;
 
@@ -91,9 +94,13 @@ log_msg(enum fuse_log_level level, const char *fmt, va_list ap)
 	if (!_dtrace_debug && level > FUSE_LOG_INFO)
 		return;
 
-	if (foreground)
+	if (foreground) {
+		fprintf(stderr, "dtprobed DEBUG %li: ", time(NULL));
 		vfprintf(stderr, fmt, ap);
-	else
+	} else if (sync_fd >= 0) {
+		daemon_log(sync_fd, "dtprobed DEBUG %li: ", time(NULL));
+		daemon_vlog(sync_fd, fmt, ap);
+	} else
 		vsyslog(level, fmt, ap);
 }
 
@@ -105,12 +112,13 @@ dt_debug_printf(const char *subsys, const char *fmt, va_list ap)
 		return;
 
 	if (foreground) {
-		fprintf(stderr, "%s DEBUG: ", subsys);
+		fprintf(stderr, "%s DEBUG %li: ", subsys, time(NULL));
 		vfprintf(stderr, fmt, ap);
-	} else {
+	} else if (sync_fd >= 0)
+		daemon_vlog(sync_fd, fmt, ap);
+	else
 		/* Subsystem discarded (it's always 'libproc' anyway).  */
 		vsyslog(LOG_DEBUG, fmt, ap);
-	}
 }
 
 #if HAVE_LIBFUSE3
@@ -310,15 +318,18 @@ parse_dof(int in, int out)
  * and sends a stream of dof_parsed_t back to this process.
  */
 static void
-dof_parser_start(int sync_fd)
+dof_parser_start(void)
 {
 	if ((pipe(parser_in_pipe) < 0) ||
 	    (pipe(parser_out_pipe) < 0))
 		daemon_perr(sync_fd, "cannot create DOF parser pipes", errno);
 
 	switch (parser_pid = fork()) {
-	case -1:
-		daemon_perr(sync_fd, "cannot fork DOF parser", errno);
+	case -1: {
+		fuse_log(FUSE_LOG_ERR, "cannot fork DOF parser: %s",
+			 strerror(errno));
+		exit(1);
+	}
 	case 0: {
 		/*
 		 * Sandboxed parser child.  Close unwanted fds and nail into
@@ -327,8 +338,10 @@ dof_parser_start(int sync_fd)
 		close(session_fd(cuse_session));
 		close(parser_in_pipe[1]);
 		close(parser_out_pipe[0]);
-		if (!foreground)
+		if (!foreground) {
 			close(sync_fd);
+			sync_fd = -1;
+		}
 
 		/*
 		 * Reporting errors at this point is difficult: we have already
@@ -379,7 +392,7 @@ dof_parser_tidy(int restart)
 	close(parser_out_pipe[0]);
 
 	if (restart)
-		dof_parser_start(-1);
+		dof_parser_start();
 }
 
 static dof_parsed_t *
@@ -452,7 +465,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		fuse_reply_ioctl(req, 0, NULL, 0);
 		return;
 	default: errmsg = "invalid ioctl";;
-		fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: %s %lx\n",
+		fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: %s %x\n",
 			 pid, errmsg, cmd);
 		goto fuse_err;
 	}
@@ -463,6 +476,8 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	if (userdata->state == DTP_IOCTL_START) {
 		in.iov_base = arg;
 		in.iov_len = sizeof(dof_helper_t);
+
+		fuse_log(FUSE_LOG_DEBUG, "DTRACEHIOC_ADDDOF from PID %i\n", pid);
 
 		errmsg = "error reading ioctl size";
 		if (fuse_reply_ioctl_retry(req, &in, 1, NULL, 0) < 0)
@@ -648,8 +663,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
   fuse_err:
 	if (fuse_reply_err(req, EINVAL) < 0)
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid,
-			 "cannot send error to ioctl caller: %s",
-			errmsg);
+			 "cannot send error to ioctl caller\n");
 	free(userdata->buf);
 	userdata->buf = NULL;
 	userdata->state = DTP_IOCTL_START;
@@ -846,7 +860,6 @@ main(int argc, char *argv[])
 {
 	int opt;
 	char *devname = "dtrace/helper";
-	int sync_fd = -1;
 	int ret;
 	struct sigaction sa = {0};
 
@@ -920,10 +933,12 @@ main(int argc, char *argv[])
 	sa.sa_handler = SIG_IGN;
 	(void) sigaction(SIGPIPE, &sa, NULL);
 
-	dof_parser_start(sync_fd);
+	dof_parser_start();
 
-	if (!foreground)
+	if (!foreground) {
 		close(sync_fd);
+		sync_fd = -1;
+	}
 
 #ifdef HAVE_LIBSYSTEMD
 	sd_notify(1, "READY=1");

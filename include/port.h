@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #define _PORT_H
 
 #include <pthread.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <sys/compiler.h>
 #include <sys/types.h>
@@ -29,8 +30,9 @@ int p_online(int cpun);
 
 int daemonize(int close_fds);
 
-_dt_noreturn_ void daemon_err(int fd, const char *err);
 _dt_noreturn_ void daemon_perr(int fd, const char *err, int err_no);
+_dt_printflike_(2, 3) void daemon_log(int fd, const char *fmt, ...);
+void daemon_vlog(int fd, const char *fmt, va_list ap);
 
 unsigned long linux_version_code(void);
 
