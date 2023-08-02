@@ -18,7 +18,6 @@
 #include <ctype.h>
 #include <alloca.h>
 #include <assert.h>
-#include <libgen.h>
 #include <limits.h>
 #include <sys/ioctl.h>
 #include <port.h>
