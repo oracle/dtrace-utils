@@ -1,14 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 # Test multiple simultaneous tracers, invoked successively (so there
 # are multiple dtracers and multiple processes tracing the same probes).
 #
-# @@xfail: something up with multiple simultaneous exiting tracers
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -44,7 +43,7 @@ main(int argc, char **argv)
 {
 	size_t i;
 
-	sleep(5);
+	sleep(10);
 	for (i = 0; i < 5; i++) {
 		if (TEST_MULTITRACE_GO_ENABLED())
 			TEST_MULTITRACE_GO();
@@ -73,7 +72,7 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -qws /dev/stdin $1 $2 $3 <<'EOF'
+	exec $dtrace -qws /dev/stdin $1 $2 $3 <<'EOF'
 	int fired[pid_t];
 	int exited[pid_t];
 
@@ -115,11 +114,24 @@ script() {
 		exit(1);
 	}
 EOF
-	echo tracer $3: exited
 }
 
 ./test 1 &
 ONE=$!
+
+# If doing in-tree testing, force dtprobed to reparse its DOF now, as
+# if re-executed with a newer version of dtprobed with incompatible
+# parse state.  Overwrite the parsed DOF with crap first, to force
+# a failure if it simply doesn't reparse at all.
+if [[ $dtrace != "/usr/sbin/dtrace" ]] && [[ -n $dtprobed_pid ]]; then
+    sleep 1
+    for parsed in $DTRACE_OPT_DOFSTASHPATH/stash/dof-pid/*/*/parsed; do
+	echo 'a' > $parsed
+    done
+    kill -USR2 $dtprobed_pid
+    sleep 1
+fi
+
 ./test 2 0 &
 TWO=$!
 

@@ -573,7 +573,7 @@ if [[ -z $USE_INSTALLED ]]; then
     	exit 1
     fi
     build/dtprobed $dtprobed_flags &
-    dtprobed_pid=$!
+    export dtprobed_pid=$!
     ZAPTHESE+=($dtprobed_pid)
 else
     dtrace="/usr/sbin/dtrace"

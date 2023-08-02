@@ -1,14 +1,12 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# Verify that dtprobed can handle lots of processes.  We don't check that
-# it's cleaning them up, and we don't explicitly check that it's not dead,
-# but if the dead-process-cleanup process fails and kills dtprobed we will
-# find out when later tests fail due to lack of dtprobed.
+# Verify that dtprobed can handle lots of processes.  Also check that it is
+# cleaning up wreckage from old dead processes.
 #
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -35,14 +33,27 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-cat > test.c <<EOF
+cat > test.c <<'EOF'
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "prov.h"
 
 int
 main(int argc, char **argv)
 {
+	long instance;
+
 	TEST_PROV_GO();
 
+	instance = strtol(argv[1], NULL, 10);
+
+	/*
+	 * Kill every other instance of ourself, so the DOF destructors
+	 * never run.
+	 */
+	if (instance % 2)
+		kill(getpid(), SIGKILL);
 	return 0;
 }
 EOF
@@ -64,7 +75,19 @@ if [ $? -ne 0 ]; then
 fi
 
 for ((i=0; i < 1024; i++)); do
-    ./test
+    ./test $i
 done
+
+# When doing in-tree testing, the DOF stash directory
+# should contain at most five or so DOFs, even though 512
+# processes left stale DOF around.  (Allow up to ten in
+# case the most recent cleanup is still underway.)
+if [[ $dtrace != "/usr/sbin/dtrace" ]] && [[ -n $DTRACE_OPT_DOFSTASHPATH ]]; then
+    NUMDOFS="$(find $DTRACE_OPT_DOFSTASHPATH/stash/dof -type f | wc -l)"
+    if [[ $NUMDOFS -gt 10 ]]; then
+	echo "DOF stash contains too many old DOFs: $NUMDOFS" >&2
+	exit 1
+    fi
+fi
 
 exit 0
