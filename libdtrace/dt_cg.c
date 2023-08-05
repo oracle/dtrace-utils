@@ -1136,7 +1136,6 @@ dt_cg_tstring_xalloc(dt_pcb_t *pcb)
 
 	assert(i < DT_TSTRING_SLOTS);
 	ts->in_use = 1;
-
 	return ts->offset;
 }
 
@@ -6454,6 +6453,11 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			dt_cg_node(mnp->dn_membexpr, dlp, drp);
 			dnp->dn_reg = mnp->dn_membexpr->dn_reg;
+
+			/* Move tstring (if any) to dnp. */
+			dnp->dn_tstring = mnp->dn_membexpr->dn_tstring;
+			mnp->dn_membexpr->dn_tstring = NULL;
+
 			dt_cg_typecast(mnp->dn_membexpr, dnp, dlp, drp);
 
 			dxp->dx_ident->di_flags &= ~DT_IDFLG_CGREG;
