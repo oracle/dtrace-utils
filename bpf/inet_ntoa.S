@@ -125,17 +125,17 @@ dt_inet_ntoa_write_uint8:
  *     inp = *(fp + -4);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
- *     dst[off++] = ':';
+ *     dst[off++] = '.';
  *
  *     inp = *(fp + -3);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
- *     dst[off++] = ':';
+ *     dst[off++] = '.';
  *
  *     inp = *(fp + -2);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
  *     if (off >= STRSZ) goto done:
- *     dst[off++] = ':';
+ *     dst[off++] = '.';
  *
  *     inp = *(fp + -1);
  *     off = dt_inet_ntoa_write_uint8(inp, dst, off);
