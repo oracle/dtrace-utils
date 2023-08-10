@@ -30,6 +30,10 @@
  *    piece of DOF from this process.  Encoded as a sparse file whose size is
  *    the next counter value to use.
  *
+ *    .../dof-pid/$pid/exec-mapping: a dev/ino pair in the form
+ *    $dev-$ino (as in the $dev-$ino directory entries): the dev/ino of the
+ *    process's primary text mapping, as given by libproc.
+ *
  *    .../dof-pid/$pid/$dev-$ino/raw: hardlink to the DOF for a given DOF
  *    source.  Pruned of dead processes at startup and on occasion: entries also
  *    deleted on receipt of DTRACEHIOC_REMOVE ioctls.  A hardlink is used in
@@ -747,17 +751,73 @@ early_err:
 }
 
 /*
- * Write out the DOF helper.  A trivial wrapper.
+ * Read a file into a buffer and return it.  If READ_SIZE is non-negative, read
+ * only that many bytes (and silently fail if the file isn't at least that
+ * long).
+ */
+static void *
+read_file(int fd, ssize_t read_size, size_t *size)
+{
+	struct stat s;
+	char *buf;
+	char *bufptr;
+	int len;
+
+	if (fstat(fd, &s) < 0) {
+		fuse_log(FUSE_LOG_ERR, "cannot stat: %s\n", strerror(errno));
+		return NULL;
+	}
+	if (read_size >= 0) {
+		if (s.st_size < read_size)
+			return NULL;
+	} else
+		read_size = s.st_size;
+
+	if ((buf = malloc(read_size)) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "out of memory allocating %zi bytes\n",
+			 read_size);
+		return NULL;
+	}
+
+	if (size)
+		*size = read_size;
+
+	bufptr = buf;
+	while ((len = read(fd, bufptr, read_size)) < read_size) {
+		if (len < 0) {
+			if (errno != EINTR) {
+				fuse_log(FUSE_LOG_ERR, "cannot read: %s",
+					 strerror(errno));
+				free(buf);
+				return NULL;
+			}
+			continue;
+		}
+		read_size -= len;
+		bufptr += len;
+	}
+	return buf;
+}
+
+/*
+ * Write out a buffer into a file. A trivial wrapper.
+ *
+ * If exists_ok is set, just do nothing if the file already exists.
  */
 static
-int dof_stash_write_dh(int dirfd, const dof_helper_t *dh)
+int dof_stash_write_file(int dirfd, const char *name, const void *buf,
+			 size_t bufsiz, int exists_ok)
 {
 	int fd;
 
-	if ((fd = openat(dirfd, "dh", O_CREAT | O_EXCL | O_WRONLY, 0644)) < 0)
+	errno = 0;
+	if ((fd = openat(dirfd, name, O_CREAT | O_EXCL | O_WRONLY, 0644)) < 0) {
+		if (exists_ok && errno == EEXIST)
+			return 0;
 		goto err;
+	}
 
-	if (write_chunk(fd, dh, sizeof(dof_helper_t *)) < 0) {
+	if (write_chunk(fd, buf, bufsiz) < 0) {
 		close(fd);
 		goto err;
 	}
@@ -768,20 +828,65 @@ int dof_stash_write_dh(int dirfd, const dof_helper_t *dh)
 	return 0;
 
 err:
-	unlinkat(dirfd, "dh", 0);
-	fuse_log(FUSE_LOG_ERR, "dtprobed: cannot write out DOF helper: %s\n",
+	if (errno != EEXIST)
+		unlinkat(dirfd, name, 0);
+
+        fuse_log(FUSE_LOG_ERR, "dtprobed: cannot write out %s: %s\n", name,
 		 strerror(errno));
 	return -1;
 }
 
 /*
- * Add a piece of raw DOF from a given (pid, dev, ino) triplet.
+ * Figure out if a PID's entry in the DOF stash has been invalidated by an
+ * exec(), by comparing the passed-in (dev, ino) against that recorded in
+ * the exec-mapping.  Having no exec-mapping is perfectly valid and
+ * indicates that no DOF has previously been seen for this PID at all.
+ */
+static int
+dof_stash_execed(pid_t pid, int perpid_dir, dev_t dev, ino_t ino)
+{
+	char *exec_mapping;
+	size_t size;
+	int fd;
+	dev_t old_dev;
+	ino_t old_ino;
+
+	if ((fd = openat(perpid_dir, "exec-mapping", O_RDONLY)) < 0) {
+		if (errno == ENOENT)
+			return 0;
+		goto err;
+	}
+
+	exec_mapping = read_file(fd, -1, &size);
+	if (exec_mapping == NULL)
+		goto err_close;
+
+	if (split_dof_name(exec_mapping, &old_dev, &old_ino) < 0) {
+		fuse_log(FUSE_LOG_ERR, "PID %i, exec mapping \"%s\" unparseable\n",
+			 pid, exec_mapping);
+		goto err_free;
+	}
+	return !((dev == old_dev) && (ino == old_ino));
+
+err_free:
+	free(exec_mapping);
+err_close:
+	close(fd);
+err:
+	fuse_log(FUSE_LOG_ERR, "Cannot determine if PID %i has execed; assuming not: %s\n",
+		 pid, strerror(errno));
+	return 0;
+}
+
+/*
+ * Add a piece of raw DOF from a given (pid, dev, ino) triplet.  May remove
+ * stale DOF in the process.
  *
  * Return the new DOF generation number, or -1 on error.
  */
 int
-dof_stash_add(pid_t pid, dev_t dev, ino_t ino, const dof_helper_t *dh,
-	      const void *dof, size_t size)
+dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev, dev_t exec_ino,
+	      const dof_helper_t *dh, const void *dof, size_t size)
 {
 	char *dof_name = make_dof_name(dev, ino);
 	char *pid_name = make_numeric_name(pid);
@@ -794,16 +899,32 @@ dof_stash_add(pid_t pid, dev_t dev, ino_t ino, const dof_helper_t *dh,
 	int new_dof = 0;
 	int err = -1;
 
-	if (!pid_name || !dof_name)
+	if (!pid_name || !dof_name) {
+		fuse_log(FUSE_LOG_ERR, "Out of memory stashing DOF\n");
 		goto out_free;
-
-
-	/* Make the directories. */
+	}
 
 	perpid_dir = make_state_dirat(pid_dir, pid_name, "PID", 0);
 
 	if (perpid_dir < 0)
 		goto out_free;
+
+	/* Figure out if the executable mapping has changed: if it has, purge
+	   the entire PID and recreate it.  */
+
+	if (dof_stash_execed(pid, perpid_dir, exec_dev, exec_ino)) {
+		fuse_log(FUSE_LOG_DEBUG, "%i: exec() detected, removing old DOF\n", pid);
+		if (dof_stash_remove_pid(pid) < 0) {
+			fuse_log(FUSE_LOG_ERR, "PID %i exec()ed, but cannot remove dead DOF\n",
+				 pid);
+			goto err_unlink_nomsg;
+		}
+
+		perpid_dir = make_state_dirat(pid_dir, pid_name, "PID", 0);
+
+		if (perpid_dir < 0)
+			goto out_free;
+	}
 
 	perpid_dof_dir = make_state_dirat(perpid_dir, dof_name, "per-pid DOF", 0);
 
@@ -852,8 +973,33 @@ dof_stash_add(pid_t pid, dev_t dev, ino_t ino, const dof_helper_t *dh,
 	if (linkat(dof_dir, dof_name, perpid_dof_dir, "raw", 0) < 0)
 		goto err_unlink_msg;
 
-	if (dof_stash_write_dh(perpid_dof_dir, dh) < 0)
+	if (dof_stash_write_file(perpid_dof_dir, "dh", dh,
+				 sizeof(dof_helper_t), 0) < 0)
 		goto err_unlink_nomsg;
+
+	if (new_dof) {
+		char *exec_mapping = make_dof_name(exec_dev, exec_ino);
+
+		if (!exec_mapping) {
+			fuse_log(FUSE_LOG_ERR, "Out of memory stashing new DOF\n");
+			goto err_unlink_nomsg;
+		}
+
+		/*
+		 * The exec-mapping wants writing out iff this is the first new
+		 * DOF written for this PID.  We already checked for exec()
+		 * above, so if exec-mapping still exists, its content must be
+		 * identical to what we're about to write out: so treat an
+		 * already-existing file as a do-nothing condition.
+		 */
+		if (dof_stash_write_file(perpid_dir, "exec-mapping", exec_mapping,
+					 strlen(exec_mapping), 1) < 0) {
+			free(exec_mapping);
+			goto err_unlink_nomsg;
+		}
+
+		free(exec_mapping);
+	}
 
 	/*
 	 * Update the generation counter and mark this DOF's generation.  On
@@ -1175,7 +1321,9 @@ dof_stash_remove(pid_t pid, int gen)
 	 * the link counts on the non-per-PID stuff; if zero, unlink that too.
 	 */
 
-	fuse_log(FUSE_LOG_DEBUG, "gen_name: %s; gen_linkname: %s; perpid_dof_dir: %i\n", gen_name, gen_linkname, perpid_dof_dir);
+	fuse_log(FUSE_LOG_DEBUG, "%i: gen_name: %s; gen_linkname: %s; perpid_dof_dir: %i\n",
+		 pid, gen_name, gen_linkname, perpid_dof_dir);
+
 	if (unlinkat(perpid_dof_dir, "raw", 0) != 0 && errno != ENOENT) {
 		fuse_log(FUSE_LOG_ERR, "dtprobed: cannot unlink per-PID raw DOF for PID %i generation %i: %s\n",
 			 pid, gen, strerror(errno));
@@ -1199,8 +1347,6 @@ dof_stash_remove(pid_t pid, int gen)
 	if (refcount_cleanup(dof_dir, gen_linkname, 0) < 0)
 		unlink_err = gen_linkname;
 
-	refcount_cleanup(dof_dir, gen_linkname, 0);
-
 	/*
 	 * Clean up the PID directory itself, if it is now empty.  We can't just
 	 * use refcount_cleanup here because we also have to delete the
@@ -1216,6 +1362,12 @@ dof_stash_remove(pid_t pid, int gen)
 	if (pid_stat.st_nlink == 2) {
 		if (unlinkat(perpid_dir, "next-gen", 0) < 0) {
 			fuse_log(FUSE_LOG_ERR, "dtprobed: cannot clean up gen counter in per-PID dir for PID %i: %s\n",
+				 pid, strerror(errno));
+			goto err;
+		}
+		if (unlinkat(perpid_dir, "exec-mapping", 0) < 0
+			&& errno != ENOENT) {
+			fuse_log(FUSE_LOG_ERR, "dtprobed: cannot clean up exec-mapping in per-PID dir for PID %i: %s\n",
 				 pid, strerror(errno));
 			goto err;
 		}
@@ -1245,6 +1397,72 @@ oom:
 }
 
 /*
+ * Remove all DOF registered for a given PID.  Used when new DOF arrives and the
+ * primary text mapping is found to be different from what it was (when exec()),
+ * and when processes die without deregistering (see below).
+ */
+int
+dof_stash_remove_pid(pid_t pid)
+{
+	char *pid_name = make_numeric_name(pid);
+	struct dirent *ent;
+	DIR *dir;
+	int tmp;
+	int err = -1;
+
+	if ((tmp = openat(pid_dir, pid_name, O_RDONLY | O_CLOEXEC)) < 0) {
+		fuse_log(FUSE_LOG_ERR, "cannot open per-PID DOF mappings directory for pid %s for cleanup: %s\n",
+			 pid_name, strerror(errno));
+		goto out;
+	}
+
+	if ((dir = fdopendir(tmp)) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "cannot clean up per-PID DOF mappings for PID %s: %s\n",
+			 pid_name, strerror(errno));
+		close(tmp);
+		goto out;
+	}
+
+	fuse_log(FUSE_LOG_DEBUG, "pruning dead/execed PID %s\n", pid_name);
+
+	/* Work over all the mappings in this PID. */
+
+	while (errno = 0, (ent = readdir(dir)) != NULL) {
+		int gen;
+		char *end_gen;
+
+		if (errno != 0) {
+			fuse_log(FUSE_LOG_ERR, "cannot read per-PID DOF mappings for PID %i for cleanup: %s\n",
+				 pid, strerror(errno));
+			closedir(dir);
+			goto out;
+		}
+
+		if (ent->d_type != DT_LNK)
+			continue;
+
+		fuse_log(FUSE_LOG_DEBUG, "Working over generation %s\n",
+			 ent->d_name);
+
+		gen = strtol(ent->d_name, &end_gen, 10);
+		if (*end_gen != '\0')
+			continue;
+
+		if (dof_stash_remove(pid, gen) < 0) {
+			fuse_log(FUSE_LOG_ERR, "cannot remove dead pid %i\n", pid);
+			closedir(dir);
+			goto out;
+		}
+	}
+	closedir(dir);
+	err = 0;
+
+out:
+	free(pid_name);
+	return err;
+}
+
+/*
  * Prune dead processes out of the DOF stash.  This is not a correctness
  * operation, just a space-waste reducer. If a process with DOF died uncleanly
  * and its PID was recycled since a cleanup was last run, we'll leave some DOF
@@ -1263,8 +1481,8 @@ oom:
 void
 dof_stash_prune_dead(void)
 {
-	DIR *all_pids_dir;
-	struct dirent *pid_ent;
+	DIR *dir;
+	struct dirent *ent;
 	int tmp;
 
 	fuse_log(FUSE_LOG_DEBUG, "Pruning dead PIDs\n");
@@ -1274,34 +1492,32 @@ dof_stash_prune_dead(void)
 		return;
 	}
 
-	if ((all_pids_dir = fdopendir(tmp)) == NULL) {
+	if ((dir = fdopendir(tmp)) == NULL) {
 		close(tmp);
 		fuse_log(FUSE_LOG_ERR, "cannot clean up per-PID DOF directory: %s\n",
 			 strerror(errno));
 		return;
 	}
-	rewinddir(all_pids_dir);
+	rewinddir(dir);
 
 	/*
 	 * Work over all the PIDs.
 	 */
-	while (errno = 0, (pid_ent = readdir(all_pids_dir)) != NULL) {
-		DIR *perpid_dir;
-		struct dirent *mapping_ent;
+	while (errno = 0, (ent = readdir(dir)) != NULL) {
 		char *end_pid;
 		pid_t pid;
 
 		if (errno != 0)
 			goto scan_failure;
 
-		if (pid_ent->d_type != DT_DIR)
+		if (ent->d_type != DT_DIR)
 			continue;
 
 		/*
 		 * Only directories with numeric names can be PIDs: skip all the
 		 * rest.
 		 */
-		pid = strtol(pid_ent->d_name, &end_pid, 10);
+		pid = strtol(ent->d_name, &end_pid, 10);
 		if (*end_pid != '\0')
 			continue;
 
@@ -1314,46 +1530,7 @@ dof_stash_prune_dead(void)
 		 * mapping in turn.
 		 */
 
-		if ((tmp = openat(pid_dir, pid_ent->d_name, O_RDONLY | O_CLOEXEC)) < 0) {
-			fuse_log(FUSE_LOG_ERR,"cannot open per-PID DOF mappings directory for cleanup: %s\n",
-				 strerror(errno));
-			goto out;
-		}
-
-		if ((perpid_dir = fdopendir(tmp)) == NULL) {
-			fuse_log(FUSE_LOG_ERR, "cannot clean up per-PID DOF mappings: %s\n",
-				 strerror(errno));
-			close(tmp);
-			goto out;
-		}
-
-		fuse_log(FUSE_LOG_DEBUG, "Pruning dead PID %s\n", pid_ent->d_name);
-
-		/* Work over all the mappings in this PID. */
-
-		while (errno = 0, (mapping_ent = readdir(perpid_dir)) != NULL) {
-			int gen;
-			char *end_gen;
-
-			if (errno != 0) {
-				fuse_log(FUSE_LOG_ERR, "cannot read per-PID DOF mappings for cleanup: %s\n",
-					 strerror(errno));
-				closedir(perpid_dir);
-				goto out;
-			}
-
-			if (mapping_ent->d_type != DT_LNK)
-				continue;
-
-			fuse_log(FUSE_LOG_DEBUG, "Working over generation %s\n", mapping_ent->d_name);
-
-			gen = strtol(mapping_ent->d_name, &end_gen, 10);
-			if (*end_gen != '\0')
-				continue;
-
-			dof_stash_remove(pid, gen);
-		}
-		closedir(perpid_dir);
+		dof_stash_remove_pid(pid);
 		errno = 0;
 	}
 
@@ -1361,62 +1538,13 @@ dof_stash_prune_dead(void)
 		goto scan_failure;
 
 out:
-	closedir(all_pids_dir);
+	closedir(dir);
 	return;
 
 scan_failure:
 	fuse_log(FUSE_LOG_ERR, "cannot scan per-PID DOF directory for cleanup: %s\n",
 		 strerror(errno));
 	goto out;
-}
-
-/*
- * Read a file into a buffer and return it.  If READ_SIZE is non-negative, read
- * only that many bytes (and silently fail if the file isn't at least that
- * long).
- */
-static void *
-read_file(int fd, ssize_t read_size, size_t *size)
-{
-	struct stat s;
-	char *buf;
-	char *bufptr;
-	int len;
-
-	if (fstat(fd, &s) < 0) {
-		fuse_log(FUSE_LOG_ERR, "cannot stat: %s\n", strerror(errno));
-		return NULL;
-	}
-	if (read_size >= 0) {
-		if (s.st_size < read_size)
-			return NULL;
-	} else
-		read_size = s.st_size;
-
-	if ((buf = malloc(read_size)) == NULL) {
-		fuse_log(FUSE_LOG_ERR, "out of memory allocating %zi bytes\n",
-			 read_size);
-		return NULL;
-	}
-
-	if (size)
-		*size = read_size;
-
-	bufptr = buf;
-	while ((len = read(fd, bufptr, read_size)) < read_size) {
-		if (len < 0) {
-			if (errno != EINTR) {
-				fuse_log(FUSE_LOG_ERR, "cannot read: %s",
-					 strerror(errno));
-				free(buf);
-				return NULL;
-			}
-			continue;
-		}
-		read_size -= len;
-		bufptr += len;
-	}
-	return buf;
 }
 
 /*
@@ -1429,9 +1557,9 @@ read_file(int fd, ssize_t read_size, size_t *size)
  */
 int
 reparse_dof(int out, int in,
-	    int (*reparse)(int pid, int out, int in, dev_t dev, ino_t inum,
-			   dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
-			   int reparsing),
+	    int (*reparse)(int pid, int out, int in, dev_t dev, ino_t ino,
+			   dev_t unused1, ino_t unused2, dof_helper_t *dh,
+			   const void *in_buf, size_t in_bufsz, int reparsing),
 	    int force)
 {
 	DIR *all_pids_dir;
@@ -1564,7 +1692,7 @@ reparse_dof(int out, int in,
 			}
 
 			if (split_dof_name(mapping_ent->d_name, &dev, &ino) < 0) {
-				fuse_log(FUSE_LOG_ERR, "when reparsing DOF for PID %s, cannot derive dev/inum from %s: ignored\n",
+				fuse_log(FUSE_LOG_ERR, "when reparsing DOF for PID %s, cannot derive dev/ino from %s: ignored\n",
 					 pid_ent->d_name, mapping_ent->d_name);
 				continue;
 			}
@@ -1605,7 +1733,7 @@ reparse_dof(int out, int in,
 
 			fuse_log(FUSE_LOG_DEBUG, "Reparsing DOF for PID %s, mapping %s\n",
 				 pid_ent->d_name, mapping_ent->d_name);
-			if (reparse(pid, out, in, dev, ino, dh, dof, dof_size, 1) < 0)
+			if (reparse(pid, out, in, dev, ino, 0, 0, dh, dof, dof_size, 1) < 0)
 				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot parse DOF for PID %s, mapping %s: ignored\n",
 					    pid_ent->d_name, mapping_ent->d_name);
 			free(dof);

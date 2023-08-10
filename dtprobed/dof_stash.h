@@ -25,17 +25,18 @@ int dof_stash_push_parsed(dt_list_t *accum, dof_parsed_t *parsed);
 int dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum);
 void dof_stash_free(dt_list_t *accum);
 
-int dof_stash_add(pid_t pid, dev_t dev, ino_t ino, const dof_helper_t *dh,
-		  const void *dof, size_t size);
+int dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev,
+		  dev_t exec_ino, const dof_helper_t *dh, const void *dof,
+		  size_t size);
 int dof_stash_remove(pid_t pid, int gen);
+int dof_stash_remove_pid(pid_t pid);
 
 void dof_stash_prune_dead(void);
-
-int
-reparse_dof(int out, int in,
-	    int (*reparse)(int pid, int out, int in, dev_t dev, ino_t inum,
-			   dof_helper_t *dh, const void *in_buf,
-			   size_t in_bufsz, int reparsing),
-	    int force);
+int reparse_dof(int out, int in,
+		int (*reparse)(int pid, int out, int in, dev_t dev, ino_t ino,
+			       dev_t unused1, ino_t unused2, dof_helper_t *dh,
+			       const void *in_buf, size_t in_bufsz,
+			       int reparsing),
+		int force);
 
 #endif

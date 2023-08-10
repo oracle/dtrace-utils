@@ -99,9 +99,9 @@ static const struct cuse_lowlevel_ops dtprobed_clop = {
 };
 
 static int
-process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum,
-	    dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
-	    int reparsing);
+process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
+	    dev_t exec_inum, dof_helper_t *dh, const void *in_buf,
+	    size_t in_bufsz, int reparsing);
 
 static void
 log_msg(enum fuse_log_level level, const char *fmt, va_list ap)
@@ -448,10 +448,11 @@ dof_read(pid_t pid, int in)
  * as we are consistent.)
  */
 static const int
-mapping_dev_inum(pid_t pid, uintptr_t addr, dev_t *dev, ino_t *inum)
+mapping_dev_inums(pid_t pid, uintptr_t addr, dev_t *dev, ino_t *inum,
+		  dev_t *exec_dev, dev_t *exec_inum)
 {
 	ps_prochandle *P;
-	const prmap_t *mapp;
+	const prmap_t *mapp, *exec_mapp;
 	int err = 0;
 
 	if ((P = Pgrab(pid, 2, 0, NULL, &err)) == NULL) {
@@ -461,9 +462,10 @@ mapping_dev_inum(pid_t pid, uintptr_t addr, dev_t *dev, ino_t *inum)
 	}
 
 	mapp = Paddr_to_map(P, addr);
+	exec_mapp = Plmid_to_map(P, LM_ID_BASE, PR_OBJ_EXEC);
 
 	err = -1;
-	if (mapp == NULL) {
+	if (mapp == NULL || exec_mapp == NULL) {
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
 			 pid);
 		goto out;
@@ -471,6 +473,8 @@ mapping_dev_inum(pid_t pid, uintptr_t addr, dev_t *dev, ino_t *inum)
 
 	*dev = mapp->pr_dev;
 	*inum = mapp->pr_inum;
+	*exec_dev = exec_mapp->pr_dev;
+	*exec_inum = exec_mapp->pr_inum;
 
 	err = 0;
 out:
@@ -494,8 +498,8 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	dtprobed_userdata_t *userdata = get_userdata(pid);
 	const char *errmsg;
 	const void *buf;
-	dev_t dev = 0;
-	ino_t inum = 0;
+	dev_t dev = 0, exec_dev = 0;
+	ino_t inum = 0, exec_inum = 0;
 	int gen;
 
 	/*
@@ -683,12 +687,13 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	if (userdata->buf)
 		buf = userdata->buf;
 
-	if ((mapping_dev_inum(pid, userdata->dh.dofhp_dof, &dev, &inum)) < 0)
+	if ((mapping_dev_inums(pid, userdata->dh.dofhp_dof, &dev, &inum,
+		     &exec_dev, &exec_inum)) < 0)
 		goto process_err;
 
 	if ((gen = process_dof(pid, parser_out_pipe, parser_in_pipe,
-			       dev, inum, &userdata->dh, buf,
-			       userdata->dof_hdr.dofh_loadsz, 0)) < 0)
+			       dev, inum, exec_dev, exec_inum, &userdata->dh,
+			       buf, userdata->dof_hdr.dofh_loadsz, 0)) < 0)
 		goto process_err;
 
 	if (fuse_reply_ioctl(req, gen, NULL, 0) < 0)
@@ -739,8 +744,9 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
  * the parsed DOF representation.
  */
 static int
-process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dof_helper_t *dh,
-	    const void *in_buf, size_t in_bufsz, int reparsing)
+process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
+	    dev_t exec_inum, dof_helper_t *dh, const void *in_buf,
+	    size_t in_bufsz, int reparsing)
 {
 	dof_parsed_t *provider;
 	size_t i;
@@ -802,7 +808,8 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dof_helper_t *dh,
 	}
 
 	if (!reparsing)
-		if ((gen = dof_stash_add(pid, dev, inum, dh, in_buf, in_bufsz)) < 0)
+		if ((gen = dof_stash_add(pid, dev, inum, exec_dev, exec_inum, dh,
+					 in_buf, in_bufsz)) < 0)
 			goto fileio;
 
 	if (dof_stash_write_parsed(pid, dev, inum, &accum) < 0) {
