@@ -36,7 +36,7 @@
  *                       //   perfect match    any mismatches
  *                       //        == 0              != 0
  *     r0 |= (r0 >> 32); //        == 0              != 0
- *     r0 &= 0xffffffff; //        == 0              >  0
+ *     r0 &= -1;         //        == 0              >  0
  *     r0 -= 1;          //        <  0              >= 0
  *     r0 >>= 63;        //        == 1              == 0
  *
@@ -69,7 +69,7 @@ dt_index_match:
 	mov	%r4, %r0
 	rsh	%r4, 32
 	or	%r0, %r4
-	and	%r0, 0xffffffff
+	and	%r0, -1
 	sub	%r0, 1
 	rsh	%r0, 63
 
