@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -37,6 +37,7 @@
 #define _dt_printflike_(string_index,first_to_check) __attribute__((__format__(__printf__,(string_index),(first_to_check))))
 #define _dt_unused_ __attribute__((__unused__))
 #define _dt_noreturn_ __attribute__((__noreturn__))
+#define _dt_weak_ __attribute__((__weak__))
 #define _dt_unlikely_(x) __builtin_expect((x),0)
 #define _dt_barrier_(x) __asm__ __volatile__("": :"r"(x):"memory")
 
@@ -45,6 +46,7 @@
 #define _dt_constructor_(x) _Pragma("init(" #x ")")
 #define _dt_destructor_(x) _Pragma("fini(" #x ")")
 #define _dt_noreturn_
+#define _dt_weak_
 #define _dt_unlikely_(x) (x)
 #define _dt_barrier_(x)
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -12,6 +12,7 @@
 #include <sys/dtrace.h>
 #include <sys/compiler.h>
 #include <sys/ioctl.h>
+#include <pthread.h>
 
 #include <gelf.h>
 
@@ -37,6 +38,32 @@ static const char *modname;	/* Name of this load object */
 static int gen;			/* DOF helper generation */
 extern dof_hdr_t __SUNW_dof;	/* DOF defined in the .SUNW_dof section */
 static boolean_t dof_init_debug = B_FALSE;	/* From DTRACE_DOF_INIT_DEBUG */
+static dof_helper_t dh;
+
+static void dtrace_dof_register(void);
+
+static int
+private_pthread_atfork(void (*prepare)(void), void (*parent)(void),
+		       void (*child)(void))
+{
+  /* Sufficiently old glibc doesn't define pthread_atfork in libc, so we have to
+     use an internal interface instead in order to not force all probe users to
+     pull in -lpthread.  This internal interface is used by the pthread_atfork
+     implementation in libc_nonshared.a in all glibcs new enough not to be
+     affected by this problem, so there are no stable-ABI concerns here: the ABI
+     is stable regardless.  */
+
+#ifdef HAVE_PTHREAD_ATFORK
+	return pthread_atfork(prepare, parent, child);
+#else
+	extern int __register_atfork(void (*prepare) (void),
+				     void (*parent) (void),
+				     void (*child) (void), void *dso_handle);
+	extern void *__dso_handle _dt_weak_;
+
+	return __register_atfork(prepare, parent, child, __dso_handle);
+#endif
+}
 
 _dt_constructor_(dtrace_dof_init)
 static void
@@ -48,12 +75,9 @@ dtrace_dof_init(void)
 #else
 	Elf32_Ehdr *elf;
 #endif
-	dof_helper_t dh;
 	struct link_map *lmp = NULL;
 	Lmid_t lmid = -1;
-	int fd;
 	const char *p;
-	char mfn[PATH_MAX];		/* "/proc/<pid>/maps" */
 	char str[4096];			/* read buffer */
 	char *enm = NULL;		/* pointer to target executable name */
 	FILE *fp;
@@ -68,30 +92,22 @@ dtrace_dof_init(void)
 	if ((p = getenv("DTRACE_DOF_INIT_DEVNAME")) != NULL)
 		devname = p;
 
-	if ((fd = open(devname, O_RDWR)) < 0) {
-		if (dof_init_debug)
-			dprintf(2, "DRTI: Failed to open helper device %s\n",
-				devname);
-		return;
-	}
-
 #if 0
 	if (dlinfo(RTLD_SELF, RTLD_DI_LINKMAP, &lmp) == -1) {
 		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
-                goto out;
+		return;
 	}
 
 	if (dlinfo(RTLD_SELF, RTLD_DI_LMID, &lmid) == -1) {
 		dprintf(2, "DRTI: Couldn't discover link map ID.\n");
-                goto out;
+		return;
 	}
 #else
 	lmid = 0;			/* We need a way to determine this. */
 
-	snprintf(mfn, sizeof(mfn), "/proc/self/maps");
-	if ((fp = fopen(mfn, "re")) == NULL) {
+	if ((fp = fopen("/proc/self/maps", "re")) == NULL) {
 		dprintf(2, "DRTI: Failed to open maps file.\n");
-                goto out;
+		return;
 	}
 	while (fgets(str, sizeof(str), fp) != NULL) {
 		uintptr_t	start, end;
@@ -119,7 +135,7 @@ dtrace_dof_init(void)
 	if (_dt_unlikely_(enm == NULL)) {
 		fclose(fp);
 		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
-		goto out;
+		return;
 	}
 
 	/* Now start at the beginning & look for 1st segment of the target */
@@ -150,7 +166,7 @@ dtrace_dof_init(void)
 #endif
 	if (_dt_unlikely_(lmp == NULL)) {
 		dprintf(2, "DRTI: Couldn't discover module name or address.\n");
-                goto out;
+		return;
 	}
 
 	if ((modname = strrchr(lmp->l_name, '/')) == NULL)
@@ -164,7 +180,7 @@ dtrace_dof_init(void)
 	    dof->dofh_ident[DOF_ID_MAG3] != DOF_MAG_MAG3) {
 		dprintf(2, "DRTI: .SUNW_dof section corrupt in %s.\n",
 			lmp->l_name);
-                goto out;
+		return;
 	}
 
 	elf = (void *)lmp->l_addr;
@@ -179,14 +195,29 @@ dtrace_dof_init(void)
 		(void) snprintf(dh.dofhp_mod, sizeof (dh.dofhp_mod),
 		    "LM%lu`%s", lmid, modname);
 	}
+	dtrace_dof_register();
+	private_pthread_atfork(NULL, NULL, dtrace_dof_register);
+}
+
+static void
+dtrace_dof_register(void)
+{
+	int fd;
+
+	if ((fd = open(devname, O_RDWR, O_CLOEXEC)) < 0) {
+		if (dof_init_debug)
+			dprintf(2, "DRTI: Failed to open helper device %s\n",
+				devname);
+		return;
+	}
 
 	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
-		dprintf(2, "DRTI: Ioctl failed for DOF at %p\n", (void *)dof);
+		dprintf(2, "DRTI: Ioctl failed for DOF at %llx\n",
+			(long long unsigned) dh.dofhp_addr);
 	else if (dof_init_debug)
-		dprintf(2, "DRTI: Ioctl OK for DOF at %p (gen %d)\n",
-			(void *)dof, gen);
+		dprintf(2, "DRTI: Ioctl OK for DOF at %llx (gen %d)\n",
+			(long long unsigned) dh.dofhp_addr, gen);
 
- out:
 	close(fd);
 }
 
