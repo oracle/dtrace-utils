@@ -40,6 +40,8 @@ extern dof_hdr_t __SUNW_dof;	/* DOF defined in the .SUNW_dof section */
 static boolean_t dof_init_debug = B_FALSE;	/* From DTRACE_DOF_INIT_DEBUG */
 static dof_helper_t dh;
 
+static char *errmsg_open, *errmsg_ioctl_failed, *errmsg_ioctl_ok;
+
 static void dtrace_dof_register(void);
 
 static int
@@ -195,6 +197,25 @@ dtrace_dof_init(void)
 		(void) snprintf(dh.dofhp_mod, sizeof (dh.dofhp_mod),
 		    "LM%lu`%s", lmid, modname);
 	}
+
+	/*
+	 * Prep error messages to avoid non-async-signal-safe printfs inside
+	 * dtrace_dof_register().
+	 */
+	if (asprintf(&errmsg_ioctl_failed, "DRTI: Ioctl failed for DOF at %llx\n",
+		     (long long unsigned) dh.dofhp_addr) < 0)
+		errmsg_ioctl_failed = NULL;
+
+	if (dof_init_debug) {
+		if (asprintf(&errmsg_open, "DRTI: Failed to open helper device %s\n",
+			     devname) < 0)
+			errmsg_open = NULL;
+
+		if (asprintf(&errmsg_ioctl_ok, "DRTI: Ioctl OK for DOF at %llx (gen %d)\n",
+			     (long long unsigned) dh.dofhp_addr, gen) < 0)
+			errmsg_ioctl_ok = NULL;
+	}
+
 	dtrace_dof_register();
 	private_pthread_atfork(NULL, NULL, dtrace_dof_register);
 }
@@ -205,18 +226,21 @@ dtrace_dof_register(void)
 	int fd;
 
 	if ((fd = open(devname, O_RDWR, O_CLOEXEC)) < 0) {
-		if (dof_init_debug)
-			dprintf(2, "DRTI: Failed to open helper device %s\n",
-				devname);
+		if (dof_init_debug && errmsg_open)
+			write(2, errmsg_open, strlen(errmsg_open));
 		return;
 	}
 
-	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1)
-		dprintf(2, "DRTI: Ioctl failed for DOF at %llx\n",
-			(long long unsigned) dh.dofhp_addr);
-	else if (dof_init_debug)
-		dprintf(2, "DRTI: Ioctl OK for DOF at %llx (gen %d)\n",
-			(long long unsigned) dh.dofhp_addr, gen);
+	if ((gen = ioctl(fd, DTRACEHIOC_ADDDOF, &dh)) == -1) {
+		if (errmsg_ioctl_failed)
+			write(2, errmsg_ioctl_failed,
+			      strlen(errmsg_ioctl_failed));
+		else {
+			const char *ioctl_failed = "DRTI: Ioctl failed for DOF\n";
+			write(2, ioctl_failed, strlen(ioctl_failed));
+		}
+	} else if (dof_init_debug && errmsg_ioctl_ok)
+		write(2, errmsg_ioctl_ok, strlen(errmsg_ioctl_ok));
 
 	close(fd);
 }
@@ -240,4 +264,11 @@ dtrace_dof_fini(void)
 		dprintf(2, "DRTI: Ioctl removed DOF (gen %d)\n", gen);
 
 	close(fd);
+
+	free(errmsg_open);
+	free(errmsg_ioctl_failed);
+	free(errmsg_ioctl_ok);
+	errmsg_open = NULL;
+	errmsg_ioctl_failed = NULL;
+	errmsg_ioctl_ok = NULL;
 }
