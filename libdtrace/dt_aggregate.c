@@ -489,13 +489,12 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 	dt_ahashent_t		*h;
 	dtrace_aggdesc_t	*agg;
 	dtrace_aggdata_t	*agd;
-	dtrace_recdesc_t	*rec;
 	char			*ptr;
 	uint64_t		hval = aggid;
 	uint64_t		dgen;
 	size_t			ndx = hval % agh->dtah_size;
-	size_t			off, size;
-	int			i, rval;
+	size_t			size;
+	int			rval;
 
 	/* Data generation: skip if 0 */
 	dgen = *(uint64_t *)data;
@@ -522,14 +521,8 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 			continue;
 
 		/* Aggregation key needs to match.  */
-		ptr = agd->dtada_key;
-		for (i = 0; i < agg->dtagd_nkrecs; i++) {
-			rec = &agg->dtagd_krecs[i];
-			off = rec->dtrd_offset;
-
-			if (memcmp(&key[off], &ptr[off], rec->dtrd_size) != 0)
-				goto hashnext;
-		}
+		if (memcmp(key, agd->dtada_key, agg->dtagd_ksize))
+			goto hashnext;
 
 		/*
 		 * Clear hash data (and update its gen) if the data gen is
