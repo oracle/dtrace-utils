@@ -1,14 +1,14 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /* @@runtest-opts: -C */
 
-#include <sys/dtrace.h>
+#include <stdint.h>
+#include <dtrace/dif_defines.h>
 
 #define INTFUNC(x)			\
 	BEGIN				\
@@ -36,13 +36,13 @@
 	/*DSTYLED*/			\
 	}
 
-#define NUM_UNIMPLEMENTED 2
+#define NUM_UNIMPLEMENTED 7
 
 INTFUNC(rand())
-INTFUNC(mutex_owned(&dtrace`dtrace_lock))
-INTFUNC(mutex_owner(&dtrace`dtrace_lock))
-INTFUNC(mutex_type_adaptive(&dtrace`dtrace_lock))
-INTFUNC(mutex_type_spin(&dtrace`dtrace_lock))
+INTFUNC(mutex_owned(&`bpf_verifier_lock))
+INTFUNC(mutex_owner(&`bpf_verifier_lock))
+INTFUNC(mutex_type_adaptive(&`bpf_verifier_lock))
+INTFUNC(mutex_type_spin(&`bpf_verifier_lock))
 INTFUNC(rw_read_held(&`tasklist_lock))
 INTFUNC(rw_write_held(&`tasklist_lock))
 INTFUNC(rw_iswriter(&`tasklist_lock))
@@ -61,12 +61,14 @@ VOIDFUNC(copyinto)
    INTFUNC(msgsize(NULL)) */
 INTFUNC(getmajor(0))
 INTFUNC(getminor(0))
-STRFUNC(ddi_pathname(NULL, 0))
+/* Not implemented.
+   STRFUNC(ddi_pathname(NULL, 0)) */
 STRFUNC(strjoin("foo", "bar"))
 STRFUNC(lltostr(12373))
 STRFUNC(basename("/var/crash/systemtap"))
 STRFUNC(dirname("/var/crash/systemtap"))
-STRFUNC(cleanpath("/var/crash/systemtap"))
+/* Not implemented yet.
+   STRFUNC(cleanpath("/var/crash/systemtap")) */
 STRFUNC(strchr("The SystemTap, The.", 't'))
 STRFUNC(strrchr("The SystemTap, The.", 't'))
 STRFUNC(strstr("The SystemTap, The.", "The"))
@@ -80,11 +82,13 @@ INTFUNC(htonll(0x1234567890abcdefL))
 INTFUNC(ntohs(0x1234))
 INTFUNC(ntohl(0x12345678))
 INTFUNC(ntohll(0x1234567890abcdefL))
-STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof(ipaddr_t))))
+/* Not implemented yet.
+   STRFUNC(inet_ntop(AF_INET, (void *)alloca(sizeof(ipaddr_t)))) */
 STRFUNC(inet_ntoa((ipaddr_t *)alloca(sizeof(ipaddr_t))))
 STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof(in6_addr_t))))
-STRFUNC(d_path(&(curthread->fs->root)))
-STRFUNC(link_ntop(ARPHRD_ETHER, (void *)alloca(sizeof(ipaddr_t))))
+/* Not implemented yet.
+   STRFUNC(d_path(&(curthread->fs->root)))
+   STRFUNC(link_ntop(ARPHRD_ETHER, (void *)alloca(sizeof(ipaddr_t)))) */
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1 - NUM_UNIMPLEMENTED/
