@@ -6,6 +6,8 @@
 # http://oss.oracle.com/licenses/upl.
 #
 
+# @@nosort
+
 dtrace=$1
 
 # once n becomes too small, there are insufficient registers
