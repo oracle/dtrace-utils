@@ -803,6 +803,10 @@ extern int dt_load_libs(dtrace_hdl_t *dtp);
 extern void *dt_compile(dtrace_hdl_t *dtp, int context,
 			dtrace_probespec_t pspec, void *arg, uint_t cflags,
 			int argc, char *const argv[], FILE *fp, const char *s);
+extern dtrace_difo_t *dt_construct(dtrace_hdl_t *dtp, struct dt_probe *prp,
+				   uint_t cflags, dt_ident_t *idp);
+extern int dt_link(dtrace_hdl_t *dtp, const struct dt_probe *prp,
+		   dtrace_difo_t *dp, dt_ident_t *idp);
 extern dtrace_difo_t *dt_program_construct(dtrace_hdl_t *dtp,
 					   struct dt_probe *prp, uint_t cflags,
 					   dt_ident_t *idp);

@@ -477,6 +477,9 @@ dt_probe_destroy(dt_probe_t *prp)
 	else
 		dtp = yypcb->pcb_hdl;
 
+	if (prp->difo)
+		dt_difo_free(dtp, prp->difo);
+
 	if (prp->desc) {
 		dtp->dt_probes[prp->desc->id] = NULL;
 

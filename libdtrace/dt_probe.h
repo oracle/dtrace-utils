@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -54,6 +54,7 @@ typedef struct dt_probe {
 	dtrace_typeinfo_t *argv;	/* output argument types */
 	int argc;			/* output argument count */
 	dt_probe_instance_t *pr_inst;	/* list of functions and offsets */
+	dtrace_difo_t *difo;		/* BPF probe program */
 } dt_probe_t;
 
 extern dt_probe_t *dt_probe_lookup2(dt_provider_t *, const char *);

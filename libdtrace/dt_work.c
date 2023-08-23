@@ -150,6 +150,10 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
                 setrlimit(RLIMIT_MEMLOCK, &rl);
         }
 
+	/* Create the BPF programs. */
+	if (dt_bpf_make_progs(dtp, cflags) == -1)
+		return -1;
+
 	/* Create the global BPF maps. */
 	if (dt_bpf_gmap_create(dtp) == -1)
 		return -1;

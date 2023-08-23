@@ -1085,12 +1085,11 @@ dt_bpf_reloc_error_prog(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 }
 
 int
-dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
+dt_bpf_make_progs(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	dt_probe_t	*prp;
 	dtrace_difo_t	*dp;
 	dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_error");
-	dtrace_optval_t	dest_ok = DTRACEOPT_UNSET;
 
 	assert(idp != NULL);
 
@@ -1109,18 +1108,10 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	dt_bpf_reloc_error_prog(dtp, dp);
 
 	/*
-	 * Determine whether we can allow destructive actions.
-	 */
-	dtrace_getopt(dtp, "destructive", &dest_ok);
-
-	/*
 	 * Now construct all the other programs.
 	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
-		int	fd;
-		int	rc = -1;
-
 		/* Already done. */
 		if (prp == dtp->dt_error)
 			continue;
@@ -1132,9 +1123,43 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		if (prp->prov->impl->prog_type == BPF_PROG_TYPE_UNSPEC)
 			continue;
 
-		dp = dt_program_construct(dtp, prp, cflags, NULL);
+		dp = dt_construct(dtp, prp, cflags, NULL);
 		if (dp == NULL)
 			return -1;
+
+		DT_DISASM_PROG(dtp, cflags, dp, stderr, NULL, prp->desc);
+
+		prp->difo = dp;
+	}
+
+	return 0;
+}
+
+int
+dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
+{
+	dt_probe_t	*prp;
+	dtrace_optval_t	dest_ok = DTRACEOPT_UNSET;
+
+	/*
+	 * Determine whether we can allow destructive actions.
+	 */
+	dtrace_getopt(dtp, "destructive", &dest_ok);
+
+	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
+	     prp = dt_list_next(prp)) {
+		dtrace_difo_t	*dp = prp->difo;
+		int		fd;
+		int		rc = -1;
+
+		if (dp == NULL)
+			continue;
+
+		if (dt_link(dtp, prp, dp, NULL) == -1)
+			return -1;
+
+		DT_DISASM_PROG_LINKED(dtp, cflags, dp, stderr, NULL, prp->desc);
+
 		if (dp->dtdo_flags & DIFOFLG_DESTRUCTIVE &&
 		    dest_ok == DTRACEOPT_UNSET)
 			return dt_set_errno(dtp, EDT_DESTRUCTIVE);
@@ -1142,8 +1167,6 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
 		if (fd == -1)
 			return -1;
-
-		dt_difo_free(dtp, dp);
 
 		if (prp->prov->impl->attach)
 		    rc = prp->prov->impl->attach(dtp, prp, fd);

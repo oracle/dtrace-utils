@@ -775,7 +775,7 @@ out:
 	return err ? NULL : rv;
 }
 
-static dtrace_difo_t *
+dtrace_difo_t *
 dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 {
 	dt_pcb_t	pcb;
@@ -1264,7 +1264,7 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	}
 }
 
-static int
+int
 dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	dt_ident_t *idp)
 {
