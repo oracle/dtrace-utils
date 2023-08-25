@@ -5986,6 +5986,73 @@ dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				  DT_ISIMM, tbloff);
 }
 
+static void
+dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*af = dnp->dn_args;
+	dt_node_t	*addr = af->dn_list;
+	dt_node_t	*tnp, *cnp, *lnp, *rnp, *anp, *xnp;;
+	dt_idsig_t	*isp;
+	dt_decl_t	*ddp;
+
+	/*
+	 * Implement this subroutine as a ternary expression:
+	 *
+	 *	af == AF_INET6 ? inet_ntoa6((typ1)addr) : inet_ntoa((typ2)addr)
+	 *
+	 * where typ1 is the datatype of the argument of inet_ntoa6()
+	 *	 typ2 is the datatype of the argument of inet_ntoa()
+	 */
+	cnp = dt_node_op2(DT_TOK_EQU, af, dt_node_int(AF_INET6));
+
+	/* Create a node for the function call: inet_ntoa6(addr) */
+	lnp = dt_node_func(dt_node_ident(strdup("inet_ntoa6")), addr);
+
+	/* Get the datatype of the argument of inet_ntoa6(). */
+	assert(lnp->dn_ident && lnp->dn_ident->di_data);
+	isp = lnp->dn_ident->di_data;
+	assert(isp->dis_args);
+	anp = &isp->dis_args[0];
+	ddp = dt_decl_alloc(ctf_type_kind(anp->dn_ctfp, anp->dn_type), NULL);
+	ddp->dd_ctfp = anp->dn_ctfp;
+	ddp->dd_type = anp->dn_type;
+	xnp = dt_node_type(ddp);		/* frees ddp */
+	/* Create a node to represent: (type)addr */
+	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr);
+
+	lnp->dn_args = xnp;			/* inet_ntoa6((type)addr) */
+
+	/* Create a node for the function call: inet_ntoa(addr) */
+	rnp = dt_node_func(dt_node_ident(strdup("inet_ntoa")), addr);
+
+	/* Get the datatype of the argument of inet_ntoa(). */
+	assert(rnp->dn_ident && rnp->dn_ident->di_data);
+	isp = rnp->dn_ident->di_data;
+	assert(isp->dis_args);
+	anp = &isp->dis_args[0];
+	ddp = dt_decl_alloc(ctf_type_kind(anp->dn_ctfp, anp->dn_type), NULL);
+	ddp->dd_ctfp = anp->dn_ctfp;
+	ddp->dd_type = anp->dn_type;
+	xnp = dt_node_type(ddp);		/* frees ddp */
+
+	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr); /* (type)addr */
+	rnp->dn_args = xnp;			/* inet_ntoa((type)addr) */
+
+	tnp = dt_node_op3(cnp, lnp, rnp);	/* cnp ? lnp : rnp */
+
+	/* Finalize the node tree and generate code. */
+	dt_node_cook(tnp, 0);
+	dt_cg_node(tnp, dlp, drp);
+
+	/*
+	 * Copy the result into dnp (register value and tstring).  We need to
+	 * clear the tstring from tnp once we move it to dnp.
+	 */
+	dnp->dn_reg = tnp->dn_reg;
+	dnp->dn_tstring = tnp->dn_tstring;
+	tnp->dn_tstring = NULL;
+}
+
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
@@ -6030,7 +6097,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_NTOHS]		= &dt_cg_subr_htons,
 	[DIF_SUBR_NTOHL]		= &dt_cg_subr_htonl,
 	[DIF_SUBR_NTOHLL]		= &dt_cg_subr_htonll,
-	[DIF_SUBR_INET_NTOP]		= NULL,
+	[DIF_SUBR_INET_NTOP]		= &dt_cg_subr_inet_ntop,
 	[DIF_SUBR_INET_NTOA]		= &dt_cg_subr_inet_ntoa,
 	[DIF_SUBR_INET_NTOA6]		= &dt_cg_subr_inet_ntoa6,
 	[DIF_SUBR_D_PATH]		= NULL,
