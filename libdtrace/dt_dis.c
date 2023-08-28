@@ -630,9 +630,9 @@ static const struct opent {
 	INSN3(ALU, DIV, X)	= { "div", dt_dis_op2 },
 	INSN3(ALU, MOD, X)	= { "mod", dt_dis_op2 },
 	INSN2(ALU, NEG)		= { "neg", dt_dis_op1 },
-	INSN3(ALU, END, TO_BE)	= { "tobe", dt_dis_op2 },
-	INSN3(ALU, END, TO_LE)	= { "tole", dt_dis_op2 },
 	/* 32-bit ALU ops, op(dst, imm) */
+	INSN3(ALU, END, TO_BE)	= { "tobe", dt_dis_op2imm },
+	INSN3(ALU, END, TO_LE)	= { "tole", dt_dis_op2imm },
 	INSN3(ALU, ADD, K)	= { "add", dt_dis_op2imm },
 	INSN3(ALU, SUB, K)	= { "sub", dt_dis_op2imm },
 	INSN3(ALU, AND, K)	= { "and", dt_dis_op2imm },
