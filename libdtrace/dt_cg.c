@@ -3051,7 +3051,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 	int		dreg = dst->dn_reg;
 
 	/*
-	 * If we're loading a bit-field, the size of our store is found by
+	 * If we're storing into a bit-field, the size of our store is found by
 	 * rounding dst's cte_bits up to a byte boundary and then finding the
 	 * nearest power of two to this value (see clp2(), above).
 	 */
@@ -3062,13 +3062,15 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 		size = dt_node_type_size(dst);
 
 	/*
-	 * If we're loading a writable non-alloca lvalue, and it's a
-	 * dereference, and *its* child is an alloca pointer, then this is a
-	 * dereferenced alloca pointer and needs bounds-checking (which could
-	 * not be done at deref time due to not knowing the size of the write).
+	 * If we're storing into a writable lvalue that is a dereference of an
+	 * alloca pointer or if we are storing into a writable alloca lvalue,
+	 * we need to do bounds-checking and turn the offset value into a real
+	 * pointer.
 	 */
-	if (dst->dn_flags & DT_NF_WRITABLE && dst->dn_flags & DT_NF_LVALUE
-	    && dst->dn_op == DT_TOK_DEREF && dst->dn_child->dn_flags & DT_NF_ALLOCA) {
+	if (dst->dn_flags & DT_NF_WRITABLE && dst->dn_flags & DT_NF_LVALUE &&
+	    ((dst->dn_op == DT_TOK_DEREF &&
+	      dst->dn_child->dn_flags & DT_NF_ALLOCA) ||
+	     dst->dn_flags & DT_NF_ALLOCA)) {
 		assert(!(dst->dn_flags & DT_NF_BITFIELD));
 
 		if ((dreg = dt_regset_alloc(drp)) == -1)
@@ -6473,7 +6475,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		if (m.ctm_offset != 0)
-			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_left->dn_reg, m.ctm_offset / NBBY));
+			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, m.ctm_offset / NBBY));
 
 		if (!(dnp->dn_flags & DT_NF_REF)) {
 			uint_t	op;
@@ -6481,8 +6483,20 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			op = dt_cg_ldsize(dnp, ctfp, m.ctm_type, &size);
 
+			/*
+			 * If the left-hand side of PTR or DOT is an alloca
+			 * pointer, bounds-check the pointer reference.
+			 */
+			if (dnp->dn_left->dn_flags & DT_NF_ALLOCA) {
+				assert(dnp->dn_flags & DT_NF_ALLOCA);
+				dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+							  DT_ISIMM, size);
+				dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg,
+						 dnp->dn_reg);
+			}
+
 			if (dnp->dn_left->dn_flags & (DT_NF_ALLOCA | DT_NF_DPTR))
-				emit(dlp, BPF_LOAD(op, dnp->dn_left->dn_reg, dnp->dn_left->dn_reg, 0));
+				emit(dlp, BPF_LOAD(op, dnp->dn_reg, dnp->dn_reg, 0));
 			else
 				dt_cg_load_scalar(dnp->dn_left, op, size, dlp, drp);
 		}
