@@ -407,6 +407,7 @@ struct dtrace_hdl {
 	uint_t dt_stopped;	/* boolean:  set once tracing is stopped */
 	processorid_t dt_beganon; /* CPU that executed BEGIN probe (if any) */
 	processorid_t dt_endedon; /* CPU that executed END probe (if any) */
+	void *dt_beginendargs;	/* args for child running BEGIN and END probes */
 	uint_t dt_oflags;	/* dtrace open-time options (see dtrace.h) */
 	uint_t dt_cflags;	/* dtrace compile-time options (see dtrace.h) */
 	uint_t dt_dflags;	/* dtrace link-time options (see dtrace.h) */

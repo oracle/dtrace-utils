@@ -131,6 +131,82 @@ dtrace_status(dtrace_hdl_t *dtp)
 	return DTRACE_STATUS_OKAY;
 }
 
+#define CMD_BEGIN	1234
+#define CMD_END		5678
+typedef struct dt_beginendargs {
+	pthread_t	thr;
+	processorid_t	cpu;
+	processorid_t	ncpus;
+	int	tochild[2];
+	int	frchild[2];
+} dt_beginendargs_t;
+
+static
+void bind_to_cpu(int cpu, int ncpus) {
+	cpu_set_t *mask;
+	size_t size;
+
+	/* Allocate the CPU mask and get its size. */
+	mask = CPU_ALLOC(ncpus);
+	if (mask == NULL)
+		exit(1);
+	size = CPU_ALLOC_SIZE(ncpus);
+
+	/* Set the CPU mask. */
+	CPU_ZERO_S(size, mask);
+	CPU_SET_S(cpu, size, mask);
+
+	/* Set my affinity. */
+	if (sched_setaffinity(0, size, mask) != 0) {
+		/* FIXME: some other failure mode? */
+		exit(1);
+	}
+
+	/* Free the mask. */
+	CPU_FREE(mask);
+}
+
+static unsigned long long
+elapsed_msecs() {
+	struct timespec tstruct;
+
+	clock_gettime(CLOCK_MONOTONIC, &tstruct);
+	return tstruct.tv_sec * 1000ull + tstruct.tv_nsec / 1000000;
+}
+
+static void *
+beginend_child(void *arg) {
+	dt_beginendargs_t *args = arg;
+	int cmd = 0;
+
+	/* Bind to requested CPU. */
+	bind_to_cpu(args->cpu, args->ncpus);
+
+	/* Wait for command, call BEGIN_probe(), and ack. */
+	read(args->tochild[0], &cmd, sizeof(cmd));
+	if (cmd != CMD_BEGIN)
+		exit(1);
+	if (RUNNING_ON_VALGRIND)
+		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
+	else
+		BEGIN_probe();
+	cmd++;
+	write(args->frchild[1], &cmd, sizeof(cmd));
+
+	/* Wait for command, call END_probe(), and ack. */
+	read(args->tochild[0], &cmd, sizeof(cmd));
+	if (cmd != CMD_END)
+		exit(1);
+	if (RUNNING_ON_VALGRIND)
+		VALGRIND_NON_SIMD_CALL0(END_probe);
+	else
+		END_probe();
+	cmd++;
+	write(args->frchild[1], &cmd, sizeof(cmd));
+
+	pthread_exit(0);
+}
+
 int
 dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
@@ -139,6 +215,27 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 
 	if (dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
+
+	/*
+	 * Create a child for the BEGIN and END probes if -xcpu is used.
+	 */
+	if (dtp->dt_options[DTRACEOPT_CPU] != DTRACEOPT_UNSET) {
+		dt_beginendargs_t	*args;
+
+		args = dt_zalloc(dtp, sizeof(dt_beginendargs_t));
+		if (args == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
+		pipe(args->tochild);
+		pipe2(args->frchild, O_NONBLOCK);
+		args->cpu = dtp->dt_options[DTRACEOPT_CPU];
+		args->ncpus = dtp->dt_conf.max_cpuid + 1;
+
+		if (pthread_create(&args->thr, NULL, &beginend_child, args)) {
+			printf("error pthread_create for -xcpu\n");
+			return -1;
+		}
+		dtp->dt_beginendargs = args;
+	}
 
 	/* Create the BPF programs. */
 	if (dt_bpf_make_progs(dtp, cflags) == -1)
@@ -190,7 +287,22 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 	if (dt_aggregate_go(dtp) == -1)
 		return -1;
 
-	if (RUNNING_ON_VALGRIND)
+	if (dtp->dt_beginendargs) {
+		/* Tell child running on a specific CPU to BEGIN. */
+		dt_beginendargs_t	*args = dtp->dt_beginendargs;
+		unsigned long long	timeout;
+		int			cmd = CMD_BEGIN;
+
+		write(args->tochild[1], &cmd, sizeof(cmd));
+		timeout = elapsed_msecs() + 2000;
+		while (read(args->frchild[0], &cmd, sizeof(cmd)) <= 0) {
+			usleep(100000);
+			if (elapsed_msecs() > timeout)
+				return -1;
+		}
+		if (cmd != CMD_BEGIN + 1)
+			return -1;
+	} else if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
 	else
 		BEGIN_probe();
@@ -223,7 +335,23 @@ dtrace_stop(dtrace_hdl_t *dtp)
 	if (dt_state_get_activity(dtp) < DT_ACTIVITY_DRAINING)
 		dt_state_set_activity(dtp, DT_ACTIVITY_DRAINING);
 
-	if (RUNNING_ON_VALGRIND)
+	if (dtp->dt_beginendargs) {
+		int			cmd = CMD_END;
+		dt_beginendargs_t	*args = dtp->dt_beginendargs;
+		unsigned long long	timeout;
+
+		write(args->tochild[1], &cmd, sizeof(cmd));
+		timeout = elapsed_msecs() + 2000;
+		while (read(args->frchild[0], &cmd, sizeof(cmd)) <= 0) {
+			usleep(100000);
+			if (elapsed_msecs() > timeout)
+				return -1;
+		}
+		if (cmd != CMD_END + 1)
+			return -1;
+		pthread_join(args->thr, NULL);
+		dt_free(dtp, args);
+	} else if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(END_probe);
 	else
 		END_probe();
