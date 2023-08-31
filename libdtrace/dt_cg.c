@@ -3726,7 +3726,7 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 	ssize_t		adj = 1;
 	int		is_dvar = 0;
 	uint_t		rbit = dnp->dn_child->dn_flags & DT_NF_REF;
-	uint_t		lbl_dflt, lbl_done;
+	uint_t		lbl_done = DT_LBL_NONE;
 	dt_ident_t	*idp = NULL;
 
 	TRACE_REGSET("    incdec: Begin");
@@ -3772,6 +3772,7 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 
 	if (is_dvar) {
 		dt_node_t	val;
+		uint_t		lbl_dflt;
 
 		/*
 		 * The dt_cg_store_var() function expects a dnp->dn_right child
@@ -3811,7 +3812,7 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 
 	dt_regset_free(drp, dnp->dn_child->dn_reg);
 
-	if (is_dvar)
+	if (lbl_done != DT_LBL_NONE)
 		emitl(dlp, lbl_done,
 			   BPF_NOP());
 
