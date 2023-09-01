@@ -31,6 +31,88 @@
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 /*
+ * Variants of store and load macros that take an actual data size and call
+ * bpf_ldst_size(sz, store) to determine the instruction size specifier.
+ */
+#define BPF_STOREX(sz, dst, ofs, src)					\
+		BPF_STORE(bpf_ldst_size(sz, 1), (dst), (ofs), (src))
+#define BPF_STOREX_IMM(sz, dst, ofs, src)				\
+		BPF_STORE_IMM(bpf_ldst_size(sz, 1), (dst), (ofs), (src))
+#define BPF_LOADX(sz, dst, src, ofs)					\
+		BPF_LOAD(bpf_ldst_size(sz, 0), (dst), (src), (ofs))
+
+/*
+ * Determine the BPF size specifier for the given data size.  If the given size
+ * does not map to a valid BPF instruction size specifier, an internal error is
+ * reported.
+ */
+static uint_t
+bpf_ldst_size(ssize_t size, int store)
+{
+	switch (size) {
+	case 1:
+		return BPF_B;
+	case 2:
+		return BPF_H;
+	case 4:
+		return BPF_W;
+	case 8:
+		return BPF_DW;
+	default:
+		xyerror(D_UNKNOWN, "internal error -- cg cannot %s "
+			"size %ld when passed by value\n",
+			store ? "store" : "load", (long)size);
+	}
+}
+
+/*
+ * When loading bit-fields, we want to convert a byte count in the range
+ * 1-8 to the closest power of 2 (e.g. 3->4, 5->8, etc).  The clp2() function
+ * is a clever implementation from "Hacker's Delight" by Henry Warren, Jr.
+ */
+static size_t
+clp2(size_t x)
+{
+	x--;
+
+	x |= (x >> 1);
+	x |= (x >> 2);
+	x |= (x >> 4);
+	x |= (x >> 8);
+	x |= (x >> 16);
+
+	return x + 1;
+}
+
+/*
+ * Determine the load size for the specified node and CTF type, and return the
+ * equivalent BPF size specifier.
+ */
+uint_t
+dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
+{
+	ctf_encoding_t	e;
+	ssize_t		size;
+
+	/*
+	 * If we're loading a bit-field, the size of our load is found by
+	 * rounding cte_bits up to a byte boundary and then finding the
+	 * nearest power of two to this value (see clp2(), above).
+	 */
+	if (dnp &&
+	    (dnp->dn_flags & DT_NF_BITFIELD) &&
+	    ctf_type_encoding(ctfp, type, &e) != CTF_ERR)
+		size = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY);
+	else
+		size = ctf_type_size(ctfp, type);
+
+	if (ret_size)
+		*ret_size = size;
+
+	return bpf_ldst_size(size, 0);
+}
+
+/*
  * Generate the generic prologue of the trampoline BPF program.
  *
  * The trampoline BPF program is attached to a kernel probe event and it is
@@ -1279,31 +1361,6 @@ dt_cg_check_ptr_arg(dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dnp,
 		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 }
 
-static const uint_t	ldstw[] = {
-					0,
-					BPF_B,	BPF_H,	0, BPF_W,
-					0,	0,	0, BPF_DW,
-				};
-
-/*
- * When loading bit-fields, we want to convert a byte count in the range
- * 1-8 to the closest power of 2 (e.g. 3->4, 5->8, etc).  The clp2() function
- * is a clever implementation from "Hacker's Delight" by Henry Warren, Jr.
- */
-static size_t
-clp2(size_t x)
-{
-	x--;
-
-	x |= (x >> 1);
-	x |= (x >> 2);
-	x |= (x >> 4);
-	x |= (x >> 8);
-	x |= (x >> 16);
-
-	return x + 1;
-}
-
 static void dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x);
 
 static int
@@ -1376,9 +1433,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, size, pfp,
 				 arg);
 
-		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
-
-		emit(dlp, BPF_STORE(ldstw[size], BPF_REG_9, off, dnp->dn_reg));
+		emit(dlp, BPF_STOREX(size, BPF_REG_9, off, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 
 		goto ok;
@@ -2531,39 +2586,6 @@ dt_cg_zerosptr(int reg, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 /*
- * Lookup the correct load size modifier to use for the specified node and CTF
- * type.
- */
-uint_t
-dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type, ssize_t *ret_size)
-{
-	ctf_encoding_t	e;
-	ssize_t		size;
-
-	/*
-	 * If we're loading a bit-field, the size of our load is found by
-	 * rounding cte_bits up to a byte boundary and then finding the
-	 * nearest power of two to this value (see clp2(), above).
-	 */
-	if (dnp &&
-	    (dnp->dn_flags & DT_NF_BITFIELD) &&
-	    ctf_type_encoding(ctfp, type, &e) != CTF_ERR)
-		size = clp2(P2ROUNDUP(e.cte_bits, NBBY) / NBBY);
-	else
-		size = ctf_type_size(ctfp, type);
-
-	if (size < 1 || size > 8 || (size & (size - 1)) != 0) {
-		xyerror(D_UNKNOWN, "internal error -- cg cannot load "
-		    "size %ld when passed by value\n", (long)size);
-	}
-
-	if (ret_size)
-		*ret_size = size;
-
-	return ldstw[size];
-}
-
-/*
  * Generate code to promote signed scalars (size < 64 bits) to native register
  * size (64 bits).
  */
@@ -2582,11 +2604,16 @@ dt_cg_promote(const dt_node_t *dnp, ssize_t size, dt_irlist_t *dlp,
 /*
  * Load a scalar from an arbitrary address.
  */
+#define BPF_SZ_NONE	UINT_MAX
+
 static void
 dt_cg_load_scalar(dt_node_t *dnp, uint_t op, ssize_t size, dt_irlist_t *dlp,
 		  dt_regset_t *drp)
 {
 	uint_t Lokay = dt_irlist_label(dlp);
+
+	if (op == BPF_SZ_NONE)
+		op = bpf_ldst_size(size, 0);
 
 	/* Copy the scalar onto the stack. */
 	if (dt_regset_xalloc_args(drp) == -1)
@@ -2708,14 +2735,11 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			uint_t	lbl_notnull = dt_irlist_label(dlp);
 			uint_t	lbl_done = dt_irlist_label(dlp);
 
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
-
 			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
 			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
 			emit(dlp,  BPF_JUMP(lbl_done));
 			emitl(dlp, lbl_notnull,
-				   BPF_LOAD(ldstw[size], dnp->dn_reg, BPF_REG_0, 0));
+				   BPF_LOADX(size, dnp->dn_reg, BPF_REG_0, 0));
 			dt_cg_promote(dnp, size, dlp, drp);
 
 			emitl(dlp, lbl_done,
@@ -2752,12 +2776,10 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			uint_t	L2 = dt_irlist_label(dlp);
 
 			assert(dnp->dn_flags & DT_NF_REF);
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
 
 			if ((reg = dt_regset_alloc(drp)) == -1)
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-			emit(dlp,  BPF_LOAD(ldstw[size], reg, dnp->dn_reg, idp->di_offset));
+			emit(dlp,  BPF_LOADX(size, reg, dnp->dn_reg, idp->di_offset));
 			emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, reg, DT_NULL_STRING, L1));
 			emit(dlp,  BPF_MOV_IMM(dnp->dn_reg, 0));
 			emit(dlp,  BPF_JUMP(L2));
@@ -2772,10 +2794,7 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		} else {
 			size_t	size = dt_node_type_size(dnp);
 
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
-
-			emit(dlp, BPF_LOAD(ldstw[size], dnp->dn_reg, dnp->dn_reg, idp->di_offset));
+			emit(dlp, BPF_LOADX(size, dnp->dn_reg, dnp->dn_reg, idp->di_offset));
 			dt_cg_promote(dnp, size, dlp, drp);
 		}
 
@@ -3091,9 +3110,7 @@ dt_cg_store(dt_node_t *src, dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dst)
 		else
 			sreg = src->dn_reg;
 
-		assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
-
-		emit(dlp, BPF_STORE(ldstw[size], dreg, 0, sreg));
+		emit(dlp, BPF_STOREX(size, dreg, 0, sreg));
 
 		if (sreg != src->dn_reg)
 			dt_regset_free(drp, sreg);
@@ -3273,14 +3290,11 @@ empty_args:
 		size = dt_node_sizeof(&isp->dis_args[i]);
 
 		if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp)) {
-			assert(size > 0 && size <= 8 &&
-			       (size & (size - 1)) == 0);
-
 			nextoff = (tuplesize + (size - 1)) & ~(size - 1);
 			if (tuplesize < nextoff)
 				emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, nextoff - tuplesize));
 
-			emit(dlp,  BPF_STORE(ldstw[size], treg, 0, BPF_REG_0));
+			emit(dlp,  BPF_STOREX(size, treg, 0, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
 
 			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, size));
@@ -3442,11 +3456,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			size = MIN(srcsz, size);
 
 			dt_cg_memcpy(dlp, drp, reg, dnp->dn_reg, size);
-		} else {
-			assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
-
-			emit(dlp, BPF_STORE(ldstw[size], reg, 0, dnp->dn_reg));
-		}
+		} else
+			emit(dlp, BPF_STOREX(size, reg, 0, dnp->dn_reg));
 
 		dt_regset_free(drp, reg);
 
@@ -3487,11 +3498,9 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		assert(idp->di_size == dt_node_type_size(dnp->dn_left));
 		assert(dt_node_is_integer(dnp->dn_right) == (dnp->dn_right->dn_kind == DT_NODE_INT));
 		assert(dnp->dn_right->dn_value == 0);
-		assert(size > 0 && size <= 8 &&
-		       (size & (size - 1)) == 0);
 
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, reg, idp->di_offset));
-		emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, DT_NULL_STRING));
+		emit(dlp, BPF_STOREX_IMM(size, reg, 0, DT_NULL_STRING));
 
 		/*
 		 * Since strings are passed by value, we need to force
@@ -3523,10 +3532,8 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		/* Start by zeroing out the first bytes */
 		size = sizeof(DT_NULL_STRING);
-		assert(size > 0 && size <= 8 &&
-		       (size & (size - 1)) == 0);
 
-		emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, 0));
+		emit(dlp, BPF_STOREX_IMM(size, reg, 0, 0));
 
 		/*
 		 * Determine the amount of data to be copied.  It is
@@ -3547,8 +3554,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			emitl(dlp, Lnull,
 				   BPF_NOP());
 			size = sizeof(DT_NULL_STRING);
-			assert(size > 0 && size <= 8 && (size & (size - 1)) == 0);
-			emit(dlp, BPF_STORE_IMM(ldstw[size], reg, 0, DT_NULL_STRING));
+			emit(dlp, BPF_STOREX_IMM(size, reg, 0, DT_NULL_STRING));
 			emitl(dlp, Ldone,
 				   BPF_NOP());
 		}
@@ -3583,10 +3589,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		/* Store by value */
 		size = idp->di_size;
 
-		assert(size > 0 && size <= 8 &&
-		       (size & (size - 1)) == 0);
-
-		emit(dlp, BPF_STORE(ldstw[size], reg, idp->di_offset, dnp->dn_reg));
+		emit(dlp, BPF_STOREX(size, reg, idp->di_offset, dnp->dn_reg));
 		dt_regset_free(drp, reg);
 	}
 
@@ -3733,9 +3736,6 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 
 	TRACE_REGSET("    incdec: Begin");
 
-	assert(size > 0 && size <= 8 &&
-	       (size & (size - 1)) == 0);
-
 	if (dt_node_is_pointer(dnp)) {
 		ctf_file_t	*ctfp = dnp->dn_ctfp;
 		ctf_id_t	type;
@@ -3800,16 +3800,16 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 			   BPF_NOP());
 	}
 
-	emit(dlp,  BPF_LOAD(ldstw[size], dnp->dn_reg, dnp->dn_child->dn_reg, 0));
+	emit(dlp,  BPF_LOADX(size, dnp->dn_reg, dnp->dn_child->dn_reg, 0));
 	if (post) {
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_MOV_REG(BPF_REG_0, dnp->dn_reg));
 		emit(dlp,  BPF_ALU64_IMM(op, BPF_REG_0, adj));
-		emit(dlp,  BPF_STORE(ldstw[size], dnp->dn_child->dn_reg, 0, BPF_REG_0));
+		emit(dlp,  BPF_STOREX(size, dnp->dn_child->dn_reg, 0, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 	} else {
 		emit(dlp,  BPF_ALU64_IMM(op, dnp->dn_reg, adj));
-		emit(dlp,  BPF_STORE(ldstw[size], dnp->dn_child->dn_reg, 0, dnp->dn_reg));
+		emit(dlp,  BPF_STOREX(size, dnp->dn_child->dn_reg, 0, dnp->dn_reg));
 	}
 
 	dt_regset_free(drp, dnp->dn_child->dn_reg);
@@ -4324,9 +4324,6 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 			/* Add the thread->member offset. */
 			offset += dt_cg_ctf_offsetof("struct thread_struct",
 						     memnames[idx - 21], &size);
-			if (size < 1 || size > 8 || (size & (size - 1)) != 0)
-				xyerror(D_UNKNOWN, "internal error -- cg cannot load "
-				    "size %ld when passed by value\n", (long)size);
 
 			/* Get task. */
 			if (dt_regset_xalloc_args(drp) == -1)
@@ -4341,7 +4338,7 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 			emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, offset));
 
 			/* Dereference it safely (the BPF verifier has no idea what it is). */
-			dt_cg_load_scalar(dnp, ldstw[size], size, dlp, drp);
+			dt_cg_load_scalar(dnp, BPF_SZ_NONE, size, dlp, drp);
 
 			return;
 		}
