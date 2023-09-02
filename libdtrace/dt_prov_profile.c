@@ -33,7 +33,9 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 };
 
-#define FDS_CNT(kind)	((kind) == KIND_TICK ? 1 : dtp->dt_conf.num_online_cpus)
+#define FDS_CNT(kind)	((kind) == KIND_TICK || \
+			 dtp->dt_options[DTRACEOPT_CPU] != DTRACEOPT_UNSET ? \
+			 1 : dtp->dt_conf.num_online_cpus)
 typedef struct profile_probe {
 	int		kind;
 	uint64_t	period;
@@ -274,8 +276,13 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	for (i = 0; i < cnt; i++) {
 		int j = i, fd;
 
-		/* if there is only one fd, place it at random */
-		if (cnt == 1)
+		/*
+		 * If -xcpu is set, use that CPU.
+		 * If there is only one fd, place it at random.
+		 */
+		if (dtp->dt_options[DTRACEOPT_CPU] != DTRACEOPT_UNSET)
+			j = dtp->dt_options[DTRACEOPT_CPU];
+		else if (cnt == 1)
 			j = rand() % dtp->dt_conf.num_online_cpus;
 
 		fd = dt_perf_event_open(&attr, -1, dtp->dt_conf.cpus[j].cpu_id,
