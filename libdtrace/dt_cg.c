@@ -392,9 +392,31 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 }
 
 void
+dt_cg_tramp_prologue_cpu(dt_pcb_t *pcb) {
+	dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
+}
+
+void
 dt_cg_tramp_prologue(dt_pcb_t *pcb)
 {
-	dt_cg_tramp_prologue_act(pcb, DT_ACTIVITY_ACTIVE);
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+
+	/* Check if we are on the specified CPU (if any). */
+	if (dtp->dt_options[DTRACEOPT_CPU] != DTRACEOPT_UNSET) {
+		dt_irlist_t	*dlp = &pcb->pcb_ir;
+
+		emit(dlp,  BPF_MOV_REG(BPF_REG_8, BPF_REG_1));
+
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0,
+					  dtp->dt_options[DTRACEOPT_CPU],
+					  pcb->pcb_exitlbl));
+
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_8));
+	}
+
+	/* Call the rest of the prologue code generation. */
+	dt_cg_tramp_prologue_cpu(pcb);
 }
 
 /*
@@ -541,8 +563,8 @@ dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called)
  * So put the PC in both arg0 and arg1, test the PC, and then zero out
  * either arg0 or arg1, as apropriate.
  *
- * The caller must ensure that %r7 and %r8 contain the values set by
- * the dt_cg_tramp_prologue*() functions.
+ * The caller must ensure that %r7 and %r8 contain the values set by the
+ * dt_cg_tramp_prologue*() functions.
  */
 void
 dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)

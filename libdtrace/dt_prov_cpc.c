@@ -397,10 +397,10 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	int		i;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 
-	dt_cg_tramp_prologue(pcb);
+	dt_cg_tramp_prologue_cpu(pcb);
 
 	/*
-	 * After the dt_cg_tramp_prologue() call, we have:
+	 * After the dt_cg_tramp_prologue_cpu() call, we have:
 	 *				//     (%r7 = dctx->mst)
 	 *				//     (%r8 = dctx->ctx)
 	 */
