@@ -235,11 +235,13 @@ dt_inet_ntoa6:
 	/*
 	 * Determine the number of words to output at the start of the address.
 	 * It is found in the upper 4 bits in %r7 (result of the table lookup
-	 * above).  We place an upper bound to make the BPF verifier happy.
+	 * above).  If the number of leading non-zero words is 7, the address
+	 * does not allow for zero-word collapsing and we jump to code that
+	 * simply outputs all 8 words.
 	 */
 	mov	%r6, %r7
 	rsh	%r6, 4
-	jgt	%r6, 7, .Ldone
+	jge	%r6, 7, .Lfull
 
 	/*
 	 * Loop to output the first %r6 words of the address.  Each value is
@@ -342,4 +344,26 @@ dt_inet_ntoa6:
 	call	dt_inet_ntoa
 	mov	%r0, 0
 	exit
+
+.Lfull:
+	/* Output an IPv6 address without zero-cord collapsing. */
+	mov	%r6, 7
+.Lfull_loop:
+	jle	%r6, 0, .Lfull_end
+	ldxh	%r1, [%r8 + 0]
+	mov	%r2, %r9
+	call	write_hex16
+	add	%r9, %r0
+	stb	[%r9 + 0], ':'
+	add	%r9, 1
+	add	%r8, 2
+	sub	%r6, 1
+	ja	.Lfull_loop
+
+.Lfull_end:
+	ldxh	%r1, [%r8 + 0]
+	mov	%r2, %r9
+	call	write_hex16
+	add	%r9, %r0
+	ja	.Ldone
 	.size	dt_inet_ntoa6, .-dt_inet_ntoa6
