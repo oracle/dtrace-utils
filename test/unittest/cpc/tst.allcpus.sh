@@ -18,14 +18,14 @@ mkdir -p $DIRNAME
 cd $DIRNAME
 
 $dtrace $dt_flags -qn '
-cpc:::cpu_clock-all-10000
+cpc:::cpu_clock-all-1000000000
 /cpus[cpu] != 1/
 {
 	cpus[cpu] = 1;
 	printf("%d\n", cpu);
 }
 
-tick-18s
+tick-2s
 {
 	exit(0);
 }' | awk 'NF != 0 {print}' | sort > dtrace.out
