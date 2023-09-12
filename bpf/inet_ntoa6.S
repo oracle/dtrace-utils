@@ -369,7 +369,7 @@ dt_inet_ntoa6:
 	exit
 
 .Lfull:
-	/* Output an IPv6 address without zero-cord collapsing. */
+	/* Output an IPv6 address without zero-word collapsing. */
 	mov	%r6, 7
 .Lfull_loop:
 	jle	%r6, 0, .Lfull_end
