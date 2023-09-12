@@ -3580,23 +3580,25 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 		/*
 		 * Array bounds-checking.  (Non-associative arrays only.)
+		 *
+		 * Checking for arrays of size 0 and 1 is skipped: these
+		 * degenerate cases are often used for dynamically-sized arrays
+		 * at the ends of structures.
 		 */
 		artype = ctf_type_resolve(lp->dn_ctfp, lp->dn_type);
 		arkind = ctf_type_kind(lp->dn_ctfp, artype);
 
 		if (arkind == CTF_K_ARRAY &&
 		    !(lp->dn_kind == DT_NODE_VAR &&
-			lp->dn_ident->di_kind == DT_IDENT_ARRAY)) {
-			ctf_array_info(lp->dn_ctfp, artype, &r);
-
-			if (rp->dn_kind == DT_NODE_INT &&
-			    ctf_array_info(lp->dn_ctfp, type, &r) == 0 &&
-			    rp->dn_value >= r.ctr_nelems)
-				xyerror(D_ARR_BOUNDS, "index outside "
-				    "array bounds: %llu, max is %i\n",
-				    (long long unsigned)rp->dn_value,
-				    r.ctr_nelems);
-		}
+			lp->dn_ident->di_kind == DT_IDENT_ARRAY) &&
+		    rp->dn_kind == DT_NODE_INT &&
+		    ctf_array_info(lp->dn_ctfp, type, &r) == 0 &&
+		    r.ctr_nelems > 1 &&
+		    rp->dn_value >= r.ctr_nelems)
+			xyerror(D_ARR_BOUNDS, "index outside "
+				"array bounds: %llu, max is %i\n",
+				(long long unsigned)rp->dn_value,
+				r.ctr_nelems);
 
 		dt_node_type_assign(dnp, ctfp, type);
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
