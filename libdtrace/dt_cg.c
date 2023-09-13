@@ -1262,8 +1262,10 @@ dt_cg_tstring_free(dt_pcb_t *pcb, dt_node_t *dnp)
 	case DT_NODE_OP2:
 	case DT_NODE_OP3:
 	case DT_NODE_DEXPR:
-		if (dnp->dn_tstring)
+		if (dnp->dn_tstring) {
 			dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
+			dnp->dn_tstring = NULL;
+		}
 	}
 }
 
