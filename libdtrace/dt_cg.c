@@ -4629,15 +4629,16 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 /*
  * Emit code to call a precompiled BPF function (named by fname)
- * that is of return type void and takes three or four arguments:
+ * that is of return type void and takes between three and five arguments:
  *   - a pointer to the DTrace context (dctx)
  *   - one input value
  *   - a pointer to an output tstring, allocated here
- *   - an optional uint32_t value
+ *   - two optional uint32_t values
  */
 static void
 dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-			  const char *fname, int isreg, uint32_t val)
+			  const char *fname, int isreg4, uint32_t val4,
+			  int isreg5, uint32_t val5)
 {
 	dt_ident_t	*idp;
 	dt_node_t	*arg = dnp->dn_args;
@@ -4671,10 +4672,15 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 
-	if (isreg == DT_ISREG)
-		emit(dlp, BPF_MOV_REG(BPF_REG_4, val));
-	else if (isreg == DT_ISIMM)
-		emit(dlp, BPF_MOV_IMM(BPF_REG_4, val));
+	if (isreg4 == DT_ISREG)
+		emit(dlp, BPF_MOV_REG(BPF_REG_4, val4));
+	else if (isreg4 == DT_ISIMM)
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, val4));
+
+	if (isreg5 == DT_ISREG)
+		emit(dlp, BPF_MOV_REG(BPF_REG_5, val5));
+	else if (isreg5 == DT_ISIMM)
+		emit(dlp, BPF_MOV_IMM(BPF_REG_5, val5));
 
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
 	assert(idp != NULL);
@@ -4689,13 +4695,15 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 static void
 dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename", DT_IGNOR, 0);
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename", DT_IGNOR, 0,
+				  DT_IGNOR, 0);
 }
 
 static void
 dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", DT_IGNOR, 0);
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", DT_IGNOR, 0,
+				  DT_IGNOR, 0);
 }
 
 static void
@@ -4760,7 +4768,8 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr", DT_IGNOR, 0);
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr", DT_IGNOR, 0,
+				  DT_IGNOR, 0);
 }
 
 static void
@@ -5924,7 +5933,8 @@ dt_cg_subr_htonll(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_inet_ntoa(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa", DT_IGNOR, 0);
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa", DT_IGNOR, 0,
+				  DT_IGNOR, 0);
 }
 
 static void
@@ -5983,7 +5993,7 @@ dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
 	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa6",
-				  DT_ISIMM, tbloff);
+				  DT_ISIMM, tbloff, DT_IGNOR, 0);
 }
 
 static void
@@ -6019,7 +6029,6 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	xnp = dt_node_type(ddp);		/* frees ddp */
 	/* Create a node to represent: (type)addr */
 	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr);
-
 	lnp->dn_args = xnp;			/* inet_ntoa6((type)addr) */
 
 	/* Create a node for the function call: inet_ntoa(addr) */
