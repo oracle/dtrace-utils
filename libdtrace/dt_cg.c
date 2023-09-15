@@ -5941,6 +5941,8 @@ static void
 dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_node_t	*addr = dnp->dn_args;
+	dt_node_t	*strict = addr->dn_list;
 	ssize_t		tbloff;
 	/*
 	 * This table encodes the start and length of the longest run of 0 bits
@@ -5986,6 +5988,10 @@ dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			0x53, 0x52, 0x70, 0x70, 0x62, 0x70, 0x70, 0x70,
 	};
 
+	if (strict != NULL && strict->dn_kind != DT_NODE_INT)
+		dnerror(strict, D_PROTO_ARG, "inet_ntoa6( ) argument #2 "
+			"must be an integer constant\n");
+
 	tbloff = dt_rodata_insert(dtp->dt_rodata, tbl, 256);
 	if (tbloff == -1L)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
@@ -5993,7 +5999,8 @@ dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
 	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa6",
-				  DT_ISIMM, tbloff, DT_IGNOR, 0);
+				  DT_ISIMM, tbloff,
+				  DT_ISIMM, strict && strict->dn_value ? 1 : 0);
 }
 
 static void
@@ -6027,8 +6034,9 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	ddp->dd_ctfp = anp->dn_ctfp;
 	ddp->dd_type = anp->dn_type;
 	xnp = dt_node_type(ddp);		/* frees ddp */
-	/* Create a node to represent: (type)addr */
-	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr);
+	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr); /* (type)addr */
+	xnp->dn_list = dt_node_int(1);
+
 	lnp->dn_args = xnp;			/* inet_ntoa6((type)addr) */
 
 	/* Create a node for the function call: inet_ntoa(addr) */
@@ -6043,7 +6051,6 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	ddp->dd_ctfp = anp->dn_ctfp;
 	ddp->dd_type = anp->dn_type;
 	xnp = dt_node_type(ddp);		/* frees ddp */
-
 	xnp = dt_node_op2(DT_TOK_LPAR, xnp, addr); /* (type)addr */
 	rnp->dn_args = xnp;			/* inet_ntoa((type)addr) */
 

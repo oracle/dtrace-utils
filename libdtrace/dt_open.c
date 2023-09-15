@@ -202,7 +202,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "inet_ntoa", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(ipaddr_t *)" },
 { "inet_ntoa6", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
-	DT_VERS_1_5, &dt_idops_func, "string(struct in6_addr *)" },
+	DT_VERS_1_5, &dt_idops_func, "string(struct in6_addr *, [int])" },
 { "inet_ntop", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_INET_NTOP, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(int, void *)" },
 { "ipl", DT_IDENT_SCALAR, 0, DIF_VAR_IPL, DT_ATTR_STABCMN, DT_VERS_1_0,

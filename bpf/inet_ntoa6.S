@@ -94,7 +94,7 @@ write_hex16:
 
 /*
  * void inet_ntoa6(const dt_dctx_t *dctx, const uint8_t *src, char *dst,
- *		   uint32 tbloff)
+ *		   uint32 tbloff, int strict)
  */
 	.align	4
 	.global	dt_inet_ntoa6
@@ -121,6 +121,7 @@ dt_inet_ntoa6:
 	add	%r8, OUTPUT_LEN		/* %r8 = converted copy */
 	mov	%r6, %r1		/* %r6 = dctx */
 	stxw	[%fp + -4], %r4		/* store tbloff */
+	stxw	[%fp + -8], %r5		/* store strict */
 
 	mov	%r3, %r2
 	mov	%r2, INPUT_LEN
@@ -198,12 +199,12 @@ dt_inet_ntoa6:
 	and	%r0, 0xf8
 	jne	%r0, 0, .Lnotipv4
 	ldxh	%r0, [%r8 + 10]
-	jeq	%r0, 0xffff, .Lipv4
+	jeq	%r0, 0xffff, .Lipv4_2
 	jne	%r0, 0, .Lnotipv4
 	ldxh	%r0, [%r8 + 12]
-	jne	%r0, 0, .Lipv4
+	jne	%r0, 0, .Lipv4_1
 	ldxh	%r0, [%r8 + 14]
-	jgt	%r0, 1, .Lipv4
+	jgt	%r0, 1, .Lipv4_1
 .Lnotipv4:
 
 	/*
@@ -334,6 +335,28 @@ dt_inet_ntoa6:
 	stb	[%r9 + 0], 0
 	mov	%r0, 0
 	exit
+
+.Lipv4_1:
+	/* Output IPv4 address prefixed by :: (if strict is set). */
+	ldxw	%r0, [%fp + -8]		/* restore strict */
+	jeq	%r0, 0, .Lipv4
+	stb	[%r9 + 0], ':'
+	stb	[%r9 + 1], ':'
+	add	%r9, 2
+	ja	.Lipv4
+
+.Lipv4_2:
+	/* Output IPv4 address prefixed by ::ffff: (if strict is set). */
+	ldxw	%r0, [%fp + -8]		/* restore strict */
+	jeq	%r0, 0, .Lipv4
+	stb	[%r9 + 0], ':'
+	stb	[%r9 + 1], ':'
+	stb	[%r9 + 2], 'f'
+	stb	[%r9 + 3], 'f'
+	stb	[%r9 + 4], 'f'
+	stb	[%r9 + 5], 'f'
+	stb	[%r9 + 6], ':'
+	add	%r9, 7
 
 .Lipv4:
 	/* Output the last two words as an IPv4 address and return. */
