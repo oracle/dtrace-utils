@@ -4642,13 +4642,20 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 {
 	dt_ident_t	*idp;
 	dt_node_t	*arg = dnp->dn_args;
+	dt_idsig_t	*isp;
+	dt_node_t	*argtype;
 
 	TRACE_REGSET("    subr-arg_to_tstring:Begin");
+
+	assert(dnp->dn_ident && dnp->dn_ident);
+	isp = dnp->dn_ident->di_data;
+	assert(isp && isp->dis_args);
+	argtype = &isp->dis_args[0];
 
 	/* handle the one "input value" */
 	/* (its type matters only as to whether we check it is null */
 	dt_cg_node(arg, dlp, drp);
-	if (dt_node_is_pointer(arg) || dt_node_is_string(arg))
+	if (dt_node_is_pointer(argtype) || dt_node_is_string(argtype))
 		dt_cg_check_ptr_arg(dlp, drp, arg, NULL);
 
 	/* allocate the temporary string */
