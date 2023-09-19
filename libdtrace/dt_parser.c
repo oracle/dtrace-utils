@@ -5062,14 +5062,11 @@ dt_node_printr(dt_node_t *dnp, FILE *fp, int depth)
 				fprintf(fp, "%*s,\n", depth * 2, "");
 		}
 
+		fprintf(fp, "%*s]\n", depth * 2, "");
 		if (dnp->dn_aggfun) {
-			fprintf(fp, "%*s] = ", depth * 2, "");
+			fprintf(fp, "%*s=\n", depth * 2, "");
 			dt_node_printr(dnp->dn_aggfun, fp, depth + 1);
-		} else
-			fprintf(fp, "%*s]\n", depth * 2, "");
-
-		if (dnp->dn_aggfun)
-			fprintf(fp, "%*s)\n", depth * 2, "");
+		}
 		break;
 
 	case DT_NODE_PDESC:
