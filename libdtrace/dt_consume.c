@@ -506,6 +506,31 @@ dt_nullrec()
 	return DTRACE_CONSUME_NEXT;
 }
 
+static int
+dt_read_scalar(caddr_t addr, const dtrace_recdesc_t *rec, uint64_t *valp)
+{
+	addr += rec->dtrd_offset;
+
+	switch (rec->dtrd_size) {
+	case sizeof(uint64_t):
+		*valp = *((uint64_t *)addr);
+		break;
+	case sizeof(uint32_t):
+		*valp = *((uint32_t *)addr);
+		break;
+	case sizeof(uint16_t):
+		*valp = *((uint16_t *)addr);
+		break;
+	case sizeof(uint8_t):
+		*valp = *((uint8_t *)addr);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
 int
 dt_print_quantline(dtrace_hdl_t *dtp, FILE *fp, int64_t val,
     uint64_t normal, long double total, char positives, char negatives)
@@ -1017,7 +1042,6 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 	if (arg == DTRACE_TRACEMEM_DYNAMIC) {
 		const dtrace_recdesc_t *drec;
 		uint64_t darg;
-		caddr_t daddr;
 		uint64_t dsize;
 		int dpositive;
 
@@ -1026,14 +1050,13 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 
 		drec = rec + 1;
 		darg = drec->dtrd_arg;
-		daddr = buf + drec->dtrd_offset;
 
 		if (drec->dtrd_action != DTRACEACT_TRACEMEM ||
 		    (darg != DTRACE_TRACEMEM_SIZE &&
 		    darg != DTRACE_TRACEMEM_SSIZE))
 			return dt_set_errno(dtp, EDT_TRACEMEM);
 
-		if (dt_variable_read(daddr, drec->dtrd_size, &dsize) < 0)
+		if (dt_read_scalar(buf, drec, &dsize) < 0)
 			return dt_set_errno(dtp, EDT_TRACEMEM);
 
 		dpositive = drec->dtrd_arg == DTRACE_TRACEMEM_SIZE ||
@@ -1407,16 +1430,14 @@ int
 dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	      const caddr_t buf)
 {
-	caddr_t	paddr, addr;
-	const dtrace_recdesc_t *prec;
+	caddr_t	addr;
 	uint64_t time, proto, pktlen, maxlen;
 	const char *filename;
 
 	addr = (caddr_t)buf + rec->dtrd_offset;
 
-	if (dt_variable_read(addr, sizeof(uint64_t), &time) < 0 ||
-	    dt_variable_read(addr + sizeof(uint64_t), sizeof(uint64_t),
-	    &pktlen) < 0)
+	if (dt_read_scalar(buf, rec, &time) < 0 ||
+	    dt_read_scalar(buf + sizeof(uint64_t), rec, &pktlen) < 0)
 		return dt_set_errno(dtp, EDT_PCAP);
 
 	if (pktlen == 0) {
@@ -1427,11 +1448,7 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	}
 	maxlen = DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
 
-	prec = rec + 1;
-
-	paddr = (caddr_t)buf + prec->dtrd_offset;
-
-	if (dt_variable_read(paddr, prec->dtrd_size, &proto) < 0)
+	if (dt_read_scalar(buf, rec + 1, &proto) < 0)
 		return dt_set_errno(dtp, EDT_PCAP);
 
 	/*

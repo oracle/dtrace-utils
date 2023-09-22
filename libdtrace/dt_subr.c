@@ -934,29 +934,6 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid, uint64_t addr, char *str,
 	return dt_string2str(c, str, nbytes);
 }
 
-int
-dt_variable_read(caddr_t addr, size_t size, uint64_t *valp)
-{
-	switch (size) {
-	case sizeof(uint8_t):
-		*valp = *((uint8_t *)(uintptr_t)addr);
-		break;
-	case sizeof(uint16_t):
-		*valp = *((uint16_t *)(uintptr_t)addr);
-		break;
-	case sizeof(uint32_t):
-		*valp = *((uint32_t *)(uintptr_t)addr);
-		break;
-	case sizeof(uint64_t):
-		*valp = *((uint64_t *)(uintptr_t)addr);
-		break;
-	default:
-		return -1;
-	}
-
-	return 0;
-}
-
 /*
  * The function converts string representation of kernel version
  * into the dt_version_t type.
