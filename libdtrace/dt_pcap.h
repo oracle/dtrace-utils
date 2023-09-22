@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2016, 2018 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -20,8 +20,6 @@ extern "C" {
 struct dtrace_hdl;
 
 #define	DT_PCAP_DEF_PKTSIZE	1514
-#define	DT_PCAPSIZE(sz) \
-	((sz > 0 && sz < 65566) ? sz : DT_PCAP_DEF_PKTSIZE)
 
 typedef struct dt_global_pcap {
 	dt_list_t dt_pcaps;	/* pcap file info */

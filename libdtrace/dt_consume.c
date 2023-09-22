@@ -1427,28 +1427,26 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 }
 
 int
-dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
+dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec, uint_t nrecs,
 	      const caddr_t buf)
 {
-	caddr_t	addr;
-	uint64_t time, proto, pktlen, maxlen;
-	const char *filename;
+	caddr_t			data;
+	uint64_t		time, proto, pktlen;
+	uint64_t		maxlen = dtp->dt_options[DTRACEOPT_PCAPSIZE];
+	const char		*filename;
 
-	addr = (caddr_t)buf + rec->dtrd_offset;
-
-	if (dt_read_scalar(buf, rec, &time) < 0 ||
-	    dt_read_scalar(buf + sizeof(uint64_t), rec, &pktlen) < 0)
+	if (nrecs < 4)
 		return dt_set_errno(dtp, EDT_PCAP);
 
-	if (pktlen == 0) {
-		/*
-		 * skb must have been NULL, skip without capturing.
-		 */
-		return 0;
-	}
-	maxlen = DT_PCAPSIZE(dtp->dt_options[DTRACEOPT_PCAPSIZE]);
+	if (dt_read_scalar(buf, rec, &time) < 0 ||
+	    dt_read_scalar(buf, rec + 1, &pktlen) < 0)
+		return dt_set_errno(dtp, EDT_PCAP);
 
-	if (dt_read_scalar(buf, rec + 1, &proto) < 0)
+	/* If pktlen is 0, the skb must have been NULL, so don't capture it. */
+	if (pktlen == 0)
+		return 0;
+
+	if (dt_read_scalar(buf, rec + 2, &proto) < 0)
 		return dt_set_errno(dtp, EDT_PCAP);
 
 	/*
@@ -1456,17 +1454,16 @@ dt_print_pcap(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	 * specified or if we have been able to connect a pipe to tshark,
 	 * otherwise print tracemem-like output.
 	 */
+	data = buf + (rec + 3)->dtrd_offset;
 	filename = dt_pcap_filename(dtp, fp);
-	if (filename != NULL) {
-		dt_pcap_dump(dtp, filename, proto, time,
-			     addr + (2 * sizeof(uint64_t)), (uint32_t)pktlen,
-			     (uint32_t)maxlen);
-	} else {
-		if (dt_print_rawbytes(dtp, fp, addr + (2 * sizeof(uint64_t)),
-		    pktlen > maxlen ? maxlen : pktlen) < 0)
-			return -1;
-	}
-	return 0;
+	if (filename != NULL)
+		dt_pcap_dump(dtp, filename, proto, time, data,
+			     (uint32_t)pktlen, (uint32_t)maxlen);
+	else if (dt_print_rawbytes(dtp, fp, data,
+				   pktlen > maxlen ? maxlen : pktlen) < 0)
+		return -1;
+
+	return 4;
 }
 
 /*
@@ -2505,6 +2502,16 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			if (n < 0)
 				return -1;
 
+			i += n - 1;
+			continue;
+		}
+		case DTRACEACT_PCAP: {
+			int	nrecs;
+
+			nrecs = epd->dtdd_nrecs - i;
+			n = dt_print_pcap(dtp, fp, rec, nrecs, data);
+			if (n < 0)
+				return -1;
 			i += n - 1;
 			continue;
 		}

@@ -1632,6 +1632,29 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 	*cfp |= DT_CLSFLAG_DATAREC;
 }
 
+/*
+ * Get offsetof(structname, membername) information from CTF.
+ * Optionally, also get member size.
+ */
+static int
+dt_cg_ctf_offsetof(const char *structname, const char *membername, size_t *sizep)
+{
+	ctf_file_t *cfp = yypcb->pcb_hdl->dt_shared_ctf;
+	ctf_id_t type;
+	ctf_membinfo_t ctm;
+
+	if (!cfp)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	type = ctf_lookup_by_name(cfp, structname);
+	if (type == CTF_ERR)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	if (ctf_member_info(cfp, type, membername, &ctm) == CTF_ERR)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	if (sizep)
+		*sizep = ctf_type_size(cfp, ctm.ctm_type);
+	return (ctm.ctm_offset / NBBY);
+}
+
 static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
@@ -1882,8 +1905,118 @@ dt_cg_act_panic(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 static void
 dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
-	dnerror(dnp, D_UNKNOWN, "pcap() is not implemented (yet)\n");
-	/* FIXME: Needs implementation */
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_node_t	*addr = dnp->dn_args;
+	dt_node_t	*proto = addr->dn_list;
+	uint_t		time_off, size_off, data_off, off;
+	uint_t		lbl_lenok = dt_irlist_label(dlp);
+	uint64_t	pcapsz = dtp->dt_options[DTRACEOPT_PCAPSIZE];
+	int		lenreg;
+
+	TRACE_REGSET("pcap(): Begin ");
+
+	/*
+	 * Create records for timestamp, size, protocol id, and packet data.
+	 * The protocol id is stored immediately from the passed in argument.
+	 */
+	time_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PCAP,
+			      sizeof(uint64_t), sizeof(uint64_t), NULL, 0);
+	size_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PCAP,
+			      sizeof(uint32_t), sizeof(uint32_t), NULL, 0);
+	dt_cg_store_val(pcb, proto, DTRACEACT_PCAP, NULL, 0);
+	data_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PCAP,
+			      pcapsz, 1, NULL, 0);
+
+	/* Store timestamp (ns since boot time). */
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_ktime_get_ns));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, time_off, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+
+	/*
+	 * Determine and store the packet data size.
+	 * The size of the data to be copied (and reported as size of the
+	 * packet capture) is the lesser of the linear data size
+	 * (skb->len - skb->data_len) and the capture size.
+	 */
+	dt_cg_node(addr, dlp, drp);
+
+	off = dt_cg_ctf_offsetof("struct sk_buff", "len", NULL);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, addr->dn_reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint32_t)));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	if ((lenreg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_LOAD(BPF_DW, lenreg, BPF_REG_FP, DT_STK_SP));
+	emit(dlp,  BPF_LOAD(BPF_W, lenreg, lenreg, 0));
+
+	off = dt_cg_ctf_offsetof("struct sk_buff", "data_len", NULL);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, addr->dn_reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint32_t)));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+	dt_regset_free_args(drp);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_SP));
+	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
+
+	emit(dlp,  BPF_ALU64_REG(BPF_SUB, lenreg, BPF_REG_0));
+	dt_regset_free(drp, BPF_REG_0);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JLE, lenreg, pcapsz, lbl_lenok));
+	emit(dlp,  BPF_MOV_IMM(lenreg, pcapsz));
+	emitl(dlp, lbl_lenok,
+		   BPF_STORE(BPF_W, BPF_REG_9, size_off, lenreg));
+
+	/* Copy the packet data to the output buffer. */
+	off = dt_cg_ctf_offsetof("struct sk_buff", "data", NULL);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_3, addr->dn_reg));
+	dt_regset_free(drp, addr->dn_reg);
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, lenreg));
+	dt_regset_free(drp, lenreg);
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_STK_SP));
+	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_3, 0));
+	emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, data_off));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+
+	TRACE_REGSET("pcap(): End   ");
 }
 
 static void
@@ -4274,29 +4407,6 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dnp->dn_left->dn_flags &= ~DT_NF_REF;
 		dnp->dn_left->dn_flags |= rbit;
 	}
-}
-
-/*
- * Get offsetof(structname, membername) information from CTF.
- * Optionally, also get member size.
- */
-static int
-dt_cg_ctf_offsetof(const char *structname, const char *membername, size_t *sizep)
-{
-	ctf_file_t *cfp = yypcb->pcb_hdl->dt_shared_ctf;
-	ctf_id_t type;
-	ctf_membinfo_t ctm;
-
-	if (!cfp)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-	type = ctf_lookup_by_name(cfp, structname);
-	if (type == CTF_ERR)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-	if (ctf_member_info(cfp, type, membername, &ctm) == CTF_ERR)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-	if (sizep)
-		*sizep = ctf_type_size(cfp, ctm.ctm_type);
-	return (ctm.ctm_offset / NBBY);
 }
 
 static void

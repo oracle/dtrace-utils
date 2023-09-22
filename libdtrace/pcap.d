@@ -1,12 +1,12 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 #pragma D depends_on module vmlinux
-#pragma D depends_on provider tcp
+#pragma D depends_on provider ip
 
 /*
  * In general, PCAP_<type> names are chosen to match DL_<type> DLPI

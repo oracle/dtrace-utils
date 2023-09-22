@@ -12,8 +12,6 @@
 # skb->data.
 #
 
-# @@xfail: need ip provider
-
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
 	exit 2

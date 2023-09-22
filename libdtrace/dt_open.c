@@ -800,6 +800,11 @@ dt_vopen(int version, int flags, int *errp,
 	fclose(fd);
 
 	/*
+	 * Set the default pcap capture size.
+	 */
+	dtp->dt_options[DTRACEOPT_PCAPSIZE] = DT_PCAP_DEF_PKTSIZE;
+
+	/*
 	 * Set the default data rates.
 	 */
 	dtp->dt_options[DTRACEOPT_STATUSRATE] = NANOSEC;	/* 1s */
