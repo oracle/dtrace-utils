@@ -97,11 +97,11 @@ typedef struct dt_dctx {
  * The dctx->mem pointer references a block of memory that contains:
  *
  *                       +----------------+----------------+
- *                  0 -> | Stack          :     tstring    | \
- *                       |   trace     (shared)   storage  |  |
- *                       |     storage    :                |  |
- *                       +----------------+----------------+   > DMEM_SIZE
+ *                  0 -> |        tstring storage          | \
+ *                       +----------------+----------------+  |
  *        DMEM_STRTOK -> |     strtok() internal state     |  |
+ *                       +---------------------------------+   > DMEM_SIZE
+ *        DMEM_STACK  -> |          stack storage          |  |
  *                       +---------------------------------+  |
  *        DMEM_TUPLE  -> |       tuple assembly area       | /
  *                       +---------------------------------+
@@ -127,9 +127,11 @@ typedef struct dt_dctx {
  * Macros to determine the offset of the components of dctx->mem.
  */
 #define DMEM_STRTOK(dtp) \
-		MAX(DMEM_STACK_SZ(dtp), DMEM_TSTR_SZ(dtp))
-#define DMEM_TUPLE(dtp) \
+		DMEM_TSTR_SZ(dtp)
+#define DMEM_STACK(dtp) \
 		(DMEM_STRTOK(dtp) + DMEM_STRTOK_SZ(dtp))
+#define DMEM_TUPLE(dtp) \
+		(DMEM_STACK(dtp) + DMEM_STACK_SZ(dtp))
 
 /*
  * Macro to determine the total size of the mem area.

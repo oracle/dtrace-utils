@@ -27,6 +27,7 @@ extern uint64_t PC;
 extern uint64_t STBSZ;
 extern uint64_t STKSIZ;
 extern uint64_t BOOTTM;
+extern uint64_t STACK_OFF;
 
 #define error(dctx, fault, illval) \
 	({ \
@@ -64,7 +65,7 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
 	case DIF_VAR_USTACKDEPTH: {
 		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
-		char *buf = dctx->mem;
+		char *buf = dctx->mem + (uint64_t)(&STACK_OFF);
 		uint64_t stacksize;
 
 		if (id == DIF_VAR_USTACKDEPTH)
