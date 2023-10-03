@@ -2501,34 +2501,77 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_free(drp, dnp->dn_reg);
 }
 
+static uint64_t
+dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	int		nframes;
+	int		strsize = 0;
+	dt_node_t	*arg0 = dnp->dn_args;
+	dt_node_t	*arg1 = arg0 != NULL ? arg0->dn_list : NULL;
+	int		indopt, def, inderr;
+	char		*fname;
+
+	if (kind == DTRACEACT_USTACK) {
+		indopt = DTRACEOPT_USTACKFRAMES;
+		def = _dtrace_ustackframes;
+		inderr = D_USTACK_FRAMES;
+		fname = "ustack";
+	} else if (kind == DTRACEACT_STACK) {
+		indopt = DTRACEOPT_STACKFRAMES;
+		def = _dtrace_stackframes;
+		inderr = D_STACK_SIZE;
+		fname = "stack";
+	} else {
+		assert(0);
+	}
+
+	/* Get the default number. */
+	nframes = dtp->dt_options[indopt];
+	if (nframes == DTRACEOPT_UNSET)
+		nframes = def;
+
+	/* Get the specified value, if any. */
+	if (arg0 != NULL) {
+		if (!dt_node_is_posconst(arg0))
+			dnerror(arg0, inderr,
+				"%s( ) argument #1 must be a non-zero positive integer constant\n",
+				fname);
+		nframes = arg0->dn_value;
+	}
+
+	/* If more frames are requested than allowed, silently reduce nframes. */
+	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
+		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
+
+	/* For user stacks, process one more argument. */
+	if (kind == DTRACEACT_USTACK && arg1 != NULL) {
+		if (arg1->dn_kind != DT_NODE_INT ||
+		    ((arg1->dn_flags & DT_NF_SIGNED) &&
+		    (int64_t)arg1->dn_value < 0))
+			dnerror(arg1, D_USTACK_STRSIZE,
+				"ustack( ) argument #2 must be a positive integer constant\n");
+
+		/* FIXME: for now, accept non-zero strsize, but it does nothing */
+		strsize = arg1->dn_value;
+	}
+
+	return DTRACE_USTACK_ARG(nframes, strsize);
+}
+
 static void
 dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
-	dt_node_t	*arg = dnp->dn_args;
-	int		nframes = dtp->dt_options[DTRACEOPT_STACKFRAMES];
+	uint64_t	arg;
+	int		nframes;
 	int		skip = 0;
 	uint_t		off;
 	uint_t		lbl_valid = dt_irlist_label(dlp);
 
-	if (nframes == DTRACEOPT_UNSET)
-		nframes = _dtrace_stackframes;
-
-	if (arg != NULL) {
-		if (!dt_node_is_posconst(arg))
-			dnerror(arg, D_STACK_SIZE, "stack( ) argument #1 must "
-				"be a non-zero positive integer constant\n");
-
-		nframes = arg->dn_value;
-	}
-
-	/*
-	 * If more frames are requested than allowed, silently reduce nframes.
-	 */
-	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
-		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
+	arg = dt_cg_stack_arg(dtp, dnp, DTRACEACT_STACK);
+	nframes = DTRACE_USTACK_NFRAMES(arg);
 
 	/* Reserve space in the output buffer. */
 	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_STACK,
@@ -2711,46 +2754,19 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
-	int		nframes = dtp->dt_options[DTRACEOPT_USTACKFRAMES];
-	int		strsize = 0;
-	int		stacksize;
-	dt_node_t	*arg0 = dnp->dn_args;
-	dt_node_t	*arg1 = arg0 != NULL ? arg0->dn_list : NULL;
+	uint64_t	arg;
+	int		nframes, stacksize;
 	int		skip = 0;
 	uint_t		off;
 	uint_t		lbl_valid = dt_irlist_label(dlp);
 
-	if (nframes == DTRACEOPT_UNSET)
-		nframes = _dtrace_ustackframes;
-
-	if (arg0 != NULL) {
-		if (!dt_node_is_posconst(arg0))
-			dnerror(arg0, D_USTACK_FRAMES, "ustack( ) argument #1 "
-				"must be a non-zero positive integer "
-				"constant\n");
-
-		nframes = arg0->dn_value;
-	}
-
-	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
-		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
-
-	/* FIXME: for now, accept non-zero strsize, but it does nothing */
-	if (arg1 != NULL) {
-		if (arg1->dn_kind != DT_NODE_INT ||
-		    ((arg1->dn_flags & DT_NF_SIGNED) &&
-		    (int64_t)arg1->dn_value < 0))
-			dnerror(arg1, D_USTACK_STRSIZE, "ustack( ) argument #2 "
-				"must be a positive integer constant\n");
-
-		strsize = arg1->dn_value;
-	}
+	arg = dt_cg_stack_arg(dtp, dnp, DTRACEACT_USTACK);
+	nframes = DTRACE_USTACK_NFRAMES(arg);
+	stacksize = nframes * sizeof(uint64_t);
 
 	/* Reserve space in the output buffer. */
-	stacksize = nframes * sizeof(uint64_t);
 	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_USTACK,
-			 8 + stacksize, 8, NULL,
-			 DTRACE_USTACK_ARG(nframes, strsize));
+			 8 + stacksize, 8, NULL, arg);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
