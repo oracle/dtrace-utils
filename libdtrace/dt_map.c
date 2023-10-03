@@ -336,8 +336,8 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 }
 
 int
-dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, uint32_t size,
-		 uint16_t alignment)
+dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, dtrace_actkind_t kind,
+		 uint32_t size, uint16_t alignment, uint64_t arg)
 {
 	dtrace_aggdesc_t	*agg;
 	dtrace_recdesc_t	*rec;
@@ -355,12 +355,12 @@ dt_aggid_rec_add(dtrace_hdl_t *dtp, dtrace_aggid_t aggid, uint32_t size,
 	rec = &agg->dtagd_krecs[agg->dtagd_keyidx++];
 	off = (agg->dtagd_ksize + (alignment - 1)) & ~(alignment - 1);
 
-        rec->dtrd_action = DTRACEACT_DIFEXPR;
-        rec->dtrd_size = size;
-        rec->dtrd_offset = off;
-        rec->dtrd_alignment = alignment;
-        rec->dtrd_format = NULL;
-        rec->dtrd_arg = 1;
+	rec->dtrd_action = kind;
+	rec->dtrd_size = size;
+	rec->dtrd_offset = off;
+	rec->dtrd_alignment = alignment;
+	rec->dtrd_format = NULL;
+	rec->dtrd_arg = arg;
 
 	agg->dtagd_ksize = off + size;
 

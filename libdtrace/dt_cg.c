@@ -8309,6 +8309,8 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		for (knp = dnp->dn_aggtup; knp != NULL; knp = knp->dn_list) {
 			size_t	size;
 			int16_t	alignment;
+			dtrace_actkind_t kind = DTRACEACT_DIFEXPR;
+			uint64_t arg = 0;
 
 			if (dt_node_is_string(knp)) {
 				size = dtp->dt_options[DTRACEOPT_STRSIZE] + 1;
@@ -8321,7 +8323,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				alignment = size;
 			}
 
-			dt_aggid_rec_add(dtp, aid->di_id, size, alignment);
+			dt_aggid_rec_add(dtp, aid->di_id, kind, size, alignment, arg);
 		}
 	}
 
