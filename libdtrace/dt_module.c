@@ -1011,9 +1011,22 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 }
 
 /*
+ * Symbol data can be collected in three ways:
+ *  - kallmodsyms
+ *  - kallsyms with modules.builtin.ranges
+ *  - kallsyms w/o modules.builtin.ranges
+ *
+ * The processing state uses a kind member to identify the primary source
+ * (kallsyms vs kallmodsyms), and the rfp member is used to determine whether
+ * a modules.builtin.ranges file is available.
+ */
+#define DT_MODSYM_KALLSYMS	1
+#define DT_MODSYM_KALLMODSYMS	2
+
+/*
  * We will use kernel_flag to track which symbols we are reading.
  *
- * /proc/kallmodsyms starts with kernel (and built-in-module) symbols.
+ * /proc/kall[mod]syms starts with kernel (and built-in-module) symbols.
  *
  * The last kernel address is expected to have the name "_end",
  * but there might also be a symbol "__brk_limit" with that address.
@@ -1031,123 +1044,123 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 #define KERNEL_FLAG_KERNEL_END 1
 #define KERNEL_FLAG_LOADABLE 2
 #define KERNEL_FLAG_INIT_SCRATCH 4
-/*
- * Update our module cache.  For each line, create or
- * populate the dt_module_t for this module (if necessary), extend its address
- * ranges as needed, and add the symbol in this line to the module's kernel
- * symbol table.
- *
- * If we return non-NULL, we might have a changing file, probably due
- * to module unloading during read.  Perhaps this case should trigger a retry.
- */
-static int
-dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
+
+typedef struct dt_kasstate {
+	GElf_Addr	sect_base;
+	char		sect_symb[PATH_MAX];
+	GElf_Addr	sect_off;
+
+	GElf_Addr	mod_saddr, mod_eaddr;
+	char		mod_name[PATH_MAX];
+	FILE		*rfp;
+	int		kind;
+
+	int		kernel_flag;
+	int		last_sym_text;
+	dt_module_t	*last_dmp;
+} dt_kasstate_t;
+
+static dt_kasstate_t *
+dt_kasstate_new(dtrace_hdl_t *dtp, int kind)
 {
-	static uint_t kernel_flag = 0;
-	static dt_module_t *last_dmp = NULL;
-	static int last_sym_text = -1;
+	char		*fn;
+	dt_kasstate_t	*state;
 
-	GElf_Addr sym_addr;
-	long long unsigned sym_size = 1;
-	char sym_type;
-	int sym_text;
-	dt_module_t *dmp;
-	dtrace_addr_range_t *range = NULL;
-	char sym_name[KSYM_NAME_MAX];
-	char mod_name[PATH_MAX] = "vmlinux]";	/* note trailing ] */
-	int skip = 0;
+	state = dt_zalloc(dtp, sizeof(dt_kasstate_t));
+	state->kind = kind;
+	state->kernel_flag = 0;
+	state->last_dmp = NULL;
+	state->last_sym_text = -1;
+
+	if (kind == DT_MODSYM_KALLMODSYMS)
+		return state;
+
+	if (asprintf(&fn, "%s/modules.builtin.ranges",
+		     dtp->dt_module_path) == -1)
+		return state;
+
+	state->rfp = fopen(fn, "r");
+	free(fn);
+
+	if (state->rfp == NULL) {
+		/* TODO: waiting on a warning infrastructure */
+		dt_dprintf("warning: unable to read "
+			   "%s/modules.builtin.ranges\n",
+			   dtp->dt_module_path);
+	}
+
+	return state;
+}
+
+static char *
+dt_kasstate_modname(dt_kasstate_t *state, GElf_Addr addr, const char *name)
+{
+	char	*line = NULL;
+	size_t	line_n = 0;
+
+	/* Nothing to be done if there is no modules.builtin.ranges file. */
+	if (state->rfp == NULL)
+		return NULL;
 
 	/*
-	 * Read symbol.
+	 * If we are looking for an anchor symbol, see if the current symbol is
+	 * the one we want.  If so, update the section base address and clear
+	 * the symbol so we don't look for it again.  If not, we are done
+	 * because the current address cannot be part of the last module we saw
+	 * once we are looking for the next section anchor.
 	 */
+	if (state->sect_symb[0]) {
+		if (strcmp(state->sect_symb, name) != 0)
+			return NULL;
 
-	if ((line[0] == '\n') || (line[0] == 0))
-		return 0;
+		state->sect_base = addr - state->sect_off;
+		state->sect_symb[0] = 0;
+	}
 
-	if (flag == 0) {
-		if (sscanf(line, "%llx %llx %c %s [%s",
-		    (long long unsigned *)&sym_addr,
-		    (long long unsigned *)&sym_size,
-		    &sym_type, sym_name, mod_name) < 4) {
-		    dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
-		    return EDT_CORRUPT_KALLSYMS;
+	/*
+	 * If the given address is beyond the end of the current builtin module
+	 * more data needs to be read from modules.builtin.ranges until a range
+	 * is found that either contains the address or goes beyond.
+	 */
+	while (addr > state->mod_eaddr) {
+		if (getline(&line, &line_n, state->rfp) == -1)
+			break;
+
+		if (sscanf(line, "%*s %lx-%lx %[A-Za-z0-9_ ]",
+			   &state->mod_saddr, &state->mod_eaddr,
+			   state->mod_name) == 3) {
+			state->mod_saddr += state->sect_base;
+			state->mod_eaddr += state->sect_base;
+			state->mod_name[strlen(state->mod_name)] = '\0';
+		} else {
+			if (sscanf(line, "%*s %lx-%*x = %[A-Za-z0-9_]",
+				   &state->sect_off, state->sect_symb) < 2)
+				dt_dprintf("malformed modules.builtin.ranges line: %s\n", line);
+			return NULL;
 		}
-	} else {
-		if (sscanf(line, "%llx %c %s [%s",
-		    (long long unsigned *)&sym_addr,
-		    &sym_type, sym_name, mod_name) < 3) {
-		    dt_dprintf("malformed /proc/kallsyms line: %s\n", line);
-		    return EDT_CORRUPT_KALLSYMS;
-		}
 	}
 
-	sym_text = (sym_type == 't') || (sym_type == 'T')
-	     || (sym_type == 'w') || (sym_type == 'W');
-	mod_name[strlen(mod_name)-1] = '\0';	/* chop trailing ] */
+	if (addr >= state->mod_saddr && addr < state->mod_eaddr)
+		return state->mod_name;
 
-	if (strcmp(mod_name, "bpf") == 0)
-		return 0;
+	return NULL;
+}
 
-	/*
-	 * "__builtin__kprobes" is used as a module name for symbols for pages
-	 * allocated for kprobes' purposes, even though it is not a module.
-	 */
-	if (strcmp(mod_name, "__builtin__kprobes") == 0)
-		return 0;
+typedef struct dt_kallsym {
+	GElf_Addr	addr;
+	size_t		size;
+	char		type;
+	char		name[KSYM_NAME_MAX];
+	char		mod[PATH_MAX];
+} dt_kallsym_t;
 
-	/*
-	 * Symbols of "absolute" type are typically defined per CPU.
-	 * Their "addresses" here are very low and are actually offsets.
-	 * Drop these symbols.
-	 */
-	if ((sym_type == 'a') || (sym_type == 'A'))
-		return 0;
-
-	/*
-	 * Skip over the .init.scratch section.
-	 */
-	if (strcmp(sym_name, "__init_scratch_begin") == 0) {
-		kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
-		return 0;
-	} else if (strcmp(sym_name, "__init_scratch_end") == 0) {
-		kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
-		return 0;
-	} else if (kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
-		return 0;
-	}
-
-	if ((strcmp(sym_name, "_end") == 0) ||
-	    (strcmp(sym_name, "__brk_limit") == 0))
-		kernel_flag |= KERNEL_FLAG_KERNEL_END;
-	else if (kernel_flag & KERNEL_FLAG_KERNEL_END)
-		kernel_flag = KERNEL_FLAG_LOADABLE;
-
-	/*
-	 * Special case: rename the 'ctf' module to 'shared_ctf': the
-	 * parent-name lookup code presumes that names that appear in CTF's
-	 * parent section are the names of modules, but the ctf module's CTF
-	 * section is special-cased to contain the contents of the shared_ctf
-	 * repository, not ctf.ko's types.
-	 */
-	if (strcmp(mod_name, "ctf") == 0)
-		strcpy(mod_name, "shared_ctf");
-
-	/*
-	 * Get module.
-	 */
-
-	dmp = dt_module_lookup_by_name(dtp, mod_name);
-	if (dmp == NULL) {
-		int err;
-
-		dmp = dt_module_create(dtp, mod_name);
-		if (dmp == NULL)
-			return EDT_NOMEM;
-
-		err = dt_kern_module_init(dtp, dmp);
-		if (err != 0)
-			return err;
-	}
+static int
+dt_modsym_addsym(dtrace_hdl_t *dtp, dt_module_t *dmp, dt_kallsym_t *sym,
+		 dt_kasstate_t *state)
+{
+	int			sym_text;
+	dtrace_addr_range_t	*range = NULL;
+	int			skip = 0;
 
 	/*
 	 * Add the symbol to the module's kernel symbol table.
@@ -1160,24 +1173,24 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 	 * of these symbols.
 	 */
 #define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
-	if ((strstarts(sym_name, "__crc_")) ||
-	    (strstarts(sym_name, "__ksymtab_")) ||
-	    (strstarts(sym_name, "__kcrctab_")) ||
-	    (strstarts(sym_name, "__kstrtab_")) ||
-	    (strstarts(sym_name, "__param_")) ||
-	    (strstarts(sym_name, "__syscall_meta__")) ||
-	    (strstarts(sym_name, "__p_syscall_meta__")) ||
-	    (strstarts(sym_name, "__event_")) ||
-	    (strstarts(sym_name, "event_")) ||
-	    (strstarts(sym_name, "ftrace_event_")) ||
-	    (strstarts(sym_name, "types__")) ||
-	    (strstarts(sym_name, "args__")) ||
-	    (strstarts(sym_name, "__tracepoint_")) ||
-	    (strstarts(sym_name, "__tpstrtab_")) ||
-	    (strstarts(sym_name, "__tpstrtab__")) ||
-	    (strstarts(sym_name, "__initcall_")) ||
-	    (strstarts(sym_name, "__setup_")) ||
-	    (strstarts(sym_name, "__pci_fixup_")))
+	if ((strstarts(sym->name, "__crc_")) ||
+	    (strstarts(sym->name, "__ksymtab_")) ||
+	    (strstarts(sym->name, "__kcrctab_")) ||
+	    (strstarts(sym->name, "__kstrtab_")) ||
+	    (strstarts(sym->name, "__param_")) ||
+	    (strstarts(sym->name, "__syscall_meta__")) ||
+	    (strstarts(sym->name, "__p_syscall_meta__")) ||
+	    (strstarts(sym->name, "__event_")) ||
+	    (strstarts(sym->name, "event_")) ||
+	    (strstarts(sym->name, "ftrace_event_")) ||
+	    (strstarts(sym->name, "types__")) ||
+	    (strstarts(sym->name, "args__")) ||
+	    (strstarts(sym->name, "__tracepoint_")) ||
+	    (strstarts(sym->name, "__tpstrtab_")) ||
+	    (strstarts(sym->name, "__tpstrtab__")) ||
+	    (strstarts(sym->name, "__initcall_")) ||
+	    (strstarts(sym->name, "__setup_")) ||
+	    (strstarts(sym->name, "__pci_fixup_")))
 		skip = 1;
 #undef strstarts
 
@@ -1188,8 +1201,9 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 		if (dmp->dm_kernsyms == NULL)
 			return EDT_NOMEM;
 
-		if (dt_symbol_insert(dtp, dmp->dm_kernsyms, dmp, sym_name,
-			sym_addr, sym_size, sym_type_to_info(sym_type)) == NULL)
+		if (dt_symbol_insert(dtp, dmp->dm_kernsyms, dmp, sym->name,
+				     sym->addr, sym->size,
+				     sym_type_to_info(sym->type)) == NULL)
 			return EDT_NOMEM;
 	}
 
@@ -1199,24 +1213,28 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 	 * for loadable modules versus built-in modules (and kernel).
 	 */
 
-	if (sym_size == 0)
+	if (sym->size == 0)
 		return 0;
 
-	if ((kernel_flag & KERNEL_FLAG_LOADABLE) == 0) {
+	sym_text = (sym->type == 't') || (sym->type == 'T') ||
+		   (sym->type == 'w') || (sym->type == 'W');
+
+	if ((state->kernel_flag & KERNEL_FLAG_LOADABLE) == 0) {
 		/*
 		 * The kernel and built-in modules are in address order.
 		 */
-		if (dmp == last_dmp && sym_text == last_sym_text) {
+		if (dmp == state->last_dmp &&
+		    sym_text == state->last_sym_text) {
 			if (sym_text)
 				range = &dmp->dm_text_addrs
 				    [dmp->dm_text_addrs_size - 1];
 			else
 				range = &dmp->dm_data_addrs
 				    [dmp->dm_data_addrs_size - 1];
-			range->dar_size = sym_addr + sym_size - range->dar_va;
+			range->dar_size = sym->addr + sym->size - range->dar_va;
 		} else {
-			last_dmp = dmp;
-			last_sym_text = sym_text;
+			state->last_dmp = dmp;
+			state->last_sym_text = sym_text;
 		}
 	} else {
 		/*
@@ -1231,10 +1249,10 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 		if (range) {
 			GElf_Addr end;
 			end = range->dar_va + range->dar_size;
-			if (range->dar_va > sym_addr)
-				range->dar_va = sym_addr;
-			if (end < sym_addr + sym_size)
-				end = sym_addr + sym_size;
+			if (range->dar_va > sym->addr)
+				range->dar_va = sym->addr;
+			if (end < sym->addr + sym->size)
+				end = sym->addr + sym->size;
 			range->dar_size = end - range->dar_va;
 		}
 
@@ -1248,8 +1266,137 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 		range = dtrace_addr_range_grow(dmp, sym_text);
 		if (range == NULL)
 			return EDT_NOMEM;
-		range->dar_va = sym_addr;
-		range->dar_size = sym_size;
+		range->dar_va = sym->addr;
+		range->dar_size = sym->size;
+	}
+
+	return 0;
+}
+
+/*
+ * Update our module cache.  For each line, create or
+ * populate the dt_module_t for this module (if necessary), extend its address
+ * ranges as needed, and add the symbol in this line to the module's kernel
+ * symbol table.
+ *
+ * If we return non-NULL, we might have a changing file, probably due
+ * to module unloading during read.  Perhaps this case should trigger a retry.
+ */
+static int
+dt_modsym_update(dtrace_hdl_t *dtp, const char *line, dt_kasstate_t *state)
+{
+	dt_kallsym_t	sym;
+	char		*modname;
+
+	if ((line[0] == '\n') || (line[0] == 0))
+		return 0;
+
+	sym.size = 1;
+	strncpy(sym.mod, "vmlinux]", PATH_MAX);
+
+	/* Read symbol. */
+	if (state->kind == DT_MODSYM_KALLMODSYMS) {
+		if (sscanf(line, "%llx %llx %c %s [%s",
+		    (long long unsigned *)&sym.addr,
+		    (long long unsigned *)&sym.size,
+		    &sym.type, sym.name, sym.mod) < 4) {
+		    dt_dprintf("malformed /proc/kallmodsyms line: %s\n", line);
+		    return EDT_CORRUPT_KALLSYMS;
+		}
+
+		sym.mod[strlen(sym.mod)-1] = '\0';	/* chop trailing ] */
+	} else {
+		int	matches;
+
+		matches = sscanf(line, "%llx %c %s [%s",
+				 (long long unsigned *)&sym.addr, &sym.type,
+				 sym.name, sym.mod);
+		if (matches < 3) {
+			dt_dprintf("malformed /proc/kallsyms line: %s\n", line);
+			return EDT_CORRUPT_KALLSYMS;
+		}
+
+		sym.mod[strlen(sym.mod)-1] = '\0';	/* chop trailing ] */
+		if (matches == 3 &&
+		    !(state->kernel_flag & KERNEL_FLAG_LOADABLE)) {
+			char	*s;
+
+			s = dt_kasstate_modname(state, sym.addr, sym.name);
+			if (s != NULL)
+				strncpy(sym.mod, s, PATH_MAX);
+		}
+	}
+
+	if (strcmp(sym.mod, "bpf") == 0)
+		return 0;
+
+	/*
+	 * "__builtin__kprobes" is used as a module name for symbols for pages
+	 * allocated for kprobes' purposes, even though it is not a module.
+	 */
+	if (strcmp(sym.mod, "__builtin__kprobes") == 0)
+		return 0;
+
+	/*
+	 * Symbols of "absolute" type are typically defined per CPU.
+	 * Their "addresses" here are very low and are actually offsets.
+	 * Drop these symbols.
+	 */
+	if ((sym.type == 'a') || (sym.type == 'A'))
+		return 0;
+
+	/*
+	 * Skip over the .init.scratch section.
+	 */
+	if (strcmp(sym.name, "__init_scratch_begin") == 0) {
+		state->kernel_flag |= KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (strcmp(sym.name, "__init_scratch_end") == 0) {
+		state->kernel_flag &= ~ KERNEL_FLAG_INIT_SCRATCH;
+		return 0;
+	} else if (state->kernel_flag & KERNEL_FLAG_INIT_SCRATCH) {
+		return 0;
+	}
+
+	if ((strcmp(sym.name, "_end") == 0) ||
+	    (strcmp(sym.name, "__brk_limit") == 0))
+		state->kernel_flag |= KERNEL_FLAG_KERNEL_END;
+	else if (state->kernel_flag & KERNEL_FLAG_KERNEL_END)
+		state->kernel_flag = KERNEL_FLAG_LOADABLE;
+
+	/*
+	 * Special case: rename the 'ctf' module to 'shared_ctf': the
+	 * parent-name lookup code presumes that names that appear in CTF's
+	 * parent section are the names of modules, but the ctf module's CTF
+	 * section is special-cased to contain the contents of the shared_ctf
+	 * repository, not ctf.ko's types.
+	 */
+	if (strcmp(sym.mod, "ctf") == 0)
+		strcpy(sym.mod, "shared_ctf");
+
+	/*
+	 * It is possible that the symbol belongs to more than one module.
+	 * Loop over all modules in sym.mod and add the symbol to each.
+	 */
+	for (modname = strtok(sym.mod, " "); modname;
+	     modname = strtok(NULL, " ")) {
+		dt_module_t	*dmp;
+		int		err;
+
+		dmp = dt_module_lookup_by_name(dtp, modname);
+		if (dmp == NULL) {
+			dmp = dt_module_create(dtp, modname);
+			if (dmp == NULL)
+				return EDT_NOMEM;
+
+			err = dt_kern_module_init(dtp, dmp);
+			if (err != 0)
+				return err;
+		}
+
+		err = dt_modsym_addsym(dtp, dmp, &sym, state);
+		if (err != 0)
+			return err;
 	}
 
 	return 0;
@@ -1265,9 +1412,9 @@ dt_modsym_update(dtrace_hdl_t *dtp, const char *line, int flag)
 int
 dtrace_update(dtrace_hdl_t *dtp)
 {
-	dt_module_t *dmp;
-	FILE *fd;
-	int flag = 0;
+	dt_module_t	*dmp;
+	FILE		*fd;
+	dt_kasstate_t	*state = NULL;
 
 	for (dmp = dt_list_next(&dtp->dt_modlist);
 	    dmp != NULL; dmp = dt_list_next(dmp))
@@ -1278,18 +1425,21 @@ dtrace_update(dtrace_hdl_t *dtp)
 	 * space and construct modules with appropriate address ranges from
 	 * each.
 	 */
-	if ((fd = fopen("/proc/kallmodsyms", "r")) == NULL &&
-	    (fd = fopen("/proc/kallsyms", "r")) != NULL)
-			flag = 1;
+	if ((fd = fopen("/proc/kallmodsyms", "r")) != NULL)
+		state = dt_kasstate_new(dtp, DT_MODSYM_KALLMODSYMS);
+	else if ((fd = fopen("/proc/kallsyms", "r")) != NULL)
+		state = dt_kasstate_new(dtp, DT_MODSYM_KALLSYMS);
+
 	if (fd != NULL) {
 		char *line = NULL;
 		size_t line_n = 0;
 		while ((getline(&line, &line_n, fd)) > 0)
-			if (dt_modsym_update(dtp, line, flag) != 0) {
+			if (dt_modsym_update(dtp, line, state) != 0) {
 				/* TODO: waiting on a warning infrastructure */
 				dt_dprintf("warning: module CTF loading failed"
 				    " on %s line %s\n",
-				    flag ? "kallsyms" : "kallmodsyms", line);
+				    state->kind == DT_MODSYM_KALLSYMS
+					? "kallsyms" : "kallmodsyms", line);
 				break; /* no hope of (much) CTF */
 			}
 		free(line);
@@ -1307,7 +1457,8 @@ dtrace_update(dtrace_hdl_t *dtp)
 	for (dmp = dt_list_next(&dtp->dt_modlist); dmp != NULL;
 	    dmp = dt_list_next(dmp)) {
 		if (dmp->dm_kernsyms != NULL) {
-			dt_symtab_sort(dmp->dm_kernsyms, flag);
+			dt_symtab_sort(dmp->dm_kernsyms,
+				       state->kind == DT_MODSYM_KALLSYMS);
 			dt_symtab_pack(dmp->dm_kernsyms);
 		}
 	}
@@ -1348,6 +1499,9 @@ dtrace_update(dtrace_hdl_t *dtp)
 		dt_module_shuffle_to_start(dtp, "dtrace");
 		dt_module_shuffle_to_start(dtp, "vmlinux");
 	}
+
+	if (state)
+		dt_free(dtp, state);
 
 	return 0;
 }
