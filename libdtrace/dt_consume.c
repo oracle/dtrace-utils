@@ -2956,12 +2956,10 @@ dt_consume_proc_exits(dtrace_hdl_t *dtp)
 	dt_proc_notify_t	*dprn;
 
 	/*
-	 * Make sure that any synchronous notifications of process exit are
-	 * received.  Regardless of why we awaken, iterate over any pending
-	 * notifications and process them.
+	 * Iterate over any pending notifications that may have accumulated
+	 * while we were asleep, and process them.
 	 */
 	pthread_mutex_lock(&dph->dph_lock);
-	dt_proc_enqueue_exits(dtp);
 
 	while ((dprn = dph->dph_notify) != NULL) {
 		if (dtp->dt_prochdlr != NULL) {
