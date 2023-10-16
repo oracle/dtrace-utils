@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1067,11 +1067,11 @@ rd_ldso_consistent_begin(rd_agent_t *rd)
 		 * breakpoint somewhere inside the dynamic linker, we will
 		 * return with inconsistent link maps.  Don't do that.
 		 */
-		Pwait(rd->P, FALSE);
+		Pwait(rd->P, FALSE, NULL);
 		while (!rd->ic_transitioned && (rd->P->state == PS_RUN ||
 			rd->P->group_stopped) &&
 		    rd_ldso_consistency(rd, LM_ID_BASE) != RD_CONSISTENT)
-			Pwait(rd->P, TRUE);
+			Pwait(rd->P, TRUE, NULL);
 
 		rd->stop_on_consistent = 0;
 	}
@@ -1153,7 +1153,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 	 */
 	rd->stop_on_consistent = 1;
 
-	Pwait(rd->P, FALSE);
+	Pwait(rd->P, FALSE, NULL);
 
 	if (rd->P->state == PS_DEAD)
 		return -1;
@@ -1244,7 +1244,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 	 */
 
 	do {
-		Pwait(rd->P, FALSE);
+		Pwait(rd->P, FALSE, NULL);
 	} while (rd->P->state == PS_TRACESTOP);
 
 	timeout_nsec = 1000000;
@@ -1265,7 +1265,7 @@ rd_ldso_nonzero_lmid_consistent_begin(rd_agent_t *rd)
 			return -1;
 		}
 
-		Pwait(rd->P, FALSE);
+		Pwait(rd->P, FALSE, NULL);
 		sane_nanosleep(timeout_nsec);
 		timeout_nsec *= 2;
 	}
@@ -1526,7 +1526,7 @@ rd_new(struct ps_prochandle *P)
 		return NULL;
 	}
 
-	Pwait(P, 0);
+	Pwait(P, 0, NULL);
 
 	rd = calloc(sizeof(struct rd_agent), 1);
 	if (rd == NULL)
@@ -1768,7 +1768,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 		goto spotted_exec;
 	*jmp_pad = &this_exec_jmp;
 
-	Pwait(rd->P, 0);
+	Pwait(rd->P, 0, NULL);
 
 	if (rd->P->state == PS_DEAD) {
 		*jmp_pad = old_exec_jmp;
@@ -1817,7 +1817,7 @@ rd_loadobj_iter(rd_agent_t *rd, rl_iter_f *fun, void *state)
 			    nloaded, lmid);
 		}
 
-		Pwait(rd->P, FALSE);
+		Pwait(rd->P, FALSE, NULL);
 
 		/*
 		 * Read this link map out of the child.  If link map zero cannot
@@ -1945,7 +1945,7 @@ err:
 	 * iteration.  Pwait() to pick that up.
 	 */
 	old_r_brk = r_brk(rd);
-	Pwait(rd->P, FALSE);
+	Pwait(rd->P, FALSE, NULL);
 
 	jmp_pad = libproc_unwinder_pad(rd->P);
 	*jmp_pad = old_exec_jmp;

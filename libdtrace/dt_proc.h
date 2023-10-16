@@ -34,7 +34,6 @@ typedef struct dt_proc {
 	pthread_cond_t dpr_msg_cv;	/* cond for msgs from main thread */
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
 	pid_t dpr_pid;			/* pid of process */
-	int dpr_fd;			/* waitfd for process */
 	int dpr_proxy_fd[2];		/* proxy request pipe from main thread */
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
@@ -169,6 +168,8 @@ extern ssize_t dt_Pread(dtrace_hdl_t *, pid_t, void *, size_t, uintptr_t);
 
 extern void dt_proc_hash_create(dtrace_hdl_t *);
 extern void dt_proc_hash_destroy(dtrace_hdl_t *);
+extern void dt_proc_signal_init(dtrace_hdl_t *);
+extern void dt_proc_signal_fini(dtrace_hdl_t *);
 
 #ifdef	__cplusplus
 }

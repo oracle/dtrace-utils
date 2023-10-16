@@ -63,6 +63,16 @@ extern int dtrace_update(dtrace_hdl_t *dtp);
 extern int dtrace_ctlfd(dtrace_hdl_t *dtp);
 
 /*
+ * DTrace needs one internal signal for its own use.  By default it uses
+ * SIGRTMIN.  This function (which must be called before dtrace_open(),
+ * and applies to all dtrace handles) lets the consumer pick a different
+ * signal.  The number provided is added to SIGRTMIN.  If the result is
+ * greater than SIGRTMAX, this function returns -1.
+ */
+
+extern int dtrace_set_internal_signal(unsigned int sig);
+
+/*
  * DTrace Program Interface
  *
  * DTrace programs can be created by compiling ASCII text files containing

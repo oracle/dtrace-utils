@@ -1,6 +1,6 @@
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -69,6 +69,7 @@ LIBDTRACE_1.0 {
 	dtrace_program_link;
 	dtrace_program_strcompile;
 	dtrace_provider_modules;
+	dtrace_set_internal_signal;
 	dtrace_setopt;
 	dtrace_setoptenv;
 	dtrace_stability_name;

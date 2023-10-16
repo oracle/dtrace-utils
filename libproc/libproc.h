@@ -87,7 +87,8 @@ extern	void	Puntrace(struct ps_prochandle *, int stay_stopped);
 extern	void	Pclose(struct ps_prochandle *);
 
 extern	int	Pmemfd(struct ps_prochandle *);
-extern	long	Pwait(struct ps_prochandle *, boolean_t block);
+extern	long	Pwait(struct ps_prochandle *, boolean_t block,
+    int *return_early);
 extern	int	Pstate(struct ps_prochandle *);
 extern	ssize_t	Pread(struct ps_prochandle *, void *, size_t, uintptr_t);
 extern	ssize_t Pread_string(struct ps_prochandle *, char *, size_t, uintptr_t);
@@ -137,7 +138,8 @@ extern	void	Pset_ptrace_wrapper(struct ps_prochandle *P,
  * A program intending to call libproc functions from threads other than those
  * grabbing the process will typically need to wrap both ptrace() and Pwait().
  */
-typedef long pwait_fun(struct ps_prochandle *P, void *arg, boolean_t block);
+typedef long pwait_fun(struct ps_prochandle *P, void *arg, boolean_t block,
+    int *return_early);
 
 extern	void	Pset_pwait_wrapper(struct ps_prochandle *P, pwait_fun *wrapper);
 
@@ -146,7 +148,8 @@ extern	void	Pset_pwait_wrapper(struct ps_prochandle *P, pwait_fun *wrapper);
  * function should end up calling (somehow, from some thread or other).  Safe to
  * call only from the thread that did Pgrab() or Pcreate().
  */
-extern  long	Pwait_internal(struct ps_prochandle *P, boolean_t block);
+extern	long	Pwait_internal(struct ps_prochandle *P, boolean_t block,
+    int *return_early);
 
 /*
  * Register a function to be called around the outermost layer of Ptrace()/
@@ -164,6 +167,17 @@ typedef	void	ptrace_lock_hook_fun(struct ps_prochandle *P, void *arg,
     int ptracing);
 
 extern	void	Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook);
+
+/*
+ * Like the ptrace_lock_hook, but of inverse sign: used to possibly release
+ * locks around long-running blocking waitpid() calls inside Pwait(), while
+ * retaining the lock for the remainder of Pwait() (which may trigger
+ * breakpoints, invoke other wrapped functions etc).
+ */
+typedef	void	waitpid_lock_hook_fun(struct ps_prochandle *P, void *arg,
+    int waitpidding);
+
+extern	void	Pset_waitpid_lock_hook(waitpid_lock_hook_fun *hook);
 
 /*
  * Register a function that returns the address of a per-thread pointer-sized

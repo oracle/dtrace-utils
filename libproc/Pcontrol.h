@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -228,7 +228,7 @@ struct ps_prochandle {
 	int	ptrace_count;	/* count of Ptrace() calls */
 	dt_list_t ptrace_states; /* states of higher Ptrace() levels */
 	int	ptrace_halted;	/* true if halted by Ptrace() call */
-	int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that
+        int	pending_stops;	/* number of SIGSTOPs Ptrace() has sent that
 				   have yet to be consumed */
 	int	awaiting_pending_stops; /* if 1, a pending stop is being waited
 					   for: all blocking Pwait()s when

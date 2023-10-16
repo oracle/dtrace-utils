@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -57,7 +57,7 @@ main(int argc, char *argv[])
 	 * Wait until halted and waiting for a SIGCONT.
 	 */
 	while (Pstate(P) == PS_RUN)
-		Pwait(P, 1);
+		Pwait(P, 1, NULL);
 
 	/*
 	 * Look up the name.
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
 
 	kill(Pgetpid(P), SIGCONT);
 	do
-		Pwait(P, 1);
+		Pwait(P, 1, NULL);
 	while (Pstate(P) == PS_RUN);
 
 	Prelease(P, PS_RELEASE_KILL);

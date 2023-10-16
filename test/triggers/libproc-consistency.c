@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 			    "long: %li seconds.\n", (long)(b.tv_sec - a.tv_sec));
 			err = 1;
 		}
-		Pwait(P, 0);
+		Pwait(P, 0, NULL);
 	}
 
 	Prelease(P, PS_RELEASE_KILL);

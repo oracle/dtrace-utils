@@ -104,7 +104,6 @@ in the upstream kernel:
 
 - CTF type information extraction
 - /proc/kallmodsyms
-- New system call: waitfd()
 
 As noted above, patches that implement these features are available from the
 v2/* branches in our Linux kernel repository for features that DTrace uses:

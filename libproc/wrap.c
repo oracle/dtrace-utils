@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -54,18 +54,19 @@ wrapped_ptrace(struct ps_prochandle *P, enum __ptrace_request request, pid_t pid
  * Default (degenerate) Pwait() wrapper.
  */
 static long
-default_pwait_wrapper(struct ps_prochandle *P, void *arg, boolean_t block)
+default_pwait_wrapper(struct ps_prochandle *P, void *arg, boolean_t block,
+    int *return_early)
 {
-    return Pwait_internal(P, block);
+	return Pwait_internal(P, block, return_early);
 }
 
 /*
  * Call Pwait_internal() using the wrapper.
  */
 long
-Pwait(struct ps_prochandle *P, boolean_t block)
+Pwait(struct ps_prochandle *P, boolean_t block, int *return_early)
 {
-	return P->pwait_wrap(P, P->wrap_arg, block);
+	return P->pwait_wrap(P, P->wrap_arg, block, return_early);
 }
 
 /*

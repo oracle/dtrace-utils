@@ -40,10 +40,6 @@ unsigned long linux_version_code(void);
 #define elf_getshdrnum elf_getshnum
 #endif
 
-#ifndef HAVE_WAITFD
-int waitfd(int which, pid_t upid, int options, int flags);
-#endif
-
 #ifndef HAVE_CLOSE_RANGE
 int close_range(unsigned int first, unsigned int last, unsigned int flags);
 #endif

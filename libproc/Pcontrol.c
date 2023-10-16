@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -69,6 +69,7 @@ static void delete_bkpt_handler(struct bkpt *bkpt);
 static jmp_buf **single_thread_unwinder_pad(struct ps_prochandle *unused);
 
 static ptrace_lock_hook_fun *ptrace_lock_hook;
+static waitpid_lock_hook_fun *waitpid_lock_hook;
 libproc_unwinder_pad_fun *libproc_unwinder_pad = single_thread_unwinder_pad;
 
 #define LIBPROC_PTRACE_OPTIONS PTRACE_O_TRACEEXEC | \
@@ -623,13 +624,20 @@ unlock_exit:
  * as are necessary to drain the queue of requests and leave the child in a
  * state capable of handling more ptrace() requests -- or dead.)
  *
- * Returns the number of state changes processed, or -1 on error.
+ * The return_early flag is checked right before we wait; if nonzero, an
+ * immediate return is carried out.  (This should almost close the race where
+ * the thread is interrupted by being hit by a signal before the waitpid()
+ * starts.  In the absence of a waitpid_sigunmask() I don't think we can close
+ * it completely...)
+ *
+ * Returns the number of state changes processed, or -1 on error.  0 can be
+ * returned if this thread was hit with a signal.
  *
  * The debugging strings starting "process status change" are relied upon by the
  * libproc/tst.signals.sh test.
  */
 long
-Pwait_internal(struct ps_prochandle *P, boolean_t block)
+Pwait_internal(struct ps_prochandle *P, boolean_t block, int *return_early)
 {
 	long err;
 	long num_waits = 0;
@@ -672,27 +680,47 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	if (P->state == PS_DEAD)
 		return 0;
 
-	do
-	{
+	do {
 		errno = 0;
-		err = waitpid(P->pid, &status, __WALL | (!block ? WNOHANG : 0));
 
-		switch (err) {
+		if (block && waitpid_lock_hook)
+			waitpid_lock_hook(P, P->wrap_arg, 1);
+
+		/*
+		 * Return at once if so requested.  (We lock and then possibly
+		 * unlock again to minimize the size of the race window in which
+		 * the signal might hit before waitpid() starts.)
+		 */
+		_dt_barrier_(return_early);
+		if (return_early && *return_early > 0) {
+			if (block && waitpid_lock_hook)
+				waitpid_lock_hook(P, P->wrap_arg, 0);
+			return 0;
+		}
+		_dt_barrier_(return_early);
+
+                err = waitpid(P->pid, &status, __WALL | (!block ? WNOHANG : 0));
+	
+		if (block && waitpid_lock_hook)
+			waitpid_lock_hook(P, P->wrap_arg, 0);
+
+                switch (err) {
 		case 0:
 			return 0;
 		case -1:
+			if (block && errno == EINTR)
+				return 0;
+
 			if (errno == ECHILD) {
 				P->state = PS_DEAD;
 				return 0;
 			}
 
-			if (errno != EINTR) {
-				_dprintf("Pwait: error waiting: %s\n",
-				    strerror(errno));
-				return -1;
-			}
+			_dprintf("Pwait: error waiting: %s\n",
+				 strerror(errno));
+			return -1;
 		}
-	} while (errno == EINTR);
+	} while (block && errno == EINTR);
 
 	if (Pwait_handle_waitpid(P, status) < 0)
 		return -1;
@@ -701,7 +729,7 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block)
 	 * Now repeatedly loop, processing more waits until none remain.
 	 */
 	do {
-		one_wait = Pwait(P, 0);
+		one_wait = Pwait(P, 0, NULL);
 		num_waits += one_wait;
 	} while (one_wait > 0);
 
@@ -1307,7 +1335,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		 * that event clears the listening state and makes it possible
 		 * for other ptrace requests to succeed.
 		 */
-		Pwait(P, 0);
+		Pwait(P, 0, NULL);
 		state->state = P->state;
 		if ((!stopped) || (P->state == PS_TRACESTOP))
 			return 0;
@@ -1325,7 +1353,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		while (P->pending_stops &&
 		    ((P->state == PS_RUN) ||
 			(listen_interrupt && P->listening)))
-			Pwait(P, 1);
+			Pwait(P, 1, NULL);
 		P->awaiting_pending_stops--;
 
 		return 0;
@@ -1358,7 +1386,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 		P->pending_stops++;
 		P->awaiting_pending_stops++;
 		while (P->pending_stops && P->state == PS_RUN) {
-			if (Pwait(P, 1) == -1)
+			if (Pwait(P, 1, NULL) == -1)
 				goto err;
 		}
 		P->awaiting_pending_stops--;
@@ -1469,7 +1497,7 @@ Puntrace(struct ps_prochandle *P, int leave_stopped)
 			if (!Pbkpt_continue(P))
 				P->state = PS_RUN;
 			P->ptrace_halted = FALSE;
-			Pwait(P, 0);
+			Pwait(P, 0, NULL);
 		}
 	} else {
 		_dprintf("%i: Detaching.\n", P->pid);
@@ -1756,7 +1784,7 @@ Punbkpt(struct ps_prochandle *P, uintptr_t addr)
 		return;
 	}
 
-	Pwait(P, 0);
+	Pwait(P, 0, NULL);
 	bkpt = bkpt_by_addr(P, addr, TRUE);
 
 	P->num_bkpts--;
@@ -1933,7 +1961,7 @@ bkpt_flush(struct ps_prochandle *P, pid_t pid, int gone) {
 		Puntrace(P, state);
 
 		if (!gone)
-			Pwait(P, 0);
+			Pwait(P, 0, NULL);
 
 		P->bkpt_consume = 0;
 		P->tracing_bkpt = 0;
@@ -2180,7 +2208,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 		/*
 		 * Not stopped at all.  Just do a quick Pwait().
 		 */
-		Pwait(P, 0);
+		Pwait(P, 0, NULL);
 		return 0;
 	} else if (ip == P->tracing_bkpt)
 		/*
@@ -2193,7 +2221,7 @@ Pbkpt_continue(struct ps_prochandle *P)
 		 * a SIGTRAP.
 		 */
 		P->bkpt_consume = 1;
-		Pwait(P, 0);
+		Pwait(P, 0, NULL);
 		P->bkpt_consume = 0;
 		P->state = Pbkpt_continue_internal(P, bkpt, FALSE);
 	}
@@ -2626,6 +2654,15 @@ void
 Pset_ptrace_lock_hook(ptrace_lock_hook_fun *hook)
 {
 	ptrace_lock_hook = hook;
+}
+
+/*
+ * Set the waitpid() lock hook.
+ */
+void
+Pset_waitpid_lock_hook(waitpid_lock_hook_fun *hook)
+{
+	waitpid_lock_hook = hook;
 }
 
 /*

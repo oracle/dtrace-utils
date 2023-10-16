@@ -732,6 +732,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_stdout_fd = -1;
 	dtp->dt_poll_fd = -1;
 	dt_proc_hash_create(dtp);
+	dt_proc_signal_init(dtp);
 	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	dtp->dt_nextepid = 1;
 	dtp->dt_maxprobe = 0;
@@ -1214,6 +1215,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	if (dtp->dt_procs != NULL)
 		dt_proc_hash_destroy(dtp);
+	dt_proc_signal_fini(dtp);
 
 	while ((pgp = dt_list_next(&dtp->dt_programs)) != NULL)
 		dt_program_destroy(dtp, pgp);

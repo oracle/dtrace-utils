@@ -105,6 +105,8 @@ static int dt_proc_loop(dt_proc_t *dpr, int awaiting_continue);
 static void dt_main_fail_rendezvous(dt_proc_t *dpr);
 static void dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg,
     int ptracing);
+static void dt_proc_waitpid_lock(struct ps_prochandle *P, void *arg,
+    int waitpidding);
 static long dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 
 /*
@@ -115,6 +117,11 @@ static long dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr);
 		assert(MUTEX_HELD(&dpr->dpr_lock));		\
 		assert(pthread_equal(dpr->dpr_lock_holder, pthread_self())); \
 	} while (0)
+
+/*
+ * The default internal signal value.
+ */
+static int internal_proc_signal = -1;
 
 /*
  * Unwinder pad for libproc setjmp() chains.
@@ -603,6 +610,7 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 		    "for Pwait(), deadlock is certain: %s\n", strerror(errno));
 		return -1;
 	}
+	pthread_kill(dpr->dpr_tid, dpr->dpr_hdl->dt_proc_signal);
 
 	while (dpr->dpr_proxy_rq != NULL)
 		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
@@ -618,7 +626,8 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 }
 
 static long
-proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
+proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block,
+    int *return_early)
 {
 	dt_proc_t *dpr = arg;
 
@@ -626,9 +635,13 @@ proxy_pwait(struct ps_prochandle *P, void *arg, boolean_t block)
 
 	/*
 	 * If we are already in the right thread, pass the call straight on.
+	 *
+	 * Otherwise, proxy it, throwing out the return_early arg because
+	 * it is only used for internal communication between the monitor
+	 * thread and Pwait() itself.
 	 */
 	if (pthread_equal(dpr->dpr_tid, pthread_self()))
-		return Pwait_internal(P, block);
+		return Pwait_internal(P, block, return_early);
 
 	dpr->dpr_proxy_args.dpr_pwait.P = P;
 	dpr->dpr_proxy_args.dpr_pwait.block = block;
@@ -732,6 +745,38 @@ proxy_quit(dt_proc_t *dpr, int err)
 	return proxy_call(dpr, proxy_quit, 0);
 }
 
+static __thread int waitpid_interrupted;
+
+static void
+waitpid_interrupting_handler(int sig)
+{
+	waitpid_interrupted = 1;
+}
+
+/*
+ * Set up and tear down the signal handler (above) used to force waitpid() to
+ * abort with -EINTR.
+ */
+void
+dt_proc_signal_init(dtrace_hdl_t *dtp)
+{
+	struct sigaction act;
+
+	if (internal_proc_signal == -1)
+		internal_proc_signal = 0;
+
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = waitpid_interrupting_handler;
+	dtp->dt_proc_signal = SIGRTMIN + internal_proc_signal;
+	sigaction(dtp->dt_proc_signal, &act, &dtp->dt_proc_oact);
+}
+
+void
+dt_proc_signal_fini(dtrace_hdl_t *dtp)
+{
+	sigaction(dtp->dt_proc_signal, &dtp->dt_proc_oact, NULL);
+}
+
 typedef struct dt_proc_control_data {
 	dtrace_hdl_t *dpcd_hdl;			/* DTrace handle */
 	dt_proc_t *dpcd_proc;			/* process to control */
@@ -777,9 +822,10 @@ dt_proc_control(void *arg)
 
 	/*
 	 * Set up global libproc hooks that must be active before any processes
-	 * are * grabbed or created.
+	 * are grabbed or created.
 	 */
 	Pset_ptrace_lock_hook(dt_proc_ptrace_lock);
+	Pset_waitpid_lock_hook(dt_proc_waitpid_lock);
 	Pset_libproc_unwinder_pad(dt_unwinder_pad);
 
 	/*
@@ -792,7 +838,8 @@ dt_proc_control(void *arg)
 	 * controlling thread and dt_proc_continue() or process destruction.
 	 *
 	 * It is eventually unlocked by dt_proc_control_cleanup(), and
-	 * temporarily unlocked (while waiting) by dt_proc_loop().
+	 * temporarily unlocked (while waiting) by Pwait(), called from
+	 * dt_proc_loop().
 	 */
 	dt_proc_lock(dpr);
 
@@ -865,29 +912,6 @@ dt_proc_control(void *arg)
 	 */
 	Pset_pwait_wrapper(dpr->dpr_proc, proxy_pwait);
 	Pset_ptrace_wrapper(dpr->dpr_proc, proxy_ptrace);
-
-	/*
-	 * Make a waitfd to this process, and set up polling structures
-	 * appropriately.  WEXITED | WSTOPPED is what Pwait() waits for.
-	 */
-	if ((dpr->dpr_fd = waitfd(P_PID, dpr->dpr_pid, WEXITED | WSTOPPED, 0)) < 0) {
-		dt_proc_error(dtp, dpr, "failed to get waitfd() for pid %li: %s\n",
-		    (long)dpr->dpr_pid, strerror(errno));
-		/*
-		 * Demote this to a mandatorily noninvasive grab: if we
-		 * Pcreate()d it, dpr_created is still set, so it will still get
-		 * killed on dtrace exit.  If even that fails, there's nothing
-		 * we can do but hope.
-		 */
-		Prelease(dpr->dpr_proc, PS_RELEASE_NORMAL);
-		if ((dpr->dpr_proc = Pgrab(dpr->dpr_pid, 2, 0,
-			    dpr, &err)) == NULL) {
-			dt_proc_error(dtp, dpr, "failed to regrab pid %li: %s\n",
-			    (long)dpr->dpr_pid, strerror(err));
-		}
-
-		pthread_exit(NULL);
-	}
 
 	/*
 	 * Detect execve()s from loci in this thread other than proxy calls:
@@ -976,53 +1000,45 @@ dt_proc_control(void *arg)
 static int
 dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 {
-	volatile struct pollfd pfd[2];
+	volatile struct pollfd pfd;
+	int timeout = 0;
+	int pwait_event_count;
 
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
 	/*
-	 * We always want to listen on the proxy pipe; we only want to listen on
-	 * the process's waitfd pipe sometimes.
+	 * Check the proxy pipe on every loop.
 	 */
 
-	pfd[0].events = POLLIN;
-	pfd[1].fd = dpr->dpr_proxy_fd[0];
-	pfd[1].events = POLLIN;
+	pfd.fd = dpr->dpr_proxy_fd[0];
+	pfd.events = POLLIN;
 
 	/*
-	 * If we're only proxying while waiting for a dt_proc_continue(),
-	 * avoid waiting on the process's fd.
+	 * If we're only proxying while waiting for a dt_proc_continue(), wait
+	 * on it indefinitely; otherwise, don't wait, because we'll be waiting
+	 * in Pwait() instead.
 	 */
 	if (awaiting_continue)
-		pfd[0].fd = dpr->dpr_fd * -1;
+		timeout = -1;
 
 	/*
-	 * Wait for the process corresponding to this control thread to stop,
-	 * process the event, and then set it running again.  We want to sleep
-	 * with dpr_lock *unheld* so that other parts of libdtrace can send
-	 * requests to us, which is protected by that lock.  It is impossible
-	 * for them, or any thread but this one, to modify the Pstate(), so we
-	 * can call that without grabbing the lock.
+	 * Check for any outstanding events, possibly sleeping to do so if we
+	 * have no process to wait for.  Process any such events, then wait in
+	 * Pwait() to handle any process events (again, unless we are
+	 * awaiting_continue).  We want to sleep with dpr_lock unheld so that
+	 * other parts of libdtrace can send requests to us, which is protected
+	 * by that lock.  It is impossible for them, or any thread but this one,
+	 * to modify the Pstate(), so we can call that without grabbing the
+	 * lock.  We also unlock it around Pwait() so that proxy requests can
+	 * initiate then.
 	 */
 	for (;;) {
 		volatile int did_proxy_pwait = 0;
 
 		dt_proc_unlock(dpr);
 
-		/*
-		 * If we should stop monitoring the process and only listen for
-		 * proxy requests, avoid waiting on its fd.
-		 */
-
-		if (!awaiting_continue) {
-			if (!dpr->dpr_monitoring)
-				pfd[0].fd = dpr->dpr_fd * -1;
-			else
-				pfd[0].fd = dpr->dpr_fd;
-		}
-
-		while (errno = EINTR,
-		    poll((struct pollfd *)pfd, 2, -1) <= 0 && errno == EINTR)
+		while (errno = 0,
+		    poll((struct pollfd *)&pfd, 1, timeout) <= 0 && errno == EINTR)
 			continue;
 
 		/*
@@ -1044,8 +1060,13 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		 * running breakpoint handlers and the like, which will run in
 		 * the control thread, with their effects visible in the main
 		 * thread, all serialized by dpr_lock).
+		 *
+		 * Since we are about to process any proxy requests, we can
+		 * clear the waitpid-interruption signal flag that sending a
+		 * proxy request sets.
 		 */
 		dt_proc_lock(dpr);
+		waitpid_interrupted = 0;
 
 		/*
 		 * Incoming proxy request.  Drain this byte out of the pipe, and
@@ -1055,13 +1076,13 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		 * case -- but if they do, it is harmless, because the
 		 * dpr_proxy_rq will be NULL in subsequent calls.)
 		 */
-		if (pfd[1].revents != 0) {
+		if (pfd.revents != 0) {
 			char junk;
 			jmp_buf this_exec_jmp, *old_exec_jmp;
 			volatile int did_exec_retry = 0;
 
 			read(dpr->dpr_proxy_fd[0], &junk, 1);
-			pfd[1].revents = 0;
+			pfd.revents = 0;
 
 			/*
 			 * execve() detected during a proxy request: notify the
@@ -1078,7 +1099,11 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 				unwinder_pad = &this_exec_jmp;
 
 				/*
-				 * Pwait() from another thread.
+				 * Pwait() from another thread.  Only one proxy
+				 * request can be active at once, so thank
+				 * goodness we don't need to worry about the
+				 * possibility of another proxy request coming
+				 * in while we're handling this one.
 				 */
 				if (dpr->dpr_proxy_rq == proxy_pwait) {
 					dt_dprintf("%d: Handling a proxy Pwait(%i)\n",
@@ -1087,7 +1112,8 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 					errno = 0;
 					dpr->dpr_proxy_ret = proxy_pwait
 					    (dpr->dpr_proxy_args.dpr_pwait.P, dpr,
-						dpr->dpr_proxy_args.dpr_pwait.block);
+					         dpr->dpr_proxy_args.dpr_pwait.block,
+						 NULL);
 
 					did_proxy_pwait = 1;
 				/*
@@ -1168,19 +1194,35 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 			unwinder_pad = old_exec_jmp;
 		}
 
-		/*
-		 * The process needs attention. Pwait() for it (which will make
-		 * the waitfd transition back to empty).
-		 */
-		if (pfd[0].revents != 0) {
-			dt_dprintf("%d: Handling a process state change\n",
-			    dpr->dpr_pid);
-			pfd[0].revents = 0;
-			Pwait(dpr->dpr_proc, B_FALSE);
+		if (awaiting_continue)
+			continue;
 
+		/*
+		 * Pwait() for the process, listening for process state
+		 * transitions, handling breakpoints and other problems,
+		 * possibly detecting exec() and longjmping back out, etc.
+		 *
+		 * If a proxy request comes in, Pwait() returns 0. Proxy
+		 * requests cannot come in while the lock is held, so we can be
+		 * sure that the waitpid_interrupted flag is still unset at this
+		 * point.
+		 *
+		 * We do not unlock the dpr_lock at this stage because
+		 * breakpoint invocations, proxied ptraces and the like can all
+		 * require the lock to be held.  Instead, the waitpid_lock_hook
+		 * unblocks it around the call to waitpid itself.
+		 */
+
+		dt_dprintf("%d: Waiting for process state changes\n",
+			   dpr->dpr_pid);
+
+		assert(waitpid_interrupted == 0);
+		assert(MUTEX_HELD(&dpr->dpr_lock));
+		pwait_event_count = Pwait(dpr->dpr_proc, B_TRUE, &waitpid_interrupted);
+
+		if (pwait_event_count > 0) {
 			switch (Pstate(dpr->dpr_proc)) {
 			case PS_STOP:
-
 				/*
 				 * If the process stops showing one of the
 				 * events that we are tracing, perform the
@@ -1293,8 +1335,6 @@ dt_proc_control_cleanup(void *arg)
 	 */
 
 	dpr->dpr_done = B_TRUE;
-	if (dpr->dpr_fd)
-	    close(dpr->dpr_fd);
 
 	if (dpr->dpr_proxy_fd[0])
 	    close(dpr->dpr_proxy_fd[0]);
@@ -1596,6 +1636,7 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop,
 
 	sigfillset(&nset);
 	sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
+	sigdelset(&nset, dtp->dt_proc_signal);	/* unblocked for waitpid */
 
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -1930,6 +1971,7 @@ dt_proc_continue(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 		dpr->dpr_proxy_rq = dt_proc_continue;
 		errno = 0;
 		while (write(dpr->dpr_proxy_fd[1], &junk, 1) < 0 && errno == EINTR);
+		pthread_kill(dpr->dpr_tid, dtp->dt_proc_signal);
 		if (errno != 0 && errno != EINTR) {
 			dt_proc_error(dpr->dpr_hdl, dpr, "Cannot write to "
 			    "proxy pipe for dt_proc_continue(), deadlock is "
@@ -2008,6 +2050,10 @@ dt_proc_unlock(dt_proc_t *dpr)
 		assert(MUTEX_HELD(&dpr->dpr_lock));
 }
 
+/*
+ * Take the lock around Ptrace() calls, to prevent other threads issuing
+ * Ptrace()s while we are working.
+ */
 static void
 dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 {
@@ -2017,6 +2063,33 @@ dt_proc_ptrace_lock(struct ps_prochandle *P, void *arg, int ptracing)
 		dt_proc_lock(dpr);
 	else
 		dt_proc_unlock(dpr);
+}
+
+/*
+ * Release the lock around blocking waitpid() calls, so that proxy requests can
+ * come in.  Proxy requests take the lock before hitting the process control
+ * thread with a signal to wake it up: the lock is taken by the caller of the
+ * various dt_Pfunction()s below, while proxy_monitor() invokes proxy_call()
+ * which does the signalling.
+ *
+ * If we're shutting down, we don't do any of this: the proxy pipe is closed and
+ * proxy requests cannot come in.  This hook is always called from the monitoring
+ * thread, so the thread cannot transition from 'not shutting down' to 'shutting
+ * down' within calls to this function, and we don't need to worry about
+ * unbalanced dt_proc_unlock()/dt_proc_lock() calls.
+ */
+static void
+dt_proc_waitpid_lock(struct ps_prochandle *P, void *arg, int waitpidding)
+{
+	dt_proc_t *dpr = arg;
+
+	if (dpr->dpr_done)
+		return;
+
+	if (waitpidding)
+		dt_proc_unlock(dpr);
+	else
+		dt_proc_lock(dpr);
 }
 
 /*
@@ -2302,4 +2375,25 @@ dtrace_proc_continue(dtrace_hdl_t *dtp, struct dtrace_proc *proc)
 
 	if (dpr != NULL)
 		dt_proc_continue(dtp, dpr);
+}
+
+/*
+ * Set the internal signal number used to prod monitoring threads to wake up.
+ */
+int
+dtrace_set_internal_signal(unsigned int sig)
+{
+	if (internal_proc_signal != -1) {
+		dt_dprintf("Cannot change internal signal after DTrace is initialized.\n");
+		return -1;
+	}
+
+        if (SIGRTMIN + sig > SIGRTMAX) {
+		dt_dprintf("Internal signal %i+%i is greater than the maximum allowed, %i.\n",
+			   SIGRTMIN, sig, SIGRTMAX);
+		return -1;
+	}
+
+	internal_proc_signal = sig;
+	return 0;
 }

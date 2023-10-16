@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -26,14 +26,6 @@ const static unsigned char plat_bkpt[] = { 0xcc };
  * TRUE if this platform requires software singlestepping.
  */
 #undef NEED_SOFTWARE_SINGLESTEP
-
-/*
- * Translates waitpid() into a pollable fd.
- */
-
-#ifndef __NR_waitfd
-#define __NR_waitfd 473
-#endif
 
 #endif
 
