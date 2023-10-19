@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -41,7 +41,7 @@ inline double new_double = 2.34567890;
 inline long double new_long_double = 3.567890123;
 */
 
-inline unsigned long * pointer = &`max_pfn;
+inline unsigned long * pointer = (unsigned long *)&`max_pfn;
 inline int result = 3 > 2 ? 3 : 2;
 
 BEGIN

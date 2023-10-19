@@ -14,5 +14,11 @@
 
 BEGIN
 {
-	tracemem(`init_mm, 123);
+	tracemem(*curthread, 123);
+	exit(0);
+}
+
+ERROR
+{
+	exit(1);
 }

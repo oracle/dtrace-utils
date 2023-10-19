@@ -10,7 +10,7 @@
 
 BEGIN
 {
-	printf("rindex is %d, should be 0\n", rindex(`linux_banner, `linux_banner));
+	printf("rindex is %d, should be 0\n", rindex((char *)&`linux_banner, (char *)&`linux_banner));
 	exit(0);
 }
 

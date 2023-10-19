@@ -10,7 +10,7 @@
 
 BEGIN
 {
-	printf("|%s|\n", strjoin(`linux_banner, `linux_banner));
+	printf("|%s|\n", strjoin((char *)&`linux_banner, (char *)&`linux_banner));
 	exit(0);
 }
 

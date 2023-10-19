@@ -10,10 +10,10 @@
 
 BEGIN
 {
-	printf("|%s|\n", strtok(`linux_banner, " "));
+	printf("|%s|\n", strtok((char *)&`linux_banner, " "));
 	printf("|%s|\n", strtok(NULL, " "));
-	printf("|%s|\n", strtok("@@@@@ !!!!!", `linux_banner));
-	printf("|%s|\n", strtok(NULL, `linux_banner));
+	printf("|%s|\n", strtok("@@@@@ !!!!!", (char *)&`linux_banner));
+	printf("|%s|\n", strtok(NULL, (char *)&`linux_banner));
 	exit(0);
 }
 

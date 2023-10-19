@@ -10,8 +10,8 @@
 
 BEGIN
 {
-	printf("|%s|\n", substr(`linux_banner, 1));
-	printf("|%s|\n", substr(`linux_banner, 1, 4));
+	printf("|%s|\n", substr((char *)&`linux_banner, 1));
+	printf("|%s|\n", substr((char *)&`linux_banner, 1, 4));
 	exit(0);
 }
 

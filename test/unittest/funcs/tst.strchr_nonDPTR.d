@@ -10,8 +10,8 @@
 
 BEGIN
 {
-	printf("|%s|\n", strchr(`linux_banner, 'x'));
-	printf("|%s|\n", strrchr(`linux_banner, 'u'));
+	printf("|%s|\n", strchr((char *)&`linux_banner, 'x'));
+	printf("|%s|\n", strrchr((char *)&`linux_banner, 'u'));
 	exit(0);
 }
 

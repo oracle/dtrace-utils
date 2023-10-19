@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -22,7 +22,7 @@ typedef char new_char;
 inline new_char char_var = 'c';
 
 typedef unsigned long * pointer;
-inline pointer p = &`max_pfn;
+inline pointer p = (pointer)&`max_pfn;
 
 BEGIN
 {

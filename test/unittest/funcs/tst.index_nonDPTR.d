@@ -10,7 +10,7 @@
 
 BEGIN
 {
-	printf("index is %d, should be 0\n", index(`linux_banner, `linux_banner));
+	printf("index is %d, should be 0\n", index((char *)&`linux_banner, (char *)&`linux_banner));
 	exit(0);
 }
 

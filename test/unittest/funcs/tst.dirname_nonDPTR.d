@@ -10,7 +10,7 @@
 
 BEGIN
 {
-	printf("|%s|\n", dirname(`linux_banner));
+	printf("|%s|\n", dirname((char *)&`linux_banner));
 	exit(0);
 }
 

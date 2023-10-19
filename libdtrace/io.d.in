@@ -129,8 +129,11 @@ translator devinfo_t < struct bio *B > {
 	dev_major = B->__disk_chk == NULL ? 0 : getmajor(B->__bio_part_dev);
 	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__bio_part_dev);
 	dev_instance = 0;
-	dev_name = B->__disk_chk == NULL ? "nfs" : stringof(`major_names[
-	        getmajor(B->__bio_part_dev) % 255]->name);
+	dev_name = B->__disk_chk == NULL
+			? "nfs"
+			: stringof(((struct blk_major_name **)`major_names)[
+					getmajor(B->__bio_part_dev) % 255
+				   ]->name);
 	dev_statname = B->__disk_chk == NULL ? "nfs" :
 	    B->__bio_partno == 0 ? stringof(B->__disk->disk_name) :
 	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__bio_partno));

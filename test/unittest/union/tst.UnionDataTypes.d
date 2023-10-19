@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -95,7 +95,7 @@ BEGIN
 	var.new_string = "hello";
 	*/
 
-	var.pointer = &`max_pfn;
+	var.pointer = (unsigned long *)&`max_pfn;
 
 	var.new_struct.ch = 'c';
 	var.new_struct.in = 4;

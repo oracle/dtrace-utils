@@ -10,7 +10,7 @@
 
 BEGIN
 {
-	printf("|%s|\n", basename(`linux_banner));
+	printf("|%s|\n", basename((char *)&`linux_banner));
 	exit(0);
 }
 

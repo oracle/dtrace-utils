@@ -1,3 +1,1 @@
--- @@stderr --
-dtrace: script 'test/unittest/options/err.ctfpath.d' matched 1 probe
-dtrace: could not enable tracing: Module does not contain any CTF data
+Cannot open CTF archive /dev/null: File is not in CTF or ELF format.; trying BTF.
