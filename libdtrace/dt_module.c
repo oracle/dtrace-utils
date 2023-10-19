@@ -1759,20 +1759,31 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 		tip->dtt_type = DT_FPTR_TYPE(dtp);
 	}
 
-	if (undefined) {
-		if (dmp->dm_extern == NULL)
-			return dt_set_errno(dtp, EDT_NOSYM);
+	if (!undefined)
+		goto out;
 
-		dt_ident_t *idp =
-		    dt_idhash_lookup(dmp->dm_extern, sip->name);
+	/*
+	 * Try externs for the module (if any).  If that fails, and we are
+	 * looking for a symbol in a kernel module, default to uintptr_t.
+	 */
+	if (dmp->dm_extern != NULL) {
+		dt_ident_t *idp	= dt_idhash_lookup(dmp->dm_extern, sip->name);
 
 		if (idp == NULL)
 			return dt_set_errno(dtp, EDT_NOSYM);
 
 		tip->dtt_ctfp = idp->di_ctfp;
 		tip->dtt_type = idp->di_type;
-	}
+	} else if (dmp->dm_flags & DT_DM_KERNEL) {
+		tip->dtt_ctfp = dmp->dm_ctfp;
+		tip->dtt_type = ctf_lookup_by_name(dmp->dm_ctfp, "uintptr_t");
 
+		if (tip->dtt_type == CTF_ERR)
+			return dt_set_errno(dtp, EDT_NOSYM);
+	} else
+		return dt_set_errno(dtp, EDT_NOSYM);
+
+out:
 	tip->dtt_object = dmp->dm_name;
 	return 0;
 }
