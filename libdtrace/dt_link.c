@@ -75,11 +75,12 @@ static const char DTRACE_SHSTRTAB64[] = "\0"
 static const char DOFSTR[] = "__SUNW_dof";
 static const char DOFLAZYSTR[] = "___SUNW_dof";
 
-typedef struct dt_link_pair {
-	struct dt_link_pair *dlp_next;	/* next pair in linked list */
+typedef struct dt_link_set {
+	struct dt_link_set *dlp_next;	/* next set in linked list */
 	void *dlp_str;			/* buffer for string table */
 	void *dlp_sym;			/* buffer for symbol table */
-} dt_link_pair_t;
+	void *dlp_rel;			/* buffer for relocations */
+} dt_link_set_t;
 
 typedef struct dof_elf32 {
 	uint32_t de_nrel;		/* relocation count */
@@ -992,11 +993,11 @@ dt_modtext(dtrace_hdl_t *dtp, char *p, GElf_Rela *rela, uint32_t *off)
 /*PRINTFLIKE5*/
 _dt_printflike_(5,6)
 static int
-dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_pair_t *bufs,
+dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_set_t *bufs,
     const char *format, ...)
 {
 	va_list ap;
-	dt_link_pair_t *pair;
+	dt_link_set_t *set;
 
 	va_start(ap, format);
 	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, format, ap);
@@ -1008,11 +1009,12 @@ dt_link_error(dtrace_hdl_t *dtp, Elf *elf, int fd, dt_link_pair_t *bufs,
 	if (fd >= 0)
 		close(fd);
 
-	while ((pair = bufs) != NULL) {
-		bufs = pair->dlp_next;
-		dt_free(dtp, pair->dlp_str);
-		dt_free(dtp, pair->dlp_sym);
-		dt_free(dtp, pair);
+	while ((set = bufs) != NULL) {
+		bufs = set->dlp_next;
+		dt_free(dtp, set->dlp_str);
+		dt_free(dtp, set->dlp_sym);
+		dt_free(dtp, set->dlp_rel);
+		dt_free(dtp, set);
 	}
 
 	return dt_set_errno(dtp, EDT_COMPILER);
@@ -1032,6 +1034,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	Elf_Data *data_rel, *data_sym, *data_str, *data_tgt;
 	GElf_Shdr shdr_rel, shdr_sym, shdr_str, shdr_tgt;
 	GElf_Sym rsym, fsym, dsym;
+	GElf_Rel rel;
 	GElf_Rela rela;
 	char *s, *p, *r;
 	char pname[DTRACE_PROVNAMELEN];
@@ -1040,7 +1043,7 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	uint32_t off, eclass, emachine1, emachine2;
 	size_t symsize, nsym, isym, istr, len;
 	key_t objkey;
-	dt_link_pair_t *pair, *bufs = NULL;
+	dt_link_set_t *set, *bufs = NULL;
 	dt_strtab_t *strtab;
 	int flags = dtp->dt_link_no_mmap ? ELF_C_RDWR : ELF_C_RDWR_MMAP;
 
@@ -1111,6 +1114,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 	scn_rel = NULL;
 	while ((scn_rel = elf_nextscn(elf, scn_rel)) != NULL) {
+		int		nrel, j;
+
 		if (gelf_getshdr(scn_rel, &shdr_rel) == NULL)
 			goto err;
 
@@ -1177,19 +1182,23 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		 * We take a first pass through all the relocations to
 		 * populate our string table and count the number of extra
 		 * symbols we'll require.
+		 *
+		 * We count the number of matching relocations so that we can
+		 * remove them from the relocation table once we are done with
+		 * them.
 		 */
 		strtab = dt_strtab_create(BUFSIZ);
 		nsym = 0;
 		isym = data_sym->d_size / symsize;
 		istr = data_str->d_size;
+		nrel = 0;
+		set = NULL;
 
 		for (i = 0; i < shdr_rel.sh_size / shdr_rel.sh_entsize; i++) {
-
 			if (shdr_rel.sh_type == SHT_RELA) {
 				if (gelf_getrela(data_rel, i, &rela) == NULL)
 					continue;
 			} else {
-				GElf_Rel rel;
 				if (gelf_getrel(data_rel, i, &rel) == NULL)
 					continue;
 				rela.r_offset = rel.r_offset;
@@ -1207,6 +1216,8 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			if (strncmp(s, dt_prefix, sizeof(dt_prefix) - 1) != 0)
 				continue;
+
+			nrel++;
 
 			if (dt_elf_symtab_lookup(data_sym, isym, rela.r_offset,
 			    shdr_rel.sh_info, &fsym) != 0) {
@@ -1270,37 +1281,36 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			dt_strtab_destroy(strtab);
 
-			if ((pair = dt_alloc(dtp, sizeof(*pair))) == NULL)
+			if ((set = dt_zalloc(dtp, sizeof(*set))) == NULL)
 				goto err;
 
-			if ((pair->dlp_str = dt_alloc(dtp, data_str->d_size +
-			    len)) == NULL) {
-				dt_free(dtp, pair);
-				goto err;
-			}
-
-			if ((pair->dlp_sym = dt_alloc(dtp, data_sym->d_size +
-			    nsym * symsize)) == NULL) {
-				dt_free(dtp, pair->dlp_str);
-				dt_free(dtp, pair);
+			set->dlp_str = dt_alloc(dtp, data_str->d_size + len);
+			if (set->dlp_str == NULL) {
+				dt_free(dtp, set);
 				goto err;
 			}
 
-			pair->dlp_next = bufs;
-			bufs = pair;
+			set->dlp_sym = dt_alloc(dtp, data_sym->d_size +
+						     nsym * symsize);
+			if (set->dlp_sym == NULL) {
+				dt_free(dtp, set->dlp_str);
+				dt_free(dtp, set);
+				goto err;
+			}
 
-			memcpy(pair->dlp_str, data_str->d_buf,
-			    data_str->d_size);
-			data_str->d_buf = pair->dlp_str;
+			set->dlp_next = bufs;
+			bufs = set;
+
+			memcpy(set->dlp_str, data_str->d_buf, data_str->d_size);
+			data_str->d_buf = set->dlp_str;
 			data_str->d_size += len;
 			elf_flagdata(data_str, ELF_C_SET, ELF_F_DIRTY);
 
 			shdr_str.sh_size += len;
 			gelf_update_shdr(scn_str, &shdr_str);
 
-			memcpy(pair->dlp_sym, data_sym->d_buf,
-			    data_sym->d_size);
-			data_sym->d_buf = pair->dlp_sym;
+			memcpy(set->dlp_sym, data_sym->d_buf, data_sym->d_size);
+			data_sym->d_buf = set->dlp_sym;
 			data_sym->d_size += nsym * symsize;
 			elf_flagdata(data_sym, ELF_C_SET, ELF_F_DIRTY);
 
@@ -1316,13 +1326,12 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 		 * Now that the tables have been allocated, perform the
 		 * modifications described above.
 		 */
-		for (i = 0; i < shdr_rel.sh_size / shdr_rel.sh_entsize; i++) {
-
+		for (i = j = 0; i < shdr_rel.sh_size / shdr_rel.sh_entsize;
+		     i++) {
 			if (shdr_rel.sh_type == SHT_RELA) {
 				if (gelf_getrela(data_rel, i, &rela) == NULL)
 					continue;
 			} else {
-				GElf_Rel rel;
 				if (gelf_getrel(data_rel, i, &rel) == NULL)
 					continue;
 				rela.r_offset = rel.r_offset;
@@ -1338,8 +1347,25 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 
 			s = (char *)data_str->d_buf + rsym.st_name;
 
-			if (strncmp(s, dt_prefix, sizeof(dt_prefix) - 1) != 0)
+			if (strncmp(s, dt_prefix, sizeof(dt_prefix) - 1) != 0) {
+				/*
+				 * If there was an earlier relocation that was
+				 * to be removed, we need to copy this one to
+				 * an earlier slot.
+				 */
+				if (j < i) {
+					mod = 1;
+					elf_flagdata(data_rel, ELF_C_SET, ELF_F_DIRTY);
+
+					if (shdr_rel.sh_type == SHT_RELA)
+						gelf_update_rela(data_rel, j, &rela);
+					else
+						gelf_update_rel(data_rel, j, &rel);
+				}
+
+				j++;
 				continue;
+			}
 
 			s += sizeof(dt_prefix) - 1;
 
@@ -1441,32 +1467,40 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 			 */
 			if (rsym.st_shndx != SHN_SUNW_IGNORE) {
 				mod = 1;
-				elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
+				elf_flagdata(data_sym, ELF_C_SET, ELF_F_DIRTY);
 				rsym.st_shndx = SHN_SUNW_IGNORE;
 				gelf_update_sym(data_sym, ndx, &rsym);
 			}
+		}
 
-			/*
-			 * This relocation is no longer needed.  The linker on
-			 * Linux doesn't know about SHN_SUNW_IGNORE, so we mark
-			 * the relocation with type NONE.  Failing to do so
-			 * causes the linker to try to fill in an address on
-			 * top of the NOPs we so carefully planted.
-			 */
-			if (rela.r_info != GELF_R_INFO(ndx,0)) {
-				mod = 1;
-				elf_flagdata(data_tgt, ELF_C_SET, ELF_F_DIRTY);
-				if (shdr_rel.sh_type == SHT_RELA) {
-					rela.r_info = GELF_R_INFO(ndx, 0);
-					gelf_update_rela(data_rel, i, &rela);
-				} else {
-					GElf_Rel rel;
+		/*
+		 * If some relocations were removed, shrink the relocation
+		 * table.
+		 */
+		if (nrel > 0) {
+			size_t	sz = data_rel->d_size -
+				     nrel * shdr_rel.sh_entsize;
 
-					rel.r_offset = rela.r_offset;
-					rel.r_info = GELF_R_INFO(ndx, 0);
-					gelf_update_rel(data_rel, i, &rel);
-				}
+			/* If we do not have a link set yet, allocate one. */
+			if (set == NULL) {
+				set = dt_zalloc(dtp, sizeof(*set));
+				if (set == NULL)
+					goto err;
 			}
+
+			set->dlp_rel = dt_alloc(dtp, sz);
+			if (set->dlp_rel == NULL)
+				goto err;
+
+			mod = 1;
+			elf_flagdata(data_rel, ELF_C_SET, ELF_F_DIRTY);
+
+			memcpy(set->dlp_rel, data_rel->d_buf, sz);
+			data_rel->d_buf = set->dlp_rel;
+			data_rel->d_size = sz;
+
+			shdr_rel.sh_size = sz;
+			gelf_update_shdr(scn_rel, &shdr_rel);
 		}
 	}
 
@@ -1476,11 +1510,12 @@ process_obj(dtrace_hdl_t *dtp, const char *obj, int *eprobesp)
 	elf_end(elf);
 	close(fd);
 
-	while ((pair = bufs) != NULL) {
-		bufs = pair->dlp_next;
-		dt_free(dtp, pair->dlp_str);
-		dt_free(dtp, pair->dlp_sym);
-		dt_free(dtp, pair);
+	while ((set = bufs) != NULL) {
+		bufs = set->dlp_next;
+		dt_free(dtp, set->dlp_str);
+		dt_free(dtp, set->dlp_sym);
+		dt_free(dtp, set->dlp_rel);
+		dt_free(dtp, set);
 	}
 
 	return 0;
