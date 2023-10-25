@@ -33,36 +33,32 @@ Source code for the UEK kernel is available on github in the
 
 ## Table of Contents
 
-* [1. License](#1-license)
-* [2. How to Build DTrace](#2-how-to-build-dtrace)
-  * [2.1. Prerequisites](#21-prerequisites)
-     * [2.1.1. Step 1: Either install a recent-enough binutils and GCC...](#211-step-1-either-install-a-recent-enough-binutils-and-gcc)
-     * [2.1.2. Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)](#212-step-2-or-install-the-compact-type-format-ctf-libraries-deprecated)
-     * [2.1.3. Step 3: Build a Kernel with add-on features that DTrace uses](#213-step-3-build-a-kernel-with-add-on-features-that-dtrace-uses)
-     * [2.1.4. Step 4: Get the Other Necessary Packages](#214-step-4-get-the-other-necessary-packages)
-  * [2.2. Build DTrace](#22-build-dtrace)
-* [3. Testing](#3-testing)
-* [4. How to Run DTrace](#4-how-to-run-dtrace)
-* [5. Questions](#5-questions)
-* [6. Pull Requests and Support](#6-pull-requests-and-support)
+* [How to Build DTrace](#how-to-build-dtrace)
+  * [Prerequisites](#prerequisites)
+     * [Step 1: Either install a recent-enough binutils and GCC...](#step-1-either-install-a-recent-enough-binutils-and-gcc)
+     * [Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)](#step-2-or-install-the-compact-type-format-ctf-libraries-deprecated)
+     * [Step 3: Build a Kernel with add-on features that DTrace uses](#step-3-build-a-kernel-with-add-on-features-that-dtrace-uses)
+     * [Step 4: Get the Other Necessary Packages](#step-4-get-the-other-necessary-packages)
+  * [Build DTrace](#build-dtrace)
+* [Testing](#testing)
+* [How to Run DTrace](#how-to-run-dtrace)
+* [Questions](#questions)
+* [Contributing](#contributing)
+* [Security](#security)
+* [License](#license)
 
-## 1. License
-
-DTrace is licensed under the UPL 1.0 (Universal Permissive License).
-A copy is included in this repository as the LICENSE file.
-
-## 2. How to Build DTrace
+## How to Build DTrace
 
 The build instructions focus on building DTrace for the upstream Linux kernel.
 We will use the 5.14.9 release, but the instructions apply to most recent Linux
 kernel versions.
 
-### 2.1. Prerequisites
+### Prerequisites
 
 Please read this section carefully before moving over to the build
 documentation to ensure your environment is properly configured.
 
-#### 2.1.1. Step 1: Either install a recent-enough binutils and GCC...
+#### Step 1: Either install a recent-enough binutils and GCC...
 
 DTrace uses a type introspection system called CTF.  This is supported by
 upstream GCC and GNU Binutils.  Make sure you have binutils 2.36 or later
@@ -73,7 +69,7 @@ HOSTCC and CC at that GCC when compiling the kernel and DTrace).
 If your distro provides a binutils development package, you need to install
 that too (we need to link against libctf.so).
 
-#### 2.1.2. Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)
+#### Step 2: ... or install the Compact Type Format (CTF) libraries (deprecated)
 
 If you can't update your toolchain, you can alternatively install
 [libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).  However, this library
@@ -97,7 +93,7 @@ gives the package names for Debian and Oracle Linux as examples.
 | libdw        | libdw-dev        | elfutils-devel        |
 | libelf       | libelf-dev       | elfutils-libelf-devel |
 
-#### 2.1.3. Step 3: Build a kernel with add-on features that DTrace uses
+#### Step 3: Build a kernel with add-on features that DTrace uses
 
 DTrace currently depends on a few extra kernel features that are not available
 in the upstream kernel:
@@ -146,7 +142,7 @@ It is preferred (but not required) to reboot into your new kernel before
 trying to build DTrace.  (If you don't reboot into it, you need to specify
 some extra options when running make.)
 
-#### 2.1.4. Step 4: Get the Other Necessary Packages
+#### Step 4: Get the Other Necessary Packages
 
 A few remaining packages are required either for building or at runtime.  They
 should be part of most Linux distributions today and can be installed via the
@@ -179,7 +175,7 @@ At runtime:
 | wireshark          | wireshark              | wireshark                 |
 | fuse3 or fuse      | libfuse3-3 or libfuse2 | fuse3-devel or fuse-devel |
 
-### 2.2. Build DTrace
+### Build DTrace
 
 The simplest way of building DTrace is booting into your new kernel with the
 add-on features DTrace expects and issuing the following commands from the
@@ -216,7 +212,7 @@ different places, building against a kernel built with O=, etc.)
 
 'make help' might also be of interest.
 
-## 3. Testing
+## Testing
 
 A testsuite is provided in the source tree.  It is run using **make** in
 conjunction with one of the following targets:
@@ -237,21 +233,33 @@ The most recent logs are also available by via the `test/log/current/` symbolic 
 The testsuite itself has more dependencies that need to be installed.
 The full list is available in the [dtrace.spec](dtrace.spec) file.
 
-## 4. How to run DTrace
+## How to run DTrace
 
 The `dtrace` binary is installed in /usr/**sbin**/dtrace.
 Currently, you can only run dtrace with root privileges.
 Be careful not to confuse the utility with **SystemTap's dtrace** script,
 which is installed in /usr/**bin**/dtrace.
 
-## 5. Questions
+## Questions
 
 For questions, please check the
 [dtrace-devel mailing list](https://oss.oracle.com/mailman/listinfo/dtrace-devel).
 
-## 6. Pull Requests and Support
+## Contributing
 
-We currently do not accept pull requests via GitHub, please contact us via the mailing list above. 
+This project is not accepting external contributions at this time. For bugs or enhancement requests, please file a GitHub issue unless it’s security related. When filing a bug remember that the better written the bug is, the more likely it is to be fixed. If you think you’ve found a security vulnerability, do not raise a GitHub issue and follow the instructions in our [security policy](./SECURITY.md).
+Please contact us via the mailing list above. 
 
 The source code for DTrace is published here without support. Compiled binaries are provided as part of Oracle Linux, which is [free to download](http://www.oracle.com/technetwork/server-storage/linux/downloads/index.html), distribute and use.
 Support for DTrace is included in Oracle Linux support subscriptions. Individual packages and updates are available on the [Oracle Linux yum server](https://yum.oracle.com). 
+
+## Security
+
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
+
+## License
+
+Copyright (c) 2010, 2023 Oracle and/or its affiliates.
+
+Released under the Universal Permissive License v1.0 as shown at
+<https://oss.oracle.com/licenses/upl/>.
