@@ -307,6 +307,7 @@ uprobe_create_from_addr(ps_prochandle *P, uint64_t addr, int is_enabled,
 	if (!spec)
 		return NULL;
 
+	addr -= mapp.pr_file->first_segment->pr_vaddr;
 	name = uprobe_create_named(mapp.pr_dev, mapp.pr_inum, addr, spec, 0,
 				   is_enabled, prv, mod, fun, prb);
 	free(spec);
