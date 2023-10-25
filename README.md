@@ -41,7 +41,7 @@ Source code for the UEK kernel is available on github in the
      * [Step 4: Get the Other Necessary Packages](#step-4-get-the-other-necessary-packages)
   * [Build DTrace](#build-dtrace)
 * [Testing](#testing)
-* [How to Run DTrace](#how-to-run-dtrace)
+* [How to Run](#how-to-run)
 * [Questions](#questions)
 * [Contributing](#contributing)
 * [Security](#security)
@@ -233,7 +233,7 @@ The most recent logs are also available by via the `test/log/current/` symbolic 
 The testsuite itself has more dependencies that need to be installed.
 The full list is available in the [dtrace.spec](dtrace.spec) file.
 
-## How to run DTrace
+## How to run
 
 The `dtrace` binary is installed in /usr/**sbin**/dtrace.
 Currently, you can only run dtrace with root privileges.
