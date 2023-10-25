@@ -3,7 +3,7 @@
 # Build files in subdirectories are included by this file.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -65,12 +65,19 @@ UNPRIV_HOME ?= /run/initramfs
 # pathnames), and about the pieces of the pathname before and after the kernel
 # version (so it can build include paths).
 
-KERNELS=$(shell uname -r)
-KERNELDIRPREFIX=/lib/modules
-KERNELODIR=
-# This allows you to build using a locally installed kernel built with O= by
-# just specifying KERNELODIR=relative/path/to/your/kernel/o/dir.
-KERNELDIRSUFFIX=$(if $(KERNELODIR),/source,/build)
+# Headers for installed kernels should be found automatically by the build
+# logic.  For local builds, one should specify KERNELSRCDIR as the source
+# location of the kernel tree, and KERNELOBJDIR as the location of the object
+# tree.  If the kernel was built within the source tree, KERNELOBJDIR need not
+# be specified.
+
+KERNELS = $(shell uname -r)
+KERNELMODDIR = /lib/modules
+
+ifdef KERNELSRCDIR
+KERNELOBJDIR ?= $(KERNELSRCDIR)
+endif
+
 KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(ARCH))))
 
 # Paths.
