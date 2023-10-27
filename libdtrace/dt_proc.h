@@ -8,6 +8,8 @@
 #ifndef	_DT_PROC_H
 #define	_DT_PROC_H
 
+#include <signal.h>
+#include <time.h>
 #include <rtld_db.h>
 #include <libproc.h>
 #include <dtrace.h>
@@ -35,6 +37,7 @@ typedef struct dt_proc {
 	pthread_t dpr_tid;		/* control thread (or zero if none) */
 	pid_t dpr_pid;			/* pid of process */
 	int dpr_proxy_fd[2];		/* proxy request pipe from main thread */
+	timer_t dpr_proxy_timer;	/* control-thread-signalling timer */
 	uint_t dpr_refs;		/* reference count */
 	uint8_t dpr_stop;		/* stop mask: see flag bits below */
 	uint8_t dpr_done;		/* done flag: ctl thread has exited */

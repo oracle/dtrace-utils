@@ -585,12 +585,27 @@ dt_proc_error(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *format, ...)
  * the control thread are related to the child process, and because some calls
  * to the child process are themselves involved in the implementation of the
  * exec-retry protocol.)
+ *
+ * The actual call involves
+ *  - write a message down the proxy pipe.
+ *  - hit the control thread with the dt_proc_signal, which will wake up
+ *    the waitpid() in Pwait() if it's waiting there and force an early exit to
+ *    check the proxy pipe, and will set the thread-local waitpid_interrupted
+ *    variable wich Pwait() checks before it enters waitpid().
+ *  - arm a timer which repeatedly hits the control thread with this signal;
+ *    it is disarmed by the control thread.
+ *  - wait for the dpr_proxy_rq to be reset and the dpr_msg_cv to be
+ *    signalled, indciating that the request is done.
+ *  - if an exec() has happened, jump out to the dpr_proxy_exec_retry
+ *    pad, which will attempt to reattach to the new process.
  */
 
 static long
 proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 {
 	char junk = '\0'; /* unimportant */
+	struct itimerspec pinger = {0};
+	struct itimerspec nonpinger = {0};
 
 	dpr->dpr_proxy_rq = proxy_rq;
 
@@ -612,8 +627,38 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 	}
 	pthread_kill(dpr->dpr_tid, dpr->dpr_hdl->dt_proc_signal);
 
+	/*
+	 * This timer's sole purpose is to hit the control thread with a signal
+	 * if we are unlucky enough for the initial signal to strike in the gap
+	 * between checking if the signal has hit and entering the waitpid().
+	 * If this race hits, the proxy call latency will be at least as great
+	 * as the interval of the timer, so it shouldn't be too long: but the
+	 * value isn't that important otherwise.  (If it's too short, it'll
+	 * waste time delivering useless signals.)
+	 *
+	 * Because this is only solving a rare race, if it can't be armed it's
+	 * not too serious a problem, and we can more or less just keep going.
+	 */
+	pinger.it_value.tv_nsec = 1000000; /* arbitrary, not too long: 1ms */
+	pinger.it_interval.tv_nsec = 1000000;
+	if (timer_settime(dpr->dpr_proxy_timer, 0, &pinger, NULL) < 0)
+		dt_proc_error(dpr->dpr_hdl, dpr,
+			      "Cannot create fallback wakeup timer: %s\n",
+			      strerror(errno));
+
 	while (dpr->dpr_proxy_rq != NULL)
 		pthread_cond_wait(&dpr->dpr_msg_cv, &dpr->dpr_lock);
+
+	/*
+	 * Disarm the timer again.  This is also done from
+	 * dt_proc_waitpid_lock() so that the signal stops as soon as the
+	 * waitpid() is done: but if the control thread was not waiting at
+	 * waitpid() at all, we'll want to disarm it regardless.
+	 */
+	if (timer_settime(dpr->dpr_proxy_timer, 0, &nonpinger, NULL) < 0)
+		dt_proc_error(dpr->dpr_hdl, dpr,
+			      "Cannot disarm fallback wakeup timer: %s\n",
+			      strerror(errno));
 
 	dpr->dpr_lock_holder = pthread_self();
 
@@ -817,6 +862,7 @@ dt_proc_control(void *arg)
 	dt_proc_control_data_t * volatile datap = arg;
 	dtrace_hdl_t * volatile dtp = datap->dpcd_hdl;
 	dt_proc_t * volatile dpr = datap->dpcd_proc;
+	struct sigevent sev = {0};
 	int err;
 	jmp_buf exec_jmp;
 
@@ -843,8 +889,22 @@ dt_proc_control(void *arg)
 	 */
 	dt_proc_lock(dpr);
 
+	/*
+	 * Set up the machinery to allow the proxy thread to make requests of
+	 * us: two ends of a pipe and one timer to signal this thread with the
+	 * dt_proc_signal.  The timer is not yet armed.
+	 */
+
 	dpr->dpr_proxy_fd[0] = datap->dpcd_proxy_fd[0];
 	dpr->dpr_proxy_fd[1] = datap->dpcd_proxy_fd[1];
+	sev.sigev_notify = SIGEV_SIGNAL | SIGEV_THREAD_ID;
+	sev.sigev_signo = dtp->dt_proc_signal;
+	sev._sigev_un._tid = gettid();
+	if (timer_create(CLOCK_MONOTONIC, &sev, &dpr->dpr_proxy_timer) < 0) {
+		dt_proc_error(dtp, dpr, "failed to arm proxy timer for %i: %s\n",
+			      dpr->dpr_pid, strerror(errno));
+		pthread_exit(NULL);
+	}
 
 	/*
 	 * Either create the process, or grab it.  Whichever, on failure, quit
@@ -1352,6 +1412,7 @@ dt_proc_control_cleanup(void *arg)
 	dpr->dpr_proxy_errno = ESRCH;
 	dpr->dpr_proxy_rq = NULL;
 	pthread_cond_signal(&dpr->dpr_msg_cv);
+	timer_delete(dpr->dpr_proxy_timer);
 
 	/*
 	 * Death-notification queueing is complicated by the fact that we might
@@ -2088,8 +2149,21 @@ dt_proc_waitpid_lock(struct ps_prochandle *P, void *arg, int waitpidding)
 
 	if (waitpidding)
 		dt_proc_unlock(dpr);
-	else
-		dt_proc_lock(dpr);
+	else {
+		struct itimerspec nonpinger = {0};
+
+                /*
+		 * A waitpid() is done.  Disarm the signal-pinging timer
+		 * immediately: the waitpid() has woken up, so its job is done.
+		 */
+
+		if (timer_settime(dpr->dpr_proxy_timer, 0, &nonpinger, NULL) < 0)
+			dt_proc_error(dpr->dpr_hdl, dpr,
+				      "Cannot disarm fallback wakeup timer: %s\n",
+				      strerror(errno));
+
+                dt_proc_lock(dpr);
+	}
 }
 
 /*

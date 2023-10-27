@@ -8,10 +8,12 @@ LIBS += libport
 
 libport_TARGET = libport
 libport_DIR := $(current-dir)
-ifdef HAVE_CLOSE_RANGE
 libport_SOURCES = gmatch.c linux_version_code.c strlcat.c strlcpy.c p_online.c time.c daemonize.c
-else
-libport_SOURCES = gmatch.c linux_version_code.c strlcat.c strlcpy.c p_online.c time.c daemonize.c close_range.c
+ifndef HAVE_CLOSE_RANGE
+libport_SOURCES += close_range.c
+endif
+ifndef HAVE_GETTID
+libport_SOURCES += gettid.c
 endif
 libport_LIBSOURCES := libport
 libport_CPPFLAGS := -Ilibdtrace

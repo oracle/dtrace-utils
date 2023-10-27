@@ -44,6 +44,10 @@ unsigned long linux_version_code(void);
 int close_range(unsigned int first, unsigned int last, unsigned int flags);
 #endif
 
+#ifndef HAVE_GETTID
+pid_t gettid(void);
+#endif
+
 /*
  * New open() flags not supported in OL6 glibc.
  */

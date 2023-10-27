@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -15,7 +15,7 @@ dtrace=$1
 
 declare -a pids
 
-for lib in `ls -1 /lib/lib*.so.1 | grep -v ld.so.1`; do
+for lib in `ls -1 /lib64/lib*.so.1 | grep -v libthread_db.so.1`; do
 	preload=$lib:${preload}
 done
 
