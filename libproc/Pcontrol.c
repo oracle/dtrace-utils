@@ -31,7 +31,6 @@
 
 #include <dt_debug.h>
 
-#include <mutex.h>
 #include <platform.h>
 #include <port.h>
 

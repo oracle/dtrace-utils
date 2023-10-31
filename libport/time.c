@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,7 +9,6 @@
 #include <sys/dtrace_types.h>
 #include <time.h>
 #include <pthread.h>
-#include <mutex.h>
 
 hrtime_t
 gethrtime(void)
@@ -28,10 +27,3 @@ gethrtime(void)
 
         return v;
 }
-
-int
-mutex_init(mutex_t *m, int flags1, void *ptr)
-{
-	return pthread_mutex_init(m, NULL);
-}
-

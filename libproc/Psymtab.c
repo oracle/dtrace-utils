@@ -26,7 +26,7 @@
 #include <port.h>
 #include <setjmp.h>
 
-#include <mutex.h>
+#include <pthread.h>
 
 #include <rtld_db.h>
 
@@ -976,7 +976,7 @@ Pmap_mapfile_name(struct ps_prochandle *P, const prmap_t *mapp)
 /*
  * We wouldn't need these if qsort(3C) took an argument for the callback...
  */
-static mutex_t sort_mtx = DEFAULTMUTEX;
+static pthread_mutex_t sort_mtx = PTHREAD_MUTEX_INITIALIZER;
 static char *sort_strs;
 static GElf_Sym *sort_syms;
 
@@ -1175,7 +1175,7 @@ optimize_symtab(sym_tbl_t *symtab)
 	/*
 	 * Sort the two tables according to the appropriate criteria.
 	 */
-	mutex_lock(&sort_mtx);
+	pthread_mutex_lock(&sort_mtx);
 	sort_strs = symtab->sym_strs;
 	sort_syms = syms;
 
@@ -1184,7 +1184,7 @@ optimize_symtab(sym_tbl_t *symtab)
 
 	sort_strs = NULL;
 	sort_syms = NULL;
-	mutex_unlock(&sort_mtx);
+	pthread_mutex_unlock(&sort_mtx);
 
 	free(syms);
 }

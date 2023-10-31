@@ -17,7 +17,6 @@
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 
-#include <mutex.h>
 #include <port.h>
 #include <uprobes.h>
 

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,7 +9,6 @@
 #define _PORT_H
 
 #include <pthread.h>
-#include <mutex.h>
 #include <unistd.h>
 #include <sys/compiler.h>
 #include <sys/types.h>
@@ -26,7 +25,7 @@ hrtime_t gethrtime(void);
 
 int p_online(int cpun);
 
-int mutex_init(mutex_t *m, int flags1, void *ptr);
+#define MUTEX_HELD(x)	((x)->__data.__count == 0)
 
 int daemonize(int close_fds);
 
