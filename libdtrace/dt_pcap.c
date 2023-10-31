@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2016, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -98,7 +98,8 @@ dt_pcap_destroy(dtrace_hdl_t *dtp)
 		 */
 		close(dtp->dt_pcap.dt_pcap_pipe[1]);
 		pthread_join(dtp->dt_pcap.dt_pcap_output, NULL);
-		waitpid(dtp->dt_pcap.dt_pcap_pid, NULL, 0);
+		while (waitpid(dtp->dt_pcap.dt_pcap_pid, NULL, 0) < 0 &&
+		       errno == EINTR);
 	}
 }
 
@@ -368,7 +369,7 @@ dt_pcap_filename(dtrace_hdl_t *dtp, FILE *fp)
 			 */
 			close(pipe_in[1]);
 			close(pipe_out[0]);
-			waitpid(pid, NULL, 0);
+			while (waitpid(pid, NULL, 0) < 0 && errno == EINTR);
 			dtp->dt_pcap.dt_pcap_pid = -1;
 			return NULL;
 	}

@@ -1139,7 +1139,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 			jmp_buf this_exec_jmp, *old_exec_jmp;
 			volatile int did_exec_retry = 0;
 
-			read(dpr->dpr_proxy_fd[0], &junk, 1);
+			while (read(dpr->dpr_proxy_fd[0], &junk, 1) < 0 && errno == EINTR);
 			pfd.revents = 0;
 
 			/*

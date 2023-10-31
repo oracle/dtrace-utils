@@ -211,7 +211,7 @@ Pcreate(
 	}
 	close(forkblock[1]);
 
-	waitpid(pid, &status, 0);
+	while (waitpid(pid, &status, 0) < 0 && errno == EINTR);
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
 	    (status >> 8) != (SIGTRAP | PTRACE_EVENT_EXEC << 8)) {
 		rc = ENOENT;

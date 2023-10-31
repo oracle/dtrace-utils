@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -35,7 +35,7 @@
 int
 Pread_isa_info(struct ps_prochandle *P, const char *procname)
 {
-	int fd;
+	int fd, err;
 	Elf64_Ehdr hdr;
 
 	if ((fd = open(procname, O_RDONLY)) < 0) {
@@ -43,7 +43,8 @@ Pread_isa_info(struct ps_prochandle *P, const char *procname)
 		return -1;
 	}
 
-	if (read(fd, &hdr, sizeof(hdr)) < 0) {
+	while ((err = read(fd, &hdr, sizeof(hdr))) < 0 && errno == EINTR);
+	if (err < 0) {
 		_dprintf("%s is not an ELF file\n", procname);
 		close(fd);
 		return -1;

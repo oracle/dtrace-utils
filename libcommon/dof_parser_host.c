@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "dof_parser.h"
@@ -88,14 +89,38 @@ dof_parser_host_read(int in, int timeout)
 	 * only after that, both to make sure we don't underread and to make
 	 * sure we don't *overread* and concatenate part of another message
 	 * onto this one.
+	 *
+	 * Adjust the timeout whenever we are interrupted.  If we can't figure
+	 * out the time, don't bother adjusting, but still read: a read taking
+	 * longer than expected is better than no read at all.
 	 */
 	for (i = 0, sz = offsetof(dof_parsed_t, type); i < sz;) {
 		size_t ret;
+		struct timespec start, end;
+		int no_adjustment = 0;
+		long timeout_msec = timeout * MILLISEC;
 
-		if ((ret = poll(&fd, 1, timeout * 1000)) <= 0)
+		if (clock_gettime(CLOCK_REALTIME, &start) < 0)
+			no_adjustment = 1;
+
+		while ((ret = poll(&fd, 1, timeout_msec)) <= 0 && errno == EINTR) {
+
+			if (no_adjustment || clock_gettime(CLOCK_REALTIME, &end) < 0)
+				continue; /* Abandon timeout adjustment */
+
+			timeout_msec -= ((((unsigned long long) end.tv_sec * NANOSEC) + end.tv_nsec) -
+					 (((unsigned long long) start.tv_sec * NANOSEC) + start.tv_nsec)) /
+					MICROSEC;
+
+			if (timeout_msec < 0)
+				timeout_msec = 0;
+		}
+
+		if (ret < 0)
 			goto err;
 
-		ret = read(in, ((char *) reply) + i, sz - i);
+		while ((ret = read(in, ((char *) reply) + i, sz - i)) < 0 &&
+		       errno == EINTR);
 
 		if (ret <= 0)
 			goto err;
