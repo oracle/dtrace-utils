@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -10,25 +10,22 @@
 /* @@trigger-timing: before */
 
 /*
- * ASSERTION: test that we can trace every instruction safely
+ * ASSERTION: test that we can trace some instructions safely
  *
  * SECTION: pid provider
- *
  */
 
-BEGIN
+pid$1:a.out::
 {
-	/*
-	 * Let's just do this for 2 seconds.
-	 */
-	timeout = timestamp + 2000000000;
+	n++;
 }
 
-pid$1:a.out::
-{}
-
-profile:::tick-4
-/timestamp > timeout/
+profile:::tick-2sec
 {
-	exit(0);
+	exit(n > 0 ? 0 : 1);
+}
+
+ERROR
+{
+	exit(1);
 }
