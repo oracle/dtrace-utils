@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -438,6 +438,32 @@ dt_agg_one_agg(dt_ident_t *aid, dtrace_recdesc_t *rec, char *dst,
 	}
 }
 
+static void
+dt_aggregate_clear_one_percpu(const dtrace_aggdata_t *agd,
+			      dtrace_recdesc_t *rec, int max_cpus)
+{
+	dtrace_actkind_t	act = rec->dtrd_action;
+	uint32_t		siz = rec->dtrd_size;
+	int			i;
+
+	for (i = 0; i < max_cpus; i++) {
+		int64_t	*vals;
+
+		vals = (int64_t *) &agd->dtada_percpu[i][rec->dtrd_offset];
+		switch (act) {
+		case DT_AGG_MIN:
+			*vals = INT64_MAX;
+			break;
+		case DT_AGG_MAX:
+			*vals = INT64_MIN;
+			break;
+		default:
+			memset(vals, 0, siz);
+			break;
+		}
+	}
+}
+
 int
 dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 {
@@ -447,7 +473,7 @@ dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 	int64_t			*vals = (int64_t *)
 					&agd->dtada_data[rec->dtrd_offset];
 	uint64_t		agen;
-	int			i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+	int			max_cpus = dtp->dt_conf.max_cpuid + 1;
 
 	/*
 	 * We can pass the entire key because we know that the first uint32_t
@@ -460,23 +486,17 @@ dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 	switch (rec->dtrd_action) {
 	case DT_AGG_MIN:
 		*vals = INT64_MAX;
-		if (agd->dtada_percpu)
-			for (i = 0; i < max_cpus; i++)
-				*((uint64_t*)agd->dtada_percpu[i]) = INT64_MAX;
 		break;
 	case DT_AGG_MAX:
 		*vals = INT64_MIN;
-		if (agd->dtada_percpu)
-			for (i = 0; i < max_cpus; i++)
-				*((uint64_t*)agd->dtada_percpu[i]) = INT64_MIN;
 		break;
 	default:
 		memset(vals, 0, rec->dtrd_size);
-		if (agd->dtada_percpu)
-			for (i = 0; i < max_cpus; i++)
-				memset(agd->dtada_percpu[i], 0, rec->dtrd_size);
 		break;
 	}
+
+	if (agd->dtada_percpu)
+		dt_aggregate_clear_one_percpu(agd, rec, max_cpus);
 
 	return DTRACE_AGGWALK_NEXT;
 }
@@ -543,6 +563,9 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 		assert(aid != NULL);
 		dt_agg_one_agg(aid, &agg->dtagd_drecs[DT_AGGDATA_RECORD],
 			       agd->dtada_data, data);
+		if (agd->dtada_percpu != NULL)
+			dt_agg_one_agg(aid, &agg->dtagd_drecs[DT_AGGDATA_RECORD],
+				       agd->dtada_percpu[cpu], data);
 
 		return 0;
 
@@ -578,8 +601,25 @@ hashnext:
 
 	memcpy(ptr, data, size);
 	agd->dtada_data = ptr;
+	if (dtp->dt_aggregate.dtat_flags & DTRACE_A_PERCPU) {
+		int i, max_cpus = dtp->dt_conf.max_cpuid + 1;
+		dtrace_recdesc_t	*rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 
-	/* Add the new entru to the hashtable. */
+		agd->dtada_percpu = dt_alloc(dtp, max_cpus * sizeof(caddr_t));
+		if (agd->dtada_percpu == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
+
+		for (i = 0; i < max_cpus; i++) {
+			agd->dtada_percpu[i] = dt_alloc(dtp, size);
+			if (agd->dtada_percpu[i] == NULL)
+				return dt_set_errno(dtp, EDT_NOMEM);
+		}
+
+		dt_aggregate_clear_one_percpu(agd, rec, max_cpus);
+		memcpy(agd->dtada_percpu[cpu], data, size);
+	}
+
+	/* Add the new entry to the hashtable. */
 	if (agh->dtah_hash[ndx] != NULL)
 		agh->dtah_hash[ndx]->dtahe_prev = h;
 
@@ -1564,7 +1604,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 
 		if ((zdata = dt_zalloc(dtp, zsize)) == NULL) {
 			/*
-			 * If we failed to allocated some zero-filled data, we
+			 * If we failed to allocate some zero-filled data, we
 			 * need to zero out the remaining dtada_data pointers
 			 * to prevent the wrong data from being freed below.
 			 */

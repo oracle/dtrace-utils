@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1760,6 +1760,15 @@ dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 		if (dt_print_datum(dtp, fp, rec, aggdata->dtada_data, normal,
 				   agg->dtagd_sig) < 0)
 			return DTRACE_AGGWALK_ERROR;
+		if (aggdata->dtada_percpu != NULL) {
+			int j, max_cpus = aggdata->dtada_hdl->dt_conf.max_cpuid + 1;
+			for (j = 0; j < max_cpus; j++) {
+				if (dt_printf(dtp, fp, "\n    [CPU %d]", aggdata->dtada_hdl->dt_conf.cpus[j].cpu_id) < 0)
+					return DTRACE_AGGWALK_ERROR;
+				if (dt_print_datum(dtp, fp, rec, aggdata->dtada_percpu[j], normal, agg->dtagd_sig) < 0)
+					return DTRACE_AGGWALK_ERROR;
+			}
+		}
 
 		if (dt_buffered_flush(dtp, NULL, rec, aggdata,
 				      DTRACE_BUFDATA_AGGVAL) < 0)
