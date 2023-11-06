@@ -1613,7 +1613,6 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 			goto out;
 		}
 
-		aggvar = aggvars[(i - sortpos + naggvars) % naggvars];
 		aggdata->dtada_data = zdata;
 	}
 
