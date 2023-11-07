@@ -8,6 +8,8 @@
 #pragma D depends_on module vmlinux
 #pragma D depends_on provider sched
 
+typedef char	*caddr_t;
+
 typedef struct bufinfo {
 	int b_flags;			/* buffer status */
 	size_t b_bcount;		/* number of bytes */
