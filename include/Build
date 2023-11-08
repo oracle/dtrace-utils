@@ -1,9 +1,0 @@
-# Oracle Linux DTrace.
-# Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at
-# http://oss.oracle.com/licenses/upl.
-
-dt_include_DIR := $(current-dir)
-
-$(objdir)/dt_git_version.h: $(dt_include_DIR)/dt_git_version.h.in .git-version
-	sed 's,@GIT-VERSION@,'"`cat .git-version`", < $(dt_include_DIR)/dt_git_version.h.in > $(objdir)/dt_git_version.h

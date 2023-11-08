@@ -1,1 +1,0 @@
-vmlinux`max_pfn

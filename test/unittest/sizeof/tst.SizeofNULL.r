@@ -1,2 +1,0 @@
-sizeof(NULL): 4
-

@@ -1,9 +1,0 @@
-defghijklmnopqrstuvwxyz
-ABCDEFGHIJKL
-PQRSTUVWXYZabcdefghijklmnopqrstuvwxyzABCDEFGHIJKL
-MNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
-got expected NULL
-got expected NULL
-foo
-got expected NULL
-

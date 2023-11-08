@@ -1,3 +1,0 @@
-These tests place the system under some sort of stress,
-so should not be run in parallel with tests like OLT
-which also place the system under stress.

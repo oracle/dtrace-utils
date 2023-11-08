@@ -1,2 +1,0 @@
-Data recording after discard
-

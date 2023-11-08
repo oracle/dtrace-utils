@@ -1,1 +1,0 @@
-Good translator defn
