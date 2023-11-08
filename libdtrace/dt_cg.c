@@ -5125,6 +5125,13 @@ dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_cleanpath(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_cleanpath", 0, DT_IGNOR, 0,
+				  DT_IGNOR, 0);
+}
+
+static void
 dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", 0, DT_IGNOR, 0,
@@ -6560,7 +6567,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_LLTOSTR]		= &dt_cg_subr_lltostr,
 	[DIF_SUBR_BASENAME]		= &dt_cg_subr_basename,
 	[DIF_SUBR_DIRNAME]		= &dt_cg_subr_dirname,
-	[DIF_SUBR_CLEANPATH]		= NULL,
+	[DIF_SUBR_CLEANPATH]		= &dt_cg_subr_cleanpath,
 	[DIF_SUBR_STRCHR]		= &dt_cg_subr_strchr,
 	[DIF_SUBR_STRRCHR]		= &dt_cg_subr_strrchr,
 	[DIF_SUBR_STRSTR]		= &dt_cg_subr_strstr,

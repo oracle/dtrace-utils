@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -226,10 +226,17 @@ typedef struct dt_ahash {
  *
  * Each tstring needs to be large enough to hold the largest possible string
  * and accomodate the largest known need for tstring space in subroutines.
+ *
+ * For example:
+ *
+ * - inet_ntoa6() stores its output and 2 copies of the input (40 + 2 * 16 = 72)
+ *
+ * - cleanpath() holds a prepended '/' char, a string, an appended '/' char,
+ *   and a terminating NUL char, or STRSZ + 3 chars altogether
  */
 #define DT_TSTRING_SLOTS	4
 #define DT_TSTRING_SIZE(dtp)	\
-		MAX(P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 1, 8), \
+		MAX(P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 3, 8), \
 		    72)
 
 typedef struct dt_tstring {
