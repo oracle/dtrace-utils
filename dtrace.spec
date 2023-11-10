@@ -85,7 +85,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.13.1%{?dist}
+Release:      1.13.2%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -249,7 +249,21 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Wed Jun 07 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13.1
+* Thu Nov  9 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13.2
+- Support using DTrace with upstream kernels.
+- Implement provider: ip.
+- Implement actions: trunc(), pcap().
+- Implement subroutines: inet_ntoa6().
+- Implement subroutines: inet_ntop(). (Eugene Loh)
+- Support modules.builtin.ranges for builtin module-symbol association.
+- Provide a BTF-to-CTF convertor to provide (limited) kernel type information
+  when CTF is not available.
+- Remove dependency on waitfd(). (Nick Alcock)
+- Various testsuite fixes and improvements.
+  (Nick Alcock, Eugene Loh, Kris Van Hees)
+- Various code improvements. (Nick Alcock, Eugene Loh, Kris Van Hees)
+
+* Wed Jun  7 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13.1
 - Restart dtprobed when upgrading DTrace.
 - Report and clean up orphaned tracing events after each test.
 

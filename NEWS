@@ -1,3 +1,61 @@
+2.0.0-1.13.2 (Nov 10th, 2023)
+-----------------------------
+
+Thirteenth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - DTrace can now be used for tracing with upstream kernels without requiring
+   any additional patches, albeit with some limitations.
+
+ - The ip provider has been implemented.
+
+ - The trunc() action has been implemented.
+
+ - The pcap() action has been implemented.
+
+ - The inet_ntoa6() subroutine has been implemented.
+
+ - The inet_ntop() subroutine has been implemented.
+
+ - Support for modules.builtin.ranges data from the kernel has been added.
+   This is the new way to determine module name association for kernel symbols
+   that are built into the kernel.  Support for kallmodsyms is retained for
+   kernel that do not support modules.builtin.ranges yet.
+
+ - A BTF-to-CTF convertor has been added to support using DTrace with kernels
+   that do not provide CTF data.  Note that BTF is currently more limited than
+   CTF.  E.g. BTF does not provide datatype information for kernel variables.
+
+Bugfixes:
+
+ - Struct and union member access in alloca()-allocated memory no longer cause
+   a BPF verifier violation.
+
+ - Bitfield offset calculations have been corrected.
+
+ - Disassembler output for endianness conversion instructions has been
+   corrected.
+
+ - Bounds checking of array datatypes of size 0 or 1 in the kernel is now
+   skipped because they are commonly used in the kernel as anchors for
+   dynamically sized arrays.
+
+ - Zero constants will now be checked at compile time wherever NULL pointer
+   argument checking is done.
+
+ - Uprobes are now created using the offset in the inode rather than based on
+   an absolute address.
+
+ - Building in various forms of kernel builds is now more streamlined.
+
+Internal changes:
+
+ - The dependency on waitfd() has been replaced with a mechanism that does not
+   depend on this system call.
+
 2.0.0-1.13.1 (Jun 7th, 2023)
 ----------------------------
 
