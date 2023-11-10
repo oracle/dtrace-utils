@@ -77,11 +77,6 @@ If your distro provides binutils 2.36 or later, you should install it.  If not,
 you can build your own local copy (which can be configured with a --prefix
 specific to itself to avoid disturbing the distro version).
 
-If you cannot install a local copy of binutils, you can alternatively install
-[libdtrace-ctf](https://github.com/oracle/libdtrace-ctf).  However, note that
-this library is deprecated, and it cannot always read CTF produced by recent
-GCC/binutils combinations.
-
 #### 2.1.3. Install other necessary packages
 
 A few other packages are required, either for building or at runtime.  They
@@ -249,9 +244,8 @@ make olddefconfig
 make
 
 # This step will produce vmlinux.ctfa, which holds all CTF data for the kernel
-# and its modules.  If it doesn't work, you don't have a suitable toolchain
-# and/or are missing dependencies needed for the older libdtrace-ctf-based
-# tools.
+# and its modules.  If it doesn't work, you don't have a toolchain that is
+# recent enough.
 make ctf
 
 # Install with root privileges.
