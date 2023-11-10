@@ -1,3 +1,0 @@
-|x version|
-|ux version|
-

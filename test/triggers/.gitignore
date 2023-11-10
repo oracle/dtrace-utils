@@ -1,8 +1,0 @@
-*
-!Build
-!*.[cdh]
-!*.java
-!longsleep
-!execloop
-!.gitignore
-usdt-*prov.h

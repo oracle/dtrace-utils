@@ -1,2 +1,0 @@
-Translator definition good
-

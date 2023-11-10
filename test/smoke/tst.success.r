@@ -1,1 +1,0 @@
-../unittest/actions/exit/tst.success.r

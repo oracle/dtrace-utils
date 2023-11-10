@@ -1,3 +1,0 @@
-|inux version |
-|inux|
-
