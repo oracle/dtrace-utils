@@ -8,7 +8,6 @@
 #ifndef	_DT_BTF_H
 #define	_DT_BTF_H
 
-#include <ctf.h>
 #include <dt_impl.h>
 
 #ifdef	__cplusplus

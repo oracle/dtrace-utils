@@ -7,7 +7,6 @@
 
 #include <assert.h>
 #include <byteswap.h>
-#include <ctf.h>
 #include <errno.h>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -147,6 +146,8 @@ dt_btf_type_size(const char *ptr)
 		return size + vlen * sizeof(btf_var_secinfo_t);
 	case BTF_KIND_DECL_TAG:
 		return size + sizeof(btf_decl_tag_t);
+	case BTF_KIND_TYPE_TAG:
+		return size;
 	case BTF_KIND_ENUM64:
 		return size + vlen * sizeof(btf_enum64_t);
 	case BTF_KIND_PTR:
@@ -157,7 +158,6 @@ dt_btf_type_size(const char *ptr)
 	case BTF_KIND_RESTRICT:
 	case BTF_KIND_FUNC:
 	case BTF_KIND_FLOAT:
-	case BTF_KIND_TYPE_TAG:
 		return size;
 	default:
 		return -EINVAL;
@@ -658,8 +658,8 @@ dt_btf_add_to_ctf(dtrace_hdl_t *dtp, dt_btf_t *btf, ctf_dict_t *ctf,
 	case BTF_KIND_DATASEC:
 	case BTF_KIND_DECL_TAG:
 	case BTF_KIND_TYPE_TAG:
-	case BTF_KIND_FUNC:
 	case BTF_KIND_ENUM64:
+	case BTF_KIND_FUNC:
 		return btf->ctfids[0];		/* Ignored for CTF */
 	default:
 		return dt_ctf_error(dtp, ctf);

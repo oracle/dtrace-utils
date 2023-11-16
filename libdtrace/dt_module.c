@@ -26,8 +26,11 @@
 #include <dt_kernel_module.h>
 #include <dt_module.h>
 #include <dt_impl.h>
-#include <dt_btf.h>
 #include <dt_string.h>
+
+#ifdef HAVE_LIBCTF
+# include <dt_btf.h>
+#endif
 
 #define KSYM_NAME_MAX 128		    /* from kernel/scripts/kallsyms.c */
 #define GZCHUNKSIZE (1024*512)		    /* gzip uncompression chunk size */
@@ -827,6 +830,7 @@ dt_kern_module_init(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	return 0;
 }
 
+#ifdef HAVE_LIBCTF
 static void
 dt_kern_module_ctf_from_btf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
@@ -848,6 +852,7 @@ dt_kern_module_ctf_from_btf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	else
 		dmp->dm_flags |= DT_DM_CTF_ARCHIVED;
 }
+#endif
 
 /*
  * Determine the location of a kernel module's CTF data.
@@ -867,6 +872,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dt_kern_module_init(dtp, dmp);
 	}
 
+#ifdef HAVE_LIBCTF
 	/*
 	 * If we already know that our CTF data is derived from BTF data (i.e.
 	 * there is no CTF archive for the runtime kernel), there is no point
@@ -876,6 +882,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dt_kern_module_ctf_from_btf(dtp, dmp);
 		return;
 	}
+#endif
 
 	/*
 	 * Kernel modules' CTF can be in one of two places: the CTF archive or
@@ -923,6 +930,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 				    ctfa_name);
 			}
 		} else {
+#ifdef HAVE_LIBCTF
 			dt_dprintf("Cannot open CTF archive %s: %s; "
 				   "trying BTF.\n",
 				   ctfa_name, ctf_errmsg(dtp->dt_ctferr));
@@ -933,6 +941,11 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 			 */
 			dt_kern_module_ctf_from_btf(dtp,
 				dt_module_lookup_by_name(dtp, "vmlinux"));
+#else
+			dt_dprintf("Cannot open CTF archive %s: %s; "
+				   "looking for in-module CTF instead.\n",
+				   ctfa_name, ctf_errmsg(dtp->dt_ctferr));
+#endif
 			return;
 		}
 
