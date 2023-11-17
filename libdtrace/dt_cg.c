@@ -1640,7 +1640,8 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
  * Optionally, also get member size.
  */
 int
-dt_cg_ctf_offsetof(const char *structname, const char *membername, size_t *sizep)
+dt_cg_ctf_offsetof(const char *structname, const char *membername,
+		   size_t *sizep, int relaxed)
 {
 	dtrace_typeinfo_t sym;
 	ctf_file_t *ctfp;
@@ -1653,8 +1654,13 @@ dt_cg_ctf_offsetof(const char *structname, const char *membername, size_t *sizep
 	ctfp = sym.dtt_ctfp;
 	if (!ctfp)		/* Should never happen. */
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
-	if (ctf_member_info(ctfp, sym.dtt_type, membername, &ctm) == CTF_ERR)
+	if (ctf_member_info(ctfp, sym.dtt_type, membername, &ctm) == CTF_ERR) {
+		if (relaxed)
+			return -1;
+
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
+	}
+
 	if (sizep)
 		*sizep = ctf_type_size(ctfp, ctm.ctm_type);
 
@@ -1952,7 +1958,7 @@ dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 */
 	dt_cg_node(addr, dlp, drp);
 
-	off = dt_cg_ctf_offsetof("struct sk_buff", "len", NULL);
+	off = dt_cg_ctf_offsetof("struct sk_buff", "len", NULL, 0);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -1972,7 +1978,7 @@ dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	emit(dlp,  BPF_LOAD(BPF_DW, lenreg, BPF_REG_FP, DT_STK_SP));
 	emit(dlp,  BPF_LOAD(BPF_W, lenreg, lenreg, 0));
 
-	off = dt_cg_ctf_offsetof("struct sk_buff", "data_len", NULL);
+	off = dt_cg_ctf_offsetof("struct sk_buff", "data_len", NULL, 0);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -1995,7 +2001,7 @@ dt_cg_act_pcap(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		   BPF_STORE(BPF_W, BPF_REG_9, size_off, lenreg));
 
 	/* Copy the packet data to the output buffer. */
-	off = dt_cg_ctf_offsetof("struct sk_buff", "data", NULL);
+	off = dt_cg_ctf_offsetof("struct sk_buff", "data", NULL, 0);
 
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -4485,11 +4491,11 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 			char *memnames[] = { "ds", "es", "fsbase", "gsbase", "trap_nr" };
 
 			/* Look up task->thread offset. */
-			offset = dt_cg_ctf_offsetof("struct task_struct", "thread", NULL);
+			offset = dt_cg_ctf_offsetof("struct task_struct", "thread", NULL, 0);
 
 			/* Add the thread->member offset. */
 			offset += dt_cg_ctf_offsetof("struct thread_struct",
-						     memnames[idx - 21], &size);
+						     memnames[idx - 21], &size, 0);
 
 			/* Get task. */
 			if (dt_regset_xalloc_args(drp) == -1)
@@ -4559,7 +4565,7 @@ dt_cg_uregs(unsigned int idx, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp
 		/* Copy contents at task->stack to %fp+DT_STK_SP (scratch space). */
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3,
-		    dt_cg_ctf_offsetof("struct task_struct", "stack", NULL)));
+		    dt_cg_ctf_offsetof("struct task_struct", "stack", NULL, 0)));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sizeof(uint64_t)));
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_SP));
 		emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
