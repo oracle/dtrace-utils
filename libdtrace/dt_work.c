@@ -136,19 +136,9 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	size_t			size;
 	struct epoll_event	ev;
-	dtrace_optval_t		lockmem = dtp->dt_options[DTRACEOPT_LOCKMEM];
-	struct rlimit		rl;
 
 	if (dtp->dt_active)
 		return dt_set_errno(dtp, EINVAL);
-
-	/*
-	 * Set the locked-memory limit if so directed by the user.
-	 */
-        if (lockmem != DTRACEOPT_UNSET) {
-                rl.rlim_cur = rl.rlim_max = lockmem;
-                setrlimit(RLIMIT_MEMLOCK, &rl);
-        }
 
 	/* Create the BPF programs. */
 	if (dt_bpf_make_progs(dtp, cflags) == -1)

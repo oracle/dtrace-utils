@@ -1175,12 +1175,23 @@ dtrace_vopen(int version, int flags, int *errp,
 int
 dtrace_init(dtrace_hdl_t *dtp)
 {
-	int	i;
+	int		i;
+	dtrace_optval_t	lockmem = dtp->dt_options[DTRACEOPT_LOCKMEM];
 
 	/*
 	 * Initialize the BPF library handling.
 	 */
 	dt_dlib_init(dtp);
+
+	/*
+	 * Set the locked-memory limit if so directed by the user.
+	 */
+        if (lockmem != DTRACEOPT_UNSET) {
+		struct rlimit	rl;
+
+		rl.rlim_cur = rl.rlim_max = lockmem;
+		setrlimit(RLIMIT_MEMLOCK, &rl);
+        }
 
 	/*
 	 * Initialize consume handling.
