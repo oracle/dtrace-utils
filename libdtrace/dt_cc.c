@@ -307,6 +307,9 @@ dt_setcontext(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 			pdp->prb);
 	}
 
+	if (err == EDT_BPF)
+		longjmp(yypcb->pcb_jmpbuf, err);
+
 	if (err != EDT_NOPROBE && err != EDT_UNSTABLE && err != 0)
 		xyerror(D_PDESC_INVAL, "%s\n", dtrace_errmsg(dtp, err));
 

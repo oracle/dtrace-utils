@@ -181,7 +181,9 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		dif.dtdo_len = 2;
 
 		bpf_fd = dt_bpf_prog_load(dt_rawtp.prog_type, &dif, 0, NULL, 0);
-		if (bpf_fd < 0)
+		if (bpf_fd == -EPERM)
+			return dt_bpf_lockmem_error(dtp, "Cannot retrieve argument count");
+		else if (bpf_fd < 0)
 			continue;
 		rtp_fd = dt_bpf_raw_tracepoint_open(prp->desc->prb, bpf_fd);
 		close(bpf_fd);

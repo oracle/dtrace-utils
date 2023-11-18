@@ -62,7 +62,7 @@ dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
 	return dt_set_errno(dtp, EDT_BPF);
 }
 
-static int
+int
 dt_bpf_lockmem_error(dtrace_hdl_t *dtp, const char *msg)
 {
 	return dt_bpf_error(dtp, "%s:\n"

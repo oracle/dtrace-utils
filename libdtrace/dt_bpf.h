@@ -51,6 +51,8 @@ extern int dt_perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 extern int dt_bpf(enum bpf_cmd cmd, union bpf_attr *attr);
 
 extern int dt_bpf_gmap_create(struct dtrace_hdl *);
+extern int dt_bpf_lockmem_error(struct dtrace_hdl *dtp, const char *msg);
+
 extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
 extern int dt_bpf_map_next_key(int fd, const void *key, void *nxt);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);
