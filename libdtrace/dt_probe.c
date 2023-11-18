@@ -881,25 +881,26 @@ dt_probe_delete(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	/* FIXME: Add cleanup code for the dt_probe_t itself. */
 }
 
-static void
+static int
 dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	int			argc = 0;
 	dt_argdesc_t		*argv = NULL;
-	int			i, nc, xc;
+	int			rc, i, nc, xc;
 	dtrace_typeinfo_t	dtt;
 
 	/* Only retrieve probe argument information once per probe. */
 	if (prp->argc != -1)
-		return;
+		return 0;
 	if (!prp->prov->impl->probe_info)
-		return;
-	if (prp->prov->impl->probe_info(dtp, prp, &argc, &argv) < 0)
-		return;
+		return 0;
+	rc = prp->prov->impl->probe_info(dtp, prp, &argc, &argv);
+	if (rc == -1)
+		return rc;
 
 	if (!argc || !argv) {
 		prp->argc = 0;
-		return;
+		return 0;
 	}
 
 	nc = 0;
@@ -915,7 +916,7 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	dt_probe_alloc_args(prp, nc, xc);
 
 	if ((xc != 0 && prp->xargs == NULL) || (nc != 0 && prp->nargs == NULL))
-		return;
+		return 0;
 
 	/*
 	 * Iterate over the arguments and assign their types to prp->nargv[],
@@ -964,6 +965,8 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	}
 
 	dt_free(dtp, argv);
+
+	return 0;
 }
 
 /*ARGSUSED*/
@@ -1066,7 +1069,8 @@ dt_probe_info(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	if (!n_is_glob)
 		pip->dtp_attr = dt_attr_min(pip->dtp_attr, pap->dtpa_name);
 
-	dt_probe_args_info(dtp, prp);
+	if (dt_probe_args_info(dtp, prp) == -1)
+		return NULL;
 
 	pip->dtp_arga = pap->dtpa_args;
 	pip->dtp_argv = prp->argv;

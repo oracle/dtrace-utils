@@ -12,6 +12,7 @@
 #include <linux/bpf.h>
 #include <linux/perf_event.h>
 #include <dtrace/difo.h>
+#include <dt_impl.h>
 
 struct dtrace_hdl;
 

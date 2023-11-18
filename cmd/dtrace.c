@@ -323,6 +323,8 @@ info_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 	if (dtrace_probe_info(dtp, pdp, &p) == 0)
 		print_probe_info(&p);
+	else
+		return -1;
 
 	*last = edp;
 	return 0;
@@ -417,8 +419,12 @@ list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 	oprintf("%5d %10s %17s %33s %s\n",
 		pdp->id, pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 
-	if (g_verbose && dtrace_probe_info(dtp, pdp, &p) == 0)
-		print_probe_info(&p);
+	if (g_verbose) {
+		if (dtrace_probe_info(dtp, pdp, &p) == 0)
+			print_probe_info(&p);
+		else
+			return -1;
+	}
 
 	return 0;
 }
@@ -1426,8 +1432,10 @@ main(int argc, char *argv[])
 		for (i = 0; i < g_cmdc; i++)
 			list_prog(&g_cmdv[i]);
 
-		if (g_cmdc == 0)
-			dtrace_probe_iter(g_dtp, NULL, list_probe, NULL);
+		if (g_cmdc == 0) {
+			if (dtrace_probe_iter(g_dtp, NULL, list_probe, NULL) < 0)
+				dfatal(NULL); /* dtrace_errmsg() only */
+		}
 
 		dtrace_close(g_dtp);
 		return g_status;
