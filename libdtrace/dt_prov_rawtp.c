@@ -157,18 +157,24 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
-static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *argcp, dt_argdesc_t **argvp)
+/*
+ * If there is no btf_trace_* prototype available in CTF, we can still probe
+ * the number of available argument for a raw tracepoint by means of a trial
+ * and error loop to see what the highest argument index is that the BPF
+ * verifier allows us to load from.
+ */
+static int probe_info_bpf(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			  int *argcp, dt_argdesc_t **argvp)
 {
 	int		argc, i;
 	dt_argdesc_t	*argv = NULL;
 
 	/*
-	 * This is an unfortunate necessity.  The BPF verifier will not allow
-	 * us to access more argument values than are passed to the raw
-	 * tracepoint but the number of argument values for any given raw
-	 * tracepoint is not made available to userspace.  So we use a trial
-	 * and error loop to see what the BPF verifier accepts.
+	 * The BPF verifier will not allow us to access more argument values
+	 * than are passed to the raw tracepoint but the number of argument
+	 * values for any given raw tracepoint is not made available to
+	 * userspace.  So we use a trial and error loop to see what the BPF
+	 * verifier accepts.
 	 */
 	for (argc = ARRAY_SIZE(((dt_mstate_t *)0)->argv); argc > 0; argc--) {
 		int		bpf_fd, rtp_fd;
@@ -197,6 +203,8 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		goto done;
 
 	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	for (i = 0; i < argc; i++) {
 		argv[i].mapping = i;
@@ -205,10 +213,83 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	}
 
 done:
-        *argcp = argc;
-        *argvp = argv;
+	*argcp = argc;
+	*argvp = argv;
 
-        return 0;
+	return 0;
+}
+
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *argcp, dt_argdesc_t **argvp)
+{
+#ifdef HAVE_LIBCTF
+	int			rc, i;
+	char			*str;
+	ctf_dict_t		*ctfp;
+	ctf_id_t		type;
+	int			argc = 0;
+	dt_argdesc_t		*argv = NULL;
+	ctf_funcinfo_t		fi;
+	dtrace_typeinfo_t	sym;
+	ctf_id_t		*argt;
+
+	if (asprintf(&str, "btf_trace_%s", prp->desc->prb) == -1)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	rc = dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY, str, &sym);
+	free(str);
+	if (rc ||
+	    ctf_type_kind(sym.dtt_ctfp, sym.dtt_type) != CTF_K_TYPEDEF)
+		goto use_alt;
+
+	ctfp = sym.dtt_ctfp;
+	type = ctf_type_reference(ctfp, sym.dtt_type);
+	if (ctf_type_kind(ctfp, type) != CTF_K_POINTER)
+		goto use_alt;
+	type = ctf_type_reference(ctfp, type);
+	if (ctf_type_kind(ctfp, type) != CTF_K_FUNCTION)
+		goto use_alt;
+	if (ctf_func_type_info(ctfp, type, &fi) == -1)
+		goto use_alt;
+
+	/*
+	 * Raw tracepoints have an extra first argument for the context, so we
+	 * need to skip that.  (We also handle the case where fi.ctc_argc is 0
+	 * even though that is not supposed to happen.)
+	 */
+	if (fi.ctc_argc <= 1)
+		goto done;
+
+	argc = fi.ctc_argc;
+	argt = dt_calloc(dtp, argc, sizeof(ctf_id_t));
+	if (argt == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	ctf_func_type_args(ctfp, type, argc, argt);
+
+	argc--;
+	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	for (i = 0; i < argc; i++) {
+		char	n[DT_TYPE_NAMELEN];
+
+		ctf_type_name(ctfp, argt[i + 1], n, sizeof(n));
+		argv[i].mapping = i;
+		argv[i].native = strdup(n);
+		argv[i].xlate = NULL;
+	}
+
+	free(argt);
+
+done:
+	*argcp = argc;
+	*argvp = argv;
+
+	return 0;
+
+use_alt:
+#endif
+	return probe_info_bpf(dtp, prp, argcp, argvp);
 }
 
 dt_provimpl_t	dt_rawtp = {
