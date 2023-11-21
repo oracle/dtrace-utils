@@ -50,11 +50,13 @@ install::
 	$(call describe-install-target,$(INSTUDEVDIR),60-dtprobed.rules)
 	install -m 644 $(dtprobed_DIR)60-dtprobed.rules $(INSTUDEVDIR)
 ifdef HAVE_LIBSYSTEMD
-	mkdir -p $(INSTSYSTEMDUNITDIR)
+	mkdir -p $(INSTSYSTEMDUNITDIR) $(INSTSYSTEMDPRESETDIR)
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtprobed.service)
 	install -m 644 $(dtprobed_DIR)dtprobed.service $(INSTSYSTEMDUNITDIR)
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtrace-usdt.target)
 	install -m 644 $(dtprobed_DIR)dtrace-usdt.target $(INSTSYSTEMDUNITDIR)
+	$(call describe-install-target,$(INSTSYSTEMDPRESETDIR),50-dtprobed.preset)
+	install -m 644 $(dtprobed_DIR)50-dtprobed.preset $(INSTSYSTEMDPRESETDIR)
 	if [[ -z $RPM_BUILD_ROOT ]]; then \
 		systemctl enable dtprobed.service dtrace-usdt.target; \
 	fi

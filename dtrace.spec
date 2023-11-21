@@ -197,13 +197,7 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 %post
 /sbin/ldconfig
 %udev_rules_update
-%systemd_post dtprobed.service dtrace-usdt.target
-# Do this rather than systemd_postun_with_restart because this depends
-# only on the package being installed, rather than relying on the state of
-# the old package.
-systemctl try-restart dtprobed || :
-systemctl enable dtprobed.service dtrace-usdt.target
-systemctl start dtprobed.service
+%systemd_post dtprobed.service
 
 # if sdt-systemtap.h doesn't exist then we can move the existing dtrace sdt.h
 SYSINCDIR=/usr/include/sys
@@ -220,7 +214,7 @@ fi
 %postun
 /sbin/ldconfig
 %udev_rules_update
-%systemd_postun dtprobed.service
+%systemd_postun_with_restart dtprobed.service
 
 %files
 %defattr(-,root,root,-)
@@ -235,6 +229,7 @@ fi
 %doc %{_docdir}/dtrace-%{version}/*
 %{_unitdir}/dtprobed.service
 %{_unitdir}/dtrace-usdt.target
+%{_presetdir}/50-dtprobed.preset
 %{_udevrulesdir}/60-dtprobed.rules
 
 %files devel
