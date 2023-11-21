@@ -165,7 +165,7 @@ it always tests the installed DTrace.
 
 %build
 make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} \
-	KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= \
+	KERNELMODDIR=/usr/src/kernels KERNELSRCNAME= KERNELBLDNAME= \
 	KERNELS="%{kerneldirs}" %{maybe_use_fuse2}
 
 # Force off debuginfo splitting.  We have no debuginfo in dtrace proper,
@@ -180,7 +180,7 @@ make -j $(getconf _NPROCESSORS_ONLN) VERSION=%{version} \
 
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
 make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} \
-     KERNELDIRPREFIX=/usr/src/kernels KERNELDIRSUFFIX= \
+     KERNELMODDIR=/usr/src/kernels KERNELSRCNAME= KERNELBLDNAME= \
      KERNELS="%{kerneldirs}" \
      HDRPREFIX="$RPM_BUILD_ROOT/usr/include" \
      install install-test

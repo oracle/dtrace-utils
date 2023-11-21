@@ -71,8 +71,13 @@ UNPRIV_HOME ?= /run/initramfs
 # tree.  If the kernel was built within the source tree, KERNELOBJDIR need not
 # be specified.
 
+# For RPM builds, set KERNELMODDIR to the root of the rpmsrc tree, and set
+# KERNELSRCNAME and KERNELBLDNAME to the empty string.
+
 KERNELS = $(shell uname -r)
 KERNELMODDIR = /lib/modules
+KERNELSRCNAME = source
+KERNELBLDNAME = build
 
 ifdef KERNELSRCDIR
 KERNELOBJDIR ?= $(KERNELSRCDIR)
