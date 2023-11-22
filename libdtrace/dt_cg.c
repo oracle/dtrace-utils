@@ -3900,11 +3900,17 @@ dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		elem_size = ctf_type_size(ctfp, r.ctr_contents);
 
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, dnp->dn_right->dn_reg, r.ctr_nelems * elem_size, L1));
+		/*
+		 * Arrays of size 0 or 1 should not cause bounds checking as
+		 * they are usually an anchor for dynamically sized arrays.
+		 */
+		if (r.ctr_nelems > 1) {
+			emit(dlp,  BPF_BRANCH_IMM(BPF_JLT, dnp->dn_right->dn_reg, r.ctr_nelems * elem_size, L1));
 
-		/* Report out-of-bounds fault on the index. */
-		emit(dlp,  BPF_ALU64_IMM(BPF_DIV, dnp->dn_right->dn_reg, elem_size));
-		dt_cg_probe_error(yypcb, DTRACEFLT_BADINDEX, DT_ISREG, dnp->dn_right->dn_reg);
+			/* Report out-of-bounds fault on the index. */
+			emit(dlp,  BPF_ALU64_IMM(BPF_DIV, dnp->dn_right->dn_reg, elem_size));
+			dt_cg_probe_error(yypcb, DTRACEFLT_BADINDEX, DT_ISREG, dnp->dn_right->dn_reg);
+		}
 
 		emitl(dlp, L1,
 			   BPF_ALU64_REG(op, dnp->dn_left->dn_reg, dnp->dn_right->dn_reg));
