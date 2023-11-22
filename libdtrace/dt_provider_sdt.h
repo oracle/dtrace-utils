@@ -19,14 +19,16 @@ extern "C" {
  * Probe dependencies
  *
  * SDT probes are implemented using probes made available by other providers.
- * THe probe dependency table associates each SDT probe with one or more probe
- * specifications (possibly containing wildcards).  Each matching probe will
- * have SDT lockstat probe added as a dependent probe.
+ * The probe dependency table associates each SDT probe with one or more probe
+ * specifications (possibly containing wildcards).  An optional min and/or max
+ * kernel version can be specified (assigned using DT_VERSION_NUMBER(x, y, z)).
  */
 typedef struct probe_dep {
 	const char		*name;			/* probe name */
 	dtrace_probespec_t	spec;			/* spec type */
 	const char		*str;			/* spec string */
+	dt_version_t		kver_min;		/* minimum kernver */
+	dt_version_t		kver_max;		/* maximum kernver */
 } probe_dep_t;
 
 /*

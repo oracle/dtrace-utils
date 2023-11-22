@@ -87,6 +87,16 @@ dt_sdt_enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 		if (strcmp(prp->desc->prb, dep->name) != 0)
 			continue;
 
+		/*
+		 * If the dependency specifies a minimum and/or maximum kernel
+		 * version, skip this dependency if the runtime kernel version
+		 * does not fall in the specified range.
+		 */
+		if (dep->kver_min && dtp->dt_kernver < dep->kver_min)
+			continue;
+		if (dep->kver_max && dtp->dt_kernver > dep->kver_max)
+			continue;
+
 		if (dtrace_str2desc(dtp, dep->spec, dep->str, &pd) == -1)
 			return;
 
