@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1913,4 +1913,354 @@ dtrace_fprinta(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	}
 
 	return i;
+}
+
+#define DT_PRINT_DEPTH		10
+
+struct dt_visit_arg {
+	dtrace_hdl_t	*dv_dtp;
+	FILE		*dv_fp;
+	ctf_file_t	*dv_ctfp;
+	void		*dv_data;
+	uint64_t	dv_size;
+	int		dv_kinds[DT_PRINT_DEPTH];
+	int		dv_last_depth;
+	int		dv_startindent;
+};
+
+#define DT_NAME_LEN		32
+#define DT_PRINT_LEN		80
+
+#define DT_PRINT_STARTINDENT	44
+
+/* used to compare nested objects like structs/unions/arrays to see if they are 0. */
+static char zeros[65536] = { 0 };
+
+static int
+dt_print_close_parens(struct dt_visit_arg *dva, int depth)
+{
+	int i;
+
+	switch (dva->dv_kinds[depth]) {
+	case CTF_K_STRUCT:
+	case CTF_K_UNION:
+		/* if struct/union contents were 0, we still opened the
+		 * struct "{" at the top level, even if we did not
+		 * display any members, so need to close it.  An empty
+		 * struct looks like this:
+		 * (struct foo) {
+		 * }
+		 *
+		 * ...at the top level, but at any other depth of nesting
+		 * it is not displayed at all.
+		 */
+		if (depth == 0 && dva->dv_last_depth == 0)
+			dva->dv_last_depth = 1;
+		/* add a "}" for each level needed between current depth
+		 * and last depth we displayed data at.
+		 */
+		for (i = dva->dv_last_depth - depth; i > 0; i--) {
+			if (dt_printf(dva->dv_dtp, dva->dv_fp, "%*s}%s\n",
+				      dva->dv_startindent + depth + i - 1, "",
+				      (depth > 0 || i > 1) ? "," : "") < 0)
+				return -1;
+			dva->dv_last_depth = depth;
+		}
+		break;
+	}
+	return 0;
+}
+
+static int
+dt_print_visit(const char *name, ctf_id_t type, unsigned long offset,
+	       int depth, void *arg)
+{
+	struct dt_visit_arg *dva = arg;
+	const void *data = (char *)dva->dv_data + offset/NBBY;
+	const char *membername = NULL;
+	ssize_t typesize, asize = 0;
+	char *typename = NULL;
+	char *datastr = NULL;
+	int64_t intdata = 0;
+	const char *ename;
+	ctf_encoding_t e;
+	ctf_arinfo_t a;
+	ctf_id_t rtype;
+	size_t typelen;
+	int issigned;
+	int ret = 0;
+	int rkind;
+	int i;
+
+	/* run out of data to display, or hit depth limit? */
+	if ((offset/NBBY) > dva->dv_size || depth >= DT_PRINT_DEPTH) {
+		dt_printf(dva->dv_dtp, dva->dv_fp, "%*s...\n",
+			  dva->dv_startindent + depth, "");
+		return -1;
+	}
+	typename = ctf_type_aname(dva->dv_ctfp, type);
+	if (!typename) {
+		dt_dprintf("error retrieving type name for [%ld]: %s\n",
+			   type, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+		return dt_set_errno(dva->dv_dtp, EDT_CTF);
+	}
+	rtype = ctf_type_resolve(dva->dv_ctfp, type);
+	if (rtype == CTF_ERR) {
+		dt_dprintf("error resolving type [%s]: %s\n", typename,
+			   ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+		ret = dt_set_errno(dva->dv_dtp, EDT_CTF);
+		goto err;
+	}
+	rkind = ctf_type_kind(dva->dv_ctfp, rtype);
+
+	/* we may have just shown the last member in a struct/union
+	 * at depth + 1 (or deeper than that).  If so close the "{".
+	 * The final parenthesis close (at depth 0) will be done
+	 * by the caller.
+	 */
+	if (dva->dv_last_depth > depth)
+		dt_print_close_parens(dva, depth);
+
+	/* zeroed data? if so, do not display it. */
+	if (depth > 0) {
+		typesize = ctf_type_size(dva->dv_ctfp, rtype);
+		if (typesize < 0) {
+			dt_dprintf("error retrieving type size for [%s]: %s\n",
+				   typename, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+			ret = dt_set_errno(dva->dv_dtp, EDT_CTF);
+			goto err;
+		}
+		if (typesize < sizeof(zeros) && memcmp(data, zeros, typesize) == 0)
+			return 0;
+	}
+
+	dva->dv_kinds[depth] = rkind;
+	dva->dv_last_depth = depth;
+
+	/* anon struct/union/enum will be "struct "; remove the space. */
+	typelen = strlen(typename);
+	if (typename[typelen - 1] == ' ')
+		typename[typelen - 1] = '\0';
+
+	/* print .<member_name> where available */
+	if (depth > 0) {
+		if (name && strlen(name) > 0)
+			membername = name;
+	}
+
+	switch (rkind) {
+	case CTF_K_STRUCT:
+	case CTF_K_UNION:
+		ret = asprintf(&datastr, "(%s) {", typename);
+		break;
+	case CTF_K_ARRAY:
+		ret = ctf_array_info(dva->dv_ctfp, rtype, &a);
+		if (ret < 0) {
+			dt_dprintf("error retrieving array info for [%s]: %s\n",
+				   typename, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+			ret = dt_set_errno(dva->dv_dtp, EDT_CTF);
+			goto err;
+		}
+		asize = ctf_type_size(dva->dv_ctfp, a.ctr_contents);
+		if (asize < 0) {
+			dt_dprintf("error retrieving type size for array contents in [%s]: %s\n",
+				   typename, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+			ret = dt_set_errno(dva->dv_dtp, EDT_CTF);
+			goto err;
+		}
+		ret = asprintf(&datastr, "(%s) [%s", typename,
+			       a.ctr_nelems == 0 ? "]," : "");
+		/* array member processing will be handled below... */
+		break;
+	case CTF_K_INTEGER:
+		ret = ctf_type_encoding(dva->dv_ctfp, rtype, &e);
+		if (ret < 0) {
+			dt_dprintf("error retrieving type encoding for [%s]: %s\n",
+				   typename, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+			ret = dt_set_errno(dva->dv_dtp, EDT_CTF);
+			goto err;
+		}
+		issigned = (e.cte_format & CTF_INT_SIGNED) != 0;
+		switch (e.cte_bits) {
+		case 8:
+			if (issigned)
+				intdata = (int64_t)*(char *)data;
+			else
+				intdata = (int64_t)*(unsigned char *)data;
+			break;
+		case 16:
+			if (issigned)
+				intdata = (int64_t)*(int16_t *)data;
+			else
+				intdata = (int64_t)*(uint16_t *)data;
+			break;
+		case 32:
+			if (issigned)
+				intdata = (int64_t)*(int32_t *)data;
+			else
+				intdata = (int64_t)*(uint32_t *)data;
+			break;
+		case 64:
+			if (issigned) {
+				intdata = (int64_t)*(int64_t *)data;
+			} else {
+				/* cannot use intdata (int64_t) to hold uin64_t;
+				 * stringify the cast and data here instead.
+				 */
+				ret = asprintf(&datastr, "(%s)%lu,",
+					       typename, *(uint64_t *)data);
+				goto doprint;
+			}
+			break;
+		default:
+			if (e.cte_bits <= 64) {
+				unsigned int lshift, rshift;
+				uint64_t bitdata = *(uint64_t *)((char *)dva->dv_data +
+						(offset + e.cte_offset)/NBBY);
+				/* shift bitfield data left then right to
+				 * eliminate unneeded bits.
+				 */
+				lshift = 63 - ((offset + e.cte_offset) % 64);
+				rshift = 64 - e.cte_bits;
+				bitdata = bitdata << lshift;
+				bitdata = bitdata >> rshift;
+				intdata = (int64_t)bitdata;
+				/* zero-value bitfield; do not display */
+				if (intdata == 0)
+					return 0;
+			} else {
+				/* > 64 bit integer vals not supported. */
+				ret = asprintf(&datastr, "(%s)?(%d bit value),",
+					       typename, e.cte_bits);
+				goto doprint;
+			}
+			break;
+		}
+		if ((e.cte_format & CTF_INT_CHAR) != 0 &&
+		    strcmp(typename, "char") == 0) {
+			ret = asprintf(&datastr, "(%s)'%c',",
+				       typename, (char)intdata);
+		} else {
+			ret = asprintf(&datastr, "(%s)%ld,",
+				       typename, intdata);
+		}
+		break;
+	case CTF_K_ENUM:
+		ename = ctf_enum_name(dva->dv_ctfp, rtype, *(int *)data);
+		if (ename != NULL) {
+			/* exception to printing 0-valued data here;
+			 * enum values are often meaningful with 0
+			 * value so display the enum value string.
+			 */
+			ret = asprintf(&datastr, "(%s)%s,",
+				       typename, ename);
+		} else {
+			ret = asprintf(&datastr, "(%s)%d,",
+				       typename, *(int *)data);
+		}
+		break;
+	case CTF_K_POINTER:
+		ret = asprintf(&datastr, "(%s)0x%lx,",
+			 typename, (uintptr_t)*(void **)data);
+		break;
+	default:
+		free(typename);
+		return 0;
+	}
+doprint:
+	if (ret < 0) {
+		/* asprintf() failed... */
+		ret = dt_set_errno(dva->dv_dtp, EDT_NOMEM);
+		goto err;
+	}
+	free(typename);
+
+	/* format is
+	 * [.<membername> = ](<type>)value,
+	 * For example
+	 * .foo = (bar)1,
+	 */
+	ret = dt_printf(dva->dv_dtp, dva->dv_fp, "%*s%s%s%s%s\n",
+			dva->dv_startindent + depth, "",
+			membername != NULL ? "." : "",
+			membername != NULL ? membername : "",
+			membername != NULL ? " = " : "",
+			datastr);
+	free(datastr);
+	if (ret < 0)
+		return ret;
+
+	/* type visit does not recurse into array elements... */
+	if (rkind == CTF_K_ARRAY) {
+		struct dt_visit_arg dva2;
+		int ischar = 0;
+
+		dva2.dv_dtp = dva->dv_dtp;
+		dva2.dv_ctfp = dva->dv_ctfp;
+		dva2.dv_fp = dva->dv_fp;
+		dva2.dv_data = dva->dv_data;
+		dva2.dv_startindent = dva->dv_startindent;
+		if (ctf_type_encoding(dva->dv_ctfp, a.ctr_contents, &e) < 0) {
+			dt_dprintf("error retrieving type encoding for array contents in [%ld]: %s\n",
+				   a.ctr_contents,
+				   ctf_errmsg(ctf_errno(dva->dv_ctfp)));
+			return dt_set_errno(dva->dv_dtp, EDT_CTF);
+		}
+		/* is array all 0s? Then skip... */
+		if (memcmp(data, zeros, asize * a.ctr_nelems) == 0)
+			return 0;
+		/* we check for early '\0' in char arrays... */
+		if ((e.cte_format & CTF_INT_CHAR) != 0 && e.cte_bits == 8)
+			ischar = 1;
+
+		for (i = 0; i < a.ctr_nelems; i++) {
+			int aoffset = (asize * 8) * i;
+
+			if (ischar && *(char *)((char *)data + i) == '\0')
+				break;
+			if (dt_print_visit(NULL, a.ctr_contents,
+					   offset + aoffset,
+					   depth + 1, &dva2) < 0)
+				return -1;
+		}
+		if (a.ctr_nelems > 0) {
+			if (dt_printf(dva->dv_dtp, dva->dv_fp, "%*s],\n",
+				      dva->dv_startindent + depth, "") < 0)
+				return -1;
+		}
+	}
+	return 0;
+err:
+	free(typename);
+	free(datastr);
+	return ret;
+}
+
+int
+dt_print_type(dtrace_hdl_t *dtp, FILE *fp, uint64_t printaddr,
+	      ctf_id_t type, caddr_t data, size_t size)
+{
+	struct dt_visit_arg dva;
+
+	dva.dv_dtp = dtp;
+	dva.dv_fp = fp;
+	dva.dv_ctfp = dtp->dt_ddefs->dm_ctfp;
+	dva.dv_data = data;
+	dva.dv_size = size;
+	dva.dv_last_depth = 0;
+	dva.dv_startindent = DT_PRINT_STARTINDENT;
+
+	/* print address as * to type; type display will start on the
+	 * next line.
+	 */
+	if (dt_printf(dtp, fp, "%p = *\n", (void *)printaddr) < 0)
+		return -1;
+
+	ctf_type_visit(dva.dv_ctfp, type, dt_print_visit, &dva);
+
+	/* may need to close top-level parenthesis for struct/union. */
+	if (dt_print_close_parens(&dva, 0) < 0)
+		return -1;
+
+	return 2;
 }

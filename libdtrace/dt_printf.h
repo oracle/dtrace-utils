@@ -108,6 +108,8 @@ extern int dt_print_ustack(dtrace_hdl_t *, FILE *,
     const char *, caddr_t, uint64_t);
 extern int dt_print_mod(dtrace_hdl_t *, FILE *, const char *, caddr_t);
 extern int dt_print_umod(dtrace_hdl_t *, FILE *, const char *, caddr_t);
+extern int dt_print_type(dtrace_hdl_t *, FILE *, uint64_t, ctf_id_t,
+			 caddr_t, size_t);
 
 #ifdef	__cplusplus
 }

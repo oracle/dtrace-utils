@@ -263,6 +263,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(@, ...)" },
 { "printf", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINTF, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(string, ...)" },
+{ "print",  DT_IDENT_ACTFUNC, 0, DT_ACT_PRINT, DT_ATTR_STABCMN, DT_VERS_2_0,
+	&dt_idops_func, "void(void *)" },
 { "probefunc", DT_IDENT_SCALAR, 0, DIF_VAR_PROBEFUNC,
 	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
 { "probemod", DT_IDENT_SCALAR, 0, DIF_VAR_PROBEMOD,

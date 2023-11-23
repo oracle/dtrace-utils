@@ -230,7 +230,8 @@ typedef enum {
 	D_LLQUANT_MATCHSTEPS,		/* llquantize() mismatch on steps */
 	D_PCAP_ADDR,			/* pcap() address bad type */
 	D_PCAP_PROTO,			/* pcap() prototype mismatch */
-	D_PCAP_SIZE			/* pcap() bad size */
+	D_PCAP_SIZE,			/* pcap() bad size */
+	D_PRINT_SIZE,			/* print() address target bad size */
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

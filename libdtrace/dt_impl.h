@@ -585,8 +585,9 @@ struct dtrace_hdl {
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
 #define	DT_ACT_PCAP		DT_ACT(29)	/* pcap() action */
+#define	DT_ACT_PRINT		DT_ACT(30)	/* print() action */
 
-#define DT_ACT_MAX		30
+#define DT_ACT_MAX		31
 
 /*
  * Aggregation functions.
@@ -703,7 +704,8 @@ enum {
 	EDT_OBJIO,		/* cannot read object file or module name mapping */
 	EDT_READMAXSTACK,	/* cannot read kernel param perf_event_max_stack */
 	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
-	EDT_PCAP		/* missing or corrupt pcap() record */
+	EDT_PCAP,		/* missing or corrupt pcap() record */
+	EDT_PRINT,		/* missing or corrupt print() record */
 };
 
 /*

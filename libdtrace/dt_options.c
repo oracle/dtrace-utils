@@ -915,6 +915,30 @@ dt_opt_strsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return 0;
 }
 
+#define	DT_PRINT_DEF_SIZE	8192
+
+static int
+dt_opt_printsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t val = DT_PRINT_DEF_SIZE;
+	int rval;
+
+	if (arg != NULL) {
+		rval = dt_opt_size(dtp, arg, option);
+
+		if (rval != 0)
+			return rval;
+
+		val = dtp->dt_options[option];
+
+		if (val <= 0 || val > 65536)
+			val = DT_PRINT_DEF_SIZE;
+	}
+	dtp->dt_options[option] = P2ROUNDUP(val, 8);
+
+	return 0;
+}
+
 static const struct {
 	const char *dtbp_name;
 	int dtbp_policy;
@@ -1178,6 +1202,7 @@ static const dt_option_t _dtrace_drtoptions[] = {
 	{ "rawbytes", dt_opt_runtime, DTRACEOPT_RAWBYTES },
 	{ "stackindent", dt_opt_runtime, DTRACEOPT_STACKINDENT },
 	{ "switchrate", dt_opt_rate, DTRACEOPT_SWITCHRATE },
+	{ "printsize", dt_opt_printsize, DTRACEOPT_PRINTSIZE },
 	{ NULL }
 };
 

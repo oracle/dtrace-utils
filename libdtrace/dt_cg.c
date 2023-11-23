@@ -2560,6 +2560,53 @@ dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 		   BPF_NOP());
 }
 
+static void
+dt_cg_act_print(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	uint_t		addr_off, data_off;
+	dt_node_t	*addr = dnp->dn_args;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	ctf_file_t	*fp = addr->dn_ctfp;
+	ctf_id_t	type = addr->dn_type;
+	char		n[DT_TYPE_NAMELEN];
+	size_t		size;
+
+	type = ctf_type_reference(fp, type);
+	if (type == CTF_ERR)
+		longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+	size = ctf_type_size(fp, type);
+	if (size == 0)
+		dnerror(addr, D_PRINT_SIZE,
+			"print( ) argument #1 reference has type '%s' with size 0; cannot print( ) it.\n",
+			ctf_type_name(fp, type, n, sizeof(n)));
+
+	/* reserve space for addr/type, data/size */
+	addr_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PRINT,
+			      sizeof(uint64_t), 8, NULL, type);
+	data_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PRINT,
+			      size, 8, NULL, size);
+
+	dt_cg_node(addr, &pcb->pcb_ir, drp);
+	dt_cg_check_ptr_arg(dlp, drp, addr, NULL);
+
+	/* store address for later print()ing */
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_9, addr_off, addr->dn_reg));
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_MOV_REG(BPF_REG_3, addr->dn_reg));
+	dt_regset_free(drp, addr->dn_reg);
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, data_off));
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+}
+
 typedef void dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
 
 typedef struct dt_cg_actdesc {
@@ -2615,6 +2662,7 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 						    DTRACEACT_UADDR },
 	[DT_ACT_IDX(DT_ACT_SETOPT)]		= { &dt_cg_act_setopt, },
 	[DT_ACT_IDX(DT_ACT_PCAP)]		= { &dt_cg_act_pcap, },
+	[DT_ACT_IDX(DT_ACT_PRINT)]		= { &dt_cg_act_print, },
 };
 
 dt_irnode_t *
