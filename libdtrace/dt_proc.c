@@ -1853,15 +1853,18 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 	 * we know there is no control thread, so it is impossible for anything
 	 * to be holding a reference to it.
 	 */
-	for (dpr = dph->dph_hash[h]; dpr != NULL; dpr = dpr->dpr_hash) {
+	for (dpr = dph->dph_hash[h]; dpr != NULL;) {
 		if ((dpr->dpr_pid == pid) &&
 		    !(flags & DTRACE_PROC_SHORTLIVED) && !dpr->dpr_tid) {
 				dt_dprintf("pid %d (cached, but noninvasive) "
 				    "dropped.\n", (int)pid);
 
+				dt_proc_t *npr = dpr->dpr_hash;
+
 				dt_list_delete(&dph->dph_lrulist, dpr);
 				dt_proc_destroy(dtp, dpr);
 				dt_free(dtp, dpr);
+				dpr = npr;
 
 		} else if (dpr->dpr_pid == pid) {
 			dt_dprintf("grabbed pid %d (cached)\n", (int)pid);
@@ -1877,6 +1880,8 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags)
 			}
 			return dpr;
 		}
+		else
+			dpr = dpr->dpr_hash;
 	}
 
 	/*
