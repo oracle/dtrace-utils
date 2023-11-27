@@ -73,9 +73,9 @@ dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd)
 		attr.wakeup_events = 1;
 		attr.config = tpp->event_id;
 
-		fd = perf_event_open(&attr, -1, 0, -1, 0);
+		fd = dt_perf_event_open(&attr, -1, 0, -1, 0);
 		if (fd < 0)
-			return -errno;
+			return fd;
 
 		tpp->event_fd = fd;
 	}

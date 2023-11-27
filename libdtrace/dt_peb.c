@@ -79,7 +79,7 @@ dt_peb_open(dt_peb_t *peb)
 	attr.sample_type = PERF_SAMPLE_RAW;
 	attr.sample_period = 1;
 	attr.wakeup_events = 1;
-	fd = perf_event_open(&attr, -1, peb->cpu, -1, 0);
+	fd = dt_perf_event_open(&attr, -1, peb->cpu, -1, 0);
 	if (fd < 0)
 		goto fail;
 

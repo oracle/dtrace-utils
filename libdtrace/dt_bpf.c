@@ -28,17 +28,23 @@ static boolean_t	dt_gmap_done = 0;
 #define BPF_CG_LICENSE	"GPL";
 
 int
-perf_event_open(struct perf_event_attr *attr, pid_t pid,
-		    int cpu, int group_fd, unsigned long flags)
+dt_perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
+		   int group_fd, unsigned long flags)
 {
-	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd,
-		       flags | PERF_FLAG_FD_CLOEXEC);
+	int	rc;
+
+	rc = syscall(__NR_perf_event_open, attr, pid, cpu, group_fd,
+		     flags | PERF_FLAG_FD_CLOEXEC);
+	return rc >= 0 ? rc : -errno;
 }
 
 int
-bpf(enum bpf_cmd cmd, union bpf_attr *attr)
+dt_bpf(enum bpf_cmd cmd, union bpf_attr *attr)
 {
-	return syscall(__NR_bpf, cmd, attr, sizeof(union bpf_attr));
+	int	rc;
+
+	rc = syscall(__NR_bpf, cmd, attr, sizeof(union bpf_attr));
+	return rc >= 0 ? rc : -errno;
 }
 
 static int
@@ -91,8 +97,8 @@ dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
 
 	/* Syscall could return EAGAIN - try at most 5 times. */
 	do {
-		fd = bpf(BPF_PROG_LOAD, &attr);
-	} while (fd < 0 && errno == EAGAIN && ++i < 5);
+		fd = dt_bpf(BPF_PROG_LOAD, &attr);
+	} while (fd == -EAGAIN && ++i < 5);
 
 	return fd;
 }
@@ -117,7 +123,7 @@ dt_bpf_map_create(enum bpf_map_type map_type, const char *name,
 		memcpy(attr.map_name, name, MIN(strlen(name),
 						sizeof(attr.map_name) - 1));
 
-	return bpf(BPF_MAP_CREATE, &attr);
+	return dt_bpf(BPF_MAP_CREATE, &attr);
 }
 
 /*
@@ -141,9 +147,9 @@ dt_bpf_map_create_meta(enum bpf_map_type otype, const char *name,
 	attr.max_entries = isize;
 	attr.map_flags = iflags;
 
-	ifd =  bpf(BPF_MAP_CREATE, &attr);
+	ifd =  dt_bpf(BPF_MAP_CREATE, &attr);
 	if (ifd < 0)
-		return -1;
+		return ifd;
 
 	/* Create the map-of-maps. */
 	memset(&attr, 0, sizeof(attr));
@@ -157,7 +163,7 @@ dt_bpf_map_create_meta(enum bpf_map_type otype, const char *name,
 		memcpy(attr.map_name, name, MIN(strlen(name),
 						sizeof(attr.map_name) - 1));
 
-	ofd = bpf(BPF_MAP_CREATE, &attr);
+	ofd = dt_bpf(BPF_MAP_CREATE, &attr);
 
 	/* Done with the template map. */
 	close(ifd);
@@ -176,7 +182,7 @@ dt_bpf_map_get_fd_by_id(uint32_t id)
 	memset(&attr, 0, sizeof(attr));
 	attr.map_id = id;
 
-	return bpf(BPF_MAP_GET_FD_BY_ID, &attr);
+	return dt_bpf(BPF_MAP_GET_FD_BY_ID, &attr);
 }
 
 /*
@@ -192,7 +198,7 @@ dt_bpf_map_lookup(int fd, const void *key, void *val)
 	attr.key = (uint64_t)(unsigned long)key;
 	attr.value = (uint64_t)(unsigned long)val;
 
-	return bpf(BPF_MAP_LOOKUP_ELEM, &attr);
+	return dt_bpf(BPF_MAP_LOOKUP_ELEM, &attr);
 }
 
 /*
@@ -208,7 +214,7 @@ dt_bpf_map_next_key(int fd, const void *key, void *nxt)
 	attr.key = (uint64_t)(unsigned long)key;
 	attr.next_key = (uint64_t)(unsigned long)nxt;
 
-	return bpf(BPF_MAP_GET_NEXT_KEY, &attr);
+	return dt_bpf(BPF_MAP_GET_NEXT_KEY, &attr);
 }
 
 /*
@@ -223,7 +229,7 @@ dt_bpf_map_delete(int fd, const void *key)
 	attr.map_fd = fd;
 	attr.key = (uint64_t)(unsigned long)key;
 
-	return bpf(BPF_MAP_DELETE_ELEM, &attr);
+	return dt_bpf(BPF_MAP_DELETE_ELEM, &attr);
 }
 
 /*
@@ -240,7 +246,7 @@ dt_bpf_map_update(int fd, const void *key, const void *val)
 	attr.value = (uint64_t)(unsigned long)val;
 	attr.flags = BPF_ANY;
 
-	return bpf(BPF_MAP_UPDATE_ELEM, &attr);
+	return dt_bpf(BPF_MAP_UPDATE_ELEM, &attr);
 }
 
 /*
@@ -312,7 +318,7 @@ dt_bpf_raw_tracepoint_open(const void *tp, int fd)
 	attr.raw_tracepoint.name = (uint64_t)(unsigned long)tp;
 	attr.raw_tracepoint.prog_fd = fd;
 
-	return bpf(BPF_RAW_TRACEPOINT_OPEN, &attr);
+	return dt_bpf(BPF_RAW_TRACEPOINT_OPEN, &attr);
 }
 
 static int
@@ -976,7 +982,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 {
 	size_t				logsz;
 	char				*log;
-	int				rc, origerrno = 0;
+	int				rc, origerr = 0;
 	const dtrace_probedesc_t	*pdp = prp->desc;
 	char				*p, *q;
 
@@ -996,7 +1002,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		if (rc >= 0)
 			return rc;
 
-		origerrno = errno;
+		origerr = -rc;
 	}
 
 	if (dtp->dt_options[DTRACEOPT_BPFLOGSIZE] != DTRACEOPT_UNSET)
@@ -1008,18 +1014,19 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 4 | 2 | 1,
 			      log, logsz);
 	if (rc < 0) {
-		char msg[64];
+		char	msg[64];
+		int	err = -rc;
 
 		snprintf(msg, sizeof(msg),
 			 "BPF program load for '%s:%s:%s:%s' failed",
 		         pdp->prv, pdp->mod, pdp->fun, pdp->prb);
-		if (errno == EPERM)
+		if (err == EPERM)
 			return dt_bpf_lockmem_error(dtp, msg);
 		dt_bpf_error(dtp, "%s: %s\n", msg,
-		     strerror(origerrno ? origerrno : errno));
+		     strerror(origerr ? origerr : err));
 
 		/* check whether we have an incomplete BPF log */
-		if (errno == ENOSPC) {
+		if (err == ENOSPC) {
 			fprintf(stderr,
 				"BPF verifier log is incomplete and is not reported.\n"
 				"Set DTrace option 'bpflogsize' to some greater size for more output.\n"

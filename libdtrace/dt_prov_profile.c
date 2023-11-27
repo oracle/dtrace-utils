@@ -278,8 +278,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		if (cnt == 1)
 			j = rand() % dtp->dt_conf.num_online_cpus;
 
-		fd = perf_event_open(&attr, -1, dtp->dt_conf.cpus[j].cpu_id,
-				     -1, 0);
+		fd = dt_perf_event_open(&attr, -1, dtp->dt_conf.cpus[j].cpu_id,
+					-1, 0);
 		if (fd < 0)
 			continue;
 		if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0) {

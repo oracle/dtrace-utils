@@ -45,9 +45,9 @@ extern "C" {
 #define DT_BPF_LOG_SIZE_DEFAULT	(UINT32_MAX >> 8)
 #define DT_BPF_LOG_SIZE_SMALL	4096
 
-extern int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
-			   int group_fd, unsigned long flags);
-extern int bpf(enum bpf_cmd cmd, union bpf_attr *attr);
+extern int dt_perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
+			      int group_fd, unsigned long flags);
+extern int dt_bpf(enum bpf_cmd cmd, union bpf_attr *attr);
 
 extern int dt_bpf_gmap_create(struct dtrace_hdl *);
 extern int dt_bpf_map_lookup(int fd, const void *key, void *val);

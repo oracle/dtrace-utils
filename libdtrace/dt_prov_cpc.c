@@ -185,7 +185,7 @@ static int populate(dtrace_hdl_t *dtp)
 			/*
 			 * Check attr with perf_event_open().
 			 */
-			fd = perf_event_open(&attr, -1, 0 /* FIXME: cpu */, -1, 0);
+			fd = dt_perf_event_open(&attr, -1, 0 /* FIXME: cpu */, -1, 0);
 			if (fd < 0)
 				continue;
 			close(fd);
@@ -430,8 +430,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	for (i = 0; i < cnt; i++) {
 		int fd;
 
-		fd = perf_event_open(&attr, -1, dtp->dt_conf.cpus[i].cpu_id,
-				     -1, 0);
+		fd = dt_perf_event_open(&attr, -1, dtp->dt_conf.cpus[i].cpu_id,
+					-1, 0);
 		if (fd < 0)
 			continue;
 		if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0) {
