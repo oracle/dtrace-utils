@@ -22,7 +22,7 @@ dt_cpuinfo_read(dtrace_hdl_t *dtp, const char *fn, cpuinfo_t **cip)
 	int		cnt = 0;
 	cpuinfo_t	*ci = NULL;
 
-	uint32_t	num, start;
+	uint32_t	num, start = 0;
 	int		range = 0;
 	char		c[2];
 
