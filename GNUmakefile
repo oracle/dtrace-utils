@@ -3,7 +3,7 @@
 # Build files in subdirectories are included by this file.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -122,7 +122,12 @@ $(shell mkdir -p $(objdir))
 include Makeoptions
 include Makefunctions
 include Makeconfig
+
+# Building config.mk is quite expensive: avoid doing it when only
+# documentation targets and such things are invoked.
+ifeq ($(strip $(filter %clean help% dist tags TAGS gtags,$(MAKECMDGOALS))),)
 -include $(objdir)/config.mk
+endif
 include Build $(sort $(wildcard */Build))
 -include $(objdir)/*.deps
 include Makerules
