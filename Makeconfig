@@ -14,7 +14,7 @@ CONFIG_MK = $(objdir)/config.mk
 #
 # Syntax: $(call make-override-help,var,help-string)
 define make-override-help
-help::
+help-overrides::
 	width=$$$$(printf '$(1)=[yes/no]' | wc -c); \
 	tabs="\t\t\t\t"; \
 	if [[ $$$${width} -gt 31 ]]; then \
@@ -144,7 +144,7 @@ $(CONFIG_MK):
 	echo 'CONFIGURED := yes' >> $(objdir)/config.mk
 	cat $(objdir)/.config/*.mk >> $(objdir)/config.mk 2>/dev/null || true
 
-help::
+help-overrides::
 	printf "Overrides for library and symbol searches:\n\n" >&2
 
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
@@ -163,5 +163,7 @@ $(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),dis-asm))
 
-help::
+help-overrides::
 	printf "\n" >&2
+
+help:: help-overrides
