@@ -10,6 +10,26 @@
 CONFIG_H = $(objdir)/config.h
 CONFIG_MK = $(objdir)/config.mk
 
+# Emit a help rule for an override.
+#
+# Syntax: $(call make-override-help,var,help-string)
+define make-override-help
+help::
+	width=$$$$(printf '$(1)=[yes/no]' | wc -c); \
+	tabs="\t\t\t\t"; \
+	if [[ $$$${width} -gt 31 ]]; then \
+	    tabs=' '; \
+	elif [[ $$$${width} -gt 23 ]]; then \
+	    tabs='\t'; \
+	elif [[ $$$${width} -gt 15 ]]; then \
+	    tabs='\t\t'; \
+	elif [[ $$$${width} -gt 7 ]]; then \
+	    tabs='\t\t\t'; \
+	fi; \
+	printf "$(1)=[yes/no]$$$${tabs}Override check for%s\n" \
+	       "$$$$(printf "%s" "$(2)" | sed 's,(.*),,g')" >&2
+endef
+
 # Generate a makefile rule to check for the presence of FUNCTION
 # in HEADER and emit an appropriate header file fragment into a
 # file under $(objdir)/.config.
@@ -20,14 +40,25 @@ CONFIG_MK = $(objdir)/config.mk
 # Syntax: $(call check-header-rule,name,function,header)
 define check-header-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
-	if printf '#include <%s.h>\nint main(void) { %s; }' "$(3)" "$(2)" | \
-		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
-	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
-	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
-	else \
-	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
-	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
-	fi
+	val="$(HAVE_$(1))"; \
+	if [[ x$(HAVE_$(1)) = x ]]; then \
+	    if printf '#include <%s.h>\nint main(void) { %s; }' "$(3)" "$(2)" | \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
+	       val=yes; \
+	   else \
+	       val=no; \
+	   fi; \
+	fi; \
+	case $$$$val in \
+	yes) echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	     echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk;; \
+	no) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
+	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
+	   false;; \
+	esac
+
+$(eval $(call make-override-help,HAVE_$(1), presence of $(2) in $(3).h))
 
 $(CONFIG_H): $(objdir)/.config/config.$(1).h
 $(CONFIG_MK): $(objdir)/.config/config.$(1).mk
@@ -43,14 +74,25 @@ endef
 # Syntax: $(call check-symbol-rule,name,symbol,library)
 define check-symbol-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
-	if echo 'void $(2)(); int main(void) { $(2)(); }' | \
-		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
-	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
-	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
-	else \
-	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
-	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
-	fi
+	val="$(HAVE_$(1))"; \
+	if [[ x$(HAVE_$(1)) = x ]]; then \
+	    if echo 'void $(2)(); int main(void) { $(2)(); }' | \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	       val=yes; \
+	   else \
+	       val=no; \
+	   fi; \
+	fi; \
+	case $$$$val in \
+	yes) echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	     echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk;; \
+	no) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
+	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
+	   false;; \
+	esac
+
+$(eval $(call make-override-help,HAVE_$(1), presence of $(2) in lib$(3)))
 
 $(CONFIG_H): $(objdir)/.config/config.$(1).h
 $(CONFIG_MK): $(objdir)/.config/config.$(1).mk
@@ -66,14 +108,24 @@ endef
 # Syntax: $(call check-header-symbol-rule,name,symbol,library,header)
 define check-header-symbol-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
-	if printf '#include <%s.h>\nint main(void) { %s; }' "$(4)" "$(2)" | \
-		$(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
-	    echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
-	    echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
-	else \
-	    echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
-	    echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
-	fi
+	case x$(HAVE_$(1)) in \
+	xyes) echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	     echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk;; \
+	xno) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	     echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
+	*) if printf '#include <%s.h>\nint main(void) { %s; }' "$(4)" "$(2)" | \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	       echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	       echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
+	   else \
+	       echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	       echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
+	   fi;; \
+	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
+	   false;; \
+	esac
+
+$(eval $(call make-override-help,HAVE_$(1), presence of $(2) in lib$(3) and $(4).h))
 
 $(CONFIG_H): $(objdir)/.config/config.$(1).h
 $(CONFIG_MK): $(objdir)/.config/config.$(1).mk
@@ -92,6 +144,9 @@ $(CONFIG_MK):
 	echo 'CONFIGURED := yes' >> $(objdir)/config.mk
 	cat $(objdir)/.config/*.mk >> $(objdir)/config.mk 2>/dev/null || true
 
+help::
+	printf "Overrides for library and symbol searches:\n\n" >&2
+
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
 $(eval $(call check-symbol-rule,LIBCTF,ctf_open,ctf))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
@@ -107,3 +162,6 @@ $(eval $(call check-header-rule,DIS1,disassembler(NULL),dis-asm))
 $(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),dis-asm))
+
+help::
+	printf "\n" >&2

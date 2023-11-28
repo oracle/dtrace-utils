@@ -1,7 +1,7 @@
 # The implementation of the configurable make options.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -13,13 +13,12 @@ libfuse2 ?= no
 
 help::
 	@printf "Options:\n\n" >&2
-	@printf "make debugging=yes [targets]   Disable optimization to make debugger use easier\n" >&2
-	@printf "make coverage=yes [targets]    Turn on coverage support in the testsuite\n" >&2
-	@printf "make verbose=yes [target]      Enable verbose building\n" >&2
-	@printf "make dof_dbg=yes [targets]     Turn on especially noisy DOF parser debugging\n\n" >&2
+	@printf "make debugging=yes [targets]\tDisable optimization to make debugger use easier\n" >&2
+	@printf "make coverage=yes [targets]\tTurn on coverage support in the testsuite\n" >&2
+	@printf "make verbose=yes [target]\tEnable verbose building\n" >&2
+	@printf "make dof_dbg=yes [targets]\tTurn on especially noisy DOF parser debugging\n\n" >&2
 	@printf "Dependencies:\n\n" >&2
-	@printf "make libfuse2=yes [targets]    Build against libfuse 2 even if libfuse 3 is found\n" >&2
-	@printf "\n" >&2
+	@printf "make libfuse2=yes [targets]\tBuild against libfuse 2 even if libfuse 3 is found\n\n" >&2
 
 ifneq ($(debugging),no)
 override CFLAGS += -O0 -g
