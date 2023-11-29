@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -196,6 +196,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		if (p != NULL)
 			size = strtol(p + 5, NULL, 10);
 
+		p = buf;
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
 			continue;
 		sscanf(p, "__data_loc %[^;]", p);
