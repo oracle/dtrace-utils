@@ -121,7 +121,7 @@ sudo make install
 
 Some distributions install the BPF gcc and binutils under different names.  You
 can specify the executables to use using the **BPFC** and **BPFLD** variables.
-E.g. on Debian you would use:
+E.g. on Debian you could use:
 
 ```
 make BPFC=bpf-gcc BPFLD=bpf-ld
@@ -141,11 +141,16 @@ make KERNELS="5.16.8"
 as long as the source tree that kernel was built with remains where it was
 when that kernel was installed.
 
-See the GNUmakefile for more options (building translators against multiple
-different kernels at once, building against kernel sources found in
-different places, building against a kernel built with O=, etc.)
+See `./configure --help`, `make help`, and the top-level GNUmakefile for a
+full list of options (building translators against multiple different
+kernels at once, building against kernel sources found in different places,
+building against a kernel built with O=, installing in different places,
+etc.)
 
-'make help' might also be of interest.
+Some of the options (e.g., those specifying paths) may need to be specified
+when installing as well as when building.  To avoid this, you can use the
+configure script: it bakes variable settings into the makefile so that they
+persist across multiple invocations, including `make install`.
 
 ## 3. Testing
 

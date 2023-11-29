@@ -25,22 +25,10 @@ $(if $(subst sparc64,,$(subst aarch64,,$(subst x86_64,,$(ARCH)))), \
 $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
 
+# Variables overridable by the command line and configure scripts.
+
 CFLAGS ?= -O2 -Wall -pedantic -Wno-unknown-pragmas
 LDFLAGS ?=
-BITNESS := 64
-NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
-ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(ARCH))))
-INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
-CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
-
-export CC = gcc
-override CFLAGS += $(INVARIANT_CFLAGS)
-PREPROCESS = $(CC) -E
-export BPFC = bpf-unknown-none-gcc
-
-BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
-BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas
-export BPFLD = bpf-unknown-none-ld
 
 # The first non-system uid on this system.
 USER_UID := $(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
@@ -77,10 +65,10 @@ UNPRIV_HOME ?= /run/initramfs
 # For RPM builds, set KERNELMODDIR to the root of the rpmsrc tree, and set
 # KERNELSRCNAME and KERNELBLDNAME to the empty string.
 
-KERNELS = $(shell uname -r)
-KERNELMODDIR = /lib/modules
-KERNELSRCNAME = source
-KERNELBLDNAME = build
+KERNELS ?= $(shell uname -r)
+KERNELMODDIR ?= /lib/modules
+KERNELSRCNAME ?= source
+KERNELBLDNAME ?= build
 
 ifdef KERNELSRCDIR
 KERNELOBJDIR ?= $(KERNELSRCDIR)
@@ -90,31 +78,53 @@ KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(A
 
 # Paths.
 
-prefix = /usr
+prefix ?= /usr
 export objdir := $(abspath build)
-LIBDIR := $(prefix)/lib$(BITNESS)
-INSTLIBDIR := $(DESTDIR)$(LIBDIR)
-BINDIR := $(prefix)/bin
-INSTBINDIR := $(DESTDIR)$(BINDIR)
-INCLUDEDIR := $(prefix)/include
-INSTINCLUDEDIR := $(DESTDIR)$(INCLUDEDIR)
-SBINDIR := $(prefix)/sbin
-INSTSBINDIR := $(DESTDIR)$(SBINDIR)
-UDEVDIR := $(prefix)/lib/udev/rules.d
-INSTUDEVDIR := $(DESTDIR)$(UDEVDIR)
-SYSTEMDPRESETDIR := $(prefix)/lib/systemd/system-preset
-SYSTEMDUNITDIR := $(prefix)/lib/systemd/system
-INSTSYSTEMDPRESETDIR := $(DESTDIR)$(SYSTEMDPRESETDIR)
-INSTSYSTEMDUNITDIR := $(DESTDIR)$(SYSTEMDUNITDIR)
-DOCDIR := $(prefix)/share/doc/dtrace-$(VERSION)
-INSTDOCDIR := $(DESTDIR)$(DOCDIR)
-MANDIR := $(prefix)/share/man/man8
-INSTMANDIR := $(DESTDIR)$(MANDIR)
-TESTDIR := $(prefix)/lib$(BITNESS)/dtrace/testsuite
-INSTTESTDIR := $(DESTDIR)$(TESTDIR)
+LIBDIR = $(prefix)/lib$(BITNESS)
+INSTLIBDIR = $(DESTDIR)$(LIBDIR)
+BINDIR = $(prefix)/bin
+INSTBINDIR = $(DESTDIR)$(BINDIR)
+INCLUDEDIR = $(prefix)/include
+INSTINCLUDEDIR = $(DESTDIR)$(INCLUDEDIR)
+SBINDIR = $(prefix)/sbin
+INSTSBINDIR = $(DESTDIR)$(SBINDIR)
+UDEVDIR = $(prefix)/lib/udev/rules.d
+INSTUDEVDIR = $(DESTDIR)$(UDEVDIR)
+SYSTEMDPRESETDIR = $(prefix)/lib/systemd/system-preset
+SYSTEMDUNITDIR = $(prefix)/lib/systemd/system
+INSTSYSTEMDPRESETDIR = $(DESTDIR)$(SYSTEMDPRESETDIR)
+INSTSYSTEMDUNITDIR = $(DESTDIR)$(SYSTEMDUNITDIR)
+DOCDIR = $(prefix)/share/doc/dtrace-$(VERSION)
+INSTDOCDIR = $(DESTDIR)$(DOCDIR)
+MANDIR = $(prefix)/share/man/man8
+INSTMANDIR = $(DESTDIR)$(MANDIR)
+TESTDIR = $(prefix)/lib$(BITNESS)/dtrace/testsuite
+INSTTESTDIR = $(DESTDIR)$(TESTDIR)
 TARGETS =
 
 DTRACE ?= $(objdir)/dtrace
+
+# configure overrides (themselves overridden by explicit command-line options).
+
+-include $(objdir)/config-vars.mk
+
+# Variables derived from the above.
+
+BITNESS := 64
+NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | gcc -x c -o /dev/null -m32 - 2>/dev/null || echo t)
+ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(ARCH))))
+
+INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
+CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
+
+export CC = gcc
+override CFLAGS += $(INVARIANT_CFLAGS)
+PREPROCESS = $(CC) -E
+export BPFC = bpf-unknown-none-gcc
+
+BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
+BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas
+export BPFLD = bpf-unknown-none-ld
 
 all::
 
