@@ -1423,7 +1423,9 @@ for dt in $dtrace; do
 
             # Exitcode of 67 == XFAIL.
             elif [[ $exitcode -eq 67 ]]; then
+                [[ $expected_exitcode -eq 1 ]] && fail=t
                 xfail=t
+                failmsg="requested by test"
 
             # Exitcodes are not useful if there's been a coredump, but otherwise...
             elif [[ $exitcode != $expected_exitcode ]] && [[ $exitcode -ne $TIMEOUTRET ]]; then
