@@ -167,7 +167,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
-static char *uprobe_spec(const char *prb)
+static char *uprobe_spec(pid_t pid, const char *prb)
 {
 	struct ps_prochandle	*P;
 	int			perr = 0;
@@ -178,8 +178,8 @@ static char *uprobe_spec(const char *prb)
 	if (asprintf(&fun, "%s%s", prb, PROBE_FUNC_SUFFIX) < 0)
 		return NULL;
 
-	/* grab our process */
-	P = Pgrab(getpid(), 2, 0, NULL, &perr);
+	/* grab the process */
+	P = Pgrab(pid, 2, 0, NULL, &perr);
 	if (P == NULL) {
 		free(fun);
 		return NULL;
@@ -208,7 +208,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		int	fd, rc = -1;
 
 		/* get a uprobe specification for this probe */
-		spec = uprobe_spec(prp->desc->prb);
+		spec = uprobe_spec(getpid(), prp->desc->prb);
 		if (spec == NULL)
 			return -ENOENT;
 
