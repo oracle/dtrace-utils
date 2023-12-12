@@ -138,6 +138,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
 	dt_ident_t	*aggs = dt_dlib_get_map(dtp, "aggs");
 	dt_ident_t	*mem = dt_dlib_get_map(dtp, "mem");
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
@@ -150,6 +151,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	assert(state != NULL);
 	assert(prid != NULL);
 	assert(ro_off != NULL);
+
+	/* Reserve %r7 and %r8. */
+	dt_regset_xalloc(drp, BPF_REG_7);
+	dt_regset_xalloc(drp, BPF_REG_8);
 
 	/*
 	 * On input, %r1 is the BPF context.
@@ -718,6 +723,7 @@ void
 dt_cg_tramp_return(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
 
 	/*
 	 * exit:
@@ -728,6 +734,10 @@ dt_cg_tramp_return(dt_pcb_t *pcb)
 	emitl(dlp, pcb->pcb_exitlbl,
 		   BPF_MOV_IMM(BPF_REG_0, 0));
 	emit(dlp,  BPF_RETURN());
+
+	/* Free %r7 and %r8. */
+	dt_regset_free(drp, BPF_REG_7);
+	dt_regset_free(drp, BPF_REG_8);
 }
 
 void
