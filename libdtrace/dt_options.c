@@ -764,6 +764,9 @@ dt_opt_size(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_lockmem(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+	if (dtp->dt_pcb != NULL)
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
+
 	if (arg == NULL)
 		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
