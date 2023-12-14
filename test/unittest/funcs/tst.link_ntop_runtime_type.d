@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2023, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,27 +11,31 @@ uint8_t ibaddr[20];
 
 BEGIN
 {
+	mytype = ARPHRD_ETHER;
+
 	this->buf_eth = (uint64_t *)alloca(sizeof(uint64_t));
 
 	/* Ethernet MAC address 00:01:02:03:04:05 */
 	*(this->buf_eth) = htonll(0x000102030405 << 16);
-	printf("%s\n", link_ntop(ARPHRD_ETHER, this->buf_eth));
+	printf("%s\n", link_ntop(mytype, this->buf_eth));
 
 	/* Ethernet MAC address ff:ff:ff:ff:ff:ff */
 	*(this->buf_eth) = htonll(0xffffffffffff << 16);
-	printf("%s\n", link_ntop(ARPHRD_ETHER, this->buf_eth));
+	printf("%s\n", link_ntop(mytype, this->buf_eth));
 
 	/* Ethernet MAC address 01:33:0a:00:00:01 */
 	*(this->buf_eth) = htonll(0x01330a000001 << 16);
-	printf("%s\n", link_ntop(ARPHRD_ETHER, this->buf_eth));
+	printf("%s\n", link_ntop(mytype, this->buf_eth));
 
 	/* Ethernet MAC address 00:10:e0:8a:71:5e */
 	*(this->buf_eth) = htonll(0x0010e08a715e << 16);
-	printf("%s\n", link_ntop(ARPHRD_ETHER, this->buf_eth));
+	printf("%s\n", link_ntop(mytype, this->buf_eth));
 
 	/* Ethernet MAC address 2:8:20:ac:4:e */
 	*(this->buf_eth) = htonll(0x020820ac040e << 16);
-	printf("%s\n", link_ntop(ARPHRD_ETHER, this->buf_eth));
+	printf("%s\n", link_ntop(mytype, this->buf_eth));
+
+	mytype = ARPHRD_INFINIBAND;
 
 	ibaddr[0] = 0x10;
 	ibaddr[1] = 0x80;
@@ -53,7 +57,7 @@ BEGIN
 	ibaddr[17] = 0x7f;
 	ibaddr[18] = 0x01;
 	ibaddr[19] = 0xff;
-	printf("%s\n", link_ntop(ARPHRD_INFINIBAND, ibaddr));
+	printf("%s\n", link_ntop(mytype, ibaddr));
 
 	ibaddr[0] = 0x80;
 	ibaddr[1] = 0x00;
@@ -75,7 +79,7 @@ BEGIN
 	ibaddr[17] = 0x29;
 	ibaddr[18] = 0x31;
 	ibaddr[19] = 0xCD;
-	printf("%s\n", link_ntop(ARPHRD_INFINIBAND, ibaddr));
+	printf("%s\n", link_ntop(mytype, ibaddr));
 
 	exit(0);
 }

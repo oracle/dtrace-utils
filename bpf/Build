@@ -30,6 +30,7 @@ bpf_dlib_SOURCES = \
 	index.S \
 	inet_ntoa.S \
 	inet_ntoa6.S \
+	link_ntop.S \
 	lltostr.S \
 	mutex_owned.S \
 	mutex_owner.S \

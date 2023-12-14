@@ -12,6 +12,9 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <sys/socket.h>			/* needed for if_arp.h on OL7/x86 */
+#include <linux/if_arp.h>		/* ARPHRD_ETHER ARPHRD_INFINIBAND */
+
 #include <dt_impl.h>
 #include <dt_dis.h>
 #include <dt_dctx.h>
@@ -6239,6 +6242,25 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	tnp->dn_tstring = NULL;
 }
 
+static void
+dt_cg_subr_link_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*type = dnp->dn_args;
+	uint_t		Lokay = dt_irlist_label(dlp);
+
+	/* Determine type and check it is okay. */
+	dt_cg_node(type, dlp, drp);
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, type->dn_reg, ARPHRD_INFINIBAND, Lokay));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, type->dn_reg, ARPHRD_ETHER, Lokay));
+	dt_cg_probe_error(yypcb, DTRACEFLT_ILLOP, DT_ISREG, type->dn_reg);
+	emitl(dlp, Lokay,
+		   BPF_NOP());
+
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_link_ntop", 1,
+				  DT_ISREG, type->dn_reg, DT_IGNOR, 0);
+	dt_regset_free(drp, type->dn_reg);
+}
+
 typedef void dt_cg_subr_f(dt_node_t *, dt_irlist_t *, dt_regset_t *);
 
 static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
@@ -6287,7 +6309,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_INET_NTOA]		= &dt_cg_subr_inet_ntoa,
 	[DIF_SUBR_INET_NTOA6]		= &dt_cg_subr_inet_ntoa6,
 	[DIF_SUBR_D_PATH]		= NULL,
-	[DIF_SUBR_LINK_NTOP]		= NULL,
+	[DIF_SUBR_LINK_NTOP]		= &dt_cg_subr_link_ntop,
 };
 
 static void
