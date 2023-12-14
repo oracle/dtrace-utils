@@ -4795,8 +4795,8 @@ dt_cg_array_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
  */
 static void
 dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-			  const char *fname, int isreg4, uint32_t val4,
-			  int isreg5, uint32_t val5)
+			  const char *fname, int argnum, int isreg4,
+			  uint32_t val4, int isreg5, uint32_t val5)
 {
 	dt_ident_t	*idp;
 	dt_node_t	*arg = dnp->dn_args;
@@ -4805,13 +4805,18 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	TRACE_REGSET("    subr-arg_to_tstring:Begin");
 
-	assert(dnp->dn_ident && dnp->dn_ident);
+	assert(dnp->dn_ident);
 	isp = dnp->dn_ident->di_data;
 	assert(isp && isp->dis_args);
-	argtype = &isp->dis_args[0];
+	assert(argnum < isp->dis_argc);
+	argtype = &isp->dis_args[argnum];
 
 	/* handle the one "input value" */
 	/* (its type matters only as to whether we check it is null */
+	while (argnum-- > 0) {
+		assert(arg != NULL);
+		arg = arg->dn_list;
+	}
 	dt_cg_node(arg, dlp, drp);
 	if (dt_node_is_pointer(argtype) || dt_node_is_string(argtype))
 		dt_cg_check_ptr_arg(dlp, drp, arg, NULL);
@@ -4860,14 +4865,14 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 static void
 dt_cg_subr_basename(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename", DT_IGNOR, 0,
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_basename", 0, DT_IGNOR, 0,
 				  DT_IGNOR, 0);
 }
 
 static void
 dt_cg_subr_dirname(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", DT_IGNOR, 0,
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_dirname", 0, DT_IGNOR, 0,
 				  DT_IGNOR, 0);
 }
 
@@ -4933,7 +4938,7 @@ dt_cg_subr_index(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_lltostr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr", DT_IGNOR, 0,
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_lltostr", 0, DT_IGNOR, 0,
 				  DT_IGNOR, 0);
 }
 
@@ -6098,7 +6103,7 @@ dt_cg_subr_htonll(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 static void
 dt_cg_subr_inet_ntoa(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa", DT_IGNOR, 0,
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa", 0, DT_IGNOR, 0,
 				  DT_IGNOR, 0);
 }
 
@@ -6163,7 +6168,7 @@ dt_cg_subr_inet_ntoa6(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	if (tbloff > DIF_STROFF_MAX)
 		longjmp(yypcb->pcb_jmpbuf, EDT_STR2BIG);
 
-	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa6",
+	dt_cg_subr_arg_to_tstring(dnp, dlp, drp, "dt_inet_ntoa6", 0,
 				  DT_ISIMM, tbloff,
 				  DT_ISIMM, strict && strict->dn_value ? 1 : 0);
 }
