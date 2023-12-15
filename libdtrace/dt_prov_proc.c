@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -204,10 +204,10 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	} else if (strcmp(prp->desc->prb, "exit") == 0 ||
 		   strcmp(prp->desc->prb, "lwp-exit") == 0) {
 		pd.id = DTRACE_IDNONE;
-		pd.prv = "fbt";
+		pd.prv = "rawtp";
 		pd.mod = "";
-		pd.fun = "taskstats_exit";
-		pd.prb = "entry";
+		pd.fun = "";
+		pd.prb = "sched_process_exit";
 
 		uprp = dt_probe_lookup(dtp, &pd);
 		assert(uprp != NULL);
@@ -323,8 +323,13 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		int		rc = 0;
 		uint_t		lbl_out = dt_irlist_label(dlp);
 
-		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, exitlbl));
+		/* Only fire this probe for the task group leader. */
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_0));
+		emit(dlp,  BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, 32));
+		emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
+		emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_1, 32));
+		emit(dlp,  BPF_BRANCH_REG(BPF_JNE, BPF_REG_0, BPF_REG_1, exitlbl));
 
 		if (!cfp)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
@@ -342,9 +347,9 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		/*
 		 * This implements:
 		 *	%r1 = tsk->exit_code
-		 *	if ((%r1 & 0x7f) == 0) args[0] = 1;
-		 *	else if (%r1 & 0x80) args[0] = 3;
-		 *	else args[0] = 2;
+		 *	if ((%r1 & 0x7f) == 0) args[0] = 1;	// CLD_EXITED
+		 *	else if (%r1 & 0x80) args[0] = 3;	// CLD_DUMPED
+		 *	else args[0] = 2;			// CLD_KILLED
 		 */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
@@ -381,7 +386,46 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(2)));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 	} else if (strcmp(prp->desc->prb, "signal-handle") == 0) {
-		/* All three arguments are already in their proper place. */
+		int	off;
+		size_t	sz;
+		uint_t	lbl_keep = dt_irlist_label(dlp);
+
+		/*
+		 * Getting the signal number right is a bit tricky because any
+		 * unhandled signal triggers a SIGKILL to be delivered (to kill
+		 * the task) while reporting the actual signal number in the
+		 * signal struct for the task.  The real signal number is then
+		 * to be found in task->signal->group_exit_code.
+		 *
+		 * So. if arg0 is SIGKILL, we look at group_exit_code, and if
+		 * it is > 0, use that value as signal number.
+		 */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(0)));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, SIGKILL, lbl_keep));
+
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task));
+		off = dt_cg_ctf_offsetof("struct task_struct", "signal", &sz, 0);
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
+		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sz));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_STK_SPILL(0)));
+		off = dt_cg_ctf_offsetof("struct signal_struct", "group_exit_code", &sz, 0);
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
+		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sz));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
+		emit(dlp, BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_FP, DT_STK_SPILL(0)));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_keep));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+
+		emitl(dlp, lbl_keep,
+			   BPF_NOP());
+
+		/* All three arguments are in their proper place. */
 	} else if (strcmp(prp->desc->prb, "signal-send") == 0) {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_7, DMST_ARG(0)));

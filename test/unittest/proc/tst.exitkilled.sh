@@ -1,26 +1,33 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 # This script tests that the proc:::exit probe fires with the correct argument
 # when the process is killed.
-#
-# If this fails, the script will run indefinitely; it relies on the harness
-# to time it out.
-#
-# @@xfail: dtv2
 
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
+	syscall::execve:entry
+	/copyinstr((uintptr_t)args[1][0]) == "sleep" && args[1][1] &&
+	 copyinstr((uintptr_t)args[1][1]) == "10000"/
+	{
+		kill_pid = pid;
+	}
+
 	proc:::exit
-	/curpsinfo->pr_ppid == $child &&
-	    curpsinfo->pr_psargs == "$longsleep" && args[0] == CLD_KILLED/
+	/curpsinfo->pr_ppid == $child && kill_pid == pid &&
+	 args[0] == CLD_KILLED/
 	{
 		exit(0);
+	}
+
+	tick-5s
+	{
+		exit(124);
 	}
 EOF
 }
@@ -29,9 +36,11 @@ sleeper()
 {
 	while true; do
 		$longsleep &
+		target=$!
 		disown %+
 		sleep 1
-		kill -9 $!
+		kill -9 $target
+		sleep 1
 	done
 }
 

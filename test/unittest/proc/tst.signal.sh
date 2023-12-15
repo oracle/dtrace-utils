@@ -1,35 +1,40 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 # This script tests that the proc:::signal-send and proc:::signal-handle
 # probes fire correctly and with the correct arguments.
-#
-# If this fails, the script will run indefinitely; it relies on the harness
-# to time it out.
-#
-# @@xfail: dtv2
 
 script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
+	syscall::execve:entry
+	/copyinstr((uintptr_t)args[1][0]) == "sleep" && args[1][1] &&
+	 copyinstr((uintptr_t)args[1][1]) == "10000"/
+	{
+		sig_pid = pid;
+	}
+
 	proc:::signal-send
 	/execname == "kill" && curpsinfo->pr_ppid == $child &&
-	    args[1]->pr_psargs == "$longsleep" && args[2] == SIGUSR1/
+	 sig_pid == args[1]->pr_pid && args[2] != SIGUSR1/
 	{
-		/*
-		 * This is guaranteed to not race with signal-handle.
-		 */
-		target = args[1]->pr_pid;
+		/* Wrong signal being sent. */
+		exit(1);
 	}
 
 	proc:::signal-handle
-	/target == pid && args[0] == SIGUSR1/
+	/sig_pid == pid/
 	{
-		exit(0);
+		exit(args[0] == SIGUSR1 ? 0 : 1);
+	}
+
+	tick-5s
+	{
+		exit(124);
 	}
 EOF
 }
@@ -38,9 +43,11 @@ sleeper()
 {
 	while true; do
 		$longsleep &
+		target=$!
 		disown %+
 		sleep 1
-		/bin/kill -USR1 $!
+		/bin/kill -USR1 $target
+		sleep 1
 	done
 }
 
