@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -266,6 +266,8 @@ dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 	if (arg == NULL || (n = atoi(arg)) <= 0 || n > DIF_DIR_NREGS)
 		return dt_set_errno(dtp, EDT_BADOPTVAL);
+	if (n < DIF_DIR_NREGS)
+		return dt_set_errno(dtp, EDT_NOREG);
 
 	dtp->dt_conf.dtc_difintregs = n;
 	return 0;
