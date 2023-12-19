@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -782,7 +782,6 @@ dtrace_difo_t *
 dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 {
 	dt_pcb_t	pcb;
-	dt_node_t	*tnp;
 	dtrace_difo_t	*dp = NULL;
 	int		err;
 
@@ -836,10 +835,10 @@ dt_construct(dtrace_hdl_t *dtp, dt_probe_t *prp, uint_t cflags, dt_ident_t *idp)
 		dt_idhash_iter(yypcb->pcb_pragmas, dt_idpragma, NULL);
 
 	dt_setcontext(dtp, yypcb->pcb_pdesc);
-	tnp = dt_node_trampoline(prp);
-	dt_node_type_assign(tnp, dtp->dt_ints[0].did_ctfp,
-				 dtp->dt_ints[0].did_type);
-	dt_cg(yypcb, tnp);
+	dt_node_root(dt_node_trampoline(prp));
+	dt_node_type_assign(yypcb->pcb_root, dtp->dt_ints[0].did_ctfp,
+					     dtp->dt_ints[0].did_type);
+	dt_cg(yypcb, yypcb->pcb_root);
 	dp = dt_as(yypcb);
 
 	/*
