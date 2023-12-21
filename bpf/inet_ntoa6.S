@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 #define BPF_FUNC_probe_read		4
-
-/*
- * We sadly cannot include struct declarations in assembler input files, so we
- * cannot use offsetof() to programmatically determine the offset of the rodata
- * member in the DTrace context (dt_ctx_t).  If that structure changes, the
- * following define must be updated as well.
- */
-#define DCTX_RODATA			56
 
 #define OUTPUT_LEN			40
 #define INPUT_LEN			16
@@ -225,7 +217,9 @@ dt_inet_ntoa6:
 	 * have the code below output the address in two parts: a 7 word
 	 * prefix followed by a 1 word suffix.
 	 */
-	ldxdw	%r6, [%r6 + DCTX_RODATA]
+	lddw	%r1, DCTX_RODATA
+	add	%r1, %r6
+	ldxdw	%r6, [%r1 + 0]
 	ldxw	%r1, [%fp + -4]		/* restore tbloff */
 	lddw	%r0, RODATA_SIZE
 	jge	%r1, %r0, .Ldone

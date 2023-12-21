@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -38,10 +38,11 @@ extern "C" {
 #define DT_CONST_TASK_COMM		16
 #define DT_CONST_MUTEX_OWNER		17
 #define DT_CONST_RWLOCK_CNTS		18
-#define DT_CONST_RODATA_OFF		19
-#define DT_CONST_RODATA_SIZE		20
-#define DT_CONST_ZERO_OFF		21
-#define DT_CONST_STACK_OFF		22
+#define DT_CONST_DCTX_RODATA		19
+#define DT_CONST_RODATA_OFF		20
+#define DT_CONST_RODATA_SIZE		21
+#define DT_CONST_ZERO_OFF		22
+#define DT_CONST_STACK_OFF		23
 
 #define DT_BPF_LOG_SIZE_DEFAULT	(UINT32_MAX >> 8)
 #define DT_BPF_LOG_SIZE_SMALL	4096

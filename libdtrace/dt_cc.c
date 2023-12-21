@@ -1166,6 +1166,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 				nrp->dofr_data = total_offset;
 				continue;
 			}
+			case DT_CONST_DCTX_RODATA:
+				nrp->dofr_data = DCTX_RODATA;
+				continue;
 			case DT_CONST_RODATA_OFF:
 				nrp->dofr_data = dtp->dt_rooffset;
 				continue;
