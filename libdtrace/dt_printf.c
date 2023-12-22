@@ -1979,7 +1979,7 @@ dt_print_visit(const char *name, ctf_id_t type, unsigned long offset,
 	const void *data = (char *)dva->dv_data + offset/NBBY;
 	const char *membername = NULL;
 	ssize_t typesize, asize = 0;
-	char *typename = NULL;
+	char typename[DT_TYPE_NAMELEN];
 	char *datastr = NULL;
 	int64_t intdata = 0;
 	const char *ename;
@@ -1998,8 +1998,7 @@ dt_print_visit(const char *name, ctf_id_t type, unsigned long offset,
 			  dva->dv_startindent + depth, "");
 		return -1;
 	}
-	typename = ctf_type_aname(dva->dv_ctfp, type);
-	if (!typename) {
+	if (ctf_type_name(dva->dv_ctfp, type, typename, sizeof(typename)) == NULL) {
 		dt_dprintf("error retrieving type name for [%ld]: %s\n",
 			   type, ctf_errmsg(ctf_errno(dva->dv_ctfp)));
 		return dt_set_errno(dva->dv_dtp, EDT_CTF);
@@ -2164,7 +2163,6 @@ dt_print_visit(const char *name, ctf_id_t type, unsigned long offset,
 			 typename, (uintptr_t)*(void **)data);
 		break;
 	default:
-		free(typename);
 		return 0;
 	}
 doprint:
@@ -2173,7 +2171,6 @@ doprint:
 		ret = dt_set_errno(dva->dv_dtp, EDT_NOMEM);
 		goto err;
 	}
-	free(typename);
 
 	/* format is
 	 * [.<membername> = ](<type>)value,
@@ -2231,7 +2228,6 @@ doprint:
 	}
 	return 0;
 err:
-	free(typename);
 	free(datastr);
 	return ret;
 }
