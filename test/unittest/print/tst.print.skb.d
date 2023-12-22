@@ -12,8 +12,8 @@ BEGIN
 {
         skb = (struct sk_buff *)alloca(sizeof (struct sk_buff));
         skb->len = 123;
-        skb->network_header = 32;
         skb->data = (unsigned char *)0xfeedfacefeedface;
+        skb->truesize = 32;
         print(skb);
         exit(0);
 }
