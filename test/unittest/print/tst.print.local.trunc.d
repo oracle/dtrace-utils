@@ -41,9 +41,16 @@ BEGIN
 	t->s.f = 100,
 	t->g = 1;
 	t->h = FIRSTVAL;
+	printf("a %d; b %d; u %d; s %d; g %d; h %d\n",
+	    offsetof(struct test_struct, a),
+	    offsetof(struct test_struct, b),
+	    offsetof(struct test_struct, u),
+	    offsetof(struct test_struct, s),
+	    offsetof(struct test_struct, g),
+	    offsetof(struct test_struct, h));
 	print(t);
 	/* ensure printsize can be dynamically changed */
-	setopt("printsize", "16");
+	setopt("printsize", "24");
 	print(t);
 	exit(0);
 }

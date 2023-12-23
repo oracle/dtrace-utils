@@ -1993,7 +1993,7 @@ dt_print_visit(const char *name, ctf_id_t type, unsigned long offset,
 	int i;
 
 	/* run out of data to display, or hit depth limit? */
-	if ((offset/NBBY) > dva->dv_size || depth >= DT_PRINT_DEPTH) {
+	if ((offset/NBBY) >= dva->dv_size || depth >= DT_PRINT_DEPTH) {
 		dt_printf(dva->dv_dtp, dva->dv_fp, "%*s...\n",
 			  dva->dv_startindent + depth, "");
 		return -1;
@@ -2197,6 +2197,7 @@ doprint:
 		dva2.dv_fp = dva->dv_fp;
 		dva2.dv_data = dva->dv_data;
 		dva2.dv_startindent = dva->dv_startindent;
+		dva2.dv_size = dva->dv_size;
 		if (ctf_type_encoding(dva->dv_ctfp, a.ctr_contents, &e) < 0) {
 			dt_dprintf("error retrieving type encoding for array contents in [%ld]: %s\n",
 				   a.ctr_contents,

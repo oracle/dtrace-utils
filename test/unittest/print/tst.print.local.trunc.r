@@ -1,3 +1,4 @@
+a 0; b 4; u 16; s 24; g 40; h 44
 {ptr} = *
                                             (struct test_struct) {
                                              .a = (int)1,
