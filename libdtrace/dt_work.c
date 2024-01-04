@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -271,6 +271,8 @@ dtrace_work(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pfunc,
 	 * than once).
 	 */
 	if (!dtp->dt_stopped) {
+		gen = dtp->dt_statusgen;
+		dtp->dt_status[gen] = dtp->dt_status[gen ^ 1];
 		dt_add_local_status(dtp);
 		gen = dtp->dt_statusgen ^ 1;
 	} else {
