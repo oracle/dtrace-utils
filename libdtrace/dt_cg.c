@@ -3627,15 +3627,26 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	/* First handle dvars. */
 	if (idp->di_kind == DT_IDENT_ARRAY || idp->di_flags & DT_IDFLG_TLS) {
-		uint_t	lbl_done = dt_irlist_label(dlp);
-
-		uint_t	lbl_notnull = dt_irlist_label(dlp);
+		uint_t		lbl_done = dt_irlist_label(dlp);
+		uint_t		lbl_notnull = dt_irlist_label(dlp);
+		dt_node_t	*rp = dnp->dn_right;
 
 		dt_cg_prep_dvar_args(dnp, dlp, drp, idp, 1, &fnp);
 
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
 		dt_regset_free_args(drp);
+
+		/*
+		 * Special case: a store of a literal 0 causes the dynamic
+		 * variable to be deleted by the BPF function called above, so
+		 * nothing is left to be done.
+		 */
+		if (rp->dn_kind == DT_NODE_INT && rp->dn_value == 0) {
+			dt_regset_free(drp, BPF_REG_0);
+			goto dvar_deleted;
+		}
+
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, lbl_notnull));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 0));
@@ -3669,6 +3680,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emitl(dlp, lbl_done,
 			   BPF_NOP());
 
+dvar_deleted:
 		TRACE_REGSET("    store_var: End  ");
 
 		return;

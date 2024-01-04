@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -3789,6 +3789,16 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 			goto asgn_common;
 
 		if (dt_node_is_argcompat(lp, rp))
+			goto asgn_common;
+
+		/*
+		 * Special case: assigning a literal 0 is allowed for dynamic
+		 * variables because that is used to delete them from storage.
+		 */
+		if (lp->dn_kind == DT_NODE_VAR &&
+		    (lp->dn_ident->di_kind == DT_IDENT_ARRAY ||
+		     (lp->dn_ident->di_flags & DT_IDFLG_TLS)) &&
+		    rp->dn_kind == DT_NODE_INT && rp->dn_value == 0)
 			goto asgn_common;
 
 		xyerror(D_OP_INCOMPAT,
