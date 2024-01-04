@@ -52,7 +52,7 @@ static void dt_cg_check_notnull(dt_irlist_t *dlp, dt_regset_t *drp, int reg);
  * does not map to a valid BPF instruction size specifier, an internal error is
  * reported.
  */
-static uint_t
+uint_t
 bpf_ldst_size(ssize_t size, int store)
 {
 	switch (size) {
