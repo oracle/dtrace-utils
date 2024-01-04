@@ -2848,11 +2848,12 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 	      dt_regset_t *drp);
 
 static void
-dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
-		     dt_ident_t *idp, int isstore, dt_ident_t **fnpp)
+dt_cg_prep_dvar(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+		dt_ident_t *idp, int isstore)
 {
 	uint_t		varid = idp->di_id - DIF_VAR_OTHER_UBASE;
 	const char	*fn;
+	dt_ident_t	*fnp;
 
 	if (idp->di_kind == DT_IDENT_ARRAY) {
 		/* Associative (global or TLS) array.  Cannot be in alloca space. */
@@ -2869,9 +2870,19 @@ dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp,  BPF_MOV_REG(BPF_REG_2, args->dn_args->dn_reg));
 		dt_regset_free(drp, args->dn_args->dn_reg);
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_3, isstore));
-		if (isstore)
-			emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
-		else
+		if (isstore) {
+			dt_node_t	*rp = dnp->dn_right;
+
+			/*
+			 * Use an immediate move if we are assigning a literal
+			 * 0 because future callers may not ensure dnp->dn_reg
+			 * is actually allocated.
+			 */
+			if (rp->dn_kind == DT_NODE_INT && rp->dn_value == 0)
+				emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
+			else
+				emit(dlp,  BPF_MOV_REG(BPF_REG_4, dnp->dn_reg));
+		} else
 			emit(dlp,  BPF_MOV_IMM(BPF_REG_4, 0));
 		dt_cg_zerosptr(BPF_REG_5, dlp, drp);
 	} else if (idp->di_flags & DT_IDFLG_TLS) {
@@ -2883,16 +2894,30 @@ dt_cg_prep_dvar_args(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, isstore));
-		if (isstore)
-			emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
-		else
+		if (isstore) {
+			dt_node_t	*rp = dnp->dn_right;
+
+			/*
+			 * Use an immediate move if we are assigning a literal
+			 * 0 because future callers may not ensure dnp->dn_reg
+			 * is actually allocated.
+			 */
+			if (rp->dn_kind == DT_NODE_INT && rp->dn_value == 0)
+				emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+			else
+				emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+		} else
 			emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
 	} else
 		assert(0);
 
-	*fnpp = dt_dlib_get_func(yypcb->pcb_hdl, fn);
-	assert(*fnpp);
+	fnp = dt_dlib_get_func(yypcb->pcb_hdl, fn);
+	assert(fnp);
+
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
+	dt_regset_free_args(drp);
 }
 
 static void
@@ -2905,11 +2930,7 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 	/* First handle dvars. */
 	if (idp->di_kind == DT_IDENT_ARRAY || idp->di_flags & DT_IDFLG_TLS) {
-		dt_cg_prep_dvar_args(dnp, dlp, drp, idp, 0, &fnp);
-
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
-		dt_regset_free_args(drp);
+		dt_cg_prep_dvar(dnp, dlp, drp, idp, 0);
 
 		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
@@ -3606,7 +3627,6 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 {
 	int	reg;
 	size_t	size;
-	dt_ident_t *fnp;
 
 	idp->di_flags |= DT_IDFLG_DIFW;
 
@@ -3631,11 +3651,7 @@ dt_cg_store_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		uint_t		lbl_notnull = dt_irlist_label(dlp);
 		dt_node_t	*rp = dnp->dn_right;
 
-		dt_cg_prep_dvar_args(dnp, dlp, drp, idp, 1, &fnp);
-
-		dt_regset_xalloc(drp, BPF_REG_0);
-		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
-		dt_regset_free_args(drp);
+		dt_cg_prep_dvar(dnp, dlp, drp, idp, 1);
 
 		/*
 		 * Special case: a store of a literal 0 causes the dynamic
