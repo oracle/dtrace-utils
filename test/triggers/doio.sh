@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -27,8 +27,9 @@ set -e
 # do writes
 dd if=/dev/urandom of=$tempfile count=$filesize bs=1 status=none
 
-# remount the file system to flush the associated caches and force the IO
+# flush cache and remount the file system to force the IO
 umount $mountdir
+echo 3 > /proc/sys/vm/drop_caches
 $mountcmd $mountdir $mountarg1 $mountarg2
 
 # do reads

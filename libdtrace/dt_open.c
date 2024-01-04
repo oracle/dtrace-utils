@@ -68,6 +68,7 @@ static const dt_provimpl_t *dt_providers[] = {
 	&dt_dtrace,		/* list dt_dtrace first */
 	&dt_cpc,
 	&dt_fbt,
+	&dt_io,
 	&dt_ip,
 	&dt_lockstat,
 	&dt_proc,
@@ -890,6 +891,8 @@ dt_vopen(int version, int flags, int *errp,
 
 	dtp->dt_tls = dt_idhash_create("thread local", NULL,
 	    DIF_VAR_OTHER_UBASE, DIF_VAR_OTHER_MAX);
+
+	dtp->dt_maxlvaralloc = 1;	/* force the lvars map to be created */
 
 	dtp->dt_ccstab = dt_strtab_create(BUFSIZ);
 	dtp->dt_rodata = dt_rodata_create(BUFSIZ);

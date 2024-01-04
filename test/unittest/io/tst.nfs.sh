@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -9,7 +9,6 @@
 # Test the io:::start probe for write and read operations by creating
 # a file and reading it back after clearing the caches.
 #
-# @@xfail: dtv2
 
 dtrace=$1
 filesize=$((1024*1024))
@@ -23,7 +22,8 @@ statname="nfs"
 trap "rm -f $tempfile; umount $clientpath; rmdir $clientpath; exportfs -u 127.0.0.1:$serverpath; rmdir $serverpath" QUIT EXIT
 
 # setup NFS server
-service nfs start > /dev/null 2>&1
+#service nfs start > /dev/null 2>&1
+systemctl enable --now nfs-server > /dev/null 2>&1
 mkdir $serverpath
 exportfs -i -v -o "rw,sync,no_root_squash,insecure,fsid=8434437287" 127.0.0.1:$serverpath > /dev/null
 

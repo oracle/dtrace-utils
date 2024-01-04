@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -70,6 +70,7 @@ typedef struct dt_provimpl {
 extern dt_provimpl_t dt_dtrace;
 extern dt_provimpl_t dt_cpc;
 extern dt_provimpl_t dt_fbt;
+extern dt_provimpl_t dt_io;
 extern dt_provimpl_t dt_ip;
 extern dt_provimpl_t dt_lockstat;
 extern dt_provimpl_t dt_proc;

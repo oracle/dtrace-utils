@@ -1,14 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 #
 # Test the io:::wait-start and io:::wait-done probes.
 #
-# @@xfail: dtv2
 
 dtrace=$1
 nblocks=1024
@@ -22,7 +21,7 @@ tempfile=`mktemp -u -p $iodir`
 trap "umount $iodir; rmdir $iodir; rm -f $iodir.img" QUIT EXIT
 
 # create loopback file system
-dd if=/dev/zero of=$iodir.img bs=1024 count=$((16*$nblocks)) status=none
+dd if=/dev/zero of=$iodir.img bs=1024 count=$((300*$nblocks)) status=none
 mkfs.$fstype $iodir.img > /dev/null
 mkdir $iodir
 test/triggers/io-mount-local.sh $iodir $fstype $fsoptions

@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -49,6 +49,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_prov_cpc.c \
 			  dt_prov_dtrace.c \
 			  dt_prov_fbt.c \
+			  dt_prov_io.c \
 			  dt_prov_ip.c \
 			  dt_prov_lockstat.c \
 			  dt_prov_proc.c \
@@ -101,6 +102,7 @@ dt_proc.c_CFLAGS := -Wno-pedantic
 dt_prov_cpc.c_CFLAGS := -Wno-pedantic
 dt_prov_dtrace.c_CFLAGS := -Wno-pedantic
 dt_prov_fbt.c_CFLAGS := -Wno-pedantic
+dt_prov_io.c_CFLAGS := -Wno-pedantic
 dt_prov_ip.c_CFLAGS := -Wno-pedantic
 dt_prov_lockstat.c_CFLAGS := -Wno-pedantic
 dt_prov_proc.c_CFLAGS := -Wno-pedantic
