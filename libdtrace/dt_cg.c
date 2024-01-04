@@ -32,6 +32,9 @@
 #define DT_ISREG	1
 
 static void dt_cg_node(dt_node_t *, dt_irlist_t *, dt_regset_t *);
+static void dt_cg_prep_dvar(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+			    dt_ident_t *idp, int isstore);
+static void dt_cg_check_notnull(dt_irlist_t *dlp, dt_regset_t *drp, int reg);
 
 /*
  * Variants of store and load macros that take an actual data size and call
@@ -608,6 +611,117 @@ dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb)
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
 }
 
+static dt_node_t *
+dt_cg_tramp_var(const char *name)
+{
+	char		*pf, *nm;
+	dt_node_t	*dnp;
+
+	pf = strdup(name);
+	nm = strstr(pf, "->");
+	if (nm != NULL) {
+		dt_node_t	*n1, *n2;
+
+		*nm = '\0';
+		if (strcmp(pf, "this") != 0 && strcmp(pf, "self") != 0)
+			xyerror(D_VAR_UNSUP, "%s: invalid variable class\n",
+				pf);
+
+		nm += 2;
+		n1 = dt_node_ident(pf);
+		n2 = dt_node_ident(strdup(nm));
+		dnp = dt_node_op2(DT_TOK_PTR, n1, n2);
+	} else
+		dnp = dt_node_ident(pf);
+
+	dnp = dt_node_cook(dnp, DT_IDFLG_REF);
+	dt_ident_set_storage(dnp->dn_ident,
+			     ctf_type_align(dnp->dn_ctfp, dnp->dn_type),
+			     ctf_type_size(dnp->dn_ctfp, dnp->dn_type));
+
+	return dnp;
+}
+
+/*
+ * Generate code to store the value (or address) of the named variable in
+ * register 'reg'.
+ * If isstore is true, the variable will be prepared for storing data.  This
+ * means that if the variable is dynamic, it will be created if it does not
+ * exist yet.
+ */
+void
+dt_cg_tramp_get_var(dt_pcb_t *pcb, const char *name, int isstore, int reg)
+{
+	dt_node_t	*dnp;
+	dt_ident_t	*idp;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+
+	dnp = dt_cg_tramp_var(name);
+	idp = dnp->dn_ident;
+
+	/* Retrieving a variable value or address. */
+	if (!isstore) {
+		dt_cg_node(dnp, dlp, drp);
+		goto out;
+	}
+
+	/*
+	 * Getting a variable for storing a value to it (i.e. preparing it for
+	 * writing) is more complex because for dynamic variables we may need
+	 * to actually create the variable.  For non-dynamic variables, we
+	 * will always return the address of the variable (and perform a NULL
+	 * check) so the trampoline code can perform the actual store.
+	 */
+	if (idp->di_kind == DT_IDENT_ARRAY || idp->di_flags & DT_IDFLG_TLS) {
+		/*
+		 * We do not call dt_cg_node() for dnp, which means dnp->dn_reg
+		 * will be -1.  Set it to be %r0 because dt_cg_prep_dvar() will
+		 * store the var address in that register.  We need to mark the
+		 * identifier as written to.
+		 */
+		idp->di_flags |= DT_IDFLG_DIFW;
+		dnp->dn_reg = BPF_REG_0;
+		dt_cg_prep_dvar(dnp, dlp, drp, idp, 1);
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
+	} else {
+		dnp->dn_flags |= DT_NF_REF;
+
+		dt_cg_node(dnp, dlp, drp);
+		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
+	}
+
+out:
+	if (dnp->dn_reg != reg)
+		emit(dlp, BPF_MOV_REG(reg, dnp->dn_reg));
+
+	dt_regset_free(drp, dnp->dn_reg);
+}
+
+/*
+ * Generate code to delete the named dynamic variable.  The variable must be
+ * a TLS variable.
+ */
+void
+dt_cg_tramp_del_var(dt_pcb_t *pcb, const char *name)
+{
+	dt_node_t	*dnp, *znp;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+
+	dnp = dt_cg_tramp_var(name);
+
+	if (!(dnp->dn_ident->di_flags & DT_IDFLG_TLS))
+		dnerror(dnp, D_VAR_UNSUP, "%s is not a TLS variable\n", name);
+
+	znp = dt_node_int(0);
+	dnp = dt_node_op2(DT_TOK_ASGN, dnp, znp);
+	dnp = dt_node_cook(dnp, DT_IDFLG_MOD);
+
+	dt_cg_node(dnp, dlp, drp);
+	dt_regset_free(drp, dnp->dn_reg);
+}
+
 /*
  * Save the probe arguments.
  */
@@ -704,11 +818,12 @@ dt_cg_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg)
 	if (!skip)
 		dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
 
+	emitl(dlp, exitlbl,
+		   BPF_NOP());
+
 	pcb->pcb_probe = pcb->pcb_parent_probe;
 	pcb->pcb_parent_probe = NULL;
 	dt_cg_tramp_restore_args(pcb);
-	emitl(dlp, exitlbl,
-		   BPF_NOP());
 
 	return 0;
 }
@@ -2785,8 +2900,17 @@ dt_cg_zerosptr(int reg, dt_irlist_t *dlp, dt_regset_t *drp)
 	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
 	dt_ident_t	*zero_off = dt_dlib_get_var(dtp, "ZERO_OFF");
 
-	emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
-	emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_STRTAB));
+	/*
+	 * Get a pointer to the strtab.  For regular programs we first need to
+	 * get a pointer to the DTrace context.  For trampolines, we already
+	 * have a pointer to the DTrace context in %r9.
+	 */
+	if (yypcb->pcb_root->dn_kind != DT_NODE_TRAMPOLINE) {
+		emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_FP, DT_STK_DCTX));
+		emit(dlp,  BPF_LOAD(BPF_DW, reg, reg, DCTX_STRTAB));
+	} else
+		emit(dlp,  BPF_LOAD(BPF_DW, reg, BPF_REG_9, DCTX_STRTAB));
+
 	emite(dlp, BPF_ALU64_IMM(BPF_ADD, reg, -1), zero_off);
 }
 
@@ -2857,7 +2981,8 @@ dt_cg_prep_dvar(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	if (idp->di_kind == DT_IDENT_ARRAY) {
 		/* Associative (global or TLS) array.  Cannot be in alloca space. */
-		dt_node_t *args = isstore ? dnp->dn_left : dnp;
+		dt_node_t *args = isstore && dnp->dn_kind != DT_NODE_VAR
+					? dnp->dn_left : dnp;
 
 		fn = "dt_get_assoc";
 
@@ -2895,17 +3020,29 @@ dt_cg_prep_dvar(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_1, varid));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, isstore));
 		if (isstore) {
-			dt_node_t	*rp = dnp->dn_right;
-
 			/*
-			 * Use an immediate move if we are assigning a literal
-			 * 0 because future callers may not ensure dnp->dn_reg
-			 * is actually allocated.
+			 * Three cases:
+			 *  - if called for a DT_NODE_VAR node, there will not
+			 *    be a right child node and the caller will perform
+			 *    the store explicitly.  Set nval to 1 (a non-zero
+			 *    value) to indicate that this is not a delete
+			 *    operation.
+			 *  - if a literal 0 is in the right child node,
+			 *    dnp->dn_reg may not be allocated, so we use an
+			 *    immediate move
+			 *  - otherwise we perform the typical store-0-deletes
+			 *    handling
 			 */
-			if (rp->dn_kind == DT_NODE_INT && rp->dn_value == 0)
-				emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
-			else
-				emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+			if (dnp->dn_kind == DT_NODE_VAR)
+				emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 1));
+			else {
+				dt_node_t	*rp = dnp->dn_right;
+
+				if (rp->dn_kind == DT_NODE_INT && rp->dn_value == 0)
+					emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
+				else
+					emit(dlp,  BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
+			}
 		} else
 			emit(dlp,  BPF_MOV_IMM(BPF_REG_3, 0));
 		dt_cg_zerosptr(BPF_REG_4, dlp, drp);
