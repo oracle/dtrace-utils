@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -78,7 +78,7 @@ static int populate(dtrace_hdl_t *dtp)
 
 	prv = dt_provider_create(dtp, prvname, &dt_profile, &pattr, NULL);
 	if (prv == NULL)
-		return 0;
+		return -1;			/* errno already set */
 
 	for (i = 0; i < ARRAY_SIZE(profile_n); i++) {
 		snprintf(buf, sizeof(buf), PREFIX_PROFILE "%d", profile_n[i]);

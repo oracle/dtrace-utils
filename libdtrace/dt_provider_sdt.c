@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -34,13 +34,13 @@ dt_sdt_populate(dtrace_hdl_t *dtp, const char *prvname, const char *modname,
 
 	sdp = dt_alloc(dtp, sizeof(sdt_data_t));
 	if (sdp == NULL)
-		return 0;
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	sdp->probes = probes;
 	sdp->probe_args = probe_args;
 	prv = dt_provider_create(dtp, prvname, ops, pattr, sdp);
 	if (prv == NULL)
-		return 0;
+		return -1;			/* errno already set */
 
 	/*
 	 * Create SDT probes based on the probe_args list.  Since each probe

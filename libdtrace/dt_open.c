@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1208,6 +1208,9 @@ dtrace_init(dtrace_hdl_t *dtp)
 		int	n;
 
 		n = dt_providers[i]->populate(dtp);
+		if (n < 0)
+			return -1;		/* errno is already set */
+
 		dt_dprintf("loaded %d probes for %s\n", n,
 			   dt_providers[i]->name);
 	}

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -82,13 +82,15 @@ static int populate(dtrace_hdl_t *dtp)
 	dt_provider_t	*prv;
 
 	if (listp == NULL)
-		return 0;
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	prv = dt_provider_create(dtp, prvname, &dt_cpc, &pattr, listp);
+	if (prv == NULL)
+		return -1;			/* errno already set */
 
 	/* incidentally, pfm_strerror(pfm_initialize()) describes the error */
 	if (pfm_initialize() != PFM_SUCCESS)
-		return 0;
+		return dt_set_errno(dtp, EDT_ERRABORT);
 
 	/* loop over PMUs (FWIW, ipmu=PFM_PMU_PERF_EVENT is among them) */
 	for (pfm_pmu_t ipmu = PFM_PMU_NONE; ipmu < PFM_PMU_MAX; ipmu ++) {

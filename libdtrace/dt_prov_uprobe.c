@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -62,11 +62,15 @@ dt_provimpl_t	dt_usdt;
 
 static int populate(dtrace_hdl_t *dtp)
 {
-	dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr, NULL);
-	dt_provider_create(dtp, dt_uprobe_is_enabled.name,
-			   &dt_uprobe_is_enabled, &pattr, NULL);
-	dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr, NULL);
-	dt_provider_create(dtp, dt_usdt.name, &dt_usdt, &pattr, NULL);
+	if (dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr,
+			       NULL) == NULL ||
+	    dt_provider_create(dtp, dt_uprobe_is_enabled.name,
+			       &dt_uprobe_is_enabled, &pattr, NULL) == NULL ||
+	    dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr,
+			       NULL) == NULL ||
+	    dt_provider_create(dtp, dt_usdt.name, &dt_usdt, &pattr,
+			       NULL) == NULL)
+		return -1;			/* errno already set */
 
 	return 0;
 }

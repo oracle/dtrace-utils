@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -42,7 +42,7 @@ static int populate(dtrace_hdl_t *dtp)
 
 	prv = dt_provider_create(dtp, prvname, &dt_dtrace, &pattr, NULL);
 	if (prv == NULL)
-		return 0;
+		return -1;			/* errno already set */
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
 	if (prp) {

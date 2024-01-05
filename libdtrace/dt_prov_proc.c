@@ -123,7 +123,7 @@ static int populate(dtrace_hdl_t *dtp)
 
 	prv = dt_provider_create(dtp, prvname, &dt_proc, &pattr, NULL);
 	if (prv == NULL)
-		return 0;
+		return -1;			/* errno already set */
 
 	/*
 	 * Create "proc" probes based on the probe_args list.  Since each probe

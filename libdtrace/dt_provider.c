@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -100,7 +100,7 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 	dt_provider_t *pvp;
 
 	if ((pvp = dt_zalloc(dtp, sizeof(dt_provider_t))) == NULL)
-		return NULL;
+		goto nomem;
 
 	strlcpy(pvp->desc.dtvd_name, name, DTRACE_PROVNAMELEN);
 	pvp->impl = impl;
@@ -110,15 +110,19 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 	pvp->prv_data = datap;
 	dt_dprintf("creating provider %s\n", name);
 
-	if (pvp->pv_probes == NULL) {
-		dt_free(dtp, pvp);
-		dt_set_errno(dtp, EDT_NOMEM);
-		return NULL;
-	}
+	if (pvp->pv_probes == NULL)
+		goto nomem;
 
 	memcpy(&pvp->desc.dtvd_attr, pattr, sizeof(dtrace_pattr_t));
 
 	return dt_provider_insert(dtp, pvp);
+
+nomem:
+	if (pvp)
+		dt_free(dtp, pvp);
+
+	dt_set_errno(dtp, EDT_NOMEM);
+	return NULL;
 }
 
 int
