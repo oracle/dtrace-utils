@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -6258,6 +6258,38 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_d_path(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	dt_node_t	*arg = dnp->dn_args;
+
+	dt_cg_node(arg, dlp, drp);
+	dt_cg_check_ptr_arg(dlp, drp, arg, NULL);
+
+	/* Allocate a temporary string for the result. */
+	dnp->dn_reg = dt_regset_alloc(drp);
+	if (dnp->dn_reg == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	dt_cg_tstring_alloc(yypcb, dnp);
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, dnp->dn_reg, dnp->dn_reg, DCTX_MEM));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
+
+	/*
+	 * We do not have a real implementation yet, so throw away the result
+	 * of evaluating the argument, and return a default value "<unknown>"
+	 * in a temporary string.
+	 *
+	 * <unknown> is 3c 75 6e 6b 6e 6f 77 6e 3e 00
+	 */
+	dt_regset_free(drp, arg->dn_reg);
+	dt_cg_tstring_free(yypcb, arg);
+
+	emit(dlp, BPF_STORE_IMM(BPF_W, dnp->dn_reg, 0, 0x6b6e753c));
+	emit(dlp, BPF_STORE_IMM(BPF_W, dnp->dn_reg, 4, 0x6e776f6e));
+	emit(dlp, BPF_STORE_IMM(BPF_H, dnp->dn_reg, 8, 0x003e));
+}
+
+static void
 dt_cg_subr_link_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*type = dnp->dn_args;
@@ -6323,7 +6355,7 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_INET_NTOP]		= &dt_cg_subr_inet_ntop,
 	[DIF_SUBR_INET_NTOA]		= &dt_cg_subr_inet_ntoa,
 	[DIF_SUBR_INET_NTOA6]		= &dt_cg_subr_inet_ntoa6,
-	[DIF_SUBR_D_PATH]		= NULL,
+	[DIF_SUBR_D_PATH]		= &dt_cg_subr_d_path,
 	[DIF_SUBR_LINK_NTOP]		= &dt_cg_subr_link_ntop,
 };
 
