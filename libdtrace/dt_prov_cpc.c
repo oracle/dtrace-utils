@@ -32,6 +32,9 @@ static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 };
 
+
+#define FDS_CNT	(dtp->dt_options[DTRACEOPT_CPU] != DTRACEOPT_UNSET ? 1 : dtp->dt_conf.num_online_cpus)
+
 typedef struct cpc_probe {
 	char	*name;
 	int	*fds;
@@ -54,7 +57,7 @@ static dt_probe_t *cpc_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prv,
 				    const char *prb)
 {
 	cpc_probe_t	*datap;
-	int		i, cnt = dtp->dt_conf.num_online_cpus;
+	int		i, cnt = FDS_CNT;
 
 	datap = dt_zalloc(dtp, sizeof(cpc_probe_t));
 	if (datap == NULL)
@@ -420,8 +423,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	cpc_probe_t		*datap = prp->prv_data;
 	struct perf_event_attr	attr;
-	int			i, nattach = 0;;
-	int			cnt = dtp->dt_conf.num_online_cpus;
+	int			i, nattach = 0, cnt = FDS_CNT;
 	char			*name = datap->name;  /* same as prp->desc->prb */
 
 	memset(&attr, 0, sizeof(attr));
@@ -431,9 +433,12 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 
 	for (i = 0; i < cnt; i++) {
 		int fd;
+		long long cpuid = dtp->dt_options[DTRACEOPT_CPU];
 
-		fd = dt_perf_event_open(&attr, -1, dtp->dt_conf.cpus[i].cpu_id,
-					-1, 0);
+		if (cpuid == DTRACEOPT_UNSET)
+			cpuid = dtp->dt_conf.cpus[i].cpu_id;
+
+		fd = dt_perf_event_open(&attr, -1, cpuid, -1, 0);
 		if (fd < 0)
 			continue;
 		if (ioctl(fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0) {
@@ -460,7 +465,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	cpc_probe_t	*datap = prp->prv_data;
-	int		i, cnt = dtp->dt_conf.num_online_cpus;
+	int		i, cnt = FDS_CNT;
 
 	for (i = 0; i < cnt; i++) {
 		if (datap->fds[i] != -1)
