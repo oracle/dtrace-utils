@@ -4386,8 +4386,8 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_memcpy(dlp, drp, dnp->dn_reg, BPF_REG_0,
 			     yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE]);
 
-		emitl(dlp,  lbl_null,
-			    BPF_NOP());
+		emitl(dlp, lbl_null,
+			   BPF_NOP());
 		dt_cg_tstring_free(yypcb, dnp->dn_left);
 		dt_cg_tstring_free(yypcb, dnp->dn_right);
 	}
