@@ -9,6 +9,8 @@
 # files containing the probes have already been modified. This tests that
 # case by generating the DOF object, removing it, and building it again.
 
+# @@xfail: pending binutils fix to not consider R_*_NONE invalid
+
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
