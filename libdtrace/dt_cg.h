@@ -27,6 +27,7 @@ extern void dt_cg_tramp_copy_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called);
 extern void dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb);
+extern void dt_cg_tramp_decl_var(dt_pcb_t *pcb, dt_ident_t *idp);
 extern void dt_cg_tramp_get_var(dt_pcb_t *pcb, const char *name, int isstore,
 				int reg);
 extern void dt_cg_tramp_del_var(dt_pcb_t *pcb, const char *name);

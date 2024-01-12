@@ -669,6 +669,45 @@ dt_cg_tramp_var(const char *name)
 	return dnp;
 }
 
+void
+dt_cg_tramp_decl_var(dt_pcb_t *pcb, dt_ident_t *idp)
+{
+	dtrace_hdl_t		*dtp = pcb->pcb_hdl;
+	dt_idhash_t		*dhp;
+	uint_t			id;
+	dtrace_typeinfo_t	dtt;
+
+
+	if (idp->di_flags & DT_IDFLG_LOCAL)
+		dhp = pcb->pcb_locals;
+	else if (idp->di_flags & DT_IDFLG_TLS)
+		dhp = dtp->dt_tls;
+	else
+		dhp = dtp->dt_globals;
+
+	if (dt_idhash_lookup(dhp, idp->di_name))
+		return;
+
+	if (dt_idhash_nextid(dhp, &id) == -1)
+		xyerror(D_ID_OFLOW, "cannot create %s: limit on number of "
+				    "%s variables exceeded\n", idp->di_name,
+				    dt_idhash_name(dhp));
+
+	if (dt_idhash_insert(dhp, idp->di_name, idp->di_kind, idp->di_flags,
+			     id, idp->di_attr, idp->di_vers,
+			     idp->di_ops ? idp->di_ops : &dt_idops_thaw,
+			     idp->di_iarg, 0) == NULL)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
+
+	idp = dt_idhash_lookup(dhp, idp->di_name);
+	assert(idp != NULL);
+	if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY, idp->di_iarg,
+				  &dtt) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+
+	dt_ident_type_assign(idp, dtt.dtt_ctfp, dtt.dtt_type);
+}
+
 /*
  * Generate code to store the value (or address) of the named variable in
  * register 'reg'.
