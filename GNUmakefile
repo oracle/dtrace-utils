@@ -43,7 +43,7 @@ BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas
 export BPFLD = bpf-unknown-none-ld
 
 # The first non-system uid on this system.
-USER_UID=$(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
+USER_UID := $(shell grep '^UID_MIN' /etc/login.defs | awk '{print $$2;}')
 
 # A uid suitable for unprivileged execution.
 UNPRIV_UID ?= -3
@@ -51,7 +51,10 @@ UNPRIV_UID ?= -3
 # The group one must run as to invoke dumpcap: by default the group of
 # the dumpcap binary.  If dumpcap is owned by root, use the same gid as
 # the UNPRIV_UID unless otherwise overridden.
-DUMPCAP_GROUP ?= $(filter-out root,$(shell stat -c %G /usr/sbin/dumpcap /usr/bin/dumpcap 2>/dev/null | head -1))
+# (We avoid ?= here to avoid rerunning the stat over and over again.)
+ifeq ($(origin DUMPCAP_GROUP), undefined)
+DUMPCAP_GROUP := $(filter-out root,$(shell stat -c %G /usr/sbin/dumpcap /usr/bin/dumpcap 2>/dev/null | head -1))
+endif
 
 # Unwritable but readable directory suitable for overriding as the $HOME of
 # unprivileged processes.
