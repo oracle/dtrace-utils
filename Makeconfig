@@ -57,6 +57,8 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
 	   false;; \
 	esac
+	rm -f $(CONFIG_H)
+	rm -f $(CONFIG_MK)
 
 $(eval $(call make-override-help,HAVE_$(1), presence of $(2) in $(3).h))
 
@@ -91,6 +93,8 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
 	   false;; \
 	esac
+	rm -f $(CONFIG_H)
+	rm -f $(CONFIG_MK)
 
 $(eval $(call make-override-help,HAVE_$(1), presence of $(2) in lib$(3)))
 
@@ -124,6 +128,8 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
 	   false;; \
 	esac
+	rm -f $(CONFIG_H)
+	rm -f $(CONFIG_MK)
 
 $(eval $(call make-override-help,HAVE_$(1), presence of $(2) in lib$(3) and $(4).h))
 
