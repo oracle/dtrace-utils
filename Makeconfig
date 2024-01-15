@@ -30,6 +30,23 @@ help-overrides::
 	       "$$$$(printf "%s" "$(2)" | sed 's,(.*),,g')" >&2
 endef
 
+# Emit a help rule for an override's config option.
+#
+# Syntax: $(call make-overrride-option-help,var,help-string)
+define make-override-option-help
+help-overrides-option::
+	width=$$$$(printf -- '--with-$(1)=[yes/no]' | wc -c); \
+	tabs=""; \
+	if [[ $$$${width} -gt 31 ]]; then \
+	    tabs=' '; \
+	elif [[ $$$${width} -gt 23 ]]; then \
+	    tabs='\t'; \
+	elif [[ $$$${width} -gt 15 ]]; then \
+	    tabs='\t\t'; \
+	fi; \
+	printf -- "--with-%s=[yes/no]$$$${tabs}Override check for$(2)\n" "$$$$(printf -- '$(1)' | LC_COLLATE=C tr '[A-Z_]' '[a-z-]')" >&2
+endef
+
 # Generate a makefile rule to check for the presence of FUNCTION
 # in HEADER and emit an appropriate header file fragment into a
 # file under $(objdir)/.config.
@@ -73,7 +90,14 @@ endef
 # The first argument must be suitable for a filename fragment,
 # for a makefile rule name and for a #define.
 #
-# Syntax: $(call check-symbol-rule,name,symbol,library)
+# Also emit a rule to print help for this override to standard
+# error, and (if OPTION) is set, a rule to print help for
+# this override in standard configure --with-* form.  (This is
+# used for options relating to things for which we do not have
+# compatibility fallbacks, for which configure-style --with-*
+# options seem particularly desirable.)
+#
+# Syntax: $(call check-symbol-rule,name,symbol,library,option)
 define check-symbol-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
 	val="$(HAVE_$(1))"; \
@@ -97,6 +121,8 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	rm -f $(CONFIG_MK)
 
 $(eval $(call make-override-help,HAVE_$(1), presence of $(2) in lib$(3)))
+$(if $(4),
+  $(eval $(call make-override-option-help,$(1), presence of $(2) in $(3).h)),)
 
 $(CONFIG_H): $(objdir)/.config/config.$(1).h
 $(CONFIG_MK): $(objdir)/.config/config.$(1).mk
@@ -152,16 +178,16 @@ $(CONFIG_MK):
 	echo 'CONFIGURED := yes' >> $(objdir)/config.mk
 	cat $(objdir)/.config/*.mk >> $(objdir)/config.mk 2>/dev/null || true
 
-help-overrides::
+help-overrides-header::
 	printf "Overrides for library and symbol searches:\n\n" >&2
 
 $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
-$(eval $(call check-symbol-rule,LIBCTF,ctf_open,ctf))
+$(eval $(call check-symbol-rule,LIBCTF,ctf_open,ctf,t))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
-$(eval $(call check-symbol-rule,LIBSYSTEMD,sd_notify,systemd))
+$(eval $(call check-symbol-rule,LIBSYSTEMD,sd_notify,systemd,t))
 ifndef WANTS_LIBFUSE2
 $(eval $(call check-symbol-rule,FUSE_LOG,fuse_set_log_func,fuse3))
-$(eval $(call check-symbol-rule,LIBFUSE3,fuse_session_receive_buf,fuse3))
+$(eval $(call check-symbol-rule,LIBFUSE3,fuse_session_receive_buf,fuse3,t))
 endif
 $(eval $(call check-header-rule,FUSE_NUMA,fuse_set_numa,fuse/fuse_lowlevel))
 $(eval $(call check-header-symbol-rule,CLOSE_RANGE,close_range(3,~0U,0),c,unistd))
@@ -174,4 +200,4 @@ $(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NUL
 help-overrides::
 	printf "\n" >&2
 
-help:: help-overrides
+help:: help-overrides-header help-overrides
