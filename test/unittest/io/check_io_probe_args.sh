@@ -178,6 +178,8 @@ fi
 # For each statname, check that the reported major/minor numbers agree with "ls -l".
 #
 
+rm -f statname.txt
+awk 'NF == 23 { print $16, $17, $22 }' $infile | sort | uniq > statname.txt
 while read mymajor myminor mystatname; do
     read mymajor0 myminor0 <<< $(ls -l /dev | gawk '$NF == "'$mystatname'" { print $(NF-5), $(NF-4) }' | tr ',' ' ')
 
@@ -192,7 +194,7 @@ while read mymajor myminor mystatname; do
         echo "  ERROR:" for $mystatname expect device major minor $mymajor $myminor but got $mymajor0 $myminor0
         retval=1
     fi
-done <<< $(gawk 'NF == 23 { print $16, $17, $22 }' $infile | sort | uniq)
+done < statname.txt
 
 #
 # For each major number, check name.
