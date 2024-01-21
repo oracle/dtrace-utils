@@ -1512,19 +1512,17 @@ dt_cg_alloca_access_check(dt_irlist_t *dlp, dt_regset_t *drp, int reg,
 static void
 dt_cg_alloca_ptr(dt_irlist_t *dlp, dt_regset_t *drp, int dreg, int sreg)
 {
-	int	reg = dreg;
-
 	if (dreg == sreg) {
+		int	reg;
+
 		if ((reg = dt_regset_alloc(drp)) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-	}
-
-	dt_cg_access_dctx(reg, dlp, drp, DCTX_SCRATCHMEM);
-	emit(dlp,  BPF_ALU64_REG(BPF_ADD, reg, sreg));
-
-	if (dreg == sreg) {
-		emit(dlp, BPF_MOV_REG(dreg, reg));
+		dt_cg_access_dctx(reg, dlp, drp, DCTX_SCRATCHMEM);
+		emit(dlp,  BPF_ALU64_REG(BPF_ADD, sreg, reg));
 		dt_regset_free(drp, reg);
+	} else {
+		dt_cg_access_dctx(dreg, dlp, drp, DCTX_SCRATCHMEM);
+		emit(dlp,  BPF_ALU64_REG(BPF_ADD, dreg, sreg));
 	}
 }
 
