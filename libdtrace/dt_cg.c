@@ -5068,7 +5068,6 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
-	dt_cg_access_dctx(BPF_REG_1, dlp, drp, -1);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, arg->dn_reg));
 	dt_regset_free(drp, arg->dn_reg);
 	if (dt_node_is_string(arg))
@@ -5085,6 +5084,8 @@ dt_cg_subr_arg_to_tstring(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		emit(dlp, BPF_MOV_REG(BPF_REG_5, val5));
 	else if (isreg5 == DT_ISIMM)
 		emit(dlp, BPF_MOV_IMM(BPF_REG_5, val5));
+
+	dt_cg_access_dctx(BPF_REG_1, dlp, drp, -1);
 
 	idp = dt_dlib_get_func(yypcb->pcb_hdl, fname);
 	assert(idp != NULL);
