@@ -7,7 +7,7 @@
 #
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2013, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -20,7 +20,7 @@ if [[ -n $NATIVE_BITNESS_ONLY ]]; then
     NATIVE_BITNESS=64
 fi
 
-NATIVE_BITNESS_OPTION_SUPPORTED="$(echo 'int main (void) { }' | gcc -x c -o /dev/null -m64 - 2>/dev/null && echo t)"
+NATIVE_BITNESS_OPTION_SUPPORTED="$(echo 'int main (void) { }' | ${CC:-gcc} -x c -o /dev/null -m64 - 2>/dev/null && echo t)"
 
 set -e
 
