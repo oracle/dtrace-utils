@@ -93,6 +93,7 @@ libdtrace_LIBSOURCES := libdtrace-build libproc libport libcommon
 libdtrace_SECONDARY := libproc libport
 
 # Disable certain warnings for these files
+dt_btf.c_CFLAGS := -Wno-pedantic
 dt_consume.c_CFLAGS := -Wno-pedantic
 dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor
 dt_cg.c_CFLAGS := -Wno-pedantic
