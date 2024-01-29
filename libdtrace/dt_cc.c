@@ -1233,7 +1233,7 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 
  err_ctf:
 	dtp->dt_ctferr = ctf_errno(dtp->dt_shared_ctf);
-	return -1;
+	return dt_set_errno(dtp, EDT_CTF);
 }
 
 static void
