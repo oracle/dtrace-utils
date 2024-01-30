@@ -6,7 +6,6 @@
 # http://oss.oracle.com/licenses/upl.
 #
 #  @@runtest-opts: -x noresolve 
-# @@xfail: dtv2
 
 script()
 {

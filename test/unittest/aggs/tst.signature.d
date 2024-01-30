@@ -4,12 +4,15 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
  * This is a simple test to make sure that signature checking works properly
  * for the fake-o types.
  */
+
+/* @@nosort */
+#pragma D option quiet
+#pragma D option maxframes=10
 BEGIN
 {
 	@stk[ustack()] = count();
