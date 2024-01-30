@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates.
  */
 #include <linux/bpf.h>
-#include <bpf-helpers.h>
+#include <bpf/bpf_helpers.h>
 #include <stdint.h>
 #include <dt_dctx.h>
 #include <bpf-lib.h>

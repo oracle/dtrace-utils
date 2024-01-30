@@ -56,8 +56,9 @@ Name:         dtrace
 License:      Universal Permissive License (UPL), Version 1.0
 Group:        Development/Tools
 Requires:     cpp elfutils-libelf zlib libpcap libpfm
-BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel systemd systemd-devel
-BuildRequires: glibc-static %{glibc32} wireshark libpcap-devel valgrind-devel libpfm-devel
+BuildRequires: glibc-headers bison flex zlib-devel elfutils-libelf-devel
+BuildRequires: systemd systemd-devel glibc-static %{glibc32} wireshark
+BuildRequires: libpcap-devel valgrind-devel libpfm-devel libbpf-devel
 %if "%{?dist}" == ".el7"
 Requires:     fuse
 BuildRequires: fuse-devel
