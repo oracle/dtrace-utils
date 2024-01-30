@@ -2558,34 +2558,83 @@ dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
 	return DTRACE_USTACK_ARG(nframes, strsize);
 }
 
-static void
-dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+/*
+ * Call the bpf_get_stack() helper function.
+ *
+ * dnp->dn_arg has optional, integer-constant sizing information.
+ *
+ * If reg>=0, reg is a register holding the output pointer.
+ * If reg<0, we write the stack to the output buffer in %r9.
+ *
+ * These cases treat "off" differently:
+ *   - reg>=0: "off" tracks how far the pointer in "reg" has
+ *             been advanced, both at function entry and return
+ *
+ *   - reg<0: "off" is basically just a local variable since
+ *            offsets with the %r9 buffer are managed by
+ *            dt_rec_add()
+ *
+ * The "kind" argument is either DTRACEACT_STACK or DTRACEACT_USTACK.
+ */
+static int
+dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actkind_t kind)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
 	uint64_t	arg;
-	int		nframes;
-	int		skip = 0;
-	uint_t		off;
+	int		nframes, stacksize, prefsz, align = sizeof(uint64_t);
 	uint_t		lbl_valid = dt_irlist_label(dlp);
 
-	arg = dt_cg_stack_arg(dtp, dnp, DTRACEACT_STACK);
+	/* Get sizing information from dnp->dn_arg. */
+	arg = dt_cg_stack_arg(dtp, dnp, kind);
+	prefsz = kind == DTRACEACT_USTACK ? sizeof(uint64_t) : 0;
 	nframes = DTRACE_USTACK_NFRAMES(arg);
+	stacksize = nframes * sizeof(uint64_t);
 
-	/* Reserve space in the output buffer. */
-	off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_STACK,
-			 sizeof(uint64_t) * nframes, sizeof(uint64_t),
-			 NULL, nframes);
+	/* Handle alignment and reserve space in the output buffer. */
+	if (reg >= 0) {
+		uint_t	nextoff;
+		nextoff = (off + (align - 1)) & ~(align - 1);
+		if (off < nextoff)
+			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, nextoff - off));
+		off = nextoff + prefsz + stacksize;
+	} else {
+		off = dt_rec_add(dtp, dt_cg_fill_gap,
+				 kind,
+				 prefsz + stacksize, align, NULL, arg);
+	}
 
-	/* Now call bpf_get_stack(ctx, buf, size, flags). */
+	/* Write the tgid. */
+	if (kind == DTRACEACT_USTACK) {
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+		dt_regset_free_args(drp);
+		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
+		if (reg >= 0)
+			emit(dlp,  BPF_STORE(BPF_DW, reg, 0, BPF_REG_0));
+		else
+			emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+	}
+
+	/* Call bpf_get_stack(ctx, buf, size, flags). */
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	dt_cg_access_dctx(BPF_REG_1, dlp, drp, DCTX_CTX);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, sizeof(uint64_t) * nframes));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, skip & BPF_F_SKIP_FIELD_MASK));
+	if (reg >= 0) {
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
+		if (prefsz)
+			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, prefsz));
+	} else {
+		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + prefsz));
+	}
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, (0 & BPF_F_SKIP_FIELD_MASK)
+					  | (kind == DTRACEACT_USTACK ? BPF_F_USER_STACK : 0)));
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
 	dt_regset_free_args(drp);
@@ -2594,6 +2643,18 @@ dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_cg_probe_error(pcb, DTRACEFLT_BADSTACK, DT_ISIMM, 0);
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
+
+	/* Finish. */
+	if (reg >= 0)
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, prefsz + stacksize));
+
+	return off;
+}
+
+static void
+dt_cg_act_stack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_cg_act_stack_sub(pcb, dnp, -1, 0, kind);
 }
 
 static void
@@ -2749,51 +2810,6 @@ dt_cg_act_trunc(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 }
 
 static void
-dt_cg_act_ustack(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
-{
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_regset_t	*drp = pcb->pcb_regs;
-	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
-	uint64_t	arg;
-	int		nframes, stacksize;
-	int		skip = 0;
-	uint_t		off;
-	uint_t		lbl_valid = dt_irlist_label(dlp);
-
-	arg = dt_cg_stack_arg(dtp, dnp, DTRACEACT_USTACK);
-	nframes = DTRACE_USTACK_NFRAMES(arg);
-	stacksize = nframes * sizeof(uint64_t);
-
-	/* Reserve space in the output buffer. */
-	off = dt_rec_add(pcb->pcb_hdl, dt_cg_fill_gap, DTRACEACT_USTACK,
-			 8 + stacksize, 8, NULL, arg);
-
-	if (dt_regset_xalloc_args(drp) == -1)
-		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-	dt_regset_xalloc(drp, BPF_REG_0);
-
-	/* Write the tgid. */
-	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
-	emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
-	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
-
-	/* Now call bpf_get_stack(ctx, buf, size, flags). */
-	dt_cg_access_dctx(BPF_REG_1, dlp, drp, DCTX_CTX);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + 8));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, (skip & BPF_F_SKIP_FIELD_MASK)
-					  | BPF_F_USER_STACK));
-	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
-	dt_regset_free_args(drp);
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JSGE, BPF_REG_0, 0, lbl_valid));
-	dt_regset_free(drp, BPF_REG_0);
-	dt_cg_probe_error(pcb, DTRACEFLT_BADSTACK, DT_ISIMM, 0);
-	emitl(dlp, lbl_valid,
-		   BPF_NOP());
-}
-
-static void
 dt_cg_act_print(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 {
 	uint_t		addr_off, data_off;
@@ -2852,7 +2868,8 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 						    DTRACEACT_PRINTF },
 	[DT_ACT_IDX(DT_ACT_TRACE)]		= { &dt_cg_act_trace, },
 	[DT_ACT_IDX(DT_ACT_TRACEMEM)]		= { &dt_cg_act_tracemem, },
-	[DT_ACT_IDX(DT_ACT_STACK)]		= { &dt_cg_act_stack, },
+	[DT_ACT_IDX(DT_ACT_STACK)]		= { &dt_cg_act_stack,
+						    DTRACEACT_STACK },
 	[DT_ACT_IDX(DT_ACT_STOP)]		= { &dt_cg_act_stop,
 						    DTRACEACT_STOP },
 	[DT_ACT_IDX(DT_ACT_BREAKPOINT)]		= { &dt_cg_act_breakpoint,
@@ -2869,7 +2886,8 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 						    DTRACEACT_CHILL },
 	[DT_ACT_IDX(DT_ACT_EXIT)]		= { &dt_cg_act_exit,
 						    DTRACEACT_EXIT },
-	[DT_ACT_IDX(DT_ACT_USTACK)]		= { &dt_cg_act_ustack, },
+	[DT_ACT_IDX(DT_ACT_USTACK)]		= { &dt_cg_act_stack,
+						    DTRACEACT_USTACK },
 	[DT_ACT_IDX(DT_ACT_PRINTA)]		= { &dt_cg_act_printa, },
 	[DT_ACT_IDX(DT_ACT_RAISE)]		= { &dt_cg_act_raise,
 						    DTRACEACT_RAISE },
