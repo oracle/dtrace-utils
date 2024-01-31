@@ -1,13 +1,13 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 /* @@runtest-opts: $_pid */
 /* @@trigger: pid-tst-float */
-/* @@trigger-timing: after */
+/* @@trigger-timing: before */
 
 /*
  * ASSERTION: Make sure we can work on processes that use the FPU
@@ -15,19 +15,12 @@
  * SECTION: pid provider
  */
 
-BEGIN
+pid$1:a.out:main:
 {
-	/*
-	 * Let's just do this for 5 seconds.
-	 */
-	timeout = timestamp + 5000000000;
+	@[probename] = count();
 }
 
-pid$1:a.out:main:
-{}
-
-profile:::tick-4
-/timestamp > timeout/
+profile:::tick-5s
 {
 	exit(0);
 }

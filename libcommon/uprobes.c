@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -275,7 +275,7 @@ out:
 }
 
 /*
- * Like uprobe_create, but do not specify the name of a corresponding DTrace
+ * Like uprobe_create_named, but do not specify the name of a corresponding DTrace
  * probe.  (Used when the caller already knows what probe will be needed, and
  * there is no possibility of another DTrace having to pick it up from the
  * systemwide uprobe list.)

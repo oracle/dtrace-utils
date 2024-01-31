@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <ctype.h>
 #include <alloca.h>
@@ -16,6 +17,9 @@
 #include <stddef.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
+#if defined(__amd64)
+#include <dis-asm.h>
+#endif
 
 #include <port.h>
 #include <uprobes.h>
@@ -115,19 +119,15 @@ dt_pid_free_uprobespecs(dtrace_hdl_t *dtp)
 }
 
 static int
-dt_pid_create_fbt_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
+dt_pid_create_one_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     pid_probespec_t *psp, const GElf_Sym *symp, pid_probetype_t type)
 {
-	const dt_provider_t	*pvp;
+	const dt_provider_t	*pvp = dtp->dt_prov_pid;
 
-	psp->pps_prv = "pid";
 	psp->pps_type = type;
-	psp->pps_off = symp->st_value - psp->pps_vaddr;
-	psp->pps_size = (size_t)symp->st_size;
-	psp->pps_gstr[0] = '\0';		/* no glob pattern */
+	psp->pps_prv = "pid";
 
 	/* Make sure we have a PID provider. */
-	pvp = dtp->dt_prov_pid;
 	if (pvp == NULL) {
 		pvp = dt_provider_lookup(dtp, psp->pps_prv);
 		if (pvp == NULL)
@@ -143,20 +143,22 @@ dt_pid_create_fbt_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	return pvp->impl->provide_probe(dtp, psp);
 }
 
+#if defined(__amd64)
+#if defined(HAVE_INITDISINFO3) == defined(HAVE_INITDISINFO4)
+#error expect init_disassembler_info() to have 3 or else 4 arguments
+#endif
+#ifdef HAVE_INITDISINFO4
 static int
-dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
-    pid_probespec_t *psp, const GElf_Sym *symp, const char *pattern)
-{
-	psp->pps_type = DTPPT_OFFSETS;
-	psp->pps_off = symp->st_value - psp->pps_vaddr;
-	psp->pps_size = (size_t)symp->st_size;
-
-	strcpy(psp->pps_gstr, pattern);
-
-	/* Create a probe using 'psp'. */
-
-	return 1;
+my_callback2(void *stream, enum disassembler_style style, const char *fmt, ...) {
+	return 0;
 }
+#endif
+static int
+my_callback(void *stream, const char *fmt, ...)
+{
+	return 0;
+}
+#endif
 
 static int
 dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
@@ -166,7 +168,6 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	dt_proc_t *dpr = pp->dpp_dpr;
 	pid_probespec_t *psp;
 	uint64_t off;
-	char *end;
 	uint_t nmatches = 0;
 	ulong_t sz;
 	int glob, rc = 0;
@@ -182,7 +183,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	dt_dprintf("creating probe pid%d:%s:%s:%s at %lx\n", (int)pid,
 	    pp->dpp_obj, func, pp->dpp_name, symp->st_value);
 
-	sz = sizeof(pid_probespec_t) + strlen(pp->dpp_name);
+	sz = sizeof(pid_probespec_t);
 	psp = dt_zalloc(dtp, sz);
 	if (psp == NULL) {
 		dt_dprintf("proc_per_sym: dt_alloc(%lu) failed\n", sz);
@@ -194,11 +195,12 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	psp->pps_dev = pp->dpp_dev;
 	psp->pps_inum = pp->dpp_inum;
 	psp->pps_fn = strdup(pp->dpp_fname);
-	psp->pps_vaddr = pp->dpp_vaddr;
 	psp->pps_fun = (char *) func;
+	psp->pps_nameoff = 0;
+	psp->pps_off = symp->st_value - pp->dpp_vaddr;
 
 	if (!isdash && gmatch("return", pp->dpp_name)) {
-		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, psp, symp,
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, symp,
 		    DTPPT_RETURN) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
@@ -211,7 +213,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	}
 
 	if (!isdash && gmatch("entry", pp->dpp_name)) {
-		if (dt_pid_create_fbt_probe(pp->dpp_pr, dtp, psp, symp,
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, symp,
 		    DTPPT_ENTRY) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
@@ -225,6 +227,8 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 	glob = strisglob(pp->dpp_name);
 	if (!glob && nmatches == 0) {
+		char *end;
+
 		off = strtoull(pp->dpp_name, &end, 16);
 		if (*end != '\0') {
 			rc = dt_pid_error(dtp, pcb, dpr, D_PROC_NAME,
@@ -241,8 +245,10 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 			goto out;
 		}
 
-		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
-					psp, symp, pp->dpp_name) < 0) {
+		psp->pps_nameoff = off;
+		psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
+		if (dt_pid_create_one_probe(pp->dpp_pr, pp->dpp_dtp,
+					psp, symp, DTPPT_OFFSETS) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create probes at '%s+0x%llx': %s",
@@ -253,16 +259,138 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 		nmatches++;
 	} else if (glob && !isdash) {
-		if (dt_pid_create_glob_offset_probes(pp->dpp_pr, pp->dpp_dtp,
-					psp, symp, pp->dpp_name) < 0) {
-			rc = dt_pid_error(
-				dtp, pcb, dpr, D_PROC_CREATEFAIL,
-				"failed to create offset probes in '%s': %s",
-				func, dtrace_errmsg(dtp, dtrace_errno(dtp)));
-			goto out;
+#if defined(__amd64)
+		/*
+		 * We need to step through the instructions to find their
+		 * offsets.  This is difficult on x86, which has variable
+		 * instruction lengths.  We invoke the disassembler in
+		 * libopcodes.
+		 *
+		 * We look for the Elf pointer.  It is already stored in
+		 * file_elf in file_info_t, but getting it back over here
+		 * means introducing new struct members, new arguments to
+		 * functions, etc.  So just call elf_begin() again here.
+		 */
+		int fd, i;
+		Elf *elf;
+		Elf_Scn *scn = NULL;
+		GElf_Sym sym;
+		GElf_Shdr shdr;
+		Elf_Data *data;
+		size_t shstrndx, off;
+		disassembler_ftype disasm;
+
+		/* Set things up. */
+		fd = open(pp->dpp_fname, O_RDONLY);
+		elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);   // ELF_C_READ ?
+		assert(elf_kind(elf) == ELF_K_ELF);
+		elf_getshdrstrndx(elf, &shstrndx);
+
+		/* Look for the symbol table. */
+		while (1) {
+			scn = elf_nextscn(elf, scn);
+			if (scn == NULL)
+				goto out;
+			assert(gelf_getshdr(scn, &shdr) != NULL);
+			if (shdr.sh_type == SHT_SYMTAB)
+				break;
 		}
 
-		nmatches++;
+		/* Look for the symbol in the symbol table. */
+		data = elf_getdata(scn, NULL);
+		for (i = 0; i < data->d_size / sizeof(GElf_Sym); i++) {
+			if (!gelf_getsym(data, i, &sym))
+				continue;
+			if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL)
+				continue;
+			if (strcmp(elf_strptr(elf, shdr.sh_link, sym.st_name), func) == 0)
+				break;
+		}
+		if (i >= data->d_size / sizeof(GElf_Sym))
+			goto out;
+
+		/* Get the section for our symbol. */
+		scn = elf_getscn(elf, sym.st_shndx);
+		assert(gelf_getshdr(scn, &shdr) != NULL);
+
+		/* Check that the section is text. */
+		if (shdr.sh_type != SHT_PROGBITS ||
+		    shdr.sh_size <= 0 ||
+		    (shdr.sh_flags & SHF_EXECINSTR) == 0) {
+			assert(0);
+		}
+		assert(strcmp(elf_strptr(elf, shstrndx, shdr.sh_name), ".text") == 0);
+
+		/* Get the instructions. */
+		data = elf_getdata(scn, NULL);
+
+		/*
+		 * "Disassemble" instructions just to get the offsets.
+		 *
+		 * Unfortunately, libopcodes's disassembler() has a different
+		 * interface in binutils versions before 2.29.
+		 */
+#if defined(HAVE_DIS1) == defined(HAVE_DIS4)
+#error expect disassembler() to have 1 or else 4 arguments
+#endif
+#ifdef HAVE_DIS1
+		bfd			*abfd;
+		struct disassemble_info	disasm_info;
+
+		bfd_init();
+		abfd = bfd_openr(pp->dpp_fname, NULL);
+		if (!bfd_check_format(abfd, bfd_object))
+			return 1;
+
+		disasm = disassembler(abfd);
+#else
+		disassemble_info disasm_info;
+
+		disasm = disassembler(bfd_arch_i386, false, bfd_mach_x86_64, NULL);
+#endif
+#ifdef HAVE_INITDISINFO4
+		init_disassemble_info(&disasm_info, NULL, my_callback, my_callback2);
+#else
+		init_disassemble_info(&disasm_info, NULL, my_callback);
+#endif
+		disasm_info.buffer = data->d_buf + (sym.st_value - shdr.sh_addr);
+		disasm_info.buffer_length = sym.st_size;
+#else
+		/*
+		 * The situation on aarch64 is much simpler:  each instruction
+		 * is 4 bytes.
+		 */
+#define disasm(x, y) 4
+#endif
+
+		for (off = 0; off < symp->st_size; off += disasm(off, &disasm_info)) {
+			char offstr[32];
+
+#if defined(__amd64)
+			/* Newer kernels do not allow uprobes on "hlt" instructions. */
+			if ((unsigned int)disasm_info.buffer[off] == 0xf4)
+				continue;
+#endif
+
+			snprintf(offstr, sizeof(offstr), "%lx", off);
+			if (!gmatch(offstr, pp->dpp_name))
+				continue;
+
+			psp->pps_nameoff = off;
+			psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
+			if (dt_pid_create_one_probe(pp->dpp_pr, pp->dpp_dtp,
+						psp, symp, DTPPT_OFFSETS) >= 0)
+				nmatches++;
+		}
+
+#if defined(__amd64)
+		/* Shut things down. */
+		elf_end(elf);
+		close(fd);
+#ifdef HAVE_DIS1
+		bfd_close(abfd);
+#endif
+#endif
 	}
 
 	pp->dpp_nmatches += nmatches;
@@ -710,6 +838,7 @@ dt_pid_scan_uprobes(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 
 		psp = &dtp->dt_uprobespecs[i++];
 		psp->pps_type = linep->is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
+		psp->pps_nameoff = 0;
 
 		/*
 		 * These components are only used for creation of an underlying

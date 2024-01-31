@@ -1,7 +1,7 @@
 # Determine properties of the system and write a config.h.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -40,7 +40,7 @@ endef
 # The first argument must be suitable for a filename fragment,
 # for a makefile rule name and for a #define.
 #
-# Syntax: $(call check-symbol,name,symbol,library)
+# Syntax: $(call check-symbol-rule,name,symbol,library)
 define check-symbol-rule
 $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
 	if echo 'void $(2)(); int main(void) { $(2)(); }' | \
@@ -103,3 +103,7 @@ endif
 $(eval $(call check-header-rule,FUSE_NUMA,fuse_set_numa,fuse/fuse_lowlevel))
 $(eval $(call check-header-symbol-rule,CLOSE_RANGE,close_range(3,~0U,0),c,unistd))
 $(eval $(call check-header-rule,GETTID,gettid,unistd))
+$(eval $(call check-header-rule,DIS1,disassembler(NULL),dis-asm))
+$(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),dis-asm))
+$(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),dis-asm))
+$(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),dis-asm))

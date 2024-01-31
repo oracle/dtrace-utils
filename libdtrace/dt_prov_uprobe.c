@@ -26,8 +26,6 @@
 static const char	prvname[] = "uprobe";
 static const char	prvname_is_enabled[] = "uprobe__is_enabled";
 
-#define UPROBE_EVENTS	TRACEFS "uprobe_events"
-
 #define PP_IS_MINE	1
 #define PP_IS_RETURN	2
 #define PP_IS_FUNCALL	4
@@ -313,7 +311,7 @@ static int provide_pid_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 		strcpy(prb, "return");
 		break;
 	case DTPPT_OFFSETS:
-		snprintf(prb, sizeof(prb), "%lx", psp->pps_off);
+		snprintf(prb, sizeof(prb), "%lx", psp->pps_nameoff);
 		break;
 	default:
 		dt_dprintf("pid: unknown PID probe type %i\n", psp->pps_type);
@@ -615,7 +613,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 
 		/*
 		 * If the uprobe creation failed, it is possible it already
-		 * existed because someone else created it.  Tey to access its
+		 * existed because someone else created it.  Try to access its
 		 * tracefs info and if that fail, we really failed.
 		 */
 	}

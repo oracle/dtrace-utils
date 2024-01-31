@@ -82,15 +82,21 @@ SHLIBS += libdtrace
 libdtrace_DIR := $(current-dir)
 libdtrace_TARGET = libdtrace
 ifdef HAVE_LIBCTF
-libdtrace_LIBS := -lctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
+libdtrace_LIBS := -lctf
 else
-libdtrace_LIBS := -ldtrace-ctf -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
+libdtrace_LIBS := -ldtrace-ctf
 endif
+libdtrace_LIBS += -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
 libdtrace_VERSION := 2.0.0
 libdtrace_SONAME := libdtrace.so.2
 libdtrace_VERSCRIPT := libdtrace.ver
 libdtrace_LIBSOURCES := libdtrace-build libproc libport libcommon
 libdtrace_SECONDARY := libproc libport
+
+# Required for dt_pid.c for varying instruction lengths on x86
+ifeq ($(shell uname -m), x86_64)
+libdtrace_LIBS += -lopcodes
+endif
 
 # Disable certain warnings for these files
 dt_btf.c_CFLAGS := -Wno-pedantic

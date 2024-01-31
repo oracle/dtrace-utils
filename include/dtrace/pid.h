@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -38,13 +38,10 @@ typedef struct pid_probespec {
 	uint64_t pps_off;			/* probe offset (in object) */
 
 	/*
-	 * Fields below this point do not apply to probes of type
-	 * DTPPT_UNDERLYING.
+	 * Fields below this point do not apply to underlying probes.
 	 */
 	pid_t pps_pid;				/* task PID */
-	uint64_t pps_vaddr;			/* object base address */
-	uint64_t pps_size;			/* function size (in bytes) */
-	char pps_gstr[1];			/* glob pattern string */
+	uint64_t pps_nameoff;			/* offset to use for name */
 } pid_probespec_t;
 
 #endif /* _DTRACE_PID_H */

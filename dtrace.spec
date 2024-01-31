@@ -1,7 +1,7 @@
 # spec file for package dtrace
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -74,6 +74,10 @@ BuildRequires: kernel%{variant}-devel = 5.15.0-0.16.2%{?dist}uek
 %endif
 BuildRequires: gcc-bpf-unknown-none
 BuildRequires: binutils-bpf-unknown-none
+%ifnarch aarch64
+Requires:     binutils
+BuildRequires: binutils-devel
+%endif
 %if %{with_libctf}
 Requires:     binutils >= 2.30-58.0.8
 BuildRequires: binutils-devel >= 2.30-58.0.8
