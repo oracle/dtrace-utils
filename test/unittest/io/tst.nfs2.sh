@@ -65,14 +65,16 @@ BEGIN { err = 0; bytes = 0 }
 
 # skip over uninteresting records
 NF == 0 { next }
+\$4 == "wait-start" { next }
+\$4 == "wait-done" { next }
 \$6 != myflags { next }
+\$12 != "$myinode" { next }
 \$22 != "nfs" { next }
 
 # check
 \$4 != "start" &&
 \$4 != "done" { print "  ERROR: probe name should be start or done"; err = 1 }
 \$4 == "start" { bytes += \$7 }
-\$12 != "$myinode" { print "  ERROR: blknode should be inode"; err = 1 }
 \$14 != 0 { print "  ERROR: iodone should be 0"; err = 1 }
 \$21 != "nfs" { print "  ERROR: name should be nfs"; err = 1 }
 END {

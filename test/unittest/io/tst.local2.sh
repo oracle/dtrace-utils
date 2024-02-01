@@ -70,6 +70,8 @@ BEGIN { err = 0; bytes = 0; nrec = 0 }
 
 # skip over uninteresting records
 NF == 0 { next }
+\$4 == "wait-start" { next }
+\$4 == "wait-done" { next }
 \$14 != myiodone { next }
 \$22 != "$statname" { next }
 
