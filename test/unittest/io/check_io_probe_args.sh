@@ -26,7 +26,7 @@ BEGIN {
 
 NF == 0 { next }      # skip empty lines
 
-NF != 23 { err = 1; print "  ERROR: garbled input: " $0; next }
+NF != 23 { err = 1; print "  ERROR (" NR "): garbled input: " $0; next }
 
 {
     nrecs++;
@@ -57,16 +57,16 @@ NF != 23 { err = 1; print "  ERROR: garbled input: " $0; next }
 
     # Check probe description.
 
-    if (myprobeprov != "io:") { err = 1; print "  ERROR: provider is not io, got", myprobeprov }
-    if (myprobemod != "vmlinux:") { err = 1; print "  ERROR: module is not vmlinux, got", myprobemod }
-    if (myprobefunc != ":") { err = 1; print "  ERROR: function is not blank, got", myprobefunc }
+    if (myprobeprov != "io:") { err = 1; print "  ERROR (" NR "): provider is not io, got", myprobeprov }
+    if (myprobemod != "vmlinux:") { err = 1; print "  ERROR (" NR "): module is not vmlinux, got", myprobemod }
+    if (myprobefunc != ":") { err = 1; print "  ERROR (" NR "): function is not blank, got", myprobefunc }
     if (myprobename != "wait-start" &&
         myprobename != "wait-done" &&
         myprobename != "start" &&
-        myprobename != "done") { err = 1; print "  ERROR: name is unrecognized", myprobename }
+        myprobename != "done") { err = 1; print "  ERROR (" NR "): name is unrecognized", myprobename }
 
     # Check that args[2] is 0.
-    if (myarg2 != 0) { err = 1; print "  ERROR: args[2] should be 0, got", myarg2 }
+    if (myarg2 != 0) { err = 1; print "  ERROR (" NR "): args[2] should be 0, got", myarg2 }
 
     # Check for a legal set of flags.
     {
@@ -119,26 +119,26 @@ NF != 23 { err = 1; print "  ERROR: garbled input: " $0; next }
 
     # FIXME: can we add a check for myb_bcount?
 
-    if (myb_bufsize != myb_bcount) { err = 1; print "  ERROR: bcount and bufsize do not match", myb_bcount, myb_bufsize }
+    if (myb_bufsize != myb_bcount) { err = 1; print "  ERROR (" NR "): bcount and bufsize do not match", myb_bcount, myb_bufsize }
 
-    if (myb_addr != "0") { err = 1; print "  ERROR: b_addr is not 0:", b_addr }
-    if (myb_resid != "0") { err = 1; print "  ERROR: b_resid is not 0:", b_resid }
-    if (myb_error != "0") { err = 1; print "  ERROR: b_error is not 0:", b_error }
+    if (myb_addr != "0") { err = 1; print "  ERROR (" NR "): b_addr is not 0:", b_addr }
+    if (myb_resid != "0") { err = 1; print "  ERROR (" NR "): b_resid is not 0:", b_resid }
+    if (myb_error != "0") { err = 1; print "  ERROR (" NR "): b_error is not 0:", b_error }
 
     # FIXME: can we add a check for myb_lblkno?
 
-    if (myb_blkno != myb_lblkno) { err = 1; print "  ERROR: lblkno and blkno do not match", myb_lblkno, myb_blkno }
+    if (myb_blkno != myb_lblkno) { err = 1; print "  ERROR (" NR "): lblkno and blkno do not match", myb_lblkno, myb_blkno }
 
     # FIXME: can we add a check for myb_iodone?
     # FIXME: can we add a check for myb_edev?
 
-    if ( myb_major != rshift(myb_edev, 20)) { err = 1; print "  ERROR: b_major inconsistent with edev", myb_major, myb_edev }
-    if ( myb_minor != and(myb_edev, 0xfffff)) { err = 1; print "  ERROR: b_minor inconsistent with edev", myb_minor, myb_edev }
+    if ( myb_major != rshift(myb_edev, 20)) { err = 1; print "  ERROR (" NR "): b_major inconsistent with edev", myb_major, myb_edev }
+    if ( myb_minor != and(myb_edev, 0xfffff)) { err = 1; print "  ERROR (" NR "): b_minor inconsistent with edev", myb_minor, myb_edev }
 
-    if (mydev_major != myb_major) { err = 1; print "  ERROR: b_major and dev_major do not match", myb_major, mydev_major }
-    if (mydev_minor != myb_minor) { err = 1; print "  ERROR: b_minor and dev_minor do not match", myb_minor, mydev_minor }
+    if (mydev_major != myb_major) { err = 1; print "  ERROR (" NR "): b_major and dev_major do not match", myb_major, mydev_major }
+    if (mydev_minor != myb_minor) { err = 1; print "  ERROR (" NR "): b_minor and dev_minor do not match", myb_minor, mydev_minor }
 
-    if (mydev_instance != 0) { err = 1; print "  ERROR: dev_instance is not 0", mydev_instance }
+    if (mydev_instance != 0) { err = 1; print "  ERROR (" NR "): dev_instance is not 0", mydev_instance }
 
     # FIXME: can we add a check for mydev_name?
     # FIXME: can we add a check for mydev_statname?

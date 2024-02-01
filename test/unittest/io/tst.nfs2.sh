@@ -49,10 +49,12 @@ rmdir $exdir
 
 $check_args log.write
 if [ $? -ne 0 ]; then
+    cat log.write
     retval=1
 fi
 $check_args log.read
 if [ $? -ne 0 ]; then
+    cat log.read
     retval=1
 fi
 
