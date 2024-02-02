@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates.
  */
 
 /*
@@ -132,8 +132,7 @@
  *      dst[strlen(dst) - 1] = '\0';
  */
 
-#define BPF_FUNC_probe_read	4
-#define BPF_FUNC_probe_read_str	45
+#include <bpf_asm_helpers.h>
 
 /*
  * void dt_cleanpath(const dt_dctx_t *dctx, char *src, char *dst);

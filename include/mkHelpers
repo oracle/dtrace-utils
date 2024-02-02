@@ -1,0 +1,23 @@
+#!/usr/bin/awk -f
+#
+# Make a header file associating BPF_FUNC_* symbolic names with BPF helper ids.
+
+BEGIN {
+	print "#ifndef _BPF_ASM_HELPERS_H\n" \
+	      "#define _BPF_ASM_HELPERS_H\n";
+}
+
+$1 == "static" && /=/ && /[ \t]+[1-9][0-9]*[ \t]*;/ {
+	match($0, /[ \t]+[1-9][0-9]*[ \t]*;/);
+	id = substr($0, RSTART, RLENGTH - 1);
+	gsub(/[ \t]+/,"", id);
+	match($0, /\([ \t]*\*[ \t]*bpf_[_A-Za-z0-9]+/);
+	fn = substr($0, RSTART + 1, RLENGTH - 1);
+	sub(/[ \t]*\*[ \t]*bpf_/, "", fn);
+
+	print "#define BPF_FUNC_"fn " " id;
+}
+
+END {
+	print "\n#endif /* _BPF_ASM_HELPERS_H */";
+}

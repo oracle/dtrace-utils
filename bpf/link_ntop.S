@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates.
  */
 
-#define BPF_FUNC_probe_read	4
+#include <bpf_asm_helpers.h>
 
 #define ARPHRD_ETHER		1	/* ARP protocol hw identifier <linux/if_arp.h> */
 #define ARPHRD_INFINIBAND	32	/* ARP protocol hw identifier <linux/if_arp.h> */

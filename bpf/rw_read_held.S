@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates.
  */
 
-#define BPF_FUNC_probe_read	4
+#include <bpf_asm_helpers.h>
 #define _QW_WMASK		0x1ff
 
 	.text

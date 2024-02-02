@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates.
  */
 #ifndef BPF_PROBE_ERRROR_H
 #define BPF_PROBE_ERRROR_H

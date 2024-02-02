@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2024, Oracle and/or its affiliates.
  */
 
-#define BPF_FUNC_probe_read_str	45
+#include <bpf_asm_helpers.h>
 
 /*
  * void dt_dirname(const dt_dctx_t *dctx, char *src, char *dst);

@@ -19,7 +19,7 @@ BPFLIBS += bpf_dlib
 bpf_dlib_CPPFLAGS = -Ilibdtrace -Iinclude -I$(objdir)/include -idirafter /usr/include
 bpf_dlib_TARGET = dlibs/bpf_dlib
 bpf_dlib_DIR := $(current-dir)
-bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp
+bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp $(objdir)/include/bpf_asm_helpers.h
 bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	basename.S \
