@@ -18,7 +18,7 @@
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 #if defined(__amd64)
-#include <dis-asm.h>
+#include <disasm.h>
 #endif
 
 #include <port.h>

@@ -60,7 +60,7 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	val="$(HAVE_$(1))"; \
 	if [[ x$(HAVE_$(1)) = x ]]; then \
 	    if printf '#include <%s.h>\nint main(void) { %s; }' "$(3)" "$(2)" | \
-	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -Iinclude -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
 	       val=yes; \
 	   else \
 	       val=no; \
@@ -103,7 +103,7 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	val="$(HAVE_$(1))"; \
 	if [[ x$(HAVE_$(1)) = x ]]; then \
 	    if echo 'void $(2)(); int main(void) { $(2)(); }' | \
-	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -Iinclude -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
 	       val=yes; \
 	   else \
 	       val=no; \
@@ -144,7 +144,7 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	xno) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
 	     echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
 	*) if printf '#include <%s.h>\nint main(void) { %s; }' "$(4)" "$(2)" | \
-	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -D_GNU_SOURCE -Werror=implicit-function-declaration -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -Iinclude -D_GNU_SOURCE -Werror=implicit-function-declaration -o /dev/null -x c - -l$(3) >/dev/null 2>&1; then \
 	       echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
 	       echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
 	   else \
@@ -225,10 +225,10 @@ endif
 $(eval $(call check-header-rule,FUSE_NUMA,fuse_set_numa,fuse/fuse_lowlevel))
 $(eval $(call check-header-symbol-rule,CLOSE_RANGE,close_range(3,~0U,0),c,unistd))
 $(eval $(call check-header-rule,GETTID,gettid,unistd))
-$(eval $(call check-header-rule,DIS1,disassembler(NULL),dis-asm))
-$(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),dis-asm))
-$(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),dis-asm))
-$(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),dis-asm))
+$(eval $(call check-header-rule,DIS1,disassembler(NULL),disasm))
+$(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),disasm))
+$(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),disasm))
+$(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),disasm))
 $(eval $(call check-bpfc-option-rule,BPFV3,-mcpu=v3))
 
 help-overrides::
