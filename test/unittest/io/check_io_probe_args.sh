@@ -160,15 +160,15 @@ fi
 #
 
 if [ $UID -ne 0 ]; then
-    echo skipping iodone check since must be root to read PCs in kallmodsyms
+    echo skipping iodone check since must be root to read PCs in kallsyms
     retval=1
 else
     for pc in `gawk 'NF == 23 { print $14 }' $infile | grep -wv 0 | sort | uniq`; do
         gawk '$1 == "'$pc'" && /end.*io/ { found = 1; exit }
-            END { exit(found) }' /proc/kallmodsyms
+            END { exit(found) }' /proc/kallsyms
         if [ $? -eq 0 ]; then
             echo "  ERROR:", $pc, " is not an end-io function"
-            grep $pc /proc/kallmodsyms
+            grep $pc /proc/kallsyms
             retval=1
         fi
     done
@@ -206,7 +206,7 @@ gawk 'NF == 23 { print $16, $21 }' $infile | sort | uniq > majnam.txt
 # Compose a D script to write a name for each major number.
 gawk '{
         printf("BEGIN { x = %s }\n", $1);
-        printf("BEGIN { printf(\"%%d %%s\\n\", %s, stringof(`major_names[%s % 255]->name)); }\n",
+        printf("BEGIN { printf(\"%%d %%s\\n\", %s, stringof(((struct blk_major_name **)&`major_names)[%s % 255]->name)); }\n",
                $1, $1);
       }' majnam.txt >> D.d
 echo "BEGIN { exit(0); }" >> D.d

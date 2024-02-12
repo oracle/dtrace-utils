@@ -1,10 +1,10 @@
 #!/bin/sh
 
-if ! $(grep -qw isofs /proc/kallmodsyms); then
+if ! grep -qw isofs_dir_operations /proc/kallsyms; then
     exit 1
 fi
 
-if ! $(grep -qw ext4 /proc/kallmodsyms); then
+if ! grep -qw ext4_dir_operations /proc/kallsyms; then
     exit 1
 fi
 

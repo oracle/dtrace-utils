@@ -94,7 +94,7 @@ END {
 }
 EOF
 
-myaddr=`awk '$4 == "xfs_end_bio"       {print $1}' /proc/kallmodsyms`
+myaddr=`awk '$3 == "xfs_end_bio"       {print $1}' /proc/kallsyms`
 echo check start bytes in log.write with xfs_end_bio address $myaddr
 awk -v myflags=520 -v nrecflag=1 -v myiodone=$myaddr -f awk.txt log.write
 if [ $? -ne 0 ]; then
@@ -103,7 +103,7 @@ if [ $? -ne 0 ]; then
     retval=1
 fi
 
-myaddr=`awk '$4 == "iomap_read_end_io" {print $1}' /proc/kallmodsyms`
+myaddr=`awk '$3 == "iomap_read_end_io" {print $1}' /proc/kallsyms`
 echo check start bytes in log.read with iomap_read_end_io address $myaddr
 awk -v myflags=460 -v nrecflag=2 -v myiodone=$myaddr -f awk.txt log.read
 if [ $? -ne 0 ]; then
