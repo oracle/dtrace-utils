@@ -90,7 +90,7 @@ Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
 Version:      2.0.0
-Release:      1.13.2%{?dist}
+Release:      1.14%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -267,7 +267,31 @@ fi
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Thu Nov  9 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13.2
+* Tue Mar  5 2024 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.14
+- Implement provider: io.  (Eugene Loh, Kris Van Hees)
+- Implement actions: print().  (Alan Maguire)
+- Implement subroutines: link_ntop(), cleanpath().  (Eugene Loh)
+- Implement options: -xcpu, -xaggpercpu.  (Eugene Loh)
+- Improve providers: pid (offset-based probes) and rawtp (arg info).
+- Improve options: -xlockmem (improve default).  (Eugene Loh)
+- Ensure USDT probes can survive dtprobed restarts.  (Nick Alcock)
+- Improve USDT probe creation/deletion.  (Nick Alcock)
+- Improve support for DTrace with upstream kernels.  (Nick Alcock)
+- Improve support for compiling DTrace in older environments.  (Kris Van Hees)
+- Add support for aggregations of stacks.  (Eugene Loh)
+- Improve lexer parsing (top-level wildcard ambiguities and `numerals).
+  (Nick Alcock)
+- Fix END probe execution with multiple tracers.  (Nick Alcock)
+- Preemptive BPF program execution for DTrace probes is not allowed.
+- Buffer overrun fix for systems with non-sequential online CPU ids.
+  (Kris Van Hees, Nick Alcock) [Orabug: 36356681]
+- Various bug fixes.  (Nick Alcock, Eugene Loh, Kris Van Hees)
+- Various testsuite fixes and improvements.
+  (Nick Alcock, Eugene Loh, Kris Van Hees)
+- Various code improvements.  (Nick Alcock, Eugene Loh, Kris Van Hees)
+  [Orabug: 36329725]
+
+* Thu Nov  9 2023 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.13.2
 - Support using DTrace with upstream kernels.
 - Implement provider: ip.
 - Implement actions: trunc(), pcap().
@@ -281,11 +305,11 @@ fi
   (Nick Alcock, Eugene Loh, Kris Van Hees)
 - Various code improvements. (Nick Alcock, Eugene Loh, Kris Van Hees)
 
-* Wed Jun  7 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13.1
+* Wed Jun  7 2023 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.13.1
 - Restart dtprobed when upgrading DTrace.
 - Report and clean up orphaned tracing events after each test.
 
-* Fri May 26 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.13
+* Fri May 26 2023 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.13
 - Full support for is-enabled USDT probes. (Nick Alcock)
 - Report error on programs that exceed aggsize or dynvarsize.
 - Support for drop counters for principal, speculation, and aggregation buffers
@@ -307,7 +331,7 @@ fi
 - Various code improvements.  (Nick Alcock, Eugene Loh, Kris Van Hees)
   [Orabug: 35435195]
 
-* Mon Feb 27 2023 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.12
+* Mon Feb 27 2023 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.12
 - Fix evaluation order of bcopy() arguments and lift non-alloca restriction
   on the source address. (Eugene Loh, Kris Van Hees)
 - Implement actions: clear(), tracemem(). (Kris Van Hees, Eugene Loh)
@@ -323,13 +347,13 @@ fi
 - Implement runtime bounds checking for scalar array access. (Eugene Loh)
 - Updated manpage and moved to dtrace.8.
 - Support arbitrary address pointers for basename(), dirname(), strchr(),
-  strrchr(), and inet_ntoa(). (Eugene Loh), [Orabug: 34857846]
+  strrchr(), and inet_ntoa(). (Eugene Loh) [Orabug: 34857846]
 - Add runtime bounds checking for scalar array access. (Eugene Loh)
   [Orabug: 35045463]
 - Various testsuite fixes and improvements. [Orabug: 34829509]
 - Various code improvements. [Orabug: 34829509]
 
-* Tue Nov 08 2022 Kris Van Hees <kris.vna.hees@oracle.com> - 2.0.0-1.11.1
+* Tue Nov 08 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.11.1
 - Support both libfuse 2 and libfuse 3.
 
 * Fri Oct 28 2022 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.11
