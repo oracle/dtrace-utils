@@ -672,7 +672,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		return;
 	}
 
-  chunks_done:
+chunks_done:
 	if (userdata->state != DTP_IOCTL_DOF) {
 		errmsg = "FUSE internal state incorrect";
 		goto fuse_errmsg;
@@ -715,10 +715,10 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 
 	return;
 
-  fuse_errmsg:
+fuse_errmsg:
 	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid, errmsg);
 
-  fuse_err:
+fuse_err:
 	if (fuse_reply_err(req, EINVAL) < 0)
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid,
 			 "cannot send error to ioctl caller\n");
@@ -727,7 +727,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	userdata->state = DTP_IOCTL_START;
 	return;
 
- process_err:
+process_err:
 	if (fuse_reply_err(req, EINVAL) < 0)
 		fuse_log(FUSE_LOG_ERR, "%i: cannot unblock caller\n",
 			 pid);
