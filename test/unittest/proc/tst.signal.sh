@@ -12,8 +12,10 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	syscall::execve:entry
-	/copyinstr((uintptr_t)args[1][0]) == "sleep" && args[1][1] &&
-	 copyinstr((uintptr_t)args[1][1]) == "10000"/
+	/(this->myargs = (uintptr_t *)copyin((uintptr_t)args[1], 2 * sizeof(char *)))
+	 && copyinstr(this->myargs[0]) == "sleep"
+	 && this->myargs[1]
+	 && copyinstr(this->myargs[1]) == "10000"/
 	{
 		sig_pid = pid;
 	}
@@ -23,12 +25,14 @@ script()
 	 sig_pid == args[1]->pr_pid && args[2] != SIGUSR1/
 	{
 		/* Wrong signal being sent. */
+		printf("wrong signal sent: %d vs %d\n", args[2], SIGUSR1);
 		exit(1);
 	}
 
 	proc:::signal-handle
 	/sig_pid == pid/
 	{
+		printf("signal received %d\n", args[0]);
 		exit(args[0] == SIGUSR1 ? 0 : 1);
 	}
 

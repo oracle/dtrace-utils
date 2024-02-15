@@ -12,8 +12,10 @@ script()
 {
 	$dtrace $dt_flags -s /dev/stdin <<EOF
 	syscall::execve:entry
-	/copyinstr((uintptr_t)args[1][0]) == "sleep" && args[1][1] &&
-	 copyinstr((uintptr_t)args[1][1]) == "10000"/
+	/(this->myargs = (uintptr_t *)copyin((uintptr_t)args[1], 2 * sizeof(char *)))
+	 && copyinstr(this->myargs[0]) == "sleep"
+	 && this->myargs[1]
+	 && copyinstr(this->myargs[1]) == "10000"/
 	{
 		kill_pid = pid;
 	}
