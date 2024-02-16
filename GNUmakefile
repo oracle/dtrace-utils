@@ -124,7 +124,7 @@ PREPROCESS = $(CC) -E
 export BPFC ?= bpf-unknown-none-gcc
 
 BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
-BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas $(if $(HAVE_BPFV3),-mcpu=v3)
+BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas $(if $(HAVE_BPFV3),-mcpu=v3) $(if $(HAVE_BPFMASM),-masm=normal)
 export BPFLD ?= bpf-unknown-none-ld
 
 all::
