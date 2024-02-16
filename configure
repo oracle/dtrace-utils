@@ -162,6 +162,7 @@ for option in "$@"; do
         HAVE_FUSE_NUMA=*) write_config_var FUSE_NUMA "$option";;
         HAVE_CLOSE_RANGE=*) write_config_var CLOSE_RANGE "$option";;
         HAVE_GETTID=*) write_config_var GETTID "$option";;
+        HAVE_BPFV3=*) write_config_var BPFV3 "$option";;
 	*) echo "Unknown option $option" >&2
            exit 1;;
     esac

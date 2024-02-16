@@ -229,6 +229,7 @@ $(eval $(call check-header-rule,DIS1,disassembler(NULL),dis-asm))
 $(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),dis-asm))
 $(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),dis-asm))
+$(eval $(call check-bpfc-option-rule,BPFV3,-mcpu=v3))
 
 help-overrides::
 	printf "\n" >&2
