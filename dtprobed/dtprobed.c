@@ -779,8 +779,11 @@ loop(void)
 	fds[0].events = POLLIN;
 
 	while (!fuse_session_exited(cuse_session)) {
-		if ((ret = poll(fds, 1, -1)) < 0)
+		if (poll(fds, 1, -1) < 0) {
+			if (errno == EINTR)
+				continue;
 			break;
+		}
 
 		if (fds[0].revents != 0) {
 			if ((ret = fuse_session_receive_buf(cuse_session,
@@ -822,8 +825,11 @@ loop(void)
 		struct fuse_buf fbuf = { .mem = buf, .size = bufsize };
 		struct fuse_chan *tmpch = cuse_chan;
 
-		if ((ret = poll(fds, 1, -1)) < 0)
+		if (poll(fds, 1, -1) < 0) {
+			if (errno == EINTR)
+				continue;
 			break;
+		}
 
 		if (fds[0].revents != 0) {
 			if ((ret = fuse_session_receive_buf(cuse_session,
