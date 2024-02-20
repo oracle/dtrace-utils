@@ -5,7 +5,15 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/sysmacros.h>
+#include <stddef.h>
 #include <assert.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <glob.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,7 +30,7 @@
 #endif
 
 #include <port.h>
-#include <uprobes.h>
+#include <dof_parser.h>
 
 #include <dt_impl.h>
 #include <dt_program.h>
@@ -31,7 +39,7 @@
 #include <dt_string.h>
 
 /*
- * Information on a PID or USDT probe.
+ * Information on a PID probe.
  */
 typedef struct dt_pid_probe {
 	dtrace_hdl_t *dpp_dtp;
@@ -62,15 +70,12 @@ static char *
 dt_pid_objname(Lmid_t lmid, const char *obj)
 {
 	char *buf;
-	int len;
 
 	if (lmid == LM_ID_BASE)
 		return strdup(obj);
 
-	len = snprintf(NULL, 0, "LM%lx`%s", lmid, obj) + 1;
-	buf = malloc(len);
-	if (buf)
-		snprintf(buf, len, "LM%lx`%s", lmid, obj);
+	if (asprintf(&buf, "LM%lx`%s", lmid, obj) < 0)
+		return NULL;
 
 	return buf;
 }
@@ -97,25 +102,6 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 	va_end(ap);
 
 	return 1;
-}
-
-void
-dt_pid_free_uprobespecs(dtrace_hdl_t *dtp)
-{
-	size_t i;
-
-	if (!dtp->dt_uprobespecs)
-		return;
-
-	for (i = 0; i < dtp->dt_uprobespecs_sz; i++) {
-		free(dtp->dt_uprobespecs[i].pps_prv);
-		free(dtp->dt_uprobespecs[i].pps_mod);
-		free(dtp->dt_uprobespecs[i].pps_fun);
-		free(dtp->dt_uprobespecs[i].pps_prb);
-	}
-
-	free(dtp->dt_uprobespecs);
-	dtp->dt_uprobespecs = NULL;
 }
 
 static int
@@ -716,173 +702,83 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	return ret;
 }
-
 /*
- * Scan the uprobe list and remember its contents.
- *
- * This avoids us having to rescan the whole thing every time we create every
- * single probe in turn.
+ * Read a file into a buffer and return it.
  */
-static int
-dt_pid_scan_uprobes(dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+static void *
+read_file(const char *name, size_t *size)
 {
-	typedef struct uprobe_line
-	{
-		dt_list_t list;
-		char *line;
-		int is_enabled;
-	} uprobe_line_t;
-	dt_list_t lines = {0};
-	uprobe_line_t *linep, *old_linep;
-	size_t i = 0;
-	int ret = 0;
-
-	FILE *f;
+	int fd;
+	struct stat s;
 	char *buf = NULL;
-	size_t sz;
+	char *bufptr;
+	int len;
 
-	f = fopen(TRACEFS "uprobe_events", "r");
-	if (!f) {
-		dt_dprintf("cannot open " TRACEFS "uprobe_events: %s\n",
-		    strerror(errno));
-		return -1;
+	if ((fd = open(name, O_RDONLY | O_CLOEXEC)) < 0) {
+		dt_dprintf("cannot open %s while scanning for USDT DOF: %s\n",
+			   name, strerror(errno));
+		return NULL;
 	}
 
-	/*
-	 * We are only interested in pid uprobes, not any other uprobes that may
-	 * exist.  Some of these may be for pid probes, some for usdt: we keep
-	 * track of all of them regardless.
-	 *
-	 * Suck in the list of uprobes in one go, since we need to run over it
-	 * twice (once to count pids and allocate space, once to populate them)
-	 * and it might change between reads.
-	 */
+	if (fstat(fd, &s) < 0) {
+		dt_dprintf("cannot stat while scanning for USDT DOF: %s\n",
+			   strerror(errno));
+		goto err;
+	}
+	if ((buf = malloc(s.st_size)) == NULL) {
+		dt_dprintf("Out of memory allocating %zi bytes while scanning for USDT DOF\n",
+			   s.st_size);
+		goto err;
+	}
+	*size = s.st_size;
 
-#define UPROBE_PREFIX "p:dt_pid/p_"
-#define UPROBE_IS_ENABLED_PREFIX "p:dt_pid_is_enabled/p_"
-
-	while (getline(&buf, &sz, f) >= 0) {
-		uprobe_line_t *line;
-		int is_enabled;
-
-		if (strncmp(buf, UPROBE_PREFIX,
-			strlen(UPROBE_PREFIX)) == 0)
-			is_enabled = 0;
-		else if (strncmp(buf, UPROBE_IS_ENABLED_PREFIX,
-			strlen(UPROBE_IS_ENABLED_PREFIX)) == 0)
-			is_enabled = 1;
-		else
+	bufptr = buf;
+	while ((len = read(fd, bufptr, s.st_size)) < s.st_size) {
+		if (len < 0) {
+			if (errno != EINTR) {
+				dt_dprintf("Cannot read USDT DOF: %s\n",
+					   strerror(errno));
+				goto err;
+			}
 			continue;
-
-		line = dt_zalloc(dtp, sizeof (struct uprobe_line));
-		if (!line) {
-			fclose(f);
-			goto err; 		/* errno is set for us. */
 		}
-
-		line->line = buf;
-		line->is_enabled = is_enabled;
-		dt_list_append(&lines, line);
-		sz = 0;
-		dtp->dt_uprobespecs_sz++;
-		buf = NULL;
+		s.st_size -= len;
+		bufptr += len;
 	}
-	fclose(f);
-
-	dtp->dt_uprobespecs = dt_calloc(dtp, dtp->dt_uprobespecs_sz,
-	    sizeof(pid_probespec_t));
-	if (!dtp->dt_uprobespecs)
-		goto err;			/* errno is set for us.  */
-
-	/*
-	 * Now we know how many specs exist, parse and create them.
-	 */
-	for (linep = dt_list_next(&lines); linep != NULL;
-	     linep = dt_list_next(linep)) {
-		uint64_t off;
-		const char *fmt;
-		unsigned long long dev, inum;
-		char *spec = NULL;
-		char *eprv = NULL, *emod = NULL, *efun = NULL, *eprb = NULL;
-		char *prv = NULL, *mod = NULL, *fun = NULL, *prb = NULL;
-		pid_probespec_t *psp;
-
-#define UPROBE_PROBE_FMT "%llx_%llx_%lx %ms P%m[^= ]=\\1 M%m[^= ]=\\2 F%m[^= ]=\\3 N%m[^= ]=\\4"
-#define UPROBE_FMT UPROBE_PREFIX UPROBE_PROBE_FMT
-#define UPROBE_IS_ENABLED_FMT UPROBE_IS_ENABLED_PREFIX UPROBE_PROBE_FMT
-
-		if (!linep->is_enabled)
-			fmt = UPROBE_FMT;
-		else
-			fmt = UPROBE_IS_ENABLED_FMT;
-
-		switch (sscanf(linep->line, fmt, &dev, &inum,
-			       &off, &spec, &eprv, &emod, &efun, &eprb)) {
-		case 8: /* Includes dtrace probe names: decode them. */
-			prv = uprobe_decode_name(eprv);
-			mod = uprobe_decode_name(emod);
-			fun = uprobe_decode_name(efun);
-			prb = uprobe_decode_name(eprb);
-			break;
-		case 4: /* No dtrace probe name - not a USDT probe. */
-			goto next;
-		default:
-			if ((strlen(linep->line) > 0) &&
-			    (linep->line[strlen(linep->line)-1] == '\n'))
-				linep->line[strlen(linep->line)-1] = 0;
-			dt_dprintf("Cannot parse %s as a DTrace uprobe name\n",
-			    linep->line);
-			dtp->dt_uprobespecs_sz--;
-			goto next;
-		}
-
-		psp = &dtp->dt_uprobespecs[i++];
-		psp->pps_type = linep->is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
-		psp->pps_nameoff = 0;
-
-		/*
-		 * These components are only used for creation of an underlying
-		 * probe with no overlying counterpart: usually these are those
-		 * not explicitly listed in the D program, which will never be
-		 * enabled.  In future this may change.
-		 */
-		psp->pps_prv = prv;
-		psp->pps_mod = mod;
-		psp->pps_fun = fun;
-		psp->pps_prb = prb;
-
-		/*
-		 * Always used.
-		 */
-		psp->pps_dev = dev;
-		psp->pps_inum = inum;
-		psp->pps_off = off;
-	next:
-		free(eprv); free(emod); free(efun); free(eprb);
-		free(spec);
-	}
-
-	goto out;
-
+	close(fd);
+	return buf;
 err:
-	ret = -1;
-
-out:
-	old_linep = NULL;
-
-	for (linep = dt_list_next(&lines); linep != NULL;
-	     linep = dt_list_next(linep)) {
-		free(linep->line);
-		free(old_linep);
-		old_linep = linep;
-	}
-	free(old_linep);
-
-	return ret;
+	free(buf);
+	close(fd);
+	return NULL;
 }
 
 /*
- * Rescan the PID uprobe list and create suitable underlying probes.
+ * A quick check that a parsed DOF record read hasn't incurred a buffer overrun
+ * and is of the type expected.
+ */
+static int
+validate_dof_record(const char *path, const dof_parsed_t *parsed,
+		    dof_parsed_info_t expected, size_t buf_size,
+		    size_t seen_size)
+{
+	if (buf_size < seen_size) {
+		dt_dprintf("DOF too small when adding probes (seen %zi bytes)\n",
+			   seen_size);
+		return 0;
+	}
+
+	if (parsed->type != expected) {
+		dt_dprintf("%s format invalid: expected %i, got %i\n", path,
+			   expected, parsed->type);
+		return 0;
+	}
+	return 1;
+}
+
+
+/*
+ * Create underlying probes relating to the probespec passed on input.
  *
  * If dpr is set, just set up probes relating to mappings found in that one
  * process.  (dpr must in this case be locked.)
@@ -891,81 +787,227 @@ out:
  * probes is not an error.)
  */
 static int
-dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dt_pcb_t *pcb)
+dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
+			  dt_pcb_t *pcb)
 {
 	const dt_provider_t *pvp;
-	size_t i;
 	int ret = 0;
+	char *probepath = NULL;
+	glob_t probeglob = {0};
 
 	/*
 	 * Systemwide probing: not yet implemented.
 	 */
-	assert(dpr != NULL);
+	assert(dpr != NULL && dpr->dpr_proc);
+	assert(MUTEX_HELD(&dpr->dpr_lock));
 
-	dt_dprintf("Scanning for usdt probes matching %i\n", dpr->dpr_pid);
+	dt_dprintf("Scanning for usdt probes in %i matching %s:%s:%s\n",
+		   dpr->dpr_pid, pdp->mod, pdp->fun, pdp->prb);
+
+	pvp = dt_provider_lookup(dtp, "usdt");
+	assert(pvp != NULL);
+
+	if (Pstate(dpr->dpr_proc) == PS_DEAD)
+		return 0;
 
 	/*
-	 * For now, we only read the list of probes once.  In time we will
-	 * reread it whenever necessary.
+	 * Look for DOF matching this probe in the global probe DOF stash, in
+	 * /run/dtrace/probes/$pid/$pid$prv/$mod/$fun/$prb: glob expansion means
+	 * that this may relate to multiple probes.  (This is why we retain
+	 * a run-together $pid$prv component, because the glob may match text on
+	 * both sides of the boundary between $pid and $prv.)
+	 *
+	 * Using this is safe because the parsed DOF is guaranteed up to date
+	 * with the current DTrace, being reparsed by the currently-running
+	 * daemon, and was parsed in a seccomp jail.  The most a process can do
+	 * by messing with this is force probes to be dropped in the wrong place
+	 * in itself: and if a process wants to perturb tracing of itself there
+	 * are many simpler ways, such as overwriting the DOF symbol before the
+	 * ELF constructor runs, etc.
+	 *
+	 * Note: future use of parsed DOF (after DTrace has been running for a
+	 * while) may not be safe, since the daemon may be newer than DTrace
+	 * and thus have newer parsed DOF. A version comparison will suffice to
+	 * check that: for safety we do it here too.
 	 */
-	pvp = dtp->dt_prov_usdt;
-	if (!pvp) {
-		pvp = dt_provider_lookup(dtp, "usdt");
-		assert(pvp != NULL);
-		dtp->dt_prov_usdt = pvp;
-		if (dt_pid_scan_uprobes(dtp, pcb) < 0)
-			return -1;		/* errno is set for us.  */
-	}
 
 	assert(pvp->impl != NULL && pvp->impl->provide_probe != NULL);
 
-	/*
-	 * We are only interested in pid uprobes, not any other uprobes that may
-	 * exist.  Some of these may be for pid probes, some for usdt: we create
-	 * underlying probes for all of them, if we are interested in creating
-	 * mappings for that process at all.
-	 */
-	for (i = 0; i < dtp->dt_uprobespecs_sz; i++) {
-		pid_probespec_t *psp = &dtp->dt_uprobespecs[i];
-
-		/*
-		 * Filter out probes not related to the process of interest.
-		 */
-		if (dpr && dpr->dpr_proc) {
-			assert(MUTEX_HELD(&dpr->dpr_lock));
-			if (Pinode_to_file_map(dpr->dpr_proc, psp->pps_dev,
-				psp->pps_inum) == NULL)
-				continue;
-
-			/*
-			 * This is overwritten repeatedly with each relevant PID
-			 * in turn.
-			 */
-			psp->pps_pid = Pgetpid(dpr->dpr_proc);
-		}
-
-		/*
-		 * Create an underlying probe using psp, if not already present.
-		 *
-		 * Complain if any probe cannot be created: at this stage we
-		 * cannot reliably tell whether a corresponding overlying probe
-		 * will be created (since dt_setcontext only calls us for the
-		 * first one in any given provider).
-		 */
-
-		dt_dprintf("providing %s:%s:%s:%s\n", psp->pps_prv, psp->pps_mod,
-			   psp->pps_fun, psp->pps_prb);
-		if (pvp->impl->provide_probe(dtp, psp) < 0) {
-			dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
-				     "failed to instantiate %sprobe %s for pid %d: %s",
-				     psp->pps_type == DTPPT_IS_ENABLED ?
-				     "is-enabled ": "", psp->pps_prb, dpr->dpr_pid,
-				     dtrace_errmsg(dtp, dtrace_errno(dtp)));
-			ret = -1;
-		}
+	if (strchr(pdp->prv, '.') != NULL ||
+	    strchr(pdp->mod, '.') != NULL ||
+	    strchr(pdp->fun, '.') != NULL ||
+	    strchr(pdp->prb, '.') != NULL) {
+		dt_dprintf("Probe component contains dots: cannot be a USDT probe.\n");
+		return 0;
 	}
 
+	if (asprintf(&probepath, "%s/probes/%i/%s/%s/%s/%s", dtp->dt_dofstash_path,
+		     dpr->dpr_pid, pdp->prv[0] == '\0' ? "*" : pdp->prv,
+		     pdp->mod[0] == '\0' ? "*" : pdp->mod,
+		     pdp->fun[0] == '\0' ? "*" : pdp->fun,
+		     pdp->prb[0] == '\0' ? "*" : pdp->prb) < 0)
+		goto scan_err;
+
+	switch(glob(probepath, GLOB_NOSORT | GLOB_ERR | GLOB_PERIOD, NULL, &probeglob)) {
+	case GLOB_NOSPACE:
+	case GLOB_ABORTED:
+		/*
+		 * Directory missing?  PID not present or has no DOF, which is
+		 * fine, though it might lead to a match failure later on.
+		 */
+		if (errno == ENOENT)
+			return 0;
+
+		dt_dprintf("Cannot glob probe components in %s: %s\n", probepath, strerror(errno));
+		goto scan_err;
+	case GLOB_NOMATCH:
+		/* No probes match, which is fine. */
+		return 0;
+	}
+
+	for (size_t i = 0; i < probeglob.gl_pathc; i++) {
+		char *dof_buf = NULL, *p;
+		struct stat s;
+		char *path;
+		size_t dof_buf_size, seen_size = 0;
+		uint64_t *dof_version;
+		char *prv, *mod, *fun, *prb;
+		dof_parsed_t *provider, *probe;
+
+		/*
+		 * Regular files only: in particular, skip . and ..,
+		 * which can appear due to GLOB_PERIOD.
+		 */
+		if ((lstat(probeglob.gl_pathv[i], &s) < 0) ||
+		    (!S_ISREG(s.st_mode)))
+			continue;
+
+		path = strdup(probeglob.gl_pathv[i]);
+		if (path == NULL)
+			goto per_mapping_err;
+
+		dof_buf = read_file(path, &dof_buf_size);
+		if (dof_buf == NULL)
+			goto per_mapping_err;
+		dof_version = (uint64_t *) dof_buf;
+		if (*dof_version != DOF_PARSED_VERSION) {
+			dt_dprintf("Parsed DOF version incorrect (daemon / running DTrace version skew?) %lli (daemon) versus %i (DTrace)\n",
+				   (long long) *dof_version, DOF_PARSED_VERSION);
+			goto per_mapping_err;
+		}
+		p = dof_buf + sizeof(uint64_t);
+		dof_buf_size -= sizeof(uint64_t);
+
+		/*
+		 * The first two pieces of parsed DOF are always provider and
+		 * probe.
+		 */
+		provider = (dof_parsed_t *) p;
+		if (!validate_dof_record(path, provider, DIT_PROVIDER, dof_buf_size,
+					 seen_size))
+                        goto parse_err;
+
+		prv = provider->provider.name;
+
+		p += provider->size;
+		seen_size += provider->size;
+
+		probe = (dof_parsed_t *) p;
+		if (!validate_dof_record(path, probe, DIT_PROBE, dof_buf_size,
+					 seen_size))
+                        goto parse_err;
+
+                mod = probe->probe.name;
+		fun = mod + strlen(mod) + 1;
+		prb = fun + strlen(fun) + 1;
+
+		p += probe->size;
+		seen_size += probe->size;
+
+                /*
+		 * Now the parsed DOF for this probe's tracepoints.
+		 */
+		for (size_t j = 0; j < probe->probe.ntp; j++) {
+			dof_parsed_t *tp = (dof_parsed_t *) p;
+			pid_probespec_t psp = {0};
+			const prmap_t *pmp;
+
+			if (!validate_dof_record(path, tp, DIT_TRACEPOINT,
+						 dof_buf_size, seen_size))
+				goto parse_err;
+
+			p += tp->size;
+			seen_size += tp->size;
+
+			/*
+			 * Check for process death in the inner loop to handle
+			 * the process dying while its DOF is being pulled in.
+			 */
+			if (Pstate(dpr->dpr_proc) == PS_DEAD)
+				continue;
+
+			pmp = Paddr_to_map(dpr->dpr_proc, tp->tracepoint.addr);
+			if (!pmp) {
+				dt_dprintf("%i: cannot determine 0x%lx's mapping\n",
+					   Pgetpid(dpr->dpr_proc), tp->tracepoint.addr);
+				continue;
+			}
+
+			psp.pps_fn = Pmap_mapfile_name(dpr->dpr_proc, pmp);
+			if (psp.pps_fn == NULL) {
+				dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
+					     "Cannot get name of mapping containing "
+					     "%sprobe %s for pid %d\n",
+					     tp->tracepoint.is_enabled ? "is-enabled ": "",
+					     psp.pps_prb, dpr->dpr_pid);
+				goto oom;
+			}
+
+			psp.pps_type = tp->tracepoint.is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
+			psp.pps_prv = prv;
+			psp.pps_mod = mod;
+			psp.pps_fun = fun;
+			psp.pps_prb = prb;
+			psp.pps_dev = pmp->pr_dev;
+			psp.pps_inum = pmp->pr_inum;
+			psp.pps_pid = dpr->dpr_pid;
+			psp.pps_off = tp->tracepoint.addr - pmp->pr_file->first_segment->pr_vaddr;
+			psp.pps_nameoff = 0;
+
+			dt_dprintf("providing %s:%s:%s:%s for pid %d\n", psp.pps_prv,
+				   psp.pps_mod, psp.pps_fun, psp.pps_prb, psp.pps_pid);
+			if (pvp->impl->provide_probe(dtp, &psp) < 0) {
+				dt_pid_error(dtp, pcb, dpr, D_PROC_USDT,
+					     "failed to instantiate %sprobe %s for pid %d: %s",
+					     tp->tracepoint.is_enabled ? "is-enabled ": "",
+					     psp.pps_prb, psp.pps_pid,
+					     dtrace_errmsg(dtp, dtrace_errno(dtp)));
+				ret = -1;
+			}
+			free(psp.pps_fn);
+		}
+
+		free(path);
+		free(dof_buf);
+		continue;
+
+	  parse_err:
+		dt_dprintf("Parsed DOF corrupt. This should never happen.\n");
+	  oom: ;
+	  per_mapping_err:
+		free(path);
+		free(dof_buf);
+		globfree(&probeglob);
+		return -1;
+	}
+
+	globfree(&probeglob);
 	return ret;
+
+scan_err:
+	dt_dprintf("Cannot read DOF stash directory %s: %s\n",
+		   probepath, strerror(errno));
+	return -1;
 }
 
 #if 0 /* Almost certainly unnecessary in this form */
@@ -1093,7 +1135,8 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 	 * If it's not strictly a pid provider, we might match a USDT provider.
 	 */
 	if (strcmp(provname, pdp->prv) != 0) {
-		if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING) < 0) {
+		if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
+				      DTRACE_PROC_SHORTLIVED) < 0) {
 			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return -1;
@@ -1102,10 +1145,7 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		dpr = dt_proc_lookup(dtp, pid);
 		assert(dpr != NULL);
 
-		if (!dpr->dpr_usdt) {
-			err = dt_pid_create_usdt_probes(dtp, dpr, pcb);
-			dpr->dpr_usdt = B_TRUE;
-		}
+		err = dt_pid_create_usdt_probes(dtp, dpr, pdp, pcb);
 
 		/*
 		 * Put the module name in its canonical form.
@@ -1155,7 +1195,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			 * a USDT provider.
 			 */
 			if (strcmp(provname, pdp->prv) != 0) {
-				if (dt_pid_create_usdt_probes(dtp, dpr, NULL) < 0)
+				if (dt_pid_create_usdt_probes(dtp, dpr, pdp, NULL) < 0)
 					ret = 1;
 				else
 					dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);

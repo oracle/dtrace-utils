@@ -20,16 +20,14 @@
 #include "dt_probe.h"
 #include "dt_pid.h"
 #include "dt_string.h"
-#include "uprobes.h"
 
 /* Provider name for the underlying probes. */
 static const char	prvname[] = "uprobe";
 static const char	prvname_is_enabled[] = "uprobe__is_enabled";
 
-#define PP_IS_MINE	1
-#define PP_IS_RETURN	2
-#define PP_IS_FUNCALL	4
-#define PP_IS_ENABLED	8
+#define PP_IS_RETURN	1
+#define PP_IS_FUNCALL	2
+#define PP_IS_ENABLED	4
 
 typedef struct dt_uprobe {
 	dev_t		dev;
@@ -179,8 +177,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		upp->dev = psp->pps_dev;
 		upp->inum = psp->pps_inum;
 		upp->off = psp->pps_off;
-		if (psp->pps_fn)
-			upp->fn = strdup(psp->pps_fn);
+		upp->fn = strdup(psp->pps_fn);
 		upp->tp = dt_tp_alloc(dtp);
 		if (upp->tp == NULL)
 			goto fail;
@@ -231,9 +228,9 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	pd.prb = prb;
 
 	/* Get (or create) the provider for the PID of the probe. */
-	pvp = dt_provider_lookup(dtp, prv);
+	pvp = dt_provider_lookup(dtp, pd.prb);
 	if (pvp == NULL) {
-		pvp = dt_provider_create(dtp, prv, pvops, &pattr, NULL);
+		pvp = dt_provider_create(dtp, pd.prv, pvops, &pattr, NULL);
 		if (pvp == NULL)
 			return -1;
 	}
@@ -318,7 +315,7 @@ static int provide_pid_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 		return -1;
 	}
 
-	return provide_probe(dtp, psp, prb, &dt_usdt, PP_IS_MINE);
+	return provide_probe(dtp, psp, prb, &dt_pid, 0);
 }
 
 static int provide_usdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
@@ -587,6 +584,57 @@ static int trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
+static char *uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int flags)
+{
+	char	*name;
+
+	if (asprintf(&name, "dt_pid%s/%c_%llx_%llx_%lx",
+		     flags & PP_IS_ENABLED ? "_is_enabled" : "",
+		     flags & PP_IS_RETURN ? 'r' : 'p', (unsigned long long)dev,
+		     (unsigned long long)ino, (unsigned long)addr) < 0)
+		return NULL;
+
+	return name;
+}
+
+/*
+ * Create a uprobe for a given dev/ino, mapping filename, and address: the
+ * uprobe may be a uretprobe or an is-enabled probe.  Return the probe's name as
+ * a new dynamically-allocated string, or NULL on error.
+ */
+static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
+			   uint64_t addr, int flags)
+{
+	int	fd = -1;
+	int	rc = -1;
+	char	*name;
+	char	*spec;
+
+	if (asprintf(&spec, "%s:0x%lx", mapping_fn, addr) < 0)
+		return NULL;
+
+	name = uprobe_name(dev, ino, addr, flags);
+	if (!name)
+		goto out;
+
+	/* Add the uprobe. */
+	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
+	if (fd == -1)
+		goto out;
+
+	rc = dprintf(fd, "%c:%s %s\n", flags & PP_IS_RETURN ? 'r' : 'p', name, spec);
+
+out:
+	if (fd != -1)
+		close(fd);
+	if (rc < 0) {
+		free(name);
+		return NULL;
+	}
+
+	return name;
+}
+
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	dt_uprobe_t	*upp = prp->prv_data;
@@ -599,29 +647,20 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	if (dt_tp_is_created(tpp))
 		goto attach_bpf;
 
-	if (upp->flags & PP_IS_MINE) {
-		char	*spec;
+	assert(upp->fn != NULL);
 
-		assert(upp->fn != NULL);
+	prb = uprobe_create(upp->dev, upp->inum, upp->fn, upp->off,
+			    upp->flags);
 
-		if (asprintf(&spec, "%s:0x%lx", upp->fn, upp->off) < 0)
-			return -ENOENT;
-
-		prb = uprobe_create(upp->dev, upp->inum, upp->off, spec,
-				    upp->flags & PP_IS_RETURN, 0);
-		free(spec);
-
-		/*
-		 * If the uprobe creation failed, it is possible it already
-		 * existed because someone else created it.  Try to access its
-		 * tracefs info and if that fail, we really failed.
-		 */
-	}
+	/*
+	 * If the uprobe creation failed, it is possible it already
+	 * existed because someone else created it.  Try to access its
+	 * tracefs info and if that fails, we really failed.
+	 */
 
 	if (prb == NULL)
 		prb = uprobe_name(upp->dev, upp->inum, upp->off,
-				  upp->flags & PP_IS_RETURN,
-				  upp->flags & PP_IS_ENABLED);
+				  upp->flags);
 
 	/* open format file */
 	rc = asprintf(&fn, "%s%s/format", EVENTSFS, prb);
@@ -654,6 +693,35 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 }
 
 /*
+ * Destroy a uprobe for a given device and address.
+ */
+static int
+uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int flags)
+{
+	int	fd = -1;
+	int	rc = -1;
+	char	*name;
+
+	name = uprobe_name(dev, ino, addr, flags);
+	if (!name)
+		goto out;
+
+	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
+	if (fd == -1)
+		goto out;
+
+
+	rc = dprintf(fd, "-:%s\n", name);
+
+out:
+	if (fd != -1)
+		close(fd);
+	free(name);
+
+	return rc < 0 ? -1 : 0;
+}
+
+/*
  * Try to clean up system resources that may have been allocated for this
  * probe.
  *
@@ -674,11 +742,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 
 	dt_tp_detach(dtp, tpp);
 
-	if (!(upp->flags & PP_IS_MINE))
-		return;
-
-	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags & PP_IS_RETURN,
-		      upp->flags & PP_IS_ENABLED);
+	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags);
 }
 
 /*

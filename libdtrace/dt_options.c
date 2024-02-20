@@ -423,6 +423,23 @@ dt_opt_disasm(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 
 /*ARGSUSED*/
 static int
+dt_opt_dofstash_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *path;
+
+	if (arg == NULL)
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+
+	if ((path = strdup(arg)) == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	free(dtp->dt_dofstash_path);
+	dtp->dt_dofstash_path = path;
+
+	return 0;
+}
+
+/*ARGSUSED*/
+static int
 dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	if (arg == NULL)
@@ -1123,6 +1140,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "debugassert", dt_opt_debug_assert },
 	{ "define", dt_opt_cpp_opts, (uintptr_t)"-D" },
 	{ "disasm", dt_opt_disasm },
+	{ "dofstashpath", dt_opt_dofstash_path },
 	{ "droptags", dt_opt_droptags },
 	{ "dtypes", dt_opt_dtypes },
 	{ "empty", dt_opt_cflags, DTRACE_C_EMPTY },

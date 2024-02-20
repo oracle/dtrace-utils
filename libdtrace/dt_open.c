@@ -612,6 +612,7 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 static const char *_dtrace_defcpp = "cpp"; /* default cpp(1) to invoke */
 static const char *_dtrace_defld = "ld";   /* default ld(1) to invoke */
 static const char *_dtrace_defproc = "/proc";   /* default /proc path */
+static const char *_dtrace_defdofstash = "/run/dtrace";   /* default DOF stash path */
 static const char *_dtrace_defsysslice = ":/system.slice/"; /* default systemd
 							       system slice */
 
@@ -747,6 +748,7 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_ld_path = strdup(_dtrace_defld);
 	Pset_procfs_path(_dtrace_defproc);
 	dtp->dt_sysslice = strdup(_dtrace_defsysslice);
+	dtp->dt_dofstash_path = strdup(_dtrace_defdofstash);
 	dtp->dt_useruid = DTRACE_USER_UID;
 	dtp->dt_vector = vector;
 	dtp->dt_varg = arg;
@@ -1303,7 +1305,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_pfdict_destroy(dtp);
 	dt_dof_fini(dtp);
 	dt_probe_fini(dtp);
-	dt_pid_free_uprobespecs(dtp);
 
 	/*
 	 * FIXME:
@@ -1326,6 +1327,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_cpp_path);
 	free(dtp->dt_ld_path);
 	free(dtp->dt_sysslice);
+	free(dtp->dt_dofstash_path);
 
 	free(dtp->dt_freopen_filename);
 	free(dtp->dt_sprintf_buf);

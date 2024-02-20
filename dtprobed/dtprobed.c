@@ -1,8 +1,21 @@
 /*
- * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
+ * Oracle Linux DTrace; DOF-consumption and storage daemon.
  * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
+ */
+
+/*
+ * dtprobed's purpose is simple: listen for ioctls on /dev/dtrace/helper and
+ * keep track of USDT probes live in running processes.  dtrace(1) cannot do
+ * this because it isn't going to be running all the time, and is almost
+ * certainly not going to be running in early boot when most daemons start up.
+ * It records this DOF in the DOF stash under /run/dtrace (see dof_stash.c in
+ * this directory), and also tracks the identity of the probes contained in it.
+ *
+ * The DOF is recorded in a pre-parsed form, and parsed on receipt by a forked
+ * helper jailed by strict-mode seccomp to prevent DOF contributed by hostile
+ * binaries from compromising the system.
  */
 
 #include <sys/param.h>
@@ -54,7 +67,6 @@
 
 #include <dt_list.h>
 #include "dof_parser.h"
-#include "uprobes.h"
 #include "dof_stash.h"
 #include "libproc.h"
 
@@ -428,26 +440,6 @@ dof_read(pid_t pid, int in)
 }
 
 /*
- * Create probes as requested by the dof_parsed_t parsed from the DOF.
- * The DOF parser has already applied the l_addr offset derived from the client
- * process's dynamic linker.
- */
-static void
-create_probe(ps_prochandle *P, dof_parsed_t *provider, dof_parsed_t *probe,
-    dof_parsed_t *tp)
-{
-	const char *mod, *fun, *prb;
-
-	mod = probe->probe.name;
-	fun = mod + strlen(mod) + 1;
-	prb = fun + strlen(fun) + 1;
-
-	free(uprobe_create_from_addr(P, tp->tracepoint.addr,
-		tp->tracepoint.is_enabled, provider->provider.name,
-		mod, fun, prb));
-}
-
-/*
  * Get the (dev, inum) pair for the mapping the passed-in addr belongs to in the
  * given pid.  (If there are multiple, it doesn't matter which we choose as long
  * as we are consistent.)
@@ -501,7 +493,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	const void *buf;
 	dev_t dev = 0;
 	ino_t inum = 0;
-	int gen = 0;
+	int gen;
 
 	/*
 	 * We can just ignore FUSE_IOCTL_COMPAT: the 32-bit and 64-bit versions
@@ -738,7 +730,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 }
 
 /*
- * Process some DOF, passing it to the parser and creating probes from it.
+ * Process some DOF, passing it to the parser and stashing it away for later.
  *
  * If reparsing is set, we are re-parsing existing DOF and should only update
  * the parsed DOF representation.
@@ -753,7 +745,6 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dof_helper_t *dh,
 	int gen = 0;
 	const char *errmsg;
 	dt_list_t accum = {0};
-	ps_prochandle *P = NULL; /* temporary */
 
 	do {
 		errmsg = "DOF parser write failed";
@@ -802,11 +793,6 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dof_helper_t *dh,
 			if (!tp || tp->type != DIT_TRACEPOINT)
 				goto err;
 
-			/*
-			 * Ignore errors here: we want to create as many probes
-			 * as we can, even if creation of some of them fails.
-			 */
-			create_probe(P, provider, probe, tp);
 			if (dof_stash_push_parsed(&accum, tp) < 0)
 				goto oom;
 		}

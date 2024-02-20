@@ -88,7 +88,6 @@ struct dt_pfdict;		/* see <dt_printf.h> */
 struct dt_arg;			/* see below */
 struct dt_provider;		/* see <dt_provider.h> */
 struct dt_probe;		/* see <dt_probe.h> */
-struct pid_probespec;		/* see <pid.h> */
 struct dt_pebset;		/* see <dt_peb.h> */
 struct dt_xlator;		/* see <dt_xlator.h> */
 
@@ -362,13 +361,6 @@ struct dtrace_hdl {
 	size_t dt_probes_sz;	/* size of array of probes */
 	uint32_t dt_probe_id;	/* next available probe id */
 
-	/*
-	 * uprobes potentially of interest: some may be instantiated as
-	 * dtrace probes.
-	 */
-	struct pid_probespec *dt_uprobespecs;
-	size_t dt_uprobespecs_sz; /* size of array of uprobes */
-
 	struct dt_probe *dt_error; /* ERROR probe */
 
 	dt_htab_t *dt_provs;	/* hash table of dt_provider_t's */
@@ -406,6 +398,7 @@ struct dtrace_hdl {
 	dt_list_t dt_lib_path;	/* linked-list forming library search path */
 	char *dt_module_path;	/* pathname of kernel module root */
 	dt_version_t dt_kernver;/* kernel version, used in the libpath */
+	char *dt_dofstash_path;	/* Path to the DOF stash.  */
 	uid_t dt_useruid;	/* lowest non-system uid: set via -xuseruid */
 	char *dt_sysslice;	/* the systemd system slice: set via -xsysslice */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
