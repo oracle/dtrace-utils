@@ -8,7 +8,7 @@
 #               and generated intermediate representation.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -551,14 +551,22 @@ resultslog()
     rm -f $testdebug
 }
 
+# Flip a few env vars to tell dtrace to produce reproducible output.
+export _DTRACE_TESTING=t
+export LANGUAGE=C
+
 if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
     test_incflags="-Iinclude -Iuts/common -Ibuild -Ilibdtrace -DARCH_$arch"
     helper_device="dtrace/test-$$"
-    dtprobed_flags="-n $helper_device -F"
+    # Pre-existing directories from earlier tests are just fine!
+    # dtprobed will clean things up.
+    mkdir -p $tmpdir/run/dtrace
+    dtprobed_flags="-n $helper_device -s${tmpdir}/run/dtrace -F"
     export DTRACE_DOF_INIT_DEVNAME="/dev/$helper_device"
+    export DTRACE_OPT_DOFSTASHPATH="${tmpdir}/run/dtrace"
 
     if [[ -z $(eval echo $dtrace) ]]; then
     	echo "No dtraces available." >&2
@@ -579,10 +587,6 @@ else
     fi
 fi
 export dtrace
-
-# Flip a few env vars to tell dtrace to produce reproducible output.
-export _DTRACE_TESTING=t
-export LANGUAGE=C
 
 # Figure out if the preprocessor supports -fno-diagnostics-show-option: if it
 # does, add a bunch of options designed to make GCC output look like it used

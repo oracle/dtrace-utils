@@ -75,12 +75,11 @@
 #define DOF_MAXSZ 512 * 1024 * 1024
 #define DOF_CHUNKSZ 64 * 1024
 
-#define CLEANUP_INTERVAL 128
-
 static struct fuse_session *cuse_session;
 
 int _dtrace_debug = 0;
 static int foreground;
+static int testing;
 void dt_debug_dump(int unused) {} 		/* For libproc.  */
 
 static pid_t parser_pid;
@@ -89,6 +88,7 @@ static int parser_out_pipe;
 static int sync_fd = -1;
 static int timeout = 5000; 			/* In seconds.  */
 static int rq_count = 0;
+static int cleanup_interval = 128;		/* In requests.  */
 
 static void helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			 struct fuse_file_info *fi, unsigned int flags,
@@ -110,10 +110,12 @@ log_msg(enum fuse_log_level level, const char *fmt, va_list ap)
 		return;
 
 	if (foreground) {
-		fprintf(stderr, "dtprobed DEBUG %li: ", time(NULL));
+		if (testing)
+			fprintf(stderr, "dtprobed DEBUG %li: ", time(NULL));
 		vfprintf(stderr, fmt, ap);
 	} else if (sync_fd >= 0) {
-		daemon_log(sync_fd, "dtprobed DEBUG %li: ", time(NULL));
+		if (testing)
+			daemon_log(sync_fd, "dtprobed DEBUG %li: ", time(NULL));
 		daemon_vlog(sync_fd, fmt, ap);
 	} else
 		vsyslog(level, fmt, ap);
@@ -127,7 +129,8 @@ dt_debug_printf(const char *subsys, const char *fmt, va_list ap)
 		return;
 
 	if (foreground) {
-		fprintf(stderr, "%s DEBUG %li: ", subsys, time(NULL));
+		if (testing)
+			fprintf(stderr, "%s DEBUG %li: ", subsys, time(NULL));
 		vfprintf(stderr, fmt, ap);
 	} else if (sync_fd >= 0)
 		daemon_vlog(sync_fd, fmt, ap);
@@ -699,7 +702,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	 * Periodically clean up old userdata (applying to pids with no live
 	 * transaction, or pids which no longer exist).
 	 */
-	if (rq_count++ > CLEANUP_INTERVAL) {
+	if (rq_count++ > cleanup_interval) {
 		cleanup_userdata();
 		dof_stash_prune_dead();
 		rq_count = 0;
@@ -916,6 +919,19 @@ loop(void)
 }
 #endif
 
+/*
+ * Force a reparse of all parsed DOF on demand.
+ *
+ * Only hooked up during in-source-tree testing.
+ */
+static void
+force_reparse(int sig)
+{
+	fuse_log(FUSE_LOG_DEBUG, "Forced reparse\n");
+	reparse_dof(parser_out_pipe, parser_in_pipe, process_dof, 1);
+	fuse_log(FUSE_LOG_DEBUG, "Forced reparse complete\n");
+}
+
 static void
 usage(void)
 {
@@ -1008,6 +1024,20 @@ main(int argc, char *argv[])
 	 */
 	sa.sa_handler = SIG_IGN;
 	(void) sigaction(SIGPIPE, &sa, NULL);
+
+	/*
+	 * When doing (in-tree) testing, use a shorter cleanup interval, and
+	 * hook up a signal allowing the test scripts to force a DOF cleanup.
+	 */
+	if (getenv("_DTRACE_TESTING")) {
+		struct sigaction tmp = {0};
+
+		cleanup_interval = 5;
+		tmp.sa_handler = force_reparse;
+		tmp.sa_flags = SA_RESTART;
+		(void) sigaction(SIGUSR2, &tmp, NULL);
+		testing = 1;
+	}
 
 	dof_parser_start();
 
