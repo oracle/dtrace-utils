@@ -82,13 +82,14 @@ static void helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			 struct fuse_file_info *fi, unsigned int flags,
 			 const void *in_buf, size_t in_bufsz, size_t out_bufsz);
 
-static int process_dof(fuse_req_t req, int out, int in, pid_t pid,
-		       dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
-		       uintptr_t buf_addr);
-
 static const struct cuse_lowlevel_ops dtprobed_clop = {
 	.ioctl = helper_ioctl,
 };
+
+static int
+process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum,
+	    dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
+	    int reparsing);
 
 static void
 log_msg(enum fuse_log_level level, const char *fmt, va_list ap)
@@ -447,6 +448,44 @@ create_probe(ps_prochandle *P, dof_parsed_t *provider, dof_parsed_t *probe,
 }
 
 /*
+ * Get the (dev, inum) pair for the mapping the passed-in addr belongs to in the
+ * given pid.  (If there are multiple, it doesn't matter which we choose as long
+ * as we are consistent.)
+ */
+static const int
+mapping_dev_inum(pid_t pid, uintptr_t addr, dev_t *dev, ino_t *inum)
+{
+	ps_prochandle *P;
+	const prmap_t *mapp;
+	int err = 0;
+
+	if ((P = Pgrab(pid, 2, 0, NULL, &err)) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: process grab failed: %s\n",
+			 pid, strerror(err));
+		return -1;
+	}
+
+	mapp = Paddr_to_map(P, addr);
+
+	err = -1;
+	if (mapp == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
+			 pid);
+		goto out;
+	}
+
+	*dev = mapp->pr_dev;
+	*inum = mapp->pr_inum;
+
+	err = 0;
+out:
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+
+	return err;
+}
+
+/*
  * Core ioctl() helper.  Repeatedly reinvoked after calls to
  * fuse_reply_ioctl_retry, once per dereference.
  */
@@ -460,6 +499,8 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	dtprobed_userdata_t *userdata = get_userdata(pid);
 	const char *errmsg;
 	const void *buf;
+	dev_t dev = 0;
+	ino_t inum = 0;
 	int gen = 0;
 
 	/*
@@ -647,9 +688,12 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	if (userdata->buf)
 		buf = userdata->buf;
 
-	if (process_dof(req, parser_out_pipe, parser_in_pipe, pid,
-			&userdata->dh, buf, userdata->dof_hdr.dofh_loadsz,
-			userdata->dh.dofhp_dof) < 0)
+	if ((mapping_dev_inum(pid, userdata->dh.dofhp_dof, &dev, &inum)) < 0)
+		goto process_err;
+
+	if ((gen = process_dof(pid, parser_out_pipe, parser_in_pipe,
+			       dev, inum, &userdata->dh, buf,
+			       userdata->dof_hdr.dofh_loadsz, 0)) < 0)
 		goto process_err;
 
 	if (fuse_reply_ioctl(req, gen, NULL, 0) < 0)
@@ -695,37 +739,23 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 
 /*
  * Process some DOF, passing it to the parser and creating probes from it.
+ *
+ * If reparsing is set, we are re-parsing existing DOF and should only update
+ * the parsed DOF representation.
  */
 static int
-process_dof(fuse_req_t req, int out, int in, pid_t pid,
-	    dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
-	    uintptr_t buf_addr)
+process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dof_helper_t *dh,
+	    const void *in_buf, size_t in_bufsz, int reparsing)
 {
-	int perr = 0;
-	ps_prochandle *P;
 	dof_parsed_t *provider;
 	size_t i;
 	size_t tries = 0;
 	int gen = 0;
 	const char *errmsg;
 	dt_list_t accum = {0};
-	const prmap_t *mapp;
+	ps_prochandle *P = NULL; /* temporary */
 
-	if ((P = Pgrab(pid, 2, 0, NULL, &perr)) == NULL) {
-		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: process grab failed: %s\n",
-			 pid, strerror(perr));
-		goto proc_err;
-	}
-
-	mapp = Paddr_to_map(P, buf_addr);
-
-	if (mapp == NULL) {
-		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
-			 pid);
-		goto release_err;
-	}
-
-        do {
+	do {
 		errmsg = "DOF parser write failed";
 		while ((errno = dof_parser_host_write(out, dh,
 						      (dof_hdr_t *) in_buf)) == EAGAIN);
@@ -782,19 +812,18 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		}
 	}
 
-	Prelease(P, PS_RELEASE_NORMAL);
-	Pfree(P);
-	if ((gen = dof_stash_add(pid, mapp->pr_dev, mapp->pr_inum, dh, in_buf, in_bufsz)) < 0)
-		goto fileio;
+	if (!reparsing)
+		if ((gen = dof_stash_add(pid, dev, inum, dh, in_buf, in_bufsz)) < 0)
+			goto fileio;
 
-	if (dof_stash_write_parsed(pid, mapp->pr_dev, mapp->pr_inum, &accum) < 0) {
+	if (dof_stash_write_parsed(pid, dev, inum, &accum) < 0) {
 		dof_stash_free(&accum);
 		dof_stash_remove(pid, gen);
 		goto fileio;
 	}
 	dof_stash_free(&accum);
 
-        return gen;
+	return gen;
 
 oom:
 	fuse_log(FUSE_LOG_ERR, "%i: out of memory parsing DOF\n", pid);
@@ -802,17 +831,11 @@ oom:
 
 err:
 	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: parser error: %s\n", pid, errmsg);
-	Prelease(P, PS_RELEASE_NORMAL);
-	Pfree(P);
 	goto proc_err;
 
 fileio:
-        fuse_log(FUSE_LOG_ERR, "%i: dtprobed: I/O error stashing DOF: %s\n",
-                 pid, strerror(errno));
-
-release_err:
-	Prelease(P, PS_RELEASE_NORMAL);
-	Pfree(P);
+	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: I/O error stashing DOF: %s\n",
+		 pid, strerror(errno));
 
 proc_err:
 	dof_stash_free(&accum);
@@ -1010,6 +1033,17 @@ main(int argc, char *argv[])
 	 * was running?  Clean them up.
 	 */
 	dof_stash_prune_dead();
+
+	/*
+	 * Make sure that old parsed DOF is deleted and reparsed: it might come
+	 * from a prior daemon invocation, with an older daemon version with a
+	 * different parsed DOF representation.  If we can't do this, don't try
+	 * restarting the daemon: it'll just fail again in the same way.
+	 */
+	if (reparse_dof(parser_out_pipe, parser_in_pipe, process_dof, 0) < 0) {
+		teardown_device();
+		exit(1);
+	}
 
 	if (!foreground) {
 		close(sync_fd);
