@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
- * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -51,15 +51,15 @@ dof_parser_write_one(int out, const void *buf_, size_t size)
  * Returns 0 on success or a positive errno value on error.
  */
 int
-dof_parser_host_write(int out, dof_helper_t *dh, dof_hdr_t *dof)
+dof_parser_host_write(int out, const dof_helper_t *dh, dof_hdr_t *dof)
 {
 	int err;
 
-	if ((err = dof_parser_write_one(out, (char *)dh,
+	if ((err = dof_parser_write_one(out, (const char *)dh,
 					sizeof(dof_helper_t))) < 0)
 		return err;
 
-	return dof_parser_write_one(out, (char *)dof,
+	return dof_parser_write_one(out, (const char *)dof,
 				    dof->dofh_loadsz);
 }
 

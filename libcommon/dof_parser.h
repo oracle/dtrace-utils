@@ -111,7 +111,7 @@ typedef struct dof_parsed {
  *
  * Returns 0 on success or a positive errno value on error.
  */
-int dof_parser_host_write(int out, dof_helper_t *dh, dof_hdr_t *dof);
+int dof_parser_host_write(int out, const dof_helper_t *dh, dof_hdr_t *dof);
 
 /*
  * Read a single DOF structure from a parser pipe.  Wait at most TIMEOUT seconds
