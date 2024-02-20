@@ -403,7 +403,7 @@ dof_parser_tidy(int restart)
 }
 
 static dof_parsed_t *
-dof_read(fuse_req_t req, int in)
+dof_read(pid_t pid, int in)
 {
 	dof_parsed_t *reply = dof_parser_host_read(in, timeout);
 
@@ -416,8 +416,7 @@ dof_read(fuse_req_t req, int in)
 	if (reply->type == DIT_ERR) {
 		errno = reply->err.err_no;
 		fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: DOF parsing error: "
-			 "%s\n", fuse_req_ctx(req)->pid,
-			 reply->err.err);
+			 "%s\n", pid, reply->err.err);
 		free(reply);
 		reply = NULL;
 	}
@@ -720,7 +719,7 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		 */
 
 		errmsg = "parsed DOF read failed";
-		provider = dof_read(req, in);
+		provider = dof_read(pid, in);
 		if (!provider) {
 			if (tries++ > 1)
 				goto err;
@@ -733,7 +732,7 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 	} while (!provider);
 
 	for (i = 0; i < provider->provider.nprobes; i++) {
-		dof_parsed_t *probe = dof_read(req, in);
+		dof_parsed_t *probe = dof_read(pid, in);
 		size_t j;
 
 		errmsg = "no probes in this provider, or parse state corrupt";
@@ -741,7 +740,7 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 			goto err;
 
 		for (j = 0; j < probe->probe.ntp; j++) {
-			dof_parsed_t *tp = dof_read(req, in);
+			dof_parsed_t *tp = dof_read(pid, in);
 
 			errmsg = "no tracepoints in a probe, or parse state corrupt";
 			if (!tp || tp->type != DIT_TRACEPOINT)
