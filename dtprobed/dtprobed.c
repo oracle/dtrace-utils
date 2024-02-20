@@ -71,8 +71,8 @@ static int foreground;
 void dt_debug_dump(int unused) {} 		/* For libproc.  */
 
 static pid_t parser_pid;
-static int parser_in_pipe[2];
-static int parser_out_pipe[2];
+static int parser_in_pipe;
+static int parser_out_pipe;
 static int sync_fd = -1;
 static int timeout = 5000; 			/* In seconds.  */
 static int rq_count = 0;
@@ -320,9 +320,16 @@ parse_dof(int in, int out)
 static void
 dof_parser_start(void)
 {
-	if ((pipe(parser_in_pipe) < 0) ||
-	    (pipe(parser_out_pipe) < 0))
-		daemon_perr(sync_fd, "cannot create DOF parser pipes", errno);
+	int parser_in[2], parser_out[2];
+	if ((pipe(parser_in) < 0) ||
+	    (pipe(parser_out) < 0)) {
+		fuse_log(FUSE_LOG_ERR, "cannot create DOF parser pipes: %s",
+			 strerror(errno));
+		exit(1);
+	}
+
+	parser_out_pipe = parser_in[1];
+	parser_in_pipe = parser_out[0];
 
 	switch (parser_pid = fork()) {
 	case -1: {
@@ -336,8 +343,8 @@ dof_parser_start(void)
 		 * seccomp jail.
 		 */
 		close(session_fd(cuse_session));
-		close(parser_in_pipe[1]);
-		close(parser_out_pipe[0]);
+		close(parser_out_pipe);
+		close(parser_in_pipe);
 		if (!foreground) {
 			close(sync_fd);
 			sync_fd = -1;
@@ -363,14 +370,14 @@ dof_parser_start(void)
 			if (syscall(SYS_seccomp, SECCOMP_SET_MODE_STRICT, 0, NULL) < 0)
 				_exit(1);
 
-		while (parse_dof(parser_in_pipe[0], parser_out_pipe[1]))
+		while (parse_dof(parser_in[0], parser_out[1]))
 			;
 		_exit(0);
 	}
 	}
 
-	close(parser_in_pipe[0]);
-	close(parser_out_pipe[1]);
+	close(parser_in[0]);
+	close(parser_out[1]);
 }
 
 /*
@@ -388,8 +395,8 @@ dof_parser_tidy(int restart)
 	if (errno != ESRCH)
 		while (waitpid(parser_pid, &status, 0) < 0 && errno == EINTR);
 
-	close(parser_in_pipe[1]);
-	close(parser_out_pipe[0]);
+	close(parser_in_pipe);
+	close(parser_out_pipe);
 
 	if (restart)
 		dof_parser_start();
@@ -635,7 +642,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	if (userdata->buf)
 		buf = userdata->buf;
 
-	if (process_dof(req, parser_in_pipe[1], parser_out_pipe[0], pid,
+	if (process_dof(req, parser_out_pipe, parser_in_pipe, pid,
 			&userdata->dh, buf) < 0)
 		goto process_err;
 
@@ -713,7 +720,7 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		 */
 
 		errmsg = "parsed DOF read failed";
-		provider = dof_read(req, parser_out_pipe[0]);
+		provider = dof_read(req, in);
 		if (!provider) {
 			if (tries++ > 1)
 				goto err;
