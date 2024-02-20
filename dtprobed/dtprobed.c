@@ -55,6 +55,7 @@
 #include <dt_list.h>
 #include "dof_parser.h"
 #include "uprobes.h"
+#include "dof_stash.h"
 #include "libproc.h"
 
 #include "seccomp-assistance.h"
@@ -82,7 +83,8 @@ static void helper_ioctl(fuse_req_t req, int cmd, void *arg,
 			 const void *in_buf, size_t in_bufsz, size_t out_bufsz);
 
 static int process_dof(fuse_req_t req, int out, int in, pid_t pid,
-		       dof_helper_t *dh, const void *in_buf);
+		       dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
+		       uintptr_t buf_addr);
 
 static const struct cuse_lowlevel_ops dtprobed_clop = {
 	.ioctl = helper_ioctl,
@@ -458,6 +460,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	dtprobed_userdata_t *userdata = get_userdata(pid);
 	const char *errmsg;
 	const void *buf;
+	int gen = 0;
 
 	/*
 	 * We can just ignore FUSE_IOCTL_COMPAT: the 32-bit and 64-bit versions
@@ -467,8 +470,11 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	switch (cmd) {
 	case DTRACEHIOC_ADDDOF:
 		break;
-	case DTRACEHIOC_REMOVE: /* TODO */
-		fuse_reply_ioctl(req, 0, NULL, 0);
+	case DTRACEHIOC_REMOVE:
+		fuse_log(FUSE_LOG_DEBUG, "DTRACEHIOC_REMOVE from PID %i, generation %lu\n",
+			 pid, (uintptr_t) arg);
+		gen = dof_stash_remove(pid, (uintptr_t) arg);
+		fuse_reply_ioctl(req, gen, NULL, 0);
 		return;
 	default: errmsg = "invalid ioctl";;
 		fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: %s %x\n",
@@ -642,10 +648,11 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		buf = userdata->buf;
 
 	if (process_dof(req, parser_out_pipe, parser_in_pipe, pid,
-			&userdata->dh, buf) < 0)
+			&userdata->dh, buf, userdata->dof_hdr.dofh_loadsz,
+			userdata->dh.dofhp_dof) < 0)
 		goto process_err;
 
-	if (fuse_reply_ioctl(req, 0, NULL, 0) < 0)
+	if (fuse_reply_ioctl(req, gen, NULL, 0) < 0)
 		goto process_err;
 
 	free(userdata->buf);
@@ -658,6 +665,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	 */
 	if (rq_count++ > CLEANUP_INTERVAL) {
 		cleanup_userdata();
+		dof_stash_prune_dead();
 		rq_count = 0;
 	}
 
@@ -690,14 +698,18 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
  */
 static int
 process_dof(fuse_req_t req, int out, int in, pid_t pid,
-	    dof_helper_t *dh, const void *in_buf)
+	    dof_helper_t *dh, const void *in_buf, size_t in_bufsz,
+	    uintptr_t buf_addr)
 {
 	int perr = 0;
 	ps_prochandle *P;
 	dof_parsed_t *provider;
-	const char *errmsg;
 	size_t i;
 	size_t tries = 0;
+	int gen = 0;
+	const char *errmsg;
+	dt_list_t accum = {0};
+	const prmap_t *mapp;
 
 	if ((P = Pgrab(pid, 2, 0, NULL, &perr)) == NULL) {
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: process grab failed: %s\n",
@@ -705,7 +717,15 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		goto proc_err;
 	}
 
-	do {
+	mapp = Paddr_to_map(P, buf_addr);
+
+	if (mapp == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
+			 pid);
+		goto release_err;
+	}
+
+        do {
 		errmsg = "DOF parser write failed";
 		while ((errno = dof_parser_host_write(out, dh,
 						      (dof_hdr_t *) in_buf)) == EAGAIN);
@@ -731,6 +751,9 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		break;
 	} while (!provider);
 
+	if (dof_stash_push_parsed(&accum, provider) < 0)
+		goto oom;
+
 	for (i = 0; i < provider->provider.nprobes; i++) {
 		dof_parsed_t *probe = dof_read(pid, in);
 		size_t j;
@@ -738,6 +761,9 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 		errmsg = "no probes in this provider, or parse state corrupt";
 		if (!probe || probe->type != DIT_PROBE)
 			goto err;
+
+		if (dof_stash_push_parsed(&accum, probe) < 0)
+			goto oom;
 
 		for (j = 0; j < probe->probe.ntp; j++) {
 			dof_parsed_t *tp = dof_read(pid, in);
@@ -751,27 +777,48 @@ process_dof(fuse_req_t req, int out, int in, pid_t pid,
 			 * as we can, even if creation of some of them fails.
 			 */
 			create_probe(P, provider, probe, tp);
-			free(tp);
+			if (dof_stash_push_parsed(&accum, tp) < 0)
+				goto oom;
 		}
-		free(probe);
 	}
-	free(provider);
 
 	Prelease(P, PS_RELEASE_NORMAL);
 	Pfree(P);
+	if ((gen = dof_stash_add(pid, mapp->pr_dev, mapp->pr_inum, dh, in_buf, in_bufsz)) < 0)
+		goto fileio;
 
-	return 0;
+	if (dof_stash_write_parsed(pid, mapp->pr_dev, mapp->pr_inum, &accum) < 0) {
+		dof_stash_free(&accum);
+		dof_stash_remove(pid, gen);
+		goto fileio;
+	}
+	dof_stash_free(&accum);
+
+        return gen;
+
+oom:
+	fuse_log(FUSE_LOG_ERR, "%i: out of memory parsing DOF\n", pid);
+	goto proc_err;
 
 err:
 	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: parser error: %s\n", pid, errmsg);
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+	goto proc_err;
 
+fileio:
+        fuse_log(FUSE_LOG_ERR, "%i: dtprobed: I/O error stashing DOF: %s\n",
+                 pid, strerror(errno));
+
+release_err:
 	Prelease(P, PS_RELEASE_NORMAL);
 	Pfree(P);
 
 proc_err:
+	dof_stash_free(&accum);
 	dof_parser_tidy(1);
 	return -1;
-}	
+}
 
 #if HAVE_LIBFUSE3
 static int
@@ -872,6 +919,7 @@ main(int argc, char *argv[])
 {
 	int opt;
 	char *devname = "dtrace/helper";
+	char *statedir = NULL;
 	int ret;
 	struct sigaction sa = {0};
 
@@ -882,7 +930,7 @@ main(int argc, char *argv[])
 	char *fuse_argv[] = { argv[0], "-f", "-s", NULL, NULL };
 	int fuse_argc = 3;
 
-	while ((opt = getopt(argc, argv, "Fdn:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "Fs:dn:t:")) != -1) {
 		switch (opt) {
 		case 'F':
 			foreground = 1;
@@ -895,6 +943,13 @@ main(int argc, char *argv[])
 				_dtrace_debug = 1;
 				fuse_argv[fuse_argc++] = "-d";
 			}
+			break;
+		case 's':
+			/*
+			 * This option is purely for the testsuite, so does not
+			 * appear in the usage() description.
+			 */
+			statedir = strdup(optarg);
 			break;
 		case 't':
 			timeout = atoi(optarg);
@@ -946,6 +1001,15 @@ main(int argc, char *argv[])
 	(void) sigaction(SIGPIPE, &sa, NULL);
 
 	dof_parser_start();
+
+	if (dof_stash_init(statedir) < 0)
+		exit(1);
+
+	/*
+	 * Who knows what DOF-containing processes have died since the daemon
+	 * was running?  Clean them up.
+	 */
+	dof_stash_prune_dead();
 
 	if (!foreground) {
 		close(sync_fd);

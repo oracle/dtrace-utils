@@ -190,6 +190,10 @@ make DESTDIR=$RPM_BUILD_ROOT VERSION=%{version} \
      HDRPREFIX="$RPM_BUILD_ROOT/usr/include" \
      install install-test
 
+%if "%{?dist}" == ".el7"
+sed -i '/^ProtectSystem=/d; /^ProtectControlGroups=/d; /^RuntimeDirectory/d;' $RPM_BUILD_ROOT/usr/lib/systemd/system/dtprobed.service
+%endif
+
 # Because systemtap creates a sdt.h header file we have to rename
 # ours and then shift theirs out of the way.
 mv $RPM_BUILD_ROOT/usr/include/sys/sdt.h \

@@ -20,6 +20,8 @@ ProtectHome=true
 PrivateDevices=false
 PrivateNetwork=true
 ProtectControlGroups=true
+RuntimeDirectory=dtrace
+RuntimeDirectoryPreserve=restart
 
 [Install]
 WantedBy=basic.target
