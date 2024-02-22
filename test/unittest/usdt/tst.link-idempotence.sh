@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -54,7 +54,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 ${CC} ${CFLAGS} -o test test.o prov.o
-DTRACE_DEBUG=t $dtrace -G -s prov.d test.o
+$dtrace -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to regenerate DOF" >& 2
 	exit 1
