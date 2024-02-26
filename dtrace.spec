@@ -207,6 +207,20 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}
 /sbin/ldconfig
 %udev_rules_update
 %systemd_post dtprobed.service
+# Force a daemon restart on upgrade even if the previous package did
+# not use presets and did not request a restart on uninstallation.
+# (When upgrades from 1.13.1 and below are no longer supported, we can
+# remove this.)
+# systemd_postun_with_restart does the right thing here, though we need
+# to wrap it in an extra conditional to make it not run on install.
+if [ $1 -ge 2 ] ; then
+    # OL8 and below don't reload the unit file properly.
+    %if "%{?dist}" == ".el7" || "%{?dist}" == ".el8"
+    systemctl daemon-reload || :
+    %endif
+
+    %systemd_postun_with_restart dtprobed.service
+fi
 
 # if sdt-systemtap.h doesn't exist then we can move the existing dtrace sdt.h
 SYSINCDIR=/usr/include/sys
@@ -218,7 +232,7 @@ elif [ ! -e $SYSINCDIR/sdt.h ]; then
 fi
 
 %preun
-%systemd_preun dtprobed.service dtrace-usdt.target
+%systemd_preun dtprobed.service
 
 %postun
 /sbin/ldconfig
