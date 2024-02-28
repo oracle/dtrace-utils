@@ -125,7 +125,7 @@ ONE=$!
 # a failure if it simply doesn't reparse at all.
 if [[ $dtrace != "/usr/sbin/dtrace" ]] && [[ -n $dtprobed_pid ]]; then
     sleep 1
-    for parsed in $DTRACE_OPT_DOFSTASHPATH/stash/dof-pid/*/*/parsed; do
+    for parsed in $DTRACE_OPT_DOFSTASHPATH/stash/dof-pid/*/*/parsed/*; do
 	echo 'a' > $parsed
     done
     kill -USR2 $dtprobed_pid
