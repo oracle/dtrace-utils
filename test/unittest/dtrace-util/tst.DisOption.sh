@@ -1,12 +1,36 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 # ASSERTION: That the dtrace -xdisasm option can control the listings.
+
+# We create simple D scripts (as well as their expected output).
+#
+# We run with different settings of -xdisasm:
+#
+#                   # default
+#     -xdisasm=1    # listing mode 0
+#     -xdisasm=2    # listing mode 1
+#     -xdisasm=4    # listing mode 2
+#     -xdisasm=8    # listing mode 3
+#     -xdisasm=15   # all
+#
+# We sanity check stdout and stderr.
+#
+# We check that the default is equivalent to -xdisasm=1.
+#
+# We split the -xdisasm=15 output into different pieces, and check
+# that the pieces correspond to the -xdisasm=1, 2, 4, and 8 output.
+#
+# One problem is that, since the checks are between different invocations
+# of dtrace, some of the output may change -- specifically:
+#     * the BOOTTM value
+#     * the tgid value that the predicate checks
+# So, we filter those run-dependent items out.
 
 dtrace=$1
 
@@ -36,13 +60,14 @@ EOF
 # run dtrace for various xdisasm settings
 
 function run_dtrace() {
-    $dtrace $dt_flags $2 -Sq -s D1.d -s D2.d > $1.out 2> $1.tmp
+    $dtrace $dt_flags $2 -Sq -s D1.d -s D2.d > $1.out 2> $1.err
     if [ $? -ne 0 ]; then
         echo DTrace failed $2
         cat $1.out $1.err
         exit 1
     fi
-    # Avoid differenced due to different BOOTTM values.
+
+    # Avoid differences due to different BOOTTM values.
     awk '/: 18 [0-9] 0 / && /lddw/ {
 	    sub(/0x[0-9a-f]+/, 0x0);
 	    sub(/[0-9a-f]{8}/, "00000000");
@@ -58,7 +83,17 @@ function run_dtrace() {
 	    print;
 	    next;
 	}
-	{ print; }' $1.tmp > $1.err
+	{ print; }' $1.err > $1.tmp
+    mv $1.tmp $1.err
+
+    # Avoid differences due to different tgid values in predicates.
+    # If we see bpf_get_current_pid_tgid, omit the 3rd line if it's
+    # "jne %r0, ..." since the check value will change from run to run.
+    awk '/call bpf_get_current_pid_tgid/ { ncount = 0 }
+	{ ncount++ }
+	ncount == 3 && /^[ :0-9a-f]* jne *%r0, / { next }
+	{ print; }' $1.err > $1.tmp
+    mv $1.tmp $1.err
 }
 
 run_dtrace def               # default
@@ -68,7 +103,7 @@ run_dtrace   2 -xdisasm=4    # listing mode 2
 run_dtrace   3 -xdisasm=8    # listing mode 3
 run_dtrace all -xdisasm=15   # all
 
-# check individual D stdout and stderr files
+# sanity check individual D stdout and stderr files
 
 for x in def 0 1 2 3 all; do
     if [ `cat $x.err | wc -l` -lt 10 ]; then

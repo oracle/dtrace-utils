@@ -93,7 +93,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	/*
-	 * The BEGIN probe should only run when the activity state is INACTIVE.
+	 * The BEGIN probe should only run when the activity state is INACTIVE,
+	 * for this process's PID (TGID).
 	 * At the end of the trampoline (after executing any clauses), the
 	 * state must be advanced to the next state (INACTIVE -> ACTIVE, or if
 	 * there was an exit() action in the clause, DRAINING -> STOPPED).
@@ -102,7 +103,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 * on in state[DT_STATE_BEGANON] to ensure that we know which trace
 	 * data buffer to process first.
 	 *
-	 * The END probe should only run when the activity state is DRAINING.
+	 * The END probe should only run when the activity state is DRAINING,
+	 * for this process's PID (TGID).
 	 * At the end of the trampoline (after executing any clauses), the
 	 * state must be advanced to the next state (DRAINING -> STOPPED).
 	 *
@@ -117,6 +119,19 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		act = DT_ACTIVITY_DRAINING;
 		key = DT_STATE_ENDEDON;
 	}
+
+	/*
+	 * Retrieve the PID (TGID) of the process that caused the probe to fire,
+	 * and check it against the PID we're meant to be using.  Do it before
+	 * the trampoline to minimize the cost of pointless firings in other
+	 * tracers, even though this means preserving the context in %r1 around
+	 * the call.
+	 */
+	emit(dlp, BPF_MOV_REG(BPF_REG_6, BPF_REG_1));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+	emit(dlp, BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, getpid(), pcb->pcb_exitlbl));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_6));
 
 	dt_cg_tramp_prologue_act(pcb, act);
 
