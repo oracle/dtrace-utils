@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -613,10 +613,13 @@ gmap_create_cpuinfo(dtrace_hdl_t *dtp)
 	int			i, rc;
 	uint32_t		key = 0;
 	dtrace_conf_t		*conf = &dtp->dt_conf;
-	size_t			ncpus = conf->max_cpuid + 1;
+	size_t			ncpus = conf->num_online_cpus;
 	dt_bpf_cpuinfo_t	*data;
 	cpuinfo_t		*ci;
 
+	/*
+	 * num_possible_cpus <= num_online_cpus: see dt_conf_init.
+	 */
 	data = dt_calloc(dtp, dtp->dt_conf.num_possible_cpus,
 			 sizeof(dt_bpf_cpuinfo_t));
 	if (data == NULL)

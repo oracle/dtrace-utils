@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -97,6 +97,8 @@ dt_conf_init(dtrace_hdl_t *dtp)
 
 	if (conf->num_online_cpus == 0 || conf->cpus == NULL)
 		return;
+
+	assert(conf->num_possible_cpus >= conf->num_online_cpus);
 
 	conf->max_cpuid = conf->cpus[conf->num_online_cpus - 1].cpu_id;
 
