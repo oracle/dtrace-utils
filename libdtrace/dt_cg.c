@@ -174,6 +174,7 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	dt_ident_t	*state = dt_dlib_get_map(dtp, "state");
 	dt_ident_t	*prid = dt_dlib_get_var(pcb->pcb_hdl, "PRID");
 	dt_ident_t	*ro_off = dt_dlib_get_var(dtp, "RODATA_OFF");
+	uint_t		lbl_fast = pcb->pcb_fastlbl;
 	uint_t		lbl_exit = pcb->pcb_exitlbl;
 
 	assert(aggs != NULL);
@@ -218,10 +219,10 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = map value)
-	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
-	 *		goto exit;
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_fast
+	 *		goto fast;
 	 *	if (*rc != act)		// ldw %r1, [%r0 + 0]
-	 *		goto exit;	// jne %r1, act, lbl_exit
+	 *		goto fast;	// jne %r1, act, lbl_fast
 	 *
 	 *	dctx.act = rc;		// stdw [%r9 + DCTX_ACT], %r0
 	 */
@@ -230,37 +231,42 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_ACT));
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_fast));
 	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_exit));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, act, lbl_fast));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_ACT, BPF_REG_0));
 
 	/*
-	 *	key = 0;		// stw [%r9 + DCTX_MST], 0
+	 *	key = 0;		// stw [%r9 + DCTX_BUF], 0
 	 *	rc = bpf_map_lookup_elem(&mem, &key);
 	 *				// lddw %r1, &mem
 	 *				// mov %r2, %r9
-	 *				// add %r2, DCTX_MST
+	 *				// add %r2, DCTX_BUF
 	 *				// call bpf_map_lookup_elem
 	 *				//     (%r1 ... %r5 clobbered)
 	 *				//     (%r0 = 'mem' BPF map value)
-	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
-	 *		goto exit;
+	 *	if (rc == 0)		// jeq %r0, 0, lbl_fast
+	 *		goto fast;
 	 *				//     (%r0 = map value)
 	 *				//     (%r7 = pointer to dt_mstate_t)
 	 *				// mov %r7, %r0
+	 *				// ldw %r1, [%r7 + DMST_PRID]
+	 *	if (dctx.mst->prid != 0)// jne %r1, 0, lbl_fast
+	 *		goto exit;
 	 *	dctx.mst = rc;		// stdw [%r9 + DCTX_MST], %r7
 	 *	dctx.mst->prid = PRID;	// stw [%r7 + DMST_PRID], PRID
 	 *	dctx.mst->syscall_errno = 0;
 	 *				// stw [%r7 + DMST_ERRNO], 0
 	 */
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DCTX_MST, 0));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DCTX_BUF, 0));
 	dt_cg_xsetx(dlp, mem, DT_LBL_NONE, BPF_REG_1, mem->di_id);
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_MST));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DCTX_BUF));
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_fast));
 	emit(dlp,  BPF_MOV_REG(BPF_REG_7, BPF_REG_0));
+	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_7, DMST_PRID));
+	emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_1, 0, lbl_fast));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_MST, BPF_REG_7));
 	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, -1), prid);
 	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_ERRNO, 0));
@@ -410,7 +416,7 @@ dt_cg_tramp_prologue(dt_pcb_t *pcb)
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0,
 					  dtp->dt_options[DTRACEOPT_CPU],
-					  pcb->pcb_exitlbl));
+					  pcb->pcb_fastlbl));
 
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_8));
 	}
@@ -930,11 +936,17 @@ dt_cg_tramp_return(dt_pcb_t *pcb)
 
 	/*
 	 * exit:
+	 *				// lddw %r9, [%fp-DCTX_SIZE+DCTX_MST]
+	 *	dctx.mst->prid = 0;	// stw [%r9 + DMST_PRID], 0
+	 * fast:
 	 *	return 0;		// mov %r0, 0
 	 *				// exit
 	 * }
 	 */
 	emitl(dlp, pcb->pcb_exitlbl,
+		   BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, (ushort_t)-DCTX_SIZE+DCTX_MST));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_PRID, 0));
+	emitl(dlp, pcb->pcb_fastlbl,
 		   BPF_MOV_IMM(BPF_REG_0, 0));
 	emit(dlp,  BPF_RETURN());
 
@@ -8504,6 +8516,7 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 	dt_irlist_destroy(&pcb->pcb_ir);
 	dt_irlist_create(&pcb->pcb_ir);
 	pcb->pcb_exitlbl = dt_irlist_label(&pcb->pcb_ir);
+	pcb->pcb_fastlbl = dt_irlist_label(&pcb->pcb_ir);
 
 	pcb->pcb_bufoff = 0;
 

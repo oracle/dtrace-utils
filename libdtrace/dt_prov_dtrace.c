@@ -130,7 +130,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	emit(dlp, BPF_MOV_REG(BPF_REG_6, BPF_REG_1));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
 	emit(dlp, BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
-	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, getpid(), pcb->pcb_exitlbl));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, getpid(), pcb->pcb_fastlbl));
 	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_6));
 
 	dt_cg_tramp_prologue_act(pcb, act);

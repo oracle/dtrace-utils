@@ -42,6 +42,7 @@ typedef struct dt_pcb {
 	uint32_t pcb_bufoff;	/* output buffer offset (for DFUNCs) */
 	dt_irlist_t pcb_ir;	/* list of unrelocated IR instructions */
 	uint_t pcb_exitlbl;	/* label for exit of program */
+	uint_t pcb_fastlbl;	/* label for fast exit of program */
 	uint_t pcb_asvidx;	/* assembler vartab index (see dt_as.c) */
 	ulong_t **pcb_asxrefs;	/* assembler imported xlators (see dt_as.c) */
 	uint_t pcb_asxreflen;	/* assembler xlator map length (see dt_as.c) */
