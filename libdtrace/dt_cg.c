@@ -4350,6 +4350,7 @@ dt_cg_incdec_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op,
 		 * so we fake one here.
 		 */
 		val.dn_op = DT_TOK_INT;
+		val.dn_kind = DT_NODE_INT;
 		val.dn_value = op == BPF_ADD ? adj : -adj;
 
 		lbl_dflt = dt_irlist_label(dlp);
