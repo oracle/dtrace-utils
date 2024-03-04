@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2198,6 +2198,7 @@ doprint:
 		dva2.dv_data = dva->dv_data;
 		dva2.dv_startindent = dva->dv_startindent;
 		dva2.dv_size = dva->dv_size;
+		dva2.dv_last_depth = dva->dv_last_depth;
 		if (ctf_type_encoding(dva->dv_ctfp, a.ctr_contents, &e) < 0) {
 			dt_dprintf("error retrieving type encoding for array contents in [%ld]: %s\n",
 				   a.ctr_contents,
