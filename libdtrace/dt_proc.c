@@ -1135,7 +1135,12 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		 *
 		 * Since we are about to process any proxy requests, we can
 		 * clear the waitpid-interruption signal flag that sending a
-		 * proxy request sets.
+		 * proxy request sets.  Note that while this is happening, the
+		 * pinger can be hitting us with signals and setting
+		 * waitpid_interrupted again!  That's fine: all a zero value
+		 * indicates is that we do not know of any proxy requests
+		 * waiting for us and trying to unblock waitpid(), not that
+		 * there are none (one could just have started).
 		 */
 		dt_proc_lock(dpr);
 		waitpid_interrupted = 0;
@@ -1274,10 +1279,7 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		 * transitions, handling breakpoints and other problems,
 		 * possibly detecting exec() and longjmping back out, etc.
 		 *
-		 * If a proxy request comes in, Pwait() returns 0. Proxy
-		 * requests cannot come in while the lock is held, so we can be
-		 * sure that the waitpid_interrupted flag is still unset at this
-		 * point.
+		 * If a proxy request comes in, Pwait() returns 0.
 		 *
 		 * We do not unlock the dpr_lock at this stage because
 		 * breakpoint invocations, proxied ptraces and the like can all
@@ -1288,7 +1290,6 @@ dt_proc_loop(dt_proc_t *dpr, int awaiting_continue)
 		dt_dprintf("%d: Waiting for process state changes\n",
 			   dpr->dpr_pid);
 
-		assert(waitpid_interrupted == 0);
 		assert(MUTEX_HELD(&dpr->dpr_lock));
 		pwait_event_count = Pwait(dpr->dpr_proc, B_TRUE, &waitpid_interrupted);
 
