@@ -1223,16 +1223,18 @@ dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
 							  &name, &sym) == 0) {
-			dt_Pobjname(dtp, pid, pc[i], objname, sizeof(objname));
-
-			if (pc[i] > sym.st_value)
-				snprintf(c, sizeof(c), "%s`%s+0x%llx",
-					 dt_basename(objname), name,
-					 (unsigned long long)(pc[i] - sym.st_value));
-			else
-				snprintf(c, sizeof(c), "%s`%s",
-					 dt_basename(objname), name);
-
+			if (dt_Pobjname(dtp, pid, pc[i], objname,
+					sizeof(objname)) != NULL) {
+				if (pc[i] > sym.st_value)
+					snprintf(c, sizeof(c), "%s`%s+0x%llx",
+						 dt_basename(objname), name,
+						 (unsigned long long)(pc[i] - sym.st_value));
+				else
+					snprintf(c, sizeof(c), "%s`%s",
+						 dt_basename(objname), name);
+			} else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (unsigned long long)pc[i]);
 			/* Allocated by Plookup_by_addr. */
 			free((char *)name);
 		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
