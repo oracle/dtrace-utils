@@ -652,8 +652,14 @@ proxy_call(dt_proc_t *dpr, long (*proxy_rq)(), int exec_retry)
 	 * dt_proc_waitpid_lock() so that the signal stops as soon as the
 	 * waitpid() is done: but if the control thread was not waiting at
 	 * waitpid() at all, we'll want to disarm it regardless.
+	 *
+	 * From this point on, a substantial delay may have happened, so we need
+	 * to consider that the process may have terminated, in which case dpr
+	 * will still be allocated but most other things will be freed (like the
+	 * timer).
 	 */
-	if (timer_settime(dpr->dpr_proxy_timer, 0, &nonpinger, NULL) < 0)
+	if (!dpr->dpr_done &&
+	    timer_settime(dpr->dpr_proxy_timer, 0, &nonpinger, NULL) < 0)
 		dt_proc_error(dpr->dpr_hdl, dpr,
 			      "Cannot disarm fallback wakeup timer: %s\n",
 			      strerror(errno));
