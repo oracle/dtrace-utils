@@ -239,6 +239,12 @@ fi
 %udev_rules_update
 %systemd_postun_with_restart dtprobed.service
 
+%posttrans
+# Make sure the daemon really is started (OL9 doesn't start the
+# daemon properly on fresh installations -- all presets do is enable
+# it, not start it, and postun_with_restart only restarts on *upgrade*.)
+systemctl start dtprobed || :
+
 %files
 %defattr(-,root,root,-)
 %{_libdir}/dtrace
