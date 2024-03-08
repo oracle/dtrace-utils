@@ -20,6 +20,10 @@ for lib in `ls -1 /lib64/lib*.so.1 | grep -v libthread_db.so.1`; do
 done
 
 export LD_PRELOAD=$preload
+# Force libraries and executable to get pulled into the cache so that starting
+# the disowned processes in the loop below will go fast enough that by the time
+# dtrace is started, all tasks are ready to be traced.
+/usr/bin/sleep 0
 
 let numkids=100
 let i=0
@@ -27,7 +31,7 @@ let i=0
 tmpfile=$tmpdir/dtest.$$
 
 while [ "$i" -lt "$numkids" ]; do
-	sleep 500 &
+	/usr/bin/sleep 500 &
 	pids[$i]=$!
         disown %+
 	let i=i+1
