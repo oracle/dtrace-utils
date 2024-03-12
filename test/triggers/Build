@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -190,6 +190,7 @@ pid-tst-ret1_CFLAGS := -O0
 pid-tst-ret2_CFLAGS := -O0
 pid-tst-weak1_CFLAGS := -O0
 pid-tst-weak2_CFLAGS := -O0
+profile-tst-ufuncsort_CFLAGS := -O0
 
 # usdt-tst-argmap calls USDT probes (defined in argmap.d) using sys/sdt.h
 usdt-tst-argmap_CFLAGS := -Iuts/common

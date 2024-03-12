@@ -1,6 +1,6 @@
 
-  tst.ufuncsort.exe`f_a                                             3
-  tst.ufuncsort.exe`f_b                                             1
-  tst.ufuncsort.exe`f_c                                             4
-  tst.ufuncsort.exe`f_d                                             2
-  tst.ufuncsort.exe`f_e                                             1
+  profile-tst-ufuncsort`f_a                                         3
+  profile-tst-ufuncsort`f_b                                         1
+  profile-tst-ufuncsort`f_c                                         4
+  profile-tst-ufuncsort`f_d                                         2
+  profile-tst-ufuncsort`f_e                                         1

@@ -1,9 +1,10 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
+#include <unistd.h>
 
 typedef void f(int x);
 
@@ -52,6 +53,12 @@ main()
 	fN(f_a, 101);
 	fN(f_c, 103);
 	fN(f_c, 1003);
+
+	/* Add a long sleep, so the DTrace program can still convert user
+	 * addresses to symbols.  An excessively long sleep is okay since DTrace
+	 * can kill the target when it's done.
+	 */
+	usleep(100 * 1000 * 1000);
 
 	return 0;
 }
