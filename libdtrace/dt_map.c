@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -274,7 +274,7 @@ dt_aggid_add(dtrace_hdl_t *dtp, const dt_ident_t *aid)
 
 	/*
 	 * The number of key records for an indexed aggregation is one more
-	 * than the number of aggregation keys because we store tha aggregation
+	 * than the number of aggregation keys because we store the aggregation
 	 * variable id at the beginning of the BPF hashmap key to distinguish
 	 * different aggregations indexed with the same keys.
 	 */
@@ -392,7 +392,7 @@ dt_aggid_destroy(dtrace_hdl_t *dtp)
 
 	for (i = 0; i < dtp->dt_maxagg; i++) {
 		if (dtp->dt_adesc[i] != NULL) {
-			/* Freeing dtagd_recs also frees dtagd_drecs. */
+			/* Freeing dtagd_krecs also frees dtagd_drecs. */
 			dt_free(dtp, dtp->dt_adesc[i]->dtagd_krecs);
 			dt_free(dtp, dtp->dt_adesc[i]);
 		}
