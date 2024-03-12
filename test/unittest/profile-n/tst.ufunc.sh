@@ -17,8 +17,7 @@ script()
 		@[ufunc(arg1)] = count();
 	}
 
-	tick-100ms
-	/i++ == 20/
+	tick-2s
 	{
 		exit(0);
 	}
