@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -15,8 +15,6 @@
 # SECTION: Aggregations/Aggregations
 #
 ##
-
-# @@xfail: dtv2
 
 dtrace=$1
 CC=/usr/bin/gcc
@@ -39,7 +37,6 @@ cat > test.c << EOF
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <linux/limits.h>
 #include <time.h>
 #include "prov.h"
@@ -62,7 +59,6 @@ int main(int argc, char **argv) {
 		char type;
 		char symname[KSYM_NAME_MAX];
 		char modname[PATH_MAX] = "vmlinux]";
-		struct timespec throttle;
 
 		/* read the symbol */
 		if (sscanf(line, "%llx %llx %c %s [%s",
@@ -94,17 +90,13 @@ int main(int argc, char **argv) {
 		if (strcmp(modname, "bpf]") == 0)
 			continue;
 
+		/* we cannot dt_module_load("__builtin__ftrace") */
+		if (strcmp(modname, "__builtin__ftrace]") == 0)
+			continue;
+
 		/* trim the trailing ']' and print modname to stdout */
 		modname[strlen(modname)-1] = '\0';
 		printf("%s\n", modname);
-
-		/* throttle a little so that both:
-		 * - data is not dropped
-		 * - 100k symbols still only take seconds to run
-		 */
-		throttle.tv_sec = 0;
-		throttle.tv_nsec = 1000;
-		nanosleep(&throttle, NULL);
 
 		/* pass (addr,modname) to the static probe */
 		TEST_PROV_AGGMODTEST(addr, modname);
@@ -171,10 +163,17 @@ fi
 #     and save in modules.txt for comparison with output.txt
 # ==================================================
 
-$dtrace $dt_flags -c ./a.out -o output.txt -s /dev/stdin << EOF \
+# The aggregation keys are:
+#   - an 8-byte address
+#   - a mod name, which should fit into strsize=48
+# With the aggregation # value, that's about 64 bytes per entry.
+# If /proc/kall[mod]syms has fewer than 200k symbols we care about,
+# all that should fit into an aggsize of 16M.
+# If this aggsize becomes a problem, we can do something fancy like
+# having the trigger bounce among CPUs.  Then the (per-CPU) aggsize
+# could be reduced.
+$dtrace $dt_flags -xstrsize=48 -xaggsize=16m -c ./a.out -o output.txt -s /dev/stdin << EOF \
     2> errors.txt | sort | uniq -c | awk '{print $1, $2}' > modules.txt
-#pragma D option aggrate=50hz
-
 test_prov\$target:::
 {
 	@[mod(arg0), copyinstr(arg1)] = count();
@@ -188,7 +187,7 @@ fi
 if [[ `grep -c "aggregation drops on CPU" errors.txt` -gt 0 ]]; then
 	echo
 	grep "aggregation drops on CPU" errors.txt
-	echo "$tst: might need a larger value of throttle.tv_nsec"
+	echo "$tst: might need a larger value of aggsize"
 	echo
 	exit 1
 fi
