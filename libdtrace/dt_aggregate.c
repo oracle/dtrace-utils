@@ -278,12 +278,11 @@ dt_aggregate_quantizedcmp(int64_t *lhs, int64_t *rhs)
 	return 0;
 }
 
-#ifdef FIXME
 static void
 dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 {
-	uint64_t tgid = data[1];
-	uint64_t *pc = &data[2];
+	uint64_t tgid = data[0];
+	uint64_t *pc = &data[1];
 	pid_t pid;
 	GElf_Sym sym;
 
@@ -304,8 +303,8 @@ dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 static void
 dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 {
-	uint64_t tgid = data[1];
-	uint64_t *pc = &data[2];
+	uint64_t tgid = data[0];
+	uint64_t *pc = &data[1];
 	pid_t pid;
 	const prmap_t *map;
 
@@ -379,7 +378,6 @@ dt_aggregate_mod(dtrace_hdl_t *dtp, uint64_t *addr)
 		}
 	}
 }
-#endif
 
 static dtrace_aggid_t
 dt_aggregate_aggid(dt_ahashent_t *ent)
@@ -514,7 +512,7 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 	uint64_t		dgen;
 	size_t			ndx = hval % agh->dtah_size;
 	size_t			size;
-	int			rval;
+	int			rval, i;
 
 	/* Data generation: skip if 0 */
 	dgen = *(uint64_t *)data;
@@ -525,6 +523,28 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 	rval = dt_aggid_lookup(dtp, aggid, &agg);
 	if (rval != 0)
 		return rval;
+
+	/* Reduce addresses. */
+	for (i = 0; i < agg->dtagd_nkrecs; i++) {
+		uint64_t *p = (uint64_t *)&key[agg->dtagd_krecs[i].dtrd_offset];
+
+		switch(agg->dtagd_krecs[i].dtrd_action) {
+		case DTRACEACT_USYM:
+			dt_aggregate_usym(dtp, p);
+			break;
+		case DTRACEACT_UMOD:
+			dt_aggregate_umod(dtp, p);
+			break;
+		case DTRACEACT_SYM:
+			dt_aggregate_sym(dtp, p);
+			break;
+		case DTRACEACT_MOD:
+			dt_aggregate_mod(dtp, p);
+			break;
+		default:
+			break;
+		}
+	}
 
 	/* See if we already have an entry for this aggregation. */
 	for (h = agh->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
@@ -654,10 +674,10 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, int fd)
 
 		memcpy(key, nxt, ksize);
 
-		if (dt_bpf_map_lookup(fd, key, data) == -1)
+		if (dt_bpf_map_lookup(fd, nxt, data) == -1)
 			return dt_set_errno(dtp, EDT_BPF);
 
-		rval = dt_aggregate_snap_one(dtp, *aggidp, cpu, key, data);
+		rval = dt_aggregate_snap_one(dtp, *aggidp, cpu, nxt, data);
 		if (rval != 0)
 			return rval;
 	}

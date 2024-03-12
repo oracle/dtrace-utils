@@ -1,10 +1,12 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+
+tmpfile=$tmpdir/tst.profile_usym.$$
 
 script()
 {
@@ -41,12 +43,23 @@ spinny &
 child=$!
 disown %+
 
-#
-# This test is essentially the same as that in the ufunc test; see that
-# test for the rationale.
-#
-script | tee /dev/fd/2 | grep 'bash`[a-zA-Z_]' > /dev/null
-status=$? 
-
+script >& $tmpfile
 kill $child
+
+# Check that some non-static function in bash is doing work.
+status=0
+if ! grep -q 'bash`[a-zA-Z_]' $tmpfile; then
+	echo ERROR: expected bash functions are missing
+	status=1
+fi
+
+# Check that symbols are unique.  (Exclude shared libraries and unresolved addresses.)
+if awk '!/^ *lib/ && !/^ *0x/ {print $1}' $tmpfile | sort | uniq -c | grep -qv " 1 "; then
+	echo ERROR: duplicate usym
+	status=1
+fi
+
+if [ $status -ne 0 ]; then
+	cat $tmpfile
+fi
 exit $status
