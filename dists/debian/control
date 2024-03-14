@@ -1,0 +1,34 @@
+Source: dtrace
+Section: utils
+Priority: optional
+Maintainer: Kris Van Hees <kris.van.hees@oracle.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: https://github.com/oracle/dtrace-utils/
+Rules-Requires-Root: no
+
+Package: dtrace
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: DTrace user interface and dtrace(8) command.
+ This is the official Linux port of the advanced tracing tool DTrace.
+
+Package: dtrace-dev
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: DTrace development headers.
+ You do not need this package merely to compile providers and probe points
+ into applications that will be probed by dtrace, but rather when developing
+ replacements for dtrace(1) itself.
+
+Package: dtrace-tests
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: DTrace testsuite.
+ Installed in /usr/lib64/dtrace/testsuite.
+ .
+ 'make check' here is just like 'make check' in the source tree, except that
+ it always tests the installed DTrace.

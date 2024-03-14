@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+# You must remove unused comment lines for the released package.
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+#export DEB_CFLAGS_MAINT_APPEND  = -Wall -pedantic
+#export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+
+include /usr/share/dpkg/pkg-info.mk
+
+export DEB_VERSION_UPSTREAM
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	dh_auto_build -- BPFC=bpf-gcc BPFLD=bpf-ld EXTERNAL_64BIT_SDT_TRIGGERS=
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	dh_auto_install -- install-test EXTERNAL_64BIT_SDT_TRIGGERS=
+
+override_dh_installdocs:
+	dh_installdocs

@@ -1,0 +1,1054 @@
+dtrace (2.0.0-1.14) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement provider: io.
+  * Implement subroutines: link_ntop(), cleanpath().
+  * Implement options: -xcpu, -xaggpercpu.
+  * Improve options: -xlockmem (improve default).
+  * Add support for aggregations of stacks.
+
+  [ Nick Alcock ]
+  * Ensure USDT probes can survive dtprobed restarts.
+  * Improve USDT probe creation/deletion.
+  * Improve support for DTrace with upstream kernels.
+  * Improve lexer parsing (top-level wildcard ambiguities and `numerals).
+  * Fix END probe execution with multiple tracers.
+  * Buffer overrun fix for systems with non-sequential online CPU ids.
+  * Various bug fixes.
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+  [ Alan Maguire ]
+  * Implement actions: print().
+
+  [ Kris Van Hees ]
+  * Improve providers: pid (offset-based probes) and rawtp (arg info).
+  * Improve support for compiling DTrace in older environments.
+  * Preemptive BPF program execution for DTrace probes is not allowed.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Tue, 5 Mar 2024 00:00:00 +0000
+
+dtrace (2.0.0-1.13.2) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement subroutines: inet_ntop().
+
+  [ Nick Alcock ]
+  * Remove dependency on waitfd().
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+  [ Kris Van Hees ]
+  * Support using DTrace with upstream kernels.
+  * Implement provider: ip.
+  * Implement actions: trunc(), pcap().
+  * Implement subroutines: inet_ntoa6().
+  * Support modules.builtin.ranges for builtin module-symbol association.
+  * Provide a BTF-to-CTF convertor to provide (limited) kernel type information  when CTF is not available.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 9 Nov 2023 00:00:00 +0000
+
+dtrace (2.0.0-1.13.1) UNRELEASED; urgency=medium
+
+  * Restart dtprobed when upgrading DTrace.
+  * Report and clean up orphaned tracing events after each test.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Wed, 7 Jun 2023 00:00:00 +0000
+
+dtrace (2.0.0-1.13) UNRELEASED; urgency=medium
+
+  [ Steven Sistare ]
+  * Do not modify input files with dtrace -G if unchanged.
+
+  [ Eugene Loh ]
+  * Support NULL strings.
+  * Support uregs[] on older kernels.
+
+  [ Nick Alcock ]
+  * Full support for is-enabled USDT probes.
+  * New option: lonknommap.
+  * Support for USDT probes in programs in different fs namespaces.
+  * Support for USDT probes in non-PIE executables.
+  * Fix dtprobed to support DOF that exceeds 64KiB.
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+  [ Kris Van Hees ]
+  * Report error on programs that exceed aggsize or dynvarsize.
+  * Support for drop counters for principal, speculation, and aggregation buffers  and for dynamic variables.
+  * Implement probe: proc:::signal-clear.
+  * Implement provider: sched (partial implementation).
+  * Implement provider: lockstat (for kernels >= 5.10.0 and UEK6 with fix).
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 26 May 2023 00:00:00 +0000
+
+dtrace (2.0.0-1.12) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Fix evaluation order of bcopy() arguments and lift non-alloca restriction  on the source address.
+  * Implement actions: clear(), tracemem().
+  * Implement subroutines: copyout(), copyinstr().
+  * Implement provider: cpc.
+  * Implement built-in variable: uregs.
+  * Support using indirect load instructions for pointers to alloca()'d and  DTrace managed memory.
+  * Fix arg0 and arg1 for profile-* and tick-* probes.
+  * Implement runtime bounds checking for scalar array access.
+  * Support arbitrary address pointers for basename(), dirname(), strchr(),  strrchr(), and inet_ntoa().
+  * Add runtime bounds checking for scalar array access.
+
+  [ Kris Van Hees ]
+  * Implement options: switchrate, aggrate.
+  * Implement provider: proc.
+  * Increase strtab maximum size.
+  * Updated manpage and moved to dtrace.8.
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Mon, 27 Feb 2023 00:00:00 +0000
+
+dtrace (2.0.0-1.11.1) UNRELEASED; urgency=medium
+
+  * Support both libfuse 2 and libfuse 3.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Tue, 08 Nov 2022 00:00:00 +0000
+
+dtrace (2.0.0-1.11) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Add support for aggregation keys.
+  * Fix arg handling for various probes.
+  * Add -xlockmem, with useful error message.
+  * Fix various bugs with typecasting and internal integer storage.
+  * Unused dual aggregation copies (DT_AGG_NUM_COPIES) have been removed.
+
+  [ Nick Alcock ]
+  * Add initial support for USDT.
+  * Fix handling of multiple args after --.
+  * Fix libproc search of rtld_global due to glibc changes.
+
+  [ Kris Van Hees ]
+  * Add support for copyin(), copyinto(), and copyinstr().
+  * Add support for built-in variable args[] and sdt probe arg types.
+  * Add basic support for setopt().
+  * Fix -xverbose, -xcpp, and -xctfpath
+  * Have the pid provider ignore compiler-generated internal function names.
+  * Fix access to scalars in kernel space.
+  * Truly decouple per-CPU BPF agg maps with a "map of maps."
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 28 Oct 2022 00:00:00 +0000
+
+dtrace (2.0.0-1.10) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Add support for inet_ntoa(), progenyof(), getmajor(), getminor(),  mutex_owned(), mutex_owner(), mutex_type_adaptive(), mutex_type_spin(),  rw_read_held(), rw_write_held(), and rw_iswriter().
+
+  [ Nick Alcock ]
+  * Add support for allcoa() and bcopy().
+  * Improved fault handling.
+
+  [ Kris Van Hees ]
+  * Add support for associative arrays.
+  * Various disassembler improvements, esp. annotations.
+  * Strings are no longer stored using a length prefix.
+  * The trace() action now supports arrays, structs, and unions.
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Tue, 26 Apr 2022 00:00:00 +0000
+
+dtrace (2.0.0-1.9.1) UNRELEASED; urgency=medium
+
+  * Add support for UEK7.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Mon, 31 Jan 2022 00:00:00 +0000
+
+dtrace (2.0.0-1.9) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Add support for strtok().
+  * Add support for basename(), dirname().
+  * Add support for ftruncate().
+  * Add support for rand().
+  * Various string handling fixes and improvements.
+
+  [ Nick Alcock ]
+  * Generic hash table improvements and consistent use of htabs.
+  * CTF improvements in view of better kernel support.
+
+  [ Kris Van Hees ]
+  * Implement TLS (thread-local storage) variables.
+  * Fix string constant handling for strings longer than strsize.
+  * Optimization of substr(), strjoin(), and storing strings in the trace buffer.
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Wed, 08 Dec 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.8) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Add support for string comparison.
+  * Add support for strchr(), strrchr(), index(), rindex(), strstr(), lltostr().
+  * Add support for htonl, htonll, htons, ntohl, ntohll, ntohs.
+
+  [ Nick Alcock ]
+  * Support running dtrace under valgrind.
+  * Implementation of speculative tracing.
+  * Add support for symbols in compressed kernel modules.
+
+  [ Kris Van Hees ]
+  * Various testsuite fixes and improvements.
+  * Various code improvements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 15 Oct 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.7) UNRELEASED; urgency=medium
+
+  * Implement argument retrieval for SDT probes.
+  * Introduce 'bpflog' runtime option to request BPF verifier log.
+  * Implementation improvements for memry copy operations.
+  * Fix type alignment handling for enums.
+  * Fix ERROR-in-BEGIN probe handling.
+  * Transition from variable-length string size to 2-byte string size.
+  * Fix size of string data in the trace output buffer.
+  * Fix data size for value copy.
+  * Add support for strjoin() subroutine.
+  * Add support for substr() subroutine.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 9 Sep 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.6) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement built-in variables: caller, stackdepth, ucaller, ustackdepth,  errno, walltimestamp.
+  * Implement actions: stack(), ustack().
+  * Implement option: -Z (partial).
+  * Mark aggregation actions as non-data recording actions.
+  * Testsuite improvements.
+
+  [ Kris Van Hees ]
+  * Consolidated development of newly ported features.
+  * Implement built-in variables: probeprov, probemod, probefunc, probename.
+  * Implement subroutine: strlen().
+  * Added support for string constants and string values.
+  * Added support for strings to trace().
+  * Fixed storage size determination for global and local variables.
+  * Improved storage layout for global and local variables.
+  * Load string constant table into the 'strtab' BPF map.
+  * Load probe description data into the 'probes' BPF map.
+  * Consolidate all string hash functions into a single hash function.
+  * Implement variable length integer support.
+  * Store the length of each string as a variable length integer inline with its  character stream.
+  * Improve memcpy() internal BPF function.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 18 Jun 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.5.1) UNRELEASED; urgency=medium
+
+  * Memory corruption fix in pid probe discovery.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Mon, 12 Apr 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.5) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Reworking of global and local variable storage to allow for values sizes  beyond 8 bytes.
+  * Implement -xbpflogsize option.
+  * Improvements to -xdisasm support.
+  * Fix bitfield operations.
+  * Coding style updates.
+
+  [ David McLean ]
+  * Sample scripts for building DTrace on Ubuntu.
+
+  [ Nick Alcock ]
+  * Add support in translators for more than two kernel variants.
+
+  [ Kris Van Hees ]
+  * Implement the ERROR probe.
+  * Add checks in BPF programs for division by zero and NULL pointer dereference.
+  * Implement the pid provider for userspace function boundary tracing.
+  * Implement the -w option to explicitly allow destructive actions.
+  * Switch from condition variable to eventfd for process death notifications.
+  * Implement normalize() and denormalize() actions.
+  * Reworking of kernel tracepoint based providers.
+  * Testsuite updates.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 9 Apr 2021 00:00:00 +0000
+
+dtrace (2.0.0-1.4) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement aggregation functions: avg(), llquantize(), quantize().
+  * Fix bitwise negation.
+  * Fix reporting when all quantize() data is in the last bin.
+  * Load pre-compiled BPF functions even if they do not have relocations.
+
+  [ David McLean ]
+  * Implement aggregation functions: max(), min(), stddev(), sum().
+
+  [ Kris Van Hees ]
+  * Implement aggregation support code for both producer and consumer.
+  * Implement aggregation functions: count(), lquantize().
+  * Implement the printa() action.
+  * Rework BPF code generation to use emit*() macros.
+  * Testsuite updates.
+  * Fix END probe execution when consumer stops the producer.
+  * Force use of bash as shell.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Wed, 9 Dec 2020 00:00:00 +0000
+
+dtrace (2.0.0-1.3) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement the freopen() action.
+  * Implement the system() action.
+  * Implement the ppid built-in variable.
+  * Correct signed divide and modulo operations.
+  * Correct code generation for post-decrement expressions.
+
+  [ David McLean ]
+  * Implement the id built-in variable.
+
+  [ Kris Van Hees ]
+  * Improve annotations in the disassembler.
+  * Implement proper BEGIN and END probe semantics.
+  * Correct exit() action semantics.
+  * Various compilation fixes.
+  * Better support for different distributions and compiler versions.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 1 Oct 2020 00:00:00 +0000
+
+dtrace (2.0.0-1.2) UNRELEASED; urgency=medium
+
+  * Ensure a minimum locked-memory limit for BPF.
+  * int8_t is now always signed, even on platforms where char is unsigned.
+
+ -- Eugene Loh <eugene.loh@oracle.com>  Thu, 6 Aug 2020 00:00:00 +0000
+
+dtrace (2.0.0-1.1) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement profile-n and tick-n probes.
+
+  [ Kris Van Hees ]
+  * Implement the printf() action.
+  * Implement the raise() action.
+  * Support probe specifications with wildcards.
+  * Support multiple clauses for each probe.
+  * Support built-in variables: arg0 through arg9 (for probes that provide  arguments), curcpu curthread, epid, gid, pid, tid, uid, and timestamp.
+  * Various memory management fixes.
+  * Register leak fixes.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Fri, 24 Jul 2020 00:00:00 +0000
+
+dtrace (2.0.0-1.0) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Implement BEGIN and END probes.
+  * Implement a probe cleanup mechanism for providers.
+
+  [ Kris Van Hees ]
+  * Implement the exit() action.
+  * Implement the flowindent option.
+  * Implement the -xdisasm=n option.
+  * Implement linking of precompiled BPF functions.
+  * Fix memory leaks and minor uninitialized-data bugs.
+  * Fix load-before-store BPF verifier errors for local variables.
+  * Fix post-increment code generation.
+  * Fix register clobbering and implement register spilling.
+  * Add error and drop tag verification for tests.
+  * Various code cleanup and errata release preparation.
+  * Ensure that bpf_dlib.o is installed.
+  * Fix the creation of FBT return probes.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 30 Apr 2020 00:00:00 +0000
+
+dtrace (2.0.0-0.8) UNRELEASED; urgency=medium
+
+  * Sync with latest development code.
+  * Implement perf event output buffer management and processing.
+  * Introduce dt_calloc() to use in all array allocations.
+  * Provide support for building against libdtrace-ctf and libctf, with  preference given to libctf (if available).
+  * Implement association of BPF programs with probe events.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Tue, 10 Mar 2020 00:00:00 +0000
+
+dtrace (2.0.0-0.7) UNRELEASED; urgency=medium
+
+  * Update spec file for build requirements.
+  * Sync with latest development code.
+  * Ensure that pre-release banner does not interfere with test result  comparison.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Sun, 26 Jan 2020 00:00:00 +0000
+
+dtrace (2.0.0-0.6) UNRELEASED; urgency=medium
+
+  * Update spec file for build requirements.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 5 Dec 2019 00:00:00 +0000
+
+dtrace (2.0.0-0.5) UNRELEASED; urgency=medium
+
+  * Support building on aarch64.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Thu, 5 Dec 2019 00:00:00 +0000
+
+dtrace (2.0.0-0.4) UNRELEASED; urgency=medium
+
+  * Support building on systems with older kernels and/or glibc.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Wed, 4 Dec 2019 00:00:00 +0000
+
+dtrace (2.0.0-0.3) UNRELEASED; urgency=medium
+
+  * Change the kernel build version to 5.4.0-1948.2.
+
+ -- Kris Van Hees <kris.van.hees@oracle.com>  Tue, 26 Nov 2019 00:00:00 +0000
+
+dtrace (2.0.0-0.2) UNRELEASED; urgency=medium
+
+  * Change the kernel build version to 5.2.8-1933.
+
+ -- Kris van Hees <kris.van.hees@oracle.com>  Wed, 14 Aug 2019 00:00:00 +0000
+
+dtrace (2.0.0-0.1) UNRELEASED; urgency=medium
+
+  * DTrace implementation based on BPF (initial portions).
+
+ -- Kris van Hees <kris.van.hees@oracle.com>  Tue, 30 Jul 2019 00:00:00 +0000
+
+dtrace (1.1.0-0.1) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Speed up aggmod tests
+  * Improve testsuite temporary file creation
+  * Clean up compiler warnings
+
+  [ Kris Van Hees ]
+  * Add test for SDT argument retrieval from stack, in UEK4QU7
+
+  [ Tomas Jedlicka ]
+  * Add more DTRACE_PROBE definitions to sdt.h, for SystemTap  compatibility, and test them
+  * Fix disassembler coredump
+  * Fix process-termination-related crash and deadlock bugs
+  * New ctfpath option, allowing explicit specification of ctf archives  to use for the running kernel
+  * Remove preallocation from the buffering testsuite
+
+  [ Nick Alcock ]
+  * Fix deadlock on creation of new threads in -c/-p processes
+  * Properly handle breakpoints tripped while DTrace is exiting
+  * Do not crash on self-grabs and on races with dtrace termination
+  * Fix memory leaks and minor uninitialized-data bugs
+  * Include the smoketests in make check
+  * Test fixes (boost timeouts, kernel 4.17 compatibility,  unskip a forgotten test).
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 10 Aug 2018 00:00:00 +0000
+
+dtrace (1.0.2-1) UNRELEASED; urgency=medium
+
+  * Testsuite fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 10 May 2018 00:00:00 +0000
+
+dtrace (1.0.1-1) UNRELEASED; urgency=medium
+
+  [ Kris Van Hees ]
+  * ARM64 USDT and pid probe support
+  * Fix -c option on ARM64
+
+  [ Nick Alcock ]
+  * Disable pid provider tests on UEK4.
+  * Testsuite fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 27 Apr 2018 00:00:00 +0000
+
+dtrace (1.0.0-10) UNRELEASED; urgency=medium
+
+  * Enabled tst.default.d in smoketests.
+
+ -- Tomas Jedlicka <tomas.jedlicka@oracle.com>  Thu, 29 Mar 2018 00:00:00 +0000
+
+dtrace (1.0.0-9) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Adjusted the interpretation of /proc/kallmodsyms for aarch64
+
+  [ Kris Van Hees ]
+  * Added pid provider support
+
+  [ Tomas Jedlicka ]
+  * Updated translators to match new kernel redesign of per-task and  per-process data.
+  * Enhanced build system to support multiple kernels
+
+ -- Tomas Jedlicka <tomas.jedlicka@oracle.com>  Tue, 27 Mar 2018 00:00:00 +0000
+
+dtrace (1.0.0-8) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Improve handling of symbol name->address and address->name lookup
+
+  [ Tomas Jedlicka ]
+  * Fix dtrace -S not printing actions other than the first
+
+  [ Nick Alcock ]
+  * Change dtrace_proc_*() public interfaces to take a struct dtrace_proc,  avoiding lifecycle issues that can cause access to freed memory when  victims are exec()ing rapidly
+  * Bump library soname to libdtrace.so.1
+  * Check array bounds at compile time
+  * Drop expensive, unnecessary bad page state checking from testsuite
+  * Handle interruptions in the testsuite runner better
+  * Consider erratically failing tests in some directories to be passes
+  * Test fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 8 Mar 2018 00:00:00 +0000
+
+dtrace (1.0.0-7) UNRELEASED; urgency=medium
+
+  [ Kris Van Hees ]
+  * Several latent porting bugs fixed
+  * Make tests used in smoke testsuite rely on sdt less
+
+  [ Nick Alcock ]
+  * Internal development release.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 16 Feb 2018 00:00:00 +0000
+
+dtrace (1.0.0-6) UNRELEASED; urgency=medium
+
+  [ Tomas Jedlicka ]
+  * Include correct procfs.h
+
+  [ Nick Alcock ]
+  * Internal development release.
+  * ARM64 support
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 30 Jan 2018 00:00:00 +0000
+
+dtrace (1.0.0-5) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Bring back translators for 4.14.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 18 Jan 2018 00:00:00 +0000
+
+dtrace (1.0.0-4) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Eliminate new symbol at address 0 on KPTI-enabled kernels
+  * Boost some test timeouts
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 12 Jan 2018 00:00:00 +0000
+
+dtrace (1.0.0-3) UNRELEASED; urgency=medium
+
+  [ Kris Van Hees ]
+  * New tests and test fixes
+
+  [ Nick Alcock ]
+  * Internal development release.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 5 Jan 2018 00:00:00 +0000
+
+dtrace (1.0.0-2) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Fix rare assertion failures at exit
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 15 Dec 2017 00:00:00 +0000
+
+dtrace (1.0.0-1) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Fix kills of hanging dtraces in the testsuite
+  * New tests for the lockstat provider and fixes to jstack and 3-arg  tracemem tests
+
+  [ Vincent Lim ]
+  * Add tagging capability to the testsuite
+
+  [ Nicolas Droux ]
+  * ip provider ipv6_tclass and ipv6_flow are not set correctly
+  * Translator changes for kernels 4.12 -- 4.14
+
+  [ Tomas Jedlicka ]
+  * Fix mod() normalization: add test for it
+  * Fix faulty logic in dtrace_modsym_update() adding symbols to wrong modules
+
+  [ Nick Alcock ]
+  * Release for smoketesters, not GA
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 30 Nov 2017 00:00:00 +0000
+
+dtrace (0.6.2-3) UNRELEASED; urgency=medium
+
+  * Apply correct version of lockstat patch
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 16 Oct 2017 00:00:00 +0000
+
+dtrace (0.6.2-2) UNRELEASED; urgency=medium
+
+  [ Alan Maguire ]
+  * Add lockstat provider
+
+  [ Tomas Jedlicka ]
+  * Add missing obsolete of dtrace-modules-provider-headers
+  * Add missing testsuite NFS dependency
+
+  [ Nick Alcock ]
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 16 Oct 2017 00:00:00 +0000
+
+dtrace (0.6.2-1) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * New llquantize() aggregation, providing log/linear results
+  * New optional third arg for tracemem(): dynamically-variable size  limit
+  * Fix wrong wrong-number-of-args error messages
+  * Fix module address range merging
+  * Testsuite fixes and new tests for inet_*() and lquantize
+
+  [ Nick Alcock ]
+  * Internal development release.
+  * Fix segfault at shutdown time if grabbed processes die at  precisely the wrong time
+  * Allow referencing of structure and union members named with  the same name as D keywords, e.g. 'self'
+  * Changes for the move of UAPI headers into dtrace-utils-devel.  (Tomas Jedlicka, Nick Alcock).
+  * Support CTF in /lib/modules/$(uname -r)/kernel/vmlinux.ctfa  archive
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 21 Sep 2017 00:00:00 +0000
+
+dtrace (0.6.1-3) UNRELEASED; urgency=medium
+
+  [ Tomas Jedlicka ]
+  * Test fixes
+
+  [ Nick Alcock ]
+  * Relicense all of userspace, including the testsuite, to UPL.
+  * Merge NEWS from the modules into NEWS for userspace: there is  only one NEWS now.
+  * make check-quick support, skipping long-running tests
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 13 Sep 2017 00:00:00 +0000
+
+dtrace (0.6.1-2) UNRELEASED; urgency=medium
+
+  [ Eugene Loh ]
+  * Fix name of lowest bucket in dtrace_print_lquantize()
+  * Fix wrong depth in dtrace_print_ustack() leading to garbage output  from jstack()
+
+  [ Nick Alcock ]
+  * Search for cpp and ld along the PATH, fixing use of dtrace -C with  devtoolset-6 and other non-default GCCs
+  * dtrace-utils-devel now depends on elfutils-libelf-devel.
+  * dtrace-utils-testsuite now depends on dtrace-devel.
+
+  [ Nicolas Droux ]
+  * Fix spurious errors and misreading of unaligned data on SPARC,  breaking ustack() etc with upgraded glibc (Nick Alcock)   - Translator changes for the IO provider for NFS
+
+  [ Tomas Jedlicka ]
+  * Internal development release
+  * Do not build DTrace with debug info by default
+  * Test fixes, test harness extensions (consumer tests) and new tests.
+
+ -- Tomas Jedlicka <tomas.jedlicka@oracle.com>  Fri, 14 Jul 2017 00:00:00 +0000
+
+dtrace (0.6.1-1) UNRELEASED; urgency=medium
+
+  [ Girish Moodalbail ]
+  * Add link_ntop() and tests for it
+
+  [ Kris Van Hees ]
+  * Repeated dtrace -G no longer corrupts the object file
+
+  [ Alan Maguire ]
+  * Add translators and tests for TCP and UDP
+
+  [ Nicolas Droux ]
+  * Add translators for the IO provider
+  * Ship a default /etc/dtrace-modules
+
+  [ Nick Alcock ]
+  * sched.d no longer depends on the sched provider
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 25 May 2017 00:00:00 +0000
+
+dtrace (0.6.0-3) UNRELEASED; urgency=medium
+
+  * Test fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 21 Mar 2017 00:00:00 +0000
+
+dtrace (0.6.0-2) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * Add translator for ip provider
+  * Test fixes and new tests.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 3 Mar 2017 00:00:00 +0000
+
+dtrace (0.6.0-1) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * Allow self-grabs
+  * Use /proc/pid/map_files if available
+  * Fix fd leaks on big-endian systems and during heavy exec()
+  * Add improved multi-argument DTRACE_PROBE macro
+  * Fix infloops in SPARC breakpoint handling
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 17 Jan 2017 00:00:00 +0000
+
+dtrace (0.5.4-1) UNRELEASED; urgency=medium
+
+  * Work around elfutils bug causing object file corruption
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 8 Nov 2016 00:00:00 +0000
+
+dtrace (0.5.3-2) UNRELEASED; urgency=medium
+
+  * New tests
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 20 Jul 2016 00:00:00 +0000
+
+dtrace (0.5.3-1) UNRELEASED; urgency=medium
+
+  * Prevent intermittent assertion failures crashes and hangs when  shutdown races with termination of a grabbed process
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 28 Apr 2016 00:00:00 +0000
+
+dtrace (0.5.2-2) UNRELEASED; urgency=medium
+
+  * Fix uregs array on SPARC
+  * Testsuite fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 5 Feb 2016 00:00:00 +0000
+
+dtrace (0.5.2-1) UNRELEASED; urgency=medium
+
+  * Do not crash USDT probe users when shared libraries are in the upper half of  the address space
+  * Do not waste CPU time busywaiting in a do-nothing ioctl()-heavy loop
+  * Testsuite triggers are synchronized with dtrace by default
+  * Fix dtrace -c and -p on SPARC and improve error-handling paths
+  * Fix smoketests on SPARC
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 12 Jan 2016 00:00:00 +0000
+
+dtrace (0.5.1-4) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Prevent testsuite hangs when per-arch options are in use
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 8 Dec 2015 00:00:00 +0000
+
+dtrace (0.5.1-3) UNRELEASED; urgency=medium
+
+  * Fix buggy performance improvements to correctly detect out-of-tree modules  (like dtrace.ko) and speed them up some more
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 19 Nov 2015 00:00:00 +0000
+
+dtrace (0.5.1-2) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Remove typoed non-bug from rpm changelog.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 18 Nov 2015 00:00:00 +0000
+
+dtrace (0.5.1-1) UNRELEASED; urgency=medium
+
+  * Internal development release.
+  * Improve startup performance when disk cache is cold
+  * Fix various problems in the testsuite and in DTRACE_DEBUG output
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 18 Nov 2015 00:00:00 +0000
+
+dtrace (0.5.0-4) UNRELEASED; urgency=medium
+
+  * Improve identification of system daemons that must not be ptraced  unless explicitly specified
+  * Improve symbol resolution in the absence of ptrace()
+  * Fix dtrace -p with an invalid PID
+  * Close any inherited fds before running testsuite
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 4 Nov 2015 00:00:00 +0000
+
+dtrace (0.5.0-3) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * No longer reference UEK3 kernels on SPARC.
+  * Do not require 32-bit glibc on SPARC.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 23 Sep 2015 00:00:00 +0000
+
+dtrace (0.5.0-2) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * No longer Provide: an unversioned dtrace-utils
+  * Add missing testsuite package deps
+  * Fix check-module-loading testsuite target
+  * Test logfiles should not be affected by the verbosity of the test run
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 9 Sep 2015 00:00:00 +0000
+
+dtrace (0.5.0-1) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * SPARC64 support.
+  * Translator support for 4.1 kernel.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 12 Aug 2015 00:00:00 +0000
+
+dtrace (0.4.6-4) UNRELEASED; urgency=medium
+
+  [ not distributed ]
+  * Add source-tree-independent testsuite RPM
+
+  [ Nick Alcock ]
+  * Add DTrace release and SCM version info via dtrace -Vv
+  * Fix the testsuite module-loading pre-checks to actually work
+  * Various build system fixes
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 30 Jun 2015 00:00:00 +0000
+
+dtrace (0.4.6-3) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * Fix deadlocks and failures to latch processes for symbol lookup caused  by failure to correctly track their state over time, in 0.4.6-1+ only.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 23 Jun 2015 00:00:00 +0000
+
+dtrace (0.4.6-2) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * Fix a rare race causing stalls of fork()ed children of traced processes  under load, in 0.4.6-1 only
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 22 Jun 2015 00:00:00 +0000
+
+dtrace (0.4.6-1) UNRELEASED; urgency=medium
+
+  * Internal development release
+  * Support multiple kernels with a single userspace tree, loading system  D libraries from directories named like /usr/lib64/dtrace/3.8.
+  * Processes being userspace-traced can now receive SIGTRAP.
+  * dtrace-utils-devel now depends on the same version of dtrace-utils.
+  * No longer lose track of processes that exec() while their dynamic linker  state is being inspected.
+  * No longer assume that the symbol table of processes that are no longer  being monitored is unchanged since it was last inspected.
+  * Properly remove breakpoints from fork()ed children.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 18 Jun 2015 00:00:00 +0000
+
+dtrace (0.4.5-3) UNRELEASED; urgency=medium
+
+  * The dependencies are adjusted to pick up the renamed dtrace headers package.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 16 Feb 2015 00:00:00 +0000
+
+dtrace (0.4.5-2) UNRELEASED; urgency=medium
+
+  * A number of crashes when out of memory are fixed.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 18 Nov 2014 00:00:00 +0000
+
+dtrace (0.4.5-1) UNRELEASED; urgency=medium
+
+  [ Kris Van Hees ]
+  * Fix some broken tests
+
+  [ Nick Alcock ]
+  * Automatically load provider modules from /etc/dtrace-modules, if present
+  * Fix intermittent crash on failure of initial grabs or creations of processes  via dtrace -c, -p, or u*() functions
+  * Reliably track and compensate for processes undergoing execve()s
+  * Handle processes hit by stopping signals correctly
+  * Fix a sign-extension bug in breakpoint instruction poking
+  * Robustify DTrace against changes to glibc's internal data structures
+  * Fix DIF subr names in dtrace -S output
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 23 Oct 2014 00:00:00 +0000
+
+dtrace (0.4.4-2) UNRELEASED; urgency=medium
+
+  [ Kris Van Hees ]
+  * Ensure that the DOF ELF object does not require execstack
+
+  [ Nick Alcock ]
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 22 Jul 2014 00:00:00 +0000
+
+dtrace (0.4.4-1) UNRELEASED; urgency=medium
+
+  * New -xcppargs option as part of fixes for the testsuite on OL7
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 8 Jul 2014 00:00:00 +0000
+
+dtrace (0.4.3-1) UNRELEASED; urgency=medium
+
+  * Fix array underrun when no textual mapping for the executable can be found
+  * Fix unlikely buffer overrun at process-map-read time
+  * Fix traversal of realloc()ed pointer which could lead to textual mappings  being spuriously missed
+  * Fix error-path dereference of uninitialized variable in error message
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 13 May 2014 00:00:00 +0000
+
+dtrace (0.4.2-2) UNRELEASED; urgency=medium
+
+  * Interrupting dtrace with a SIGINT while monitored processes are dying no  longer hangs dtrace on a condition variable
+  * Symbol lookups on processes that died at the same instant now always fail  and no longer access freed memory
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 1 May 2014 00:00:00 +0000
+
+dtrace (0.4.2-1) UNRELEASED; urgency=medium
+
+  * killing dtrace while a ustack() is in progress no longer risks killing  crucial system daemons
+  * Fix a leak of filehandles to executables
+  * Fix ustack() of multithreaded processes
+  * Get the pid and ppid right for multithreaded processes
+  * Fix an uninitialized memory read looking up certain kernel symbols
+  * Fixes for newer versions of make, ld, and bison
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 16 Apr 2014 00:00:00 +0000
+
+dtrace (0.4.1-1) UNRELEASED; urgency=medium
+
+  [ Kris van Hees ]
+  * Install showUSDT in docdir.
+  * Fix devinfo_t's dev_statname and dev_pathanme for cases where the  device does not have partitions.
+
+  [ Nick Alcock ]
+  * Install ctf_module_dump.
+  * A lexer bug was fixed causing spurious errors if D scripts contained a  pragma or comment at intervals of 8192 characters, and preventing  the use of scripts >16KiB entirely.
+  * A variety of memory leaks and uninitialized memory reads are fixed.
+  * Improve drti.o to minimize overhead when DTrace is not running.
+  * Emit errors from drti.o on stderr, not stdout.
+  * Use O_CLOEXEC when opening files in drti.o.
+  * Fix RPM dependencies; automatically install and modprobe the dtrace  modules as needed.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 7 Jan 2014 00:00:00 +0000
+
+dtrace (0.4.0-8) UNRELEASED; urgency=medium
+
+  * Fix format of RPM changelog
+  * Add missing RPM changelog entries
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 16 Oct 2013 00:00:00 +0000
+
+dtrace (0.4.0-7) UNRELEASED; urgency=medium
+
+  * never released, necessary for release management
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 16 Oct 2013 00:00:00 +0000
+
+dtrace (0.4.0-6) UNRELEASED; urgency=medium
+
+  [ Kris van Hees ]
+  * Fix visibility of .SUNW_dof sections in dtrace -G object files.
+
+  [ Nick Alcock ]
+  * Fix typos in changelog and specfile copyright date
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Wed, 16 Oct 2013 00:00:00 +0000
+
+dtrace (0.4.0-5) UNRELEASED; urgency=medium
+
+  * avoid deadlocking when doing process operations during dtrace -l.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 17 Sep 2013 00:00:00 +0000
+
+dtrace (0.4.0-4) UNRELEASED; urgency=medium
+
+  * Support for USDT in shared libraries.
+
+ -- Kris van Hees <kris.van.hees@oracle.com>  Fri, 16 Aug 2013 00:00:00 +0000
+
+dtrace (0.4.0-3) UNRELEASED; urgency=medium
+
+  * never released, necessary for release management
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 16 Aug 2013 00:00:00 +0000
+
+dtrace (0.4.0-2) UNRELEASED; urgency=medium
+
+  * never released, necessary for release management
+
+ -- Kris van Hees <kris.van.hees@oracle.com>  Fri, 16 Aug 2013 00:00:00 +0000
+
+dtrace (0.4.0-1) UNRELEASED; urgency=medium
+
+  * ustack() support and symbol lookups.
+  * USDT support.  dtrace -G works.
+  * evaltime option now works.
+  * DTrace headers largely moved to dtrace-modules-headers.
+  * DTRACE_OPT_* environment variables now set options.  DTRACE_DEBUG=signal emits debugging output on SIGUSR1 receipt.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 23 Jul 2013 00:00:00 +0000
+
+dtrace (0.3.0-1) UNRELEASED; urgency=medium
+
+  * CTF support.
+  * Fixed install path for dtrace libraries.
+  * Fixed -c and -p options.
+  * Faster startup.
+  * Split out a -devel package.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Fri, 31 Aug 2012 00:00:00 +0000
+
+dtrace (0.2.5-2) UNRELEASED; urgency=medium
+
+  * Call ldconfig at appropriate times.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 19 Mar 2012 00:00:00 +0000
+
+dtrace (0.2.5) UNRELEASED; urgency=medium
+
+  * libdtrace is now a shared library, with non-stable API/ABI.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 13 Mar 2012 00:00:00 +0000
+
+dtrace (0.2.4) UNRELEASED; urgency=medium
+
+  * Updated README; new NEWS and PROBLEMS; synch with module version
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 16 Feb 2012 00:00:00 +0000
+
+dtrace (0.2.3) UNRELEASED; urgency=medium
+
+  * Fixes for reproducibility of test results under load
+  * Fix -G when setting the syslibdir
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 9 Feb 2012 00:00:00 +0000
+
+dtrace (0.2.2) UNRELEASED; urgency=medium
+
+  * Fix spurious failures of tst.resize*.d.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Mon, 6 Feb 2012 00:00:00 +0000
+
+dtrace (0.2.1) UNRELEASED; urgency=medium
+
+  * Fix 'make check-installed' with an unbuilt source tree.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 31 Jan 2012 00:00:00 +0000
+
+dtrace (0.2.0) UNRELEASED; urgency=medium
+
+  * Branch for 0.2.0 release.
+
+ -- Kris van Hees <kris.van.hees@oracle.com>  Thu, 26 Jan 2012 00:00:00 +0000
+
+dtrace (0.1-0.3) UNRELEASED; urgency=medium
+
+  * The systemtap package in the 'wild' creates a dtrace.1 manpage  which is bizarre since it doesn't have an associated dtrace  binary. This will cause a conflict and the rpm will not install  Since that man page is superfluous I've had to add a %post  section here to move our manpage into position in such a way as  to keep the rpm database happy. Technically this is a bit evil.
+
+ -- Philip Copeland <philip.copeland@oracle.com>  Fri, 7 Oct 2011 00:00:00 +0000
+
+dtrace (0.2) UNRELEASED; urgency=medium
+
+  * Fix copyright.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Thu, 06 Oct 2011 00:00:00 +0000
+
+dtrace (0.1) UNRELEASED; urgency=medium
+
+  * Branch for initial release.
+
+ -- Nick Alcock <nick.alcock@oracle.com>  Tue, 27 Sep 2011 00:00:00 +0000
+
+dtrace (0.0.1) UNRELEASED; urgency=medium
+
+  * Initial build for dtrace.
+
+ -- Pearly Zhao <pearly.zhao@oracle.com>  Mon, 27 Jun 2011 00:00:00 +0000
+

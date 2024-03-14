@@ -1,0 +1,11 @@
+usr/lib64/dtrace/[0-9]*
+usr/lib64/dtrace/bpf_dlib.o
+usr/lib64/dtrace/drti/
+usr/lib64/libdtrace.so.*
+usr/sbin/dtrace
+usr/sbin/dtprobed
+usr/include/sys/sdt.h
+usr/include/sys/sdt_internal.h
+usr/lib/systemd/system/dtprobed.service
+usr/lib/systemd/system/dtrace-usdt.target
+usr/lib/udev/rules.d/60-dtprobed.rules
