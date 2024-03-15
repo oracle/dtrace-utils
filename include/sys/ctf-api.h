@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,6 +15,7 @@
 # define ctf_close(fp)	ctf_file_close(fp)
 #else
 # include <sys/ctf_api.h>
+typedef ctf_file_t	ctf_dict_t;
 #endif
 
 #endif /* _DT_CTF_API_H */

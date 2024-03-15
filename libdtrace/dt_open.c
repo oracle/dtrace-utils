@@ -29,6 +29,7 @@
 
 #include <dt_impl.h>
 #include <dt_bpf.h>
+#include <dt_btf.h>
 #include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_module.h>
@@ -1279,6 +1280,8 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_htab_destroy(dtp, dtp->dt_mods);
 	dt_htab_destroy(dtp, dtp->dt_kernpaths);
 
+	if (dtp->dt_shared_btf != NULL)
+		dt_btf_destroy(dtp, dtp->dt_shared_btf);
 	if (dtp->dt_shared_ctf != NULL)
 		ctf_close(dtp->dt_shared_ctf);
 	if (dtp->dt_ctfa != NULL)

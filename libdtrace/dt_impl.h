@@ -159,6 +159,7 @@ typedef struct dt_module {
 	ctf_sect_t dm_ctdata;	/* CTF data for module */
 	ctf_sect_t dm_symtab;	/* symbol table */
 	ctf_sect_t dm_strtab;	/* string table */
+	struct dt_btf *dm_btf;	/* BTF data for module */
 
 	/*
 	 * Kernel modules only.
@@ -337,7 +338,7 @@ struct dtrace_hdl {
 	dt_htab_t *dt_kernsyms; /* htab of kernel symbol names */
 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
-	struct dt_btf *dt_btf;	/* BTF data for the kernel */
+	struct dt_btf *dt_shared_btf; /* BTF data for the kernel (shared) */
 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
 	dt_htab_t *dt_kernpaths; /* hash table of dt_kern_path_t's */
 	dt_module_t *dt_exec;	/* pointer to executable module */
