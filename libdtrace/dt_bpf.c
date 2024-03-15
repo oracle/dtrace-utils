@@ -21,6 +21,8 @@
 #include <dt_strtab.h>
 #include <dt_bpf.h>
 #include <dt_bpf_maps.h>
+#include <linux/btf.h>
+#include <dt_btf.h>
 #include <port.h>
 
 static boolean_t	dt_gmap_done = 0;
@@ -379,7 +381,7 @@ have_helper(uint32_t func_id)
 	       strstr(ptr, "unknown func") == NULL;
 }
 
-void
+static void
 dt_bpf_init_helpers(dtrace_hdl_t *dtp)
 {
 	uint32_t	i;
@@ -400,6 +402,50 @@ dt_bpf_init_helpers(dtrace_hdl_t *dtp)
 	BPF_HELPER_MAP(get_current_task_btf, unspec);
 	BPF_HELPER_MAP(task_pt_regs, unspec);
 #undef BPF_HELPER_MAP
+}
+
+static int
+have_attach_type(enum bpf_prog_type ptype, enum bpf_attach_type atype,
+		 uint32_t btf_id)
+{
+	struct bpf_insn	insns[] = {
+				BPF_MOV_IMM(BPF_REG_0, 0),
+				BPF_RETURN()
+			};
+	dtrace_difo_t	dp;
+	int		fd;
+
+	dp.dtdo_buf = insns;
+	dp.dtdo_len = ARRAY_SIZE(insns);
+
+	fd = dt_bpf_prog_attach(ptype, atype, 0, btf_id, &dp, 0, NULL, 0);
+	/* If the program loads, we can use the attach type. */
+	if (fd > 0) {
+		close(fd);
+		return 1;
+	}
+
+	/* Failed -> attach type not available to us */
+	return 0;
+}
+
+static void
+dt_bpf_init_features(dtrace_hdl_t *dtp)
+{
+	uint32_t	btf_id;
+
+	btf_id = dt_btf_lookup_name_kind(dtp, dtp->dt_shared_btf, "bpf_check",
+					 BTF_KIND_FUNC);
+	if (btf_id >= 0 &&
+	    have_attach_type(BPF_PROG_TYPE_TRACING, BPF_TRACE_FENTRY, btf_id))
+		BPF_SET_FEATURE(dtp, BPF_FEAT_FENTRY);
+}
+
+void
+dt_bpf_init(dtrace_hdl_t *dtp)
+{
+	dt_bpf_init_helpers(dtp);
+	dt_bpf_init_features(dtp);
 }
 
 static int

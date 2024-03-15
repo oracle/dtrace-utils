@@ -1154,7 +1154,7 @@ dt_vopen(int version, int flags, int *errp,
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
 		return set_open_errno(dtp, errp, dtp->dt_errno);
 
-	dt_bpf_init_helpers(dtp);
+	dt_bpf_init(dtp);
 
 	return dtp;
 }

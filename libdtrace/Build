@@ -96,6 +96,7 @@ libdtrace_LIBS += -lopcodes
 endif
 
 # Disable certain warnings for these files
+dt_bpf.c_CFLAGS := -Wno-pedantic
 dt_btf.c_CFLAGS := -Wno-pedantic
 dt_consume.c_CFLAGS := -Wno-pedantic
 dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor

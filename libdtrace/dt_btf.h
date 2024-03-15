@@ -8,6 +8,7 @@
 #ifndef	_DT_BTF_H
 #define	_DT_BTF_H
 
+/* #include <linux/btf.h> */
 #include <dt_impl.h>
 
 #ifdef	__cplusplus
@@ -20,6 +21,8 @@ extern void dt_btf_destroy(dtrace_hdl_t *, dt_btf_t *);
 extern dt_btf_t *dt_btf_load_module(dtrace_hdl_t *, dt_module_t *);
 extern ctf_dict_t *dt_btf_module_ctf(dtrace_hdl_t *, dt_module_t *);
 extern const char *dt_btf_get_string(dtrace_hdl_t *, dt_btf_t *, uint32_t);
+extern int32_t dt_btf_lookup_name_kind(dtrace_hdl_t *, dt_btf_t *,
+				       const char *, uint32_t);
 
 #ifdef	__cplusplus
 }

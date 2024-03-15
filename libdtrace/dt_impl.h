@@ -422,6 +422,7 @@ struct dtrace_hdl {
 	uint_t dt_disasm;	/* dtrace disassembler bitmap (see below) */
 	uint64_t dt_options[DTRACEOPT_MAX]; /* dtrace run-time options */
 	uint32_t dt_bpfhelper[__BPF_FUNC_MAX_ID]; /* BPF helper mapping */
+	uint32_t dt_bpffeatures;/* BPF features */
 	int dt_version;		/* library version requested by client */
 	int dt_btferr;		/* error resulting from last BTF failure */
 	int dt_ctferr;		/* error resulting from last CTF failure */

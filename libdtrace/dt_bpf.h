@@ -20,6 +20,17 @@ struct dtrace_hdl;
 extern "C" {
 #endif
 
+/*
+ * BPF features.
+ */
+#define BPF_FEAT_FENTRY			0x1	/* fentry/fexit support */
+
+#define BPF_HAS(dtp, feat)	((dtp)->dt_bpffeatures & (feat))
+#define BPF_SET_FEATURE(dtp, feat) \
+				do { \
+					(dtp)->dt_bpffeatures |= (feat); \
+				} while (0)
+
 #define DT_CONST_EPID			1
 #define DT_CONST_PRID			2
 #define DT_CONST_CLID			3
@@ -75,7 +86,7 @@ extern int dt_bpf_prog_load(enum bpf_prog_type prog_type,
 extern int dt_bpf_raw_tracepoint_open(const void *tp, int fd);
 extern int dt_bpf_make_progs(struct dtrace_hdl *, uint_t);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);
-extern void dt_bpf_init_helpers(struct dtrace_hdl *dtp);
+extern void dt_bpf_init(struct dtrace_hdl *dtp);
 
 #ifdef	__cplusplus
 }
