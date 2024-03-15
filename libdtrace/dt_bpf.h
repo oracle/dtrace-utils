@@ -64,6 +64,11 @@ extern int dt_bpf_map_lookup_inner(int fd, const void *okey, const void *ikey,
 				   void *val);
 extern int dt_bpf_map_update_inner(int fd, const void *okey, const void *ikey,
 				   const void *val);
+extern int dt_bpf_prog_attach(enum bpf_prog_type ptype,
+			      enum bpf_attach_type atype, int btf_fd,
+			      uint32_t btf_id, const dtrace_difo_t *dp,
+			      uint32_t log_level, char *log_buf,
+			      size_t log_buf_sz);
 extern int dt_bpf_prog_load(enum bpf_prog_type prog_type,
 			    const dtrace_difo_t *dp, uint32_t log_level,
 			    char *log_buf, size_t log_buf_sz);

@@ -73,18 +73,23 @@ dt_bpf_lockmem_error(dtrace_hdl_t *dtp, const char *msg)
 }
 
 /*
- * Load a BPF program into the kernel.
+ * Load a BPF program into the kernel (and attach it to an object by BTF id if
+ * specified).
  */
 int
-dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
-		     uint32_t log_level, char *log_buf, size_t log_buf_sz)
+dt_bpf_prog_attach(enum bpf_prog_type ptype, enum bpf_attach_type atype,
+		   int btf_fd, uint32_t btf_id, const dtrace_difo_t *dp,
+		   uint32_t log_level, char *log_buf, size_t log_buf_sz)
 {
 	union bpf_attr	attr;
 	int		fd;
 	int		i = 0;
 
 	memset(&attr, 0, sizeof(attr));
-	attr.prog_type = prog_type;
+	attr.prog_type = ptype;
+	attr.expected_attach_type = atype;
+	attr.attach_btf_obj_fd = btf_fd;
+	attr.attach_btf_id = btf_id;
 	attr.insn_cnt = dp->dtdo_len;
 	attr.insns = (uint64_t)dp->dtdo_buf;
 	attr.license = (uint64_t)BPF_CG_LICENSE;
@@ -101,6 +106,17 @@ dt_bpf_prog_load(enum bpf_prog_type prog_type, const dtrace_difo_t *dp,
 	} while (fd == -EAGAIN && ++i < 5);
 
 	return fd;
+}
+
+/*
+ * Load a BPF program into the kernel (and attach it to an object by BTF id if
+ * specified).
+ */
+int
+dt_bpf_prog_load(enum bpf_prog_type ptype, const dtrace_difo_t *dp,
+		 uint32_t log_lvl, char *log_buf, size_t log_bufsz)
+{
+	return dt_bpf_prog_attach(ptype, 0, 0, 0, dp, log_lvl, log_buf, log_bufsz);
 }
 
 /*
