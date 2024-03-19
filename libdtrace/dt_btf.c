@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -788,12 +788,37 @@ int32_t
 dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
 			uint32_t kind)
 {
-	int32_t	i;
+	int32_t	i, base = 0;
 
 	if (kind == BTF_KIND_UNKN)
 		return 0;
 	if (strcmp(name, "void") == 0)
 		return 0;
+
+	/*
+	 * Ensure the shared BTF is loaded, and if no BTF is given, use the
+	 * shared one.
+	 */
+	 if (!dtp->dt_btf) {
+		  dt_btf_load_module(dtp, dtp->dt_exec);
+
+		  if (!btf)
+			   btf = dtp->dt_btf;
+	 }
+
+	 if (!btf)
+		  return -ENOENT;
+
+	/*
+	 * Any module other than 'vmlinux' inherits the types from 'vmlinux'.
+	 * The shared types are 1 through (base = dtp->dt_btf->type_cnt - 1).
+	 * A module's types are base through (base + btf->type_cnt - 1), but
+	 * the types are stored in the BTF types array with indexes 1 through
+	 * (btf->type_cnt - 1).
+	 */
+	if (btf != dtp->dt_btf)
+		base = dtp->dt_btf->type_cnt - 1;
+
 
 	for (i = 1; i < btf->type_cnt; i++) {
 		const btf_type_t	*type = btf->types[i];
@@ -803,9 +828,12 @@ dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
 			continue;
 
 		str = dt_btf_get_string(dtp, btf, type->name_off);
-		if (strcmp(name, str) == 0)
-			return i;
+		if (str && strcmp(name, str) == 0)
+			return i + base;
 	}
+
+	if (base > 0)
+		return dt_btf_lookup_name_kind(dtp, dtp->dt_btf, name, kind);
 
 	return -ENOENT;
 }
