@@ -1526,8 +1526,6 @@ rd_new(struct ps_prochandle *P)
 		return NULL;
 	}
 
-	Pwait(P, 0, NULL);
-
 	rd = calloc(sizeof(struct rd_agent), 1);
 	if (rd == NULL)
 		return NULL;
