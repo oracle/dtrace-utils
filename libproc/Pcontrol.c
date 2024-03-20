@@ -679,6 +679,14 @@ Pwait_internal(struct ps_prochandle *P, boolean_t block, int *return_early)
 	if (P->state == PS_DEAD)
 		return 0;
 
+	/*
+	 * If a noninvasively traced process gets Pwait()ed on (which is
+	 * routine, its use is pervasive), don't wait: we'll only get an ECHILD,
+	 * which will spuriously cause us to conclude that the process is dead.
+	 */
+	if (P->noninvasive)
+		return 0;
+
 	do {
 		errno = 0;
 
