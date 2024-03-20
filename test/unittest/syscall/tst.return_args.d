@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -18,9 +18,10 @@ BEGIN
 }
 
 syscall::ioctl:entry
-/pid == $1/
+/pid == $1 && !signalled/
 {
 	raise(SIGUSR1);
+	signalled = 1;
 }
 
 syscall::open*:return

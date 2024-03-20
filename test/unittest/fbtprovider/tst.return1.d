@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -21,9 +21,10 @@ BEGIN
 
 /* notify the trigger to exit its ioctl() loop */
 syscall::ioctl:entry
-/pid == $1/
+/pid == $1 && !signalled/
 {
 	raise(SIGUSR1);
+	signalled = 1;
 }
 
 /* if we enter open(), reset the expected return value */
@@ -44,7 +45,7 @@ fbt:vmlinux:do_sys_open*:return
 }
 
 syscall::open*:return
-/pid == $1 && ++niter >= 20/
+/pid == $1 && ++niter >= 5/
 {
 	exit(0);
 }
