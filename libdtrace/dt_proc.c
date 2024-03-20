@@ -945,17 +945,17 @@ dt_proc_control(void *arg)
 		 * Also, obviously enough, never drop breakpoints in ourself!
 		 */
 		if (datap->dpcd_flags & DTRACE_PROC_SHORTLIVED) {
-			pid_t tracer_pid;
+			pid_t tracer_pid, tgid;
 
 			noninvasive = 1;
 			dpr->dpr_notifiable = 0;
 			tracer_pid = Ptracer_pid(dpr->dpr_pid);
+			tgid = Ptgid(dpr->dpr_pid);
 
 			if ((Psystem_daemon(dpr->dpr_pid, dtp->dt_useruid,
 				    dtp->dt_sysslice) > 0) ||
-			    ((tracer_pid != 0) &&
-			     (tracer_pid != getpid())) ||
-			    (dpr->dpr_pid == getpid()))
+			    (tracer_pid == getpid()) ||
+			    (tgid == getpid()))
 				noninvasive = 2;
 		}
 
@@ -971,7 +971,7 @@ dt_proc_control(void *arg)
 		 * the cleanup handlers: the process is running, but does not
 		 * need a monitoring thread.
 		 */
-		if (noninvasive && !Ptraceable(dpr->dpr_proc)) {
+		if (!Ptraceable(dpr->dpr_proc)) {
 			dt_dprintf("%i: noninvasive grab, control thread "
 			    "suiciding\n", dpr->dpr_pid);
 			pthread_exit(NULL);

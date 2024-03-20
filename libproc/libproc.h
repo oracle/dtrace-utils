@@ -102,6 +102,7 @@ extern	int	Pdynamically_linked(struct ps_prochandle *);
 extern	int	Ptraceable(struct ps_prochandle *);
 extern	int	Pelf64(struct ps_prochandle *);
 extern	pid_t	Ptracer_pid(pid_t);
+extern	pid_t	Ptgid(pid_t);
 
 /*
  * Calls that do not take a process structure.  These are used to determine

@@ -2838,6 +2838,23 @@ Ptracer_pid(pid_t pid)
 }
 
 /*
+ * Get the thread-group ID of the given task (comparable to getpid().
+ */
+pid_t
+Ptgid(pid_t pid)
+{
+	char *txt;
+	pid_t tgid;
+
+	if ((txt = Pget_proc_status(pid, "Tgid")) == NULL)
+		return 0;
+
+	tgid = strtol(txt, NULL, 10);
+	free(txt);
+	return tgid;
+}
+
+/*
  * Return 1 if this process is a system daemon, 0 if it is not, and -1 on error.
  *
  *  A process is considered a system daemon if either of two possibilities hold:
