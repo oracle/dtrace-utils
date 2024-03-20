@@ -1348,7 +1348,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 			return 0;
 
 		if (P->state == PS_DEAD)
-			return PS_DEAD;
+			return -ECHILD;
 
 		listen_interrupt = P->listening;
 		P->ptrace_halted = TRUE;
@@ -1407,7 +1407,7 @@ Ptrace(struct ps_prochandle *P, int stopped)
 
 	return err;
 err:
-	err = errno;
+	err = -errno;
 err2:
 	/*
 	 * Note a subtlety here: the Ptrace_count may have been reduced, and the state
