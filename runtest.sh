@@ -1316,6 +1316,7 @@ for dt in $dtrace; do
 
             # Account for an error message change in CTF
             sed -e 's/Invalid member name/Member name not found/' $testerr.tmp > $testerr
+            rm -f $testerr.tmp
 
             # Note if dtrace mentions running out of memory at any point.
             # If it does, this test quietly becomes an expected failure
