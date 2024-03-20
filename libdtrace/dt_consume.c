@@ -2748,63 +2748,57 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 	 */
 	base = peb->base + pebset->page_size;
 
-	do {
-		if (peekflags == CONSUME_PEEK || peekflags == CONSUME_PEEK_FINISH)
-			head = peb->last_head;
-		else {
-			head = ring_buffer_read_head(rb_page);
-			peb->last_head = head;
-		}
-		tail = rb_page->data_tail;
+	if (peekflags == CONSUME_PEEK || peekflags == CONSUME_PEEK_FINISH)
+		head = peb->last_head;
+	else {
+		head = ring_buffer_read_head(rb_page);
+		peb->last_head = head;
+	}
+	tail = rb_page->data_tail;
 
-		if (head == tail)
-			break;
+	while (tail != head) {
+		dtrace_workstatus_t rval = DTRACE_WORKSTATUS_OKAY;
 
-		do {
-			dtrace_workstatus_t rval = DTRACE_WORKSTATUS_OKAY;
+		event = base + tail % data_size;
+		hdr = (struct perf_event_header *)event;
+		len = hdr->size;
 
-			event = base + tail % data_size;
-			hdr = (struct perf_event_header *)event;
-			len = hdr->size;
+		/*
+		 * If the perf event data wraps around the boundary of
+		 * the buffer, we make a copy in contiguous memory.
+		 */
+                if (event + len > peb->endp) {
+                  char *dst;
+                  uint32_t num;
 
-			/*
-			 * If the perf event data wraps around the boundary of
-			 * the buffer, we make a copy in contiguous memory.
-			 */
-			if (event + len > peb->endp) {
-				char		*dst;
-				uint32_t	num;
+                  /* Increase the buffer as needed. */
+                  if (pebset->tmp_len < len) {
+                    pebset->tmp = realloc(pebset->tmp, len);
+                    pebset->tmp_len = len;
+                  }
 
-				/* Increase the buffer as needed. */
-				if (pebset->tmp_len < len) {
-					pebset->tmp = realloc(pebset->tmp, len);
-					pebset->tmp_len = len;
-				}
+                  dst = pebset->tmp;
+                  num = peb->endp - event + 1;
+                  memcpy(dst, event, num);
+                  memcpy(dst + num, base, len - num);
 
-				dst = pebset->tmp;
-				num = peb->endp - event + 1;
-				memcpy(dst, event, num);
-				memcpy(dst + num, base, len - num);
+                  event = dst;
+                }
 
-				event = dst;
-			}
+                rval = dt_consume_one(dtp, fp, event, &pdat, efunc, rfunc, flow,
+                                      quiet, peekflags, &last, arg);
+                if (rval == DTRACE_WORKSTATUS_DONE)
+                  return DTRACE_WORKSTATUS_OKAY;
+                if (rval != DTRACE_WORKSTATUS_OKAY)
+                  return rval;
 
-			rval = dt_consume_one(dtp, fp, event, &pdat, efunc,
-					      rfunc, flow, quiet, peekflags,
-					      &last, arg);
-			if (rval == DTRACE_WORKSTATUS_DONE)
-				return DTRACE_WORKSTATUS_OKAY;
-			if (rval != DTRACE_WORKSTATUS_OKAY)
-				return rval;
+                tail += hdr->size;
+	}
 
-			tail += hdr->size;
-		} while (tail != head);
+	if (peekflags == 0 || peekflags == CONSUME_PEEK_FINISH)
+		ring_buffer_write_tail(rb_page, tail);
 
-		if (peekflags == 0 || peekflags == CONSUME_PEEK_FINISH)
-			ring_buffer_write_tail(rb_page, tail);
-	} while (peekflags == 0);
-
-	return DTRACE_WORKSTATUS_OKAY;
+        return DTRACE_WORKSTATUS_OKAY;
 }
 
 typedef struct dt_begin {
