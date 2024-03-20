@@ -833,7 +833,15 @@ Pupdate_syms(struct ps_prochandle *P)
 	Pupdate_maps(P);
 	Pupdate_lmids(P);
 
-	for (i = 0, fptr = dt_list_next(&P->file_list);
+	/*
+	 * The process might have died while updating maps or lmids, both of
+	 * which can be quite time-consuming.
+	 */
+
+        if (P->state == PS_DEAD)
+		return;
+
+        for (i = 0, fptr = dt_list_next(&P->file_list);
 	     i < P->num_files; i++, fptr = dt_list_next(fptr))
 		Pbuild_file_symtab(P, fptr);
 }
