@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -31,6 +31,7 @@ typedef struct tp_probe tp_probe_t;
 extern tp_probe_t *dt_tp_alloc(dtrace_hdl_t *dtp);
 extern int dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd);
 extern int dt_tp_is_created(const tp_probe_t *tpp);
+extern void dt_tp_set_event_id(const struct dt_probe *prp, uint32_t id);
 extern int dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
 			    tp_probe_t *tpp, int *argcp,
 			    dt_argdesc_t **argvp);

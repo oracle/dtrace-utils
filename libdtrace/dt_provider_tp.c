@@ -95,6 +95,14 @@ dt_tp_is_created(const tp_probe_t *tpp)
 	return tpp->event_id != -1;
 }
 
+void
+dt_tp_set_event_id(const dt_probe_t *prp, uint32_t id)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	tpp->event_id = id;
+}
+
 /*
  * Parse a EVENTSFS/<group>/<event>/format file to determine the event id and
  * the argument types.

@@ -186,28 +186,24 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
-static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *argcp, dt_argdesc_t **argvp)
+/*
+ * If there is no trace_event_raw_* struct available in CTF, we can still get
+ * argument count and type information from the tracefs data.
+ */
+static int probe_info_tracefs(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			      int *argcp, dt_argdesc_t **argvp)
 {
-	FILE		*f;
-	char		fn[256];
-	int		rc;
-	tp_probe_t	*tpp = prp->prv_data;
+	FILE				*f;
+	char				*fn;
+	int				rc;
+	tp_probe_t			*tpp = prp->prv_data;
+	const dtrace_probedesc_t	*pdp = prp->desc;
 
-	/*
-	 * If the tracepoint has already been created and we have its info,
-	 * there is no need to retrieve the info again.
-	 */
-	if (dt_tp_is_created(tpp))
-		return -1;
-
-	strcpy(fn, EVENTSFS);
-	strcat(fn, prp->desc->mod);
-	strcat(fn, "/");
-	strcat(fn, prp->desc->prb);
-	strcat(fn, "/format");
+	if (asprintf(&fn, EVENTSFS "%s/%s/format", pdp->mod, pdp->prb) == -1)
+		return dt_set_errno(dtp, EDT_NOMEM);
 
 	f = fopen(fn, "r");
+	free(fn);
 	if (!f)
 		return -ENOENT;
 
@@ -215,6 +211,90 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	fclose(f);
 
 	return rc;
+}
+
+static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+		      int *argcp, dt_argdesc_t **argvp)
+{
+#ifdef HAVE_LIBCTF
+	int			rc, i;
+	char			*str;
+	ctf_dict_t		*ctfp;
+	ctf_id_t		type;
+	ctf_next_t		*it = NULL;
+	int			argc = 0;
+	dt_argdesc_t		*argv = NULL;
+	dtrace_typeinfo_t	sym;
+	FILE			*f;
+	uint32_t		id;
+
+	/* Retrieve the event id. */
+	if (asprintf(&str, EVENTSFS "%s/%s/id", prp->desc->mod, prp->desc->prb) == -1)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	f = fopen(str, "r");
+	free(str);
+	if (!f)
+		return dt_set_errno(dtp, EDT_ENABLING_ERR);
+
+	rc = fscanf(f, "%u", &id);
+	fclose(f);
+
+	if (rc < 0 || id == 0)
+		return dt_set_errno(dtp, EDT_ENABLING_ERR);
+
+	dt_tp_set_event_id(prp, id);
+
+	if (asprintf(&str, "struct trace_event_raw_%s", prp->desc->prb) == -1)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	rc = dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY, str, &sym);
+	free(str);
+	if (rc ||
+	    ctf_type_kind(sym.dtt_ctfp, sym.dtt_type) != CTF_K_STRUCT)
+		goto use_alt;
+
+	/*
+	 * Tracepoints have an extra member at the beginning and end of the
+	 * struct.  We need to skip those.  (We also handle the case where one
+	 * or both of those members are missing even though that is not
+	 * supposed to happen.)
+	 */
+	ctfp = sym.dtt_ctfp;
+	type = sym.dtt_type;
+	rc = ctf_member_count(ctfp, type);
+	if (rc <= 2)
+		goto done;
+
+	rc--;
+	argc = rc - 1;
+	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+	/* Skip first member. */
+	ctf_member_next(ctfp, type, &it, NULL, NULL, 0);
+	for (i = 0; i < argc; i++) {
+		ctf_id_t	mtyp;
+		char		n[DT_TYPE_NAMELEN];
+
+		if (ctf_member_next(ctfp, type, &it, NULL, &mtyp, 0) == CTF_ERR) {
+			ctf_next_destroy(it);
+			return dt_set_errno(dtp, EDT_CTF);
+		}
+		ctf_type_name(ctfp, mtyp, n, sizeof(n));
+		argv[i].mapping = i;
+		argv[i].native = strdup(n);
+		argv[i].xlate = NULL;
+	}
+	ctf_next_destroy(it);
+done:
+	*argcp = argc;
+	*argvp = argv;
+
+	return 0;
+
+use_alt:
+#endif
+	return probe_info_tracefs(dtp, prp, argcp, argvp);
 }
 
 dt_provimpl_t	dt_sdt = {
