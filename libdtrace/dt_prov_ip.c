@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -181,4 +181,5 @@ dt_provimpl_t	dt_ip = {
 	.enable		= &dt_sdt_enable,
 	.trampoline	= &trampoline,
 	.probe_info	= &dt_sdt_probe_info,
+	.destroy	= &dt_sdt_destroy,
 };

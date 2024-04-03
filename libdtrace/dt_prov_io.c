@@ -517,4 +517,5 @@ dt_provimpl_t	dt_io = {
 	.enable		= &dt_sdt_enable,
 	.trampoline	= &trampoline,
 	.probe_info	= &dt_sdt_probe_info,
+	.destroy	= &dt_sdt_destroy,
 };

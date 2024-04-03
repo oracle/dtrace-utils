@@ -208,7 +208,7 @@ static int probe_info_bpf(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 	for (i = 0; i < argc; i++) {
 		argv[i].mapping = i;
-		argv[i].native = "uint64_t";
+		argv[i].native = strdup("uint64_t");
 		argv[i].xlate = NULL;
 	}
 

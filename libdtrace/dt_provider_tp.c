@@ -134,7 +134,6 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	int		argc;
 	size_t		argsz = 0;
 	dt_argdesc_t	*argv = NULL;
-	char		*strp;
 
 	tpp->event_id = -1;
 
@@ -184,10 +183,9 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	if (argc == 0)
 		goto done;
 
-	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t) + argsz);
+	argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
 	if (!argv)
 		return -ENOMEM;
-	strp = (char *)(argv + argc);
 
 	/*
 	 * Pass 2:
@@ -199,6 +197,8 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		char	*p;
 		size_t	l;
 		size_t	size = 0;
+		char	tstr[DT_TYPE_NAMELEN];
+		char	*strp;
 
 		p = strstr(buf, "size:");
 		if (p != NULL)
@@ -225,10 +225,9 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 				*q = '\0';
 
 			l = q - p;
-			memcpy(strp, p, l);
+			strp = p;
 		} else {
 			char	*s, *q;
-			int	n;
 			int	alpha = 0;
 
 			/*
@@ -259,6 +258,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			if ((q = strrchr(p, ' ')))
 				*q = '\0';
 
+			strp = tstr;
 			if (alpha) {
 				ctf_file_t	*ctfp = dtp->dt_shared_ctf;
 				ctf_id_t	type;
@@ -275,18 +275,14 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			} else {
 				l = q - p;
 				memcpy(strp, p, l);
-				n = strlen(s);
-				memcpy(strp + l, s, n);
-				l += n;
+				memcpy(strp + l, s, strlen(s) + 1);
 			}
 		}
 
 		argv[argc].mapping = argc;
 		argv[argc].flags = 0;
-		argv[argc].native = strp;
+		argv[argc].native = strdup(strp);
 		argv[argc].xlate = NULL;
-
-		strp += l + 1;
 
 skip:
 		argc++;

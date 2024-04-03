@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -962,6 +962,9 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 		prp->mapping[i] = argv[i].mapping;
 		prp->argv[i] = dtt;
 		prp->xargv[i]->dn_flags |= argv[i].flags;
+
+		free((char *)argv[i].native);
+		free((char *)argv[i].xlate);
 	}
 
 	dt_free(dtp, argv);

@@ -154,8 +154,14 @@ dt_sdt_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp, int *argcp,
 
 	for (i = pidx; i < pidx + argc; i++) {
 		const probe_arg_t	*arg = &probe_args[i];
+		const dt_argdesc_t	*argd = &arg->argdesc;
+		dt_argdesc_t		*parg = &argv[arg->argno];
 
-		argv[arg->argno] = arg->argdesc;
+		*parg = *argd;
+		if (argd->native)
+			parg->native = strdup(argd->native);
+		if (argd->xlate)
+			parg->xlate = strdup(argd->xlate);
 	}
 
 done:
