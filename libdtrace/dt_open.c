@@ -1338,6 +1338,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 
 	free(dtp->dt_drops);
 	free(dtp->dt_module_path);
+	free(dtp->dt_ctfa_path);
 	free(dtp);
 
 	dt_debug_dump(0);
