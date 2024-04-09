@@ -170,12 +170,15 @@ done
 
 echo 'Writing build/config-vars.mk'
 rm -f build/config-vars.mk
-[[ -f build/.config-vars.mk.new ]] && \
-   mv -f build/.config-vars.mk.new build/config-vars.mk
+[[ ! -f build/.config-vars.mk.new ]] && \
+  touch build/config-vars.mk
+mv -f build/.config-vars.mk.new build/config-vars.mk
 
 rm -rf build/.config
-[[ -d build/.config.new ]] && \
-    mv -f build/.config.new build/.config
+[[ ! -d build/.config.new ]] && \
+  mkdir -p build/.config.new && \
+  touch build/.config.new/empty.h build/.config.new/empty.mk
+mv -f build/.config.new build/.config
 
 # Arrange for build/config.{h,mk} to exist as soon as this
 # script ends, so that users can see that the files we said we
