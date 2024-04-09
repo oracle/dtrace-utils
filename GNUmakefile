@@ -110,7 +110,7 @@ DTRACE ?= $(objdir)/dtrace
 
 # Variables derived from the above.
 
-export CC = gcc
+export CC ?= gcc
 
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | $(CC) -x c -o /dev/null -m32 - 2>/dev/null || echo t)
@@ -121,11 +121,11 @@ CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
 
 override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
-export BPFC = bpf-unknown-none-gcc
+export BPFC ?= bpf-unknown-none-gcc
 
 BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
 BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas $(if $(HAVE_BPFV3),-mcpu=v3)
-export BPFLD = bpf-unknown-none-ld
+export BPFLD ?= bpf-unknown-none-ld
 
 all::
 
