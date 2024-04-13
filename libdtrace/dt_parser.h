@@ -280,6 +280,7 @@ extern void yyinit(struct dt_pcb *);
 struct yy_buffer_state;
 
 struct yy_buffer_state *yy_scan_string(const char *);
+extern void yypop_buffer_state(void);
 void yy_delete_buffer(struct yy_buffer_state *);
 extern int yyparse(void);
 
