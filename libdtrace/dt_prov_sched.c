@@ -146,6 +146,7 @@ dt_provimpl_t	dt_sched = {
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &populate,
 	.enable		= &dt_sdt_enable,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.probe_info	= &dt_sdt_probe_info,
 	.destroy	= &dt_sdt_destroy,

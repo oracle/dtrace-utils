@@ -22,8 +22,6 @@
 
 #include "dt_dctx.h"
 #include "dt_cg.h"
-#include "dt_bpf.h"
-#include "dt_provider.h"
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
 
@@ -490,6 +488,7 @@ dt_provimpl_t	dt_proc = {
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &populate,
 	.enable		= &enable,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.probe_info	= &probe_info,
 };

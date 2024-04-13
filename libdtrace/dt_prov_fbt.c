@@ -281,6 +281,7 @@ dt_provimpl_t	dt_fbt = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &attach,
 	.probe_info	= &probe_info,

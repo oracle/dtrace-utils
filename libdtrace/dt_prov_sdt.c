@@ -29,7 +29,6 @@
 
 #include "dt_dctx.h"
 #include "dt_cg.h"
-#include "dt_bpf.h"
 #include "dt_provider_tp.h"
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
@@ -301,6 +300,7 @@ dt_provimpl_t	dt_sdt = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_TRACEPOINT,
 	.populate	= &populate,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &dt_tp_probe_attach,
 	.probe_info	= &probe_info,

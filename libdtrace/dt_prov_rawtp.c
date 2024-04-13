@@ -30,9 +30,7 @@
 #include <bpf_asm.h>
 
 #include "dt_dctx.h"
-#include "dt_bpf.h"
 #include "dt_cg.h"
-#include "dt_bpf.h"
 #include "dt_provider_tp.h"
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
@@ -186,7 +184,8 @@ static int probe_info_bpf(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		dif.dtdo_buf = prog;
 		dif.dtdo_len = 2;
 
-		bpf_fd = dt_bpf_prog_load(dt_rawtp.prog_type, &dif, 0, NULL, 0);
+		bpf_fd = dt_bpf_prog_attach(dt_rawtp.prog_type, 0, 0, 0, &dif,
+					    0, NULL, 0);
 		if (bpf_fd == -EPERM)
 			return dt_bpf_lockmem_error(dtp, "Cannot retrieve argument count");
 		else if (bpf_fd < 0)
@@ -296,6 +295,7 @@ dt_provimpl_t	dt_rawtp = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_RAW_TRACEPOINT,
 	.populate	= &populate,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &dt_tp_probe_attach_raw,
 	.probe_info	= &probe_info,

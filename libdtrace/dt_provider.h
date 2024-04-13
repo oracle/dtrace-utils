@@ -53,6 +53,8 @@ typedef struct dt_provimpl {
 		       struct dt_probe *prp);
 	int (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
 			   uint_t exitlbl);
+	int (*load_prog)(const struct dt_probe *prp, const dtrace_difo_t *dp,
+			 uint32_t lvl, char *buf, size_t sz);
 	int (*attach)(dtrace_hdl_t *dtp,	/* attach BPF prog to probe */
 		      const struct dt_probe *prp, int bpf_fd);
 	int (*probe_info)(dtrace_hdl_t *dtp,	/* get probe info */

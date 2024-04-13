@@ -13,7 +13,6 @@
 
 #include "dt_dctx.h"
 #include "dt_cg.h"
-#include "dt_bpf.h"
 #include "dt_probe.h"
 
 static const char		prvname[] = "profile";
@@ -335,6 +334,7 @@ dt_provimpl_t	dt_profile = {
 	.prog_type	= BPF_PROG_TYPE_PERF_EVENT,
 	.populate	= &populate,
 	.provide	= &provide,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &attach,
 	.probe_info	= &probe_info,

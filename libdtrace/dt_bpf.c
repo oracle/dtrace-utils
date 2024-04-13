@@ -111,14 +111,14 @@ dt_bpf_prog_attach(enum bpf_prog_type ptype, enum bpf_attach_type atype,
 }
 
 /*
- * Load a BPF program into the kernel (and attach it to an object by BTF id if
- * specified).
+ * Load the BPF program for a probe into the kernel.
  */
 int
-dt_bpf_prog_load(enum bpf_prog_type ptype, const dtrace_difo_t *dp,
-		 uint32_t log_lvl, char *log_buf, size_t log_bufsz)
+dt_bpf_prog_load(const dt_probe_t *prp, const dtrace_difo_t *dp,
+		 uint32_t lvl, char *buf, size_t sz)
 {
-	return dt_bpf_prog_attach(ptype, 0, 0, 0, dp, log_lvl, log_buf, log_bufsz);
+	return dt_bpf_prog_attach(prp->prov->impl->prog_type, 0, 0, 0, dp,
+				  lvl, buf, sz);
 }
 
 /*
@@ -355,7 +355,7 @@ have_helper(uint32_t func_id)
 	dp.dtdo_len = ARRAY_SIZE(insns);
 
 	/* If the program loads, we can use the helper. */
-	fd = dt_bpf_prog_load(BPF_PROG_TYPE_KPROBE, &dp,
+	fd = dt_bpf_prog_attach(BPF_PROG_TYPE_KPROBE, 0, 0, 0, &dp,
 			      1, log, DT_BPF_LOG_SIZE_SMALL);
 	if (fd > 0) {
 		close(fd);
@@ -1062,8 +1062,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	DT_DISASM_PROG_FINAL(dtp, cflags, dp, stderr, NULL, prp->desc);
 
 	if (dtp->dt_options[DTRACEOPT_BPFLOG] == DTRACEOPT_UNSET) {
-		rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 0,
-				      NULL, 0);
+		rc = prp->prov->impl->load_prog(prp, dp, 0, NULL, 0);
 		if (rc >= 0)
 			return rc;
 
@@ -1076,8 +1075,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		logsz = DT_BPF_LOG_SIZE_DEFAULT;
 	log = dt_zalloc(dtp, logsz);
 	assert(log != NULL);
-	rc = dt_bpf_prog_load(prp->prov->impl->prog_type, dp, 4 | 2 | 1,
-			      log, logsz);
+	rc = prp->prov->impl->load_prog(prp, dp, 4 | 2 | 1, log, logsz);
 	if (rc < 0) {
 		char	msg[64];
 		int	err = -rc;
@@ -1241,7 +1239,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 			return -1;
 
 		if (prp->prov->impl->attach)
-		    rc = prp->prov->impl->attach(dtp, prp, fd);
+			rc = prp->prov->impl->attach(dtp, prp, fd);
 
 		if (rc == -ENOTSUPP) {
 			char	*s;

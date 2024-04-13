@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -385,6 +385,7 @@ dt_provimpl_t	dt_lockstat = {
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &populate,
 	.enable		= &dt_sdt_enable,
+	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.probe_info	= &dt_sdt_probe_info,
 	.destroy	= &dt_sdt_destroy,
