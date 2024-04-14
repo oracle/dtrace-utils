@@ -1235,7 +1235,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp == NULL)
 		return;
 
-	dt_probe_detach(dtp);
+	dt_probe_detach_all(dtp);
 
 	dt_free(dtp, dtp->dt_conf.cpus);
 

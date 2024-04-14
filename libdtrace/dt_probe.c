@@ -1441,16 +1441,12 @@ dt_probe_init(dtrace_hdl_t *dtp)
 }
 
 void
-dt_probe_detach(dtrace_hdl_t *dtp)
+dt_probe_detach_all(dtrace_hdl_t *dtp)
 {
-	uint32_t	i;
+	dt_probe_t	*prp;
 
-	for (i = 0; i < dtp->dt_probes_sz; i++) {
-		dt_probe_t	*prp = dtp->dt_probes[i];
-
-		if (prp == NULL)
-			continue;
-
+	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
+	     prp = dt_list_next(prp)) {
 		if (prp->prov && prp->prov->impl && prp->prov->impl->detach)
 			prp->prov->impl->detach(dtp, prp);
 	}
