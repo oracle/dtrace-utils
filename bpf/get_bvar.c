@@ -90,7 +90,7 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
 	case DIF_VAR_CALLER:
 	case DIF_VAR_UCALLER: {
 		uint64_t flags = 0 & BPF_F_SKIP_FIELD_MASK;
-		uint64_t buf[2];
+		uint64_t buf[2] = { 0, };
 
 		if (id == DIF_VAR_UCALLER)
 			flags |= BPF_F_USER_STACK;
