@@ -1,7 +1,7 @@
 # Miscellaneous targets.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -11,6 +11,7 @@
 help::
 	@printf "Targets:\n\n" >&2
 	@printf "all                            Compile (default)\n" >&2
+	@printf "dlibs                          Build translator files\n" >&2
 	@printf "install                        Install (DESTDIR supported)\n" >&2
 	@printf "install-test                   Install testsuite (DESTDIR supported)\n" >&2
 	@printf "clean / realclean              Clean up build tree\n" >&2
