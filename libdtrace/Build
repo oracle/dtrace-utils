@@ -162,6 +162,8 @@ WORKING_DLIBS = errno.d \
 
 # M4-driven substitutions.
 
+override dir-dlib-targets = $(foreach kernel,$(SHORTKERNELS), \
+	$(objdir)/dlibs/$(kernel)/.dir.stamp)
 override m4-dlib-targets = $(foreach kernel,$(SHORTKERNELS), \
 	$(addprefix $(objdir)/dlibs/$(kernel)/, \
 	$(filter $(WORKING_DLIBS),$(M4_DLIBS))))
@@ -170,9 +172,15 @@ override other-dlib-targets = $(foreach kernel,$(SHORTKERNELS), \
 	$(filter-out $(M4_DLIBS),$(WORKING_DLIBS))))
 
 $(objdir)/dlibs/.dir.stamp:
-	mkdir -p $(objdir)/dlibs $(objdir)/dlibs/drti $(foreach kernel,$(SHORTKERNELS),$(objdir)/dlibs/$(kernel))
+	mkdir -p $(objdir)/dlibs $(objdir)/dlibs/drti
 	@touch $(objdir)/dlibs/.dir.stamp
 	ln -srf $(libdtrace-build_DIR)/drti-vers $(objdir)/dlibs/drti
+	$(call describe-target,CP,dlibs)
+	cp -rp dlibs/$(ARCH)/* $(objdir)/dlibs
+
+$(foreach kernel,$(SHORTKERNELS),$(objdir)/dlibs/$(kernel)/.dir.stamp):
+	mkdir -p $(dir $@)
+	@touch $@
 
 define dlib-kernel-ver-template
 $(objdir)/dlibs/$(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/')/%.d: override SHORTKERNELVER := $(shell printf %s $(1) | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*$$/\1.\2.\3/' | awk -F. '{ print $$1 * 1000 * 1000 + $$2 * 1000 + $$3 }')
@@ -226,8 +234,7 @@ $(other-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d), \
 	cp -f $< $@
 
 PHONIES += dlibs
-TARGETS += dlibs
-dlibs: $(m4-dlib-targets) $(other-dlib-targets)
+dlibs: $(dir-dlib-targets) $(m4-dlib-targets) $(other-dlib-targets)
 
 PHONIES += objs
 TARGETS += objs
