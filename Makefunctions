@@ -1,7 +1,7 @@
 # Functions used by the individual Build files.
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -90,7 +90,7 @@ endef
 # Syntax: $(call dof-template,primary,filename-without-dir)
 
 define dof-template
-$(dof-name): $(src-name) $(objdir)/run-dtrace $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))) $(other-dlib-targets) $(DRTI_OBJ)
+$(dof-name): $(src-name) $(objdir)/run-dtrace $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep)))) $(DRTI_OBJ)
 	$(call describe-target,GENDOF,$(src-name))
 	$(objdir)/run-dtrace -x nolibs -G -o $(dof-name) -s $(src-name) $(foreach source,$($(1)_SOURCES),$(call obj-name,$(1),$(source))) $(filter-out $(dof-name),$(foreach dep,$(filter %.o,$($(1)_DEPS)),$(call obj-name,$(1),$(dep))))
 endef
