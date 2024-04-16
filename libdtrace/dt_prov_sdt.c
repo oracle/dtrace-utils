@@ -195,7 +195,6 @@ static int probe_info_tracefs(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	FILE				*f;
 	char				*fn;
 	int				rc;
-	tp_probe_t			*tpp = prp->prv_data;
 	const dtrace_probedesc_t	*pdp = prp->desc;
 
 	if (asprintf(&fn, EVENTSFS "%s/%s/format", pdp->mod, pdp->prb) == -1)
@@ -206,7 +205,7 @@ static int probe_info_tracefs(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = dt_tp_event_info(dtp, f, 0, tpp, argcp, argvp);
+	rc = dt_tp_probe_info(dtp, f, 0, prp, argcp, argvp);
 	fclose(f);
 
 	return rc;

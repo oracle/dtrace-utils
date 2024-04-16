@@ -221,6 +221,8 @@ done:
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *argcp, dt_argdesc_t **argvp)
 {
+	dt_tp_set_event_id(prp, UINT32_MAX);
+
 #ifdef HAVE_LIBCTF
 	int			rc, i;
 	char			*str;

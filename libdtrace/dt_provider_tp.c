@@ -26,11 +26,13 @@
 
 /*
  * Tracepoint-specific probe data.  This is allocated for every tracepoint
- * based probe.
+ * based probe.  Since 0 is not a valid tracepoint event id, and given that BTF
+ * id 0 refers to 'void', this value is used to denote that no association with
+ * a tracepoint or BTF type exists yet.
  */
 struct tp_probe {
-	int	event_id;		/* tracepoint event id */
-	int	event_fd;		/* tracepoint perf event fd */
+	uint32_t	event_id;	/* tracepoint event id or BTF id */
+	int		event_fd;	/* tracepoint perf event fd */
 };
 
 /*
@@ -45,7 +47,7 @@ dt_tp_alloc(dtrace_hdl_t *dtp)
 	if (tpp == NULL)
 		return NULL;
 
-	tpp->event_id = -1;
+	tpp->event_id = 0;
 	tpp->event_fd = -1;
 
 	return tpp;
@@ -60,7 +62,7 @@ dt_tp_alloc(dtrace_hdl_t *dtp)
 int
 dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd)
 {
-	if (tpp->event_id == -1)
+	if (tpp->event_id == 0)
 		return 0;
 
 	if (tpp->event_fd == -1) {
@@ -84,23 +86,6 @@ dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd)
 		return -errno;
 
 	return 0;
-}
-
-/*
- * Return whether the tracepoint has already been created at the kernel level.
- */
-int
-dt_tp_is_created(const tp_probe_t *tpp)
-{
-	return tpp->event_id != -1;
-}
-
-void
-dt_tp_set_event_id(const dt_probe_t *prp, uint32_t id)
-{
-	tp_probe_t	*tpp = prp->prv_data;
-
-	tpp->event_id = id;
 }
 
 /*
@@ -135,7 +120,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	size_t		argsz = 0;
 	dt_argdesc_t	*argv = NULL;
 
-	tpp->event_id = -1;
+	tpp->event_id = 0;
 
 	/*
 	 * Let skip be the total number of fields to skip.
@@ -151,7 +136,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	while (getline(&buf, &bufsz, f) >= 0) {
 		char	*p = buf;
 
-		if (sscanf(buf, "ID: %d\n", &tpp->event_id) == 1)
+		if (sscanf(buf, "ID: %u\n", &tpp->event_id) == 1)
 			continue;
 
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
@@ -297,13 +282,22 @@ done:
 }
 
 /*
+ * Return whether event info for a tracepoint is valid.
+ */
+int
+dt_tp_has_info(const tp_probe_t *tpp)
+{
+	return tpp->event_id > 0;
+}
+
+/*
  * Detach from a tracepoint for a tracepoint-based probe.  The caller should
  * still call dt_tp_destroy() to free the tracepoint-specific probe data.
  */
 void
 dt_tp_detach(dtrace_hdl_t *dtp, tp_probe_t *tpp)
 {
-	tpp->event_id = -1;
+	tpp->event_id = 0;
 
 	if (tpp->event_fd != -1) {
 		close(tpp->event_fd);
@@ -340,6 +334,46 @@ dt_tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
 	return dt_probe_insert(dtp, prov, prv, mod, fun, prb, tpp);
 }
 
+uint32_t
+dt_tp_get_event_id(const dt_probe_t *prp)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	return tpp->event_id;
+}
+
+void
+dt_tp_set_event_id(const dt_probe_t *prp, uint32_t id)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	tpp->event_id = id;
+}
+
+/*
+ * Parse a EVENTSFS/<group>/<event>/format file to determine the event id and
+ * the argument types for a given probe.
+ */
+int
+dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f, int skip, const dt_probe_t *prp,
+		 int *argcp, dt_argdesc_t **argvp)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	return dt_tp_event_info(dtp, f, skip, tpp, argcp, argvp);
+}
+
+/*
+ * Return whether a tracepoint has been associated with this probe.
+ */
+int
+dt_tp_probe_has_info(const dt_probe_t *prp)
+{
+	tp_probe_t	*tpp = prp->prv_data;
+
+	return dt_tp_has_info(tpp);
+}
+
 /*
  * Convenience function for basic tracepoint-based probe attach.
  */
@@ -351,18 +385,21 @@ dt_tp_probe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 
 /*
  * Convenience function for raw tracepoint-based probe attach.
+ * This function is also used to attach to BPF ids, because those are also
+ * handled through the raw tracepoint interface.  These probes are identified
+ * by event_id being a value other than UINT_MAX.
  */
 int
 dt_tp_probe_attach_raw(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	tp_probe_t	*tpp = prp->prv_data;
 
-	tpp->event_id = INT_MAX;
-
 	if (tpp->event_fd == -1) {
 		int	fd;
 
-		fd = dt_bpf_raw_tracepoint_open(prp->desc->prb, bpf_fd);
+		fd = dt_bpf_raw_tracepoint_open(
+			tpp->event_id == UINT_MAX ? prp->desc->prb : NULL,
+			bpf_fd);
 		if (fd < 0)
 			return -errno;
 

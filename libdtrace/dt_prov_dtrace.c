@@ -225,9 +225,7 @@ out:
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
-	tp_probe_t	*tpp = prp->prv_data;
-
-	if (!dt_tp_is_created(tpp)) {
+	if (!dt_tp_probe_has_info(prp)) {
 		char	*spec;
 		char	*fn;
 		FILE	*f;
@@ -264,7 +262,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		if (f == NULL)
 			return -ENOENT;
 
-		rc = dt_tp_event_info(dtp, f, 0, tpp, NULL, NULL);
+		rc = dt_tp_probe_info(dtp, f, 0, prp, NULL, NULL);
 		fclose(f);
 
 		if (rc < 0)
@@ -272,7 +270,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	}
 
 	/* attach BPF program to the tracepoint */
-	return dt_tp_attach(dtp, tpp, bpf_fd);
+	return dt_tp_probe_attach(dtp, prp, bpf_fd);
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
@@ -297,13 +295,12 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  */
 static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
-	tp_probe_t	*tpp = prp->prv_data;
 	int		fd;
 
-	if (!dt_tp_is_created(tpp))
+	if (!dt_tp_probe_has_info(prp))
 		return;
 
-	dt_tp_detach(dtp, tpp);
+	dt_tp_probe_detach(dtp, prp);
 
 	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)

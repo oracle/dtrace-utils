@@ -198,14 +198,6 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	FILE		*f;
 	char		fn[256];
 	int		rc;
-	tp_probe_t	*tpp = prp->prv_data;
-
-	/*
-	 * If the tracepoint has already been created and we have its info,
-	 * there is no need to retrive the info again.
-	 */
-	if (dt_tp_is_created(tpp))
-		return -1;
 
 	/*
 	 * We know that the probe name is either "entry" or "return", so we can
@@ -223,7 +215,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = dt_tp_event_info(dtp, f, SKIP_EXTRA_FIELDS, tpp, argcp, argvp);
+	rc = dt_tp_probe_info(dtp, f, SKIP_EXTRA_FIELDS, prp, argcp, argvp);
 	fclose(f);
 
 	return rc;

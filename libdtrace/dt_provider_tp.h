@@ -30,11 +30,10 @@ typedef struct tp_probe tp_probe_t;
 
 extern tp_probe_t *dt_tp_alloc(dtrace_hdl_t *dtp);
 extern int dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd);
-extern int dt_tp_is_created(const tp_probe_t *tpp);
 extern void dt_tp_set_event_id(const struct dt_probe *prp, uint32_t id);
+extern int dt_tp_has_info(const tp_probe_t *tpp);
 extern int dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
-			    tp_probe_t *tpp, int *argcp,
-			    dt_argdesc_t **argvp);
+			    tp_probe_t *tpp, int *argcp, dt_argdesc_t **argvp);
 extern void dt_tp_detach(dtrace_hdl_t *dtp, tp_probe_t *tpp);
 extern void dt_tp_destroy(dtrace_hdl_t *dtp, tp_probe_t *tpp);
 
@@ -42,6 +41,12 @@ extern struct dt_probe *dt_tp_probe_insert(dtrace_hdl_t *dtp,
 					   dt_provider_t *prov,
 					   const char *prv, const char *mod,
 					   const char *fun, const char *prb);
+extern uint32_t dt_tp_get_event_id(const struct dt_probe *prp);
+extern void dt_tp_set_event_id(const struct dt_probe *prp, uint32_t id);
+extern int dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f, int skip,
+			    const struct dt_probe *prp, int *argcp,
+			    dt_argdesc_t **argvp);
+extern int dt_tp_probe_has_info(const struct dt_probe *prp);
 extern int dt_tp_probe_attach(dtrace_hdl_t *dtp, const struct dt_probe *prp,
 			      int bpf_fd);
 extern int dt_tp_probe_attach_raw(dtrace_hdl_t *dtp, const struct dt_probe *prp,

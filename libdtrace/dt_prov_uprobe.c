@@ -644,7 +644,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	char		*prb = NULL;
 	int		rc = -1;
 
-	if (dt_tp_is_created(tpp))
+	if (dt_tp_has_info(tpp))
 		goto attach_bpf;
 
 	assert(upp->fn != NULL);
@@ -737,7 +737,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	dt_uprobe_t	*upp = prp->prv_data;
 	tp_probe_t	*tpp = upp->tp;
 
-	if (!dt_tp_is_created(tpp))
+	if (!dt_tp_has_info(tpp))
 		return;
 
 	dt_tp_detach(dtp, tpp);
