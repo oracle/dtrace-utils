@@ -231,6 +231,20 @@ make_probespec_name(const char *prov, const char *mod, const char *fn,
 {
 	char *ret;
 
+	/*
+	 * Ban "." and ".." as name components.  Obviously names
+	 * containing dots are commonplace (shared libraries,
+	 * for instance), but allowing straight . and .. would
+	 * have obviously horrible consequences.  They can't be
+	 * filenames anyway, and you can't create them with
+	 * dtrace -h because they aren't valid C identifier names.
+	 */
+	if (strcmp(prov, ".") == 0 || strcmp(prov, "..") == 0 ||
+	    strcmp(mod, ".") == 0 || strcmp(mod, "..") == 0 ||
+	    strcmp(fn, ".") == 0 || strcmp(fn, "..") == 0 ||
+	    strcmp(prb, ".") == 0 || strcmp(prb, "..") == 0)
+		return NULL;
+
 	if (asprintf(&ret, "%s:%s:%s:%s", prov, mod, fn, prb) < 0) {
 		fuse_log(FUSE_LOG_ERR, "dtprobed: out of memory making probespec\n");
 		return NULL;
@@ -587,22 +601,6 @@ dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum)
 			probe_err = this_provider->provider.name;
 			if ((parsedfn = make_probespec_name(this_provider->provider.name,
 							    mod, fun, prb)) == NULL)
-				goto err_provider;
-
-			/*
-			 * Ban "." and ".." as name components.  Obviously names
-			 * containing dots are commonplace (shared libraries,
-			 * for instance), but allowing straight . and .. would
-			 * have obviously horrible consequences.  They can't be
-			 * filenames anyway, and you can't create them with
-			 * dtrace -h because they aren't valid C identifier
-			 * names.
-			 */
-			op = "probe name validation";
-			probe_err = parsedfn;
-
-			if (strcmp(parsedfn, ".") == 0 ||
-			    strcmp(parsedfn, "..") == 0)
 				goto err_provider;
 
 			op = "probe module";
