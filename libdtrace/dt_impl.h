@@ -159,6 +159,7 @@ typedef struct dt_module {
 	ctf_sect_t dm_ctdata;	/* CTF data for module */
 	ctf_sect_t dm_symtab;	/* symbol table */
 	ctf_sect_t dm_strtab;	/* string table */
+	uint32_t dm_btf_id;	/* BTF dict id */
 	struct dt_btf *dm_btf;	/* BTF data for module */
 
 	/*

@@ -13,7 +13,8 @@
 #include <linux/btf.h>
 
 #include <dt_impl.h>
-#include <dt_btf.h>
+#include <dt_bpf.h>
+#include <dt_module.h>
 
 typedef struct btf_header	btf_header_t;
 typedef struct btf_type		btf_type_t;
@@ -890,4 +891,56 @@ dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
 					       name, kind);
 
 	return -ENOENT;
+}
+
+int
+dt_btf_get_module_ids(dtrace_hdl_t *dtp)
+{
+	uint32_t	id = 0;
+
+	for (;;) {
+		int		rc, fd;
+		btf_info_t	info;
+		char		name[PATH_MAX];
+		uint32_t	size = sizeof(info);
+		dt_module_t	*dmp;
+
+		rc = dt_bpf_btf_get_next_id(id, &id);
+		if (rc) {
+			if (errno == EPERM)
+				return 0;	/* Not supported. */
+			if (errno == ENOENT)
+				return 0;	/* Done. */
+
+			return dt_set_errno(dtp, errno);
+		}
+
+		fd = dt_bpf_btf_get_fd_by_id(id);
+		if (fd < 0) {
+			if (errno == ENOENT)
+				continue;	/* Module got unloaded? */
+
+			return dt_set_errno(dtp, errno);
+		}
+
+		memset(&info, 0, size);
+		info.name = (uint64_t)name;
+		info.name_len = sizeof(name);
+		rc = dt_bpf_btf_get_info_by_fd(fd, &info, &size);
+		close(fd);
+		if (rc)
+			return dt_set_errno(dtp, errno);
+
+		dmp = dt_module_lookup_by_name(dtp, name);
+		if (dmp == NULL)
+			continue;
+
+		dmp->dm_btf_id = id;
+	}
+}
+
+int
+dt_btf_module_fd(const dt_module_t *dmp)
+{
+	return dmp->dm_btf_id ? dt_bpf_btf_get_fd_by_id(dmp->dm_btf_id) : 0;
 }

@@ -122,6 +122,60 @@ dt_bpf_prog_load(const dt_probe_t *prp, const dtrace_difo_t *dp,
 }
 
 /*
+ * Get BTF dict information based on its fd.
+ */
+int
+dt_bpf_btf_get_info_by_fd(int fd, btf_info_t *info, uint32_t *size)
+{
+	union bpf_attr	attr;
+	int		rc;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.info.bpf_fd = fd;
+	attr.info.info = (uint64_t)info;
+	attr.info.info_len = *size;
+
+	rc = dt_bpf(BPF_OBJ_GET_INFO_BY_FD, &attr);
+	if (rc == 0)
+		*size = attr.info.info_len;
+
+	return rc;
+}
+
+/*
+ * Get a file descriptor for a BTF dict based on its id.
+ */
+int
+dt_bpf_btf_get_fd_by_id(uint32_t id)
+{
+	union bpf_attr	attr;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.btf_id = id;
+
+	return dt_bpf(BPF_BTF_GET_FD_BY_ID, &attr);
+}
+
+/*
+ * Get the id for the "next" BTF dict based on a given id (0 to get the first).
+ */
+int
+dt_bpf_btf_get_next_id(uint32_t curr, uint32_t *next)
+{
+	union bpf_attr	attr;
+	int		rc;
+
+	memset(&attr, 0, sizeof(attr));
+	attr.start_id = curr;
+
+	rc = dt_bpf(BPF_BTF_GET_NEXT_ID, &attr);
+	if (rc == 0)
+		*next = attr.next_id;
+
+	return rc;
+}
+
+/*
  * Create a named BPF map.
  */
 static int

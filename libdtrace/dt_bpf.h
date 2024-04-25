@@ -12,6 +12,7 @@
 #include <linux/bpf.h>
 #include <linux/perf_event.h>
 #include <dtrace/difo.h>
+#include <dt_btf.h>
 #include <dt_impl.h>
 
 struct dtrace_hdl;
@@ -65,6 +66,9 @@ extern int dt_bpf(enum bpf_cmd cmd, union bpf_attr *attr);
 extern int dt_bpf_gmap_create(struct dtrace_hdl *);
 extern int dt_bpf_lockmem_error(struct dtrace_hdl *dtp, const char *msg);
 
+extern int dt_bpf_btf_get_info_by_fd(int fd, btf_info_t *info, uint32_t *size);
+extern int dt_bpf_btf_get_fd_by_id(uint32_t id);
+extern int dt_bpf_btf_get_next_id(uint32_t curr, uint32_t *next);
 extern int dt_bpf_map_lookup(int fd, const void *key, void *val);
 extern int dt_bpf_map_next_key(int fd, const void *key, void *nxt);
 extern int dt_bpf_map_update(int fd, const void *key, const void *val);

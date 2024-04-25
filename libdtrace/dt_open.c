@@ -29,7 +29,6 @@
 
 #include <dt_impl.h>
 #include <dt_bpf.h>
-#include <dt_btf.h>
 #include <dt_pcap.h>
 #include <dt_program.h>
 #include <dt_module.h>
@@ -1155,6 +1154,7 @@ dt_vopen(int version, int flags, int *errp,
 		return set_open_errno(dtp, errp, dtp->dt_errno);
 
 	dt_bpf_init(dtp);
+	dt_btf_get_module_ids(dtp);
 
 	return dtp;
 }
