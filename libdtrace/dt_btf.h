@@ -8,7 +8,6 @@
 #ifndef	_DT_BTF_H
 #define	_DT_BTF_H
 
-/* #include <linux/btf.h> */
 #include <dt_impl.h>
 
 #ifdef	__cplusplus
@@ -24,6 +23,8 @@ extern ctf_dict_t *dt_btf_module_ctf(dtrace_hdl_t *, dt_module_t *);
 extern const char *dt_btf_get_string(dtrace_hdl_t *, dt_btf_t *, uint32_t);
 extern int32_t dt_btf_lookup_name_kind(dtrace_hdl_t *, dt_btf_t *,
 				       const char *, uint32_t);
+extern int dt_btf_func_argc(dtrace_hdl_t *dtp, const dt_btf_t *btf,
+			    uint32_t id);
 extern int dt_btf_get_module_ids(dtrace_hdl_t *);
 extern int dt_btf_module_fd(const dt_module_t *);
 

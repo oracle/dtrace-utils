@@ -38,6 +38,8 @@ struct dt_btf {
 	ctf_id_t	*ctfids;		/* matching CTF type ids */
 };
 
+static btf_type_t	btf_void;
+
 static const char *
 dt_btf_errmsg(int err)
 {
@@ -820,6 +822,17 @@ dt_btf_module_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	return ctf;
 }
 
+static btf_type_t *
+dt_btf_type_by_id(dtrace_hdl_t *dtp, const dt_btf_t *btf, int32_t id)
+{
+	if (id == 0)
+		return &btf_void;
+	if (id < dtp->dt_shared_btf->type_cnt)
+		return dtp->dt_shared_btf->types[id];
+
+	return btf->types[id - (dtp->dt_shared_btf->type_cnt - 1)];
+}
+
 const char *
 dt_btf_get_string(dtrace_hdl_t *dtp, dt_btf_t *btf, uint32_t off)
 {
@@ -845,7 +858,7 @@ dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
 	int32_t	i, base = 0;
 
 	if (kind == BTF_KIND_UNKN)
-		return 0;
+		return -ENOENT;
 	if (strcmp(name, "void") == 0)
 		return 0;
 
@@ -943,4 +956,19 @@ int
 dt_btf_module_fd(const dt_module_t *dmp)
 {
 	return dmp->dm_btf_id ? dt_bpf_btf_get_fd_by_id(dmp->dm_btf_id) : 0;
+}
+
+int
+dt_btf_func_argc(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t id)
+{
+	btf_type_t	*type = dt_btf_type_by_id(dtp, btf, id);
+
+	/* For functions, move on to the function prototype. */
+	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC)
+		type = dt_btf_type_by_id(dtp, btf, type->type);
+
+	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC_PROTO)
+		return BTF_INFO_VLEN(type->info);
+
+	return -1;
 }

@@ -84,8 +84,9 @@ extern int dt_bpf_prog_attach(enum bpf_prog_type ptype,
 			      uint32_t btf_id, const dtrace_difo_t *dp,
 			      uint32_t log_level, char *log_buf,
 			      size_t log_buf_sz);
-extern int dt_bpf_prog_load(const struct dt_probe *prp, const dtrace_difo_t *dp,
-			    uint32_t lvl, char *buf, size_t sz);
+extern int dt_bpf_prog_load(struct dtrace_hdl *, const struct dt_probe *prp,
+			    const dtrace_difo_t *dp, uint32_t lvl, char *buf,
+			    size_t sz);
 extern int dt_bpf_raw_tracepoint_open(const void *tp, int fd);
 extern int dt_bpf_make_progs(struct dtrace_hdl *, uint_t);
 extern int dt_bpf_load_progs(struct dtrace_hdl *, uint_t);

@@ -26,13 +26,16 @@
 #include <string.h>
 #include <unistd.h>
 #include <linux/bpf.h>
+#include <linux/btf.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include <bpf_asm.h>
 
+#include "dt_btf.h"
 #include "dt_dctx.h"
 #include "dt_cg.h"
+#include "dt_module.h"
 #include "dt_provider_tp.h"
 #include "dt_probe.h"
 #include "dt_pt_regs.h"
@@ -61,6 +64,7 @@ static const dtrace_pattr_t	pattr = {
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t		*prv;
+	dt_provimpl_t		*impl;
 	FILE			*f;
 	char			*buf = NULL;
 	char			*p;
@@ -69,7 +73,9 @@ static int populate(dtrace_hdl_t *dtp)
 	dtrace_syminfo_t	sip;
 	dtrace_probedesc_t	pd;
 
-	prv = dt_provider_create(dtp, prvname, &dt_fbt, &pattr, NULL);
+	impl = BPF_HAS(dtp, BPF_FEAT_FENTRY) ? &dt_fbt_fprobe : &dt_fbt_kprobe;
+
+	prv = dt_provider_create(dtp, prvname, impl, &pattr, NULL);
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
@@ -103,6 +109,14 @@ static int populate(dtrace_hdl_t *dtp)
 		/* Weed out synthetic symbol names (that are invalid). */
 		if (strchr(buf, '.') != NULL)
 			continue;
+
+#define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
+		/* Weed out __ftrace_invalid_address___* entries. */
+		if (strstarts(buf, "__ftrace_invalid_address__") ||
+		    strstarts(buf, "__probestub_") ||
+		    strstarts(buf, "__traceiter_"))
+			continue;
+#undef strstarts
 
 		/*
 		 * If we did not see a module name, perform a symbol lookup to
@@ -141,6 +155,10 @@ static int populate(dtrace_hdl_t *dtp)
 	return n;
 }
 
+/*******************************\
+ * FPROBE-based implementation *
+\*******************************/
+
 /*
  * Generate a BPF trampoline for a FBT probe.
  *
@@ -152,7 +170,143 @@ static int populate(dtrace_hdl_t *dtp)
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns 0 to the caller.
  */
-static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+static int fprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_probe_t	*prp = pcb->pcb_probe;
+
+	dt_cg_tramp_prologue(pcb);
+
+	if (strcmp(pcb->pcb_probe->desc->prb, "entry") == 0) {
+		int	i;
+
+		for (i = 0; i < prp->argc; i++) {
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i * 8));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+		}
+	} else {
+		/*
+		 * fbt:::return arg0 should be the function offset for the
+		 * return instruction.  The fexit prpbe fires at a point where
+		 * we can no longer determine this location.
+		 *
+		 * Set arg0 = -1 to indicate that we do not know the value.
+		 */
+		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_0, -1);
+		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	}
+
+	dt_cg_tramp_epilogue(pcb);
+
+	return 0;
+}
+
+static int fprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			     int *argcp, dt_argdesc_t **argvp)
+{
+	const dtrace_probedesc_t	*desc = prp->desc;
+	dt_module_t			*dmp;
+	int32_t				btf_id;
+	int				i, argc = 0;
+	dt_argdesc_t			*argv = NULL;
+
+	dmp = dt_module_lookup_by_name(dtp, desc->mod);
+	if (dmp == NULL)
+		goto done;
+
+	btf_id = dt_btf_lookup_name_kind(dtp, dmp->dm_btf, desc->fun,
+					 BTF_KIND_FUNC);
+	if (btf_id <= 0)
+		goto done;
+
+	dt_tp_set_event_id(prp, btf_id);
+
+	if (strcmp(desc->prb, "return") == 0) {
+		argc = 2;
+		argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
+		if (argv == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
+
+		/* The return offset is in args[0] (always -1). */
+		argv[0].mapping = 0;
+		argv[0].native = strdup("uint64_t");
+		argv[0].xlate = NULL;
+
+		/*
+		 * The return type is a generic uint64_t.  For void functions
+		 * the value of arg1 and argv[1] is undefined.
+		 */
+		argv[1].mapping = 1;
+		argv[1].native = strdup("uint64_t");
+		argv[1].xlate = NULL;
+
+		goto done;
+	}
+
+	argc = dt_btf_func_argc(dtp, dmp->dm_btf, btf_id);
+	if (argc == 0)
+		goto done;
+
+	argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	/* In the absence of argument type info, use uint64_t for all. */
+	for (i = 0; i < argc; i++) {
+		argv[i].mapping = i;
+		argv[i].native = strdup("uint64_t");
+		argv[i].xlate = NULL;
+	}
+
+done:
+	*argcp = argc;
+	*argvp = argv;
+
+	return 0;
+}
+
+static int fprobe_prog_load(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			    const dtrace_difo_t *dp, uint32_t lvl, char *buf,
+			    size_t sz)
+{
+	int				atype, fd, rc;
+	const dtrace_probedesc_t	*desc = prp->desc;
+	dt_module_t			*dmp;
+
+	atype = strcmp(desc->prb, "entry") == 0 ? BPF_TRACE_FENTRY
+						     : BPF_TRACE_FEXIT;
+
+	dmp = dt_module_lookup_by_name(dtp, desc->mod);
+	if (dmp == NULL)
+		return dt_set_errno(dtp, EDT_NOMOD);
+
+	fd = dt_btf_module_fd(dmp);
+	if (fd < 0)
+		return fd;
+
+	rc = dt_bpf_prog_attach(prp->prov->impl->prog_type, atype, fd,
+				dt_tp_get_event_id(prp), dp, lvl, buf, sz);
+	close(fd);
+
+	return rc;
+}
+
+/*******************************\
+ * KPROBE-based implementation *
+\*******************************/
+
+/*
+ * Generate a BPF trampoline for a FBT probe.
+ *
+ * The trampoline function is called when a FBT probe triggers, and it must
+ * satisfy the following prototype:
+ *
+ *	int dt_fbt(dt_pt_regs *regs)
+ *
+ * The trampoline will populate a dt_dctx_t struct and then call the function
+ * that implements the compiled D clause.  It returns 0 to the caller.
+ */
+static int kprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_cg_tramp_prologue(pcb);
 
@@ -163,7 +317,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 */
 	dt_cg_tramp_copy_regs(pcb);
 	if (strcmp(pcb->pcb_probe->desc->prb, "return") == 0) {
-		dt_irlist_t *dlp = &pcb->pcb_ir;
+		dt_irlist_t	*dlp = &pcb->pcb_ir;
 
 		dt_cg_tramp_copy_rval_from_regs(pcb);
 
@@ -185,7 +339,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
-static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
+static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	if (!dt_tp_probe_has_info(prp)) {
 		char	*fn;
@@ -236,8 +390,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	return dt_tp_probe_attach(dtp, prp, bpf_fd);
 }
 
-static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *argcp, dt_argdesc_t **argvp)
+static int kprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			     int *argcp, dt_argdesc_t **argvp)
 {
 	*argcp = 0;			/* no arguments by default */
 	*argvp = NULL;
@@ -256,7 +410,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
  * for some reason we are out of luck - fortunately it is not harmful to the
  * system as a whole.
  */
-static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	int		fd;
 
@@ -274,14 +428,26 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	close(fd);
 }
 
-dt_provimpl_t	dt_fbt = {
+dt_provimpl_t	dt_fbt_fprobe = {
+	.name		= prvname,
+	.prog_type	= BPF_PROG_TYPE_TRACING,
+	.populate	= &populate,
+	.load_prog	= &fprobe_prog_load,
+	.trampoline	= &fprobe_trampoline,
+	.attach		= &dt_tp_probe_attach_raw,
+	.probe_info	= &fprobe_probe_info,
+	.detach		= &dt_tp_probe_detach,
+	.probe_destroy	= &dt_tp_probe_destroy,
+};
+
+dt_provimpl_t	dt_fbt_kprobe = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
 	.load_prog	= &dt_bpf_prog_load,
-	.trampoline	= &trampoline,
-	.attach		= &attach,
-	.probe_info	= &probe_info,
-	.detach		= &detach,
+	.trampoline	= &kprobe_trampoline,
+	.attach		= &kprobe_attach,
+	.probe_info	= &kprobe_probe_info,
+	.detach		= &kprobe_detach,
 	.probe_destroy	= &dt_tp_probe_destroy,
 };

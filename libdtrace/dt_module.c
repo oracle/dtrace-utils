@@ -27,10 +27,7 @@
 #include <dt_module.h>
 #include <dt_impl.h>
 #include <dt_string.h>
-
-#ifdef HAVE_LIBCTF
-# include <dt_btf.h>
-#endif
+#include <dt_btf.h>
 
 #define KSYM_NAME_MAX 128		    /* from kernel/scripts/kallsyms.c */
 #define GZCHUNKSIZE (1024*512)		    /* gzip uncompression chunk size */

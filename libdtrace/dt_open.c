@@ -67,7 +67,7 @@ const dt_version_t _dtrace_versions[] = {
 static const dt_provimpl_t *dt_providers[] = {
 	&dt_dtrace,		/* list dt_dtrace first */
 	&dt_cpc,
-	&dt_fbt,
+	&dt_fbt_fprobe,
 	&dt_io,
 	&dt_ip,
 	&dt_lockstat,
