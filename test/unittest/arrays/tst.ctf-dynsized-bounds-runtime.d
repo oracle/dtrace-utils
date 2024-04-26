@@ -15,7 +15,7 @@
 BEGIN
 {
 	i = pid - pid;			/* Non-constant 0 value. */
-	trace(`__start_BTF[i]);
+	trace(curthread->mm->cpu_bitmap[i]);
 	exit(0);
 }
 
