@@ -89,8 +89,8 @@ BuildRequires: libdtrace-ctf-devel >= 1.1.0
 Conflicts:    systemtap-sdt-devel
 Provides:     systemtap-sdt-devel
 Summary:      DTrace user interface.
-Version:      2.0.0
-Release:      1.14%{?dist}
+Version:      2.0.1
+Release:      0%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -273,6 +273,11 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon May  6 2024 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.1-1
+- Implement FBT probes with fentry/fexit tracepoints
+- Provide argument info for FBT probes.
+- Provide pre-generated translator files sets
+
 * Tue Mar  5 2024 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.0-1.14
 - Implement provider: io.  (Eugene Loh, Kris Van Hees)
 - Implement actions: print().  (Alan Maguire)

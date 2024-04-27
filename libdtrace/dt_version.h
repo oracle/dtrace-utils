@@ -83,8 +83,9 @@ extern "C" {
 #define	DT_VERS_1_6_3	DT_VERSION_NUMBER(1, 6, 3)
 #define	DT_VERS_1_6_4	DT_VERSION_NUMBER(1, 6, 4)
 #define	DT_VERS_2_0	DT_VERSION_NUMBER(2, 0, 0)
+#define	DT_VERS_2_0_1	DT_VERSION_NUMBER(2, 0, 1)
 
-#define	DT_VERS_LATEST	DT_VERS_2_0
+#define	DT_VERS_LATEST	DT_VERS_2_0_1
 #define	DT_VERS_STRING	"Oracle D 2.0"
 
 #ifdef  __cplusplus

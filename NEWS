@@ -1,3 +1,24 @@
+2.0.1-1 (May 6th, 2024)
+-----------------------
+
+New features:
+
+ - Function Boundary Tracing (FBT) probes can now access function arguments
+   using argv[n] where n is bound by the number of arguments of the function.
+   The datatype of each argument is a generic uint64_t for now.
+
+Internal changes:
+
+ - Function BOundary Tracing (FBT) probes are now implemented using the more
+   lightweight fentry/fexit kernel tracing facility.  Fallback to kprobes is
+   provided for kernels that do not provide fentry/fexit probing using BPF.
+
+Build-time:
+
+ - D translators are now included with the DTrace source code, and will be
+   installed for all supported kernel versions.  This mens that building
+   DTrace no longer requires access to kernel development headers.
+
 2.0.0-1.14 (Mar 5th, 2024)
 --------------------------
 
