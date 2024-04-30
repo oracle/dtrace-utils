@@ -26,8 +26,10 @@
  *
  *     // xor the char with every byte;  a match results in NULL byte
  *     r4 = roundup(r6, 8);
- *     for (r3 = 0; r3 < r4; r3 += 8)
- *         ((uint64_t *)dst)[r3] ^= c;
+ *     do {
+ *         r4 -= 8;
+ *         ((uint64_t *)dst)[r4] ^= c;
+ *     } while (r4 >= 8);
  *
  *     // put a safeguard in place, then look for that NULL byte
  *     dst[r6] = '\0';
@@ -72,24 +74,24 @@ dt_strchr :
 	call	BPF_FUNC_probe_read_str	/* r6 = bpf_probe_read_str(dst, STRSZ, src) */
 	mov	%r6, %r0
 
-	jsle	%r6, 0, .Lerror
+	jsle	%r6, 1, .Lerror
 
 	sub	%r6, 1			/* r6-- */
 
 	mov	%r4, %r6		/* r4 = roundup(r6, 8) */
 	add	%r4, 7
-	and	%r4, -8
+	rsh	%r4, 3
+	lsh	%r4, 3
 
 	ldxdw	%r1, [%fp+-16]
-	mov	%r3, 0
-.Lloop:					/* for (r3 = 0; r3 < r4; r3 += 8) */
+.Lloop:					/* do { */
+	sub	%r4, 8			/*	r4 -= 8; */
 	ldxdw	%r5, [%fp+-24]
-	add	%r5, %r3
+	add	%r5, %r4
 	ldxdw	%r0, [%r5+0]
-	xor	%r0, %r1		/* 	((uint64_t *)dst)[r3] ^= c; */
+	xor	%r0, %r1		/* 	((uint64_t *)dst)[r4] ^= c; */
 	stxdw	[%r5+0], %r0
-	add	%r3, 8
-	jlt	%r3, %r4, .Lloop
+	jge	%r4, 8, .Lloop		/* } while (r4 >= 8); */
 
 	ldxdw	%r2, [%fp+-24]
 	add	%r2, %r6
