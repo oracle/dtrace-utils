@@ -1193,6 +1193,9 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_STACK_OFF:
 				nrp->dofr_data = DMEM_STACK(dtp);
 				continue;
+			case DT_CONST_STACK_SKIP:
+				nrp->dofr_data = prp->prov->impl->stack_skip;
+				continue;
 			default:
 				/* probe name -> value is probe id */
 				if (strchr(idp->di_name, ':') != NULL)

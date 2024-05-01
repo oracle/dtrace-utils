@@ -2597,6 +2597,9 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 	uint64_t	arg;
 	int		nframes, stacksize, prefsz, align = sizeof(uint64_t);
 	uint_t		lbl_valid = dt_irlist_label(dlp);
+	dt_ident_t	*skip = dt_dlib_get_var(dtp, "STACK_SKIP");
+
+	assert(skip != NULL);
 
 	/* Get sizing information from dnp->dn_arg. */
 	arg = dt_cg_stack_arg(dtp, dnp, kind);
@@ -2644,8 +2647,12 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + prefsz));
 	}
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_4, (0 & BPF_F_SKIP_FIELD_MASK)
-					  | (kind == DTRACEACT_USTACK ? BPF_F_USER_STACK : 0)));
+	if (kind == DTRACEACT_USTACK)
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, BPF_F_USER_STACK));
+	else {
+		emite(dlp, BPF_MOV_IMM(BPF_REG_4, -1), skip);
+		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_4, BPF_F_SKIP_FIELD_MASK));
+	}
 	dt_regset_xalloc(drp, BPF_REG_0);
 	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_stack));
 	dt_regset_free_args(drp);

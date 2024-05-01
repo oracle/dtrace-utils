@@ -431,6 +431,7 @@ static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 dt_provimpl_t	dt_fbt_fprobe = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_TRACING,
+	.stack_skip	= 4,
 	.populate	= &populate,
 	.load_prog	= &fprobe_prog_load,
 	.trampoline	= &fprobe_trampoline,
