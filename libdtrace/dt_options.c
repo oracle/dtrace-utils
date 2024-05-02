@@ -304,6 +304,26 @@ dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 static int
+dt_opt_btf_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char *btf;
+
+	if (arg == NULL)
+		return dt_set_errno(dtp, EDT_BADOPTVAL);
+
+	if (dtp->dt_pcb != NULL)
+		return dt_set_errno(dtp, EDT_BADOPTCTX);
+
+	if ((btf = strdup(arg)) == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	free(dtp->dt_btf_path);
+	dtp->dt_btf_path = btf;
+
+	return 0;
+}
+
+static int
 dt_opt_ctfa_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
 	char *ctfa;
@@ -1067,6 +1087,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "aggpercpu", dt_opt_agg, DTRACE_A_PERCPU },
 	{ "amin", dt_opt_amin },
 	{ "argref", dt_opt_cflags, DTRACE_C_ARGREF },
+	{ "btfpath", dt_opt_btf_path },
 	{ "core", dt_opt_core },
 	{ "cpp", dt_opt_cflags, DTRACE_C_CPP },
 	{ "cppargs", dt_opt_cpp_args },

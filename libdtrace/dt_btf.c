@@ -337,6 +337,8 @@ dt_btf_load_file(dtrace_hdl_t *dtp, const char *fn)
 		return NULL;
 	}
 
+	dt_dprintf("BTF file %s: %d types\n", fn, btf->type_cnt);
+
 	return btf;
 }
 
@@ -765,14 +767,30 @@ out:
 dt_btf_t *
 dt_btf_load_module(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
-	char		fn[PATH_MAX + 1];
+	char		*fn = NULL;
+	int		rc = 0;
 	dt_btf_t	*btf;
 
 	if (dmp->dm_btf)
 		return dmp->dm_btf;
 
-	snprintf(fn, sizeof(fn), "/sys/kernel/btf/%s", dmp->dm_name);
+	/*
+	 * Default: /sys/kernel/btf/<module>
+	 * If "none", disable BTF.
+	 * Otherwise: <BTF path>/<module>
+	 */
+	if (dtp->dt_btf_path == NULL)
+		rc = asprintf(&fn, "/sys/kernel/btf/%s", dmp->dm_name);
+	else if (strcmp(dtp->dt_btf_path, "none") == 0)
+		return NULL;
+	else
+		rc = asprintf(&fn, "%s/%s", dtp->dt_btf_path, dmp->dm_name);
+
+	if (rc == -1)
+		return dt_btf_set_load_errno(dtp, ENOMEM);
+
 	btf = dt_btf_load_file(dtp, fn);
+	free(fn);
 
 	if (btf && !dtp->dt_shared_btf && strcmp(dmp->dm_name, "vmlinux") == 0)
 		dtp->dt_shared_btf = btf;

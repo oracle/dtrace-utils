@@ -910,6 +910,11 @@ dt_vopen(int version, int flags, int *errp,
 			return set_open_errno(dtp, errp, EDT_NOMEM);
 	}
 
+	/* If DTRACE_OPT_BTFPATH is set, use it.  */
+	dtp->dt_btf_path = getenv("DTRACE_OPT_BTFPATH");
+	if (dtp->dt_btf_path)
+		dtp->dt_btf_path = strdup(dtp->dt_btf_path);
+
 	/*
 	 * Update the module list and load the values for the macro variable
 	 * definitions according to the current process.
@@ -1146,9 +1151,6 @@ dt_vopen(int version, int flags, int *errp,
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
 		return set_open_errno(dtp, errp, dtp->dt_errno);
 
-	dt_bpf_init(dtp);
-	dt_btf_get_module_ids(dtp);
-
 	return dtp;
 }
 
@@ -1181,6 +1183,8 @@ dtrace_init(dtrace_hdl_t *dtp)
 	/*
 	 * Initialize the BPF library handling.
 	 */
+	dt_bpf_init(dtp);
+	dt_btf_get_module_ids(dtp);
 	dt_dlib_init(dtp);
 
 	/*
