@@ -295,7 +295,7 @@ install::
 	$(if $(NATIVE_BITNESS_ONLY),,install -m 644 $(DRTI32_OBJ) $(INSTLIBDIR)/dtrace/drti)
 	$(call describe-install-target,$(INSTLIBDIR)/dtrace/drti,drti-vers)
 	install -m 644 $(objdir)/dlibs/drti/drti-vers $(INSTLIBDIR)/dtrace/drti
-	for kernel in $(SHORTKERNELS); do \
+	for kernel in $$(cd $(objdir)/dlibs; echo [0-9]*); do \
 		$(call describe-expanded-install-target,$(INSTLIBDIR)/dtrace/$$kernel,$(WORKING_DLIBS)) \
 		mkdir -p $(INSTLIBDIR)/dtrace/$$kernel && \
 		cd $(objdir)/dlibs/$$kernel && install -m 644 $(WORKING_DLIBS) $(INSTLIBDIR)/dtrace/$$kernel; \
