@@ -179,10 +179,10 @@ which is installed in /usr/**bin**/dtrace.
 
 ## 5. Questions
 
-For questions, please check the
-[dtrace-devel mailing list](https://oss.oracle.com/mailman/listinfo/dtrace-devel).
+For questions, please ask on the [dtrace mailing list](https://lore.kernel.org/dtrace/).
+Older discussions are archived [here](https://oss.oracle.com/pipermail/dtrace-devel/).
 
-NEW: We have a #linux-dtrace IRC channel on irc.libera.chat, you can
+We have a #linux-dtrace IRC channel on irc.libera.chat, you can
 ask questions there as well.
 
 ## 6. Pull Requests and Support
