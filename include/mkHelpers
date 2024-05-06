@@ -8,14 +8,15 @@ BEGIN {
 }
 
 $1 == "static" && /=/ && /[ \t]+[1-9][0-9]*[ \t]*;/ {
-	match($0, /[ \t]+[1-9][0-9]*[ \t]*;/);
-	id = substr($0, RSTART, RLENGTH - 1);
-	gsub(/[ \t]+/,"", id);
-	match($0, /\([ \t]*\*[ \t]*bpf_[_A-Za-z0-9]+/);
-	fn = substr($0, RSTART + 1, RLENGTH - 1);
-	sub(/[ \t]*\*[ \t]*bpf_/, "", fn);
+	if (match($0, /[ \t\*]bpf_[_A-Za-z0-9]+/) > 0) {
+		fn = substr($0, RSTART + 5, RLENGTH - 5);
 
-	print "#define BPF_FUNC_"fn " " id;
+		match($0, /[ \t]+[1-9][0-9]*[ \t]*;/);
+		id = substr($0, RSTART, RLENGTH - 1);
+		gsub(/[ \t]+/,"", id);
+
+		print "#define BPF_FUNC_"fn " " id;
+	}
 }
 
 END {
