@@ -559,7 +559,7 @@ if [[ -z $USE_INSTALLED ]]; then
     dtrace="$(pwd)/build*/dtrace"
     test_libdir="$(pwd)/build/dlibs"
     test_ldflags="-L$(pwd)/build"
-    test_incflags="-Iinclude -Iuts/common -Ibuild -Ilibdtrace -DARCH_$arch"
+    test_cppflags="-Iinclude -Iuts/common -Ibuild -Ilibdtrace -DARCH_$arch"
     helper_device="dtrace/test-$$"
     # Pre-existing directories from earlier tests are just fine!
     # dtprobed will clean things up.
@@ -579,7 +579,7 @@ else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"
     test_ldflags=""
-    test_incflags="-DARCH_$arch"
+    test_cppflags="-DARCH_$arch -I/usr/lib64/dtrace/include"
 
     if [[ ! -x $dtrace ]]; then
         echo "$dtrace not available." >&2
@@ -587,6 +587,7 @@ else
     fi
 fi
 export dtrace
+export test_cppflags
 
 # Figure out if the preprocessor supports -fno-diagnostics-show-option: if it
 # does, add a bunch of options designed to make GCC output look like it used
@@ -594,7 +595,6 @@ export dtrace
 # Regardless, turn off display of column numbers, if possible: they vary
 # between GCC releases.
 
-test_cppflags=
 if ! /usr/bin/cpp -x c -fno-diagnostics-show-caret - /dev/null < /dev/null 2>&1 | \
 	grep -q 'unrecognized command line option'; then
     export DTRACE_OPT_CPPARGS="-fno-diagnostics-show-caret -fdiagnostics-color=never -fno-diagnostics-show-option -fno-show-column"
@@ -1129,7 +1129,7 @@ for dt in $dtrace; do
         # Default and substitute in flags.  The raw_dt_flags apply even to a
         # sh invocation.
 
-        raw_dt_flags="$test_incflags"
+        raw_dt_flags="$test_cppflags"
 
         expected_tag=
         if [[ $testonly =~ ^err\.D_ ]]; then
@@ -1204,7 +1204,7 @@ for dt in $dtrace; do
 
             CC="${CC:-gcc}"
             CCline="$CC -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
-            CCline="$CCline $test_incflags $CFLAGS $test_ldflags $LDFLAGS"
+            CCline="$CCline $test_cppflags $CFLAGS $test_ldflags $LDFLAGS"
             CCline="$CCline -o $tmpdir/$(basename $base) $_test $link"
             log "Compiling $CCline\n"
             if ! $CCline >/dev/null 2>$tmpdir/cc.err; then

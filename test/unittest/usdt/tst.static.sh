@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -12,7 +12,7 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS="-I${PWD}/uts/common"
+CFLAGS="$test_cppflags"
 
 DIRNAME="$tmpdir/usdt-static.$$.$RANDOM"
 mkdir -p $DIRNAME

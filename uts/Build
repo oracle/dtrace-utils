@@ -1,6 +1,6 @@
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -10,11 +10,19 @@ uts_DIR := $(current-dir)
 # provide the userspace versions of types defined distincty by the kernel.
 
 SYS_HEADERS_INSTALL := common/sys/dtrace.h \
-                       common/sys/dtrace_types.h \
-                       common/sys/sdt.h \
-                       common/sys/sdt_internal.h
+                       common/sys/dtrace_types.h
+
+# sdt*.h are used by programs that contain USDT probes that want to define
+# probes by hand rather than using dtrace -h.  SystemTap has another header
+# with the same name, so we install these out of the way.
+
+PROBE_HEADERS_INSTALL := common/sys/sdt.h \
+                         common/sys/sdt_internal.h
 
 install::
 	mkdir -p $(INSTINCLUDEDIR)/sys
 	$(call describe-install-target,$(INSTINCLUDEDIR)/sys,$(notdir $(SYS_HEADERS_INSTALL)))
 	cd $(uts_DIR) && install -m 644 $(SYS_HEADERS_INSTALL) $(INSTINCLUDEDIR)/sys
+	mkdir -p $(INSTSDTINCLUDEDIR)/sys
+	$(call describe-install-target,$(INSTSDTINCLUDEDIR)/sys,$(notdir $(PROBE_HEADERS_INSTALL)))
+	cd $(uts_DIR) && install -m 644 $(PROBE_HEADERS_INSTALL) $(INSTSDTINCLUDEDIR)/sys
