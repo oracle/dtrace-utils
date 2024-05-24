@@ -177,7 +177,7 @@ $(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.con
 	     echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk;; \
 	xno) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
 	     echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
-	*) if $(BPFC) --help $(2) 2>&1 >/dev/null | grep error; then \
+	*) if $(BPFC) --help $(2) 2>&1 >/dev/null | grep -q error; then \
 	       echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
 	       echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
 	   else \
