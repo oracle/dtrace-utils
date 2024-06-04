@@ -1136,7 +1136,7 @@ dt_bpf_load_prog(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 
 		snprintf(msg, sizeof(msg),
 			 "BPF program load for '%s:%s:%s:%s' failed",
-		         pdp->prv, pdp->mod, pdp->fun, pdp->prb);
+			 pdp->prv, pdp->mod, pdp->fun, pdp->prb);
 		if (err == EPERM)
 			return dt_bpf_lockmem_error(dtp, msg);
 		dt_bpf_error(dtp, "%s: %s\n", msg,

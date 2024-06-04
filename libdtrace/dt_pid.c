@@ -905,7 +905,7 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t 
 		provider = (dof_parsed_t *) p;
 		if (!validate_dof_record(path, provider, DIT_PROVIDER, dof_buf_size,
 					 seen_size))
-                        goto parse_err;
+			goto parse_err;
 
 		prv = provider->provider.name;
 
@@ -915,16 +915,16 @@ dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t 
 		probe = (dof_parsed_t *) p;
 		if (!validate_dof_record(path, probe, DIT_PROBE, dof_buf_size,
 					 seen_size))
-                        goto parse_err;
+			goto parse_err;
 
-                mod = probe->probe.name;
+		mod = probe->probe.name;
 		fun = mod + strlen(mod) + 1;
 		prb = fun + strlen(fun) + 1;
 
 		p += probe->size;
 		seen_size += probe->size;
 
-                /*
+		/*
 		 * Now the parsed DOF for this probe's tracepoints.
 		 */
 		for (size_t j = 0; j < probe->probe.ntp; j++) {
