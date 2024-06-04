@@ -8297,7 +8297,7 @@ dt_cg_agg_stddev(dt_pcb_t *pcb, dt_ident_t *aid, dt_node_t *dnp,
 	/* Add low value part from mid to lowreg */
 	emit(dlp,  BPF_ALU64_REG(BPF_ADD, lowreg, lmdreg));
 	/* Handle the overflow/carry case */
-	emit(dlp,  BPF_BRANCH_REG(BPF_JLT, lmdreg, lowreg, Lncy));
+	emit(dlp,  BPF_BRANCH_REG(BPF_JLE, lmdreg, lowreg, Lncy));
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, hi_reg, 1)) /* account for carry */;
 
 	/* Sum high value; no overflow expected nor accounted for */
