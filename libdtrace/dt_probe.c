@@ -1345,7 +1345,7 @@ dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
 {
 	dt_probe_clause_t	*pcp;
 
-	pcp = dt_zalloc(dtp, sizeof(dt_probe_clause_t));;
+	pcp = dt_zalloc(dtp, sizeof(dt_probe_clause_t));
 	if (pcp == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
@@ -1395,7 +1395,7 @@ dt_probe_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_probe_t *dprp)
 			return 0;
 	}
 
-	pdp = dt_zalloc(dtp, sizeof(dt_probe_dependent_t));;
+	pdp = dt_zalloc(dtp, sizeof(dt_probe_dependent_t));
 	if (pdp == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 

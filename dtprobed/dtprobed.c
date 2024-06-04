@@ -516,7 +516,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		gen = dof_stash_remove(pid, (uintptr_t) arg);
 		fuse_reply_ioctl(req, gen, NULL, 0);
 		return;
-	default: errmsg = "invalid ioctl";;
+	default: errmsg = "invalid ioctl";
 		fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: %s %x\n",
 			 pid, errmsg, cmd);
 		goto fuse_err;

@@ -6569,7 +6569,7 @@ dt_cg_subr_inet_ntop(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_node_t	*af = dnp->dn_args;
 	dt_node_t	*addr = af->dn_list;
-	dt_node_t	*tnp, *cnp, *lnp, *rnp, *anp, *xnp;;
+	dt_node_t	*tnp, *cnp, *lnp, *rnp, *anp, *xnp;
 	dt_idsig_t	*isp;
 	dt_decl_t	*ddp;
 

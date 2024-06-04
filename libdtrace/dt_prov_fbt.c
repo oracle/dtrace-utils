@@ -388,7 +388,7 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			       EVENTSFS, FBT_GROUP_DATA, prp->desc->fun) + 1;
 		fn = dt_alloc(dtp, len);
 		if (fn == NULL)
-			return -ENOENT;;
+			return -ENOENT;
 
 		snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
 			 FBT_GROUP_DATA, prp->desc->fun);

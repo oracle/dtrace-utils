@@ -261,7 +261,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	profile_probe_t		*pp = prp->prv_data;
 	struct perf_event_attr	attr;
-	int			i, nattach = 0;;
+	int			i, nattach = 0;
 	int			cnt = FDS_CNT(pp->kind);
 
 	memset(&attr, 0, sizeof(attr));

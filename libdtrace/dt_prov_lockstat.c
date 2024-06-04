@@ -288,7 +288,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 			return 1;
 		} else {
 			int	kind = 1;	/* reader (default) */
-			uint_t	lbl_reset = dt_irlist_label(dlp);;
+			uint_t	lbl_reset = dt_irlist_label(dlp);
 
 			if (strstr(uprp->desc->fun, "_write_") != NULL)
 				kind = 0;	/* writer */
@@ -337,7 +337,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 			copy_lockaddr_into_cpuinfo(dlp, 0);
 			return 1;
 		} else {
-			uint_t	lbl_reset = dt_irlist_label(dlp);;
+			uint_t	lbl_reset = dt_irlist_label(dlp);
 
 			if (strstr(uprp->desc->fun, "_trylock") != NULL) {
 				/* The return value (arg1) must be 1. */
