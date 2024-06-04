@@ -46,7 +46,8 @@ fi
 awk '
     # The expected value for the aggregation is aggval.
     # The expected value on a CPU is (m * cpu + b).
-    function check(label, aggval, m, b) {
+    # The default value on a CPU that did not fire is defval.
+    function check(label, aggval, m, b, defval) {
         # Check the aggregation over all CPUs.
         getline;
         print "check:", $0;
@@ -54,12 +55,38 @@ awk '
 
         # Check the per-CPU values.
         for (i = 1; i <= ncpu; i++) {
-            getline;
-            print "check:", $0;
-            if (match($0, "^    \\[CPU ") != 1 ||
-                strtonum($2) != cpu[i] ||
-                strtonum($3) != m * cpu[i] + b)
-                printf("ERROR: %s, agg per cpu %d, line: %s\n", label, cpu[i], $0);
+            do {
+                getline;
+                print "check:", $0;
+
+                # pass is +1 for pass, -1 for error, 0 for skip CPU
+                pass = 0;
+
+                if (match($0, "^    \\[CPU ") != 1) {
+                    print "ERROR: no CPU to read"
+                    pass = -1;
+                } else if (strtonum($2) > cpu[i]) {
+                    print "ERROR: skipped over expected CPU"
+                    pass = -1;
+                } else if (strtonum($2) == cpu[i]) {
+                    if (strtonum($3) != m * cpu[i] + b) {
+                        print "ERROR: wrong value"
+                        pass = -1;
+                    } else {
+                        # right value
+                        pass = +1;
+                    }
+                } else if ($3 != defval) {
+                    print "ERROR: wrong default value"
+                    pass = -1;
+                } else {
+                    # skip over CPU that apparently did not fire
+                    pass = 0;
+                }
+
+                if (pass == -1)
+                    printf("ERROR: %s, agg per cpu %d, line: %s\n", label, cpu[i], $0);
+            } while (pass == 0);
         }
     }
 
@@ -99,13 +126,14 @@ awk '
     {
         # First we finish computing our estimates for avg and stddev.
         # (The other results require no further action.)
+        # (We keep truncating to ints to mimic DTrace algorithms.)
 
-        xavg /= xcnt;
+        xavg /= xcnt;             xavg = int(xavg);
 
-        xstm /= xcnt;
-        xstd /= xcnt;
+        xstm /= xcnt;             xstm = int(xstm);
+        xstd /= xcnt;             xstd = int(xstd);
         xstd -= xstm * xstm;
-        xstd = int(sqrt(xstd));
+        xstd = sqrt(xstd);        xstd = int(xstd);
 
         # Sort the cpus.
 
@@ -113,12 +141,12 @@ awk '
 
         # Now read the results and compare.
 
-        check("cnt", xcnt,  0,   1);
-        check("avg", xavg, 10,   3);
-        check("std", xstd,  0,   0);
-        check("min", xmin, 30, -10);
-        check("max", xmax, 40, -15);
-        check("sum", xsum, 50,   0);
+        check("cnt", xcnt,  0,   1, "0");
+        check("avg", xavg, 10,   3, "0");
+        check("std", xstd,  0,   0, "0");
+        check("min", xmin, 30, -10,  "9223372036854775807");
+        check("max", xmax, 40, -15, "-9223372036854775808");
+        check("sum", xsum, 50,   0, "0");
 
         printf("done\n");
     }
