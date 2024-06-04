@@ -128,7 +128,7 @@ if [ $? -ne 0 ]; then
 fi
 
 script() {
-	$dtrace -w -c ./main -Zqs /dev/stdin <<EOF
+	$dtrace -c ./main -Zqs /dev/stdin <<EOF
 	test_prov*:::
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);
