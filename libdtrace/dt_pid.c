@@ -834,14 +834,6 @@ dt_pid_create_usdt_probes_proc(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 
 	assert(pvp->impl != NULL && pvp->impl->provide_probe != NULL);
 
-	if (strchr(pdp->prv, '.') != NULL ||
-	    strchr(pdp->mod, '.') != NULL ||
-	    strchr(pdp->fun, '.') != NULL ||
-	    strchr(pdp->prb, '.') != NULL) {
-		dt_dprintf("Probe component contains dots: cannot be a USDT probe.\n");
-		return 0;
-	}
-
 	if (asprintf(&probepath, "%s/probes/%i/%s/%s/%s/%s", dtp->dt_dofstash_path,
 		     dpr->dpr_pid, pdp->prv[0] == '\0' ? "*" : pdp->prv,
 		     pdp->mod[0] == '\0' ? "*" : pdp->mod,
