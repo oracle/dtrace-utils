@@ -196,7 +196,7 @@ $(foreach kernel,$(KERNELS),$(eval $(call dlib-kernel-ver-template,$(kernel))))
 # definition in turn.)
 $(m4-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d.in), \
 			$$(call src-name,libdtrace,$$(name))) \
-			$(objdir)/dlibs/.dir.stamp
+			$(dir-dlib-targets)
 	$(call describe-target,M4,$<)
 	$(PREPROCESS) -P -x c -Ilibdtrace/$(ARCHINC) \
 		      -I$(KERNELSRCDIR)/arch/$(KERNELARCH)/include \
@@ -229,7 +229,7 @@ $(m4-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d.in), \
 
 $(other-dlib-targets): $(objdir)/dlibs/%.d: $$(foreach name,$$(notdir %.d), \
 			$$(call src-name,libdtrace,$$(name))) \
-			$(objdir)/dlibs/.dir.stamp
+			$(dir-dlib-targets)
 	$(call describe-target,CP,$<)
 	cp -f $< $@
 
