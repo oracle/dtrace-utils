@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,7 +11,8 @@
  * to replace those tokens with their values to create the finished io.d.
  */
 
-/* #include <linux/buffer_head.h> */
+#include <linux/kconfig.h>
+#include <linux/buffer_head.h>
 #include <sys/file.h>
 #if 0
 #ifndef __USE_UNIX98
@@ -43,4 +44,7 @@ DEF_REPLACE(O_NOFOLLOW)
 DEF_REPLACE(O_CLOEXEC)
 DEF_REPLACE(O_DSYNC)
 DEF_REPLACE(O_RSYNC)
+#ifdef BD_PARTNO
+DEF_REPLACE(BD_PARTNO)
+#endif
 #include "io.platform.m4"
