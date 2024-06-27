@@ -1732,7 +1732,7 @@ ok:
 
 		/*
 		 * if (*((uint32_t *)&buf[DBUF_SPECID]) != 0) {
-		 *     if (dctx->dmst->specsize + off + size >
+		 *     if (dctx->mst->specsize + off + size >
 		 *	   dtp->dt_options[DTRACEOPT_SPECSIZE]) {
 		 *	   state[DT_STATE_SPEC_DROPS]++;
 		 *
@@ -2454,7 +2454,7 @@ dt_cg_act_setopt(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
  * back pending a commit() or discard() for the speculation with the given id.
  *
  * Updates the specid in the output buffer header, rather than emitting a new
- * record into it.  The dctx->dmst->specsize value is initialized with the size
+ * record into it.  The dctx->mst->specsize value is initialized with the size
  * of the data thus far recorded for this speculation.
  */
 static void
@@ -2484,7 +2484,7 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 *		goto exit;
 	 *	*((uint32_t *)&buf[DBUF_SPECID]) = specid;
 	 *				// mov [%r9 + DBUF_SPECID], %dn_reg
-	 *	dctx->dmst->specsize = spec->size;
+	 *	dctx->mst->specsize = spec->size;
 	 *	exit:			// nop
 	 */
 
