@@ -1057,11 +1057,11 @@ dt_cg_tramp_error(dt_pcb_t *pcb)
  *
  * The prologue will:
  *
- *	1. Store the base pointer to the output data buffer in %r9.
- *	2. Initialize the machine state (dctx->mst).
- *	3. Store the epid at [%r9 + 0].
- *	4. Store 0 to indicate no active speculation at [%r9 + 4].
- *	5. Evaluate the predicate expression and return if false.
+ *	- Store the base pointer to the output data buffer in %r9.
+ *	- Initialize the machine state (dctx->mst).
+ *	- Store the epid at [%r9 + DBUF_EPID].
+ *	- Store 0 to indicate no active speculation at [%r9 + DBUF_SPECID].
+ *	- Evaluate the predicate expression and return if false.
  *
  * The dt_program() function will always return 0.
  */
