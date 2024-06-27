@@ -838,7 +838,7 @@ dt_probe_lookup(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 		 * To avoid checking multiple times whether an element in the
 		 * probe specification is a glob pattern, we (ab)use the
 		 * desc->id value (unused at this point) to store this
-		 * information a a bitmap.
+		 * information as a bitmap.
 		 */
 		desc = *pdp;
 		desc.id = (p_is_glob << 3) | (m_is_glob << 2) |
