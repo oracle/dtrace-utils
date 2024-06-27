@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -15,7 +15,6 @@
 
 #include <dtrace/universal.h>
 #include <dtrace/difo_defines.h>
-#include <dtrace/enabling_defines.h>
 
 /*
  * FIXME: Needs to be rewritten.
