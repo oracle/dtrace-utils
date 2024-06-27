@@ -5,6 +5,25 @@
  * http://oss.oracle.com/licenses/upl.
  *
  * The uprobe-based provider for DTrace (implementing pid and USDT providers).
+ *
+ * This file uses both overlying probes (specified by the user) as well as
+ * underlying probes (the uprobes provided by the kernel).  To minimize
+ * confusion, this file uses the following convention for variable names:
+ *
+ *     dt_probe_t	*prp;   //  overlying probe
+ *     dt_probe_t	*uprp;  // underlying probe
+ *
+ *     dt_uprobe_t	*upp;   // uprobe associated with an underlying probe
+ *
+ *     list_probe_t	*pop;   //  overlying probe list
+ *     list_probe_t	*pup;   // underlying probe list
+ *
+ * The provider-specific prv_data has these meanings:
+ *
+ *     prp->prv_data            // dt_list_t of associated underlying probes
+ *     uprp->prv_data           // upp (the associated uprobe)
+ *
+ * Finally, note that upp->probes is a dt_list_t of overlying probes.
  */
 #include <sys/types.h>
 #include <assert.h>
@@ -118,7 +137,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	char			mod[DTRACE_MODNAMELEN];
 	char			prb[DTRACE_NAMELEN];
 	dtrace_probedesc_t	pd;
-	dt_probe_t		*prp;
+	dt_probe_t		*uprp;
 	dt_uprobe_t		*upp;
 	int			is_enabled = 0;
 
@@ -160,8 +179,8 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	pd.fun = psp->pps_fun;
 	pd.prb = prb;
 
-	prp = dt_probe_lookup(dtp, &pd);
-	if (prp == NULL) {
+	uprp = dt_probe_lookup(dtp, &pd);
+	if (uprp == NULL) {
 		dt_provider_t	*pvp;
 
 		/* Get the provider for underlying probes. */
@@ -182,12 +201,12 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		if (upp->tp == NULL)
 			goto fail;
 
-		prp = dt_probe_insert(dtp, pvp, pd.prv, pd.mod, pd.fun, pd.prb,
+		uprp = dt_probe_insert(dtp, pvp, pd.prv, pd.mod, pd.fun, pd.prb,
 				      upp);
-		if (prp == NULL)
+		if (uprp == NULL)
 			goto fail;
 	} else
-		upp = prp->prv_data;
+		upp = uprp->prv_data;
 
 	switch (psp->pps_type) {
 	case DTPPT_RETURN:
@@ -202,7 +221,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	     */
 	}
 
-	return prp;
+	return uprp;
 
 fail:
 	probe_destroy(dtp, upp);
@@ -259,7 +278,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	}
 
 	/*
-	 * Underlying and overlying probe list entries.
+	 * Overlying and underlying probe list entries.
 	 */
 	pop = dt_zalloc(dtp, sizeof(list_probe_t));
 	if (pop == NULL)
@@ -271,7 +290,10 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 		return -1;
 	}
 
-	/* Add the pid probe, if we need to. */
+	/*
+	 * Add the underlying probe to the list of probes for the overlying probe,
+	 * adding the overlying probe if we need to.
+	 */
 
 	pup->probe = uprp;
 	if (prp == NULL)
@@ -286,11 +308,10 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 		return -1;
 	}
 
-	pop->probe = prp;
-
 	/*
-	 * Add the pid probe to the list of probes for the underlying probe.
+	 * Add the overlying probe to the list of probes for the underlying probe.
 	 */
+	pop->probe = prp;
 	dt_list_append(&upp->probes, pop);
 
 	return 0;
@@ -394,8 +415,8 @@ static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
-	const dt_probe_t	*prp = pcb->pcb_probe;
-	const dt_uprobe_t	*upp = prp->prv_data;
+	const dt_probe_t	*uprp = pcb->pcb_probe;
+	const dt_uprobe_t	*upp = uprp->prv_data;
 	const list_probe_t	*pop;
 	uint_t			lbl_exit = pcb->pcb_exitlbl;
 
@@ -441,15 +462,15 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 */
 	for (pop = dt_list_next(&upp->probes); pop != NULL;
 	     pop = dt_list_next(pop)) {
-		const dt_probe_t	*pprp = pop->probe;
+		const dt_probe_t	*prp = pop->probe;
 		uint_t			lbl_next = dt_irlist_label(dlp);
 		pid_t			pid;
 		dt_ident_t		*idp;
 
-		pid = dt_pid_get_pid(pprp->desc, pcb->pcb_hdl, pcb, NULL);
+		pid = dt_pid_get_pid(prp->desc, pcb->pcb_hdl, pcb, NULL);
 		assert(pid != -1);
 
-		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, pprp);
+		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
 		assert(idp != NULL);
 
 		/*
@@ -457,8 +478,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		 * process, and emit a sequence of clauses for it when it does.
 		 */
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, pid, lbl_next));
-		emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, pprp->desc->id), idp);
-		dt_cg_tramp_call_clauses(pcb, pprp, DT_ACTIVITY_ACTIVE);
+		emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id), idp);
+		dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
 		emit(dlp,  BPF_JUMP(lbl_exit));
 		emitl(dlp, lbl_next,
 			   BPF_NOP());
@@ -508,8 +529,8 @@ copyout_val(dt_pcb_t *pcb, uint_t lbl, uint32_t val, int arg)
 static int trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
-	const dt_probe_t	*prp = pcb->pcb_probe;
-	const dt_uprobe_t	*upp = prp->prv_data;
+	const dt_probe_t	*uprp = pcb->pcb_probe;
+	const dt_uprobe_t	*upp = uprp->prv_data;
 	const list_probe_t	*pop;
 	uint_t			lbl_assign = dt_irlist_label(dlp);
 	uint_t			lbl_exit = pcb->pcb_exitlbl;
@@ -561,14 +582,14 @@ static int trampoline_is_enabled(dt_pcb_t *pcb, uint_t exitlbl)
 	 */
 	for (pop = dt_list_next(&upp->probes); pop != NULL;
 	     pop = dt_list_next(pop)) {
-		const dt_probe_t	*pprp = pop->probe;
+		const dt_probe_t	*prp = pop->probe;
 		pid_t			pid;
 		dt_ident_t		*idp;
 
-		pid = dt_pid_get_pid(pprp->desc, pcb->pcb_hdl, pcb, NULL);
+		pid = dt_pid_get_pid(prp->desc, pcb->pcb_hdl, pcb, NULL);
 		assert(pid != -1);
 
-		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, pprp);
+		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
 		assert(idp != NULL);
 
 		/*
@@ -636,9 +657,9 @@ out:
 	return name;
 }
 
-static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
+static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 {
-	dt_uprobe_t	*upp = prp->prv_data;
+	dt_uprobe_t	*upp = uprp->prv_data;
 	tp_probe_t	*tpp = upp->tp;
 	FILE		*f;
 	char		*fn;
@@ -733,9 +754,9 @@ out:
  * probes that didn't get created.  If the removal fails for some reason we are
  * out of luck - fortunately it is not harmful to the system as a whole.
  */
-static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
+static void detach(dtrace_hdl_t *dtp, const dt_probe_t *uprp)
 {
-	dt_uprobe_t	*upp = prp->prv_data;
+	dt_uprobe_t	*upp = uprp->prv_data;
 	tp_probe_t	*tpp = upp->tp;
 
 	if (!dt_tp_has_info(tpp))
