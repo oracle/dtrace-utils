@@ -964,14 +964,14 @@ dt_cg_tramp_epilogue(dt_pcb_t *pcb)
 
 	/*
 	 * For each dependent probe (if any):
-	 *	1.1 Call dt_cg_tramp_save_args()
-	 *	1.2 Set PRID to the probe ID of the dependent probe
-	 *	1.3 Call prp->prov->impl->trampoline()
+	 *	- Call dt_cg_tramp_save_args()
+	 *	- Set PRID to the probe ID of the dependent probe
+	 *	- Call prp->prov->impl->trampoline()
 	 *		[ This will generate the pseudo-trampoline that sets
 	 *		  up the arguments for the dependent probe, possibly
 	 *		  based on the arguments of the underllying probe. ]
-	 *	1.4 Call dt_cg_tramp_call_clauses() for the dependent probe
-	 *	1.1 Call dt_cg_tramp_restore_args()
+	 *	- Call dt_cg_tramp_call_clauses() for the dependent probe
+	 *	- Call dt_cg_tramp_restore_args()
 	 *
 	 * Possible optimization:
 	 *	Do not call dt_cg_tramp_restore_args() after the last dependent
@@ -1152,9 +1152,9 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 
 /*
  * Generate the function epilogue:
- *	4. Submit the buffer to the perf event output buffer for the current
- *	   cpu, if this is a data recording action..
- *	5. Return 0
+ *	- Submit the buffer to the perf event output buffer for the current
+ *	  cpu, if this is a data recording action..
+ *	- Return 0
  * }
  */
 static void
