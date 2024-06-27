@@ -916,7 +916,6 @@ main(int argc, char *argv[])
 {
 	dtrace_bufdesc_t buf;
 	struct sigaction act, oact;
-	dtrace_status_t status[2];
 	dtrace_optval_t opt;
 	dtrace_cmd_t *dcp;
 
@@ -941,7 +940,6 @@ main(int argc, char *argv[])
 	g_argv[g_argc++] = argv[0];	/* propagate argv[0] to D as $0/$$0 */
 	argv[0] = g_pname;		/* rewrite argv[0] for getopt errors */
 
-	memset(status, 0, sizeof(status));
 	memset(&buf, 0, sizeof(buf));
 
 	/*
