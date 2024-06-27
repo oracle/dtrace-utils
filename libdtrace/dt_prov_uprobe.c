@@ -257,6 +257,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	/* Mark the provider as a PID-based provider. */
 	pvp->pv_flags |= DT_PROVIDER_PID;
 
+	/* Create and/or lookup the underlying probe. */
 	uprp = create_underlying(dtp, psp);
 	if (uprp == NULL)
 		return -1;
@@ -264,6 +265,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	upp = uprp->prv_data;
 	upp->flags |= flags;
 
+	/* Look up the overlying probe. */
 	prp = dt_probe_lookup(dtp, &pd);
 	if (prp != NULL) {
 		/*
