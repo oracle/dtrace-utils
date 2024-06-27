@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 #ifndef _DTRACE_IOCTL_H_
@@ -10,7 +10,6 @@
 
 #include <linux/ioctl.h>
 #include <dtrace/arg.h>
-#include <dtrace/buffer.h>
 #include <dtrace/conf.h>
 #include <dtrace/dof.h>
 #include <dtrace/enabling.h>
@@ -22,10 +21,8 @@
 #define DTRACEIOC		0xd4
 #define DTRACEIOC_PROVIDER	_IOR(DTRACEIOC, 1, dtrace_providerdesc_t)
 #define DTRACEIOC_PROBES	_IOR(DTRACEIOC, 2, dtrace_probedesc_t)
-#define DTRACEIOC_BUFSNAP	_IOR(DTRACEIOC, 4, dtrace_bufdesc_t)
 #define DTRACEIOC_PROBEMATCH	_IOR(DTRACEIOC, 5, dtrace_probedesc_t)
 #define DTRACEIOC_ENABLE	_IOW(DTRACEIOC, 6, void *)
-#define DTRACEIOC_AGGSNAP	_IOR(DTRACEIOC, 7, dtrace_bufdesc_t)
 #define DTRACEIOC_EPROBE	_IOW(DTRACEIOC, 8, dtrace_eprobedesc_t)
 #define DTRACEIOC_PROBEARG	_IOR(DTRACEIOC, 9, dtrace_argdesc_t)
 #define DTRACEIOC_CONF		_IOR(DTRACEIOC, 10, dtrace_conf_t)
