@@ -28,6 +28,24 @@
 
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
+typedef struct dt_spec_buf_data {
+	dt_list_t dsbd_list;		/* linked-list forward/back pointers */
+	unsigned int dsbd_cpu;		/* cpu for data */
+	char *dsbd_data;		/* data for later processing */
+	uint32_t dsbd_size;		/* size of data */
+} dt_spec_buf_data_t;
+
+typedef struct dt_spec_buf {
+	dtrace_hdl_t *dtsb_dtp;		/* backpointer to the dtrace instance */
+	int32_t dtsb_id;		/* speculation ID */
+	size_t dtsb_size;		/* size of all buffers in this spec */
+	int dtsb_committing;		/* when draining, nonzero if commit */
+	dt_bpf_specs_t dtsb_spec;	/* bpf-side specs record for this spec
+					   (buffer read/write counts).  */
+	dt_list_t dtsb_dsbd_list;	/* list of dt_spec_bufs */
+	struct dt_hentry dtsb_he;	/* htab links */
+} dt_spec_buf_t;
+
 /*
  * We declare this here because (1) we need it and (2) we want to avoid a
  * dependency on libm in libdtrace.
