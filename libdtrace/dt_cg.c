@@ -374,17 +374,6 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
 	 *		goto exit;
 	 *
-	 *	key = 0;		// stdw [%r9 + DCTX_AGG], 0
-	 *	rc = bpf_map_lookup_elem(rc, &key);
-	 *				// mov %r1, %r0
-	 *				// mov %r2, %r9
-	 *				// add %r2, DCTX_AGG
-	 *				// call bpf_map_lookup_elem
-	 *				//     (%r1 ... %r5 clobbered)
-	 *				//     (%r0 = aggs[cpuid] BPF map value)
-	 *	if (rc == 0)		// jeq %r0, 0, lbl_exit
-	 *		goto exit;
-	 *
 	 *	dctx.aggs = rc;		// stdw [%r9 + DCTX_AGG], %r0
 	 */
 	if (dtp->dt_maxaggdsize > 0) {
