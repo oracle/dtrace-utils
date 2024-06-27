@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 #
 # @@timeout: 120
+# @@xfail: dtv2 USDT wildcard
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
@@ -32,6 +33,10 @@ while kill -0 $id >/dev/null 2>&1; do
 			exit(0);
 		}
 	EOF
+	if [ $? -ne 0 ]; then
+		echo ERROR: DTrace failed to run
+		exit 1
+	fi
 done
 
 exit 0
