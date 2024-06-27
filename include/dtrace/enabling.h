@@ -43,11 +43,6 @@ typedef struct dtrace_probedesc {
 	const char	*prb;			/* probe name */
 } dtrace_probedesc_t;
 
-typedef struct dtrace_repldesc {
-	dtrace_probedesc_t dtrpd_match;		/* probe descr. to match */
-	dtrace_probedesc_t dtrpd_create;	/* probe descr. to create */
-} dtrace_repldesc_t;
-
 typedef struct dtrace_actdesc {
 	struct dtrace_difo *dtad_difo;		/* pointer to DIF object */
 	dtrace_actkind_t dtad_kind;		/* kind of action */
