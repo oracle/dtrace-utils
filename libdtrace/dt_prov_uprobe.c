@@ -337,15 +337,16 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp, int is_usdt)
 
 	/*
 	 * We need to enable the underlying probes (if not enabled yet).
-	 *
-	 * If necessary, we need to enable is-enabled probes too (if they
-	 * exist).
 	 */
 	for (pup = prp->prv_data; pup != NULL; pup = dt_list_next(pup)) {
 		dt_probe_t *uprp = pup->probe;
 		dt_probe_enable(dtp, uprp);
 	}
 
+	/*
+	 * If necessary, we need to enable is-enabled probes too (if they
+	 * exist).
+	 */
 	if (is_usdt) {
 		dtrace_probedesc_t pd;
 		dt_probe_t *iep;
