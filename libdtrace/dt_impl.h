@@ -324,7 +324,6 @@ struct dtrace_hdl {
 
 	dt_htab_t *dt_provs;	/* hash table of dt_provider_t's */
 	const struct dt_provider *dt_prov_pid; /* PID provider */
-	const struct dt_provider *dt_prov_usdt; /* USDT provider */
 	int dt_proc_signal;	/* signal used to interrupt monitoring threads */
 	struct sigaction dt_proc_oact;
 	dt_proc_hash_t *dt_procs; /* hash table of grabbed process handles */
