@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1034,6 +1034,21 @@ main(int argc, char *argv[])
 			printf("dtrace(1) version-control ID: %s\n", DT_GIT_VERSION);
 			return printf("libdtrace version-control ID: %s\n", _libdtrace_vcs_version) <= 0;
 		}
+	}
+
+	/*
+	 * Generate a helpful error message if the user forgets to run as root.
+	 *
+	 * Note that DMODE_VERS has already been handled, and DMODE_HEADER and
+	 * DMODE_LINK are okay without root.
+	 *
+	 * Insist on root for tracing, but also for DMODE_LIST and even for
+	 * DMODE_EXEC with g_exec==0, since otherwise too many probes will
+	 * simply not be recognized, likely causing puzzling behavior.
+	 */
+	if (getuid() != 0 && (g_mode == DMODE_LIST || g_mode == DMODE_EXEC)) {
+		fprintf(stderr, "%s: run as root for tracing and listing probes\n", g_pname);
+		return E_USAGE;
 	}
 
 	/*
