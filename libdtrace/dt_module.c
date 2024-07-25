@@ -963,7 +963,6 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 				   "looking for in-module CTF instead.\n",
 				   ctfa_name, ctf_errmsg(dtp->dt_ctferr));
 #endif
-			return;
 		}
 
 		if (dtp->dt_ctfa_path == NULL)
@@ -1018,6 +1017,11 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 		dmp->dm_flags |= DT_DM_CTF_ARCHIVED;
 		ctf_setspecific(dmp->dm_ctfp, dmp);
+#ifdef HAVE_LIBCTF
+	} else {
+		/* Generate CTF from BTF for the module. */
+		dt_kern_module_ctf_from_btf(dtp, dmp);
+#endif
 	}
 
 	/*
