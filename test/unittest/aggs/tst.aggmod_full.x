@@ -1,9 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
+
+# If /proc/kallmodsyms does not exist, there is nothing to test
+
+[[ -r /proc/kallmodsyms ]] || exit 2
 
 # The test depends on a kernel fix to report kernel (and built-in-module)
 # symbol sizes correctly in /proc/kallmodsyms.  An easy check is to count
