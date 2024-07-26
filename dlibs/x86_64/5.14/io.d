@@ -131,7 +131,7 @@ translator devinfo_t < struct bio *B > {
 	dev_instance = 0;
 	dev_name = B->bi_bdev == NULL
 			? "nfs"
-			: stringof(((struct blk_major_name **)`major_names)[
+			: stringof(((struct blk_major_name **)&`major_names)[
 					getmajor(B->bi_bdev->bd_dev) % 255
 				   ]->name);
 	dev_statname = B->bi_bdev == NULL ? "nfs" :
