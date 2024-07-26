@@ -407,22 +407,19 @@ dt_btf_add_to_ctf(dtrace_hdl_t *dtp, dt_btf_t *btf, ctf_dict_t *ctf,
 		switch (kind) {
 		case BTF_KIND_ENUM:
 		case BTF_KIND_ENUM64:
-			if (snprintf(n, sizeof(n), "enum %s",
-				     name == NULL ? "(anon)" : name) < 0)
+			if (snprintf(n, sizeof(n), "enum %s", name) < 0)
 				return dt_ctf_set_errno(dtp, ECTF_NAMELEN);
 
 			ctfid = ctf_lookup_by_name(ctf, n);
 			break;
 		case BTF_KIND_UNION:
-			if (snprintf(n, sizeof(n), "union %s",
-				     name == NULL ? "(anon)" : name) < 0)
+			if (snprintf(n, sizeof(n), "union %s", name) < 0)
 				return dt_ctf_set_errno(dtp, ECTF_NAMELEN);
 	
 			ctfid = ctf_lookup_by_name(ctf, n);
 			break;
 		case BTF_KIND_STRUCT:
-			if (snprintf(n, sizeof(n), "struct %s",
-				     name == NULL ? "(anon)" : name) < 0)
+			if (snprintf(n, sizeof(n), "struct %s", name) < 0)
 				return dt_ctf_set_errno(dtp, ECTF_NAMELEN);
 	
 			ctfid = ctf_lookup_by_name(ctf, n);
