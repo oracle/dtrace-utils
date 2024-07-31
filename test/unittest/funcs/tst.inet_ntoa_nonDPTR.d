@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2022, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,7 +11,7 @@
 BEGIN
 {
 	/* "Linu" will be 76.105.110.117 */
-	printf("%s\n", inet_ntoa((ipaddr_t *)`linux_banner));
+	printf("%s\n", inet_ntoa((ipaddr_t *)&`linux_banner));
 	exit(0);
 }
 
