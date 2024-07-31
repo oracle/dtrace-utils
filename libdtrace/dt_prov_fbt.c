@@ -172,6 +172,7 @@ static int populate(dtrace_hdl_t *dtp)
  */
 static int fprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_probe_t	*prp = pcb->pcb_probe;
 
@@ -185,15 +186,32 @@ static int fprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
 		}
 	} else {
+		dt_module_t	*dmp;
+
 		/*
 		 * fbt:::return arg0 should be the function offset for the
-		 * return instruction.  The fexit prpbe fires at a point where
+		 * return instruction.  The fexit probe fires at a point where
 		 * we can no longer determine this location.
 		 *
 		 * Set arg0 = -1 to indicate that we do not know the value.
 		 */
 		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_0, -1);
 		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+
+		/*
+		 * The return value is provided by the fexit probe as an
+		 * argument slot past the last function argument.  We can get
+		 * the number of function arguments using the BTF id that has
+		 * been stored as the tracepoint event id.
+		 */
+		dmp = dt_module_lookup_by_name(dtp, prp->desc->mod);
+		if (dmp != NULL) {
+			int32_t	btf_id = dt_tp_get_event_id(prp);
+			int	i = dt_btf_func_argc(dtp, dmp->dm_btf, btf_id);
+
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i * 8));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
+		}
 	}
 
 	dt_cg_tramp_epilogue(pcb);
@@ -274,7 +292,7 @@ static int fprobe_prog_load(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	dt_module_t			*dmp;
 
 	atype = strcmp(desc->prb, "entry") == 0 ? BPF_TRACE_FENTRY
-						     : BPF_TRACE_FEXIT;
+						: BPF_TRACE_FEXIT;
 
 	dmp = dt_module_lookup_by_name(dtp, desc->mod);
 	if (dmp == NULL)
