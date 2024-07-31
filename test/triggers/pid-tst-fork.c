@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -44,7 +44,10 @@ int main(int argc, char **argv)
 	sigaction(SIGUSR1, &act, NULL);
 
 	getrlimit(RLIMIT_NOFILE, &rl);
-	for (i = 0; i < rl.rlim_max; i++)
+	rl.rlim_cur = 1024;
+	setrlimit(RLIMIT_NOFILE, &rl);
+	getrlimit(RLIMIT_NOFILE, &rl);
+	for (i = 0; i < rl.rlim_cur; i++)
 		close(i);
 
 	/* Wait until we get hit with a SIGUSR1 signal. */
