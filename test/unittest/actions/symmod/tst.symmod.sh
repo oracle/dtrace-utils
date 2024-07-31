@@ -1,15 +1,15 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 dtrace=$1
 
-# pick a test symbol from /proc/kallmodsyms
-read ADD NAM MOD <<< `awk '/ksys_write/ {print $1, $4, $5}' /proc/kallmodsyms`
+# pick a test symbol from /proc/kallsyms
+read ADD NAM MOD <<< `awk '/ ksys_write/ {print $1, $3, $4}' /proc/kallsyms`
 
 # a blank module means the module is vmlinux
 if [ x$MOD == x ]; then
