@@ -21,8 +21,6 @@ export LC_COLLATE="C"
 
 arch="$(uname -m)"
 
-[[ -f ./runtest.conf ]] && . ./runtest.conf
-
 load_modules()
 {
     # If running as root, pull in appropriate modules
@@ -644,15 +642,6 @@ if [[ -n $NOBADDOF ]]; then
                  --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
         fi
     done
-
-    if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
-       [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
-            rm -rf $KERNEL_BUILD_DIR/coverage
-            mkdir -p $KERNEL_BUILD_DIR/coverage
-            lcov --zerocounters --quiet
-            lcov --capture --base-directory $KERNEL_BUILD_DIR --initial \
-                 --quiet -o $KERNEL_BUILD_DIR/coverage/initial.lcov 2>/dev/null
-    fi
 fi
 
 load_modules
@@ -1592,23 +1581,6 @@ for name in build*; do
             tee -a $LOGFILE $SUMFILE
     fi
 done
-
-if [[ -n $KERNEL_BUILD_DIR ]] && [[ -d $KERNEL_BUILD_DIR ]] &&
-       [[ -d /sys/kernel/debug/gcov/$KERNEL_BUILD_DIR/kernel/dtrace ]]; then
-    force_out "Coverage info for kernel:\n"
-
-    lcov --capture --base-directory $KERNEL_BUILD_DIR \
-         --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
-    lcov --add-tracefile $KERNEL_BUILD_DIR/coverage/initial.lcov \
-         --add-tracefile $KERNEL_BUILD_DIR/coverage/coverage.lcov \
-         --quiet -o $KERNEL_BUILD_DIR/coverage/coverage.lcov
-
-    genhtml --frames --show-details -o $KERNEL_BUILD_DIR/coverage \
-            --title "DTrace kernel coverage" --highlight --legend \
-            $KERNEL_BUILD_DIR/coverage/coverage.lcov | \
-        awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
-        tee -a $LOGFILE $SUMFILE
-fi
 
 if [[ -n $ERRORS ]]; then
     exit 1
