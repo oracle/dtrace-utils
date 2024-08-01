@@ -579,7 +579,7 @@ else
     dtrace="/usr/sbin/dtrace"
     test_libdir="installed"
     test_ldflags=""
-    test_cppflags="-DARCH_$arch -I/usr/lib64/dtrace/include"
+    test_cppflags="-DARCH_$arch $(pkg-config --cflags dtrace_sdt)"
 
     if [[ ! -x $dtrace ]]; then
         echo "$dtrace not available." >&2

@@ -14,10 +14,15 @@ SYS_HEADERS_INSTALL := common/sys/dtrace.h \
 
 # sdt*.h are used by programs that contain USDT probes that want to define
 # probes by hand rather than using dtrace -h.  SystemTap has another header
-# with the same name, so we install these out of the way.
+# with the same name, so we install these out of the way and provide a
+# pkg-config file to pull them in.
 
 PROBE_HEADERS_INSTALL := common/sys/sdt.h \
                          common/sys/sdt_internal.h
+
+# The pkg-config files undergo a few translations with sed before installation.
+
+SHARE_PKG_CONFIG_INSTALL := dtrace_sdt.pc
 
 install::
 	mkdir -p $(INSTINCLUDEDIR)/sys
@@ -26,3 +31,10 @@ install::
 	mkdir -p $(INSTSDTINCLUDEDIR)/sys
 	$(call describe-install-target,$(INSTSDTINCLUDEDIR)/sys,$(notdir $(PROBE_HEADERS_INSTALL)))
 	cd $(uts_DIR) && install -m 644 $(PROBE_HEADERS_INSTALL) $(INSTSDTINCLUDEDIR)/sys
+	mkdir -p $(INSTPKGCONFIGDIR)
+	$(call describe-install-target,$(INSTPKGCONFIGDIR),$(SHARE_PKG_CONFIG_INSTALL))
+	for name in $(SHARE_PKG_CONFIG_INSTALL); do \
+		cd $(uts_DIR) && \
+		    sed 's,@SDTINCLUDEDIR@,$(SDTINCLUDEDIR),g; s,@VERSION@,$(VERSION),g' < \
+			$${name}.in > $(INSTPKGCONFIGDIR)/$$name; \
+	done

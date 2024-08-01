@@ -60,6 +60,7 @@ Installation paths:
 --sbindir=PREFIX/sbin				Alias for --bindir
 --includedir=PREFIX/include			#include directory
 --mandir=PREFIX/share/man/man8			Manpage directory
+--pkg-config-dir=PREFIX/share/pkgconfig		Pkg-config directory
 --udevdir=PREFIX/lib/udev/rules.d		udev rules directory
 --systemd-unit-dir=PREFIX/lib/systemd/system	systemd unit directory
 --docdir=PREFIX/share/doc/dtrace		Documentation directory
@@ -130,6 +131,7 @@ for option in "$@"; do
         --systemd-unit-dir=*) write_make_var SYSTEMDUNITDIR "$option";;
         --docdir=*) write_make_var DOCDIR "$option";;
         --mandir=*) write_make_var MANDIR "$option";;
+        --pkg-config-dir=*) write_make_var PKGCONFIGDIR "$option";;
         --testdir=*) write_make_var TESTDIR "$option";;
         CC=*) write_make_var CC "$option";;
         CPP=*) write_make_var PREPROCESS "$option";;
