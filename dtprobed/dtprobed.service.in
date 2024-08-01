@@ -12,7 +12,7 @@ Before=basic.target
 
 [Service]
 Type=notify
-ExecStart=/usr/sbin/dtprobed -F
+ExecStart=@SBINDIR@/dtprobed -F
 Restart=on-failure
 RestartPreventExitStatus=1
 ProtectSystem=strict

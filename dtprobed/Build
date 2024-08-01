@@ -42,17 +42,13 @@ dtprobed.c_CFLAGS := -Wno-pedantic
 seccomp-assistance.c_CFLAGS := -fno-lto
 endif
 
-install::
-	mkdir -p $(INSTSBINDIR)
-	$(call describe-install-target,$(INSTSBINDIR),dtprobed)
-	install -m 755 $(objdir)/dtprobed $(INSTSBINDIR)
-	mkdir -p $(INSTUDEVDIR)
-	$(call describe-install-target,$(INSTUDEVDIR),60-dtprobed.rules)
-	install -m 644 $(dtprobed_DIR)60-dtprobed.rules $(INSTUDEVDIR)
+install-dtprobed-autostart::
 ifdef HAVE_LIBSYSTEMD
 	mkdir -p $(INSTSYSTEMDUNITDIR) $(INSTSYSTEMDPRESETDIR)
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtprobed.service)
-	install -m 644 $(dtprobed_DIR)dtprobed.service $(INSTSYSTEMDUNITDIR)
+	sed 's,@SBINDIR@,$(SBINDIR),' < $(dtprobed_DIR)dtprobed.service.in > $(INSTSYSTEMDUNITDIR)/dtprobed.service
+        chown root:root $(INSTSYSTEMDUNITDIR)/dtprobed.service
+	chmod 0644 $(INSTSYSTEMDUNITDIR)/dtprobed.service
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtrace-usdt.target)
 	install -m 644 $(dtprobed_DIR)dtrace-usdt.target $(INSTSYSTEMDUNITDIR)
 	$(call describe-install-target,$(INSTSYSTEMDPRESETDIR),50-dtprobed.preset)
@@ -61,3 +57,27 @@ ifdef HAVE_LIBSYSTEMD
 		systemctl enable dtprobed.service dtrace-usdt.target; \
 	fi
 endif
+
+install::
+	mkdir -p $(INSTSBINDIR)
+	$(call describe-install-target,$(INSTSBINDIR),dtprobed)
+	install -m 755 $(objdir)/dtprobed $(INSTSBINDIR)
+	mkdir -p $(INSTUDEVDIR)
+	$(call describe-install-target,$(INSTUDEVDIR),60-dtprobed.rules)
+	install -m 644 $(dtprobed_DIR)60-dtprobed.rules $(INSTUDEVDIR)
+	if [[ "$(SYSTEMDUNITDIR)" = /usr/lib/systemd/system ]] || \
+	   [[ "$(SYSTEMDUNITDIR)" = /usr/local/lib/systemd/system ]] || \
+	   [[ -n "$(filter SYSTEMDUNITDIR,$(CONFIGURED_VARS))" ]] ; then \
+		$(MAKE) install-dtprobed-autostart; \
+	else \
+		echo " === WARNING WARNING WARNING === " >&2; \
+		echo "systemd service files for dtprobed not installed." >&2; \
+		echo "USDT probes (and the testsuite) will not work unless this is" >&2; \
+		echo "done.  Try make install-dtprobed-autostart, but this may not" >&2; \
+		echo "be enough: you may need to manually move the systemd service" >&2; \
+		echo "files somewhere udev and systemd will find them." >&2; \
+		echo "If there is already a running dtprobed, it may or may not work" >&2; \
+		echo "in conjunction with this DTrace." >&2; \
+		echo "Configure with --systemd-unit-dir to override this decision." >&2; \
+		echo " === WARNING WARNING WARNING === " >&2; \
+	fi

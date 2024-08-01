@@ -14,6 +14,9 @@ help::
 	@printf "dlibs                          Build translator files\n" >&2
 	@printf "install                        Install (DESTDIR supported)\n" >&2
 	@printf "install-test                   Install testsuite (DESTDIR supported)\n" >&2
+	@printf "install-dtprobed-autostart     Install udev / systemd rules to start dtprobed" >&2
+	@printf "                               (done by make install unless prefix or sbindir" >&2
+	@printf "                                are changed)" >&2
 	@printf "clean / realclean              Clean up build tree\n" >&2
 	@printf "TAGS / tags / gtags            Make tags files\n" >&2
 	@printf "\n" >&2

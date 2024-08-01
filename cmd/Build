@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -36,7 +36,7 @@ if [[ -z \$$_DTRACE_CHECK_INSTALLED ]]; then\n\
     export LD_LIBRARY_PATH=$(objdir)\n\
     dtrace_cmd=$(objdir)/dtrace\n\
 else\n\
-    dtrace_cmd=/usr/sbin/dtrace\n\
+    dtrace_cmd=$(SBINDIR)/dtrace\n\
 fi\n\
 \n\
 if [[ -n \$$DTRACE_GDB ]]; then\n\
