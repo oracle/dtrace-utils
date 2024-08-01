@@ -125,7 +125,7 @@ for option in "$@"; do
 	--prefix=*) write_make_var prefix "$option";;
         --objdir=*) write_make_var objdir "$option";;
         --libdir=*) write_make_var LIBDIR "$option";;
-        --bindir=*) write_make_var BINDIR "$option";;
+        --bindir=*) write_make_var SBINDIR "$option";;
         --sbindir=*) write_make_var SBINDIR "$option";;
         --includedir=*) write_make_var INCLUDEDIR "$option";;
         --udevdir=*) write_make_var UDEVDIR "$option";;
