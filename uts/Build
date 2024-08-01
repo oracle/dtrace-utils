@@ -22,7 +22,7 @@ PROBE_HEADERS_INSTALL := common/sys/sdt.h \
 
 # The pkg-config files undergo a few translations with sed before installation.
 
-SHARE_PKG_CONFIG_INSTALL := dtrace_sdt.pc
+SHARE_PKG_CONFIG_INSTALL := dtrace.pc dtrace_sdt.pc
 
 install::
 	mkdir -p $(INSTINCLUDEDIR)/sys
@@ -34,7 +34,9 @@ install::
 	mkdir -p $(INSTPKGCONFIGDIR)
 	$(call describe-install-target,$(INSTPKGCONFIGDIR),$(SHARE_PKG_CONFIG_INSTALL))
 	for name in $(SHARE_PKG_CONFIG_INSTALL); do \
-		cd $(uts_DIR) && \
-		    sed 's,@SDTINCLUDEDIR@,$(SDTINCLUDEDIR),g; s,@VERSION@,$(VERSION),g' < \
-			$${name}.in > $(INSTPKGCONFIGDIR)/$$name; \
+		(cd $(uts_DIR) && \
+		    sed -e 's,@SDTINCLUDEDIR@,$(SDTINCLUDEDIR),g;' \
+			-e 's,@INCLUDEDIR@,$(INCLUDEDIR),g;' \
+			-e 's,@VERSION@,$(VERSION),g' < \
+			$${name}.in > $(INSTPKGCONFIGDIR)/$$name;) \
 	done
