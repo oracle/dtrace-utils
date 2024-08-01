@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -108,8 +108,10 @@ extern int dt_print_ustack(dtrace_hdl_t *, FILE *,
     const char *, caddr_t, uint64_t);
 extern int dt_print_mod(dtrace_hdl_t *, FILE *, const char *, caddr_t);
 extern int dt_print_umod(dtrace_hdl_t *, FILE *, const char *, caddr_t);
-extern int dt_print_type(dtrace_hdl_t *, FILE *, uint64_t, ctf_id_t,
-			 caddr_t, size_t);
+extern int dt_print_type(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+			 const dtrace_probedata_t *data,
+			 const dtrace_recdesc_t *recs,
+			 uint_t nrecs, const void *buf, size_t len);
 
 #ifdef	__cplusplus
 }

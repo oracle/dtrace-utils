@@ -507,7 +507,7 @@ dt_nullrec()
 	return DTRACE_CONSUME_NEXT;
 }
 
-static int
+int
 dt_read_scalar(caddr_t addr, const dtrace_recdesc_t *rec, uint64_t *valp)
 {
 	addr += rec->dtrd_offset;
@@ -1983,25 +1983,6 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 }
 
-static int
-dt_print_print(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
-	       const caddr_t buf)
-{
-	dtrace_recdesc_t *data_rec = rec + 1;
-	size_t max_size = dtp->dt_options[DTRACEOPT_PRINTSIZE];
-	size_t size = (size_t)data_rec->dtrd_arg;
-	uint64_t printaddr;
-
-	if (size > max_size)
-		size = max_size;
-
-	if (dt_read_scalar(buf, rec, &printaddr) < 0)
-		return dt_set_errno(dtp, EDT_PRINT);
-
-	return dt_print_type(dtp, fp, printaddr, (ctf_id_t)rec->dtrd_arg,
-			     (caddr_t)buf + data_rec->dtrd_offset, size);
-}
-
 /*
  * The lifecycle of speculation buffers is as follows:
  *
@@ -2562,11 +2543,8 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			func = dtrace_freopen;
 			break;
 		case DTRACEACT_PRINT:
-			n = dt_print_print(dtp, fp, rec, data);
-			if (n < 0)
-				return -1;
-			i += n - 1;
-			continue;
+			func = dt_print_type;
+			break;
 		default:
 			break;
 		}

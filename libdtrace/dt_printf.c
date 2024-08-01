@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <port.h>
 
+#include <dt_module.h>
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_impl.h>
@@ -2235,15 +2236,34 @@ err:
 }
 
 int
-dt_print_type(dtrace_hdl_t *dtp, FILE *fp, uint64_t printaddr,
-	      ctf_id_t type, caddr_t data, size_t size)
+dt_print_type(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+	      const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
+	      uint_t nrecs, const void *buf, size_t len)
 {
+	const char *modname = ((dt_pfargv_t *)fmtdata)->pfv_format;
+	size_t max_size = dtp->dt_options[DTRACEOPT_PRINTSIZE];
+	ctf_id_t type = (ctf_id_t)recs->dtrd_arg;
+	const dtrace_recdesc_t *data_rec = recs + 1;
+	size_t size = data_rec->dtrd_size;
+	caddr_t addr_data = (caddr_t)buf;
 	struct dt_visit_arg dva;
+	uint64_t printaddr;
+	dt_module_t *dmp;
 
+	if (size > max_size)
+		size = max_size;
+
+	if (dt_read_scalar(addr_data, recs, &printaddr) < 0)
+		return dt_set_errno(dtp, EDT_PRINT);
+
+	dmp = dt_module_lookup_by_name(dtp, modname);
+	if (!dmp) {
+		return dt_set_errno(dtp, EDT_PRINT);
+	}
 	dva.dv_dtp = dtp;
 	dva.dv_fp = fp;
-	dva.dv_ctfp = dtp->dt_ddefs->dm_ctfp;
-	dva.dv_data = data;
+	dva.dv_ctfp = dmp->dm_ctfp;
+	dva.dv_data = addr_data + data_rec->dtrd_offset;
 	dva.dv_size = size;
 	dva.dv_last_depth = 0;
 	dva.dv_startindent = DT_PRINT_STARTINDENT;

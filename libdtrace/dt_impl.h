@@ -789,6 +789,7 @@ extern int dt_buffered_flush(dtrace_hdl_t *, dtrace_probedata_t *,
     const dtrace_recdesc_t *, const dtrace_aggdata_t *, uint32_t flags);
 extern void dt_buffered_disable(dtrace_hdl_t *);
 extern void dt_buffered_destroy(dtrace_hdl_t *);
+extern int dt_read_scalar(caddr_t, const dtrace_recdesc_t *, uint64_t *);
 
 extern uint64_t dt_stddev(uint64_t *, uint64_t);
 

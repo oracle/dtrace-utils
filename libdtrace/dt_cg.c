@@ -20,6 +20,7 @@
 #include <dt_dctx.h>
 #include <dt_cg.h>
 #include <dt_grammar.h>
+#include <dt_module.h>
 #include <dt_parser.h>
 #include <dt_printf.h>
 #include <dt_provider.h>
@@ -2838,8 +2839,11 @@ dt_cg_act_print(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	ctf_file_t	*fp = addr->dn_ctfp;
 	ctf_id_t	type = addr->dn_type;
 	char		n[DT_TYPE_NAMELEN];
+	dt_module_t	*dmp;
+	dt_pfargv_t	*pfp;
 	size_t		size;
 
+	dmp = dt_module_lookup_by_ctf(dtp, fp);
 	type = ctf_type_reference(fp, type);
 	if (type == CTF_ERR)
 		longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
@@ -2849,11 +2853,13 @@ dt_cg_act_print(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 			"print( ) argument #1 reference has type '%s' with size 0; cannot print( ) it.\n",
 			ctf_type_name(fp, type, n, sizeof(n)));
 
+	pfp = dt_printf_create(dtp, dmp->dm_name);
+
 	/* reserve space for addr/type, data/size */
 	addr_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PRINT,
-			      sizeof(uint64_t), 8, NULL, type);
+			      sizeof(uint64_t), 8, pfp, type);
 	data_off = dt_rec_add(dtp, dt_cg_fill_gap, DTRACEACT_PRINT,
-			      size, 8, NULL, size);
+			      size, 8, NULL, 0);
 
 	dt_cg_node(addr, &pcb->pcb_ir, drp);
 	dt_cg_check_ptr_arg(dlp, drp, addr, NULL);
