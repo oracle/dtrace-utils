@@ -82,7 +82,7 @@ done
 # should contain at most five or so DOFs, even though 512
 # processes left stale DOF around.  (Allow up to ten in
 # case the most recent cleanup is still underway.)
-if [[ $dtrace != "/usr/sbin/dtrace" ]] && [[ -n $DTRACE_OPT_DOFSTASHPATH ]]; then
+if [[ $test_libdir != "installed" ]] && [[ -n $DTRACE_OPT_DOFSTASHPATH ]]; then
     NUMDOFS="$(find $DTRACE_OPT_DOFSTASHPATH/stash/dof -type f | wc -l)"
     if [[ $NUMDOFS -gt 10 ]]; then
 	echo "DOF stash contains too many old DOFs: $NUMDOFS" >&2

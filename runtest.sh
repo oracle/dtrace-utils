@@ -18,6 +18,7 @@ shopt -s nullglob extglob
 unset CDPATH
 unset POSIXLY_CORRECT  # Interferes with 'wait'
 export LC_COLLATE="C"
+export dtrace="/usr/sbin/dtrace"
 
 arch="$(uname -m)"
 
@@ -574,7 +575,15 @@ if [[ -z $USE_INSTALLED ]]; then
     export dtprobed_pid=$!
     ZAPTHESE+=($dtprobed_pid)
 else
-    dtrace="/usr/sbin/dtrace"
+    # If we don't have a pkg-config path, try to point at a plausible
+    # one given DTrace's default install paths.  This will fail if
+    # the pkg-config path is changed as well: in that case, presumably
+    # the person changing that path has pointed pkg-config at it anyway.
+    if [[ -z $PKG_CONFIG_PATH ]]; then
+        export PKG_CONFIG_PATH="$(pwd)/../../../share/pkgconfig"
+    fi
+
+    dtrace="$(pkg-config --variable=dtrace dtrace)"
     test_libdir="installed"
     test_ldflags=""
     test_cppflags="-DARCH_$arch $(pkg-config --cflags dtrace_sdt) $(pkg-config --cflags dtrace)"
@@ -584,8 +593,8 @@ else
         exit 1
     fi
 fi
-export dtrace
 export test_cppflags
+export test_libdir
 
 # Figure out if the preprocessor supports -fno-diagnostics-show-option: if it
 # does, add a bunch of options designed to make GCC output look like it used

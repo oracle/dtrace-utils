@@ -123,7 +123,7 @@ ONE=$!
 # if re-executed with a newer version of dtprobed with incompatible
 # parse state.  Overwrite the parsed DOF with crap first, to force
 # a failure if it simply doesn't reparse at all.
-if [[ $dtrace != "/usr/sbin/dtrace" ]] && [[ -n $dtprobed_pid ]]; then
+if [[ $test_libdir != "installed" ]] && [[ -n $dtprobed_pid ]]; then
     sleep 1
     for parsed in $DTRACE_OPT_DOFSTASHPATH/stash/dof-pid/*/*/parsed/*; do
 	echo 'a' > $parsed

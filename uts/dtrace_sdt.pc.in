@@ -1,4 +1,5 @@
 sdtincludedir = @SDTINCLUDEDIR@
+dtrace = @DTRACE@
 
 Name: DTrace SDT
 Description: DTrace raw SDT headers
