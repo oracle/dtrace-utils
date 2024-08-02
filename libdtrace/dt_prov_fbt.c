@@ -199,13 +199,15 @@ static int fprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 
 		/*
+		 * Only try to retrieve a return value if we know we can.
+		 *
 		 * The return value is provided by the fexit probe as an
 		 * argument slot past the last function argument.  We can get
 		 * the number of function arguments using the BTF id that has
 		 * been stored as the tracepoint event id.
 		 */
 		dmp = dt_module_lookup_by_name(dtp, prp->desc->mod);
-		if (dmp != NULL) {
+		if (dmp && prp->argc == 2) {
 			int32_t	btf_id = dt_tp_get_event_id(prp);
 			int	i = dt_btf_func_argc(dtp, dmp->dm_btf, btf_id);
 
@@ -240,7 +242,9 @@ static int fprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	dt_tp_set_event_id(prp, btf_id);
 
 	if (strcmp(desc->prb, "return") == 0) {
-		argc = 2;
+		/* Void function return probes only provide 1 argument. */
+		argc = dt_btf_func_is_void(dtp, dmp->dm_btf, btf_id) ? 1 : 2;
+
 		argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
 		if (argv == NULL)
 			return dt_set_errno(dtp, EDT_NOMEM);
@@ -250,13 +254,12 @@ static int fprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		argv[0].native = strdup("uint64_t");
 		argv[0].xlate = NULL;
 
-		/*
-		 * The return type is a generic uint64_t.  For void functions
-		 * the value of arg1 and argv[1] is undefined.
-		 */
-		argv[1].mapping = 1;
-		argv[1].native = strdup("uint64_t");
-		argv[1].xlate = NULL;
+		if (argc == 2) {
+			/* The return type is a generic uint64_t. */
+			argv[1].mapping = 1;
+			argv[1].native = strdup("uint64_t");
+			argv[1].xlate = NULL;
+		}
 
 		goto done;
 	}
