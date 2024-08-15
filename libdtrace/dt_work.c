@@ -5,12 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-#include <dt_impl.h>
-#include <dt_peb.h>
-#include <dt_probe.h>
-#include <dt_bpf.h>
-#include <dt_bpf_maps.h>
-#include <dt_state.h>
 #include <stddef.h>
 #include <errno.h>
 #include <assert.h>
@@ -20,6 +14,13 @@
 #include <linux/perf_event.h>
 #include <sys/epoll.h>
 #include <valgrind/valgrind.h>
+#include <dt_impl.h>
+#include <dt_aggregate.h>
+#include <dt_peb.h>
+#include <dt_probe.h>
+#include <dt_bpf.h>
+#include <dt_bpf_maps.h>
+#include <dt_state.h>
 
 void
 BEGIN_probe(void)

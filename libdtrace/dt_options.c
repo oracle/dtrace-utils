@@ -20,6 +20,7 @@
 #include <ctype.h>
 
 #include <dt_impl.h>
+#include <dt_aggregate.h>
 #include <dt_pcap.h>
 #include <dt_string.h>
 #include <libproc.h>
@@ -27,12 +28,11 @@
 static int
 dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-
 	if (arg != NULL)
 		return dt_set_errno(dtp, EDT_BADOPTVAL);
 
-	agp->dtat_flags |= option;
+	dt_aggregate_set_option(dtp, option);
+
 	return 0;
 }
 

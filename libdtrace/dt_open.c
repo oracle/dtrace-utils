@@ -28,6 +28,7 @@
 #include <libproc.h>
 
 #include <dt_impl.h>
+#include <dt_aggregate.h>
 #include <dt_bpf.h>
 #include <dt_pcap.h>
 #include <dt_program.h>
@@ -740,6 +741,8 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	dtp->dt_nextepid = 1;
 	dtp->dt_maxprobe = 0;
+	if (dt_aggregate_init(dtp) == -1)
+		return set_open_errno(dtp, errp, dtrace_errno(dtp));
 	dtp->dt_vmax = DT_VERS_LATEST;
 	dtp->dt_cpp_path = strdup(_dtrace_defcpp);
 	dtp->dt_cpp_argv = malloc(sizeof(char *));

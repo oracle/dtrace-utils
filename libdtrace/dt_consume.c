@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <alloca.h>
 #include <dt_impl.h>
+#include <dt_aggregate.h>
 #include <dt_module.h>
 #include <dt_pcap.h>
 #include <dt_peb.h>

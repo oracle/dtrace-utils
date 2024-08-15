@@ -16,7 +16,31 @@
 
 #include <libproc.h>
 #include <port.h>
+#include <dt_aggregate.h>
 #include <dt_bpf.h>
+
+typedef struct dt_ahashent {
+	struct dt_ahashent *dtahe_prev;		/* prev on hash chain */
+	struct dt_ahashent *dtahe_next;		/* next on hash chain */
+	struct dt_ahashent *dtahe_prevall;	/* prev on list of all */
+	struct dt_ahashent *dtahe_nextall;	/* next on list of all */
+	uint64_t dtahe_hval;			/* hash value */
+	dtrace_aggdata_t dtahe_data;		/* data */
+} dt_ahashent_t;
+
+typedef struct dt_ahash {
+	dt_ahashent_t	**dtah_hash;		/* hash table */
+	dt_ahashent_t	*dtah_all;		/* list of all elements */
+	size_t		dtah_size;		/* size of hash table */
+} dt_ahash_t;
+
+struct dt_aggregate {
+	char *dtat_key;			/* aggregation key */
+	char *dtat_buf;			/* aggregation data buffer */
+	char *dtat_nextkey;		/* next aggregation key */
+	int dtat_flags;			/* aggregate flags */
+	dt_ahash_t dtat_hash;		/* aggregate hash table */
+};
 
 #define	DTRACE_AHASHSIZE	32779		/* big 'ol prime */
 
@@ -33,6 +57,21 @@ static int dt_keypos;
 
 #define	DT_LESSTHAN	(dt_revsort == 0 ? -1 : 1)
 #define	DT_GREATERTHAN	(dt_revsort == 0 ? 1 : -1)
+
+int
+dt_aggregate_init(dtrace_hdl_t *dtp) {
+	dtp->dt_aggregate = dt_zalloc(dtp, sizeof(dt_aggregate_t));
+	if (dtp->dt_aggregate == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	return 0;
+}
+
+void
+dt_aggregate_set_option(dtrace_hdl_t *dtp, uintptr_t opt)
+{
+	dtp->dt_aggregate->dtat_flags |= opt;
+}
 
 static int
 dt_aggregate_countcmp(int64_t *lhs, int64_t *rhs)
@@ -503,7 +542,7 @@ static int
 dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 		      const char *data)
 {
-	dt_ahash_t		*agh = &dtp->dt_aggregate.dtat_hash;
+	dt_ahash_t		*agh = &dtp->dt_aggregate->dtat_hash;
 	dt_ahashent_t		*h;
 	dtrace_aggdesc_t	*agg;
 	dtrace_aggdata_t	*agd;
@@ -621,7 +660,7 @@ hashnext:
 
 	memcpy(ptr, data, size);
 	agd->dtada_data = ptr;
-	if (dtp->dt_aggregate.dtat_flags & DTRACE_A_PERCPU) {
+	if (dtp->dt_aggregate->dtat_flags & DTRACE_A_PERCPU) {
 		int i, max_cpus = dtp->dt_conf.max_cpuid + 1;
 		dtrace_recdesc_t	*rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 
@@ -658,7 +697,7 @@ hashnext:
 static int
 dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu, int fd)
 {
-	dt_aggregate_t		*agp = &dtp->dt_aggregate;
+	dt_aggregate_t		*agp = dtp->dt_aggregate;
 	size_t			ksize = dtp->dt_maxtuplesize;
 	char			*key = agp->dtat_key;
 	char			*data = agp->dtat_buf;
@@ -692,7 +731,7 @@ int
 dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 {
 	dtrace_optval_t	interval = dtp->dt_options[DTRACEOPT_AGGRATE];
-	dt_aggregate_t	*agp = &dtp->dt_aggregate;
+	dt_aggregate_t	*agp = dtp->dt_aggregate;
 	int		i, rval;
 
 	/* Has tracing started yet? */
@@ -1104,7 +1143,7 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
 int
 dt_aggregate_go(dtrace_hdl_t *dtp)
 {
-	dt_aggregate_t	*agp = &dtp->dt_aggregate;
+	dt_aggregate_t	*agp = dtp->dt_aggregate;
 	dt_ahash_t	*agh = &agp->dtat_hash;
 
 	/* If there are no aggregations there is nothing to do. */
@@ -1149,7 +1188,7 @@ dt_aggwalk_remove(dtrace_hdl_t *dtp, dt_ahashent_t *h)
 {
 	dtrace_aggdata_t	*agd = &h->dtahe_data;
 	int			i, ncpus = dtp->dt_conf.num_online_cpus;
-	char			*key = dtp->dt_aggregate.dtat_key;
+	char			*key = dtp->dt_aggregate->dtat_key;
 
 	memset(key, 0, dtp->dt_maxtuplesize);
 	memcpy(key, agd->dtada_key, agd->dtada_desc->dtagd_ksize);
@@ -1171,7 +1210,7 @@ dt_aggwalk_remove(dtrace_hdl_t *dtp, dt_ahashent_t *h)
 static int
 dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
+	dt_aggregate_t *agp = dtp->dt_aggregate;
 
 	switch (rval) {
 	case DTRACE_AGGWALK_NEXT:
@@ -1281,7 +1320,7 @@ int
 dtrace_aggregate_walk(dtrace_hdl_t *dtp, dtrace_aggregate_f *func, void *arg)
 {
 	dt_ahashent_t *h, *next;
-	dt_ahash_t *hash = &dtp->dt_aggregate.dtat_hash;
+	dt_ahash_t *hash = &dtp->dt_aggregate->dtat_hash;
 
 	for (h = hash->dtah_all; h != NULL; h = next) {
 		/*
@@ -1302,7 +1341,7 @@ static int
 dt_aggregate_walk_sorted(dtrace_hdl_t *dtp, dtrace_aggregate_f *func,
 			 void *arg, int (*sfunc)(const void *, const void *))
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
+	dt_aggregate_t *agp = dtp->dt_aggregate;
 	dt_ahashent_t *h, **sorted;
 	dt_ahash_t *hash = &agp->dtat_hash;
 	size_t i, nentries = 0;
@@ -1428,7 +1467,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggid_t *aggvars,
 			     int naggvars, dtrace_aggregate_walk_joined_f *func,
 			     void *arg)
 {
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
+	dt_aggregate_t *agp = dtp->dt_aggregate;
 	dt_ahashent_t *h, **sorted = NULL, ***bundle, **nbundle;
 	const dtrace_aggdata_t **data;
 	dt_ahashent_t *zaggdata = NULL;
@@ -1829,7 +1868,7 @@ dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 void
 dt_aggregate_destroy(dtrace_hdl_t *dtp)
 {
-	dt_aggregate_t		*agp = &dtp->dt_aggregate;
+	dt_aggregate_t		*agp = dtp->dt_aggregate;
 	dt_ahash_t		*hash = &agp->dtat_hash;
 	dt_ahashent_t		*h, *next;
 	dtrace_aggdata_t	*agd;
@@ -1864,4 +1903,7 @@ dt_aggregate_destroy(dtrace_hdl_t *dtp)
 	dt_free(dtp, agp->dtat_key);
 	dt_free(dtp, agp->dtat_buf);
 	dt_free(dtp, agp->dtat_nextkey);
+	dt_free(dtp, agp);
+
+	dtp->dt_aggregate = NULL;
 }

@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include <dt_impl.h>
+#include <dt_aggregate.h>
 #include <dt_pcb.h>
 #include <dt_probe.h>
 #include <dt_printf.h>

@@ -16,6 +16,7 @@
 #include <linux/if_arp.h>		/* ARPHRD_ETHER ARPHRD_INFINIBAND */
 
 #include <dt_impl.h>
+#include <dt_aggregate.h>
 #include <dt_dis.h>
 #include <dt_dctx.h>
 #include <dt_cg.h>
