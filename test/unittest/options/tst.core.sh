@@ -16,4 +16,4 @@ file core | tee /dev/stderr | \
 rc=$?
 rm -f core
 
-exit $rcc
+exit $rc
