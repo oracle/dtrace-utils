@@ -98,4 +98,4 @@ EODTRACE
 
 status=$?
 
-exit $?
+exit ${status}
