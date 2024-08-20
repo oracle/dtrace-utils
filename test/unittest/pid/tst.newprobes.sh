@@ -44,4 +44,4 @@ tick-1s
 }
 EOF
 
-exit $status
+exit $?
