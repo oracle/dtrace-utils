@@ -247,7 +247,6 @@ Options:
                           or with a timeout, but have no expected results,
                           as the expected results.  (Only useful if
                           --no-comparison is not specified.)
- --[no-]baddof: Run corrupt-DOF tests.
  --[no-]use-installed: Use an installed dtrace rather than a copy in the
                        source tree.
  --quiet: Only show unexpected output (FAILs and XPASSes).
@@ -267,7 +266,6 @@ exit 0
 CAPTURE_EXPECTED=${DTRACE_TEST_CAPTURE_EXPECTED:+t}
 OVERWRITE_RESULTS=
 NOEXEC=${DTRACE_TEST_NO_EXECUTE:+t}
-NOBADDOF=${DTRACE_TEST_BADDOF:-t}
 USE_INSTALLED=${DTRACE_TEST_USE_INSTALLED:+t}
 VALGRIND=${DTRACE_TEST_VALGRIND:+t}
 COMPARISON=t
@@ -303,8 +301,6 @@ while [[ $# -gt 0 ]]; do
         --no-comparison) COMPARISON=;;
         --valgrind) VALGRIND=t;;
         --no-valgrind) VALGRIND=;;
-        --baddof) NOBADDOF=;;
-        --no-baddof) NOBADDOF=t;;
         --use-installed) USE_INSTALLED=t;;
         --no-use-installed) USE_INSTALLED=;;
         --timeout=*) TIMEOUT="$(printf -- $1 | cut -d= -f2-)";;
@@ -641,56 +637,17 @@ done
 
 # Initialize test coverage.
 
-if [[ -n $NOBADDOF ]]; then
-    for name in build*; do
-        if [[ -n "$(echo $name/*.gcno)" ]]; then
-            rm -rf $logdir/coverage
-            mkdir -p $logdir/coverage
-            lcov --zerocounters --directory $name --quiet
-            lcov --capture --base-directory . --directory $name --initial \
-                 --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
-        fi
-    done
-fi
+for name in build*; do
+    if [[ -n "$(echo $name/*.gcno)" ]]; then
+        rm -rf $logdir/coverage
+        mkdir -p $logdir/coverage
+        lcov --zerocounters --directory $name --quiet
+        lcov --capture --base-directory . --directory $name --initial \
+             --quiet -o $logdir/coverage/initial.lcov 2>/dev/null
+    fi
+done
 
 load_modules
-
-if [[ -z $NOBADDOF ]]; then
-    # Run DOF-corruption tests instead.
-
-    test/utils/badioctl > /dev/null 2> $tmpdir/badioctl.err &
-    declare ioctlpid=$!
-
-    ZAPTHESE+=($ioctlpid)
-    for _test in $(if [[ $ONLY_TESTS ]]; then
-                      echo $TESTS | sed 's,\.r$,\.d,g; s,\.r ,.d ,g'
-                   else
-                      for name in $TESTSUITES; do
-                          find test/$name -name "*.d" | sort -u
-                      done
-                   fi); do
-
-        if ! run_with_timeout $TIMEOUT test/utils/baddof $_test > /dev/null 2> $tmpdir/baddof.err; then
-            out "$_test: FAIL (bad DOF)"
-        fi
-        if [[ -s $tmpdir/baddof.err ]]; then
-            sum "baddof stderr:"
-            tee -a < $tmpdir/baddof.err $LOGFILE >> $SUMFILE
-        fi
-    done
-
-    if [[ "$(ps -p $ioctlpid -o ppid=)" -eq $BASHPID ]]; then
-        kill -$TIMEOUTSIG -- $ioctlpid >/dev/null 2>&1
-    fi
-    if [[ -s $tmpdir/badioctl.err ]]; then
-        sum "badioctl stderr:"
-        tee -a < $tmpdir/badioctl.err $LOGFILE >> $SUMFILE
-    fi
-    # equivalent of unset "ZAPTHESE[-1]" on bash < 4.3
-    unset "ZAPTHESE[$((${#ZAPTHESE[@]}-1))]"
-    exit 0
-fi
-
 
 # Export some variables so triggers and .sh scripts can get at them.
 export _test _pid dt_flags

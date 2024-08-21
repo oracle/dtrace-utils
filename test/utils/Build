@@ -3,7 +3,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
-TEST_UTILS = baddof badioctl workload_kernel workload_user showUSDT print-stack-layout
+TEST_UTILS = workload_kernel workload_user showUSDT print-stack-layout
 TEST_SCRIPTS = check_result.sh clean_probes.sh cpc_get_events.sh cpc_temp_skip_bug.sh perf_count_event.sh workload_analyze_loop.sh workload_get_iterations.sh
 
 define test-util-template
