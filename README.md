@@ -42,9 +42,6 @@ Source code for the UEK kernel is available on github in the
 * [5. Questions](#5-questions)
 * [6. Pull Requests and Support](#6-pull-requests-and-support)
 * [7. Building Previous Releases of DTrace](#7-building-previous-releases-of-dtrace)
-  * [7.1. Prerequisites](#71-prerequisites)
-  * [7.2. Build a kernel with add-on features that DTrace uses](#72-build-a-kernel-with-add-on-features-that-dtrace-uses)
-  * [7.3. Build DTrace](#73-build-dtrace)
 
 ## 1. License
 
@@ -121,31 +118,21 @@ sudo make install
 
 Some distributions install the BPF gcc and binutils under different names.  You
 can specify the executables to use using the **BPFC** and **BPFLD** variables.
-E.g. on Debian you would use:
+E.g. on Debian you could use:
 
 ```
 make BPFC=bpf-gcc BPFLD=bpf-ld
 sudo make install
 ```
 
-In this scenario the build system expects that kernel sources can be found at
-`/lib/modules/$(uname -r)/build`.  It is also expected that the kernel used for
-userspace build is compatible with the utils (the exported userspace headers in
-the `include/uapi/linux/dtrace` are compatible with the utils version being
-built).
+See `./configure --help`, `make help`, and the top-level GNUmakefile for a
+full list of options (installing in different places, building translators for
+kernels, etc.)
 
-You can point at a different kernel version with the KERNELS variable, e.g.
-```
-make KERNELS="5.16.8"
-```
-as long as the source tree that kernel was built with remains where it was
-when that kernel was installed.
-
-See the GNUmakefile for more options (building translators against multiple
-different kernels at once, building against kernel sources found in
-different places, building against a kernel built with O=, etc.)
-
-'make help' might also be of interest.
+Some of the options (e.g., those specifying paths) may need to be specified
+when installing as well as when building.  To avoid this, you can use the
+configure script: it bakes variable settings into the makefile so that they
+persist across multiple invocations, including `make install`.
 
 ## 3. Testing
 
@@ -181,7 +168,7 @@ which is installed in /usr/**bin**/dtrace.
 
 For questions, please ask on the [dtrace mailing list](https://lore.kernel.org/dtrace/).
 Older discussions are archived [here](https://oss.oracle.com/pipermail/dtrace-devel/).
-
+ 
 We have a #linux-dtrace IRC channel on irc.libera.chat, you can
 ask questions there as well.
 
@@ -195,68 +182,5 @@ Support for DTrace is included in Oracle Linux support subscriptions. Individual
 
 ## 7. Building Previous Releases of DTrace
 
-For versions of DTrace prior to 2.0.0-1.13.2 a small number of kernel patches
-patches are needed, which are
-[here](https://github.com/oracle/dtrace-linux-kernel).  Branches named
-starting v2/* are suitable.
-
-To build such versions of dtrace follow the steps below.
-
-### 7.1. Prerequisites
-
-See [above](#21-prerequisites).
-
-At this point, you will need an additional step:
-
-### 7.2. Build a kernel with add-on features that DTrace uses
-
-DTrace 2.0.0-1.13.1 and earlier depend on a few extra kernel features that are
-not available in the upstream kernel:
-
-- CTF type information extraction
-- /proc/kallmodsyms
-- New system call: waitfd()
-
-As noted above, patches that implement these features are available from the
-v2/* branches in our Linux kernel repository for features that DTrace uses:
-https://github.com/oracle/dtrace-linux-kernel
-
-The customary way to obtain these patches is to clone an appropriate upstream
-kernel version (5.8.1 or later) and to merge our
-[updated tree](https://github.com/oracle/dtrace-linux-kernel/tree/v2/5.8.1)
-into it.  The patch set is quite small, but may need some tweaking if it is
-being merged into a newer tree.  We occasionally push a new patched tree to our
-github repo, so do look around the repo to see if there is a branch with better
-match.
-
-Oracle Linux's [UEK7](https://github.com/oracle/linux-uek/tree/uek7/ga)
-provides a simple alternative if you don't want to patch your own kernel.
-
-Building of a patched kernel from sources is also straightforward.
-Please consult `Documentation/process/changes.rst` in the kernel source tree
-to ensure all required dependencies are installed first.  The following steps
-should build and install the kernel.
-
-```
-# Start with your preferred .config options.  Features DTrace needs should
-# enable themselves automatically.
-make olddefconfig
-make
-
-# This step will produce vmlinux.ctfa, which holds all CTF data for the kernel
-# and its modules.  If it doesn't work, you don't have a toolchain that is
-# recent enough.
-make ctf
-
-# Install with root privileges.
-sudo make INSTALL_MOD_STRIP=1 modules_install
-sudo make install
-```
-
-It is preferred (but not required) to reboot into your new kernel before
-trying to build DTrace.  (If you don't reboot into it, you need to specify
-some extra options when running make.)
-
-### 7.3. Build DTrace
-
-See [above](#22-build-dtrace).
+Refer to [these instructions](./README.pre-1.13.2.md) to build DTrace versions
+prior to 2.0.0-1.13.2.
