@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -343,7 +343,7 @@ dt_idcook_args(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 		    "matches an unstable set of probes\n", idp->di_name,
 		    dtrace_desc2str(yypcb->pcb_pdesc, n1, sizeof(n1)));
 
-	if (ap->dn_value >= prp->argc)
+	if ((int)ap->dn_value >= prp->argc || (int)ap->dn_value < 0)
 		xyerror(D_ARGS_IDX, "index %lld is out of range for %s %s[ ]\n",
 		    (long long)ap->dn_value, dtrace_desc2str(yypcb->pcb_pdesc,
 		    n1, sizeof(n1)), idp->di_name);
