@@ -54,7 +54,7 @@ echo "summary of D output (occurrences, arg0, arg1)"
 cat D.out
 
 # check the PCs
-read ntotal nwarn nerror <<< `awk '
+read ntotal nwarn nerror <<< `gawk '
 BEGIN { ntotal = nwarn = nerror = 0; }
 
 # file reports 1:occurrences, 2:arg0, 3:arg1

@@ -79,7 +79,7 @@ fi
 
 # post processing
 
-awk '
+gawk '
 BEGIN { DTrace_PC = DTrace_SP = instructions = local_variable = -1 }
 
 # the first file has DTrace output

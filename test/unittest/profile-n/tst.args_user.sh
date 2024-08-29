@@ -53,7 +53,7 @@ echo "summary of D output (occurrences, arg0, arg1)"
 cat D.out
 
 # check the PCs
-read ntotal narg0 narg1 nwarn nerror <<< `awk '
+read ntotal narg0 narg1 nwarn nerror <<< `gawk '
 BEGIN { ntotal = narg0 = narg1 = nwarn = nerror = 0; }
 
 # one file has the PCs that are in the inner loop

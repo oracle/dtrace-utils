@@ -43,7 +43,7 @@ fi
 # Examine the results.
 #
 
-awk '
+gawk '
     # The expected value for the aggregation is aggval.
     # The expected value on a CPU is (m * cpu + b).
     # The default value on a CPU that did not fire is defval.
