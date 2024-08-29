@@ -247,7 +247,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	pd.prb = prb;
 
 	/* Get (or create) the provider for the PID of the probe. */
-	pvp = dt_provider_lookup(dtp, pd.prb);
+	pvp = dt_provider_lookup(dtp, pd.prv);
 	if (pvp == NULL) {
 		pvp = dt_provider_create(dtp, pd.prv, pvops, &pattr, NULL);
 		if (pvp == NULL)
