@@ -2060,9 +2060,7 @@ oom:
 
 static dt_spec_buf_data_t *
 dt_spec_buf_add_data(dtrace_hdl_t *dtp, dt_spec_buf_t *dtsb,
-		     dtrace_epid_t epid, unsigned int cpu,
-		     dtrace_datadesc_t *datadesc, char *data,
-		     uint32_t size)
+		     unsigned int cpu, char *data, uint32_t size)
 {
 	dt_spec_buf_data_t *dsbd;
 
@@ -2265,8 +2263,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			}
 		}
 
-		if (dt_spec_buf_add_data(dtp, dtsb, epid, pdat->dtpda_cpu, epd,
-					 data, size) == NULL)
+		if (dt_spec_buf_add_data(dtp, dtsb, pdat->dtpda_cpu, data, size) == NULL)
 			dtp->dt_specdrops++;
 
 		return DTRACE_WORKSTATUS_OKAY;
