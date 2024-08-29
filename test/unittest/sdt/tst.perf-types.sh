@@ -10,5 +10,5 @@
 dtrace=$1
 
 exec $dtrace $dt_flags -c "find /dev/dtrace -exec /bin/true ;" \
-    -n 'perf:::sched_process_fork { trace(args[0]->pid); trace (args[1]->pid); hitany = 1; }'
+    -n 'perf:::sched_process_fork { trace(args[0]->pid); trace (args[1]->pid); hitany = 1; }' \
     -n 'END / hitany == 0 / { exit(1); }'
