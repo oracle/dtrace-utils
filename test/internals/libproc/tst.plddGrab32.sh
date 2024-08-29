@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #
 # Oracle Linux DTrace.
