@@ -22,7 +22,6 @@ typedef enum pid_probetype {
 	DTPPT_ENTRY,
 	DTPPT_RETURN,
 	DTPPT_OFFSETS,
-	DTPPT_POST_OFFSETS,
 	DTPPT_IS_ENABLED
 } pid_probetype_t;
 
