@@ -4,7 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
+/* @@xfail: dtv2 no support for index of assoc array; last_cmds[1][3]=0 dumps BPF */
 
 /*
  * Test to ensure that invalid stores to a global associative array
