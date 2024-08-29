@@ -6,7 +6,7 @@
 # http://oss.oracle.com/licenses/upl.
 #
 
-# @@xfail: not working yet
+# @@xfail: dtrace does not support wildcard pids for pid probes
 
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
