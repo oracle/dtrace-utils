@@ -64,7 +64,7 @@
  *
  * /run/dtrace/probes/: Per-probe info, written by dtprobed, read by DTrace.
  *
- *    .../$pid/$prv$pid/$mod/$fun/$prb: Hardlink from $prv$pid:$mod:$fun:$prb
+ *    .../$pid/$prv$pid/$mod/$fun/$prb: Hardlink from $prv:$mod:$fun:$prb
  *    above; parsed representation of one probe in a given process. Removed by
  *    dtprobed when the process dies, or if all mappings containing the probe
  *    are unmmapped.  Used by DTrace for tracing by PID.
