@@ -53,7 +53,6 @@ typedef struct dtrace_actdesc {
 
 typedef struct dtrace_ecbdesc {
 	dtrace_probedesc_t dted_probe;		/* probe description */
-	uint64_t dted_uarg;			/* library argument */
 	int dted_refcnt;			/* reference count */
 } dtrace_ecbdesc_t;
 

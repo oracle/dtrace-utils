@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -94,7 +94,6 @@ typedef struct dof_ecbdesc {
 	dof_secidx_t dofe_probes;	/* link to DOF_SECT_PROBEDESC */
 	dof_secidx_t dofe_actions;	/* link to DOF_SECT_ACTDESC */
 	uint32_t dofe_pad;		/* reserved for future use */
-	uint64_t dofe_uarg;		/* user-supplied library argument */
 } dof_ecbdesc_t;
 
 typedef struct dof_probedesc {

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -738,7 +738,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		dofe.dofe_probes = probesec;
 		dofe.dofe_actions = actsec;
 		dofe.dofe_pad = 0;
-		dofe.dofe_uarg = edp->dted_uarg;
 
 		dof_add_lsect(ddo, &dofe, DOF_SECT_ECBDESC,
 		    sizeof(uint64_t), 0, 0, sizeof(dof_ecbdesc_t));
