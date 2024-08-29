@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -146,10 +146,7 @@ extern void *dtrace_geterr_dof(dtrace_hdl_t *dtp);
 typedef struct dtrace_stmtdesc {
 	dtrace_ecbdesc_t *dtsd_ecbdesc;		/* ECB description */
 	struct dt_ident *dtsd_clause;		/* clause identifier */
-	void *dtsd_aggdata;			/* aggregation data */
-	void *dtsd_fmtdata;			/* type-specific output data */
-	void (*dtsd_callback)();		/* callback function for EPID */
-	void *dtsd_data;			/* callback data pointer */
+	void *dtsd_fmtdata;			/* type-specific output data */    /* FIXME: dead code */
 	dtrace_attribute_t dtsd_descattr;	/* probedesc attributes */
 	dtrace_attribute_t dtsd_stmtattr;	/* statement attributes */
 	int dtsd_clauseflags;			/* clause flags */
