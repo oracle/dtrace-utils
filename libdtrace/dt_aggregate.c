@@ -504,13 +504,18 @@ dt_aggregate_clear_one_percpu(const dtrace_aggdata_t *agd,
 int
 dt_aggregate_clear_one(const dtrace_aggdata_t *agd, void *arg)
 {
-	dtrace_hdl_t		*dtp = arg;
+	dt_clear_arg_t		*dca = arg;
+	dtrace_hdl_t		*dtp = dca->dtp;
+	dtrace_aggid_t		aid = dca->aid;
 	dtrace_aggdesc_t	*agg = agd->dtada_desc;
 	dtrace_recdesc_t	*rec = &agg->dtagd_drecs[DT_AGGDATA_RECORD];
 	int64_t			*vals = (int64_t *)
 					&agd->dtada_data[rec->dtrd_offset];
 	uint64_t		agen;
 	int			max_cpus = dtp->dt_conf.max_cpuid + 1;
+
+	if (aid != DTRACE_AGGVARIDNONE && aid != agg->dtagd_varid)
+		return DTRACE_AGGWALK_NEXT;
 
 	/*
 	 * We can pass the entire key because we know that the first uint32_t
@@ -609,7 +614,9 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 		 */
 		hgen = *(int64_t *)agd->dtada_data;
 		if (dgen > hgen) {
-			dt_aggregate_clear_one(agd, dtp);
+			dt_clear_arg_t arg = { dtp, DTRACE_AGGVARIDNONE };
+
+			dt_aggregate_clear_one(agd, &arg);
 			hgen = *(int64_t *)agd->dtada_data;
 		}
 
@@ -1862,7 +1869,9 @@ dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
 void
 dtrace_aggregate_clear(dtrace_hdl_t *dtp)
 {
-	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, dtp);
+	dt_clear_arg_t arg = { dtp, DTRACE_AGGVARIDNONE };
+
+	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, &arg);
 }
 
 void

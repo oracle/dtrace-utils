@@ -1552,6 +1552,7 @@ dt_clear(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 	dtrace_aggid_t	aid;
 	uint64_t	gen;
 	caddr_t		addr;
+	dt_clear_arg_t	arg = { dtp, DTRACE_AGGVARIDNONE };
 
 	/* We have just one record: the aggregation ID. */
 	addr = base + rec->dtrd_offset;
@@ -1568,7 +1569,8 @@ dt_clear(dtrace_hdl_t *dtp, caddr_t base, dtrace_recdesc_t *rec)
 		return -1;
 
 	/* Also clear our own copy of the data, in case it gets printed. */
-	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, dtp);
+	arg.aid = aid;
+	dtrace_aggregate_walk(dtp, dt_aggregate_clear_one, &arg);
 
 	return 0;
 }

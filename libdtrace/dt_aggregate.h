@@ -12,6 +12,11 @@
 extern "C" {
 #endif
 
+typedef struct dt_clear_arg {
+	dtrace_hdl_t	*dtp;
+	dtrace_aggid_t	aid;
+} dt_clear_arg_t;
+
 typedef struct dt_aggregate dt_aggregate_t;
 
 #define DT_AGGDATA_COUNTER	0
