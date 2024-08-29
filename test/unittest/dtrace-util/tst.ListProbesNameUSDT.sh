@@ -26,7 +26,7 @@ dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS=
 
-DIRNAME="$tmpdir/list-probes-func-usdt.$$.$RANDOM"
+DIRNAME="$tmpdir/list-probes-name-usdt.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
 
