@@ -433,11 +433,9 @@ static dt_htab_ops_t dt_spec_buf_htab_ops = {
 };
 
 static int
-dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
-	      dtrace_epid_t next)
+dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last)
 {
-	dtrace_probedesc_t	*pd = data->dtpda_pdesc, *npd;
-	dtrace_datadesc_t	*ndd;
+	dtrace_probedesc_t	*pd = data->dtpda_pdesc;
 	dtrace_flowkind_t	flow = DTRACEFLOW_NONE;
 	const char		*p = pd->prv;
 	const char		*n = pd->prb;
@@ -448,7 +446,6 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	static const char	*ent = "entry", *ret = "return";
 	static int		entlen = 0, retlen = 0;
 	dtrace_epid_t		id = data->dtpda_epid;
-	int			rval;
 
 	if (entlen == 0) {
 		assert(retlen == 0);
@@ -483,21 +480,6 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last,
 	if (flow == DTRACEFLOW_ENTRY) {
 		if (last != DTRACE_EPIDNONE && id != last &&
 		    pd->id == dtp->dt_pdesc[last]->id)
-			flow = DTRACEFLOW_NONE;
-	}
-
-	/*
-	 * If we're going to unindent this, it's more difficult to see if
-	 * we don't actually want to unindent it -- we need to look at the
-	 * _next_ EPID.
-	 */
-	if (flow == DTRACEFLOW_RETURN && next != DTRACE_EPIDNONE &&
-	    next != id) {
-		rval = dt_epid_lookup(dtp, next, &ndd, &npd);
-		if (rval != 0)
-			return rval;
-
-		if (npd->id == pd->id)
 			flow = DTRACEFLOW_NONE;
 	}
 
@@ -2327,7 +2309,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 
 	if (data_recording) {
 		if (flow)
-			dt_flowindent(dtp, pdat, *last, DTRACE_EPIDNONE);
+			dt_flowindent(dtp, pdat, *last);
 
 		rval = (*efunc)(pdat, arg);
 
