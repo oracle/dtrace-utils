@@ -14,6 +14,6 @@ BEGIN
 	CheckVariable[1234] = "abc";
 	trace(CheckVariable[1234]);
 }
-' 2>&1 | awk '/ call dt_get_assoc/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_assoc/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

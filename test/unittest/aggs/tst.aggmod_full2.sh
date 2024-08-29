@@ -173,7 +173,7 @@ fi
 # having the trigger bounce among CPUs.  Then the (per-CPU) aggsize
 # could be reduced.
 $dtrace $dt_flags -xstrsize=48 -xaggsize=16m -c ./a.out -o output.txt -s /dev/stdin << EOF \
-    2> errors.txt | sort | uniq -c | awk '{print $1, $2}' > modules.txt
+    2> errors.txt | sort | uniq -c | gawk '{print $1, $2}' > modules.txt
 test_prov\$target:::
 {
 	@[mod(arg0), copyinstr(arg1)] = count();
@@ -201,7 +201,7 @@ fi
 #     - sorted by module name
 # ==================================================
 
-awk '
+gawk '
     NF>0 {
         if ($1 != $2) { print "ERROR module name mismatch:", $0 };
         print $3, $1;
@@ -212,7 +212,7 @@ if [[ `grep -c "ERROR module name mismatch" output2.txt` -gt 0 ]]; then
 	echo "ERROR: DTrace mismatches between mod(addr) and modname"
 	echo "  first  column is mod(addr)"
 	echo "  second column is modname"
-	awk '/ERROR module name mismatch/ {print $5, $6}' output2.txt
+	gawk '/ERROR module name mismatch/ {print $5, $6}' output2.txt
 	exit 1
 fi
 

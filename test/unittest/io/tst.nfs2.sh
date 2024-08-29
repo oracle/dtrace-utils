@@ -33,7 +33,7 @@ mkdir $exdir
     mkdir $iodir
         mount -t nfs -o nfsvers=3 127.0.0.1:$exdir $iodir
             $rundt "dd if=/dev/urandom of=$tempfile count=$filesize bs=1 status=none" -o log.write
-            myinode=`stat $tempfile  | awk '/	Inode: / {print $4}'`
+            myinode=`stat $tempfile  | gawk '/	Inode: / {print $4}'`
         umount $iodir
         # flush caches and remount to force IO
 	echo 3 > /proc/sys/vm/drop_caches
@@ -87,7 +87,7 @@ END {
 EOF
 
 echo check start bytes in log.write
-awk -v myflags=520 -v spill=4095 -f awk.txt log.write
+gawk -v myflags=520 -v spill=4095 -f awk.txt log.write
 if [ $? -ne 0 ]; then
     echo "  ERROR: post-processing error log.write"
     cat log.write
@@ -95,7 +95,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo check start bytes in log.read
-awk -v myflags=460 -v spill=0 -f awk.txt log.read
+gawk -v myflags=460 -v spill=0 -f awk.txt log.read
 if [ $? -ne 0 ]; then
     echo "  ERROR: post-processing error log.read"
     cat log.read

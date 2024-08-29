@@ -21,7 +21,7 @@ for nexpect in 1 16; do
 	# Time it.  Round to the nearest number of seconds with int(t+0.5).
 	nactual=`/usr/bin/time -f "%e" \
 	    $dtrace -xswitchrate=${nexpect}sec -qn 'BEGIN { exit(0) }' \
-	    |& awk 'NF != 0 {print int($1 + 0.5)}'`
+	    |& gawk 'NF != 0 {print int($1 + 0.5)}'`
 
 	# Check the actual number of seconds to the expected value.
 	# Actually, the actual time might be a few seconds longer than expected.

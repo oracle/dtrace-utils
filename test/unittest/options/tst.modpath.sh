@@ -53,9 +53,9 @@ fi
 # nbasic and nfinal should be substantial and likely identical (but
 # we allow a generous tolerance).
 
-nbasic=`awk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' basic.out | wc -l`
-nempty=`awk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' empty.out | wc -l`
-nfinal=`awk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' final.out | wc -l`
+nbasic=`gawk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' basic.out | wc -l`
+nempty=`gawk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' empty.out | wc -l`
+nfinal=`gawk '/^[	 ]*args\[/ && !/uint64_t/ && !/void \*/' final.out | wc -l`
 
 if [ $nempty -ne 0 ]; then
 	echo ERROR: empty check turned up some CTF info

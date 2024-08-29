@@ -17,6 +17,6 @@ BEGIN
 	myvar_global = 0xdeadbeef;
 	exit(0);
 }
-' 2>&1 | grep -A4 deadbeef | awk '/myvar_/ {print $NF}'
+' 2>&1 | grep -A4 deadbeef | gawk '/myvar_/ {print $NF}'
 
 exit $?

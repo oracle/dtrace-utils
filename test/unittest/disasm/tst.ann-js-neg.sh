@@ -14,7 +14,7 @@ BEGIN, syscall::write:return
 	exit(0);
 }
 ' 2>&1 | \
-	awk '/js[a-z]+/ {
+	gawk '/js[a-z]+/ {
 		sub(/^[^:]+: /, "");
 		sub(/ +!.*$/, "");
 		sub(/ [0-9a-f]{4} /, " XXXX ");

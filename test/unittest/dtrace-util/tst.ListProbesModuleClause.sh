@@ -19,6 +19,6 @@
 dtrace=$1
 
 $dtrace $dt_flags -lm vmlinux'/probefunc == "read"/{printf("FOUND");}' \
-| awk 'NF == 5 && $3 == "vmlinux" { print "success"; exit }'
+| gawk 'NF == 5 && $3 == "vmlinux" { print "success"; exit }'
 
 exit 0

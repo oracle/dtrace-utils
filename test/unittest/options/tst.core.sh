@@ -10,7 +10,7 @@ dtrace=$1
 
 $dtrace $dt_flags -xcore -n 'BEGIN { exit(0); }'
 file core | tee /dev/stderr | \
-	awk 'BEGIN { rc = 1; }
+	gawk 'BEGIN { rc = 1; }
 	     /ELF/ && /core file/ && /dtrace/ { rc = 0; next; }
 	     END { exit(rc); }'
 rc=$?

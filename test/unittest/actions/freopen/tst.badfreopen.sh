@@ -67,7 +67,7 @@ if [ "$status" -eq 0 ]; then
 		status=100
 	fi
 	
-	i=`wc -l $errfile | awk '{ print $1 }'`
+	i=`wc -l $errfile | gawk '{ print $1 }'`
 
 	if [ "$i" -lt 6 ]; then
 		echo "$0: expected at least 6 lines of stderr, found $i lines"

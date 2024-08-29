@@ -28,9 +28,9 @@ cpc:::cpu_clock-all-1000000000
 tick-2s
 {
 	exit(0);
-}' | awk 'NF != 0 {print}' | sort > dtrace.out
+}' | gawk 'NF != 0 {print}' | sort > dtrace.out
 
-awk '/^processor/ {print $3}' /proc/cpuinfo | sort > cpuinfo.out
+gawk '/^processor/ {print $3}' /proc/cpuinfo | sort > cpuinfo.out
 
 if ! diff -q dtrace.out cpuinfo.out > /dev/null; then
 	echo dtrace output

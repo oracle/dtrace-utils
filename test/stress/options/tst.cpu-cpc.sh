@@ -11,7 +11,7 @@ dtrace=$1
 nerr=0
 
 # Loop over CPUs.
-for cpu0 in `awk '/^processor[ 	]*: [0-9]*$/ {print $3}' /proc/cpuinfo`; do
+for cpu0 in `gawk '/^processor[ 	]*: [0-9]*$/ {print $3}' /proc/cpuinfo`; do
 	# Observe where DTrace runs.
 	cpu=`$dtrace $dt_flags -xcpu=$cpu0 -qn 'cpc:::cpu_clock-all-100000000 { trace(cpu); exit(0); }'`
 

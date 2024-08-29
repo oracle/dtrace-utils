@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/gawk -f
 
 # set flag to look for the clause
 BEGIN { read_clause = 0 }

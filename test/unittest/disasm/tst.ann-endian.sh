@@ -16,7 +16,7 @@ sdt:task::task_rename
 	htonll(1234);
 }
 ' 2>&1 | \
-	awk '/ tobe / {
+	gawk '/ tobe / {
                 sub(/^[^:]+: /, "");
 		sub(/^dc [0-9] /, "dc X ");
 		sub(/%r[0-9],/, "%rX,");

@@ -9,7 +9,7 @@
 dtrace=$1
 
 # pick a test symbol from /proc/kallsyms
-read ADD NAM MOD <<< `awk '/ ksys_write/ {print $1, $3, $4}' /proc/kallsyms`
+read ADD NAM MOD <<< `gawk '/ ksys_write/ {print $1, $3, $4}' /proc/kallsyms`
 
 # a blank module means the module is vmlinux
 if [ x$MOD == x ]; then

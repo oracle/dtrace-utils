@@ -22,7 +22,7 @@ dtrace=$1
 # sleep(1)
 #
 names=`ldd /bin/sleep | \
-	awk '/libc.so/ {
+	gawk '/libc.so/ {
 		n = split($1, a, /\./);
 		l = a[1];
 		s = l;

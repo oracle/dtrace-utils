@@ -53,7 +53,7 @@ if ! grep -wq 'bash' $tmpfile; then
 fi
 
 # Check that modules are unique.  (Exclude shared libraries and unresolved addresses.)
-if awk '!/^ *lib/ && !/^ *0x/ {print $1}' $tmpfile | sort | uniq -c | grep -qv " 1 "; then
+if gawk '!/^ *lib/ && !/^ *0x/ {print $1}' $tmpfile | sort | uniq -c | grep -qv " 1 "; then
 	echo ERROR: duplicate umod
 	status=1
 fi

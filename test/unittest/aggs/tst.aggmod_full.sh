@@ -42,7 +42,7 @@ dtrace=$1
 # progress variables (read the timeout listed above)
 # (use "@''@" instead of "@@" so that runtest.sh will not see this line)
 
-timeout=`awk '/^# @''@timeout: [0-9]/ {print $NF}' $0 | head -1`
+timeout=`gawk '/^# @''@timeout: [0-9]/ {print $NF}' $0 | head -1`
 progress_stop_time=$((`date +%s` + $timeout - 5))
 progress_done=0
 progress_goal=0
@@ -74,7 +74,7 @@ cd $DIRNAME
 #   . type (3rd field) is "a"
 #   . type (3rd field) is "A"
 # - can add special cases based on symbol name (4th field)
-awk '
+gawk '
 NF == 4 && $4 == "__init_scratch_begin" {
   while ($4 != "__init_scratch_end") getline;
   next;
@@ -98,7 +98,7 @@ for x in \[*; do
 	#     dtrace: failed to enable $modname.d:
 	#       DIF program exceeds maximum program size
 	shuf $x \
-	| awk '{printf "@[mod(0x%s)] = count();\n", $1;}' \
+	| gawk '{printf "@[mod(0x%s)] = count();\n", $1;}' \
 	| split --lines=600 - $modname@
 
 	# increment progress goal by the number of addresses
@@ -142,7 +142,7 @@ while [[ $(find . -name "*@*" -print -quit | wc -l) -gt 0 ]]; do
 	echo "}" >> D.d
 
 	# run D script
-	$dtrace -q $dt_flags -s D.d -c echo | awk 'NF>0' >& D.out
+	$dtrace -q $dt_flags -s D.d -c echo | gawk 'NF>0' >& D.out
 	status=$?
 	if [[ "$status" -ne 0 ]]; then
 		report_error "$tst: dtrace failed"
@@ -186,8 +186,8 @@ while [[ $(find . -name "*@*" -print -quit | wc -l) -gt 0 ]]; do
 	fi
 
 	# extract the data
-	check_modname=`awk '{print $1}' D.out`
-	check_count=`awk '{print $2}' D.out`
+	check_modname=`gawk '{print $1}' D.out`
+	check_count=`gawk '{print $2}' D.out`
 
 	# special case
 	[[ $modname == "ctf" ]] && modname="shared_ctf"
@@ -233,7 +233,7 @@ if [[ $progress_done -lt $progress_done_min ]]; then
 	exit 1
 fi
 
-echo $progress_done $progress_goal | awk '
+echo $progress_done $progress_goal | gawk '
 {printf "SUCCESS: tested %d of %d addresses = %.1f%%\n", $1, $2, 100. * $1 / $2;}'
 exit 0
 

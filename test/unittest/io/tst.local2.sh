@@ -39,7 +39,7 @@ dd if=/dev/zero of=$iodir.img bs=1024 count=$((300*1024)) status=none
 mkfs.xfs $iodir.img > /dev/null
     mkdir $iodir
         mount -t xfs -o $fsoptions $iodir.img $iodir
-            devnam=`losetup -j $iodir.img | awk 'BEGIN { FS = ":" } ; {print $1}'`
+            devnam=`losetup -j $iodir.img | gawk 'BEGIN { FS = ":" } ; {print $1}'`
             statname=`basename $devnam`
             $rundt -o log.write -c ./write.sh
 
@@ -94,18 +94,18 @@ END {
 }
 EOF
 
-myaddr=`awk '$3 == "xfs_end_bio"       {print $1}' /proc/kallsyms`
+myaddr=`gawk '$3 == "xfs_end_bio"       {print $1}' /proc/kallsyms`
 echo check start bytes in log.write with xfs_end_bio address $myaddr
-awk -v myflags=520 -v nrecflag=1 -v myiodone=$myaddr -f awk.txt log.write
+gawk -v myflags=520 -v nrecflag=1 -v myiodone=$myaddr -f awk.txt log.write
 if [ $? -ne 0 ]; then
     echo "  ERROR: post-processing error log.write"
     cat log.write
     retval=1
 fi
 
-myaddr=`awk '$3 == "iomap_read_end_io" {print $1}' /proc/kallsyms`
+myaddr=`gawk '$3 == "iomap_read_end_io" {print $1}' /proc/kallsyms`
 echo check start bytes in log.read with iomap_read_end_io address $myaddr
-awk -v myflags=460 -v nrecflag=2 -v myiodone=$myaddr -f awk.txt log.read
+gawk -v myflags=460 -v nrecflag=2 -v myiodone=$myaddr -f awk.txt log.read
 if [ $? -ne 0 ]; then
     echo "  ERROR: post-processing error log.read"
     cat log.read

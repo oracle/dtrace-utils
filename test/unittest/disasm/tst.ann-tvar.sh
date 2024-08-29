@@ -16,6 +16,6 @@ BEGIN
 	self->three = 42;
 	exit(0);
 }
-' 2>&1 | awk '/ call dt_get_tvar/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_tvar/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

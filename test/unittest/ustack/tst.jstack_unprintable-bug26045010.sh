@@ -89,10 +89,10 @@ kill %1
 wait
 
 # check results
-n=`sed 's/[[:print:]]//g' $file | awk 'BEGIN {x = 0}; NF>0 {x += 1}; END {print x}'`
+n=`sed 's/[[:print:]]//g' $file | gawk 'BEGIN {x = 0}; NF>0 {x += 1}; END {print x}'`
 if [ $n -gt 0 ]; then
         echo $tst: $n lines have unprintable characters
-        sed 's/[[:print:]]//g' $file | awk 'NF>0'
+        sed 's/[[:print:]]//g' $file | gawk 'NF>0'
         echo "==================== file start"
         cat $file
         echo "==================== file end"

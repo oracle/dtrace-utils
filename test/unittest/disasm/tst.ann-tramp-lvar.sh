@@ -14,7 +14,7 @@ io:::start
 {
 	exit(0);
 }
-' 2>&1 | awk '/this->/ {
+' 2>&1 | gawk '/this->/ {
 		sub(/^[^:]+: /, "");
 
 		gsub(/%r[0-9]/, "%rX");

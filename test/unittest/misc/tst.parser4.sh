@@ -82,7 +82,7 @@ EOF
 
 # Check results.
 
-awk '
+gawk '
 # Look for the BEGIN clause.
 /PDESC :::BEGIN / {
         # Print until we get the next clause.

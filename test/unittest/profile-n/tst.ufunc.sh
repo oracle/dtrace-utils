@@ -53,7 +53,7 @@ if ! grep -q 'bash`[a-zA-Z_]' $tmpfile; then
 fi
 
 # Check that functions are unique.  (Exclude shared libraries and unresolved addresses.)
-if awk '!/^ *(ld-linux-|lib|([^`]*`)?0x)/ {print $1}' $tmpfile | \
+if gawk '!/^ *(ld-linux-|lib|([^`]*`)?0x)/ {print $1}' $tmpfile | \
      sort | uniq -c | grep -qv " 1 "; then
 	echo ERROR: duplicate ufunc
 	status=1

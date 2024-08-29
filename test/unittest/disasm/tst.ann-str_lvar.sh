@@ -14,7 +14,7 @@ BEGIN
 	this->CheckVariable = "abc";
 	trace(this->CheckVariable);
 }
-' 2>&1 | awk '/this->CheckV/ {
+' 2>&1 | gawk '/this->CheckV/ {
 		sub(/^[^:]+: /, "");          # strip line number
 
 		gsub(/%r[0-9]/, "%rX");       # hide reg numbers

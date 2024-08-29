@@ -10,7 +10,7 @@ dtrace=$1
 
 $dtrace $dt_flags -xlinkmode=dynamic -xknodefs \
 	-Sn 'BEGIN { trace((string)&`linux_banner); exit(0); }' 2>&1 | \
-	awk '/^KREL/ {
+	gawk '/^KREL/ {
 		print;
 		while (getline == 1) {
 			if (NF == 0)

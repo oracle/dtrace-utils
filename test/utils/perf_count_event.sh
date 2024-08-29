@@ -20,7 +20,7 @@ shift
 #   If the output is no good, report -1.
 #   If the output is time in msec, convert to nsec.
 #   Otherwise, just report the count.
-perf stat -e $event --no-big-num -x\  $utils/$* |& awk '
+perf stat -e $event --no-big-num -x\  $utils/$* |& gawk '
 /^[^0-9]/ { print -1; exit 1 }
 / msec / { print int(1000000. * $1); exit 0 }
 { print $1; exit 0 }'

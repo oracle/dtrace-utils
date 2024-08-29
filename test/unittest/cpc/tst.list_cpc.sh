@@ -20,7 +20,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-awk '
+gawk '
 BEGIN { cpu_clock = task_clock = 0 }
 $2 == "cpc" && index($3, "perf_count_sw_cpu_clock-") { cpu_clock = 1; next }
 $2 == "cpc" && index($3, "perf_count_sw_task_clock-") { task_clock = 1; next }

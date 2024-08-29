@@ -23,7 +23,7 @@ if [ $niters -lt 0 ]; then
 fi
 
 # determine the number of instructions per loop iteration
-ninstructions_per_iter=`$utils/workload_analyze_loop.sh workload_user | awk '{print $1; exit 0}'`
+ninstructions_per_iter=`$utils/workload_analyze_loop.sh workload_user | gawk '{print $1; exit 0}'`
 if [ $ninstructions_per_iter -lt 0 ]; then
 	echo could not determine number of instructions per loop
 	exit 1

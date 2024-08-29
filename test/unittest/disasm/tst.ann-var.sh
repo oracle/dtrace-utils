@@ -50,4 +50,4 @@ BEGIN {
     trace(this->CheckVariable_x);
     trace(      CheckVariable_Y);
     trace(this->CheckVariable_z);
-}' |& awk '/ ! (|this->)CheckVariable_/ { print $NF }'
+}' |& gawk '/ ! (|this->)CheckVariable_/ { print $NF }'

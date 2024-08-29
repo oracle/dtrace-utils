@@ -9,7 +9,7 @@
 dtrace=$1
 
 $dtrace $dt_flags -S -n 'BEGIN { exit(0); }' 2>&1 | \
-	awk '{ print; }
+	gawk '{ print; }
 	     /^Disassembly of clause :::BEGIN/ { hdr = 1; next; }
 	     /^[0-9]{4} [0-9]{5}: [0-9a-f]{2} / { ins++; next; }
 	     END {

@@ -9,7 +9,7 @@
 dtrace=$1
 
 $dtrace $dt_flags -xdebug -xctfpath=/dev/null -n 'BEGIN { exit(0); }' |&
-  awk '/Cannot open CTF archive \/dev\/null/ {
+  gawk '/Cannot open CTF archive \/dev\/null/ {
 	sub(/^[^:]+: /, "");
 	sub(/:.*$/, "");
 	print;

@@ -26,7 +26,7 @@ BEGIN
 	this->var.w = 0x1234;
 	exit(0);
 }
-' 2>&1 | awk '
+' 2>&1 | gawk '
 BEGIN {
 	rc = 1;
 }

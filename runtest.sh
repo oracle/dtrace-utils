@@ -209,7 +209,7 @@ is_interpreter_file()
     if [[ ! -e $1 ]]; then
         return 1
     fi
-    if [[ $(awk '{print $1; exit}' $1) != "#!dtrace" ]]; then
+    if [[ $(gawk '{print $1; exit}' $1) != "#!dtrace" ]]; then
         return 1
     fi
 
@@ -629,7 +629,7 @@ for dt in $dtrace; do
     fi
 
     # Write out a list of loaded providers.
-    DTRACE_DEBUG= $dt -l | tail -n +2 | awk '{print $2;}' | sort -u > $tmpdir/providers
+    DTRACE_DEBUG= $dt -l | tail -n +2 | gawk '{print $2;}' | sort -u > $tmpdir/providers
 
     unset LD_LIBRARY_PATH
     break
@@ -1504,7 +1504,7 @@ if [[ -n $regression ]]; then
 else
     # Test summary.
 
-    awk -f - $SUMFILE <<'EOF' | tee -a $LOGFILE $SUMFILE
+    gawk -f - $SUMFILE <<'EOF' | tee -a $LOGFILE $SUMFILE
 {
 	rc = 0;
 }
@@ -1543,7 +1543,7 @@ for name in build*; do
         genhtml --frames --show-details -o $logdir/coverage \
                 --title "DTrace userspace coverage" \
                 --highlight --legend $logdir/coverage/coverage.lcov | \
-            awk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
+            gawk 'BEGIN { quiet=1; } { if (!quiet) { print ($0); } } /^Overall coverage rate:$/ { quiet=0; }' | \
             tee -a $LOGFILE $SUMFILE
     fi
 done

@@ -24,7 +24,7 @@ ERROR
 	exit(1);
 }
 ' 2>&1 | \
-	awk -vDTRACEFLT_DIVZERO=4 \
+	gawk -vDTRACEFLT_DIVZERO=4 \
 	    'BEGIN {
 		rc = 1;
 	     }

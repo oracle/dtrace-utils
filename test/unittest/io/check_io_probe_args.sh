@@ -179,7 +179,7 @@ fi
 #
 
 rm -f statname.txt
-awk 'NF == 23 { print $16, $17, $22 }' $infile | sort | uniq > statname.txt
+gawk 'NF == 23 { print $16, $17, $22 }' $infile | sort | uniq > statname.txt
 while read mymajor myminor mystatname; do
     read mymajor0 myminor0 <<< $(ls -l /dev | gawk '$NF == "'$mystatname'" { print $(NF-5), $(NF-4) }' | tr ',' ' ')
 
@@ -212,7 +212,7 @@ gawk '{
 echo "BEGIN { exit(0); }" >> D.d
 echo "ERROR { printf(\"%d nfs\\n\", x) }" >> D.d
 
-$dtrace $dt_flags -qs D.d | sort | awk 'NF != 0' > majnam.chk
+$dtrace $dt_flags -qs D.d | sort | gawk 'NF != 0' > majnam.chk
 
 if ! diff majnam.txt majnam.chk > /dev/null; then
     echo "  ERROR: major number mismatch with name"
@@ -257,8 +257,8 @@ fi
 
 gawk 'NF == 23 { print $21, $16 }' $infile | sort | uniq > map-name-to-major.txt
 nmaps=`cat map-name-to-major.txt | wc -l`
-nnames=`awk '{print $1}' map-name-to-major.txt | sort | uniq | wc -l`
-nmajor=`awk '{print $2}' map-name-to-major.txt | sort | uniq | wc -l`
+nnames=`gawk '{print $1}' map-name-to-major.txt | sort | uniq | wc -l`
+nmajor=`gawk '{print $2}' map-name-to-major.txt | sort | uniq | wc -l`
 if [ $nnames -ne $nmaps -o $nmajor -ne $nmaps ]; then
     echo "  ERROR: name-to-major-number is not a one-to-one mapping"
     cat map-name-to-major.txt

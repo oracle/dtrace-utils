@@ -15,7 +15,7 @@ BEGIN
 	exit(0);
 }
 ' 2>&1 | \
-	awk '/ ! "strconst"/ {
+	gawk '/ ! "strconst"/ {
 		sub(/^[^:]+: /, "");
 		sub(/^07 [0-9] /, "07 X ");
 		sub(/[0-9a-f]{8}    add/, "XXXXXXXX    add");

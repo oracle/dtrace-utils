@@ -9,7 +9,7 @@
 dtrace=$1
 
 $dtrace $dt_flags -xcppargs='-H -dM' -Cs /dev/stdin << EOT 2>&1 | \
-	awk '/^\.+/ && /\.h$/ { cnt++; }
+	gawk '/^\.+/ && /\.h$/ { cnt++; }
 	     /invalid control directive: #define/ { cnt = -cnt; }
 	     { print; }
 	     END { exit(cnt < 0 ? 0 : 1); }'

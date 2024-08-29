@@ -24,7 +24,7 @@ BEGIN
 	b = a;
 	exit(0);
 }
-' 2>&1 | awk '
+' 2>&1 | gawk '
 BEGIN {
 	rc = 1;
 }

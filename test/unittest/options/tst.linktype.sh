@@ -61,7 +61,7 @@ function mytest() {
 	fi
 
 	# report whether the file format is recognized
-	objdump --file-headers prov.o |& awk '
+	objdump --file-headers prov.o |& gawk '
 	    /format not recognized/ {
 		print "objdump does NOT recognize file format";
 		exit(0);

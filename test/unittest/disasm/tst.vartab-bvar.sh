@@ -56,7 +56,7 @@ sdt:task::task_rename
 	trace(walltimestamp);
 	exit(0);
 }
-' 2>&1 | awk '
+' 2>&1 | gawk '
 BEGIN {
 	rc = 1;
 }

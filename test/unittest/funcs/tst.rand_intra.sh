@@ -46,7 +46,7 @@ fi
 
 # Now the postprocessing.
 
-awk '
+gawk '
     BEGIN {
         nDistributions = noutlier2 = noutlier3 = noutlier4 = 0;
         nbins = 16;
@@ -153,7 +153,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-n=`awk '/upper-bit errors/ { print $8 }' $tmpfile`
+n=`gawk '/upper-bit errors/ { print $8 }' $tmpfile`
 echo intra-word correlations tested for $n random numbers
 echo success
 rm -f $tmpfile $tmpfile.summary

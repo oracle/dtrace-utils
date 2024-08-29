@@ -43,7 +43,7 @@ fi
 # Examine the results.
 #
 
-awk '
+gawk '
     BEGIN {
         xcnt = xavg = xstm = xstd = xsum = 0;
         xmin = +1000000000;

@@ -22,7 +22,7 @@ BEGIN
 	exit(0);
 }
 ' 2>&1 | \
-	awk '/^Disassembly of/ {
+	gawk '/^Disassembly of/ {
 		kind = $3;
 		next;
 	     }

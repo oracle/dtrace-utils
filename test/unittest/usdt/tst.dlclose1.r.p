@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/gawk -f
 {
 	# ignore the specific probe ID or process ID
 	# (the script ensures the process ID is consistent)

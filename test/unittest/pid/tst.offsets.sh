@@ -263,7 +263,7 @@ END {
 if [ $? -ne 0 ]; then
 	cat   D.out
 	cat pcs.out
-	echo ERROR: awk postprocess
+	echo ERROR: gawk postprocess
 	exit 1
 fi
 

@@ -9,7 +9,7 @@
 dtrace=$1
 
 $dtrace $dt_flags -xcpphdrs -Cs /dev/stdin << EOT 2>&1 | \
-	awk '/^\.+/ && /\.h$/ { cnt++; }
+	gawk '/^\.+/ && /\.h$/ { cnt++; }
 	     { print; }
 	     END { exit(cnt > 0 ? 0 : 1); }'
 #include <linux/posix_types.h>

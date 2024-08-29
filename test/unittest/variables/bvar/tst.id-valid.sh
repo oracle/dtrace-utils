@@ -30,7 +30,7 @@ profile-3 {
 tick-2 {
 	exit(0);
 }
-' | awk '
+' | gawk '
 BEGIN {
         nevents = 0;
         nerrors = 0;

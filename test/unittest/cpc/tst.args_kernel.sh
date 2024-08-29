@@ -43,7 +43,7 @@ $dtrace $dt_flags -qn '
 	/pid == $target/
 	{
 		printf("%x %x\n", arg0, arg1);
-	}' -c "$utils/$target $niters" | awk 'NF == 2' | sort | uniq -c > D.out
+	}' -c "$utils/$target $niters" | gawk 'NF == 2' | sort | uniq -c > D.out
 if [[ $? -ne 0 ]]; then
 	echo ERROR running DTrace
 	cat D.out

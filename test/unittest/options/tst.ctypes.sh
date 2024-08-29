@@ -22,14 +22,14 @@ if objdump --help | grep ctf >/dev/null; then
 	fi
 
 	objdump --ctf=.ctf $tmpdir/ctypes.o | \
-  		awk '/CTF_VERSION/ { found = 1; next; }
+		gawk '/CTF_VERSION/ { found = 1; next; }
 		     found && $1 ~ /0x[0-9A-Fa-f]+:/ { cnt++; next; }
 		     END { print "C CTF data" (found ? " " : " NOT ") "found";
 			   exit(cnt > 0 ? 0 : 1); }'
 	rc=$?
 else
 	ctf_dump $tmpdir/ctypes.ctf | \
-		awk '/CTF file:/ { found = 1; next; }
+		gawk '/CTF file:/ { found = 1; next; }
 		     found && /ID [0-9A-Fa-f]+:/ { cnt++; next; }
 		     END { print "C CTF data" (found ? " " : " NOT ") "found";
 			   exit(cnt > 0 ? 0 : 1); }'

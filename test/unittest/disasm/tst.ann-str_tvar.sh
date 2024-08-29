@@ -14,6 +14,6 @@ BEGIN
 	self->CheckVariable = "abc";
 	trace(self->CheckVariable);
 }
-' 2>&1 | awk '/ call dt_get_tvar/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_tvar/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

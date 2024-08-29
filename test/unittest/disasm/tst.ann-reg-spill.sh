@@ -22,6 +22,6 @@ BEGIN
 	i = 9;
 	trace(++a + (++b + (++c + (++d + (++e + (++f + (++g + (++h + ++i))))))));
 	exit(0);
-}' 2>&1 | awk '/! (spill|restore)/ { sub(/^[^:]+: /, ""); print; next; }
+}' 2>&1 | gawk '/! (spill|restore)/ { sub(/^[^:]+: /, ""); print; next; }
 	       { s = $0; }
 	       END { print s; }'

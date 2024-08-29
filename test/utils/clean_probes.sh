@@ -23,7 +23,7 @@ fi
 	echo '==='
 	cat ${EVENTS}
 } | \
-	awk -v kfn=${KPROBES} -v ufn=${UPROBES} \
+	gawk -v kfn=${KPROBES} -v ufn=${UPROBES} \
 	    'function getTimestamp(dt) {
 		 cmd = "date +\"%s.%N\"";
 		 cmd | getline dt;

@@ -28,7 +28,7 @@ if $dtrace -xlockmem=1 -n 'BEGIN { exit(0); }' &> /dev/null; then
 fi
 
 $dtrace -xlockmem=1 -lvn rawtp:::sched_process_fork |& \
-    awk 'BEGIN {
+    gawk 'BEGIN {
 	     err = 0;  # lockmem error messages
 	     CTF = 0;  # arg types indicating CTF info
 	     try = 0;  # arg types indicating trial-and-error

@@ -14,7 +14,7 @@ BEGIN
 	CheckVariable = "abc";
 	trace(CheckVariable);
 }
-' 2>&1 | awk '/ CheckV/ {
+' 2>&1 | gawk '/ CheckV/ {
 		sub(/^[^:]+: /, "");          # strip line number
 
 		gsub(/%r[0-9]/, "%rX");       # hide reg numbers

@@ -9,7 +9,7 @@
 dtrace=$1
 
 $dtrace $dt_flags -xdebug -n 'BEGIN { exit(0); }' 2>&1 | \
-	awk '$2 == "DEBUG" && int($3) > 0 {
+	gawk '$2 == "DEBUG" && int($3) > 0 {
 		cnt[$1]++;
 	     }
 	     END {

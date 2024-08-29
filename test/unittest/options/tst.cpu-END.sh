@@ -9,7 +9,7 @@
 dtrace=$1
 
 # Pick a CPU at random.
-cpulist=( `awk '/^processor[ 	]*: [0-9]*$/ {print $3}' /proc/cpuinfo` )
+cpulist=( `gawk '/^processor[ 	]*: [0-9]*$/ {print $3}' /proc/cpuinfo` )
 ncpus=${#cpulist[@]}
 cpu0=${cpulist[$((RANDOM % $ncpus))]}
 

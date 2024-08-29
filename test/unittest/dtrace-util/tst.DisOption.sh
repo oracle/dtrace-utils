@@ -68,7 +68,7 @@ function run_dtrace() {
     fi
 
     # Avoid differences due to different BOOTTM values.
-    awk '/: 18 [0-9] 0 / && /lddw/ {
+    gawk '/: 18 [0-9] 0 / && /lddw/ {
 	    sub(/0x[0-9a-f]+/, 0x0);
 	    sub(/[0-9a-f]{8}/, "00000000");
 	    print;
@@ -89,7 +89,7 @@ function run_dtrace() {
     # Avoid differences due to different tgid values in predicates.
     # If we see bpf_get_current_pid_tgid, omit the 3rd line if it's
     # "jne %r0, ..." since the check value will change from run to run.
-    awk '/call bpf_get_current_pid_tgid/ { ncount = 0 }
+    gawk '/call bpf_get_current_pid_tgid/ { ncount = 0 }
 	{ ncount++ }
 	ncount == 3 && /^[ :0-9a-f]* jne *%r0, / { next }
 	{ print; }' $1.err > $1.tmp
@@ -133,7 +133,7 @@ for x in 0 1 2 3; do
     touch $x.chk
 done
 
-awk '
+gawk '
 BEGIN { f = "/dev/null"; lastlineblank = 0; }
 lastlineblank == 1 {
     # if previous line was blank, see if we should change output file

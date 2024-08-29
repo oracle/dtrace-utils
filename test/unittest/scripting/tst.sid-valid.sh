@@ -50,7 +50,7 @@ EOF
 
 chmod 555 $dfilename
 
-sessionid=`ps -o pid,sid | grep "$$ " | awk '{print $2}' 2>/dev/null`
+sessionid=`ps -o pid,sid | grep "$$ " | gawk '{print $2}' 2>/dev/null`
 if [ $? -ne 0 ]; then
 	echo "unable to get sid of the current process with pid = $$" >&2
 	exit 1

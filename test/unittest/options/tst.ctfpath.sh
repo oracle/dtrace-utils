@@ -12,7 +12,7 @@ dtrace=$1
 # First determine the location of the vmlinux CTF archive.
 #
 ctf=`$dtrace $dt_flags -xdebug |&
-	awk '/Loaded shared CTF from/ { $0 = $NF; sub(/\.$/, ""); print; }'`
+	gawk '/Loaded shared CTF from/ { $0 = $NF; sub(/\.$/, ""); print; }'`
 
 $dtrace $dt_flags -xctfpath=$ctf -n 'BEGIN { exit(0); }'
 

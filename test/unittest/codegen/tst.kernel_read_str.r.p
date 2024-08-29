@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/gawk -f
 
 { print; }
 /^Linux version / { ok = 1; exit(0); }

@@ -57,7 +57,7 @@ if [ "$status" -ne 0 ]; then
 	exit $status
 fi
 
-n=`awk '/ < / {print $2}' $file`
+n=`gawk '/ < / {print $2}' $file`
 if [ "$n" -ne 9 ]; then
 	echo $tst: lowest-bucket name should be '"< 9"' but is '"< '$n'"'
 	cat $file

@@ -17,6 +17,6 @@ BEGIN
 	@myvar_agg_min = min(myvar_global);
 	exit(0);
 }
-' 2>&1 | awk '/ call dt_get_agg/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_agg/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

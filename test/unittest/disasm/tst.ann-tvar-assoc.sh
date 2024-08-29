@@ -17,6 +17,6 @@ BEGIN
 	trace(self->ld[5]);
 	exit(0);
 }
-' 2>&1 | awk '/ call dt_get_assoc/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_assoc/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

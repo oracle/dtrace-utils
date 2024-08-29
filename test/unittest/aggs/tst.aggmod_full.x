@@ -16,7 +16,7 @@
 # often of the form __key.*.  If there are few (2-3), the bug is present
 # and this test should not be run.
 
-nzero=`awk '/ 0 /; / _end$/ || / __brk_limit$/ {exit(0);}' /proc/kallmodsyms  | wc -l`
+nzero=`gawk '/ 0 /; / _end$/ || / __brk_limit$/ {exit(0);}' /proc/kallmodsyms  | wc -l`
 
 if [[ $nzero -lt 20 ]]; then
 	echo "unpatched kernel? /proc/kallmodsyms symbol sizes look suspicious"

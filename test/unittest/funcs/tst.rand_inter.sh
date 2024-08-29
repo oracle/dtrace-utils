@@ -65,7 +65,7 @@ fi
 
 # Now the postprocessing.
 
-awk '
+gawk '
     BEGIN {
         nDistributions = noutlier2 = noutlier3 = noutlier4 = 0;
         nbins = 16;
@@ -172,7 +172,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-n=`awk '/number of iterations/ { print $4 }' $tmpfile`
+n=`gawk '/number of iterations/ { print $4 }' $tmpfile`
 echo inter-word correlations tested for $n random numbers
 echo success
 rm -f $tmpfile $tmpfile.summary

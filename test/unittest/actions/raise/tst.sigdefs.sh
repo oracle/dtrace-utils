@@ -20,7 +20,7 @@ BEGIN
 EOF
 
 cat /usr/include/signal.h \
-| awk '
+| gawk '
     /SIGRTMIN/ || /SIGRTMAX/ || /SIGSTKSZ/ { next }
     /^#define[[:blank:]]*SIG[[:alnum:]]/ { signum[$2] = $3 }
     END {

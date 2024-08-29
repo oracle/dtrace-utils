@@ -25,7 +25,7 @@ BEGIN {
 }
 EOT
 
-awk '/:BEGIN/ && $2 == $3 && $3 == $4 && $4 == $5 { exit(0); }
+gawk '/:BEGIN/ && $2 == $3 && $3 == $4 && $4 == $5 { exit(0); }
      /:BEGIN/ { print; exit(1); }' $tmpfile
 
 status=$?

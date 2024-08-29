@@ -32,7 +32,7 @@ local=::1
 /sbin/ip -o route get to $local > /dev/null || exit 67
 
 $dtrace $dt_flags -c "ping6 -q $local -c 3" -qs /dev/stdin <<EOF | \
-    awk '/ip::/ { print $0 }' | sort -n
+    gawk '/ip::/ { print $0 }' | sort -n
 ip:::send
 /args[2]->ip_saddr == "$local" && args[2]->ip_daddr == "$local" &&
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6/

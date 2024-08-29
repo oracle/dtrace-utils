@@ -8,7 +8,7 @@
 
 dtrace=$1
 
-myversion=`$dtrace $dt_flags -V | awk '{ print $NF }'`
+myversion=`$dtrace $dt_flags -V | gawk '{ print $NF }'`
 echo version is $myversion
 
 $dtrace $dt_flags -xversion=$myversion -qn 'BEGIN { exit(0) }'

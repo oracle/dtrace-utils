@@ -47,6 +47,6 @@ sdt:task::task_rename
 	trace(walltimestamp);
 	exit(0);
 }
-' 2>&1 | awk '/ call dt_get_bvar/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_get_bvar/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

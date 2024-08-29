@@ -18,7 +18,7 @@ cd $tmpfile
 target=workload_user
 
 # dump the loop PCs
-$utils/workload_analyze_loop.sh $target | awk 'NF == 1' > PCs.txt
+$utils/workload_analyze_loop.sh $target | gawk 'NF == 1' > PCs.txt
 echo PCs in the loop: `cat PCs.txt`
 
 # determine number of iterations for target number of seconds
@@ -42,7 +42,7 @@ $dtrace $dt_flags -qn '
 	/pid == $target/
 	{
 		printf("%x %x\n", arg0, arg1);
-	}' -c "$utils/$target $niters" | awk 'NF == 2' | sort | uniq -c > D.out
+	}' -c "$utils/$target $niters" | gawk 'NF == 2' | sort | uniq -c > D.out
 if [[ $? -ne 0 ]]; then
 	echo ERROR running DTrace
 	cat D.out

@@ -101,7 +101,7 @@ fi
 # Get CPU list and form expected-results file.
 #
 
-cpulist=`awk '/^processor[ 	]: [0-9]*$/ { print $3 }' /proc/cpuinfo`
+cpulist=`gawk '/^processor[ 	]: [0-9]*$/ { print $3 }' /proc/cpuinfo`
 echo $cpulist
 
 echo > expect.txt

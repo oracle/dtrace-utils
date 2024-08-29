@@ -69,8 +69,8 @@ $objdump >& out.default.txt
 # but not in the stripped case -- but here we settle for the stripped
 # case simply being smaller than the default case.
 
-nbytes_stripped=`wc -c out.stripped.txt | awk '{print $1}'`
-nbytes_default=`wc -c out.default.txt | awk '{print $1}'`
+nbytes_stripped=`wc -c out.stripped.txt | gawk '{print $1}'`
+nbytes_default=`wc -c out.default.txt | gawk '{print $1}'`
 
 echo "number of bytes:"
 echo "    stripped: $nbytes_stripped"

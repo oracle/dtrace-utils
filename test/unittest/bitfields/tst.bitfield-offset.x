@@ -24,4 +24,4 @@ trap "rm -f $ctfa" EXIT ERR
 objcopy --add-section=.ctf=/lib/modules/$(uname -r)/kernel/vmlinux.ctfa /bin/true $ctfa
 
 objdump --ctf=.ctf --ctf-parent=shared_ctf $ctfa |\
-    awk '/Version: 3/ { exit 1; } /Version: / { exit 0; }'
+    gawk '/Version: 3/ { exit 1; } /Version: / { exit 0; }'
