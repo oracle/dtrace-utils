@@ -621,7 +621,6 @@ dt_aggregate_snap_one(dtrace_hdl_t *dtp, int aggid, int cpu, const char *key,
 		}
 
 		/* Skip if data gen is older than hash gen.  */
-		hgen = *(int64_t *)agd->dtada_data;
 		if (dgen < hgen)
 			return 0;
 
