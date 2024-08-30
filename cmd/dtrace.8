@@ -1,6 +1,6 @@
 '\" te
 .\" Oracle Linux DTrace.
-.\" Copyright (c) 2009, 2022, Oracle and/or its affiliates. All Rights Reserved.
+.\" Copyright (c) 2009, 2024, Oracle and/or its affiliates. All Rights Reserved.
 .\" Licensed under the Universal Permissive License v 1.0 as shown at
 .\" http://oss.oracle.com/licenses/upl.
 .TH dtrace 8 "22 Oct 2014" "Oracle Linux" "Linux Programmer's Manual"
@@ -181,15 +181,6 @@ Print CTF type library debugging output on standard error.
 Set a given DTrace option.
 
 Options set this way are overridden both by options specified via \fB-x\fR on the command line, and by \fBsetopt\fR statements.
-.IP DTRACE_MODULES_CONF
-The location of the file containing names of kernel modules to load (see below).
-If unset, \fB/etc/dtrace-modules\fR.
-
-.SH "FILES"
-.LP
-The following files are consulted:
-.IP /etc/dtrace-modules
-A list of kernel module names, one per line, which are loaded in addition to \fBdtrace.ko\fR if the \fBdtrace\fR device is not found.  (Failure to load these modules is not an error.)
 
 .SH SEE ALSO
 .BR cpp (1),
