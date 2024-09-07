@@ -27,6 +27,7 @@ noinline void dt_probe_error(const dt_dctx_t *dctx, uint64_t pc, uint64_t fault,
 {
 	dt_mstate_t	*mst = dctx->mst;
 
+	__builtin_memcpy(mst->saved_argv, mst->argv, sizeof(mst->saved_argv));
 	mst->argv[0] = 0;
 	mst->argv[1] = mst->epid;
 	mst->argv[2] = mst->clid;
@@ -36,5 +37,6 @@ noinline void dt_probe_error(const dt_dctx_t *dctx, uint64_t pc, uint64_t fault,
 
 	dt_error(dctx);
 
+	__builtin_memcpy(mst->argv, mst->saved_argv, sizeof(mst->saved_argv));
 	mst->fault = fault;
 }

@@ -30,7 +30,8 @@ typedef struct dt_mstate {
 	uint64_t	tstamp;		/* cached timestamp value */
 	dt_pt_regs	regs;		/* CPU registers */
 	uint64_t	argv[10];	/* Probe arguments */
-	uint64_t	saved_argv[10];	/* Saved probe arguments */
+	uint64_t	orig_argv[10];	/* Original (underlying) probe args */
+	uint64_t	saved_argv[6];	/* Saved arguments */
 } dt_mstate_t;
 
 #define DMST_EPID		offsetof(dt_mstate_t, epid)
@@ -45,7 +46,7 @@ typedef struct dt_mstate {
 #define DMST_TSTAMP		offsetof(dt_mstate_t, tstamp)
 #define DMST_REGS		offsetof(dt_mstate_t, regs)
 #define DMST_ARG(n)		offsetof(dt_mstate_t, argv[n])
-#define DMST_SAVED_ARG(n)	offsetof(dt_mstate_t, saved_argv[n])
+#define DMST_ORIG_ARG(n)	offsetof(dt_mstate_t, orig_argv[n])
 
 /*
  * The DTrace context.

@@ -818,7 +818,7 @@ dt_cg_tramp_save_args(dt_pcb_t *pcb)
 
 	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(i)));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_SAVED_ARG(i), BPF_REG_0));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ORIG_ARG(i), BPF_REG_0));
 	}
 }
 
@@ -832,7 +832,7 @@ dt_cg_tramp_restore_args(dt_pcb_t *pcb)
 	int		i;
 
 	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++) {
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_SAVED_ARG(i)));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ORIG_ARG(i)));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
 	}
 }
