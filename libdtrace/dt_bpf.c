@@ -1212,30 +1212,14 @@ int
 dt_bpf_make_progs(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	dt_probe_t	*prp;
-	dtrace_difo_t	*dp;
-	dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_error");
-
-	assert(idp != NULL);
-
-	/*
-	 * First construct the ERROR probe program (to be included in probe
-	 * programs that may trigger a fault).
-	 *
-	 * After constructing the program, we need to patch up any calls to
-	 * dt_error because DTrace cannot handle faults in ERROR itself.
-	 */
-	dp = dt_program_construct(dtp, dtp->dt_error, cflags, idp);
-	if (dp == NULL)
-		return -1;
-
-	idp->di_flags |= DT_IDFLG_CGREG;	/* mark it as inline-ready */
-	dt_bpf_reloc_error_prog(dtp, dp);
 
 	/*
 	 * Now construct all the other programs.
 	 */
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
+		dtrace_difo_t	*dp;
+
 		/* Already done. */
 		if (prp == dtp->dt_error)
 			continue;
@@ -1263,7 +1247,25 @@ int
 dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 {
 	dt_probe_t	*prp;
+	dtrace_difo_t	*dp;
 	dtrace_optval_t	dest_ok = DTRACEOPT_UNSET;
+	dt_ident_t	*idp = dt_dlib_get_func(dtp, "dt_error");
+
+	assert(idp != NULL);
+
+	/*
+	 * First construct the ERROR probe program (to be linked in probe
+	 * programs that may trigger a fault).
+	 *
+	 * After constructing the program, we need to patch up any calls to
+	 * dt_error because DTrace cannot handle faults in ERROR itself (yet).
+	 */
+	dp = dt_program_construct(dtp, dtp->dt_error, cflags, idp);
+	if (dp == NULL)
+		return -1;
+
+	idp->di_flags |= DT_IDFLG_CGREG;	/* mark it as inline-ready */
+	dt_bpf_reloc_error_prog(dtp, dp);
 
 	/*
 	 * Determine whether we can allow destructive actions.
@@ -1272,10 +1274,10 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
-		dtrace_difo_t	*dp = prp->difo;
 		int		fd;
 		int		rc = -1;
 
+		dp = prp->difo;
 		if (dp == NULL)
 			continue;
 
