@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -13,6 +13,13 @@
 #include <bpf_asm.h>
 #include <dt_pt_regs.h>
 #include <dt_state.h>
+
+/*
+ * Static probe IDs for the dtrace provider.
+ */
+#define DTRACE_BEGIN_ID		1
+#define DTRACE_END_ID		2
+#define DTRACE_ERROR_ID		3
 
 /*
  * The DTrace machine state.

@@ -45,18 +45,21 @@ static int populate(dtrace_hdl_t *dtp)
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "BEGIN");
 	if (prp) {
+		assert(prp->desc->id == DTRACE_BEGIN_ID);
 		n++;
 		dt_probe_enable(dtp, prp);
 	}
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "END");
 	if (prp) {
+		assert(prp->desc->id == DTRACE_END_ID);
 		n++;
 		dt_probe_enable(dtp, prp);
 	}
 
 	prp = dt_tp_probe_insert(dtp, prv, prvname, modname, funname, "ERROR");
 	if (prp) {
+		assert(prp->desc->id == DTRACE_ERROR_ID);
 		n++;
 		dt_probe_enable(dtp, prp);
 		dtp->dt_error = prp;
