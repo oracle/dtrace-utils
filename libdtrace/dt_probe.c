@@ -754,17 +754,15 @@ dt_probe_args_info(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	int			argc = 0;
 	dt_argdesc_t		*argv = NULL;
-	int			rc, i, nc, xc;
+	int			i, nc, xc;
 	dtrace_typeinfo_t	dtt;
 
 	/* Only retrieve probe argument information once per probe. */
 	if (prp->argc != -1)
 		return 0;
-	if (!prp->prov->impl->probe_info)
-		return 0;
-	rc = prp->prov->impl->probe_info(dtp, prp, &argc, &argv);
-	if (rc == -1)
-		return rc;
+	if (prp->prov->impl->probe_info &&
+	    prp->prov->impl->probe_info(dtp, prp, &argc, &argv) == -1)
+		return -1;
 
 	if (!argc || !argv) {
 		prp->argc = 0;

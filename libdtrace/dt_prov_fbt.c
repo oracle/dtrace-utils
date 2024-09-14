@@ -411,15 +411,6 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	return dt_tp_probe_attach(dtp, prp, bpf_fd);
 }
 
-static int kprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-			     int *argcp, dt_argdesc_t **argvp)
-{
-	*argcp = 0;			/* no arguments by default */
-	*argvp = NULL;
-
-	return 0;
-}
-
 /*
  * Try to clean up system resources that may have been allocated for this
  * probe.
@@ -469,7 +460,6 @@ dt_provimpl_t	dt_fbt_kprobe = {
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &kprobe_trampoline,
 	.attach		= &kprobe_attach,
-	.probe_info	= &kprobe_probe_info,
 	.detach		= &kprobe_detach,
 	.probe_destroy	= &dt_tp_probe_destroy,
 };

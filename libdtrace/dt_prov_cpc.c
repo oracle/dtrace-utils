@@ -451,16 +451,6 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 	return nattach > 0 ? 0 : -1;
 }
 
-static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *argcp, dt_argdesc_t **argvp)
-{
-	/* cpc-provider probe arguments are not typed */
-	*argcp = 0;
-	*argvp = NULL;
-
-	return 0;
-}
-
 static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
 	cpc_probe_t	*datap = prp->prv_data;
@@ -504,7 +494,6 @@ dt_provimpl_t	dt_cpc = {
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &attach,
-	.probe_info	= &probe_info,
 	.detach		= &detach,
 	.probe_destroy	= &probe_destroy,
 	.destroy	= &destroy,
