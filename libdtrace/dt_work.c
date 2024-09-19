@@ -268,15 +268,12 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 		return dt_set_errno(dtp, errno);
 
 	/*
-	 * We need enough space for the pref_event_header, a 32-bit size, a
-	 * 4-byte gap, and the largest trace data record we may be writing to
-	 * the buffer.  In other words, the buffer needs to be large enough to
-	 * hold at least one perf-encapsulated trace data record.
+	 * The buffer needs to be large enough to hold at least one
+	 * perf-encapsulated trace data record.
 	 */
 	dtrace_getopt(dtp, "bufsize", &size);
 	if (size == 0 ||
-	    size < sizeof(struct perf_event_header) + sizeof(uint32_t) +
-		   dtp->dt_maxreclen)
+	    size < sizeof(struct perf_event_header) + dtp->dt_maxreclen)
 		return dt_set_errno(dtp, EDT_BUFTOOSMALL);
 	if (dt_pebs_init(dtp, size) == -1)
 		return dt_set_errno(dtp, EDT_NOMEM);
