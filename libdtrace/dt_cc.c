@@ -128,6 +128,9 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	yypcb->pcb_stmt = sdp;
 	yypcb->pcb_maxrecs = 0;
 
+	sdp->dtsd_descattr = descattr;
+	sdp->dtsd_stmtattr = stmtattr;
+
 	return sdp;
 }
 
