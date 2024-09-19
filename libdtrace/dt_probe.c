@@ -24,10 +24,10 @@
 #include <dt_list.h>
 #include <dt_bpf.h>
 
-typedef struct dt_probe_clause {
-	dt_list_t	list;
-	dt_ident_t	*clause;
-} dt_probe_clause_t;
+typedef struct dt_probe_stmt {
+	dt_list_t		list;
+	dtrace_stmtdesc_t	*stmt;
+} dt_probe_stmt_t;
 
 typedef struct dt_probe_dependent {
 	dt_list_t	list;
@@ -335,7 +335,7 @@ dt_probe_enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 void
 dt_probe_destroy(dt_probe_t *prp)
 {
-	dt_probe_clause_t	*pcp, *pcp_next;
+	dt_probe_stmt_t		*psp, *psp_next;
 	dt_probe_instance_t	*pip, *pip_next;
 	dt_probe_dependent_t	*dep, *dep_next;
 	dtrace_hdl_t		*dtp;
@@ -367,9 +367,9 @@ dt_probe_destroy(dt_probe_t *prp)
 	dt_free(dtp, prp->nargv);
 	dt_free(dtp, prp->xargv);
 
-	for (pcp = dt_list_next(&prp->clauses); pcp != NULL; pcp = pcp_next) {
-		pcp_next = dt_list_next(pcp);
-		dt_free(dtp, pcp);
+	for (psp = dt_list_next(&prp->stmts); psp != NULL; psp = psp_next) {
+		psp_next = dt_list_next(psp);
+		dt_free(dtp, psp);
 	}
 
 	for (dep = dt_list_next(&prp->dependents); dep != NULL; dep = dep_next) {
@@ -1147,24 +1147,24 @@ dtrace_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 }
 
 /*
- * Create an ERROR-probe specific copy of a given clause.
+ * Create an ERROR-probe specific copy of a given stmt.
  *
- * A modified copy of the clause is necessary because the ERROR probe may share
- * some clauses with other probes, and yet it needs to be handled differently.
+ * A modified copy of the stmt is necessary because the ERROR probe may share
+ * some stmts with other probes, and yet it needs to be handled differently.
  *
- * The following modifications are made in the copy of the clause:
- *
- *	- it is named dt_error_N where N is taken from the original clause
- *	  dt_clause_N (which also guarantees uniqueness)
+ * In the copy of the stmt, the clause is named dt_error_N, where N is taken
+ * from the original stmt's dt_clause_N (which also guarantees uniqueness).
  */
-dt_ident_t *
-dt_probe_error_clause(dtrace_hdl_t *dtp, dt_ident_t *idp)
+static dtrace_stmtdesc_t *
+dt_probe_error_stmt(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 {
 	char		*name;
 	int		len;
+	dt_ident_t	*idp = sdp->dtsd_clause;
 	dtrace_difo_t	*dp = dt_dlib_get_func_difo(dtp, idp);
 	dt_ident_t	*nidp = NULL;
 	dtrace_difo_t	*ndp;
+	dtrace_stmtdesc_t *nsdp = NULL;
 
 	/*
 	 * Copy the DIFO.
@@ -1180,7 +1180,6 @@ dt_probe_error_clause(dtrace_hdl_t *dtp, dt_ident_t *idp)
 	name = dt_alloc(dtp, len);
 	if (name == NULL)
 		goto no_mem;
-
 	snprintf(name, len, "dt_error_%s", idp->di_name + strlen("dt_clause_"));
 
 	/*
@@ -1194,7 +1193,12 @@ dt_probe_error_clause(dtrace_hdl_t *dtp, dt_ident_t *idp)
 
 	dt_ident_set_data(nidp, ndp);
 
-	return nidp;
+	nsdp = dt_alloc(dtp, sizeof(dtrace_stmtdesc_t));
+	if (nsdp == NULL)
+		goto no_mem;
+	nsdp->dtsd_clause = nidp;
+
+	return nsdp;
 
 no_mem:
 	if (ndp != NULL)
@@ -1207,40 +1211,39 @@ no_mem:
 }
 
 int
-dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp, dt_ident_t *idp)
+dt_probe_add_stmt(dtrace_hdl_t *dtp, dt_probe_t *prp, dtrace_stmtdesc_t *sdp)
 {
-	dt_probe_clause_t	*pcp;
+	dt_probe_stmt_t	*psp;
 
-	pcp = dt_zalloc(dtp, sizeof(dt_probe_clause_t));
-	if (pcp == NULL)
+	psp = dt_zalloc(dtp, sizeof(dt_probe_stmt_t));
+	if (psp == NULL)
 		return dt_set_errno(dtp, EDT_NOMEM);
 
 	if (prp == dtp->dt_error) {
-		pcp->clause = dt_probe_error_clause(dtp, idp);
-		if (pcp->clause == NULL) {
-			dt_free(dtp, pcp);
+		psp->stmt = dt_probe_error_stmt(dtp, sdp);
+		if (psp->stmt == NULL) {
+			dt_free(dtp, psp);
 			return 0;
 		}
 	} else
-		pcp->clause = idp;
+		psp->stmt = sdp;
 
-	dt_list_append(&prp->clauses, pcp);
+	dt_list_append(&prp->stmts, psp);
 
 	return 0;
 }
 
 int
-dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		     dt_clause_f *func, void *arg)
+dt_probe_stmt_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp, dt_stmt_f *func, void *arg)
 {
-	dt_probe_clause_t	*pcp;
-	int			rc;
+	dt_probe_stmt_t	*psp;
+	int		rc;
 
 	assert(func != NULL);
 
-	for (pcp = dt_list_next(&prp->clauses); pcp != NULL;
-	     pcp = dt_list_next(pcp)) {
-		rc = func(dtp, pcp->clause, arg);
+	for (psp = dt_list_next(&prp->stmts); psp != NULL;
+	     psp = dt_list_next(psp)) {
+		rc = func(dtp, psp->stmt, arg);
 
 		if (rc != 0)
 			return rc;

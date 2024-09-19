@@ -844,9 +844,10 @@ typedef struct {
 } dt_clause_arg_t;
 
 static int
-dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
+dt_cg_call_clause(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, dt_clause_arg_t *arg)
 {
 	dt_irlist_t	*dlp = arg->dlp;
+	dt_ident_t	*idp = sdp->dtsd_clause;
 
 	/*
 	 *	if (*dctx.act != act)	// ldw %r0, [%r9 + DCTX_ACT]
@@ -874,14 +875,12 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp, dt_clause_arg_t *arg)
 }
 
 void
-dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp,
-			 dt_activity_t act)
+dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_clause_arg_t	arg = { dlp, act, pcb->pcb_exitlbl };
 
-	dt_probe_clause_iter(pcb->pcb_hdl, prp,
-			     (dt_clause_f *)dt_cg_call_clause, &arg);
+	dt_probe_stmt_iter(pcb->pcb_hdl, prp, (dt_stmt_f *)dt_cg_call_clause, &arg);
 }
 
 static int
@@ -990,9 +989,10 @@ dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act)
 }
 
 static int
-dt_cg_tramp_error_call_clause(dtrace_hdl_t *dtp, dt_ident_t *idp,
-			      dt_irlist_t *dlp)
+dt_cg_tramp_error_call_clause(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, dt_irlist_t *dlp)
 {
+	dt_ident_t *idp = sdp->dtsd_clause;
+
 	/*
 	 *	dt_error_#(dctx);	// mov %r1, %r9
 	 *				// call dt_error_#
@@ -1029,8 +1029,7 @@ dt_cg_tramp_error(dt_pcb_t *pcb)
 	TRACE_REGSET("Trampoline: Begin");
 	emit(dlp, BPF_MOV_REG(BPF_REG_9, BPF_REG_1));
 
-	dt_probe_clause_iter(dtp, dtp->dt_error,
-			     (dt_clause_f *)dt_cg_tramp_error_call_clause, dlp);
+	dt_probe_stmt_iter(dtp, dtp->dt_error, (dt_stmt_f *)dt_cg_tramp_error_call_clause, dlp);
 
 	emit(dlp, BPF_MOV_IMM(BPF_REG_0, 0));
 	emit(dlp, BPF_RETURN());

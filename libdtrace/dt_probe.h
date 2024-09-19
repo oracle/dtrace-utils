@@ -32,7 +32,7 @@ typedef struct dt_probe_instance {
 
 typedef struct dt_probe {
 	dt_list_t list;			/* prev/next in enablings chain */
-	dt_list_t clauses;		/* clauses to attach */
+	dt_list_t stmts;		/* stmts */
 	dt_list_t dependents;		/* dependenct probes to attach */
 	const dtrace_probedesc_t *desc;	/* probe description (id, name) */
 	dt_provider_t *prov;		/* pointer to containing provider */
@@ -86,11 +86,11 @@ typedef int dt_probe_f(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg);
 extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 			 dt_probe_f *pfunc, dtrace_probe_f *dfunc, void *arg);
 
-extern int dt_probe_add_clause(dtrace_hdl_t *dtp, dt_probe_t *prp,
-			       dt_ident_t *idp);
-typedef int dt_clause_f(dtrace_hdl_t *dtp, dt_ident_t *idp, void *arg);
-extern int dt_probe_clause_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-				dt_clause_f *func, void *arg);
+extern int dt_probe_add_stmt(dtrace_hdl_t *dtp, dt_probe_t *prp,
+			     dtrace_stmtdesc_t *sdp);
+typedef int dt_stmt_f(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, void *arg);
+extern int dt_probe_stmt_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			      dt_stmt_f *func, void *arg);
 
 extern int dt_probe_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp,
 				  dt_probe_t *idprp);
