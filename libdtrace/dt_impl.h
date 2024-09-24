@@ -266,10 +266,11 @@ struct dtrace_hdl {
 	const char *dt_errtag;	/* tag used with last call to dt_set_errmsg() */
 	dt_pcb_t *dt_pcb;	/* pointer to current parsing control block */
 	ulong_t dt_gen;		/* compiler generation number */
-	uint_t dt_clause_nextid; /* next ID to use for programs */
+	uint_t dt_stmt_nextid;	/* next ID to use for statements */
 	dt_list_t dt_programs;	/* linked list of dtrace_prog_t's */
 	dt_list_t dt_xlators;	/* linked list of dt_xlator_t's */
 	dt_list_t dt_enablings;	/* list of (to be) enabled probes */
+	dtrace_stmtdesc_t **dt_stmts; /* array of stmts */
 	struct dt_xlator **dt_xlatormap; /* dt_xlator_t's indexed by dx_id */
 	id_t dt_xlatorid;	/* next dt_xlator_t id to assign */
 	dt_ident_t *dt_externs;	/* linked list of external symbol identifiers */
@@ -336,10 +337,6 @@ struct dtrace_hdl {
 	ctf_id_t dt_type_symaddr; /* cached CTF identifier for _symaddr type */
 	ctf_id_t dt_type_usymaddr; /* cached CTF ident. for _usymaddr type */
 	ctf_id_t dt_type_void;	/* cached CTF identifier for void type */
-	dtrace_epid_t dt_nextepid; /* next enabled probe ID to assign */
-	size_t dt_maxprobe;	/* max enabled probe ID */
-	dtrace_datadesc_t **dt_ddesc; /* probe data descriptions */
-	dtrace_probedesc_t **dt_pdesc; /* probe descriptions for enabled prbs */
 	size_t dt_maxagg;	/* max aggregation ID */
 	dtrace_aggdesc_t **dt_adesc; /* aggregation descriptions */
 	struct dt_aggregate *dt_aggregate; /* aggregate */
@@ -599,7 +596,7 @@ enum {
 	EDT_DOFFSET,		/* record data offset error */
 	EDT_DALIGN,		/* record data alignment error */
 	EDT_DSIZE,		/* record data size error */
-	EDT_BADEPID,		/* invalid enabled probe id */
+	EDT_BADSTID,		/* invalid statement id */
 	EDT_BADOPTNAME,		/* invalid dtrace_setopt option name */
 	EDT_BADOPTVAL,		/* invalid dtrace_setopt option value */
 	EDT_BADOPTCTX,		/* invalid dtrace_setopt option context */
@@ -766,11 +763,7 @@ extern dtrace_datadesc_t *dt_datadesc_hold(dtrace_datadesc_t *ddp);
 extern void dt_datadesc_release(dtrace_hdl_t *, dtrace_datadesc_t *);
 extern dtrace_datadesc_t *dt_datadesc_create(dtrace_hdl_t *);
 extern int dt_datadesc_finalize(dtrace_hdl_t *, dtrace_datadesc_t *);
-extern dtrace_epid_t dt_epid_add(dtrace_hdl_t *, dtrace_datadesc_t *,
-				 dtrace_id_t);
-extern int dt_epid_lookup(dtrace_hdl_t *, dtrace_epid_t, dtrace_datadesc_t **,
-			  dtrace_probedesc_t **);
-extern void dt_epid_destroy(dtrace_hdl_t *);
+extern int dt_stid_lookup(dtrace_hdl_t *, dtrace_stid_t, dtrace_datadesc_t **);
 typedef void (*dt_cg_gap_f)(dt_pcb_t *, int);
 extern uint32_t dt_rec_add(dtrace_hdl_t *, dt_cg_gap_f, dtrace_actkind_t,
 			   uint32_t, uint16_t, dt_pfargv_t *, uint64_t);

@@ -1,5 +1,5 @@
-The arguments are 3 1 PC 1 64
+The arguments are 1 1 PC 1 64
 The value of arg4 = 0
 
 -- @@stderr --
-dtrace: error on enabled probe ID 3 (ID 1: dtrace:::BEGIN): invalid address ({ptr}) in action #1 at BPF pc NNN
+dtrace: error in dt_clause_1 for probe ID 1 (dtrace:::BEGIN): invalid address ({ptr}) at BPF pc NNN

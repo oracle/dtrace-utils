@@ -48,8 +48,9 @@ noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
 			mst->tstamp = bpf_ktime_get_ns();
 
 		return mst->tstamp;
-	case DIF_VAR_EPID:
-		return mst->epid;
+	case DIF_VAR_EPID: {
+		return (((uint64_t)mst->prid) << 32) | mst->stid;
+	}
 	case DIF_VAR_ID:
 		return mst->prid;
 	case DIF_VAR_ARG0: case DIF_VAR_ARG1: case DIF_VAR_ARG2:

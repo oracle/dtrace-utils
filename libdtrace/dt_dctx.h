@@ -25,9 +25,8 @@
  * The DTrace machine state.
  */
 typedef struct dt_mstate {
-	uint32_t	epid;		/* Enabled probe ID */
 	uint32_t	prid;		/* Probe ID */
-	uint32_t	clid;		/* Clause ID (unique per probe) */
+	uint32_t	stid;		/* Statement ID */
 	uint32_t	tag;		/* Tag (for future use) */
 	uint32_t	scratch_top;	/* Current top of scratch space */
 	int32_t		syscall_errno;	/* syscall errno */
@@ -41,9 +40,8 @@ typedef struct dt_mstate {
 	uint64_t	saved_argv[6];	/* Saved arguments */
 } dt_mstate_t;
 
-#define DMST_EPID		offsetof(dt_mstate_t, epid)
 #define DMST_PRID		offsetof(dt_mstate_t, prid)
-#define DMST_CLID		offsetof(dt_mstate_t, clid)
+#define DMST_STID		offsetof(dt_mstate_t, stid)
 #define DMST_TAG		offsetof(dt_mstate_t, tag)
 #define DMST_SCRATCH_TOP	offsetof(dt_mstate_t, scratch_top)
 #define DMST_ERRNO		offsetof(dt_mstate_t, syscall_errno)
@@ -90,16 +88,23 @@ typedef struct dt_dctx {
  * The dctx->buf pointer references a block of memory that contains:
  *
  *                       +----------------+
- *                  0 -> | EPID           |
+ *                  0 -> | size           |
  *                       +----------------+
- *		    4 -> | Speculation ID |
+ *                  4 -> | Speculation ID |
  *                       +----------------+
- *                       | Trace Data     |
+ *                  8 -> | PRID           |
+ *                       +----------------+
+ *                 12 -> | STID           |
+ *                       +----------------+
+ *                 16 -> | Trace Data     |
  *                       |      ...       |
  *                       +----------------+
  */
-#define DBUF_EPID	0
+#define DBUF_SIZE	0
 #define DBUF_SPECID	4
+#define DBUF_PRID	8
+#define DBUF_STID	12
+#define DBUF_DATA	16
 
 /*
  * The dctx->mem pointer references a block of memory that contains:

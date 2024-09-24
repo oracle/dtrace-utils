@@ -1,3 +1,7 @@
-#!/bin/sed -f
+#!/usr/bin/awk -f
+
 # This report has a variable probe ID in it.
-s/ID [0-9][0-9]*: profile/ID nnn: profile/
+{
+    sub("for probe ID [0-9][0-9]* .profile", "for probe ID nnn (profile");
+    print;
+}

@@ -59,7 +59,7 @@ awk 'BEGIN {
 	next;
      }
 
-     /error on enabled probe/ {
+     /error in dt_clause_/ {
 	if (!($NF in sites)) {
 	    print;
 	    print "  No call to dt_probe_error found at PC " $NF;

@@ -9,7 +9,7 @@
 
 dtrace=$1
 
-for x in 63 64 79 80 143 144; do
+for x in 71 72 159 160; do
 	$dtrace $dt_flags -xspecsize=$x -qn '
 	BEGIN
 	{

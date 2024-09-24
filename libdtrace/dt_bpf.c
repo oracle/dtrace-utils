@@ -774,7 +774,6 @@ gmap_create_cpuinfo(dtrace_hdl_t *dtp)
  * The size of the memory region is the sum of:
  *	- size of the DTrace machine state, rounded up to the nearest
  *	  multiple of 8
- *	- 8 bytes padding for trace buffer alignment purposes
  *	- maximum trace buffer record size, rounded up to the nearest
  *	  multiple of 8
  *	- size of dctx->mem (see dt_dctx.h)
@@ -783,7 +782,6 @@ static int
 gmap_create_mem(dtrace_hdl_t *dtp)
 {
 	size_t	sz = roundup(sizeof(dt_mstate_t), 8) +
-		     8 +
 		     roundup(dtp->dt_maxreclen, 8) +
 		     DMEM_SIZE(dtp);
 

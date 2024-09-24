@@ -150,6 +150,7 @@ typedef struct dtrace_stmtdesc {
 	dtrace_attribute_t dtsd_descattr;	/* probedesc attributes */
 	dtrace_attribute_t dtsd_stmtattr;	/* statement attributes */
 	int dtsd_clauseflags;			/* clause flags */
+	int dtsd_id;				/* index in dtp->dt_stmts */
 } dtrace_stmtdesc_t;
 
 /* dtsd clause flags */
@@ -189,7 +190,7 @@ typedef enum {
 
 typedef struct dtrace_probedata {
 	dtrace_hdl_t *dtpda_handle;		/* handle to DTrace library */
-	dtrace_epid_t dtpda_epid;		/* enabled probe ID */
+	dtrace_stid_t dtpda_stid;		/* statement ID */
 	dtrace_datadesc_t *dtpda_ddesc;		/* probe data description */
 	dtrace_probedesc_t *dtpda_pdesc;	/* probe description */
 	unsigned int dtpda_cpu;			/* CPU for data */

@@ -120,7 +120,7 @@ done
 
 # Do a sanity check on DTrace's error output.
 
-awk '/^dtrace: error on enabled probe ID [0-9]* \(ID 1: dtrace:::BEGIN): invalid address \(0x40) in action #[0-9] at BPF pc [0-9]*$/ { print $NF }' \
+awk '/^dtrace: error in dt_clause_[1-4] for probe ID 1 \(dtrace:::BEGIN): invalid address \(0x40) at BPF pc [0-9]*$/ { print $NF }' \
   disasm.out > err_pcs.txt.chk1
 if ! diff -q err_pcs.txt err_pcs.txt.chk1; then
 	echo ERROR: problem with DTrace error output

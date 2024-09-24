@@ -19,26 +19,6 @@ Speculative buffer ID: 1
 123456704
 123456705
 123456706
-counts: 1 1
-
-Speculative buffer ID: 1
-123456700
-123456701
-123456702
-123456703
-123456704
-123456705
-123456706
-counts: 2 1
-
-Speculative buffer ID: 1
-123456700
-123456701
-123456702
-123456703
-123456704
-123456705
-123456706
 counts: 2 1
 
 Speculative buffer ID: 1
@@ -62,7 +42,5 @@ counts: 2 1
 
 -- @@stderr --
 dtrace: 2 speculative drops
-dtrace: 1 speculative drop
-dtrace: 1 speculative drop
 dtrace: 1 speculative drop
 dtrace: 1 speculative drop

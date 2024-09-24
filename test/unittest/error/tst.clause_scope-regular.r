@@ -2,4 +2,4 @@ Error fired
 Clause executed
 
 -- @@stderr --
-dtrace: error on enabled probe ID 3 (ID nnn: profile:::tick-10ms): invalid address ({ptr}) in action #1 at BPF pc NNN
+dtrace: error in dt_clause_1 for probe ID nnn (profile:::tick-10ms): invalid address ({ptr}) at BPF pc NNN

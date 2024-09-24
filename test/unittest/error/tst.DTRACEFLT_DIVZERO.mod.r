@@ -1,3 +1,3 @@
 
 -- @@stderr --
-dtrace: error on enabled probe ID 3 (ID 1: dtrace:::BEGIN): divide-by-zero in action #1 at BPF pc NNN
+dtrace: error in dt_clause_4 for probe ID 1 (dtrace:::BEGIN): divide-by-zero at BPF pc NNN

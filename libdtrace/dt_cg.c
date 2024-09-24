@@ -277,15 +277,9 @@ dt_cg_tramp_prologue_act(dt_pcb_t *pcb, dt_activity_t act)
 	 *	buf = rc + roundup(sizeof(dt_mstate_t), 8);
 	 *				// add %r0, roundup(
 	 *						sizeof(dt_mstate_t), 8)
-	 *	*((uint64_t *)&buf[0]) = 0;
-	 *				// stdw [%r0 + 0], 0
-	 *	buf += 8;		// add %r0, 8
-	 *				//     (%r0 = pointer to buffer space)
 	 *	dctx.buf = buf;		// stdw [%r9 + DCTX_BUF], %r0
 	 */
 	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, roundup(sizeof(dt_mstate_t), 8)));
-	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, 0, 0));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8));
 	emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, DCTX_BUF, BPF_REG_0));
 
 	/*
@@ -1047,8 +1041,9 @@ dt_cg_tramp_error(dt_pcb_t *pcb)
  *
  *	- Store the base pointer to the output data buffer in %r9.
  *	- Initialize the machine state (dctx->mst).
- *	- Store the epid at [%r9 + DBUF_EPID].
  *	- Store 0 to indicate no active speculation at [%r9 + DBUF_SPECID].
+ *	- Store the prid at [%r9 + DBUF_PRID].
+ *	- Store the stid at [%r9 + DBUF_STID].
  *	- Evaluate the predicate expression and return if false.
  *
  * The dt_program() function will always return 0.
@@ -1057,11 +1052,6 @@ static void
 dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_ident_t	*epid = dt_dlib_get_var(pcb->pcb_hdl, "EPID");
-	dt_ident_t	*clid = dt_dlib_get_var(pcb->pcb_hdl, "CLID");
-
-	assert(epid != NULL);
-	assert(clid != NULL);
 
 	/*
 	 * void dt_program(dt_dctx_t *dctx)
@@ -1093,18 +1083,13 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *				// stdw [%r0 + DMST_FAULT], 0
 	 *	dctx->mst->tstamp = 0;	// stdw [%r0 + DMST_TSTAMP], 0
 	 *	dctx->mst->specsize = 0;// stdw [%r0 + DMST_SPECSIZE], 0
-	 *	dctx->mst->epid = EPID;	// stw [%r0 + DMST_EPID], EPID
-	 *	dctx->mst->clid = CLID;	// stw [%r0 + DMST_CLID], CLID
-	 *	*((uint32_t *)&buf[DBUF_EPID]) = EPID;
-	 *				// stw [%r9 + DBUF_EPID], EPID
+	 *	dctx->mst->stid = STID;	// stw [%r0 + DMST_STID], STID
 	 */
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_FAULT, 0));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_TSTAMP, 0));
 	emit(dlp,  BPF_STORE_IMM(BPF_DW, BPF_REG_0, DMST_SPECSIZE, 0));
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_EPID, -1), epid);
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_CLID, -1), clid);
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, DBUF_EPID, -1), epid);
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_0, DMST_STID, pcb->pcb_stmt->dtsd_id));
 
 	/*
 	 *	Set the speculation ID field to zero to indicate no active
@@ -1113,6 +1098,17 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	 *				// stw [%r9 + DBUF_SPECID], 0
 	 */
 	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_9, DBUF_SPECID, 0));
+
+	/*
+	 *	*((uint32_t *)&buf[DBUF_PRID]) = dctx->mst->prid;
+	 *				// ld %r1, [%r0 + DMST_PRID]
+	 *				// st [%r9 + DBUF_PRID], %r1
+	 *	*((uint32_t *)&buf[DBUF_STID]) = stid;
+	 *				// st [%r9 + DBUF_STID], stid
+	 */
+	emit (dlp, BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, DMST_PRID));
+	emit (dlp, BPF_STORE(BPF_W, BPF_REG_9, DBUF_PRID, BPF_REG_1));
+	emit (dlp, BPF_STORE_IMM(BPF_W, BPF_REG_9, DBUF_STID, pcb->pcb_stmt->dtsd_id));
 
 	/*
 	 * If there is a predicate:
@@ -1132,10 +1128,9 @@ dt_cg_prologue(dt_pcb_t *pcb, dt_node_t *pred)
 	TRACE_REGSET("Prologue: End  ");
 
 	/*
-	 * Account for 32-bit EPID (at offset 0) and 32-bit speculation ID (at
-	 * offset 4).
+	 * Set the offset for the beginning of trace data.
 	 */
-	pcb->pcb_bufoff += 2 * sizeof(uint32_t);
+	pcb->pcb_bufoff = DBUF_DATA;
 }
 
 /*
@@ -1170,15 +1165,15 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		/*
 		 *	rc = bpf_perf_event_output(dctx->ctx, &buffers,
 		 *				   BPF_F_CURRENT_CPU,
-		 *				   buf - 4, bufoff + 4);
+		 *				   buf + 4, bufoff - 4);
 		 *				// lddw %r1, [%fp + DT_STK_DCTX]
 		 *				// lddw %r1, [%r1 + DCTX_CTX]
 		 *				// lddw %r2, &buffers
 		 *				// lddw %r3, BPF_F_CURRENT_CPU
 		 *				// mov %r4, %r9
-		 *				// add %r4, -4
+		 *				// add %r4, 4
 		 *				// mov %r5, pcb->pcb_bufoff
-		 *				// add %r5, 4
+		 *				// add %r5, -4
 		 *				// call bpf_perf_event_output
 		 */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
@@ -1186,9 +1181,9 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		dt_cg_xsetx(dlp, buffers, DT_LBL_NONE, BPF_REG_2, buffers->di_id);
 		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_3, BPF_F_CURRENT_CPU);
 		emit(dlp, BPF_MOV_REG(BPF_REG_4, BPF_REG_9));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, -4));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_5, pcb->pcb_bufoff));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 4));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, -4));
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_perf_event_output));
 
 		/*

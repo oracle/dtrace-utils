@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -19,8 +19,8 @@
 
 /*
  * DTrace separates the trace data stream from the metadata stream.  The only
- * metadata tokens placed in the data stream are enabled probe identifiers
- * (EPIDs) or (in the case of aggregations) aggregation identifiers.  In order
+ * metadata tokens placed in the data stream are probe and statement identifiers
+ * or (in the case of aggregations) aggregation identifiers.  In order
  * to determine the structure of the data, DTrace uses the token to perform a
  * lookup to retrieve the corresponding description of the enabled probe (via
  * the dtrace_datadesc structure) or the aggregation (via the dtrace_aggdesc

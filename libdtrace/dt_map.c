@@ -85,98 +85,21 @@ dt_datadesc_finalize(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp)
 	return 0;
 }
 
-/*
- * Associate a probe data description and probe description with an enabled
- * probe ID.  This means that the given ID refers to the program matching the
- * probe data description being attached to the probe that matches the probe
- * description.
- */
-dtrace_epid_t
-dt_epid_add(dtrace_hdl_t *dtp, dtrace_datadesc_t *ddp, dtrace_id_t prid)
-{
-	dtrace_id_t	max = dtp->dt_maxprobe;
-	dtrace_epid_t	epid;
-
-	epid = dtp->dt_nextepid++;
-	if (epid >= max || dtp->dt_ddesc == NULL) {
-		dtrace_id_t		nmax = max ? (max << 1) : 2;
-		dtrace_datadesc_t	**nddesc;
-		dtrace_probedesc_t	**npdesc;
-
-		nddesc = dt_calloc(dtp, nmax, sizeof(void *));
-		npdesc = dt_calloc(dtp, nmax, sizeof(void *));
-		if (nddesc == NULL || npdesc == NULL) {
-			dt_free(dtp, nddesc);
-			dt_free(dtp, npdesc);
-			return dt_set_errno(dtp, EDT_NOMEM);
-		}
-
-		if (dtp->dt_ddesc != NULL) {
-			size_t	osize = max * sizeof(void *);
-
-			memcpy(nddesc, dtp->dt_ddesc, osize);
-			dt_free(dtp, dtp->dt_ddesc);
-			memcpy(npdesc, dtp->dt_pdesc, osize);
-			dt_free(dtp, dtp->dt_pdesc);
-		}
-
-		dtp->dt_ddesc = nddesc;
-		dtp->dt_pdesc = npdesc;
-		dtp->dt_maxprobe = nmax;
-	}
-
-	if (dtp->dt_ddesc[epid] != NULL)
-		return epid;
-
-	dtp->dt_ddesc[epid] = dt_datadesc_hold(ddp);
-	dtp->dt_pdesc[epid] = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
-
-	return epid;
-}
-
 int
-dt_epid_lookup(dtrace_hdl_t *dtp, dtrace_epid_t epid, dtrace_datadesc_t **ddp,
-	       dtrace_probedesc_t **pdp)
+dt_stid_lookup(dtrace_hdl_t *dtp, dtrace_stid_t stid, dtrace_datadesc_t **ddp)
 {
-	if (epid >= dtp->dt_maxprobe ||
-	    dtp->dt_ddesc[epid] == NULL || dtp->dt_pdesc[epid] == NULL)
+	dtrace_difo_t *rdp;
+	dtrace_stmtdesc_t *stp;
+
+	if (stid >= dtp->dt_stmt_nextid)
 		return -1;
 
-	*ddp = dtp->dt_ddesc[epid];
-	*pdp = dtp->dt_pdesc[epid];
+	stp = dtp->dt_stmts[stid];
+	assert(stp != NULL);
+	rdp = dt_dlib_get_func_difo(dtp, stp->dtsd_clause);
+	*ddp = rdp->dtdo_ddesc;
 
-	return 0;
-}
-
-void
-dt_epid_destroy(dtrace_hdl_t *dtp)
-{
-	size_t i;
-
-	assert((dtp->dt_pdesc != NULL && dtp->dt_ddesc != NULL &&
-	    dtp->dt_maxprobe > 0) || (dtp->dt_pdesc == NULL &&
-	    dtp->dt_ddesc == NULL && dtp->dt_maxprobe == 0));
-
-	if (dtp->dt_pdesc == NULL)
-		return;
-
-	for (i = 0; i < dtp->dt_maxprobe; i++) {
-		if (dtp->dt_ddesc[i] == NULL) {
-			assert(dtp->dt_pdesc[i] == NULL);
-			continue;
-		}
-
-		dt_datadesc_release(dtp, dtp->dt_ddesc[i]);
-		assert(dtp->dt_pdesc[i] != NULL);
-	}
-
-	free(dtp->dt_pdesc);
-	dtp->dt_pdesc = NULL;
-
-	free(dtp->dt_ddesc);
-	dtp->dt_ddesc = NULL;
-	dtp->dt_nextepid = 0;
-	dtp->dt_maxprobe = 0;
+	return (*ddp == NULL) ? -1 : 0;
 }
 
 uint32_t

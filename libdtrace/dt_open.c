@@ -170,7 +170,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "discard", DT_IDENT_ACTFUNC, 0, DT_ACT_DISCARD, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(int)" },
 { "epid", DT_IDENT_SCALAR, 0, DIF_VAR_EPID, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_type, "uint_t" },
+	&dt_idops_type, "uint64_t" },
 { "errno", DT_IDENT_SCALAR, 0, DIF_VAR_ERRNO, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "int" },
 { "execname", DT_IDENT_SCALAR, 0, DIF_VAR_EXECNAME,
@@ -739,8 +739,6 @@ dt_vopen(int version, int flags, int *errp,
 	dt_proc_hash_create(dtp);
 	dt_proc_signal_init(dtp);
 	dtp->dt_proc_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	dtp->dt_nextepid = 1;
-	dtp->dt_maxprobe = 0;
 	if (dt_aggregate_init(dtp) == -1)
 		return set_open_errno(dtp, errp, dtrace_errno(dtp));
 	dtp->dt_vmax = DT_VERS_LATEST;
@@ -1303,7 +1301,6 @@ dtrace_close(dtrace_hdl_t *dtp)
 	if (dtp->dt_poll_fd != -1)
 		close(dtp->dt_poll_fd);
 
-	dt_epid_destroy(dtp);
 	dt_aggid_destroy(dtp);
 	dt_buffered_destroy(dtp);
 	dt_aggregate_destroy(dtp);

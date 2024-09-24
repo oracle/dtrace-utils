@@ -100,7 +100,7 @@ dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
 
 		/*
 		 * If there aren't any actions, account for the fact that
-		 * recording the epid will generate a record.
+		 * the default action will generate a record.
 		 */
 		dp = dt_dlib_get_func_difo(dtp, stp->ds_desc->dtsd_clause);
 		if (dp != NULL)
@@ -164,6 +164,13 @@ dt_prog_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, dtrace_stmtdesc_t *sdp,
 	pi_state_t		st;
 	dtrace_probedesc_t	*pdp = &sdp->dtsd_ecbdesc->dted_probe;
 	int			rc;
+
+	if (dtp->dt_stmts == NULL) {
+		dtp->dt_stmts = dt_calloc(dtp, dtp->dt_stmt_nextid, sizeof(dtrace_stmtdesc_t *));
+		if (dtp->dt_stmts == NULL)
+			return dt_set_errno(dtp, EDT_NOMEM);
+	}
+	dtp->dt_stmts[sdp->dtsd_id] = sdp;
 
 	st.cnt = cnt;
 	st.sdp = sdp;

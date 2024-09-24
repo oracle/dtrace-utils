@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -17,7 +17,6 @@
 
 #define	DTRACE_CPUALL		-1	/* all CPUs */
 #define	DTRACE_IDNONE		0	/* invalid probe identifier */
-#define	DTRACE_EPIDNONE		0	/* invalid enabled probe identifier */
 #define	DTRACE_AGGIDNONE	0	/* invalid aggregation identifier */
 #define	DTRACE_AGGVARIDNONE	0	/* invalid aggregation variable ID */
 #define	DTRACE_CACHEIDNONE	0	/* invalid predicate cache */
@@ -37,7 +36,7 @@ typedef uint16_t	dtrace_actkind_t;	/* action kind */
 
 typedef uint32_t	dtrace_aggid_t;		/* aggregation identifier */
 typedef uint32_t	dtrace_cacheid_t;	/* predicate cache identifier */
-typedef uint32_t	dtrace_epid_t;		/* enabled probe identifier */
+typedef uint32_t	dtrace_stid_t;		/* statement identifier */
 typedef uint32_t	dtrace_optid_t;		/* option identifier */
 typedef uint32_t	dtrace_specid_t;	/* speculation identifier */
 

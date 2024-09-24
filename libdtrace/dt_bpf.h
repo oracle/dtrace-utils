@@ -32,30 +32,28 @@ extern "C" {
 					(dtp)->dt_bpffeatures |= (feat); \
 				} while (0)
 
-#define DT_CONST_EPID			1
-#define DT_CONST_PRID			2
-#define DT_CONST_CLID			3
-#define DT_CONST_ARGC			4
-#define DT_CONST_STBSZ			5
-#define DT_CONST_STRSZ			6
-#define DT_CONST_STKSIZ			7
-#define DT_CONST_BOOTTM			8
-#define DT_CONST_NSPEC			9
-#define DT_CONST_NCPUS			10
-#define DT_CONST_PC			11
-#define DT_CONST_TUPSZ			12
-#define DT_CONST_TASK_PID		13
-#define DT_CONST_TASK_TGID		14
-#define DT_CONST_TASK_REAL_PARENT	15
-#define DT_CONST_TASK_COMM		16
-#define DT_CONST_MUTEX_OWNER		17
-#define DT_CONST_RWLOCK_CNTS		18
-#define DT_CONST_DCTX_RODATA		19
-#define DT_CONST_RODATA_OFF		20
-#define DT_CONST_RODATA_SIZE		21
-#define DT_CONST_ZERO_OFF		22
-#define DT_CONST_STACK_OFF		23
-#define DT_CONST_STACK_SKIP		24
+#define DT_CONST_PRID			1
+#define DT_CONST_ARGC			2
+#define DT_CONST_STBSZ			3
+#define DT_CONST_STRSZ			4
+#define DT_CONST_STKSIZ			5
+#define DT_CONST_BOOTTM			6
+#define DT_CONST_NSPEC			7
+#define DT_CONST_NCPUS			8
+#define DT_CONST_PC			9
+#define DT_CONST_TUPSZ			10
+#define DT_CONST_TASK_PID		11
+#define DT_CONST_TASK_TGID		12
+#define DT_CONST_TASK_REAL_PARENT	13
+#define DT_CONST_TASK_COMM		14
+#define DT_CONST_MUTEX_OWNER		15
+#define DT_CONST_RWLOCK_CNTS		16
+#define DT_CONST_DCTX_RODATA		17
+#define DT_CONST_RODATA_OFF		18
+#define DT_CONST_RODATA_SIZE		19
+#define DT_CONST_ZERO_OFF		20
+#define DT_CONST_STACK_OFF		21
+#define DT_CONST_STACK_SKIP		22
 
 #define DT_BPF_LOG_SIZE_DEFAULT	(UINT32_MAX >> 8)
 #define DT_BPF_LOG_SIZE_SMALL	4096

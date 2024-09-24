@@ -15,9 +15,11 @@
 #include <alloca.h>
 #include <dt_impl.h>
 #include <dt_aggregate.h>
+#include <dt_dctx.h>
 #include <dt_module.h>
 #include <dt_pcap.h>
 #include <dt_peb.h>
+#include <dt_probe.h>
 #include <dt_state.h>
 #include <dt_string.h>
 #include <libproc.h>
@@ -433,7 +435,7 @@ static dt_htab_ops_t dt_spec_buf_htab_ops = {
 };
 
 static int
-dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last)
+dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_id_t lastprid, dtrace_stid_t laststid)
 {
 	dtrace_probedesc_t	*pd = data->dtpda_pdesc;
 	dtrace_flowkind_t	flow = DTRACEFLOW_NONE;
@@ -445,7 +447,7 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last)
 	static const char	*r_str[2] = { " <- ", " <= " };
 	static const char	*ent = "entry", *ret = "return";
 	static int		entlen = 0, retlen = 0;
-	dtrace_epid_t		id = data->dtpda_epid;
+	dtrace_stid_t		stid = data->dtpda_stid;
 
 	if (entlen == 0) {
 		assert(retlen == 0);
@@ -473,13 +475,12 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_epid_t last)
 
 	/*
 	 * If we're going to indent this, we need to check the ID of our last
-	 * call.  If we're looking at the same probe ID but a different EPID,
+	 * call.  If we're looking at the same probe ID but a different STID,
 	 * we _don't_ want to indent.  (Yes, there are some minor holes in
 	 * this scheme -- it's a heuristic.)
 	 */
 	if (flow == DTRACEFLOW_ENTRY) {
-		if (last != DTRACE_EPIDNONE && id != last &&
-		    pd->id == dtp->dt_pdesc[last]->id)
+		if (stid != laststid && pd->id == lastprid)
 			flow = DTRACEFLOW_NONE;
 	}
 
@@ -2145,8 +2146,8 @@ static dtrace_workstatus_t
 dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		     dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 		     dtrace_consume_rec_f *rfunc, int flow, int quiet,
-		     int peekflags, dtrace_epid_t *last, int committing,
-		     void *arg);
+		     int peekflags, dtrace_id_t *lastprid,
+		     dtrace_stid_t *laststid, int committing, void *arg);
 
 /*
  * Commit one speculation.
@@ -2155,7 +2156,8 @@ static dtrace_workstatus_t
 dt_commit_one_spec(dtrace_hdl_t *dtp, FILE *fp, dt_spec_buf_t *dtsb,
 		   dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 		   dtrace_consume_rec_f *rfunc, int flow, int quiet,
-		   int peekflags, dtrace_epid_t *last, void *arg)
+		   int peekflags, dtrace_id_t *lastprid,
+		   dtrace_stid_t *laststid, void *arg)
 {
 	dt_spec_buf_data_t 	*dsbd;
 
@@ -2169,7 +2171,7 @@ dt_commit_one_spec(dtrace_hdl_t *dtp, FILE *fp, dt_spec_buf_t *dtsb,
 		ret = dt_consume_one_probe(dtp, fp, dsbd->dsbd_data,
 					   dsbd->dsbd_size, &specpdat,
 					   efunc, rfunc, flow, quiet,
-					   peekflags, last, 1, arg);
+					   peekflags, lastprid, laststid, 1, arg);
 		if (ret != DTRACE_WORKSTATUS_OKAY)
 			return ret;
 	}
@@ -2181,34 +2183,33 @@ static dtrace_workstatus_t
 dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 		     dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 		     dtrace_consume_rec_f *rfunc, int flow, int quiet,
-		     int peekflags, dtrace_epid_t *last, int committing,
-		     void *arg)
+		     int peekflags, dtrace_id_t *lastprid,
+		     dtrace_stid_t *laststid, int committing, void *arg)
 {
-	dtrace_epid_t		epid;
+	dtrace_specid_t		specid;
+	dtrace_id_t		prid;
+	dtrace_stid_t		stid;
 	dtrace_datadesc_t	*epd;
 	dt_spec_buf_t		tmpl;
 	dt_spec_buf_t		*dtsb;
-	int			specid;
 	int			i;
 	int			rval;
 	dtrace_workstatus_t	ret;
 	int			commit_discard_seen, only_commit_discards;
 	int			data_recording = 1;
 
-	epid = ((uint32_t *)data)[0];
-	specid = ((uint32_t *)data)[1];
+	specid = *((dtrace_specid_t *)(data + DBUF_SPECID));
+	prid = *((dtrace_id_t *)(data + DBUF_PRID));
+	stid = *((dtrace_stid_t *)(data + DBUF_STID));
 
-	/*
-	 * Fill in the epid and address of the epid in the buffer.  We need to
-	 * pass this to the efunc and possibly to create speculations.
-	 */
-	pdat->dtpda_epid = epid;
+	pdat->dtpda_stid = stid;
 	pdat->dtpda_data = data;
 
-	rval = dt_epid_lookup(dtp, epid, &pdat->dtpda_ddesc,
-					 &pdat->dtpda_pdesc);
-	if (rval != 0)
-		return dt_set_errno(dtp, EDT_BADEPID);
+	if (prid > dtp->dt_probe_id)
+		return dt_set_errno(dtp, EDT_BADID);
+	pdat->dtpda_pdesc = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
+	if (dt_stid_lookup(dtp, stid, &pdat->dtpda_ddesc) != 0)
+		return dt_set_errno(dtp, EDT_BADSTID);
 
 	epd = pdat->dtpda_ddesc;
 	if (epd->dtdd_uarg != DT_ECB_DEFAULT) {
@@ -2306,7 +2307,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 
 	if (data_recording) {
 		if (flow)
-			dt_flowindent(dtp, pdat, *last);
+			dt_flowindent(dtp, pdat, *lastprid, *laststid);
 
 		rval = (*efunc)(pdat, arg);
 
@@ -2569,14 +2570,15 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	}
 
 	/*
-	 * Call the record callback with a NULL record to indicate
-	 * that we're done processing this EPID.  The return value is ignored in
-	 * this case. XXX should we respect at least DTRACE_CONSUME_ABORT?
+	 * Call the record callback with a NULL record to indicate that we're
+	 * done processing this record.  The return value is ignored in this
+	 * case. XXX should we respect at least DTRACE_CONSUME_ABORT?
 	 */
 	if (data_recording) {
 		(*rfunc)(pdat, NULL, arg);
 
-		*last = epid;
+		*lastprid = prid;
+		*laststid = stid;
 	}
 
 	/*
@@ -2597,7 +2599,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				if ((ret = dt_commit_one_spec(dtp, fp, dtsb,
 							      pdat, efunc, rfunc,
 							      flow, quiet, peekflags,
-							      last, arg)) !=
+							      lastprid, laststid, arg)) !=
 				    DTRACE_WORKSTATUS_OKAY) {
 					dt_spec_buf_data_destroy(dtp, dtsb);
 					return ret;
@@ -2623,7 +2625,7 @@ static dtrace_workstatus_t
 dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 	       dtrace_probedata_t *pdat, dtrace_consume_probe_f *efunc,
 	       dtrace_consume_rec_f *rfunc, int flow, int quiet, int peekflags,
-	       dtrace_epid_t *last, void *arg)
+	       dtrace_id_t *lastprid, dtrace_stid_t *laststid, void *arg)
 {
 	char				*data = buf;
 	struct perf_event_header	*hdr;
@@ -2639,9 +2641,9 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 		 * struct {
 		 *	struct perf_event_header	header;
 		 *	uint32_t			size;
-		 *	uint32_t			pad;
-		 *	uint32_t			epid;
 		 *	uint32_t			specid;
+		 *	uint32_t			prid;
+		 *	uint32_t			stid;
 		 *	uint64_t			data[n];
 		 * }
 		 * and 'data' points to the 'size' member at this point.
@@ -2651,17 +2653,21 @@ dt_consume_one(dtrace_hdl_t *dtp, FILE *fp, char *buf,
 			return dt_set_errno(dtp, EDT_DSIZE);
 
 		size = *(uint32_t *)data;
-		data += sizeof(size);
 		ptr += sizeof(size) + size;
 		if (ptr != buf + hdr->size)
 			return dt_set_errno(dtp, EDT_DSIZE);
 
-		data += sizeof(uint32_t);		/* skip padding */
-		size -= sizeof(uint32_t);
+		/*
+		 * "size" measures from after &size to the end.  But buffer
+		 * offsets are relative to &size itself, to preserve 8-byte
+		 * alignment.  So, we leave data pointing at &size, and we
+		 * increase size by 4 bytes.
+		 */
+		size += 4;
 
 		return dt_consume_one_probe(dtp, fp, data, size, pdat, efunc,
 					    rfunc, flow, quiet, peekflags,
-					    last, 0, arg);
+					    lastprid, laststid, 0, arg);
 	} else if (hdr->type == PERF_RECORD_LOST) {
 		return DTRACE_WORKSTATUS_OKAY;
 	} else
@@ -2692,7 +2698,8 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
 {
 	struct perf_event_mmap_page	*rb_page = (void *)peb->base;
 	struct perf_event_header	*hdr;
-	dtrace_epid_t			last = DTRACE_EPIDNONE;
+	dtrace_id_t			lastprid;
+	dtrace_stid_t			laststid;
 	char				*base;
 	char				*event;
 	uint32_t			len;
@@ -2764,7 +2771,7 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, dt_peb_t *peb,
                 }
 
                 rval = dt_consume_one(dtp, fp, event, &pdat, efunc, rfunc, flow,
-                                      quiet, peekflags, &last, arg);
+                                      quiet, peekflags, &lastprid, &laststid, arg);
                 if (rval == DTRACE_WORKSTATUS_DONE)
                   return DTRACE_WORKSTATUS_OKAY;
                 if (rval != DTRACE_WORKSTATUS_OKAY)

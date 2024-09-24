@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -14,6 +14,7 @@
 #include <alloca.h>
 
 #include <dt_impl.h>
+#include <dt_probe.h>
 #include <dt_program.h>
 
 static const char _dt_errprog[] =
@@ -126,16 +127,13 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 {
 	dtrace_datadesc_t *dd = data->dtpda_ddesc, *errdd;
 	dtrace_probedesc_t *pd = data->dtpda_pdesc, *errpd;
+	dtrace_stmtdesc_t *stp;
 	dtrace_errdata_t err;
-	dtrace_epid_t epid;
+	dtrace_id_t prid;
+	dtrace_stid_t stid;
 
-	char where[30];
-	char details[30];
-	char offinfo[30];
-	const int slop = 80;
-	const char *faultstr;
-	char *str;
-	int len;
+	char *str, *details, *offinfo;
+	int rc = 0;
 
 	assert(dd->dtdd_uarg == DT_ECB_ERROR);
 
@@ -144,38 +142,29 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 		return dt_set_errno(dtp, EDT_BADERROR);
 
 	/*
-	 * This is an error.  We have the following items here:  EPID,
-	 * faulting action, BPF pc, fault code and faulting address.
+	 * This is an error.  We have the following items here:  PRID,
+	 * statement ID, BPF pc, fault code and faulting address.
 	 */
-	epid = (uint32_t)DT_REC(uint64_t, 0);
+	prid = DT_REC(uint64_t, 0);
+	stid = DT_REC(uint64_t, 1);
 
-	if (dt_epid_lookup(dtp, epid, &errdd, &errpd) != 0)
+	if (prid > dtp->dt_probe_id)
 		return dt_set_errno(dtp, EDT_BADERROR);
-
+	if (dt_stid_lookup(dtp, stid, &errdd) != 0)
+		return dt_set_errno(dtp, EDT_BADERROR);
+	errpd = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
 	err.dteda_ddesc = errdd;
 	err.dteda_pdesc = errpd;
 	err.dteda_cpu = data->dtpda_cpu;
-	err.dteda_action = (int)DT_REC(uint64_t, 1);
+	err.dteda_action = stid;
 	err.dteda_offset = (int)DT_REC(uint64_t, 2);
 	err.dteda_fault = (int)DT_REC(uint64_t, 3);
 	err.dteda_addr = DT_REC(uint64_t, 4);
 
-	faultstr = dtrace_faultstr(dtp, err.dteda_fault);
-	len = sizeof(where) + sizeof(offinfo) + strlen(faultstr) +
-	      strlen(errpd->prv) + strlen(errpd->mod) + strlen(errpd->fun) +
-	      strlen(errpd->prb) + slop;
-
-	str = (char *)alloca(len);
-
-	if (err.dteda_action == 0)
-		sprintf(where, "predicate");
-	else
-		sprintf(where, "action #%d", err.dteda_action);
-
 	if (err.dteda_offset != -1)
-		sprintf(offinfo, " at BPF pc %d", err.dteda_offset);
+		asprintf(&offinfo, " at BPF pc %d", err.dteda_offset);
 	else
-		offinfo[0] = 0;
+		offinfo = "";
 
 	switch (err.dteda_fault) {
 	case DTRACEFLT_BADADDR:
@@ -184,32 +173,38 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	case DTRACEFLT_BADALIGN:
 	case DTRACEFLT_BADSTACK:
 	case DTRACEFLT_BADSIZE:
-		sprintf(details, " (0x%llx)", (unsigned long long)err.dteda_addr);
+		asprintf(&details, " (0x%llx)", (unsigned long long)err.dteda_addr);
 		break;
 	case DTRACEFLT_BADINDEX:
-		sprintf(details, " (%ld)", (int64_t)err.dteda_addr);
+		asprintf(&details, " (%ld)", (int64_t)err.dteda_addr);
 		break;
 
 	default:
 no_addr:
-		details[0] = 0;
+		details = "";
 	}
 
-	snprintf(str, len, "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): "
-			   "%s%s in %s%s",
-		 epid, errpd->id, errpd->prv, errpd->mod, errpd->fun,
-		 errpd->prb, dtrace_faultstr(dtp, err.dteda_fault), details,
-		 where, offinfo);
+	stp = dtp->dt_stmts[stid];
+	assert(stp != NULL);
+	asprintf(&str, "error in %s for probe ID %u (%s:%s:%s:%s): %s%s%s",
+		 stp->dtsd_clause->di_name, errpd->id, errpd->prv, errpd->mod,
+		 errpd->fun, errpd->prb, dtrace_faultstr(dtp, err.dteda_fault),
+		 details, offinfo);
 
 	err.dteda_msg = str;
 
 	if (dtp->dt_errhdlr == NULL)
-		return dt_set_errno(dtp, EDT_ERRABORT);
+		rc = dt_set_errno(dtp, EDT_ERRABORT);
+	else if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
+		rc = dt_set_errno(dtp, EDT_ERRABORT);
 
-	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
-		return dt_set_errno(dtp, EDT_ERRABORT);
+	free(str);
+	if (offinfo[0] != 0)
+		free(offinfo);
+	if (details[0] != 0)
+		free(details);
 
-	return 0;
+	return rc;
 }
 
 int
@@ -237,10 +232,10 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
     const char *faultstr)
 {
 	dtrace_probedesc_t *errpd = data->dtpda_pdesc;
+	dtrace_stmtdesc_t *stp;
 	dtrace_errdata_t err;
-	const int slop = 80;
 	char *str;
-	int len;
+	int rc = 0;
 
 	err.dteda_ddesc = data->dtpda_ddesc;
 	err.dteda_pdesc = errpd;
@@ -250,25 +245,23 @@ dt_handle_liberr(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 	err.dteda_fault = DTRACEFLT_LIBRARY;
 	err.dteda_addr = 0; /* == NULL */
 
-	len = strlen(faultstr) + strlen(errpd->prv) + strlen(errpd->mod) +
-	      strlen(errpd->fun) + strlen(errpd->prb) + slop;
-
-	str = alloca(len);
-
-	snprintf(str, len,
-		 "error on enabled probe ID %u (ID %u: %s:%s:%s:%s): %s",
-		 data->dtpda_epid, errpd->id, errpd->prv, errpd->mod,
+	stp = dtp->dt_stmts[data->dtpda_stid];
+	assert(stp != NULL);
+	asprintf(&str,
+		 "error in %s for probe ID %u (%s:%s:%s:%s): %s",
+		 stp->dtsd_clause->di_name, errpd->id, errpd->prv, errpd->mod,
 		 errpd->fun, errpd->prb, faultstr);
 
 	err.dteda_msg = str;
 
 	if (dtp->dt_errhdlr == NULL)
-		return dt_set_errno(dtp, EDT_ERRABORT);
+		rc = dt_set_errno(dtp, EDT_ERRABORT);
+	else if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
+		rc = dt_set_errno(dtp, EDT_ERRABORT);
 
-	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
-		return dt_set_errno(dtp, EDT_ERRABORT);
+	free(str);
 
-	return 0;
+	return rc;
 }
 
 #define	DROPTAG(x)	x, #x

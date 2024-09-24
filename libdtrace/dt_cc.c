@@ -123,6 +123,7 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	if (sdp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
+	sdp->dtsd_id = dtp->dt_stmt_nextid++;
 	assert(yypcb->pcb_stmt == NULL);
 	yypcb->pcb_stmt = sdp;
 	yypcb->pcb_maxrecs = 0;
@@ -130,11 +131,10 @@ dt_stmt_create(dtrace_hdl_t *dtp, dtrace_ecbdesc_t *edp,
 	return sdp;
 }
 
-static dt_ident_t *
-dt_clause_create(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
+static void
+dt_stmt_set_clause(dtrace_hdl_t *dtp, dtrace_difo_t *dp, dtrace_stmtdesc_t *sdp)
 {
 	char		*name;
-	int		len;
 	dt_ident_t	*idp;
 
 	/*
@@ -153,25 +153,21 @@ dt_clause_create(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 	/*
 	 * Generate a symbol name.
 	 */
-	len = snprintf(NULL, 0, "dt_clause_%d", dtp->dt_clause_nextid) + 1;
-	name = dt_alloc(dtp, len);
-	if (name == NULL)
+	if (asprintf(&name, "dt_clause_%d", sdp->dtsd_id) < 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-
-	snprintf(name, len, "dt_clause_%d", dtp->dt_clause_nextid++);
 
 	/*
 	 * Add the symbol to the BPF identifier table and associate the DIFO
 	 * with the symbol.
 	 */
 	idp = dt_dlib_add_func(dtp, name);
-	dt_free(dtp, name);
+	free(name);
 	if (idp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
 
 	dt_ident_set_data(idp, dp);
 
-	return idp;
+	sdp->dtsd_clause = idp;
 }
 
 static void
@@ -211,7 +207,7 @@ dt_compile_one_clause(dtrace_hdl_t *dtp, dt_node_t *cnp, dt_node_t *pnp)
 	 * Compile the clause (predicate and action).
 	 */
 	dt_cg(yypcb, cnp);
-	sdp->dtsd_clause = dt_clause_create(dtp, dt_as(yypcb));
+	dt_stmt_set_clause(dtp, dt_as(yypcb), sdp);
 
 	assert(yypcb->pcb_stmt == sdp);
 	if (dtrace_stmt_add(yypcb->pcb_hdl, yypcb->pcb_prog, sdp) != 0)
@@ -944,7 +940,7 @@ static int get_boottime() {
 static int
 dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 		  dt_ident_t *idp, const dtrace_difo_t *sdp, uint_t *pcp,
-		  uint_t *rcp, uint_t *vcp, dtrace_epid_t epid, uint_t clid)
+		  uint_t *rcp, uint_t *vcp)
 {
 	uint_t			pc = *pcp;
 	uint_t			rc = *rcp;
@@ -955,7 +951,6 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	uint_t			len = sdp->dtdo_brelen;
 	const dof_relodesc_t	*rp = sdp->dtdo_breltab;
 	dof_relodesc_t		*nrp = &dp->dtdo_breltab[rc];
-	dtrace_id_t		prid = prp->desc->id;
 	int			no_deps = 0;
 
 	if (idp != NULL) {
@@ -1026,7 +1021,6 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	for (; len != 0; len--, rp++, nrp++) {
 		const char	*name = dt_difo_getstr(sdp, rp->dofr_name);
 		dtrace_difo_t	*rdp;
-		dtrace_epid_t	nepid;
 		int		ipc;
 
 		idp = dt_dlib_get_sym(dtp, name);
@@ -1041,14 +1035,8 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			}
 
 			switch (idp->di_id) {
-			case DT_CONST_EPID:
-				nrp->dofr_data = epid;
-				continue;
 			case DT_CONST_PRID:
 				nrp->dofr_data = prp->desc->id;
-				continue;
-			case DT_CONST_CLID:
-				nrp->dofr_data = clid;
 				continue;
 			case DT_CONST_ARGC:
 				nrp->dofr_data = 0;	/* FIXME */
@@ -1193,11 +1181,6 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			case DT_CONST_STACK_SKIP:
 				nrp->dofr_data = prp->prov->impl->stack_skip;
 				continue;
-			default:
-				/* probe name -> value is probe id */
-				if (strchr(idp->di_name, ':') != NULL)
-					prid = rp->dofr_data;
-				continue;
 			}
 
 			continue;
@@ -1213,13 +1196,8 @@ dt_link_construct(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 			rdp = dt_dlib_get_func_difo(dtp, idp);
 			if (rdp == NULL)
 				return -1;
-			if (rdp->dtdo_ddesc != NULL) {
-				nepid = dt_epid_add(dtp, rdp->dtdo_ddesc, prid);
-				clid++;
-			} else
-				nepid = 0;
 			ipc = dt_link_construct(dtp, prp, dp, idp, rdp, pcp,
-						rcp, vcp, nepid, clid);
+						rcp, vcp);
 			if (ipc == -1)
 				return -1;
 
@@ -1260,8 +1238,8 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 			continue;
 
 		/*
-		 * We are only relocating constants (EPID and ARGC) and call
-		 * instructions to functions that have been linked in.
+		 * We are only relocating constants and call instructions to
+		 * functions that have been linked in.
 		 */
 		switch (idp->di_kind) {
 		case DT_IDENT_SCALAR:
@@ -1333,8 +1311,7 @@ dt_link(dtrace_hdl_t *dtp, const dt_probe_t *prp, dtrace_difo_t *dp,
 	 */
 	insc = relc = varc = 0;
 
-	rc = dt_link_construct(dtp, prp, fdp, idp, dp, &insc, &relc, &varc, 0,
-			       0);
+	rc = dt_link_construct(dtp, prp, fdp, idp, dp, &insc, &relc, &varc);
 	dt_dlib_reset(dtp, B_FALSE);
 	if (rc == -1)
 		goto fail;
