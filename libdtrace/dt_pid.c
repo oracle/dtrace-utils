@@ -605,9 +605,12 @@ dt_pid_fix_mod(dt_pid_probe_t *pp, dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	return pmp;
 }
 
+/*
+ * Create pid probes for the specified process.
+ */
 static int
-dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
-			 dt_pcb_t *pcb, dt_proc_t *dpr)
+dt_pid_create_pid_probes_proc(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+			      dt_pcb_t *pcb, dt_proc_t *dpr)
 {
 	dt_pid_probe_t pp;
 	int ret = 0;
@@ -702,6 +705,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	return ret;
 }
+
 /*
  * Read a file into a buffer and return it.
  */
@@ -780,24 +784,21 @@ validate_dof_record(const char *path, const dof_parsed_t *parsed,
 /*
  * Create underlying probes relating to the probespec passed on input.
  *
- * If dpr is set, just set up probes relating to mappings found in that one
- * process.  (dpr must in this case be locked.)
+ * dpr must be set and locked.  Just set up probes relating to mappings found
+ * in this one process.
  *
  * Return 0 on success or -1 on error.  (Failure to create specific underlying
  * probes is not an error.)
  */
 static int
-dt_pid_create_usdt_probes(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
-			  dt_pcb_t *pcb)
+dt_pid_create_usdt_probes_proc(dtrace_hdl_t *dtp, dt_proc_t *dpr,
+			       dtrace_probedesc_t *pdp, dt_pcb_t *pcb)
 {
 	const dt_provider_t *pvp;
 	int ret = 0;
 	char *probepath = NULL;
 	glob_t probeglob = {0};
 
-	/*
-	 * Systemwide probing: not yet implemented.
-	 */
 	assert(dpr != NULL && dpr->dpr_proc);
 	assert(MUTEX_HELD(&dpr->dpr_lock));
 
@@ -1102,62 +1103,124 @@ dt_pid_get_pid(const dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	return pid;
 }
 
+/*
+ * Create pid probes.  Return 0 on success (even if no probes are
+ * created, since there might still be USDT probes) and -1 on error.
+ */
 int
-dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 {
+	pid_t pid;
 	char provname[DTRACE_PROVNAMELEN];
 	dt_proc_t *dpr;
-	pid_t pid;
-	int err = 0;
+	int err;
 
 	assert(pcb != NULL);
 
-	if ((pid = dt_pid_get_pid(pdp, dtp, pcb, NULL)) == -1)
+	/* Exclude pid0 from being specifically requested. */
+	if (strcmp(pdp->prv, "pid0") == 0) {
+		dt_pid_error(dtp, pcb, NULL, D_PROC_BADPID,
+			     "pid0 does not contain a valid pid");
 		return -1;
-
-	snprintf(provname, sizeof(provname), "pid%d", (int)pid);
-
-	if (gmatch(provname, pdp->prv) != 0) {
-		if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING) < 0) {
-			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
-			    "failed to grab process %d", (int)pid);
-			return -1;
-		}
-
-		dpr = dt_proc_lookup(dtp, pid);
-		assert(dpr != NULL);
-
-		err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr);
-		dt_proc_release_unlock(dtp, pid);
 	}
 
-	/*
-	 * If it's not strictly a pid provider, we might match a USDT provider.
-	 */
-	if (strcmp(provname, pdp->prv) != 0) {
+	/* Extract the pid. */
+	pid = dt_pid_get_pid(pdp, dtp, pcb, NULL);
+	if (pid <= 0)
+		return 0;
+
+	/* Check whether pid$pid matches the probe description. */
+	snprintf(provname, sizeof(provname), "pid%d", (int)pid);
+	if (gmatch(provname, pdp->prv) == 0)
+		return 0;
+
+	/* Grab the process. */
+	if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING) < 0) {
+		dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
+		    "failed to grab process %d", (int)pid);
+		return -1;
+	}
+	dpr = dt_proc_lookup(dtp, pid);
+	assert(dpr != NULL);
+
+	/* Create the pid probes for this process. */
+	err = dt_pid_create_pid_probes_proc(pdp, dtp, pcb, dpr);
+	dt_proc_release_unlock(dtp, pid);
+
+	return err;
+}
+
+int
+dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+{
+	glob_t globbuf;
+	char *globpat = NULL;
+	int err = 0, i, nmatches = 0;
+
+	assert(pcb != NULL);
+
+	/* If it's strictly a pid provider, we're done. */
+	if (strncmp(pdp->prv, "pid", 3) == 0 && isdigit(pdp->prv[3])) {
+		const char *p = &pdp->prv[4];
+
+		while (isdigit(*p))
+			p++;
+		if (*p == '\0')
+			return 0;
+	}
+
+	/* Look for USDT probes. */
+	asprintf(&globpat, "%s/probes/*/%s", dtp->dt_dofstash_path, pdp->prv[0] ? pdp->prv : "*");
+	nmatches = glob(globpat, 0, NULL, &globbuf) ? 0 : globbuf.gl_pathc;
+	for (i = 0; i < nmatches; i++) {
+		char *s = globbuf.gl_pathv[i]
+			  + strlen(dtp->dt_dofstash_path)
+			  + strlen("/probes/");
+		pid_t pid;
+		dt_proc_t *dpr;
+		dtrace_probedesc_t pdptmp;
+
+		/* Pull out the pid. */
+		pid = atoll(s);
+
+		/* Check, since dtprobed takes a while to clean up dead processes. */
+		if (!Pexists(pid))
+			continue;
+
+		/* Grab the process. */
 		if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
 				      DTRACE_PROC_SHORTLIVED) < 0) {
 			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return -1;
 		}
-
 		dpr = dt_proc_lookup(dtp, pid);
 		assert(dpr != NULL);
 
-		err = dt_pid_create_usdt_probes(dtp, dpr, pdp, pcb);
+		/* Create USDT probes for this process. */
+		pdptmp.prv = strchr(s, '/') + 1;
+		pdptmp.mod = pdp->mod[0] == '\0' ? "*" : pdp->mod;
+		pdptmp.fun = pdp->fun[0] == '\0' ? "*" : pdp->fun;
+		pdptmp.prb = pdp->prb[0] == '\0' ? "*" : pdp->prb;
+		if (dt_pid_create_usdt_probes_proc(dtp, dpr, &pdptmp, pcb))
+			err = 1;
 
-		/*
-		 * Put the module name in its canonical form.
-		 */
-		dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
+		dt_pid_fix_mod(NULL, &pdptmp, dtp, dpr->dpr_pid);
 
 		dt_proc_release_unlock(dtp, pid);
 	}
-
-	/* (USDT systemwide probing goes here.)  */
+	free(globpat);
+	globfree(&globbuf);
 
 	return err ? -1 : 0;
+}
+
+int
+dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+{
+	if (dt_pid_create_pid_probes(pdp, dtp, pcb))
+		return -1;
+	return dt_pid_create_usdt_probes(pdp, dtp, pcb);
 }
 
 int
@@ -1187,7 +1250,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			pd.fun = strdup(pd.fun);	/* we may change it */
 
 			if (gmatch(provname, pdp->prv) != 0 &&
-			    dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
+			    dt_pid_create_pid_probes_proc(&pd, dtp, NULL, dpr) != 0)
 				ret = 1;
 
 			/*
@@ -1195,7 +1258,7 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			 * a USDT provider.
 			 */
 			if (strcmp(provname, pdp->prv) != 0) {
-				if (dt_pid_create_usdt_probes(dtp, dpr, pdp, NULL) < 0)
+				if (dt_pid_create_usdt_probes_proc(dtp, dpr, pdp, NULL) < 0)
 					ret = 1;
 				else
 					dt_pid_fix_mod(NULL, pdp, dtp, dpr->dpr_pid);
