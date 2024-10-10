@@ -252,10 +252,10 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 		pvp = dt_provider_create(dtp, pd.prv, pvops, &pattr, NULL);
 		if (pvp == NULL)
 			return -1;
-	}
 
-	/* Mark the provider as a PID-based provider. */
-	pvp->pv_flags |= DT_PROVIDER_PID;
+		/* Mark the provider as a PID-based provider. */
+		pvp->pv_flags |= DT_PROVIDER_PID;
+	}
 
 	/* Create and/or lookup the underlying probe. */
 	uprp = create_underlying(dtp, psp);
