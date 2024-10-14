@@ -13,7 +13,9 @@
 #include <port.h>
 #include <linux/perf_event.h>
 #include <sys/epoll.h>
+#ifdef HAVE_VALGRIND
 #include <valgrind/valgrind.h>
+#endif
 #include <dt_impl.h>
 #include <dt_aggregate.h>
 #include <dt_peb.h>
@@ -187,9 +189,11 @@ beginend_child(void *arg) {
 	read(args->tochild[0], &cmd, sizeof(cmd));
 	if (cmd != CMD_BEGIN)
 		exit(1);
-	if (RUNNING_ON_VALGRIND)
+#ifdef HAVE_VALGRIND
+        if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
 	else
+#endif
 		BEGIN_probe();
 	cmd++;
 	write(args->frchild[1], &cmd, sizeof(cmd));
@@ -198,9 +202,11 @@ beginend_child(void *arg) {
 	read(args->tochild[0], &cmd, sizeof(cmd));
 	if (cmd != CMD_END)
 		exit(1);
+#ifdef HAVE_VALGRIND
 	if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(END_probe);
 	else
+#endif
 		END_probe();
 	cmd++;
 	write(args->frchild[1], &cmd, sizeof(cmd));
@@ -300,9 +306,12 @@ dtrace_go(dtrace_hdl_t *dtp, uint_t cflags)
 		}
 		if (cmd != CMD_BEGIN + 1)
 			return -1;
-	} else if (RUNNING_ON_VALGRIND)
+	}
+#ifdef HAVE_VALGRIND
+	else if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(BEGIN_probe);
 	else
+#endif
 		BEGIN_probe();
 
 	dtp->dt_active = 1;
@@ -344,9 +353,12 @@ dtrace_stop(dtrace_hdl_t *dtp)
 			return -1;
 		pthread_join(args->thr, NULL);
 		dt_free(dtp, args);
-	} else if (RUNNING_ON_VALGRIND)
+	}
+#ifdef HAVE_VALGRIND
+	else if (RUNNING_ON_VALGRIND)
 		VALGRIND_NON_SIMD_CALL0(END_probe);
 	else
+#endif
 		END_probe();
 
 	dtp->dt_stopped = 1;

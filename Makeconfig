@@ -163,6 +163,41 @@ $(CONFIG_H): $(objdir)/.config/config.$(1).h
 $(CONFIG_MK): $(objdir)/.config/config.$(1).mk
 endef
 
+# Generate a makefile rule to check for the presence of MACRO
+# in HEADER and emit an appropriate header file fragment into a file
+# under $(objdir)/.config.
+#
+# The first argument must be suitable for a filename fragment,
+# for a makefile rule name and for a #define.
+#
+# Syntax: $(call check-header-macro-rule,name,macro,header)
+define check-header-macro-rule
+$(objdir)/.config/config.$(1).h $(objdir)/.config/config.$(1).mk: $(objdir)/.config/.dir.stamp
+	case x$(HAVE_$(1)) in \
+	xyes) echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	     echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk;; \
+	xno) echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	     echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk;; \
+	*) if printf '#include <%s.h>\n#ifndef %s\n#error %s not found.\n#endif' "$(3)" "$(2)" "$(2)" | \
+	       $(CC) $(filter-out --coverage,$(CFLAGS) $(LDFLAGS)) -Iinclude -D_GNU_SOURCE -Werror=implicit-function-declaration -c -o /dev/null -x c - >/dev/null 2>&1; then \
+	       echo '#define HAVE_$(1) 1' > $(objdir)/.config/config.$(1).h; \
+	       echo 'HAVE_$(1)=y' > $(objdir)/.config/config.$(1).mk; \
+	   else \
+	       echo '/* #undef HAVE_$(1) */' > $(objdir)/.config/config.$(1).h; \
+	       echo '# HAVE_$(1) undefined' > $(objdir)/.config/config.$(1).mk; \
+	   fi;; \
+	*) echo "HAVE_$(1) must be yes or no, not $(HAVE_$(1))" >&2; \
+	   false;; \
+	esac
+	rm -f $(CONFIG_H)
+	rm -f $(CONFIG_MK)
+
+$(eval $(call make-override-help,HAVE_$(1), presence of preprocessor macro $(2) in $(3).h))
+
+$(CONFIG_H): $(objdir)/.config/config.$(1).h
+$(CONFIG_MK): $(objdir)/.config/config.$(1).mk
+endef
+
 # Generate a makefile rule to check for support for OPTION in BPFC and emit an
 # appropriate header file fragment into a file under $(objdir)/.config.
 #
@@ -229,6 +264,7 @@ $(eval $(call check-header-rule,DIS1,disassembler(NULL),disasm))
 $(eval $(call check-header-rule,DIS4,disassembler(0,0,0,NULL),disasm))
 $(eval $(call check-header-rule,INITDISINFO3,init_disassemble_info(NULL,NULL,NULL),disasm))
 $(eval $(call check-header-rule,INITDISINFO4,init_disassemble_info(NULL,NULL,NULL,NULL),disasm))
+$(eval $(call check-header-macro-rule,VALGRIND,VALGRIND_NON_SIMD_CALL0,valgrind/valgrind))
 $(eval $(call check-bpfc-option-rule,BPFV3,-mcpu=v3))
 $(eval $(call check-bpfc-option-rule,BPFMASM,-masm=normal))
 
