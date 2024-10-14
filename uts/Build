@@ -37,6 +37,7 @@ install::
 		(cd $(uts_DIR) && \
 		    sed -e 's,@SDTINCLUDEDIR@,$(SDTINCLUDEDIR),g;' \
 			-e 's,@INCLUDEDIR@,$(INCLUDEDIR),g;' \
+			-e 's,@LIBDIR@,$(LIBDIR),g;' \
 			-e 's,@VERSION@,$(VERSION),g;' \
 			-e 's,@DTRACE@,$(SBINDIR)/dtrace,g' < \
 			$${name}.in > $(INSTPKGCONFIGDIR)/$$name;) \
