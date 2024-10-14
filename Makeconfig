@@ -218,7 +218,6 @@ $(eval $(call check-symbol-rule,ELF_GETSHDRSTRNDX,elf_getshdrstrndx,elf))
 $(eval $(call check-symbol-rule,LIBCTF,ctf_open,ctf,t))
 $(eval $(call check-symbol-rule,STRRSTR,strrstr,c))
 $(eval $(call check-symbol-rule,PTHREAD_ATFORK,pthread_atfork,c))
-$(eval $(call check-symbol-rule,LIBSYSTEMD,sd_notify,systemd,t))
 ifndef WANTS_LIBFUSE2
 $(eval $(call check-symbol-rule,FUSE_LOG,fuse_set_log_func,fuse3))
 $(eval $(call check-symbol-rule,LIBFUSE3,fuse_session_receive_buf,fuse3,t))

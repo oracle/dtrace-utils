@@ -93,9 +93,13 @@ built locally, none of these should be needed):
 
 EOF
 	make help-overrides-header help-overrides-option
+	cat >&2 <<'EOF'
+--with-systemd=[yes/no]		Disable installation of the systemd unit files
+EOF
         echo >&2
         make help-overrides
 	cat >&2 <<'EOF'
+
 Options controlling the compiler (pass on the command line):
 
 CC				C compiler (may be a cross-compiler)
@@ -153,12 +157,12 @@ for option in "$@"; do
         --kernel-obj-dir=*) write_make_var KERNELOBJDIR "$option";;
         --kernel-src-suffix=*) write_make_var KERNELSRCNAME "$option";;
         --kernel-obj-suffix=*) write_make_var KERNELBLDNAME "$option";;
+        --with-systemd|--with-systemd=yes) write_make_var WITH_SYSTEMD "true";;
+        --with-systemd=no|--without-systemd) write_make_var WITH_SYSTEMD "";;
         HAVE_ELF_GETSHDRSTRNDX=*) write_config_var ELF_GETSHDRSTRNDX "$option";;
         --with-libctf=*) write_config_var LIBCTF "$option";;
         HAVE_LIBCTF=*) write_config_var LIBCTF "$option";;
         HAVE_STRRSTR=*) write_config_var STRRSTR "$option";;
-        --with-libsystemd=*) write_config_var LIBSYSTEMD "$option";;
-        HAVE_LIBSYSTEMD=*) write_config_var LIBSYSTEMD "$option";;
         HAVE_FUSE_LOG=*) write_config_var FUSE_LOG "$option";;
         --with-libfuse3=*) write_config_var LIBFUSE3 "$option";;
         HAVE_LIBFUSE3=*) write_config_var LIBFUSE3 "$option";;

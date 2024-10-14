@@ -29,6 +29,7 @@ int p_online(int cpun);
 #define MUTEX_HELD(x)	((x)->__data.__count == 0)
 
 int daemonize(int close_fds);
+int systemd_notify(const char *message);
 
 _dt_noreturn_ void daemon_perr(int fd, const char *err, int err_no);
 _dt_printflike_(2, 3) void daemon_log(int fd, const char *fmt, ...);

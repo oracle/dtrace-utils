@@ -29,11 +29,6 @@ dtprobed_DEPS := libproc.a libcommon.a libport.a
 dtprobed_SOURCES := dtprobed.c dof_stash.c seccomp-assistance.c
 dtprobed_LIBSOURCES := libproc libcommon
 
-ifdef HAVE_LIBSYSTEMD
-dtprobed_CFLAGS += $(shell pkg-config --cflags libsystemd)
-dtprobed_LIBS += $(shell pkg-config --libs libsystemd)
-endif
-
 ifndef HAVE_FUSE_LOG
 dtprobed_SOURCES += rpl_fuse_log.c
 endif
@@ -43,7 +38,7 @@ seccomp-assistance.c_CFLAGS := -fno-lto
 endif
 
 install-dtprobed-autostart::
-ifdef HAVE_LIBSYSTEMD
+ifneq ($(WITH_SYSTEMD),)
 	mkdir -p $(INSTSYSTEMDUNITDIR) $(INSTSYSTEMDPRESETDIR)
 	$(call describe-install-target,$(INSTSYSTEMDUNITDIR),dtprobed.service)
 	sed 's,@SBINDIR@,$(SBINDIR),' < $(dtprobed_DIR)dtprobed.service.in > $(INSTSYSTEMDUNITDIR)/dtprobed.service

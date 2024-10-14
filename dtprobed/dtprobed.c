@@ -61,10 +61,6 @@
 
 #include <dtrace/ioctl.h>
 
-#ifdef HAVE_LIBSYSTEMD
-#include <systemd/sd-daemon.h>
-#endif
-
 #include <dt_list.h>
 #include "dof_parser.h"
 #include "dof_stash.h"
@@ -1073,9 +1069,7 @@ main(int argc, char *argv[])
 		sync_fd = -1;
 	}
 
-#ifdef HAVE_LIBSYSTEMD
-	sd_notify(1, "READY=1");
-#endif
+	systemd_notify("READY=1");
 
 	ret = loop();
 
