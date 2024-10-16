@@ -46,9 +46,11 @@
 /* Provider name for the underlying probes. */
 static const char	prvname[] = "uprobe";
 
-#define PP_IS_RETURN	1
-#define PP_IS_FUNCALL	2
-#define PP_IS_ENABLED	4
+#define PP_IS_RETURN	0x1
+#define PP_IS_FUNCALL	0x2
+#define PP_IS_ENABLED	0x4
+#define PP_IS_USDT	0x8
+#define PP_IS_MAPPED	0x10
 
 typedef struct dt_uprobe {
 	dev_t		dev;
@@ -57,7 +59,10 @@ typedef struct dt_uprobe {
 	uint64_t	off;
 	int		flags;
 	tp_probe_t	*tp;
-	dt_list_t	probes;		/* pid/USDT probes triggered by it */
+	int		argc;		   /* number of args */
+	dt_argdesc_t	*args;		   /* args array (points into argvbuf) */
+	char		*argvbuf;	   /* arg strtab */
+	dt_list_t	probes;		   /* pid/USDT probes triggered by it */
 } dt_uprobe_t;
 
 typedef struct list_probe {
@@ -123,6 +128,8 @@ static void probe_destroy_underlying(dtrace_hdl_t *dtp, void *datap)
 	dt_tp_destroy(dtp, tpp);
 	free_probe_list(dtp, dt_list_next(&upp->probes));
 	dt_free(dtp, upp->fn);
+	dt_free(dtp, upp->args);
+	dt_free(dtp, upp->argvbuf);
 	dt_free(dtp, upp);
 }
 
@@ -517,6 +524,80 @@ static int discover(dtrace_hdl_t *dtp)
 }
 
 /*
+ * Populate args for an underlying probe for use by the overlying USDT probe.
+ * The overlying probe does not exist yet at this point, so the arg data is
+ * stored in the underlying probe instead and will be accessed when probe_info
+ * is called in the overlying probe.
+ *
+ * Move it into dt_argdesc_t's for use later on. The char *'s in that structure
+ * are pointers into the argvbuf array, which is a straight concatenated copy of
+ * the nargv/xargv in the pid_probespec_t.
+ */
+static int populate_args(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
+			 dt_uprobe_t *upp)
+{
+	char	**nargv = NULL;
+	char	*nptr = NULL, *xptr = NULL;
+	size_t	i;
+
+	upp->argc = psp->pps_xargc;
+
+	/*
+	 * If we have a nonzero number of args, we always have at least one narg
+	 * and at least one xarg.  Double-check to be sure.  (These are not
+	 * populated, and thus left 0/NULL, for non-USDT probes.)
+	 */
+	if (upp->argc == 0 || psp->pps_xargv == NULL || psp->pps_nargv == NULL
+		|| psp->pps_xargvlen == 0 || psp->pps_nargvlen == 0)
+		return 0;
+
+	upp->argvbuf = dt_alloc(dtp, psp->pps_xargvlen + psp->pps_nargvlen);
+	if(upp->argvbuf == NULL)
+		return -1;
+	memcpy(upp->argvbuf, psp->pps_xargv, psp->pps_xargvlen);
+	xptr = upp->argvbuf;
+
+	memcpy(upp->argvbuf + psp->pps_xargvlen, psp->pps_nargv, psp->pps_nargvlen);
+	nptr = upp->argvbuf + psp->pps_xargvlen;
+
+	upp->args = dt_calloc(dtp, upp->argc, sizeof(dt_argdesc_t));
+	if (upp->args == NULL)
+		return -1;
+
+	/*
+	 * Construct an array to allow accessing native args by index.
+	 */
+	if ((nargv = dt_calloc(dtp, psp->pps_nargc, sizeof (char *))) == NULL)
+		goto fail;
+
+	for (i = 0; i < psp->pps_nargc; i++, nptr += strlen(nptr) + 1)
+		nargv[i] = nptr;
+
+	/*
+	 * Fill up the upp->args array based on xargs.  If this indicates that
+	 * mapping is needed, note as much.
+	 */
+	for (i = 0; i < upp->argc; i++, xptr += strlen(xptr) + 1) {
+		int map_arg = psp->pps_argmap[i];
+
+		upp->args[i].native = nargv[map_arg];
+		upp->args[i].xlate = xptr;
+		upp->args[i].mapping = map_arg;
+		upp->args[i].flags = 0;
+
+                if (i != map_arg)
+			upp->flags |= PP_IS_MAPPED;
+	}
+
+	free(nargv);
+	return 0;
+
+ fail:
+	free(nargv);
+	return -1;
+}
+
+/*
  * Look up or create an underlying (real) probe, corresponding directly to a
  * uprobe.  Since multiple pid and USDT probes may all map onto the same
  * underlying probe, we may already have one in the system.
@@ -530,7 +611,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	char			prb[DTRACE_NAMELEN];
 	dtrace_probedesc_t	pd;
 	dt_probe_t		*uprp;
-	dt_uprobe_t		*upp;
+	dt_uprobe_t		*upp = NULL;
 
 	/*
 	 * The underlying probes (uprobes) represent the tracepoints that pid
@@ -555,6 +636,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	case DTPPT_IS_ENABLED:
 	case DTPPT_ENTRY:
 	case DTPPT_OFFSETS:
+	case DTPPT_USDT:
 		snprintf(prb, sizeof(prb), "%lx", psp->pps_off);
 		break;
 	default:
@@ -568,6 +650,8 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	pd.fun = psp->pps_fun;
 	pd.prb = prb;
 
+	dt_dprintf("Providing underlying probe %s:%s:%s:%s @ %lx\n", psp->pps_prv,
+		   psp->pps_mod, psp->pps_fn, psp->pps_prb, psp->pps_off);
 	uprp = dt_probe_lookup(dtp, &pd);
 	if (uprp == NULL) {
 		dt_provider_t	*pvp;
@@ -591,11 +675,23 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 			goto fail;
 
 		uprp = dt_probe_insert(dtp, pvp, pd.prv, pd.mod, pd.fun, pd.prb,
-				      upp);
+				       upp);
 		if (uprp == NULL)
 			goto fail;
 	} else
 		upp = uprp->prv_data;
+
+	/*
+	 * Only one USDT probe can correspond to each underlying probe.
+	 */
+	if (psp->pps_type == DTPPT_USDT && upp->flags == PP_IS_USDT) {
+		dt_dprintf("Found overlapping USDT probe at %lx/%lx/%lx/%s\n",
+			   upp->dev, upp->inum, upp->off, upp->fn);
+		goto fail;
+	}
+
+	if (populate_args(dtp, psp, upp) < 0)
+		goto fail;
 
 	switch (psp->pps_type) {
 	case DTPPT_RETURN:
@@ -604,15 +700,20 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	case DTPPT_IS_ENABLED:
 	    upp->flags |= PP_IS_ENABLED;
 	    break;
+	case DTPPT_USDT:
+	    upp->flags |= PP_IS_USDT;
+	    break;
 	default: ;
 	    /*
 	     * No flags needed for other types.
 	     */
 	}
 
-	return uprp;
+        return uprp;
 
 fail:
+	dt_dprintf("Failed to instantiate %s:%s:%s:%s\n", psp->pps_prv,
+		   psp->pps_mod, psp->pps_fn, psp->pps_prb);
 	probe_destroy(dtp, upp);
 	return NULL;
 }
@@ -732,7 +833,7 @@ static int provide_pid_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 
 static int provide_usdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 {
-	if (psp->pps_type != DTPPT_OFFSETS &&
+	if (psp->pps_type != DTPPT_USDT &&
 	    psp->pps_type != DTPPT_IS_ENABLED) {
 		dt_dprintf("pid: unknown USDT probe type %i\n", psp->pps_type);
 		return -1;
@@ -786,7 +887,13 @@ static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
  *	int dt_uprobe(dt_pt_regs *regs)
  *
  * The trampoline will first populate a dt_dctx_t struct.  It will then emulate
- * the firing of all dependent pid* probes and their clauses.
+ * the firing of all dependent pid* and USDT probes and their clauses, or (in
+ * the case of is-enabled probes), do the necessary copying (is-enabled probes
+ * have no associated clauses and their behaviour is hardwired).
+ *
+ * Trampolines associated with USDT probes will also arrange for argument
+ * shuffling before the USDT clauses are invoked if the argmap array calls for
+ * it.
  */
 static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
@@ -864,7 +971,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	/*
-	 * USDT
+	 * USDT.
 	 */
 
 	/* In some cases, we know there are no USDT probes. */  // FIXME: add more checks
@@ -872,6 +979,16 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		goto out;
 
 	dt_cg_tramp_copy_args_from_regs(pcb, 0);
+
+	/*
+	 * Apply arg mappings, if needed.
+	 */
+	if (upp->flags & PP_IS_MAPPED) {
+
+		/* dt_cg_tramp_map_args() works from the saved args. */
+		dt_cg_tramp_save_args(pcb);
+		dt_cg_tramp_map_args(pcb, upp->args, upp->argc);
+	}
 
 	/*
 	 * Retrieve the PID of the process that caused the probe to fire.
@@ -1083,10 +1200,51 @@ attach_bpf:
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *argcp, dt_argdesc_t **argvp)
 {
-	*argcp = 0;			/* no known arguments */
-	*argvp = NULL;
+	size_t		i = 0;
+	list_probe_t	*pup = prp->prv_data;
+	dt_uprobe_t	*upp;
+	size_t		argc = 0;
+	dt_argdesc_t	*argv = NULL;
+
+	/* No underlying probes?  No args.  */
+	if (!pup)
+		goto done;
+
+	upp = pup->probe->prv_data;
+	if (!upp || upp->args == NULL)
+		goto done;
+
+	argc = upp->argc;
+	argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	for (i = 0; i < argc; i++) {
+		argv[i].native = strdup(upp->args[i].native);
+		if (upp->args[i].xlate)
+			argv[i].xlate = strdup(upp->args[i].xlate);
+		argv[i].mapping = i;
+
+		if (argv[i].native == NULL ||
+		    (upp->args[i].xlate != NULL && argv[i].xlate == NULL))
+			goto oom;
+	}
+
+done:
+	*argcp = argc;
+	*argvp = argv;
 
 	return 0;
+ oom:
+	size_t j;
+
+	for (j = 0; j <= i; j++) {
+		free((char *) argv[i].native);
+		free((char *) argv[i].xlate);
+	}
+
+        dt_free(dtp, argv);
+	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
 /*
@@ -1152,7 +1310,6 @@ dt_provimpl_t	dt_uprobe = {
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
 	.attach		= &attach,
-	.probe_info	= &probe_info,
 	.detach		= &detach,
 	.probe_destroy	= &probe_destroy_underlying,
 	.add_probe	= &add_probe_uprobe,
@@ -1178,6 +1335,7 @@ dt_provimpl_t	dt_usdt = {
 	.populate	= &populate_usdt,
 	.provide_probe	= &provide_usdt_probe,
 	.enable		= &enable_usdt,
+	.probe_info	= &probe_info,
 	.probe_destroy	= &probe_destroy,
 	.discover	= &discover,
 	.add_probe	= &add_probe_usdt,

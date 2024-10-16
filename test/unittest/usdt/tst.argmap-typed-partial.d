@@ -10,7 +10,8 @@
 /* @@runtest-opts: $_pid */
 
 /*
- * ASSERTION: Verify that argN and args[N] variables are properly mapped.
+ * ASSERTION: Verify that args[N] variables are properly typed when mapped,
+ *            even if some args are unused.
  */
 
 BEGIN
@@ -19,23 +20,23 @@ BEGIN
 	timeout = timestamp + 5000000000;
 }
 
-test_prov$1:::place
-/arg0 != 4 || arg1 != 10 || arg2 != 10 || arg3 != 4/
+test_prov$1:::place3
+/stringof(args[0]) != "bar"/
 {
-	printf("args are %d, %d, %d, %d; should be 4, 10, 10, 4",
-	    arg0, arg1, arg2, arg3);
+	printf("arg is %s; should be \"bar\"",
+	    stringof(args[0]));
 	exit(1);
 }
 
-test_prov$1:::place
-/args[0] != 4 || args[1] != 10 || args[2] != 10 || args[3] != 4/
+test_prov$1:::place3
+/stringof(copyinstr(arg0)) != "bar"/
 {
-	printf("args are %d, %d, %d, %d; should be 4, 10, 10, 4",
-	    args[0], args[1], args[2], args[3]);
+	printf("arg is %s; should be \"bar\"",
+	    stringof(copyinstr(arg0)));
 	exit(1);
 }
 
-test_prov$1:::place
+test_prov$1:::place3
 {
 	exit(0);
 }

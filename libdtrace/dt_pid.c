@@ -1001,7 +1001,7 @@ dt_pid_create_usdt_probes_proc(dtrace_hdl_t *dtp, dt_proc_t *dpr,
 				goto oom;
 			}
 
-			psp.pps_type = tp->tracepoint.is_enabled ? DTPPT_IS_ENABLED : DTPPT_OFFSETS;
+			psp.pps_type = tp->tracepoint.is_enabled ? DTPPT_IS_ENABLED : DTPPT_USDT;
 			psp.pps_prv = prv;
 			psp.pps_mod = mod;
 			psp.pps_fun = fun;
