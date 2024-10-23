@@ -55,4 +55,4 @@ install::
 	$(call describe-install-target,$(INSTSBINDIR),dtrace)
 	install -m 755 $(objdir)/dtrace $(INSTSBINDIR)
 	$(call describe-install-target,$(INSTMANDIR),dtrace.8)
-	install -m 644 $(dtrace_DIR)/dtrace.8 $(INSTMANDIR)
+	install -m 644 $(dtrace_DIR)/dtrace.8 $(INSTMANDIR)/man8
