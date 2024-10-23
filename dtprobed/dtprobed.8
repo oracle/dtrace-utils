@@ -1,0 +1,66 @@
+'\" te
+.\" Oracle Linux DTrace.
+.\" Copyright (c) 2009, 2024, Oracle and/or its affiliates. All Rights Reserved.
+.\" Licensed under the Universal Permissive License v 1.0 as shown at
+.\" http://oss.oracle.com/licenses/upl.
+.TH dtrace 8 "22 Oct 2023" "Oracle Linux" "Linux Programmer's Manual"
+.SH NAME
+dtprobed \- USDT-tracking daemon
+.SH SYNOPSIS
+.SY dtprobed
+.OP -Fd
+.OP \-d devname
+.OP \-t timeout
+.YS
+.
+.SH DESCRIPTION
+.LP
+\fBdtprobed\fP is a component of the DTrace system that keeps track of USDT probes within running processes, parsing and storing the DOF they provide for later consumption by \fBdtrace\fP proper.
+.LP
+\fBdtprobed\fP should be started as soon as possible after startup and should always be kept running: processes that start before it may not have usable USDT probes.  On systemd systems this is usually done automatically.  (Restarting on upgrade should also be done for you by the packaging system.)
+.LP
+The following options are supported:
+.TP
+\fB\-F\fP
+Put \fBdtprobed\fP into the foreground: log output to \fIstderr\fP instead of the syslog. (Routinely used by systemd.)
+.TP
+\fB\-d\fP
+Enable debugging: log extra output, and disable sandboxing of the DOF parser.
+.TP
+\fB-n\fP \fIdevname\fP
+Name the CUSE device something other than the default \fIdtrace/helper\fP. DOF-containing processes will not connect to this instance unless pointed at it via the \fIDTRACE_DOF_INIT_DEVNAME\fP environment variable.  Using this option is necessary if for some reason (perhaps debugging) you want to have two dtprobeds running at once.  (They will still share a state directory, so DTrace will know about all probes discovered by all running \fBdtprobed\fPs.)
+.TP
+\fB\-t\fP \fItimeout\fP
+Timeout, in seconds, for DOF reads from the parser child.  DOF that takes longer than this to parse will be discarded.  The default (5 seconds) is probably always reasonable. Setting this too low might cause legitimate DOF to be discarded: setting it too high might cause faulty DOF to block \fBdtprobed\fP, preventing registration of new probes.
+.
+.SH "ENVIRONMENT VARIABLES"
+.LP
+Ignoring internal testing-only variables, \fBdtprobed\fP itself does not accept any environment variables: but programs that talk to it (any program that contains USDT probes) do accept some.
+.TP
+\fIDTRACE_DOF_INIT_DEBUG\fP
+Output debugging messages to standard error if set (to anything).
+.TP
+\fIDTRACE_DOF_INIT_DEVNAME\fP
+The full name of the helper device to send registration requests on: by default, \fI/dev/dtrace/helper\fP. \fBdtprobed\fP is listening on the other end of this device.
+.TP
+\fIDTRACE_DOF_INIT_DISABLE\fP
+Disable DOF registration entirely.
+.
+.SH FILES
+.
+.TP
+\fI/run/dtrace/stash\fP
+Private stash of DOF.
+.TP
+\fI/run/dtrace/probes\fP
+Parsed representations of every probe.  The parsed representation is shared between
+.MR dtrace 8
+and \fBdtprobed\fP, and can change between releases: on upgrade, \fBdtprobed\fP should be restarted, and will regenerate any parsed DOF that is needed, so \fBdtrace\fPs started after the upgrade will still work.  (Still-running \fBdtrace\fPs from before the upgrade may become unable to see newly-added probes.)
+.
+.SH SEE ALSO
+.
+.BR cpp (1),
+.BR ssh (1),
+.BR dtprobed (1)
+.LP
+.I Oracle Linux DTrace Guide

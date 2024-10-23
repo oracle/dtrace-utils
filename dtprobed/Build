@@ -57,6 +57,8 @@ install::
 	mkdir -p $(INSTSBINDIR)
 	$(call describe-install-target,$(INSTSBINDIR),dtprobed)
 	install -m 755 $(objdir)/dtprobed $(INSTSBINDIR)
+	$(call describe-install-target,$(INSTMANDIR),dtprobed.8)
+	install -m 644 $(dtprobed_DIR)/dtprobed.8 $(INSTMANDIR)/man8
 	mkdir -p $(INSTUDEVDIR)
 	$(call describe-install-target,$(INSTUDEVDIR),60-dtprobed.rules)
 	install -m 644 $(dtprobed_DIR)60-dtprobed.rules $(INSTUDEVDIR)
