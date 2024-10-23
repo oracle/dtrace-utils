@@ -180,9 +180,9 @@ dt_probe_keylen(const dtrace_probedesc_t *pdp)
 }
 
 static char *
-dt_probe_key(const dtrace_probedesc_t *pdp, char *s)
+dt_probe_key(const dtrace_probedesc_t *pdp, char *s, size_t len)
 {
-	snprintf(s, INT_MAX, "%s:%s:%s", pdp->mod, pdp->fun, pdp->prb);
+	snprintf(s, len, "%s:%s:%s", pdp->mod, pdp->fun, pdp->prb);
 	return s;
 }
 
@@ -204,7 +204,7 @@ dt_probe_lookup2(dt_provider_t *pvp, const char *s)
 		return NULL; /* dt_errno is set for us */
 
 	keylen = dt_probe_keylen(&pd);
-	key = dt_probe_key(&pd, alloca(keylen));
+	key = dt_probe_key(&pd, alloca(keylen), keylen);
 
 	/*
 	 * If the probe is already declared, then return the dt_probe_t from
