@@ -82,7 +82,7 @@ static pid_t parser_pid;
 static int parser_in_pipe;
 static int parser_out_pipe;
 static int sync_fd = -1;
-static int timeout = 5000; 			/* In seconds.  */
+static int timeout = 5; 			/* In seconds.  */
 static int rq_count = 0;
 static int cleanup_interval = 128;		/* In requests.  */
 
