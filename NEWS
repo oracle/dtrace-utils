@@ -1,3 +1,136 @@
+2.0.1-1 (May 6th, 2024)
+-----------------------
+
+New features:
+
+ - Function Boundary Tracing (FBT) probes can now access function arguments
+   using argv[n] where n is bound by the number of arguments of the function.
+   The datatype of each argument is a generic uint64_t for now.
+
+Internal changes:
+
+ - Function BOundary Tracing (FBT) probes are now implemented using the more
+   lightweight fentry/fexit kernel tracing facility.  Fallback to kprobes is
+   provided for kernels that do not provide fentry/fexit probing using BPF.
+
+Build-time:
+
+ - D translators are now included with the DTrace source code, and will be
+   installed for all supported kernel versions.  This mens that building
+   DTrace no longer requires access to kernel development headers.
+
+2.0.0-1.14 (Mar 5th, 2024)
+--------------------------
+
+Fourteenth errata of the standalone userspace implementation.
+
+** This is a pre-release with limited functionality. **
+
+New features:
+
+ - The io provider has been implemented.
+
+ - The print() action has been implemented.
+
+ - The link_ntop() subroutine has been implemented.
+
+ - The cleanpath() subroutine has been implemented.
+
+ - The d_path() subroutine has been implemented to always return "<unknown>".
+   This is needed to ensure that the io and procfs translators compile.
+
+ - The -xcpu option has been implemented.
+
+ - The -xaggpercpu option has been implemented.
+
+ - The -xlockmem option has been improved.  The limit is set before retrieving
+   probe info, and the default behavior is now "unlimited" (meaning most users
+   will not have to worry about this option).
+
+ - The pid provider now supports offset-based probe names.
+
+ - Aggregations of stacks are now supported.
+
+ - The retrieval of rawtp argument information has been improved.
+
+ - It is now possible to delete an element in an associative array by assigning
+   a literal 0 to it, regardless of the element datatype.
+
+ - The lexer has been improved to support module names that start with a
+   numeral so that they can be used (e.g. 9p`v9fs_remove).
+
+ - A basic configure script has been added to facilitate building and packaging
+   in a variety of distributions.
+
+ - USDT probe information maintained by dtprobed is now stored under /run to
+   ensure it can survive daemon restarts.
+
+Bugfixes:
+
+ - Drop counter handling is fixed for local-only updates.
+
+ - Dedicated space has been introduced for call stacks, so that stackdepth and
+   temporary strings will not overwrite one another.
+
+ - dt_tp_event_info() has been corrected so as not to overrun its buffer.
+
+ - Compilation of BPF code that uses BPF helpers now uses the bpf_helpers.h
+   header file from libbpf-dev[el] instead of the (deprecated) bpf-helpers.h
+   header file that the gcc BPF cross provided.
+
+ - Due to the need to support DTrace on older kernels, BPF source code files
+   are now compiled using -mcpu=v3 to ensure that the object code is acceptable
+   to the BPF verifier in older kernels.
+
+ - When a dtrace instance would trigger the END probe to be processed, any and
+   all other dtrace instances on the system would have their END probe fire as
+   well because the dtrace provider trampolines were not validating the tgid
+   of the task triggering the probe.
+
+ - The initialization of the cpuinfo BPF map could cause a buffer overrun on
+   systems with non-sequential online CPU ids.
+
+ - On kernels that support preemptive BPF program execution, probe data could
+   get corrupted.  As a temporary fix, concurrent BPF program execution for
+   DTrace probes is blocked.
+
+Internal changes:
+
+ - Code has been restructured to better support SDT-based providers.
+   While such providers (lockstat, io, etc.) used to be based on
+   static probes in the kernel source, they are now implemented with
+   fbt, rawtp, and even syscall probes.  Probe trampolines can become
+   involved.  Changes, notably in cg, better support these providers.
+   Also, the underlying probes are using rawtp more rather than relying
+   just on fbt.
+
+ - Support for compilation in older environments (esp. older compilers) has
+   been improved.
+
+ - There have been a number of build improvements, especially for cross
+   compilation and to build with upstream kernels.
+
+ - A bunch of code to parse strings has been removed, relying instead
+   on flex for this support.
+
+ - The creation and deletion of USDT probes has moved from dtprobed to dtrace.
+
+ - The dtprobed now uses presets for daemon restarting.
+
+Testsuite changes:
+
+ - Test dependence on tick-* probes has further been reduced.  The tick-*
+   probes can behave poorly on some kernels, depending on how their timers
+   subsystem is configured (CONFIG*_HZ*).  Reducing this dependence has
+   gone on over multiple releases to improve the robustness of these tests.
+
+ - Fix err.* tests that force XFAIL to report so correctly.
+
+ - Skip lockstat testing prior to 5.10.
+
+ - Fix the use of syscall::execve:entry args[1][?], since there are two
+   levels of dereferencing userspace addresses, requiring two copyin*().
+
 2.0.0-1.13.2 (Nov 10th, 2023)
 -----------------------------
 
