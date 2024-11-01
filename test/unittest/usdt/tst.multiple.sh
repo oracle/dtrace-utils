@@ -12,7 +12,8 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS=
+CFLAGS="$test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-multiple.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -26,7 +27,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -58,12 +59,12 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o prov.o
+${CC} ${LDFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
@@ -74,7 +75,7 @@ script() {
 	# rtld activity monitoring from triggering repeated
 	# probe scans (checking for problems doing one-off scans of
 	# already-running processes while probing multiple probes).
-	./test & { WAIT=$!; sleep 1; $dtrace -qs /dev/stdin $WAIT <<EOF; }
+	./test & { WAIT=$!; sleep 1; $dtrace $dt_flags -qs /dev/stdin $WAIT <<EOF; }
 	test_prov\$1:::go
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);

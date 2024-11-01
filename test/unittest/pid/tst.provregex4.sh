@@ -31,10 +31,10 @@ main.o: main.c prov.h
 	cc $test_cppflags -c main.c
 
 prov.h: prov.d
-	$dtrace -h -s prov.d
+	$dtrace $dt_flags -h -s prov.d
 
 provmain.o: prov.d main.o
-	$dtrace -G -o provmain.o -s prov.d main.o
+	$dtrace $dt_flags -G -o provmain.o -s prov.d main.o
 
 altlib.so: altlib.o provalt.o
 	cc $test_cppflags -z defs --shared -o altlib.so altlib.o provalt.o
@@ -43,7 +43,7 @@ altlib.o: altlib.c prov.h
 	cc $test_cppflags -c altlib.c
 
 provalt.o: prov.d altlib.o
-	$dtrace -G -o provalt.o -s prov.d altlib.o
+	$dtrace $dt_flags -G -o provalt.o -s prov.d altlib.o
 EOF
 
 cat > $DIR/prov.d <<EOF

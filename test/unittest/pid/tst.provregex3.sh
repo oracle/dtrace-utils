@@ -29,10 +29,10 @@ main.o: main.c prov.h
 	cc $test_cppflags -c main.c
 
 prov.h: prov.d
-	$dtrace -h -s prov.d
+	$dtrace $dt_flags -h -s prov.d
 
 prov.o: prov.d main.o
-	$dtrace -G -64 -s prov.d main.o
+	$dtrace $dt_flags -G -64 -s prov.d main.o
 EOF
 
 cat > $DIR/prov.d <<EOF

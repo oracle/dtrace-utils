@@ -6,7 +6,7 @@
 # http://oss.oracle.com/licenses/upl.
 
 script() {
-	$dtrace -c 'cat shajirosan' -qs /dev/stdin <<EOF
+	$dtrace $dt_flags -c 'cat shajirosan' -qs /dev/stdin <<EOF
 	syscall::open*:entry
 	/pid == \$target/
 	{

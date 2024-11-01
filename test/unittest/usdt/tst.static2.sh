@@ -17,6 +17,7 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="$test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-static2.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -54,18 +55,18 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create initial DOF" >& 2
 	exit 1
 fi
 rm -f prov.o
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create final DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o prov.o
+${CC} ${LDFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
@@ -73,7 +74,7 @@ fi
 
 script()
 {
-	$dtrace -c ./test -qs /dev/stdin <<EOF
+	$dtrace $dt_flags -c ./test -qs /dev/stdin <<EOF
 	test_prov\$target:::
 	{
 		printf("%s:%s:%s\n", probemod, probefunc, probename);

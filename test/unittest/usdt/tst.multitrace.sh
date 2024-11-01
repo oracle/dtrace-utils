@@ -15,7 +15,8 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS=
+CFLAGS="$test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-multitrace.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -28,7 +29,7 @@ provider test_multitrace {
 };
 EOF
 
-$dtrace -h -s multitrace.d
+$dtrace $dt_flags -h -s multitrace.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -60,19 +61,19 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s multitrace.d test.o
+$dtrace $dt_flags -G -s multitrace.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o multitrace.o
+${CC} ${LDFLAGS} -o test test.o multitrace.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
 
 script() {
-	exec $dtrace -qws /dev/stdin $1 $2 $3 <<'EOF'
+	exec $dtrace $dt_flags -qws /dev/stdin $1 $2 $3 <<'EOF'
 	int fired[pid_t];
 	int exited[pid_t];
 

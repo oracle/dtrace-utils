@@ -69,7 +69,7 @@ cat > $tmpdir/tst.ipv4remotetcp.test.pl <<-EOPERL
 	}
 EOPERL
 
-$dtrace -c "/usr/bin/perl $tmpdir/tst.ipv4remotetcp.test.pl" -qs /dev/stdin <<EODTRACE
+$dtrace $dt_flags -c "/usr/bin/perl $tmpdir/tst.ipv4remotetcp.test.pl" -qs /dev/stdin <<EODTRACE
 BEGIN
 {
 	send = receive = 0;

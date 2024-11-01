@@ -13,7 +13,7 @@ dtrace=$1
 # once n becomes too small, there are insufficient registers
 for n in 8 7 6 5 4 3; do
 
-    $dtrace -xiregs=$n -qn 'BEGIN {
+    $dtrace $dt_flags -xiregs=$n -qn 'BEGIN {
         a = b = c = d = e = f = g = h = i = j = k = l = 1;
         trace(a + b * (c + d * (e + f * (g + h * (i + j * (k + l))))));
         exit(0);

@@ -24,7 +24,7 @@ fi
 
 dtrace=$1
 
-$dtrace -lm dt_test && $dtrace -lm 'dt_t*'
+$dtrace $dt_flags -lm dt_test && $dtrace $dt_flags -lm 'dt_t*'
 status=$?
 
 exit $status

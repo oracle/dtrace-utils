@@ -9,6 +9,6 @@
 dtrace=$1
 
 for x in 3 5 9 11; do
-    $dtrace -xtregs=$x -qn 'BEGIN { @[1, 2, 3, 4, 5, 6, 7] = count(); exit(0) }'
+    $dtrace $dt_flags -xtregs=$x -qn 'BEGIN { @[1, 2, 3, 4, 5, 6, 7] = count(); exit(0) }'
     echo "tregs $x gives $?"
 done

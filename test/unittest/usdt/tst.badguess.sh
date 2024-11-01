@@ -12,7 +12,8 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS=
+CFLAGS="$test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-badguess.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -24,7 +25,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -48,13 +49,13 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c 64-bit" >& 2
 	exit 1
 fi
-$CC $CFLAGS -m32 -c -o test32.o test.c
+$CC $LDFLAGS -m32 -c -o test32.o test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c 32-bit" >& 2
 	exit 1
 fi
 
-$dtrace -G -s prov.d test32.o test64.o
+$dtrace $dt_flags -G -s prov.d test32.o test64.o
 if [ $? -eq 0 ]; then
 	echo "DOF generation failed to generate a warning" >& 2
 	exit 1

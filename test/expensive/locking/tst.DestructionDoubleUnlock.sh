@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2013, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -41,7 +41,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -59,17 +59,17 @@ main(int argc, char **argv)
 }
 EOF
 
-${CC} ${CFLAGS} -c test.c
+${CC} ${test_cppflags} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o prov.o
+${CC} ${test_ldflags} ${CFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
@@ -81,7 +81,7 @@ script()
 		./test &
 		PID=$!
 		disown %+
-		if ! $dtrace -p $PID -lP test_prov$PID; then
+		if ! $dtrace $dt_flags -p $PID -lP test_prov$PID; then
 		    kill -9 $PID
 		    return 1
 		fi

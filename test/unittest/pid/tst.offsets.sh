@@ -65,7 +65,7 @@ fi
 # We are testing a glob in the pid$target:a.out:loopfunc: probe name.
 #
 
-$dtrace -xstrsize=16 -qn '
+$dtrace $dt_flags -xstrsize=16 -qn '
 pid$target:a.out:coldfunc:entry,
 pid$target:a.out:loopfunc:,
 pid$target:a.out:leaffunc:entry

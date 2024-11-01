@@ -26,5 +26,5 @@ for header in ${OLDDIRNAME}/include/dtrace/*.h; do
     #error $header: needs to include <sys/dtrace_types.h>
     #endif
 EOF
-    $CC -c $CFLAGS -o /dev/null test.c
+    $CC $test_cppflags -c $CFLAGS -o /dev/null test.c
 done

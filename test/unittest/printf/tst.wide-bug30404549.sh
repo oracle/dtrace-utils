@@ -17,7 +17,7 @@ fi
 dtrace=$1
 
 # abbreviate output to a simple statement of length.  raw output is big (29M)
-$dtrace -qs /dev/stdin << EOF | gawk '{ print length($0); }'
+$dtrace $dt_flags -qs /dev/stdin << EOF | gawk '{ print length($0); }'
 BEGIN
 {
 	printf("%10000000d\n", 1);

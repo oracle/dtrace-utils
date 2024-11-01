@@ -17,6 +17,7 @@ fi
 dtrace=$1
 CC=/usr/bin/gcc
 CFLAGS="-std=gnu89 $test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-allargs.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -73,18 +74,18 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o prov.o
+${CC} ${LDFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
 
-$dtrace -c ./test -qs /dev/stdin <<EOF
+$dtrace $dt_flags -c ./test -qs /dev/stdin <<EOF
 test_prov\$target:::zero
 {
 	printf("%s:%s:%s\n", probemod, probefunc, probename);

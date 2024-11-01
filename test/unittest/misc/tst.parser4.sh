@@ -17,7 +17,7 @@ chkfile=$tmpfile.check
 
 # Run DTrace.
 
-$dtrace -xtree=4 -e -n '
+$dtrace $dt_flags -xtree=4 -e -n '
 BEGIN
 {
 	x = 1234;

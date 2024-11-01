@@ -23,11 +23,11 @@ dtrace=$1
 # Determine whether the system respects setting the lockmem limit as root.
 # Some systems ignore lowering the limit, which means we cannot make it fail.
 # In that case, we report XFAIL.
-if $dtrace -xlockmem=1 -n 'BEGIN { exit(0); }' &> /dev/null; then
+if $dtrace $dt_flags -xlockmem=1 -n 'BEGIN { exit(0); }' &> /dev/null; then
     exit 67
 fi
 
-$dtrace -xlockmem=1 -lvn rawtp:::sched_process_fork |& \
+$dtrace $dt_flags -xlockmem=1 -lvn rawtp:::sched_process_fork |& \
     gawk 'BEGIN {
 	     err = 0;  # lockmem error messages
 	     CTF = 0;  # arg types indicating CTF info

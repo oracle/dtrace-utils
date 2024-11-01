@@ -17,7 +17,7 @@ fi
 dtrace=$1
 
 # abbreviate output, where the raw output of prints is big (29M)
-$dtrace -qs /dev/stdin << EOF | gawk '{
+$dtrace $dt_flags -qs /dev/stdin << EOF | gawk '{
   if (match($0, "  +"))
     printf("%s{%d* }%s\n", substr($0, 1, RSTART - 1),
       RLENGTH, substr($0, RSTART + RLENGTH));

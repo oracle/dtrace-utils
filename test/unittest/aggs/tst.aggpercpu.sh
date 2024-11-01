@@ -17,7 +17,7 @@ cd $DIRNAME
 # forcing DTrace to aggregate results over all CPUs.
 #
 
-$dtrace -xaggpercpu -qn '
+$dtrace  $dt_flags -xaggpercpu -qn '
     profile-600ms
     {
         printf("cpu %d\n", cpu);

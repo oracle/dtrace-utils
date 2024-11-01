@@ -11,7 +11,7 @@ fi
 
 dtrace=$1
 
-$dtrace -c date -s /dev/stdin <<EOF
+$dtrace $dt_flags -c date -s /dev/stdin <<EOF
 plockstat\$target::mutex_lock_impl:,
 pid\$target::mutex_lock_impl:
 {}

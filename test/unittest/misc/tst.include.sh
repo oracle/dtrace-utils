@@ -32,8 +32,8 @@ void
 main()
 {}
 EOF
-	if $CC $CFLAGS -o $cofile $cfile >/dev/null 2>&1; then
-		$dtrace -xerrtags -C -s /dev/stdin \
+	if $CC $test_cppflags $CFLAGS -o $cofile $cfile >/dev/null 2>&1; then
+		$dtrace $dt_flags -xerrtags -C -s /dev/stdin \
 		    >/dev/null 2>$errfile <<EOF
 #include <sys/$file>
 BEGIN

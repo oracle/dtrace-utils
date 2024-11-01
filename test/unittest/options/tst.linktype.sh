@@ -24,7 +24,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 }
 EOF
 
-${CC} ${CFLAGS} -c test.c
+${CC} ${test_cppflags} ${test_ldflags} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
@@ -51,7 +51,7 @@ fi
 # link with different -xlinktype values
 
 function mytest() {
-	$dtrace -G $1 -s prov.d test.o
+	$dtrace $dt_flags -G $1 -s prov.d test.o
 
 	# report whether the link succeeded
 	if [ $? -ne 0 ]; then

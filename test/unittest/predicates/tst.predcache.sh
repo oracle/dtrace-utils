@@ -78,7 +78,7 @@ unload()
 
 script1()
 {
-	$dtrace -s /dev/stdin <<EOF
+	$dtrace $dt_flags -s /dev/stdin <<EOF
 	syscall:::entry
 	/pid != $ppid/
 	{
@@ -95,7 +95,7 @@ EOF
 
 script2()
 {
-	$dtrace -s /dev/stdin <<EOF
+	$dtrace $dt_flags -s /dev/stdin <<EOF
 
 	#pragma D option statusrate=1ms
 

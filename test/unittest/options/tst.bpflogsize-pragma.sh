@@ -67,7 +67,7 @@ cursiz=$((16 * 1024 * 1024 - 1))     # default size from dt_bpf_load_prog()
 while [ $cursiz -lt $((1024 * 1024 * 1024)) ]; do
 
 	# dtrace should not pass
-	$dtrace -qs D.d >& tmp.out
+	$dtrace $dt_flags -qs D.d >& tmp.out
 	if [ $? -eq 0 ]; then
 		echo unexpected pass
 		dump_files

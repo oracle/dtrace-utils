@@ -35,7 +35,7 @@ int main(int c, char **v) {
 }
 EOF
 
-$CC main.c
+$CC $test_cppflags main.c
 if [ $? -ne 0 ]; then
     echo compilation failed
     exit 1

@@ -12,7 +12,7 @@ dtrace=$1
 for val in 1 268435456 unlimited; do
 	ulimit -l $val
 
-	$dtrace -qn 'BEGIN { @ = avg(1234); exit(0); }'
+	$dtrace $dt_flags -qn 'BEGIN { @ = avg(1234); exit(0); }'
 	echo $?
 done
 

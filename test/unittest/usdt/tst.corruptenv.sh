@@ -29,16 +29,16 @@ cat > Makefile <<EOF
 all: main
 
 main: main.o prov.o
-	\$(CC) -o main main.o prov.o
+	\$(CC) \$(test_ldflags) -o main main.o prov.o
 
 main.o: main.c prov.h
-	\$(CC) -c main.c
+	\$(CC) \$(test_cppflags) -c main.c
 
 prov.h: prov.d
-	$dtrace -h -s prov.d
+	$dtrace $dt_flags -h -s prov.d
 
 prov.o: prov.d main.o
-	$dtrace -G -s prov.d main.o
+	$dtrace $dt_flags -G -s prov.d main.o
 EOF
 
 cat > prov.d <<EOF

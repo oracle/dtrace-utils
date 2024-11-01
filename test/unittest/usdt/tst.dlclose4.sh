@@ -30,22 +30,22 @@ cat > Makefile <<EOF
 all: main livelib.so
 
 main: main.o prov.o
-	\$(CC) -o main main.o -ldl
+	\$(CC) \$(test_ldflags) -o main main.o -ldl
 
 main.o: main.c
-	\$(CC) -c main.c
+	\$(CC) \$(test_cppflags) -c main.c
 
 livelib.so: livelib.o prov.o
-	\$(CC) -shared -o livelib.so livelib.o prov.o -lc
+	\$(CC) \$(test_ldflags) -shared -o livelib.so livelib.o prov.o -lc
 
 livelib.o: livelib.c prov.h
-	\$(CC) -c livelib.c
+	\$(CC) \$(test_cppflags) -c livelib.c
 
 prov.o: livelib.o prov.d
-	$dtrace -G -s prov.d livelib.o
+	$dtrace \$(dt_flags) -G -s prov.d livelib.o
 
 prov.h: prov.d
-	$dtrace -h -s prov.d
+	$dtrace \$(dt_flags) -h -s prov.d
 
 clean:
 	rm -f main.o livelib.o prov.o prov.h
@@ -141,7 +141,7 @@ fi
 #     ls /run/dtrace/stash/dof-pid/$pid/*/parsed/test_prov:livelib.so:go:go
 
 function check_USDT_probes() {
-	$dtrace -lP test_prov$pid |& awk '
+	$dtrace $dt_flags -lP test_prov$pid |& awk '
 	    /ID *PROVIDER *MODULE *FUNCTION *NAME/ { next }
 	    /test_prov'$pid' *livelib\.so *go *go/ { exit(0) }
 	    /No probe matches description/ { exit(1) }'

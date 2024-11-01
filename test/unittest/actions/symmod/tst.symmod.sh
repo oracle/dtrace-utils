@@ -21,7 +21,7 @@ NAM=$MOD'`'$NAM
 
 # run DTrace to test mod() and sym()
 # also test func(), but it is simply an alias for sym()
-read MYMOD MYNAM MYFUN <<< `$dtrace -qn 'BEGIN {mod(0x'$ADD'); sym(0x'$ADD'); func(0x'$ADD'); exit(0) }'`
+read MYMOD MYNAM MYFUN <<< `$dtrace $dt_flags -qn 'BEGIN {mod(0x'$ADD'); sym(0x'$ADD'); func(0x'$ADD'); exit(0) }'`
 if [ $? -ne 0 ]; then
 	exit 1
 fi

@@ -17,7 +17,7 @@
 
 script()
 {
-	$dtrace -o $dtraceout -s /dev/stdin <<EOF
+	$dtrace $dt_flags -o $dtraceout -s /dev/stdin <<EOF
 	#pragma D option bufsize=128k
 
 	cpc:::PAPI_tot_ins-all-10000

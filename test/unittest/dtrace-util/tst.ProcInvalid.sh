@@ -22,4 +22,4 @@ fi
 
 dtrace=$1
 
-$dtrace -p 484837947 -n 'BEGIN { exit(0); }' || true
+$dtrace $dt_flags -p 484837947 -n 'BEGIN { exit(0); }' || true

@@ -12,7 +12,7 @@ dtrace=$1
 ulimit -l 1
 
 for val in 16 1K 268435456K 262144M 256G unlimited; do
-	$dtrace -xlockmem=$val -qn 'BEGIN { @ = avg(1234); exit(0); }'
+	$dtrace $dt_flags -xlockmem=$val -qn 'BEGIN { @ = avg(1234); exit(0); }'
 	echo $?
 done
 

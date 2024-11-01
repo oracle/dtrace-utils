@@ -35,7 +35,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -53,17 +53,17 @@ main(int argc, char **argv)
 }
 EOF
 
-${CC} ${CFLAGS} -c test.c
+${CC} ${test_cppflags} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${CFLAGS} -o test test.o prov.o
+${CC} ${test_ldflags} ${CFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
@@ -71,13 +71,13 @@ fi
 
 script()
 {
-	$dtrace -c ./test -lf main
-	$dtrace -c ./test -lf 'main*'
+	$dtrace $dt_flags -c ./test -lf main
+	$dtrace $dt_flags -c ./test -lf 'main*'
 	./test &
 	PID=$!
 	disown %+
-	$dtrace -p $PID -lf main
-	$dtrace -p $PID -lf 'main*'
+	$dtrace $dt_flags -p $PID -lf main
+	$dtrace $dt_flags -p $PID -lf 'main*'
 	kill -9 $PID
 }
 

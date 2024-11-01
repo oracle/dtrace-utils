@@ -124,25 +124,25 @@ EOF
 # build
 # ==================================================
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
 fi
 
-${CC} ${CFLAGS} -c test.c
+${CC} ${test_cppflags} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
 
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
 
-${CC} ${CFLAGS} prov.o test.o
+${CC} ${test_ldflags} ${CFLAGS} prov.o test.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1

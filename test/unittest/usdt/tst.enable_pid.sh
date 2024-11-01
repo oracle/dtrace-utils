@@ -115,7 +115,7 @@ EOF
 # Build the test program.
 #
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >&2
 	exit 1
@@ -125,7 +125,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test" >&2
 	exit 1
 fi
-$dtrace -G -64 -s prov.d main.o
+$dtrace $dt_flags -G -64 -s prov.d main.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >&2
 	exit 1

@@ -25,7 +25,7 @@ id=$!
 disown %+
 
 while kill -0 $id >/dev/null 2>&1; do
-	$dtrace -p $id -s /dev/stdin <<-EOF
+	$dtrace $dt_flags -p $id -s /dev/stdin <<-EOF
 		forker*:::fire
 		/i++ == 4/
 		{

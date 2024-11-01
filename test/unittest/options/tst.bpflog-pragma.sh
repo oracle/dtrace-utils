@@ -8,7 +8,7 @@
 
 dtrace=$1
 
-$dtrace -qs /dev/stdin << EOT |& grep '^BPF: ' > /dev/null
+$dtrace $dt_flags -qs /dev/stdin << EOT |& grep '^BPF: ' > /dev/null
 #pragma D option bpflog
 
 BEGIN

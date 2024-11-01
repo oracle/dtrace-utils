@@ -8,6 +8,6 @@
 
 dtrace=$1
 
-$dtrace -xbpflog -qn 'BEGIN { exit(0); }' |& grep '^BPF: ' > /dev/null
+$dtrace $dt_flags -xbpflog -qn 'BEGIN { exit(0); }' |& grep '^BPF: ' > /dev/null
 
 exit $?

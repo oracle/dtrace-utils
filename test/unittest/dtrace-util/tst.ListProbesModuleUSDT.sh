@@ -35,7 +35,7 @@ provider test_prov {
 };
 EOF
 
-$dtrace -h -s prov.d
+$dtrace $dt_flags -h -s prov.d
 if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >& 2
 	exit 1
@@ -58,7 +58,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
 fi
-$dtrace -G -s prov.d test.o
+$dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
@@ -71,13 +71,13 @@ fi
 
 script()
 {
-	$dtrace -c ./test -lm test
-	$dtrace -c ./test -lm 'tes*'
+	$dtrace $dt_flags -c ./test -lm test
+	$dtrace $dt_flags -c ./test -lm 'tes*'
 	./test &
 	PID=$!
 	disown %+
-	$dtrace -p $PID -lm test
-	$dtrace -p $PID -lm 'tes*'
+	$dtrace $dt_flags -p $PID -lm test
+	$dtrace $dt_flags -p $PID -lm 'tes*'
 	kill -9 $PID
 }
 

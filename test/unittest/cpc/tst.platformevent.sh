@@ -38,7 +38,7 @@ EOF
 
 script()
 {
-        $dtrace -s /dev/stdin << EOD
+        $dtrace $dt_flags -s /dev/stdin << EOD
         #pragma D option quiet
         #pragma D option bufsize=128k
 

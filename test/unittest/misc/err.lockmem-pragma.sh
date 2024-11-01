@@ -9,7 +9,7 @@
 
 dtrace=$1
 
-$dtrace -qs /dev/stdin << EOF
+$dtrace $dt_flags -qs /dev/stdin << EOF
 #pragma D option lockmem=1
 
 BEGIN

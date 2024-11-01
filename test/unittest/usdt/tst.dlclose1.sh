@@ -44,30 +44,30 @@ cat > Makefile <<EOF
 all: main livelib.so deadlib.so
 
 main: main.o prov.o
-	\$(CC) -o main main.o -ldl
+	\$(CC) \$(test_ldflags) -o main main.o -ldl
 
 main.o: main.c
-	\$(CC) -c main.c
+	\$(CC) \$(test_cppflags) -c main.c
 
 
 livelib.so: livelib.o prov.o
-	\$(CC) -shared -o livelib.so livelib.o prov.o -lc
+	\$(CC) \$(test_ldflags) -shared -o livelib.so livelib.o prov.o -lc
 
 livelib.o: livelib.c prov.h
-	\$(CC) -c livelib.c
+	\$(CC) \$(test_cppflags) -c livelib.c
 
 prov.o: livelib.o prov.d
-	$dtrace -G -s prov.d livelib.o
+	$dtrace \$(dt_flags) -G -s prov.d livelib.o
 
 prov.h: prov.d
-	$dtrace -h -s prov.d
+	$dtrace \$(dt_flags) -h -s prov.d
 
 
 deadlib.so: deadlib.o
-	\$(CC) -shared -o deadlib.so deadlib.o -lc
+	\$(CC) \$(test_ldflags) -shared -o deadlib.so deadlib.o -lc
 
 deadlib.o: deadlib.c
-	\$(CC) -c deadlib.c
+	\$(CC) \$(test_cppflags) -c deadlib.c
 
 clean:
 	rm -f main.o livelib.o prov.o prov.h deadlib.o
@@ -204,11 +204,11 @@ disown %+
 echo started pid $pid
 
 mywait 6 "started"  myfile.txt # wait for process to start
-$dtrace -lP test_prov$pid      # check USDT probes
+$dtrace $dt_flags -lP test_prov$pid      # check USDT probes
 kill -s USR1 $pid              # signal process
 
 mywait 6 "dlclosed" myfile.txt # wait for process to dlclose
-$dtrace -lP test_prov$pid      # check USDT probes
+$dtrace $dt_flags -lP test_prov$pid      # check USDT probes
 kill -s KILL $pid              # kill process
 
 exit 0

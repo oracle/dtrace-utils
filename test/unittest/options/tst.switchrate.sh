@@ -20,7 +20,7 @@ for nexpect in 1 16; do
 	# Run the "instantaneous" D script with the prescribed switchrate.
 	# Time it.  Round to the nearest number of seconds with int(t+0.5).
 	nactual=`/usr/bin/time -f "%e" \
-	    $dtrace -xswitchrate=${nexpect}sec -qn 'BEGIN { exit(0) }' \
+	    $dtrace $dt_flags -xswitchrate=${nexpect}sec -qn 'BEGIN { exit(0) }' \
 	    |& gawk 'NF != 0 {print int($1 + 0.5)}'`
 
 	# Check the actual number of seconds to the expected value.

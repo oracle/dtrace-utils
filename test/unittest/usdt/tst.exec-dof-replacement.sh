@@ -15,7 +15,8 @@ fi
 
 dtrace=$1
 CC=/usr/bin/gcc
-CFLAGS=
+CFLAGS="$test_cppflags"
+LDFLAGS="$test_ldflags"
 
 DIRNAME="$tmpdir/usdt-exec-dof-replacement.$$.$RANDOM"
 mkdir -p $DIRNAME
@@ -33,7 +34,7 @@ provider test_prov {
 };
 EOF
 
-if ! { $dtrace -h -s prov1.d && dtrace -h -s prov2.d; } then
+if ! { $dtrace $dt_flags -h -s prov1.d && dtrace -h -s prov2.d; } then
 	echo "failed to generate header files" >&2
 	exit 1
 fi
@@ -70,11 +71,11 @@ if ! { ${CC} ${CFLAGS} -c test1.c && ${CC} ${CFLAGS} -c test2.c; } then
 	echo "failed to compile test programs" >&2
 	exit 1
 fi
-if ! { $dtrace -G -s prov1.d test1.o && $dtrace -G -s prov2.d test2.o; } then
+if ! { $dtrace $dt_flags -G -s prov1.d test1.o && $dtrace $dt_flags -G -s prov2.d test2.o; } then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-if ! { ${CC} ${CFLAGS} -o test1 test1.o prov1.o && ${CC} ${CFLAGS} -o test2 test2.o prov2.o; } then
+if ! { ${CC} ${LDFLAGS} -o test1 test1.o prov1.o && ${CC} ${LDFLAGS} -o test2 test2.o prov2.o; } then
 	echo "failed to link final executables" >& 2
 	exit 1
 fi
@@ -90,7 +91,7 @@ disown %+
 while [[ -d /proc/$PROC ]] && [[ "$(readlink /proc/$PROC/exe)" =~ test1$ ]]; do
     sleep 1
 done
-$dtrace -p $PROC '-Ptest_prov$target' -l
+$dtrace $dt_flags -p $PROC '-Ptest_prov$target' -l
 status2=$?
 kill $PROC
 
