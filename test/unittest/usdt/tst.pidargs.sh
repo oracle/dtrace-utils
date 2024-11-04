@@ -5,6 +5,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# This test verifies that USDT and pid probes can share underlying probes.
+# This test verifies that USDT and pid probes that share underlying probes
+# get the arguments correct for the USDT probes.
 
-exec $(dirname $_test)/pidprobes.sh $1 "" ""
+exec $(dirname $_test)/pidprobes.sh $1 t ""
