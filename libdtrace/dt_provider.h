@@ -12,7 +12,6 @@
 #include <dt_impl.h>
 #include <dt_ident.h>
 #include <dt_list.h>
-#include <tracefs.h>
 
 #ifdef	__cplusplus
 extern "C" {

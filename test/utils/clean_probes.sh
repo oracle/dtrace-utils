@@ -1,9 +1,13 @@
 #!/usr/bin/bash
 
-TRACEFS=/sys/kernel/debug/tracing
-EVENTS=${TRACEFS}/available_events
-KPROBES=${TRACEFS}/kprobe_events
-UPROBES=${TRACEFS}/uprobe_events
+# We can't work without the tracefs: just give up quietly.
+if [[ ! -e $tracefs/available_events ]]; then
+    exit 0
+fi
+
+EVENTS=${tracefs}/available_events
+KPROBES=${tracefs}/kprobe_events
+UPROBES=${tracefs}/uprobe_events
 
 # Check permissions
 if [[ ! -r ${EVENTS} ]]; then

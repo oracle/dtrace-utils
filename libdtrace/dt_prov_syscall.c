@@ -38,7 +38,7 @@
 static const char		prvname[] = "syscall";
 static const char		modname[] = "vmlinux";
 
-#define SYSCALLSFS		EVENTSFS "syscalls/"
+#define SYSCALLSFS		"events/syscalls/"
 
 /*
  * We need to skip over an extra field: __syscall_nr.
@@ -61,7 +61,7 @@ struct syscall_data {
 
 #define SCD_ARG(n)	offsetof(struct syscall_data, arg[n])
 
-#define PROBE_LIST	TRACEFS "available_events"
+#define PROBE_LIST	"available_events"
 
 #define PROV_PREFIX	"syscalls:"
 #define ENTRY_PREFIX	"sys_enter_"
@@ -71,7 +71,8 @@ struct syscall_data {
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
-	FILE		*f;
+	int		fd;
+        FILE		*f;
 	char		*buf = NULL;
 	size_t		n;
 
@@ -79,8 +80,12 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
-	f = fopen(PROBE_LIST, "r");
-	if (f == NULL)
+	fd = dt_tracefs_open(dtp, PROBE_LIST, O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+	f = fdopen(fd, "r");
+        if (f == NULL)
 		return 0;
 
 	while (getline(&buf, &n, f) >= 0) {
@@ -195,23 +200,21 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *argcp, dt_argdesc_t **argvp)
 {
+	int		fd;
 	FILE		*f;
-	char		fn[256];
 	int		rc;
 
 	/*
 	 * We know that the probe name is either "entry" or "return", so we can
 	 * just check the first character.
 	 */
-	strcpy(fn, SYSCALLSFS);
-	if (prp->desc->prb[0] == 'e')
-		strcat(fn, "sys_enter_");
-	else
-		strcat(fn, "sys_exit_");
-	strcat(fn, prp->desc->fun);
-	strcat(fn, "/format");
+	fd = dt_tracefs_open(dtp, SYSCALLSFS "/sys_%s_%s/format", O_RDONLY,
+			     (prp->desc->prb[0] == 'e') ? "enter" : "exit",
+			     prp->desc->fun);
+	if (fd < 0)
+		return -ENOENT;
 
-	f = fopen(fn, "r");
+        f = fdopen(fd, "r");
 	if (!f)
 		return -ENOENT;
 

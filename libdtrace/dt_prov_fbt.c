@@ -43,8 +43,8 @@
 static const char		prvname[] = "fbt";
 static const char		modname[] = "vmlinux";
 
-#define KPROBE_EVENTS		TRACEFS "kprobe_events"
-#define PROBE_LIST		TRACEFS "available_filter_functions"
+#define KPROBE_EVENTS		"kprobe_events"
+#define PROBE_LIST		"available_filter_functions"
 
 #define FBT_GROUP_FMT		GROUP_FMT "_%s"
 #define FBT_GROUP_DATA		GROUP_DATA, prp->desc->prb
@@ -65,6 +65,7 @@ static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t		*prv;
 	dt_provimpl_t		*impl;
+	int			fd;
 	FILE			*f;
 	char			*buf = NULL;
 	char			*p;
@@ -79,7 +80,11 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
-	f = fopen(PROBE_LIST, "r");
+	fd = dt_tracefs_open(dtp, PROBE_LIST, O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+        f = fdopen(fd, "r");
 	if (f == NULL)
 		return 0;
 
@@ -363,16 +368,14 @@ static int kprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	if (!dt_tp_probe_has_info(prp)) {
-		char	*fn;
-		FILE	*f;
-		size_t	len;
-		int	fd, rc = -1;
+		FILE		*f;
+		int		fd, rc = -1;
 
 		/*
 		 * Register the kprobe with the tracing subsystem.  This will
 		 * create a tracepoint event.
 		 */
-		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+		fd = dt_tracefs_open(dtp, KPROBE_EVENTS, O_WRONLY | O_APPEND);
 		if (fd == -1)
 			return -ENOENT;
 
@@ -383,19 +386,13 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		if (rc == -1)
 			return -ENOENT;
 
-		/* create format file name */
-		len = snprintf(NULL, 0, "%s" FBT_GROUP_FMT "/%s/format",
-			       EVENTSFS, FBT_GROUP_DATA, prp->desc->fun) + 1;
-		fn = dt_alloc(dtp, len);
-		if (fn == NULL)
+		/* open format file */
+		fd = dt_tracefs_open(dtp, "events/" FBT_GROUP_FMT "/%s/format",
+				     O_RDONLY, FBT_GROUP_DATA, prp->desc->fun);
+		if (fd < 0)
 			return -ENOENT;
 
-		snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
-			 FBT_GROUP_DATA, prp->desc->fun);
-
-		/* open format file */
-		f = fopen(fn, "r");
-		dt_free(dtp, fn);
+		f = fdopen(fd, "r");
 		if (f == NULL)
 			return -ENOENT;
 
@@ -431,7 +428,7 @@ static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 
 	dt_tp_probe_detach(dtp, prp);
 
-	fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
+	fd = dt_tracefs_open(dtp, KPROBE_EVENTS, O_WRONLY | O_APPEND);
 	if (fd == -1)
 		return;
 

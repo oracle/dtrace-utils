@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <sys/ioctl.h>
+#include <mntent.h>
 #include <port.h>
 
 #include <dt_impl.h>
@@ -997,4 +998,83 @@ uint32_t dt_gen_hval(const char *p, uint32_t hval, size_t len)
 	}
 
 	return hval;
+}
+
+/*
+ * Find the tracefs and store it away in dtp.
+ */
+static int
+find_tracefs_path(dtrace_hdl_t *dtp)
+{
+	FILE *mounts;
+	struct mntent *mnt;
+
+	if ((mounts = setmntent("/proc/mounts", "r")) == NULL) {
+		dt_dprintf("Cannot open /proc/mounts: %s\n", strerror(errno));
+		return dt_set_errno(dtp, EDT_TRACEFS);
+	}
+
+	while ((mnt = getmntent(mounts)) != NULL) {
+		/*
+		 * Only accept tracefs paths that do not contain percent
+		 * characters in their mounted paths, since we use this
+		 * to augment a format string in dt_tracefs_vfn().
+		 */
+		if ((strcmp(mnt->mnt_type, "tracefs") == 0) &&
+		    (strchr(mnt->mnt_dir, '%') == NULL)) {
+			dtp->dt_tracefs_path = strdup(mnt->mnt_dir);
+			break;
+		}
+	}
+	endmntent(mounts);
+
+	if (!dtp->dt_tracefs_path) {
+		dt_dprintf("Cannot find a suitable tracefs path.\n");
+		return dt_set_errno(dtp, EDT_TRACEFS);
+	}
+
+	dt_dprintf("Found tracefs at %s\n", dtp->dt_tracefs_path);
+
+	return 0;
+}
+
+static char *
+dt_tracefs_vfn(dtrace_hdl_t *dtp, const char *fn, va_list ap)
+{
+	char *full_fn;
+	char *str;
+
+        if (!dtp->dt_tracefs_path)
+		if (find_tracefs_path(dtp) < 0)
+			return NULL;		/* errno is set for us. */
+
+	if (asprintf(&full_fn, "%s/%s", dtp->dt_tracefs_path, fn) < 0) {
+		dt_set_errno(dtp, EDT_NOMEM);
+		return NULL;
+	}
+
+        if (vasprintf(&str, full_fn, ap) < 0) {
+		str = NULL;
+		dt_set_errno(dtp, EDT_NOMEM);
+	}
+	free(full_fn);
+	return str;
+}
+
+int
+dt_tracefs_open(dtrace_hdl_t *dtp, const char *fn, int flags, ...)
+{
+	va_list ap;
+	char *str;
+	int fd;
+
+	va_start(ap, flags);
+	if ((str = dt_tracefs_vfn(dtp, fn, ap)) == NULL) {
+		va_end(ap);
+		return -1; 			/* errno is set for us. */
+	}
+
+	fd = open(str, flags, 0666);
+	free(str);
+	return fd;				/* errno is set for us. */
 }

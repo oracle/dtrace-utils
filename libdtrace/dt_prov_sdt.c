@@ -36,7 +36,7 @@
 static const char		prvname[] = "sdt";
 static const char		modname[] = "vmlinux";
 
-#define PROBE_LIST		TRACEFS "available_events"
+#define PROBE_LIST		"available_events"
 
 #define KPROBES			"kprobes"
 #define SYSCALLS		"syscalls"
@@ -62,7 +62,8 @@ static const dtrace_pattr_t	pattr = {
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
-	FILE		*f;
+	int		fd;
+        FILE		*f;
 	char		*buf = NULL;
 	char		*p;
 	size_t		n;
@@ -71,7 +72,11 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
-	f = fopen(PROBE_LIST, "r");
+	fd = dt_tracefs_open(dtp, PROBE_LIST, O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+	f = fdopen(fd, "r");
 	if (f == NULL)
 		return 0;
 
@@ -192,16 +197,16 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 static int probe_info_tracefs(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 			      int *argcp, dt_argdesc_t **argvp)
 {
+	int				fd;
 	FILE				*f;
-	char				*fn;
 	int				rc;
 	const dtrace_probedesc_t	*pdp = prp->desc;
 
-	if (asprintf(&fn, EVENTSFS "%s/%s/format", pdp->mod, pdp->prb) == -1)
-		return dt_set_errno(dtp, EDT_NOMEM);
+	fd = dt_tracefs_open(dtp, "events/%s/%s/format", O_RDONLY, pdp->mod, pdp->prb);
+	if (fd < 0)
+		return -ENOENT;
 
-	f = fopen(fn, "r");
-	free(fn);
+	f = fdopen(fd, "r");
 	if (!f)
 		return -ENOENT;
 
@@ -223,15 +228,18 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	int			argc = 0;
 	dt_argdesc_t		*argv = NULL;
 	dtrace_typeinfo_t	sym;
-	FILE			*f;
+	int			fd;
+        FILE			*f;
 	uint32_t		id;
 
 	/* Retrieve the event id. */
-	if (asprintf(&str, EVENTSFS "%s/%s/id", prp->desc->mod, prp->desc->prb) == -1)
-		return dt_set_errno(dtp, EDT_NOMEM);
 
-	f = fopen(str, "r");
-	free(str);
+	fd = dt_tracefs_open(dtp, "events/%s/%s/id", O_RDONLY,
+			     prp->desc->mod, prp->desc->prb);
+	if (fd < 0)
+		return dt_set_errno(dtp, EDT_ENABLING_ERR);
+
+	f = fdopen(fd, "r");
 	if (!f)
 		return dt_set_errno(dtp, EDT_ENABLING_ERR);
 

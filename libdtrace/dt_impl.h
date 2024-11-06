@@ -354,6 +354,7 @@ struct dtrace_hdl {
 	char *dt_module_path;	/* pathname of kernel module root */
 	dt_version_t dt_kernver;/* kernel version, used in the libpath */
 	char *dt_dofstash_path;	/* Path to the DOF stash.  */
+	char *dt_tracefs_path;	/* Path to tracefs.  */
 	uid_t dt_useruid;	/* lowest non-system uid: set via -xuseruid */
 	char *dt_sysslice;	/* the systemd system slice: set via -xsysslice */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
@@ -643,6 +644,7 @@ enum {
 	EDT_TRACEMEM,		/* missing or corrupt tracemem() record */
 	EDT_PCAP,		/* missing or corrupt pcap() record */
 	EDT_PRINT,		/* missing or corrupt print() record */
+	EDT_TRACEFS,		/* cannot find tracefs */
 };
 
 /*
@@ -713,6 +715,7 @@ extern void dt_conf_init(dtrace_hdl_t *);
 
 extern int dt_gmatch(const char *, const char *);
 extern char *dt_basename(char *);
+extern int dt_tracefs_open(dtrace_hdl_t *, const char *fn, int flags, ...);
 
 extern ulong_t dt_popc(ulong_t);
 extern ulong_t dt_popcb(const ulong_t *, ulong_t);

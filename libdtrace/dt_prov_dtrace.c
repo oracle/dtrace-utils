@@ -23,8 +23,6 @@ static const char		funname[] = "";
 
 #define PROBE_FUNC_SUFFIX	"_probe"
 
-#define UPROBE_EVENTS		TRACEFS "uprobe_events"
-
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -229,11 +227,9 @@ out:
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
 	if (!dt_tp_probe_has_info(prp)) {
-		char	*spec;
-		char	*fn;
-		FILE	*f;
-		size_t	len;
-		int	fd, rc = -1;
+		char		*spec;
+		FILE		*f;
+		int		fd = -1, rc = -1;
 
 		/* get a uprobe specification for this probe */
 		spec = uprobe_spec(getpid(), prp->desc->prb);
@@ -241,7 +237,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		/* add a uprobe */
-		fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
+		fd = dt_tracefs_open(dtp, "uprobe_events", O_WRONLY | O_APPEND);
+
 		if (fd != -1) {
 			rc = dprintf(fd, "p:" GROUP_FMT "/%s %s\n",
 				     GROUP_DATA, prp->desc->prb, spec);
@@ -252,16 +249,12 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		/* open format file */
-		len = snprintf(NULL, 0, "%s" GROUP_FMT "/%s/format",
-			       EVENTSFS, GROUP_DATA, prp->desc->prb) + 1;
-		fn = dt_alloc(dtp, len);
-		if (fn == NULL)
+		fd = dt_tracefs_open(dtp, "events/" GROUP_FMT "/%s/format",
+				     O_RDONLY, GROUP_DATA, prp->desc->prb);
+		if (fd < 0)
 			return -ENOENT;
 
-		snprintf(fn, len, "%s" GROUP_FMT "/%s/format",
-			 EVENTSFS, GROUP_DATA, prp->desc->prb);
-		f = fopen(fn, "r");
-		dt_free(dtp, fn);
+		f = fdopen(fd, "r");
 		if (f == NULL)
 			return -ENOENT;
 
@@ -296,7 +289,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 
 	dt_tp_probe_detach(dtp, prp);
 
-	fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
+	fd = dt_tracefs_open(dtp, "uprobe_events", O_WRONLY | O_APPEND);
 	if (fd == -1)
 		return;
 

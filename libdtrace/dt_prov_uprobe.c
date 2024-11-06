@@ -1116,13 +1116,13 @@ static char *uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int flags)
  * uprobe may be a uretprobe.  Return the probe's name as
  * a new dynamically-allocated string, or NULL on error.
  */
-static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
-			   uint64_t addr, int flags)
+static char *uprobe_create(dtrace_hdl_t *dtp, dev_t dev, ino_t ino,
+			   const char *mapping_fn, uint64_t addr, int flags)
 {
-	int	fd = -1;
-	int	rc = -1;
-	char	*name;
-	char	*spec;
+	int		fd = -1;
+	int		rc = -1;
+	char		*name;
+	char		*spec;
 
 	if (asprintf(&spec, "%s:0x%lx", mapping_fn, addr) < 0)
 		return NULL;
@@ -1132,8 +1132,8 @@ static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
 		goto out;
 
 	/* Add the uprobe. */
-	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
-	if (fd == -1)
+	fd = dt_tracefs_open(dtp, "uprobe_events", O_WRONLY | O_APPEND);
+	if (fd < 0)
 		goto out;
 
 	rc = dprintf(fd, "%c:%s %s\n", flags & PP_IS_RETURN ? 'r' : 'p', name, spec);
@@ -1153,8 +1153,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 {
 	dt_uprobe_t	*upp = uprp->prv_data;
 	tp_probe_t	*tpp = upp->tp;
+	int		fd;
 	FILE		*f;
-	char		*fn;
 	char		*prb = NULL;
 	int		rc = -1;
 
@@ -1163,7 +1163,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 
 	assert(upp->fn != NULL);
 
-	prb = uprobe_create(upp->dev, upp->inum, upp->fn, upp->off,
+	prb = uprobe_create(dtp, upp->dev, upp->inum, upp->fn, upp->off,
 			    upp->flags);
 
 	/*
@@ -1177,12 +1177,11 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 				  upp->flags);
 
 	/* open format file */
-	rc = asprintf(&fn, "%s%s/format", EVENTSFS, prb);
-	free(prb);
-	if (rc < 0)
+	fd = dt_tracefs_open(dtp, "events/%s/format", O_RDONLY, prb);
+	if (fd < 0)
 		return -ENOENT;
-	f = fopen(fn, "r");
-	free(fn);
+
+	f = fdopen(fd, "r");
 	if (f == NULL)
 		return -ENOENT;
 
@@ -1251,20 +1250,19 @@ done:
  * Destroy a uprobe for a given device and address.
  */
 static int
-uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int flags)
+uprobe_delete(dtrace_hdl_t *dtp, dev_t dev, ino_t ino, uint64_t addr, int flags)
 {
-	int	fd = -1;
-	int	rc = -1;
-	char	*name;
+	int		fd = -1;
+	int		rc = -1;
+	char		*name;
 
 	name = uprobe_name(dev, ino, addr, flags);
 	if (!name)
 		goto out;
 
-	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
+	fd = dt_tracefs_open(dtp, "uprobe_events", O_WRONLY | O_APPEND);
 	if (fd == -1)
 		goto out;
-
 
 	rc = dprintf(fd, "-:%s\n", name);
 
@@ -1297,7 +1295,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *uprp)
 
 	dt_tp_detach(dtp, tpp);
 
-	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags);
+	uprobe_delete(dtp, upp->dev, upp->inum, upp->off, upp->flags);
 }
 
 /*

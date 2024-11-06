@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -14,7 +14,12 @@
 ##
 
 dtrace=$1
-UPROBE_EVENTS=/sys/kernel/debug/tracing/uprobe_events
+if [[ ! -e $tracefs/uprobe_events ]]; then
+	echo "no tracefs/uprobe_events" >&2
+	exit 67
+fi
+
+UPROBE_EVENTS=${tracefs}/uprobe_events
 
 out=/tmp/output.$$
 $dtrace $dt_flags -n BEGIN,END &>> $out &

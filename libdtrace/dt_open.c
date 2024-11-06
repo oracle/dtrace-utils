@@ -1317,6 +1317,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	free(dtp->dt_cpp_argv);
 	free(dtp->dt_cpp_path);
 	free(dtp->dt_ld_path);
+	free(dtp->dt_tracefs_path);
 	free(dtp->dt_sysslice);
 	free(dtp->dt_dofstash_path);
 

@@ -38,7 +38,7 @@
 static const char		prvname[] = "rawtp";
 static const char		modname[] = "vmlinux";
 
-#define PROBE_LIST		TRACEFS "available_events"
+#define PROBE_LIST		"available_events"
 
 #define KPROBES			"kprobes"
 #define SYSCALLS		"syscalls"
@@ -64,6 +64,7 @@ static const dtrace_pattr_t	pattr = {
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t	*prv;
+	int		fd;
 	FILE		*f;
 	char		*buf = NULL;
 	char		*p;
@@ -73,7 +74,11 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
-	f = fopen(PROBE_LIST, "r");
+	fd = dt_tracefs_open(dtp, PROBE_LIST, O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+        f = fdopen(fd, "r");
 	if (f == NULL)
 		return 0;
 

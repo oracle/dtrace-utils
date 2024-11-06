@@ -607,6 +607,14 @@ elif ! /usr/bin/cpp -x c -fno-show-column - /dev/null < /dev/null 2>&1 | \
     export DTRACE_OPT_CPPARGS="-fno-show-column"
 fi
 
+# Find the tracefs.
+tracefs="$(awk '$3 == "tracefs" { print $2; exit; }' /proc/mounts)"
+if [[ -z $tracefs ]]; then
+    echo "Cannot find any tracefs mounts in /proc/mounts.  Some tests will fail." >&2
+fi
+
+export tracefs
+
 # More than one dtrace tree -> run tests for all dtraces, and verify identical
 # intermediate code is produced by each dtrace.
 
