@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -11,10 +11,14 @@ tmpfile=$tmpdir/tst.profile_usym.$$
 script()
 {
 	$dtrace $dt_flags -qs /dev/stdin <<EOF
+	BEGIN
+	{
+		printf("dtrace is %d\n", \$pid);
+	}
 	profile-1234hz
 	/arg1 != 0/
 	{
-		@[usym(arg1)] = count();
+		@[usym(arg1), pid] = count();
 	}
 
 	tick-2s
@@ -52,8 +56,9 @@ if ! grep -q 'bash`[a-zA-Z_]' $tmpfile; then
 	status=1
 fi
 
-# Check that symbols are unique.  (Exclude shared libraries and unresolved addresses.)
-if gawk '!/^ *lib/ && !/^ *0x/ {print $1}' $tmpfile | sort | uniq -c | grep -qv " 1 "; then
+# Check that symbols are unique for each pid that interests us.
+dtpid=`awk '/^dtrace is [0-9]*$/ { print $3 }' $tmpfile`
+if gawk '$2 == '$child' || $2 == '$dtpid' {print $1, $2}' $tmpfile | sort | uniq -c | grep -qv " 1 "; then
 	echo ERROR: duplicate usym
 	status=1
 fi
