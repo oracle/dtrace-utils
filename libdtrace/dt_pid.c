@@ -104,7 +104,7 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 
 static int
 dt_pid_create_one_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
-    pid_probespec_t *psp, const GElf_Sym *symp, pid_probetype_t type)
+    pid_probespec_t *psp, pid_probetype_t type)
 {
 	const dt_provider_t	*pvp = dtp->dt_prov_pid;
 
@@ -184,8 +184,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	psp->pps_off = symp->st_value - pp->dpp_vaddr;
 
 	if (!isdash && gmatch("return", pp->dpp_name)) {
-		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, symp,
-		    DTPPT_RETURN) < 0) {
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, DTPPT_RETURN) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create return probe for '%s': %s",
@@ -197,8 +196,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	}
 
 	if (!isdash && gmatch("entry", pp->dpp_name)) {
-		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, symp,
-		    DTPPT_ENTRY) < 0) {
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, DTPPT_ENTRY) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create entry probe for '%s': %s",
@@ -232,7 +230,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		psp->pps_nameoff = off;
 		psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
 		if (dt_pid_create_one_probe(pp->dpp_pr, dtp,
-					psp, symp, DTPPT_OFFSETS) < 0) {
+					psp, DTPPT_OFFSETS) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
 				"failed to create probes at '%s+0x%llx': %s",
@@ -363,7 +361,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 			psp->pps_nameoff = off;
 			psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
 			if (dt_pid_create_one_probe(pp->dpp_pr, dtp,
-						psp, symp, DTPPT_OFFSETS) >= 0)
+						psp, DTPPT_OFFSETS) >= 0)
 				nmatches++;
 		}
 
