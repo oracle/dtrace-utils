@@ -231,7 +231,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 		psp->pps_nameoff = off;
 		psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
-		if (dt_pid_create_one_probe(pp->dpp_pr, pp->dpp_dtp,
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp,
 					psp, symp, DTPPT_OFFSETS) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
@@ -362,7 +362,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 			psp->pps_nameoff = off;
 			psp->pps_off = symp->st_value - pp->dpp_vaddr + off;
-			if (dt_pid_create_one_probe(pp->dpp_pr, pp->dpp_dtp,
+			if (dt_pid_create_one_probe(pp->dpp_pr, dtp,
 						psp, symp, DTPPT_OFFSETS) >= 0)
 				nmatches++;
 		}
@@ -434,7 +434,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	if (obj == NULL)
 		return 0;
 
-	dt_Plmid(pp->dpp_dtp, pid, pmp->pr_vaddr, &pp->dpp_lmid);
+	dt_Plmid(dtp, pid, pmp->pr_vaddr, &pp->dpp_lmid);
 
 	pp->dpp_dev = pmp->pr_dev;
 	pp->dpp_inum = pmp->pr_inum;
@@ -466,7 +466,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 		 * just fail silently in the hopes that some other object will
 		 * contain the desired symbol.
 		 */
-		if (dt_Pxlookup_by_name(pp->dpp_dtp, pid, pp->dpp_lmid, obj,
+		if (dt_Pxlookup_by_name(dtp, pid, pp->dpp_lmid, obj,
 					pp->dpp_func, &sym, NULL) != 0) {
 			if (strcmp("-", pp->dpp_func) == 0) {
 				sym.st_name = 0;
@@ -496,17 +496,17 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 		 * dynamically rewritten, and, so, inherently dicey to
 		 * instrument.
 		 */
-		if (dt_Pwritable_mapping(pp->dpp_dtp, pid, sym.st_value))
+		if (dt_Pwritable_mapping(dtp, pid, sym.st_value))
 			return 0;
 
-		dt_Plookup_by_addr(pp->dpp_dtp, pid, sym.st_value,
+		dt_Plookup_by_addr(dtp, pid, sym.st_value,
 				   &pp->dpp_func, &sym);
 
 		return dt_pid_per_sym(pp, &sym, pp->dpp_func);
 	} else {
 		uint_t nmatches = pp->dpp_nmatches;
 
-		if (dt_Psymbol_iter_by_addr(pp->dpp_dtp, pid, obj, PR_SYMTAB,
+		if (dt_Psymbol_iter_by_addr(dtp, pid, obj, PR_SYMTAB,
 					    BIND_ANY | TYPE_FUNC,
 					    dt_pid_sym_filt, pp) == 1)
 			return 1;
@@ -516,8 +516,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 			 * If we didn't match anything in the PR_SYMTAB, try
 			 * the PR_DYNSYM.
 			 */
-			if (dt_Psymbol_iter_by_addr(
-					pp->dpp_dtp, pid, obj,
+			if (dt_Psymbol_iter_by_addr(dtp, pid, obj,
 					PR_DYNSYM, BIND_ANY | TYPE_FUNC,
 					dt_pid_sym_filt, pp) == 1)
 				return 1;
