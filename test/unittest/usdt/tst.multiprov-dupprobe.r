@@ -1,4 +1,4 @@
-PRID provaPID usdt-tst-multiprovider main entrya
+PRID provaPID usdt-tst-multiprov-dupprobe main entrya
 
 	Probe Description Attributes
 		Identifier Names: Private
@@ -13,7 +13,23 @@ PRID provaPID usdt-tst-multiprovider main entrya
 	Argument Types
 		None
 
-PRID provbPID usdt-tst-multiprovider main entryb
+PRID provaPID usdt-tst-multiprov-dupprobe main entrye
+
+	Probe Description Attributes
+		Identifier Names: Private
+		Data Semantics: Private
+		Dependency Class: Unknown
+
+	Argument Attributes
+		Identifier Names: Private
+		Data Semantics: Private
+		Dependency Class: Unknown
+
+	Argument Types
+		args[0]: int
+		args[1]: char *
+
+PRID provbPID usdt-tst-multiprov-dupprobe main entryb
 
 	Probe Description Attributes
 		Identifier Names: Private
@@ -28,7 +44,7 @@ PRID provbPID usdt-tst-multiprovider main entryb
 	Argument Types
 		None
 
-PRID provbPID usdt-tst-multiprovider main entryc
+PRID provbPID usdt-tst-multiprov-dupprobe main entryc
 
 	Probe Description Attributes
 		Identifier Names: Private
@@ -44,7 +60,7 @@ PRID provbPID usdt-tst-multiprovider main entryc
 		args[0]: char *
 		args[1]: int
 
-PRID provcPID usdt-tst-multiprovider main entryd
+PRID provcPID usdt-tst-multiprov-dupprobe main entryd
 
 	Probe Description Attributes
 		Identifier Names: Private
@@ -58,4 +74,20 @@ PRID provcPID usdt-tst-multiprovider main entryd
 
 	Argument Types
 		None
+
+PRID provcPID usdt-tst-multiprov-dupprobe main entrye
+
+	Probe Description Attributes
+		Identifier Names: Private
+		Data Semantics: Private
+		Dependency Class: Unknown
+
+	Argument Attributes
+		Identifier Names: Private
+		Data Semantics: Private
+		Dependency Class: Unknown
+
+	Argument Types
+		args[0]: char *
+		args[1]: int
 

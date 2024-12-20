@@ -8,4 +8,4 @@
 
 dtrace=$1
 
-exec $dtrace $dt_flags -lv -P 'prov*' -c `pwd`/test/triggers/usdt-tst-multiprovider
+exec $dtrace $dt_flags -lv -P 'prov*' -c `pwd`/test/triggers/usdt-tst-multiprov-dupprobe
