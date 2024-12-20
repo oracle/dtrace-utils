@@ -53,9 +53,7 @@ typedef struct dt_pid_probe {
 	dev_t dpp_dev;
 	ino_t dpp_inum;
 	const char *dpp_fname;
-	uintptr_t dpp_pc;
 	uintptr_t dpp_vaddr;
-	size_t dpp_size;
 	Lmid_t dpp_lmid;
 	uint_t dpp_nmatches;
 	GElf_Sym dpp_last;
