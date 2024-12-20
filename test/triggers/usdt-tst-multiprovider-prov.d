@@ -5,8 +5,6 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
-/* @@skip: provider declaration - not a test */
-
 provider prova { probe entrya(); };
 provider provb { probe entryb(); probe entryc(int a, char *b) : (char * b, int a); };
 provider provc { probe entryd(); };
