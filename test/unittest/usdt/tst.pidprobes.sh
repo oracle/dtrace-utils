@@ -102,6 +102,25 @@ if ! diff -q main.out main.out.expected > /dev/null; then
 	exit 1
 fi
 
+# Disassemble foo().  (simplify with --disassemble=foo)
+
+objdump -d main | awk '
+BEGIN { use = 0 }             # start by not printing lines
+use == 1 && NF == 0 { exit }  # if printing lines but hit a blank, then exit
+use == 1 { print }            # print lines
+/<foo>:/ { use = 1 }          # turn on printing when we hit "<foo>:" (without printing this line itself)
+' > disasm_foo.txt
+if [ $? -ne 0 ]; then
+	echo cannot objdump main
+	objdump -d main
+	exit 1
+fi
+
+# From the disassembly, get the PCs for foo()'s instructions.
+
+pcs=`awk '{print strtonum("0x"$1)}' disasm_foo.txt`
+pc0=`echo $pcs | awk '{print $1}'`
+
 # Run dtrace.
 
 cat >> pidprobes.d <<'EOF'
@@ -152,20 +171,6 @@ if [ `awk 'NF != 0 { print $1 }' dtrace.out | uniq | wc -l` -ne 1 ]; then
 	exit 1
 fi
 pid=`awk 'NF != 0 { print $1 }' dtrace.out | uniq`
-
-# Disassemble foo().
-
-objdump -d main | awk '
-BEGIN { use = 0 }             # start by not printing lines
-use == 1 && NF == 0 { exit }  # if printing lines but hit a blank, then exit
-use == 1 { print }            # print lines
-/<foo>:/ { use = 1 }          # turn on printing when we hit "<foo>:" (without printing this line itself)
-' > disasm_foo.txt
-
-# From the disassembly, get the PCs for foo()'s instructions.
-
-pcs=`awk '{print strtonum("0x"$1)}' disasm_foo.txt`
-pc0=`echo $pcs | awk '{print $1}'`
 
 # From the disassembly, get the PCs for USDT probes.
 # Check libdtrace/dt_link.c's arch-dependent dt_modtext() to see
