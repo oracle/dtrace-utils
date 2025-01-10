@@ -1,1 +1,1 @@
-  libc.so.6`strdup                                  
+  ustack-tst-basic`myfunc_v                         
