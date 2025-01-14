@@ -591,7 +591,7 @@ static int populate_args(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 		upp->args[i].mapping = map_arg;
 		upp->args[i].flags = 0;
 
-                if (i != map_arg)
+		if (i != map_arg)
 			upp->flags |= PP_IS_MAPPED;
 	}
 
@@ -714,21 +714,21 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 
 	switch (psp->pps_type) {
 	case DTPPT_RETURN:
-	    upp->flags |= PP_IS_RETURN;
-	    break;
+		upp->flags |= PP_IS_RETURN;
+		break;
 	case DTPPT_IS_ENABLED:
-	    upp->flags |= PP_IS_ENABLED;
-	    break;
+		upp->flags |= PP_IS_ENABLED;
+		break;
 	case DTPPT_USDT:
-	    upp->flags |= PP_IS_USDT;
-	    break;
+		upp->flags |= PP_IS_USDT;
+		break;
 	default: ;
-	    /*
-	     * No flags needed for other types.
-	     */
+		/*
+		 * No flags needed for other types.
+		 */
 	}
 
-        return uprp;
+	return uprp;
 
 fail:
 	dt_dprintf("Failed to instantiate %s:%s:%s:%s\n", psp->pps_prv,
