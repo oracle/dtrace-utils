@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2004, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -24,6 +24,8 @@ extern dt_ident_t *dt_module_extern(dtrace_hdl_t *, dt_module_t *,
     const char *, const dtrace_typeinfo_t *);
 
 extern const char *dt_module_modelname(dt_module_t *);
+
+extern void dt_modsym_mark_traceable(dtrace_hdl_t *);
 
 #ifdef	__cplusplus
 }

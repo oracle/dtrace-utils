@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -41,10 +41,8 @@
 #include "dt_pt_regs.h"
 
 static const char		prvname[] = "fbt";
-static const char		modname[] = "vmlinux";
 
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
-#define PROBE_LIST		TRACEFS "available_filter_functions"
 
 #define FBT_GROUP_FMT		GROUP_FMT "_%s"
 #define FBT_GROUP_DATA		GROUP_DATA, prp->desc->prb
@@ -61,19 +59,11 @@ dt_provimpl_t			dt_fbt_fprobe;
 dt_provimpl_t			dt_fbt_kprobe;
 
 /*
- * Scan the PROBE_LIST file and add entry and return probes for every function
- * that is listed.
+ * Create the fbt provider.
  */
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_provider_t		*prv;
-	FILE			*f;
-	char			*buf = NULL;
-	char			*p;
-	const char		*mod = modname;
-	size_t			n;
-	dtrace_syminfo_t	sip;
-	dtrace_probedesc_t	pd;
 
 	dt_fbt = BPF_HAS(dtp, BPF_FEAT_FENTRY) ? dt_fbt_fprobe : dt_fbt_kprobe;
 
@@ -81,78 +71,165 @@ static int populate(dtrace_hdl_t *dtp)
 	if (prv == NULL)
 		return -1;			/* errno already set */
 
-	f = fopen(PROBE_LIST, "r");
-	if (f == NULL)
+	return 0;
+}
+
+/* Create a probe (if it does not exist yet). */
+static int provide_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
+{
+	dt_provider_t	*prv = dt_provider_lookup(dtp, pdp->prv);
+
+	if (prv == NULL)
+		return 0;
+	if (dt_probe_lookup(dtp, pdp) != NULL)
+		return 0;
+	if (dt_tp_probe_insert(dtp, prv, pdp->prv, pdp->mod, pdp->fun, pdp->prb))
+		return 1;
+
+	return 0;
+}
+
+/*
+ * Try to provide probes for the given probe description.  The caller ensures
+ * that the provider name in probe description (if any) is a match for this
+ * provider.  When this is called, we already know that this provider matches
+ * the provider component of the probe specification.
+ */
+#define FBT_ENTRY	1
+#define FBT_RETURN	2
+
+static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
+{
+	int			n = 0;
+	int			prb = 0;
+	dt_module_t		*dmp = NULL;
+	dt_symbol_t		*sym = NULL;
+	dt_htab_next_t		*it = NULL;
+	dtrace_probedesc_t	pd;
+
+	dt_modsym_mark_traceable(dtp);
+
+	/*
+	 * Nothing to do if a probe name is specified and cannot match 'entry'
+	 * or 'return'.
+	 */
+	if (dt_gmatch("entry", pdp->prb))
+		prb |= FBT_ENTRY;
+	if (dt_gmatch("return", pdp->prb))
+		prb |= FBT_RETURN;
+	if (prb == 0)
 		return 0;
 
-	while (getline(&buf, &n, f) >= 0) {
-		/*
-		 * Here buf is either "funcname\n" or "funcname [modname]\n".
-		 * The last line may not have a linefeed.
-		 */
-		p = strchr(buf, '\n');
-		if (p) {
-			*p = '\0';
-			if (p > buf && *(--p) == ']')
-				*p = '\0';
-		}
+	/* Synthetic function names are not supported for FBT. */
+	if (strchr(pdp->fun, '.'))
+		return 0;
 
-		/*
-		 * Now buf is either "funcname" or "funcname [modname".  If
-		 * there is no module name provided, we will use the default.
-		 */
-		p = strchr(buf, ' ');
-		if (p) {
-			*p++ = '\0';
-			if (*p == '[')
-				p++;
-		}
-
-		/* Weed out synthetic symbol names (that are invalid). */
-		if (strchr(buf, '.') != NULL)
-			continue;
-
-#define strstarts(var, x) (strncmp(var, x, strlen (x)) == 0)
-		/* Weed out __ftrace_invalid_address___* entries. */
-		if (strstarts(buf, "__ftrace_invalid_address__") ||
-		    strstarts(buf, "__probestub_") ||
-		    strstarts(buf, "__traceiter_"))
-			continue;
-#undef strstarts
-
-		/*
-		 * If we did not see a module name, perform a symbol lookup to
-		 * try to determine the module name.
-		 */
-		if (!p) {
-			if (dtrace_lookup_by_name(dtp, DTRACE_OBJ_KMODS, buf,
-						  NULL, &sip) == 0)
-				mod = sip.object;
-		} else
-			mod = p;
-
-		/*
-		 * Due to the lack of module names in
-		 * TRACEFS/available_filter_functions, there are some duplicate
-		 * function names.  We need to make sure that we do not create
-		 * duplicate probes for these.
-		 */
-		pd.id = DTRACE_IDNONE;
-		pd.prv = prvname;
-		pd.mod = mod;
-		pd.fun = buf;
-		pd.prb = "entry";
-		if (dt_probe_lookup(dtp, &pd) != NULL)
-			continue;
-
-		if (dt_tp_probe_insert(dtp, prv, prvname, mod, buf, "entry"))
-			n++;
-		if (dt_tp_probe_insert(dtp, prv, prvname, mod, buf, "return"))
-			n++;
+	/*
+	 * If we have an explicit module name, check it.  If not found, we can
+	 * ignore this request.
+	 */
+	if (pdp->mod[0] != '\0' && strchr(pdp->mod, '*') == NULL) {
+		dmp = dt_module_lookup_by_name(dtp, pdp->mod);
+		if (dmp == NULL)
+			return 0;
 	}
 
-	free(buf);
-	fclose(f);
+	/*
+	 * If we have an explicit function name, we start with a basic symbol
+	 * name lookup.
+	 */
+	if (pdp->fun[0] != '\0' && strchr(pdp->fun, '*') == NULL) {
+		/* If we have a module, use it. */
+		if (dmp != NULL) {
+			sym = dt_module_symbol_by_name(dtp, dmp, pdp->fun);
+			if (sym == NULL)
+				return 0;
+			if (!dt_symbol_traceable(sym))
+				return 0;
+
+			pd.id = DTRACE_IDNONE;
+			pd.prv = pdp->prv;
+			pd.mod = dmp->dm_name;
+			pd.fun = pdp->fun;
+
+			if (prb & FBT_ENTRY) {
+				pd.prb = "entry";
+				n += provide_probe(dtp, &pd);
+			}
+			if (prb & FBT_RETURN) {
+				pd.prb = "return";
+				n += provide_probe(dtp, &pd);
+			}
+
+			return n;
+		}
+
+		sym = dt_symbol_by_name(dtp, pdp->fun);
+		while (sym != NULL) {
+			const char	*mod = dt_symbol_module(sym)->dm_name;
+
+			if (dt_symbol_traceable(sym) &&
+			    dt_gmatch(mod, pdp->mod)) {
+				pd.id = DTRACE_IDNONE;
+				pd.prv = pdp->prv;
+				pd.mod = mod;
+				pd.fun = pdp->fun;
+
+				if (prb & FBT_ENTRY) {
+					pd.prb = "entry";
+					n += provide_probe(dtp, &pd);
+				}
+				if (prb & FBT_RETURN) {
+					pd.prb = "return";
+					n += provide_probe(dtp, &pd);
+				}
+
+			}
+			sym = dt_symbol_by_name_next(sym);
+		}
+
+		return n;
+	}
+
+	/*
+	 * No explicit function name.  We need to go through all possible
+	 * symbol names and see if they match.
+	 */
+	while ((sym = dt_htab_next(dtp->dt_kernsyms, &it)) != NULL) {
+		dt_module_t	*smp;
+		const char	*fun;
+
+		/* Ensure the symbol can be traced. */
+		if (!dt_symbol_traceable(sym))
+			continue;
+
+		/* Function name cannot be synthetic and must match. */
+		fun = dt_symbol_name(sym);
+		if (strchr(fun, '.') || !dt_gmatch(fun, pdp->fun))
+			continue;
+
+		/* Validate the module name. */
+		smp = dt_symbol_module(sym);
+		if (dmp) {
+			if (smp != dmp)
+				continue;
+		} else if (!dt_gmatch(smp->dm_name, pdp->mod))
+			continue;
+
+		pd.id = DTRACE_IDNONE;
+		pd.prv = pdp->prv;
+		pd.mod = smp->dm_name;
+		pd.fun = fun;
+
+		if (prb & FBT_ENTRY) {
+			pd.prb = "entry";
+			n += provide_probe(dtp, &pd);
+		}
+		if (prb & FBT_RETURN) {
+			pd.prb = "return";
+			n += provide_probe(dtp, &pd);
+		}
+	}
 
 	return n;
 }
@@ -447,6 +524,7 @@ dt_provimpl_t	dt_fbt_fprobe = {
 	.prog_type	= BPF_PROG_TYPE_TRACING,
 	.stack_skip	= 4,
 	.populate	= &populate,
+	.provide	= &provide,
 	.load_prog	= &fprobe_prog_load,
 	.trampoline	= &fprobe_trampoline,
 	.attach		= &dt_tp_probe_attach_raw,
@@ -459,6 +537,7 @@ dt_provimpl_t	dt_fbt_kprobe = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_KPROBE,
 	.populate	= &populate,
+	.provide	= &provide,
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &kprobe_trampoline,
 	.attach		= &kprobe_attach,
