@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1215,7 +1215,7 @@ dt_modsym_addsym(dtrace_hdl_t *dtp, dt_module_t *dmp, dt_kallsym_t *sym,
 	    (strstarts(sym->name, "__syscall_meta__")) ||
 	    (strstarts(sym->name, "__p_syscall_meta__")) ||
 	    (strstarts(sym->name, "__event_")) ||
-	    (strstarts(sym->name, "event_")) ||
+	    (strstarts(sym->name, "event_") && sym->type == 'd') ||
 	    (strstarts(sym->name, "ftrace_event_")) ||
 	    (strstarts(sym->name, "types__")) ||
 	    (strstarts(sym->name, "args__")) ||
@@ -1223,7 +1223,6 @@ dt_modsym_addsym(dtrace_hdl_t *dtp, dt_module_t *dmp, dt_kallsym_t *sym,
 	    (strstarts(sym->name, "__tpstrtab_")) ||
 	    (strstarts(sym->name, "__tpstrtab__")) ||
 	    (strstarts(sym->name, "__initcall_")) ||
-	    (strstarts(sym->name, "__setup_")) ||
 	    (strstarts(sym->name, "__pci_fixup_")))
 		skip = 1;
 #undef strstarts
