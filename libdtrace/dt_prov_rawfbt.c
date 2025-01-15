@@ -122,27 +122,9 @@ static int populate(dtrace_hdl_t *dtp)
 		 * try to determine the module name.
 		 */
 		if (!p) {
-			char	*q;
-
-			/*
-			 * For synthetic symbol names (those containing '.'),
-			 * we need to use the base name (before the '.') for
-			 * module name lookup, because the synthetic forms are
-			 * not recorded in kallsyms information.
-			 *
-			 * We replace the first '.' with a 0 to terminate the
-			 * string, and after the lookup, we put it back.
-			 */
-			q = strchr(buf, '.');
-			if (q != NULL)
-				*q = '\0';
-
 			if (dtrace_lookup_by_name(dtp, DTRACE_OBJ_KMODS, buf,
 						  NULL, &sip) == 0)
 				mod = sip.object;
-
-			if (q != NULL)
-				*q = '.';
 		} else
 			mod = p;
 
