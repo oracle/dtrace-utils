@@ -4,7 +4,7 @@
 
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -39,6 +39,7 @@ extern dt_symbol_t *dt_symbol_insert(dtrace_hdl_t *dtp, dt_symtab_t *symtab,
     struct dt_module *dmp, const char *name, GElf_Addr addr, GElf_Xword size,
     unsigned char info);
 extern dt_symbol_t *dt_symbol_by_name(dtrace_hdl_t *dtp, const char *name);
+extern dt_symbol_t *dt_symbol_by_name_next(const dt_symbol_t *symbol);
 extern dt_symbol_t *dt_module_symbol_by_name(dtrace_hdl_t *dtp,
     struct dt_module *dmp, const char *name);
 extern dt_symbol_t *dt_symbol_by_addr(dt_symtab_t *symtab, GElf_Addr dts_addr);
@@ -50,6 +51,11 @@ extern const char *dt_symbol_name(const dt_symbol_t *symbol);
 extern void dt_symbol_to_elfsym(dtrace_hdl_t *dtp, dt_symbol_t *symbol,
     GElf_Sym *elf_symp);
 extern struct dt_module *dt_symbol_module(dt_symbol_t *symbol);
+
+extern void dt_symtab_set_traceable(dt_symtab_t *symtab);
+extern int dt_symtab_traceable(const dt_symtab_t *symtab);
+extern void dt_symbol_set_traceable(dt_symbol_t *symbol);
+extern int dt_symbol_traceable(const dt_symbol_t *symbol);
 
 #ifdef	__cplusplus
 }

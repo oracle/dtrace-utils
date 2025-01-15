@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -23,9 +23,12 @@
 #include <dt_string.h>
 #include <unistd.h>
 
-#define DT_ST_SORTED 0x01		/* Sorted, ready for searching. */
-#define DT_ST_PACKED 0x02		/* Symbol table packed
+#define DT_ST_SORTED	0x01		/* Sorted, ready for searching. */
+#define DT_ST_PACKED	0x02		/* Symbol table packed
 					 * (necessarily sorted too) */
+#define DT_ST_TRACEABLE	0x04		/* Symbols have traceable flag */
+
+#define DT_STB_TRACE	8		/* traceable symbol */
 
 struct dt_symbol {
 	dt_list_t dts_list;		/* list forward/back pointers */
@@ -273,6 +276,12 @@ dt_symbol_by_name(dtrace_hdl_t *dtp, const char *name)
 	tmpl.dts_name = (char *) name;
 
 	return dt_htab_lookup(dtp->dt_kernsyms, &tmpl);
+}
+
+dt_symbol_t *
+dt_symbol_by_name_next(const dt_symbol_t *symbol)
+{
+	return symbol ? (dt_symbol_t *)symbol->dts_he.next : NULL;
 }
 
 /* Find a symbol in a given module.  */
@@ -548,7 +557,7 @@ dt_symbol_name(const dt_symbol_t *symbol)
 void
 dt_symbol_to_elfsym64(dtrace_hdl_t *dtp, dt_symbol_t *symbol, Elf64_Sym *elf_symp)
 {
-	elf_symp->st_info = symbol->dts_info;
+	elf_symp->st_info = symbol->dts_info & ~GELF_ST_INFO(DT_STB_TRACE, 0);
 	elf_symp->st_value = symbol->dts_addr;
 	elf_symp->st_size = symbol->dts_size;
 	elf_symp->st_shndx = 1; /* 'not SHN_UNDEF' is all we guarantee */
@@ -557,7 +566,7 @@ dt_symbol_to_elfsym64(dtrace_hdl_t *dtp, dt_symbol_t *symbol, Elf64_Sym *elf_sym
 void
 dt_symbol_to_elfsym32(dtrace_hdl_t *dtp, dt_symbol_t *symbol, Elf32_Sym *elf_symp)
 {
-	elf_symp->st_info = symbol->dts_info;
+	elf_symp->st_info = symbol->dts_info & ~GELF_ST_INFO(DT_STB_TRACE, 0);
 	elf_symp->st_value = symbol->dts_addr;
 	elf_symp->st_size = symbol->dts_size;
 	elf_symp->st_shndx = 1; /* 'not SHN_UNDEF' is all we guarantee */
@@ -580,4 +589,40 @@ dt_module_t *
 dt_symbol_module(dt_symbol_t *symbol)
 {
 	return symbol->dts_dmp;
+}
+
+/*
+ * Mark a symtab as having traceable flags on symbols.
+ */
+void
+dt_symtab_set_traceable(dt_symtab_t *symtab)
+{
+	symtab->dtst_flags |= DT_ST_TRACEABLE;
+}
+
+/*
+ * Return whether a symtab has traceable flags on symbols.
+ */
+int
+dt_symtab_traceable(const dt_symtab_t *symtab)
+{
+	return symtab->dtst_flags & DT_ST_TRACEABLE;
+}
+
+/*
+ * Mark a symbol as traceable.
+ */
+void
+dt_symbol_set_traceable(dt_symbol_t *symbol)
+{
+	symbol->dts_info |= GELF_ST_INFO(DT_STB_TRACE, 0);
+}
+
+/*
+ * Return whether a symbol is traceable.
+ */
+int
+dt_symbol_traceable(const dt_symbol_t *symbol)
+{
+	return GELF_ST_BIND(symbol->dts_info) & DT_STB_TRACE;
 }
