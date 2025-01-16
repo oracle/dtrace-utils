@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -62,7 +62,7 @@ static const char		modname[] = "vmlinux";
  * The dependent probe support should include a priority specification to drive
  * the order in which dependent probes are added to the underlying probe.  This
  * is needed to enforce specific probe firing semantics (e.g. proc:::start must
- * always precede [roc:::lwp-start).
+ * always precede proc:::lwp-start).
  */
 
 typedef struct probe_arg {
@@ -350,12 +350,12 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		 *	else args[0] = 2;			// CLD_KILLED
 		 */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, sizeof(int)));
 		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, ctm.ctm_offset / NBBY));
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read));
-		emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_FP, DT_STK_SPILL(0)));
+		emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_FP, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_0, 1));
 		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_1));
 		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 0x7f));
@@ -406,17 +406,17 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sz));
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_STK_SPILL(0)));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_TRAMP_SP_SLOT(0)));
 		off = dt_cg_ctf_offsetof("struct signal_struct", "group_exit_code", &sz, 0);
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SPILL(0)));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sz));
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
-		emit(dlp, BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_FP, DT_STK_SPILL(0)));
+		emit(dlp, BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_FP, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_keep));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 
