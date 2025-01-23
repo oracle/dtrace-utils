@@ -364,16 +364,57 @@ static char *
 dt_dis_bpf_args(const dtrace_difo_t *dp, const char *fn,
 		const struct bpf_insn *in, char *buf, size_t len, uint_t addr)
 {
-	if (strcmp(fn, "dt_get_bvar") == 0) {
+	if (strcmp(fn, "dt_bvar_args") == 0) {
 		/*
-		 * We know that the previous two instructions exist and move
-		 * the variable id to a register in the first instruction of
-		 * that sequence (because we wrote the code generator to emit
-		 * the instructions in this exact order.)
+		 * We need to support two cases:
+		 *  - access to argN:
+		 *	lddw %r1, dctx
+		 *	mov  %r2, N
+		 *	call dt_bvar_args
+		 *  - access to args[N]:
+		 *	mov  %rX, N
+		 *	lddw %r1, dctx
+		 *	mov  %r2, %rX
+		 *	call dt_bvar_args
 		 */
-		in -= 2;
-		snprintf(buf, len, "%s",
-			 dt_dis_varname_id(dp, in->imm, DIFV_SCOPE_GLOBAL, addr));
+		in--;
+		if (BPF_OP(in->code) == BPF_MOV && in->dst_reg == 2) {
+			if (BPF_SRC(in->code) == BPF_K) {
+				snprintf(buf, len, "arg%d", in->imm);
+				return buf;
+			}
+
+			in -= 2;
+			if (BPF_OP(in->code) == BPF_MOV &&
+			    BPF_SRC(in->code) == BPF_K &&
+			    in->dst_reg == in[2].src_reg) {
+				snprintf(buf, len, "args[%d]", in->imm);
+				return buf;
+			}
+		}
+
+		snprintf(buf, len, "args[?]");
+		return buf;
+	} else if (strcmp(fn, "dt_bvar_probedesc") == 0) {
+		/*
+		 * Access to probe(prov|mod|func|name);
+		 *	lddw %r1, dctx
+		 *	mov  %r2, N
+		 *	call dt_bvar_probedesc
+		 */
+		in--;
+		if (BPF_OP(in->code) == BPF_MOV && in->dst_reg == 2 &&
+		    BPF_SRC(in->code) == BPF_K) {
+			snprintf(buf, len, "%s",
+				 dt_dis_varname_id(dp, in->imm,
+						   DIFV_SCOPE_GLOBAL, addr));
+			return buf;
+		}
+
+		return NULL;
+	} else if (strncmp(fn, "dt_bvar_", 8) == 0) {
+		/* The variable name is in the function name.*/
+		snprintf(buf, len, "%s", fn + 8);
 		return buf;
 	} else if (strcmp(fn, "dt_get_agg") == 0) {
 		/*

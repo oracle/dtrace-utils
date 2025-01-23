@@ -30,6 +30,9 @@ sdt:task::task_rename
 	trace(arg8);
 	trace(arg9);
 	trace(args[0]);
+	trace(args[1]);
+	trace(args[2]);
+	trace(args[3]);
 	trace(caller);
 	trace(curcpu);
 	trace(curthread);
@@ -38,7 +41,7 @@ sdt:task::task_rename
 	trace(execname);
 	trace(gid);
 	trace(id);
-	trace(ipl);
+/*	trace(ipl); */
 	trace(pid);
 	trace(ppid);
 	trace(probefunc);
@@ -52,7 +55,7 @@ sdt:task::task_rename
 	trace(uid);
 	/* trace(uregs[0]); */ /* test this separately until uregs[0] works on all kernels */
 	trace(ustackdepth);
-	trace(vtimestamp);
+/*	trace(vtimestamp); */
 	trace(walltimestamp);
 	exit(0);
 }

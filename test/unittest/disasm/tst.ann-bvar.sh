@@ -22,6 +22,9 @@ sdt:task::task_rename
 	trace(arg8);
 	trace(arg9);
 	trace(args[0]);
+	trace(args[1]);
+	trace(args[2]);
+	trace(args[3]);
 	trace(caller);
 	trace(curcpu);
 	trace(curthread);
@@ -30,7 +33,7 @@ sdt:task::task_rename
 	trace(execname);
 	trace(gid);
 	trace(id);
-	trace(ipl);
+/*	trace(ipl); */
 	trace(pid);
 	trace(ppid);
 	trace(probefunc);
@@ -43,10 +46,10 @@ sdt:task::task_rename
 	trace(ucaller);
 	trace(uid);
 	trace(ustackdepth);
-	trace(vtimestamp);
+/*	trace(vtimestamp); */
 	trace(walltimestamp);
 	exit(0);
 }
-' 2>&1 | gawk '/ call dt_get_bvar/ { sub(/^[^:]+: /, ""); print; }'
+' 2>&1 | gawk '/ call dt_bvar_/ { sub(/^[^:]+: /, ""); print; }'
 
 exit $?

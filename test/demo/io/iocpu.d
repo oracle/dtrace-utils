@@ -5,6 +5,8 @@
  * http://oss.oracle.com/licenses/upl.
  */
 
+/* @@xfail: dtv2: need vtimestamp support */
+
 #pragma D option quiet
 
 sched:::on-cpu

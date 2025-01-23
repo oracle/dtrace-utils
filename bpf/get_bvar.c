@@ -19,18 +19,21 @@
 # define noinline	__attribute__((noinline))
 #endif
 
-extern struct bpf_map_def cpuinfo;
-extern struct bpf_map_def probes;
-extern struct bpf_map_def state;
-extern struct bpf_map_def usdt_names;
+extern struct bpf_map_def	cpuinfo;
+extern struct bpf_map_def	probes;
+extern struct bpf_map_def	state;
+extern struct bpf_map_def	usdt_names;
 
-extern uint64_t PC;
-extern uint64_t STBSZ;
-extern uint64_t STKSIZ;
-extern uint64_t BOOTTM;
+extern uint64_t	BOOTTM;
+extern uint64_t	NPROBES;
+extern uint64_t	PC;
+extern uint64_t	STBSZ;
+extern uint64_t	STKSIZ;
 extern uint64_t STACK_OFF;
-extern uint64_t STACK_SKIP;
-extern uint64_t NPROBES;
+extern uint64_t	STACK_SKIP;
+extern uint64_t	TASK_COMM;
+extern uint64_t	TASK_REAL_PARENT;
+extern uint64_t	TASK_TGID;
 
 #define error(dctx, fault, illval) \
 	({ \
@@ -38,198 +41,231 @@ extern uint64_t NPROBES;
 		-1; \
 	})
 
-noinline uint64_t dt_get_bvar(const dt_dctx_t *dctx, uint32_t id, uint32_t idx)
+noinline uint64_t dt_bvar_args(const dt_dctx_t *dctx, uint32_t idx)
 {
 	dt_mstate_t	*mst = dctx->mst;
 
-	switch (id) {
-	case DIF_VAR_CURTHREAD:
-		return bpf_get_current_task();
-	case DIF_VAR_TIMESTAMP:
-		if (mst->tstamp == 0)
-			mst->tstamp = bpf_ktime_get_ns();
-
-		return mst->tstamp;
-	case DIF_VAR_EPID: {
-		return (((uint64_t)mst->prid) << 32) | mst->stid;
-	}
-	case DIF_VAR_ID:
-		return mst->prid;
-	case DIF_VAR_ARG0: case DIF_VAR_ARG1: case DIF_VAR_ARG2:
-	case DIF_VAR_ARG3: case DIF_VAR_ARG4: case DIF_VAR_ARG5:
-	case DIF_VAR_ARG6: case DIF_VAR_ARG7: case DIF_VAR_ARG8:
-	case DIF_VAR_ARG9:
-		return mst->argv[id - DIF_VAR_ARG0];
-	case DIF_VAR_ARGS:
-		if (idx >= sizeof(mst->argv) / sizeof(mst->argv[0]))
-			return error(dctx, DTRACEFLT_ILLOP, 0);
-
-		return mst->argv[idx];
-	case DIF_VAR_STACKDEPTH:
-	case DIF_VAR_USTACKDEPTH: {
-		uint32_t bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
-		uint64_t flags;
-		char *buf = dctx->mem + (uint64_t)(&STACK_OFF);
-		uint64_t stacksize;
-
-		if (id == DIF_VAR_USTACKDEPTH)
-			flags = BPF_F_USER_STACK;
-		else
-			flags = (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK;
-
-		stacksize = bpf_get_stack(dctx->ctx, buf, bufsiz, flags);
-		if (stacksize < 0)
-			return error(dctx, DTRACEFLT_BADSTACK, 0 /* FIXME */);
-
-		/*
-		 * While linux/bpf.h does not describe the meaning of
-		 * bpf_get_stack()'s return value outside of its sign,
-		 * it is presumably the length of the copied stack.
-		 *
-		 * If stacksize==bufsiz, presumably the stack is larger than
-		 * what we can retrieve.  But it's also possible that the
-		 * buffer was exactly large enough.  So, leave it to the user
-		 * to interpret the result.
-		 */
-		return stacksize / sizeof(uint64_t);
-	}
-	case DIF_VAR_CALLER:
-	case DIF_VAR_UCALLER: {
-		uint64_t flags;
-		uint64_t buf[2] = { 0, };
-
-		if (id == DIF_VAR_UCALLER)
-			flags = BPF_F_USER_STACK;
-		else
-			flags = (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK;
-
-		if (bpf_get_stack(dctx->ctx, buf, sizeof(buf), flags) < 0)
-			return 0;
-		return buf[1];
-	}
-	case DIF_VAR_PROBEPROV:
-	case DIF_VAR_PROBEMOD:
-	case DIF_VAR_PROBEFUNC:
-	case DIF_VAR_PROBENAME: {
-		uint32_t	key = mst->prid;
-
-		if (key < ((uint64_t)&NPROBES)) {
-			dt_bpf_probe_t	*pinfo;
-			uint64_t	off;
-
-			pinfo = bpf_map_lookup_elem(&probes, &key);
-			if (pinfo == NULL)
-				return (uint64_t)dctx->strtab;
-
-			switch (id) {
-			case DIF_VAR_PROBEPROV:
-				off = pinfo->prv;
-				break;
-			case DIF_VAR_PROBEMOD:
-				off = pinfo->mod;
-				break;
-			case DIF_VAR_PROBEFUNC:
-				off = pinfo->fun;
-				break;
-			case DIF_VAR_PROBENAME:
-				off = pinfo->prb;
-			}
-			if (off > (uint64_t)&STBSZ)
-				return (uint64_t)dctx->strtab;
-
-			return (uint64_t)(dctx->strtab + off);
-		} else {
-			char *s;
-
-			s = bpf_map_lookup_elem(&usdt_names, &key);
-			if (s == NULL)
-				return (uint64_t)dctx->strtab;
-
-			switch (id) {
-			case DIF_VAR_PROBENAME:
-				s += DTRACE_FUNCNAMELEN;
-			case DIF_VAR_PROBEFUNC:
-				s += DTRACE_MODNAMELEN;
-			case DIF_VAR_PROBEMOD:
-				s += DTRACE_PROVNAMELEN;
-			case DIF_VAR_PROBEPROV:
-			}
-
-			return (uint64_t)s;
-		}
-	}
-	case DIF_VAR_PID: {
-		uint64_t	val = bpf_get_current_pid_tgid();
-
-		return val >> 32;
-	}
-	case DIF_VAR_TID: {
-		uint64_t	val = bpf_get_current_pid_tgid();
-
-		return val & 0x00000000ffffffffUL;
-	}
-	case DIF_VAR_EXECNAME: {
-		uint64_t	ptr;
-		extern uint64_t	TASK_COMM;
-
-		/* &(current->comm) */
-		ptr = bpf_get_current_task();
-		if (ptr == 0)
-			return error(dctx, DTRACEFLT_BADADDR, ptr);
-
-		return (uint64_t)ptr + (uint64_t)&TASK_COMM;
-	}
-	case DIF_VAR_WALLTIMESTAMP:
-		return bpf_ktime_get_ns() + ((uint64_t)&BOOTTM);
-	case DIF_VAR_PPID: {
-		uint64_t	ptr;
-		int32_t		val = -1;
-		extern uint64_t	TASK_REAL_PARENT;
-		extern uint64_t	TASK_TGID;
-
-		/* Chase pointers val = current->real_parent->tgid. */
-		ptr = bpf_get_current_task();
-		if (ptr == 0)
-			return error(dctx, DTRACEFLT_BADADDR, ptr);
-		if (bpf_probe_read((void *)&ptr, 8,
-		    (const void *)(ptr + (uint64_t)&TASK_REAL_PARENT)))
-			return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_REAL_PARENT);
-		if (bpf_probe_read((void *)&val, 4,
-		    (const void *)(ptr + (uint64_t)&TASK_TGID)))
-			return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_TGID);
-
-		return (uint64_t)val;
-	}
-	case DIF_VAR_UID: {
-		uint64_t	val = bpf_get_current_uid_gid();
-
-		return val & 0x00000000ffffffffUL;
-	}
-	case DIF_VAR_GID: {
-		uint64_t	val = bpf_get_current_uid_gid();
-
-		return val >> 32;
-	}
-	case DIF_VAR_ERRNO:
-		return mst->syscall_errno;
-	case DIF_VAR_CURCPU: {
-		uint32_t	key = 0;
-		void		*val = bpf_map_lookup_elem(&cpuinfo, &key);
-
-		if (val == NULL) {
-			/*
-			 * Typically, we would use 'return error(...);' but
-			 * that confuses the verifier because it returns -1.
-			 * So, instead, we explicitly return 0.
-			 */
-			error(dctx, DTRACEFLT_ILLOP, 0);
-			return 0;
-		}
-
-		return (uint64_t)val;
-	}
-	default:
-		/* Not implemented yet. */
+	if (idx >= sizeof(mst->argv) / sizeof(mst->argv[0]))
 		return error(dctx, DTRACEFLT_ILLOP, 0);
+
+	return mst->argv[idx];
+}
+
+noinline uint64_t dt_bvar_caller(const dt_dctx_t *dctx)
+{
+	uint64_t	buf[2] = { 0, };
+
+	if (bpf_get_stack(dctx->ctx, buf, sizeof(buf),
+			  (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK) < 0)
+		return 0;
+
+	return buf[1];
+}
+
+noinline uint64_t dt_bvar_curcpu(const dt_dctx_t *dctx)
+{
+	uint32_t	key = 0;
+	void		*val = bpf_map_lookup_elem(&cpuinfo, &key);
+
+	if (val == NULL) {
+		/*
+		 * Typically, we would use 'return error(...);' but
+		 * that confuses the verifier because it returns -1.
+		 * So, instead, we explicitly return 0.
+		 */
+		error(dctx, DTRACEFLT_ILLOP, 0);
+		return 0;
 	}
+
+	return (uint64_t)val;
+}
+
+noinline uint64_t dt_bvar_curthread(const dt_dctx_t *dctx)
+{
+	return bpf_get_current_task();
+}
+
+noinline uint64_t dt_bvar_epid(const dt_dctx_t *dctx)
+{
+	dt_mstate_t	*mst = dctx->mst;
+
+	return (((uint64_t)mst->prid) << 32) | mst->stid;
+}
+
+noinline uint64_t dt_bvar_errno(const dt_dctx_t *dctx)
+{
+	dt_mstate_t	*mst = dctx->mst;
+
+	return mst->syscall_errno;
+}
+
+noinline uint64_t dt_bvar_execname(const dt_dctx_t *dctx)
+{
+	uint64_t	ptr;
+
+	/* &(current->comm) */
+	ptr = bpf_get_current_task();
+	if (ptr == 0)
+		return error(dctx, DTRACEFLT_BADADDR, ptr);
+
+	return (uint64_t)ptr + (uint64_t)&TASK_COMM;
+}
+
+noinline uint64_t dt_bvar_gid(const dt_dctx_t *dctx)
+{
+	return bpf_get_current_uid_gid() >> 32;
+}
+
+noinline uint64_t dt_bvar_id(const dt_dctx_t *dctx)
+{
+	dt_mstate_t	*mst = dctx->mst;
+
+	return mst->prid;
+}
+
+noinline uint64_t dt_bvar_pid(const dt_dctx_t *dctx)
+{
+	return bpf_get_current_pid_tgid() >> 32;
+}
+
+noinline uint64_t dt_bvar_ppid(const dt_dctx_t *dctx)
+{
+	uint64_t	ptr;
+	int32_t		val = -1;
+
+	/* Chase pointers val = current->real_parent->tgid. */
+	ptr = bpf_get_current_task();
+	if (ptr == 0)
+		return error(dctx, DTRACEFLT_BADADDR, ptr);
+	if (bpf_probe_read((void *)&ptr, 8,
+			   (const void *)(ptr + (uint64_t)&TASK_REAL_PARENT)))
+		return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_REAL_PARENT);
+	if (bpf_probe_read((void *)&val, 4,
+			   (const void *)(ptr + (uint64_t)&TASK_TGID)))
+		return error(dctx, DTRACEFLT_BADADDR, ptr + (uint64_t)&TASK_TGID);
+
+	return (uint64_t)val;
+}
+
+noinline uint64_t dt_bvar_probedesc(const dt_dctx_t *dctx, uint32_t idx)
+{
+	dt_mstate_t			*mst = dctx->mst;
+	uint32_t			key = mst->prid;
+
+	if (key < ((uint64_t)&NPROBES)) {
+		dt_bpf_probe_t	*pinfo;
+		uint64_t	off = 0;
+
+		pinfo = bpf_map_lookup_elem(&probes, &key);
+		if (pinfo == NULL)
+			return (uint64_t)dctx->strtab;
+
+		switch (idx) {
+		case DIF_VAR_PROBEPROV:
+			off = pinfo->prv;
+			break;
+		case DIF_VAR_PROBEMOD:
+			off = pinfo->mod;
+			break;
+		case DIF_VAR_PROBEFUNC:
+			off = pinfo->fun;
+			break;
+		case DIF_VAR_PROBENAME:
+			off = pinfo->prb;
+		}
+		if (off > (uint64_t)&STBSZ)
+			return (uint64_t)dctx->strtab;
+
+		return (uint64_t)(dctx->strtab + off);
+	} else {
+		char	*s;
+
+		s = bpf_map_lookup_elem(&usdt_names, &key);
+		if (s == NULL)
+			return (uint64_t)dctx->strtab;
+
+		switch (idx) {
+		case DIF_VAR_PROBEPROV:
+			s += DTRACE_FUNCNAMELEN;
+		case DIF_VAR_PROBEMOD:
+			s += DTRACE_MODNAMELEN;
+		case DIF_VAR_PROBEFUNC:
+			s += DTRACE_PROVNAMELEN;
+		case DIF_VAR_PROBENAME:
+		}
+
+		return (uint64_t)s;
+	}
+}
+
+noinline uint64_t dt_bvar_stackdepth(const dt_dctx_t *dctx)
+{
+	uint32_t	bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
+	char		*buf = dctx->mem + (uint64_t)(&STACK_OFF);
+	uint64_t	retv;
+
+	retv = bpf_get_stack(dctx->ctx, buf, bufsiz,
+			     (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK);
+	if (retv < 0)
+		return error(dctx, DTRACEFLT_BADSTACK, 0 /* FIXME */);
+
+	/*
+	 * While linux/bpf.h does not describe the meaning of bpf_get_stack()'s
+	 * return value outside of its sign, it is presumably the length of the
+	 * copied stack.
+	 *
+	 * If retv==bufsiz, presumably the stack is larger than what we
+	 * can retrieve.  But it's also possible that the buffer was exactly
+	 * large enough.  So, leave it to the user to interpret the result.
+	 */
+	return retv / sizeof(uint64_t);
+}
+
+noinline uint64_t dt_bvar_tid(const dt_dctx_t *dctx)
+{
+	return bpf_get_current_pid_tgid() & 0x00000000ffffffffUL;
+}
+
+noinline uint64_t dt_bvar_timestamp(const dt_dctx_t *dctx)
+{
+	dt_mstate_t	*mst = dctx->mst;
+
+	if (mst->tstamp == 0)
+		mst->tstamp = bpf_ktime_get_ns();
+
+	return mst->tstamp;
+}
+
+noinline uint64_t dt_bvar_ucaller(const dt_dctx_t *dctx)
+{
+	uint64_t buf[2] = { 0, };
+
+	if (bpf_get_stack(dctx->ctx, buf, sizeof(buf), BPF_F_USER_STACK) < 0)
+		return 0;
+
+	return buf[1];
+}
+
+noinline uint64_t dt_bvar_uid(const dt_dctx_t *dctx)
+{
+	return bpf_get_current_uid_gid() & 0x00000000ffffffffUL;
+}
+
+noinline uint64_t dt_bvar_ustackdepth(const dt_dctx_t *dctx)
+{
+	uint32_t	bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
+	char		*buf = dctx->mem + (uint64_t)(&STACK_OFF);
+	uint64_t	retv;
+
+	retv = bpf_get_stack(dctx->ctx, buf, bufsiz, BPF_F_USER_STACK);
+	if (retv < 0)
+		return error(dctx, DTRACEFLT_BADSTACK, 0 /* FIXME */);
+
+	/* See dt_bvar_stackdepth() above. */
+	return retv / sizeof(uint64_t);
+}
+
+noinline uint64_t dt_bvar_walltimestamp(const dt_dctx_t *dctx)
+{
+	return bpf_ktime_get_ns() + ((uint64_t)&BOOTTM);
 }
