@@ -30,7 +30,7 @@ fi
 
 # Get the ERROR probe ID from "dtrace -l" output.
 
-id=`$dtrace $dt_flags -ln dtrace:::ERROR |& awk '/^ *[0-9]* *dtrace *ERROR *$/ { print $1 }'`
+id=`$dtrace $dt_flags -ln dtrace:::ERROR |& gawk '/^ *[0-9]* *dtrace *ERROR *$/ { print $1 }'`
 
 # Construct expected output.
 

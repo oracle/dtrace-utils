@@ -50,7 +50,7 @@ BEGIN
 }
 EOT
 
-awk 'BEGIN {
+gawk 'BEGIN {
 	ok = 0;
      }
 

@@ -49,7 +49,7 @@ fi
 
 # Parse the disassembly output for start PCs for the dt_clause_n.
 
-awk '
+gawk '
 BEGIN { phase = 0 }
 
 # Look for disassembly of dtrace:::BEGIN.
@@ -70,7 +70,7 @@ phase == 3 && NF == 0 { exit(0) }
 phase == 3 { next }
 ' disasm.out > dt_clause_start_pcs.txt
 if [ $? -ne 0 ]; then
-	echo ERROR: awk
+	echo ERROR: gawk
 	dump_files disasm.out dt_clause_start_pcs.txt
 	exit 1
 fi
@@ -80,7 +80,7 @@ fi
 for n in 0 1 2 3 4 5; do
 	echo dt_clause_$n >> dt_clause_start_pcs.txt.check
 done
-if ! awk '{print $2}' dt_clause_start_pcs.txt | diff - dt_clause_start_pcs.txt.check; then
+if ! gawk '{print $2}' dt_clause_start_pcs.txt | diff - dt_clause_start_pcs.txt.check; then
 	echo ERROR: did not find all expected dt_clause_n
 	dump_files disasm.out dt_clause_start_pcs.txt
 fi
@@ -94,10 +94,10 @@ fi
 # dt_probe_error() is the problematic one.  We look for those calls.
 for n in 1 2 3 4; do
 	# For dt_clause_$n, find the starting PC.
-	pc=`awk '$2 == "dt_clause_'$n'" { print $1 }' dt_clause_start_pcs.txt`
+	pc=`gawk '$2 == "dt_clause_'$n'" { print $1 }' dt_clause_start_pcs.txt`
 
 	# Look for the starting PC and then the second dt_probe_error().
-	awk '
+	gawk '
 	BEGIN { phase = 0 }
 
 	# Look for disassembly of dtrace:::BEGIN.
@@ -120,7 +120,7 @@ done
 
 # Do a sanity check on DTrace's error output.
 
-awk '/^dtrace: error in dt_clause_[1-4] for probe ID 1 \(dtrace:::BEGIN): invalid address \(0x40) at BPF pc [0-9]*$/ { print $NF }' \
+gawk '/^dtrace: error in dt_clause_[1-4] for probe ID 1 \(dtrace:::BEGIN): invalid address \(0x40) at BPF pc [0-9]*$/ { print $NF }' \
   disasm.out > err_pcs.txt.chk1
 if ! diff -q err_pcs.txt err_pcs.txt.chk1; then
 	echo ERROR: problem with DTrace error output
@@ -130,7 +130,7 @@ fi
 
 # Check the D script output... the arg3 values reported by the dtrace:::ERROR probe.
 
-if ! awk 'NF != 0 { print strtonum("0x"$NF) }' D.out | diff -q - err_pcs.txt; then
+if ! gawk 'NF != 0 { print strtonum("0x"$NF) }' D.out | diff -q - err_pcs.txt; then
 	echo ERROR: D script output looks wrong
 	dump_files D.out err_pcs.txt
 	exit 1
