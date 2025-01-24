@@ -4,7 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@skip: not used directly by the test hardness; called by other scripts */
+/* @@skip: not used directly by the test harness; called by other scripts */
 
 /*
  * For all io::: probes, dump "all" probe arguments (and their interesting members).

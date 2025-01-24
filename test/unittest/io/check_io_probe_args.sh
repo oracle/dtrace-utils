@@ -6,7 +6,7 @@
 # http://oss.oracle.com/licenses/upl.
 
 #
-# @@skip: not used directly by the test hardness; called by other scripts
+# @@skip: not used directly by the test harness; called by other scripts
 #
 
 infile=$1
