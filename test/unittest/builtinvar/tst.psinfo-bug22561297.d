@@ -4,11 +4,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- * To print psinfo structure values from profile.
+ * ASSERTION: To print psinfo structure values from profile.
  *
  * SECTION: Variables/Built-in Variables
  */
@@ -32,12 +30,14 @@ tick-10ms
 	printf("address of process = %p\n", curpsinfo->pr_addr);
 	printf("address of controlling tty = %p\n", curpsinfo->pr_ttydev);
 	printf("process name = %s\n", curpsinfo->pr_fname);
-	/* These are still getting faked */
 	printf("initial chars of arg list = %s\n", curpsinfo->pr_psargs);
 	printf("wait status for zombie = %d\n", curpsinfo->pr_wstat);
+/*
+ * These are not implemented yet.
 	printf("initial argument count = %d\n", curpsinfo->pr_argc);
 	printf("initial argument vector = %p\n", curpsinfo->pr_argv);
 	printf("initial environment vector = %p\n", curpsinfo->pr_envp);
+ */
 	printf("process data model = %d\n", curpsinfo->pr_dmodel);
 	printf("task id = %d\n", curpsinfo->pr_taskid);
 	printf("project id = %d\n", curpsinfo->pr_projid);

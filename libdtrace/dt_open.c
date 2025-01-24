@@ -153,6 +153,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "uint64_t" },
 { "errno", DT_IDENT_SCALAR, 0, DIF_VAR_ERRNO, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "int" },
+{ "execargs", DT_IDENT_SCALAR, 0, DIF_VAR_EXECARGS,
+	DT_ATTR_STABCMN, DT_VERS_2_0, &dt_idops_type, "string" },
 { "execname", DT_IDENT_SCALAR, 0, DIF_VAR_EXECNAME,
 	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
 { "exit", DT_IDENT_ACTFUNC, 0, DT_ACT_EXIT, DT_ATTR_STABCMN, DT_VERS_1_0,

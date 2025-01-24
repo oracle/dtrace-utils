@@ -3304,7 +3304,6 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	}
 
 	/* built-in variables (note: args[] is handled in dt_cg_array_op) */
-	/* Special case for arg0 through arg9; encode as args[n] */
 	if (idp->di_id >= DIF_VAR_ARG0 && idp->di_id <= DIF_VAR_ARG9) {
 		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_args");
 		idx = idp->di_id - DIF_VAR_ARG0;
@@ -3314,6 +3313,31 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		   idp->di_id == DIF_VAR_PROBENAME) {
 		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_probedesc");
 		idx = idp->di_id;
+	} else if (idp->di_id == DIF_VAR_EXECARGS) {
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_execargs");
+		assert(fnp != NULL);
+
+		if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		dt_cg_tstring_alloc(yypcb, dnp);
+
+		if (dt_regset_xalloc_args(drp) == -1)
+			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+		dt_cg_access_dctx(BPF_REG_1, dlp, drp, -1);
+		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_1, DCTX_MEM));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, dnp->dn_tstring->dn_value));
+		dt_regset_xalloc(drp, BPF_REG_0);
+		emite(dlp, BPF_CALL_FUNC(fnp->di_id), fnp);
+		dt_regset_free_args(drp);
+
+		dt_cg_check_fault(yypcb);
+
+		emit(dlp,  BPF_MOV_REG(dnp->dn_reg, BPF_REG_0));
+		dt_regset_free(drp, BPF_REG_0);
+
+		return;
 	} else {
 		char	*fn;
 

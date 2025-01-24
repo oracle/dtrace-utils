@@ -4,11 +4,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
-/* @@xfail: dtv2 */
 
 /*
- * ASSERTION:
- * To ensure pr_psargs does not have an (extra) trailing space.
+ * ASSERTION: To ensure pr_psargs does not have an (extra) trailing space.
  *
  * SECTION: Variables/Built-in Variables
  */

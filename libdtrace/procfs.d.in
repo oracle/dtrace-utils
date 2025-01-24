@@ -87,7 +87,7 @@ typedef struct psinfo {
 	timestruc_t pr_time;		/* usr+sys cpu time for process */
 	timestruc_t pr_ctime;		/* usr+sys cpu time for children */
 	char pr_fname[16];		/* name of exec'd file */
-	char pr_psargs[80];		/* initial chars of arg list */
+	string pr_psargs;		/* initial chars of arg list */
 	int pr_wstat;			/* if zombie, wait() status */
 	int pr_argc;			/* initial argument count */
 	uintptr_t pr_argv;		/* address of initial arg vector */
@@ -179,9 +179,8 @@ translator psinfo_t < struct task_struct *T > {
 				   : (struct tty_struct *)-1;
 
 	pr_fname = T->comm;
-/*
-	pr_psargs = stringof(get_psinfo(T)->__psinfo(psargs));
- */
+	pr_psargs = T == curthread ? execargs
+				   : "<unknown>";
 	pr_wstat = 0;
 /*
 	pr_argc = get_psinfo(T)->__psinfo(argc);

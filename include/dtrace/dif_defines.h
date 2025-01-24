@@ -162,6 +162,7 @@
 #define DIF_VAR_GID		0x011f
 #define DIF_VAR_ERRNO		0x0120
 #define DIF_VAR_CURCPU		0x0121
+#define DIF_VAR_EXECARGS	0x0122
 
 #define DIF_SUBR_RAND			0
 #define DIF_SUBR_MUTEX_OWNED		1

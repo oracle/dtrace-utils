@@ -23,6 +23,7 @@ bpf_dlib_SRCDEPS = $(objdir)/include/.dir.stamp $(objdir)/include/bpf_asm_helper
 bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	basename.S \
+	bvar_execargs.S \
 	cleanpath.S \
 	dirname.S \
 	get_agg.c \
