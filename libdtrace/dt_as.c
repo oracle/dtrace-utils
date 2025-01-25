@@ -492,7 +492,7 @@ fail:
 			case BPF_ST | BPF_MEM | BPF_DW:		/* stdw */
 			case BPF_ALU64 | BPF_MOV | BPF_K:	/* mov */
 			case BPF_ALU64 | BPF_ADD | BPF_K:	/* add */
-				rp->dofr_type = R_BPF_64_32;
+				rp->dofr_type = R_BPF_64_ABS32;
 				break;
 			case BPF_LD | BPF_IMM | BPF_DW:		/* lddw */
 				rp->dofr_type = R_BPF_64_64;

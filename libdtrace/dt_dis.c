@@ -639,6 +639,12 @@ dt_dis_rtab(const char *rtag, const dtrace_difo_t *dp, FILE *fp,
 		case R_BPF_64_32:
 			tstr = "R_BPF_INSN_DISP32";
 			break;
+		case R_BPF_64_ABS64:
+			tstr = "R_BPF_DATA_64";
+			break;
+		case R_BPF_64_ABS32:
+			tstr = "R_BPF_DATA_32";
+			break;
 		default:
 			tstr = "R_???";
 		}
@@ -853,7 +859,8 @@ dt_dis_difo(const dtrace_difo_t *dp, FILE *fp, const dt_ident_t *idp,
 		for (; cnt; cnt--, rp++) {
 			if (rp->dofr_offset < i * sizeof(uint64_t))
 				continue;
-			if (rp->dofr_offset == i * sizeof(uint64_t))
+			if (rp->dofr_offset >= i * sizeof(uint64_t) &&
+			    rp->dofr_offset < (i + 1) * sizeof(uint64_t))
 				rname = dt_difo_getstr(dp, rp->dofr_name);
 
 			break;

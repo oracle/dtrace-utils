@@ -88,6 +88,12 @@ pid_t gettid(void);
 #ifndef R_BPF_64_64
 #define R_BPF_64_64		1
 #endif
+#ifndef R_BPF_64_ABS64
+#define R_BPF_64_ABS64		2
+#endif
+#ifndef R_BPF_64_ABS32
+#define R_BPF_64_ABS32		3
+#endif
 #ifndef R_BPF_64_32
 #define R_BPF_64_32		10
 #endif

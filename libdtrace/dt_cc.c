@@ -1266,7 +1266,8 @@ dt_link_resolve(dtrace_hdl_t *dtp, dtrace_difo_t *dp)
 		if (rp->dofr_type == R_BPF_64_64) {
 			buf[ioff].imm = val & 0xffffffff;
 			buf[ioff + 1].imm = val >> 32;
-		} else if (rp->dofr_type == R_BPF_64_32)
+		} else if (rp->dofr_type == R_BPF_64_32 ||
+			   rp->dofr_type == R_BPF_64_ABS32)
 			buf[ioff].imm = (uint32_t)val;
 	}
 }
