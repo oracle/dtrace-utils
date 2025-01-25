@@ -13,8 +13,6 @@
 #ifndef _DTRACE_FAULTS_DEFINES_H
 #define _DTRACE_FAULTS_DEFINES_H
 
-#include <dtrace/universal.h>
-
 /*
  * The constants below DTRACEFLT_LIBRARY indicate probe processing faults;
  * constants at or above DTRACEFLT_LIBRARY indicate faults in probe
