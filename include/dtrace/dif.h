@@ -33,7 +33,7 @@ typedef struct dtrace_diftype {
 	uint8_t dtdt_kind;
 	uint8_t dtdt_ckind;
 	uint8_t dtdt_flags;
-	uint8_t dtdt_pad;
+	uint8_t dtdt_align;
 	uint32_t dtdt_size;
 } dtrace_diftype_t;
 

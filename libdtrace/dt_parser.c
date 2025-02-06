@@ -4914,7 +4914,7 @@ dt_node_diftype(dtrace_hdl_t *dtp, const dt_node_t *dnp, dtrace_diftype_t *tp)
 	}
 
 	tp->dtdt_flags = (dnp->dn_flags & DT_NF_REF) ? DIF_TF_BYREF : 0;
-	tp->dtdt_pad = 0;
+	tp->dtdt_align = ctf_type_align(dnp->dn_ctfp, dnp->dn_type);
 	tp->dtdt_size = ctf_type_size(dnp->dn_ctfp, dnp->dn_type);
 }
 

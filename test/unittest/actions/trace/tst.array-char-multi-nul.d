@@ -6,20 +6,25 @@
  */
 
 /*
- * ASSERTION: The trace() action prints an array correctly.
+ * ASSERTION: The trace() action prints a char-array of printable characters
+ *	      with multiple 0-bytes in its content.
  *
  * SECTION: Actions and Subroutines/trace()
  */
 
-short n[5];
+char n[9];
 
 BEGIN
 {
-	n[0] = 0x1234;
-	n[1] = 0x5678;
-	n[2] = 0x0000;
-	n[3] = 0x8765;
-	n[4] = 0x4321;
+	n[0] = 'a';
+	n[1] = 'A';
+	n[2] = 0;
+	n[3] = 'B';
+	n[4] = 0;
+	n[5] = 'C';
+	n[6] = 0;
+	n[7] = 'D';
+	n[8] = 'e';
 	trace(n);
 	exit(0);
 }

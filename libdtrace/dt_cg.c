@@ -1601,12 +1601,11 @@ static int
 dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		dt_pfargv_t *pfp, int arg)
 {
-	dtrace_diftype_t	vtype;
 	dtrace_hdl_t		*dtp = pcb->pcb_hdl;
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	dt_regset_t		*drp = pcb->pcb_regs;
 	uint_t			off;
-	size_t			size;
+	size_t			size, align;
 	int			not_null = 0;
 	int			cflags = pcb->pcb_stmt->dtsd_clauseflags;
 
@@ -1619,10 +1618,14 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		emit(dlp, BPF_MOV_IMM(dnp->dn_reg, dnp->dn_ident->di_id));
 		size = sizeof(dnp->dn_ident->di_id);
+		align = size;
 	} else {
+		dtrace_diftype_t	vtype;
+
 		dt_cg_node(dnp, dlp, drp);
 		dt_node_diftype(dtp, dnp, &vtype);
 		size = vtype.dtdt_size;
+		align = vtype.dtdt_align;
 
 		/*
 		 * A DEREF of a REF node does not get resolved in dt_cg_node()
@@ -1664,7 +1667,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 	if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) ||
 	    dnp->dn_kind == DT_NODE_AGG) {
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, size, pfp,
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, align, pfp,
 				 arg);
 
 		emit(dlp, BPF_STOREX(size, BPF_REG_9, off, dnp->dn_reg));
@@ -1678,8 +1681,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 			dt_cg_check_ptr_arg(dlp, drp, dnp, NULL);
 
 		TRACE_REGSET("store_val(): Begin ");
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size + 1,
-				 1, pfp, arg);
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size + 1, 1, pfp,
+				 arg);
 
 		/*
 		 * Copy the string data (no more than STRSIZE + 1 bytes) to the
@@ -1706,7 +1709,8 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 	/* Handle tracing of by-ref values (arrays, struct, union). */
 	if ((dnp->dn_flags & DT_NF_REF) || (arg & DT_NF_REF)) {
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, 2, pfp, arg);
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, align, pfp,
+				 arg);
 
 		TRACE_REGSET("store_val(): Begin ");
 		if (!not_null)

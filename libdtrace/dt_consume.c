@@ -1921,23 +1921,9 @@ dt_print_trace(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	if (dtp->dt_options[DTRACEOPT_RAWBYTES] != DTRACEOPT_UNSET)
 		return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
 
-	/*
-	 * String data can be recognized as a non-scalar data item with
-	 * alignment == 1.
-	 * Any other non-scalar data items are printed as a byte stream.
-	 */
-	if (rec->dtrd_arg == DT_NF_REF) {
-		char	*s = (char *)data;
-
-		if (rec->dtrd_alignment > 1)
-			return dt_print_rawbytes(dtp, fp, data, rec->dtrd_size);
-
-		/* We have a string.  Print it. */
-		if (quiet)
-			return dt_printf(dtp, fp, "%s", s);
-		else
-			return dt_printf(dtp, fp, "  %-33s", s);
-	}
+	/* Handle non-scalar data. */
+	if (rec->dtrd_arg == DT_NF_REF)
+		return dt_print_bytes(dtp, fp, data, rec->dtrd_size, 33, quiet);
 
 	/*
 	 * Differentiate between signed and unsigned numeric values.
