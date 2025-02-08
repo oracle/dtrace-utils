@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -37,9 +37,18 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-# Strip out blank lines and pointer values.
+# Strip out
+# - blank lines
+# - "constprop"
+# - "isra"
+# - "_after_hwframe"    (x86 starting with UEK8)
+# - pointer values
 
-awk 'NF != 0 { sub(/+0x[0-9a-f]*$/, "+{ptr}"); print }' dtrace.out > dtrace.post
+awk 'NF != 0 { sub("\\.constprop\\.[0-9]", "");
+               sub("\\.isra\\.[0-9]", "");
+               sub("_after_hwframe\\+", "+");
+               sub(/+0x[0-9a-f]*$/, "+{ptr}");
+               print }' dtrace.out > dtrace.post
 if [ $? -ne 0 ]; then
 	echo ERROR: awk failed
 	cat dtrace.out
