@@ -1,5 +1,6 @@
 
               ustack-tst-basic`myfunc_z
+              ustack-tst-basic`myfunc_y+{ptr}
               ustack-tst-basic`myfunc_x+{ptr}
               ustack-tst-basic`myfunc_w+{ptr}
               ustack-tst-basic`myfunc_v+{ptr}
