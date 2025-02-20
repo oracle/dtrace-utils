@@ -787,7 +787,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 		if (dof_stash_push_parsed(&accum, provider) < 0)
 			goto oom;
 
-		fuse_log(FUSE_LOG_DEBUG, "Parser read: provider %s, %i probes\n",
+		fuse_log(FUSE_LOG_DEBUG, "Parser read: provider %s, %li probes\n",
 			 provider->provider.name, provider->provider.nprobes);
 
 		for (i = 0; i < provider->provider.nprobes; i++) {
