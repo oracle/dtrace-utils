@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -55,7 +55,8 @@ static const char	prvname[] = "uprobe";
 typedef struct dt_uprobe {
 	dev_t		dev;
 	ino_t		inum;
-	char		*fn;
+	char		*fn;		   /* object full file name */
+	char		*func;		   /* function */
 	uint64_t	off;
 	int		flags;
 	tp_probe_t	*tp;
@@ -128,6 +129,7 @@ static void probe_destroy_underlying(dtrace_hdl_t *dtp, void *datap)
 	dt_tp_destroy(dtp, tpp);
 	free_probe_list(dtp, dt_list_next(&upp->probes));
 	dt_free(dtp, upp->fn);
+	dt_free(dtp, upp->func);
 	dt_free(dtp, upp->args);
 	dt_free(dtp, upp->argvbuf);
 	dt_free(dtp, upp);
@@ -327,9 +329,13 @@ ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 	 */
 
 	/* We know what function we're in.  It must match the probe description (unless "-"). */
-	if (strcmp(pdp->fun, "-") != 0 &&
-	    !dt_gmatch(uprp->desc->fun, pdp->fun))
-		return 1;
+	if (strcmp(pdp->fun, "-") != 0) {
+		dt_uprobe_t	*upp = uprp->prv_data;
+
+		assert(upp->func);  // never a return probe
+		if (!dt_gmatch(upp->func, pdp->fun))
+			return 1;
+	}
 
 	return 0;
 }
@@ -621,11 +627,11 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	 *
 	 * The probe description for non-return probes is:
 	 *
-	 *	uprobe:<dev>_<inode>:<func>:<offset>
+	 *	uprobe:<dev>_<inode>::<offset>
 	 *
 	 * The probe description for return probes is:
 	 *
-	 *	uprobe:<dev>_<inode>:<func>:return
+	 *	uprobe:<dev>_<inode>::return
 	 */
 	snprintf(mod, sizeof(mod), "%lx_%lx", psp->pps_dev, psp->pps_inum);
 
@@ -636,6 +642,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	case DTPPT_IS_ENABLED:
 	case DTPPT_ENTRY:
 	case DTPPT_OFFSETS:
+	case DTPPT_ABSOFFSETS:
 	case DTPPT_USDT:
 		snprintf(prb, sizeof(prb), "%lx", psp->pps_off);
 		break;
@@ -647,7 +654,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	pd.id = DTRACE_IDNONE;
 	pd.prv = prvname;
 	pd.mod = mod;
-	pd.fun = psp->pps_fun;
+	pd.fun = "";
 	pd.prb = prb;
 
 	dt_dprintf("Providing underlying probe %s:%s:%s:%s @ %lx\n", psp->pps_prv,
@@ -670,6 +677,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		upp->inum = psp->pps_inum;
 		upp->off = psp->pps_off;
 		upp->fn = strdup(psp->pps_fn);
+		upp->func = NULL;
 		upp->tp = dt_tp_alloc(dtp);
 		if (upp->tp == NULL)
 			goto fail;
@@ -688,6 +696,17 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		dt_dprintf("Found overlapping USDT probe at %lx/%lx/%lx/%s\n",
 			   upp->dev, upp->inum, upp->off, upp->fn);
 		goto fail;
+	}
+
+	/*
+	 * The underlying probe should have the same function for all
+	 * overlying probes unless it's a return probe.
+	 */
+	if (psp->pps_type != DTPPT_RETURN) {
+		if (upp->func == NULL)
+			upp->func = strdup(psp->pps_fun);
+		else
+			assert(strcmp(upp->func, psp->pps_fun) == 0);
 	}
 
 	if (populate_args(dtp, psp, upp) < 0)
@@ -733,7 +752,7 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	pd.id = DTRACE_IDNONE;
 	pd.prv = prv;
 	pd.mod = psp->pps_mod;
-	pd.fun = psp->pps_fun;
+	pd.fun = (psp->pps_type == DTPPT_ABSOFFSETS) ? "-" : psp->pps_fun;
 	pd.prb = prb;
 
 	/* Get (or create) the provider for the PID of the probe. */
@@ -821,6 +840,7 @@ static int provide_pid_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 		strcpy(prb, "return");
 		break;
 	case DTPPT_OFFSETS:
+	case DTPPT_ABSOFFSETS:
 		snprintf(prb, sizeof(prb), "%lx", psp->pps_nameoff);
 		break;
 	default:

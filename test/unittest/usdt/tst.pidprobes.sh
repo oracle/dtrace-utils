@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -121,7 +121,13 @@ fi
 pcs=`awk '{print strtonum("0x"$1)}' disasm_foo.txt`
 pc0=`echo $pcs | awk '{print $1}'`
 
-# Run dtrace.
+# Construct D script:  add a pid$pid::-:$absoff probe for each PC in foo.
+
+for pc in $pcs; do
+	printf 'p*d$target::-:%x,\n' $pc >> pidprobes.d
+done
+
+# Construct D script:  add a glob for all pid and USDT pyramid probes in foo.
 
 cat >> pidprobes.d <<'EOF'
 p*d$target::foo:
@@ -129,6 +135,8 @@ p*d$target::foo:
 	printf("%d %s:%s:%s:%s %x\n", pid, probeprov, probemod, probefunc, probename, uregs[R_PC]);
 }
 EOF
+
+# Construct D script:  add a glob for all USDT pyramid probes, dumping args.
 
 if [[ -n $usdt ]]; then
 	echo 'pyramid$target::foo: {' >> pidprobes.d
@@ -141,9 +149,12 @@ if [[ -n $usdt ]]; then
 	echo '}' >> pidprobes.d
 fi
 
+# Run dtrace.
+
 $dtrace $dt_flags -q -c ./main -o dtrace.out -s pidprobes.d > main.out2
 if [ $? -ne 0 ]; then
 	echo "failed to run dtrace" >&2
+	cat pidprobes.d
 	cat main.out2
 	cat dtrace.out
 	exit 1
@@ -286,14 +297,16 @@ fi
 # - a blank line
 # - pid entry
 # - pid return
-# - pid offset
+# - pid offset (relative -- that is, pid$pid:main:foo:$reloff)
+# - pid offset (absolute -- that is, pid$pid:main:-:$absoff)
 # - two USDT probes (ignore is-enabled probes)
 
 echo > dtrace.out.expected
-printf "$pid pid$pid:main:foo:entry %x\n" $pc0 >> dtrace.out.expected
+printf "$pid pid$pid:main:foo:entry %x\n" $pc0   >> dtrace.out.expected
 echo   "$pid pid$pid:main:foo:return $pc_return" >> dtrace.out.expected
 for pc in $pcs; do
 	printf "$pid pid$pid:main:foo:%x %x\n" $(($pc - $pc0)) $pc >> dtrace.out.expected
+	printf "$pid pid$pid:main:-:%x %x\n"      $pc          $pc >> dtrace.out.expected
 done
 echo $usdt_pcs | awk '{printf("'$pid' pyramid'$pid':main:foo:entry %x\n", $1);}' >> dtrace.out.expected
 echo $usdt_pcs | awk '{printf("'$pid' pyramid'$pid':main:foo:entry %x\n", $2);}' >> dtrace.out.expected

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -155,7 +155,6 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	uint_t nmatches = 0;
 	ulong_t sz;
 	int glob, rc = 0;
-	int isdash = strcmp("-", func) == 0;
 	pid_t pid;
 
 	/*
@@ -183,7 +182,46 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 	psp->pps_nameoff = 0;
 	psp->pps_off = symp->st_value - pp->dpp_vaddr;
 
-	if (!isdash && gmatch("return", pp->dpp_name)) {
+	/*
+	 * The special function "-" means the probe name is an absolute
+	 * virtual address.
+	 */
+	if (strcmp("-", func) == 0) {
+		char *end;
+		GElf_Sym sym;
+
+		off = strtoull(pp->dpp_name, &end, 16);
+		if (*end != '\0') {
+			rc = dt_pid_error(dtp, pcb, dpr, D_PROC_NAME,
+					  "'%s' is an invalid probe name",
+					  pp->dpp_name);
+			goto out;
+		}
+
+		psp->pps_nameoff = off;
+
+		if (dt_Plookup_by_addr(dtp, pid, off, (const char **)&psp->pps_fun, &sym)) {
+			rc = dt_pid_error(dtp, pcb, dpr, D_PROC_NAME,
+			     "failed to lookup 0x%lx in module '%s'", off, pp->dpp_mod);
+			if (psp->pps_fun != func && psp->pps_fun != NULL)
+				free(psp->pps_fun);
+			goto out;
+		}
+
+		psp->pps_prb = (char*)pp->dpp_name;
+		psp->pps_off = off - pp->dpp_vaddr;
+
+		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, DTPPT_ABSOFFSETS) < 0)
+			rc = dt_pid_error(dtp, pcb, dpr, D_PROC_CREATEFAIL,
+			    "failed to create probes at '%s+0x%llx': %s",
+			    func, (unsigned long long)off, dtrace_errmsg(dtp, dtrace_errno(dtp)));
+		else
+			pp->dpp_nmatches++;
+		free(psp->pps_fun);
+		goto out;
+	}
+
+	if (gmatch("return", pp->dpp_name)) {
 		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, DTPPT_RETURN) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
@@ -195,7 +233,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		nmatches++;
 	}
 
-	if (!isdash && gmatch("entry", pp->dpp_name)) {
+	if (gmatch("entry", pp->dpp_name)) {
 		if (dt_pid_create_one_probe(pp->dpp_pr, dtp, psp, DTPPT_ENTRY) < 0) {
 			rc = dt_pid_error(
 				dtp, pcb, dpr, D_PROC_CREATEFAIL,
@@ -240,7 +278,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		}
 
 		nmatches++;
-	} else if (glob && !isdash) {
+	} else if (glob) {
 #if defined(__amd64)
 		/*
 		 * We need to step through the instructions to find their
@@ -450,30 +488,24 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 		pp->dpp_obj++;
 
 	/*
+	 * If it is the special function "-", cut to dt_pid_per_sym() now.
+	 */
+	if (strcmp("-", pp->dpp_func) == 0)
+		return dt_pid_per_sym(pp, &sym, pp->dpp_func);
+
+	/*
 	 * If pp->dpp_func contains any globbing meta-characters, we need
 	 * to iterate over the symbol table and compare each function name
 	 * against the pattern.
 	 */
 	if (!strisglob(pp->dpp_func)) {
-		/*
-		 * If we fail to lookup the symbol, try interpreting the
-		 * function as the special "-" function that indicates that the
-		 * probe name should be interpreted as a absolute virtual
-		 * address. If that fails and we were matching a specific
-		 * function in a specific module, report the error, otherwise
-		 * just fail silently in the hopes that some other object will
-		 * contain the desired symbol.
+		/* If we are matching a specific function in a specific module,
+		 * report the error, otherwise just fail silently in the hopes
+		 * that some other object will contain the desired symbol.
 		 */
 		if (dt_Pxlookup_by_name(dtp, pid, pp->dpp_lmid, obj,
 					pp->dpp_func, &sym, NULL) != 0) {
-			if (strcmp("-", pp->dpp_func) == 0) {
-				sym.st_name = 0;
-				sym.st_info =
-				    GELF_ST_INFO(STB_LOCAL, STT_FUNC);
-				sym.st_other = 0;
-				sym.st_value = 0;
-				sym.st_size = Pelf64(pp->dpp_pr) ? -1ULL : -1U;
-			} else if (!strisglob(pp->dpp_mod)) {
+			if (!strisglob(pp->dpp_mod)) {
 				return dt_pid_error(
 					dtp, pcb, dpr, D_PROC_FUNC,
 					"failed to lookup '%s' in module '%s'",
@@ -647,9 +679,10 @@ dt_pid_create_pid_probes_proc(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	if (strcmp(pp.dpp_func, "-") == 0) {
 		const prmap_t *aout, *pmp;
 
-		if (pdp->mod[0] == '\0') {
-			pp.dpp_mod = pdp->mod;
+		if (strcmp(pp.dpp_mod, "*") == 0) {
+			/* Tolerate two glob cases:  "" and "*". */
 			pdp->mod = "a.out";
+			pp.dpp_mod = pdp->mod;
 		} else if (strisglob(pp.dpp_mod) ||
 		    (aout = dt_Pname_to_map(dtp, pid, "a.out")) == NULL ||
 		    (pmp = dt_Pname_to_map(dtp, pid, pp.dpp_mod)) == NULL ||
