@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -594,11 +594,11 @@ dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
 		/* test just a single byte */
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, 1));
 
-		/* safe to write to FP+DT_STK_SP_BASE, which becomes the clause stack */
+		/* write to scratch space */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_STK_SP_BASE));
+		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));
 
-		/* bpf_probe_read_kernel(%fp + DT_STK_SP, 1, PC) */
+		/* bpf_probe_read_kernel(%fp + DT_TRAMP_SP_SLOT(0), 1, PC) */
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_probe_read_kernel));
 
