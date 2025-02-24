@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -62,6 +62,26 @@ dt_bpf_error(dtrace_hdl_t *dtp, const char *fmt, ...)
 	va_end(apc);
 
 	return dt_set_errno(dtp, EDT_BPF);
+}
+
+int
+dt_attach_error(dtrace_hdl_t *dtp, int rc, ...)
+{
+	va_list	ap, apc;
+	char	*fmt;
+
+	if (asprintf(&fmt, "Failed to enable %%s:%%s:%%s:%%s: %s",
+		     dtrace_errmsg(dtp, -rc)) > 0) {
+		va_start(ap, rc);
+		va_copy(apc, ap);
+		dt_set_errmsg(dtp, NULL, NULL, NULL, 0, fmt, ap);
+		va_end(ap);
+		dt_debug_printf("bpf", "Failed to enable %s:%s:%s:%s", apc);
+		va_end(apc);
+		free(fmt);
+	}
+
+	return dt_set_errno(dtp, EDT_ENABLING_ERR);
 }
 
 int
@@ -1335,19 +1355,11 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		if (prp->prov->impl->attach)
 			rc = prp->prov->impl->attach(dtp, prp, fd);
 
-		if (rc == -ENOTSUPP) {
-			char	*s;
-
+		if (rc < 0) {
 			close(fd);
-			if (asprintf(&s, "Failed to enable %s:%s:%s:%s",
-				     prp->desc->prv, prp->desc->mod,
-				     prp->desc->fun, prp->desc->prb) == -1)
-				return dt_set_errno(dtp, EDT_ENABLING_ERR);
-			dt_handle_rawerr(dtp, s);
-			free(s);
-		} else if (rc < 0) {
-			close(fd);
-			return dt_set_errno(dtp, EDT_ENABLING_ERR);
+			return dt_attach_error(dtp, rc,
+					       prp->desc->prv, prp->desc->mod,
+					       prp->desc->fun, prp->desc->prb);
 		}
 	}
 

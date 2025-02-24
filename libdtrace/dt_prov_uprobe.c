@@ -385,19 +385,10 @@ static int add_probe_uprobe(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	if (prp->prov->impl->attach)
 		rc = prp->prov->impl->attach(dtp, prp, fd);
 
-	if (rc == -ENOTSUPP) {
-		char    *s;
-
+	if (rc < 0) {
 		close(fd);
-		if (asprintf(&s, "Failed to enable %s:%s:%s:%s",
-			      prp->desc->prv, prp->desc->mod,
-			      prp->desc->fun, prp->desc->prb) == -1)
-			return dt_set_errno(dtp, EDT_ENABLING_ERR);
-		dt_handle_rawerr(dtp, s);
-		free(s);
-	} else if (rc < 0) {
-		close(fd);
-		return dt_set_errno(dtp, EDT_ENABLING_ERR);
+		return dt_attach_error(dtp, rc, prp->desc->prv, prp->desc->mod,
+						prp->desc->fun, prp->desc->prb);
 	}
 
 	return 0;

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -66,6 +66,8 @@ extern "C" {
 extern int dt_perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
 			      int group_fd, unsigned long flags);
 extern int dt_bpf(enum bpf_cmd cmd, union bpf_attr *attr);
+
+extern int dt_attach_error(struct dtrace_hdl *, int, ...);
 
 extern int dt_bpf_gmap_create(struct dtrace_hdl *);
 extern int dt_bpf_lockmem_error(struct dtrace_hdl *dtp, const char *msg);

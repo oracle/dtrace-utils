@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -110,6 +110,8 @@ dtrace_errmsg(dtrace_hdl_t *dtp, int error)
 	int i;
 
 	if (error == EDT_COMPILER && dtp != NULL && dtp->dt_errmsg[0] != '\0')
+		str = dtp->dt_errmsg;
+	else if (error == EDT_ENABLING_ERR && dtp != NULL && dtp->dt_errmsg[0] != '\0')
 		str = dtp->dt_errmsg;
 	else if (error == EDT_BPF && dtp != NULL && dtp->dt_errmsg[0] != '\0')
 		str = dtp->dt_errmsg;
