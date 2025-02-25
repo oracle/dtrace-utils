@@ -8,77 +8,45 @@
  */
 #include <assert.h>
 #include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/bpf.h>
-#include <linux/perf_event.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#include <bpf_asm.h>
 
 #include "dt_dctx.h"
 #include "dt_cg.h"
+#include "dt_provider_sdt.h"
 #include "dt_probe.h"
-#include "dt_pt_regs.h"
 
 static const char		prvname[] = "proc";
 static const char		modname[] = "vmlinux";
 
-/*
- * The proc-provider probes make use of probes that are already provided by
- * other providers.  As such, the proc probes are 'dependent probes' because
- * they depend on underlying probes to get triggered and they also depend on
- * argument data provided by the underlying probe to manufacture their own
- * arguments.
- *
- * As a type of SDT probes, proc probes are defined with a signature (list of
- * arguments - possibly empty) that may use translator support to provide the
- * actual argument values.  Therefore, obtaining the value of arguments for
- * a proc probe goes through two layers of processing:
- *
- *  (1) the arguments of the underlying probe are reworked to match the
- *	expected layout of raw arguments for the proc probe
- *  (2) an argument mapping table (and supporting translators) is used to get
- *	the value of an arguument based on the raw variable data of the proc
- *	probe
- *
- * To accomplish this, proc probes generate a trampoline that rewrites the
- * arguments of the underlying probe.  (The dependent probe support code in the
- * underlying probe saves the arguments of the underying probe in the mstate
- * before executing the trampoline and clauses of the dependent probe, and it
- * restores them afterwards in case there are multiple dependent probes.)
- *
- * Because proc probes dependent on an underlying probe that may be too generic
- * (e.g. proc:::exec-success depending on syscall::execve*:return), the
- * trampoline code can include a pre-condition (much like a predicate) that can
- * bypass execution unless the condition is met (e.g. proc:::exec-success
- * requires syscall::execve*:return's arg1 to be 0).
- *
- * FIXME:
- * The dependent probe support should include a priority specification to drive
- * the order in which dependent probes are added to the underlying probe.  This
- * is needed to enforce specific probe firing semantics (e.g. proc:::start must
- * always precede proc:::lwp-start).
- */
+static probe_dep_t	probes[] = {
+	{ "create",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:sched::sched_process_fork" },
+	{ "exec",
+	  DTRACE_PROBESPEC_NAME,	"syscall::execve*:entry" },
+	{ "exec-failure",
+	  DTRACE_PROBESPEC_NAME,	"syscall::execve*:return" },
+	{ "exec-success",
+	  DTRACE_PROBESPEC_NAME,	"syscall::execve*:return" },
+	{ "exit",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:sched::sched_process_exit" },
+	{ "lwp-create",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:sched::sched_process_fork" },
+	{ "lwp-exit",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:sched::sched_process_exit" },
+	{ "lwp-start",
+	  DTRACE_PROBESPEC_NAME,	"fbt::schedule_tail:return" },
+	{ "signal-clear",
+	  DTRACE_PROBESPEC_NAME,	"syscall::rt_sigtimedwait:return" },
+	{ "signal-discard",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:signal::signal_generate" },
+	{ "signal-handle",
+	  DTRACE_PROBESPEC_NAME,	"rawtp:signal::signal_deliver" },
+	{ "signal-send",
+	  DTRACE_PROBESPEC_NAME,	"fbt::complete_signal:entry" },
+	{ "start",
+	  DTRACE_PROBESPEC_NAME,	"fbt::schedule_tail:return" },
+	{ NULL, }
+};
 
-typedef struct probe_arg {
-	const char	*name;			/* name of probe */
-	int		argno;			/* argument number */
-	dt_argdesc_t	argdesc;		/* argument description */
-} probe_arg_t;
-
-/*
- * Probe signature specifications
- *
- * This table *must* group the arguments of probes.  I.e. the arguments of a
- * given probe must be listed in consecutive records.
- * A single probe entry that mentions only name of the probe indicates a probe
- * that provides no arguments.
- */
 static probe_arg_t probe_args[] = {
 	{ "create", 0, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "exec", 0, { 0, DT_NF_USERLAND, "string", } },
@@ -100,6 +68,7 @@ static probe_arg_t probe_args[] = {
 	{ "signal-send", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "signal-send", 2, { 1, 0, "int", } },
 	{ "start", },
+	{ NULL, },
 };
 
 static const dtrace_pattr_t	pattr = {
@@ -115,173 +84,8 @@ static const dtrace_pattr_t	pattr = {
  */
 static int populate(dtrace_hdl_t *dtp)
 {
-	dt_provider_t	*prv;
-	int		i;
-	int		n = 0;
-
-	prv = dt_provider_create(dtp, prvname, &dt_proc, &pattr, NULL);
-	if (prv == NULL)
-		return -1;			/* errno already set */
-
-	/*
-	 * Create "proc" probes based on the probe_args list.  Since each probe
-	 * will have at least one entry (with argno == 0), we can use those
-	 * entries to identify the probe names.
-	 */
-	for (i = 0; i < ARRAY_SIZE(probe_args); i++) {
-		probe_arg_t	*arg = &probe_args[i];
-
-		if (arg->argno == 0 &&
-		    dt_probe_insert(dtp, prv, prvname, modname, "", arg->name,
-				    NULL))
-			n++;
-	}
-
-	return n;
-}
-
-static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
-{
-	dt_probe_t		*uprp = NULL;
-	dtrace_probedesc_t	pd;
-
-	if (strcmp(prp->desc->prb, "create") == 0 ||
-	    strcmp(prp->desc->prb, "lwp-create") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "rawtp";
-		pd.mod = "sched";
-		pd.fun = "";
-		pd.prb = "sched_process_fork";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "exec") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "syscall";
-		pd.mod = "";
-		pd.fun = "execve";
-		pd.prb = "entry";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-
-		pd.fun = "execveat";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "exec-failure") == 0 ||
-		   strcmp(prp->desc->prb, "exec-success") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "syscall";
-		pd.mod = "";
-		pd.fun = "execve";
-		pd.prb = "return";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-
-		pd.fun = "execveat";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "exit") == 0 ||
-		   strcmp(prp->desc->prb, "lwp-exit") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "rawtp";
-		pd.mod = "";
-		pd.fun = "";
-		pd.prb = "sched_process_exit";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "signal-clear") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "syscall";
-		pd.mod = "";
-		pd.fun = "rt_sigtimedwait";
-		pd.prb = "return";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "signal-discard") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "rawtp";
-		pd.mod = "signal";
-		pd.fun = "";
-		pd.prb = "signal_generate";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "signal-handle") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "rawtp";
-		pd.mod = "signal";
-		pd.fun = "";
-		pd.prb = "signal_deliver";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "signal-send") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "fbt";
-		pd.mod = "";
-		pd.fun = "complete_signal";
-		pd.prb = "entry";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	} else if (strcmp(prp->desc->prb, "start") == 0 ||
-		   strcmp(prp->desc->prb, "lwp-start") == 0) {
-		pd.id = DTRACE_IDNONE;
-		pd.prv = "fbt";
-		pd.mod = "";
-		pd.fun = "schedule_tail";
-		pd.prb = "return";
-
-		uprp = dt_probe_lookup(dtp, &pd);
-		assert(uprp != NULL);
-
-		dt_probe_add_dependent(dtp, uprp, prp);
-		dt_probe_enable(dtp, uprp);
-	}
-
-	/*
-	 * Finally, ensure we're in the list of enablings as well.
-	 * (This ensures that, among other things, the probes map
-	 * gains entries for us.)
-	 */
-	if (!dt_in_list(&dtp->dt_enablings, prp))
-		dt_list_append(&dtp->dt_enablings, prp);
+	return dt_sdt_populate(dtp, prvname, modname, &dt_proc, &pattr,
+			       probe_args, probes);
 }
 
 /*
@@ -434,61 +238,13 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
-static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
-		      int *argcp, dt_argdesc_t **argvp)
-{
-	int		i;
-	int		pidx = -1;
-	int		argc = 0;
-	dt_argdesc_t	*argv = NULL;
-
-	for (i = 0; i < ARRAY_SIZE(probe_args); i++) {
-		probe_arg_t	*arg = &probe_args[i];
-
-		if (strcmp(arg->name, prp->desc->prb) == 0) {
-			if (pidx == -1) {
-				pidx = i;
-
-				if (arg->argdesc.native == NULL)
-					break;
-			}
-
-			argc++;
-		}
-	}
-
-	if (argc == 0)
-		goto done;
-
-	argv = dt_zalloc(dtp, argc * sizeof(dt_argdesc_t));
-	if (!argv)
-		return -ENOMEM;
-
-	for (i = pidx; i < pidx + argc; i++) {
-		probe_arg_t	*arg = &probe_args[i];
-		dt_argdesc_t	*argd = &arg->argdesc;
-		dt_argdesc_t	*parg = &argv[arg->argno];
-
-		*parg = *argd;
-		if (argd->native)
-			parg->native = strdup(argd->native);
-		if (argd->xlate)
-			parg->xlate = strdup(argd->xlate);
-	}
-
-done:
-	*argcp = argc;
-	*argvp = argv;
-
-	return 0;
-}
-
 dt_provimpl_t	dt_proc = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &populate,
-	.enable		= &enable,
+	.enable		= &dt_sdt_enable,
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
-	.probe_info	= &probe_info,
+	.probe_info	= &dt_sdt_probe_info,
+	.destroy	= &dt_sdt_destroy,
 };
