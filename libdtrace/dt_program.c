@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -505,13 +505,12 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	info.dthi_pfname = alloca(strlen(pvp->desc.dtvd_name) + 1 + i);
 	dt_header_fmt_func(info.dthi_pfname, pvp->desc.dtvd_name);
 
-	if (fprintf(out, "#define _DTRACE_VERSION 1\n\n"
-			 "#if _DTRACE_VERSION\n\n") < 0)
+	if (fprintf(out, "#if _DTRACE_USE_USDT\n\n") < 0)
 		return dt_set_errno(dtp, errno);
 
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_probe, &info) != 0)
 		return -1; /* dt_errno is set for us */
-	if (fprintf(out, "\n\n") < 0)
+	if (fprintf(out, "\n") < 0)
 		return dt_set_errno(dtp, errno);
 	if (dt_idhash_iter(pvp->pv_probes, dt_header_decl, &info) != 0)
 		return -1; /* dt_errno is set for us */
@@ -558,6 +557,11 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 	if (fprintf(out, "#ifdef\t__GNUC__\n"
 		"#pragma GCC system_header\n"
 		"#endif\n\n") < 0)
+		return -1;
+
+	if (fprintf(out, "#ifndef _DTRACE_USE_USDT\n"
+			 "# define _DTRACE_USE_USDT 1\n"
+			 "#endif\n\n") < 0)
 		return -1;
 
 	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
