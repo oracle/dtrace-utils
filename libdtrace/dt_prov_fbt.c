@@ -6,17 +6,26 @@
  *
  * The Function Boundary Tracing (FBT) provider for DTrace.
  *
- * FBT probes are exposed by the kernel as kprobes.  They are listed in the
- * TRACEFS/available_filter_functions file.  Some kprobes are associated with
- * a specific kernel module, while most are in the core kernel.
+ * Kernnel functions can be traced through fentry/fexit probes (when available)
+ * and kprobes.  The FBT provider supports both implementations and will use
+ * fentry/fexit probes if the kernel supports them, and fallback to kprobes
+ * otherwise.  The FBT provider does not support tracing synthetic functions
+ * (i.e. compiler-generated functions with a . in their name).
+ *
+ * The rawfbt provider implements a variant of the FBT provider and always uses
+ * kprobes.  This provider allow tracing of synthetic function.
  *
  * Mapping from event name to DTrace probe name:
  *
  *	<name>					fbt:vmlinux:<name>:entry
  *						fbt:vmlinux:<name>:return
+ *						rawfbt:vmlinux:<name>:entry
+ *						rawfbt:vmlinux:<name>:return
  *   or
  *	<name> [<modname>]			fbt:<modname>:<name>:entry
  *						fbt:<modname>:<name>:return
+ *						rawfbt:<modname>:<name>:entry
+ *						rawfbt:<modname>:<name>:return
  */
 #include <assert.h>
 #include <errno.h>
@@ -57,18 +66,19 @@ static const dtrace_pattr_t	pattr = {
 
 dt_provimpl_t			dt_fbt_fprobe;
 dt_provimpl_t			dt_fbt_kprobe;
+dt_provimpl_t			dt_rawfbt;
 
 /*
- * Create the fbt provider.
+ * Create the fbt and rawfbt providers.
  */
 static int populate(dtrace_hdl_t *dtp)
 {
-	dt_provider_t		*prv;
-
 	dt_fbt = BPF_HAS(dtp, BPF_FEAT_FENTRY) ? dt_fbt_fprobe : dt_fbt_kprobe;
 
-	prv = dt_provider_create(dtp, prvname, &dt_fbt, &pattr, NULL);
-	if (prv == NULL)
+	if (dt_provider_create(dtp, dt_fbt.name, &dt_fbt, &pattr,
+			       NULL) == NULL ||
+	    dt_provider_create(dtp, dt_rawfbt.name, &dt_rawfbt, &pattr,
+			       NULL) == NULL)
 		return -1;			/* errno already set */
 
 	return 0;
@@ -102,12 +112,11 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
 	int			n = 0;
 	int			prb = 0;
+	int			rawfbt = 0;
 	dt_module_t		*dmp = NULL;
 	dt_symbol_t		*sym = NULL;
 	dt_htab_next_t		*it = NULL;
 	dtrace_probedesc_t	pd;
-
-	dt_modsym_mark_traceable(dtp);
 
 	/*
 	 * Nothing to do if a probe name is specified and cannot match 'entry'
@@ -120,9 +129,15 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 	if (prb == 0)
 		return 0;
 
-	/* Synthetic function names are not supported for FBT. */
-	if (strchr(pdp->fun, '.'))
-		return 0;
+	/*
+	 * Unless we are dealing with a rawfbt probe, synthetic functions are
+	 * not supported.
+	 */
+	if (strcmp(pdp->prv, dt_rawfbt.name) != 0) {
+		if (strchr(pdp->fun, '.'))
+			return 0;
+	} else
+		rawfbt = 1;
 
 	/*
 	 * If we have an explicit module name, check it.  If not found, we can
@@ -133,6 +148,14 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 		if (dmp == NULL)
 			return 0;
 	}
+
+	/*
+	 * Ensure that kernel symbols that are FBT-traceable are marked as
+	 * such.  We don't do this earlier in this function so that the
+	 * preceding tests have the greatest opportunity to avoid doing this
+	 * unnecessarily.
+	 */
+	dt_modsym_mark_traceable(dtp);
 
 	/*
 	 * If we have an explicit function name, we start with a basic symbol
@@ -205,7 +228,7 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 
 		/* Function name cannot be synthetic and must match. */
 		fun = dt_symbol_name(sym);
-		if (strchr(fun, '.') || !dt_gmatch(fun, pdp->fun))
+		if ((!rawfbt && strchr(fun, '.')) || !dt_gmatch(fun, pdp->fun))
 			continue;
 
 		/* Validate the module name. */
@@ -396,12 +419,12 @@ static int fprobe_prog_load(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 \*******************************/
 
 /*
- * Generate a BPF trampoline for a FBT probe.
+ * Generate a BPF trampoline for a FBT (or rawfbt) probe.
  *
  * The trampoline function is called when a FBT probe triggers, and it must
  * satisfy the following prototype:
  *
- *	int dt_fbt(dt_pt_regs *regs)
+ *	int dt_(raw)fbt(dt_pt_regs *regs)
  *
  * The trampoline will populate a dt_dctx_t struct and then call the function
  * that implements the compiled D clause.  It returns 0 to the caller.
@@ -422,7 +445,7 @@ static int kprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		dt_cg_tramp_copy_rval_from_regs(pcb);
 
 		/*
-		 * fbt:::return arg0 should be the function offset for
+		 * (raw)fbt:::return arg0 should be the function offset for
 		 * return instruction.  Since we use kretprobes, however,
 		 * which do not fire until the function has returned to
 		 * its caller, information about the returning instruction
@@ -441,11 +464,28 @@ static int kprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 
 static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 {
+	const char	*fun = prp->desc->fun;
+	char		*tpn = (char *)fun;
+	int		rc = -1;
+
 	if (!dt_tp_probe_has_info(prp)) {
 		char	*fn;
 		FILE	*f;
-		size_t	len;
-		int	fd, rc = -1;
+		int	fd;
+
+		/*
+		 * For rawfbt probes, we need to apply a . -> _ conversion to
+		 * ensure the tracepoint name is valid.
+		 */
+		if (strcmp(prp->desc->prv, dt_rawfbt.name) == 0) {
+			char	*p;
+
+			tpn = strdup(fun);
+			for (p = tpn; *p; p++) {
+				if (*p == '.')
+					*p = '_';
+			}
+		}
 
 		/*
 		 * Register the kprobe with the tracing subsystem.  This will
@@ -453,41 +493,42 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		 */
 		fd = open(KPROBE_EVENTS, O_WRONLY | O_APPEND);
 		if (fd == -1)
-			return -ENOENT;
+			goto out;
 
 		rc = dprintf(fd, "%c:" FBT_GROUP_FMT "/%s %s\n",
 			     prp->desc->prb[0] == 'e' ? 'p' : 'r',
-			     FBT_GROUP_DATA, prp->desc->fun, prp->desc->fun);
+			     FBT_GROUP_DATA, tpn, fun);
 		close(fd);
 		if (rc == -1)
-			return -ENOENT;
+			goto out;
 
 		/* create format file name */
-		len = snprintf(NULL, 0, "%s" FBT_GROUP_FMT "/%s/format",
-			       EVENTSFS, FBT_GROUP_DATA, prp->desc->fun) + 1;
-		fn = dt_alloc(dtp, len);
-		if (fn == NULL)
-			return -ENOENT;
-
-		snprintf(fn, len, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
-			 FBT_GROUP_DATA, prp->desc->fun);
+		if (asprintf(&fn, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
+			     FBT_GROUP_DATA, tpn) == -1)
+			goto out;
 
 		/* open format file */
 		f = fopen(fn, "r");
-		dt_free(dtp, fn);
+		free(fn);
 		if (f == NULL)
-			return -ENOENT;
+			goto out;
 
 		/* read event id from format file */
 		rc = dt_tp_probe_info(dtp, f, 0, prp, NULL, NULL);
 		fclose(f);
 
 		if (rc < 0)
-			return -ENOENT;
+			goto out;
 	}
 
 	/* attach BPF program to the probe */
-	return dt_tp_probe_attach(dtp, prp, bpf_fd);
+	rc = dt_tp_probe_attach(dtp, prp, bpf_fd);
+
+out:
+	if (tpn != prp->desc->fun)
+		free(tpn);
+
+	return rc == -1 ? -ENOENT : rc;
 }
 
 /*
@@ -503,7 +544,8 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
  */
 static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 {
-	int		fd;
+	int	fd;
+	char	*tpn = (char *)prp->desc->fun;
 
 	if (!dt_tp_probe_has_info(prp))
 		return;
@@ -514,9 +556,25 @@ static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	if (fd == -1)
 		return;
 
-	dprintf(fd, "-:" FBT_GROUP_FMT "/%s\n", FBT_GROUP_DATA,
-		prp->desc->fun);
+	/*
+	 * For rawfbt probes, we need to apply a . -> _ conversion to ensure
+	 * the tracepoint name is valid.
+	 */
+	if (strcmp(prp->desc->prv, dt_rawfbt.name) == 0) {
+		char	*p;
+
+		tpn = strdup(tpn);
+		for (p = tpn; *p; p++) {
+			if (*p == '.')
+				*p = '_';
+		}
+	}
+
+	dprintf(fd, "-:" FBT_GROUP_FMT "/%s\n", FBT_GROUP_DATA, tpn);
 	close(fd);
+
+	if (tpn != prp->desc->fun)
+		free(tpn);
 }
 
 dt_provimpl_t	dt_fbt_fprobe = {
@@ -548,4 +606,16 @@ dt_provimpl_t	dt_fbt_kprobe = {
 dt_provimpl_t	dt_fbt = {
 	.name		= prvname,
 	.populate	= &populate,
+};
+
+dt_provimpl_t	dt_rawfbt = {
+	.name		= "rawfbt",
+	.prog_type	= BPF_PROG_TYPE_KPROBE,
+	.populate	= &populate,
+	.provide	= &provide,
+	.load_prog	= &dt_bpf_prog_load,
+	.trampoline	= &kprobe_trampoline,
+	.attach		= &kprobe_attach,
+	.detach		= &kprobe_detach,
+	.probe_destroy	= &dt_tp_probe_destroy,
 };
