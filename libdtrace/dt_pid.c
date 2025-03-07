@@ -898,7 +898,7 @@ dt_pid_create_usdt_probes_proc(dtrace_hdl_t *dtp, pid_t pid, dt_proc_t *dpr,
 	/* Set dpr and grab the process, if necessary. */
 	if (dpr_caller == 0) {
 		if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
-				      DTRACE_PROC_SHORTLIVED) < 0) {
+						DTRACE_PROC_SHORTLIVED) < 0) {
 			dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 			    "failed to grab process %d", (int)pid);
 			return -1;
@@ -1243,7 +1243,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *p
 		return 0;
 
 	/* Grab the process. */
-	if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING) < 0) {
+	if (dt_proc_grab_lock(dtp, pid, DTRACE_PROC_WAITING |
+					DTRACE_PROC_SHORTLIVED) < 0) {
 		dt_pid_error(dtp, pcb, NULL, D_PROC_GRAB,
 		    "failed to grab process %d", (int)pid);
 		return -1;
