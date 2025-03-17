@@ -487,19 +487,34 @@ have_attach_type(enum bpf_prog_type ptype, enum bpf_attach_type atype,
 				BPF_RETURN()
 			};
 	dtrace_difo_t	dp;
-	int		fd;
+	int		pfd, tfd = -1;
 
 	dp.dtdo_buf = insns;
 	dp.dtdo_len = ARRAY_SIZE(insns);
 
-	fd = dt_bpf_prog_attach(ptype, atype, 0, btf_id, &dp, 0, NULL, 0);
-	/* If the program loads, we can use the attach type. */
-	if (fd > 0) {
-		close(fd);
-		return 1;
-	}
+	pfd = dt_bpf_prog_attach(ptype, atype, 0, btf_id, &dp, 0, NULL, 0);
+	/* If the program load fails, we cannot iuse the attach type. */
+	if (pfd < 0)
+		goto fail;
 
+	/*
+	 * If the program loads, we still need to verify that probe can be
+	 * opened as a raw tracepoint.  Some kernels allow the program load
+	 * but return -ENOTSUPP when you try to open the raw tracepoint.
+	 */
+	tfd = dt_bpf_raw_tracepoint_open(NULL, pfd);
+	if (tfd < 0)
+		goto fail;
+
+	close(tfd);
+	close(pfd);
+	return 1;
+
+fail:
 	/* Failed -> attach type not available to us */
+	if (pfd >= 0)
+		close(pfd);
+
 	return 0;
 }
 

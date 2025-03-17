@@ -74,6 +74,8 @@ dt_provimpl_t			dt_rawfbt;
 static int populate(dtrace_hdl_t *dtp)
 {
 	dt_fbt = BPF_HAS(dtp, BPF_FEAT_FENTRY) ? dt_fbt_fprobe : dt_fbt_kprobe;
+	dt_dprintf("fbt: Using %s implementation\n",
+		   BPF_HAS(dtp, BPF_FEAT_FENTRY) ? "fentry/fexit" : "kprobe");
 
 	if (dt_provider_create(dtp, dt_fbt.name, &dt_fbt, &pattr,
 			       NULL) == NULL ||
