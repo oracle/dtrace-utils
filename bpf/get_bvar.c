@@ -185,13 +185,13 @@ noinline uint64_t dt_bvar_probedesc(const dt_dctx_t *dctx, uint32_t idx)
 			return (uint64_t)dctx->strtab;
 
 		switch (idx) {
-		case DIF_VAR_PROBEPROV:
-			s += DTRACE_FUNCNAMELEN;
-		case DIF_VAR_PROBEMOD:
-			s += DTRACE_MODNAMELEN;
-		case DIF_VAR_PROBEFUNC:
-			s += DTRACE_PROVNAMELEN;
 		case DIF_VAR_PROBENAME:
+			s += DTRACE_FUNCNAMELEN;
+		case DIF_VAR_PROBEFUNC:
+			s += DTRACE_MODNAMELEN;
+		case DIF_VAR_PROBEMOD:
+			s += DTRACE_PROVNAMELEN;
+		case DIF_VAR_PROBEPROV:
 		}
 
 		return (uint64_t)s;
