@@ -1,2 +1,1 @@
-#!/bin/sh
-sed 's,prov\(.\)[0-9]*,prov\1PID,; s,  *, ,g'
+convert_PID_and_PRID.awk
