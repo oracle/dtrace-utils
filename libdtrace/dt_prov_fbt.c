@@ -285,8 +285,20 @@ static int fprobe_trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	if (strcmp(pcb->pcb_probe->desc->prb, "entry") == 0) {
 		int	i;
 
+		/*
+		 * We want to copy entry args from %r8 to %r7 (plus offsets).
+		 * Unfortunately, for fprobes, the BPF verifier can reject
+		 * certain argument types.  We work around this by copying
+		 * the arguments onto the BPF stack and loading them from there.
+		 */
+		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(prp->argc - 1)));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, 8 * prp->argc));
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_8));
+		emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
+
 		for (i = 0; i < prp->argc; i++) {
-			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, i * 8));
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_TRAMP_SP_SLOT(prp->argc - 1) + i * 8));
 			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
 		}
 	} else {
