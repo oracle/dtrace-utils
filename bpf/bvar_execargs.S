@@ -65,7 +65,7 @@ dt_bvar_execargs:
 	mov	%r1, %r9
 	mov	%r2, %r8
 	mov	%r3, %r7
-	call	BPF_FUNC_probe_read		/* bpf_probe_read(&args, len + 1, arg_start) */
+	call	BPF_FUNC_probe_read_user	/* bpf_probe_read_user(&args, len + 1, arg_start) */
 	jne	%r0, 0, .Lerror
 
 	/* loop over args and replace '\0' with ' ' */
