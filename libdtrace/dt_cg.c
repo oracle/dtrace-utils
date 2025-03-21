@@ -905,14 +905,13 @@ dt_cg_add_dependent(dtrace_hdl_t *dtp, dt_probe_t *prp, void *arg)
 {
 	dt_pcb_t	*pcb = dtp->dt_pcb;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_ident_t	*idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
 	uint_t		exitlbl = dt_irlist_label(dlp);
 	int		skip = 0;
 
 	dt_cg_tramp_save_args(pcb);
 	pcb->pcb_parent_probe = pcb->pcb_probe;
 	pcb->pcb_probe = prp;
-	emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id), idp);
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id));
 	if (prp->prov->impl->trampoline != NULL)
 		skip = prp->prov->impl->trampoline(pcb, exitlbl);
 

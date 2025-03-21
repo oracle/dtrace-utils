@@ -947,16 +947,12 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		const dt_probe_t	*prp = pop->probe;
 		uint_t			lbl_next = dt_irlist_label(dlp);
 		pid_t			pid;
-		dt_ident_t		*idp;
 
 		if (prp->prov->impl != &dt_pid)
 			continue;
 
 		pid = dt_pid_get_pid(prp->desc, pcb->pcb_hdl, pcb, NULL);
 		assert(pid != -1);
-
-		idp = dt_dlib_add_probe_var(pcb->pcb_hdl, prp);
-		assert(idp != NULL);
 
 		/*
 		 * Populate probe arguments.
@@ -971,7 +967,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		 * process, and emit a sequence of clauses for it when it does.
 		 */
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_6, pid, lbl_next));
-		emite(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id), idp);
+		emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id));
 		dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
 		emitl(dlp, lbl_next,
 			   BPF_NOP());

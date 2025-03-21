@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -248,22 +248,6 @@ dt_ident_t *
 dt_dlib_add_var(dtrace_hdl_t *dtp, const char *name, uint_t id)
 {
 	return dt_dlib_add_sym_id(dtp, name, DT_IDENT_SCALAR, id);
-}
-
-/*
- * Add a BPF variable for a probe.
- * The fully qualified probe name is tha variable name, and the probe ID is the
- * value of the variable.
- */
-dt_ident_t *
-dt_dlib_add_probe_var(dtrace_hdl_t *dtp, const dt_probe_t *prp)
-{
-	char	pn[DTRACE_FULLNAMELEN + 1];
-
-	snprintf(pn, DTRACE_FULLNAMELEN, "%s:%s:%s:%s", prp->desc->prv,
-		 prp->desc->mod, prp->desc->fun, prp->desc->prb);
-
-	return dt_dlib_add_var(dtp, pn, prp->desc->id);
 }
 
 /*
