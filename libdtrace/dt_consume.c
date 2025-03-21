@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2191,7 +2191,7 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 	pdat->dtpda_stid = stid;
 	pdat->dtpda_data = data;
 
-	if (prid >= dtp->dt_probe_id)
+	if (prid >= dtp->dt_probe_id || prid == DTRACE_IDNONE)
 		return dt_set_errno(dtp, EDT_BADID);
 	pdat->dtpda_pdesc = (dtrace_probedesc_t *)dtp->dt_probes[prid]->desc;
 	if (dt_stid_lookup(dtp, stid, &pdat->dtpda_ddesc) != 0)
