@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -39,7 +39,6 @@ typedef struct dtrace_recdesc {
 	uint16_t dtrd_alignment;		/* required alignment */
 	void *dtrd_format;			/* format, if any */
 	uint64_t dtrd_arg;			/* action argument */
-	uint64_t dtrd_uarg;			/* user argument */
 } dtrace_recdesc_t;
 
 typedef struct dtrace_datadesc {
