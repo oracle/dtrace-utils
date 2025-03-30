@@ -14,5 +14,4 @@ PROBE sched vmlinux dequeue
 		args[0]: lwpsinfo_t *
 		args[1]: psinfo_t *
 		args[2]: cpuinfo_t *
-		args[3]: int
 

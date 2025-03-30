@@ -46,10 +46,10 @@ static probe_arg_t probe_args[] = {
 	{ "dequeue", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
 	{ "dequeue", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "dequeue", 2, { 1, 0, "cpuinfo_t *", } },
-	{ "dequeue", 3, { 2, 0, "int", } },
 	{ "enqueue", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
 	{ "enqueue", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "enqueue", 2, { 1, 0, "cpuinfo_t *", } },
+	{ "enqueue", 3, { 2, 0, "int", } },
 	{ "off-cpu", 0, { 0, 0, "struct task_struct *", "lwpsinfo_t *" } },
 	{ "off-cpu", 1, { 0, 0, "struct task_struct *", "psinfo_t *" } },
 	{ "on-cpu", },
@@ -128,6 +128,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		 *	  associated with the runqueue.
 		 */
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(1), 0));
+
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(2)));
 		emit(dlp, BPF_ALU64_IMM(BPF_AND, BPF_REG_0, ENQUEUE_HEAD));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
