@@ -20,9 +20,10 @@
  */
 typedef struct usdt_data	usdt_data_t;
 struct usdt_data {
-	size_t		size;
-	void		*buf;
-	usdt_data_t	*next;
+	size_t		base;			/* base address of section */
+	size_t		size;			/* data size */
+	void		*buf;			/* data content */
+	usdt_data_t	*next;			/* next buffer */
 };
 
 /*
@@ -62,7 +63,7 @@ typedef enum dof_parsed_info {
  * start which is the version of the dof_parseds within it.  The data flowing
  * over the stream from the seccomped parser has no such prefix.
  */
-#define DOF_PARSED_VERSION 2
+#define DOF_PARSED_VERSION 3
 
 typedef struct dof_parsed {
 	/*
@@ -147,9 +148,11 @@ typedef struct dof_parsed {
 			 */
 			uint32_t is_enabled;
 
+			/* V3+ only.  */
 			/*
-			 * XXX Not yet implemented: name, args
+			 * Array of arg source strings.  nargc in length.
 			 */
+			char args[1];
 		} tracepoint;
 
 		struct dpi_err {
@@ -221,6 +224,14 @@ void usdt_parse(int out, dof_helper_t *dhp, usdt_data_t *data);
  * Returns 0 on success or a positive errno value on error.
  */
 int usdt_parse_dof(int out, dof_helper_t *dhp, dof_hdr_t *dof);
+
+/*
+ * Parse probe info out of the passed-in dof_helper_t and ELF notes section
+ * data and emit it to OUT in the form of a stream of dof_parser_info_t.
+ *
+ * Returns 0 on success or a positive errno value on error.
+ */
+int usdt_parse_notes(int out, dof_helper_t *dhp, usdt_data_t *data);
 
 /*
  * Shared host and parser-side.

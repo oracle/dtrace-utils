@@ -14,8 +14,12 @@
  *
  * /run/dtrace/stash/: Things private to dtprobed.
  *
- *    .../dof/$dev-$ino: DOF contributed by particular mappings, in raw form
- *    (as received from some probe-containing program).
+ *    .../dof/$dev-$ino: USDT definition data contributed by particular
+ *    mappings, in raw form (as received from some probe-containing program).
+ *
+ *    .../dof/$dev-$ino-$n: Additional USDT definition data contributed by
+ *    particular mappings, in raw form (as received from some probe-containing
+ *    program).
  *
  *    .../dof-pid/$pid/$dev-$ino/: contains everything relating to DOF
  *    contributed by a particular USDT-containing ELF object within a given
@@ -34,12 +38,14 @@
  *    $dev-$ino (as in the $dev-$ino directory entries): the dev/ino of the
  *    process's primary text mapping, as given by libproc.
  *
- *    .../dof-pid/$pid/$dev-$ino/raw: hardlink to the DOF for a given DOF
- *    source.  Pruned of dead processes at startup and on occasion: entries also
- *    deleted on receipt of DTRACEHIOC_REMOVE ioctls.  A hardlink is used in
- *    order to bump the link count for the corresponding DOF in the dof/
- *    directory: when this link count falls to 1, the DOF is considered dead and
- *    the corresponding probe is removed.
+ *    .../dof-pid/$pid/$dev-$ino/raw and
+ *    .../dof-pid/$pid/$dev-$ino/raw-$n: hardlinks to the USDT definition data
+ *    for a given probe-containing program.  Pruned of dead processes at
+ *    startup and on occasion: entries also deleted on receipt of
+ *    DTRACEHIOC_REMOVE ioctls.  A hardlink is used in order to bump the link
+ *    count for the corresponding data in the dof/ directory: when this link
+ *    count falls to 1, the data is considered dead and the corresponding probe
+ *    is removed.
  *
  *    .../dof-pid/$pid/$dev-$ino/dh: Raw form of the dof_helper_t received from
  *    a given DTRACEHIOC_ADDDOF, serialized straight to disk with no changes.
@@ -394,58 +400,163 @@ write_chunk(int fd, const void *buf, size_t size)
 }
 
 /*
- * Write out a piece of raw DOF.  Returns the length of the file written,
- * or 0 if none was needed (or -1 on error).
+ * Prototype for utility function for usdt_data_apply().  Arguments are:
+ *   - Directory fd
+ *   - Base filename
+ *   - USDT data
+ *   - 'all' flag
+ *   - Secondary directory fd
+ */
+typedef int (*usdt_data_fn)(int, const char *, const usdt_data_t *, int, int);
+
+/*
+ * Call the given function for every data block in the USDT data.  Each call
+ * will be provided with the appropriate adjusted filename.
+ *
+ * If all == 0, returns the number of calls that returned true.
+ * If all == 1, returns 0 if any of the calls did not return true, and
+ * otherwise the total number of calls (that all returned true).
+ * Return -1 if the operation fails.
  */
 static int
-dof_stash_write_raw(int dirfd, const char *name, const void *buf, size_t size)
+usdt_data_apply(usdt_data_fn func, int dirfd, const char *name,
+		const usdt_data_t *data, int all, int dirfd2)
 {
-	struct stat s;
-	int fd;
+	int i, cnt;
+	char *fn = (char *)name;
 
-	/*
-	 * Sanity check: if the DOF already exists but is not the same size as
-	 * the DOF we already have, complain, and replace it.  If it does exist,
-	 * there's no need to write it out.
-	 *
-	 * If we can't even unlink it or write it out, we give up -- the stash
-	 * has failed and we won't be able to do anything it implies.
-	 *
-	 * (This is only a crude check -- obviously distinct raw DOF could be
-	 * the same size by pure chance.)
-	 */
-	if (fstatat(dirfd, name, &s, 0) == 0) {
-		if (s.st_size == size)
-			return 0;
+	for (i = cnt = 0; data != NULL; i++, data = data->next) {
+		if (i > 0) {
+			if (asprintf(&fn, "%s-%d", name, i) < 0) {
+				fuse_log(FUSE_LOG_ERR, "dtprobed: out of memory making part name\n");
+				return -1;
+			}
+		}
 
-		fuse_log(FUSE_LOG_ERR, "dtprobed: DOF %s already exists, "
-			 "but is %zx bytes long, not %zx: replacing\n",
-			 name, s.st_size, size);
-		if (unlinkat(dirfd, name, 0) < 0) {
-			fuse_log(FUSE_LOG_ERR, "dtprobed: cannot remove old DOF %s: %s\n",
-				 name, strerror(errno));
+		switch (func(dirfd, fn, data, i, dirfd2)) {
+		case 1:
+			cnt++;
+			break;
+		case 0:
+			break;
+		case -1:
 			return -1;
 		}
+
+		if (i > 0)
+			free(fn);
 	}
 
-	if ((fd = openat(dirfd, name, O_CREAT | O_EXCL | O_WRONLY, 0644)) < 0) {
-		fuse_log(FUSE_LOG_ERR, "dtprobed: cannot write out raw DOF: %s\n",
-			 strerror(errno));
+	if (all)
+		return cnt == i ? 1 : 0;
+
+	return cnt;
+}
+
+/*
+ * Utility function used through usdt_data_apply().  This returns 1 if the file
+ * is considered identical to the data block; otherwise 0.
+ *
+ * Note: if USDT data exists and has the same size, it is deemed identical.
+ * (This is only a crude check -- distinct raw USDT data could be the same size
+ * by pure chance.)
+ */
+static int
+stale_data_file(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+		int dummy)
+{
+	struct stat s;
+
+	if (fstatat(dirfd, fn, &s, 0) == 0)
+		return s.st_size == data->size ? 1 : 0;
+
+	return 0;
+}
+
+/*
+ * Utility function used through usdt_data_apply().  Writes a USDT data block
+ * as raw data to disk.  Returns 1 on success; -1 on failure.
+ */
+static int
+write_raw_data(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+	       int dummy)
+{
+	int fd;
+
+	if ((fd = openat(dirfd, fn, O_CREAT | O_TRUNC | O_WRONLY, 0644)) < 0) {
+		fuse_log(FUSE_LOG_ERR,
+			 "dtprobed: cannot open raw data %s: %s\n",
+			 fn, strerror(errno));
+		return 0;
+	}
+	if (write_chunk(fd, &data->base, sizeof(size_t)) < 0 ||
+	    write_chunk(fd, data->buf, data->size) < 0) {
+		fuse_log(FUSE_LOG_ERR,
+			 "dtprobed: cannot write out raw data %s: %s\n",
+			 fn, strerror(errno));
+		close(fd);
+		return 0;
+	}
+	if (close(fd) < 0) {
+		fuse_log(FUSE_LOG_ERR,
+			 "dtprobed: cannot close raw data %s: %s\n",
+			 fn, strerror(errno));
+		return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * Utility function used through usdt_data_apply().  Removes the given file,
+ * and returns 1 (failures can be ignored - nothing we can do about them).
+ */
+static int
+remove_data_file(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+		 int dummy)
+{
+	unlinkat(dirfd, fn, 0);
+
+	return 1;
+}
+
+/*
+ * Write out a piece of raw USDT definition data.  Returns a positive integer
+ * (the number of files written) if data was written, or 0 if none was needed
+ * (or -1 on error).
+ */
+static int
+dof_stash_write_raw(int dirfd, const char *name, const usdt_data_t *data)
+{
+	int rc;
+
+	/*
+	 * Verify whether the raw USDT data already exists on disk.  The return
+	 * value will be 1 if it exists and all blocks are deemed identical to
+	 * the USDT data; otherwise 0.  (Errors result in returning -1.)
+	 */
+	rc = usdt_data_apply(stale_data_file, dirfd, name, data, 1, 0);
+	if (rc == -1)
 		return -1;
-	}
 
-	if (write_chunk(fd, buf, size) < 0)
-		goto err;
+	if (rc == 1)
+		return 0;
 
-	if (close(fd) < 0)
-		goto err;
-	return size + sizeof(uint64_t);
+	/*
+	 * Write out the USDT data blocks.
+	 *
+	 *   rc = 1: All blocks written successfully.
+	 *   rc = 0: Some blocks not written.
+	 *   rc = -1: An error happened (some blocks not written).
+	 *
+	 * If some blocks were not written, we try to clean up (remove all that
+	 * was written), and return -1.
+	 */
+	rc = usdt_data_apply(write_raw_data, dirfd, name, data, 1, 0);
+	if (rc != 0)
+		return rc;
 
-err:
-	fuse_log(FUSE_LOG_ERR, "dtprobed: cannot write out DOF: %s\n",
-		 strerror(errno));
-	unlinkat(dirfd, name, 0);
-	close(fd);
+	usdt_data_apply(remove_data_file, dirfd, name, data, 0, 0);
 	return -1;
 }
 
@@ -888,6 +999,33 @@ err:
 }
 
 /*
+ * Utility function used through usdt_data_apply().  Create a link to the given
+ * file as raw-%n and return 1; return 0 on failure.
+ */
+static int
+create_raw_link(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+		int rdirfd)
+{
+	char *rn = "raw";
+	int rc;
+
+	if (idx > 0) {
+		if (asprintf(&rn, "raw-%d", idx) < 0) {
+			fuse_log(FUSE_LOG_ERR,
+				 "dtprobed: out of memory making part name\n");
+			return -1;
+		}
+	}
+
+	rc = linkat(dirfd, fn, rdirfd, rn, 0);
+
+	if (idx > 0)
+		free(rn);
+
+	return rc < 0 ? 0 : 1;
+}
+
+/*
  * Add a piece of raw DOF from a given (pid, dev, ino) triplet.  May remove
  * stale DOF in the process.
  *
@@ -895,7 +1033,7 @@ err:
  */
 int
 dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev, dev_t exec_ino,
-	      const dof_helper_t *dh, const void *dof, size_t size)
+	      const dof_helper_t *dh, const usdt_data_t *data)
 {
 	char *dof_name = make_dof_name(dev, ino);
 	char *pid_name = make_numeric_name(pid);
@@ -974,12 +1112,13 @@ dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev, dev_t exec_ino,
 	 * otherwise.
 	 */
 	new_dof = 1;
-	switch (dof_stash_write_raw(dof_dir, dof_name, dof, size)) {
+	switch (dof_stash_write_raw(dof_dir, dof_name, data)) {
 	case 0: new_dof = 0; break;
 	case -1: goto err_unlink_nomsg; break;
 	}
 
-	if (linkat(dof_dir, dof_name, perpid_dof_dir, "raw", 0) < 0)
+	if (usdt_data_apply(create_raw_link, dof_dir, dof_name, data, 1,
+			    perpid_dof_dir) == 0)
 		goto err_unlink_msg;
 
 	if (dof_stash_write_file(perpid_dof_dir, "dh", dh,
@@ -1041,7 +1180,7 @@ err_unlink_msg:
 		 "DOF mapping %lx/%lx into place: %s\n", pid, dev, ino,
 		 strerror(errno));
 err_unlink_nomsg:
-	unlinkat(perpid_dof_dir, "raw", 0);
+	usdt_data_apply(remove_data_file, perpid_dof_dir, "raw", data, 0, 0);
 	unlinkat(perpid_dir, dof_name, AT_REMOVEDIR);
 
 	if (gen_name)
@@ -1052,8 +1191,10 @@ err_unlink_nomsg:
 		unlinkat(pid_dir, pid_name, AT_REMOVEDIR);
 	}
 
-	if (new_dof)
+	if (new_dof) {
+		usdt_data_apply(remove_data_file, dof_dir, dof_name, data, 0, 0);
 		unlinkat(dof_dir, dof_name, 0);
+	}
 
 	goto out_free;
 }
@@ -1132,10 +1273,45 @@ unlinkat_many(int dirfd, const char **names)
 }
 
 /*
- * Determine if a file or directory (in the DOF stash) should be deleted.
+ * Utility function used through usdt_data_apply().  Determine if a file in the
+ * stash should be deleted, and if so, do it.  Returns 1 if it got deleted;
+ * returns 0 if not needed; returns -1 on error.
  */
 static int
-refcount_cleanup_p(int dirfd, const char *name, int isdir)
+refcount_cleanup_file(int dirfd, const char *fn, const usdt_data_t *data,
+		      int idx, int dummy)
+{
+	struct stat s;
+
+	if (fstatat(dirfd, fn, &s, 0) != 0) {
+		if (errno == ENOENT) {
+			((usdt_data_t *)data)->next = NULL;
+			return 1;
+		}
+
+		fuse_log(FUSE_LOG_ERR, "Cannot stat %s for cleanup: %s\n",
+			 fn, strerror(errno));
+		return -1;
+	}
+
+	if (s.st_nlink != 1)
+		return 0;
+
+	if (unlinkat(dirfd, fn, 0) < 0) {
+		fuse_log(FUSE_LOG_ERR,
+			 "dtprobed: cannot remove old data %s: %s\n",
+			 fn, strerror(errno));
+		return -1;
+	}
+
+	return 1;
+}
+
+/*
+ * Delete a directory (in the stash) if it has no other links.
+ */
+static int
+refcount_cleanup_dir(int dirfd, const char *name)
 {
 	struct stat s;
 
@@ -1145,31 +1321,16 @@ refcount_cleanup_p(int dirfd, const char *name, int isdir)
 		return -1;
 	}
 
-	if ((isdir && s.st_nlink != 2) || (!isdir && s.st_nlink != 1))
+	if (s.st_nlink != 2)
 		return 0;
 
-	return 1;
-}
-
-
-/*
- * Delete a file or directory (in the DOF stash) if it has no other links.
- */
-static int
-refcount_cleanup(int dirfd, const char *name, int isdir)
-{
-	switch (refcount_cleanup_p(dirfd, name, isdir)) {
-	case -1: return -1;
-	case 0: return 0;
-	default: break;
-	}
-
-	if (unlinkat(dirfd, name, isdir ? AT_REMOVEDIR : 0) < 0) {
+	if (unlinkat(dirfd, name, AT_REMOVEDIR) < 0) {
 		fuse_log(FUSE_LOG_ERR, "dtprobed: cannot remove old DOF %s: %s\n",
 			 name, strerror(errno));
 		return -1;
 	}
-	return 0;
+
+	return 1;
 }
 
 /*
@@ -1263,6 +1424,27 @@ err:
 }
 
 /*
+ * Utility function used through usdt_data_apply().  Removes the given file,
+ * and returns 1 (failures can be ignored - nothing we can do about them).
+ * If a file was successfully removed, data->next to set to data to signal the
+ * iterator to move on to the next file.  If no file was found, data->next is
+ * set to NULL to indicate that we are done.
+ */
+static int
+remove_raw_file(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+		  int dummy)
+{
+	usdt_data_t *dp = (usdt_data_t *)data;
+
+	if (unlinkat(dirfd, fn, 0) < 0 && errno == ENOENT)
+		dp->next = NULL;
+	else
+		dp->next = dp;
+
+	return 1;
+}
+
+/*
  * Remove a piece of DOF, identified by generation counter.  Return -1 on error.
  *
  * Not knowing about the DOF is not an error.
@@ -1279,6 +1461,7 @@ dof_stash_remove(pid_t pid, int gen)
 	struct stat gen_stat;
 	int err = -1;
 	const char *unlink_err = NULL;
+	usdt_data_t data;
 
 	/*
 	 * Figure out the per-PID DOF directory by following the gen-counter
@@ -1333,10 +1516,14 @@ dof_stash_remove(pid_t pid, int gen)
 	fuse_log(FUSE_LOG_DEBUG, "%i: gen_name: %s; gen_linkname: %s; perpid_dof_dir: %i\n",
 		 pid, gen_name, gen_linkname, perpid_dof_dir);
 
-	if (unlinkat(perpid_dof_dir, "raw", 0) != 0 && errno != ENOENT) {
-		fuse_log(FUSE_LOG_ERR, "dtprobed: cannot unlink per-PID raw DOF for PID %i generation %i: %s\n",
-			 pid, gen, strerror(errno));
-	}
+	/*
+	 * We use a fake USDT data structure so we can use the USDT data block
+	 * iterator to call our calllback.  It will keep iterating until the
+	 * first non-existant file is encountered (indicating we reached the
+	 * endof the data blocks).
+	 */
+	data.next = &data;
+	usdt_data_apply(remove_raw_file, perpid_dof_dir, "raw", &data, 0, 0);
 
 	if (dof_stash_remove_parsed(pid, perpid_dof_dir, gen_linkname) < 0)
 		unlink_err = "parsed probes dir entries";
@@ -1353,7 +1540,15 @@ dof_stash_remove(pid_t pid, int gen)
 	if (unlinkat(perpid_dir, gen_name, 0) < 0)
 		unlink_err = gen_name;
 
-	if (refcount_cleanup(dof_dir, gen_linkname, 0) < 0)
+	/*
+	 * We use a fake USDT data structure so we can use the USDT data block
+	 * iterator to call our calllback.  It will keep iterating until the
+	 * first non-existance file is encountered (indicating we reached the
+	 * endof the data blocks).
+	 */
+	data.next = &data;
+	if (usdt_data_apply(refcount_cleanup_file, dof_dir, gen_linkname,
+			    &data, 0, 0) < 0)
 		unlink_err = gen_linkname;
 
 	/*
@@ -1380,7 +1575,7 @@ dof_stash_remove(pid_t pid, int gen)
 				 pid, strerror(errno));
 			goto err;
 		}
-		refcount_cleanup(pid_dir, pid_name, 1);
+		refcount_cleanup_dir(pid_dir, pid_name);
 	}
 
 	if (unlink_err)
@@ -1557,6 +1752,62 @@ scan_failure:
 }
 
 /*
+ * Utility function used through usdt_data_apply().  Read a USDT data block
+ * from disk.  Returns 1 on success of if the file is not found; -1 on error.
+ */
+static int
+read_raw_data(int dirfd, const char *fn, const usdt_data_t *data, int idx,
+	      int dummy)
+{
+	int fd;
+	usdt_data_t *dp;
+
+	/*
+	 * If the file does not exist, we assume that we have reached the last
+	 * file for this USDT data.  We can return 1, because we know that
+	 * data->next is NULL so the iterator will stop.
+	 */
+	if ((fd = openat(dirfd, fn, O_RDONLY | O_CLOEXEC)) < 0) {
+		if (errno == ENOENT)
+			return 1;
+
+		return -1;
+	}
+
+	/*
+	 * Allocate a new block.  We set the next pointer to the block itself
+	 * so that the iterator that called us knows that we need look for a
+	 * following block.  If none is found, the next call will assign NULL
+	 * to this next pointer and end the block chain.
+	 */
+	if ((dp = malloc(sizeof(usdt_data_t))) == NULL)
+		return -1;
+
+	dp->size = 0;
+	dp->base = 0;
+	dp->next = NULL;
+
+	if ((dp->buf = read_file(fd, -1, &dp->size)) == NULL) {
+		close(fd);
+		free(dp);
+		return -1;
+	}
+
+	/*
+	 * Raw data blocks are written as a base address (size_t) followed by
+	 * the actual data.  Set dp->base from the data just read, and adjust
+	 * the buffer pointer and size.  When the buffer is to be freed, the
+	 * pointer will need to be adjusted back.
+	 */
+	dp->base = *(size_t *)dp->buf;
+	dp->size -= sizeof(size_t);
+	dp->buf = ((char *)dp->buf) + sizeof(size_t);
+
+	((usdt_data_t *)data)->next = dp;
+	return 1;
+}
+
+/*
  * Reparse all DOF.  Mappings that cannot be reparsed are simply ignored, on the
  * grounds that most DOF, most of the time, is not used, so this will likely be
  * ignorable.
@@ -1639,10 +1890,9 @@ reparse_dof(int out, int in,
 			int fd;
 			dev_t dev;
 			ino_t ino;
-			size_t dof_size, dh_size;
-			void *dof = NULL;
+			size_t dh_size;
 			void *dh = NULL;
-			usdt_data_t data;
+			usdt_data_t data, *dp, *nxt;
 
 			if (errno != 0) {
 				fuse_log(FUSE_LOG_ERR, "reparsing DOF: cannot read per-PID DOF mappings for pid %s: %s\n",
@@ -1707,52 +1957,52 @@ reparse_dof(int out, int in,
 				continue;
 			}
 
-			if ((fd = openat(mapping_fd, "raw", O_RDONLY | O_CLOEXEC)) < 0) {
-				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot open raw DOF for PID %s, mapping %s: ignored: %s\n",
+			data.base = 0;
+			data.size = 0;
+			data.buf = NULL;
+			data.next = NULL;
+			if (usdt_data_apply(read_raw_data, mapping_fd, "raw",
+					    &data, 0, 0) <= 0) {
+				fuse_log(FUSE_LOG_ERR,
+					 "reparse: cannot open raw data for PID %s, mapping %s: ignored: %s\n",
 					 pid_ent->d_name, mapping_ent->d_name, strerror(errno));
-				close(mapping_fd);
-				continue;
+				goto read_err;
 			}
-
-			if ((dof = read_file(fd, -1, &dof_size)) == NULL) {
-				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot read raw DOF for PID %s, mapping %s: ignored: %s\n",
-					    pid_ent->d_name, mapping_ent->d_name, strerror(errno));
-				close(mapping_fd);
-				close(fd);
-				continue;
-			}
-			close(fd);
 
 			if ((fd = openat(mapping_fd, "dh", O_RDONLY | O_CLOEXEC)) < 0) {
 				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot open dh for PID %s, mapping %s: ignored: %s\n",
 					    pid_ent->d_name, mapping_ent->d_name, strerror(errno));
-				free(dof);
-				close(mapping_fd);
-				continue;
+				goto read_err;
 			}
 
 			if ((dh = read_file(fd, -1, &dh_size)) == NULL) {
 				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot read dh for PID %s, mapping %s: ignored: %s\n",
 					    pid_ent->d_name, mapping_ent->d_name, strerror(errno));
-				free(dof);
-				close(mapping_fd);
 				close(fd);
-				continue;
+				goto read_err;
 			}
 			close(fd);
 
-			fuse_log(FUSE_LOG_DEBUG, "Reparsing DOF for PID %s, mapping %s\n",
+			fuse_log(FUSE_LOG_DEBUG,
+				 "Reparsing raw data for PID %s, mapping %s\n",
 				 pid_ent->d_name, mapping_ent->d_name);
 
-			data.buf = dof;
-			data.size = dof_size;
-			data.next = NULL;
-			if (reparse(pid, out, in, dev, ino, 0, 0, dh, &data, 1) < 0)
-				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot parse DOF for PID %s, mapping %s: ignored\n",
-					    pid_ent->d_name, mapping_ent->d_name);
-			free(dof);
+			if (reparse(pid, out, in, dev, ino, 0, 0,
+				    dh, data.next, 1) < 0)
+				fuse_log(FUSE_LOG_ERR,
+					 "reparse: cannot parse raw data for PID %s, mapping %s: ignored\n",
+					 pid_ent->d_name, mapping_ent->d_name);
+
 			free(dh);
+
+read_err:
 			close(mapping_fd);
+
+			for (dp = data.next; dp != NULL; dp = nxt) {
+				nxt = dp->next;
+				free(((char *)dp->buf) - sizeof(size_t));
+				free(dp);
+			}
 
 			continue;
 

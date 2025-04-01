@@ -26,8 +26,8 @@ int dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum);
 void dof_stash_free(dt_list_t *accum);
 
 int dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev,
-		  dev_t exec_ino, const dof_helper_t *dh, const void *dof,
-		  size_t size);
+		  dev_t exec_ino, const dof_helper_t *dh,
+		  const usdt_data_t *data);
 int dof_stash_remove(pid_t pid, int gen);
 int dof_stash_remove_pid(pid_t pid);
 

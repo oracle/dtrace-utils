@@ -440,6 +440,174 @@ usdt_read(pid_t pid, int in)
 }
 
 /*
+ * Retrieve and process USDT probe data from a .note.usdt section.
+ * The .rodata section is also needed because function names are stored there.
+ */
+static int
+handle_usdt_notes(pid_t pid, uintptr_t addr)
+{
+	ps_prochandle *P = NULL;
+	const prmap_t *mapp, *exec_mapp;
+	const prmap_file_t *prf;
+	dof_helper_t dh;
+	const char *fn, *mod;
+	int fd = -1;
+	Elf *elf = NULL;
+	size_t shstrndx;
+	GElf_Shdr shdr;
+	size_t nbase, dbase;
+	Elf_Scn *scn = NULL, *nscn = NULL, *dscn = NULL;;
+	GElf_Ehdr ehdr;
+	Elf_Data *elfd, *elfn;
+	usdt_data_t ndata, ddata;
+	dev_t dev, exec_dev;
+	ino_t inum, exec_inum;
+	int gen = -1, err;
+
+	/* Grab the process. */
+	if ((P = Pgrab(pid, 2, 0, NULL, &err)) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: process grab failed: %s\n",
+			 pid, strerror(err));
+		return -1;
+	}
+
+	/* Retrieve mapping information. */
+	mapp = Paddr_to_map(P, addr);
+	if (mapp == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
+			 pid);
+		goto out;
+	}
+
+	dev = mapp->pr_dev;
+	inum = mapp->pr_inum;
+
+	prf = mapp->pr_file;
+	if (prf == NULL || (mapp = prf->first_segment) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
+			 pid);
+		goto out;
+	} else if ((fn = prf->prf_mapname) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapname (process dead?)\n",
+			 pid);
+		goto out;
+	}
+	mod = strrchr(fn, '/');
+	if (mod)
+		mod++;
+	else
+		mod = fn;
+	snprintf(dh.dofhp_mod, sizeof(dh.dofhp_mod), "%s", mod);
+
+	dh.dofhp_addr = mapp->pr_vaddr;
+	dh.dofhp_dof = 0;
+
+	fuse_log(FUSE_LOG_DEBUG, "%i: DOF helper { '%s', %lx, %lx }\n",
+		 pid, dh.dofhp_mod, dh.dofhp_addr, dh.dofhp_dof);
+
+	exec_mapp = Plmid_to_map(P, LM_ID_BASE, PR_OBJ_EXEC);
+	if (exec_mapp == NULL || (prf = exec_mapp->pr_file) == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
+			 pid);
+		goto out;
+	}
+
+	exec_dev = exec_mapp->pr_dev;
+	exec_inum = exec_mapp->pr_inum;
+
+	/* Open the mapping. */
+	if ((fd = open(fn, O_RDONLY)) < 0) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot open %s: %s\n",
+			 pid, fn, strerror(errno));
+		goto out;
+	}
+
+	Prelease(P, PS_RELEASE_NORMAL);
+	Pfree(P);
+	P = NULL;
+
+	/* Retrieve the .note.usdt ELF section. */
+	elf_version(EV_CURRENT);
+	if ((elf = elf_begin(fd, ELF_C_READ_MMAP, NULL)) == NULL ||
+	     elf_kind(elf) != ELF_K_ELF)
+		goto elf_err;
+
+	elf_getshdrstrndx(elf, &shstrndx);
+	if (gelf_getehdr(elf, &ehdr) == NULL)
+		goto elf_err;
+	if (ehdr.e_type == ET_EXEC)
+		dh.dofhp_addr = 0;
+
+	while ((scn = elf_nextscn(elf, scn)) != NULL) {
+		const char *name;
+
+		if (gelf_getshdr(scn, &shdr) == NULL)
+			goto elf_err;
+
+		if (shdr.sh_type == SHT_NOTE &&
+		    (name = elf_strptr(elf, shstrndx, shdr.sh_name)) &&
+		    strcmp(name, ".note.usdt") == 0) {
+			nscn = scn;
+			nbase = shdr.sh_addr;
+		} else if (shdr.sh_type == SHT_PROGBITS &&
+		    (name = elf_strptr(elf, shstrndx, shdr.sh_name)) &&
+		    strcmp(name, ".rodata") == 0) {
+			dscn = scn;
+			dbase = shdr.sh_addr;
+		}
+	}
+
+	if (nscn == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: no %s section in %s\n",
+			 pid, ".note.usdt", dh.dofhp_mod);
+		goto out;
+	}
+	if (dscn == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: no %s section in %s\n",
+			 pid, ".rodata", dh.dofhp_mod);
+		goto out;
+	}
+
+	if ((elfn = elf_getdata(nscn, 0)) == NULL ||
+	    (elfd = elf_getdata(dscn, 0)) == NULL)
+		goto elf_err;
+
+	fuse_log(FUSE_LOG_DEBUG,
+		 "%i: %s with %s section (%lu bytes), %s section (%lu bytes)\n",
+		 pid, dh.dofhp_mod, ".note.usdt", elfn->d_size, ".rodata",
+		 elfd->d_size);
+
+	ndata.base = nbase;
+	ndata.size = elfn->d_size;
+	ndata.buf = elfn->d_buf;
+	ndata.next = &ddata;
+	ddata.base = dbase;
+	ddata.size = elfd->d_size;
+	ddata.buf = elfd->d_buf;
+	ddata.next = NULL;
+	gen = process_dof(pid, parser_out_pipe, parser_in_pipe, dev, inum,
+			  exec_dev, exec_inum, &dh, &ndata, 0);
+
+	goto out;
+
+elf_err:
+	fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot read ELF %s: %s\n",
+		 pid, dh.dofhp_mod, elf_errmsg(elf_errno()));
+
+out:
+	if (elf)
+		elf_end(elf);
+	if (fd >= 0)
+		close(fd);
+	if (P) {
+		Prelease(P, PS_RELEASE_NORMAL);
+		Pfree(P);
+	}
+
+	return gen;
+}
+
+/*
  * Get the (dev, inum) pair for the mapping the passed-in addr belongs to in the
  * given pid.  (If there are multiple, it doesn't matter which we choose as long
  * as we are consistent.)
@@ -506,6 +674,13 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	 */
 
 	switch (cmd) {
+	case DTRACEHIOC_HASUSDT:
+		fuse_log(FUSE_LOG_DEBUG, "DTRACEHIOC_HASUSDT from PID %i, addr %lx\n",
+			 pid, (uintptr_t) arg);
+		if ((gen = handle_usdt_notes(pid, (uintptr_t) arg)) < 0)
+			goto process_err;
+
+		goto process_done;
 	case DTRACEHIOC_ADDDOF:
 		break;
 	case DTRACEHIOC_REMOVE:
@@ -689,14 +864,16 @@ chunks_done:
 		     &exec_dev, &exec_inum)) < 0)
 		goto process_err;
 
-	data.buf = (void *)buf;
+	data.base = 0;
 	data.size = userdata->dof_hdr.dofh_loadsz;
+	data.buf = (void *)buf;
 	data.next = NULL;
 	if ((gen = process_dof(pid, parser_out_pipe, parser_in_pipe,
 			       dev, inum, exec_dev, exec_inum, &userdata->dh,
 			       &data, 0)) < 0)
 		goto process_err;
 
+process_done:
 	if (fuse_reply_ioctl(req, gen, NULL, 0) < 0)
 		goto process_err;
 
@@ -846,8 +1023,8 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 		goto oom;
 
 	if (!reparsing)
-		if ((gen = dof_stash_add(pid, dev, inum, exec_dev, exec_inum, dh,
-					 data->buf, data->size)) < 0)
+		if ((gen = dof_stash_add(pid, dev, inum, exec_dev, exec_inum,
+					 dh, data)) < 0)
 			goto fileio;
 
 	if (dof_stash_write_parsed(pid, dev, inum, &accum) < 0) {

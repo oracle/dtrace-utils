@@ -662,6 +662,7 @@ emit_tp(int out, uint64_t base, uint64_t offs, int is_enabled)
 	tp.type = DIT_TRACEPOINT;
 	tp.tracepoint.addr = base + offs;
 	tp.tracepoint.is_enabled = is_enabled;
+	tp.tracepoint.args[0] = 0;
 	usdt_parser_write_one(out, &tp, tp.size);
 
 	dt_dbg_dof("        Tracepoint at 0x%lx (0x%llx + 0x%x)%s\n",

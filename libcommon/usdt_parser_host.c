@@ -57,7 +57,7 @@ usdt_parser_host_write(int out, const dof_helper_t *dh, const usdt_data_t *data)
 	size_t cnt = 0;
 	const usdt_data_t *blk;
 
-	/* Write dof_helper_t structure. */
+	/* Write dof_helper_ structure. */
 	if ((err = usdt_parser_write_one(out, (const char *)dh,
 					 sizeof(*dh))) < 0)
 		return err;
@@ -70,8 +70,11 @@ usdt_parser_host_write(int out, const dof_helper_t *dh, const usdt_data_t *data)
 					 sizeof(cnt))) < 0)
 		return err;
 
-	/* Write the blocks (for each, size followed by data). */
+	/* Write the blocks (for each, offset, size, and data). */
 	for (blk = data; blk != NULL; blk = blk->next) {
+		if ((err = usdt_parser_write_one(out, (const char *)&blk->base,
+						 sizeof(blk->base))) < 0)
+			return err;
 		if ((err = usdt_parser_write_one(out, (const char *)&blk->size,
 						 sizeof(blk->size))) < 0)
 			return err;

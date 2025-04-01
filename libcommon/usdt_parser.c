@@ -122,6 +122,10 @@ usdt_copyin_block(int in, int out, int *ok)
 
 	memset(data, 0, sizeof(usdt_data_t));
 
+	/* Get the offset of the data block. */
+	if (!usdt_copyin(in, (char *)&data->base, sizeof(data->base)))
+		abort();
+
 	/* Get the size of the data block. */
 	if (!usdt_copyin(in, (char *)&data->size, sizeof(data->size)))
 		abort();
@@ -168,7 +172,7 @@ usdt_copyin_data(int in, int out, int *ok)
 	if (!usdt_copyin(in, (char *)&cnt, sizeof(cnt)))
 		abort();
 
-	if (cnt >= usdt_maxcount) {
+	if (cnt > usdt_maxcount) {
 		usdt_error(out, E2BIG, "block count %zi exceeds maximum %zi",
 			   cnt, usdt_maxcount);
 		return NULL;
@@ -207,9 +211,14 @@ usdt_destroy(dof_helper_t *dhp, usdt_data_t *data)
 void
 usdt_parse(int out, dof_helper_t *dhp, usdt_data_t *data)
 {
-	dof_parsed_t		eof;
+	dof_parsed_t	eof;
+	int 		rc = -1;
 
-	if (usdt_parse_dof(out, dhp, data->buf) != 0)
+	if (dhp->dofhp_dof)
+		rc = usdt_parse_dof(out, dhp, data->buf);
+	else
+		rc = usdt_parse_notes(out, dhp, data);
+	if (rc != 0)
 		goto err;
 
 	/*
