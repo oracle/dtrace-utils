@@ -18,7 +18,10 @@ SYS_HEADERS_INSTALL := common/sys/dtrace.h \
 # pkg-config file to pull them in.
 
 PROBE_HEADERS_INSTALL := common/sys/sdt.h \
-                         common/sys/sdt_internal.h
+                         common/sys/usdt.h \
+                         common/sys/usdt_gennote.h \
+                         common/sys/usdt_internal.h \
+                         common/sys/usdt_note_defs.h
 
 # The pkg-config files undergo a few translations with sed before installation.
 

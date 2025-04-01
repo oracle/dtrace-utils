@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -31,8 +31,8 @@ $(foreach util,$(TEST_UTILS),$(eval $(call test-util-template,$(util))))
 
 # The showUSDT utility needs to be linked against libelf, and should not be
 # linked against libdtrace.
-showUSDT_DEPS =
-showUSDT_LIBS = -lelf
+showUSDT_DEPS = libcommon.a
+showUSDT_LIBS = -lelf -L$(objdir) -lcommon
 
 # The print-stack-layout utility needs dt_impl.h which needs dt_git_version.h.
 print-stack-layout_SRCDEPS := $(objdir)/dt_git_version.h

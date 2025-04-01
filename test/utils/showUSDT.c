@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,11 +15,29 @@
 #include <sys/utsname.h>
 #include <sys/dtrace.h>
 
+#include <dt_htab.h>
+
+#include <ctype.h>
+
 #ifndef SHT_SUNW_dof
 # define SHT_SUNW_dof	0x6ffffff4
 #endif
 
+#define ALIGN(v, p2)	 (((v) + ((p2) - 1)) & ~((p2) - 1))
+
 static int	arch;
+
+void *dt_alloc(void *dmy, size_t size) {
+    return malloc(size);
+}
+
+void *dt_calloc(void *dmy, size_t num, size_t size) {
+    return calloc(num, size);
+}
+
+void dt_free(void *dmy, void *ptr) {
+    free(ptr);
+}
 
 static void printComments(dof_sec_t *sec, void *data) {
     printf("    Comment:\n" \
@@ -349,10 +367,273 @@ static int processDOF(dof_hdr_t *dof, size_t size) {
     return 0;
 }
 
+typedef struct dt_probe		dt_probe_t;
+typedef struct dt_provider	dt_provider_t;
+
+struct dt_probe {
+    dt_hentry_t		he;
+    dt_provider_t	*prov;
+    const char		*prv;
+    const char		*fun;
+    const char		*prb;
+};
+
+struct dt_provider {
+    dt_hentry_t		he;
+    const char		*name;
+    uint32_t		pattr;
+    uint32_t		mattr;
+    uint32_t		fattr;
+    uint32_t		nattr;
+    uint32_t		aattr;
+    uint32_t		probec;
+    dt_htab_t		*pmap;
+    dt_probe_t		*probes;
+};
+
+dt_htab_t	*prvmap;
+dt_htab_t	*prbmap;
+
+extern uint32_t str2hval(const char *, uint32_t);
+
+static uint32_t prv_hval(const dt_provider_t *pvp) {
+	return str2hval(pvp->name, 0);
+}
+
+static int prv_cmp(const dt_provider_t *p, const dt_provider_t *q) {
+	return strcmp(p->name, q->name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(prv, dt_provider_t, he)
+DEFINE_HTAB_STD_OPS(prv)
+
+static uint32_t prb_hval(const dt_probe_t *prp) {
+	uint32_t	hval;
+
+	hval = str2hval(prp->prv, 0);
+	hval = str2hval(prp->fun, hval);
+
+	return str2hval(prp->prb, hval);
+}
+
+static int prb_cmp(const dt_probe_t *p, const dt_probe_t *q) {
+	int	rc;
+
+	if (p->fun != NULL) {
+		if (q->fun == NULL)
+			return 1;
+		else {
+			rc = strcmp(p->fun, q->fun);
+			if (rc != 0)
+				return rc;
+		}
+	} else if (q->fun == NULL)
+		return -1;
+
+	return strcmp(p->prb, q->prb);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(prb, dt_probe_t, he)
+DEFINE_HTAB_STD_OPS(prb)
+
+static int processNote(const char *name, int type, const char *data, int size,
+		       Elf_Data *rodata) {
+    int			i;
+    dt_probe_t		prbt, *prp;
+    dt_provider_t	prvt, *prov;
+
+    printf("    Note %s, type %d:\n", name, type);
+    if (strcmp(name, "usdt") == 0) {
+	const char	*p = data;
+	uint64_t	off, fno;
+	const char	*prv, *fun, *prb;
+
+	off = *(uint64_t *)p;
+	p += 8;
+	fno = *(uint64_t *)p;
+	p += 8;
+
+	if (fno < rodata->d_off)
+	    return -1;
+	fno -= rodata->d_off;
+	if (fno >= rodata->d_size)
+	    return -1;
+
+	fun = &((char *)rodata->d_buf)[fno];
+
+	printf("      Offset %#lx\n", off);
+	printf("      Function Offset %#lx\n", fno);
+	prv = p;
+	p += strlen(p) + 1;
+	prb = p;
+	p += strlen(p) + 1;
+	printf("      Probe %s::%s:%s%s\n", prv, fun, prb, type == 2 ? " (is-enabled)" : "");
+	printf("      ");
+
+	prvt.name = prv;
+	prov = dt_htab_lookup(prvmap, &prvt);
+	if (prov == NULL) {
+	    prov = malloc(sizeof(dt_provider_t));
+	    memset(prov, 0, sizeof(dt_provider_t));
+	    prov->name = prv;
+	    dt_htab_insert(prvmap, prov);
+	    prov->pmap = dt_htab_create(&prb_htab_ops);
+	}
+
+	prbt.prv = prv;
+	prbt.fun = fun;
+	prbt.prb = prb;
+
+	prp = dt_htab_lookup(prbmap, &prbt);
+	if (prp == NULL) {
+	    prp = malloc(sizeof(dt_probe_t));
+	    memset(prp, 0, sizeof(dt_probe_t));
+	    prp->prv = prov->name;
+	    prp->fun = fun;
+	    prp->prb = prb;
+	    dt_htab_insert(prbmap, prp);
+	}
+
+	for (i = p - data; i < size; i++)
+	    printf("%c", isprint(data[i]) ? data[i] : '.');
+	printf("\n");
+    } else if (strcmp(name, "prov") == 0) {
+	const char	*p = data;
+	const uint32_t	*attr;
+	dt_provider_t	*prov;
+
+	prvt.name = p;
+	prov = dt_htab_lookup(prvmap, &prvt);
+	if (prov == NULL) {
+	    prov = malloc(sizeof(dt_provider_t));
+	    memset(prov, 0, sizeof(dt_provider_t));
+	    prov->name = p;
+	    dt_htab_insert(prvmap, prov);
+	    prov->pmap = dt_htab_create(&prb_htab_ops);
+	}
+
+	p += ALIGN(strlen(p) + 1, 4);
+	attr = (uint32_t *)ALIGN((uintptr_t)p, 4);
+	prov->pattr = *attr++;
+	prov->mattr = *attr++;
+	prov->fattr = *attr++;
+	prov->nattr = *attr++;
+	prov->aattr = *attr++;
+	prov->probec = *attr++;
+	printf("      Provider '%s' with %d probe%s:\n",
+	       prov->name, prov->probec, prov->probec == 1 ? "" : "s");
+
+	p = (char *)attr;
+	for (i = 0; i < prov->probec; i++) {
+	    int	j, argc;
+
+	    p = (const char *)ALIGN((uintptr_t)p, 4);
+	    prbt.prv = prov->name;
+	    prbt.fun = NULL;
+	    prbt.prb = p;
+
+	    prp = dt_htab_lookup(prov->pmap, &prbt);
+	    if (prp == NULL) {
+		prp = malloc(sizeof(dt_probe_t));
+		memset(prp, 0, sizeof(dt_probe_t));
+		prp->prv = prov->name;
+		prp->fun = NULL;
+		prp->prb = p;
+		dt_htab_insert(prov->pmap, prp);
+	    }
+
+	    printf("      Probe %d: %s:::%s\n", i, prp->prv, prp->prb);
+
+	    p += strlen(p) + 1;
+	    argc = *(uint8_t *)p++;
+
+	    for (j = 0; j < argc; j++) {
+		printf("          (native) argv[%d]: %s\n", j, p);
+		p += strlen(p) + 1;
+	    }
+
+	    argc = *(uint8_t *)p++;
+
+	    for (j = 0; j < argc; j++) {
+		const char	*arg;
+		uint8_t		m;
+
+		arg = p;
+		p += strlen(arg) + 1;
+		m = *p++;
+		printf("          (translated) argv[%d] (from native argv[%hhd]): %s\n",
+		       j, m, arg);
+	    }
+	}
+    } else if (strcmp(name, "dver") == 0) {
+	const char	*p = data;
+
+	printf("      %s:\n", p);
+    } else if (strcmp(name, "utsn") == 0) {
+	struct utsname	*uts = (struct utsname *)(char *)data;
+
+	printf("      UTS Name:\n" \
+	       "        sysname  = %s\n" \
+	       "        nodename = %s\n" \
+	       "        release  = %s\n" \
+	       "        version  = %s\n" \
+	       "        machine  = %s\n",
+	       uts->sysname, uts->nodename, uts->release, uts->version,
+	       uts->machine);
+    }
+
+    return 0;
+}
+
+static int processNotes(char *data, size_t size, Elf_Data *rodata) {
+    size_t		idx = 0;
+    int			ret = 0;
+    dt_htab_next_t	*hit;
+    dt_provider_t	*pvp;
+    dt_probe_t		*prp;
+
+    prvmap = dt_htab_create(&prv_htab_ops);
+    prbmap = dt_htab_create(&prb_htab_ops);
+
+    for (idx = 0; idx < size; ) {
+	int	nsz, dsz, type;
+
+	nsz = *((int *)&data[idx]);
+	dsz = *((int *)&data[idx + 4]);
+	type = *((int *)&data[idx + 8]);
+
+	ret = processNote(&data[idx + 12], type,
+			  &data[idx + 12 + ALIGN(nsz, 4)], dsz, rodata);
+	if (ret != 0)
+	    break;
+
+	idx += 12 + ALIGN(nsz, 4) + ALIGN(dsz, 4);
+    }
+
+    printf("----------\n");
+    /* List all providers. */
+    hit = NULL;
+    while ((pvp = dt_htab_next(prvmap, &hit)) != NULL) {
+	printf("      Provider '%s' with %d probe%s:\n",
+	       pvp->name, pvp->probec, pvp->probec == 1 ? "" : "s");
+    }
+
+    /* List all probes (to be added/validated) to providers. */
+    hit = NULL;
+    while ((prp = dt_htab_next(prbmap, &hit)) != NULL) {
+	printf("      Probe %s::%s:%s\n", prp->prv, prp->fun, prp->prb);
+    }
+
+    return ret;
+}
+
 static int readObj(const char *fn) {
-    int		fd;
+    int		fd, i;
     int		ret = 1;
     Elf		*elf = NULL;
+    Elf_Data	*strtab = NULL;
+    Elf_Data	*rodata = NULL;
+    char 	*sname;
     Elf_Data	*data;
     Elf_Scn	*scn;
     GElf_Ehdr	ehdr;
@@ -381,10 +662,7 @@ static int readObj(const char *fn) {
 	goto out;
     }
     switch (ehdr.e_machine) {
-	case EM_386:
 	case EM_X86_64:
-	case EM_SPARC:
-	case EM_SPARCV9:
 	case EM_AARCH64:
 	    arch = ehdr.e_machine;
 	    break;
@@ -396,28 +674,94 @@ static int readObj(const char *fn) {
 
     printf("Processing %s:\n", fn);
 
+    /* Get the .shstrtab data. */
+    for (i = 1, scn = NULL; (scn = elf_nextscn(elf, scn)) != NULL; i++) {
+	if (i == ehdr.e_shstrndx)
+		break;
+    }
+    if (scn == NULL ||
+	gelf_getshdr(scn, &shdr) == NULL ||
+	shdr.sh_type != SHT_STRTAB) {
+	printf("  Section .shstrtab not found!\n");
+	goto out;
+    }
+    if ((strtab = elf_getdata(scn, NULL)) == NULL) {
+	printf("  Failed to read data for .shstrtab section!\n");
+	goto out;
+    }
+
+    /* Get the .rodata data. */
+    scn = NULL;
+    while ((scn = elf_nextscn(elf, scn)) != NULL) {
+	if (gelf_getshdr(scn, &shdr) == NULL)
+	    goto err;
+	if (shdr.sh_type != SHT_PROGBITS)
+	    continue;
+	if (shdr.sh_name >= strtab->d_size) {
+	    printf("  Invalid section name!\n");
+	    goto out;
+	}
+	sname = &((char *)strtab->d_buf)[shdr.sh_name];
+	if (strcmp(sname, ".rodata") == 0)
+	    break;
+    }
+
+    if (scn == NULL) {
+	printf("  No .rodata section found!\n");
+	goto out;
+    }
+
+    if ((rodata = elf_getdata(scn, NULL)) == NULL) {
+	printf("  Failed to read data for .rodata section!\n");
+	goto out;
+    }
+
+    /* (Ab)use the offset to store the load base for the data. */
+    rodata->d_off = shdr.sh_addr;
+
+    /* Process note sections. */
     scn = NULL;
     while ((scn = elf_nextscn(elf, scn)) != NULL) {
 	if (gelf_getshdr(scn, &shdr) == NULL)
 	    goto err;
 
-	if (shdr.sh_type == SHT_SUNW_dof)
-	    break;
+	switch (shdr.sh_type) {
+	    case SHT_NOTE:
+		if (shdr.sh_name >= strtab->d_size) {
+		    printf("  Invalid section name!\n");
+		    goto out;
+		}
+
+		sname = &((char *)strtab->d_buf)[shdr.sh_name];
+		if (strcmp(sname, ".note.usdt") != 0)
+			continue;
+
+		if ((data = elf_getdata(scn, NULL)) == NULL) {
+		    printf("  Failed to read data for .note.usdt section!\n");
+		    goto out;
+		}
+
+		ret = processNotes(data->d_buf, data->d_size, rodata);
+		if (ret != 0)
+			goto out;
+
+		break;
+	    case SHT_SUNW_dof:
+		if ((data = elf_getdata(scn, NULL)) == NULL) {
+		    printf("  Failed to read data for .note.usdt section!\n");
+		    goto out;
+		}
+
+		ret = processDOF(data->d_buf, data->d_size);
+		if (ret != 0)
+			goto out;
+
+		break;
+	    default:
+		continue;
+	}
     }
 
-    if (shdr.sh_type != SHT_SUNW_dof) {
-	printf("  No DOF section found!\n");
-	goto out;
-    }
-
-    if ((data = elf_getdata(scn, NULL)) == NULL) {
-	printf("  Failed to read data for SUNW_dof section!\n");
-	goto out;
-    }
-
-    processDOF(data->d_buf, data->d_size);
-
-    ret = 0;
     goto out;
 err:
     printf("  An error was encountered while processing %s\n", fn);

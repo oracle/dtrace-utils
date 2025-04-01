@@ -1,49 +1,43 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
-
+#
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
 fi
 
 dtrace=$1
+CC=/usr/bin/gcc
 CFLAGS="$test_cppflags"
 LDFLAGS="$test_ldflags"
 
-DIRNAME="$tmpdir/usdt-guess32.$$.$RANDOM"
+DIRNAME="$tmpdir/usdt-wrong-probe.$$.$RANDOM"
 mkdir -p $DIRNAME
 cd $DIRNAME
 
 cat > prov.d <<EOF
 provider test_prov {
-	probe go();
+	probe go(int a, int b);
 };
 EOF
 
-$dtrace $dt_flags -h -s prov.d
-if [ $? -ne 0 ]; then
-	echo "failed to generate header file" >& 2
-	exit 1
-fi
-
 cat > test.c <<EOF
-#include <sys/types.h>
-#include "prov.h"
+#include <sys/sdt.h>
 
 int
 main(int argc, char **argv)
 {
-	if (TEST_PROV_GO_ENABLED()) {
-		TEST_PROV_GO();
-	}
+	DTRACE_PROBE(test_prov, go, 1);
+
+	return 0;
 }
 EOF
 
-${CC} ${CFLAGS} -m32 -c test.c
+${CC} ${CFLAGS} -c test.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test.c" >& 2
 	exit 1
@@ -53,23 +47,13 @@ if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >& 2
 	exit 1
 fi
-${CC} ${LDFLAGS} -m32 -o test test.o prov.o
+${CC} ${LDFLAGS} -o test test.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
 
-script()
-{
-	$dtrace $dt_flags -c ./test -qs /dev/stdin <<EOF
-	test_prov\$target:::
-	{
-		printf("%s:%s:%s\n", probemod, probefunc, probename);
-	}
-EOF
-}
+$dtrace $dt_flags -c ./test -n 'test_prov$target:::go, tick-1s { exit(0); }'
+rc=$?
 
-script
-status=$?
-
-exit $status
+exit $rc

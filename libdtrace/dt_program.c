@@ -356,7 +356,9 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	dtrace_hdl_t *dtp = infop->dthi_dtp;
 	dt_probe_t *prp = idp->di_data;
 	dt_node_t *dnp;
+#if 0
 	char buf[DT_TYPE_NAMELEN];
+#endif
 	char *fname;
 	const char *p;
 	int i;
@@ -368,15 +370,28 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	fname = alloca(strlen(prp->pr_name) + 1 + i);
 	dt_header_fmt_func(fname, prp->pr_name);
 
-	if (fprintf(infop->dthi_out, "extern void __dtrace_%s___%s(",
+	if (fprintf(infop->dthi_out, "extern void __usdt1_%s___%s(",
 	    infop->dthi_pfname, fname) < 0)
 		return dt_set_errno(dtp, errno);
 
+	/*
+	 * Generate a function prototype with void * as type for each probe
+	 * argument.  This is used as a "trick" to ensure that probe invocation
+	 * using the DTRACE_PROBE() macro pass the correct number of arguments.
+	 * (That macro defines the same function prototype, with the number of
+	 *  arguments passed, so the compiler will complain if they do not
+	 *  match.)
+	 */
 	for (dnp = prp->nargs, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
+#if 0
 		if (fprintf(infop->dthi_out, "%s",
 		    ctf_type_name(dnp->dn_ctfp, dnp->dn_type,
 		    buf, sizeof(buf))) < 0)
 			return dt_set_errno(dtp, errno);
+#else
+		if (fprintf(infop->dthi_out, "unsigned long") < 0)
+			return dt_set_errno(dtp, errno);
+#endif
 
 		if (i + 1 < prp->nargc &&
 		    fprintf(infop->dthi_out, ", ") < 0)
@@ -389,10 +404,17 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	if (fprintf(infop->dthi_out, ");\n") < 0)
 		return dt_set_errno(dtp, errno);
 
+#if 0
 	if (fprintf(infop->dthi_out,
-	    "extern void __dtraceenabled_%s___%s(uint32_t *flag);\n",
+	    "extern void __usdt2_%s___%s(uint32_t *flag);\n",
 	    infop->dthi_pfname, fname) < 0)
 		return dt_set_errno(dtp, errno);
+#else
+	if (fprintf(infop->dthi_out,
+	    "extern void __usdt2_%s___%s(unsigned long);\n",
+	    infop->dthi_pfname, fname) < 0)
+		return dt_set_errno(dtp, errno);
+#endif
 
 	return 0;
 }
@@ -435,16 +457,18 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		if (fprintf(infop->dthi_out, ") \\\n\t") < 0)
 			return dt_set_errno(dtp, errno);
 
+#if 0
 		if (fprintf(infop->dthi_out, "__dtrace_%s___%s(",
 		    infop->dthi_pfname, fname) < 0)
 			return dt_set_errno(dtp, errno);
+#else
+		if (fprintf(infop->dthi_out, "_USDT_PROBE(%s, %s",
+		    infop->dthi_pfname, fname) < 0)
+			return dt_set_errno(dtp, errno);
+#endif
 
 		for (i = 0; i < prp->nargc; i++) {
-			if (fprintf(infop->dthi_out, "arg%d", i) < 0)
-				return dt_set_errno(dtp, errno);
-
-			if (i + 1 != prp->nargc &&
-			    fprintf(infop->dthi_out, ", ") < 0)
+			if (fprintf(infop->dthi_out, ", arg%d", i) < 0)
 				return dt_set_errno(dtp, errno);
 		}
 	}
@@ -457,11 +481,10 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		    "#ifdef __GNUC__\n"
 		    "#define\t%s_%s_ENABLED() \\\n"
 		    "\t({ uint32_t enabled = 0; \\\n"
-		    "\t__dtraceenabled_%s___%s(&enabled); \\\n"
+		    "\t   _USDT_PROBE_ENABLED(%s, %s, &enabled); \\\n"
 		    "\t   enabled; })\n"
 		    "#else\n"
-		    "#define\t%s_%s_ENABLED() (1)\\n"
-		    "#endif\n"
+		    "#define\t%s_%s_ENABLED() (1)\n"
 		    "#endif\n",
 		    infop->dthi_pmname, mname,
 		    infop->dthi_pfname, fname,
@@ -485,6 +508,8 @@ dt_header_provider(dtrace_hdl_t *dtp, dt_provider_t *pvp, FILE *out)
 	int i;
 
 	if (pvp->pv_flags & DT_PROVIDER_IMPL)
+		return 0;
+	if (!dt_idhash_size(pvp->pv_probes))
 		return 0;
 
 	/*
@@ -548,7 +573,8 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 	}
 
 	if (fprintf(out, "#include <unistd.h>\n"
-		"#include <inttypes.h>\n\n") < 0)
+			 "#include <inttypes.h>\n"
+			 "#include <sys/usdt.h>\n\n") < 0)
 		return -1;
 
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)

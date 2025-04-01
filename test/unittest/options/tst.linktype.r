@@ -2,9 +2,8 @@ link pass:
 objdump recognizes elf
 link pass: -xlinktype=elf
 objdump recognizes elf
-link pass: -xlinktype=dof
-objdump does NOT recognize file format
+link FAIL: -xlinktype=dof
 link FAIL: -xlinktype=foo
-objdump does NOT recognize file format
 -- @@stderr --
+dtrace: failed to link script prov: link type 1 (DOF) no longer supported
 dtrace: failed to set -x linktype: Invalid value for specified option

@@ -45,20 +45,20 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-# link with and without -xstrip, dumping the DOF section
+# link with and without -xstrip, dumping the USDT note
 
-objdump="${OBJDUMP} --full-contents --section=.SUNW_dof prov.o"
+objdump="${OBJDUMP} --full-contents --section=.note.usdt prov.o"
 
 $dtrace $dt_flags -G -xstrip -s prov.d test.o
 if [ $? -ne 0 ]; then
-	echo "failed to create DOF (stripped)" >& 2
+	echo "failed to create USDT notes (stripped)" >& 2
 	exit 1
 fi
 $objdump >& out.stripped.txt
 
 $dtrace $dt_flags -G -s prov.d test.o
 if [ $? -ne 0 ]; then
-	echo "failed to create DOF" >& 2
+	echo "failed to create USDT notes" >& 2
 	exit 1
 fi
 $objdump >& out.default.txt

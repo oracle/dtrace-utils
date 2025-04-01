@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -13,7 +13,9 @@ EXTERNAL_64BIT_TRIGGERS = testprobe readwholedir mmap bogus-ioctl open delaydie 
     ustack-tst-spin ustack-tst-mtspin \
     visible-constructor visible-constructor-static visible-constructor-static-unstripped
 
-EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args usdt-tst-forker usdt-tst-defer \
+EXTERNAL_64BIT_SDT_TRIGGERS = usdt-tst-argmap usdt-tst-args \
+    usdt-tst-arg-const usdt-tst-arg-reg \
+    usdt-tst-deref-decode usdt-tst-forker usdt-tst-defer \
     usdt-tst-multiprovider usdt-tst-multiprov-dupprobe usdt-tst-special
 EXTERNAL_64BIT_TRIGGERS += $(EXTERNAL_64BIT_SDT_TRIGGERS)
 
@@ -197,9 +199,22 @@ profile-tst-ufuncsort_CFLAGS := -O0
 usdt-tst-argmap_CFLAGS := -Iuts/common
 usdt-tst-argmap_PROV := usdt-tst-argmap-prov.d
 
+# usdt-tst-deref-decode calls USDT probes using sys/sdt.h
+usdt-tst-deref-decode_CFLAGS := -Iuts/common -O3
+usdt-tst-deref-decode_SOURCES := usdt-tst-deref-decode.${ARCH}.c
+usdt-tst-deref-decode_PROV := usdt-tst-deref-decode-prov.d
+
 # usdt-tst-args calls USDT probes using sys/sdt.h
 usdt-tst-args_CFLAGS := -Iuts/common
 usdt-tst-args_PROV := usdt-tst-args-prov.d
+
+# usdt-tst-args-const calls USDT probes based on dtrace -h
+usdt-tst-arg-const_CFLAGS := -Iuts/common
+usdt-tst-arg-const_PROV := usdt-tst-arg-const-prov.d
+
+# usdt-tst-args-reg calls USDT probes based on dtrace -h
+usdt-tst-arg-reg_CFLAGS := -Iuts/common -O0
+usdt-tst-arg-reg_PROV := usdt-tst-arg-reg-prov.d
 
 # usdt-tst-forker calls USDT probes based on dtrace -h
 usdt-tst-forker_PROV := usdt-tst-forker-prov.d

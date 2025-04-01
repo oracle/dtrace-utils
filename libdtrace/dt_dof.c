@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -361,6 +361,17 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	dofpr.dofpr_xargc = prp->xargc;
 	dofpr.dofpr_pad1 = 0;
 	dofpr.dofpr_pad2 = 0;
+
+	if (prp->pr_inst == NULL) {
+		dofpr.dofpr_func = 0;
+		dofpr.dofpr_offidx = 0;
+		dofpr.dofpr_noffs = 0;
+		dofpr.dofpr_enoffidx = 0;
+		dofpr.dofpr_nenoffs = 0;
+
+		dt_buf_write(dtp, &ddo->ddo_probes, &dofpr,
+		    sizeof(dofpr), sizeof(uint64_t));
+	}
 
 	for (pip = prp->pr_inst; pip != NULL; pip = pip->pi_next) {
 		dt_dprintf("adding probe for %s:%s\n", pip->pi_fname,

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -52,7 +52,11 @@ extern "C" {
 #include <dt_version.h>
 
 #ifndef ARRAY_SIZE
-# define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
+# define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+#ifndef ALIGN
+# define ALIGN(n, p2)		(((n) + (p2) - 1) & ~((p2) - 1))
 #endif
 
 #ifndef __stringify
