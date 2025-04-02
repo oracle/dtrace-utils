@@ -176,11 +176,13 @@ dt_provider_xref(dtrace_hdl_t *dtp, dt_provider_t *pvp, id_t id)
 int
 dt_provider_discover(dtrace_hdl_t *dtp)
 {
-	int i, prid = dtp->dt_probe_id;
+	int		prid = dtp->dt_probe_id;
+	dt_htab_next_t	*it = NULL;
+	dt_provider_t	*pvp;
 
 	/* Discover new probes. */
-	for (i = 0; dt_providers[i]; i++) {
-		if (dt_providers[i]->discover && dt_providers[i]->discover(dtp) < 0)
+	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
+		if (pvp->impl->discover && pvp->impl->discover(dtp) < 0)
 			return -1;        /* errno is already set */
 	}
 
