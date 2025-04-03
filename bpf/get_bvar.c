@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, 2024, Oracle and/or its affiliates.
+ * Copyright (c) 2020, 2025, Oracle and/or its affiliates.
  */
 #include <linux/bpf.h>
 #include <stddef.h>
@@ -64,7 +64,7 @@ noinline uint64_t dt_bvar_caller(const dt_dctx_t *dctx)
 
 noinline uint64_t dt_bvar_curcpu(const dt_dctx_t *dctx)
 {
-	uint32_t	key = 0;
+	uint32_t	key = bpf_get_smp_processor_id();
 	void		*val = bpf_map_lookup_elem(&cpuinfo, &key);
 
 	if (val == NULL) {

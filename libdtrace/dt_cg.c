@@ -1243,9 +1243,12 @@ dt_cg_epilogue(dt_pcb_t *pcb)
 		} else {
 			idp = dt_dlib_get_map(dtp, "cpuinfo");
 			assert(idp != NULL);
+
+			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+
 			dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
 			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_2, BPF_REG_FP, DT_STK_SP));
-			emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_2, 0, 0));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_2, 0, BPF_REG_0));
 			emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 			emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
 			emit(dlp, BPF_MOV_IMM(BPF_REG_1, 1));

@@ -761,37 +761,29 @@ gmap_create_buffers(dtrace_hdl_t *dtp)
 static int
 gmap_create_cpuinfo(dtrace_hdl_t *dtp)
 {
-	int			i, rc;
+	int			i;
 	uint32_t		key = 0;
 	dtrace_conf_t		*conf = &dtp->dt_conf;
 	size_t			ncpus = conf->num_online_cpus;
-	dt_bpf_cpuinfo_t	*data;
+	dt_bpf_cpuinfo_t	data;
 	cpuinfo_t		*ci;
 
-	/*
-	 * num_possible_cpus <= num_online_cpus: see dt_conf_init.
-	 */
-	data = dt_calloc(dtp, dtp->dt_conf.num_possible_cpus,
-			 sizeof(dt_bpf_cpuinfo_t));
-	if (data == NULL)
-		return dt_set_errno(dtp, EDT_NOMEM);
-
-	for (i = 0, ci = &conf->cpus[0]; i < ncpus; i++, ci++)
-		memcpy(&data[ci->cpu_id].ci, ci, sizeof(cpuinfo_t));
-
 	dtp->dt_cpumap_fd = create_gmap(dtp, "cpuinfo",
-					BPF_MAP_TYPE_PERCPU_ARRAY,
+					BPF_MAP_TYPE_HASH,
 					sizeof(uint32_t),
-					sizeof(dt_bpf_cpuinfo_t), 1);
+					sizeof(dt_bpf_cpuinfo_t), ncpus);
 	if (dtp->dt_cpumap_fd == -1)
 		return -1;
 
-	rc = dt_bpf_map_update(dtp->dt_cpumap_fd, &key, data);
-	dt_free(dtp, data);
-	if (rc == -1)
-		return dt_bpf_error(dtp,
-				    "cannot update BPF map 'cpuinfo': %s\n",
-				    strerror(errno));
+	memset(&data, 0, sizeof(data));
+	for (i = 0, ci = &conf->cpus[0]; i < ncpus; i++, ci++) {
+		memcpy(&data.ci, ci, sizeof(cpuinfo_t));
+		key = ci->cpu_id;
+		if (dt_bpf_map_update(dtp->dt_cpumap_fd, &key, &data) == -1)
+			return dt_bpf_error(dtp,
+					    "cannot update BPF map 'cpuinfo': %s\n",
+					    strerror(errno));
+	}
 
 	return 0;
 }

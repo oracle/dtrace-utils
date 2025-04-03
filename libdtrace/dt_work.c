@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -37,35 +37,29 @@ END_probe(void)
 int
 dt_check_cpudrops(dtrace_hdl_t *dtp, processorid_t cpu, dtrace_dropkind_t what)
 {
-	dt_bpf_cpuinfo_t	*ci;
-	uint32_t		cikey = 0;
+	dt_bpf_cpuinfo_t	ci;
+	uint32_t		cikey = cpu;
 	uint64_t		cnt;
 	int			rval = 0;
 
 	assert(what == DTRACEDROP_PRINCIPAL || what == DTRACEDROP_AGGREGATION);
 
-	ci = dt_calloc(dtp, dtp->dt_conf.num_possible_cpus,
-		       sizeof(dt_bpf_cpuinfo_t));
-	if (ci == NULL)
-		return dt_set_errno(dtp, EDT_NOMEM);
-
-	if (dt_bpf_map_lookup(dtp->dt_cpumap_fd, &cikey, ci) == -1) {
+	if (dt_bpf_map_lookup(dtp->dt_cpumap_fd, &cikey, &ci) == -1) {
 		rval = dt_set_errno(dtp, EDT_BPF);
 		goto fail;
 	}
 
 	if (what == DTRACEDROP_PRINCIPAL) {
-		cnt = ci[cpu].buf_drops - dtp->dt_drops[cpu].buf;
-		dtp->dt_drops[cpu].buf = ci[cpu].buf_drops;
+		cnt = ci.buf_drops - dtp->dt_drops[cpu].buf;
+		dtp->dt_drops[cpu].buf = ci.buf_drops;
 	} else {
-		cnt = ci[cpu].agg_drops - dtp->dt_drops[cpu].agg;
-		dtp->dt_drops[cpu].agg = ci[cpu].agg_drops;
+		cnt = ci.agg_drops - dtp->dt_drops[cpu].agg;
+		dtp->dt_drops[cpu].agg = ci.agg_drops;
 	}
 
 	rval = dt_handle_cpudrop(dtp, cpu, what, cnt);
 
 fail:
-	dt_free(dtp, ci);
 	return rval;
 }
 

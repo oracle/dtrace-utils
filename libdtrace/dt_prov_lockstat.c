@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -121,11 +121,13 @@ static void get_cpuinfo(dtrace_hdl_t *dtp, dt_irlist_t *dlp, uint_t exitlbl)
 {
 	dt_ident_t	*idp = dt_dlib_get_map(dtp, "cpuinfo");
 
+	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_smp_processor_id));
+
 	assert(idp != NULL);
 	dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
 	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
 	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_BASE));
-	emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_2, 0, 0));
+	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_2, 0, BPF_REG_0));
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
 	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, exitlbl));
 	emit(dlp, BPF_MOV_REG(BPF_REG_6, BPF_REG_0));

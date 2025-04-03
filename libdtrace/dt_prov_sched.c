@@ -85,6 +85,40 @@ static int populate(dtrace_hdl_t *dtp)
 }
 
 /*
+ * Get a pointer to the cpuinfo_t structure for the CPU associated
+ * with the runqueue that is in arg0.
+ *
+ * Clobbers %r1 through %r5
+ * Stores pointer to cpuinfo_t struct in %r0
+ */
+static void get_cpuinfo(dtrace_hdl_t *dtp, dt_irlist_t *dlp, uint_t exitlbl)
+{
+	dt_ident_t	*idp = dt_dlib_get_map(dtp, "cpuinfo");
+
+	assert(idp != NULL);
+
+	/* Put the runqueue pointer from mst->arg0 into %r3. */
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
+
+	/* Turn it into a pointer to its cpu member. */
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, dt_cg_ctf_offsetof("struct rq", "cpu", NULL, 1)));
+
+	/* Call bpf_probe_read_kernel(%fp + DT_TRAMP_SP_SLOT[0], sizeof(int), %r3) */
+	emit(dlp, BPF_MOV_IMM(BPF_REG_2, (int) sizeof(int)));
+	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read_kernel));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, 0, exitlbl));
+
+	/* Now look up the corresponding cpuinfo_t. */
+	dt_cg_xsetx(dlp, idp, DT_LBL_NONE, BPF_REG_1, idp->di_id);
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, exitlbl));
+}
+
+/*
  * Generate a BPF trampoline for a SDT probe.
  *
  * The trampoline function is called when a SDT probe triggers, and it must
@@ -98,18 +132,39 @@ static int populate(dtrace_hdl_t *dtp)
  */
 static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_probe_t	*prp = pcb->pcb_probe;
 
 	if (strcmp(prp->desc->prb, "dequeue") == 0) {
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
 		/*
-		 * FIXME: arg1 should be a pointer to cpuinfo_t for the CPU
-		 *	  associated with the runqueue.
+		 * Get the runqueue from arg0 and place its cpuinfo_t* into %r0.
 		 */
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(1), 0));
+		get_cpuinfo(dtp, dlp, exitlbl);
+
+		/*
+		 * Copy arg1 into arg0.
+		 */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_3));
+
+		/* Store the cpuinfo_t* in %r0 into arg1. */
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
 	} else if (strcmp(prp->desc->prb, "enqueue") == 0) {
+		/*
+		 * Get the runqueue from arg0 and place its cpuinfo_t* into %r0.
+		 */
+		get_cpuinfo(dtp, dlp, exitlbl);
+
+		/*
+		 * Copy arg1 into arg0.
+		 */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_3));
+
+		/* Store the cpuinfo_t* in %r0 into arg1. */
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
+
 /*
  * This is ugly but necessary...  enqueue_task() takes a flags argument and the
  * ENQUEUE_HEAD flag is used to indicate that the task is to be placed at the
@@ -120,15 +175,6 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
  * outside the kernel source tree.
  */
 #define ENQUEUE_HEAD	0x10
-
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
-		/*
-		 * FIXME: arg1 should be a pointer to cpuinfo_t for the CPU
-		 *	  associated with the runqueue.
-		 */
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(1), 0));
-
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(2)));
 		emit(dlp, BPF_ALU64_IMM(BPF_AND, BPF_REG_0, ENQUEUE_HEAD));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));

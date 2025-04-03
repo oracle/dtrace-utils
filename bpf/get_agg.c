@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, 2024, Oracle and/or its affiliates.
+ * Copyright (c) 2022, 2025, Oracle and/or its affiliates.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
@@ -21,7 +21,7 @@ extern struct bpf_map_def cpuinfo;
  */
 noinline uint64_t *dt_no_agg(void)
 {
-	uint32_t		key = 0;
+	uint32_t		key = bpf_get_smp_processor_id();
 	dt_bpf_cpuinfo_t	*ci;
 
 	ci = bpf_map_lookup_elem(&cpuinfo, &key);
