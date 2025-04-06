@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -61,7 +61,7 @@ fi
 actual=$(($period * `cat tmp.txt`))
 
 # determine expected count
-expect=$(($niters * $ninstructions_per_iter))
+expect=`$utils/perf_count_event.sh instructions workload_user $niters`
 
 # check
 $utils/check_result.sh $actual $expect $(($expect / 4))
