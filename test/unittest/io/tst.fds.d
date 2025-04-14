@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -32,6 +32,7 @@ syscall::ioctl:entry
 	printf("fds[%d] fi_name = %s\n", arg0, fds[arg0].fi_name);
 	printf("fds[%d] fi_dirname = %s\n", arg0, fds[arg0].fi_dirname);
 	printf("fds[%d] fi_pathname = %s\n", arg0, fds[arg0].fi_pathname);
+	printf("fds[%d] fi_fs = %s\n", arg0, fds[arg0].fi_fs);
 	printf("fds[%d] fi_mount = %s\n", arg0, fds[arg0].fi_mount);
 	printf("fds[%d] fi_offset = %d\n", arg0, fds[arg0].fi_offset);
 	printf("fds[%d] fi_oflags = %x\n", arg0, fds[arg0].fi_oflags);
