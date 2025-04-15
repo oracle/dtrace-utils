@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -16,4 +16,9 @@
 
 #pragma D option quiet
 
-tick-100msec / pid == 0 / { ustack(); exit(0); }
+profile-100ms
+/ pid == 0 /
+{
+    ustack();
+    exit(0);
+}

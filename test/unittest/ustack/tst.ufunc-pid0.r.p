@@ -1,4 +1,4 @@
 #!/usr/bin/gawk -f
 
-# remove trailing blanks
-{ sub(" *$", ""); print }
+# remove trailing blanks, use only one line
+{ sub(" *$", ""); print; exit }
