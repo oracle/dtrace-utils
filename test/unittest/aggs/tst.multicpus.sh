@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -79,10 +79,10 @@ gawk '
         # first we finish computing our estimates for avg and stddev
         # (the other results require no further action)
 
-        xavg /= xcnt;
+        xavg /= xcnt;            xavg = int(xavg);
 
-        xstm /= xcnt;
-        xstd /= xcnt;
+        xstm /= xcnt;            xstm = int(xstm);
+        xstd /= xcnt;            xstd = int(xstd);
         xstd -= xstm * xstm;
         xstd = int(sqrt(xstd));
 
