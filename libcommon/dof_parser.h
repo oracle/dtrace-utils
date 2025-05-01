@@ -180,9 +180,9 @@ dof_parsed_t *dof_parser_host_read(int in, int timeout);
 /*
  * Get a dof_helper_t from the input fd.
  *
- * Set OK to zero if no further parsing is possible.
+ * Returns NULL on failure - no further processing is possible in that case.
  */
-dof_helper_t *dof_copyin_helper(int in, int out, int *ok);
+dof_helper_t *dof_copyin_helper(int in);
 
 /*
  * Get a buffer of DOF from the input fd and sanity-check it.

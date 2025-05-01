@@ -302,7 +302,7 @@ cleanup_userdata(void)
 }
 
 /*
- * Parse a piece of DOF.  Return 0 iff the pipe has closed and no more parsing
+ * Parse a piece of DOF.  Return 0 iff the pipe has closed or no more parsing
  * is possible.
  */
 static int
@@ -312,9 +312,9 @@ parse_dof(int in, int out)
 	dof_helper_t *dh;
 	dof_hdr_t *dof;
 
-	dh = dof_copyin_helper(in, out, &ok);
+	dh = dof_copyin_helper(in);
 	if (!dh)
-		return ok;
+		return 0;
 
 	dof = dof_copyin_dof(in, out, &ok);
 	if (!dof) {

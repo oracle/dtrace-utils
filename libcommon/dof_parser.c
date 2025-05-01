@@ -83,22 +83,24 @@ static void dof_error(int out, int err_no, const char *fmt, ...)
 	free(msg);
 }
 
-dof_helper_t *
-dof_copyin_helper(int in, int out, int *ok)
+static char *
+dof_copyin(int in, char *buf_, size_t sz)
 {
-	dof_helper_t *dh;
+	char *buf = buf_;
 	size_t i;
 
-	dh = malloc(sizeof(dof_helper_t));
-	if (!dh)
-		abort();
+	if (!buf) {
+		buf = malloc(sz);
+		if (!buf)
+			abort();
+	}
 
-	memset(dh, 0, sizeof(dof_helper_t));
+	memset(buf, 0, sz);
 
-	for (i = 0; i < sizeof(dof_helper_t);) {
+	for (i = 0; i < sz; ) {
 		size_t ret;
 
-		ret = read(in, ((char *) dh) + i, sizeof(dof_helper_t) - i);
+		ret = read(in, buf + i, sz - i);
 
 		if (ret < 0) {
 			switch (errno) {
@@ -119,89 +121,60 @@ dof_copyin_helper(int in, int out, int *ok)
 		i += ret;
 	}
 
-	*ok = 1;
-	return dh;
+	return buf;
 
 err:
-	*ok = 0;
-	free(dh);
+	if (!buf_)
+		free(buf);
 	return NULL;
+}
+
+dof_helper_t *
+dof_copyin_helper(int in)
+{
+	return (dof_helper_t *)dof_copyin(in, NULL, sizeof(dof_helper_t));
 }
 
 dof_hdr_t *
 dof_copyin_dof(int in, int out, int *ok)
 {
 	dof_hdr_t *dof;
-	size_t i, sz;
 
 	*ok = 1;
 
-	/*
-	 * First get the header, which gives the size of everything else.
-	 */
-	dof = malloc(sizeof(dof_hdr_t));
+	/* First get the header, which gives the size of everything else. */
+	dof = (dof_hdr_t *)dof_copyin(in, NULL, sizeof(dof_hdr_t));
 	if (!dof)
 		abort();
 
-	memset(dof, 0, sizeof(dof_hdr_t));
+	/* Validate the DOF load size. */
+	if (dof->dofh_loadsz >= dof_maxsize) {
+		dof_error(out, E2BIG, "load size %zi exceeds maximum %zi",
+			  dof->dofh_loadsz, dof_maxsize);
+		return NULL;
+	}
 
-	for (i = 0, sz = sizeof(dof_hdr_t); i < sz;) {
-		size_t ret;
+	if (dof->dofh_loadsz < sizeof(dof_hdr_t)) {
+		dof_error(out, EINVAL, "invalid load size %zi, "
+			  "smaller than header size %zi", dof->dofh_loadsz,
+			  sizeof(dof_hdr_t));
+		return NULL;
+	}
 
-		ret = read(in, ((char *) dof) + i, sz - i);
+	/* Resize the allocated memory to fit the actual data as well. */
+	dof = realloc(dof, dof->dofh_loadsz);
+	if (!dof)
+		abort();
 
-		if (ret < 0) {
-			switch (errno) {
-			case EINTR:
-				continue;
-			default:
-				goto err;
-			}
-		}
-
-		/*
-		 * EOF: parsing done, process shutting down or message
-		 * truncated.  Fail, in any case.
-		 */
-		if (ret == 0)
-			goto err;
-
-		/* Allocate more room if needed for the reply.  */
-		if (i < sizeof(dof_hdr_t) &&
-		    i + ret >= sizeof(dof_hdr_t)) {
-			dof_hdr_t *new_dof;
-
-			if (dof->dofh_loadsz >= dof_maxsize) {
-				dof_error(out, E2BIG, "load size %zi exceeds maximum %zi",
-					  dof->dofh_loadsz, dof_maxsize);
-				return NULL;
-			}
-
-			if (dof->dofh_loadsz < sizeof(dof_hdr_t)) {
-				dof_error(out, EINVAL, "invalid load size %zi, "
-					  "smaller than header size %zi", dof->dofh_loadsz,
-					  sizeof(dof_hdr_t));
-				return NULL;
-			}
-
-			new_dof = realloc(dof, dof->dofh_loadsz);
-			if (!new_dof)
-				abort();
-
-			memset(((char *)new_dof) + i + ret, 0, new_dof->dofh_loadsz - (i + ret));
-			dof = new_dof;
-			sz = dof->dofh_loadsz;
-		}
-
-		i += ret;
+	/* Read the actual data in the allocated buffer. */
+	if (!dof_copyin(in, ((char *)dof) + sizeof(dof_hdr_t),
+			dof->dofh_loadsz - sizeof(dof_hdr_t))) {
+		*ok = 0;
+		free(dof);
+		return NULL;
 	}
 
 	return dof;
-
-err:
-	*ok = 0;
-	free(dof);
-	return NULL;
 }
 
 static void dof_destroy(dof_helper_t *dhp, dof_hdr_t *dof)
