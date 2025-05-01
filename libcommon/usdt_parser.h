@@ -1,22 +1,33 @@
 /*
- * Oracle Linux DTrace; DOF parser interface with the outside world
- * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Oracle Linux DTrace; USDT definitions parser interface.
+ * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
-#ifndef	_DOF_PARSER_H
-#define	_DOF_PARSER_H
+#ifndef	_USDT_PARSER_H
+#define	_USDT_PARSER_H
 
 #include <inttypes.h>
 #include <stddef.h>
+#include <libelf.h>
 
 #include <dtrace/dof.h>
 #include <dtrace/helpers.h>
 
 /*
- * Result of DOF probe parsing.  The order of elements in the parsed stream
- * is:
+ * Data transfer unit for the DOF parser.
+ */
+typedef struct usdt_data	usdt_data_t;
+struct usdt_data {
+	size_t		size;
+	void		*buf;
+	usdt_data_t	*next;
+};
+
+/*
+ * Result of USDT definitions parsing.  The order of elements in the parsed
+ * stream is:
  *
  * DIT_PROVIDER (at least 1, which contains...)
  *   DIT_PROBE (at least 1, each of which has...)
@@ -156,55 +167,70 @@ typedef struct dof_parsed {
 } dof_parsed_t;
 
 /*
- * Host-side: in dof_parser_host.c.  The host is the
- * non-jailed process that talks to the jailed parser.
+ * Host-side: in usdt_parser_host.c.
+ * The host is the non-jailed process that talks to the jailed parser.
  */
 
 /*
- * Write the DOF to the parser pipe OUT.
+ * Write the USDT definitions data to the parser pipe OUT.
  *
  * Returns 0 on success or a positive errno value on error.
  */
-int dof_parser_host_write(int out, const dof_helper_t *dh, dof_hdr_t *dof);
+int usdt_parser_host_write(int out, const dof_helper_t *dh,
+			   const usdt_data_t *data);
 
 /*
- * Read a single DOF structure from a parser pipe.  Wait at most TIMEOUT seconds
- * to do so.
+ * Read a single dof_parsed_t structure from a parser pipe.  Wait at most
+ * TIMEOUT seconds to do so.
  *
  * Returns NULL and sets errno on error.
  */
-dof_parsed_t *dof_parser_host_read(int in, int timeout);
+dof_parsed_t *usdt_parser_host_read(int in, int timeout);
 
-/* Parser-side: in dof_parser.c.  */
+/* Parser-side: in usdt_parser.c.  */
+
+/*
+ * Report a parser error.
+ */
+void usdt_error(int out, int err_no, const char *fmt, ...);
 
 /*
  * Get a dof_helper_t from the input fd.
  *
  * Returns NULL on failure - no further processing is possible in that case.
  */
-dof_helper_t *dof_copyin_helper(int in);
+dof_helper_t *usdt_copyin_helper(int in);
 
 /*
- * Get a buffer of DOF from the input fd and sanity-check it.
+ * Get a USDT data block from the input fd.
  *
  * Set OK to zero if no further parsing is possible.
  */
-dof_hdr_t *dof_copyin_dof(int in, int out, int *ok);
+usdt_data_t *usdt_copyin_data(int in, int out, int *ok);
 
 /*
- * Parse probe info out of the passed-in dof_helper_t and dof_hdr_t DOF buffer,
- * and pass it out of OUT in the form of a stream of dof_parser_info_t.
+ * Parse probe info out of the passed-in dof_helper_t and USDT definitions data
+ * block and emit it to OUT in the form of a stream of dof_parser_info_t.
  */
-void dof_parse(int out, dof_helper_t *dhp, dof_hdr_t *dof);
+void usdt_parse(int out, dof_helper_t *dhp, usdt_data_t *data);
+
+/*
+ * Parse probe info out of the passed-in dof_helper_t and DOF section data and
+ * emit it to OUT in the form of a stream of dof_parser_info_t.
+ *
+ * Returns 0 on success or a positive errno value on error.
+ */
+int usdt_parse_dof(int out, dof_helper_t *dhp, dof_hdr_t *dof);
 
 /*
  * Shared host and parser-side.
  */
+
 /*
  * Write something to the parser pipe OUT.
  *
  * Returns 0 on success or a positive errno value on error.
  */
-int dof_parser_write_one(int out, const void *buf, size_t size);
+int usdt_parser_write_one(int out, const void *buf, size_t size);
 
-#endif	/* _DOF_PARSER_H */
+#endif	/* _USDT_PARSER_H */

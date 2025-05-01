@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF state storage management.
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -1568,7 +1568,7 @@ int
 reparse_dof(int out, int in,
 	    int (*reparse)(int pid, int out, int in, dev_t dev, ino_t ino,
 			   dev_t unused1, ino_t unused2, dof_helper_t *dh,
-			   const void *in_buf, size_t in_bufsz, int reparsing),
+			   const usdt_data_t *data, int reparsing),
 	    int force)
 {
 	DIR *all_pids_dir;
@@ -1642,6 +1642,7 @@ reparse_dof(int out, int in,
 			size_t dof_size, dh_size;
 			void *dof = NULL;
 			void *dh = NULL;
+			usdt_data_t data;
 
 			if (errno != 0) {
 				fuse_log(FUSE_LOG_ERR, "reparsing DOF: cannot read per-PID DOF mappings for pid %s: %s\n",
@@ -1742,7 +1743,11 @@ reparse_dof(int out, int in,
 
 			fuse_log(FUSE_LOG_DEBUG, "Reparsing DOF for PID %s, mapping %s\n",
 				 pid_ent->d_name, mapping_ent->d_name);
-			if (reparse(pid, out, in, dev, ino, 0, 0, dh, dof, dof_size, 1) < 0)
+
+			data.buf = dof;
+			data.size = dof_size;
+			data.next = NULL;
+			if (reparse(pid, out, in, dev, ino, 0, 0, dh, &data, 1) < 0)
 				fuse_log(FUSE_LOG_ERR, "when reparsing DOF, cannot parse DOF for PID %s, mapping %s: ignored\n",
 					    pid_ent->d_name, mapping_ent->d_name);
 			free(dof);

@@ -1,6 +1,6 @@
 /*
- * Oracle Linux DTrace; DOF-consumption and USDT-probe-creation daemon.
- * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Oracle Linux DTrace; Host-parser communication implementation.
+ * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -12,8 +12,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-#include "dof_parser.h"
+#include <libelf.h>
+#include "usdt_parser.h"
 
 /*
  * Write BUF to the parser pipe OUT.
@@ -21,7 +21,7 @@
  * Returns 0 on success or a positive errno value on error.
  */
 int
-dof_parser_write_one(int out, const void *buf_, size_t size)
+usdt_parser_write_one(int out, const void *buf_, size_t size)
 {
 	size_t i;
 	char *buf = (char *) buf_;
@@ -51,26 +51,46 @@ dof_parser_write_one(int out, const void *buf_, size_t size)
  * Returns 0 on success or a positive errno value on error.
  */
 int
-dof_parser_host_write(int out, const dof_helper_t *dh, dof_hdr_t *dof)
+usdt_parser_host_write(int out, const dof_helper_t *dh, const usdt_data_t *data)
 {
 	int err;
+	size_t cnt = 0;
+	const usdt_data_t *blk;
 
-	if ((err = dof_parser_write_one(out, (const char *)dh,
-					sizeof(dof_helper_t))) < 0)
+	/* Write dof_helper_t structure. */
+	if ((err = usdt_parser_write_one(out, (const char *)dh,
+					 sizeof(*dh))) < 0)
 		return err;
 
-	return dof_parser_write_one(out, (const char *)dof,
-				    dof->dofh_loadsz);
+	/* Count and write nunmber of blocks that follow. */
+	for (blk = data; blk != NULL; blk = blk->next)
+		cnt++;
+
+	if ((err = usdt_parser_write_one(out, (const char *)&cnt,
+					 sizeof(cnt))) < 0)
+		return err;
+
+	/* Write the blocks (for each, size followed by data). */
+	for (blk = data; blk != NULL; blk = blk->next) {
+		if ((err = usdt_parser_write_one(out, (const char *)&blk->size,
+						 sizeof(blk->size))) < 0)
+			return err;
+		if ((err = usdt_parser_write_one(out, (const char *)blk->buf,
+						 blk->size)) < 0)
+			return err;
+	}
+
+	return 0;
 }
 
 /*
- * Read a single DOF structure from a parser pipe.  Wait at most TIMEOUT seconds
- * to do so.
+ * Read a single dof_parsed_t structure from a parser pipe.  Wait at most
+ * TIMEOUT seconds to do so.
  *
  * Returns NULL and sets errno on error.
  */
 dof_parsed_t *
-dof_parser_host_read(int in, int timeout)
+usdt_parser_host_read(int in, int timeout)
 {
 	size_t i, sz;
 	dof_parsed_t *reply;

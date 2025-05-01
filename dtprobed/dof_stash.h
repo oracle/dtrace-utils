@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF storage for later probe removal.
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -12,7 +12,7 @@
 #include <stdint.h>
 
 #include <dt_list.h>
-#include "dof_parser.h"
+#include "usdt_parser.h"
 
 typedef struct dof_parsed_list {
 	dt_list_t list;
@@ -35,8 +35,7 @@ void dof_stash_prune_dead(void);
 int reparse_dof(int out, int in,
 		int (*reparse)(int pid, int out, int in, dev_t dev, ino_t ino,
 			       dev_t unused1, ino_t unused2, dof_helper_t *dh,
-			       const void *in_buf, size_t in_bufsz,
-			       int reparsing),
+			       const usdt_data_t *data, int reparsing),
 		int force);
 
 #endif

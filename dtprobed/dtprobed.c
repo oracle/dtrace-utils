@@ -33,6 +33,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <config.h>
+#include <libelf.h>
 
 #include <linux/seccomp.h>
 #include <sys/syscall.h>
@@ -62,7 +63,7 @@
 #include <dtrace/ioctl.h>
 
 #include <dt_list.h>
-#include "dof_parser.h"
+#include "usdt_parser.h"
 #include "dof_stash.h"
 #include "libproc.h"
 
@@ -96,8 +97,8 @@ static const struct cuse_lowlevel_ops dtprobed_clop = {
 
 static int
 process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
-	    dev_t exec_inum, dof_helper_t *dh, const void *in_buf,
-	    size_t in_bufsz, int reparsing);
+	    dev_t exec_inum, dof_helper_t *dh, const usdt_data_t *data,
+	    int reparsing);
 
 static void
 log_msg(enum fuse_log_level level, const char *fmt, va_list ap)
@@ -310,29 +311,29 @@ parse_dof(int in, int out)
 {
 	int ok;
 	dof_helper_t *dh;
-	dof_hdr_t *dof;
+	usdt_data_t *data;
 
-	dh = dof_copyin_helper(in);
+	dh = usdt_copyin_helper(in);
 	if (!dh)
 		return 0;
 
-	dof = dof_copyin_dof(in, out, &ok);
-	if (!dof) {
+	data = usdt_copyin_data(in, out, &ok);
+	if (!data) {
 		free(dh);
 		return ok;
 	}
 
-	dof_parse(out, dh, dof);
+	usdt_parse(out, dh, data);
 
 	return ok;
 }
 
 /*
- * Kick off the sandboxed DOF parser.  This is run in a seccomp()ed subprocess,
+ * Kick off the sandboxed USDT parser.  This is run in a seccomp()ed subprocess,
  * and sends a stream of dof_parsed_t back to this process.
  */
 static void
-dof_parser_start(void)
+usdt_parser_start(void)
 {
 	int parser_in[2], parser_out[2];
 	if ((pipe(parser_in) < 0) ||
@@ -395,10 +396,10 @@ dof_parser_start(void)
 }
 
 /*
- * Clean up wreckage if the DOF parser dies: optionally restart it.
+ * Clean up wreckage if the USDT parser dies: optionally restart it.
  */
 static void
-dof_parser_tidy(int restart)
+usdt_parser_tidy(int restart)
 {
 	int status = 0;
 
@@ -413,13 +414,13 @@ dof_parser_tidy(int restart)
 	close(parser_out_pipe);
 
 	if (restart)
-		dof_parser_start();
+		usdt_parser_start();
 }
 
 static dof_parsed_t *
-dof_read(pid_t pid, int in)
+usdt_read(pid_t pid, int in)
 {
-	dof_parsed_t *reply = dof_parser_host_read(in, timeout);
+	dof_parsed_t *reply = usdt_parser_host_read(in, timeout);
 
 	if (!reply)
 		return NULL;
@@ -497,6 +498,7 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	dev_t dev = 0, exec_dev = 0;
 	ino_t inum = 0, exec_inum = 0;
 	int gen;
+	usdt_data_t data;
 
 	/*
 	 * We can just ignore FUSE_IOCTL_COMPAT: the 32-bit and 64-bit versions
@@ -687,9 +689,12 @@ chunks_done:
 		     &exec_dev, &exec_inum)) < 0)
 		goto process_err;
 
+	data.buf = (void *)buf;
+	data.size = userdata->dof_hdr.dofh_loadsz;
+	data.next = NULL;
 	if ((gen = process_dof(pid, parser_out_pipe, parser_in_pipe,
 			       dev, inum, exec_dev, exec_inum, &userdata->dh,
-			       buf, userdata->dof_hdr.dofh_loadsz, 0)) < 0)
+			       &data, 0)) < 0)
 		goto process_err;
 
 	if (fuse_reply_ioctl(req, gen, NULL, 0) < 0)
@@ -741,8 +746,8 @@ process_err:
  */
 static int
 process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
-	    dev_t exec_inum, dof_helper_t *dh, const void *in_buf,
-	    size_t in_bufsz, int reparsing)
+	    dev_t exec_inum, dof_helper_t *dh, const usdt_data_t *data,
+	    int reparsing)
 {
 	dof_parsed_t *provider;
 	size_t i;
@@ -753,8 +758,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 
 	do {
 		errmsg = "DOF parser write failed";
-		while ((errno = dof_parser_host_write(out, dh,
-						      (dof_hdr_t *) in_buf)) == EAGAIN);
+		while ((errno = usdt_parser_host_write(out, dh, data)) == EAGAIN);
 		if (errno != 0)
 			goto err;
 
@@ -765,7 +769,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 		 */
 
 		errmsg = "parsed DOF read failed";
-		provider = dof_read(pid, in);
+		provider = usdt_read(pid, in);
 		if (!provider) {
 			if (tries++ > 1)
 				goto err;
@@ -773,7 +777,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 			 * Tidying reopens the parser in and out pipes: catch
 			 * up with this.
 			 */
-			dof_parser_tidy(1);
+			usdt_parser_tidy(1);
 			out = parser_out_pipe;
 			in = parser_in_pipe;
 			continue;
@@ -791,7 +795,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 			 provider->provider.name, provider->provider.nprobes);
 
 		for (i = 0; i < provider->provider.nprobes; i++) {
-			dof_parsed_t *probe = dof_read(pid, in);
+			dof_parsed_t *probe = usdt_read(pid, in);
 			size_t j;
 
 			errmsg = "no probes in this provider, or parse state corrupt";
@@ -803,7 +807,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 
 			j = 0;
 			do {
-				dof_parsed_t *tp = dof_read(pid, in);
+				dof_parsed_t *tp = usdt_read(pid, in);
 
 				errmsg = "no tracepoints in a probe, or parse state corrupt";
 				if (!tp || tp->type == DIT_PROVIDER ||
@@ -822,7 +826,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 		}
 
 		errmsg = "subsequent provider read failed, or stream not properly terminated";
-		provider = dof_read(pid, in);
+		provider = usdt_read(pid, in);
 		if (!provider)
 			goto err;
 	}
@@ -834,7 +838,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 
 	if (!reparsing)
 		if ((gen = dof_stash_add(pid, dev, inum, exec_dev, exec_inum, dh,
-					 in_buf, in_bufsz)) < 0)
+					 data->buf, data->size)) < 0)
 			goto fileio;
 
 	if (dof_stash_write_parsed(pid, dev, inum, &accum) < 0) {
@@ -860,7 +864,7 @@ fileio:
 
 proc_err:
 	dof_stash_free(&accum);
-	dof_parser_tidy(1);
+	usdt_parser_tidy(1);
 	return -1;
 }
 
@@ -1071,7 +1075,7 @@ main(int argc, char *argv[])
 		testing = 1;
 	}
 
-	dof_parser_start();
+	usdt_parser_start();
 
 	if (dof_stash_init(statedir) < 0)
 		exit(1);
@@ -1102,7 +1106,7 @@ main(int argc, char *argv[])
 
 	ret = loop();
 
-	dof_parser_tidy(0);
+	usdt_parser_tidy(0);
 	teardown_device();
 
 	if (ret == 0)

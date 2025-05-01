@@ -30,7 +30,7 @@
 #endif
 
 #include <port.h>
-#include <dof_parser.h>
+#include <usdt_parser.h>
 
 #include <dt_impl.h>
 #include <dt_program.h>

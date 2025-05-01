@@ -1,6 +1,6 @@
 /*
- * Oracle Linux DTrace; DOF parser.
- * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Oracle Linux DTrace; USDT definitions parser - DOF.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -15,11 +15,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "dof_parser.h"
+#include <libelf.h>
+#include "usdt_parser.h"
 
 #define IS_ALIGNED(x, a) (((x) & ((typeof(x))(a) - 1)) == 0)
-
-size_t			dof_maxsize = 256 * 1024 * 1024;
 
 typedef struct dtrace_helper_probedesc {
 	char *dthpb_prov;
@@ -48,144 +47,9 @@ static void dt_dbg_dof(const char *fmt, ...)
 #endif
 }
 
-_dt_printflike_(3, 4)
-static void dof_error(int out, int err_no, const char *fmt, ...)
-{
-	dof_parsed_t *parsed;
-	size_t sz;
-	char *msg;
-	va_list ap;
-
-	/*
-	 * Not much we can do on OOM of errors other than abort, forcing a
-	 * parser restart, which hopefully will have enough memory to report the
-	 * error properly.
-	 */
-	va_start(ap, fmt);
-	if (vasprintf(&msg, fmt, ap) < 0)
-		abort();
-	va_end(ap);
-
-	sz = offsetof(dof_parsed_t, err.err) + strlen(msg) + 1;
-	parsed = malloc(sz);
-
-	if (!parsed)
-		abort();
-
-	memset(parsed, 0, sz);
-	parsed->size = sz;
-	parsed->type = DIT_ERR;
-	parsed->err.err_no = err_no;
-	strcpy(parsed->err.err, msg);
-
-	dof_parser_write_one(out, parsed, parsed->size);
-	free(parsed);
-	free(msg);
-}
-
-static char *
-dof_copyin(int in, char *buf_, size_t sz)
-{
-	char *buf = buf_;
-	size_t i;
-
-	if (!buf) {
-		buf = malloc(sz);
-		if (!buf)
-			abort();
-	}
-
-	memset(buf, 0, sz);
-
-	for (i = 0; i < sz; ) {
-		size_t ret;
-
-		ret = read(in, buf + i, sz - i);
-
-		if (ret < 0) {
-			switch (errno) {
-			case EINTR:
-				continue;
-			default:
-				goto err;
-			}
-		}
-
-		/*
-		 * EOF: parsing done, process shutting down or message
-		 * truncated.  Fail, in any case.
-		 */
-		if (ret == 0)
-			goto err;
-
-		i += ret;
-	}
-
-	return buf;
-
-err:
-	if (!buf_)
-		free(buf);
-	return NULL;
-}
-
-dof_helper_t *
-dof_copyin_helper(int in)
-{
-	return (dof_helper_t *)dof_copyin(in, NULL, sizeof(dof_helper_t));
-}
-
-dof_hdr_t *
-dof_copyin_dof(int in, int out, int *ok)
-{
-	dof_hdr_t *dof;
-
-	*ok = 1;
-
-	/* First get the header, which gives the size of everything else. */
-	dof = (dof_hdr_t *)dof_copyin(in, NULL, sizeof(dof_hdr_t));
-	if (!dof)
-		abort();
-
-	/* Validate the DOF load size. */
-	if (dof->dofh_loadsz >= dof_maxsize) {
-		dof_error(out, E2BIG, "load size %zi exceeds maximum %zi",
-			  dof->dofh_loadsz, dof_maxsize);
-		return NULL;
-	}
-
-	if (dof->dofh_loadsz < sizeof(dof_hdr_t)) {
-		dof_error(out, EINVAL, "invalid load size %zi, "
-			  "smaller than header size %zi", dof->dofh_loadsz,
-			  sizeof(dof_hdr_t));
-		return NULL;
-	}
-
-	/* Resize the allocated memory to fit the actual data as well. */
-	dof = realloc(dof, dof->dofh_loadsz);
-	if (!dof)
-		abort();
-
-	/* Read the actual data in the allocated buffer. */
-	if (!dof_copyin(in, ((char *)dof) + sizeof(dof_hdr_t),
-			dof->dofh_loadsz - sizeof(dof_hdr_t))) {
-		*ok = 0;
-		free(dof);
-		return NULL;
-	}
-
-	return dof;
-}
-
-static void dof_destroy(dof_helper_t *dhp, dof_hdr_t *dof)
-{
-	free(dhp);
-	free(dof);
-}
-
 /*
  * Return the dof_sec_t pointer corresponding to a given section index.  If the
- * index is not valid, dof_error() is called and NULL is returned.  If a type
+ * index is not valid, usdt_error() is called and NULL is returned.  If a type
  * other than DOF_SECT_NONE is specified, the header is checked against this
  * type and NULL is returned if the types do not match.
  */
@@ -199,19 +63,19 @@ static dof_sec_t *dof_sect(int out, dof_hdr_t *dof,
 					i * dof->dofh_secsize);
 
 	if (i >= dof->dofh_secnum) {
-		dof_error(out, EINVAL, "referenced section index %u is "
-			  "invalid, above %u", i, dof->dofh_secnum);
+		usdt_error(out, EINVAL, "referenced section index %u is "
+			   "invalid, above %u", i, dof->dofh_secnum);
 		return NULL;
 	}
 
 	if (!(sec->dofs_flags & DOF_SECF_LOAD)) {
-		dof_error(out, EINVAL, "referenced section %u is not loadable", i);
+		usdt_error(out, EINVAL, "referenced section %u is not loadable", i);
 		return NULL;
 	}
 
 	if (sectype != DOF_SECT_NONE && sectype != sec->dofs_type) {
-		dof_error(out, EINVAL, "referenced section %u is the wrong type, "
-			  "%u, not %u", i, sec->dofs_type, sectype);
+		usdt_error(out, EINVAL, "referenced section %u is the wrong type, "
+			   "%u, not %u", i, sec->dofs_type, sectype);
 		return NULL;
 	}
 
@@ -237,10 +101,10 @@ dof_relocate(int out, dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 
 	if (sec->dofs_size < sizeof(dof_relohdr_t) ||
 	    sec->dofs_align != sizeof(dof_secidx_t)) {
-		dof_error(out, EINVAL, "invalid relocation header: "
-			  "size %zi (expected %zi); alignment %u (expected %zi)",
-			  sec->dofs_size, sizeof(dof_relohdr_t),
-			  sec->dofs_align, sizeof(dof_secidx_t));
+		usdt_error(out, EINVAL, "invalid relocation header: "
+			   "size %zi (expected %zi); alignment %u (expected %zi)",
+			   sec->dofs_size, sizeof(dof_relohdr_t),
+			   sec->dofs_align, sizeof(dof_secidx_t));
 		return -1;
 	}
 
@@ -249,14 +113,14 @@ dof_relocate(int out, dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 	ts = dof_sect(out, dof, DOF_SECT_NONE, dofr->dofr_tgtsec);
 
 	if (ss == NULL || rs == NULL || ts == NULL)
-		return -1; /* dof_error() has been called already */
+		return -1; /* usdt_error() has been called already */
 
 	if (rs->dofs_entsize < sizeof(dof_relodesc_t) ||
 	    rs->dofs_align != sizeof(uint64_t)) {
-		dof_error(out, EINVAL, "invalid relocation section: entsize %i "
-			  "(expected %zi); alignment %u (expected %zi)",
-			  rs->dofs_entsize, sizeof(dof_relodesc_t),
-			  rs->dofs_align, sizeof(uint64_t));
+		usdt_error(out, EINVAL, "invalid relocation section: entsize %i "
+			   "(expected %zi); alignment %u (expected %zi)",
+			   rs->dofs_entsize, sizeof(dof_relodesc_t),
+			   rs->dofs_align, sizeof(uint64_t));
 		return -1;
 	}
 
@@ -273,14 +137,14 @@ dof_relocate(int out, dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 			if (r->dofr_offset >= ts->dofs_size ||
 			    r->dofr_offset + sizeof(uint64_t) >
 				ts->dofs_size) {
-				dof_error(out, EINVAL, "bad relocation offset: "
-					  "offset %zi, section size %zi)",
-					  r->dofr_offset, ts->dofs_size);
+				usdt_error(out, EINVAL, "bad relocation offset: "
+					   "offset %zi, section size %zi)",
+					   r->dofr_offset, ts->dofs_size);
 				return -1;
 			}
 
 			if (!IS_ALIGNED(taddr, sizeof(uint64_t))) {
-				dof_error(out, EINVAL, "misaligned setx relo");
+				usdt_error(out, EINVAL, "misaligned setx relo");
 				return -1;
 			}
 
@@ -306,8 +170,8 @@ dof_relocate(int out, dof_hdr_t *dof, dof_sec_t *sec, uint64_t ubase)
 
 			break;
 		default:
-			dof_error(out, EINVAL, "invalid relocation type %i",
-				r->dofr_type);
+			usdt_error(out, EINVAL, "invalid relocation type %i",
+				   r->dofr_type);
 			return -1;
 		}
 
@@ -331,8 +195,8 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 	uint_t		i;
 
 	if (_dt_unlikely_(dof->dofh_loadsz < sizeof(dof_hdr_t))) {
-		dof_error(out, EINVAL, "load size %zi smaller than header %zi",
-			  dof->dofh_loadsz, sizeof(dof_hdr_t));
+		usdt_error(out, EINVAL, "load size %zi smaller than header %zi",
+			   dof->dofh_loadsz, sizeof(dof_hdr_t));
 		return -1;
 	}
 
@@ -347,72 +211,72 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 	 */
 	if (memcmp(&dof->dofh_ident[DOF_ID_MAG0], DOF_MAG_STRING,
 		   DOF_MAG_STRLEN) != 0) {
-		dof_error(out, EINVAL, "DOF magic string mismatch: %c%c%c%c "
-			  "versus %c%c%c%c\n", dof->dofh_ident[DOF_ID_MAG0],
-			  dof->dofh_ident[DOF_ID_MAG1],
-			  dof->dofh_ident[DOF_ID_MAG2],
-			  dof->dofh_ident[DOF_ID_MAG3],
-			  DOF_MAG_STRING[0],
-			  DOF_MAG_STRING[1],
-			  DOF_MAG_STRING[2],
-			  DOF_MAG_STRING[3]);
+		usdt_error(out, EINVAL, "DOF magic string mismatch: %c%c%c%c "
+			   "versus %c%c%c%c\n", dof->dofh_ident[DOF_ID_MAG0],
+			   dof->dofh_ident[DOF_ID_MAG1],
+			   dof->dofh_ident[DOF_ID_MAG2],
+			   dof->dofh_ident[DOF_ID_MAG3],
+			   DOF_MAG_STRING[0],
+			   DOF_MAG_STRING[1],
+			   DOF_MAG_STRING[2],
+			   DOF_MAG_STRING[3]);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_MODEL] != DOF_MODEL_ILP32 &&
 	    dof->dofh_ident[DOF_ID_MODEL] != DOF_MODEL_LP64) {
-		dof_error(out, EINVAL, "DOF has invalid data model: %i",
-			  dof->dofh_ident[DOF_ID_MODEL]);
+		usdt_error(out, EINVAL, "DOF has invalid data model: %i",
+			   dof->dofh_ident[DOF_ID_MODEL]);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_ENCODING] != DOF_ENCODE_NATIVE) {
-		dof_error(out, EINVAL, "DOF encoding mismatch: %i, expected %i",
-			  dof->dofh_ident[DOF_ID_ENCODING], DOF_ENCODE_NATIVE);
+		usdt_error(out, EINVAL, "DOF encoding mismatch: %i, expected %i",
+			   dof->dofh_ident[DOF_ID_ENCODING], DOF_ENCODE_NATIVE);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_1 &&
 	    dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_2 &&
 	    dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_3) {
-		dof_error(out, EINVAL, "DOF version mismatch: %i",
-			  dof->dofh_ident[DOF_ID_VERSION]);
+		usdt_error(out, EINVAL, "DOF version mismatch: %i",
+			   dof->dofh_ident[DOF_ID_VERSION]);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_DIFVERS] != DIF_VERSION_2) {
-		dof_error(out, EINVAL, "DOF uses unsupported instruction set %i",
-			dof->dofh_ident[DOF_ID_DIFVERS]);
+		usdt_error(out, EINVAL, "DOF uses unsupported instruction set %i",
+			   dof->dofh_ident[DOF_ID_DIFVERS]);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_DIFIREG] > DIF_DIR_NREGS) {
-		dof_error(out, EINVAL, "DOF uses too many integer registers: %i > %i",
-			  dof->dofh_ident[DOF_ID_DIFIREG], DIF_DIR_NREGS);
+		usdt_error(out, EINVAL, "DOF uses too many integer registers: %i > %i",
+			   dof->dofh_ident[DOF_ID_DIFIREG], DIF_DIR_NREGS);
 		return -1;
 	}
 
 	if (dof->dofh_ident[DOF_ID_DIFTREG] > DIF_DTR_NREGS) {
-		dof_error(out, EINVAL, "DOF uses too many tuple registers: %i > %i",
-			  dof->dofh_ident[DOF_ID_DIFTREG], DIF_DTR_NREGS);
+		usdt_error(out, EINVAL, "DOF uses too many tuple registers: %i > %i",
+			   dof->dofh_ident[DOF_ID_DIFTREG], DIF_DTR_NREGS);
 		return -1;
 	}
 
 	for (i = DOF_ID_PAD; i < DOF_ID_SIZE; i++) {
 		if (dof->dofh_ident[i] != 0) {
-			dof_error(out, EINVAL, "DOF has invalid ident byte set: %i = %i",
-				  i, dof->dofh_ident[i]);
+			usdt_error(out, EINVAL, "DOF has invalid ident byte set: %i = %i",
+				   i, dof->dofh_ident[i]);
 			return -1;
 		}
 	}
 
 	if (dof->dofh_flags & ~DOF_FL_VALID) {
-		dof_error(out, EINVAL, "DOF has invalid flag bits set: %xi", dof->dofh_flags);
+		usdt_error(out, EINVAL, "DOF has invalid flag bits set: %xi", dof->dofh_flags);
 		return -1;
 	}
 
 	if (dof->dofh_secsize == 0) {
-		dof_error(out, EINVAL, "zero section header size");
+		usdt_error(out, EINVAL, "zero section header size");
 		return -1;
 	}
 
@@ -425,18 +289,18 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 
 	if (dof->dofh_secoff > len || seclen > len ||
 	    dof->dofh_secoff + seclen > len) {
-		dof_error(out, EINVAL, "truncated section headers: %zi, %zi, %zi",
-			  dof->dofh_secoff, len, seclen);
+		usdt_error(out, EINVAL, "truncated section headers: %zi, %zi, %zi",
+			   dof->dofh_secoff, len, seclen);
 		return -1;
 	}
 
 	if (!IS_ALIGNED(dof->dofh_secoff, sizeof(uint64_t))) {
-		dof_error(out, EINVAL, "misaligned section headers");
+		usdt_error(out, EINVAL, "misaligned section headers");
 		return -1;
 	}
 
 	if (!IS_ALIGNED(dof->dofh_secsize, sizeof(uint64_t))) {
-		dof_error(out, EINVAL, "misaligned section size");
+		usdt_error(out, EINVAL, "misaligned section size");
 		return -1;
 	}
 
@@ -454,8 +318,8 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 
 		if (DOF_SEC_ISLOADABLE(sec->dofs_type) &&
 		    !(sec->dofs_flags & DOF_SECF_LOAD)) {
-			dof_error(out, EINVAL, "loadable section %i with load flag unset",
-				i);
+			usdt_error(out, EINVAL, "loadable section %i with load flag unset",
+				   i);
 			return -1;
 		}
 
@@ -466,30 +330,30 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 			continue;
 
 		if (sec->dofs_align & (sec->dofs_align - 1)) {
-			dof_error(out, EINVAL, "bad section %i alignment %x", i,
-				sec->dofs_align);
+			usdt_error(out, EINVAL, "bad section %i alignment %x",
+				   i, sec->dofs_align);
 			return -1;
 		}
 
 		if (sec->dofs_offset & (sec->dofs_align - 1)) {
-			dof_error(out, EINVAL, "misaligned section %i: %lx, "
-				  "stated alignment %xi", i, sec->dofs_offset,
-				  sec->dofs_align);
+			usdt_error(out, EINVAL, "misaligned section %i: %lx, "
+				   "stated alignment %xi", i, sec->dofs_offset,
+				   sec->dofs_align);
 			return -1;
 		}
 
 		if (sec->dofs_offset > len || sec->dofs_size > len ||
 		    sec->dofs_offset + sec->dofs_size > len) {
-			dof_error(out, EINVAL, "corrupt section %i header: "
-				  "offset %lx, size %lx, len %lx", i,
-				  sec->dofs_offset, sec->dofs_size, len);
+			usdt_error(out, EINVAL, "corrupt section %i header: "
+				   "offset %lx, size %lx, len %lx", i,
+				   sec->dofs_offset, sec->dofs_size, len);
 			return -1;
 		}
 
 		if (sec->dofs_type == DOF_SECT_STRTAB && *((char *)daddr +
 		    sec->dofs_offset + sec->dofs_size - 1) != '\0') {
-			dof_error(out, EINVAL, "section %i: non-0-terminated "
-				  "string table", i);
+			usdt_error(out, EINVAL, "section %i: non-0-terminated "
+				   "string table", i);
 			return -1;
 		}
 	}
@@ -540,13 +404,13 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 	uint_t		nprobes, j, k;
 
 	if (_dt_unlikely_(sec->dofs_type != DOF_SECT_PROVIDER)) {
-		dof_error(out, EINVAL, "DOF is not provider DOF: %i", sec->dofs_type);
+		usdt_error(out, EINVAL, "DOF is not provider DOF: %i", sec->dofs_type);
 		return -1;
 	}
 
 	if (sec->dofs_offset & (sizeof(uint_t) - 1)) {
-		dof_error(out, EINVAL, "misaligned section offset: %lx",
-			sec->dofs_offset);
+		usdt_error(out, EINVAL, "misaligned section offset: %lx",
+			   sec->dofs_offset);
 		return -1;
 	}
 
@@ -558,8 +422,8 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 	    ((dof->dofh_ident[DOF_ID_VERSION] == DOF_VERSION_1)
 			? offsetof(dof_provider_t, dofpv_prenoffs)
 			: sizeof(dof_provider_t))) {
-		dof_error(out, EINVAL, "provider section too small: %lx",
-			sec->dofs_size);
+		usdt_error(out, EINVAL, "provider section too small: %lx",
+			   sec->dofs_size);
 		return -1;
 	}
 
@@ -587,45 +451,45 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 	strtab = (char *)(uintptr_t)(daddr + str_sec->dofs_offset);
 
 	if (prov->dofpv_name >= str_sec->dofs_size) {
-		dof_error(out, EINVAL, "invalid provider name offset: %u > %zi",
-			  prov->dofpv_name, str_sec->dofs_size);
+		usdt_error(out, EINVAL, "invalid provider name offset: %u > %zi",
+			   prov->dofpv_name, str_sec->dofs_size);
 		return -1;
 	}
 
 	if (strlen(strtab + prov->dofpv_name) >= DTRACE_PROVNAMELEN) {
-		dof_error(out, EINVAL, "provider name too long: %s",
-			  strtab + prov->dofpv_name);
+		usdt_error(out, EINVAL, "provider name too long: %s",
+			   strtab + prov->dofpv_name);
 		return -1;
 	}
 
 	if (prb_sec->dofs_entsize == 0 ||
 	    prb_sec->dofs_entsize > prb_sec->dofs_size) {
-		dof_error(out, EINVAL, "invalid entry size %x, max %lx",
-			  prb_sec->dofs_entsize, prb_sec->dofs_size);
+		usdt_error(out, EINVAL, "invalid entry size %x, max %lx",
+			   prb_sec->dofs_entsize, prb_sec->dofs_size);
 		return -1;
 	}
 
 	if (prb_sec->dofs_entsize & (sizeof(uintptr_t) - 1)) {
-		dof_error(out, EINVAL, "misaligned entry size %x",
-			  prb_sec->dofs_entsize);
+		usdt_error(out, EINVAL, "misaligned entry size %x",
+			   prb_sec->dofs_entsize);
 		return -1;
 	}
 
 	if (off_sec->dofs_entsize != sizeof(uint32_t)) {
-		dof_error(out, EINVAL, "invalid entry size %x",
-			  off_sec->dofs_entsize);
+		usdt_error(out, EINVAL, "invalid entry size %x",
+			   off_sec->dofs_entsize);
 		return -1;
 	}
 
 	if (off_sec->dofs_offset & (sizeof(uint32_t) - 1)) {
-		dof_error(out, EINVAL, "misaligned section offset %lx",
-			  off_sec->dofs_offset);
+		usdt_error(out, EINVAL, "misaligned section offset %lx",
+			   off_sec->dofs_offset);
 		return -1;
 	}
 
 	if (arg_sec->dofs_entsize != sizeof(uint8_t)) {
-		dof_error(out, EINVAL, "invalid entry size %x",
-			  arg_sec->dofs_entsize);
+		usdt_error(out, EINVAL, "invalid entry size %x",
+			   arg_sec->dofs_entsize);
 		return -1;
 	}
 
@@ -644,28 +508,28 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 			 j * prb_sec->dofs_entsize);
 
 		if (prb->dofpr_func >= str_sec->dofs_size) {
-			dof_error(out, EINVAL, "invalid function name: "
-				  "strtab offset %x, max %lx", prb->dofpr_func,
-				  str_sec->dofs_size);
+			usdt_error(out, EINVAL, "invalid function name: "
+				   "strtab offset %x, max %lx", prb->dofpr_func,
+				   str_sec->dofs_size);
 			return -1;
 		}
 
 		if (strlen(strtab + prb->dofpr_func) >= DTRACE_FUNCNAMELEN) {
-			dof_error(out, EINVAL, "function name %s too long",
-				  strtab + prb->dofpr_func);
+			usdt_error(out, EINVAL, "function name %s too long",
+				   strtab + prb->dofpr_func);
 			return -1;
 		}
 
 		if (prb->dofpr_name >= str_sec->dofs_size) {
-			dof_error(out, EINVAL, "invalid probe name: "
-				  "strtab offset %x, max %lx", prb->dofpr_name,
-				str_sec->dofs_size);
+			usdt_error(out, EINVAL, "invalid probe name: "
+				   "strtab offset %x, max %lx", prb->dofpr_name,
+				   str_sec->dofs_size);
 			return -1;
 		}
 
 		if (strlen(strtab + prb->dofpr_name) >= DTRACE_NAMELEN) {
-			dof_error(out, EINVAL, "probe name %s too long",
-				strtab + prb->dofpr_name);
+			usdt_error(out, EINVAL, "probe name %s too long",
+				   strtab + prb->dofpr_name);
 			return -1;
 		}
 
@@ -676,10 +540,10 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 		if (prb->dofpr_offidx + prb->dofpr_noffs < prb->dofpr_offidx ||
 		    (prb->dofpr_offidx + prb->dofpr_noffs) *
 		    off_sec->dofs_entsize > off_sec->dofs_size) {
-			dof_error(out, EINVAL, "invalid probe offset %x "
-				  "(offset count %x, section entsize %x, size %lx)",
-				  prb->dofpr_offidx, prb->dofpr_noffs,
-				  off_sec->dofs_entsize, off_sec->dofs_size);
+			usdt_error(out, EINVAL, "invalid probe offset %x "
+				   "(offset count %x, section entsize %x, size %lx)",
+				   prb->dofpr_offidx, prb->dofpr_noffs,
+				   off_sec->dofs_entsize, off_sec->dofs_size);
 			return -1;
 		}
 
@@ -693,8 +557,8 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 			if (enoff_sec == NULL) {
 				if (prb->dofpr_enoffidx != 0 ||
 				    prb->dofpr_nenoffs != 0) {
-					dof_error(out, EINVAL,
-						  "is-enabled offsets with null section");
+					usdt_error(out, EINVAL,
+						   "is-enabled offsets with null section");
 					return -1;
 				}
 			} else if (prb->dofpr_enoffidx + prb->dofpr_nenoffs <
@@ -702,29 +566,29 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 				   (prb->dofpr_enoffidx + prb->dofpr_nenoffs) *
 				   enoff_sec->dofs_entsize >
 				   enoff_sec->dofs_size) {
-				dof_error(out, EINVAL, "invalid is-enabled offset %x "
-					  "(offset count %x, section entsize %x, size %lx)",
-					  prb->dofpr_enoffidx, prb->dofpr_nenoffs,
-					  enoff_sec->dofs_entsize, enoff_sec->dofs_size);
+				usdt_error(out, EINVAL, "invalid is-enabled offset %x "
+					   "(offset count %x, section entsize %x, size %lx)",
+					   prb->dofpr_enoffidx, prb->dofpr_nenoffs,
+					   enoff_sec->dofs_entsize, enoff_sec->dofs_size);
 				return -1;
 			}
 
 			if (prb->dofpr_noffs + prb->dofpr_nenoffs == 0) {
-				dof_error(out, EINVAL, "zero probe and is-enabled offsets");
+				usdt_error(out, EINVAL, "zero probe and is-enabled offsets");
 				return -1;
 			}
 		} else if (prb->dofpr_noffs == 0) {
-			dof_error(out, EINVAL, "zero probe offsets");
+			usdt_error(out, EINVAL, "zero probe offsets");
 			return -1;
 		}
 
 		if (prb->dofpr_argidx + prb->dofpr_xargc < prb->dofpr_argidx ||
 		    (prb->dofpr_argidx + prb->dofpr_xargc) *
 		    arg_sec->dofs_entsize > arg_sec->dofs_size) {
-			dof_error(out, EINVAL, "invalid args, idx %x "
-				  "(offset count %x, section entsize %x, size %lx)",
-				  prb->dofpr_argidx, prb->dofpr_xargc,
-				  arg_sec->dofs_entsize, arg_sec->dofs_size);
+			usdt_error(out, EINVAL, "invalid args, idx %x "
+				   "(offset count %x, section entsize %x, size %lx)",
+				   prb->dofpr_argidx, prb->dofpr_xargc,
+				   arg_sec->dofs_entsize, arg_sec->dofs_size);
 			return -1;
 		}
 
@@ -732,15 +596,15 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 		typestr = strtab + prb->dofpr_nargv;
 		for (k = 0; k < prb->dofpr_nargc; k++) {
 			if (typeidx >= str_sec->dofs_size) {
-				dof_error(out, EINVAL, "bad native argument type "
-					  "for arg %i: %x", k, typeidx);
+				usdt_error(out, EINVAL, "bad native argument type "
+					   "for arg %i: %x", k, typeidx);
 				return -1;
 			}
 
 			typesz = strlen(typestr) + 1;
 			if (typesz > DTRACE_ARGTYPELEN) {
-				dof_error(out, EINVAL, "native argument type for arg %i "
-					  "too long: %s", k, typestr);
+				usdt_error(out, EINVAL, "native argument type for arg %i "
+					   "too long: %s", k, typestr);
 				return -1;
 			}
 
@@ -752,23 +616,23 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 		typestr = strtab + prb->dofpr_xargv;
 		for (k = 0; k < prb->dofpr_xargc; k++) {
 			if (arg[prb->dofpr_argidx + k] > prb->dofpr_nargc) {
-				dof_error(out, EINVAL, "bad native argument index "
-					  "for arg %i: %i (max %i)", k,
-					  arg[prb->dofpr_argidx + k],
-					  prb->dofpr_nargc);
+				usdt_error(out, EINVAL, "bad native argument index "
+					   "for arg %i: %i (max %i)", k,
+					   arg[prb->dofpr_argidx + k],
+					   prb->dofpr_nargc);
 				return -1;
 			}
 
 			if (typeidx >= str_sec->dofs_size) {
-				dof_error(out, EINVAL, "bad translated argument type "
-					  "for arg %i: %x", k, typeidx);
+				usdt_error(out, EINVAL, "bad translated argument type "
+					   "for arg %i: %x", k, typeidx);
 				return -1;
 			}
 
 			typesz = strlen(typestr) + 1;
 			if (typesz > DTRACE_ARGTYPELEN) {
-				dof_error(out, EINVAL, "translated argument type for arg %i "
-					  "too long: %s", k, typestr);
+				usdt_error(out, EINVAL, "translated argument type for arg %i "
+					   "too long: %s", k, typestr);
 				return -1;
 			}
 
@@ -798,7 +662,7 @@ emit_tp(int out, uint64_t base, uint64_t offs, int is_enabled)
 	tp.type = DIT_TRACEPOINT;
 	tp.tracepoint.addr = base + offs;
 	tp.tracepoint.is_enabled = is_enabled;
-	dof_parser_write_one(out, &tp, tp.size);
+	usdt_parser_write_one(out, &tp, tp.size);
 
 	dt_dbg_dof("        Tracepoint at 0x%lx (0x%llx + 0x%x)%s\n",
 		   base + offs, base, offs, is_enabled ? " (is_enabled)" : "");
@@ -823,9 +687,9 @@ validate_probe(int out, dtrace_helper_probedesc_t *dhpb)
 	for (i = 1; i < dhpb->dthpb_noffs; i++) {
 		if (dhpb->dthpb_base + dhpb->dthpb_offs[i] <=
 		    dhpb->dthpb_base + dhpb->dthpb_offs[i - 1]) {
-			dof_error(out, EINVAL, "non-unique USDT offsets at %i: %li <= %li",
-				  i, dhpb->dthpb_base + dhpb->dthpb_offs[i],
-				  dhpb->dthpb_base + dhpb->dthpb_offs[i - 1]);
+			usdt_error(out, EINVAL, "non-unique USDT offsets at %i: %li <= %li",
+				   i, dhpb->dthpb_base + dhpb->dthpb_offs[i],
+				   dhpb->dthpb_base + dhpb->dthpb_offs[i - 1]);
 			return -1;
 		}
 	}
@@ -835,16 +699,16 @@ validate_probe(int out, dtrace_helper_probedesc_t *dhpb)
 	for (i = 1; i < dhpb->dthpb_nenoffs; i++) {
 		if (dhpb->dthpb_base + dhpb->dthpb_enoffs[i] <=
 		    dhpb->dthpb_base + dhpb->dthpb_enoffs[i - 1]) {
-			dof_error(out, EINVAL, "non-unique is-enabled USDT offsets "
-				  "at %i: %li <= %li", i,
-				  dhpb->dthpb_base + dhpb->dthpb_enoffs[i],
-				  dhpb->dthpb_base + dhpb->dthpb_enoffs[i - 1]);
+			usdt_error(out, EINVAL, "non-unique is-enabled USDT offsets "
+				   "at %i: %li <= %li", i,
+				   dhpb->dthpb_base + dhpb->dthpb_enoffs[i],
+				   dhpb->dthpb_base + dhpb->dthpb_enoffs[i - 1]);
 			return -1;
 		}
 	}
 
 	if (dhpb->dthpb_noffs == 0 && dhpb->dthpb_nenoffs == 0) {
-		dof_error(out, EINVAL, "USDT probe with zero tracepoints");
+		usdt_error(out, EINVAL, "USDT probe with zero tracepoints");
 		return -1;
 	}
 	return 0;
@@ -905,7 +769,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 	ptr = stpcpy(ptr, dhpb->dthpb_func);
 	ptr++;
 	strcpy(ptr, dhpb->dthpb_name);
-	dof_parser_write_one(out, msg, msg_size);
+	usdt_parser_write_one(out, msg, msg_size);
 
 	free(msg);
 
@@ -932,7 +796,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 		msg->size = msg_size;
 		msg->type = DIT_ARGS_NATIVE;
 		memcpy(msg->nargs.args, dhpb->dthpb_ntypes, nargs_size);
-		dof_parser_write_one(out, msg, msg_size);
+		usdt_parser_write_one(out, msg, msg_size);
 
 		free(msg);
 
@@ -955,7 +819,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 			msg->size = msg_size;
 			msg->type = DIT_ARGS_XLAT;
 			memcpy(msg->xargs.args, dhpb->dthpb_xtypes, xargs_size);
-			dof_parser_write_one(out, msg, msg_size);
+			usdt_parser_write_one(out, msg, msg_size);
 
 			free(msg);
 
@@ -974,7 +838,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 			msg->size = msg_size;
 			msg->type = DIT_ARGS_MAP;
 			memcpy(msg->argmap.argmap, dhpb->dthpb_args, map_size);
-			dof_parser_write_one(out, msg, msg_size);
+			usdt_parser_write_one(out, msg, msg_size);
 			free(msg);
 		}
 	}
@@ -996,8 +860,8 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 
 	return;
  oom:
-	dof_error(out, ENOMEM, "Out of memory allocating %zi bytes for probe",
-		  msg_size);
+	usdt_error(out, ENOMEM, "Out of memory allocating %zi bytes for probe",
+		   msg_size);
 }
 
 static void
@@ -1062,7 +926,7 @@ emit_provider(int out, dof_helper_t *dhp,
 
 	provider_msg = malloc(provider_msg_size);
 	if (!provider_msg) {
-		dof_error(out, ENOMEM, "Out of memory allocating probe");
+		usdt_error(out, ENOMEM, "Out of memory allocating probe");
 		return;
 	}
 	memset(provider_msg, 0, provider_msg_size);
@@ -1071,7 +935,7 @@ emit_provider(int out, dof_helper_t *dhp,
 	provider_msg->type = DIT_PROVIDER;
 	provider_msg->provider.nprobes = prb_sec->dofs_size / prb_sec->dofs_entsize;
 	strcpy(provider_msg->provider.name, dhpb.dthpb_prov);
-	dof_parser_write_one(out, provider_msg, provider_msg_size);
+	usdt_parser_write_one(out, provider_msg, provider_msg_size);
 
 	/*
 	 * Pass back info on the probes and their associated tracepoints.
@@ -1110,21 +974,24 @@ emit_provider(int out, dof_helper_t *dhp,
 	free(provider_msg);
 }
 
-void
-dof_parse(int out, dof_helper_t *dhp, dof_hdr_t *dof)
+int
+usdt_parse_dof(int out, dof_helper_t *dhp, dof_hdr_t *dof)
 {
-	int			i, rv;
-	uintptr_t		daddr = (uintptr_t)dof;
-	dof_parsed_t		eof;
+	int		i;
+	uintptr_t	daddr = (uintptr_t)dof;
+
+	if (dof->dofh_loadsz < sizeof(dof_hdr_t)) {
+		usdt_error(out, EINVAL, "invalid load size %zi, "
+			   "smaller than header size %zi",
+			   dof->dofh_loadsz, sizeof(dof_hdr_t));
+		return -1;
+	}
 
 	dt_dbg_dof("DOF 0x%p from helper {'%s', %p, %p}...\n",
 		   dof, dhp ? dhp->dofhp_mod : "<none>", dhp, dof);
 
-	rv = dof_slurp(out, dof, dhp->dofhp_addr);
-	if (rv != 0) {
-		dof_destroy(dhp, dof);
-		return;
-	}
+	if (dof_slurp(out, dof, dhp->dofhp_addr) != 0)
+		return -1;
 
 	/*
 	 * Look for providers, validate their descriptions, and parse them.
@@ -1142,23 +1009,12 @@ dof_parse(int out, dof_helper_t *dhp, dof_hdr_t *dof)
 			if (sec->dofs_type != DOF_SECT_PROVIDER)
 				continue;
 
-			if (validate_provider(out, dof, sec) != 0) {
-				dof_destroy(dhp, dof);
-				return;
-			}
+			if (validate_provider(out, dof, sec) != 0)
+				return -1;
+
 			emit_provider(out, dhp, dof, sec);
 		}
 	}
 
-	/*
-	 * Always emit an EOF, to wake up the caller if nothing else, but also
-	 * to notify the caller that there are no more providers to read.
-	 */
-	memset(&eof, 0, sizeof(dof_parsed_t));
-
-	eof.size = offsetof(dof_parsed_t, provider.nprobes);
-	eof.type = DIT_EOF;
-	dof_parser_write_one(out, &eof, eof.size);
-
-	dof_destroy(dhp, dof);
+	return 0;
 }
