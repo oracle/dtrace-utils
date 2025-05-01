@@ -89,9 +89,6 @@ dof_copyin_helper(int in, int out, int *ok)
 	dof_helper_t *dh;
 	size_t i;
 
-	/*
-	 * First get the header, which gives the size of everything else.
-	 */
 	dh = malloc(sizeof(dof_helper_t));
 	if (!dh)
 		abort();
