@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -768,7 +768,7 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
 		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
-		int	fd = dt_bpf_map_lookup_fd(dtp->dt_aggmap_fd, &cpu);
+		int	fd = dt_bpf_map_get_fd_by_id(dtp->dt_aggmap_ids[i]);
 
 		if (fd < 0)
 			return DTRACE_WORKSTATUS_ERROR;
@@ -1200,8 +1200,7 @@ dt_aggwalk_remove(dtrace_hdl_t *dtp, dt_ahashent_t *h)
 	memcpy(key, agd->dtada_key, agd->dtada_desc->dtagd_ksize);
 
 	for (i = 0; i < ncpus; i++) {
-		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
-		int	fd = dt_bpf_map_lookup_fd(dtp->dt_aggmap_fd, &cpu);
+		int	fd = dt_bpf_map_get_fd_by_id(dtp->dt_aggmap_ids[i]);
 
 		if (fd < 0)
 			return DTRACE_WORKSTATUS_ERROR;

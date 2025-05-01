@@ -1237,6 +1237,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_probe_detach_all(dtp);
 
 	dt_free(dtp, dtp->dt_conf.cpus);
+	dt_free(dtp, dtp->dt_aggmap_ids);
 
 	if (dtp->dt_procs != NULL)
 		dt_proc_hash_destroy(dtp);

@@ -689,6 +689,10 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 	if (dtp->dt_aggmap_fd == -1)
 		return -1;
 
+	dtp->dt_aggmap_ids = dt_calloc(dtp, dtp->dt_conf.num_online_cpus, sizeof(int));
+	if (dtp->dt_aggmap_ids == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
 	for (i = 0; i < dtp->dt_conf.num_online_cpus; i++) {
 		int	cpu = dtp->dt_conf.cpus[i].cpu_id;
 		char	name[16];
@@ -702,6 +706,8 @@ gmap_create_aggs(dtrace_hdl_t *dtp)
 			return map_create_error(dtp, name, errno);
 
 		dt_bpf_map_update(dtp->dt_aggmap_fd, &cpu, &fd);
+		if (dt_bpf_map_lookup(dtp->dt_aggmap_fd, &cpu, &dtp->dt_aggmap_ids[i]) < 0)
+			return -1;
 	}
 
 	/* Create the agg generation value array. */
