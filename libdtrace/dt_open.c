@@ -42,6 +42,8 @@
 #include <dt_peb.h>
 #include <dt_pid.h>
 
+#include <dt_git_version.h>
+
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
 	DT_VERS_1_1,	/* D API 1.1.0 Solaris Express 6/05 */
