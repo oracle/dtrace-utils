@@ -802,6 +802,18 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 			if (!probe || probe->type != DIT_PROBE)
 				goto err;
 
+			if (_dtrace_debug) {
+				const char *mod, *fun, *prb;
+
+				mod = probe->probe.name;
+				fun = mod + strlen(mod) + 1;
+				prb = fun + strlen(fun) + 1;
+				fuse_log(FUSE_LOG_DEBUG,
+					 "Parser read: adding %s:%s:%s:%s to stash\n",
+					 provider->provider.name,
+					 mod, fun, prb);
+			}
+
 			if (dof_stash_push_parsed(&accum, probe) < 0)
 				goto oom;
 
@@ -813,9 +825,6 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 				if (!tp || tp->type == DIT_PROVIDER ||
 				    tp->type == DIT_PROBE || tp->type == DIT_EOF)
 					goto err;
-
-				fuse_log(FUSE_LOG_DEBUG, "Parser read: adding %s:%s to stash\n",
-					 provider->provider.name, probe->probe.name);
 
 				if (dof_stash_push_parsed(&accum, tp) < 0)
 					goto oom;
