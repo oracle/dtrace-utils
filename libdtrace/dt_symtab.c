@@ -167,7 +167,7 @@ dt_symtab_create(dtrace_hdl_t *dtp)
 	dt_symtab_t *symtab;
 
 	if (!dtp->dt_kernsyms) {
-		dtp->dt_kernsyms = dt_htab_create(dtp, &dt_symtab_htab_ops);
+		dtp->dt_kernsyms = dt_htab_create(&dt_symtab_htab_ops);
 
 		if (!dtp->dt_kernsyms)
 			return NULL;

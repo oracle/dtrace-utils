@@ -28,7 +28,6 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_errtags.c \
 			  dt_grammar.c \
 			  dt_handle.c \
-			  dt_htab.c \
 			  dt_ident.c \
 			  dt_lex.c \
 			  dt_link.c \

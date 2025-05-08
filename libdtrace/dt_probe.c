@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1278,11 +1278,11 @@ dt_probe_dependent_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 void
 dt_probe_init(dtrace_hdl_t *dtp)
 {
-	dtp->dt_byprv = dt_htab_create(dtp, &prv_htab_ops);
-	dtp->dt_bymod = dt_htab_create(dtp, &mod_htab_ops);
-	dtp->dt_byfun = dt_htab_create(dtp, &fun_htab_ops);
-	dtp->dt_byprb = dt_htab_create(dtp, &prb_htab_ops);
-	dtp->dt_byfqn = dt_htab_create(dtp, &fqn_htab_ops);
+	dtp->dt_byprv = dt_htab_create(&prv_htab_ops);
+	dtp->dt_bymod = dt_htab_create(&mod_htab_ops);
+	dtp->dt_byfun = dt_htab_create(&fun_htab_ops);
+	dtp->dt_byprb = dt_htab_create(&prb_htab_ops);
+	dtp->dt_byfqn = dt_htab_create(&fqn_htab_ops);
 
 	dtp->dt_probes = NULL;
 	dtp->dt_probes_sz = 0;
@@ -1315,11 +1315,11 @@ dt_probe_fini(dtrace_hdl_t *dtp)
 		dt_probe_destroy(prp);
 	}
 
-	dt_htab_destroy(dtp, dtp->dt_byprv);
-	dt_htab_destroy(dtp, dtp->dt_bymod);
-	dt_htab_destroy(dtp, dtp->dt_byfun);
-	dt_htab_destroy(dtp, dtp->dt_byprb);
-	dt_htab_destroy(dtp, dtp->dt_byfqn);
+	dt_htab_destroy(dtp->dt_byprv);
+	dt_htab_destroy(dtp->dt_bymod);
+	dt_htab_destroy(dtp->dt_byfun);
+	dt_htab_destroy(dtp->dt_byprb);
+	dt_htab_destroy(dtp->dt_byfqn);
 	dtp->dt_byprv = NULL;
 	dtp->dt_bymod = NULL;
 	dtp->dt_byfun = NULL;

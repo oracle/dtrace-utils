@@ -138,7 +138,7 @@ dt_module_create(dtrace_hdl_t *dtp, const char *name)
 	dt_module_t *dmp;
 
 	if (!dtp->dt_mods) {
-		dtp->dt_mods = dt_htab_create(dtp, &dt_module_htab_ops);
+		dtp->dt_mods = dt_htab_create(&dt_module_htab_ops);
 		if (!dtp->dt_mods)
 			return NULL;
 	}

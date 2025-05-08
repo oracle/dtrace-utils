@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1270,10 +1270,10 @@ dtrace_close(dtrace_hdl_t *dtp)
 		dt_idhash_destroy(dtp->dt_bpfsyms);
 
 
-	dt_htab_destroy(dtp, dtp->dt_kernsyms);
+	dt_htab_destroy(dtp->dt_kernsyms);
 	dtp->dt_kernsyms = NULL;
-	dt_htab_destroy(dtp, dtp->dt_mods);
-	dt_htab_destroy(dtp, dtp->dt_kernpaths);
+	dt_htab_destroy(dtp->dt_mods);
+	dt_htab_destroy(dtp->dt_kernpaths);
 
 	if (dtp->dt_shared_btf != NULL)
 		dt_btf_destroy(dtp, dtp->dt_shared_btf);
@@ -1303,7 +1303,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_dof_fini(dtp);
 	dt_probe_fini(dtp);
 
-	dt_htab_destroy(dtp, dtp->dt_provs);
+	dt_htab_destroy(dtp->dt_provs);
 
 	for (i = 1; i < dtp->dt_cpp_argc; i++)
 		free(dtp->dt_cpp_argv[i]);

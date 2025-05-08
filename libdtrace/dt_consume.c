@@ -3011,7 +3011,7 @@ dt_consume_proc_exits(dtrace_hdl_t *dtp)
 int
 dt_consume_init(dtrace_hdl_t *dtp)
 {
-	dtp->dt_spec_bufs = dt_htab_create(dtp, &dt_spec_buf_htab_ops);
+	dtp->dt_spec_bufs = dt_htab_create(&dt_spec_buf_htab_ops);
 
 	if (!dtp->dt_spec_bufs)
 		return dt_set_errno(dtp, EDT_NOMEM);
@@ -3028,7 +3028,7 @@ dt_consume_fini(dtrace_hdl_t *dtp)
 		dt_free(dtp, dtsd);
 	}
 
-	dt_htab_destroy(dtp, dtp->dt_spec_bufs);
+	dt_htab_destroy(dtp->dt_spec_bufs);
 }
 
 dtrace_workstatus_t

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -28,8 +28,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-
-#include "dt_impl.h"
+#include <dt_htab.h>
 
 typedef struct dt_hbucket	dt_hbucket_t;
 struct dt_hbucket {
@@ -66,9 +65,9 @@ struct dt_htab_next {
 /*
  * Create a new (empty) hashtable.
  */
-dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
+dt_htab_t *dt_htab_create(dt_htab_ops_t *ops)
 {
-	dt_htab_t	*htab = dt_alloc(dtp, sizeof(dt_htab_t));
+	dt_htab_t	*htab = malloc(sizeof(dt_htab_t));
 
 	if (!htab)
 		return NULL;
@@ -79,9 +78,9 @@ dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
 	htab->nentries = 0;
 	htab->ops = ops;
 
-	htab->tab = dt_calloc(dtp, htab->size, sizeof(dt_hbucket_t *));
+	htab->tab = calloc(htab->size, sizeof(dt_hbucket_t *));
 	if (!htab->tab) {
-		dt_free(dtp, htab);
+		free(htab);
 		return NULL;
 	}
 
@@ -91,7 +90,7 @@ dt_htab_t *dt_htab_create(dtrace_hdl_t *dtp, dt_htab_ops_t *ops)
 /*
  * Destroy a hashtable, deleting all its entries first.
  */
-void dt_htab_destroy(dtrace_hdl_t *dtp, dt_htab_t *htab)
+void dt_htab_destroy(dt_htab_t *htab)
 {
 	size_t		i;
 
@@ -112,8 +111,8 @@ void dt_htab_destroy(dtrace_hdl_t *dtp, dt_htab_t *htab)
 		};
 	}
 
-	dt_free(dtp, htab->tab);
-	dt_free(dtp, htab);
+	free(htab->tab);
+	free(htab);
 }
 
 /*

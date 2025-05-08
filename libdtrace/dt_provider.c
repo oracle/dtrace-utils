@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -90,7 +90,7 @@ static dt_provider_t *
 dt_provider_insert(dtrace_hdl_t *dtp, dt_provider_t *pvp)
 {
 	if (!dtp->dt_provs) {
-		dtp->dt_provs = dt_htab_create(dtp, &dt_provider_htab_ops);
+		dtp->dt_provs = dt_htab_create(&dt_provider_htab_ops);
 		if (dtp->dt_provs == NULL)
 			return NULL;
 	}

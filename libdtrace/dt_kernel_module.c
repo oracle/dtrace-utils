@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -75,7 +75,7 @@ dt_kern_path_create(dtrace_hdl_t *dtp, char *name, char *path)
 	dt_kern_path_t tmpl;
 
 	if (!dtp->dt_kernpaths) {
-		dtp->dt_kernpaths = dt_htab_create(dtp, &kernpath_htab_ops);
+		dtp->dt_kernpaths = dt_htab_create(&kernpath_htab_ops);
 
 		if (!dtp->dt_kernpaths)
 			return NULL; /* caller must handle allocation failure */

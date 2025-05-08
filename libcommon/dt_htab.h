@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,8 +11,6 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-struct dtrace_hdl;
 
 typedef uint32_t (*htab_hval_fn)(const void *);
 typedef int (*htab_cmp_fn)(const void *, const void *);
@@ -93,8 +91,8 @@ typedef struct dt_hentry {
 typedef struct dt_htab		dt_htab_t;
 typedef struct dt_htab_next	dt_htab_next_t;
 
-extern dt_htab_t *dt_htab_create(struct dtrace_hdl *dtp, dt_htab_ops_t *ops);
-extern void dt_htab_destroy(struct dtrace_hdl *dtp, dt_htab_t *htab);
+extern dt_htab_t *dt_htab_create(dt_htab_ops_t *ops);
+extern void dt_htab_destroy(dt_htab_t *htab);
 extern int dt_htab_insert(dt_htab_t *htab, void *entry);
 extern void *dt_htab_lookup(const dt_htab_t *htab, const void *entry);
 typedef int dt_htab_ecmp_fn(const void *entry, void *arg);
