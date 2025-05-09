@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -14,14 +14,14 @@ if [ ! -r $tmpdir/ctypes.ctf ]; then
 	exit 1
 fi
 
-if objdump --help | grep ctf >/dev/null; then
-	objcopy --add-section=.ctf=$tmpdir/ctypes.ctf /bin/true $tmpdir/ctypes.o
+if ${OBJDUMP} --help | grep ctf >/dev/null; then
+	${OBJCOPY} --add-section=.ctf=$tmpdir/ctypes.ctf /bin/true $tmpdir/ctypes.o
 	if [ $? -ne 0 ]; then
 		echo "ERROR: Failed to create ELF object from ctypes.ctf"
 		exit 1
 	fi
 
-	objdump --ctf=.ctf $tmpdir/ctypes.o | \
+	${OBJDUMP} --ctf=.ctf $tmpdir/ctypes.o | \
 		gawk '/CTF_VERSION/ { found = 1; next; }
 		     found && $1 ~ /0x[0-9A-Fa-f]+:/ { cnt++; next; }
 		     END { print "C CTF data" (found ? " " : " NOT ") "found";

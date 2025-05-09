@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -23,10 +23,10 @@ cat > $DIR/Makefile <<EOF
 all: main
 
 main: main.o
-	cc -o main main.o
+	$CC -o main main.o
 
 main.o: main.c
-	cc -c main.c
+	$CC -c main.c
 EOF
 
 cat > $DIR/main.c <<EOF

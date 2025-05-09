@@ -54,7 +54,7 @@ int main(int c, char **v) {
 }
 EOF
 
-gcc main.c
+$CC main.c
 if [ $? -ne 0 ]; then
 	echo ERROR compile
 	exit 1
@@ -66,7 +66,7 @@ for func in foo0 foo1 foo2 main; do
 	# For each function, get the absolute and relative
 	# (to the function) address of some instruction in
 	# the function.
-	read ABS REL <<< `objdump -d a.out | awk '
+	read ABS REL <<< `$OBJDUMP -d a.out | awk '
 	  # Look for the function.
 	  /^[0-9a-f]* <'$func'>:$/ {
 

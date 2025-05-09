@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -14,7 +14,6 @@ PATH=/usr/bin:/usr/sbin:$PATH
 #
 
 dtrace=$1
-CC=/usr/bin/gcc
 CFLAGS=
 
 DIRNAME="$tmpdir/usdt-enable_pid.$$.$RANDOM"
@@ -120,7 +119,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >&2
 	exit 1
 fi
-cc $test_cppflags -c main.c
+$CC $test_cppflags -c main.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test" >&2
 	exit 1
@@ -130,7 +129,7 @@ if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >&2
 	exit 1
 fi
-cc $test_cppflags -o main main.o prov.o
+$CC $test_cppflags -o main main.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >&2
 	exit 1

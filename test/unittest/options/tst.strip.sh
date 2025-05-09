@@ -1,13 +1,12 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 dtrace=$1
-CC=/usr/bin/gcc
 CFLAGS=
 
 DIRNAME="$tmpdir/strip.$$.$RANDOM"
@@ -48,7 +47,7 @@ fi
 
 # link with and without -xstrip, dumping the DOF section
 
-objdump="objdump --full-contents --section=.SUNW_dof prov.o"
+objdump="${OBJDUMP} --full-contents --section=.SUNW_dof prov.o"
 
 $dtrace $dt_flags -G -xstrip -s prov.d test.o
 if [ $? -ne 0 ]; then

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2007, 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 # @@xfail: Linux ld does not seem to support STV_ELIMINATE
@@ -16,7 +16,6 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-CC=/usr/bin/gcc
 CFLAGS="$test_cppflags"
 LDFLAGS="$test_ldflags"
 
@@ -71,13 +70,13 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-nm test.o | grep \$dtrace > /dev/null
+${NM} test.o | grep \$dtrace > /dev/null
 if [ $? -ne 0 ]; then
 	echo "no temporary symbols in the object file" >& 2
 	exit 1
 fi
 
-nm test | grep \$dtrace > /dev/null
+${NM} test | grep \$dtrace > /dev/null
 if [ $? -eq 0 ]; then
 	echo "failed to eliminate temporary symbols" >& 2
 	exit 1

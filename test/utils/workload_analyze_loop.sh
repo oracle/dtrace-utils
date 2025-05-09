@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -13,7 +13,7 @@ if [ ! -e $prog ]; then
 	exit 1
 fi
 
-objdump -d $prog | gawk -v myarch=$(uname -m) '
+${OBJDUMP} -d $prog | gawk -v myarch=$(uname -m) '
 # decide whether to track instructions (which we number n = 1, 2, 3, ...) or not (n < 0)
 # specifically, do not track instructions until we find the disassembly for <main>
 BEGIN { n = -1; }

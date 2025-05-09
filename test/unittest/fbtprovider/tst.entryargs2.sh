@@ -9,7 +9,6 @@
 #
 
 dtrace=$1
-CC=${CC:-/usr/bin/gcc}
 
 # Set up test directory.
 

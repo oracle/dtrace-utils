@@ -653,6 +653,11 @@ load_modules
 
 # Export some variables so triggers and .sh scripts can get at them.
 export _test _pid dt_flags
+export CC=${CC:-/usr/bin/gcc}
+export NM=${NM:-/usr/bin/nm}
+export OBJCOPY=${OBJCOPY:-/usr/bin/objcopy}
+export OBJDUMP=${OBJDUMP:-/usr/bin/objdump}
+export READELF=${READELF:-/usr/bin/readelf}
 
 # Arrange to do (relatively expensive) mutex debugging.
 export DTRACE_OPT_DEBUGASSERT="mutexes"

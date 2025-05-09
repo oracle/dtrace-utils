@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -23,10 +23,10 @@ cat > $DIR/Makefile <<EOF
 all: main
 
 main: main.o prov.o
-	cc $test_cppflags -o main main.o prov.o
+	$CC $test_cppflags -o main main.o prov.o
 
 main.o: main.c prov.h
-	cc $test_cppflags -c main.c
+	$CC $test_cppflags -c main.c
 
 prov.h: prov.d
 	$dtrace $dt_flags -h -s prov.d

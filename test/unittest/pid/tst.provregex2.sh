@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -24,16 +24,16 @@ cat > $DIR/Makefile <<EOF
 all: main altlib.so
 
 main: main.o
-	cc -o main main.o -ldl
+	$CC -o main main.o -ldl
 
 main.o: main.c
-	cc -c main.c
+	$CC -c main.c
 
 altlib.so: altlib.o
-	cc -z defs -shared -o altlib.so altlib.o
+	$CC -z defs -shared -o altlib.so altlib.o
 
 altlib.o: altlib.c
-	cc -c altlib.c
+	$CC -c altlib.c
 EOF
 
 cat > $DIR/altlib.c <<EOF

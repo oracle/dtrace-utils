@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -54,7 +54,7 @@ main(int c, char **v)
 }
 EOF
 
-gcc main.c
+$CC main.c
 if [ $? -ne 0 ]; then
 	echo ERROR in compiling
 	exit 1
@@ -85,7 +85,7 @@ fi
 # hot and cold instructions in the function.
 #
 
-objdump -d a.out | gawk '
+${OBJDUMP} -d a.out | gawk '
 BEGIN {
 	pc0 = 0;	# First PC of loopfunc()
 	pcjump = 0;	# PC of the jump

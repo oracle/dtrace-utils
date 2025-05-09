@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -42,7 +42,7 @@ int main(int c, char **v) {
 }
 EOF
 
-gcc main.c
+$CC main.c
 if [ $? -ne 0 ]; then
 	echo "compilation error"
 	exit 1

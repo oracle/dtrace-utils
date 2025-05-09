@@ -7,7 +7,6 @@
 #
 
 dtrace=$1
-CC=/usr/bin/gcc
 
 DIRNAME="$tmpdir/builtinvar-tid_pid.$$.$RANDOM"
 mkdir -p $DIRNAME

@@ -69,20 +69,20 @@ if [ $? -ne 0 ]; then
 	echo "failed to generate header file" >&2
 	exit 1
 fi
-cc $test_cppflags -c main.c
+$CC $test_cppflags -c main.c
 if [ $? -ne 0 ]; then
 	echo "failed to compile test" >&2
 	exit 1
 fi
 if [[ `uname -m` = "aarch64" ]]; then
-	objdump -d main.o > disasm_foo.txt.before
+	$OBJDUMP -d main.o > disasm_foo.txt.before
 fi
 $dtrace $dt_flags -G -64 -s prov.d main.o
 if [ $? -ne 0 ]; then
 	echo "failed to create DOF" >&2
 	exit 1
 fi
-cc $test_ldflags -o main main.o prov.o
+$CC $test_ldflags -o main main.o prov.o
 if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >&2
 	exit 1
@@ -104,7 +104,7 @@ fi
 
 # Disassemble foo().  (simplify with --disassemble=foo)
 
-objdump -d main | awk '
+$OBJDUMP -d main | awk '
 BEGIN { use = 0 }             # start by not printing lines
 use == 1 && NF == 0 { exit }  # if printing lines but hit a blank, then exit
 use == 1 { print }            # print lines
@@ -112,7 +112,7 @@ use == 1 { print }            # print lines
 ' > disasm_foo.txt
 if [ $? -ne 0 ]; then
 	echo cannot objdump main
-	objdump -d main
+	$OBJDUMP -d main
 	exit 1
 fi
 
@@ -277,7 +277,7 @@ done
 
 pc_return=`awk '/'$pid' pid'$pid':main:foo:return/ { print $NF }' dtrace.out`
 
-objdump -d main | awk '
+$OBJDUMP -d main | awk '
 /^[0-9a-f]* <.*>:$/ { myfunc = $NF }         # enter a new function
 /^ *'$pc_return'/ { print myfunc; exit(0) }  # report the function $pc_return is in
 ' > return_func.out
