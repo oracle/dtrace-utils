@@ -771,7 +771,7 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 		errmsg = "parsed DOF read failed";
 		provider = usdt_read(pid, in);
 		if (!provider) {
-			if (tries++ > 1)
+			if (tries++ > 0)
 				goto err;
 			/*
 			 * Tidying reopens the parser in and out pipes: catch
