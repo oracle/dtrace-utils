@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2004, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -16,7 +16,6 @@
 extern "C" {
 #endif
 
-extern uint32_t str2hval(const char *, uint32_t);
 extern size_t stresc2chr(char *);
 extern char *strchr2esc(const char *, size_t);
 extern const char *strbasename(const char *);

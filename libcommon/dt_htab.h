@@ -91,6 +91,8 @@ typedef struct dt_hentry {
 typedef struct dt_htab		dt_htab_t;
 typedef struct dt_htab_next	dt_htab_next_t;
 
+extern uint32_t str2hval(const char *p, uint32_t hval);
+
 extern dt_htab_t *dt_htab_create(dt_htab_ops_t *ops);
 extern void dt_htab_destroy(dt_htab_t *htab);
 extern int dt_htab_insert(dt_htab_t *htab, void *entry);
