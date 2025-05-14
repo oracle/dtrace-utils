@@ -46,6 +46,231 @@
 /* Provider name for the underlying probes. */
 static const char	prvname[] = "uprobe";
 
+typedef struct asm_reg {
+	const char	*name;			/* register name */
+	const char	*mname;			/* *pt_regs member name */
+	size_t		moff;			/* offset in member */
+	uint64_t	mask;			/* value mask (after shift) */
+	uint8_t		shift;			/* value shift */
+	int		off;			/* *pt_regs value offset */
+	dt_hentry_t	he;
+} asm_reg_t;
+
+static uint32_t
+reg_hval(const asm_reg_t *reg)
+{
+	return str2hval(reg->name, 0);
+}
+
+static int
+reg_cmp(const asm_reg_t *p, const asm_reg_t *q)
+{
+	return strcmp(p->name, q->name);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(reg, asm_reg_t, he)
+DEFINE_HTAB_STD_OPS(reg)
+
+static asm_reg_t	asm_regs[] = {
+#if defined(__amd64)
+# define REG_R(n, m)	{ (n), (m), 0, (-1LL), 0, 0, }
+# define REG_E(n, m)	{ (n), (m), 0, ((1ULL << 32) - 1), 0, 0, }
+# define REG_X(n, m)	{ (n), (m), 0, ((1ULL << 16) - 1), 0, 0, }
+# define REG_L(n, m)	{ (n), (m), 0, ((1ULL << 8) - 1), 0, 0, }
+# define REG_H(n, m)	{ (n), (m), 0, ((1ULL << 8) - 1), 8, 0, }
+
+	REG_R("rax",  "ax"),
+	REG_E("eax",  "ax"),
+	REG_X("ax",   "ax"),
+	REG_L("al",   "ax"),
+	REG_H("ah",   "ax"),
+	REG_R("rbx",  "bx"),
+	REG_E("ebx",  "bx"),
+	REG_X("bx",   "bx"),
+	REG_L("bl",   "bx"),
+	REG_H("bh",   "bx"),
+	REG_R("rcx",  "cx"),
+	REG_E("ecx",  "cx"),
+	REG_X("cx",   "cx"),
+	REG_L("cl",   "cx"),
+	REG_H("ch",   "cx"),
+	REG_R("rdx",  "dx"),
+	REG_E("edx",  "dx"),
+	REG_X("dx",   "dx"),
+	REG_L("dl",   "dx"),
+	REG_H("dh",   "dx"),
+
+	REG_R("rsi",  "si"),
+	REG_E("esi",  "si"),
+	REG_X("si",   "si"),
+	REG_L("sil",  "si"),
+	REG_R("rdi",  "di"),
+	REG_E("edi",  "di"),
+	REG_X("di",   "di"),
+	REG_L("dil",  "di"),
+	REG_R("rsp",  "sp"),
+	REG_E("esp",  "sp"),
+	REG_X("sp",   "sp"),
+	REG_L("spl",  "sp"),
+	REG_R("rbp",  "bp"),
+	REG_E("ebp",  "bp"),
+	REG_X("bp",   "bp"),
+	REG_L("bpl",  "bp"),
+
+	REG_R("r8",   "r8"),
+	REG_E("r8d",  "r8"),
+	REG_X("r8w",  "r8"),
+	REG_L("r8b",  "r8"),
+	REG_R("r9",   "r9"),
+	REG_E("r9d",  "r9"),
+	REG_X("r9w",  "r9"),
+	REG_L("r9b",  "r9"),
+	REG_R("r10",  "r10"),
+	REG_E("r10d", "r10"),
+	REG_X("r10w", "r10"),
+	REG_L("r10b", "r10"),
+	REG_R("r11",  "r11"),
+	REG_E("r11d", "r11"),
+	REG_X("r11w", "r11"),
+	REG_L("r11b", "r11"),
+	REG_R("r12",  "r12"),
+	REG_E("r12d", "r12"),
+	REG_X("r12w", "r12"),
+	REG_L("r12b", "r12"),
+	REG_R("r13",  "r13"),
+	REG_E("r13d", "r13"),
+	REG_X("r13w", "r13"),
+	REG_L("r13b", "r13"),
+	REG_R("r14",  "r14"),
+	REG_E("r14d", "r14"),
+	REG_X("r14w", "r14"),
+	REG_L("r14b", "r14"),
+	REG_R("r15",  "r15"),
+	REG_E("r15d", "r15"),
+	REG_X("r15w", "r15"),
+	REG_L("r15b", "r15"),
+
+	REG_R("rip",  "ip"),
+	REG_E("eip",  "ip"),
+	REG_X("ip",   "ip"),
+#elif defined(__aarch64__)
+# define REG_X(n, m, i)	{ (n), (m), (i) * sizeof(uint64_t), (-1LL), 0, 0, }
+# define REG_W(n, m, i)	{ (n), (m), (i) * sizeof(uint64_t), ((1ULL << 32) - 1), 0, 0, }
+
+	REG_X("x0",  "regs", 0),
+	REG_X("x1",  "regs", 1),
+	REG_X("x2",  "regs", 2),
+	REG_X("x3",  "regs", 3),
+	REG_X("x4",  "regs", 4),
+	REG_X("x5",  "regs", 5),
+	REG_X("x6",  "regs", 6),
+	REG_X("x7",  "regs", 7),
+	REG_X("x8",  "regs", 8),
+	REG_X("x9",  "regs", 9),
+	REG_X("x10", "regs", 10),
+	REG_X("x11", "regs", 11),
+	REG_X("x12", "regs", 12),
+	REG_X("x13", "regs", 13),
+	REG_X("x14", "regs", 14),
+	REG_X("x15", "regs", 15),
+	REG_X("x16", "regs", 16),
+	REG_X("x17", "regs", 17),
+	REG_X("x18", "regs", 18),
+	REG_X("x19", "regs", 19),
+	REG_X("x20", "regs", 20),
+	REG_X("x21", "regs", 21),
+	REG_X("x22", "regs", 22),
+	REG_X("x23", "regs", 23),
+	REG_X("x24", "regs", 24),
+	REG_X("x25", "regs", 25),
+	REG_X("x26", "regs", 26),
+	REG_X("x27", "regs", 27),
+	REG_X("x28", "regs", 28),
+	REG_X("x29", "regs", 29),
+	REG_X("x30", "regs", 30),
+
+	REG_W("w0",  "regs", 0),
+	REG_W("w1",  "regs", 1),
+	REG_W("w2",  "regs", 2),
+	REG_W("w3",  "regs", 3),
+	REG_W("w4",  "regs", 4),
+	REG_W("w5",  "regs", 5),
+	REG_W("w6",  "regs", 6),
+	REG_W("w7",  "regs", 7),
+	REG_W("w8",  "regs", 8),
+	REG_W("w9",  "regs", 9),
+	REG_W("w10", "regs", 10),
+	REG_W("w11", "regs", 11),
+	REG_W("w12", "regs", 12),
+	REG_W("w13", "regs", 13),
+	REG_W("w14", "regs", 14),
+	REG_W("w15", "regs", 15),
+	REG_W("w16", "regs", 16),
+	REG_W("w17", "regs", 17),
+	REG_W("w18", "regs", 18),
+	REG_W("w19", "regs", 19),
+	REG_W("w20", "regs", 20),
+	REG_W("w21", "regs", 21),
+	REG_W("w22", "regs", 22),
+	REG_W("w23", "regs", 23),
+	REG_W("w24", "regs", 24),
+	REG_W("w25", "regs", 25),
+	REG_W("w26", "regs", 26),
+	REG_W("w27", "regs", 27),
+	REG_W("w28", "regs", 28),
+	REG_W("w29", "regs", 29),
+	REG_W("w30", "regs", 30),
+
+	REG_X("sp",  "sp",   0),
+	REG_X("pc",  "sp",   0),
+
+	REG_X("lr", "regs", 30),
+#else
+# error ISA not supported
+#endif
+};
+
+static asm_reg_t *
+get_asm_reg(dt_provider_t *pvp, const char *name)
+{
+	dt_htab_t	*rtab = pvp->prv_data;
+	asm_reg_t	regt;
+
+	if (rtab == NULL) {
+		int		i;
+		asm_reg_t	*rp, *reg = NULL;
+
+		rtab = dt_htab_create(&reg_htab_ops);
+		if (rtab == NULL)
+			return NULL;
+
+		pvp->prv_data = rtab;
+
+		for (i = 0, rp = asm_regs; i < ARRAY_SIZE(asm_regs);
+		     i++, rp++) {
+#if defined(__amd64)
+			rp->off = dt_cg_ctf_offsetof("struct pt_regs",
+						      rp->mname, NULL, 0) +
+				  rp->moff;
+#elif defined(__aarch64__)
+			rp->off = dt_cg_ctf_offsetof("struct user_pt_regs",
+						      rp->mname, NULL, 0) +
+				  rp->moff;
+#endif
+
+			if (dt_htab_insert(rtab, rp) < 0)
+				return NULL;
+			if (strcmp(rp->name, name) == 0)
+				reg = rp;
+		}
+
+		return reg;
+	}
+
+	regt.name = name;
+	return dt_htab_lookup(rtab, &regt);
+}
+
 #define PP_IS_RETURN	0x1
 #define PP_IS_FUNCALL	0x2
 #define PP_IS_ENABLED	0x4
@@ -55,15 +280,17 @@ static const char	prvname[] = "uprobe";
 typedef struct dt_uprobe {
 	dev_t		dev;
 	ino_t		inum;
-	char		*fn;		   /* object full file name */
-	char		*func;		   /* function */
+	char		*fn;		/* object full file name */
+	char		*func;		/* function */
 	uint64_t	off;
 	int		flags;
 	tp_probe_t	*tp;
-	int		argc;		   /* number of args */
-	dt_argdesc_t	*args;		   /* args array (points into argvbuf) */
-	char		*argvbuf;	   /* arg strtab */
-	dt_list_t	probes;		   /* pid/USDT probes triggered by it */
+	int		argc;		/* number of args */
+	dt_argdesc_t	*args;		/* args array (points into argvbuf) */
+	char		*argvbuf;	/* arg strtab */
+	int		sargc;		/* number of arg source specs */
+	char		*sargv;		/* arg source specs */
+	dt_list_t	probes;		/* pid/USDT probes triggered by it */
 } dt_uprobe_t;
 
 typedef struct list_probe {
@@ -132,6 +359,7 @@ static void probe_destroy_underlying(dtrace_hdl_t *dtp, void *datap)
 	dt_free(dtp, upp->func);
 	dt_free(dtp, upp->args);
 	dt_free(dtp, upp->argvbuf);
+	dt_free(dtp, upp->sargv);
 	dt_free(dtp, upp);
 }
 
@@ -290,15 +518,19 @@ ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 	 * status in the clause flags for dt_stmts[n].
 	 */
 	if (dt_stmt_clsflag_test(stp, DT_CLSFLAG_USDT_INCLUDE | DT_CLSFLAG_USDT_EXCLUDE) == 0) {
-		char lastchar = pdp->prv[strlen(pdp->prv) - 1];
+		size_t	len = strlen(pdp->prv);
 
 		/*
 		 * If the last char in the provider description is
 		 * neither '*' nor a digit, it cannot be a USDT probe.
 		 */
-		if (lastchar != '*' && !isdigit(lastchar)) {
-			dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_EXCLUDE);
-			return 1;
+		if (len > 1) {
+			char	lastchar = pdp->prv[len - 1];
+
+			if (lastchar != '*' && !isdigit(lastchar)) {
+				dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_EXCLUDE);
+				return 1;
+			}
 		}
 
 		/*
@@ -338,6 +570,17 @@ ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 	}
 
 	return 0;
+}
+
+static void usdt_error(dt_pcb_t *pcb, const char *fmt, ...)
+{
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	va_list		ap;
+
+	va_start(ap, fmt);
+	dt_set_errmsg(dtp, NULL, NULL, NULL, 0, fmt, ap);
+	va_end(ap);
+	longjmp(pcb->pcb_jmpbuf, EDT_COMPILER);
 }
 
 static int add_probe_uprobe(dtrace_hdl_t *dtp, dt_probe_t *prp)
@@ -539,6 +782,18 @@ static int populate_args(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 
 	upp->argc = psp->pps_xargc;
 
+	/* Copy argument value source string data (if any). */
+	if (psp->pps_sargv) {
+		/*
+		 * Is-enabled probes have one (internal use only) argument.
+		 * They retain the narg/xarg data from the probe they are
+		 * associated with, for consistency, but that data will not be
+		 * used.
+		 */
+		upp->sargc = (upp->flags & PP_IS_ENABLED) ? 1 : psp->pps_nargc;
+		upp->sargv = strdup(psp->pps_sargv);
+	}
+
 	/*
 	 * If we have a nonzero number of args, we always have at least one narg
 	 * and at least one xarg.  Double-check to be sure.  (These are not
@@ -700,9 +955,6 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 			assert(strcmp(upp->func, psp->pps_fun) == 0);
 	}
 
-	if (populate_args(dtp, psp, upp) < 0)
-		goto fail;
-
 	switch (psp->pps_type) {
 	case DTPPT_RETURN:
 		upp->flags |= PP_IS_RETURN;
@@ -718,6 +970,9 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		 * No flags needed for other types.
 		 */
 	}
+
+	if (populate_args(dtp, psp, upp) < 0)
+		goto fail;
 
 	return uprp;
 
@@ -890,6 +1145,289 @@ static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 }
 
 /*
+ * Generate code that populates the probe arguments.
+ */
+static void copy_args(dt_pcb_t *pcb, const dt_uprobe_t *upp)
+{
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_provider_t	*pvp = dt_provider_lookup(dtp, dt_usdt.name);
+	asm_reg_t	*areg;
+	int		i;
+	char		*p = upp->sargv;
+
+	assert(pvp != NULL);
+
+	for (i = 0; i < upp->sargc; i++) {
+		int	ssize, disp, len;
+		char	*reg = NULL;
+		int64_t	val = 0;
+
+		/*
+		 * Get sign/size.  Missing sign/size is an error.
+		 * Also, float is not supported.
+		 */
+		ssize = 0;
+		len = -1;
+		if (sscanf(p, " %d @ %n", &ssize, &len) <= 0 || len == -1)
+			usdt_error(pcb, "Missing sign/size in arg%d spec", i);
+
+		p += len;
+
+		/* Look for dereference (with optional displacement). */
+		disp = 0;
+		len = -1;
+#ifdef __aarch64__
+		if (sscanf(p, "[ %m[^],] %n", &reg, &len) > 0 && len > 0) {
+			char	*ireg = NULL;
+
+			p += len;
+
+			if (*p != ']') {
+				/* Expect a displacement or index register. */
+				if (sscanf(p, ", %n", &len) < 0)
+					usdt_error(pcb, "Expected , in arg%d spec", i);
+
+				p += len;
+
+				if (sscanf(p, "%d ] %n", &disp, &len) != 1 &&
+				    sscanf(p, "%m[^],] , %d ] %n", &ireg, &disp,
+					   &len) != 2 &&
+				    sscanf(p, "%m[^]] ] %n", &ireg, &len) != 1)
+					usdt_error(pcb, "Missing displacement and/or index register in arg%d spec", i);
+			} else
+				sscanf(p, "] %n", &len);
+
+			p += len;
+
+			/*
+			 * If there is an index register, put its value in %r1
+			 * (after applying the scale if specified).
+			 */
+			if (ireg != NULL) {
+				areg = get_asm_reg(pvp, ireg);
+				if (areg == NULL)
+					usdt_error(pcb, "Unknown index register %s in arg%d spec", ireg, i);
+
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_8, areg->off));
+			}
+
+			/* If there is a base register, get its value. */
+			if (reg != NULL) {
+				int	neg = 0;
+				int	shift;
+
+				if (ssize < 0) {
+					neg = 1;
+					ssize = -ssize;
+				}
+
+				shift = 64 - ssize * 8;
+
+				areg = get_asm_reg(pvp, reg);
+				if (areg == NULL)
+					usdt_error(pcb, "Unknown base register %s in arg%d spec", reg, i);
+
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, areg->off));
+
+				if (ireg != NULL)
+					emit(dlp, BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1));
+
+				if (disp != 0)
+					emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, disp));
+
+				/* Load value from the pointer. */
+				emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_7));
+				emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMST_ARG(i)));
+				emit(dlp, BPF_MOV_IMM(BPF_REG_2, ssize));
+				emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+				emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(i)));
+				if (shift) {
+					emit(dlp, BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, shift));
+					emit(dlp, BPF_ALU64_IMM(neg ? BPF_ARSH : BPF_RSH, BPF_REG_0, shift));
+				}
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+			} else {
+				if (disp != 0)
+					emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, disp));
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_1));
+			}
+
+			free(reg);
+			free(ireg);
+		} else if (sscanf(p, "%ld %n", &val, &len) > 0) {
+			/* Handle constant value. */
+			p += len;
+
+			if (val > (1ULL << 32) - 1ULL) {
+				dt_cg_setx(dlp, BPF_REG_0, val);
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+			} else
+				emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), val));
+		} else if (sscanf(p, "%m[a-z0-9] %n", &reg, &len) > 0) {
+			/* Handle simple register. */
+			int	neg = 0;
+			int	shift;
+			uint_t	sz;
+
+			if (ssize < 0) {
+				neg = 1;
+				ssize = -ssize;
+			}
+
+			shift = 64 - ssize * 8;
+			sz = bpf_ldst_size(ssize, 1);
+
+			areg = get_asm_reg(pvp, reg);
+			if (areg == NULL)
+				usdt_error(pcb, "Unknown register %s in arg%d spec", reg, i);
+
+			emit(dlp, BPF_LOAD(sz, BPF_REG_0, BPF_REG_8, areg->off));
+			if (shift) {
+				emit(dlp, BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, shift));
+				emit(dlp, BPF_ALU64_IMM(neg ? BPF_ARSH : BPF_RSH, BPF_REG_0, shift));
+			}
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+
+			free(reg);
+			p += len;
+		} else
+			usdt_error(pcb, "Unknown format in arg%d spec", i);
+#else
+		if ((sscanf(p, "%d ( %n", &disp, &len) == 1 ||
+		     sscanf(p, "( %n", &len) == 0) && len >= 0) {
+			char	*ireg = NULL;
+			int	scale = -1;
+
+			p += len;
+
+			if (*p != ',') {
+				/* Expect a base register. */
+				if (sscanf(p, "%%%m[^,)] %n", &reg, &len) <= 0)
+					usdt_error(pcb, "Missing base register in arg%d spec", i);
+
+				p += len;
+			}
+
+			if (*p != ')') {
+				/* Expect an index register. */
+				if (sscanf(p, ", %%%m[^,)] %n", &ireg, &len) <= 0)
+					usdt_error(pcb, "Missing index register in arg%d spec", i);
+
+				p += len;
+
+				/* Expect scale or closing parenthesis. */
+				len = 0;
+				if (sscanf(p, ", %d ) %n", &scale, &len) <= 0 &&
+				    sscanf(p, ") %n", &len) < 0)
+					usdt_error(pcb, "Missing scale or ) in arg%d spec", i);
+			} else
+				sscanf(p, ") %n", &len);
+
+			p += len;
+
+			/*
+			 * If there is an index register, put its value in %r1
+			 * (after applying the scale if specified).
+			 */
+			if (ireg != NULL) {
+				areg = get_asm_reg(pvp, ireg);
+				if (areg == NULL)
+					usdt_error(pcb, "Unknown index register %s in arg%d spec", ireg, i);
+
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_8, areg->off));
+				if (scale > 0)
+					emit(dlp, BPF_ALU64_IMM(BPF_MUL, BPF_REG_1, scale));
+			}
+
+			/* If there is a base register, get its value. */
+			if (reg != NULL) {
+				int	neg = 0;
+				int	shift;
+
+				if (ssize < 0) {
+					neg = 1;
+					ssize = -ssize;
+				}
+
+				shift = 64 - ssize * 8;
+
+				areg = get_asm_reg(pvp, reg);
+				if (areg == NULL)
+					usdt_error(pcb, "Unknown base register %s in arg%d spec", reg, i);
+
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, areg->off));
+
+				if (ireg != NULL)
+					emit(dlp, BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1));
+
+				if (disp != 0)
+					emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, disp));
+
+				/* Load value from the pointer. */
+				emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_7));
+				emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DMST_ARG(i)));
+				emit(dlp, BPF_MOV_IMM(BPF_REG_2, ssize));
+				emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
+				emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_user]));
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(i)));
+				if (shift) {
+					emit(dlp, BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, shift));
+					emit(dlp, BPF_ALU64_IMM(neg ? BPF_ARSH : BPF_RSH, BPF_REG_0, shift));
+				}
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+			} else {
+				if (disp != 0)
+					emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, disp));
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_1));
+			}
+
+			free(reg);
+			free(ireg);
+		} else if (sscanf(p, "%%%ms %n", &reg, &len) > 0) {
+			/* Handle simple register. */
+			int	neg = 0;
+			int	shift;
+			uint_t	sz;
+
+			if (ssize < 0) {
+				neg = 1;
+				ssize = -ssize;
+			}
+
+			shift = 64 - ssize * 8;
+			sz = bpf_ldst_size(ssize, 1);
+
+			areg = get_asm_reg(pvp, reg);
+			if (areg == NULL)
+				usdt_error(pcb, "Unknown register %s in arg%d spec", reg, i);
+
+			emit(dlp, BPF_LOAD(sz, BPF_REG_0, BPF_REG_8, areg->off));
+			if (shift) {
+				emit(dlp, BPF_ALU64_IMM(BPF_LSH, BPF_REG_0, shift));
+				emit(dlp, BPF_ALU64_IMM(neg ? BPF_ARSH : BPF_RSH, BPF_REG_0, shift));
+			}
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+
+			free(reg);
+			p += len;
+		} else if (sscanf(p, "$%ld %n", &val, &len) > 0) {
+			/* Handle constant value. */
+			p += len;
+
+			if (val > (1ULL << 32) - 1ULL) {
+				dt_cg_setx(dlp, BPF_REG_0, val);
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
+			} else
+				emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), val));
+		} else
+			usdt_error(pcb, "Unknown format in arg%d spec", i);
+#endif
+	}
+}
+
+/*
  * Generate a BPF trampoline for a pid or USDT probe.
  *
  * The trampoline function is called when one of these probes triggers, and it
@@ -981,17 +1519,10 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	if (upp->flags & PP_IS_RETURN)
 		goto out;
 
-	dt_cg_tramp_copy_args_from_regs(pcb, 0);
-
-	/*
-	 * Apply arg mappings, if needed.
-	 */
-	if (upp->flags & PP_IS_MAPPED) {
-
-		/* dt_cg_tramp_map_args() works from the saved args. */
-		dt_cg_tramp_save_args(pcb);
-		dt_cg_tramp_map_args(pcb, upp->args, upp->argc);
-	}
+	if (upp->sargc)
+		copy_args(pcb, upp);
+	else
+		dt_cg_tramp_copy_args_from_regs(pcb, 0);
 
 	/*
 	 * Retrieve the PID of the process that caused the probe to fire.
@@ -1022,7 +1553,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		 * The trampoline writes 1 into the location pointed to by the passed-in arg.
 		 */
 		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0), 1));
-		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_8, PT_REGS_ARG0));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_7, DMST_ARG(0)));
 		emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
 		emit(dlp, BPF_MOV_IMM(BPF_REG_3, sizeof(uint32_t)));
@@ -1041,6 +1572,15 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 
 	/* Read the bit mask from the table lookup in %r6. */    // FIXME someday, extend this past 64 bits
 	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_0, offsetof(usdt_prids_map_val_t, mask)));
+
+	/*
+	 * Apply arg mappings, if needed.
+	 */
+	if (upp->flags & PP_IS_MAPPED) {
+		/* dt_cg_tramp_map_args() works from the saved args. */
+		dt_cg_tramp_save_args(pcb);
+		dt_cg_tramp_map_args(pcb, upp->args, upp->argc);
+	}
 
 	/*
 	 * Hold the bit mask in %r6 between clause calls.

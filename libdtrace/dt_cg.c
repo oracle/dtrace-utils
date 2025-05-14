@@ -1597,7 +1597,7 @@ dt_cg_check_ptr_arg(dt_irlist_t *dlp, dt_regset_t *drp, dt_node_t *dnp,
 		dt_cg_check_notnull(dlp, drp, dnp->dn_reg);
 }
 
-static void dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x);
+void dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x);
 
 static int
 dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
@@ -3006,7 +3006,7 @@ dt_cg_xsetx(dt_irlist_t *dlp, dt_ident_t *idp, uint_t lbl, int reg, uint64_t x)
 	emit(dlp,   instr[1]);
 }
 
-static void
+void
 dt_cg_setx(dt_irlist_t *dlp, int reg, uint64_t x)
 {
 	dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, reg, x);

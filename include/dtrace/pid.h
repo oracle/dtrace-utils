@@ -44,6 +44,7 @@ typedef struct pid_probespec {
 	char *pps_xargv;			/* array of xlated args */
 	size_t pps_xargvlen;			/* (high estimate of) length of array */
 	int8_t *pps_argmap;			/* mapped arg indexes */
+	char *pps_sargv;			/* list of arg sources */
 
 	/*
 	 * Fields below this point do not apply to underlying probes.
