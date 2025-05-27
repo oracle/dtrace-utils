@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -46,6 +46,7 @@ typedef enum dt_aggfid {
 
 extern int dt_aggregate_init(dtrace_hdl_t *);
 extern void dt_aggregate_set_option(dtrace_hdl_t *, uintptr_t);
+extern void dt_aggregate_clear_option(dtrace_hdl_t *, uintptr_t);
 extern int dt_aggregate_go(dtrace_hdl_t *);
 extern int dt_aggregate_clear_one(const dtrace_aggdata_t *, void *);
 extern void dt_aggregate_destroy(dtrace_hdl_t *);

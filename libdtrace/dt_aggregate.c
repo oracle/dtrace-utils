@@ -73,6 +73,12 @@ dt_aggregate_set_option(dtrace_hdl_t *dtp, uintptr_t opt)
 	dtp->dt_aggregate->dtat_flags |= opt;
 }
 
+void
+dt_aggregate_clear_option(dtrace_hdl_t *dtp, uintptr_t opt)
+{
+	dtp->dt_aggregate->dtat_flags &= ~opt;
+}
+
 static int
 dt_aggregate_countcmp(int64_t *lhs, int64_t *rhs)
 {
@@ -763,6 +769,10 @@ dtrace_aggregate_snap(dtrace_hdl_t *dtp)
 		} else
 			dtp->dt_lastagg = now;
 	}
+
+	if (agp->dtat_flags & DTRACE_A_VALID)
+		return DTRACE_WORKSTATUS_OKAY;
+	agp->dtat_flags |= DTRACE_A_VALID;
 
 	dtrace_aggregate_clear(dtp);
 
@@ -1847,6 +1857,9 @@ dtrace_aggregate_print(dtrace_hdl_t *dtp, FILE *fp,
     dtrace_aggregate_walk_f *func)
 {
 	dtrace_print_aggdata_t pd;
+
+	dtp->dt_aggregate->dtat_flags &= ~DTRACE_A_VALID;
+	dtrace_aggregate_snap(dtp);
 
 	if (dtp->dt_maxaggdsize == 0)
 		return 0;

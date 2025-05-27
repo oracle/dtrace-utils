@@ -2352,11 +2352,15 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 				i++;
 				continue;
 			case DT_ACT_CLEAR:
+				if (dtrace_aggregate_snap(dtp) == DTRACE_WORKSTATUS_ERROR)
+					return DTRACE_WORKSTATUS_ERROR;
 				if (dt_clear(dtp, data, rec) != 0)
 					return DTRACE_WORKSTATUS_ERROR;
 
 				continue;
 			case DT_ACT_TRUNC:
+				if (dtrace_aggregate_snap(dtp) == DTRACE_WORKSTATUS_ERROR)
+					return DTRACE_WORKSTATUS_ERROR;
 				if (i == epd->dtdd_nrecs - 1)
 					return dt_set_errno(dtp, EDT_BADTRUNC);
 
@@ -2518,6 +2522,8 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			func = dtrace_fprintf;
 			break;
 		case DTRACEACT_PRINTA:
+			if (dtrace_aggregate_snap(dtp) == DTRACE_WORKSTATUS_ERROR)
+				return DTRACE_WORKSTATUS_ERROR;
 			if (rec->dtrd_format != NULL)
 				func = dtrace_fprinta;
 			else
@@ -3095,8 +3101,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 		}
 	}
 
-	if (dtrace_aggregate_snap(dtp) == DTRACE_WORKSTATUS_ERROR)
-		return DTRACE_WORKSTATUS_ERROR;
+	dt_aggregate_clear_option(dtp, DTRACE_A_VALID);
 
 	/*
 	 * If dtp->dt_beganon is not -1, we did not process the BEGIN probe

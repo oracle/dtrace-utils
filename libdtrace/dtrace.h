@@ -365,6 +365,7 @@ extern int dtrace_handle_setopt(dtrace_hdl_t *dtp,
 #define	DTRACE_A_PERCPU		0x0001
 #define	DTRACE_A_KEEPDELTA	0x0002
 #define	DTRACE_A_ANONYMOUS	0x0004
+#define	DTRACE_A_VALID		0x0008
 
 #define	DTRACE_AGGWALK_ERROR		-1	/* error while processing */
 #define	DTRACE_AGGWALK_NEXT		0	/* proceed to next element */
