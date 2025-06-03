@@ -22,7 +22,7 @@ if [ $# != 1 ]; then
 fi
 
 dtrace=$1
-CFLAGS=
+CFLAGS=${test_cppflags}
 
 DIRNAME="$tmpdir/list-probes-module-usdt.$$.$RANDOM"
 mkdir -p $DIRNAME
