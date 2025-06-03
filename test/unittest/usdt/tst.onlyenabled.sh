@@ -5,6 +5,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
+# @@nosort
 if [ $# != 1 ]; then
 	echo expected one argument: '<'dtrace-path'>'
 	exit 2
@@ -31,6 +32,7 @@ if [ $? -ne 0 ]; then
 fi
 
 cat > test.c <<EOF
+#include <stdio.h>
 #include <sys/types.h>
 #include "prov.h"
 
@@ -38,7 +40,9 @@ int
 main(int argc, char **argv)
 {
 	if (TEST_PROV_GO_ENABLED())
-		return 2;
+		printf("USDT probe is enabled\n");
+	else
+		printf("USDT probe is not enabled\n");
 
 	return 0;
 }
@@ -59,5 +63,31 @@ if [ $? -ne 0 ]; then
 	echo "failed to link final executable" >& 2
 	exit 1
 fi
+
+# Test compiled, but does it run correctly?
+echo run without dtrace
+./test
+
+echo
+echo USDT probes found:
+$dtrace $dt_flags -c ./test -lP 'test_prov$target' \
+|& awk '/test_prov/ { gsub(/[0-9]+/, "NNN"); print $1, $2, $3, $4, $5; }'
+
+echo
+echo run with dtrace but not the USDT probe
+$dtrace $dt_flags -c ./test -n 'BEGIN
+                                {
+                                    printf("BEGIN probe fired\n");
+                                    exit(0);
+                                }' -o dt.out
+cat dt.out     # report dtrace output after trigger output
+
+echo
+echo run with dtrace and with the USDT probe
+$dtrace $dt_flags -c ./test -n 'test_prov$target:::go
+                                {
+                                    printf("ERROR: USDT probe fired!\n");
+                                    exit(1);
+                                }'
 
 exit 0
