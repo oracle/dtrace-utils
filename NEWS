@@ -1,3 +1,70 @@
+2.0.3-1 (Jun 10th, 2025)
+------------------------
+
+New features:
+
+ - USDT probes in executables and shared libraries that are compiled with LTO
+   is now supported.  USDT probe definitions are now recorded in .note.usdt
+   ELF notes.
+
+ - The pr_psargs member of the psinfo_t < struct task_struct *T > translator
+   is now implemented.  It used the new execargs builtin variable.
+
+ - The pid provider now supports offset-based instruction probes.
+
+Bugfixes:
+
+ - Automatic selection of fprobe vs kprobe based FBT probes has been corrected.
+
+ - Trampoline use of the BPF stack for scratch space has been corrected.
+
+ - The rawfbt provider has been fixed to perform symbol lookups on the actual
+   true symbol name.
+
+ - BPF attach type detection has been fixed.
+
+ - The probeprov, probemod, probefunc, and probename builtin variables now
+   report the correct values for late USDT processes.
+
+ - The value of arg3 for sched:::enqueue and sched:::dequeue has been
+   corrected.
+
+ - No longer register fbt and rawfbt twice.
+
+ - Discovery of new probes now correctly loops through all registered providers
+   rather than just the initial providers.
+
+User-visible changes:
+
+ - The kernel symbol name filter has been made less strict.
+
+ - Failures in enabling a probe now report the probe name.
+
+Internal changes:
+
+ - Builtin variables are now implemented with individual functions rather than
+   a single large function, reducing compiled BPF program size.
+
+ - Relocation types R_BPF_64_ABS64 and R_BPF_64_ABS32 are now supported.
+
+ - The proc provider has been implemented using the standard SDT provider
+   implementation.
+
+ - The fbt and rawfbt providers have been consolidated, and significan
+   performance improvements have been applied.
+
+ - The hashtable implementation has been moved to libcommon.  It is now used
+   by dtprobed and libdtrace.
+
+Testsuite changes:
+
+ - Many testcases have been improved.
+
+ - Use of bash and gawk throughout the testsuite has been made more consistent.
+
+ - Tests can now use CC, OBJCOPY, OBJDUMP, NM, ... as shell variables in
+   scripts to allow setting values that apply to all tests.
+
 2.0.2-1 (Dec 6th, 2024)
 -----------------------
 

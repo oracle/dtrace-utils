@@ -72,8 +72,8 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.2
-Release:      5%{?dist}
+Version:      2.0.3
+Release:      1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -229,6 +229,15 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Tue Jun 10 2025 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.3-1
+- This is only released on OL10.
+- Redesigned USDT support to work for LTO compilations.  [Orabug: 38011704]
+- New builtin variable: execargs.
+- Offset probes in pid provider.  (Eugene Loh)
+- Various bug fixes.  (Nick Alcock, Eugene Loh, Kris Van Hees)
+- Various testsuite fixes and improvements.
+  (Nick Alcock, Sam James, Eugene Loh, Kris Van Hees)
+
 * Mon Nov 11 2024 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.2-1
 - Translators to support kernels 6.10 and later.
 - FBT return probe argument support.
