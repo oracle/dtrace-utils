@@ -107,10 +107,14 @@ typedef struct dt_probe		dt_probe_t;
  * with a NULL function name.  These probes are used to validate tracepoints
  * that are found in the actual code.
  *
- * During tracepoint validation, probes with actual fuction names will be added
- * to the pmap hashtable.  These probes will have tracepoint data associated
- * with them, and are the probes that will be emitted as parsed data for the
- * provider.  Any probes that do not have tracepoints will be ignored.
+ * During tracepoint validation, tracepoint probes (with actual fuction names)
+ * will be moved from the prbmap hashtable to the pvp->pmap hashtable.  These
+ * probes have tracepoint data associated with them, and are the probes that
+ * will be emitted as parsed data for the provider.  Any probes that do not
+ * have tracepoints will be ignored.
+ *
+ * The pvp->pmap hashtable therefore will require a specific cleanup function
+ * to ensure that the probe data is freed.
  *
  * The dt_provider_t.probec tracks the number of probes with tracepoints.
  */
@@ -161,7 +165,29 @@ static int prv_cmp(const dt_provider_t *p, const dt_provider_t *q) {
 }
 
 DEFINE_HE_STD_LINK_FUNCS(prv, dt_provider_t, he)
-DEFINE_HTAB_STD_OPS(prv)
+
+/*
+ * Hashtable element cleanup function for providers.  It ensures that the probe
+ * hashtable (pvp->pmap) is destroyed.
+ */
+static void *
+prv_del_prov(dt_provider_t *head, dt_provider_t *pvp)
+{
+	head = prv_del(head, pvp);
+
+	dt_htab_destroy(pvp->pmap);
+	free(pvp);
+
+	return head;
+}
+
+static dt_htab_ops_t prv_htab_ops = {
+        .hval = (htab_hval_fn)prv_hval,
+        .cmp = (htab_cmp_fn)prv_cmp,
+        .add = (htab_add_fn)prv_add,
+        .del = (htab_del_fn)prv_del_prov,
+        .next = (htab_next_fn)prv_next
+};
 
 static uint32_t prb_hval(const dt_probe_t *prp) {
 	uint32_t	hval;
@@ -204,6 +230,47 @@ static int prb_cmp(const dt_probe_t *p, const dt_probe_t *q) {
 
 DEFINE_HE_STD_LINK_FUNCS(prb, dt_probe_t, he)
 DEFINE_HTAB_STD_OPS(prb)
+
+/*
+ * Probe hashtable element cleanup function to ensure that probe data is freed
+ * when probes are removed from the pvp->pmap hashtable.  Note that probes in
+ * the prbmap hashtable do *not* get freed upon removal because they get moved
+ * to a pvp->pmap hashtable, and they will get freed when removed from there.
+ */
+static void *
+prb_del_probe(dt_probe_t *head, dt_probe_t *prp)
+{
+	head = prb_del(head, prp);
+
+	/*
+	 * If this is not a function-specific probe (from a prov note), free
+	 * the translated arg data and the probe itself.
+	 * If this is a function-specific probe (from a usdt note), walk the
+	 * list of tracepoint probe, freeing each probe in the list.
+	 */
+	if (prp->fun == NULL) {
+		free(prp->xargs);
+		free(prp->xmap);
+		free(prp);
+	} else {
+		dt_probe_t	*nxt;
+
+		do {
+			nxt = prp->next;
+			free(prp);
+		} while ((prp = nxt) != NULL);
+	}
+
+	return head;
+}
+
+static dt_htab_ops_t pmap_htab_ops = {
+        .hval = (htab_hval_fn)prb_hval,
+        .cmp = (htab_cmp_fn)prb_cmp,
+        .add = (htab_add_fn)prb_add,
+        .del = (htab_del_fn)prb_del_probe,
+        .next = (htab_next_fn)prb_next
+};
 
 /*
  * Return the cummulative string length of 'cnt' consecutive 0-terminated
@@ -252,7 +319,7 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		memset(pvp, 0, sizeof(dt_provider_t));
 		pvp->name = prvt.name;
 		dt_htab_insert(prvmap, pvp);
-		pvp->pmap = dt_htab_create(&prb_htab_ops);
+		pvp->pmap = dt_htab_create(&pmap_htab_ops);
 	} else {
 		usdt_error(out, EEXIST, "Duplicate provider: %s", prvt.name);
 		return -1;
@@ -708,37 +775,32 @@ usdt_parse_notes(int out, dof_helper_t *dhp, usdt_data_t *data)
 		}
 
 		/*
-		 * The tracepoint is valid.  Add it to the provider.
+		 * The tracepoint is valid.  Remove it from the prbmap htab and
+		 * add it to the provider.
 		 * If there was a matching function-specific probe, add the
 		 * tracepoint probe to it.
 		 * If there was no matching function-specific probe, add the
 		 * tracepoint probe to the provider.
 		 * In either cases, argument data is copied.
 		 */
+		dt_htab_delete(prbmap, ptp);
 		if (prp->fun != NULL) {
 			ptp->next = prp->next;
-			ptp->nargc = prp->nargc;
-			ptp->nargs = prp->nargs;
-			ptp->nargsz = prp->nargsz;
-			ptp->xargc = prp->xargc;
-			ptp->xargs = prp->xargs;
-			ptp->xargsz = prp->xargsz;
-			ptp->xmap = prp->xmap;
 			prp->next = ptp;
 			prp->ntp++;
 		} else {
-			dt_htab_delete(prbmap, ptp);
 			dt_htab_insert(pvp->pmap, ptp);
 			ptp->ntp = 1;
-			ptp->nargc = prp->nargc;
-			ptp->nargs = prp->nargs;
-			ptp->nargsz = prp->nargsz;
-			ptp->xargc = prp->xargc;
-			ptp->xargs = prp->xargs;
-			ptp->xargsz = prp->xargsz;
-			ptp->xmap = prp->xmap;
 			pvp->probec++;
 		}
+
+		ptp->nargc = prp->nargc;
+		ptp->nargs = prp->nargs;
+		ptp->nargsz = prp->nargsz;
+		ptp->xargc = prp->xargc;
+		ptp->xargs = prp->xargs;
+		ptp->xargsz = prp->xargsz;
+		ptp->xmap = prp->xmap;
 	}
 
 	/* Emit any provider that has tracepoints. */
@@ -754,6 +816,12 @@ err:
 	rc = -1;
 
 out:
+	/*
+	 * All tracepoint probes in prbmap should have been removed during
+	 * proessing.
+	 */
+	assert(dt_htab_entries(prbmap) == 0);
+
 	dt_htab_destroy(prvmap);
 	dt_htab_destroy(prbmap);
 
