@@ -202,7 +202,15 @@ dt_pragma_depends(const char *prname, dt_node_t *cnp)
 		found = dt_provider_lookup(dtp, nnp->dn_string) != NULL;
 	else if (strcmp(cnp->dn_string, "module") == 0) {
 		dt_module_t *mp = dt_module_lookup_by_name(dtp, nnp->dn_string);
-		found = mp != NULL && dt_module_getctf(dtp, mp) != NULL;
+
+		if (mp == NULL)
+			found = B_FALSE;
+		else if (dt_module_getctf(dtp, mp) != NULL)
+			found = B_TRUE;
+		else
+			xyerror(D_SYM_NOTYPES,
+				"No type data (CTF or BTF) found for %s",
+				mp->dm_name);
 	} else if (strcmp(cnp->dn_string, "library") == 0) {
 		if (yypcb->pcb_cflags & DTRACE_C_CTL) {
 			assert(dtp->dt_filetag != NULL);
