@@ -864,11 +864,12 @@ static void
 dt_kern_module_find_btf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
 	/*
-	 * The first module for which we need to collect BTF data must be the
-	 * 'vmlinux' module.
+	 * If there is no shared BTF data, and we're trying to load BTF data
+	 * for any module other than "vmlinux", we can conclude no module has
+	 * valid BTF data.
 	 */
-	if (dtp->dt_shared_btf == NULL)
-		assert(strcmp(dmp->dm_name, "vmlinux") == 0);
+	if (dtp->dt_shared_btf == NULL && strcmp(dmp->dm_name, "vmlinux") != 0)
+		return;
 
 	dt_dprintf("Loading BTF for module %s.\n", dmp->dm_name);
 
@@ -957,8 +958,12 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 			 * data for shared_ctf from.
 			 */
 			mod = dt_module_lookup_by_name(dtp, "vmlinux");
-			dt_kern_module_ctf_from_btf(dtp, mod);
-			dtp->dt_shared_ctf = mod->dm_ctfp;
+			if (mod->dm_btf != NULL) {
+				dt_kern_module_ctf_from_btf(dtp, mod);
+				dtp->dt_shared_ctf = mod->dm_ctfp;
+			} else
+				dt_dprintf("No BTF data for vmlinux; "
+					   "looking for in-module CTF instead.\n");
 #else
 			dt_dprintf("Cannot open CTF archive %s: %s; "
 				   "looking for in-module CTF instead.\n",
@@ -1019,11 +1024,14 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dmp->dm_flags |= DT_DM_CTF_ARCHIVED;
 		ctf_setspecific(dmp->dm_ctfp, dmp);
 #ifdef HAVE_LIBCTF
-	} else {
+	} else if (dmp->dm_btf != NULL) {
 		/* Generate CTF from BTF for the module. */
 		dt_kern_module_ctf_from_btf(dtp, dmp);
+	} else
+		dt_dprintf("No BTF data for %s; "
+			   "looking for in-module CTF instead.\n",
+			   dmp->dm_name);
 #endif
-	}
 
 	/*
 	 * No CTF archive, module not present in it, or module not loaded so
