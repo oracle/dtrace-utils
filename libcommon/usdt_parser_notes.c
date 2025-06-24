@@ -829,15 +829,16 @@ usdt_parse_notes(int out, dof_helper_t *dhp, usdt_data_t *data)
 	goto out;
 
 err:
+	/*
+	 * In case of an error, we don't know whether we can allocate iterators
+	 * so we have few options to provide cleanup.  Since cleanup is all we
+	 * do now, we plug the probe cleanup function into the ops for prbmap,
+	 * and let the hashtable destroy function take care of all cleanup.
+	 */
+	prb_htab_ops.del = (htab_del_fn)prb_del_probe;
 	rc = -1;
 
 out:
-	/*
-	 * All tracepoint probes in prbmap should have been removed during
-	 * proessing.
-	 */
-	assert(dt_htab_entries(prbmap) == 0);
-
 	dt_htab_destroy(prvmap);
 	dt_htab_destroy(prbmap);
 
