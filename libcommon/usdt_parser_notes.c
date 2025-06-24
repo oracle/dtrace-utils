@@ -287,7 +287,6 @@ strarray_size(uint8_t cnt, const char *str, const char *end, size_t skip)
 		if (p >= end)
 			return -1;
 
-dt_dbg_usdt("%s: [%s] [%hhd]\n", __func__, p, *(p + strlen(p) + 1));
 		p += strlen(p) + 1 + skip;
 	}
 
