@@ -471,6 +471,23 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 	}
 	prbt.off = off;
 
+	/*
+	 * If the probe name has encoded hyphens, perform in-place changing
+	 * from "__" into "-".
+	 */
+	if (strstr(prbt.prb, "__") != NULL) {
+		char		*q;
+		const char	*s = prbt.prb, *e = p;
+
+		for (q = (char *)s; s < e; s++, q++) {
+			if (s[0] == '_' && s[1] == '_') {
+				*q = '-';
+				s++;
+			} else if (s > q)
+				*q = *s;
+		}
+	}
+
 	if ((prp = dt_htab_lookup(prbmap, &prbt)) == NULL) {
 		if ((prp = malloc(sizeof(dt_probe_t))) == NULL) {
 			usdt_error(out, ENOMEM, "Failed to allocate probe");
