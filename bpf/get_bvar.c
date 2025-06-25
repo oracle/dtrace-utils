@@ -53,12 +53,17 @@ noinline uint64_t dt_bvar_args(const dt_dctx_t *dctx, uint32_t idx)
 
 noinline uint64_t dt_bvar_caller(const dt_dctx_t *dctx)
 {
-	uint64_t	buf[2] = { 0, };
+	uint64_t	buf[3] = { 0, };
+	volatile uint64_t
+			skip = (uint64_t)(&STACK_SKIP);
 
 	if (bpf_get_stack(dctx->ctx, buf, sizeof(buf),
-			  (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK) < 0)
+			  skip & BPF_F_SKIP_FIELD_MASK) < 0)
 		return 0;
 
+	/* If we had to skip any frames, account for the dt_bvar_caller() frame. */
+	if (skip)
+		return buf[2];
 	return buf[1];
 }
 
@@ -203,9 +208,11 @@ noinline uint64_t dt_bvar_stackdepth(const dt_dctx_t *dctx)
 	uint32_t	bufsiz = (uint32_t) (uint64_t) (&STKSIZ);
 	char		*buf = dctx->mem + (uint64_t)(&STACK_OFF);
 	uint64_t	retv;
+	volatile uint64_t
+			skip = (uint64_t)(&STACK_SKIP);
 
 	retv = bpf_get_stack(dctx->ctx, buf, bufsiz,
-			     (uint64_t)(&STACK_SKIP) & BPF_F_SKIP_FIELD_MASK);
+			     skip & BPF_F_SKIP_FIELD_MASK);
 	if (retv < 0)
 		return error(dctx, DTRACEFLT_BADSTACK, 0 /* FIXME */);
 
@@ -217,7 +224,11 @@ noinline uint64_t dt_bvar_stackdepth(const dt_dctx_t *dctx)
 	 * If retv==bufsiz, presumably the stack is larger than what we
 	 * can retrieve.  But it's also possible that the buffer was exactly
 	 * large enough.  So, leave it to the user to interpret the result.
+	 *
+	 * If we had to skip any frames, account for the dt_bvar_stackdepth() frame.
 	 */
+	if (skip)
+		return retv / sizeof(uint64_t) - 1;
 	return retv / sizeof(uint64_t);
 }
 
