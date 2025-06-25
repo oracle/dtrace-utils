@@ -504,13 +504,17 @@ clean_usdt_probes(dtrace_hdl_t *dtp)
 
 /*
  * Judge whether clause "n" could ever be called as a USDT probe
- * for this underlying probe.
+ * for this underlying probe.  We can pass uprp==NULL to see if
+ * the clause can be excluded for every probe.
  */
 static int
 ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 {
 	dtrace_stmtdesc_t	*stp = dtp->dt_stmts[n];
 	dtrace_probedesc_t	*pdp = &stp->dtsd_ecbdesc->dted_probe;
+
+	if (stp == NULL)
+		return 1;
 
 	/*
 	 * Some clauses could never be called for a USDT probe,
@@ -525,7 +529,7 @@ ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 		 * neither '*' nor a digit, it cannot be a USDT probe.
 		 */
 		if (len > 1) {
-			char	lastchar = pdp->prv[len - 1];
+			char	lastchar = (pdp->prv[0] != '\0' ? pdp->prv[len - 1] : '*');
 
 			if (lastchar != '*' && !isdigit(lastchar)) {
 				dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_EXCLUDE);
@@ -555,6 +559,8 @@ ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
 	}
 	if (dt_stmt_clsflag_test(stp, DT_CLSFLAG_USDT_EXCLUDE) == 1)
 		return 1;
+	if (uprp == NULL)
+		return 0;
 
 	/*
 	 * If we cannot ignore this statement, try to use uprp.
@@ -759,13 +765,9 @@ static int discover(dtrace_hdl_t *dtp)
 	 */
 	memset(&pcb, 0, sizeof(dt_pcb_t));
 	for (i = 0; i < dtp->dt_stmt_nextid; i++) {
-		dtrace_stmtdesc_t *stp;
-
-		stp = dtp->dt_stmts[i];
-		if (stp == NULL)
+		if (ignore_clause(dtp, i, NULL))
 			continue;
-		if (dt_stmt_clsflag_test(stp, DT_CLSFLAG_USDT_EXCLUDE) != 1)
-			dt_pid_create_usdt_probes(&stp->dtsd_ecbdesc->dted_probe, dtp, &pcb);
+		dt_pid_create_usdt_probes(&dtp->dt_stmts[i]->dtsd_ecbdesc->dted_probe, dtp, &pcb);
 	}
 
 	return 0;
