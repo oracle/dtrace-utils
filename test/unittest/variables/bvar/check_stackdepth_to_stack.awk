@@ -1,8 +1,16 @@
 #!/usr/bin/gawk -f
-# Oracle Linux DTrace.
-# Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at
-# http://oss.oracle.com/licenses/upl.
+#
+# Check output of tst.stackdepth-$provider.d tests of the form
+#
+# {
+#     printf("DEPTH %d\n", stackdepth);
+#     printf("TRACE BEGIN\n");
+#     stack();
+#     printf("TRACE END\n");
+#     exit(0);
+# }
+#
+# Confirm that the stackdepth information matches the stack information.
 
 /^DEPTH/ {
 	depth = int($2);
