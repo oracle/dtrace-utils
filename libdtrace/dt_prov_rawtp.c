@@ -296,6 +296,7 @@ use_alt:
 dt_provimpl_t	dt_rawtp = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_RAW_TRACEPOINT,
+	.stack_skip	= 4,
 	.populate	= &populate,
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
