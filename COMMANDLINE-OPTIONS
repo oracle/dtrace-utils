@@ -321,12 +321,12 @@ definitions are always specified and valid in all modes:
     * __sparcv9 (on SPARC® systems only when 64–bit programs are compiled)
     * __i386 (on x86 systems only when 32–bit programs are compiled)
     * __amd64 (on x86 systems only when 64–bit programs are compiled)
-    * _`uname -s` (for example, __Linux)
+    * __`uname -s` (for example, __Linux)
     * __SUNW_D=1
-    * _SUNW_D_VERSION=0x_MMmmmuuu (where MM is the Major release value
-      in hexadecimal, mmm is the Minor release value in hexadecimal,
-      and uuu is the Micro release value in hexadecimal; see Chapter
-      41, Versioning for more information about DTrace versioning)
+    * _SUNW_D_VERSION=(MM << 24 | mmm << 12 | uuu), where
+      MM is the Major release value
+      mmm is the Minor release value
+      uuu is the Micro release value
 
 -Z
 Permit probe descriptions that match zero probes. If the -Z option is
