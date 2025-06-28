@@ -33,6 +33,8 @@ EOF
 cat > main.c <<EOF
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "prov.h"
 
 /* We check if the is-enabled probe is or is not enabled (or unknown). */
@@ -41,7 +43,7 @@ cat > main.c <<EOF
 #define ENABLED_UNK	3
 
 /* Start with the previous probe "unknown". */
-int prv = ENABLED_UNK;
+int prv = ENABLED_UNK, nepochs_left = 4;
 long long num = 0;
 
 /* Report how many times the previous case was encountered. */
@@ -71,6 +73,9 @@ static void mark_epoch(int sig) {
 	report();
 	printf("=== epoch ===\n");
 	fflush(stdout);
+	nepochs_left--;
+	if (nepochs_left <= 0)
+		exit(0);
 }
 
 int
@@ -79,7 +84,7 @@ main(int argc, char **argv)
 	struct sigaction act;
 
 	/* Set USR1 to mark epochs. */
-	act.sa_flags = 0;
+	memset(&act, 0, sizeof(act));
 	act.sa_handler = mark_epoch;
 	if (sigaction(SIGUSR1, &act, NULL)) {
 		printf("set handler failed\n");
@@ -172,13 +177,15 @@ for pid in 1 $pid1 $pid2 '*'; do
 	kill -USR1 $pid2
 done
 
+# Wait for the processes.
+wait $pid1
+wait $pid2
+
+# Dump the output.
 echo done
 echo "========== out 1"; cat out.1
 echo "========== out 2"; cat out.2
 
 echo success
-
-kill -TERM $pid1
-kill -TERM $pid2
 
 exit 0
