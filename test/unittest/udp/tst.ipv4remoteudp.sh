@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -34,14 +34,14 @@ fi
 
 dtrace=$1
 testdir="$(dirname $_test)"
-getaddr=$testdir/../ip/get.ipv4remote.pl
+getaddr=$testdir/../../utils/get_remote.sh
 port=31337
 
 if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-read source dest <<<`$getaddr 2>/dev/null`
+read source dest <<<`$getaddr ipv4 2>/dev/null`
 if (( $? != 0 )) || [[ -z $dest ]]; then
 	exit 67
 fi

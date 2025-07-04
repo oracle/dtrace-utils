@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -13,9 +13,7 @@
 #
 # 1. A change to the tcp stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. No physical network interface is plumbed and up.
-# 3. No other hosts on this subnet are reachable and listening on ssh.
-# 4. An unlikely race causes the unlocked global send/receive
+# 2. An unlikely race causes the unlocked global send/receive
 #    variables to be corrupted.
 #
 # This test performs a TCP connection and checks that at least the
@@ -32,9 +30,8 @@ fi
 
 dtrace=$1
 testdir="$(dirname $_test)"
-getaddr=$testdir/../ip/get.ipv4remote.pl
-tcpports="22 80"
-tcpport=""
+getaddr=$testdir/../../utils/get_remote.sh
+tcpport="22"
 dest=""
 
 if [[ ! -x $getaddr ]]; then
@@ -42,18 +39,11 @@ if [[ ! -x $getaddr ]]; then
         exit 3
 fi
 
-for port in $tcpports ; do
-	res=`$getaddr $port 2>/dev/null`
-	if (( $? == 0 )); then
-		read s d <<< $res
-		tcpport=$port
-		source=$s
-		dest=$d
-		break
-	fi
-done
+set -- $($getaddr ipv4 $tcpport)
+source="$1"
+dest="$2"
 
-if [[ -z $tcpport ]]; then
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	exit 67
 fi
 

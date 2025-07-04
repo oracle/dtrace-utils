@@ -1473,6 +1473,8 @@ for dt in $dtrace; do
 
         log "\n"
 
+	test/utils/get_remote.sh cleanup
+
         if [[ -n $regression ]]; then
             # If regtesting, we run a second time, with intermediate results
             # displayed, and output redirected to a per-test, per-dtrace

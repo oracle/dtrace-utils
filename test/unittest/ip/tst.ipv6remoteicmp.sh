@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -19,7 +19,7 @@
 #
 # @@tags: unstable
 
-# possible paths for ping6
+# possible paths for ping
 export PATH=/bin:/usr/bin:/sbin:/usr/sbin:$PATH
 
 if (( $# != 1 )); then
@@ -29,24 +29,24 @@ fi
 
 dtrace=$1
 testdir="$(dirname $_test)"
-getaddr=$testdir/get.ipv6remote.pl
+getaddr=$testdir/../../utils/get_remote.sh
 
 if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-set -- $($getaddr)
+
+set -- $($getaddr ipv6)
 source="$1"
 dest="$2"
+
 if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
 	echo -n "Could not find a local IPv6 interface and a remote IPv6 " >&2
 	echo "host.  Aborting test." >&2
 	exit 67
 fi
 
-nolinkdest="$(printf "%s" "$dest" | sed 's,%.*,,')"
-
-$dtrace $dt_flags -c "ping6 -c 6 $dest" -qs /dev/stdin <<EOF | \
+$dtrace $dt_flags -c "ping -6 -c 10 $dest" -qs /dev/stdin <<EOF | \
     gawk '/ip:::/ { print $0 }' | sort -n
 /* 
  * We use a size match to include only things that are big enough to
@@ -54,7 +54,7 @@ $dtrace $dt_flags -c "ping6 -c 6 $dest" -qs /dev/stdin <<EOF | \
  */
 
 ip:::send
-/args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$nolinkdest" &&
+/args[2]->ip_saddr == "$source" && args[2]->ip_daddr == "$dest" &&
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6 && args[2]->ip_plength > 32/
 {
 	printf("1 ip:::send    (");
@@ -64,7 +64,7 @@ ip:::send
 }
 
 ip:::receive
-/args[2]->ip_saddr == "$nolinkdest" && args[2]->ip_daddr == "$source" &&
+/args[2]->ip_saddr == "$dest" && args[2]->ip_daddr == "$source" &&
     args[5]->ipv6_nexthdr == IPPROTO_ICMPV6 && args[2]->ip_plength > 32/
 {
 	printf("2 ip:::receive (");

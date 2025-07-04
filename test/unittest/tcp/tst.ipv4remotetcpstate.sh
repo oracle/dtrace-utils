@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -17,8 +17,7 @@
 #
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. The remote ssh service is not online.
-# 3. An unlikely race causes the unlocked global send/receive
+# 2. An unlikely race causes the unlocked global send/receive
 #    variables to be corrupted.
 #
 # This test performs a TCP connection to the ssh service (port 22) and
@@ -40,29 +39,21 @@ fi
 
 dtrace=$1
 testdir="$(dirname $_test)"
-getaddr=$testdir/../ip/get.ipv4remote.pl
+getaddr=$testdir/../../utils/get_remote.sh
 client=$testdir/../ip/client.ip.pl
-tcpports="22 80"
-tcpport=""
-dest=""
+tcpport="22"
 
 if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-for port in $tcpports ; do
-	res=`$getaddr $port 2>/dev/null`
-	if (( $? == 0 )); then
-		read s d <<< $res
-		tcpport=$port
-		source=$s
-		dest=$d
-		break
-	fi
-done
 
-if [ -z $tcpport ]; then
-        exit 67
+set -- $($getaddr ipv4 $tcpport)
+source="$1"
+dest="$2"
+
+if [[ $? -ne 0 ]] || [[ -z $dest ]]; then
+	exit 67
 fi
 
 
