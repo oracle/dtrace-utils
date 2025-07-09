@@ -58,6 +58,7 @@ libdtrace-build_SOURCES = dt_aggregate.c \
 			  dt_prov_sched.c \
 			  dt_prov_sdt.c \
 			  dt_prov_syscall.c \
+			  dt_prov_tcp.c \
 			  dt_prov_uprobe.c \
 			  dt_provider.c \
 			  dt_provider_sdt.c \
@@ -116,6 +117,7 @@ dt_prov_rawtp.c_CFLAGS := -Wno-pedantic
 dt_prov_sched.c_CFLAGS := -Wno-pedantic
 dt_prov_sdt.c_CFLAGS := -Wno-pedantic
 dt_prov_syscall.c_CFLAGS := -Wno-pedantic
+dt_prov_tcp.c_CFLAGS := -Wno-pedantic
 dt_prov_uprobe.c_CFLAGS := -Wno-pedantic
 dt_debug.c_CFLAGS := -Wno-prio-ctor-dtor
 

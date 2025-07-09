@@ -52,7 +52,9 @@ typedef struct csinfo {
 
 /*
  * We use these values to determine if a probe point is associated with sending
- * (outbound) or receiving (inbound).
+ * (outbound) or receiving (inbound) or a state-relate probe (i.e. neither
+ * inbound our outbound).
  */
 inline int NET_PROBE_OUTBOUND =		0x00;
 inline int NET_PROBE_INBOUND =		0x01;
+inline int NET_PROBE_STATE =		0x02;
