@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -63,43 +63,6 @@ static int populate(dtrace_hdl_t *dtp)
 }
 
 /*
- * Retrieve the value of a member in a given struct.
- *
- * Entry:
- *	reg = TYPE *ptr
- *
- * Return:
- *	%r0 = ptr->member
- * Clobbers:
- *	%r1 .. %r5
- */
-static int get_member(dt_pcb_t *pcb, const char *name, int reg,
-		      const char *member) {
-	dtrace_hdl_t		*dtp = pcb->pcb_hdl;
-	dt_irlist_t		*dlp = &pcb->pcb_ir;
-	dtrace_typeinfo_t	tt;
-	ctf_membinfo_t		ctm;
-	size_t			size;
-	uint_t			ldop;
-
-	if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_KMODS, name, &tt) == -1 ||
-	    ctf_member_info(tt.dtt_ctfp, tt.dtt_type, member, &ctm) == CTF_ERR)
-		return -1;
-
-	ldop = dt_cg_ldsize(NULL, tt.dtt_ctfp, ctm.ctm_type, &size);
-
-	emit(dlp, BPF_MOV_REG(BPF_REG_3, reg));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, ctm.ctm_offset / NBBY));
-	emit(dlp, BPF_MOV_IMM(BPF_REG_2, size));
-	emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_BASE));
-	emit(dlp, BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));
-	emit(dlp, BPF_LOAD(ldop, BPF_REG_0, BPF_REG_FP, DT_TRAMP_SP_BASE));
-
-	return 0;
-}
-
-/*
  * Generate a BPF trampoline for a SDT probe.
  *
  * The trampoline function is called when a SDT probe triggers, and it must
@@ -142,7 +105,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_6));
 
-	get_member(pcb, "struct sk_buff", BPF_REG_6, "sk");
+	dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "sk");
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
 
 	/*
@@ -150,11 +113,11 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 *	skb_network_header(skb)	=	(include/linux/ip.h)
 	 *	skb->head + skb->network_header	(include/linux/skbuff.h)
 	 */
-	get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
+	dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
-	get_member(pcb, "struct sk_buff", BPF_REG_6, "network_header");
+	dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "network_header");
 	emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
 	emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
 	emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(5), BPF_REG_0));
@@ -168,7 +131,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	else
 		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(5), 0));
 
-	get_member(pcb, "struct sk_buff", BPF_REG_6, "dev");
+	dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "dev");
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_0));
 
 	return 0;

@@ -29,6 +29,8 @@ extern void dt_cg_tramp_copy_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called);
 extern void dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb);
+extern void dt_cg_tramp_get_member(dt_pcb_t *pcb, const char *name, int reg,
+				   const char *member);
 extern void dt_cg_tramp_decl_var(dt_pcb_t *pcb, dt_ident_t *idp);
 extern void dt_cg_tramp_get_var(dt_pcb_t *pcb, const char *name, int isstore,
 				int reg);
@@ -43,7 +45,7 @@ extern void dt_cg_tramp_epilogue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_epilogue_advance(dt_pcb_t *pcb, dt_activity_t act);
 extern void dt_cg_tramp_error(dt_pcb_t *pcb);
 extern int dt_cg_ctf_offsetof(const char *structname, const char *membername,
-			      size_t *sizep, int relaxed);
+			      size_t *sizep, uint_t *ldopp, int relaxed);
 extern uint_t dt_cg_ldsize(dt_node_t *dnp, ctf_file_t *ctfp, ctf_id_t type,
 			 ssize_t *ret_size);
 extern uint_t bpf_ldst_size(ssize_t size, int store);

@@ -157,6 +157,7 @@ static void io_nfs_args_v1(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 {
 	int	off;
 	size_t	siz;
+	uint_t	ldop;
 
 	/*
 	 * Determine the various sizes and offsets we want.
@@ -181,12 +182,11 @@ static void io_nfs_args_v1(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 	dt_cg_tramp_get_var(pcb, "this->-io-bio", 1, BPF_REG_6);
 
 	/* Fill in bi_opf */
-	off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, &ldop, 0);
 	if (strstr(uprb, "read"))
-		emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_READ));
+		emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_READ));
 	else
-		emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_WRITE));
+		emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_WRITE));
 
 	/*
 	 * bio.bi_iter.bi_size = hdr->foo.count;
@@ -198,13 +198,15 @@ static void io_nfs_args_v1(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(2)));
 	} else {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
-		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "res", NULL, 0)
-		    + dt_cg_ctf_offsetof("struct nfs_pgio_res", "count", &siz, 0);
+		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "res", NULL,
+					 NULL, 0)
+		    + dt_cg_ctf_offsetof("struct nfs_pgio_res", "count", &siz,
+					 NULL, 0);
 		deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
 	}
 
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0) +
+	      dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, NULL, 0);
 	siz = bpf_ldst_size(siz, 1);
 	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
 
@@ -218,27 +220,27 @@ static void io_nfs_args_v1(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 		/* use hdr->inode, hdr is arg1 */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
 
-		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "inode", &siz, 0);
+		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "inode",
+					 &siz, NULL, 0);
 		deref_r3(dlp, exitlbl, off, siz, BPF_REG_3);
 	}
 
-	off = dt_cg_ctf_offsetof("struct nfs_inode", "fileid", &siz, 0)
-	    - dt_cg_ctf_offsetof("struct nfs_inode", "vfs_inode", NULL, 0);
+	off = dt_cg_ctf_offsetof("struct nfs_inode", "fileid", &siz, NULL, 0) -
+	      dt_cg_ctf_offsetof("struct nfs_inode", "vfs_inode", NULL, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
 
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0) +
+	      dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, NULL, 0);
 	siz = bpf_ldst_size(siz, 1);
 	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
 
 	/*
 	 * bio.bi_bdev = 0;
 	 */
-	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, &ldop, 1);
 	if (off == -1)
-		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, 0));
+		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, 0));
 
 	/* Store a pointer to the fake bio in arg0. */
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_6));
@@ -253,6 +255,7 @@ static void io_nfs_args_v2(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 {
 	int	off;
 	size_t	siz;
+	uint_t	ldop;
 
 	/*
 	 * Determine the various sizes and offsets we want.
@@ -278,12 +281,11 @@ static void io_nfs_args_v2(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 	dt_cg_tramp_get_var(pcb, "this->-io-bio", 1, BPF_REG_6);
 
 	/* Fill in bi_opf */
-	off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, &ldop, 0);
 	if (strstr(uprb, "read"))
-		emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_READ));
+		emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_READ));
 	else
-		emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_WRITE));
+		emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_WRITE));
 
 	/*
 	 * bio.bi_iter.bi_size = hdr->foo.count;
@@ -294,18 +296,21 @@ static void io_nfs_args_v2(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 	 */
 	if (strcmp(prb, "start") == 0) {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
-		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "args", NULL, 0)
-		    + dt_cg_ctf_offsetof("struct nfs_pgio_args", "count", &siz, 0);
+		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "args",
+					 NULL, NULL, 0) +
+		      dt_cg_ctf_offsetof("struct nfs_pgio_args", "count", &siz,
+					 NULL, 0);
 	} else {
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
-		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "res", NULL, 0)
-		    + dt_cg_ctf_offsetof("struct nfs_pgio_res", "count", &siz, 0);
+		off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "res", NULL,
+					 NULL, 0) +
+		      dt_cg_ctf_offsetof("struct nfs_pgio_res", "count", &siz,
+					 NULL, 0);
 	}
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0) +
+	      dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 
 	/*
 	 * bio.bi_iter.bi_sector = hdr->inode;
@@ -316,27 +321,25 @@ static void io_nfs_args_v2(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl,
 	else
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(1)));
 
-	off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "inode", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct nfs_pgio_header", "inode", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_3);
 
-	off = dt_cg_ctf_offsetof("struct nfs_inode", "fileid", &siz, 0)
-	    - dt_cg_ctf_offsetof("struct nfs_inode", "vfs_inode", NULL, 0);
+	off = dt_cg_ctf_offsetof("struct nfs_inode", "fileid", &siz, NULL, 0) -
+	      dt_cg_ctf_offsetof("struct nfs_inode", "vfs_inode", NULL, NULL, 0);
 
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
 
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0) +
+	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 
 	/*
 	 * bio.bi_bdev = 0;
 	 */
-	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, &ldop, 1);
 	if (off == -1)
-		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE_IMM(siz, BPF_REG_6, off, 0));
+		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE_IMM(ldop, BPF_REG_6, off, 0));
 
 	/* Store a pointer to the fake bio in arg0. */
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_6));
@@ -350,6 +353,7 @@ static void io_xfs_args(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl)
 {
 	int	off;
 	size_t	siz;
+	uint_t	ldop;
 
 	/*
 	 * Determine the various sizes and offsets we want.
@@ -379,22 +383,21 @@ static void io_xfs_args(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl)
 
 	/* bio.bi_opf = (bp->b_flags & XBF_WRITE) ? REQ_OP_WRITE : REQ_OP_READ; */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
-	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_flags", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_flags", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
 	emit(dlp, BPF_ALU64_IMM(BPF_AND, BPF_REG_0, XBF_WRITE));
 	{
 		uint_t Lzero = dt_irlist_label(dlp);
 		uint_t Ldone = dt_irlist_label(dlp);
 
-		off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, 0);
-		siz = bpf_ldst_size(siz, 1);
+		off = dt_cg_ctf_offsetof("struct bio", "bi_opf", &siz, &ldop, 0);
 
 		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, Lzero));
-		emit(dlp,  BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_WRITE));
+		emit(dlp,  BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_WRITE));
 		emit(dlp,  BPF_JUMP(Ldone));
 		emitl(dlp, Lzero,
 			   BPF_NOP());
-		emit(dlp,  BPF_STORE_IMM(siz, BPF_REG_6, off, REQ_OP_READ));
+		emit(dlp,  BPF_STORE_IMM(ldop, BPF_REG_6, off, REQ_OP_READ));
 		emitl(dlp, Ldone,
 			   BPF_NOP());
 	}
@@ -403,12 +406,11 @@ static void io_xfs_args(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl)
 	 * bio.bi_iter.bi_size = bp->b_length;
 	 */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
-	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_length", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_length", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0)
+	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_size", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 
 	/*
 	 * bio.bi_iter.bi_sector = xfs_buf_daddr(bp);
@@ -446,40 +448,38 @@ static void io_xfs_args(dt_pcb_t *pcb, dt_irlist_t *dlp, uint_t exitlbl)
 	 *     }
 	 */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
-	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_maps", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_maps", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_3);
-	off = dt_cg_ctf_offsetof("struct xfs_buf_map", "bm_bn", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buf_map", "bm_bn", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_0);
-	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, 0)
-	    + dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+	off = dt_cg_ctf_offsetof("struct bio", "bi_iter", NULL, NULL, 0) +
+	      dt_cg_ctf_offsetof("struct bvec_iter", "bi_sector", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 
 	/*
 	 * bio.bi_bdev = (bp)->b_target->bt_bdev
 	 */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
-	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_target", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buf", "b_target", &siz, NULL, 0);
 	assert(siz == sizeof(void *));
 	deref_r3(dlp, exitlbl, off, 8, BPF_REG_3);
-	off = dt_cg_ctf_offsetof("struct xfs_buftarg", "bt_bdev", &siz, 0);
+	off = dt_cg_ctf_offsetof("struct xfs_buftarg", "bt_bdev", &siz, NULL, 0);
 	deref_r3(dlp, exitlbl, off, siz, BPF_REG_3);
-	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_bdev", &siz, &ldop, 1);
 	if (off == -1)
-		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, 0);
-	siz = bpf_ldst_size(siz, 1);
-	emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+		off = dt_cg_ctf_offsetof("struct bio", "bi_disk", &siz, &ldop, 0);
+	emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 
 	/* Populate bi_partno if it exists. */
-	off = dt_cg_ctf_offsetof("struct bio", "bi_partno", &siz, 1);
+	off = dt_cg_ctf_offsetof("struct bio", "bi_partno", &siz, NULL, 1);
 	if (off >= 0) {
 		int	poff;
 		size_t	psiz;
 
-		poff = dt_cg_ctf_offsetof("struct block_device", "bd_partno", &psiz, 0);
-		siz = bpf_ldst_size(siz, 1);
+		poff = dt_cg_ctf_offsetof("struct block_device", "bd_partno",
+					  &psiz, &ldop, 0);
 		deref_r3(dlp, exitlbl, poff, psiz, BPF_REG_0);
-		emit(dlp, BPF_STORE(siz, BPF_REG_6, off, BPF_REG_0));
+		emit(dlp, BPF_STORE(ldop, BPF_REG_6, off, BPF_REG_0));
 	}
 
 	/* Store a pointer to the fake bio in arg0. */
@@ -542,7 +542,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 			size_t	size;
 			size_t	off;
 
-			off = dt_cg_ctf_offsetof("struct request", "bio", &size, 0);
+			off = dt_cg_ctf_offsetof("struct request", "bio",
+						 &size, NULL, 0);
 			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_7, DMST_ARG(0)));
 			deref_r3(dlp, exitlbl, off, size, BPF_REG_0);
 

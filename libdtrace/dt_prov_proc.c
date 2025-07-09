@@ -206,7 +206,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, SIGKILL, lbl_keep));
 
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_task));
-		off = dt_cg_ctf_offsetof("struct task_struct", "signal", &sz, 0);
+		off = dt_cg_ctf_offsetof("struct task_struct", "signal", &sz,
+					 NULL, 0);
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
@@ -214,7 +215,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_MOV_IMM(BPF_REG_2, sz));
 		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_probe_read));
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_3, BPF_REG_FP, DT_TRAMP_SP_SLOT(0)));
-		off = dt_cg_ctf_offsetof("struct signal_struct", "group_exit_code", &sz, 0);
+		off = dt_cg_ctf_offsetof("struct signal_struct",
+					 "group_exit_code", &sz, NULL, 0);
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, off));
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_FP));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, DT_TRAMP_SP_SLOT(0)));

@@ -250,11 +250,11 @@ get_asm_reg(dt_provider_t *pvp, const char *name)
 		     i++, rp++) {
 #if defined(__amd64)
 			rp->off = dt_cg_ctf_offsetof("struct pt_regs",
-						      rp->mname, NULL, 0) +
+						rp->mname, NULL, NULL, 0) +
 				  rp->moff;
 #elif defined(__aarch64__)
 			rp->off = dt_cg_ctf_offsetof("struct user_pt_regs",
-						      rp->mname, NULL, 0) +
+						rp->mname, NULL, NULL, 0) +
 				  rp->moff;
 #endif
 
