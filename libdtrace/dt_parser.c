@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1225,6 +1225,21 @@ dt_node_is_actfunc(const dt_node_t *dnp)
 {
 	return dnp->dn_kind == DT_NODE_FUNC &&
 	    dnp->dn_ident->di_kind == DT_IDENT_ACTFUNC;
+}
+
+int
+dt_node_is_tstring(const dt_node_t *dnp)
+{
+	switch (dnp->dn_kind) {
+	default:
+		return 0;
+	case DT_NODE_FUNC:
+	case DT_NODE_OP1:
+	case DT_NODE_OP2:
+	case DT_NODE_OP3:
+	case DT_NODE_DEXPR:
+		return dnp->dn_tstring != NULL;
+	}
 }
 
 /*

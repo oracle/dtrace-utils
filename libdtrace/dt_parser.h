@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -182,6 +182,7 @@ extern int dt_node_is_ptrcompat(const dt_node_t *, const dt_node_t *,
 extern int dt_node_is_argcompat(const dt_node_t *, const dt_node_t *);
 extern int dt_node_is_posconst(const dt_node_t *);
 extern int dt_node_is_actfunc(const dt_node_t *);
+extern int dt_node_is_tstring(const dt_node_t *);
 
 extern dt_node_t *dt_node_int(uintmax_t);
 extern dt_node_t *dt_node_string(char *);

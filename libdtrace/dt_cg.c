@@ -1541,16 +1541,9 @@ dt_cg_tstring_xfree(dt_pcb_t *pcb, uint64_t offset)
 static void
 dt_cg_tstring_free(dt_pcb_t *pcb, dt_node_t *dnp)
 {
-	switch (dnp->dn_kind) {
-	case DT_NODE_FUNC:
-	case DT_NODE_OP1:
-	case DT_NODE_OP2:
-	case DT_NODE_OP3:
-	case DT_NODE_DEXPR:
-		if (dnp->dn_tstring) {
-			dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
-			dnp->dn_tstring = NULL;
-		}
+	if (dt_node_is_tstring(dnp)) {
+		dt_cg_tstring_xfree(pcb, dnp->dn_tstring->dn_value);
+		dnp->dn_tstring = NULL;
 	}
 }
 
