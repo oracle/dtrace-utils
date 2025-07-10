@@ -1479,11 +1479,12 @@ dt_cg_tstring_reset(dtrace_hdl_t *dtp)
 		ts = dtp->dt_tstrings;
 		for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
 			ts->offset = i * size;
+	} else {
+		/* Ensure that all allocated tstrings were freed correctly. */
+		ts = dtp->dt_tstrings;
+		for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
+			assert(ts->in_use == 0);
 	}
-
-	ts = dtp->dt_tstrings;
-	for (i = 0; i < DT_TSTRING_SLOTS; i++, ts++)
-		ts->in_use = 0;
 }
 
 /*
