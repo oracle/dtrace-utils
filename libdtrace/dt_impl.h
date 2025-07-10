@@ -215,6 +215,10 @@ typedef struct dt_kern_path {
  * Each tstring needs to be large enough to hold the largest possible string
  * and accomodate the largest known need for tstring space in subroutines.
  *
+ * The number of slots is sufficient to accomodate the nested expression in
+ * test/unittest/codegen/tst.tstring_ternary_nested.d.  See that file for an
+ * explanation.
+ *
  * For example:
  *
  * - inet_ntoa6() stores its output and 2 copies of the input (40 + 2 * 16 = 72)
@@ -222,7 +226,7 @@ typedef struct dt_kern_path {
  * - cleanpath() holds a prepended '/' char, a string, an appended '/' char,
  *   and a terminating NUL char, or STRSZ + 3 chars altogether
  */
-#define DT_TSTRING_SLOTS	4
+#define DT_TSTRING_SLOTS	6
 #define DT_TSTRING_SIZE(dtp)	\
 		MAX(P2ROUNDUP((dtp)->dt_options[DTRACEOPT_STRSIZE] + 3, 8), \
 		    72)

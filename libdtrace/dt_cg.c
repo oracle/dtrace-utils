@@ -4699,29 +4699,65 @@ dt_cg_ternary_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	 * dn_right).
 	 */
 	if (dt_node_is_string(dnp)) {
-		uint_t lbl_null = dt_irlist_label(dlp);
+		uint_t	lbl_done = dt_irlist_label(dlp);
+		int	left_is_tstr, rght_is_tstr;
 
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_null));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, dnp->dn_reg, 0, lbl_done));
 
 		/*
-		 * At this point, dnp->dn_reg holds a pointer to the string we
-		 * need to copy.  But we want to copy it into a tstring which
-		 * location is to be stored in dnp->dn_reg.  So, we need to
-		 * shuffle things a bit.
+		 * At this point, dnp->dn_reg holds a pointer to the string to
+		 * be used as value of the ternary.  It needs to be made
+		 * available as a tstring.
+		 * If dnp->dn_left is a tstring, reuse it as tstring for the
+		 * ternary value.
+		 * If dnp->dn_left is not a tstring but dnp->dn_right is, use
+		 * that one as tstring for the ternary value.
+		 * Otherwise, allocate a tstring.
+		 *
+		 * Either way, we copy the value (a string) into the tstring
+		 * (unless it is already there).
 		 */
 		emit(dlp,  BPF_MOV_REG(BPF_REG_0, dnp->dn_reg));
-		dt_cg_tstring_alloc(yypcb, dnp);
+
+		left_is_tstr = dt_node_is_tstring(dnp->dn_left);
+		rght_is_tstr = dt_node_is_tstring(dnp->dn_right);
+
+		if (left_is_tstr)
+			dnp->dn_tstring = dnp->dn_left->dn_tstring;
+		else if (rght_is_tstr)
+			dnp->dn_tstring = dnp->dn_right->dn_tstring;
+		else
+			dt_cg_tstring_alloc(yypcb, dnp);
 
 		dt_cg_access_dctx(dnp->dn_reg, dlp, drp, DCTX_MEM);
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, dnp->dn_tstring->dn_value));
 
+		emit(dlp,  BPF_BRANCH_REG(BPF_JEQ, dnp->dn_reg, BPF_REG_0, lbl_done));
+
 		dt_cg_memcpy(dlp, drp, dnp->dn_reg, BPF_REG_0,
 			     yypcb->pcb_hdl->dt_options[DTRACEOPT_STRSIZE]);
 
-		emitl(dlp, lbl_null,
+		emitl(dlp, lbl_done,
 			   BPF_NOP());
-		dt_cg_tstring_free(yypcb, dnp->dn_left);
-		dt_cg_tstring_free(yypcb, dnp->dn_right);
+
+		/*
+		 * Free the (possible) tstrings for left and right children.
+		 * If a child is a tstring and that tstring is being reused for
+		 * the ternary value, simply set dn_tstring to NULL.  Otherwise
+		 * truly free it.
+		 */
+		if (left_is_tstr) {
+			if (dnp->dn_tstring != dnp->dn_left->dn_tstring)
+				dt_cg_tstring_free(yypcb, dnp->dn_left);
+			else
+				dnp->dn_left->dn_tstring = NULL;
+		}
+		if (rght_is_tstr) {
+			if (dnp->dn_tstring != dnp->dn_right->dn_tstring)
+				dt_cg_tstring_free(yypcb, dnp->dn_right);
+			else
+				dnp->dn_right->dn_tstring = NULL;
+		}
 	}
 }
 
