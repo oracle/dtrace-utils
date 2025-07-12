@@ -855,16 +855,26 @@ dt_cg_tramp_map_args(dt_pcb_t *pcb, dt_argdesc_t *args, size_t nargs)
 }
 
 typedef struct {
-	dt_irlist_t	*dlp;
-	dt_activity_t	act;
-	uint_t		lbl_exit;
+	const dt_probe_t	*prp;
+	dt_irlist_t		*dlp;
+	dt_activity_t		act;
+	uint_t			lbl_exit;
 } dt_clause_arg_t;
 
 static int
 dt_cg_call_clause(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, dt_clause_arg_t *arg)
 {
-	dt_irlist_t	*dlp = arg->dlp;
-	dt_ident_t	*idp = sdp->dtsd_clause;
+	const dt_probe_t	*prp = arg->prp;
+	dt_irlist_t		*dlp = arg->dlp;
+	dt_ident_t		*idp = sdp->dtsd_clause;
+
+	/*
+	 * Ensure the clause is valid for the probe.  Call the reject_clause()
+	 * hook if defined.  Rejection of the clause must be reported as a
+	 * compilation error.
+	 */
+	if (prp->prov->impl->reject_clause != NULL)
+		prp->prov->impl->reject_clause(prp, sdp->dtsd_clauseflags);
 
 	/*
 	 *	if (*dctx.act != act)	// ldw %r0, [%r9 + DCTX_ACT]
@@ -895,7 +905,7 @@ void
 dt_cg_tramp_call_clauses(dt_pcb_t *pcb, const dt_probe_t *prp, dt_activity_t act)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	dt_clause_arg_t	arg = { dlp, act, pcb->pcb_exitlbl };
+	dt_clause_arg_t	arg = { prp, dlp, act, pcb->pcb_exitlbl };
 
 	dt_probe_stmt_iter(pcb->pcb_hdl, prp, (dt_stmt_f *)dt_cg_call_clause, &arg);
 }

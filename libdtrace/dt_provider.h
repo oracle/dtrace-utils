@@ -52,6 +52,8 @@ typedef struct dt_provimpl {
 		       const pid_probespec_t *psp);
 	void (*enable)(dtrace_hdl_t *dtp,	/* enable the given probe */
 		       struct dt_probe *prp);
+	void (*reject_clause)(const struct dt_probe *prp, int clsflags);
+						/* check clause flags */
 	int (*trampoline)(dt_pcb_t *pcb,	/* generate BPF trampoline */
 			   uint_t exitlbl);
 	int (*load_prog)(dtrace_hdl_t *dtp, const struct dt_probe *prp,
