@@ -591,6 +591,150 @@ static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 		free(tpn);
 }
 
+/*
+ * raafbt only:
+ *
+ * Accept all clauses, except those that use the return() action in a function
+ * that does not allow error rejection.
+ */
+#define FUNCS_ALLOW_RETURN	"/sys/kernel/debug/error_injection/list"
+
+typedef struct allowed_fn {
+	const char	*mod;
+	const char	*fun;
+	dt_hentry_t	he;
+} allowed_fun_t;
+
+static uint32_t
+fun_hval(const allowed_fun_t *p)
+{
+	return str2hval(p->fun, p->mod ? str2hval(p->mod, 0) : 0);
+}
+
+static int
+fun_cmp(const allowed_fun_t *p, const allowed_fun_t *q) {
+	int	rc;
+
+	if (p->mod != NULL) {
+		if (q->mod == NULL)
+			return 1;
+		else {
+			rc = strcmp(p->mod, q->mod);
+			if (rc != 0)
+				return rc;
+		}
+	} else if (q->mod != NULL)
+		return -1;
+
+	return strcmp(p->fun, q->fun);
+}
+
+DEFINE_HE_STD_LINK_FUNCS(fun, allowed_fun_t, he)
+
+static void *
+fun_del_entry(allowed_fun_t *head, allowed_fun_t *p)
+{
+	head = fun_del(head, p);
+
+	free((char *)p->mod);
+	free((char *)p->fun);
+	free(p);
+
+	return head;
+}
+
+static dt_htab_ops_t fun_htab_ops = {
+	.hval = (htab_hval_fn)fun_hval,
+	.cmp = (htab_cmp_fn)fun_cmp,
+	.add = (htab_add_fn)fun_add,
+	.del = (htab_del_fn)fun_del_entry,
+	.next = (htab_next_fn)fun_next
+};
+
+static void reject_clause(const dt_probe_t *prp, int clsflags)
+{
+	dt_htab_t	*atab = prp->prov->prv_data;
+	allowed_fun_t	tmpl;
+
+	/* If the clause does not have a return() action, allow it. */
+	if (!(clsflags & DT_CLSFLAG_RETURN))
+		return;
+
+	/*
+	 * At this point, if anything fails, we reject the clause.
+	 *
+	 * If the htab of allowed functions for return() does not exist yet,
+	 * create it.
+	 */
+	if (atab == NULL) {
+		FILE		*f;
+		char		*buf = NULL;
+		size_t		len = 0;
+		allowed_fun_t	*entry;
+
+		atab = dt_htab_create(&fun_htab_ops);
+		if (atab == NULL)
+			goto reject;
+
+		prp->prov->prv_data = atab;
+
+		f = fopen(FUNCS_ALLOW_RETURN, "r");
+		if (f == NULL)
+			goto reject;
+
+		while (getline(&buf, &len, f) >= 0) {
+			char	*p;
+
+			entry = (allowed_fun_t *)malloc(sizeof(allowed_fun_t));
+			if (entry == NULL)
+				break;
+
+			p = strchr(buf, ' ');
+			if (p == NULL)
+				p = strchr(buf, '\t');
+
+			if (p) {
+				*p++ = '\0';
+				if (*p == '[') {
+					char	*q;
+
+					p++;
+					q = strchr(p, ']');
+					if (q)
+						*q = '\0';
+				} else
+					p = NULL;
+			}
+
+			entry->fun = strdup(buf);
+			entry->mod = p != NULL ? strdup(p) : NULL;
+
+			if (dt_htab_insert(atab, entry) < 0)
+				goto reject;
+		}
+
+		free(buf);
+		fclose(f);
+	}
+
+	/*
+	 * If <mod>:<fun> is found, we allow the clause.
+	 * If :<fun> is found, we allow the clause.
+	 */
+	tmpl.mod = prp->desc->mod;
+	tmpl.fun = prp->desc->fun;
+	if (dt_htab_lookup(atab, &tmpl) != NULL)
+		return;
+
+	tmpl.mod = NULL;
+	if (dt_htab_lookup(atab, &tmpl) != NULL)
+		return;
+
+reject:
+	xyerror(D_ACT_RETURN, "return() not allowed for %s:%s:%s:%s\n",
+		prp->desc->prv, prp->desc->mod, prp->desc->fun, prp->desc->prb);
+}
+
 dt_provimpl_t	dt_fbt_fprobe = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_TRACING,
@@ -628,6 +772,7 @@ dt_provimpl_t	dt_rawfbt = {
 	.populate	= &populate,
 	.provide	= &provide,
 	.load_prog	= &dt_bpf_prog_load,
+	.reject_clause	= &reject_clause,
 	.trampoline	= &kprobe_trampoline,
 	.attach		= &kprobe_attach,
 	.detach		= &kprobe_detach,
