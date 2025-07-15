@@ -220,6 +220,7 @@ systemctl start dtprobed || :
 %files devel
 %defattr(-,root,root,-)
 %{_libdir}/libdtrace.so
+%{_includedir}/dtrace
 %{_includedir}/dtrace.h
 %{_includedir}/sys/dtrace.h
 %{_includedir}/sys/dtrace_types.h
