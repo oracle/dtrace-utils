@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -2927,10 +2927,26 @@ Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 	int fd;
 
 	/*
-	 * If this is a system running systemd, or we don't know yet, dig out
-	 * the systemd cgroup line from /proc/$pid/cgroup.
+	 * If we don't know if this systemd is running systemd, find out.
 	 */
-	if (systemd_system != 0) {
+	if (systemd_system < 0) {
+		struct stat st;
+
+		if (stat("/run/systemd/system", &st) < 0 ||
+		    !S_ISDIR(st.st_mode))
+			systemd_system = 0;
+		else
+			systemd_system = 1;
+		_dprintf("systemd system.\n");
+	}
+
+	/*
+	 * If this is a system running systemd, dig out the systemd cgroup line
+	 * from /proc/$pid/cgroup.
+	 */
+	if (systemd_system) {
+		int found = 0;
+
 		snprintf(procname, sizeof(procname), "%s/%d/cgroup",
 		    procfs_path, pid);
 
@@ -2941,47 +2957,70 @@ Psystem_daemon(pid_t pid, uid_t useruid, const char *sysslice)
 		}
 
 		while (getline(&buf, &n, fp) >= 0) {
+			/*
+			 * cgroups v2: only one line, 0::-prepended, slice
+			 * name always on that line.
+			 */
+
+			if (strncmp(buf, "0::", strlen ("0::")) == 0 &&
+			    strstr(buf, ".slice/") != NULL) {
+				found = 1;
+				break;
+			}
+
+			/*
+			 * cgroups v1: find the line with the name=systemd
+			 * controller notation.
+			 */
 			if (strstr(buf, ":name=systemd:") != NULL) {
-				systemd_system = 1;
+				found = 1;
 				break;
 			}
 		}
 		fclose(fp);
-		if (systemd_system < 0)
-			systemd_system = 0;
-	}
 
-	/*
-	 * We have the systemd cgroup line in buf.  Look at our slice name.
-	 */
-	if (systemd_system) {
-		char *colon = strchr(buf, ':');
-		if (colon)
-			colon = strchr(colon + 1, ':');
+		/*
+		 * We have our slice's cgroup line in buf.  Extract the slice
+		 * name, skipping over the hierarchy number and controller
+		 * fields.
+		 */
+		if (found) {
+			char *colon = strchr(buf, ':');
+			if (colon)
+				colon = strchr(colon + 1, ':');
 
-		_dprintf("systemd system: sysslice: %s; colon: %s\n",
-		    sysslice, colon ? colon : "(not found)");
-		if (colon &&
-		    (strncmp(colon, sysslice, strlen(sysslice)) == 0)) {
+			_dprintf("systemd system: sysslice: %s; colon: %s\n",
+				 sysslice, colon ? colon : "(not found)");
+			if (colon &&
+			    (strncmp(colon, sysslice, strlen(sysslice)) == 0)) {
+				free(buf);
+				_dprintf("%i is a system daemon process.\n", pid);
+				return 1;
+			}
 			free(buf);
-			_dprintf("%i is a system daemon process.\n", pid);
-			return 1;
+			return 0;
 		}
-		free(buf);
-		return 0;
+		/*
+		 * No idea: this is probably a kernel thread or something
+		 * else entirely outside of systemd management or delegated
+		 * via Delegate=: at any rate, a system daemon.  We can fall
+		 * back to the old mechanism in this situation.
+		 */
+		_dprintf("%i: probably non-systemd: delegated?\n", pid);
 	}
 	free(buf);
 
 	/*
-	 * This is not a systemd system -- we have to guess by looking at the
-	 * process's UID, controlling terminal, and the TTYness and/or location
-	 * of the files pointed to by its stdin/out/err.  (i.e. we first
-	 * consider whether something may be a system daemon by consulting its
-	 * uid range and controlling TTY, then try to rule it out by looking for
-	 * open fds to TTYs and regular files outside particular subtrees.)  (As
-	 * a consequence of these rules, a process with no standard streams at
-	 * all is considered a system daemon -- this is a cheap way of catching
-	 * kernel threads.)
+	 * This is not a systemd system, or we can't extract the relevant
+	 * slice info from it -- we have to guess by looking at the
+	 * process's UID, controlling terminal, and the TTYness and/or
+	 * location of the files pointed to by its stdin/out/err.  (i.e. we
+	 * first consider whether something may be a system daemon by
+	 * consulting its uid range and controlling TTY, then try to rule it
+	 * out by looking for open fds to TTYs and regular files outside
+	 * particular subtrees.)  (As a consequence of these rules, a
+	 * process with no standard streams at all is considered a system
+	 * daemon -- this is a cheap way of catching kernel threads.)
 	 */
 	if ((Puid(pid) > useruid) || Phastty(pid))
 		return 0;
