@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,7 +73,6 @@ int yylex (void);
 %token	DT_KEY_PROVIDER
 %token	DT_KEY_REGISTER
 %token	DT_KEY_RESTRICT
-%token	DT_KEY_RETURN
 %token	DT_KEY_SELF
 %token	DT_KEY_SHORT
 %token	DT_KEY_SIGNED

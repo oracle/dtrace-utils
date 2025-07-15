@@ -550,8 +550,9 @@ struct dtrace_hdl {
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
 #define	DT_ACT_PCAP		DT_ACT(29)	/* pcap() action */
 #define	DT_ACT_PRINT		DT_ACT(30)	/* print() action */
+#define	DT_ACT_RETURN		DT_ACT(31)	/* return() action */
 
-#define DT_ACT_MAX		31
+#define DT_ACT_MAX		32
 
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not

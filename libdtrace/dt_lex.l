@@ -1,7 +1,7 @@
 %{
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -104,7 +104,6 @@ if (yypcb->pcb_token != 0) {
 <S0>provider	return DT_KEY_PROVIDER;
 <S0>register	return DT_KEY_REGISTER;
 <S0>restrict	return DT_KEY_RESTRICT;
-<S0>return	return DT_KEY_RETURN;
 <S0>self	return DT_KEY_SELF;
 <S0>short	return DT_KEY_SHORT;
 <S0>signed	return DT_KEY_SIGNED;

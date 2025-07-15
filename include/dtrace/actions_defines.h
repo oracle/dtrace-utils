@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -51,6 +51,7 @@
 #define DTRACEACT_RAISE			(DTRACEACT_PROC_DESTRUCTIVE + 2)
 #define DTRACEACT_SYSTEM		(DTRACEACT_PROC_DESTRUCTIVE + 3)
 #define DTRACEACT_FREOPEN		(DTRACEACT_PROC_DESTRUCTIVE + 4)
+#define DTRACEACT_RETURN		(DTRACEACT_PROC_DESTRUCTIVE + 5)
 
 #define DTRACEACT_PROC_CONTROL		0x0300
 

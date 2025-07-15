@@ -2893,6 +2893,25 @@ dt_cg_act_print(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_free(drp, BPF_REG_0);
 }
 
+static void
+dt_cg_act_return(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	dt_regset_t	*drp = pcb->pcb_regs;
+
+	dt_cg_node(dnp->dn_args, &pcb->pcb_ir, pcb->pcb_regs);
+
+	if (dt_regset_xalloc_args(drp) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_FP, DT_STK_DCTX));
+	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_1, DCTX_CTX));
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, dnp->dn_args->dn_reg));
+	dt_regset_xalloc(drp, BPF_REG_0);
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_override_return));
+	dt_regset_free_args(drp);
+	dt_regset_free(drp, BPF_REG_0);
+}
+
 typedef void dt_cg_action_f(dt_pcb_t *, dt_node_t *, dtrace_actkind_t);
 
 typedef struct dt_cg_actdesc {
@@ -2951,6 +2970,8 @@ static const dt_cg_actdesc_t _dt_cg_actions[DT_ACT_MAX] = {
 	[DT_ACT_IDX(DT_ACT_SETOPT)]		= { &dt_cg_act_setopt, },
 	[DT_ACT_IDX(DT_ACT_PCAP)]		= { &dt_cg_act_pcap, },
 	[DT_ACT_IDX(DT_ACT_PRINT)]		= { &dt_cg_act_print, },
+	[DT_ACT_IDX(DT_ACT_RETURN)]		= { &dt_cg_act_return,
+						    DTRACEACT_RETURN },
 };
 
 dt_irnode_t *
