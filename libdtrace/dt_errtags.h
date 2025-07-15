@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -158,6 +158,7 @@ typedef enum {
 	D_AGG_NULL,			/* aggregation stmt has null effect */
 	D_AGG_SCALAR,			/* aggregating function needs scalar */
 	D_ACT_SPEC,			/* destructive action after speculate */
+	D_ACT_RETURN,			/* return() not allowed for ... */
 	D_EXIT_SPEC,			/* exit() action after speculate */
 	D_DREC_COMM,			/* data action after commit() */
 	D_PRINTA_PROTO,			/* printa() prototype mismatch */

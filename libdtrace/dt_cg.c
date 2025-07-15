@@ -870,11 +870,15 @@ dt_cg_call_clause(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, dt_clause_arg_t *ar
 
 	/*
 	 * Ensure the clause is valid for the probe.  Call the reject_clause()
-	 * hook if defined.  Rejection of the clause must be reported as a
-	 * compilation error.
+	 * hook if defined, otherwise apply default checks.  Rejection of the
+	 * clause must be reported as a compilation error.
 	 */
 	if (prp->prov->impl->reject_clause != NULL)
 		prp->prov->impl->reject_clause(prp, sdp->dtsd_clauseflags);
+	else if (sdp->dtsd_clauseflags & DT_CLSFLAG_RETURN)
+		xyerror(D_ACT_RETURN, "return() not allowed for %s:%s:%s:%s\n",
+			prp->desc->prv, prp->desc->mod, prp->desc->fun,
+			prp->desc->prb);
 
 	/*
 	 *	if (*dctx.act != act)	// ldw %r0, [%r9 + DCTX_ACT]
@@ -1810,8 +1814,12 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 {
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
 
-	if (DTRACEACT_ISDESTRUCTIVE(kind))
+	if (DTRACEACT_ISDESTRUCTIVE(kind)) {
 		*cfp |= DT_CLSFLAG_DESTRUCT;
+
+		if (kind == DTRACEACT_RETURN)
+			*cfp |= DT_CLSFLAG_RETURN;
+	}
 
 	if (kind == DTRACEACT_COMMIT) {
 		if (*cfp & (DT_CLSFLAG_DATAREC | DT_CLSFLAG_AGGREGATION))

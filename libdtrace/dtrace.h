@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -154,15 +154,16 @@ typedef struct dtrace_stmtdesc {
 } dtrace_stmtdesc_t;
 
 /* dtsd clause flags */
-#define DT_CLSFLAG_DATAREC		1	/* data-recording */
-#define DT_CLSFLAG_SPECULATE		2	/* speculate */
-#define DT_CLSFLAG_COMMIT		4	/* commit */
-#define DT_CLSFLAG_COMMIT_DISCARD	8	/* commit/discard */
-#define DT_CLSFLAG_EXIT			16	/* exit */
-#define DT_CLSFLAG_DESTRUCT		32	/* destructive */
-#define DT_CLSFLAG_AGGREGATION		64	/* aggregation */
-#define DT_CLSFLAG_USDT_INCLUDE		128	/* could be used in USDT clause */
-#define DT_CLSFLAG_USDT_EXCLUDE		256	/* could not be used in USDT clause */
+#define DT_CLSFLAG_DATAREC		0x0001	/* data-recording */
+#define DT_CLSFLAG_SPECULATE		0x0002	/* speculate */
+#define DT_CLSFLAG_COMMIT		0x0004	/* commit */
+#define DT_CLSFLAG_COMMIT_DISCARD	0x0008	/* commit/discard */
+#define DT_CLSFLAG_EXIT			0x0010	/* exit */
+#define DT_CLSFLAG_DESTRUCT		0x0020	/* destructive */
+#define DT_CLSFLAG_RETURN		0x0040	/* aggregation */
+#define DT_CLSFLAG_AGGREGATION		0x0080	/* return action */
+#define DT_CLSFLAG_USDT_INCLUDE		0x0100	/* could be used in USDT clause */
+#define DT_CLSFLAG_USDT_EXCLUDE		0x0200	/* could not be used in USDT clause */
 
 typedef int dtrace_stmt_f(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *sdp, void *data);
