@@ -105,7 +105,7 @@ typedef struct dt_node {
 #define	dn_expr		dn_u._nodes._links[2]	/* DT_NODE_OP3, DEXPR */
 #define	dn_aggfun	dn_u._nodes._links[0]	/* DT_NODE_AGG */
 #define	dn_aggtup	dn_u._nodes._links[1]	/* DT_NODE_AGG */
-#define	dn_tstring	dn_u._nodes._links[3]	/* FUNC, OP1, OP2, OP3, DEXPR */
+#define	dn_tstring	dn_u._nodes._links[3]	/* FUNC,OP1,OP2,OP3,DEXPR,VAR */
 #define	dn_pdescs	dn_u._clause._descs	/* DT_NODE_CLAUSE */
 #define	dn_pred		dn_u._clause._pred	/* DT_NODE_CLAUSE */
 #define	dn_acts		dn_u._clause._acts	/* DT_NODE_CLAUSE */

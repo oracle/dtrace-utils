@@ -1238,6 +1238,7 @@ dt_node_is_tstring(const dt_node_t *dnp)
 	case DT_NODE_OP2:
 	case DT_NODE_OP3:
 	case DT_NODE_DEXPR:
+	case DT_NODE_VAR:
 		return dnp->dn_tstring != NULL;
 	}
 }

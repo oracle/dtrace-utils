@@ -4999,12 +4999,6 @@ dt_cg_asgn_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		idp = dt_ident_resolve(dnp->dn_left->dn_ident);
 
 		dt_cg_store_var(dnp, dlp, drp, idp);
-
-		/*
-		 * Move the (possibly) tstring from dn_right to the op node.
-		 */
-		dnp->dn_tstring = dnp->dn_right->dn_tstring;
-		dnp->dn_right->dn_tstring = NULL;
 	} else {
 		uint_t rbit = dnp->dn_left->dn_flags & DT_NF_REF;
 
@@ -5952,6 +5946,7 @@ dt_cg_subr_bcopy_impl(dt_node_t *dnp, dt_node_t *dst, dt_node_t *src,
 	dt_regset_free(drp, src->dn_reg);
 	dt_regset_free(drp, dst->dn_reg);
 	dt_regset_free(drp, size->dn_reg);
+	dt_cg_tstring_free(yypcb, src);
 
 	TRACE_REGSET("      subr-bcopy-impl:End  ");
 }
@@ -6990,6 +6985,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(dnp->dn_right, dlp, drp);
 		dnp->dn_reg = dnp->dn_right->dn_reg;
 		dt_cg_asgn_op(dnp, dlp, drp);
+		dt_cg_tstring_free(yypcb, dnp->dn_right);
 		break;
 
 	case DT_TOK_ADD_EQ:
@@ -7223,6 +7219,9 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_cg_node(dnp->dn_child, dlp, drp);
 		dt_cg_check_notnull(dlp, drp, dnp->dn_child->dn_reg);
 		dnp->dn_reg = dnp->dn_child->dn_reg;
+		/* Move the tstring (if any) to the result. */
+		dnp->dn_tstring = dnp->dn_child->dn_tstring;
+		dnp->dn_child->dn_tstring = NULL;
 		break;
 
 	case DT_TOK_XLATE:
