@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -130,10 +130,10 @@ translator devinfo_t < struct bio *B > {
 	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__bio_part_dev);
 	dev_instance = 0;
 	dev_name = B->__disk_chk == NULL
-			? "nfs"
-			: stringof(((struct blk_major_name **)`major_names)[
-					getmajor(B->__bio_part_dev) % 255
-				   ]->name);
+		? "nfs"
+		: stringof(((struct blk_major_name **)vmlinux`major_names)[
+				getmajor(B->__bio_part_dev) % 255
+			   ]->name);
 	dev_statname = B->__disk_chk == NULL ? "nfs" :
 	    (B->__bio_partno) == 0 ? stringof(B->__disk->disk_name) :
 	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__bio_partno));
