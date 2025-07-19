@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 ##
 #
-# ASSERTION: Built-in variables should not displayed with an offset
+# ASSERTION: Built-in variables should not be displayed with an offset
 #
 # SECTION: Variables/Scalar Variables
 #
@@ -32,7 +32,6 @@ sdt:task::task_rename
 	trace(args[0]);
 	trace(args[1]);
 	trace(args[2]);
-	trace(args[3]);
 	trace(caller);
 	trace(curcpu);
 	trace(curthread);
@@ -60,13 +59,14 @@ sdt:task::task_rename
 	exit(0);
 }
 ' 2>&1 | gawk '
+{ print; }
 BEGIN {
 	rc = 1;
 }
 
 /^NAME/ && /KND SCP/ {
 	printf "%-16s %-6s %-3s %-3s %-4s %s\n",
-	       "NAME", "OFFSET", "KND", "SCP","FLAG", "TYPE";
+	       "NAME", "OFFSET", "KND", "SCP", "FLAG", "TYPE";
 	while (getline == 1 && NF > 0) {
 		if ($3 == "scl" || $3 == "arr") {
 			$2 = $5 = "";
