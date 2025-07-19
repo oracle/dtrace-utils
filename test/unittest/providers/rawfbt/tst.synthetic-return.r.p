@@ -1,3 +1,1 @@
-#!/bin/sh
-
-uniq
+tst.synthetic-entry.r.p

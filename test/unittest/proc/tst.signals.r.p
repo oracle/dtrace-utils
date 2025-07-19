@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Eliminate blank lines and the monitor messages emitted by bash.
 # (Turning off monitor mode should quash these, but it doesn't seem

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # A pid entry probe places a uprobe on the first instruction of a function.
 # Unfortunately, this is so early in the function preamble that the function
