@@ -35,6 +35,7 @@ int yydebug;
  * S2 - D program outer scope (probe specifiers and declarations)
  * S3 - D control line parsing (i.e. after ^# is seen but before \n)
  * S4 - D control line scan (locate control directives only and invoke S3)
+ * S5 - D line comments (i.e. skip everything until end of line)
  * SIDENT - identifiers and comments only (after -> and .).  (We switch to
  *          SIDENT only from state S0: changing this would require new code
  *          to track the state to switch back to.)
@@ -46,7 +47,7 @@ int yydebug;
 %n 600		/* maximum states */
 %option yylineno
 
-%s S0 S1 S2 S3 S4 SIDENT
+%s S0 S1 S2 S3 S4 S5 SIDENT
 
 RGX_AGG		"@"[a-zA-Z_][0-9a-zA-Z_]*
 RGX_PSPEC	[-$:a-zA-Z_.?*\\\[\]!][-$:0-9a-zA-Z_.`?*\\\[\]!]*
@@ -408,6 +409,11 @@ if (yypcb->pcb_token != 0) {
 			BEGIN(S1);
 		}
 
+<S0,S2,SIDENT>"//"	{
+			yypcb->pcb_cstate = (YYSTATE);
+			BEGIN(S5);
+		}
+
 <S0>^{RGX_INTERP} |
 <S2>^{RGX_INTERP} ;	/* discard any #! lines */
 
@@ -547,6 +553,9 @@ if (yypcb->pcb_token != 0) {
 <S1>"*/"	BEGIN(yypcb->pcb_cstate);
 <S1>.|\n	; /* discard */
 <S1><<EOF>>	yyerror("end-of-file encountered before matching */\n");
+
+<S5>\n		BEGIN(yypcb->pcb_cstate);
+<S5>.		; /* discard */
 
 <S2>{RGX_PSPEC}	{
 			/*
