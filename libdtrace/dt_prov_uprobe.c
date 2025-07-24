@@ -609,32 +609,40 @@ static int add_probe_uprobe(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	/* Make program. */
 	dp = dt_construct(dtp, prp, cflags, NULL);
 	if (dp == NULL)
-		return 0;        // FIXME in dt_bpf_make_progs() this is a fatal error; should we do the same here?
+		return 0;
 	prp->difo = dp;
 
 	/* Load program. */
 	if (dt_link(dtp, prp, dp, NULL) == -1)
-		return 0;        // FIXME in dt_bpf_load_progs() this is a fatal error; should we do the same here?
+		goto fail;
 
 	dtrace_getopt(dtp, "destructive", &dest_ok);
 	if (dp->dtdo_flags & DIFOFLG_DESTRUCTIVE &&
-	    dest_ok == DTRACEOPT_UNSET)
-		return dt_set_errno(dtp, EDT_DESTRUCTIVE);
+	    dest_ok == DTRACEOPT_UNSET) {
+		dt_set_errno(dtp, EDT_DESTRUCTIVE);
+		goto fail;
+	}
 
 	fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
 	if (fd == -1)
-		return 0;        // FIXME in dt_bpf_load_progs() this is a fatal error; should we do the same here?
+		goto fail;
 
 	if (prp->prov->impl->attach)
 		rc = prp->prov->impl->attach(dtp, prp, fd);
 
 	if (rc < 0) {
 		close(fd);
-		return dt_attach_error(dtp, rc, prp->desc->prv, prp->desc->mod,
-						prp->desc->fun, prp->desc->prb);
+		dt_attach_error(dtp, rc, prp->desc->prv, prp->desc->mod,
+					 prp->desc->fun, prp->desc->prb);
+		goto fail;
 	}
 
 	return 0;
+
+fail:
+	dt_difo_free(dtp, prp->difo);
+	prp->difo = NULL;
+	return 0;	// FIXME in dt_bpf_make_progs() this is a fatal error; should we do the same here?
 }
 
 static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)

@@ -1339,6 +1339,7 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	 */
 	dtrace_getopt(dtp, "destructive", &dest_ok);
 
+	dp = NULL;
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
 		int		fd;
@@ -1353,28 +1354,39 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 			continue;
 
 		if (dt_link(dtp, prp, dp, NULL) == -1)
-			return -1;
+			goto fail;
 
 		DT_DISASM_PROG_LINKED(dtp, cflags, dp, stderr, NULL, prp->desc);
 
 		if (dp->dtdo_flags & DIFOFLG_DESTRUCTIVE &&
-		    dest_ok == DTRACEOPT_UNSET)
-			return dt_set_errno(dtp, EDT_DESTRUCTIVE);
+		    dest_ok == DTRACEOPT_UNSET) {
+			dt_set_errno(dtp, EDT_DESTRUCTIVE);
+			goto fail;
+		}
 
 		fd = dt_bpf_load_prog(dtp, prp, dp, cflags);
 		if (fd == -1)
-			return -1;
+			goto fail;
 
 		if (prp->prov->impl->attach)
 			rc = prp->prov->impl->attach(dtp, prp, fd);
 
 		if (rc < 0) {
 			close(fd);
-			return dt_attach_error(dtp, rc,
-					       prp->desc->prv, prp->desc->mod,
-					       prp->desc->fun, prp->desc->prb);
+			dt_attach_error(dtp, rc,
+					prp->desc->prv, prp->desc->mod,
+					prp->desc->fun, prp->desc->prb);
+			goto fail;
 		}
+
+		dt_difo_free(dtp, prp->difo);
+		prp->difo = NULL;
 	}
 
 	return 0;
+
+fail:
+	dt_difo_free(dtp, prp->difo);
+	prp->difo = NULL;
+	return -1;
 }
