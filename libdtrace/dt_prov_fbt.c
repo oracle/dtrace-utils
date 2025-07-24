@@ -350,8 +350,7 @@ static int fprobe_probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (dmp == NULL)
 		goto done;
 
-	btf_id = dt_btf_lookup_name_kind(dtp, dmp->dm_btf, desc->fun,
-					 BTF_KIND_FUNC);
+	btf_id = dt_btf_lookup_name_kind(dtp, dmp, desc->fun, BTF_KIND_FUNC);
 	if (btf_id <= 0)
 		goto done;
 

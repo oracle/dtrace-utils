@@ -523,7 +523,7 @@ dt_bpf_init_features(dtrace_hdl_t *dtp)
 {
 	uint32_t	btf_id;
 
-	btf_id = dt_btf_lookup_name_kind(dtp, dtp->dt_shared_btf,
+	btf_id = dt_btf_lookup_name_kind(dtp, dtp->dt_exec,
 					 "bpf_get_btf_vmlinux", BTF_KIND_FUNC);
 	if (btf_id >= 0 &&
 	    have_attach_type(BPF_PROG_TYPE_TRACING, BPF_TRACE_FENTRY, btf_id))

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -867,29 +867,32 @@ ok:
 }
 
 int32_t
-dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
+dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_module_t *dmp, const char *name,
 			uint32_t kind)
 {
-	int32_t	i, base = 0;
+	dt_btf_t	*btf = dmp->dm_btf;
+	int32_t		i, base = 0;
 
 	if (kind == BTF_KIND_UNKN)
 		return -ENOENT;
 	if (strcmp(name, "void") == 0)
 		return 0;
 
-	/*
-	 * Ensure the shared BTF is loaded, and if no BTF is given, use the
-	 * shared one.
-	 */
-	 if (!dtp->dt_shared_btf) {
-		  dt_btf_load_module(dtp, dtp->dt_exec);
+	/* Ensure the shared BTF is loaded. */
+	if (!dtp->dt_shared_btf)
+		dt_btf_load_module(dtp, dtp->dt_exec);
 
-		  if (!btf)
-			   btf = dtp->dt_shared_btf;
-	 }
+	/* If the module does not have BTF data yet, try to load it. */
+	if (!btf) {
+		btf = dt_btf_load_module(dtp, dmp);
 
-	 if (!btf)
-		  return -ENOENT;
+		/* If no BTF module data was found, use the shared BTF. */
+		if (!btf)
+			btf = dtp->dt_shared_btf;
+
+		if (!btf)
+			return -ENOENT;
+	}
 
 	/*
 	 * Any module other than 'vmlinux' inherits the types from 'vmlinux'.
@@ -915,8 +918,7 @@ dt_btf_lookup_name_kind(dtrace_hdl_t *dtp, dt_btf_t *btf, const char *name,
 	}
 
 	if (base > 0)
-		return dt_btf_lookup_name_kind(dtp, dtp->dt_shared_btf,
-					       name, kind);
+		return dt_btf_lookup_name_kind(dtp, dtp->dt_exec, name, kind);
 
 	return -ENOENT;
 }
