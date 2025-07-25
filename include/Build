@@ -1,12 +1,21 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2015, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2015, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
 dt_include_DIR := $(current-dir)
+
+# Header files that are needed for consumer development.
+
+DTRACE_HEADERS_INSTALL := $(notdir $(wildcard $(dt_include_DIR)/dtrace/*.h))
 
 $(objdir)/dt_git_version.h: $(dt_include_DIR)/dt_git_version.h.in .git-version
 	sed 's,@GIT-VERSION@,'"`cat .git-version`", < $(dt_include_DIR)/dt_git_version.h.in > $(objdir)/dt_git_version.h
 
 $(objdir)/include/bpf_asm_helpers.h: /usr/include/bpf/bpf_helper_defs.h $(objdir)/include/.dir.stamp
 	./include/mkHelpers $< > $@
+
+install::
+	mkdir -p $(INSTINCLUDEDIR)/dtrace
+	$(call describe-install-target,$(INSTINCLUDEDIR)/dtrace,$(notdir $(DTRACE_HEADERS_INSTALL)))
+	cd $(dt_include_DIR)/dtrace && install -m 644 $(DTRACE_HEADERS_INSTALL) $(INSTINCLUDEDIR)/dtrace
