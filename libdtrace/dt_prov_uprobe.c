@@ -283,6 +283,7 @@ typedef struct dt_uprobe {
 	char		*fn;		/* object full file name */
 	char		*func;		/* function */
 	uint64_t	off;
+	uint64_t	refcntr_off;	/* optional reference counter offset */
 	int		flags;
 	tp_probe_t	*tp;
 	int		argc;		/* number of args */
@@ -313,12 +314,15 @@ static const dtrace_pattr_t	pattr = {
 
 dt_provimpl_t	dt_pid;
 dt_provimpl_t	dt_usdt;
+dt_provimpl_t	dt_stapsdt;
 
 static int populate(dtrace_hdl_t *dtp)
 {
 	if (dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr,
 			       NULL) == NULL ||
 	    dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr,
+			       NULL) == NULL ||
+	    dt_provider_create(dtp, dt_stapsdt.name, &dt_stapsdt, &pattr,
 			       NULL) == NULL)
 		return -1;			/* errno already set */
 
@@ -477,8 +481,8 @@ clean_usdt_probes(dtrace_hdl_t *dtp)
 
 		prp_next = dt_list_next(prp);
 
-		/* Make sure it is an overlying USDT probe. */
-		if (prp->prov->impl != &dt_usdt)
+		/* Make sure it is an overlying USDT, stapsdt probe. */
+		if (prp->prov->impl != &dt_usdt && prp->prov->impl != &dt_stapsdt)
 			continue;
 
 		/* FIXME passing in NULL pcb and dpr wreaks havoc on error reporting? */
@@ -651,6 +655,7 @@ fail:
 	return 0;	// FIXME in dt_bpf_make_progs() this is a fatal error; should we do the same here?
 }
 
+/* shared between usdt, stapsdt probes */
 static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	char				probnam[DTRACE_FULLNAMELEN], *p;
@@ -900,6 +905,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	case DTPPT_OFFSETS:
 	case DTPPT_ABSOFFSETS:
 	case DTPPT_USDT:
+	case DTPPT_STAPSDT:
 		snprintf(prb, sizeof(prb), "%lx", psp->pps_off);
 		break;
 	default:
@@ -914,7 +920,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	pd.prb = prb;
 
 	dt_dprintf("Providing underlying probe %s:%s:%s:%s @ %lx\n", psp->pps_prv,
-		   psp->pps_mod, psp->pps_fn, psp->pps_prb, psp->pps_off);
+		   psp->pps_mod, psp->pps_fun, psp->pps_prb, psp->pps_off);
 	uprp = dt_probe_lookup(dtp, &pd);
 	if (uprp == NULL) {
 		dt_provider_t	*pvp;
@@ -932,6 +938,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		upp->dev = psp->pps_dev;
 		upp->inum = psp->pps_inum;
 		upp->off = psp->pps_off;
+		upp->refcntr_off = psp->pps_refcntr_off;
 		upp->fn = strdup(psp->pps_fn);
 		upp->func = NULL;
 		upp->tp = dt_tp_alloc(dtp);
@@ -961,8 +968,6 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	if (psp->pps_type != DTPPT_RETURN) {
 		if (upp->func == NULL)
 			upp->func = strdup(psp->pps_fun);
-		else
-			assert(strcmp(upp->func, psp->pps_fun) == 0);
 	}
 
 	switch (psp->pps_type) {
@@ -1118,11 +1123,24 @@ static int provide_usdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 	return provide_probe(dtp, psp, psp->pps_prb, &dt_usdt, PP_IS_FUNCALL);
 }
 
+static int provide_stapsdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
+{
+	if (psp->pps_type != DTPPT_STAPSDT &&
+	    psp->pps_type != DTPPT_IS_ENABLED) {
+		dt_dprintf("pid: unknown stapsdt probe type %i\n", psp->pps_type);
+		return -1;
+	}
+
+	return provide_probe(dtp, psp, psp->pps_prb, &dt_stapsdt, PP_IS_FUNCALL);
+}
+
+
 static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp, int is_usdt)
 {
 	const list_probe_t	*pup;
 
-	assert(prp->prov->impl == &dt_pid || prp->prov->impl == &dt_usdt);
+	assert(prp->prov->impl == &dt_pid || prp->prov->impl == &dt_usdt ||
+	       prp->prov->impl == &dt_stapsdt);
 
 	/*
 	 * We need to enable the underlying probes (if not enabled yet).
@@ -1150,6 +1168,11 @@ static void enable_pid(dtrace_hdl_t *dtp, dt_probe_t *prp)
  * USDT enabling has to enable any is-enabled probes as well.
  */
 static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	enable(dtp, prp, 1);
+}
+
+static void enable_stapsdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	enable(dtp, prp, 1);
 }
@@ -1661,17 +1684,25 @@ static char *uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int flags)
  * Create a uprobe for a given dev/ino, mapping filename, and address: the
  * uprobe may be a uretprobe.  Return the probe's name as
  * a new dynamically-allocated string, or NULL on error.
+ *
+ * An optional refcntr_off - used by stapsdt probes to identify semaphore
+ * address - can also be supplied.
  */
 static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
-			   uint64_t addr, int flags)
+			   uint64_t addr, uint64_t refcntr_off, int flags)
 {
 	int	fd = -1;
 	int	rc = -1;
 	char	*name;
 	char	*spec;
 
-	if (asprintf(&spec, "%s:0x%lx", mapping_fn, addr) < 0)
-		return NULL;
+	if (refcntr_off) {
+		if (asprintf(&spec, "%s:0x%lx(0x%lx)", mapping_fn, addr, refcntr_off) < 0)
+			return NULL;
+	} else {
+		if (asprintf(&spec, "%s:0x%lx", mapping_fn, addr) < 0)
+			return NULL;
+	}
 
 	name = uprobe_name(dev, ino, addr, flags);
 	if (!name)
@@ -1710,7 +1741,7 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 	assert(upp->fn != NULL);
 
 	prb = uprobe_create(upp->dev, upp->inum, upp->fn, upp->off,
-			    upp->flags);
+			    upp->refcntr_off, upp->flags);
 
 	/*
 	 * If the uprobe creation failed, it is possible it already
@@ -1788,6 +1819,106 @@ oom:
 	}
 
 	dt_free(dtp, argv);
+	return dt_set_errno(dtp, EDT_NOMEM);
+}
+
+/*
+ * Return a representative datatype for an stapsdt argument.
+ * If 'ssize' is negative, the datatype is signed.  The absolute value gives
+ * the type size in bytes.
+ */
+static char *staptype(int ssize)
+{
+	int	rc, sign = 0;
+	char	*s;
+
+	if (ssize < 0) {
+		sign = 1;
+		ssize = -ssize;
+	}
+
+	switch (ssize) {
+	case 1:
+	case 2:
+		break;
+	case 3: case 4:
+		ssize = 4;
+		break;
+	default:
+		ssize = 8;
+		break;
+	}
+
+	rc = asprintf(&s, sign ? "int%d_t" : "uint%d_t", ssize * 8);
+
+	return rc == -1 ? NULL : s;
+}
+
+static int probe_info_stap(dtrace_hdl_t *dtp, const dt_probe_t *prp,
+			   int *argcp, dt_argdesc_t **argvp)
+{
+	int		i, j;
+	char		*p;
+	list_probe_t	*pup = prp->prv_data;
+	dt_uprobe_t	*upp;
+	size_t		argc = 0;
+	dt_argdesc_t	*argv = NULL;
+
+	/* No underlying probes?  No args.  */
+	if (!pup)
+		goto done;
+
+	upp = pup->probe->prv_data;
+	if (!upp || upp->sargv == NULL)
+		goto done;
+
+	/* First count the arguments. */
+	for (p = upp->sargv; p != NULL; argc++) {
+		p = strchr(p, '@');
+		if (p++ == NULL)
+			break;
+	}
+
+	/* Record number of arguments, and allocate descriptors. */
+	upp->sargc = argc;
+	if (argc == 0)
+		goto done;
+
+	argv = dt_calloc(dtp, argc, sizeof(dt_argdesc_t));
+	if (argv == NULL)
+		return dt_set_errno(dtp, EDT_NOMEM);
+
+	/* Fill in argument data. */
+	for (i = 0, p = upp->sargv; i < argc; i++) {
+		char	*q, *r, *type;
+
+		q = r = strchr(p, '@');
+		for (q--; q >= p && (*q == '-' || isdigit(*q)); q--) ;
+		if (q < p)
+			q = p;
+
+		type = staptype(atoi(q));
+		if (type == NULL)
+			goto oom;
+
+		argv[i].native = type;
+		argv[i].mapping = i;
+
+		p = r + 1;
+	}
+
+done:
+	*argcp = argc;
+	*argvp = argv;
+
+	return 0;
+oom:
+
+	for (j = 0; j <= i; j++)
+		free((char *) argv[i].native);
+
+	dt_free(dtp, argv);
+
 	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
@@ -1882,5 +2013,18 @@ dt_provimpl_t	dt_usdt = {
 	.probe_info	= &probe_info,
 	.probe_destroy	= &probe_destroy,
 	.discover	= &discover,
+	.add_probe	= &add_probe_usdt,
+};
+
+/*
+ * Used for stapsdt probes.
+ */
+dt_provimpl_t	dt_stapsdt = {
+	.name		= "stapsdt",
+	.prog_type	= BPF_PROG_TYPE_UNSPEC,
+	.provide_probe	= &provide_stapsdt_probe,
+	.enable		= &enable_stapsdt,
+	.probe_info	= &probe_info_stap,
+	.probe_destroy	= &probe_destroy,
 	.add_probe	= &add_probe_usdt,
 };

@@ -24,6 +24,7 @@ typedef enum pid_probetype {
 	DTPPT_OFFSETS,
 	DTPPT_ABSOFFSETS,
 	DTPPT_USDT,
+	DTPPT_STAPSDT,
 	DTPPT_IS_ENABLED
 } pid_probetype_t;
 
@@ -37,6 +38,7 @@ typedef struct pid_probespec {
 	ino_t pps_inum;				/* object inode */
 	char *pps_fn;				/* object full filename */
 	uint64_t pps_off;			/* probe offset (in object) */
+	uint64_t pps_refcntr_off;		/* probe ref counter offset */
 	int pps_nargc;				/* number of native args */
 	int pps_xargc;				/* number of xlated and mapped args */
 	char *pps_nargv;			/* array of native args */
