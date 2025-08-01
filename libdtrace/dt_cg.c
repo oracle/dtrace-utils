@@ -1842,6 +1842,8 @@ dt_cg_clsflags(dt_pcb_t *pcb, dtrace_actkind_t kind, const dt_node_t *dnp)
 	int		*cfp = &pcb->pcb_stmt->dtsd_clauseflags;
 
 	if (DTRACEACT_ISDESTRUCTIVE(kind)) {
+		pcb->pcb_hdl->dt_destructive |= 1;
+
 		*cfp |= DT_CLSFLAG_DESTRUCT;
 
 		if (kind == DTRACEACT_RETURN)

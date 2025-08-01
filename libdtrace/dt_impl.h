@@ -367,6 +367,7 @@ struct dtrace_hdl {
 	char *dt_sysslice;	/* the systemd system slice: set via -xsysslice */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
 	uint_t dt_droptags;	/* boolean:  set via -xdroptags */
+	uint_t dt_destructive;	/* boolean:  set if destructive actions found */
 	uint_t dt_active;	/* boolean:  set once tracing is active */
 	uint_t dt_stopped;	/* boolean:  set once tracing is stopped */
 	processorid_t dt_beganon; /* CPU that executed BEGIN probe (if any) */

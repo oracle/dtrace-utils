@@ -1339,6 +1339,15 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 	 */
 	dtrace_getopt(dtp, "destructive", &dest_ok);
 
+	/*
+	 * If we have any destructive actions at all and -w is not set,
+	 * error out.  Solaris would reject this as a runtime error.  So,
+	 * although we could have detected this problem at compilation,
+	 * we mimic Solaris and wait until now to report.
+	 */
+	if (dtp->dt_destructive && dest_ok == DTRACEOPT_UNSET)
+		return dt_set_errno(dtp, EDT_DESTRUCTIVE);
+
 	dp = NULL;
 	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL;
 	     prp = dt_list_next(prp)) {
@@ -1358,6 +1367,11 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 
 		DT_DISASM_PROG_LINKED(dtp, cflags, dp, stderr, NULL, prp->desc);
 
+		/*
+		 * This check should never fail since, if any action is
+		 * destructive and -w is not set, we should already have
+		 * failed.
+		 */
 		if (dp->dtdo_flags & DIFOFLG_DESTRUCTIVE &&
 		    dest_ok == DTRACEOPT_UNSET) {
 			dt_set_errno(dtp, EDT_DESTRUCTIVE);
