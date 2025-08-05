@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -1443,6 +1443,17 @@ main(int argc, char *argv[])
 			list_prog(&g_cmdv[i]);
 
 		if (g_cmdc == 0) {
+			dtrace_cmd_t pseudo_cmd;
+
+			/*
+			 * If we are listing the default case "dtrace -l",
+			 * compile the string ":::" to give providers an
+			 * attempt to provide probes.
+			 */
+			pseudo_cmd.dc_spec = DTRACE_PROBESPEC_NAME;
+			pseudo_cmd.dc_arg = ":::";
+			compile_str(&pseudo_cmd);
+
 			if (dtrace_probe_iter(g_dtp, NULL, list_probe, NULL) < 0)
 				dfatal(NULL); /* dtrace_errmsg() only */
 		}
