@@ -795,6 +795,10 @@ static int populate_args(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	char	*nptr = NULL, *xptr = NULL;
 	size_t	i;
 
+	/* Nothing to do if we already populated the arguments. */
+	if (upp->argc >= 0)
+		return 0;
+
 	upp->argc = psp->pps_xargc;
 
 	/* Copy argument value source string data (if any). */
@@ -941,6 +945,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		upp->refcntr_off = psp->pps_refcntr_off;
 		upp->fn = strdup(psp->pps_fn);
 		upp->func = NULL;
+		upp->argc = -1;			/* no argument data yet */
 		upp->tp = dt_tp_alloc(dtp);
 		if (upp->tp == NULL)
 			goto fail;
@@ -1716,6 +1721,7 @@ static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
 	rc = dprintf(fd, "%c:%s %s\n", flags & PP_IS_RETURN ? 'r' : 'p', name, spec);
 
 out:
+	free(spec);
 	if (fd != -1)
 		close(fd);
 	if (rc < 0) {
@@ -1975,6 +1981,12 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *uprp)
 	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags);
 }
 
+/* Clean up the private provider data. */
+static void destroy(dtrace_hdl_t *dtp, void *arg)
+{
+	dt_htab_destroy((dt_htab_t *)arg);
+}
+
 /*
  * Used for underlying probes (uprobes).
  */
@@ -2014,6 +2026,7 @@ dt_provimpl_t	dt_usdt = {
 	.probe_destroy	= &probe_destroy,
 	.discover	= &discover,
 	.add_probe	= &add_probe_usdt,
+	.destroy	= &destroy,
 };
 
 /*

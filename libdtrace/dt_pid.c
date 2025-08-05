@@ -1282,6 +1282,7 @@ dt_stapsdt_parse(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
 	int i, err = 0;
 	int fd = -1;
 	char *mod;
+	char *no_fun = "";
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -1415,7 +1416,7 @@ dt_stapsdt_parse(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
 				       &fun, &sym) == 0)
 			psp.pps_fun = (char *)fun;
 		else
-			psp.pps_fun = "";
+			psp.pps_fun = no_fun;
 		psp.pps_dev = pmp->pr_dev;
 		psp.pps_inum = pmp->pr_inum;
 		psp.pps_pid = dpr->dpr_pid;
@@ -1430,6 +1431,9 @@ dt_stapsdt_parse(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
 		}
 		if (err == -1)
 			break;
+
+		if (psp.pps_fun != no_fun)
+			free(psp.pps_fun);
 	}
 
 out:
@@ -1513,7 +1517,6 @@ dt_pid_create_stapsdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_
 	const dt_provider_t *pvp;
 	dt_proc_t *dpr = NULL;
 	const char *pidstr;
-	char *path = NULL;
 	pid_t pid;
 
 	assert(pcb != NULL);
@@ -1524,8 +1527,6 @@ dt_pid_create_stapsdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_
 		pidstr--;
 	if (strlen(pidstr) == 0)
 		return 0;
-
-	asprintf(&path, "/proc/%s/maps", pidstr);
 
 	pvp = dt_provider_lookup(dtp, "stapsdt");
 	assert(pvp != NULL);
@@ -1542,8 +1543,13 @@ dt_pid_create_stapsdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_
 	}
 	dpr = dt_proc_lookup(dtp, pid);
 	if (dpr) {
+		char *path = NULL;
+
+		if (asprintf(&path, "/proc/%s/maps", pidstr) == -1)
+			longjmp(pcb->pcb_jmpbuf, EDT_NOMEM);
 		dt_pid_create_stapsdt_probes_proc(pdp, dtp, pcb,
 						  pvp, dpr, path);
+		free(path);
 		dt_proc_release_unlock(dtp, pid);
 	}
 
