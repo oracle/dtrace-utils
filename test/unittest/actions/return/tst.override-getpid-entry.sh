@@ -38,7 +38,7 @@ fi
 
 # Trace the trigger.  On the 2nd and 5th getpid() calls, modify the result.
 
-$dtrace -c ./a.out -w -q -n '
+$dtrace $dt_flags -c ./a.out -w -q -n '
 BEGIN {
 	printf("00 pid is %d\n", $target);
 	n = 0;
@@ -58,6 +58,6 @@ rawfbt:vmlinux:__*_sys_getpid:entry
 {
 	return(55555);
 }
-'
+' | sort
 
 exit $?
