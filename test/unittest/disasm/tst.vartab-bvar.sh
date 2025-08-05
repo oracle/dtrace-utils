@@ -59,7 +59,6 @@ sdt:task::task_rename
 	exit(0);
 }
 ' 2>&1 | gawk '
-{ print; }
 BEGIN {
 	rc = 1;
 }
