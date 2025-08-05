@@ -879,6 +879,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 				     const pid_probespec_t *psp)
 {
 	char			mod[DTRACE_MODNAMELEN];
+	char			fun[DTRACE_FUNCNAMELEN];
 	char			prb[DTRACE_NAMELEN];
 	dtrace_probedesc_t	pd;
 	dt_probe_t		*uprp;
@@ -896,12 +897,14 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	 *
 	 * The probe description for return probes is:
 	 *
-	 *	uprobe:<dev>_<inode>::return
+	 *	uprobe:<dev>_<inode>:<func>:return
 	 */
 	snprintf(mod, sizeof(mod), "%lx_%lx", psp->pps_dev, psp->pps_inum);
 
+	fun[0] = '\0';
 	switch (psp->pps_type) {
 	case DTPPT_RETURN:
+		strcpy(fun, psp->pps_fun);
 		strcpy(prb, "return");
 		break;
 	case DTPPT_IS_ENABLED:
@@ -920,7 +923,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	pd.id = DTRACE_IDNONE;
 	pd.prv = prvname;
 	pd.mod = mod;
-	pd.fun = "";
+	pd.fun = fun;
 	pd.prb = prb;
 
 	dt_dprintf("Providing underlying probe %s:%s:%s:%s @ %lx\n", psp->pps_prv,
