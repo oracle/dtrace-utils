@@ -6954,7 +6954,15 @@ dt_cg_inline(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	}
 
 	dt_cg_node(inp->din_root, dlp, drp);
+
+	/*
+	 * Copy the result into dnp (register value and tstring).  We need to
+	 * clear the tstring from tnp once we move it to dnp.
+	 */
 	dnp->dn_reg = inp->din_root->dn_reg;
+	dnp->dn_tstring = inp->din_root->dn_tstring;
+	inp->din_root->dn_tstring = NULL;
+
 	dt_cg_typecast(inp->din_root, dnp, dlp, drp);
 
 	if (idp->di_kind == DT_IDENT_ARRAY) {
