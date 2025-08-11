@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates.
  */
 #include <linux/bpf.h>
 #include <stdint.h>
@@ -150,9 +150,6 @@ noinline void *dt_get_assoc(uint32_t id, const char *tuple, uint64_t store,
 		if (valp == 0)
 			return dt_no_dvar();
 		*valp = (uint64_t)valp;
-		if (bpf_map_update_elem(&tuples, tuple, valp, BPF_ANY) < 0)
-			return dt_no_dvar();
-
 		val = *valp;
 	} else {
 		/*
