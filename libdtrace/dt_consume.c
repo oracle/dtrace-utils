@@ -3037,7 +3037,7 @@ dt_consume_fini(dtrace_hdl_t *dtp)
 	dt_htab_destroy(dtp->dt_spec_bufs);
 }
 
-dtrace_workstatus_t
+int
 dtrace_consume(dtrace_hdl_t *dtp, FILE *fp, dtrace_consume_probe_f *pf,
 	       dtrace_consume_rec_f *rf, void *arg)
 {
