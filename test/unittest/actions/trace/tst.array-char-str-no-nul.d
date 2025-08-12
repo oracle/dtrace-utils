@@ -6,8 +6,8 @@
  */
 
 /*
- * ASSERTION: The trace() action prints a char-aarray of printable characters
- *	      (not terminated) correctly.
+ * ASSERTION: The trace() action prints a char-array of printable characters
+ *	      (not terminated) correctly as a string.
  *
  * SECTION: Actions and Subroutines/trace()
  */

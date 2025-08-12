@@ -7,7 +7,7 @@
 
 /*
  * ASSERTION: The trace() action prints a char-array of printable characters
- *	      with multiple 0-bytes in its content.
+ *	      with multiple 0-bytes in its content as raw bytes.
  *
  * SECTION: Actions and Subroutines/trace()
  */

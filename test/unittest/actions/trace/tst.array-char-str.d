@@ -7,7 +7,7 @@
 
 /*
  * ASSERTION: The trace() action prints a char-array of printable characters
- *	      (terminated) correctly.
+ *	      (terminated) correctly as a string.
  *
  * SECTION: Actions and Subroutines/trace()
  */

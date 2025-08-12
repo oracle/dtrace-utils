@@ -7,7 +7,7 @@
 
 /*
  * ASSERTION: The trace() action prints a char-array with a non-printable
- *	      character correctly.
+ *	      character correctly as raw bytes.
  *
  * SECTION: Actions and Subroutines/trace()
  */
