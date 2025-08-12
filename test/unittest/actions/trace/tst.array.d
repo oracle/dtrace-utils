@@ -6,7 +6,7 @@
  */
 
 /*
- * ASSERTION: The trace() action prints an array correctly.
+ * ASSERTION: The trace() action prints a non-char array correctly as raw bytes.
  *
  * SECTION: Actions and Subroutines/trace()
  */
@@ -15,10 +15,10 @@ short n[5];
 
 BEGIN
 {
-	n[0] = 0x1234;
-	n[1] = 0x5678;
-	n[2] = 0x0000;
-	n[3] = 0x8765;
+	n[0] = 0x7464;
+	n[1] = 0x6172;
+	n[2] = 0x6563;
+	n[3] = 0x1234;
 	n[4] = 0x4321;
 	trace(n);
 	exit(0);
