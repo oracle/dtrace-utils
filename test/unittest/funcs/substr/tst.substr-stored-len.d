@@ -13,7 +13,7 @@
 
 #pragma D option quiet
 #pragma D option rawbytes
-#pragma D option strsize=13
+#pragma D option strsize=14
 
 BEGIN
 {

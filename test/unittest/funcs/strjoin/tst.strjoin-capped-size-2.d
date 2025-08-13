@@ -6,7 +6,7 @@
  */
 
 #pragma D option rawbytes
-#pragma D option strsize=6
+#pragma D option strsize=7
 #pragma D option quiet
 
 BEGIN

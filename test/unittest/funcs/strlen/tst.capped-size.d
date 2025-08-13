@@ -11,7 +11,7 @@
  * SECTION: Actions and Subroutines/strlen()
  */
 
-#pragma D option strsize=5
+#pragma D option strsize=6
 #pragma D option quiet
 
 BEGIN

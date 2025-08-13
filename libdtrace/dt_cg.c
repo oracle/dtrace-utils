@@ -1741,11 +1741,10 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 			dt_cg_check_ptr_arg(dlp, drp, dnp, NULL);
 
 		TRACE_REGSET("store_val(): Begin ");
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size + 1, 1, pfp,
-				 arg);
+		off = dt_rec_add(dtp, dt_cg_fill_gap, kind, size, 1, pfp, arg);
 
 		/*
-		 * Copy the string data (no more than STRSIZE + 1 bytes) to the
+		 * Copy the string data (no more than STRSIZE bytes) to the
 		 * buffer at (%r9 + off).  We depend on the fact that
 		 * probe_read_str() stops at the terminating NUL byte.
 		 */
@@ -1754,7 +1753,7 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 
 		emit(dlp, BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
 		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
-		emit(dlp, BPF_MOV_IMM(BPF_REG_2, strsize + 1));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_2, strsize));
 		emit(dlp, BPF_MOV_REG(BPF_REG_3, dnp->dn_reg));
 		dt_regset_free(drp, dnp->dn_reg);
 		dt_cg_tstring_free(pcb, dnp);
@@ -1765,13 +1764,13 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		/*
 		 * Pad the rest with zeroes, if necessary.
 		 */
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JGE, BPF_REG_0, strsize + 1, lbl_ok));
+		emit(dlp,  BPF_BRANCH_IMM(BPF_JGE, BPF_REG_0, strsize, lbl_ok));
 		if (dt_regset_xalloc_args(drp) == -1)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
 		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, off));
 		emit(dlp,  BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_0));
-		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, strsize + 1));
+		emit(dlp,  BPF_MOV_IMM(BPF_REG_2, strsize));
 		emit(dlp,  BPF_ALU64_REG(BPF_SUB, BPF_REG_2, BPF_REG_0));
 		dt_cg_zerosptr(BPF_REG_3, dlp, drp);
 		emit(dlp,  BPF_CALL_HELPER(dtp->dt_bpfhelper[BPF_FUNC_probe_read_kernel]));

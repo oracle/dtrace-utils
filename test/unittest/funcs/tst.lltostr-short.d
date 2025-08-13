@@ -6,7 +6,7 @@
  */
 
 #pragma D option quiet
-#pragma D option strsize=7
+#pragma D option strsize=8
 
 BEGIN
 {

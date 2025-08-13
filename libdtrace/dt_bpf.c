@@ -910,8 +910,8 @@ gmap_create_strtab(dtrace_hdl_t *dtp)
 	while (buf < end) {
 		uint_t	len = strlen((char *)buf);
 
-		if (len > strsize)
-			buf[strsize] = '\0';
+		if (len >= strsize)
+			buf[strsize - 1] = '\0';
 
 		buf += len + 1;
 	}
