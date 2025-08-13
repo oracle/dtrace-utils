@@ -150,7 +150,24 @@ noinline void *dt_get_assoc(uint32_t id, const char *tuple, uint64_t store,
 		if (valp == 0)
 			return dt_no_dvar();
 		*valp = (uint64_t)valp;
-		val = *valp;
+		/*
+		 * We used to do:
+		 *	val = *valp;
+		 * but the compiler could use knowledge that *valp is valp from
+		 * the assignment above, and use that same value (whith is a
+		 * map_value address).  Older kernels do not allow a map_value
+		 * address to be used as map key, and a verifier failure would
+		 * be triggered by this code optimization.
+		 *
+		 * We use inline assembler to force reading the value from the
+		 * map value rather than allowing the compiler to optimize this
+		 * code.  This works for all kernels.
+		 */
+		asm ("ldxdw %0, %1" \
+			: "=r" (val) \
+			: "m" (*valp) \
+			: /* no clobber */
+		);
 	} else {
 		/*
 		 * Record the value (used as key into the dvars map), and if we
