@@ -991,7 +991,7 @@ dt_print_bytes(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
 		    c[i] == '\b' || c[i] == '\a')
 			continue;
 
-		if (c[i] == '\0' && i > 0) {
+		if (c[i] == '\0') {
 			/*
 			 * This looks like it might be a string.  Before we
 			 * assume that it is indeed a string, check the
