@@ -986,6 +986,7 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		upp->flags |= PP_IS_ENABLED;
 		break;
 	case DTPPT_USDT:
+	case DTPPT_STAPSDT:
 		upp->flags |= PP_IS_USDT;
 		break;
 	default: ;
@@ -994,8 +995,10 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 		 */
 	}
 
-	if (populate_args(dtp, psp, upp) < 0)
-		goto fail;
+	if (upp->flags & (PP_IS_ENABLED | PP_IS_USDT)) {
+		if (populate_args(dtp, psp, upp) < 0)
+			goto fail;
+	}
 
 	return uprp;
 
