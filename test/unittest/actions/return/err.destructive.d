@@ -19,7 +19,7 @@ BEGIN
 	exit(0);
 }
 
-rawfbt:btrfs:open_ctree:entry
+rawfbt:vmlinux:__*_sys_getpid:entry
 /ok/
 {
 	return(0);
