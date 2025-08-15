@@ -264,8 +264,6 @@ typedef struct dt_percpu_drops {
  */
 #define DT_MAX_NSPECS 16		/* sanity upper bound on speculations */
 
-typedef uint32_t dt_version_t;		/* encoded version (see below) */
-
 struct dtrace_hdl {
 	const dtrace_vector_t *dt_vector; /* library vector, if vectored open */
 	void *dt_varg;	/* vector argument, if vectored open */
@@ -658,6 +656,23 @@ enum {
 };
 
 /*
+ * Stability definitions
+ *
+ * These #defines are used in the tables of identifiers below to fill in the
+ * attribute fields associated with each identifier.  The DT_ATTR_* macros are
+ * a convenience to permit more concise declarations of common attributes such
+ * as Stable/Stable/Common.
+ *
+ * Refer to the Solaris Dynamic Tracing Guide Stability chapter respectively
+ * for an explanation of these DTrace features and their values.
+ */
+#define DT_ATTR_STABCMN { DTRACE_STABILITY_STABLE, \
+	DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON }
+
+#define DT_ATTR_EVOLCMN { DTRACE_STABILITY_EVOLVING, \
+	DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON }
+
+/*
  * Interfaces for parsing and comparing DTrace attribute tuples, which describe
  * stability and architectural binding information.
  */
@@ -665,31 +680,6 @@ extern dtrace_attribute_t dt_attr_min(dtrace_attribute_t, dtrace_attribute_t);
 extern dtrace_attribute_t dt_attr_max(dtrace_attribute_t, dtrace_attribute_t);
 extern char *dt_attr_str(dtrace_attribute_t, char *, size_t);
 extern int dt_attr_cmp(dtrace_attribute_t, dtrace_attribute_t);
-
-/*
- * Interfaces for parsing and handling DTrace version strings.  Version binding
- * is a feature of the D compiler that is handled completely independently of
- * the DTrace kernel infrastructure, so the definitions are here in libdtrace.
- * Version strings are compiled into an encoded uint32_t which can be compared
- * using C comparison operators.  Version definitions are found in dt_open.c.
- */
-#define	DT_VERSION_STRMAX	16	/* enough for "255.4095.4095\0" */
-#define	DT_VERSION_MAJMAX	0xFF	/* maximum major version number */
-#define	DT_VERSION_MINMAX	0xFFF	/* maximum minor version number */
-#define	DT_VERSION_MICMAX	0xFFF	/* maximum micro version number */
-
-#define	DT_VERSION_NUMBER(M, m, u) \
-	((((M) & 0xFF) << 24) | (((m) & 0xFFF) << 12) | ((u) & 0xFFF))
-
-#define	DT_VERSION_MAJOR(v)	(((v) & 0xFF000000) >> 24)
-#define	DT_VERSION_MINOR(v)	(((v) & 0x00FFF000) >> 12)
-#define	DT_VERSION_MICRO(v)	((v) & 0x00000FFF)
-
-extern char *dt_version_num2str(dt_version_t, char *, size_t);
-extern int dt_version_str2num(const char *, dt_version_t *);
-extern int dt_version_defined(dt_version_t);
-
-extern int dt_str2kver(const char *, dt_version_t *);
 
 extern uint32_t dt_gen_hval(const char *, uint32_t, size_t);
 
@@ -827,9 +817,6 @@ extern const dtrace_attribute_t _dtrace_symattr; /* symbol ref attributes */
 extern const dtrace_attribute_t _dtrace_typattr; /* type ref attributes */
 extern const dtrace_attribute_t _dtrace_prvattr; /* provider attributes */
 extern const dtrace_pattr_t _dtrace_prvdesc;	 /* provider attribute bundle */
-
-extern const dt_version_t _dtrace_versions[];	 /* array of valid versions */
-extern const char *const _dtrace_version;	 /* current version string */
 
 extern int _dtrace_strbuckets;		/* number of hash buckets for strings */
 extern uint_t _dtrace_stkindent;	/* default indent for stack/ustack */

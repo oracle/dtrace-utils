@@ -44,25 +44,6 @@
 
 #include <dt_git_version.h>
 
-const dt_version_t _dtrace_versions[] = {
-	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
-	DT_VERS_1_1,	/* D API 1.1.0 Solaris Express 6/05 */
-	DT_VERS_1_2,	/* D API 1.2.0 Solaris 10 Update 1 */
-	DT_VERS_1_2_1,	/* D API 1.2.1 Solaris Express 4/06 */
-	DT_VERS_1_2_2,	/* D API 1.2.2 Solaris Express 6/06 */
-	DT_VERS_1_3,	/* D API 1.3 Solaris Express 10/06 */
-	DT_VERS_1_4,	/* D API 1.4 Solaris Express 2/07 */
-	DT_VERS_1_4_1,	/* D API 1.4.1 Solaris Express 4/07 */
-	DT_VERS_1_5,	/* D API 1.5 Solaris Express 7/07 */
-	DT_VERS_1_6,	/* D API 1.6 */
-	DT_VERS_1_6_1,	/* D API 1.6.1 */
-	DT_VERS_1_6_2,	/* D API 1.6.2 */
-	DT_VERS_1_6_3,	/* D API 1.6.3 */
-	DT_VERS_1_6_4,	/* D API 1.6.4 */
-	DT_VERS_2_0,	/* D API 2.0 */
-	0
-};
-
 /*
  * Table of global identifiers.  This is used to populate the global identifier
  * hash when a new dtrace client open occurs.  For more info see dt_ident.h.
