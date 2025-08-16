@@ -14,7 +14,7 @@
 SHELL = /bin/bash
 
 PROJECT := dtrace
-VERSION := 2.0.3
+VERSION := $(shell ./libdtrace/mkvers -vcurrent=t libdtrace/versions.list)
 
 # Verify supported hardware.
 

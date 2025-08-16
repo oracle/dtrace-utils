@@ -1,0 +1,67 @@
+#
+# Oracle Linux DTrace.
+# Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at
+# http://oss.oracle.com/licenses/upl.
+#
+
+#
+# Version definitions
+#
+# These definitions are used to generate dt_versions_defs.h.
+#
+# The generated file contains:
+#  - DT_VERS_* defines that are used in identifier tables to fill in the
+#    version fields associated with each identifier.
+#
+#  - DTRACE_VERSIONS which is used in dt_versions.c to populate the array of
+#    valid DTrace versions
+#
+#  - DT_VERS_LATEST which has the value of the most recent DT_VERS_* define
+#
+#  - DT_VERS_STRING which provides a string representation of the most recent
+#    DTrace version
+#
+# Refer to the Solaris Dynamic Tracing Guide Versioning chapter for an
+# explanation of these DTrace features and their values.
+#
+# NOTE: Although the DTrace versioning scheme supports the labeling and
+#       introduction of incompatible changes (e.g. dropping an interface in a
+#       major release), the libdtrace code does not currently support this.
+#       All versions are assumed to strictly inherit from one another.  If
+#       we ever need to provide divergent interfaces, this will need work.
+#
+# The version number should be increased for every customer visible release
+# of DTrace.
+#  - The major number should be incremented when a fundamental change has been
+#    made that would affect all consumers, and would reflect sweeping changes
+#    to DTrace or the D language.
+#  - The minor number should be incremented when a change is introduced that
+#    could break scripts that had previously worked; for example, adding a new
+#    built-in variable could break a script which was already using that
+#    identifier.
+#  - The micro number should be changed when introducing functionality changes
+#    or major bug fixes that do not affect backward compatibility -- this is
+#    merely to make capabilities easily determined from the version number.
+#    Minor bugs do not require any modification to the version number.
+#
+
+# Ver	Description
+1.0	D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS
+1.1	D API 1.1.0 Solaris Express 6/05
+1.2	D API 1.2.0 Solaris 10 Update 1
+1.2.1	D API 1.2.1 Solaris Express 4/06
+1.2.2	D API 1.2.2 Solaris Express 6/06
+1.3	D API 1.3 Solaris Express 10/06
+1.4	D API 1.4 Solaris Express 2/07
+1.4.1	D API 1.4.1 Solaris Express 4/07
+1.5	D API 1.5 Solaris Express 7/07
+1.6	D API 1.6
+1.6.1	D API 1.6.1
+1.6.2	D API 1.6.2
+1.6.3	D API 1.6.3
+1.6.4	D API 1.6.4
+2.0	D API 2.0 Linux (BPF)
+2.0.1	D API 2.0.1 Linux (BPF)
+2.0.2	D API 2.0.2 Linux (BPF)
+2.0.3	D API 2.0.3 Linux (BPF)
