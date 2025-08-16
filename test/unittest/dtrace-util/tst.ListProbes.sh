@@ -70,6 +70,7 @@ $dtrace $dt_flags -l \
     $2 == "sdt"      { mycheck($2, $1,   600,   6000); next }
     $2 == "syscall"  { mycheck($2, $1,   300,   3000); next }
     $2 == "tcp"      { mycheck($2, $1,     8,      8); next }
+    $2 == "udp"      { mycheck($2, $1,     2,      2); next }	
     # nothing for usdt
 
     # Unrecognized line.

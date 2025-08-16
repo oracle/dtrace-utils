@@ -1,12 +1,13 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
 
 #pragma D depends_on module vmlinux
 #pragma D depends_on library net.d
+#pragma D depends_on library ip.d
 #pragma D depends_on provider udp
 
 /*
@@ -48,24 +49,24 @@ translator udpsinfo_t < struct udp_sock *S > {
 	 */
 	udps_addr = (uintptr_t)S;
 	udps_lport = arg4 ?
-	    (probename == "send" ? ntohs(((struct udphdr *)arg4)->source) :
+	    (arg5 == NET_PROBE_OUTBOUND ? ntohs(((struct udphdr *)arg4)->source) :
 	    ntohs(((struct udphdr *)arg4)->dest)) : 0;
 	udps_rport = arg4 ?
 	    (probename == "send" ? ntohs(((struct udphdr *)arg4)->dest) :
 	    ntohs(((struct udphdr *)arg4)->source)) : 0;
 	udps_laddr = arg2 && *(uint8_t *)arg2 >> 4 == 4 ?
-            inet_ntoa(probename == "send" ? &((struct iphdr *)arg2)->saddr :
+            inet_ntoa(arg5 == NET_PROBE_OUTBOUND ? &((struct iphdr *)arg2)->saddr :
 	    &((struct iphdr *)arg2)->daddr) :
 	    arg2 && *(uint8_t *)arg2 >> 4 == 6 ?
-	    inet_ntoa6(probename == "send" ? &((struct ipv6hdr *)arg2)->saddr :
+	    inet_ntoa6(arg5 == NET_PROBE_OUTBOUND ? &((struct ipv6hdr *)arg2)->saddr :
 	    &((struct ipv6hdr *)arg2)->daddr) :
 	    "<unknown>";
 	udps_raddr =
 	    arg2 && *(uint8_t *)arg2 >> 4 == 4 ?
-            inet_ntoa(probename == "send" ? &((struct iphdr *)arg2)->daddr :
+            inet_ntoa(arg5 == NET_PROBE_OUTBOUND ? &((struct iphdr *)arg2)->daddr :
 	    &((struct iphdr *)arg2)->saddr) :
 	    arg2 && *(uint8_t *)arg2 >> 4 == 6 ?
-	    inet_ntoa6(probename == "send" ? &((struct ipv6hdr *)arg2)->daddr :
+	    inet_ntoa6(arg5 == NET_PROBE_OUTBOUND ? &((struct ipv6hdr *)arg2)->daddr :
 	    &((struct ipv6hdr *)arg2)->saddr) :
 	    "<unknown>";
 };
