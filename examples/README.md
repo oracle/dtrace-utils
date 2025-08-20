@@ -86,3 +86,16 @@ These are the scripts included, plus a brief description.
 |                 | thread ID as returned in the DTrace tid variable.         |
 | var-scope.d     | Demonstrate some of the scoping rules for global and    |B|
 |                 | clause-local variables.                                   |
+
+## Language-feature examples
+
+In the language_features/ subdirectory are short scripts,
+each illustrating a D language feature.
+
+The numbering scheme serves two purposes:
+
+* The scripts are more or less in ascending order of difficulty, although that's admittedly a tricky concept in such a multi-dimensional space
+
+* There is some grouping of themes -- e.g., "introduction", "providers", "built-in variables", etc.
+
+The scripts start at Beginner, and they arguably do not get much more complicated than that.
