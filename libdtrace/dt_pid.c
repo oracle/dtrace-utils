@@ -1518,10 +1518,14 @@ dt_pid_create_stapsdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_
 	dt_proc_t *dpr = NULL;
 	const char *pidstr;
 	pid_t pid;
+	size_t len = strlen(pdp->prv);
+
+	if (len == 0)
+		return 0;
 
 	assert(pcb != NULL);
 
-	pidstr = &pdp->prv[strlen(pdp->prv)];
+	pidstr = &pdp->prv[len];
 
 	while (isdigit(*(pidstr - 1)))
 		pidstr--;
