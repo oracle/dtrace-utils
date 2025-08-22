@@ -24,7 +24,8 @@
 static int
 pfcheck_addr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
-	return dt_node_is_pointer(dnp) || dt_node_is_integer(dnp);
+	return (dt_node_is_pointer(dnp) && !dt_node_is_stack(dnp)) ||
+	       dt_node_is_integer(dnp);
 }
 
 /*ARGSUSED*/

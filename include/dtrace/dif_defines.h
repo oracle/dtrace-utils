@@ -2,7 +2,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -210,8 +210,10 @@
 #define DIF_SUBR_INET_NTOA6		43
 #define DIF_SUBR_D_PATH			44
 #define DIF_SUBR_LINK_NTOP		45
+#define DIF_SUBR_STACK			46
+#define DIF_SUBR_USTACK			47
 
-#define DIF_SUBR_MAX			45
+#define DIF_SUBR_MAX			47
 
 typedef uint32_t	dif_instr_t;
 

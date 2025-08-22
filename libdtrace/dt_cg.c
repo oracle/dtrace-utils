@@ -2723,7 +2723,8 @@ dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
  * The "kind" argument is either DTRACEACT_STACK or DTRACEACT_USTACK.
  */
 static int
-dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actkind_t kind)
+dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off,
+		    dtrace_actkind_t kind)
 {
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
@@ -2743,12 +2744,9 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 
 	/* Handle alignment and reserve space in the output buffer. */
 	if (reg >= 0) {
-		uint_t	nextoff;
-		nextoff = (off + (align - 1)) & ~(align - 1);
-		if (off < nextoff)
-			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, nextoff - off));
-		off = nextoff + prefsz + stacksize;
+		off = ALIGN(off, align);
 	} else {
+		reg = BPF_REG_9;
 		off = dt_rec_add(dtp, dt_cg_fill_gap, kind,
 				 prefsz + stacksize, align, NULL, arg);
 	}
@@ -2762,11 +2760,7 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 		dt_regset_free_args(drp);
 		/* mov32 %r0, %r0 effectively masks the lower 32 bits. */
 		emit(dlp,  BPF_MOV32_REG(BPF_REG_0, BPF_REG_0));
-
-		if (reg >= 0)
-			emit(dlp,  BPF_STORE(BPF_DW, reg, 0, BPF_REG_0));
-		else
-			emit(dlp,  BPF_STORE(BPF_DW, BPF_REG_9, off, BPF_REG_0));
+		emit(dlp,  BPF_STORE(BPF_DW, reg, off, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 	}
 
@@ -2774,14 +2768,8 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	dt_cg_access_dctx(BPF_REG_1, dlp, drp, DCTX_CTX);
-	if (reg >= 0) {
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
-		if (prefsz)
-			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, prefsz));
-	} else {
-		emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_9));
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + prefsz));
-	}
+	emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + prefsz));
 	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
 	if (kind == DTRACEACT_USTACK)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, BPF_F_USER_STACK));
@@ -2798,11 +2786,7 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
 
-	/* Finish. */
-	if (reg >= 0)
-		emit(dlp,  BPF_ALU64_IMM(BPF_ADD, reg, prefsz + stacksize));
-
-	return off;
+	return prefsz + stacksize;
 }
 
 static void
@@ -3909,33 +3893,42 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args, dt_irlist_t *dlp,
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
 
 		/*
-		 * Handle actions that can be used as agg keys.
-		 * If we are not an aggregation, dt_cg_node(dnp, ...)
-		 * will alert us there is a problem.
+		 * Some function calls (actions or subroutines) need special
+		 * handling.
 		 */
-		if (idp->di_kind == DT_IDENT_AGG &&
-		    dnp->dn_kind == DT_NODE_FUNC &&
-		    dnp->dn_ident != NULL)
-			switch (dnp->dn_ident->di_id) {
-			case DT_ACT_STACK:
-			case DT_ACT_USTACK:
-				/* If this is a stack()-like function, we can handle it later. */
-				dt_cg_push_stack(BPF_REG_FP, dlp, drp);
-				continue;
-			case DT_ACT_JSTACK:
-				dnerror(dnp, D_UNKNOWN, "jstack() is not implemented (yet)\n");
-				/* FIXME: Needs implementation */
-			case DT_ACT_SYM:
-			case DT_ACT_MOD:
-			case DT_ACT_UADDR:
-			case DT_ACT_UMOD:
-			case DT_ACT_USYM:
-				/* Otherwise, use the action's arg, not its "return value". */
-				dt_cg_node(dnp->dn_args, dlp, drp);
-				dt_cg_push_stack(dnp->dn_args->dn_reg, dlp, drp);
-				dt_regset_free(drp, dnp->dn_args->dn_reg);
-				continue;
+		if (dnp->dn_kind == DT_NODE_FUNC) {
+			dt_ident_t	*fidp = dnp->dn_ident;
+
+			assert(fidp != NULL);
+
+			/*
+			 * For subroutines, stack() and ustack() don't need to
+			 * be evaluated until we fill in the data of the tuple.
+			 */
+			if (fidp->di_kind == DT_IDENT_FUNC) {
+				if (fidp->di_id == DIF_SUBR_STACK ||
+				    fidp->di_id == DIF_SUBR_USTACK) {
+					dt_cg_push_stack(BPF_REG_FP, dlp, drp);
+					continue;
+				}
+			} else if (fidp->di_kind == DT_IDENT_ACTFUNC) {
+				switch (fidp->di_id) {
+				case DT_ACT_JSTACK:
+					dnerror(dnp, D_UNKNOWN, "jstack() is not implemented (yet)\n");
+					/* FIXME: Needs implementation */
+				case DT_ACT_SYM:
+				case DT_ACT_MOD:
+				case DT_ACT_UADDR:
+				case DT_ACT_UMOD:
+				case DT_ACT_USYM:
+					/* Otherwise, use the action's arg, not its "return value". */
+					dt_cg_node(dnp->dn_args, dlp, drp);
+					dt_cg_push_stack(dnp->dn_args->dn_reg, dlp, drp);
+					dt_regset_free(drp, dnp->dn_args->dn_reg);
+					continue;
+				}
 			}
+		}
 
 		/* Push the component (pointer or value) onto the tuple stack. */
 		dt_cg_node(dnp, dlp, drp);
@@ -3972,7 +3965,6 @@ empty_args:
 	dt_regset_free(drp, BPF_REG_0);
 
 	/* Reserve space for a uint32_t value at the beginning of the tuple. */
-	emit(dlp, BPF_ALU64_IMM(BPF_ADD, treg, sizeof(uint32_t)));
 	tuplesize = sizeof(uint32_t);
 
 	if ((areg = dt_regset_alloc(drp)) == -1)
@@ -3986,53 +3978,62 @@ empty_args:
 	for (dnp = args, i = 0; dnp != NULL; dnp = dnp->dn_list, i++) {
 		dtrace_diftype_t	t;
 		size_t			size;
-		uint_t			nextoff;
 		int			is_symmod = 0;
 
-		if (dnp->dn_kind == DT_NODE_FUNC &&
-		    dnp->dn_ident != NULL)
-			switch (dnp->dn_ident->di_id) {
-			case DT_ACT_STACK:
-				tuplesize = dt_cg_act_stack_sub(yypcb, dnp, treg, tuplesize, DTRACEACT_STACK);
-				continue;
-			case DT_ACT_USTACK:
-				tuplesize = dt_cg_act_stack_sub(yypcb, dnp, treg, tuplesize, DTRACEACT_USTACK);
-				continue;
-			case DT_ACT_UADDR:
-			case DT_ACT_USYM:
-			case DT_ACT_UMOD:
-				nextoff = (tuplesize + (8 - 1)) & ~(8 - 1);
-				if (tuplesize < nextoff)
-					emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, nextoff - tuplesize));
+		if (dnp->dn_kind == DT_NODE_FUNC) {
+			dt_ident_t	*fidp = dnp->dn_ident;
 
-				/* Preface the value with the user process pid. */
-				if (dt_regset_xalloc_args(drp) == -1)
-					longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
-				dt_regset_xalloc(drp, BPF_REG_0);
-				emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
-				dt_regset_free_args(drp);
-				emit(dlp, BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
-				emit(dlp, BPF_STORE(BPF_DW, treg, 0, BPF_REG_0));
-				dt_regset_free(drp, BPF_REG_0);
+			if (fidp->di_kind == DT_IDENT_FUNC) {
+				switch (fidp->di_id) {
+				case DIF_SUBR_STACK:
+					tuplesize += dt_cg_act_stack_sub(
+							yypcb, dnp, treg,
+							tuplesize,
+							DTRACEACT_STACK);
+					continue;
+				case DIF_SUBR_USTACK:
+					tuplesize += dt_cg_act_stack_sub(
+							yypcb, dnp, treg,
+							tuplesize,
+							DTRACEACT_USTACK);
+					continue;
+				}
+			} else if (fidp->di_kind == DT_IDENT_ACTFUNC) {
+				switch (fidp->di_id) {
+				case DT_ACT_UADDR:
+				case DT_ACT_USYM:
+				case DT_ACT_UMOD:
+					tuplesize = ALIGN(tuplesize, 8);
 
-				/* Then store the value. */
-				dt_regset_xalloc(drp, BPF_REG_0);
-				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, areg, -i * DT_STK_SLOT_SZ));
-				emit(dlp,  BPF_STORE(BPF_DW, treg, 8, BPF_REG_0));
-				dt_regset_free(drp, BPF_REG_0);
+					/* Preface the value with the user process pid. */
+					if (dt_regset_xalloc_args(drp) == -1)
+						longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+					dt_regset_xalloc(drp, BPF_REG_0);
+					emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
+					dt_regset_free_args(drp);
+					emit(dlp, BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
+					emit(dlp, BPF_STORE(BPF_DW, treg, tuplesize, BPF_REG_0));
+					dt_regset_free(drp, BPF_REG_0);
 
-				emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, 16));
-				tuplesize = nextoff + 16;
+					/* Then store the value. */
+					dt_regset_xalloc(drp, BPF_REG_0);
+					emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, areg, -i * DT_STK_SLOT_SZ));
+					emit(dlp,  BPF_STORE(BPF_DW, treg, tuplesize + 8, BPF_REG_0));
+					dt_regset_free(drp, BPF_REG_0);
 
-				continue;
-			case DT_ACT_SYM:
-			case DT_ACT_MOD:
-				is_symmod = 1;
-				size = 8;
-				dt_regset_xalloc(drp, BPF_REG_0);
-				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, areg, -i * DT_STK_SLOT_SZ));
-				break;
+					tuplesize += 16;
+
+					continue;
+				case DT_ACT_SYM:
+				case DT_ACT_MOD:
+					is_symmod = 1;
+					size = 8;
+					dt_regset_xalloc(drp, BPF_REG_0);
+					emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, areg, -i * DT_STK_SLOT_SZ));
+					break;
+				}
 			}
+		}
 
 		if (!is_symmod) {
 			dt_node_diftype(dtp, dnp, &t);
@@ -4052,15 +4053,12 @@ empty_args:
 		}
 
 		if (dt_node_is_scalar(dnp) || dt_node_is_float(dnp) || is_symmod) {
-			nextoff = (tuplesize + (size - 1)) & ~(size - 1);
-			if (tuplesize < nextoff)
-				emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, nextoff - tuplesize));
+			tuplesize = ALIGN(tuplesize, size);
 
-			emit(dlp,  BPF_STOREX(size, treg, 0, BPF_REG_0));
+			emit(dlp,  BPF_STOREX(size, treg, tuplesize, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
 
-			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, treg, size));
-			tuplesize = nextoff + size;
+			tuplesize += size;
 		} else if (dt_node_is_string(dnp)) {
 			uint_t	lbl_valid = dt_irlist_label(dlp);
 
@@ -4068,6 +4066,7 @@ empty_args:
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
+			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, tuplesize));
 			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size + 1));
 			emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 			dt_cg_tstring_free(yypcb, dnp);
@@ -4081,7 +4080,7 @@ empty_args:
 					  DT_ISIMM, 128 + i);
 
 			emitl(dlp, lbl_valid,
-				   BPF_ALU64_IMM(BPF_ADD, treg, size + 1));
+				   BPF_NOP());
 			tuplesize += size + 1;
 		} else if (t.dtdt_flags & DIF_TF_BYREF) {
 			uint_t	lbl_valid = dt_irlist_label(dlp);
@@ -4090,6 +4089,7 @@ empty_args:
 				longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 
 			emit(dlp,  BPF_MOV_REG(BPF_REG_1, treg));
+			emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, tuplesize));
 			emit(dlp,  BPF_MOV_IMM(BPF_REG_2, size));
 			emit(dlp,  BPF_MOV_REG(BPF_REG_3, BPF_REG_0));
 			dt_regset_free(drp, BPF_REG_0);
@@ -4102,7 +4102,7 @@ empty_args:
 					  DT_ISIMM, 0);
 
 			emitl(dlp, lbl_valid,
-				   BPF_ALU64_IMM(BPF_ADD, treg, size));
+				   BPF_NOP());
 			tuplesize += size;
 		} else
 			assert(0);	/* We shouldn't be able to get here. */
@@ -4128,10 +4128,10 @@ empty_args:
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
 		dt_regset_free_args(drp);
-		emit(dlp,  BPF_STORE(BPF_DW, treg, 0, BPF_REG_0));
+		emit(dlp,  BPF_STORE(BPF_DW, treg, tuplesize, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
 	} else
-		emit(dlp,  BPF_STORE_IMM(BPF_DW, treg, 0, 0));
+		emit(dlp,  BPF_STORE_IMM(BPF_DW, treg, tuplesize, 0));
 
 	/* Account for the optional TLS key (or 0). */
 	tuplesize += sizeof(uint64_t);
@@ -6325,6 +6325,42 @@ dt_cg_subr_strchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 }
 
 static void
+dt_cg_subr_stack_common(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
+			dtrace_actkind_t kind)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+
+	if ((dnp->dn_reg = dt_regset_alloc(drp)) == -1)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+
+	/*
+	 * Collect the stack in the static buffer (because it is an invariant
+	 * for a probe firing), and return a pointer to it.
+	 */
+	dt_cg_access_dctx(dnp->dn_reg, dlp, drp, DCTX_MEM);
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, dnp->dn_reg, DMEM_STACK(dtp)));
+
+	/* Call the stack helper function to collect the stack. */
+	dt_cg_act_stack_sub(yypcb, dnp, dnp->dn_reg, 0, kind);
+}
+
+static void
+dt_cg_subr_stack(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	TRACE_REGSET("    subr-stack:Begin");
+	dt_cg_subr_stack_common(dnp, dlp, drp, DTRACEACT_STACK);
+	TRACE_REGSET("    subr-stack:End  ");
+}
+
+static void
+dt_cg_subr_ustack(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	TRACE_REGSET("    subr-ustack:Begin");
+	dt_cg_subr_stack_common(dnp, dlp, drp, DTRACEACT_USTACK);
+	TRACE_REGSET("    subr-ustack:End  ");
+}
+
+static void
 dt_cg_subr_strrchr(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 {
 	dt_ident_t	*idp;
@@ -6953,6 +6989,8 @@ static dt_cg_subr_f *_dt_cg_subr[DIF_SUBR_MAX + 1] = {
 	[DIF_SUBR_INET_NTOA6]		= &dt_cg_subr_inet_ntoa6,
 	[DIF_SUBR_D_PATH]		= &dt_cg_subr_d_path,
 	[DIF_SUBR_LINK_NTOP]		= &dt_cg_subr_link_ntop,
+	[DIF_SUBR_STACK]		= &dt_cg_subr_stack,
+	[DIF_SUBR_USTACK]		= &dt_cg_subr_ustack,
 };
 
 static void
@@ -8692,43 +8730,50 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			uint64_t arg = 0;
 			dt_ident_t *idp = knp->dn_ident;
 
-			if (knp->dn_kind == DT_NODE_FUNC && idp != NULL &&
-			    idp->di_kind == DT_IDENT_ACTFUNC) {
-				size = 16;
+			if (knp->dn_kind == DT_NODE_FUNC && idp != NULL) {
 				alignment = 8;
-				switch (idp->di_id) {
-				case DT_ACT_USTACK:
-					arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_USTACK);
-					kind = DTRACEACT_USTACK;
-					size = 8 + 8 * DTRACE_STACK_NFRAMES(arg);
-					break;
-				case DT_ACT_JSTACK:
-					kind = DTRACEACT_JSTACK;
-					break;
-				case DT_ACT_USYM:
-					kind = DTRACEACT_USYM;
-					break;
-				case DT_ACT_UMOD:
-					kind = DTRACEACT_UMOD;
-					break;
-				case DT_ACT_UADDR:
-					kind = DTRACEACT_UADDR;
-					break;
-				case DT_ACT_STACK:
-					arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_STACK);
-					kind = DTRACEACT_STACK;
-					size = 8 * arg;
-					break;
-				case DT_ACT_SYM:
-					kind = DTRACEACT_SYM;
-					size = 8;
-					break;
-				case DT_ACT_MOD:
-					kind = DTRACEACT_MOD;
-					size = 8;
-					break;
+
+				if (idp->di_kind == DT_IDENT_FUNC) {
+					switch (idp->di_id) {
+					case DIF_SUBR_USTACK:
+						arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_USTACK);
+						kind = DTRACEACT_USTACK;
+						size = 8 + 8 * DTRACE_STACK_NFRAMES(arg);
+						goto add_rec;
+					case DIF_SUBR_STACK:
+						arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_STACK);
+						kind = DTRACEACT_STACK;
+						size = 8 * arg;
+						goto add_rec;
+					}
+				} else if (idp->di_kind == DT_IDENT_ACTFUNC) {
+					size = 16;
+					switch (idp->di_id) {
+					case DT_ACT_JSTACK:
+						kind = DTRACEACT_JSTACK;
+						goto add_rec;
+					case DT_ACT_USYM:
+						kind = DTRACEACT_USYM;
+						goto add_rec;
+					case DT_ACT_UMOD:
+						kind = DTRACEACT_UMOD;
+						goto add_rec;
+					case DT_ACT_UADDR:
+						kind = DTRACEACT_UADDR;
+						goto add_rec;
+					case DT_ACT_SYM:
+						kind = DTRACEACT_SYM;
+						size = 8;
+						goto add_rec;
+					case DT_ACT_MOD:
+						kind = DTRACEACT_MOD;
+						size = 8;
+						goto add_rec;
+					}
 				}
-			} else if (dt_node_is_string(knp)) {
+			}
+
+			if (dt_node_is_string(knp)) {
 				size = dtp->dt_options[DTRACEOPT_STRSIZE] + 1;
 				alignment = 1;
 			} else {
@@ -8739,6 +8784,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				alignment = t.dtdt_align;
 			}
 
+add_rec:
 			dt_aggid_rec_add(dtp, aid->di_id, kind, size, alignment, arg);
 		}
 	}
@@ -8822,10 +8868,34 @@ dt_cg(dt_pcb_t *pcb, dt_node_t *dnp)
 				if (enp->dn_kind == DT_NODE_AGG)
 					dt_cg_agg(pcb, enp, &pcb->pcb_ir,
 						  pcb->pcb_regs);
-				else
+				else {
+					/*
+					 * Special case: [u]stack() in statement
+					 * context is treated as data generating
+					 * action.
+					 */
+					if (enp->dn_kind == DT_NODE_FUNC) {
+						uint_t	id;
+
+						id = enp->dn_ident->di_id;
+						if (id == DIF_SUBR_STACK)
+							id = DTRACEACT_STACK;
+						else if (id == DIF_SUBR_USTACK)
+							id = DTRACEACT_USTACK;
+						else
+							id = 0;
+
+						if (id) {
+							dt_cg_act_stack(pcb, enp, id);
+							pcb->pcb_stmt->dtsd_clauseflags |= DT_CLSFLAG_DATAREC;
+							goto done;
+						}
+					}
 					dt_cg_node(enp, &pcb->pcb_ir,
 						   pcb->pcb_regs);
+				}
 
+done:
 				if (enp->dn_reg != -1) {
 					dt_regset_free(pcb->pcb_regs,
 						       enp->dn_reg);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -913,6 +913,46 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 }
 
 /*
+ * When setting the maxframes option, set the option in the dt_options array
+ * using dt_opt_runtime() as usual, and then update the definition of the CTF
+ * type for "_stack" to be an array of the corresponding size.
+ * If any errors occur, reset dt_options[option] to its previous value.
+ */
+static int
+dt_opt_maxframes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t val = dtp->dt_options[option];
+	ctf_file_t *fp = DT_STACK_CTFP(dtp);
+	ctf_id_t type = ctf_type_resolve(fp, DT_STACK_TYPE(dtp));
+	ctf_arinfo_t r;
+
+	if (dt_opt_runtime(dtp, arg, option) != 0)
+		return -1; /* dt_errno is set for us */
+
+	if (dtp->dt_options[option] > UINT_MAX) {
+		dtp->dt_options[option] = val;
+		return dt_set_errno(dtp, EOVERFLOW);
+	}
+
+	if (ctf_array_info(fp, type, &r) == CTF_ERR) {
+		dtp->dt_options[option] = val;
+		dtp->dt_ctferr = ctf_errno(fp);
+		return dt_set_errno(dtp, EDT_CTF);
+	}
+
+	r.ctr_nelems = (uint_t)dtp->dt_options[option];
+
+	if (ctf_set_array(fp, type, &r) == CTF_ERR ||
+	    ctf_update(fp) == CTF_ERR) {
+		dtp->dt_options[option] = val;
+		dtp->dt_ctferr = ctf_errno(fp);
+		return dt_set_errno(dtp, EDT_CTF);
+	}
+
+	return 0;
+}
+
+/*
  * When setting the strsize option, set the option in the dt_options array
  * using dt_opt_size() as usual, and then update the definition of the CTF
  * type for the D intrinsic "string" to be an array of the corresponding size.
@@ -1157,7 +1197,7 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "jstackframes", dt_opt_runtime, DTRACEOPT_JSTACKFRAMES },
 	{ "jstackstrsize", dt_opt_size, DTRACEOPT_JSTACKSTRSIZE },
 	{ "lockmem", dt_opt_lockmem, DTRACEOPT_LOCKMEM },
-	{ "maxframes", dt_opt_runtime, DTRACEOPT_MAXFRAMES },
+	{ "maxframes", dt_opt_maxframes, DTRACEOPT_MAXFRAMES },
 	{ "nusdtprobes", dt_opt_runtime, DTRACEOPT_NUSDTPROBES },
 	{ "nspec", dt_opt_runtime, DTRACEOPT_NSPEC },
 	{ "pcapsize", dt_opt_pcapsize, DTRACEOPT_PCAPSIZE },

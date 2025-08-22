@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -33,6 +33,15 @@
 	/*DSTYLED*/			\
 	{				\
 		subr++;			\
+	/*DSTYLED*/			\
+	}
+
+#define STKFUNC(x)			\
+	BEGIN				\
+	/*DSTYLED*/			\
+	{				\
+		subr++;			\
+		@stk[x] = sum(1);	\
 	/*DSTYLED*/			\
 	}
 
@@ -89,6 +98,8 @@ STRFUNC(inet_ntoa6((in6_addr_t *)alloca(sizeof(in6_addr_t))))
 /* Not implemented yet.
    STRFUNC(d_path(&(curthread->fs->root)))
    STRFUNC(link_ntop(ARPHRD_ETHER, (void *)alloca(sizeof(ipaddr_t)))) */
+STKFUNC(stack(5))
+STKFUNC(ustack(5))
 
 BEGIN
 /subr == DIF_SUBR_MAX + 1 - NUM_UNIMPLEMENTED/
