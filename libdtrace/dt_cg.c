@@ -1687,18 +1687,42 @@ dt_cg_store_val(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind,
 		align = vtype.dtdt_align;
 
 		/*
-		 * A DEREF of a REF node does not get resolved in dt_cg_node()
-		 * because the ref node already holds the pointer.  But for
-		 * alloca pointers, that will be the offset into scratchmem so
-		 * we still need to turn it into a real pointer here.
+		 * Alloca pointers are stored as an offset into scratchmem, so
+		 * they need to be converted into real pointers before we go on.
+		 * An alloca pointer value either has the ALLOCA flag set, or
+		 * the value node is a DEREF of an alloca pointer child.
+		 * If the alloca pointer is a REF or ref-by-value is requested,
+		 * we need to do bounds checking before turning the alloca
+		 * pointer into a real pointer.
+		 * If not, we should scalarize it so that the BPF verifier does
+		 * not complain.
 		 */
-		if (dnp->dn_kind == DT_NODE_OP1 &&
-		    dnp->dn_op == DT_TOK_DEREF && (dnp->dn_flags & DT_NF_REF) &&
-		    (dnp->dn_child->dn_flags & DT_NF_ALLOCA)) {
-			dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
-						  DT_ISIMM, size);
-			dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
-			not_null = 1;
+		if ((dnp->dn_flags & DT_NF_ALLOCA) ||
+		    (dnp->dn_kind == DT_NODE_OP1 &&
+		     dnp->dn_op == DT_TOK_DEREF &&
+		     (dnp->dn_flags & DT_NF_REF) &&
+		     (dnp->dn_child->dn_flags & DT_NF_ALLOCA))) {
+			if ((dnp->dn_flags & DT_NF_REF) || (arg & DT_NF_REF)) {
+				dt_cg_alloca_access_check(dlp, drp, dnp->dn_reg,
+							  DT_ISIMM, size);
+
+				dt_cg_alloca_ptr(dlp, drp, dnp->dn_reg, dnp->dn_reg);
+				not_null = 1;
+			} else {
+				int	reg;
+
+				dt_regset_xalloc(drp, BPF_REG_0);
+				emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, DT_STK_DCTX));
+				if ((reg = dt_regset_alloc(drp)) == -1)
+					longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+				emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_0, DCTX_SCRATCHMEM));
+				emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_0, DCTX_MST));
+				emit(dlp, BPF_STORE(BPF_DW, BPF_REG_0, DMST_SCALARIZER, reg));
+				emit(dlp, BPF_LOAD(BPF_DW, reg, BPF_REG_0, DMST_SCALARIZER));
+				dt_regset_free(drp, BPF_REG_0);
+				emit(dlp,  BPF_ALU64_REG(BPF_ADD, dnp->dn_reg, reg));
+				dt_regset_free(drp, reg);
+			}
 		}
 	}
 
