@@ -170,8 +170,8 @@ translator ipinfo_t < void_ip_t *I > {
  * In some cases where the ipinfo_t * is NULL we wish to construct IP info
  * using the struct tcp_sock * (arg3).  In order to map local IP to source
  * or destination IP address appropriately we need to check if the associated
- * data is inbound (NET_PROBE_INBOUND in arg7) or outbound (NET_PROBE_OUTBOUND);
- * the value is stored in arg7.  If inbound, we map the local IP address to
+ * data is inbound (NET_PROBE_INBOUND in arg6) or outbound (NET_PROBE_OUTBOUND);
+ * the value is stored in arg6.  If inbound, we map the local IP address to
  * ip_daddr (destination), and if outbound it is mapped to ip_saddr.
  */
 #pragma D binding "1.5" translator
@@ -214,12 +214,12 @@ translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
 	    inet_ntoa6(&((struct ipv6hdr *)I)->saddr) :
 	    arg3 != NULL &&
 	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET ?
-	    inet_ntoa(arg7 == NET_PROBE_INBOUND ?
+	    inet_ntoa(arg6 == NET_PROBE_INBOUND ?
 	    &((struct sock *)arg3)->__sk_common.skc_daddr :
 	    &((struct sock *)arg3)->__sk_common.skc_rcv_saddr) :
 	    arg3 != NULL &&
 	    ((struct sock *)arg3)->__sk_common.skc_family == AF_INET6 ?
-	    inet_ntoa6(arg7 == NET_PROBE_INBOUND ?
+	    inet_ntoa6(arg6 == NET_PROBE_INBOUND ?
 	    &((struct sock *)arg3)->__sk_common.skc_v6_daddr :
 	    &((struct sock *)arg3)->__sk_common.skc_v6_rcv_saddr) :
 	    "<unknown>";
@@ -229,12 +229,12 @@ translator ipinfo_t < __dtrace_tcp_void_ip_t *I > {
 	    inet_ntoa6(&((struct ipv6hdr *)I)->daddr) :
 	    arg3 != NULL &&
 	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET ?
-	    inet_ntoa(arg7 == NET_PROBE_INBOUND ?
+	    inet_ntoa(arg6 == NET_PROBE_INBOUND ?
 	    &((struct sock *)arg3)->__sk_common.skc_rcv_saddr :
 	    &((struct sock *)arg3)->__sk_common.skc_daddr) :
 	    arg3 != NULL &&
 	    ((struct sock *)arg3)->__sk_common.skc_family== AF_INET6 ?
-	    inet_ntoa6(arg7 == NET_PROBE_INBOUND ?
+	    inet_ntoa6(arg6 == NET_PROBE_INBOUND ?
 	    &((struct sock *)arg3)->__sk_common.skc_v6_rcv_saddr :
 	    &((struct sock *)arg3)->__sk_common.skc_v6_daddr) :
 	    "<unknown>";

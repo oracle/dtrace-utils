@@ -72,9 +72,9 @@ static probe_dep_t	probes[] = {
 static probe_arg_t probe_args[] = {
 	{ "accept-established", 0, { 0, 0, "struct sk_buff *", "pktinfo_t *" } },
 	{ "accept-established", 1, { 1, 0, "struct sock *", "csinfo_t *" } },
-	{ "accept-established", 2, { 2, 0, "void_ip_t *", "ipinfo_t *" } },
+	{ "accept-established", 2, { 2, 0, "__dtrace_tcp_void_ip_t *", "ipinfo_t *" } },
 	{ "accept-established", 3, { 3, 0, "struct tcp_sock *", "tcpsinfo_t *" } },
-	{ "accept-established", 4, { 4, 0, "struct tcphdr *", "tcpinfo_t *" } },
+	{ "accept-established", 4, { 4, 0, "__dtrace_tcp_void_tcp_t *", "tcpinfo_t *" } },
 	{ "accept-established", 5, { 5, 0, "void", "void" } },
 
 	{ "accept-refused", 0, { 0, 0, "struct sk_buff *", "pktinfo_t *" } },
@@ -166,8 +166,11 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	dt_probe_t	*uprp = pcb->pcb_parent_probe;
 	int		direction, have_iphdr;
 	int		skarg = 0, skbarg = 1, tcparg = 0;
-	int		skarg_maybe_null;
+	int		skarg_maybe_null, have_skb = 1;
 	int		skstate = 0;
+	dtrace_typeinfo_t sym;
+	ctf_funcinfo_t	fi;
+	int		rc;
 
 	/*
 	 * We construct the tcp::: probe arguments as follows:
@@ -258,11 +261,24 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	if (strcmp(prp->desc->prb, "accept-established") == 0) {
-		direction = NET_PROBE_OUTBOUND;
+		direction = NET_PROBE_INBOUND;
 		have_iphdr = 1;
-		/* skb in arg2 not arg1 */
-		skbarg = 2;
-		skarg_maybe_null = 0;
+		/* on older (5.4) kernels, tcp_init_transfer() only has 2
+		 * args, i.e. no struct skb * third argument.
+ 		 */
+		rc = dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY,
+					   uprp->desc->fun, &sym);
+		if (rc == 0 &&
+		    ctf_type_kind(sym.dtt_ctfp, sym.dtt_type) == CTF_K_FUNCTION &&
+		    ctf_func_type_info(sym.dtt_ctfp, sym.dtt_type, &fi) == 0 &&
+		    fi.ctc_argc > 2) {
+			/* skb in arg2 not arg1 */
+			skbarg = 2;
+			skarg_maybe_null = 0;
+		} else {
+			have_skb = 0;
+			have_iphdr = 0;
+		}
 		/* ensure arg1 is BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(1)));
 		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_6,
@@ -289,10 +305,6 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	} else {
 		direction = NET_PROBE_OUTBOUND;
 		if (strcmp(uprp->desc->fun, "ip_send_unicast_reply") == 0) {
-			dtrace_typeinfo_t	sym;
-			ctf_funcinfo_t		fi;
-			int rc;
-
 			/* Newer kernels pass the original socket as second
 			 * arg to ip_send_unicast_reply(); if that function
 			 * has an extra (> 9) argument we know we have to
@@ -344,10 +356,14 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_6, 0, exitlbl));
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(3), BPF_REG_6));
 
-	/* then save skb to args[0] */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(skbarg)));
-	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_6, 0, exitlbl));
-	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_6));
+	if (have_skb) {
+		/* then save skb to args[0] */
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(skbarg)));
+		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_6, 0, exitlbl));
+		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_6));
+	} else {
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(0), 0));
+	}
 
 	/* next save sk to args[1] now that we have skb in args[0] */
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(3)));
@@ -358,34 +374,37 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 *	skb_network_header(skb)	=	(include/linux/ip.h)
 	 *	skb->head + skb->network_header	(include/linux/skbuff.h)
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(0)));
-	dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
-	if (have_iphdr)
+	if (have_skb && have_iphdr) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(0)));
+		dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
-	else
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(2), 0));
-
-	if (have_iphdr) {
 		dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6,
-				 "network_header");
+				       "network_header");
 		emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(2), BPF_REG_0));
+	} else {
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(2), 0));
 	}
+
 	/*
 	 * tcp_hdr(skb) =
 	 *	skb_transport_header(skb) =		(include/linux/ip.h)
 	 *	skb->head + skb->transport_header	(include/linux/skbuff.h)
 	 */
-	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(tcparg)));
-	if (tcparg) {
-		/* struct ip_reply_arg * has a kvec containing the tcp header */
-		dt_cg_tramp_get_member(pcb, "struct kvec", BPF_REG_6, "iov_base");
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+	if (have_skb) {
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(tcparg)));
+		if (tcparg) {
+			/* struct ip_reply_arg * has a kvec containing the tcp header */
+			dt_cg_tramp_get_member(pcb, "struct kvec", BPF_REG_6, "iov_base");
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+		} else {
+			dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+			dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6,
+					 "transport_header");
+			emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+		}
 	} else {
-		dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6, "head");
-		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
-		dt_cg_tramp_get_member(pcb, "struct sk_buff", BPF_REG_6,
-				 "transport_header");
-		emit(dlp, BPF_XADD_REG(BPF_DW, BPF_REG_7, DMST_ARG(4), BPF_REG_0));
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(4), 0));
 	}
 
 	if (!skarg_maybe_null) {

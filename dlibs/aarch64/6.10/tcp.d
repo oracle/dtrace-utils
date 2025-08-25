@@ -172,14 +172,14 @@ translator tcpsinfo_t < struct tcp_sock *T > {
 	    (T && ((struct inet_sock *)T)->inet_sport == 0) ?
 	    ((struct sock *)T)->__sk_common.skc_num :
 	    arg4 != NULL ?
-	    ntohs(arg7 == NET_PROBE_INBOUND ?
+	    ntohs(arg6 == NET_PROBE_INBOUND ?
 		  ((struct tcphdr *)arg4)->dest :
 		  ((struct tcphdr *)arg4)->source) :
 	    0;
 	tcps_rport = T && ((struct sock *)T)->__sk_common.skc_dport != 0 ?
 	    ntohs(((struct sock *)T)->__sk_common.skc_dport) :
 	    arg4 != NULL ?
-	    ntohs(arg7 == NET_PROBE_INBOUND ?
+	    ntohs(arg6 == NET_PROBE_INBOUND ?
 		  ((struct tcphdr *)arg4)->source :
 		  ((struct tcphdr *)arg4)->dest) :
 	    0;
@@ -241,4 +241,34 @@ translator tcpsinfo_t < struct tcp_sock *T > {
 #pragma D binding "1.6.3" translator
 translator tcplsinfo_t < int I > {
 	tcps_state = arg3 ? ((struct sock *)arg3)->__sk_common.skc_state : 0;
+};
+
+/* Use struct tcp_sock * to fill out tcp header info where we do not have
+ * an sk_buff with struct tcphdr * available; currently only used for
+ * the tcp:::accept-established case where the struct sk_buff * is not
+ * available on < 5.10 kernels.
+ */
+typedef void * __dtrace_tcp_void_tcp_t;
+
+#pragma D binding "1.6.3" translator
+translator tcpinfo_t < __dtrace_tcp_void_tcp_t *T > {
+	tcp_sport = T ? ntohs(((struct tcphdr *)T)->source) :
+		    arg3 ? ((struct sock *)arg3)->__sk_common.skc_dport :
+		    0;
+	tcp_dport = T ? ntohs(((struct tcphdr *)T)->dest) :
+		    arg3 ? ntohs(((struct inet_sock *)arg3)->inet_sport) :
+		    0;
+	tcp_seq = T ? ntohl(((struct tcphdr *)T)->seq) :
+		  arg3 ? ((struct tcp_sock *)arg3)->rcv_nxt :
+		  0;
+	tcp_ack = T ? ntohl(((struct tcphdr *)T)->ack_seq) :
+		  arg3 ? ((struct tcp_sock *)arg3)->snd_nxt :
+		  0;
+	tcp_offset = T ? (*(uint8_t *)(T + 12) & 0xf0) >> 2 : 0;
+	tcp_flags = T ? *((uint8_t *)T + 13) : TH_ACK;
+	tcp_window = T ? ntohs(((struct tcphdr *)T)->window) :
+		     arg3 ? ((struct tcp_sock *)arg3)->rcv_wnd :
+		     0;
+	tcp_checksum = T ? ntohs(((struct tcphdr *)T)->check) : 0;
+	tcp_hdr = (uintptr_t)T;
 };
