@@ -1959,6 +1959,8 @@ dt_cg_ctf_offsetof(const char *structname, const char *membername,
 	dtrace_typeinfo_t sym;
 	ctf_file_t *ctfp;
 	ctf_membinfo_t ctm;
+	ctf_encoding_t cte;
+	int offset;
 
 	if (dtrace_lookup_by_type(yypcb->pcb_hdl, DTRACE_OBJ_EVERY, structname,
 				  &sym))
@@ -1973,6 +1975,17 @@ dt_cg_ctf_offsetof(const char *structname, const char *membername,
 
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOCTF);
 	}
+	offset = ctm.ctm_offset;
+
+	/* a bitfield may have an additional bit offset which means we need
+	 * to adjust the reported byte offset.  Currently there is no need
+	 * to bitshift values as they always both fall on 8-bit boundaries
+	 * and are sizes which are multiples of 8 bits, but in future if
+	 * more complex bitfield retrieval is required, changes such as those
+	 * in dt_cg_field_get() will be needed to support that.
+	 */
+	if (ctf_type_encoding(ctfp, ctm.ctm_type, &cte) != CTF_ERR)
+		offset += cte.cte_offset;
 
 	if (sizep || ldopp) {
 		uint_t	ldop;
@@ -1982,7 +1995,7 @@ dt_cg_ctf_offsetof(const char *structname, const char *membername,
 			*ldopp = ldop;
 	}
 
-	return (ctm.ctm_offset / NBBY);
+	return (offset / NBBY);
 }
 static void
 dt_cg_act_breakpoint(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
