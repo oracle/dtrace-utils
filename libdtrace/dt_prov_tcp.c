@@ -37,7 +37,10 @@ static probe_dep_t	probes[] = {
 	{ "connect-refused",
 	  DTRACE_PROBESPEC_NAME,	"fbt::tcp_reset:entry" },
 	{ "connect-request",
-	  DTRACE_PROBESPEC_NAME,	"fbt::ip_queue_xmit:entry" },
+	/* ip_queue_xmit() is static for older kernels so use __ip_queue_xmit()
+	 * which is non-static for older and newer kernels.
+	 */
+	  DTRACE_PROBESPEC_NAME,	"fbt::__ip_queue_xmit:entry" },
 	/* ip6_xmit has > 6 args so cannot fentry on aarch64; use rawfbt */
 	{ "connect-request",
 	  DTRACE_PROBESPEC_NAME,	"rawfbt::ip6_xmit:entry" },
@@ -48,7 +51,7 @@ static probe_dep_t	probes[] = {
 	{ "receive",
 	  DTRACE_PROBESPEC_NAME,	"fbt::tcp_v4_send_reset:entry" },
 	{ "send",
-	  DTRACE_PROBESPEC_NAME,	"fbt::ip_queue_xmit:entry" },
+	  DTRACE_PROBESPEC_NAME,	"fbt::__ip_queue_xmit:entry" },
 	/* ip_send_unicast_reply has 10 args so cannot fentry; use rawfbt */
 	{ "send",
 	  DTRACE_PROBESPEC_NAME,	"rawfbt::ip_send_unicast_reply:entry" },
