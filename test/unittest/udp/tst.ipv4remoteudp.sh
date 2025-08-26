@@ -13,9 +13,7 @@
 #
 # 1. A change to the ip stack breaking expected probe behavior,
 #    which is the reason we are testing.
-# 2. No physical network interface is plumbed and up.
-# 3. No other hosts on this subnet are reachable and listening on rpcbind.
-# 4. An unlikely race causes the unlocked global send/receive
+# 2. An unlikely race causes the unlocked global send/receive
 #    variables to be corrupted.
 #
 # This test sends a UDP message using perl and checks that at least the
@@ -24,8 +22,6 @@
 # 1 x ip:::send (UDP sent)
 # 1 x udp:::send (UDP sent)
 #
-
-# @@skip: not sure what port 31337 is supposed to be
 
 if (( $# != 1 )); then
 	echo "expected one argument: <dtrace-path>" >&2
@@ -41,7 +37,10 @@ if [[ ! -x $getaddr ]]; then
 	echo "could not find or execute sub program: $getaddr" >&2
 	exit 3
 fi
-read source dest <<<`$getaddr ipv4 2>/dev/null`
+set -- $($getaddr ipv4)
+source="$1"
+dest="$2"
+
 if (( $? != 0 )) || [[ -z $dest ]]; then
 	exit 67
 fi
