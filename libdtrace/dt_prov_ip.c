@@ -25,7 +25,7 @@ static probe_dep_t	probes[] = {
 	{ "send",
 	  DTRACE_PROBESPEC_NAME,	"fbt::ip_finish_output:entry" },
 	{ "send",
-	  DTRACE_PROBESPEC_NAME,	"fbt::ip6_finish_output:entry" },
+	  DTRACE_PROBESPEC_NAME,	"rawfbt::ip6_finish_output:entry" },
 	{ NULL, }
 };
 
