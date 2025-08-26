@@ -1079,232 +1079,6 @@ dt_print_tracemem(dtrace_hdl_t *dtp, FILE *fp, const dtrace_recdesc_t *rec,
 	return nconsumed;
 }
 
-int
-dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    caddr_t addr, int depth, int size)
-{
-	dtrace_syminfo_t dts;
-	GElf_Sym sym;
-	int i, indent;
-	char c[PATH_MAX * 2];
-	uint64_t pc;
-
-	if (dt_printf(dtp, fp, "\n") < 0)
-		return -1;
-
-	if (format == NULL)
-		format = "%s";
-
-	if (dtp->dt_options[DTRACEOPT_STACKINDENT] != DTRACEOPT_UNSET)
-		indent = (int)dtp->dt_options[DTRACEOPT_STACKINDENT];
-	else
-		indent = _dtrace_stkindent;
-
-	for (i = 0; i < depth; i++) {
-		switch (size) {
-		case sizeof(uint32_t):
-			/* LINTED - alignment */
-			pc = *((uint32_t *)addr);
-			break;
-
-		case sizeof(uint64_t):
-			/* LINTED - alignment */
-			pc = *((uint64_t *)addr);
-			break;
-
-		default:
-			return dt_set_errno(dtp, EDT_BADSTACKPC);
-		}
-
-		if (pc == 0)
-			break;
-
-		addr += size;
-
-		if (dt_printf(dtp, fp, "%*s", indent, "") < 0)
-			return -1;
-
-		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
-			if (pc > sym.st_value)
-				snprintf(c, sizeof(c), "%s`%s+0x%llx",
-					 dts.object, dts.name,
-					 (long long unsigned)pc - sym.st_value);
-			else
-				snprintf(c, sizeof(c), "%s`%s",
-					 dts.object, dts.name);
-		} else {
-			/*
-			 * We'll repeat the lookup, but this time we'll specify
-			 * a NULL GElf_Sym -- indicating that we're only
-			 * interested in the containing module.
-			 */
-			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
-				snprintf(c, sizeof(c), "%s`0x%llx",
-					 dts.object, (long long unsigned)pc);
-			else
-				snprintf(c, sizeof(c), "0x%llx",
-				    (long long unsigned)pc);
-		}
-
-		if (dt_printf(dtp, fp, format, c) < 0)
-			return -1;
-
-		if (dt_printf(dtp, fp, "\n") < 0)
-			return -1;
-	}
-
-	return 0;
-}
-
-int
-dt_print_ustack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
-    caddr_t addr, uint64_t arg)
-{
-	/* LINTED - alignment */
-	uint64_t *pc = ((uint64_t *)addr);
-	uint32_t depth = DTRACE_USTACK_NFRAMES(arg);
-	uint32_t strsize = DTRACE_USTACK_STRSIZE(arg);
-	const char *strbase = addr + (depth + 1) * sizeof(uint64_t);
-	const char *str = strsize ? strbase : NULL;
-	int err = 0;
-
-	const char *name;
-	char objname[PATH_MAX], c[PATH_MAX * 2];
-	GElf_Sym sym;
-	int i, indent;
-	pid_t pid = -1, tgid;
-
-	if (depth == 0)
-		return 0;
-
-	tgid = (pid_t)*pc++;
-
-	if (dt_printf(dtp, fp, "\n") < 0)
-		return -1;
-
-	if (format == NULL)
-		format = "%s";
-
-	if (dtp->dt_options[DTRACEOPT_STACKINDENT] != DTRACEOPT_UNSET)
-		indent = (int)dtp->dt_options[DTRACEOPT_STACKINDENT];
-	else
-		indent = _dtrace_stkindent;
-
-	/*
-	 * Ultimately, we need to add an entry point in the library vector for
-	 * determining <symbol, offset> from <tgid, address>.  For now, if
-	 * this is a vector open, we just print the raw address or string.
-	 */
-	if (dtp->dt_vector == NULL)
-		pid = dt_proc_grab_lock(dtp, tgid, DTRACE_PROC_WAITING |
-		    DTRACE_PROC_SHORTLIVED);
-
-	for (i = 0; i < depth && pc[i] != 0; i++) {
-		const prmap_t *map;
-
-		if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
-			break;
-		if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET
-		    && pid >= 0) {
-			if (dt_Pobjname(dtp, pid, pc[i], objname,
-			    sizeof(objname)) != NULL) {
-				const prmap_t *pmap = NULL;
-				uint64_t offset = pc[i];
-
-				pmap = dt_Paddr_to_map(dtp, pid, pc[i]);
-
-				if (pmap)
-					offset = pc[i] - pmap->pr_vaddr;
-
-				snprintf(c, sizeof(c), "%s:0x%llx",
-				    dt_basename(objname), (unsigned long long)offset);
-
-			} else
-				snprintf(c, sizeof(c), "0x%llx",
-				    (unsigned long long)pc[i]);
-
-		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
-							  &name, &sym) == 0) {
-			if (dt_Pobjname(dtp, pid, pc[i], objname,
-					sizeof(objname)) != NULL) {
-				if (pc[i] > sym.st_value)
-					snprintf(c, sizeof(c), "%s`%s+0x%llx",
-						 dt_basename(objname), name,
-						 (unsigned long long)(pc[i] - sym.st_value));
-				else
-					snprintf(c, sizeof(c), "%s`%s",
-						 dt_basename(objname), name);
-			} else
-				snprintf(c, sizeof(c), "0x%llx",
-				    (unsigned long long)pc[i]);
-			/* Allocated by Plookup_by_addr. */
-			free((char *)name);
-		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
-		    (pid >= 0 &&
-			((map = dt_Paddr_to_map(dtp, pid, pc[i])) == NULL ||
-			    (map->pr_mflags & MA_WRITE)))) {
-			/*
-			 * If the current string pointer in the string table
-			 * does not point to an empty string _and_ the program
-			 * counter falls in a writable region, we'll use the
-			 * string from the string table instead of the raw
-			 * address.  This last condition is necessary because
-			 * some (broken) ustack helpers will return a string
-			 * even for a program counter that they can't
-			 * identify.  If we have a string for a program
-			 * counter that falls in a segment that isn't
-			 * writable, we assume that we have fallen into this
-			 * case and we refuse to use the string.
-			 */
-			snprintf(c, sizeof(c), "%s", str);
-		} else {
-			if (pid >= 0 && dt_Pobjname(dtp, pid, pc[i], objname,
-			    sizeof(objname)) != NULL)
-				snprintf(c, sizeof(c), "%s`0x%llx",
-				    dt_basename(objname), (unsigned long long)pc[i]);
-			else
-				snprintf(c, sizeof(c), "0x%llx",
-				    (unsigned long long)pc[i]);
-		}
-
-		if ((err = dt_printf(dtp, fp, format, c)) < 0)
-			break;
-
-		if ((err = dt_printf(dtp, fp, "\n")) < 0)
-			break;
-
-		if (str != NULL && str[0] == '@') {
-			/*
-			 * If the first character of the string is an "at" sign,
-			 * then the string is inferred to be an annotation --
-			 * and it is printed out beneath the frame and offset
-			 * with brackets.
-			 */
-			if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
-				break;
-
-			snprintf(c, sizeof(c), "  [ %s ]", &str[1]);
-
-			if ((err = dt_printf(dtp, fp, format, c)) < 0)
-				break;
-
-			if ((err = dt_printf(dtp, fp, "\n")) < 0)
-				break;
-		}
-
-		if (str != NULL) {
-			str += strlen(str) + 1;
-			if (str - strbase >= strsize)
-				str = NULL;
-		}
-	}
-
-	if (pid >= 0)
-		dt_proc_release_unlock(dtp, pid);
-
-	return err;
-}
-
 static int
 dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 {
@@ -1355,7 +1129,7 @@ dt_print_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		format = "  %-50s";
 
 	/*
-	 * See the comment in dt_print_ustack() for the rationale for
+	 * See the comment in dt_print_stack_user() for the rationale for
 	 * printing raw addresses in the vectored case.
 	 */
 	if (dtp->dt_vector == NULL)
@@ -1660,12 +1434,15 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 
 	switch (act) {
 	case DTRACEACT_STACK:
-		return dt_print_stack(dtp, fp, NULL, addr, rec->dtrd_arg,
-				      rec->dtrd_size / rec->dtrd_arg);
+	case DTRACEACT_USTACK: {
+		dtrace_probedata_t	pdat;
 
-	case DTRACEACT_USTACK:
-	case DTRACEACT_JSTACK:
-		return dt_print_ustack(dtp, fp, NULL, addr, rec->dtrd_arg);
+		/* dt_print_stack() uses dtpda_data only */
+		memset(&pdat, 0, sizeof(pdat));
+		pdat.dtpda_data = addr;
+
+		return dt_print_stack(dtp, fp, NULL, &pdat, rec, 1, NULL, 0);
+	}
 
 	case DTRACEACT_USYM:
 	case DTRACEACT_UADDR:
@@ -2467,14 +2244,6 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			return dt_set_errno(dtp, EDT_BADRVAL);
 
 		switch (act) {
-		case DTRACEACT_STACK: {
-			int depth = rec->dtrd_arg;
-
-			if (dt_print_stack(dtp, fp, NULL, recdata,
-					   depth, rec->dtrd_size / depth) < 0)
-				return -1;
-			continue;
-		}
 		case DTRACEACT_SYM:
 			if (dt_print_sym(dtp, fp, NULL, recdata) < 0)
 				return -1;
@@ -2483,11 +2252,10 @@ dt_consume_one_probe(dtrace_hdl_t *dtp, FILE *fp, char *data, uint32_t size,
 			if (dt_print_mod(dtp, fp, NULL, recdata) < 0)
 				return -1;
 			continue;
+		case DTRACEACT_STACK:
 		case DTRACEACT_USTACK:
-			if (dt_print_ustack(dtp, fp, NULL,
-					    recdata, rec->dtrd_arg) < 0)
-				return -1;
-			continue;
+			func = dt_print_stack;
+			break;
 		case DTRACEACT_USYM:
 		case DTRACEACT_UADDR:
 			if (dt_print_usym(dtp, fp, recdata, act) < 0)

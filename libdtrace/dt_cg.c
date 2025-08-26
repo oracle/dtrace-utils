@@ -2701,7 +2701,7 @@ dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
 		strsize = arg1->dn_value;
 	}
 
-	return DTRACE_USTACK_ARG(nframes, strsize);
+	return DTRACE_STACK_ARG(kind == DTRACEACT_USTACK, nframes, strsize);
 }
 
 /*
@@ -2738,7 +2738,7 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 	/* Get sizing information from dnp->dn_arg. */
 	arg = dt_cg_stack_arg(dtp, dnp, kind);
 	prefsz = kind == DTRACEACT_USTACK ? sizeof(uint64_t) : 0;
-	nframes = DTRACE_USTACK_NFRAMES(arg);
+	nframes = DTRACE_STACK_NFRAMES(arg);
 	stacksize = nframes * sizeof(uint64_t);
 
 	/* Handle alignment and reserve space in the output buffer. */
@@ -8700,7 +8700,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 				case DT_ACT_USTACK:
 					arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_USTACK);
 					kind = DTRACEACT_USTACK;
-					size = 8 + 8 * DTRACE_USTACK_NFRAMES(arg);
+					size = 8 + 8 * DTRACE_STACK_NFRAMES(arg);
 					break;
 				case DT_ACT_JSTACK:
 					kind = DTRACEACT_JSTACK;

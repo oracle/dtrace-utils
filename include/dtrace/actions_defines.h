@@ -156,11 +156,6 @@
 		(uint16_t)(((x) & DTRACE_LLQUANTIZE_FACTORMASK) >> \
 			DTRACE_LLQUANTIZE_FACTORSHIFT)
 
-#define DTRACE_USTACK_NFRAMES(x)	(uint32_t)((x) & UINT32_MAX)
-#define DTRACE_USTACK_STRSIZE(x)	(uint32_t)((x) >> 32)
-#define DTRACE_USTACK_ARG(x, y)		\
-		((((uint64_t)(y)) << 32) | ((x) & UINT32_MAX))
-
 #ifndef _LP64
 # ifndef _LITTLE_ENDIAN
 #  define DTRACE_PTR(type, name)	uint32_t name##pad; type *name

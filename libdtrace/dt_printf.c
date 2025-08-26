@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -374,6 +374,200 @@ pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	return dt_printf(dtp, fp, format, s);
 }
 
+static int
+dt_print_stack_kernel(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+		      caddr_t addr, int indent, uint32_t depth)
+{
+	dtrace_syminfo_t dts;
+	GElf_Sym sym;
+	int i;
+	char c[PATH_MAX * 2];
+	uint64_t pc;
+
+	if (format == NULL)
+		format = "%s";
+
+	for (i = 0; i < depth; i++) {
+		pc = *((uint64_t *)addr);
+		if (pc == 0)
+			break;
+
+		addr += sizeof(pc);
+
+		if (dt_printf(dtp, fp, "%*s", indent, "") < 0)
+			return -1;
+
+		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
+			if (pc > sym.st_value)
+				snprintf(c, sizeof(c), "%s`%s+0x%llx",
+					 dts.object, dts.name,
+					 (long long unsigned)pc - sym.st_value);
+			else
+				snprintf(c, sizeof(c), "%s`%s",
+					 dts.object, dts.name);
+		} else {
+			/*
+			 * We'll repeat the lookup, but this time we'll specify
+			 * a NULL GElf_Sym -- indicating that we're only
+			 * interested in the containing module.
+			 */
+			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0)
+				snprintf(c, sizeof(c), "%s`0x%llx",
+					 dts.object, (long long unsigned)pc);
+			else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (long long unsigned)pc);
+		}
+
+		if (dt_printf(dtp, fp, format, c) < 0)
+			return -1;
+
+		if (dt_printf(dtp, fp, "\n") < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+static int
+dt_print_stack_user(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+		    caddr_t addr, int indent, uint32_t depth, uint32_t strsize)
+{
+	/* LINTED - alignment */
+	uint64_t *pc = ((uint64_t *)addr);
+	const char *strbase = addr + (depth + 1) * sizeof(uint64_t);
+	const char *str = strsize ? strbase : NULL;
+	int err = 0;
+
+	const char *name;
+	char objname[PATH_MAX], c[PATH_MAX * 2];
+	GElf_Sym sym;
+	int i;
+	pid_t pid = -1, tgid;
+
+	if (depth == 0)
+		return 0;
+
+	tgid = (pid_t)*pc++;
+
+	if (format == NULL)
+		format = "%s";
+
+	/*
+	 * Ultimately, we need to add an entry point in the library vector for
+	 * determining <symbol, offset> from <tgid, address>.  For now, if
+	 * this is a vector open, we just print the raw address or string.
+	 */
+	if (dtp->dt_vector == NULL)
+		pid = dt_proc_grab_lock(dtp, tgid, DTRACE_PROC_WAITING |
+		    DTRACE_PROC_SHORTLIVED);
+
+	for (i = 0; i < depth && pc[i] != 0; i++) {
+		const prmap_t *map;
+
+		if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
+			break;
+		if (dtp->dt_options[DTRACEOPT_NORESOLVE] != DTRACEOPT_UNSET
+		    && pid >= 0) {
+			if (dt_Pobjname(dtp, pid, pc[i], objname,
+			    sizeof(objname)) != NULL) {
+				const prmap_t *pmap = NULL;
+				uint64_t offset = pc[i];
+
+				pmap = dt_Paddr_to_map(dtp, pid, pc[i]);
+
+				if (pmap)
+					offset = pc[i] - pmap->pr_vaddr;
+
+				snprintf(c, sizeof(c), "%s:0x%llx",
+				    dt_basename(objname), (unsigned long long)offset);
+
+			} else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (unsigned long long)pc[i]);
+
+		} else if (pid >= 0 && dt_Plookup_by_addr(dtp, pid, pc[i],
+							  &name, &sym) == 0) {
+			if (dt_Pobjname(dtp, pid, pc[i], objname,
+					sizeof(objname)) != NULL) {
+				if (pc[i] > sym.st_value)
+					snprintf(c, sizeof(c), "%s`%s+0x%llx",
+						 dt_basename(objname), name,
+						 (unsigned long long)(pc[i] - sym.st_value));
+				else
+					snprintf(c, sizeof(c), "%s`%s",
+						 dt_basename(objname), name);
+			} else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (unsigned long long)pc[i]);
+			/* Allocated by Plookup_by_addr. */
+			free((char *)name);
+		} else if (str != NULL && str[0] != '\0' && str[0] != '@' &&
+		    (pid >= 0 &&
+			((map = dt_Paddr_to_map(dtp, pid, pc[i])) == NULL ||
+			    (map->pr_mflags & MA_WRITE)))) {
+			/*
+			 * If the current string pointer in the string table
+			 * does not point to an empty string _and_ the program
+			 * counter falls in a writable region, we'll use the
+			 * string from the string table instead of the raw
+			 * address.  This last condition is necessary because
+			 * some (broken) ustack helpers will return a string
+			 * even for a program counter that they can't
+			 * identify.  If we have a string for a program
+			 * counter that falls in a segment that isn't
+			 * writable, we assume that we have fallen into this
+			 * case and we refuse to use the string.
+			 */
+			snprintf(c, sizeof(c), "%s", str);
+		} else {
+			if (pid >= 0 && dt_Pobjname(dtp, pid, pc[i], objname,
+			    sizeof(objname)) != NULL)
+				snprintf(c, sizeof(c), "%s`0x%llx",
+				    dt_basename(objname), (unsigned long long)pc[i]);
+			else
+				snprintf(c, sizeof(c), "0x%llx",
+				    (unsigned long long)pc[i]);
+		}
+
+		if ((err = dt_printf(dtp, fp, format, c)) < 0)
+			break;
+
+		if ((err = dt_printf(dtp, fp, "\n")) < 0)
+			break;
+
+		if (str != NULL && str[0] == '@') {
+			/*
+			 * If the first character of the string is an "at" sign,
+			 * then the string is inferred to be an annotation --
+			 * and it is printed out beneath the frame and offset
+			 * with brackets.
+			 */
+			if ((err = dt_printf(dtp, fp, "%*s", indent, "")) < 0)
+				break;
+
+			snprintf(c, sizeof(c), "  [ %s ]", &str[1]);
+
+			if ((err = dt_printf(dtp, fp, format, c)) < 0)
+				break;
+
+			if ((err = dt_printf(dtp, fp, "\n")) < 0)
+				break;
+		}
+
+		if (str != NULL) {
+			str += strlen(str) + 1;
+			if (str - strbase >= strsize)
+				str = NULL;
+		}
+	}
+
+	if (pid >= 0)
+		dt_proc_release_unlock(dtp, pid);
+
+	return err;
+}
+
 /*ARGSUSED*/
 static int
 pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
@@ -381,19 +575,20 @@ pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	      uint64_t normal, uint64_t sig)
 {
 	int width;
-	dtrace_optval_t saved = dtp->dt_options[DTRACEOPT_STACKINDENT];
 	const dtrace_recdesc_t *rec = pfd->pfd_rec;
 	caddr_t addr = (caddr_t)vaddr;
+	uint32_t depth = DTRACE_STACK_NFRAMES(rec->dtrd_arg);
 	int err = 0;
 
+	if (depth == 0)
+		return 0;
+
 	/*
-	 * We have stashed the value of the STACKINDENT option, and we will
-	 * now override it for the purposes of formatting the stack.  If the
-	 * field has been specified as left-aligned (i.e. (%-#), we set the
-	 * indentation to be the width.  This is a slightly odd semantic, but
-	 * it's useful functionality -- and it's slightly odd to begin with to
-	 * be using a single format specifier to be formatting multiple lines
-	 * of text...
+	 * If the field has been specified as left-aligned (i.e. (%-#), we use
+	 * the field width as indentation.  This is a slightly odd semantic
+	 * but it's useful functionality -- and it's slightly odd to begin with
+	 * to be using a single format specifier to be formatting multiple
+	 * lines of text...
 	 */
 	if (pfd->pfd_dynwidth < 0) {
 		assert(pfd->pfd_flags & DT_PFCONV_DYNWIDTH);
@@ -404,24 +599,14 @@ pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 		width = 0;
 	}
 
-	dtp->dt_options[DTRACEOPT_STACKINDENT] = width;
+	if (dt_printf(dtp, fp, "\n") < 0)
+		return -1;
 
-	switch (rec->dtrd_action) {
-	case DTRACEACT_USTACK:
-	case DTRACEACT_JSTACK:
-		err = dt_print_ustack(dtp, fp, format, addr, rec->dtrd_arg);
-		break;
-
-	case DTRACEACT_STACK:
-		err = dt_print_stack(dtp, fp, format, addr, rec->dtrd_arg,
-		    rec->dtrd_size / rec->dtrd_arg);
-		break;
-
-	default:
-		assert(0);
-	}
-
-	dtp->dt_options[DTRACEOPT_STACKINDENT] = saved;
+	if (DTRACE_STACK_IS_USER(rec->dtrd_arg))
+		err = dt_print_stack_user(dtp, fp, format, addr, width, depth,
+					  DTRACE_STACK_STRSIZE(rec->dtrd_arg));
+	else
+		err = dt_print_stack_kernel(dtp, fp, format, addr, width, depth);
 
 	return err;
 }
@@ -2286,4 +2471,30 @@ dt_print_type(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 		return -1;
 
 	return 2;
+}
+
+int
+dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
+	       const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
+	        uint_t nrecs, const void *buf, size_t len)
+{
+	const char	*format;
+	dt_pfargd_t	pfd;
+
+	if (fmtdata == NULL)
+		format = "%s";
+	else
+		format = ((dt_pfargv_t *)fmtdata)->pfv_format;
+
+	/* pfprint_stack() uses pfd_rec, pfd_flags, and pfd_width only */
+	memset(&pfd, 0, sizeof(pfd));
+	pfd.pfd_rec = recs;
+	pfd.pfd_flags = DT_PFCONV_LEFT;
+
+	if (dtp->dt_options[DTRACEOPT_STACKINDENT] != DTRACEOPT_UNSET)
+		pfd.pfd_width = (int)dtp->dt_options[DTRACEOPT_STACKINDENT];
+	else
+		pfd.pfd_width = _dtrace_stkindent;
+
+	return pfprint_stack(dtp, fp, format, &pfd, data->dtpda_data, 0, 0, 0);
 }
