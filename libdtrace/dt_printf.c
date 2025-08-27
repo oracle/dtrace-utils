@@ -961,8 +961,8 @@ dt_printf_destroy(dt_pfargv_t *pfv)
 }
 
 void
-dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
-    dt_ident_t *idp, int foff, dtrace_actkind_t kind, dt_node_t *dnp)
+dt_printf_validate(dt_pfargv_t *pfv, uint_t flags, dt_ident_t *idp, int foff,
+		   dtrace_actkind_t kind, dt_node_t *dnp)
 {
 	dt_pfargd_t *pfd = pfv->pfv_argv;
 	const char *func = idp->di_name;
@@ -980,21 +980,25 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 
 	pfv->pfv_flags = flags;
 
-	/*
-	 * We fake up a parse node representing the type that can be used with
-	 * an aggregation result conversion, which -- for all but count() --
-	 * is a signed quantity.
-	 */
-	if (kind != DT_AGG_COUNT)
-		aggtype = "int64_t";
-	else
-		aggtype = "uint64_t";
-
-	if (dt_type_lookup(aggtype, &dtt) != 0)
-		xyerror(D_TYPE_ERR, "failed to lookup agg type %s\n", aggtype);
-
 	memset(&aggnode, 0, sizeof(aggnode));
-	dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type);
+
+	if (flags & DT_PRINTF_AGGREGATION) {
+		/*
+		 * We fake up a parse node representing the type that can be
+		 * used with an aggregation result conversion, which -- for all
+		 * but count() -- is a signed quantity.
+		 */
+		if (kind != DT_AGG_COUNT)
+			aggtype = "int64_t";
+		else
+			aggtype = "uint64_t";
+
+		if (dt_type_lookup(aggtype, &dtt) != 0)
+			xyerror(D_TYPE_ERR, "failed to lookup agg type %s\n",
+				aggtype);
+
+		dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type);
+	}
 
 	for (i = 0, j = 0; i < pfv->pfv_argc; i++, pfd = pfd->pfd_next) {
 		const dt_pfconv_t *pfc = pfd->pfd_conv;

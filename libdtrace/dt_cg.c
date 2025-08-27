@@ -2494,7 +2494,7 @@ dt_cg_act_printf(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	 */
 	pfp = dt_printf_create(pcb->pcb_hdl, str);
 	dt_printf_validate(pfp, DT_PRINTF_EXACTLEN, dnp->dn_ident, 1,
-			   DTRACEACT_AGGREGATION, arg1);
+			   DTRACEACT_NONE, arg1);
 
 	/*
 	 * If no arguments are provided we will be printing a string constant.
