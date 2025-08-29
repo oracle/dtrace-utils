@@ -59,9 +59,9 @@ END {
 
 	if ($3 == 0) {
 		printf "\n#define DT_VERS_LATEST\tDT_VERS_%d_%d\n", $1, $2;
-		printf "#define DT_VERS_STRING\t\"Oracle D %d.%d\"\n", $1, $2;
+		printf "#define DT_VERS_STRING\t\"D %d.%d\"\n", $1, $2;
 	} else {
 		printf "\n#define DT_VERS_LATEST\tDT_VERS_%d_%d_%d\n", $1, $2, $3;
-		printf "#define DT_VERS_STRING\t\"Oracle D %d.%d.%d\"\n", $1, $2, $3;
+		printf "#define DT_VERS_STRING\t\"D %d.%d.%d\"\n", $1, $2, $3;
 	}
 }

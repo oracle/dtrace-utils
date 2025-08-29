@@ -130,7 +130,8 @@ SHORTKERNELS := $(foreach kernel,$(KERNELS),$(shell printf %s $(kernel) | sed -e
 $(libdtrace-build_DIR)dt_errtags.c: $(libdtrace-build_DIR)dt_errtags.h $(libdtrace-build_DIR)/mkerrtags.sh
 	sh $(libdtrace-build_DIR)mkerrtags.sh < $(libdtrace-build_DIR)dt_errtags.h | sed -e 's/\\n/\n/g' > $@
 
-$(libdtrace-build_DIR)dt_versions_defs.h: $(libdtrace-build_DIR)versions.list
+$(libdtrace-build_DIR)dt_versions_defs.h: $(libdtrace-build_DIR)versions.list \
+					  $(libdtrace-build_DIR)mkvers
 	$(call describe-target,MKVERS,$@)
 	$(libdtrace-build_DIR)mkvers $< > $@
 
