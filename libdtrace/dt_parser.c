@@ -3618,7 +3618,13 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 
 		dt_node_type_assign(dnp, ctfp, type);
 		dt_node_attr_assign(dnp, dt_attr_min(lp->dn_attr, rp->dn_attr));
-		dt_node_prop_alloca(dnp, lp, rp);
+
+		/*
+		 * Only propagate ALLOCA taint if this is not a subtraction of
+		 * two pointers.
+		 */
+		if (!lp_is_ptr || !rp_is_ptr)
+			dt_node_prop_alloca(dnp, lp, rp);
 
 		if (xflags)
 			dnp->dn_flags |= xflags;

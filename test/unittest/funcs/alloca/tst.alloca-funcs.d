@@ -21,13 +21,14 @@
 
 BEGIN
 {
+	base = (char *)alloca(0);
 	x = (char *) alloca(8);
 	x[0] = 'a';
 	x[1] = '/';
 	x[2] = 'b';
 	x[3] = 0;
 	printf("%s\n", stringof(x));
-	trace(x);
+	printf("%x\n", x - base);
 }
 
 BEGIN
