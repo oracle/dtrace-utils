@@ -702,7 +702,8 @@ enum_definition:
 
 enumerator_list:
 		enumerator
-	|	enumerator_list DT_TOK_COMMA enumerator
+	|	enumerator DT_TOK_COMMA enumerator_list
+	|	enumerator DT_TOK_COMMA
 	;
 
 enumerator:	DT_TOK_IDENT { dt_decl_enumerator($1, NULL); }
