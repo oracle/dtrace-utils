@@ -135,5 +135,5 @@ Now you can use this script to monitor all the system calls made by any process 
 sudo ./strace.ds $(pidof /usr/sbin/crond)
 ```
 
-**Parent topic:**[Get Started With DTrace](../how-to/DTraceGuide.md)
+**Parent topic:**[Get Started With DTrace](../how-to/dtrace-guide.md)
 

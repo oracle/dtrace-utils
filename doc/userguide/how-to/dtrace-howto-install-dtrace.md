@@ -5,7 +5,7 @@ publisherinformation: May 2025
 
 The following instructions provide steps to install DTrace on different Linux distributions and to verify that the installation was successful.
 
-**Parent topic:**[Get Started With DTrace](../how-to/DTraceGuide.md)
+**Parent topic:**[Get Started With DTrace](../how-to/dtrace-guide.md)
 
 ## Build and Install DTrace on Gentoo Linux {#build_install_dtrace_gentoo_linux}
 

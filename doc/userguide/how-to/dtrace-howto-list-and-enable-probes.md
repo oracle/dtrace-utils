@@ -130,5 +130,5 @@ DTrace providers publish available probes to DTrace so that you can enable them 
     ```
 
 
-**Parent topic:**[Get Started With DTrace](../how-to/DTraceGuide.md)
+**Parent topic:**[Get Started With DTrace](../how-to/dtrace-guide.md)
 

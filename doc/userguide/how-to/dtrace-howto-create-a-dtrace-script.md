@@ -179,5 +179,5 @@ This tutorial provides successive steps toward developing a DTrace script that y
     The script runs as before, illustrating that the predicate is working.
 
 
-**Parent topic:**[Get Started With DTrace](../how-to/DTraceGuide.md)
+**Parent topic:**[Get Started With DTrace](../how-to/dtrace-guide.md)
 
