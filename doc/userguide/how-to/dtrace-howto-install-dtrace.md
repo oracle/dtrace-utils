@@ -12,8 +12,8 @@ The following instructions provide steps to install DTrace on different Linux di
   ```
   emerge dev-debug/dtrace
   ```
-  For more details related to Gentoo DTrace, please see the [DTrace Gentoo wiki](wiki.gentoo.org/wiki/DTrace)
-  For DTrace package info, please see the [Gentoo package repository for DTrace](packages.gentoo.org/packages/dev-debug/dtrace)
+  For more details related to Gentoo DTrace, please see the [DTrace Gentoo wiki](https://wiki.gentoo.org/wiki/DTrace)
+  For DTrace package info, please see the [Gentoo package repository for DTrace](https://packages.gentoo.org/packages/dev-debug/dtrace)
 
 ## Install DTrace on Oracle Linux
 
