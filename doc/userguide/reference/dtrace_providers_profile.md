@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Profile Provider {#dt_ref_profile_prov}
 

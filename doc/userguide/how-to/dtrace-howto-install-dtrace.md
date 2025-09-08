@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 # Install DTrace{#install_dtrace}
 
 The following instructions provide steps to install DTrace on different Linux distributions and to verify that the installation was successful.

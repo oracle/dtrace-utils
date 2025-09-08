@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Structs and Unions {#dt_structunion_dlang}
 

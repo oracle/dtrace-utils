@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # CPC Provider {#dt_ref_cpc_prov}
 

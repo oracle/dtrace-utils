@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Proc Provider {#dt_ref_proc_prov}
 

@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # DTrace Provider {#dt_ref_dt_prov}
 

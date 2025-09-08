@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Variables {#dt_vars_dlang}
 

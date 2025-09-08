@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Pointers {#dt_ptrarr_dlang}
 

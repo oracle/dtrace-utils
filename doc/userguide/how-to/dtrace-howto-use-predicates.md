@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Use Predicates For Control Flow {#dt_preds_dlang}
 

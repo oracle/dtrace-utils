@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # dtrace Command Exit Status {#dtrace_command_exit_status}
 

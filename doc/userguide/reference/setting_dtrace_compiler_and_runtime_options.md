@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Setting DTrace Compile-time and Runtime Options {#dt_runtime_option_description}
 

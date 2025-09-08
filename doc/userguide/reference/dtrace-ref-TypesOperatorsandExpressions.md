@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Types, Operators, and Expressions {#dt_types_dlang}
 

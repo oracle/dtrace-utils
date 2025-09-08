@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # FBT Provider {#dt_ref_fbt_prov}
 

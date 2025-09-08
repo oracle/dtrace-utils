@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # SDT Provider {#dt_ref_sdt_prov}
 

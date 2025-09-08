@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Program Structure {#dt_prog_struct}
 

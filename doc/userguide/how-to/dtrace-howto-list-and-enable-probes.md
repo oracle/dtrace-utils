@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # List and Enable Probes {#list_enable_probes}
 

@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Lockstat Provider {#dt_ref_lockstat_prov}
 

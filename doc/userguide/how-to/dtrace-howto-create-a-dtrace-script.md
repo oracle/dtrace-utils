@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Create a DTrace Script {#dt_create_script}
 

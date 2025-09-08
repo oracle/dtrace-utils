@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # DTrace String Processing {#dt_strings_dlang}
 

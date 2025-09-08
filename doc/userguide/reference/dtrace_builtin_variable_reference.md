@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # DTrace Built-in Variable Reference {#dt_ref_builtin_vars}
 

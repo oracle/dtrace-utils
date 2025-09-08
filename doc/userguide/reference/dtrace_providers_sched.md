@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Sched Provider {#dt_ref_sched_prov}
 

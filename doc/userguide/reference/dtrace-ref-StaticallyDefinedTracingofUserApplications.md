@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # USDT Provider {#dt_ref_usdt_prov}
 

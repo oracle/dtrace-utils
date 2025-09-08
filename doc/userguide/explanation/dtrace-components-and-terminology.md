@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # DTrace Components and Terminology {#concept_terms}
 

@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Rawtp Provider {#dt_ref_rawtp_prov}
 

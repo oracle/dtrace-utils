@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Pid Provider {#dt_ref_pid_prov}
 

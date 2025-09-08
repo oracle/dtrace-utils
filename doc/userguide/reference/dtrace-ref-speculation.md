@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Speculation {#dt_ref_speculation}
 

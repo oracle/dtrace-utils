@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # About the dtrace Command {#dtrace_command_desc}
 

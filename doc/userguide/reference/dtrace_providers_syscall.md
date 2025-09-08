@@ -1,6 +1,3 @@
----
-publisherinformation: May 2025
----
 
 # Syscall Provider {#dt_ref_syscall_prov}
 
