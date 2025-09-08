@@ -1,6 +1,5 @@
 # Using DTrace for System Tracing
 
--   [Preface](explanation/dtrace-preface.md)
 -   [Get Started With DTrace](how-to/dtrace-guide.md)
     -   [Install DTrace](how-to/dtrace-howto-install-dtrace.md#install_dtrace)
         -   [Build and Install DTrace on Gentoo Linux](how-to/dtrace-howto-install-dtrace.md#build_install_dtrace_gentoo_linux)
