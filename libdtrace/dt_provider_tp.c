@@ -18,13 +18,6 @@
 #include "dt_impl.h"
 
 /*
- * All tracing events (tracepoints) include a number of fields that we need to
- * skip in the tracepoint format description.  These fields are: common_type,
- * common_flags, common_preempt_coint, and common_pid.
- */
-#define SKIP_FIELDS_COUNT	4
-
-/*
  * Tracepoint-specific probe data.  This is allocated for every tracepoint
  * based probe.  Since 0 is not a valid tracepoint event id, and given that BTF
  * id 0 refers to 'void', this value is used to denote that no association with
@@ -129,10 +122,10 @@ dt_tp_attach_raw(dtrace_hdl_t *dtp, tp_probe_t *tpp, const char *name,
  * the identifier isn't as easy because it may be suffixed by one or more
  * array dimension specifiers (and those are part of the type).
  *
- * All events include a number of fields that we are not interested in and that
- * need to be skipped (SKIP_FIELDS_COUNT).  Callers of this function can
- * specify an additional number of fields to skip (using the 'skip' parameter)
- * before we get to the actual arguments.
+ * All events include a number of common fields that we are not interested
+ * in and that need to be skipped.  Callers of this function can specify an
+ * additional number of fields to skip (using the 'skip' parameter) before
+ * we get to the actual arguments.
  */
 int
 dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
@@ -140,19 +133,16 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 {
 	char		*buf = NULL;
 	size_t		bufsz;
-	int		argc;
+	int		argc, common = 1;
 	dt_argdesc_t	*argv = NULL;
 
 	tpp->id = 0;
 
 	/*
-	 * Let skip be the total number of fields to skip.
-	 */
-	skip += SKIP_FIELDS_COUNT;
-
-	/*
 	 * Pass 1:
 	 * Determine the event id and the number of arguments.
+	 * Skip over how ever many arguments the caller asks us to skip.
+	 * We will skip initial "common fields" as well.
 	 */
 	argc = -skip;
 	while (getline(&buf, &bufsz, f) >= 0) {
@@ -160,14 +150,63 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 
 		if (sscanf(buf, "ID: %u\n", &tpp->id) == 1)
 			continue;
-
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
 			continue;
-		sscanf(p, "__data_loc %[^;]", p);
 
-		/* We found a field: description - see if we should skip it. */
-		if (argc++ < 0)
-			continue;
+		/*
+		 * If we have only seen common fields to date, keep
+		 * looking for a non-common field.
+		 */
+		if (common == 1) {
+			char	*s = p + strlen(p) - 1;
+
+			/*
+			 * Strip off any [] array size specifications at the end.
+			 */
+			while (*s == ']') {
+				/* From ']' hunt back to '['.  They are not nested. */
+				while (s > p && *(--s) != '[') ;
+
+				/* Then remove any spaces. */
+				while (s > p && *(--s) == ' ') ;
+			}
+			*(++s) = '\0';
+
+			/*
+			 * Go to the beginning of the identifier.
+			 */
+			p = strrchr(p, ' ');
+			if (p == NULL)
+				return -EINVAL;
+			p++;
+
+			/*
+			 * Check if it is a common field.
+			 *
+			 * In kernel source file kernel/trace/trace_events.c
+			 * in trace_define_common_fields(), the macro
+			 * __common_field() is used to define common fields,
+			 * prepending names with "common_".
+			 */
+			if (strncmp(p, "common_", 7) == 0) {
+				/*
+				 * For Pass 2, we will not bother checking
+				 * for "common" fields;  we will just pretend
+				 * the caller asked us to skip more arguments.
+				 */
+				skip++;
+
+				continue;
+			}
+
+			/*
+			 * No more need to check for common fields.
+			 */
+			common = 0;
+		}
+
+		/* We found a non-common "field:" description. */
+		argc++;
 	}
 	free(buf);
 	buf = NULL;
