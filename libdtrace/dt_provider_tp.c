@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -141,7 +141,6 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	char		*buf = NULL;
 	size_t		bufsz;
 	int		argc;
-	size_t		argsz = 0;
 	dt_argdesc_t	*argv = NULL;
 
 	tpp->id = 0;
@@ -153,8 +152,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 
 	/*
 	 * Pass 1:
-	 * Determine the event id and the number of arguments (along with the
-	 * total size of all type strings together).
+	 * Determine the event id and the number of arguments.
 	 */
 	argc = -skip;
 	while (getline(&buf, &bufsz, f) >= 0) {
@@ -170,12 +168,6 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		/* We found a field: description - see if we should skip it. */
 		if (argc++ < 0)
 			continue;
-
-		/*
-		 * We over-estimate the space needed (pass 2 will strip off the
-		 * identifier name).
-		 */
-		argsz += strlen(p) + 1;
 	}
 	free(buf);
 	buf = NULL;
