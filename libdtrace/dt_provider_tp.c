@@ -208,11 +208,12 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 		p = buf;
 		if (sscanf(buf, " field:%[^;]", p) <= 0)
 			continue;
-		sscanf(p, "__data_loc %[^;]", p);
 
 		/* We found a field: description - see if we should skip it. */
 		if (argc < 0)
 			goto skip;
+
+		sscanf(p, "__data_loc %[^;]", p);
 
 		/*
 		 * If the last character is not ']', the last token must be the
