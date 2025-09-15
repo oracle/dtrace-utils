@@ -3,8 +3,16 @@
 
 install::
 	mkdir -p $(INSTDOCDIR)
-	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS)
+	mkdir -p $(INSTDOCDIR)/userguide
+	mkdir -p $(INSTDOCDIR)/userguide/explanation
+	mkdir -p $(INSTDOCDIR)/userguide/how-to
+	mkdir -p $(INSTDOCDIR)/userguide/reference
+	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS doc/userguide)
 	install -m 644 README INCOMPATIBILITIES NEWS $(INSTDOCDIR)
+	install -m 644 doc/userguide/index.md $(INSTDOCDIR)/userguide
+	install -m 644 doc/userguide/explanation/* $(INSTDOCDIR)/userguide/explanation
+	install -m 644 doc/userguide/how-to/* $(INSTDOCDIR)/userguide/how-to
+	install -m 644 doc/userguide/reference/* $(INSTDOCDIR)/userguide/reference
 
 install-test::
 	mkdir -p $(INSTTESTDIR)
