@@ -21,8 +21,6 @@
 static int id_or_type(const char *);
 static size_t dt_input(char *buf, size_t max_size);
 
-int yydebug;
-
 #define YY_INPUT(buf,result,max_size)                                   \
         result = dt_input(buf,max_size);
 
@@ -663,7 +661,7 @@ if (yypcb->pcb_token != 0) {
 void
 yybegin(yystate_t state)
 {
-#ifdef	YYDEBUG
+#if defined(YYDEBUG) && YYDEBUG == 1
 	yydebug = _dtrace_debug;
 #endif
 	if (yypcb->pcb_yystate == state)

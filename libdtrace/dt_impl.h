@@ -808,7 +808,9 @@ extern char yyintsuffix[4];	/* int token suffix ([uUlL]*) */
 extern int yyintdecimal;	/* int token is decimal (1) or octal/hex (0) */
 extern char *yytext;		/* lex input buffer */
 extern int yylineno;		/* lex line number */
+#if defined(YYDEBUG) && YYDEBUG == 1
 extern int yydebug;		/* lex debugging */
+#endif
 extern dt_node_t *yypragma;	/* lex token list for control lines */
 
 extern const dtrace_attribute_t _dtrace_maxattr; /* maximum attributes */
