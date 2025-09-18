@@ -88,7 +88,7 @@ if (yypcb->pcb_token != 0) {
 <S0>do		return DT_KEY_DO;
 <S0>double	return DT_KEY_DOUBLE;
 <S0>else	return DT_KEY_ELSE;
-<S0>enum	{ yypcb->pcb_sou_type = 1; return DT_KEY_ENUM; }
+<S0>enum	{ yypcb->pcb_sou_type = 1; yypcb->pcb_enum_decl = 1; return DT_KEY_ENUM; }
 <S0>extern	return DT_KEY_EXTERN;
 <S0>float	return DT_KEY_FLOAT;
 <S0>for		return DT_KEY_FOR;
@@ -128,6 +128,7 @@ if (yypcb->pcb_token != 0) {
 <S2>counter	{ yybegin(YYS_DEFINE);	return DT_KEY_COUNTER; }
 <S2>double	{ yybegin(YYS_EXPR);	return DT_KEY_DOUBLE; }
 <S2>enum	{ yybegin(YYS_EXPR);	yypcb->pcb_sou_type = 1;
+					yypcb->pcb_enum_decl = 1;
 					return DT_KEY_ENUM; }
 <S2>extern	{ yybegin(YYS_EXPR);	return DT_KEY_EXTERN; }
 <S2>float	{ yybegin(YYS_EXPR);	return DT_KEY_FLOAT; }
@@ -463,6 +464,7 @@ if (yypcb->pcb_token != 0) {
 <S0>"("		{
 			yypcb->pcb_parens++;
 			yypcb->pcb_sou_type = 0;
+			yypcb->pcb_enum_decl = 0;
 			return DT_TOK_LPAR;
 		}
 
@@ -488,10 +490,13 @@ if (yypcb->pcb_token != 0) {
 <S2>"{"		{
 			yypcb->pcb_braces++;
 			yypcb->pcb_sou_type = 0;
+			if (yypcb->pcb_enum_decl)
+				yypcb->pcb_enum_decl++;
 			return '{';
 		}
 
 <S0>"}"		{
+			yypcb->pcb_enum_decl = 0;
 			if (--yypcb->pcb_braces < 0)
 				yyerror("extra } in input stream\n");
 			return '}';
@@ -536,7 +541,7 @@ if (yypcb->pcb_token != 0) {
 <S0>"--"	return DT_TOK_SUBSUB;
 <S0>"..."	return DT_TOK_ELLIPSIS;
 <S0>","		return DT_TOK_COMMA;
-<S0>";"		return ';';
+<S0>";"		yypcb->pcb_enum_decl = 0; return ';';
 <S0>{RGX_WS}	; /* discard */
 <S0>"\\"\n	; /* discard */
 <S0>.		{
@@ -768,6 +773,14 @@ id_or_type(const char *s)
 			NULL, dtp->dt_gen);
 		return DT_TOK_IDENT;
 	}
+
+	/*
+	 * Inside an enumeration declaration's { }'s region: must be an ident.
+	 * Checking for conflicts is handled by dt_decl_enumerator().  No
+	 * need to look anything up here.
+	 */
+	if (yypcb->pcb_enum_decl == 2)
+	    return DT_TOK_IDENT;
 
 	/*
 	 * If the lexeme is a global variable or likely identifier, then it is
