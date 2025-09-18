@@ -245,7 +245,7 @@ Probe
 </td></tr><tbody></table>
 ### lwpsinfo\_t and psinfo\_t {#dt_ref_lwpsinfo_t_psinfo_t_sched_prov}
 
-The`lwpsinfo_t` and `psinfo_t` structures are described in [Proc Provider](dtrace_providers_proc.md#).
+The `lwpsinfo_t` and `psinfo_t` structures are described in [Proc Provider](dtrace_providers_proc.md#).
 
 ### cpuinfo\_t {#dt_ref_cpuinfo_sched_prov}
 
