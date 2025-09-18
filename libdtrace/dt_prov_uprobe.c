@@ -957,8 +957,15 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 				       upp);
 		if (uprp == NULL)
 			goto fail;
-	} else
+
+		if (psp->pps_flags & DT_PID_PSP_FLAG_OPTIONAL)
+			uprp->flags |= DT_PROBE_FLAG_OPTIONAL;
+	} else {
 		upp = uprp->prv_data;
+
+		if (!(psp->pps_flags & DT_PID_PSP_FLAG_OPTIONAL))
+			uprp->flags &= ~DT_PROBE_FLAG_OPTIONAL;
+	}
 
 	/*
 	 * Only one USDT probe can correspond to each underlying probe.
@@ -1050,6 +1057,12 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	prp = dt_probe_lookup(dtp, &pd);
 	if (prp != NULL) {
 		/*
+		 * If not optional, pass that info on.
+		 */
+		if (!(psp->pps_flags & DT_PID_PSP_FLAG_OPTIONAL))
+			prp->flags &= ~DT_PROBE_FLAG_OPTIONAL;
+
+		/*
 		 * Probe already exists.  If it's already in the underlying
 		 * probe's probe list, there is nothing left to do.
 		 */
@@ -1079,10 +1092,17 @@ static int provide_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 	 */
 
 	pup->probe = uprp;
-	if (prp == NULL)
+	if (prp == NULL) {
 		prp = dt_probe_insert(dtp, pvp, pd.prv, pd.mod, pd.fun, pd.prb,
 				      pup);
-	else
+
+		/*
+		 * If not optional, pass that info on.
+		 */
+		if (psp->pps_flags & DT_PID_PSP_FLAG_OPTIONAL)
+			prp->flags |= DT_PROBE_FLAG_OPTIONAL;
+
+	} else
 		dt_list_append((dt_list_t *)prp->prv_data, pup);
 
 	if (prp == NULL) {

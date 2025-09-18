@@ -386,14 +386,9 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 #define disasm(x, y) 4
 #endif
 
+		psp->pps_flags |= DT_PID_PSP_FLAG_OPTIONAL;
 		for (off = 0; off < symp->st_size; off += disasm(off, &disasm_info)) {
 			char offstr[32];
-
-#if defined(__amd64)
-			/* Newer kernels do not allow uprobes on "hlt" instructions. */
-			if ((unsigned int)disasm_info.buffer[off] == 0xf4)
-				continue;
-#endif
 
 			snprintf(offstr, sizeof(offstr), "%lx", off);
 			if (!gmatch(offstr, pp->dpp_name))

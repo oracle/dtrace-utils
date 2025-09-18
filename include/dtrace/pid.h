@@ -47,6 +47,7 @@ typedef struct pid_probespec {
 	size_t pps_xargvlen;			/* (high estimate of) length of array */
 	int8_t *pps_argmap;			/* mapped arg indexes */
 	char *pps_sargv;			/* list of arg sources */
+	int pps_flags;				/* flags */
 
 	/*
 	 * Fields below this point do not apply to underlying probes.
@@ -54,5 +55,7 @@ typedef struct pid_probespec {
 	pid_t pps_pid;				/* task PID */
 	uint64_t pps_nameoff;			/* offset to use for name */
 } pid_probespec_t;
+
+#define DT_PID_PSP_FLAG_OPTIONAL	1	/* probe is optional */
 
 #endif /* _DTRACE_PID_H */
