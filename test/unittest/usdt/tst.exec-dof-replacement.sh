@@ -33,7 +33,7 @@ provider test_prov {
 };
 EOF
 
-if ! { $dtrace $dt_flags -h -s prov1.d && dtrace -h -s prov2.d; } then
+if ! { $dtrace $dt_flags -h -s prov1.d && $dtrace -h -s prov2.d; } then
 	echo "failed to generate header files" >&2
 	exit 1
 fi
