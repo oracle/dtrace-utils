@@ -72,7 +72,7 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.3
+Version:      2.0.4
 Release:      1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -230,6 +230,21 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Fri Oct 24 2025 Eugene Loh <eugene.loh@oracle.com> - 2.0.4-1
+- TCP, UDP, and stapsdt providers implemented.  (Alan Maguire)
+- New learning materials:  the User's Guide in Markdown format,
+  example scripts, and a context file for LLMs.
+  (Eugene Loh, Bruce McCulloch, Ruud van der Pas, Elena Zannoni).
+- Allow [u]stack() to be used as a variable value.  (Kris Van Hees)
+  [Orabug: 37950533]
+- Comments using // are now supported.  (Kris Van Hees)
+- Scalability improvements.  (Kris Van Hees)
+- Error injection via return() action.  (Kris Van Hees)
+- Improved string handling.  (Kris Van Hees)
+- Various bug fixes.  (Eugene Loh, Kris Van Hees)
+- Various testsuite fixes and improvements.
+  (Nick Alcock, Eugene Loh, Alan Maguire, Kris Van Hees)
+
 * Tue Jun 10 2025 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.3-1
 - This is only released on OL10.
 - Redesigned USDT support to work for LTO compilations.  [Orabug: 38011704]

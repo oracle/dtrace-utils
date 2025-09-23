@@ -1,3 +1,136 @@
+2.0.4-1 (Oct 24th, 2025)
+------------------------
+
+New features:
+
+ - The TCP and UDP providers have been implemented.
+
+ - An stapsdt provider has been implemented for user-space static probes
+   defined via stapsdt ELF notes.  The provider also supports probes created
+   dynamically via libstapsdt.
+
+ - The User's Guide is now part of the git repository in Markdown form and
+   part of an install.
+
+ - Example scripts are now part of the git repository and installed under
+   /usr/share/doc/dtrace/examples.
+
+ - One can now use [u]stack() as variable values of type "struct dt_stack"
+   or "dt_stack_t".
+
+ - There is now a context file, which explains DTrace, to use with LLMs.
+
+ - Comments using // are now supported.
+
+ - The return() action is now implemented, allowing error injection by forcing
+   a given return value for a kernel function.  The kernel must be configured
+   with CONFIG_BPF_KPROBE_OVERRIDE and CONFIG_FUNCTION_ERROR_INJECTION.
+
+Bugfixes:
+
+ - A commonplace problem with dynamics variables overwriting one another was
+   identified and fixed.
+
+ - fbt probes in the "dtrace -l" listing have been restored.
+
+ - Function names have been restored to pid return probes.
+
+ - The built-in variables caller and stackdepth have been corrected by
+   recognizing when additional BPF stack frames must be skipped.
+
+ - char arrays can now be used in aggregation keys.
+
+ - The use of -w is now required for destructive actions, even if a clause is
+   being ignored with -Z.
+
+ - Both 'cwd' and 'root' now work (and other inline vars are now tested).
+
+ - The proc:::exec args[0] argument has been corrected for the case that
+   execveat() is the underlying function.
+
+User-visible changes:
+
+ - DIFO is now freed once a probe is loaded, substantially reducing memory
+   consumption when a lot of probes are specified.
+
+ - Per-CPU agg-map IDs are now cached, substantially improving trunc()
+   performance on the consumer side on many-CPU systems.
+
+ - D compilation now allows enum declarations where the last enumerator value
+   is followed by a comma.
+
+ - alloca() pointers are now printed as actual pointer values into kernel space
+   rather than as relatively small offsets into the DTrace scratch memory area.
+
+ - Strings are now handled better with regards to empty strings, the meaning of
+   strsize, testing, and NUL padding.
+
+ - SDT probes that were not firing because they were dependent on fbt probes
+   that were not firing with the fentry/freturn implementation are now dependent
+   on rawfbt probes (kprobes).
+
+ - The USDT parser now handles encoded hyphens.
+
+ - Function Psystem_daemon() now has better logic for detecting system daemons.
+
+ - Management of CTF and BTF data has been improved.  E.g.,
+
+   - If the kernel is not compiled with CTF or BTF, there is an error message.
+
+   - There is now an -xbtfpath option, with -xbtfpath=none disabling the use
+     of BTF data.
+
+   - A BTF ID symbol lookup now checks that the module BTF data is loaded.
+
+ - If a pid probe description is supplied with a wildcard probe name (that is,
+   function offset), instructions are skipped if the kernel does not allow
+   probe attach.
+
+Internal changes:
+
+ - The mechanism to skip common fields when querying tracepoint probe arguments
+   is now more robust.
+
+ - tstrings are now managed better, including elimination of some leaks,
+   thereby allowing more complex expressions.
+
+ - DTrace version numbering is now consolidated.
+
+ - References in dlibs to major_names now explicitly mention vmlinux, so as to
+   avoid loading modules needlessly.
+
+ - Parsing and lexical analysis has been improved.
+
+ - The subtraction of two alloca() pointers no longer receives the ALLOCA taint.
+
+ - Aggregations are now snapshot "just in time" for theoretically better
+   performance and for more consistent reporting.
+
+ - USDT discovery has been optimized a little.  USDT memory leaks in hash
+   tables have been cleaned up.
+
+ - Some unused variables have been eliminated.
+
+Testsuite changes:
+
+ - Various tests have been made more stringent, reliable, or suitable for newer
+   kernels.
+
+ - Test dependence on tick-* probes has once again been reduced yet further.
+
+ - New tests have been added for more coverage.
+
+ - .r.p files have been moved from /bin/sh to /bin/bash for better behavior on
+   more distributions.
+
+ - Script get_remote.sh is now installed for better testing of RPMs.
+
+Build-time:
+
+ - BPF library functions are now compiled with -ffreestanding.
+
+ - The developer package now includes previous omissions.
+
 2.0.3-1 (Jun 10th, 2025)
 ------------------------
 
