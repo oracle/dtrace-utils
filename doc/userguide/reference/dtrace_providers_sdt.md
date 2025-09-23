@@ -42,100 +42,10 @@ The arguments for each `sdt` probe are the arguments that are specified in the k
 
 The `sdt` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 
-<table><thead><tr><th>
-
-Element
-
-</th><th>
-
-Name Stability
-
-</th><th>
-
-Data Stability
-
-</th><th>
-
-Dependency Class
-
-</th></tr></thead><tbody><tr><td>
-
-Provider
-
-</td><td>
-
-Evolving
-
-</td><td>
-
-Evolving
-
-</td><td>
-
-ISA
-
-</td></tr><tr><td>
-
-Module
-
-</td><td>
-
-Private
-
-</td><td>
-
-Private
-
-</td><td>
-
-Unknown
-
-</td></tr><tr><td>
-
-Function
-
-</td><td>
-
-Private
-
-</td><td>
-
-Private
-
-</td><td>
-
-Unknown
-
-</td></tr><tr><td>
-
-Name
-
-</td><td>
-
-Private
-
-</td><td>
-
-Private
-
-</td><td>
-
-ISA
-
-</td></tr><tr><td>
-
-Arguments
-
-</td><td>
-
-Private
-
-</td><td>
-
-Private
-
-</td><td>
-
-ISA
-
-</td></tr><tbody></table>
+| Element   | Name Stability | Data Stability | Dependency Class |
+| :---      | :---           | :---           | :---             |
+| Provider  | Evolving       | Evolving       | ISA              |
+| Module    | Private        | Private        | Unknown          |
+| Function  | Private        | Private        | Unknown          |
+| Name      | Private        | Private        | ISA              |
+| Arguments | Private        | Private        | ISA              |
