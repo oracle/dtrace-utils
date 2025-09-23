@@ -22,6 +22,7 @@ cpc:::<event name>-<mode>-<count>
 The definitions of the components of the probe name are listed in table.
 
 |Component|Meaning|
+| :---    | :---  |
 |event name|The platform specific or generic event name.|
 |mode|The privilege mode in which to count events. Valid modes are *user* for user mode events, *kernel* for kernel mode events and *all* for both user mode and kernel mode events.|
 |count|The number of events that must occur on a CPU for a probe to be fired on that CPU. Note that the count is a configurable value. If the count value is too high, then the probe fires less often and the statistics are less reliable. If the count value is too low, the probe fires too often and the system is inundate with tracing activity. When selecting a count value, start with a higher value and then decrease it to get more accurate statistics.|
@@ -32,6 +33,8 @@ Note that when you list CPC probes, example count values are provided in the pro
 
 The following table lists the argument types for the `cpc` probes.
 
+| args | Description |
+| :--- | :--- |
 |`arg0`|The program counter \(PC\) in the kernel at the time that the probe fired, or 0 if the current process wasn't running in the kernel at the time that the probe fired|
 |`arg1`|The PC in the user-level process at the time that the probe fired, or 0 if the current process was running at the kernel at the time that the probe fired|
 
