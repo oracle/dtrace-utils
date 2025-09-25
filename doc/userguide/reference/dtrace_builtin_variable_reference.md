@@ -325,7 +325,7 @@ The built-in variable `execname` references the name that was passed to `execve(
 fileinfo_t fds[]
 ```
 
-The built-in `variable fds[]` is an array which has the files the current process has opened in a `fileinfo_t` array, indexed by file descriptor number. See [fileinfo\_t](dtrace_providers_io.md#).
+The built-in `variable fds[]` is an array which has the files the current process has opened in a `fileinfo_t` array, indexed by file descriptor number. See [fileinfo\_t](dtrace_providers_io.md).
 
 ## gid {#dt_ref_var_gid}
 

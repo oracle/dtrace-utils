@@ -130,7 +130,7 @@ No fundamental difference between a process and a thread that a process creates,
 
 ## proc Probe Arguments {#dt_ref_procargs_prov}
 
-The following table lists the argument types for the `proc` probes. See [proc Probes](dtrace_providers_proc.md#) for a description of the arguments. The `argN` are implementation specific. Use `args[]` to access the probe arguments.
+The following table lists the argument types for the `proc` probes. See [proc Probes](dtrace_providers_proc.md) for a description of the arguments. The `argN` are implementation specific. Use `args[]` to access the probe arguments.
 
 <table><thead><tr><th>
 

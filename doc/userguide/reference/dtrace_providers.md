@@ -3,30 +3,30 @@
 
 DTrace exposes different providers that publish probes that are grouped together for particular instrumentation or functionality.
 
--   **[CPC Provider](../reference/dtrace_providers_cpc.md#)**
+-   **[CPC Provider](../reference/dtrace_providers_cpc.md)**
 The CPU performance counter \(`cpc`\) provider makes available probes that are associated with CPU performance counter events.
--   **[DTrace Provider](../reference/dtrace_providers_dtrace.md#)**  
+-   **[DTrace Provider](../reference/dtrace_providers_dtrace.md)**  
 The `dtrace` provider includes several probes that are specific to DTrace itself.
--   **[FBT Provider](../reference/dtrace_providers_fbt.md#)**  
+-   **[FBT Provider](../reference/dtrace_providers_fbt.md)**  
 The `fbt` \(Function Boundary Tracing\) provider includes probes that are associated with the entry to and return from most functions in the Linux kernel. Therefore, there could be tens of thousands of `fbt` probes.
--   **[IO Provider](../reference/dtrace_providers_io.md#)**
- The `io` provider makes available probes that relate to data input and output.
--   **[Lockstat Provider](../reference/dtrace_providers_lockstat.md#)**
+-   **[IO Provider](../reference/dtrace_providers_io.md)**
+The `io` provider makes available probes that relate to data input and output.
+-   **[Lockstat Provider](../reference/dtrace_providers_lockstat.md)**
 The `lockstat` provider provides probes that can be used to study lock usage and contention.
--   **[Pid Provider](../reference/dtrace_providers_pid.md#)**
+-   **[Pid Provider](../reference/dtrace_providers_pid.md)**
 The `pid` provider traces a user process, both function `entry` and `return`, and an arbitrary instruction.
--   **[Proc Provider](../reference/dtrace_providers_proc.md#)**
+-   **[Proc Provider](../reference/dtrace_providers_proc.md)**
 The `proc` provider makes available the probes that pertain to the following activities: process creation and termination, LWP creation and termination, execution of new program images, and signal sending and handling.
--   **[Profile Provider](../reference/dtrace_providers_profile.md#)**
+-   **[Profile Provider](../reference/dtrace_providers_profile.md)**
 The `profile` provider includes probes that are associated with an interrupt that fires at some regular, specified time interval.
--   **[Rawtp Provider](../reference/dtrace_providers_rawtp.md#)**  
+-   **[Rawtp Provider](../reference/dtrace_providers_rawtp.md)**  
 The `rawtp` provider gives DTrace users access to the raw tracepoints exposed by the kernel tracing system, including access to the untranslated arguments of the associated tracepoint events.
--   **[Sched Provider](../reference/dtrace_providers_sched.md#)**
+-   **[Sched Provider](../reference/dtrace_providers_sched.md)**
 The `sched` provider makes available probes related to CPU scheduling.
--   **[SDT Provider](../reference/dtrace_providers_sdt.md#)**  
- The Statically Defined Tracing \(SDT\) provider \(`sdt`\) creates probes at sites that a software programmer has formally designated. Thus, the SDT provider is chiefly of interest only to developers of new providers. Most users access SDT only indirectly by using other providers.
--   **[Syscall Provider](../reference/dtrace_providers_syscall.md#)**  
+-   **[SDT Provider](../reference/dtrace_providers_sdt.md)**  
+The Statically Defined Tracing \(SDT\) provider \(`sdt`\) creates probes at sites that a software programmer has formally designated. Thus, the SDT provider is chiefly of interest only to developers of new providers. Most users access SDT only indirectly by using other providers.
+-   **[Syscall Provider](../reference/dtrace_providers_syscall.md)**  
 The `syscall` provider makes available a probe at the entry to and return from every system call in the system.
--   **[USDT Provider](../reference/dtrace-ref-StaticallyDefinedTracingofUserApplications.md#)**
+-   **[USDT Provider](../reference/dtrace-ref-StaticallyDefinedTracingofUserApplications.md)**
 Use the USDT provider, for user space statically defined tracing, to instrument user space code with probes that are meaningful for an application.
 
