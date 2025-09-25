@@ -3794,7 +3794,7 @@ dt_cook_op2(dt_node_t *dnp, uint_t idflags)
 		 * described in the ANSI-C spec (see K&R[A7.17]).  We share
 		 * most of this code with the argument list checking code.
 		 */
-		if (!dt_node_is_string(lp)) {
+		if (!dt_node_is_string(lp) && !dt_node_is_stack(lp)) {
 			kind = ctf_type_kind(lp->dn_ctfp,
 			    ctf_type_resolve(lp->dn_ctfp, lp->dn_type));
 

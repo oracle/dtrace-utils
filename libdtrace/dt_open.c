@@ -175,7 +175,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "ipl", DT_IDENT_SCALAR, 0, DIF_VAR_IPL, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint_t" },
 { "jstack", DT_IDENT_ACTFUNC, 0, DT_ACT_JSTACK, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "dt_stack([uint32_t], [uint32_t])" },
+	&dt_idops_func, "dt_stack_t([uint32_t], [uint32_t])" },
 { "link_ntop", DT_IDENT_FUNC, 0, DIF_SUBR_LINK_NTOP, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(int, void *)" },
 { "llquantize", DT_IDENT_AGGFUNC, 0, DT_AGG_LLQUANTIZE,
@@ -274,7 +274,7 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "int()" },
 { "stack", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_STACK, DT_ATTR_STABCMN,
-	DT_VERS_1_0, &dt_idops_func, "dt_stack([uint32_t])" },
+	DT_VERS_1_0, &dt_idops_func, "dt_stack_t([uint32_t])" },
 { "stackdepth", DT_IDENT_SCALAR, 0, DIF_VAR_STACKDEPTH,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint32_t" },
@@ -329,7 +329,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "uregs", DT_IDENT_ARRAY, 0, DIF_VAR_UREGS, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_regs, NULL },
 { "ustack", DT_IDENT_FUNC, DT_IDFLG_DPTR, DIF_SUBR_USTACK, DT_ATTR_STABCMN,
-	DT_VERS_1_0, &dt_idops_func, "dt_stack([uint32_t], [uint32_t])" },
+	DT_VERS_1_0, &dt_idops_func, "dt_stack_t([uint32_t], [uint32_t])" },
 { "ustackdepth", DT_IDENT_SCALAR, 0, DIF_VAR_USTACKDEPTH,
 	DT_ATTR_STABCMN, DT_VERS_1_2,
 	&dt_idops_type, "uint32_t" },
@@ -1058,16 +1058,33 @@ dt_vopen(int version, int flags, int *errp,
 	    "<DYN>", ctf_lookup_by_name(dmp->dm_ctfp, "void"));
 
 	/*
-	 * The stack type is added as a typedef of uint64_t[MAXFRAMES].  The
-	 * final value of MAXFRAMES may be adjusted with the "stackframes"
-	 * option.
+	 * Define:
+	 *   typedef struct dt_stack {
+	 *   	uint32_t	frames;
+	 *	uint32_t	strsz;		// optional string blob size
+	 *	uint32_t	is_user;	// > 0 if userspace stack
+	 *	uint32_t	pid;		// process id (or 0 for kernel)
+	 *   	uint64_t	addrs[n];	// stack trace addresses
+	 *   } dt_stack_t;
+	 *
+	 * It is done in two stages because we won't know the size of the addrs
+	 * array until runtime options have been processed.  We add all members
+	 * (except for addrs) here, and then append the addrs array in
+	 * dtrace_init().
 	 */
-	ctr.ctr_contents = ctf_lookup_by_name(dmp->dm_ctfp, "uint64_t");
-	ctr.ctr_index = ctf_lookup_by_name(dmp->dm_ctfp, "long");
-	ctr.ctr_nelems = _dtrace_stackframes;
+	{
+		ctf_id_t	stid, mbid;
 
-	dtp->dt_type_stack = ctf_add_typedef(dmp->dm_ctfp, CTF_ADD_ROOT,
-		"dt_stack", ctf_add_array(dmp->dm_ctfp, CTF_ADD_ROOT, &ctr));
+		stid = ctf_add_struct(dmp->dm_ctfp, CTF_ADD_ROOT, "dt_stack");
+		dtp->dt_type_stack = ctf_add_typedef(dmp->dm_ctfp, CTF_ADD_ROOT,
+						     "dt_stack_t", stid);
+
+		mbid = ctf_lookup_by_name(dmp->dm_ctfp, "uint32_t");
+		ctf_add_member(dmp->dm_ctfp, stid, "depth", mbid);
+		ctf_add_member(dmp->dm_ctfp, stid, "strsz", mbid);
+		ctf_add_member(dmp->dm_ctfp, stid, "is_user", mbid);
+		ctf_add_member(dmp->dm_ctfp, stid, "pid", mbid);
+	}
 
 	dtp->dt_type_symaddr = ctf_add_typedef(dmp->dm_ctfp, CTF_ADD_ROOT,
 	    "_symaddr", ctf_lookup_by_name(dmp->dm_ctfp, "void"));
@@ -1174,6 +1191,27 @@ dtrace_init(dtrace_hdl_t *dtp)
 	int		i;
 	dtrace_optval_t	lockmem = dtp->dt_options[DTRACEOPT_LOCKMEM];
 	struct rlimit	rl;
+	dt_module_t	*dmp = dtp->dt_ddefs;
+	ctf_id_t	stid;
+	ctf_arinfo_t	ctr;
+
+	/*
+	 * Finalize 'struct dt_stack' now that we know the maxframes value.
+	 */
+	stid = ctf_lookup_by_name(dmp->dm_ctfp, "struct dt_stack");
+
+	ctr.ctr_contents = ctf_lookup_by_name(dmp->dm_ctfp, "uint64_t");
+	ctr.ctr_index = ctf_lookup_by_name(dmp->dm_ctfp, "long");
+	ctr.ctr_nelems = (uint_t)dtp->dt_options[DTRACEOPT_MAXFRAMES];
+
+	ctf_add_member(dmp->dm_ctfp, stid, "addrs",
+		       ctf_add_array(dmp->dm_ctfp, CTF_ADD_ROOT, &ctr));
+
+	if (ctf_update(dmp->dm_ctfp) != 0) {
+		dt_dprintf("failed update D container: %s\n",
+		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
+		return dt_set_errno(dtp, EDT_CTF);
+	}
 
 	/*
 	 * Initialize the BPF library handling.

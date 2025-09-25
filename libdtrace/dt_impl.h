@@ -236,19 +236,6 @@ typedef struct dt_tstring {
 	int		in_use;			/* In use (1) or not (0) */
 } dt_tstring_t;
 
-/*
- * The stack()/ustack() data record argument encodes:
- *  - the stack type (kernel or userspace)
- *  - the number of frames in the stack trace
- *  - the size of the optional string area for ustack()
- */
-#define DTRACE_STACK_IS_USER(x)		((x) & (1 << 31))
-#define DTRACE_STACK_NFRAMES(x)		(uint32_t)((x) & INT32_MAX)
-#define DTRACE_STACK_STRSIZE(x)		(uint32_t)((x) >> 32)
-#define DTRACE_STACK_ARG(t, x, y)	((((uint64_t)(y)) << 32) | \
-					 ((t) ? (1UL << 31) : 0) | \
-					 ((x) & INT32_MAX))
-
 typedef struct dt_dirpath {
 	dt_list_t dir_list;		/* linked-list forward/back pointers */
 	char *dir_path;			/* directory pathname */

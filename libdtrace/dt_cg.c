@@ -2647,11 +2647,16 @@ dt_cg_act_speculate(dt_pcb_t *pcb, dt_node_t *dnp, dtrace_actkind_t kind)
 	dt_regset_free(drp, dnp->dn_reg);
 }
 
-static uint64_t
-dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
+/*
+ * Extract [u]stack() argument data, storing number of frames and optional
+ * string data in '*nframesp' and '*strszp', and returning the storage size for
+ * the call stack data (not including the size of the optional string data).
+ */
+static uint_t
+dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind,
+		uint_t *nframesp, uint_t *strszp)
 {
-	int		nframes;
-	int		strsize = 0;
+	uint_t		nframes;
 	dt_node_t	*arg0 = dnp->dn_args;
 	dt_node_t	*arg1 = arg0 != NULL ? arg0->dn_list : NULL;
 	int		indopt, def, inderr;
@@ -2689,19 +2694,24 @@ dt_cg_stack_arg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_actkind_t kind)
 	if (nframes > dtp->dt_options[DTRACEOPT_MAXFRAMES])
 		nframes = dtp->dt_options[DTRACEOPT_MAXFRAMES];
 
-	/* For user stacks, process one more argument. */
-	if (kind == DTRACEACT_USTACK && arg1 != NULL) {
-		if (arg1->dn_kind != DT_NODE_INT ||
-		    ((arg1->dn_flags & DT_NF_SIGNED) &&
-		    (int64_t)arg1->dn_value < 0))
-			dnerror(arg1, D_USTACK_STRSIZE,
-				"ustack( ) argument #2 must be a positive integer constant\n");
+	if (nframesp)
+		*nframesp = nframes;
 
-		/* FIXME: for now, accept non-zero strsize, but it does nothing */
-		strsize = arg1->dn_value;
+	if (strszp) {
+		/* For user stacks, process one more argument. */
+		if (kind == DTRACEACT_USTACK && arg1 != NULL) {
+			if (arg1->dn_kind != DT_NODE_INT ||
+			    ((arg1->dn_flags & DT_NF_SIGNED) &&
+			    (int64_t)arg1->dn_value < 0))
+				dnerror(arg1, D_USTACK_STRSIZE,
+					"ustack( ) argument #2 must be a positive integer constant\n");
+
+			*strszp = arg1->dn_value;
+		} else
+			*strszp = 0;
 	}
 
-	return DTRACE_STACK_ARG(kind == DTRACEACT_USTACK, nframes, strsize);
+	return 4 * sizeof(uint32_t) + nframes * sizeof(uint64_t);
 }
 
 /*
@@ -2729,27 +2739,29 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off,
 	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_regset_t	*drp = pcb->pcb_regs;
-	uint64_t	arg;
-	int		nframes, stacksize, prefsz, align = sizeof(uint64_t);
+	int		allocsz, nframes = 0, strsz = 0, aloff;
 	uint_t		lbl_valid = dt_irlist_label(dlp);
 	dt_ident_t	*skip = dt_dlib_get_var(dtp, "STACK_SKIP");
 
 	assert(skip != NULL);
 
 	/* Get sizing information from dnp->dn_arg. */
-	arg = dt_cg_stack_arg(dtp, dnp, kind);
-	prefsz = kind == DTRACEACT_USTACK ? sizeof(uint64_t) : 0;
-	nframes = DTRACE_STACK_NFRAMES(arg);
-	stacksize = nframes * sizeof(uint64_t);
+	allocsz = dt_cg_stack_arg(dtp, dnp, kind, &nframes, &strsz);
 
 	/* Handle alignment and reserve space in the output buffer. */
 	if (reg >= 0) {
-		off = ALIGN(off, align);
+		aloff = ALIGN(off, 8);
 	} else {
 		reg = BPF_REG_9;
-		off = dt_rec_add(dtp, dt_cg_fill_gap, kind,
-				 prefsz + stacksize, align, NULL, arg);
+		aloff = off = dt_rec_add(dtp, dt_cg_fill_gap, kind, allocsz, 8,
+					 NULL, 0);
 	}
+
+	/* Store the stack trace meta-data (type, depth, strsize). */
+	emit(dlp,  BPF_STORE_IMM(BPF_W, reg, aloff, nframes));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, reg, aloff + 4, strsz));
+	emit(dlp,  BPF_STORE_IMM(BPF_W, reg, aloff + 8,
+				 kind == DTRACEACT_USTACK ? 1 : 0));
 
 	/* Write the tgid. */
 	if (kind == DTRACEACT_USTACK) {
@@ -2758,19 +2770,19 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off,
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
 		dt_regset_free_args(drp);
-		/* mov32 %r0, %r0 effectively masks the lower 32 bits. */
-		emit(dlp,  BPF_MOV32_REG(BPF_REG_0, BPF_REG_0));
-		emit(dlp,  BPF_STORE(BPF_DW, reg, off, BPF_REG_0));
+		/* A 32-bit store effectively masks the lower 32 bits. */
+		emit(dlp,  BPF_STORE(BPF_W, reg, aloff + 12, BPF_REG_0));
 		dt_regset_free(drp, BPF_REG_0);
-	}
+	} else
+		emit(dlp,  BPF_STORE_IMM(BPF_W, reg, aloff + 12, 0));
 
 	/* Call bpf_get_stack(ctx, buf, size, flags). */
 	if (dt_regset_xalloc_args(drp) == -1)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
 	dt_cg_access_dctx(BPF_REG_1, dlp, drp, DCTX_CTX);
 	emit(dlp,  BPF_MOV_REG(BPF_REG_2, reg));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, off + prefsz));
-	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, stacksize));
+	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, aloff + 16));
+	emit(dlp,  BPF_MOV_IMM(BPF_REG_3, nframes * sizeof(uint64_t)));
 	if (kind == DTRACEACT_USTACK)
 		emit(dlp,  BPF_MOV_IMM(BPF_REG_4, BPF_F_USER_STACK));
 	else {
@@ -2786,7 +2798,7 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off,
 	emitl(dlp, lbl_valid,
 		   BPF_NOP());
 
-	return prefsz + stacksize;
+	return (aloff - off) + allocsz;
 }
 
 static void
@@ -8735,15 +8747,13 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 				if (idp->di_kind == DT_IDENT_FUNC) {
 					switch (idp->di_id) {
-					case DIF_SUBR_USTACK:
-						arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_USTACK);
-						kind = DTRACEACT_USTACK;
-						size = 8 + 8 * DTRACE_STACK_NFRAMES(arg);
-						goto add_rec;
 					case DIF_SUBR_STACK:
-						arg = dt_cg_stack_arg(dtp, knp, DTRACEACT_STACK);
 						kind = DTRACEACT_STACK;
-						size = 8 * arg;
+						goto is_stack;
+					case DIF_SUBR_USTACK:
+						kind = DTRACEACT_USTACK;
+is_stack:
+						size = dt_cg_stack_arg(dtp, knp, kind, NULL, NULL);
 						goto add_rec;
 					}
 				} else if (idp->di_kind == DT_IDENT_ACTFUNC) {

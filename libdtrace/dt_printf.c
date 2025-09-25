@@ -449,7 +449,8 @@ dt_print_stack_user(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	if (depth == 0)
 		return 0;
 
-	tgid = (pid_t)*pc++;
+	tgid = ((uint32_t *)pc)[1];
+	pc++;
 
 	if (format == NULL)
 		format = "%s";
@@ -569,17 +570,40 @@ dt_print_stack_user(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	return err;
 }
 
-/*ARGSUSED*/
+/*
+ * The data at vaddr is structured as follows:
+ *	uint32_t	depth
+ *	uint32_t	strsz
+ *	uint32_t	is_user
+ *	uint32_t	pid
+ *	uint64_t	addrs[depth]
+ *
+ * The 'depth' member provides the maximum number of addresses in the stack
+ * trace.
+ * The 'strsz' member provides the size of the optional string blob that is
+ * appended to the stack trace data.
+ * The 'is_user' member identifies the stack trace as a userspace stack trace
+ * if its value is > 0.
+ * The 'pid' member provides the userspace process id for userspace stack
+ * traces and otherwise will be 0.
+ * The 'addrs' array provides the stack traces addresses.  If the stack trace
+ * is shorter than 'depth', remaining addresses will be 0 and can be ignored.
+ */
 static int
 pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	      const dt_pfargd_t *pfd, const void *vaddr, size_t size,
 	      uint64_t normal, uint64_t sig)
 {
 	int width;
-	const dtrace_recdesc_t *rec = pfd->pfd_rec;
-	caddr_t addr = (caddr_t)vaddr;
-	uint32_t depth = DTRACE_STACK_NFRAMES(rec->dtrd_arg);
+	uint32_t *vals = (uint32_t *)vaddr;
+	uint32_t depth = vals[0];
+	uint32_t strsz = vals[1];
+	uint32_t is_user = vals[2];
+	caddr_t addr = (caddr_t)(vals + (is_user ? 2 : 4));
 	int err = 0;
+
+	if (depth > dtp->dt_options[DTRACEOPT_MAXFRAMES])
+		return dt_set_errno(dtp, EDT_DSIZE);
 
 	if (depth == 0)
 		return 0;
@@ -603,9 +627,9 @@ pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	if (dt_printf(dtp, fp, "\n") < 0)
 		return -1;
 
-	if (DTRACE_STACK_IS_USER(rec->dtrd_arg))
+	if (is_user)
 		err = dt_print_stack_user(dtp, fp, format, addr, width, depth,
-					  DTRACE_STACK_STRSIZE(rec->dtrd_arg));
+					  strsz);
 	else
 		err = dt_print_stack_kernel(dtp, fp, format, addr, width, depth);
 
@@ -777,7 +801,7 @@ static const dt_pfconv_t _dtrace_conversions[] = {
 { "hx", "x", "short", pfcheck_xshort, pfprint_uint },
 { "hX", "X", "short", pfcheck_xshort, pfprint_uint },
 { "i", "i", pfproto_xint, pfcheck_dint, pfprint_dint },
-{ "k", "s", "stack", pfcheck_stack, pfprint_stack },
+{ "k", "s", "dt_stack_t", pfcheck_stack, pfprint_stack },
 { "lc", "lc", "int", pfcheck_type, pfprint_sint }, /* a.k.a. wint_t */
 { "ld",	"d", "long", pfcheck_type, pfprint_sint },
 { "li",	"i", "long", pfcheck_type, pfprint_sint },
@@ -2487,9 +2511,8 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	else
 		format = ((dt_pfargv_t *)fmtdata)->pfv_format;
 
-	/* pfprint_stack() uses pfd_rec, pfd_flags, and pfd_width only */
+	/* pfprint_stack() uses pfd_flags and pfd_width only */
 	memset(&pfd, 0, sizeof(pfd));
-	pfd.pfd_rec = recs;
 	pfd.pfd_flags = DT_PFCONV_LEFT;
 
 	if (dtp->dt_options[DTRACEOPT_STACKINDENT] != DTRACEOPT_UNSET)
