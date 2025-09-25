@@ -169,7 +169,7 @@ However, in probe descriptions, macro variables are expanded and concatenated wi
 
 Macro variables are only expanded one time within each probe description field and they can't contain probe description delimiters \(`:`\).
 
-### Macro Arguments {#dt_macrov_scrpt}
+### Macro Arguments {#dt_macroa_scrpt}
 
 The D compiler also provides a set of macro variables corresponding to any more argument operands that are specified as part of the `dtrace` command invocation. These *macro arguments* are accessed by using the built-in names `$0`, for the name of the D program file or `dtrace` command, `$1`, for the first extra operand, `$2` for the second operand, and so on. If you use the `-s` option, `$0` expands to the value of the name of the input file that's used with this option. For D programs that are specified on the command line, `$0` expands to the value of `argv[0]`, which is used to run the `dtrace` command itself.
 
