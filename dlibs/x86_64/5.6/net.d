@@ -36,7 +36,6 @@ typedef struct in6_addr	in6_addr_t;
 /*
  * pktinfo is where packet ID info can be made available for deeper analysis if
  * packet IDs become supported by the kernel in the future.
- * The pkt_addr member is currently always NULL.
  */
 typedef struct pktinfo {
 	uintptr_t	pkt_addr;
