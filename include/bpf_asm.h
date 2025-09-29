@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -30,6 +30,15 @@
 #define BPF_ALU64_REG(op, dst, src)					\
 	((struct bpf_insn) {						\
 		.code = BPF_ALU64 | (op) | BPF_X,			\
+		.dst_reg = (dst),					\
+		.src_reg = (src),					\
+		.off = 0,						\
+		.imm = 0						\
+	})
+
+#define BPF_ALU32_REG(op, dst, src)					\
+	((struct bpf_insn) {						\
+		.code = BPF_ALU | (op) | BPF_X,				\
 		.dst_reg = (dst),					\
 		.src_reg = (src),					\
 		.off = 0,						\
@@ -67,6 +76,8 @@
 
 #define BPF_MOV_REG(dst, src)	BPF_ALU64_REG(BPF_MOV, dst, src)
 #define BPF_MOV_IMM(dst, val)	BPF_ALU64_IMM(BPF_MOV, dst, val)
+
+#define BPF_MOV32_REG(dst, src)	BPF_ALU32_REG(BPF_MOV, dst, src)
 
 #define BPF_LOAD(sz, dst, src, ofs)					\
 	((struct bpf_insn) {						\

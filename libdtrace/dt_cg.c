@@ -2760,7 +2760,9 @@ dt_cg_act_stack_sub(dt_pcb_t *pcb, dt_node_t *dnp, int reg, int off, dtrace_actk
 		dt_regset_xalloc(drp, BPF_REG_0);
 		emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
 		dt_regset_free_args(drp);
-		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 0xffffffff));
+		/* mov32 %r0, %r0 effectively masks the lower 32 bits. */
+		emit(dlp,  BPF_MOV32_REG(BPF_REG_0, BPF_REG_0));
+
 		if (reg >= 0)
 			emit(dlp,  BPF_STORE(BPF_DW, reg, 0, BPF_REG_0));
 		else
