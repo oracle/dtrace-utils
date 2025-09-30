@@ -764,13 +764,16 @@ dt_vopen(int version, int flags, int *errp,
 	dtp->dt_options[DTRACEOPT_SCRATCHSIZE] = sizeof(uint64_t) + _dtrace_scratchsize;
 
 	/*
-	 * Set the default value of maxframes.
+	 * Set the default value of maxframes.  This is the maximum of stack
+	 * frames that can be requested from the kernel.  The *frames options
+	 * cannot be set to a value that exceeds this limit.
 	 */
 	fd = fopen("/proc/sys/kernel/perf_event_max_stack", "r");
 	assert(fd);
-	if (fscanf(fd, "%lu", &dtp->dt_options[DTRACEOPT_MAXFRAMES]) != 1)
+	if (fscanf(fd, "%lu", &dtp->dt_maxframes) != 1)
 		return set_open_errno(dtp, errp, EDT_READMAXSTACK);
 	fclose(fd);
+	dtp->dt_options[DTRACEOPT_MAXFRAMES] = dtp->dt_maxframes;
 
 	/*
 	 * Set the default pcap capture size.
