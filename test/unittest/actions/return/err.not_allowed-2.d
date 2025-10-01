@@ -20,7 +20,7 @@ BEGIN
 	exit(0);
 }
 
-rawfbt:btrfs:close_ctree:entry
+rawfbt:vmlinux:abort:entry
 /ok/
 {
 	return(0);

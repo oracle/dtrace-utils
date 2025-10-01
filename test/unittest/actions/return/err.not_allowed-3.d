@@ -20,7 +20,7 @@ BEGIN
 	exit(0);
 }
 
-rawfbt:btrfs:*_ctree:entry
+rawfbt:vmlinux:abo*rt:entry
 /ok/
 {
 	return(0);

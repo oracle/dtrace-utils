@@ -20,7 +20,7 @@ BEGIN
 	exit(0);
 }
 
-fbt:btrfs:open_ctree:entry
+fbt:vmlinux:__*_sys_getpid:entry
 /ok/
 {
 	return(0);

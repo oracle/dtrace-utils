@@ -1,2 +1,2 @@
 -- @@stderr --
-dtrace: could not enable tracing: return() not allowed for fbt:btrfs:open_ctree:entry
+dtrace: could not enable tracing: return() not allowed for fbt:vmlinux:__*_sys_getpid:entry
