@@ -8734,7 +8734,7 @@ dt_cg_agg(dt_pcb_t *pcb, dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 				dt_node_diftype(dtp, knp, &t);
 				size = t.dtdt_size;
-				alignment = size;
+				alignment = t.dtdt_align;
 			}
 
 			dt_aggid_rec_add(dtp, aid->di_id, kind, size, alignment, arg);
