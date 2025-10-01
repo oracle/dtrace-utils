@@ -1,1 +1,1 @@
-tst.stackdepth2.r.p
+check_stackdepth_to_stack.awk

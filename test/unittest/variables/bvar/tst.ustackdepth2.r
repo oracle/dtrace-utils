@@ -1,1 +1,1 @@
-tst.stackdepth2.r
+Stack depth OK
