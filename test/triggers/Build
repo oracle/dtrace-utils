@@ -236,6 +236,7 @@ usdt-tst-special_PROV := usdt-tst-special-prov.d
 # ustack wants no optimization
 
 ustack-tst-basic_CFLAGS := -O0 -fno-inline -fno-omit-frame-pointer
+ustack-tst-bigstack_CFLAGS := -O0 -fno-inline -fno-omit-frame-pointer
 ustack-tst-bigstack-spin_CFLAGS := -O0 -fno-inline -fno-omit-frame-pointer
 ustack-tst-spin_CFLAGS := -O0
 ustack-tst-mtspin_CFLAGS := -O0
