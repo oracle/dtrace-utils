@@ -118,6 +118,18 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
 		emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, exitlbl));
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+	} else if (strcmp(prp->desc->prb, "exec") == 0) {
+		dt_probe_t	*uprp = pcb->pcb_parent_probe;
+
+		/*
+		 * If the underlying probe is syscall:vmlinux:execve:entry,
+		 * then the arg0 is already right.  If it is execveat, we have
+		 * to copy arg1 to arg0.
+		 */
+		if (strcmp(uprp->desc->fun, "execveat") == 0) {
+			emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_7, DMST_ARG(1)));
+			emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(0), BPF_REG_0));
+		}
 	} else if (strcmp(prp->desc->prb, "exit") == 0) {
 		ctf_file_t	*cfp = dtp->dt_shared_ctf;
 		ctf_id_t	type;
