@@ -17,7 +17,7 @@ cd $DIRNAME
 cat << EOF > parent.c
 #include <stdio.h>
 #include <linux/fcntl.h>      /* Definition of AT_* constants */
-#define __USE_GNU             /* so unistd.h will find execveat */
+#include <sys/syscall.h>      /* Definition of SYS_* constants */
 #include <unistd.h>
 
 int main(int c, char **v) {
@@ -26,7 +26,7 @@ int main(int c, char **v) {
   int rc;
 
   printf("exec\n");
-  rc = execveat(AT_FDCWD, "bogus_direc/bogus_exec", argv, envp, 0);
+  rc = syscall(__NR_execveat, AT_FDCWD, "bogus_direc/bogus_exec", argv, envp, 0);
 
   return 0;
 }
