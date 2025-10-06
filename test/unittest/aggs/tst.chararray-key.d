@@ -15,7 +15,7 @@
 
 BEGIN
 {
-	@[curpsinfo->pr_fname] = count();
+	@[(string)curpsinfo->pr_fname] = count();
 	exit(0);
 }
 
