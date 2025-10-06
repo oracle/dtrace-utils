@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -31,13 +31,13 @@ systemctl enable --now nfs-server > /dev/null 2>&1
 mkdir $exdir
   exportfs -i -v -o "rw,sync,no_root_squash,insecure,fsid=8434437288" 127.0.0.1:$exdir > /dev/null
     mkdir $iodir
-        mount -t nfs -o nfsvers=3 127.0.0.1:$exdir $iodir
+        mount -t nfs -o nolock,nfsvers=3 127.0.0.1:$exdir $iodir
             $rundt "dd if=/dev/urandom of=$tempfile count=$filesize bs=1 status=none" -o log.write
             myinode=`stat $tempfile  | gawk '/	Inode: / {print $4}'`
         umount $iodir
         # flush caches and remount to force IO
 	echo 3 > /proc/sys/vm/drop_caches
-        mount -t nfs -o nfsvers=3 127.0.0.1:$exdir $iodir
+        mount -t nfs -o nolock,nfsvers=3 127.0.0.1:$exdir $iodir
             $rundt "sum $tempfile"                                                    -o log.read
             rm -f $tempfile
         umount $iodir

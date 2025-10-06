@@ -2,7 +2,7 @@
 
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -18,4 +18,4 @@ fi
 mountdir=$1
 serverpath=$2
 
-mount -t nfs -o nfsvers=3 127.0.0.1:$serverpath $mountdir
+mount -t nfs -o nfsvers=3,nolock 127.0.0.1:$serverpath $mountdir
