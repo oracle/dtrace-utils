@@ -51,7 +51,7 @@ int main(int c, char **v) {
 	pthread_create(&mythr, NULL, &foo, NULL);
 
 	/* Also report the pthread_t. */
-	printf("created pthread_t %lld\n\n", mythr);
+	printf("created pthread_t %llu\n\n", (long long unsigned) mythr);
 	fflush(stdout);
 
 	/* Wait endlessly.  DTrace will kill me when it is done. */
