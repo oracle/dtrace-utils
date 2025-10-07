@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -17,7 +17,7 @@ fbt:::
 fbt:::
 /on/
 {
-	trace(strstr((char *)rand(), (char *)(rand() ^ vtimestamp)));
+	trace(strstr((char *)rand(), (char *)(rand() ^ timestamp)));
 }
 
 fbt:::entry
