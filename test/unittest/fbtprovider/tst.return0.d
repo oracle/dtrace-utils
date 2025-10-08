@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -11,10 +11,12 @@
  * SECTION: FBT Provider/Probe arguments
  */
 
+/* @@trigger: periodic_output */
+
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::do_sys_poll:return
+fbt:vmlinux:hrtimer_nanosleep:return
 /arg1 == 0/
 {
 	printf("%s %x returned 0", probefunc, arg0);

@@ -1,1 +1,1 @@
-do_sys_poll ffffffffffffffff returned 0
+hrtimer_nanosleep ffffffffffffffff returned 0
