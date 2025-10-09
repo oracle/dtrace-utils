@@ -23,52 +23,82 @@ cd $DIRNAME
 
 orig_maxstack=`sysctl -n kernel.perf_event_max_stack`
 echo kernel.perf_event_max_stack was $orig_maxstack
-trap "sysctl kernel.perf_event_max_stack=$orig_maxstack" QUIT EXIT
-sysctl kernel.perf_event_max_stack=200
+trap "sleep 2; sysctl kernel.perf_event_max_stack=$orig_maxstack" QUIT EXIT
 
-$dtrace $dt_flags -c $TRIGGER -qn '
-profile-1
-/pid == $target/
-{
-    printf("DEPTH %d\n", ustackdepth);
-    printf("TRACE BEGIN\n");
-    ustack(200);
-    printf("TRACE END\n");
-    exit(0);
-}
-ERROR
-{
-    exit(1);
-}
-' > D.out
-if [ $? -ne 0 ]; then
-    echo DTrace failure
-    exit 1
-fi
+# set bounds on the full stack depth (which is ambiguous)
+lo=188
+hi=192
 
-sleep 2
-sysctl kernel.perf_event_max_stack=$orig_maxstack
+function do_dtrace() {
+    # set the kernel parameter
+    sysctl kernel.perf_event_max_stack=$stack_limit
 
-$POSTPROC D.out > awk.out
-if [ $? -ne 0 ]; then
-    echo post processing failure
-    exit 1
-fi
+    # run dtrace
+    $dtrace $dt_flags -c $TRIGGER -qn '
+    profile-1
+    /pid == $target/
+    {
+        printf("DEPTH %d\n", ustackdepth);
+        printf("TRACE BEGIN\n");
+        ustack(200);
+        printf("TRACE END\n");
+        exit(0);
+    }
+    ERROR
+    {
+        exit(1);
+    }
+    ' > D.out.$stack_limit
+    if [ $? -ne 0 ]; then
+        echo ERROR: DTrace failure with $stack_limit
+        exit 1
+    fi
 
-if echo "Stack depth OK" | diff -q - awk.out; then
-    mydepth=`gawk '/DEPTH/ { print $2 }' D.out`
-    if [ $mydepth -gt $orig_maxstack ]; then
-        echo success depth $mydepth exceeded original limit $orig_maxstack
-        exit 0
-    else
-        echo ERROR: $mydepth does not exceed original limit $orig_maxstack
+    # check stackdepth consistency
+    $POSTPROC D.out.$stack_limit > awk.out.$stack_limit
+    if [ $? -ne 0 ]; then
+        echo ERROR: post processing failure
+        exit 1
+    fi
+    if ! grep -q "Stack depth OK" awk.out.$stack_limit; then
+        echo ERROR: stack depth does not match stack
         cat D.out
         exit 1
     fi
-else
-    echo "ERROR: stack depth does not match stack"
-    cat D.out
+
+    # get actual stack depth
+    mydepth=`gawk '/DEPTH/ { print $2 }' D.out.$stack_limit`
+    echo with limit $stack_limit got stack depth $mydepth
+
+    # provide breathing room between dtrace and resetting kernel parameter
+    sleep 2
+}
+
+# try a stack limit that is too small
+stack_limit=$(($lo / 2))
+do_dtrace
+echo "   " stack limit $stack_limit is too small for the entire stack
+if [ $mydepth -ne $stack_limit ]; then
+    echo ERROR: $mydepth does not match $stack_limit
     exit 1
 fi
+echo "   " success:  actual depth matches limit
+
+# try a stack limit that is large enough
+stack_limit=$(($hi + 20))
+do_dtrace
+echo "   " stack limit $stack_limit is large enough
+if [ $mydepth -lt $lo ]; then
+    echo ERROR: $mydepth is lower than low bound $lo
+    exit 1
+fi
+if [ $mydepth -gt $hi ]; then
+    echo ERROR: $mydepth is greater than high bound $hi
+    exit 1
+fi
+echo "   " success:  actual depth captures full stack
+
+# restore the kernel parameter
+sysctl kernel.perf_event_max_stack=$orig_maxstack
 
 exit 0
