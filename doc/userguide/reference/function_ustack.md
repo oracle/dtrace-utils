@@ -1,17 +1,44 @@
 
 # ustack
 
-Records a user stack trace to the directed buffer.
+Retrieves the call stack in user space.
 
 ```
-stack ustack([uint32_t *nframes*, uint32_t *strsize*])
+dt_stack_t ustack([uint32_t *nframes*, uint32_t *strsize*])
 ```
 
-The `ustack` function records a user stack trace to the directed buffer. The user stack is, at most, *nframes* in depth. If *nframes* isn't specified, the number of stack frames recorded is the number specified by the `ustackframes` option. While `ustack` can determine the address of the calling frames when the probe fires, the stack frames aren't translated into symbols until the `ustack` function is processed at user level by the DTrace utility. If *strsize* is specified and is non zero, `ustack` allocates the specified amount of string space and then uses it to perform address-to-symbol translation directly from the kernel. Such direct user symbol translation is used only with stacktrace helpers that support this usage with DTrace. If such frames can't be translated, the frames appear only as hexadecimal addresses.
+Returns a `dt_stack_t` value that can be stored in a variable,
+including an associative array element, 
+or used as a key to an aggregation or associative array.
 
-The `ustack` symbol translation occurs after the stack data is recorded. Therefore, the corresponding user process might exit before symbol translation can be performed, making stack frame translation impossible. If the user process exits before symbol translation is performed, `dtrace` outputs a warning message, followed by the hexadecimal stack frames.
+When `ustack();` appears alone, as a singular action,
+it records a user stack trace to the output buffer.
 
-## How to use ustack to trace a stack with no address-to-symbol translation
+One can optionally specify a number of frames.
+If no value is specified, the number specified by the `ustackframes` runtime option is used.
+Frames are included either up to the root frame or until the specified limit has been reached, whichever comes first.
+
+Stack frames aren't translated into symbols until the `ustack` function is processed at user level by the DTrace utility.
+
+**Note**:  Historically, if *strsize* was specified and non zero,
+`ustack` would allocate the specified amount of string space and then use it to perform address-to-symbol translation directly from the kernel.
+Such direct user symbol translation was used only with stacktrace helpers that supported this usage with DTrace.
+If such frames could not be translated, the frames would appear only as hexadecimal addresses.
+Currently, *strsize* is ignored.
+
+The `ustack` symbol translation occurs after the stack data is recorded.
+Therefore, the corresponding user process might exit before symbol translation can be performed, making stack frame translation impossible.
+If the user process exits before symbol translation is performed, `dtrace` outputs a warning message, followed by the hexadecimal stack frames.
+
+## How to use ustack
+
+This example shows a D clause that stores the user stack to a global variable,
+then later print it with a `%k` conversion:
+
+```
+        v = ustack(3);
+        printf("%k", v);
+```
 
 The example shows how to use `ustack` to trace the stack for an `openat` system call by the `date` command.
 
@@ -19,7 +46,7 @@ The example shows how to use `ustack` to trace the stack for an `openat` system 
 sudo dtrace -qn syscall::openat:entry'/pid == $target/{ustack();}' -c 'date'
 ```
 
-Generates output similar to the following:
+This generates output similar to the following:
 
 ```
 CPU     ID                    FUNCTION:NAME
@@ -34,8 +61,6 @@ Mon 20 Feb 17:38:15 GMT 2023
   2 147861                     openat:entry 
               0x7f6d63fc2e65
 ```
-
-
 
 **Parent topic:**[DTrace Function Reference](../reference/dtrace_functions.md)
 

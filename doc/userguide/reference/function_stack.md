@@ -1,17 +1,33 @@
 
 # stack
 
-Records a stack trace to the buffer.
+Retrieves the kernel call stack.
 
 ```
-stack stack([uint32_t *frames*])
+dt_stack_t stack([uint32_t *frames*])
 ```
 
-The `stack` function records a kernel stack trace to the directed buffer. The function includes an option to specify the number of frames deep to record from the kernel stack. If no value is specified, the number of stack frames recorded is the number that's specified by the `stackframes` runtime option. The `dtrace` command reports frames, either up to the root frame or until the specified limit has been reached, whichever comes first.
+Returns a `dt_stack_t` value that can be stored in a variable,
+including an associative array element,
+or used as a key to an aggregation or associative array.  
 
-The `stack` function, having a non-`void` return value, can also be used as the key to an aggregation.
+When `stack();` appears alone, as a singular action,
+it records a stack trace to the output buffer.
 
-## How to use stack to obtain a kernel stack trace for a particular probe
+One can optionally specify a number of frames.
+If no value is specified, the number specified by the `stackframes` runtime option is used.
+Frames are included either up to the root frame or until the specified limit has been reached, whichever comes first.
+
+## How to use stack
+
+Here `stack()` is used to assign to a variable and print later using `%k` conversion.
+
+```
+        v = stack(3);
+        printf("%k", v);
+```
+
+In this example, `stack()` is an action that prints the kernel stack.
 
 ```
 fbt::ksys_write:entry
