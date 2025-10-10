@@ -16,7 +16,7 @@
 /\[D_DECL_IDRED\] line [1-9][0-9]*: identifier redeclared: [a-zA-Z]*$/ {
 	sub(/\[D_DECL_IDRED\] line [1-9][0-9]*: .*$/, "expected error");
 }
-/\[D_UNKNOWN\] line [1-9][0-9]*: failed to define enumerator '[a-zA-Z]*': Duplicate member or variable name$/ {
+/\[D_UNKNOWN\] line [1-9][0-9]*: failed to define enumerator '[a-zA-Z]*': Duplicate member, enumerator, or variable name$/ {
 	sub(/\[D_UNKNOWN\] line [1-9][0-9]*: .*$/, "expected error");
 }
 
