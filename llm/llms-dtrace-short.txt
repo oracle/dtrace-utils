@@ -42,7 +42,7 @@ Shorthand precedence when fields are omitted:
 - function:name
 - module:function:name
 
-Avoid numeric probe IDs (unstable).  
+Avoid numeric probe IDs (unstable).
 Wildcards & patterns supported (shell-style globbing). Empty fields match any value.
 
 ### Pattern tokens
@@ -102,7 +102,7 @@ PART 2: TYPES, OPERATORS, EXPRESSIONS
 
 ## IDENTIFIERS & KEYWORDS
 - Identifiers: letters, digits, underscore; must start with letter/_
-- Reserved keywords (subset relevant to D):  
+- Reserved keywords (subset relevant to D):
   auto, break, case, const, continue, counter, default, do, else, enum, extern, float, for, goto, if, import, inline, int, long, probe, provider, register, restrict, return, self, short, signed, sizeof, static, string, stringof, struct, switch, this, translator, typedef, union, unsigned, void, volatile, while, xlate
 - Avoid names starting with `_` (reserved for system)
 
@@ -228,9 +228,9 @@ PART 3: VARIABLES
 - Variables created implicitly on first assignment
 
 ## VARIABLE SCOPE
-- Global: `varname`  
-- Thread-local: `self->varname`  
-- Clause-local: `this->varname`  
+- Global: `varname`
+- Thread-local: `self->varname`
+- Clause-local: `this->varname`
 - External (kernel symbols): `` `symbol ``
 
 ### Table: Scope summary
@@ -413,47 +413,47 @@ PART 6: PROVIDERS & COMMON PROBES
 Providers group related probes. Each probe is identified by `provider:module:function:name`.
 
 ### Core Providers
-- `dtrace`  
+- `dtrace`
   - BEGIN — fires at start of tracing
   - END — fires at end of tracing
   - ERROR — fires on D program error
 
-- `syscall`  
+- `syscall`
   - Entry/return of all system calls
   - Examples: `syscall::open:entry`, `syscall::write:return`
 
-- `proc`  
+- `proc`
   - Process lifecycle events
   - create, exec, exit, signal
 
-- `sched`  
+- `sched`
   - Scheduler events
   - on-cpu, off-cpu, enqueue, dequeue, wakeup
 
-- `io`  
+- `io`
   - Device I/O events
   - start, done
 
-- `profile`  
+- `profile`
   - Time-based sampling
   - `profile-N` — kernel stack sample every N Hz
   - `tick-N` — fires every N seconds
 
-- `lockstat`  
+- `lockstat`
   - Kernel lock contention statistics
   - spin, adaptive, rw lock events
 
-- `fbt` (function boundary tracing)  
+- `fbt` (function boundary tracing)
   - Kernel function entry/return probes
   - Powerful but potentially unsafe (debug/dev only)
 
-- `pid`  
+- `pid`
   - User-level function boundary tracing for a process
 
-- `usdt` (user-level statically defined tracing)  
+- `usdt` (user-level statically defined tracing)
   - Static tracepoints in user programs
 
-- `cpc`  
+- `cpc`
   - CPU performance counter probes
 
 ## EXAMPLE USES
@@ -609,223 +609,3 @@ syscall:::entry
     @syscalls[probefunc] = count();
 }
 ```
-
-DTRACE (ORACLE LINUX) — LLMS.TXT FORMAT
-PART 8: OPTIONS, BUFFERS, STABILITY (FOR SAFE & ROBUST SCRIPTS)
-
-## WHY THIS MATTERS
-- Options control output, attachment, and safety.
-- Buffers and rates prevent drops and tune performance.
-- Stability awareness guides portable, future-proof scripts.
-
-## COMMAND-LINE OPTIONS (COMMON)
-- `-l` — list probes
-- `-n 'probe /pred/ { ... }'` — inline clause
-- `-s file.d` — run script file
-- `-c 'cmd ...'` — run command under trace; exit when it ends
-- `-p PID` — attach to a running process (`$target` available)
-- `-q` — quiet (suppress default headers, etc.)
-- `-o outfile` — write output to file
-- `-x opt=value` — set runtime option (see below)
-- `-P/-m/-f/-n pattern` — enable by provider/module/function/name
-- `-Z` — allow zero matches (don’t error if no probes match)
-- `-w` — allow destructive actions (`system`, `raise`, `copyout*`)
-
-## RUNTIME OPTIONS VIA `-x` (TUNING)
-Typical knobs (values are examples; tune per workload):
-- `bufsize=8m` — per-CPU primary buffer size (trace records)
-- `aggsize=8m` — per-CPU aggregation buffer size
-- `nspec=8` — number of speculative buffers
-- `strsize=256` — max captured string bytes
-- `ustackframes=100` — max user frames for `ustack()`
-- `ustackstrsize=4096` — max bytes for symbolization of user stacks
-- `switchrate=10hz` — buffer switch/consume frequency
-- `statusrate=1hz` — status updates frequency
-- `flowindent` — pretty-print function entry/return nesting (boolean)
-
-Examples:
-```
-dtrace -x bufsize=16m -x aggsize=32m -s script.d
-dtrace -x strsize=512 -n 'syscall::open:entry { printf("%s", copyinstr(arg0)); }'
-```
-
-## SCRIPT PRAGMAS (EMBEDDED OPTIONS)
-Put at top of `.d` file:
-```
-#pragma D option quiet
-#pragma D option bufsize=16m
-#pragma D option aggsize=32m
-#pragma D option strsize=512
-```
-Also usable: `#pragma D option flowindent`, `#pragma D option ustackframes=128`, etc.
-
-## BUFFERS OVERVIEW
-- **Primary (per-CPU)**: stores trace records from actions (`trace`, `printf`, etc.).
-- **Aggregation (per-CPU)**: holds `@aggr = func(...)` data; merged on output.
-- **Speculation**: temporary buffers gated by `speculation()/commit()/discard()`.
-- Sizing too small ⇒ drops; too large ⇒ memory overhead and slower consumes.
-
-### RATES & DROPS
-- Increase `bufsize/aggsize` to reduce drops.
-- Increase `switchrate` to consume more frequently.
-- Reduce event volume (predicates, selective probes) to avoid saturation.
-- Use aggregations (`count`, `sum`, histograms) instead of printing per-event.
-
-## STABILITY GUIDANCE (PORTABILITY)
-- Prefer **stable/common** interfaces:
-  - Providers: `syscall`, `proc`, `sched`, `profile`, `io`, `usdt`, `pid` (with care).
-  - Built-ins: `execname`, `pid`, `timestamp`, `probefunc`, `argN`.
-- Use **evolving/unstable** interfaces cautiously:
-  - `fbt` (kernel function boundaries), kernel structs/fields, external symbols (``module`symbol``).
-- Write filters/predicates and keys that don’t depend on volatile names.
-- Treat OS/kernel data structures as subject to change across versions.
-
-## SAFETY
-- Destructive actions require `-w` and appropriate privileges (root).
-- Error handling: add an `ERROR` clause to log faults without stopping tracing.
-- On invalid pointer or division-by-zero, current clause aborts; tracing continues.
-
-## QUICK TEMPLATES
-Increase buffers + quiet:
-```
-#!/usr/sbin/dtrace -qs
-#pragma D option bufsize=16m
-#pragma D option aggsize=16m
-...
-```
-
-Attach to PID and sample stacks:
-```
-dtrace -p $PID -n 'profile-997 /pid == $target/ { @[ustack()] = count(); }'
-```
-
-Run command under trace and print syscall histogram:
-```
-dtrace -q -c 'yourcmd' -n '
-syscall:::entry /pid == $target/ { @calls[probefunc] = count(); }
-END { printa(@calls); }'
-```
-
-DTRACE (ORACLE LINUX) — LLMS.TXT FORMAT
-PART 9: USDT & PID PROVIDERS — PRACTICAL TIPS
-
-## OVERVIEW
-- `usdt`: user-level statically defined tracing probes baked into apps/libraries.
-- `pid`: dynamic user-level function boundary tracing (uprobes) for a process.
-- Use `-c 'cmd'` to run a program under trace, or `-p PID` to attach to a live one.
-- `$target` macro is set when you use `-c` or `-p` and can be used in predicates.
-
-## DISCOVERY
-List USDT probes:
-```
-dtrace -l -P usdt
-# or narrower:
-dtrace -l -P usdt -m libssl.so.3
-dtrace -l -n 'usdt:::*http*'
-```
-
-List available pid-provider probes for a process:
-```
-dtrace -p $PID -l -P pid
-# or by module/function/name filters:
-dtrace -p $PID -l -m 'libc.so*'
-dtrace -p $PID -l -f 'open*'
-```
-
-## ENABLING PROBES
-USDT (by provider/module/function/name):
-```
-usdt:module:function:name
-# examples
-usdt:::'*request*'       /* any function, name matches */
-usdt:nginx:*:request__start
-```
-Notes:
-- USDT providers/names come from the app; strings often contain dots/underscores.
-- Use wildcards to avoid brittle matches across versions.
-
-PID provider (uprobes on user functions):
-```
-pid$target:module:function:entry
-pid$target:module:function:return
-# examples
-pid$target:libc.so.6:open:entry
-pid$target::malloc:entry             /* any module */
-pid$target:*:SSL_*:return            /* wildcard module + function prefix */
-```
-Notes:
-- `pid$target` scopes probes to the target process (works with `-p` or `-c`).
-- Wildcards are supported in module/function fields.
-
-## ARGUMENT HANDLING (USER SPACE)
-- Probe args are 64-bit slots: `arg0..arg9` (or typed `args[]` when available).
-- Many user args are pointers; **copy from user space**:
-  - strings: `copyinstr(arg0)`
-  - bytes: `copyin(arg1, size)`
-- Cast when needed: `(int)arg1`, `(uintptr_t)arg2`, etc.
-- Be careful with optional/NULL pointers; guard before `copyin/copyinstr`.
-
-Examples:
-```
-/* Intercept open(path, flags, ...) */
-pid$target:libc.so.6:open:entry
-{
-    printf("open(%s, 0x%x)", copyinstr(arg0), (int)arg1);
-}
-
-/* malloc(size) histogram */
-pid$target::malloc:entry
-{
-    @malloc_sz = lquantize((uint64_t)arg0, 0, 262144, 16);
-}
-```
-
-## SYMBOLS & STACKS
-- For meaningful user stacks (`ustack()`), install debuginfo for the binaries.
-- Tune stack capture:
-  - `-x ustackframes=100`
-  - `-x ustackstrsize=4096`
-- Example:
-```
-profile-997 /pid == $target/
-{
-    @[ustack()] = count();
-}
-```
-
-## SELECTIVE ATTACH & FILTERING
-- Prefer `/pid == $target/` predicates to limit overhead when enabling generic patterns.
-- Combine with `execname`, argument tests, or function-name wildcards.
-- Narrow by module when possible to reduce probe count.
-
-## PERFORMANCE & SAFETY
-- USDT probes are cheap (no symbol lookup); prefer them when available.
-- `pid` uprobes can be numerous; limit via patterns and predicates.
-- Avoid printing per-event in hot paths; prefer aggregations (`count`, `sum`, histograms) + `END printa()`.
-- Respect privacy & stability: user-space function names and arguments may change between versions.
-
-## QUICK START TEMPLATES
-
-Run command and trace its USDT probes containing "request":
-```
-dtrace -q -c './server' -n 'usdt:::*request* { @reqs[probename] = count(); }'
-END { printa(@reqs); }'
-```
-
-Attach to a PID and time SSL_read():
-```
-dtrace -q -p $PID -n '
-pid$target:*:SSL_read:entry { self->t = timestamp; }
-pid$target:*:SSL_read:return / self->t / {
-    @lat = quantize(timestamp - self->t); self->t = 0;
-}'
-```
-
-Log file opens by process (libc open):
-```
-dtrace -q -p $PID -n '
-pid$target:libc.so.6:open:entry
-/arg0 != 0/
-{ printf("%s open %s", execname, copyinstr(arg0)); }'
-```
-
