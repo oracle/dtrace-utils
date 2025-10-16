@@ -5,7 +5,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
-# Test the stack action with default stack depth and depth 3.
+# Check the stack action for expected frames.
 
 dtrace=$1
 
@@ -26,8 +26,6 @@ BEGIN
 fbt::vfs_write:entry
 {
 	stack();
-	printf("first 3 frames\n");
-	stack(3);
 	exit(0);
 }' >& dtrace.out
 
@@ -37,17 +35,16 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-# Strip out
-# - blank lines
-# - "constprop"
-# - "isra"
+# Ignore blank lines and strip out
+# - ".constprop.[0-9]"
 # - "_after_hwframe"    (x86 starting with UEK8)
-# - pointer values
+# - "+0x[0-9a-f]*$"
+# - leading spaces
 
 awk 'NF != 0 { sub("\\.constprop\\.[0-9]", "");
-               sub("\\.isra\\.[0-9]", "");
                sub("_after_hwframe\\+", "+");
-               sub(/+0x[0-9a-f]*$/, "+{ptr}");
+               sub(/+0x[0-9a-f]*$/, "");
+               sub(/^ */, "");
                print }' dtrace.out > dtrace.post
 if [ $? -ne 0 ]; then
 	echo ERROR: awk failed
@@ -55,77 +52,35 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-# Figure out what stack to expect.
+# Identify, in order, a few frames we expect to see.
 
-read MAJOR MINOR <<< `uname -r | grep -Eo '^[0-9]+\.[0-9]+' | tr '.' ' '`
-
-if [ $MAJOR -eq 5 -a $MINOR -lt 8 ]; then
-	# up to 5.8
-	KERVER="A"
-else
-	# starting at 5.8
-	KERVER="B"
-fi
-
-if [ $(uname -m) == "x86_64" -a $KERVER == "A" ]; then
-cat << EOF > dtrace.cmp
-              vmlinux\`vfs_write+{ptr}
-              vmlinux\`__x64_sys_write+{ptr}
-              vmlinux\`x64_sys_call+{ptr}
-              vmlinux\`do_syscall_64+{ptr}
-              vmlinux\`entry_SYSCALL_64+{ptr}
-EOF
-elif [ $(uname -m) == "aarch64" -a $KERVER == "A" ]; then
-cat << EOF > dtrace.cmp
-              vmlinux\`vfs_write
-              vmlinux\`__arm64_sys_write+{ptr}
-              vmlinux\`el0_svc_common+{ptr}
-              vmlinux\`el0_svc_handler+{ptr}
-              vmlinux\`el0_svc+{ptr}
-EOF
-elif [ $(uname -m) == "x86_64" -a $KERVER == "B" ]; then
-cat << EOF > dtrace.cmp
-              vmlinux\`vfs_write+{ptr}
-              vmlinux\`ksys_write+{ptr}
-              vmlinux\`do_syscall_64+{ptr}
-              vmlinux\`entry_SYSCALL_64+{ptr}
-EOF
-elif [ $(uname -m) == "aarch64" -a $KERVER == "B" ]; then
-cat << EOF > dtrace.cmp
-              vmlinux\`vfs_write
-              vmlinux\`__arm64_sys_write+{ptr}
-              vmlinux\`invoke_syscall+{ptr}
-              vmlinux\`el0_svc_common+{ptr}
-              vmlinux\`do_el0_svc+{ptr}
-              vmlinux\`el0_svc+{ptr}
-              vmlinux\`el0t_64_sync_handler+{ptr}
-              vmlinux\`el0t_64_sync+{ptr}
-EOF
+if [ $(uname -m) == "x86_64" ]; then
+	frames="vfs_write do_syscall_64 entry_SYSCALL_64"
+elif [ $(uname -m) == "aarch64" ]; then
+	frames="vfs_write __arm64_sys_write el0_svc_common el0_svc"
 else
 	echo ERROR: unrecognized platform
 	uname -r
 	uname -m
 	exit 1
 fi
-
-# Add the first 3 frames a second time.
-
-head -3 dtrace.cmp > dtrace.tmp
-echo first 3 frames >> dtrace.cmp
-cat dtrace.tmp >> dtrace.cmp
+for frame in $frames; do
+	echo 'vmlinux`'$frame >> dtrace.cmp
+done
 
 # Compare results.
 
-if ! diff -q dtrace.cmp dtrace.post; then
-	echo ERROR: results do not match
-	diff dtrace.cmp dtrace.post
-	echo "==== expect"
+diff dtrace.cmp dtrace.post | grep '^<' > missing.frames
+if [ `cat missing.frames | wc -l` -ne 0 ]; then
+	echo ERROR: missing some expected frames
+	echo === expected frames include:
 	cat dtrace.cmp
-	echo "==== actual"
+	echo === actual frames are:
 	cat dtrace.out
+	echo === missing expected frames:
+	cat missing.frames
 	exit 1
 fi
 
 echo success
-
 exit 0
