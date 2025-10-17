@@ -44,7 +44,7 @@ proc:::exec
 syscall::execveat:entry
 /ppid == dtpid && execname == "parent.x"/
 {
-    printf("execveat    %s\n", stringof(arg1));
+    printf("execveat    %s\n", copyinstr(arg1));
 }' -c ./parent.x
 if [ $? -ne 0 ]; then
     echo ERROR

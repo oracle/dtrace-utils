@@ -42,7 +42,7 @@ proc:::exec
 syscall::execve:entry
 /ppid == dtpid && execname == "parent.x"/
 {
-    printf("execve      %s\n", stringof(arg0));
+    printf("execve      %s\n", copyinstr(arg0));
 }' -c ./parent.x
 if [ $? -ne 0 ]; then
     echo ERROR
