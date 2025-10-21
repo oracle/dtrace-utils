@@ -80,65 +80,21 @@ Scalar type expressions, such as a pointer or integer, or a scalar array address
 
 ## String Comparison <a id="dt_strcomp_dlang">
 
-D overloads the binary relational operators and permits them to be used for string comparisons, as well as integer comparisons. The relational operators perform string comparison whenever both operands are of type `string` or when one operand is of type `string` and the other operand can be promoted to type `string`. See [String Assignment](dtrace-ref-DTraceSupportforStrings.md) for a detailed description. See also [Table 1](dtrace-ref-DTraceSupportforStrings.md#dt_t14_dlang), which lists the relational operators that can be used to compare strings.
+D overloads the binary relational operators and permits them to be used for string comparisons, as well as integer comparisons.
+The relational operators perform string comparison whenever both operands are of type `string`
+or when one operand is of type `string` and the other operand can be promoted to type `string`.
+See [String Assignment](dtrace-ref-DTraceSupportforStrings.md#dt_strasg_dlang) for a detailed description.
+See also the following table, which lists the relational operators that can be used to compare strings.
 
-<table><thead><tr><th>
+| Operator | Description                                                       |
+| :---     | :---                                                              |
+| `<`      | Left-hand operand is less than right-operand.                     |
+| `<=`     | Left-hand operand is less than or equal to right-hand operand.    |
+| `>`      | Left-hand operand is greater than right-hand operand.             |
+| `>=`     | Left-hand operand is greater than or equal to right-hand operand. |
+| `==`     | Left-hand operand is equal to right-hand operand.                 |
+| `!=`     | Left-hand operand is not equal to right-hand operand.             |
 
-Operator
-
-</th><th>
-
-Description
-
-</th></tr></thead><tbody><tr><td>
-
-`<`
-
-</td><td>
-
-Left-hand operand is less than right-operand.
-
-</td></tr><tr><td>
-
-`<=`
-
-</td><td>
-
-Left-hand operand is less than or equal to right-hand operand.
-
-</td></tr><tr><td>
-
-`>`
-
-</td><td>
-
-Left-hand operand is greater than right-hand operand.
-
-</td></tr><tr><td>
-
-`>=`
-
-</td><td>
-
-Left-hand operand is greater than or equal to right-hand operand.
-
-</td></tr><tr><td>
-
-`==`
-
-</td><td>
-
-Left-hand operand is equal to right-hand operand.
-
-</td></tr><tr><td>
-
-`!=`
-
-</td><td>
-
-Left-hand operand is not equal to right-hand operand.
-
-</td></tr><tbody></table>
 As with integers, each operator evaluates to a value of type `int`, which is equal to one if the condition is true or zero if it is false.
 
 The relational operators compare the two input strings byte-by-byte, similarly to the C library routine `strcmp()`. Each byte is compared by using its corresponding integer value in the ASCII character set until a null byte is read or the maximum string length is reached. See the `ascii(7)` manual page for more information. Some example D string comparisons and their results are shown in the following table.
@@ -179,4 +135,3 @@ Returns 0 \(false\)
 **Note:**
 
 Identical Unicode strings might compare as being different if one or the other of the strings isn't normalized.
-
