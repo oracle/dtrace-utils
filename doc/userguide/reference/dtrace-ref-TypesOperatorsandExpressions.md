@@ -474,135 +474,18 @@ D type
 </td></tr><tbody></table>
 Character constants are written as a single character or escape sequence that's inside a pair of single quotes \(`'a'`\). Character constants are assigned the `int` type rather than `char` and are equivalent to an integer constant with a value that's determined by that character's value in the ASCII character set. See the `ascii(7)` manual page for a list of characters and their values. You can also use any of the special escape sequences that are listed in the following table. D uses the same escape sequences as those found in ANSI C.
 
-<table><thead><tr><th>
+**Table:**  Character Escape Sequences<a id="char_esc_seqs">
+
+| Escape Sequence | Represents      |     | Escape Sequence | Represents               |
+| :---            | :---            | --- | :---            | :---                     |
+| `\a`            | alert           |     | `\\`            | backslash                |
+| `\b`            | backspace       |     | `\?`            | question mark            |
+| `\f`            | form feed       |     | `\'`            | single quote             |
+| `\n`            | newline         |     | `\"`            | double quote             |
+| `\r`            | carriage return |     | `\0`*oo*        | octal value 0*oo*        |
+| `\t`            | horizontal tab  |     | `\x`*hh*        | hexadecimal value 0x*hh* |
+| `\v`            | vertical tab    |     | `\0`            | null character           |
 
-Escape Sequence
-
-</th><th>
-
-Represents
-
-</th><th>
-
-Escape Sequence
-
-</th><th>
-
-Represents
-
-</th></tr></thead><tbody><tr><td>
-
-`\a`
-
-</td><td>
-
-alert
-
-</td><td>
-
-`\\`
-
-</td><td>
-
-backslash
-
-</td></tr><tr><td>
-
-`\b`
-
-</td><td>
-
-backspace
-
-</td><td>
-
-`\?`
-
-</td><td>
-
-question mark
-
-</td></tr><tr><td>
-
-`\f`
-
-</td><td>
-
-form feed
-
-</td><td>
-
-`\'`
-
-</td><td>
-
-single quote
-
-</td></tr><tr><td>
-
-`\n`
-
-</td><td>
-
-newline
-
-</td><td>
-
-`\"`
-
-</td><td>
-
-double quote
-
-</td></tr><tr><td>
-
-`\r`
-
-</td><td>
-
-carriage return
-
-</td><td>
-
-`\0*oo*`
-
-</td><td>
-
-octal value 0*oo*
-
-</td></tr><tr><td>
-
-`\t`
-
-</td><td>
-
-horizontal tab
-
-</td><td>
-
-`\x*hh*`
-
-</td><td>
-
-hexadecimal value 0x*hh*
-
-</td></tr><tr><td>
-
-`\v`
-
-</td><td>
-
-vertical tab
-
-</td><td>
-
-`\0`
-
-</td><td>
-
-null character
-
-</td></tr><tbody></table>
 You can include more than one character specifier inside single quotes to create integers with individual bytes that are initialized according to the corresponding character specifiers. The bytes are read left-to-right from a character constant and assigned to the resulting integer in the order corresponding to the native endianness of the operating environment. Up to eight character specifiers can be included in a single character constant.
 
 Strings constants of any length can be composed by enclosing them in a pair of double quotes \(`"hello"`\). A string constant can't contain a literal newline character. To create strings containing newlines, use the `\n` escape sequence instead of a literal newline. String constants can contain any of the special character escape sequences that are shown for character constants before. Similar to ANSI C, strings are represented as arrays of characters that end with a null character \(`\0`\) that's implicitly added to each string constant you declare. String constants are assigned the special D type `string`. The D compiler provides a set of special features for comparing and tracing character arrays that are declared as strings.
@@ -1407,4 +1290,3 @@ The D type namespace is initially populated with the D type intrinsics, such as 
 When the D compiler encounters a type declaration that doesn't specify an explicit namespace using the back quote operator, the compiler searches the set of active type namespaces to find a match by using the specified type name. The C namespace is always searched first, followed by the D namespace. If the type name isn't found in either the C or D namespace, the type namespaces of the active kernel modules are searched in load address order, which doesn't guarantee any ordering properties among the loadable modules. To avoid type name conflicts with other kernel modules, use the scoping operator when accessing types that are defined in loadable kernel modules.
 
 The D compiler uses the compressed ANSI C debugging information that's provided with the core Linux kernel modules to access the types that are associated with the OS source code, without the need to access the corresponding C include files. Note that this symbolic debugging information might not be available for all kernel modules on the system. The D compiler reports an error if you try to access a type within the namespace of a module that lacks the compressed C debugging information that's intended for use with DTrace.
-

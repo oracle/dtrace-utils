@@ -221,7 +221,15 @@ The macro argument values must match the form of an integer, identifier, or stri
 sudo ./foo '"a string argument"'
 ```
 
-If you want D macro arguments to be interpreted as string tokens, even if they match the form of an integer or identifier, prefix the macro variable or argument name with two leading dollar signs, for example, `$$1`, which forces the D compiler to interpret the argument value as if it were a string surrounded by double quotes. All the usual D string escape sequences, per [Table 5](dtrace-ref-TypesOperatorsandExpressions.md#dt_t6_dlang), are expanded inside any string macro arguments, regardless of whether they're referenced by using the `$arg` or `$$arg` form of the macro. If the `defaultargs` option is set, unspecified arguments that are referenced with the `$$arg` form have the value of the empty string \(`""`\).
+If you want D macro arguments to be interpreted as string tokens,
+even if they match the form of an integer or identifier,
+prefix the macro variable or argument name with two leading dollar signs,
+for example, `$$1`, which forces the D compiler to interpret the argument value as if it were a string surrounded by double quotes.
+All the usual D string escape sequences, in the table of [Character Escape Sequences](dtrace-ref-TypesOperatorsandExpressions.md#char_esc_seqs),
+are expanded inside any string macro arguments,
+regardless of whether they're referenced by using the `$arg` or `$$arg` form of the macro.
+If the `defaultargs` option is set,
+unspecified arguments that are referenced with the `$$arg` form have the value of the empty string \(`""`\).
 
 ### Target Process ID
 
@@ -474,4 +482,3 @@ int64_t walltimestamp
 ```
 
 The built-in variable `walltimestamp` references the current number of nanoseconds since 00:00 Universal Coordinated Time, January 1, 1970.
-
