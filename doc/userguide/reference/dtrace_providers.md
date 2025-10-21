@@ -31,6 +31,8 @@ The Statically Defined Tracing \(SDT\) provider \(`sdt`\) creates probes at site
 The `syscall` provider makes available a probe at the entry to and return from every system call in the system.
 -   **[TCP Provider](../reference/dtrace_providers_tcp.md)**  
 The `tcp` provider makes available probe at different phases of TCP processing.
+-   **[UDP Provider](../reference/dtrace_providers_udp.md)**  
+The `udp` provider makes available a probe at UDP send and receive operations in the system.
 -   **[USDT Provider](../reference/dtrace-ref-StaticallyDefinedTracingofUserApplications.md)**
 Use the USDT provider, for user space statically defined tracing, to instrument user space code with probes that are meaningful for an application.
 
