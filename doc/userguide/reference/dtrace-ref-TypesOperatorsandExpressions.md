@@ -1151,6 +1151,7 @@ Dereferences a pointer to an object.
 Accesses a member of a structure or union type.
 
 </td></tr><tbody></table>
+
 ## Type and Constant Definitions <a id="dt_typcondef_dlang">
 
 This section describes how to declare type aliases and named constants in D. It also discusses D type and namespace management for program and OS types and identifiers.

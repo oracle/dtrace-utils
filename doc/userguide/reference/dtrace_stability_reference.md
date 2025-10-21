@@ -146,6 +146,7 @@ Standard
 The interface complies with an industry standard. The corresponding documentation for the interface describes the standard to which the interface conforms. Standards are typically controlled by a standards development organization. Changes can be made to the interface in accordance with approved changes to the standard. This stability level can also apply to interfaces that have been adopted \(without a formal standard\) by an industry convention. Availability is provided for only the specified versions of a standard; availability in later versions isn't guaranteed.
 
 </td></tr><tbody></table>
+
 ## Dependency Classes
 
 Dependency classes are used to describe architectural dependencies for interfaces in DTrace.

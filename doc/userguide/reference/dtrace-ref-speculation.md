@@ -74,6 +74,7 @@ ID
 Discards the speculative buffer that's associated with ID.
 
 </td></tr><tbody></table>
+
 ## How to use speculation
 
 The following example illustrates how to use speculation. All speculation functions must be used together for speculation to work correctly.

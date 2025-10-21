@@ -76,6 +76,7 @@ Fires as a part of clock tick-based accounting. In clock tick-based accounting, 
 Fires immediately before the current thread wakes a thread sleeping on a synchronization object. Here, `args[0]` and `args[1]` refer to the sleeping thread, as an `lwpsinfo_t *` and `psinfo_t *`, respectively. The type and address of the synchronization object are contained in the `pr_stype` and `pr_wchan` members of the `lwpsinfo_t` of the sleeping thread. The meaning of this address is a private implementation detail, but the address value might be treated as a token unique to the synchronization object.
 
 </td></tr><tbody></table>
+
 ## sched Probe Arguments <a id="dt_ref_schedargs_prov">
 
 Many of these probes refer to a particular thread. For these probes, the thread's `lwpsinfo_t` is pointed to by `args[0]` and the `psinfo_t` of the process containing the thread by `args[1]`. A few probes refer to a particular CPU. Its `cpuinfo_t` is pointed to by `args[2]`. Only `enqueue` has an `args[3]`, and that argument is a Boolean, as described. The `argN` values are implementation specific. Instead, use `args[]` to access the probe arguments.
@@ -243,6 +244,7 @@ Probe
 —
 
 </td></tr><tbody></table>
+
 ### lwpsinfo\_t and psinfo\_t <a id="dt_ref_lwpsinfo_t_psinfo_t_sched_prov">
 
 The `lwpsinfo_t` and `psinfo_t` structures are described in [Proc Provider](dtrace_providers_proc.md).

@@ -357,6 +357,7 @@ Probe
 —
 
 </td></tr><tbody></table>
+
 ### lwpsinfo\_t <a id="dt_ref_lwpsinfoproc_prov">
 
 Several `proc` probes have arguments of type `lwpsinfo_t`. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/procfs.d`. Some structure members, while still recognized for historical reasons, aren't implemented. The definition of the `lwpsinfo_t` structure is as follows:
@@ -475,6 +476,7 @@ The thread is a zombie.
  The equivalent Linux task state is `EXIT_ZOMBIE`, `EXIT_DEAD`, or `TASK_DEAD`.
 
 </td></tr><tbody></table>
+
 ### psinfo\_t <a id="dt_ref_procpsinfo_prov">
 
 Several `proc` probes have an argument of type `psinfo_t`. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/procfs.d`. The definition of the `psinfo_t` structure, is as follows:
