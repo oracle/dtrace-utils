@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -13,7 +13,7 @@ eventnamelist="cpu-clock"
 $(dirname $0)/cpc_temp_skip_bug.sh > /dev/null
 if [ $? -eq 0 ]; then
 	for eventname in branches instructions; do
-		if perf list hw | grep -qw $eventname; then
+		if /usr/bin/perf list hw | grep -qw $eventname; then
 			eventnamelist="$eventnamelist $eventname"
 		fi
 	done

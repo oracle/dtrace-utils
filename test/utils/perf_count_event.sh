@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -20,7 +20,7 @@ shift
 #   If the output is no good, report -1.
 #   If the output is time in msec, convert to nsec.
 #   Otherwise, just report the count.
-perf stat -e $event --no-big-num -x\  $utils/$* |& gawk '
+/usr/bin/perf stat -e $event --no-big-num -x\  $utils/$* |& gawk '
 /^[^0-9]/ { print -1; exit 1 }
 / msec / { print int(1000000. * $1); exit 0 }
 { print $1; exit 0 }'
