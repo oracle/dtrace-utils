@@ -1,5 +1,5 @@
 
-# DTrace Components and Terminology {#concept_terms}
+# DTrace Components and Terminology <a id="concept_terms">
 
 Learn about the different components and the terms used to describe them within the DTrace framework.
 
@@ -7,7 +7,7 @@ DTrace is a framework that dynamically traces data into buffers that are read by
 
 **Parent topic:**[DTrace Concepts](../explanation/dtrace-concepts.md)
 
-## Probes {#concept_terms_probes}
+## Probes <a id="concept_terms_probes">
 
 DTrace works by using *probes* that identify particular instrumentation in the kernel or within a user space application, or which can be used to identify interval counters or performance event counters. Events such as when particular code is run or when a specific counter is incremented cause a probe to fire and DTrace can perform functions that are bound to the event in a program or script. For example, a probe can fire when a particular file is opened and a DTrace program can print information related to the event that can be useful for debugging or resolving an issue. Equally, at the moment that DTrace starts or ends any tracing activity, the `BEGIN` and `END` probes dedicated to these actions always fire.
 
@@ -66,7 +66,7 @@ dtrace:::BEGIN
 
 Probes aren't required to have a module and function. The dtrace `BEGIN`, `END` and `ERROR` probes are good examples of this because these probes don't correspond to any specific instrumented program function or location. Instead, these probes are used for more abstract concepts, such as the idea of the end a tracing request. Other probes, such as those made available by the [Profile Provider](../reference/dtrace_providers_profile.md) or the [CPC Provider](../reference/dtrace_providers_cpc.md), also don't include module or function identifiers in their descriptions.
 
-## D Programs {#concept_terms_programs}
+## D Programs <a id="concept_terms_programs">
 
 You can bind a set of processing instructions called statements to one or more DTrace probes, so that when a probe fires, the specified statements are run to perform some required functionality. The set of enabled probes, the statements, and any conditions that might be evaluated when the probe fires, can all be collated into a *D program*.
 
@@ -102,7 +102,7 @@ Wed 22 Feb 11:54:51 GMT 2023
 
 The program probe description matches all system call functions at the entry point. The program predicate evaluates a *built-in variable*, `execname`, against a string using an operator. The clause includes an *aggregation*, `@reads`, that's used to gather data about the firing probe. In this case, the aggregation stores a counter that increments every time the probe fires and the predicate resolves. The counter is implemented by the `count()` *function* and stores count values for each system call probe function. See [D Program Syntax Reference](../reference/d_program_syntax_reference.md) for more information on program structure and syntax.
 
-## Aggregations {#concept_terms_aggregations}
+## Aggregations <a id="concept_terms_aggregations">
 
 *Aggregations* can be used to reduce large bodies of data to smaller, meaningful statistical metrics. Many common functions that are used to understand a set of data are aggregating functions. These functions include the following:
 
@@ -121,7 +121,7 @@ Although you could code an application to calculate an aggregation for a set of 
 
 DTrace aggregation functions apply to the data as it's traced, so that the dataset doesn't need to be stored and the aggregation is always available as events occur. In this way, aggregation functions are more efficient and exact, and avoid overwrites. See [Aggregations](../reference/aggregation.md) for more information.
 
-## Speculation {#concept_terms_speculation}
+## Speculation <a id="concept_terms_speculation">
 
 While predicates can be used to filter out uninteresting events, they're only useful if you already know which events you need to filter. Because DTrace is often used to help debug particular system behaviors, DTrace includes a set of *speculation* functions that can be used to trace data speculatively.
 

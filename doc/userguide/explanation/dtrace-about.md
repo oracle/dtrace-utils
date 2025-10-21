@@ -1,5 +1,5 @@
 
-# About DTrace {#concept_about}
+# About DTrace <a id="concept_about">
 
 DTrace is a powerful tracing tool that's available on Linux. DTrace has low overhead and is safe to use on production systems to analyze what a system is doing in real time.
 
