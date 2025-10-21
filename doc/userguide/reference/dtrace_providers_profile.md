@@ -11,86 +11,31 @@ Such probes aren't associated with any particular point of execution, but rather
 
 The `profile-*n*` probes fire at a fixed interval, at a high-interrupt level on all active CPUs.
 
-The units of *n* default to a frequency that's expressed as a rate of firing per second, but the value can also have an optional suffix , as shown in [Table 1](dtrace_providers_profile.md#dt_t1_prov), which specifies either a time interval or a frequency. The following table describes valid time suffixes for a `tick-` *n* probe.
+The units of *n* default to a frequency that's expressed as a rate of firing per second,
+but the value can also have an optional suffix, as shown in the following table,
+which specifies either a time interval or a frequency.
+The following table describes valid time suffixes for a `tick-` *n* probe.
 
-<table><thead><tr><th>
+| Suffix         | Time Units                                       |
+| :---           | :---                                             |
+| `nsec` or `ns` | nanoseconds                                      |
+| `usec` or `us` | microseconds                                     |
+| `msec` or `ms` | milliseconds                                     |
+| `sec` or `s`   | seconds                                          |
+| `min` or `m`   | minutes                                          |
+| `hour` or `h`  | hours                                            |
+| `day` or `d`   | days                                             |
+| `hz`           | hertz \(frequency expressed as rate per second\) |
 
-Suffix
-
-</th><th>
-
-Time Units
-
-</th></tr></thead><tbody><tr><td>
-
-`nsec` or `ns`
-
-</td><td>
-
-nanoseconds
-
-</td></tr><tr><td>
-
-`usec` or `us`
-
-</td><td>
-
-microseconds
-
-</td></tr><tr><td>
-
-`msec` or `ms`
-
-</td><td>
-
-milliseconds
-
-</td></tr><tr><td>
-
-`sec` or `s`
-
-</td><td>
-
-seconds
-
-</td></tr><tr><td>
-
-`min` or `m`
-
-</td><td>
-
-minutes
-
-</td></tr><tr><td>
-
-`hour` or `h`
-
-</td><td>
-
-hours
-
-</td></tr><tr><td>
-
-`day` or `d`
-
-</td><td>
-
-days
-
-</td></tr><tr><td>
-
-`hz`
-
-</td><td>
-
-hertz \(frequency expressed as rate per second\)
-
-</td></tr><tbody></table>
 ## tick-*n* Probes <a id="dt_ref_profile-tick-n_prov">
 
 The `tick-*n*` probes fire at fixed intervals, at a high interrupt level on only one CPU per interval.
 
-Unlike `profile-*n*` probes, which fire on every CPU, `tick-*n*` probes fire on only one CPU per interval and the CPU on which they fire can change over time. The units of *n* default to a frequency expressed as a rate of firing per second, but the value can also have an optional time suffix as shown in [Table 1](dtrace_providers_profile.md#dt_t1_prov), which specifies either a time interval or a frequency.
+Unlike `profile-*n*` probes, which fire on every CPU,
+`tick-*n*` probes fire on only one CPU per interval and the CPU on which they fire can change over time.
+The units of *n* default to a frequency expressed as a rate of firing per second,
+but the value can also have an optional time suffix as shown in the earlier table,
+which specifies either a time interval or a frequency.
 
 The `tick-*n*` probes have several uses, such as providing some periodic output or taking a periodic action.
 
