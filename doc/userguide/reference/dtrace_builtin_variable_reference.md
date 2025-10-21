@@ -1,9 +1,9 @@
 
-# DTrace Built-in Variable Reference {#dt_ref_builtin_vars}
+# DTrace Built-in Variable Reference <a id="dt_ref_builtin_vars">
 
 DTrace includes a set of built-in scalar variables that can be used in D programs or scripts.
 
-## Macro Variables {#dt_macrov_scrpt}
+## Macro Variables <a id="dt_macrov_scrpt">
 
 Macro variables are variables that are populated at runtime and identify information about the running `dtrace` process or the process running the compiler.
 
@@ -169,7 +169,7 @@ However, in probe descriptions, macro variables are expanded and concatenated wi
 
 Macro variables are only expanded one time within each probe description field and they can't contain probe description delimiters \(`:`\).
 
-### Macro Arguments {#dt_macroa_scrpt}
+### Macro Arguments <a id="dt_macroa_scrpt">
 
 The D compiler also provides a set of macro variables corresponding to any more argument operands that are specified as part of the `dtrace` command invocation. These *macro arguments* are accessed by using the built-in names `$0`, for the name of the D program file or `dtrace` command, `$1`, for the first extra operand, `$2` for the second operand, and so on. If you use the `-s` option, `$0` expands to the value of the name of the input file that's used with this option. For D programs that are specified on the command line, `$0` expands to the value of `argv[0]`, which is used to run the `dtrace` command itself.
 
@@ -243,7 +243,7 @@ To find the number of system calls made by the `date` command, save the script i
 sudo dtrace -s syscall.d -c date
 ```
 
-## args\[\] {#dt_ref_vars_args}
+## args\[\] <a id="dt_ref_vars_args">
 
 The typed and mapped arguments, if any, to the current probe. The `args[]` array is accessed using an integer index. Use `dtrace -l -v` and check `Argument Types` for the type of each argument of each probe. For example, consider the system call `prlimit()`. The prototype on its `man` page \(`man -s 2 prlimit`\) is consistent with its DTrace probe listing \(`dtrace -lvn 'syscall:vmlinux:prlimit*:entry' | grep args`\). Specifically, argument 2, if non NULL, points to a `struct rlimit` with the requested resource limit, which can be traced with:
 
@@ -255,7 +255,7 @@ syscall:vmlinux:prlimit*:entry
 }
 ```
 
-## arg0, …, arg9 {#dt_ref_var_arg0-9}
+## arg0, …, arg9 <a id="dt_ref_var_arg0-9">
 
 ```
 int64_t arg0, ..., arg9
@@ -271,7 +271,7 @@ rawfbt:vmlinux:ksys_write:entry
 }
 ```
 
-## caller {#dt_ref_var_caller}
+## caller <a id="dt_ref_var_caller">
 
 ```
 uintptr_t caller
@@ -279,7 +279,7 @@ uintptr_t caller
 
 The built-in variable `caller` references the program counter location of the current kernel thread at the time the probe fired.
 
-## curcpu {#dt_ref_var_curcpu}
+## curcpu <a id="dt_ref_var_curcpu">
 
 ```
 cpuinfo_t * curcpu
@@ -287,7 +287,7 @@ cpuinfo_t * curcpu
 
 The built-in variable `curcpu` references the current physical CPU.
 
-## curthread {#dt_ref_var_curthread}
+## curthread <a id="dt_ref_var_curthread">
 
 ```
 vmlinux`struct task_struct * curthread
@@ -295,7 +295,7 @@ vmlinux`struct task_struct * curthread
 
 The built-in variable `curthread` references a `vmlinux` data type, for which members can be found by searching for "task\_struct" on the Internet.
 
-## epid {#dt_ref_var_epid}
+## epid <a id="dt_ref_var_epid">
 
 ```
 uint_t epid
@@ -306,12 +306,12 @@ The built-in variable `epid` references the enabled probe ID \(EPID\) for the cu
 ## errno
 
 ```
-int errno {#dt_ref_var_errno}
+int errno <a id="dt_ref_var_errno">
 ```
 
 The built-in variable `errno` references the error value returned by the last system call run by this thread.
 
-## execname {#dt_ref_var_execname}
+## execname <a id="dt_ref_var_execname">
 
 ```
 string execname
@@ -319,7 +319,7 @@ string execname
 
 The built-in variable `execname` references the name that was passed to `execve()` to run the current process.
 
-## fds {#dt_ref_var_fds}
+## fds <a id="dt_ref_var_fds">
 
 ```
 fileinfo_t fds[]
@@ -327,7 +327,7 @@ fileinfo_t fds[]
 
 The built-in `variable fds[]` is an array which has the files the current process has opened in a `fileinfo_t` array, indexed by file descriptor number. See [fileinfo\_t](dtrace_providers_io.md).
 
-## gid {#dt_ref_var_gid}
+## gid <a id="dt_ref_var_gid">
 
 ```
 gid_t gid
@@ -335,7 +335,7 @@ gid_t gid
 
 The built-in variable `gid` references the real group ID of the current process.
 
-## id {#dt_ref_var_id}
+## id <a id="dt_ref_var_id">
 
 ```
 uint_t id
@@ -343,7 +343,7 @@ uint_t id
 
 The built-in variable `id` references the probe ID for the current probe. This ID is the system-wide unique identifier for the probe, as published by DTrace and listed in the output of `dtrace -l`.
 
-## ipl {#dt_ref_var_ipl}
+## ipl <a id="dt_ref_var_ipl">
 
 ```
 uint_t ipl
@@ -355,7 +355,7 @@ The built-in variable `ipl` references the interrupt priority level \(IPL\) on t
 
 This value is non-zero if interrupts are firing and zero otherwise. The non-zero value depends on whether preemption is active, and other factors, and can vary between kernel releases and kernel configurations.
 
-## pid {#dt_ref_var_pid}
+## pid <a id="dt_ref_var_pid">
 
 ```
 pid_t pid
@@ -363,7 +363,7 @@ pid_t pid
 
 The built-in variable `pid` references the process ID of the current process.
 
-## ppid {#dt_ref_var_ppid}
+## ppid <a id="dt_ref_var_ppid">
 
 ```
 pid_t ppid
@@ -371,7 +371,7 @@ pid_t ppid
 
 The built-in variable `ppid` references the parent process ID of the current process.
 
-## probefunc {#dt_ref_var_probefunc}
+## probefunc <a id="dt_ref_var_probefunc">
 
 ```
 string probefunc
@@ -379,7 +379,7 @@ string probefunc
 
 The built-in variable `probefunc` references the function name part of the current probe's description.
 
-## probemod {#dt_ref_var_probemod}
+## probemod <a id="dt_ref_var_probemod">
 
 ```
 string probemod
@@ -387,7 +387,7 @@ string probemod
 
 The built-in variable `probemod` references the module name part of the current probe's description.
 
-## probename {#dt_ref_var_probename}
+## probename <a id="dt_ref_var_probename">
 
 ```
 string probename
@@ -395,7 +395,7 @@ string probename
 
 The built-in variable `probename` references the name part of the current probe's description.
 
-## probeprov {#dt_ref_var_probeprov}
+## probeprov <a id="dt_ref_var_probeprov">
 
 ```
 string probeprov
@@ -403,7 +403,7 @@ string probeprov
 
 The built-in variable `probeprov` references the provider name part of the current probe's description.
 
-## stackdepth {#dt_ref_var_stackdepth}
+## stackdepth <a id="dt_ref_var_stackdepth">
 
 ```
 uint32_t stackdepth
@@ -411,7 +411,7 @@ uint32_t stackdepth
 
 The built-in variable `stackdepth` references the current thread's stack frame depth at probe firing time.
 
-## tid {#dt_ref_var_tid}
+## tid <a id="dt_ref_var_tid">
 
 ```
 id_t tid
@@ -419,7 +419,7 @@ id_t tid
 
 The built-in variable `tid` references the thread ID of the current thread.
 
-## timestamp {#dt_ref_var_timestamp}
+## timestamp <a id="dt_ref_var_timestamp">
 
 ```
 uint64_t timestamp
@@ -427,7 +427,7 @@ uint64_t timestamp
 
 The built-in variable `timestamp` references the current value of a nanosecond timestamp counter. This counter increments from an arbitrary point in the past. Therefore, only use the timestamp counter for relative computations.
 
-## ucaller {#dt_ref_var_ucaller}
+## ucaller <a id="dt_ref_var_ucaller">
 
 ```
 uint64_t ucaller
@@ -435,7 +435,7 @@ uint64_t ucaller
 
 The built-in variable `ucaller` references the program counter location of the current user thread at the time the probe fired.
 
-## uid {#dt_ref_var_uid}
+## uid <a id="dt_ref_var_uid">
 
 ```
 uid_t uid
@@ -443,7 +443,7 @@ uid_t uid
 
 The built-in variable `uid` references the real user ID of the current process.
 
-## uregs {#dt_ref_var_uregs}
+## uregs <a id="dt_ref_var_uregs">
 
 ```
 uint64_t uregs[]
@@ -451,7 +451,7 @@ uint64_t uregs[]
 
 The current thread's saved user-mode register values at probe firing time.
 
-## ustackdepth {#dt_ref_var_ustackdepth}
+## ustackdepth <a id="dt_ref_var_ustackdepth">
 
 ```
 uint32_t ustackdepth
@@ -459,7 +459,7 @@ uint32_t ustackdepth
 
 The built-in variable `ustackdepth` references the user thread's stack frame depth at probe firing time.
 
-## vtimestamp {#dt_ref_var_vtimestamp}
+## vtimestamp <a id="dt_ref_var_vtimestamp">
 
 ```
 uint64_t vtimestamp
@@ -467,7 +467,7 @@ uint64_t vtimestamp
 
 The built-in variable `vtimestamp` references the current value of a nanosecond timestamp counter that's virtualized to the amount of time that the current thread has been running on a CPU, minus the time spent in DTrace predicates and functions. This counter increments from an arbitrary point in the past. Therefore, only use the vtimestamp counter for relative time computations.
 
-## walltimestamp {#dt_ref_var_walltimestamp}
+## walltimestamp <a id="dt_ref_var_walltimestamp">
 
 ```
 int64_t walltimestamp
