@@ -7,7 +7,7 @@
         -   [Install DTrace on Oracle Linux 9](how-to/dtrace-howto-install-dtrace.md#install_dtrace_oracle_linux_9)
         -   [Install DTrace on Oracle Linux 8](how-to/dtrace-howto-install-dtrace.md#install_dtrace_oracle_linux_8)
         -   [Install DTrace on Oracle Linux 7](how-to/dtrace-howto-install-dtrace.md#install_dtrace_oracle_linux_7)
-        -   [Verify the DTrace Installation](how-to/dtrace-howto-install-_dtrace.md#verify_install)
+        -   [Verify the DTrace Installation](how-to/dtrace-howto-install-dtrace.md#verify_install)
     -   [List and Enable Probes](how-to/dtrace-howto-list-and-enable-probes.md#list_enable_probes)
     -   [Create a DTrace Script](how-to/dtrace-howto-create-a-dtrace-script.md#dt_create_script)
     -   [Use Predicates For Control Flow](how-to/dtrace-howto-use-predicates.md#dt_preds_dlang)

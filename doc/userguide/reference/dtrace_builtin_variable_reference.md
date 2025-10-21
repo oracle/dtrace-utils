@@ -31,7 +31,7 @@ Macro arguments
 
 </td><td>
 
-See [Macro Arguments](dtrace_builtin_variable_reference.md#macro_arguments)
+See [Macro Arguments](dtrace_builtin_variable_reference.md#dt_macroa_scrpt)
 
 </td></tr><tr><td>
 
@@ -127,7 +127,7 @@ Target process ID
 
 </td><td>
 
-See [Target Process ID](dtrace_builtin_variable_reference.md#target_process)
+See [Target Process ID](dtrace_builtin_variable_reference.md#targ_proc_id)
 </td></tr><tr><td>
 
 `$uid`
@@ -231,7 +231,7 @@ regardless of whether they're referenced by using the `$arg` or `$$arg` form of 
 If the `defaultargs` option is set,
 unspecified arguments that are referenced with the `$$arg` form have the value of the empty string \(`""`\).
 
-### Target Process ID
+### Target Process ID <a id="targ_proc_id">
 
 Use the `$target` macro variable to create scripts to be applied to the user process of interest that you specify with the `-p` option or that you create by using the `dtrace` command with the `-c` option. The D programs that you specify on the command line or by using the `-s` option are compiled after processes are created or grabbed, and the `$target` variable expands to the integer process ID of the first such process.
 
