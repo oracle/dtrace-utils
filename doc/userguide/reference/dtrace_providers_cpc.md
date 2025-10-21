@@ -1,5 +1,5 @@
 
-# CPC Provider {#dt_ref_cpc_prov}
+# CPC Provider <a id="dt_ref_cpc_prov">
 
 The CPU performance counter \(`cpc`\) provider makes available probes that are associated with CPU performance counter events.
 
@@ -11,7 +11,7 @@ Start with higher event counter values for CPC probes and reduce them through tr
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## cpc Probes {#dt_ref_cpcprobes_prov}
+## cpc Probes <a id="dt_ref_cpcprobes_prov">
 
 Probes made available by the `cpc` provider have the following probe description format:
 
@@ -29,7 +29,7 @@ The definitions of the components of the probe name are listed in table.
 
 Note that when you list CPC probes, example count values are provided in the probe listings. The count values are artificially set high as a guideline.
 
-## cpc Probe Arguments {#dt_ref_cpcargs_prov}
+## cpc Probe Arguments <a id="dt_ref_cpcargs_prov">
 
 The following table lists the argument types for the `cpc` probes.
 
@@ -40,7 +40,7 @@ The following table lists the argument types for the `cpc` probes.
 
 As the descriptions imply, if `arg0` is non-zero then `arg1` is zero; if `arg0` is zero then `arg1` is non-zero.
 
-## cpc Examples {#dt_ref_cpcexamples_prov}
+## cpc Examples <a id="dt_ref_cpcexamples_prov">
 
 The following example illustrates the use of a probe published by the `cpc` provider.
 
@@ -56,7 +56,7 @@ cpc:::cycles-all-50000000
 
 ```
 
-## cpc Stability {#dt_ref_cpcstab_prov}
+## cpc Stability <a id="dt_ref_cpcstab_prov">
 
 The `cpc` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

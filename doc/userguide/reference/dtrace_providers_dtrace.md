@@ -1,5 +1,5 @@
 
-# DTrace Provider {#dt_ref_dt_prov}
+# DTrace Provider <a id="dt_ref_dt_prov">
 
 The `dtrace` provider includes several probes that are specific to DTrace itself.
 
@@ -7,7 +7,7 @@ Use these probes to initialize state before tracing begins, process state after 
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## BEGIN Probe {#dt_ref_begin_prov}
+## BEGIN Probe <a id="dt_ref_begin_prov">
 
 The `BEGIN` probe fires before any other probe.
 
@@ -34,7 +34,7 @@ syscall::mmap:entry
 
 The `BEGIN` probe fires in an unspecified context, which means the output of `stack` or `ustack`, and the value of context-specific variables such as `execname`, are all arbitrary. These values should not be relied upon or interpreted to infer any meaningful information. No arguments are defined for the `BEGIN` probe.
 
-## END Probe {#dt_ref_end_prov}
+## END Probe <a id="dt_ref_end_prov">
 
 The `END` probe fires after all other probes.
 
@@ -64,7 +64,7 @@ As with the `BEGIN` probe, no arguments are defined for the `END` probe. The con
 
 The `[exit](function_exit.md)` function causes tracing to stop and the `END` probe to fire. However, a delay exists between the invocation of the `exit` function and when the `END` probe fires. During this delay, no further probes can fire. After a probe invokes the `exit` function, the `END` probe isn't fired until DTrace determines that `exit` has been called and stops tracing. The rate at which the exit status is checked can be set by using `statusrate` option.
 
-## ERROR Probe {#dt_ref_error_prov}
+## ERROR Probe <a id="dt_ref_error_prov">
 
 The `ERROR` probe fires when a runtime error occurs during the processing of a clause for a DTrace probe.
 
@@ -311,7 +311,7 @@ None.
 </td></tr><tbody></table>
 If the actions that are taken in the `ERROR` probe cause an error, that error is silently dropped. The `ERROR` probe isn't recursively invoked.
 
-## dtrace Stability {#dt_ref_dtstability_prov}
+## dtrace Stability <a id="dt_ref_dtstability_prov">
 
 The `dtrace` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

@@ -1,5 +1,5 @@
 
-# USDT Provider {#dt_ref_usdt_prov}
+# USDT Provider <a id="dt_ref_usdt_prov">
 
 Use the USDT provider, for user space statically defined tracing, to instrument user space code with probes that are meaningful for an application.
 
@@ -9,7 +9,7 @@ USDT is for user space processes. For kernel modules, statically defined tracing
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## Defining USDT Providers and Probes {#dt_ref_usdtprobes_prov}
+## Defining USDT Providers and Probes <a id="dt_ref_usdtprobes_prov">
 
 Define USDT providers and probes in a `.d` file that you add to the source code. For example, a file `myproviders.d` contains:
 
@@ -37,7 +37,7 @@ The following example traces all processes with `myprov` probes, even if they ha
 sudo dtrace -Z -n 'myprov*:::my-put { printf("put %d %d\n", arg0, arg1); }'
 ```
 
-## Adding USDT Probes to Application Code {#dt_ref_usdt_probe_add_prov}
+## Adding USDT Probes to Application Code <a id="dt_ref_usdt_probe_add_prov">
 
 Consider this C code `func.c`:
 
@@ -66,7 +66,7 @@ You can place probes in the code, referring to the probes by using the macros, w
 
 An optional optimization is to test if a probe is enabled. While the computational overhead of a disabled DTrace probe is often similar to a few no-op instructions, setting up probe arguments can be expensive. In this example, `bar(1111)` and `bar(2222)`might be costly function calls. Therefore, for each probe, DTrace also supplies an `is-enabled` macro, named by appending `_ENABLED`. In the example, `MYPROV_MY_PUT_ENABLED()` for the `my-put` probe, to help minimize the cost of any work associated with disabled probes.
 
-## Building Applications With USDT Probes {#dt_ref_usdt_build_prov}
+## Building Applications With USDT Probes <a id="dt_ref_usdt_build_prov">
 
 The `dtrace` command becomes part of the build procedure, which can be thought of in four parts:
 
@@ -101,7 +101,7 @@ The `dtrace` command becomes part of the build procedure, which can be thought o
     ```
 
 
-## USDT Examples {#dt_ref_usdtexamples_prov}
+## USDT Examples <a id="dt_ref_usdtexamples_prov">
 
 1.  Create a file `myproviders.d` that contains:
 

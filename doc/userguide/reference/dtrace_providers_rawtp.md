@@ -1,5 +1,5 @@
 
-# Rawtp Provider {#dt_ref_rawtp_prov}
+# Rawtp Provider <a id="dt_ref_rawtp_prov">
 
 The `rawtp` provider gives DTrace users access to the raw tracepoints exposed by the kernel tracing system, including access to the untranslated arguments of the associated tracepoint events.
 
@@ -17,7 +17,7 @@ sudo dtrace -lvP rawtp
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## rawtp Stability {#dt_ref_rawtpstab_prov}
+## rawtp Stability <a id="dt_ref_rawtpstab_prov">
 
 The `rawtp` provider uses DTrace's stability mechanism to describe its stabilities. These stability values are listed in the following table.
 

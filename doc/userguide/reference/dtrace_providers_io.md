@@ -1,5 +1,5 @@
 
-# IO Provider {#dt_ref_io_prov}
+# IO Provider <a id="dt_ref_io_prov">
 
 The `io` provider makes available probes that relate to data input and output.
 
@@ -7,7 +7,7 @@ For example, you can use the `io` provider to understand I/O by device, I/O type
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## io Probes {#dt_ref_ioprobes_prov}
+## io Probes <a id="dt_ref_ioprobes_prov">
 
 The following table describes the probes for the `io` provider. For all `io` probes, the module is `vmlinux` and the function is an empty string.
 
@@ -54,7 +54,7 @@ Fires when a thread finishes waiting for the completion of an I/O request. The `
 </td></tr><tbody></table>
 The `io` probes fire for all I/O requests to peripheral devices, and for all file read and file write requests to an NFS server. Requests for metadata from an NFS server, for example, don't trigger `io` probes because of a `readdir()` request.
 
-## io Probe Arguments {#dt_ref_ioargs_prov}
+## io Probe Arguments <a id="dt_ref_ioargs_prov">
 
 The following table describes the arguments for the `io` probes. The `argN` are implementation specific. Use `args[]` to access the probe arguments.
 
@@ -143,7 +143,7 @@ Probe
 
 DTrace doesn't provide the option to use `fileinfo_t` with `io` probes. In Linux, no information is accessible at the level where the `io` probes fire about the file where an I/O request originated.
 
-### bufinfo\_t {#dt_ref_iobuf_prov}
+### bufinfo\_t <a id="dt_ref_iobuf_prov">
 
 The `bufinfo_t` structure is the abstraction that describes an I/O request. The buffer that corresponds to an I/O request is pointed to by `args[0]` in the `start`, `done`, `wait-start`, and `wait-done` probes. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/io.d`. The definition of `bufinfo_t` is as follows:
 
@@ -289,7 +289,7 @@ Indicates that the data is to be transferred from main memory to the peripheral 
 
 `b_edev`: Contains the major and minor device numbers of the device accessed. You can use the D subroutines `getmajor` and `getminor` to extract the major and minor device numbers from the `b_edev` field.
 
-### devinfo\_t {#dt_ref_iodev_prov}
+### devinfo\_t <a id="dt_ref_iodev_prov">
 
 The `devinfo_t` structure provides information about a device. The `devinfo_t` structure that corresponds to the destination device of an I/O is pointed to by `args[1]` in the `start`, `done`, `wait-start`, and `wait-done` probes. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/io.d`. The definition of `devinfo_t` is as follows:
 
@@ -318,7 +318,7 @@ DTrace translates the members of `devinfo_t` from the `buffer_head` for the Linu
 
 `dev_pathname`: Is the full path of the device. The path that's specified by `dev_pathname` includes components expressing the device node, the instance number, and the minor node. However, note that all three of these elements aren't necessarily expressed in the statistics name. For some devices, the statistics name consists of the device name and the instance number. For other devices, the name consists of the device name and the number of the minor node. So, two devices that have the same `dev_statname` migh differ in their `dev_pathname`.
 
-### fileinfo\_t {#dt_ref_iofile_prov}
+### fileinfo\_t <a id="dt_ref_iofile_prov">
 
 **Note:**
 
@@ -352,7 +352,7 @@ The `fi_fs` field contains the name of the file system type, or `<none>`, if no 
 
 The `fi_oflags` field contains the flags that were specified when opening the file.
 
-## io Examples {#dt_ref_ioexamples_prov}
+## io Examples <a id="dt_ref_ioexamples_prov">
 
 The following example script displays information for every I/O as it's issued. Type the following source code and save it in a file named `iosnoop.d`.
 
@@ -517,7 +517,7 @@ sdc1 (/dev/sdc1)
 
 The previous output shows that the USB drive \(`sdc1`\) is clearly the limiting device. The throughput of `sdc1` is between 256K/sec and 512K/sec, while `dm-00` delivered I/O at anywhere from 8 MB/second to over 64 MB/second.
 
-## io Stability {#dt_ref_iostab_prov}
+## io Stability <a id="dt_ref_iostab_prov">
 
 The `io` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

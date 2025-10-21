@@ -1,11 +1,11 @@
 
-# Lockstat Provider {#dt_ref_lockstat_prov}
+# Lockstat Provider <a id="dt_ref_lockstat_prov">
 
 The `lockstat` provider provides probes that can be used to study lock usage and contention.
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## lockstat Probes {#dt_ref_lockstatprobes_prov}
+## lockstat Probes <a id="dt_ref_lockstatprobes_prov">
 
 For all `lockstat` probes, the module name is `vmlinux` and the function name is an empty string.
 
@@ -44,7 +44,7 @@ The following probe fires before a lock is acquired if there was contention for 
 
 Finally, an `adaptive-acquire-error` probe indicates an error acquiring an adaptive lock.
 
-## lockstat Probe Arguments {#dt_ref_lockstatargs_prov}
+## lockstat Probe Arguments <a id="dt_ref_lockstatargs_prov">
 
 The following table lists the argument types for the `lockstat` probes. The `argN` are implementation specific. Use `args[]` to access the probe arguments.
 
@@ -245,7 +245,7 @@ Probe
 
 `args[0]` has a pointer to the lock in question. The probes that fire in case of contention report a `uint64_t` `args[1]`, which is the wait time in nanoseconds. The `rw` probes also report an `int` that's either `RW_READER` or `RW_WRITER`. Finally, `adaptive-acquire-error` reports an `int` with a non zero error.
 
-## lockstat Examples {#dt_ref_lockstatexamples_prov}
+## lockstat Examples <a id="dt_ref_lockstatexamples_prov">
 
 The following examples illustrate the use of the probes that are published by the `lockstat` provider.
 
@@ -271,7 +271,7 @@ Run the program on the `date` command using `sudo dtrace -qs whatlock.d -c date`
 
 It might be surprising that so many locks are acquired with the `date` command. The large number of locks is a natural artifact of the fine-grained locking required of a scalable system such as the Linux kernel.
 
-## lockstat Stability {#dt_ref_lockstatstab_prov}
+## lockstat Stability <a id="dt_ref_lockstatstab_prov">
 
 The `lockstat` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

@@ -1,5 +1,5 @@
 
-# FBT Provider {#dt_ref_fbt_prov}
+# FBT Provider <a id="dt_ref_fbt_prov">
 
 The `fbt` \(Function Boundary Tracing\) provider includes probes that are associated with the entry to and return from most functions in the Linux kernel. Therefore, there could be tens of thousands of `fbt` probes.
 
@@ -15,17 +15,17 @@ Because of the large number of FPB probes that are available, be specific about 
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## fbt Probes {#dt_ref_fbtprobes_prov}
+## fbt Probes <a id="dt_ref_fbtprobes_prov">
 
 FBT provides an `entry` probe and a `return` probe for most functions in the kernel.
 
-## fbt Probe Arguments {#dt_ref_fbtargs_prov}
+## fbt Probe Arguments <a id="dt_ref_fbtargs_prov">
 
 The arguments to `entry` probes are the same as the arguments to the corresponding operating system kernel function. These arguments can be accessed as `int64_t` values by using the `arg0`, `arg1`, `arg2`, ... variables.
 
 If the function has a return value, the return value is stored in `arg1` of the `return` probe. If a function doesn't have a return value, `arg1` isn't defined.
 
-## fbt Examples {#dt_ref_fbtexamples_prov}
+## fbt Examples <a id="dt_ref_fbtexamples_prov">
 
 You can use the `fbt` provider to explore the kernel's implementation. The following example script creates an aggregation on the number of times different functions allocate kernel virtual memory. The results of the aggregation are printed when the script exits. This would help somebody to monitor what functions are memory intensive. Type the following D source code and save it in a file named `getkmemalloc.d`:
 
@@ -74,7 +74,7 @@ Running this script results in output similar to the following:
 
 The output shows the internal kernel functions that are making calls to the `kmem*alloc` system calls and can be used to find which kernel functions most often allocate kernel virtual memory on a system.
 
-## fbt Stability {#dt_ref_fbtstab_prov}
+## fbt Stability <a id="dt_ref_fbtstab_prov">
 
 The `fbt` provider uses DTrace's stability mechanism to describe its stabilities. These stability values are listed in the following table.
 

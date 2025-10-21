@@ -1,5 +1,5 @@
 
-# SDT Provider {#dt_ref_sdt_prov}
+# SDT Provider <a id="dt_ref_sdt_prov">
 
 The Statically Defined Tracing \(SDT\) provider \(`sdt`\) creates probes at sites that a software programmer has formally designated. Thus, the SDT provider is chiefly of interest only to developers of new providers. Most users access SDT only indirectly by using other providers.
 
@@ -11,13 +11,13 @@ Both the name stability and the data stability of the probes are Private, which 
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## Creating sdt Probes {#dt_ref_sdtcreatep_prov}
+## Creating sdt Probes <a id="dt_ref_sdtcreatep_prov">
 
 If you are a device driver developer, you might be interested in creating `sdt` probes for a Linux driver that you are working on. The disabled probe effect of SDT is only the cost of several no-operation machine instructions. You are therefore encouraged to add `sdt` probes to device driver code as needed. Unless these probes negatively affect performance, you can leave them in shipped code.
 
 DTrace also provides a mechanism for application developers to define user-space static probes.
 
-### Declaring Probes {#dt_ref_sdtdeclp_prov}
+### Declaring Probes <a id="dt_ref_sdtdeclp_prov">
 
 The `sdt` probes are declared by using the `DTRACE_PROBE` macro from `<linux/sdt.h>`.
 
@@ -34,11 +34,11 @@ SDT can also act as a metaprovider by registering probes so that they appear to 
 
 Probes that use such macros appear to come from a provider other than `sdt`. The leading double underscore, provider name, and trailing underscore in the `name` argument are used to match the provider and aren't included in the probe name.
 
-### sdt Probe Arguments {#dt_ref_sdtparg_prov}
+### sdt Probe Arguments <a id="dt_ref_sdtparg_prov">
 
 The arguments for each `sdt` probe are the arguments that are specified in the kernel source code in the corresponding `DTRACE_PROBE` macro reference. When declaring `sdt` probes, you can minimize their disabled probe effect by not dereferencing pointers and by not loading from global variables in the probe arguments. Both pointer dereferencing and global variable loading can be done safely in D functions that enable probes, so DTrace users can request these functions only when they're needed.
 
-## sdt Stability {#dt_ref_sdtstab_prov}
+## sdt Stability <a id="dt_ref_sdtstab_prov">
 
 The `sdt` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

@@ -1,11 +1,11 @@
 
-# Pid Provider {#dt_ref_pid_prov}
+# Pid Provider <a id="dt_ref_pid_prov">
 
 The `pid` provider traces a user process, both function `entry` and `return`, and an arbitrary instruction.
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## pid Probes {#dt_ref_pidprobes_prov}
+## pid Probes <a id="dt_ref_pidprobes_prov">
 
 A probe is fully specified by naming its provider, module, function, and name.
 
@@ -52,7 +52,7 @@ The probe name is one of:
 -   An instruction offset. The hexadecimal offset, without a leading `0x`, is relative to the named function, but it's an absolute offset when the function name is `-`.
 
 
-## pid Probe Arguments {#dt_ref_pidargs_prov}
+## pid Probe Arguments <a id="dt_ref_pidargs_prov">
 
 For `entry` probes, the probe arguments are the same arguments as those of the probed function.
 
@@ -60,7 +60,7 @@ For `return` probes, `arg1` is the return value of the probed function.
 
 For offset probes, there are no probe arguments.
 
-## pid Examples {#dt_ref_pidexamples_prov}
+## pid Examples <a id="dt_ref_pidexamples_prov">
 
 Consider the following program, named `main.c`, that calls a function `foo()`:
 
@@ -173,7 +173,7 @@ The output looks similar to:
 
 We probe on the chosen instruction, using both a relative offset `foo:4`, and an absolute offset `-:40110a`. Both probes fire, both reporting the same PC `0x40110a`.
 
-## pid Stability {#dt_ref_pidstab_prov}
+## pid Stability <a id="dt_ref_pidstab_prov">
 
 The `pid` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

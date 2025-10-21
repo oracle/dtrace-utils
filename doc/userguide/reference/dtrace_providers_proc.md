@@ -1,5 +1,5 @@
 
-# Proc Provider {#dt_ref_proc_prov}
+# Proc Provider <a id="dt_ref_proc_prov">
 
 The `proc` provider makes available the probes that pertain to the following activities: process creation and termination, LWP creation and termination, execution of new program images, and signal sending and handling.
 
@@ -7,7 +7,7 @@ The `proc` provider makes available the probes that pertain to the following act
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## proc Probes {#dt_ref_procprobes_prov}
+## proc Probes <a id="dt_ref_procprobes_prov">
 
 The probes for the `proc` provider are listed in the following table.
 
@@ -128,7 +128,7 @@ Fires in the context of a newly created process. The `start` probe fires before 
 
 No fundamental difference between a process and a thread that a process creates, exists in Linux. The threads of a process are set up so that they can share resources, but each thread has its own entry in the process table with its own process ID.
 
-## proc Probe Arguments {#dt_ref_procargs_prov}
+## proc Probe Arguments <a id="dt_ref_procargs_prov">
 
 The following table lists the argument types for the `proc` probes. See [proc Probes](dtrace_providers_proc.md) for a description of the arguments. The `argN` are implementation specific. Use `args[]` to access the probe arguments.
 
@@ -357,7 +357,7 @@ Probe
 —
 
 </td></tr><tbody></table>
-### lwpsinfo\_t {#dt_ref_lwpsinfoproc_prov}
+### lwpsinfo\_t <a id="dt_ref_lwpsinfoproc_prov">
 
 Several `proc` probes have arguments of type `lwpsinfo_t`. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/procfs.d`. Some structure members, while still recognized for historical reasons, aren't implemented. The definition of the `lwpsinfo_t` structure is as follows:
 
@@ -475,7 +475,7 @@ The thread is a zombie.
  The equivalent Linux task state is `EXIT_ZOMBIE`, `EXIT_DEAD`, or `TASK_DEAD`.
 
 </td></tr><tbody></table>
-### psinfo\_t {#dt_ref_procpsinfo_prov}
+### psinfo\_t <a id="dt_ref_procpsinfo_prov">
 
 Several `proc` probes have an argument of type `psinfo_t`. Detailed information about this data structure can be found in `/usr/lib64/dtrace/*version*/procfs.d`. The definition of the `psinfo_t` structure, is as follows:
 
@@ -527,7 +527,7 @@ Lightweight processes don't exist in Linux. In Linux, processes and threads are 
 
 `pr_dmodel` is set to either `PR_MODEL_ILP32`, denoting a 32–bit process, or `PR_MODEL_LP64`, denoting a 64–bit process.
 
-## proc Examples {#dt_ref_procexamples_prov}
+## proc Examples <a id="dt_ref_procexamples_prov">
 
 The following examples illustrate the use of the probes that are published by the `proc` provider.
 
@@ -691,7 +691,7 @@ Running this script results in output similar to the following:
            swapper/6             pmlogger           14 1
 ```
 
-## proc Stability {#dt_ref_procstab_prov}
+## proc Stability <a id="dt_ref_procstab_prov">
 
 The `proc` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

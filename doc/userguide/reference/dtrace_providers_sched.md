@@ -1,5 +1,5 @@
 
-# Sched Provider {#dt_ref_sched_prov}
+# Sched Provider <a id="dt_ref_sched_prov">
 
 The `sched` provider makes available probes related to CPU scheduling.
 
@@ -7,7 +7,7 @@ Because CPUs are the one resource that all threads must consume, the `sched` pro
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## sched Probes {#dt_ref_schedprob_prov}
+## sched Probes <a id="dt_ref_schedprob_prov">
 
 The probes for the `sched` provider are listed in the following table. For all `sched` probes, the module is `vmlinux` and the function is an empty string.
 
@@ -76,7 +76,7 @@ Fires as a part of clock tick-based accounting. In clock tick-based accounting, 
 Fires immediately before the current thread wakes a thread sleeping on a synchronization object. Here, `args[0]` and `args[1]` refer to the sleeping thread, as an `lwpsinfo_t *` and `psinfo_t *`, respectively. The type and address of the synchronization object are contained in the `pr_stype` and `pr_wchan` members of the `lwpsinfo_t` of the sleeping thread. The meaning of this address is a private implementation detail, but the address value might be treated as a token unique to the synchronization object.
 
 </td></tr><tbody></table>
-## sched Probe Arguments {#dt_ref_schedargs_prov}
+## sched Probe Arguments <a id="dt_ref_schedargs_prov">
 
 Many of these probes refer to a particular thread. For these probes, the thread's `lwpsinfo_t` is pointed to by `args[0]` and the `psinfo_t` of the process containing the thread by `args[1]`. A few probes refer to a particular CPU. Its `cpuinfo_t` is pointed to by `args[2]`. Only `enqueue` has an `args[3]`, and that argument is a Boolean, as described. The `argN` values are implementation specific. Instead, use `args[]` to access the probe arguments.
 
@@ -243,11 +243,11 @@ Probe
 —
 
 </td></tr><tbody></table>
-### lwpsinfo\_t and psinfo\_t {#dt_ref_lwpsinfo_t_psinfo_t_sched_prov}
+### lwpsinfo\_t and psinfo\_t <a id="dt_ref_lwpsinfo_t_psinfo_t_sched_prov">
 
 The `lwpsinfo_t` and `psinfo_t` structures are described in [Proc Provider](dtrace_providers_proc.md).
 
-### cpuinfo\_t {#dt_ref_cpuinfo_sched_prov}
+### cpuinfo\_t <a id="dt_ref_cpuinfo_sched_prov">
 
 The `cpuinfo_t` structure defines a CPU. The `args[2]` arguments for the `enqueue` and `dequeue` probes point to the `cpuinfo_t` for the CPU associated with the run queue, which is sometimes different from the current CPU, whose `cpuinfo_t` is pointed to by the `curcpu` variable.
 
@@ -262,7 +262,7 @@ typedef struct cpuinfo {
 } cpuinfo_t;
 ```
 
-## sched Examples {#dt_ref_schedexamples_prov}
+## sched Examples <a id="dt_ref_schedexamples_prov">
 
 The following examples illustrate the use of the probes that are published by the `sched` provider.
 
@@ -810,7 +810,7 @@ The output of the example script is two distributions of the millisecond offset 
 
 The output histogram named `tick` shows that the clock tick is firing at a 1 millisecond offset. In this example, the output for `enqueue` is evenly spread across the ten millisecond interval and no spike is visible at 1 millisecond, so it seems the threads aren't being scheduled on a time basis.
 
-## sched Stability {#dt_ref_schedstab_prov}
+## sched Stability <a id="dt_ref_schedstab_prov">
 
 The `sched` provider uses DTrace's stability mechanism to describe its stabilities. These values are listed in the following table.
 

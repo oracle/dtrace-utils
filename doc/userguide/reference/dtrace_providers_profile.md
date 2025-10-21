@@ -1,5 +1,5 @@
 
-# Profile Provider {#dt_ref_profile_prov}
+# Profile Provider <a id="dt_ref_profile_prov">
 
 The `profile` provider includes probes that are associated with an interrupt that fires at some regular, specified time interval.
 
@@ -7,7 +7,7 @@ Such probes aren't associated with any particular point of execution, but rather
 
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
-## profile-*n* Probes {#dt_ref_profile-n_prov}
+## profile-*n* Probes <a id="dt_ref_profile-n_prov">
 
 The `profile-*n*` probes fire at a fixed interval, at a high-interrupt level on all active CPUs.
 
@@ -86,7 +86,7 @@ days
 hertz \(frequency expressed as rate per second\)
 
 </td></tr><tbody></table>
-## tick-*n* Probes {#dt_ref_profile-tick-n_prov}
+## tick-*n* Probes <a id="dt_ref_profile-tick-n_prov">
 
 The `tick-*n*` probes fire at fixed intervals, at a high interrupt level on only one CPU per interval.
 
@@ -98,7 +98,7 @@ The `tick-*n*` probes have several uses, such as providing some periodic output 
 
 The highest available tick frequency is 5000 Hz \(`tick-5000`\).
 
-## profile Probe Arguments {#dt_ref_profargs_prov}
+## profile Probe Arguments <a id="dt_ref_profargs_prov">
 
 The following table describes the arguments for the `profile` probes.
 
@@ -146,13 +146,13 @@ The arguments are as follows:
 -   `upc`: user-space program counter
 
 
-## profile Probe Creation {#dt_ref_profprobecreate_prov}
+## profile Probe Creation <a id="dt_ref_profprobecreate_prov">
 
 Unlike other providers, the `profile` provider creates probes dynamically on an as-needed basis. Thus, the preferred probe might not appear in a listing of all probes, for example, when using the `dtrace -l -P profile` command, but the probe is created when it's explicitly enabled.
 
 A time interval that's too short causes the machine to continuously field time-based interrupts and denies service on the machine. The `profile` provider refuses to create a probe that would result in an interval of less than two hundred microseconds and returns an error.
 
-## prof Stability {#dt_ref_profstab_prov}
+## prof Stability <a id="dt_ref_profstab_prov">
 
 The `profile` provider uses DTrace's stability mechanism to describe its stabilities. These stability values are listed in the following table.
 
