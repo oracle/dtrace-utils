@@ -1,5 +1,5 @@
 
-# Use Predicates For Control Flow {#dt_preds_dlang}
+# Use Predicates For Control Flow <a id="dt_preds_dlang">
 
 For runtime safety, one major difference between D and other programming languages such as C, C++, and the Java programming language is the absence of control-flow constructs such as `if`-statements and loops. D program clauses are written as single straight-line statement lists that trace an optional, fixed amount of data. D does provide the ability to conditionally trace data and change control flow using logical expressions called *predicates*. This tutorial shows how to use predicates to control D programs.
 

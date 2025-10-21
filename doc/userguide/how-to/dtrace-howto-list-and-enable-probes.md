@@ -1,5 +1,5 @@
 
-# List and Enable Probes {#list_enable_probes}
+# List and Enable Probes <a id="list_enable_probes">
 
 DTrace providers publish available probes to DTrace so that you can enable them to perform functions when they fire. You can use the `dtrace` command to list all available probes or to enable a probe.
 

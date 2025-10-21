@@ -1,10 +1,11 @@
-# Install DTrace{#install_dtrace}
+
+# Install DTrace <a id="install_dtrace">
 
 The following instructions provide steps to install DTrace on different Linux distributions and to verify that the installation was successful.
 
 **Parent topic:**[Get Started With DTrace](../how-to/dtrace-guide.md)
 
-## Build and Install DTrace on Gentoo Linux {#build_install_dtrace_gentoo_linux}
+## Build and Install DTrace on Gentoo Linux <a id="build_install_dtrace_gentoo_linux">
 
   ```
   emerge dev-debug/dtrace
@@ -15,7 +16,7 @@ The following instructions provide steps to install DTrace on different Linux di
 ## Install DTrace on Oracle Linux
 
 
-### Install DTrace on Oracle Linux 10 {#install_dtrace_oracle_linux_10}
+### Install DTrace on Oracle Linux 10 <a id="install_dtrace_oracle_linux_10">
 
 1.  Enable the yum repository.
 
@@ -38,7 +39,7 @@ The following instructions provide steps to install DTrace on different Linux di
     ```
 
 
-### Install DTrace on Oracle Linux 9 {#install_dtrace_oracle_linux_9}
+### Install DTrace on Oracle Linux 9 <a id="install_dtrace_oracle_linux_9">
 
 1.  Enable the yum repository.
 
@@ -61,7 +62,7 @@ The following instructions provide steps to install DTrace on different Linux di
     ```
 
 
-### Install DTrace on Oracle Linux 8 {#install_dtrace_oracle_linux_8}
+### Install DTrace on Oracle Linux 8 <a id="install_dtrace_oracle_linux_8">
 
 1.  Enable the yum repository.
 
@@ -86,7 +87,7 @@ The following instructions provide steps to install DTrace on different Linux di
     ```
 
 
-### Install DTrace on Oracle Linux 7 {#install_dtrace_oracle_linux_7}
+### Install DTrace on Oracle Linux 7 <a id="install_dtrace_oracle_linux_7">
 
 **Warning:**
 
@@ -111,7 +112,7 @@ Migrate applications and data to Oracle Linux 8, Oracle Linux 9, or Oracle Linux
     ```
 
 
-## Verify the DTrace Installation {#verify_install}
+## Verify the DTrace Installation <a id="verify_install">
 
 Check that DTrace is installed to the correct location and verify the DTrace version.
 

@@ -1,5 +1,5 @@
 
-# Create a DTrace Script {#dt_create_script}
+# Create a DTrace Script <a id="dt_create_script">
 
 Learn how to create a DTrace script to develop understanding of the D Programming language.
 
