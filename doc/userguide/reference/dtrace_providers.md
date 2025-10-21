@@ -11,6 +11,8 @@ The `dtrace` provider includes several probes that are specific to DTrace itself
 The `fbt` \(Function Boundary Tracing\) provider includes probes that are associated with the entry to and return from most functions in the Linux kernel. Therefore, there could be tens of thousands of `fbt` probes.
 -   **[IO Provider](../reference/dtrace_providers_io.md)**
 The `io` provider makes available probes that relate to data input and output.
+-   **[IP Provider](../reference/dtrace_providers_ip.md)**
+The `ip` provider provides probes that can be used to study IP traffic.
 -   **[Lockstat Provider](../reference/dtrace_providers_lockstat.md)**
 The `lockstat` provider provides probes that can be used to study lock usage and contention.
 -   **[Pid Provider](../reference/dtrace_providers_pid.md)**
