@@ -1,5 +1,5 @@
 
-# Variables {#dt_vars_dlang}
+# Variables <a id="dt_vars_dlang">
 
 D provides several variable types: scalar variables, associative arrays, scalar arrays, and multidimensional scalar arrays. Variables can be created by declaring them explicitly, but are most often created implicitly on first use. Variables can be restricted to clause or thread scope to avoid name conflicts and to control the lifetime of a variable explicitly.
 
@@ -80,7 +80,7 @@ D provides several variable types: scalar variables, associative arrays, scalar 
 
 **Parent topic:**[D Program Syntax Reference](../reference/d_program_syntax_reference.md)
 
-## Variable Scope {#dt_vscope_dlang}
+## Variable Scope <a id="dt_vscope_dlang">
 
 Variable scoping is used to define where variable names are valid within a program and to avoid variable naming collisions. By using scoped variables you can control the availability of the variable instance to the whole program, a particular thread, or a specific clause.
 

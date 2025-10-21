@@ -1,5 +1,5 @@
 
-# Program Structure {#dt_prog_struct}
+# Program Structure <a id="dt_prog_struct">
 
 A D program consists of a set of clauses that describe the probes to enable, an optional predicate that controls when to run, and one or more statements that often describe some functionality to implement when the probe fires.
 

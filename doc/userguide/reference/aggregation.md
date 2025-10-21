@@ -1,5 +1,5 @@
 
-# Aggregations {#dt_ref_aggregations}
+# Aggregations <a id="dt_ref_aggregations">
 
 Aggregations enable you to accumulate data for statistical analysis. The aggregation is calculated at runtime, so that post-processing isn't required and processing is highly efficient and accurate. Aggregations function similarly to associative arrays, but are populated by aggregating functions. In D, the syntax for an aggregation is as follows:
 
@@ -13,7 +13,7 @@ Aggregations can be regular or indexed. Indexed aggregations use keys, where *ke
 
 The *aggfunc* is one of the DTrace aggregating functions, and *args* is a comma-separated list of arguments appropriate to that function. Most aggregating functions take a single argument that represents the new datum.
 
-## Aggregation Functions {#dt_ref_aggr_funcs}
+## Aggregation Functions <a id="dt_ref_aggr_funcs">
 
 The following functions are aggregating functions that can be used in a program to collect data and present it in a meaningful way.
 
@@ -36,7 +36,7 @@ The following functions are aggregating functions that can be used in a program 
 -   `[llquantize](aggregation_llquantize.md)`: Stores the log-linear frequency distribution in an aggregation.
 
 
-## Printing Aggregations {#dt_ref_aggr_print}
+## Printing Aggregations <a id="dt_ref_aggr_print">
 
 By default, several aggregations are displayed in the order in which they're introduced in the D program. You can override this behavior by using the `[printa](function_printa.md)` function to print the aggregations. The `printa` function also lets you precisely format the aggregation data by using a format string.
 
@@ -44,7 +44,7 @@ If an aggregation isn't formatted with a `printa` statement in a D program, the 
 
 The default output format for the `avg`, `count`, `min`, `max`, `stddev`, and `sum` aggregating functions displays an integer decimal value corresponding to the aggregated value for each tuple. The default output format for the `quantize`, `lquantize`, and `llquantize` aggregating functions displays an ASCII histogram with the results. Aggregation tuples are printed as though `trace` had been applied to each tuple element.
 
-## Data Normalization {#dt_ref_aggr_dnorm}
+## Data Normalization <a id="dt_ref_aggr_dnorm">
 
 When aggregating data over some period, you might want to normalize the data based on some constant factor. This technique lets you compare disjointed data more easily. For example, when aggregating system calls, you might want to output system calls as a per-second rate instead of as an absolute value over the course of the run. The DTrace `[normalize](function_normalize.md)` function lets you normalize data in this way. The parameters to `normalize` are an aggregation and a normalization factor. The output of the aggregation shows each value divided by the normalization factor.
 

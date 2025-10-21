@@ -1,5 +1,5 @@
 
-# DTrace Runtime and Compile-time Options Reference {#dt_runtime_options}
+# DTrace Runtime and Compile-time Options Reference <a id="dt_runtime_options">
 
 DTrace uses reasonable default values and flexible default policies for runtime configuration. Tuning mechanisms in the form of DTrace compiler or runtime option can change the default behavior of the `dtrace` utility. You can find more information about the `dtrace` utility and various command line options in the `dtrace(8)` manual page.
 

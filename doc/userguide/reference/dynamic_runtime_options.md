@@ -1,5 +1,5 @@
 
-# Dynamic Runtime Options {#dt_dynamic_runtime_options}
+# Dynamic Runtime Options <a id="dt_dynamic_runtime_options">
 
 Dynamic runtime options are specific to D programs themselves and are likely to change depending on program functionality and requirements.
 

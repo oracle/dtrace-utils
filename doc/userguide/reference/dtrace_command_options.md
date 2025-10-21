@@ -1,5 +1,5 @@
 
-# dtrace Command Options {#dtrace_command_options}
+# dtrace Command Options <a id="dtrace_command_options">
 
 The `dtrace` command accepts the following options:
 

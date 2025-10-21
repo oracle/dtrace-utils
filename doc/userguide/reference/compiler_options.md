@@ -1,5 +1,5 @@
 
-# Compile-time Options {#dt_compiler_options}
+# Compile-time Options <a id="dt_compiler_options">
 
 Compile-time options can control how DTrace programs are compiled into eBPF code that's loaded into kernel space.
 

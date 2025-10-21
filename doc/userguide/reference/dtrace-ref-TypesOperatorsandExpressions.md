@@ -1,11 +1,11 @@
 
-# Types, Operators, and Expressions {#dt_types_dlang}
+# Types, Operators, and Expressions <a id="dt_types_dlang">
 
 D provides the ability to access and manipulate various data objects: variables and data structures can be created and changed, data objects that are defined in the OS kernel and user processes can be accessed, and integer, floating-point, and string constants can be declared. D provides a superset of the ANSI C operators that are used to manipulate objects and create complex expressions. This section describes the detailed set of rules for types, operators, and expressions.
 
 **Parent topic:**[D Program Syntax Reference](../reference/d_program_syntax_reference.md)
 
-## Identifier Names and Keywords {#dt_ident_dlang}
+## Identifier Names and Keywords <a id="dt_ident_dlang">
 
 D identifier names are composed of uppercase and lowercase letters, digits, and underscores, where the first character must be a letter or underscore. All identifier names beginning with an underscore \(`_`\) are reserved for use by the D system libraries. Avoid using these names in D programs. By convention, D programmers typically use mixed-case names for variables and all uppercase names for constants.
 
@@ -203,7 +203,7 @@ D language keywords are special identifiers that are reserved for use in the pro
 </td></tr><tbody></table>
 D reserves for use as keywords a superset of the ANSI C keywords. The keywords reserved for future use by the D language are marked with `*`. The D compiler produces a syntax error if you try to use a keyword that's reserved for future use. The keywords that are defined by D but not defined by ANSI C are marked with `+`. D provides the complete set of types and operators found in ANSI C. The major difference in D programming is the absence of control-flow constructs. Note that keywords associated with control-flow in ANSI C are reserved for future use in D.
 
-## Data Types and Sizes {#dt_dtypes_dlang}
+## Data Types and Sizes <a id="dt_dtypes_dlang">
 
 D provides fundamental data types for integers and floating-point constants. Arithmetic can only be performed on integers in D programs. Floating-point constants can be used to initialize data structures, but floating-point arithmetic isn't permitted in D. D provides a 64-bit data model for use in writing programs.
 
@@ -392,7 +392,7 @@ Type Name
 </td></tr><tbody></table>
 D also provides the special type `string` to represent ASCII strings. Strings are discussed in more detail in [DTrace String Processing](dtrace-ref-DTraceSupportforStrings.md).
 
-## Constants {#dt_consts_dlang}
+## Constants <a id="dt_consts_dlang">
 
 Integer constants can be written in decimal \(`12345`\), octal \(`012345`\), or hexadecimal `(0x12345`\) format. Octal \(base 8\) constants must be prefixed with a leading zero. Hexadecimal \(base 16\) constants must be prefixed with either `0x` or `0X`. Integer constants are assigned the smallest type among `int`, `long`, and `long long` that can represent their value. If the value is negative, the signed version of the type is used. If the value is positive and too large to fit in the signed type representation, the unsigned type representation is used. You can apply one of the suffixes listed in the following table to any integer constant to explicitly specify its D type.
 
@@ -607,7 +607,7 @@ You can include more than one character specifier inside single quotes to create
 
 Strings constants of any length can be composed by enclosing them in a pair of double quotes \(`"hello"`\). A string constant can't contain a literal newline character. To create strings containing newlines, use the `\n` escape sequence instead of a literal newline. String constants can contain any of the special character escape sequences that are shown for character constants before. Similar to ANSI C, strings are represented as arrays of characters that end with a null character \(`\0`\) that's implicitly added to each string constant you declare. String constants are assigned the special D type `string`. The D compiler provides a set of special features for comparing and tracing character arrays that are declared as strings.
 
-## Arithmetic Operators {#dt_arithops_dlang}
+## Arithmetic Operators <a id="dt_arithops_dlang">
 
 Binary arithmetic operators are described in the following table. These operators all have the same meaning for integers that they do in ANSI C.
 
@@ -666,7 +666,7 @@ However, the DTrace execution environment does automatically check for and repor
 
 In addition to these binary operators, the `+` and `-` operators can also be used as unary operators, and these operators have higher precedence than any of the binary arithmetic operators. The order of precedence and associativity properties for all D operators is presented in [Operator Precedence](dtrace-ref-TypesOperatorsandExpressions.md). You can control precedence by grouping expressions in parentheses \(`()`\).
 
-## Relational Operators {#dt_relatops_dlang}
+## Relational Operators <a id="dt_relatops_dlang">
 
 Binary relational operators are described in the following table. These operators all have the same meaning that they do in ANSI C.
 
@@ -766,7 +766,7 @@ Returns 0 \(`false`\)
 </td></tr><tbody></table>
 Relational operators can also be used to compare a data object associated with an enumeration type with any of the enumerator tags defined by the enumeration.
 
-## Logical Operators {#dt_logicops_dlang}
+## Logical Operators <a id="dt_logicops_dlang">
 
 Binary logical operators are listed in the following table. The first two operators are equivalent to the corresponding ANSI C operators.
 
@@ -809,7 +809,7 @@ In addition to the binary logical operators, the unary `!` operator can be used 
 
 The logical operators can be applied to operands of integer or pointer types. The logical operators interpret pointer operands as unsigned integer values. As with all logical and relational operators in D, operands are true if they have a non-zero integer value and false if they have a zero integer value.
 
-## Bitwise Operators {#dt_bitwiseops_dlang}
+## Bitwise Operators <a id="dt_bitwiseops_dlang">
 
 D provides the bitwise operators that are listed in the following table for manipulating individual bits inside integer operands. These operators all have the same meaning as in ANSI C.
 
@@ -874,7 +874,7 @@ The shift operators are used to move bits left or right in a particular integer 
 
 Shifting an integer value by a negative number of bits or by a number of bits larger than the number of bits in the left-hand operand itself produces an undefined result. The D compiler produces an error message if the compiler can detect this condition when you compile the D program.
 
-## Assignment Operators {#dt_assignops_dlang}
+## Assignment Operators <a id="dt_assignops_dlang">
 
 Binary assignment operators are listed in the following table. You can only modify D variables and arrays. Kernel data objects and constants can not be modified using the D assignment operators. The assignment operators have the same meaning as they do in ANSI C.
 
@@ -979,7 +979,7 @@ Aside from the assignment operator `=`, the other assignment operators are provi
 
 The result of any assignment operator is an expression equal to the new value of the left-hand expression. You can use the assignment operators or any of the operators described thus far in combination to form expressions of arbitrary complexity. You can use parentheses `()` to group terms in complex expressions.
 
-## Increment and Decrement Operators {#dt_incdecops_dlang}
+## Increment and Decrement Operators <a id="dt_incdecops_dlang">
 
 D provides the special unary `++` and `--` operators for incrementing and decrementing pointers and integers. These operators have the same meaning as they do in ANSI C. These operators can be applied to variables and to the individual elements of a struct, union, or array. The operators can be applied either before or after the variable name. If the operator appears before the variable name, the variable is first changed and then the resulting expression is equal to the new value of the variable. For example, the following two code fragments produce identical results:
 
@@ -1012,7 +1012,7 @@ foo[1]++;
 
 The increment and decrement operators can be applied to integer or pointer variables. When applied to integer variables, the operators increment, or decrement the corresponding value by one. When applied to pointer variables, the operators increment, or decrement the pointer address by the size of the data type that's referenced by the pointer.
 
-## Conditional Expressions {#dt_condexp_dlang}
+## Conditional Expressions <a id="dt_condexp_dlang">
 
 D doesn't provide the facility to use `if-then-else` constructs. Instead, conditional expressions, by using the ternary operator \(`?:`\), can be used to approximate some of this functionality. The ternary operator associates a triplet of expressions, where the first expression is used to conditionally evaluate one of the other two.
 
@@ -1032,7 +1032,7 @@ hexval = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c + 10 - 'a
 
 To be evaluated for its truth value, the first expression that's used with `?:` must be a pointer or integer. The second and third expressions can be of any compatible types. You can't construct a conditional expression where, for example, one path returns a string and another path returns an integer. The second and third expressions must be true expressions that have a value. Therefore, data reporting functions can't be used in these expressions because those functions don't return a value. To conditionally trace data, use a predicate instead.
 
-## Type Conversions {#dt_typeconv_dlang}
+## Type Conversions <a id="dt_typeconv_dlang">
 
 When expressions are constructed by using operands of different but compatible types, type conversions are performed to determine the type of the resulting expression. The D rules for type conversions are the same as the arithmetic conversion rules for integers in ANSI C. These rules are sometimes referred to as the *usual arithmetic conversions*.
 
@@ -1052,7 +1052,7 @@ In this example, the destination type is within parentheses and used to prefix t
 
 Because D doesn't include floating-point arithmetic, no floating-point operand conversion or casting is permitted and no rules for implicit floating-point conversion are defined.
 
-## Operator Precedence {#dt_preced_dlang}
+## Operator Precedence <a id="dt_preced_dlang">
 
 D includes complex rules for operator precedence and associativity. The rules provide precise compatibility with the ANSI C operator precedence rules. The entries in the following table are in order from highest precedence to lowest precedence.
 
@@ -1268,11 +1268,11 @@ Dereferences a pointer to an object.
 Accesses a member of a structure or union type.
 
 </td></tr><tbody></table>
-## Type and Constant Definitions {#dt_typcondef_dlang}
+## Type and Constant Definitions <a id="dt_typcondef_dlang">
 
 This section describes how to declare type aliases and named constants in D. It also discusses D type and namespace management for program and OS types and identifiers.
 
-### typedefs {#dt_typedefs_dlang}
+### typedefs <a id="dt_typedefs_dlang">
 
 The `typedef` keyword is used to declare an identifier as an alias for an existing type. The `typedef` declaration is used outside of probe clauses in the following form:
 
@@ -1297,7 +1297,7 @@ typedef struct foo {
 
 In the previous example, `struct foo` is defined using the same type as its alias, `foo_t`. Linux C system headers often use the suffix `_t` to denote a `typedef` alias.
 
-### Enumerations {#dt_enums_dlang}
+### Enumerations <a id="dt_enums_dlang">
 
 Defining symbolic names for constants in a program eases readability and simplifies the process of maintaining the program in the future. One method is to define an *enumeration*, which associates a set of integers with a set of identifiers called enumerators that the compiler recognizes and replaces with the corresponding integer value. An enumeration is defined by using a declaration such as the following:
 
@@ -1329,7 +1329,7 @@ The D enumeration syntax is the same as the corresponding syntax in ANSI C. D al
 
 
 
-### Inlines {#dt_inlines_dlang}
+### Inlines <a id="dt_inlines_dlang">
 
 D named constants can also be defined by using `inline` directives, which provide a more general means of creating identifiers that are replaced by predefined values or expressions during compilation. Inline directives are a more powerful form of lexical replacement than the `#define` directive provided by the C preprocessor because the replacement is assigned an actual type and is performed by using the compiled syntax tree and not a set of lexical tokens. An `inline` directive is specified by using a declaration of the following form:
 
@@ -1371,7 +1371,7 @@ These inline definitions provide you with access to the current set of Linux sig
 
 By default, the D compiler includes all the provided D library files automatically so that you can use these definitions in any D program.
 
-### Type Namespaces {#dt_typens_dlang}
+### Type Namespaces <a id="dt_typens_dlang">
 
 In traditional languages such as ANSI C, type visibility is determined by whether a type is nested inside a function or other declaration. Types declared at the outer scope of a C program are associated with a single global namespace and are visible throughout the entire program. Types that are defined in C header files are typically included in this outer scope. Unlike these languages, D provides access to types from several outer scopes.
 

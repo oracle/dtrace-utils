@@ -1,5 +1,5 @@
 
-# Speculation {#dt_ref_speculation}
+# Speculation <a id="dt_ref_speculation">
 
 DTrace includes a speculative tracing facility that can be used to tentatively trace data at one or more probe locations. You can then decide to commit the data to the principal buffer at another probe location. You can use speculation to trace data that only contains the output that's of interest; no extra processing is required and the DTrace overhead is minimized.
 

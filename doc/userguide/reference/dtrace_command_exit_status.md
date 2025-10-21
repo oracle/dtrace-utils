@@ -1,5 +1,5 @@
 
-# dtrace Command Exit Status {#dtrace_command_exit_status}
+# dtrace Command Exit Status <a id="dtrace_command_exit_status">
 
 The following exit values are returned by the `dtrace` command:
 

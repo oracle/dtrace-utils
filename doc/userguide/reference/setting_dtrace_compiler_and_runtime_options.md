@@ -1,5 +1,5 @@
 
-# Setting DTrace Compile-time and Runtime Options {#dt_runtime_option_description}
+# Setting DTrace Compile-time and Runtime Options <a id="dt_runtime_option_description">
 
 You can tune DTrace by setting or enabling a selection of runtime or compiler options. You can set options by either using the `-x` command line switch when running the `dtrace` command, or by specifying `pragma` lines in D programs. If an option takes a value, follow the option name with an equal sign \(`=`\) and the option value.
 

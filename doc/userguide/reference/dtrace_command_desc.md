@@ -1,5 +1,5 @@
 
-# About the dtrace Command {#dtrace_command_desc}
+# About the dtrace Command <a id="dtrace_command_desc">
 
 The `dtrace` command provides a generic interface to all the essential services that are provided by the DTrace facility.
 

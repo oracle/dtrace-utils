@@ -1,11 +1,11 @@
 
-# Structs and Unions {#dt_structunion_dlang}
+# Structs and Unions <a id="dt_structunion_dlang">
 
 Collections of related variables can be grouped together into composite data objects called *structs* and *unions*. You define these objects in D by creating new type definitions for them. You can use any new types for any D variables, including associative array values. This section explores the syntax and semantics for creating and manipulating these composite types and the D operators that interact with them.
 
 **Parent topic:**[D Program Syntax Reference](../reference/d_program_syntax_reference.md)
 
-## Structs {#dt_structs_dlang}
+## Structs <a id="dt_structs_dlang">
 
 The D keyword `struct`, short for *structure*, is used to introduce a new type that's composed of a group of other types. The new `struct` type can be used as the type for D variables and arrays, enabling you to define groups of related variables under a single name. D structs are the same as the corresponding construct in C and C++. If you have programmed in the Java programming language, think of a D struct as a class that contains only data members and no methods.
 
@@ -122,7 +122,7 @@ The `date` program runs and is traced until it exits and fires the `END` probe w
  write    1         29          9817
 ```
 
-## Pointers to Structs {#dt_ptrstructs_dlang}
+## Pointers to Structs <a id="dt_ptrstructs_dlang">
 
 Referring to structs by using pointers is common in C and D. You can use the operator `->` to access struct members through a pointer. If `struct s` has a member `m`, and you have a pointer to this struct named `sp`, where `sp` is a variable of type `struct s *`, you can either use the `*` operator to first dereference the `sp` pointer to access the member:
 
@@ -217,11 +217,11 @@ date -R  run by UID 500
 
 Complex data structures are used often in C programs, so the ability to describe and reference structs from D also provides a powerful capability for observing the inner workings of the Linux kernel and its system interfaces.
 
-## Unions {#dt_unions_dlang}
+## Unions <a id="dt_unions_dlang">
 
 Unions are another kind of composite type available in ANSI C and D and are related to structs. A union is a composite type where a set of members of different types are defined and the member objects all occupy the same region of storage. A union is therefore an object of variant type, where only one member is valid at any particular time, depending on how the union has been assigned. Typically, some other variable, or piece of state is used to indicate which union member is currently valid. The size of a union is the size of its largest member. The memory alignment that's used for the union is the maximum alignment required by the union members.
 
-## Member Sizes and Offsets {#dt_memsz_dlang}
+## Member Sizes and Offsets <a id="dt_memsz_dlang">
 
 You can determine the size in bytes of any D type or expression, including a `struct` or `union`, by using the `sizeof` operator. The `sizeof` operator can be applied either to an expression or to the name of a type surrounded by parentheses, as illustrated in the following two examples:
 
@@ -240,7 +240,7 @@ offsetof (*type-name*, *member-name*)
 
 Here, *type-name* is the name of any `struct` or `union` type or type alias, and *member-name* is the identifier naming a member of that struct or union. Similar to `sizeof`, `offsetof` returns a `size_t` and you can use it anywhere in a D program that an integer constant can be used.
 
-## Bit-Fields {#dt_bitflds_dlang}
+## Bit-Fields <a id="dt_bitflds_dlang">
 
 D also permits the definition of integer struct and union members of arbitrary numbers of bits, known as *bit-fields*. A bit-field is declared by specifying a signed or unsigned integer base type, a member name, and a suffix indicating the number of bits to be assigned for the field, as shown in the following example:
 
