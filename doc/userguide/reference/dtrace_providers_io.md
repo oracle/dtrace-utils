@@ -139,6 +139,7 @@ Probe
 `fileinfo_t *`
 
 </td></tr><tbody></table>
+
 **Note:**
 
 DTrace doesn't provide the option to use `fileinfo_t` with `io` probes. In Linux, no information is accessible at the level where the `io` probes fire about the file where an I/O request originated.

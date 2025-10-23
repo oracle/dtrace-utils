@@ -132,6 +132,7 @@ Returns 1 \(true\)
 Returns 0 \(false\)
 
 </td></tr><tbody></table>
+
 **Note:**
 
 Identical Unicode strings might compare as being different if one or the other of the strings isn't normalized.

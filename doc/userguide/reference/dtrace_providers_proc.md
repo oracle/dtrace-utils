@@ -124,6 +124,7 @@ Fires when a signal is sent to a process or to a thread created by a process. Th
 Fires in the context of a newly created process. The `start` probe fires before any user-level instructions are executed in the process.
 
 </td></tr><tbody></table>
+
 **Note:**
 
 No fundamental difference between a process and a thread that a process creates, exists in Linux. The threads of a process are set up so that they can share resources, but each thread has its own entry in the process table with its own process ID.
