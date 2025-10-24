@@ -91,6 +91,7 @@ extern int dt_probe_iter(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 
 extern int dt_probe_add_stmt(dtrace_hdl_t *dtp, dt_probe_t *prp,
 			     dtrace_stmtdesc_t *sdp);
+extern int dt_probe_add_stmt_matchall(dtrace_hdl_t *dtp, dt_probe_t *prp);
 typedef int dt_stmt_f(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp, void *arg);
 extern int dt_probe_stmt_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 			      dt_stmt_f *func, void *arg);

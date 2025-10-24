@@ -400,7 +400,6 @@ struct dtrace_hdl {
 	int *dt_aggmap_ids;	/* ids for the 'aggN' BPF maps */
 	int dt_genmap_fd;	/* file descriptor for the 'agggen' BPF map */
 	int dt_cpumap_fd;	/* file descriptor for the 'cpuinfo' BPF map */
-	int dt_usdt_pridsmap_fd; /* file descriptor for the 'usdt_prids' BPF map */
 	int dt_usdt_namesmap_fd; /* file descriptor for the 'usdt_names' BPF map */
 	dtrace_handle_err_f *dt_errhdlr; /* error handler, if any */
 	void *dt_errarg;	/* error handler argument */

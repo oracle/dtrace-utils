@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -27,9 +27,6 @@ struct dtrace_prog {
 	uint_t dp_xrefslen;	/* length of dp_xrefs array */
 	uint8_t dp_dofversion;	/* DOF version this program requires */
 };
-
-extern int dt_stmt_clsflag_set(dtrace_stmtdesc_t *stp, int flags);
-extern int dt_stmt_clsflag_test(dtrace_stmtdesc_t *stp, int flags);
 
 extern dtrace_prog_t *dt_program_create(dtrace_hdl_t *);
 extern void dt_program_destroy(dtrace_hdl_t *, dtrace_prog_t *);

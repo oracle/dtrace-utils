@@ -974,19 +974,12 @@ gmap_create_probes(dtrace_hdl_t *dtp)
 }
 
 /*
- * Create the 'usdt_names' and 'usdt_prids' BPF maps.
+ * Create the 'usdt_names' BPF map.
  *
  * 'usdt_names':  a global hash map indexed by PRID and whose value has probe
  *                name elements at fixed offsets within the value.  This map
  *                is used for get_bvar() to look up probe name elements for
  *                any prid that was created after dtrace_go().
- *
- * 'usdt_prids':  a global hash map indexed by (pid, underlying probe ID).
- *                The value is a probe ID for the overlying USDT probe and
- *                a bit mask indicating which clauses to execute for this pid.
- *
- *                For a given (pid, PRID) key, there can be at most one
- *                overlying USDT probe.
  */
 static int
 gmap_create_usdt(dtrace_hdl_t *dtp)
@@ -996,11 +989,6 @@ gmap_create_usdt(dtrace_hdl_t *dtp)
 	dtp->dt_usdt_namesmap_fd = create_gmap(dtp, "usdt_names", BPF_MAP_TYPE_HASH,
 	    sizeof(dtrace_id_t), DTRACE_FULLNAMELEN, nusdtprobes);
 	if (dtp->dt_usdt_namesmap_fd == -1)
-		return -1;
-
-	dtp->dt_usdt_pridsmap_fd = create_gmap(dtp, "usdt_prids", BPF_MAP_TYPE_HASH,
-	    sizeof(usdt_prids_map_key_t), sizeof(usdt_prids_map_val_t), nusdtprobes);
-	if (dtp->dt_usdt_pridsmap_fd == -1)
 		return -1;
 
 	dtp->dt_nprobes = dtp->dt_probe_id;

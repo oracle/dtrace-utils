@@ -1214,6 +1214,34 @@ dt_probe_add_stmt(dtrace_hdl_t *dtp, dt_probe_t *prp, dtrace_stmtdesc_t *sdp)
 }
 
 int
+dt_probe_add_stmt_matchall(dtrace_hdl_t *dtp, dt_probe_t *prp)
+{
+	int	i, rc = 0;
+
+	for (i = 0; i < dtp->dt_stmt_nextid; i++) {
+		dtrace_stmtdesc_t	*sdp = dtp->dt_stmts[i];
+
+		if (sdp == NULL)
+			continue;
+
+		if (dt_gmatch(prp->desc->prv,
+			      sdp->dtsd_ecbdesc->dted_probe.prv) &&
+		    dt_gmatch(prp->desc->mod,
+			      sdp->dtsd_ecbdesc->dted_probe.mod) &&
+		    dt_gmatch(prp->desc->fun,
+			      sdp->dtsd_ecbdesc->dted_probe.fun) &&
+		    dt_gmatch(prp->desc->prb,
+			      sdp->dtsd_ecbdesc->dted_probe.prb)) {
+			rc = dt_probe_add_stmt(dtp, prp, sdp);
+			if (rc < 0)
+				break;
+		}
+	}
+
+	return rc;
+}
+
+int
 dt_probe_stmt_iter(dtrace_hdl_t *dtp, const dt_probe_t *prp, dt_stmt_f *func, void *arg)
 {
 	dt_probe_stmt_t	*psp;

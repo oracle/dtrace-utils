@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -41,15 +41,6 @@ struct dt_bpf_cpuinfo {
 	uint64_t	lockstat_btime;	/* lockstat: block time */
 	uint64_t	lockstat_stime;	/* lockstat: spin time */
 };
-
-typedef struct usdt_prids_map_key {
-	int		pid;		/* should be pid_t, unistd.h? */
-	uint32_t	uprid;		/* should be dtrace_id_t, sys/dtrace_types.h */
-} usdt_prids_map_key_t;
-typedef struct usdt_prids_map_val {
-	uint32_t	prid;		/* should be dtrace_id_t, sys/dtrace_types.h */
-	long long	mask;
-} usdt_prids_map_val_t;
 
 #ifdef  __cplusplus
 }

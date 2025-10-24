@@ -26,6 +26,7 @@
  * Finally, note that upp->probes is a dt_list_t of overlying probes.
  */
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -278,6 +279,7 @@ get_asm_reg(dt_provider_t *pvp, const char *name)
 #define PP_IS_MAPPED	0x10
 
 typedef struct dt_uprobe {
+	pid_t		pid;
 	dev_t		dev;
 	ino_t		inum;
 	char		*fn;		/* object full file name */
@@ -285,7 +287,7 @@ typedef struct dt_uprobe {
 	uint64_t	off;
 	uint64_t	refcntr_off;	/* optional reference counter offset */
 	int		flags;
-	tp_probe_t	*tp;
+	int		fd;		/* perf event fd (-1 if not created) */
 	int		argc;		/* number of args */
 	dt_argdesc_t	*args;		/* args array (points into argvbuf) */
 	char		*argvbuf;	/* arg strtab */
@@ -299,10 +301,11 @@ typedef struct list_probe {
 	dt_probe_t	*probe;
 } list_probe_t;
 
-typedef struct list_key {
-	dt_list_t		list;
-	usdt_prids_map_key_t	key;
-} list_key_t;
+typedef struct uprobe_data {
+	int	perf_type;
+	int	ret_flag;
+	int	ref_shift;
+} uprobe_data_t;
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
@@ -316,11 +319,71 @@ dt_provimpl_t	dt_pid;
 dt_provimpl_t	dt_usdt;
 dt_provimpl_t	dt_stapsdt;
 
+#define UPROBE_CONFIG	"/sys/bus/event_source/devices/uprobe/"
+#define PERF_TYPE_FILE	(UPROBE_CONFIG "type")
+#define RET_FLAG_FILE	(UPROBE_CONFIG "format/retprobe")
+#define REF_SHIFT_FILE	(UPROBE_CONFIG "format/ref_ctr_offset")
+
+static int get_perf_type()
+{
+	FILE	*f;
+	int	val;
+
+	f = fopen(PERF_TYPE_FILE, "r");
+	if (f == NULL)
+		return -1;
+	if (fscanf(f, "%d\n", &val) != 1)
+		val = -1;
+
+	fclose(f);
+	return val;
+}
+
+static int get_retprobe_flag()
+{
+	FILE	*f;
+	int	val;
+
+	f = fopen(RET_FLAG_FILE, "r");
+	if (f == NULL)
+		return -1;
+	if (fscanf(f, "config:%d\n", &val) == 1)
+		val = 1 << val;
+	else
+		val = -1;
+
+	fclose(f);
+	return val;
+}
+
+static int get_refcnt_shift()
+{
+	FILE	*f;
+	int	val;
+
+	f = fopen(REF_SHIFT_FILE, "r");
+	if (f == NULL)
+		return -1;
+	if (fscanf(f, "config:%d-%*d\n", &val) != 1)
+		val = -1;
+
+	fclose(f);
+	return val;
+}
+
 static int populate(dtrace_hdl_t *dtp)
 {
+	uprobe_data_t	*udp = dt_alloc(dtp, sizeof(uprobe_data_t));
+
+	udp->perf_type = -1;			/* not initialized */
+	udp->ret_flag = -1;			/* not initialized */
+	udp->ref_shift = -1;			/* not initialized */
+
 	if (dt_provider_create(dtp, dt_uprobe.name, &dt_uprobe, &pattr,
-			       NULL) == NULL ||
-	    dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr,
+			       udp) == NULL)
+		return -1;
+
+	if (dt_provider_create(dtp, dt_pid.name, &dt_pid, &pattr,
 			       NULL) == NULL ||
 	    dt_provider_create(dtp, dt_stapsdt.name, &dt_stapsdt, &pattr,
 			       NULL) == NULL)
@@ -355,9 +418,7 @@ static void free_probe_list(dtrace_hdl_t *dtp, list_probe_t *elem)
 static void probe_destroy_underlying(dtrace_hdl_t *dtp, void *datap)
 {
 	dt_uprobe_t	*upp = datap;
-	tp_probe_t	*tpp = upp->tp;
 
-	dt_tp_destroy(dtp, tpp);
 	free_probe_list(dtp, dt_list_next(&upp->probes));
 	dt_free(dtp, upp->fn);
 	dt_free(dtp, upp->func);
@@ -373,6 +434,17 @@ static void probe_destroy_underlying(dtrace_hdl_t *dtp, void *datap)
 static void probe_destroy(dtrace_hdl_t *dtp, void *datap)
 {
 	free_probe_list(dtp, datap);
+}
+
+static void detach(dtrace_hdl_t *dtp, const dt_probe_t *uprp)
+{
+	dt_uprobe_t	*upp = uprp->prv_data;
+
+	if (upp->fd == -1)
+		return;
+
+	close(upp->fd);
+	upp->fd = -1;
 }
 
 /*
@@ -392,6 +464,7 @@ static void probe_disable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	/* Free up its list of underlying probes. */
 	while ((pup = dt_list_next(prp->prv_data)) != NULL) {
 		dt_list_delete(prp->prv_data, pup);
+		detach(dtp, pup->probe);
 		dt_free(dtp, pup);
 	}
 	dt_free(dtp, prp->prv_data);
@@ -401,182 +474,57 @@ static void probe_disable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 /*
  * Clean up stale pids from among the USDT probes.
  */
+typedef struct del_list {
+	dt_list_t	list;
+	dt_probe_t	*probe;
+} del_list_t;
+
 static int
 clean_usdt_probes(dtrace_hdl_t *dtp)
 {
-	int			fdprids = dtp->dt_usdt_pridsmap_fd;
-	int			fdnames = dtp->dt_usdt_namesmap_fd;
-	usdt_prids_map_key_t	key, nxt;
-	usdt_prids_map_val_t	val;
-	list_key_t		keys_to_delete, *elem, *elem_next;
-	dt_probe_t		*prp, *prp_next;
+	int		fdnames = dtp->dt_usdt_namesmap_fd;
+	uint32_t	key, nxt;
+	del_list_t	dlist = { 0, };
+	del_list_t	*del, *ndel;
+	dt_probe_t	*prp;
 
-	/* Initialize list of usdt_prids keys to delete. */
-	memset(&keys_to_delete, 0, sizeof(keys_to_delete));
+	/* Initialize key to a probe id that cannot be found. */
+	key = DTRACE_IDNONE;
 
-	/* Initialize usdt_prids key to a pid/uprid that cannot be found. */
-	key.pid = 0;
-	key.uprid = 0;
+	/* Loop over usdt_names entries. */
+	while (dt_bpf_map_next_key(fdnames, &key, &nxt) == 0) {
+		dtrace_probedesc_t	pd = { 0, };
 
-	/* Loop over usdt_prids entries. */
-	while (dt_bpf_map_next_key(fdprids, &key, &nxt) == 0) {
-		memcpy(&key, &nxt, sizeof(usdt_prids_map_key_t));
+		key = nxt;
+		pd.id = key;
 
-		if (dt_bpf_map_lookup(fdprids, &key, &val) == -1)
-			return dt_set_errno(dtp, EDT_BPF);
+		/*
+		 * If the probe exists (as it should), and the process exists,
+		 * we should keep it.
+		 */
+		prp = dt_probe_lookup(dtp, &pd);
+		if (prp != NULL) {
+			list_probe_t		*pup = prp->prv_data;
+			dt_uprobe_t		*upp = pup->probe->prv_data;
 
-		/* Check if the process is still running. */
-		if (!Pexists(key.pid)) {
-			/*
-			 * Delete the usdt_names entry.
-			 *
-			 * Note that a PRID might correspond to multiple
-			 * sites.  So, as we loop over usdt_prids entries,
-			 * we might delete the same usdt_names entry
-			 * multiple times.  That's okay.
-			 */
-			dt_bpf_map_delete(fdnames, &val.prid);
-
-			/*
-			 * Delete the usdt_prids entry.
-			 *
-			 * Note that we do not want to disrupt the iterator.
-			 * So we just add the key to a list and will walk
-			 * the list later for actual deletion.
-			 */
-			elem = calloc(1, sizeof(list_key_t));
-			elem->key.pid = key.pid;
-			elem->key.uprid = key.uprid;
-			dt_list_append((dt_list_t *)&keys_to_delete, elem);
-
-			continue;
+			if (Pexists(upp->pid))
+				continue;
 		}
 
-		/*
-		 * FIXME.  There might be another case, where the process
-		 * is still running, but some of its USDT probes are gone?
-		 * So maybe we have to check for the existence of one of
-		 *     dtrace_probedesc_t *pdp = dtp->dt_probes[val.prid]->desc;
-		 *     char *prv = ...pdp->prv minus the numerial part;
-		 *
-		 *     /run/dtrace/probes/$pid/$pdp->prv/$pdp->mod/$pdp->fun/$pdp->prb
-		 *     /run/dtrace/stash/dof-pid/$pid/0/parsed/$prv:$pdp->mod:$pdp->fun:$pdp->prb
-		 *     /run/dtrace/stash/dof-pid/$pid/.../parsed/$prv:$pdp->mod:$pdp->fun:$pdp->prb
-		 */
+		/* Add the key and probe to the delete list. */
+		del = dt_zalloc(dtp, sizeof(del_list_t));
+		del->probe = prp;
+		dt_list_append((dt_list_t *)&dlist, del);
 	}
 
-	/*
-	 * Delete the usdt_prids keys in our list.
-	 */
-	for (elem = dt_list_next(&keys_to_delete); elem != NULL; elem = elem_next) {
-		elem_next = dt_list_next(elem);
+	/* Really delete entries from usdt_names. */
+	for (del = dt_list_next(&dlist); del != NULL; del = ndel) {
+		ndel = dt_list_next(del);
+		prp = del->probe;
 
-		dt_bpf_map_delete(fdprids, &elem->key);
-		free(elem);
-	}
-
-	/* Clean up enablings. */
-	for (prp = dt_list_next(&dtp->dt_enablings); prp != NULL; prp = prp_next) {
-		pid_t		pid;
-
-		prp_next = dt_list_next(prp);
-
-		/* Make sure it is an overlying USDT, stapsdt probe. */
-		if (prp->prov->impl != &dt_usdt && prp->prov->impl != &dt_stapsdt)
-			continue;
-
-		/* FIXME passing in NULL pcb and dpr wreaks havoc on error reporting? */
-		/*
-		 * Nick writes:
-		 * This is a general problem with running compiler-adjacent things outside
-		 * compile time. I think we should adjust dt_pid_error() so that it works
-		 * with NULL pcb and dpr at once, probably by using the code path for
-		 * pcb != NULL and augmenting it so that it passes in NULL for the region and
-		 * filename args and 0 for the lineno if pcb is NULL. (dt_set_errmsg can
-		 * already handle this case.)
-		 */
-		pid = dt_pid_get_pid(prp->desc, dtp, NULL, NULL);
-
-		if (Pexists(pid))
-			continue;
-
+		dt_bpf_map_delete(fdnames, &prp->desc->id);
 		probe_disable(dtp, prp);
-	}
-
-	return 0;
-}
-
-/*
- * Judge whether clause "n" could ever be called as a USDT probe
- * for this underlying probe.  We can pass uprp==NULL to see if
- * the clause can be excluded for every probe.
- */
-static int
-ignore_clause(dtrace_hdl_t *dtp, int n, const dt_probe_t *uprp)
-{
-	dtrace_stmtdesc_t	*stp = dtp->dt_stmts[n];
-	dtrace_probedesc_t	*pdp = &stp->dtsd_ecbdesc->dted_probe;
-
-	if (stp == NULL)
-		return 1;
-
-	/*
-	 * Some clauses could never be called for a USDT probe,
-	 * regardless of the underlying probe uprp.  Cache this
-	 * status in the clause flags for dt_stmts[n].
-	 */
-	if (dt_stmt_clsflag_test(stp, DT_CLSFLAG_USDT_INCLUDE | DT_CLSFLAG_USDT_EXCLUDE) == 0) {
-		size_t	len = strlen(pdp->prv);
-
-		/*
-		 * If the last char in the provider description is
-		 * neither '*' nor a digit, it cannot be a USDT probe.
-		 */
-		if (len > 1) {
-			char	lastchar = (pdp->prv[0] != '\0' ? pdp->prv[len - 1] : '*');
-
-			if (lastchar != '*' && !isdigit(lastchar)) {
-				dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_EXCLUDE);
-				return 1;
-			}
-		}
-
-		/*
-		 * If the provider description is "pid[0-9]*", it
-		 * is a pid probe, not USDT.
-		 */
-		if (strncmp(pdp->prv, "pid", 3) == 0) {
-			int i, l = strlen(pdp->prv);
-
-			for (i = 3; i < l; i++)
-				if (!isdigit((pdp->prv[i])))
-					break;
-
-			if (i == l) {
-				dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_EXCLUDE);
-				return 1;
-			}
-		}
-
-		/* Otherwise, it is possibly a USDT probe. */
-		dt_stmt_clsflag_set(stp, DT_CLSFLAG_USDT_INCLUDE);
-	}
-	if (dt_stmt_clsflag_test(stp, DT_CLSFLAG_USDT_EXCLUDE) == 1)
-		return 1;
-	if (uprp == NULL)
-		return 0;
-
-	/*
-	 * If we cannot ignore this statement, try to use uprp.
-	 */
-
-	/* We know what function we're in.  It must match the probe description (unless "-"). */
-	if (strcmp(pdp->fun, "-") != 0) {
-		dt_uprobe_t	*upp = uprp->prv_data;
-
-		assert(upp->func);  // never a return probe
-		if (!dt_gmatch(upp->func, pdp->fun))
-			return 1;
+		dt_free(dtp, del);
 	}
 
 	return 0;
@@ -640,8 +588,8 @@ static int add_probe_uprobe(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	if (prp->prov->impl->attach)
 		rc = prp->prov->impl->attach(dtp, prp, fd);
 
+	close(fd);
 	if (rc < 0) {
-		close(fd);
 		dt_attach_error(dtp, rc, prp->desc->prv, prp->desc->mod,
 					 prp->desc->fun, prp->desc->prb);
 		goto fail;
@@ -652,6 +600,7 @@ static int add_probe_uprobe(dtrace_hdl_t *dtp, dt_probe_t *prp)
 fail:
 	dt_difo_free(dtp, prp->difo);
 	prp->difo = NULL;
+
 	return 0;	// FIXME in dt_bpf_make_progs() this is a fatal error; should we do the same here?
 }
 
@@ -661,8 +610,9 @@ static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	char				probnam[DTRACE_FULLNAMELEN], *p;
 	const dtrace_probedesc_t	*pdp = prp->desc;
 	int				fd = dtp->dt_usdt_namesmap_fd;
-	pid_t				pid;
-	list_probe_t			*pup;
+	list_probe_t			*pup = prp->prv_data;
+	dt_uprobe_t			*upp = pup->probe->prv_data;
+	pid_t				pid = upp->pid;
 
 	/* Add probe name elements to usdt_names map. */
 	p = probnam;
@@ -674,20 +624,9 @@ static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 	snprintf(p, DTRACE_FUNCNAMELEN, "%s", pdp->fun);
 	p += DTRACE_FUNCNAMELEN;
 	snprintf(p, DTRACE_NAMELEN, "%s", pdp->prb);
+
 	if (dt_bpf_map_update(fd, &pdp->id, probnam) == -1)
 		assert(0);   // FIXME do something here
-
-	/* FIXME passing in NULL pcb and dpr wreaks havoc on error reporting? */
-	/*
-	 * Nick writes:
-	 * This is a general problem with running compiler-adjacent things outside
-	 * compile time. I think we should adjust dt_pid_error() so that it works
-	 * with NULL pcb and dpr at once, probably by using the code path for
-	 * pcb != NULL and augmenting it so that it passes in NULL for the region and
-	 * filename args and 0 for the lineno if pcb is NULL. (dt_set_errmsg can
-	 * already handle this case.)
-	 */
-	pid = dt_pid_get_pid(prp->desc, dtp, NULL, NULL);
 
 	/* Even though we just enabled this, check it's still live. */
 	if (!Pexists(pid)) {
@@ -695,55 +634,6 @@ static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 		dt_bpf_map_delete(fd, &pdp->id);
 
 		return 0;
-	}
-
-	/* Add prid and bit mask to usdt_prids map. */
-	for (pup = prp->prv_data; pup != NULL; pup = dt_list_next(pup)) {
-		dt_probe_t		*uprp = pup->probe;
-		long long		mask = 0, bit = 1;
-		usdt_prids_map_key_t	key;
-		usdt_prids_map_val_t	val;
-		dt_uprobe_t		*upp = uprp->prv_data;
-
-		/*
-		 * For is-enabled probes, the bit mask does not matter.
-		 * It is possible that we have this underlying probe due to
-		 * an overlying pid-offset probe and that we will not know
-		 * until later, when some new pid is created, that we also
-		 * have an overlying USDT is-enabled probe, but missing this
-		 * optimization opportunity is okay.
-		 */
-		if (uprp->prov->impl == &dt_uprobe && !(upp->flags & PP_IS_ENABLED)) {
-			int n;
-
-			for (n = 0; n < dtp->dt_stmt_nextid; n++) {
-				dtrace_stmtdesc_t *stp;
-
-				stp = dtp->dt_stmts[n];
-				if (stp == NULL)
-					continue;
-
-				if (ignore_clause(dtp, n, uprp))
-					continue;
-
-				if (dt_gmatch(prp->desc->prv, stp->dtsd_ecbdesc->dted_probe.prv) &&
-				    dt_gmatch(prp->desc->mod, stp->dtsd_ecbdesc->dted_probe.mod) &&
-				    dt_gmatch(prp->desc->fun, stp->dtsd_ecbdesc->dted_probe.fun) &&
-				    dt_gmatch(prp->desc->prb, stp->dtsd_ecbdesc->dted_probe.prb))
-					mask |= bit;
-
-				bit <<= 1;
-			}
-		}
-
-		key.pid = pid;
-		key.uprid = uprp->desc->id;
-
-		val.prid = prp->desc->id;
-		val.mask = mask;
-
-		// FIXME Check return value, but how should errors be handled?
-		dt_bpf_map_update(dtp->dt_usdt_pridsmap_fd, &key, &val);
 	}
 
 	return 0;
@@ -770,8 +660,6 @@ static int discover(dtrace_hdl_t *dtp)
 	 */
 	memset(&pcb, 0, sizeof(dt_pcb_t));
 	for (i = 0; i < dtp->dt_stmt_nextid; i++) {
-		if (ignore_clause(dtp, i, NULL))
-			continue;
 		dt_pid_create_usdt_probes(&dtp->dt_stmts[i]->dtsd_ecbdesc->dted_probe, dtp, &pcb);
 	}
 
@@ -878,6 +766,7 @@ static int populate_args(dtrace_hdl_t *dtp, const pid_probespec_t *psp,
 static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 				     const pid_probespec_t *psp)
 {
+	char			prv[DTRACE_PROVNAMELEN];
 	char			mod[DTRACE_MODNAMELEN];
 	char			fun[DTRACE_FUNCNAMELEN];
 	char			prb[DTRACE_NAMELEN];
@@ -893,12 +782,13 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	 *
 	 * The probe description for non-return probes is:
 	 *
-	 *	uprobe:<dev>_<inode>::<offset>
+	 *	uprobe<PID>:<dev>_<inode>::<offset>
 	 *
 	 * The probe description for return probes is:
 	 *
-	 *	uprobe:<dev>_<inode>:<func>:return
+	 *	uprobe<PID>:<dev>_<inode>:<func>:return
 	 */
+	snprintf(prv, sizeof(prv), "%s%d", dt_uprobe.name, psp->pps_pid);
 	snprintf(mod, sizeof(mod), "%lx_%lx", psp->pps_dev, psp->pps_inum);
 
 	fun[0] = '\0';
@@ -921,37 +811,40 @@ static dt_probe_t *create_underlying(dtrace_hdl_t *dtp,
 	}
 
 	pd.id = DTRACE_IDNONE;
-	pd.prv = prvname;
+	pd.prv = prv;
 	pd.mod = mod;
 	pd.fun = fun;
 	pd.prb = prb;
 
-	dt_dprintf("Providing underlying probe %s:%s:%s:%s @ %lx\n", psp->pps_prv,
-		   psp->pps_mod, psp->pps_fun, psp->pps_prb, psp->pps_off);
+	dt_dprintf("Providing underlying probe %s:%s:%s:%s\n",
+		   prv, mod, fun, prb);
 	uprp = dt_probe_lookup(dtp, &pd);
 	if (uprp == NULL) {
 		dt_provider_t	*pvp;
 
 		/* Get the provider for underlying probes. */
 		pvp = dt_provider_lookup(dtp, pd.prv);
-		if (pvp == NULL)
-			return NULL;
+		if (pvp == NULL) {
+			pvp = dt_provider_create(dtp, pd.prv, &dt_uprobe,
+						 &pattr, NULL);
+			if (pvp == NULL)
+				return NULL;
+		}
 
 		/* Set up the probe data. */
 		upp = dt_zalloc(dtp, sizeof(dt_uprobe_t));
 		if (upp == NULL)
 			return NULL;
 
+		upp->pid = psp->pps_pid;
 		upp->dev = psp->pps_dev;
 		upp->inum = psp->pps_inum;
 		upp->off = psp->pps_off;
 		upp->refcntr_off = psp->pps_refcntr_off;
+		upp->fd = -1;			/* not created yet */
 		upp->fn = strdup(psp->pps_fn);
 		upp->func = NULL;
 		upp->argc = -1;			/* no argument data yet */
-		upp->tp = dt_tp_alloc(dtp);
-		if (upp->tp == NULL)
-			goto fail;
 
 		uprp = dt_probe_insert(dtp, pvp, pd.prv, pd.mod, pd.fun, pd.prb,
 				       upp);
@@ -1491,13 +1384,12 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	dtrace_hdl_t		*dtp = pcb->pcb_hdl;
 	dt_irlist_t		*dlp = &pcb->pcb_ir;
 	const dt_probe_t	*uprp = pcb->pcb_probe;
+	dt_probe_t		*usdtp = NULL;
 	const dt_uprobe_t	*upp = uprp->prv_data;
 	const list_probe_t	*pop;
-	uint_t			lbl_exit = pcb->pcb_exitlbl;
-	dt_ident_t		*usdt_prids = dt_dlib_get_map(dtp, "usdt_prids");
-	int			n;
+	dt_ident_t		*usdt_names = dt_dlib_get_map(dtp, "usdt_names");
 
-	assert(usdt_prids != NULL);
+	assert(usdt_names != NULL);
 
 	dt_cg_tramp_prologue(pcb);
 
@@ -1509,94 +1401,72 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	dt_cg_tramp_copy_regs(pcb);
 
 	/*
-	 * Hold the PID of the process that caused the probe to fire in %r6.
-	 */
-	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
-	emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
-	emit(dlp,  BPF_MOV_REG(BPF_REG_6, BPF_REG_0));
-
-	/*
 	 * pid probes.
 	 *
 	 * Loop over overlying pid probes, calling clauses for those that match:
 	 *
-	 *	for overlying pid probes (that match except possibly for pid)
-	 *		if (pid matches) {
-	 *			dctx->mst->prid = PRID1;
-	 *			< any number of clause calls >
-	 *		}
+	 *	for overlying pid probes
+	 *		dctx->mst->prid = PRID;
+	 *		< any number of clause calls >
+	 *
+	 * For efficiency, we'll also record if we find an overlying USDT probe
+	 * in the list (there can only be one).
 	 */
 	for (pop = dt_list_next(&upp->probes); pop != NULL;
 	     pop = dt_list_next(pop)) {
-		const dt_probe_t	*prp = pop->probe;
-		uint_t			lbl_next = dt_irlist_label(dlp);
-		pid_t			pid;
+		dt_probe_t	*prp = pop->probe;
 
-		if (prp->prov->impl != &dt_pid)
+		if (prp->prov->impl == &dt_usdt ||
+		    prp->prov->impl == &dt_stapsdt) {
+			usdtp = prp;
 			continue;
+		}
 
-		pid = dt_pid_get_pid(prp->desc, pcb->pcb_hdl, pcb, NULL);
-		assert(pid != -1);
-
-		/*
-		 * Populate probe arguments.
-		 */
+		/* Populate probe arguments.  */
 		if (upp->flags & PP_IS_RETURN)
 			dt_cg_tramp_copy_rval_from_regs(pcb);
 		else
 			dt_cg_tramp_copy_args_from_regs(pcb, 1);
 
-		/*
-		 * Check whether this pid-provider probe serves the current
-		 * process, and emit a sequence of clauses for it when it does.
-		 */
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_6, pid, lbl_next));
+		/* Set PRID and call the clauses for the overlying probe. */
 		emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, prp->desc->id));
 		dt_cg_tramp_call_clauses(pcb, prp, DT_ACTIVITY_ACTIVE);
-		emitl(dlp, lbl_next,
-			   BPF_NOP());
 	}
+
+	/* If not USDT probe was found, we are done. */
+	if (usdtp == NULL)
+		goto out;
 
 	/*
 	 * USDT.
 	 */
 
-	/* In some cases, we know there are no USDT probes. */  // FIXME: add more checks
-	if (upp->flags & PP_IS_RETURN)
-		goto out;
+	/*
+	 * First check whether the USDT probe is active, i.e. its probe ID is
+	 * in the usdt_names BPF map.  If not, ignore it for now.
+	 */
+	emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0), usdtp->desc->id));
+	dt_cg_xsetx(dlp, usdt_names, DT_LBL_NONE, BPF_REG_1, usdt_names->di_id);
+	emit(dlp, BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
+	emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
+	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
+	emit(dlp, BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, pcb->pcb_exitlbl));
 
+	/* Set up probe arguments. */
 	if (upp->sargc)
 		copy_args(pcb, upp);
 	else
 		dt_cg_tramp_copy_args_from_regs(pcb, 0);
 
-	/*
-	 * Retrieve the PID of the process that caused the probe to fire.
-	 */
-	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
-	emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_0, 32));
-
-	/*
-	 * Look up in the BPF 'usdt_prids' map.  The key should fit into
-	 * trampoline stack slot 0.
-	 */
-	assert(sizeof(usdt_prids_map_key_t) <= DT_STK_SLOT_SZ);
-	emit(dlp,  BPF_STORE(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0), BPF_REG_0));
-	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0) + (int)sizeof(pid_t), uprp->desc->id));
-	dt_cg_xsetx(dlp, usdt_prids, DT_LBL_NONE, BPF_REG_1, usdt_prids->di_id);
-	emit(dlp,  BPF_MOV_REG(BPF_REG_2, BPF_REG_FP));
-	emit(dlp,  BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, DT_TRAMP_SP_SLOT(0)));
-	emit(dlp,  BPF_CALL_HELPER(BPF_FUNC_map_lookup_elem));
-	emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_0, 0, lbl_exit));
-
 	if (upp->flags & PP_IS_ENABLED) {
 		/*
-		 * Generate a BPF trampoline for an is-enabled probe.  The is-enabled probe
-		 * prototype looks like:
+		 * Generate a BPF trampoline for an is-enabled probe.  The
+		 * is-enabled probe prototype looks like:
 		 *
 		 *	int is_enabled(int *arg)
 		 *
-		 * The trampoline writes 1 into the location pointed to by the passed-in arg.
+		 * The trampoline writes 1 into the location pointed to by the
+		 * passed-in arg.
 		 */
 		emit(dlp, BPF_STORE_IMM(BPF_W, BPF_REG_FP, DT_TRAMP_SP_SLOT(0), 1));
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_1, BPF_REG_7, DMST_ARG(0)));
@@ -1609,17 +1479,6 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	/*
-	 * Continue with normal USDT probes.
-	 */
-
-	/* Read the PRID from the table lookup and store to mst->prid. */
-	emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_1, BPF_REG_0, 0));
-	emit(dlp,  BPF_STORE(BPF_W, BPF_REG_7, DMST_PRID, BPF_REG_1));
-
-	/* Read the bit mask from the table lookup in %r6. */    // FIXME someday, extend this past 64 bits
-	emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_0, offsetof(usdt_prids_map_val_t, mask)));
-
-	/*
 	 * Apply arg mappings, if needed.
 	 */
 	if (upp->flags & PP_IS_MAPPED) {
@@ -1629,51 +1488,21 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	}
 
 	/*
-	 * Hold the bit mask in %r6 between clause calls.
+	 * If the probe does not have clauses (yet), it was recently discovered
+	 * and we need to populate the clause list with any that match the
+	 * probe specification.
 	 */
-	for (n = 0; n < dtp->dt_stmt_nextid; n++) {
-		dtrace_stmtdesc_t *stp;
-		dt_ident_t	*idp;
-		uint_t		lbl_next;
+	if (dt_list_next(&usdtp->stmts) == NULL)
+		dt_probe_add_stmt_matchall(dtp, usdtp);
 
-		stp = dtp->dt_stmts[n];
-		if (stp == NULL)
-			continue;
-
-		if (ignore_clause(dtp, n, uprp))
-			continue;
-
-		idp = stp->dtsd_clause;
-		lbl_next = dt_irlist_label(dlp);
-
-		/* If the lowest %r6 bit is 0, skip over this clause. */
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_6));
-		emit(dlp,  BPF_ALU64_IMM(BPF_AND, BPF_REG_1, 1));
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JEQ, BPF_REG_1, 0, lbl_next));
-
-		/*
-		 *      if (*dctx.act != act)   // ldw %r0, [%r9 + DCTX_ACT]
-		 *	      goto exit;      // ldw %r0, [%r0 + 0]
-		 *			      // jne %r0, act, lbl_exit
-		 */
-		emit(dlp,  BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_9, DCTX_ACT));
-		emit(dlp,  BPF_LOAD(BPF_W, BPF_REG_0, BPF_REG_0, 0));
-		emit(dlp,  BPF_BRANCH_IMM(BPF_JNE, BPF_REG_0, DT_ACTIVITY_ACTIVE, lbl_exit));
-
-		/* dctx.mst->scratch_top = 8 */
-		emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_SCRATCH_TOP, 8));
-
-		/* Call clause. */
-		emit(dlp,  BPF_MOV_REG(BPF_REG_1, BPF_REG_9));
-		emite(dlp, BPF_CALL_FUNC(idp->di_id), idp);
-
-		/* Finished this clause. */
-		emitl(dlp, lbl_next,
-			   BPF_NOP());
-
-		/* Right-shift %r6. */
-		emit(dlp,  BPF_ALU64_IMM(BPF_RSH, BPF_REG_6, 1));
-	}
+	/*
+	 * Call the clauses for the USDT probe:
+	 *
+	 *	dctx->mst->prid = PRID;
+	 *	< any number of clause calls >
+	 */
+	emit(dlp,  BPF_STORE_IMM(BPF_W, BPF_REG_7, DMST_PRID, usdtp->desc->id));
+	dt_cg_tramp_call_clauses(pcb, usdtp, DT_ACTIVITY_ACTIVE);
 
 out:
 	dt_cg_tramp_return(pcb);
@@ -1681,111 +1510,65 @@ out:
 	return 0;
 }
 
-static char *uprobe_name(dev_t dev, ino_t ino, uint64_t addr, int flags)
+static int uprobe_create(dtrace_hdl_t *dtp, const dt_uprobe_t *upp,
+			 uint64_t refcntr_off)
 {
-	char	*name;
+	struct perf_event_attr	attr = { 0, };
+	dt_provider_t		*pvp = dt_provider_lookup(dtp, dt_uprobe.name);
+	uprobe_data_t		*udp;
 
-	if (asprintf(&name, "dt_pid/%c_%llx_%llx_%lx",
-		     flags & PP_IS_RETURN ? 'r' : 'p', (unsigned long long)dev,
-		     (unsigned long long)ino, (unsigned long)addr) < 0)
-		return NULL;
+	if (pvp == NULL)
+		return -1;
+	udp = pvp->prv_data;
+	assert(udp != NULL);
 
-	return name;
-}
+	attr.size = sizeof(attr);
 
-/*
- * Create a uprobe for a given dev/ino, mapping filename, and address: the
- * uprobe may be a uretprobe.  Return the probe's name as
- * a new dynamically-allocated string, or NULL on error.
- *
- * An optional refcntr_off - used by stapsdt probes to identify semaphore
- * address - can also be supplied.
- */
-static char *uprobe_create(dev_t dev, ino_t ino, const char *mapping_fn,
-			   uint64_t addr, uint64_t refcntr_off, int flags)
-{
-	int	fd = -1;
-	int	rc = -1;
-	char	*name;
-	char	*spec;
+	if (udp->perf_type == -1) {
+		udp->perf_type = get_perf_type();
+		if (udp->perf_type == -1)
+			return -1;
+	}
+	attr.type = udp->perf_type;
 
 	if (refcntr_off) {
-		if (asprintf(&spec, "%s:0x%lx(0x%lx)", mapping_fn, addr, refcntr_off) < 0)
-			return NULL;
-	} else {
-		if (asprintf(&spec, "%s:0x%lx", mapping_fn, addr) < 0)
-			return NULL;
+		if (udp->ref_shift == -1) {
+			udp->ref_shift = get_refcnt_shift();
+			if (udp->ref_shift == -1)
+				return -1;
+		}
+		attr.config = refcntr_off << udp->ref_shift;
 	}
 
-	name = uprobe_name(dev, ino, addr, flags);
-	if (!name)
-		goto out;
-
-	/* Add the uprobe. */
-	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
-	if (fd == -1)
-		goto out;
-
-	rc = dprintf(fd, "%c:%s %s\n", flags & PP_IS_RETURN ? 'r' : 'p', name, spec);
-
-out:
-	free(spec);
-	if (fd != -1)
-		close(fd);
-	if (rc < 0) {
-		free(name);
-		return NULL;
+	if (upp->flags & PP_IS_RETURN) {
+		if (udp->ret_flag == -1) {
+			udp->ret_flag = get_retprobe_flag();
+			if (udp->ret_flag == -1)
+				return -1;
+		}
+		attr.config |= udp->ret_flag;
 	}
 
-	return name;
+	attr.uprobe_path = (uint64_t)upp->fn;
+	attr.probe_offset = upp->off;
+
+	return dt_perf_event_open(&attr, upp->pid, -1, -1, 0);
 }
 
 static int attach(dtrace_hdl_t *dtp, const dt_probe_t *uprp, int bpf_fd)
 {
 	dt_uprobe_t	*upp = uprp->prv_data;
-	tp_probe_t	*tpp = upp->tp;
-	FILE		*f;
-	char		*fn;
-	char		*prb = NULL;
-	int		rc = -1;
 
-	if (dt_tp_has_info(tpp))
-		goto attach_bpf;
-
+	assert(upp->fd == -1);
 	assert(upp->fn != NULL);
 
-	prb = uprobe_create(upp->dev, upp->inum, upp->fn, upp->off,
-			    upp->refcntr_off, upp->flags);
+	upp->fd = uprobe_create(dtp, upp, upp->refcntr_off);
 
-	/*
-	 * If the uprobe creation failed, it is possible it already
-	 * existed because someone else created it.  Try to access its
-	 * tracefs info and if that fails, we really failed.
-	 */
-
-	if (prb == NULL)
-		prb = uprobe_name(upp->dev, upp->inum, upp->off,
-				  upp->flags);
-
-	/* open format file */
-	rc = asprintf(&fn, "%s%s/format", EVENTSFS, prb);
-	free(prb);
-	if (rc < 0)
-		return -ENOENT;
-	f = fopen(fn, "r");
-	free(fn);
-	if (f == NULL)
-		return -ENOENT;
-
-	rc = dt_tp_event_info(dtp, f, 0, tpp, NULL, NULL);
-	fclose(f);
-
-	if (rc < 0)
-		return -ENOENT;
-
-attach_bpf:
 	/* attach BPF program to the probe */
-	return dt_tp_attach(dtp, tpp, bpf_fd);
+	if (ioctl(upp->fd, PERF_EVENT_IOC_SET_BPF, bpf_fd) < 0)
+		return -errno;
+
+	return 0;
 }
 
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
@@ -1934,59 +1717,6 @@ oom:
 	dt_free(dtp, argv);
 
 	return dt_set_errno(dtp, EDT_NOMEM);
-}
-
-/*
- * Destroy a uprobe for a given device and address.
- */
-static int
-uprobe_delete(dev_t dev, ino_t ino, uint64_t addr, int flags)
-{
-	int	fd = -1;
-	int	rc = -1;
-	char	*name;
-
-	name = uprobe_name(dev, ino, addr, flags);
-	if (!name)
-		goto out;
-
-	fd = open(TRACEFS "uprobe_events", O_WRONLY | O_APPEND);
-	if (fd == -1)
-		goto out;
-
-
-	rc = dprintf(fd, "-:%s\n", name);
-
-out:
-	if (fd != -1)
-		close(fd);
-	free(name);
-
-	return rc < 0 ? -1 : 0;
-}
-
-/*
- * Try to clean up system resources that may have been allocated for this
- * probe.
- *
- * If there is an event FD, we close it.
- *
- * We also try to remove any uprobe that may have been created for the probe
- * (but only if we created it, not if dtprobed did).  This is harmless for
- * probes that didn't get created.  If the removal fails for some reason we are
- * out of luck - fortunately it is not harmful to the system as a whole.
- */
-static void detach(dtrace_hdl_t *dtp, const dt_probe_t *uprp)
-{
-	dt_uprobe_t	*upp = uprp->prv_data;
-	tp_probe_t	*tpp = upp->tp;
-
-	if (!dt_tp_has_info(tpp))
-		return;
-
-	dt_tp_detach(dtp, tpp);
-
-	uprobe_delete(upp->dev, upp->inum, upp->off, upp->flags);
 }
 
 /* Clean up the private provider data. */

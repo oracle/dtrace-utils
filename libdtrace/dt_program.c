@@ -20,21 +20,6 @@
 #include <dt_probe.h>
 #include <dt_bpf.h>
 
-int
-dt_stmt_clsflag_set(dtrace_stmtdesc_t *stp, int flags) {
-	stp->dtsd_clauseflags |= flags;
-
-	return 0;
-}
-
-int
-dt_stmt_clsflag_test(dtrace_stmtdesc_t *stp, int flags) {
-	if (stp->dtsd_clauseflags & flags)
-		return 1;
-
-	return 0;
-}
-
 dtrace_prog_t *
 dt_program_create(dtrace_hdl_t *dtp)
 {
