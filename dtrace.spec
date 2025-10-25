@@ -241,8 +241,12 @@ systemctl start dtprobed || :
 - Error injection via return() action.  (Kris Van Hees)
 - Improved string handling.  (Kris Van Hees)
 - Various bug fixes.  (Eugene Loh, Kris Van Hees)
+- Fix dyn vars overwriting one another.  [Orabug: 37994729]
+- Fix regression:  list fbt probes by default.  [Orabug: 38249511]
 - Various testsuite fixes and improvements.
   (Nick Alcock, Eugene Loh, Alan Maguire, Kris Van Hees)
+- Add test for preprocessor definitions.  [Orabug: 28763074]
+- Fix some stack tests.  [Orabug: 37459289]
 
 * Tue Jun 10 2025 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.3-1
 - This is only released on OL10.
@@ -333,7 +337,7 @@ systemctl start dtprobed || :
 - Fix dtprobed to support DOF that exceeds 64KiB. (Nick Alcock)
   [Orabug: 35411920]
 - Do not modify input files with dtrace -G if unchanged. (Steven Sistare)
-  [Orbug: 35417184]
+  [Orabug: 35417184]
 - Various testsuite fixes and improvements.
   (Nick Alcock, Eugene Loh, Kris Van Hees) [Orabug: 35435195]
 - Various code improvements.  (Nick Alcock, Eugene Loh, Kris Van Hees)
