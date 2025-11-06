@@ -1385,8 +1385,8 @@ dt_bpf_load_progs(dtrace_hdl_t *dtp, uint_t cflags)
 		if (prp->prov->impl->attach)
 			rc = prp->prov->impl->attach(dtp, prp, fd);
 
+		close(fd);
 		if (rc < 0 && !(prp->flags & DT_PROBE_FLAG_OPTIONAL)) {
-			close(fd);
 			dt_attach_error(dtp, rc,
 					prp->desc->prv, prp->desc->mod,
 					prp->desc->fun, prp->desc->prb);
