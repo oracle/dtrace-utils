@@ -160,17 +160,19 @@ static int populate(dtrace_hdl_t *dtp)
  */
 static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
-	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_probe_t	*prp = pcb->pcb_probe;
 	dt_probe_t	*uprp = pcb->pcb_parent_probe;
 	int		direction, have_iphdr;
 	int		skarg = 0, skbarg = 1, tcparg = 0;
-	int		skarg_maybe_null, have_skb = 1;
+	int		skarg_maybe_null = 0, have_skb = 1;
 	int		skstate = 0;
+#ifdef HAVE_LIBCTF
+	dtrace_hdl_t	*dtp = pcb->pcb_hdl;
 	dtrace_typeinfo_t sym;
 	ctf_funcinfo_t	fi;
 	int		rc;
+#endif
 
 	/*
 	 * We construct the tcp::: probe arguments as follows:
@@ -262,6 +264,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 
 	if (strcmp(prp->desc->prb, "accept-established") == 0) {
 		direction = NET_PROBE_INBOUND;
+#ifdef HAVE_LIBCTF
 		have_iphdr = 1;
 		/* on older (5.4) kernels, tcp_init_transfer() only has 2
 		 * args, i.e. no struct skb * third argument.
@@ -274,11 +277,14 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		    fi.ctc_argc > 2) {
 			/* skb in arg2 not arg1 */
 			skbarg = 2;
-			skarg_maybe_null = 0;
 		} else {
 			have_skb = 0;
 			have_iphdr = 0;
 		}
+#else
+		have_skb = 0;
+		have_iphdr = 0;
+#endif
 		/* ensure arg1 is BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB */
 		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_6, BPF_REG_7, DMST_ARG(1)));
 		emit(dlp, BPF_BRANCH_IMM(BPF_JNE, BPF_REG_6,
@@ -291,20 +297,17 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		if (strcmp(uprp->desc->fun, "tcp_v4_send_reset") == 0 ||
 		    strcmp(uprp->desc->fun, "tcp_v6_send_reset") == 0)
 			skarg_maybe_null = 1;
-		else
-			skarg_maybe_null = 0;
 	} else if (strcmp(prp->desc->prb, "connect-established") == 0) {
 		direction = NET_PROBE_INBOUND;
 		have_iphdr = 1;
-		skarg_maybe_null = 0;
 	} else if (strcmp(prp->desc->prb, "connect-refused") == 0) {
 		direction = NET_PROBE_INBOUND;
 		have_iphdr = 1;
-		skarg_maybe_null = 0;
 		skstate = BPF_TCP_SYN_SENT;
 	} else {
 		direction = NET_PROBE_OUTBOUND;
 		if (strcmp(uprp->desc->fun, "ip_send_unicast_reply") == 0) {
+#ifdef HAVE_LIBCTF
 			/* Newer kernels pass the original socket as second
 			 * arg to ip_send_unicast_reply(); if that function
 			 * has an extra (> 9) argument we know we have to
@@ -329,6 +332,11 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 				skbarg = 1;
 				tcparg = 5;
 			}
+#else
+			skarg = 0;
+			skbarg = 1;
+			tcparg = 5;
+#endif
 			have_iphdr = 1;
 			tcparg = 6;
 			skarg_maybe_null = 1;
@@ -340,11 +348,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		} else if (strcmp(prp->desc->prb, "connect-request") == 0) {
 			skstate = BPF_TCP_SYN_SENT;
 			have_iphdr = 0;
-			skarg_maybe_null = 0;
-		} else {
+		} else
 			have_iphdr = 0;
-			skarg_maybe_null = 0;
-		}
 	}
 
 	/* first save sk to args[3]; this avoids overwriting it when we
