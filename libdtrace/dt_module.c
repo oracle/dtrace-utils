@@ -1031,6 +1031,8 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		dt_dprintf("No BTF data for %s; "
 			   "looking for in-module CTF instead.\n",
 			   dmp->dm_name);
+#else
+	}
 #endif
 
 	/*
