@@ -1166,7 +1166,7 @@ static int provide_stapsdt_probe(dtrace_hdl_t *dtp, const pid_probespec_t *psp)
 }
 
 
-static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp, int is_usdt)
+static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp)
 {
 	const list_probe_t	*pup;
 
@@ -1188,24 +1188,6 @@ static void enable(dtrace_hdl_t *dtp, dt_probe_t *prp, int is_usdt)
 	 */
 	if (!dt_in_list(&dtp->dt_enablings, prp))
 		dt_list_append(&dtp->dt_enablings, prp);
-}
-
-static void enable_pid(dtrace_hdl_t *dtp, dt_probe_t *prp)
-{
-	enable(dtp, prp, 0);
-}
-
-/*
- * USDT enabling has to enable any is-enabled probes as well.
- */
-static void enable_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
-{
-	enable(dtp, prp, 1);
-}
-
-static void enable_stapsdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
-{
-	enable(dtp, prp, 1);
 }
 
 /*
@@ -2035,7 +2017,7 @@ dt_provimpl_t	dt_pid = {
 	.name		= "pid",
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_pid_probe,
-	.enable		= &enable_pid,
+	.enable		= &enable,
 	.probe_destroy	= &probe_destroy,
 };
 
@@ -2047,7 +2029,7 @@ dt_provimpl_t	dt_usdt = {
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.populate	= &populate_usdt,
 	.provide_probe	= &provide_usdt_probe,
-	.enable		= &enable_usdt,
+	.enable		= &enable,
 	.probe_info	= &probe_info,
 	.probe_destroy	= &probe_destroy,
 	.discover	= &discover,
@@ -2062,7 +2044,7 @@ dt_provimpl_t	dt_stapsdt = {
 	.name		= "stapsdt",
 	.prog_type	= BPF_PROG_TYPE_UNSPEC,
 	.provide_probe	= &provide_stapsdt_probe,
-	.enable		= &enable_stapsdt,
+	.enable		= &enable,
 	.probe_info	= &probe_info_stap,
 	.probe_destroy	= &probe_destroy,
 	.add_probe	= &add_probe_usdt,
