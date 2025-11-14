@@ -1618,8 +1618,12 @@ dtrace_update(dtrace_hdl_t *dtp)
 		dt_module_shuffle_to_start(dtp, "vmlinux");
 	}
 
-	if (state)
+	if (state) {
+		if (state->rfp)
+			fclose(state->rfp);
+
 		dt_free(dtp, state);
+	}
 
 	return 0;
 }
