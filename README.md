@@ -9,19 +9,27 @@ community.
 
 The main development branch is [devel](https://github.com/oracle/dtrace-utils/tree/devel).
 
-We provide prebuilt x86_64 and aarch64 DTrace userspace packages for Oracle
-Linux 9 (UEK7 kernel), Oracle Linux 8 (UEK7 or UEK6 kernel), and Oracle Linux 7
-(UEK6 kernel).  These packages are based on the Oracle Linux specific release
-branch [2.0-branch](https://github.com/oracle/dtrace-utils/tree/2.0-branch).
+We provide prebuilt x86_64 and aarch64 DTrace userspace packages for
+Oracle Linux 10 (UEK8 kernel),
+Oracle Linux 9 (UEK8 or UEK7 kernel),
+Oracle Linux 8 (UEK7 or UEK6 kernel),
+and Oracle Linux 7 (UEK6 kernel).
 
 The latest packages can be obtained from the following
 [Oracle Linux yum server](https://yum.oracle.com) repositories: 
+- Oracle Linux 10 (x86_64) UEK Release 8: https://yum.oracle.com/repo/OracleLinux/OL10/UEKR8/x86_64/
+- Oracle Linux 10 (aarch64) UEK Release 8: https://yum.oracle.com/repo/OracleLinux/OL10/UEKR8/aarch64/
+- Oracle Linux 9 (x86_64) UEK Release 8: https://yum.oracle.com/repo/OracleLinux/OL9/UEKR8/x86_64/
+- Oracle Linux 9 (aarch64) UEK Release 8: https://yum.oracle.com/repo/OracleLinux/OL9/UEKR8/aarch64/
 - Oracle Linux 9 (x86_64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL9/UEKR7/x86_64/
 - Oracle Linux 9 (aarch64) BaseOS Latest: https://yum.oracle.com/repo/OracleLinux/OL9/baseos/latest/aarch64/
 - Oracle Linux 8 (x86_64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR7/x86_64/
 - Oracle Linux 8 (aarch64) UEK Release 7: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR7/aarch64/
 - Oracle Linux 8 (x86_64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL8/UEKR6/x86_64/
 - Oracle Linux 8 (aarch64) BaseOS Latest: https://yum.oracle.com/repo/OracleLinux/OL8/baseos/latest/aarch64/
+
+For Oracle Linux 7, we provide RPMs up to 2.0.1-1, but building for OL7 has
+been deprecated.
 - Oracle Linux 7 (x86_64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/x86_64/
 - Oracle Linux 7 (aarch64) UEK Release 6: https://yum.oracle.com/repo/OracleLinux/OL7/UEKR6/aarch64/
 
