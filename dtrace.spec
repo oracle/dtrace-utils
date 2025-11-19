@@ -112,7 +112,7 @@ Summary:      DTrace testsuite.
 Requires:     make glibc-devel(%{__isa_name}-64) libgcc(%{__isa_name}-64)
 Requires:     dtrace-headers >= 2.0.0 module-init-tools
 Requires:     %{name}-devel = %{version}-%{release} perl gcc java
-Requires:     java-devel perl-IO-Socket-IP xfsprogs
+Requires:     java-devel perl-IO-Socket-IP perl-Net-Ping xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     coreutils wireshark %{glibc32}
 Requires:     perf time bc nfs-utils
