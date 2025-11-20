@@ -1347,7 +1347,6 @@ dt_stapsdt_parse(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
 		if (strlen(prv) >= nhdr.n_descsz)
 			continue;
 		strncpy(prvname, prv, sizeof(prvname));
-		(void) strhyphenate(prvname);
 		prb = prv + strlen(prv) + 1;
 		if (strlen(prb) >= nhdr.n_descsz)
 			continue;

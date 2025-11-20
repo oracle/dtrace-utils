@@ -83,67 +83,78 @@ if [ $? -ne 0 ]; then
 fi
 
 $dtrace -c ./test -qs /dev/stdin <<EOF
-test-prov\$target:::zero-probe
+test__prov\$target:::zero-probe
 {
-	printf("%s:%s:%s\n", probemod, probefunc, probename);
+	printf("%s:%s:%s:%s\n", probeprov, probemod, probefunc, probename);
 }
 
-test-prov\$target:::one-probe
+test__prov\$target:::one-probe
 {
-	printf("%s:%s:%s:%li\n", probemod, probefunc, probename, arg0);
+	printf("%s:%s:%s:%s:%li\n", probeprov, probemod, probefunc, probename,
+	       arg0);
 }
 
-test-prov\$target:::two-probe
+test__prov\$target:::two-probe
 {
-	printf("%s:%s:%s:%li:%li\n", probemod, probefunc, probename, arg0, arg1);
+	printf("%s:%s:%s:%s:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
+	       arg0, arg1);
 }
 
-test-prov\$target:::three-probe
+test__prov\$target:::three-probe
 {
-	printf("%s:%s:%s:%li:%li:%li\n", probemod, probefunc, probename, arg0, arg1,
-	       arg2);
+	printf("%s:%s:%s:%s:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
+	       arg0, arg1, arg2);
 }
 
-test-prov\$target:::four-probe
+test__prov\$target:::four-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li\n", probemod, probefunc, probename, arg0, arg1,
-	       arg2, arg3);
+	printf("%s:%s:%s:%s:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
+	       arg0, arg1, arg2, arg3);
 }
 
-test-prov\$target:::five-probe
+test__prov\$target:::five-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4);
 }
 
-test-prov\$target:::six-probe
+test__prov\$target:::six-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4, arg5);
 }
 
-test-prov\$target:::seven-probe
+test__prov\$target:::seven-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
-test-prov\$target:::eight-probe
+test__prov\$target:::eight-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
 
-test-prov\$target:::nine-probe
+test__prov\$target:::nine-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
-test-prov\$target:::eleven-probe,
-test-prov\$target:::twelve-probe
+test__prov\$target:::eleven-probe,
+test__prov\$target:::twelve-probe
 {
-	printf("%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li:%li:%li\n", probemod, probefunc, probename,
+	printf("%s:%s:%s:%s:%li:%li:%li:%li:%li:%li:%li:%li:%li:%li\n",
+	       probeprov, probemod, probefunc, probename,
 	       arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 EOF
