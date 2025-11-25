@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -83,7 +83,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
 	dt_activity_t	act = DT_ACTIVITY_ACTIVE;
-	uint32_t	i, key = 0;
+	uint32_t	key = 0;
 
 	/*
 	 * The ERROR probe isn't really a trace event that a BPF program is
@@ -174,11 +174,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	emit(dlp, BPF_CALL_HELPER(BPF_FUNC_map_update_elem));
 
 	dt_cg_tramp_copy_regs(pcb);
-
-	/* zero the probe args */
-	for (i = 0; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
-
+	dt_cg_tramp_clear_argv(pcb, 0);
 	dt_cg_tramp_epilogue_advance(pcb, act);
 
 	return 0;

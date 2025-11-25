@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -393,26 +393,9 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
  */
 static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 {
-	int		i;
-	dt_irlist_t	*dlp = &pcb->pcb_ir;
-
 	dt_cg_tramp_prologue_cpu(pcb);
-
-	/*
-	 * After the dt_cg_tramp_prologue_cpu() call, we have:
-	 *				//     (%r7 = dctx->mst)
-	 *				//     (%r8 = dctx->ctx)
-	 */
-
 	dt_cg_tramp_copy_regs(pcb);
-
-	/*
-	 * Use the PC to set arg0 and arg1, then clear the other args.
-	 */
 	dt_cg_tramp_copy_pc_from_regs(pcb);
-	for (i = 2; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
-
 	dt_cg_tramp_epilogue(pcb);
 
 	return 0;

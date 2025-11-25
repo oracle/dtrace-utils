@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -159,14 +159,8 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 		emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(i), BPF_REG_0));
 	}
 
-	/*
-	 * Zero the remaining probe args.
-	 *	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-	 *		dctx->mst->argv[i] = 0;
-	 *				// stdw [%r7 + DMST_ARG(i)], 0
-	 */
-	for ( ; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
+	/* Zero the remaining probe args. */
+	dt_cg_tramp_clear_argv(pcb, i);
 
 	/*
 	 * For return probes, store the errno.  That is, examine arg0.

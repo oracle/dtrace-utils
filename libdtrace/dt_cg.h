@@ -26,6 +26,7 @@ extern void dt_cg_tramp_prologue_cpu(dt_pcb_t *pcb);
 extern void dt_cg_tramp_prologue(dt_pcb_t *pcb);
 extern void dt_cg_tramp_clear_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_regs(dt_pcb_t *pcb);
+extern void dt_cg_tramp_clear_argv(dt_pcb_t *pcb, int i);
 extern void dt_cg_tramp_copy_args_from_regs(dt_pcb_t *pcb, int called);
 extern void dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb);
 extern void dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb);

@@ -455,6 +455,26 @@ dt_cg_tramp_copy_regs(dt_pcb_t *pcb)
 }
 
 /*
+ * Clear the content of the 'argv' member of the machine state, from the given
+ * index (idx).
+ *
+ * The caller must ensure that %r7 contains the value set by the
+ * dt_cg_tramp_prologue*() functions.
+ */
+void
+dt_cg_tramp_clear_argv(dt_pcb_t *pcb, int idx)
+{
+	dt_irlist_t	*dlp = &pcb->pcb_ir;
+	int		i, argc = ARRAY_SIZE(((dt_mstate_t *)0)->argv);
+
+	if (idx >= argc)
+		return;
+
+	for (i = idx; i < argc; i++)
+		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
+}
+
+/*
  * Copy arguments from a dt_pt_regs structure referenced by %r8.
  * If 'called' is nonzero, the registers are laid out as when inside the
  * function: if zero, they are laid out as at the call instruction, before the
@@ -626,6 +646,10 @@ dt_cg_tramp_copy_pc_from_regs(dt_pcb_t *pcb)
 	/* done */
 	emitl(dlp, Ldone,
 	      BPF_NOP());
+
+	/* clear the rest of the arguments */
+	dt_cg_tramp_clear_argv(pcb, 2);
+
 	dt_regset_free_args(drp);
 }
 
@@ -640,15 +664,13 @@ void
 dt_cg_tramp_copy_rval_from_regs(dt_pcb_t *pcb)
 {
 	dt_irlist_t	*dlp = &pcb->pcb_ir;
-	int		i;
 
 	emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(0), 0));
 
 	emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_8, PT_REGS_RET));
 	emit(dlp, BPF_STORE(BPF_DW, BPF_REG_7, DMST_ARG(1), BPF_REG_0));
 
-	for (i = 2; i < ARRAY_SIZE(((dt_mstate_t *)0)->argv); i++)
-		emit(dlp, BPF_STORE_IMM(BPF_DW, BPF_REG_7, DMST_ARG(i), 0));
+	dt_cg_tramp_clear_argv(pcb, 2);
 }
 
 /*
