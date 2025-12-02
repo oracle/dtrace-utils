@@ -1,0 +1,13 @@
+dtrace (2.0.6-1) unstable; urgency=medium
+
+  * Fix CVE-2026-21991: dtprobed unsafe probe description handling.
+  * Limit building to supported architectures. (Closes: #1129637)
+  * Remove unnecessary dependency ob binutils-bpf. (Closes: #1131271)
+
+ -- Kris Van Hees <kvanhees@gmail.com>  Tue, 17 Mar 2026 17:53:17 -0400
+
+dtrace (2.0.5-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #1128435)
+
+ -- Kris Van Hees <kvanhees@gmail.com>  Fri, 20 Feb 2026 00:31:21 -0500

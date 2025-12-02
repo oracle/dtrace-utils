@@ -1,0 +1,17 @@
+Description: issue a warning for unknown configure options
+ The Debian build system specifies configure options that are not known to
+ the DTrace configure script.  They should not cause the configure script
+ to abort.
+
+--- dtrace-2.0.5.orig/configure
++++ dtrace-2.0.5/configure
+@@ -188,8 +188,7 @@ for option in "$@"; do
+               echo "Unknown option $option" >&2
+               exit 1
+            fi;;
+-        *) echo "Unknown option $option" >&2
+-           exit 1;;
++        *) echo "Unknown option $option" >&2;;
+     esac
+ done
+ 
