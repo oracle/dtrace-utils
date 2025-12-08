@@ -118,9 +118,9 @@ static int populate(dtrace_hdl_t *dtp)
 }
 
 /*
- * Generate a BPF trampoline for a SDT probe.
+ * Generate a BPF trampoline for a rawtp probe.
  *
- * The trampoline function is called when a SDT probe triggers, and it must
+ * The trampoline function is called when a rawtp probe triggers, and it must
  * satisfy the following prototype:
  *
  *	int dt_rawtp(void *data)
