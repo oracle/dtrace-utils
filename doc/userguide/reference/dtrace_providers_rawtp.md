@@ -1,7 +1,13 @@
 
 # Rawtp Provider <a id="dt_ref_rawtp_prov">
 
-The `rawtp` provider gives DTrace users access to the raw tracepoints exposed by the kernel tracing system, including access to the untranslated arguments of the associated tracepoint events.
+The `rawtp` provider gives DTrace users access to the tracepoints exposed by the kernel tracing system.
+
+In contrast with the [sdt](../reference/dtrace_providers_sdt.md) provider,
+however, the `rawtp` provider delivers the raw arguments that the kernel
+provides to the tracepoint.
+For more information on kernel tracepoints, see
+<https://github.com/torvalds/linux/blob/master/Documentation/trace/tracepoints.rst>.
 
 To see what raw tracepoints are available on a system, use:
 
