@@ -755,7 +755,7 @@ gmap_create_buffers(dtrace_hdl_t *dtp)
 {
 	return create_gmap(dtp, "buffers", BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 			   sizeof(uint32_t), sizeof(uint32_t),
-			   dtp->dt_conf.num_online_cpus);
+			   dtp->dt_conf.max_cpuid + 1);
 }
 
 /*
