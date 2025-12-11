@@ -179,6 +179,7 @@
     -   [system](reference/function_system.md)
     -   [trace](reference/function_trace.md)
     -   [tracemem](reference/function_tracemem.md)
+    -   [trunc](reference/function_trunc.md)
     -   [uaddr](reference/function_uaddr.md)
     -   [ufunc](reference/function_ufunc.md)
     -   [umod](reference/function_umod.md)

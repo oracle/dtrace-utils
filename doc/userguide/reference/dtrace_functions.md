@@ -57,6 +57,8 @@ Functions can be grouped according to their general use case and might appear in
 
     -   [`printa`](function_printa.md): Displays and controls the formatting of an aggregation
 
+    -   [`trunc`](function_trunc.md): Truncates (eliminates keys from) an aggregation
+
 -   **Speculation Functions**
 
     Speculation functions create or operate on speculative buffers. Speculation is used to trace quantities into speculation buffers that can either be committed to the primary buffer or discarded at a later point, when other important information is known.
@@ -392,6 +394,8 @@ Returns a string translation of a hardware address.
  Traces the result of an expression to the directed buffer.
 -   **[tracemem](../reference/function_tracemem.md)**  
  Copies the specified number of bytes of data from an address in memory to the current buffer.
+-   **[trunc](../reference/function_trunc.md)**  
+ Truncates keys from an aggregation.
 -   **[uaddr](../reference/function_uaddr.md)**  
  Prints the symbol for a specified address.
 -   **[ufunc](../reference/function_ufunc.md)**  

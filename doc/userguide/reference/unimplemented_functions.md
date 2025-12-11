@@ -1,7 +1,9 @@
 
 # Unimplemented Functions
 
-DTrace implementations have varied in functionality, and some functions aren't relevant to Linux and might never be implemented. The following functions aren't currently implemented:
+DTrace implementations have varied in functionality,
+and some functions are not relevant to Linux and might never be implemented.
+The following functions are not currently implemented:
 
 -   `breakpoint`
 
@@ -24,8 +26,5 @@ DTrace implementations have varied in functionality, and some functions aren't r
 
 -   `stop`
 
--   `trunc`
-
 
 **Parent topic:**[DTrace Function Reference](../reference/dtrace_functions.md)
-
