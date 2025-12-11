@@ -7,7 +7,7 @@ Creates a speculative trace buffer and returns its ID.
 int speculation(void)
 ```
 
-The `speculation` function reserves a speculative trace buffer for use with `[speculate](function_speculate.md)` and returns an identifier for this buffer.
+The `speculation` function reserves a speculative trace buffer for use with [`speculate`](function_speculate.md) and returns an identifier for this buffer.
 
 ## How to use speculation
 

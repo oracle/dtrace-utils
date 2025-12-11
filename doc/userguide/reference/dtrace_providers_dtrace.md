@@ -62,7 +62,11 @@ As with the `BEGIN` probe, no arguments are defined for the `END` probe. The con
 
 **Note:**
 
-The `[exit](function_exit.md)` function causes tracing to stop and the `END` probe to fire. However, a delay exists between the invocation of the `exit` function and when the `END` probe fires. During this delay, no further probes can fire. After a probe invokes the `exit` function, the `END` probe isn't fired until DTrace determines that `exit` has been called and stops tracing. The rate at which the exit status is checked can be set by using `statusrate` option.
+The [`exit`](function_exit.md) function causes tracing to stop and the `END` probe to fire.
+However, a delay exists between the invocation of the `exit` function and when the `END` probe fires.
+During this delay, no further probes can fire.
+After a probe invokes the `exit` function, the `END` probe isn't fired until DTrace determines that `exit` has been called and stops tracing.
+The rate at which the exit status is checked can be set by using `statusrate` option.
 
 ## ERROR Probe <a id="dt_ref_error_prov">
 

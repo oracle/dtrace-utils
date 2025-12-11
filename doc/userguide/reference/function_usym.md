@@ -7,7 +7,8 @@ Prints the symbol for a specified address. An alias for `ufunc`.
 _usymaddr usym(uintptr_t)
 ```
 
-The `usym` function prints the symbol for a specified address, which is analogous to how `[uaddr](function_uaddr.md)` works, but without the hexadecimal offsets. The `usym` function is an alias for `[ufunc](function_ufunc.md)`.
+The `usym` function prints the symbol for a specified address, which is analogous to how [`uaddr`](function_uaddr.md) works,
+but without the hexadecimal offsets. The `usym` function is an alias for [`ufunc`](function_ufunc.md).
 
 ## How to use usym to obtain the symbol for an address
 

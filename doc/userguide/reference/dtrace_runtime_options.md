@@ -9,7 +9,8 @@ Options that can be specified when running the `dtrace` utility can be categoriz
 
 -   [Runtime Options](runtime_options.md): affect the runtime behavior of DTrace but which are often set at compile time.
 
--   [Dynamic Runtime Options](dynamic_runtime_options.md): affect the runtime behavior of DTrace but which can be changed while tracing, by using the `[setopt](function_setopt.md)` function.
+-   [Dynamic Runtime Options](dynamic_runtime_options.md): affect the runtime behavior of DTrace but which can be changed while tracing,
+    by using the [`setopt`](function_setopt.md) function.
 
 
 -   **[Setting DTrace Compile-time and Runtime Options](../reference/setting_dtrace_compiler_and_runtime_options.md)**  
@@ -20,4 +21,3 @@ Compile-time options can control how DTrace programs are compiled into eBPF code
 Runtime options can control how the DTrace utility behaves.
 -   **[Dynamic Runtime Options](../reference/dynamic_runtime_options.md)**  
 Dynamic runtime options are specific to D programs themselves and are likely to change depending on program functionality and requirements.
-

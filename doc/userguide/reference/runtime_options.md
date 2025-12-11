@@ -17,7 +17,7 @@ Runtime options can control how the DTrace utility behaves.
 
 -   **`bufsize=<size>`**
 
-    Runtime option that sets the principal buffer size. The default buffer size is set to 4 MB. This option is the same as running `dtrace` `-b`.
+    Runtime option that sets the principal buffer size. The default buffer size is set to 4 MB. This option is the same as running `dtrace -b`.
 
 -   **`cleanrate=<time>`**
 
@@ -29,7 +29,7 @@ Runtime options can control how the DTrace utility behaves.
 
 -   **`destructive`**
 
-    Runtime option that permits destructive functions to run. This option is the same as running `dtrace` `-w`.
+    Runtime option that permits destructive functions to run. This option is the same as running `dtrace -w`.
 
 -   **`dynvarsize=<size>`**
 

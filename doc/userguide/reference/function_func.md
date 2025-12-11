@@ -7,7 +7,9 @@ Prints the symbol for a specified kernel space address. An alias for `sym`.
 _symaddr func(uintptr_t *addr*)
 ```
 
-The `func` function is a data recording function that prints the symbol that corresponds to a specified kernel space address, *addr*. The `func` function is an alias for `[sym](function_sym.md)`.
+The `func` function is a data recording function that prints the symbol
+that corresponds to a specified kernel space address, *addr*.
+The `func` function is an alias for [`sym`](function_sym.md).
 
 ## How the func function can return the symbol for a kernel space address
 

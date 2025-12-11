@@ -7,7 +7,8 @@ Prints the symbol for a specified user space address. An alias for `usym`.
 _usymaddr ufunc(uintptr_t)
 ```
 
-The `ufunc` function is a data recording function that prints the symbol that corresponds to a specified user space address. The `func` function is an alias for `[usym](function_usym.md)`.
+The `ufunc` function is a data recording function that prints the symbol that corresponds to a specified user space address.
+The `func` function is an alias for [`usym`](function_usym.md).
 
 ## How to use usym to obtain the symbol for an address
 

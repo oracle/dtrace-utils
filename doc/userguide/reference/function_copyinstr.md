@@ -7,7 +7,13 @@ Copies a null-terminated C string from the specified user address to a DTrace bu
 string copyinstr(uintptr_t *addr* [, size_t *size*])
 ```
 
-The `copyinstr` function copies a null-terminated C string from the specified user address into a DTrace scratch buffer and returns the address of this buffer. The user address is interpreted as an address in the space of the process that's associated with the current thread. An optional maximum length parameter sets a limit on the number of bytes that are examined beyond the address. The resulting string is always null-terminated and the string's length is limited to the value set by the compiler and runtime `strsize` option. As with the `[copyin](function_copyin.md)` function, the specified address must correspond to a faulted-in page in the current process. If the address doesn't correspond to a faulted-in page, or if insufficient scratch memory is available, NULL is returned, and an error is generated.
+The `copyinstr` function copies a null-terminated C string from the specified user address
+into a DTrace scratch buffer and returns the address of this buffer.
+The user address is interpreted as an address in the space of the process that's associated with the current thread.
+An optional maximum length parameter sets a limit on the number of bytes that are examined beyond the address.
+The resulting string is always null-terminated and the string's length is limited to the value set by the compiler and runtime `strsize` option.
+As with the [`copyin`](function_copyin.md) function, the specified address must correspond to a faulted-in page in the current process.
+If the address doesn't correspond to a faulted-in page, or if insufficient scratch memory is available, NULL is returned, and an error is generated.
 
 ## How to use copyinstr to copy a string from an address space for a process to the DTrace buffer
 
@@ -22,4 +28,3 @@ syscall::write:entry
 ```
 
 **Parent topic:**[DTrace Function Reference](../reference/dtrace_functions.md)
-

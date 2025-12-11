@@ -27,7 +27,7 @@ Description
 
 </th></tr></thead><tbody><tr><td>
 
-`[speculation](../reference/function_speculation.md)`
+[`speculation`](../reference/function_speculation.md)
 
 </td><td>
 
@@ -39,7 +39,7 @@ Returns an identifier for a new speculative buffer.
 
 </td></tr><tr><td>
 
-`[speculate](../reference/function_speculate.md)`
+[`speculate`](../reference/function_speculate.md)
 
 </td><td>
 
@@ -51,7 +51,7 @@ Denotes that the remainder of the clause must be traced to the speculative buffe
 
 </td></tr><tr><td>
 
-`[commit](../reference/function_commit.md)`
+[`commit`](../reference/function_commit.md)
 
 </td><td>
 
@@ -63,7 +63,7 @@ Commits the speculative buffer that's associated with ID.
 
 </td></tr><tr><td>
 
-`[discard](../reference/function_discard.md)`
+[`discard`](../reference/function_discard.md)
 
 </td><td>
 
