@@ -11,7 +11,8 @@
  * SECTION: Options and Tunables/Consumer Options
  */
 
-/* @@runtest-opts: -xversion=99.1 */
+#pragma D option version=99.1
+
 BEGIN {
 	exit(0);
 }

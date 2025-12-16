@@ -24,6 +24,7 @@
 #include <dt_pcap.h>
 #include <dt_string.h>
 #include <libproc.h>
+#include <port.h>
 
 static int
 dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -676,18 +677,7 @@ dt_opt_invcflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_version(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
-	dt_version_t v;
-
-	if (arg == NULL)
-		return dt_set_errno(dtp, EDT_BADOPTVAL);
-
-	if (dt_version_str2num(arg, &v) == -1)
-		return dt_set_errno(dtp, EDT_VERSINVAL);
-
-	if (!dt_version_defined(v))
-		return dt_set_errno(dtp, EDT_VERSUNDEF);
-
-	return dt_reduce(dtp, v);
+	return dt_set_errno(dtp, ENOTSUPP);
 }
 
 static int
