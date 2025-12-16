@@ -3,14 +3,16 @@
 
 install::
 	mkdir -p $(INSTDOCDIR)
+	mkdir -p $(INSTDOCDIR)/tutorial
 	mkdir -p $(INSTDOCDIR)/userguide
 	mkdir -p $(INSTDOCDIR)/userguide/explanation
 	mkdir -p $(INSTDOCDIR)/userguide/how-to
 	mkdir -p $(INSTDOCDIR)/userguide/reference
 	mkdir -p $(INSTDOCDIR)/examples/
 	mkdir -p $(INSTDOCDIR)/examples/language_features
-	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS userguide examples)
+	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS tutorial userguide examples)
 	install -m 644 README INCOMPATIBILITIES NEWS $(INSTDOCDIR)
+	install -m 644 doc/tutorial/*.md $(INSTDOCDIR)/tutorial
 	install -m 644 doc/userguide/index.md $(INSTDOCDIR)/userguide
 	install -m 644 doc/userguide/explanation/* $(INSTDOCDIR)/userguide/explanation
 	install -m 644 doc/userguide/how-to/* $(INSTDOCDIR)/userguide/how-to
