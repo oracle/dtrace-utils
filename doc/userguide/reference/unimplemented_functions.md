@@ -6,25 +6,12 @@ and some functions are not relevant to Linux and might never be implemented.
 The following functions are not currently implemented:
 
 -   `breakpoint`
-
 -   `chill`
-
--   `dpath`
 -   `ddi_pathname`
-
--   `inet_ntoa6`
-
--   `inet_ntop`
-
 -   `msgdsize`
-
 -   `msgsize`
-
 -   `panic`
-
 -   `pcap`
-
 -   `stop`
-
 
 **Parent topic:**[DTrace Function Reference](../reference/dtrace_functions.md)
