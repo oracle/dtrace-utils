@@ -11,7 +11,6 @@
 85 0 1 0000 ffffffff    call dt_bvar_args             ! args[0]
 85 0 1 0000 ffffffff    call dt_bvar_args             ! args[1]
 85 0 1 0000 ffffffff    call dt_bvar_args             ! args[2]
-85 0 1 0000 ffffffff    call dt_bvar_args             ! args[3]
 85 0 1 0000 ffffffff    call dt_bvar_caller           ! caller
 85 0 1 0000 ffffffff    call dt_bvar_curcpu           ! curcpu
 85 0 1 0000 ffffffff    call dt_bvar_curthread        ! curthread

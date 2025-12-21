@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
 
 dtrace=$1
+tmpfile=$tmpdir/tst.ann_bvar.$$
 
 $dtrace $dt_flags -Sen '
 sdt:task::task_rename
@@ -24,7 +25,7 @@ sdt:task::task_rename
 	trace(args[0]);
 	trace(args[1]);
 	trace(args[2]);
-	trace(args[3]);
+/*	trace(args[3]); */
 	trace(caller);
 	trace(curcpu);
 	trace(curthread);
@@ -50,6 +51,13 @@ sdt:task::task_rename
 	trace(walltimestamp);
 	exit(0);
 }
-' 2>&1 | gawk '/ call dt_bvar_/ { sub(/^[^:]+: /, ""); print; }'
+' >& $tmpfile
+if [ $? -ne 0 ]; then
+	echo "ERROR: DTrace not successful"
+	cat $tmpfile
+	exit 1
+fi
+
+gawk '/ call dt_bvar_/ { sub(/^[^:]+: /, ""); print; }' $tmpfile
 
 exit $?
