@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -422,11 +422,8 @@ have_helper(uint32_t func_id)
 				BPF_CALL_HELPER(func_id),
 				BPF_RETURN()
 			};
-	dtrace_difo_t	dp;
+	dtrace_difo_t	dp = { insns, NULL, NULL, ARRAY_SIZE(insns) };
 	int		fd;
-
-	dp.dtdo_buf = insns;
-	dp.dtdo_len = ARRAY_SIZE(insns);
 
 	/* If the program loads, we can use the helper. */
 	fd = dt_bpf_prog_attach(BPF_PROG_TYPE_KPROBE, 0, 0, 0, &dp,
@@ -486,11 +483,8 @@ have_attach_type(enum bpf_prog_type ptype, enum bpf_attach_type atype,
 				BPF_MOV_IMM(BPF_REG_0, 0),
 				BPF_RETURN()
 			};
-	dtrace_difo_t	dp;
+	dtrace_difo_t	dp = { insns, NULL, NULL, ARRAY_SIZE(insns) };
 	int		pfd, tfd = -1;
-
-	dp.dtdo_buf = insns;
-	dp.dtdo_len = ARRAY_SIZE(insns);
 
 	pfd = dt_bpf_prog_attach(ptype, atype, 0, btf_id, &dp, 0, NULL, 0);
 	/* If the program load fails, we cannot iuse the attach type. */
