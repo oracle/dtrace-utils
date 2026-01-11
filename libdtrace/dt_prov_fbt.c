@@ -53,8 +53,7 @@ static const char		prvname[] = "fbt";
 
 #define KPROBE_EVENTS		TRACEFS "kprobe_events"
 
-#define FBT_GROUP_FMT		GROUP_FMT "_%s"
-#define FBT_GROUP_DATA		GROUP_DATA, prp->desc->prb
+#define FBT_PROBE_FMT		"dt_%d_%s_%s"
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
@@ -508,16 +507,16 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		if (fd == -1)
 			goto out;
 
-		rc = dprintf(fd, "%c:" FBT_GROUP_FMT "/%s %s\n",
+		rc = dprintf(fd, "%c:" FBT_PROBE_FMT "/%s %s\n",
 			     prp->desc->prb[0] == 'e' ? 'p' : 'r',
-			     FBT_GROUP_DATA, tpn, fun);
+			     PROBE_DATA, tpn, fun);
 		close(fd);
 		if (rc == -1)
 			goto out;
 
 		/* create format file name */
-		if (asprintf(&fn, "%s" FBT_GROUP_FMT "/%s/format", EVENTSFS,
-			     FBT_GROUP_DATA, tpn) == -1)
+		if (asprintf(&fn, "%s" FBT_PROBE_FMT "/%s/format", EVENTSFS,
+			     PROBE_DATA, tpn) == -1)
 			goto out;
 
 		/* open format file */
@@ -583,7 +582,7 @@ static void kprobe_detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 		}
 	}
 
-	dprintf(fd, "-:" FBT_GROUP_FMT "/%s\n", FBT_GROUP_DATA, tpn);
+	dprintf(fd, "-:" FBT_PROBE_FMT "/%s\n", PROBE_DATA, tpn);
 	close(fd);
 
 	if (tpn != prp->desc->fun)

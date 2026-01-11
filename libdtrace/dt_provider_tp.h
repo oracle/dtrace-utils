@@ -18,13 +18,13 @@ extern "C" {
  * Tracepoint group naming format for DTrace providers.  Providers may append
  * to this format string as needed.
  *
- * GROUP_DATA provides the necessary data items to populate the format string
- * (PID of the dtrace process and the provider name).  GROUP_SFMT is like
- * GROUP_FMT, but for sscanf().
+ * PROBE_DATA provides the necessary data items to populate the format string.
+ * PROBE_FMT formats that data.
+ * PROBE_SFMT is a format string for recognizing PROBE_FMT data in sscanf().
  */
-#define GROUP_FMT	"dt_%d_%s"
-#define GROUP_SFMT	"dt_%d_%ms"
-#define GROUP_DATA	getpid(), prvname
+#define PROBE_DATA	getpid(), prp->desc->prv, prp->desc->prb
+#define PROBE_FMT	"dt_%d_%s/%s"
+#define PROBE_SFMT	"dt_%d_%ms"
 
 typedef struct tp_probe tp_probe_t;
 

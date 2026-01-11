@@ -56,7 +56,7 @@ static const dtrace_pattr_t	pattr = {
 /*
  * The PROBE_LIST file lists all tracepoints in a <group>:<name> format.
  * We need to ignore these groups:
- *   - GROUP_FMT (created by DTrace processes)
+ *   - PROBE_SFMT
  *   - kprobes and uprobes
  *   - syscalls (handled by a different provider)
  *   - pid and usdt probes (ditto)
@@ -89,7 +89,7 @@ static int populate(dtrace_hdl_t *dtp)
 
 			*p++ = '\0';
 
-			if (sscanf(buf, GROUP_SFMT, &dummy, &str) == 2) {
+			if (sscanf(buf, PROBE_SFMT, &dummy, &str) == 2) {
 				free(str);
 				continue;
 			}

@@ -239,8 +239,8 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		/* add a uprobe */
 		fd = open(UPROBE_EVENTS, O_WRONLY | O_APPEND);
 		if (fd != -1) {
-			rc = dprintf(fd, "p:" GROUP_FMT "/%s %s\n",
-				     GROUP_DATA, prp->desc->prb, spec);
+			rc = dprintf(fd, "p:" PROBE_FMT " %s\n",
+				     PROBE_DATA, spec);
 			close(fd);
 		}
 		free(spec);
@@ -248,14 +248,14 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		/* open format file */
-		len = snprintf(NULL, 0, "%s" GROUP_FMT "/%s/format",
-			       EVENTSFS, GROUP_DATA, prp->desc->prb) + 1;
+		len = snprintf(NULL, 0, "%s" PROBE_FMT "/format",
+			       EVENTSFS, PROBE_DATA) + 1;
 		fn = dt_alloc(dtp, len);
 		if (fn == NULL)
 			return -ENOENT;
 
-		snprintf(fn, len, "%s" GROUP_FMT "/%s/format",
-			 EVENTSFS, GROUP_DATA, prp->desc->prb);
+		snprintf(fn, len, "%s" PROBE_FMT "/format",
+			 EVENTSFS, PROBE_DATA);
 		f = fopen(fn, "r");
 		dt_free(dtp, fn);
 		if (f == NULL)
@@ -296,7 +296,7 @@ static void detach(dtrace_hdl_t *dtp, const dt_probe_t *prp)
 	if (fd == -1)
 		return;
 
-	dprintf(fd, "-:" GROUP_FMT "/%s\n", GROUP_DATA, prp->desc->prb);
+	dprintf(fd, "-:" PROBE_FMT "\n", PROBE_DATA);
 	close(fd);
 }
 
