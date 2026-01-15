@@ -228,7 +228,7 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 		if (!dt_symbol_traceable(sym))
 			continue;
 
-		/* Function name cannot be synthetic and must match. */
+		/* Function name cannot be synthetic (unless rawfbt) and must match. */
 		fun = dt_symbol_name(sym);
 		if ((!rawfbt && strchr(fun, '.')) || !dt_gmatch(fun, pdp->fun))
 			continue;
