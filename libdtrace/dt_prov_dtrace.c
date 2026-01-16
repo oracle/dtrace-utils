@@ -228,7 +228,6 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 		char	*spec;
 		char	*fn;
 		FILE	*f;
-		size_t	len;
 		int	fd, rc = -1;
 
 		/* get a uprobe specification for this probe */
@@ -248,16 +247,11 @@ static int attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			return -ENOENT;
 
 		/* open format file */
-		len = snprintf(NULL, 0, "%s" PROBE_FMT "/format",
-			       EVENTSFS, PROBE_DATA) + 1;
-		fn = dt_alloc(dtp, len);
-		if (fn == NULL)
+		if (asprintf(&fn, "%s" PROBE_FMT "/format", EVENTSFS,
+			     PROBE_DATA) < 0)
 			return -ENOENT;
-
-		snprintf(fn, len, "%s" PROBE_FMT "/format",
-			 EVENTSFS, PROBE_DATA);
 		f = fopen(fn, "r");
-		dt_free(dtp, fn);
+		free(fn);
 		if (f == NULL)
 			return -ENOENT;
 

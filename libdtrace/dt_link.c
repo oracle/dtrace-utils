@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -416,7 +416,6 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	char drti[PATH_MAX], symvers[PATH_MAX];
 	int fd, i, cur;
 	char *cmd;
-	size_t len;
 	int ret = 0, status = 0;
 
 	/*
@@ -426,6 +425,7 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	 */
 	if (pgp == NULL) {
 		const char *fmt = "%s -o %s -r";
+		size_t len;
 
 		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, file) + 1;
 
@@ -521,15 +521,12 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 		}
 		snprintf(symvers, sizeof (symvers), "%s/drti/drti-vers", libdir->dir_path);
 
-		len = snprintf(NULL, 0, fmt, dtp->dt_ld_path, emu, file,
-			       symvers, fd, drti) + 1;
+		asprintf(&cmd, fmt, dtp->dt_ld_path, emu, file, symvers, fd,
+			 drti);
+		status = system(cmd);
+		free(cmd);
 
-		cmd = alloca(len);
-
-		(void) snprintf(cmd, len, fmt, dtp->dt_ld_path, emu, file,
-				symvers, fd, drti);
-
-		if ((status = system(cmd)) == -1) {
+		if (status == -1) {
 			ret = dt_link_error(dtp, NULL, -1,
 			    "failed to run %s: %s", dtp->dt_ld_path,
 			    strerror(errno));
