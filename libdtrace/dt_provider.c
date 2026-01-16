@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -110,6 +110,9 @@ dt_provider_lookup(dtrace_hdl_t *dtp, const char *name)
 {
 	dt_provider_t tmpl;
 
+	if (dtp->dt_provs == NULL)
+		return NULL;
+
 	if ((strlen(name) + 1) > sizeof(tmpl.desc.dtvd_name))
 		return NULL;
 
@@ -123,6 +126,10 @@ dt_provider_create(dtrace_hdl_t *dtp, const char *name,
 		   void *datap)
 {
 	dt_provider_t *pvp;
+
+	pvp = dt_provider_lookup(dtp, name);
+	if (pvp)
+		return pvp;
 
 	if ((pvp = dt_zalloc(dtp, sizeof(dt_provider_t))) == NULL)
 		goto nomem;
