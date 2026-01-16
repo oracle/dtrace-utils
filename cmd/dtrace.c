@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/compiler.h>
+#include <locale.h>
 
 #include <dtrace.h>
 #include <stdlib.h>
@@ -923,6 +924,8 @@ main(int argc, char *argv[])
 	char *p, **v;
 	pid_t pid;
 	struct dtrace_proc *proc;
+
+	setlocale(LC_NUMERIC, "");
 
 	g_ofp = stdout;
 
