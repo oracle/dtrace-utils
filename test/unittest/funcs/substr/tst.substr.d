@@ -153,7 +153,7 @@ BEGIN
 
 	end = i;
 	i = 0;
-	printf("#!/usr/bin/perl\n\nBEGIN {\n");
+	printf("BEGIN {\n");
 
 }
 

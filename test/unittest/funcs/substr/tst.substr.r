@@ -1,5 +1,3 @@
-#!/usr/bin/perl
-
 BEGIN {
 	if (substr("foobarbazbop", 3) ne "barbazbop") {
 		printf("perl => substr(\"foobarbazbop\", 3) = \"%s\"\n",

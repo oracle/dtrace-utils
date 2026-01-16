@@ -1,5 +1,3 @@
-#!/usr/bin/perl
-
 BEGIN {
 	if (index("foobarbaz", "barbaz") != 3) {
 		printf("perl => index(\"foobarbaz\", \"barbaz\") = %d\n",

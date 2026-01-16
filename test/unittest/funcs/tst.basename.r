@@ -1,5 +1,3 @@
-#!/bin/bash
-
 if [ `basename "/foo/bar/baz"` != "baz" ]; then
 	echo "basename(\"/foo/bar/baz\") is \"baz\"; expected \"`basename "/foo/bar/baz"`"\"
 fi
