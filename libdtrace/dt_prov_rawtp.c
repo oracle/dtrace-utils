@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -296,7 +296,7 @@ use_alt:
 dt_provimpl_t	dt_rawtp = {
 	.name		= prvname,
 	.prog_type	= BPF_PROG_TYPE_RAW_TRACEPOINT,
-	.stack_skip	= 4,
+	.stack_skip	= 3,
 	.populate	= &populate,
 	.load_prog	= &dt_bpf_prog_load,
 	.trampoline	= &trampoline,
