@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2008, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -275,13 +275,13 @@ dt_setcontext(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 	    isdigit(pdp->prv[strlen(pdp->prv) - 1]) &&
 	    ((pvp = dt_provider_lookup(dtp, pdp->prv)) == NULL ||
 	     pvp->pv_flags & DT_PROVIDER_PID) &&
-	    dt_pid_create_pid_probes((dtrace_probedesc_t *)pdp, dtp, yypcb) != 0)
+	    dt_pid_create_pid_probes((dtrace_probedesc_t *)pdp, dtp) != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 
 	/*
 	 * USDT probes.
 	 */
-	if (dt_pid_create_usdt_probes((dtrace_probedesc_t *)pdp, dtp, yypcb) != 0)
+	if (dt_pid_create_usdt_probes((dtrace_probedesc_t *)pdp, dtp) != 0)
 		longjmp(yypcb->pcb_jmpbuf, EDT_COMPILER);
 
 	/*

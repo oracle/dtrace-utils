@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -645,23 +645,13 @@ static int add_probe_usdt(dtrace_hdl_t *dtp, dt_probe_t *prp)
 static int discover(dtrace_hdl_t *dtp)
 {
 	int		i;
-	dt_pcb_t	pcb;
 
 	/* Clean up stale pids from among the USDT probes. */
 	clean_usdt_probes(dtp);
 
 	/* Discover new probes, placing them in dt_probes[]. */
-	/*
-	 * pcb is only used inside of dt_pid_error() to get:
-	 *     pcb->pcb_region
-	 *     pcb->pcb_filetag
-	 *     pcb->pcb_fileptr
-	 * While pcb cannot be NULL, these other things apparently can be.
-	 */
-	memset(&pcb, 0, sizeof(dt_pcb_t));
-	for (i = 0; i < dtp->dt_stmt_nextid; i++) {
-		dt_pid_create_usdt_probes(&dtp->dt_stmts[i]->dtsd_ecbdesc->dted_probe, dtp, &pcb);
-	}
+	for (i = 0; i < dtp->dt_stmt_nextid; i++)
+		dt_pid_create_usdt_probes(&dtp->dt_stmts[i]->dtsd_ecbdesc->dted_probe, dtp);
 
 	return 0;
 }
