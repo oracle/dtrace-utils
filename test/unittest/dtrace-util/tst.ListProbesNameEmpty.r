@@ -17,5 +17,5 @@ dtrace: failed to match ::vmlinux:read: No probe matches description
 dtrace: failed to match :syscall:vmlinux:read: No probe matches description
 dtrace: failed to match ::vmlinux:: No probe matches description
 dtrace: failed to match fbt:des:des3_crunch_block:return: No probe matches description
-dtrace: failed to match :read*::: No probe matches description
+dtrace: failed to match :readfoo*::: No probe matches description
 dtrace: failed to match :::read: No probe matches description

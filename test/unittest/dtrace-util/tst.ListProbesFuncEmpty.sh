@@ -28,7 +28,7 @@ $dtrace $dt_flags -lf profile
 $dtrace $dt_flags -lf vmlinux
 $dtrace $dt_flags -lf :vmlinux::
 $dtrace $dt_flags -lf ::read:
-$dtrace $dt_flags -lf ::'read*':
+$dtrace $dt_flags -lf ::'readfoo*':
 $dtrace $dt_flags -lf profile:::tick-1000
 $dtrace $dt_flags -lf fbt:des:des3_crunch_block:return
 # This is curiously different from what man.ListProbesWithFunctions says should

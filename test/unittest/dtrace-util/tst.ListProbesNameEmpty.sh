@@ -32,6 +32,6 @@ $dtrace $dt_flags -ln vmlinux:read
 $dtrace $dt_flags -ln syscall:vmlinux:read
 $dtrace $dt_flags -ln :vmlinux:
 $dtrace $dt_flags -ln fbt:des:des3_crunch_block:return
-$dtrace $dt_flags -ln :'read*'::
+$dtrace $dt_flags -ln :'readfoo*'::
 $dtrace $dt_flags -ln read'{printf("FOUND");}'
 exit 0
