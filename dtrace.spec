@@ -115,7 +115,8 @@ Requires:     %{name}-devel = %{version}-%{release} perl gcc java
 Requires:     java-devel perl-IO-Socket-IP perl-Net-Ping xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     coreutils wireshark %{glibc32}
-Requires:     perf time bc nfs-utils
+Requires:     time bc nfs-utils
+Suggests:     kernel-uek-tools
 Autoreq:      0
 Group:	      Development/System
 
@@ -243,6 +244,8 @@ systemctl start dtprobed || :
 - Add the DTrace Tutorial to the git repo and install package.
 - Add missing documentation:  trunc(), stapsdt, usdt.h include path.
 - Update LLM context files to forbid "if" statements.
+- Test suite weakly pulls in kernel-uek-tools to get perf.
+  [Orabug: 38064413]
 
 * Fri Oct 24 2025 Eugene Loh <eugene.loh@oracle.com> - 2.0.4-1
 - TCP, UDP, and stapsdt providers implemented.  (Alan Maguire)
