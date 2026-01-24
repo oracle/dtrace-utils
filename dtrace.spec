@@ -72,7 +72,7 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.4.1
+Version:      2.0.5
 Release:      1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
@@ -230,7 +230,7 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Mon Jan 26 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.4.1-1
+* Tue Jan 27 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.5-1
 - Implement PID-specific uprobes.
 - Allocate the buffers BPF map to fit highest CPU id.
 - Change the "stack skip" to 3 for fbt (fprobe) and rawtp providers.
