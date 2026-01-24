@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -16,6 +16,8 @@ cd $DIRNAME
 # Make trigger program.
 
 cat << EOF > main.c
+#include <stdio.h>
+
 int foo0(int i) {
     int j, k;
 
@@ -46,6 +48,10 @@ int foo2(int i) {
 int main(int c, char **v) {
     int i = 0;
 
+    printf("foo0 %p\n"
+	   "foo1 %p\n"
+	   "foo2 %p\n"
+	   "main %p\n", &foo0, &foo1, &foo2, &main);
     i = foo0(i) ^ i;
     i = foo1(i) ^ i;
     i = foo2(i) ^ i;
@@ -84,10 +90,6 @@ for func in foo0 foo1 foo2 main; do
 	  exit(0);
 	  }'`
 
-	# Write the expected output to the compare file.
-	echo got $ABS $func:$REL >> dtrace.exp
-	echo got $ABS "-":$ABS   >> dtrace.exp
-
 	# Write the actual dtrace output to the output file.
 	# Specify the pid probe with both relative and absolute
 	# forms.
@@ -95,12 +97,18 @@ for func in foo0 foo1 foo2 main; do
 		$dtrace -c ./a.out -o dtrace.out -qn '
 		    pid$target:a.out:'$probe'
 		    { printf("got %x %s:%s", uregs[R_PC], probefunc,
-							  probename); }'
+							  probename); }' > addrs
 		if [ $? -ne 0 ]; then
 			echo ERROR: dtrace
 			cat dtrace.out
 			exit 1
 		fi
+
+		awk -vfn="$func" -vrel="$REL" -vprobe="$probe" \
+		    '$1 == fn {
+			addr = strtonum($2) + int(rel);
+			printf "got %x %s\n", addr, probe;
+		     }' addrs >> dtrace.exp
 	done
 done
 
