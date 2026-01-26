@@ -10,7 +10,8 @@ install::
 	mkdir -p $(INSTDOCDIR)/userguide/reference
 	mkdir -p $(INSTDOCDIR)/examples/
 	mkdir -p $(INSTDOCDIR)/examples/language_features
-	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS tutorial userguide examples)
+	mkdir -p $(INSTDOCDIR)/llm
+	$(call describe-install-target,$(INSTDOCDIR),README INCOMPATIBILITIES NEWS tutorial userguide examples llm)
 	install -m 644 README INCOMPATIBILITIES NEWS $(INSTDOCDIR)
 	install -m 644 doc/tutorial/*.md $(INSTDOCDIR)/tutorial
 	install -m 644 doc/userguide/index.md $(INSTDOCDIR)/userguide
@@ -20,6 +21,7 @@ install::
 	install -m 755 examples/*.d $(INSTDOCDIR)/examples
 	install -m 644 examples/README.md $(INSTDOCDIR)/examples
 	install -m 755 examples/language_features/* $(INSTDOCDIR)/examples/language_features
+	install -m 644 llm/* $(INSTDOCDIR)/llm
 
 
 install-test::
