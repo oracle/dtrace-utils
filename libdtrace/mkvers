@@ -10,7 +10,7 @@
 NF == 0 { next; }
 
 {
-	if (match($1, /^[1-9][0-9]*(\.[0-9]*){1,2}$/) == 0) {
+	if (match($1, /^[1-9][0-9]*(\.[0-9]*){1,3}$/) == 0) {
 		print "E: Invalid version string: " $1 >"/dev/stderr";
 		exit 1
 	}
