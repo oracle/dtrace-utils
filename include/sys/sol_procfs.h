@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -50,6 +50,7 @@ typedef struct prmap {
 
 
 /* Protection and attribute flags */
+#define	MA_PIC		0x08	/* position independent code */
 #define	MA_READ		0x04	/* readable by the traced process */
 #define	MA_WRITE	0x02	/* writable by the traced process */
 #define	MA_EXEC		0x01	/* executable by the traced process */
