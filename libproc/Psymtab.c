@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -742,8 +742,11 @@ Pupdate_maps(struct ps_prochandle *P)
 
 			if (mptr->map_file &&
 			    mptr->map_file->file_map == -1 &&
-			    mptr->map_pmap->pr_file->prf_text_map == mptr->map_pmap)
+			    mptr->map_pmap->pr_file->prf_text_map == mptr->map_pmap) {
 				mptr->map_file->file_map = P->num_mappings;
+				if (mptr->map_file->file_etype == ET_DYN)
+					mptr->map_pmap->pr_mflags |= MA_PIC;
+			}
 		}
 
 		_dprintf("Added mapping for %s: %lx:%lx %lx(%lx)\n",
