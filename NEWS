@@ -1,3 +1,60 @@
+2.0.4.1-1 (Jan 26th, 2026)
+------------------------
+
+New features:
+
+ - Implement PID-specific uprobes.
+
+Bugfixes:
+
+ - Allocate the buffers BPF map to fit highest CPU id.
+
+ - Change the "stack skip" to 3 for fbt (fprobe) and rawtp providers.
+
+ - Fix prvname so that both rawfbt and fbt probes are seen.
+
+ - Do not convert "__" to "-" for stapsdt provider names.
+
+ - Fix printf formatting with non-monetary grouping chars.
+
+User-visible changes:
+
+ - Discontinue -xversion=V as an option.
+
+ - Support non-libctf environments for tcp.
+
+Internal changes:
+
+ - Fix some memory leaks.
+
+ - Refactor some code.
+
+Testsuite changes:
+
+ - Correct file permissions.
+
+ - Add ERROR clause to prevent hang from runtime error.
+
+Documentation changes:
+
+- Add the DTrace Tutorial to the git repo and install package.
+
+- Clean up formatting.
+
+- Add missing documentation:  trunc(), stapsdt, usdt.h include path.
+
+- Update sections: unimplemented functions, sdt provider.
+
+- Update LLM context files to forbid "if" statements.
+
+- Update README.md for RPM info.
+
+Build-time:
+
+ - Clean up .spec file.
+
+ - Add testsuite dependency for perl-Net-Ping
+
 2.0.4-1 (Oct 24th, 2025)
 ------------------------
 

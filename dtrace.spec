@@ -229,6 +229,21 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Jan 26 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.4.1-1
+- Implement PID-specific uprobes.
+- Allocate the buffers BPF map to fit highest CPU id.
+- Change the "stack skip" to 3 for fbt (fprobe) and rawtp providers.
+  [Orabug: 38776929]
+- Fix prvname so that both rawfbt and fbt probes are seen.
+  [Orabug: 38842114]
+- Do not convert "__" to "-" for stapsdt provider names.
+- Fix printf formatting with non-monetary grouping chars.
+  [Orabug: 30430270]
+- Discontinue -xversion=V as an option.  [Orabug: 38615307]
+- Add the DTrace Tutorial to the git repo and install package.
+- Add missing documentation:  trunc(), stapsdt, usdt.h include path.
+- Update LLM context files to forbid "if" statements.
+
 * Fri Oct 24 2025 Eugene Loh <eugene.loh@oracle.com> - 2.0.4-1
 - TCP, UDP, and stapsdt providers implemented.  (Alan Maguire)
 - New learning materials:  the User's Guide in Markdown format,
