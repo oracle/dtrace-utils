@@ -55,6 +55,7 @@ typedef struct dt_pid_probe {
 	dev_t dpp_dev;
 	ino_t dpp_inum;
 	const char *dpp_fname;
+	uintptr_t dpp_base;
 	uintptr_t dpp_vaddr;
 	Lmid_t dpp_lmid;
 	uint_t dpp_nmatches;
@@ -202,6 +203,7 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 		}
 
 		psp->pps_nameoff = off;
+		off += pp->dpp_base;
 
 		if (dt_Plookup_by_addr(dtp, pid, off, (const char **)&psp->pps_fun, &sym)) {
 			rc = dt_pid_error(dtp, dpr, D_PROC_NAME,
@@ -470,6 +472,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	pp->dpp_dev = pmp->pr_dev;
 	pp->dpp_inum = pmp->pr_inum;
 	pp->dpp_vaddr = pmp->pr_file->first_segment->pr_vaddr;
+	pp->dpp_base = (pmp->pr_mflags & MA_PIC) ? pp->dpp_vaddr : 0;
 
 	/*
 	 * Note: if an execve() happens in the victim after this point, the
