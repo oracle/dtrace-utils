@@ -72,7 +72,7 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.4
+Version:      2.0.4.1
 Release:      1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
