@@ -231,8 +231,8 @@ systemctl start dtprobed || :
 
 %changelog
 * Tue Jan 27 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.5-1
-- Implement PID-specific uprobes.
-- Allocate the buffers BPF map to fit highest CPU id.
+- Implement PID-specific uprobes.  (Kris Van Hees)
+- Allocate the buffers BPF map to fit highest CPU id.  (Kris Van Hees)
 - Change the "stack skip" to 3 for fbt (fprobe) and rawtp providers.
   [Orabug: 38776929]
 - Fix prvname so that both rawfbt and fbt probes are seen.
@@ -240,11 +240,11 @@ systemctl start dtprobed || :
 - Do not convert "__" to "-" for stapsdt provider names.
 - Fix printf formatting with non-monetary grouping chars.
   [Orabug: 30430270]
-- Discontinue -xversion=V as an option.  [Orabug: 38615307]
+- Discontinue -xversion=V as an option.  (Kris Van Hees) [Orabug: 38615307]
 - Add the DTrace Tutorial to the git repo and install package.
 - Add missing documentation:  trunc(), stapsdt, usdt.h include path.
 - Update LLM context files to forbid "if" statements.
-- Test suite weakly pulls in kernel-uek-tools to get perf.
+- Test suite weakly pulls in kernel-uek-tools to get perf.  (Nick Alcock)
   [Orabug: 38064413]
 
 * Fri Oct 24 2025 Eugene Loh <eugene.loh@oracle.com> - 2.0.4-1
