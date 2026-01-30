@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -202,7 +202,7 @@ static int probe_info_tracefs(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = dt_tp_probe_info(dtp, f, 0, prp, argcp, argvp);
+	rc = dt_tp_probe_info(dtp, f, NULL, prp, argcp, argvp);
 	fclose(f);
 
 	return rc;

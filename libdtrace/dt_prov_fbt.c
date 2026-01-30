@@ -526,7 +526,7 @@ static int kprobe_attach(dtrace_hdl_t *dtp, const dt_probe_t *prp, int bpf_fd)
 			goto out;
 
 		/* read event id from format file */
-		rc = dt_tp_probe_info(dtp, f, 0, prp, NULL, NULL);
+		rc = dt_tp_probe_info(dtp, f, NULL, prp, NULL, NULL);
 		fclose(f);
 
 		if (rc < 0)
