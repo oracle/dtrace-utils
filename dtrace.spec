@@ -115,7 +115,7 @@ Requires:     %{name}-devel = %{version}-%{release} perl gcc java
 Requires:     java-devel perl-IO-Socket-IP perl-Net-Ping xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     coreutils wireshark %{glibc32}
-Requires:     time bc nfs-utils
+Requires:     time bc nfs-utils bpftool
 Suggests:     kernel-uek-tools
 Autoreq:      0
 Group:	      Development/System
