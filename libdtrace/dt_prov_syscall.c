@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -39,11 +39,6 @@ static const char		prvname[] = "syscall";
 static const char		modname[] = "vmlinux";
 
 #define SYSCALLSFS		EVENTSFS "syscalls/"
-
-/*
- * We need to skip over an extra field: __syscall_nr.
- */
-#define SKIP_EXTRA_FIELDS	1
 
 static const dtrace_pattr_t	pattr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
@@ -186,6 +181,41 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	return 0;
 }
 
+static int valid_arg(int fldc, const char *desc)
+{
+	char	*p, *q;
+	int	rc = 1;
+	size_t	l;
+
+	/* Skip the first non-common field. */
+	if (fldc < 1)
+		return 0;
+
+	/*
+	 * A non-common field with a __data_loc tag and __<name>_val name
+	 * indicates the beginning of the dynamic data area.  The previously
+	 * processed field was the last argument.
+	 */
+	p = strdup(desc);
+	if (sscanf(p, "__data_loc %[^;]", p) <= 0)
+		goto ok;
+
+	l = strlen(p);
+	if (l < 4 || strcmp(&(p[l - 4]), "_val") != 0)
+		goto ok;
+
+	q = strrchr(p, ' ');
+	if (q == NULL || strncmp(q, " __", 3) != 0)
+		goto ok;
+
+	/* Done with processing fields. */
+	rc = -1;
+
+ok:
+	free(p);
+	return rc;
+}
+
 static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 		      int *argcp, dt_argdesc_t **argvp)
 {
@@ -209,7 +239,7 @@ static int probe_info(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!f)
 		return -ENOENT;
 
-	rc = dt_tp_probe_info(dtp, f, SKIP_EXTRA_FIELDS, prp, argcp, argvp);
+	rc = dt_tp_probe_info(dtp, f, valid_arg, prp, argcp, argvp);
 	fclose(f);
 
 	return rc;

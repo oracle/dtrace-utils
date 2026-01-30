@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -33,8 +33,12 @@ extern int dt_tp_attach(dtrace_hdl_t *dtp, tp_probe_t *tpp, int bpf_fd);
 extern int dt_tp_attach_raw(dtrace_hdl_t *dtp, tp_probe_t *tpp,
 			    const char *name, int bpf_fd);
 extern int dt_tp_has_info(const tp_probe_t *tpp);
-extern int dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip,
-			    tp_probe_t *tpp, int *argcp, dt_argdesc_t **argvp);
+
+typedef int dt_valid_arg_f(int fldc, const char *desc);
+extern int dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f,
+			    dt_valid_arg_f *valid_arg, tp_probe_t *tpp,
+			    int *argcp, dt_argdesc_t **argvp);
+
 extern void dt_tp_detach(dtrace_hdl_t *dtp, tp_probe_t *tpp);
 extern void dt_tp_destroy(dtrace_hdl_t *dtp, tp_probe_t *tpp);
 extern uint32_t dt_tp_get_id(const tp_probe_t *prp);
@@ -44,7 +48,8 @@ extern struct dt_probe *dt_tp_probe_insert(dtrace_hdl_t *dtp,
 					   dt_provider_t *prov,
 					   const char *prv, const char *mod,
 					   const char *fun, const char *prb);
-extern int dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f, int skip,
+extern int dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f,
+			    dt_valid_arg_f *valid_arg,
 			    const struct dt_probe *prp, int *argcp,
 			    dt_argdesc_t **argvp);
 extern int dt_tp_probe_has_info(const struct dt_probe *prp);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -123,17 +123,16 @@ dt_tp_attach_raw(dtrace_hdl_t *dtp, tp_probe_t *tpp, const char *name,
  * array dimension specifiers (and those are part of the type).
  *
  * All events include a number of common fields that we are not interested
- * in and that need to be skipped.  Callers of this function can specify an
- * additional number of fields to skip (using the 'skip' parameter) before
- * we get to the actual arguments.
+ * in and that need to be skipped.  Callers of this function can specify a
+ * callback function (valid_arg) to validate a non-common field.
  */
 int
-dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
-		 int *argcp, dt_argdesc_t **argvp)
+dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, dt_valid_arg_f *valid_arg,
+		 tp_probe_t *tpp, int *argcp, dt_argdesc_t **argvp)
 {
 	char		*buf = NULL;
 	size_t		bufsz;
-	int		argc, common = 1;
+	int		idx = 0, argc = 0, skip = 0, common = 1;
 	dt_argdesc_t	*argv = NULL;
 
 	tpp->id = 0;
@@ -141,10 +140,8 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	/*
 	 * Pass 1:
 	 * Determine the event id and the number of arguments.
-	 * Skip over how ever many arguments the caller asks us to skip.
-	 * We will skip initial "common fields" as well.
+	 * We will skip initial "common fields".
 	 */
-	argc = -skip;
 	while (getline(&buf, &bufsz, f) >= 0) {
 		char	*p = buf;
 
@@ -205,7 +202,31 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			common = 0;
 		}
 
-		/* We found a non-common "field:" description. */
+		/*
+		 * We found a non-common "field:" description.
+		 *
+		 * If the caller provided a validation hook, call it with the
+		 * current non-common field counter and the description text.
+		 * The hook returns
+		 *  -1 if the field is not a valid argument, and no additional
+		 *       arguments can follow
+		 *   0 if the field should be skipped
+		 *   1 if the field is a valid argument
+		 */
+		idx++;
+		if (valid_arg != NULL) {
+			int	rc = valid_arg(idx - 1, p);
+
+			if (rc == -1)
+				break;
+			if (rc == 0) {
+				skip++;
+				continue;
+			}
+		}
+
+		sscanf(p, "__data_loc %[^;]", p);
+
 		argc++;
 	}
 	free(buf);
@@ -232,7 +253,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 	 * Fill in the actual argument datatype strings.
 	 */
 	rewind(f);
-	argc = -skip;
+	idx = -skip;
 	while (getline(&buf, &bufsz, f) >= 0) {
 		char	*p;
 		size_t	l;
@@ -249,7 +270,7 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			continue;
 
 		/* We found a field: description - see if we should skip it. */
-		if (argc < 0)
+		if (idx < 0)
 			goto skip;
 
 		sscanf(p, "__data_loc %[^;]", p);
@@ -320,13 +341,15 @@ dt_tp_event_info(dtrace_hdl_t *dtp, FILE *f, int skip, tp_probe_t *tpp,
 			}
 		}
 
-		argv[argc].mapping = argc;
-		argv[argc].flags = 0;
-		argv[argc].native = strdup(strp);
-		argv[argc].xlate = NULL;
+		argv[idx].mapping = idx;
+		argv[idx].flags = 0;
+		argv[idx].native = strdup(strp);
+		argv[idx].xlate = NULL;
 
 skip:
-		argc++;
+		idx++;
+		if (idx == argc)
+			break;
 	}
 
 done:
@@ -413,12 +436,12 @@ dt_tp_probe_insert(dtrace_hdl_t *dtp, dt_provider_t *prov, const char *prv,
  * the argument types for a given probe.
  */
 int
-dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f, int skip, const dt_probe_t *prp,
-		 int *argcp, dt_argdesc_t **argvp)
+dt_tp_probe_info(dtrace_hdl_t *dtp, FILE *f, dt_valid_arg_f *valid_arg,
+		 const dt_probe_t *prp, int *argcp, dt_argdesc_t **argvp)
 {
 	tp_probe_t	*tpp = prp->prv_data;
 
-	return dt_tp_event_info(dtp, f, skip, tpp, argcp, argvp);
+	return dt_tp_event_info(dtp, f, valid_arg, tpp, argcp, argvp);
 }
 
 /*
