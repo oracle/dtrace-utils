@@ -1350,8 +1350,15 @@ dt_stapsdt_parse(dtrace_hdl_t *dtp, dt_proc_t *dpr, dtrace_probedesc_t *pdp,
 		if (strcmp(pdp->prb, "*") != 0 &&
 		    (strlen(pdp->prb) > 0 && strcmp(pdp->prb, prbname) != 0))
 			continue;
-		if (prb + strlen(prb) + 1 < dbuf + doff + nhdr.n_descsz)
+		if (prb + strlen(prb) + 1 < dbuf + doff + nhdr.n_descsz) {
+			char	*p;
+
 			psp.pps_sargv = prb + strlen(prb) + 1;
+
+			for (p = psp.pps_sargv; (p = strchr(p, '@')) != NULL;
+			     p++)
+				psp.pps_nargc++;
+		}
 
 		psp.pps_type = DTPPT_STAPSDT;
 		psp.pps_prv = prvname;

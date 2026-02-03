@@ -1659,15 +1659,7 @@ static int probe_info_stap(dtrace_hdl_t *dtp, const dt_probe_t *prp,
 	if (!upp || upp->sargv == NULL)
 		goto done;
 
-	/* First count the arguments. */
-	for (p = upp->sargv; p != NULL; argc++) {
-		p = strchr(p, '@');
-		if (p++ == NULL)
-			break;
-	}
-
-	/* Record number of arguments, and allocate descriptors. */
-	upp->sargc = argc;
+	argc = upp->sargc;
 	if (argc == 0)
 		goto done;
 
