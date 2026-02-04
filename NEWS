@@ -1,4 +1,4 @@
-2.0.5-1 (Jan 27th, 2026)
+2.0.5-1 (Feb 4th, 2026)
 ------------------------
 
 New features:
@@ -8,6 +8,8 @@ New features:
 Bugfixes:
 
  - Allocate the buffers BPF map to fit highest CPU id.
+
+ - Fix argument handling for multi-location user probes.
 
  - Change the "stack skip" to 3 for fbt (fprobe) and rawtp providers.
 
