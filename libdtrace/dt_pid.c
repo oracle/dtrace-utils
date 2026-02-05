@@ -134,7 +134,7 @@ dt_pid_create_one_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 
 #if defined(__amd64)
 #if defined(HAVE_INITDISINFO3) == defined(HAVE_INITDISINFO4)
-#error expect init_disassembler_info() to have 3 or else 4 arguments
+#error expect init_disassemble_info() to have 3 or else 4 arguments
 #endif
 #ifdef HAVE_INITDISINFO4
 static int
