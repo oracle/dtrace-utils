@@ -1565,6 +1565,10 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp)
 	char *globpat = NULL;
 	int err = 0, i, nmatches = 0;
 
+	/* If the function name is "-", we're done. */
+	if (pdp->fun[0] == '-' && pdp->fun[1] == '\0')
+		return 0;
+
 	/* If it cannot end with a pid, we're done. */
 	if (pdp->prv[0] != '\0') {
 		char lastchar = pdp->prv[strlen(pdp->prv) - 1];
