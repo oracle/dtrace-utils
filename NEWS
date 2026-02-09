@@ -39,17 +39,17 @@ Testsuite changes:
 
 Documentation changes:
 
-- Add the DTrace Tutorial to the git repo and install package.
+ - Add the DTrace Tutorial to the git repo and install package.
 
-- Clean up formatting.
+ - Clean up formatting.
 
-- Add missing documentation:  trunc(), stapsdt, usdt.h include path.
+ - Add missing documentation:  trunc(), stapsdt, usdt.h include path.
 
-- Update sections: unimplemented functions, sdt provider.
+ - Update sections: unimplemented functions, sdt provider.
 
-- Update LLM context files to forbid "if" statements.
+ - Update LLM context files to forbid "if" statements.
 
-- Update README.md for RPM info.
+ - Update README.md for RPM info.
 
 Build-time:
 
