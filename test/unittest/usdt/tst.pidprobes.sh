@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -119,8 +119,11 @@ fi
 pcs=`awk '{print strtonum("0x"$1)}' disasm_foo.txt`
 pc0=`echo $pcs | awk '{print $1}'`
 
-# Construct D script:  add a pid$pid::-:$absoff probe for each PC in foo.
+# Construct D script:  add a pid$pid::-:$pc0 probe to determine base address.
+printf 'p*d$target::-:%x\n' $pc0 >> pidprobes.d
+printf '{\n\tbase = uregs[R_PC] - %s;\n}\n' $pc0 >> pidprobes.d
 
+# Construct D script:  add a pid$pid::-:$absoff probe for each PC in foo.
 for pc in $pcs; do
 	printf 'p*d$target::-:%x,\n' $pc >> pidprobes.d
 done
@@ -130,7 +133,7 @@ done
 cat >> pidprobes.d <<'EOF'
 p*d$target::foo:
 {
-	printf("%d %s:%s:%s:%s %x\n", pid, probeprov, probemod, probefunc, probename, uregs[R_PC]);
+	printf("%d %s:%s:%s:%s %x\n", pid, probeprov, probemod, probefunc, probename, uregs[R_PC] - base);
 }
 EOF
 
