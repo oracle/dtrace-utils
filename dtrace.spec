@@ -230,7 +230,7 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
-* Wed Feb  4 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.5-1
+* Wed Feb  4 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.5-2
 - Implement PID-specific uprobes.  (Kris Van Hees)
 - Allocate the buffers BPF map to fit highest CPU id.  (Kris Van Hees)
 - Fix argument handling for multi-location user probes.
