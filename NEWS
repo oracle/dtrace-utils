@@ -1,13 +1,13 @@
 2.0.6-1 (Mar 9th, 2026)
-------------------------
+-----------------------
 
 Bugfixes:
 
  - Do not allow / to be used in probe description component names.
    (CVE-2026-21991)
 
-2.0.5-1 (Feb 4th, 2026)
-------------------------
+2.0.5-2 (Feb 4th, 2026)
+-----------------------
 
 New features:
 
