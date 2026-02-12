@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF-consumption and storage daemon.
- * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -487,16 +487,17 @@ handle_usdt_notes(pid_t pid, uintptr_t addr)
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapping (process dead?)\n",
 			 pid);
 		goto out;
-	} else if ((fn = prf->prf_mapname) == NULL) {
+	} else if (prf->prf_mapname == NULL ||
+		   (fn = Pmap_mapfile_name(P, mapp)) == NULL) {
 		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: cannot look up mapname (process dead?)\n",
 			 pid);
 		goto out;
 	}
-	mod = strrchr(fn, '/');
+	mod = strrchr(prf->prf_mapname, '/');
 	if (mod)
 		mod++;
 	else
-		mod = fn;
+		mod = prf->prf_mapname;
 	snprintf(dh.dofhp_mod, sizeof(dh.dofhp_mod), "%s", mod);
 
 	dh.dofhp_addr = mapp->pr_vaddr;
