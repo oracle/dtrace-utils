@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 [ `uname -m` = "x86_64" ] && exit 0
 exit 2
