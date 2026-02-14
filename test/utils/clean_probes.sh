@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 TRACEFS=/sys/kernel/debug/tracing
 EVENTS=${TRACEFS}/available_events
