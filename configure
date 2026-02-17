@@ -101,6 +101,7 @@ EOF
         cat >&2 <<'EOF'
 Optional features:
 
+--disable-option-checking	Ignore unrecognized --enable/--with options
 --disable-dependency-tracking	Suppress automatic dependency tracking
 
 Options controlling the compiler (pass on the command line):
@@ -125,6 +126,11 @@ EOF
 rm -rf build/.config.new build/.config-vars.mk.new
 echo 'override CONFIGURED_VARS=' > build/.config-vars.mk.new
 trap 'rm -rf build/.config.new build/.config-vars.mk.new' ERR
+
+# Should we report unknown --disable/enable/with/without-* options?
+if echo " $@ " | grep ' --disable-option-checking ' &>/dev/null; then
+   no_check_opts=t
+fi
 
 for option in "$@"; do
     case "$option" in
@@ -177,6 +183,11 @@ for option in "$@"; do
         HAVE_BPFMASM=*) write_config_var BPFMASM "$option";;
         --disable-dependency-tracking) write_make_var WITHOUT_DEPENDENCIES "y";;
         --enable-dependency-tracking) write_make_var WITHOUT_DEPENDENCIES "n";;
+        --disable-*|--enable-*|--with-*|--without-*)
+           if [[ -z $no_check_opts ]]; then
+              echo "Unknown option $option" >&2
+              exit 1
+           fi;;
         *) echo "Unknown option $option" >&2
            exit 1;;
     esac
