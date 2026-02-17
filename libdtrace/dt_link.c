@@ -148,7 +148,15 @@ note_add_provider(usdt_elf_t *usdt, dt_provider_t *pvp)
 	usdt->base = ALIGN(usdt->base + usdt->size, 4);
 	usdt->size = 0;
 
+	/* Ensure there is enough space in the provider name for the PID. */
 	len = strlen(pvp->desc.dtvd_name);
+	if (len > DTRACE_PROVNAMELEN - 11)
+		return dt_link_error(usdt->dtp, NULL, -1,
+				     "USDT provider name may not exceed %d "
+				     "characters: %s\n",
+				     DTRACE_PROVNAMELEN - 11,
+				     pvp->desc.dtvd_name);
+
 	sz = PROV_NOTE_HEADSZ +
 	     ALIGN(len + 1, 4) +	/* provider name */
 	     6 * sizeof(uint32_t);	/* stability attributes */
@@ -382,12 +390,16 @@ create_elf64(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, int fd, uint_t flags)
 	shdr->sh_addralign = sizeof(char);
 
 	/* Add the provider definitions. */
-	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL)
-		note_add_provider(usdt, pvp);
+	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
+		if (note_add_provider(usdt, pvp) == -1)
+			goto fail;
+	}
 
 	if (!(flags & DTRACE_D_STRIP)) {
-		note_add_version(usdt);
-		note_add_utsname(usdt);
+		if (note_add_version(usdt) == -1)
+			goto fail;
+		if (note_add_utsname(usdt) == -1)
+			goto fail;
 	}
 
 	dt_free(dtp, usdt);
@@ -492,7 +504,9 @@ dtrace_program_link(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t dflags,
 	if (!dtp->dt_lazyload)
 		unlink(file);
 
-	create_elf64(dtp, pgp, fd, dflags | dtp->dt_dflags);
+	ret = create_elf64(dtp, pgp, fd, dflags | dtp->dt_dflags);
+	if (ret == -1)
+		goto done;
 
 	if (status != 0 || lseek(fd, 0, SEEK_SET) != 0)
 		return dt_link_error(dtp, NULL, -1,
