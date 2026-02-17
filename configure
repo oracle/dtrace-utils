@@ -99,6 +99,9 @@ EOF
         echo >&2
         make help-overrides
         cat >&2 <<'EOF'
+Optional features:
+
+--disable-dependency-tracking	Suppress automatic dependency tracking
 
 Options controlling the compiler (pass on the command line):
 
@@ -172,6 +175,8 @@ for option in "$@"; do
         HAVE_VALGRIND=*) write_config_var VALGRIND "$option";;
         HAVE_BPFV3=*) write_config_var BPFV3 "$option";;
         HAVE_BPFMASM=*) write_config_var BPFMASM "$option";;
+        --disable-dependency-tracking) write_make_var WITHOUT_DEPENDENCIES "y";;
+        --enable-dependency-tracking) write_make_var WITHOUT_DEPENDENCIES "n";;
         *) echo "Unknown option $option" >&2
            exit 1;;
     esac
