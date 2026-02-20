@@ -64,6 +64,10 @@ Installation paths:
 --systemd-unit-dir=PREFIX/lib/systemd/system	systemd unit directory
 --docdir=PREFIX/share/doc/dtrace		Documentation directory
 --testdir=LIBDIR/dtrace/testsuite		Testsuite install directory
+--infodir=PREFIX/share/info			Info documentation directory
+--sysconfdir=PREFIX/etc				System configuration directory
+--localstatedir=PREFIX/var			Runtime system data directory
+--runstatedir=PREFIX/var/run			Per-process data directory
 
 Options relating to the user environment (may need customization on
 some systems, see GNUmakefile)
@@ -147,6 +151,10 @@ for option in "$@"; do
         --mandir=*) write_make_var MANDIR "$option";;
         --pkg-config-dir=*) write_make_var PKGCONFIGDIR "$option";;
         --testdir=*) write_make_var TESTDIR "$option";;
+        --infodir=*) write_make_var INFODIR "$option";;
+        --sysconfdir=*) write_make_var SYSCONFDIR "$option";;
+        --localstatedir=*) write_make_var LOCALSTATEDIR "$option";;
+        --runstatedir=*) write_make_var RUNSTATEDIR "$option";;
         CC=*) write_make_var CC "$option";;
         CPP=*) write_make_var PREPROCESS "$option";;
         CFLAGS=*) write_make_var CFLAGS "$option";;
