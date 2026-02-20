@@ -53,20 +53,37 @@ help()
 Installation paths:
 
 --prefix=/usr					Prefix of all installed paths
+--exec-prefix=PREFIX				Prefix of arch-dependent paths
 --objdir=build					Build directory
 --libdir=PREFIX/lib64				Library directory
 --bindir=PREFIX/sbin				Binary directory
 --sbindir=PREFIX/sbin				Alias for --bindir
 --includedir=PREFIX/include			#include directory
---mandir=PREFIX/share/man			Manpage directory
---pkg-config-dir=PREFIX/share/pkgconfig		Pkg-config directory
---udevdir=PREFIX/lib/udev/rules.d		udev rules directory
---systemd-unit-dir=PREFIX/lib/systemd/system	systemd unit directory
---docdir=PREFIX/share/doc/dtrace		Documentation directory
+--udevdir=PREFIX/lib/udev/rules.d		Udev rules directory
+--systemd-dir=PREFIX/lib/systemd		Systemd config directory
+--datarootdir=PREFIX/share			Arch-independent data root
+--datadir=DATAROOTDIR				Arch-independent data directory
+--pkg-config-dir=DATADIR/pkgconfig		Pkg-config directory
+--mandir=DATADIR/man				Manpage documentation directory
+--docdir=DATADIR/doc/dtrace			Documentation root directory
 --testdir=LIBDIR/dtrace/testsuite		Testsuite install directory
 
+Unused installation paths (provided for compatibility):
+
+--libexecdir=PREFIX/libexec			Program executables directory
+--sysconfdir=PREFIX/etc				System configuration directory
+--sharedstatedir=PREFIX/com			Arch-independent data directory
+--localstatedir=PREFIX/var			Runtime system data directory
+--runstatedir=PREFIX/var/run			Per-process data directory
+--oldincludedir=PREFIX/include			#include directory (non-gcc)
+--infodir=DATADIR/info				Info documentation directory
+--localedir=DATADIR/locale			locale specific data directory
+--htmldir=DOCDIR				Html documentation directory
+--pdfdir=DOCDIR					PDF documentation directory
+--psdir=DOCDIR					PS documentation directory
+
 Options relating to the user environment (may need customization on
-some systems, see GNUmakefile)
+some systems, see GNUmakefile):
 
 --user-uid=UID			The first non-system uid on the system
 --dumpcap-group=GROUP		Group one must run as to invoke $DUMPCAP
@@ -136,15 +153,29 @@ for option in "$@"; do
     case "$option" in
         --help) help; exit 1;;
         --prefix=*) write_make_var prefix "$option";;
+        --exec-prefix=*) write_make_var exec_prefix "$option";;
         --objdir=*) write_make_var objdir "$option";;
         --libdir=*) write_make_var LIBDIR "$option";;
         --bindir=*) write_make_var SBINDIR "$option";;
         --sbindir=*) write_make_var SBINDIR "$option";;
+        --libexecdir=*) write_make_var LIBEXECDIR "$option";;
+        --sysconfdir=*) write_make_var SYSCONFDIR "$option";;
+        --sharedstatedir=*) write_make_var SHAREDSTATEDIR "$option";;
+        --localstatedir=*) write_make_var LOCALSTATEDIR "$option";;
+        --runstatedir=*) write_make_var RUNSTATEDIR "$option";;
         --includedir=*) write_make_var INCLUDEDIR "$option";;
+        --oldincludedir=*) write_make_var OLDINCLUDEDIR "$option";;
         --udevdir=*) write_make_var UDEVDIR "$option";;
-        --systemd-unit-dir=*) write_make_var SYSTEMDUNITDIR "$option";;
-        --docdir=*) write_make_var DOCDIR "$option";;
+        --systemd-dir=*) write_make_var SYSTEMDDIR "$option";;
+        --datarootdir=*) write_make_var DATAROOTDIR "$option";;
+        --datadir=*) write_make_var DATADIR "$option";;
+        --infodir=*) write_make_var INFODIR "$option";;
+        --localedir=*) write_make_var LOCALEDIR "$option";;
         --mandir=*) write_make_var MANDIR "$option";;
+        --docdir=*) write_make_var DOCDIR "$option";;
+        --htmldir=*) write_make_var HTMLDIR "$option";;
+        --pdfdir=*) write_make_var PDFDIR "$option";;
+        --psdir=*) write_make_var PSDIR "$option";;
         --pkg-config-dir=*) write_make_var PKGCONFIGDIR "$option";;
         --testdir=*) write_make_var TESTDIR "$option";;
         CC=*) write_make_var CC "$option";;
