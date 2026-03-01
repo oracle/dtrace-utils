@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -100,6 +100,10 @@ for nusdt in "" "-xnusdtprobes=40" "-xnusdtprobes=39"; do
 
 	rm -f dtrace.out
 	$dtrace $dt_flags $nusdt -Zq -o dtrace.out -n '
+	BEGIN
+	{
+		printf("BEGIN\n");
+	}
 	testprov*:::
 	{
 		@[probeprov, probemod, probefunc, probename] = count();
@@ -111,7 +115,7 @@ for nusdt in "" "-xnusdtprobes=40" "-xnusdtprobes=39"; do
 	iter=$((timeout / 4))
 	while [ $iter -gt 0 ]; do
 		sleep 1
-		if [ -e dtrace.out ]; then
+		if [ -s dtrace.out ]; then
 			break
 		fi
 		iter=$((iter - 1))
@@ -127,7 +131,7 @@ for nusdt in "" "-xnusdtprobes=40" "-xnusdtprobes=39"; do
 	rm -f check.txt
 	for (( iteam = 0; iteam < $nteams; iteam++ )); do
 		# Start the team, writing out expected output.
-		sleep 2
+		sleep 1
 		for (( immbr = 0; immbr < $nmmbrs; immbr++ )); do
 			./main &
 			pids[$immbr]=$!

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -22,6 +22,10 @@ cp $trigger main
 
 # Start dtrace.
 $dtrace $dt_flags -Zq -o dtrace.out -n '
+BEGIN
+{
+	printf("BEGIN\n");
+}
 testprov*:::foo,
 testprov*:::bar
 {
@@ -33,7 +37,7 @@ dtpid=$!
 iter=$((timeout / 2))
 while [ $iter -gt 0 ]; do
 	sleep 1
-	if [ -e dtrace.out ]; then
+	if [ -s dtrace.out ]; then
 		break
 	fi
 	iter=$((iter - 1))
@@ -79,7 +83,7 @@ if ! diff -q main.out.post main.out.expected; then
 fi
 
 # Regularize the DTrace output, and check it.
-awk 'NF > 0 { map[$2 " " $1]++; }
+awk 'NF > 1 { map[$2 " " $1]++; }
      END { for (i in map) printf "%s %d\n", i, map[i]; }' dtrace.out > dtrace.out.post
 
 echo "$tpid main:bar 10" > dtrace.out.expected

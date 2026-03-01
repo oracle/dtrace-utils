@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -29,6 +29,10 @@ cp $trigger main
 # Start dtrace.
 
 $dtrace $dt_flags -Zwq -o dtrace.out -n '
+BEGIN
+{
+	printf("BEGIN\n");
+}
 testprov*:::foo
 {
 	raise(SIGUSR1);
@@ -51,7 +55,7 @@ dtpid=$!
 iter=$((timeout / 2))
 while [ $iter -gt 0 ]; do
 	sleep 1
-	if [ -e dtrace.out ]; then
+	if [ -s dtrace.out ]; then
 		break
 	fi
 	iter=$((iter - 1))
@@ -128,7 +132,7 @@ done
 # Check the dtrace output.
 
 #     regularize the dtrace output
-awk 'NF != 0 { print $1, $2, $3 }' dtrace.out | sort > dtrace.out.post
+awk 'NF == 3 { print $1, $2, $3 }' dtrace.out | sort > dtrace.out.post
 
 #     determine what to expect
 
