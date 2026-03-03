@@ -7,7 +7,7 @@ visibility for our work and to make it even easier for people to access the
 source.  We also use this repository to work with developers in the Linux
 community.
 
-The main development branch is [devel](https://github.com/oracle/dtrace-utils/tree/devel).
+The main development branch is [devel](https://github.com/oracle/dtrace/tree/devel).
 
 We provide prebuilt x86_64 and aarch64 DTrace userspace packages for
 Oracle Linux 10 (UEK8 kernel),
@@ -162,7 +162,7 @@ The most recent logs are also available by via the `test/log/current/` symbolic 
 
 The testsuite itself has more dependencies that need to be installed.
 The full list is available in the
-[dtrace.spec](https://github.com/oracle/dtrace-utils/blob/devel/dtrace.spec)
+[dtrace.spec](https://github.com/oracle/dtrace/blob/devel/dtrace.spec)
 file.
 
 ## 4. How to run DTrace

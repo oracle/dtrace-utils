@@ -55,7 +55,7 @@ In most Linux environments, `sudo` is required even for `-e` compile-only checks
 
    ```
 
-   Make sure you are using the DTrace binary from the `dtrace-utils` package, _not_ the SystemTap compatibility binary:
+   Make sure you are using the DTrace binary from the `dtrace` package, _not_ the SystemTap compatibility binary:
 
    ```bash
    which dtrace
@@ -151,7 +151,7 @@ This makes LLM-generated scripts safe to test and explore on production or stagi
 
 ## Additional Resources
 
--   [Oracle DTrace Utils on GitHub](https://github.com/oracle/dtrace-utils)
+-   [Oracle DTrace Utils on GitHub](https://github.com/oracle/dtrace)
 
 -   [Oracle Linux DTrace Training Modules](https://oracle-samples.github.io/oltrain/tracks/ol/dtrace/)
 

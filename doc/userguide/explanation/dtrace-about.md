@@ -22,7 +22,8 @@ This implementation is a user space application and is available on:
 
 DTrace is also available on Unbreakable Enterprise Kernel Release 6 \(UEK R6\) and later kernels on Oracle Linux 7, and requires the `libdtrace-ctf` library to run. The functionality of the `libdtrace-ctf` library is integrated into the Oracle Linux GNU tool chain for later Oracle Linux releases. Oracle Linux 7 is in Extended Support. Migrate applications and data to Oracle Linux 8, Oracle Linux 9, or Oracle Linux 10, as soon as possible.
 
-DTrace is developed as an open source project available under the Universal Permissive License \(UPL\), Version 1.0. You can access source code and more information at [https://github.com/oracle/dtrace-utils](https://github.com/oracle/dtrace-utils).
+DTrace is developed as an open source project available under the Universal Permissive License \(UPL\), Version 1.0.
+You can access source code and more information at [https://github.com/oracle/dtrace](https://github.com/oracle/dtrace).
 
 **Parent topic:**[DTrace Concepts](../explanation/dtrace-concepts.md)
 
