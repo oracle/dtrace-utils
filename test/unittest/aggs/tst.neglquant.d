@@ -90,11 +90,11 @@ BEGIN
 	 * We want to test the ability to sort very large quantizations
 	 * that differ by a small amount.  Ideally, they would differ only
 	 * by 1 -- but that is smaller than the precision of long doubles of
-	 * this magnitude on x86.  To assure that the same test works on x86
-	 * just as it does on SPARC, we pick a value that is just larger than
-	 * the precision at this magnitude.  It should go without saying that
-	 * this robustness on new ISAs very much depends on the precision
-	 * of the long double representation.
+	 * this magnitude on x86_64.  To assure that the same test works for
+	 * the architectures DTrace is developed for, we pick a value that is
+	 * just larger than the precision at this magnitude.  It should go
+	 * without saying that this robustness on new ISAs very much depends on
+	 * the precision of the long double representation.
 	 */
 	this->val = (((long long) 1) << 63) - 7;
 
