@@ -20,8 +20,8 @@ VERSION := $(shell ./libdtrace/mkvers -vcurrent=t libdtrace/versions.list)
 
 ARCH := $(shell uname -m)
 
-$(if $(subst sparc64,,$(subst aarch64,,$(subst x86_64,,$(ARCH)))), \
-    $(error "Error: DTrace for Linux only supports x86_64, ARM64 and sparc64"),)
+$(if $(subst aarch64,,$(subst x86_64,,$(ARCH))), \
+    $(error "Error: DTrace for Linux currently only supports x86_64 and ARM64"),)
 $(if $(subst Linux,,$(shell uname -s)), \
     $(error "Error: DTrace only supports Linux"),)
 
@@ -74,7 +74,7 @@ ifdef KERNELSRCDIR
 KERNELOBJDIR ?= $(KERNELSRCDIR)
 endif
 
-KERNELARCH := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,x86,$(ARCH))))
+KERNELARCH := $(subst aarch64,arm64,$(subst x86_64,x86,$(ARCH)))
 
 # Paths.
 
@@ -120,7 +120,7 @@ export CC ?= gcc
 
 BITNESS := 64
 NATIVE_BITNESS_ONLY := $(shell echo 'int main (void) { }' | $(CC) -x c -o /dev/null -m32 - 2>/dev/null || echo t)
-ARCHINC := $(subst sparc64,sparc,$(subst aarch64,arm64,$(subst x86_64,i386,$(ARCH))))
+ARCHINC := $(subst aarch64,arm64,$(subst x86_64,i386,$(ARCH)))
 
 INVARIANT_CFLAGS := -std=gnu99 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(if $(NATIVE_BITNESS_ONLY),-DNATIVE_BITNESS_ONLY) -D_DT_VERSION=\"$(VERSION)\"
 CPPFLAGS += -Iinclude -Iuts/common -Iinclude/$(ARCHINC) -I$(objdir)
@@ -129,7 +129,7 @@ override CFLAGS += $(INVARIANT_CFLAGS)
 PREPROCESS = $(CC) -E
 export BPFC ?= bpf-unknown-none-gcc
 
-BPFCPPFLAGS += -D$(subst sparc64,__sparc,$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH))))
+BPFCPPFLAGS += -D$(subst aarch64,__aarch64__,$(subst x86_64,__amd64,$(ARCH)))
 BPFCFLAGS ?= -O2 -Wall -Wno-unknown-pragmas $(if $(HAVE_BPFV3),-mcpu=v3) $(if $(HAVE_BPFMASM),-masm=normal) -ffreestanding
 export BPFLD ?= bpf-unknown-none-ld
 
