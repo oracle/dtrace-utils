@@ -284,10 +284,7 @@ translator lwpsinfo_t < struct task_struct *T > {
 	pr_name = T->comm;
 define_for_kernel([[on_cpu]], [[(m4_kver(5,16,0), m4_dnl
   [[((struct thread_info *)T->stack)->cpu]]), m4_dnl
-(m4_kver(4,9,0), m4_dnl
-  [[if_arch([[x86]],[[T->cpu]])]] m4_dnl
-  [[if_arch([[arm64]],[[T->cpu]])]] m4_dnl
-  [[if_arch([[sparc]],[[((struct thread_info *)T->stack)->cpu]])]])]], m4_dnl
+(m4_kver(4,9,0), [[T->cpu]])]], m4_dnl
 [[((struct thread_info *)T->stack)->cpu]])m4_dnl
 	pr_onpro = on_cpu;
 };

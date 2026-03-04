@@ -3,8 +3,8 @@ DTRACE OPTIONS
 
 This file lists the dtrace commandline options, and indicates whether
 or not they have been made to work on Linux and roughly when.  All options
-are believed to work equally well on all supported architectures (x86 and
-SPARC).
+are believed to work equally well on all supported architectures (x86_64 and
+ARM64).
 
 Notations:
 
@@ -317,8 +317,6 @@ definitions are always specified and valid in all modes:
     * __linux
     * __unix
     * __SVR4
-    * __sparc (on SPARC® systems only)
-    * __sparcv9 (on SPARC® systems only when 64–bit programs are compiled)
     * __i386 (on x86 systems only when 32–bit programs are compiled)
     * __amd64 (on x86 systems only when 64–bit programs are compiled)
     * __`uname -s` (for example, __Linux)
