@@ -72,8 +72,8 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.5
-Release:      2%{?dist}
+Version:      2.0.6
+Release:      1%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -230,6 +230,10 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Mon Mar  9 2026 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.6-1
+- Fix dtprobed unsafe probe description handling (CVE-2026-21991).
+  [Orabug: 39054018]
+
 * Wed Feb  4 2026 Eugene Loh <eugene.loh@oracle.com> - 2.0.5-1
 - Implement PID-specific uprobes.  (Kris Van Hees)
 - Allocate the buffers BPF map to fit highest CPU id.  (Kris Van Hees)
