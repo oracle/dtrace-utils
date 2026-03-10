@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -591,7 +591,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 done:
 	/*
 	 * Note: DTrace does not currently support the use of fileinfo_t with
-	 * io probes.  In Oracle Linux, there is no information about the file
+	 * io probes.  In Linux, there is no information about the file
 	 * where the I/O request originated at the point where the io probes
 	 * fire.
 	 */

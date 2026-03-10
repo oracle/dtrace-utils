@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2023, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 #
@@ -64,7 +64,7 @@ fi
 $objdump >& out.default.txt
 
 # Check results.  One can imagine a more stringent check -- like
-# seeing if the string "Oracle D 2.0" appears in the default case
+# seeing if particular strings appear in the default case
 # but not in the stripped case -- but here we settle for the stripped
 # case simply being smaller than the default case.
 

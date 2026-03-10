@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2020, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -224,7 +224,7 @@ static int trampoline(dt_pcb_t *pcb, uint_t exitlbl)
 	 * TODO: For profile-n probes:
 	 *     dctx->mst->argv[2] = elapsed nsecs
 	 * The documentation does not say elapsed since when?
-	 * From the legacy port to Oracle Linux, in dtrace/profile_dev.c,
+	 * From the legacy port to Linux, in dtrace/profile_dev.c,
 	 * in profile_prof_fn(), it appears that we have a per-CPU variable
 	 * that tracks the expected time of the next profile probe.
 	 * Each time the probe fires, we compute arg2 = time - expected
