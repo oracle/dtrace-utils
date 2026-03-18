@@ -1,9 +1,24 @@
 #!/bin/bash
 #
 # Oracle Linux DTrace.
-# Copyright (c) 2018, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
+
+# Let us skip this test altogether:
+#   * The test was never vetted on arm.
+#   * The test does not run on newer kernels since they have no kallmodsyms.
+#   * On older x86 platforms, the test has failed consistently for a long time.
+# The test had been intended for checking /proc/kallmodsyms,
+# but we are migrating to a modules.builtin.ranges approach.
+# When we are absolutely sure we do not care about this test, it can be removed.
+
+echo "test is deprecated"
+exit 2
+
+###############################################
+### The older contents of this file follow. ###
+###############################################
 
 # The test still needs to be vetted on ARM64, including for copyinstr() support.
 # Once it runs on ARM64, the slower tst.aggmod_full.sh test can be removed.
