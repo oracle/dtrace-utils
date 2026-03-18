@@ -14,7 +14,7 @@ The `bcopy` function copies *size* bytes from the memory that's pointed to by *s
 In this example, the `bcopy` function is used to copy 14 characters from the ``linux_banner` pointer into a separate memory pointer, `s`, that's allocated 14 bytes of memory. The `printf` line prints a string of the value in stored in the pointer, `s`. The string that's printed is the same as the first 14 characters stored in ``linux_banner`.
 
 ```
- BEGIN
+ dtrace:::BEGIN
  {
          s = (char *)alloca(14);
          bcopy(`linux_banner, &s[0], 13);

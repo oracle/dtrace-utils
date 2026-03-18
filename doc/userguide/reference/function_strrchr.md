@@ -14,7 +14,7 @@ The returned string is allocated out of scratch memory and is therefore valid on
 ## How to use strrchr to return the pointer to the last occurrence of a character
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         str = "fooeyfooeyfoo";
         c = 'y';

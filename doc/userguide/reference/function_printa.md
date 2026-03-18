@@ -14,7 +14,7 @@ See the `printf(1)` manual page for more information on formatting directives. N
 ## How to use printa to print basic formatting for different aggregations
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         @a = avg(1);
         @b = count();

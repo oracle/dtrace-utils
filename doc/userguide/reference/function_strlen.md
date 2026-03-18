@@ -12,7 +12,7 @@ The `strlen` function returns the length of a specified string in bytes, excludi
 ## How to use strlen to return the length of a string
 
 ```
-BEGIN {
+dtrace:::BEGIN {
      string1="foo bar?";
      printf("%d",strlen(string1));
      exit(0);

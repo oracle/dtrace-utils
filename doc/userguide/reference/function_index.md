@@ -12,7 +12,7 @@ The `index` function finds the position of the first occurrence of a substring, 
 ## How to use index to identify the first occurrence of a substring within a string
 
 ```
-BEGIN {
+dtrace:::BEGIN {
          x = "#canyoufindapenguininthisstring?";
          y = "penguin";
          printf("The penguin appears at character %3d\n", index(x, y));

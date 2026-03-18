@@ -34,7 +34,7 @@ syscall::read:return, syscall::write:return
   elapsed[probefunc] += timestamp - ts[probefunc];
 }
 
-END
+dtrace:::END
 {
   printf("       calls max bytes elapsed nsecs\n");
   printf("------ ----- --------- -------------\n");
@@ -95,7 +95,7 @@ syscall::read:return, syscall::write:return
   i[probefunc].elapsed += timestamp - i[probefunc].ts;
 }
 
-END
+dtrace:::END
 {
   printf("       calls max bytes elapsed nsecs\n");
   printf("------ ----- --------- -------------\n");
@@ -112,7 +112,7 @@ Run the program to return the results for a command. For example run the `sudo d
 sudo dtrace -q -s rwinfo.d -c date
 ```
 
-The `date` program runs and is traced until it exits and fires the `END` probe which prints the results:
+The `date` program runs and is traced until it exits and fires the `dtrace:::END` probe which prints the results:
 
 ```
  ...

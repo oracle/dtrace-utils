@@ -16,7 +16,7 @@ The normalize function is called against the aggregation. The time is divided to
 ```
 #pragma D option quiet
 
-BEGIN
+dtrace:::BEGIN
 {
   start = timestamp;
 }
@@ -26,7 +26,7 @@ syscall:::entry
   @func[execname] = count();
 }
 
-END
+dtrace:::END
 {
   normalize(@func, (timestamp - start) / 1000000000);
 }

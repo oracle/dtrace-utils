@@ -18,6 +18,11 @@ sudo dtrace -lP rawfbt
 As with the `fbt` provider, there could be tens of thousands of probes,
 and effective use requires knowledge of the kernel implementation.
 
+And, as with the `fbt` provider, typically one should specify the provider name
+explicitly for `rawfbt` probes;
+a raw FBT probe will typically have a similarly named FBT counterpart,
+and in all likelihood one probably does not want both probes.
+
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
 ## rawfbt Probes <a id="dt_ref_rawfbtprobes_prov">

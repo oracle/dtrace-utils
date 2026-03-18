@@ -12,7 +12,7 @@ The `dirname` function creates a string that consists of all but the last level 
 ## How to use dirname to return the path up to the last element in a string
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         printf("%s\n", dirname("/foo/bar/baz"));
         printf("%s\n", dirname("/foo/bar///baz/"));

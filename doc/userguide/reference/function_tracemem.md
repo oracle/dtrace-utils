@@ -16,7 +16,7 @@ Limiting the data that's copied to the buffer is useful when the data that you'r
 The example creates a pointer to the current thread by using the built-in variable `curthread`.
 
 ```
-BEGIN {
+dtrace:::BEGIN {
      p = curthread;
      tracemem(p, 256);
      exit(0);

@@ -16,7 +16,7 @@ The example shows that the `printf` function treats the value as a string. The p
 ```
 #pragma D option strsize=7
 
-BEGIN
+dtrace:::BEGIN
 {
     printf("%s\n", lltostr(1234567890));
 }

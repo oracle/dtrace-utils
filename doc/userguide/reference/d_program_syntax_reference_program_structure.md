@@ -37,13 +37,17 @@ probe descriptions
 
     -   **name**
 
-        The name that provides some idea of the probe's semantic meaning, such as `BEGIN` or `END`.
+        The name that provides some idea of the probe's semantic meaning, such as `dtrace:::BEGIN` or `dtrace:::END`.
 
-    DTrace recognizes a form of shorthand when referencing probes. By convention, if you don't specify all the fields of a probe description, DTrace can match a request to all the probes with matching values in the parts of the name that you do specify. For example, you can reference the probe name `BEGIN` in a script to match *any* probe with the name field `BEGIN`, regardless of the value of the provider, module, and function fields. For example, you might see a probe referenced as:
+    DTrace recognizes a form of shorthand when referencing probes.
+    By convention, if you don't specify all the fields of a probe description,
+    DTrace can match a request to all the probes with matching values in the parts of the name that you do specify.
+    For example, you can reference the probe name `BEGIN` in a script to match *any* probe with the name field `BEGIN`,
+    regardless of the value of the provider, module, and function fields.
 
-    ```
-    BEGIN
-    ```
+    Nevertheless, it is good practice to specify components, such as the provider, in a probe description anyhow.
+    This reduces the chances of unexpected ambiguity and can make it faster for DTrace to find probes.
+    In this guide, we will typically specify the provider name.
 
     If a probe is referenced in a D program and it doesn't use a full probe description, the fields are interpreted based on an order of precedence:
 
@@ -144,4 +148,3 @@ A program can be stored on the file system and can be run by the DTrace utility.
 A script can also include D pragma directives to set runtime and compiler options. See [DTrace Runtime and Compile-time Options Reference](dtrace_runtime_options.md) for more information on including this information in a script.
 
 **Parent topic:**[D Program Syntax Reference](../reference/d_program_syntax_reference.md)
-

@@ -19,7 +19,7 @@ Note that the pragma lines include the destructive option to permit DTrace to ru
 #pragma D option destructive
 #pragma D option quiet
 
-tick-1sec
+profile:::tick-1sec
 {
 system("date")
 }

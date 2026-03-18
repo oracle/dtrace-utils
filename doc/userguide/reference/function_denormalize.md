@@ -14,7 +14,7 @@ The `denormalize` function removes any normalization that's applied to a specifi
 ```
 #pragma D option quiet
 
-BEGIN
+dtrace:::BEGIN
 {
   start = timestamp;
 }
@@ -24,7 +24,7 @@ syscall:::entry
   @func[execname] = count();
 }
 
-END
+dtrace:::END
 {
   this->seconds = (timestamp - start) / 1000000000;
   printf("Ran for %d seconds.\n", this->seconds);

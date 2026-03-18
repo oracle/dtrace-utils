@@ -12,7 +12,7 @@ The `basename` function creates a string that consists of a copy of the specifie
 ## How to use basename to return the last element of a path in a string
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         printf("%s\n", basename("/foo/bar/baz"));
         printf("%s\n", basename("/foo/bar///baz/"));

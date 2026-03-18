@@ -18,7 +18,7 @@ You can force the `trace` function to always use the binary format by specifying
 The example shows the trace function being used to return output for a built-in variable, an expression, and a string value.
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
 trace(execname);
 trace(timestamp / 1000);

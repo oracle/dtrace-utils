@@ -588,7 +588,7 @@ proc:::exec-failure
   self->parent = NULL;
 }
 
-END
+dtrace:::END
 {
   printf("%-20s %-20s %s\n", "WHO", "WHAT", "COUNT");
   printa("%-20s %-20s %@d\n", @);
@@ -676,7 +676,7 @@ proc:::signal-send
   @[execname, stringof(args[1]->pr_fname), args[2]] = count();
 }
 
-END
+dtrace:::END
 {
   printf("%20s %20s %12s %s\n",
       "SENDER", "RECIPIENT", "SIG", "COUNT");

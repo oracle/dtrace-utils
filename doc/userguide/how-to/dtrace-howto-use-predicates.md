@@ -71,7 +71,7 @@ To illustrate predicates at work, you can create a D program that implements a 1
     ```
 
 
-This tutorial uses the `BEGIN` probe to initialize a variable integer `i` to 10 to begin the countdown. Next, the program uses the `tick-1sec` probe to implement a timer that fires once every second. Notice that in `countdown.d`, the `tick-1sec` probe description is used in two different clauses, each with a different predicate and function list. The predicate is a logical expression surrounded by enclosing slashes `//` that appears after the probe name and before the braces `{}` that surround the clause statement list.
+This tutorial uses the `dtrace:::BEGIN` probe to initialize a variable integer `i` to 10 to begin the countdown. Next, the program uses the `profile:::tick-1sec` probe to implement a timer that fires once every second. Notice that in `countdown.d`, the `profile:::tick-1sec` probe description is used in two different clauses, each with a different predicate and function list. The predicate is a logical expression surrounded by enclosing slashes `//` that appears after the probe name and before the braces `{}` that surround the clause statement list.
 
 The first predicate tests whether `i` is greater than zero, indicating that the timer is still running:
 

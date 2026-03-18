@@ -14,8 +14,8 @@ The `rand` function returns a pseudo random integer. The value returned is a wea
 The example uses the trace function to print the generated integer in the trace output.
 
 ```
-BEGIN{ 
-   trace(rand()); 
+dtrace:::BEGIN{
+   trace(rand());
 }
 ```
 

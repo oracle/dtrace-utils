@@ -201,7 +201,7 @@ syscall::read:entry
 }
 ```
 
-D variable declarations can't assign initial values. You can use a `BEGIN` probe clause to assign any initial values. All global variable storage is filled with zeroes by DTrace before you first reference the variable.
+D variable declarations can't assign initial values. You can use a `dtrace:::BEGIN` probe clause to assign any initial values. All global variable storage is filled with zeroes by DTrace before you first reference the variable.
 
 ### Thread-Local Variables
 
@@ -249,7 +249,7 @@ Clause-local variable are used to restrict the storage of a variable to the part
 Clause-local variables can be referenced and assigned by prefixing with `this->`:
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
   this->secs = timestamp / 1000000000;
   ...
@@ -262,7 +262,7 @@ To declare a clause-local variable explicitly before using it, you can do so by 
 this int x;  /* an integer clause-local variable */
 this char c; /* a character clause-local variable */
 
-BEGIN
+dtrace:::BEGIN
 {
   this->x = 123;
   this->c = 'D';

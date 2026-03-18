@@ -16,7 +16,7 @@ By default, no keys are kept.
 
 ## How to use trunc to show the system call rate only for the most recent ten-second period
 
-The `trunc` function is used inside the `tick-10sec` probe to clear the keys inside the `@func` aggregation.
+The `trunc` function is used inside the `profile:::tick-10sec` probe to clear the keys inside the `@func` aggregation.
 
 ```
 #pragma D option quiet
@@ -26,7 +26,7 @@ syscall:::entry
   @func[execname] = count();
 }
 
-tick-10sec
+profile:::tick-10sec
 {
   printa(@func);
   trunc(@func);
@@ -39,10 +39,10 @@ retains keys and simply clears their values.
 If the reported aggregations have too many keys, you can use the optional,
 second argument to indicate how many keys to retain.
 For example, you could limit the reporting to the 5 most common
-functions by changing the `tick` probe to:
+functions by changing the `profile:::tick-10sec` probe to:
 
 ```
-tick-10sec
+profile:::tick-10sec
 {
   trunc(@func, 5);
   printa(@func);

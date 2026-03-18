@@ -216,7 +216,7 @@ for example, when you use the D function `ustack()`. For example:
         sudo dtrace -c ./a.out -q -n '
             myprov$target:::my-put { printf("put %d %d\n", arg0, arg1); }
             myprov$target:::my-get { printf("get\n"); }
-            tick-5sec {exit(0)}'
+            profile:::tick-5sec {exit(0)}'
         ```
 
         This first example, runs the `a.out` command with the `-c` option.
@@ -236,7 +236,7 @@ for example, when you use the D function `ustack()`. For example:
         sudo dtrace -q -n '
                  myprov'$pid':::my-put { printf("put %d %d\n", arg0, arg1); }
                  myprov'$pid':::my-get { printf("get\n"); }
-                 tick-5sec {exit(0)}'
+                 profile:::tick-5sec {exit(0)}'
         kill $pid
         ```
 
@@ -251,7 +251,7 @@ for example, when you use the D function `ustack()`. For example:
         sudo dtrace -Z -q -n '
             myprov*:::my-put { printf("put %d %d\n", arg0, arg1); }
             myprov*:::my-get { printf("get\n"); }
-            tick-10sec {exit(0)}' &
+            profile:::tick-10sec {exit(0)}' &
         ./a.out &
         ```
 
@@ -276,7 +276,7 @@ for example, when you use the D function `ustack()`. For example:
     ```
     sudo dtrace -c ./a.out -q -n '
         myprov$target:::my-get { printf("get\n"); }
-        tick-5sec {exit(0)}'
+        profile:::tick-5sec {exit(0)}'
     ```
 
     In this case, not only does the `put` probe not fire,

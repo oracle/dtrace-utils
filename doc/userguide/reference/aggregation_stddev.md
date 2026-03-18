@@ -29,7 +29,7 @@ syscall::execve:return
   self->ts = 0;
 }
 
-END
+dtrace:::END
 {
   printf("\nSTDDEV:");
   printa(@execsd);

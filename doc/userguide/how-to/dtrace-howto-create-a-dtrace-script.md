@@ -35,7 +35,7 @@ This tutorial provides successive steps toward developing a DTrace script that y
       0      1                           :BEGIN   hello, world    
     ```
 
-    Note that you didn't have to press `Ctrl`+`C` to exit because you specified the `exit` function for the `BEGIN` probe in the program.
+    Note that you didn't have to press `Ctrl`+`C` to exit because you specified the `exit` function for the `dtrace:::BEGIN` probe in the program.
 
 3.  Open `hello.d` in the text editor and add an interpreter line to the beginning of the script.
 

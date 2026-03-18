@@ -12,7 +12,7 @@ The `strstr` function returns a substring starting at the first occurrence of a 
 ## How to use strstr to return a substring starting at the first occurrence of a substring in a string
 
 ```
- BEGIN {
+ dtrace:::BEGIN {
      string1="foo bar?";
      substring=" ba";
      # the following line prints " bar?"

@@ -91,9 +91,9 @@ DTrace providers publish available probes to DTrace so that you can enable them 
 
 3.  Enable several probes by chaining them together in a request.
 
-    You can construct DTrace requests by using arbitrary numbers of probes and functions. For example, create a request using two probes by adding the `BEGIN` and `END` probes.
+    You can construct DTrace requests by using arbitrary numbers of probes and functions. For example, create a request using two probes by adding the `dtrace:::BEGIN` and `dtrace:::END` probes.
 
-    Type the following command, and then press `Ctrl`+`C` in the shell again, after you see the line of output for the `BEGIN` probe:
+    Type the following command, and then press `Ctrl`+`C` in the shell again, after you see the line of output for the `dtrace:::BEGIN` probe:
 
     ```
     sudo dtrace -n dtrace:::BEGIN -n dtrace:::END 

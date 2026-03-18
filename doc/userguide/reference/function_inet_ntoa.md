@@ -16,7 +16,7 @@ In the example, an IP address pointer is created in scratch memory and populated
 ```
  typedef vmlinux`__be32 ipaddr_t;
  ipaddr_t *ip4a;
- BEGIN
+ dtrace:::BEGIN
  {
          ip4a = alloca(sizeof(ipaddr_t));
          *ip4a = 0x0100007f;

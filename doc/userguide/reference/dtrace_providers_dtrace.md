@@ -9,9 +9,9 @@ Use these probes to initialize state before tracing begins, process state after 
 
 ## BEGIN Probe <a id="dt_ref_begin_prov">
 
-The `BEGIN` probe fires before any other probe.
+The `dtrace:::BEGIN` probe fires before any other probe.
 
-No other probe fires until all `BEGIN` clauses have completed. This probe can be used to initialize any state that's needed in other probes. The following example shows how to use the `BEGIN` probe to initialize an associative array to map between `mmap()` protection bits and a textual representation:
+No other probe fires until all `dtrace:::BEGIN` clauses have completed. This probe can be used to initialize any state that's needed in other probes. The following example shows how to use the `dtrace:::BEGIN` probe to initialize an associative array to map between `mmap()` protection bits and a textual representation:
 
 ```
 dtrace:::BEGIN
@@ -32,13 +32,13 @@ syscall::mmap:entry
 }
 ```
 
-The `BEGIN` probe fires in an unspecified context, which means the output of `stack` or `ustack`, and the value of context-specific variables such as `execname`, are all arbitrary. These values should not be relied upon or interpreted to infer any meaningful information. No arguments are defined for the `BEGIN` probe.
+The `dtrace:::BEGIN` probe fires in an unspecified context, which means the output of `stack` or `ustack`, and the value of context-specific variables such as `execname`, are all arbitrary. These values should not be relied upon or interpreted to infer any meaningful information. No arguments are defined for the `dtrace:::BEGIN` probe.
 
 ## END Probe <a id="dt_ref_end_prov">
 
-The `END` probe fires after all other probes.
+The `dtrace:::END` probe fires after all other probes.
 
-This probe doesn't fire until all other probe clauses have completed. This probe can be used to process state that has been gathered or to format the output. The `printa` function is therefore often used in the `END` probe. The `BEGIN` and `END` probes can be used together to measure the total time that's spent tracing, for example:
+This probe doesn't fire until all other probe clauses have completed. This probe can be used to process state that has been gathered or to format the output. The `printa` function is therefore often used in the `dtrace:::END` probe. The `dtrace:::BEGIN` and `dtrace:::END` probes can be used together to measure the total time that's spent tracing, for example:
 
 ```
 dtrace:::BEGIN
@@ -56,25 +56,25 @@ dtrace:::END
 }
 ```
 
-As with the `BEGIN` probe, no arguments are defined for the `END` probe. The context in which the `END` probe fires is arbitrary and can't be depended upon.
+As with the `dtrace:::BEGIN` probe, no arguments are defined for the `dtrace:::END` probe. The context in which the `dtrace:::END` probe fires is arbitrary and can't be depended upon.
 
 
 
 **Note:**
 
-The [`exit`](function_exit.md) function causes tracing to stop and the `END` probe to fire.
-However, a delay exists between the invocation of the `exit` function and when the `END` probe fires.
+The [`exit`](function_exit.md) function causes tracing to stop and the `dtrace:::END` probe to fire.
+However, a delay exists between the invocation of the `exit` function and when the `dtrace:::END` probe fires.
 During this delay, no further probes can fire.
-After a probe invokes the `exit` function, the `END` probe isn't fired until DTrace determines that `exit` has been called and stops tracing.
+After a probe invokes the `exit` function, the `dtrace:::END` probe isn't fired until DTrace determines that `exit` has been called and stops tracing.
 The rate at which the exit status is checked can be set by using `statusrate` option.
 
 ## ERROR Probe <a id="dt_ref_error_prov">
 
-The `ERROR` probe fires when a runtime error occurs during the processing of a clause for a DTrace probe.
+The `dtrace:::ERROR` probe fires when a runtime error occurs during the processing of a clause for a DTrace probe.
 
 When a runtime error occurs, DTrace doesn't process the rest of the clause that resulted in the error. If an ERROR probe is included in the script, it's triggered immediately. After the ERROR probe is processed, tracing continues. If you want a D runtime error to stop all further tracing, you must include an `exit()` action in the clause for the ERROR probe.
 
-In the following example, a clause attempts to dereference a `NULL` pointer and causes the `ERROR` probe to fire. Save it in a file named `error.d`:
+In the following example, a clause attempts to dereference a `NULL` pointer and causes the `dtrace:::ERROR` probe to fire. Save it in a file named `error.d`:
 
 ```
 dtrace:::BEGIN
@@ -98,9 +98,9 @@ CPU     ID                    FUNCTION:NAME
 
 ```
 
-The output indicates that the `ERROR` probe fired and that `dtrace` reported the error. `dtrace` has its own enabling of the `ERROR` probe so that it can report errors. Using the `ERROR` probe, you can create custom error handling.
+The output indicates that the `dtrace:::ERROR` probe fired and that `dtrace` reported the error. `dtrace` has its own enabling of the `dtrace:::ERROR` probe so that it can report errors. Using the `dtrace:::ERROR` probe, you can create custom error handling.
 
-The arguments to the `ERROR` probe are described in the following table.
+The arguments to the `dtrace:::ERROR` probe are described in the following table.
 
 <table><thead><tr><th>
 
@@ -313,7 +313,7 @@ Library level fault
 
 None.
 </td></tr><tbody></table>
-If the actions that are taken in the `ERROR` probe cause an error, that error is silently dropped. The `ERROR` probe isn't recursively invoked.
+If the actions that are taken in the `dtrace:::ERROR` probe cause an error, that error is silently dropped. The `dtrace:::ERROR` probe isn't recursively invoked.
 
 ## dtrace Stability <a id="dt_ref_dtstability_prov">
 

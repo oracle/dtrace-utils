@@ -12,18 +12,18 @@ The `ftruncate` function is a data recording function that truncates the output 
 ## How to use ftruncate to truncate the stdout output stream, by using a counter
 
 ```
-tick-10ms
+profile:::tick-10ms
 {
     printf("%d\n", i++);
 }
 
-tick-10ms
+profile:::tick-10ms
 /i == 10/
 {
     ftruncate();
 }
 
-tick-10ms
+profile:::tick-10ms
 /i == 20/
 {
     exit(0);

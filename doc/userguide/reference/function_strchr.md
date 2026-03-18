@@ -14,7 +14,7 @@ The returned string is allocated out of scratch memory and is therefore valid on
 ## How to use strchr to return a string starting at the first occurrence of a character
 
 ```
- BEGIN
+ dtrace:::BEGIN
  {
          str = "fooeyfooeyfoo";
          c = 'y';

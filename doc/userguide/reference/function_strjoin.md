@@ -12,7 +12,7 @@ The `strjoin` function returns the concatenation of two specified strings. The r
 ## How to use strjoin to concatenate two strings together
 
 ```
-BEGIN {
+dtrace:::BEGIN {
      string1="foo";
      string2="bar";
      printf("%s",strjoin(string1,string2));

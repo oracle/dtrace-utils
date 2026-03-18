@@ -14,19 +14,19 @@ The `sum` function is an aggregation function to used to obtain the total value 
 This example increments a variable, *i*, by 100 every 10 ms until *i* has a value of 1000. An aggregation is used to calculate the sum of values of *i*. This is equal to the expression: 0+100+200+300+400+500+600+700+800+900=4500.
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         i = 0;
 }
 
-tick-10ms
+profile:::tick-10ms
 /i < 1000/
 {
         @a = sum(i);
         i += 100;
 }
 
-tick-10ms
+profile:::tick-10ms
 /i == 1000/
 {
         exit(0);

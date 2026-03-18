@@ -38,7 +38,7 @@ Pointers are required in D because they're an intrinsic part of the OS's impleme
 To observe DTrace's error handling and reporting, you could write a deliberately bad D program using pointers. For example, in an editor, type the following D program and save it in a file named `badptr.d`:
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
   x = (int *)NULL;
   y = *x;
@@ -53,7 +53,7 @@ dtrace: script '/tmp/badptr.d' matched 1 probe
 dtrace: error on enabled probe ID 2 (ID 1: dtrace:::BEGIN): invalid address (0x0) in action #1 at BPF pc 156
 ```
 
-Notice that the D program moves past the error and continues to run; the system and all observed processes remain unperturbed. You can also add an `ERROR` probe to any script to handle D errors. For details about the DTrace error mechanism, see [ERROR Probe](dtrace_providers_dtrace.md).
+Notice that the D program moves past the error and continues to run; the system and all observed processes remain unperturbed. You can also add an `dtrace:::ERROR` probe to any script to handle D errors. For details about the DTrace error mechanism, see [ERROR Probe](dtrace_providers_dtrace.md).
 
 ## Pointer and Array Relationship <a id="dt_ptrarel_dlang">
 
@@ -80,7 +80,7 @@ The following D fragment illustrates this property:
 ```
 int *x;
 
-BEGIN
+dtrace:::BEGIN
 {
   trace(x);
   trace(x + 1);
@@ -98,7 +98,7 @@ For example, the following D program would trace the result `2`:
 int *x, *y;
 int a[5];
 
-BEGIN
+dtrace:::BEGIN
 {
   x = &a[0];
   y = &a[2];

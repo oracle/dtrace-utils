@@ -14,7 +14,7 @@ See the `printf(1)` manual page for more information on formatting directives. N
 ## How to use printf to print a formatted string
 
 ```
-BEGIN {
+dtrace:::BEGIN {
    printf("execname is %s; priority is %d", execname, curlwpsinfo->pr_pri);
 }
 ```

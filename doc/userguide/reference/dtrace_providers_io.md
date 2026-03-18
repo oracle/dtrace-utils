@@ -360,7 +360,7 @@ The following example script displays information for every I/O as it's issued. 
 ```
 #pragma D option quiet
 
-BEGIN
+dtrace:::BEGIN
 {
   printf("%10s %2s\n", "DEVICE", "RW");
 }
@@ -390,7 +390,7 @@ You can make the example script slightly more sophisticated by using an associat
 ```
 #pragma D option quiet
 
-BEGIN
+dtrace:::BEGIN
 {
   printf("%10s %2s %7s\n", "DEVICE", "RW", "MS");
 }
@@ -423,7 +423,7 @@ io:::start
   @[args[1]->dev_statname, execname, pid] = sum(args[0]->b_bcount);
 }
 
-END
+dtrace:::END
 {
   printf("%10s %20s %10s %15s\n", "DEVICE", "APP", "PID", "BYTES");
   printa("%10s %20s %10d %15@d\n", @);
@@ -481,7 +481,7 @@ io:::done
   start[args[0]->b_edev, args[0]->b_blkno] = 0;
 }
 
-END
+dtrace:::END
 {
   printa(" %s (%s)\n%@d\n", @);
 }

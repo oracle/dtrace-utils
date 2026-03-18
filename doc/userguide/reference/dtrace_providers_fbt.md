@@ -13,6 +13,11 @@ An effective use of FBT probes requires knowledge of the kernel implementation. 
 
 Because of the large number of FPB probes that are available, be specific about the modules and functions that you enable probes for. Performance can be impacted when the full range of FBT probes are enabled at the same time.
 
+Further, while it is generally best practice to specify the provider name explicitly,
+an explicit provider name is especially important for FBT (and raw FBT) probes,
+since an FBT probe will typically have a similarly named raw-FBT counterpart,
+and in all likelihood one probably does not want both probes.
+
 **Parent topic:**[DTrace Provider Reference](../reference/dtrace_providers.md)
 
 ## fbt Probes <a id="dt_ref_fbtprobes_prov">

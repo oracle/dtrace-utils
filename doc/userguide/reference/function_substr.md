@@ -14,7 +14,7 @@ The `substr` function returns the substring of a string, *string*, starting at t
 In the example, the length of the substring returned is limited to 4 characters.
 
 ```
- BEGIN {
+ dtrace:::BEGIN {
      string1="daddyorchips";
      trace(substr(string1,7,4))
      exit(0)

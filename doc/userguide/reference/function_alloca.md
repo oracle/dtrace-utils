@@ -12,7 +12,7 @@ The `alloca` function allocates *size* bytes out of scratch memory, and returns 
 ## How to use alloca to assign a string to an allocated memory region and then to read it out again by using the pointer
 
 ```
-BEGIN
+dtrace:::BEGIN
 {
         x = (string *)alloca(sizeof(string) + 1);
         *x = "abc";

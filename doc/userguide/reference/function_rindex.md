@@ -12,7 +12,7 @@ The `rindex` function finds the position of the last occurrence of a substring, 
 ## How to use rindex to identify the last occurrence of a substring within a string
 
 ```
-BEGIN {
+dtrace:::BEGIN {
          x = "#findthelastpenguininthepenguinstring!";
          y = "penguin";
          printf("The last penguin appears at character %3d\n", rindex(x, y));

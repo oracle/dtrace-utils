@@ -9,7 +9,7 @@ DTrace is a framework that dynamically traces data into buffers that are read by
 
 ## Probes <a id="concept_terms_probes">
 
-DTrace works by using *probes* that identify particular instrumentation in the kernel or within a user space application, or which can be used to identify interval counters or performance event counters. Events such as when particular code is run or when a specific counter is incremented cause a probe to fire and DTrace can perform functions that are bound to the event in a program or script. For example, a probe can fire when a particular file is opened and a DTrace program can print information related to the event that can be useful for debugging or resolving an issue. Equally, at the moment that DTrace starts or ends any tracing activity, the `BEGIN` and `END` probes dedicated to these actions always fire.
+DTrace works by using *probes* that identify particular instrumentation in the kernel or within a user space application, or which can be used to identify interval counters or performance event counters. Events such as when particular code is run or when a specific counter is incremented cause a probe to fire and DTrace can perform functions that are bound to the event in a program or script. For example, a probe can fire when a particular file is opened and a DTrace program can print information related to the event that can be useful for debugging or resolving an issue. Equally, at the moment that DTrace starts or ends any tracing activity, the `dtrace:::BEGIN` and `dtrace:::END` probes dedicated to these actions always fire.
 
 You can list all the available probes on a system by typing the following command:
 
@@ -49,7 +49,7 @@ Probes are made available by *providers*, which group particular kinds of instru
 
 -   **name**
 
-    The name that provides some idea of the probe's semantic meaning, such as `BEGIN` or `END`.
+    The name that provides some idea of the probe's semantic meaning, such as `dtrace:::BEGIN` or `dtrace:::END`.
 
 
 When referencing a probe, write all four parts of the probe description separated by colons:
@@ -64,7 +64,7 @@ Some probes don't have a module or function identifier when they're listed. When
 dtrace:::BEGIN
 ```
 
-Probes aren't required to have a module and function. The dtrace `BEGIN`, `END` and `ERROR` probes are good examples of this because these probes don't correspond to any specific instrumented program function or location. Instead, these probes are used for more abstract concepts, such as the idea of the end a tracing request. Other probes, such as those made available by the [Profile Provider](../reference/dtrace_providers_profile.md) or the [CPC Provider](../reference/dtrace_providers_cpc.md), also don't include module or function identifiers in their descriptions.
+Probes aren't required to have a module and function. The dtrace `dtrace:::BEGIN`, `dtrace:::END` and `dtrace:::ERROR` probes are good examples of this because these probes don't correspond to any specific instrumented program function or location. Instead, these probes are used for more abstract concepts, such as the idea of the end a tracing request. Other probes, such as those made available by the [Profile Provider](../reference/dtrace_providers_profile.md) or the [CPC Provider](../reference/dtrace_providers_cpc.md), also don't include module or function identifiers in their descriptions.
 
 ## D Programs <a id="concept_terms_programs">
 
