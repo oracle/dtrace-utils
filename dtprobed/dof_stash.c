@@ -240,17 +240,19 @@ make_probespec_name(const char *prov, const char *mod, const char *fn,
 	char *ret;
 
 	/*
-	 * Ban "." and ".." as name components.  Obviously names
-	 * containing dots are commonplace (shared libraries,
-	 * for instance), but allowing straight . and .. would
-	 * have obviously horrible consequences.  They can't be
-	 * filenames anyway, and you can't create them with
-	 * dtrace -h because they aren't valid C identifier names.
+	 * Ban "." and ".." as probe description components, as well as any
+	 * components with a '/' character.  Since the components are used in
+	 * the creation of paths that will be written to, any of these cases
+	 * can be unsafe.
 	 */
 	if (strcmp(prov, ".") == 0 || strcmp(prov, "..") == 0 ||
+	    strchr(prov, '/') != NULL ||
 	    strcmp(mod, ".") == 0 || strcmp(mod, "..") == 0 ||
+	    strchr(mod, '/') != NULL ||
 	    strcmp(fn, ".") == 0 || strcmp(fn, "..") == 0 ||
-	    strcmp(prb, ".") == 0 || strcmp(prb, "..") == 0)
+	    strchr(fn, '/') != NULL ||
+	    strcmp(prb, ".") == 0 || strcmp(prb, "..") == 0 ||
+	    strchr(prb, '/') != NULL)
 		return NULL;
 
 	if (asprintf(&ret, "%s:%s:%s:%s", prov, mod, fn, prb) < 0) {
