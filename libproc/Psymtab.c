@@ -1376,7 +1376,13 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	}
 	velf = elf;
 	close(fd);
-	if ((cache = malloc(nshdrs * sizeof(*cache))) == NULL) {
+
+	/*
+	 * Protect against overflow that could result in allocating less than
+	 * we need.
+	 */
+	if (nshdrs > SIZE_MAX / sizeof(*cache) ||
+	    (cache = calloc(nshdrs, sizeof(*cache))) == NULL) {
 		_dprintf("failed to malloc section cache for mapping of %s\n",
 		    fptr->file_pname);
 		goto bad;
@@ -1391,9 +1397,11 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 	/*
 	 * Iterate through each section, caching its section header, data
 	 * pointer, and name.  We use this for handling sh_link values below.
+	 * Ensure that we never populate beyond the allocated cache entries.
 	 */
-	for (cp = cache + 1, scn = NULL; (scn = elf_nextscn(elf, scn)) != NULL;
-	     cp++) {
+	for (cp = cache + 1, scn = NULL, i = 1;
+	     i < nshdrs && (scn = elf_nextscn(elf, scn)) != NULL;
+	     cp++, i++) {
 		if (gelf_getshdr(scn, &cp->c_shdr) == NULL) {
 			_dprintf("Pbuild_file_symtab: Failed to get section "
 			    "header\n");
@@ -1424,6 +1432,7 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		if (shp->sh_type == SHT_SYMTAB || shp->sh_type == SHT_DYNSYM) {
 			sym_tbl_t *symp = shp->sh_type == SHT_SYMTAB ?
 			    &fptr->file_symtab : &fptr->file_dynsym;
+
 			/*
 			 * It's possible that the we already got the symbol
 			 * table from the core file itself.  We'll just be
@@ -1432,6 +1441,13 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			 * check isn't essential, but it's a good idea.
 			 */
 			if (symp->sym_data_pri == NULL) {
+				/* Guard aginst invalid sh_link values. */
+				if (shp->sh_link == 0 ||
+				    shp->sh_link >= nshdrs) {
+					_dprintf("Pbuild_file_symtab: sh_link %u (should be [1, %lu])\n", shp->sh_link, nshdrs);
+					goto bad;
+				}
+
 				_dprintf("Symbol table found for %s\n",
 				    fptr->file_pname);
 				symp->sym_data_pri = cp->c_data;

@@ -116,6 +116,11 @@ Requires:     java-devel perl-IO-Socket-IP perl-Net-Ping xfsprogs
 Requires:     exportfs vim-minimal %{name}%{?_isa} = %{version}-%{release}
 Requires:     coreutils wireshark %{glibc32}
 Requires:     time bc nfs-utils
+%if "%{?dist}" == ".el10"
+Requires:     xxd
+%else
+Requires:     vim-common
+%endif
 Suggests:     kernel-uek-tools
 Autoreq:      0
 Group:	      Development/System
