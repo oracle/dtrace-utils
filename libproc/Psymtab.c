@@ -1559,6 +1559,15 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			break;
 	}
 
+	if (i == nphdrs) {
+		_dprintf("%s: no loadable sections.\n", fptr->file_pname);
+		goto elf_bad_noaddr;
+	}
+	if (phdr->p_align == 0) {
+		_dprintf("%s: p_align cannot be 0.\n", fptr->file_pname);
+		goto elf_bad_noaddr;
+	}
+
 	fptr->file_dyn_base = prf->first_segment->pr_vaddr -
 	    (phdr->p_vaddr & (phdr->p_align - 1));
 
