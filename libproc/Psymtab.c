@@ -1388,6 +1388,14 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 		goto bad;
 	}
 
+	/* Ensure that the shstrtab is NUL-terminated. */
+	if (shdata->d_size > 0 &&
+	    ((const char *)shdata->d_buf)[shdata->d_size - 1] != 0) {
+		_dprintf(".shstrtab in %s is not NUL-terminated\n",
+		    fptr->file_pname);
+		goto bad;
+	}
+
 	_dprintf("processing ELF file %s\n", fptr->file_pname);
 	fptr->file_etype = ehdr.e_type;
 	fptr->file_elf = elf;
@@ -1414,8 +1422,15 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 			goto bad; /* Failed to get section data */
 		}
 
+		if (cp->c_shdr.sh_type == SHT_STRTAB &&
+		    cp->c_data->d_size > 0 &&
+		    ((const char *)cp->c_data->d_buf)[cp->c_data->d_size - 1] != 0) {
+			_dprintf("Pbuild_file_symtab: unterminated strtab section\n");
+			goto bad; /* Corrupt section name */
+		}
+
 		if (cp->c_shdr.sh_name >= shdata->d_size) {
-			_dprintf("Pbuild_file_symtab: corrupt section name");
+			_dprintf("Pbuild_file_symtab: corrupt section name\n");
 			goto bad; /* Corrupt section name */
 		}
 
