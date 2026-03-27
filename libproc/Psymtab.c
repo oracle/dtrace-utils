@@ -1447,6 +1447,11 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 					_dprintf("Pbuild_file_symtab: sh_link %u (should be [1, %lu])\n", shp->sh_link, nshdrs);
 					goto bad;
 				}
+				/* Guard agaist divide-by-zero. */
+			        if (shp->sh_entsize == 0) {
+					_dprintf("Pbuild_file_symtab: sh_entsize cannot be 0\n");
+					goto bad;
+				}
 
 				_dprintf("Symbol table found for %s\n",
 				    fptr->file_pname);
