@@ -1462,6 +1462,12 @@ Pbuild_file_symtab(struct ps_prochandle *P, file_info_t *fptr)
 					_dprintf("Pbuild_file_symtab: sh_link %u (should be [1, %lu])\n", shp->sh_link, nshdrs);
 					goto bad;
 				}
+				/* Ensure that sh_link refers to a strtab. */
+				if (cache[shp->sh_link].c_shdr.sh_type != SHT_STRTAB) {
+					_dprintf("Pbuild_file_symtab: symtab sh_link is not a strtab\n");
+					goto bad;
+				}
+
 				/* Guard agaist divide-by-zero. */
 			        if (shp->sh_entsize == 0) {
 					_dprintf("Pbuild_file_symtab: sh_entsize cannot be 0\n");
