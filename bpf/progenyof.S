@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, 2024, Oracle and/or its affiliates.
+ * Copyright (c) 2022, 2026, Oracle and/or its affiliates.
  */
 
 #include <bpf_asm_helpers.h>
@@ -34,11 +34,11 @@ dt_progenyof:
 	/* if (count <= 0) goto Lret0 */
 	jsle	CNT, 0, .Lret0
 
-	/* val = *((uint32_t *)(ptr + TASK_PID)), using [%fp+-8] as temp */
+	/* val = *((uint32_t *)(ptr + TASK_TGID)), using [%fp+-8] as temp */
 	mov	%r1, %fp
 	add	%r1, -8
 	mov	%r2, 4
-	lddw	%r3, TASK_PID
+	lddw	%r3, TASK_TGID
 	add	%r3, PTR
 	call	BPF_FUNC_probe_read
 	jne	%r0, 0, .Lret0
