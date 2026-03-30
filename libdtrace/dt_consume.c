@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -474,17 +474,14 @@ dt_flowindent(dtrace_hdl_t *dtp, dtrace_probedata_t *data, dtrace_id_t lastprid,
 	}
 
 	/*
-	 * If we're going to indent this, we need to check the ID of our last
-	 * call.  If we're looking at the same probe ID but a different STID,
-	 * we _don't_ want to indent.  (Yes, there are some minor holes in
-	 * this scheme -- it's a heuristic.)
+	 * If we're looking at the same probe ID but a different STID,
+	 * we do NOT want to change indentation.  (This heuristic could fail.)
 	 */
-	if (flow == DTRACEFLOW_ENTRY) {
+	if (flow != DTRACEFLOW_NONE)
 		if (stid != laststid && pd->id == lastprid)
 			flow = DTRACEFLOW_NONE;
-	}
 
-	if (flow == DTRACEFLOW_ENTRY || flow == DTRACEFLOW_RETURN)
+	if (flow != DTRACEFLOW_NONE)
 		data->dtpda_prefix = str;
 	else
 		data->dtpda_prefix = "| ";
