@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2006, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2006, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -33,7 +33,7 @@ typedef struct dt_probe_instance {
 typedef struct dt_probe {
 	dt_list_t list;			/* prev/next in enablings chain */
 	dt_list_t stmts;		/* stmts */
-	dt_list_t dependents;		/* dependenct probes to attach */
+	dt_list_t dependents;		/* dependent probes to attach */
 	const dtrace_probedesc_t *desc;	/* probe description (id, name) */
 	dt_provider_t *prov;		/* pointer to containing provider */
 	struct dt_hentry he_prv;	/* provider name htab links */
