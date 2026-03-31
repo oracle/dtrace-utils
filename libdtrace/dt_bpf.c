@@ -428,7 +428,7 @@ have_helper(uint32_t func_id)
 	/* If the program loads, we can use the helper. */
 	fd = dt_bpf_prog_attach(BPF_PROG_TYPE_KPROBE, 0, 0, 0, &dp,
 			      1, log, DT_BPF_LOG_SIZE_SMALL);
-	if (fd > 0) {
+	if (fd >= 0) {
 		close(fd);
 		return 1;
 	}
