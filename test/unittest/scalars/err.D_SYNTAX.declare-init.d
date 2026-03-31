@@ -8,7 +8,7 @@
 /*
  * ASSERTION:
  *
- * Declare a variable Inside Begin and make sure compilation fails.
+ * Declare and init a variable Inside Begin and make sure compilation fails.
  *
  * SECTION:  Variables/Scalar Variables
  *
@@ -16,5 +16,5 @@
 
 BEGIN
 {
-	int x;
+	int x = 123;
 }
