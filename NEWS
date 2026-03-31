@@ -1,5 +1,18 @@
-2.0.6-1 (Mar 9th, 2026)
+2.0.7-4 (Apr 29th, 2026)
 ------------------------
+
+Bugfixes:
+
+ - Prevent out-of-buonds memory access during object symbol table construction.
+   (CVE-2026-35233)
+ - Prevent divide-by-zero (FPE trap) if section header data is corrupted.
+   (CVE-2026-21996)
+ - Ensure safety checks are performed on program header data from ELF objects.
+ - Ensure that the data of string table sections is proper terminated.
+ - Ensure that the symbol table references a valid string table.
+
+2.0.6-1 (Mar 9th, 2026)
+-----------------------
 
 Bugfixes:
 
@@ -7,7 +20,7 @@ Bugfixes:
    (CVE-2026-21991)
 
 2.0.5-1 (Feb 4th, 2026)
-------------------------
+-----------------------
 
 New features:
 

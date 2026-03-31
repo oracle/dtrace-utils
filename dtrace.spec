@@ -72,8 +72,8 @@ Requires:     libdtrace-ctf >= 1.1.0
 BuildRequires: libdtrace-ctf-devel >= 1.1.0
 %endif
 Summary:      DTrace user interface.
-Version:      2.0.6
-Release:      1%{?dist}
+Version:      2.0.7
+Release:      4%{?dist}
 Source:       dtrace-%{version}.tar.bz2
 BuildRoot:    %{_tmppath}/%{name}-%{version}-build
 ExclusiveArch:    x86_64 aarch64
@@ -235,6 +235,15 @@ systemctl start dtprobed || :
 %{_libdir}/dtrace/testsuite
 
 %changelog
+* Wed Apr 29 2026 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.7-4
+- Prevent out-of-buonds memory access during object symbol table construction
+  (CVE-2026-35233).  [Orabug: 39121881]
+- Prevent divide-by-zero (FPE trap) if section header data is corrupted.
+  (CVE-2026-21996).  [Orabug: 39121874]
+- Ensure safety checks are performed on program header data from ELF objects.
+- Ensure that the data of string table sections is proper terminated.
+- Ensure that the symbol table references a valid string table.
+
 * Mon Mar  9 2026 Kris Van Hees <kris.van.hees@oracle.com> - 2.0.6-1
 - Fix dtprobed unsafe probe description handling (CVE-2026-21991).
   [Orabug: 39054018]
