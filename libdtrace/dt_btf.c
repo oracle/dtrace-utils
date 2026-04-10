@@ -848,6 +848,27 @@ dt_btf_type_by_id(dtrace_hdl_t *dtp, const dt_btf_t *btf, int32_t id)
 	return btf->types[id - (dtp->dt_shared_btf->type_cnt - 1)];
 }
 
+static btf_type_t *
+dt_btf_real_type_by_id(dtrace_hdl_t *dtp, const dt_btf_t *btf, int32_t id)
+{
+	btf_type_t	*type = dt_btf_type_by_id(dtp, btf, id);
+
+	do {
+		switch (BTF_INFO_KIND(type->info)) {
+		case BTF_KIND_CONST:
+		case BTF_KIND_FUNC:
+		case BTF_KIND_RESTRICT:
+		case BTF_KIND_TYPEDEF:
+		case BTF_KIND_VOLATILE:
+			type = dt_btf_type_by_id(dtp, btf, type->type);
+		default:
+			return type;
+		}
+	} while (type != NULL);
+
+	return NULL;
+}
+
 const char *
 dt_btf_get_string(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t off)
 {
@@ -978,29 +999,24 @@ dt_btf_module_fd(const dt_module_t *dmp)
 int
 dt_btf_func_argc(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t id)
 {
-	btf_type_t	*type = dt_btf_type_by_id(dtp, btf, id);
+	btf_type_t	*type = dt_btf_real_type_by_id(dtp, btf, id);
 
-	/* For functions, move on to the function prototype. */
-	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC)
-		type = dt_btf_type_by_id(dtp, btf, type->type);
+	if (type == NULL)
+		return -1;
 
-	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC_PROTO)
-		return BTF_INFO_VLEN(type->info);
+	if (BTF_INFO_KIND(type->info) != BTF_KIND_FUNC_PROTO)
+		return -1;
 
-	return -1;
+	return BTF_INFO_VLEN(type->info);
 }
 
 int
 dt_btf_func_is_void(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t id)
 {
-	btf_type_t	*type = dt_btf_type_by_id(dtp, btf, id);
+	btf_type_t	*type = dt_btf_real_type_by_id(dtp, btf, id);
 
-	/* For functions, move on to the function prototype. */
-	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC)
-		type = dt_btf_type_by_id(dtp, btf, type->type);
-
-	if (BTF_INFO_KIND(type->info) == BTF_KIND_FUNC_PROTO &&
-	    type->type == 0)
+	if (type != NULL &&
+	    BTF_INFO_KIND(type->info) == BTF_KIND_FUNC_PROTO && type->type == 0)
 		return 1;
 
 	return 0;
