@@ -1021,3 +1021,68 @@ dt_btf_func_is_void(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t id)
 
 	return 0;
 }
+
+/*
+ * Return 1 if the function referenced by the BTF id can be traced using the
+ * fprobe/fexit facility.  Specifically, that the function is not variadic and
+ * that none of its arguments exceeds the acceptable value size (16 bytes).
+ * (See btf_distill_func_proto() in kernel/bpf/btf.c for reference.)
+ */
+#define MAX_BPF_FUNC_REG_REGS	5
+int
+dt_btf_func_is_traceable(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t id)
+{
+	btf_type_t	*type = dt_btf_real_type_by_id(dtp, btf, id);
+	int		argc;
+
+	/* If no prototype is found, BPF fprobes do not work. */
+	if (!type || BTF_INFO_KIND(type->info) != BTF_KIND_FUNC_PROTO)
+		return 0;
+
+	/* If the return type is a struct or union, BPF fprobes do not work. */
+	if (type->type != 0) {
+		btf_type_t	*rtype = dt_btf_real_type_by_id(dtp, btf, type->type);
+
+		if (rtype == NULL)
+			return 0;
+
+		switch (BTF_INFO_KIND(rtype->info)) {
+		case BTF_KIND_STRUCT:
+		case BTF_KIND_UNION:
+			return 0;
+		default:
+			/* fall-through */
+		}
+	}
+
+	/*
+	 * BPF fprobes do not support functions that are variadic or that have
+	 * any arguments passed by value that are a struct or union of size
+	 * greater than 16.
+	 */
+	argc = BTF_INFO_VLEN(type->info);
+	if (argc > 0) {
+		btf_param_t	*args = (btf_param_t *)(type + 1);
+		int		i;
+
+		if (args[argc - 1].type == 0)		/* variadic */
+			return 0;
+
+		for (i = 0; i < argc; i++) {
+			type = dt_btf_real_type_by_id(dtp, btf, args[i].type);
+			if (type == NULL)
+				return 0;
+
+			switch (BTF_INFO_KIND(type->info)) {
+			case BTF_KIND_STRUCT:
+			case BTF_KIND_UNION:
+				if (type->size > 16)	/* value size > 16 */
+					return 0;
+			default:
+				/* fall-through */
+			}
+		}
+	}
+
+	return 1;
+}

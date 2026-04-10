@@ -28,6 +28,8 @@ extern int dt_btf_func_argc(dtrace_hdl_t *dtp, const dt_btf_t *btf,
 			    uint32_t id);
 extern int dt_btf_func_is_void(dtrace_hdl_t *dtp, const dt_btf_t *btf,
 			       uint32_t id);
+extern int dt_btf_func_is_traceable(dtrace_hdl_t *dtp, const dt_btf_t *btf,
+				    uint32_t id);
 extern int dt_btf_get_module_ids(dtrace_hdl_t *);
 extern int dt_btf_module_fd(const dt_module_t *);
 
