@@ -86,14 +86,31 @@ static int populate(dtrace_hdl_t *dtp)
 }
 
 /* Create a probe (if it does not exist yet). */
-static int provide_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
+static int provide_probe(dtrace_hdl_t *dtp, dt_module_t *dmp,
+			 dtrace_probedesc_t *pdp)
 {
 	dt_provider_t	*prv = dt_provider_lookup(dtp, pdp->prv);
 
 	if (prv == NULL)
 		return 0;
+	pdp->mod = dmp->dm_name;
 	if (dt_probe_lookup(dtp, pdp) != NULL)
 		return 0;
+
+	/*
+	 * Do not provide fentry/fexit-based probes for functions that BPF does
+	 * not currently support (see dt_btf_func_is_traceable() for more
+	 * details).
+	 */
+	if (prv->impl->prog_type == BPF_PROG_TYPE_TRACING) {
+		int32_t	btf_id;
+
+		btf_id = dt_btf_lookup_name_kind(dtp, dmp, pdp->fun, BTF_KIND_FUNC);
+		if (btf_id <= 0 ||
+		    !dt_btf_func_is_traceable(dtp, dmp->dm_btf, btf_id))
+			return -1;
+	}
+
 	if (dt_tp_probe_insert(dtp, prv, pdp->prv, pdp->mod, pdp->fun, pdp->prb))
 		return 1;
 
@@ -173,16 +190,15 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 
 			pd.id = DTRACE_IDNONE;
 			pd.prv = pdp->prv;
-			pd.mod = dmp->dm_name;
 			pd.fun = pdp->fun;
 
 			if (prb & FBT_ENTRY) {
 				pd.prb = "entry";
-				n += provide_probe(dtp, &pd);
+				n += provide_probe(dtp, dmp, &pd);
 			}
 			if (prb & FBT_RETURN) {
 				pd.prb = "return";
-				n += provide_probe(dtp, &pd);
+				n += provide_probe(dtp, dmp, &pd);
 			}
 
 			return n;
@@ -190,22 +206,20 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 
 		sym = dt_symbol_by_name(dtp, pdp->fun);
 		while (sym != NULL) {
-			const char	*mod = dt_symbol_module(sym)->dm_name;
-
+			dmp = dt_symbol_module(sym);
 			if (dt_symbol_traceable(sym) &&
-			    dt_gmatch(mod, pdp->mod)) {
+			    dt_gmatch(dmp->dm_name, pdp->mod)) {
 				pd.id = DTRACE_IDNONE;
 				pd.prv = pdp->prv;
-				pd.mod = mod;
 				pd.fun = pdp->fun;
 
 				if (prb & FBT_ENTRY) {
 					pd.prb = "entry";
-					n += provide_probe(dtp, &pd);
+					n += provide_probe(dtp, dmp, &pd);
 				}
 				if (prb & FBT_RETURN) {
 					pd.prb = "return";
-					n += provide_probe(dtp, &pd);
+					n += provide_probe(dtp, dmp, &pd);
 				}
 
 			}
@@ -242,16 +256,15 @@ static int provide(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 
 		pd.id = DTRACE_IDNONE;
 		pd.prv = pdp->prv;
-		pd.mod = smp->dm_name;
 		pd.fun = fun;
 
 		if (prb & FBT_ENTRY) {
 			pd.prb = "entry";
-			n += provide_probe(dtp, &pd);
+			n += provide_probe(dtp, smp, &pd);
 		}
 		if (prb & FBT_RETURN) {
 			pd.prb = "return";
-			n += provide_probe(dtp, &pd);
+			n += provide_probe(dtp, smp, &pd);
 		}
 	}
 
