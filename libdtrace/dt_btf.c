@@ -849,7 +849,7 @@ dt_btf_type_by_id(dtrace_hdl_t *dtp, const dt_btf_t *btf, int32_t id)
 }
 
 const char *
-dt_btf_get_string(dtrace_hdl_t *dtp, dt_btf_t *btf, uint32_t off)
+dt_btf_get_string(dtrace_hdl_t *dtp, const dt_btf_t *btf, uint32_t off)
 {
 	if (dtp->dt_shared_btf == NULL)
 		goto ok;
