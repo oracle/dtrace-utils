@@ -1701,8 +1701,14 @@ oom:
 	return dt_set_errno(dtp, EDT_NOMEM);
 }
 
-/* Clean up the private provider data. */
-static void destroy(dtrace_hdl_t *dtp, void *arg)
+/* Clean up the private uproobe provider data. */
+static void destroy_uprobe(dtrace_hdl_t *dtp, void *arg)
+{
+	dt_free(dtp, arg);
+}
+
+/* Clean up the private USDT provider data. */
+static void destroy_usdt(dtrace_hdl_t *dtp, void *arg)
 {
 	dt_htab_destroy((dt_htab_t *)arg);
 }
@@ -1720,6 +1726,7 @@ dt_provimpl_t	dt_uprobe = {
 	.detach		= &detach,
 	.probe_destroy	= &probe_destroy_underlying,
 	.add_probe	= &add_probe_uprobe,
+	.destroy	= &destroy_uprobe,
 };
 
 /*
@@ -1746,7 +1753,7 @@ dt_provimpl_t	dt_usdt = {
 	.probe_destroy	= &probe_destroy,
 	.discover	= &discover,
 	.add_probe	= &add_probe_usdt,
-	.destroy	= &destroy,
+	.destroy	= &destroy_usdt,
 };
 
 /*
