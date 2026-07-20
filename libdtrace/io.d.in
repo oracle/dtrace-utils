@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -124,16 +124,27 @@ translator devinfo_t < struct buffer_head *B > {
 		       );
 };
 
+define_for_kernel([[__part0_dev]], [[(m4_kver(5,11,0), [[part0->bd_device]])]], [[part0.__dev]])
 #pragma D binding "1.6.3" translator
 translator devinfo_t < struct bio *B > {
 	dev_major = B->__disk_chk == NULL ? 0 : getmajor(B->__bio_part_dev);
 	dev_minor = B->__disk_chk == NULL ? 0 : getminor(B->__bio_part_dev);
 	dev_instance = 0;
+	/*
+	 * Derive the driver name from the device model rather than the kernel's
+	 * `major_names` array: that symbol became static and is no longer
+	 * resolvable via kallsyms on newer kernels.  This mirrors how the
+	 * struct buffer_head devinfo translator above obtains dev_name.
+	 */
 	dev_name = B->__disk_chk == NULL
 		? "nfs"
-		: stringof(((struct blk_major_name **)vmlinux`major_names)[
-				getmajor(B->__bio_part_dev) % 255
-			   ]->name);
+		: B->__disk->__part0_dev.parent
+			? B->__disk->__part0_dev.parent->driver->name
+				? stringof(B->__disk->__part0_dev.parent->driver->name)
+				: "<none>"
+			: B->__disk->__part0_dev.driver->name
+				? stringof(B->__disk->__part0_dev.driver->name)
+				: "<none>";
 	dev_statname = B->__disk_chk == NULL ? "nfs" :
 	    (B->__bio_partno) == 0 ? stringof(B->__disk->disk_name) :
 	    strjoin(stringof(B->__disk->disk_name), lltostr(B->__bio_partno));
