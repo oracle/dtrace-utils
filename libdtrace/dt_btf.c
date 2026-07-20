@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -672,10 +672,28 @@ dt_btf_add_to_ctf(dtrace_hdl_t *dtp, dt_btf_t *btf, ctf_dict_t *ctf,
 
 		return ctfid == CTF_ERR ? dt_ctf_error(dtp, ctf) : ctfid;
 	}
+	case BTF_KIND_TYPE_TAG: {
+		/*
+		 * A type tag (e.g. __rcu, __user, __percpu) is a transparent
+		 * annotation on the type it wraps.  CTF has no equivalent, so
+		 * we resolve straight through to the underlying type, just as
+		 * we do for const/volatile/restrict.  Treating it as ignored
+		 * (mapping it to void) would leave every tagged member -- such
+		 * as task_struct.real_parent (__rcu) -- resolving to "void",
+		 * which breaks translator compilation on kernels whose BTF
+		 * carries type tags.
+		 */
+		ctfid = dt_btf_add_to_ctf(dtp, btf, ctf, type->type);
+		if (ctfid == CTF_ERR)
+			return CTF_ERR;		/* errno already set */
+
+		btf->ctfids[type_id] = ctfid;
+
+		return ctfid;
+	}
 	case BTF_KIND_VAR:
 	case BTF_KIND_DATASEC:
 	case BTF_KIND_DECL_TAG:
-	case BTF_KIND_TYPE_TAG:
 	case BTF_KIND_ENUM64:
 	case BTF_KIND_FUNC:
 		return btf->ctfids[0];		/* Ignored for CTF */
@@ -858,6 +876,7 @@ dt_btf_real_type_by_id(dtrace_hdl_t *dtp, const dt_btf_t *btf, int32_t id)
 		case BTF_KIND_CONST:
 		case BTF_KIND_FUNC:
 		case BTF_KIND_RESTRICT:
+		case BTF_KIND_TYPE_TAG:
 		case BTF_KIND_TYPEDEF:
 		case BTF_KIND_VOLATILE:
 			type = dt_btf_type_by_id(dtp, btf, type->type);
