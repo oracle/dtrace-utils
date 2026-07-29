@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -18,6 +18,7 @@
 #include <sys/dtrace_types.h>
 #include <sys/utsname.h>
 #include <sys/compiler.h>
+#include <sys/stat.h>
 #include <math.h>
 #include <signal.h>
 #include <string.h>
@@ -268,6 +269,8 @@ struct dtrace_hdl {
 	const dtrace_vector_t *dt_vector; /* library vector, if vectored open */
 	void *dt_varg;	/* vector argument, if vectored open */
 	dtrace_conf_t dt_conf;	/* DTrace driver configuration profile */
+	dev_t dt_ns_dev;	/* PID Namespace device */
+	ino_t dt_ns_ino;	/* PID Namespace inode */
 	char dt_errmsg[BUFSIZ];	/* buffer for formatted syntax error msgs */
 	const char *dt_errtag;	/* tag used with last call to dt_set_errmsg() */
 	dt_pcb_t *dt_pcb;	/* pointer to current parsing control block */

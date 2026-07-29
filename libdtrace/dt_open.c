@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -9,6 +9,7 @@
 #include <sys/utsname.h>
 #include <sys/resource.h>
 #include <sys/eventfd.h>
+#include <sys/stat.h>
 
 #include <libelf.h>
 #include <string.h>
@@ -623,6 +624,7 @@ dt_vopen(int version, int flags, int *errp,
     const dtrace_vector_t *vector, void *arg)
 {
 	dtrace_hdl_t *dtp = NULL;
+	struct stat st;
 	int updateerr = 0;
 	dtrace_prog_t *pgp;
 	dt_module_t *dmp;
@@ -821,6 +823,20 @@ dt_vopen(int version, int flags, int *errp,
 			       sizeof(dt_percpu_drops_t));
 	if (dtp->dt_drops == NULL)
 		return set_open_errno(dtp, errp, EDT_NOMEM);
+
+	/*
+	 * Determine whether we are using a PID ns.  The initial PID ns has a
+	 * fixed inode number (PROC_PID_INIT_INO, 0xeffffffc).  If we are using
+	 * it, pid/tgid lookup using bpf_get_current_pid_tgid() can be used.
+	 * If not, we need to use bpf_get_ns_current_pid_tgid().  In that case,
+	 * we record the dev/inode pair for the ns-aware lookup.
+	 */
+	if (stat("/proc/self/ns/pid", &st) == 0 &&
+	    st.st_ino != 0xeffffffcULL &&
+	    dtp->dt_kernver >= DT_VERSION_NUMBER(5, 7, 0)) {
+		dtp->dt_ns_dev = st.st_dev;
+		dtp->dt_ns_ino = st.st_ino;
+	}
 
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
