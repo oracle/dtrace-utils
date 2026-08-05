@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace.
- * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -145,6 +145,54 @@ dt_cg_access_dctx(int reg, dt_irlist_t *dlp, dt_regset_t *drp, int member)
 		ctxreg = BPF_REG_9;
 
 	emit(dlp, BPF_LOAD(BPF_DW, reg, ctxreg, member));
+}
+
+/*
+ * Generate code to retrieve the pid and tgid in a way that honours a possible
+ * non-initial PID namespace.
+ * When we are in a non-initial PID namespace on a kernel that provides it
+ * (5.7+), use bpf_get_ns_current_pid_tgid() with DTrace's own PID namespace so
+ * the value is reported in the same namespace as getpid().
+ * Otherwise fall back to bpf_get_current_pid_tgid().
+ *
+ * The handle provides dt_ns_dev / dt_ns_ino for this purpose.
+ *
+ * Callers must ensure that %r0 through %r5 are reserved as would typically be
+ * done for a function call.
+ */
+void
+dt_cg_ns_pid_tgid(void)
+{
+	dtrace_hdl_t	*dtp = yypcb->pcb_hdl;
+	dt_irlist_t	*dlp = &yypcb->pcb_ir;
+
+	if (dtp->dt_ns_dev && dtp->dt_ns_ino) {
+		uint32_t	slot;
+
+		/*
+		 * If called from a trampoline, use a trampoline stack slot,
+		 * otherwise use a regular one.
+		 */
+		if (yypcb->pcb_root->dn_kind != DT_NODE_TRAMPOLINE)
+			slot = DT_TRAMP_SP_SLOT(0);
+		else
+			slot = DT_STK_SP;
+
+		/*
+		 * bpf_get_ns_current_pid_tgid(dev, ino, &nsinfo, sz) fills a
+		 * struct bpf_pidns_info { u32 pid; u32 tgid; };
+		 * This will be presented as a 64-bit value with the pid as the
+		 * higher 32 bits, and the tgid as the lower 32 bits.
+		 */
+		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_1, dtp->dt_ns_dev);
+		dt_cg_xsetx(dlp, NULL, DT_LBL_NONE, BPF_REG_2, dtp->dt_ns_ino);
+		emit(dlp, BPF_MOV_REG(BPF_REG_3, BPF_REG_FP));
+		emit(dlp, BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, slot));
+		emit(dlp, BPF_MOV_IMM(BPF_REG_4, 8));
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_ns_current_pid_tgid));
+		emit(dlp, BPF_LOAD(BPF_DW, BPF_REG_0, BPF_REG_FP, slot));
+	} else
+		emit(dlp, BPF_CALL_HELPER(BPF_FUNC_get_current_pid_tgid));
 }
 
 /*
