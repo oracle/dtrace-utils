@@ -2,7 +2,7 @@
 
 ## Overview
 These files provide structured **context packs** (`llms-txt` format) for use with large language models (LLMs) such as GPT-4 or Claude.
-They teach the model how to write **correct, safe, and complete DTrace programs** for Oracle Linux.
+They teach the model how to write **correct, safe, and complete DTrace programs** for Linux systems running DTrace.
 
 The goal is to let engineers and administrators generate working D scripts in natural language — without having to memorize the entire D language syntax.
 
@@ -15,6 +15,34 @@ The goal is to let engineers and administrators generate working D scripts in na
 |------|--------------|
 | `llms-dtrace-short.txt` | [Compact reference](llms-dtrace-short.txt) used to bootstrap LLMs for DTrace knowledge. |
 | `llms-dtrace-complete.txt` | [Full expanded reference](llms-dtrace-complete.txt). |
+| `SKILL.md` | [Skill definition](SKILL.md) for generating and validating runnable Linux DTrace scripts with safety and style constraints. |
+
+---
+
+## Use in an Agentic Coding Framework
+
+`SKILL.md` packages the DTrace guidance into a reusable skill so an agentic coding framework capable of using SKILLs can reliably:
+
+- generate full runnable scripts (not fragments),
+- apply safe defaults (stable providers, predicate-first filtering, aggregation-first output),
+- avoid forbidden control-flow constructs for this workflow, and
+- verify generated scripts before finalizing output.
+
+What is a SKILL: https://github.com/openai/skills
+
+Verification flow used by the skill:
+
+```bash
+sudo dtrace -e -s script.d
+```
+
+Fallback when compile-only verification is not available:
+
+```bash
+sudo timeout 3 dtrace -s script.d
+```
+
+In most Linux environments, `sudo` is required even for `-e` compile-only checks unless the user has sufficient tracing capabilities.
 
 ---
 
@@ -39,7 +67,7 @@ The goal is to let engineers and administrators generate working D scripts in na
 
     -   In ChatGPT, Claude, or another interface that supports file context, click the “+” icon and upload `llms-dtrace-short.txt`.
 
-    -   The model will automatically ingest the reference and understand how to write runnable DTrace programs for Oracle Linux.
+    -   The model will automatically ingest the reference and understand how to write runnable DTrace programs for Linux DTrace environments.
 
 3.  **Start asking questions in natural language**
 
