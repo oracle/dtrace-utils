@@ -66,7 +66,7 @@ probe-descriptions
 
 dtrace:::BEGIN
 {
-    printf("Tracing started...\\n");
+    printf("Tracing started...\n");
 }
 
 /* tracing clauses */
@@ -78,7 +78,7 @@ dtrace:::END
 
 dtrace:::ERROR
 {
-    printf("DTrace error at %s:%s:%s:%s\\n", probeprov, probemod, probefunc, probename);
+    printf("DTrace error at %s:%s:%s:%s\n", probeprov, probemod, probefunc, probename);
 }
 ```
 
