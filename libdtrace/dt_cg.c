@@ -3400,6 +3400,7 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dt_ident_t	*idp = dt_ident_resolve(dnp->dn_ident);
 	dt_ident_t	*fnp;
 	uint32_t	idx = UINT32_MAX;
+	dtrace_hdl_t	*dtp;
 
 	idp->di_flags |= DT_IDFLG_DIFR;
 
@@ -3501,6 +3502,8 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		return;
 	}
 
+	dtp = yypcb->pcb_hdl;
+
 	/* built-in variables (note: args[] is handled in dt_cg_array_op) */
 	if (idp->di_id >= DIF_VAR_ARG0 && idp->di_id <= DIF_VAR_ARG9) {
 		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_args");
@@ -3536,6 +3539,12 @@ dt_cg_load_var(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		dt_regset_free(drp, BPF_REG_0);
 
 		return;
+	} else if (idp->di_id == DIF_VAR_PID &&
+		   dtp->dt_ns_dev && dtp->dt_ns_ino) {
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_ns_pid");
+	} else if (idp->di_id == DIF_VAR_TID &&
+		   dtp->dt_ns_dev && dtp->dt_ns_ino) {
+		fnp = dt_dlib_get_func(yypcb->pcb_hdl, "dt_bvar_ns_tid");
 	} else {
 		char	*fn;
 

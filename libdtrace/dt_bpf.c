@@ -641,6 +641,9 @@ gmap_create_state(dtrace_hdl_t *dtp)
 				       sizeof(DT_STATE_VAL_TYPE),
 				       DT_STATE_NUM_ELEMS);
 
+	dt_state_set(dtp, DT_STATE_NS_DEV, dtp->dt_ns_dev);
+	dt_state_set(dtp, DT_STATE_NS_INO, dtp->dt_ns_ino);
+
 	return dtp->dt_stmap_fd;
 }
 

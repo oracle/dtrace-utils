@@ -1,5 +1,5 @@
 # Oracle Linux DTrace.
-# Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at
 # http://oss.oracle.com/licenses/upl.
 
@@ -24,6 +24,7 @@ bpf_dlib_SOURCES = \
 	agg_lqbin.c agg_qbin.c \
 	basename.S \
 	bvar_execargs.S \
+	bvar_ns.c \
 	cleanpath.S \
 	dirname.S \
 	get_agg.c \
