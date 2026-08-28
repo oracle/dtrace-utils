@@ -53,7 +53,7 @@ Requires:     fuse
 BuildRequires: fuse-devel
 %define maybe_use_fuse2 libfuse2=yes
 %else
-Requires:     fuse3 >= 3.2.0
+Requires:     fuse3-libs >= 3.2.0
 BuildRequires: fuse3-devel >= 3.2.0
 %define maybe_use_fuse2 %{nil}
 %endif
