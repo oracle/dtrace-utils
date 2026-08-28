@@ -420,10 +420,14 @@ write_chunk(int fd, const void *buf, size_t size)
 	char *bufptr = (char *) buf;
 
 	while (size > 0) {
-		size_t len;
+		ssize_t len;
 
-		if ((len = write(fd, bufptr, size)) < 0 && errno != EINTR)
-			return -1;
+		if ((len = write(fd, bufptr, size)) < 0) {
+			if (errno != EINTR)
+				return -1;
+			else
+				continue;
+		}
 
 		size -= len;
 		bufptr += len;
@@ -796,7 +800,7 @@ dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum)
 			state = accump->parsed->type;
 
 			if (write_chunk(parsed_fd, accump->parsed, accump->parsed->size) < 0)
-				goto err_probe_link;
+				goto err_provider_close;
 			break;
 
 		/* Error return from parser.  */
@@ -817,7 +821,7 @@ dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum)
 			 */
 			fuse_log(FUSE_LOG_ERR, "dtprobed: PID %i, %lx/%lx: internal error: corrupt parsed DOF: type %i\n",
 				 pid, dev, ino, accump->parsed->type);
-			assert(1);
+			abort();
 		}
 
 		free(parsedfn);
