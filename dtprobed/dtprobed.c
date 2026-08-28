@@ -935,10 +935,14 @@ process_dof(pid_t pid, int out, int in, dev_t dev, ino_t inum, dev_t exec_dev,
 	dt_list_t accum = {0};
 
 	do {
+		int parser_err;
+
 		errmsg = "DOF parser write failed";
-		while ((errno = usdt_parser_host_write(out, dh, data)) == EAGAIN);
-		if (errno != 0)
+		while ((parser_err = usdt_parser_host_write(out, dh, data)) == -EAGAIN);
+		if (parser_err != 0) {
+			errno = parser_err < 0 ? -parser_err : parser_err;
 			goto err;
+		}
 
 		/*
 		 * Wait for parsed reply.  If it fails, try once more; possibly

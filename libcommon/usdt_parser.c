@@ -71,7 +71,7 @@ usdt_copyin(int in, char *buf_, size_t sz)
 	memset(buf, 0, sz);
 
 	for (i = 0; i < sz; ) {
-		size_t ret;
+		ssize_t ret;
 
 		ret = read(in, buf + i, sz - i);
 

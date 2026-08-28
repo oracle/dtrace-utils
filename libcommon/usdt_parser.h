@@ -178,6 +178,15 @@ typedef struct dof_parsed {
 #define DIT_ARGS_NATIVE_HEADSZ	offsetof(dof_parsed_t, nargs.args)
 #define DIT_ARGS_XLAT_HEADSZ	offsetof(dof_parsed_t, xargs.args)
 #define DIT_ARGS_MAP_HEADSZ	offsetof(dof_parsed_t, argmap.argmap)
+#define DIT_BASE_HEADSZ		offsetof(dof_parsed_t, provider)
+#define DIT_EOF_HEADSZ		DIT_BASE_HEADSZ
+
+/*
+ * This is the maximum message size for dof_parsed_t (header + extra data).
+ * Parser replies are derived from one parser input block, which is already
+ * capped at DOF_MAXSZ.
+ */
+#define DIT_MAX_SIZE		DOF_MAXSZ
 
 /*
  * Host-side: in usdt_parser_host.c.
@@ -187,7 +196,7 @@ typedef struct dof_parsed {
 /*
  * Write the USDT definitions data to the parser pipe OUT.
  *
- * Returns 0 on success or a positive errno value on error.
+ * Returns 0 on success or a negative errno value on error.
  */
 int usdt_parser_host_write(int out, const dof_helper_t *dh,
 			   const usdt_data_t *data);
@@ -250,7 +259,7 @@ int usdt_parse_notes(int out, dof_helper_t *dhp, usdt_data_t *data);
 /*
  * Write something to the parser pipe OUT.
  *
- * Returns 0 on success or a positive errno value on error.
+ * Returns 0 on success or a negative errno value on error.
  */
 int usdt_parser_write_one(int out, const void *buf, size_t size);
 

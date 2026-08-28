@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; Host-parser communication implementation.
- * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -18,7 +18,7 @@
 /*
  * Write BUF to the parser pipe OUT.
  *
- * Returns 0 on success or a positive errno value on error.
+ * Returns 0 on success or a negative errno value on error.
  */
 int
 usdt_parser_write_one(int out, const void *buf_, size_t size)
@@ -27,7 +27,7 @@ usdt_parser_write_one(int out, const void *buf_, size_t size)
 	char *buf = (char *) buf_;
 
 	for (i = 0; i < size; ) {
-		size_t ret;
+		ssize_t ret;
 
 		ret = write(out, buf + i, size - i);
 		if (ret < 0) {
@@ -35,7 +35,7 @@ usdt_parser_write_one(int out, const void *buf_, size_t size)
 			case EINTR:
 				continue;
 			default:
-				return errno;
+				return -errno;
 			}
 		}
 
@@ -45,10 +45,72 @@ usdt_parser_write_one(int out, const void *buf_, size_t size)
 	return 0;
 }
 
+static int
+usdt_parser_validate_reply(dof_parsed_t *reply)
+{
+	size_t	min_size;
+	size_t	payload_size;
+	const char *payload;
+
+	switch (reply->type) {
+	case DIT_PROVIDER:
+		min_size = DIT_PROVIDER_HEADSZ + 1;
+		payload = reply->provider.name;
+		break;
+	case DIT_PROBE:
+		min_size = DIT_PROBE_HEADSZ + 1;
+		payload = reply->probe.name;
+		break;
+	case DIT_TRACEPOINT:
+		min_size = DIT_TRACEPOINT_HEADSZ + 1;
+		payload = reply->tracepoint.args;
+		break;
+	case DIT_ERR:
+		min_size = DIT_ERR_HEADSZ + 1;
+		payload = reply->err.err;
+		break;
+	case DIT_ARGS_NATIVE:
+		min_size = DIT_ARGS_NATIVE_HEADSZ + 1;
+		payload = reply->nargs.args;
+		break;
+	case DIT_ARGS_XLAT:
+		min_size = DIT_ARGS_XLAT_HEADSZ + 1;
+		payload = reply->xargs.args;
+		break;
+	case DIT_ARGS_MAP:
+		min_size = DIT_ARGS_MAP_HEADSZ + 1;
+		payload = NULL;
+		break;
+	case DIT_EOF:
+		min_size = DIT_EOF_HEADSZ;
+		payload = NULL;
+		break;
+	default:
+		errno = EPROTO;
+		return -1;
+	}
+
+	if (reply->size < min_size) {
+		errno = EPROTO;
+		return -1;
+	}
+
+	if (payload == NULL)
+		return 0;
+
+	payload_size = reply->size - (payload - (const char *)reply);
+	if (memchr(payload, '\0', payload_size) == NULL) {
+		errno = EPROTO;
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Write the DOF to the parser pipe OUT.
  *
- * Returns 0 on success or a positive errno value on error.
+ * Returns 0 on success or a negative errno value on error.
  */
 int
 usdt_parser_host_write(int out, const dof_helper_t *dh, const usdt_data_t *data)
@@ -118,7 +180,7 @@ usdt_parser_host_read(int in, int timeout)
 	 * longer than expected is better than no read at all.
 	 */
 	for (i = 0, sz = offsetof(dof_parsed_t, type); i < sz;) {
-		size_t ret;
+		ssize_t ret;
 		struct timespec start, end;
 		int no_adjustment = 0;
 		long timeout_msec = timeout * MILLISEC;
@@ -151,10 +213,16 @@ usdt_parser_host_read(int in, int timeout)
 		/*
 		 * Fix up the size once it's received.  Might be large enough
 		 * that we've done the initial size read...
+		 * The size is bound to avoid memory starvation.
 		 */
 		if (i < offsetof(dof_parsed_t, type) &&
-		    i + ret >= offsetof(dof_parsed_t, type))
+		    i + ret >= offsetof(dof_parsed_t, type)) {
 			sz = reply->size;
+			if (sz < DIT_BASE_HEADSZ || sz > DIT_MAX_SIZE) {
+				errno = EPROTO;
+				goto err;
+			}
+		}
 
 		/* Allocate more room if needed for the reply.  */
 		if (sz > sizeof(dof_parsed_t)) {
@@ -171,10 +239,12 @@ usdt_parser_host_read(int in, int timeout)
 		i += ret;
 	}
 
+	if (usdt_parser_validate_reply(reply) < 0)
+		goto err;
+
 	return reply;
 
 err:
 	free(reply);
 	return NULL;
 }
-
