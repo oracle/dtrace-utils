@@ -186,12 +186,13 @@ int
 dt_provider_discover(dtrace_hdl_t *dtp)
 {
 	int		prid = dtp->dt_probe_id;
-	dt_htab_next_t	*it = NULL;
-	dt_provider_t	*pvp;
+	int		i;
 
 	/* Discover new probes. */
-	while ((pvp = dt_htab_next(dtp->dt_provs, &it)) != NULL) {
-		if (pvp->impl->discover && pvp->impl->discover(dtp) < 0)
+	for (i = 0; dt_providers[i]; i++) {
+		const dt_provimpl_t	*pvops = dt_providers[i];
+
+		if (pvops->discover && pvops->discover(dtp) < 0)
 			return -1;        /* errno is already set */
 	}
 
