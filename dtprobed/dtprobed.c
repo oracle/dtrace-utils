@@ -69,7 +69,6 @@
 
 #include "seccomp-assistance.h"
 
-#define DOF_MAXSZ 512 * 1024 * 1024
 #define DOF_CHUNKSZ 64 * 1024
 
 static struct fuse_session *cuse_session;
@@ -769,11 +768,12 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 		}
 		memcpy(&userdata->dof_hdr, in_buf, sizeof(dof_hdr_t));
 
-		if (userdata->dof_hdr.dofh_loadsz > DOF_MAXSZ)
-			fuse_log(FUSE_LOG_WARNING, "%i: dtprobed: DOF size of %zi longer than is sane\n",
+		if (userdata->dof_hdr.dofh_loadsz > DOF_MAXSZ) {
+			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: DOF size of %zi longer than is sane\n",
 				 pid, userdata->dof_hdr.dofh_loadsz);
 
-		/* Fall through. */
+			goto fuse_err;
+		}
 	}
 
 	/*

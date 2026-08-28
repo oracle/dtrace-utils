@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; USDT definitions parser interface.
- * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -14,6 +14,8 @@
 
 #include <dtrace/dof.h>
 #include <dtrace/helpers.h>
+
+#define DOF_MAXSZ	(256 * 1024 * 1024)
 
 /*
  * Data transfer unit for the DOF parser.
