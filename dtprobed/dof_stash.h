@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF storage for later probe removal.
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -20,6 +20,8 @@ typedef struct dof_parsed_list {
 } dof_parsed_list_t;
 
 int dof_stash_init(const char *statedir);
+
+int is_component_unsafe(const char *s);
 
 int dof_stash_push_parsed(dt_list_t *accum, dof_parsed_t *parsed);
 int dof_stash_write_parsed(pid_t pid, dev_t dev, ino_t ino, dt_list_t *accum);

@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; DOF state storage management.
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
@@ -231,6 +231,17 @@ make_provpid_name(const char *prov, pid_t pid)
 }
 
 /*
+ * Ban "." and ".." as probe description components. Components are also not
+ * allowed to contain any '/' character.
+ */
+int
+is_component_unsafe(const char *s)
+{
+	return strcmp(s, ".") == 0 || strcmp(s, "..") == 0 ||
+	       strchr(s, '/') != NULL;
+}
+
+/*
  * Compose a full probespec's name from pieces.
  */
 static char *
@@ -240,19 +251,11 @@ make_probespec_name(const char *prov, const char *mod, const char *fn,
 	char *ret;
 
 	/*
-	 * Ban "." and ".." as probe description components, as well as any
-	 * components with a '/' character.  Since the components are used in
-	 * the creation of paths that will be written to, any of these cases
-	 * can be unsafe.
+	 * Since probe description components are used in the creation of paths
+	 * that will be written to, make sure their content is safe.
 	 */
-	if (strcmp(prov, ".") == 0 || strcmp(prov, "..") == 0 ||
-	    strchr(prov, '/') != NULL ||
-	    strcmp(mod, ".") == 0 || strcmp(mod, "..") == 0 ||
-	    strchr(mod, '/') != NULL ||
-	    strcmp(fn, ".") == 0 || strcmp(fn, "..") == 0 ||
-	    strchr(fn, '/') != NULL ||
-	    strcmp(prb, ".") == 0 || strcmp(prb, "..") == 0 ||
-	    strchr(prb, '/') != NULL)
+	if (is_component_unsafe(prov) || is_component_unsafe(mod) ||
+	    is_component_unsafe(fn) || is_component_unsafe(prb))
 		return NULL;
 
 	if (asprintf(&ret, "%s:%s:%s:%s", prov, mod, fn, prb) < 0) {

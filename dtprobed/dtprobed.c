@@ -668,6 +668,16 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 	int gen;
 	usdt_data_t data;
 
+	/* If userdata == NULL, we were not able to allocate memory for it. */
+	if (userdata == NULL) {
+		fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid,
+				 "out of memory allocating userdata\n");
+		if (fuse_reply_err(req, ENOMEM) < 0)
+			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: %s\n", pid,
+				 "cannot send error to ioctl caller\n");
+		return;
+	}
+
 	/*
 	 * We can just ignore FUSE_IOCTL_COMPAT: the 32-bit and 64-bit versions
 	 * of the DOF structures are intentionally identical.
@@ -729,7 +739,19 @@ helper_ioctl(fuse_req_t req, int cmd, void *arg,
 				 errmsg, sizeof(dof_helper_t), in_bufsz);
 			goto fuse_err;
 		}
+
 		memcpy(&userdata->dh, in_buf, sizeof(dof_helper_t));
+		if (memchr(userdata->dh.dofhp_mod, 0, DTRACE_MODNAMELEN) == NULL) {
+			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: "
+				 "unterminated module name\n", pid);
+			goto fuse_err;
+		}
+		if (is_component_unsafe(userdata->dh.dofhp_mod)) {
+			fuse_log(FUSE_LOG_ERR, "%i: dtprobed: "
+				 "unsafe characters in module name %s\n",
+				 pid, userdata->dh.dofhp_mod);
+			goto fuse_err;
+		}
 
 		in.iov_base = (void *) userdata->dh.dofhp_dof;
 		in.iov_len = sizeof(dof_hdr_t);
