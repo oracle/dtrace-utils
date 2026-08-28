@@ -136,7 +136,7 @@ typedef struct dof_parsed {
 			 * Mapping from native arg index to xlated arg index.
 			 * xargc in length.
 			 */
-			int8_t argmap[1];
+			uint8_t argmap[1];
 		} argmap;
 
 		struct dpi_tracepoint_info {
@@ -170,6 +170,14 @@ typedef struct dof_parsed {
 		} err;
 	};
 } dof_parsed_t;
+
+#define DIT_PROVIDER_HEADSZ	offsetof(dof_parsed_t, provider.name)
+#define DIT_PROBE_HEADSZ	offsetof(dof_parsed_t, probe.name)
+#define DIT_TRACEPOINT_HEADSZ	offsetof(dof_parsed_t, tracepoint.args)
+#define DIT_ERR_HEADSZ		offsetof(dof_parsed_t, err.err)
+#define DIT_ARGS_NATIVE_HEADSZ	offsetof(dof_parsed_t, nargs.args)
+#define DIT_ARGS_XLAT_HEADSZ	offsetof(dof_parsed_t, xargs.args)
+#define DIT_ARGS_MAP_HEADSZ	offsetof(dof_parsed_t, argmap.argmap)
 
 /*
  * Host-side: in usdt_parser_host.c.

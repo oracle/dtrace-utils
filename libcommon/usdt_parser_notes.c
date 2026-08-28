@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; USDT definitions parser - ELF notes.
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -73,6 +73,10 @@ get_note(int out, usdt_data_t *data, ssize_t off, usdt_note_t *note)
 	}
 
 	note->name = (char *)data->buf + off;
+	if (memchr(note->name, '\0', sz) == NULL) {
+		usdt_error(out, EINVAL, "Unterminated name");
+		return -1;
+	}
 	off += ALIGN(sz, 4);
 
 	dt_dbg_usdt("ELF note '%s' (%d bytes)\n",
@@ -273,6 +277,25 @@ static dt_htab_ops_t pmap_htab_ops = {
 };
 
 /*
+ * Return the length of string 'str' (excluding the terminating NUL, if it
+ * terminates before the supplied 'end', and -1 otherwise.
+ */
+static ssize_t
+cstrlen(const char *str, const char *end)
+{
+	const char	*p;
+
+	if (str >= end)
+		return -1;
+
+	p = memchr(str, '\0', end - str);
+	if (p == NULL)
+		return -1;
+
+	return p - str;
+}
+
+/*
  * Return the cummulative string length of 'cnt' consecutive 0-terminated
  * strings.  If skip > 0, it indicates how many extra bytes are to be skipped
  * after the 0-byte at the end of each string.
@@ -284,10 +307,12 @@ strarray_size(uint8_t cnt, const char *str, const char *end, size_t skip)
 	const char	*p = str;
 
 	while (cnt-- > 0) {
-		if (p >= end)
+		ssize_t	len = cstrlen(p, end);
+
+		if (len < 0 || skip > (size_t)(end - (p + len + 1)))
 			return -1;
 
-		p += strlen(p) + 1 + skip;
+		p += len + 1 + skip;
 	}
 
 	return p - str;
@@ -298,14 +323,21 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		usdt_note_t *note)
 {
 	const char	*p = note->desc;
+	const char	*end = p + note->hdr->n_descsz;
 	dt_provider_t	prvt, *pvp;
 	const uint32_t	*vals;
 	uint32_t	probec;
+	ssize_t		len;
 	int		i;
 
+	len = cstrlen(p, end);
+	if (len == -1) {
+		usdt_error(out, EINVAL, "Unterminated provider name");
+		return -1;
+	}
 	prvt.name = p;
-	p += ALIGN(strlen(p) + 1, 4);
-	if (p + 6 * sizeof(uint32_t) - note->desc > note->hdr->n_descsz) {
+	p += ALIGN(len + 1, 4);
+	if (p + 6 * sizeof(uint32_t) > end) {
 		usdt_error(out, EINVAL, "Incomplete note data");
 		return -1;
 	}
@@ -342,13 +374,18 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		ssize_t		len;
 
 		p = (const char *)ALIGN((uintptr_t)p, 4);
+		len = cstrlen(p, end);
+		if (len == -1) {
+			usdt_error(out, EINVAL, "Unterminated probe name");
+			return -1;
+		}
 		prbt.prv = pvp->name;
 		prbt.mod = dhp->dofhp_mod;
 		prbt.fun = NULL;
 		prbt.prb = p;
 		prbt.off = 0;
-		p += strlen(p) + 1;
-		if (p + 2 * sizeof(uint8_t) - note->desc > note->hdr->n_descsz) {
+		p += len + 1;
+		if (p + 2 * sizeof(uint8_t) > end) {
 			usdt_error(out, EINVAL, "Incomplete note data");
 			return -1;
 		}
@@ -374,8 +411,7 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		prp->ntp = 0;
 		prp->is_enabled = 0;
 		prp->nargc = argc = *(uint8_t *)p++;
-		len = strarray_size(argc, p, note->desc + note->hdr->n_descsz,
-				    0);
+		len = strarray_size(argc, p, end, 0);
 		if (len == -1) {
 			usdt_error(out, EINVAL, "Incomplete note data");
 			return -1;
@@ -384,7 +420,7 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		prp->nargs = p;
 
 		p += len;
-		if (p - note->desc > note->hdr->n_descsz) {
+		if (p >= end) {
 			usdt_error(out, EINVAL, "Incomplete note data");
 			return -1;
 		}
@@ -411,6 +447,11 @@ parse_prov_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 				q = stpcpy(q, p);
 				q++;
 				p += strlen(p) + 1;
+				if (*(uint8_t *)p >= prp->nargc) {
+					usdt_error(out, EINVAL,
+						   "bad native argument index");
+					return -1;
+				}
 				prp->xmap[j] = *p;
 				p++;
 			}
@@ -432,7 +473,9 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		usdt_note_t *note)
 {
 	const char	*p = note->desc;
+	const char	*end = p + note->hdr->n_descsz;
 	uint64_t	off, fno;
+	ssize_t		len;
 	dt_probe_t	prbt, *prp;
 
 	data = data->next;
@@ -441,7 +484,7 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		return -1;
 	}
 
-	if (p + 2 * sizeof(uint64_t) - note->desc > note->hdr->n_descsz) {
+	if (p + 2 * sizeof(uint64_t) >= end) {
 		usdt_error(out, EINVAL, "Incomplete note data");
 		return -1;
 	}
@@ -450,10 +493,15 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 	p += sizeof(uint64_t);
 	fno = *(uint64_t *)p;
 	p += sizeof(uint64_t);
+	len = cstrlen(p, end);
+	if (len == -1) {
+		usdt_error(out, EINVAL, "Unterminated provider name");
+		return -1;
+	}
 
 	prbt.prv = p;
-	p += strlen(p) + 1;
-	if (p - note->desc > note->hdr->n_descsz) {
+	p += len + 1;
+	if (p >= end) {
 		usdt_error(out, EINVAL, "Incomplete note data");
 		return -1;
 	}
@@ -463,9 +511,18 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 		return -1;
 	}
 	prbt.fun = (char *)data->buf + fno;
+	if (cstrlen(prbt.fun, (char *)data->buf + data->size) == -1) {
+		usdt_error(out, EINVAL, "Unterminated function name");
+		return -1;
+	}
+	len = cstrlen(p, end);
+	if (len == -1) {
+		usdt_error(out, EINVAL, "Unterminated probe name");
+		return -1;
+	}
 	prbt.prb = p;
-	p += strlen(p) + 1;
-	if (p - note->desc > note->hdr->n_descsz) {
+	p += len + 1;
+	if (p >= end) {
 		usdt_error(out, EINVAL, "Incomplete note data");
 		return -1;
 	}
@@ -510,9 +567,14 @@ parse_usdt_note(int out, dof_helper_t *dhp, usdt_data_t *data,
 	prp->is_enabled = (note->hdr->n_type == _USDT_EN_NOTE_TYPE ? 1 : 0);
 	prp->ntp = 0;
 	prp->sargc = *p++;
+	len = cstrlen(p, end);
+	if (len == -1) {
+		usdt_error(out, EINVAL, "Unterminated argument string");
+		return -1;
+	}
 	prp->sargs = p;
-	p += strlen(p) + 1;
-	if (p - note->desc > note->hdr->n_descsz) {
+	p += len + 1;
+	if (p > end) {
 		usdt_error(out, EINVAL, "Incomplete note data");
 		return -1;
 	}
@@ -537,22 +599,22 @@ alloc_msg(int out, dof_parsed_info_t type, size_t len)
 
 	switch (type) {
 	case DIT_PROVIDER:
-		len += offsetof(dof_parsed_t, provider.name);
+		len += DIT_PROVIDER_HEADSZ;
 		break;
 	case DIT_PROBE:
-		len += offsetof(dof_parsed_t, probe.name);
+		len += DIT_PROBE_HEADSZ;
 		break;
 	case DIT_ARGS_NATIVE:
-		len += offsetof(dof_parsed_t, nargs.args);
+		len += DIT_ARGS_NATIVE_HEADSZ;
 		break;
 	case DIT_ARGS_XLAT:
-		len += offsetof(dof_parsed_t, xargs.args);
+		len += DIT_ARGS_XLAT_HEADSZ;
 		break;
 	case DIT_ARGS_MAP:
-		len += offsetof(dof_parsed_t, argmap.argmap);
+		len += DIT_ARGS_MAP_HEADSZ;
 		break;
 	case DIT_TRACEPOINT:
-		len += offsetof(dof_parsed_t, tracepoint.args);
+		len += DIT_TRACEPOINT_HEADSZ;
 		break;
 	default:
 		usdt_error(out, EINVAL, "Unknown dof_parsed_t type: %d", type);

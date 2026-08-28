@@ -1,6 +1,6 @@
 /*
  * Oracle Linux DTrace; USDT definitions parser - DOF.
- * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2026, Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  */
@@ -275,8 +275,8 @@ dof_slurp(int out, dof_hdr_t *dof, uint64_t ubase)
 		return -1;
 	}
 
-	if (dof->dofh_secsize == 0) {
-		usdt_error(out, EINVAL, "zero section header size");
+	if (dof->dofh_secsize != sizeof(dof_sec_t)) {
+		usdt_error(out, EINVAL, "incorrect section header size");
 		return -1;
 	}
 
@@ -462,7 +462,7 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 		return -1;
 	}
 
-	if (prb_sec->dofs_entsize == 0 ||
+	if (prb_sec->dofs_entsize < sizeof(dof_probe_t) ||
 	    prb_sec->dofs_entsize > prb_sec->dofs_size) {
 		usdt_error(out, EINVAL, "invalid entry size %x, max %lx",
 			   prb_sec->dofs_entsize, prb_sec->dofs_size);
@@ -615,11 +615,11 @@ validate_provider(int out, dof_hdr_t *dof, dof_sec_t *sec)
 		typeidx = prb->dofpr_xargv;
 		typestr = strtab + prb->dofpr_xargv;
 		for (k = 0; k < prb->dofpr_xargc; k++) {
-			if (arg[prb->dofpr_argidx + k] > prb->dofpr_nargc) {
+			if (arg[prb->dofpr_argidx + k] >= prb->dofpr_nargc) {
 				usdt_error(out, EINVAL, "bad native argument index "
 					   "for arg %i: %i (max %i)", k,
 					   arg[prb->dofpr_argidx + k],
-					   prb->dofpr_nargc);
+					   prb->dofpr_nargc - 1);
 				return -1;
 			}
 
@@ -748,7 +748,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 	 * flags.
 	 */
 
-	msg_size = offsetof(dof_parsed_t, probe.name) +
+	msg_size = DIT_PROBE_HEADSZ +
 		   strlen(dhpb->dthpb_mod) + 1 +
 		   strlen(dhpb->dthpb_func) + 1 +
 		   strlen(dhpb->dthpb_name) + 1;
@@ -786,7 +786,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 		size_t	nargs_size;
 
 		nargs_size = strings_len(dhpb->dthpb_ntypes, dhpb->dthpb_nargc);
-		msg_size = offsetof(dof_parsed_t, nargs.args) + nargs_size;
+		msg_size = DIT_ARGS_NATIVE_HEADSZ + nargs_size;
 
 		msg = malloc(msg_size);
 		if (!msg)
@@ -808,8 +808,7 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 
 			xargs_size = strings_len(dhpb->dthpb_xtypes,
 						 dhpb->dthpb_xargc);
-			msg_size = offsetof(dof_parsed_t, xargs.args) +
-				   xargs_size;
+			msg_size = DIT_ARGS_XLAT_HEADSZ + xargs_size;
 
 			msg = malloc(msg_size);
 			if (!msg)
@@ -826,9 +825,8 @@ emit_probe(int out, dtrace_helper_probedesc_t *dhpb)
 
 			/* Then the mapping table. */
 
-			map_size = dhpb->dthpb_xargc * sizeof(int8_t);
-			msg_size = offsetof(dof_parsed_t, argmap.argmap) +
-				   map_size;
+			map_size = dhpb->dthpb_xargc * sizeof(uint8_t);
+			msg_size = DIT_ARGS_MAP_HEADSZ + map_size;
 
 			msg = malloc(msg_size);
 			if (!msg)
@@ -922,8 +920,7 @@ emit_provider(int out, dof_helper_t *dhp,
 	}
 
 	dhpb.dthpb_prov = strtab + prov->dofpv_name;
-	provider_msg_size = offsetof(dof_parsed_t, provider.name) +
-	    strlen(dhpb.dthpb_prov) + 1;
+	provider_msg_size = DIT_PROVIDER_HEADSZ + strlen(dhpb.dthpb_prov) + 1;
 
 	provider_msg = malloc(provider_msg_size);
 	if (!provider_msg) {
