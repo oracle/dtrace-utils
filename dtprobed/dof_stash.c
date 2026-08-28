@@ -304,7 +304,8 @@ make_dof_name(dev_t dev, ino_t ino)
 {
 	char *ret;
 
-	if (asprintf(&ret, "%li-%li", (long) dev, (long) ino) < 0) {
+	if (asprintf(&ret, "%" PRIuMAX "-%" PRIuMAX,
+		     (uintmax_t)dev, (uintmax_t)ino) < 0) {
 		fuse_log(FUSE_LOG_ERR, "dtprobed: out of memory making DOF name\n");
 		return NULL;
 	}
@@ -317,12 +318,41 @@ make_dof_name(dev_t dev, ino_t ino)
 static int
 split_dof_name(const char *dof_name, dev_t *dev, ino_t *ino)
 {
-	if (sscanf(dof_name, "%li-%li", (long *) dev, (long *) ino) < 2) {
-		fuse_log(FUSE_LOG_ERR, "dtprobed: per-pid directory name %s unparseable\n",
-			 dof_name);
-		return -1;
-	}
+	uintmax_t	dev_val, ino_val;
+	dev_t		dev_tmp;
+	ino_t		ino_tmp;
+	char		*end, *ino_start;
+
+	if (dof_name[0] < '0' || dof_name[0] > '9')
+		goto err;
+
+	errno = 0;
+	dev_val = strtoumax(dof_name, &end, 10);
+	if (errno != 0 || end == dof_name || *end != '-')
+		goto err;
+
+	ino_start = end + 1;
+	if (*ino_start < '0' || *ino_start > '9')
+		goto err;
+
+	errno = 0;
+	ino_val = strtoumax(ino_start, &end, 10);
+	if (errno != 0 || end == ino_start || *end != '\0')
+		goto err;
+
+	dev_tmp = (dev_t)dev_val;
+	ino_tmp = (ino_t)ino_val;
+	if ((uintmax_t)dev_tmp != dev_val || (uintmax_t)ino_tmp != ino_val)
+		goto err;
+
+	*dev = dev_tmp;
+	*ino = ino_tmp;
 	return 0;
+
+err:
+		fuse_log(FUSE_LOG_ERR, "dtprobed: cannot derive dev/ino from %s\n",
+			 dof_name);
+	return -1;
 }
 
 /*
@@ -366,22 +396,19 @@ void
 dof_stash_free(dt_list_t *accum)
 {
 	dof_parsed_list_t *accump;
-	dof_parsed_list_t *last_accump = NULL;
+	dof_parsed_list_t *next = NULL;
 
-	for (accump = dt_list_next(accum); accump != NULL;
-	     accump = dt_list_next(accump)) {
+	for (accump = dt_list_next(accum); accump != NULL; accump = next) {
+		next = dt_list_next(accump);
 		dt_list_delete(accum, accump);
 
 		/*
 		 * All parsed memory regions are terminated by an EOF, so once
 		 * we encounter the EOF, this region can safely be freed.
 		 */
-		if (accump->parsed->type == DIT_EOF)
-			free(accump->parsed);
-		free(last_accump);
-		last_accump = accump;
+		free(accump->parsed);
+		free(accump);
 	}
-	free(last_accump);
 }
 
 /*
@@ -972,7 +999,7 @@ dof_stash_execed(pid_t pid, int perpid_dir, dev_t dev, ino_t ino)
 {
 	char *exec_mapping;
 	size_t size;
-	int fd;
+	int fd, rc;
 	dev_t old_dev;
 	ino_t old_ino;
 
@@ -983,20 +1010,42 @@ dof_stash_execed(pid_t pid, int perpid_dir, dev_t dev, ino_t ino)
 	}
 
 	exec_mapping = read_file(fd, -1, &size);
+	close(fd);
 	if (exec_mapping == NULL)
-		goto err_close;
+		goto err;
+	{
+		char *nul, *tmp;
 
-	if (split_dof_name(exec_mapping, &old_dev, &old_ino) < 0) {
-		fuse_log(FUSE_LOG_ERR, "PID %i, exec mapping \"%s\" unparseable\n",
-			 pid, exec_mapping);
-		goto err_free;
+		nul = memchr(exec_mapping, '\0', size);
+		if (nul != NULL && nul != exec_mapping + size - 1) {
+			free(exec_mapping);
+			goto err;
+		}
+
+		/*
+		 * Current exec-mapping files include a terminating NUL, but
+		 * older files do not.  Always append a terminator so the parser
+		 * can treat both forms as C strings.
+		 */
+		if (nul == NULL) {
+			tmp = realloc(exec_mapping, size + 1);
+			if (tmp == NULL) {
+				free(exec_mapping);
+				goto err;
+			}
+
+			exec_mapping = tmp;
+			exec_mapping[size] = '\0';
+		}
 	}
+
+	rc = split_dof_name(exec_mapping, &old_dev, &old_ino);
+	free(exec_mapping);
+	if (rc < 0)
+		goto err;
+
 	return !((dev == old_dev) && (ino == old_ino));
 
-err_free:
-	free(exec_mapping);
-err_close:
-	close(fd);
 err:
 	fuse_log(FUSE_LOG_ERR, "Cannot determine if PID %i has execed; assuming not: %s\n",
 		 pid, strerror(errno));
@@ -1146,7 +1195,7 @@ dof_stash_add(pid_t pid, dev_t dev, ino_t ino, dev_t exec_dev, dev_t exec_ino,
 		 * already-existing file as a do-nothing condition.
 		 */
 		if (dof_stash_write_file(perpid_dir, "exec-mapping", exec_mapping,
-					 strlen(exec_mapping), 1) < 0) {
+					 strlen(exec_mapping) + 1, 1) < 0) {
 			free(exec_mapping);
 			goto err_unlink_nomsg;
 		}
@@ -1765,7 +1814,7 @@ read_raw_data(int dirfd, const char *fn, const usdt_data_t *data, int idx,
 	      int dummy)
 {
 	int fd;
-	usdt_data_t *dp;
+	usdt_data_t *dp = NULL;
 
 	/*
 	 * If the file does not exist, we assume that we have reached the last
@@ -1786,17 +1835,20 @@ read_raw_data(int dirfd, const char *fn, const usdt_data_t *data, int idx,
 	 * to this next pointer and end the block chain.
 	 */
 	if ((dp = malloc(sizeof(usdt_data_t))) == NULL)
-		return -1;
+		goto err;
 
 	dp->size = 0;
 	dp->base = 0;
 	dp->next = NULL;
 
-	if ((dp->buf = read_file(fd, -1, &dp->size)) == NULL) {
-		close(fd);
-		free(dp);
-		return -1;
+	if ((dp->buf = read_file(fd, -1, &dp->size)) == NULL)
+		goto err;
+	if (dp->size < sizeof(size_t)) {
+		free(dp->buf);
+		goto err;
 	}
+
+	close(fd);
 
 	/*
 	 * Raw data blocks are written as a base address (size_t) followed by
@@ -1810,6 +1862,11 @@ read_raw_data(int dirfd, const char *fn, const usdt_data_t *data, int idx,
 
 	((usdt_data_t *)data)->next = dp;
 	return 1;
+
+err:
+	close(fd);
+	free(dp);
+	return -1;
 }
 
 /*
@@ -1930,7 +1987,7 @@ reparse_dof(int out, int in,
 			 */
 			if (!force) {
 				if ((fd = openat(mapping_fd, "parsed/version",
-						 O_RDONLY | O_CLOEXEC)) == 0) {
+						 O_RDONLY | O_CLOEXEC)) >= 0) {
 					uint64_t *parsed_version;
 
 					parsed_version = read_file(fd, sizeof(uint64_t),
@@ -1940,6 +1997,7 @@ reparse_dof(int out, int in,
 					if (parsed_version != NULL &&
 					    *parsed_version == DOF_PARSED_VERSION) {
 						fuse_log(FUSE_LOG_DEBUG, "No need to reparse\n");
+						close(mapping_fd);
 						continue;
 					}
 
@@ -1957,8 +2015,7 @@ reparse_dof(int out, int in,
 			}
 
 			if (split_dof_name(mapping_ent->d_name, &dev, &ino) < 0) {
-				fuse_log(FUSE_LOG_ERR, "when reparsing DOF for PID %s, cannot derive dev/ino from %s: ignored\n",
-					 pid_ent->d_name, mapping_ent->d_name);
+				close(mapping_fd);
 				continue;
 			}
 
