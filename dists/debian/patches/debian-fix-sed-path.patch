@@ -1,0 +1,12 @@
+Description: change /usr/bin/sed into /bin/sed
+ A new test was added in 2.0.7 that refers to /usr/bin/sed which should be
+ changed to /bin/sed.  This patch will be applied to upstream as well.
+
+--- dtrace-2.0.5.orig/test/internals/libproc/err.bad_sh_link.r.p
++++ dtrace-2.0.5/test/internals/libproc/err.bad_sh_link.r.p
+@@ -1,4 +1,4 @@
+-#!/usr/bin/sed -Ef
++#!/bin/sed -Ef
+ # Fix up DEBUG lines
+ s/DEBUG [0-9]+:/DEBUG:/
+ s/, [0-9]+\]/, NNN]/
