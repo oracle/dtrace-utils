@@ -1,3 +1,4 @@
 # You must remove unused comment lines for the released package.
 debian-configure.patch
 debian-fix-sed-path.patch
+debian-static-linking.patch

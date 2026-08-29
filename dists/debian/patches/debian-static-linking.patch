@@ -1,0 +1,248 @@
+diff --git a/cmd/Build b/cmd/Build
+index 98d0ebd7..3492638d 100644
+--- a/cmd/Build
++++ b/cmd/Build
+@@ -13,7 +13,7 @@ dtrace_SOURCES = dtrace.c
+ dtrace_DEPS = libdtrace.so libport.a
+ dtrace_SRCDEPS := $(objdir)/dt_git_version.h
+ ifdef HAVE_LIBCTF
+-dtrace_LIBS = -ldtrace -lctf -lport -lelf
++dtrace_LIBS = -ldtrace -lctf-nobfd -lport -lelf
+ else
+ dtrace_LIBS = -ldtrace -ldtrace-ctf -lport -lelf
+ endif
+diff --git a/libdtrace/Build b/libdtrace/Build
+index 3a6c0466..3bf6c7c0 100644
+--- a/libdtrace/Build
++++ b/libdtrace/Build
+@@ -82,10 +82,16 @@ SHLIBS += libdtrace
+ libdtrace_DIR := $(current-dir)
+ libdtrace_TARGET = libdtrace
+ ifdef HAVE_LIBCTF
+-libdtrace_LIBS := -lctf
++libdtrace_LIBS := -lctf-nobfd
+ else
+ libdtrace_LIBS := -ldtrace-ctf
+ endif
++
++# Required for dt_pid.c for varying instruction lengths on x86
++ifeq ($(shell uname -m), x86_64)
++libdtrace_LIBS += -lopcodes_pic -lbfd_pic -lsframe  -liberty
++endif
++
+ libdtrace_LIBS += -lelf -lz -lrt -lpcap -lpthread -ldl -lm -lpfm
+ libdtrace_VERSION := 2.0.0
+ libdtrace_SONAME := libdtrace.so.2
+@@ -93,11 +99,6 @@ libdtrace_VERSCRIPT := libdtrace.ver
+ libdtrace_LIBSOURCES := libdtrace-build libproc libport libcommon
+ libdtrace_SECONDARY := libproc libport
+ 
+-# Required for dt_pid.c for varying instruction lengths on x86
+-ifeq ($(shell uname -m), x86_64)
+-libdtrace_LIBS += -lopcodes
+-endif
+-
+ # Disable certain warnings for these files
+ dt_bpf.c_CFLAGS := -Wno-pedantic
+ dt_btf.c_CFLAGS := -Wno-pedantic
+diff --git a/libdtrace/dt_impl.h b/libdtrace/dt_impl.h
+index 5282efbd..f757c866 100644
+--- a/libdtrace/dt_impl.h
++++ b/libdtrace/dt_impl.h
+@@ -304,6 +304,7 @@ struct dtrace_hdl {
+ 	dt_htab_t *dt_kernsyms; /* htab of kernel symbol names */
+ 	char *dt_ctfa_path;	/* path to vmlinux.ctfa */
+ 	ctf_archive_t *dt_ctfa; /* ctf archive for the entire kernel tree */
++	void *dt_ctfa_data;	/* backing data for dt_ctfa */
+ 	char *dt_btf_path;	/* path to vmlinux.btf */
+ 	struct dt_btf *dt_shared_btf; /* BTF data for the kernel (shared) */
+ 	ctf_file_t *dt_shared_ctf; /* Handle to the shared CTF */
+diff --git a/libdtrace/dt_module.c b/libdtrace/dt_module.c
+index 00978911..14ca18fb 100644
+--- a/libdtrace/dt_module.c
++++ b/libdtrace/dt_module.c
+@@ -194,8 +194,16 @@ dt_module_lookup_by_ctf(dtrace_hdl_t *dtp, ctf_file_t *ctfp)
+ 	return ctfp ? ctf_getspecific(ctfp) : NULL;
+ }
+ 
++static void
++dt_module_delete_registered(dtrace_hdl_t *dtp, dt_module_t *dmp)
++{
++	if (dt_module_lookup_by_name(dtp, dmp->dm_name) == dmp)
++		dt_htab_delete(dtp->dt_mods, dmp);
++}
++
+ static int
+-dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
++dt_module_init_elf_impl(dtrace_hdl_t *dtp, dt_module_t *dmp,
++    int unregister_on_error)
+ {
+ 	int fd, err, bits;
+ 	size_t shstrs;
+@@ -226,7 +234,8 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 	    elf_getshdrstrndx(dmp->dm_elf, &shstrs) == -1) {
+ 		dt_dprintf("failed to load %s: %s\n", dmp->dm_file,
+ 		    elf_errmsg(elf_errno()));
+-		dt_htab_delete(dtp->dt_mods, dmp);
++		if (unregister_on_error)
++			dt_module_delete_registered(dtp, dmp);
+ 		return dt_set_errno(dtp, EDT_OBJIO);
+ 	}
+ 
+@@ -242,7 +251,8 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 	default:
+ 		dt_dprintf("failed to load %s: unknown ELF class\n",
+ 		    dmp->dm_file);
+-		dt_htab_delete(dtp->dt_mods, dmp);
++		if (unregister_on_error)
++			dt_module_delete_registered(dtp, dmp);
+ 		return dt_set_errno(dtp, EDT_ELFCLASS);
+ 	}
+ 
+@@ -252,6 +262,12 @@ dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 	return 0;
+ }
+ 
++static int
++dt_module_init_elf(dtrace_hdl_t *dtp, dt_module_t *dmp)
++{
++	return dt_module_init_elf_impl(dtp, dmp, 1);
++}
++
+ static int
+ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
+ {
+@@ -297,6 +313,91 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
+ 	return 0;
+ }
+ 
++#ifdef HAVE_LIBCTF
++/*
++ * libctf-nobfd cannot use the BFD-backed ctf_arc_open() helper, so extract
++ * the .ctf section ourselves and open that with ctf_arc_bufopen().
++ */
++static ctf_archive_t *
++dt_ctfa_open(dtrace_hdl_t *dtp, const char *ctfa_name)
++{
++	ctf_archive_t	*ctfa = NULL;
++	ctf_sect_t	ctsp = { 0 };
++	dt_module_t	*dmp;
++	char		dm_file[PATH_MAX];
++	const dt_modops_t	*dm_ops;
++	Elf		*dm_elf;
++	void		*ctfa_data = NULL;
++
++	dmp = dtp->dt_exec;
++	if (dmp == NULL || strcmp(dmp->dm_name, "vmlinux") != 0)
++		dmp = dt_module_lookup_by_name(dtp, "vmlinux");
++	if (dmp == NULL) {
++		dtp->dt_ctferr = ECTF_INTERNAL;
++		return NULL;
++	}
++
++	/*
++	 * Borrow the registered vmlinux module as the ELF loader context, but
++	 * leave its persistent module state exactly as we found it.
++	 */
++	memcpy(dm_file, dmp->dm_file, sizeof(dm_file));
++	dm_ops = dmp->dm_ops;
++	dm_elf = dmp->dm_elf;
++
++	if (strlcpy(dmp->dm_file, ctfa_name, sizeof(dmp->dm_file)) >=
++	    sizeof(dmp->dm_file)) {
++		dtp->dt_ctferr = ENAMETOOLONG;
++		goto out;
++	}
++
++	errno = 0;
++	if (dt_module_init_elf_impl(dtp, dmp, 0) != 0) {
++		dtp->dt_ctferr = errno != 0 ? errno : ECTF_FMT;
++		goto out;
++	}
++
++	ctsp.cts_name = ".ctf";
++	ctsp.cts_entsize = 0;
++
++	if (dt_module_load_sect(dtp, dmp, &ctsp) == -1) {
++		dtp->dt_ctferr = ECTF_FMT;
++		goto out;
++	}
++
++	if (ctsp.cts_data == NULL || ctsp.cts_size == 0) {
++		dtp->dt_ctferr = ECTF_NOCTFDATA;
++		goto out;
++	}
++
++	ctfa_data = malloc(ctsp.cts_size);
++	if (ctfa_data == NULL) {
++		dtp->dt_ctferr = errno;
++		goto out;
++	}
++	memcpy(ctfa_data, ctsp.cts_data, ctsp.cts_size);
++	ctsp.cts_data = ctfa_data;
++
++	ctfa = ctf_arc_bufopen(&ctsp, NULL, NULL, &dtp->dt_ctferr);
++	if (ctfa != NULL) {
++		free(dtp->dt_ctfa_data);
++		dtp->dt_ctfa_data = ctfa_data;
++		ctfa_data = NULL;
++	}
++
++out:
++	free(ctfa_data);
++	if (dmp->dm_elf != dm_elf) {
++		if (dmp->dm_elf != NULL)
++			elf_end(dmp->dm_elf);
++		dmp->dm_elf = dm_elf;
++	}
++	dmp->dm_ops = dm_ops;
++	memcpy(dmp->dm_file, dm_file, sizeof(dmp->dm_file));
++	return ctfa;
++}
++#endif
++
+ /*
+  * Only used for linked-in modules.  Archived modules are uncompressed
+  * automatically.
+@@ -928,7 +1029,11 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 		} else
+ 			ctfa_name = dtp->dt_ctfa_path;
+ 
++#ifdef HAVE_LIBCTF
++		dtp->dt_ctfa = dt_ctfa_open(dtp, ctfa_name);
++#else
+ 		dtp->dt_ctfa = ctf_arc_open(ctfa_name, &dtp->dt_ctferr);
++#endif
+ 		if (dtp->dt_ctfa != NULL) {
+ 			/*
+ 			 * Load in the shared CTF immediately.
+@@ -941,6 +1046,8 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 				    ctfa_name, ctf_errmsg(dtp->dt_ctferr));
+ 				ctf_arc_close(dtp->dt_ctfa);
+ 				dtp->dt_ctfa = NULL;
++				free(dtp->dt_ctfa_data);
++				dtp->dt_ctfa_data = NULL;
+ 			} else {
+ 				dt_dprintf("Loaded shared CTF from archive %s.\n",
+ 				    ctfa_name);
+@@ -958,7 +1065,7 @@ dt_kern_module_find_ctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
+ 			 * data for shared_ctf from.
+ 			 */
+ 			mod = dt_module_lookup_by_name(dtp, "vmlinux");
+-			if (mod->dm_btf != NULL) {
++			if (mod != NULL && mod->dm_btf != NULL) {
+ 				dt_kern_module_ctf_from_btf(dtp, mod);
+ 				dtp->dt_shared_ctf = mod->dm_ctfp;
+ 			} else
+diff --git a/libdtrace/dt_open.c b/libdtrace/dt_open.c
+index 54adec02..a3932790 100644
+--- a/libdtrace/dt_open.c
++++ b/libdtrace/dt_open.c
+@@ -1319,6 +1319,7 @@ dtrace_close(dtrace_hdl_t *dtp)
+ 		ctf_close(dtp->dt_shared_ctf);
+ 	if (dtp->dt_ctfa != NULL)
+ 		ctf_arc_close(dtp->dt_ctfa);
++	free(dtp->dt_ctfa_data);
+ 
+ 	dt_pcap_destroy(dtp);
+ 

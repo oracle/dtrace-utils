@@ -1,3 +1,11 @@
+dtrace (2.0.7-2) unstable; urgency=medium
+
+  * Apply fixes in control file.  (Closes: #1140165)
+  * Use static linking for libbinutils.  (Closes: #1140166, #1140168)
+  * Surpress adding utsname info in USDT ELF notes.  (Closes: #1140167)
+
+ -- Kris Van Hees <kvanhees@gmail.com>  Tue, 16 Jun 2026 19:46:35 -0400
+
 dtrace (2.0.7-1) unstable; urgency=medium
 
   * Fix CVE-2026-21996: divide-by-zero if section header data corruped.

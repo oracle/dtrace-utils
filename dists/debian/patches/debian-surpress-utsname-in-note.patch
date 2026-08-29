@@ -1,0 +1,15 @@
+diff --git a/libdtrace/dt_link.c b/libdtrace/dt_link.c
+index 6d733881..5a7d414c 100644
+--- a/libdtrace/dt_link.c
++++ b/libdtrace/dt_link.c
+@@ -398,8 +398,10 @@ create_elf64(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, int fd, uint_t flags)
+ 	if (!(flags & DTRACE_D_STRIP)) {
+ 		if (note_add_version(usdt) == -1)
+ 			goto fail;
++#f 0
+ 		if (note_add_utsname(usdt) == -1)
+ 			goto fail;
++#endif
+ 	}
+ 
+ 	dt_free(dtp, usdt);

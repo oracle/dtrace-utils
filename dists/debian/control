@@ -5,7 +5,8 @@ Maintainer: Kris Van Hees <kvanhees@gmail.com>
 Build-Depends: debhelper-compat (= 13),
  bison, flex, gawk, gcc-bpf (>= 14.2) , valgrind, binutils-dev (>= 2.44),
  login.defs, libbpf-dev (>= 1.5), libc-dev (>= 2.34), libelf-dev, libfuse3-dev,
- libpcap-dev, libpfm4-dev, libsystemd-dev, libz-dev
+ libpcap-dev, libpfm4-dev, libsystemd-dev, libz-dev, libsframe-dev,
+ libiberty-dev
 Standards-Version: 4.7.4
 Homepage: https://github.com/oracle/dtrace/
 Rules-Requires-Root: no
@@ -25,8 +26,7 @@ Description: Dynamic tracing for Linux (DTrace)
 
 Package: libdtrace2
 Architecture: amd64 arm64
-Depends: ${misc:Depends}, ${shlibs:Depends},
- fuse3, libctf0, libelf1t64, libfuse3-4, libpcap0.8t64, libpfm4, libz1
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Dynamic tracing for Linux (DTrace) (library)
  This is the official Linux port of the advanced tracing tool DTrace.
  .
@@ -60,7 +60,7 @@ Description: Dynamic tracing for Linux (DTrace) (development)
 Package: dtrace-tests
 Architecture: amd64 arm64
 Depends: ${misc:Depends}, ${shlibs:Depends}, ${perl:Depends},
- binutils, cpp, gawk, gcc, make, pkgconf, tshark, bpftool
+ binutils, cpp, gawk, gcc, make, pkgconf, tshark, bpftool, libdtrace2-dev
 Description: Dynamic tracing for Linux (DTrace) (testsuite)
  This is the official Linux port of the advanced tracing tool DTrace.
  .
